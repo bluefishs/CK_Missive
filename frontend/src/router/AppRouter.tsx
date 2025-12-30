@@ -25,10 +25,12 @@ const ForgotPasswordPage = lazy(() => import('../pages/ForgotPasswordPage'));
 const UserManagementPage = lazy(() => import('../pages/UserManagementPage'));
 
 // --- 承攬案件管理 ---
-// 唯一的頁面，整合了 UI 和功能
+// 列表頁面
 const ContractCasePage = lazy(() => import('../pages/ContractCasePage').then(module => ({ default: module.ContractCasePage })));
-// 表單頁面保持不變
-const ProjectFormPage = lazy(() => import('../pages/ContractCaseFormPage').then(module => ({ default: module.ContractCaseFormPage })));
+// 詳情頁面 - 採用 TAB 分頁模式（案件資訊、承辦同仁、協力廠商）
+const ContractCaseDetailPage = lazy(() => import('../pages/ContractCaseDetailPage').then(module => ({ default: module.ContractCaseDetailPage })));
+// 表單頁面 - 新增/編輯
+const ContractCaseFormPage = lazy(() => import('../pages/ContractCaseFormPage').then(module => ({ default: module.ContractCaseFormPage })));
 
 const DocumentNumbersPage = lazy(() => import('../pages/DocumentNumbersPage').then(module => ({ default: module.DocumentNumbersPage })));
 const AgenciesPage = lazy(() => import('../pages/AgenciesPage').then(module => ({ default: module.AgenciesPage })));
@@ -55,7 +57,7 @@ interface ProtectedRouteProps {
   roles?: string[];
 }
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAuth = false, roles = [] }) => {
-  const authDisabled = import.meta.env.VITE_AUTH_DISABLED === 'true';
+  const authDisabled = import.meta.env['VITE_AUTH_DISABLED'] === 'true';
   if (authDisabled) {
     return <>{children}</>;
   }
@@ -106,19 +108,23 @@ export const AppRouter: React.FC = () => {
           {/* 儀表板 */}
           <Route path={ROUTES.DASHBOARD} element={<DashboardPage />} />
           
-          {/* --- 路由整合 (以 /contract-cases 為主) --- */}
+          {/* --- 承攬案件路由 (以 /contract-cases 為主) --- */}
+          {/* 列表頁面 */}
           <Route path={ROUTES.CONTRACT_CASES} element={<ContractCasePage />} />
-          <Route path={ROUTES.CASES} element={<ContractCasePage />} />
+
+          {/* 詳情頁面 - TAB 分頁（案件資訊、承辦同仁、協力廠商） */}
+          <Route path={ROUTES.CONTRACT_CASE_DETAIL} element={<ContractCaseDetailPage />} />
+
+          {/* 新增/編輯頁面 */}
+          <Route path={ROUTES.CONTRACT_CASE_CREATE} element={<ContractCaseFormPage />} />
+          <Route path={ROUTES.CONTRACT_CASE_EDIT} element={<ContractCaseFormPage />} />
+
+          {/* 舊路由重定向 */}
+          <Route path={ROUTES.CASES} element={<Navigate to={ROUTES.CONTRACT_CASES} replace />} />
           <Route path={ROUTES.PROJECTS} element={<Navigate to={ROUTES.CONTRACT_CASES} replace />} />
-          
-          {/* 將舊的 detail, create, edit 路徑指向新的主頁面，因為彈出模態框處理了這些功能 */}
-          {/* 注意：如果需要獨立的頁面，需要重新審視 */}
           <Route path={ROUTES.CASE_DETAIL} element={<Navigate to={ROUTES.CONTRACT_CASES} replace />} />
           <Route path={ROUTES.CASE_CREATE} element={<Navigate to={ROUTES.CONTRACT_CASES} replace />} />
           <Route path={ROUTES.CASE_EDIT} element={<Navigate to={ROUTES.CONTRACT_CASES} replace />} />
-          <Route path={ROUTES.PROJECT_DETAIL} element={<Navigate to={ROUTES.CONTRACT_CASES} replace />} />
-          <Route path={ROUTES.PROJECT_CREATE} element={<Navigate to={ROUTES.CONTRACT_CASES} replace />} />
-          <Route path={ROUTES.PROJECT_EDIT} element={<Navigate to={ROUTES.CONTRACT_CASES} replace />} />
 
           {/* 發文字號管理 */}
           <Route path={ROUTES.DOCUMENT_NUMBERS} element={<DocumentNumbersPage />} />

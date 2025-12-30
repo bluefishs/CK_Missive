@@ -7,6 +7,7 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select, desc, extract
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_async_db
@@ -90,6 +91,7 @@ async def get_document_numbers(
         
         # 分頁
         offset = (page - 1) * per_page
+        query = query.options(selectinload(OfficialDocument.contract_project))
         query = query.offset(offset).limit(per_page)
         query = query.order_by(desc(OfficialDocument.doc_date))
         
@@ -116,6 +118,11 @@ async def get_document_numbers(
                     except:
                         sequence_number = 0
             
+            # 取得關聯的案件名稱
+            contract_case_name = ""
+            if doc.contract_project:
+                contract_case_name = doc.contract_project.project_name or ""
+
             items.append(DocumentNumberResponse(
                 id=doc.id,
                 doc_prefix=doc_prefix,
@@ -123,7 +130,7 @@ async def get_document_numbers(
                 sequence_number=sequence_number,
                 full_number=doc_number,
                 subject=doc.subject or "",
-                contract_case=doc.contract_case or "",
+                contract_case=contract_case_name,
                 receiver=doc.receiver or "",
                 doc_date=str(doc.doc_date) if doc.doc_date else "",
                 status=doc.status or "draft"

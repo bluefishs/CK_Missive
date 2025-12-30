@@ -8,7 +8,7 @@ from app.api.endpoints import (
     system_monitoring, public, csv_import, reminder_management, files,
     documents_enhanced, secure_site_management, pure_calendar,
     # --- 新增 dashboard 匯入 ---
-    dashboard, project_notifications, debug
+    dashboard, project_notifications, debug, project_vendors, project_staff
 )
 
 api_router = APIRouter()
@@ -24,6 +24,8 @@ api_router.include_router(projects.router, prefix="/projects", tags=["承攬案�
 api_router.include_router(project_notifications.router, prefix="/project-notifications", tags=["專案通知"])
 api_router.include_router(agencies.router, prefix="/agencies", tags=["機關單位"])
 api_router.include_router(vendors.router, prefix="/vendors", tags=["廠商管理"])
+api_router.include_router(project_vendors.router, prefix="/project-vendors", tags=["案件廠商關聯"])
+api_router.include_router(project_staff.router, prefix="/project-staff", tags=["案件承辦同仁"])
 
 # --- 統一的行事曆模組 ---
 api_router.include_router(document_calendar.router, prefix="/calendar", tags=["行事曆"])

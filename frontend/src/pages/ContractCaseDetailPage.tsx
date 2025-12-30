@@ -13,224 +13,205 @@ import {
   Progress,
   Tabs,
   Table,
-  Timeline,
-  Upload,
   Empty,
   Tooltip,
   Popconfirm,
+  Avatar,
+  Statistic,
+  Form,
+  Input,
+  Select,
+  Modal,
+  DatePicker,
+  InputNumber,
 } from 'antd';
 import {
   ArrowLeftOutlined,
   EditOutlined,
   DeleteOutlined,
-  FileTextOutlined,
-  CalendarOutlined,
-  PaperClipOutlined,
   InfoCircleOutlined,
-  UploadOutlined,
-  DownloadOutlined,
-  EyeOutlined,
-  CheckCircleOutlined,
-  ClockCircleOutlined,
-  ExclamationCircleOutlined,
+  TeamOutlined,
+  ShopOutlined,
+  PlusOutlined,
+  UserOutlined,
+  PhoneOutlined,
+  MailOutlined,
 } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { ColumnsType } from 'antd/es/table';
-import {
-  ContractCase,
-  ContractCaseType,
-  CONTRACT_CASE_TYPE_LABELS,
-  CONTRACT_CASE_TYPE_COLORS,
-  CONTRACT_CASE_STATUS_LABELS,
-  CONTRACT_CASE_STATUS_COLORS,
-} from '../types/contractCase';
+import dayjs from 'dayjs';
 import { ROUTES } from '../router/types';
+import {
+  projectsApi,
+  projectStaffApi,
+  projectVendorsApi,
+  usersApi,
+  vendorsApi,
+  type ProjectStaff,
+  type ProjectVendor,
+} from '../api/projects';
 
 const { Title, Text } = Typography;
-const { TabPane } = Tabs;
+const { Option } = Select;
 
-// 里程碑類型
-interface Milestone {
+// 專案資料類型 (對應後端 ProjectResponse)
+interface ProjectData {
   id: number;
-  title: string;
+  project_name: string;
+  project_code?: string;
+  year: number;
+  category?: string;
+  status?: string;
+  client_agency?: string;
+  contract_amount?: number;
+  start_date?: string;
+  end_date?: string;
   description?: string;
-  due_date: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'overdue';
-  completed_date?: string;
+  created_at: string;
+  updated_at: string;
 }
 
-// 附件類型
-interface Attachment {
+// 承辦同仁類型 (使用 API 回傳的 ProjectStaff)
+interface Staff {
   id: number;
-  filename: string;
-  file_size: number;
-  file_type: string;
-  uploaded_at: string;
-  uploaded_by: string;
+  user_id: number;
+  name: string;
+  role: string;
+  department?: string | undefined;
+  phone?: string | undefined;
+  email?: string | undefined;
+  join_date?: string | undefined;
+  status: string;
 }
 
-// 關聯文件類型
-interface RelatedDocument {
+// 協力廠商關聯類型 (使用 API 回傳的 ProjectVendor)
+interface VendorAssociation {
   id: number;
-  doc_number: string;
-  doc_type: string;
-  subject: string;
-  doc_date: string;
-  sender: string;
+  vendor_id: number;
+  vendor_name: string;
+  vendor_code?: string | undefined;
+  contact_person?: string | undefined;
+  phone?: string | undefined;
+  role: string;
+  contract_amount?: number | undefined;
+  start_date?: string | undefined;
+  end_date?: string | undefined;
+  status: string;
 }
-
-// 模擬數據
-const mockData: ContractCase = {
-  id: 1,
-  year: '2024',
-  project_name: '數位測繪技術創新專案',
-  client_unit: '內政部國土測繪中心',
-  contract_period_start: '2024-01-15',
-  contract_period_end: '2024-12-31',
-  responsible_staff: '王小明',
-  partner_vendor: '精密測量科技有限公司',
-  case_type: ContractCaseType.INNOVATION,
-  case_status: 'in_progress',
-  contract_amount: 5000000,
-  description: '開發新一代數位測繪技術，包含點雲資料處理、三維建模、精度驗證等功能模組。本專案旨在提升測繪作業效率與精度，降低人力成本，建立智慧化測繪作業流程。',
-  notes: '需要配合新採購的測繪設備進行整合測試。',
-  created_at: '2024-01-01T00:00:00Z',
-  updated_at: '2024-01-01T00:00:00Z',
-};
-
-// 模擬里程碑數據
-const mockMilestones: Milestone[] = [
-  {
-    id: 1,
-    title: '專案啟動會議',
-    description: '召開專案啟動會議，確認專案範圍與時程',
-    due_date: '2024-01-20',
-    status: 'completed',
-    completed_date: '2024-01-18',
-  },
-  {
-    id: 2,
-    title: '需求分析與規劃',
-    description: '完成需求訪談與系統分析',
-    due_date: '2024-02-28',
-    status: 'completed',
-    completed_date: '2024-02-25',
-  },
-  {
-    id: 3,
-    title: '系統設計審查',
-    description: '完成系統架構設計並通過審查',
-    due_date: '2024-04-15',
-    status: 'completed',
-    completed_date: '2024-04-12',
-  },
-  {
-    id: 4,
-    title: '第一階段開發完成',
-    description: '完成核心功能模組開發',
-    due_date: '2024-07-31',
-    status: 'in_progress',
-  },
-  {
-    id: 5,
-    title: '整合測試',
-    description: '進行系統整合測試與效能驗證',
-    due_date: '2024-10-31',
-    status: 'pending',
-  },
-  {
-    id: 6,
-    title: '專案結案',
-    description: '完成驗收與結案報告',
-    due_date: '2024-12-31',
-    status: 'pending',
-  },
-];
-
-// 模擬關聯文件
-const mockRelatedDocuments: RelatedDocument[] = [
-  {
-    id: 1,
-    doc_number: '乾坤測字第1140000145號',
-    doc_type: '函',
-    subject: '檢送「數位測繪技術創新專案」契約書乙份',
-    doc_date: '2024-01-10',
-    sender: '內政部國土測繪中心',
-  },
-  {
-    id: 2,
-    doc_number: '乾坤測字第1140000230號',
-    doc_type: '函',
-    subject: '有關本專案第一期款撥付案',
-    doc_date: '2024-02-15',
-    sender: '內政部國土測繪中心',
-  },
-  {
-    id: 3,
-    doc_number: '乾坤測字第1140000456號',
-    doc_type: '函',
-    subject: '有關本專案期中報告審查意見回覆說明',
-    doc_date: '2024-05-20',
-    sender: '乾坤測量有限公司',
-  },
-];
-
-// 模擬附件
-const mockAttachments: Attachment[] = [
-  {
-    id: 1,
-    filename: '專案契約書.pdf',
-    file_size: 2048576,
-    file_type: 'application/pdf',
-    uploaded_at: '2024-01-15',
-    uploaded_by: '王小明',
-  },
-  {
-    id: 2,
-    filename: '需求規格書v1.0.docx',
-    file_size: 512000,
-    file_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    uploaded_at: '2024-02-28',
-    uploaded_by: '李小華',
-  },
-  {
-    id: 3,
-    filename: '系統架構設計圖.pptx',
-    file_size: 3145728,
-    file_type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    uploaded_at: '2024-04-10',
-    uploaded_by: '王小明',
-  },
-];
 
 export const ContractCaseDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<ContractCase | null>(null);
-  const [activeTab, setActiveTab] = useState('basic');
-  const [milestones, setMilestones] = useState<Milestone[]>([]);
-  const [relatedDocs, setRelatedDocs] = useState<RelatedDocument[]>([]);
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [data, setData] = useState<ProjectData | null>(null);
+  const [activeTab, setActiveTab] = useState('info');
+  const [staffList, setStaffList] = useState<Staff[]>([]);
+  const [vendorList, setVendorList] = useState<VendorAssociation[]>([]);
+
+  // 編輯模式狀態
+  const [isEditingCaseInfo, setIsEditingCaseInfo] = useState(false);
+  const [editingStaffId, setEditingStaffId] = useState<number | null>(null);
+  const [editingVendorId, setEditingVendorId] = useState<number | null>(null);
+
+  // Modal 狀態
+  const [staffModalVisible, setStaffModalVisible] = useState(false);
+  const [vendorModalVisible, setVendorModalVisible] = useState(false);
+  const [staffForm] = Form.useForm();
+  const [vendorForm] = Form.useForm();
+  const [caseInfoForm] = Form.useForm();
+
+  // 使用者和廠商選項 (用於新增時選擇)
+  const [userOptions, setUserOptions] = useState<{ id: number; name: string; email: string }[]>([]);
+  const [vendorOptions, setVendorOptions] = useState<{ id: number; name: string; code: string }[]>([]);
 
   useEffect(() => {
-    loadData();
+    if (id) {
+      loadData();
+    }
   }, [id]);
 
   const loadData = async () => {
+    if (!id) return;
+    const projectId = parseInt(id, 10);
+
     setLoading(true);
     try {
-      // 模擬API調用
-      await new Promise(resolve => setTimeout(resolve, 500));
-      // 這裡未來會替換為真實的API調用
-      setData(mockData);
-      setMilestones(mockMilestones);
-      setRelatedDocs(mockRelatedDocuments);
-      setAttachments(mockAttachments);
+      // 同時載入專案資料、承辦同仁、協力廠商
+      const [projectResponse, staffResponse, vendorsResponse] = await Promise.all([
+        projectsApi.getProject(projectId),
+        projectStaffApi.getProjectStaff(projectId).catch(() => ({ staff: [], total: 0, project_id: projectId, project_name: '' })),
+        projectVendorsApi.getProjectVendors(projectId).catch(() => ({ associations: [], total: 0, project_id: projectId, project_name: '' })),
+      ]);
+
+      // 設定專案資料
+      setData(projectResponse);
+
+      // 轉換承辦同仁資料格式
+      const transformedStaff: Staff[] = staffResponse.staff.map((s: ProjectStaff) => ({
+        id: s.id,
+        user_id: s.user_id,
+        name: s.user_name,
+        role: s.role || 'member',
+        department: s.department,
+        phone: s.phone,
+        email: s.user_email,
+        join_date: s.start_date,
+        status: s.status || 'active',
+      }));
+      setStaffList(transformedStaff);
+
+      // 轉換協力廠商資料格式
+      const transformedVendors: VendorAssociation[] = vendorsResponse.associations.map((v: ProjectVendor) => ({
+        id: v.vendor_id, // 使用 vendor_id 作為唯一識別
+        vendor_id: v.vendor_id,
+        vendor_name: v.vendor_name,
+        vendor_code: v.vendor_code,
+        contact_person: v.vendor_contact_person,
+        phone: v.vendor_phone,
+        role: v.role || '供應商',
+        contract_amount: v.contract_amount,
+        start_date: v.start_date,
+        end_date: v.end_date,
+        status: v.status || 'active',
+      }));
+      setVendorList(transformedVendors);
+
+      console.log('載入專案資料成功:', { projectResponse, staffResponse, vendorsResponse });
     } catch (error) {
+      console.error('載入數據失敗:', error);
       message.error('載入數據失敗');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 載入使用者選項 (用於新增同仁)
+  const loadUserOptions = async () => {
+    try {
+      const response = await usersApi.getUsers({ limit: 100 });
+      const users = (response as any).users || response || [];
+      setUserOptions(Array.isArray(users) ? users.map((u: any) => ({
+        id: u.id,
+        name: u.full_name || u.username,
+        email: u.email,
+      })) : []);
+    } catch (error) {
+      console.error('載入使用者列表失敗:', error);
+    }
+  };
+
+  // 載入廠商選項 (用於新增廠商)
+  const loadVendorOptions = async () => {
+    try {
+      const response = await vendorsApi.getVendors({ limit: 100 });
+      const vendors = (response as any).vendors || response || [];
+      setVendorOptions(Array.isArray(vendors) ? vendors.map((v: any) => ({
+        id: v.id,
+        name: v.vendor_name,
+        code: v.vendor_code,
+      })) : []);
+    } catch (error) {
+      console.error('載入廠商列表失敗:', error);
     }
   };
 
@@ -249,151 +230,456 @@ export const ContractCaseDetailPage: React.FC = () => {
 
   // 計算項目進度
   const calculateProgress = () => {
-    if (!data) return 0;
-
-    const startDate = new Date(data.contract_period_start);
-    const endDate = new Date(data.contract_period_end);
+    if (!data || !data.start_date || !data.end_date) return 0;
+    const startDate = new Date(data.start_date);
+    const endDate = new Date(data.end_date);
     const currentDate = new Date();
-
     if (currentDate < startDate) return 0;
     if (currentDate > endDate) return 100;
-
     const totalDays = endDate.getTime() - startDate.getTime();
     const passedDays = currentDate.getTime() - startDate.getTime();
-
     return Math.round((passedDays / totalDays) * 100);
   };
 
-  // 格式化檔案大小
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-  };
-
-  // 獲取里程碑狀態圖示和顏色
-  const getMilestoneIcon = (status: Milestone['status']) => {
+  // 獲取狀態標籤顏色
+  const getStatusTagColor = (status?: string) => {
+    if (!status) return 'default';
     switch (status) {
-      case 'completed':
-        return <CheckCircleOutlined style={{ color: '#52c41a' }} />;
-      case 'in_progress':
-        return <ClockCircleOutlined style={{ color: '#1890ff' }} />;
-      case 'overdue':
-        return <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />;
-      default:
-        return <ClockCircleOutlined style={{ color: '#d9d9d9' }} />;
+      case 'in_progress': return 'processing';
+      case 'completed': return 'success';
+      case 'pending': return 'warning';
+      case 'cancelled': return 'error';
+      default: return 'default';
     }
   };
 
-  const getMilestoneColor = (status: Milestone['status']) => {
+  // 獲取狀態標籤文字
+  const getStatusTagText = (status?: string) => {
+    if (!status) return '未知';
     switch (status) {
-      case 'completed': return 'green';
-      case 'in_progress': return 'blue';
-      case 'overdue': return 'red';
-      default: return 'gray';
+      case 'in_progress': return '進行中';
+      case 'completed': return '已完成';
+      case 'pending': return '待處理';
+      case 'cancelled': return '已取消';
+      default: return status;
     }
   };
 
-  // 關聯文件表格欄位
-  const documentColumns: ColumnsType<RelatedDocument> = [
+  // 獲取類別標籤顏色
+  const getCategoryTagColor = (category?: string) => {
+    if (!category) return 'default';
+    switch (category) {
+      case '測繪': return 'blue';
+      case '軟體開發': return 'green';
+      case '顧問服務': return 'purple';
+      case '資料處理': return 'orange';
+      default: return 'default';
+    }
+  };
+
+  // 格式化金額
+  const formatAmount = (amount?: number) => {
+    if (!amount) return '-';
+    return new Intl.NumberFormat('zh-TW').format(amount);
+  };
+
+  // 角色顏色
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case '主辦': return 'red';
+      case '協辦': return 'blue';
+      case '支援': return 'green';
+      case '主承包商': return 'red';
+      case '分包商': return 'orange';
+      case '供應商': return 'cyan';
+      case '顧問': return 'purple';
+      default: return 'default';
+    }
+  };
+
+  // 狀態顏色
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active': return 'processing';
+      case 'completed': return 'success';
+      case 'inactive': return 'warning';
+      default: return 'default';
+    }
+  };
+
+  // 處理新增同仁表單提交
+  const handleAddStaff = async (values: any) => {
+    if (!id) return;
+    const projectId = parseInt(id, 10);
+
+    try {
+      await projectStaffApi.addStaff({
+        project_id: projectId,
+        user_id: values.user_id,
+        role: values.role,
+        is_primary: values.role === '主辦',
+        start_date: dayjs().format('YYYY-MM-DD'),
+        status: 'active',
+      });
+
+      staffForm.resetFields();
+      setStaffModalVisible(false);
+      message.success('新增承辦同仁成功');
+
+      // 重新載入資料
+      loadData();
+    } catch (error: any) {
+      console.error('新增承辦同仁失敗:', error);
+      message.error(error.response?.data?.detail || '新增承辦同仁失敗');
+    }
+  };
+
+  // 處理新增廠商表單提交
+  const handleAddVendor = async (values: any) => {
+    if (!id) return;
+    const projectId = parseInt(id, 10);
+
+    try {
+      const vendorData: {
+        project_id: number;
+        vendor_id: number;
+        role?: string;
+        contract_amount?: number;
+        start_date?: string;
+        end_date?: string;
+        status?: string;
+      } = {
+        project_id: projectId,
+        vendor_id: values.vendor_id,
+        role: values.role,
+        status: 'active',
+      };
+
+      if (values.contract_amount) {
+        vendorData.contract_amount = values.contract_amount;
+      }
+      if (values.start_date) {
+        vendorData.start_date = dayjs(values.start_date).format('YYYY-MM-DD');
+      }
+      if (values.end_date) {
+        vendorData.end_date = dayjs(values.end_date).format('YYYY-MM-DD');
+      }
+
+      await projectVendorsApi.addVendor(vendorData);
+
+      vendorForm.resetFields();
+      setVendorModalVisible(false);
+      message.success('新增協力廠商成功');
+
+      // 重新載入資料
+      loadData();
+    } catch (error: any) {
+      console.error('新增協力廠商失敗:', error);
+      message.error(error.response?.data?.detail || '新增協力廠商失敗');
+    }
+  };
+
+  // 處理案件資訊編輯
+  const handleSaveCaseInfo = async (values: any) => {
+    if (!data || !id) return;
+    const projectId = parseInt(id, 10);
+
+    try {
+      await projectsApi.updateProject(projectId, {
+        project_name: values.project_name,
+        client_agency: values.client_agency,
+        description: values.description,
+      });
+
+      setData({
+        ...data,
+        project_name: values.project_name,
+        client_agency: values.client_agency,
+        description: values.description,
+      });
+      setIsEditingCaseInfo(false);
+      message.success('案件資訊已更新');
+    } catch (error: any) {
+      console.error('更新案件資訊失敗:', error);
+      message.error(error.response?.data?.detail || '更新案件資訊失敗');
+    }
+  };
+
+  // 開始編輯案件資訊
+  const startEditCaseInfo = () => {
+    if (data) {
+      caseInfoForm.setFieldsValue({
+        project_name: data.project_name,
+        client_agency: data.client_agency,
+        description: data.description,
+      });
+      setIsEditingCaseInfo(true);
+    }
+  };
+
+  // 處理同仁角色更新
+  const handleStaffRoleChange = async (staffId: number, newRole: string) => {
+    if (!id) return;
+    const projectId = parseInt(id, 10);
+    const staff = staffList.find(s => s.id === staffId);
+    if (!staff) return;
+
+    try {
+      await projectStaffApi.updateStaff(projectId, staff.user_id, {
+        role: newRole,
+        is_primary: newRole === '主辦',
+      });
+
+      setStaffList(staffList.map(s =>
+        s.id === staffId ? { ...s, role: newRole } : s
+      ));
+      setEditingStaffId(null);
+      message.success('角色已更新');
+    } catch (error: any) {
+      console.error('更新角色失敗:', error);
+      message.error(error.response?.data?.detail || '更新角色失敗');
+      setEditingStaffId(null);
+    }
+  };
+
+  // 處理廠商角色更新
+  const handleVendorRoleChange = async (vendorId: number, newRole: string) => {
+    if (!id) return;
+    const projectId = parseInt(id, 10);
+
+    try {
+      await projectVendorsApi.updateVendor(projectId, vendorId, {
+        role: newRole,
+      });
+
+      setVendorList(vendorList.map(v =>
+        v.vendor_id === vendorId ? { ...v, role: newRole } : v
+      ));
+      setEditingVendorId(null);
+      message.success('角色已更新');
+    } catch (error: any) {
+      console.error('更新角色失敗:', error);
+      message.error(error.response?.data?.detail || '更新角色失敗');
+      setEditingVendorId(null);
+    }
+  };
+
+  // 刪除同仁
+  const handleDeleteStaff = async (staffId: number) => {
+    if (!id) return;
+    const projectId = parseInt(id, 10);
+    const staff = staffList.find(s => s.id === staffId);
+    if (!staff) return;
+
+    try {
+      await projectStaffApi.deleteStaff(projectId, staff.user_id);
+      setStaffList(staffList.filter(s => s.id !== staffId));
+      message.success('已移除同仁');
+    } catch (error: any) {
+      console.error('移除同仁失敗:', error);
+      message.error(error.response?.data?.detail || '移除同仁失敗');
+    }
+  };
+
+  // 刪除廠商
+  const handleDeleteVendor = async (vendorId: number) => {
+    if (!id) return;
+    const projectId = parseInt(id, 10);
+
+    try {
+      await projectVendorsApi.deleteVendor(projectId, vendorId);
+      setVendorList(vendorList.filter(v => v.vendor_id !== vendorId));
+      message.success('已移除廠商');
+    } catch (error: any) {
+      console.error('移除廠商失敗:', error);
+      message.error(error.response?.data?.detail || '移除廠商失敗');
+    }
+  };
+
+  // 承辦同仁表格欄位
+  const staffColumns: ColumnsType<Staff> = [
     {
-      title: '文號',
-      dataIndex: 'doc_number',
-      key: 'doc_number',
-      render: (text) => <Text strong style={{ color: '#1890ff' }}>{text}</Text>,
+      title: '姓名',
+      dataIndex: 'name',
+      key: 'name',
+      render: (name, record) => (
+        <Space>
+          <Avatar icon={<UserOutlined />} style={{ backgroundColor: getRoleColor(record.role) === 'red' ? '#f5222d' : '#1890ff' }} />
+          <Text strong>{name}</Text>
+        </Space>
+      ),
     },
     {
-      title: '類型',
-      dataIndex: 'doc_type',
-      key: 'doc_type',
-      width: 80,
-      render: (text) => <Tag color="blue">{text}</Tag>,
-    },
-    {
-      title: '主旨',
-      dataIndex: 'subject',
-      key: 'subject',
-      ellipsis: true,
-    },
-    {
-      title: '日期',
-      dataIndex: 'doc_date',
-      key: 'doc_date',
+      title: '角色',
+      dataIndex: 'role',
+      key: 'role',
       width: 120,
+      render: (role, record) =>
+        editingStaffId === record.id ? (
+          <Select
+            size="small"
+            defaultValue={role}
+            style={{ width: 100 }}
+            onChange={(value) => handleStaffRoleChange(record.id, value)}
+            onBlur={() => setEditingStaffId(null)}
+            autoFocus
+          >
+            <Option value="主辦">主辦</Option>
+            <Option value="協辦">協辦</Option>
+            <Option value="支援">支援</Option>
+          </Select>
+        ) : (
+          <Tag
+            color={getRoleColor(role)}
+            style={{ cursor: 'pointer' }}
+            onClick={() => setEditingStaffId(record.id)}
+          >
+            {role} <EditOutlined style={{ fontSize: 10, marginLeft: 4 }} />
+          </Tag>
+        ),
     },
     {
-      title: '發文單位',
-      dataIndex: 'sender',
-      key: 'sender',
-      width: 180,
+      title: '部門',
+      dataIndex: 'department',
+      key: 'department',
+    },
+    {
+      title: '聯絡方式',
+      key: 'contact',
+      render: (_, record) => (
+        <Space direction="vertical" size="small">
+          {record.phone && <span><PhoneOutlined /> {record.phone}</span>}
+          {record.email && <span><MailOutlined /> {record.email}</span>}
+        </Space>
+      ),
+    },
+    {
+      title: '加入日期',
+      dataIndex: 'join_date',
+      key: 'join_date',
+    },
+    {
+      title: '狀態',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status) => (
+        <Tag color={status === 'active' ? 'success' : 'default'}>
+          {status === 'active' ? '在職' : '離職'}
+        </Tag>
+      ),
     },
     {
       title: '操作',
       key: 'action',
       width: 100,
       render: (_, record) => (
-        <Button
-          type="primary"
-          size="small"
-          icon={<EyeOutlined />}
-          onClick={() => navigate(`/documents/${record.id}`)}
+        <Popconfirm
+          title="確定要移除此同仁？"
+          okText="確定"
+          cancelText="取消"
+          onConfirm={() => handleDeleteStaff(record.id)}
         >
-          檢視
-        </Button>
+          <Tooltip title="移除">
+            <Button size="small" danger icon={<DeleteOutlined />} />
+          </Tooltip>
+        </Popconfirm>
       ),
     },
   ];
 
-  // 附件表格欄位
-  const attachmentColumns: ColumnsType<Attachment> = [
+  // 協力廠商表格欄位
+  const vendorColumns: ColumnsType<VendorAssociation> = [
     {
-      title: '檔案名稱',
-      dataIndex: 'filename',
-      key: 'filename',
-      render: (text) => (
-        <Space>
-          <PaperClipOutlined />
-          <Text>{text}</Text>
+      title: '廠商資訊',
+      key: 'vendor_info',
+      render: (_, record) => (
+        <Space direction="vertical" size="small">
+          <Text strong>{record.vendor_name}</Text>
+          {record.vendor_code && <Text type="secondary">統編: {record.vendor_code}</Text>}
         </Space>
       ),
     },
     {
-      title: '大小',
-      dataIndex: 'file_size',
-      key: 'file_size',
-      width: 100,
-      render: (size) => formatFileSize(size),
+      title: '角色',
+      dataIndex: 'role',
+      key: 'role',
+      width: 140,
+      render: (role, record) =>
+        editingVendorId === record.id ? (
+          <Select
+            size="small"
+            defaultValue={role}
+            style={{ width: 120 }}
+            onChange={(value) => handleVendorRoleChange(record.id, value)}
+            onBlur={() => setEditingVendorId(null)}
+            autoFocus
+          >
+            <Option value="主承包商">主承包商</Option>
+            <Option value="分包商">分包商</Option>
+            <Option value="供應商">供應商</Option>
+            <Option value="顧問">顧問</Option>
+          </Select>
+        ) : (
+          <Tag
+            color={getRoleColor(role)}
+            style={{ cursor: 'pointer' }}
+            onClick={() => setEditingVendorId(record.id)}
+          >
+            {role} <EditOutlined style={{ fontSize: 10, marginLeft: 4 }} />
+          </Tag>
+        ),
     },
     {
-      title: '上傳時間',
-      dataIndex: 'uploaded_at',
-      key: 'uploaded_at',
-      width: 120,
+      title: '聯絡人',
+      key: 'contact',
+      render: (_, record) => (
+        <Space direction="vertical" size="small">
+          {record.contact_person && <span><UserOutlined /> {record.contact_person}</span>}
+          {record.phone && <span><PhoneOutlined /> {record.phone}</span>}
+        </Space>
+      ),
     },
     {
-      title: '上傳者',
-      dataIndex: 'uploaded_by',
-      key: 'uploaded_by',
-      width: 100,
+      title: '合約金額',
+      dataIndex: 'contract_amount',
+      key: 'contract_amount',
+      render: (amount) => <Text>NT$ {formatAmount(amount)}</Text>,
+    },
+    {
+      title: '合作期間',
+      key: 'period',
+      render: (_, record) => (
+        <Space direction="vertical" size="small">
+          <span>{record.start_date} ~</span>
+          <span>{record.end_date}</span>
+        </Space>
+      ),
+    },
+    {
+      title: '狀態',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status) => (
+        <Tag color={getStatusColor(status)}>
+          {status === 'active' ? '合作中' : status === 'completed' ? '已完成' : '暫停'}
+        </Tag>
+      ),
     },
     {
       title: '操作',
       key: 'action',
-      width: 150,
+      width: 100,
       render: (_, record) => (
-        <Space>
-          <Tooltip title="下載">
-            <Button size="small" icon={<DownloadOutlined />} />
+        <Popconfirm
+          title="確定要移除此廠商？"
+          okText="確定"
+          cancelText="取消"
+          onConfirm={() => handleDeleteVendor(record.id)}
+        >
+          <Tooltip title="移除">
+            <Button size="small" danger icon={<DeleteOutlined />} />
           </Tooltip>
-          <Tooltip title="預覽">
-            <Button size="small" icon={<EyeOutlined />} />
-          </Tooltip>
-          <Popconfirm title="確定要刪除此附件？" okText="確定" cancelText="取消">
-            <Tooltip title="刪除">
-              <Button size="small" danger icon={<DeleteOutlined />} />
-            </Tooltip>
-          </Popconfirm>
-        </Space>
+        </Popconfirm>
       ),
     },
   ];
@@ -411,9 +697,7 @@ export const ContractCaseDetailPage: React.FC = () => {
       <Card>
         <div style={{ textAlign: 'center', padding: 50 }}>
           <Title level={4}>案件不存在</Title>
-          <Button type="primary" onClick={handleBack}>
-            返回列表
-          </Button>
+          <Button type="primary" onClick={handleBack}>返回列表</Button>
         </div>
       </Card>
     );
@@ -421,236 +705,210 @@ export const ContractCaseDetailPage: React.FC = () => {
 
   const progress = calculateProgress();
 
-  // TAB 1: 基本資訊
-  const renderBasicInfo = () => (
+  // TAB 1: 案件資訊
+  const renderCaseInfo = () => (
     <div>
       {/* 進度顯示 */}
-      {data.case_status === 'in_progress' && (
+      {data.status === 'in_progress' && (
         <Card title="執行進度" style={{ marginBottom: 16 }}>
           <Row gutter={[16, 16]}>
             <Col span={18}>
-              <Progress
-                percent={progress}
-                status={progress === 100 ? "success" : "active"}
-              />
+              <Progress percent={progress} status={progress === 100 ? "success" : "active"} />
             </Col>
             <Col span={6} style={{ textAlign: 'right' }}>
               <div>完成度: {progress}%</div>
-              <div style={{ color: '#666', fontSize: '12px' }}>
-                根據契約期程計算
-              </div>
+              <div style={{ color: '#666', fontSize: '12px' }}>根據契約期程計算</div>
             </Col>
           </Row>
         </Card>
       )}
 
-      {/* 基本資訊 */}
-      <Card title="基本資訊" style={{ marginBottom: 16 }}>
-        <Descriptions column={2} bordered>
-          <Descriptions.Item label="專案名稱" span={2}>
-            {data.project_name}
-          </Descriptions.Item>
-          <Descriptions.Item label="年度別">
-            {data.year}年
-          </Descriptions.Item>
-          <Descriptions.Item label="案件性質">
-            <Tag color={CONTRACT_CASE_TYPE_COLORS[data.case_type]}>
-              {CONTRACT_CASE_TYPE_LABELS[data.case_type]}
-            </Tag>
-          </Descriptions.Item>
-          <Descriptions.Item label="委託單位">
-            {data.client_unit}
-          </Descriptions.Item>
-          <Descriptions.Item label="案件狀態">
-            <Tag color={CONTRACT_CASE_STATUS_COLORS[data.case_status]}>
-              {CONTRACT_CASE_STATUS_LABELS[data.case_status]}
-            </Tag>
-          </Descriptions.Item>
-          <Descriptions.Item label="承辦同仁">
-            {data.responsible_staff}
-          </Descriptions.Item>
-          <Descriptions.Item label="協力廠商">
-            {data.partner_vendor}
-          </Descriptions.Item>
-          <Descriptions.Item label="契約金額">
-            {data.contract_amount ? `NT$ ${data.contract_amount.toLocaleString()}` : '未填寫'}
-          </Descriptions.Item>
-          <Descriptions.Item label="契約期程" span={2}>
-            {data.contract_period_start} ~ {data.contract_period_end}
-          </Descriptions.Item>
-        </Descriptions>
+      {/* 基本資訊 - 支援直接編輯 */}
+      <Card
+        title="基本資訊"
+        style={{ marginBottom: 16 }}
+        extra={
+          isEditingCaseInfo ? (
+            <Space>
+              <Button size="small" onClick={() => setIsEditingCaseInfo(false)}>取消</Button>
+              <Button size="small" type="primary" onClick={() => caseInfoForm.submit()}>儲存</Button>
+            </Space>
+          ) : (
+            <Button size="small" icon={<EditOutlined />} onClick={startEditCaseInfo}>編輯</Button>
+          )
+        }
+      >
+        {isEditingCaseInfo ? (
+          <Form form={caseInfoForm} layout="vertical" onFinish={handleSaveCaseInfo}>
+            <Row gutter={16}>
+              <Col span={24}>
+                <Form.Item name="project_name" label="專案名稱" rules={[{ required: true }]}>
+                  <Input />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item name="client_agency" label="委託單位">
+                  <Input />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item label="案件狀態">
+                  <Tag color={getStatusTagColor(data.status)}>
+                    {getStatusTagText(data.status)}
+                  </Tag>
+                </Form.Item>
+              </Col>
+              <Col span={24}>
+                <Form.Item name="description" label="案件說明">
+                  <Input.TextArea rows={4} />
+                </Form.Item>
+              </Col>
+            </Row>
+          </Form>
+        ) : (
+          <Descriptions column={2} bordered>
+            <Descriptions.Item label="專案名稱" span={2}>{data.project_name}</Descriptions.Item>
+            <Descriptions.Item label="年度別">{data.year}年</Descriptions.Item>
+            <Descriptions.Item label="案件類別">
+              <Tag color={getCategoryTagColor(data.category)}>
+                {data.category || '未分類'}
+              </Tag>
+            </Descriptions.Item>
+            <Descriptions.Item label="委託單位">{data.client_agency || '-'}</Descriptions.Item>
+            <Descriptions.Item label="案件狀態">
+              <Tag color={getStatusTagColor(data.status)}>
+                {getStatusTagText(data.status)}
+              </Tag>
+            </Descriptions.Item>
+            <Descriptions.Item label="契約金額">
+              {data.contract_amount ? `NT$ ${formatAmount(data.contract_amount)}` : '未填寫'}
+            </Descriptions.Item>
+            <Descriptions.Item label="契約期程">
+              {data.start_date || '未設定'} ~ {data.end_date || '未設定'}
+            </Descriptions.Item>
+          </Descriptions>
+        )}
       </Card>
 
-      {/* 詳細說明 */}
-      {data.description && (
+      {/* 案件說明 - 非編輯模式時顯示 */}
+      {!isEditingCaseInfo && data.description && (
         <Card title="案件說明" style={{ marginBottom: 16 }}>
-          <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
-            {data.description}
-          </div>
-        </Card>
-      )}
-
-      {/* 備註 */}
-      {data.notes && (
-        <Card title="備註">
-          <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, color: '#666' }}>
-            {data.notes}
-          </div>
+          <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{data.description}</div>
         </Card>
       )}
     </div>
   );
 
-  // TAB 2: 相關文件
-  const renderRelatedDocuments = () => (
+  // TAB 2: 承辦同仁
+  const renderStaff = () => (
     <Card
       title={
         <Space>
-          <FileTextOutlined />
-          <span>關聯公文</span>
-          <Tag color="blue">{relatedDocs.length} 件</Tag>
+          <TeamOutlined />
+          <span>承辦同仁</span>
+          <Tag color="blue">{staffList.length} 人</Tag>
         </Space>
       }
       extra={
-        <Button type="primary" size="small">
-          新增關聯
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => setStaffModalVisible(true)}>
+          新增同仁
         </Button>
       }
     >
-      {relatedDocs.length > 0 ? (
-        <Table
-          columns={documentColumns}
-          dataSource={relatedDocs}
-          rowKey="id"
-          pagination={false}
-          size="middle"
-        />
-      ) : (
-        <Empty description="尚無關聯公文" />
-      )}
-    </Card>
-  );
-
-  // TAB 3: 時程里程碑
-  const renderMilestones = () => (
-    <Card
-      title={
-        <Space>
-          <CalendarOutlined />
-          <span>專案時程與里程碑</span>
-        </Space>
-      }
-      extra={
-        <Button type="primary" size="small">
-          新增里程碑
-        </Button>
-      }
-    >
-      {/* 進度概覽 */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col span={6}>
-          <Card size="small" style={{ textAlign: 'center', background: '#f6ffed' }}>
-            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>
-              {milestones.filter(m => m.status === 'completed').length}
-            </div>
-            <div style={{ color: '#666' }}>已完成</div>
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card size="small" style={{ textAlign: 'center', background: '#e6f7ff' }}>
-            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>
-              {milestones.filter(m => m.status === 'in_progress').length}
-            </div>
-            <div style={{ color: '#666' }}>進行中</div>
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card size="small" style={{ textAlign: 'center', background: '#fff7e6' }}>
-            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#fa8c16' }}>
-              {milestones.filter(m => m.status === 'pending').length}
-            </div>
-            <div style={{ color: '#666' }}>待執行</div>
-          </Card>
-        </Col>
-        <Col span={6}>
+      {/* 統計概覽 */}
+      <Row gutter={16} style={{ marginBottom: 16 }}>
+        <Col span={8}>
           <Card size="small" style={{ textAlign: 'center', background: '#fff1f0' }}>
-            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#ff4d4f' }}>
-              {milestones.filter(m => m.status === 'overdue').length}
-            </div>
-            <div style={{ color: '#666' }}>已逾期</div>
+            <Statistic
+              title="主辦"
+              value={staffList.filter(s => s.role === '主辦').length}
+              valueStyle={{ color: '#cf1322' }}
+            />
+          </Card>
+        </Col>
+        <Col span={8}>
+          <Card size="small" style={{ textAlign: 'center', background: '#e6f7ff' }}>
+            <Statistic
+              title="協辦"
+              value={staffList.filter(s => s.role === '協辦').length}
+              valueStyle={{ color: '#1890ff' }}
+            />
+          </Card>
+        </Col>
+        <Col span={8}>
+          <Card size="small" style={{ textAlign: 'center', background: '#f6ffed' }}>
+            <Statistic
+              title="支援"
+              value={staffList.filter(s => s.role === '支援').length}
+              valueStyle={{ color: '#52c41a' }}
+            />
           </Card>
         </Col>
       </Row>
 
-      {/* 時間軸 */}
-      <Timeline mode="left">
-        {milestones.map((milestone) => (
-          <Timeline.Item
-            key={milestone.id}
-            color={getMilestoneColor(milestone.status)}
-            dot={getMilestoneIcon(milestone.status)}
-            label={
-              <div>
-                <div style={{ fontWeight: 'bold' }}>{milestone.due_date}</div>
-                {milestone.completed_date && milestone.status === 'completed' && (
-                  <div style={{ fontSize: 12, color: '#52c41a' }}>
-                    完成於 {milestone.completed_date}
-                  </div>
-                )}
-              </div>
-            }
-          >
-            <Card size="small" style={{ marginBottom: 8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <Text strong>{milestone.title}</Text>
-                  {milestone.description && (
-                    <div style={{ color: '#666', marginTop: 4 }}>
-                      {milestone.description}
-                    </div>
-                  )}
-                </div>
-                <Tag color={getMilestoneColor(milestone.status)}>
-                  {milestone.status === 'completed' ? '已完成' :
-                   milestone.status === 'in_progress' ? '進行中' :
-                   milestone.status === 'overdue' ? '已逾期' : '待執行'}
-                </Tag>
-              </div>
-            </Card>
-          </Timeline.Item>
-        ))}
-      </Timeline>
-    </Card>
-  );
-
-  // TAB 4: 附件管理
-  const renderAttachments = () => (
-    <Card
-      title={
-        <Space>
-          <PaperClipOutlined />
-          <span>附件管理</span>
-          <Tag color="blue">{attachments.length} 個檔案</Tag>
-        </Space>
-      }
-      extra={
-        <Upload>
-          <Button type="primary" icon={<UploadOutlined />}>
-            上傳附件
-          </Button>
-        </Upload>
-      }
-    >
-      {attachments.length > 0 ? (
+      {staffList.length > 0 ? (
         <Table
-          columns={attachmentColumns}
-          dataSource={attachments}
+          columns={staffColumns}
+          dataSource={staffList}
           rowKey="id"
           pagination={false}
           size="middle"
         />
       ) : (
-        <Empty description="尚無附件" />
+        <Empty description="尚無承辦同仁" />
+      )}
+    </Card>
+  );
+
+  // TAB 3: 協力廠商
+  const renderVendors = () => (
+    <Card
+      title={
+        <Space>
+          <ShopOutlined />
+          <span>協力廠商</span>
+          <Tag color="blue">{vendorList.length} 家</Tag>
+        </Space>
+      }
+      extra={
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => setVendorModalVisible(true)}>
+          新增廠商
+        </Button>
+      }
+    >
+      {/* 簡化的統計概覽 */}
+      <Row gutter={16} style={{ marginBottom: 16 }}>
+        <Col span={12}>
+          <Card size="small" style={{ textAlign: 'center' }}>
+            <Statistic
+              title="合約總金額"
+              value={vendorList.reduce((sum, v) => sum + (v.contract_amount || 0), 0)}
+              formatter={value => `NT$ ${formatAmount(Number(value))}`}
+            />
+          </Card>
+        </Col>
+        <Col span={12}>
+          <Card size="small" style={{ textAlign: 'center' }}>
+            <Statistic
+              title="合作中廠商"
+              value={vendorList.filter(v => v.status === 'active').length}
+              suffix={`/ ${vendorList.length}`}
+              valueStyle={{ color: '#52c41a' }}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      {vendorList.length > 0 ? (
+        <Table
+          columns={vendorColumns}
+          dataSource={vendorList}
+          rowKey="id"
+          pagination={false}
+          size="middle"
+        />
+      ) : (
+        <Empty description="尚無協力廠商" />
       )}
     </Card>
   );
@@ -658,46 +916,36 @@ export const ContractCaseDetailPage: React.FC = () => {
   // Tab 項目定義
   const tabItems = [
     {
-      key: 'basic',
+      key: 'info',
       label: (
         <span>
           <InfoCircleOutlined />
-          基本資訊
+          案件資訊
         </span>
       ),
-      children: renderBasicInfo(),
+      children: renderCaseInfo(),
     },
     {
-      key: 'documents',
+      key: 'staff',
       label: (
         <span>
-          <FileTextOutlined />
-          相關文件
-          <Tag color="blue" style={{ marginLeft: 8 }}>{relatedDocs.length}</Tag>
+          <TeamOutlined />
+          承辦同仁
+          <Tag color="blue" style={{ marginLeft: 8 }}>{staffList.length}</Tag>
         </span>
       ),
-      children: renderRelatedDocuments(),
+      children: renderStaff(),
     },
     {
-      key: 'milestones',
+      key: 'vendors',
       label: (
         <span>
-          <CalendarOutlined />
-          時程里程碑
+          <ShopOutlined />
+          協力廠商
+          <Tag color="blue" style={{ marginLeft: 8 }}>{vendorList.length}</Tag>
         </span>
       ),
-      children: renderMilestones(),
-    },
-    {
-      key: 'attachments',
-      label: (
-        <span>
-          <PaperClipOutlined />
-          附件管理
-          <Tag color="blue" style={{ marginLeft: 8 }}>{attachments.length}</Tag>
-        </span>
-      ),
-      children: renderAttachments(),
+      children: renderVendors(),
     },
   ];
 
@@ -707,23 +955,17 @@ export const ContractCaseDetailPage: React.FC = () => {
       <Card style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <Button
-              type="text"
-              icon={<ArrowLeftOutlined />}
-              onClick={handleBack}
-            >
+            <Button type="text" icon={<ArrowLeftOutlined />} onClick={handleBack}>
               返回
             </Button>
             <div>
-              <Title level={3} style={{ margin: 0 }}>
-                {data.project_name}
-              </Title>
+              <Title level={3} style={{ margin: 0 }}>{data.project_name}</Title>
               <div style={{ marginTop: 8 }}>
-                <Tag color={CONTRACT_CASE_TYPE_COLORS[data.case_type]}>
-                  {CONTRACT_CASE_TYPE_LABELS[data.case_type]}
+                <Tag color={getCategoryTagColor(data.category)}>
+                  {data.category || '未分類'}
                 </Tag>
-                <Tag color={CONTRACT_CASE_STATUS_COLORS[data.case_status]}>
-                  {CONTRACT_CASE_STATUS_LABELS[data.case_status]}
+                <Tag color={getStatusTagColor(data.status)}>
+                  {getStatusTagText(data.status)}
                 </Tag>
               </div>
             </div>
@@ -739,15 +981,13 @@ export const ContractCaseDetailPage: React.FC = () => {
               cancelText="取消"
               onConfirm={handleDelete}
             >
-              <Button danger icon={<DeleteOutlined />}>
-                刪除
-              </Button>
+              <Button danger icon={<DeleteOutlined />}>刪除</Button>
             </Popconfirm>
           </Space>
         </div>
       </Card>
 
-      {/* 4個TAB分頁 */}
+      {/* 3個TAB分頁 */}
       <Card>
         <Tabs
           activeKey={activeTab}
@@ -756,6 +996,107 @@ export const ContractCaseDetailPage: React.FC = () => {
           size="large"
         />
       </Card>
+
+      {/* 新增同仁 Modal */}
+      <Modal
+        title="新增承辦同仁"
+        open={staffModalVisible}
+        onCancel={() => setStaffModalVisible(false)}
+        footer={null}
+        width={500}
+        destroyOnHidden
+        afterOpenChange={(open) => {
+          if (open) loadUserOptions();
+        }}
+      >
+        <Form form={staffForm} layout="vertical" onFinish={handleAddStaff}>
+          <Form.Item name="user_id" label="選擇同仁" rules={[{ required: true, message: '請選擇同仁' }]}>
+            <Select
+              placeholder="請選擇同仁"
+              showSearch
+              optionFilterProp="label"
+              options={userOptions.map(u => ({
+                value: u.id,
+                label: `${u.name} (${u.email})`,
+              }))}
+            />
+          </Form.Item>
+          <Form.Item name="role" label="角色" rules={[{ required: true, message: '請選擇角色' }]}>
+            <Select placeholder="請選擇角色">
+              <Option value="主辦">主辦</Option>
+              <Option value="協辦">協辦</Option>
+              <Option value="支援">支援</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item style={{ textAlign: 'right', marginBottom: 0 }}>
+            <Space>
+              <Button onClick={() => setStaffModalVisible(false)}>取消</Button>
+              <Button type="primary" htmlType="submit">新增</Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* 新增廠商 Modal */}
+      <Modal
+        title="新增協力廠商"
+        open={vendorModalVisible}
+        onCancel={() => setVendorModalVisible(false)}
+        footer={null}
+        width={600}
+        destroyOnHidden
+        afterOpenChange={(open) => {
+          if (open) loadVendorOptions();
+        }}
+      >
+        <Form form={vendorForm} layout="vertical" onFinish={handleAddVendor}>
+          <Form.Item name="vendor_id" label="選擇廠商" rules={[{ required: true, message: '請選擇廠商' }]}>
+            <Select
+              placeholder="請選擇廠商"
+              showSearch
+              optionFilterProp="label"
+              options={vendorOptions.map(v => ({
+                value: v.id,
+                label: `${v.name}${v.code ? ` (${v.code})` : ''}`,
+              }))}
+            />
+          </Form.Item>
+          <Form.Item name="role" label="角色" rules={[{ required: true, message: '請選擇角色' }]}>
+            <Select placeholder="請選擇角色">
+              <Option value="主承包商">主承包商</Option>
+              <Option value="分包商">分包商</Option>
+              <Option value="供應商">供應商</Option>
+              <Option value="顧問">顧問</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item name="contract_amount" label="合約金額">
+            <InputNumber
+              style={{ width: '100%' }}
+              placeholder="請輸入合約金額"
+              formatter={value => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+              parser={value => value?.replace(/\$\s?|(,*)/g, '') as any}
+            />
+          </Form.Item>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="start_date" label="合作開始日期">
+                <DatePicker style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="end_date" label="合作結束日期">
+                <DatePicker style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item style={{ textAlign: 'right', marginBottom: 0 }}>
+            <Space>
+              <Button onClick={() => setVendorModalVisible(false)}>取消</Button>
+              <Button type="primary" htmlType="submit">新增</Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 };

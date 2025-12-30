@@ -9,14 +9,12 @@ import {
   Col,
   Table,
   Tag,
-  Progress,
   Statistic,
   Switch,
   Pagination,
   Typography,
   Empty,
   Spin,
-  message,
   Modal,
   Form,
   Popconfirm,
@@ -34,8 +32,6 @@ import {
   DeleteOutlined,
   EyeOutlined,
   TeamOutlined,
-  DollarOutlined,
-  CalendarOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useNavigate } from 'react-router-dom';
@@ -222,14 +218,8 @@ export const ContractCasePage: React.FC = () => {
 
   // ---[事件處理函式]---
   const handleView = (project: Project) => {
-    setEditingProject(project);
-    setModalMode('view');
-    form.setFieldsValue({
-      ...project,
-      start_date: project.start_date ? dayjs(project.start_date) : null,
-      end_date: project.end_date ? dayjs(project.end_date) : null,
-    });
-    setModalVisible(true);
+    // 導航到詳情頁面（採用 TAB 分頁模式：案件資訊、承辦同仁、協力廠商）
+    navigate(ROUTES.CONTRACT_CASE_DETAIL.replace(':id', String(project.id)));
   };
 
   const handleEdit = (project: Project) => {
