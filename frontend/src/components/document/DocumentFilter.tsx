@@ -52,15 +52,19 @@ const docTypeOptions = [
 
 // 年度選項將從API獲取
 
+// API 基礎 URL - 統一使用環境變數避免 proxy 問題
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001';
+
 const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
   filters,
   onFiltersChange,
   onReset,
 }) => {
-  const [expanded, setExpanded] = useState(false);
+  // 預設展開篩選區，提供更好的使用者體驗
+  const [expanded, setExpanded] = useState(true);
   const [localFilters, setLocalFilters] = useState<DocumentFilterType>(filters);
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null] | null>(null);
-  
+
   // AutoComplete 狀態
   const [searchOptions, setSearchOptions] = useState<{value: string}[]>([]);
   const [senderOptions, setSenderOptions] = useState<{value: string}[]>([]);
@@ -80,7 +84,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
     }
 
     try {
-      const response = await fetch(`/api/documents-enhanced/integrated-search?limit=50&search=${encodeURIComponent(query)}`);
+      const response = await fetch(`${API_BASE_URL}/api/documents-enhanced/integrated-search?limit=50&search=${encodeURIComponent(query)}`);
       if (response.ok) {
         const data = await response.json();
         const documents = data.documents || [];
@@ -103,9 +107,9 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
       setSenderOptions([]);
       return;
     }
-    
+
     try {
-      const response = await fetch(`/api/documents-enhanced/integrated-search?limit=100`);
+      const response = await fetch(`${API_BASE_URL}/api/documents-enhanced/integrated-search?limit=100`);
       if (response.ok) {
         const documents = await response.json();
         const senders = documents
@@ -126,9 +130,9 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
       setReceiverOptions([]);
       return;
     }
-    
+
     try {
-      const response = await fetch(`/api/documents-enhanced/integrated-search?limit=100`);
+      const response = await fetch(`${API_BASE_URL}/api/documents-enhanced/integrated-search?limit=100`);
       if (response.ok) {
         const documents = await response.json();
         const receivers = documents
@@ -149,9 +153,9 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
       setDocNumberOptions([]);
       return;
     }
-    
+
     try {
-      const response = await fetch(`/api/documents-enhanced/integrated-search?limit=100`);
+      const response = await fetch(`${API_BASE_URL}/api/documents-enhanced/integrated-search?limit=100`);
       if (response.ok) {
         const responseData = await response.json();
         // 修復：從 API 回應中正確取得文件陣列
@@ -182,9 +186,9 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
       setContractCaseOptions([]);
       return;
     }
-    
+
     try {
-      const response = await fetch(`/api/documents-enhanced/integrated-search?limit=100`);
+      const response = await fetch(`${API_BASE_URL}/api/documents-enhanced/integrated-search?limit=100`);
       if (response.ok) {
         const documents = await response.json();
         const contractCases = documents
@@ -203,7 +207,6 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
   // 獲取年度選項
   const fetchYearOptions = async () => {
     try {
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001';
       const response = await fetch(`${API_BASE_URL}/api/documents-enhanced/document-years`);
       if (response.ok) {
         const data = await response.json();
@@ -222,7 +225,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
   const fetchContractCaseDropdownOptions = async () => {
     try {
       // 先嘗試新的增強版 API
-      let response = await fetch('/api/documents-enhanced/contract-projects-dropdown?limit=1000');
+      let response = await fetch(`${API_BASE_URL}/api/documents-enhanced/contract-projects-dropdown?limit=1000`);
 
       if (response.ok) {
         const data = await response.json();
@@ -237,7 +240,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
 
       // 如果新 API 不可用，降級使用原有方式
       console.warn('⚠️  增強版 API 不可用，使用原有方式');
-      response = await fetch('/api/documents-enhanced/integrated-search?limit=1000');
+      response = await fetch(`${API_BASE_URL}/api/documents-enhanced/integrated-search?limit=1000`);
       if (response.ok) {
         const data = await response.json();
         const documents = data.documents || [];
@@ -263,7 +266,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
   const fetchSenderDropdownOptions = async () => {
     try {
       // 使用新的增強版 API，取得標準化機關名稱 (不含統計數據)
-      const response = await fetch('/api/documents-enhanced/agencies-dropdown?limit=500');
+      const response = await fetch(`${API_BASE_URL}/api/documents-enhanced/agencies-dropdown?limit=500`);
       if (response.ok) {
         const data = await response.json();
         const agencies = data.options || [];
@@ -280,7 +283,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
 
       // 降級方案：直接從公文表查詢
       console.warn('⚠️  增強版 API 不可用，使用降級方案');
-      const fallbackResponse = await fetch('/api/documents-enhanced/integrated-search?limit=500');
+      const fallbackResponse = await fetch(`${API_BASE_URL}/api/documents-enhanced/integrated-search?limit=500`);
       if (fallbackResponse.ok) {
         const data = await fallbackResponse.json();
         const documents = data.documents || [];
@@ -306,7 +309,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
   const fetchReceiverDropdownOptions = async () => {
     try {
       // 使用新的增強版 API，取得標準化機關名稱 (不含統計數據)
-      const response = await fetch('/api/documents-enhanced/agencies-dropdown?limit=500');
+      const response = await fetch(`${API_BASE_URL}/api/documents-enhanced/agencies-dropdown?limit=500`);
       if (response.ok) {
         const data = await response.json();
         const agencies = data.options || [];
@@ -323,7 +326,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
 
       // 降級方案：直接從公文表查詢
       console.warn('⚠️  增強版 API 不可用，使用降級方案');
-      const fallbackResponse = await fetch('/api/documents-enhanced/integrated-search?limit=500');
+      const fallbackResponse = await fetch(`${API_BASE_URL}/api/documents-enhanced/integrated-search?limit=500`);
       if (fallbackResponse.ok) {
         const data = await fallbackResponse.json();
         const documents = data.documents || [];

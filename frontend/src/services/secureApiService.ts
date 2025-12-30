@@ -186,9 +186,12 @@ class SecureApiService {
 
   /**
    * 通用 POST 方法 - 用於通知系統等其他 API 調用
+   * 自動處理相對路徑，添加 API_BASE_URL
    */
   async post<T = any>(endpoint: string, action: string, data?: any): Promise<T> {
-    return this.secureRequest<T>(endpoint, action, data);
+    // 如果 endpoint 是相對路徑，添加 API_BASE_URL
+    const fullEndpoint = endpoint.startsWith('/') ? `${API_BASE_URL}${endpoint}` : endpoint;
+    return this.secureRequest<T>(fullEndpoint, action, data);
   }
 }
 

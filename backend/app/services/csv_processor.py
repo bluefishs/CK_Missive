@@ -196,13 +196,15 @@ class DocumentCSVProcessor:
         
         logger.debug(f"重新命名後的欄位: {df_renamed.columns.tolist()}")
         
-        # 2. 組合公文字號（關鍵步驟）
+        # 2. 組合公文字號（關鍵步驟）- 格式：{字}字第{文號}號
         if 'doc_word' in df_renamed.columns and 'legacy_doc_number' in df_renamed.columns:
             df_renamed['doc_number'] = df_renamed.apply(
-                lambda row: f"{self._clean_text(row.get('doc_word', ''))}{self._clean_text(row.get('legacy_doc_number', ''))}",
+                lambda row: f"{self._clean_text(row.get('doc_word', ''))}字第{self._clean_text(row.get('legacy_doc_number', ''))}號"
+                if self._clean_text(row.get('doc_word', '')) and self._clean_text(row.get('legacy_doc_number', ''))
+                else '',
                 axis=1
             )
-            logger.debug("已組合公文字號")
+            logger.debug("已組合公文字號（格式：字第...號）")
         else:
             df_renamed['doc_number'] = ''
             logger.warning("無法組合公文字號：缺少 '字' 或 '文號' 欄位")

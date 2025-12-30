@@ -87,69 +87,79 @@ export const DocumentActions: React.FC<DocumentActionsProps> = ({
       : []),
   ];
 
-  const menuItems: MenuProps['items'] = actionConfig
-    .filter(action => ['copy', 'send', 'archive'].includes(action.key))
-    .map(action => ({
-      key: action.key,
-      label: action.title,
-      icon: action.icon,
-      onClick: () => handleAction(action.key, action.handler),
-    }));
+  // 更多操作放入下拉選單
+  const moreMenuItems: MenuProps['items'] = [
+    {
+      key: 'addToCalendar',
+      label: '新增至日曆',
+      icon: <CalendarOutlined />,
+      onClick: async () => {
+        const success = await addToCalendar(document);
+        if (success) {
+          message.success(`公文 ${document.doc_number || document.id} 已成功新增至日曆`);
+        } else {
+          message.error('新增至日曆失敗，請稍後再試');
+        }
+      },
+    },
+    ...(onExportPdf ? [{
+      key: 'exportPdf',
+      label: '匯出 PDF',
+      icon: <FilePdfOutlined />,
+      onClick: () => handleAction('exportPdf', onExportPdf),
+    }] : []),
+    ...(onCopy ? [{
+      key: 'copy',
+      label: '複製內容',
+      icon: <CopyOutlined />,
+      onClick: () => handleAction('copy', onCopy),
+    }] : []),
+    ...(onSend ? [{
+      key: 'send',
+      label: '傳送',
+      icon: <SendOutlined />,
+      onClick: () => handleAction('send', onSend),
+    }] : []),
+    ...(onArchive ? [{
+      key: 'archive',
+      label: '歸檔',
+      icon: <FileZipOutlined />,
+      onClick: () => handleAction('archive', onArchive),
+    }] : []),
+    { type: 'divider' as const },
+    {
+      key: 'delete',
+      label: '刪除',
+      icon: <DeleteOutlined />,
+      danger: true,
+      onClick: () => handleAction('delete', onDelete),
+    },
+  ];
 
-  const buttonActions = actionConfig.filter(action => ['view', 'edit'].includes(action.key));
-
+  // 主要按鈕只顯示「檢視」和「編輯」
   if (mode === 'buttons') {
     return (
-      <Space>
-        {buttonActions.map(action => (
-          <Tooltip title={action.title} key={action.key}>
-            <Button
-              icon={action.icon}
-              onClick={() => handleAction(action.key, action.handler)}
-              loading={!!loading[action.key]}
-              size={size}
-            />
-          </Tooltip>
-        ))}
-        <Tooltip title="新增至日曆">
-          <Button
-            icon={<CalendarOutlined />}
-            onClick={() => handleAction('addToCalendar', async (doc) => {
-              const success = await addToCalendar(doc);
-              if (success) {
-                message.success(`公文 ${doc.doc_number || doc.id} 已成功新增至日曆`);
-              } else {
-                message.error('新增至日曆失敗，請稍後再試');
-              }
-            })}
-            loading={calendarLoading || !!loading['isAddingToCalendar'] || !!loading['addToCalendar']}
-            size={size}
-          />
-        </Tooltip>
-        {onExportPdf && (
-          <Tooltip title="匯出 PDF">
-            <Button
-              icon={<ExportOutlined />}
-              onClick={() => handleAction('exportPdf', onExportPdf)}
-              loading={!!loading['exportPdf'] || !!loading['isExporting']}
-              size={size}
-            />
-          </Tooltip>
-        )}
-        <Tooltip title="刪除">
-          <Button
-            icon={<DeleteOutlined />}
-            onClick={() => handleAction('delete', onDelete)}
-            loading={!!loading['delete']}
-            size={size}
-            danger
-          />
-        </Tooltip>
-        {menuItems && menuItems.length > 0 && (
-          <Dropdown menu={{ items: menuItems }} trigger={['click']}>
-            <Button icon={<MoreOutlined />} size={size} />
-          </Dropdown>
-        )}
+      <Space size="small">
+        <Button
+          type="primary"
+          icon={<EyeOutlined />}
+          onClick={() => handleAction('view', onView)}
+          loading={!!loading['view']}
+          size={size}
+        >
+          檢視
+        </Button>
+        <Button
+          icon={<EditOutlined />}
+          onClick={() => handleAction('edit', onEdit)}
+          loading={!!loading['edit']}
+          size={size}
+        >
+          編輯
+        </Button>
+        <Dropdown menu={{ items: moreMenuItems }} trigger={['click']}>
+          <Button icon={<MoreOutlined />} size={size} />
+        </Dropdown>
       </Space>
     );
   }

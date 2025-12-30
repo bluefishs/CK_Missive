@@ -14,7 +14,7 @@ export const documentsApi = {
   // 獲取文件列表
   getDocuments: async (filters?: any): Promise<DocumentListResponse> => {
     try {
-      console.log("=== 前端 API 調用：連接正式 PostgreSQL 資料庫 (93筆記錄) ===");
+      console.log("=== 前端 API 調用：連接正式 PostgreSQL 資料庫 ===");
 
       // Convert page-based pagination to skip-based pagination
       const apiParams = { ...filters };
@@ -22,6 +22,17 @@ export const documentsApi = {
         apiParams.skip = (apiParams.page - 1) * apiParams.limit;
         delete apiParams.page; // Remove page parameter as backend uses skip
       }
+
+      // 轉換排序參數名稱 (前端 camelCase -> 後端 snake_case)
+      if (apiParams.sortBy) {
+        apiParams.sort_by = apiParams.sortBy;
+        delete apiParams.sortBy;
+      }
+      if (apiParams.sortOrder) {
+        apiParams.sort_order = apiParams.sortOrder;
+        delete apiParams.sortOrder;
+      }
+
       console.log("=== 轉換後的 API 參數：", apiParams);
 
       // 使用documents-enhanced端點（已修復CORS問題）

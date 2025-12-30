@@ -174,7 +174,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
       title: '操作',
       key: 'action',
       fixed: 'right',
-      width: 220,
+      width: 180,
       render: (_: any, record: Document) => (
         <DocumentActions
           document={record}
