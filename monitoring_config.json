@@ -1,0 +1,1 @@
+{"api_base":"http://localhost:8001","frontend_base":"http://localhost:3000","check_interval":60,"alert_thresholds":{"api_response_time_ms":1000,"db_response_time_ms":500,"memory_usage_percent":85},"email":{"enabled":false},"save_monitoring_data":true}

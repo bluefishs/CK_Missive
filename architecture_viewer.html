@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>乾坤測繪公文系統 - 架構檢視器</title>
+    <style>
+        body { font-family: '微軟正黑體'; margin: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .api-section { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .endpoint { background: white; padding: 10px; margin: 5px 0; border-left: 4px solid #1890ff; }
+        .method { display: inline-block; padding: 2px 8px; border-radius: 3px; color: white; font-size: 12px; }
+        .GET { background: #52c41a; }
+        .POST { background: #1890ff; }
+        .PUT { background: #fa8c16; }
+        .DELETE { background: #ff4d4f; }
+        button { padding: 10px 20px; margin: 5px; background: #1890ff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        .response { background: #f0f0f0; padding: 10px; margin-top: 10px; border-radius: 3px; white-space: pre-wrap; font-family: monospace; }
+        #status { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+        .error { background: #fff2f0; color: #ff4d4f; border: 1px solid #ffccc7; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏢 乾坤測繪公文管理系統架構檢視器</h1>
+        
+        <div id="status" class="success">
+            <strong>系統狀態:</strong> 正在檢查服務...
+        </div>
+
+        <div class="api-section">
+            <h2>📡 API端點檢視</h2>
+            <p>這裡可以檢視所有的前端-後端對應關係</p>
+            
+            <div class="endpoint">
+                <span class="method GET">GET</span>
+                <strong>/api/documents/</strong> - 取得文件列表
+                <button onclick="testAPI('GET', '/api/documents/?limit=3')">測試</button>
+                <div id="response-documents-get" class="response" style="display:none;"></div>
+            </div>
+
+            <div class="endpoint">
+                <span class="method POST">POST</span>
+                <strong>/api/documents/import</strong> - CSV匯入
+                <button onclick="showImportForm()">測試匯入</button>
+                <div id="import-form" style="display:none; margin-top:10px;">
+                    <input type="file" id="csvFile" accept=".csv" />
+                    <button onclick="testCSVImport()">執行匯入</button>
+                </div>
+                <div id="response-import" class="response" style="display:none;"></div>
+            </div>
+
+            <div class="endpoint">
+                <span class="method GET">GET</span>
+                <strong>/health</strong> - 健康檢查
+                <button onclick="testAPI('GET', '/health')">測試</button>
+                <div id="response-health" class="response" style="display:none;"></div>
+            </div>
+        </div>
+
+        <div class="api-section">
+            <h2>🗂️ 檔案架構對應</h2>
+            <table border="1" style="width:100%; border-collapse: collapse;">
+                <tr style="background: #fafafa;">
+                    <th style="padding: 10px;">前端檔案</th>
+                    <th style="padding: 10px;">後端檔案</th>
+                    <th style="padding: 10px;">功能對應</th>
+                </tr>
+                <tr>
+                    <td style="padding: 8px;">frontend/src/services/documentAPI.js</td>
+                    <td style="padding: 8px;">backend/app/api/endpoints/documents.py</td>
+                    <td style="padding: 8px;">文件CRUD操作</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px;">frontend/src/components/Documents/DocumentImport.jsx</td>
+                    <td style="padding: 8px;">backend/csv_processor.py</td>
+                    <td style="padding: 8px;">CSV匯入處理</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px;">frontend/src/api/config.ts</td>
+                    <td style="padding: 8px;">backend/main.py</td>
+                    <td style="padding: 8px;">API基礎配置</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8001';
+        
+        // 檢查服務狀態
+        async function checkServiceStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                if (response.ok) {
+                    document.getElementById('status').innerHTML = '<strong>✅ 系統狀態:</strong> 後端服務正常運行';
+                    document.getElementById('status').className = 'success';
+                } else {
+                    throw new Error('服務異常');
+                }
+            } catch (error) {
+                document.getElementById('status').innerHTML = '<strong>❌ 系統狀態:</strong> 後端服務無法連接';
+                document.getElementById('status').className = 'error';
+            }
+        }
+
+        // 測試API
+        async function testAPI(method, endpoint) {
+            const responseId = 'response-' + endpoint.replace(/[^a-z]/gi, '-');
+            const responseDiv = document.getElementById(responseId) || createResponseDiv(endpoint);
+            
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, { method });
+                const data = await response.json();
+                responseDiv.textContent = JSON.stringify(data, null, 2);
+                responseDiv.style.display = 'block';
+            } catch (error) {
+                responseDiv.textContent = `錯誤: ${error.message}`;
+                responseDiv.style.display = 'block';
+            }
+        }
+
+        function createResponseDiv(endpoint) {
+            const div = document.createElement('div');
+            div.className = 'response';
+            div.id = 'response-' + endpoint.replace(/[^a-z]/gi, '-');
+            return div;
+        }
+
+        function showImportForm() {
+            document.getElementById('import-form').style.display = 'block';
+        }
+
+        async function testCSVImport() {
+            const fileInput = document.getElementById('csvFile');
+            const responseDiv = document.getElementById('response-import');
+            
+            if (!fileInput.files[0]) {
+                alert('請選擇CSV檔案');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const response = await fetch(`${API_BASE}/api/documents/import`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                responseDiv.textContent = JSON.stringify(data, null, 2);
+                responseDiv.style.display = 'block';
+            } catch (error) {
+                responseDiv.textContent = `錯誤: ${error.message}`;
+                responseDiv.style.display = 'block';
+            }
+        }
+
+        // 頁面載入時檢查狀態
+        checkServiceStatus();
+        setInterval(checkServiceStatus, 30000); // 每30秒檢查一次
+    </script>
+</body>
+</html>

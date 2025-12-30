@@ -1,0 +1,69 @@
+# =============================================================================
+# 乾坤測繪公文管理系統 - 統一前端 Dockerfile
+# =============================================================================
+# 🎯 目標：標準化、高效能的前端容器建置
+# 🔧 功能：多階段建置，最佳化生產映像大小
+# =============================================================================
+
+# --- 🔨 建置階段 ---
+FROM node:18-alpine as builder
+
+# 設定建置參數
+ARG VITE_API_BASE_URL=http://localhost:8001
+ARG VITE_GOOGLE_CLIENT_ID=""
+ARG VITE_AUTH_DISABLED=false
+ARG NODE_ENV=production
+
+# 設定環境變數
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+ENV VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
+ENV VITE_AUTH_DISABLED=${VITE_AUTH_DISABLED}
+ENV NODE_ENV=${NODE_ENV}
+
+# 設定工作目錄
+WORKDIR /app
+
+# 複製 package files
+COPY package*.json ./
+
+# 安裝依賴（使用 npm ci 以獲得更快、可重現的建置）
+RUN npm ci --silent
+
+# 複製源碼
+COPY . .
+
+# 建置應用程式
+RUN npm run build
+
+# --- 🚀 生產階段 ---
+FROM nginx:1.25-alpine as production
+
+# 安裝 curl（用於健康檢查）
+RUN apk add --no-cache curl
+
+# 複製自定義 nginx 配置
+COPY nginx.conf /etc/nginx/nginx.conf
+
+# 複製建置產物
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# 建立日誌目錄
+RUN mkdir -p /app/logs && \
+    chown -R nginx:nginx /app/logs
+
+# 建立非 root 使用者（安全性最佳實踐）
+RUN addgroup -g 1000 appuser && \
+    adduser -D -s /bin/sh -u 1000 -G appuser appuser
+
+# 設定權限
+RUN chown -R appuser:appuser /usr/share/nginx/html
+
+# 健康檢查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:80/ || exit 1
+
+# 暴露端口
+EXPOSE 80
+
+# 啟動 nginx
+CMD ["nginx", "-g", "daemon off;"]

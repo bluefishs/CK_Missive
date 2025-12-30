@@ -1,0 +1,21 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔍 檢查環境變數配置..."
+
+# 檢查是否有8002硬編碼
+if grep -r "localhost:8002" . --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist --exclude=pre-commit; then
+  echo "❌ 發現硬編碼的8002端口，請修復後再提交"
+  exit 1
+fi
+
+# 檢查環境變數檔案
+if [ -f "scripts/env-manager.js" ]; then
+  node scripts/env-manager.js validate
+  if [ $? -ne 0 ]; then
+    echo "❌ 環境變數驗證失敗，請修復後再提交"
+    exit 1
+  fi
+fi
+
+echo "✅ 環境變數檢查通過"

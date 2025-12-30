@@ -1,0 +1,51 @@
+# Ignore Git
+.git
+.gitignore
+
+# Ignore Node.js modules and build artifacts
+node_modules
+dist
+
+# Ignore IDE files
+.vscode
+.idea
+
+# Ignore logs and temporary files
+*.log
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Ignore test-related files
+*.test.ts
+*.spec.ts
+
+# Ignore specific files
+.env.example
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+# Keep .env for main environment variables
+*.json # Be careful with this if you have config JSONs that need to be copied
+*.md
+*.ps1
+# *.html (需要保留 index.html)
+
+# Ignore linting and commit hook configs
+.eslintrc.json
+.prettierrc.json
+commitlint.config.js
+husky/
+
+# Ignore TypeScript config files that are not needed in the final build context
+tsconfig.json
+tsconfig.node.json
+
+# Ignore debug files
+debug-token.html
+fix-typescript-errors.js
+
+# Ignore nul file
+nul

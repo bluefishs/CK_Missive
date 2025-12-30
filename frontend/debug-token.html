@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Token</title>
+</head>
+<body>
+    <h1>Token Debug</h1>
+    <script>
+        console.log('Access Token:', localStorage.getItem('access_token'));
+        console.log('User Info:', localStorage.getItem('user_info'));
+        console.log('All localStorage keys:', Object.keys(localStorage));
+        
+        // 顯示在頁面上
+        document.body.innerHTML += '<p>Access Token: ' + localStorage.getItem('access_token') + '</p>';
+        document.body.innerHTML += '<p>User Info: ' + localStorage.getItem('user_info') + '</p>';
+        document.body.innerHTML += '<p>All keys: ' + Object.keys(localStorage).join(', ') + '</p>';
+    </script>
+</body>
+</html>

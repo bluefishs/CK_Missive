@@ -1,0 +1,552 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Table,
+  Button,
+  Space,
+  Typography,
+  Tag,
+  message,
+  Empty,
+  TableProps,
+  Tooltip,
+  Dropdown,
+  Menu,
+  Switch,
+  Checkbox,
+  Input
+} from 'antd';
+import type {
+  TablePaginationConfig,
+  FilterValue,
+  TableCurrentDataSource,
+  SortOrder,
+  SorterResult,
+} from 'antd/es/table/interface';
+import type { ColumnsType, ColumnType } from 'antd/es/table';
+
+import {
+  FileExcelOutlined,
+  SortAscendingOutlined,
+  SortDescendingOutlined,
+  FilterOutlined,
+  SettingOutlined,
+  EyeOutlined,
+  EyeInvisibleOutlined,
+  SearchOutlined,
+} from '@ant-design/icons';
+import { Document } from '../../types';
+import { DocumentActions, BatchActions } from './DocumentActions';
+
+const { Text } = Typography;
+
+interface DocumentListProps {
+  documents: Document[];
+  loading: boolean;
+  total: number;
+  pagination: {
+    current: number;
+    pageSize: number;
+  };
+  sortField?: string;
+  sortOrder?: SortOrder;
+  onTableChange?: (
+    pagination: TablePaginationConfig,
+    filters: Record<string, FilterValue | null>,
+    sorter: SorterResult<Document> | SorterResult<Document>[],
+    extra: TableCurrentDataSource<Document>
+  ) => void;
+  onEdit: (document: Document) => void;
+  onDelete: (document: Document) => void;
+  onView: (document: Document) => void;
+  onCopy?: (document: Document) => void;
+  onExportPdf?: (document: Document) => void;
+  onSend?: (document: Document) => void;
+  onArchive?: (document: Document) => void;
+  onAddToCalendar?: (document: Document) => void;
+  onExport?: (() => void) | undefined;
+  onBatchExport?: (documents: Document[]) => void;
+  onBatchDelete?: (documents: Document[]) => void;
+  onBatchArchive?: (documents: Document[]) => void;
+  onBatchCopy?: (documents: Document[]) => void;
+  enableBatchOperations?: boolean;
+  isExporting?: boolean;
+  isAddingToCalendar?: boolean;
+}
+
+// 定義可顯示的欄位配置
+interface ColumnConfig {
+  key: string;
+  title: string;
+  visible: boolean;
+  sortable: boolean;
+  filterable: boolean;
+  width?: number;
+}
+
+const defaultColumnConfigs: ColumnConfig[] = [
+  { key: 'doc_number', title: '公文字號', visible: true, sortable: true, filterable: true, width: 150 },
+  { key: 'subject', title: '主旨', visible: true, sortable: true, filterable: true, width: 300 },
+  { key: 'doc_type', title: '類型', visible: true, sortable: true, filterable: true, width: 100 },
+  { key: 'sender', title: '發文單位', visible: true, sortable: true, filterable: true, width: 150 },
+  { key: 'receiver', title: '受文單位', visible: true, sortable: true, filterable: true, width: 150 },
+  { key: 'contract_case', title: '承攬案件', visible: true, sortable: true, filterable: true, width: 200 },
+  { key: 'doc_date', title: '公文日期', visible: true, sortable: true, filterable: false, width: 120 },
+  { key: 'status', title: '狀態', visible: true, sortable: true, filterable: true, width: 100 },
+  { key: 'created_at', title: '建立時間', visible: false, sortable: true, filterable: false, width: 120 },
+  { key: 'updated_at', title: '更新時間', visible: false, sortable: true, filterable: false, width: 120 },
+];
+
+export const DocumentListEnhanced: React.FC<DocumentListProps> = ({
+  documents,
+  loading,
+  total,
+  pagination,
+  sortField,
+  sortOrder,
+  onTableChange,
+  onEdit,
+  onDelete,
+  onView,
+  onCopy,
+  onExportPdf,
+  onSend,
+  onArchive,
+  onAddToCalendar,
+  onExport,
+  onBatchExport,
+  onBatchDelete,
+  onBatchArchive,
+  onBatchCopy,
+  enableBatchOperations = true,
+  isExporting = false,
+  isAddingToCalendar = false,
+}) => {
+  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+  const [columnConfigs, setColumnConfigs] = useState<ColumnConfig[]>(defaultColumnConfigs);
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+
+  // 格式化日期
+  const formatDate = (dateString: string | null | undefined): string => {
+    if (!dateString) return '-';
+    try {
+      return new Date(dateString).toLocaleDateString('zh-TW');
+    } catch {
+      return dateString;
+    }
+  };
+
+  // 格式化狀態標籤
+  const formatStatusTag = (status: string | null | undefined) => {
+    if (!status) return <Tag color="default">未設定</Tag>;
+
+    const statusColors: Record<string, string> = {
+      '收文完成': 'green',
+      '使用者確認': 'blue',
+      '收文異常': 'red',
+      '待處理': 'orange',
+      '已辦畢': 'green',
+      '處理中': 'processing',
+    };
+
+    return <Tag color={statusColors[status] || 'default'}>{status}</Tag>;
+  };
+
+  // 處理欄位顯示切換
+  const handleColumnVisibilityChange = (columnKey: string, visible: boolean) => {
+    setColumnConfigs(prev =>
+      prev.map(config =>
+        config.key === columnKey ? { ...config, visible } : config
+      )
+    );
+  };
+
+  // 處理欄位篩選
+  const handleColumnFilter = (columnKey: string, value: string) => {
+    setColumnFilters(prev => ({
+      ...prev,
+      [columnKey]: value
+    }));
+  };
+
+  // 生成表格欄位配置
+  const generateColumns = (): ColumnsType<Document> => {
+    const visibleConfigs = columnConfigs.filter(config => config.visible);
+    const columns: ColumnsType<Document> = [];
+
+    visibleConfigs.forEach(config => {
+      let column: ColumnType<Document> = {
+        title: (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span>{config.title}</span>
+            {config.sortable && (
+              <Tooltip title="可排序">
+                <SortAscendingOutlined style={{ fontSize: '12px', color: '#999' }} />
+              </Tooltip>
+            )}
+            {config.filterable && (
+              <Tooltip title="可篩選">
+                <FilterOutlined style={{ fontSize: '12px', color: '#999' }} />
+              </Tooltip>
+            )}
+          </div>
+        ),
+        dataIndex: config.key,
+        key: config.key,
+        width: config.width,
+        ellipsis: true,
+        sorter: config.sortable,
+        sortOrder: sortField === config.key ? sortOrder : null,
+      };
+
+      // 特殊欄位處理
+      switch (config.key) {
+        case 'doc_number':
+          column.render = (text: string) => (
+            <Text copyable style={{ fontSize: '13px', fontFamily: 'monospace' }}>
+              {text || '-'}
+            </Text>
+          );
+          break;
+
+        case 'subject':
+          column.render = (text: string) => (
+            <Tooltip title={text}>
+              <div style={{
+                maxWidth: '280px',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}>
+                {text || '-'}
+              </div>
+            </Tooltip>
+          );
+          break;
+
+        case 'doc_type':
+          column.render = (text: string) => (
+            <Tag color="blue">{text || '-'}</Tag>
+          );
+          break;
+
+        case 'sender':
+        case 'receiver':
+          column.render = (text: string) => (
+            <Tooltip title={text}>
+              <div style={{
+                maxWidth: '140px',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}>
+                {text || '-'}
+              </div>
+            </Tooltip>
+          );
+          break;
+
+        case 'contract_case':
+          column.render = (text: string) => (
+            <Tooltip title={text}>
+              <div style={{
+                maxWidth: '180px',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                color: text ? '#1890ff' : undefined
+              }}>
+                {text || '-'}
+              </div>
+            </Tooltip>
+          );
+          break;
+
+        case 'doc_date':
+        case 'created_at':
+        case 'updated_at':
+          column.render = (text: string) => (
+            <span style={{ fontSize: '13px' }}>
+              {formatDate(text)}
+            </span>
+          );
+          break;
+
+        case 'status':
+          column.render = (text: string) => formatStatusTag(text);
+          break;
+      }
+
+      // 增加欄位篩選功能
+      if (config.filterable) {
+        column.filterDropdown = ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
+          <div style={{ padding: 8 }}>
+            <Input
+              placeholder={`搜尋${config.title}`}
+              value={selectedKeys[0]}
+              onChange={e => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+              onPressEnter={() => confirm()}
+              style={{ width: 188, marginBottom: 8, display: 'block' }}
+            />
+            <Space>
+              <Button
+                type="primary"
+                onClick={() => confirm()}
+                icon={<SearchOutlined />}
+                size="small"
+                style={{ width: 90 }}
+              >
+                搜尋
+              </Button>
+              <Button
+                onClick={() => {
+                  if (clearFilters) {
+                    clearFilters();
+                  }
+                }}
+                size="small"
+                style={{ width: 90 }}
+              >
+                重設
+              </Button>
+            </Space>
+          </div>
+        );
+        column.filterIcon = (filtered: boolean) => (
+          <SearchOutlined style={{ color: filtered ? '#1890ff' : undefined }} />
+        );
+        column.onFilter = (value, record) => {
+          const fieldValue = record[config.key as keyof Document];
+          return String(fieldValue || '').toLowerCase().includes(String(value).toLowerCase());
+        };
+      }
+
+      columns.push(column);
+    });
+
+    // 操作欄位
+    columns.push({
+      title: '操作',
+      key: 'actions',
+      fixed: 'right',
+      width: 120,
+      render: (_, record) => (
+        <DocumentActions
+          document={record}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onView={onView}
+          onCopy={onCopy}
+          onExportPdf={onExportPdf}
+          onSend={onSend}
+          onArchive={onArchive}
+          onAddToCalendar={onAddToCalendar}
+          isAddingToCalendar={isAddingToCalendar}
+        />
+      ),
+    });
+
+    return columns;
+  };
+
+  // 欄位配置選單
+  const columnConfigMenu = (
+    <Menu>
+      <Menu.ItemGroup title="顯示欄位">
+        {columnConfigs.map(config => (
+          <Menu.Item key={config.key} style={{ padding: '4px 12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span>{config.title}</span>
+              <Switch
+                size="small"
+                checked={config.visible}
+                onChange={(checked) => handleColumnVisibilityChange(config.key, checked)}
+                style={{ marginLeft: 8 }}
+              />
+            </div>
+          </Menu.Item>
+        ))}
+      </Menu.ItemGroup>
+      <Menu.Divider />
+      <Menu.Item key="reset">
+        <Button
+          type="link"
+          size="small"
+          onClick={() => setColumnConfigs(defaultColumnConfigs)}
+          style={{ padding: 0 }}
+        >
+          重設為預設值
+        </Button>
+      </Menu.Item>
+    </Menu>
+  );
+
+  const rowSelection = enableBatchOperations ? {
+    selectedRowKeys,
+    onChange: (selectedRowKeys: React.Key[]) => {
+      setSelectedRowKeys(selectedRowKeys);
+    },
+    onSelectAll: (selected: boolean, selectedRows: Document[], changeRows: Document[]) => {
+      if (selected) {
+        const newSelectedKeys = documents.map(doc => doc.id);
+        setSelectedRowKeys(newSelectedKeys);
+      } else {
+        setSelectedRowKeys([]);
+      }
+    },
+  } : undefined;
+
+  const selectedDocuments = documents.filter(doc => selectedRowKeys.includes(doc.id));
+
+  return (
+    <div>
+      {/* 表格工具列 */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16,
+        padding: '12px 16px',
+        backgroundColor: '#fafafa',
+        borderRadius: '6px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <Text>
+            共 <Text strong>{total}</Text> 筆資料
+            {selectedRowKeys.length > 0 && (
+              <span style={{ marginLeft: 8 }}>
+                (已選 <Text strong style={{ color: '#1890ff' }}>{selectedRowKeys.length}</Text> 筆)
+              </span>
+            )}
+          </Text>
+
+          {selectedRowKeys.length > 0 && enableBatchOperations && (
+            <BatchActions
+              selectedDocuments={selectedDocuments}
+              onBatchExport={onBatchExport}
+              onBatchDelete={onBatchDelete}
+              onBatchArchive={onBatchArchive}
+              onBatchCopy={onBatchCopy}
+            />
+          )}
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {onExport && (
+            <Tooltip title="匯出Excel">
+              <Button
+                icon={<FileExcelOutlined />}
+                onClick={onExport}
+                loading={isExporting}
+              >
+                匯出
+              </Button>
+            </Tooltip>
+          )}
+
+          <Dropdown overlay={columnConfigMenu} trigger={['click']} placement="bottomRight">
+            <Tooltip title="欄位設定">
+              <Button icon={<SettingOutlined />}>
+                欄位
+              </Button>
+            </Tooltip>
+          </Dropdown>
+        </div>
+      </div>
+
+      {/* 表格 */}
+      <Table<Document>
+        columns={generateColumns()}
+        dataSource={documents}
+        rowKey="id"
+        loading={loading}
+        pagination={{
+          current: pagination.current,
+          pageSize: pagination.pageSize,
+          total: total,
+          showSizeChanger: true,
+          showQuickJumper: true,
+          showTotal: (total, range) =>
+            `第 ${range[0]}-${range[1]} 筆，共 ${total} 筆`,
+          pageSizeOptions: ['10', '20', '50', '100'],
+        }}
+        rowSelection={rowSelection}
+        onChange={onTableChange}
+        scroll={{ x: 1200, y: 600 }}
+        size="small"
+        locale={{
+          emptyText: (
+            <Empty
+              description="暫無資料"
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+            />
+          )
+        }}
+        style={{
+          backgroundColor: '#fff',
+          borderRadius: '6px',
+          overflow: 'hidden'
+        }}
+        className="enhanced-document-table"
+      />
+
+      {/* 表格功能說明 */}
+      <div style={{
+        marginTop: 16,
+        padding: '8px 16px',
+        backgroundColor: '#f6f8fa',
+        borderRadius: '4px',
+        border: '1px solid #e1e8ed'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: '12px', color: '#666' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <SortAscendingOutlined />
+            <span>點擊欄位標題排序</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <SearchOutlined />
+            <span>點擊篩選圖示搜尋</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <SettingOutlined />
+            <span>自訂顯示欄位</span>
+          </div>
+          {enableBatchOperations && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Checkbox />
+              <span>批次操作</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 加入 CSS 樣式
+const styles = `
+.enhanced-document-table .ant-table-thead > tr > th {
+  background-color: #fafafa;
+  font-weight: 600;
+}
+
+.enhanced-document-table .ant-table-tbody > tr:hover > td {
+  background-color: #f5f9ff;
+}
+
+.enhanced-document-table .ant-table-tbody > tr.ant-table-row-selected > td {
+  background-color: #e6f7ff;
+}
+
+.enhanced-document-table .ant-table-filter-trigger-container {
+  padding: 0 4px;
+}
+`;
+
+// 動態注入樣式
+if (typeof document !== 'undefined') {
+  const styleSheet = document.createElement("style");
+  styleSheet.innerText = styles;
+  document.head.appendChild(styleSheet);
+}
+
+export default DocumentListEnhanced;

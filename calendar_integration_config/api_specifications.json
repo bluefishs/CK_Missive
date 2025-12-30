@@ -1,0 +1,23 @@
+{
+  "document_calendar_convert": {
+    "endpoint": "/api/document-calendar/convert",
+    "method": "POST",
+    "description": "將公文轉換為行事曆事件",
+    "request_body": {
+      "document_id": "公文ID",
+      "event_type": "事件類型 (deadline/meeting/review)",
+      "notification_recipients": "通知收件人列表",
+      "reminder_settings": "提醒設定"
+    }
+  },
+  "project_notification": {
+    "endpoint": "/api/notifications/project/{project_id}",
+    "method": "POST",
+    "description": "發送專案通知",
+    "request_body": {
+      "message": "通知訊息",
+      "recipients": "收件人列表",
+      "channels": "通知管道 (email/system/calendar)"
+    }
+  }
+}

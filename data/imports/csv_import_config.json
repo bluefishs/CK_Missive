@@ -1,0 +1,94 @@
+{
+  "folder_path": "data/imports/csv_data",
+  "database_path": "ck_documents.db",
+  "log_level": "INFO",
+  "expected_source_columns": [
+    "公文日期",
+    "類別", 
+    "字",
+    "文號",
+    "主旨",
+    "發文單位",
+    "受文單位",
+    "狀態",
+    "收文日期",
+    "使用者確認",
+    "備註",
+    "承攬案件"
+  ],
+  "field_config": {
+    "sent_electronic": {
+      "receive_date_field": "使用者確認",
+      "status_field": "狀態",
+      "description": "電子發文"
+    },
+    "receive_electronic": {
+      "receive_date_field": "收文日期", 
+      "status_field": "狀態",
+      "description": "電子收文"
+    },
+    "sent_paper": {
+      "receive_date_field": "使用者確認",
+      "status_field": "狀態", 
+      "description": "紙本發文"
+    },
+    "receive_paper": {
+      "receive_date_field": "收文日期",
+      "status_field": "狀態",
+      "description": "紙本收文"
+    }
+  },
+  "final_columns": [
+    "流水號",
+    "文件類型", 
+    "公文字號",
+    "日期",
+    "公文日期",
+    "類別",
+    "字",
+    "文號", 
+    "主旨",
+    "發文單位",
+    "受文單位",
+    "收發狀態",
+    "收文日期",
+    "發文形式",
+    "備註",
+    "承攬案件",
+    "系統輸出日期"
+  ],
+  "file_patterns": {
+    "_receivelist.csv": "receive_electronic",
+    "_sendlist.csv": "sent_electronic", 
+    "_preceivelist.csv": "receive_paper",
+    "_psendlist.csv": "sent_paper"
+  },
+  "encoding_options": [
+    "utf-8-sig",
+    "big5",
+    "utf-8"
+  ],
+  "date_format": {
+    "input_format": "民國年月日",
+    "output_format": "%Y-%m-%d",
+    "examples": [
+      "113年6月18日 → 2024-06-18",
+      "中華民國113年6月18日 → 2024-06-18"
+    ]
+  },
+  "database_mapping": {
+    "文件類型": "doc_type",
+    "公文字號": "doc_number", 
+    "日期": "doc_date",
+    "主旨": "subject",
+    "發文單位": "sender",
+    "受文單位": "receiver",
+    "收發狀態": "status",
+    "收文日期": "receive_date",
+    "類別": "category",
+    "字": "doc_zi",
+    "文號": "doc_wen_hao",
+    "承攬案件": "contract_case",
+    "備註": "tags"
+  }
+}

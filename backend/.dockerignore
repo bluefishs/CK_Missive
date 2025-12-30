@@ -1,0 +1,74 @@
+# Ignore Git
+.git
+.gitignore
+
+# Ignore Python cache and virtual environments
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.venv
+venv
+env
+
+# Ignore IDE files
+.vscode
+.idea
+
+# Ignore logs and temporary files
+*.log
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Ignore data directories that should be mounted as volumes
+data/
+logs/
+
+# Ignore test-related files
+.pytest_cache/
+test_*.py
+
+# Ignore specific files
+*.env
+.env.example
+*.json # Be careful with this if you have config JSONs that need to be copied
+*.md
+*.ps1
+*.vb
+*.html
+
+# Ignore build artifacts
+dist/
+build/
+
+# Ignore specific backend files that are not part of the application runtime
+alembic.ini
+check_navigation.py
+check_tables.py
+create_admin_user.py
+create_auth_migration.py
+create_regular_user.py
+create_tables.py
+create_test_users.py
+create_user.py
+fix_database_schema.py
+fix_navigation.py
+init_navigation.py
+rebuild_navigation.py
+setup_admin_fixed.py
+setup_admin_simple.py
+setup_admin.py
+test_clean_format.csv
+test_correct_format.csv
+test_documents.csv
+test_final_docs.csv
+test_new_docs.csv
+test_user_management.py
+Google_Calendar_Setup_Guide.md
+GOOGLE_CALENDAR_SETUP.md
+GoogleCalendarAPIKEY.json
+ck-missive-OAuth.json
+ck-missive-OAuth2.json
+=2.0.32

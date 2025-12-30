@@ -1,0 +1,62 @@
+# =============================================================================
+# 乾坤測繪公文管理系統 - 後端開發環境 Dockerfile
+# =============================================================================
+# 🎯 目標：開發環境專用，支援熱重載和快速啟動
+# 🔧 功能：不需要重新建置即可反映程式碼變更
+# =============================================================================
+
+FROM python:3.11-slim
+
+# 設定環境變數
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PIP_NO_CACHE_DIR=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# 安裝系統依賴
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    libpq-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# 設定工作目錄
+WORKDIR /app
+
+# 複製需求檔案並安裝 Python 依賴
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 🔥 開發環境：額外安裝開發工具
+RUN pip install --no-cache-dir \
+    watchdog \
+    python-dotenv \
+    ipdb \
+    pytest \
+    pytest-asyncio
+
+# 建立必要的目錄
+RUN mkdir -p /app/logs /app/uploads /app/static
+
+# 建立非 root 使用者（但保持開發便利性）
+RUN groupadd --gid 1000 appuser && \
+    useradd --uid 1000 --gid appuser --shell /bin/bash --create-home appuser
+
+# 🔥 開發模式：給使用者更多權限以便除錯
+RUN chown -R appuser:appuser /app && \
+    chmod -R 755 /app
+
+# 切換到非 root 使用者
+USER appuser
+
+# 健康檢查（簡化版本，適合開發）
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# 暴露端口
+EXPOSE 8000
+
+# 🔥 開發模式啟動命令：支援熱重載
+# 注意：實際命令會在 docker-compose.dev.yml 中覆蓋
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

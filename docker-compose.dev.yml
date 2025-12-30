@@ -1,0 +1,147 @@
+# =============================================================================
+# 乾坤測繪公文管理系統 - 開發環境 Docker Compose
+# =============================================================================
+# 🎯 目標：開發環境專用，支援熱重載和即時同步
+# 🔧 使用：docker-compose -f docker-compose.dev.yml up
+# =============================================================================
+
+name: ${COMPOSE_PROJECT_NAME}_dev
+
+services:
+  # --- 🗄️ PostgreSQL 資料庫服務 ---
+  postgres:
+    image: postgres:15-alpine
+    container_name: ${COMPOSE_PROJECT_NAME}_postgres_dev
+    env_file: .env
+    environment:
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "${POSTGRES_HOST_PORT}:${POSTGRES_CONTAINER_PORT}"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./configs/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - app_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- ⚡ Redis 快取服務 ---
+  redis:
+    image: redis:7-alpine
+    container_name: ${COMPOSE_PROJECT_NAME}_redis_dev
+    ports:
+      - "${REDIS_HOST_PORT}:${REDIS_CONTAINER_PORT}"
+    volumes:
+      - redis_dev_data:/data
+    networks:
+      - app_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # --- 🐍 FastAPI 後端服務 (開發模式 - 熱重載) ---
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: ${COMPOSE_PROJECT_NAME}_backend_dev
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://ck_user:ck_password_2024@postgres:5432/ck_documents
+      - REDIS_URL=redis://redis:6379/0
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+    ports:
+      - "${BACKEND_HOST_PORT}:${BACKEND_CONTAINER_PORT}"
+    volumes:
+      # 🔥 關鍵：掛載本地程式碼到容器，實現即時同步
+      - ./backend:/app
+      - /app/__pycache__  # 排除快取目錄
+      - /app/.pytest_cache  # 排除測試快取
+      - ./backend/uploads:/app/uploads
+      - ./backend/logs:/app/logs
+      - ./backend/GoogleCalendarAPIKEY.json:/app/GoogleCalendarAPIKEY.json:ro
+    networks:
+      - app_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    # 🔥 開發模式啟動命令：支援熱重載
+    command: uvicorn main:app --host 0.0.0.0 --port ${BACKEND_CONTAINER_PORT} --reload --reload-dir /app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${BACKEND_CONTAINER_PORT}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # --- ⚛️ React 前端服務 (開發模式 - Vite 開發伺服器) ---
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+      args:
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL}
+        - VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
+        - VITE_AUTH_DISABLED=${VITE_AUTH_DISABLED}
+        - NODE_ENV=development
+    container_name: ${COMPOSE_PROJECT_NAME}_frontend_dev
+    env_file: .env
+    environment:
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL}
+      - VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
+      - VITE_AUTH_DISABLED=${VITE_AUTH_DISABLED}
+    ports:
+      - "${FRONTEND_HOST_PORT}:${VITE_PORT}"
+    volumes:
+      # 🔥 關鍵：掛載本地程式碼到容器，實現即時同步
+      - ./frontend:/app
+      - /app/node_modules  # 排除 node_modules
+      - /app/dist  # 排除建置目錄
+      - ./frontend/logs:/app/logs
+    networks:
+      - app_network
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    # 🔥 開發模式啟動命令：Vite 開發伺服器
+    command: npm run dev -- --host 0.0.0.0 --port ${VITE_PORT}
+
+  # --- 🔧 Adminer 資料庫管理工具 ---
+  adminer:
+    image: adminer:4.8.1
+    container_name: ${COMPOSE_PROJECT_NAME}_adminer_dev
+    ports:
+      - "${ADMINER_HOST_PORT}:${ADMINER_CONTAINER_PORT}"
+    environment:
+      - ADMINER_DEFAULT_SERVER=postgres
+    networks:
+      - app_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+# --- 📦 持久化儲存 (開發環境專用) ---
+volumes:
+  postgres_dev_data:
+    name: ${COMPOSE_PROJECT_NAME}_postgres_dev_data
+  redis_dev_data:
+    name: ${COMPOSE_PROJECT_NAME}_redis_dev_data
+
+# --- 🌐 網路配置 ---
+networks:
+  app_network:
+    name: ck_missive_dev_network
+    driver: bridge

@@ -1,0 +1,49 @@
+{
+  "project": "CK_Missive",
+  "description": "統一端口配置檔案 - 所有服務端口的唯一真實來源",
+  "last_updated": "2025-09-22",
+  "last_fix_date": "2025-09-22",
+  "system_status": "stable",
+
+  "services": {
+    "frontend": {
+      "port": 3000,
+      "host": "0.0.0.0",
+      "url": "http://localhost:3000",
+      "strict_port": true,
+      "description": "React + Vite 前端開發服務器"
+    },
+    "backend": {
+      "port": 8001,
+      "host": "0.0.0.0",
+      "url": "http://localhost:8001",
+      "api_docs": "http://localhost:8001/api/docs",
+      "description": "FastAPI 後端服務"
+    },
+    "database": {
+      "host": "localhost",
+      "port": 5434,
+      "container_port": 5432,
+      "description": "PostgreSQL 資料庫"
+    },
+    "adminer": {
+      "port": 8080,
+      "url": "http://localhost:8080",
+      "description": "資料庫管理介面"
+    }
+  },
+
+  "api_endpoints": {
+    "base_url": "http://localhost:8001/api",
+    "proxy_base": "/api",
+    "health_check": "http://localhost:8001/health"
+  },
+
+  "google_oauth": {
+    "client_id": "482047526162-c91akhidlog5kheed42b8cfqv2g2qls5.apps.googleusercontent.com",
+    "allowed_origins": [
+      "http://localhost:3000",
+      "http://127.0.0.1:3000"
+    ]
+  }
+}

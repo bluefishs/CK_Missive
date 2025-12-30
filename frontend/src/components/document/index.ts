@@ -1,0 +1,2 @@
+// Document components index
+export {};

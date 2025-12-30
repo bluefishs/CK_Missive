@@ -1,0 +1,39 @@
+"""
+缺失的模型定義
+用於補完 EventReminder 和 SystemNotification 模型
+"""
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Boolean, TIMESTAMP
+from sqlalchemy.orm import relationship
+from app.db.database import Base
+
+class EventReminder(Base):
+    """事件提醒模型"""
+    __tablename__ = "event_reminders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    event_id = Column(Integer, ForeignKey('document_calendar_events.id', ondelete="CASCADE"), nullable=False, index=True)
+    reminder_type = Column(String(50), nullable=False, default="email", comment="提醒類型")
+    reminder_time = Column(TIMESTAMP, nullable=False, index=True, comment="提醒時間")
+    message = Column(Text, comment="提醒訊息")
+    is_sent = Column(Boolean, default=False, comment="是否已發送")
+    created_at = Column(DateTime, server_default="CURRENT_TIMESTAMP", comment="建立時間")
+    updated_at = Column(DateTime, server_default="CURRENT_TIMESTAMP", comment="更新時間")
+
+    # 關聯關係
+    event = relationship("DocumentCalendarEvent", back_populates="reminders")
+
+class SystemNotification(Base):
+    """系統通知模型"""
+    __tablename__ = "system_notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete="CASCADE"), nullable=True, index=True)
+    title = Column(String(200), nullable=False, comment="通知標題")
+    message = Column(Text, nullable=False, comment="通知內容")
+    notification_type = Column(String(50), default="info", comment="通知類型")
+    is_read = Column(Boolean, default=False, index=True, comment="是否已讀")
+    created_at = Column(DateTime, server_default="CURRENT_TIMESTAMP", index=True, comment="建立時間")
+    read_at = Column(DateTime, nullable=True, comment="已讀時間")
+
+    # 關聯關係
+    user = relationship("User", back_populates="notifications")

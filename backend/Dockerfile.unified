@@ -1,0 +1,59 @@
+# =============================================================================
+# 乾坤測繪公文管理系統 - 統一後端 Dockerfile
+# =============================================================================
+# 🎯 目標：標準化、可重現的後端容器建置
+# 🔧 功能：支援開發和生產環境
+# =============================================================================
+
+# 使用官方 Python 3.11 slim 映像作為基礎
+FROM python:3.11-slim as base
+
+# 設定建置參數
+ARG ENVIRONMENT=development
+ENV ENVIRONMENT=${ENVIRONMENT}
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PIP_NO_CACHE_DIR=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# 設定工作目錄
+WORKDIR /app
+
+# 安裝系統依賴
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    libpq-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# 複製需求檔案並安裝 Python 依賴
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 複製應用程式碼
+COPY . .
+
+# 建立必要的目錄
+RUN mkdir -p /app/logs /app/uploads /app/static
+
+# 設定權限
+RUN chmod +x /app/main.py
+
+# 建立非 root 使用者（安全性最佳實踐）
+RUN groupadd --gid 1000 appuser && \
+    useradd --uid 1000 --gid appuser --shell /bin/bash --create-home appuser && \
+    chown -R appuser:appuser /app
+
+# 切換到非 root 使用者
+USER appuser
+
+# 健康檢查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# 暴露端口
+EXPOSE 8000
+
+# 設定啟動命令
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
