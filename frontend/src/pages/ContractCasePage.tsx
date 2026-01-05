@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import type { InputRef, TableColumnType } from 'antd';
 import type { FilterDropdownProps } from 'antd/es/table/interface';
 import {
@@ -40,8 +40,7 @@ import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { ROUTES } from '../router/types';
 import ProjectVendorManagement from '../components/project/ProjectVendorManagement';
-// 使用統一 API 服務
-import { projectsApi } from '../api/projectsApi';
+import { useProjectsPage } from '../hooks';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -52,6 +51,13 @@ const CATEGORY_OPTIONS = [
   { value: '02', label: '02協力計畫', color: 'green' },
   { value: '03', label: '03小額採購', color: 'orange' },
   { value: '04', label: '04其他類別', color: 'default' },
+];
+
+// 案件性質選項
+const CASE_NATURE_OPTIONS = [
+  { value: '01', label: '01測量案' },
+  { value: '02', label: '02資訊案' },
+  { value: '03', label: '03複合案' },
 ];
 
 // 類別映射表 (處理舊資料格式)
@@ -89,6 +95,7 @@ interface Project {
   project_code?: string;
   year?: number;
   category?: string;
+  case_nature?: string;
   status?: string;
   client_agency?: string;
   contract_amount?: number;
@@ -104,6 +111,7 @@ interface ProjectFormData {
   project_code?: string;
   year?: number;
   category?: string;
+  case_nature?: string;
   status?: string;
   client_agency?: string;
   contract_amount?: number;
@@ -121,11 +129,8 @@ export const ContractCasePage: React.FC = () => {
   const navigate = useNavigate();
   const [form] = Form.useForm();
 
-  // ---[狀態管理]---
+  // ---[UI 狀態管理]---
   const [viewMode, setViewMode] = useState<ViewMode>('list');
-  const [loading, setLoading] = useState(false);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [total, setTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -134,11 +139,6 @@ export const ContractCasePage: React.FC = () => {
   const [yearFilter, setYearFilter] = useState<number | undefined>();
   const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
-
-  // 篩選選項
-  const [availableYears, setAvailableYears] = useState<number[]>([]);
-  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
-  const [availableStatuses, setAvailableStatuses] = useState<string[]>([]);
 
   // 模態框狀態
   const [modalVisible, setModalVisible] = useState(false);
@@ -153,6 +153,47 @@ export const ContractCasePage: React.FC = () => {
   const [columnSearchText, setColumnSearchText] = useState('');
   const [searchedColumn, setSearchedColumn] = useState('');
   const searchInput = useRef<InputRef>(null);
+
+  // ---[React Query Hook]---
+  const queryParams = useMemo(() => ({
+    page: currentPage,
+    limit: pageSize,
+    ...(searchText && { search: searchText }),
+    ...(yearFilter && { year: yearFilter }),
+    ...(categoryFilter && { category: categoryFilter }),
+    ...(statusFilter && { status: statusFilter }),
+  }), [currentPage, pageSize, searchText, yearFilter, categoryFilter, statusFilter]);
+
+  const {
+    projects,
+    pagination,
+    isLoading,
+    statistics,
+    availableYears,
+    availableCategories,
+    availableStatuses,
+    refetch,
+    createProject,
+    updateProject,
+    deleteProject,
+    isCreating,
+    isUpdating,
+    isDeleting,
+  } = useProjectsPage(queryParams);
+
+  const total = pagination?.total ?? 0;
+
+  // 全域統計數據
+  const globalStats = useMemo(() => {
+    if (!statistics) return { total: 0, inProgress: 0, completed: 0 };
+    const inProgressCount = statistics.status_breakdown?.find(s => s.status === '執行中')?.count || 0;
+    const completedCount = statistics.status_breakdown?.find(s => s.status === '已結案')?.count || 0;
+    return {
+      total: statistics.total_projects || 0,
+      inProgress: inProgressCount,
+      completed: completedCount,
+    };
+  }, [statistics]);
 
   // 欄位搜尋功能
   const handleColumnSearch = (
@@ -224,49 +265,9 @@ export const ContractCasePage: React.FC = () => {
       ) : text,
   });
 
-  // ---[API 呼叫]---
+  // ---[事件處理]---
 
-  // 載入專案列表 (使用統一 API 服務)
-  const loadProjects = async () => {
-    setLoading(true);
-    try {
-      const response = await projectsApi.getProjects({
-        page: currentPage,
-        limit: pageSize,
-        search: searchText || undefined,
-        year: yearFilter,
-        category: categoryFilter || undefined,
-        status: statusFilter || undefined,
-      });
-
-      // 統一 API 回傳 { items, pagination } 格式
-      setProjects(response.items || []);
-      setTotal(response.pagination?.total || 0);
-    } catch (error: any) {
-      message.error(error.message || '載入專案列表失敗');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 載入篩選選項 (使用統一 API 服務)
-  const loadFilterOptions = async () => {
-    try {
-      const [years, categories, statuses] = await Promise.all([
-        projectsApi.getYearOptions(),
-        projectsApi.getCategoryOptions(),
-        projectsApi.getStatusOptions(),
-      ]);
-
-      setAvailableYears(years || []);
-      setAvailableCategories(categories || []);
-      setAvailableStatuses(statuses || []);
-    } catch (error) {
-      console.error('載入篩選選項失敗:', error);
-    }
-  };
-
-  // 新增或編輯專案 (使用統一 API 服務)
+  // 新增或編輯專案
   const handleSubmit = async (values: ProjectFormData) => {
     try {
       const formData = {
@@ -276,42 +277,30 @@ export const ContractCasePage: React.FC = () => {
       };
 
       if (editingProject) {
-        await projectsApi.updateProject(editingProject.id, formData);
+        await updateProject({ projectId: editingProject.id, data: formData });
         message.success('專案更新成功');
       } else {
-        await projectsApi.createProject(formData);
+        await createProject(formData);
         message.success('專案建立成功');
       }
 
       setModalVisible(false);
       form.resetFields();
       setEditingProject(null);
-      loadProjects();
-      loadFilterOptions(); // 刷新篩選選項
     } catch (error: any) {
       message.error(error.message || '操作失敗');
     }
   };
 
-  // 刪除專案 (使用統一 API 服務)
+  // 刪除專案
   const handleDelete = async (id: number) => {
     try {
-      await projectsApi.deleteProject(id);
+      await deleteProject(id);
       message.success('專案刪除成功');
-      loadProjects();
     } catch (error: any) {
       message.error(error.message || '刪除失敗');
     }
   };
-
-  // ---[生命週期鉤子]---
-  useEffect(() => {
-    loadProjects();
-  }, [currentPage, pageSize, searchText, yearFilter, categoryFilter, statusFilter]);
-
-  useEffect(() => {
-    loadFilterOptions();
-  }, []);
 
   // ---[事件處理函式]---
   const handleView = (project: Project) => {
@@ -342,8 +331,7 @@ export const ContractCasePage: React.FC = () => {
   // ---[UI 輔助函式]---
   const getStatusColor = (status?: string) => {
     switch (status) {
-      case '執行中':
-      case '進行中': return 'processing';
+      case '執行中': return 'processing';
       case '已結案': return 'success';
       case '暫停': return 'warning';
       case '取消': return 'error';
@@ -353,8 +341,19 @@ export const ContractCasePage: React.FC = () => {
 
   // ---[渲染邏輯]---
 
-  // 列表視圖的欄位定義 - 含排序與篩選功能
+  // 列表視圖的欄位定義 - 欄位順序: 年度、專案名稱、委託單位、案件類別、案件狀態、契約期程
   const columns: TableColumnType<Project>[] = [
+    {
+      title: '年度',
+      dataIndex: 'year',
+      key: 'year',
+      width: 80,
+      align: 'center',
+      sorter: (a, b) => (a.year || 0) - (b.year || 0),
+      defaultSortOrder: 'descend',
+      filters: availableYears.map(y => ({ text: `${y}年`, value: y })),
+      onFilter: (value, record) => record.year === value,
+    },
     {
       title: '專案名稱',
       dataIndex: 'project_name',
@@ -377,14 +376,13 @@ export const ContractCasePage: React.FC = () => {
       ),
     },
     {
-      title: '年度',
-      dataIndex: 'year',
-      key: 'year',
-      width: 80,
-      align: 'center',
-      sorter: (a, b) => (a.year || 0) - (b.year || 0),
-      filters: availableYears.map(y => ({ text: `${y}年`, value: y })),
-      onFilter: (value, record) => record.year === value,
+      title: '委託單位',
+      dataIndex: 'client_agency',
+      key: 'client_agency',
+      width: 200,
+      ellipsis: true,
+      sorter: (a, b) => (a.client_agency || '').localeCompare(b.client_agency || '', 'zh-TW'),
+      ...getColumnSearchProps('client_agency'),
     },
     {
       title: '案件類別',
@@ -401,15 +399,6 @@ export const ContractCasePage: React.FC = () => {
       ),
     },
     {
-      title: '委託單位',
-      dataIndex: 'client_agency',
-      key: 'client_agency',
-      width: 200,
-      ellipsis: true,
-      sorter: (a, b) => (a.client_agency || '').localeCompare(b.client_agency || '', 'zh-TW'),
-      ...getColumnSearchProps('client_agency'),
-    },
-    {
       title: '案件狀態',
       dataIndex: 'status',
       key: 'status',
@@ -420,30 +409,15 @@ export const ContractCasePage: React.FC = () => {
       render: (status) => <Tag color={getStatusColor(status)}>{status || '未設定'}</Tag>,
     },
     {
-      title: '起始日期',
-      dataIndex: 'start_date',
-      key: 'start_date',
-      width: 120,
-      sorter: (a, b) => {
-        if (!a.start_date && !b.start_date) return 0;
-        if (!a.start_date) return 1;
-        if (!b.start_date) return -1;
-        return new Date(a.start_date).getTime() - new Date(b.start_date).getTime();
+      title: '契約期程',
+      key: 'contract_period',
+      width: 200,
+      render: (_, record) => {
+        const startDate = record.start_date ? dayjs(record.start_date).format('YYYY/MM/DD') : '';
+        const endDate = record.end_date ? dayjs(record.end_date).format('YYYY/MM/DD') : '';
+        if (!startDate && !endDate) return '-';
+        return `${startDate || '未定'}~${endDate || '未定'}`;
       },
-      render: (date) => date ? dayjs(date).format('YYYY-MM-DD') : '-',
-    },
-    {
-      title: '結束日期',
-      dataIndex: 'end_date',
-      key: 'end_date',
-      width: 120,
-      sorter: (a, b) => {
-        if (!a.end_date && !b.end_date) return 0;
-        if (!a.end_date) return 1;
-        if (!b.end_date) return -1;
-        return new Date(a.end_date).getTime() - new Date(b.end_date).getTime();
-      },
-      render: (date) => date ? dayjs(date).format('YYYY-MM-DD') : '-',
     },
     {
       title: '操作',
@@ -505,10 +479,16 @@ export const ContractCasePage: React.FC = () => {
               ]}
             >
               <Space direction="vertical" style={{ width: '100%' }}>
-                <div><Tag color={getStatusColor(item.status)}>{item.status || '未設定'}</Tag></div>
+                <div>
+                  <Tag color={getStatusColor(item.status)}>{item.status || '未設定'}</Tag>
+                  {item.year && <Tag>{item.year}年</Tag>}
+                </div>
                 <p><strong>委託單位:</strong> {item.client_agency || '-'}</p>
-                <p><strong>契約期程:</strong></p>
-                <p>{item.start_date ? dayjs(item.start_date).format('YYYY-MM-DD') : 'N/A'} ~ {item.end_date ? dayjs(item.end_date).format('YYYY-MM-DD') : 'N/A'}</p>
+                <p><strong>契約期程:</strong> {
+                  item.start_date || item.end_date
+                    ? `${item.start_date ? dayjs(item.start_date).format('YYYY/MM/DD') : '未定'}~${item.end_date ? dayjs(item.end_date).format('YYYY/MM/DD') : '未定'}`
+                    : '-'
+                }</p>
               </Space>
             </Card>
           </Col>
@@ -517,24 +497,17 @@ export const ContractCasePage: React.FC = () => {
     );
   };
 
-  // 統計數據 (同時計算 '執行中' 和 '進行中')
-  const statistics = {
-    total: total,
-    inProgress: projects.filter(p => p.status === '執行中' || p.status === '進行中').length,
-    completed: projects.filter(p => p.status === '已結案').length,
-  };
-
   return (
     <div style={{ padding: 24 }}>
-      {/* 頁面標題和統計 */}
+      {/* 頁面標題和統計 - 使用全域統計數據（從後端 API 取得） */}
       <Card style={{ marginBottom: 16 }}>
         <Row justify="space-between" align="middle">
           <Col><Title level={3} style={{ margin: 0 }}>承攬案件管理</Title></Col>
         </Row>
         <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-          <Col xs={12} sm={6} md={4}><Statistic title="總計案件" value={statistics.total} /></Col>
-          <Col xs={12} sm={6} md={4}><Statistic title="進行中" value={statistics.inProgress} /></Col>
-          <Col xs={12} sm={6} md={4}><Statistic title="已完成" value={statistics.completed} /></Col>
+          <Col xs={12} sm={6} md={4}><Statistic title="總計案件" value={globalStats.total} /></Col>
+          <Col xs={12} sm={6} md={4}><Statistic title="執行中" value={globalStats.inProgress} /></Col>
+          <Col xs={12} sm={6} md={4}><Statistic title="已結案" value={globalStats.completed} /></Col>
         </Row>
       </Card>
 
@@ -571,7 +544,7 @@ export const ContractCasePage: React.FC = () => {
             <Col>
               <Space>
                 <Button onClick={handleResetFilters}>重置篩選</Button>
-                <Button icon={<ReloadOutlined />} onClick={loadProjects}>重新載入</Button>
+                <Button icon={<ReloadOutlined />} onClick={() => refetch()}>重新載入</Button>
               </Space>
             </Col>
             <Col>
@@ -590,7 +563,7 @@ export const ContractCasePage: React.FC = () => {
 
       {/* 內容區域 */}
       <Card>
-        <Spin spinning={loading}>
+        <Spin spinning={isLoading || isDeleting}>
           {viewMode === 'list' ? (
             <Table
               columns={columns}
@@ -639,20 +612,20 @@ export const ContractCasePage: React.FC = () => {
         width={800}
         destroyOnHidden
       >
-        <Form form={form} layout="vertical" onFinish={handleSubmit} initialValues={{ status: '進行中' }}>
+        <Form form={form} layout="vertical" onFinish={handleSubmit} initialValues={{ status: '執行中' }}>
           <Form.Item name="project_name" label="專案名稱" rules={[{ required: true, message: '請輸入專案名稱' }]}>
             <Input placeholder="請輸入專案名稱" readOnly={modalMode === 'view'} />
           </Form.Item>
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="project_code" label="專案編號"><Input placeholder="請輸入專案編號" readOnly={modalMode === 'view'} /></Form.Item>
+              <Form.Item name="project_code" label="專案編號" tooltip="留空可自動產生 (CK年度_類別_性質_流水號)"><Input placeholder="留空自動產生" readOnly={modalMode === 'view'} /></Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item name="year" label="年度"><InputNumber placeholder="請輸入年度" min={2000} max={2050} style={{ width: '100%' }} readOnly={modalMode === 'view'} /></Form.Item>
             </Col>
           </Row>
           <Row gutter={16}>
-            <Col span={12}>
+            <Col span={8}>
               <Form.Item name="category" label="案件類別">
                 <Select placeholder="請選擇案件類別" disabled={modalMode === 'view'}>
                   {CATEGORY_OPTIONS.map(opt => (
@@ -661,7 +634,16 @@ export const ContractCasePage: React.FC = () => {
                 </Select>
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col span={8}>
+              <Form.Item name="case_nature" label="案件性質">
+                <Select placeholder="請選擇案件性質" disabled={modalMode === 'view'}>
+                  {CASE_NATURE_OPTIONS.map(opt => (
+                    <Option key={opt.value} value={opt.value}>{opt.label}</Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={8}>
               <Form.Item name="status" label="案件狀態">
                 <Select placeholder="請選擇狀態" disabled={modalMode === 'view'}>
                   {availableStatuses.map(stat => <Option key={stat} value={stat}>{stat}</Option>)}
@@ -693,7 +675,7 @@ export const ContractCasePage: React.FC = () => {
                 {modalMode === 'view' ? '關閉' : '取消'}
               </Button>
               {modalMode !== 'view' && (
-                <Button type="primary" htmlType="submit">
+                <Button type="primary" htmlType="submit" loading={isCreating || isUpdating}>
                   {modalMode === 'edit' ? '更新' : '建立'}
                 </Button>
               )}
