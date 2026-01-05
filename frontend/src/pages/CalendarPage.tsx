@@ -5,6 +5,7 @@ import type { CalendarProps } from 'antd';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import { EnhancedCalendarView } from '../components/calendar/EnhancedCalendarView';
+import { authService } from '../services/authService';
 
 const { Title, Text } = Typography;
 
@@ -51,8 +52,11 @@ const CalendarPage: React.FC = () => {
   const fetchCalendarEvents = async () => {
     try {
       setLoading(true);
-      const { authService } = await import('../services/authService');
       const api = authService.getAxiosInstance();
+      const userInfo = authService.getUserInfo();
+
+      // 取得當前使用者 ID，若無則使用預設值 1
+      const userId = userInfo?.id || 1;
 
       // 設定預設日期範圍：前1個月到後1個月
       const now = dayjs();
@@ -60,13 +64,34 @@ const CalendarPage: React.FC = () => {
       const endDate = now.add(1, 'month').format('YYYY-MM-DD');
 
       // 呼叫正確的API端點並提供日期範圍
-      const response = await api.get('/calendar/users/1/calendar-events', {
+      const response = await api.get(`/calendar/users/${userId}/calendar-events`, {
         params: {
           start_date: startDate,
           end_date: endDate
         }
       });
-      setCalendarEvents(response.data || []);
+
+      // 處理 API 回應格式 { events: [], total, ... }
+      const data = response.data;
+      if (data && Array.isArray(data.events)) {
+        // 轉換 API 回應格式以符合前端介面
+        const events: CalendarEvent[] = data.events.map((event: any) => ({
+          id: event.id,
+          title: event.title,
+          description: event.description,
+          start_datetime: event.start_date,
+          end_datetime: event.end_date,
+          document_id: event.document_id,
+          google_event_id: event.google_event_id,
+          google_sync_status: event.google_sync_status || 'pending'
+        }));
+        setCalendarEvents(events);
+      } else if (Array.isArray(data)) {
+        // 向後相容：若直接回傳陣列
+        setCalendarEvents(data);
+      } else {
+        setCalendarEvents([]);
+      }
     } catch (error: any) {
       console.warn('無法載入行事曆事件，使用空清單', error);
       setCalendarEvents([]);

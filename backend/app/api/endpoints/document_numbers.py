@@ -27,6 +27,7 @@ class DocumentNumberResponse(BaseModel):
     contract_case: str
     receiver: str
     doc_date: str
+    send_date: str  # 前端相容欄位 (與 doc_date 相同)
     status: str
 
 class DocumentNumberListResponse(BaseModel):
@@ -52,9 +53,13 @@ class DocumentNumberStats(BaseModel):
     yearly_stats: List[YearlyStats]
 
 class NextNumberResponse(BaseModel):
-    next_number: str
+    full_number: str
+    next_number: str  # 保留向後相容
     year: int
-    sequence: int
+    roc_year: int  # 民國年
+    sequence_number: int
+    sequence: int  # 保留向後相容
+    previous_max: int
 
 @router.get("", response_model=DocumentNumberListResponse)
 async def get_document_numbers(
@@ -124,6 +129,7 @@ async def get_document_numbers(
             if doc.contract_project:
                 contract_case_name = doc.contract_project.project_name or ""
 
+            doc_date_str = str(doc.doc_date) if doc.doc_date else ""
             items.append(DocumentNumberResponse(
                 id=doc.id,
                 doc_prefix=doc_prefix,
@@ -133,7 +139,8 @@ async def get_document_numbers(
                 subject=doc.subject or "",
                 contract_case=contract_case_name,
                 receiver=doc.receiver or "",
-                doc_date=str(doc.doc_date) if doc.doc_date else "",
+                doc_date=doc_date_str,
+                send_date=doc_date_str,  # 前端相容
                 status=doc.status or "draft"
             ))
         
@@ -252,24 +259,34 @@ async def get_next_document_number(
         
         result = await db.execute(query)
         max_sequence = result.scalar() or 0
-        
+
         next_sequence = max_sequence + 1
         next_number = f"{prefix}{next_sequence:010d}號"
-        
+        roc_year = current_year - 1911  # 民國年
+
         return NextNumberResponse(
+            full_number=next_number,
             next_number=next_number,
             year=current_year,
-            sequence=next_sequence
+            roc_year=roc_year,
+            sequence_number=next_sequence,
+            sequence=next_sequence,
+            previous_max=max_sequence
         )
-        
+
     except Exception:
         # 如果查詢失敗，返回默認的下一個號碼
         fallback_year = year or datetime.now().year
         next_sequence = 1
         next_number = f"{prefix}{next_sequence:010d}號"
+        roc_year = fallback_year - 1911
 
         return NextNumberResponse(
+            full_number=next_number,
             next_number=next_number,
             year=fallback_year,
-            sequence=next_sequence
+            roc_year=roc_year,
+            sequence_number=next_sequence,
+            sequence=next_sequence,
+            previous_max=0
         )
