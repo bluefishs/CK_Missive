@@ -11,10 +11,12 @@ import type {
 } from 'antd/es/table/interface';
 import type { ColumnsType } from 'antd/es/table';
 
-import { FileExcelOutlined, SearchOutlined } from '@ant-design/icons';
+import { FileExcelOutlined, SearchOutlined, PaperClipOutlined } from '@ant-design/icons';
 import Highlighter from 'react-highlight-words';
+import { message } from 'antd';
 import { Document } from '../../types';
 import { DocumentActions, BatchActions } from './DocumentActions';
+import { documentsApi } from '../../api/documentsApi';
 
 interface DocumentListProps {
   documents: Document[];
@@ -172,9 +174,22 @@ export const DocumentList: React.FC<DocumentListProps> = ({
       ),
   });
 
-  const handleBatchExportClick = () => {
-    console.log('批次匯出按鈕已被點擊，但功能尚未實作。');
-    // 未來可以在這裡加入實際的匯出邏輯
+  const handleBatchExportClick = async () => {
+    try {
+      // 如果有選取項目，匯出選取的公文；否則匯出全部
+      const documentIds = selectedRowKeys.length > 0
+        ? selectedRowKeys.map(key => Number(key))
+        : undefined;
+
+      message.loading({ content: '正在匯出公文...', key: 'export' });
+
+      await documentsApi.exportDocuments({ documentIds });
+
+      message.success({ content: '匯出成功！', key: 'export' });
+    } catch (error) {
+      console.error('匯出失敗:', error);
+      message.error({ content: '匯出失敗，請稍後再試', key: 'export' });
+    }
   };
 
   const handleBatchDeleteClick = () => {
@@ -225,6 +240,27 @@ export const DocumentList: React.FC<DocumentListProps> = ({
       ),
     },
     {
+      title: '發文形式',
+      dataIndex: 'delivery_method',
+      key: 'delivery_method',
+      width: 85,
+      align: 'center',
+      filters: [
+        { text: '電子', value: '電子' },
+        { text: '紙本', value: '紙本' },
+        { text: '電子+紙本', value: '電子+紙本' },
+      ],
+      onFilter: (value, record) => record.delivery_method === value,
+      render: (method: string) => {
+        const colorMap: Record<string, string> = {
+          '電子': 'green',
+          '紙本': 'orange',
+          '電子+紙本': 'blue',
+        };
+        return <Tag color={colorMap[method] || 'default'}>{method || '電子'}</Tag>;
+      },
+    },
+    {
       title: '類型',
       dataIndex: 'doc_type',
       key: 'doc_type',
@@ -245,7 +281,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
       render: (type: string) => <Tag color="blue">{type || '-'}</Tag>,
     },
     {
-      title: '文號',
+      title: '公文字號',
       dataIndex: 'doc_number',
       key: 'doc_number',
       width: 180,
@@ -329,7 +365,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
             tooltip: {
               title: text,
               placement: 'topLeft',
-              overlayStyle: { maxWidth: 500 }
+              styles: { root: { maxWidth: 500 } }
             }
           }}
         >
@@ -345,28 +381,159 @@ export const DocumentList: React.FC<DocumentListProps> = ({
       ),
     },
     {
-      title: '發文單位',
-      dataIndex: 'sender',
-      key: 'sender',
-      width: 140,
+      title: '收發單位',
+      key: 'correspondent',
+      width: 160,
       ellipsis: { showTitle: false },
-      sorter: (a, b) => (a.sender || '').localeCompare(b.sender || '', 'zh-TW'),
+      sorter: (a, b) => {
+        // 收文顯示 sender，發文顯示 receiver
+        const aValue = a.category === '收文' ? (a.sender || '') : (a.receiver || '');
+        const bValue = b.category === '收文' ? (b.sender || '') : (b.receiver || '');
+        return aValue.localeCompare(bValue, 'zh-TW');
+      },
       sortDirections: ['descend', 'ascend'],
-      ...getColumnSearchProps('sender'),
-      render: (sender: string) => (
-        <Typography.Text
-          type="secondary"
-          ellipsis={{ tooltip: { title: sender, placement: 'topLeft' } }}
-        >
-          {searchedColumn === 'sender' ? (
-            <Highlighter
-              highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
-              searchWords={[searchText]}
-              autoEscape
-              textToHighlight={sender || ''}
-            />
-          ) : sender}
-        </Typography.Text>
+      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters, close }) => (
+        <div style={{ padding: 8 }} onKeyDown={(e) => e.stopPropagation()}>
+          <Input
+            ref={searchInput}
+            placeholder="搜尋收發單位"
+            value={selectedKeys[0]}
+            onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+            onPressEnter={() => handleSearch(selectedKeys as string[], confirm, 'correspondent')}
+            style={{ marginBottom: 8, display: 'block' }}
+          />
+          <Space>
+            <Button
+              type="primary"
+              onClick={() => handleSearch(selectedKeys as string[], confirm, 'correspondent')}
+              icon={<SearchOutlined />}
+              size="small"
+              style={{ width: 90 }}
+            >
+              搜尋
+            </Button>
+            <Button
+              onClick={() => clearFilters && handleReset(clearFilters)}
+              size="small"
+              style={{ width: 90 }}
+            >
+              重置
+            </Button>
+            <Button type="link" size="small" onClick={() => close()}>
+              關閉
+            </Button>
+          </Space>
+        </div>
+      ),
+      filterIcon: (filtered: boolean) => (
+        <SearchOutlined style={{ color: filtered ? '#1677ff' : undefined }} />
+      ),
+      onFilter: (value, record) => {
+        // 收文搜尋 sender，發文搜尋 receiver
+        const targetValue = record.category === '收文' ? record.sender : record.receiver;
+        return targetValue
+          ? targetValue.toString().toLowerCase().includes((value as string).toLowerCase())
+          : false;
+      },
+      render: (_: any, record: Document) => {
+        // 收文顯示 sender (發文機關)，發文顯示 receiver (受文機關)
+        const rawValue = record.category === '收文' ? record.sender : record.receiver;
+        const labelPrefix = record.category === '收文' ? '來文：' : '發至：';
+        const labelColor = record.category === '收文' ? '#52c41a' : '#1890ff';
+
+        // 解析機關名稱：提取括號內的名稱，處理多個機關用 | 分隔的情況
+        // 格式: "CODE (NAME)" 或 "CODE (NAME) | CODE (NAME)"
+        const extractAgencyName = (value: string | undefined): string => {
+          if (!value) return '-';
+          // 處理多個機關的情況
+          const agencies = value.split(' | ').map(agency => {
+            // 提取括號內的名稱
+            const match = agency.match(/\(([^)]+)\)/);
+            return match ? match[1] : agency; // 如果沒有括號，返回原值
+          });
+          return agencies.join('、');
+        };
+
+        const displayValue = extractAgencyName(rawValue);
+
+        return (
+          <Typography.Text
+            ellipsis={{ tooltip: { title: displayValue, placement: 'topLeft' } }}
+          >
+            <span style={{ color: labelColor, fontWeight: 500, fontSize: '11px' }}>
+              {labelPrefix}
+            </span>
+            {searchedColumn === 'correspondent' ? (
+              <Highlighter
+                highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
+                searchWords={[searchText]}
+                autoEscape
+                textToHighlight={displayValue}
+              />
+            ) : displayValue}
+          </Typography.Text>
+        );
+      },
+    },
+    {
+      title: '承攬案件',
+      dataIndex: 'contract_project_name',
+      key: 'contract_project_name',
+      width: 180,
+      ellipsis: true,
+      render: (projectName: string | undefined) => (
+        projectName ? (
+          <Typography.Text
+            ellipsis={{ tooltip: { title: projectName, placement: 'topLeft' } }}
+            style={{ color: '#722ed1' }}
+          >
+            {projectName}
+          </Typography.Text>
+        ) : (
+          <Typography.Text type="secondary">-</Typography.Text>
+        )
+      ),
+    },
+    {
+      title: '業務同仁',
+      dataIndex: 'assigned_staff',
+      key: 'assigned_staff',
+      width: 150,
+      render: (staff: Array<{ user_id: number; name: string; role: string }> | undefined) => {
+        if (!staff || staff.length === 0) {
+          return <Typography.Text type="secondary">-</Typography.Text>;
+        }
+        return (
+          <Space size={[0, 4]} wrap>
+            {staff.map((s, index) => (
+              <Tag key={index} color="blue">
+                {s.name}
+                <span style={{ fontSize: '10px', color: '#999', marginLeft: 2 }}>
+                  ({s.role})
+                </span>
+              </Tag>
+            ))}
+          </Space>
+        );
+      },
+    },
+    {
+      title: '附件',
+      dataIndex: 'has_attachment',
+      key: 'has_attachment',
+      width: 60,
+      align: 'center',
+      filters: [
+        { text: '有附件', value: true },
+        { text: '無附件', value: false },
+      ],
+      onFilter: (value, record) => record.has_attachment === value,
+      render: (hasAttachment: boolean) => (
+        hasAttachment ? (
+          <Tag color="cyan" icon={<PaperClipOutlined />}>有</Tag>
+        ) : (
+          <Typography.Text type="secondary">-</Typography.Text>
+        )
       ),
     },
     {

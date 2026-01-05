@@ -145,6 +145,7 @@ export const documentsApi = {
       doc_type: params?.doc_type,
       year: params?.year,
       status: params?.status,
+      category: params?.category,  // 收發文分類 (receive=收文, send=發文)
       contract_case: params?.contract_case,
       sender: params?.sender,
       receiver: params?.receiver,
@@ -174,6 +175,7 @@ export const documentsApi = {
             doc_type: params?.doc_type,
             year: params?.year,
             status: params?.status,
+            category: params?.category,  // 收發文分類
             contract_case: params?.contract_case,
             sender: params?.sender,
             receiver: params?.receiver,
@@ -300,6 +302,99 @@ export const documentsApi = {
       limit,
     });
     return response.items;
+  },
+
+  /**
+   * 取得專案關聯公文（自動關聯機制）
+   *
+   * 根據 project_id 自動查詢該專案的所有關聯公文
+   *
+   * @param projectId 專案 ID
+   * @param page 頁碼
+   * @param limit 每頁筆數
+   * @returns 分頁公文列表
+   */
+  async getDocumentsByProject(
+    projectId: number,
+    page = 1,
+    limit = 50
+  ): Promise<PaginatedResponse<Document>> {
+    try {
+      return await apiClient.postList<Document>('/documents-enhanced/by-project', {
+        project_id: projectId,
+        page,
+        limit,
+      });
+    } catch (error) {
+      console.error('取得專案關聯公文失敗:', error);
+      return {
+        items: [],
+        pagination: {
+          total: 0,
+          page: 1,
+          limit,
+          total_pages: 0,
+          has_next: false,
+          has_prev: false,
+        },
+      };
+    }
+  },
+
+  /**
+   * 匯出公文為 CSV 檔案
+   *
+   * @param documentIds 指定匯出的公文 ID 列表 (可選)
+   * @param category 類別篩選 (可選)
+   * @param year 年度篩選 (可選)
+   */
+  async exportDocuments(options?: {
+    documentIds?: number[];
+    category?: string;
+    year?: number;
+  }): Promise<void> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/documents-enhanced/export`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          document_ids: options?.documentIds || null,
+          category: options?.category || null,
+          year: options?.year || null,
+          format: 'csv',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('匯出失敗');
+      }
+
+      // 取得檔案名稱
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = 'documents_export.csv';
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename=(.+)/);
+        if (match) {
+          filename = match[1].replace(/"/g, '');
+        }
+      }
+
+      // 下載檔案
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('匯出公文失敗:', error);
+      throw error;
+    }
   },
 };
 
