@@ -428,7 +428,7 @@ export const StaffPage: React.FC = () => {
         }}
         footer={null}
         width={600}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form
           layout="vertical"

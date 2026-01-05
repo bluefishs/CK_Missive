@@ -28,6 +28,7 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
+import { API_BASE_URL } from '../../api/client';
 
 const { Option } = Select;
 
@@ -92,7 +93,7 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
     
     setLoading(true);
     try {
-      const response = await fetch(`/api/project-vendors/project/${projectId}`);
+      const response = await fetch(`${API_BASE_URL}/project-vendors/project/${projectId}`);
       const data = await response.json();
 
       if (response.ok) {
@@ -110,7 +111,7 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
   // 載入可選廠商
   const loadVendors = async () => {
     try {
-      const response = await fetch('/api/vendors?limit=1000');
+      const response = await fetch(`${API_BASE_URL}/vendors?limit=1000`);
       const data = await response.json();
 
       if (response.ok) {
@@ -145,7 +146,7 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
       if (editingAssociation) {
         // 更新關聯
         response = await fetch(
-          `/api/project-vendors/project/${projectId}/vendor/${editingAssociation.vendor_id}`,
+          `${API_BASE_URL}/project-vendors/project/${projectId}/vendor/${editingAssociation.vendor_id}`,
           {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -160,7 +161,7 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
         );
       } else {
         // 新增關聯
-        response = await fetch('/api/project-vendors', {
+        response = await fetch(`${API_BASE_URL}/project-vendors`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData),
@@ -186,7 +187,7 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
   const handleDelete = async (vendorId: number) => {
     try {
       const response = await fetch(
-        `/api/project-vendors/project/${projectId}/vendor/${vendorId}`,
+        `${API_BASE_URL}/project-vendors/project/${projectId}/vendor/${vendorId}`,
         { method: 'DELETE' }
       );
 
