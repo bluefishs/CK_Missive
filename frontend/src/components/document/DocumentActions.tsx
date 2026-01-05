@@ -1,16 +1,14 @@
 import React, { useState } from 'react';
 import { Button, Space, Popconfirm, Tooltip, Dropdown, App } from 'antd';
 import {
-  EditOutlined,
   DeleteOutlined,
-  EyeOutlined,
   FilePdfOutlined,
   CopyOutlined,
   SendOutlined,
   FileZipOutlined,
   MoreOutlined,
   ExportOutlined,
-  CalendarOutlined, // Add this import
+  CalendarOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { Document } from '../../types';
@@ -72,8 +70,6 @@ export const DocumentActions: React.FC<DocumentActionsProps> = ({
     title: string;
     icon: React.ReactNode;
   }[] = [
-    { key: 'view', handler: onView, title: '檢視', icon: <EyeOutlined /> },
-    { key: 'edit', handler: onEdit, title: '編輯', icon: <EditOutlined /> },
     { key: 'delete', handler: onDelete, title: '刪除', icon: <DeleteOutlined /> },
     ...(onCopy
       ? [{ key: 'copy', handler: onCopy, title: '複製內容', icon: <CopyOutlined /> }]
@@ -136,29 +132,14 @@ export const DocumentActions: React.FC<DocumentActionsProps> = ({
     },
   ];
 
-  // 主要按鈕只顯示「檢視」和「編輯」
+  // 操作按鈕：只顯示下拉選單（點擊列可檢視/編輯）
   if (mode === 'buttons') {
     return (
-      <Space size="small">
-        <Button
-          type="primary"
-          icon={<EyeOutlined />}
-          onClick={() => handleAction('view', onView)}
-          loading={!!loading['view']}
-          size={size}
-        >
-          檢視
-        </Button>
-        <Button
-          icon={<EditOutlined />}
-          onClick={() => handleAction('edit', onEdit)}
-          loading={!!loading['edit']}
-          size={size}
-        >
-          編輯
-        </Button>
+      <Space size="small" onClick={(e) => e.stopPropagation()}>
         <Dropdown menu={{ items: moreMenuItems }} trigger={['click']}>
-          <Button icon={<MoreOutlined />} size={size} />
+          <Button icon={<MoreOutlined />} size={size}>
+            更多
+          </Button>
         </Dropdown>
       </Space>
     );
@@ -184,7 +165,7 @@ export const DocumentActions: React.FC<DocumentActionsProps> = ({
 
   // Default to dropdown mode
   return (
-    <Dropdown menu={{ items: menuItems }} trigger={['click']}>
+    <Dropdown menu={{ items: moreMenuItems }} trigger={['click']}>
       <Button icon={<MoreOutlined />} size={size} />
     </Dropdown>
   );

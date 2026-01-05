@@ -8,6 +8,7 @@ from datetime import datetime
 class AgencyBase(BaseModel):
     """所有 Agency schema 的基礎模型，定義通用欄位"""
     agency_name: str = Field(..., max_length=200)
+    agency_short_name: Optional[str] = Field(None, max_length=100, description="機關簡稱")
     agency_code: Optional[str] = Field(None, max_length=50)
     agency_type: Optional[str] = Field(None, max_length=50)
     contact_person: Optional[str] = Field(None, max_length=100)
@@ -24,6 +25,7 @@ class AgencyCreate(AgencyBase):
 class AgencyUpdate(BaseModel):
     """用於更新機關單位的 schema，所有欄位皆為可選"""
     agency_name: Optional[str] = Field(None, max_length=200)
+    agency_short_name: Optional[str] = Field(None, max_length=100, description="機關簡稱")
     agency_code: Optional[str] = Field(None, max_length=50)
     agency_type: Optional[str] = Field(None, max_length=50)
     contact_person: Optional[str] = Field(None, max_length=100)

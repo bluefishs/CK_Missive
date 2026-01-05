@@ -8,13 +8,20 @@ from datetime import datetime
 # 從共享的 database.py 匯入 Base，確保所有模型都使用同一個 metadata
 from app.db.database import Base
 
-# ... (關聯表定義保持不變) ...
+# 案件與廠商關聯表
 project_vendor_association = Table(
     'project_vendor_association',
     Base.metadata,
     Column('project_id', Integer, ForeignKey('contract_projects.id'), primary_key=True),
     Column('vendor_id', Integer, ForeignKey('partner_vendors.id'), primary_key=True),
-    # ... 其他欄位
+    Column('role', String(50), comment="廠商在專案中的角色 (主承包商/分包商/供應商)"),
+    Column('contract_amount', Float, comment="該廠商的合約金額"),
+    Column('start_date', Date, comment="合作開始日期"),
+    Column('end_date', Date, comment="合作結束日期"),
+    Column('status', String(20), comment="合作狀態"),
+    Column('created_at', DateTime, server_default=func.now(), comment="關聯建立時間"),
+    Column('updated_at', DateTime, server_default=func.now(), comment="關聯更新時間"),
+    extend_existing=True
 )
 
 # 移除重複的 Table 定義，改用 class 模型
@@ -55,15 +62,20 @@ class PartnerVendor(Base):
 class ContractProject(Base):
     __tablename__ = "contract_projects"
     id = Column(Integer, primary_key=True, index=True)
-    project_name = Column(String(500), nullable=False, comment="專案名稱")
-    project_code = Column(String(100), unique=True, comment="專案代碼")
+    project_name = Column(String(500), nullable=False, comment="案件名稱")
     year = Column(Integer, nullable=False, comment="年度")
-    category = Column(String(50), comment="類別")
-    status = Column(String(50), comment="狀態")
-    client_agency = Column(String(200), comment="委託機關")
-    contract_amount = Column(Float, comment="合約金額")
+    client_agency = Column(String(200), comment="委託單位")
+    category = Column(String(50), comment="案件類別: 01委辦案件、02協力計畫、03小額採購、04其他類別")
+    contract_doc_number = Column(String(100), comment="契約文號")
+    project_code = Column(String(100), unique=True, comment="專案編號: 年度+類別+流水號 (如202501001)")
+    contract_amount = Column(Float, comment="契約金額")
+    winning_amount = Column(Float, comment="得標金額")
     start_date = Column(Date, comment="開始日期")
     end_date = Column(Date, comment="結束日期")
+    status = Column(String(50), comment="執行狀態")
+    progress = Column(Integer, default=0, comment="完成進度 (0-100)")
+    notes = Column(Text, comment="備註")
+    project_path = Column(String(500), comment="專案路徑")
     description = Column(Text, comment="專案描述")
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now())
@@ -120,6 +132,7 @@ class GovernmentAgency(Base):
     __tablename__ = "government_agencies"
     id = Column(Integer, primary_key=True, index=True)
     agency_name = Column(String(200), nullable=False, comment="機關名稱")
+    agency_short_name = Column(String(100), comment="機關簡稱")
     agency_code = Column(String(50), comment="機關代碼")
     agency_type = Column(String(50), comment="機關類型")
     contact_person = Column(String(100), comment="聯絡人")

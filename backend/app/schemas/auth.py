@@ -13,6 +13,7 @@ class AuthProvider(str, Enum):
 class UserRole(str, Enum):
     UNVERIFIED = "unverified"
     USER = "user"
+    STAFF = "staff"  # 承辦同仁
     ADMIN = "admin"
     SUPERUSER = "superuser"
 

@@ -19,14 +19,13 @@ import {
 import {
   PlusOutlined,
   SearchOutlined,
-  EditOutlined,
   DeleteOutlined,
   UserOutlined,
   PhoneOutlined,
   MailOutlined,
   ShopOutlined
 } from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
+import type { TableColumnType } from 'antd';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -169,11 +168,12 @@ const VendorList: React.FC = () => {
     return 'red';
   };
 
-  const columns: ColumnsType<Vendor> = [
+  const columns: TableColumnType<Vendor>[] = [
     {
       title: '廠商名稱',
       dataIndex: 'vendor_name',
       key: 'vendor_name',
+      sorter: (a, b) => a.vendor_name.localeCompare(b.vendor_name, 'zh-TW'),
       render: (text: string, record: Vendor) => (
         <Space direction="vertical" size="small">
           <strong>{text}</strong>
@@ -186,6 +186,7 @@ const VendorList: React.FC = () => {
     {
       title: '聯絡資訊',
       key: 'contact',
+      sorter: (a, b) => (a.contact_person || '').localeCompare(b.contact_person || '', 'zh-TW'),
       render: (_, record: Vendor) => (
         <Space direction="vertical" size="small">
           {record.contact_person && (
@@ -204,12 +205,23 @@ const VendorList: React.FC = () => {
       title: '營業項目',
       dataIndex: 'business_type',
       key: 'business_type',
+      sorter: (a, b) => (a.business_type || '').localeCompare(b.business_type || '', 'zh-TW'),
       render: (text: string) => text && <Tag icon={<ShopOutlined />}>{text}</Tag>,
     },
     {
       title: '評價',
       dataIndex: 'rating',
       key: 'rating',
+      sorter: (a, b) => (a.rating || 0) - (b.rating || 0),
+      filters: [
+        { text: '5星', value: 5 },
+        { text: '4星', value: 4 },
+        { text: '3星', value: 3 },
+        { text: '2星', value: 2 },
+        { text: '1星', value: 1 },
+        { text: '未評價', value: 0 },
+      ],
+      onFilter: (value, record) => (record.rating || 0) === value,
       render: (rating: number) => (
         rating ? (
           <Tag color={getRatingColor(rating)}>
@@ -222,36 +234,34 @@ const VendorList: React.FC = () => {
       title: '建立時間',
       dataIndex: 'created_at',
       key: 'created_at',
+      sorter: (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
       render: (date: string) => new Date(date).toLocaleDateString(),
     },
     {
       title: '操作',
       key: 'action',
+      width: 80,
       render: (_, record: Vendor) => (
-        <Space>
+        <Popconfirm
+          title="確定要刪除此廠商嗎？"
+          description="刪除後無法恢復，且需確保沒有關聯的專案。"
+          onConfirm={(e) => {
+            e?.stopPropagation();
+            handleDelete(record.id);
+          }}
+          onCancel={(e) => e?.stopPropagation()}
+          okText="確定"
+          cancelText="取消"
+        >
           <Button
             type="link"
-            icon={<EditOutlined />}
-            onClick={() => handleEdit(record)}
+            danger
+            icon={<DeleteOutlined />}
+            onClick={(e) => e.stopPropagation()}
           >
-            編輯
+            刪除
           </Button>
-          <Popconfirm
-            title="確定要刪除此廠商嗎？"
-            description="刪除後無法恢復，且需確保沒有關聯的專案。"
-            onConfirm={() => handleDelete(record.id)}
-            okText="確定"
-            cancelText="取消"
-          >
-            <Button
-              type="link"
-              danger
-              icon={<DeleteOutlined />}
-            >
-              刪除
-            </Button>
-          </Popconfirm>
-        </Space>
+        </Popconfirm>
       ),
     },
   ];
@@ -321,6 +331,10 @@ const VendorList: React.FC = () => {
           dataSource={vendors}
           rowKey="id"
           loading={loading}
+          onRow={(record) => ({
+            onClick: () => handleEdit(record),
+            style: { cursor: 'pointer' },
+          })}
           pagination={{
             current,
             pageSize,

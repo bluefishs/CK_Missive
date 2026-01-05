@@ -4,7 +4,7 @@ Service layer for Government Agency operations (Refactored)
 import logging
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func, desc, or_
 
 from app.extended.models import GovernmentAgency, OfficialDocument
 from app.schemas.agency import AgencyCreate, AgencyUpdate
@@ -56,7 +56,14 @@ class AgencyService:
 
     async def get_agencies_with_stats(self, db: AsyncSession, skip: int, limit: int, search: Optional[str]) -> Dict[str, Any]:
         query = select(GovernmentAgency)
-        if search: query = query.where(GovernmentAgency.agency_name.ilike(f"%{search}%"))
+        if search:
+            # 支援搜尋機關名稱和簡稱
+            query = query.where(
+                or_(
+                    GovernmentAgency.agency_name.ilike(f"%{search}%"),
+                    GovernmentAgency.agency_short_name.ilike(f"%{search}%")
+                )
+            )
         count_query = select(func.count()).select_from(query.subquery())
         total = (await db.execute(count_query)).scalar_one()
         agencies_result = await db.execute(query.order_by(desc(func.coalesce(GovernmentAgency.updated_at, GovernmentAgency.created_at))).offset(skip).limit(limit))
@@ -69,7 +76,8 @@ class AgencyService:
         received_count = (await db.execute(select(func.count()).where(OfficialDocument.receiver_agency_id == agency.id))).scalar() or 0
         return {
             "id": agency.id,
-            "agency_name": agency.agency_name,  # 修復：使用正確的欄位名稱
+            "agency_name": agency.agency_name,
+            "agency_short_name": agency.agency_short_name,  # 機關簡稱
             "agency_code": agency.agency_code,
             "agency_type": agency.agency_type,
             "contact_person": agency.contact_person,

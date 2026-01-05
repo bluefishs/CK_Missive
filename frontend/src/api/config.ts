@@ -1,7 +1,10 @@
 import axios from 'axios';
 
 // API 基本配置 - 使用 Vite 代理
-export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001') + '/api';
+// 當未設定 VITE_API_BASE_URL 時，使用相對路徑透過 Vite proxy
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+  ? `${import.meta.env.VITE_API_BASE_URL}/api`
+  : '/api';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,

@@ -2,19 +2,24 @@ import { apiClient } from './config';
 
 // ========== 專案類型定義 ==========
 
-// 後端專案回應格式
+// 後端專案回應格式 - 完整欄位
 interface ProjectResponse {
   id: number;
-  project_name: string;
-  project_code?: string;
-  year: number;
-  category?: string;
-  status?: string;
-  client_agency?: string;
-  contract_amount?: number;
-  start_date?: string;
-  end_date?: string;
-  description?: string;
+  project_name: string;           // 案件名稱
+  year: number;                   // 年度
+  client_agency?: string;         // 委託單位
+  category?: string;              // 案件類別 (01-04)
+  contract_doc_number?: string;   // 契約文號
+  project_code?: string;          // 專案編號 (年度+類別+流水號)
+  contract_amount?: number;       // 契約金額
+  winning_amount?: number;        // 得標金額
+  start_date?: string;            // 開始日期
+  end_date?: string;              // 結束日期
+  status?: string;                // 執行狀態
+  progress?: number;              // 完成進度 (0-100)
+  notes?: string;                 // 備註
+  project_path?: string;          // 專案路徑
+  description?: string;           // 專案描述
   created_at: string;
   updated_at: string;
 }

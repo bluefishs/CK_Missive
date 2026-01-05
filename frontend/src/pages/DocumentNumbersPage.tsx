@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import type { TableColumnType } from 'antd';
 import {
   Card,
   Button,
@@ -22,16 +23,14 @@ import {
 import {
   PlusOutlined,
   ReloadOutlined,
-  EyeOutlined,
   EditOutlined,
   FileTextOutlined,
   NumberOutlined,
-  CalendarOutlined,
   SearchOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
+import { useTableColumnSearch } from '../hooks/useTableColumnSearch';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -81,6 +80,9 @@ export const DocumentNumbersPage: React.FC = () => {
   const [pageSize, setPageSize] = useState(20);
   const [stats, setStats] = useState<Stats | null>(null);
   const [nextNumber, setNextNumber] = useState<NextNumber | null>(null);
+
+  // 使用表格搜尋 Hook
+  const { getColumnSearchProps, searchedColumn, searchText } = useTableColumnSearch<DocumentNumber>();
 
   // 篩選條件
   const [filters, setFilters] = useState({
@@ -236,15 +238,15 @@ export const DocumentNumbersPage: React.FC = () => {
     }
   };
 
-  // 表格欄位定義
-  const columns: ColumnsType<DocumentNumber> = [
+  // 表格欄位定義 - 含排序與篩選功能
+  const columns: TableColumnType<DocumentNumber>[] = [
     {
       title: '發文字號',
       dataIndex: 'full_number',
       key: 'full_number',
       width: 200,
-      sorter: true,
-      sortOrder: sortField === 'full_number' ? sortOrder : null,
+      sorter: (a, b) => a.full_number.localeCompare(b.full_number),
+      ...getColumnSearchProps('full_number'),
       render: (text) => <Text strong copyable>{text}</Text>
     },
     {
@@ -253,8 +255,9 @@ export const DocumentNumbersPage: React.FC = () => {
       key: 'year',
       width: 80,
       align: 'center',
-      sorter: true,
-      sortOrder: sortField === 'year' ? sortOrder : null,
+      sorter: (a, b) => a.year - b.year,
+      filters: stats?.yearly_stats?.map(s => ({ text: `${s.year}年`, value: s.year })) || [],
+      onFilter: (value, record) => record.year === value,
       render: (year) => <Tag color="blue">{year}</Tag>
     },
     {
@@ -263,8 +266,8 @@ export const DocumentNumbersPage: React.FC = () => {
       key: 'sequence_number',
       width: 100,
       align: 'center',
-      sorter: true,
-      sortOrder: sortField === 'sequence_number' ? sortOrder : null,
+      sorter: (a, b) => a.sequence_number - b.sequence_number,
+      defaultSortOrder: 'descend',
       render: (num) => <Text code>{num ? num.toString().padStart(6, '0') : '000000'}</Text>
     },
     {
@@ -272,8 +275,8 @@ export const DocumentNumbersPage: React.FC = () => {
       dataIndex: 'subject',
       key: 'subject',
       ellipsis: true,
-      sorter: true,
-      sortOrder: sortField === 'subject' ? sortOrder : null,
+      sorter: (a, b) => (a.subject || '').localeCompare(b.subject || '', 'zh-TW'),
+      ...getColumnSearchProps('subject'),
       render: (text) => text || <Text type="secondary">未填寫</Text>
     },
     {
@@ -282,8 +285,8 @@ export const DocumentNumbersPage: React.FC = () => {
       key: 'contract_case',
       width: 200,
       ellipsis: true,
-      sorter: true,
-      sortOrder: sortField === 'contract_case' ? sortOrder : null,
+      sorter: (a, b) => (a.contract_case || '').localeCompare(b.contract_case || '', 'zh-TW'),
+      ...getColumnSearchProps('contract_case'),
       render: (text) => text || <Text type="secondary">無</Text>
     },
     {
@@ -292,8 +295,8 @@ export const DocumentNumbersPage: React.FC = () => {
       key: 'receiver',
       width: 180,
       ellipsis: true,
-      sorter: true,
-      sortOrder: sortField === 'receiver' ? sortOrder : null,
+      sorter: (a, b) => (a.receiver || '').localeCompare(b.receiver || '', 'zh-TW'),
+      ...getColumnSearchProps('receiver'),
       render: (text) => text || <Text type="secondary">未填寫</Text>
     },
     {
@@ -302,8 +305,12 @@ export const DocumentNumbersPage: React.FC = () => {
       key: 'send_date',
       width: 120,
       align: 'center',
-      sorter: true,
-      sortOrder: sortField === 'send_date' ? sortOrder : null,
+      sorter: (a, b) => {
+        if (!a.send_date && !b.send_date) return 0;
+        if (!a.send_date) return 1;
+        if (!b.send_date) return -1;
+        return new Date(a.send_date).getTime() - new Date(b.send_date).getTime();
+      },
       render: (date) => date ? dayjs(date).format('YYYY-MM-DD') : <Text type="secondary">未設定</Text>
     },
     {
@@ -312,8 +319,12 @@ export const DocumentNumbersPage: React.FC = () => {
       key: 'status',
       width: 100,
       align: 'center',
-      sorter: true,
-      sortOrder: sortField === 'status' ? sortOrder : null,
+      filters: [
+        { text: '草稿', value: 'draft' },
+        { text: '已發文', value: 'sent' },
+        { text: '已歸檔', value: 'archived' },
+      ],
+      onFilter: (value, record) => record.status === value,
       render: (status) => {
         const statusConfig = {
           'draft': { color: 'orange', text: '草稿' },
@@ -323,31 +334,6 @@ export const DocumentNumbersPage: React.FC = () => {
         const config = statusConfig[status as keyof typeof statusConfig] || { color: 'default', text: status };
         return <Tag color={config.color}>{config.text}</Tag>;
       }
-    },
-    {
-      title: '操作',
-      key: 'actions',
-      width: 120,
-      fixed: 'right',
-      render: (_, record) => (
-        <Space>
-          <Tooltip title="檢視">
-            <Button
-              type="text"
-              size="small"
-              icon={<EyeOutlined />}
-            />
-          </Tooltip>
-          <Tooltip title="編輯">
-            <Button
-              type="text"
-              size="small"
-              icon={<EditOutlined />}
-              onClick={() => handleEdit(record)}
-            />
-          </Tooltip>
-        </Space>
-      ),
     },
   ];
 
@@ -503,6 +489,10 @@ export const DocumentNumbersPage: React.FC = () => {
           rowKey="id"
           loading={loading}
           onChange={handleTableChange}
+          onRow={(record) => ({
+            onClick: () => handleEdit(record),
+            style: { cursor: 'pointer' },
+          })}
           pagination={{
             current: currentPage,
             pageSize: pageSize,

@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import type { InputRef, TableColumnType } from 'antd';
+import type { FilterDropdownProps } from 'antd/es/table/interface';
 import {
   Card,
   Button,
@@ -30,10 +32,9 @@ import {
   ReloadOutlined,
   EditOutlined,
   DeleteOutlined,
-  EyeOutlined,
   TeamOutlined,
 } from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
+import Highlighter from 'react-highlight-words';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { ROUTES } from '../router/types';
@@ -73,6 +74,7 @@ interface ProjectFormData {
 }
 
 type ViewMode = 'list' | 'board';
+type DataIndex = keyof Project;
 
 // ---[主元件]---
 export const ContractCasePage: React.FC = () => {
@@ -107,6 +109,81 @@ export const ContractCasePage: React.FC = () => {
   // 廠商管理模態框狀態
   const [vendorManagementVisible, setVendorManagementVisible] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+
+  // 欄位搜尋狀態
+  const [columnSearchText, setColumnSearchText] = useState('');
+  const [searchedColumn, setSearchedColumn] = useState('');
+  const searchInput = useRef<InputRef>(null);
+
+  // 欄位搜尋功能
+  const handleColumnSearch = (
+    selectedKeys: string[],
+    confirm: FilterDropdownProps['confirm'],
+    dataIndex: DataIndex,
+  ) => {
+    confirm();
+    setColumnSearchText(selectedKeys[0]);
+    setSearchedColumn(dataIndex);
+  };
+
+  const handleColumnReset = (clearFilters: () => void) => {
+    clearFilters();
+    setColumnSearchText('');
+  };
+
+  // 取得欄位搜尋屬性
+  const getColumnSearchProps = (dataIndex: DataIndex): TableColumnType<Project> => ({
+    filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters, close }) => (
+      <div style={{ padding: 8 }} onKeyDown={(e) => e.stopPropagation()}>
+        <Input
+          ref={searchInput}
+          placeholder={`搜尋...`}
+          value={selectedKeys[0]}
+          onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+          onPressEnter={() => handleColumnSearch(selectedKeys as string[], confirm, dataIndex)}
+          style={{ marginBottom: 8, display: 'block' }}
+        />
+        <Space>
+          <Button
+            type="primary"
+            onClick={() => handleColumnSearch(selectedKeys as string[], confirm, dataIndex)}
+            icon={<SearchOutlined />}
+            size="small"
+            style={{ width: 90 }}
+          >
+            搜尋
+          </Button>
+          <Button
+            onClick={() => clearFilters && handleColumnReset(clearFilters)}
+            size="small"
+            style={{ width: 90 }}
+          >
+            重置
+          </Button>
+          <Button type="link" size="small" onClick={() => close()}>關閉</Button>
+        </Space>
+      </div>
+    ),
+    filterIcon: (filtered: boolean) => (
+      <SearchOutlined style={{ color: filtered ? '#1677ff' : undefined }} />
+    ),
+    onFilter: (value, record) =>
+      record[dataIndex]?.toString().toLowerCase().includes((value as string).toLowerCase()) ?? false,
+    filterDropdownProps: {
+      onOpenChange(open) {
+        if (open) setTimeout(() => searchInput.current?.select(), 100);
+      },
+    },
+    render: (text) =>
+      searchedColumn === dataIndex ? (
+        <Highlighter
+          highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
+          searchWords={[columnSearchText]}
+          autoEscape
+          textToHighlight={text ? text.toString() : ''}
+        />
+      ) : text,
+  });
 
   // ---[API 呼叫]---
 
@@ -223,14 +300,8 @@ export const ContractCasePage: React.FC = () => {
   };
 
   const handleEdit = (project: Project) => {
-    setEditingProject(project);
-    setModalMode('edit');
-    form.setFieldsValue({
-      ...project,
-      start_date: project.start_date ? dayjs(project.start_date) : null,
-      end_date: project.end_date ? dayjs(project.end_date) : null,
-    });
-    setModalVisible(true);
+    // 直接導航到詳情頁面，使用內嵌編輯模式（不使用彈跳視窗）
+    navigate(ROUTES.CONTRACT_CASE_DETAIL.replace(':id', String(project.id)));
   };
 
   const handleAddNew = () => {
@@ -261,59 +332,107 @@ export const ContractCasePage: React.FC = () => {
 
   // ---[渲染邏輯]---
 
-  // 列表視圖的欄位定義
-  const columns: ColumnsType<Project> = [
+  // 列表視圖的欄位定義 - 含排序與篩選功能
+  const columns: TableColumnType<Project>[] = [
     {
       title: '專案名稱',
       dataIndex: 'project_name',
       key: 'project_name',
       width: 250,
       ellipsis: true,
-      render: (text, record) => <strong>{text}</strong>,
+      sorter: (a, b) => a.project_name.localeCompare(b.project_name, 'zh-TW'),
+      ...getColumnSearchProps('project_name'),
+      render: (text, record) => (
+        <strong>
+          {searchedColumn === 'project_name' ? (
+            <Highlighter
+              highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
+              searchWords={[columnSearchText]}
+              autoEscape
+              textToHighlight={text || ''}
+            />
+          ) : text}
+        </strong>
+      ),
     },
-    { title: '年度', dataIndex: 'year', key: 'year', width: 80, align: 'center' },
+    {
+      title: '年度',
+      dataIndex: 'year',
+      key: 'year',
+      width: 80,
+      align: 'center',
+      sorter: (a, b) => (a.year || 0) - (b.year || 0),
+      filters: availableYears.map(y => ({ text: `${y}年`, value: y })),
+      onFilter: (value, record) => record.year === value,
+    },
     {
       title: '案件性質',
       dataIndex: 'category',
       key: 'category',
       width: 120,
       align: 'center',
+      filters: availableCategories.map(c => ({ text: c, value: c })),
+      onFilter: (value, record) => record.category === value,
       render: (category) => category ? <Tag>{category}</Tag> : '-',
     },
-    { title: '委託單位', dataIndex: 'client_agency', key: 'client_agency', width: 200, ellipsis: true },
+    {
+      title: '委託單位',
+      dataIndex: 'client_agency',
+      key: 'client_agency',
+      width: 200,
+      ellipsis: true,
+      sorter: (a, b) => (a.client_agency || '').localeCompare(b.client_agency || '', 'zh-TW'),
+      ...getColumnSearchProps('client_agency'),
+    },
     {
       title: '案件狀態',
       dataIndex: 'status',
       key: 'status',
       width: 100,
       align: 'center',
+      filters: availableStatuses.map(s => ({ text: s, value: s })),
+      onFilter: (value, record) => record.status === value,
       render: (status) => <Tag color={getStatusColor(status)}>{status || '未設定'}</Tag>,
     },
     {
-      title: '契約期程',
-      key: 'contract_period',
-      width: 200,
-      render: (_, record) => (
-        <div>
-          {record.start_date && <div>起: {dayjs(record.start_date).format('YYYY-MM-DD')}</div>}
-          {record.end_date && <div>迄: {dayjs(record.end_date).format('YYYY-MM-DD')}</div>}
-        </div>
-      ),
+      title: '起始日期',
+      dataIndex: 'start_date',
+      key: 'start_date',
+      width: 120,
+      sorter: (a, b) => {
+        if (!a.start_date && !b.start_date) return 0;
+        if (!a.start_date) return 1;
+        if (!b.start_date) return -1;
+        return new Date(a.start_date).getTime() - new Date(b.start_date).getTime();
+      },
+      render: (date) => date ? dayjs(date).format('YYYY-MM-DD') : '-',
+    },
+    {
+      title: '結束日期',
+      dataIndex: 'end_date',
+      key: 'end_date',
+      width: 120,
+      sorter: (a, b) => {
+        if (!a.end_date && !b.end_date) return 0;
+        if (!a.end_date) return 1;
+        if (!b.end_date) return -1;
+        return new Date(a.end_date).getTime() - new Date(b.end_date).getTime();
+      },
+      render: (date) => date ? dayjs(date).format('YYYY-MM-DD') : '-',
     },
     {
       title: '操作',
       key: 'actions',
-      width: 240,
+      width: 120,
       fixed: 'right',
       render: (_, record) => (
         <Space>
-          <Button type="link" size="small" icon={<EyeOutlined />} onClick={() => handleView(record)}>檢視</Button>
-          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)}>編輯</Button>
           <Button
             type="link"
             size="small"
             icon={<TeamOutlined />}
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation();
               setSelectedProject(record);
               setVendorManagementVisible(true);
             }}
@@ -321,11 +440,15 @@ export const ContractCasePage: React.FC = () => {
           <Popconfirm
             title="確定刪除此專案嗎？"
             description="此操作不可撤銷"
-            onConfirm={() => handleDelete(record.id)}
+            onConfirm={(e) => {
+              e?.stopPropagation();
+              handleDelete(record.id);
+            }}
+            onCancel={(e) => e?.stopPropagation()}
             okText="確定"
             cancelText="取消"
           >
-            <Button type="link" size="small" danger icon={<DeleteOutlined />}>刪除</Button>
+            <Button type="link" size="small" danger icon={<DeleteOutlined />} onClick={(e) => e.stopPropagation()}>刪除</Button>
           </Popconfirm>
         </Space>
       ),
@@ -445,7 +568,17 @@ export const ContractCasePage: React.FC = () => {
       <Card>
         <Spin spinning={loading}>
           {viewMode === 'list' ? (
-            <Table columns={columns} dataSource={projects} rowKey="id" pagination={false} scroll={{ x: 1200 }} />
+            <Table
+              columns={columns}
+              dataSource={projects}
+              rowKey="id"
+              pagination={false}
+              scroll={{ x: 1200 }}
+              onRow={(record) => ({
+                onClick: () => handleView(record),
+                style: { cursor: 'pointer' },
+              })}
+            />
           ) : (
             renderBoardView()
           )}

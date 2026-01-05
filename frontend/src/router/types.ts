@@ -38,6 +38,7 @@ export const ROUTES = {
   DOCUMENT_NUMBERS: '/document-numbers',
   AGENCIES: '/agencies',
   VENDORS: '/vendors',
+  STAFF: '/staff',
   PROJECTS: '/projects',
   CALENDAR: '/calendar',
   REPORTS: '/reports',
@@ -180,6 +181,11 @@ export const ROUTE_META = {
     title: '廠商管理',
     description: '協力廠商清單與管理',
     icon: 'ShopOutlined',
+  },
+  [ROUTES.STAFF]: {
+    title: '承辦同仁',
+    description: '承辦同仁清單與管理',
+    icon: 'TeamOutlined',
   },
   [ROUTES.PROJECTS]: {
     title: '承攬案件',

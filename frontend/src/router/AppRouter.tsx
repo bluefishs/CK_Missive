@@ -37,6 +37,7 @@ const AgenciesPage = lazy(() => import('../pages/AgenciesPage').then(module => (
 const ApiMappingDisplayPage = lazy(() => import('../pages/ApiMappingDisplayPage').then(module => ({ default: module.ApiMappingDisplayPage })));
 const ApiDocumentationPage = lazy(() => import('../pages/ApiDocumentationPage'));
 const VendorPage = lazy(() => import('../pages/VendorPage'));
+const StaffPage = lazy(() => import('../pages/StaffPage'));
 const SiteManagementPage = lazy(() => import('../pages/SiteManagementPage').then(module => ({ default: module.default })));
 const CalendarPage = lazy(() => import('../pages/CalendarPage'));
 const ReportsPage = lazy(() => import('../pages/ReportsPage'));
@@ -140,6 +141,9 @@ export const AppRouter: React.FC = () => {
           
           {/* 廠商管理 */}
           <Route path={ROUTES.VENDORS} element={<VendorPage />} />
+
+          {/* 承辦同仁管理 */}
+          <Route path={ROUTES.STAFF} element={<StaffPage />} />
 
           {/* 行事曆 */}
           <Route path={ROUTES.CALENDAR} element={<CalendarPage />} />

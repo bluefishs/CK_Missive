@@ -4,8 +4,10 @@
 from fastapi import APIRouter, Query, Depends
 from typing import Optional
 from datetime import datetime
+from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.database import get_async_db
+from app.extended.models import User
 
 router = APIRouter()
 
@@ -18,25 +20,71 @@ async def get_users(
     search: Optional[str] = Query(None, description="搜尋關鍵字"),
     db: AsyncSession = Depends(get_async_db)
 ):
-    """查詢使用者列表，支援分頁與篩選 (模擬)"""
-    return {
-        "items": [
+    """查詢使用者列表，支援分頁與篩選"""
+    try:
+        # 建立基本查詢
+        query = select(User)
+        count_query = select(func.count()).select_from(User)
+
+        # 篩選條件
+        if role:
+            query = query.where(User.role == role)
+            count_query = count_query.where(User.role == role)
+
+        if is_active is not None:
+            query = query.where(User.is_active == is_active)
+            count_query = count_query.where(User.is_active == is_active)
+
+        if search:
+            search_filter = or_(
+                User.username.ilike(f"%{search}%"),
+                User.email.ilike(f"%{search}%"),
+                User.full_name.ilike(f"%{search}%")
+            )
+            query = query.where(search_filter)
+            count_query = count_query.where(search_filter)
+
+        # 取得總數
+        total_result = await db.execute(count_query)
+        total = total_result.scalar() or 0
+
+        # 分頁並執行查詢
+        query = query.offset(skip).limit(limit).order_by(User.id)
+        result = await db.execute(query)
+        users = result.scalars().all()
+
+        # 轉換為回應格式
+        items = [
             {
-                "id": 1,
-                "username": "admin",
-                "email": "admin@ckyuanda.com.tw",
-                "full_name": "系統管理員",
-                "role": "admin",
-                "is_active": True,
-                "last_login": datetime.now().isoformat(),
-                "created_at": datetime.now().isoformat()
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "full_name": user.full_name,
+                "role": user.role or "user",
+                "is_active": user.is_active if user.is_active is not None else True,
+                "last_login": user.last_login.isoformat() if user.last_login else None,
+                "created_at": user.created_at.isoformat() if user.created_at else None
             }
-        ],
-        "total": 1,
-        "page": skip // limit + 1,
-        "page_size": limit,
-        "total_pages": 1
-    }
+            for user in users
+        ]
+
+        return {
+            "items": items,
+            "total": total,
+            "page": skip // limit + 1 if limit > 0 else 1,
+            "page_size": limit,
+            "total_pages": (total + limit - 1) // limit if limit > 0 else 1
+        }
+    except Exception as e:
+        # 發生錯誤時返回空列表
+        print(f"查詢使用者列表錯誤: {e}")
+        return {
+            "items": [],
+            "total": 0,
+            "page": 1,
+            "page_size": limit,
+            "total_pages": 0
+        }
 
 @router.get("/{user_id}", summary="取得使用者詳情")
 async def get_user(user_id: int, db: AsyncSession = Depends(get_async_db)):

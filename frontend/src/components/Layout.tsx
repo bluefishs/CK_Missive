@@ -437,6 +437,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           label: '廠商管理',
           path: ROUTES.VENDORS,
         },
+        {
+          key: ROUTES.STAFF,
+          icon: <TeamOutlined />,
+          label: '承辦同仁',
+          path: ROUTES.STAFF,
+        },
       ],
     },
     // 3. 行事曆 (1個子項目)

@@ -501,6 +501,10 @@ const UserManagementPage: React.FC = () => {
           loading={loading}
           rowKey="id"
           onChange={handleTableChange}
+          onRow={(record) => ({
+            onClick: () => handleEdit(record),
+            style: { cursor: 'pointer' },
+          })}
           rowSelection={{
             selectedRowKeys,
             onChange: (newSelectedRowKeys) => setSelectedRowKeys(newSelectedRowKeys),

@@ -24,15 +24,49 @@ class DocumentService:
         self.calendar_integrator = DocumentCalendarIntegrator()
 
     async def _get_or_create_agency_id(self, agency_name: Optional[str]) -> Optional[int]:
+        """
+        智慧機關名稱匹配：
+        1. 先精確匹配 agency_name
+        2. 再匹配 agency_short_name（支援簡稱對應）
+        3. 最後做模糊匹配（包含關係）
+        4. 都沒找到才新增
+        """
         if not agency_name or not agency_name.strip(): return None
         agency_name = agency_name.strip()
+
+        # 1. 精確匹配 agency_name
         result = await self.db.execute(select(GovernmentAgency).where(GovernmentAgency.agency_name == agency_name))
         db_agency = result.scalar_one_or_none()
-        if db_agency: return db_agency.id
+        if db_agency:
+            return db_agency.id
+
+        # 2. 匹配 agency_short_name（支援簡稱對應）
+        result = await self.db.execute(select(GovernmentAgency).where(GovernmentAgency.agency_short_name == agency_name))
+        db_agency = result.scalar_one_or_none()
+        if db_agency:
+            logger.info(f"機關簡稱匹配成功: '{agency_name}' -> '{db_agency.agency_name}'")
+            return db_agency.id
+
+        # 3. 模糊匹配：檢查是否為現有機關的子字串或包含現有機關
+        result = await self.db.execute(
+            select(GovernmentAgency).where(
+                or_(
+                    GovernmentAgency.agency_name.ilike(f"%{agency_name}%"),
+                    GovernmentAgency.agency_short_name.ilike(f"%{agency_name}%")
+                )
+            ).limit(1)
+        )
+        db_agency = result.scalar_one_or_none()
+        if db_agency:
+            logger.info(f"機關模糊匹配成功: '{agency_name}' -> '{db_agency.agency_name}'")
+            return db_agency.id
+
+        # 4. 都沒找到，新增機關
         new_agency = GovernmentAgency(agency_name=agency_name)
         self.db.add(new_agency)
         await self.db.flush()
         await self.db.refresh(new_agency)
+        logger.info(f"新增機關: '{agency_name}'")
         return new_agency.id
 
     async def _get_or_create_project_id(self, project_name: Optional[str]) -> Optional[int]:

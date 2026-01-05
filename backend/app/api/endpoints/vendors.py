@@ -24,7 +24,7 @@ async def create_vendor(vendor: VendorCreate, db: AsyncSession = Depends(get_asy
 @router.get("/", response_model=Dict[str, Any])
 async def get_vendors(
     skip: int = Query(0, ge=0),
-    limit: int = Query(10, ge=1, le=100),
+    limit: int = Query(10, ge=1, le=1000),
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user)
 ):

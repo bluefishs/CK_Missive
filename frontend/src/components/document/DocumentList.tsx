@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Table, Button, Space, Typography, Tag, message, Empty, TableProps } from 'antd';
+import React, { useState } from 'react';
+import { Table, Button, Space, Typography, Tag, Empty, TableProps } from 'antd';
 import type {
   TablePaginationConfig,
   FilterValue,
@@ -122,24 +122,53 @@ export const DocumentList: React.FC<DocumentListProps> = ({
   };
 
   const columns: ColumnsType<Document> = [
-    getColumnConfig('id', '流水號', {
+    {
+      title: '流水號',
+      dataIndex: 'id',
+      key: 'id',
+      sorter: (a, b) => a.id - b.id,
       render: (id: number) => (
         <Typography.Text strong style={{ color: '#666' }}>
           {id}
         </Typography.Text>
       ),
-    }),
-    getColumnConfig('doc_type', '類型', {
+    },
+    {
+      title: '類型',
+      dataIndex: 'doc_type',
+      key: 'doc_type',
+      sorter: (a, b) => (a.doc_type || '').localeCompare(b.doc_type || '', 'zh-TW'),
+      filters: [
+        { text: '函', value: '函' },
+        { text: '公告', value: '公告' },
+        { text: '簽', value: '簽' },
+        { text: '書函', value: '書函' },
+        { text: '令', value: '令' },
+        { text: '其他', value: '其他' },
+      ],
+      onFilter: (value, record) => record.doc_type === value,
       render: (type: string) => <Tag color="blue">{type || '未分類'}</Tag>,
-    }),
-    getColumnConfig('doc_number', '文號', {
+    },
+    {
+      title: '文號',
+      dataIndex: 'doc_number',
+      key: 'doc_number',
+      sorter: (a, b) => (a.doc_number || '').localeCompare(b.doc_number || '', 'zh-TW'),
       render: (text: string) => (
         <Typography.Text strong style={{ color: '#1890ff' }}>
           {text}
         </Typography.Text>
       ),
-    }),
-    getColumnConfig('doc_date', '發文日期', {
+    },
+    {
+      title: '發文日期',
+      dataIndex: 'doc_date',
+      key: 'doc_date',
+      sorter: (a, b) => {
+        if (!a.doc_date) return 1;
+        if (!b.doc_date) return -1;
+        return new Date(a.doc_date).getTime() - new Date(b.doc_date).getTime();
+      },
       render: (date: string) =>
         date
           ? new Date(date).toLocaleDateString('zh-TW', {
@@ -148,33 +177,52 @@ export const DocumentList: React.FC<DocumentListProps> = ({
               day: 'numeric',
             })
           : '無日期',
-    }),
-    getColumnConfig('category', '類別', {
-      render: (category: string) => <Tag color="green">{category || '未分類'}</Tag>,
-    }),
-    getColumnConfig('subject', '主旨', {
-      width: 300,
-      render: (text: string, record: Document) => (
+    },
+    {
+      title: '類別',
+      dataIndex: 'category',
+      key: 'category',
+      sorter: (a, b) => (a.category || '').localeCompare(b.category || '', 'zh-TW'),
+      filters: [
+        { text: '收文', value: 'receive' },
+        { text: '發文', value: 'send' },
+      ],
+      onFilter: (value, record) => record.category === value,
+      render: (category: string) => {
+        const color = category === 'receive' ? 'green' : category === 'send' ? 'orange' : 'default';
+        const label = category === 'receive' ? '收文' : category === 'send' ? '發文' : (category || '未分類');
+        return <Tag color={color}>{label}</Tag>;
+      },
+    },
+    {
+      title: '主旨',
+      dataIndex: 'subject',
+      key: 'subject',
+      sorter: (a, b) => (a.subject || '').localeCompare(b.subject || '', 'zh-TW'),
+      ellipsis: { showTitle: false },
+      render: (text: string) => (
         <Typography.Text
           strong
           ellipsis={{ tooltip: text }}
-          style={{ cursor: 'pointer' }}
-          onClick={() => onView(record)}
         >
           {text}
         </Typography.Text>
       ),
-    }),
-    getColumnConfig('sender', '發文單位', {
+    },
+    {
+      title: '發文單位',
+      dataIndex: 'sender',
+      key: 'sender',
+      sorter: (a, b) => (a.sender || '').localeCompare(b.sender || '', 'zh-TW'),
+      ellipsis: true,
       render: (sender: string) => (
         <Typography.Text style={{ color: '#888' }}>{sender}</Typography.Text>
       ),
-    }),
+    },
     {
       title: '操作',
       key: 'action',
-      fixed: 'right',
-      width: 180,
+      width: 100,
       render: (_: any, record: Document) => (
         <DocumentActions
           document={record}
@@ -185,7 +233,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
           onExportPdf={onExportPdf}
           onSend={onSend}
           onArchive={onArchive}
-          onAddToCalendar={onAddToCalendar} // Pass the prop
+          onAddToCalendar={onAddToCalendar}
           loadingStates={{
             isExporting: isExporting,
             isAddingToCalendar: isAddingToCalendar,
@@ -214,13 +262,17 @@ export const DocumentList: React.FC<DocumentListProps> = ({
     dataSource: safeDocuments,
     rowKey: 'id',
     loading: loading || batchLoading,
+    onRow: (record) => ({
+      onClick: () => onEdit(record),
+      style: { cursor: 'pointer' },
+    }),
     pagination: {
       ...pagination,
       total,
       showSizeChanger: true,
       showTotal: (totalNum, range) => `顯示 ${range[0]}-${range[1]} 筆，共 ${totalNum} 筆`,
     },
-    scroll: { x: 1500 },
+    scroll: { x: 'max-content' },
     locale: {
       emptyText: (
         <Empty
