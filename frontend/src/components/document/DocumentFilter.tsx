@@ -60,8 +60,8 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
   onFiltersChange,
   onReset,
 }) => {
-  // 預設展開篩選區，提供更好的使用者體驗
-  const [expanded, setExpanded] = useState(true);
+  // 預設收闔篩選區，公文資訊最大化
+  const [expanded, setExpanded] = useState(false);
   const [localFilters, setLocalFilters] = useState<DocumentFilterType>(filters);
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null] | null>(null);
 

@@ -18,8 +18,20 @@ class VendorService:
         result = await db.execute(select(PartnerVendor).where(PartnerVendor.id == vendor_id))
         return result.scalar_one_or_none()
 
-    async def get_vendors(self, db: AsyncSession, skip: int = 0, limit: int = 100) -> List[dict]:
-        result = await db.execute(select(PartnerVendor).order_by(PartnerVendor.vendor_name).offset(skip).limit(limit))
+    async def get_vendors(self, db: AsyncSession, skip: int = 0, limit: int = 100, search: Optional[str] = None) -> List[dict]:
+        query = select(PartnerVendor)
+
+        # 搜尋條件
+        if search:
+            from sqlalchemy import or_
+            search_filter = or_(
+                PartnerVendor.vendor_name.ilike(f"%{search}%"),
+                PartnerVendor.vendor_code.ilike(f"%{search}%")
+            )
+            query = query.where(search_filter)
+
+        query = query.order_by(PartnerVendor.vendor_name).offset(skip).limit(limit)
+        result = await db.execute(query)
         vendors = result.scalars().all()
 
         # 轉換為字典格式以便序列化
@@ -40,9 +52,29 @@ class VendorService:
             for vendor in vendors
         ]
 
-    async def get_total_vendors(self, db: AsyncSession) -> int:
-        """ 獲取廠商總數 """
-        result = await db.execute(select(func.count(PartnerVendor.id)))
+    async def get_total_vendors(self, db: AsyncSession, search: Optional[str] = None) -> int:
+        """
+        獲取廠商總數
+
+        Args:
+            db: 資料庫 session
+            search: 搜尋關鍵字（可選）
+
+        Returns:
+            符合條件的廠商總數
+        """
+        query = select(func.count(PartnerVendor.id))
+
+        # 套用搜尋條件（與 get_vendors 相同的邏輯）
+        if search:
+            from sqlalchemy import or_
+            search_filter = or_(
+                PartnerVendor.vendor_name.ilike(f"%{search}%"),
+                PartnerVendor.vendor_code.ilike(f"%{search}%")
+            )
+            query = query.where(search_filter)
+
+        result = await db.execute(query)
         return result.scalar() or 0
 
     async def create_vendor(self, db: AsyncSession, vendor: VendorCreate) -> PartnerVendor:

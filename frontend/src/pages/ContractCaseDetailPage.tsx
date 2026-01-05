@@ -47,12 +47,14 @@ import { useParams, useNavigate } from 'react-router-dom';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { ROUTES } from '../router/types';
+// 使用統一 API 服務
+import { projectsApi } from '../api/projectsApi';
+import { usersApi } from '../api/usersApi';
+import { vendorsApi } from '../api/vendors';
+// 保留舊版 API (承辦同仁和協力廠商暫未重構)
 import {
-  projectsApi,
   projectStaffApi,
   projectVendorsApi,
-  usersApi,
-  vendorsApi,
   type ProjectStaff,
   type ProjectVendor,
 } from '../api/projects';
@@ -68,20 +70,28 @@ const CATEGORY_OPTIONS = [
   { value: '04', label: '04其他類別', color: 'default' },
 ];
 
-// 執行狀態選項
+// 執行狀態選項 (使用中文值對應資料庫)
 const STATUS_OPTIONS = [
-  { value: 'pending', label: '待執行', color: 'warning' },
-  { value: 'in_progress', label: '執行中', color: 'processing' },
-  { value: 'completed', label: '已結案', color: 'success' },
-  { value: 'suspended', label: '暫停', color: 'error' },
+  { value: '待執行', label: '待執行', color: 'warning' },
+  { value: '執行中', label: '執行中', color: 'processing' },
+  { value: '已結案', label: '已結案', color: 'success' },
+  { value: '暫停', label: '暫停', color: 'error' },
 ];
 
-// 承辦同仁角色選項
+// 承辦同仁角色選項 (與 StaffPage ROLE_OPTIONS 一致)
 const STAFF_ROLE_OPTIONS = [
-  { value: '計畫主持人', label: '計畫主持人', color: 'red' },
-  { value: '協同主執行', label: '協同主執行', color: 'orange' },
+  { value: '計畫主持', label: '計畫主持', color: 'red' },
+  { value: '計畫協同', label: '計畫協同', color: 'orange' },
   { value: '專案PM', label: '專案PM', color: 'blue' },
-  { value: '職業安全主管', label: '職業安全主管', color: 'green' },
+  { value: '職安主管', label: '職安主管', color: 'green' },
+];
+
+// 協力廠商角色選項
+const VENDOR_ROLE_OPTIONS = [
+  { value: '測量業務', label: '測量業務', color: 'blue' },
+  { value: '系統業務', label: '系統業務', color: 'green' },
+  { value: '查估業務', label: '查估業務', color: 'orange' },
+  { value: '其他類別', label: '其他類別', color: 'default' },
 ];
 
 // 專案資料類型 (對應後端 ProjectResponse - 完整欄位)
@@ -266,7 +276,8 @@ export const ContractCaseDetailPage: React.FC = () => {
   const loadVendorOptions = async () => {
     try {
       const response = await vendorsApi.getVendors({ limit: 100 });
-      const vendors = (response as any).vendors || response || [];
+      // 統一 API 回傳 items 欄位
+      const vendors = (response as any).items || (response as any).vendors || response || [];
       setVendorOptions(Array.isArray(vendors) ? vendors.map((v: any) => ({
         id: v.id,
         name: v.vendor_name,
@@ -348,13 +359,8 @@ export const ContractCaseDetailPage: React.FC = () => {
 
   // 角色顏色 (廠商)
   const getVendorRoleColor = (role: string) => {
-    switch (role) {
-      case '主承包商': return 'red';
-      case '分包商': return 'orange';
-      case '供應商': return 'cyan';
-      case '顧問': return 'purple';
-      default: return 'default';
-    }
+    const option = VENDOR_ROLE_OPTIONS.find(opt => opt.value === role);
+    return option?.color || 'default';
   };
 
   // 狀態顏色
@@ -377,7 +383,7 @@ export const ContractCaseDetailPage: React.FC = () => {
         project_id: projectId,
         user_id: values.user_id,
         role: values.role,
-        is_primary: values.role === '計畫主持人',
+        is_primary: values.role === '計畫主持',
         start_date: dayjs().format('YYYY-MM-DD'),
         status: 'active',
       });
@@ -388,7 +394,15 @@ export const ContractCaseDetailPage: React.FC = () => {
       loadData();
     } catch (error: any) {
       console.error('新增承辦同仁失敗:', error);
-      message.error(error.response?.data?.detail || '新增承辦同仁失敗');
+      // 處理 Pydantic 驗證錯誤格式
+      const detail = error.response?.data?.detail;
+      let errorMsg = '新增承辦同仁失敗';
+      if (typeof detail === 'string') {
+        errorMsg = detail;
+      } else if (Array.isArray(detail) && detail.length > 0) {
+        errorMsg = detail.map((d: any) => d.msg || d.message || JSON.stringify(d)).join(', ');
+      }
+      message.error(errorMsg);
     }
   };
 
@@ -441,6 +455,9 @@ export const ContractCaseDetailPage: React.FC = () => {
     const projectId = parseInt(id, 10);
 
     try {
+      // 自動設定進度：當狀態設為「已結案」時，進度自動設為 100%
+      const autoProgress = values.status === '已結案' ? 100 : (values.progress ?? null);
+
       // 格式化日期欄位，建立更新物件
       const updateData: Record<string, any> = {
         project_name: values.project_name,
@@ -454,7 +471,7 @@ export const ContractCaseDetailPage: React.FC = () => {
         start_date: values.start_date ? dayjs(values.start_date).format('YYYY-MM-DD') : null,
         end_date: values.end_date ? dayjs(values.end_date).format('YYYY-MM-DD') : null,
         status: values.status || null,
-        progress: values.progress ?? null,
+        progress: autoProgress,
         notes: values.notes || null,
         project_path: values.project_path || null,
       };
@@ -520,7 +537,7 @@ export const ContractCaseDetailPage: React.FC = () => {
     try {
       await projectStaffApi.updateStaff(projectId, staff.user_id, {
         role: newRole,
-        is_primary: newRole === '計畫主持人',
+        is_primary: newRole === '計畫主持',
       });
 
       setStaffList(staffList.map(s =>
@@ -616,7 +633,7 @@ export const ContractCaseDetailPage: React.FC = () => {
             onChange={(value) => handleStaffRoleChange(record.id, value)}
             autoFocus
             open={true}
-            onDropdownVisibleChange={(open) => {
+            onOpenChange={(open) => {
               if (!open) setEditingStaffId(null);
             }}
           >
@@ -696,7 +713,7 @@ export const ContractCaseDetailPage: React.FC = () => {
       ),
     },
     {
-      title: '角色',
+      title: '業務類別',
       dataIndex: 'role',
       key: 'role',
       width: 140,
@@ -709,14 +726,13 @@ export const ContractCaseDetailPage: React.FC = () => {
             onChange={(value) => handleVendorRoleChange(record.vendor_id, value)}
             autoFocus
             open={true}
-            onDropdownVisibleChange={(open) => {
+            onOpenChange={(open) => {
               if (!open) setEditingVendorId(null);
             }}
           >
-            <Option value="主承包商">主承包商</Option>
-            <Option value="分包商">分包商</Option>
-            <Option value="供應商">供應商</Option>
-            <Option value="顧問">顧問</Option>
+            {VENDOR_ROLE_OPTIONS.map(opt => (
+              <Option key={opt.value} value={opt.value}>{opt.label}</Option>
+            ))}
           </Select>
         ) : (
           <Tag
@@ -917,7 +933,7 @@ export const ContractCaseDetailPage: React.FC = () => {
           <Col span={18}>
             <Progress
               percent={data.progress ?? progress}
-              status={data.status === 'completed' ? 'success' : data.status === 'suspended' ? 'exception' : 'active'}
+              status={data.status === '已結案' ? 'success' : data.status === '暫停' ? 'exception' : 'active'}
             />
           </Col>
           <Col span={6} style={{ textAlign: 'right' }}>
@@ -1122,13 +1138,13 @@ export const ContractCaseDetailPage: React.FC = () => {
         </Button>
       }
     >
-      {/* 統計概覽 - 4種角色/職責 */}
+      {/* 統計概覽 - 4種專案角色 */}
       <Row gutter={16} style={{ marginBottom: 16 }}>
         <Col span={6}>
           <Card size="small" style={{ textAlign: 'center', background: '#fff1f0' }}>
             <Statistic
-              title="計畫主持人"
-              value={staffList.filter(s => s.role === '計畫主持人').length}
+              title="計畫主持"
+              value={staffList.filter(s => s.role === '計畫主持').length}
               valueStyle={{ color: '#cf1322' }}
             />
           </Card>
@@ -1136,8 +1152,8 @@ export const ContractCaseDetailPage: React.FC = () => {
         <Col span={6}>
           <Card size="small" style={{ textAlign: 'center', background: '#fff7e6' }}>
             <Statistic
-              title="協同主執行"
-              value={staffList.filter(s => s.role === '協同主執行').length}
+              title="計畫協同"
+              value={staffList.filter(s => s.role === '計畫協同').length}
               valueStyle={{ color: '#fa8c16' }}
             />
           </Card>
@@ -1154,8 +1170,8 @@ export const ContractCaseDetailPage: React.FC = () => {
         <Col span={6}>
           <Card size="small" style={{ textAlign: 'center', background: '#f6ffed' }}>
             <Statistic
-              title="職業安全主管"
-              value={staffList.filter(s => s.role === '職業安全主管').length}
+              title="職安主管"
+              value={staffList.filter(s => s.role === '職安主管').length}
               valueStyle={{ color: '#52c41a' }}
             />
           </Card>
@@ -1361,20 +1377,7 @@ export const ContractCaseDetailPage: React.FC = () => {
               </div>
             </div>
           </div>
-          <Space>
-            <Button type="primary" icon={<EditOutlined />} onClick={handleEdit}>
-              編輯
-            </Button>
-            <Popconfirm
-              title="確定要刪除此專案嗎？"
-              description="此操作無法復原"
-              okText="確定"
-              cancelText="取消"
-              onConfirm={handleDelete}
-            >
-              <Button danger icon={<DeleteOutlined />}>刪除</Button>
-            </Popconfirm>
-          </Space>
+          {/* 編輯/刪除按鈕已移除，避免誤刪案件。如需編輯案件資訊，請使用「案件資訊」TAB 內的編輯功能 */}
         </div>
       </Card>
 
@@ -1452,12 +1455,11 @@ export const ContractCaseDetailPage: React.FC = () => {
               }))}
             />
           </Form.Item>
-          <Form.Item name="role" label="角色" rules={[{ required: true, message: '請選擇角色' }]}>
-            <Select placeholder="請選擇角色">
-              <Option value="主承包商">主承包商</Option>
-              <Option value="分包商">分包商</Option>
-              <Option value="供應商">供應商</Option>
-              <Option value="顧問">顧問</Option>
+          <Form.Item name="role" label="業務類別" rules={[{ required: true, message: '請選擇業務類別' }]}>
+            <Select placeholder="請選擇業務類別">
+              {VENDOR_ROLE_OPTIONS.map(opt => (
+                <Option key={opt.value} value={opt.value}>{opt.label}</Option>
+              ))}
             </Select>
           </Form.Item>
           <Form.Item name="contract_amount" label="合約金額">

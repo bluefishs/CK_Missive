@@ -1,15 +1,18 @@
-import React, { useState } from 'react';
-import { Table, Button, Space, Typography, Tag, Empty, TableProps } from 'antd';
+import React, { useState, useMemo, useRef } from 'react';
+import { Table, Button, Space, Typography, Tag, Empty, TableProps, Input, InputRef } from 'antd';
 import type {
   TablePaginationConfig,
   FilterValue,
   TableCurrentDataSource,
   SortOrder,
   SorterResult,
+  ColumnType,
+  FilterDropdownProps,
 } from 'antd/es/table/interface';
 import type { ColumnsType } from 'antd/es/table';
 
-import { FileExcelOutlined } from '@ant-design/icons';
+import { FileExcelOutlined, SearchOutlined } from '@ant-design/icons';
+import Highlighter from 'react-highlight-words';
 import { Document } from '../../types';
 import { DocumentActions, BatchActions } from './DocumentActions';
 
@@ -74,6 +77,9 @@ export const DocumentList: React.FC<DocumentListProps> = ({
 }) => {
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [batchLoading, setBatchLoading] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const [searchedColumn, setSearchedColumn] = useState('');
+  const searchInput = useRef<InputRef>(null);
 
   // Debug logging
   console.log('=== DocumentList: 收到的 props ===', {
@@ -82,6 +88,88 @@ export const DocumentList: React.FC<DocumentListProps> = ({
     loading,
     total,
     pagination
+  });
+
+  // 搜尋處理函數
+  const handleSearch = (
+    selectedKeys: string[],
+    confirm: FilterDropdownProps['confirm'],
+    dataIndex: string,
+  ) => {
+    confirm();
+    setSearchText(selectedKeys[0]);
+    setSearchedColumn(dataIndex);
+  };
+
+  const handleReset = (clearFilters: () => void) => {
+    clearFilters();
+    setSearchText('');
+  };
+
+  // 取得搜尋欄位的 column 配置
+  const getColumnSearchProps = (dataIndex: keyof Document): ColumnType<Document> => ({
+    filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters, close }) => (
+      <div style={{ padding: 8 }} onKeyDown={(e) => e.stopPropagation()}>
+        <Input
+          ref={searchInput}
+          placeholder={`搜尋 ${dataIndex}`}
+          value={selectedKeys[0]}
+          onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+          onPressEnter={() => handleSearch(selectedKeys as string[], confirm, dataIndex as string)}
+          style={{ marginBottom: 8, display: 'block' }}
+        />
+        <Space>
+          <Button
+            type="primary"
+            onClick={() => handleSearch(selectedKeys as string[], confirm, dataIndex as string)}
+            icon={<SearchOutlined />}
+            size="small"
+            style={{ width: 90 }}
+          >
+            搜尋
+          </Button>
+          <Button
+            onClick={() => clearFilters && handleReset(clearFilters)}
+            size="small"
+            style={{ width: 90 }}
+          >
+            重置
+          </Button>
+          <Button
+            type="link"
+            size="small"
+            onClick={() => close()}
+          >
+            關閉
+          </Button>
+        </Space>
+      </div>
+    ),
+    filterIcon: (filtered: boolean) => (
+      <SearchOutlined style={{ color: filtered ? '#1677ff' : undefined }} />
+    ),
+    onFilter: (value, record) =>
+      record[dataIndex]
+        ? record[dataIndex]!.toString().toLowerCase().includes((value as string).toLowerCase())
+        : false,
+    filterDropdownProps: {
+      onOpenChange(open) {
+        if (open) {
+          setTimeout(() => searchInput.current?.select(), 100);
+        }
+      },
+    },
+    render: (text) =>
+      searchedColumn === dataIndex ? (
+        <Highlighter
+          highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
+          searchWords={[searchText]}
+          autoEscape
+          textToHighlight={text ? text.toString() : ''}
+        />
+      ) : (
+        text
+      ),
   });
 
   const handleBatchExportClick = () => {
@@ -101,128 +189,192 @@ export const DocumentList: React.FC<DocumentListProps> = ({
     console.log('批次複製按鈕已被點擊，但功能尚未實作。');
   };
 
-  const getColumnConfig = (
-    key: string,
-    title: string,
-    options?: Partial<ColumnsType<Document>[0]>
-  ): ColumnsType<Document>[0] => {
-    const config: ColumnsType<Document>[0] = {
-      key,
-      title,
-      dataIndex: key,
-      sorter: true,
-      ...options,
-    };
-
-    if (sortField === key && sortOrder) {
-      config.sortOrder = sortOrder;
-    }
-
-    return config;
+  // 狀態顏色映射
+  const statusColorMap: Record<string, string> = {
+    '待處理': 'orange',
+    '處理中': 'blue',
+    '已完成': 'green',
+    '已歸檔': 'default',
+    '使用者確認': 'cyan',
   };
+
+  // 從資料中動態產生狀態篩選選項
+  const statusFilters = useMemo(() => {
+    const statusSet = new Set(documents.map(d => d.status).filter(Boolean));
+    return Array.from(statusSet).map(status => ({ text: status, value: status }));
+  }, [documents]);
+
+  // 從資料中動態產生類型篩選選項
+  const docTypeFilters = useMemo(() => {
+    const typeSet = new Set(documents.map(d => d.doc_type).filter(Boolean));
+    return Array.from(typeSet).map(type => ({ text: type, value: type }));
+  }, [documents]);
 
   const columns: ColumnsType<Document> = [
     {
-      title: '流水號',
+      title: '序號',
       dataIndex: 'id',
       key: 'id',
+      width: 70,
+      align: 'center',
       sorter: (a, b) => a.id - b.id,
+      sortDirections: ['descend', 'ascend'],
+      defaultSortOrder: 'descend',
       render: (id: number) => (
-        <Typography.Text strong style={{ color: '#666' }}>
-          {id}
-        </Typography.Text>
+        <Typography.Text type="secondary">{id}</Typography.Text>
       ),
     },
     {
       title: '類型',
       dataIndex: 'doc_type',
       key: 'doc_type',
+      width: 90,
+      align: 'center',
       sorter: (a, b) => (a.doc_type || '').localeCompare(b.doc_type || '', 'zh-TW'),
-      filters: [
+      sortDirections: ['descend', 'ascend'],
+      filters: docTypeFilters.length > 0 ? docTypeFilters : [
         { text: '函', value: '函' },
         { text: '公告', value: '公告' },
         { text: '簽', value: '簽' },
         { text: '書函', value: '書函' },
+        { text: '開會通知單', value: '開會通知單' },
         { text: '令', value: '令' },
-        { text: '其他', value: '其他' },
       ],
       onFilter: (value, record) => record.doc_type === value,
-      render: (type: string) => <Tag color="blue">{type || '未分類'}</Tag>,
+      filterSearch: true,
+      render: (type: string) => <Tag color="blue">{type || '-'}</Tag>,
     },
     {
       title: '文號',
       dataIndex: 'doc_number',
       key: 'doc_number',
+      width: 180,
+      ellipsis: { showTitle: false },
       sorter: (a, b) => (a.doc_number || '').localeCompare(b.doc_number || '', 'zh-TW'),
+      sortDirections: ['descend', 'ascend'],
+      ...getColumnSearchProps('doc_number'),
       render: (text: string) => (
-        <Typography.Text strong style={{ color: '#1890ff' }}>
-          {text}
+        <Typography.Text
+          strong
+          style={{ color: '#1890ff' }}
+          ellipsis={{ tooltip: { title: text, placement: 'topLeft' } }}
+        >
+          {searchedColumn === 'doc_number' ? (
+            <Highlighter
+              highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
+              searchWords={[searchText]}
+              autoEscape
+              textToHighlight={text || ''}
+            />
+          ) : text}
         </Typography.Text>
       ),
     },
     {
-      title: '發文日期',
+      title: '日期',
       dataIndex: 'doc_date',
       key: 'doc_date',
+      width: 100,
+      align: 'center',
       sorter: (a, b) => {
         if (!a.doc_date) return 1;
         if (!b.doc_date) return -1;
         return new Date(a.doc_date).getTime() - new Date(b.doc_date).getTime();
       },
+      sortDirections: ['descend', 'ascend'],
       render: (date: string) =>
         date
           ? new Date(date).toLocaleDateString('zh-TW', {
               year: 'numeric',
-              month: 'long',
-              day: 'numeric',
+              month: '2-digit',
+              day: '2-digit',
             })
-          : '無日期',
+          : '-',
     },
     {
-      title: '類別',
-      dataIndex: 'category',
-      key: 'category',
-      sorter: (a, b) => (a.category || '').localeCompare(b.category || '', 'zh-TW'),
-      filters: [
-        { text: '收文', value: 'receive' },
-        { text: '發文', value: 'send' },
+      title: '狀態',
+      dataIndex: 'status',
+      key: 'status',
+      width: 95,
+      align: 'center',
+      sorter: (a, b) => (a.status || '').localeCompare(b.status || '', 'zh-TW'),
+      sortDirections: ['descend', 'ascend'],
+      filters: statusFilters.length > 0 ? statusFilters : [
+        { text: '待處理', value: '待處理' },
+        { text: '處理中', value: '處理中' },
+        { text: '已完成', value: '已完成' },
+        { text: '使用者確認', value: '使用者確認' },
       ],
-      onFilter: (value, record) => record.category === value,
-      render: (category: string) => {
-        const color = category === 'receive' ? 'green' : category === 'send' ? 'orange' : 'default';
-        const label = category === 'receive' ? '收文' : category === 'send' ? '發文' : (category || '未分類');
-        return <Tag color={color}>{label}</Tag>;
+      onFilter: (value, record) => record.status === value,
+      filterSearch: true,
+      render: (status: string) => {
+        const color = statusColorMap[status] || 'default';
+        return <Tag color={color}>{status || '-'}</Tag>;
       },
     },
     {
       title: '主旨',
       dataIndex: 'subject',
       key: 'subject',
-      sorter: (a, b) => (a.subject || '').localeCompare(b.subject || '', 'zh-TW'),
+      width: 280,
       ellipsis: { showTitle: false },
+      sorter: (a, b) => (a.subject || '').localeCompare(b.subject || '', 'zh-TW'),
+      sortDirections: ['descend', 'ascend'],
+      ...getColumnSearchProps('subject'),
       render: (text: string) => (
-        <Typography.Text
-          strong
-          ellipsis={{ tooltip: text }}
+        <Typography.Paragraph
+          style={{ margin: 0, fontSize: '13px' }}
+          ellipsis={{
+            rows: 2,
+            tooltip: {
+              title: text,
+              placement: 'topLeft',
+              overlayStyle: { maxWidth: 500 }
+            }
+          }}
         >
-          {text}
-        </Typography.Text>
+          {searchedColumn === 'subject' ? (
+            <Highlighter
+              highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
+              searchWords={[searchText]}
+              autoEscape
+              textToHighlight={text || ''}
+            />
+          ) : text}
+        </Typography.Paragraph>
       ),
     },
     {
       title: '發文單位',
       dataIndex: 'sender',
       key: 'sender',
+      width: 140,
+      ellipsis: { showTitle: false },
       sorter: (a, b) => (a.sender || '').localeCompare(b.sender || '', 'zh-TW'),
-      ellipsis: true,
+      sortDirections: ['descend', 'ascend'],
+      ...getColumnSearchProps('sender'),
       render: (sender: string) => (
-        <Typography.Text style={{ color: '#888' }}>{sender}</Typography.Text>
+        <Typography.Text
+          type="secondary"
+          ellipsis={{ tooltip: { title: sender, placement: 'topLeft' } }}
+        >
+          {searchedColumn === 'sender' ? (
+            <Highlighter
+              highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
+              searchWords={[searchText]}
+              autoEscape
+              textToHighlight={sender || ''}
+            />
+          ) : sender}
+        </Typography.Text>
       ),
     },
     {
       title: '操作',
       key: 'action',
-      width: 100,
+      width: 80,
+      align: 'center',
+      fixed: 'right',
       render: (_: any, record: Document) => (
         <DocumentActions
           document={record}
@@ -238,7 +390,8 @@ export const DocumentList: React.FC<DocumentListProps> = ({
             isExporting: isExporting,
             isAddingToCalendar: isAddingToCalendar,
           }}
-          mode="buttons"
+          mode="dropdown"
+          size="small"
         />
       ),
     },
@@ -262,6 +415,8 @@ export const DocumentList: React.FC<DocumentListProps> = ({
     dataSource: safeDocuments,
     rowKey: 'id',
     loading: loading || batchLoading,
+    size: 'middle',
+    bordered: false,
     onRow: (record) => ({
       onClick: () => onEdit(record),
       style: { cursor: 'pointer' },
@@ -270,9 +425,12 @@ export const DocumentList: React.FC<DocumentListProps> = ({
       ...pagination,
       total,
       showSizeChanger: true,
-      showTotal: (totalNum, range) => `顯示 ${range[0]}-${range[1]} 筆，共 ${totalNum} 筆`,
+      pageSizeOptions: ['10', '20', '50', '100'],
+      showTotal: (totalNum, range) => `第 ${range[0]}-${range[1]} 筆，共 ${totalNum} 筆`,
+      size: 'default',
     },
-    scroll: { x: 'max-content' },
+    scroll: { x: 1035 }, // 總欄寬: 70+90+180+100+95+280+140+80 = 1035
+    tableLayout: 'fixed',
     locale: {
       emptyText: (
         <Empty

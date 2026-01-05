@@ -55,7 +55,7 @@ class NextNumberResponse(BaseModel):
     year: int
     sequence: int
 
-@router.get("/", response_model=DocumentNumberListResponse)
+@router.get("", response_model=DocumentNumberListResponse)
 async def get_document_numbers(
     page: int = Query(1, ge=1, description="頁數"),
     per_page: int = Query(20, ge=1, le=100, description="每頁筆數"),

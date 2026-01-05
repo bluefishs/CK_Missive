@@ -83,7 +83,7 @@ const AdminDashboardPage: React.FC = () => {
     setLoading(true);
     try {
       // 載入真實數據
-      const usersResponse = await fetch('/api/users/');
+      const usersResponse = await fetch('/api/users');
       const usersData = await usersResponse.json();
 
       // 篩選待驗證使用者

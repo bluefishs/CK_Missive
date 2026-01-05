@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-案件與承辦同仁關聯管理API端點
+案件與承辦同仁關聯管理API端點 (POST-only 資安機制)
 """
 
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy import select, insert, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import BaseModel
 
 from app.db.database import get_async_db
 from app.extended.models import ContractProject, User, project_user_assignment
@@ -21,7 +22,19 @@ from app.schemas.project_staff import (
 router = APIRouter()
 
 
-@router.post("/")
+# ========== 查詢參數 Schema ==========
+class StaffListQuery(BaseModel):
+    """承辦同仁列表查詢參數"""
+    skip: int = 0
+    limit: int = 100
+    project_id: Optional[int] = None
+    user_id: Optional[int] = None
+    status: Optional[str] = None
+
+
+# ========== POST-only API 端點 ==========
+
+@router.post("", summary="建立案件與承辦同仁關聯")
 async def create_project_staff_assignment(
     assignment_data: ProjectStaffCreate,
     db: AsyncSession = Depends(get_async_db)
@@ -82,7 +95,7 @@ async def create_project_staff_assignment(
     }
 
 
-@router.get("/project/{project_id}", response_model=ProjectStaffListResponse)
+@router.post("/project/{project_id}/list", response_model=ProjectStaffListResponse, summary="取得案件承辦同仁列表")
 async def get_project_staff_assignments(
     project_id: int,
     db: AsyncSession = Depends(get_async_db)
@@ -129,8 +142,8 @@ async def get_project_staff_assignments(
             user_id=row.user_id,
             user_name=row.full_name or row.username,
             user_email=row.email,
-            department=None,  # User model doesn't have department
-            phone=None,  # User model doesn't have phone
+            department=None,
+            phone=None,
             role=row.role,
             is_primary=row.is_primary or False,
             start_date=row.start_date,
@@ -149,7 +162,7 @@ async def get_project_staff_assignments(
     )
 
 
-@router.put("/project/{project_id}/user/{user_id}")
+@router.post("/project/{project_id}/user/{user_id}/update", summary="更新案件與承辦同仁關聯")
 async def update_project_staff_assignment(
     project_id: int,
     user_id: int,
@@ -170,7 +183,7 @@ async def update_project_staff_assignment(
         raise HTTPException(status_code=404, detail="案件與承辦同仁關聯不存在")
 
     # 更新關聯資料
-    update_data = assignment_data.dict(exclude_unset=True)
+    update_data = assignment_data.model_dump(exclude_unset=True)
     if update_data:
         update_stmt = update(project_user_assignment).where(
             (project_user_assignment.c.project_id == project_id) &
@@ -187,7 +200,7 @@ async def update_project_staff_assignment(
     }
 
 
-@router.delete("/project/{project_id}/user/{user_id}")
+@router.post("/project/{project_id}/user/{user_id}/delete", summary="刪除案件與承辦同仁關聯")
 async def delete_project_staff_assignment(
     project_id: int,
     user_id: int,
@@ -222,18 +235,14 @@ async def delete_project_staff_assignment(
     }
 
 
-@router.get("/")
+@router.post("/list", summary="取得所有承辦同仁關聯列表")
 async def get_all_staff_assignments(
-    skip: int = Query(0, ge=0, description="跳過筆數"),
-    limit: int = Query(100, ge=1, le=1000, description="限制筆數"),
-    project_id: Optional[int] = Query(None, description="案件ID篩選"),
-    user_id: Optional[int] = Query(None, description="使用者ID篩選"),
-    status: Optional[str] = Query(None, description="狀態篩選"),
+    query: StaffListQuery = Body(default=StaffListQuery()),
     db: AsyncSession = Depends(get_async_db)
 ):
     """取得所有案件與承辦同仁關聯列表"""
 
-    query = select(
+    db_query = select(
         project_user_assignment.c.id,
         project_user_assignment.c.project_id,
         project_user_assignment.c.user_id,
@@ -259,19 +268,19 @@ async def get_all_staff_assignments(
     )
 
     # 篩選條件
-    if project_id:
-        query = query.where(project_user_assignment.c.project_id == project_id)
+    if query.project_id:
+        db_query = db_query.where(project_user_assignment.c.project_id == query.project_id)
 
-    if user_id:
-        query = query.where(project_user_assignment.c.user_id == user_id)
+    if query.user_id:
+        db_query = db_query.where(project_user_assignment.c.user_id == query.user_id)
 
-    if status:
-        query = query.where(project_user_assignment.c.status == status)
+    if query.status:
+        db_query = db_query.where(project_user_assignment.c.status == query.status)
 
     # 分頁
-    query = query.offset(skip).limit(limit)
+    db_query = db_query.offset(query.skip).limit(query.limit)
 
-    result = await db.execute(query)
+    result = await db.execute(db_query)
     assignments_data = result.fetchall()
 
     assignments = []
@@ -295,6 +304,6 @@ async def get_all_staff_assignments(
     return {
         "assignments": assignments,
         "total": len(assignments),
-        "skip": skip,
-        "limit": limit
+        "skip": query.skip,
+        "limit": query.limit
     }

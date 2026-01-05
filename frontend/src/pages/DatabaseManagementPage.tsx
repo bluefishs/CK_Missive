@@ -11,7 +11,7 @@ import {
   DownloadOutlined, CheckCircleOutlined, ExclamationCircleOutlined,
   PlayCircleOutlined, CopyOutlined, EyeOutlined, UpOutlined
 } from '@ant-design/icons';
-import { API_BASE_URL } from '../api/config';
+import { API_BASE_URL } from '../api/client';
 import { SimpleDatabaseViewer } from '../components/admin/SimpleDatabaseViewer';
 
 const { Title, Text, Paragraph } = Typography;

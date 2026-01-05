@@ -31,60 +31,18 @@ import {
   PlusOutlined,
 } from '@ant-design/icons';
 import Highlighter from 'react-highlight-words';
-import { API_BASE_URL } from '../api/config';
+import {
+  agenciesApi,
+  type AgencyWithStats,
+  type AgencyStatistics,
+  type AgencyCreate,
+  type AgencyUpdate,
+} from '../api';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
 
-interface Agency {
-  id: number;
-  agency_name: string;
-  agency_short_name?: string;
-  agency_code?: string;
-  agency_type?: string;
-  contact_person?: string;
-  phone?: string;
-  address?: string;
-  email?: string;
-  document_count: number;
-  sent_count: number;
-  received_count: number;
-  last_activity: string | null;
-  primary_type: 'sender' | 'receiver' | 'both' | 'unknown';
-  category: string;
-  original_names?: string[];
-  created_at?: string;
-  updated_at?: string;
-}
-
-interface AgencyFormData {
-  agency_name: string;
-  agency_short_name?: string;
-  agency_code?: string;
-  agency_type?: string;
-  contact_person?: string;
-  phone?: string;
-  address?: string;
-  email?: string;
-}
-
-interface AgenciesResponse {
-  agencies: Agency[];
-  total: number;
-  returned: number;
-  search?: string;
-}
-
-interface CategoryStat {
-  category: string;
-  count: number;
-  percentage: number;
-}
-
-interface Statistics {
-  total_agencies: number;
-  categories: CategoryStat[];
-}
+// 使用 agenciesApi 匯出的型別，本地介面定義已移除以避免重複
 
 // 機關類型選項
 const AGENCY_TYPE_OPTIONS = [
@@ -95,14 +53,14 @@ const AGENCY_TYPE_OPTIONS = [
   { value: '教育機構', label: '教育機構' },
 ];
 
-type DataIndex = keyof Agency;
+type DataIndex = keyof AgencyWithStats;
 
 export const AgenciesPage: React.FC = () => {
   const { message } = App.useApp();
   const [form] = Form.useForm();
 
-  const [agencies, setAgencies] = useState<Agency[]>([]);
-  const [statistics, setStatistics] = useState<Statistics | null>(null);
+  const [agencies, setAgencies] = useState<AgencyWithStats[]>([]);
+  const [statistics, setStatistics] = useState<AgencyStatistics | null>(null);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
@@ -112,7 +70,7 @@ export const AgenciesPage: React.FC = () => {
 
   // Modal 狀態
   const [modalVisible, setModalVisible] = useState(false);
-  const [editingAgency, setEditingAgency] = useState<Agency | null>(null);
+  const [editingAgency, setEditingAgency] = useState<AgencyWithStats | null>(null);
   const [submitLoading, setSubmitLoading] = useState(false);
 
   // 欄位搜尋狀態
@@ -137,7 +95,7 @@ export const AgenciesPage: React.FC = () => {
   };
 
   // 取得欄位搜尋屬性
-  const getColumnSearchProps = (dataIndex: DataIndex): TableColumnType<Agency> => ({
+  const getColumnSearchProps = (dataIndex: DataIndex): TableColumnType<AgencyWithStats> => ({
     filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters, close }) => (
       <div style={{ padding: 8 }} onKeyDown={(e) => e.stopPropagation()}>
         <Input
@@ -203,27 +161,19 @@ export const AgenciesPage: React.FC = () => {
       ),
   });
 
-  // 載入機關單位列表
+  // 載入機關單位列表（使用統一 API 服務）
   const fetchAgencies = async (search?: string, page = 1) => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({
-        limit: pageSize.toString(),
-        include_stats: 'true',
+      const response = await agenciesApi.getAgencies({
+        page,
+        limit: pageSize,
+        search,
+        include_stats: true,
       });
 
-      if (search) {
-        params.append('search', search);
-      }
-
-      const response = await fetch(`${API_BASE_URL}/agencies/?${params}`);
-      if (!response.ok) {
-        throw new Error('載入機關單位失敗');
-      }
-
-      const data: AgenciesResponse = await response.json();
-      setAgencies(data.agencies);
-      setTotalAgencies(data.total);
+      setAgencies(response.items);
+      setTotalAgencies(response.pagination.total);
     } catch (error) {
       console.error('載入機關單位錯誤:', error);
       message.error('載入機關單位失敗');
@@ -232,15 +182,10 @@ export const AgenciesPage: React.FC = () => {
     }
   };
 
-  // 載入統計資料
+  // 載入統計資料（使用統一 API 服務）
   const fetchStatistics = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/agencies/statistics`);
-      if (!response.ok) {
-        throw new Error('載入統計資料失敗');
-      }
-
-      const data: Statistics = await response.json();
+      const data = await agenciesApi.getStatistics();
       setStatistics(data);
     } catch (error) {
       console.error('載入統計資料錯誤:', error);
@@ -282,7 +227,7 @@ export const AgenciesPage: React.FC = () => {
   };
 
   // 開啟編輯 Modal
-  const handleEdit = (agency: Agency) => {
+  const handleEdit = (agency: AgencyWithStats) => {
     setEditingAgency(agency);
     form.setFieldsValue({
       agency_name: agency.agency_name,
@@ -297,28 +242,20 @@ export const AgenciesPage: React.FC = () => {
     setModalVisible(true);
   };
 
-  // 提交表單 (新增/更新)
-  const handleSubmit = async (values: AgencyFormData) => {
+  // 提交表單 (新增/更新) - 使用統一 API 服務
+  const handleSubmit = async (values: AgencyCreate) => {
     setSubmitLoading(true);
     try {
-      const url = editingAgency
-        ? `${API_BASE_URL}/agencies/${editingAgency.id}`
-        : `${API_BASE_URL}/agencies/`;
-
-      const method = editingAgency ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || '操作失敗');
+      if (editingAgency) {
+        // 更新現有機關
+        await agenciesApi.updateAgency(editingAgency.id, values as AgencyUpdate);
+        message.success('機關單位更新成功');
+      } else {
+        // 建立新機關
+        await agenciesApi.createAgency(values);
+        message.success('機關單位建立成功');
       }
 
-      message.success(editingAgency ? '機關單位更新成功' : '機關單位建立成功');
       setModalVisible(false);
       form.resetFields();
       setEditingAgency(null);
@@ -332,18 +269,10 @@ export const AgenciesPage: React.FC = () => {
     }
   };
 
-  // 刪除機關單位
+  // 刪除機關單位（使用統一 API 服務）
   const handleDelete = async (id: number) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/agencies/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || '刪除失敗');
-      }
-
+      await agenciesApi.deleteAgency(id);
       message.success('機關單位刪除成功');
       fetchAgencies(searchText, currentPage);
       fetchStatistics();
@@ -385,15 +314,15 @@ export const AgenciesPage: React.FC = () => {
   };
 
   // 表格欄位定義 - 含排序與篩選功能
-  const columns: TableColumnType<Agency>[] = [
+  const columns: TableColumnType<AgencyWithStats>[] = [
     {
       title: '機關名稱',
       dataIndex: 'agency_name',
       key: 'agency_name',
-      width: '25%',
+      width: 280,
       sorter: (a, b) => a.agency_name.localeCompare(b.agency_name, 'zh-TW'),
       ...getColumnSearchProps('agency_name'),
-      render: (text: string, record: Agency) => (
+      render: (text: string, record: AgencyWithStats) => (
         <div>
           <div style={{ fontWeight: 500 }}>
             {searchedColumn === 'agency_name' ? (
@@ -406,27 +335,28 @@ export const AgenciesPage: React.FC = () => {
             ) : text}
           </div>
           {record.agency_short_name && (
-            <div style={{ fontSize: '12px', color: '#1890ff', marginTop: '2px' }}>
+            <Text type="secondary" style={{ fontSize: '12px' }}>
               簡稱: {record.agency_short_name}
-            </div>
+            </Text>
           )}
-          <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-            {getCategoryIcon(record.category)}
-            <span style={{ marginLeft: '6px' }}>{record.category}</span>
-            {record.agency_code && (
-              <span style={{ marginLeft: '8px', color: '#999' }}>
-                代碼: {record.agency_code}
-              </span>
-            )}
-          </div>
         </div>
       ),
+    },
+    {
+      title: '機關代碼',
+      dataIndex: 'agency_code',
+      key: 'agency_code',
+      width: 120,
+      align: 'center' as const,
+      ...getColumnSearchProps('agency_code'),
+      render: (code: string) => code || <Text type="secondary">-</Text>,
     },
     {
       title: '分類',
       dataIndex: 'category',
       key: 'category',
-      width: '10%',
+      width: 120,
+      align: 'center' as const,
       filters: [
         { text: '政府機關', value: '政府機關' },
         { text: '民間企業', value: '民間企業' },
@@ -441,69 +371,85 @@ export const AgenciesPage: React.FC = () => {
         </Tag>
       ),
     },
+    // 註解隱藏: 機關類型 (primary_type) - 因公文尚未關聯機關ID，目前無法判斷發文/收文機關
+    // {
+    //   title: '機關類型',
+    //   dataIndex: 'primary_type',
+    //   key: 'primary_type',
+    //   width: 100,
+    //   render: (type: string) => <Tag color={getTypeTagColor(type)}>{getTypeText(type)}</Tag>,
+    // },
     {
-      title: '機關類型',
-      dataIndex: 'primary_type',
-      key: 'primary_type',
-      width: '10%',
-      filters: [
-        { text: '發文機關', value: 'sender' },
-        { text: '收文機關', value: 'receiver' },
-        { text: '收發文機關', value: 'both' },
-        { text: '未知', value: 'unknown' },
-      ],
-      onFilter: (value, record) => record.primary_type === value,
-      render: (type: string) => (
-        <Tag color={getTypeTagColor(type)}>
-          {getTypeText(type)}
-        </Tag>
-      ),
+      title: '聯絡人',
+      dataIndex: 'contact_person',
+      key: 'contact_person',
+      width: 100,
+      render: (person: string) => person || <Text type="secondary">-</Text>,
     },
     {
-      title: '公文總數',
-      dataIndex: 'document_count',
-      key: 'document_count',
-      width: '10%',
-      align: 'center' as const,
-      sorter: (a, b) => a.document_count - b.document_count,
-      defaultSortOrder: 'descend',
+      title: '電話',
+      dataIndex: 'phone',
+      key: 'phone',
+      width: 130,
+      render: (phone: string) => phone || <Text type="secondary">-</Text>,
     },
     {
-      title: '發文數',
-      dataIndex: 'sent_count',
-      key: 'sent_count',
-      width: '8%',
-      align: 'center' as const,
-      sorter: (a, b) => a.sent_count - b.sent_count,
+      title: 'Email',
+      dataIndex: 'email',
+      key: 'email',
+      width: 180,
+      ellipsis: true,
+      render: (email: string) =>
+        email ? <a href={`mailto:${email}`}>{email}</a> : <Text type="secondary">-</Text>,
     },
+    // 註解隱藏: 公文統計欄位 - 因 documents 表的 sender_agency_id/receiver_agency_id 尚未建立關聯
+    // 待資料關聯完成後可取消註解
+    // {
+    //   title: '公文總數',
+    //   dataIndex: 'document_count',
+    //   key: 'document_count',
+    //   width: 90,
+    //   align: 'center' as const,
+    //   sorter: (a, b) => a.document_count - b.document_count,
+    // },
+    // {
+    //   title: '發文數',
+    //   dataIndex: 'sent_count',
+    //   key: 'sent_count',
+    //   width: 80,
+    //   align: 'center' as const,
+    // },
+    // {
+    //   title: '收文數',
+    //   dataIndex: 'received_count',
+    //   key: 'received_count',
+    //   width: 80,
+    //   align: 'center' as const,
+    // },
+    // {
+    //   title: '最後活動',
+    //   dataIndex: 'last_activity',
+    //   key: 'last_activity',
+    //   width: 110,
+    //   render: (date: string | null) =>
+    //     date ? new Date(date).toLocaleDateString('zh-TW') : <Text type="secondary">-</Text>,
+    // },
     {
-      title: '收文數',
-      dataIndex: 'received_count',
-      key: 'received_count',
-      width: '8%',
-      align: 'center' as const,
-      sorter: (a, b) => a.received_count - b.received_count,
-    },
-    {
-      title: '最後活動',
-      dataIndex: 'last_activity',
-      key: 'last_activity',
-      width: '12%',
-      sorter: (a, b) => {
-        if (!a.last_activity && !b.last_activity) return 0;
-        if (!a.last_activity) return 1;
-        if (!b.last_activity) return -1;
-        return new Date(a.last_activity).getTime() - new Date(b.last_activity).getTime();
-      },
-      render: (date: string | null) =>
-        date ? new Date(date).toLocaleDateString('zh-TW') : <Text type="secondary">無紀錄</Text>,
+      title: '建立日期',
+      dataIndex: 'created_at',
+      key: 'created_at',
+      width: 110,
+      sorter: (a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime(),
+      render: (date: string) =>
+        date ? new Date(date).toLocaleDateString('zh-TW') : '-',
     },
     {
       title: '操作',
       key: 'action',
-      width: '8%',
+      width: 80,
+      align: 'center' as const,
       fixed: 'right' as const,
-      render: (_: unknown, record: Agency) => (
+      render: (_: unknown, record: AgencyWithStats) => (
         <Popconfirm
           title="確定要刪除此機關單位？"
           description="刪除後將無法復原"
@@ -633,8 +579,9 @@ export const AgenciesPage: React.FC = () => {
           rowKey="id"
           loading={loading}
           pagination={false}
-          scroll={{ x: 1200 }}
+          scroll={{ x: 1120 }}
           size="middle"
+          tableLayout="fixed"
           onRow={(record) => ({
             onClick: () => handleEdit(record),
             style: { cursor: 'pointer' },

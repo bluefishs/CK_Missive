@@ -110,7 +110,7 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
   // 載入可選廠商
   const loadVendors = async () => {
     try {
-      const response = await fetch('/api/vendors/?limit=1000');
+      const response = await fetch('/api/vendors?limit=1000');
       const data = await response.json();
 
       if (response.ok) {
@@ -160,7 +160,7 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
         );
       } else {
         // 新增關聯
-        response = await fetch('/api/project-vendors/', {
+        response = await fetch('/api/project-vendors', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData),

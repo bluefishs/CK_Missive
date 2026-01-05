@@ -5,7 +5,7 @@ import {
   Input,
   Space,
   Card,
-  message,
+  App,
   Modal,
   Form,
   Select,
@@ -26,23 +26,28 @@ import {
   ShopOutlined
 } from '@ant-design/icons';
 import type { TableColumnType } from 'antd';
+import { vendorsApi } from '../../api/vendors';
+import type { Vendor as ApiVendor, VendorCreate, VendorUpdate } from '../../types/api';
 
 const { Title } = Typography;
 const { Option } = Select;
 
-interface Vendor {
-  id: number;
-  vendor_name: string;
-  vendor_code?: string;
-  contact_person?: string;
-  phone?: string;
-  address?: string;
-  email?: string;
-  business_type?: string;
-  rating?: number;
-  created_at: string;
-  updated_at: string;
-}
+// 營業項目選項 (與 ContractCaseDetailPage 協力廠商業務類別一致)
+const BUSINESS_TYPE_OPTIONS = [
+  { value: '測量業務', label: '測量業務', color: 'blue' },
+  { value: '系統業務', label: '系統業務', color: 'green' },
+  { value: '查估業務', label: '查估業務', color: 'orange' },
+  { value: '其他類別', label: '其他類別', color: 'default' },
+];
+
+// 取得營業項目標籤顏色
+const getBusinessTypeColor = (type?: string) => {
+  const option = BUSINESS_TYPE_OPTIONS.find(opt => opt.value === type);
+  return option?.color || 'default';
+};
+
+// 使用統一型別定義
+type Vendor = ApiVendor;
 
 interface VendorFormData {
   vendor_name: string;
@@ -56,6 +61,7 @@ interface VendorFormData {
 }
 
 const VendorList: React.FC = () => {
+  const { message } = App.useApp();
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
@@ -69,30 +75,25 @@ const VendorList: React.FC = () => {
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
   const [form] = Form.useForm();
 
-  // 載入廠商列表
+  // 載入廠商列表 (使用統一 API Client)
   const loadVendors = async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({
-        skip: ((current - 1) * pageSize).toString(),
-        limit: pageSize.toString(),
-      });
+      // 構建查詢參數，只包含有值的欄位
+      const params: Parameters<typeof vendorsApi.getVendors>[0] = {
+        page: current,
+        limit: pageSize,
+      };
+      if (searchText) params.search = searchText;
+      if (businessTypeFilter) params.business_type = businessTypeFilter;
 
-      if (searchText) params.append('search', searchText);
-      if (businessTypeFilter) params.append('business_type', businessTypeFilter);
-      if (ratingFilter) params.append('rating', ratingFilter.toString());
+      const response = await vendorsApi.getVendors(params);
 
-      const response = await fetch(`/api/vendors/?${params}`);
-      const data = await response.json();
-
-      if (response.ok) {
-        setVendors(data.vendors || []);
-        setTotal(data.total || 0);
-      } else {
-        message.error('載入廠商列表失敗');
-      }
+      setVendors(response.items);
+      setTotal(response.pagination.total);
     } catch (error) {
-      message.error('網路錯誤，請稍後再試');
+      console.error('載入廠商列表失敗:', error);
+      message.error('載入廠商列表失敗');
     } finally {
       setLoading(false);
     }
@@ -102,54 +103,35 @@ const VendorList: React.FC = () => {
     loadVendors();
   }, [current, pageSize, searchText, businessTypeFilter, ratingFilter]);
 
-  // 新增或編輯廠商
+  // 新增或編輯廠商 (使用統一 API Client)
   const handleSubmit = async (values: VendorFormData) => {
     try {
-      const url = editingVendor 
-        ? `/api/vendors/${editingVendor.id}`
-        : '/api/vendors/';
-      
-      const method = editingVendor ? 'PUT' : 'POST';
-      
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(values),
-      });
-
-      if (response.ok) {
-        message.success(editingVendor ? '廠商更新成功' : '廠商建立成功');
-        setModalVisible(false);
-        form.resetFields();
-        setEditingVendor(null);
-        loadVendors();
+      if (editingVendor) {
+        await vendorsApi.updateVendor(editingVendor.id, values as VendorUpdate);
+        message.success('廠商更新成功');
       } else {
-        const error = await response.json();
-        message.error(error.detail || '操作失敗');
+        await vendorsApi.createVendor(values as VendorCreate);
+        message.success('廠商建立成功');
       }
-    } catch (error) {
-      message.error('網路錯誤，請稍後再試');
+      setModalVisible(false);
+      form.resetFields();
+      setEditingVendor(null);
+      loadVendors();
+    } catch (error: any) {
+      console.error('廠商操作失敗:', error);
+      message.error(error?.message || '操作失敗');
     }
   };
 
-  // 刪除廠商
+  // 刪除廠商 (使用統一 API Client)
   const handleDelete = async (id: number) => {
     try {
-      const response = await fetch(`/api/vendors/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        message.success('廠商刪除成功');
-        loadVendors();
-      } else {
-        const error = await response.json();
-        message.error(error.detail || '刪除失敗');
-      }
-    } catch (error) {
-      message.error('網路錯誤，請稍後再試');
+      await vendorsApi.deleteVendor(id);
+      message.success('廠商刪除成功');
+      loadVendors();
+    } catch (error: any) {
+      console.error('刪除廠商失敗:', error);
+      message.error(error?.message || '刪除失敗');
     }
   };
 
@@ -205,8 +187,13 @@ const VendorList: React.FC = () => {
       title: '營業項目',
       dataIndex: 'business_type',
       key: 'business_type',
+      width: 130,
       sorter: (a, b) => (a.business_type || '').localeCompare(b.business_type || '', 'zh-TW'),
-      render: (text: string) => text && <Tag icon={<ShopOutlined />}>{text}</Tag>,
+      filters: BUSINESS_TYPE_OPTIONS.map(opt => ({ text: opt.label, value: opt.value })),
+      onFilter: (value, record) => record.business_type === value,
+      render: (text: string) => text ? (
+        <Tag icon={<ShopOutlined />} color={getBusinessTypeColor(text)}>{text}</Tag>
+      ) : <span style={{ color: '#999' }}>未設定</span>,
     },
     {
       title: '評價',
@@ -290,13 +277,17 @@ const VendorList: React.FC = () => {
               allowClear
             />
             
-            <Input
+            <Select
               placeholder="營業項目篩選"
-              value={businessTypeFilter}
-              onChange={(e) => setBusinessTypeFilter(e.target.value)}
+              value={businessTypeFilter || undefined}
+              onChange={(value) => setBusinessTypeFilter(value || '')}
               style={{ width: 150 }}
               allowClear
-            />
+            >
+              {BUSINESS_TYPE_OPTIONS.map(opt => (
+                <Option key={opt.value} value={opt.value}>{opt.label}</Option>
+              ))}
+            </Select>
             
             <Select
               placeholder="評價篩選"
@@ -424,8 +415,13 @@ const VendorList: React.FC = () => {
               <Form.Item
                 name="business_type"
                 label="營業項目"
+                rules={[{ required: true, message: '請選擇營業項目' }]}
               >
-                <Input placeholder="請輸入營業項目" />
+                <Select placeholder="請選擇營業項目">
+                  {BUSINESS_TYPE_OPTIONS.map(opt => (
+                    <Option key={opt.value} value={opt.value}>{opt.label}</Option>
+                  ))}
+                </Select>
               </Form.Item>
             </Col>
             <Col span={12}>

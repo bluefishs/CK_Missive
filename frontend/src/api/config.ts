@@ -1,3 +1,10 @@
+/**
+ * @deprecated 此配置檔案已被 client.ts 取代
+ * 請使用 import { apiClient } from '@/api/client' 或 import { apiClient } from '@/api'
+ *
+ * 此檔案保留是為了向後相容，將在未來版本移除
+ */
+
 import axios from 'axios';
 
 // API 基本配置 - 使用 Vite 代理
@@ -37,7 +44,7 @@ apiClient.interceptors.response.use(
   (error) => {
     // 處理全局錯誤
     if (error.response?.status === 401) {
-      const authDisabled = import.meta.env.VITE_AUTH_DISABLED === 'true';
+      const authDisabled = import.meta.env['VITE_AUTH_DISABLED'] === 'true';
 
       if (!authDisabled) {
         localStorage.removeItem('auth_token');

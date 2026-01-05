@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, delete
 from sqlalchemy.exc import IntegrityError
 
-from app.extended.models import ContractProject, project_vendor_association
+from app.extended.models import ContractProject, project_vendor_association, project_user_assignment
 from app.schemas.project import ProjectCreate, ProjectUpdate
 
 logger = logging.getLogger(__name__)
@@ -52,11 +52,16 @@ class ProjectService:
         db_project = await self.get_project(db, project_id)
         if not db_project:
             return None
-        
+
         update_data = project_update.model_dump(exclude_unset=True)
+
+        # 自動設定進度：當狀態設為「已結案」時，進度自動設為 100%
+        if update_data.get('status') == '已結案':
+            update_data['progress'] = 100
+
         for key, value in update_data.items():
             setattr(db_project, key, value)
-        
+
         await db.commit()
         await db.refresh(db_project)
         return db_project
@@ -65,14 +70,30 @@ class ProjectService:
         db_project = await self.get_project(db, project_id)
         if not db_project:
             return False
-        
-        # 注意：此處應先處理關聯的公文，但為簡化，暫時直接刪除。
-        # 在正式系統中，應先檢查 documents.contract_project_id 是否有引用。
-        # 我們在 models.py 中設定了級聯刪除，所以關聯的 calendar_events 等會被處理。
-        
-        await db.delete(db_project)
-        await db.commit()
-        return True
+
+        try:
+            # 先刪除關聯的承辦同仁資料
+            await db.execute(
+                delete(project_user_assignment).where(
+                    project_user_assignment.c.project_id == project_id
+                )
+            )
+
+            # 再刪除關聯的廠商資料
+            await db.execute(
+                delete(project_vendor_association).where(
+                    project_vendor_association.c.project_id == project_id
+                )
+            )
+
+            # 最後刪除專案本身
+            await db.delete(db_project)
+            await db.commit()
+            return True
+        except IntegrityError as e:
+            await db.rollback()
+            logger.error(f"刪除專案失敗 (外鍵約束): {e}")
+            raise ValueError("無法刪除此專案，可能仍有關聯的公文或其他資料")
 
     async def get_project_statistics(self, db: AsyncSession) -> dict:
         """取得專案統計資料"""

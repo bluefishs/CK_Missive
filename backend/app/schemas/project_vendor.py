@@ -45,9 +45,10 @@ class ProjectVendorBase(BaseModel):
     @classmethod
     def validate_role(cls, v):
         if v:
-            allowed_roles = ['主承包商', '分包商', '供應商', '顧問', '監造', '其他']
+            # 更新為新的業務類別選項
+            allowed_roles = ['測量業務', '系統業務', '查估業務', '其他類別']
             if v not in allowed_roles:
-                raise ValueError(f'角色必須是以下之一: {allowed_roles}')
+                raise ValueError(f'業務類別必須是以下之一: {allowed_roles}')
         return v
 
 class ProjectVendorCreate(ProjectVendorBase):
@@ -90,9 +91,10 @@ class ProjectVendorUpdate(BaseModel):
     @classmethod
     def validate_role(cls, v):
         if v:
-            allowed_roles = ['主承包商', '分包商', '供應商', '顧問', '監造', '其他']
+            # 更新為新的業務類別選項
+            allowed_roles = ['測量業務', '系統業務', '查估業務', '其他類別']
             if v not in allowed_roles:
-                raise ValueError(f'角色必須是以下之一: {allowed_roles}')
+                raise ValueError(f'業務類別必須是以下之一: {allowed_roles}')
         return v
 
 class ProjectVendorResponse(BaseModel):

@@ -10,7 +10,8 @@ import { exportDocumentsToExcel } from '../utils/exportUtils';
 import { useDocuments } from '../hooks';
 import { useDocumentsStore } from '../stores';
 import { Document, DocumentFilter as IDocumentFilter } from '../types';
-import { API_BASE_URL } from '../api/config';
+import { API_BASE_URL } from '../api/client';
+import { documentsApi } from '../api/documentsApi';
 import { calendarIntegrationService } from '../services/calendarIntegrationService';
 
 const { Title } = Typography;
@@ -196,38 +197,22 @@ export const DocumentPage: React.FC = () => {
     }
   };
 
-  // 儲存公文 (無刷新編輯)
+  // 儲存公文 (使用統一 API 服務)
   const handleSaveDocument = async (documentData: Partial<Document>) => {
     try {
       let updatedDocument: Document;
 
       if (documentOperation.type === 'create' || documentOperation.type === 'copy') {
-        const response = await fetch(`${API_BASE_URL}/documents`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(documentData),
-        });
-
-        if (!response.ok) throw new Error('新增公文失敗');
-        updatedDocument = await response.json();
+        // 使用 documentsApi 建立公文
+        updatedDocument = await documentsApi.createDocument(documentData as any);
         message.success('公文新增成功！');
         refetch();
-      } else if (documentOperation.type === 'edit') {
-        const response = await fetch(
-          `${API_BASE_URL}/documents/${documentOperation.document?.id}`,
-          {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(documentData),
-          }
+      } else if (documentOperation.type === 'edit' && documentOperation.document?.id) {
+        // 使用 documentsApi 更新公文
+        updatedDocument = await documentsApi.updateDocument(
+          documentOperation.document.id,
+          documentData as any
         );
-
-        if (!response.ok) {
-          const errorDetails = await response.text();
-          console.error('PUT請求失敗:', response.status, errorDetails);
-          throw new Error(`更新公文失敗 (${response.status}): ${errorDetails}`);
-        }
-        updatedDocument = await response.json();
         message.success('公文更新成功！');
 
         const currentStore = useDocumentsStore.getState();
@@ -262,11 +247,8 @@ export const DocumentPage: React.FC = () => {
   const handleConfirmDelete = async () => {
     if (deleteModal.document) {
       try {
-        const response = await fetch(`${API_BASE_URL}/documents/delete/${deleteModal.document.id}`, {
-          method: 'DELETE',
-        });
-
-        if (!response.ok) throw new Error('刪除公文失敗');
+        // 使用統一 API 服務刪除公文 (POST-only 資安機制)
+        await documentsApi.deleteDocument(deleteModal.document.id);
 
         message.success(`已刪除公文: ${deleteModal.document.doc_number}`);
         refetch();

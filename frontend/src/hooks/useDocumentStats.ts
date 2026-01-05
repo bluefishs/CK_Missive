@@ -1,6 +1,6 @@
 // @ts-ignore
 import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../api/config';
+import { apiClient } from '../api/client';
 
 interface DocumentStats {
   total: number;

@@ -2,11 +2,15 @@
 # -*- coding: utf-8 -*-
 """
 承攬案件相關的Pydantic Schema定義
+
+使用統一回應格式，支援分頁和舊資料相容性
 """
 
 from typing import List, Optional
 from datetime import datetime, date
-from pydantic import BaseModel, Field, ConfigDict, field_validator # 新增 ConfigDict, field_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator
+
+from app.schemas.common import PaginatedResponse, PaginationMeta
 
 class ProjectBase(BaseModel):
     """承攬案件基礎Schema"""
@@ -86,12 +90,32 @@ class ProjectResponse(ProjectBase):
 
     model_config = ConfigDict(from_attributes=True) # 使用 model_config
 
-class ProjectListResponse(BaseModel):
-    """承攬案件列表回應Schema"""
+class ProjectListResponse(PaginatedResponse):
+    """
+    承攬案件列表回應 Schema（統一分頁格式）
+
+    回應格式：
+    {
+        "success": true,
+        "items": [...],
+        "pagination": { "total": 100, "page": 1, "limit": 20, ... }
+    }
+    """
+    items: List[ProjectResponse] = Field(default=[], description="專案列表")
+
+
+# 保留舊版格式供向後相容（已棄用）
+class ProjectListResponseLegacy(BaseModel):
+    """
+    承攬案件列表回應Schema（舊版格式，已棄用）
+
+    請使用 ProjectListResponse 統一格式
+    """
     projects: List[ProjectResponse]
     total: int = Field(..., description="總筆數")
     skip: int = Field(..., description="跳過筆數")
     limit: int = Field(..., description="限制筆數")
+
 
 class ProjectOption(BaseModel):
     """承攬案件選項Schema (用於下拉選單)"""

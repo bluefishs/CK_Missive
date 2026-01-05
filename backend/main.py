@@ -18,6 +18,7 @@ from app.api.routes import api_router
 from app.db.database import get_async_db, engine
 from app.core.logging_manager import log_manager, LoggingMiddleware, log_info
 from app.services.reminder_scheduler import start_reminder_scheduler, stop_reminder_scheduler
+from app.core.exceptions import register_exception_handlers
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
@@ -43,8 +44,12 @@ app = FastAPI(
     version="3.0.0",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
-    lifespan=lifespan
+    lifespan=lifespan,
+    redirect_slashes=False  # 避免 307 重導向問題
 )
+
+# --- 註冊統一異常處理器 ---
+register_exception_handlers(app)
 
 # --- 中介軟體 (Middleware) ---
 origins = settings.CORS_ORIGINS.split(",") if settings.CORS_ORIGINS else []
@@ -171,22 +176,8 @@ async def health_check(db: AsyncSession = Depends(get_async_db)):
     return {"database": db_status, "status": "healthy" if db_status == "connected" else "unhealthy"}
 
 
-# --- 全域異常處理 ---
-@app.exception_handler(Exception)
-async def global_exception_handler(request, exc):
-    import traceback
-    error_detail = traceback.format_exc()
-    logger.error(f"Global exception on path {request.url.path}: {exc}\n{error_detail}")
-    from fastapi.responses import JSONResponse
-    return JSONResponse(
-        status_code=500,
-        content={
-            "error": "Internal Server Error",
-            "message": str(exc),
-            "detail": error_detail if settings.DEBUG else "An unexpected error occurred.",
-            "path": str(request.url.path)
-        }
-    )
+# --- 全域異常處理已移至 app.core.exceptions ---
+# 統一異常處理器已透過 register_exception_handlers(app) 註冊
 
 if __name__ == "__main__":
     import uvicorn

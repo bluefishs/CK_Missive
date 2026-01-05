@@ -1,11 +1,35 @@
 /**
  * 核心業務類型定義
  * 統一整個應用程式的類型系統
- * 
- * @version 2.0
- * @author Claude Desktop
- * @date 2024-09-04
+ *
+ * @version 3.0
+ * @date 2026-01-05
+ *
+ * 變更記錄：
+ * - v3.0: 整合 API 型別定義，與後端 Schema 對應
+ * - v2.0: 初始版本
  */
+
+// 匯出 API 業務型別（與後端 Schema 對應）
+export * from './api';
+
+// 匯出 API 回應格式（從 api/types.ts 重新匯出）
+export type {
+  ErrorCode,
+  ErrorDetail,
+  ApiError,
+  ErrorResponse,
+  SuccessResponse,
+  PaginationParams,
+  PaginationMeta,
+  PaginatedResponse,
+  SortOrder,
+  SortParams,
+  BaseQueryParams,
+  DeleteResponse,
+  BatchOperationResponse,
+  SelectOption,
+} from '../api/types';
 
 // ===================== 基礎類型 =====================
 

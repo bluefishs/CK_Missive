@@ -1,4 +1,8 @@
-import { apiClient } from './config';
+/**
+ * @deprecated 此檔案將被 projectsApi.ts 取代
+ * 請使用 import { projectsApi } from '@/api/projectsApi' 或 import { projectsApi } from '@/api'
+ */
+import { apiClient } from './client';
 
 // ========== 專案類型定義 ==========
 
@@ -82,7 +86,7 @@ interface ProjectVendorListResponse {
   total: number;
 }
 
-// ========== 專案 API ==========
+// ========== 專案 API (POST-only 資安機制) ==========
 
 export const projectsApi = {
   // 獲取專案列表
@@ -94,13 +98,13 @@ export const projectsApi = {
     category?: string;
     status?: string;
   }): Promise<ProjectListResponse> => {
-    const response = await apiClient.get('/projects', { params });
+    const response = await apiClient.post('/projects/list', params || {});
     return response as unknown as ProjectListResponse;
   },
 
   // 獲取單個專案
   getProject: async (projectId: number): Promise<ProjectResponse> => {
-    const response = await apiClient.get(`/projects/${projectId}`);
+    const response = await apiClient.post(`/projects/${projectId}/detail`);
     return response as unknown as ProjectResponse;
   },
 
@@ -112,46 +116,46 @@ export const projectsApi = {
 
   // 更新專案
   updateProject: async (projectId: number, data: Partial<ProjectResponse>): Promise<ProjectResponse> => {
-    const response = await apiClient.put(`/projects/${projectId}`, data);
+    const response = await apiClient.post(`/projects/${projectId}/update`, data);
     return response as unknown as ProjectResponse;
   },
 
   // 刪除專案
   deleteProject: async (projectId: number): Promise<void> => {
-    await apiClient.delete(`/projects/${projectId}`);
+    await apiClient.post(`/projects/${projectId}/delete`);
   },
 
   // 獲取年度選項
   getYears: async (): Promise<{ years: number[] }> => {
-    const response = await apiClient.get('/projects/years');
+    const response = await apiClient.post('/projects/years');
     return response as unknown as { years: number[] };
   },
 
   // 獲取類別選項
   getCategories: async (): Promise<{ categories: string[] }> => {
-    const response = await apiClient.get('/projects/categories');
+    const response = await apiClient.post('/projects/categories');
     return response as unknown as { categories: string[] };
   },
 
   // 獲取狀態選項
   getStatuses: async (): Promise<{ statuses: string[] }> => {
-    const response = await apiClient.get('/projects/statuses');
+    const response = await apiClient.post('/projects/statuses');
     return response as unknown as { statuses: string[] };
   },
 
   // 獲取統計資料
   getStatistics: async (): Promise<any> => {
-    const response = await apiClient.get('/projects/statistics');
+    const response = await apiClient.post('/projects/statistics');
     return response;
   },
 };
 
-// ========== 承辦同仁 API ==========
+// ========== 承辦同仁 API (POST-only 資安機制) ==========
 
 export const projectStaffApi = {
   // 獲取專案的所有承辦同仁
   getProjectStaff: async (projectId: number): Promise<ProjectStaffListResponse> => {
-    const response = await apiClient.get(`/project-staff/project/${projectId}`);
+    const response = await apiClient.post(`/project-staff/project/${projectId}/list`);
     return response as unknown as ProjectStaffListResponse;
   },
 
@@ -183,13 +187,13 @@ export const projectStaffApi = {
       notes?: string;
     }
   ): Promise<{ message: string; project_id: number; user_id: number }> => {
-    const response = await apiClient.put(`/project-staff/project/${projectId}/user/${userId}`, data);
+    const response = await apiClient.post(`/project-staff/project/${projectId}/user/${userId}/update`, data);
     return response as unknown as { message: string; project_id: number; user_id: number };
   },
 
   // 刪除承辦同仁
   deleteStaff: async (projectId: number, userId: number): Promise<{ message: string }> => {
-    const response = await apiClient.delete(`/project-staff/project/${projectId}/user/${userId}`);
+    const response = await apiClient.post(`/project-staff/project/${projectId}/user/${userId}/delete`);
     return response as unknown as { message: string };
   },
 
@@ -201,17 +205,17 @@ export const projectStaffApi = {
     user_id?: number;
     status?: string;
   }): Promise<{ assignments: any[]; total: number; skip: number; limit: number }> => {
-    const response = await apiClient.get('/project-staff', { params });
+    const response = await apiClient.post('/project-staff/list', params || {});
     return response as unknown as { assignments: any[]; total: number; skip: number; limit: number };
   },
 };
 
-// ========== 協力廠商 API ==========
+// ========== 協力廠商 API (POST-only 資安機制) ==========
 
 export const projectVendorsApi = {
   // 獲取專案的所有協力廠商
   getProjectVendors: async (projectId: number): Promise<ProjectVendorListResponse> => {
-    const response = await apiClient.get(`/project-vendors/project/${projectId}`);
+    const response = await apiClient.post(`/project-vendors/project/${projectId}/list`);
     return response as unknown as ProjectVendorListResponse;
   },
 
@@ -241,13 +245,13 @@ export const projectVendorsApi = {
       status?: string;
     }
   ): Promise<{ message: string; project_id: number; vendor_id: number }> => {
-    const response = await apiClient.put(`/project-vendors/project/${projectId}/vendor/${vendorId}`, data);
+    const response = await apiClient.post(`/project-vendors/project/${projectId}/vendor/${vendorId}/update`, data);
     return response as unknown as { message: string; project_id: number; vendor_id: number };
   },
 
   // 刪除協力廠商
   deleteVendor: async (projectId: number, vendorId: number): Promise<{ message: string }> => {
-    const response = await apiClient.delete(`/project-vendors/project/${projectId}/vendor/${vendorId}`);
+    const response = await apiClient.post(`/project-vendors/project/${projectId}/vendor/${vendorId}/delete`);
     return response as unknown as { message: string };
   },
 
@@ -259,26 +263,13 @@ export const projectVendorsApi = {
     vendor_id?: number;
     status?: string;
   }): Promise<{ associations: any[]; total: number; skip: number; limit: number }> => {
-    const response = await apiClient.get('/project-vendors', { params });
+    const response = await apiClient.post('/project-vendors/list', params || {});
     return response as unknown as { associations: any[]; total: number; skip: number; limit: number };
   },
 };
 
-// ========== 廠商列表 API (用於新增廠商時選擇) ==========
-
-export const vendorsApi = {
-  // 獲取廠商列表
-  getVendors: async (params?: {
-    skip?: number;
-    limit?: number;
-    search?: string;
-  }): Promise<{ vendors: any[]; total: number }> => {
-    const response = await apiClient.get('/vendors', { params });
-    return response as unknown as { vendors: any[]; total: number };
-  },
-};
-
-// ========== 使用者列表 API (用於新增同仁時選擇) ==========
+// ========== 使用者列表 API (POST-only 資安機制) ==========
+// 注意: 廠商 API 已移至 vendors.ts (統一 API Client)
 
 export const usersApi = {
   // 獲取使用者列表
@@ -287,7 +278,7 @@ export const usersApi = {
     limit?: number;
     search?: string;
   }): Promise<{ users: any[]; total: number }> => {
-    const response = await apiClient.get('/users', { params });
+    const response = await apiClient.post('/users/list', params || {});
     return response as unknown as { users: any[]; total: number };
   },
 };

@@ -1,5 +1,5 @@
 import { Document, DocumentFilter } from '../types';
-import { API_BASE_URL } from '../api/config';
+import { API_BASE_URL } from '../api/client';
 
 /**
  * 匯出文件到 Excel（非同步版本，呼叫後端 API）

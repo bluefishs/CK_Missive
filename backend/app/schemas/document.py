@@ -1,10 +1,14 @@
 """
 收發文功能 Pydantic 資料結構 (優化後)
+
+使用統一回應格式
 """
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List
 from datetime import datetime, date
 from enum import Enum
+
+from app.schemas.common import PaginatedResponse, PaginationMeta, SortOrder
 
 class DocumentCategory(str, Enum):
     """公文分類 (用於篩選)"""
@@ -91,13 +95,13 @@ class DocumentResponse(DocumentBase):
 
 class DocumentFilter(BaseModel):
     """公文篩選條件 - 與 OfficialDocument 模型對齊"""
-    doc_type: Optional[DocumentType] = Field(None, description="公文類型篩選") # 修正: 欄位名稱和類型
+    doc_type: Optional[DocumentType] = Field(None, description="公文類型篩選")
     year: Optional[int] = Field(None, description="年度篩選")
-    doc_word: Optional[str] = Field(None, description="公文字篩選") # 修正: 欄位名稱
+    doc_word: Optional[str] = Field(None, description="公文字篩選")
     sender: Optional[str] = Field(None, description="發文機關篩選")
     receiver: Optional[str] = Field(None, description="收文機關篩選")
-    contract_case: Optional[str] = Field(None, description="承攬案件篩選") # 修正: 欄位名稱
-    category: Optional[str] = Field(None, description="公文分類篩選 (send/receive)") # 新增
+    contract_case: Optional[str] = Field(None, description="承攬案件篩選")
+    category: Optional[str] = Field(None, description="公文分類篩選 (send/receive)")
     keyword: Optional[str] = Field(None, description="關鍵字搜尋 (主旨或文號)")
     date_from: Optional[date] = Field(None, description="公文日期從")
     date_to: Optional[date] = Field(None, description="公文日期到")
@@ -106,8 +110,28 @@ class DocumentFilter(BaseModel):
     creator: Optional[str] = Field(None, description="建立者篩選")
     is_deleted: Optional[bool] = Field(None, description="是否已刪除篩選")
 
-    sort_by: Optional[str] = Field("id", description="排序欄位") # 修正: 預設值
-    sort_order: Optional[str] = Field("desc", description="排序順序 (asc/desc)") # 修正: 預設值
+    sort_by: Optional[str] = Field("id", description="排序欄位")
+    sort_order: Optional[str] = Field("desc", description="排序順序 (asc/desc)")
+
+
+class DocumentListQuery(BaseModel):
+    """公文列表查詢參數（統一格式）"""
+    page: int = Field(default=1, ge=1, description="頁碼")
+    limit: int = Field(default=20, ge=1, le=1000, description="每頁筆數")
+    # 基本篩選
+    keyword: Optional[str] = Field(None, description="關鍵字搜尋")
+    doc_type: Optional[str] = Field(None, description="公文類型")
+    year: Optional[int] = Field(None, description="年度")
+    status: Optional[str] = Field(None, description="狀態")
+    # 進階篩選
+    contract_case: Optional[str] = Field(None, description="承攬案件")
+    sender: Optional[str] = Field(None, description="發文單位")
+    receiver: Optional[str] = Field(None, description="受文單位")
+    doc_date_from: Optional[str] = Field(None, description="公文日期起")
+    doc_date_to: Optional[str] = Field(None, description="公文日期迄")
+    # 排序
+    sort_by: str = Field(default="updated_at", description="排序欄位")
+    sort_order: SortOrder = Field(default=SortOrder.DESC, description="排序方向")
 
 class DocumentImportData(BaseModel):
     """匯入公文資料 - 與 OfficialDocument 模型對齊"""
@@ -145,8 +169,23 @@ class DocumentImportResult(BaseModel):
     errors: List[str] = Field(default=[], description="錯誤訊息")
     processing_time: float = Field(..., description="處理時間(秒)")
 
-class DocumentListResponse(BaseModel):
-    """公文列表回應"""
+class DocumentListResponse(PaginatedResponse):
+    """
+    公文列表回應 Schema（統一分頁格式）
+
+    回應格式：
+    {
+        "success": true,
+        "items": [...],
+        "pagination": { "total": 100, "page": 1, "limit": 20, ... }
+    }
+    """
+    items: List[DocumentResponse] = Field(default=[], description="公文列表")
+
+
+# 保留舊版格式供向後相容（已棄用）
+class DocumentListResponseLegacy(BaseModel):
+    """公文列表回應（舊版格式，已棄用）"""
     documents: List[DocumentResponse]
     total: int
     page: int

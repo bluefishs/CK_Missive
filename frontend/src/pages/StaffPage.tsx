@@ -14,7 +14,6 @@ import {
   Form,
   Select,
   Typography,
-  Tag,
   Popconfirm,
   Row,
   Col,
@@ -29,17 +28,32 @@ import {
   DeleteOutlined,
   UserOutlined,
   MailOutlined,
-  PhoneOutlined,
   TeamOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
-import { apiClient } from '../api/config';
+import { apiClient } from '../api/client';
 import { useTableColumnSearch } from '../hooks/useTableColumnSearch';
 
 const { Title } = Typography;
 const { Option } = Select;
+
+// 注意：專案角色在「承攬案件詳情頁」中管理
+// 同一位同仁可在不同專案擔任不同角色 (計畫主持、計畫協同、專案PM、職安主管)
+// 此頁面僅管理基本帳號資訊，不顯示專案角色
+
+// 輔助函數：提取錯誤訊息
+const extractErrorMessage = (error: any): string => {
+  const detail = error?.response?.data?.detail;
+  if (!detail) return '操作失敗，請稍後再試';
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    // Pydantic 驗證錯誤格式
+    return detail.map((e: any) => e.msg || JSON.stringify(e)).join(', ');
+  }
+  return JSON.stringify(detail);
+};
 
 // 使用表格搜尋 Hook
 const useStaffTableSearch = () => useTableColumnSearch<Staff>();
@@ -52,31 +66,18 @@ interface Staff {
   full_name: string;
   role: string;
   is_active: boolean;
-  department?: string;
-  phone?: string;
   last_login?: string;
   created_at?: string;
 }
 
-// 表單資料類型
+// 表單資料類型 (專案角色在承攬案件詳情頁管理)
 interface StaffFormData {
   username: string;
   email: string;
   full_name: string;
-  role: string;
   is_active: boolean;
-  department?: string;
-  phone?: string;
   password?: string;
 }
-
-// 角色選項
-const ROLE_OPTIONS = [
-  { value: 'staff', label: '承辦同仁', color: 'blue' },
-  { value: 'user', label: '一般使用者', color: 'default' },
-  { value: 'admin', label: '管理員', color: 'red' },
-  { value: 'superuser', label: '超級管理員', color: 'purple' },
-];
 
 export const StaffPage: React.FC = () => {
   const { message } = App.useApp();
@@ -91,37 +92,34 @@ export const StaffPage: React.FC = () => {
 
   // 篩選狀態
   const [searchText, setSearchText] = useState('');
-  const [roleFilter, setRoleFilter] = useState<string>('');
   const [activeFilter, setActiveFilter] = useState<boolean | undefined>();
 
   // Modal 狀態
   const [modalVisible, setModalVisible] = useState(false);
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
   const [submitLoading, setSubmitLoading] = useState(false);
-  const [form] = Form.useForm();
 
   // 統計資料
   const [stats, setStats] = useState({
     total: 0,
     active: 0,
-    staff: 0,
-    admin: 0,
+    inactive: 0,
   });
 
-  // 載入承辦同仁列表
+  // 載入承辦同仁列表 (POST-only 資安機制)
   const loadStaffList = useCallback(async () => {
     setLoading(true);
     try {
-      const params: Record<string, any> = {
+      const requestBody: Record<string, any> = {
         skip: (current - 1) * pageSize,
         limit: pageSize,
       };
 
-      if (searchText) params.search = searchText;
-      if (roleFilter) params.role = roleFilter;
-      if (activeFilter !== undefined) params.is_active = activeFilter;
+      if (searchText) requestBody.search = searchText;
+      if (activeFilter !== undefined) requestBody.is_active = activeFilter;
 
-      const response = await apiClient.get('/users', { params });
+      // POST-only: 使用 POST /users/list 端點
+      const response = await apiClient.post('/users/list', requestBody);
       const data = response as any;
 
       // API 回傳 items 欄位
@@ -130,68 +128,65 @@ export const StaffPage: React.FC = () => {
       setTotal(data.total || 0);
 
       // 更新統計
-      if (items.length > 0) {
-        setStats({
-          total: data.total || items.length,
-          active: items.filter((s: Staff) => s.is_active).length,
-          staff: items.filter((s: Staff) => s.role === 'staff').length,
-          admin: items.filter((s: Staff) => s.role === 'admin' || s.role === 'superuser').length,
-        });
-      }
+      const activeCount = items.filter((s: Staff) => s.is_active).length;
+      setStats({
+        total: data.total || items.length,
+        active: activeCount,
+        inactive: (data.total || items.length) - activeCount,
+      });
     } catch (error) {
       console.error('載入承辦同仁列表失敗:', error);
       message.error('載入資料失敗，請稍後再試');
     } finally {
       setLoading(false);
     }
-  }, [current, pageSize, searchText, roleFilter, activeFilter, message]);
+  }, [current, pageSize, searchText, activeFilter, message]);
 
   useEffect(() => {
     loadStaffList();
   }, [loadStaffList]);
 
-  // 新增或編輯承辦同仁
+  // 新增或編輯承辦同仁 (POST-only 資安機制)
   const handleSubmit = async (values: StaffFormData) => {
     setSubmitLoading(true);
     try {
       if (editingStaff) {
-        // 更新
-        await apiClient.put(`/users/${editingStaff.id}`, values);
+        // 更新 (POST-only)
+        await apiClient.post(`/users/${editingStaff.id}/update`, values);
         message.success('承辦同仁更新成功');
       } else {
-        // 新增
+        // 新增 (POST-only)
         await apiClient.post('/users', values);
         message.success('承辦同仁建立成功');
       }
 
       setModalVisible(false);
-      form.resetFields();
       setEditingStaff(null);
       loadStaffList();
     } catch (error: any) {
       console.error('操作失敗:', error);
-      message.error(error?.response?.data?.detail || '操作失敗，請稍後再試');
+      message.error(extractErrorMessage(error));
     } finally {
       setSubmitLoading(false);
     }
   };
 
-  // 刪除承辦同仁
+  // 刪除承辦同仁 (POST 機制)
   const handleDelete = async (id: number) => {
     try {
-      await apiClient.delete(`/users/${id}`);
+      await apiClient.post(`/users/${id}/delete`);
       message.success('承辦同仁刪除成功');
       loadStaffList();
     } catch (error: any) {
       console.error('刪除失敗:', error);
-      message.error(error?.response?.data?.detail || '刪除失敗');
+      message.error(extractErrorMessage(error));
     }
   };
 
-  // 切換啟用狀態
+  // 切換啟用狀態 (POST 機制)
   const handleToggleActive = async (id: number, isActive: boolean) => {
     try {
-      await apiClient.put(`/users/${id}/status`, { is_active: isActive });
+      await apiClient.post(`/users/${id}/status`, { is_active: isActive });
       message.success(isActive ? '已啟用' : '已停用');
       loadStaffList();
     } catch (error: any) {
@@ -203,32 +198,13 @@ export const StaffPage: React.FC = () => {
   // 開啟編輯模態框
   const handleEdit = (staff: Staff) => {
     setEditingStaff(staff);
-    form.setFieldsValue({
-      ...staff,
-      password: undefined, // 不顯示密碼
-    });
     setModalVisible(true);
   };
 
   // 開啟新增模態框
   const handleAdd = () => {
     setEditingStaff(null);
-    form.resetFields();
-    form.setFieldsValue({
-      role: 'staff',
-      is_active: true,
-    });
     setModalVisible(true);
-  };
-
-  // 獲取角色標籤顏色
-  const getRoleTag = (role: string) => {
-    const option = ROLE_OPTIONS.find(r => r.value === role);
-    return (
-      <Tag color={option?.color || 'default'}>
-        {option?.label || role}
-      </Tag>
-    );
   };
 
   // 表格欄位定義
@@ -268,16 +244,6 @@ export const StaffPage: React.FC = () => {
       width: 120,
       sorter: (a, b) => a.username.localeCompare(b.username),
       ...getColumnSearchProps('username'),
-    },
-    {
-      title: '角色',
-      dataIndex: 'role',
-      key: 'role',
-      width: 100,
-      sorter: (a, b) => a.role.localeCompare(b.role),
-      render: (role: string) => getRoleTag(role),
-      filters: ROLE_OPTIONS.map(r => ({ text: r.label, value: r.value })),
-      onFilter: (value, record) => record.role === value,
     },
     {
       title: '狀態',
@@ -353,12 +319,12 @@ export const StaffPage: React.FC = () => {
 
       {/* 統計卡片 */}
       <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={6}>
+        <Col span={8}>
           <Card size="small">
             <Statistic title="總人數" value={stats.total} prefix={<TeamOutlined />} />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col span={8}>
           <Card size="small">
             <Statistic
               title="啟用中"
@@ -368,23 +334,13 @@ export const StaffPage: React.FC = () => {
             />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col span={8}>
           <Card size="small">
             <Statistic
-              title="承辦同仁"
-              value={stats.staff}
-              valueStyle={{ color: '#1890ff' }}
-              prefix={<UserOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card size="small">
-            <Statistic
-              title="管理員"
-              value={stats.admin}
-              valueStyle={{ color: '#cf1322' }}
-              prefix={<UserOutlined />}
+              title="已停用"
+              value={stats.inactive}
+              valueStyle={{ color: '#999' }}
+              prefix={<CloseCircleOutlined />}
             />
           </Card>
         </Col>
@@ -404,17 +360,6 @@ export const StaffPage: React.FC = () => {
                 style={{ width: 250 }}
                 allowClear
               />
-              <Select
-                placeholder="角色篩選"
-                value={roleFilter || undefined}
-                onChange={(v) => setRoleFilter(v || '')}
-                style={{ width: 140 }}
-                allowClear
-              >
-                {ROLE_OPTIONS.map(r => (
-                  <Option key={r.value} value={r.value}>{r.label}</Option>
-                ))}
-              </Select>
               <Select
                 placeholder="狀態篩選"
                 value={activeFilter}
@@ -474,11 +419,11 @@ export const StaffPage: React.FC = () => {
 
       {/* 新增/編輯 Modal */}
       <Modal
+        key={editingStaff?.id ?? 'new'}
         title={editingStaff ? '編輯承辦同仁' : '新增承辦同仁'}
         open={modalVisible}
         onCancel={() => {
           setModalVisible(false);
-          form.resetFields();
           setEditingStaff(null);
         }}
         footer={null}
@@ -486,11 +431,14 @@ export const StaffPage: React.FC = () => {
         destroyOnClose
       >
         <Form
-          form={form}
           layout="vertical"
           onFinish={handleSubmit}
-          initialValues={{
-            role: 'staff',
+          initialValues={editingStaff ? {
+            username: editingStaff.username,
+            email: editingStaff.email,
+            full_name: editingStaff.full_name,
+            is_active: editingStaff.is_active,
+          } : {
             is_active: true,
           }}
         >
@@ -518,52 +466,16 @@ export const StaffPage: React.FC = () => {
             </Col>
           </Row>
 
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="email"
-                label="Email"
-                rules={[
-                  { required: true, message: '請輸入 Email' },
-                  { type: 'email', message: '請輸入有效的 Email' },
-                ]}
-              >
-                <Input prefix={<MailOutlined />} placeholder="請輸入 Email" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="phone"
-                label="電話"
-              >
-                <Input prefix={<PhoneOutlined />} placeholder="請輸入電話" />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="role"
-                label="角色"
-                rules={[{ required: true, message: '請選擇角色' }]}
-              >
-                <Select placeholder="請選擇角色">
-                  {ROLE_OPTIONS.map(r => (
-                    <Option key={r.value} value={r.value}>{r.label}</Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="department"
-                label="部門"
-              >
-                <Input placeholder="請輸入部門" />
-              </Form.Item>
-            </Col>
-          </Row>
+          <Form.Item
+            name="email"
+            label="Email"
+            rules={[
+              { required: true, message: '請輸入 Email' },
+              { type: 'email', message: '請輸入有效的 Email' },
+            ]}
+          >
+            <Input prefix={<MailOutlined />} placeholder="請輸入 Email" />
+          </Form.Item>
 
           {!editingStaff && (
             <Form.Item

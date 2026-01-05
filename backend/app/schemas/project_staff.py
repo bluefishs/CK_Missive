@@ -40,9 +40,13 @@ class ProjectStaffBase(BaseModel):
     @classmethod
     def validate_role(cls, v):
         if v:
-            allowed_roles = ['主辦', '協辦', '支援', 'member']
+            # 專案角色選項 (與前端 STAFF_ROLE_OPTIONS 一致)
+            allowed_roles = [
+                '主辦', '協辦', '支援', 'member',
+                '計畫主持', '計畫協同', '專案PM', '職安主管'
+            ]
             if v not in allowed_roles:
-                raise ValueError(f'角色必須是以下之一: {allowed_roles}')
+                raise ValueError(f'專案角色必須是以下之一: {allowed_roles}')
         return v
 
 
@@ -73,9 +77,13 @@ class ProjectStaffUpdate(BaseModel):
     @classmethod
     def validate_role(cls, v):
         if v:
-            allowed_roles = ['主辦', '協辦', '支援', 'member']
+            # 專案角色選項 (與前端 STAFF_ROLE_OPTIONS 一致)
+            allowed_roles = [
+                '主辦', '協辦', '支援', 'member',
+                '計畫主持', '計畫協同', '專案PM', '職安主管'
+            ]
             if v not in allowed_roles:
-                raise ValueError(f'角色必須是以下之一: {allowed_roles}')
+                raise ValueError(f'專案角色必須是以下之一: {allowed_roles}')
         return v
 
 

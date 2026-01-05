@@ -4,7 +4,7 @@
  */
 
 import { Document } from '../types';
-import { API_BASE_URL } from '../api/config';
+import { API_BASE_URL } from '../api/client';
 
 export interface CalendarEventData {
   title: string;

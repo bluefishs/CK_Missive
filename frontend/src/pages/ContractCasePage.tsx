@@ -33,15 +33,54 @@ import {
   EditOutlined,
   DeleteOutlined,
   TeamOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
 import Highlighter from 'react-highlight-words';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { ROUTES } from '../router/types';
 import ProjectVendorManagement from '../components/project/ProjectVendorManagement';
+// 使用統一 API 服務
+import { projectsApi } from '../api/projectsApi';
 
 const { Title } = Typography;
 const { Option } = Select;
+
+// 案件類別選項 (與 ContractCaseDetailPage 保持一致)
+const CATEGORY_OPTIONS = [
+  { value: '01', label: '01委辦案件', color: 'blue' },
+  { value: '02', label: '02協力計畫', color: 'green' },
+  { value: '03', label: '03小額採購', color: 'orange' },
+  { value: '04', label: '04其他類別', color: 'default' },
+];
+
+// 類別映射表 (處理舊資料格式)
+const CATEGORY_MAP: Record<string, string> = {
+  '01': '01', '委辦案件': '01', '01委辦案件': '01',
+  '02': '02', '協力計畫': '02', '02協力計畫': '02',
+  '03': '03', '小額採購': '03', '03小額採購': '03',
+  '04': '04', '其他類別': '04', '04其他類別': '04',
+};
+
+// 取得標準化類別代碼
+const normalizeCategory = (category?: string): string => {
+  if (!category) return '';
+  return CATEGORY_MAP[category] || category;
+};
+
+// 取得類別標籤顏色
+const getCategoryTagColor = (category?: string) => {
+  const normalized = normalizeCategory(category);
+  const option = CATEGORY_OPTIONS.find(c => c.value === normalized);
+  return option?.color || 'default';
+};
+
+// 取得類別標籤文字
+const getCategoryTagText = (category?: string) => {
+  const normalized = normalizeCategory(category);
+  const option = CATEGORY_OPTIONS.find(c => c.value === normalized);
+  return option?.label || category || '未分類';
+};
 
 // ---[類型定義]---
 interface Project {
@@ -187,54 +226,47 @@ export const ContractCasePage: React.FC = () => {
 
   // ---[API 呼叫]---
 
-  // 載入專案列表
+  // 載入專案列表 (使用統一 API 服務)
   const loadProjects = async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({
-        skip: ((currentPage - 1) * pageSize).toString(),
-        limit: pageSize.toString(),
+      const response = await projectsApi.getProjects({
+        page: currentPage,
+        limit: pageSize,
+        search: searchText || undefined,
+        year: yearFilter,
+        category: categoryFilter || undefined,
+        status: statusFilter || undefined,
       });
 
-      if (searchText) params.append('search', searchText);
-      if (yearFilter) params.append('year', yearFilter.toString());
-      if (categoryFilter) params.append('category', categoryFilter);
-      if (statusFilter) params.append('status', statusFilter);
-
-      const response = await fetch(`/api/projects/?${params}`);
-      const data = await response.json();
-
-      if (response.ok) {
-        setProjects(data.projects || []);
-        setTotal(data.total || 0);
-      } else {
-        message.error(data.detail || '載入專案列表失敗');
-      }
-    } catch (error) {
-      message.error('網路錯誤，無法載入專案列表');
+      // 統一 API 回傳 { items, pagination } 格式
+      setProjects(response.items || []);
+      setTotal(response.pagination?.total || 0);
+    } catch (error: any) {
+      message.error(error.message || '載入專案列表失敗');
     } finally {
       setLoading(false);
     }
   };
 
-  // 載入篩選選項
+  // 載入篩選選項 (使用統一 API 服務)
   const loadFilterOptions = async () => {
     try {
-      const [yearsRes, categoriesRes, statusesRes] = await Promise.all([
-        fetch('/api/projects/years'),
-        fetch('/api/projects/categories'),
-        fetch('/api/projects/statuses'),
+      const [years, categories, statuses] = await Promise.all([
+        projectsApi.getYearOptions(),
+        projectsApi.getCategoryOptions(),
+        projectsApi.getStatusOptions(),
       ]);
 
-      if (yearsRes.ok) setAvailableYears((await yearsRes.json()).years || []);
-      if (categoriesRes.ok) setAvailableCategories((await categoriesRes.json()).categories || []);
-      if (statusesRes.ok) setAvailableStatuses((await statusesRes.json()).statuses || []);
+      setAvailableYears(years || []);
+      setAvailableCategories(categories || []);
+      setAvailableStatuses(statuses || []);
     } catch (error) {
       console.error('載入篩選選項失敗:', error);
     }
   };
 
-  // 新增或編輯專案
+  // 新增或編輯專案 (使用統一 API 服務)
   const handleSubmit = async (values: ProjectFormData) => {
     try {
       const formData = {
@@ -243,44 +275,32 @@ export const ContractCasePage: React.FC = () => {
         end_date: values.end_date ? dayjs(values.end_date).format('YYYY-MM-DD') : undefined,
       };
 
-      const url = editingProject ? `/api/projects/${editingProject.id}` : '/api/projects/';
-      const method = editingProject ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-
-      if (response.ok) {
-        message.success(editingProject ? '專案更新成功' : '專案建立成功');
-        setModalVisible(false);
-        form.resetFields();
-        setEditingProject(null);
-        loadProjects();
-        loadFilterOptions(); // 刷新篩選選項
+      if (editingProject) {
+        await projectsApi.updateProject(editingProject.id, formData);
+        message.success('專案更新成功');
       } else {
-        const error = await response.json();
-        message.error(error.detail || '操作失敗');
+        await projectsApi.createProject(formData);
+        message.success('專案建立成功');
       }
-    } catch (error) {
-      message.error('網路錯誤，操作失敗');
+
+      setModalVisible(false);
+      form.resetFields();
+      setEditingProject(null);
+      loadProjects();
+      loadFilterOptions(); // 刷新篩選選項
+    } catch (error: any) {
+      message.error(error.message || '操作失敗');
     }
   };
 
-  // 刪除專案
+  // 刪除專案 (使用統一 API 服務)
   const handleDelete = async (id: number) => {
     try {
-      const response = await fetch(`/api/projects/${id}`, { method: 'DELETE' });
-      if (response.ok) {
-        message.success('專案刪除成功');
-        loadProjects();
-      } else {
-        const error = await response.json();
-        message.error(error.detail || '刪除失敗');
-      }
-    } catch (error) {
-      message.error('網路錯誤，刪除失敗');
+      await projectsApi.deleteProject(id);
+      message.success('專案刪除成功');
+      loadProjects();
+    } catch (error: any) {
+      message.error(error.message || '刪除失敗');
     }
   };
 
@@ -322,6 +342,7 @@ export const ContractCasePage: React.FC = () => {
   // ---[UI 輔助函式]---
   const getStatusColor = (status?: string) => {
     switch (status) {
+      case '執行中':
       case '進行中': return 'processing';
       case '已結案': return 'success';
       case '暫停': return 'warning';
@@ -366,14 +387,18 @@ export const ContractCasePage: React.FC = () => {
       onFilter: (value, record) => record.year === value,
     },
     {
-      title: '案件性質',
+      title: '案件類別',
       dataIndex: 'category',
       key: 'category',
-      width: 120,
+      width: 130,
       align: 'center',
-      filters: availableCategories.map(c => ({ text: c, value: c })),
-      onFilter: (value, record) => record.category === value,
-      render: (category) => category ? <Tag>{category}</Tag> : '-',
+      filters: CATEGORY_OPTIONS.map(c => ({ text: c.label, value: c.value })),
+      onFilter: (value, record) => normalizeCategory(record.category) === value,
+      render: (category) => (
+        <Tag color={getCategoryTagColor(category)}>
+          {getCategoryTagText(category)}
+        </Tag>
+      ),
     },
     {
       title: '委託單位',
@@ -492,12 +517,11 @@ export const ContractCasePage: React.FC = () => {
     );
   };
 
-  // 統計數據
+  // 統計數據 (同時計算 '執行中' 和 '進行中')
   const statistics = {
     total: total,
-    inProgress: projects.filter(p => p.status === '進行中').length,
+    inProgress: projects.filter(p => p.status === '執行中' || p.status === '進行中').length,
     completed: projects.filter(p => p.status === '已結案').length,
-    // 這裡可以根據需要從 API 獲取更精確的統計數據
   };
 
   return (
@@ -533,8 +557,8 @@ export const ContractCasePage: React.FC = () => {
               </Select>
             </Col>
             <Col xs={12} sm={6} md={5} lg={4}>
-              <Select placeholder="案件性質" value={categoryFilter} onChange={setCategoryFilter} allowClear style={{ width: '100%' }}>
-                {availableCategories.map(cat => <Option key={cat} value={cat}>{cat}</Option>)}
+              <Select placeholder="案件類別" value={categoryFilter} onChange={setCategoryFilter} allowClear style={{ width: '100%' }}>
+                {CATEGORY_OPTIONS.map(opt => <Option key={opt.value} value={opt.value}>{opt.label}</Option>)}
               </Select>
             </Col>
             <Col xs={12} sm={6} md={4} lg={4}>
@@ -629,7 +653,13 @@ export const ContractCasePage: React.FC = () => {
           </Row>
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="category" label="案件類別"><Input placeholder="例如：測繪、規劃設計" readOnly={modalMode === 'view'} /></Form.Item>
+              <Form.Item name="category" label="案件類別">
+                <Select placeholder="請選擇案件類別" disabled={modalMode === 'view'}>
+                  {CATEGORY_OPTIONS.map(opt => (
+                    <Option key={opt.value} value={opt.value}>{opt.label}</Option>
+                  ))}
+                </Select>
+              </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item name="status" label="案件狀態">

@@ -110,7 +110,7 @@ export const DocumentNumbersPage: React.FC = () => {
       if (filters.status) params.append('status', filters.status);
       if (filters.keyword) params.append('keyword', filters.keyword);
 
-      const response = await fetch(`/api/document-numbers/?${params}`);
+      const response = await fetch(`/api/document-numbers?${params}`);
       const result = await response.json();
 
       if (response.ok) {
@@ -197,9 +197,9 @@ export const DocumentNumbersPage: React.FC = () => {
         send_date: values.send_date ? dayjs(values.send_date).format('YYYY-MM-DD') : null
       };
 
-      const url = editingRecord 
+      const url = editingRecord
         ? `/api/document-numbers/${editingRecord.id}`
-        : '/api/document-numbers/';
+        : '/api/document-numbers';
 
       const method = editingRecord ? 'PUT' : 'POST';
 
