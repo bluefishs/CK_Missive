@@ -4,6 +4,7 @@
 發文字號管理API端點
 """
 
+from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select, desc, extract
@@ -226,12 +227,13 @@ async def get_document_numbers_stats(
 @router.get("/next-number", response_model=NextNumberResponse)
 async def get_next_document_number(
     prefix: Optional[str] = Query("南投縣建設字第", description="文號前綴"),
+    year: Optional[int] = Query(None, description="指定年度 (預設為當前年度)"),
     db: AsyncSession = Depends(get_async_db)
 ):
     """取得下一個可用的發文字號"""
-    
+
     try:
-        current_year = 2024
+        current_year = year or datetime.now().year
         
         # 查詢當年度最大序號
         query = select(func.max(
@@ -262,11 +264,12 @@ async def get_next_document_number(
         
     except Exception:
         # 如果查詢失敗，返回默認的下一個號碼
+        fallback_year = year or datetime.now().year
         next_sequence = 1
         next_number = f"{prefix}{next_sequence:010d}號"
-        
+
         return NextNumberResponse(
             next_number=next_number,
-            year=2024,
+            year=fallback_year,
             sequence=next_sequence
         )
