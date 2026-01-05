@@ -6,9 +6,10 @@ from app.api.endpoints import (
     documents, document_numbers, auth, projects, agencies, vendors,
     document_calendar, users, user_management, admin, site_management,
     system_monitoring, public, csv_import, reminder_management, files,
-    documents_enhanced, secure_site_management, pure_calendar,
+    documents_enhanced, secure_site_management,
     # --- 新增 dashboard 匯入 ---
-    dashboard, project_notifications, debug, project_vendors, project_staff
+    dashboard, project_notifications, debug, project_vendors, project_staff,
+    project_agency_contacts
 )
 
 api_router = APIRouter()
@@ -26,10 +27,10 @@ api_router.include_router(agencies.router, prefix="/agencies", tags=["機關單�
 api_router.include_router(vendors.router, prefix="/vendors", tags=["廠商管理"])
 api_router.include_router(project_vendors.router, prefix="/project-vendors", tags=["案件廠商關聯"])
 api_router.include_router(project_staff.router, prefix="/project-staff", tags=["案件承辦同仁"])
+api_router.include_router(project_agency_contacts.router, prefix="/project-agency-contacts", tags=["專案機關承辦"])
 
-# --- 統一的行事曆模組 ---
+# --- 統一的行事曆模組 (已整合至 /calendar) ---
 api_router.include_router(document_calendar.router, prefix="/calendar", tags=["行事曆"])
-api_router.include_router(pure_calendar.router, prefix="/pure-calendar", tags=["純行事曆 (相容)"])
 
 # --- 系統與管理模組 ---
 api_router.include_router(auth.router, prefix="/auth", tags=["認證"])

@@ -56,9 +56,9 @@ const FALLBACK_DATA: ApiMappingItem[] = [
   },
   {
     feature: '行事曆功能',
-    api: 'GET /api/pure-calendar/events',
-    backendFiles: 'backend/app/services/calendar_service.py',
-    description: '管理行事曆事件的 CRUD 操作'
+    api: 'POST /api/calendar/events/list',
+    backendFiles: 'backend/app/api/endpoints/document_calendar.py',
+    description: '管理行事曆事件的 CRUD 操作 (POST 資安機制)'
   },
   {
     feature: '案件管理',

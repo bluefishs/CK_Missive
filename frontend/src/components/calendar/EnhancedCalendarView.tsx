@@ -19,6 +19,8 @@ import type { CalendarProps, MenuProps } from 'antd';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import { secureApiService } from '../../services/secureApiService';
+import { EventFormModal } from './EventFormModal';
+import { ReminderSettingsModal } from './ReminderSettingsModal';
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -100,6 +102,8 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
   const [showEventModal, setShowEventModal] = useState(false);
   const [showReminderModal, setShowReminderModal] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const [showEventFormModal, setShowEventFormModal] = useState(false);
+  const [eventFormMode, setEventFormMode] = useState<'create' | 'edit'>('create');
 
   const [filters, setFilters] = useState<FilterState>({
     eventTypes: [],
@@ -245,8 +249,9 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
       label: '編輯事件',
       icon: <EditOutlined />,
       onClick: () => {
-        // TODO: 打開編輯模態框
-        notification.info({ message: '編輯功能開發中' });
+        setSelectedEvent(event);
+        setEventFormMode('edit');
+        setShowEventFormModal(true);
       }
     },
     {
@@ -578,6 +583,17 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
           </div>
           <Space>
             <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => {
+                setSelectedEvent(null);
+                setEventFormMode('create');
+                setShowEventFormModal(true);
+              }}
+            >
+              新增事件
+            </Button>
+            <Button
               icon={<FilterOutlined />}
               onClick={() => setShowFilterModal(true)}
             >
@@ -674,15 +690,32 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
         {renderFilterPanel()}
         {renderEventModal()}
 
-        {/* TODO: 提醒設定模態框 */}
-        <Modal
-          title="提醒設定"
-          open={showReminderModal}
-          onCancel={() => setShowReminderModal(false)}
-          footer={null}
-        >
-          <div>提醒設定功能開發中...</div>
-        </Modal>
+        {/* 事件表單模態框 */}
+        <EventFormModal
+          visible={showEventFormModal}
+          mode={eventFormMode}
+          event={selectedEvent}
+          onClose={() => {
+            setShowEventFormModal(false);
+            setSelectedEvent(null);
+          }}
+          onSuccess={() => {
+            // 重新載入事件列表
+            notification.success({ message: '事件操作成功，請重新載入頁面' });
+          }}
+        />
+
+        {/* 提醒設定模態框 */}
+        <ReminderSettingsModal
+          visible={showReminderModal}
+          event={selectedEvent}
+          onClose={() => {
+            setShowReminderModal(false);
+          }}
+          onSuccess={() => {
+            notification.success({ message: '提醒設定已更新' });
+          }}
+        />
       </Space>
     </div>
   );

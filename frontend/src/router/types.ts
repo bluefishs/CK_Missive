@@ -55,7 +55,6 @@ export const ROUTES = {
   DOCUMENT_IMPORT: '/documents/import',
   DOCUMENT_EXPORT: '/documents/export',
   UNIFIED_FORM_DEMO: '/unified-form-demo',
-  PURE_CALENDAR: '/pure-calendar',
   GOOGLE_AUTH_DIAGNOSTIC: '/google-auth-diagnostic',
   ADMIN_DASHBOARD: '/admin/dashboard',
 } as const;

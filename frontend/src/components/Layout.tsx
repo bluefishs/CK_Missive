@@ -606,7 +606,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     if (path.startsWith('/agencies')) return ['/cases', 'cases'];
     if (path.startsWith('/vendors')) return ['/cases', 'cases'];
     if (path.startsWith('/calendar')) return ['/calendar', 'calendar'];
-    if (path.startsWith('/pure-calendar')) return ['/calendar', 'calendar'];
     if (path.startsWith('/reports')) return ['/reports', 'reports'];
     if (path.startsWith('/api-docs')) return ['/reports', 'reports'];
     if (path.startsWith('/demo/unified-form')) return ['/reports', 'reports'];

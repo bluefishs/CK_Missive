@@ -47,7 +47,8 @@ const DocumentWorkflowPage = lazy(() => import('../pages/DocumentWorkflowPage'))
 const DocumentImportPage = lazy(() => import('../pages/DocumentImportPage'));
 const DocumentExportPage = lazy(() => import('../pages/DocumentExportPage'));
 const PermissionManagementPage = lazy(() => import('../pages/PermissionManagementPage'));
-const PureCalendarPage = lazy(() => import('../pages/PureCalendarPage'));
+// PureCalendarPage 已整合至 CalendarPage，保留重導向以維持相容性
+// const PureCalendarPage = lazy(() => import('../pages/PureCalendarPage'));
 const UnifiedFormDemoPage = lazy(() => import('../pages/UnifiedFormDemoPage'));
 const AdminDashboardPage = lazy(() => import('../pages/AdminDashboardPage'));
 
@@ -148,8 +149,8 @@ export const AppRouter: React.FC = () => {
           {/* 行事曆 */}
           <Route path={ROUTES.CALENDAR} element={<CalendarPage />} />
 
-          {/* 純粹行事曆 */}
-          <Route path={ROUTES.PURE_CALENDAR} element={<PureCalendarPage />} />
+          {/* 純粹行事曆 - 重導向至整合行事曆 */}
+          <Route path={ROUTES.PURE_CALENDAR} element={<Navigate to={ROUTES.CALENDAR} replace />} />
 
           {/* 統計報表 */}
           <Route path={ROUTES.REPORTS} element={<ReportsPage />} />

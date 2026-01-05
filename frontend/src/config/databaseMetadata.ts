@@ -198,7 +198,7 @@ export const databaseMetadata: DatabaseMetadata = {
       "relationships": [
         { "table": "documents", "type": "many_to_one", "foreign_key": "document_id", "description": "關聯的公文" }
       ],
-      "api_endpoints": ["GET /api/pure-calendar/events", "POST /api/pure-calendar/events", "PUT /api/pure-calendar/events/{id}"],
+      "api_endpoints": ["POST /api/calendar/events/list", "POST /api/calendar/events", "POST /api/calendar/events/update", "POST /api/calendar/events/delete"],
       "main_fields": ["id", "title", "start_time", "end_time", "description", "google_event_id"]
     },
     "calendar_sync_logs": {
