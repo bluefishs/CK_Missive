@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { Table, Button, Space, Typography, Tag, Empty, TableProps, Input, InputRef } from 'antd';
 import type {
   TablePaginationConfig,
@@ -204,27 +204,10 @@ export const DocumentList: React.FC<DocumentListProps> = ({
     console.log('批次複製按鈕已被點擊，但功能尚未實作。');
   };
 
-  // 狀態顏色映射
-  const statusColorMap: Record<string, string> = {
-    '待處理': 'orange',
-    '處理中': 'blue',
-    '已完成': 'green',
-    '已歸檔': 'default',
-    '使用者確認': 'cyan',
-  };
 
-  // 從資料中動態產生狀態篩選選項
-  const statusFilters = useMemo(() => {
-    const statusSet = new Set(documents.map(d => d.status).filter(Boolean));
-    return Array.from(statusSet).map(status => ({ text: status, value: status }));
-  }, [documents]);
-
-  // 從資料中動態產生類型篩選選項
-  const docTypeFilters = useMemo(() => {
-    const typeSet = new Set(documents.map(d => d.doc_type).filter(Boolean));
-    return Array.from(typeSet).map(type => ({ text: type, value: type }));
-  }, [documents]);
-
+  // 欄位順序：序號、發文形式、收發單位、公文字號、公文日期、主旨、附件、承攬案件、業務同仁、操作
+  // 預設排序：公文日期降冪（最新日期在最上方，由後端控制）
+  // 移除：類型、狀態
   const columns: ColumnsType<Document> = [
     {
       title: '序號',
@@ -234,7 +217,6 @@ export const DocumentList: React.FC<DocumentListProps> = ({
       align: 'center',
       sorter: (a, b) => a.id - b.id,
       sortDirections: ['descend', 'ascend'],
-      defaultSortOrder: 'descend',
       render: (id: number) => (
         <Typography.Text type="secondary">{id}</Typography.Text>
       ),
@@ -259,126 +241,6 @@ export const DocumentList: React.FC<DocumentListProps> = ({
         };
         return <Tag color={colorMap[method] || 'default'}>{method || '電子'}</Tag>;
       },
-    },
-    {
-      title: '類型',
-      dataIndex: 'doc_type',
-      key: 'doc_type',
-      width: 90,
-      align: 'center',
-      sorter: (a, b) => (a.doc_type || '').localeCompare(b.doc_type || '', 'zh-TW'),
-      sortDirections: ['descend', 'ascend'],
-      filters: docTypeFilters.length > 0 ? docTypeFilters : [
-        { text: '函', value: '函' },
-        { text: '公告', value: '公告' },
-        { text: '簽', value: '簽' },
-        { text: '書函', value: '書函' },
-        { text: '開會通知單', value: '開會通知單' },
-        { text: '令', value: '令' },
-      ],
-      onFilter: (value, record) => record.doc_type === value,
-      filterSearch: true,
-      render: (type: string) => <Tag color="blue">{type || '-'}</Tag>,
-    },
-    {
-      title: '公文字號',
-      dataIndex: 'doc_number',
-      key: 'doc_number',
-      width: 180,
-      ellipsis: { showTitle: false },
-      sorter: (a, b) => (a.doc_number || '').localeCompare(b.doc_number || '', 'zh-TW'),
-      sortDirections: ['descend', 'ascend'],
-      ...getColumnSearchProps('doc_number'),
-      render: (text: string) => (
-        <Typography.Text
-          strong
-          style={{ color: '#1890ff' }}
-          ellipsis={{ tooltip: { title: text, placement: 'topLeft' } }}
-        >
-          {searchedColumn === 'doc_number' ? (
-            <Highlighter
-              highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
-              searchWords={[searchText]}
-              autoEscape
-              textToHighlight={text || ''}
-            />
-          ) : text}
-        </Typography.Text>
-      ),
-    },
-    {
-      title: '日期',
-      dataIndex: 'doc_date',
-      key: 'doc_date',
-      width: 100,
-      align: 'center',
-      sorter: (a, b) => {
-        if (!a.doc_date) return 1;
-        if (!b.doc_date) return -1;
-        return new Date(a.doc_date).getTime() - new Date(b.doc_date).getTime();
-      },
-      sortDirections: ['descend', 'ascend'],
-      render: (date: string) =>
-        date
-          ? new Date(date).toLocaleDateString('zh-TW', {
-              year: 'numeric',
-              month: '2-digit',
-              day: '2-digit',
-            })
-          : '-',
-    },
-    {
-      title: '狀態',
-      dataIndex: 'status',
-      key: 'status',
-      width: 95,
-      align: 'center',
-      sorter: (a, b) => (a.status || '').localeCompare(b.status || '', 'zh-TW'),
-      sortDirections: ['descend', 'ascend'],
-      filters: statusFilters.length > 0 ? statusFilters : [
-        { text: '待處理', value: '待處理' },
-        { text: '處理中', value: '處理中' },
-        { text: '已完成', value: '已完成' },
-        { text: '使用者確認', value: '使用者確認' },
-      ],
-      onFilter: (value, record) => record.status === value,
-      filterSearch: true,
-      render: (status: string) => {
-        const color = statusColorMap[status] || 'default';
-        return <Tag color={color}>{status || '-'}</Tag>;
-      },
-    },
-    {
-      title: '主旨',
-      dataIndex: 'subject',
-      key: 'subject',
-      width: 280,
-      ellipsis: { showTitle: false },
-      sorter: (a, b) => (a.subject || '').localeCompare(b.subject || '', 'zh-TW'),
-      sortDirections: ['descend', 'ascend'],
-      ...getColumnSearchProps('subject'),
-      render: (text: string) => (
-        <Typography.Paragraph
-          style={{ margin: 0, fontSize: '13px' }}
-          ellipsis={{
-            rows: 2,
-            tooltip: {
-              title: text,
-              placement: 'topLeft',
-              styles: { root: { maxWidth: 500 } }
-            }
-          }}
-        >
-          {searchedColumn === 'subject' ? (
-            <Highlighter
-              highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
-              searchWords={[searchText]}
-              autoEscape
-              textToHighlight={text || ''}
-            />
-          ) : text}
-        </Typography.Paragraph>
-      ),
     },
     {
       title: '收發單位',
@@ -476,6 +338,104 @@ export const DocumentList: React.FC<DocumentListProps> = ({
       },
     },
     {
+      title: '公文字號',
+      dataIndex: 'doc_number',
+      key: 'doc_number',
+      width: 180,
+      ellipsis: { showTitle: false },
+      sorter: (a, b) => (a.doc_number || '').localeCompare(b.doc_number || '', 'zh-TW'),
+      sortDirections: ['descend', 'ascend'],
+      ...getColumnSearchProps('doc_number'),
+      render: (text: string) => (
+        <Typography.Text
+          strong
+          style={{ color: '#1890ff' }}
+          ellipsis={{ tooltip: { title: text, placement: 'topLeft' } }}
+        >
+          {searchedColumn === 'doc_number' ? (
+            <Highlighter
+              highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
+              searchWords={[searchText]}
+              autoEscape
+              textToHighlight={text || ''}
+            />
+          ) : text}
+        </Typography.Text>
+      ),
+    },
+    {
+      title: '公文日期',
+      dataIndex: 'doc_date',
+      key: 'doc_date',
+      width: 100,
+      align: 'center',
+      sorter: (a, b) => {
+        if (!a.doc_date) return 1;
+        if (!b.doc_date) return -1;
+        return new Date(a.doc_date).getTime() - new Date(b.doc_date).getTime();
+      },
+      sortDirections: ['descend', 'ascend'],
+      render: (date: string) =>
+        date
+          ? new Date(date).toLocaleDateString('zh-TW', {
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit',
+            })
+          : '-',
+    },
+    {
+      title: '主旨',
+      dataIndex: 'subject',
+      key: 'subject',
+      width: 280,
+      ellipsis: { showTitle: false },
+      sorter: (a, b) => (a.subject || '').localeCompare(b.subject || '', 'zh-TW'),
+      sortDirections: ['descend', 'ascend'],
+      ...getColumnSearchProps('subject'),
+      render: (text: string) => (
+        <Typography.Paragraph
+          style={{ margin: 0, fontSize: '13px' }}
+          ellipsis={{
+            rows: 2,
+            tooltip: {
+              title: text,
+              placement: 'topLeft',
+              styles: { root: { maxWidth: 500 } }
+            }
+          }}
+        >
+          {searchedColumn === 'subject' ? (
+            <Highlighter
+              highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
+              searchWords={[searchText]}
+              autoEscape
+              textToHighlight={text || ''}
+            />
+          ) : text}
+        </Typography.Paragraph>
+      ),
+    },
+    {
+      title: '附件',
+      dataIndex: 'has_attachment',
+      key: 'has_attachment',
+      width: 60,
+      align: 'center',
+      filters: [
+        { text: '有附件', value: true },
+        { text: '無附件', value: false },
+      ],
+      onFilter: (value, record) => record.has_attachment === value,
+      render: (hasAttachment: boolean) => (
+        hasAttachment ? (
+          <Tag color="cyan" icon={<PaperClipOutlined />}>有</Tag>
+        ) : (
+          <Typography.Text type="secondary">-</Typography.Text>
+        )
+      ),
+    },
+    {
       title: '承攬案件',
       dataIndex: 'contract_project_name',
       key: 'contract_project_name',
@@ -516,25 +476,6 @@ export const DocumentList: React.FC<DocumentListProps> = ({
           </Space>
         );
       },
-    },
-    {
-      title: '附件',
-      dataIndex: 'has_attachment',
-      key: 'has_attachment',
-      width: 60,
-      align: 'center',
-      filters: [
-        { text: '有附件', value: true },
-        { text: '無附件', value: false },
-      ],
-      onFilter: (value, record) => record.has_attachment === value,
-      render: (hasAttachment: boolean) => (
-        hasAttachment ? (
-          <Tag color="cyan" icon={<PaperClipOutlined />}>有</Tag>
-        ) : (
-          <Typography.Text type="secondary">-</Typography.Text>
-        )
-      ),
     },
     {
       title: '操作',
@@ -596,7 +537,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
       showTotal: (totalNum, range) => `第 ${range[0]}-${range[1]} 筆，共 ${totalNum} 筆`,
       size: 'default',
     },
-    scroll: { x: 1035 }, // 總欄寬: 70+90+180+100+95+280+140+80 = 1035
+    scroll: { x: 1345 }, // 總欄寬: 70+85+160+180+100+280+60+180+150+80 = 1345
     tableLayout: 'fixed',
     locale: {
       emptyText: (

@@ -87,8 +87,18 @@ class DocumentService:
         if filters.keyword:
             query = query.where(or_(
                 Document.subject.ilike(f"%{filters.keyword}%"),
-                Document.doc_number.ilike(f"%{filters.keyword}%"
-            )))
+                Document.doc_number.ilike(f"%{filters.keyword}%")
+            ))
+        # 收發文分類篩選
+        if hasattr(filters, 'category') and filters.category:
+            query = query.where(Document.category == filters.category)
+        # 承攬案件篩選
+        if hasattr(filters, 'contract_case') and filters.contract_case:
+            query = query.outerjoin(ContractProject, Document.contract_project_id == ContractProject.id)
+            query = query.where(or_(
+                ContractProject.project_name.ilike(f"%{filters.contract_case}%"),
+                ContractProject.project_code.ilike(f"%{filters.contract_case}%")
+            ))
         return query
 
     async def get_documents(self, skip: int = 0, limit: int = 100, filters: Optional[DocumentFilter] = None) -> Dict[str, Any]:
@@ -97,7 +107,8 @@ class DocumentService:
             if filters: query = self._apply_filters(query, filters)
             count_query = select(func.count()).select_from(query.subquery())
             total = (await self.db.execute(count_query)).scalar_one()
-            result = await self.db.execute(query.order_by(Document.id.desc()).offset(skip).limit(limit))
+            # 預設按公文日期降冪排序（最新日期在最上方），日期相同時按 id 降冪
+            result = await self.db.execute(query.order_by(Document.doc_date.desc().nullslast(), Document.id.desc()).offset(skip).limit(limit))
             documents = result.scalars().all()
             # --- MODIFIED: Changed 'documents' to 'items' to match frontend expectation ---
             return {"items": documents, "total": total, "page": (skip // limit) + 1, "limit": limit, "total_pages": (total + limit - 1) // limit}

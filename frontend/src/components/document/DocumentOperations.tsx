@@ -27,6 +27,7 @@ import {
 import { Document } from '../../types';
 import dayjs from 'dayjs';
 import { calendarIntegrationService } from '../../services/calendarIntegrationService';
+import { apiClient } from '../../api/client';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -61,20 +62,81 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
   const isCreate = operation === 'create';
   const isCopy = operation === 'copy';
 
+  // 專案同仁資料 (依專案 ID 快取)
+  const [projectStaffMap, setProjectStaffMap] = useState<Record<number, any[]>>({});
+  const [staffLoading, setStaffLoading] = useState(false);
+
+  // 根據專案 ID 取得業務同仁列表
+  const fetchProjectStaff = async (projectId: number) => {
+    if (projectStaffMap[projectId]) {
+      return projectStaffMap[projectId];
+    }
+
+    setStaffLoading(true);
+    try {
+      const data = await apiClient.post<{
+        staff?: any[];
+        total?: number;
+      }>(`/project-staff/project/${projectId}/list`, {});
+      const staffData = data.staff || [];
+      setProjectStaffMap(prev => ({ ...prev, [projectId]: staffData }));
+      return staffData;
+    } catch (error) {
+      console.error('Failed to fetch project staff:', error);
+      return [];
+    } finally {
+      setStaffLoading(false);
+    }
+  };
+
+  // 選擇專案後自動填補業務同仁
+  const handleProjectChange = async (projectId: number | null) => {
+    if (!projectId) {
+      // 清除專案時，也清除業務同仁欄位
+      form.setFieldValue('assignee', undefined);
+      return;
+    }
+
+    const staffList = await fetchProjectStaff(projectId);
+
+    if (staffList.length === 0) {
+      message.info('此專案尚無指派業務同仁');
+      return;
+    }
+
+    if (staffList.length === 1) {
+      // 只有一位同仁時直接填入
+      const staff = staffList[0];
+      form.setFieldValue('assignee', staff.user_name);
+      message.success(`已自動填入業務同仁：${staff.user_name}`);
+    } else {
+      // 多位同仁時，優先填入主要負責人，否則提示選擇
+      const primaryStaff = staffList.find((s: any) => s.is_primary);
+      if (primaryStaff) {
+        form.setFieldValue('assignee', primaryStaff.user_name);
+        message.success(`已自動填入主要負責人：${primaryStaff.user_name}`);
+      } else {
+        // 無主要負責人時，自動選擇第一位
+        form.setFieldValue('assignee', staffList[0].user_name);
+        message.info(`此專案有 ${staffList.length} 位同仁，已填入：${staffList[0].user_name}，可自行調整`);
+      }
+    }
+  };
+
   // 載入承攬案件數據
   useEffect(() => {
     const fetchCases = async () => {
       setCasesLoading(true);
       try {
-        const response = await fetch('/api/projects');
-        if (response.ok) {
-          const data = await response.json();
-          // 適應新的API回應格式
-          const projectsData = data.projects || data.items || data || [];
-          setCases(Array.isArray(projectsData) ? projectsData : []);
-        } else {
-          setCases([]);
-        }
+        // POST-only 資安機制 (使用 apiClient 確保正確的 base URL)
+        const data = await apiClient.post<{
+          projects?: any[];
+          items?: any[];
+          total?: number;
+        }>('/projects/list', { page: 1, limit: 100 });
+        // 適應新的API回應格式
+        const projectsData = data.projects || data.items || [];
+        setCases(Array.isArray(projectsData) ? projectsData : []);
       } catch (error) {
         console.error('Failed to fetch projects:', error);
         setCases([]);
@@ -86,16 +148,15 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
     const fetchUsers = async () => {
       setUsersLoading(true);
       try {
-        const response = await fetch('/api/users');
-        if (response.ok) {
-          const data = await response.json();
-          // 處理可能的不同回應格式
-          const usersData = data.users || data.items || data || [];
-          setUsers(Array.isArray(usersData) ? usersData : []);
-        } else {
-          console.warn('Failed to fetch users from /api/users, status:', response.status);
-          setUsers([]);
-        }
+        // POST-only 資安機制 (使用 apiClient 確保正確的 base URL)
+        const data = await apiClient.post<{
+          users?: any[];
+          items?: any[];
+          total?: number;
+        }>('/users/list', { page: 1, limit: 100 });
+        // 處理可能的不同回應格式
+        const usersData = data.users || data.items || [];
+        setUsers(Array.isArray(usersData) ? usersData : []);
       } catch (error) {
         console.error('Failed to fetch users:', error);
         setUsers([]);
@@ -433,18 +494,19 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
                     <Col span={12}>
                       <Form.Item
                         label="承攬案件"
-                        name="contract_case"
+                        name="contract_project_id"
                       >
                         <Select
                           placeholder="請選擇承攬案件"
-                          loading={casesLoading}
+                          loading={casesLoading || staffLoading}
                           allowClear
                           showSearch
                           filterOption={(input, option) =>
                             (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
                           }
+                          onChange={handleProjectChange}
                           options={Array.isArray(cases) ? cases.map(case_ => ({
-                            value: case_.project_name || case_.case_name,
+                            value: case_.id,
                             label: case_.project_code
                               ? `${case_.project_code} - ${case_.project_name}`
                               : (case_.case_number
@@ -471,7 +533,9 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
                           }
                           options={Array.isArray(users) ? users.map(user => ({
                             value: user.full_name || user.username,
-                            label: user.full_name ? `${user.full_name} (${user.username})` : user.username,
+                            label: user.full_name
+                              ? `${user.full_name}${user.department ? ` - ${user.department}` : ''}`
+                              : user.username,
                             key: user.id
                           })) : []}
                         />
