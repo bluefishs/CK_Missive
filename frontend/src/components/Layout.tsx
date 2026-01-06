@@ -387,12 +387,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           label: '文號管理',
           path: ROUTES.DOCUMENT_NUMBERS,
         },
-        {
-          key: ROUTES.CALENDAR,
-          icon: <CalendarOutlined />,
-          label: '行事曆',
-          path: ROUTES.CALENDAR,
-        },
       ],
     },
     // 2. 案件資料 (3個子項目)

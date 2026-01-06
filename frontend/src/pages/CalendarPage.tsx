@@ -37,6 +37,7 @@ import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
 import { EnhancedCalendarView } from '../components/calendar/EnhancedCalendarView';
 import { authService } from '../services/authService';
+import { API_BASE_URL } from '../api/client';
 
 // 啟用 dayjs 週計算插件
 dayjs.extend(isoWeek);
@@ -174,8 +175,10 @@ const CalendarPage: React.FC = () => {
       const startDate = now.subtract(2, 'month').format('YYYY-MM-DD');
       const endDate = now.add(2, 'month').format('YYYY-MM-DD');
 
-      const response = await api.get(`/calendar/users/${userId}/calendar-events`, {
-        params: { start_date: startDate, end_date: endDate }
+      const response = await api.post('/calendar/users/calendar-events', {
+        user_id: userId,
+        start_date: startDate,
+        end_date: endDate
       });
 
       const data = response.data;
@@ -210,7 +213,7 @@ const CalendarPage: React.FC = () => {
   // 獲取 Google Calendar 狀態
   const fetchGoogleStatus = async () => {
     try {
-      const response = await fetch('/api/public/calendar-status');
+      const response = await fetch(`${API_BASE_URL}/public/calendar-status`);
       if (response.ok) {
         const data = await response.json();
         setGoogleStatus({
