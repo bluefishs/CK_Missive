@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Form, Row, Col, Input, Select, DatePicker, Button, Space } from 'antd';
 import { SearchOutlined, ClearOutlined } from '@ant-design/icons';
-import moment from 'moment';
+import dayjs from 'dayjs';
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -58,7 +58,7 @@ const FilterPanel = ({ onFilter, loading }) => {
   const quickFilters = [
     { label: '本年度收文', filters: { category: 'receive', year: currentYear } },
     { label: '本年度發文', filters: { category: 'send', year: currentYear } },
-    { label: '本月文件', filters: { date_from: moment().startOf('month').format('YYYY-MM-DD'), date_to: moment().endOf('month').format('YYYY-MM-DD') } },
+    { label: '本月文件', filters: { date_from: dayjs().startOf('month').format('YYYY-MM-DD'), date_to: dayjs().endOf('month').format('YYYY-MM-DD') } },
   ];
 
   const handleQuickFilter = (quickFilter) => {
@@ -67,7 +67,7 @@ const FilterPanel = ({ onFilter, loading }) => {
     if (quickFilter.filters.category) formValues.category = quickFilter.filters.category;
     if (quickFilter.filters.year) formValues.year = quickFilter.filters.year;
     if (quickFilter.filters.date_from && quickFilter.filters.date_to) {
-      formValues.dateRange = [moment(quickFilter.filters.date_from), moment(quickFilter.filters.date_to)];
+      formValues.dateRange = [dayjs(quickFilter.filters.date_from), dayjs(quickFilter.filters.date_to)];
     }
     
     form.setFieldsValue(formValues);

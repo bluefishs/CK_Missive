@@ -90,10 +90,14 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
   // 載入專案廠商關聯
   const loadAssociations = async () => {
     if (!projectId) return;
-    
+
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/project-vendors/project/${projectId}`);
+      const response = await fetch(`${API_BASE_URL}/api/project-vendors/list`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project_id: projectId })
+      });
       const data = await response.json();
 
       if (response.ok) {
@@ -111,11 +115,15 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
   // 載入可選廠商
   const loadVendors = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/vendors?limit=1000`);
+      const response = await fetch(`${API_BASE_URL}/api/vendors/list`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ limit: 1000 })
+      });
       const data = await response.json();
 
       if (response.ok) {
-        setVendors(data.vendors || []);
+        setVendors(data.items || data.vendors || []);
       }
     } catch (error) {
       console.error('載入廠商列表失敗:', error);
@@ -144,24 +152,23 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
 
       let response;
       if (editingAssociation) {
-        // 更新關聯
-        response = await fetch(
-          `${API_BASE_URL}/project-vendors/project/${projectId}/vendor/${editingAssociation.vendor_id}`,
-          {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              role: values.role,
-              contract_amount: values.contract_amount,
-              start_date: formData.start_date,
-              end_date: formData.end_date,
-              status: values.status,
-            }),
-          }
-        );
+        // 更新關聯 (使用 POST 方法)
+        response = await fetch(`${API_BASE_URL}/api/project-vendors/update`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            project_id: projectId,
+            vendor_id: editingAssociation.vendor_id,
+            role: values.role,
+            contract_amount: values.contract_amount,
+            start_date: formData.start_date,
+            end_date: formData.end_date,
+            status: values.status,
+          }),
+        });
       } else {
-        // 新增關聯
-        response = await fetch(`${API_BASE_URL}/project-vendors`, {
+        // 新增關聯 (使用 POST 方法)
+        response = await fetch(`${API_BASE_URL}/api/project-vendors/create`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData),
@@ -183,13 +190,17 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
     }
   };
 
-  // 刪除關聯
+  // 刪除關聯 (使用 POST 方法)
   const handleDelete = async (vendorId: number) => {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/project-vendors/project/${projectId}/vendor/${vendorId}`,
-        { method: 'DELETE' }
-      );
+      const response = await fetch(`${API_BASE_URL}/api/project-vendors/delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: projectId,
+          vendor_id: vendorId
+        })
+      });
 
       if (response.ok) {
         message.success('關聯刪除成功');

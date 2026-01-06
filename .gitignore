@@ -55,6 +55,10 @@ debug*.py
 # Build artifacts
 .claude/settings.local.json
 
+# Import data files (CSV)
+data/imports/csv_data/
+data/imports/*.csv
+
 # Sensitive credentials
 backend/*.json
 !backend/package.json

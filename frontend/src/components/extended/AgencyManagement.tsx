@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_BASE_URL } from '../../api/client';
 
 interface Agency {
   id: number;
@@ -20,7 +21,7 @@ export const AgencyManagement: React.FC = () => {
 
   const fetchAgencies = async () => {
     try {
-      const response = await fetch('/api/extended/agencies');
+      const response = await fetch(`${API_BASE_URL}/extended/agencies`);
       const data = await response.json();
       setAgencies(data);
     } catch (error) {

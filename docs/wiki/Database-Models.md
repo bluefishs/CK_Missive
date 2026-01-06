@@ -43,8 +43,10 @@ class OfficialDocument(Base):
     __tablename__ = "documents"
 
     id = Column(Integer, primary_key=True)
+    auto_serial = Column(String(20), index=True)       # 流水序號 (R0001/S0001) ✅ 新增
     doc_number = Column(String(100), nullable=False)  # 公文文號
-    doc_type = Column(String(10), nullable=False)      # 類型 (收文/發文)
+    doc_type = Column(String(10), nullable=False)      # 類型 (函/令/公告)
+    category = Column(String(10))                      # 收發文類別 (收文/發文)
     subject = Column(String(500), nullable=False)      # 主旨
     sender = Column(String(200))                       # 發文單位
     receiver = Column(String(200))                     # 受文單位
@@ -58,6 +60,11 @@ class OfficialDocument(Base):
     calendar_events = relationship("DocumentCalendarEvent", cascade="all, delete-orphan")
     attachments = relationship("DocumentAttachment", cascade="all, delete-orphan")
 ```
+
+**欄位說明:**
+- `auto_serial`: 流水序號格式為 `R0001`~`R9999` (收文) 或 `S0001`~`S9999` (發文)
+- `category`: 收發文分類，用於 TAB 篩選
+- `contract_project_id`: 關聯承攬案件，可查詢 `contract_project_name` 與 `assigned_staff`
 
 ### ContractProject (承攬案件)
 ```python
@@ -130,6 +137,22 @@ project_vendor_association = Table(
     Column('status', String(20)),         # 合作狀態
 )
 ```
+
+### project_user_assignments (✅ 新增說明)
+```python
+project_user_assignment = Table(
+    'project_user_assignments',
+    Base.metadata,
+    Column('id', Integer, primary_key=True),
+    Column('project_id', Integer, ForeignKey('contract_projects.id')),
+    Column('user_id', Integer, ForeignKey('users.id')),
+    Column('role', String(50)),           # 角色 (計畫主持/計畫協同/專案PM/職安主管)
+    Column('created_at', DateTime),
+    Column('updated_at', DateTime),
+)
+```
+
+**用途**: 用於公文管理頁面顯示「業務同仁」欄位，透過 `contract_project_id` 關聯查詢。
 
 ---
 

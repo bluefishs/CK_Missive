@@ -85,8 +85,8 @@ async def list_agencies(
             result = await agency_service.get_agencies_with_stats(
                 db, skip=skip, limit=query.limit, search=query.search
             )
-            items = result.agencies
-            total = result.total
+            items = result["agencies"]
+            total = result["total"]
         else:
             items = await agency_service.get_agencies(
                 db, skip=skip, limit=query.limit

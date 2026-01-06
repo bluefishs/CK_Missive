@@ -11,6 +11,7 @@ import { DocumentFilterEnhanced } from '../components/document/DocumentFilterEnh
 import { DocumentListEnhanced } from '../components/document/DocumentListEnhanced';
 import { useDocuments } from '../hooks/useDocuments';
 import { Document, DocumentFilter } from '../types';
+import { API_BASE_URL } from '../api/client';
 
 const { Title, Text } = Typography;
 
@@ -71,15 +72,15 @@ const DocumentPageEnhanced: React.FC = () => {
   const testEnhancedFeatures = async () => {
     try {
       // 測試承攬案件 API
-      const contractProjectsResponse = await fetch('/api/documents-enhanced/contract-projects-dropdown?limit=5');
+      const contractProjectsResponse = await fetch(`${API_BASE_URL}/documents-enhanced/contract-projects-dropdown?limit=5`);
       const contractProjectsTest = contractProjectsResponse.ok;
 
       // 測試政府機關 API
-      const agenciesResponse = await fetch('/api/documents-enhanced/agencies-dropdown?limit=5');
+      const agenciesResponse = await fetch(`${API_BASE_URL}/documents-enhanced/agencies-dropdown?limit=5`);
       const agenciesTest = agenciesResponse.ok;
 
       // 測試整合搜尋 API
-      const integratedSearchResponse = await fetch('/api/documents-enhanced/integrated-search?limit=5');
+      const integratedSearchResponse = await fetch(`${API_BASE_URL}/documents-enhanced/integrated-search?limit=5`);
       const integratedSearchTest = integratedSearchResponse.ok;
 
       setTestResults({

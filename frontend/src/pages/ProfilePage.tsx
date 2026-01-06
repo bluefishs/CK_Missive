@@ -24,6 +24,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
+import { API_BASE_URL } from '../api/client';
 
 const { Title, Text } = Typography;
 
@@ -73,7 +74,7 @@ export const ProfilePage = () => {
         
         // 嘗試從後端 API 獲取完整資訊
         try {
-          const response = await fetch('/api/auth/me', {
+          const response = await fetch(`${API_BASE_URL}/auth/me`, {
             headers: {
               'Authorization': `Bearer ${authService.getToken()}`
             }
@@ -110,7 +111,7 @@ export const ProfilePage = () => {
   // 更新個人資料
   const handleUpdateProfile = async (values: any) => {
     try {
-      const response = await fetch('/api/auth/profile', {
+      const response = await fetch(`${API_BASE_URL}/auth/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -150,7 +151,7 @@ export const ProfilePage = () => {
   // 修改密碼
   const handlePasswordChange = async (values: PasswordChangeForm) => {
     try {
-      const response = await fetch('/api/auth/password', {
+      const response = await fetch(`${API_BASE_URL}/auth/password`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

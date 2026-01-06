@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import type { InputRef, TableColumnType } from 'antd';
 import type { FilterDropdownProps, SorterResult } from 'antd/es/table/interface';
 import {
@@ -31,26 +31,19 @@ import {
   PlusOutlined,
 } from '@ant-design/icons';
 import Highlighter from 'react-highlight-words';
-import {
-  agenciesApi,
-  type AgencyWithStats,
-  type AgencyStatistics,
-  type AgencyCreate,
-  type AgencyUpdate,
-} from '../api';
+import { useAgenciesPage } from '../hooks';
+import type { AgencyWithStats, AgencyCreate, AgencyUpdate } from '../api';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
 
 // 使用 agenciesApi 匯出的型別，本地介面定義已移除以避免重複
 
-// 機關類型選項
+// 機關類型選項（三大分類）
 const AGENCY_TYPE_OPTIONS = [
   { value: '政府機關', label: '政府機關' },
-  { value: '其他機關', label: '其他機關' },
   { value: '民間企業', label: '民間企業' },
-  { value: '社會團體', label: '社會團體' },
-  { value: '教育機構', label: '教育機構' },
+  { value: '其他單位', label: '其他單位' },
 ];
 
 type DataIndex = keyof AgencyWithStats;
@@ -59,24 +52,46 @@ export const AgenciesPage: React.FC = () => {
   const { message } = App.useApp();
   const [form] = Form.useForm();
 
-  const [agencies, setAgencies] = useState<AgencyWithStats[]>([]);
-  const [statistics, setStatistics] = useState<AgencyStatistics | null>(null);
-  const [loading, setLoading] = useState(false);
+  // UI 狀態
   const [searchText, setSearchText] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize] = useState(20);
-  const [totalAgencies, setTotalAgencies] = useState(0);
+  const pageSize = 20;
 
   // Modal 狀態
   const [modalVisible, setModalVisible] = useState(false);
   const [editingAgency, setEditingAgency] = useState<AgencyWithStats | null>(null);
-  const [submitLoading, setSubmitLoading] = useState(false);
 
   // 欄位搜尋狀態
   const [columnSearchText, setColumnSearchText] = useState('');
   const [searchedColumn, setSearchedColumn] = useState('');
   const searchInput = useRef<InputRef>(null);
+
+  // 構建查詢參數
+  const queryParams = useMemo(() => ({
+    page: currentPage,
+    limit: pageSize,
+    ...(searchText && { search: searchText }),
+    include_stats: true,
+  }), [currentPage, pageSize, searchText]);
+
+  // 使用 React Query Hook
+  const {
+    agencies,
+    pagination,
+    isLoading,
+    statistics,
+    refetch,
+    refetchStatistics,
+    createAgency,
+    updateAgency,
+    deleteAgency,
+    isCreating,
+    isUpdating,
+    isDeleting,
+  } = useAgenciesPage(queryParams);
+
+  const totalAgencies = pagination?.total ?? 0;
 
   // 欄位搜尋功能
   const handleColumnSearch = (
@@ -161,47 +176,10 @@ export const AgenciesPage: React.FC = () => {
       ),
   });
 
-  // 載入機關單位列表（使用統一 API 服務）
-  const fetchAgencies = async (search?: string, page = 1) => {
-    setLoading(true);
-    try {
-      const response = await agenciesApi.getAgencies({
-        page,
-        limit: pageSize,
-        search,
-        include_stats: true,
-      });
-
-      setAgencies(response.items);
-      setTotalAgencies(response.pagination.total);
-    } catch (error) {
-      console.error('載入機關單位錯誤:', error);
-      message.error('載入機關單位失敗');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 載入統計資料（使用統一 API 服務）
-  const fetchStatistics = async () => {
-    try {
-      const data = await agenciesApi.getStatistics();
-      setStatistics(data);
-    } catch (error) {
-      console.error('載入統計資料錯誤:', error);
-    }
-  };
-
-  useEffect(() => {
-    fetchAgencies();
-    fetchStatistics();
-  }, []);
-
   // 搜尋處理
   const handleSearch = (value: string) => {
     setSearchText(value);
     setCurrentPage(1);
-    fetchAgencies(value, 1);
   };
 
   // 重新載入
@@ -209,14 +187,13 @@ export const AgenciesPage: React.FC = () => {
     setSearchText('');
     setCategoryFilter('');
     setCurrentPage(1);
-    fetchAgencies();
-    fetchStatistics();
+    refetch();
+    refetchStatistics();
   };
 
   // 分頁處理
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    fetchAgencies(searchText, page);
   };
 
   // 開啟新增 Modal
@@ -242,40 +219,30 @@ export const AgenciesPage: React.FC = () => {
     setModalVisible(true);
   };
 
-  // 提交表單 (新增/更新) - 使用統一 API 服務
+  // 提交表單 (新增/更新)
   const handleSubmit = async (values: AgencyCreate) => {
-    setSubmitLoading(true);
     try {
       if (editingAgency) {
-        // 更新現有機關
-        await agenciesApi.updateAgency(editingAgency.id, values as AgencyUpdate);
+        await updateAgency({ agencyId: editingAgency.id, data: values as AgencyUpdate });
         message.success('機關單位更新成功');
       } else {
-        // 建立新機關
-        await agenciesApi.createAgency(values);
+        await createAgency(values);
         message.success('機關單位建立成功');
       }
-
       setModalVisible(false);
       form.resetFields();
       setEditingAgency(null);
-      fetchAgencies(searchText, currentPage);
-      fetchStatistics();
     } catch (error: any) {
       console.error('操作失敗:', error);
       message.error(error.message || '操作失敗，請稍後再試');
-    } finally {
-      setSubmitLoading(false);
     }
   };
 
-  // 刪除機關單位（使用統一 API 服務）
+  // 刪除機關單位
   const handleDelete = async (id: number) => {
     try {
-      await agenciesApi.deleteAgency(id);
+      await deleteAgency(id);
       message.success('機關單位刪除成功');
-      fetchAgencies(searchText, currentPage);
-      fetchStatistics();
     } catch (error: any) {
       console.error('刪除失敗:', error);
       message.error(error.message || '刪除失敗');
@@ -302,14 +269,17 @@ export const AgenciesPage: React.FC = () => {
     }
   };
 
-  // 獲取分類圖示
+  // 獲取分類圖示（三大分類）
   const getCategoryIcon = (category: string) => {
     switch (category) {
       case '政府機關': return <BankOutlined />;
       case '民間企業': return <BuildOutlined />;
+      case '其他單位': return <TeamOutlined />;
+      // 相容舊分類
+      case '其他機關': return <TeamOutlined />;
       case '社會團體': return <TeamOutlined />;
       case '教育機構': return <BookOutlined />;
-      default: return <BankOutlined />;
+      default: return <TeamOutlined />;
     }
   };
 
@@ -360,16 +330,22 @@ export const AgenciesPage: React.FC = () => {
       filters: [
         { text: '政府機關', value: '政府機關' },
         { text: '民間企業', value: '民間企業' },
+        { text: '其他單位', value: '其他單位' },
+        // 相容舊分類資料
+        { text: '其他機關', value: '其他機關' },
         { text: '教育機構', value: '教育機構' },
         { text: '社會團體', value: '社會團體' },
-        { text: '其他機關', value: '其他機關' },
       ],
       onFilter: (value, record) => record.category === value,
-      render: (category: string) => (
-        <Tag icon={getCategoryIcon(category)} color="blue">
-          {category}
-        </Tag>
-      ),
+      render: (category: string) => {
+        // 將舊分類映射到新分類顯示（其他機關/教育機構/社會團體 → 其他單位）
+        const displayCategory = ['其他機關', '教育機構', '社會團體'].includes(category) ? '其他單位' : category;
+        return (
+          <Tag icon={getCategoryIcon(category)} color="blue">
+            {displayCategory}
+          </Tag>
+        );
+      },
     },
     // 註解隱藏: 機關類型 (primary_type) - 因公文尚未關聯機關ID，目前無法判斷發文/收文機關
     // {
@@ -379,29 +355,30 @@ export const AgenciesPage: React.FC = () => {
     //   width: 100,
     //   render: (type: string) => <Tag color={getTypeTagColor(type)}>{getTypeText(type)}</Tag>,
     // },
-    {
-      title: '聯絡人',
-      dataIndex: 'contact_person',
-      key: 'contact_person',
-      width: 100,
-      render: (person: string) => person || <Text type="secondary">-</Text>,
-    },
-    {
-      title: '電話',
-      dataIndex: 'phone',
-      key: 'phone',
-      width: 130,
-      render: (phone: string) => phone || <Text type="secondary">-</Text>,
-    },
-    {
-      title: 'Email',
-      dataIndex: 'email',
-      key: 'email',
-      width: 180,
-      ellipsis: true,
-      render: (email: string) =>
-        email ? <a href={`mailto:${email}`}>{email}</a> : <Text type="secondary">-</Text>,
-    },
+    // 註解隱藏: 聯絡人、電話、Email - 機關對應窗口眾多，並非單一人
+    // {
+    //   title: '聯絡人',
+    //   dataIndex: 'contact_person',
+    //   key: 'contact_person',
+    //   width: 100,
+    //   render: (person: string) => person || <Text type="secondary">-</Text>,
+    // },
+    // {
+    //   title: '電話',
+    //   dataIndex: 'phone',
+    //   key: 'phone',
+    //   width: 130,
+    //   render: (phone: string) => phone || <Text type="secondary">-</Text>,
+    // },
+    // {
+    //   title: 'Email',
+    //   dataIndex: 'email',
+    //   key: 'email',
+    //   width: 180,
+    //   ellipsis: true,
+    //   render: (email: string) =>
+    //     email ? <a href={`mailto:${email}`}>{email}</a> : <Text type="secondary">-</Text>,
+    // },
     // 註解隱藏: 公文統計欄位 - 因 documents 表的 sender_agency_id/receiver_agency_id 尚未建立關聯
     // 待資料關聯完成後可取消註解
     // {
@@ -493,7 +470,7 @@ export const AgenciesPage: React.FC = () => {
         </Text>
       </div>
 
-      {/* 統計卡片 */}
+      {/* 統計卡片 - 依序：機關總數、政府機關、民間企業、其他單位 */}
       {statistics && (
         <Row gutter={16} style={{ marginBottom: '24px' }}>
           <Col span={6}>
@@ -506,19 +483,43 @@ export const AgenciesPage: React.FC = () => {
               />
             </Card>
           </Col>
-          {statistics.categories.slice(0, 3).map((cat, index) => (
-            <Col span={6} key={cat.category}>
-              <Card>
-                <Statistic
-                  title={cat.category}
-                  value={cat.count}
-                  suffix={`(${cat.percentage}%)`}
-                  prefix={getCategoryIcon(cat.category)}
-                  valueStyle={{ color: ['#1890ff', '#722ed1', '#fa541c'][index] }}
-                />
-              </Card>
-            </Col>
-          ))}
+          <Col span={6}>
+            <Card>
+              <Statistic
+                title="政府機關"
+                value={statistics.categories.find(c => c.category === '政府機關')?.count || 0}
+                suffix={`(${statistics.categories.find(c => c.category === '政府機關')?.percentage || 0}%)`}
+                prefix={<BankOutlined />}
+                valueStyle={{ color: '#1890ff' }}
+              />
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card>
+              <Statistic
+                title="民間企業"
+                value={statistics.categories.find(c => c.category === '民間企業')?.count || 0}
+                suffix={`(${statistics.categories.find(c => c.category === '民間企業')?.percentage || 0}%)`}
+                prefix={<BuildOutlined />}
+                valueStyle={{ color: '#722ed1' }}
+              />
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card>
+              <Statistic
+                title="其他單位"
+                value={
+                  (statistics.categories.find(c => c.category === '其他機關')?.count || 0) +
+                  (statistics.categories.find(c => c.category === '其他單位')?.count || 0) +
+                  (statistics.categories.find(c => c.category === '社會團體')?.count || 0) +
+                  (statistics.categories.find(c => c.category === '教育機構')?.count || 0)
+                }
+                prefix={<TeamOutlined />}
+                valueStyle={{ color: '#fa541c' }}
+              />
+            </Card>
+          </Col>
         </Row>
       )}
 
@@ -555,7 +556,7 @@ export const AgenciesPage: React.FC = () => {
               <Button
                 icon={<ReloadOutlined />}
                 onClick={handleRefresh}
-                loading={loading}
+                loading={isLoading}
               >
                 重新載入
               </Button>
@@ -577,9 +578,9 @@ export const AgenciesPage: React.FC = () => {
           columns={columns}
           dataSource={filteredAgencies}
           rowKey="id"
-          loading={loading}
+          loading={isLoading || isDeleting}
           pagination={false}
-          scroll={{ x: 1120 }}
+          scroll={{ x: 700 }}
           size="middle"
           tableLayout="fixed"
           onRow={(record) => ({
@@ -667,7 +668,8 @@ export const AgenciesPage: React.FC = () => {
             </Col>
           </Row>
 
-          <Row gutter={16}>
+          {/* 註解隱藏: 聯絡人、電話、Email - 機關對應窗口眾多，並非單一人 */}
+          {/* <Row gutter={16}>
             <Col span={12}>
               <Form.Item
                 name="contact_person"
@@ -692,7 +694,7 @@ export const AgenciesPage: React.FC = () => {
             rules={[{ type: 'email', message: '請輸入有效的 Email' }]}
           >
             <Input placeholder="請輸入 Email" />
-          </Form.Item>
+          </Form.Item> */}
 
           <Form.Item
             name="address"
@@ -703,10 +705,17 @@ export const AgenciesPage: React.FC = () => {
 
           <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
             <Space>
-              <Button onClick={() => setModalVisible(false)}>
+              <Button
+                onClick={() => setModalVisible(false)}
+                disabled={isCreating || isUpdating}
+              >
                 取消
               </Button>
-              <Button type="primary" htmlType="submit" loading={submitLoading}>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={isCreating || isUpdating}
+              >
                 {editingAgency ? '更新' : '建立'}
               </Button>
             </Space>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_BASE_URL } from '../../api/client';
 
 interface Vendor {
   id: number;
@@ -21,7 +22,7 @@ export const VendorManagement: React.FC = () => {
 
   const fetchVendors = async () => {
     try {
-      const response = await fetch('/api/extended/vendors');
+      const response = await fetch(`${API_BASE_URL}/extended/vendors`);
       const data = await response.json();
       setVendors(data);
     } catch (error) {

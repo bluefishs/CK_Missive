@@ -387,16 +387,6 @@ class NavigationService {
             is_visible: true,
             is_enabled: true,
             sort_order: 1
-          },
-          {
-            key: 'pure-calendar',
-            title: '純行事曆',
-            path: '/pure-calendar',
-            icon: 'calendar',
-            permission_required: ['calendar:read'],
-            is_visible: true,
-            is_enabled: true,
-            sort_order: 2
           }
         ]
       },

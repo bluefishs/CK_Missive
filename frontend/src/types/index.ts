@@ -150,11 +150,24 @@ export interface Document {
   readonly auto_serial?: number;
   readonly doc_zi?: string;          // 公文「字」部分，如「桃工用」
   readonly doc_wen_hao?: string;     // 公文「文號」部分，如「1140024090」
-  
+
+  // 發文形式與附件欄位
+  readonly delivery_method?: string;  // 發文形式 (電子/紙本/電子+紙本)
+  readonly has_attachment?: boolean;  // 是否含附件
+
+  // 承攬案件關聯資訊
+  readonly contract_project_id?: number;    // 承攬案件 ID
+  readonly contract_project_name?: string;  // 承攬案件名稱
+  readonly assigned_staff?: Array<{         // 負責業務同仁
+    user_id: number;
+    name: string;
+    role: string;
+  }>;
+
   // 兼容舊版本欄位
   readonly title?: string;
   readonly content?: string;
-  readonly hasAttachments?: boolean;
+  readonly hasAttachments?: boolean;  // 舊版附件欄位
 }
 
 /** 文件附件 */

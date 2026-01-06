@@ -38,7 +38,12 @@ target_metadata = Base.metadata
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
 def get_url():
-    return os.getenv("DATABASE_URL")
+    """取得資料庫 URL，轉換 asyncpg 為 psycopg2 以支援同步遷移"""
+    url = os.getenv("DATABASE_URL")
+    if url:
+        # 將 asyncpg 替換為 psycopg2 (同步驅動)
+        url = url.replace("postgresql+asyncpg://", "postgresql://")
+    return url
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.

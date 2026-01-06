@@ -64,7 +64,8 @@ class UserResponse(UserBase):
     last_login: Optional[datetime] = None
     login_count: int = 0
     email_verified: bool = False
-    
+    role: Optional[str] = None  # 覆寫為字串，支援中文角色名稱如 '專案PM'
+
     model_config = ConfigDict(from_attributes=True) # 使用 model_config
 
 class UserProfile(UserResponse):

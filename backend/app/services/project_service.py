@@ -36,13 +36,66 @@ class ProjectService:
         projects = result.scalars().all()
         return {"projects": projects, "total": total}
 
+    async def _generate_project_code(
+        self,
+        db: AsyncSession,
+        year: int,
+        category: str,
+        case_nature: str
+    ) -> str:
+        """
+        自動產生專案編號
+        格式: CK{年度6碼}_{類別2碼}_{性質2碼}_{流水號3碼}
+        例: CK202501_01_01_001
+        """
+        # 確保類別和性質為2碼
+        category_code = category[:2] if category else "00"
+        nature_code = case_nature[:2] if case_nature else "00"
+        # 年度6碼格式: YYYY01 (年度+預設01)
+        year_str = f"{year}01"
+
+        # 查詢同年度、同類別、同性質的最大流水號
+        prefix = f"CK{year_str}_{category_code}_{nature_code}_"
+        query = select(ContractProject.project_code).where(
+            ContractProject.project_code.like(f"{prefix}%")
+        ).order_by(ContractProject.project_code.desc())
+
+        result = await db.execute(query)
+        existing_codes = result.scalars().all()
+
+        if existing_codes:
+            # 提取最大流水號
+            try:
+                last_code = existing_codes[0]
+                last_serial = int(last_code.split("_")[-1])
+                new_serial = last_serial + 1
+            except (IndexError, ValueError):
+                new_serial = 1
+        else:
+            new_serial = 1
+
+        return f"{prefix}{str(new_serial).zfill(3)}"
+
     async def create_project(self, db: AsyncSession, project: ProjectCreate) -> ContractProject:
-        if project.project_code:
-            existing = (await db.execute(select(ContractProject).where(ContractProject.project_code == project.project_code))).scalar_one_or_none()
+        project_data = project.model_dump()
+
+        # 如果沒有提供 project_code，則自動產生
+        if not project_data.get('project_code'):
+            year = project_data.get('year') or 2025
+            category = project_data.get('category') or "01"
+            case_nature = project_data.get('case_nature') or "01"
+            project_data['project_code'] = await self._generate_project_code(
+                db, year, category, case_nature
+            )
+        else:
+            # 檢查專案編號是否已存在
+            existing = (await db.execute(
+                select(ContractProject).where(ContractProject.project_code == project_data['project_code'])
+            )).scalar_one_or_none()
             if existing:
-                raise ValueError(f"專案編號 {project.project_code} 已存在")
-        
-        db_project = ContractProject(**project.model_dump())
+                raise ValueError(f"專案編號 {project_data['project_code']} 已存在")
+
+        db_project = ContractProject(**project_data)
         db.add(db_project)
         await db.commit()
         await db.refresh(db_project)

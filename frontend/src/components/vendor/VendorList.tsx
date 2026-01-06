@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Table,
   Button,
@@ -26,17 +26,19 @@ import {
   ShopOutlined
 } from '@ant-design/icons';
 import type { TableColumnType } from 'antd';
-import { vendorsApi } from '../../api/vendors';
+import { useVendorsPage } from '../../hooks';
 import type { Vendor as ApiVendor, VendorCreate, VendorUpdate } from '../../types/api';
 
 const { Title } = Typography;
 const { Option } = Select;
 
-// 營業項目選項 (與 ContractCaseDetailPage 協力廠商業務類別一致)
+// 營業項目選項
 const BUSINESS_TYPE_OPTIONS = [
   { value: '測量業務', label: '測量業務', color: 'blue' },
-  { value: '系統業務', label: '系統業務', color: 'green' },
+  { value: '資訊系統', label: '資訊系統', color: 'cyan' },
   { value: '查估業務', label: '查估業務', color: 'orange' },
+  { value: '不動產估價', label: '不動產估價', color: 'purple' },
+  { value: '大地工程', label: '大地工程', color: 'gold' },
   { value: '其他類別', label: '其他類別', color: 'default' },
 ];
 
@@ -62,73 +64,65 @@ interface VendorFormData {
 
 const VendorList: React.FC = () => {
   const { message } = App.useApp();
-  const [vendors, setVendors] = useState<Vendor[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [total, setTotal] = useState(0);
+
+  // UI 狀態
   const [current, setCurrent] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [searchText, setSearchText] = useState('');
   const [businessTypeFilter, setBusinessTypeFilter] = useState<string>('');
   const [ratingFilter, setRatingFilter] = useState<number | undefined>();
-
   const [modalVisible, setModalVisible] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
   const [form] = Form.useForm();
 
-  // 載入廠商列表 (使用統一 API Client)
-  const loadVendors = async () => {
-    setLoading(true);
-    try {
-      // 構建查詢參數，只包含有值的欄位
-      const params: Parameters<typeof vendorsApi.getVendors>[0] = {
-        page: current,
-        limit: pageSize,
-      };
-      if (searchText) params.search = searchText;
-      if (businessTypeFilter) params.business_type = businessTypeFilter;
+  // 構建查詢參數
+  const queryParams = useMemo(() => ({
+    page: current,
+    limit: pageSize,
+    ...(searchText && { search: searchText }),
+    ...(businessTypeFilter && { business_type: businessTypeFilter }),
+  }), [current, pageSize, searchText, businessTypeFilter]);
 
-      const response = await vendorsApi.getVendors(params);
+  // 使用 React Query Hook (自動快取與更新)
+  const {
+    vendors,
+    pagination,
+    isLoading,
+    isError,
+    createVendor,
+    updateVendor,
+    deleteVendor,
+    isCreating,
+    isUpdating,
+    isDeleting,
+  } = useVendorsPage(queryParams);
 
-      setVendors(response.items);
-      setTotal(response.pagination.total);
-    } catch (error) {
-      console.error('載入廠商列表失敗:', error);
-      message.error('載入廠商列表失敗');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const total = pagination?.total ?? 0;
 
-  useEffect(() => {
-    loadVendors();
-  }, [current, pageSize, searchText, businessTypeFilter, ratingFilter]);
-
-  // 新增或編輯廠商 (使用統一 API Client)
+  // 新增或編輯廠商
   const handleSubmit = async (values: VendorFormData) => {
     try {
       if (editingVendor) {
-        await vendorsApi.updateVendor(editingVendor.id, values as VendorUpdate);
+        await updateVendor({ vendorId: editingVendor.id, data: values as VendorUpdate });
         message.success('廠商更新成功');
       } else {
-        await vendorsApi.createVendor(values as VendorCreate);
+        await createVendor(values as VendorCreate);
         message.success('廠商建立成功');
       }
       setModalVisible(false);
       form.resetFields();
       setEditingVendor(null);
-      loadVendors();
     } catch (error: any) {
       console.error('廠商操作失敗:', error);
       message.error(error?.message || '操作失敗');
     }
   };
 
-  // 刪除廠商 (使用統一 API Client)
+  // 刪除廠商
   const handleDelete = async (id: number) => {
     try {
-      await vendorsApi.deleteVendor(id);
+      await deleteVendor(id);
       message.success('廠商刪除成功');
-      loadVendors();
     } catch (error: any) {
       console.error('刪除廠商失敗:', error);
       message.error(error?.message || '刪除失敗');
@@ -321,7 +315,7 @@ const VendorList: React.FC = () => {
           columns={columns}
           dataSource={vendors}
           rowKey="id"
-          loading={loading}
+          loading={isLoading || isDeleting}
           onRow={(record) => ({
             onClick: () => handleEdit(record),
             style: { cursor: 'pointer' },
@@ -442,16 +436,21 @@ const VendorList: React.FC = () => {
 
           <Form.Item style={{ textAlign: 'right', marginBottom: 0 }}>
             <Space>
-              <Button 
+              <Button
                 onClick={() => {
                   setModalVisible(false);
                   setEditingVendor(null);
                   form.resetFields();
                 }}
+                disabled={isCreating || isUpdating}
               >
                 取消
               </Button>
-              <Button type="primary" htmlType="submit">
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={isCreating || isUpdating}
+              >
                 {editingVendor ? '更新' : '建立'}
               </Button>
             </Space>

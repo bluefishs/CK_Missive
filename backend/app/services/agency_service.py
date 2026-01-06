@@ -74,12 +74,15 @@ class AgencyService:
     async def _calculate_agency_stats(self, db: AsyncSession, agency: GovernmentAgency) -> Dict[str, Any]:
         sent_count = (await db.execute(select(func.count()).where(OfficialDocument.sender_agency_id == agency.id))).scalar() or 0
         received_count = (await db.execute(select(func.count()).where(OfficialDocument.receiver_agency_id == agency.id))).scalar() or 0
+        # 標準化分類（將 agency_type 映射到三大分類）
+        normalized_category = self._normalize_category(agency.agency_type)
         return {
             "id": agency.id,
             "agency_name": agency.agency_name,
             "agency_short_name": agency.agency_short_name,  # 機關簡稱
             "agency_code": agency.agency_code,
             "agency_type": agency.agency_type,
+            "category": normalized_category,  # 標準化分類（政府機關、民間企業、其他單位）
             "contact_person": agency.contact_person,
             "phone": agency.phone,
             "address": agency.address,
@@ -93,18 +96,45 @@ class AgencyService:
         }
 
     async def get_agency_statistics(self, db: AsyncSession) -> Dict[str, Any]:
+        """取得機關統計資料（使用資料庫 agency_type 欄位）"""
         total_agencies = (await db.execute(select(func.count(GovernmentAgency.id)))).scalar_one()
-        agencies = (await db.execute(select(GovernmentAgency.agency_name))).scalars().all()
+
+        # 直接從資料庫查詢 agency_type 分組統計
+        agencies = (await db.execute(select(GovernmentAgency.agency_type))).scalars().all()
         category_counts = {}
-        for name in agencies:
-            category = self._categorize_agency(name)
+        for agency_type in agencies:
+            # 將 NULL 或舊分類映射到新三大分類
+            category = self._normalize_category(agency_type)
             category_counts[category] = category_counts.get(category, 0) + 1
-        categories = [{'category': cat, 'count': cnt, 'percentage': round((cnt / total_agencies * 100), 1) if total_agencies > 0 else 0} for cat, cnt in sorted(category_counts.items(), key=lambda x: x[1], reverse=True)]
+
+        # 依照指定順序排序：政府機關、民間企業、其他單位
+        category_order = ['政府機關', '民間企業', '其他單位']
+        categories = []
+        for cat in category_order:
+            cnt = category_counts.get(cat, 0)
+            if cnt > 0:
+                categories.append({
+                    'category': cat,
+                    'count': cnt,
+                    'percentage': round((cnt / total_agencies * 100), 1) if total_agencies > 0 else 0
+                })
+
         return {"total_agencies": total_agencies, "categories": categories}
 
+    def _normalize_category(self, agency_type: Optional[str]) -> str:
+        """將機關類型標準化為三大分類：政府機關、民間企業、其他單位"""
+        if not agency_type:
+            return '其他單位'
+        if agency_type == '政府機關':
+            return '政府機關'
+        if agency_type == '民間企業':
+            return '民間企業'
+        # 其他機關、社會團體、教育機構 等舊分類 → 其他單位
+        return '其他單位'
+
     def _categorize_agency(self, agency_name: str) -> str:
+        """根據機關名稱推斷分類（備用方法，當 agency_type 為空時使用）"""
         name = (agency_name or "").lower()
         if any(k in name for k in ['政府', '市政', '縣政', '部', '局', '署', '處']): return '政府機關'
         if any(k in name for k in ['公司', '企業', '集團']): return '民間企業'
-        if any(k in name for k in ['大學', '學院', '學校']): return '教育機構'
-        return '其他機關'
+        return '其他單位'

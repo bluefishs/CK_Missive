@@ -11,10 +11,9 @@ from enum import Enum
 from app.schemas.common import PaginatedResponse, PaginationMeta, SortOrder
 
 class DocumentCategory(str, Enum):
-    """公文分類 (用於篩選)"""
-    ADMIN = "行政"
-    BUSINESS = "業務"
-    # 根據實際業務需求添加更多分類
+    """公文分類 (用於篩選) - 與資料庫實際值對齊"""
+    RECEIVE = "收文"
+    SEND = "發文"
 
 class DocumentStatus(str, Enum):
     """公文狀態"""
@@ -50,12 +49,16 @@ class DocumentBase(BaseModel):
     doc_class: Optional[str] = Field(None, description="公文類別 (例如：函、令、公告)")
     assignee: Optional[str] = Field(None, description="承辦人")
     user_confirm: Optional[bool] = Field(False, description="使用者確認狀態")
-    auto_serial: Optional[int] = Field(None, description="自動生成流水號 (用於 CSV 匯入)")
+    auto_serial: Optional[str] = Field(None, description="自動生成流水號 (R0001=收文, S0001=發文)")
     creator: Optional[str] = Field(None, description="建立者")
     is_deleted: Optional[bool] = Field(False, description="是否已軟刪除")
     notes: Optional[str] = Field(None, description="備註")
     priority_level: Optional[str] = Field("普通", description="速別 (例如：普通, 速件, 最速件)") # 修正: 預設值
     content: Optional[str] = Field(None, description="公文內容摘要") # 修正: 欄位名稱
+
+    # 新增：發文形式與附件欄位
+    delivery_method: Optional[str] = Field("電子", description="發文形式 (電子/紙本/電子+紙本)")
+    has_attachment: Optional[bool] = Field(False, description="是否含附件")
 
 class DocumentCreate(DocumentBase):
     """建立公文資料結構"""
@@ -78,18 +81,30 @@ class DocumentUpdate(BaseModel):
     doc_class: Optional[str] = None
     assignee: Optional[str] = None
     user_confirm: Optional[bool] = None
-    auto_serial: Optional[int] = None
+    auto_serial: Optional[str] = None
     creator: Optional[str] = None
     is_deleted: Optional[bool] = None
     notes: Optional[str] = None
     priority_level: Optional[str] = None
     content: Optional[str] = None
+    delivery_method: Optional[str] = None
+    has_attachment: Optional[bool] = None
+
+class StaffInfo(BaseModel):
+    """業務同仁資訊"""
+    user_id: int
+    name: str
+    role: str
 
 class DocumentResponse(DocumentBase):
     """公文回應資料結構 - 包含資料庫自動生成欄位"""
     id: int
     created_at: datetime
     updated_at: datetime
+    # 承攬案件關聯資訊
+    contract_project_id: Optional[int] = Field(None, description="承攬案件 ID")
+    contract_project_name: Optional[str] = Field(None, description="承攬案件名稱")
+    assigned_staff: Optional[List[StaffInfo]] = Field(default=[], description="負責業務同仁")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -123,6 +138,7 @@ class DocumentListQuery(BaseModel):
     doc_type: Optional[str] = Field(None, description="公文類型")
     year: Optional[int] = Field(None, description="年度")
     status: Optional[str] = Field(None, description="狀態")
+    category: Optional[str] = Field(None, description="收發文分類 (send=發文, receive=收文)")
     # 進階篩選
     contract_case: Optional[str] = Field(None, description="承攬案件")
     sender: Optional[str] = Field(None, description="發文單位")
@@ -156,7 +172,9 @@ class DocumentImportData(BaseModel):
     notes: Optional[str] = Field(None, description="備註")
     priority_level: Optional[str] = Field(None, description="速別")
     content: Optional[str] = Field(None, description="公文內容摘要")
-    
+    delivery_method: Optional[str] = Field("電子", description="發文形式 (電子/紙本/電子+紙本)")
+    has_attachment: Optional[bool] = Field(False, description="是否含附件")
+
     # 移除 @field_validator('category', mode='before')，因為現在使用 DocumentType Enum
     # 移除 @field_validator('doc_number', 'doc_type', 'subject', mode='before')，因為 Pydantic 內建驗證更強大
 

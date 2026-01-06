@@ -67,11 +67,12 @@ export const DocumentPage: React.FC = () => {
   useEffect(() => {
     if (documentsData) {
       useDocumentsStore.getState().setDocuments([...documentsData.items]);
+      // 正確訪問 pagination 物件中的分頁資料
       useDocumentsStore.getState().setPagination({
-        total: documentsData.total,
-        totalPages: documentsData.total_pages,
-        page: documentsData.page,
-        limit: documentsData.limit,
+        total: documentsData.pagination?.total ?? 0,
+        totalPages: documentsData.pagination?.total_pages ?? 0,
+        page: documentsData.pagination?.page ?? 1,
+        limit: documentsData.pagination?.limit ?? 20,
       });
     }
   }, [documentsData]);
@@ -214,12 +215,8 @@ export const DocumentPage: React.FC = () => {
           documentData as any
         );
         message.success('公文更新成功！');
-
-        const currentStore = useDocumentsStore.getState();
-        const updatedDocuments = currentStore.documents.map(doc =>
-          doc.id === updatedDocument.id ? updatedDocument : doc
-        );
-        currentStore.setDocuments(updatedDocuments);
+        // 刷新列表以確保顯示最新資料
+        refetch();
       }
 
       setDocumentOperation({ type: null, document: null, visible: false });

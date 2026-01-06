@@ -31,6 +31,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { useTableColumnSearch } from '../hooks/useTableColumnSearch';
+import { API_BASE_URL } from '../api/client';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -110,7 +111,7 @@ export const DocumentNumbersPage: React.FC = () => {
       if (filters.status) params.append('status', filters.status);
       if (filters.keyword) params.append('keyword', filters.keyword);
 
-      const response = await fetch(`/api/document-numbers?${params}`);
+      const response = await fetch(`${API_BASE_URL}/document-numbers?${params}`);
       const result = await response.json();
 
       if (response.ok) {
@@ -121,14 +122,14 @@ export const DocumentNumbersPage: React.FC = () => {
       }
 
       // 載入統計資料
-      const statsResponse = await fetch('/api/document-numbers/stats');
+      const statsResponse = await fetch(`${API_BASE_URL}/document-numbers/stats`);
       if (statsResponse.ok) {
         const statsResult = await statsResponse.json();
         setStats(statsResult);
       }
 
       // 載入下一個可用字號
-      const nextResponse = await fetch('/api/document-numbers/next-number');
+      const nextResponse = await fetch(`${API_BASE_URL}/document-numbers/next-number`);
       if (nextResponse.ok) {
         const nextResult = await nextResponse.json();
         setNextNumber(nextResult);
@@ -198,8 +199,8 @@ export const DocumentNumbersPage: React.FC = () => {
       };
 
       const url = editingRecord
-        ? `/api/document-numbers/${editingRecord.id}`
-        : '/api/document-numbers';
+        ? `${API_BASE_URL}/document-numbers/${editingRecord.id}`
+        : `${API_BASE_URL}/document-numbers`;
 
       const method = editingRecord ? 'PUT' : 'POST';
 

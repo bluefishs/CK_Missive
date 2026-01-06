@@ -28,6 +28,7 @@ import {
   SettingOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import { API_BASE_URL } from '../api/client';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
 dayjs.extend(relativeTime);
@@ -83,7 +84,7 @@ const AdminDashboardPage: React.FC = () => {
     setLoading(true);
     try {
       // 載入真實數據
-      const usersResponse = await fetch('/api/users');
+      const usersResponse = await fetch(`${API_BASE_URL}/users`);
       const usersData = await usersResponse.json();
 
       // 篩選待驗證使用者

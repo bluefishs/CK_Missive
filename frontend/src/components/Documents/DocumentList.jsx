@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Card, Tabs, Tag, Button, Space, message, Popconfirm, Tooltip } from 'antd';
 import { EditOutlined, DeleteOutlined, EyeOutlined, ReloadOutlined } from '@ant-design/icons';
 import { documentAPI } from '../services/documentAPI';
-import moment from 'moment';
+import dayjs from 'dayjs';
 
 const { TabPane } = Tabs;
 
@@ -137,7 +137,7 @@ const DocumentList = ({ refreshTrigger, onEdit, onView }) => {
       dataIndex: 'doc_date',
       key: 'doc_date',
       width: 120,
-      render: (date) => date ? moment(date).format('YYYY-MM-DD') : '-',
+      render: (date) => date ? dayjs(date).format('YYYY-MM-DD') : '-',
     },
     {
       title: '承攬案件',

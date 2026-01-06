@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_BASE_URL } from '../../api/client';
 
 interface Document {
   id: number;
@@ -21,7 +22,7 @@ export const DocumentManagement: React.FC = () => {
 
   const fetchDocuments = async () => {
     try {
-      const response = await fetch('/api/extended/documents');
+      const response = await fetch(`${API_BASE_URL}/extended/documents`);
       const data = await response.json();
       setDocuments(data);
     } catch (error) {

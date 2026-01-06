@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_BASE_URL } from '../../api/client';
 
 interface Project {
   id: number;
@@ -21,7 +22,7 @@ export const ContractProjects: React.FC = () => {
 
   const fetchProjects = async () => {
     try {
-      const response = await fetch('/api/extended/projects');
+      const response = await fetch(`${API_BASE_URL}/extended/projects`);
       const data = await response.json();
       setProjects(data);
     } catch (error) {

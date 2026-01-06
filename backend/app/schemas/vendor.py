@@ -9,7 +9,7 @@ from datetime import datetime
 
 # 營業項目選項 (與前端 BUSINESS_TYPE_OPTIONS 一致)
 # 注意：建立/更新時建議使用這些值，但讀取舊資料時允許其他值
-ALLOWED_BUSINESS_TYPES = ['測量業務', '系統業務', '查估業務', '其他類別']
+ALLOWED_BUSINESS_TYPES = ['測量業務', '資訊系統', '系統業務', '查估業務', '不動產估價', '大地工程', '其他類別']
 
 
 class VendorBase(BaseModel):

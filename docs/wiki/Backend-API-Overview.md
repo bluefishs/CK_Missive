@@ -57,8 +57,13 @@ CK_Missive 後端提供 29 個 API 模組，按功能分類如下：
 
 ### 取得公文列表
 ```bash
-GET /api/documents-enhanced/integrated-search?skip=0&limit=10
+GET /api/documents-enhanced/integrated-search?page=1&limit=10&category=收文
 ```
+
+**回應欄位 (✅ 2026-01-05 新增)**:
+- `auto_serial`: 流水序號 (R0001/S0001 格式)
+- `contract_project_name`: 關聯承攬案件名稱
+- `assigned_staff`: 負責業務同仁列表 `[{user_id, name, role}]`
 
 ### 取得專案列表
 ```bash

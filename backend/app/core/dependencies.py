@@ -55,29 +55,34 @@ def get_service(service_class: Type[T]) -> Callable[[AsyncSession], T]:
 # 這些 Service 不需要在建構函數接收 db，而是在方法中接收
 # 保持向後相容性
 
+from functools import lru_cache
 from app.services.vendor_service import VendorService
 from app.services.project_service import ProjectService
 from app.services.agency_service import AgencyService
 from app.services.document_service import DocumentService
 
 
+@lru_cache()
 def get_vendor_service() -> VendorService:
-    """取得 VendorService 實例"""
+    """取得 VendorService 實例（Singleton）"""
     return VendorService()
 
 
+@lru_cache()
 def get_project_service() -> ProjectService:
-    """取得 ProjectService 實例"""
+    """取得 ProjectService 實例（Singleton）"""
     return ProjectService()
 
 
+@lru_cache()
 def get_agency_service() -> AgencyService:
-    """取得 AgencyService 實例"""
+    """取得 AgencyService 實例（Singleton）"""
     return AgencyService()
 
 
+@lru_cache()
 def get_document_service() -> DocumentService:
-    """取得 DocumentService 實例"""
+    """取得 DocumentService 實例（Singleton）"""
     return DocumentService()
 
 

@@ -211,7 +211,7 @@ export const usePermissions = () => {
       'admin': [
         'dashboard', 'documents-menu', 'document-list', 'document-create',
         'projects-menu', 'projects', 'contract-cases', 'agencies', 'vendors',
-        'calendar-menu', 'calendar', 'pure-calendar', 'reports',
+        'calendar-menu', 'calendar', 'reports',
         'system-docs-menu', 'api-docs', 'api-mapping', 'unified-form-demo',
         'system-admin-menu', 'admin-dashboard', 'user-management',
         'permission-management', 'site-management', 'database-management'
@@ -219,7 +219,7 @@ export const usePermissions = () => {
       'user': [
         'dashboard', 'documents-menu', 'document-list',
         'projects-menu', 'projects', 'agencies', 'vendors',
-        'calendar-menu', 'calendar', 'pure-calendar', 'reports'
+        'calendar-menu', 'calendar', 'reports'
       ],
       'unverified': [
         'dashboard'
