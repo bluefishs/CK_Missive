@@ -19,6 +19,8 @@ from app.db.database import get_async_db, engine
 from app.core.logging_manager import log_manager, LoggingMiddleware, log_info
 from app.services.reminder_scheduler import start_reminder_scheduler, stop_reminder_scheduler
 from app.core.exceptions import register_exception_handlers
+from app.core.schema_validator import validate_schema
+from app.extended.models import Base
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
@@ -30,6 +32,20 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """應用程式生命週期事件處理器"""
     log_info(f"Application starting... v{app.version}")
+
+    # Schema 驗證（開發環境啟用，生產環境僅警告）
+    try:
+        is_valid, mismatches = await validate_schema(
+            engine=engine,
+            base=Base,
+            strict=False,  # 不阻止啟動，僅記錄警告
+            tables_to_check=None  # 檢查所有表格
+        )
+        if not is_valid:
+            logger.warning(f"⚠️ 發現 {len(mismatches)} 個 Schema 不一致，請檢查 models 與資料庫是否同步")
+    except Exception as e:
+        logger.error(f"Schema 驗證失敗: {e}")
+
     # await start_reminder_scheduler()  # 暫時禁用直到建立完整的資料表
     logger.info("應用程式已啟動。")
     yield

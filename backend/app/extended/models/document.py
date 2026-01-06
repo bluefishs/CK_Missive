@@ -1,8 +1,25 @@
 # -*- coding: utf-8 -*-
 """
-公文管理資料模型
-Document management data models
+⚠️ 已廢棄 - DEPRECATED ⚠️
+
+此檔案已廢棄，請使用 app.extended.models 中的模型定義。
+This file is deprecated. Please use models from app.extended.models instead.
+
+正確的 import 方式 / Correct import:
+    from app.extended.models import OfficialDocument, DocumentAttachment, ...
+
+此檔案保留僅供參考，不應在生產代碼中使用。
+This file is kept for reference only and should not be used in production code.
+
+最後更新: 2026-01-06
 """
+import warnings
+warnings.warn(
+    "app.extended.models.document is deprecated. Use app.extended.models instead.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
 from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, Enum, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship

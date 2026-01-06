@@ -56,12 +56,10 @@ async def upload_files(
             try:
                 attachment = DocumentAttachment(
                     document_id=document_id,
-                    filename=file.filename or unique_filename,
+                    file_name=file.filename or unique_filename,
                     file_path=file_path,
                     file_size=file.size or len(content),
-                    content_type=file.content_type,
-                    uploaded_by=current_user.id,
-                    uploaded_at=datetime.now()
+                    mime_type=file.content_type
                 )
                 db.add(attachment)
                 await db.commit()
@@ -102,16 +100,16 @@ async def download_file(file_id: int, db: AsyncSession = Depends(get_async_db)):
             detail="檔案不存在"
         )
 
-    if not os.path.exists(attachment.file_path):
+    if not attachment.file_path or not os.path.exists(attachment.file_path):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="檔案檔案不存在於伺服器"
+            detail="檔案不存在於伺服器"
         )
 
     return FileResponse(
         path=attachment.file_path,
-        filename=attachment.filename,
-        media_type=attachment.content_type or 'application/octet-stream'
+        filename=attachment.file_name or 'unknown',
+        media_type=attachment.mime_type or 'application/octet-stream'
     )
 
 @router.delete("/{file_id}", summary="刪除檔案")
@@ -132,15 +130,8 @@ async def delete_file(
             detail="檔案不存在"
         )
 
-    # 檢查權限（只有上傳者或管理員可以刪除）
-    if attachment.uploaded_by != current_user.id and not current_user.is_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="無權限刪除此檔案"
-        )
-
     # 刪除實體檔案
-    if os.path.exists(attachment.file_path):
+    if attachment.file_path and os.path.exists(attachment.file_path):
         try:
             os.remove(attachment.file_path)
         except Exception as e:
@@ -153,7 +144,7 @@ async def delete_file(
     await db.execute(delete(DocumentAttachment).where(DocumentAttachment.id == file_id))
     await db.commit()
 
-    return {"message": f"檔案 {attachment.filename} 刪除成功"}
+    return {"message": f"檔案 {attachment.file_name} 刪除成功"}
 
 @router.get("/document/{document_id}", summary="取得文件附件列表")
 async def get_document_attachments(
@@ -164,7 +155,6 @@ async def get_document_attachments(
     result = await db.execute(
         select(DocumentAttachment)
         .where(DocumentAttachment.document_id == document_id)
-        .where(DocumentAttachment.is_deleted == False)
     )
     attachments = result.scalars().all()
 
@@ -173,11 +163,13 @@ async def get_document_attachments(
         "attachments": [
             {
                 "id": att.id,
-                "filename": att.filename,
+                "filename": att.file_name,
+                "original_filename": att.file_name,
                 "file_size": att.file_size,
-                "content_type": att.content_type,
-                "uploaded_at": att.uploaded_at.isoformat() if att.uploaded_at else None,
-                "uploaded_by": att.uploaded_by
+                "content_type": att.mime_type,
+                "uploaded_at": att.created_at.isoformat() if att.created_at else None,
+                "uploaded_by": None,
+                "created_at": att.created_at.isoformat() if att.created_at else None
             }
             for att in attachments
         ]

@@ -5,6 +5,7 @@ import io
 import csv
 import logging
 from typing import Optional, List
+from datetime import date as date_type
 from fastapi import APIRouter, Query, Depends, Body
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +14,21 @@ from sqlalchemy.orm import selectinload
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
+
+
+def parse_date_string(date_str: Optional[str]) -> Optional[date_type]:
+    """將日期字串轉換為 Python date 物件"""
+    if not date_str:
+        return None
+    try:
+        # 支援 YYYY-MM-DD 格式
+        parts = date_str.split('-')
+        if len(parts) == 3:
+            return date_type(int(parts[0]), int(parts[1]), int(parts[2]))
+        return None
+    except (ValueError, IndexError):
+        logger.warning(f"無法解析日期字串: {date_str}")
+        return None
 
 from app.db.database import get_async_db
 from app.extended.models import OfficialDocument, ContractProject, GovernmentAgency
@@ -28,6 +44,7 @@ from app.schemas.common import (
     SortOrder,
 )
 from app.core.exceptions import NotFoundException
+from app.core.audit_logger import DocumentUpdateGuard, log_document_change
 
 router = APIRouter()
 
@@ -473,7 +490,15 @@ async def create_document(
 ):
     """建立新公文（POST-only 資安機制）"""
     try:
-        document = OfficialDocument(**data.model_dump(exclude_unset=True))
+        create_data = data.model_dump(exclude_unset=True)
+
+        # 日期欄位需要特別處理：字串轉換為 date 物件
+        date_fields = ['doc_date', 'receive_date', 'send_date']
+        for field in date_fields:
+            if field in create_data and isinstance(create_data[field], str):
+                create_data[field] = parse_date_string(create_data[field])
+
+        document = OfficialDocument(**create_data)
         db.add(document)
         await db.commit()
         await db.refresh(document)
@@ -494,7 +519,7 @@ async def update_document(
     data: DocumentUpdateRequest = Body(...),
     db: AsyncSession = Depends(get_async_db)
 ):
-    """更新公文（POST-only 資安機制）"""
+    """更新公文（POST-only 資安機制，含審計日誌）"""
     try:
         query = select(OfficialDocument).where(OfficialDocument.id == document_id)
         result = await db.execute(query)
@@ -503,10 +528,46 @@ async def update_document(
         if not document:
             raise NotFoundException(f"找不到公文 ID: {document_id}")
 
+        # 初始化審計保護器，記錄原始資料
+        guard = DocumentUpdateGuard(db, document_id)
+        original_data = {
+            col.name: getattr(document, col.name)
+            for col in document.__table__.columns
+        }
+
         update_data = data.model_dump(exclude_unset=True)
+
+        # 日期欄位需要特別處理：字串轉換為 date 物件
+        date_fields = ['doc_date', 'receive_date', 'send_date']
+        processed_data = {}
+
         for key, value in update_data.items():
             if value is not None:
-                setattr(document, key, value)
+                # 處理日期欄位
+                if key in date_fields:
+                    parsed_date = parse_date_string(value) if isinstance(value, str) else value
+                    setattr(document, key, parsed_date)
+                    processed_data[key] = parsed_date
+                else:
+                    setattr(document, key, value)
+                    processed_data[key] = value
+
+        # 記錄審計日誌（變更前後比對）
+        changes = {}
+        for key, new_value in processed_data.items():
+            old_value = original_data.get(key)
+            if old_value != new_value:
+                changes[key] = {"old": str(old_value), "new": str(new_value)}
+
+        if changes:
+            await log_document_change(
+                db=db,
+                document_id=document_id,
+                action="UPDATE",
+                changes=changes,
+                source="API"
+            )
+            logger.info(f"公文 {document_id} 更新: {list(changes.keys())}")
 
         await db.commit()
         await db.refresh(document)

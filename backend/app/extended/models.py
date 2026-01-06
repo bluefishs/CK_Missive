@@ -26,7 +26,7 @@ project_vendor_association = Table(
 
 # 移除重複的 Table 定義，改用 class 模型
 
-# 專案使用者關聯表 - 已移到 Class 定義，避免重複
+# 專案使用者關聯表 - 與資料庫 schema 對齊
 project_user_assignment = Table(
     'project_user_assignments',
     Base.metadata,
@@ -40,6 +40,8 @@ project_user_assignment = Table(
     Column('end_date', Date, comment="結束日期"),
     Column('status', String(50), default='active', comment="狀態"),
     Column('notes', Text, comment="備註"),
+    Column('created_at', DateTime, server_default=func.now(), comment="建立時間"),
+    Column('updated_at', DateTime, server_default=func.now(), comment="更新時間"),
     extend_existing=True
 )
 
@@ -60,13 +62,14 @@ class PartnerVendor(Base):
     updated_at = Column(DateTime, server_default=func.now())
 
 class ContractProject(Base):
+    """承攬案件模型 - 與資料庫 schema 完整對齊"""
     __tablename__ = "contract_projects"
     id = Column(Integer, primary_key=True, index=True)
     project_name = Column(String(500), nullable=False, comment="案件名稱")
-    year = Column(Integer, nullable=False, comment="年度")
+    year = Column(Integer, comment="年度")
     client_agency = Column(String(200), comment="委託單位")
     contract_doc_number = Column(String(100), comment="契約文號")
-    project_code = Column(String(100), unique=True, comment="專案編號: CK{年度}_{類別}_{性質}_{流水號} (如CK202501_01_01_001)")
+    project_code = Column(String(100), unique=True, comment="專案編號: CK{年度}_{類別}_{性質}_{流水號} (如CK2025_01_01_001)")
     category = Column(String(50), comment="案件類別: 01委辦案件、02協力計畫、03小額採購、04其他類別")
     case_nature = Column(String(50), comment="案件性質: 01測量案、02資訊案、03複合案")
     status = Column(String(50), default="執行中", comment="執行狀態: 執行中、已結案")
@@ -81,21 +84,38 @@ class ContractProject(Base):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now())
 
+    # 資料庫新增欄位 - Schema 對齊
+    contract_number = Column(String(100), comment="合約編號")
+    contract_type = Column(String(50), comment="合約類型")
+    location = Column(String(200), comment="專案地點")
+    procurement_method = Column(String(100), comment="採購方式")
+    completion_date = Column(Date, comment="完工日期")
+    acceptance_date = Column(Date, comment="驗收日期")
+    completion_percentage = Column(Integer, comment="完成百分比")
+    warranty_end_date = Column(Date, comment="保固結束日期")
+    contact_person = Column(String(100), comment="聯絡人")
+    contact_phone = Column(String(50), comment="聯絡電話")
+    client_agency_id = Column(Integer, ForeignKey('government_agencies.id'), nullable=True, comment="委託機關ID")
+    agency_contact_person = Column(String(100), comment="機關承辦人")
+    agency_contact_phone = Column(String(50), comment="機關承辦電話")
+    agency_contact_email = Column(String(100), comment="機關承辦Email")
+
     # 關聯關係
     documents = relationship("OfficialDocument", back_populates="contract_project")
+    client_agency_ref = relationship("GovernmentAgency", foreign_keys=[client_agency_id])
 
 class OfficialDocument(Base):
     """
-    公文模型
+    公文模型 - 與資料庫 schema 完整對齊
     用於記錄所有收文與發文的公文資料。
     """
     __tablename__ = "documents"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     auto_serial = Column(String(20), index=True, comment="流水序號 (R0001=收文, S0001=發文)")
-    doc_number = Column(String(100), nullable=False, index=True, comment="公文文號")
-    doc_type = Column(String(10), nullable=False, index=True, comment="公文類型 (收文/發文)")
-    subject = Column(String(500), nullable=False, comment="主旨")
+    doc_number = Column(String(100), index=True, comment="公文文號")
+    doc_type = Column(String(10), index=True, comment="公文類型 (收文/發文)")
+    subject = Column(String(500), comment="主旨")
     sender = Column(String(200), index=True, comment="發文單位")
     receiver = Column(String(200), index=True, comment="受文單位")
     doc_date = Column(Date, index=True, comment="發文日期 (西元)")
@@ -104,13 +124,18 @@ class OfficialDocument(Base):
     category = Column(String(100), index=True, comment="收發文分類 (收文/發文)")
 
     # 發文形式與附件欄位
-    delivery_method = Column(String(20), index=True, default="電子", comment="發文形式 (電子/紙本/電子+紙本)")
+    delivery_method = Column(String(20), index=True, default="電子交換", comment="發文形式 (電子交換/紙本郵寄/電子+紙本)")
     has_attachment = Column(Boolean, default=False, comment="是否含附件")
 
     # 其他欄位
     contract_project_id = Column(Integer, ForeignKey('contract_projects.id'), nullable=True, comment="關聯的承攬案件ID")
     sender_agency_id = Column(Integer, ForeignKey('government_agencies.id'), nullable=True, comment="發文機關ID")
     receiver_agency_id = Column(Integer, ForeignKey('government_agencies.id'), nullable=True, comment="受文機關ID")
+
+    # 資料庫新增欄位 - Schema 對齊
+    send_date = Column(Date, comment="發文日期")
+    title = Column(Text, comment="標題")
+    cloud_file_link = Column(String(500), comment="雲端檔案連結")
 
     # 時間戳欄位
     created_at = Column(DateTime, server_default=func.now(), comment="建立時間")
@@ -206,17 +231,58 @@ class DocumentCalendarEvent(Base):
 # ... (EventReminder, etc. 保持不變) ...
 
 class DocumentAttachment(Base):
+    """公文附件模型 - 與資料庫實際 schema 對齊"""
     __tablename__ = 'document_attachments'
     id = Column(Integer, primary_key=True, autoincrement=True, comment="附件唯一識別ID")
     document_id = Column(Integer, ForeignKey('documents.id', ondelete="CASCADE"), nullable=False, comment="關聯的公文ID")
-    # ... 其他欄位
-    # **關鍵修復：新增 relationship 以便 back_populates**
+
+    # 附件資訊（與資料庫欄位名稱對齊）
+    file_name = Column(String(255), comment="檔案名稱")
+    file_path = Column(String(500), comment="檔案路徑")
+    file_size = Column(Integer, comment="檔案大小(bytes)")
+    mime_type = Column(String(100), comment="MIME類型")
+
+    # 系統欄位
+    created_at = Column(DateTime, server_default=func.now(), comment="建立時間")
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), comment="更新時間")
+
+    # 關聯關係
     document = relationship("OfficialDocument", back_populates="attachments")
+
+    # 屬性別名（向後相容 files.py API）
+    @property
+    def filename(self):
+        return self.file_name
+
+    @filename.setter
+    def filename(self, value):
+        self.file_name = value
+
+    @property
+    def content_type(self):
+        return self.mime_type
+
+    @content_type.setter
+    def content_type(self, value):
+        self.mime_type = value
+
+    # 虛擬屬性（files.py API 使用，但資料庫沒有這些欄位）
+    @property
+    def is_deleted(self):
+        return False
+
+    @property
+    def uploaded_at(self):
+        return self.created_at
+
+    @property
+    def uploaded_by(self):
+        return None
 
 # ProjectUserAssignment Class 定義暫時移除以避免與 Table 定義衝突
 
 class EventReminder(Base):
-    """事件提醒模型"""
+    """事件提醒模型 - 與資料庫 schema 完整對齊"""
     __tablename__ = "event_reminders"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -232,6 +298,14 @@ class EventReminder(Base):
     retry_count = Column(Integer, default=0, comment="重試次數")
     created_at = Column(DateTime, server_default=func.now(), comment="建立時間")
     updated_at = Column(DateTime, server_default=func.now(), comment="更新時間")
+
+    # 資料庫新增欄位 - Schema 對齊
+    recipient_email = Column(String(100), comment="接收者Email")
+    notification_type = Column(String(50), nullable=False, default="email", comment="通知類型")
+    reminder_minutes = Column(Integer, comment="提前提醒分鐘數")
+    title = Column(String(200), comment="提醒標題")
+    sent_at = Column(DateTime, nullable=True, comment="發送時間")
+    max_retries = Column(Integer, nullable=False, default=3, comment="最大重試次數")
 
     # 關聯關係
     event = relationship("DocumentCalendarEvent", back_populates="reminders")
