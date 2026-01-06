@@ -382,24 +382,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           path: ROUTES.DOCUMENTS,
         },
         {
-          key: ROUTES.DOCUMENT_IMPORT,
-          icon: <ImportOutlined />,
-          label: '文件匯入',
-          path: ROUTES.DOCUMENT_IMPORT,
-        },
-        {
-          key: ROUTES.DOCUMENT_EXPORT,
-          icon: <ExportOutlined />,
-          label: '文件匯出',
-          path: ROUTES.DOCUMENT_EXPORT,
-        },
-        {
-          key: ROUTES.DOCUMENT_WORKFLOW,
-          icon: <ApartmentOutlined />,
-          label: '工作流管理',
-          path: ROUTES.DOCUMENT_WORKFLOW,
-        },
-        {
           key: ROUTES.DOCUMENT_NUMBERS,
           icon: <NumberOutlined />,
           label: '文號管理',
@@ -445,19 +427,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         },
       ],
     },
-    // 3. 行事曆 (1個子項目)
+    // 3. 行事曆 (直接連結)
     {
-      key: 'calendar-menu',
-      icon: <ScheduleOutlined />,
+      key: ROUTES.CALENDAR,
+      icon: <CalendarOutlined />,
       label: '行事曆',
-      children: [
-        {
-          key: ROUTES.PURE_CALENDAR,
-          icon: <CalendarOutlined />,
-          label: '純粹行事曆',
-          path: ROUTES.PURE_CALENDAR,
-        },
-      ],
+      path: ROUTES.CALENDAR,
     },
     // 4. 報表分析 (3個子項目)
     {

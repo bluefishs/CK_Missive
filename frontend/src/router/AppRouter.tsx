@@ -43,9 +43,6 @@ const CalendarPage = lazy(() => import('../pages/CalendarPage'));
 const ReportsPage = lazy(() => import('../pages/ReportsPage'));
 const GoogleAuthDiagnosticPage = lazy(() => import('../pages/GoogleAuthDiagnosticPage'));
 const SystemPage = lazy(() => import('../pages/SystemPage'));
-const DocumentWorkflowPage = lazy(() => import('../pages/DocumentWorkflowPage'));
-const DocumentImportPage = lazy(() => import('../pages/DocumentImportPage'));
-const DocumentExportPage = lazy(() => import('../pages/DocumentExportPage'));
 const PermissionManagementPage = lazy(() => import('../pages/PermissionManagementPage'));
 // PureCalendarPage 已整合至 CalendarPage，保留重導向以維持相容性
 // const PureCalendarPage = lazy(() => import('../pages/PureCalendarPage'));
@@ -169,11 +166,6 @@ export const AppRouter: React.FC = () => {
 
           {/* 權限管理 */}
           <Route path={ROUTES.PERMISSION_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><PermissionManagementPage /></ProtectedRoute>} />
-
-          {/* 公文相關子頁面 */}
-          <Route path={ROUTES.DOCUMENT_WORKFLOW} element={<DocumentWorkflowPage />} />
-          <Route path={ROUTES.DOCUMENT_IMPORT} element={<DocumentImportPage />} />
-          <Route path={ROUTES.DOCUMENT_EXPORT} element={<DocumentExportPage />} />
 
           {/* 網站管理 */}
           <Route path={ROUTES.SITE_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><SiteManagementPage /></ProtectedRoute>} />

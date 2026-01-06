@@ -41,6 +41,7 @@ export const ROUTES = {
   STAFF: '/staff',
   PROJECTS: '/projects',
   CALENDAR: '/calendar',
+  PURE_CALENDAR: '/pure-calendar', // 重導向至 /calendar
   REPORTS: '/reports',
   SITE_MANAGEMENT: '/admin/site-management',
   LOGIN: '/login',
@@ -51,9 +52,6 @@ export const ROUTES = {
   API_DOCS: '/api/docs', // API 文件頁面路由
   PERMISSION_MANAGEMENT: '/admin/permissions',
   SYSTEM: '/system',
-  DOCUMENT_WORKFLOW: '/documents/workflow',
-  DOCUMENT_IMPORT: '/documents/import',
-  DOCUMENT_EXPORT: '/documents/export',
   UNIFIED_FORM_DEMO: '/unified-form-demo',
   GOOGLE_AUTH_DIAGNOSTIC: '/google-auth-diagnostic',
   ADMIN_DASHBOARD: '/admin/dashboard',
