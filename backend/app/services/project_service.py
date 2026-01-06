@@ -4,7 +4,7 @@ Service layer for Contract Project operations
 import logging
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, delete
+from sqlalchemy import select, func, delete, distinct
 from sqlalchemy.exc import IntegrityError
 
 from app.extended.models import ContractProject, project_vendor_association, project_user_assignment
@@ -198,3 +198,58 @@ class ProjectService:
                 "year_breakdown": [],
                 "average_contract_amount": 0.0
             }
+
+    # =========================================================================
+    # 選項查詢方法 (下拉選單用)
+    # =========================================================================
+
+    async def get_year_options(self, db: AsyncSession) -> List[int]:
+        """
+        取得所有專案年度選項
+
+        Args:
+            db: 資料庫 session
+
+        Returns:
+            年度列表（降序排列）
+        """
+        query = select(distinct(ContractProject.year)).where(
+            ContractProject.year.isnot(None)
+        ).order_by(ContractProject.year.desc())
+
+        result = await db.execute(query)
+        return [row[0] for row in result.fetchall()]
+
+    async def get_category_options(self, db: AsyncSession) -> List[str]:
+        """
+        取得所有專案類別選項
+
+        Args:
+            db: 資料庫 session
+
+        Returns:
+            類別列表（升序排列）
+        """
+        query = select(distinct(ContractProject.category)).where(
+            ContractProject.category.isnot(None)
+        ).order_by(ContractProject.category)
+
+        result = await db.execute(query)
+        return [row[0] for row in result.fetchall()]
+
+    async def get_status_options(self, db: AsyncSession) -> List[str]:
+        """
+        取得所有專案狀態選項
+
+        Args:
+            db: 資料庫 session
+
+        Returns:
+            狀態列表（升序排列）
+        """
+        query = select(distinct(ContractProject.status)).where(
+            ContractProject.status.isnot(None)
+        ).order_by(ContractProject.status)
+
+        result = await db.execute(query)
+        return [row[0] for row in result.fetchall()]

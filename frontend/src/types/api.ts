@@ -296,7 +296,7 @@ export type DocType = '收文' | '發文' | '函' | '開會通知單' | '會勘�
 /** 公文狀態 */
 export type DocStatus = '待處理' | '處理中' | '已結案' | 'active' | 'inactive' | 'completed';
 
-/** 公文基礎介面 */
+/** 公文基礎介面 - 與後端 DocumentResponse 完整對應 */
 export interface OfficialDocument {
   id: number;
   doc_number: string;
@@ -325,6 +325,22 @@ export interface OfficialDocument {
   content?: string;
   created_at: string;
   updated_at: string;
+
+  // 發文形式與附件欄位
+  delivery_method?: string;   // 發文形式 (電子交換/紙本郵寄/電子+紙本)
+  has_attachment?: boolean;   // 是否含附件
+
+  // 承攬案件關聯資訊 (由後端填充)
+  contract_project_name?: string;  // 承攬案件名稱
+  assigned_staff?: Array<{         // 負責業務同仁
+    user_id: number;
+    name: string;
+    role: string;
+  }>;
+
+  // 公文字號拆分欄位
+  doc_zi?: string;       // 公文「字」部分，如「桃工用」
+  doc_wen_hao?: string;  // 公文「文號」部分，如「1140024090」
 }
 
 /** 公文建立請求 */
@@ -345,10 +361,33 @@ export interface DocumentCreate {
   receiver_agency_id?: number;
   notes?: string;
   priority_level?: string;
+  // 新增欄位
+  delivery_method?: string;   // 發文形式
+  has_attachment?: boolean;   // 是否含附件
 }
 
 /** 公文更新請求 */
 export type DocumentUpdate = Partial<DocumentCreate>;
+
+/** 公文附件 - 與後端 DocumentAttachment 對應 */
+export interface DocumentAttachment {
+  id: number;
+  document_id: number;
+  filename: string;
+  file_name?: string;           // 後端欄位名稱
+  original_filename?: string;
+  original_name?: string;       // 後端欄位名稱
+  file_path?: string;
+  file_size: number;
+  content_type?: string;
+  mime_type?: string;           // 後端欄位名稱
+  storage_type?: 'local' | 'network' | 'nas' | 's3';
+  checksum?: string;
+  uploaded_at?: string;
+  uploaded_by?: number;
+  created_at?: string;
+  updated_at?: string;
+}
 
 /** 公文篩選參數 */
 export interface DocumentFilter {

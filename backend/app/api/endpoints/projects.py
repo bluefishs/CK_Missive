@@ -8,11 +8,9 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, status, Body
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, distinct
 from pydantic import BaseModel, Field
 
 from app.db.database import get_async_db
-from app.extended.models import ContractProject
 from app.schemas.project import (
     ProjectCreate,
     ProjectUpdate,
@@ -122,16 +120,11 @@ async def list_projects(
 
 @router.post("/years", summary="獲取專案年度選項")
 async def get_project_years(
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    project_service: ProjectService = Depends(get_project_service)
 ) -> SuccessResponse:
     """獲取所有專案的年度選項"""
-    query = select(distinct(ContractProject.year)).where(
-        ContractProject.year.isnot(None)
-    ).order_by(ContractProject.year.desc())
-
-    result = await db.execute(query)
-    years = [row[0] for row in result.fetchall()]
-
+    years = await project_service.get_year_options(db)
     return SuccessResponse(
         success=True,
         data={"years": years}
@@ -140,16 +133,11 @@ async def get_project_years(
 
 @router.post("/categories", summary="獲取專案類別選項")
 async def get_project_categories(
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    project_service: ProjectService = Depends(get_project_service)
 ) -> SuccessResponse:
     """獲取所有專案的類別選項"""
-    query = select(distinct(ContractProject.category)).where(
-        ContractProject.category.isnot(None)
-    ).order_by(ContractProject.category)
-
-    result = await db.execute(query)
-    categories = [row[0] for row in result.fetchall()]
-
+    categories = await project_service.get_category_options(db)
     return SuccessResponse(
         success=True,
         data={"categories": categories}
@@ -158,16 +146,11 @@ async def get_project_categories(
 
 @router.post("/statuses", summary="獲取專案狀態選項")
 async def get_project_statuses(
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    project_service: ProjectService = Depends(get_project_service)
 ) -> SuccessResponse:
     """獲取所有專案的狀態選項"""
-    query = select(distinct(ContractProject.status)).where(
-        ContractProject.status.isnot(None)
-    ).order_by(ContractProject.status)
-
-    result = await db.execute(query)
-    statuses = [row[0] for row in result.fetchall()]
-
+    statuses = await project_service.get_status_options(db)
     return SuccessResponse(
         success=True,
         data={"statuses": statuses}

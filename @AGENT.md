@@ -70,6 +70,7 @@ cargo run
 | `@SCHEMA_VALIDATION_SKILL_SPEC.md` | Model-Database 一致性驗證 |
 | `@CSV_IMPORT_SKILL_SPEC.md` | CSV 匯入模組開發規範 |
 | `@PROJECT_CODE_SPEC.md` | 專案編號產生規則 |
+| `@SYSTEM_ARCHITECTURE_REVIEW.md` | 系統架構審查與優化規劃 |
 
 ## Feature Development Quality Standards
 
