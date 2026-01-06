@@ -10,7 +10,6 @@ import {
   Card,
   List,
   Avatar,
-  Divider,
   message
 } from 'antd';
 import {
@@ -130,8 +129,8 @@ const RemarksField: React.FC<RemarksFieldProps> = ({
               title={
                 <Space>
                   <Text style={{ fontSize: 12 }}>{item.authorName}</Text>
-                  <Tag size="small" color={
-                    item.action === 'create' ? 'green' : 
+                  <Tag color={
+                    item.action === 'create' ? 'green' :
                     item.action === 'update' ? 'blue' : 'red'
                   }>
                     {item.action === 'create' ? '新增' : 

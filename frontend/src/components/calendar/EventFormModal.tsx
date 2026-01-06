@@ -17,7 +17,6 @@ import { apiClient } from '../../api/client';
 import debounce from 'lodash/debounce';
 
 const { TextArea } = Input;
-const { RangePicker } = DatePicker;
 
 interface EventFormData {
   title: string;

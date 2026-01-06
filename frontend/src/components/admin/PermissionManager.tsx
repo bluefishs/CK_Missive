@@ -1,8 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import {
   Card,
-  Tree,
-  Switch,
   Badge,
   Space,
   Typography,
@@ -16,7 +14,6 @@ import {
 } from 'antd';
 import {
   SecurityScanOutlined,
-  UserOutlined,
   FileTextOutlined,
   ProjectOutlined,
   BankOutlined,
@@ -26,14 +23,7 @@ import {
   SettingOutlined
 } from '@ant-design/icons';
 
-import {
-  PERMISSION_CATEGORIES,
-  Permission,
-  PermissionCategory,
-  getPermissionDisplayName,
-  getCategoryDisplayName,
-  groupPermissionsByCategory
-} from '../../constants/permissions';
+import { PERMISSION_CATEGORIES } from '../../constants/permissions';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -234,14 +224,10 @@ export const PermissionManager: React.FC<PermissionManagerProps> = ({
                   <Text strong>
                     {language === 'zh' ? category.name_zh : category.name_en}
                   </Text>
-                  <Badge 
-                    count={
-                      category.permissions.filter(p => 
-                        selectedPermissions.includes(p.key)
-                      ).length
-                    } 
-                    total={category.permissions.length}
+                  <Badge
+                    count={`${category.permissions.filter(p => selectedPermissions.includes(p.key)).length}/${category.permissions.length}`}
                     size="small"
+                    color="blue"
                   />
                 </Space>
               }

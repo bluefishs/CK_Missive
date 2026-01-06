@@ -54,6 +54,7 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       sourcemap: process.env.NODE_ENV === 'development',
+      chunkSizeWarningLimit: 600, // 提高警告閾值
       rollupOptions: {
         input: {
           main: resolve(__dirname, 'index.html'),
@@ -62,7 +63,20 @@ export default defineConfig(({ mode }) => {
           // 強制緩存破壞
           entryFileNames: `assets/[name]-[hash]-${Date.now()}.js`,
           chunkFileNames: `assets/[name]-[hash]-${Date.now()}.js`,
-          assetFileNames: `assets/[name]-[hash]-${Date.now()}.[ext]`
+          assetFileNames: `assets/[name]-[hash]-${Date.now()}.[ext]`,
+          // 手動分割打包，優化載入效能
+          manualChunks: {
+            // React 核心庫
+            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+            // UI 框架
+            'antd': ['antd', '@ant-design/icons'],
+            // 圖表庫
+            'recharts': ['recharts'],
+            // 日期處理
+            'dayjs': ['dayjs'],
+            // 狀態管理與資料請求
+            'state': ['zustand', '@tanstack/react-query'],
+          }
         }
       },
     },

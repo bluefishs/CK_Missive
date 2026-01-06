@@ -3,14 +3,14 @@
  * 提供多種視圖模式、事件篩選、提醒管理等功能
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Card, Typography, Calendar, Badge, List, Modal, Tag, Button, Space, Select,
-  DatePicker, Row, Col, Tooltip, Dropdown, Switch, Divider, Input, Form,
-  notification, Popover, Timeline, Statistic, Empty, Radio
+  DatePicker, Row, Col, Tooltip, Dropdown, Input, Form,
+  notification, Timeline, Statistic, Empty, Radio
 } from 'antd';
 import {
-  SyncOutlined, GoogleOutlined, CheckCircleOutlined, ExclamationCircleOutlined,
+  GoogleOutlined, CheckCircleOutlined, ExclamationCircleOutlined,
   FilterOutlined, BellOutlined, ClockCircleOutlined, EditOutlined, DeleteOutlined,
   EyeOutlined, PlusOutlined, SettingOutlined, CalendarOutlined, UnorderedListOutlined,
   TableOutlined, AlertOutlined
@@ -18,9 +18,12 @@ import {
 import type { CalendarProps, MenuProps } from 'antd';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
-import { secureApiService } from '../../services/secureApiService';
+import isBetween from 'dayjs/plugin/isBetween';
 import { EventFormModal } from './EventFormModal';
 import { ReminderSettingsModal } from './ReminderSettingsModal';
+
+// 擴展 dayjs 以支援 isBetween
+dayjs.extend(isBetween);
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -72,7 +75,7 @@ const EVENT_TYPE_CONFIG = {
   reference: { name: '參考事件', color: 'default', icon: <UnorderedListOutlined /> }
 };
 
-const PRIORITY_CONFIG = {
+const PRIORITY_CONFIG: Record<number, { name: string; color: string }> = {
   1: { name: '緊急', color: 'red' },
   2: { name: '重要', color: 'orange' },
   3: { name: '普通', color: 'blue' },
@@ -110,8 +113,7 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
     priorities: [],
     statuses: [],
     dateRange: null,
-    searchText: '',
-    hasReminders: undefined
+    searchText: ''
   });
 
   // 篩選後的事件
@@ -176,7 +178,7 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
     const total = filteredEvents.length;
     const pending = filteredEvents.filter(e => e.status === 'pending').length;
     const completed = filteredEvents.filter(e => e.status === 'completed').length;
-    const withReminders = filteredEvents.filter(e => e.reminder_enabled && e.reminders?.length > 0).length;
+    const withReminders = filteredEvents.filter(e => e.reminder_enabled && (e.reminders?.length ?? 0) > 0).length;
     const overdue = filteredEvents.filter(e =>
       e.status === 'pending' && dayjs(e.start_date).isBefore(dayjs(), 'day')
     ).length;
@@ -213,7 +215,7 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
               {event.google_event_id && (
                 <GoogleOutlined style={{ fontSize: '8px', marginLeft: '2px', color: '#1890ff' }} />
               )}
-              {event.reminder_enabled && event.reminders?.length > 0 && (
+              {event.reminder_enabled && (event.reminders?.length ?? 0) > 0 && (
                 <BellOutlined style={{ fontSize: '8px', marginLeft: '2px', color: '#fa8c16' }} />
               )}
             </Tooltip>
@@ -323,11 +325,11 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
                 <Tag color={EVENT_TYPE_CONFIG[event.event_type].color}>
                   {EVENT_TYPE_CONFIG[event.event_type].name}
                 </Tag>
-                <Tag color={PRIORITY_CONFIG[event.priority].color}>
-                  {PRIORITY_CONFIG[event.priority].name}
+                <Tag color={PRIORITY_CONFIG[event.priority]?.color ?? 'default'}>
+                  {PRIORITY_CONFIG[event.priority]?.name ?? '未知'}
                 </Tag>
-                {event.reminder_enabled && event.reminders?.length > 0 && (
-                  <Tooltip title={`${event.reminders.length} 個提醒`}>
+                {event.reminder_enabled && (event.reminders?.length ?? 0) > 0 && (
+                  <Tooltip title={`${event.reminders?.length ?? 0} 個提醒`}>
                     <BellOutlined style={{ color: '#fa8c16' }} />
                   </Tooltip>
                 )}
@@ -375,18 +377,18 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
                   <Tag color={EVENT_TYPE_CONFIG[event.event_type].color}>
                     {EVENT_TYPE_CONFIG[event.event_type].name}
                   </Tag>
-                  <Tag color={PRIORITY_CONFIG[event.priority].color}>
-                    {PRIORITY_CONFIG[event.priority].name}
+                  <Tag color={PRIORITY_CONFIG[event.priority]?.color ?? 'default'}>
+                    {PRIORITY_CONFIG[event.priority]?.name ?? '未知'}
                   </Tag>
                 </Space>
                 <Text type="secondary">{event.description}</Text>
                 <Space>
                   <ClockCircleOutlined />
                   <Text>{dayjs(event.start_date).format('YYYY-MM-DD HH:mm')}</Text>
-                  {event.reminder_enabled && event.reminders?.length > 0 && (
+                  {event.reminder_enabled && (event.reminders?.length ?? 0) > 0 && (
                     <>
                       <BellOutlined style={{ color: '#fa8c16' }} />
-                      <Text>{event.reminders.length} 個提醒</Text>
+                      <Text>{event.reminders?.length ?? 0} 個提醒</Text>
                     </>
                   )}
                 </Space>
@@ -517,8 +519,8 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
               <Tag color={EVENT_TYPE_CONFIG[selectedEvent.event_type].color}>
                 {EVENT_TYPE_CONFIG[selectedEvent.event_type].name}
               </Tag>
-              <Tag color={PRIORITY_CONFIG[selectedEvent.priority].color}>
-                {PRIORITY_CONFIG[selectedEvent.priority].name}
+              <Tag color={PRIORITY_CONFIG[selectedEvent.priority]?.color ?? 'default'}>
+                {PRIORITY_CONFIG[selectedEvent.priority]?.name ?? '未知'}
               </Tag>
               <Tag color={selectedEvent.status === 'completed' ? 'success' : 'processing'}>
                 {selectedEvent.status === 'completed' ? '已完成' :

@@ -71,8 +71,8 @@ export const projectsApi = {
       year: params?.year,
       category: params?.category,
       status: params?.status,
-      sort_by: params?.sort_by ?? 'id',
-      sort_order: params?.sort_order ?? 'desc',
+      sort_by: params?.sort_by ?? 'year',  // 預設依年度排序
+      sort_order: params?.sort_order ?? 'desc',  // 預設降冪排序
     };
 
     try {
@@ -158,7 +158,12 @@ export const projectsApi = {
     const response = await apiClient.post<SuccessResponse<ProjectStatistics>>(
       '/projects/statistics'
     );
-    return response.data;
+    return response.data ?? {
+      total_projects: 0,
+      status_breakdown: [],
+      year_breakdown: [],
+      average_contract_amount: 0
+    };
   },
 
   /**
@@ -170,7 +175,7 @@ export const projectsApi = {
     const response = await apiClient.post<SuccessResponse<{ years: number[] }>>(
       '/projects/years'
     );
-    return response.data.years;
+    return response.data?.years ?? [];
   },
 
   /**
@@ -182,7 +187,7 @@ export const projectsApi = {
     const response = await apiClient.post<SuccessResponse<{ categories: string[] }>>(
       '/projects/categories'
     );
-    return response.data.categories;
+    return response.data?.categories ?? [];
   },
 
   /**
@@ -194,7 +199,7 @@ export const projectsApi = {
     const response = await apiClient.post<SuccessResponse<{ statuses: string[] }>>(
       '/projects/statuses'
     );
-    return response.data.statuses;
+    return response.data?.statuses ?? [];
   },
 
   /**
@@ -206,7 +211,11 @@ export const projectsApi = {
    * @returns 專案選項列表
    */
   async getProjectOptions(year?: number): Promise<ProjectOption[]> {
-    const response = await this.getProjects({ limit: 1000, year });
+    const params: ProjectListParams = { limit: 1000 };
+    if (year !== undefined) {
+      params.year = year;
+    }
+    const response = await this.getProjects(params);
     return response.items.map((project) => {
       const option: ProjectOption = {
         id: project.id,

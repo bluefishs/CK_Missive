@@ -191,10 +191,11 @@ export const usersApi = {
    * @returns 使用者選項列表
    */
   async getUserOptions(activeOnly = true): Promise<UserOption[]> {
-    const response = await this.getUsers({
-      limit: 1000,
-      is_active: activeOnly ? true : undefined,
-    });
+    const params: UserListParams = { limit: 1000 };
+    if (activeOnly) {
+      params.is_active = true;
+    }
+    const response = await this.getUsers(params);
     return response.items.map((user) => {
       const option: UserOption = {
         id: user.id,

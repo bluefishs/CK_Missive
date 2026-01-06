@@ -4,7 +4,7 @@
  * 使用統一的 API Client 和型別定義
  */
 
-import { apiClient, ApiException } from './client';
+import { apiClient, ApiException, API_BASE_URL } from './client';
 import {
   PaginatedResponse,
   PaginationParams,
@@ -94,6 +94,7 @@ export interface DocumentListParams extends PaginationParams, SortParams {
   doc_type?: string;
   year?: number;
   status?: string;
+  category?: string;  // 收發文分類 (receive=收文, send=發文)
   contract_case?: string;
   sender?: string;
   receiver?: string;
@@ -328,6 +329,7 @@ export const documentsApi = {
     } catch (error) {
       console.error('取得專案關聯公文失敗:', error);
       return {
+        success: true,
         items: [],
         pagination: {
           total: 0,
@@ -376,7 +378,7 @@ export const documentsApi = {
       let filename = 'documents_export.csv';
       if (contentDisposition) {
         const match = contentDisposition.match(/filename=(.+)/);
-        if (match) {
+        if (match?.[1]) {
           filename = match[1].replace(/"/g, '');
         }
       }
