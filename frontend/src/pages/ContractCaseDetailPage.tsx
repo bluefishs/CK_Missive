@@ -54,6 +54,7 @@ import { projectsApi } from '../api/projectsApi';
 import { usersApi } from '../api/usersApi';
 import { vendorsApi } from '../api/vendors';
 import { documentsApi } from '../api/documentsApi';
+import { filesApi, FileAttachment } from '../api/filesApi';
 import { projectStaffApi, type ProjectStaff } from '../api/projectStaffApi';
 import { projectVendorsApi, type ProjectVendor } from '../api/projectVendorsApi';
 // 機關承辦 API
@@ -158,7 +159,7 @@ interface VendorAssociation {
   status: string;
 }
 
-// 關聯文件類型
+// 關聯文件類型（對應 Document 型別）
 interface RelatedDocument {
   id: number;
   doc_number: string;
@@ -166,16 +167,37 @@ interface RelatedDocument {
   subject: string;
   doc_date: string;
   sender: string;
+  receiver: string;
+  category: string;           // 收文/發文
+  delivery_method: string;    // 發文形式：電子交換/紙本郵寄/電子+紙本
+  has_attachment: boolean;    // 是否含附件
 }
 
-// 附件類型
+// 附件類型（彙整自關聯公文）
 interface Attachment {
   id: number;
   filename: string;
+  original_filename?: string;
   file_size: number;
   file_type: string;
+  content_type?: string;
   uploaded_at: string;
   uploaded_by: string;
+  // 所屬公文資訊
+  document_id: number;
+  document_number: string;
+  document_subject: string;
+}
+
+// 按公文分組的附件（用於摺疊顯示）
+interface GroupedAttachment {
+  document_id: number;
+  document_number: string;
+  document_subject: string;
+  file_count: number;
+  total_size: number;
+  last_updated: string;
+  attachments: Attachment[];
 }
 
 export const ContractCaseDetailPage: React.FC = () => {
@@ -188,6 +210,8 @@ export const ContractCaseDetailPage: React.FC = () => {
   const [vendorList, setVendorList] = useState<VendorAssociation[]>([]);
   const [relatedDocs, setRelatedDocs] = useState<RelatedDocument[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [groupedAttachments, setGroupedAttachments] = useState<GroupedAttachment[]>([]);
+  const [attachmentsLoading, setAttachmentsLoading] = useState(false);
   const [agencyContacts, setAgencyContacts] = useState<ProjectAgencyContact[]>([]);
 
   // 編輯模式狀態
@@ -266,24 +290,85 @@ export const ContractCaseDetailPage: React.FC = () => {
       setAgencyContacts(agencyContactsResponse.items || []);
 
       // 載入關聯公文 (使用新 API)
+      let loadedDocs: RelatedDocument[] = [];
       try {
         const docsResponse = await documentsApi.getDocumentsByProject(projectId);
-        const transformedDocs: RelatedDocument[] = docsResponse.items.map(doc => ({
+        loadedDocs = docsResponse.items.map(doc => ({
           id: doc.id,
           doc_number: doc.doc_number,
           doc_type: doc.doc_type || '函',
           subject: doc.subject,
           doc_date: doc.doc_date || '',
           sender: doc.sender || '',
+          receiver: doc.receiver || '',
+          category: doc.category || '收文',
+          delivery_method: doc.delivery_method || '電子交換',
+          has_attachment: doc.has_attachment || false,
         }));
-        setRelatedDocs(transformedDocs);
+        setRelatedDocs(loadedDocs);
       } catch (error) {
         console.error('載入關聯公文失敗:', error);
         setRelatedDocs([]);
       }
 
-      // TODO: 載入附件 (目前使用空陣列，之後接 API)
-      setAttachments([]);
+      // 載入所有關聯公文的附件（彙整檢視 + 分組檢視）
+      setAttachmentsLoading(true);
+      try {
+        const allAttachments: Attachment[] = [];
+        const grouped: GroupedAttachment[] = [];
+
+        // 遍歷每個關聯公文，取得其附件
+        for (const doc of loadedDocs) {
+          try {
+            const docAttachments = await filesApi.getDocumentAttachments(doc.id);
+            // 將附件加上所屬公文資訊
+            const mappedAttachments = docAttachments.map((att: FileAttachment) => ({
+              id: att.id,
+              filename: att.original_filename || att.filename,
+              original_filename: att.original_filename,
+              file_size: att.file_size,
+              file_type: att.content_type || '',
+              content_type: att.content_type,
+              uploaded_at: att.created_at || '',
+              uploaded_by: att.uploaded_by?.toString() || '系統',
+              document_id: doc.id,
+              document_number: doc.doc_number,
+              document_subject: doc.subject,
+            }));
+            allAttachments.push(...mappedAttachments);
+
+            // 建立分組資料（只有有附件的公文才加入）
+            if (mappedAttachments.length > 0) {
+              const totalSize = mappedAttachments.reduce((sum, att) => sum + att.file_size, 0);
+              const lastUpdated = mappedAttachments
+                .map(att => att.uploaded_at)
+                .filter(Boolean)
+                .sort()
+                .pop() || '';
+
+              grouped.push({
+                document_id: doc.id,
+                document_number: doc.doc_number,
+                document_subject: doc.subject,
+                file_count: mappedAttachments.length,
+                total_size: totalSize,
+                last_updated: lastUpdated,
+                attachments: mappedAttachments,
+              });
+            }
+          } catch (attError) {
+            console.warn(`載入公文 ${doc.doc_number} 的附件失敗:`, attError);
+          }
+        }
+        setAttachments(allAttachments);
+        setGroupedAttachments(grouped);
+      } catch (attError) {
+        console.error('載入附件失敗:', attError);
+        setAttachments([]);
+        setGroupedAttachments([]);
+      } finally {
+        setAttachmentsLoading(false);
+      }
 
       console.log('載入專案資料成功:', { projectResponse, staffResponse, vendorsResponse, agencyContactsResponse });
     } catch (error) {
@@ -860,20 +945,80 @@ export const ContractCaseDetailPage: React.FC = () => {
     },
   ];
 
-  // 關聯文件表格欄位
+  // 解析機關名稱：提取括號內的名稱
+  const extractAgencyName = (value: string | undefined): string => {
+    if (!value) return '-';
+    const agencies = value.split(' | ').map(agency => {
+      const match = agency.match(/\(([^)]+)\)/);
+      return match ? match[1] : agency;
+    });
+    return agencies.join('、');
+  };
+
+  // 關聯公文表格欄位（欄位順序對應 /documents 頁面）
   const documentColumns: ColumnsType<RelatedDocument> = [
     {
-      title: '文號',
+      title: '公文字號',
       dataIndex: 'doc_number',
       key: 'doc_number',
-      render: (text) => <Text strong style={{ color: '#1890ff' }}>{text}</Text>,
+      width: 180,
+      ellipsis: true,
+      render: (text, record) => (
+        <Button
+          type="link"
+          style={{ padding: 0, fontWeight: 500 }}
+          onClick={() => navigate(`/documents/${record.id}`)}
+        >
+          {text}
+        </Button>
+      ),
     },
     {
-      title: '類型',
-      dataIndex: 'doc_type',
-      key: 'doc_type',
-      width: 80,
-      render: (text) => <Tag color="blue">{text}</Tag>,
+      title: '發文形式',
+      dataIndex: 'delivery_method',
+      key: 'delivery_method',
+      width: 95,
+      align: 'center',
+      render: (method: string) => {
+        const colorMap: Record<string, string> = {
+          '電子交換': 'green',
+          '紙本郵寄': 'orange',
+          '電子+紙本': 'blue',
+        };
+        return <Tag color={colorMap[method] || 'default'}>{method || '電子交換'}</Tag>;
+      },
+    },
+    {
+      title: '收發單位',
+      key: 'correspondent',
+      width: 160,
+      ellipsis: true,
+      render: (_: any, record: RelatedDocument) => {
+        // 收文顯示 sender (來文機關)，發文顯示 receiver (受文機關)
+        const rawValue = record.category === '收文' ? record.sender : record.receiver;
+        const labelPrefix = record.category === '收文' ? '來文：' : '發至：';
+        const labelColor = record.category === '收文' ? '#52c41a' : '#1890ff';
+        const displayValue = extractAgencyName(rawValue);
+
+        return (
+          <Tooltip title={displayValue}>
+            <Text ellipsis>
+              <span style={{ color: labelColor, fontWeight: 500, fontSize: '11px' }}>
+                {labelPrefix}
+              </span>
+              {displayValue}
+            </Text>
+          </Tooltip>
+        );
+      },
+    },
+    {
+      title: '公文日期',
+      dataIndex: 'doc_date',
+      key: 'doc_date',
+      width: 100,
+      align: 'center',
+      render: (date: string) => date ? dayjs(date).format('YYYY-MM-DD') : '-',
     },
     {
       title: '主旨',
@@ -881,45 +1026,133 @@ export const ContractCaseDetailPage: React.FC = () => {
       key: 'subject',
       ellipsis: true,
     },
+  ];
+
+  // 下載附件
+  const handleDownloadAttachment = async (attachmentId: number, filename: string) => {
+    try {
+      await filesApi.downloadAttachment(attachmentId, filename);
+    } catch (error) {
+      console.error('下載附件失敗:', error);
+      message.error('下載附件失敗');
+    }
+  };
+
+  // 預覽附件
+  const handlePreviewAttachment = async (attachmentId: number, filename: string) => {
+    try {
+      const blob = await filesApi.getAttachmentBlob(attachmentId);
+      const previewUrl = window.URL.createObjectURL(blob);
+      window.open(previewUrl, '_blank');
+      setTimeout(() => window.URL.revokeObjectURL(previewUrl), 10000);
+    } catch (error) {
+      console.error('預覽附件失敗:', error);
+      message.error(`預覽 ${filename} 失敗`);
+    }
+  };
+
+  // 判斷是否可預覽
+  const isPreviewable = (contentType?: string, filename?: string): boolean => {
+    if (contentType) {
+      if (contentType.startsWith('image/') ||
+          contentType === 'application/pdf' ||
+          contentType.startsWith('text/')) {
+        return true;
+      }
+    }
+    if (filename) {
+      const ext = filename.toLowerCase().split('.').pop();
+      return ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'txt', 'csv'].includes(ext || '');
+    }
+    return false;
+  };
+
+  // 批次下載某公文的所有附件
+  const handleDownloadAllAttachments = async (group: GroupedAttachment) => {
+    message.loading({ content: `正在下載 ${group.file_count} 個檔案...`, key: 'download-all' });
+    for (const att of group.attachments) {
+      try {
+        await filesApi.downloadAttachment(att.id, att.filename);
+      } catch (error) {
+        console.error(`下載 ${att.filename} 失敗:`, error);
+      }
+    }
+    message.success({ content: '下載完成', key: 'download-all' });
+  };
+
+  // 分組附件表格欄位（父層：公文）
+  const groupedAttachmentColumns: ColumnsType<GroupedAttachment> = [
     {
-      title: '日期',
-      dataIndex: 'doc_date',
-      key: 'doc_date',
-      width: 120,
+      title: '公文字號',
+      dataIndex: 'document_number',
+      key: 'document_number',
+      width: 200,
+      render: (text: string, record) => (
+        <Tooltip title={record.document_subject}>
+          <Button
+            type="link"
+            style={{ padding: 0, fontWeight: 500 }}
+            onClick={() => navigate(`/documents/${record.document_id}`)}
+          >
+            {text}
+          </Button>
+        </Tooltip>
+      ),
     },
     {
-      title: '發文單位',
-      dataIndex: 'sender',
-      key: 'sender',
-      width: 180,
+      title: '檔案數',
+      dataIndex: 'file_count',
+      key: 'file_count',
+      width: 100,
+      align: 'center',
+      render: (count: number) => <Tag color="blue">{count} 個</Tag>,
+    },
+    {
+      title: '總大小',
+      dataIndex: 'total_size',
+      key: 'total_size',
+      width: 100,
+      render: (size: number) => formatFileSize(size),
+    },
+    {
+      title: '最後更新',
+      dataIndex: 'last_updated',
+      key: 'last_updated',
+      width: 110,
+      render: (date: string) => date ? dayjs(date).format('YYYY-MM-DD') : '-',
     },
     {
       title: '操作',
       key: 'action',
-      width: 100,
+      width: 120,
       render: (_, record) => (
-        <Button
-          type="primary"
-          size="small"
-          icon={<EyeOutlined />}
-          onClick={() => navigate(`/documents/${record.id}`)}
-        >
-          檢視
-        </Button>
+        <Tooltip title="全部下載">
+          <Button
+            size="small"
+            icon={<DownloadOutlined />}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDownloadAllAttachments(record);
+            }}
+          >
+            全部下載
+          </Button>
+        </Tooltip>
       ),
     },
   ];
 
-  // 附件表格欄位
-  const attachmentColumns: ColumnsType<Attachment> = [
+  // 展開列：單一附件明細
+  const expandedAttachmentColumns: ColumnsType<Attachment> = [
     {
       title: '檔案名稱',
       dataIndex: 'filename',
       key: 'filename',
+      ellipsis: true,
       render: (text) => (
         <Space>
-          <PaperClipOutlined />
-          <Text>{text}</Text>
+          <PaperClipOutlined style={{ color: '#1890ff' }} />
+          <Text ellipsis={{ tooltip: text }}>{text}</Text>
         </Space>
       ),
     },
@@ -934,31 +1167,31 @@ export const ContractCaseDetailPage: React.FC = () => {
       title: '上傳時間',
       dataIndex: 'uploaded_at',
       key: 'uploaded_at',
-      width: 120,
-    },
-    {
-      title: '上傳者',
-      dataIndex: 'uploaded_by',
-      key: 'uploaded_by',
-      width: 100,
+      width: 110,
+      render: (date: string) => date ? dayjs(date).format('YYYY-MM-DD') : '-',
     },
     {
       title: '操作',
       key: 'action',
-      width: 150,
-      render: () => (
-        <Space>
+      width: 120,
+      render: (_, record) => (
+        <Space size="small">
           <Tooltip title="下載">
-            <Button size="small" icon={<DownloadOutlined />} />
+            <Button
+              size="small"
+              icon={<DownloadOutlined />}
+              onClick={() => handleDownloadAttachment(record.id, record.filename)}
+            />
           </Tooltip>
-          <Tooltip title="預覽">
-            <Button size="small" icon={<EyeOutlined />} />
-          </Tooltip>
-          <Popconfirm title="確定要刪除此附件？" okText="確定" cancelText="取消">
-            <Tooltip title="刪除">
-              <Button size="small" danger icon={<DeleteOutlined />} />
+          {isPreviewable(record.content_type, record.filename) && (
+            <Tooltip title="預覽">
+              <Button
+                size="small"
+                icon={<EyeOutlined />}
+                onClick={() => handlePreviewAttachment(record.id, record.filename)}
+              />
             </Tooltip>
-          </Popconfirm>
+          )}
         </Space>
       ),
     },
@@ -1372,48 +1605,72 @@ export const ContractCaseDetailPage: React.FC = () => {
     </Card>
   );
 
-  // TAB 5: 附件管理（支援多檔上傳）
+  // TAB 5: 附件彙整（以公文分組的摺疊式設計）
   const renderAttachments = () => (
     <Card
       title={
         <Space>
           <PaperClipOutlined />
-          <span>附件管理</span>
+          <span>附件彙整</span>
           <Tag color="blue">{attachments.length} 個檔案</Tag>
+          {groupedAttachments.length > 0 && (
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              (來自 {groupedAttachments.length} 筆公文)
+            </Text>
+          )}
         </Space>
       }
       extra={
-        <Upload
-          multiple
-          showUploadList={false}
-          beforeUpload={(file, fileList) => {
-            // TODO: 實作多檔上傳 API
-            message.info(`準備上傳 ${fileList.length} 個檔案`);
-            console.log('上傳檔案:', fileList);
-            return false; // 阻止自動上傳，待 API 實作後啟用
-          }}
+        <Button
+          icon={<ReloadOutlined />}
+          onClick={loadData}
+          loading={attachmentsLoading}
         >
-          <Button type="primary" icon={<UploadOutlined />}>
-            上傳附件（可多選）
-          </Button>
-        </Upload>
+          重新整理
+        </Button>
       }
+      loading={attachmentsLoading}
     >
-      {attachments.length > 0 ? (
+      {groupedAttachments.length > 0 ? (
         <Table
-          columns={attachmentColumns}
-          dataSource={attachments}
-          rowKey="id"
-          pagination={{ pageSize: 10, showSizeChanger: true }}
+          columns={groupedAttachmentColumns}
+          dataSource={groupedAttachments}
+          rowKey="document_id"
+          pagination={false}
           size="middle"
+          expandable={{
+            expandedRowRender: (record) => (
+              <Table
+                columns={expandedAttachmentColumns}
+                dataSource={record.attachments}
+                rowKey="id"
+                pagination={false}
+                size="small"
+                showHeader={false}
+                style={{ margin: 0 }}
+              />
+            ),
+            rowExpandable: (record) => record.attachments.length > 0,
+          }}
         />
       ) : (
         <Empty
           description={
-            <span>
-              尚無附件<br />
-              <Text type="secondary">點擊「上傳附件」按鈕可一次選擇多個檔案上傳</Text>
-            </span>
+            relatedDocs.length === 0 ? (
+              <span>
+                尚無關聯公文<br />
+                <Text type="secondary">
+                  請先在「關聯公文」頁籤中關聯公文，附件將自動彙整於此。
+                </Text>
+              </span>
+            ) : (
+              <span>
+                關聯公文中尚無附件<br />
+                <Text type="secondary">
+                  可至「關聯公文」頁籤點擊公文字號進入公文詳情頁上傳附件。
+                </Text>
+              </span>
+            )
           }
         />
       )}
@@ -1672,7 +1929,7 @@ export const ContractCaseDetailPage: React.FC = () => {
       label: (
         <span>
           <PaperClipOutlined />
-          附件管理
+          附件彙整
           <Tag color="blue" style={{ marginLeft: 8 }}>{attachments.length}</Tag>
         </span>
       ),

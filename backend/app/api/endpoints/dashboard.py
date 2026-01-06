@@ -11,6 +11,7 @@ from app.extended.models import OfficialDocument as Document
 router = APIRouter()
 
 @router.get("/stats")
+@router.post("/stats")
 async def get_dashboard_stats(db: AsyncSession = Depends(get_async_db)):
     """
     提供儀表板所需的所有統計數據和近期公文列表。
