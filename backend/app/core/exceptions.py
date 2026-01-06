@@ -366,5 +366,5 @@ def register_exception_handlers(app):
     app.add_exception_handler(AppException, app_exception_handler)
     app.add_exception_handler(HTTPException, http_exception_handler)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
-    # 註解掉通用異常處理器，以便在開發時看到完整錯誤
-    # app.add_exception_handler(Exception, generic_exception_handler)
+    # 啟用通用異常處理器以確保 CORS headers 正確返回
+    app.add_exception_handler(Exception, generic_exception_handler)

@@ -288,9 +288,7 @@ class DocumentAttachment(Base):
     def uploaded_at(self):
         return self.created_at
 
-    @property
-    def uploaded_by(self):
-        return None
+    # uploaded_by 已是 Column 定義，不需要 property 覆蓋
 
 # ProjectUserAssignment Class 定義暫時移除以避免與 Table 定義衝突
 
