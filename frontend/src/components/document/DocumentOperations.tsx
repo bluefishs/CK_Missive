@@ -30,30 +30,33 @@ import {
   DownloadOutlined,
   DeleteOutlined,
   PaperClipOutlined,
+  CloudUploadOutlined,
+  FileOutlined,
+  LoadingOutlined,
+  EyeOutlined,
+  FilePdfOutlined,
+  FileImageOutlined,
 } from '@ant-design/icons';
 import { Document } from '../../types';
 import dayjs from 'dayjs';
 import { calendarIntegrationService } from '../../services/calendarIntegrationService';
 import { apiClient } from '../../api/client';
-import { API_BASE_URL } from '../../api/client';
+import { filesApi } from '../../api/filesApi';
 
 const { TextArea } = Input;
 const { Option } = Select;
 const { Dragger } = Upload;
 
 // ============================================================================
-// 檔案上傳驗證常數（與後端同步）
+// 預設檔案驗證常數（作為後備，實際值從後端載入）
 // ============================================================================
-const ALLOWED_EXTENSIONS = [
+const DEFAULT_ALLOWED_EXTENSIONS = [
   '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
   '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff',
-  '.zip', '.rar', '.7z',
-  '.txt', '.csv', '.xml', '.json',
-  '.dwg', '.dxf',  // CAD 檔案
-  '.shp', '.kml', '.kmz',  // GIS 檔案
+  '.zip', '.rar', '.7z', '.txt', '.csv', '.xml', '.json',
+  '.dwg', '.dxf', '.shp', '.kml', '.kmz',
 ];
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
-const MAX_FILE_SIZE_MB = 50;
+const DEFAULT_MAX_FILE_SIZE_MB = 50;
 
 interface DocumentOperationsProps {
   document: Document | null;
@@ -87,6 +90,14 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [uploading, setUploading] = useState(false);
   const [uploadErrors, setUploadErrors] = useState<string[]>([]);
+  // 檔案驗證設定（從後端動態載入）
+  const [fileSettings, setFileSettings] = useState<{
+    allowedExtensions: string[];
+    maxFileSizeMB: number;
+  }>({
+    allowedExtensions: DEFAULT_ALLOWED_EXTENSIONS,
+    maxFileSizeMB: DEFAULT_MAX_FILE_SIZE_MB,
+  });
 
   const isReadOnly = operation === 'view';
   const isCreate = operation === 'create';
@@ -177,15 +188,28 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
     }, 150);
   };
 
-  // 取得公文附件列表 (POST-only 資安機制)
+  // 載入檔案驗證設定（從後端）
+  useEffect(() => {
+    const loadFileSettings = async () => {
+      try {
+        const info = await filesApi.getStorageInfo();
+        setFileSettings({
+          allowedExtensions: info.allowed_extensions,
+          maxFileSizeMB: info.max_file_size_mb,
+        });
+      } catch (error) {
+        console.warn('Failed to load file settings, using defaults:', error);
+      }
+    };
+    loadFileSettings();
+  }, []);
+
+  // 取得公文附件列表 - 使用 filesApi
   const fetchAttachments = async (documentId: number) => {
     setAttachmentsLoading(true);
     try {
-      const data = await apiClient.post<{
-        document_id: number;
-        attachments: any[];
-      }>(`/files/document/${documentId}`, {});
-      setExistingAttachments(data.attachments || []);
+      const attachments = await filesApi.getDocumentAttachments(documentId);
+      setExistingAttachments(attachments);
     } catch (error) {
       console.error('Failed to fetch attachments:', error);
       setExistingAttachments([]);
@@ -194,95 +218,68 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
     }
   };
 
-  // 上傳檔案（含進度追蹤）
+  // 上傳檔案 - 使用 filesApi（含進度追蹤）
+  // 最小顯示時間確保用戶能看到進度條
+  const MIN_PROGRESS_DISPLAY_MS = 800;
+
   const uploadFiles = async (documentId: number, files: any[]): Promise<any> => {
     if (files.length === 0) return { success: true, files: [], errors: [] };
 
-    const formData = new FormData();
-    files.forEach(file => {
-      if (file.originFileObj) {
-        formData.append('files', file.originFileObj);
-      }
-    });
+    // 提取原始 File 物件
+    const fileObjects: File[] = files
+      .map(f => f.originFileObj)
+      .filter((f): f is File => f !== undefined);
 
+    if (fileObjects.length === 0) {
+      return { success: true, files: [], errors: [] };
+    }
+
+    const startTime = Date.now();
     setUploading(true);
     setUploadProgress(0);
     setUploadErrors([]);
 
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-
-      // 進度事件
-      xhr.upload.addEventListener('progress', (event) => {
-        if (event.lengthComputable) {
-          const percentComplete = Math.round((event.loaded / event.total) * 100);
-          setUploadProgress(percentComplete);
-        }
+    try {
+      const result = await filesApi.uploadFiles(documentId, fileObjects, {
+        onProgress: (percent) => {
+          setUploadProgress(percent);
+        },
       });
 
-      // 完成事件
-      xhr.addEventListener('load', () => {
-        setUploading(false);
-        if (xhr.status >= 200 && xhr.status < 300) {
-          try {
-            const result = JSON.parse(xhr.responseText);
-            console.log('[uploadFiles] 上傳成功:', result);
+      // 處理部分失敗
+      if (result.errors && result.errors.length > 0) {
+        setUploadErrors(result.errors);
+      }
 
-            // 處理部分失敗
-            if (result.errors && result.errors.length > 0) {
-              setUploadErrors(result.errors);
-            }
+      // 確保進度條至少顯示一段時間，讓用戶能看到
+      const elapsed = Date.now() - startTime;
+      if (elapsed < MIN_PROGRESS_DISPLAY_MS) {
+        await new Promise(resolve => setTimeout(resolve, MIN_PROGRESS_DISPLAY_MS - elapsed));
+      }
 
-            resolve(result);
-          } catch (e) {
-            reject(new Error('回應解析失敗'));
-          }
-        } else {
-          try {
-            const errorData = JSON.parse(xhr.responseText);
-            const errorMsg = errorData.error?.message || errorData.detail || '上傳失敗';
-            reject(new Error(errorMsg));
-          } catch {
-            reject(new Error(`上傳失敗 (HTTP ${xhr.status})`));
-          }
-        }
-      });
-
-      // 錯誤事件
-      xhr.addEventListener('error', () => {
-        setUploading(false);
-        reject(new Error('網路連線錯誤，請檢查網路狀態'));
-      });
-
-      // 中止事件
-      xhr.addEventListener('abort', () => {
-        setUploading(false);
-        reject(new Error('上傳已取消'));
-      });
-
-      xhr.open('POST', `${API_BASE_URL}/files/upload?document_id=${documentId}`);
-      xhr.send(formData);
-    });
+      return result;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : '上傳失敗';
+      throw new Error(errorMsg);
+    } finally {
+      setUploading(false);
+    }
   };
 
-  // 下載附件 (POST-only 資安機制) - 使用統一 apiClient
+  // 下載附件 - 使用 filesApi
   const handleDownload = async (attachmentId: number, filename: string) => {
     try {
-      await apiClient.downloadPost(
-        `/files/${attachmentId}/download`,
-        {},
-        filename || 'download'
-      );
+      await filesApi.downloadAttachment(attachmentId, filename || 'download');
     } catch (error) {
       console.error('下載附件失敗:', error);
       message.error('下載附件失敗');
     }
   };
 
-  // 刪除附件 (POST-only 資安機制)
+  // 刪除附件 - 使用 filesApi
   const handleDeleteAttachment = async (attachmentId: number) => {
     try {
-      await apiClient.post(`/files/${attachmentId}/delete`, {});
+      await filesApi.deleteAttachment(attachmentId);
       message.success('附件刪除成功');
       // 重新載入附件列表
       if (document?.id) {
@@ -292,6 +289,49 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
       console.error('Failed to delete attachment:', error);
       message.error('附件刪除失敗');
     }
+  };
+
+  // 判斷是否可預覽的檔案類型
+  const isPreviewable = (contentType?: string, filename?: string): boolean => {
+    if (contentType) {
+      if (contentType.startsWith('image/') ||
+          contentType === 'application/pdf' ||
+          contentType.startsWith('text/')) {
+        return true;
+      }
+    }
+    // 也根據副檔名判斷
+    if (filename) {
+      const ext = filename.toLowerCase().split('.').pop();
+      return ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'txt', 'csv'].includes(ext || '');
+    }
+    return false;
+  };
+
+  // 預覽附件 - 在新視窗開啟
+  const handlePreviewAttachment = async (attachmentId: number, filename: string) => {
+    try {
+      const blob = await filesApi.getAttachmentBlob(attachmentId);
+      const previewUrl = window.URL.createObjectURL(blob);
+      window.open(previewUrl, '_blank');
+      // 延遲釋放 URL，讓新視窗有時間載入
+      setTimeout(() => window.URL.revokeObjectURL(previewUrl), 10000);
+    } catch (error) {
+      console.error('預覽附件失敗:', error);
+      message.error(`預覽 ${filename} 失敗`);
+    }
+  };
+
+  // 取得檔案圖示
+  const getFileIcon = (contentType?: string, filename?: string) => {
+    const ext = filename?.toLowerCase().split('.').pop();
+    if (contentType?.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'bmp'].includes(ext || '')) {
+      return <FileImageOutlined style={{ fontSize: 20, color: '#52c41a' }} />;
+    }
+    if (contentType === 'application/pdf' || ext === 'pdf') {
+      return <FilePdfOutlined style={{ fontSize: 20, color: '#ff4d4f' }} />;
+    }
+    return <PaperClipOutlined style={{ fontSize: 20, color: '#1890ff' }} />;
   };
 
   // 載入承攬案件數據
@@ -513,24 +553,27 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
     );
   };
 
-  // 檔案驗證函數
+  // 檔案驗證函數（使用動態載入的設定）
   const validateFile = (file: File): { valid: boolean; error?: string } => {
+    const { allowedExtensions, maxFileSizeMB } = fileSettings;
+
     // 檢查副檔名
     const fileName = file.name.toLowerCase();
-    const ext = '.' + fileName.split('.').pop();
-    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+    const ext = '.' + (fileName.split('.').pop() || '');
+    if (!allowedExtensions.includes(ext)) {
       return {
         valid: false,
-        error: `不支援 ${ext} 檔案格式。允許的格式: ${ALLOWED_EXTENSIONS.slice(0, 5).join(', ')} 等`,
+        error: `不支援 ${ext} 檔案格式。允許的格式: ${allowedExtensions.slice(0, 5).join(', ')} 等`,
       };
     }
 
     // 檢查檔案大小
-    if (file.size > MAX_FILE_SIZE) {
+    const maxSizeBytes = maxFileSizeMB * 1024 * 1024;
+    if (file.size > maxSizeBytes) {
       const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
       return {
         valid: false,
-        error: `檔案 "${file.name}" 大小 ${sizeMB}MB 超過限制 (最大 ${MAX_FILE_SIZE_MB}MB)`,
+        error: `檔案 "${file.name}" 大小 ${sizeMB}MB 超過限制 (最大 ${maxFileSizeMB}MB)`,
       };
     }
 
@@ -540,6 +583,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
   const uploadProps = {
     multiple: true,
     fileList,
+    showUploadList: false, // 隱藏預設列表，使用自定義卡片顯示
     beforeUpload: (file: File) => {
       // 前端驗證
       const validation = validateFile(file);
@@ -813,8 +857,8 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
                           }
                           options={
                             // 優先顯示專案指定的業務同仁，若無則顯示全部使用者
-                            selectedProjectId && projectStaffMap[selectedProjectId]?.length > 0
-                              ? projectStaffMap[selectedProjectId].map(staff => ({
+                            selectedProjectId && (projectStaffMap[selectedProjectId]?.length ?? 0) > 0
+                              ? (projectStaffMap[selectedProjectId] ?? []).map(staff => ({
                                   value: staff.user_name,
                                   label: staff.role ? `${staff.user_name}(${staff.role})` : staff.user_name,
                                   key: staff.user_id || staff.id
@@ -874,6 +918,19 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
                         renderItem={(item: any) => (
                           <List.Item
                             actions={[
+                              // 預覽按鈕（僅支援 PDF/圖片/文字檔）
+                              isPreviewable(item.content_type, item.original_filename || item.filename) && (
+                                <Button
+                                  key="preview"
+                                  type="link"
+                                  size="small"
+                                  icon={<EyeOutlined />}
+                                  onClick={() => handlePreviewAttachment(item.id, item.original_filename || item.filename)}
+                                  style={{ color: '#52c41a' }}
+                                >
+                                  預覽
+                                </Button>
+                              ),
                               <Button
                                 key="download"
                                 type="link"
@@ -904,7 +961,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
                             ].filter(Boolean)}
                           >
                             <List.Item.Meta
-                              avatar={<PaperClipOutlined style={{ fontSize: 20, color: '#1890ff' }} />}
+                              avatar={getFileIcon(item.content_type, item.original_filename || item.filename)}
                               title={item.original_filename || item.filename}
                               description={
                                 <span style={{ fontSize: 12, color: '#999' }}>
@@ -928,13 +985,53 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
                         </p>
                         <p className="ant-upload-text">點擊或拖拽文件到此區域上傳</p>
                         <p className="ant-upload-hint">
-                          支援 PDF、DOC、DOCX、XLS、XLSX、JPG、PNG 等格式，單檔最大 {MAX_FILE_SIZE_MB}MB
+                          支援 PDF、DOC、DOCX、XLS、XLSX、JPG、PNG 等格式，單檔最大 {fileSettings.maxFileSizeMB}MB
                         </p>
                       </Dragger>
 
+                      {/* 待上傳檔案預覽 */}
+                      {fileList.length > 0 && !uploading && (
+                        <Card
+                          size="small"
+                          style={{ marginTop: 16, background: '#f6ffed', border: '1px solid #b7eb8f' }}
+                          title={
+                            <span style={{ color: '#52c41a' }}>
+                              <CloudUploadOutlined style={{ marginRight: 8 }} />
+                              待上傳檔案（{fileList.length} 個）
+                            </span>
+                          }
+                        >
+                          <List
+                            size="small"
+                            dataSource={fileList}
+                            renderItem={(file: any) => (
+                              <List.Item>
+                                <List.Item.Meta
+                                  avatar={<FileOutlined style={{ color: '#1890ff' }} />}
+                                  title={file.name}
+                                  description={`${(file.size / 1024).toFixed(1)} KB`}
+                                />
+                              </List.Item>
+                            )}
+                          />
+                          <p style={{ color: '#999', fontSize: 12, marginTop: 8, marginBottom: 0 }}>
+                            點擊下方「保存」按鈕後開始上傳
+                          </p>
+                        </Card>
+                      )}
+
                       {/* 上傳進度條 */}
                       {uploading && (
-                        <div style={{ marginTop: 16 }}>
+                        <Card
+                          size="small"
+                          style={{ marginTop: 16, background: '#e6f7ff', border: '1px solid #91d5ff' }}
+                          title={
+                            <span style={{ color: '#1890ff' }}>
+                              <LoadingOutlined style={{ marginRight: 8 }} />
+                              正在上傳檔案...
+                            </span>
+                          }
+                        >
                           <Progress
                             percent={uploadProgress}
                             status="active"
@@ -942,11 +1039,12 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
                               '0%': '#108ee9',
                               '100%': '#87d068',
                             }}
+                            strokeWidth={12}
                           />
-                          <p style={{ textAlign: 'center', color: '#666', marginTop: 8 }}>
-                            正在上傳... {uploadProgress}%
+                          <p style={{ textAlign: 'center', color: '#1890ff', marginTop: 12, marginBottom: 0, fontWeight: 500 }}>
+                            上傳進度：{uploadProgress}%
                           </p>
-                        </div>
+                        </Card>
                       )}
 
                       {/* 上傳錯誤訊息 */}
