@@ -293,36 +293,6 @@ class NavigationService {
             sort_order: 2
           },
           {
-            key: 'document-import',
-            title: '文件匯入',
-            path: '/documents/import',
-            icon: 'upload',
-            permission_required: ['documents:create'],
-            is_visible: true,
-            is_enabled: true,
-            sort_order: 3
-          },
-          {
-            key: 'document-export',
-            title: '文件匯出',
-            path: '/documents/export',
-            icon: 'download',
-            permission_required: ['documents:read'],
-            is_visible: true,
-            is_enabled: true,
-            sort_order: 4
-          },
-          {
-            key: 'document-workflow',
-            title: '工作流程',
-            path: '/documents/workflow',
-            icon: 'workflow',
-            permission_required: ['documents:edit'],
-            is_visible: true,
-            is_enabled: true,
-            sort_order: 5
-          },
-          {
             key: 'document-numbers',
             title: '發文字號管理',
             path: '/document-numbers',

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Table, Button, Space, Typography, Tag, Empty, TableProps, Input, InputRef } from 'antd';
+import { Table, Button, Space, Typography, Tag, Empty, TableProps, Input, InputRef, Popover, List, Spin, App } from 'antd';
 import type {
   TablePaginationConfig,
   FilterValue,
@@ -11,12 +11,11 @@ import type {
 } from 'antd/es/table/interface';
 import type { ColumnsType } from 'antd/es/table';
 
-import { FileExcelOutlined, SearchOutlined, PaperClipOutlined } from '@ant-design/icons';
+import { FileExcelOutlined, SearchOutlined, PaperClipOutlined, DownloadOutlined, EyeOutlined, FileOutlined } from '@ant-design/icons';
 import Highlighter from 'react-highlight-words';
-import { message } from 'antd';
 import { Document } from '../../types';
 import { DocumentActions, BatchActions } from './DocumentActions';
-import { documentsApi } from '../../api/documentsApi';
+import { documentsApi, DocumentAttachment } from '../../api/documentsApi';
 
 interface DocumentListProps {
   documents: Document[];
@@ -82,6 +81,71 @@ export const DocumentList: React.FC<DocumentListProps> = ({
   const [searchText, setSearchText] = useState('');
   const [searchedColumn, setSearchedColumn] = useState('');
   const searchInput = useRef<InputRef>(null);
+  const { message } = App.useApp();
+
+  // 附件管理狀態
+  const [attachmentCache, setAttachmentCache] = useState<Record<number, DocumentAttachment[]>>({});
+  const [loadingAttachments, setLoadingAttachments] = useState<Record<number, boolean>>({});
+
+  // 載入附件列表
+  const loadAttachments = async (documentId: number) => {
+    if (attachmentCache[documentId]) {
+      return; // 已載入過，直接使用快取
+    }
+
+    setLoadingAttachments(prev => ({ ...prev, [documentId]: true }));
+    try {
+      const attachments = await documentsApi.getDocumentAttachments(documentId);
+      setAttachmentCache(prev => ({ ...prev, [documentId]: attachments }));
+    } catch (error) {
+      console.error('載入附件失敗:', error);
+      message.error('載入附件列表失敗');
+    } finally {
+      setLoadingAttachments(prev => ({ ...prev, [documentId]: false }));
+    }
+  };
+
+  // 下載附件
+  const handleDownloadAttachment = async (attachment: DocumentAttachment, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await documentsApi.downloadAttachment(attachment.id, attachment.filename);
+      message.success(`下載 ${attachment.filename} 成功`);
+    } catch (error) {
+      message.error(`下載 ${attachment.filename} 失敗`);
+    }
+  };
+
+  // 預覽附件 (POST-only 資安機制)
+  const handlePreviewAttachment = async (attachment: DocumentAttachment, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const blob = await documentsApi.getAttachmentBlob(attachment.id);
+      const previewUrl = window.URL.createObjectURL(blob);
+      window.open(previewUrl, '_blank');
+      // 延遲釋放 URL，讓新視窗有時間載入
+      setTimeout(() => window.URL.revokeObjectURL(previewUrl), 10000);
+    } catch (error) {
+      message.error(`預覽 ${attachment.filename} 失敗`);
+    }
+  };
+
+  // 格式化檔案大小
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  // 判斷是否可預覽的檔案類型
+  const isPreviewable = (contentType?: string): boolean => {
+    if (!contentType) return false;
+    return contentType.startsWith('image/') ||
+           contentType === 'application/pdf' ||
+           contentType.startsWith('text/');
+  };
 
   // Debug logging
   console.log('=== DocumentList: 收到的 props ===', {
@@ -210,10 +274,10 @@ export const DocumentList: React.FC<DocumentListProps> = ({
     return (pagination.current - 1) * pagination.pageSize + index + 1;
   };
 
-  // 欄位順序：序號、發文形式、收發單位、公文字號、公文日期、主旨、附件、承攬案件、業務同仁、操作
+  // 欄位順序：序號、發文形式、收發單位、公文字號、公文日期、主旨、附件、承攬案件、操作
   // 預設排序：公文日期降冪（最新日期在最上方，由後端控制）
   // 序號為流水號（依排序後的順序計算），非資料庫 ID
-  // 移除：類型、狀態
+  // 移除：類型、狀態、業務同仁
   const columns: ColumnsType<Document> = [
     {
       title: '序號',
@@ -228,21 +292,21 @@ export const DocumentList: React.FC<DocumentListProps> = ({
       title: '發文形式',
       dataIndex: 'delivery_method',
       key: 'delivery_method',
-      width: 85,
+      width: 95,
       align: 'center',
       filters: [
-        { text: '電子', value: '電子' },
-        { text: '紙本', value: '紙本' },
+        { text: '電子交換', value: '電子交換' },
+        { text: '紙本郵寄', value: '紙本郵寄' },
         { text: '電子+紙本', value: '電子+紙本' },
       ],
       onFilter: (value, record) => record.delivery_method === value,
       render: (method: string) => {
         const colorMap: Record<string, string> = {
-          '電子': 'green',
-          '紙本': 'orange',
+          '電子交換': 'green',
+          '紙本郵寄': 'orange',
           '電子+紙本': 'blue',
         };
-        return <Tag color={colorMap[method] || 'default'}>{method || '電子'}</Tag>;
+        return <Tag color={colorMap[method] || 'default'}>{method || '電子交換'}</Tag>;
       },
     },
     {
@@ -423,20 +487,102 @@ export const DocumentList: React.FC<DocumentListProps> = ({
       title: '附件',
       dataIndex: 'has_attachment',
       key: 'has_attachment',
-      width: 60,
+      width: 70,
       align: 'center',
       filters: [
         { text: '有附件', value: true },
         { text: '無附件', value: false },
       ],
       onFilter: (value, record) => record.has_attachment === value,
-      render: (hasAttachment: boolean) => (
-        hasAttachment ? (
-          <Tag color="cyan" icon={<PaperClipOutlined />}>有</Tag>
-        ) : (
-          <Typography.Text type="secondary">-</Typography.Text>
-        )
-      ),
+      render: (hasAttachment: boolean, record: Document) => {
+        if (!hasAttachment) {
+          return <Typography.Text type="secondary">-</Typography.Text>;
+        }
+
+        const documentId = record.id;
+        const attachments = attachmentCache[documentId] || [];
+        const isLoading = loadingAttachments[documentId];
+
+        const attachmentContent = (
+          <div style={{ width: 300, maxHeight: 300, overflow: 'auto' }}>
+            {isLoading ? (
+              <div style={{ textAlign: 'center', padding: '20px' }}>
+                <Spin size="small" />
+                <div style={{ marginTop: 8 }}>載入中...</div>
+              </div>
+            ) : attachments.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '20px', color: '#999' }}>
+                尚無附件資料
+              </div>
+            ) : (
+              <List
+                size="small"
+                dataSource={attachments}
+                renderItem={(attachment: DocumentAttachment) => (
+                  <List.Item
+                    key={attachment.id}
+                    actions={[
+                      isPreviewable(attachment.content_type) && (
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<EyeOutlined />}
+                          onClick={(e) => handlePreviewAttachment(attachment, e)}
+                          title="預覽"
+                        />
+                      ),
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<DownloadOutlined />}
+                        onClick={(e) => handleDownloadAttachment(attachment, e)}
+                        title="下載"
+                      />,
+                    ].filter(Boolean)}
+                  >
+                    <List.Item.Meta
+                      avatar={<FileOutlined style={{ fontSize: 16, color: '#1890ff' }} />}
+                      title={
+                        <Typography.Text ellipsis style={{ maxWidth: 180 }} title={attachment.filename}>
+                          {attachment.filename}
+                        </Typography.Text>
+                      }
+                      description={
+                        <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+                          {formatFileSize(attachment.file_size)}
+                        </Typography.Text>
+                      }
+                    />
+                  </List.Item>
+                )}
+              />
+            )}
+          </div>
+        );
+
+        return (
+          <Popover
+            content={attachmentContent}
+            title={`附件列表 (${attachments.length > 0 ? attachments.length + ' 個' : '載入中...'})`}
+            trigger="click"
+            placement="left"
+            onOpenChange={(visible) => {
+              if (visible) {
+                loadAttachments(documentId);
+              }
+            }}
+          >
+            <Tag
+              color="cyan"
+              icon={<PaperClipOutlined />}
+              style={{ cursor: 'pointer' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              查看
+            </Tag>
+          </Popover>
+        );
+      },
     },
     {
       title: '承攬案件',
@@ -456,29 +602,6 @@ export const DocumentList: React.FC<DocumentListProps> = ({
           <Typography.Text type="secondary">-</Typography.Text>
         )
       ),
-    },
-    {
-      title: '業務同仁',
-      dataIndex: 'assigned_staff',
-      key: 'assigned_staff',
-      width: 150,
-      render: (staff: Array<{ user_id: number; name: string; role: string }> | undefined) => {
-        if (!staff || staff.length === 0) {
-          return <Typography.Text type="secondary">-</Typography.Text>;
-        }
-        return (
-          <Space size={[0, 4]} wrap>
-            {staff.map((s, index) => (
-              <Tag key={index} color="blue">
-                {s.name}
-                <span style={{ fontSize: '10px', color: '#999', marginLeft: 2 }}>
-                  ({s.role})
-                </span>
-              </Tag>
-            ))}
-          </Space>
-        );
-      },
     },
     {
       title: '操作',
@@ -539,7 +662,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
       showTotal: (totalNum, range) => `第 ${range[0]}-${range[1]} 筆，共 ${totalNum} 筆`,
       size: 'default',
     },
-    scroll: { x: 1345 }, // 總欄寬: 70+85+160+180+100+280+60+180+150+80 = 1345
+    scroll: { x: 1215 }, // 總欄寬: 70+95+160+180+100+280+70+180+80 = 1215
     tableLayout: 'fixed',
     locale: {
       emptyText: (

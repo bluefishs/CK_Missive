@@ -45,14 +45,14 @@ class ProjectService:
     ) -> str:
         """
         自動產生專案編號
-        格式: CK{年度6碼}_{類別2碼}_{性質2碼}_{流水號3碼}
-        例: CK202501_01_01_001
+        格式: CK{年度4碼}_{類別2碼}_{性質2碼}_{流水號3碼}
+        例: CK2025_01_01_001
         """
         # 確保類別和性質為2碼
         category_code = category[:2] if category else "00"
         nature_code = case_nature[:2] if case_nature else "00"
-        # 年度6碼格式: YYYY01 (年度+預設01)
-        year_str = f"{year}01"
+        # 年度4碼格式: YYYY
+        year_str = str(year)
 
         # 查詢同年度、同類別、同性質的最大流水號
         prefix = f"CK{year_str}_{category_code}_{nature_code}_"

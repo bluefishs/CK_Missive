@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Select, Button, Card, Row, Col, message, Spin } from 'antd';
+import { Form, Input, Select, Button, Card, Row, Col, Spin, App } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 
@@ -7,6 +7,7 @@ const { TextArea } = Input;
 const { Option } = Select;
 
 export const DocumentEditPage: React.FC = () => {
+  const { message } = App.useApp();
   const navigate = useNavigate();
   const { id } = useParams();
   const [form] = Form.useForm();

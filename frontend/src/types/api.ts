@@ -317,7 +317,7 @@ export interface OfficialDocument {
   doc_class?: string;
   assignee?: string;
   user_confirm?: boolean;
-  auto_serial?: number;
+  auto_serial?: string;  // 流水序號 (R0001=收文, S0001=發文)
   creator?: string;
   is_deleted?: boolean;
   notes?: string;

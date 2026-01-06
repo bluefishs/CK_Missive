@@ -147,7 +147,7 @@ export interface Document {
   readonly receive_date?: string;
   readonly send_date?: string;
   readonly user_confirm?: boolean;
-  readonly auto_serial?: number;
+  readonly auto_serial?: string;  // 流水序號 (R0001=收文, S0001=發文)
   readonly doc_zi?: string;          // 公文「字」部分，如「桃工用」
   readonly doc_wen_hao?: string;     // 公文「文號」部分，如「1140024090」
 
@@ -170,13 +170,18 @@ export interface Document {
   readonly hasAttachments?: boolean;  // 舊版附件欄位
 }
 
-/** 文件附件 */
+/** 文件附件 - 與後端 DocumentAttachment 對應 */
 export interface DocumentAttachment {
-  readonly id: string;
+  readonly id: number;
   readonly filename: string;
-  readonly size: number;
-  readonly mimeType: string;
-  readonly url: string;
+  readonly original_filename?: string;
+  readonly file_size: number;
+  readonly content_type?: string;
+  readonly storage_type?: 'local' | 'network' | 'nas';
+  readonly checksum?: string;
+  readonly uploaded_at?: string;
+  readonly uploaded_by?: number;
+  readonly created_at?: string;
 }
 
 /** 文件元數據 */

@@ -93,7 +93,7 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/project-vendors/list`, {
+      const response = await fetch(`${API_BASE_URL}/project-vendors/list`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ project_id: projectId })
@@ -115,7 +115,7 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
   // 載入可選廠商
   const loadVendors = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/vendors/list`, {
+      const response = await fetch(`${API_BASE_URL}/vendors/list`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ limit: 1000 })
@@ -153,7 +153,7 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
       let response;
       if (editingAssociation) {
         // 更新關聯 (使用 POST 方法)
-        response = await fetch(`${API_BASE_URL}/api/project-vendors/update`, {
+        response = await fetch(`${API_BASE_URL}/project-vendors/update`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -168,7 +168,7 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
         });
       } else {
         // 新增關聯 (使用 POST 方法)
-        response = await fetch(`${API_BASE_URL}/api/project-vendors/create`, {
+        response = await fetch(`${API_BASE_URL}/project-vendors/create`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData),
@@ -193,7 +193,7 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
   // 刪除關聯 (使用 POST 方法)
   const handleDelete = async (vendorId: number) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/project-vendors/delete`, {
+      const response = await fetch(`${API_BASE_URL}/project-vendors/delete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

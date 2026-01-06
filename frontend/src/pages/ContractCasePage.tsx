@@ -341,8 +341,28 @@ export const ContractCasePage: React.FC = () => {
 
   // ---[渲染邏輯]---
 
-  // 列表視圖的欄位定義 - 欄位順序: 年度、專案名稱、委託單位、案件類別、案件狀態、契約期程
+  // 列表視圖的欄位定義 - 欄位順序: 專案編號、年度、專案名稱、委託單位、案件類別、案件狀態、契約期程
   const columns: TableColumnType<Project>[] = [
+    {
+      title: '專案編號',
+      dataIndex: 'project_code',
+      key: 'project_code',
+      width: 160,
+      sorter: (a, b) => (a.project_code || '').localeCompare(b.project_code || ''),
+      ...getColumnSearchProps('project_code'),
+      render: (text) => (
+        <span style={{ fontFamily: 'monospace', fontSize: '12px' }}>
+          {searchedColumn === 'project_code' ? (
+            <Highlighter
+              highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
+              searchWords={[columnSearchText]}
+              autoEscape
+              textToHighlight={text || '-'}
+            />
+          ) : (text || '-')}
+        </span>
+      ),
+    },
     {
       title: '年度',
       dataIndex: 'year',
@@ -570,7 +590,7 @@ export const ContractCasePage: React.FC = () => {
               dataSource={projects}
               rowKey="id"
               pagination={false}
-              scroll={{ x: 1200 }}
+              scroll={{ x: 1400 }}
               onRow={(record) => ({
                 onClick: () => handleView(record),
                 style: { cursor: 'pointer' },
@@ -618,7 +638,7 @@ export const ContractCasePage: React.FC = () => {
           </Form.Item>
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="project_code" label="專案編號" tooltip="留空可自動產生 (CK年度_類別_性質_流水號)"><Input placeholder="留空自動產生" readOnly={modalMode === 'view'} /></Form.Item>
+              <Form.Item name="project_code" label="專案編號" tooltip="留空可自動產生 (如 CK2025_01_01_001)"><Input placeholder="留空自動產生" readOnly={modalMode === 'view'} /></Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item name="year" label="年度"><InputNumber placeholder="請輸入年度" min={2000} max={2050} style={{ width: '100%' }} readOnly={modalMode === 'view'} /></Form.Item>

@@ -57,7 +57,7 @@ class DocumentBase(BaseModel):
     content: Optional[str] = Field(None, description="公文內容摘要") # 修正: 欄位名稱
 
     # 新增：發文形式與附件欄位
-    delivery_method: Optional[str] = Field("電子", description="發文形式 (電子/紙本/電子+紙本)")
+    delivery_method: Optional[str] = Field("電子交換", description="發文形式 (電子交換/紙本郵寄/電子+紙本)")
     has_attachment: Optional[bool] = Field(False, description="是否含附件")
 
 class DocumentCreate(DocumentBase):
@@ -166,13 +166,13 @@ class DocumentImportData(BaseModel):
     doc_class: Optional[str] = Field(None, description="類別")
     assignee: Optional[str] = Field(None, description="承辦人")
     user_confirm: Optional[bool] = Field(None, description="使用者確認")
-    auto_serial: Optional[int] = Field(None, description="自動流水號")
+    auto_serial: Optional[str] = Field(None, description="流水序號 (R0001=收文, S0001=發文)")
     creator: Optional[str] = Field(None, description="建立者")
     is_deleted: Optional[bool] = Field(None, description="是否刪除")
     notes: Optional[str] = Field(None, description="備註")
     priority_level: Optional[str] = Field(None, description="速別")
     content: Optional[str] = Field(None, description="公文內容摘要")
-    delivery_method: Optional[str] = Field("電子", description="發文形式 (電子/紙本/電子+紙本)")
+    delivery_method: Optional[str] = Field("電子交換", description="發文形式 (電子交換/紙本郵寄/電子+紙本)")
     has_attachment: Optional[bool] = Field(False, description="是否含附件")
 
     # 移除 @field_validator('category', mode='before')，因為現在使用 DocumentType Enum

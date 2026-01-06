@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, message, Spin, Row, Col, Typography, Button, Space, Alert } from 'antd';
+import { Card, Spin, Row, Col, Typography, Button, Space, Alert, App } from 'antd';
 import {
   ReloadOutlined,
   ExportOutlined,
@@ -26,6 +26,7 @@ interface EnhancedDocumentPageState {
 }
 
 const DocumentPageEnhanced: React.FC = () => {
+  const { message } = App.useApp();
   const [state, setState] = useState<EnhancedDocumentPageState>({
     filters: {},
     sortField: 'updated_at',

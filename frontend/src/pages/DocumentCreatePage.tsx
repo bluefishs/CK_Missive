@@ -1,5 +1,5 @@
 import React from 'react';
-import { Form, Input, Select, Button, Card, Row, Col, message } from 'antd';
+import { Form, Input, Select, Button, Card, Row, Col, App } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 
@@ -7,6 +7,7 @@ const { TextArea } = Input;
 const { Option } = Select;
 
 export const DocumentCreatePage: React.FC = () => {
+  const { message } = App.useApp();
   const navigate = useNavigate();
   const [form] = Form.useForm();
 

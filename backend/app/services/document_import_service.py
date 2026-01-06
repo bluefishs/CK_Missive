@@ -28,6 +28,9 @@ class DocumentImportService:
             logger.info(f"DocumentImportService: CSV processing completed. Found {len(processed_documents)} valid records.")
             if processed_documents:
                 logger.info(f"DocumentImportService: First document keys: {list(processed_documents[0].keys())}")
+                # 輸出每筆的 doc_number 以便調試
+                for i, doc in enumerate(processed_documents[:5]):
+                    logger.info(f"DocumentImportService: Doc[{i}] doc_number='{doc.get('doc_number', '')}' subject='{doc.get('subject', '')[:30]}'")
         except Exception as e:
             logger.error(f"DocumentImportService: CSV processing failed for {filename}: {e}", exc_info=True)
             raise HTTPException(status_code=400, detail=f"CSV 檔案處理失敗: {str(e)}")
@@ -54,6 +57,9 @@ class DocumentImportService:
         else:
             message = "CSV 匯入完成，使用成熟的去重和流水號機制"
 
+        # 提取前5筆的 doc_number 供調試
+        debug_doc_numbers = [doc.get('doc_number', '') for doc in processed_documents[:5]]
+
         return {
             "success": True,
             "message": message,
@@ -61,5 +67,7 @@ class DocumentImportService:
             "success_count": import_result.success_count,
             "skipped_count": import_result.skipped_count,
             "error_count": import_result.error_count,
+            "errors": import_result.errors if import_result.errors else [],
+            "debug_doc_numbers": debug_doc_numbers,
             "processor_used": "DocumentImportService (orchestrates DocumentCSVProcessor and DocumentService)"
         }
