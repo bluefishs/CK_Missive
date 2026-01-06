@@ -7,8 +7,10 @@
 - 2026-01-06: 新增 SHA256 校驗碼、上傳者追蹤
 - 2026-01-06: 新增檔案類型白名單驗證
 - 2026-01-06: 支援網路磁碟路徑設定
+- 2026-01-06: 支援區域 IP 網路路徑 (UNC/SMB)
 """
 import os
+import re
 import uuid
 import hashlib
 import aiofiles
@@ -30,10 +32,27 @@ router = APIRouter()
 # 設定常數
 # ============================================================================
 
-# 檔案儲存根目錄（支援環境變數設定網路路徑）
+# 檔案儲存根目錄（支援多種格式）
+# 支援格式：
+#   - 本機路徑: uploads, /var/uploads, C:\uploads
+#   - 區域 IP (UNC): \\192.168.1.100\share\uploads
+#   - 區域 IP (Linux): /mnt/192.168.1.100/share/uploads
+#   - 主機名稱: \\fileserver\share\uploads
+#
+# 環境變數設定範例:
+#   ATTACHMENT_STORAGE_PATH=\\192.168.1.100\公文附件
+#   ATTACHMENT_STORAGE_PATH=/mnt/nas/uploads
 UPLOAD_BASE_DIR = getattr(settings, 'ATTACHMENT_STORAGE_PATH', None) or os.getenv(
     'ATTACHMENT_STORAGE_PATH',
     'uploads'
+)
+
+# 區域 IP 正則表達式
+LOCAL_IP_PATTERN = re.compile(
+    r'^(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|'           # 10.x.x.x
+    r'172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|'  # 172.16.x.x - 172.31.x.x
+    r'192\.168\.\d{1,3}\.\d{1,3}|'                 # 192.168.x.x
+    r'127\.\d{1,3}\.\d{1,3}\.\d{1,3})$'            # 127.x.x.x (localhost)
 )
 
 # 允許的檔案類型白名單
@@ -49,8 +68,106 @@ ALLOWED_EXTENSIONS = {
 # 檔案大小限制 (50MB)
 MAX_FILE_SIZE = 50 * 1024 * 1024
 
-# 確保根目錄存在
-os.makedirs(UPLOAD_BASE_DIR, exist_ok=True)
+# ============================================================================
+# 網路路徑處理函數
+# ============================================================================
+
+def is_network_path(path: str) -> bool:
+    """
+    檢測是否為網路路徑
+
+    支援格式：
+    - Windows UNC: \\\\192.168.1.100\\share 或 \\\\server\\share
+    - Linux mount: /mnt/... 或 /media/...
+    """
+    if not path:
+        return False
+    # Windows UNC 路徑
+    if path.startswith('\\\\') or path.startswith('//'):
+        return True
+    # Linux 常見掛載點
+    if path.startswith('/mnt/') or path.startswith('/media/'):
+        return True
+    return False
+
+
+def is_local_ip(ip: str) -> bool:
+    """檢測是否為區域 IP 地址"""
+    return bool(LOCAL_IP_PATTERN.match(ip))
+
+
+def extract_ip_from_path(path: str) -> Optional[str]:
+    """
+    從路徑中提取 IP 地址
+
+    Examples:
+        \\\\192.168.1.100\\share -> 192.168.1.100
+        /mnt/192.168.1.100/share -> 192.168.1.100
+    """
+    # UNC 格式: \\192.168.1.100\share
+    unc_match = re.match(r'^[\\\/]{2}(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})[\\\/]', path)
+    if unc_match:
+        return unc_match.group(1)
+
+    # Linux mount 格式: /mnt/192.168.1.100/share
+    mnt_match = re.match(r'^/(?:mnt|media)/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/', path)
+    if mnt_match:
+        return mnt_match.group(1)
+
+    return None
+
+
+def get_storage_type(path: str) -> str:
+    """
+    根據路徑判斷儲存類型
+
+    Returns:
+        'local': 本機儲存
+        'network': 網路磁碟（區域 IP）
+        'nas': 網路附加儲存（主機名稱）
+    """
+    if not is_network_path(path):
+        return 'local'
+
+    ip = extract_ip_from_path(path)
+    if ip and is_local_ip(ip):
+        return 'network'
+
+    # 如果是網路路徑但不是 IP，可能是主機名稱
+    if path.startswith('\\\\') or path.startswith('//'):
+        return 'nas'
+
+    return 'network'
+
+
+def normalize_path(path: str) -> str:
+    """
+    正規化路徑，確保跨平台相容
+
+    - 處理 UNC 路徑的斜線
+    - 處理中文路徑
+    """
+    if not path:
+        return path
+
+    # UNC 路徑保持反斜線
+    if path.startswith('\\\\'):
+        return path.replace('/', '\\')
+
+    # 其他路徑使用 os.path.normpath
+    return os.path.normpath(path)
+
+
+# 正規化並確保根目錄存在
+UPLOAD_BASE_DIR = normalize_path(UPLOAD_BASE_DIR)
+STORAGE_TYPE = get_storage_type(UPLOAD_BASE_DIR)
+
+try:
+    os.makedirs(UPLOAD_BASE_DIR, exist_ok=True)
+except OSError as e:
+    # 網路路徑可能無法自動建立，記錄警告但不中斷
+    import logging
+    logging.warning(f"無法建立儲存目錄 {UPLOAD_BASE_DIR}: {e}")
 
 
 # ============================================================================
@@ -182,7 +299,7 @@ async def upload_files(
                     mime_type=file.content_type,
                     # 新增欄位
                     original_name=file.filename,
-                    storage_type='local',
+                    storage_type=STORAGE_TYPE,  # 自動偵測: local/network/nas
                     checksum=checksum,
                     uploaded_by=current_user.id if current_user else None
                 )
@@ -438,13 +555,91 @@ async def get_storage_info(
     except:
         disk_info = None
 
+    # 提取網路路徑的 IP 資訊
+    network_ip = extract_ip_from_path(UPLOAD_BASE_DIR)
+
     return {
         "success": True,
-        "storage_path": str(storage_path.absolute()),
-        "storage_type": "network" if str(storage_path).startswith(('\\\\', '//', 'Z:', 'Y:')) else "local",
+        "storage_path": str(storage_path.absolute()) if storage_path.exists() else UPLOAD_BASE_DIR,
+        "storage_type": STORAGE_TYPE,
+        "is_network_path": is_network_path(UPLOAD_BASE_DIR),
+        "network_ip": network_ip,
+        "is_local_ip": is_local_ip(network_ip) if network_ip else None,
         "total_files": file_count,
         "total_size_mb": round(total_size / (1024**2), 2),
         "allowed_extensions": sorted(list(ALLOWED_EXTENSIONS)),
         "max_file_size_mb": MAX_FILE_SIZE / (1024**2),
         "disk_info": disk_info
     }
+
+
+@router.post("/check-network", summary="檢查網路儲存連線")
+async def check_network_storage(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    檢查網路儲存路徑的連線狀態
+
+    適用於區域 IP 網路磁碟 (NAS/File Server)
+    """
+    import socket
+
+    result = {
+        "success": True,
+        "storage_path": UPLOAD_BASE_DIR,
+        "storage_type": STORAGE_TYPE,
+        "is_network_path": is_network_path(UPLOAD_BASE_DIR),
+        "checks": {}
+    }
+
+    # 檢查路徑是否存在
+    path_exists = os.path.exists(UPLOAD_BASE_DIR)
+    result["checks"]["path_exists"] = path_exists
+
+    # 檢查是否可寫入
+    if path_exists:
+        try:
+            test_file = os.path.join(UPLOAD_BASE_DIR, '.write_test')
+            with open(test_file, 'w') as f:
+                f.write('test')
+            os.remove(test_file)
+            result["checks"]["writable"] = True
+        except Exception as e:
+            result["checks"]["writable"] = False
+            result["checks"]["write_error"] = str(e)
+    else:
+        result["checks"]["writable"] = False
+
+    # 如果是網路路徑，檢查 IP 連線
+    network_ip = extract_ip_from_path(UPLOAD_BASE_DIR)
+    if network_ip:
+        result["network_ip"] = network_ip
+        result["is_local_ip"] = is_local_ip(network_ip)
+
+        # Ping 測試 (TCP 連接測試)
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(3)
+            # 嘗試連接 SMB 端口 (445) 或通用端口
+            for port in [445, 139, 80]:
+                try:
+                    sock.connect((network_ip, port))
+                    result["checks"]["network_reachable"] = True
+                    result["checks"]["connected_port"] = port
+                    break
+                except:
+                    continue
+            else:
+                result["checks"]["network_reachable"] = False
+            sock.close()
+        except Exception as e:
+            result["checks"]["network_reachable"] = False
+            result["checks"]["network_error"] = str(e)
+
+    # 整體狀態
+    result["healthy"] = (
+        result["checks"].get("path_exists", False) and
+        result["checks"].get("writable", False)
+    )
+
+    return result
