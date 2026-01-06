@@ -1190,4 +1190,179 @@ dayjs.extend(isBetween);
 
 ---
 
-*報告更新時間: 2026-01-06 09:15 (優化完成版 v4.3)*
+## 二十二、Model-Database Schema 一致性修復報告 (2026-01-06)
+
+### 問題背景
+
+系統啟動時 Schema 驗證發現 **25 個 Model-Database 不一致**，導致：
+- `/api/files/document/{id}` 回傳 500 錯誤
+- `/api/documents-enhanced/{id}/update` 日期欄位處理失敗
+- 公文資料意外被修改
+
+### ✅ 已完成修復項目
+
+#### A. 新增系統強化機制
+
+| 機制 | 檔案 | 功能說明 |
+|-----|------|---------|
+| **Schema 驗證器** | `app/core/schema_validator.py` | 啟動時自動比對 Models 與 DB Schema |
+| **審計日誌** | `app/core/audit_logger.py` | 記錄公文變更前後值，追蹤修改紀錄 |
+| **一致性測試** | `tests/test_schema_consistency.py` | pytest 可執行的驗證測試 |
+
+#### B. Schema 修復詳情
+
+| 表格 | 新增欄位數 | 欄位清單 |
+|-----|-----------|----------|
+| `project_user_assignments` | 2 | `created_at`, `updated_at` |
+| `contract_projects` | 14 | `contract_number`, `contract_type`, `location`, `procurement_method`, `completion_date`, `acceptance_date`, `completion_percentage`, `warranty_end_date`, `contact_person`, `contact_phone`, `client_agency_id`, `agency_contact_person`, `agency_contact_phone`, `agency_contact_email` |
+| `documents` | 3 | `send_date`, `title`, `cloud_file_link` |
+| `event_reminders` | 6 | `recipient_email`, `notification_type`, `reminder_minutes`, `title`, `sent_at`, `max_retries` |
+
+#### C. DocumentAttachment 模型修復
+
+**問題**: 模型欄位名稱與資料庫不一致
+```
+模型: filename, content_type, is_deleted
+資料庫: file_name, mime_type (無 is_deleted)
+```
+
+**修復內容**:
+- 更正欄位名稱對齊資料庫
+- 新增 property aliases 維持 API 向後相容
+- 移除 `is_deleted` 查詢條件
+
+**相關檔案**:
+- `backend/app/extended/models.py:208-256`
+- `backend/app/api/endpoints/files.py`
+
+#### D. 日期字串處理修復
+
+**問題**: 前端傳送 `"2026-01-05"` 字串，後端期望 Python `date` 物件
+
+**修復內容**:
+```python
+# backend/app/api/endpoints/documents_enhanced.py
+def parse_date_string(date_str: Optional[str]) -> Optional[date]:
+    """將日期字串轉換為 Python date 物件"""
+    if not date_str:
+        return None
+    parts = date_str.split('-')
+    if len(parts) == 3:
+        return date(int(parts[0]), int(parts[1]), int(parts[2]))
+    return None
+```
+
+### 驗證結果
+
+```
+🔍 Schema 驗證: ✅ 通過 (模型與資料庫一致)
+📊 資料庫統計:
+   - documents: 510 筆
+   - contract_projects: 17 筆
+   - users: 11 筆
+   - partner_vendors: 12 筆
+   - government_agencies: 21 筆
+   - project_user_assignments: 19 筆
+
+✅ API 驗證:
+   - /health → {"database":"connected","status":"healthy"}
+   - /api/files/document/564 → 正常回傳
+   - /api/documents-enhanced/564/detail → 公文主旨正確
+```
+
+### Git Commit
+
+```
+5488553 fix: 修復 25 個 Model-Database Schema 不一致問題
+
+新增檔案:
+- backend/app/core/schema_validator.py
+- backend/app/core/audit_logger.py
+
+修改檔案:
+- backend/app/extended/models.py (+98 行)
+- backend/app/api/endpoints/documents_enhanced.py (+67 行)
+- backend/app/api/endpoints/files.py
+- backend/main.py (+16 行)
+- backend/app/extended/models/document.py (廢棄標記)
+```
+
+---
+
+## 二十三、服務整合一致性總覽
+
+### 後端服務層架構
+
+```
+backend/app/
+├── api/endpoints/           # API 端點
+│   ├── documents_enhanced.py  ✅ 含審計日誌
+│   ├── files.py               ✅ Schema 對齊
+│   ├── projects.py            ✅ POST-only
+│   ├── vendors.py             ✅ POST-only
+│   └── users.py               ✅ POST-only
+│
+├── services/                # 服務層
+│   ├── base_service.py        ✅ 泛型 CRUD
+│   ├── document_service.py    ✅ 公文服務
+│   ├── project_service.py     ✅ 專案服務
+│   └── vendor_service.py      ✅ 廠商服務
+│
+├── core/                    # 核心模組
+│   ├── schema_validator.py    ✅ 新增 - Schema 驗證
+│   ├── audit_logger.py        ✅ 新增 - 審計日誌
+│   ├── exceptions.py          ✅ 統一異常處理
+│   └── dependencies.py        ✅ DI 注入
+│
+└── extended/models.py       # ORM 模型 (已對齊 25 欄位)
+```
+
+### 前後端 API 對照表
+
+| 功能模組 | 後端端點 | 前端 API Client | 狀態 |
+|---------|---------|-----------------|------|
+| 公文管理 | `/api/documents-enhanced/*` | `documentsApi.ts` | ✅ |
+| 專案管理 | `/api/projects/*` | `projectsApi.ts` | ✅ |
+| 廠商管理 | `/api/vendors/*` | `vendorsApi.ts` | ✅ |
+| 機關管理 | `/api/agencies/*` | `agenciesApi.ts` | ✅ |
+| 使用者 | `/api/users/*` | `usersApi.ts` | ✅ |
+| 檔案附件 | `/api/files/*` | `documentsApi.ts` | ✅ 修復 |
+| 行事曆 | `/api/calendar/*` | `CalendarPage.tsx` | ✅ |
+
+### 資料庫 Schema 驗證狀態
+
+| 表格 | Model 欄位 | DB 欄位 | 一致性 |
+|-----|-----------|---------|--------|
+| `documents` | 24 | 24 | ✅ |
+| `contract_projects` | 33 | 33 | ✅ |
+| `users` | 18 | 18 | ✅ |
+| `partner_vendors` | 10 | 10 | ✅ |
+| `government_agencies` | 10 | 10 | ✅ |
+| `document_attachments` | 8 | 8 | ✅ |
+| `project_user_assignments` | 12 | 12 | ✅ |
+| `event_reminders` | 19 | 19 | ✅ |
+| `document_calendar_events` | 14 | 14 | ✅ |
+
+---
+
+## 二十四、規範文件更新清單
+
+### 已更新文件
+
+| 文件 | 更新內容 |
+|-----|---------|
+| `@system_status_report.md` | 新增 Schema 修復報告 (章節 22-24) |
+| `backend/app/extended/models.py` | 25 個欄位對齊 + 註解說明 |
+| `backend/app/extended/models/document.py` | 廢棄警告標記 |
+
+### 新增文件
+
+| 文件 | 用途 |
+|-----|------|
+| `backend/app/core/schema_validator.py` | Schema 驗證工具 |
+| `backend/app/core/audit_logger.py` | 審計日誌工具 |
+| `backend/tests/test_schema_consistency.py` | 一致性測試 |
+
+---
+
+*報告更新時間: 2026-01-06 14:00 (Schema 修復版 v4.4)*
