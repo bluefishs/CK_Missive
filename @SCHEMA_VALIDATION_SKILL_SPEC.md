@@ -238,13 +238,17 @@ pytest tests/test_schema_consistency.py::TestSchemaConsistency::test_critical_ta
 
 ## 九、相關檔案
 
-| 檔案路徑 | 說明 |
-|---------|------|
-| `backend/app/core/schema_validator.py` | Schema 驗證核心模組 |
-| `backend/app/core/audit_logger.py` | 審計日誌模組 |
-| `backend/app/extended/models.py` | ORM 模型定義 |
-| `backend/tests/test_schema_consistency.py` | 一致性測試 |
-| `backend/main.py` | 應用程式入口 (含驗證整合) |
+| 檔案路徑 | 說明 | 強制等級 |
+|---------|------|----------|
+| **`@DEVELOPMENT_STANDARDS.md`** | **統一開發規範總綱** | 🔴 必讀 |
+| `@TYPE_CONSISTENCY_SKILL_SPEC.md` | 型別一致性規範 | 🔴 必須 |
+| `backend/app/core/schema_validator.py` | Schema 驗證核心模組 | - |
+| `backend/app/core/audit_logger.py` | 審計日誌模組 | - |
+| `backend/app/extended/models.py` | ORM 模型定義 | - |
+| `backend/tests/test_schema_consistency.py` | 一致性測試 | - |
+| `backend/main.py` | 應用程式入口 (含驗證整合) | - |
+
+> ⚠️ **注意**：本規範為 `@DEVELOPMENT_STANDARDS.md` 的子規範，必須配合總綱一同遵守。
 
 ---
 

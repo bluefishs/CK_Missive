@@ -471,13 +471,16 @@ curl -X POST http://localhost:8001/api/documents-enhanced/list \
 
 ## 七、相關文件
 
-| 文件 | 說明 |
-|------|------|
-| `@SCHEMA_VALIDATION_SKILL_SPEC.md` | Model-Database 一致性驗證 |
-| `@CSV_IMPORT_SKILL_SPEC.md` | CSV 匯入模組規範 |
-| `backend/app/schemas/document.py` | 後端公文 Schema |
-| `frontend/src/api/documentsApi.ts` | 前端公文 API |
-| `frontend/src/types/index.ts` | 前端型別定義 |
+| 文件 | 說明 | 強制等級 |
+|------|------|----------|
+| **`@DEVELOPMENT_STANDARDS.md`** | **統一開發規範總綱** | 🔴 必讀 |
+| `@SCHEMA_VALIDATION_SKILL_SPEC.md` | Model-Database 一致性驗證 | 🔴 必須 |
+| `@CSV_IMPORT_SKILL_SPEC.md` | CSV 匯入模組規範 | 🟡 相關時 |
+| `backend/app/schemas/document.py` | 後端公文 Schema | - |
+| `frontend/src/api/documentsApi.ts` | 前端公文 API | - |
+| `frontend/src/types/index.ts` | 前端型別定義 | - |
+
+> ⚠️ **注意**：本規範為 `@DEVELOPMENT_STANDARDS.md` 的子規範，必須配合總綱一同遵守。
 
 ---
 

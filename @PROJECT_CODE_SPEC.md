@@ -137,4 +137,17 @@ class ContractProject(Base):
 
 ---
 
+## 八、相關文件
+
+| 文件 | 說明 | 強制等級 |
+|------|------|----------|
+| **`@DEVELOPMENT_STANDARDS.md`** | **統一開發規範總綱** | 🔴 必讀 |
+| `@TYPE_CONSISTENCY_SKILL_SPEC.md` | 型別一致性規範 | 🔴 必須 |
+| `@SCHEMA_VALIDATION_SKILL_SPEC.md` | Schema 驗證規範 | 🔴 必須 |
+| `backend/app/services/project_service.py` | 專案服務模組 | - |
+
+> ⚠️ **注意**：本規範為 `@DEVELOPMENT_STANDARDS.md` 的子規範，必須配合總綱一同遵守。
+
+---
+
 **文件結束**

@@ -1,5 +1,36 @@
 # Agent Build Instructions
 
+---
+
+## ⚠️ 強制遵守規範 (MANDATORY COMPLIANCE)
+
+**在進行任何開發工作前，必須閱讀並遵守以下規範文件：**
+
+### 📋 統一開發規範
+- **[`@DEVELOPMENT_STANDARDS.md`](./\@DEVELOPMENT_STANDARDS.md)** ← 必讀總綱
+
+### 🔴 強制檢查 (每次提交前)
+```bash
+# 1. TypeScript 型別檢查（必須 0 錯誤）
+cd frontend && npx tsc --noEmit
+
+# 2. 建置檢查（必須成功）
+cd frontend && npm run build
+
+# 3. Schema 一致性（建議執行）
+cd backend && pytest tests/test_schema_consistency.py -v
+```
+
+### 📚 SKILL 規範索引
+| 規範 | 強制等級 | 說明 |
+|------|----------|------|
+| `@TYPE_CONSISTENCY_SKILL_SPEC.md` | 🔴 必須 | 型別一致性 |
+| `@SCHEMA_VALIDATION_SKILL_SPEC.md` | 🔴 必須 | Schema 驗證 |
+| `@CSV_IMPORT_SKILL_SPEC.md` | 🟡 相關 | CSV 匯入 |
+| `@PROJECT_CODE_SPEC.md` | 🟡 相關 | 專案編號 |
+
+---
+
 ## Project Setup
 ```bash
 # Install dependencies (example for Node.js project)
@@ -93,13 +124,15 @@ cargo run
 - TypeScript Interface 缺欄位會導致編譯警告
 
 ### SKILL 規範文件
-| 文件 | 用途 |
-|------|------|
-| `@TYPE_CONSISTENCY_SKILL_SPEC.md` | 型別一致性與 UI 風格規範 |
-| `@SCHEMA_VALIDATION_SKILL_SPEC.md` | Model-Database 一致性驗證 |
-| `@CSV_IMPORT_SKILL_SPEC.md` | CSV 匯入模組開發規範 |
-| `@PROJECT_CODE_SPEC.md` | 專案編號產生規則 |
-| `@SYSTEM_ARCHITECTURE_REVIEW.md` | 系統架構審查與優化規劃 |
+| 文件 | 用途 | 強制等級 |
+|------|------|----------|
+| **`@DEVELOPMENT_STANDARDS.md`** | **統一開發規範總綱** | 🔴 必讀 |
+| `@TYPE_CONSISTENCY_SKILL_SPEC.md` | 型別一致性與 UI 風格規範 | 🔴 必須 |
+| `@SCHEMA_VALIDATION_SKILL_SPEC.md` | Model-Database 一致性驗證 | 🔴 必須 |
+| `@CSV_IMPORT_SKILL_SPEC.md` | CSV 匯入模組開發規範 | 🟡 相關時 |
+| `@PROJECT_CODE_SPEC.md` | 專案編號產生規則 | 🟡 相關時 |
+| `@SYSTEM_ARCHITECTURE_REVIEW.md` | 系統架構審查與優化規劃 | 🟢 參考 |
+| `@system_status_report.md` | 系統狀態報告 | 🟢 參考 |
 
 ## Feature Development Quality Standards
 
@@ -186,20 +219,26 @@ Before moving to the next feature, ALL changes must be:
 
 Before marking ANY feature as complete, verify:
 
+#### 🔴 強制檢查 (MANDATORY)
+- [ ] `npx tsc --noEmit` 通過 (0 錯誤)
+- [ ] `npm run build` 成功
+- [ ] 新增欄位已同步：Model → Schema → Types
+- [ ] API 使用 POST 方法 + API_BASE_URL
+- [ ] 無違反 @DEVELOPMENT_STANDARDS.md 規範
+
+#### 🟡 品質檢查
 - [ ] All tests pass with appropriate framework command
 - [ ] Code coverage meets 85% minimum threshold
 - [ ] Coverage report reviewed for meaningful test quality
 - [ ] Code formatted according to project standards
-- [ ] Type checking passes (if applicable)
+
+#### 🟢 提交檢查
 - [ ] All changes committed with conventional commit messages
 - [ ] All commits pushed to remote repository
 - [ ] @fix_plan.md task marked as complete
 - [ ] Implementation documentation updated
-- [ ] Inline code comments updated or added
 - [ ] AGENT.md updated (if new patterns introduced)
 - [ ] Breaking changes documented
-- [ ] Features tested within Ralph loop (if applicable)
-- [ ] CI/CD pipeline passes
 
 ### Rationale
 

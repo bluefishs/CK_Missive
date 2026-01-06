@@ -298,9 +298,16 @@ curl -X POST http://localhost:8001/api/documents-enhanced/list \
 
 ## 七、相關文件
 
-- [CSV 匯入系統報告](./@CSV_IMPORT_SYSTEM_REPORT.md)
-- [資料庫 Schema](./backend/app/extended/models.py)
-- [API 文件](http://localhost:8001/api/docs)
+| 文件 | 說明 | 強制等級 |
+|------|------|----------|
+| **`@DEVELOPMENT_STANDARDS.md`** | **統一開發規範總綱** | 🔴 必讀 |
+| `@TYPE_CONSISTENCY_SKILL_SPEC.md` | 型別一致性規範 | 🔴 必須 |
+| `@SCHEMA_VALIDATION_SKILL_SPEC.md` | Schema 驗證規範 | 🔴 必須 |
+| `@CSV_IMPORT_SYSTEM_REPORT.md` | CSV 匯入系統報告 | 🟢 參考 |
+| `backend/app/extended/models.py` | 資料庫 Schema | - |
+| [API 文件](http://localhost:8001/api/docs) | Swagger API 文件 | - |
+
+> ⚠️ **注意**：本規範為 `@DEVELOPMENT_STANDARDS.md` 的子規範，必須配合總綱一同遵守。
 
 ---
 
