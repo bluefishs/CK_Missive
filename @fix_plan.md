@@ -47,6 +47,22 @@
 - [x] ContractCaseDetailPage TAB CRUD 功能恢復正常 (承辦同仁、協力廠商選單載入)
 - [x] **API 架構重構 (POST-only 資安機制)** - 統一回應格式與服務層機制
 
+### 🆕 2026-01-05 新增完成項目
+- [x] **流水序號 (auto_serial) 格式修復** - 重設為 R0001~R0334, S0001~S0169
+- [x] **ORM 模型欄位補齊** - OfficialDocument 新增 auto_serial Column
+- [x] **Schema 型別修正** - auto_serial: Optional[int] → Optional[str]
+- [x] **收發單位顯示優化** - extractAgencyName() 提取機關名稱 (無代碼)
+- [x] **公文-專案關聯** - 智能比對關聯 211 筆公文到承攬案件
+- [x] **API 回應擴充** - contract_project_name, assigned_staff 欄位
+- [x] **前端欄位新增** - 承攬案件、業務同仁欄位顯示
+- [x] **篩選功能修復** - category TAB 篩選正確傳遞後端
+
+### 🆕 2026-01-06 新增完成項目
+- [x] **TypeScript 編譯錯誤修復** - DocumentList, DocumentFilter, UnifiedTable 等組件
+- [x] **資料對應錯誤修正** - 修復 id=1, id=222 公文主旨對應問題
+- [x] **CSV 匯入驗證強化** - csv_processor.py 新增格式驗證、測試資料過濾
+- [x] **資料庫每日備份機制** - PowerShell/Bash 自動備份腳本 + 排程設定
+
 ---
 
 ## 🏗️ API Architecture (POST-only 資安機制)
@@ -215,4 +231,239 @@ setRelatedDocs(documentsResponse.documents);
 - 資料模型: `docs/wiki/Database-Models.md`
 
 ---
-*最後更新: 2026-01-05 - API 架構重構完成 (POST-only 資安機制、統一回應格式、服務層分離)*
+
+## 🏛️ 架構優化建議 (Architecture Optimization)
+
+### 1. API 回應格式統一化
+
+**現況問題**:
+- 不同 API 使用不同回應格式 (`items/documents`, `total/count`, `page/current`)
+- 前端需針對每個 API 寫不同的轉換邏輯
+
+**建議方案**:
+```python
+# 統一分頁回應格式
+class UnifiedPaginatedResponse(BaseModel):
+    success: bool = True
+    items: List[Any]
+    pagination: PaginationMeta
+
+class PaginationMeta(BaseModel):
+    total: int
+    page: int
+    limit: int
+    total_pages: int
+    has_next: bool
+    has_prev: bool
+```
+
+### 2. 關聯查詢效能優化
+
+**現況問題**:
+- 公文列表需額外查詢 contract_projects + project_user_assignments
+- 可能產生 N+1 查詢問題
+
+**建議方案**:
+```python
+# Option A: SQLAlchemy joined load
+query = select(OfficialDocument).options(
+    joinedload(OfficialDocument.contract_project).joinedload(ContractProject.staff)
+)
+
+# Option B: 批次查詢 (已實作)
+project_ids = [doc.contract_project_id for doc in items]
+projects = await db.execute(select(...).where(ContractProject.id.in_(project_ids)))
+
+# Option C: 資料庫 VIEW
+CREATE VIEW document_with_project AS
+SELECT d.*, cp.project_name, ...
+FROM documents d
+LEFT JOIN contract_projects cp ON d.contract_project_id = cp.id;
+```
+
+### 3. 快取策略建議
+
+**適合快取的資料**:
+| 資料類型 | TTL | 快取層 |
+|---------|-----|--------|
+| 機關下拉選單 | 10 min | Redis |
+| 廠商下拉選單 | 10 min | Redis |
+| 承攬案件下拉 | 5 min | Redis |
+| 年度選單 | 1 day | Redis |
+| 公文列表 | 30 sec | React Query |
+
+**實作建議**:
+```python
+# Backend Redis 快取
+from redis import asyncio as aioredis
+
+@router.get("/agencies-dropdown")
+async def get_agencies_dropdown(redis: aioredis.Redis = Depends(get_redis)):
+    cached = await redis.get("agencies_dropdown")
+    if cached:
+        return json.loads(cached)
+    data = await query_agencies()
+    await redis.set("agencies_dropdown", json.dumps(data), ex=600)
+    return data
+```
+
+```typescript
+// Frontend React Query
+const { data } = useQuery({
+  queryKey: ['agencies'],
+  queryFn: fetchAgencies,
+  staleTime: 10 * 60 * 1000, // 10 minutes
+});
+```
+
+### 4. 錯誤處理統一化
+
+**建議格式**:
+```python
+class ApiError(BaseModel):
+    code: str           # 錯誤代碼 (ERR_NOT_FOUND, ERR_VALIDATION)
+    message: str        # 使用者可讀訊息
+    details: List[Dict] # 詳細資訊 (欄位錯誤等)
+
+# 範例
+{
+    "success": false,
+    "error": {
+        "code": "ERR_VALIDATION",
+        "message": "資料驗證失敗",
+        "details": [
+            {"field": "doc_number", "message": "公文文號不可為空"}
+        ]
+    }
+}
+```
+
+### 5. 前端型別安全強化
+
+**建議**:
+- 使用 Zod 進行執行期驗證
+- API Client 自動產生 TypeScript 型別
+
+```typescript
+// 使用 zodios 或 orval 自動產生
+import { createApiClient } from './generated/api';
+
+const api = createApiClient({
+  baseUrl: 'http://localhost:8001/api'
+});
+
+// 型別安全的 API 呼叫
+const { items } = await api.documents.list({ page: 1, limit: 10 });
+```
+
+### 6. 資料庫索引優化建議
+
+```sql
+-- 建議新增索引
+CREATE INDEX idx_documents_category ON documents(category);
+CREATE INDEX idx_documents_contract_project ON documents(contract_project_id);
+CREATE INDEX idx_documents_auto_serial ON documents(auto_serial);
+CREATE INDEX idx_documents_doc_date ON documents(doc_date);
+
+-- 複合索引 (常用查詢)
+CREATE INDEX idx_documents_category_date ON documents(category, doc_date DESC);
+```
+
+### 7. 測試覆蓋建議
+
+| 測試類型 | 工具 | 優先級 |
+|---------|------|--------|
+| 單元測試 (後端) | pytest | 🔴 高 |
+| 單元測試 (前端) | Vitest | 🟡 中 |
+| API 整合測試 | pytest + httpx | 🔴 高 |
+| E2E 測試 | Playwright | 🟢 低 |
+
+---
+
+---
+
+## 🛡️ 資料品質管理機制 (Data Quality Management)
+
+### 1. CSV 匯入驗證規則
+
+**驗證層級** (`backend/app/services/csv_processor.py`):
+
+| 規則 | 說明 | 處理方式 |
+|------|------|----------|
+| 公文字號格式 | 必須包含「字第」且前有機關字首 | 跳過該筆 |
+| 主旨內容檢查 | 不可為空、test、testing、測試 | 跳過該筆 |
+| 主旨長度警告 | 少於 5 字元 | 記錄警告 |
+| 必要欄位 | doc_number 為必填 | 跳過該筆 |
+
+**驗證程式碼示例**:
+```python
+# 公文字號格式驗證
+if '字第' in doc_number:
+    prefix = doc_number.split('字第')[0]
+    if not prefix or len(prefix) < 2:
+        logger.warning(f"[資料品質] 公文字號格式不完整: {doc_number}")
+        return None
+
+# 測試資料過濾
+if subject.lower() in ['test', 'testing', '測試', '']:
+    logger.warning(f"[資料品質] 主旨為測試資料或空白，跳過此筆")
+    return None
+```
+
+### 2. 資料庫備份機制
+
+**備份腳本** (`scripts/backup/`):
+
+| 檔案 | 功能 |
+|------|------|
+| `db_backup.ps1` | Windows PowerShell 備份腳本 |
+| `db_backup.sh` | Linux/Git Bash 備份腳本 |
+| `db_restore.ps1` | 資料庫還原腳本 |
+| `setup_scheduled_task.ps1` | Windows 排程設定 |
+
+**備份策略**:
+- 時間: 每日 02:00
+- 保留: 7 天 (可調整)
+- 位置: `backups/database/`
+- 格式: `ck_missive_backup_YYYYMMDD_HHMMSS.sql`
+
+**快速指令**:
+```powershell
+# 手動備份
+.\scripts\backup\db_backup.ps1 -Verbose
+
+# 查看可用備份
+.\scripts\backup\db_restore.ps1 -List
+
+# 還原最新備份
+.\scripts\backup\db_restore.ps1 -Latest
+
+# 設定每日自動備份 (需管理員)
+.\scripts\backup\setup_scheduled_task.ps1 -BackupTime "02:00"
+```
+
+### 3. 資料完整性檢查
+
+**定期檢查項目**:
+- [ ] 公文字號格式一致性
+- [ ] 主旨內容非空值
+- [ ] 收發單位對應正確
+- [ ] 專案關聯有效性
+
+**SQL 檢查範例**:
+```sql
+-- 檢查空主旨
+SELECT id, doc_number FROM documents WHERE subject IS NULL OR subject = '';
+
+-- 檢查格式異常的公文字號
+SELECT id, doc_number FROM documents WHERE doc_number NOT LIKE '%字第%';
+
+-- 檢查孤立的專案關聯
+SELECT id, contract_project_id FROM documents
+WHERE contract_project_id IS NOT NULL
+AND contract_project_id NOT IN (SELECT id FROM contract_projects);
+```
+
+---
+
+*最後更新: 2026-01-06 - 新增資料品質管理機制與備份策略*

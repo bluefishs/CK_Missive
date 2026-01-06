@@ -32,6 +32,12 @@ frontend/.vite/
 # Logs
 *.log
 backend/logs/
+logs/
+
+# Backups
+backups/database/*.sql
+backups/database/*.sql.gz
+!backups/database/.gitkeep
 
 # Temporary files
 *.tmp

@@ -366,14 +366,32 @@ class DocumentCSVProcessor:
             if not result.get('doc_number') and result.get('doc_word') and result.get('legacy_doc_number'):
                 result['doc_number'] = f"{result['doc_word']}字第{result['legacy_doc_number']}號"
 
-            # 4. 必要欄位檢查
+            # 4. 必要欄位檢查 (強化驗證)
             if not result.get('doc_number'):
-                logger.warning(f"缺少公文字號: {row_data}")
+                logger.warning(f"[資料品質] 缺少公文字號，跳過此筆: {row_data}")
                 return None
 
+            # 驗證公文字號格式 (必須包含 "字第" 且前面要有機關字)
+            doc_number = result.get('doc_number', '')
+            if '字第' in doc_number:
+                prefix = doc_number.split('字第')[0]
+                if not prefix or len(prefix) < 2:
+                    logger.warning(f"[資料品質] 公文字號格式不完整 (缺少機關字首): {doc_number}, 原始資料: {row_data}")
+                    return None
+
             if not result.get('subject'):
-                logger.warning(f"缺少主旨: {row_data}")
+                logger.warning(f"[資料品質] 缺少主旨，跳過此筆: {row_data}")
                 return None
+
+            # 驗證主旨內容 (不能是測試資料)
+            subject = result.get('subject', '').strip().lower()
+            if subject in ['test', 'testing', '測試', '']:
+                logger.warning(f"[資料品質] 主旨為測試資料或空白，跳過此筆: subject='{result.get('subject')}', doc_number='{doc_number}'")
+                return None
+
+            # 驗證主旨長度 (正常公文主旨通常大於10字)
+            if len(result.get('subject', '')) < 5:
+                logger.warning(f"[資料品質] 主旨過短 (少於5字)，可能為無效資料: subject='{result.get('subject')}', doc_number='{doc_number}'")
 
             # 5. 設定預設值
             if not result.get('doc_type'):
