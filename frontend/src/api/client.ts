@@ -330,10 +330,36 @@ class ApiClient {
   }
 
   /**
-   * 下載檔案
+   * 下載檔案（GET 方式）
    */
   async download(url: string, filename?: string): Promise<void> {
     const response = await this.axios.get(url, {
+      responseType: 'blob',
+    });
+
+    const blob = new Blob([response.data]);
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download =
+      filename ||
+      this.extractFilename(response.headers['content-disposition']) ||
+      'download';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(downloadUrl);
+  }
+
+  /**
+   * 下載檔案（POST 方式 - 用於 POST-only 資安機制）
+   */
+  async downloadPost(
+    url: string,
+    data?: unknown,
+    filename?: string
+  ): Promise<void> {
+    const response = await this.axios.post(url, data, {
       responseType: 'blob',
     });
 

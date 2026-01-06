@@ -199,7 +199,8 @@ export const DocumentPage: React.FC = () => {
   };
 
   // 儲存公文 (使用統一 API 服務)
-  const handleSaveDocument = async (documentData: Partial<Document>) => {
+  // 回傳已建立/更新的公文，供附件上傳使用
+  const handleSaveDocument = async (documentData: Partial<Document>): Promise<Document | void> => {
     try {
       let updatedDocument: Document;
 
@@ -217,9 +218,12 @@ export const DocumentPage: React.FC = () => {
         message.success('公文更新成功！');
         // 刷新列表以確保顯示最新資料
         refetch();
+      } else {
+        return; // 無效操作
       }
 
       setDocumentOperation({ type: null, document: null, visible: false });
+      return updatedDocument; // 回傳已建立的公文（含 ID）
     } catch (error) {
       console.error('Save document error:', error);
       throw error;
@@ -360,19 +364,40 @@ export const DocumentPage: React.FC = () => {
     setCsvImportModal(true);
   };
 
-  const handleCSVUpload = async (file: any) => {
+  // 支援多檔上傳的 CSV 匯入處理
+  const handleCSVUpload = async (file: any, fileList: any[]) => {
+    // 只在最後一個檔案時觸發上傳（避免重複）
+    if (file !== fileList[fileList.length - 1]) {
+      return false;
+    }
+
     setCsvImporting(true);
     setImportProgress(0);
 
     const formData = new FormData();
-    formData.append('file', file);
+
+    // 判斷單檔或多檔
+    const isMultiple = fileList.length > 1;
+    const endpoint = isMultiple
+      ? `${API_BASE_URL}/csv-import/upload-multiple`
+      : `${API_BASE_URL}/csv-import/upload-and-import`;
+
+    if (isMultiple) {
+      // 多檔上傳
+      fileList.forEach((f: any) => {
+        formData.append('files', f);
+      });
+    } else {
+      // 單檔上傳
+      formData.append('file', file);
+    }
 
     try {
       const progressInterval = setInterval(() => {
         setImportProgress(prev => Math.min(prev + 10, 90));
       }, 200);
 
-      const response = await fetch(`${API_BASE_URL}/documents/import`, {
+      const response = await fetch(endpoint, {
         method: 'POST',
         body: formData,
       });
@@ -387,17 +412,44 @@ export const DocumentPage: React.FC = () => {
 
       const result = await response.json();
 
-      if (result.success_count > 0) {
-        message.success(`CSV匯入成功！共 ${result.total_rows} 筆，成功 ${result.success_count} 筆`);
+      if (isMultiple) {
+        // 多檔結果顯示
+        const { summary, file_results } = result;
+        if (summary.total_success > 0) {
+          message.success(
+            `批次匯入完成！${summary.files_count} 個檔案，共 ${summary.total_processed} 筆，成功 ${summary.total_success} 筆，跳過 ${summary.total_skipped} 筆`
+          );
+        } else if (summary.total_skipped > 0) {
+          message.warning(
+            `批次匯入完成，全部為重複資料已跳過。${summary.files_count} 個檔案，共 ${summary.total_processed} 筆`
+          );
+        } else {
+          message.warning(`批次匯入完成，但無資料成功匯入`);
+        }
+        // 顯示各檔案結果
+        file_results?.forEach((fr: any) => {
+          if (fr.error_count > 0) {
+            message.error(`${fr.filename}: ${fr.message}`);
+          }
+        });
       } else {
-        message.warning(
-          `CSV匯入完成，但無資料成功匯入。共 ${result.total_rows} 筆，${result.error_count} 筆錯誤`
-        );
-      }
+        // 單檔結果顯示
+        if (result.success_count > 0) {
+          message.success(`CSV匯入成功！共 ${result.total_processed} 筆，成功 ${result.success_count} 筆`);
+        } else if (result.skipped_count > 0) {
+          message.warning(
+            `CSV匯入完成，${result.skipped_count} 筆重複資料已跳過`
+          );
+        } else {
+          message.warning(
+            `CSV匯入完成，但無資料成功匯入。共 ${result.total_processed} 筆，${result.error_count} 筆錯誤`
+          );
+        }
 
-      if (result.errors && result.errors.length > 0) {
-        const errorSample = result.errors.slice(0, 3).join('; ');
-        message.error(`匯入錯誤: ${errorSample}${result.errors.length > 3 ? '...' : ''}`);
+        if (result.errors && result.errors.length > 0) {
+          const errorSample = result.errors.slice(0, 3).join('; ');
+          message.error(`匯入錯誤: ${errorSample}${result.errors.length > 3 ? '...' : ''}`);
+        }
       }
 
       refetch();
@@ -481,16 +533,16 @@ export const DocumentPage: React.FC = () => {
           ) : (
             <Upload.Dragger
               name="file"
-              multiple={false}
+              multiple={true}
               accept=".csv"
-              beforeUpload={handleCSVUpload}
+              beforeUpload={(file, fileList) => handleCSVUpload(file, fileList)}
               showUploadList={false}
             >
               <p className="ant-upload-drag-icon">
                 <UploadOutlined />
               </p>
               <p className="ant-upload-text">點選或拖曳 CSV 檔案到此區域</p>
-              <p className="ant-upload-hint">支援單檔上傳。欄位將自動對應。</p>
+              <p className="ant-upload-hint">支援多檔批次上傳，可同時選擇多個 CSV 檔案。欄位將自動對應。</p>
             </Upload.Dragger>
           )}
         </div>

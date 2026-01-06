@@ -18,6 +18,8 @@ import {
   Popconfirm,
   Spin,
   Empty,
+  Progress,
+  Alert,
 } from 'antd';
 import {
   InboxOutlined,
@@ -39,12 +41,26 @@ const { TextArea } = Input;
 const { Option } = Select;
 const { Dragger } = Upload;
 
+// ============================================================================
+// 檔案上傳驗證常數（與後端同步）
+// ============================================================================
+const ALLOWED_EXTENSIONS = [
+  '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+  '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff',
+  '.zip', '.rar', '.7z',
+  '.txt', '.csv', '.xml', '.json',
+  '.dwg', '.dxf',  // CAD 檔案
+  '.shp', '.kml', '.kmz',  // GIS 檔案
+];
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const MAX_FILE_SIZE_MB = 50;
+
 interface DocumentOperationsProps {
   document: Document | null;
   operation: 'view' | 'edit' | 'create' | 'copy' | null;
   visible: boolean;
   onClose: () => void;
-  onSave: (document: Partial<Document>) => Promise<void>;
+  onSave: (document: Partial<Document>) => Promise<Document | void>;
 }
 
 export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
@@ -67,6 +83,10 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
   // 附件相關狀態
   const [existingAttachments, setExistingAttachments] = useState<any[]>([]);
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
+  // 上傳進度狀態
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [uploading, setUploading] = useState(false);
+  const [uploadErrors, setUploadErrors] = useState<string[]>([]);
 
   const isReadOnly = operation === 'view';
   const isCreate = operation === 'create';
@@ -174,9 +194,9 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
     }
   };
 
-  // 上傳檔案
-  const uploadFiles = async (documentId: number, files: any[]) => {
-    if (files.length === 0) return;
+  // 上傳檔案（含進度追蹤）
+  const uploadFiles = async (documentId: number, files: any[]): Promise<any> => {
+    if (files.length === 0) return { success: true, files: [], errors: [] };
 
     const formData = new FormData();
     files.forEach(file => {
@@ -185,44 +205,74 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
       }
     });
 
-    try {
-      const response = await fetch(`${API_BASE_URL}/files/upload?document_id=${documentId}`, {
-        method: 'POST',
-        body: formData,
+    setUploading(true);
+    setUploadProgress(0);
+    setUploadErrors([]);
+
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+
+      // 進度事件
+      xhr.upload.addEventListener('progress', (event) => {
+        if (event.lengthComputable) {
+          const percentComplete = Math.round((event.loaded / event.total) * 100);
+          setUploadProgress(percentComplete);
+        }
       });
-      if (!response.ok) {
-        throw new Error('Upload failed');
-      }
-      const result = await response.json();
-      console.log('[uploadFiles] 上傳成功:', result);
-      return result;
-    } catch (error) {
-      console.error('Failed to upload files:', error);
-      throw error;
-    }
+
+      // 完成事件
+      xhr.addEventListener('load', () => {
+        setUploading(false);
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const result = JSON.parse(xhr.responseText);
+            console.log('[uploadFiles] 上傳成功:', result);
+
+            // 處理部分失敗
+            if (result.errors && result.errors.length > 0) {
+              setUploadErrors(result.errors);
+            }
+
+            resolve(result);
+          } catch (e) {
+            reject(new Error('回應解析失敗'));
+          }
+        } else {
+          try {
+            const errorData = JSON.parse(xhr.responseText);
+            const errorMsg = errorData.error?.message || errorData.detail || '上傳失敗';
+            reject(new Error(errorMsg));
+          } catch {
+            reject(new Error(`上傳失敗 (HTTP ${xhr.status})`));
+          }
+        }
+      });
+
+      // 錯誤事件
+      xhr.addEventListener('error', () => {
+        setUploading(false);
+        reject(new Error('網路連線錯誤，請檢查網路狀態'));
+      });
+
+      // 中止事件
+      xhr.addEventListener('abort', () => {
+        setUploading(false);
+        reject(new Error('上傳已取消'));
+      });
+
+      xhr.open('POST', `${API_BASE_URL}/files/upload?document_id=${documentId}`);
+      xhr.send(formData);
+    });
   };
 
-  // 下載附件 (POST-only 資安機制)
+  // 下載附件 (POST-only 資安機制) - 使用統一 apiClient
   const handleDownload = async (attachmentId: number, filename: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/files/${attachmentId}/download`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      if (!response.ok) {
-        throw new Error('下載失敗');
-      }
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename || 'download';
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      await apiClient.downloadPost(
+        `/files/${attachmentId}/download`,
+        {},
+        filename || 'download'
+      );
     } catch (error) {
       console.error('下載附件失敗:', error);
       message.error('下載附件失敗');
@@ -373,18 +423,37 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
         assignee: assigneeStr,
       };
 
-      await onSave(documentData);
+      const savedDocument = await onSave(documentData);
 
-      // 上傳新附件（僅限編輯既有公文）
-      if (document?.id && fileList.length > 0) {
+      // 上傳新附件（支援新建和編輯）
+      // 優先使用回傳的文件 ID，其次使用既有文件 ID
+      const targetDocumentId = (savedDocument as Document)?.id || document?.id;
+
+      if (targetDocumentId && fileList.length > 0) {
         try {
-          await uploadFiles(document.id, fileList);
-          message.success(`附件上傳成功（共 ${fileList.length} 個檔案）`);
+          const uploadResult = await uploadFiles(targetDocumentId, fileList);
+
+          // 計算成功和失敗數量
+          const successCount = uploadResult.files?.length || 0;
+          const errorCount = uploadResult.errors?.length || 0;
+
+          if (successCount > 0 && errorCount === 0) {
+            message.success(`附件上傳成功（共 ${successCount} 個檔案）`);
+          } else if (successCount > 0 && errorCount > 0) {
+            message.warning(`部分附件上傳成功（成功 ${successCount} 個，失敗 ${errorCount} 個）`);
+          } else if (successCount === 0 && errorCount > 0) {
+            message.error(`附件上傳失敗（共 ${errorCount} 個錯誤）`);
+          }
+
           setFileList([]); // 清空上傳列表
-        } catch (uploadError) {
+        } catch (uploadError: any) {
           console.error('File upload failed:', uploadError);
-          message.warning('公文儲存成功，但附件上傳失敗');
+          const errorMsg = uploadError.message || '上傳失敗';
+          message.error(`附件上傳失敗: ${errorMsg}`);
+          // 不阻止關閉對話框，公文已儲存成功
         }
+      } else if (fileList.length > 0 && !targetDocumentId) {
+        message.warning('無法取得公文 ID，附件稍後上傳');
       }
 
       message.success(`${getOperationText()}成功！`);
@@ -444,10 +513,42 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
     );
   };
 
+  // 檔案驗證函數
+  const validateFile = (file: File): { valid: boolean; error?: string } => {
+    // 檢查副檔名
+    const fileName = file.name.toLowerCase();
+    const ext = '.' + fileName.split('.').pop();
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      return {
+        valid: false,
+        error: `不支援 ${ext} 檔案格式。允許的格式: ${ALLOWED_EXTENSIONS.slice(0, 5).join(', ')} 等`,
+      };
+    }
+
+    // 檢查檔案大小
+    if (file.size > MAX_FILE_SIZE) {
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+      return {
+        valid: false,
+        error: `檔案 "${file.name}" 大小 ${sizeMB}MB 超過限制 (最大 ${MAX_FILE_SIZE_MB}MB)`,
+      };
+    }
+
+    return { valid: true };
+  };
+
   const uploadProps = {
     multiple: true,
     fileList,
-    beforeUpload: () => false, // 阻止自動上傳，我們將手動處理
+    beforeUpload: (file: File) => {
+      // 前端驗證
+      const validation = validateFile(file);
+      if (!validation.valid) {
+        message.error(validation.error);
+        return Upload.LIST_IGNORE; // 不加入列表
+      }
+      return false; // 阻止自動上傳，我們將手動處理
+    },
     onChange: ({ fileList: newFileList }: any) => {
       setFileList(newFileList);
     },
@@ -821,15 +922,51 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
                   {/* 上傳區域（非唯讀模式才顯示）*/}
                   {!isReadOnly ? (
                     <Form.Item label="上傳新附件">
-                      <Dragger {...uploadProps}>
+                      <Dragger {...uploadProps} disabled={uploading}>
                         <p className="ant-upload-drag-icon">
                           <InboxOutlined />
                         </p>
                         <p className="ant-upload-text">點擊或拖拽文件到此區域上傳</p>
                         <p className="ant-upload-hint">
-                          支援單次或批量上傳，支援 PDF、DOC、DOCX、JPG、PNG 等格式
+                          支援 PDF、DOC、DOCX、XLS、XLSX、JPG、PNG 等格式，單檔最大 {MAX_FILE_SIZE_MB}MB
                         </p>
                       </Dragger>
+
+                      {/* 上傳進度條 */}
+                      {uploading && (
+                        <div style={{ marginTop: 16 }}>
+                          <Progress
+                            percent={uploadProgress}
+                            status="active"
+                            strokeColor={{
+                              '0%': '#108ee9',
+                              '100%': '#87d068',
+                            }}
+                          />
+                          <p style={{ textAlign: 'center', color: '#666', marginTop: 8 }}>
+                            正在上傳... {uploadProgress}%
+                          </p>
+                        </div>
+                      )}
+
+                      {/* 上傳錯誤訊息 */}
+                      {uploadErrors.length > 0 && (
+                        <Alert
+                          type="warning"
+                          showIcon
+                          closable
+                          onClose={() => setUploadErrors([])}
+                          style={{ marginTop: 16 }}
+                          message="部分檔案上傳失敗"
+                          description={
+                            <ul style={{ margin: 0, paddingLeft: 20 }}>
+                              {uploadErrors.map((err, idx) => (
+                                <li key={idx}>{err}</li>
+                              ))}
+                            </ul>
+                          }
+                        />
+                      )}
                     </Form.Item>
                   ) : (
                     existingAttachments.length === 0 && (
