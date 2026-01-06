@@ -13,7 +13,7 @@ import {
   CheckCircleOutlined, ExclamationCircleOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { secureApiService } from '../../services/secureApiService';
+import { apiClient } from '../../api/client';
 
 const { Text } = Typography;
 
@@ -82,7 +82,10 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
 
     setLoading(true);
     try {
-      const response = await secureApiService.get(`/reminder-management/events/${event.id}/reminders`);
+      const response = await apiClient.post<{ success: boolean; reminders?: EventReminder[] }>(
+        `/reminder-management/events/${event.id}/reminders`,
+        {}
+      );
       if (response.success && response.reminders) {
         setReminders(response.reminders);
       }
@@ -104,12 +107,15 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
       const eventTime = dayjs(event.start_date);
       const reminderTime = eventTime.subtract(newReminderMinutes, 'minute');
 
-      const response = await secureApiService.post(`/reminder-management/events/${event.id}/reminders/update-template`, {
-        reminder_type: newReminderType,
-        reminder_minutes: newReminderMinutes,
-        reminder_time: reminderTime.toISOString(),
-        action: 'add'
-      });
+      const response = await apiClient.post<{ success: boolean }>(
+        `/reminder-management/events/${event.id}/reminders/update-template`,
+        {
+          reminder_type: newReminderType,
+          reminder_minutes: newReminderMinutes,
+          reminder_time: reminderTime.toISOString(),
+          action: 'add'
+        }
+      );
 
       if (response.success) {
         notification.success({ message: '提醒已新增' });
@@ -133,10 +139,13 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
 
     setLoading(true);
     try {
-      const response = await secureApiService.post(`/reminder-management/events/${event.id}/reminders/update-template`, {
-        reminder_id: reminderId,
-        action: 'delete'
-      });
+      const response = await apiClient.post<{ success: boolean }>(
+        `/reminder-management/events/${event.id}/reminders/update-template`,
+        {
+          reminder_id: reminderId,
+          action: 'delete'
+        }
+      );
 
       if (response.success) {
         notification.success({ message: '提醒已刪除' });
@@ -160,10 +169,13 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
 
     setLoading(true);
     try {
-      const response = await secureApiService.post('/reminder-management/send-test-reminder', {
-        event_id: event.id,
-        reminder_type: 'email'
-      });
+      const response = await apiClient.post<{ success: boolean }>(
+        '/reminder-management/send-test-reminder',
+        {
+          event_id: event.id,
+          reminder_type: 'email'
+        }
+      );
 
       if (response.success) {
         notification.success({ message: '測試提醒已發送' });

@@ -7,7 +7,7 @@ import DocumentImport from '../components/Documents/DocumentImport';
 import DocumentList from '../components/Documents/DocumentList';
 import FilterPanel from '../components/Documents/FilterPanel';
 import ExportButton from '../components/Documents/ExportButton';
-import { documentAPI } from '../services/documentAPI';
+import { documentsApi } from '../../api/documentsApi';
 
 const { Content } = Layout;
 
@@ -36,8 +36,13 @@ const DocumentManagement = () => {
   // 載入統計資訊
   const loadStatistics = async () => {
     try {
-      const stats = await documentAPI.getStatistics();
-      setStatistics(stats);
+      const stats = await documentsApi.getStatistics();
+      setStatistics({
+        total_documents: stats.total_documents || stats.total || 0,
+        receive_count: stats.receive_count || stats.receive || 0,
+        send_count: stats.send_count || stats.send || 0,
+        current_year_count: stats.current_year_count || 0,
+      });
     } catch (error) {
       console.error('載入統計失敗:', error);
     }

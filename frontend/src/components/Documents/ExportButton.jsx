@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button, message, Tooltip } from 'antd';
 import { DownloadOutlined } from '@ant-design/icons';
-import { documentAPI } from '../services/documentAPI';
+import { documentsApi } from '../../api/documentsApi';
 
 const ExportButton = ({ filters = {}, disabled = false, children }) => {
   const [exporting, setExporting] = useState(false);
@@ -9,7 +9,10 @@ const ExportButton = ({ filters = {}, disabled = false, children }) => {
   const handleExport = async () => {
     setExporting(true);
     try {
-      await documentAPI.exportExcel(filters);
+      await documentsApi.exportDocuments({
+        category: filters.category,
+        year: filters.year,
+      });
       message.success('匯出成功！檔案已開始下載');
     } catch (error) {
       console.error('匯出失敗:', error);

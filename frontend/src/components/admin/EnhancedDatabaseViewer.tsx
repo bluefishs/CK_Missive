@@ -9,7 +9,7 @@ import {
   NodeExpandOutlined, TranslationOutlined, LinkOutlined,
   BranchesOutlined, InfoCircleOutlined, EyeOutlined
 } from '@ant-design/icons';
-import { API_BASE_URL } from '../../api/config';
+import { apiClient } from '../../api/client';
 import { databaseMetadata, TableMetadataItem } from '../../config/databaseMetadata';
 
 const { Title, Text } = Typography;
@@ -51,11 +51,7 @@ export const EnhancedDatabaseViewer: React.FC = () => {
   const fetchDatabaseInfo = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/database/info`);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      const data = await response.json();
+      const data = await apiClient.post<DatabaseInfo>('/admin/database/info', {});
       setDatabaseInfo(data);
       message.success('資料庫信息載入成功');
     } catch (error) {

@@ -13,7 +13,7 @@ import {
   ApiOutlined, LinkOutlined,
   FieldTimeOutlined, FileTextOutlined
 } from '@ant-design/icons';
-import { API_BASE_URL } from '../../api/config';
+import { apiClient } from '../../api/client';
 import {
   databaseMetadata,
   getCategoryDisplayName,
@@ -61,12 +61,8 @@ export const SimpleDatabaseViewer: React.FC = () => {
   const fetchDatabaseInfo = async () => {
     setLoading(true);
     try {
-      console.log('🔍 Fetching database info from:', `${API_BASE_URL}/admin/database/info`);
-      const response = await fetch(`${API_BASE_URL}/admin/database/info`);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      const data = await response.json();
+      console.log('🔍 Fetching database info via apiClient');
+      const data = await apiClient.post<DatabaseInfo>('/admin/database/info', {});
       console.log('✅ Database info loaded:', data);
       setDatabaseInfo(data);
       message.success('資料庫信息載入成功');

@@ -4,7 +4,7 @@
  * 使用統一的 API Client 和型別定義
  */
 
-import { apiClient, ApiException, API_BASE_URL } from './client';
+import { apiClient, ApiException } from './client';
 import {
   PaginatedResponse,
   PaginationParams,
@@ -122,19 +122,10 @@ export interface DropdownOption {
   category?: string;
 }
 
-/** 文件附件 */
-export interface DocumentAttachment {
-  id: number;
-  filename: string;
-  original_filename?: string;
-  file_size: number;
-  content_type?: string;
-  storage_type?: string;  // local/network/s3
-  checksum?: string;      // SHA256 校驗碼
-  uploaded_at?: string;
-  uploaded_by?: number;
-  created_at?: string;
-}
+/** 文件附件 - 從 filesApi 匯入並重新匯出 */
+import type { FileAttachment } from './filesApi';
+export type { FileAttachment as DocumentAttachment };
+type DocumentAttachment = FileAttachment;
 
 // ============================================================================
 // API 方法
@@ -369,157 +360,104 @@ export const documentsApi = {
     category?: string;
     year?: number;
   }): Promise<void> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/documents-enhanced/export`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          document_ids: options?.documentIds || null,
-          category: options?.category || null,
-          year: options?.year || null,
-          format: 'csv',
-        }),
-      });
+    // 生成檔名
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+    const filename = `documents_export_${dateStr}.csv`;
 
-      if (!response.ok) {
-        throw new Error('匯出失敗');
-      }
-
-      // 取得檔案名稱
-      const contentDisposition = response.headers.get('Content-Disposition');
-      let filename = 'documents_export.csv';
-      if (contentDisposition) {
-        const match = contentDisposition.match(/filename=(.+)/);
-        if (match?.[1]) {
-          filename = match[1].replace(/"/g, '');
-        }
-      }
-
-      // 下載檔案
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (error) {
-      console.error('匯出公文失敗:', error);
-      throw error;
-    }
+    await apiClient.downloadPost(
+      '/documents-enhanced/export',
+      {
+        document_ids: options?.documentIds || null,
+        category: options?.category || null,
+        year: options?.year || null,
+        format: 'csv',
+      },
+      filename
+    );
   },
+
+  // ==========================================================================
+  // CSV 匯入方法
+  // ==========================================================================
+
+  /**
+   * 匯入 CSV 檔案
+   *
+   * @param file CSV 檔案
+   * @returns 匯入結果
+   */
+  async importCSV(file: File): Promise<{
+    success: boolean;
+    message: string;
+    total_rows: number;
+    success_count: number;
+    error_count: number;
+    errors: string[];
+    processing_time: number;
+  }> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(
+      `${import.meta.env.VITE_API_BASE_URL || ''}/api/csv-import/upload-and-import`,
+      {
+        method: 'POST',
+        body: formData,
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `匯入失敗: HTTP ${response.status}`);
+    }
+
+    return await response.json();
+  },
+
+  // ==========================================================================
+  // 檔案附件方法 - 委託給 filesApi（統一 API 呼叫）
+  // ==========================================================================
 
   /**
    * 取得文件附件列表
-   *
-   * @param documentId 公文 ID
-   * @returns 附件列表
+   * @deprecated 請直接使用 filesApi.getDocumentAttachments
    */
   async getDocumentAttachments(documentId: number): Promise<DocumentAttachment[]> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/files/document/${documentId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('取得附件失敗');
-      }
-
-      const data = await response.json();
-      return data.attachments || [];
-    } catch (error) {
-      console.error('取得附件列表失敗:', error);
-      return [];
-    }
+    const { filesApi } = await import('./filesApi');
+    return filesApi.getDocumentAttachments(documentId);
   },
 
   /**
    * 下載附件
-   *
-   * @param attachmentId 附件 ID
-   * @param filename 檔案名稱
+   * @deprecated 請直接使用 filesApi.downloadAttachment
    */
   async downloadAttachment(attachmentId: number, filename: string): Promise<void> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/files/${attachmentId}/download`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('下載失敗');
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (error) {
-      console.error('下載附件失敗:', error);
-      throw error;
-    }
+    const { filesApi } = await import('./filesApi');
+    return filesApi.downloadAttachment(attachmentId, filename);
   },
 
   /**
-   * 取得附件預覽 (POST-only 資安機制)
-   *
-   * 注意：由於採用 POST 方式，無法直接使用 URL 預覽
-   * 需透過 downloadAttachment 方法取得 Blob 後顯示
-   *
-   * @param attachmentId 附件 ID
-   * @returns 附件 Blob
+   * 取得附件 Blob（用於預覽）
+   * @deprecated 請直接使用 filesApi.getAttachmentBlob
    */
   async getAttachmentBlob(attachmentId: number): Promise<Blob> {
-    const response = await fetch(`${API_BASE_URL}/files/${attachmentId}/download`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-    if (!response.ok) {
-      throw new Error('取得附件失敗');
-    }
-    return await response.blob();
+    const { filesApi } = await import('./filesApi');
+    return filesApi.getAttachmentBlob(attachmentId);
   },
 
   /**
-   * 刪除附件 (POST-only 資安機制)
-   *
-   * @param attachmentId 附件 ID
-   * @returns 刪除結果
+   * 刪除附件
+   * @deprecated 請直接使用 filesApi.deleteAttachment
    */
   async deleteAttachment(attachmentId: number): Promise<{ success: boolean; message: string }> {
-    const response = await fetch(`${API_BASE_URL}/files/${attachmentId}/delete`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-    if (!response.ok) {
-      throw new Error('刪除附件失敗');
-    }
-    return await response.json();
+    const { filesApi } = await import('./filesApi');
+    return filesApi.deleteAttachment(attachmentId);
   },
 
   /**
-   * 驗證附件完整性 (POST-only 資安機制)
-   *
-   * @param attachmentId 附件 ID
-   * @returns 驗證結果
+   * 驗證附件完整性
+   * @deprecated 請直接使用 filesApi.verifyAttachment
    */
   async verifyAttachment(attachmentId: number): Promise<{
     success: boolean;
@@ -528,22 +466,13 @@ export const documentsApi = {
     is_valid?: boolean;
     message: string;
   }> {
-    const response = await fetch(`${API_BASE_URL}/files/verify/${attachmentId}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-    if (!response.ok) {
-      throw new Error('驗證附件失敗');
-    }
-    return await response.json();
+    const { filesApi } = await import('./filesApi');
+    return filesApi.verifyAttachment(attachmentId);
   },
 
   /**
    * 取得儲存系統資訊
-   *
-   * @returns 儲存資訊
+   * @deprecated 請直接使用 filesApi.getStorageInfo
    */
   async getStorageInfo(): Promise<{
     success: boolean;
@@ -554,16 +483,8 @@ export const documentsApi = {
     allowed_extensions: string[];
     max_file_size_mb: number;
   }> {
-    const response = await fetch(`${API_BASE_URL}/files/storage-info`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-    if (!response.ok) {
-      throw new Error('取得儲存資訊失敗');
-    }
-    return await response.json();
+    const { filesApi } = await import('./filesApi');
+    return filesApi.getStorageInfo();
   },
 };
 

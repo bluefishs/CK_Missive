@@ -15,6 +15,7 @@ export * from './client';
 // 核心業務
 export * from './documentsApi';
 export * from './projectsApi';
+export * from './filesApi';
 
 // 關聯管理
 export * from './projectStaffApi';

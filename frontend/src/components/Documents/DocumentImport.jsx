@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Upload, Button, Card, Alert, Progress, Typography, Space, Divider } from 'antd';
 import { InboxOutlined, FileExcelOutlined, CheckCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
-import { documentAPI } from '../services/documentAPI';
+import { documentsApi } from '../../api/documentsApi';
 
 const { Dragger } = Upload;
 const { Title, Text } = Typography;
@@ -38,7 +38,7 @@ const DocumentImport = ({ onImportSuccess }) => {
       }, 200);
 
       // 執行匯入
-      const result = await documentAPI.importCSV(file);
+      const result = await documentsApi.importCSV(file);
       
       clearInterval(progressInterval);
       setUploadProgress(100);

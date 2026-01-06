@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Statistic, Table, Tag, Button, Space, Typography, message, Spin } from 'antd';
+import { Row, Col, Card, Statistic, Table, Tag, Button, Space, Typography, Spin, App } from 'antd';
 import {
   FileTextOutlined,
   CheckCircleOutlined,
@@ -9,7 +9,7 @@ import {
   EyeOutlined,
   EditOutlined,
 } from '@ant-design/icons';
-import { httpClient } from '../services/httpClient'; // 直接使用 httpClient
+import { apiClient } from '../api/client';
 
 const { Title } = Typography;
 
@@ -34,6 +34,7 @@ interface RecentDocument {
 }
 
 export const DashboardPage: React.FC = () => {
+  const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<DashboardStats>({
     total: 0,
@@ -53,33 +54,33 @@ export const DashboardPage: React.FC = () => {
       // 使用現有的文件統計API
       console.log('=== 儀表板: 開始載入統計數據 ===');
       const [statsResponse, documentsResponse] = await Promise.all([
-        httpClient.get('/dashboard/stats').catch((error) => {
+        apiClient.post<{ stats: DashboardStats; recent_documents: RecentDocument[] }>('/dashboard/stats', {}).catch((error) => {
           console.error('統計 API 錯誤:', error);
-          return { data: { stats: { total: 0, approved: 0, pending: 0, rejected: 0 }, recent_documents: [] } };
+          return { stats: { total: 0, approved: 0, pending: 0, rejected: 0 }, recent_documents: [] };
         }),
-        httpClient.get('/documents-enhanced/integrated-search?limit=10').catch((error) => {
+        apiClient.post<{ items: RecentDocument[] }>('/documents-enhanced/list', { limit: 10 }).catch((error) => {
           console.error('文檔查詢 API 錯誤:', error);
-          return { data: { items: [] } };
+          return { items: [] };
         })
       ]);
-      console.log('=== 儀表板: 收到統計數據 ===', statsResponse.data);
+      console.log('=== 儀表板: 收到統計數據 ===', statsResponse);
 
-      // 處理統計數據
-      const statsData = statsResponse?.data || {};
+      // 處理統計數據 (apiClient 直接返回 data，不需要 .data)
+      const statsData = statsResponse || {};
       console.log('=== 統計數據類型檢查 ===', typeof statsData, statsData);
       // 適配後端返回的數據格式：{stats: {total, approved, pending, rejected}}
-      const stats = statsData.stats || statsData;
-      console.log('=== 統計數據內容 ===', stats);
+      const dashboardStats = (statsData as any).stats || statsData;
+      console.log('=== 統計數據內容 ===', dashboardStats);
       setStats({
-        total: stats?.total || statsData?.total_documents || 0,
-        approved: stats?.approved || statsData?.send_count || 0,
-        pending: stats?.pending || statsData?.current_year_count || 0,
-        rejected: stats?.rejected || statsData?.receive_count || 0
+        total: dashboardStats?.total || (statsData as any)?.total_documents || 0,
+        approved: dashboardStats?.approved || (statsData as any)?.send_count || 0,
+        pending: dashboardStats?.pending || (statsData as any)?.current_year_count || 0,
+        rejected: dashboardStats?.rejected || (statsData as any)?.receive_count || 0
       });
 
       // 處理近期公文數據
       // 適配後端返回的數據格式：{stats: {...}, recent_documents: [...]}
-      const documents = statsData.recent_documents || documentsResponse?.data?.items || documentsResponse?.data || [];
+      const documents = (statsData as any).recent_documents || (documentsResponse as any)?.items || [];
       console.log('=== 文檔數據 ===', documents);
       if (documents && Array.isArray(documents)) {
         const formattedDocs = documents.map((doc: any, index: number) => ({

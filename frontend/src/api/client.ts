@@ -304,7 +304,7 @@ class ApiClient {
   }
 
   /**
-   * 上傳檔案
+   * 上傳檔案（單檔）
    */
   async upload<T>(
     url: string,
@@ -326,6 +326,54 @@ class ApiClient {
         'Content-Type': 'multipart/form-data',
       },
     });
+    return response.data;
+  }
+
+  /**
+   * 上傳檔案（含進度追蹤）
+   *
+   * @param url API 路徑
+   * @param files 檔案列表
+   * @param fieldName 表單欄位名稱
+   * @param onProgress 進度回調 (percent: 0-100, loaded: bytes, total: bytes)
+   * @param additionalData 額外表單資料
+   * @returns Promise<T>
+   */
+  async uploadWithProgress<T>(
+    url: string,
+    files: File | File[],
+    fieldName = 'files',
+    onProgress?: (percent: number, loaded: number, total: number) => void,
+    additionalData?: Record<string, string>
+  ): Promise<T> {
+    const formData = new FormData();
+
+    // 支援單檔或多檔
+    const fileArray = Array.isArray(files) ? files : [files];
+    fileArray.forEach((file) => {
+      formData.append(fieldName, file);
+    });
+
+    if (additionalData) {
+      Object.entries(additionalData).forEach(([key, value]) => {
+        formData.append(key, value);
+      });
+    }
+
+    const response = await this.axios.post<T>(url, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress: (progressEvent) => {
+        if (progressEvent.total && onProgress) {
+          const percent = Math.round(
+            (progressEvent.loaded / progressEvent.total) * 100
+          );
+          onProgress(percent, progressEvent.loaded, progressEvent.total);
+        }
+      },
+    });
+
     return response.data;
   }
 

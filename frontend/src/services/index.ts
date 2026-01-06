@@ -1,17 +1,26 @@
 /**
  * 服務統一導出
- * 
- * @version 2.0
- * @author Claude Desktop
- * @date 2024-09-04
+ *
+ * @version 3.0
+ * @date 2026-01-06
+ *
+ * 架構說明：
+ * - API 服務已遷移至 src/api/ 目錄
+ * - 請使用 import { documentsApi, apiClient } from '../api'
+ * - 此目錄僅保留非 API 類型的服務
  */
 
-export { apiConfig, API_ENDPOINTS } from './apiConfig';
-export type { ApiEnvironment } from './apiConfig';
+// 認證相關服務
+export * from './authService';
 
-export { httpClient, HttpError } from './httpClient';
+// 快取服務
+export * from './cacheService';
 
-export * from './documentService';
+// 導覽服務
+export * from './navigationService';
+
+// 安全 API 服務（CSRF 保護）
+export { secureApiService } from './secureApiService';
 
 // Ensure this file is treated as a module
 export {};

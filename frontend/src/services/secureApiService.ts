@@ -1,45 +1,50 @@
 /**
  * 安全 API 服務
+ *
  * 提供統一的 POST 方法 API 調用，包含 CSRF 保護
+ * 重構版本：使用統一的 apiClient
+ *
+ * @version 2.0
+ * @date 2026-01-06
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001';
-const API_PREFIX = '/api';
+import { apiClient, API_BASE_URL } from '../api/client';
+
+// ============================================================================
+// 型別定義
+// ============================================================================
 
 interface SecureRequest {
   action: string;
   csrf_token: string;
-  data?: any;
+  data?: unknown;
 }
 
-interface SecureResponse<T = any> {
+interface SecureResponse<T = unknown> {
   success: boolean;
   message: string;
   data?: T;
   csrf_token?: string;
 }
 
+// ============================================================================
+// SecureApiService 類
+// ============================================================================
+
 class SecureApiService {
   private csrfToken: string | null = null;
+  private readonly authDisabled = import.meta.env.VITE_AUTH_DISABLED === 'true';
 
   /**
    * 獲取 CSRF 令牌
    */
   async getCsrfToken(): Promise<string> {
     try {
-      const response = await fetch(`${API_BASE_URL}${API_PREFIX}/secure-site-management/csrf-token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const result = await apiClient.post<SecureResponse>(
+        '/secure-site-management/csrf-token',
+        {}
+      );
 
-      if (!response.ok) {
-        throw new Error('Failed to get CSRF token');
-      }
-
-      const result: SecureResponse = await response.json();
-      
       if (result.success && result.csrf_token) {
         this.csrfToken = result.csrf_token;
         return result.csrf_token;
@@ -63,51 +68,46 @@ class SecureApiService {
   }
 
   /**
-   * 發送安全請求
+   * 發送安全請求（含 CSRF 保護）
    */
-  private async secureRequest<T = any>(
+  private async secureRequest<T = unknown>(
     endpoint: string,
     action: string,
-    data?: any,
-    retryOnCsrfError: boolean = true
+    data?: unknown,
+    retryOnCsrfError = true
   ): Promise<T> {
-    // 在開發模式下跳過 CSRF 檢查，但仍然調用實際 API
-    const authDisabled = import.meta.env.VITE_AUTH_DISABLED === 'true';
-    if (authDisabled) {
+    // 確保 endpoint 是相對路徑（apiClient 會自動加上 base URL）
+    const relativeEndpoint = endpoint.startsWith(API_BASE_URL)
+      ? endpoint.replace(API_BASE_URL, '')
+      : endpoint.startsWith('/api')
+      ? endpoint.replace('/api', '')
+      : endpoint;
+
+    // 在開發模式下跳過 CSRF 檢查
+    if (this.authDisabled) {
       console.log(`🔒 Auth disabled - skipping CSRF for secure request: ${action}`);
-      // 跳過 CSRF 檢查，直接調用 API
+      const requestBody: SecureRequest = {
+        action,
+        csrf_token: 'dev-mode-skip',
+        data: data || {},
+      };
+
       try {
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            action,
-            data: data || {},
-            csrf_token: 'dev-mode-skip', // 開發模式用的假 token
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result: SecureResponse<T> = await response.json();
+        const result = await apiClient.post<SecureResponse<T>>(relativeEndpoint, requestBody);
 
         if (!result.success) {
           throw new Error(result.message || 'Request failed');
         }
 
-        return result.data;
+        return result.data as T;
       } catch (error) {
         console.error('Secure request error:', error);
         throw error;
       }
     }
 
+    // 正式模式：使用 CSRF 令牌
     const csrfToken = await this.ensureCsrfToken();
-
     const requestBody: SecureRequest = {
       action,
       csrf_token: csrfToken,
@@ -115,24 +115,7 @@ class SecureApiService {
     };
 
     try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!response.ok) {
-        if (response.status === 403 && retryOnCsrfError) {
-          // CSRF 令牌可能過期，重新獲取並重試
-          await this.getCsrfToken();
-          return this.secureRequest(endpoint, action, data, false);
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result: SecureResponse<T> = await response.json();
+      const result = await apiClient.post<SecureResponse<T>>(relativeEndpoint, requestBody);
 
       // 更新 CSRF 令牌
       if (result.csrf_token) {
@@ -143,55 +126,74 @@ class SecureApiService {
         throw new Error(result.message || 'Request failed');
       }
 
-      return result.data;
-    } catch (error) {
+      return result.data as T;
+    } catch (error: unknown) {
+      // CSRF 令牌過期，重新獲取並重試
+      if (retryOnCsrfError && error && typeof error === 'object' && 'statusCode' in error) {
+        const apiError = error as { statusCode: number };
+        if (apiError.statusCode === 403) {
+          await this.getCsrfToken();
+          return this.secureRequest(endpoint, action, data, false);
+        }
+      }
       console.error('Secure request error:', error);
       throw error;
     }
   }
 
+  // ==========================================================================
   // 導覽列管理 API
-  async getNavigationItems(): Promise<any> {
-    return this.secureRequest(`${API_BASE_URL}${API_PREFIX}/secure-site-management/navigation/action`, 'list');
+  // ==========================================================================
+
+  async getNavigationItems(): Promise<unknown> {
+    return this.secureRequest('/secure-site-management/navigation/action', 'list');
   }
 
-  async createNavigationItem(data: any): Promise<any> {
-    return this.secureRequest(`${API_BASE_URL}${API_PREFIX}/secure-site-management/navigation/action`, 'create', data);
+  async createNavigationItem(data: unknown): Promise<unknown> {
+    return this.secureRequest('/secure-site-management/navigation/action', 'create', data);
   }
 
-  async updateNavigationItem(data: any): Promise<any> {
-    return this.secureRequest(`${API_BASE_URL}${API_PREFIX}/secure-site-management/navigation/action`, 'update', data);
+  async updateNavigationItem(data: unknown): Promise<unknown> {
+    return this.secureRequest('/secure-site-management/navigation/action', 'update', data);
   }
 
-  async deleteNavigationItem(id: number): Promise<any> {
-    return this.secureRequest(`${API_BASE_URL}${API_PREFIX}/secure-site-management/navigation/action`, 'delete', { id });
+  async deleteNavigationItem(id: number): Promise<unknown> {
+    return this.secureRequest('/secure-site-management/navigation/action', 'delete', { id });
   }
 
+  // ==========================================================================
   // 配置管理 API
-  async getConfigurations(filters?: { search?: string; category?: string }): Promise<any> {
-    return this.secureRequest(`${API_BASE_URL}${API_PREFIX}/secure-site-management/config/action`, 'list', filters);
+  // ==========================================================================
+
+  async getConfigurations(filters?: { search?: string; category?: string }): Promise<unknown> {
+    return this.secureRequest('/secure-site-management/config/action', 'list', filters);
   }
 
-  async createConfiguration(data: any): Promise<any> {
-    return this.secureRequest(`${API_BASE_URL}${API_PREFIX}/secure-site-management/config/action`, 'create', data);
+  async createConfiguration(data: unknown): Promise<unknown> {
+    return this.secureRequest('/secure-site-management/config/action', 'create', data);
   }
 
-  async updateConfiguration(data: any): Promise<any> {
-    return this.secureRequest(`${API_BASE_URL}${API_PREFIX}/secure-site-management/config/action`, 'update', data);
+  async updateConfiguration(data: unknown): Promise<unknown> {
+    return this.secureRequest('/secure-site-management/config/action', 'update', data);
   }
 
-  async deleteConfiguration(configKey: string): Promise<any> {
-    return this.secureRequest(`${API_BASE_URL}${API_PREFIX}/secure-site-management/config/action`, 'delete', { config_key: configKey });
+  async deleteConfiguration(configKey: string): Promise<unknown> {
+    return this.secureRequest('/secure-site-management/config/action', 'delete', { config_key: configKey });
   }
+
+  // ==========================================================================
+  // 通用方法
+  // ==========================================================================
 
   /**
    * 通用 POST 方法 - 用於通知系統等其他 API 調用
-   * 自動處理相對路徑，添加 API_BASE_URL
+   *
+   * @param endpoint API 端點（相對路徑）
+   * @param action 操作動作
+   * @param data 請求資料
    */
-  async post<T = any>(endpoint: string, action: string, data?: any): Promise<T> {
-    // 如果 endpoint 是相對路徑，添加 API_BASE_URL
-    const fullEndpoint = endpoint.startsWith('/') ? `${API_BASE_URL}${endpoint}` : endpoint;
-    return this.secureRequest<T>(fullEndpoint, action, data);
+  async post<T = unknown>(endpoint: string, action: string, data?: unknown): Promise<T> {
+    return this.secureRequest<T>(endpoint, action, data);
   }
 }
 

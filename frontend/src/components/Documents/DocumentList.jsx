@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Card, Tabs, Tag, Button, Space, message, Popconfirm, Tooltip } from 'antd';
 import { EditOutlined, DeleteOutlined, EyeOutlined, ReloadOutlined } from '@ant-design/icons';
-import { documentAPI } from '../services/documentAPI';
+import { documentsApi } from '../../api/documentsApi';
 import dayjs from 'dayjs';
 
 const { TabPane } = Tabs;
@@ -31,13 +31,17 @@ const DocumentList = ({ refreshTrigger, onEdit, onView }) => {
         params.category = category;
       }
 
-      const result = await documentAPI.getDocuments(params);
-      
-      setDocuments(result.documents);
+      const result = await documentsApi.getDocuments({
+        ...params,
+        page,
+        limit: pageSize,
+      });
+
+      setDocuments(result.items || []);
       setPagination({
-        current: page,
-        pageSize: pageSize,
-        total: result.total,
+        current: result.pagination?.page || page,
+        pageSize: result.pagination?.limit || pageSize,
+        total: result.pagination?.total || 0,
       });
     } catch (error) {
       console.error('載入文件列表失敗:', error);
@@ -55,7 +59,7 @@ const DocumentList = ({ refreshTrigger, onEdit, onView }) => {
   // 刪除文件
   const handleDelete = async (id) => {
     try {
-      await documentAPI.deleteDocument(id);
+      await documentsApi.deleteDocument(id);
       message.success('刪除成功');
       loadDocuments(pagination.current, pagination.pageSize, activeTab);
     } catch (error) {
