@@ -41,9 +41,35 @@ cargo run
 ```
 
 ## Key Learnings
-- Update this section when you learn new build optimizations
-- Document any gotchas or special setup requirements
-- Keep track of the fastest test/build cycle
+
+### 型別一致性 (Type Consistency)
+- **單一真實來源**: Database → Backend Model → Schema → Frontend Types
+- 新增欄位時必須同步更新: `models.py` → `schemas/*.py` → `*Api.ts` → `types/index.ts`
+- 前端 API Interface 應與後端 Response Schema 完全對應
+- 詳見: `@TYPE_CONSISTENCY_SKILL_SPEC.md`
+
+### 前後端整合
+- POST-only API 設計避免敏感資料暴露於 URL
+- API 端點回傳關聯資料 (如 `contract_project_name`) 需在後端明確填充
+- 前端接收資料時使用預設值防禦 undefined: `doc.field || 'default'`
+
+### UI 風格規範
+- 表格欄位參考 `/documents` 頁面的 `DocumentList.tsx`
+- 發文形式 Tag 顏色: 電子交換=green, 紙本郵寄=orange, 電子+紙本=blue
+- 收發單位前綴: 收文="來文："(綠色), 發文="發至："(藍色)
+
+### 常見錯誤避免
+- 變數在 try 區塊外宣告避免 ReferenceError
+- HTTP Method 前後端必須一致 (均使用 POST)
+- TypeScript Interface 缺欄位會導致編譯警告
+
+### SKILL 規範文件
+| 文件 | 用途 |
+|------|------|
+| `@TYPE_CONSISTENCY_SKILL_SPEC.md` | 型別一致性與 UI 風格規範 |
+| `@SCHEMA_VALIDATION_SKILL_SPEC.md` | Model-Database 一致性驗證 |
+| `@CSV_IMPORT_SKILL_SPEC.md` | CSV 匯入模組開發規範 |
+| `@PROJECT_CODE_SPEC.md` | 專案編號產生規則 |
 
 ## Feature Development Quality Standards
 
