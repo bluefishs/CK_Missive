@@ -271,6 +271,21 @@ export interface EnvironmentConfig {
 /** @deprecated 使用 OfficialDocument */
 export type { OfficialDocument as Document } from './api';
 
+// 型別別名 (為向後相容保留)
+export type { DocType as DocumentType } from './api';
+export type { DocStatus as DocumentStatus } from './api';
+export type { DocumentFilter } from './api';
+export type { DocumentAttachment } from './api';
+
+/** 公文優先等級 */
+export type DocumentPriority = 'normal' | 'urgent' | 'critical';
+
+/** 建立公文請求 - 別名 */
+export type { DocumentCreate as CreateDocumentRequest } from './api';
+
+/** 更新公文請求 - 別名 */
+export type { DocumentUpdate as UpdateDocumentRequest } from './api';
+
 /** @deprecated 使用 DocumentAttachment from api.ts */
 export interface LegacyDocumentAttachment {
   readonly id: number;

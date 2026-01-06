@@ -472,7 +472,7 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
                       <small style={{ color: '#666' }}>({vendor.vendor_code})</small>
                     )}
                     {vendor.business_type && (
-                      <Tag size="small">{vendor.business_type}</Tag>
+                      <Tag style={{ fontSize: '10px' }}>{vendor.business_type}</Tag>
                     )}
                   </Space>
                 </Option>

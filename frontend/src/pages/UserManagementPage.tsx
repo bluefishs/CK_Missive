@@ -15,7 +15,7 @@ import {
   DeleteOutlined, StopOutlined, CheckOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
-import authService from '../services/authService';
+import authService, { type UserInfo } from '../services/authService';
 import { logger } from '../utils/logger';
 import {
   getRoleDisplayName,
@@ -57,7 +57,7 @@ const UserManagementPage: React.FC = () => {
   // 使用者列表狀態
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
-  const [currentLoggedInUser, setCurrentLoggedInUser] = useState<User | null>(null);
+  const [currentLoggedInUser, setCurrentLoggedInUser] = useState<UserInfo | null>(null);
 
   // 篩選狀態
   const [searchText, setSearchText] = useState('');
@@ -176,9 +176,9 @@ const UserManagementPage: React.FC = () => {
   );
 
   const handleTableChange: TableProps<User>['onChange'] = useCallback((
-    paginationInfo,
-    _filters,
-    _sorter
+    paginationInfo: any,
+    _filters: any,
+    _sorter: any
   ) => {
     // 處理分頁變更
     if (paginationInfo) {

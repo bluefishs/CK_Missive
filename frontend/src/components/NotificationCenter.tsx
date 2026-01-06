@@ -110,9 +110,9 @@ const NotificationCenter: React.FC = () => {
             notification_id: notificationId
           }
         }
-      );
+      ) as { success?: boolean };
 
-      if (response.success) {
+      if (response?.success) {
         // 更新本地狀態
         setNotifications(prev =>
           prev.map(notification =>
@@ -303,7 +303,7 @@ const NotificationCenter: React.FC = () => {
                               {formatTime(notification.created_at)}
                             </Text>
                             {notification.related_object_type && (
-                              <Tag size="small" color="geekblue">
+                              <Tag color="geekblue" style={{ fontSize: '10px' }}>
                                 {notification.related_object_type === 'document' && '公文'}
                                 {notification.related_object_type === 'project' && '專案'}
                                 {notification.related_object_type === 'event' && '事件'}

@@ -100,7 +100,7 @@ export const AgenciesPage: React.FC = () => {
     dataIndex: DataIndex,
   ) => {
     confirm();
-    setColumnSearchText(selectedKeys[0]);
+    setColumnSearchText(selectedKeys[0] ?? '');
     setSearchedColumn(dataIndex);
   };
 

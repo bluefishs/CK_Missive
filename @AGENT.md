@@ -48,6 +48,35 @@ cargo run
 - 前端 API Interface 應與後端 Response Schema 完全對應
 - 詳見: `@TYPE_CONSISTENCY_SKILL_SPEC.md`
 
+### TypeScript 嚴格模式最佳實踐 (2026-01-06 更新)
+- **介面繼承**: 跨檔案共用介面時，使用 `extends` 擴展基礎介面，避免重複定義
+  ```typescript
+  // ✅ 正確：擴展基礎介面
+  import { NavigationItem as BaseNavItem } from '../hooks/usePermissions';
+  interface NavigationItem extends BaseNavItem { additionalField?: string; }
+
+  // ❌ 避免：重複定義相同名稱介面
+  interface NavigationItem { /* 重複欄位... */ }
+  ```
+- **泛型元件**: Ant Design 泛型元件使用時明確指定型別
+  ```typescript
+  // ✅ InputNumber 指定數值型別
+  <InputNumber<number> formatter={...} parser={(v) => Number(v!.replace(...))} />
+  ```
+- **RangePicker 日期範圍**: 處理可能為 null 的日期值
+  ```typescript
+  onChange={(dates) => setFilters({
+    dateRange: dates && dates[0] && dates[1] ? [dates[0], dates[1]] : null
+  })}
+  ```
+- **陣列索引**: TypeScript 陣列索引可能回傳 undefined
+  ```typescript
+  // ✅ 使用 nullish coalescing
+  const value = array.split(':')[0] ?? '';
+  const item = exportData[0]!; // 非空斷言在確認非空後使用
+  ```
+- **ID 型別**: 開發模式的 mock user 使用 `id: 0` (number)，非 `'dev-user'` (string)
+
 ### 前後端整合
 - POST-only API 設計避免敏感資料暴露於 URL
 - API 端點回傳關聯資料 (如 `contract_project_name`) 需在後端明確填充

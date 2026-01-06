@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Spin, Button, Space, Typography, Descriptions, Tag, App, Empty, Divider, List, Row, Col } from 'antd';
+import { Card, Spin, Button, Space, Typography, Descriptions, Tag, App, Empty, List, Row, Col } from 'antd';
 import {
   ArrowLeftOutlined,
   EditOutlined,
@@ -160,7 +160,14 @@ export const DocumentDetailPage: React.FC = () => {
         const updated = await documentsApi.getDocument(document.id);
         setDocument(updated);
       } else if (operationModal.type === 'copy') {
-        const newDoc = await documentsApi.createDocument(docData);
+        // 複製時需要確保必填欄位存在
+        const createData = {
+          doc_number: docData.doc_number || '',
+          doc_type: docData.doc_type || '',
+          subject: docData.subject || '',
+          ...docData
+        };
+        const newDoc = await documentsApi.createDocument(createData);
         message.success('公文複製成功');
         return newDoc;
       }
@@ -215,9 +222,9 @@ export const DocumentDetailPage: React.FC = () => {
               <div style={{ marginTop: 8 }}>
                 <Tag color="blue">{document.doc_type || '函'}</Tag>
                 <Tag color={getStatusColor(document.status)}>{document.status || '未設定'}</Tag>
-                {document.priority && (
-                  <Tag color={document.priority <= 2 ? 'red' : 'default'}>
-                    優先級 {document.priority}
+                {document.priority_level && (
+                  <Tag color={document.priority_level === '急件' || document.priority_level === 'urgent' ? 'red' : 'default'}>
+                    {document.priority_level}
                   </Tag>
                 )}
               </div>

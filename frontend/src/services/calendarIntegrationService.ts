@@ -150,9 +150,12 @@ class CalendarIntegrationService {
    * 根據公文屬性確定優先級
    */
   private determinePriority(document: Document): number {
-    // 如果公文有設定優先級，使用公文的優先級
-    if (document.priority && document.priority >= 1 && document.priority <= 5) {
-      return document.priority;
+    // 如果公文有設定優先級，轉換字串為數字
+    if (document.priority_level) {
+      const priorityNum = parseInt(document.priority_level, 10);
+      if (priorityNum >= 1 && priorityNum <= 5) {
+        return priorityNum;
+      }
     }
 
     // 根據公文類型判斷優先級

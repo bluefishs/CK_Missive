@@ -64,7 +64,7 @@ class NavigationService {
       console.log('📡 API Response:', response.data);
       const items = response.data.items || [];
       console.log('📋 Raw items received:', items.length);
-      console.log('🔎 Sample items:', items.slice(0, 3).map(item => ({
+      console.log('🔎 Sample items:', items.slice(0, 3).map((item: any) => ({
         id: item.id,
         title: item.title,
         parent_id: item.parent_id,
@@ -73,7 +73,7 @@ class NavigationService {
 
       // API 已經返回樹狀結構，直接使用
       console.log('🌲 Using API tree structure directly');
-      console.log('🔍 Tree structure:', items.map(item => ({
+      console.log('🔍 Tree structure:', items.map((item: any) => ({
         title: item.title,
         children: item.children?.length || 0
       })));
@@ -213,8 +213,18 @@ class NavigationService {
     const rootItems: NavigationItem[] = [];
 
     items.forEach((item, index) => {
-      const navItem = {
-        ...navigationItems[index],
+      const baseItem = navigationItems[index];
+      if (!baseItem) return;
+      const navItem: NavigationItem & { id: number; parent_id?: number } = {
+        key: baseItem.key || String(item.id),
+        title: baseItem.title || '',
+        path: baseItem.path || '',
+        icon: baseItem.icon,
+        permission_required: baseItem.permission_required,
+        is_visible: baseItem.is_visible,
+        is_enabled: baseItem.is_enabled,
+        sort_order: baseItem.sort_order,
+        children: baseItem.children,
         id: item.id,
         parent_id: item.parent_id
       };

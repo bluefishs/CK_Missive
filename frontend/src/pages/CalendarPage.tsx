@@ -506,10 +506,17 @@ const CalendarPage: React.FC = () => {
           {useEnhancedView ? (
             <EnhancedCalendarView
               events={calendarEvents.map(event => ({
-                ...event,
-                event_type: (event.event_type || 'reminder') as any,
+                id: event.id,
+                title: event.title,
+                description: event.description,
+                start_date: event.start_datetime,
+                end_date: event.end_datetime,
+                event_type: (event.event_type || 'reminder') as 'deadline' | 'meeting' | 'review' | 'reminder' | 'reference',
                 priority: typeof event.priority === 'number' ? event.priority : 3,
-                status: 'pending' as any,
+                status: 'pending' as const,
+                document_id: event.document_id,
+                google_event_id: event.google_event_id,
+                google_sync_status: event.google_sync_status,
                 reminder_enabled: true,
                 reminders: []
               }))}

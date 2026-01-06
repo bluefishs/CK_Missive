@@ -1,7 +1,8 @@
 # 型別一致性與整合開發規範 (Type Consistency & Integration SKILL)
 
-> 版本：1.0.0
+> 版本：1.1.0
 > 建立日期：2026-01-06
+> 最後更新：2026-01-06
 > 用途：確保前後端欄位對應、UI 風格一致、降低整合錯誤
 
 ---
@@ -265,6 +266,133 @@ for doc in documents:
 | `ReferenceError: xxx is not defined` | 變數作用域問題 | 在 try 外部宣告變數 |
 | `null/undefined in render` | 資料未載入完成 | 加入 loading 狀態檢查 |
 
+### 4.5 TypeScript 嚴格模式最佳實踐 (2026-01-06)
+
+#### 4.5.1 介面繼承與擴展
+
+跨檔案共用介面時，使用 `extends` 擴展基礎介面，避免重複定義：
+
+```typescript
+// ✅ 正確：擴展基礎介面
+import { NavigationItem as BaseNavItem } from '../hooks/usePermissions';
+interface NavigationItem extends BaseNavItem {
+    additionalField?: string;
+}
+
+// ❌ 避免：重複定義相同名稱介面
+interface NavigationItem { /* 重複欄位... */ }
+```
+
+#### 4.5.2 泛型元件類型
+
+Ant Design 泛型元件使用時需明確指定型別：
+
+```typescript
+// ✅ InputNumber 指定數值型別
+<InputNumber<number>
+    formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+    parser={(value) => Number(value!.replace(/\$\s?|(,*)/g, ''))}
+/>
+
+// ⚠️ 注意：parser 需返回 number，使用 Number() 轉換
+```
+
+#### 4.5.3 RangePicker 日期範圍處理
+
+RangePicker 的 onChange 回傳值可能包含 null，需妥善處理：
+
+```typescript
+// ✅ 正確處理可能為 null 的日期值
+<RangePicker
+    onChange={(dates) => setFilters({
+        dateRange: dates && dates[0] && dates[1]
+            ? [dates[0], dates[1]]
+            : null
+    })}
+/>
+
+// ❌ 錯誤：直接賦值可能導致型別不符
+onChange={(dates) => setFilters({ dateRange: dates })}
+```
+
+#### 4.5.4 陣列索引安全存取
+
+TypeScript strict 模式下，陣列索引可能回傳 undefined：
+
+```typescript
+// ✅ 使用 nullish coalescing
+const value = array.split(':')[0] ?? '';
+
+// ✅ 確認非空後使用非空斷言
+if (exportData.length > 0) {
+    const firstItem = exportData[0]!;  // 已確認非空
+}
+
+// ❌ 避免：直接存取可能導致 undefined
+const item = array[0];  // 型別為 T | undefined
+```
+
+#### 4.5.5 狀態初始化輔助函數
+
+複雜狀態初始化使用輔助函數確保型別安全：
+
+```typescript
+// ✅ 正確：使用輔助函數處理可能的 undefined
+const getInitialConfig = (): SequenceConfig => {
+    if (config) return config;
+    if (category && DEFAULT_CONFIGS[category]) return DEFAULT_CONFIGS[category]!;
+    return DEFAULT_CONFIGS.document!;
+};
+const [currentConfig, setCurrentConfig] = useState<SequenceConfig>(getInitialConfig);
+
+// ❌ 錯誤：直接使用可能為 undefined 的值
+const [config] = useState(DEFAULT_CONFIGS[category]);  // 可能是 undefined
+```
+
+#### 4.5.6 API 回應型別斷言
+
+處理未知 API 回應時使用型別斷言：
+
+```typescript
+// ✅ 正確：明確斷言回傳型別
+const data = await secureApiService.getNavigationItems() as { items?: NavigationItem[] };
+const items = data.items ?? [];
+
+// ⚠️ 注意：型別斷言應在確認 API 契約正確時使用
+```
+
+#### 4.5.7 ID 型別一致性
+
+開發模式的 mock user 應使用正確型別：
+
+```typescript
+// ✅ 正確：ID 使用 number 型別
+const mockUser = { id: 0, username: 'dev-user', ... };
+
+// ❌ 錯誤：字串與數字型別混用
+const mockUser = { id: 'dev-user', ... };  // 與後端不一致
+```
+
+#### 4.5.8 可選屬性與必填屬性轉換
+
+當介面間屬性必填性不同時，需提供預設值：
+
+```typescript
+// 介面 A: all_day 為可選
+interface CalendarEvent { all_day?: boolean; }
+
+// 介面 B: all_day 為必填
+interface EventFormProps { event: { all_day: boolean } }
+
+// ✅ 正確：傳遞時提供預設值
+<EventFormModal
+    event={selectedEvent
+        ? { ...selectedEvent, all_day: selectedEvent.all_day ?? true }
+        : null
+    }
+/>
+```
+
 ---
 
 ## 五、整合開發最佳實踐
@@ -357,6 +485,7 @@ curl -X POST http://localhost:8001/api/documents-enhanced/list \
 
 | 版本 | 日期 | 變更內容 |
 |------|------|----------|
+| 1.1.0 | 2026-01-06 | 新增 TypeScript 嚴格模式最佳實踐 (4.5 節) - 涵蓋介面繼承、泛型元件、日期處理、陣列索引、狀態初始化等 8 個子章節 |
 | 1.0.0 | 2026-01-06 | 初版 - 整合型別一致性與 UI 風格規範 |
 
 ---

@@ -134,7 +134,9 @@ export const formatPermissionLabel = (permission: string | undefined): { label: 
   }
 
   if (permission.includes(':')) {
-    const [module, action] = permission.split(':');
+    const parts = permission.split(':');
+    const module = parts[0] ?? '';
+    const action = parts[1] ?? '';
     const moduleName = MODULE_NAMES[module] || module;
     const actionName = ACTION_NAMES[action] || action;
     return { label: `${moduleName}：${actionName}`, color: 'cyan' };

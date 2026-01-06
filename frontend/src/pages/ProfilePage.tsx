@@ -31,10 +31,10 @@ const { Title, Text } = Typography;
 interface UserProfile {
   id: number;
   email: string;
-  username: string;
-  full_name: string;
+  username?: string;
+  full_name?: string;
   avatar_url?: string;
-  auth_provider: 'email' | 'google';
+  auth_provider?: string;
   role: string;
   is_admin: boolean;
   is_active: boolean;
@@ -42,6 +42,7 @@ interface UserProfile {
   last_login?: string;
   login_count: number;
   email_verified: boolean;
+  permissions?: string | string[];
 }
 
 interface PasswordChangeForm {

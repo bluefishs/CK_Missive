@@ -47,7 +47,7 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ROUTES } from '../router/types';
 import authService, { UserInfo } from '../services/authService';
-import { usePermissions } from '../hooks/usePermissions';
+import { usePermissions, NavigationItem as PermissionNavigationItem } from '../hooks/usePermissions';
 import { navigationService } from '../services/navigationService';
 import NotificationCenter from './NotificationCenter';
 
@@ -58,21 +58,13 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
-interface NavigationItem {
-  id: number;
-  title: string;
-  key: string;
-  path?: string;
-  icon?: string;
+// 擴展導覽項目介面，包含 API 回傳的額外欄位
+interface NavigationItem extends PermissionNavigationItem {
+  id?: number;
   parent_id?: number;
-  sort_order: number;
-  is_visible: boolean;
-  is_enabled: boolean;
-  level: number;
+  level?: number;
   description?: string;
-  target: string;
-  permission_required?: string;
-  children?: NavigationItem[];
+  target?: string;
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
@@ -114,14 +106,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     // 如果沒有使用者資訊或認證已停用，在開發模式下使用預設資訊
     if (!userInfo || authDisabled) {
       userInfo = {
-        id: 'dev-user',
+        id: 0,  // 開發用預設 ID
         username: 'developer',
         full_name: '開發者',
         email: 'dev@ck-missive.local',
         role: 'superuser',
         is_admin: true,
         is_active: true,
-        permissions: '[]'
+        permissions: '[]',
+        created_at: new Date().toISOString(),
+        login_count: 0,
+        email_verified: true
       };
       console.log('Using default developer user info (superuser) for layout');
     }
@@ -175,15 +170,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     
     // 功能模組權限檢查
     if (permission.includes(':')) {
-      const [module, action] = permission.split(':');
-      
+      const parts = permission.split(':');
+      const module = parts[0] ?? '';
+      const action = parts[1] ?? '';
+
       // 基本功能模組（一般使用者可存取讀取權限）
       const basicModules = ['documents', 'projects', 'agencies', 'vendors', 'calendar', 'reports'];
-      
+
       if (basicModules.includes(module)) {
         // 管理員有完整權限
         if (currentUser.is_admin || currentUser.role === 'admin') return true;
-        
+
         // 一般使用者只能讀取
         const readActions = ['read', 'view'];
         return readActions.includes(action);
@@ -358,7 +355,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       return menuItem;
     };
 
-    return items.map(convertItem);
+    return items.map((item) => convertItem(item));
   };
 
   // 靜態導覽列按照新需求結構重新設計

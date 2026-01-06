@@ -99,8 +99,9 @@ export const DashboardPage: React.FC = () => {
 
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
-      console.error('Error details:', error.message, error.response);
-      message.error(`載入儀表板資料失敗: ${error.message || '未知錯誤'}`);
+      const err = error as Error & { response?: unknown };
+      console.error('Error details:', err.message, err.response);
+      message.error(`載入儀表板資料失敗: ${err.message || '未知錯誤'}`);
       // 重置狀態
       setStats({ total: 0, approved: 0, pending: 0, rejected: 0 });
       setRecentDocuments([]);

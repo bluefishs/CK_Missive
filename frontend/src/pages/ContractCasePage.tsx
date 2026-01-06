@@ -89,6 +89,8 @@ const getCategoryTagText = (category?: string) => {
 };
 
 // ---[類型定義]---
+import type { ProjectStatus } from '../types/api';
+
 interface Project {
   id: number;
   project_name: string;
@@ -96,7 +98,7 @@ interface Project {
   year?: number;
   category?: string;
   case_nature?: string;
-  status?: string;
+  status?: ProjectStatus;
   client_agency?: string;
   contract_amount?: number;
   start_date?: string;
@@ -112,7 +114,7 @@ interface ProjectFormData {
   year?: number;
   category?: string;
   case_nature?: string;
-  status?: string;
+  status?: ProjectStatus;
   client_agency?: string;
   contract_amount?: number;
   start_date?: any; // 使用 any 以便處理 dayjs 物件
@@ -202,7 +204,7 @@ export const ContractCasePage: React.FC = () => {
     dataIndex: DataIndex,
   ) => {
     confirm();
-    setColumnSearchText(selectedKeys[0]);
+    setColumnSearchText(selectedKeys[0] ?? '');
     setSearchedColumn(dataIndex);
   };
 
@@ -673,7 +675,7 @@ export const ContractCasePage: React.FC = () => {
           </Row>
           <Form.Item name="client_agency" label="委託單位"><Input placeholder="請輸入委託單位" readOnly={modalMode === 'view'} /></Form.Item>
           <Form.Item name="contract_amount" label="合約金額">
-            <InputNumber placeholder="請輸入合約金額" min={0} style={{ width: '100%' }} formatter={v => `$ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} parser={v => v!.replace(/\$\s?|(,*)/g, '')} readOnly={modalMode === 'view'} />
+            <InputNumber<number> placeholder="請輸入合約金額" min={0} style={{ width: '100%' }} formatter={(v) => `$ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} parser={(v) => Number(v!.replace(/\$\s?|(,*)/g, ''))} readOnly={modalMode === 'view'} />
           </Form.Item>
           <Row gutter={16}>
             <Col span={12}>

@@ -92,9 +92,12 @@ const SequenceNumberGenerator: React.FC<SequenceNumberGeneratorProps> = ({
   const { message } = App.useApp();
   const [currentNumber, setCurrentNumber] = useState<string>(value || '');
   const [configModalVisible, setConfigModalVisible] = useState(false);
-  const [currentConfig, setCurrentConfig] = useState<SequenceConfig>(
-    config || DEFAULT_CONFIGS[category] || DEFAULT_CONFIGS.document
-  );
+  const getInitialConfig = (): SequenceConfig => {
+    if (config) return config;
+    if (category && DEFAULT_CONFIGS[category]) return DEFAULT_CONFIGS[category]!;
+    return DEFAULT_CONFIGS.document!;
+  };
+  const [currentConfig, setCurrentConfig] = useState<SequenceConfig>(getInitialConfig);
   const [form] = Form.useForm();
 
   useEffect(() => {

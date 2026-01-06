@@ -112,7 +112,7 @@ const VENDOR_ROLE_OPTIONS = [
 interface ProjectData {
   id: number;
   project_name: string;           // 案件名稱
-  year: number;                   // 年度
+  year?: number;                  // 年度 (可選)
   client_agency?: string;         // 委託單位
   category?: string;              // 案件類別 (01-04)
   case_nature?: string;           // 案件性質 (01測量案, 02資訊案)

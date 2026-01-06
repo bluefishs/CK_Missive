@@ -18,7 +18,9 @@ interface SiteConfig {
   value: string;
   description?: string;
   category: string;
+  config_type?: string;
   is_active: boolean;
+  is_system?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -40,7 +42,7 @@ const SiteConfigManagement: React.FC = () => {
   const [form] = Form.useForm();
   const [searchText, setSearchText] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<Array<{ id: string; name: string; description?: string } | string>>([]);
 
   // 配置類型選項
   const configTypes = [
@@ -66,7 +68,7 @@ const SiteConfigManagement: React.FC = () => {
       if (selectedCategory) filters.category = selectedCategory;
       if (searchText) filters.search = searchText;
 
-      const data = await secureApiService.getConfigurations(filters);
+      const data = await secureApiService.getConfigurations(filters) as { configs?: SiteConfig[] };
       setConfigs(data.configs || []);
     } catch (error) {
       console.warn('Configuration API not available, using fallback data');
@@ -166,9 +168,10 @@ const SiteConfigManagement: React.FC = () => {
     try {
       if (editingConfig) {
         // 更新配置
+        const { key: _key, ...updateValues } = values;
         await secureApiService.updateConfiguration({
           key: editingConfig.key,
-          ...values
+          ...updateValues
         });
         message.success('更新成功');
       } else {
@@ -257,7 +260,7 @@ const SiteConfigManagement: React.FC = () => {
       title: '配置值',
       dataIndex: 'value',
       key: 'value',
-      render: (value, record) => formatConfigValue(value, record.config_type),
+      render: (value, record) => formatConfigValue(value, record.config_type || 'string'),
     },
     {
       title: '類型',

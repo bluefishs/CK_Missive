@@ -36,8 +36,9 @@ export interface UserInfo {
   full_name?: string;
   is_active: boolean;
   is_admin: boolean;
-  auth_provider: string;
+  auth_provider?: string;
   avatar_url?: string;
+  permissions?: string | string[];  // 權限列表 (JSON 字串或陣列)
   role: string;
   created_at: string;
   last_login?: string;
@@ -250,6 +251,20 @@ class AuthService {
       }
     }
     return null;
+  }
+
+  /**
+   * 設定使用者資訊
+   */
+  setUserInfo(userInfo: UserInfo): void {
+    localStorage.setItem(USER_INFO_KEY, JSON.stringify(userInfo));
+  }
+
+  /**
+   * 取得存取令牌 (getAccessToken 的別名，向後相容)
+   */
+  getToken(): string | null {
+    return this.getAccessToken();
   }
 
   /**

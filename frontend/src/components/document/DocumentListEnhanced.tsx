@@ -1,19 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Table,
   Button,
   Space,
   Typography,
   Tag,
-  message,
   Empty,
-  TableProps,
   Tooltip,
   Dropdown,
   Menu,
   Switch,
-  Checkbox,
-  Input
+  Input,
+  Checkbox
 } from 'antd';
 import type {
   TablePaginationConfig,
@@ -27,11 +25,8 @@ import type { ColumnsType, ColumnType } from 'antd/es/table';
 import {
   FileExcelOutlined,
   SortAscendingOutlined,
-  SortDescendingOutlined,
   FilterOutlined,
   SettingOutlined,
-  EyeOutlined,
-  EyeInvisibleOutlined,
   SearchOutlined,
 } from '@ant-design/icons';
 import { Document } from '../../types';
@@ -111,7 +106,7 @@ export const DocumentListEnhanced: React.FC<DocumentListProps> = ({
   onExportPdf,
   onSend,
   onArchive,
-  onAddToCalendar,
+  onAddToCalendar: _onAddToCalendar, // 日曆功能已內建於 DocumentActions
   onExport,
   onBatchExport,
   onBatchDelete,
@@ -123,7 +118,6 @@ export const DocumentListEnhanced: React.FC<DocumentListProps> = ({
 }) => {
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [columnConfigs, setColumnConfigs] = useState<ColumnConfig[]>(defaultColumnConfigs);
-  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
 
   // 格式化日期
   const formatDate = (dateString: string | null | undefined): string => {
@@ -160,14 +154,6 @@ export const DocumentListEnhanced: React.FC<DocumentListProps> = ({
     );
   };
 
-  // 處理欄位篩選
-  const handleColumnFilter = (columnKey: string, value: string) => {
-    setColumnFilters(prev => ({
-      ...prev,
-      [columnKey]: value
-    }));
-  };
-
   // 生成表格欄位配置
   const generateColumns = (): ColumnsType<Document> => {
     const visibleConfigs = columnConfigs.filter(config => config.visible);
@@ -195,7 +181,7 @@ export const DocumentListEnhanced: React.FC<DocumentListProps> = ({
         width: config.width,
         ellipsis: true,
         sorter: config.sortable,
-        sortOrder: sortField === config.key ? sortOrder : null,
+        sortOrder: sortField === config.key ? (sortOrder ?? null) : null,
       };
 
       // 特殊欄位處理
@@ -339,8 +325,7 @@ export const DocumentListEnhanced: React.FC<DocumentListProps> = ({
           onExportPdf={onExportPdf}
           onSend={onSend}
           onArchive={onArchive}
-          onAddToCalendar={onAddToCalendar}
-          isAddingToCalendar={isAddingToCalendar}
+          loadingStates={{ isAddingToCalendar }}
         />
       ),
     });
@@ -385,7 +370,7 @@ export const DocumentListEnhanced: React.FC<DocumentListProps> = ({
     onChange: (selectedRowKeys: React.Key[]) => {
       setSelectedRowKeys(selectedRowKeys);
     },
-    onSelectAll: (selected: boolean, selectedRows: Document[], changeRows: Document[]) => {
+    onSelectAll: (selected: boolean, _selectedRows: Document[], _changeRows: Document[]) => {
       if (selected) {
         const newSelectedKeys = documents.map(doc => doc.id);
         setSelectedRowKeys(newSelectedKeys);
@@ -421,11 +406,12 @@ export const DocumentListEnhanced: React.FC<DocumentListProps> = ({
 
           {selectedRowKeys.length > 0 && enableBatchOperations && (
             <BatchActions
-              selectedDocuments={selectedDocuments}
-              onBatchExport={onBatchExport}
-              onBatchDelete={onBatchDelete}
-              onBatchArchive={onBatchArchive}
-              onBatchCopy={onBatchCopy}
+              selectedCount={selectedRowKeys.length}
+              onExportSelected={() => onBatchExport?.(selectedDocuments)}
+              onDeleteSelected={() => onBatchDelete?.(selectedDocuments)}
+              onArchiveSelected={() => onBatchArchive?.(selectedDocuments)}
+              onCopySelected={() => onBatchCopy?.(selectedDocuments)}
+              onClearSelection={() => setSelectedRowKeys([])}
             />
           )}
         </div>
@@ -470,7 +456,7 @@ export const DocumentListEnhanced: React.FC<DocumentListProps> = ({
           pageSizeOptions: ['10', '20', '50', '100'],
         }}
         rowSelection={rowSelection}
-        onChange={onTableChange}
+        {...(onTableChange && { onChange: onTableChange })}
         scroll={{ x: 1200, y: 600 }}
         size="small"
         locale={{

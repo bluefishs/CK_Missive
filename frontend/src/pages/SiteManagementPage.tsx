@@ -23,7 +23,7 @@ export const SiteManagementPage: React.FC = () => {
     const tabs = [];
 
     // 導覽列管理 - 管理員以上可以存取
-    if (isAdmin) {
+    if (isAdmin()) {
       tabs.push({
         key: 'navigation',
         label: (
@@ -37,7 +37,7 @@ export const SiteManagementPage: React.FC = () => {
     }
 
     // 網站配置 - 只有超級管理員可以存取
-    if (isSuperuser) {
+    if (isSuperuser()) {
       tabs.push({
         key: 'config',
         label: (

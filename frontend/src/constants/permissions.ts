@@ -334,17 +334,18 @@ export const getCategoryDisplayName = (categoryKey: string, language: 'zh' | 'en
  */
 export const groupPermissionsByCategory = (permissions: string[]): Record<string, Permission[]> => {
   const grouped: Record<string, Permission[]> = {};
-  
+
   permissions.forEach(permKey => {
     const permission = getPermissionInfo(permKey);
     if (permission) {
-      if (!grouped[permission.category]) {
-        grouped[permission.category] = [];
+      const category = permission.category;
+      if (!grouped[category]) {
+        grouped[category] = [];
       }
-      grouped[permission.category].push(permission);
+      grouped[category]!.push(permission);
     }
   });
-  
+
   return grouped;
 };
 

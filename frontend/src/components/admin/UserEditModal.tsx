@@ -8,13 +8,14 @@ import {
 } from 'antd';
 import { USER_ROLES, USER_STATUSES } from '../../constants/permissions';
 import type { User } from '../../types/user';
+import type { UserInfo } from '../../services/authService';
 
 const { Option } = Select;
 
 interface UserEditModalProps {
   visible: boolean;
   user: User | null;
-  currentLoggedInUser: User | null;
+  currentLoggedInUser: UserInfo | null;
   onSubmit: (values: any) => Promise<void>;
   onCancel: () => void;
 }

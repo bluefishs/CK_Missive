@@ -8,6 +8,7 @@ import {
 } from 'antd';
 import PermissionManager from './PermissionManager';
 import type { User, Permission, UserPermissions } from '../../types/user';
+import type { UserInfo } from '../../services/authService';
 
 const { Option } = Select;
 
@@ -16,7 +17,7 @@ interface UserPermissionModalProps {
   user: User | null;
   userPermissions: UserPermissions | null;
   roles: Permission[];
-  currentLoggedInUser: User | null;
+  currentLoggedInUser: UserInfo | null;
   onSubmit: (values: any) => Promise<void>;
   onCancel: () => void;
   onRoleChange: (role: string) => void;

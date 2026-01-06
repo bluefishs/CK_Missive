@@ -35,6 +35,7 @@ interface CalendarEvent {
   description?: string;
   start_date: string;
   end_date: string;
+  all_day?: boolean;
   event_type: 'deadline' | 'meeting' | 'review' | 'reminder' | 'reference';
   priority: number;
   status: 'pending' | 'completed' | 'cancelled';
@@ -460,7 +461,10 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
             <Form.Item label="日期範圍">
               <RangePicker
                 value={filters.dateRange}
-                onChange={(dates) => setFilters(prev => ({ ...prev, dateRange: dates }))}
+                onChange={(dates) => setFilters(prev => ({
+                  ...prev,
+                  dateRange: dates && dates[0] && dates[1] ? [dates[0], dates[1]] : null
+                }))}
                 style={{ width: '100%' }}
               />
             </Form.Item>
@@ -696,7 +700,7 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
         <EventFormModal
           visible={showEventFormModal}
           mode={eventFormMode}
-          event={selectedEvent}
+          event={selectedEvent ? { ...selectedEvent, all_day: selectedEvent.all_day ?? true } : null}
           onClose={() => {
             setShowEventFormModal(false);
             setSelectedEvent(null);

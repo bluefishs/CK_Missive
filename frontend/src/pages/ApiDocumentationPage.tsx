@@ -70,7 +70,7 @@ const ApiDocumentationPage: React.FC = () => {
   // 自定義 Swagger UI 設定
   const swaggerConfig = {
     spec,
-    docExpansion: 'list', // 預設展開方式
+    docExpansion: 'list' as const, // 預設展開方式
     defaultModelsExpandDepth: 1,
     defaultModelExpandDepth: 1,
     displayOperationId: false,

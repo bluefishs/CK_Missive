@@ -276,10 +276,10 @@ export const ContractCaseFormPage: React.FC = () => {
                 label="契約金額 (新台幣)"
                 name="contract_amount"
               >
-                <InputNumber
+                <InputNumber<number>
                   style={{ width: '100%' }}
-                  formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                  parser={value => value!.replace(/\$\s?|(,*)/g, '')}
+                  formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                  parser={(value) => Number(value!.replace(/\$\s?|(,*)/g, ''))}
                   placeholder="請輸入契約金額"
                   min={0}
                 />

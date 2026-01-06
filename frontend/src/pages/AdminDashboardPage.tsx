@@ -211,7 +211,7 @@ const AdminDashboardPage: React.FC = () => {
     {
       title: '使用者',
       key: 'user',
-      render: (_, record: PendingUser) => (
+      render: (_: unknown, record: PendingUser) => (
         <Space>
           <Avatar icon={<UserOutlined />} />
           <div>
@@ -242,7 +242,7 @@ const AdminDashboardPage: React.FC = () => {
     {
       title: '操作',
       key: 'actions',
-      render: (_, record: PendingUser) => (
+      render: (_: unknown, record: PendingUser) => (
         <Space>
           <Button
             type="primary"

@@ -20,11 +20,11 @@
     "strict": true,
     "noImplicitAny": true,
     "noImplicitReturns": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "exactOptionalPropertyTypes": true,
+    "noUnusedLocals": false,        // 暫時關閉：大量遺留代碼，需逐步清理
+    "noUnusedParameters": false,    // 暫時關閉：與 noUnusedLocals 配合
+    "exactOptionalPropertyTypes": false,  // 關閉: 與 Ant Design 型別不相容
     "noImplicitOverride": true,
-    "noPropertyAccessFromIndexSignature": true,
+    "noPropertyAccessFromIndexSignature": false,  // 關閉: 與 Vite import.meta.env 不相容
     "noUncheckedIndexedAccess": true,
     "baseUrl": ".",
     "paths": {

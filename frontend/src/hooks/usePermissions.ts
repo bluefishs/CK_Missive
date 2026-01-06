@@ -43,14 +43,18 @@ export const usePermissions = () => {
       if (!userInfo || authDisabled) {
         // 創建預設的開發者帳號資訊，使用超級管理員角色
         userInfo = {
-          id: 'dev-user',
+          id: 0,  // 開發用預設 ID
           username: 'developer',
           full_name: '開發者',
           email: 'dev@ck-missive.local',
           role: 'superuser',
           is_admin: true,
           is_active: true,
-          permissions: '[]'
+          permissions: [],
+          auth_provider: 'local',
+          created_at: new Date().toISOString(),
+          login_count: 0,
+          email_verified: true
         };
         console.log('Using default developer user info (superuser) for navigation');
       }
@@ -96,7 +100,7 @@ export const usePermissions = () => {
       // 使用既有角色權限配置
       let finalPermissions: string[] = [];
 
-      if (userInfo.id === 'dev-user' || userInfo.role === 'superuser' || userInfo.is_admin) {
+      if (userInfo.id === 0 || userInfo.role === 'superuser' || userInfo.is_admin) {
         // 開發者帳號或超級管理員給予所有權限
         finalPermissions = USER_ROLES.superuser.default_permissions;
       } else {
@@ -206,7 +210,7 @@ export const usePermissions = () => {
 
     if (!userPermissions) return [];
 
-    const roleNavigationMap: Record<string, string[]> = {
+    const roleNavigationMap: Record<string, string[] | 'all'> = {
       'superuser': 'all', // 顯示所有項目
       'admin': [
         'dashboard', 'documents-menu', 'document-list', 'document-create',

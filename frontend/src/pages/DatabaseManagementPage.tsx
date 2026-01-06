@@ -5,6 +5,7 @@ import {
   Tooltip, Popconfirm, Divider, Progress, Badge,
   Switch, Drawer
 } from 'antd';
+import type { ColumnType } from 'antd/es/table';
 import {
   DatabaseOutlined, TableOutlined, SearchOutlined, ReloadOutlined,
   ExportOutlined, InfoCircleOutlined, WarningOutlined, CodeOutlined,
@@ -257,11 +258,11 @@ export const DatabaseManagementPage: React.FC = () => {
     if (!table) return null;
 
     const columns = table.columns.map(col => {
-      const baseColumn = {
+      const baseColumn: ColumnType<any> = {
         title: (
           <Space>
             {col.name}
-            {col.primaryKey && <Tag color="gold" size="small">PK</Tag>}
+            {col.primaryKey && <Tag color="gold" style={{ fontSize: '10px' }}>PK</Tag>}
             <Tooltip title={`${col.type}${!col.nullable ? ' (NOT NULL)' : ''}`}>
               <InfoCircleOutlined style={{ color: '#999', fontSize: '12px' }} />
             </Tooltip>
@@ -303,8 +304,8 @@ export const DatabaseManagementPage: React.FC = () => {
         }))].filter(Boolean);
 
         baseColumn.filters = uniqueValues.map(value => ({
-          text: value,
-          value: value,
+          text: String(value),
+          value: value as React.Key,
         }));
 
         baseColumn.onFilter = (value: any, record: any) => record[col.name] === value;

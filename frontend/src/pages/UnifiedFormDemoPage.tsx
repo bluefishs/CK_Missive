@@ -234,12 +234,12 @@ const UnifiedFormDemoPage: React.FC = () => {
   const handleFormSubmit = (values: any) => {
     const newRecord: DemoRecord = {
       id: demoData.length + 1,
-      sequence_number: formSequenceNumber,
+      sequence_number: formSequenceNumber || '',
       title: values.title,
       category: values.category,
       status: values.status || '待開始',
       priority: values.priority || '中',
-      created_date: new Date().toISOString().split('T')[0],
+      created_date: new Date().toISOString().split('T')[0] ?? '',
       created_by: '當前使用者',
       amount: values.amount ? Number(values.amount) : undefined,
       remarks: formRemarks
@@ -266,8 +266,12 @@ const UnifiedFormDemoPage: React.FC = () => {
       備註: item.remarks || ''
     }));
 
+    if (exportData.length === 0) {
+      message.warning('沒有數據可導出');
+      return;
+    }
     const csvContent = [
-      Object.keys(exportData[0]).join(','),
+      Object.keys(exportData[0]!).join(','),
       ...exportData.map(row => Object.values(row).join(','))
     ].join('\n');
 

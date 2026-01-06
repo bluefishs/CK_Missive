@@ -50,20 +50,19 @@ const DocumentPageEnhanced: React.FC = () => {
 
   // 使用增強版 API
   const {
-    documents,
-    loading,
-    total,
+    data,
+    isLoading: loading,
     error,
     refetch
   } = useDocuments({
     ...state.filters,
-    skip: (state.pagination.current - 1) * state.pagination.pageSize,
+    page: state.pagination.current,
     limit: state.pagination.pageSize,
-    sort_by: state.sortField,
-    sort_order: state.sortOrder === 'ascend' ? 'asc' : 'desc',
-  }, {
-    useEnhancedAPI: true  // 使用增強版 API
   });
+
+  // 從 data 中提取文件列表和總數
+  const documents = data?.items ?? [];
+  const total = data?.pagination?.total ?? 0;
 
   // 測試新功能
   useEffect(() => {
@@ -176,7 +175,7 @@ const DocumentPageEnhanced: React.FC = () => {
       <Card>
         <Alert
           message="載入失敗"
-          description={error}
+          description={error?.message || '發生未知錯誤'}
           type="error"
           showIcon
           action={

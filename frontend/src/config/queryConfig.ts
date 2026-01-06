@@ -13,7 +13,7 @@ export const queryKeys = {
   documents: {
     all: ['documents'] as const,
     lists: () => [...queryKeys.documents.all, 'list'] as const,
-    list: (filters: Record<string, unknown>) => [...queryKeys.documents.lists(), filters] as const,
+    list: (filters: object) => [...queryKeys.documents.lists(), filters] as const,
     details: () => [...queryKeys.documents.all, 'detail'] as const,
     detail: (id: number) => [...queryKeys.documents.details(), id] as const,
     statistics: ['documents', 'statistics'] as const,
@@ -24,7 +24,7 @@ export const queryKeys = {
   projects: {
     all: ['projects'] as const,
     lists: () => [...queryKeys.projects.all, 'list'] as const,
-    list: (filters: Record<string, unknown>) => [...queryKeys.projects.lists(), filters] as const,
+    list: (filters: object) => [...queryKeys.projects.lists(), filters] as const,
     details: () => [...queryKeys.projects.all, 'detail'] as const,
     detail: (id: number) => [...queryKeys.projects.details(), id] as const,
     staff: (projectId: number) => ['projects', projectId, 'staff'] as const,
@@ -37,7 +37,7 @@ export const queryKeys = {
   vendors: {
     all: ['vendors'] as const,
     lists: () => [...queryKeys.vendors.all, 'list'] as const,
-    list: (filters: Record<string, unknown>) => [...queryKeys.vendors.lists(), filters] as const,
+    list: (filters: object) => [...queryKeys.vendors.lists(), filters] as const,
     details: () => [...queryKeys.vendors.all, 'detail'] as const,
     detail: (id: number) => [...queryKeys.vendors.details(), id] as const,
     dropdown: ['vendors', 'dropdown'] as const,
@@ -47,7 +47,7 @@ export const queryKeys = {
   agencies: {
     all: ['agencies'] as const,
     lists: () => [...queryKeys.agencies.all, 'list'] as const,
-    list: (filters: Record<string, unknown>) => [...queryKeys.agencies.lists(), filters] as const,
+    list: (filters: object) => [...queryKeys.agencies.lists(), filters] as const,
     details: () => [...queryKeys.agencies.all, 'detail'] as const,
     detail: (id: number) => [...queryKeys.agencies.details(), id] as const,
     dropdown: ['agencies', 'dropdown'] as const,
@@ -58,7 +58,7 @@ export const queryKeys = {
   users: {
     all: ['users'] as const,
     lists: () => [...queryKeys.users.all, 'list'] as const,
-    list: (filters: Record<string, unknown>) => [...queryKeys.users.lists(), filters] as const,
+    list: (filters: object) => [...queryKeys.users.lists(), filters] as const,
     details: () => [...queryKeys.users.all, 'detail'] as const,
     detail: (id: number) => [...queryKeys.users.details(), id] as const,
     dropdown: ['users', 'dropdown'] as const,

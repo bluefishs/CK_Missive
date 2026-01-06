@@ -391,16 +391,29 @@ export interface DocumentAttachment {
 
 /** 公文篩選參數 */
 export interface DocumentFilter {
+  // 搜尋欄位
+  search?: string;           // 通用搜尋關鍵字
+  keyword?: string;          // 關鍵字搜尋 (別名)
+  doc_number?: string;       // 公文字號搜尋
+
+  // 類型與狀態篩選
   doc_type?: string;
   category?: string;
   status?: string;
   year?: number;
+
+  // 收發單位篩選
   sender?: string;
   receiver?: string;
   contract_case?: string;
-  keyword?: string;
-  date_from?: string;
-  date_to?: string;
+
+  // 日期篩選
+  date_from?: string;        // 通用起始日期
+  date_to?: string;          // 通用結束日期
+  doc_date_from?: string;    // 公文日期起始
+  doc_date_to?: string;      // 公文日期結束
+
+  // 排序
   sort_by?: string;
   sort_order?: 'asc' | 'desc';
 }

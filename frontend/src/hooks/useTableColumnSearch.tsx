@@ -20,7 +20,7 @@ export function useTableColumnSearch<T extends Record<string, any>>() {
     dataIndex: keyof T,
   ) => {
     confirm();
-    setSearchText(selectedKeys[0]);
+    setSearchText(selectedKeys[0] ?? '');
     setSearchedColumn(dataIndex as string);
   };
 

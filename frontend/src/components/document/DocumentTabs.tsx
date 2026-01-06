@@ -178,10 +178,10 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
           onEdit={onEdit}
           onDelete={onDelete}
           onView={onView}
-          onExport={onExport}
+          {...(onExport && { onExport })}
           isExporting={isExporting}
-          onAddToCalendar={onAddToCalendar}
-          isAddingToCalendar={isAddingToCalendar}
+          {...(onAddToCalendar && { onAddToCalendar })}
+          {...(isAddingToCalendar !== undefined && { isAddingToCalendar })}
           enableBatchOperations
         />
       ),
@@ -209,10 +209,10 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
           onDelete={onDelete}
           onView={onView}
           onTableChange={handleTableChange}
-          onExport={onExport}
+          {...(onExport && { onExport })}
           isExporting={isExporting}
-          onAddToCalendar={onAddToCalendar}
-          isAddingToCalendar={isAddingToCalendar}
+          {...(onAddToCalendar && { onAddToCalendar })}
+          {...(isAddingToCalendar !== undefined && { isAddingToCalendar })}
           enableBatchOperations
         />
       ),
@@ -240,10 +240,10 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
           onDelete={onDelete}
           onView={onView}
           onTableChange={handleTableChange}
-          onExport={onExport}
+          {...(onExport && { onExport })}
           isExporting={isExporting}
-          onAddToCalendar={onAddToCalendar}
-          isAddingToCalendar={isAddingToCalendar}
+          {...(onAddToCalendar && { onAddToCalendar })}
+          {...(isAddingToCalendar !== undefined && { isAddingToCalendar })}
           enableBatchOperations
         />
       ),

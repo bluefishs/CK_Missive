@@ -1365,4 +1365,137 @@ backend/app/
 
 ---
 
-*報告更新時間: 2026-01-06 14:00 (Schema 修復版 v4.4)*
+## 二十五、TypeScript 嚴格模式型別修復報告 (2026-01-06)
+
+### 問題背景
+
+執行 `npx tsc --noEmit` 發現 **約 15 個複雜型別錯誤**，主要集中在：
+- Calendar 相關元件 (介面屬性不一致)
+- Ant Design 元件 (泛型型別未指定)
+- 陣列索引存取 (可能為 undefined)
+- 狀態初始化 (函數返回型別)
+
+### ✅ 已完成修復項目
+
+#### A. Calendar 元件型別修復
+
+| 檔案 | 問題 | 修復方式 |
+|-----|------|---------|
+| `CalendarPage.tsx:507-522` | `start_datetime` vs `start_date` 欄位不一致 | 事件映射時轉換欄位名稱 |
+| `EnhancedCalendarView.tsx` | `all_day` 可選 vs 必填衝突 | 介面新增 `all_day?: boolean`，傳遞時提供預設值 |
+| `EnhancedCalendarView.tsx` | RangePicker 日期可能為 null | 使用 `dates && dates[0] && dates[1]` 判斷 |
+
+#### B. Ant Design 元件型別修復
+
+| 檔案 | 問題 | 修復方式 |
+|-----|------|---------|
+| `ContractCaseFormPage.tsx:279` | InputNumber formatter 返回型別 | 使用 `<InputNumber<number>>` 泛型 |
+| `ContractCasePage.tsx:678` | InputNumber parser 返回型別 | 使用 `Number()` 轉換而非 parseFloat |
+| `ReportsPage.tsx:271` | Pie 元件 label callback 型別 | 使用 `(entry: any)` 參數型別 |
+
+#### C. 狀態初始化修復
+
+| 檔案 | 問題 | 修復方式 |
+|-----|------|---------|
+| `SequenceNumberGenerator.tsx:95-100` | useState 初始值可能為 undefined | 使用 helper 函數 `getInitialConfig()` |
+| `NavigationManagement.tsx:35` | API 回應為 unknown | 型別斷言 `as { items?: NavigationItem[] }` |
+
+#### D. 使用者型別一致性修復
+
+| 檔案 | 問題 | 修復方式 |
+|-----|------|---------|
+| `UserManagementPage.tsx:60` | User vs UserInfo 型別不符 | 改用 `UserInfo` 型別 |
+| `UserEditModal.tsx:10-18` | props 型別不匹配 | 統一使用 `UserInfo` |
+| `UserPermissionModal.tsx:10-20` | props 型別不匹配 | 統一使用 `UserInfo` |
+
+#### E. 屬性名稱一致性修復
+
+| 檔案 | 問題 | 修復方式 |
+|-----|------|---------|
+| `calendarIntegrationService.ts:152` | `document.priority` 不存在 | 改用 `document.priority_level` |
+| `ContractCaseDetailPage.tsx:115` | `year` 必填 vs 可選 | 改為 `year?: number` |
+| `UnifiedFormDemoPage.tsx:237,274` | 陣列索引可能為 undefined | 使用非空斷言 `exportData[0]!` |
+
+### 驗證結果
+
+```bash
+$ npx tsc --noEmit
+# 無錯誤輸出 ✅
+
+$ npm run build
+# Build 成功 ✅
+```
+
+### 文件更新
+
+| 文件 | 更新內容 |
+|-----|---------|
+| `@AGENT.md` | 新增 "TypeScript 嚴格模式最佳實踐" 章節 |
+| `@TYPE_CONSISTENCY_SKILL_SPEC.md` | 新增 4.5 節 - 8 個 TypeScript 模式子章節 |
+
+### 關鍵模式總結
+
+```typescript
+// 1. 介面繼承避免重複定義
+interface Extended extends Base { additionalField?: string; }
+
+// 2. 泛型元件明確型別
+<InputNumber<number> parser={(v) => Number(v!.replace(...))} />
+
+// 3. 日期範圍 null 處理
+onChange={(dates) => dates && dates[0] && dates[1] ? [dates[0], dates[1]] : null}
+
+// 4. 陣列索引安全存取
+const value = arr.split(':')[0] ?? '';
+
+// 5. 狀態初始化輔助函數
+const getInitial = (): Config => config ?? DEFAULT_CONFIGS[category]!;
+const [state] = useState<Config>(getInitial);
+
+// 6. API 回應型別斷言
+const data = await api.get() as { items?: T[] };
+```
+
+---
+
+## 二十六、系統當前狀態總覽 (2026-01-06 最終)
+
+### 服務運行狀態
+
+| 服務 | 狀態 | 說明 |
+|-----|------|------|
+| FastAPI Backend | ✅ healthy | localhost:8001 |
+| PostgreSQL | ✅ connected | localhost:5434 |
+| Redis | ✅ connected | localhost:6380 |
+| Vite Frontend | ✅ running | localhost:3000 |
+
+### 代碼品質指標
+
+| 指標 | 狀態 | 說明 |
+|-----|------|------|
+| TypeScript 編譯 | ✅ 0 錯誤 | `npx tsc --noEmit` 通過 |
+| Vite Build | ✅ 成功 | 10.80s，main.js 98KB |
+| API 路徑 | ✅ 統一 | 全部使用 API_BASE_URL |
+| Schema 一致性 | ✅ 通過 | Model-DB 25 欄位對齊 |
+
+### 資料庫統計
+
+```
+documents:        510 筆 (收文 340, 發文 170)
+contract_projects: 17 筆
+users:             11 筆
+partner_vendors:   12 筆
+government_agencies: 21 筆
+```
+
+### 待優化項目
+
+| 優先級 | 項目 | 說明 |
+|-------|-----|------|
+| 🟡 中 | API 呼叫統一化 | DocumentFilter 等檔案改用 apiClient |
+| 🟢 低 | 未使用程式碼清理 | 移除未使用的 imports |
+| 🟢 低 | 測試覆蓋率 | 新增 React Testing Library 測試 |
+
+---
+
+*報告更新時間: 2026-01-06 (TypeScript 修復完成版 v4.5)*

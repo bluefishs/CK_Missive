@@ -32,7 +32,7 @@ const NavigationManagement: React.FC = () => {
   const loadNavigationData = async () => {
     setLoading(true);
     try {
-      const data = await secureApiService.getNavigationItems();
+      const data = await secureApiService.getNavigationItems() as { items?: NavigationItem[] };
       const processedItems = ensureUniqueIds(data.items || []);
       setItems(processedItems);
     } catch (error) {
