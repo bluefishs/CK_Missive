@@ -68,6 +68,7 @@ services:
       - REDIS_URL=redis://redis:6379/0
     volumes:
       - ../backend:/app
+      - ck_missive_uploads:/app/uploads  # 附件檔案持久化儲存
     networks:
       - ck_missive_network
     depends_on:
@@ -103,6 +104,8 @@ volumes:
     name: ck_missive_postgres_data
   ck_missive_redis_data:
     name: ck_missive_redis_data
+  ck_missive_uploads:
+    name: ck_missive_uploads  # 公文附件檔案持久化
 
 # Top-level networks definition
 networks:

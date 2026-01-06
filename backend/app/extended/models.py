@@ -112,7 +112,7 @@ class OfficialDocument(Base):
     __tablename__ = "documents"
 
     id = Column(Integer, primary_key=True, index=True)
-    auto_serial = Column(String(20), index=True, comment="流水序號 (R0001=收文, S0001=發文)")
+    auto_serial = Column(String(50), index=True, comment="流水序號 (R0001=收文, S0001=發文)")  # 與 DB varchar(50) 對齊
     doc_number = Column(String(100), index=True, comment="公文文號")
     doc_type = Column(String(10), index=True, comment="公文類型 (收文/發文)")
     subject = Column(String(500), comment="主旨")
@@ -231,7 +231,12 @@ class DocumentCalendarEvent(Base):
 # ... (EventReminder, etc. 保持不變) ...
 
 class DocumentAttachment(Base):
-    """公文附件模型 - 與資料庫實際 schema 對齊"""
+    """
+    公文附件模型 - 與資料庫實際 schema 對齊
+
+    變更記錄：
+    - 2026-01-06: 新增 storage_type, original_name, checksum, uploaded_by 欄位
+    """
     __tablename__ = 'document_attachments'
     id = Column(Integer, primary_key=True, autoincrement=True, comment="附件唯一識別ID")
     document_id = Column(Integer, ForeignKey('documents.id', ondelete="CASCADE"), nullable=False, comment="關聯的公文ID")
@@ -242,12 +247,20 @@ class DocumentAttachment(Base):
     file_size = Column(Integer, comment="檔案大小(bytes)")
     mime_type = Column(String(100), comment="MIME類型")
 
+    # 擴充欄位 (2026-01-06 新增)
+    storage_type = Column(String(20), default='local', comment="儲存類型: local/network/s3")
+    original_name = Column(String(255), comment="原始檔案名稱")
+    checksum = Column(String(64), index=True, comment="SHA256 校驗碼")
+    uploaded_by = Column(Integer, ForeignKey('users.id', ondelete="SET NULL"), comment="上傳者 ID")
+
     # 系統欄位
     created_at = Column(DateTime, server_default=func.now(), comment="建立時間")
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), comment="更新時間")
 
     # 關聯關係
     document = relationship("OfficialDocument", back_populates="attachments")
+    # uploader relationship 暫時移除 (因循環引用問題)
+    # 若需取得上傳者資訊，可透過 uploaded_by 查詢 User
 
     # 屬性別名（向後相容 files.py API）
     @property

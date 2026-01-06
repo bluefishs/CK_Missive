@@ -36,7 +36,7 @@ export interface Document {
   doc_class?: string;
   assignee?: string;
   user_confirm?: boolean;
-  auto_serial?: number;
+  auto_serial?: string;  // 流水序號 (R0001=收文, S0001=發文)
   creator?: string;
   is_deleted?: boolean;
   notes?: string;
@@ -120,6 +120,20 @@ export interface DropdownOption {
   id?: number;
   year?: number;
   category?: string;
+}
+
+/** 文件附件 */
+export interface DocumentAttachment {
+  id: number;
+  filename: string;
+  original_filename?: string;
+  file_size: number;
+  content_type?: string;
+  storage_type?: string;  // local/network/s3
+  checksum?: string;      // SHA256 校驗碼
+  uploaded_at?: string;
+  uploaded_by?: number;
+  created_at?: string;
 }
 
 // ============================================================================
@@ -397,6 +411,159 @@ export const documentsApi = {
       console.error('匯出公文失敗:', error);
       throw error;
     }
+  },
+
+  /**
+   * 取得文件附件列表
+   *
+   * @param documentId 公文 ID
+   * @returns 附件列表
+   */
+  async getDocumentAttachments(documentId: number): Promise<DocumentAttachment[]> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/files/document/${documentId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('取得附件失敗');
+      }
+
+      const data = await response.json();
+      return data.attachments || [];
+    } catch (error) {
+      console.error('取得附件列表失敗:', error);
+      return [];
+    }
+  },
+
+  /**
+   * 下載附件
+   *
+   * @param attachmentId 附件 ID
+   * @param filename 檔案名稱
+   */
+  async downloadAttachment(attachmentId: number, filename: string): Promise<void> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/files/${attachmentId}/download`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('下載失敗');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('下載附件失敗:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * 取得附件預覽 (POST-only 資安機制)
+   *
+   * 注意：由於採用 POST 方式，無法直接使用 URL 預覽
+   * 需透過 downloadAttachment 方法取得 Blob 後顯示
+   *
+   * @param attachmentId 附件 ID
+   * @returns 附件 Blob
+   */
+  async getAttachmentBlob(attachmentId: number): Promise<Blob> {
+    const response = await fetch(`${API_BASE_URL}/files/${attachmentId}/download`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    if (!response.ok) {
+      throw new Error('取得附件失敗');
+    }
+    return await response.blob();
+  },
+
+  /**
+   * 刪除附件 (POST-only 資安機制)
+   *
+   * @param attachmentId 附件 ID
+   * @returns 刪除結果
+   */
+  async deleteAttachment(attachmentId: number): Promise<{ success: boolean; message: string }> {
+    const response = await fetch(`${API_BASE_URL}/files/${attachmentId}/delete`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    if (!response.ok) {
+      throw new Error('刪除附件失敗');
+    }
+    return await response.json();
+  },
+
+  /**
+   * 驗證附件完整性 (POST-only 資安機制)
+   *
+   * @param attachmentId 附件 ID
+   * @returns 驗證結果
+   */
+  async verifyAttachment(attachmentId: number): Promise<{
+    success: boolean;
+    file_id: number;
+    status: string;
+    is_valid?: boolean;
+    message: string;
+  }> {
+    const response = await fetch(`${API_BASE_URL}/files/verify/${attachmentId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    if (!response.ok) {
+      throw new Error('驗證附件失敗');
+    }
+    return await response.json();
+  },
+
+  /**
+   * 取得儲存系統資訊
+   *
+   * @returns 儲存資訊
+   */
+  async getStorageInfo(): Promise<{
+    success: boolean;
+    storage_path: string;
+    storage_type: string;
+    total_files: number;
+    total_size_mb: number;
+    allowed_extensions: string[];
+    max_file_size_mb: number;
+  }> {
+    const response = await fetch(`${API_BASE_URL}/files/storage-info`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    if (!response.ok) {
+      throw new Error('取得儲存資訊失敗');
+    }
+    return await response.json();
   },
 };
 

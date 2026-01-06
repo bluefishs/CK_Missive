@@ -18,46 +18,59 @@ depends_on = None
 
 def upgrade() -> None:
     """
-    升級資料庫 - 新增外鍵關聯欄位
+    升級資料庫 - 新增外鍵關聯欄位（冪等性設計）
     """
 
-    # 新增外鍵欄位到 documents 表
-    op.add_column('documents', sa.Column('contract_project_id', sa.Integer(), nullable=True, comment='關聯的承攬案件ID'))
-    op.add_column('documents', sa.Column('sender_agency_id', sa.Integer(), nullable=True, comment='發文機關ID'))
-    op.add_column('documents', sa.Column('receiver_agency_id', sa.Integer(), nullable=True, comment='受文機關ID'))
+    # 新增外鍵欄位到 documents 表（檢查是否存在）
+    op.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'documents' AND column_name = 'contract_project_id') THEN
+                ALTER TABLE documents ADD COLUMN contract_project_id INTEGER;
+                COMMENT ON COLUMN documents.contract_project_id IS '關聯的承攬案件ID';
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'documents' AND column_name = 'sender_agency_id') THEN
+                ALTER TABLE documents ADD COLUMN sender_agency_id INTEGER;
+                COMMENT ON COLUMN documents.sender_agency_id IS '發文機關ID';
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'documents' AND column_name = 'receiver_agency_id') THEN
+                ALTER TABLE documents ADD COLUMN receiver_agency_id INTEGER;
+                COMMENT ON COLUMN documents.receiver_agency_id IS '受文機關ID';
+            END IF;
+        END $$;
+    """)
 
-    # 創建外鍵約束
-    op.create_foreign_key(
-        'fk_documents_contract_project_id',
-        'documents',
-        'contract_projects',
-        ['contract_project_id'],
-        ['id'],
-        ondelete='SET NULL'
-    )
+    # 創建外鍵約束（檢查是否存在）
+    op.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_documents_contract_project_id') THEN
+                ALTER TABLE documents ADD CONSTRAINT fk_documents_contract_project_id FOREIGN KEY (contract_project_id) REFERENCES contract_projects(id) ON DELETE SET NULL;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_documents_sender_agency_id') THEN
+                ALTER TABLE documents ADD CONSTRAINT fk_documents_sender_agency_id FOREIGN KEY (sender_agency_id) REFERENCES government_agencies(id) ON DELETE SET NULL;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_documents_receiver_agency_id') THEN
+                ALTER TABLE documents ADD CONSTRAINT fk_documents_receiver_agency_id FOREIGN KEY (receiver_agency_id) REFERENCES government_agencies(id) ON DELETE SET NULL;
+            END IF;
+        END $$;
+    """)
 
-    op.create_foreign_key(
-        'fk_documents_sender_agency_id',
-        'documents',
-        'government_agencies',
-        ['sender_agency_id'],
-        ['id'],
-        ondelete='SET NULL'
-    )
-
-    op.create_foreign_key(
-        'fk_documents_receiver_agency_id',
-        'documents',
-        'government_agencies',
-        ['receiver_agency_id'],
-        ['id'],
-        ondelete='SET NULL'
-    )
-
-    # 創建索引以提高查詢效能
-    op.create_index('idx_documents_contract_project_id', 'documents', ['contract_project_id'])
-    op.create_index('idx_documents_sender_agency_id', 'documents', ['sender_agency_id'])
-    op.create_index('idx_documents_receiver_agency_id', 'documents', ['receiver_agency_id'])
+    # 創建索引以提高查詢效能（檢查是否存在）
+    op.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_documents_contract_project_id') THEN
+                CREATE INDEX idx_documents_contract_project_id ON documents(contract_project_id);
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_documents_sender_agency_id') THEN
+                CREATE INDEX idx_documents_sender_agency_id ON documents(sender_agency_id);
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_documents_receiver_agency_id') THEN
+                CREATE INDEX idx_documents_receiver_agency_id ON documents(receiver_agency_id);
+            END IF;
+        END $$;
+    """)
 
 
 def downgrade() -> None:

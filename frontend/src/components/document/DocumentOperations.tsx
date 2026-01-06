@@ -6,7 +6,7 @@ import {
   Select,
   DatePicker,
   Button,
-  message,
+  App,
   Upload,
   Card,
   Space,
@@ -14,6 +14,10 @@ import {
   Col,
   Tag,
   Tabs,
+  List,
+  Popconfirm,
+  Spin,
+  Empty,
 } from 'antd';
 import {
   InboxOutlined,
@@ -21,11 +25,15 @@ import {
   SendOutlined,
   CopyOutlined,
   CalendarOutlined,
+  DownloadOutlined,
+  DeleteOutlined,
+  PaperClipOutlined,
 } from '@ant-design/icons';
 import { Document } from '../../types';
 import dayjs from 'dayjs';
 import { calendarIntegrationService } from '../../services/calendarIntegrationService';
 import { apiClient } from '../../api/client';
+import { API_BASE_URL } from '../../api/client';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -47,6 +55,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
   onSave,
 }) => {
   // Force refresh timestamp: 2025-09-16-13:01
+  const { message } = App.useApp();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [calendarLoading, setCalendarLoading] = useState(false);
@@ -55,6 +64,9 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
   const [users, setUsers] = useState<any[]>([]);
   const [casesLoading, setCasesLoading] = useState(false);
   const [usersLoading, setUsersLoading] = useState(false);
+  // 附件相關狀態
+  const [existingAttachments, setExistingAttachments] = useState<any[]>([]);
+  const [attachmentsLoading, setAttachmentsLoading] = useState(false);
 
   const isReadOnly = operation === 'view';
   const isCreate = operation === 'create';
@@ -63,11 +75,19 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
   // 專案同仁資料 (依專案 ID 快取)
   const [projectStaffMap, setProjectStaffMap] = useState<Record<number, any[]>>({});
   const [staffLoading, setStaffLoading] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+
+  // 專案同仁快取 ref（避免閉包問題）
+  const projectStaffCacheRef = React.useRef<Record<number, any[]>>({});
 
   // 根據專案 ID 取得業務同仁列表
-  const fetchProjectStaff = async (projectId: number) => {
-    if (projectStaffMap[projectId]) {
-      return projectStaffMap[projectId];
+  const fetchProjectStaff = async (projectId: number): Promise<any[]> => {
+    // 檢查快取 (使用 ref 避免閉包問題)
+    if (projectStaffCacheRef.current[projectId]) {
+      const cachedData = projectStaffCacheRef.current[projectId];
+      // 確保 state 也有資料（觸發 re-render）
+      setProjectStaffMap(prev => ({ ...prev, [projectId]: cachedData }));
+      return cachedData;
     }
 
     setStaffLoading(true);
@@ -77,6 +97,8 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
         total?: number;
       }>(`/project-staff/project/${projectId}/list`, {});
       const staffData = data.staff || [];
+      // 同時更新 ref 和 state
+      projectStaffCacheRef.current[projectId] = staffData;
       setProjectStaffMap(prev => ({ ...prev, [projectId]: staffData }));
       return staffData;
     } catch (error) {
@@ -87,44 +109,139 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
     }
   };
 
-  // 選擇專案後自動填補業務同仁
-  const handleProjectChange = async (projectId: number | null) => {
-    // 先更新承攬案件欄位
-    form.setFieldsValue({ contract_project_id: projectId });
+  // 選擇專案後自動填入所有業務同仁
+  const handleProjectChange = async (projectId: number | null | undefined) => {
+    console.log('[handleProjectChange] 選擇專案:', projectId);
 
-    if (!projectId) {
+    // 處理 undefined (allowClear 時會傳入 undefined)
+    const effectiveProjectId = projectId ?? null;
+
+    // 先更新承攬案件欄位
+    form.setFieldsValue({ contract_project_id: effectiveProjectId });
+
+    if (!effectiveProjectId) {
       // 清除專案時，也清除業務同仁欄位
-      form.setFieldsValue({ assignee: undefined });
+      setSelectedProjectId(null);
+      form.setFieldsValue({ assignee: [] });
       return;
     }
 
-    const staffList = await fetchProjectStaff(projectId);
+    // 取得專案業務同仁資料
+    const staffList = await fetchProjectStaff(effectiveProjectId);
+    console.log('[handleProjectChange] 取得業務同仁:', staffList);
 
-    if (staffList.length === 0) {
+    // 直接填入所有業務同仁（不等待 state 更新）
+    if (!staffList || staffList.length === 0) {
+      setSelectedProjectId(effectiveProjectId);
       message.info('此專案尚無指派業務同仁');
       return;
     }
 
-    let selectedStaffName: string;
+    const allStaffNames = staffList.map((s: any) => s.user_name);
+    console.log('[handleProjectChange] 準備填入:', allStaffNames);
 
-    if (staffList.length === 1) {
-      // 只有一位同仁時直接填入
-      selectedStaffName = staffList[0].user_name;
-      message.success(`已自動填入業務同仁：${selectedStaffName}`);
-    } else {
-      // 多位同仁時，優先填入主要負責人，否則選擇第一位
-      const primaryStaff = staffList.find((s: any) => s.is_primary);
-      if (primaryStaff) {
-        selectedStaffName = primaryStaff.user_name;
-        message.success(`已自動填入主要負責人：${selectedStaffName}`);
-      } else {
-        selectedStaffName = staffList[0].user_name;
-        message.info(`此專案有 ${staffList.length} 位同仁，已填入：${selectedStaffName}，可自行調整`);
+    // 同時更新 selectedProjectId 和 form 值
+    // 使用函數式更新確保順序正確
+    setSelectedProjectId(effectiveProjectId);
+
+    // 延遲設定 form 值，等待 projectStaffMap 更新後 options 會包含正確選項
+    setTimeout(() => {
+      // 再次檢查確保有資料
+      const currentStaff = projectStaffCacheRef.current[effectiveProjectId];
+      if (currentStaff && currentStaff.length > 0) {
+        const names = currentStaff.map((s: any) => s.user_name);
+        form.setFieldsValue({ assignee: names });
+        console.log('[handleProjectChange] 已填入業務同仁:', names);
+        message.success(`已自動填入 ${names.length} 位業務同仁`);
       }
-    }
+    }, 150);
+  };
 
-    // 使用 setFieldsValue 確保 UI 即時更新
-    form.setFieldsValue({ assignee: selectedStaffName });
+  // 取得公文附件列表 (POST-only 資安機制)
+  const fetchAttachments = async (documentId: number) => {
+    setAttachmentsLoading(true);
+    try {
+      const data = await apiClient.post<{
+        document_id: number;
+        attachments: any[];
+      }>(`/files/document/${documentId}`, {});
+      setExistingAttachments(data.attachments || []);
+    } catch (error) {
+      console.error('Failed to fetch attachments:', error);
+      setExistingAttachments([]);
+    } finally {
+      setAttachmentsLoading(false);
+    }
+  };
+
+  // 上傳檔案
+  const uploadFiles = async (documentId: number, files: any[]) => {
+    if (files.length === 0) return;
+
+    const formData = new FormData();
+    files.forEach(file => {
+      if (file.originFileObj) {
+        formData.append('files', file.originFileObj);
+      }
+    });
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/files/upload?document_id=${documentId}`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+      const result = await response.json();
+      console.log('[uploadFiles] 上傳成功:', result);
+      return result;
+    } catch (error) {
+      console.error('Failed to upload files:', error);
+      throw error;
+    }
+  };
+
+  // 下載附件 (POST-only 資安機制)
+  const handleDownload = async (attachmentId: number, filename: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/files/${attachmentId}/download`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) {
+        throw new Error('下載失敗');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename || 'download';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('下載附件失敗:', error);
+      message.error('下載附件失敗');
+    }
+  };
+
+  // 刪除附件 (POST-only 資安機制)
+  const handleDeleteAttachment = async (attachmentId: number) => {
+    try {
+      await apiClient.post(`/files/${attachmentId}/delete`, {});
+      message.success('附件刪除成功');
+      // 重新載入附件列表
+      if (document?.id) {
+        fetchAttachments(document.id);
+      }
+    } catch (error) {
+      console.error('Failed to delete attachment:', error);
+      message.error('附件刪除失敗');
+    }
   };
 
   // 載入承攬案件數據
@@ -177,11 +294,23 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
 
   React.useEffect(() => {
     if (visible && document) {
+      // 處理 assignee 欄位：字串轉陣列（支援逗號分隔）
+      let assigneeArray: string[] = [];
+      const rawAssignee = (document as any).assignee;
+      if (rawAssignee) {
+        if (Array.isArray(rawAssignee)) {
+          assigneeArray = rawAssignee;
+        } else if (typeof rawAssignee === 'string') {
+          assigneeArray = rawAssignee.split(',').map((s: string) => s.trim()).filter(Boolean);
+        }
+      }
+
       const formValues = {
         ...document,
         doc_date: document.doc_date ? dayjs(document.doc_date) : null,
         receive_date: document.receive_date ? dayjs(document.receive_date) : null,
         send_date: document.send_date ? dayjs(document.send_date) : null,
+        assignee: assigneeArray,
       };
 
       if (isCopy) {
@@ -191,8 +320,35 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
       }
 
       form.setFieldsValue(formValues);
+
+      // 設定選中的專案 ID 並載入該專案的業務同仁
+      const projectId = (document as any).contract_project_id;
+      if (projectId) {
+        setSelectedProjectId(projectId);
+        // 載入專案業務同仁，如果公文沒有指定 assignee 則自動填入
+        fetchProjectStaff(projectId).then(staffList => {
+          if (staffList && staffList.length > 0 && assigneeArray.length === 0) {
+            // 公文沒有指定業務同仁，自動從專案填入
+            const allStaffNames = staffList.map((s: any) => s.user_name);
+            setTimeout(() => {
+              form.setFieldsValue({ assignee: allStaffNames });
+              console.log('[載入公文] 自動填入專案業務同仁:', allStaffNames);
+            }, 100);
+          }
+        });
+      } else {
+        setSelectedProjectId(null);
+      }
+
+      // 載入公文附件列表
+      if (document.id && !isCopy) {
+        fetchAttachments(document.id);
+      }
     } else if (visible && isCreate) {
       form.resetFields();
+      setSelectedProjectId(null);
+      setExistingAttachments([]);
+      setFileList([]);
     }
   }, [visible, document, form, isCreate, isCopy]);
 
@@ -200,15 +356,37 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
     try {
       setLoading(true);
       const values = await form.validateFields();
-      
+
+      // 處理 assignee：陣列轉逗號分隔字串
+      let assigneeStr = '';
+      if (Array.isArray(values.assignee)) {
+        assigneeStr = values.assignee.join(', ');
+      } else if (values.assignee) {
+        assigneeStr = values.assignee;
+      }
+
       const documentData = {
         ...values,
         doc_date: values.doc_date?.format('YYYY-MM-DD'),
         receive_date: values.receive_date?.format('YYYY-MM-DD'),
         send_date: values.send_date?.format('YYYY-MM-DD'),
+        assignee: assigneeStr,
       };
 
       await onSave(documentData);
+
+      // 上傳新附件（僅限編輯既有公文）
+      if (document?.id && fileList.length > 0) {
+        try {
+          await uploadFiles(document.id, fileList);
+          message.success(`附件上傳成功（共 ${fileList.length} 個檔案）`);
+          setFileList([]); // 清空上傳列表
+        } catch (uploadError) {
+          console.error('File upload failed:', uploadError);
+          message.warning('公文儲存成功，但附件上傳失敗');
+        }
+      }
+
       message.success(`${getOperationText()}成功！`);
       onClose();
     } catch (error) {
@@ -511,11 +689,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
                           onChange={handleProjectChange}
                           options={Array.isArray(cases) ? cases.map(case_ => ({
                             value: case_.id,
-                            label: case_.project_code
-                              ? `${case_.project_code} - ${case_.project_name}`
-                              : (case_.case_number
-                                ? `${case_.case_number} - ${case_.case_name}`
-                                : case_.project_name || case_.case_name),
+                            label: case_.project_name || case_.case_name || '未命名案件',
                             key: case_.id
                           })) : []}
                         />
@@ -528,20 +702,28 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
                         name="assignee"
                       >
                         <Select
-                          placeholder="請選擇業務同仁"
-                          loading={usersLoading}
+                          mode="multiple"
+                          placeholder="請選擇業務同仁（可複選）"
+                          loading={usersLoading || staffLoading}
                           allowClear
                           showSearch
                           filterOption={(input, option) =>
                             (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
                           }
-                          options={Array.isArray(users) ? users.map(user => ({
-                            value: user.full_name || user.username,
-                            label: user.full_name
-                              ? `${user.full_name}${user.department ? ` - ${user.department}` : ''}`
-                              : user.username,
-                            key: user.id
-                          })) : []}
+                          options={
+                            // 優先顯示專案指定的業務同仁，若無則顯示全部使用者
+                            selectedProjectId && projectStaffMap[selectedProjectId]?.length > 0
+                              ? projectStaffMap[selectedProjectId].map(staff => ({
+                                  value: staff.user_name,
+                                  label: staff.role ? `${staff.user_name}(${staff.role})` : staff.user_name,
+                                  key: staff.user_id || staff.id
+                                }))
+                              : Array.isArray(users) ? users.map(user => ({
+                                  value: user.full_name || user.username,
+                                  label: user.full_name || user.username,
+                                  key: user.id
+                                })) : []
+                          }
                         />
                       </Form.Item>
                     </Col>
@@ -563,11 +745,82 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
             },
             {
               key: '4',
-              label: '附件上傳',
+              label: (
+                <span>
+                  附件上傳
+                  {existingAttachments.length > 0 && (
+                    <Tag color="blue" style={{ marginLeft: 8 }}>{existingAttachments.length}</Tag>
+                  )}
+                </span>
+              ),
               children: (
-                <>
+                <Spin spinning={attachmentsLoading}>
+                  {/* 既有附件列表 */}
+                  {existingAttachments.length > 0 && (
+                    <Card
+                      size="small"
+                      title={
+                        <Space>
+                          <PaperClipOutlined />
+                          <span>已上傳附件（{existingAttachments.length} 個）</span>
+                        </Space>
+                      }
+                      style={{ marginBottom: 16 }}
+                    >
+                      <List
+                        size="small"
+                        dataSource={existingAttachments}
+                        renderItem={(item: any) => (
+                          <List.Item
+                            actions={[
+                              <Button
+                                key="download"
+                                type="link"
+                                size="small"
+                                icon={<DownloadOutlined />}
+                                onClick={() => handleDownload(item.id, item.original_filename)}
+                              >
+                                下載
+                              </Button>,
+                              !isReadOnly && (
+                                <Popconfirm
+                                  key="delete"
+                                  title="確定要刪除此附件嗎？"
+                                  onConfirm={() => handleDeleteAttachment(item.id)}
+                                  okText="確定"
+                                  cancelText="取消"
+                                >
+                                  <Button
+                                    type="link"
+                                    size="small"
+                                    danger
+                                    icon={<DeleteOutlined />}
+                                  >
+                                    刪除
+                                  </Button>
+                                </Popconfirm>
+                              ),
+                            ].filter(Boolean)}
+                          >
+                            <List.Item.Meta
+                              avatar={<PaperClipOutlined style={{ fontSize: 20, color: '#1890ff' }} />}
+                              title={item.original_filename || item.filename}
+                              description={
+                                <span style={{ fontSize: 12, color: '#999' }}>
+                                  {item.file_size ? `${(item.file_size / 1024).toFixed(1)} KB` : ''}
+                                  {item.created_at && ` · ${dayjs(item.created_at).format('YYYY-MM-DD HH:mm')}`}
+                                </span>
+                              }
+                            />
+                          </List.Item>
+                        )}
+                      />
+                    </Card>
+                  )}
+
+                  {/* 上傳區域（非唯讀模式才顯示）*/}
                   {!isReadOnly ? (
-                    <Form.Item label="附件上傳">
+                    <Form.Item label="上傳新附件">
                       <Dragger {...uploadProps}>
                         <p className="ant-upload-drag-icon">
                           <InboxOutlined />
@@ -579,11 +832,14 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
                       </Dragger>
                     </Form.Item>
                   ) : (
-                    <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
-                      查看模式下無法上傳附件
-                    </div>
+                    existingAttachments.length === 0 && (
+                      <Empty
+                        description="此公文尚無附件"
+                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                      />
+                    )
                   )}
-                </>
+                </Spin>
               )
             },
             ...(isReadOnly && document ? [{
@@ -629,6 +885,7 @@ export const DocumentSendModal: React.FC<DocumentSendModalProps> = ({
   onClose,
   onSend,
 }) => {
+  const { message } = App.useApp();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
 

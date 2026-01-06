@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'allow_null_doc_id'
-down_revision = 'add_dispatch_format_and_attachment'
+down_revision = 'add_dispatch_format_attachment'
 branch_labels = None
 depends_on = None
 
