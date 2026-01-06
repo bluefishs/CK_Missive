@@ -90,6 +90,13 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [uploading, setUploading] = useState(false);
   const [uploadErrors, setUploadErrors] = useState<string[]>([]);
+  // 重複檔案處理狀態
+  const [duplicateModal, setDuplicateModal] = useState<{
+    visible: boolean;
+    file: File | null;
+    existingAttachment: any | null;
+  }>({ visible: false, file: null, existingAttachment: null });
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   // 檔案驗證設定（從後端動態載入）
   const [fileSettings, setFileSettings] = useState<{
     allowedExtensions: string[];
@@ -334,6 +341,66 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
     return <PaperClipOutlined style={{ fontSize: 20, color: '#1890ff' }} />;
   };
 
+  // 檢查是否有重複檔名
+  const checkDuplicateFile = (filename: string): any | null => {
+    return existingAttachments.find(
+      (att) => (att.original_filename || att.filename)?.toLowerCase() === filename.toLowerCase()
+    );
+  };
+
+  // 處理重複檔案 - 覆蓋（刪除舊檔案）
+  const handleOverwriteFile = async () => {
+    if (!duplicateModal.file || !duplicateModal.existingAttachment) return;
+
+    try {
+      // 先刪除舊檔案
+      await filesApi.deleteAttachment(duplicateModal.existingAttachment.id);
+      message.success(`已刪除舊檔案：${duplicateModal.existingAttachment.original_filename || duplicateModal.existingAttachment.filename}`);
+
+      // 將檔案加入待上傳列表
+      const newFile = {
+        uid: `${Date.now()}-${duplicateModal.file.name}`,
+        name: duplicateModal.file.name,
+        status: 'done',
+        originFileObj: duplicateModal.file,
+        size: duplicateModal.file.size,
+      };
+      setFileList((prev) => [...prev, newFile]);
+
+      // 刷新附件列表
+      if (document?.id) {
+        fetchAttachments(document.id);
+      }
+    } catch (error) {
+      console.error('刪除舊檔案失敗:', error);
+      message.error('刪除舊檔案失敗');
+    } finally {
+      setDuplicateModal({ visible: false, file: null, existingAttachment: null });
+    }
+  };
+
+  // 處理重複檔案 - 同時保留
+  const handleKeepBoth = () => {
+    if (!duplicateModal.file) return;
+
+    // 直接加入待上傳列表（後端會自動加 UUID 前綴）
+    const newFile = {
+      uid: `${Date.now()}-${duplicateModal.file.name}`,
+      name: duplicateModal.file.name,
+      status: 'done',
+      originFileObj: duplicateModal.file,
+      size: duplicateModal.file.size,
+    };
+    setFileList((prev) => [...prev, newFile]);
+    setDuplicateModal({ visible: false, file: null, existingAttachment: null });
+    message.info('檔案已加入待上傳列表（將以不同名稱儲存）');
+  };
+
+  // 處理重複檔案 - 取消
+  const handleCancelDuplicate = () => {
+    setDuplicateModal({ visible: false, file: null, existingAttachment: null });
+  };
+
   // 載入承攬案件數據
   useEffect(() => {
     const fetchCases = async () => {
@@ -523,9 +590,9 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
 
   const getOperationText = () => {
     switch (operation) {
-      case 'create': return '新增公文';
-      case 'edit': return '修改公文';
-      case 'copy': return '複製公文';
+      case 'create': return '新增儲存';
+      case 'edit': return '儲存變更';
+      case 'copy': return '複製儲存';
       default: return '儲存';
     }
   };
@@ -591,6 +658,21 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
         message.error(validation.error);
         return Upload.LIST_IGNORE; // 不加入列表
       }
+
+      // 檢查是否有重複檔名（僅在編輯模式下檢查已上傳附件）
+      if (!isCreate && !isCopy) {
+        const existingFile = checkDuplicateFile(file.name);
+        if (existingFile) {
+          // 顯示重複檔案確認對話框
+          setDuplicateModal({
+            visible: true,
+            file: file,
+            existingAttachment: existingFile,
+          });
+          return Upload.LIST_IGNORE; // 先不加入列表，等用戶確認
+        }
+      }
+
       return false; // 阻止自動上傳，我們將手動處理
     },
     onChange: ({ fileList: newFileList }: any) => {
@@ -1015,7 +1097,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
                             )}
                           />
                           <p style={{ color: '#999', fontSize: 12, marginTop: 8, marginBottom: 0 }}>
-                            點擊下方「保存」按鈕後開始上傳
+                            點擊下方「儲存變更」按鈕後開始上傳
                           </p>
                         </Card>
                       )}
@@ -1102,6 +1184,52 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
           ]}
         />
       </Form>
+
+      {/* 重複檔案確認對話框 */}
+      <Modal
+        title={
+          <span style={{ color: '#faad14' }}>
+            <FileOutlined style={{ marginRight: 8 }} />
+            發現重複檔案
+          </span>
+        }
+        open={duplicateModal.visible}
+        onCancel={handleCancelDuplicate}
+        footer={[
+          <Button key="cancel" onClick={handleCancelDuplicate}>
+            取消上傳
+          </Button>,
+          <Button key="keep" onClick={handleKeepBoth}>
+            保留兩個
+          </Button>,
+          <Button key="overwrite" type="primary" danger onClick={handleOverwriteFile}>
+            覆蓋舊檔
+          </Button>,
+        ]}
+        width={500}
+      >
+        <div style={{ padding: '16px 0' }}>
+          <Alert
+            message="已存在相同檔名的附件"
+            description={
+              <div>
+                <p><strong>新檔案：</strong>{duplicateModal.file?.name}</p>
+                <p><strong>現有檔案：</strong>{duplicateModal.existingAttachment?.original_filename || duplicateModal.existingAttachment?.filename}</p>
+                <p style={{ marginTop: 12, color: '#666' }}>
+                  請選擇處理方式：
+                </p>
+                <ul style={{ marginTop: 8, paddingLeft: 20, color: '#666' }}>
+                  <li><strong>覆蓋舊檔</strong>：刪除現有檔案，上傳新檔案</li>
+                  <li><strong>保留兩個</strong>：新檔案將以不同名稱儲存</li>
+                  <li><strong>取消上傳</strong>：不上傳此檔案</li>
+                </ul>
+              </div>
+            }
+            type="warning"
+            showIcon
+          />
+        </div>
+      </Modal>
     </Modal>
   );
 };
