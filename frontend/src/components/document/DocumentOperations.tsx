@@ -9,7 +9,6 @@ import {
   message,
   Upload,
   Card,
-  Divider,
   Space,
   Row,
   Col,
@@ -21,7 +20,6 @@ import {
   FileTextOutlined,
   SendOutlined,
   CopyOutlined,
-  FileZipOutlined,
   CalendarOutlined,
 } from '@ant-design/icons';
 import { Document } from '../../types';
@@ -91,9 +89,12 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
 
   // 選擇專案後自動填補業務同仁
   const handleProjectChange = async (projectId: number | null) => {
+    // 先更新承攬案件欄位
+    form.setFieldsValue({ contract_project_id: projectId });
+
     if (!projectId) {
       // 清除專案時，也清除業務同仁欄位
-      form.setFieldValue('assignee', undefined);
+      form.setFieldsValue({ assignee: undefined });
       return;
     }
 
@@ -104,23 +105,26 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
       return;
     }
 
+    let selectedStaffName: string;
+
     if (staffList.length === 1) {
       // 只有一位同仁時直接填入
-      const staff = staffList[0];
-      form.setFieldValue('assignee', staff.user_name);
-      message.success(`已自動填入業務同仁：${staff.user_name}`);
+      selectedStaffName = staffList[0].user_name;
+      message.success(`已自動填入業務同仁：${selectedStaffName}`);
     } else {
-      // 多位同仁時，優先填入主要負責人，否則提示選擇
+      // 多位同仁時，優先填入主要負責人，否則選擇第一位
       const primaryStaff = staffList.find((s: any) => s.is_primary);
       if (primaryStaff) {
-        form.setFieldValue('assignee', primaryStaff.user_name);
-        message.success(`已自動填入主要負責人：${primaryStaff.user_name}`);
+        selectedStaffName = primaryStaff.user_name;
+        message.success(`已自動填入主要負責人：${selectedStaffName}`);
       } else {
-        // 無主要負責人時，自動選擇第一位
-        form.setFieldValue('assignee', staffList[0].user_name);
-        message.info(`此專案有 ${staffList.length} 位同仁，已填入：${staffList[0].user_name}，可自行調整`);
+        selectedStaffName = staffList[0].user_name;
+        message.info(`此專案有 ${staffList.length} 位同仁，已填入：${selectedStaffName}，可自行調整`);
       }
     }
+
+    // 使用 setFieldsValue 確保 UI 即時更新
+    form.setFieldsValue({ assignee: selectedStaffName });
   };
 
   // 載入承攬案件數據
@@ -182,7 +186,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
 
       if (isCopy) {
         // 複製時清除ID和重複欄位
-        formValues.id = undefined;
+        delete (formValues as any).id;
         formValues.doc_number = `${document.doc_number}-副本`;
       }
 
@@ -598,7 +602,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
                     </Col>
                     <Col span={8}>
                       <strong>建立者:</strong><br />
-                      {document.creator || '系統'}
+                      {(document as any).creator || '系統'}
                     </Col>
                   </Row>
                 </Card>

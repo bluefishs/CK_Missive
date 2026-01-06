@@ -57,8 +57,8 @@ export const DocumentList: React.FC<DocumentListProps> = ({
   loading,
   total,
   pagination,
-  sortField,
-  sortOrder,
+  sortField: _sortField,
+  sortOrder: _sortOrder,
   onTableChange,
   onEdit,
   onDelete,
@@ -67,18 +67,18 @@ export const DocumentList: React.FC<DocumentListProps> = ({
   onExportPdf,
   onSend,
   onArchive,
-  onAddToCalendar, // Add this prop
+  onAddToCalendar: _onAddToCalendar,
   onExport,
-  onBatchExport,
-  onBatchDelete,
-  onBatchArchive,
-  onBatchCopy,
+  onBatchExport: _onBatchExport,
+  onBatchDelete: _onBatchDelete,
+  onBatchArchive: _onBatchArchive,
+  onBatchCopy: _onBatchCopy,
   enableBatchOperations = false,
   isExporting = false,
   isAddingToCalendar = false,
 }) => {
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
-  const [batchLoading, setBatchLoading] = useState(false);
+  const [batchLoading, _setBatchLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [searchedColumn, setSearchedColumn] = useState('');
   const searchInput = useRef<InputRef>(null);
@@ -99,7 +99,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
     dataIndex: string,
   ) => {
     confirm();
-    setSearchText(selectedKeys[0]);
+    setSearchText(selectedKeys[0] || '');
     setSearchedColumn(dataIndex);
   };
 
@@ -179,11 +179,11 @@ export const DocumentList: React.FC<DocumentListProps> = ({
       // 如果有選取項目，匯出選取的公文；否則匯出全部
       const documentIds = selectedRowKeys.length > 0
         ? selectedRowKeys.map(key => Number(key))
-        : undefined;
+        : [];
 
       message.loading({ content: '正在匯出公文...', key: 'export' });
 
-      await documentsApi.exportDocuments({ documentIds });
+      await documentsApi.exportDocuments(documentIds.length > 0 ? { documentIds } : {});
 
       message.success({ content: '匯出成功！', key: 'export' });
     } catch (error) {
@@ -205,20 +205,23 @@ export const DocumentList: React.FC<DocumentListProps> = ({
   };
 
 
+  // 計算流水號（基於分頁位置，非資料庫 ID）
+  const getRowNumber = (index: number): number => {
+    return (pagination.current - 1) * pagination.pageSize + index + 1;
+  };
+
   // 欄位順序：序號、發文形式、收發單位、公文字號、公文日期、主旨、附件、承攬案件、業務同仁、操作
   // 預設排序：公文日期降冪（最新日期在最上方，由後端控制）
+  // 序號為流水號（依排序後的順序計算），非資料庫 ID
   // 移除：類型、狀態
   const columns: ColumnsType<Document> = [
     {
       title: '序號',
-      dataIndex: 'id',
-      key: 'id',
+      key: 'rowNumber',
       width: 70,
       align: 'center',
-      sorter: (a, b) => a.id - b.id,
-      sortDirections: ['descend', 'ascend'],
-      render: (id: number) => (
-        <Typography.Text type="secondary">{id}</Typography.Text>
+      render: (_: any, __: Document, index: number) => (
+        <Typography.Text type="secondary">{getRowNumber(index)}</Typography.Text>
       ),
     },
     {
@@ -493,7 +496,6 @@ export const DocumentList: React.FC<DocumentListProps> = ({
           onExportPdf={onExportPdf}
           onSend={onSend}
           onArchive={onArchive}
-          onAddToCalendar={onAddToCalendar}
           loadingStates={{
             isExporting: isExporting,
             isAddingToCalendar: isAddingToCalendar,

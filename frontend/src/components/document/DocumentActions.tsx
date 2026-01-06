@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Space, Popconfirm, Tooltip, Dropdown, App } from 'antd';
+import { Button, Space, Popconfirm, Dropdown, App } from 'antd';
 import {
   DeleteOutlined,
   FilePdfOutlined,
@@ -36,8 +36,8 @@ interface DocumentActionsProps {
 
 export const DocumentActions: React.FC<DocumentActionsProps> = ({
   document,
-  onView,
-  onEdit,
+  onView: _onView,
+  onEdit: _onEdit,
   onDelete,
   onCopy,
   onExportPdf,
@@ -48,7 +48,7 @@ export const DocumentActions: React.FC<DocumentActionsProps> = ({
   loadingStates = {},
 }) => {
   const [internalLoading, setInternalLoading] = useState<Record<string, boolean>>({});
-  const { loading: calendarLoading, addToCalendar } = useCalendarIntegration();
+  const { loading: _calendarLoading, addToCalendar } = useCalendarIntegration();
   const { message } = App.useApp();
 
   const handleAction = async (key: string, handler: ActionHandler) => {
@@ -62,7 +62,7 @@ export const DocumentActions: React.FC<DocumentActionsProps> = ({
     }
   };
 
-  const loading = { ...internalLoading, ...loadingStates };
+  const _loading = { ...internalLoading, ...loadingStates };
 
   const actionConfig: {
     key: string;

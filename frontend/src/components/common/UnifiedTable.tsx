@@ -12,23 +12,19 @@ import {
   AutoComplete,
   Typography,
   Tag,
-  Tooltip,
-  Dropdown,
-  Menu,
   App
 } from 'antd';
 import {
   SearchOutlined,
-  FilterOutlined,
   SortAscendingOutlined,
   SortDescendingOutlined,
   ReloadOutlined,
   DownloadOutlined,
-  SettingOutlined,
   ClearOutlined
 } from '@ant-design/icons';
-import type { ColumnsType, TableProps, SortOrder } from 'antd/es/table';
-import dayjs, { Dayjs } from 'dayjs';
+import type { ColumnsType, TableProps, ColumnType } from 'antd/es/table';
+import type { SortOrder } from 'antd/es/table/interface';
+import dayjs from 'dayjs';
 
 const { Text } = Typography;
 const { Option } = Select;
@@ -48,7 +44,7 @@ export interface SortConfig {
   order: SortOrder;
 }
 
-export interface UnifiedTableProps<T = any> extends Omit<TableProps<T>, 'columns'> {
+export interface UnifiedTableProps<T = any> extends Omit<TableProps<T>, 'columns' | 'title'> {
   columns: ColumnsType<T>;
   data: T[];
   loading?: boolean;
@@ -250,9 +246,9 @@ function UnifiedTable<T extends Record<string, any>>({
             placeholder={config.placeholder || `搜索 ${config.label}`}
             value={value || ''}
             onChange={(val) => handleFilterChange(config.key, val)}
-            options={config.autoCompleteOptions?.map(option => ({ value: option }))}
+            options={config.autoCompleteOptions?.map(option => ({ value: option })) || []}
             filterOption={(inputValue, option) =>
-              option!.value.toLowerCase().includes(inputValue.toLowerCase())
+              option?.value.toLowerCase().includes(inputValue.toLowerCase()) || false
             }
           />
         );
@@ -303,15 +299,19 @@ function UnifiedTable<T extends Record<string, any>>({
 
     // 為可排序列添加排序指示器
     cols = cols.map(col => {
-      if (col.dataIndex && typeof col.dataIndex === 'string') {
-        const field = col.dataIndex;
+      const columnType = col as ColumnType<T>;
+      if (columnType.dataIndex && typeof columnType.dataIndex === 'string') {
+        const field = columnType.dataIndex;
         const currentSort = sortConfig?.field === field ? sortConfig.order : null;
-        
+        const originalTitle = typeof columnType.title === 'function'
+          ? 'Column'
+          : columnType.title;
+
         return {
           ...col,
           title: (
             <Space>
-              <span>{col.title}</span>
+              <span>{originalTitle}</span>
               <Button
                 type="text"
                 size="small"
@@ -447,13 +447,13 @@ function UnifiedTable<T extends Record<string, any>>({
         columns={enhancedColumns}
         dataSource={processedData}
         loading={loading}
-        pagination={{
+        pagination={showTotal ? {
           showSizeChanger: true,
           showQuickJumper: true,
-          showTotal: showTotal ? (total, range) => 
-            `第 ${range[0]}-${range[1]} 項，共 ${total} 項` : undefined,
-          ...tableProps.pagination
-        }}
+          showTotal: (total: number, range: [number, number]) =>
+            `第 ${range[0]}-${range[1]} 項，共 ${total} 項`,
+          ...(tableProps.pagination !== false ? tableProps.pagination : {})
+        } : (tableProps.pagination ?? false)}
       />
 
       {/* 統計信息 */}

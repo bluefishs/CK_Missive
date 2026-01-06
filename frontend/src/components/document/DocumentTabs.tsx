@@ -100,18 +100,22 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
   // Handle tab changes by updating filters
   const handleTabChange = (tabKey: string) => {
     if (onFiltersChange) {
-      const newFilters: DocumentFilter = { ...filters };
+      let newFilters: DocumentFilter;
 
       switch (tabKey) {
         case 'all':
-          delete newFilters.category;
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { category: _, ...restFilters } = filters;
+          newFilters = restFilters;
           break;
         case 'received':
-          newFilters.category = 'receive';
+          newFilters = { ...filters, category: 'receive' };
           break;
         case 'sent':
-          newFilters.category = 'send';
+          newFilters = { ...filters, category: 'send' };
           break;
+        default:
+          newFilters = { ...filters };
       }
 
       onFiltersChange(newFilters);
@@ -159,7 +163,7 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
           <Title level={5} style={{ margin: 0 }}>
             全部公文
           </Title>
-          <Badge count={effectiveStats.total} showZero color="blue" />
+          <Badge count={effectiveStats.total} showZero overflowCount={99999} color="blue" />
         </Space>
       ),
       children: (
@@ -190,7 +194,7 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
           <Title level={5} style={{ margin: 0 }}>
             收文
           </Title>
-          <Badge count={effectiveStats.received} showZero color="green" />
+          <Badge count={effectiveStats.received} showZero overflowCount={99999} color="green" />
         </Space>
       ),
       children: (
@@ -221,7 +225,7 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
           <Title level={5} style={{ margin: 0 }}>
             發文
           </Title>
-          <Badge count={effectiveStats.sent} showZero color="red" />
+          <Badge count={effectiveStats.sent} showZero overflowCount={99999} color="red" />
         </Space>
       ),
       children: (
