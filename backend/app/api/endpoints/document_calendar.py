@@ -188,7 +188,6 @@ async def create_calendar_event(
                 "document_id": new_event.document_id,
                 "assigned_user_id": new_event.assigned_user_id,
                 "created_by": new_event.created_by,
-                "reminder_enabled": new_event.reminder_enabled,
                 "created_at": new_event.created_at.isoformat(),
                 "updated_at": new_event.updated_at.isoformat()
             }

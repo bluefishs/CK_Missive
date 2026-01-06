@@ -2,18 +2,19 @@
  * 日曆事件表單模態框
  * 用於新增和編輯日曆事件 (符合 POST 資安機制)
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Modal, Form, Input, Select, DatePicker, Switch, InputNumber,
-  Row, Col, Space, Button, notification, Spin
+  Modal, Form, Input, Select, DatePicker, Switch,
+  Row, Col, Space, Button, notification, Spin, Divider
 } from 'antd';
 import {
   BellOutlined, CalendarOutlined, AlertOutlined,
-  EyeOutlined, UnorderedListOutlined
+  EyeOutlined, UnorderedListOutlined, FileTextOutlined
 } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
-import { secureApiService } from '../../services/secureApiService';
+import { apiClient } from '../../api/client';
+import debounce from 'lodash/debounce';
 
 const { TextArea } = Input;
 const { RangePicker } = DatePicker;
@@ -44,7 +45,15 @@ interface CalendarEvent {
   priority: string | number;
   location?: string;
   document_id?: number;
+  doc_number?: string;
   assigned_user_id?: number;
+}
+
+// 公文選項介面
+interface DocumentOption {
+  id: number;
+  doc_number: string;
+  subject: string;
 }
 
 interface EventFormModalProps {
@@ -81,6 +90,43 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [allDay, setAllDay] = useState(false);
+  const [documentOptions, setDocumentOptions] = useState<DocumentOption[]>([]);
+  const [documentSearching, setDocumentSearching] = useState(false);
+
+  // 搜尋公文（防抖動）
+  const searchDocuments = useCallback(
+    debounce(async (keyword: string) => {
+      if (!keyword || keyword.length < 2) {
+        setDocumentOptions([]);
+        return;
+      }
+
+      setDocumentSearching(true);
+      try {
+        const response = await apiClient.post<{
+          success: boolean;
+          items: DocumentOption[];
+        }>('/documents-enhanced/list', {
+          keyword,
+          limit: 20,
+          page: 1
+        });
+
+        if (response.success && response.items) {
+          setDocumentOptions(response.items.map(doc => ({
+            id: doc.id,
+            doc_number: doc.doc_number,
+            subject: doc.subject
+          })));
+        }
+      } catch (error) {
+        console.error('搜尋公文失敗:', error);
+      } finally {
+        setDocumentSearching(false);
+      }
+    }, 300),
+    []
+  );
 
   // 初始化表單數據
   useEffect(() => {
@@ -98,6 +144,14 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
         assigned_user_id: event.assigned_user_id
       });
       setAllDay(event.all_day);
+      // 如果有關聯公文，預載公文選項
+      if (event.document_id && event.doc_number) {
+        setDocumentOptions([{
+          id: event.document_id,
+          doc_number: event.doc_number,
+          subject: ''
+        }]);
+      }
     } else if (visible && mode === 'create') {
       form.resetFields();
       form.setFieldsValue({
@@ -107,6 +161,7 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
         start_date: dayjs()
       });
       setAllDay(false);
+      setDocumentOptions([]);
     }
   }, [visible, mode, event, form]);
 
@@ -118,37 +173,45 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
 
       const submitData = {
         title: values.title,
-        description: values.description,
+        description: values.description || null,
         start_date: values.start_date.toISOString(),
-        end_date: values.end_date?.toISOString(),
-        all_day: values.all_day,
+        end_date: values.end_date?.toISOString() || null,
+        all_day: values.all_day || false,
         event_type: values.event_type,
         priority: values.priority,
-        location: values.location,
-        document_id: values.document_id,
-        assigned_user_id: values.assigned_user_id,
-        reminder_enabled: values.reminder_enabled,
-        reminder_minutes: values.reminder_minutes
+        location: values.location || null,
+        document_id: values.document_id || null,
+        assigned_user_id: values.assigned_user_id || null
       };
 
       if (mode === 'create') {
         // 新增事件 (POST /api/calendar/events)
-        const response = await secureApiService.post('/calendar/events', submitData);
+        const response = await apiClient.post<{ success: boolean; message: string }>(
+          '/calendar/events',
+          submitData
+        );
         if (response.success) {
           notification.success({ message: '事件建立成功' });
           onSuccess();
           onClose();
+        } else {
+          throw new Error(response.message || '建立失敗');
         }
       } else if (mode === 'edit' && event) {
         // 更新事件 (POST /api/calendar/events/update)
-        const response = await secureApiService.post('/calendar/events/update', {
-          event_id: event.id,
-          ...submitData
-        });
+        const response = await apiClient.post<{ success: boolean; message: string }>(
+          '/calendar/events/update',
+          {
+            event_id: event.id,
+            ...submitData
+          }
+        );
         if (response.success) {
           notification.success({ message: '事件更新成功' });
           onSuccess();
           onClose();
+        } else {
+          throw new Error(response.message || '更新失敗');
         }
       }
     } catch (error: any) {
@@ -288,15 +351,42 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
             </Col>
           </Row>
 
+          <Divider orientation="left" plain>
+            <Space><FileTextOutlined />關聯公文</Space>
+          </Divider>
+
           <Form.Item
             name="document_id"
-            label="關聯公文 ID"
+            label="關聯公文"
+            tooltip="輸入公文字號或主旨關鍵字搜尋"
           >
-            <InputNumber
-              placeholder="輸入公文 ID（選填）"
-              style={{ width: '100%' }}
-              min={1}
-            />
+            <Select
+              showSearch
+              allowClear
+              placeholder="輸入公文字號或主旨搜尋..."
+              filterOption={false}
+              onSearch={searchDocuments}
+              loading={documentSearching}
+              notFoundContent={documentSearching ? <Spin size="small" /> : '輸入至少2個字元搜尋'}
+              optionLabelProp="label"
+            >
+              {documentOptions.map(doc => (
+                <Select.Option
+                  key={doc.id}
+                  value={doc.id}
+                  label={doc.doc_number}
+                >
+                  <div>
+                    <div style={{ fontWeight: 500 }}>{doc.doc_number}</div>
+                    {doc.subject && (
+                      <div style={{ fontSize: 12, color: '#888', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {doc.subject}
+                      </div>
+                    )}
+                  </div>
+                </Select.Option>
+              ))}
+            </Select>
           </Form.Item>
         </Form>
       </Spin>

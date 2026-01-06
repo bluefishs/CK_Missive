@@ -65,17 +65,18 @@ class ContractProject(Base):
     project_name = Column(String(500), nullable=False, comment="案件名稱")
     year = Column(Integer, nullable=False, comment="年度")
     client_agency = Column(String(200), comment="委託單位")
-    category = Column(String(50), comment="案件類別: 01委辦案件、02協力計畫、03小額採購、04其他類別")
     contract_doc_number = Column(String(100), comment="契約文號")
-    project_code = Column(String(100), unique=True, comment="專案編號: 年度+類別+流水號 (如202501001)")
+    project_code = Column(String(100), unique=True, comment="專案編號: CK{年度}_{類別}_{性質}_{流水號} (如CK202501_01_01_001)")
+    category = Column(String(50), comment="案件類別: 01委辦案件、02協力計畫、03小額採購、04其他類別")
+    case_nature = Column(String(50), comment="案件性質: 01測量案、02資訊案、03複合案")
+    status = Column(String(50), default="執行中", comment="執行狀態: 執行中、已結案")
     contract_amount = Column(Float, comment="契約金額")
     winning_amount = Column(Float, comment="得標金額")
     start_date = Column(Date, comment="開始日期")
     end_date = Column(Date, comment="結束日期")
-    status = Column(String(50), comment="執行狀態")
     progress = Column(Integer, default=0, comment="完成進度 (0-100)")
-    notes = Column(Text, comment="備註")
     project_path = Column(String(500), comment="專案路徑")
+    notes = Column(Text, comment="備註")
     description = Column(Text, comment="專案描述")
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now())
@@ -91,6 +92,7 @@ class OfficialDocument(Base):
     __tablename__ = "documents"
     
     id = Column(Integer, primary_key=True, index=True)
+    auto_serial = Column(String(20), index=True, comment="流水序號 (R0001=收文, S0001=發文)")
     doc_number = Column(String(100), nullable=False, index=True, comment="公文文號")
     doc_type = Column(String(10), nullable=False, index=True, comment="公文類型 (收文/發文)")
     subject = Column(String(500), nullable=False, comment="主旨")
@@ -99,7 +101,13 @@ class OfficialDocument(Base):
     doc_date = Column(Date, index=True, comment="發文日期 (西元)")
     receive_date = Column(Date, comment="收文日期 (西元)")
     status = Column(String(50), index=True, comment="處理狀態 (例如：待處理, 已辦畢)")
-    # ... 其他欄位 ...
+    category = Column(String(100), index=True, comment="收發文分類 (收文/發文)")
+
+    # 發文形式與附件欄位
+    delivery_method = Column(String(20), index=True, default="電子", comment="發文形式 (電子/紙本/電子+紙本)")
+    has_attachment = Column(Boolean, default=False, comment="是否含附件")
+
+    # 其他欄位
     contract_project_id = Column(Integer, ForeignKey('contract_projects.id'), nullable=True, comment="關聯的承攬案件ID")
     sender_agency_id = Column(Integer, ForeignKey('government_agencies.id'), nullable=True, comment="發文機關ID")
     receiver_agency_id = Column(Integer, ForeignKey('government_agencies.id'), nullable=True, comment="受文機關ID")
@@ -175,7 +183,7 @@ class User(Base):
 class DocumentCalendarEvent(Base):
     __tablename__ = "document_calendar_events"
     id = Column(Integer, primary_key=True, index=True)
-    document_id = Column(Integer, ForeignKey('documents.id', ondelete="CASCADE"), nullable=False, index=True, comment="關聯的公文ID")
+    document_id = Column(Integer, ForeignKey('documents.id', ondelete="SET NULL"), nullable=True, index=True, comment="關聯的公文ID（可為空）")
     title = Column(String(500), nullable=False, comment="事件標題")
     description = Column(Text, comment="事件描述")
     start_date = Column(DateTime, nullable=False, comment="開始時間")
@@ -298,3 +306,24 @@ class SiteConfiguration(Base):
     is_active = Column(Boolean, default=True, comment="是否啟用")
     created_at = Column(DateTime, server_default=func.now(), comment="建立時間")
     updated_at = Column(DateTime, server_default=func.now(), comment="更新時間")
+
+
+class ProjectAgencyContact(Base):
+    """專案機關承辦模型 - 記錄委託單位的承辦人資訊"""
+    __tablename__ = "project_agency_contacts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey('contract_projects.id', ondelete="CASCADE"), nullable=False, index=True, comment="關聯的專案ID")
+    contact_name = Column(String(100), nullable=False, comment="承辦人姓名")
+    position = Column(String(100), comment="職稱")
+    department = Column(String(200), comment="單位/科室")
+    phone = Column(String(50), comment="電話")
+    mobile = Column(String(50), comment="手機")
+    email = Column(String(100), comment="電子郵件")
+    is_primary = Column(Boolean, default=False, comment="是否為主要承辦人")
+    notes = Column(Text, comment="備註")
+    created_at = Column(DateTime, server_default=func.now(), comment="建立時間")
+    updated_at = Column(DateTime, server_default=func.now(), comment="更新時間")
+
+    # 關聯關係
+    project = relationship("ContractProject", backref="agency_contacts")
