@@ -18,7 +18,7 @@ import {
 // 型別定義
 // ============================================================================
 
-/** 公文基礎介面 */
+/** 公文基礎介面 - 與後端 DocumentResponse Schema 完整對應 */
 export interface Document {
   id: number;
   doc_number: string;
@@ -44,9 +44,28 @@ export interface Document {
   content?: string;
   created_at: string;
   updated_at: string;
+
+  // === 新增欄位 (與後端 DocumentResponse 對應) ===
+
+  // 發文形式與附件欄位
+  delivery_method?: string;      // 發文形式 (電子交換/紙本郵寄/電子+紙本)
+  has_attachment?: boolean;      // 是否含附件
+
+  // 承攬案件關聯資訊
+  contract_project_id?: number;    // 承攬案件 ID
+  contract_project_name?: string;  // 承攬案件名稱
+  assigned_staff?: Array<{         // 負責業務同仁
+    user_id: number;
+    name: string;
+    role: string;
+  }>;
+
+  // 公文字號拆分欄位
+  doc_zi?: string;       // 公文「字」部分，如「桃工用」
+  doc_wen_hao?: string;  // 公文「文號」部分，如「1140024090」
 }
 
-/** 公文建立請求 */
+/** 公文建立請求 - 與後端 DocumentCreate Schema 對應 */
 export interface DocumentCreate {
   doc_number: string;
   doc_type: string;
@@ -65,9 +84,12 @@ export interface DocumentCreate {
   notes?: string;
   priority_level?: string;
   content?: string;
+  // 新增欄位
+  delivery_method?: string;   // 發文形式 (電子交換/紙本郵寄/電子+紙本)
+  has_attachment?: boolean;   // 是否含附件
 }
 
-/** 公文更新請求 */
+/** 公文更新請求 - 與後端 DocumentUpdate Schema 對應 */
 export interface DocumentUpdate {
   doc_number?: string;
   doc_type?: string;
@@ -86,6 +108,9 @@ export interface DocumentUpdate {
   notes?: string;
   priority_level?: string;
   content?: string;
+  // 新增欄位
+  delivery_method?: string;   // 發文形式 (電子交換/紙本郵寄/電子+紙本)
+  has_attachment?: boolean;   // 是否含附件
 }
 
 /** 公文列表查詢參數 */

@@ -732,11 +732,53 @@ async def get_documents_by_project(
         result = await db.execute(doc_query)
         documents = result.scalars().all()
 
-        # 轉換為回應格式
+        # 查詢專案名稱（所有文件共用同一個專案）
+        project_name = None
+        if query.project_id:
+            project_query = select(ContractProject.project_name).where(
+                ContractProject.id == query.project_id
+            )
+            project_result = await db.execute(project_query)
+            project_name = project_result.scalar()
+
+        # 查詢專案承辦同仁（使用 project_user_assignment 關聯表）
+        assigned_staff = []
+        if query.project_id:
+            # 從關聯表查詢專案成員，並 JOIN users 表獲取姓名
+            staff_query = (
+                select(
+                    project_user_assignment.c.user_id,
+                    project_user_assignment.c.role,
+                    User.full_name,
+                    User.username
+                )
+                .join(User, User.id == project_user_assignment.c.user_id)
+                .where(
+                    project_user_assignment.c.project_id == query.project_id,
+                    project_user_assignment.c.status == 'active'
+                )
+            )
+            staff_result = await db.execute(staff_query)
+            staff_rows = staff_result.all()
+            assigned_staff = [
+                StaffInfo(
+                    user_id=row.user_id,
+                    name=row.full_name or row.username or f"User {row.user_id}",
+                    role=row.role or "member"
+                )
+                for row in staff_rows
+            ]
+
+        # 轉換為回應格式（包含專案關聯資訊）
         response_items = []
         for doc in documents:
             try:
-                response_items.append(DocumentResponse.model_validate(doc))
+                doc_dict = {
+                    **{k: v for k, v in doc.__dict__.items() if not k.startswith('_')},
+                    'contract_project_name': project_name,
+                    'assigned_staff': assigned_staff
+                }
+                response_items.append(DocumentResponse.model_validate(doc_dict))
             except Exception as e:
                 logger.warning(f"轉換公文資料失敗: {e}")
                 continue
