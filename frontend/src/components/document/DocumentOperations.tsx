@@ -737,17 +737,31 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
                 <>
                   <Row gutter={16}>
                     <Col span={12}>
-                      <Form.Item
-                        label="文件類型"
-                        name="doc_type"
-                        rules={[{ required: true, message: '請選擇文件類型' }]}
-                      >
-                        <Select placeholder="請選擇文件類型">
-                          <Option value="函">函</Option>
-                          <Option value="開會通知單">開會通知單</Option>
-                          <Option value="會勘通知單">會勘通知單</Option>
-                        </Select>
-                      </Form.Item>
+                      {/* 根據文件類別顯示不同欄位：發文用發文形式，收文用文件類型 */}
+                      {document?.category === '發文' ? (
+                        <Form.Item
+                          label="發文形式"
+                          name="delivery_method"
+                          rules={[{ required: true, message: '請選擇發文形式' }]}
+                        >
+                          <Select placeholder="請選擇發文形式">
+                            <Option value="電子交換">電子交換</Option>
+                            <Option value="紙本郵寄">紙本郵寄</Option>
+                          </Select>
+                        </Form.Item>
+                      ) : (
+                        <Form.Item
+                          label="文件類型"
+                          name="doc_type"
+                          rules={[{ required: true, message: '請選擇文件類型' }]}
+                        >
+                          <Select placeholder="請選擇文件類型">
+                            <Option value="函">函</Option>
+                            <Option value="開會通知單">開會通知單</Option>
+                            <Option value="會勘通知單">會勘通知單</Option>
+                          </Select>
+                        </Form.Item>
+                      )}
                     </Col>
 
                     <Col span={12}>

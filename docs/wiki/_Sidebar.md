@@ -2,7 +2,12 @@
 
 ## 📚 快速開始
 - [首頁](Home)
+- [**CODEWIKI 程序文件**](CODEWIKI)
 - [開發環境設定](../DEVELOPMENT_GUIDE.md)
+
+## 🏛️ 系統架構
+- [服務層架構](Service-Layer-Architecture)
+- [前端架構](Frontend-Architecture)
 
 ## 🔧 後端 API
 - [API 總覽](Backend-API-Overview)
@@ -23,8 +28,7 @@
 - [資料庫結構](../DATABASE_SCHEMA.md)
 - [遷移指南](Database-Migrations)
 
-## 🏗️ 系統架構
-- [架構概述](Architecture-Overview)
+## 🏗️ 部署與維運
 - [部署指南](Deployment-Guide)
 - [Docker 配置](Docker-Config)
 

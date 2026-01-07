@@ -4,10 +4,19 @@
 
 提供業務邏輯處理的服務類別。
 採用 POST-only 資安機制設計。
+
+架構：
+- base/: 基礎服務與 UnitOfWork
+- strategies/: 可重用策略類別
+- 核心業務服務
 """
 
 # 基礎服務
 from .base_service import BaseService
+from .base.unit_of_work import UnitOfWork, get_uow, unit_of_work
+
+# 策略類別
+from .strategies.agency_matcher import AgencyMatcher, ProjectMatcher
 
 # 核心業務服務
 from .document_service import DocumentService
@@ -31,8 +40,14 @@ from .document_export_service import DocumentExportService
 from .csv_processor import DocumentCSVProcessor
 
 __all__ = [
-    # 基礎
+    # 基礎架構
     "BaseService",
+    "UnitOfWork",
+    "get_uow",
+    "unit_of_work",
+    # 策略類別
+    "AgencyMatcher",
+    "ProjectMatcher",
     # 核心業務
     "DocumentService",
     "ProjectService",

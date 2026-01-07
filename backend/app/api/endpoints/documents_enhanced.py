@@ -2,7 +2,9 @@
 增強版公文管理 API 端點 - POST-only 資安機制，統一回應格式
 """
 import io
+import os
 import csv
+import shutil
 import logging
 from typing import Optional, List
 from datetime import date as date_type
@@ -31,7 +33,7 @@ def parse_date_string(date_str: Optional[str]) -> Optional[date_type]:
         return None
 
 from app.db.database import get_async_db
-from app.extended.models import OfficialDocument, ContractProject, GovernmentAgency
+from app.extended.models import OfficialDocument, ContractProject, GovernmentAgency, DocumentAttachment
 from app.services.document_service import DocumentService
 from app.schemas.document import (
     DocumentFilter, DocumentListQuery, DocumentListResponse, DocumentResponse, StaffInfo
@@ -174,6 +176,21 @@ async def list_documents(
                     role=row.role or 'member'
                 ))
 
+        # 批次查詢附件數量（N+1 優化）
+        attachment_count_map = {}
+        doc_ids = [doc.id for doc in items]
+        if doc_ids:
+            attachment_query = select(
+                DocumentAttachment.document_id,
+                func.count(DocumentAttachment.id).label('count')
+            ).where(
+                DocumentAttachment.document_id.in_(doc_ids)
+            ).group_by(DocumentAttachment.document_id)
+
+            attachment_result = await db.execute(attachment_query)
+            for row in attachment_result:
+                attachment_count_map[row.document_id] = row.count
+
         # 轉換為 DocumentResponse
         response_items = []
         for doc in items:
@@ -181,7 +198,8 @@ async def list_documents(
                 doc_dict = {
                     **doc.__dict__,
                     'contract_project_name': project_map.get(doc.contract_project_id) if doc.contract_project_id else None,
-                    'assigned_staff': staff_map.get(doc.contract_project_id, []) if doc.contract_project_id else []
+                    'assigned_staff': staff_map.get(doc.contract_project_id, []) if doc.contract_project_id else [],
+                    'attachment_count': attachment_count_map.get(doc.id, 0)
                 }
                 # 移除 SQLAlchemy 內部屬性
                 doc_dict.pop('_sa_instance_state', None)
@@ -372,10 +390,24 @@ async def get_documents_statistics(
         receive_query = "SELECT COUNT(*) as count FROM documents WHERE category = '收文'"
         current_year_query = "SELECT COUNT(*) as count FROM documents WHERE EXTRACT(YEAR FROM doc_date) = EXTRACT(YEAR FROM CURRENT_DATE)"
 
+        # 發文形式統計 (僅統計發文類別)
+        electronic_query = "SELECT COUNT(*) as count FROM documents WHERE category = '發文' AND delivery_method = '電子交換'"
+        paper_query = "SELECT COUNT(*) as count FROM documents WHERE category = '發文' AND delivery_method = '紙本郵寄'"
+        both_query = "SELECT COUNT(*) as count FROM documents WHERE category = '發文' AND delivery_method = '電子+紙本'"
+
+        # 本年度發文數
+        current_year_send_query = "SELECT COUNT(*) as count FROM documents WHERE category = '發文' AND EXTRACT(YEAR FROM doc_date) = EXTRACT(YEAR FROM CURRENT_DATE)"
+
         total_result = await db.execute(text(total_query))
         send_result = await db.execute(text(send_query))
         receive_result = await db.execute(text(receive_query))
         current_year_result = await db.execute(text(current_year_query))
+
+        # 發文形式統計
+        electronic_result = await db.execute(text(electronic_query))
+        paper_result = await db.execute(text(paper_query))
+        both_result = await db.execute(text(both_query))
+        current_year_send_result = await db.execute(text(current_year_send_query))
 
         total = total_result.scalar() or 0
         send = send_result.scalar() or 0
@@ -389,7 +421,13 @@ async def get_documents_statistics(
             "send_count": send,
             "receive": receive,
             "receive_count": receive,
-            "current_year_count": current_year_result.scalar() or 0
+            "current_year_count": current_year_result.scalar() or 0,
+            "current_year_send_count": current_year_send_result.scalar() or 0,
+            "delivery_method_stats": {
+                "electronic": electronic_result.scalar() or 0,
+                "paper": paper_result.scalar() or 0,
+                "both": both_result.scalar() or 0
+            }
         }
     except Exception as e:
         logger.error(f"取得統計資料失敗: {e}", exc_info=True)
@@ -401,7 +439,13 @@ async def get_documents_statistics(
             "send_count": 0,
             "receive": 0,
             "receive_count": 0,
-            "current_year_count": 0
+            "current_year_count": 0,
+            "current_year_send_count": 0,
+            "delivery_method_stats": {
+                "electronic": 0,
+                "paper": 0,
+                "both": 0
+            }
         }
 
 
@@ -429,6 +473,9 @@ class DocumentCreateRequest(BaseModel):
     notes: Optional[str] = Field(None, description="備註")
     priority_level: Optional[str] = Field(None, description="優先級")
     content: Optional[str] = Field(None, description="內容")
+    # 發文形式與附件欄位
+    delivery_method: Optional[str] = Field("電子交換", description="發文形式 (電子交換/紙本郵寄/電子+紙本)")
+    has_attachment: Optional[bool] = Field(False, description="是否含附件")
 
 
 class DocumentUpdateRequest(BaseModel):
@@ -451,6 +498,9 @@ class DocumentUpdateRequest(BaseModel):
     notes: Optional[str] = Field(None, description="備註")
     priority_level: Optional[str] = Field(None, description="優先級")
     content: Optional[str] = Field(None, description="內容")
+    # 發文形式與附件欄位
+    delivery_method: Optional[str] = Field(None, description="發文形式 (電子交換/紙本郵寄/電子+紙本)")
+    has_attachment: Optional[bool] = Field(None, description="是否含附件")
 
 
 @router.post(
@@ -492,13 +542,45 @@ async def create_document(
     try:
         create_data = data.model_dump(exclude_unset=True)
 
+        # OfficialDocument 模型的有效欄位（與資料庫 schema 對齊）
+        valid_model_fields = {
+            'auto_serial', 'doc_number', 'doc_type', 'subject', 'sender', 'receiver',
+            'doc_date', 'receive_date', 'send_date', 'status', 'category',
+            'delivery_method', 'has_attachment', 'contract_project_id',
+            'sender_agency_id', 'receiver_agency_id', 'title', 'cloud_file_link',
+            'dispatch_format', 'assignee'
+        }
+
+        # 過濾掉不存在於模型的欄位（避免 TypeError）
+        filtered_data = {k: v for k, v in create_data.items() if k in valid_model_fields}
+
+        # 自動產生 auto_serial（若未提供）
+        if not filtered_data.get('auto_serial'):
+            doc_type = filtered_data.get('doc_type', '收文')
+            prefix = 'R' if doc_type == '收文' else 'S'
+            # 查詢當前最大流水號
+            result = await db.execute(
+                select(func.max(OfficialDocument.auto_serial)).where(
+                    OfficialDocument.auto_serial.like(f'{prefix}%')
+                )
+            )
+            max_serial = result.scalar_one_or_none()
+            if max_serial:
+                try:
+                    num = int(max_serial[1:]) + 1
+                except (ValueError, IndexError):
+                    num = 1
+            else:
+                num = 1
+            filtered_data['auto_serial'] = f'{prefix}{num:04d}'
+
         # 日期欄位需要特別處理：字串轉換為 date 物件
         date_fields = ['doc_date', 'receive_date', 'send_date']
         for field in date_fields:
-            if field in create_data and isinstance(create_data[field], str):
-                create_data[field] = parse_date_string(create_data[field])
+            if field in filtered_data and isinstance(filtered_data[field], str):
+                filtered_data[field] = parse_date_string(filtered_data[field])
 
-        document = OfficialDocument(**create_data)
+        document = OfficialDocument(**filtered_data)
         db.add(document)
         await db.commit()
         await db.refresh(document)
@@ -536,6 +618,18 @@ async def update_document(
         }
 
         update_data = data.model_dump(exclude_unset=True)
+
+        # OfficialDocument 模型的有效欄位（與資料庫 schema 對齊）
+        valid_model_fields = {
+            'auto_serial', 'doc_number', 'doc_type', 'subject', 'sender', 'receiver',
+            'doc_date', 'receive_date', 'send_date', 'status', 'category',
+            'delivery_method', 'has_attachment', 'contract_project_id',
+            'sender_agency_id', 'receiver_agency_id', 'title', 'cloud_file_link',
+            'dispatch_format', 'assignee'
+        }
+
+        # 過濾掉不存在於模型的欄位
+        update_data = {k: v for k, v in update_data.items() if k in valid_model_fields}
 
         # 日期欄位需要特別處理：字串轉換為 date 物件
         date_fields = ['doc_date', 'receive_date', 'send_date']
@@ -589,8 +683,17 @@ async def delete_document(
     document_id: int,
     db: AsyncSession = Depends(get_async_db)
 ):
-    """刪除公文（POST-only 資安機制）"""
+    """
+    刪除公文（POST-only 資安機制）
+
+    同步刪除：
+    - 公文資料庫記錄
+    - 附件資料庫記錄（CASCADE）
+    - 實體附件檔案
+    - 公文附件資料夾（若為空）
+    """
     try:
+        # 1. 查詢公文是否存在
         query = select(OfficialDocument).where(OfficialDocument.id == document_id)
         result = await db.execute(query)
         document = result.scalar_one_or_none()
@@ -598,12 +701,68 @@ async def delete_document(
         if not document:
             raise NotFoundException(f"找不到公文 ID: {document_id}")
 
+        # 2. 查詢關聯的附件記錄（在刪除前取得檔案路徑）
+        attachment_query = select(DocumentAttachment).where(
+            DocumentAttachment.document_id == document_id
+        )
+        attachment_result = await db.execute(attachment_query)
+        attachments = attachment_result.scalars().all()
+
+        # 3. 收集需要刪除的檔案路徑和資料夾
+        file_paths_to_delete = []
+        folders_to_check = set()
+
+        for attachment in attachments:
+            if attachment.file_path:
+                file_paths_to_delete.append(attachment.file_path)
+                # 記錄父資料夾路徑（doc_{id} 層級）
+                parent_folder = os.path.dirname(attachment.file_path)
+                if parent_folder:
+                    folders_to_check.add(parent_folder)
+
+        # 4. 刪除資料庫記錄（CASCADE 會自動刪除 document_attachments）
         await db.delete(document)
         await db.commit()
 
+        # 5. 刪除實體檔案（在資料庫成功刪除後執行）
+        deleted_files = 0
+        file_errors = []
+
+        for file_path in file_paths_to_delete:
+            try:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                    deleted_files += 1
+                    logger.info(f"已刪除附件檔案: {file_path}")
+            except Exception as e:
+                file_errors.append(f"{file_path}: {str(e)}")
+                logger.warning(f"刪除附件檔案失敗: {file_path}, 錯誤: {e}")
+
+        # 6. 嘗試刪除空的公文資料夾（doc_{id}）
+        deleted_folders = 0
+        for folder in folders_to_check:
+            try:
+                if os.path.exists(folder) and os.path.isdir(folder):
+                    # 只刪除空資料夾
+                    if not os.listdir(folder):
+                        os.rmdir(folder)
+                        deleted_folders += 1
+                        logger.info(f"已刪除空資料夾: {folder}")
+            except Exception as e:
+                logger.warning(f"刪除資料夾失敗: {folder}, 錯誤: {e}")
+
+        # 7. 建構回應訊息
+        message = f"公文已刪除"
+        if deleted_files > 0:
+            message += f"，同步刪除 {deleted_files} 個附件檔案"
+        if deleted_folders > 0:
+            message += f"，清理 {deleted_folders} 個空資料夾"
+        if file_errors:
+            message += f"（{len(file_errors)} 個檔案刪除失敗）"
+
         return DeleteResponse(
             success=True,
-            message="公文已刪除",
+            message=message,
             deleted_id=document_id
         )
     except NotFoundException:

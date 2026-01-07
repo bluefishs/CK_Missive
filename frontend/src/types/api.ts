@@ -329,6 +329,7 @@ export interface OfficialDocument {
   // 發文形式與附件欄位
   delivery_method?: string;   // 發文形式 (電子交換/紙本郵寄/電子+紙本)
   has_attachment?: boolean;   // 是否含附件
+  attachment_count?: number;  // 附件數量
 
   // 承攬案件關聯資訊 (由後端填充)
   contract_project_name?: string;  // 承攬案件名稱

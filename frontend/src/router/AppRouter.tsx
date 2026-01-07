@@ -1,9 +1,18 @@
+/**
+ * 應用程式路由器
+ *
+ * 提供懶載入與路由保護功能
+ *
+ * @version 1.1.0
+ * @date 2026-01-06
+ */
+
 import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ROUTES } from './types';
+import { ProtectedRoute, AdminRoute } from './ProtectedRoute';
 import { PageLoading } from '../components/common';
 import Layout from '../components/Layout';
-import authService from '../services/authService';
 
 // --- 整合說明 ---
 // ContractCasePage 是功能和 UI 完整的主體。
@@ -33,6 +42,7 @@ const ContractCaseDetailPage = lazy(() => import('../pages/ContractCaseDetailPag
 const ContractCaseFormPage = lazy(() => import('../pages/ContractCaseFormPage').then(module => ({ default: module.ContractCaseFormPage })));
 
 const DocumentNumbersPage = lazy(() => import('../pages/DocumentNumbersPage').then(module => ({ default: module.DocumentNumbersPage })));
+const SendDocumentCreatePage = lazy(() => import('../pages/SendDocumentCreatePage').then(module => ({ default: module.SendDocumentCreatePage })));
 const AgenciesPage = lazy(() => import('../pages/AgenciesPage').then(module => ({ default: module.AgenciesPage })));
 const ApiMappingDisplayPage = lazy(() => import('../pages/ApiMappingDisplayPage').then(module => ({ default: module.ApiMappingDisplayPage })));
 const ApiDocumentationPage = lazy(() => import('../pages/ApiDocumentationPage'));
@@ -49,40 +59,7 @@ const PermissionManagementPage = lazy(() => import('../pages/PermissionManagemen
 const UnifiedFormDemoPage = lazy(() => import('../pages/UnifiedFormDemoPage'));
 const AdminDashboardPage = lazy(() => import('../pages/AdminDashboardPage'));
 
-// 受保護的路由組件
-interface ProtectedRouteProps {
-  children: React.ReactNode;
-  requireAuth?: boolean;
-  roles?: string[];
-}
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAuth = false, roles = [] }) => {
-  const authDisabled = import.meta.env['VITE_AUTH_DISABLED'] === 'true';
-  if (authDisabled) {
-    return <>{children}</>;
-  }
-
-  const isAuthenticated = authService.isAuthenticated();
-  const userInfo = authService.getUserInfo();
-  const userRoles = userInfo ? [userInfo.role] : [];
-  const isAdmin = authService.isAdmin();
-
-  if (requireAuth && !isAuthenticated) {
-    return <Navigate to={ROUTES.LOGIN} replace />;
-  }
-
-  if (roles.length > 0) {
-    const hasRequiredRole = roles.some(role => {
-      if (role === 'admin') return isAdmin;
-      return userRoles.includes(role);
-    });
-
-    if (!hasRequiredRole) {
-      return <Navigate to={ROUTES.LOGIN} replace />;
-    }
-  }
-
-  return <>{children}</>;
-};
+// ProtectedRoute 已移至獨立模組：./ProtectedRoute.tsx
 
 // 主路由器組件
 export const AppRouter: React.FC = () => {
@@ -127,6 +104,7 @@ export const AppRouter: React.FC = () => {
 
           {/* 發文字號管理 */}
           <Route path={ROUTES.DOCUMENT_NUMBERS} element={<DocumentNumbersPage />} />
+          <Route path={ROUTES.SEND_DOCUMENT_CREATE} element={<SendDocumentCreatePage />} />
           
           {/* 機關單位管理 */}
           <Route path={ROUTES.AGENCIES} element={<AgenciesPage />} />

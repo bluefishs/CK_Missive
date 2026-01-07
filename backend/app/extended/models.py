@@ -136,6 +136,10 @@ class OfficialDocument(Base):
     send_date = Column(Date, comment="發文日期")
     title = Column(Text, comment="標題")
     cloud_file_link = Column(String(500), comment="雲端檔案連結")
+    dispatch_format = Column(String(20), default="電子", comment="發文形式")
+
+    # 承辦人欄位（支援承案人資功能）
+    assignee = Column(String(500), comment="承辦人（多人以逗號分隔）")
 
     # 時間戳欄位
     created_at = Column(DateTime, server_default=func.now(), comment="建立時間")

@@ -1,5 +1,15 @@
 """
-公文服務層 - 業務邏輯處理 (已修復回應結構)
+公文服務層 - 業務邏輯處理 (已重構)
+
+職責：
+- 公文 CRUD 操作
+- 公文查詢與篩選
+- 公文匯入（委派給策略類別）
+
+已拆分模組：
+- AgencyMatcher: 機關名稱匹配 (app.services.strategies)
+- ProjectMatcher: 案件名稱匹配 (app.services.strategies)
+- DocumentCalendarIntegrator: 日曆整合
 """
 import logging
 import time
@@ -10,77 +20,67 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import and_, or_, extract, func, select
 from sqlalchemy.exc import IntegrityError
 
+from sqlalchemy.orm import selectinload, joinedload
+
 from app.extended.models import OfficialDocument as Document, ContractProject, GovernmentAgency
 from app.schemas.document import DocumentFilter, DocumentImportResult, DocumentSearchRequest
 from app.services.document_calendar_integrator import DocumentCalendarIntegrator
+from app.services.strategies.agency_matcher import AgencyMatcher, ProjectMatcher
 from app.core.cache_manager import cache_dropdown_data, cache_statistics
 
 logger = logging.getLogger(__name__)
 
+
 class DocumentService:
-    """公文服務類別，已包含所有公文相關的業務邏輯"""
+    """
+    公文服務類別
+
+    提供公文相關的業務邏輯，包括：
+    - CRUD 操作
+    - 查詢與篩選
+    - 匯入匯出
+
+    使用策略模式處理：
+    - 機關名稱匹配 (AgencyMatcher)
+    - 案件名稱匹配 (ProjectMatcher)
+    """
 
     def __init__(self, db: AsyncSession):
         self.db = db
         self.calendar_integrator = DocumentCalendarIntegrator()
+        # 初始化策略類別
+        self._agency_matcher = AgencyMatcher(db)
+        self._project_matcher = ProjectMatcher(db)
 
     async def _get_or_create_agency_id(self, agency_name: Optional[str]) -> Optional[int]:
         """
-        智慧機關名稱匹配：
-        1. 先精確匹配 agency_name
-        2. 再匹配 agency_short_name（支援簡稱對應）
-        3. 最後做模糊匹配（包含關係）
-        4. 都沒找到才新增
+        智慧機關名稱匹配 (委派給 AgencyMatcher)
+
+        匹配策略：
+        1. 精確匹配 agency_name
+        2. 精確匹配 agency_short_name
+        3. 模糊匹配
+        4. 自動新增
+
+        Args:
+            agency_name: 機關名稱
+
+        Returns:
+            機關 ID
         """
-        if not agency_name or not agency_name.strip(): return None
-        agency_name = agency_name.strip()
-
-        # 1. 精確匹配 agency_name
-        result = await self.db.execute(select(GovernmentAgency).where(GovernmentAgency.agency_name == agency_name))
-        db_agency = result.scalar_one_or_none()
-        if db_agency:
-            return db_agency.id
-
-        # 2. 匹配 agency_short_name（支援簡稱對應）
-        result = await self.db.execute(select(GovernmentAgency).where(GovernmentAgency.agency_short_name == agency_name))
-        db_agency = result.scalar_one_or_none()
-        if db_agency:
-            logger.info(f"機關簡稱匹配成功: '{agency_name}' -> '{db_agency.agency_name}'")
-            return db_agency.id
-
-        # 3. 模糊匹配：檢查是否為現有機關的子字串或包含現有機關
-        result = await self.db.execute(
-            select(GovernmentAgency).where(
-                or_(
-                    GovernmentAgency.agency_name.ilike(f"%{agency_name}%"),
-                    GovernmentAgency.agency_short_name.ilike(f"%{agency_name}%")
-                )
-            ).limit(1)
-        )
-        db_agency = result.scalar_one_or_none()
-        if db_agency:
-            logger.info(f"機關模糊匹配成功: '{agency_name}' -> '{db_agency.agency_name}'")
-            return db_agency.id
-
-        # 4. 都沒找到，新增機關
-        new_agency = GovernmentAgency(agency_name=agency_name)
-        self.db.add(new_agency)
-        await self.db.flush()
-        await self.db.refresh(new_agency)
-        logger.info(f"新增機關: '{agency_name}'")
-        return new_agency.id
+        return await self._agency_matcher.match_or_create(agency_name)
 
     async def _get_or_create_project_id(self, project_name: Optional[str]) -> Optional[int]:
-        if not project_name or not project_name.strip(): return None
-        project_name = project_name.strip()
-        result = await self.db.execute(select(ContractProject).where(ContractProject.project_name == project_name))
-        db_project = result.scalar_one_or_none()
-        if db_project: return db_project.id
-        new_project = ContractProject(project_name=project_name, year=datetime.now().year, status="進行中")
-        self.db.add(new_project)
-        await self.db.flush()
-        await self.db.refresh(new_project)
-        return new_project.id
+        """
+        智慧案件名稱匹配 (委派給 ProjectMatcher)
+
+        Args:
+            project_name: 案件名稱
+
+        Returns:
+            案件 ID
+        """
+        return await self._project_matcher.match_or_create(project_name)
 
     def _apply_filters(self, query, filters: DocumentFilter):
         if filters.doc_type: query = query.where(Document.doc_type == filters.doc_type)
@@ -102,17 +102,59 @@ class DocumentService:
             ))
         return query
 
-    async def get_documents(self, skip: int = 0, limit: int = 100, filters: Optional[DocumentFilter] = None) -> Dict[str, Any]:
+    async def get_documents(
+        self,
+        skip: int = 0,
+        limit: int = 100,
+        filters: Optional[DocumentFilter] = None,
+        include_relations: bool = True
+    ) -> Dict[str, Any]:
+        """
+        取得公文列表
+
+        Args:
+            skip: 跳過筆數
+            limit: 取得筆數
+            filters: 篩選條件
+            include_relations: 是否預載入關聯資料 (N+1 優化)
+
+        Returns:
+            分頁結果字典
+        """
         try:
             query = select(Document)
-            if filters: query = self._apply_filters(query, filters)
+
+            # N+1 查詢優化：預載入關聯資料
+            if include_relations:
+                query = query.options(
+                    selectinload(Document.contract_project),
+                    selectinload(Document.sender_agency),
+                    selectinload(Document.receiver_agency),
+                )
+
+            if filters:
+                query = self._apply_filters(query, filters)
+
+            # 計算總數
             count_query = select(func.count()).select_from(query.subquery())
             total = (await self.db.execute(count_query)).scalar_one()
+
             # 預設按公文日期降冪排序（最新日期在最上方），日期相同時按 id 降冪
-            result = await self.db.execute(query.order_by(Document.doc_date.desc().nullslast(), Document.id.desc()).offset(skip).limit(limit))
+            result = await self.db.execute(
+                query.order_by(
+                    Document.doc_date.desc().nullslast(),
+                    Document.id.desc()
+                ).offset(skip).limit(limit)
+            )
             documents = result.scalars().all()
-            # --- MODIFIED: Changed 'documents' to 'items' to match frontend expectation ---
-            return {"items": documents, "total": total, "page": (skip // limit) + 1, "limit": limit, "total_pages": (total + limit - 1) // limit}
+
+            return {
+                "items": documents,
+                "total": total,
+                "page": (skip // limit) + 1 if limit > 0 else 1,
+                "limit": limit,
+                "total_pages": (total + limit - 1) // limit if limit > 0 else 0
+            }
         except Exception as e:
             logger.error(f"get_documents 失敗: {e}", exc_info=True)
             return {"items": [], "total": 0, "page": 1, "limit": limit, "total_pages": 0}
@@ -140,8 +182,33 @@ class DocumentService:
             logger.error(f"建立公文時發生未預期錯誤: {e}", exc_info=True)
             return None
 
-    async def get_document_by_id(self, document_id: int) -> Optional[Document]:
-        result = await self.db.execute(select(Document).where(Document.id == document_id))
+    async def get_document_by_id(
+        self,
+        document_id: int,
+        include_relations: bool = True
+    ) -> Optional[Document]:
+        """
+        根據 ID 取得公文
+
+        Args:
+            document_id: 公文 ID
+            include_relations: 是否預載入關聯資料
+
+        Returns:
+            公文物件
+        """
+        query = select(Document).where(Document.id == document_id)
+
+        # N+1 優化：預載入關聯資料
+        if include_relations:
+            query = query.options(
+                selectinload(Document.contract_project),
+                selectinload(Document.sender_agency),
+                selectinload(Document.receiver_agency),
+                selectinload(Document.attachments),
+            )
+
+        result = await self.db.execute(query)
         return result.scalars().first()
 
     async def _get_next_auto_serial(self, doc_type: str) -> str:
@@ -166,10 +233,28 @@ class DocumentService:
     async def import_documents_from_processed_data(self, processed_documents: List[Dict[str, Any]]) -> DocumentImportResult:
         """
         從已處理的文件資料列表匯入資料庫
-        - 支援去重（根據公文字號）
-        - 自動關聯機關和案件
-        - 自動產生流水號 (auto_serial)
-        - 回傳詳細的匯入結果
+
+        此方法為 CSV 匯入流程的核心，負責：
+        1. 去重檢查 - 根據公文字號 (doc_number) 跳過已存在的記錄
+        2. 機關關聯 - 使用 AgencyMatcher 智慧匹配/建立發文單位和受文單位
+        3. 案件關聯 - 使用 ProjectMatcher 智慧匹配/建立承攬案件
+        4. 流水號產生 - 根據文件類型自動產生序號 (R0001/S0001)
+
+        機關匹配流程（AgencyMatcher.match_or_create）：
+        - 支援解析 "代碼 (名稱)" 或 "代碼 名稱" 格式
+        - 匹配順序：精確名稱 > 解析後名稱 > 代碼 > 簡稱 > 模糊匹配 > 自動建立
+        - 詳見 app/services/strategies/agency_matcher.py
+
+        Args:
+            processed_documents: 已由 DocumentCSVProcessor 處理的文件字典列表
+
+        Returns:
+            DocumentImportResult: 匯入結果，包含成功/失敗/跳過數量及錯誤訊息
+
+        維護說明：
+        - 若需修改機關匹配邏輯，請修改 AgencyMatcher
+        - 若需修改案件匹配邏輯，請修改 ProjectMatcher
+        - 若需修復已匯入的錯誤機關資料，使用 POST /api/agencies/fix-parsed-names
         """
         start_time = time.time()
         total_rows = len(processed_documents)

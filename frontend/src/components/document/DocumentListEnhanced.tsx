@@ -28,6 +28,7 @@ import {
   FilterOutlined,
   SettingOutlined,
   SearchOutlined,
+  PaperClipOutlined,
 } from '@ant-design/icons';
 import { Document } from '../../types';
 import { DocumentActions, BatchActions } from './DocumentActions';
@@ -86,6 +87,7 @@ const defaultColumnConfigs: ColumnConfig[] = [
   { key: 'receiver', title: '受文單位', visible: true, sortable: true, filterable: true, width: 150 },
   { key: 'contract_case', title: '承攬案件', visible: true, sortable: true, filterable: true, width: 200 },
   { key: 'doc_date', title: '公文日期', visible: true, sortable: true, filterable: false, width: 120 },
+  { key: 'attachment_count', title: '附件', visible: true, sortable: true, filterable: false, width: 80 },
   { key: 'status', title: '狀態', visible: true, sortable: true, filterable: true, width: 100 },
   { key: 'created_at', title: '建立時間', visible: false, sortable: true, filterable: false, width: 120 },
   { key: 'updated_at', title: '更新時間', visible: false, sortable: true, filterable: false, width: 120 },
@@ -259,6 +261,20 @@ export const DocumentListEnhanced: React.FC<DocumentListProps> = ({
 
         case 'status':
           column.render = (text: string) => formatStatusTag(text);
+          break;
+
+        case 'attachment_count':
+          column.render = (count: number) => (
+            count && count > 0 ? (
+              <Tooltip title={`${count} 個附件`}>
+                <Tag icon={<PaperClipOutlined />} color="cyan">
+                  {count}
+                </Tag>
+              </Tooltip>
+            ) : (
+              <span style={{ color: '#ccc' }}>-</span>
+            )
+          );
           break;
       }
 

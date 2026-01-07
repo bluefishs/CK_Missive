@@ -147,7 +147,7 @@ export const DocumentActions: React.FC<DocumentActionsProps> = ({
 
   if (mode === 'inline') {
     return (
-      <Space>
+      <Space onClick={(e) => e.stopPropagation()}>
         {actionConfig.map(action => (
           <Button
             key={action.key}
@@ -165,9 +165,11 @@ export const DocumentActions: React.FC<DocumentActionsProps> = ({
 
   // Default to dropdown mode
   return (
-    <Dropdown menu={{ items: moreMenuItems }} trigger={['click']}>
-      <Button icon={<MoreOutlined />} size={size} />
-    </Dropdown>
+    <div onClick={(e) => e.stopPropagation()}>
+      <Dropdown menu={{ items: moreMenuItems }} trigger={['click']}>
+        <Button icon={<MoreOutlined />} size={size} />
+      </Dropdown>
+    </div>
   );
 };
 

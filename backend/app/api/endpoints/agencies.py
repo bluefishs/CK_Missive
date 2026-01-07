@@ -261,3 +261,152 @@ async def get_statistics_legacy(
 ):
     """此端點為向後相容保留，請改用 POST /agencies/statistics"""
     return await agency_service.get_agency_statistics(db)
+
+
+# ============================================================================
+# 資料修復 API
+# ============================================================================
+
+class FixAgenciesResponse(BaseModel):
+    """修復機關資料回應"""
+    success: bool
+    message: str
+    fixed_count: int = 0
+    details: List[dict] = []
+
+
+class FixAgenciesRequest(BaseModel):
+    """修復機關資料請求"""
+    dry_run: bool = Field(default=True, description="乾跑模式（預設 true，不實際修改）")
+
+
+@router.post(
+    "/fix-parsed-names",
+    response_model=FixAgenciesResponse,
+    summary="修復機關名稱/代碼解析錯誤"
+)
+async def fix_agency_parsed_names(
+    request: FixAgenciesRequest = Body(default=FixAgenciesRequest()),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    修復機關名稱/代碼解析錯誤
+
+    修復格式如：
+    - "A01020100G (內政部國土管理署城鄉發展分署)" -> 代碼: A01020100G, 名稱: 內政部國土管理署城鄉發展分署
+    - "EB50819619 乾坤測繪科技有限公司" -> 代碼: EB50819619, 名稱: 乾坤測繪科技有限公司
+
+    當解析出的名稱已存在時，會合併記錄（刪除錯誤記錄，更新關聯）
+
+    Args:
+        request: 請求參數，包含 dry_run 設定
+    """
+    from sqlalchemy import select, update
+    from app.extended.models import GovernmentAgency, OfficialDocument
+    from app.services.strategies.agency_matcher import parse_agency_string
+
+    dry_run = request.dry_run
+
+    try:
+        # 查詢所有機關
+        result = await db.execute(select(GovernmentAgency))
+        agencies = result.scalars().all()
+
+        # 建立名稱 -> ID 映射（用於檢查重複）
+        name_to_id = {a.agency_name: a.id for a in agencies}
+
+        fixed_details = []
+        merged_count = 0
+        updated_count = 0
+
+        for agency in agencies:
+            original_name = agency.agency_name
+            original_code = agency.agency_code
+
+            # 解析名稱
+            parsed_code, parsed_name = parse_agency_string(original_name)
+
+            # 檢查是否需要修復（名稱包含代碼格式，且代碼欄位為空）
+            if not (parsed_code and parsed_name != original_name and not original_code):
+                continue
+
+            # 檢查解析出的名稱是否已存在
+            existing_id = name_to_id.get(parsed_name)
+
+            if existing_id and existing_id != agency.id:
+                # 情況 A: 重複 - 需要合併記錄
+                detail = {
+                    "id": agency.id,
+                    "action": "merge",
+                    "original_name": original_name,
+                    "original_code": original_code,
+                    "new_name": parsed_name,
+                    "new_code": parsed_code,
+                    "merge_to_id": existing_id,
+                    "message": f"合併至已存在的機關 ID={existing_id}"
+                }
+                fixed_details.append(detail)
+
+                if not dry_run:
+                    # 更新關聯的公文（sender_agency_id, receiver_agency_id）
+                    await db.execute(
+                        update(OfficialDocument)
+                        .where(OfficialDocument.sender_agency_id == agency.id)
+                        .values(sender_agency_id=existing_id)
+                    )
+                    await db.execute(
+                        update(OfficialDocument)
+                        .where(OfficialDocument.receiver_agency_id == agency.id)
+                        .values(receiver_agency_id=existing_id)
+                    )
+                    # 刪除重複的錯誤記錄
+                    await db.delete(agency)
+                    merged_count += 1
+            else:
+                # 情況 B: 不重複 - 直接更新
+                detail = {
+                    "id": agency.id,
+                    "action": "update",
+                    "original_name": original_name,
+                    "original_code": original_code,
+                    "new_name": parsed_name,
+                    "new_code": parsed_code
+                }
+                fixed_details.append(detail)
+
+                if not dry_run:
+                    agency.agency_name = parsed_name
+                    agency.agency_code = parsed_code
+                    updated_count += 1
+
+        if not dry_run and fixed_details:
+            await db.commit()
+
+        message_parts = []
+        if dry_run:
+            message_parts.append("乾跑模式：")
+        message_parts.append(f"找到 {len(fixed_details)} 筆需要修復的機關資料")
+        if fixed_details:
+            if dry_run:
+                merge_planned = sum(1 for d in fixed_details if d.get("action") == "merge")
+                update_planned = sum(1 for d in fixed_details if d.get("action") == "update")
+                message_parts.append(f"（{update_planned} 筆更新，{merge_planned} 筆合併）")
+            else:
+                message_parts.append(f"，已修復（{updated_count} 筆更新，{merged_count} 筆合併）")
+
+        return FixAgenciesResponse(
+            success=True,
+            message="".join(message_parts),
+            fixed_count=len(fixed_details),
+            details=fixed_details
+        )
+
+    except Exception as e:
+        logger.error(f"修復機關資料失敗: {e}", exc_info=True)
+        await db.rollback()
+        return FixAgenciesResponse(
+            success=False,
+            message=f"修復失敗: {str(e)}",
+            fixed_count=0,
+            details=[]
+        )

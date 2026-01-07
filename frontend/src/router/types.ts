@@ -36,6 +36,7 @@ export const ROUTES = {
   CASE_CREATE: '/cases/create',
   CASE_EDIT: '/cases/:id/edit',
   DOCUMENT_NUMBERS: '/document-numbers',
+  SEND_DOCUMENT_CREATE: '/document-numbers/create',
   AGENCIES: '/agencies',
   VENDORS: '/vendors',
   STAFF: '/staff',
@@ -168,6 +169,11 @@ export const ROUTE_META = {
     title: '發文字號管理',
     description: '發文字號清單與填報作業',
     icon: 'NumberOutlined',
+  },
+  [ROUTES.SEND_DOCUMENT_CREATE]: {
+    title: '新增發文',
+    description: '建立新的發文公文',
+    breadcrumb: true,
   },
   [ROUTES.AGENCIES]: {
     title: '機關單位管理',

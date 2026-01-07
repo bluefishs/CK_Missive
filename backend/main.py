@@ -33,18 +33,28 @@ async def lifespan(app: FastAPI):
     """應用程式生命週期事件處理器"""
     log_info(f"Application starting... v{app.version}")
 
-    # Schema 驗證（開發環境啟用，生產環境僅警告）
+    # Schema 驗證（開發環境嚴格模式：阻止啟動，生產環境僅警告）
+    # 在開發環境中，若模型與資料庫不一致將直接拋出錯誤並阻止啟動
+    is_development = settings.DEVELOPMENT_MODE if hasattr(settings, 'DEVELOPMENT_MODE') else True
     try:
         is_valid, mismatches = await validate_schema(
             engine=engine,
             base=Base,
-            strict=False,  # 不阻止啟動，僅記錄警告
+            strict=is_development,  # 開發模式下嚴格驗證，阻止啟動
             tables_to_check=None  # 檢查所有表格
         )
         if not is_valid:
-            logger.warning(f"⚠️ 發現 {len(mismatches)} 個 Schema 不一致，請檢查 models 與資料庫是否同步")
+            for mismatch in mismatches:
+                logger.error(f"❌ Schema 不一致: {mismatch}")
+            if is_development:
+                raise RuntimeError(
+                    f"🚨 Schema 驗證失敗: 發現 {len(mismatches)} 個不一致。"
+                    "請確保 SQLAlchemy 模型與資料庫欄位同步。"
+                )
     except Exception as e:
         logger.error(f"Schema 驗證失敗: {e}")
+        if is_development:
+            raise
 
     # await start_reminder_scheduler()  # 暫時禁用直到建立完整的資料表
     logger.info("應用程式已啟動。")
@@ -68,27 +78,47 @@ app = FastAPI(
 register_exception_handlers(app)
 
 # --- 中介軟體 (Middleware) ---
-origins = settings.CORS_ORIGINS.split(",") if settings.CORS_ORIGINS else []
+# CORS 允許來源：支援 localhost、127.0.0.1 及區域網路 IP (192.168.x.x)
+cors_origins = [
+    # localhost 開發環境
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:3002",
+    "http://localhost:3003",
+    "http://localhost:3004",
+    "http://localhost:3005",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+    "http://127.0.0.1:3002",
+    "http://127.0.0.1:3003",
+    "http://127.0.0.1:3004",
+    "http://127.0.0.1:3005",
+    # 區域網路 IP 支援 (192.168.50.x)
+    "http://192.168.50.38:3000",
+    "http://192.168.50.38:3001",
+    "http://192.168.50.38:3002",
+    "http://192.168.50.38:3003",
+    # 常見區域網路範圍
+    "http://192.168.1.1:3000",
+    "http://192.168.0.1:3000",
+]
+
+# 從環境變數擴展 CORS 來源
+if settings.CORS_ORIGINS:
+    env_origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
+    cors_origins.extend(env_origins)
+
+# 去除重複
+cors_origins = list(set(cors_origins))
+logger.info(f"CORS allowed origins: {cors_origins}")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://localhost:3002",
-        "http://localhost:3003",
-        "http://localhost:3004",
-        "http://localhost:3005",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:3001",
-        "http://127.0.0.1:3002",
-        "http://127.0.0.1:3003",
-        "http://127.0.0.1:3004",
-        "http://127.0.0.1:3005"
-    ],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
+    expose_headers=["X-Process-Time"]  # 暴露自訂標頭
 )
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(LoggingMiddleware, log_manager=log_manager)

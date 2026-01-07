@@ -1,119 +1,219 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-發文字號管理API端點
+發文字號管理 API 端點
+
+.. deprecated:: 3.0.0
+    此模組已棄用，請改用 documents_enhanced 端點並設定 category='發文'
+
+    遷移指南：
+    - POST /document-numbers/query → POST /documents-enhanced/list (category='發文')
+    - POST /document-numbers/stats → POST /documents-enhanced/statistics
+    - POST /document-numbers/create → POST /documents-enhanced (doc_type='發文')
+    - POST /document-numbers/update/{id} → POST /documents-enhanced/{id}/update
+    - POST /document-numbers/delete/{id} → POST /documents-enhanced/{id}/delete
+
+採用 POST-only 資安機制：
+- 所有查詢操作使用 POST
+- 防止 GET 請求參數被記錄於 URL/日誌
+
+@version 2.0.0 (DEPRECATED)
+@date 2026-01-06
 """
 
-from datetime import datetime
+from datetime import datetime, date
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select, desc, extract
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func, select, desc, extract, or_
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import BaseModel, Field
 
 from app.db.database import get_async_db
-from app.extended.models import OfficialDocument
-from pydantic import BaseModel
+from app.extended.models import OfficialDocument, ContractProject
+from app.core.config import settings
 
 router = APIRouter()
 
-class DocumentNumberResponse(BaseModel):
+
+# =============================================================================
+# 設定常量
+# =============================================================================
+
+# 發文字號前綴 (可從設定檔讀取)
+DEFAULT_DOC_PREFIX = getattr(settings, 'DOC_NUMBER_PREFIX', '乾坤測字第')
+
+
+# =============================================================================
+# 請求/回應模型
+# =============================================================================
+
+class DocumentNumberItem(BaseModel):
+    """發文字號項目"""
     id: int
-    doc_prefix: str
+    doc_prefix: str = ""
     year: int
-    sequence_number: int
+    sequence_number: int = 0
     full_number: str
-    subject: str
-    contract_case: str
-    receiver: str
-    doc_date: str
-    send_date: str  # 前端相容欄位 (與 doc_date 相同)
-    status: str
+    subject: str = ""
+    contract_case: str = ""
+    contract_case_id: Optional[int] = None
+    receiver: str = ""
+    doc_date: Optional[str] = None
+    status: str = "draft"
+    created_at: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
 
 class DocumentNumberListResponse(BaseModel):
-    items: List[DocumentNumberResponse]
+    """發文字號列表回應"""
+    items: List[DocumentNumberItem]
     total: int
     page: int
-    per_page: int
+    limit: int
+    total_pages: int
+
+
+class DocumentNumberQueryRequest(BaseModel):
+    """發文字號查詢請求 (POST-only)"""
+    page: int = Field(default=1, ge=1, description="頁數")
+    limit: int = Field(default=20, ge=1, le=100, description="每頁筆數")
+    year: Optional[int] = Field(default=None, description="年度篩選")
+    status: Optional[str] = Field(default=None, description="狀態篩選")
+    keyword: Optional[str] = Field(default=None, description="關鍵字搜尋")
+    sort_by: str = Field(default="doc_date", description="排序欄位")
+    sort_order: str = Field(default="desc", description="排序方向")
+
 
 class YearlyStats(BaseModel):
+    """年度統計"""
     year: int
     count: int
 
+
 class YearRange(BaseModel):
+    """年度範圍"""
     min_year: Optional[int] = None
     max_year: Optional[int] = None
 
+
 class DocumentNumberStats(BaseModel):
+    """發文字號統計"""
     total_count: int
     draft_count: int
     sent_count: int
+    archived_count: int
     max_sequence: int
     year_range: YearRange
     yearly_stats: List[YearlyStats]
 
-class NextNumberResponse(BaseModel):
-    full_number: str
-    next_number: str  # 保留向後相容
-    year: int
-    roc_year: int  # 民國年
-    sequence_number: int
-    sequence: int  # 保留向後相容
-    previous_max: int
 
-@router.get("", response_model=DocumentNumberListResponse)
-async def get_document_numbers(
-    page: int = Query(1, ge=1, description="頁數"),
-    per_page: int = Query(20, ge=1, le=100, description="每頁筆數"),
-    year: Optional[int] = Query(None, description="年度篩選"),
-    status: Optional[str] = Query(None, description="狀態篩選"),
-    keyword: Optional[str] = Query(None, description="關鍵字搜尋"),
+class NextNumberRequest(BaseModel):
+    """下一個字號請求"""
+    prefix: Optional[str] = Field(default=None, description="文號前綴")
+    year: Optional[int] = Field(default=None, description="指定年度")
+
+
+class NextNumberResponse(BaseModel):
+    """下一個字號回應"""
+    full_number: str
+    year: int
+    roc_year: int
+    sequence_number: int
+    previous_max: int
+    prefix: str
+
+
+class DocumentNumberCreateRequest(BaseModel):
+    """建立發文字號請求"""
+    subject: str = Field(..., min_length=1, description="公文主旨")
+    receiver: str = Field(..., min_length=1, description="受文單位")
+    contract_case_id: Optional[int] = Field(default=None, description="承攬案件 ID")
+    doc_date: Optional[str] = Field(default=None, description="發文日期")
+    status: str = Field(default="draft", description="狀態")
+
+
+class DocumentNumberUpdateRequest(BaseModel):
+    """更新發文字號請求"""
+    subject: Optional[str] = Field(default=None, description="公文主旨")
+    receiver: Optional[str] = Field(default=None, description="受文單位")
+    contract_case_id: Optional[int] = Field(default=None, description="承攬案件 ID")
+    doc_date: Optional[str] = Field(default=None, description="發文日期")
+    status: Optional[str] = Field(default=None, description="狀態")
+
+
+# =============================================================================
+# API 端點 (POST-only)
+# =============================================================================
+
+@router.post("/query", response_model=DocumentNumberListResponse)
+async def query_document_numbers(
+    request: DocumentNumberQueryRequest,
     db: AsyncSession = Depends(get_async_db)
 ):
-    """取得發文字號列表"""
-    
+    """
+    查詢發文字號列表 (POST-only 資安機制)
+
+    - 支援分頁、篩選、排序
+    - 關鍵字搜尋：主旨、文號、受文單位
+    """
     try:
-        # 基本查詢
-        query = select(OfficialDocument)
-        
-        # 篩選條件
-        if year:
-            query = query.where(extract('year', OfficialDocument.doc_date) == year)
-        
-        if status:
-            query = query.where(OfficialDocument.status == status)
-            
-        if keyword:
+        query = select(OfficialDocument).where(
+            OfficialDocument.doc_type == '發文'
+        )
+
+        # 年度篩選
+        if request.year:
             query = query.where(
-                OfficialDocument.subject.contains(keyword) |
-                OfficialDocument.doc_number.contains(keyword) |
-                OfficialDocument.receiver.contains(keyword)
+                extract('year', OfficialDocument.doc_date) == request.year
             )
-        
-        # 總數
+
+        # 狀態篩選
+        if request.status:
+            query = query.where(OfficialDocument.status == request.status)
+
+        # 關鍵字搜尋
+        if request.keyword:
+            keyword = f"%{request.keyword}%"
+            query = query.where(
+                or_(
+                    OfficialDocument.subject.ilike(keyword),
+                    OfficialDocument.doc_number.ilike(keyword),
+                    OfficialDocument.receiver.ilike(keyword)
+                )
+            )
+
+        # 計算總數
         count_query = select(func.count()).select_from(query.subquery())
         total_result = await db.execute(count_query)
-        total = total_result.scalar()
-        
+        total = total_result.scalar() or 0
+
+        # 排序
+        order_column = getattr(OfficialDocument, request.sort_by, OfficialDocument.doc_date)
+        if request.sort_order == "desc":
+            query = query.order_by(desc(order_column))
+        else:
+            query = query.order_by(order_column)
+
         # 分頁
-        offset = (page - 1) * per_page
+        offset = (request.page - 1) * request.limit
         query = query.options(selectinload(OfficialDocument.contract_project))
-        query = query.offset(offset).limit(per_page)
-        query = query.order_by(desc(OfficialDocument.doc_date))
-        
+        query = query.offset(offset).limit(request.limit)
+
         result = await db.execute(query)
         documents = result.scalars().all()
-        
-        # 轉換為回應格式
+
+        # 轉換回應格式
         items = []
         for doc in documents:
-            # 從文號中提取前綴和序號
             doc_number = doc.doc_number or ""
             doc_prefix = ""
             sequence_number = 0
-            year_num = doc.doc_date.year if doc.doc_date else 2024
-            
-            # 簡單的文號解析
+            year_num = doc.doc_date.year if doc.doc_date else datetime.now().year
+
+            # 解析文號
             if doc_number:
                 parts = doc_number.split('字第')
                 if len(parts) >= 2:
@@ -121,16 +221,16 @@ async def get_document_numbers(
                     number_part = parts[1].replace('號', '')
                     try:
                         sequence_number = int(number_part)
-                    except:
+                    except ValueError:
                         sequence_number = 0
-            
-            # 取得關聯的案件名稱
+
             contract_case_name = ""
+            contract_case_id = None
             if doc.contract_project:
                 contract_case_name = doc.contract_project.project_name or ""
+                contract_case_id = doc.contract_project.id
 
-            doc_date_str = str(doc.doc_date) if doc.doc_date else ""
-            items.append(DocumentNumberResponse(
+            items.append(DocumentNumberItem(
                 id=doc.id,
                 doc_prefix=doc_prefix,
                 year=year_num,
@@ -138,88 +238,105 @@ async def get_document_numbers(
                 full_number=doc_number,
                 subject=doc.subject or "",
                 contract_case=contract_case_name,
+                contract_case_id=contract_case_id,
                 receiver=doc.receiver or "",
-                doc_date=doc_date_str,
-                send_date=doc_date_str,  # 前端相容
-                status=doc.status or "draft"
+                doc_date=str(doc.doc_date) if doc.doc_date else None,
+                status=doc.status or "draft",
+                created_at=str(doc.created_at) if doc.created_at else None
             ))
-        
+
+        total_pages = (total + request.limit - 1) // request.limit if request.limit > 0 else 0
+
         return DocumentNumberListResponse(
             items=items,
             total=total,
-            page=page,
-            per_page=per_page
+            page=request.page,
+            limit=request.limit,
+            total_pages=total_pages
         )
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"查詢發文字號失敗: {str(e)}")
 
-@router.get("/stats", response_model=DocumentNumberStats)
+
+@router.post("/stats", response_model=DocumentNumberStats)
 async def get_document_numbers_stats(
     db: AsyncSession = Depends(get_async_db)
 ):
-    """取得發文字號統計資料"""
-    
+    """取得發文字號統計資料 (POST-only)"""
     try:
+        base_filter = OfficialDocument.doc_type == '發文'
+
         # 總數
-        total_query = select(func.count()).select_from(OfficialDocument)
-        total_result = await db.execute(total_query)
+        total_result = await db.execute(
+            select(func.count()).where(base_filter)
+        )
         total_count = total_result.scalar() or 0
-        
-        # 已發送總數
-        sent_query = select(func.count()).select_from(
-            select(OfficialDocument).where(
+
+        # 各狀態數量
+        sent_result = await db.execute(
+            select(func.count()).where(
+                base_filter,
                 OfficialDocument.status == 'sent'
-            ).subquery()
+            )
         )
-        sent_result = await db.execute(sent_query)
         sent_count = sent_result.scalar() or 0
-        
-        # 草稿總數
-        draft_query = select(func.count()).select_from(
-            select(OfficialDocument).where(
+
+        draft_result = await db.execute(
+            select(func.count()).where(
+                base_filter,
                 OfficialDocument.status == 'draft'
-            ).subquery()
+            )
         )
-        draft_result = await db.execute(draft_query)
         draft_count = draft_result.scalar() or 0
-        
-        # 年度範圍
-        year_range_query = select(
-            func.min(extract('year', OfficialDocument.doc_date)),
-            func.max(extract('year', OfficialDocument.doc_date))
-        ).where(OfficialDocument.doc_date.isnot(None))
-        year_range_result = await db.execute(year_range_query)
-        min_year, max_year = year_range_result.first() or (None, None)
-        
-        # 年度統計
-        yearly_stats_query = select(
-            extract('year', OfficialDocument.doc_date).label('year'),
-            func.count().label('count')
-        ).where(
-            OfficialDocument.doc_date.isnot(None)
-        ).group_by(
-            extract('year', OfficialDocument.doc_date)
-        ).order_by(
-            desc('year')
+
+        archived_result = await db.execute(
+            select(func.count()).where(
+                base_filter,
+                OfficialDocument.status == 'archived'
+            )
         )
-        yearly_stats_result = await db.execute(yearly_stats_query)
+        archived_count = archived_result.scalar() or 0
+
+        # 年度範圍
+        year_range_result = await db.execute(
+            select(
+                func.min(extract('year', OfficialDocument.doc_date)),
+                func.max(extract('year', OfficialDocument.doc_date))
+            ).where(
+                base_filter,
+                OfficialDocument.doc_date.isnot(None)
+            )
+        )
+        min_year, max_year = year_range_result.first() or (None, None)
+
+        # 年度統計
+        yearly_stats_result = await db.execute(
+            select(
+                extract('year', OfficialDocument.doc_date).label('year'),
+                func.count().label('count')
+            ).where(
+                base_filter,
+                OfficialDocument.doc_date.isnot(None)
+            ).group_by(
+                extract('year', OfficialDocument.doc_date)
+            ).order_by(desc('year'))
+        )
         yearly_data = yearly_stats_result.all()
-        
+
         yearly_stats = [
-            YearlyStats(year=int(row.year), count=row.count) 
+            YearlyStats(year=int(row.year), count=row.count)
             for row in yearly_data
         ]
-        
-        # 最大序號 (簡化處理)
-        max_sequence = 0
-        if yearly_data:
-            max_sequence = max(row.count for row in yearly_data)
-        
+
+        # 最大序號
+        max_sequence = max(row.count for row in yearly_data) if yearly_data else 0
+
         return DocumentNumberStats(
             total_count=total_count,
             draft_count=draft_count,
             sent_count=sent_count,
+            archived_count=archived_count,
             max_sequence=max_sequence,
             year_range=YearRange(
                 min_year=int(min_year) if min_year else None,
@@ -227,66 +344,311 @@ async def get_document_numbers_stats(
             ),
             yearly_stats=yearly_stats
         )
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"取得統計資料失敗: {str(e)}")
 
-@router.get("/next-number", response_model=NextNumberResponse)
+
+@router.post("/next-number", response_model=NextNumberResponse)
 async def get_next_document_number(
-    prefix: Optional[str] = Query("南投縣建設字第", description="文號前綴"),
-    year: Optional[int] = Query(None, description="指定年度 (預設為當前年度)"),
+    request: NextNumberRequest = NextNumberRequest(),
     db: AsyncSession = Depends(get_async_db)
 ):
-    """取得下一個可用的發文字號"""
+    """
+    取得下一個可用的發文字號 (POST-only)
 
+    文號格式：{前綴}{民國年3位}{流水號7位}號
+    範例：乾坤測字第1150000001號 (民國115年第1號)
+
+    新年度自動重置流水號從 0000001 開始
+    """
     try:
-        current_year = year or datetime.now().year
-        
-        # 查詢當年度最大序號
-        query = select(func.max(
-            func.cast(
-                func.regexp_replace(
-                    func.regexp_replace(OfficialDocument.doc_number, r'.*字第', ''),
-                    r'號.*', ''
-                ), 
-                'INTEGER'
-            )
-        )).where(
-            extract('year', OfficialDocument.doc_date) == current_year
-        ).where(
-            OfficialDocument.doc_number.like(f'{prefix}%')
+        prefix = request.prefix or DEFAULT_DOC_PREFIX
+        current_year = request.year or datetime.now().year
+        roc_year = current_year - 1911
+
+        # 查詢該民國年度的最大流水號
+        # 文號格式：乾坤測字第1150000002號
+        # 前綴 + 民國年(3位) + 流水號(7位) + 號
+        # 使用精確匹配：乾坤測字第115% (民國115年)
+        year_pattern = f"{prefix}{roc_year}%"
+
+        # 使用原生 SQL 查詢，提取流水號
+        # 從文號中提取民國年後的7位數字作為流水號
+        from sqlalchemy import text
+        prefix_len = len(prefix)  # 乾坤測字第 = 5個字
+        year_len = len(str(roc_year))  # 115 = 3位
+
+        raw_query = text(f"""
+            SELECT MAX(
+                CAST(
+                    SUBSTRING(doc_number, {prefix_len + year_len + 1}, 7)
+                    AS INTEGER
+                )
+            ) as max_seq
+            FROM documents
+            WHERE doc_number LIKE :pattern
+            AND (category = '發文' OR doc_type = '發文')
+        """)
+
+        max_seq_result = await db.execute(
+            raw_query,
+            {"pattern": year_pattern}
         )
-        
-        result = await db.execute(query)
-        max_sequence = result.scalar() or 0
+        row = max_seq_result.fetchone()
+        max_sequence = row[0] if row and row[0] else 0
 
         next_sequence = max_sequence + 1
-        next_number = f"{prefix}{next_sequence:010d}號"
-        roc_year = current_year - 1911  # 民國年
+
+        # 生成完整文號：前綴 + 民國年(3位) + 流水號(7位) + 號
+        full_number = f"{prefix}{roc_year}{next_sequence:07d}號"
 
         return NextNumberResponse(
-            full_number=next_number,
-            next_number=next_number,
+            full_number=full_number,
             year=current_year,
             roc_year=roc_year,
             sequence_number=next_sequence,
-            sequence=next_sequence,
-            previous_max=max_sequence
+            previous_max=max_sequence,
+            prefix=prefix
         )
 
-    except Exception:
-        # 如果查詢失敗，返回默認的下一個號碼
-        fallback_year = year or datetime.now().year
-        next_sequence = 1
-        next_number = f"{prefix}{next_sequence:010d}號"
+    except Exception as e:
+        # 查詢失敗時返回預設值 (新年度第1號)
+        import logging
+        logging.error(f"取得下一個字號失敗: {e}")
+        fallback_year = request.year or datetime.now().year
         roc_year = fallback_year - 1911
+        prefix = request.prefix or DEFAULT_DOC_PREFIX
 
         return NextNumberResponse(
-            full_number=next_number,
-            next_number=next_number,
+            full_number=f"{prefix}{roc_year}0000001號",
             year=fallback_year,
             roc_year=roc_year,
-            sequence_number=next_sequence,
-            sequence=next_sequence,
-            previous_max=0
+            sequence_number=1,
+            previous_max=0,
+            prefix=prefix
         )
+
+
+@router.post("/create", response_model=DocumentNumberItem)
+async def create_document_number(
+    request: DocumentNumberCreateRequest,
+    db: AsyncSession = Depends(get_async_db)
+):
+    """建立新發文字號 (POST-only)"""
+    try:
+        # 取得下一個字號
+        next_num = await get_next_document_number(NextNumberRequest(), db)
+
+        # 處理日期
+        doc_date = None
+        if request.doc_date:
+            try:
+                doc_date = datetime.strptime(request.doc_date, '%Y-%m-%d').date()
+            except ValueError:
+                doc_date = date.today()
+        else:
+            doc_date = date.today()
+
+        # 建立公文記錄
+        new_doc = OfficialDocument(
+            doc_number=next_num.full_number,
+            doc_type='發文',
+            category='發文',
+            subject=request.subject,
+            receiver=request.receiver,
+            contract_project_id=request.contract_case_id,
+            doc_date=doc_date,
+            status=request.status,
+        )
+
+        db.add(new_doc)
+        await db.commit()
+        await db.refresh(new_doc)
+
+        # 載入關聯
+        if new_doc.contract_project_id:
+            await db.execute(
+                select(ContractProject).where(
+                    ContractProject.id == new_doc.contract_project_id
+                )
+            )
+
+        contract_case_name = ""
+        if new_doc.contract_project:
+            contract_case_name = new_doc.contract_project.project_name or ""
+
+        return DocumentNumberItem(
+            id=new_doc.id,
+            doc_prefix=DEFAULT_DOC_PREFIX,
+            year=doc_date.year if doc_date else datetime.now().year,
+            sequence_number=next_num.sequence_number,
+            full_number=new_doc.doc_number or "",
+            subject=new_doc.subject or "",
+            contract_case=contract_case_name,
+            contract_case_id=new_doc.contract_project_id,
+            receiver=new_doc.receiver or "",
+            doc_date=str(doc_date) if doc_date else None,
+            status=new_doc.status or "draft",
+            created_at=str(new_doc.created_at) if new_doc.created_at else None
+        )
+
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"建立發文字號失敗: {str(e)}")
+
+
+@router.post("/update/{document_id}", response_model=DocumentNumberItem)
+async def update_document_number(
+    document_id: int,
+    request: DocumentNumberUpdateRequest,
+    db: AsyncSession = Depends(get_async_db)
+):
+    """更新發文字號 (POST-only)"""
+    try:
+        # 查詢現有記錄
+        result = await db.execute(
+            select(OfficialDocument)
+            .options(selectinload(OfficialDocument.contract_project))
+            .where(OfficialDocument.id == document_id)
+        )
+        doc = result.scalar_one_or_none()
+
+        if not doc:
+            raise HTTPException(status_code=404, detail="發文字號不存在")
+
+        # 更新欄位
+        if request.subject is not None:
+            doc.subject = request.subject
+        if request.receiver is not None:
+            doc.receiver = request.receiver
+        if request.contract_case_id is not None:
+            doc.contract_project_id = request.contract_case_id
+        if request.doc_date is not None:
+            try:
+                doc.doc_date = datetime.strptime(request.doc_date, '%Y-%m-%d').date()
+            except ValueError:
+                pass
+        if request.status is not None:
+            doc.status = request.status
+
+        await db.commit()
+        await db.refresh(doc)
+
+        # 解析文號
+        doc_number = doc.doc_number or ""
+        sequence_number = 0
+        if doc_number:
+            parts = doc_number.split('字第')
+            if len(parts) >= 2:
+                number_part = parts[1].replace('號', '')
+                try:
+                    sequence_number = int(number_part)
+                except ValueError:
+                    pass
+
+        contract_case_name = ""
+        if doc.contract_project:
+            contract_case_name = doc.contract_project.project_name or ""
+
+        return DocumentNumberItem(
+            id=doc.id,
+            doc_prefix=DEFAULT_DOC_PREFIX,
+            year=doc.doc_date.year if doc.doc_date else datetime.now().year,
+            sequence_number=sequence_number,
+            full_number=doc_number,
+            subject=doc.subject or "",
+            contract_case=contract_case_name,
+            contract_case_id=doc.contract_project_id,
+            receiver=doc.receiver or "",
+            doc_date=str(doc.doc_date) if doc.doc_date else None,
+            status=doc.status or "draft",
+            created_at=str(doc.created_at) if doc.created_at else None
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"更新發文字號失敗: {str(e)}")
+
+
+@router.post("/delete/{document_id}")
+async def delete_document_number(
+    document_id: int,
+    db: AsyncSession = Depends(get_async_db)
+):
+    """刪除發文字號 (POST-only，軟刪除)"""
+    try:
+        result = await db.execute(
+            select(OfficialDocument).where(OfficialDocument.id == document_id)
+        )
+        doc = result.scalar_one_or_none()
+
+        if not doc:
+            raise HTTPException(status_code=404, detail="發文字號不存在")
+
+        # 軟刪除：將狀態改為 archived
+        doc.status = 'archived'
+        await db.commit()
+
+        return {"success": True, "message": "發文字號已歸檔"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"刪除發文字號失敗: {str(e)}")
+
+
+# =============================================================================
+# 向後相容的 GET 端點 (將逐步棄用)
+# =============================================================================
+
+@router.get("", response_model=DocumentNumberListResponse, deprecated=True)
+async def get_document_numbers_legacy(
+    page: int = 1,
+    per_page: int = 20,
+    year: Optional[int] = None,
+    status: Optional[str] = None,
+    keyword: Optional[str] = None,
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    [已棄用] 取得發文字號列表
+
+    請改用 POST /document-numbers/query
+    """
+    request = DocumentNumberQueryRequest(
+        page=page,
+        limit=per_page,
+        year=year,
+        status=status,
+        keyword=keyword
+    )
+    return await query_document_numbers(request, db)
+
+
+@router.get("/stats", response_model=DocumentNumberStats, deprecated=True)
+async def get_stats_legacy(db: AsyncSession = Depends(get_async_db)):
+    """
+    [已棄用] 取得統計資料
+
+    請改用 POST /document-numbers/stats
+    """
+    return await get_document_numbers_stats(db)
+
+
+@router.get("/next-number", response_model=NextNumberResponse, deprecated=True)
+async def get_next_number_legacy(
+    prefix: Optional[str] = None,
+    year: Optional[int] = None,
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    [已棄用] 取得下一個字號
+
+    請改用 POST /document-numbers/next-number
+    """
+    request = NextNumberRequest(prefix=prefix, year=year)
+    return await get_next_document_number(request, db)

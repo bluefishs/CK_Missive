@@ -1,411 +1,318 @@
-import React, { useState, useEffect } from 'react';
-import type { TableColumnType } from 'antd';
+/**
+ * 發文字號管理頁面 (重構版)
+ *
+ * 統一服務來源，重用公文管理的列表元件與 API
+ * 預設篩選 category='send' (發文)
+ * 保留「下一個可用發文字號」預覽功能
+ *
+ * @version 3.2.0
+ * @date 2026-01-07
+ */
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Card,
   Button,
   Space,
-  Table,
-  Tag,
   Statistic,
   Row,
   Col,
-  Input,
-  Select,
-  DatePicker,
-  Modal,
-  Form,
-  message,
   Typography,
-  Badge,
-  Tooltip,
-  Divider
+  App,
+  Modal,
 } from 'antd';
 import {
-  PlusOutlined,
   ReloadOutlined,
-  EditOutlined,
   FileTextOutlined,
   NumberOutlined,
-  SearchOutlined,
+  SendOutlined,
+  CloudOutlined,
+  MailOutlined,
+  CalendarOutlined,
 } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
-import dayjs from 'dayjs';
-import { useTableColumnSearch } from '../hooks/useTableColumnSearch';
-import { API_BASE_URL } from '../api/client';
+
+import { DocumentList } from '../components/document/DocumentList';
+import { DocumentOperations } from '../components/document/DocumentOperations';
+import { useDocuments } from '../hooks';
+import { documentsApi, DocumentStatistics } from '../api/documentsApi';
+import { documentNumbersApi, NextNumberResponse } from '../api/documentNumbersApi';
+import { Document } from '../types';
 
 const { Title, Text } = Typography;
-const { Option } = Select;
-const { TextArea } = Input;
-
-interface DocumentNumber {
-  id: number;
-  doc_prefix: string;
-  year: number;
-  sequence_number: number;
-  full_number: string;
-  subject: string;
-  contract_case: string;
-  receiver: string;
-  send_date: string;
-  status: string;
-  created_by: string;
-  created_at: string;
-}
-
-interface NextNumber {
-  year: number;
-  roc_year: number;
-  sequence_number: number;
-  full_number: string;
-  previous_max: number;
-}
-
-interface Stats {
-  total_count: number;
-  draft_count: number;
-  sent_count: number;
-  max_sequence: number;
-  year_range: {
-    min_year: number | null;
-    max_year: number | null;
-  };
-  yearly_stats: Array<{ year: number; count: number }>;
-}
 
 export const DocumentNumbersPage: React.FC = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<DocumentNumber[]>([]);
-  const [total, setTotal] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [nextNumber, setNextNumber] = useState<NextNumber | null>(null);
+  const { message } = App.useApp();
 
-  // 使用表格搜尋 Hook
-  const { getColumnSearchProps, searchedColumn, searchText } = useTableColumnSearch<DocumentNumber>();
-
-  // 篩選條件
-  const [filters, setFilters] = useState({
-    year: undefined as number | undefined,
-    status: undefined as string | undefined,
-    keyword: undefined as string | undefined,
+  // 分頁狀態
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 0,
   });
 
-  // 新增/編輯模態框
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingRecord, setEditingRecord] = useState<DocumentNumber | null>(null);
-  const [form] = Form.useForm();
+  // 統計資料
+  const [stats, setStats] = useState<DocumentStatistics | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
 
-  // 載入數據
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      // 載入發文字號列表
-      const params = new URLSearchParams({
-        page: currentPage.toString(),
-        per_page: pageSize.toString(),
-      });
+  // 下一個可用字號
+  const [nextNumber, setNextNumber] = useState<NextNumberResponse | null>(null);
+  const [nextNumberLoading, setNextNumberLoading] = useState(false);
 
-      if (filters.year) params.append('year', filters.year.toString());
-      if (filters.status) params.append('status', filters.status);
-      if (filters.keyword) params.append('keyword', filters.keyword);
+  // 公文操作狀態
+  const [documentOperation, setDocumentOperation] = useState<{
+    type: 'view' | 'edit' | 'create' | 'copy' | null;
+    document: Document | null;
+    visible: boolean;
+  }>({ type: null, document: null, visible: false });
 
-      const response = await fetch(`${API_BASE_URL}/document-numbers?${params}`);
-      const result = await response.json();
-
-      if (response.ok) {
-        setData(result.items);
-        setTotal(result.total);
-      } else {
-        message.error('載入發文字號列表失敗');
-      }
-
-      // 載入統計資料
-      const statsResponse = await fetch(`${API_BASE_URL}/document-numbers/stats`);
-      if (statsResponse.ok) {
-        const statsResult = await statsResponse.json();
-        setStats(statsResult);
-      }
-
-      // 載入下一個可用字號
-      const nextResponse = await fetch(`${API_BASE_URL}/document-numbers/next-number`);
-      if (nextResponse.ok) {
-        const nextResult = await nextResponse.json();
-        setNextNumber(nextResult);
-      }
-
-    } catch (error) {
-      console.error('載入資料失敗:', error);
-      message.error('載入資料失敗');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-  }, [currentPage, pageSize, filters]);
-
-  // 處理篩選變更
-  const handleFilterChange = (key: string, value: any) => {
-    setFilters(prev => ({
-      ...prev,
-      [key]: value
-    }));
-    setCurrentPage(1); // 重置到第一頁
-  };
-
-  // 重置篩選
-  const handleResetFilters = () => {
-    setFilters({
-      year: undefined,
-      status: undefined,
-      keyword: undefined,
-    });
-    setCurrentPage(1);
-  };
-
-  // 新增發文字號
-  const handleCreate = () => {
-    setEditingRecord(null);
-    form.resetFields();
-    if (nextNumber) {
-      form.setFieldsValue({
-        full_number: nextNumber.full_number,
-        year: nextNumber.year,
-        send_date: dayjs().format('YYYY-MM-DD')
-      });
-    }
-    setModalOpen(true);
-  };
-
-  // 編輯發文字號
-  const handleEdit = (record: DocumentNumber) => {
-    setEditingRecord(record);
-    form.setFieldsValue({
-      ...record,
-      send_date: record.send_date ? dayjs(record.send_date) : undefined
-    });
-    setModalOpen(true);
-  };
-
-  // 儲存發文字號
-  const handleSave = async (values: any) => {
-    try {
-      const payload = {
-        ...values,
-        send_date: values.send_date ? dayjs(values.send_date).format('YYYY-MM-DD') : null
-      };
-
-      const url = editingRecord
-        ? `${API_BASE_URL}/document-numbers/${editingRecord.id}`
-        : `${API_BASE_URL}/document-numbers`;
-
-      const method = editingRecord ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        message.success(editingRecord ? '更新成功' : '新增成功');
-        setModalOpen(false);
-        loadData(); // 重新載入資料
-      } else {
-        message.error(result.detail || '操作失敗');
-      }
-    } catch (error) {
-      console.error('儲存失敗:', error);
-      message.error('儲存失敗');
-    }
-  };
+  // 刪除確認 Modal
+  const [deleteModal, setDeleteModal] = useState<{
+    open: boolean;
+    document: Document | null;
+  }>({ open: false, document: null });
 
   // 排序狀態
   const [sortField, setSortField] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<'ascend' | 'descend' | null>(null);
 
-  // 處理表格變更（排序）
-  const handleTableChange = (pagination: any, filters: any, sorter: any) => {
-    if (sorter && sorter.field) {
+  // 匯出狀態
+  const [isExporting, setIsExporting] = useState(false);
+
+  // 使用統一的 useDocuments hook，預設篩選發文 (category='send')
+  const {
+    data: documentsData,
+    isLoading,
+    error: queryError,
+    refetch,
+  } = useDocuments({
+    category: 'send', // 固定篩選發文
+    page: pagination.page,
+    limit: pagination.limit,
+    ...(sortField && { sortBy: sortField }),
+    ...(sortOrder && { sortOrder: sortOrder === 'ascend' ? 'asc' : 'desc' }),
+  });
+
+  // 載入統計資料
+  const loadStats = useCallback(async () => {
+    setStatsLoading(true);
+    try {
+      const result = await documentsApi.getStatistics();
+      setStats(result);
+    } catch (error) {
+      console.error('載入統計失敗:', error);
+    } finally {
+      setStatsLoading(false);
+    }
+  }, []);
+
+  // 載入下一個可用字號
+  const loadNextNumber = useCallback(async () => {
+    setNextNumberLoading(true);
+    try {
+      const result = await documentNumbersApi.getNextNumber();
+      setNextNumber(result);
+    } catch (error) {
+      console.error('載入下一個字號失敗:', error);
+    } finally {
+      setNextNumberLoading(false);
+    }
+  }, []);
+
+  // 初始載入
+  useEffect(() => {
+    loadStats();
+    loadNextNumber();
+  }, [loadStats, loadNextNumber]);
+
+  // 更新分頁資料
+  useEffect(() => {
+    if (documentsData?.pagination) {
+      setPagination({
+        page: documentsData.pagination.page ?? 1,
+        limit: documentsData.pagination.limit ?? 20,
+        total: documentsData.pagination.total ?? 0,
+        totalPages: documentsData.pagination.total_pages ?? 0,
+      });
+    }
+  }, [documentsData]);
+
+  // 顯示錯誤訊息
+  useEffect(() => {
+    if (queryError) {
+      message.error(queryError instanceof Error ? queryError.message : '載入資料失敗');
+    }
+  }, [queryError, message]);
+
+  // 取得安全的公文列表
+  const documents = documentsData?.items ?? [];
+
+  // ==========================================================================
+  // 事件處理
+  // ==========================================================================
+
+  const handleTableChange = (
+    paginationConfig: any,
+    _filters: any,
+    sorter: any
+  ) => {
+    if (paginationConfig) {
+      const newPage = paginationConfig.current ?? pagination.page;
+      const newLimit = paginationConfig.pageSize ?? pagination.limit;
+      setPagination((prev) => ({
+        ...prev,
+        page: newPage,
+        limit: newLimit,
+      }));
+    }
+
+    if (sorter?.field) {
       setSortField(sorter.field);
       setSortOrder(sorter.order);
+    } else {
+      setSortField('');
+      setSortOrder(null);
     }
   };
 
-  // 表格欄位定義 - 含排序與篩選功能
-  const columns: TableColumnType<DocumentNumber>[] = [
-    {
-      title: '發文字號',
-      dataIndex: 'full_number',
-      key: 'full_number',
-      width: 200,
-      sorter: (a, b) => a.full_number.localeCompare(b.full_number),
-      ...getColumnSearchProps('full_number'),
-      render: (text) => <Text strong copyable>{text}</Text>
-    },
-    {
-      title: '年度',
-      dataIndex: 'year',
-      key: 'year',
-      width: 80,
-      align: 'center',
-      sorter: (a, b) => a.year - b.year,
-      filters: stats?.yearly_stats?.map(s => ({ text: `${s.year}年`, value: s.year })) || [],
-      onFilter: (value, record) => record.year === value,
-      render: (year) => <Tag color="blue">{year}</Tag>
-    },
-    {
-      title: '流水號',
-      dataIndex: 'sequence_number',
-      key: 'sequence_number',
-      width: 100,
-      align: 'center',
-      sorter: (a, b) => a.sequence_number - b.sequence_number,
-      defaultSortOrder: 'descend',
-      render: (num) => <Text code>{num ? num.toString().padStart(6, '0') : '000000'}</Text>
-    },
-    {
-      title: '公文主旨',
-      dataIndex: 'subject',
-      key: 'subject',
-      ellipsis: true,
-      sorter: (a, b) => (a.subject || '').localeCompare(b.subject || '', 'zh-TW'),
-      ...getColumnSearchProps('subject'),
-      render: (text) => text || <Text type="secondary">未填寫</Text>
-    },
-    {
-      title: '承攬案件',
-      dataIndex: 'contract_case',
-      key: 'contract_case',
-      width: 200,
-      ellipsis: true,
-      sorter: (a, b) => (a.contract_case || '').localeCompare(b.contract_case || '', 'zh-TW'),
-      ...getColumnSearchProps('contract_case'),
-      render: (text) => text || <Text type="secondary">無</Text>
-    },
-    {
-      title: '受文單位',
-      dataIndex: 'receiver',
-      key: 'receiver',
-      width: 180,
-      ellipsis: true,
-      sorter: (a, b) => (a.receiver || '').localeCompare(b.receiver || '', 'zh-TW'),
-      ...getColumnSearchProps('receiver'),
-      render: (text) => text || <Text type="secondary">未填寫</Text>
-    },
-    {
-      title: '發文日期',
-      dataIndex: 'send_date',
-      key: 'send_date',
-      width: 120,
-      align: 'center',
-      sorter: (a, b) => {
-        if (!a.send_date && !b.send_date) return 0;
-        if (!a.send_date) return 1;
-        if (!b.send_date) return -1;
-        return new Date(a.send_date).getTime() - new Date(b.send_date).getTime();
-      },
-      render: (date) => date ? dayjs(date).format('YYYY-MM-DD') : <Text type="secondary">未設定</Text>
-    },
-    {
-      title: '狀態',
-      dataIndex: 'status',
-      key: 'status',
-      width: 100,
-      align: 'center',
-      filters: [
-        { text: '草稿', value: 'draft' },
-        { text: '已發文', value: 'sent' },
-        { text: '已歸檔', value: 'archived' },
-      ],
-      onFilter: (value, record) => record.status === value,
-      render: (status) => {
-        const statusConfig = {
-          'draft': { color: 'orange', text: '草稿' },
-          'sent': { color: 'green', text: '已發文' },
-          'archived': { color: 'gray', text: '已歸檔' }
-        };
-        const config = statusConfig[status as keyof typeof statusConfig] || { color: 'default', text: status };
-        return <Tag color={config.color}>{config.text}</Tag>;
+  const handleRefresh = () => {
+    refetch();
+    loadStats();
+    loadNextNumber();
+  };
+
+  // 公文操作
+  const handleViewDocument = (document: Document) => {
+    // 導航到詳情頁
+    navigate(`/documents/${document.id}`);
+  };
+
+  const handleEditDocument = (document: Document) => {
+    // 導航到詳情頁（編輯模式）
+    navigate(`/documents/${document.id}`);
+  };
+
+  const handleCreateDocument = () => {
+    // 導航到新增發文頁面
+    navigate('/document-numbers/create');
+  };
+
+  const handleCopyDocument = (document: Document) => {
+    setDocumentOperation({ type: 'copy', document, visible: true });
+  };
+
+  const handleDeleteDocument = (document: Document) => {
+    setDeleteModal({ open: true, document });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (deleteModal.document) {
+      try {
+        await documentsApi.deleteDocument(deleteModal.document.id);
+        message.success(`已刪除公文: ${deleteModal.document.doc_number}`);
+        refetch();
+        loadStats();
+        loadNextNumber();
+        setDeleteModal({ open: false, document: null });
+      } catch (error) {
+        console.error('刪除公文失敗:', error);
+        message.error('刪除公文失敗');
       }
-    },
-  ];
+    }
+  };
+
+  // 複製公文處理（其他操作已改用頁面導航）
+  const handleSaveDocument = async (documentData: Partial<Document>): Promise<Document | void> => {
+    try {
+      // 只處理複製
+      if (documentOperation.type !== 'copy') return;
+
+      const payload = {
+        ...documentData,
+        category: '發文',
+        doc_type: '發文',
+      };
+
+      const result = await documentsApi.createDocument(payload as any);
+      message.success('發文複製成功！');
+
+      setDocumentOperation({ type: null, document: null, visible: false });
+      refetch();
+      loadStats();
+      loadNextNumber();
+      return result;
+    } catch (error) {
+      console.error('複製公文失敗:', error);
+      throw error;
+    }
+  };
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      await documentsApi.exportDocuments({ category: 'send' });
+      message.success('發文資料已匯出');
+    } catch (error) {
+      console.error('匯出失敗:', error);
+      message.error('匯出失敗');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // ==========================================================================
+  // 渲染
+  // ==========================================================================
 
   return (
     <div style={{ padding: '24px' }}>
-      {/* 頁面標題與統計 */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col span={24}>
-          <Title level={2} style={{ margin: 0, display: 'flex', alignItems: 'center' }}>
-            <FileTextOutlined style={{ marginRight: 8 }} />
-            發文字號管理
-          </Title>
-        </Col>
-      </Row>
+      {/* 頁面標題 */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 24,
+        }}
+      >
+        <Title level={2} style={{ margin: 0, display: 'flex', alignItems: 'center' }}>
+          <FileTextOutlined style={{ marginRight: 8 }} />
+          發文字號管理
+        </Title>
 
-      {/* 統計卡片 */}
-      {stats && (
-        <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-          <Col xs={24} sm={6}>
-            <Card>
-              <Statistic
-                title="總發文數"
-                value={stats.total_count}
-                prefix={<NumberOutlined />}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={6}>
-            <Card>
-              <Statistic
-                title="草稿"
-                value={stats.draft_count}
-                valueStyle={{ color: '#faad14' }}
-                prefix={<EditOutlined />}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={6}>
-            <Card>
-              <Statistic
-                title="已發文"
-                value={stats.sent_count}
-                valueStyle={{ color: '#52c41a' }}
-                prefix={<FileTextOutlined />}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={6}>
-            <Card>
-              <Statistic
-                title="最大流水號"
-                value={stats.max_sequence}
-                formatter={(value) => value ? value.toString().padStart(6, '0') : '000000'}
-              />
-            </Card>
-          </Col>
-        </Row>
-      )}
+        <Button
+          icon={<ReloadOutlined />}
+          onClick={handleRefresh}
+          loading={isLoading}
+        >
+          重新整理
+        </Button>
+      </div>
 
-      {/* 下一個字號預覽 */}
+      {/* 下一個可用發文字號預覽 */}
       {nextNumber && (
-        <Card style={{ marginBottom: 24, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+        <Card
+          loading={nextNumberLoading}
+          style={{
+            marginBottom: 24,
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            border: 'none',
+          }}
+        >
           <Row gutter={16} align="middle">
             <Col flex="1">
               <Space direction="vertical" size={0}>
-                <Text style={{ color: 'white', opacity: 0.8 }}>下一個可用發文字號</Text>
-                <Title level={3} style={{ margin: 0, color: 'white' }}>
+                <Text style={{ color: 'white', opacity: 0.8, fontSize: '14px' }}>
+                  下一個可用發文字號
+                </Text>
+                <Title level={3} style={{ margin: '4px 0', color: 'white' }}>
                   {nextNumber.full_number}
                 </Title>
                 <Text style={{ color: 'white', opacity: 0.9 }}>
-                  {nextNumber?.year}年 (民國{nextNumber?.roc_year}年) • 流水號 {nextNumber?.sequence_number ? nextNumber.sequence_number.toString().padStart(6, '0') : '000000'}
+                  {nextNumber.year}年 (民國{nextNumber.roc_year}年) • 流水號{' '}
+                  {nextNumber.sequence_number.toString().padStart(6, '0')}
                 </Text>
               </Space>
             </Col>
@@ -413,9 +320,13 @@ export const DocumentNumbersPage: React.FC = () => {
               <Button
                 type="primary"
                 size="large"
-                icon={<PlusOutlined />}
-                onClick={handleCreate}
-                style={{ background: 'rgba(255,255,255,0.2)', borderColor: 'white' }}
+                icon={<SendOutlined />}
+                onClick={handleCreateDocument}
+                style={{
+                  background: 'rgba(255,255,255,0.2)',
+                  borderColor: 'white',
+                  color: 'white',
+                }}
               >
                 建立新發文
               </Button>
@@ -424,179 +335,94 @@ export const DocumentNumbersPage: React.FC = () => {
         </Card>
       )}
 
-      {/* 篩選與操作區 */}
-      <Card style={{ marginBottom: 16 }}>
-        <Row gutter={[16, 16]} align="middle">
-          <Col xs={24} sm={8} md={5}>
-            <Input
-              placeholder="搜尋主旨、受文單位、案件"
-              prefix={<SearchOutlined />}
-              value={filters.keyword}
-              onChange={(e) => handleFilterChange('keyword', e.target.value)}
+      {/* 統計卡片 */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        <Col xs={24} sm={6}>
+          <Card loading={statsLoading}>
+            <Statistic
+              title="總發文數"
+              value={stats?.send_count ?? stats?.send ?? 0}
+              prefix={<NumberOutlined />}
             />
-          </Col>
-          <Col xs={12} sm={4} md={3}>
-            <Select
-              placeholder="年度"
-              value={filters.year}
-              onChange={(value) => handleFilterChange('year', value)}
-              allowClear
-              style={{ width: '100%' }}
-            >
-              {stats?.yearly_stats?.map(stat => (
-                <Option key={stat.year} value={stat.year}>
-                  {stat.year}年 ({stat.count})
-                </Option>
-              )) || []}
-            </Select>
-          </Col>
-          <Col xs={12} sm={4} md={3}>
-            <Select
-              placeholder="狀態"
-              value={filters.status}
-              onChange={(value) => handleFilterChange('status', value)}
-              allowClear
-              style={{ width: '100%' }}
-            >
-              <Option value="draft">草稿</Option>
-              <Option value="sent">已發文</Option>
-              <Option value="archived">已歸檔</Option>
-            </Select>
-          </Col>
-          <Col xs={24} sm={8} md={13}>
-            <Space>
-              <Button onClick={handleResetFilters}>重置篩選</Button>
-              <Button icon={<ReloadOutlined />} onClick={loadData} loading={loading}>
-                重新整理
-              </Button>
-              <Divider type="vertical" />
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={handleCreate}
-              >
-                新增發文字號
-              </Button>
-            </Space>
-          </Col>
-        </Row>
-      </Card>
+          </Card>
+        </Col>
+        <Col xs={24} sm={6}>
+          <Card loading={statsLoading}>
+            <Statistic
+              title="電子交換"
+              value={stats?.delivery_method_stats?.electronic ?? 0}
+              prefix={<CloudOutlined />}
+              valueStyle={{ color: '#52c41a' }}
+              suffix="筆"
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={6}>
+          <Card loading={statsLoading}>
+            <Statistic
+              title="紙本郵寄"
+              value={stats?.delivery_method_stats?.paper ?? 0}
+              prefix={<MailOutlined />}
+              valueStyle={{ color: '#faad14' }}
+              suffix="筆"
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={6}>
+          <Card loading={statsLoading}>
+            <Statistic
+              title="本年度發文數"
+              value={stats?.current_year_send_count ?? 0}
+              prefix={<CalendarOutlined />}
+              valueStyle={{ color: '#1890ff' }}
+            />
+          </Card>
+        </Col>
+      </Row>
 
-      {/* 資料表格 */}
+      {/* 發文列表 - 使用統一的 DocumentList 元件 */}
       <Card>
-        <Table
-          columns={columns}
-          dataSource={data}
-          rowKey="id"
-          loading={loading}
-          onChange={handleTableChange}
-          onRow={(record) => ({
-            onClick: () => handleEdit(record),
-            style: { cursor: 'pointer' },
-          })}
+        <DocumentList
+          documents={documents}
+          loading={isLoading}
+          total={pagination.total}
           pagination={{
-            current: currentPage,
-            pageSize: pageSize,
-            total: total,
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (total, range) => `第 ${range[0]}-${range[1]} 項，共 ${total} 項`,
-            onChange: (page, size) => {
-              setCurrentPage(page);
-              setPageSize(size);
-            },
+            current: pagination.page,
+            pageSize: pagination.limit,
           }}
-          scroll={{ x: 1200 }}
-          showSorterTooltip={{
-            title: '點擊排序'
-          }}
+          sortField={sortField}
+          sortOrder={sortOrder}
+          onTableChange={handleTableChange}
+          onEdit={handleEditDocument}
+          onDelete={handleDeleteDocument}
+          onView={handleViewDocument}
+          onCopy={handleCopyDocument}
+          onExport={handleExport}
+          isExporting={isExporting}
         />
       </Card>
 
-      {/* 新增/編輯模態框 */}
+      {/* 刪除確認 Modal */}
       <Modal
-        title={editingRecord ? '編輯發文字號' : '新增發文字號'}
-        open={modalOpen}
-        onCancel={() => setModalOpen(false)}
-        footer={null}
-        width={700}
+        title="確認刪除"
+        open={deleteModal.open}
+        onOk={handleConfirmDelete}
+        onCancel={() => setDeleteModal({ open: false, document: null })}
+        okText="刪除"
+        cancelText="取消"
+        okButtonProps={{ danger: true }}
       >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSave}
-        >
-          <Row gutter={16}>
-            <Col xs={24} md={12}>
-              <Form.Item
-                label="發文字號"
-                name="full_number"
-              >
-                <Input disabled />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={12}>
-              <Form.Item
-                label="狀態"
-                name="status"
-                rules={[{ required: true, message: '請選擇狀態' }]}
-              >
-                <Select>
-                  <Option value="draft">草稿</Option>
-                  <Option value="sent">已發文</Option>
-                  <Option value="archived">已歸檔</Option>
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Form.Item
-            label="公文主旨"
-            name="subject"
-            rules={[{ required: true, message: '請輸入公文主旨' }]}
-          >
-            <TextArea rows={2} placeholder="請輸入公文主旨" />
-          </Form.Item>
-
-          <Row gutter={16}>
-            <Col xs={24} md={12}>
-              <Form.Item
-                label="承攬案件名稱"
-                name="contract_case"
-              >
-                <Input placeholder="請輸入承攬案件名稱" />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={12}>
-              <Form.Item
-                label="發文日期"
-                name="send_date"
-              >
-                <DatePicker style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Form.Item
-            label="受文單位"
-            name="receiver"
-            rules={[{ required: true, message: '請輸入受文單位' }]}
-          >
-            <Input placeholder="請輸入受文單位" />
-          </Form.Item>
-
-          <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
-            <Space>
-              <Button onClick={() => setModalOpen(false)}>
-                取消
-              </Button>
-              <Button type="primary" htmlType="submit">
-                {editingRecord ? '更新' : '新增'}
-              </Button>
-            </Space>
-          </Form.Item>
-        </Form>
+        <p>確定要刪除公文「{deleteModal.document?.doc_number}」嗎？此操作無法復原。</p>
       </Modal>
+
+      {/* 公文操作 Modal (檢視/編輯/新增/複製) */}
+      <DocumentOperations
+        document={documentOperation.document}
+        operation={documentOperation.type}
+        visible={documentOperation.visible}
+        onClose={() => setDocumentOperation({ type: null, document: null, visible: false })}
+        onSave={handleSaveDocument}
+      />
     </div>
   );
 };

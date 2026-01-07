@@ -39,6 +39,9 @@ AsyncSessionLocal = sessionmaker(
     autoflush=False,
 )
 
+# 別名 - 供 UnitOfWork 等模組使用
+async_session_maker = AsyncSessionLocal
+
 # 基礎模型類別 (從 sqlalchemy.orm 匯入)
 # 所有資料庫模型(Table)都應繼承此基類，以確保它們被正確註冊到 SQLAlchemy 的 metadata 中。
 # 這對於 Alembic 自動生成資料庫遷移腳本至關重要。

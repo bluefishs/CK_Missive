@@ -60,6 +60,9 @@ export interface Document {
     role: string;
   }>;
 
+  // 附件統計
+  attachment_count?: number;  // 附件數量
+
   // 公文字號拆分欄位
   doc_zi?: string;       // 公文「字」部分，如「桃工用」
   doc_wen_hao?: string;  // 公文「文號」部分，如「1140024090」
@@ -136,6 +139,12 @@ export interface DocumentStatistics {
   receive: number;
   receive_count: number;
   current_year_count: number;
+  current_year_send_count: number;
+  delivery_method_stats: {
+    electronic: number;
+    paper: number;
+    both: number;
+  };
 }
 
 /** 下拉選項 */

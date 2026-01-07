@@ -1454,45 +1454,7 @@ export const ContractCaseDetailPage: React.FC = () => {
         </Button>
       }
     >
-      {/* 統計概覽 - 4種專案角色 */}
-      <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={6}>
-          <Card size="small" style={{ textAlign: 'center', background: '#fff1f0' }}>
-            <Statistic
-              title="計畫主持"
-              value={staffList.filter(s => s.role === '計畫主持').length}
-              valueStyle={{ color: '#cf1322' }}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card size="small" style={{ textAlign: 'center', background: '#fff7e6' }}>
-            <Statistic
-              title="計畫協同"
-              value={staffList.filter(s => s.role === '計畫協同').length}
-              valueStyle={{ color: '#fa8c16' }}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card size="small" style={{ textAlign: 'center', background: '#e6f7ff' }}>
-            <Statistic
-              title="專案PM"
-              value={staffList.filter(s => s.role === '專案PM').length}
-              valueStyle={{ color: '#1890ff' }}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card size="small" style={{ textAlign: 'center', background: '#f6ffed' }}>
-            <Statistic
-              title="職安主管"
-              value={staffList.filter(s => s.role === '職安主管').length}
-              valueStyle={{ color: '#52c41a' }}
-            />
-          </Card>
-        </Col>
-      </Row>
+      {/* [已移除] 統計概覽 - 4種專案角色 (2026-01-07: 承辦同仁 tab 不需要儀表板統計) */}
 
       {staffList.length > 0 ? (
         <Table
@@ -1605,13 +1567,13 @@ export const ContractCaseDetailPage: React.FC = () => {
     </Card>
   );
 
-  // TAB 5: 附件彙整（以公文分組的摺疊式設計）
+  // TAB 5: 附件紀錄（以公文分組的摺疊式設計）
   const renderAttachments = () => (
     <Card
       title={
         <Space>
           <PaperClipOutlined />
-          <span>附件彙整</span>
+          <span>附件紀錄</span>
           <Tag color="blue">{attachments.length} 個檔案</Tag>
           {groupedAttachments.length > 0 && (
             <Text type="secondary" style={{ fontSize: 12 }}>
@@ -1929,7 +1891,7 @@ export const ContractCaseDetailPage: React.FC = () => {
       label: (
         <span>
           <PaperClipOutlined />
-          附件彙整
+          附件紀錄
           <Tag color="blue" style={{ marginLeft: 8 }}>{attachments.length}</Tag>
         </span>
       ),

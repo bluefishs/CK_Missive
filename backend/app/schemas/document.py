@@ -96,15 +96,49 @@ class StaffInfo(BaseModel):
     name: str
     role: str
 
-class DocumentResponse(DocumentBase):
-    """公文回應資料結構 - 包含資料庫自動生成欄位"""
+class DocumentResponse(BaseModel):
+    """
+    公文回應資料結構 - 與 OfficialDocument 模型欄位完全對齊
+
+    注意：此 Schema 只包含 OfficialDocument 模型實際存在的欄位
+    """
+    # 基本欄位
     id: int
+    auto_serial: Optional[str] = Field(None, description="流水序號")
+    doc_number: str = Field(..., description="公文文號")
+    doc_type: str = Field(..., description="公文類型")
+    subject: str = Field(..., description="主旨")
+    sender: Optional[str] = Field(None, description="發文單位")
+    receiver: Optional[str] = Field(None, description="受文單位")
+    doc_date: Optional[date] = Field(None, description="公文日期")
+    receive_date: Optional[date] = Field(None, description="收文日期")
+    send_date: Optional[date] = Field(None, description="發文日期")
+    status: Optional[str] = Field(None, description="處理狀態")
+    category: Optional[str] = Field(None, description="公文分類")
+
+    # 發文形式與附件欄位
+    delivery_method: Optional[str] = Field("電子交換", description="發文形式")
+    has_attachment: Optional[bool] = Field(False, description="是否含附件")
+
+    # 關聯欄位
+    contract_project_id: Optional[int] = Field(None, description="承攬案件 ID")
+    sender_agency_id: Optional[int] = Field(None, description="發文機關 ID")
+    receiver_agency_id: Optional[int] = Field(None, description="受文機關 ID")
+
+    # 其他欄位
+    title: Optional[str] = Field(None, description="標題")
+    cloud_file_link: Optional[str] = Field(None, description="雲端檔案連結")
+    dispatch_format: Optional[str] = Field(None, description="發文形式")
+    assignee: Optional[str] = Field(None, description="承辦人")
+
+    # 時間戳
     created_at: datetime
     updated_at: datetime
-    # 承攬案件關聯資訊
-    contract_project_id: Optional[int] = Field(None, description="承攬案件 ID")
+
+    # 擴充欄位（由 API 端點額外填入）
     contract_project_name: Optional[str] = Field(None, description="承攬案件名稱")
     assigned_staff: Optional[List[StaffInfo]] = Field(default=[], description="負責業務同仁")
+    attachment_count: int = Field(default=0, description="附件數量")
 
     model_config = ConfigDict(from_attributes=True)
 

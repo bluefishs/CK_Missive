@@ -48,6 +48,23 @@ python claude_plant/development_tools/validation/validate_structure.py
 - [ ] 選擇正確的目錄位置
 - [ ] 使用描述性文件名
 
+### ⚠️ 程式碼修改後（必要流程）：
+**修正後必須先自我檢測，確認無誤後再提出複查要求**
+
+1. **TypeScript 編譯檢查** (前端)
+   ```bash
+   cd frontend && npx tsc --noEmit
+   ```
+
+2. **Python 語法檢查** (後端)
+   ```bash
+   cd backend && python -m py_compile app/main.py
+   ```
+
+3. **檢測無誤後才提出複查**
+   - 編譯通過 → 告知使用者可測試
+   - 編譯失敗 → 自行修復後重新檢測
+
 ### 提交代碼前：
 - [ ] 執行 `validate_structure.py` 檢查
 - [ ] 確保沒有在禁止位置添加文件

@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Table, Button, Space, Typography, Tag, Empty, TableProps, Input, InputRef, Popover, List, Spin, App } from 'antd';
+import { useNavigate } from 'react-router-dom';
 import type {
   TablePaginationConfig,
   FilterValue,
@@ -76,12 +77,18 @@ export const DocumentList: React.FC<DocumentListProps> = ({
   isExporting = false,
   isAddingToCalendar = false,
 }) => {
+  const navigate = useNavigate();
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [batchLoading, _setBatchLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [searchedColumn, setSearchedColumn] = useState('');
   const searchInput = useRef<InputRef>(null);
   const { message } = App.useApp();
+
+  // 點擊行導向詳情頁面
+  const handleRowClick = (record: Document) => {
+    navigate(`/documents/${record.id}`);
+  };
 
   // 附件管理狀態
   const [attachmentCache, setAttachmentCache] = useState<Record<number, DocumentAttachment[]>>({});
@@ -297,14 +304,12 @@ export const DocumentList: React.FC<DocumentListProps> = ({
       filters: [
         { text: '電子交換', value: '電子交換' },
         { text: '紙本郵寄', value: '紙本郵寄' },
-        { text: '電子+紙本', value: '電子+紙本' },
       ],
       onFilter: (value, record) => record.delivery_method === value,
       render: (method: string) => {
         const colorMap: Record<string, string> = {
           '電子交換': 'green',
           '紙本郵寄': 'orange',
-          '電子+紙本': 'blue',
         };
         return <Tag color={colorMap[method] || 'default'}>{method || '電子交換'}</Tag>;
       },
@@ -485,17 +490,17 @@ export const DocumentList: React.FC<DocumentListProps> = ({
     },
     {
       title: '附件',
-      dataIndex: 'has_attachment',
-      key: 'has_attachment',
+      dataIndex: 'attachment_count',
+      key: 'attachment_count',
       width: 70,
       align: 'center',
-      filters: [
-        { text: '有附件', value: true },
-        { text: '無附件', value: false },
-      ],
-      onFilter: (value, record) => record.has_attachment === value,
-      render: (hasAttachment: boolean, record: Document) => {
-        if (!hasAttachment) {
+      sorter: (a, b) => (a.attachment_count || 0) - (b.attachment_count || 0),
+      sortDirections: ['descend', 'ascend'],
+      render: (count: number | undefined, record: Document) => {
+        const attachmentCount = count || 0;
+
+        // 沒有附件時顯示 -
+        if (attachmentCount === 0) {
           return <Typography.Text type="secondary">-</Typography.Text>;
         }
 
@@ -563,7 +568,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
         return (
           <Popover
             content={attachmentContent}
-            title={`附件列表 (${attachments.length > 0 ? attachments.length + ' 個' : '載入中...'})`}
+            title={`附件列表 (${attachmentCount} 個)`}
             trigger="click"
             placement="left"
             onOpenChange={(visible) => {
@@ -578,7 +583,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
               style={{ cursor: 'pointer' }}
               onClick={(e) => e.stopPropagation()}
             >
-              查看
+              {attachmentCount}
             </Tag>
           </Popover>
         );
@@ -651,7 +656,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
     size: 'middle',
     bordered: false,
     onRow: (record) => ({
-      onClick: () => onEdit(record),
+      onClick: () => handleRowClick(record),
       style: { cursor: 'pointer' },
     }),
     pagination: {
