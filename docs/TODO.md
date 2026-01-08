@@ -127,6 +127,12 @@ cd frontend && npm run test:coverage
 - [x] 修改 `DocumentService` 匯入時自動建立事件
 - [x] 啟用 `ReminderScheduler` 提醒排程器
 - [x] 事件覆蓋率從 0.32% 提升至 100%
+- [x] **Phase 1 整合式 UI** (2026-01-08)
+  - [x] 建立 `IntegratedEventModal` 整合式事件建立元件
+  - [x] 整合提醒設定到事件建立流程 (無需分步操作)
+  - [x] 後端 API `/events/create-with-reminders` 支援一站式建立
+  - [x] 自動發送專案成員通知
+  - [x] Google Calendar 同步選項
 
 **事件類型分佈**:
 | 類型 | 數量 |
