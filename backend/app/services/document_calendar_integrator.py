@@ -114,7 +114,7 @@ class DocumentCalendarIntegrator:
                 # 同步到 Google Calendar
                 if self.calendar_service.is_ready():
                     try:
-                        await self._sync_events_to_google([event], document)
+                        await self._sync_events_to_google(db, [event], document)
                     except Exception as e:
                         logger.error(f"同步事件 {event.id} 到 Google Calendar 失敗: {e}")
 
@@ -136,29 +136,43 @@ class DocumentCalendarIntegrator:
 
     async def _sync_events_to_google(
         self,
+        db: AsyncSession,
         events: List[DocumentCalendarEvent],
         document: OfficialDocument
     ):
         """同步事件到Google Calendar (已修復參數不匹配問題)"""
         try:
+            synced_count = 0
             for event in events:
                 # 獲取建立者 email
-                user_email = "cksurvey0605@gmail.com" # 預設值
+                user_email = "cksurvey0605@gmail.com"  # 預設值
                 if event.creator:
                     user_email = event.creator.email
-                
-                # 關鍵修復：使用正確的參數名稱 (summary, description, start_time, end_time)
-                await self.calendar_service.create_event_from_document(
+
+                # 呼叫 Google Calendar API 建立事件
+                google_event_id = await self.calendar_service.create_event_from_document(
                     document=document,
-                    summary=event.title, # 使用 summary
-                    description=event.description, # 使用 description
-                    start_time=event.start_date, # 使用 start_time
-                    end_time=event.end_date, # 使用 end_time
+                    summary=event.title,
+                    description=event.description,
+                    start_time=event.start_date,
+                    end_time=event.end_date,
                     user_email=user_email,
                     calendar_id=getattr(settings, 'GOOGLE_CALENDAR_ID', 'primary')
                 )
 
-            logger.info(f"成功同步 {len(events)} 個事件到 Google Calendar")
+                # 關鍵修復：保存 google_event_id 到本地事件
+                if google_event_id:
+                    event.google_event_id = google_event_id
+                    event.google_sync_status = 'synced'
+                    synced_count += 1
+                    logger.info(f"事件 {event.id} 成功同步至 Google Calendar (ID: {google_event_id})")
+                else:
+                    event.google_sync_status = 'failed'
+                    logger.warning(f"事件 {event.id} 同步至 Google Calendar 失敗")
+
+            # 提交更新的 google_event_id 和 sync_status
+            await db.commit()
+            logger.info(f"成功同步 {synced_count}/{len(events)} 個事件到 Google Calendar")
 
         except Exception as e:
             logger.error(f"同步事件到 Google Calendar 失敗: {e}", exc_info=True)

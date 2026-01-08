@@ -65,6 +65,7 @@ import { filesApi } from '../api/filesApi';
 import { apiClient } from '../api/client';
 import { Document } from '../types';
 import { calendarIntegrationService } from '../services/calendarIntegrationService';
+import { IntegratedEventModal } from '../components/calendar/IntegratedEventModal';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -156,8 +157,8 @@ export const DocumentDetailPage: React.FC = () => {
     maxFileSizeMB: DEFAULT_MAX_FILE_SIZE_MB,
   });
 
-  // 行事曆
-  const [calendarLoading, setCalendarLoading] = useState(false);
+  // 行事曆整合式事件模態框
+  const [showIntegratedEventModal, setShowIntegratedEventModal] = useState(false);
 
   // =============================================================================
   // 資料載入
@@ -442,17 +443,16 @@ export const DocumentDetailPage: React.FC = () => {
     }, 150);
   };
 
-  /** 加入行事曆 */
-  const handleAddToCalendar = async () => {
+  /** 加入行事曆 - 開啟整合式事件建立模態框 */
+  const handleAddToCalendar = () => {
     if (!document) return;
-    try {
-      setCalendarLoading(true);
-      await calendarIntegrationService.addDocumentToCalendar(document);
-    } catch (error) {
-      console.error('加入行事曆失敗:', error);
-    } finally {
-      setCalendarLoading(false);
-    }
+    setShowIntegratedEventModal(true);
+  };
+
+  /** 事件建立成功回調 */
+  const handleEventCreated = (eventId: number) => {
+    message.success('行事曆事件建立成功');
+    console.log('[handleEventCreated] 新建事件 ID:', eventId);
   };
 
   /** 複製公文 */
@@ -1112,7 +1112,6 @@ export const DocumentDetailPage: React.FC = () => {
           <>
             <Button
               icon={<CalendarOutlined />}
-              loading={calendarLoading}
               onClick={handleAddToCalendar}
             >
               加入行事曆
@@ -1138,14 +1137,39 @@ export const DocumentDetailPage: React.FC = () => {
   // =============================================================================
 
   return (
-    <DetailPageLayout
-      header={headerConfig}
-      tabs={tabs}
-      activeTab={activeTab}
-      onTabChange={setActiveTab}
-      loading={loading}
-      hasData={!!document}
-    />
+    <>
+      <DetailPageLayout
+        header={headerConfig}
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        loading={loading}
+        hasData={!!document}
+      />
+
+      {/* 整合式事件建立模態框 */}
+      <IntegratedEventModal
+        visible={showIntegratedEventModal}
+        document={document ? {
+          id: document.id,
+          doc_number: document.doc_number,
+          subject: document.subject,
+          doc_date: document.doc_date,
+          send_date: document.send_date,
+          receive_date: document.receive_date,
+          sender: document.sender,
+          receiver: document.receiver,
+          assignee: (document as any).assignee,
+          priority_level: String((document as any).priority || 3),
+          doc_type: document.doc_type,
+          content: document.content,
+          notes: (document as any).notes,
+          contract_case: (document as any).contract_project_name || undefined
+        } : null}
+        onClose={() => setShowIntegratedEventModal(false)}
+        onSuccess={handleEventCreated}
+      />
+    </>
   );
 };
 

@@ -23,6 +23,7 @@ export interface CalendarEvent {
   doc_number?: string;
   event_type?: string;
   priority?: number | string;
+  location?: string;
   google_event_id?: string;
   google_sync_status?: 'pending' | 'synced' | 'failed';
 }
@@ -115,6 +116,7 @@ export const calendarApi = {
           doc_number: event.doc_number,
           event_type: event.event_type,
           priority: event.priority,
+          location: event.location,
           google_event_id: event.google_event_id,
           google_sync_status: event.google_sync_status || 'pending',
         }));
@@ -195,19 +197,27 @@ export const calendarApi = {
   },
 
   /**
-   * 更新事件
+   * 更新事件 (POST 機制，符合資安要求)
    */
   async updateEvent(eventId: number, updates: Partial<CalendarEvent>): Promise<void> {
     try {
       const api = authService.getAxiosInstance();
-      await api.put(`/calendar/events/${eventId}`, {
+      const response = await api.post('/calendar/events/update', {
+        event_id: eventId,
         title: updates.title,
         description: updates.description,
         start_date: updates.start_datetime,
         end_date: updates.end_datetime,
         event_type: updates.event_type,
         priority: updates.priority,
+        location: updates.location,
+        document_id: updates.document_id,
       });
+
+      // 檢查後端回傳的 success 欄位
+      if (response.data && response.data.success === false) {
+        throw new Error(response.data.message || '更新事件失敗');
+      }
     } catch (error) {
       console.error('更新事件失敗:', error);
       throw error;
@@ -220,7 +230,15 @@ export const calendarApi = {
   async deleteEvent(eventId: number): Promise<void> {
     try {
       const api = authService.getAxiosInstance();
-      await api.post('/calendar/events/delete', { event_id: eventId });
+      const response = await api.post('/calendar/events/delete', {
+        event_id: eventId,
+        confirm: true,  // 後端需要 confirm: true 才會執行刪除
+      });
+
+      // 檢查後端回傳的 success 欄位
+      if (response.data && response.data.success === false) {
+        throw new Error(response.data.message || '刪除事件失敗');
+      }
     } catch (error) {
       console.error('刪除事件失敗:', error);
       throw error;

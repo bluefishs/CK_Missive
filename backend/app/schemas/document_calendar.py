@@ -41,11 +41,21 @@ class EventSyncRequest(BaseModel):
     event_id: int = Field(..., description="事件 ID")
     force_sync: bool = Field(False, description="強制同步（即使已同步過）")
 
+class BulkSyncRequest(BaseModel):
+    """批次同步請求"""
+    event_ids: Optional[List[int]] = Field(None, description="要同步的事件 ID 列表")
+    sync_all_pending: bool = Field(True, description="是否同步所有未同步的事件")
+
 class UserEventsRequest(BaseModel):
     """使用者事件查詢請求"""
     user_id: int = Field(..., description="使用者 ID")
     start_date: Optional[str] = Field(None, description="開始日期 (YYYY-MM-DD)")
     end_date: Optional[str] = Field(None, description="結束日期 (YYYY-MM-DD)")
+
+class ReminderConfig(BaseModel):
+    """提醒設定"""
+    minutes_before: int = Field(..., description="提前多少分鐘提醒")
+    notification_type: str = Field("system", description="通知類型 (email/system)")
 
 class DocumentCalendarEventCreate(BaseModel):
     """Schema for creating a document calendar event"""
@@ -62,6 +72,21 @@ class DocumentCalendarEventCreate(BaseModel):
     reminder_enabled: Optional[bool] = True
     reminder_minutes: Optional[int] = 60
 
+class IntegratedEventCreate(BaseModel):
+    """整合式事件建立 (事件+提醒+同步一站完成)"""
+    title: str = Field(..., description="事件標題")
+    description: Optional[str] = Field(None, description="事件描述")
+    start_date: datetime = Field(..., description="開始時間")
+    end_date: Optional[datetime] = Field(None, description="結束時間")
+    all_day: bool = Field(False, description="是否為全天事件")
+    event_type: str = Field("reminder", description="事件類型")
+    priority: int = Field(3, ge=1, le=5, description="優先級 (1-5)")
+    location: Optional[str] = Field(None, description="地點")
+    document_id: Optional[int] = Field(None, description="關聯公文 ID")
+    reminder_enabled: bool = Field(True, description="是否啟用提醒")
+    reminders: List[ReminderConfig] = Field(default_factory=list, description="提醒設定列表")
+    sync_to_google: bool = Field(False, description="是否同步至 Google Calendar")
+
 class DocumentCalendarEventUpdate(BaseModel):
     """Schema for updating a document calendar event (POST 機制)"""
     event_id: int = Field(..., description="事件 ID")
@@ -73,6 +98,7 @@ class DocumentCalendarEventUpdate(BaseModel):
     event_type: Optional[str] = None
     priority: Optional[int] = None
     location: Optional[str] = None
+    document_id: Optional[int] = None  # 新增：關聯公文 ID
     assigned_user_id: Optional[int] = None
     reminder_enabled: Optional[bool] = None
     reminder_minutes: Optional[int] = None

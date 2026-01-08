@@ -5,10 +5,10 @@
 import logging
 from typing import List, Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, text
 from datetime import datetime
 
-from app.extended.models import User, SystemNotification
+from app.extended.models import User, SystemNotification, DocumentCalendarEvent
 
 logger = logging.getLogger(__name__)
 
@@ -31,11 +31,34 @@ class ProjectNotificationService:
             project_id: 專案ID
 
         Returns:
-            團隊成員清單
+            團隊成員清單 [{user_id, user_name, email, role}]
         """
         try:
-            # 暫時回傳空列表，實際實作時可以查詢相關表格
-            return []
+            # 從 project_user_assignment 關聯表查詢專案成員
+            result = await db.execute(
+                text("""
+                    SELECT
+                        u.id as user_id,
+                        COALESCE(u.full_name, u.username) as user_name,
+                        u.email,
+                        pua.role
+                    FROM project_user_assignment pua
+                    JOIN users u ON pua.user_id = u.id
+                    WHERE pua.project_id = :project_id
+                      AND COALESCE(pua.status, 'active') = 'active'
+                """),
+                {"project_id": project_id}
+            )
+            rows = result.fetchall()
+            return [
+                {
+                    "user_id": row.user_id,
+                    "user_name": row.user_name,
+                    "email": row.email,
+                    "role": row.role
+                }
+                for row in rows
+            ]
         except Exception as e:
             logger.error(f"獲取專案團隊成員失敗: {e}", exc_info=True)
             return []
@@ -69,9 +92,10 @@ class ProjectNotificationService:
     async def send_calendar_event_notifications(
         self,
         db: AsyncSession,
-        event: Any,
-        project_id: int,
-        custom_recipients: Optional[List[int]] = None
+        event: DocumentCalendarEvent,
+        project_id: Optional[int] = None,
+        custom_recipients: Optional[List[int]] = None,
+        exclude_user_id: Optional[int] = None
     ) -> List[int]:
         """
         發送行事曆事件通知給專案團隊
@@ -79,17 +103,77 @@ class ProjectNotificationService:
         Args:
             db: 資料庫連接
             event: 行事曆事件
-            project_id: 專案ID
+            project_id: 專案ID (若 event 有關聯公文則自動取得)
             custom_recipients: 自訂收件人ID清單
+            exclude_user_id: 要排除的使用者 (通常是建立者自己)
 
         Returns:
             成功發送的通知ID清單
         """
+        notification_ids: List[int] = []
+
         try:
-            logger.info(f"發送行事曆事件通知，專案ID: {project_id}")
-            return []
+            # 1. 取得要通知的使用者列表
+            recipients: List[int] = []
+
+            if custom_recipients:
+                recipients = custom_recipients
+            elif project_id:
+                # 從專案取得團隊成員
+                members = await self.get_project_team_members(db, project_id)
+                recipients = [m["user_id"] for m in members]
+            elif event.document_id:
+                # 嘗試從公文關聯的專案取得成員
+                doc_result = await db.execute(
+                    text("SELECT contract_project_id FROM documents WHERE id = :doc_id"),
+                    {"doc_id": event.document_id}
+                )
+                doc_row = doc_result.fetchone()
+                if doc_row and doc_row.contract_project_id:
+                    members = await self.get_project_team_members(db, doc_row.contract_project_id)
+                    recipients = [m["user_id"] for m in members]
+
+            # 排除建立者
+            if exclude_user_id and exclude_user_id in recipients:
+                recipients.remove(exclude_user_id)
+
+            if not recipients:
+                logger.info(f"事件 {event.id} 無需通知的對象")
+                return []
+
+            # 2. 建立通知內容
+            event_date_str = event.start_date.strftime('%Y-%m-%d %H:%M') if event.start_date else '未指定'
+            title = f"📅 新事件通知: {event.title}"
+            message = f"新的行事曆事件已建立\n時間: {event_date_str}\n類型: {event.event_type or '一般'}"
+            if event.description:
+                message += f"\n描述: {event.description[:100]}{'...' if len(event.description) > 100 else ''}"
+
+            # 3. 為每位收件人建立通知
+            for recipient_id in recipients:
+                try:
+                    notification = SystemNotification(
+                        user_id=recipient_id,
+                        recipient_id=recipient_id,
+                        title=title,
+                        message=message,
+                        notification_type="calendar_event",
+                        is_read=False,
+                        created_at=datetime.now()
+                    )
+                    db.add(notification)
+                    await db.flush()
+                    notification_ids.append(notification.id)
+                    logger.info(f"為使用者 {recipient_id} 建立事件通知 {notification.id}")
+                except Exception as inner_e:
+                    logger.error(f"為使用者 {recipient_id} 建立通知失敗: {inner_e}")
+
+            await db.commit()
+            logger.info(f"事件 {event.id} 通知發送完成，共 {len(notification_ids)} 則")
+            return notification_ids
+
         except Exception as e:
             logger.error(f"發送行事曆事件通知失敗: {e}", exc_info=True)
+            await db.rollback()
             return []
 
     async def send_project_update_notifications(

@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_, func
+from sqlalchemy import select, or_, func, text, and_
 
 from app.db.database import get_async_db
 from app.api.endpoints.auth import get_current_user
@@ -23,7 +23,10 @@ from app.schemas.document_calendar import (
     EventDetailRequest,
     EventDeleteRequest,
     EventSyncRequest,
-    UserEventsRequest
+    BulkSyncRequest,
+    UserEventsRequest,
+    IntegratedEventCreate,
+    ReminderConfig
 )
 import logging
 
@@ -55,17 +58,58 @@ async def list_calendar_events(
             start_dt = datetime.fromisoformat(request.start_date)
             end_dt = datetime.fromisoformat(request.end_date)
 
-        # 構建查詢
+        # 構建查詢 - 權限過濾邏輯:
+        # 1. 事件建立者 (created_by)
+        # 2. 事件指派者 (assigned_user_id)
+        # 3. 事件關聯公文所屬專案的成員
+        # 4. 管理員 (可看所有事件)
+
+        # 構建權限過濾條件
+        if current_user.is_admin:
+            # 管理員可看所有事件
+            permission_filter = True
+        else:
+            # 先取得使用者參與的專案 ID 列表
+            project_ids_result = await db.execute(
+                text("""
+                    SELECT project_id FROM project_user_assignment
+                    WHERE user_id = :user_id AND COALESCE(status, 'active') = 'active'
+                """),
+                {"user_id": current_user.id}
+            )
+            user_project_ids = [row.project_id for row in project_ids_result.fetchall()]
+
+            # 基本權限過濾：建立者或指派者
+            permission_filter = or_(
+                DocumentCalendarEvent.assigned_user_id == current_user.id,
+                DocumentCalendarEvent.created_by == current_user.id
+            )
+
+            # 如果使用者有參與專案，則也包含這些專案的事件
+            if user_project_ids:
+                # 取得這些專案關聯的公文 ID
+                doc_ids_result = await db.execute(
+                    text("""
+                        SELECT id FROM documents
+                        WHERE contract_project_id = ANY(:project_ids)
+                    """),
+                    {"project_ids": user_project_ids}
+                )
+                project_doc_ids = [row.id for row in doc_ids_result.fetchall()]
+
+                if project_doc_ids:
+                    permission_filter = or_(
+                        permission_filter,
+                        DocumentCalendarEvent.document_id.in_(project_doc_ids)
+                    )
+
         query = (
             select(DocumentCalendarEvent, OfficialDocument.doc_number)
             .outerjoin(OfficialDocument, DocumentCalendarEvent.document_id == OfficialDocument.id)
             .where(
                 DocumentCalendarEvent.start_date >= start_dt,
                 DocumentCalendarEvent.start_date <= end_dt,
-                or_(
-                    DocumentCalendarEvent.assigned_user_id == current_user.id,
-                    DocumentCalendarEvent.created_by == current_user.id
-                )
+                permission_filter
             )
         )
 
@@ -95,8 +139,8 @@ async def list_calendar_events(
         total_result = await db.execute(count_query)
         total = total_result.scalar() or 0
 
-        # 應用分頁和排序
-        query = query.order_by(DocumentCalendarEvent.start_date).offset(offset).limit(page_size)
+        # 應用分頁和排序 (降冪排序，最新事件優先)
+        query = query.order_by(DocumentCalendarEvent.start_date.desc()).offset(offset).limit(page_size)
         result = await db.execute(query)
         events = result.all()
 
@@ -204,6 +248,140 @@ async def create_calendar_event(
         }
     except Exception as e:
         logger.error(f"Error creating calendar event: {e}", exc_info=True)
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"建立事件失敗: {str(e)}"
+        )
+
+
+@router.post("/events/create-with-reminders", summary="整合式建立事件 (含提醒與同步)")
+async def create_event_with_reminders(
+    request: IntegratedEventCreate,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    整合式事件建立 - 一站完成事件建立、提醒設定、Google 同步
+
+    此端點用於從公文頁面直接建立完整的行事曆事件，無需分步操作。
+    """
+    from app.extended.models import EventReminder
+
+    try:
+        # 1. 處理時區：轉換為 naive datetime
+        start_date = request.start_date
+        if start_date.tzinfo is not None:
+            start_date = start_date.replace(tzinfo=None)
+
+        end_date = request.end_date
+        if end_date:
+            if end_date.tzinfo is not None:
+                end_date = end_date.replace(tzinfo=None)
+        else:
+            end_date = start_date + timedelta(hours=1)
+
+        # 2. 建立事件
+        priority_str = str(request.priority) if request.priority else '3'
+
+        new_event = DocumentCalendarEvent(
+            title=request.title,
+            description=request.description,
+            start_date=start_date,
+            end_date=end_date,
+            all_day=request.all_day,
+            event_type=request.event_type,
+            priority=priority_str,
+            location=request.location,
+            document_id=request.document_id,
+            assigned_user_id=current_user.id,
+            created_by=current_user.id
+        )
+
+        db.add(new_event)
+        await db.flush()  # 取得 event.id 但不提交
+
+        # 3. 建立提醒 (如果啟用)
+        reminders_created = 0
+        if request.reminder_enabled and request.reminders:
+            for reminder_config in request.reminders:
+                # 計算提醒時間
+                reminder_time = start_date - timedelta(minutes=reminder_config.minutes_before)
+
+                new_reminder = EventReminder(
+                    event_id=new_event.id,
+                    reminder_minutes=reminder_config.minutes_before,
+                    reminder_time=reminder_time,
+                    notification_type=reminder_config.notification_type,
+                    reminder_type=reminder_config.notification_type,
+                    title=f"事件提醒: {request.title}",
+                    message=f"您有一個即將到來的事件: {request.title}",
+                    recipient_user_id=current_user.id,
+                    status='pending',
+                    priority=3
+                )
+                db.add(new_reminder)
+                reminders_created += 1
+
+        # 4. 提交事務
+        await db.commit()
+        await db.refresh(new_event)
+
+        # 5. Google Calendar 同步 (如果啟用)
+        google_event_id = None
+        if request.sync_to_google and calendar_service.is_ready():
+            try:
+                sync_result = await calendar_service.sync_event_to_google(
+                    db=db,
+                    event=new_event,
+                    force=True
+                )
+                if sync_result.get('success'):
+                    google_event_id = sync_result.get('google_event_id')
+                    logger.info(f"事件已同步至 Google Calendar: {google_event_id}")
+            except Exception as sync_error:
+                logger.warning(f"Google 同步失敗，但事件已建立: {sync_error}")
+
+        # 6. 發送專案成員通知 (非同步，不影響主流程)
+        notifications_sent = 0
+        try:
+            from app.services.project_notification_service import ProjectNotificationService
+            notification_service = ProjectNotificationService()
+            notification_ids = await notification_service.send_calendar_event_notifications(
+                db=db,
+                event=new_event,
+                exclude_user_id=current_user.id  # 排除建立者自己
+            )
+            notifications_sent = len(notification_ids)
+            if notifications_sent > 0:
+                logger.info(f"已發送 {notifications_sent} 則通知給專案成員")
+        except Exception as notify_error:
+            logger.warning(f"專案成員通知發送失敗 (不影響主流程): {notify_error}")
+
+        logger.info(
+            f"使用者 {current_user.id} 建立整合式事件: {new_event.title} "
+            f"(ID: {new_event.id}, 提醒: {reminders_created}, Google: {bool(google_event_id)}, 通知: {notifications_sent})"
+        )
+
+        return {
+            "success": True,
+            "message": "事件建立成功",
+            "event_id": new_event.id,
+            "reminders_created": reminders_created,
+            "notifications_sent": notifications_sent,
+            "google_event_id": google_event_id,
+            "event": {
+                "id": new_event.id,
+                "title": new_event.title,
+                "start_date": new_event.start_date.isoformat(),
+                "end_date": new_event.end_date.isoformat() if new_event.end_date else None,
+                "event_type": new_event.event_type,
+                "document_id": new_event.document_id
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"整合式事件建立失敗: {e}", exc_info=True)
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -393,13 +571,12 @@ async def sync_event_to_google(
 
 @router.post("/events/bulk-sync", summary="批次同步事件至 Google Calendar")
 async def bulk_sync_events_to_google(
-    event_ids: List[int] = None,
-    sync_all_pending: bool = True,
+    request: BulkSyncRequest,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    批次同步事件至 Google Calendar
+    批次同步事件至 Google Calendar (POST 機制)
 
     - 若提供 event_ids，則同步指定的事件
     - 若 sync_all_pending=True 且未提供 event_ids，則同步所有未同步的事件
@@ -415,8 +592,8 @@ async def bulk_sync_events_to_google(
     try:
         result = await calendar_service.bulk_sync_to_google(
             db=db,
-            event_ids=event_ids,
-            sync_all_pending=sync_all_pending if not event_ids else False
+            event_ids=request.event_ids,
+            sync_all_pending=request.sync_all_pending if not request.event_ids else False
         )
         return result
     except Exception as e:
