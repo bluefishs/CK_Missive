@@ -43,6 +43,7 @@ const ContractCaseFormPage = lazy(() => import('../pages/ContractCaseFormPage').
 
 const DocumentNumbersPage = lazy(() => import('../pages/DocumentNumbersPage').then(module => ({ default: module.DocumentNumbersPage })));
 const SendDocumentCreatePage = lazy(() => import('../pages/SendDocumentCreatePage').then(module => ({ default: module.SendDocumentCreatePage })));
+const ReceiveDocumentCreatePage = lazy(() => import('../pages/ReceiveDocumentCreatePage').then(module => ({ default: module.ReceiveDocumentCreatePage })));
 const AgenciesPage = lazy(() => import('../pages/AgenciesPage').then(module => ({ default: module.AgenciesPage })));
 const ApiMappingDisplayPage = lazy(() => import('../pages/ApiMappingDisplayPage').then(module => ({ default: module.ApiMappingDisplayPage })));
 const ApiDocumentationPage = lazy(() => import('../pages/ApiDocumentationPage'));
@@ -78,7 +79,7 @@ export const AppRouter: React.FC = () => {
           {/* 公文相關路由 */}
           <Route path={ROUTES.DOCUMENTS} element={<DocumentPage />} />
           <Route path={ROUTES.DOCUMENT_DETAIL} element={<DocumentDetailPage />} />
-          <Route path={ROUTES.DOCUMENT_CREATE} element={<DocumentCreatePage />} />
+          <Route path={ROUTES.DOCUMENT_CREATE} element={<ReceiveDocumentCreatePage />} />
           <Route path={ROUTES.DOCUMENT_EDIT} element={<DocumentEditPage />} />
           
           {/* 儀表板 */}

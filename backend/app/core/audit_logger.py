@@ -83,35 +83,43 @@ async def log_audit_entry(
             logger.info(log_message)
 
         # 嘗試寫入資料庫審計表（如果存在）
+        # 使用 savepoint 確保失敗時不會影響主交易
         try:
-            await db.execute(
-                text("""
-                    INSERT INTO audit_logs (
-                        table_name, record_id, action, changes,
-                        user_id, user_name, source, ip_address,
-                        is_critical, created_at
-                    ) VALUES (
-                        :table_name, :record_id, :action, :changes,
-                        :user_id, :user_name, :source, :ip_address,
-                        :is_critical, :created_at
-                    )
-                """),
-                {
-                    "table_name": table_name,
-                    "record_id": record_id,
-                    "action": action,
-                    "changes": json.dumps(changes, ensure_ascii=False, default=str),
-                    "user_id": user_id,
-                    "user_name": user_name,
-                    "source": source,
-                    "ip_address": ip_address,
-                    "is_critical": is_critical,
-                    "created_at": datetime.now()
-                }
+            # 檢查審計表是否存在
+            result = await db.execute(
+                text("SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'audit_logs')")
             )
-        except Exception:
-            # 審計表不存在時忽略，僅記錄到日誌
-            pass
+            table_exists = result.scalar()
+
+            if table_exists:
+                await db.execute(
+                    text("""
+                        INSERT INTO audit_logs (
+                            table_name, record_id, action, changes,
+                            user_id, user_name, source, ip_address,
+                            is_critical, created_at
+                        ) VALUES (
+                            :table_name, :record_id, :action, :changes,
+                            :user_id, :user_name, :source, :ip_address,
+                            :is_critical, :created_at
+                        )
+                    """),
+                    {
+                        "table_name": table_name,
+                        "record_id": record_id,
+                        "action": action,
+                        "changes": json.dumps(changes, ensure_ascii=False, default=str),
+                        "user_id": user_id,
+                        "user_name": user_name,
+                        "source": source,
+                        "ip_address": ip_address,
+                        "is_critical": is_critical,
+                        "created_at": datetime.now()
+                    }
+                )
+        except Exception as audit_error:
+            # 審計表操作失敗時僅記錄到日誌，不影響主交易
+            logger.debug(f"審計表寫入跳過: {audit_error}")
 
     except Exception as e:
         logger.error(f"審計日誌記錄失敗: {e}")

@@ -58,6 +58,55 @@ const DEFAULT_ALLOWED_EXTENSIONS = [
 ];
 const DEFAULT_MAX_FILE_SIZE_MB = 50;
 
+// ============================================================================
+// 關鍵欄位定義（修改這些欄位需要確認）
+// ============================================================================
+const CRITICAL_FIELDS = {
+  subject: { label: '主旨', icon: '📝' },
+  doc_number: { label: '公文字號', icon: '🔢' },
+  sender: { label: '發文單位', icon: '📤' },
+  receiver: { label: '受文單位', icon: '📥' },
+};
+
+type CriticalFieldKey = keyof typeof CRITICAL_FIELDS;
+
+interface CriticalChange {
+  field: CriticalFieldKey;
+  label: string;
+  icon: string;
+  oldValue: string;
+  newValue: string;
+}
+
+/**
+ * 檢測關鍵欄位變更
+ */
+const detectCriticalChanges = (
+  original: Document | null,
+  updated: Partial<Document>
+): CriticalChange[] => {
+  if (!original) return [];
+
+  const changes: CriticalChange[] = [];
+
+  (Object.keys(CRITICAL_FIELDS) as CriticalFieldKey[]).forEach((field) => {
+    const oldVal = String(original[field] || '');
+    const newVal = String(updated[field] || '');
+
+    if (oldVal !== newVal && updated[field] !== undefined) {
+      changes.push({
+        field,
+        label: CRITICAL_FIELDS[field].label,
+        icon: CRITICAL_FIELDS[field].icon,
+        oldValue: oldVal || '(空白)',
+        newValue: newVal || '(空白)',
+      });
+    }
+  });
+
+  return changes;
+};
+
 interface DocumentOperationsProps {
   document: Document | null;
   operation: 'view' | 'edit' | 'create' | 'copy' | null;
@@ -97,6 +146,12 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
     existingAttachment: any | null;
   }>({ visible: false, file: null, existingAttachment: null });
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  // 關鍵欄位變更確認狀態
+  const [criticalChangeModal, setCriticalChangeModal] = useState<{
+    visible: boolean;
+    changes: CriticalChange[];
+    pendingData: Partial<Document> | null;
+  }>({ visible: false, changes: [], pendingData: null });
   // 檔案驗證設定（從後端動態載入）
   const [fileSettings, setFileSettings] = useState<{
     allowedExtensions: string[];
@@ -509,9 +564,61 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
     }
   }, [visible, document, form, isCreate, isCopy]);
 
-  const handleSubmit = async () => {
+  /**
+   * 執行實際儲存操作
+   */
+  const performSave = async (documentData: Partial<Document>) => {
     try {
       setLoading(true);
+      const savedDocument = await onSave(documentData);
+
+      // 上傳新附件（支援新建和編輯）
+      const targetDocumentId = (savedDocument as Document)?.id || document?.id;
+
+      if (targetDocumentId && fileList.length > 0) {
+        try {
+          const uploadResult = await uploadFiles(targetDocumentId, fileList);
+          const successCount = uploadResult.files?.length || 0;
+          const errorCount = uploadResult.errors?.length || 0;
+
+          if (successCount > 0 && errorCount === 0) {
+            message.success(`附件上傳成功（共 ${successCount} 個檔案）`);
+          } else if (successCount > 0 && errorCount > 0) {
+            message.warning(`部分附件上傳成功（成功 ${successCount} 個，失敗 ${errorCount} 個）`);
+          } else if (successCount === 0 && errorCount > 0) {
+            message.error(`附件上傳失敗（共 ${errorCount} 個錯誤）`);
+          }
+          setFileList([]);
+        } catch (uploadError: any) {
+          console.error('File upload failed:', uploadError);
+          message.error(`附件上傳失敗: ${uploadError.message || '上傳失敗'}`);
+        }
+      } else if (fileList.length > 0 && !targetDocumentId) {
+        message.warning('無法取得公文 ID，附件稍後上傳');
+      }
+
+      message.success(`${getOperationText()}成功！`);
+      onClose();
+    } catch (error) {
+      console.error('Save document failed:', error);
+      message.error(`${getOperationText()}失敗`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * 處理關鍵欄位變更確認
+   */
+  const handleCriticalChangeConfirm = async () => {
+    if (criticalChangeModal.pendingData) {
+      setCriticalChangeModal({ visible: false, changes: [], pendingData: null });
+      await performSave(criticalChangeModal.pendingData);
+    }
+  };
+
+  const handleSubmit = async () => {
+    try {
       const values = await form.validateFields();
 
       // 處理 assignee：陣列轉逗號分隔字串
@@ -530,46 +637,25 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
         assignee: assigneeStr,
       };
 
-      const savedDocument = await onSave(documentData);
+      // 編輯模式：檢查關鍵欄位變更
+      if (operation === 'edit' && document) {
+        const criticalChanges = detectCriticalChanges(document, documentData);
 
-      // 上傳新附件（支援新建和編輯）
-      // 優先使用回傳的文件 ID，其次使用既有文件 ID
-      const targetDocumentId = (savedDocument as Document)?.id || document?.id;
-
-      if (targetDocumentId && fileList.length > 0) {
-        try {
-          const uploadResult = await uploadFiles(targetDocumentId, fileList);
-
-          // 計算成功和失敗數量
-          const successCount = uploadResult.files?.length || 0;
-          const errorCount = uploadResult.errors?.length || 0;
-
-          if (successCount > 0 && errorCount === 0) {
-            message.success(`附件上傳成功（共 ${successCount} 個檔案）`);
-          } else if (successCount > 0 && errorCount > 0) {
-            message.warning(`部分附件上傳成功（成功 ${successCount} 個，失敗 ${errorCount} 個）`);
-          } else if (successCount === 0 && errorCount > 0) {
-            message.error(`附件上傳失敗（共 ${errorCount} 個錯誤）`);
-          }
-
-          setFileList([]); // 清空上傳列表
-        } catch (uploadError: any) {
-          console.error('File upload failed:', uploadError);
-          const errorMsg = uploadError.message || '上傳失敗';
-          message.error(`附件上傳失敗: ${errorMsg}`);
-          // 不阻止關閉對話框，公文已儲存成功
+        if (criticalChanges.length > 0) {
+          // 顯示確認對話框
+          setCriticalChangeModal({
+            visible: true,
+            changes: criticalChanges,
+            pendingData: documentData,
+          });
+          return; // 等待使用者確認
         }
-      } else if (fileList.length > 0 && !targetDocumentId) {
-        message.warning('無法取得公文 ID，附件稍後上傳');
       }
 
-      message.success(`${getOperationText()}成功！`);
-      onClose();
+      // 直接執行儲存（建立/複製或無關鍵欄位變更）
+      await performSave(documentData);
     } catch (error) {
-      console.error('Save document failed:', error);
-      message.error(`${getOperationText()}失敗`);
-    } finally {
-      setLoading(false);
+      console.error('Form validation failed:', error);
     }
   };
 
@@ -820,6 +906,18 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
                       showCount
                     />
                   </Form.Item>
+
+                  <Form.Item
+                    label="備註"
+                    name="notes"
+                  >
+                    <TextArea
+                      rows={3}
+                      placeholder="請輸入備註"
+                      maxLength={500}
+                      showCount
+                    />
+                  </Form.Item>
                 </>
               )
             },
@@ -969,18 +1067,6 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
                       </Form.Item>
                     </Col>
                   </Row>
-
-                  <Form.Item
-                    label="備註"
-                    name="notes"
-                  >
-                    <TextArea
-                      rows={3}
-                      placeholder="請輸入備註"
-                      maxLength={500}
-                      showCount
-                    />
-                  </Form.Item>
                 </>
               )
             },
@@ -1198,6 +1284,73 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
           ]}
         />
       </Form>
+
+      {/* 關鍵欄位變更確認 Modal */}
+      <Modal
+        title={
+          <span style={{ color: '#ff4d4f' }}>
+            <FileTextOutlined style={{ marginRight: 8 }} />
+            確認修改關鍵欄位
+          </span>
+        }
+        open={criticalChangeModal.visible}
+        onCancel={() => setCriticalChangeModal({ visible: false, changes: [], pendingData: null })}
+        footer={[
+          <Button
+            key="cancel"
+            onClick={() => setCriticalChangeModal({ visible: false, changes: [], pendingData: null })}
+          >
+            取消
+          </Button>,
+          <Button
+            key="confirm"
+            type="primary"
+            danger
+            onClick={handleCriticalChangeConfirm}
+            loading={loading}
+          >
+            確認修改
+          </Button>,
+        ]}
+        width={550}
+      >
+        <div style={{ padding: '16px 0' }}>
+          <Alert
+            message="您即將修改以下關鍵欄位"
+            description={
+              <div>
+                <p style={{ marginBottom: 12, color: '#666' }}>
+                  這些變更將被記錄在審計日誌中。請確認以下修改內容：
+                </p>
+                <List
+                  size="small"
+                  dataSource={criticalChangeModal.changes}
+                  renderItem={(change) => (
+                    <List.Item style={{ padding: '8px 0' }}>
+                      <div style={{ width: '100%' }}>
+                        <div style={{ fontWeight: 'bold', marginBottom: 4 }}>
+                          {change.icon} {change.label}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <Tag color="red" style={{ maxWidth: '45%', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {change.oldValue.length > 30 ? change.oldValue.slice(0, 30) + '...' : change.oldValue}
+                          </Tag>
+                          <span>→</span>
+                          <Tag color="green" style={{ maxWidth: '45%', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {change.newValue.length > 30 ? change.newValue.slice(0, 30) + '...' : change.newValue}
+                          </Tag>
+                        </div>
+                      </div>
+                    </List.Item>
+                  )}
+                />
+              </div>
+            }
+            type="warning"
+            showIcon
+          />
+        </div>
+      </Modal>
 
       {/* 重複檔案確認對話框 */}
       <Modal

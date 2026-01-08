@@ -1,6 +1,6 @@
 # 服務層架構 (Service Layer Architecture)
 
-> 版本：1.0.0 | 更新日期：2026-01-06
+> 版本：2.0.0 | 更新日期：2026-01-08
 
 ## 概述
 
@@ -37,6 +37,53 @@ CK_Missive 系統採用分層架構，服務層負責封裝業務邏輯，與資
 │                     SQLAlchemy ORM                           │
 │                     (AsyncSession)                           │
 └─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## ImportBaseService 繼承架構
+
+### 類別繼承圖
+
+```
+ImportBaseService (抽象基類)
+│   ├── clean_string()          # 字串清理
+│   ├── parse_date()            # 日期解析
+│   ├── validate_doc_type()     # 公文類型驗證
+│   ├── validate_category()     # 類別驗證
+│   ├── generate_auto_serial()  # 流水號生成
+│   ├── match_agency()          # 智慧機關匹配
+│   ├── match_project()         # 智慧案件匹配
+│   └── [abstract] import_from_file()
+│   └── [abstract] process_row()
+│
+├── ExcelImportService
+│   └── 手動公文匯入（支援新增/更新）
+│
+└── DocumentImportService
+    └── 電子公文 CSV 匯入
+```
+
+### 使用範例
+
+```python
+from app.services.base.import_base import ImportBaseService
+from app.services.base.response import ImportResult, ImportRowResult
+
+class NewImportService(ImportBaseService):
+    async def import_from_file(self, file_content: bytes, filename: str) -> ImportResult:
+        # 使用繼承的方法
+        self.reset_serial_counters()
+
+        for row in data:
+            clean_value = self.clean_string(row['field'])
+            doc_type = self.validate_doc_type(row['doc_type'])
+            agency_id = await self.match_agency(row['agency'])
+
+        return ImportResult(success=True, filename=filename, ...)
+
+    async def process_row(self, row_num: int, row_data: dict) -> ImportRowResult:
+        return ImportRowResult(row=row_num, status='inserted', message='成功')
 ```
 
 ---
@@ -236,16 +283,36 @@ async def create_agency(self, data):
 |------|------|------|
 | `DocumentCalendarService` | `document_calendar_service.py` | 行事曆事件 |
 | `DocumentCalendarIntegrator` | `document_calendar_integrator.py` | 公文→日曆整合 |
+| `CalendarEventAutoBuilder` | `calendar/event_auto_builder.py` | **事件自動建立器** |
 | `ReminderService` | `reminder_service.py` | 提醒服務 |
+| `ReminderScheduler` | `reminder_scheduler.py` | **提醒排程器** |
 | `NotificationService` | `notification_service.py` | 通知服務 |
 
 ### 匯入匯出服務
 
 | 類別 | 檔案 | 說明 |
 |------|------|------|
-| `DocumentImportService` | `document_import_service.py` | 公文匯入 |
+| `ImportBaseService` | `base/import_base.py` | 匯入服務基類 (抽象) |
+| `DocumentImportService` | `document_import_service.py` | CSV 公文匯入 (繼承 ImportBaseService) |
+| `ExcelImportService` | `excel_import_service.py` | Excel 公文匯入 (繼承 ImportBaseService) |
 | `DocumentExportService` | `document_export_service.py` | 公文匯出 |
 | `DocumentCSVProcessor` | `csv_processor.py` | CSV 處理 |
+
+### 統一回應結構
+
+| 類別 | 檔案 | 說明 |
+|------|------|------|
+| `ServiceResponse` | `base/response.py` | 統一服務回應結構 |
+| `ImportResult` | `base/response.py` | 匯入結果結構 |
+| `ImportRowResult` | `base/response.py` | 單筆匯入結果 |
+
+### 共用驗證器
+
+| 類別 | 檔案 | 說明 |
+|------|------|------|
+| `DocumentValidators` | `base/validators.py` | 公文資料驗證 |
+| `StringCleaners` | `base/validators.py` | 字串清理工具 |
+| `DateParsers` | `base/validators.py` | 日期解析工具 |
 
 ---
 
@@ -307,3 +374,5 @@ async def get_status_options():
 - [CODEWIKI 主頁](./CODEWIKI.md)
 - [資料庫結構](./Database-Models.md)
 - [後端 API 概覽](./Backend-API-Overview.md)
+- [統一開發規範總綱](../DEVELOPMENT_STANDARDS.md)
+- [錯誤處理指南](../ERROR_HANDLING_GUIDE.md)

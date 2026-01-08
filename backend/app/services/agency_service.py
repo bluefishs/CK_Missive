@@ -2,11 +2,13 @@
 機關服務層 - 繼承 BaseService 實現標準 CRUD
 
 使用泛型基類減少重複代碼，提供統一的資料庫操作介面。
+包含智慧機關匹配功能，支援自動關聯公文與機關。
 """
 import logging
-from typing import List, Optional, Dict, Any
+import re
+from typing import List, Optional, Dict, Any, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc, or_
+from sqlalchemy import select, func, desc, or_, update
 
 from app.services.base_service import BaseService
 from app.extended.models import GovernmentAgency, OfficialDocument
@@ -381,6 +383,350 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
         if any(k in name for k in ['公司', '企業', '集團']):
             return '民間企業'
         return '其他單位'
+
+    # =========================================================================
+    # 智慧機關匹配功能
+    # =========================================================================
+
+    def _parse_agency_text(self, text: str) -> List[Tuple[Optional[str], str]]:
+        """
+        解析機關文字，提取機關代碼和名稱
+
+        支援格式：
+        - "機關名稱" -> [(None, "機關名稱")]
+        - "代碼 (機關名稱)" -> [("代碼", "機關名稱")]
+        - "代碼 機關名稱" -> [("代碼", "機關名稱")]
+        - "代碼1 (名稱1) | 代碼2 (名稱2)" -> 多個機關
+
+        Args:
+            text: 原始機關文字
+
+        Returns:
+            (機關代碼, 機關名稱) 的列表
+        """
+        if not text or not text.strip():
+            return []
+
+        results = []
+        # 處理多個受文者（以 | 分隔）
+        parts = text.split("|")
+
+        for part in parts:
+            part = part.strip()
+            if not part:
+                continue
+
+            # 模式1: "代碼 (機關名稱)" 或 "代碼\n(機關名稱)"
+            match = re.match(r'^([A-Z0-9]+)\s*[\n\(（](.+?)[\)）]?\s*$', part, re.IGNORECASE)
+            if match:
+                code, name = match.groups()
+                results.append((code.strip(), name.strip().rstrip('）)')))
+                continue
+
+            # 模式2: "代碼 機關名稱" (代碼為英數字混合)
+            match = re.match(r'^([A-Z0-9]{6,})\s+(.+)$', part, re.IGNORECASE)
+            if match:
+                code, name = match.groups()
+                # 排除括號開頭的情況
+                if not name.startswith('(') and not name.startswith('（'):
+                    results.append((code.strip(), name.strip()))
+                    continue
+
+            # 模式3: 純機關名稱（無代碼）
+            # 移除可能的括號說明文字
+            clean_name = re.sub(r'[\(（].+?[\)）]', '', part).strip()
+            if clean_name:
+                results.append((None, clean_name))
+
+        return results
+
+    async def match_agency(
+        self,
+        db: AsyncSession,
+        text: str
+    ) -> Optional[GovernmentAgency]:
+        """
+        智慧匹配機關 - 從文字中尋找對應的機關
+
+        匹配優先順序：
+        1. 完全匹配機關代碼
+        2. 完全匹配機關名稱
+        3. 完全匹配機關簡稱
+        4. 部分匹配機關名稱（名稱包含在文字中）
+
+        Args:
+            db: 資料庫 session
+            text: 發文/受文機關文字
+
+        Returns:
+            匹配的機關或 None
+        """
+        if not text or not text.strip():
+            return None
+
+        # 解析文字取得可能的機關資訊（只取第一個）
+        parsed = self._parse_agency_text(text)
+        if not parsed:
+            return None
+
+        code, name = parsed[0]
+
+        # 1. 優先以機關代碼匹配
+        if code:
+            agency = await self.get_by_field(db, "agency_code", code)
+            if agency:
+                return agency
+
+        # 2. 完全匹配機關名稱
+        agency = await self.get_by_field(db, "agency_name", name)
+        if agency:
+            return agency
+
+        # 3. 完全匹配機關簡稱
+        result = await db.execute(
+            select(GovernmentAgency).where(
+                GovernmentAgency.agency_short_name == name
+            )
+        )
+        agency = result.scalar_one_or_none()
+        if agency:
+            return agency
+
+        # 4. 部分匹配 - 機關名稱包含在搜尋文字中
+        result = await db.execute(
+            select(GovernmentAgency).where(
+                GovernmentAgency.agency_name.isnot(None)
+            )
+        )
+        agencies = result.scalars().all()
+
+        for agency in agencies:
+            # 檢查機關名稱是否完整出現在文字中
+            if agency.agency_name and agency.agency_name in text:
+                return agency
+            # 檢查簡稱是否出現
+            if agency.agency_short_name and agency.agency_short_name in text:
+                return agency
+
+        return None
+
+    async def match_agencies_for_document(
+        self,
+        db: AsyncSession,
+        sender: Optional[str],
+        receiver: Optional[str]
+    ) -> Dict[str, Optional[int]]:
+        """
+        為公文匹配發文機關和受文機關
+
+        Args:
+            db: 資料庫 session
+            sender: 發文機關文字
+            receiver: 受文機關文字
+
+        Returns:
+            {"sender_agency_id": int|None, "receiver_agency_id": int|None}
+        """
+        result = {
+            "sender_agency_id": None,
+            "receiver_agency_id": None
+        }
+
+        if sender:
+            agency = await self.match_agency(db, sender)
+            if agency:
+                result["sender_agency_id"] = agency.id
+
+        if receiver:
+            agency = await self.match_agency(db, receiver)
+            if agency:
+                result["receiver_agency_id"] = agency.id
+
+        return result
+
+    async def batch_associate_agencies(
+        self,
+        db: AsyncSession,
+        overwrite: bool = False
+    ) -> Dict[str, Any]:
+        """
+        批次為所有公文關聯機關
+
+        Args:
+            db: 資料庫 session
+            overwrite: 是否覆蓋現有關聯
+
+        Returns:
+            處理結果統計
+        """
+        stats = {
+            "total_documents": 0,
+            "sender_updated": 0,
+            "receiver_updated": 0,
+            "sender_matched": 0,
+            "receiver_matched": 0,
+            "errors": []
+        }
+
+        try:
+            # 取得需要處理的公文
+            query = select(OfficialDocument)
+            if not overwrite:
+                # 只處理尚未關聯的
+                query = query.where(
+                    or_(
+                        OfficialDocument.sender_agency_id.is_(None),
+                        OfficialDocument.receiver_agency_id.is_(None)
+                    )
+                )
+
+            result = await db.execute(query)
+            documents = result.scalars().all()
+            stats["total_documents"] = len(documents)
+
+            for doc in documents:
+                try:
+                    updates = {}
+
+                    # 處理發文機關
+                    if doc.sender and (overwrite or doc.sender_agency_id is None):
+                        agency = await self.match_agency(db, doc.sender)
+                        if agency:
+                            stats["sender_matched"] += 1
+                            if doc.sender_agency_id != agency.id:
+                                updates["sender_agency_id"] = agency.id
+                                stats["sender_updated"] += 1
+
+                    # 處理受文機關
+                    if doc.receiver and (overwrite or doc.receiver_agency_id is None):
+                        agency = await self.match_agency(db, doc.receiver)
+                        if agency:
+                            stats["receiver_matched"] += 1
+                            if doc.receiver_agency_id != agency.id:
+                                updates["receiver_agency_id"] = agency.id
+                                stats["receiver_updated"] += 1
+
+                    # 更新公文
+                    if updates:
+                        await db.execute(
+                            update(OfficialDocument)
+                            .where(OfficialDocument.id == doc.id)
+                            .values(**updates)
+                        )
+
+                except Exception as e:
+                    stats["errors"].append(f"文件 {doc.id}: {str(e)}")
+
+            await db.commit()
+            logger.info(f"批次機關關聯完成: {stats}")
+
+        except Exception as e:
+            await db.rollback()
+            logger.error(f"批次機關關聯失敗: {e}", exc_info=True)
+            stats["errors"].append(f"系統錯誤: {str(e)}")
+
+        return stats
+
+    async def get_unassociated_summary(
+        self,
+        db: AsyncSession
+    ) -> Dict[str, Any]:
+        """
+        取得未關聯機關的公文統計
+
+        Returns:
+            未關聯統計
+        """
+        # 總公文數
+        total = (await db.execute(
+            select(func.count(OfficialDocument.id))
+        )).scalar() or 0
+
+        # 無發文機關關聯數
+        no_sender = (await db.execute(
+            select(func.count(OfficialDocument.id)).where(
+                OfficialDocument.sender_agency_id.is_(None),
+                OfficialDocument.sender.isnot(None),
+                OfficialDocument.sender != ''
+            )
+        )).scalar() or 0
+
+        # 無受文機關關聯數
+        no_receiver = (await db.execute(
+            select(func.count(OfficialDocument.id)).where(
+                OfficialDocument.receiver_agency_id.is_(None),
+                OfficialDocument.receiver.isnot(None),
+                OfficialDocument.receiver != ''
+            )
+        )).scalar() or 0
+
+        # 已關聯發文機關
+        has_sender = (await db.execute(
+            select(func.count(OfficialDocument.id)).where(
+                OfficialDocument.sender_agency_id.isnot(None)
+            )
+        )).scalar() or 0
+
+        # 已關聯受文機關
+        has_receiver = (await db.execute(
+            select(func.count(OfficialDocument.id)).where(
+                OfficialDocument.receiver_agency_id.isnot(None)
+            )
+        )).scalar() or 0
+
+        return {
+            "total_documents": total,
+            "sender_associated": has_sender,
+            "sender_unassociated": no_sender,
+            "receiver_associated": has_receiver,
+            "receiver_unassociated": no_receiver,
+            "association_rate": {
+                "sender": round(has_sender / total * 100, 1) if total > 0 else 0,
+                "receiver": round(has_receiver / total * 100, 1) if total > 0 else 0
+            }
+        }
+
+    async def suggest_agency(
+        self,
+        db: AsyncSession,
+        text: str,
+        limit: int = 5
+    ) -> List[Dict[str, Any]]:
+        """
+        根據文字建議可能的機關
+
+        Args:
+            db: 資料庫 session
+            text: 搜尋文字
+            limit: 回傳數量限制
+
+        Returns:
+            建議的機關列表
+        """
+        if not text or len(text) < 2:
+            return []
+
+        # 模糊搜尋
+        result = await db.execute(
+            select(GovernmentAgency).where(
+                or_(
+                    GovernmentAgency.agency_name.ilike(f"%{text}%"),
+                    GovernmentAgency.agency_short_name.ilike(f"%{text}%"),
+                    GovernmentAgency.agency_code.ilike(f"%{text}%")
+                )
+            ).limit(limit)
+        )
+        agencies = result.scalars().all()
+
+        return [
+            {
+                "id": a.id,
+                "agency_name": a.agency_name,
+                "agency_code": a.agency_code,
+                "agency_short_name": a.agency_short_name
+            }
+            for a in agencies
+        ]
 
     # =========================================================================
     # 向後相容方法 (逐步淘汰)

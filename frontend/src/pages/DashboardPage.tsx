@@ -1,5 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Statistic, Table, Tag, Button, Space, Typography, Spin, App } from 'antd';
+/**
+ * 儀表板總覽頁面
+ *
+ * 架構說明：
+ * - React Query: 唯一的伺服器資料來源（統計資料、近期公文）
+ * - Zustand: 不使用（本頁面無需跨頁面共享狀態）
+ *
+ * @version 2.0.0 - 優化為 React Query 架構
+ * @date 2026-01-08
+ */
+import React from 'react';
+import { Row, Col, Card, Statistic, Table, Tag, Button, Space, Typography, Spin } from 'antd';
 import {
   FileTextOutlined,
   CheckCircleOutlined,
@@ -9,116 +19,42 @@ import {
   EyeOutlined,
   EditOutlined,
 } from '@ant-design/icons';
-import { apiClient } from '../api/client';
+import { useDashboardPage } from '../hooks';
 
 const { Title } = Typography;
 
-// 定義儀表板 API 回應的型別
-interface DashboardStats {
-  total: number;
-  approved: number;
-  pending: number;
-  rejected: number;
-}
+// ============================================================================
+// 輔助函式
+// ============================================================================
 
-interface RecentDocument {
-  id: number;
-  doc_number: string;
-  subject: string;
-  doc_type: string;
-  status: string;
-  sender: string;
-  creator: string;
-  created_at: string;
-  receive_date: string;
-}
+const getStatusTag = (status: string) => {
+  const statusMap = {
+    '收文完成': { color: 'orange', text: '收文完成' },
+    '使用者確認': { color: 'green', text: '使用者確認' },
+    '收文異常': { color: 'red', text: '收文異常' },
+  };
+  const config = statusMap[status as keyof typeof statusMap] || { color: 'default', text: status };
+  return <Tag color={config.color}>{config.text}</Tag>;
+};
+
+// ============================================================================
+// 元件
+// ============================================================================
 
 export const DashboardPage: React.FC = () => {
-  const { message } = App.useApp();
-  const [loading, setLoading] = useState(false);
-  const [stats, setStats] = useState<DashboardStats>({
-    total: 0,
-    approved: 0,
-    pending: 0,
-    rejected: 0,
-  });
-  const [recentDocuments, setRecentDocuments] = useState<any[]>([]);
+  // ============================================================================
+  // React Query: 唯一的伺服器資料來源
+  // ============================================================================
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
+  const {
+    stats,
+    recentDocuments,
+    isLoading,
+  } = useDashboardPage();
 
-  const loadDashboardData = async () => {
-    setLoading(true);
-    try {
-      // 使用現有的文件統計API
-      console.log('=== 儀表板: 開始載入統計數據 ===');
-      const [statsResponse, documentsResponse] = await Promise.all([
-        apiClient.post<{ stats: DashboardStats; recent_documents: RecentDocument[] }>('/dashboard/stats', {}).catch((error) => {
-          console.error('統計 API 錯誤:', error);
-          return { stats: { total: 0, approved: 0, pending: 0, rejected: 0 }, recent_documents: [] };
-        }),
-        apiClient.post<{ items: RecentDocument[] }>('/documents-enhanced/list', { limit: 10 }).catch((error) => {
-          console.error('文檔查詢 API 錯誤:', error);
-          return { items: [] };
-        })
-      ]);
-      console.log('=== 儀表板: 收到統計數據 ===', statsResponse);
-
-      // 處理統計數據 (apiClient 直接返回 data，不需要 .data)
-      const statsData = statsResponse || {};
-      console.log('=== 統計數據類型檢查 ===', typeof statsData, statsData);
-      // 適配後端返回的數據格式：{stats: {total, approved, pending, rejected}}
-      const dashboardStats = (statsData as any).stats || statsData;
-      console.log('=== 統計數據內容 ===', dashboardStats);
-      setStats({
-        total: dashboardStats?.total || (statsData as any)?.total_documents || 0,
-        approved: dashboardStats?.approved || (statsData as any)?.send_count || 0,
-        pending: dashboardStats?.pending || (statsData as any)?.current_year_count || 0,
-        rejected: dashboardStats?.rejected || (statsData as any)?.receive_count || 0
-      });
-
-      // 處理近期公文數據
-      // 適配後端返回的數據格式：{stats: {...}, recent_documents: [...]}
-      const documents = (statsData as any).recent_documents || (documentsResponse as any)?.items || [];
-      console.log('=== 文檔數據 ===', documents);
-      if (documents && Array.isArray(documents)) {
-        const formattedDocs = documents.map((doc: any, index: number) => ({
-          key: doc.id || index,
-          id: doc.doc_number || `DOC-${doc.id}`,
-          title: doc.subject || '無標題',
-          type: doc.doc_type || '一般公文',
-          status: doc.status || '收文完成',
-          agency: doc.sender || '未指定機關',
-          creator: doc.creator || '系統使用者',
-          createDate: doc.created_at ? new Date(doc.created_at).toLocaleDateString() : '',
-          deadline: doc.receive_date ? new Date(doc.receive_date).toLocaleDateString() : ''
-        }));
-        setRecentDocuments(formattedDocs);
-      }
-
-    } catch (error) {
-      console.error('Failed to load dashboard data:', error);
-      const err = error as Error & { response?: unknown };
-      console.error('Error details:', err.message, err.response);
-      message.error(`載入儀表板資料失敗: ${err.message || '未知錯誤'}`);
-      // 重置狀態
-      setStats({ total: 0, approved: 0, pending: 0, rejected: 0 });
-      setRecentDocuments([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getStatusTag = (status: string) => {
-    const statusMap = {
-      '收文完成': { color: 'orange', text: '收文完成' },
-      '使用者確認': { color: 'green', text: '使用者確認' },
-      '收文異常': { color: 'red', text: '收文異常' }
-    };
-    const config = statusMap[status as keyof typeof statusMap] || { color: 'default', text: status };
-    return <Tag color={config.color}>{config.text}</Tag>;
-  };
+  // ============================================================================
+  // 表格欄位
+  // ============================================================================
 
   const columns = [
     { title: '公文編號', dataIndex: 'id', key: 'id', width: 120 },
@@ -140,11 +76,15 @@ export const DashboardPage: React.FC = () => {
     },
   ];
 
+  // ============================================================================
+  // 渲染
+  // ============================================================================
+
   return (
     <div style={{ padding: '24px', background: '#f5f5f5', minHeight: '100vh' }}>
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
         <Title level={2} style={{ marginBottom: 24, color: '#1976d2' }}>儀表板總覽</Title>
-        <Spin spinning={loading}>
+        <Spin spinning={isLoading}>
           <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
             <Col xs={12} sm={12} md={6} lg={6}>
               <Card><Statistic title="總公文數" value={stats.total} prefix={<FileTextOutlined />} /></Card>
@@ -163,7 +103,7 @@ export const DashboardPage: React.FC = () => {
             <Table
               columns={columns}
               dataSource={recentDocuments}
-              pagination={false} // 直接顯示 API 回傳的幾筆，不需分頁
+              pagination={false}
               scroll={{ x: 1000 }}
             />
           </Card>

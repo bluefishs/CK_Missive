@@ -5,8 +5,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Modal, Form, Input, Select, DatePicker, Switch,
-  Row, Col, Space, Button, notification, Spin, Divider
+  Row, Col, Space, Button, notification, Spin, Divider, Grid
 } from 'antd';
+
+const { useBreakpoint } = Grid;
 import {
   BellOutlined, CalendarOutlined, AlertOutlined,
   EyeOutlined, UnorderedListOutlined, FileTextOutlined
@@ -90,6 +92,10 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [allDay, setAllDay] = useState(false);
   const [documentOptions, setDocumentOptions] = useState<DocumentOption[]>([]);
+
+  // 響應式斷點
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
   const [documentSearching, setDocumentSearching] = useState(false);
 
   // 搜尋公文（防抖動）
@@ -229,7 +235,8 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
       title={mode === 'create' ? '新增日曆事件' : '編輯日曆事件'}
       open={visible}
       onCancel={onClose}
-      width={700}
+      width={isMobile ? '95%' : 700}
+      style={{ maxWidth: '95vw' }}
       footer={[
         <Button key="cancel" onClick={onClose}>
           取消

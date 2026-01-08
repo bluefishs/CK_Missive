@@ -26,6 +26,7 @@ from app.extended.models import OfficialDocument as Document, ContractProject, G
 from app.schemas.document import DocumentFilter, DocumentImportResult, DocumentSearchRequest
 from app.services.document_calendar_integrator import DocumentCalendarIntegrator
 from app.services.strategies.agency_matcher import AgencyMatcher, ProjectMatcher
+from app.services.calendar.event_auto_builder import CalendarEventAutoBuilder
 from app.core.cache_manager import cache_dropdown_data, cache_statistics
 
 logger = logging.getLogger(__name__)
@@ -45,12 +46,15 @@ class DocumentService:
     - 案件名稱匹配 (ProjectMatcher)
     """
 
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, auto_create_events: bool = True):
         self.db = db
         self.calendar_integrator = DocumentCalendarIntegrator()
         # 初始化策略類別
         self._agency_matcher = AgencyMatcher(db)
         self._project_matcher = ProjectMatcher(db)
+        # 行事曆事件自動建立器
+        self._auto_create_events = auto_create_events
+        self._event_builder = CalendarEventAutoBuilder(db) if auto_create_events else None
 
     async def _get_or_create_agency_id(self, agency_name: Optional[str]) -> Optional[int]:
         """
@@ -82,24 +86,180 @@ class DocumentService:
         """
         return await self._project_matcher.match_or_create(project_name)
 
+    def _parse_date_string(self, date_str: str) -> date:
+        """
+        解析日期字串為 date 物件
+
+        支援格式：YYYY-MM-DD, YYYY/MM/DD
+
+        Args:
+            date_str: 日期字串
+
+        Returns:
+            date 物件或 None
+        """
+        if not date_str:
+            return None
+        try:
+            normalized = date_str.replace('/', '-')
+            return datetime.strptime(normalized, '%Y-%m-%d').date()
+        except ValueError:
+            logger.warning(f"[篩選] 無效的日期格式: {date_str}")
+            return None
+
+    def _extract_agency_names(self, agency_value: str) -> list:
+        """
+        從下拉選項值中提取機關名稱
+
+        支援格式：
+        - 純名稱: "桃園市政府"
+        - 代碼+名稱: "380110000G (桃園市政府工務局)"
+        - 多機關: "376480000A (南投縣政府) | A01020100G (內政部國土管理署城鄉發展分署)"
+        - 換行格式: "380110000G\\n(桃園市政府工務局)"
+
+        Args:
+            agency_value: 下拉選項值
+
+        Returns:
+            提取出的機關名稱列表
+        """
+        import re
+
+        if not agency_value:
+            return []
+
+        names = []
+
+        # 先按 | 分割多個機關
+        parts = agency_value.split('|')
+
+        for part in parts:
+            part = part.strip()
+            if not part:
+                continue
+
+            # 處理換行格式: "380110000G\n(桃園市政府工務局)"
+            part = part.replace('\n', ' ').replace('\r', ' ')
+
+            # 嘗試提取括號內的名稱: "380110000G (桃園市政府工務局)" -> "桃園市政府工務局"
+            match = re.search(r'\(([^)]+)\)', part)
+            if match:
+                names.append(match.group(1).strip())
+            else:
+                # 嘗試移除代碼前綴: "380110000G 桃園市政府工務局" -> "桃園市政府工務局"
+                # 代碼格式通常是 字母+數字 組合
+                cleaned = re.sub(r'^[A-Z0-9]+\s*', '', part, flags=re.IGNORECASE)
+                if cleaned:
+                    names.append(cleaned.strip())
+                else:
+                    # 如果全都被移除了，就用原值（可能本身就是純名稱）
+                    names.append(part)
+
+        return names
+
     def _apply_filters(self, query, filters: DocumentFilter):
-        if filters.doc_type: query = query.where(Document.doc_type == filters.doc_type)
-        if filters.year: query = query.where(extract('year', Document.doc_date) == filters.year)
-        if filters.keyword:
+        """
+        套用篩選條件到查詢
+
+        使用 DocumentFilter 的輔助方法取得有效值，
+        支援多種參數命名慣例 (如 date_from 和 doc_date_from)
+
+        Args:
+            query: SQLAlchemy 查詢物件
+            filters: 篩選條件
+
+        Returns:
+            套用篩選後的查詢物件
+        """
+        # 取得有效的篩選值 (使用 DocumentFilter 的輔助方法)
+        effective_keyword = filters.get_effective_keyword() if hasattr(filters, 'get_effective_keyword') else (filters.keyword or getattr(filters, 'search', None))
+        effective_date_from = filters.get_effective_date_from() if hasattr(filters, 'get_effective_date_from') else (filters.date_from or getattr(filters, 'doc_date_from', None))
+        effective_date_to = filters.get_effective_date_to() if hasattr(filters, 'get_effective_date_to') else (filters.date_to or getattr(filters, 'doc_date_to', None))
+
+        # 調試日誌
+        logger.info(f"[篩選] 有效條件: keyword={effective_keyword}, doc_type={filters.doc_type}, "
+                   f"year={filters.year}, sender={filters.sender}, receiver={filters.receiver}, "
+                   f"delivery_method={filters.delivery_method}, "
+                   f"date_from={effective_date_from}, date_to={effective_date_to}, "
+                   f"contract_case={filters.contract_case}, category={filters.category}")
+
+        # 公文類型篩選
+        if filters.doc_type:
+            query = query.where(Document.doc_type == filters.doc_type)
+
+        # 年度篩選
+        if filters.year:
+            query = query.where(extract('year', Document.doc_date) == filters.year)
+
+        # 關鍵字搜尋（主旨、文號、說明、備註）
+        if effective_keyword:
+            kw = f"%{effective_keyword}%"
             query = query.where(or_(
-                Document.subject.ilike(f"%{filters.keyword}%"),
-                Document.doc_number.ilike(f"%{filters.keyword}%")
+                Document.subject.ilike(kw),
+                Document.doc_number.ilike(kw),
+                Document.content.ilike(kw),
+                Document.notes.ilike(kw)
             ))
+
         # 收發文分類篩選
-        if hasattr(filters, 'category') and filters.category:
+        if filters.category:
+            logger.debug(f"[篩選] 套用 category: {filters.category}")
             query = query.where(Document.category == filters.category)
-        # 承攬案件篩選
-        if hasattr(filters, 'contract_case') and filters.contract_case:
+
+        # 發文形式篩選 (驗證有效值)
+        if filters.delivery_method:
+            valid_methods = ['電子交換', '紙本郵寄']
+            if filters.delivery_method in valid_methods:
+                logger.debug(f"[篩選] 套用 delivery_method: {filters.delivery_method}")
+                query = query.where(Document.delivery_method == filters.delivery_method)
+            else:
+                logger.warning(f"[篩選] 無效的 delivery_method: {filters.delivery_method}")
+
+        # 發文單位篩選 (智能名稱提取 + 模糊匹配)
+        if filters.sender:
+            sender_names = self._extract_agency_names(filters.sender)
+            logger.debug(f"[篩選] 套用 sender: {filters.sender} -> 提取名稱: {sender_names}")
+            if sender_names:
+                # 使用 OR 邏輯匹配任一名稱
+                sender_conditions = [Document.sender.ilike(f"%{name}%") for name in sender_names]
+                query = query.where(or_(*sender_conditions))
+
+        # 受文單位篩選 (智能名稱提取 + 模糊匹配)
+        if filters.receiver:
+            receiver_names = self._extract_agency_names(filters.receiver)
+            logger.debug(f"[篩選] 套用 receiver: {filters.receiver} -> 提取名稱: {receiver_names}")
+            if receiver_names:
+                # 使用 OR 邏輯匹配任一名稱
+                receiver_conditions = [Document.receiver.ilike(f"%{name}%") for name in receiver_names]
+                query = query.where(or_(*receiver_conditions))
+
+        # 公文日期範圍篩選
+        if effective_date_from:
+            date_from_val = self._parse_date_string(effective_date_from) if isinstance(effective_date_from, str) else effective_date_from
+            if date_from_val:
+                logger.debug(f"[篩選] 套用 date_from: {date_from_val}")
+                query = query.where(Document.doc_date >= date_from_val)
+
+        if effective_date_to:
+            date_to_val = self._parse_date_string(effective_date_to) if isinstance(effective_date_to, str) else effective_date_to
+            if date_to_val:
+                logger.debug(f"[篩選] 套用 date_to: {date_to_val}")
+                query = query.where(Document.doc_date <= date_to_val)
+
+        # 承攬案件篩選 (案件名稱或編號模糊匹配)
+        if filters.contract_case:
+            logger.debug(f"[篩選] 套用 contract_case: {filters.contract_case}")
             query = query.outerjoin(ContractProject, Document.contract_project_id == ContractProject.id)
             query = query.where(or_(
                 ContractProject.project_name.ilike(f"%{filters.contract_case}%"),
                 ContractProject.project_code.ilike(f"%{filters.contract_case}%")
             ))
+
+        # 承辦人篩選
+        if hasattr(filters, 'assignee') and filters.assignee:
+            logger.debug(f"[篩選] 套用 assignee: {filters.assignee}")
+            query = query.where(Document.assignee.ilike(f"%{filters.assignee}%"))
+
         return query
 
     async def get_documents(
@@ -327,6 +487,11 @@ class DocumentService:
                 new_document = Document(**doc_payload)
                 self.db.add(new_document)
                 await self.db.flush()
+
+                # 自動建立行事曆事件
+                if self._auto_create_events and self._event_builder:
+                    await self._event_builder.auto_create_event(new_document, skip_if_exists=False)
+
                 success_count += 1
                 logger.debug(f"成功匯入公文: {doc_number}")
 

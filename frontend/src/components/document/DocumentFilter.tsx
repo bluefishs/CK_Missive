@@ -49,6 +49,12 @@ const docTypeOptions = [
   { value: '會勘通知單', label: '會勘通知單' },
 ];
 
+const deliveryMethodOptions = [
+  { value: '', label: '全部形式' },
+  { value: '電子交換', label: '電子交換' },
+  { value: '紙本郵寄', label: '紙本郵寄' },
+];
+
 // 年度選項將從API獲取
 
 // API 基礎 URL - 統一使用環境變數避免 proxy 問題
@@ -399,8 +405,12 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
   }, []);
 
   const handleFilterChange = (field: keyof DocumentFilterType, value: any) => {
-    const newFilters = { ...localFilters, [field]: value };
-    setLocalFilters(newFilters);
+    setLocalFilters(prev => ({ ...prev, [field]: value }));
+  };
+
+  // 批次更新多個篩選條件（解決日期範圍連續更新問題）
+  const handleMultipleFilterChange = (updates: Partial<DocumentFilterType>) => {
+    setLocalFilters(prev => ({ ...prev, ...updates }));
   };
 
   const handleApplyFilters = () => {
@@ -449,36 +459,27 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
 
       {/* 主要搜尋條件 */}
       <Row gutter={[16, 16]}>
-        {/* 關鍵字搜尋 (公文主旨檢索) - 使用 AutoComplete */}
+        {/* 關鍵字搜尋 (文號/主旨/說明/備註) - 加寬欄位 */}
         <Col span={24} md={8}>
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
             <span style={{ marginRight: 4, fontSize: '14px', color: '#666' }}>關鍵字搜尋</span>
-            <Tooltip title="輸入關鍵字搜尋公文主旨，系統會自動提供相關建議。支援模糊搜尋，輸入2個字元以上開始提供建議。按 Enter 快速套用篩選。">
+            <Tooltip title="搜尋範圍包含：公文字號、主旨、說明、備註。支援模糊搜尋，輸入2個字元以上開始提供建議。按 Enter 快速套用篩選。">
               <QuestionCircleOutlined style={{ color: '#999', fontSize: '12px' }} />
             </Tooltip>
           </div>
-          <AutoComplete
-            options={searchOptions}
-            onSearch={fetchSearchSuggestions}
-            onSelect={(value) => handleFilterChange('search', value)}
-            onChange={(value) => handleFilterChange('search', value)}
+          <Input.Search
+            placeholder="文號/主旨/說明/備註..."
             value={localFilters.search || ''}
-            placeholder="請輸入公文主旨關鍵字..."
-          >
-            <Input
-              prefix={<SearchOutlined />}
-              onPressEnter={handleApplyFilters}
-              suffix={
-                <Tooltip title="按 Enter 快速搜尋">
-                  <span style={{ color: '#ccc', fontSize: '12px' }}>Enter</span>
-                </Tooltip>
-              }
-            />
-          </AutoComplete>
+            onChange={(e) => handleFilterChange('search', e.target.value)}
+            onSearch={handleApplyFilters}
+            allowClear
+            enterButton={false}
+            style={{ width: '100%' }}
+          />
         </Col>
 
         {/* 公文類型篩選 */}
-        <Col span={24} md={8}>
+        <Col span={24} md={4}>
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
             <span style={{ marginRight: 4, fontSize: '14px', color: '#666' }}>公文類型</span>
             <Tooltip title="選擇特定的公文類型進行篩選。包含：函、開會通知單、會勘通知單。留空顯示所有類型。">
@@ -486,13 +487,36 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
             </Tooltip>
           </div>
           <Select
-            placeholder="請選擇公文類型 (預設：全部類型)"
+            placeholder="請選擇公文類型"
             value={localFilters.doc_type || ''}
             onChange={(value) => handleFilterChange('doc_type', value)}
             style={{ width: '100%' }}
             allowClear
           >
             {docTypeOptions.map((option) => (
+              <Option key={option.value} value={option.value}>
+                {option.label}
+              </Option>
+            ))}
+          </Select>
+        </Col>
+
+        {/* 發文形式篩選 */}
+        <Col span={24} md={4}>
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+            <span style={{ marginRight: 4, fontSize: '14px', color: '#666' }}>發文形式</span>
+            <Tooltip title="選擇公文發送方式：電子交換或紙本郵寄">
+              <QuestionCircleOutlined style={{ color: '#999', fontSize: '12px' }} />
+            </Tooltip>
+          </div>
+          <Select
+            placeholder="請選擇發文形式"
+            value={localFilters.delivery_method || ''}
+            onChange={(value) => handleFilterChange('delivery_method', value)}
+            style={{ width: '100%' }}
+            allowClear
+          >
+            {deliveryMethodOptions.map((option) => (
               <Option key={option.value} value={option.value}>
                 {option.label}
               </Option>
@@ -578,23 +602,19 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
                   <QuestionCircleOutlined style={{ color: '#999', fontSize: '12px' }} />
                 </Tooltip>
               </div>
-              <AutoComplete
-                options={docNumberOptions}
-                onSearch={fetchDocNumberSuggestions}
-                onSelect={(value) => handleFilterChange('doc_number', value)}
-                onChange={(value) => handleFilterChange('doc_number', value)}
-                value={localFilters.doc_number || ''}
+              <Input
                 placeholder="請輸入公文字號 (例：乾坤字第)"
+                value={localFilters.doc_number || ''}
+                onChange={(e) => handleFilterChange('doc_number', e.target.value)}
+                onPressEnter={handleApplyFilters}
+                allowClear
                 style={{ width: '100%' }}
-              >
-                <Input
-                  suffix={
-                    <Tooltip title="支援智能建議">
-                      <SearchOutlined style={{ color: '#ccc' }} />
-                    </Tooltip>
-                  }
-                />
-              </AutoComplete>
+                suffix={
+                  <Tooltip title="按 Enter 套用篩選">
+                    <SearchOutlined style={{ color: '#ccc' }} />
+                  </Tooltip>
+                }
+              />
             </Col>
 
             <Col span={24} md={8}>
@@ -609,9 +629,11 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
                 value={dateRange}
                 onChange={(dates, dateStrings) => {
                   setDateRange(dates);
-                  // 將日期範圍儲存到 filters 中
-                  handleFilterChange('doc_date_from', dateStrings[0]);
-                  handleFilterChange('doc_date_to', dateStrings[1]);
+                  // 批次更新日期範圍，避免連續更新造成狀態遺失
+                  handleMultipleFilterChange({
+                    doc_date_from: dateStrings[0] || undefined,
+                    doc_date_to: dateStrings[1] || undefined
+                  });
                 }}
                 style={{ width: '100%' }}
                 format="YYYY-MM-DD"
@@ -744,24 +766,6 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
         </div>
       </div>
 
-      {/* 使用提示 */}
-      {!hasActiveFilters && (
-        <div style={{
-          textAlign: 'center',
-          padding: '8px 16px',
-          backgroundColor: '#f6f8fc',
-          border: '1px solid #e6ebf7',
-          borderRadius: '6px',
-          marginTop: 12
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-            <InfoCircleOutlined style={{ color: '#8c8c8c', fontSize: '12px' }} />
-            <span style={{ color: '#8c8c8c', fontSize: '12px' }}>
-              提示：選擇上方篩選條件後點擊「套用篩選」，或在輸入框中按 Enter 即可快速搜尋
-            </span>
-          </div>
-        </div>
-      )}
     </Card>
   );
 };

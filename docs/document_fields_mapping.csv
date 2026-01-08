@@ -1,0 +1,25 @@
+資料庫欄位,中文名稱,資料類型,說明,匯出Excel欄位,匯出順序
+id,公文ID,integer,主鍵自動遞增（對應附件資料夾 doc_{id}）,公文ID,1
+auto_serial,流水號,varchar(50),S開頭=發文 R開頭=收文,流水號,2
+delivery_method,發文形式,varchar(20),電子交換/紙本郵寄,發文形式,3
+category,類別,varchar(100),收文/發文,類別,4
+doc_type,公文類型,varchar(10),函/開會通知單/會勘通知單/書函等（注意：有8筆錯誤值待修復）,公文類型,5
+doc_number,公文字號,varchar(100),完整公文編號,公文字號,6
+subject,主旨,varchar(500),公文主旨內容,主旨,7
+doc_date,公文日期,date,公文上的日期,公文日期,8
+receive_date,收文日期,date,收到公文的日期（收文類別使用）,收文日期,9
+send_date,發文日期,date,發出公文的日期（發文類別使用）,發文日期,10
+sender,發文單位,varchar(200),原始發文單位名稱（匯出時清理代碼）,發文單位,11
+receiver,受文單位,varchar(200),原始受文單位名稱（匯出時清理代碼）,受文單位,12
+-,附件紀錄,-,統計 document_attachments 數量,附件紀錄,13
+status,狀態,varchar(50),active/done/draft等,狀態,14
+contract_project_id,承攬案件ID,integer,關聯contract_projects表,承攬案件,15
+created_at,建立時間,timestamp,系統自動記錄,建立時間,16
+updated_at,更新時間,timestamp,系統自動更新,更新時間,17
+sender_agency_id,發文機關ID,integer,關聯government_agencies表,（不匯出）,-
+receiver_agency_id,受文機關ID,integer,關聯government_agencies表,（不匯出）,-
+dispatch_format,發送格式,varchar(20),電子/紙本（舊欄位）,（不匯出）,-
+has_attachment,是否含附件,boolean,true/false（已改用附件紀錄統計）,（不匯出）,-
+assignee,承辦人,varchar(500),公司同仁（目前無資料）,（不匯出）,-
+title,標題,text,備用標題欄位,（不匯出）,-
+cloud_file_link,雲端連結,varchar(500),Google Drive等連結,（不匯出）,-

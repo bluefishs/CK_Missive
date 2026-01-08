@@ -1,12 +1,27 @@
 # 資料庫備份管理 (Database Backup Management)
 
-管理 CK_Missive PostgreSQL 資料庫的備份與還原操作。
+管理 CK_Missive PostgreSQL 資料庫與附件檔案的備份與還原操作。
 
 ## 快速指令
 
-### 執行備份
+### 執行完整備份（資料庫 + 附件）
 ```powershell
 powershell -ExecutionPolicy Bypass -File "C:\GeminiCli\CK_Missive\scripts\backup\db_backup.ps1" -Verbose
+```
+
+### 僅備份資料庫
+```powershell
+powershell -ExecutionPolicy Bypass -File "C:\GeminiCli\CK_Missive\scripts\backup\db_backup.ps1" -DatabaseOnly -Verbose
+```
+
+### 僅備份附件
+```powershell
+powershell -ExecutionPolicy Bypass -File "C:\GeminiCli\CK_Missive\scripts\backup\db_backup.ps1" -AttachmentsOnly -Verbose
+```
+
+### 備份到指定路徑（NAS/外接硬碟）
+```powershell
+powershell -ExecutionPolicy Bypass -File "C:\GeminiCli\CK_Missive\scripts\backup\db_backup.ps1" -TargetPath "D:\Backup\CK_Missive" -Verbose
 ```
 
 ### 查看可用備份
@@ -27,38 +42,59 @@ powershell -ExecutionPolicy Bypass -File "C:\GeminiCli\CK_Missive\scripts\backup
 
 ## 備份位置
 
-- **備份檔案**: `C:\GeminiCli\CK_Missive\backups\database\`
-- **備份日誌**: `C:\GeminiCli\CK_Missive\logs\backup\`
+| 類型 | 預設路徑 |
+|------|---------|
+| 資料庫備份 | `C:\GeminiCli\CK_Missive\backups\database\` |
+| 附件備份 | `C:\GeminiCli\CK_Missive\backups\attachments\` |
+| 備份日誌 | `C:\GeminiCli\CK_Missive\logs\backup\` |
 
 ## 備份策略
 
 | 項目 | 設定值 |
 |------|--------|
-| 備份時間 | 每日 02:00 |
+| 備份時間 | 每日 02:00 (排程) |
 | 保留天數 | 7 天 |
-| 檔案格式 | SQL (未壓縮) |
+| 資料庫格式 | SQL (未壓縮) |
+| 附件格式 | 目錄複製 (保留結構) |
 | 命名規則 | `ck_missive_backup_YYYYMMDD_HHMMSS.sql` |
+| 附件命名 | `attachments_backup_YYYYMMDD_HHMMSS/` |
+
+## 參數說明
+
+| 參數 | 說明 | 預設值 |
+|------|------|--------|
+| `-RetentionDays` | 保留天數 | 7 |
+| `-Verbose` | 顯示詳細輸出 | false |
+| `-DatabaseOnly` | 僅備份資料庫 | false |
+| `-AttachmentsOnly` | 僅備份附件 | false |
+| `-TargetPath` | 自訂備份路徑 | 專案目錄 |
 
 ## 手動備份 (Docker 直接執行)
 
 如果腳本無法執行，可以直接使用 Docker 命令：
 
 ```bash
-# 備份
+# 資料庫備份
 docker exec ck_missive_postgres_dev pg_dump -U ck_user -d ck_documents > backup.sql
 
-# 還原
+# 資料庫還原
 cat backup.sql | docker exec -i ck_missive_postgres_dev psql -U ck_user -d ck_documents
+
+# 附件備份 (手動複製)
+xcopy /E /I "C:\GeminiCli\CK_Missive\backend\uploads" "D:\Backup\attachments"
 ```
 
 ## 驗證備份完整性
 
-```bash
-# 檢查備份檔案大小
+```powershell
+# 檢查資料庫備份
 dir "C:\GeminiCli\CK_Missive\backups\database"
 
-# 檢視備份內容前 50 行
-head -50 "C:\GeminiCli\CK_Missive\backups\database\<backup_file>.sql"
+# 檢查附件備份
+dir "C:\GeminiCli\CK_Missive\backups\attachments"
+
+# 檢視備份日誌
+Get-Content "C:\GeminiCli\CK_Missive\logs\backup\backup_*.log" -Tail 50
 ```
 
 ## 故障排除
@@ -73,16 +109,21 @@ head -50 "C:\GeminiCli\CK_Missive\backups\database\<backup_file>.sql"
    Get-Content "C:\GeminiCli\CK_Missive\logs\backup\backup_*.log" -Tail 50
    ```
 
-### 還原失敗
-1. 確認備份檔案存在且完整
-2. 檢查資料庫連線
-3. 查看還原日誌
+### 磁碟空間不足
+1. 減少保留天數：
+   ```powershell
+   .\db_backup.ps1 -RetentionDays 3
+   ```
+2. 備份到外接硬碟：
+   ```powershell
+   .\db_backup.ps1 -TargetPath "E:\Backup"
+   ```
 
 ## 相關檔案
 
 | 檔案 | 說明 |
 |------|------|
-| `scripts/backup/db_backup.ps1` | 主要備份腳本 |
+| `scripts/backup/db_backup.ps1` | 主要備份腳本（含附件） |
 | `scripts/backup/db_backup.sh` | Linux 版備份腳本 |
 | `scripts/backup/db_restore.ps1` | 還原腳本 |
 | `scripts/backup/setup_scheduled_task.ps1` | 排程設定 |

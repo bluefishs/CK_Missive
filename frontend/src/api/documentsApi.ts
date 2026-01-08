@@ -81,15 +81,18 @@ export interface DocumentCreate {
   status?: string;
   category?: string;
   contract_case?: string;
+  contract_project_id?: number;   // 承攬案件 ID
+  sender_agency_id?: number;      // 發文機關 ID
+  receiver_agency_id?: number;    // 受文機關 ID
   doc_word?: string;
   doc_class?: string;
-  assignee?: string;
-  notes?: string;
+  assignee?: string;              // 承辦人
+  content?: string;               // 說明
+  notes?: string;                 // 備註
   priority_level?: string;
-  content?: string;
-  // 新增欄位
-  delivery_method?: string;   // 發文形式 (電子交換/紙本郵寄/電子+紙本)
-  has_attachment?: boolean;   // 是否含附件
+  // 發文形式與附件欄位
+  delivery_method?: string;       // 發文形式 (電子交換/紙本郵寄/電子+紙本)
+  has_attachment?: boolean;       // 是否含附件
 }
 
 /** 公文更新請求 - 與後端 DocumentUpdate Schema 對應 */
@@ -105,29 +108,41 @@ export interface DocumentUpdate {
   status?: string;
   category?: string;
   contract_case?: string;
+  contract_project_id?: number;   // 承攬案件 ID
+  sender_agency_id?: number;      // 發文機關 ID
+  receiver_agency_id?: number;    // 受文機關 ID
   doc_word?: string;
   doc_class?: string;
-  assignee?: string;
-  notes?: string;
+  assignee?: string;              // 承辦人
+  content?: string;               // 說明
+  notes?: string;                 // 備註
   priority_level?: string;
-  content?: string;
-  // 新增欄位
-  delivery_method?: string;   // 發文形式 (電子交換/紙本郵寄/電子+紙本)
-  has_attachment?: boolean;   // 是否含附件
+  // 發文形式與附件欄位
+  delivery_method?: string;       // 發文形式 (電子交換/紙本郵寄/電子+紙本)
+  has_attachment?: boolean;       // 是否含附件
 }
 
 /** 公文列表查詢參數 */
 export interface DocumentListParams extends PaginationParams, SortParams {
+  // 關鍵字搜尋（前端可用 search 或 keyword）
+  search?: string;
   keyword?: string;
+  doc_number?: string;       // 公文字號搜尋
+  // 類型篩選
   doc_type?: string;
-  year?: number;
+  year?: number | string;    // 支援數字或字串
   status?: string;
-  category?: string;  // 收發文分類 (receive=收文, send=發文)
+  category?: string;         // 收發文分類 (receive=收文, send=發文)
+  // 進階篩選
   contract_case?: string;
   sender?: string;
   receiver?: string;
+  delivery_method?: string;  // 發文形式 (電子交換/紙本郵寄)
+  // 日期篩選（支援兩種命名格式）
   doc_date_from?: string;
   doc_date_to?: string;
+  date_from?: string;        // 相容性別名
+  date_to?: string;          // 相容性別名
 }
 
 /** 公文統計資料 */
@@ -178,19 +193,32 @@ export const documentsApi = {
   async getDocuments(
     params?: DocumentListParams
   ): Promise<PaginatedResponse<Document>> {
+    // 合併 search、keyword 和 doc_number，優先順序：keyword > search > doc_number
+    // 如果有 doc_number 且沒有其他關鍵字，則使用 doc_number 作為搜尋詞
+    const keywordValue = params?.keyword || params?.search || params?.doc_number || undefined;
+
+    // 處理年度值（可能是字串或數字）
+    const yearValue = params?.year ? Number(params.year) || undefined : undefined;
+
     const queryParams = {
       page: params?.page ?? 1,
       limit: params?.limit ?? 20,
-      keyword: params?.keyword,
-      doc_type: params?.doc_type,
-      year: params?.year,
-      status: params?.status,
-      category: params?.category,  // 收發文分類 (receive=收文, send=發文)
-      contract_case: params?.contract_case,
-      sender: params?.sender,
-      receiver: params?.receiver,
-      doc_date_from: params?.doc_date_from,
-      doc_date_to: params?.doc_date_to,
+      // 關鍵字搜尋
+      keyword: keywordValue,
+      // 類型篩選
+      doc_type: params?.doc_type || undefined,
+      year: yearValue,
+      status: params?.status || undefined,
+      category: params?.category || undefined,
+      // 進階篩選
+      contract_case: params?.contract_case || undefined,
+      sender: params?.sender || undefined,
+      receiver: params?.receiver || undefined,
+      delivery_method: params?.delivery_method || undefined,
+      // 日期篩選（支援兩種格式）
+      doc_date_from: params?.doc_date_from || params?.date_from || undefined,
+      doc_date_to: params?.doc_date_to || params?.date_to || undefined,
+      // 排序
       sort_by: params?.sort_by ?? 'updated_at',
       sort_order: params?.sort_order ?? 'desc',
     };
@@ -211,16 +239,17 @@ export const documentsApi = {
           params: {
             skip: ((params?.page ?? 1) - 1) * (params?.limit ?? 20),
             limit: params?.limit ?? 100,
-            keyword: params?.keyword,
-            doc_type: params?.doc_type,
-            year: params?.year,
-            status: params?.status,
-            category: params?.category,  // 收發文分類
-            contract_case: params?.contract_case,
-            sender: params?.sender,
-            receiver: params?.receiver,
-            doc_date_from: params?.doc_date_from,
-            doc_date_to: params?.doc_date_to,
+            keyword: keywordValue,
+            doc_type: params?.doc_type || undefined,
+            year: yearValue,
+            status: params?.status || undefined,
+            category: params?.category || undefined,
+            contract_case: params?.contract_case || undefined,
+            sender: params?.sender || undefined,
+            receiver: params?.receiver || undefined,
+            delivery_method: params?.delivery_method || undefined,
+            doc_date_from: params?.doc_date_from || params?.date_from || undefined,
+            doc_date_to: params?.doc_date_to || params?.date_to || undefined,
             sort_by: params?.sort_by ?? 'updated_at',
             sort_order: params?.sort_order ?? 'desc',
           }
@@ -287,6 +316,41 @@ export const documentsApi = {
    */
   async getStatistics(): Promise<DocumentStatistics> {
     return await apiClient.post<DocumentStatistics>('/documents-enhanced/statistics');
+  },
+
+  /**
+   * 取得篩選後的公文統計資料
+   *
+   * 根據當前篩選條件計算 total/send/receive 數量
+   * 用於前端 Tab 標籤的動態數字顯示
+   *
+   * @param params 篩選參數（與 getDocuments 相同）
+   * @returns 篩選後的統計資料
+   */
+  async getFilteredStatistics(params?: DocumentListParams): Promise<{
+    success: boolean;
+    total: number;
+    send_count: number;
+    receive_count: number;
+    filters_applied: boolean;
+  }> {
+    // 合併 search 和 keyword
+    const keywordValue = params?.keyword || params?.search || params?.doc_number || undefined;
+    const yearValue = params?.year ? Number(params.year) || undefined : undefined;
+
+    const queryParams = {
+      keyword: keywordValue,
+      doc_type: params?.doc_type || undefined,
+      year: yearValue,
+      sender: params?.sender || undefined,
+      receiver: params?.receiver || undefined,
+      delivery_method: params?.delivery_method || undefined,
+      doc_date_from: params?.doc_date_from || params?.date_from || undefined,
+      doc_date_to: params?.doc_date_to || params?.date_to || undefined,
+      contract_case: params?.contract_case || undefined,
+    };
+
+    return await apiClient.post('/documents-enhanced/filtered-statistics', queryParams);
   },
 
   /**

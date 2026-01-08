@@ -60,9 +60,7 @@ export const DetailPageLayout: React.FC<DetailPageLayoutProps> = ({
   // Loading 狀態
   if (loading) {
     return (
-      <div style={{ textAlign: 'center', padding: 100 }}>
-        <Spin size="large" tip={loadingTip} />
-      </div>
+      <Spin size="large" tip={loadingTip} fullscreen />
     );
   }
 

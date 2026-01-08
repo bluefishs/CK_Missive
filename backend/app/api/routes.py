@@ -9,7 +9,7 @@ from app.api.endpoints import (
     documents_enhanced, secure_site_management,
     # --- 新增 dashboard 匯入 ---
     dashboard, project_notifications, debug, project_vendors, project_staff,
-    project_agency_contacts
+    project_agency_contacts, system_notifications
 )
 
 api_router = APIRouter()
@@ -23,6 +23,7 @@ api_router.include_router(dashboard.router, prefix="/statistics", tags=["統計"
 api_router.include_router(documents_enhanced.router, prefix="/documents-enhanced", tags=["公文管理 (增強版)"])
 api_router.include_router(projects.router, prefix="/projects", tags=["承攬案件"])
 api_router.include_router(project_notifications.router, prefix="/project-notifications", tags=["專案通知"])
+api_router.include_router(system_notifications.router, prefix="/system-notifications", tags=["系統通知"])
 api_router.include_router(agencies.router, prefix="/agencies", tags=["機關單位"])
 api_router.include_router(vendors.router, prefix="/vendors", tags=["廠商管理"])
 api_router.include_router(project_vendors.router, prefix="/project-vendors", tags=["案件廠商關聯"])

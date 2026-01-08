@@ -241,6 +241,26 @@ def format_error_response(
 # 異常處理器
 # ============================================================================
 
+def _get_cors_headers(request: Request) -> dict:
+    """取得 CORS 標頭，確保錯誤回應也包含正確的 CORS 設定"""
+    origin = request.headers.get("origin", "")
+    allowed_origins = [
+        "http://localhost:3000", "http://localhost:3001", "http://localhost:3002",
+        "http://localhost:3003", "http://localhost:3004", "http://localhost:3005",
+        "http://127.0.0.1:3000", "http://127.0.0.1:3001", "http://127.0.0.1:3002",
+    ]
+
+    # 如果來源在允許清單中，回傳 CORS 標頭
+    if origin in allowed_origins:
+        return {
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+        }
+    return {}
+
+
 async def app_exception_handler(request: Request, exc: AppException) -> JSONResponse:
     """
     自定義異常處理器
@@ -262,7 +282,8 @@ async def app_exception_handler(request: Request, exc: AppException) -> JSONResp
             code=exc.code,
             message=exc.message,
             details=[d.model_dump() for d in exc.details] if exc.details else None
-        )
+        ),
+        headers=_get_cors_headers(request)
     )
 
 
@@ -289,7 +310,8 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
         content=format_error_response(
             code=code,
             message=str(exc.detail)
-        )
+        ),
+        headers=_get_cors_headers(request)
     )
 
 
@@ -322,7 +344,8 @@ async def validation_exception_handler(
             code=ErrorCode.VALIDATION_ERROR,
             message="輸入資料驗證失敗",
             details=details
-        )
+        ),
+        headers=_get_cors_headers(request)
     )
 
 
@@ -345,7 +368,8 @@ async def generic_exception_handler(request: Request, exc: Exception) -> JSONRes
         content=format_error_response(
             code=ErrorCode.INTERNAL_ERROR,
             message="伺服器發生未預期的錯誤，請稍後再試"
-        )
+        ),
+        headers=_get_cors_headers(request)
     )
 
 

@@ -2,8 +2,8 @@
  * 發文新增頁面
  *
  * 採用與 DocumentDetailPage 相同的 TAB 設計：
- * - 公文資訊：發文形式、字號（自動帶入）、發文機關（預設）、受文單位（下拉）、主旨、說明
- * - 承案人資：承攬案件、業務同仁、備註
+ * - 公文資訊：發文形式、字號（自動帶入）、發文機關（預設）、受文單位（下拉）、主旨、說明、備註
+ * - 承案人資：承攬案件、業務同仁
  * - 附件紀錄：附件上傳與管理
  *
  * 特色：
@@ -545,6 +545,10 @@ export const SendDocumentCreatePage: React.FC = () => {
       <Form.Item label="說明" name="content">
         <TextArea rows={4} placeholder="請輸入公文內容說明" maxLength={1000} showCount />
       </Form.Item>
+
+      <Form.Item label="備註" name="notes">
+        <TextArea rows={3} placeholder="請輸入備註" maxLength={500} showCount />
+      </Form.Item>
     </Form>
   );
 
@@ -610,10 +614,6 @@ export const SendDocumentCreatePage: React.FC = () => {
             </Form.Item>
           </Col>
         </Row>
-
-        <Form.Item label="備註" name="notes">
-          <TextArea rows={3} placeholder="請輸入備註（選填）" maxLength={500} showCount />
-        </Form.Item>
       </Form>
     );
   };

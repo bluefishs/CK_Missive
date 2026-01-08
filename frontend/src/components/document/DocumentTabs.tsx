@@ -67,7 +67,8 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
   });
   const [sortField, setSortField] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<SortOrder>(null);
-  const [apiStats, setApiStats] = useState<{total: number; receive: number; send: number} | null>(null);
+  const [filteredStats, setFilteredStats] = useState<{total: number; receive: number; send: number} | null>(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
 
   // Update active tab when filters change
   React.useEffect(() => {
@@ -76,26 +77,52 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
     setActiveTab(newTab);
   }, [filters.category]);
 
-  // Fetch API statistics on component mount
+  // 當篩選條件變更時，重新取得統計數據
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchFilteredStats = async () => {
+      setIsLoadingStats(true);
       try {
-        // 使用新版統一 API（POST-only 資安機制）
-        const stats = await documentsApi.getStatistics();
-        console.log('=== 取得 API 統計數據 ===', stats);
-        setApiStats({
-          total: stats.total || stats.total_documents || 0,
-          receive: stats.receive || stats.receive_count || 0,
-          send: stats.send || stats.send_count || 0,
-        });
+        // 使用新的篩選統計 API
+        // 移除 category 以便取得全部/收文/發文的分類統計
+        const { category: _, page: __, limit: ___, ...filterParams } = filters;
+
+        const stats = await documentsApi.getFilteredStatistics(filterParams);
+        console.log('=== 篩選統計數據 ===', stats, '篩選條件:', filterParams);
+
+        if (stats.success) {
+          setFilteredStats({
+            total: stats.total,
+            receive: stats.receive_count,
+            send: stats.send_count,
+          });
+        }
       } catch (error) {
-        console.error('Failed to fetch statistics:', error);
-        // Fallback to prop-based stats if API fails
-        setApiStats(null);
+        console.error('取得篩選統計失敗:', error);
+        // 降級：使用當前查詢結果的 total
+        setFilteredStats({
+          total: total,
+          receive: 0,
+          send: 0,
+        });
+      } finally {
+        setIsLoadingStats(false);
       }
     };
-    fetchStats();
-  }, []);
+
+    fetchFilteredStats();
+  }, [
+    filters.search,
+    filters.keyword,
+    filters.doc_type,
+    filters.year,
+    filters.sender,
+    filters.receiver,
+    filters.delivery_method,
+    filters.doc_date_from,
+    filters.doc_date_to,
+    filters.contract_case,
+    total, // 當總數變化時也重新取得統計
+  ]);
 
   // Handle tab changes by updating filters
   const handleTabChange = (tabKey: string) => {
@@ -145,15 +172,14 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
     }
   };
 
-  // Use API statistics for tab badges
+  // 使用篩選後的統計數據顯示 Tab 標籤
   const effectiveStats = {
-    total: apiStats?.total ?? (totalAll || total || documents.length),
-    received: apiStats?.receive ?? (totalReceived || 0),
-    sent: apiStats?.send ?? (totalSent || 0),
+    total: filteredStats?.total ?? (totalAll || total || documents.length),
+    received: filteredStats?.receive ?? (totalReceived || 0),
+    sent: filteredStats?.send ?? (totalSent || 0),
   };
 
-  console.log('=== 有效統計數據 ===', effectiveStats);
-  console.log('=== API統計狀態 ===', apiStats);
+  console.log('=== 有效統計數據 (篩選後) ===', effectiveStats, isLoadingStats ? '(載入中...)' : '');
   const tabItems = [
     {
       key: 'all',

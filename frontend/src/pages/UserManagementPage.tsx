@@ -1,20 +1,25 @@
 /**
  * 使用者權限管理頁面
- * @description 提供使用者帳號、角色與權限的管理功能
+ *
+ * 架構說明：
+ * - React Query: 唯一的伺服器資料來源（使用者列表、權限）
+ * - Zustand: 不使用（本頁面無需跨頁面共享狀態）
+ * - Mutation Hooks: 處理建立/更新/刪除，自動失效快取
+ *
+ * @version 2.0.0 - 優化為 React Query 架構
+ * @date 2026-01-08
  */
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   Card, Table, Button, Space, Input, Select, App, Row, Col, Typography,
   Modal, AutoComplete
 } from 'antd';
 import type { TableProps } from 'antd';
-import type { SorterResult } from 'antd/es/table/interface';
 import debounce from 'lodash/debounce';
 import {
   PlusOutlined, SearchOutlined, TeamOutlined,
   DeleteOutlined, StopOutlined, CheckOutlined
 } from '@ant-design/icons';
-import axios from 'axios';
 import authService, { type UserInfo } from '../services/authService';
 import { logger } from '../utils/logger';
 import {
@@ -25,28 +30,11 @@ import {
 import { createUserTableColumns } from '../config/userTableColumns';
 import UserEditModal from '../components/admin/UserEditModal';
 import UserPermissionModal from '../components/admin/UserPermissionModal';
-import type { User, Permission, UserPermissions, UserPagination } from '../types/user';
-
-// API 配置
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001') + '/api';
-
-// 創建配置好的 axios 實例
-const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 10000,
-});
-
-// 添加請求攔截器
-apiClient.interceptors.request.use(
-  (config) => {
-    const token = authService.getAccessToken();
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+import type { User, UserPermissions } from '../types/user';
+import {
+  useAdminUsersPage,
+  useUserPermissions,
+} from '../hooks';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -54,10 +42,9 @@ const { Option } = Select;
 const UserManagementPage: React.FC = () => {
   const { message } = App.useApp();
 
-  // 使用者列表狀態
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [currentLoggedInUser, setCurrentLoggedInUser] = useState<UserInfo | null>(null);
+  // ============================================================================
+  // UI 狀態（本地狀態）
+  // ============================================================================
 
   // 篩選狀態
   const [searchText, setSearchText] = useState('');
@@ -65,92 +52,63 @@ const UserManagementPage: React.FC = () => {
   const [providerFilter, setProviderFilter] = useState<string>('');
   const [searchOptions, setSearchOptions] = useState<{ value: string; label: string }[]>([]);
 
+  // 分頁狀態
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
   // Modal 狀態
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [permissionModalVisible, setPermissionModalVisible] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-  // 權限相關
-  const [userPermissions, setUserPermissions] = useState<UserPermissions | null>(null);
-  const [roles, setRoles] = useState<Permission[]>([]);
-
   // 選擇狀態
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
 
-  // 分頁狀態
-  const [pagination, setPagination] = useState<UserPagination>({
-    current: 1,
-    pageSize: 20,
-    total: 0,
-  });
-
-  // ==================== API 呼叫 ====================
-
-  const fetchCurrentUser = useCallback(async () => {
-    try {
-      const userInfo = authService.getUserInfo();
-      if (userInfo) {
-        setCurrentLoggedInUser(userInfo);
-      }
-    } catch (error) {
-      logger.error('Failed to get current user info:', error);
-    }
+  // 當前登入使用者
+  const currentLoggedInUser = useMemo<UserInfo | null>(() => {
+    return authService.getUserInfo();
   }, []);
 
-  const fetchUsers = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await apiClient.get('/admin/user-management/users', {
-        params: {
-          page: pagination.current,
-          per_page: pagination.pageSize,
-          q: searchText || undefined,
-          role: roleFilter || undefined,
-          auth_provider: providerFilter || undefined,
-        },
-      });
+  // ============================================================================
+  // React Query: 唯一的伺服器資料來源
+  // ============================================================================
 
-      setUsers(response.data.users);
-      setPagination(prev => ({ ...prev, total: response.data.total }));
-    } catch (error) {
-      logger.error('載入使用者列表失敗:', error);
-      message.error('載入使用者列表失敗，請稍後重試');
-      setUsers([]);
-      setPagination(prev => ({ ...prev, total: 0 }));
-    } finally {
-      setLoading(false);
-    }
-  }, [pagination.current, pagination.pageSize, searchText, roleFilter, providerFilter, message]);
+  const queryParams = useMemo(() => ({
+    page: currentPage,
+    per_page: pageSize,
+    ...(searchText && { q: searchText }),
+    ...(roleFilter && { role: roleFilter }),
+    ...(providerFilter && { auth_provider: providerFilter }),
+  }), [currentPage, pageSize, searchText, roleFilter, providerFilter]);
 
-  const fetchAvailablePermissions = useCallback(async () => {
-    try {
-      const response = await apiClient.get('/admin/user-management/permissions/available');
-      setRoles(response.data.roles);
-    } catch (error) {
-      logger.error('載入權限資料失敗:', error);
-      message.error('載入權限資料失敗，請稍後重試');
-      setRoles([]);
-    }
-  }, [message]);
+  const {
+    users,
+    total,
+    isLoading,
+    roles,
+    refetch,
+    createUser,
+    updateUser,
+    deleteUser,
+    updatePermissions,
+    batchUpdateStatus,
+    batchDelete,
+    batchUpdateRole,
+    isCreating,
+    isUpdating,
+    isDeleting,
+    isBatchUpdating,
+  } = useAdminUsersPage(queryParams);
 
-  const fetchUserPermissions = useCallback(async (userId: number) => {
-    try {
-      const response = await apiClient.get(`/admin/user-management/users/${userId}/permissions`);
-      setUserPermissions(response.data);
-    } catch (error) {
-      logger.error('載入使用者權限失敗:', error);
-      message.error('載入使用者權限失敗，請稍後重試');
-      setUserPermissions(null);
-    }
-  }, [message]);
+  // 使用者權限查詢（當 permissionModal 開啟時才查詢）
+  const {
+    data: userPermissions,
+    isLoading: isPermissionsLoading,
+  } = useUserPermissions(permissionModalVisible ? currentUser?.id ?? null : null);
 
-  useEffect(() => {
-    fetchUsers();
-    fetchAvailablePermissions();
-    fetchCurrentUser();
-  }, [pagination.current, pagination.pageSize, searchText, roleFilter, providerFilter]);
-
-  // ==================== 搜尋處理 ====================
+  // ============================================================================
+  // 搜尋處理
+  // ============================================================================
 
   const handleAutoCompleteSearch = useCallback(
     debounce(async (searchValue: string) => {
@@ -158,50 +116,42 @@ const UserManagementPage: React.FC = () => {
         setSearchOptions([]);
         return;
       }
-      try {
-        const response = await apiClient.get('/admin/user-management/users', {
-          params: { q: searchValue, per_page: 10 }
-        });
-        if (response.data?.users) {
-          setSearchOptions(response.data.users.map((user: User) => ({
-            value: user.email,
-            label: `${user.full_name || user.username} (${user.email})`
-          })));
-        }
-      } catch (error) {
-        logger.error('搜尋失敗', error);
-      }
+      // 使用當前查詢的 users 進行過濾（避免額外 API 呼叫）
+      const filtered = users.filter((user: User) =>
+        user.email.toLowerCase().includes(searchValue.toLowerCase()) ||
+        (user.full_name && user.full_name.toLowerCase().includes(searchValue.toLowerCase())) ||
+        user.username.toLowerCase().includes(searchValue.toLowerCase())
+      );
+      setSearchOptions(filtered.slice(0, 10).map((user: User) => ({
+        value: user.email,
+        label: `${user.full_name || user.username} (${user.email})`
+      })));
     }, 300),
-    []
+    [users]
   );
 
   const handleTableChange: TableProps<User>['onChange'] = useCallback((
     paginationInfo: any,
-    _filters: any,
-    _sorter: any
   ) => {
-    // 處理分頁變更
     if (paginationInfo) {
-      setPagination(prev => ({
-        ...prev,
-        current: paginationInfo.current || 1,
-        pageSize: paginationInfo.pageSize || 20,
-      }));
+      setCurrentPage(paginationInfo.current || 1);
+      setPageSize(paginationInfo.pageSize || 20);
     }
   }, []);
 
-  // ==================== 使用者操作 ====================
+  // ============================================================================
+  // 使用者操作（使用 Mutation Hooks）
+  // ============================================================================
 
   const handleEdit = useCallback((user: User) => {
     setCurrentUser(user);
     setEditModalVisible(true);
   }, []);
 
-  const handleEditPermissions = useCallback(async (user: User) => {
+  const handleEditPermissions = useCallback((user: User) => {
     setCurrentUser(user);
     setPermissionModalVisible(true);
-    await fetchUserPermissions(user.id);
-  }, [fetchUserPermissions]);
+  }, []);
 
   const handleUpdateUser = useCallback(async (values: any) => {
     try {
@@ -212,15 +162,14 @@ const UserManagementPage: React.FC = () => {
       delete updateData.status;
 
       if (currentUser) {
-        await apiClient.put(`/admin/user-management/users/${currentUser.id}`, updateData);
+        await updateUser({ userId: currentUser.id, data: updateData });
         message.success('使用者資訊更新成功');
       } else {
-        await apiClient.post('/admin/user-management/users', updateData);
+        await createUser(updateData);
         message.success('新增使用者成功');
       }
 
       setEditModalVisible(false);
-      fetchUsers();
     } catch (error: any) {
       logger.error('Failed to save user:', error);
       let errorMessage = currentUser ? '更新使用者失敗' : '新增使用者失敗';
@@ -241,44 +190,44 @@ const UserManagementPage: React.FC = () => {
 
       message.error(errorMessage);
     }
-  }, [currentUser, message, fetchUsers]);
+  }, [currentUser, message, updateUser, createUser]);
 
   const handleUpdatePermissions = useCallback(async (values: any) => {
     if (!currentUser) return;
 
     try {
-      await apiClient.put(
-        `/admin/user-management/users/${currentUser.id}/permissions`,
-        {
+      await updatePermissions({
+        userId: currentUser.id,
+        data: {
           user_id: currentUser.id,
           permissions: values.permissions || [],
           role: values.role,
-        }
-      );
+        },
+      });
 
       message.success('使用者權限更新成功');
       setPermissionModalVisible(false);
-      fetchUsers();
     } catch (error: any) {
       logger.error('Failed to update permissions:', error);
       const errorMessage = error.response?.data?.detail || '更新權限失敗';
       message.error(errorMessage);
     }
-  }, [currentUser, message, fetchUsers]);
+  }, [currentUser, message, updatePermissions]);
 
   const handleDeleteUser = useCallback(async (userId: number) => {
     try {
-      await apiClient.delete(`/admin/user-management/users/${userId}`);
+      await deleteUser(userId);
       message.success('使用者已刪除');
-      fetchUsers();
     } catch (error: any) {
       logger.error('Failed to delete user:', error);
       const errorMessage = error.response?.data?.detail || '刪除使用者失敗';
       message.error(errorMessage);
     }
-  }, [message, fetchUsers]);
+  }, [message, deleteUser]);
 
-  // ==================== 批量操作 ====================
+  // ============================================================================
+  // 批量操作
+  // ============================================================================
 
   const handleBatchDelete = useCallback(async () => {
     if (selectedRowKeys.length === 0) {
@@ -291,19 +240,16 @@ const UserManagementPage: React.FC = () => {
       content: `確定要刪除選中的 ${selectedRowKeys.length} 個使用者嗎？`,
       onOk: async () => {
         try {
-          for (const userId of selectedRowKeys) {
-            await apiClient.delete(`/admin/user-management/users/${userId}`);
-          }
+          await batchDelete(selectedRowKeys as number[]);
           message.success(`已成功刪除 ${selectedRowKeys.length} 個使用者`);
           setSelectedRowKeys([]);
-          fetchUsers();
         } catch (error: any) {
           logger.error('Batch delete failed:', error);
           message.error('批量刪除失敗');
         }
       },
     });
-  }, [selectedRowKeys, message, fetchUsers]);
+  }, [selectedRowKeys, message, batchDelete]);
 
   const handleBatchStatusChange = useCallback(async (status: string) => {
     if (selectedRowKeys.length === 0) {
@@ -314,20 +260,18 @@ const UserManagementPage: React.FC = () => {
     const statusName = getStatusDisplayName(status);
 
     try {
-      for (const userId of selectedRowKeys) {
-        await apiClient.put(
-          `/admin/user-management/users/${userId}`,
-          { status, is_active: status === 'active' }
-        );
-      }
+      await batchUpdateStatus({
+        userIds: selectedRowKeys as number[],
+        status,
+        isActive: status === 'active',
+      });
       message.success(`已成功將 ${selectedRowKeys.length} 個使用者狀態更新為 ${statusName}`);
       setSelectedRowKeys([]);
-      fetchUsers();
     } catch (error: any) {
       logger.error('Batch status update failed:', error);
       message.error('批量更新狀態失敗');
     }
-  }, [selectedRowKeys, message, fetchUsers]);
+  }, [selectedRowKeys, message, batchUpdateStatus]);
 
   const handleBatchRoleChange = useCallback(async (role: string) => {
     if (selectedRowKeys.length === 0) {
@@ -343,29 +287,20 @@ const UserManagementPage: React.FC = () => {
       onOk: async () => {
         try {
           const defaultPermissions = getRoleDefaultPermissions(role);
-
-          for (const userId of selectedRowKeys) {
-            await apiClient.put(
-              `/admin/user-management/users/${userId}`,
-              { role, status: 'active', is_active: true }
-            );
-
-            await apiClient.put(
-              `/admin/user-management/users/${userId}/permissions`,
-              { user_id: userId, permissions: defaultPermissions, role }
-            );
-          }
-
+          await batchUpdateRole({
+            userIds: selectedRowKeys as number[],
+            role,
+            permissions: defaultPermissions,
+          });
           message.success(`已成功驗證 ${selectedRowKeys.length} 個使用者為 ${roleName}`);
           setSelectedRowKeys([]);
-          fetchUsers();
         } catch (error: any) {
           logger.error('Batch role update failed:', error);
           message.error('批量驗證失敗');
         }
       },
     });
-  }, [selectedRowKeys, message, fetchUsers]);
+  }, [selectedRowKeys, message, batchUpdateRole]);
 
   const handleRoleChange = useCallback((role: string) => {
     const selectedRole = roles.find(r => r.name === role);
@@ -374,7 +309,9 @@ const UserManagementPage: React.FC = () => {
     }
   }, [roles]);
 
-  // ==================== 表格欄位 ====================
+  // ============================================================================
+  // 表格欄位
+  // ============================================================================
 
   const columns = useMemo(() => createUserTableColumns({
     onEdit: handleEdit,
@@ -382,7 +319,9 @@ const UserManagementPage: React.FC = () => {
     onDelete: handleDeleteUser,
   }), [handleEdit, handleEditPermissions, handleDeleteUser]);
 
-  // ==================== 渲染 ====================
+  // ============================================================================
+  // 渲染
+  // ============================================================================
 
   return (
     <div style={{ padding: '24px' }}>
@@ -414,18 +353,21 @@ const UserManagementPage: React.FC = () => {
                       type="primary"
                       icon={<CheckOutlined />}
                       onClick={() => handleBatchRoleChange('user')}
+                      loading={isBatchUpdating}
                     >
                       批量驗證為使用者 ({selectedRowKeys.length})
                     </Button>
                     <Button
                       icon={<CheckOutlined />}
                       onClick={() => handleBatchStatusChange('active')}
+                      loading={isBatchUpdating}
                     >
                       批量啟用
                     </Button>
                     <Button
                       icon={<StopOutlined />}
                       onClick={() => handleBatchStatusChange('suspended')}
+                      loading={isBatchUpdating}
                     >
                       批量暫停
                     </Button>
@@ -433,6 +375,7 @@ const UserManagementPage: React.FC = () => {
                       danger
                       icon={<DeleteOutlined />}
                       onClick={handleBatchDelete}
+                      loading={isBatchUpdating}
                     >
                       批量刪除
                     </Button>
@@ -457,7 +400,7 @@ const UserManagementPage: React.FC = () => {
                 prefix={<SearchOutlined />}
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
-                onPressEnter={() => fetchUsers()}
+                onPressEnter={() => refetch()}
                 allowClear
               />
             </AutoComplete>
@@ -488,7 +431,7 @@ const UserManagementPage: React.FC = () => {
             </Select>
           </Col>
           <Col span={4}>
-            <Button type="primary" onClick={() => fetchUsers()}>
+            <Button type="primary" onClick={() => refetch()}>
               搜尋
             </Button>
           </Col>
@@ -498,7 +441,7 @@ const UserManagementPage: React.FC = () => {
         <Table
           columns={columns}
           dataSource={users}
-          loading={loading}
+          loading={isLoading || isDeleting}
           rowKey="id"
           onChange={handleTableChange}
           onRow={(record) => ({
@@ -513,19 +456,16 @@ const UserManagementPage: React.FC = () => {
             }),
           }}
           pagination={{
-            current: pagination.current,
-            pageSize: pagination.pageSize,
-            total: pagination.total,
+            current: currentPage,
+            pageSize: pageSize,
+            total: total,
             showSizeChanger: true,
             showQuickJumper: true,
             showTotal: (total, range) =>
               `第 ${range[0]}-${range[1]} 項，共 ${total} 項`,
-            onChange: (page, pageSize) => {
-              setPagination(prev => ({
-                ...prev,
-                current: page,
-                pageSize: pageSize || 20,
-              }));
+            onChange: (page, size) => {
+              setCurrentPage(page);
+              setPageSize(size || 20);
             },
           }}
         />
@@ -544,7 +484,7 @@ const UserManagementPage: React.FC = () => {
       <UserPermissionModal
         visible={permissionModalVisible}
         user={currentUser}
-        userPermissions={userPermissions}
+        userPermissions={userPermissions ?? null}
         roles={roles}
         currentLoggedInUser={currentLoggedInUser}
         onSubmit={handleUpdatePermissions}

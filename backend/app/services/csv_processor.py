@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """
 公文CSV處理器 - 完整17欄位對應版本
-確保與資料庫模型完全對應的CSV匯入處理器
+
+確保與資料庫模型完全對應的CSV匯入處理器。
+使用共用驗證器確保資料一致性。
 """
 import logging
 import pandas as pd
@@ -9,6 +11,8 @@ import io
 import re
 from typing import Dict, Any, List, Optional
 from datetime import datetime
+
+from app.services.base.validators import DocumentValidators, StringCleaners, DateParsers
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +28,7 @@ class DocumentCSVProcessor:
             '公文字號': 'doc_number',  # 最終組合後的完整公文字號
             '日期': 'doc_date',       # 西元日期
             '公文日期': 'roc_date',   # 民國日期（原始）
-            '類別': 'doc_class',
+            '類別': 'doc_type',  # 修正：CSV「類別」欄位值為「函/開會通知單」，對應 doc_type
             '字': 'doc_word',         # 來自 CSV
             '文號': 'legacy_doc_number', # 來自 CSV，用於組合公文字號
             '主旨': 'subject',
@@ -42,7 +46,7 @@ class DocumentCSVProcessor:
             '編號': 'auto_serial',
             '狀態': 'status',
             '辦理情形': 'status',
-            '發文日期': 'doc_date',
+            '發文日期': 'send_date',  # 修正：發文日期應對應 send_date
             '使用者確認': 'system_output_date',
             '類型': 'doc_type',
             '收發類型': 'doc_type'
@@ -362,6 +366,18 @@ class DocumentCSVProcessor:
             if 'system_output_date' in result and result['system_output_date']:
                 result['system_output_date'] = self._parse_date(result['system_output_date'])
 
+            # 發文日期處理（CSV 格式如 2025-12-26 11:05:52）
+            if 'send_date' in result and result['send_date']:
+                send_date = result['send_date']
+                if send_date and len(str(send_date)) >= 10:
+                    try:
+                        parsed_date = pd.to_datetime(send_date)
+                        result['send_date'] = parsed_date.strftime('%Y-%m-%d')
+                    except:
+                        result['send_date'] = self._parse_date(send_date)
+                else:
+                    result['send_date'] = self._parse_date(send_date)
+
             # 3. 公文字號組合處理
             if not result.get('doc_number') and result.get('doc_word') and result.get('legacy_doc_number'):
                 result['doc_number'] = f"{result['doc_word']}字第{result['legacy_doc_number']}號"
@@ -384,18 +400,45 @@ class DocumentCSVProcessor:
                 return None
 
             # 驗證主旨內容 (不能是測試資料)
-            subject = result.get('subject', '').strip().lower()
-            if subject in ['test', 'testing', '測試', '']:
-                logger.warning(f"[資料品質] 主旨為測試資料或空白，跳過此筆: subject='{result.get('subject')}', doc_number='{doc_number}'")
+            subject = result.get('subject', '').strip()
+            subject_lower = subject.lower()
+
+            # 測試資料模式列表
+            TEST_PATTERNS = [
+                'test', 'testing', 'demo', 'sample', 'example',
+                '測試', '範例', '樣本', 'test update', 'test data',
+                'xxx', 'aaa', 'bbb', 'asdf', 'qwerty'
+            ]
+
+            # 檢查是否為測試資料
+            is_test_data = (
+                subject_lower in TEST_PATTERNS or
+                any(pattern in subject_lower for pattern in TEST_PATTERNS) or
+                subject == ''
+            )
+
+            if is_test_data:
+                logger.warning(
+                    f"[資料品質] 主旨疑似測試資料，跳過此筆: "
+                    f"subject='{result.get('subject')}', doc_number='{doc_number}'"
+                )
                 return None
 
             # 驗證主旨長度 (正常公文主旨通常大於10字)
-            if len(result.get('subject', '')) < 5:
-                logger.warning(f"[資料品質] 主旨過短 (少於5字)，可能為無效資料: subject='{result.get('subject')}', doc_number='{doc_number}'")
+            if len(subject) < 5:
+                logger.warning(
+                    f"[資料品質] 主旨過短 (少於5字)，可能為無效資料: "
+                    f"subject='{result.get('subject')}', doc_number='{doc_number}'"
+                )
 
-            # 5. 設定預設值
-            if not result.get('doc_type'):
-                result['doc_type'] = '收文'  # 預設為收文
+            # 5. doc_type 驗證與預設值（使用共用驗證器）
+            current_doc_type = result.get('doc_type', '').strip()
+            validated_doc_type = DocumentValidators.validate_doc_type(current_doc_type, auto_fix=True)
+
+            if current_doc_type and current_doc_type != validated_doc_type:
+                logger.warning(f"[資料品質] doc_type 值 '{current_doc_type}' 不在白名單中，自動修正為「{validated_doc_type}」")
+
+            result['doc_type'] = validated_doc_type
 
             if not result.get('status'):
                 result['status'] = '待處理'  # 預設狀態

@@ -410,3 +410,149 @@ async def fix_agency_parsed_names(
             fixed_count=0,
             details=[]
         )
+
+
+# ============================================================================
+# 智慧機關關聯 API
+# ============================================================================
+
+class AssociationSummary(BaseModel):
+    """機關關聯統計"""
+    total_documents: int = Field(..., description="公文總數")
+    sender_associated: int = Field(..., description="已關聯發文機關")
+    sender_unassociated: int = Field(..., description="未關聯發文機關")
+    receiver_associated: int = Field(..., description="已關聯受文機關")
+    receiver_unassociated: int = Field(..., description="未關聯受文機關")
+    association_rate: dict = Field(..., description="關聯率")
+
+
+class BatchAssociateRequest(BaseModel):
+    """批次關聯請求"""
+    overwrite: bool = Field(default=False, description="是否覆蓋現有關聯")
+
+
+class BatchAssociateResponse(BaseModel):
+    """批次關聯回應"""
+    success: bool
+    message: str
+    total_documents: int = 0
+    sender_updated: int = 0
+    receiver_updated: int = 0
+    sender_matched: int = 0
+    receiver_matched: int = 0
+    errors: List[str] = []
+
+
+class AgencySuggestRequest(BaseModel):
+    """機關建議請求"""
+    text: str = Field(..., min_length=2, description="搜尋文字")
+    limit: int = Field(default=5, ge=1, le=20, description="回傳數量")
+
+
+class AgencySuggestResponse(BaseModel):
+    """機關建議回應"""
+    success: bool = True
+    suggestions: List[dict] = []
+
+
+@router.post(
+    "/association-summary",
+    response_model=AssociationSummary,
+    summary="取得機關關聯統計"
+)
+async def get_association_summary(
+    db: AsyncSession = Depends(get_async_db),
+    agency_service: AgencyService = Depends()
+):
+    """
+    取得公文與機關關聯的統計資料
+
+    回傳包含：
+    - 已關聯/未關聯發文機關數量
+    - 已關聯/未關聯受文機關數量
+    - 關聯率百分比
+    """
+    return await agency_service.get_unassociated_summary(db)
+
+
+@router.post(
+    "/batch-associate",
+    response_model=BatchAssociateResponse,
+    summary="批次智慧關聯機關"
+)
+async def batch_associate_agencies(
+    request: BatchAssociateRequest = Body(default=BatchAssociateRequest()),
+    db: AsyncSession = Depends(get_async_db),
+    agency_service: AgencyService = Depends()
+):
+    """
+    批次為所有公文自動關聯機關
+
+    智慧匹配規則：
+    1. 優先匹配機關代碼
+    2. 完全匹配機關名稱
+    3. 完全匹配機關簡稱
+    4. 部分匹配（機關名稱包含在文字中）
+
+    Args:
+        request: 包含 overwrite 參數（是否覆蓋現有關聯）
+    """
+    try:
+        stats = await agency_service.batch_associate_agencies(
+            db, overwrite=request.overwrite
+        )
+
+        message_parts = []
+        if stats["sender_updated"] > 0 or stats["receiver_updated"] > 0:
+            message_parts.append(
+                f"成功關聯：發文機關 {stats['sender_updated']} 筆、"
+                f"受文機關 {stats['receiver_updated']} 筆"
+            )
+        else:
+            message_parts.append("沒有新的機關可供關聯")
+
+        if stats["errors"]:
+            message_parts.append(f"（{len(stats['errors'])} 個錯誤）")
+
+        return BatchAssociateResponse(
+            success=len(stats["errors"]) == 0,
+            message="".join(message_parts),
+            total_documents=stats["total_documents"],
+            sender_updated=stats["sender_updated"],
+            receiver_updated=stats["receiver_updated"],
+            sender_matched=stats["sender_matched"],
+            receiver_matched=stats["receiver_matched"],
+            errors=stats["errors"][:10]  # 只回傳前 10 個錯誤
+        )
+    except Exception as e:
+        logger.error(f"批次關聯機關失敗: {e}", exc_info=True)
+        return BatchAssociateResponse(
+            success=False,
+            message=f"關聯失敗: {str(e)}",
+            errors=[str(e)]
+        )
+
+
+@router.post(
+    "/suggest",
+    response_model=AgencySuggestResponse,
+    summary="智慧建議機關"
+)
+async def suggest_agencies(
+    request: AgencySuggestRequest = Body(...),
+    db: AsyncSession = Depends(get_async_db),
+    agency_service: AgencyService = Depends()
+):
+    """
+    根據輸入文字智慧建議可能的機關
+
+    用於表單自動完成，支援模糊搜尋機關名稱、簡稱、代碼
+    """
+    try:
+        suggestions = await agency_service.suggest_agency(
+            db, text=request.text, limit=request.limit
+        )
+        return AgencySuggestResponse(success=True, suggestions=suggestions)
+    except Exception as e:
+        logger.error(f"機關建議失敗: {e}", exc_info=True)
+        return AgencySuggestResponse(success=False, suggestions=[])

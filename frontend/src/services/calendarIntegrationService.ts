@@ -210,13 +210,16 @@ class CalendarIntegrationService {
     try {
       const eventData = this.convertDocumentToEventData(document);
 
-      // 發送到正確的端點
+      // 發送到正確的端點，並加入 document_id
       const response = await fetch(
-        `${API_BASE_URL}/document-calendar/documents/${document.id}/local-events`,
+        `${API_BASE_URL}/calendar/events`,
         {
           method: 'POST',
           headers: this.getAuthHeaders(),
-          body: JSON.stringify(eventData)
+          body: JSON.stringify({
+            ...eventData,
+            document_id: document.id
+          })
         }
       );
 
@@ -301,17 +304,23 @@ class CalendarIntegrationService {
    */
   async isDocumentInCalendar(documentId: number): Promise<boolean> {
     try {
+      // 使用 events/list 端點查詢與此公文相關的事件
       const response = await fetch(
-        `${API_BASE_URL}/document-calendar/documents/${documentId}/events`,
+        `${API_BASE_URL}/calendar/events/list`,
         {
-          method: 'GET',
+          method: 'POST',
           headers: this.getAuthHeaders(),
+          body: JSON.stringify({
+            document_id: documentId,
+            page: 1,
+            page_size: 1
+          })
         }
       );
 
       if (response.ok) {
-        const events = await response.json();
-        return Array.isArray(events) && events.length > 0;
+        const result = await response.json();
+        return result.success && result.total > 0;
       }
 
       return false;
@@ -329,25 +338,61 @@ class CalendarIntegrationService {
     message: string;
   }> {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/document-calendar/documents/${documentId}/events`,
+      // 先取得與此公文相關的所有事件
+      const listResponse = await fetch(
+        `${API_BASE_URL}/calendar/events/list`,
         {
-          method: 'DELETE',
+          method: 'POST',
           headers: this.getAuthHeaders(),
+          body: JSON.stringify({
+            document_id: documentId,
+            page: 1,
+            page_size: 100
+          })
         }
       );
 
-      if (response.ok) {
-        return {
-          success: true,
-          message: '已從日曆中移除相關事件'
-        };
-      } else {
+      if (!listResponse.ok) {
         return {
           success: false,
-          message: '從日曆移除事件失敗'
+          message: '無法取得公文相關事件'
         };
       }
+
+      const listResult = await listResponse.json();
+      const events = listResult.events || [];
+
+      if (events.length === 0) {
+        return {
+          success: true,
+          message: '此公文沒有相關的日曆事件'
+        };
+      }
+
+      // 刪除所有相關事件
+      let deletedCount = 0;
+      for (const event of events) {
+        const deleteResponse = await fetch(
+          `${API_BASE_URL}/calendar/events/delete`,
+          {
+            method: 'POST',
+            headers: this.getAuthHeaders(),
+            body: JSON.stringify({
+              event_id: event.id,
+              confirm: true
+            })
+          }
+        );
+
+        if (deleteResponse.ok) {
+          deletedCount++;
+        }
+      }
+
+      return {
+        success: deletedCount > 0,
+        message: `已從日曆中移除 ${deletedCount} 個相關事件`
+      };
     } catch (error) {
       console.error('從日曆移除事件失敗:', error);
       return {

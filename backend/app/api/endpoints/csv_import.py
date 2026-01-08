@@ -1,7 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-CSV匯入API端點 (使用 DocumentImportService 完整處理)
-支援單檔及多檔批次上傳
+電子公文檔匯入 API 端點 (CSV 格式)
+
+用途：匯入電子公文系統匯出的 CSV 檔案
+- receiveList.csv (收文清單)
+- sendList.csv (發文清單)
+
+與「手動公文匯入」(Excel) 的差異：
+- CSV 匯入：電子公文系統匯出的固定格式
+- Excel 匯入：本系統匯出格式，支援新增/更新
 """
 import logging
 from typing import List
@@ -16,14 +23,20 @@ from app.extended.models import User
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-@router.post("/upload-and-import", summary="上傳並匯入公文CSV檔案")
+@router.post("/upload-and-import", summary="電子公文檔匯入（CSV）")
 async def upload_and_import_csv(
-    file: UploadFile = File(..., description="要上傳的CSV檔案"),
+    file: UploadFile = File(..., description="要上傳的CSV檔案（電子公文系統匯出）"),
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    接收使用者上傳的 CSV 檔案，進行處理並將公文資料匯入資料庫。
+    電子公文檔匯入（CSV 格式）
+
+    適用檔案：
+    - receiveList.csv (收文清單)
+    - sendList.csv (發文清單)
+
+    處理功能：
     - 自動偵測 CSV 標頭行（支援前幾行為說明資訊的格式）
     - 自動整合智慧型關聯 (機關、案件)
     - 組合公文字號（格式：{字}字第{文號}號）

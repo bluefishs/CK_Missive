@@ -10,24 +10,44 @@ import { API_BASE_URL } from '../api/client';
 export const exportDocumentsToExcel = async (
   documents: Document[],
   filename?: string,
-  filters?: DocumentFilter
+  filters?: DocumentFilter,
+  exportAll: boolean = true  // 預設匯出全部
 ): Promise<void> => {
-  if (!documents || documents.length === 0) {
-    console.warn('沒有文件可以匯出');
-    throw new Error('沒有可匯出的文件。');
+  // 構建請求體
+  const requestBody: {
+    document_ids?: number[];
+    category?: string;
+    year?: number;
+    keyword?: string;
+    status?: string;
+  } = {};
+
+  // 如果不是匯出全部，才傳入 document_ids（用於批次匯出選定項目）
+  if (!exportAll && documents && documents.length > 0) {
+    requestBody.document_ids = documents.map(doc => doc.id);
   }
 
-  const documentIds = documents.map(doc => doc.id);
+  // 加入篩選條件（讓後端根據篩選條件匯出全部符合的資料）
+  if (filters?.doc_type) {
+    requestBody.category = filters.doc_type;
+  }
+  if (filters?.year) {
+    requestBody.year = filters.year;
+  }
+  if (filters?.keyword) {
+    requestBody.keyword = filters.keyword;
+  }
+  if (filters?.status) {
+    requestBody.status = filters.status;
+  }
 
   try {
-    const response = await fetch(`${API_BASE_URL}/documents/export/excel`, {
+    const response = await fetch(`${API_BASE_URL}/documents-enhanced/export/excel`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        // 如果需要，加入授權 token
-        // 'Authorization': `Bearer ${your_token_here}`
       },
-      body: JSON.stringify(documentIds),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
@@ -37,14 +57,23 @@ export const exportDocumentsToExcel = async (
 
     const blob = await response.blob();
 
-    // 從 Content-Disposition 標頭獲取檔名 (如果後端有設定)
+    // 從 Content-Disposition 標頭獲取檔名 (支援 RFC 5987 UTF-8 編碼)
     const disposition = response.headers.get('Content-Disposition');
     let finalFilename = filename || generateFilename(filters);
     if (disposition && disposition.indexOf('attachment') !== -1) {
-      const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
-      const matches = filenameRegex.exec(disposition);
-      if (matches != null && matches[1]) {
-        finalFilename = matches[1].replace(/['"]/g, '');
+      // 優先解析 filename*=UTF-8''... 格式 (RFC 5987)
+      const utf8Regex = /filename\*=UTF-8''([^;\s]+)/i;
+      const utf8Matches = utf8Regex.exec(disposition);
+      if (utf8Matches != null && utf8Matches[1]) {
+        // URL 解碼並移除 .xlsx 副檔名（後面會加回）
+        finalFilename = decodeURIComponent(utf8Matches[1]).replace(/\.xlsx$/i, '');
+      } else {
+        // Fallback: 解析一般 filename=... 格式
+        const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+        const matches = filenameRegex.exec(disposition);
+        if (matches != null && matches[1]) {
+          finalFilename = matches[1].replace(/['"]/g, '').replace(/\.xlsx$/i, '');
+        }
       }
     }
 
@@ -132,6 +161,6 @@ export const exportDocumentsByType = async (
   const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
   const finalFilename = `${filename}_${dateStr}`;
 
-  // 改為呼叫非同步版本的 exportDocumentsToExcel
-  await exportDocumentsToExcel(filteredDocs, finalFilename);
+  // 批次匯出選定的文件 (exportAll: false)
+  await exportDocumentsToExcel(filteredDocs, finalFilename, undefined, false);
 };

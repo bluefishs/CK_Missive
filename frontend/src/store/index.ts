@@ -1,3 +1,10 @@
-// Store index (deprecated - use src/stores/index.ts)
-// Re-export from new stores location for compatibility
-export { useDocumentsStore } from '../stores';
+/**
+ * Store 統一導出
+ *
+ * @version 2.1
+ * @date 2026-01-08
+ */
+
+// 業務 Store
+export { useDocumentsStore } from './documents';
+export type { DocumentsState } from './documents';

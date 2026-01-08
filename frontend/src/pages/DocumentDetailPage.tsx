@@ -722,6 +722,10 @@ export const DocumentDetailPage: React.FC = () => {
         <TextArea rows={4} placeholder="請輸入公文內容說明" maxLength={1000} showCount />
       </Form.Item>
 
+      <Form.Item label="備註" name="notes">
+        <TextArea rows={3} placeholder="請輸入備註" maxLength={500} showCount />
+      </Form.Item>
+
       {/* 唯讀模式下顯示系統資訊 */}
       {!isEditing && document && (
         <>
@@ -879,9 +883,6 @@ export const DocumentDetailPage: React.FC = () => {
           </Col>
         </Row>
 
-        <Form.Item label="備註" name="notes">
-          <TextArea rows={3} placeholder="請輸入備註" maxLength={500} showCount />
-        </Form.Item>
       </Form>
     );
   };

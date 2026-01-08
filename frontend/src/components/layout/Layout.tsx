@@ -20,6 +20,7 @@ import {
   LogoutOutlined,
   HomeOutlined,
 } from '@ant-design/icons';
+import { NotificationCenter } from '../common/NotificationCenter';
 
 const { Header, Sider, Content } = AntLayout;
 const { Title } = Typography;
@@ -142,14 +143,20 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             </Title>
           </Space>
 
-          <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-            <Button type="text" style={{ height: 'auto', padding: '4px 8px' }}>
-              <Space>
-                <Avatar icon={<UserOutlined />} />
-                管理員
-              </Space>
-            </Button>
-          </Dropdown>
+          <Space size={8}>
+            {/* 系統通知中心 */}
+            <NotificationCenter />
+
+            {/* 使用者選單 */}
+            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+              <Button type="text" style={{ height: 'auto', padding: '4px 8px' }}>
+                <Space>
+                  <Avatar icon={<UserOutlined />} />
+                  管理員
+                </Space>
+              </Button>
+            </Dropdown>
+          </Space>
         </Header>
 
         {/* 內容區域 */}

@@ -18,6 +18,7 @@ from app.api.routes import api_router
 from app.db.database import get_async_db, engine
 from app.core.logging_manager import log_manager, LoggingMiddleware, log_info
 from app.services.reminder_scheduler import start_reminder_scheduler, stop_reminder_scheduler
+from app.services.google_sync_scheduler import start_google_sync_scheduler, stop_google_sync_scheduler
 from app.core.exceptions import register_exception_handlers
 from app.core.schema_validator import validate_schema
 from app.extended.models import Base
@@ -56,11 +57,37 @@ async def lifespan(app: FastAPI):
         if is_development:
             raise
 
-    # await start_reminder_scheduler()  # 暫時禁用直到建立完整的資料表
+    # 啟動提醒排程器
+    try:
+        await start_reminder_scheduler()
+        logger.info("✅ 提醒排程器已啟動")
+    except Exception as e:
+        logger.warning(f"⚠️ 提醒排程器啟動失敗: {e}")
+
+    # 啟動 Google Calendar 同步排程器
+    try:
+        await start_google_sync_scheduler()
+        logger.info("✅ Google Calendar 同步排程器已啟動")
+    except Exception as e:
+        logger.warning(f"⚠️ Google Calendar 同步排程器啟動失敗: {e}")
+
     logger.info("應用程式已啟動。")
     yield
     logger.info("應用程式關閉中...")
-    # await stop_reminder_scheduler()
+
+    # 停止 Google Calendar 同步排程器
+    try:
+        await stop_google_sync_scheduler()
+        logger.info("✅ Google Calendar 同步排程器已停止")
+    except Exception as e:
+        logger.warning(f"⚠️ Google Calendar 同步排程器停止失敗: {e}")
+
+    # 停止提醒排程器
+    try:
+        await stop_reminder_scheduler()
+        logger.info("✅ 提醒排程器已停止")
+    except Exception as e:
+        logger.warning(f"⚠️ 提醒排程器停止失敗: {e}")
     await engine.dispose()
     logger.info("資料庫連線池已關閉。")
 
@@ -118,7 +145,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["X-Process-Time"]  # 暴露自訂標頭
+    expose_headers=["X-Process-Time", "Content-Disposition"]  # 暴露自訂標頭及檔案下載標頭
 )
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(LoggingMiddleware, log_manager=log_manager)

@@ -74,6 +74,8 @@ async def list_calendar_events(
             query = query.where(DocumentCalendarEvent.event_type == request.event_type)
         if request.priority:
             query = query.where(DocumentCalendarEvent.priority == request.priority)
+        if request.document_id:
+            query = query.where(DocumentCalendarEvent.document_id == request.document_id)
         if request.keyword:
             keyword_filter = f"%{request.keyword}%"
             query = query.where(
@@ -143,10 +145,18 @@ async def create_calendar_event(
 ):
     """新增一個日曆事件"""
     try:
+        # 處理時區問題：將 timezone-aware datetime 轉換為 naive datetime
+        # 資料庫使用 TIMESTAMP WITHOUT TIME ZONE
+        start_date = event_create.start_date
+        if start_date.tzinfo is not None:
+            start_date = start_date.replace(tzinfo=None)
+
         # 設定結束時間預設值
         end_date = event_create.end_date
+        if end_date and end_date.tzinfo is not None:
+            end_date = end_date.replace(tzinfo=None)
         if not end_date:
-            end_date = event_create.start_date + timedelta(hours=1)
+            end_date = start_date + timedelta(hours=1)
 
         # 建立事件 (使用現有 Model 欄位)
         # 注意：priority 在 Model 中是 String 類型
@@ -155,7 +165,7 @@ async def create_calendar_event(
         new_event = DocumentCalendarEvent(
             title=event_create.title,
             description=event_create.description,
-            start_date=event_create.start_date,
+            start_date=start_date,
             end_date=end_date,
             all_day=event_create.all_day or False,
             event_type=event_create.event_type or 'reminder',
@@ -361,20 +371,59 @@ async def sync_event_to_google(
         }
 
     try:
-        # 這裡呼叫實際的同步邏輯
-        # TODO: 實作完整的 Google Calendar 同步
-        logger.info(f"嘗試同步事件 {request.event_id} 至 Google Calendar (force={request.force_sync})")
+        # 呼叫實際的 Google Calendar 同步服務
+        result = await calendar_service.sync_event_to_google(
+            db=db,
+            event=event,
+            force=request.force_sync
+        )
 
         return {
-            "success": True,
-            "message": "事件已加入同步佇列",
-            "google_event_id": getattr(event, 'google_event_id', None)
+            "success": result['success'],
+            "message": result['message'],
+            "google_event_id": result.get('google_event_id')
         }
     except Exception as e:
         logger.error(f"Error syncing event to Google: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"同步失敗: {str(e)}"
+        )
+
+
+@router.post("/events/bulk-sync", summary="批次同步事件至 Google Calendar")
+async def bulk_sync_events_to_google(
+    event_ids: List[int] = None,
+    sync_all_pending: bool = True,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    批次同步事件至 Google Calendar
+
+    - 若提供 event_ids，則同步指定的事件
+    - 若 sync_all_pending=True 且未提供 event_ids，則同步所有未同步的事件
+    """
+    if not calendar_service.is_ready():
+        return {
+            "success": False,
+            "message": "Google Calendar 服務未配置或不可用",
+            "synced_count": 0,
+            "failed_count": 0
+        }
+
+    try:
+        result = await calendar_service.bulk_sync_to_google(
+            db=db,
+            event_ids=event_ids,
+            sync_all_pending=sync_all_pending if not event_ids else False
+        )
+        return result
+    except Exception as e:
+        logger.error(f"批次同步失敗: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"批次同步失敗: {str(e)}"
         )
 
 
@@ -596,3 +645,169 @@ async def get_calendar_status():
         "service_type": "integrated",
         "features": ["本地行事曆", "事件提醒", "公文關聯"]
     }
+
+
+@router.get("/google-events", summary="列出 Google Calendar 事件（測試用）")
+async def list_google_events():
+    """直接從 Google Calendar 讀取事件，用於驗證同步結果"""
+    if not calendar_service.is_ready():
+        return {
+            "success": False,
+            "message": "Google Calendar 服務未就緒",
+            "calendar_id": calendar_service.calendar_id,
+            "events": []
+        }
+
+    try:
+        events_result = calendar_service.service.events().list(
+            calendarId=calendar_service.calendar_id,
+            maxResults=10,
+            singleEvents=True,
+            orderBy='startTime'
+        ).execute()
+
+        events = events_result.get('items', [])
+        return {
+            "success": True,
+            "calendar_id": calendar_service.calendar_id,
+            "event_count": len(events),
+            "events": [
+                {
+                    "id": e.get("id"),
+                    "summary": e.get("summary", "無標題"),
+                    "start": e.get("start", {}).get("dateTime") or e.get("start", {}).get("date"),
+                    "end": e.get("end", {}).get("dateTime") or e.get("end", {}).get("date"),
+                }
+                for e in events
+            ]
+        }
+    except Exception as e:
+        logger.error(f"讀取 Google Calendar 事件失敗: {e}", exc_info=True)
+        return {
+            "success": False,
+            "message": str(e),
+            "calendar_id": calendar_service.calendar_id,
+            "events": []
+        }
+
+
+# ============================================================================
+# 衝突偵測端點
+# ============================================================================
+
+class ConflictCheckRequest(BaseModel):
+    """衝突檢查請求"""
+    start_date: str  # ISO format datetime
+    end_date: str    # ISO format datetime
+    exclude_event_id: Optional[int] = None
+
+
+@router.post("/events/check-conflicts", summary="檢查事件時間衝突")
+async def check_event_conflicts(
+    request: ConflictCheckRequest,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    檢查指定時間範圍是否與現有事件衝突
+
+    用於新增或編輯事件前的衝突預警
+    """
+    try:
+        start_time = datetime.fromisoformat(request.start_date)
+        end_time = datetime.fromisoformat(request.end_date)
+
+        conflicts = await calendar_service.detect_conflicts(
+            db=db,
+            start_time=start_time,
+            end_time=end_time,
+            exclude_event_id=request.exclude_event_id
+        )
+
+        return {
+            "success": True,
+            "has_conflicts": len(conflicts) > 0,
+            "conflict_count": len(conflicts),
+            "conflicts": conflicts,
+            "message": f"偵測到 {len(conflicts)} 個時間衝突" if conflicts else "沒有時間衝突"
+        }
+    except Exception as e:
+        logger.error(f"衝突檢查失敗: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"衝突檢查失敗: {str(e)}"
+        )
+
+
+# ============================================================================
+# Google Calendar 同步排程器控制端點
+# ============================================================================
+
+from app.services.google_sync_scheduler import GoogleSyncSchedulerController
+
+
+@router.get("/sync-scheduler/status", summary="取得同步排程器狀態")
+async def get_sync_scheduler_status(
+    current_user: User = Depends(get_current_user)
+):
+    """取得 Google Calendar 同步排程器的運行狀態"""
+    return GoogleSyncSchedulerController.get_scheduler_status()
+
+
+@router.post("/sync-scheduler/start", summary="啟動同步排程器")
+async def start_sync_scheduler(
+    current_user: User = Depends(get_current_user)
+):
+    """啟動 Google Calendar 自動同步排程器（需管理員權限）"""
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="只有管理員可以控制排程器"
+        )
+    return await GoogleSyncSchedulerController.start_scheduler()
+
+
+@router.post("/sync-scheduler/stop", summary="停止同步排程器")
+async def stop_sync_scheduler(
+    current_user: User = Depends(get_current_user)
+):
+    """停止 Google Calendar 自動同步排程器（需管理員權限）"""
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="只有管理員可以控制排程器"
+        )
+    return await GoogleSyncSchedulerController.stop_scheduler()
+
+
+@router.post("/sync-scheduler/trigger", summary="手動觸發同步")
+async def trigger_manual_sync(
+    current_user: User = Depends(get_current_user)
+):
+    """手動觸發一次 Google Calendar 同步"""
+    return await GoogleSyncSchedulerController.trigger_manual_sync()
+
+
+class SyncIntervalRequest(BaseModel):
+    """同步間隔設定請求"""
+    interval_seconds: int  # 最小 60 秒
+
+
+@router.post("/sync-scheduler/set-interval", summary="設定同步間隔")
+async def set_sync_interval(
+    request: SyncIntervalRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """設定自動同步間隔（需管理員權限）"""
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="只有管理員可以修改同步設定"
+        )
+    try:
+        return await GoogleSyncSchedulerController.update_sync_interval(request.interval_seconds)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )

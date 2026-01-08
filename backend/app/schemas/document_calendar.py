@@ -23,6 +23,7 @@ class EventListRequest(BaseModel):
     event_type: Optional[str] = Field(None, description="事件類型")
     priority: Optional[int] = Field(None, description="優先級 (1-5)")
     keyword: Optional[str] = Field(None, description="關鍵字搜尋")
+    document_id: Optional[int] = Field(None, description="關聯公文 ID")
     page: Optional[int] = Field(1, ge=1, description="頁碼")
     page_size: Optional[int] = Field(50, ge=1, le=100, description="每頁筆數")
 

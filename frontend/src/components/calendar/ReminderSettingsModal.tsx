@@ -5,8 +5,10 @@
 import React, { useState, useEffect } from 'react';
 import {
   Modal, Form, Switch, Select, InputNumber, Button, Space,
-  List, Tag, Tooltip, notification, Empty, Spin, Typography, Row, Col
+  List, Tag, Tooltip, notification, Empty, Spin, Typography, Row, Col, Grid
 } from 'antd';
+
+const { useBreakpoint } = Grid;
 import {
   BellOutlined, DeleteOutlined, PlusOutlined,
   MailOutlined, NotificationOutlined, ClockCircleOutlined,
@@ -69,6 +71,10 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
   const [reminders, setReminders] = useState<EventReminder[]>([]);
   const [newReminderMinutes, setNewReminderMinutes] = useState<number>(60);
   const [newReminderType, setNewReminderType] = useState<string>('email');
+
+  // 響應式斷點
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
 
   // 載入現有提醒設定
   useEffect(() => {
@@ -213,15 +219,16 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
         <Space>
           <BellOutlined />
           <span>提醒設定</span>
-          {event && <Text type="secondary">- {event.title.substring(0, 30)}{event.title.length > 30 && '...'}</Text>}
+          {event && !isMobile && <Text type="secondary">- {event.title.substring(0, 30)}{event.title.length > 30 && '...'}</Text>}
         </Space>
       }
       open={visible}
       onCancel={onClose}
-      width={600}
+      width={isMobile ? '95%' : 600}
+      style={{ maxWidth: '95vw' }}
       footer={[
         <Button key="test" onClick={handleSendTestReminder} loading={loading}>
-          發送測試提醒
+          {isMobile ? '測試' : '發送測試提醒'}
         </Button>,
         <Button key="close" type="primary" onClick={onClose}>
           完成

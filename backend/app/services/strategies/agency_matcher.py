@@ -359,7 +359,9 @@ class ProjectMatcher:
     提供案件名稱匹配策略：
     1. 精確匹配 project_name
     2. 精確匹配 project_code
-    3. 若都未匹配則新增
+    3. 模糊匹配 (包含關係)
+    4. 關鍵字匹配 (委託機關)
+    5. 若都未匹配且允許自動建立則新增
     """
 
     def __init__(self, db: AsyncSession):
@@ -399,7 +401,7 @@ class ProjectMatcher:
         if project_name in self._cache:
             return self._cache[project_name]
 
-        # 精確匹配 project_name
+        # 策略1: 精確匹配 project_name
         result = await self.db.execute(
             select(ContractProject)
             .where(ContractProject.project_name == project_name)
@@ -409,7 +411,7 @@ class ProjectMatcher:
             self._cache[project_name] = project.id
             return project.id
 
-        # 精確匹配 project_code
+        # 策略2: 精確匹配 project_code
         result = await self.db.execute(
             select(ContractProject)
             .where(ContractProject.project_code == project_name)
@@ -418,6 +420,12 @@ class ProjectMatcher:
         if project:
             self._cache[project_name] = project.id
             return project.id
+
+        # 策略3: 模糊匹配 (案件名稱包含輸入字串)
+        project_id = await self._try_fuzzy_match(project_name)
+        if project_id:
+            self._cache[project_name] = project_id
+            return project_id
 
         # 若允許自動建立，則新增案件
         if auto_create:
@@ -432,6 +440,104 @@ class ProjectMatcher:
             self._cache[project_name] = new_project.id
             logger.info(f"新增案件: '{project_name}'")
             return new_project.id
+
+        return None
+
+    async def match_only(self, project_name: Optional[str]) -> Optional[int]:
+        """
+        僅匹配，不自動建立
+
+        Args:
+            project_name: 案件名稱
+
+        Returns:
+            匹配到的案件 ID，若未匹配則返回 None
+        """
+        return await self.match_or_create(project_name, auto_create=False)
+
+    async def match_by_keywords(
+        self,
+        keywords: List[str],
+        client_agency: Optional[str] = None
+    ) -> Optional[int]:
+        """
+        根據關鍵字匹配案件
+
+        用於公文主旨沒有明確案件名稱時，嘗試透過關鍵字或委託機關匹配。
+
+        Args:
+            keywords: 關鍵字列表 (如 ['桃園', '工程', '測量'])
+            client_agency: 委託機關名稱
+
+        Returns:
+            匹配到的案件 ID
+        """
+        from app.extended.models import ContractProject
+
+        # 先嘗試委託機關匹配
+        if client_agency:
+            result = await self.db.execute(
+                select(ContractProject)
+                .where(ContractProject.client_agency.ilike(f"%{client_agency}%"))
+                .order_by(ContractProject.id.desc())
+                .limit(1)
+            )
+            project = result.scalar_one_or_none()
+            if project:
+                logger.info(f"案件委託機關匹配成功: '{client_agency}' -> '{project.project_name}'")
+                return project.id
+
+        # 使用關鍵字模糊匹配
+        for keyword in keywords:
+            if len(keyword) >= 2:  # 至少 2 個字元
+                result = await self.db.execute(
+                    select(ContractProject)
+                    .where(ContractProject.project_name.ilike(f"%{keyword}%"))
+                    .order_by(ContractProject.id.desc())
+                    .limit(1)
+                )
+                project = result.scalar_one_or_none()
+                if project:
+                    logger.info(f"案件關鍵字匹配成功: '{keyword}' -> '{project.project_name}'")
+                    return project.id
+
+        return None
+
+    async def _try_fuzzy_match(self, project_name: str) -> Optional[int]:
+        """
+        模糊匹配 (包含關係)
+
+        匹配邏輯：
+        1. 案件名稱包含輸入字串
+        2. 輸入字串包含案件名稱的關鍵部分
+        """
+        from app.extended.models import ContractProject
+
+        # 策略1: 案件名稱包含輸入字串
+        result = await self.db.execute(
+            select(ContractProject)
+            .where(ContractProject.project_name.ilike(f"%{project_name}%"))
+            .order_by(ContractProject.id.desc())
+            .limit(1)
+        )
+        project = result.scalar_one_or_none()
+        if project:
+            logger.info(f"案件模糊匹配成功 (包含): '{project_name}' -> '{project.project_name}'")
+            return project.id
+
+        # 策略2: 若輸入字串較長，嘗試取前 10 個字匹配
+        if len(project_name) >= 10:
+            short_name = project_name[:10]
+            result = await self.db.execute(
+                select(ContractProject)
+                .where(ContractProject.project_name.ilike(f"%{short_name}%"))
+                .order_by(ContractProject.id.desc())
+                .limit(1)
+            )
+            project = result.scalar_one_or_none()
+            if project:
+                logger.info(f"案件模糊匹配成功 (前綴): '{short_name}' -> '{project.project_name}'")
+                return project.id
 
         return None
 

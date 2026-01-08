@@ -27,11 +27,12 @@ export default defineConfig(({ mode }) => {
     // Development server settings
     server: {
       // Use environment variable or fallback to 3000
+      // CK_Missive 專案指定端口：3000
       port: parseInt(env.VITE_PORT) || 3000,
       host: true, // Listen on all addresses
       open: true, // Automatically open in browser
       cors: true,
-      strictPort: false, // Allow port fallback for development
+      strictPort: true, // 強制使用指定端口，避免自動切換造成混淆
       proxy: {
         // Proxy API requests to the backend server
         '/api': {

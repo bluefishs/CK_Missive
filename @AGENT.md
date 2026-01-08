@@ -7,7 +7,8 @@
 **在進行任何開發工作前，必須閱讀並遵守以下規範文件：**
 
 ### 📋 統一開發規範
-- **[`@DEVELOPMENT_STANDARDS.md`](./\@DEVELOPMENT_STANDARDS.md)** ← 必讀總綱
+- **[`docs/DEVELOPMENT_STANDARDS.md`](./docs/DEVELOPMENT_STANDARDS.md)** ← 必讀總綱
+- **[`docs/README.md`](./docs/README.md)** ← 文件索引
 
 ### 🔴 強制檢查 (每次提交前)
 ```bash
@@ -21,13 +22,23 @@ cd frontend && npm run build
 cd backend && pytest tests/test_schema_consistency.py -v
 ```
 
-### 📚 SKILL 規範索引
-| 規範 | 強制等級 | 說明 |
-|------|----------|------|
-| `@TYPE_CONSISTENCY_SKILL_SPEC.md` | 🔴 必須 | 型別一致性 |
-| `@SCHEMA_VALIDATION_SKILL_SPEC.md` | 🔴 必須 | Schema 驗證 |
-| `@CSV_IMPORT_SKILL_SPEC.md` | 🟡 相關 | CSV 匯入 |
-| `@PROJECT_CODE_SPEC.md` | 🟡 相關 | 專案編號 |
+### 📚 規範文件索引 (2026-01-08 重構)
+
+規範文件已統一移至 `docs/specifications/` 目錄：
+
+| 規範 | 路徑 | 強制等級 | 說明 |
+|------|------|----------|------|
+| 型別一致性 | `docs/specifications/TYPE_CONSISTENCY.md` | 🔴 必須 | 前後端型別對應 |
+| Schema 驗證 | `docs/specifications/SCHEMA_VALIDATION.md` | 🔴 必須 | Model-DB 一致性 |
+| 型別對照表 | `docs/specifications/TYPE_MAPPING.md` | 🔴 必須 | 欄位型別對照 |
+| API 回應格式 | `docs/specifications/API_RESPONSE_FORMAT.md` | 🔴 必須 | 統一回應格式 |
+| API 端點一致 | `docs/specifications/API_ENDPOINT_CONSISTENCY.md` | 🔴 必須 | 前後端 API 路徑 |
+| 端口配置 | `docs/specifications/PORT_CONFIGURATION.md` | 🔴 必須 | 開發環境端口 |
+| CSV 匯入 | `docs/specifications/CSV_IMPORT.md` | 🟡 相關 | CSV 匯入規範 |
+| 專案編號 | `docs/specifications/PROJECT_CODE.md` | 🟡 相關 | 編號產生規則 |
+| 測試框架 | `docs/specifications/TESTING_FRAMEWORK.md` | 🟡 規劃 | 測試架構規劃 |
+
+> **注意**：根目錄的 `@*_SPEC.md` 檔案為舊版，將於後續清理。請參閱 `docs/specifications/` 內的最新版本。
 
 ---
 
@@ -77,7 +88,7 @@ cargo run
 - **單一真實來源**: Database → Backend Model → Schema → Frontend Types
 - 新增欄位時必須同步更新: `models.py` → `schemas/*.py` → `*Api.ts` → `types/index.ts`
 - 前端 API Interface 應與後端 Response Schema 完全對應
-- 詳見: `@TYPE_CONSISTENCY_SKILL_SPEC.md`
+- 詳見: `docs/specifications/TYPE_CONSISTENCY.md`
 
 ### TypeScript 嚴格模式最佳實踐 (2026-01-06 更新)
 - **介面繼承**: 跨檔案共用介面時，使用 `extends` 擴展基礎介面，避免重複定義
@@ -123,16 +134,16 @@ cargo run
 - HTTP Method 前後端必須一致 (均使用 POST)
 - TypeScript Interface 缺欄位會導致編譯警告
 
-### SKILL 規範文件
+### 規範文件快速索引
 | 文件 | 用途 | 強制等級 |
 |------|------|----------|
-| **`@DEVELOPMENT_STANDARDS.md`** | **統一開發規範總綱** | 🔴 必讀 |
-| `@TYPE_CONSISTENCY_SKILL_SPEC.md` | 型別一致性與 UI 風格規範 | 🔴 必須 |
-| `@SCHEMA_VALIDATION_SKILL_SPEC.md` | Model-Database 一致性驗證 | 🔴 必須 |
-| `@CSV_IMPORT_SKILL_SPEC.md` | CSV 匯入模組開發規範 | 🟡 相關時 |
-| `@PROJECT_CODE_SPEC.md` | 專案編號產生規則 | 🟡 相關時 |
-| `@SYSTEM_ARCHITECTURE_REVIEW.md` | 系統架構審查與優化規劃 | 🟢 參考 |
-| `@system_status_report.md` | 系統狀態報告 | 🟢 參考 |
+| **`docs/DEVELOPMENT_STANDARDS.md`** | **統一開發規範總綱** | 🔴 必讀 |
+| `docs/specifications/TYPE_CONSISTENCY.md` | 型別一致性與 UI 風格規範 | 🔴 必須 |
+| `docs/specifications/SCHEMA_VALIDATION.md` | Model-Database 一致性驗證 | 🔴 必須 |
+| `docs/specifications/API_ENDPOINT_CONSISTENCY.md` | 前後端 API 端點一致性 | 🔴 必須 |
+| `docs/specifications/PORT_CONFIGURATION.md` | 開發環境端口配置規範 | 🔴 必須 |
+| `docs/specifications/CSV_IMPORT.md` | CSV 匯入模組開發規範 | 🟡 相關時 |
+| `docs/specifications/PROJECT_CODE.md` | 專案編號產生規則 | 🟡 相關時 |
 
 ## Feature Development Quality Standards
 

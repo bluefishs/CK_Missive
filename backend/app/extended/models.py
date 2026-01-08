@@ -135,11 +135,15 @@ class OfficialDocument(Base):
     # 資料庫新增欄位 - Schema 對齊
     send_date = Column(Date, comment="發文日期")
     title = Column(Text, comment="標題")
+    content = Column(Text, comment="說明")
     cloud_file_link = Column(String(500), comment="雲端檔案連結")
     dispatch_format = Column(String(20), default="電子", comment="發文形式")
 
     # 承辦人欄位（支援承案人資功能）
     assignee = Column(String(500), comment="承辦人（多人以逗號分隔）")
+
+    # 備註欄位
+    notes = Column(Text, comment="備註")
 
     # 時間戳欄位
     created_at = Column(DateTime, server_default=func.now(), comment="建立時間")
@@ -225,6 +229,10 @@ class DocumentCalendarEvent(Base):
     created_by = Column(Integer, ForeignKey('users.id'), comment="建立者ID")
     created_at = Column(DateTime, server_default=func.now(), comment="建立時間")
     updated_at = Column(DateTime, server_default=func.now(), comment="更新時間")
+
+    # Google Calendar 同步欄位
+    google_event_id = Column(String(255), nullable=True, index=True, comment="Google Calendar 事件 ID")
+    google_sync_status = Column(String(50), default='pending', comment="同步狀態: pending/synced/failed")
 
     # 關聯關係
     document = relationship("OfficialDocument", back_populates="calendar_events")

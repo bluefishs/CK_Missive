@@ -6,15 +6,18 @@
 import React, { useState, useMemo } from 'react';
 import {
   Card, Typography, Calendar, Badge, List, Modal, Tag, Button, Space, Select,
-  DatePicker, Row, Col, Tooltip, Dropdown, Input, Form,
-  notification, Timeline, Statistic, Empty, Radio
+  DatePicker, Row, Col, Tooltip, Dropdown, Input, Form, App, Grid,
+  Timeline, Statistic, Empty, Radio, Checkbox, Popconfirm
 } from 'antd';
+
+const { useBreakpoint } = Grid;
 import {
   GoogleOutlined, CheckCircleOutlined, ExclamationCircleOutlined,
   FilterOutlined, BellOutlined, ClockCircleOutlined, EditOutlined, DeleteOutlined,
   EyeOutlined, PlusOutlined, SettingOutlined, CalendarOutlined, UnorderedListOutlined,
-  TableOutlined, AlertOutlined
+  TableOutlined, AlertOutlined, FileTextOutlined, LinkOutlined
 } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import type { CalendarProps, MenuProps } from 'antd';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
@@ -90,6 +93,8 @@ interface EnhancedCalendarViewProps {
   onEventUpdate?: (eventId: number, updates: Partial<CalendarEvent>) => Promise<void>;
   onEventDelete?: (eventId: number) => Promise<void>;
   onReminderUpdate?: (eventId: number, reminders: any[]) => Promise<void>;
+  onDateSelect?: (date: Dayjs) => void;
+  onRefresh?: () => void;
 }
 
 export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
@@ -97,12 +102,22 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
   loading = false,
   onEventUpdate,
   onEventDelete,
-  onReminderUpdate
+  onReminderUpdate,
+  onDateSelect,
+  onRefresh
 }) => {
+  const navigate = useNavigate();
+  const { modal, notification } = App.useApp();
+
+  // 響應式斷點
+  const screens = useBreakpoint();
+  const isMobile = !screens.md; // md 以下視為行動裝置
+
   // 狀態管理
   const [viewMode, setViewMode] = useState<ViewMode>('month');
   const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs());
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [selectedEventIds, setSelectedEventIds] = useState<number[]>([]); // 批次選取
   const [showEventModal, setShowEventModal] = useState(false);
   const [showReminderModal, setShowReminderModal] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
@@ -177,14 +192,21 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
   // 統計數據
   const statistics = useMemo(() => {
     const total = filteredEvents.length;
-    const pending = filteredEvents.filter(e => e.status === 'pending').length;
-    const completed = filteredEvents.filter(e => e.status === 'completed').length;
-    const withReminders = filteredEvents.filter(e => e.reminder_enabled && (e.reminders?.length ?? 0) > 0).length;
+    const today = filteredEvents.filter(e =>
+      dayjs(e.start_date).isSame(dayjs(), 'day')
+    ).length;
+    const thisWeek = filteredEvents.filter(e =>
+      dayjs(e.start_date).isSame(dayjs(), 'week')
+    ).length;
+    const upcoming = filteredEvents.filter(e =>
+      dayjs(e.start_date).isAfter(dayjs(), 'day') &&
+      dayjs(e.start_date).isBefore(dayjs().add(7, 'day'), 'day')
+    ).length;
     const overdue = filteredEvents.filter(e =>
       e.status === 'pending' && dayjs(e.start_date).isBefore(dayjs(), 'day')
     ).length;
 
-    return { total, pending, completed, withReminders, overdue };
+    return { total, today, thisWeek, upcoming, overdue };
   }, [filteredEvents]);
 
   // 行事曆渲染
@@ -287,7 +309,7 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
       icon: <DeleteOutlined />,
       danger: true,
       onClick: () => {
-        Modal.confirm({
+        modal.confirm({
           title: '確認刪除',
           content: `確定要刪除事件「${event.title}」嗎？`,
           onOk: async () => {
@@ -299,70 +321,166 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
     }
   ];
 
+  // 導航到公文詳情
+  const handleNavigateToDocument = (documentId: number) => {
+    navigate(`/documents/${documentId}`);
+  };
+
+  // 批次操作處理
+  const handleSelectEvent = (eventId: number, checked: boolean) => {
+    if (checked) {
+      setSelectedEventIds(prev => [...prev, eventId]);
+    } else {
+      setSelectedEventIds(prev => prev.filter(id => id !== eventId));
+    }
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedEventIds(filteredEvents.map(e => e.id));
+    } else {
+      setSelectedEventIds([]);
+    }
+  };
+
+  const handleBatchDelete = async () => {
+    if (selectedEventIds.length === 0) return;
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const eventId of selectedEventIds) {
+      try {
+        await onEventDelete?.(eventId);
+        successCount++;
+      } catch (error) {
+        failCount++;
+      }
+    }
+
+    setSelectedEventIds([]);
+    notification.success({
+      message: '批次刪除完成',
+      description: `成功 ${successCount} 個${failCount > 0 ? `，失敗 ${failCount} 個` : ''}`,
+    });
+
+    // 批次刪除完成後重新載入資料
+    onRefresh?.();
+  };
+
   // 列表視圖渲染
   const renderListView = () => (
-    <List
-      dataSource={filteredEvents}
-      renderItem={(event) => (
-        <List.Item
-          actions={[
-            <Dropdown menu={{ items: getEventActionMenu(event) }} trigger={['click']}>
-              <Button icon={<SettingOutlined />} size="small" />
-            </Dropdown>
-          ]}
-        >
-          <List.Item.Meta
-            avatar={
-              <Badge
-                status={event.status === 'completed' ? 'success' :
-                       event.status === 'cancelled' ? 'error' : 'processing'}
-                text=""
-              />
-            }
-            title={
-              <Space>
-                {EVENT_TYPE_CONFIG[event.event_type].icon}
-                <span>{event.title}</span>
-                <Tag color={EVENT_TYPE_CONFIG[event.event_type].color}>
-                  {EVENT_TYPE_CONFIG[event.event_type].name}
-                </Tag>
-                <Tag color={PRIORITY_CONFIG[event.priority]?.color ?? 'default'}>
-                  {PRIORITY_CONFIG[event.priority]?.name ?? '未知'}
-                </Tag>
-                {event.reminder_enabled && (event.reminders?.length ?? 0) > 0 && (
-                  <Tooltip title={`${event.reminders?.length ?? 0} 個提醒`}>
-                    <BellOutlined style={{ color: '#fa8c16' }} />
-                  </Tooltip>
-                )}
-                {event.google_event_id && (
-                  <Tooltip title="已同步至 Google Calendar">
-                    <GoogleOutlined style={{ color: '#1890ff' }} />
-                  </Tooltip>
-                )}
-              </Space>
-            }
-            description={
-              <Space direction="vertical" size="small">
-                <div>{event.description}</div>
-                <Space>
-                  <ClockCircleOutlined />
-                  <span>{dayjs(event.start_date).format('YYYY-MM-DD HH:mm')}</span>
-                  {event.end_date !== event.start_date && (
-                    <span> ~ {dayjs(event.end_date).format('YYYY-MM-DD HH:mm')}</span>
-                  )}
-                </Space>
-              </Space>
-            }
-          />
-        </List.Item>
+    <>
+      {/* 批次操作工具列 */}
+      {filteredEvents.length > 0 && (
+        <div style={{ marginBottom: 16, padding: '8px 12px', background: '#fafafa', borderRadius: 4 }}>
+          <Space>
+            <Checkbox
+              indeterminate={selectedEventIds.length > 0 && selectedEventIds.length < filteredEvents.length}
+              checked={selectedEventIds.length === filteredEvents.length && filteredEvents.length > 0}
+              onChange={(e) => handleSelectAll(e.target.checked)}
+            >
+              全選 ({selectedEventIds.length}/{filteredEvents.length})
+            </Checkbox>
+            {selectedEventIds.length > 0 && (
+              <>
+                <Popconfirm
+                  title={`確定刪除選中的 ${selectedEventIds.length} 個事件？`}
+                  onConfirm={handleBatchDelete}
+                  okText="刪除"
+                  cancelText="取消"
+                  okButtonProps={{ danger: true }}
+                >
+                  <Button danger size="small" icon={<DeleteOutlined />}>
+                    批次刪除 ({selectedEventIds.length})
+                  </Button>
+                </Popconfirm>
+              </>
+            )}
+          </Space>
+        </div>
       )}
-    />
+      <List
+        dataSource={filteredEvents}
+        renderItem={(event) => (
+          <List.Item
+            actions={[
+              <Dropdown menu={{ items: getEventActionMenu(event) }} trigger={['click']}>
+                <Button icon={<SettingOutlined />} size="small" />
+              </Dropdown>
+            ]}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', width: '100%' }}>
+              <Checkbox
+                checked={selectedEventIds.includes(event.id)}
+                onChange={(e) => handleSelectEvent(event.id, e.target.checked)}
+                style={{ marginRight: 12, marginTop: 4 }}
+              />
+              <List.Item.Meta
+                avatar={
+                  <Badge
+                    status={event.status === 'completed' ? 'success' :
+                           event.status === 'cancelled' ? 'error' : 'processing'}
+                    text=""
+                  />
+                }
+                title={
+                  <Space>
+                    {EVENT_TYPE_CONFIG[event.event_type].icon}
+                    <span>{event.title}</span>
+                    <Tag color={EVENT_TYPE_CONFIG[event.event_type].color}>
+                      {EVENT_TYPE_CONFIG[event.event_type].name}
+                    </Tag>
+                    <Tag color={PRIORITY_CONFIG[event.priority]?.color ?? 'default'}>
+                      {PRIORITY_CONFIG[event.priority]?.name ?? '未知'}
+                    </Tag>
+                    {event.reminder_enabled && (event.reminders?.length ?? 0) > 0 && (
+                      <Tooltip title={`${event.reminders?.length ?? 0} 個提醒`}>
+                        <BellOutlined style={{ color: '#fa8c16' }} />
+                      </Tooltip>
+                    )}
+                    {event.google_event_id && (
+                      <Tooltip title="已同步至 Google Calendar">
+                        <GoogleOutlined style={{ color: '#1890ff' }} />
+                      </Tooltip>
+                    )}
+                  </Space>
+                }
+                description={
+                  <Space direction="vertical" size="small">
+                    <div>{event.description}</div>
+                    <Space>
+                      <ClockCircleOutlined />
+                      <span>{dayjs(event.start_date).format('YYYY-MM-DD HH:mm')}</span>
+                      {event.end_date !== event.start_date && (
+                        <span> ~ {dayjs(event.end_date).format('YYYY-MM-DD HH:mm')}</span>
+                      )}
+                    </Space>
+                    {event.document_id && (
+                      <Button
+                        type="link"
+                        size="small"
+                        icon={<FileTextOutlined />}
+                        onClick={() => handleNavigateToDocument(event.document_id!)}
+                        style={{ padding: 0 }}
+                      >
+                        查看關聯公文
+                      </Button>
+                    )}
+                  </Space>
+                }
+              />
+            </div>
+          </List.Item>
+        )}
+      />
+    </>
   );
 
-  // 時間軸視圖渲染
+  // 時間軸視圖渲染 (降冪排序：最新事件在上)
   const renderTimelineView = () => {
     const sortedEvents = [...filteredEvents].sort((a, b) =>
-      dayjs(a.start_date).valueOf() - dayjs(b.start_date).valueOf()
+      dayjs(b.start_date).valueOf() - dayjs(a.start_date).valueOf()
     );
 
     return (
@@ -393,6 +511,17 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
                     </>
                   )}
                 </Space>
+                {event.document_id && (
+                  <Button
+                    type="link"
+                    size="small"
+                    icon={<FileTextOutlined />}
+                    onClick={() => handleNavigateToDocument(event.document_id!)}
+                    style={{ padding: 0 }}
+                  >
+                    查看關聯公文
+                  </Button>
+                )}
               </Space>
             </Card>
           )
@@ -408,11 +537,12 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
       open={showFilterModal}
       onCancel={() => setShowFilterModal(false)}
       onOk={() => setShowFilterModal(false)}
-      width={600}
+      width={isMobile ? '95%' : 600}
+      style={{ maxWidth: '95vw' }}
     >
       <Form layout="vertical">
         <Row gutter={16}>
-          <Col span={12}>
+          <Col xs={24} sm={12}>
             <Form.Item label="事件類型">
               <Select
                 mode="multiple"
@@ -426,7 +556,7 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
               />
             </Form.Item>
           </Col>
-          <Col span={12}>
+          <Col xs={24} sm={12}>
             <Form.Item label="優先級">
               <Select
                 mode="multiple"
@@ -442,7 +572,7 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
           </Col>
         </Row>
         <Row gutter={16}>
-          <Col span={12}>
+          <Col xs={24} sm={12}>
             <Form.Item label="狀態">
               <Select
                 mode="multiple"
@@ -457,7 +587,7 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
               />
             </Form.Item>
           </Col>
-          <Col span={12}>
+          <Col xs={24} sm={12}>
             <Form.Item label="日期範圍">
               <RangePicker
                 value={filters.dateRange}
@@ -510,10 +640,11 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
             setShowReminderModal(true);
           }}
         >
-          提醒設定
+          {isMobile ? '' : '提醒設定'}
         </Button>
       ]}
-      width={600}
+      width={isMobile ? '95%' : 600}
+      style={{ maxWidth: '95vw' }}
     >
       {selectedEvent && (
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
@@ -579,15 +710,17 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
   );
 
   return (
-    <div style={{ padding: '24px' }}>
-      <Space direction="vertical" size="large" style={{ width: '100%' }}>
-        {/* 標題和工具列 */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <Title level={2}>增強型行事曆</Title>
-            <Text type="secondary">提供多種視圖模式和進階篩選功能</Text>
-          </div>
-          <Space>
+    <div>
+      <Space direction="vertical" size={isMobile ? 'middle' : 'large'} style={{ width: '100%' }}>
+        {/* 工具列 - 響應式 */}
+        <div style={{
+          display: 'flex',
+          justifyContent: isMobile ? 'space-between' : 'flex-end',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '8px'
+        }}>
+          <Space wrap size={isMobile ? 'small' : 'middle'}>
             <Button
               type="primary"
               icon={<PlusOutlined />}
@@ -597,62 +730,78 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
                 setShowEventFormModal(true);
               }}
             >
-              新增事件
+              {isMobile ? '' : '新增事件'}
             </Button>
             <Button
               icon={<FilterOutlined />}
               onClick={() => setShowFilterModal(true)}
             >
-              篩選
+              {isMobile ? '' : '篩選'}
             </Button>
-            <Radio.Group
-              value={viewMode}
-              onChange={(e) => setViewMode(e.target.value)}
-              buttonStyle="solid"
-            >
-              <Radio.Button value="month">
-                <CalendarOutlined /> 月檢視
-              </Radio.Button>
-              <Radio.Button value="list">
-                <UnorderedListOutlined /> 列表
-              </Radio.Button>
-              <Radio.Button value="timeline">
-                <TableOutlined /> 時間軸
-              </Radio.Button>
-            </Radio.Group>
+            {/* 視圖切換 - 響應式 */}
+            {isMobile ? (
+              <Select
+                value={viewMode}
+                onChange={(value) => setViewMode(value)}
+                style={{ width: 100 }}
+                options={[
+                  { label: '月曆', value: 'month' },
+                  { label: '列表', value: 'list' },
+                  { label: '時間軸', value: 'timeline' }
+                ]}
+              />
+            ) : (
+              <Radio.Group
+                value={viewMode}
+                onChange={(e) => setViewMode(e.target.value)}
+                buttonStyle="solid"
+              >
+                <Radio.Button value="month">
+                  <CalendarOutlined /> 月檢視
+                </Radio.Button>
+                <Radio.Button value="list">
+                  <UnorderedListOutlined /> 列表
+                </Radio.Button>
+                <Radio.Button value="timeline">
+                  <TableOutlined /> 時間軸
+                </Radio.Button>
+              </Radio.Group>
+            )}
           </Space>
         </div>
 
-        {/* 統計數據 */}
-        <Card>
-          <Row gutter={16}>
-            <Col span={6}>
+        {/* 統計數據 - 響應式 */}
+        <Card size={isMobile ? 'small' : 'default'}>
+          <Row gutter={[16, 16]}>
+            <Col xs={12} sm={12} md={6}>
               <Statistic
                 title="總事件數"
                 value={statistics.total}
                 prefix={<CalendarOutlined />}
+                valueStyle={{ color: '#1890ff', fontSize: isMobile ? '18px' : '24px' }}
               />
             </Col>
-            <Col span={6}>
+            <Col xs={12} sm={12} md={6}>
               <Statistic
-                title="待處理"
-                value={statistics.pending}
-                valueStyle={{ color: '#faad14' }}
+                title="今日事件"
+                value={statistics.today}
+                valueStyle={{ color: '#52c41a', fontSize: isMobile ? '18px' : '24px' }}
                 prefix={<ClockCircleOutlined />}
               />
             </Col>
-            <Col span={6}>
+            <Col xs={12} sm={12} md={6}>
               <Statistic
-                title="已完成"
-                value={statistics.completed}
-                valueStyle={{ color: '#52c41a' }}
-                prefix={<CheckCircleOutlined />}
+                title="本週事件"
+                value={statistics.thisWeek}
+                valueStyle={{ color: '#faad14', fontSize: isMobile ? '18px' : '24px' }}
+                prefix={<CalendarOutlined />}
               />
             </Col>
-            <Col span={6}>
+            <Col xs={12} sm={12} md={6}>
               <Statistic
-                title="有提醒"
-                value={statistics.withReminders}
+                title="即將到來"
+                value={statistics.upcoming}
+                valueStyle={{ color: '#722ed1', fontSize: isMobile ? '18px' : '24px' }}
                 prefix={<BellOutlined />}
               />
             </Col>
@@ -672,11 +821,8 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
             <Calendar
               cellRender={cellRender}
               onSelect={(date) => {
-                const eventsForDate = getEventsForDate(date);
-                if (eventsForDate.length > 0) {
-                  setSelectedDate(date);
-                  // 可以在這裡打開當日事件列表
-                }
+                setSelectedDate(date);
+                onDateSelect?.(date);
               }}
             />
           )}

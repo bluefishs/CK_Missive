@@ -360,9 +360,11 @@ export interface DocumentCreate {
   contract_project_id?: number;
   sender_agency_id?: number;
   receiver_agency_id?: number;
-  notes?: string;
+  content?: string;           // 說明
+  notes?: string;             // 備註
+  assignee?: string;          // 承辦人
   priority_level?: string;
-  // 新增欄位
+  // 發文形式與附件欄位
   delivery_method?: string;   // 發文形式
   has_attachment?: boolean;   // 是否含附件
 }
@@ -407,6 +409,7 @@ export interface DocumentFilter {
   sender?: string;
   receiver?: string;
   contract_case?: string;
+  delivery_method?: string;  // 發文形式 (電子交換/紙本郵寄/電子+紙本)
 
   // 日期篩選
   date_from?: string;        // 通用起始日期

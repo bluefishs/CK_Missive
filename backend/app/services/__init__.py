@@ -9,11 +9,19 @@
 - base/: 基礎服務與 UnitOfWork
 - strategies/: 可重用策略類別
 - 核心業務服務
+
+版本: 2.0.0
+更新: 2026-01-08 - 新增 ImportBaseService, ServiceResponse, Validators
 """
 
 # 基礎服務
 from .base_service import BaseService
 from .base.unit_of_work import UnitOfWork, get_uow, unit_of_work
+
+# 匯入基礎服務與回應結構
+from .base.import_base import ImportBaseService
+from .base.response import ServiceResponse, ImportResult, ImportRowResult
+from .base.validators import DocumentValidators, StringCleaners, DateParsers
 
 # 策略類別
 from .strategies.agency_matcher import AgencyMatcher, ProjectMatcher
@@ -38,6 +46,7 @@ from .project_notification_service import ProjectNotificationService
 from .document_import_service import DocumentImportService
 from .document_export_service import DocumentExportService
 from .csv_processor import DocumentCSVProcessor
+from .excel_import_service import ExcelImportService
 
 __all__ = [
     # 基礎架構
@@ -45,6 +54,15 @@ __all__ = [
     "UnitOfWork",
     "get_uow",
     "unit_of_work",
+    # 匯入基礎服務
+    "ImportBaseService",
+    "ServiceResponse",
+    "ImportResult",
+    "ImportRowResult",
+    # 驗證器
+    "DocumentValidators",
+    "StringCleaners",
+    "DateParsers",
     # 策略類別
     "AgencyMatcher",
     "ProjectMatcher",
@@ -65,4 +83,5 @@ __all__ = [
     "DocumentImportService",
     "DocumentExportService",
     "DocumentCSVProcessor",
+    "ExcelImportService",
 ]

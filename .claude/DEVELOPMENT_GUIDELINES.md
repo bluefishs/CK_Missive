@@ -1,5 +1,10 @@
 # CK_Missive 開發指引與架構維護機制
 
+> **重要**: 本文件為開發流程指引，完整的開發規範請參閱
+> [`docs/DEVELOPMENT_STANDARDS.md`](../docs/DEVELOPMENT_STANDARDS.md)
+
+---
+
 ## 🛠️ 自動化架構維護機制
 
 ### 1. 結構驗證工具
@@ -170,6 +175,78 @@ cat .claude/DEVELOPMENT_GUIDELINES.md
 ├── db-backup.md            # 資料庫備份管理
 └── csv-import-validate.md  # CSV 匯入驗證
 ```
+
+---
+
+## 📊 資料驗證規範
+
+### 公文類型 (doc_type) 白名單
+
+```python
+VALID_DOC_TYPES = ['函', '開會通知單', '會勘通知單', '書函', '公告', '令', '通知']
+```
+
+### 公文類別 (category) 規範
+
+```python
+VALID_CATEGORIES = ['收文', '發文']
+
+# 類別與欄位連動規則
+if category == '收文':
+    required_fields = ['receiver', 'receive_date']
+    default_receiver = '本公司'
+elif category == '發文':
+    required_fields = ['sender', 'send_date']
+    default_sender = '本公司'
+```
+
+### 字串清理規範
+
+**重要**: 避免 `str(None)` 產生 "None" 字串
+
+```python
+def clean_string(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if text.lower() in ('none', 'null', ''):
+        return None
+    return text
+```
+
+---
+
+## 🚨 常見錯誤與修復
+
+### 1. 批次匯入流水號重複
+**錯誤**: `duplicate key value violates unique constraint "documents_auto_serial_key"`
+**解法**: 使用記憶體計數器追蹤已生成的流水號
+
+### 2. 字串欄位存在 "None"
+**原因**: `str(None)` 產生 "None" 字串
+**解法**: 使用 `_clean_string()` 方法過濾
+
+### 3. DOM 巢狀警告
+**錯誤**: `<div> cannot appear as descendant of <p>`
+**解法**: 將 `<p>` 改為 `<div>` 容器
+
+### 4. 機關關聯遺失
+**原因**: 匯入時未使用智慧匹配
+**解法**: 整合 `AgencyMatcher` / `ProjectMatcher`
+
+詳細說明請參考: `docs/ERROR_HANDLING_GUIDE.md`
+
+---
+
+## 📁 相關文件
+
+| 文件 | 說明 |
+|------|------|
+| `docs/TODO.md` | 待辦事項與規劃 |
+| `docs/ERROR_HANDLING_GUIDE.md` | 錯誤處理指南 |
+| `docs/reports/SYSTEM_SPECIFICATION_UPDATE_20260108.md` | 系統規範更新 |
+| `docs/wiki/Service-Layer-Architecture.md` | 服務層架構 |
+| `docs/DATABASE_SCHEMA.md` | 資料庫結構 |
 
 ---
 

@@ -207,6 +207,14 @@ def cache_user_data(ttl: int = 900):
     """用戶資料快取 (15分鐘)"""
     return cache_result(ttl=ttl, prefix="user")
 
+def cache_search_results(ttl: int = 120):
+    """搜尋結果快取 (2分鐘，較短以保持即時性)"""
+    return cache_result(ttl=ttl, prefix="search")
+
+def cache_suggestions(ttl: int = 300):
+    """搜尋建議快取 (5分鐘)"""
+    return cache_result(ttl=ttl, prefix="suggestions")
+
 # 快取清理任務
 async def cleanup_cache_task():
     """定期清理過期快取的後台任務"""

@@ -127,6 +127,8 @@ class DocumentResponse(BaseModel):
 
     # 其他欄位
     title: Optional[str] = Field(None, description="標題")
+    content: Optional[str] = Field(None, description="說明")
+    notes: Optional[str] = Field(None, description="備註")
     cloud_file_link: Optional[str] = Field(None, description="雲端檔案連結")
     dispatch_format: Optional[str] = Field(None, description="發文形式")
     assignee: Optional[str] = Field(None, description="承辦人")
@@ -143,24 +145,61 @@ class DocumentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 class DocumentFilter(BaseModel):
-    """公文篩選條件 - 與 OfficialDocument 模型對齊"""
-    doc_type: Optional[DocumentType] = Field(None, description="公文類型篩選")
+    """
+    公文篩選條件 - 統一篩選參數格式
+
+    支援前端多種命名慣例：
+    - 日期：date_from/date_to 或 doc_date_from/doc_date_to
+    - 搜尋：keyword 或 search
+    - 分類：category (send/receive) 自動轉換為資料庫值 (發文/收文)
+
+    注意：所有日期欄位使用字串格式 'YYYY-MM-DD'，由服務層轉換
+    """
+    # 關鍵字搜尋
+    keyword: Optional[str] = Field(None, description="關鍵字搜尋 (主旨、文號、說明、備註)")
+    search: Optional[str] = Field(None, description="搜尋 (別名，與 keyword 等效)")
+
+    # 類型與狀態篩選
+    doc_type: Optional[str] = Field(None, description="公文類型 (函/開會通知單/會勘通知單)")
     year: Optional[int] = Field(None, description="年度篩選")
-    doc_word: Optional[str] = Field(None, description="公文字篩選")
-    sender: Optional[str] = Field(None, description="發文機關篩選")
-    receiver: Optional[str] = Field(None, description="收文機關篩選")
-    contract_case: Optional[str] = Field(None, description="承攬案件篩選")
-    category: Optional[str] = Field(None, description="公文分類篩選 (send/receive)")
-    keyword: Optional[str] = Field(None, description="關鍵字搜尋 (主旨或文號)")
-    date_from: Optional[date] = Field(None, description="公文日期從")
-    date_to: Optional[date] = Field(None, description="公文日期到")
     status: Optional[str] = Field(None, description="處理狀態篩選")
+    category: Optional[str] = Field(None, description="收發文分類 (send=發文, receive=收文)")
+
+    # 單位與案件篩選
+    doc_word: Optional[str] = Field(None, description="公文字篩選")
+    sender: Optional[str] = Field(None, description="發文單位篩選 (模糊匹配)")
+    receiver: Optional[str] = Field(None, description="受文單位篩選 (模糊匹配)")
+    contract_case: Optional[str] = Field(None, description="承攬案件篩選 (名稱或編號)")
+
+    # 發文形式篩選 (僅支援：電子交換、紙本郵寄)
+    delivery_method: Optional[str] = Field(None, description="發文形式 (電子交換/紙本郵寄)")
+
+    # 日期篩選 (支援兩種命名格式)
+    date_from: Optional[str] = Field(None, description="公文日期起 (YYYY-MM-DD)")
+    date_to: Optional[str] = Field(None, description="公文日期迄 (YYYY-MM-DD)")
+    doc_date_from: Optional[str] = Field(None, description="公文日期起 (別名)")
+    doc_date_to: Optional[str] = Field(None, description="公文日期迄 (別名)")
+
+    # 其他篩選
     assignee: Optional[str] = Field(None, description="承辦人篩選")
     creator: Optional[str] = Field(None, description="建立者篩選")
     is_deleted: Optional[bool] = Field(None, description="是否已刪除篩選")
 
-    sort_by: Optional[str] = Field("id", description="排序欄位")
+    # 排序
+    sort_by: Optional[str] = Field("updated_at", description="排序欄位")
     sort_order: Optional[str] = Field("desc", description="排序順序 (asc/desc)")
+
+    def get_effective_keyword(self) -> Optional[str]:
+        """取得有效的關鍵字值 (keyword 或 search)"""
+        return self.keyword or self.search
+
+    def get_effective_date_from(self) -> Optional[str]:
+        """取得有效的起始日期 (date_from 或 doc_date_from)"""
+        return self.date_from or self.doc_date_from
+
+    def get_effective_date_to(self) -> Optional[str]:
+        """取得有效的結束日期 (date_to 或 doc_date_to)"""
+        return self.date_to or self.doc_date_to
 
 
 class DocumentListQuery(BaseModel):
@@ -179,6 +218,7 @@ class DocumentListQuery(BaseModel):
     receiver: Optional[str] = Field(None, description="受文單位")
     doc_date_from: Optional[str] = Field(None, description="公文日期起")
     doc_date_to: Optional[str] = Field(None, description="公文日期迄")
+    delivery_method: Optional[str] = Field(None, description="發文形式 (電子交換/紙本郵寄/電子+紙本)")
     # 排序
     sort_by: str = Field(default="updated_at", description="排序欄位")
     sort_order: SortOrder = Field(default=SortOrder.DESC, description="排序方向")

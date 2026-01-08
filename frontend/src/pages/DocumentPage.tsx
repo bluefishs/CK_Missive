@@ -1,43 +1,58 @@
-import React, { useState, useEffect } from 'react';
-import { Typography, Button, Space, Modal, App, Upload, Progress } from 'antd';
+import React, { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Typography, Button, Space, Modal, App } from 'antd';
 import { PlusOutlined, ReloadOutlined, UploadOutlined } from '@ant-design/icons';
+import { useQueryClient } from '@tanstack/react-query';
 import { DocumentList } from '../components/document/DocumentList';
 import { DocumentFilter } from '../components/document/DocumentFilter';
 import { DocumentTabs } from '../components/document/DocumentTabs';
 import { DocumentPagination } from '../components/document/DocumentPagination';
 import { DocumentOperations, DocumentSendModal } from '../components/document/DocumentOperations';
+import { DocumentImport } from '../components/document/DocumentImport';
 import { exportDocumentsToExcel } from '../utils/exportUtils';
-import { useDocuments } from '../hooks';
-import { useDocumentsStore } from '../stores';
+import {
+  useDocuments,
+  useCreateDocument,
+  useUpdateDocument,
+  useDeleteDocument
+} from '../hooks';
+import { useDocumentsStore } from '../store';
 import { Document, DocumentFilter as IDocumentFilter } from '../types';
-import { API_BASE_URL } from '../api/client';
-import { documentsApi } from '../api/documentsApi';
 import { calendarIntegrationService } from '../services/calendarIntegrationService';
+import { queryKeys } from '../config/queryConfig';
 
 const { Title } = Typography;
 
+/**
+ * 公文管理頁面
+ *
+ * 架構說明：
+ * - React Query: 唯一的伺服器資料來源（公文列表）
+ * - Zustand: 僅存儲 UI 狀態（篩選條件、分頁設定）
+ * - Mutation Hooks: 處理建立/更新/刪除，自動失效快取
+ */
 export const DocumentPage: React.FC = () => {
+  const navigate = useNavigate();
   const { message } = App.useApp();
+  const queryClient = useQueryClient();
 
-  const { documents, filters, pagination, setFilters, setPagination } = useDocumentsStore();
+  // Zustand: 只用於 UI 狀態（篩選條件、分頁設定）
+  const { filters, pagination, setFilters, setPagination, resetFilters } = useDocumentsStore();
 
+  // 排序狀態（本地 UI 狀態）
+  const [sortField, setSortField] = useState<string>('');
+  const [sortOrder, setSortOrder] = useState<'ascend' | 'descend' | null>(null);
+
+  // Modal 狀態
   const [deleteModal, setDeleteModal] = useState<{
     open: boolean;
     document: Document | null;
   }>({ open: false, document: null });
 
-  const [sortField, setSortField] = useState<string>('');
-  const [sortOrder, setSortOrder] = useState<'ascend' | 'descend' | null>(null);
-  const [useTabView, setUseTabView] = useState(true);
+  const [importModalVisible, setImportModalVisible] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isAddingToCalendar, setIsAddingToCalendar] = useState(false);
 
-  // CSV匯入相關狀態
-  const [csvImportModal, setCsvImportModal] = useState(false);
-  const [csvImporting, setCsvImporting] = useState(false);
-  const [importProgress, setImportProgress] = useState(0);
-  const [isExporting, setIsExporting] = useState(false); // 新增匯出狀態
-  const [isAddingToCalendar, setIsAddingToCalendar] = useState(false); // 新增日曆狀態
-
-  // 公文操作相關狀態
   const [documentOperation, setDocumentOperation] = useState<{
     type: 'view' | 'edit' | 'create' | 'copy' | null;
     document: Document | null;
@@ -49,7 +64,9 @@ export const DocumentPage: React.FC = () => {
     document: Document | null;
   }>({ visible: false, document: null });
 
-  // 使用 React Query 獲取公文資料
+  // ============================================================================
+  // React Query: 唯一的伺服器資料來源
+  // ============================================================================
   const {
     data: documentsData,
     isLoading,
@@ -63,27 +80,34 @@ export const DocumentPage: React.FC = () => {
     ...(sortOrder && { sortOrder: sortOrder === 'ascend' ? 'asc' : 'desc' }),
   });
 
-  // 更新本地狀態
-  useEffect(() => {
-    if (documentsData) {
-      useDocumentsStore.getState().setDocuments([...documentsData.items]);
-      // 正確訪問 pagination 物件中的分頁資料
-      useDocumentsStore.getState().setPagination({
-        total: documentsData.pagination?.total ?? 0,
-        totalPages: documentsData.pagination?.total_pages ?? 0,
-        page: documentsData.pagination?.page ?? 1,
-        limit: documentsData.pagination?.limit ?? 20,
-      });
-    }
-  }, [documentsData]);
+  // 直接從 React Query 取得資料（不經過 Zustand）
+  const documents = documentsData?.items ?? [];
+  const totalCount = documentsData?.pagination?.total ?? 0;
+  const totalPages = documentsData?.pagination?.total_pages ?? 0;
+
+  // ============================================================================
+  // Mutation Hooks: 自動處理快取失效
+  // ============================================================================
+  const createMutation = useCreateDocument();
+  const updateMutation = useUpdateDocument();
+  const deleteMutation = useDeleteDocument();
+
+  // 強制刷新（直接調用 refetch）
+  const forceRefresh = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
+    await refetch();
+  }, [queryClient, refetch]);
 
   // 顯示錯誤訊息
-  useEffect(() => {
+  React.useEffect(() => {
     if (queryError) {
       message.error(queryError instanceof Error ? queryError.message : '載入公文資料失敗');
     }
-  }, [queryError]);
+  }, [queryError, message]);
 
+  // ============================================================================
+  // 篩選與分頁處理
+  // ============================================================================
   const handleFiltersChange = (newFilters: IDocumentFilter) => {
     setPagination({ page: 1 });
     setFilters(newFilters);
@@ -93,7 +117,7 @@ export const DocumentPage: React.FC = () => {
     setPagination({ page: 1 });
     setSortField('');
     setSortOrder(null);
-    useDocumentsStore.getState().resetFilters();
+    resetFilters();
   };
 
   const handlePageChange = (newPage: number) => {
@@ -104,7 +128,26 @@ export const DocumentPage: React.FC = () => {
     setPagination({ page: 1, limit: newLimit });
   };
 
-  // 公文操作處理函數
+  const handleTableChange = (paginationInfo: any, __: any, sorter: any) => {
+    if (paginationInfo && (paginationInfo.current !== pagination.page || paginationInfo.pageSize !== pagination.limit)) {
+      setPagination({
+        page: paginationInfo.current || 1,
+        limit: paginationInfo.pageSize || 10,
+      });
+    }
+
+    if (sorter && sorter.field) {
+      setSortField(sorter.field);
+      setSortOrder(sorter.order);
+    } else {
+      setSortField('');
+      setSortOrder(null);
+    }
+  };
+
+  // ============================================================================
+  // 公文操作處理
+  // ============================================================================
   const handleViewDocument = (document: Document) => {
     setDocumentOperation({ type: 'view', document, visible: true });
   };
@@ -114,7 +157,7 @@ export const DocumentPage: React.FC = () => {
   };
 
   const handleCreateDocument = () => {
-    setDocumentOperation({ type: 'create', document: null, visible: true });
+    navigate('/documents/create');
   };
 
   const handleCopyDocument = (document: Document) => {
@@ -131,9 +174,8 @@ export const DocumentPage: React.FC = () => {
 
   const handleArchiveDocument = async (document: Document) => {
     try {
-      // 實際的歸檔 API 呼叫
       message.success(`公文 ${document.doc_number} 已歸檔`);
-      refetch();
+      await forceRefresh();
     } catch (error) {
       message.error('歸檔失敗');
     }
@@ -142,7 +184,6 @@ export const DocumentPage: React.FC = () => {
   const handleExportPdf = async (document: Document) => {
     try {
       message.success(`正在匯出公文 ${document.doc_number} 的PDF...`);
-      // 這裡實作PDF匯出邏輯
     } catch (error) {
       message.error('PDF匯出失敗');
     }
@@ -153,18 +194,19 @@ export const DocumentPage: React.FC = () => {
     try {
       await calendarIntegrationService.addDocumentToCalendar(document);
     } catch (error) {
-      // 錯誤處理已在服務中完成
       console.error('Calendar integration failed:', error);
     } finally {
       setIsAddingToCalendar(false);
     }
   };
 
-  // 批量操作處理函數
+  // ============================================================================
+  // 批量操作
+  // ============================================================================
   const handleBatchExport = async (selectedDocuments: Document[]) => {
     setIsExporting(true);
     try {
-      await exportDocumentsToExcel(selectedDocuments);
+      await exportDocumentsToExcel(selectedDocuments, undefined, undefined, false);
       message.success(`已成功匯出 ${selectedDocuments.length} 份文件`);
     } catch (error) {
       console.error('批量匯出失敗:', error);
@@ -177,10 +219,9 @@ export const DocumentPage: React.FC = () => {
   const handleBatchDelete = async (selectedDocuments: Document[]) => {
     try {
       const ids = selectedDocuments.map(d => d.id);
-      // 實際的批量刪除 API 呼叫
       console.log('批量刪除 IDs:', ids);
       message.success(`已刪除 ${selectedDocuments.length} 個公文`);
-      refetch();
+      await forceRefresh();
     } catch (error) {
       message.error('批量刪除失敗');
     }
@@ -189,70 +230,47 @@ export const DocumentPage: React.FC = () => {
   const handleBatchArchive = async (selectedDocuments: Document[]) => {
     try {
       const ids = selectedDocuments.map(d => d.id);
-      // 實際的批量歸檔 API 呼叫
       console.log('批量歸檔 IDs:', ids);
       message.success(`已歸檔 ${selectedDocuments.length} 個公文`);
-      refetch();
+      await forceRefresh();
     } catch (error) {
       message.error('批量歸檔失敗');
     }
   };
 
-  // 儲存公文 (使用統一 API 服務)
-  // 回傳已建立/更新的公文，供附件上傳使用
+  // ============================================================================
+  // CRUD 操作（使用 Mutation Hooks）
+  // ============================================================================
   const handleSaveDocument = async (documentData: Partial<Document>): Promise<Document | void> => {
     try {
-      let updatedDocument: Document;
+      let result: Document;
 
       if (documentOperation.type === 'create' || documentOperation.type === 'copy') {
-        // 使用 documentsApi 建立公文
-        updatedDocument = await documentsApi.createDocument(documentData as any);
+        result = await createMutation.mutateAsync(documentData as any);
         message.success('公文新增成功！');
-        refetch();
       } else if (documentOperation.type === 'edit' && documentOperation.document?.id) {
-        // 使用 documentsApi 更新公文
-        updatedDocument = await documentsApi.updateDocument(
-          documentOperation.document.id,
-          documentData as any
-        );
+        result = await updateMutation.mutateAsync({
+          documentId: documentOperation.document.id,
+          data: documentData as any,
+        });
         message.success('公文更新成功！');
-        // 刷新列表以確保顯示最新資料
-        refetch();
       } else {
-        return; // 無效操作
+        return;
       }
 
       setDocumentOperation({ type: null, document: null, visible: false });
-      return updatedDocument; // 回傳已建立的公文（含 ID）
+      return result;
     } catch (error) {
       console.error('Save document error:', error);
       throw error;
     }
   };
 
-  // 發送公文
-  const handleSend = async () => {
-    try {
-      message.success('公文發送成功！');
-      setSendModal({ visible: false, document: null });
-      refetch();
-    } catch (error) {
-      throw error;
-    }
-  };
-
-  const handleRefresh = () => {
-    refetch();
-  };
-
   const handleConfirmDelete = async () => {
     if (deleteModal.document) {
       try {
-        // 使用統一 API 服務刪除公文 (POST-only 資安機制)
-        await documentsApi.deleteDocument(deleteModal.document.id);
-
+        await deleteMutation.mutateAsync(deleteModal.document.id);
         message.success(`已刪除公文: ${deleteModal.document.doc_number}`);
-        refetch();
         setDeleteModal({ open: false, document: null });
       } catch (error) {
         console.error('刪除公文失敗:', error);
@@ -261,35 +279,19 @@ export const DocumentPage: React.FC = () => {
     }
   };
 
-  const handleCancelDelete = () => {
-    setDeleteModal({ open: false, document: null });
-  };
-
-  const handleTableChange = (pagination: any, __: any, sorter: any) => {
-    // Handle pagination changes
-    if (pagination && (pagination.current !== pagination.page || pagination.pageSize !== pagination.limit)) {
-      const newPagination = {
-        page: pagination.current || 1,
-        limit: pagination.pageSize || 10,
-        total: pagination.total || 0
-      };
-      setPagination(newPagination);
-    }
-
-    // Handle sorting changes
-    if (sorter && sorter.field) {
-      setSortField(sorter.field);
-      setSortOrder(sorter.order);
-    } else {
-      setSortField('');
-      setSortOrder(null);
+  const handleSend = async () => {
+    try {
+      message.success('公文發送成功！');
+      setSendModal({ visible: false, document: null });
+      await forceRefresh();
+    } catch (error) {
+      throw error;
     }
   };
 
   const handleExportExcel = async () => {
     setIsExporting(true);
     try {
-      // 匯出所有當前篩選條件下的文件
       await exportDocumentsToExcel(documents, 'documents.xlsx', filters);
       message.success('文件已成功匯出');
     } catch (error) {
@@ -300,168 +302,27 @@ export const DocumentPage: React.FC = () => {
     }
   };
 
-  // 渲染主內容
+  // ============================================================================
+  // 渲染
+  // ============================================================================
   const renderMainContent = () => {
-    if (useTabView) {
-      return (
-        <DocumentTabs
-          documents={documents}
-          loading={isLoading}
-          filters={{ ...filters, page: pagination.page, limit: pagination.limit }}
-          total={pagination.total}
-          onEdit={handleEditDocument}
-          onDelete={handleDeleteDocument}
-          onView={handleViewDocument}
-          onExport={handleExportExcel}
-          onTableChange={handleTableChange}
-          onFiltersChange={handleFiltersChange}
-          isExporting={isExporting}
-          onAddToCalendar={handleAddToCalendar}
-          isAddingToCalendar={isAddingToCalendar}
-        />
-      );
-    }
     return (
-      <>
-        <DocumentList
-          documents={documents}
-          loading={isLoading}
-          total={pagination.total}
-          pagination={{ current: pagination.page, pageSize: pagination.limit }}
-          sortField={sortField}
-          sortOrder={sortOrder}
-          onTableChange={handleTableChange}
-          onEdit={handleEditDocument}
-          onDelete={handleDeleteDocument}
-          onView={handleViewDocument}
-          onCopy={handleCopyDocument}
-          onExportPdf={handleExportPdf}
-          onSend={handleSendDocument}
-          onArchive={handleArchiveDocument}
-          onExport={handleExportExcel}
-          onAddToCalendar={handleAddToCalendar}
-          onBatchExport={handleBatchExport}
-          onBatchDelete={handleBatchDelete}
-          onBatchArchive={handleBatchArchive}
-          enableBatchOperations
-          isExporting={isExporting}
-          isAddingToCalendar={isAddingToCalendar}
-        />
-        <DocumentPagination
-          page={pagination.page}
-          limit={pagination.limit}
-          total={pagination.total}
-          totalPages={pagination.totalPages}
-          onPageChange={handlePageChange}
-          onLimitChange={handleLimitChange}
-        />
-      </>
+      <DocumentTabs
+        documents={documents}
+        loading={isLoading}
+        filters={{ ...filters, page: pagination.page, limit: pagination.limit }}
+        total={totalCount}
+        onEdit={handleEditDocument}
+        onDelete={handleDeleteDocument}
+        onView={handleViewDocument}
+        onExport={handleExportExcel}
+        onTableChange={handleTableChange}
+        onFiltersChange={handleFiltersChange}
+        isExporting={isExporting}
+        onAddToCalendar={handleAddToCalendar}
+        isAddingToCalendar={isAddingToCalendar}
+      />
     );
-  };
-
-  // CSV匯入處理
-  const handleCSVImport = () => {
-    setCsvImportModal(true);
-  };
-
-  // 支援多檔上傳的 CSV 匯入處理
-  const handleCSVUpload = async (file: any, fileList: any[]) => {
-    // 只在最後一個檔案時觸發上傳（避免重複）
-    if (file !== fileList[fileList.length - 1]) {
-      return false;
-    }
-
-    setCsvImporting(true);
-    setImportProgress(0);
-
-    const formData = new FormData();
-
-    // 判斷單檔或多檔
-    const isMultiple = fileList.length > 1;
-    const endpoint = isMultiple
-      ? `${API_BASE_URL}/csv-import/upload-multiple`
-      : `${API_BASE_URL}/csv-import/upload-and-import`;
-
-    if (isMultiple) {
-      // 多檔上傳
-      fileList.forEach((f: any) => {
-        formData.append('files', f);
-      });
-    } else {
-      // 單檔上傳
-      formData.append('file', file);
-    }
-
-    try {
-      const progressInterval = setInterval(() => {
-        setImportProgress(prev => Math.min(prev + 10, 90));
-      }, 200);
-
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        body: formData,
-      });
-
-      clearInterval(progressInterval);
-      setImportProgress(100);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`匯入失敗 (${response.status}): ${errorText}`);
-      }
-
-      const result = await response.json();
-
-      if (isMultiple) {
-        // 多檔結果顯示
-        const { summary, file_results } = result;
-        if (summary.total_success > 0) {
-          message.success(
-            `批次匯入完成！${summary.files_count} 個檔案，共 ${summary.total_processed} 筆，成功 ${summary.total_success} 筆，跳過 ${summary.total_skipped} 筆`
-          );
-        } else if (summary.total_skipped > 0) {
-          message.warning(
-            `批次匯入完成，全部為重複資料已跳過。${summary.files_count} 個檔案，共 ${summary.total_processed} 筆`
-          );
-        } else {
-          message.warning(`批次匯入完成，但無資料成功匯入`);
-        }
-        // 顯示各檔案結果
-        file_results?.forEach((fr: any) => {
-          if (fr.error_count > 0) {
-            message.error(`${fr.filename}: ${fr.message}`);
-          }
-        });
-      } else {
-        // 單檔結果顯示
-        if (result.success_count > 0) {
-          message.success(`CSV匯入成功！共 ${result.total_processed} 筆，成功 ${result.success_count} 筆`);
-        } else if (result.skipped_count > 0) {
-          message.warning(
-            `CSV匯入完成，${result.skipped_count} 筆重複資料已跳過`
-          );
-        } else {
-          message.warning(
-            `CSV匯入完成，但無資料成功匯入。共 ${result.total_processed} 筆，${result.error_count} 筆錯誤`
-          );
-        }
-
-        if (result.errors && result.errors.length > 0) {
-          const errorSample = result.errors.slice(0, 3).join('; ');
-          message.error(`匯入錯誤: ${errorSample}${result.errors.length > 3 ? '...' : ''}`);
-        }
-      }
-
-      refetch();
-      setCsvImportModal(false);
-    } catch (error) {
-      message.error(`CSV匯入失敗: ${error instanceof Error ? error.message : '網路錯誤'}`);
-    } finally {
-      setCsvImporting(false);
-      setImportProgress(0);
-    }
-
-    return false;
   };
 
   return (
@@ -479,16 +340,12 @@ export const DocumentPage: React.FC = () => {
         </Title>
 
         <Space>
-          <Button icon={<ReloadOutlined />} onClick={handleRefresh} loading={isLoading}>
+          <Button icon={<ReloadOutlined />} onClick={() => forceRefresh()} loading={isLoading}>
             重新整理
           </Button>
 
-          <Button onClick={() => setUseTabView(!useTabView)}>
-            {useTabView ? '列表視圖' : '分頁視圖'}
-          </Button>
-
-          <Button icon={<UploadOutlined />} onClick={handleCSVImport} loading={csvImporting}>
-            匯入 CSV
+          <Button icon={<UploadOutlined />} onClick={() => setImportModalVisible(true)}>
+            公文匯入
           </Button>
 
           <Button type="primary" icon={<PlusOutlined />} onClick={handleCreateDocument}>
@@ -509,44 +366,22 @@ export const DocumentPage: React.FC = () => {
         title="確認刪除"
         open={deleteModal.open}
         onOk={handleConfirmDelete}
-        onCancel={handleCancelDelete}
+        onCancel={() => setDeleteModal({ open: false, document: null })}
         okText="刪除"
         cancelText="取消"
         okButtonProps={{ danger: true }}
+        confirmLoading={deleteMutation.isPending}
       >
         <p>確定要刪除公文「{deleteModal.document?.doc_number}」嗎？此操作無法復原。</p>
       </Modal>
 
-      <Modal
-        title="匯入 CSV 檔案"
-        open={csvImportModal}
-        onCancel={() => setCsvImportModal(false)}
-        footer={null}
-        width={600}
-      >
-        <div style={{ padding: '20px 0' }}>
-          {csvImporting ? (
-            <div style={{ textAlign: 'center' }}>
-              <Progress type="circle" percent={importProgress} />
-              <p style={{ marginTop: 16 }}>匯入中...</p>
-            </div>
-          ) : (
-            <Upload.Dragger
-              name="file"
-              multiple={true}
-              accept=".csv"
-              beforeUpload={(file, fileList) => handleCSVUpload(file, fileList)}
-              showUploadList={false}
-            >
-              <p className="ant-upload-drag-icon">
-                <UploadOutlined />
-              </p>
-              <p className="ant-upload-text">點選或拖曳 CSV 檔案到此區域</p>
-              <p className="ant-upload-hint">支援多檔批次上傳，可同時選擇多個 CSV 檔案。欄位將自動對應。</p>
-            </Upload.Dragger>
-          )}
-        </div>
-      </Modal>
+      <DocumentImport
+        visible={importModalVisible}
+        onClose={() => setImportModalVisible(false)}
+        onSuccess={async () => {
+          await forceRefresh();
+        }}
+      />
 
       <DocumentOperations
         document={documentOperation.document}
