@@ -79,6 +79,8 @@ const typeLabels: Record<string, string> = {
   import: '匯入',
   error: '錯誤',
   security: '安全',
+  calendar_event: '行事曆',
+  project_update: '專案更新',
 };
 
 export const NotificationCenter: React.FC = () => {

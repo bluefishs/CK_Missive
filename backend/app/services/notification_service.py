@@ -38,6 +38,8 @@ class NotificationType:
     IMPORT = "import"
     ERROR = "error"
     SECURITY = "security"
+    CALENDAR_EVENT = "calendar_event"
+    PROJECT_UPDATE = "project_update"
 
 
 # 嚴重程度常數
