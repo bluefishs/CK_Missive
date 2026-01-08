@@ -133,6 +133,11 @@ cd frontend && npm run test:coverage
   - [x] 後端 API `/events/create-with-reminders` 支援一站式建立
   - [x] 自動發送專案成員通知
   - [x] Google Calendar 同步選項
+- [x] **Phase 2 通知機制強化** (2026-01-08)
+  - [x] NotificationCenter 新增 calendar_event, project_update 類型
+  - [x] ProjectNotificationService 完整實作 (團隊成員通知)
+  - [x] 事件建立時自動通知專案相關成員
+  - [x] 後端 NotificationType 常數同步更新
 
 **事件類型分佈**:
 | 類型 | 數量 |
