@@ -20,6 +20,7 @@ import {
   EditOutlined,
 } from '@ant-design/icons';
 import { useDashboardPage } from '../hooks';
+import { useResponsive } from '../hooks/useResponsive';
 
 const { Title } = Typography;
 
@@ -53,58 +54,121 @@ export const DashboardPage: React.FC = () => {
   } = useDashboardPage();
 
   // ============================================================================
+  // 響應式設計
+  // ============================================================================
+
+  const { isMobile, responsiveValue } = useResponsive();
+  const pagePadding = responsiveValue({ mobile: 12, tablet: 16, desktop: 24 });
+  const cardGutter = responsiveValue({ mobile: 8, tablet: 12, desktop: 16 }) as number;
+
+  // ============================================================================
   // 表格欄位
   // ============================================================================
 
-  const columns = [
-    { title: '公文編號', dataIndex: 'id', key: 'id', width: 120 },
-    { title: '標題', dataIndex: 'title', key: 'title', ellipsis: true },
-    { title: '類型', dataIndex: 'type', key: 'type', width: 100 },
-    { title: '狀態', dataIndex: 'status', key: 'status', width: 120, render: getStatusTag },
-    { title: '發文單位', dataIndex: 'agency', key: 'agency', ellipsis: true },
-    { title: '建立日期', dataIndex: 'createDate', key: 'createDate', width: 110 },
-    {
-      title: '操作',
-      key: 'action',
-      width: 120,
-      render: () => (
-        <Space size="small">
-          <Button type="link" icon={<EyeOutlined />} size="small">查看</Button>
-          <Button type="link" icon={<EditOutlined />} size="small">編輯</Button>
-        </Space>
-      ),
-    },
-  ];
+  // 手機版精簡欄位，桌面版完整欄位
+  const columns = isMobile
+    ? [
+        { title: '編號', dataIndex: 'id', key: 'id', width: 80 },
+        { title: '標題', dataIndex: 'title', key: 'title', ellipsis: true },
+        { title: '狀態', dataIndex: 'status', key: 'status', width: 80, render: getStatusTag },
+        {
+          title: '操作',
+          key: 'action',
+          width: 60,
+          render: () => <Button type="link" icon={<EyeOutlined />} size="small" />,
+        },
+      ]
+    : [
+        { title: '公文編號', dataIndex: 'id', key: 'id', width: 120 },
+        { title: '標題', dataIndex: 'title', key: 'title', ellipsis: true },
+        { title: '類型', dataIndex: 'type', key: 'type', width: 100 },
+        { title: '狀態', dataIndex: 'status', key: 'status', width: 120, render: getStatusTag },
+        { title: '發文單位', dataIndex: 'agency', key: 'agency', ellipsis: true },
+        { title: '建立日期', dataIndex: 'createDate', key: 'createDate', width: 110 },
+        {
+          title: '操作',
+          key: 'action',
+          width: 120,
+          render: () => (
+            <Space size="small">
+              <Button type="link" icon={<EyeOutlined />} size="small">查看</Button>
+              <Button type="link" icon={<EditOutlined />} size="small">編輯</Button>
+            </Space>
+          ),
+        },
+      ];
 
   // ============================================================================
   // 渲染
   // ============================================================================
 
   return (
-    <div style={{ padding: '24px', background: '#f5f5f5', minHeight: '100vh' }}>
+    <div style={{ padding: pagePadding, background: '#f5f5f5', minHeight: '100vh' }}>
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-        <Title level={2} style={{ marginBottom: 24, color: '#1976d2' }}>儀表板總覽</Title>
+        <Title level={isMobile ? 4 : 2} style={{ marginBottom: isMobile ? 16 : 24, color: '#1976d2' }}>
+          {isMobile ? '儀表板' : '儀表板總覽'}
+        </Title>
         <Spin spinning={isLoading}>
-          <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+          <Row gutter={[cardGutter, cardGutter]} style={{ marginBottom: isMobile ? 16 : 24 }}>
             <Col xs={12} sm={12} md={6} lg={6}>
-              <Card><Statistic title="總公文數" value={stats.total} prefix={<FileTextOutlined />} /></Card>
+              <Card size={isMobile ? 'small' : 'default'}>
+                <Statistic
+                  title={isMobile ? '總數' : '總公文數'}
+                  value={stats.total}
+                  prefix={<FileTextOutlined />}
+                />
+              </Card>
             </Col>
             <Col xs={12} sm={12} md={6} lg={6}>
-              <Card><Statistic title="已核准" value={stats.approved} prefix={<CheckCircleOutlined />} valueStyle={{ color: '#52c41a' }} /></Card>
+              <Card size={isMobile ? 'small' : 'default'}>
+                <Statistic
+                  title="已核准"
+                  value={stats.approved}
+                  prefix={<CheckCircleOutlined />}
+                  valueStyle={{ color: '#52c41a' }}
+                />
+              </Card>
             </Col>
             <Col xs={12} sm={12} md={6} lg={6}>
-              <Card><Statistic title="待處理" value={stats.pending} prefix={<ClockCircleOutlined />} valueStyle={{ color: '#faad14' }} /></Card>
+              <Card size={isMobile ? 'small' : 'default'}>
+                <Statistic
+                  title="待處理"
+                  value={stats.pending}
+                  prefix={<ClockCircleOutlined />}
+                  valueStyle={{ color: '#faad14' }}
+                />
+              </Card>
             </Col>
             <Col xs={12} sm={12} md={6} lg={6}>
-              <Card><Statistic title="已駁回" value={stats.rejected} prefix={<ExclamationCircleOutlined />} valueStyle={{ color: '#ff4d4f' }} /></Card>
+              <Card size={isMobile ? 'small' : 'default'}>
+                <Statistic
+                  title="已駁回"
+                  value={stats.rejected}
+                  prefix={<ExclamationCircleOutlined />}
+                  valueStyle={{ color: '#ff4d4f' }}
+                />
+              </Card>
             </Col>
           </Row>
-          <Card title="近期公文" extra={<Button type="primary" icon={<PlusOutlined />}>新增公文</Button>}>
+          <Card
+            title="近期公文"
+            size={isMobile ? 'small' : 'default'}
+            extra={
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                size={isMobile ? 'small' : 'middle'}
+              >
+                {isMobile ? '' : '新增公文'}
+              </Button>
+            }
+          >
             <Table
               columns={columns}
               dataSource={recentDocuments}
               pagination={false}
-              scroll={{ x: 1000 }}
+              scroll={{ x: isMobile ? 400 : 1000 }}
+              size={isMobile ? 'small' : 'middle'}
             />
           </Card>
         </Spin>

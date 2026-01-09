@@ -12,6 +12,8 @@ import { DocumentListEnhanced } from '../components/document/DocumentListEnhance
 import { useDocuments } from '../hooks/useDocuments';
 import { Document, DocumentFilter } from '../types';
 import { API_BASE_URL } from '../api/client';
+import { useResponsive } from '../hooks/useResponsive';
+import { HideOn } from '../components/common/ResponsiveContainer';
 
 const { Title, Text } = Typography;
 
@@ -27,6 +29,7 @@ interface EnhancedDocumentPageState {
 
 const DocumentPageEnhanced: React.FC = () => {
   const { message } = App.useApp();
+  const { isMobile, isTablet, responsiveValue } = useResponsive();
   const [state, setState] = useState<EnhancedDocumentPageState>({
     filters: {},
     sortField: 'updated_at',
@@ -190,68 +193,84 @@ const DocumentPageEnhanced: React.FC = () => {
 
   const allTestsPassed = Object.values(testResults).every(test => test);
 
+  // 響應式間距
+  const pagePadding = responsiveValue({ mobile: 12, tablet: 16, desktop: 24 });
+
   return (
-    <div style={{ padding: '24px' }}>
+    <div style={{ padding: pagePadding }}>
       {/* 頁面標題與狀態 */}
-      <Row justify="space-between" align="middle" style={{ marginBottom: 24 }}>
-        <Col>
-          <Title level={2} style={{ margin: 0 }}>
-            📋 增強版公文管理系統
+      <Row
+        justify="space-between"
+        align={isMobile ? 'top' : 'middle'}
+        gutter={[0, 12]}
+        style={{ marginBottom: isMobile ? 16 : 24 }}
+      >
+        <Col xs={24} sm={24} md={12}>
+          <Title level={isMobile ? 4 : 2} style={{ margin: 0 }}>
+            📋 {isMobile ? '公文管理' : '增強版公文管理系統'}
           </Title>
-          <Text type="secondary">
-            整合多表查詢、智能搜尋、表格排序功能
-          </Text>
+          <HideOn mobile>
+            <Text type="secondary">
+              整合多表查詢、智能搜尋、表格排序功能
+            </Text>
+          </HideOn>
         </Col>
-        <Col>
-          <Space>
+        <Col xs={24} sm={24} md={12} style={{ textAlign: isMobile ? 'left' : 'right' }}>
+          <Space wrap size={isMobile ? 'small' : 'middle'}>
             <Button
               icon={<ReloadOutlined />}
               onClick={handleRefresh}
               loading={loading}
+              size={isMobile ? 'small' : 'middle'}
             >
-              刷新
+              {isMobile ? '' : '刷新'}
             </Button>
             <Button
               icon={<ExportOutlined />}
               onClick={handleExport}
               loading={isExporting}
+              size={isMobile ? 'small' : 'middle'}
             >
-              匯出
+              {isMobile ? '' : '匯出'}
             </Button>
-            <Button
-              icon={<SettingOutlined />}
-              onClick={testEnhancedFeatures}
-            >
-              測試功能
-            </Button>
+            <HideOn mobile>
+              <Button
+                icon={<SettingOutlined />}
+                onClick={testEnhancedFeatures}
+              >
+                測試功能
+              </Button>
+            </HideOn>
           </Space>
         </Col>
       </Row>
 
-      {/* 功能測試狀態 */}
-      <Card
-        size="small"
-        style={{ marginBottom: 16 }}
-        bodyStyle={{ padding: '12px 16px' }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <InfoCircleOutlined style={{ color: allTestsPassed ? '#52c41a' : '#faad14' }} />
-            <Text strong>增強功能狀態</Text>
+      {/* 功能測試狀態 - 手機版隱藏 */}
+      <HideOn mobile>
+        <Card
+          size="small"
+          style={{ marginBottom: 16 }}
+          bodyStyle={{ padding: '12px 16px' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <InfoCircleOutlined style={{ color: allTestsPassed ? '#52c41a' : '#faad14' }} />
+              <Text strong>增強功能狀態</Text>
+            </div>
+            <div style={{ display: 'flex', gap: isTablet ? 8 : 16, fontSize: '12px', flexWrap: 'wrap' }}>
+              <span style={{ color: testResults.contractProjectsTest ? '#52c41a' : '#ff4d4f' }}>
+                承攬案件API: {testResults.contractProjectsTest ? '✓' : '✗'}
+              </span>
+              <span style={{ color: testResults.agenciesTest ? '#52c41a' : '#ff4d4f' }}>
+                政府機關API: {testResults.agenciesTest ? '✓' : '✗'}
+              </span>
+              <span style={{ color: testResults.integratedSearchTest ? '#52c41a' : '#ff4d4f' }}>
+                整合搜尋API: {testResults.integratedSearchTest ? '✓' : '✗'}
+              </span>
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: 16, fontSize: '12px' }}>
-            <span style={{ color: testResults.contractProjectsTest ? '#52c41a' : '#ff4d4f' }}>
-              承攬案件API: {testResults.contractProjectsTest ? '✓' : '✗'}
-            </span>
-            <span style={{ color: testResults.agenciesTest ? '#52c41a' : '#ff4d4f' }}>
-              政府機關API: {testResults.agenciesTest ? '✓' : '✗'}
-            </span>
-            <span style={{ color: testResults.integratedSearchTest ? '#52c41a' : '#ff4d4f' }}>
-              整合搜尋API: {testResults.integratedSearchTest ? '✓' : '✗'}
-            </span>
-          </div>
-        </div>
-      </Card>
+        </Card>
+      </HideOn>
 
       {/* 篩選元件 */}
       <DocumentFilterEnhanced
@@ -282,52 +301,54 @@ const DocumentPageEnhanced: React.FC = () => {
         />
       </Spin>
 
-      {/* 功能說明 */}
-      <Card
-        title={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <InfoCircleOutlined />
-            <span>增強功能說明</span>
-          </div>
-        }
-        size="small"
-        style={{ marginTop: 16 }}
-      >
-        <Row gutter={[16, 16]}>
-          <Col span={24} md={8}>
-            <div>
-              <Text strong style={{ color: '#1890ff' }}>🔍 智能搜尋</Text>
-              <div style={{ fontSize: '12px', color: '#666', marginTop: 4 }}>
-                • 所有篩選欄位支援 AutoComplete<br/>
-                • 承攬案件直接對應專案資料庫<br/>
-                • 政府機關整合機關資料庫
-              </div>
+      {/* 功能說明 - 手機版隱藏 */}
+      <HideOn mobile>
+        <Card
+          title={
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <InfoCircleOutlined />
+              <span>增強功能說明</span>
             </div>
-          </Col>
-          <Col span={24} md={8}>
-            <div>
-              <Text strong style={{ color: '#52c41a' }}>📊 表格增強</Text>
-              <div style={{ fontSize: '12px', color: '#666', marginTop: 4 }}>
-                • 所有欄位支援排序<br/>
-                • 欄位級別篩選功能<br/>
-                • 自訂顯示欄位<br/>
-                • 批次操作功能
+          }
+          size="small"
+          style={{ marginTop: 16 }}
+        >
+          <Row gutter={[16, 16]}>
+            <Col xs={24} sm={12} md={8}>
+              <div>
+                <Text strong style={{ color: '#1890ff' }}>🔍 智能搜尋</Text>
+                <div style={{ fontSize: '12px', color: '#666', marginTop: 4 }}>
+                  • 所有篩選欄位支援 AutoComplete<br/>
+                  • 承攬案件直接對應專案資料庫<br/>
+                  • 政府機關整合機關資料庫
+                </div>
               </div>
-            </div>
-          </Col>
-          <Col span={24} md={8}>
-            <div>
-              <Text strong style={{ color: '#faad14' }}>🔗 多表整合</Text>
-              <div style={{ fontSize: '12px', color: '#666', marginTop: 4 }}>
-                • 外鍵關聯設計<br/>
-                • JOIN 查詢優化<br/>
-                • 資料一致性保證<br/>
-                • 向後相容性
+            </Col>
+            <Col xs={24} sm={12} md={8}>
+              <div>
+                <Text strong style={{ color: '#52c41a' }}>📊 表格增強</Text>
+                <div style={{ fontSize: '12px', color: '#666', marginTop: 4 }}>
+                  • 所有欄位支援排序<br/>
+                  • 欄位級別篩選功能<br/>
+                  • 自訂顯示欄位<br/>
+                  • 批次操作功能
+                </div>
               </div>
-            </div>
-          </Col>
-        </Row>
-      </Card>
+            </Col>
+            <Col xs={24} sm={24} md={8}>
+              <div>
+                <Text strong style={{ color: '#faad14' }}>🔗 多表整合</Text>
+                <div style={{ fontSize: '12px', color: '#666', marginTop: 4 }}>
+                  • 外鍵關聯設計<br/>
+                  • JOIN 查詢優化<br/>
+                  • 資料一致性保證<br/>
+                  • 向後相容性
+                </div>
+              </div>
+            </Col>
+          </Row>
+        </Card>
+      </HideOn>
     </div>
   );
 };

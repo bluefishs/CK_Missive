@@ -20,12 +20,9 @@ import {
   Col,
   Dropdown,
   App,
-  Grid,
   Drawer,
 } from 'antd';
 import type { MenuProps } from 'antd';
-
-const { useBreakpoint } = Grid;
 import {
   SyncOutlined,
   GoogleOutlined,
@@ -43,6 +40,7 @@ import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
 import { EnhancedCalendarView } from '../components/calendar/EnhancedCalendarView';
 import { useCalendarPage } from '../hooks';
+import { useResponsive } from '../hooks/useResponsive';
 import type { CalendarEvent, EventCategory } from '../api/calendarApi';
 
 // 啟用 dayjs 週計算插件
@@ -75,10 +73,10 @@ const CalendarPage: React.FC = () => {
   const { message, modal } = App.useApp();
 
   // ============================================================================
-  // 響應式斷點
+  // 響應式設計 (使用標準化 useResponsive hook)
   // ============================================================================
-  const screens = useBreakpoint();
-  const isMobile = !screens.md; // md 以下視為行動裝置
+  const { isMobile, isTablet, responsiveValue } = useResponsive();
+  const pagePadding = responsiveValue({ mobile: 12, tablet: 16, desktop: 24 });
 
   // ============================================================================
   // UI 狀態（本地狀態）
@@ -263,7 +261,7 @@ const CalendarPage: React.FC = () => {
   // ============================================================================
 
   return (
-    <div style={{ padding: isMobile ? '12px' : '24px' }}>
+    <div style={{ padding: pagePadding }}>
       {/* 標題列 */}
       <Row gutter={[8, 8]} align="middle" style={{ marginBottom: 16 }}>
         <Col flex="auto">

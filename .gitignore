@@ -44,10 +44,12 @@ backups/database/*.sql.gz
 *.temp
 nul
 
-# Test files
+# Test files (root level only, exclude tests/ directory)
 test*.csv
-test*.py
-debug*.py
+/test*.py
+/debug*.py
+!/backend/tests/
+!/frontend/src/test/
 
 # Test coverage
 backend/.coverage
