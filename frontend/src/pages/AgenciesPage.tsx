@@ -32,6 +32,7 @@ import {
 } from '@ant-design/icons';
 import Highlighter from 'react-highlight-words';
 import { useAgenciesPage } from '../hooks';
+import { useResponsive } from '../hooks/useResponsive';
 import type { AgencyWithStats, AgencyCreate, AgencyUpdate } from '../api';
 
 const { Title, Text } = Typography;

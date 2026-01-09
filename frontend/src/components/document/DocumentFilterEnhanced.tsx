@@ -27,6 +27,7 @@ import {
   InfoCircleOutlined,
 } from '@ant-design/icons';
 import { DocumentFilter as DocumentFilterType } from '../../types';
+import { useResponsive } from '../../hooks/useResponsive';
 const { Option } = Select;
 const { Title } = Typography;
 
@@ -69,6 +70,7 @@ const DocumentFilterEnhanced: React.FC<DocumentFilterProps> = ({
   onFiltersChange,
   onReset,
 }) => {
+  const { isMobile, responsiveValue } = useResponsive();
   const [expanded, setExpanded] = useState(false);
   const [localFilters, setLocalFilters] = useState<DocumentFilterType>(filters);
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null] | null>(null);
@@ -236,17 +238,17 @@ const DocumentFilterEnhanced: React.FC<DocumentFilterProps> = ({
   ).length;
 
   return (
-    <Card style={{ marginBottom: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
+    <Card size={isMobile ? 'small' : 'default'} style={{ marginBottom: isMobile ? 12 : 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: isMobile ? 12 : 16, flexWrap: 'wrap', gap: 8 }}>
         <SearchOutlined style={{ marginRight: 8 }} />
-        <Title level={5} style={{ margin: 0, flexGrow: 1 }}>
-          智能搜尋與篩選
+        <Title level={isMobile ? 5 : 5} style={{ margin: 0, flexGrow: 1 }}>
+          {isMobile ? '搜尋' : '智能搜尋與篩選'}
         </Title>
 
         {hasActiveFilters && (
-          <Tag color="blue" style={{ marginRight: 8 }}>
+          <Tag color="blue" style={{ marginRight: isMobile ? 0 : 8 }}>
             <FilterOutlined style={{ marginRight: 4 }} />
-            {activeFilterCount} 個篩選條件
+            {activeFilterCount} {isMobile ? '' : '個篩選條件'}
           </Tag>
         )}
 
@@ -519,26 +521,29 @@ const DocumentFilterEnhanced: React.FC<DocumentFilterProps> = ({
       )}
 
       {/* 操作按鈕 */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {hasActiveFilters && (
-            <>
-              <InfoCircleOutlined style={{ color: '#1890ff' }} />
-              <span style={{ color: '#666', fontSize: '13px' }}>
-                已套用 {activeFilterCount} 個篩選條件
-              </span>
-            </>
-          )}
-        </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: isMobile ? 12 : 16, flexWrap: 'wrap', gap: 8 }}>
+        {!isMobile && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {hasActiveFilters && (
+              <>
+                <InfoCircleOutlined style={{ color: '#1890ff' }} />
+                <span style={{ color: '#666', fontSize: '13px' }}>
+                  已套用 {activeFilterCount} 個篩選條件
+                </span>
+              </>
+            )}
+          </div>
+        )}
 
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'flex-end' : 'flex-start' }}>
           <Tooltip title="清除所有篩選條件">
             <Button
               onClick={handleReset}
               icon={<ClearOutlined />}
               disabled={!hasActiveFilters}
+              size={isMobile ? 'small' : 'middle'}
             >
-              清除篩選
+              {isMobile ? '' : '清除篩選'}
             </Button>
           </Tooltip>
 
@@ -547,15 +552,16 @@ const DocumentFilterEnhanced: React.FC<DocumentFilterProps> = ({
               type="primary"
               onClick={handleApplyFilters}
               icon={<FilterOutlined />}
+              size={isMobile ? 'small' : 'middle'}
             >
-              套用篩選
+              {isMobile ? '搜尋' : '套用篩選'}
             </Button>
           </Tooltip>
         </div>
       </div>
 
-      {/* 資料來源提示 */}
-      {!hasActiveFilters && (
+      {/* 資料來源提示 - 僅桌面版顯示 */}
+      {!hasActiveFilters && !isMobile && (
         <div style={{
           textAlign: 'center',
           padding: '12px 16px',

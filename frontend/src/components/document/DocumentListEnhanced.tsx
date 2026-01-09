@@ -29,9 +29,11 @@ import {
   SettingOutlined,
   SearchOutlined,
   PaperClipOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
 import { Document } from '../../types';
 import { DocumentActions, BatchActions } from './DocumentActions';
+import { useResponsive } from '../../hooks/useResponsive';
 
 const { Text } = Typography;
 
@@ -118,6 +120,7 @@ export const DocumentListEnhanced: React.FC<DocumentListProps> = ({
   isExporting = false,
   isAddingToCalendar = false,
 }) => {
+  const { isMobile, responsiveValue } = useResponsive();
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [columnConfigs, setColumnConfigs] = useState<ColumnConfig[]>(defaultColumnConfigs);
 
@@ -156,8 +159,44 @@ export const DocumentListEnhanced: React.FC<DocumentListProps> = ({
     );
   };
 
+  // 手機版簡化欄位
+  const generateMobileColumns = (): ColumnsType<Document> => [
+    {
+      title: '公文資訊',
+      dataIndex: 'subject',
+      key: 'subject',
+      render: (_: string, record: Document) => (
+        <Space direction="vertical" size={0}>
+          <strong style={{ fontSize: '13px' }}>{record.subject || '-'}</strong>
+          <small style={{ color: '#666' }}>
+            {record.doc_number || '-'}
+          </small>
+          {record.status && formatStatusTag(record.status)}
+        </Space>
+      ),
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 60,
+      render: (_: any, record: Document) => (
+        <Button
+          type="link"
+          icon={<EyeOutlined />}
+          size="small"
+          onClick={() => onView(record)}
+        />
+      ),
+    },
+  ];
+
   // 生成表格欄位配置
   const generateColumns = (): ColumnsType<Document> => {
+    // 手機版使用簡化欄位
+    if (isMobile) {
+      return generateMobileColumns();
+    }
+
     const visibleConfigs = columnConfigs.filter(config => config.visible);
     const columns: ColumnsType<Document> = [];
 
@@ -405,22 +444,24 @@ export const DocumentListEnhanced: React.FC<DocumentListProps> = ({
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 16,
-        padding: '12px 16px',
+        marginBottom: isMobile ? 12 : 16,
+        padding: isMobile ? '8px 12px' : '12px 16px',
         backgroundColor: '#fafafa',
-        borderRadius: '6px'
+        borderRadius: '6px',
+        flexWrap: 'wrap',
+        gap: 8
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <Text>
-            共 <Text strong>{total}</Text> 筆資料
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 16 }}>
+          <Text style={{ fontSize: isMobile ? '13px' : '14px' }}>
+            共 <Text strong>{total}</Text> 筆
             {selectedRowKeys.length > 0 && (
-              <span style={{ marginLeft: 8 }}>
-                (已選 <Text strong style={{ color: '#1890ff' }}>{selectedRowKeys.length}</Text> 筆)
+              <span style={{ marginLeft: 4 }}>
+                (選 <Text strong style={{ color: '#1890ff' }}>{selectedRowKeys.length}</Text>)
               </span>
             )}
           </Text>
 
-          {selectedRowKeys.length > 0 && enableBatchOperations && (
+          {selectedRowKeys.length > 0 && enableBatchOperations && !isMobile && (
             <BatchActions
               selectedCount={selectedRowKeys.length}
               onExportSelected={() => onBatchExport?.(selectedDocuments)}
@@ -439,19 +480,22 @@ export const DocumentListEnhanced: React.FC<DocumentListProps> = ({
                 icon={<FileExcelOutlined />}
                 onClick={onExport}
                 loading={isExporting}
+                size={isMobile ? 'small' : 'middle'}
               >
-                匯出
+                {isMobile ? '' : '匯出'}
               </Button>
             </Tooltip>
           )}
 
-          <Dropdown overlay={columnConfigMenu} trigger={['click']} placement="bottomRight">
-            <Tooltip title="欄位設定">
-              <Button icon={<SettingOutlined />}>
-                欄位
-              </Button>
-            </Tooltip>
-          </Dropdown>
+          {!isMobile && (
+            <Dropdown overlay={columnConfigMenu} trigger={['click']} placement="bottomRight">
+              <Tooltip title="欄位設定">
+                <Button icon={<SettingOutlined />}>
+                  欄位
+                </Button>
+              </Tooltip>
+            </Dropdown>
+          )}
         </div>
       </div>
 
@@ -463,18 +507,19 @@ export const DocumentListEnhanced: React.FC<DocumentListProps> = ({
         loading={loading}
         pagination={{
           current: pagination.current,
-          pageSize: pagination.pageSize,
+          pageSize: isMobile ? 10 : pagination.pageSize,
           total: total,
-          showSizeChanger: true,
-          showQuickJumper: true,
-          showTotal: (total, range) =>
+          showSizeChanger: !isMobile,
+          showQuickJumper: !isMobile,
+          showTotal: isMobile ? undefined : (total, range) =>
             `第 ${range[0]}-${range[1]} 筆，共 ${total} 筆`,
           pageSizeOptions: ['10', '20', '50', '100'],
+          size: isMobile ? 'small' : 'default',
         }}
-        rowSelection={rowSelection}
+        rowSelection={isMobile ? undefined : rowSelection}
         {...(onTableChange && { onChange: onTableChange })}
-        scroll={{ x: 1200, y: 600 }}
-        size="small"
+        scroll={{ x: isMobile ? 300 : 1200, y: isMobile ? 400 : 600 }}
+        size={isMobile ? 'small' : 'small'}
         locale={{
           emptyText: (
             <Empty
@@ -489,37 +534,43 @@ export const DocumentListEnhanced: React.FC<DocumentListProps> = ({
           overflow: 'hidden'
         }}
         className="enhanced-document-table"
+        onRow={(record) => isMobile ? {
+          onClick: () => onView(record),
+          style: { cursor: 'pointer' }
+        } : {}}
       />
 
-      {/* 表格功能說明 */}
-      <div style={{
-        marginTop: 16,
-        padding: '8px 16px',
-        backgroundColor: '#f6f8fa',
-        borderRadius: '4px',
-        border: '1px solid #e1e8ed'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: '12px', color: '#666' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <SortAscendingOutlined />
-            <span>點擊欄位標題排序</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <SearchOutlined />
-            <span>點擊篩選圖示搜尋</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <SettingOutlined />
-            <span>自訂顯示欄位</span>
-          </div>
-          {enableBatchOperations && (
+      {/* 表格功能說明 - 僅桌面版顯示 */}
+      {!isMobile && (
+        <div style={{
+          marginTop: 16,
+          padding: '8px 16px',
+          backgroundColor: '#f6f8fa',
+          borderRadius: '4px',
+          border: '1px solid #e1e8ed'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: '12px', color: '#666' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Checkbox />
-              <span>批次操作</span>
+              <SortAscendingOutlined />
+              <span>點擊欄位標題排序</span>
             </div>
-          )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <SearchOutlined />
+              <span>點擊篩選圖示搜尋</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <SettingOutlined />
+              <span>自訂顯示欄位</span>
+            </div>
+            {enableBatchOperations && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Checkbox />
+                <span>批次操作</span>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

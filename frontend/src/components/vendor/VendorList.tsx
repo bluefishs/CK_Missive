@@ -27,6 +27,7 @@ import {
 } from '@ant-design/icons';
 import type { TableColumnType } from 'antd';
 import { useVendorsPage } from '../../hooks';
+import { useResponsive } from '../../hooks/useResponsive';
 import type { Vendor as ApiVendor, VendorCreate, VendorUpdate } from '../../types/api';
 
 const { Title } = Typography;
@@ -64,6 +65,8 @@ interface VendorFormData {
 
 const VendorList: React.FC = () => {
   const { message } = App.useApp();
+  const { isMobile, responsiveValue } = useResponsive();
+  const pagePadding = responsiveValue({ mobile: 12, tablet: 16, desktop: 24 });
 
   // UI 狀態
   const [current, setCurrent] = useState(1);
@@ -144,170 +147,191 @@ const VendorList: React.FC = () => {
     return 'red';
   };
 
-  const columns: TableColumnType<Vendor>[] = [
-    {
-      title: '廠商名稱',
-      dataIndex: 'vendor_name',
-      key: 'vendor_name',
-      sorter: (a, b) => a.vendor_name.localeCompare(b.vendor_name, 'zh-TW'),
-      render: (text: string, record: Vendor) => (
-        <Space direction="vertical" size="small">
-          <strong>{text}</strong>
-          {record.vendor_code && (
-            <small style={{ color: '#666' }}>統編: {record.vendor_code}</small>
-          )}
-        </Space>
-      ),
-    },
-    {
-      title: '聯絡資訊',
-      key: 'contact',
-      sorter: (a, b) => (a.contact_person || '').localeCompare(b.contact_person || '', 'zh-TW'),
-      render: (_, record: Vendor) => (
-        <Space direction="vertical" size="small">
-          {record.contact_person && (
-            <span><UserOutlined /> {record.contact_person}</span>
-          )}
-          {record.phone && (
-            <span><PhoneOutlined /> {record.phone}</span>
-          )}
-          {record.email && (
-            <span><MailOutlined /> {record.email}</span>
-          )}
-        </Space>
-      ),
-    },
-    {
-      title: '營業項目',
-      dataIndex: 'business_type',
-      key: 'business_type',
-      width: 130,
-      sorter: (a, b) => (a.business_type || '').localeCompare(b.business_type || '', 'zh-TW'),
-      filters: BUSINESS_TYPE_OPTIONS.map(opt => ({ text: opt.label, value: opt.value })),
-      onFilter: (value, record) => record.business_type === value,
-      render: (text: string) => text ? (
-        <Tag icon={<ShopOutlined />} color={getBusinessTypeColor(text)}>{text}</Tag>
-      ) : <span style={{ color: '#999' }}>未設定</span>,
-    },
-    {
-      title: '評價',
-      dataIndex: 'rating',
-      key: 'rating',
-      sorter: (a, b) => (a.rating || 0) - (b.rating || 0),
-      filters: [
-        { text: '5星', value: 5 },
-        { text: '4星', value: 4 },
-        { text: '3星', value: 3 },
-        { text: '2星', value: 2 },
-        { text: '1星', value: 1 },
-        { text: '未評價', value: 0 },
-      ],
-      onFilter: (value, record) => (record.rating || 0) === value,
-      render: (rating: number) => (
-        rating ? (
-          <Tag color={getRatingColor(rating)}>
-            {rating} 星
-          </Tag>
-        ) : <span style={{ color: '#999' }}>未評價</span>
-      ),
-    },
-    {
-      title: '建立時間',
-      dataIndex: 'created_at',
-      key: 'created_at',
-      sorter: (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-      render: (date: string) => new Date(date).toLocaleDateString(),
-    },
-    {
-      title: '操作',
-      key: 'action',
-      width: 80,
-      render: (_, record: Vendor) => (
-        <Popconfirm
-          title="確定要刪除此廠商嗎？"
-          description="刪除後無法恢復，且需確保沒有關聯的專案。"
-          onConfirm={(e) => {
-            e?.stopPropagation();
-            handleDelete(record.id);
-          }}
-          onCancel={(e) => e?.stopPropagation()}
-          okText="確定"
-          cancelText="取消"
-        >
-          <Button
-            type="link"
-            danger
-            icon={<DeleteOutlined />}
-            onClick={(e) => e.stopPropagation()}
-          >
-            刪除
-          </Button>
-        </Popconfirm>
-      ),
-    },
-  ];
+  // 響應式表格欄位
+  const columns: TableColumnType<Vendor>[] = isMobile
+    ? [
+        {
+          title: '廠商',
+          dataIndex: 'vendor_name',
+          key: 'vendor_name',
+          render: (text: string, record: Vendor) => (
+            <Space direction="vertical" size={0}>
+              <strong>{text}</strong>
+              {record.contact_person && <small><UserOutlined /> {record.contact_person}</small>}
+              {record.business_type && <Tag color={getBusinessTypeColor(record.business_type)}>{record.business_type}</Tag>}
+            </Space>
+          ),
+        },
+        {
+          title: '操作',
+          key: 'action',
+          width: 60,
+          render: (_, record: Vendor) => (
+            <Popconfirm
+              title="刪除廠商？"
+              onConfirm={(e) => { e?.stopPropagation(); handleDelete(record.id); }}
+              onCancel={(e) => e?.stopPropagation()}
+              okText="確定"
+              cancelText="取消"
+            >
+              <Button type="link" danger icon={<DeleteOutlined />} size="small" onClick={(e) => e.stopPropagation()} />
+            </Popconfirm>
+          ),
+        },
+      ]
+    : [
+        {
+          title: '廠商名稱',
+          dataIndex: 'vendor_name',
+          key: 'vendor_name',
+          sorter: (a, b) => a.vendor_name.localeCompare(b.vendor_name, 'zh-TW'),
+          render: (text: string, record: Vendor) => (
+            <Space direction="vertical" size="small">
+              <strong>{text}</strong>
+              {record.vendor_code && (
+                <small style={{ color: '#666' }}>統編: {record.vendor_code}</small>
+              )}
+            </Space>
+          ),
+        },
+        {
+          title: '聯絡資訊',
+          key: 'contact',
+          sorter: (a, b) => (a.contact_person || '').localeCompare(b.contact_person || '', 'zh-TW'),
+          render: (_, record: Vendor) => (
+            <Space direction="vertical" size="small">
+              {record.contact_person && (<span><UserOutlined /> {record.contact_person}</span>)}
+              {record.phone && (<span><PhoneOutlined /> {record.phone}</span>)}
+              {record.email && (<span><MailOutlined /> {record.email}</span>)}
+            </Space>
+          ),
+        },
+        {
+          title: '營業項目',
+          dataIndex: 'business_type',
+          key: 'business_type',
+          width: 130,
+          sorter: (a, b) => (a.business_type || '').localeCompare(b.business_type || '', 'zh-TW'),
+          filters: BUSINESS_TYPE_OPTIONS.map(opt => ({ text: opt.label, value: opt.value })),
+          onFilter: (value, record) => record.business_type === value,
+          render: (text: string) => text ? (
+            <Tag icon={<ShopOutlined />} color={getBusinessTypeColor(text)}>{text}</Tag>
+          ) : <span style={{ color: '#999' }}>未設定</span>,
+        },
+        {
+          title: '評價',
+          dataIndex: 'rating',
+          key: 'rating',
+          sorter: (a, b) => (a.rating || 0) - (b.rating || 0),
+          filters: [
+            { text: '5星', value: 5 },
+            { text: '4星', value: 4 },
+            { text: '3星', value: 3 },
+            { text: '2星', value: 2 },
+            { text: '1星', value: 1 },
+            { text: '未評價', value: 0 },
+          ],
+          onFilter: (value, record) => (record.rating || 0) === value,
+          render: (rating: number) => (
+            rating ? (<Tag color={getRatingColor(rating)}>{rating} 星</Tag>) : <span style={{ color: '#999' }}>未評價</span>
+          ),
+        },
+        {
+          title: '建立時間',
+          dataIndex: 'created_at',
+          key: 'created_at',
+          sorter: (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+          render: (date: string) => new Date(date).toLocaleDateString(),
+        },
+        {
+          title: '操作',
+          key: 'action',
+          width: 80,
+          render: (_, record: Vendor) => (
+            <Popconfirm
+              title="確定要刪除此廠商嗎？"
+              description="刪除後無法恢復，且需確保沒有關聯的專案。"
+              onConfirm={(e) => { e?.stopPropagation(); handleDelete(record.id); }}
+              onCancel={(e) => e?.stopPropagation()}
+              okText="確定"
+              cancelText="取消"
+            >
+              <Button type="link" danger icon={<DeleteOutlined />} onClick={(e) => e.stopPropagation()}>刪除</Button>
+            </Popconfirm>
+          ),
+        },
+      ];
 
   return (
-    <div style={{ padding: '24px' }}>
-      <Card>
-        <div style={{ marginBottom: '16px' }}>
-          <Row gutter={16}>
-            <Col span={6}>
-              <Statistic title="總廠商數" value={total} />
+    <div style={{ padding: pagePadding }}>
+      <Card size={isMobile ? 'small' : 'default'}>
+        <div style={{ marginBottom: isMobile ? 12 : 16 }}>
+          <Row gutter={[8, 8]} align="middle">
+            <Col xs={12} sm={6}>
+              <Statistic title={isMobile ? '總數' : '總廠商數'} value={total} />
+            </Col>
+            <Col xs={12} sm={18} style={{ textAlign: 'right' }}>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                size={isMobile ? 'small' : 'middle'}
+                onClick={() => {
+                  setEditingVendor(null);
+                  form.resetFields();
+                  setModalVisible(true);
+                }}
+              >
+                {isMobile ? '' : '新增廠商'}
+              </Button>
             </Col>
           </Row>
         </div>
 
-        <div style={{ marginBottom: '16px' }}>
-          <Title level={3}>廠商管理</Title>
-          
-          <Space style={{ marginBottom: '16px' }}>
+        <div style={{ marginBottom: isMobile ? 12 : 16 }}>
+          <Title level={isMobile ? 4 : 3} style={{ marginBottom: isMobile ? 8 : 16 }}>
+            {isMobile ? '廠商' : '廠商管理'}
+          </Title>
+
+          <Space wrap style={{ marginBottom: isMobile ? 8 : 16 }}>
             <Input
-              placeholder="搜尋廠商名稱、聯絡人或營業項目"
+              placeholder={isMobile ? '搜尋廠商' : '搜尋廠商名稱、聯絡人或營業項目'}
               prefix={<SearchOutlined />}
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              style={{ width: 300 }}
+              style={{ width: isMobile ? '100%' : 300 }}
+              size={isMobile ? 'small' : 'middle'}
               allowClear
             />
-            
-            <Select
-              placeholder="營業項目篩選"
-              value={businessTypeFilter || undefined}
-              onChange={(value) => setBusinessTypeFilter(value || '')}
-              style={{ width: 150 }}
-              allowClear
-            >
-              {BUSINESS_TYPE_OPTIONS.map(opt => (
-                <Option key={opt.value} value={opt.value}>{opt.label}</Option>
-              ))}
-            </Select>
-            
-            <Select
-              placeholder="評價篩選"
-              value={ratingFilter}
-              onChange={setRatingFilter}
-              style={{ width: 120 }}
-              allowClear
-            >
-              <Option value={5}>5星</Option>
-              <Option value={4}>4星</Option>
-              <Option value={3}>3星</Option>
-              <Option value={2}>2星</Option>
-              <Option value={1}>1星</Option>
-            </Select>
 
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => {
-                setEditingVendor(null);
-                form.resetFields();
-                setModalVisible(true);
-              }}
-            >
-              新增廠商
-            </Button>
+            {!isMobile && (
+              <>
+                <Select
+                  placeholder="營業項目篩選"
+                  value={businessTypeFilter || undefined}
+                  onChange={(value) => setBusinessTypeFilter(value || '')}
+                  style={{ width: 150 }}
+                  allowClear
+                >
+                  {BUSINESS_TYPE_OPTIONS.map(opt => (
+                    <Option key={opt.value} value={opt.value}>{opt.label}</Option>
+                  ))}
+                </Select>
+
+                <Select
+                  placeholder="評價篩選"
+                  value={ratingFilter}
+                  onChange={setRatingFilter}
+                  style={{ width: 120 }}
+                  allowClear
+                >
+                  <Option value={5}>5星</Option>
+                  <Option value={4}>4星</Option>
+                  <Option value={3}>3星</Option>
+                  <Option value={2}>2星</Option>
+                  <Option value={1}>1星</Option>
+                </Select>
+              </>
+            )}
           </Space>
         </div>
 
@@ -316,22 +340,25 @@ const VendorList: React.FC = () => {
           dataSource={vendors}
           rowKey="id"
           loading={isLoading || isDeleting}
+          size={isMobile ? 'small' : 'middle'}
+          scroll={{ x: isMobile ? 300 : undefined }}
           onRow={(record) => ({
             onClick: () => handleEdit(record),
             style: { cursor: 'pointer' },
           })}
           pagination={{
             current,
-            pageSize,
+            pageSize: isMobile ? 10 : pageSize,
             total,
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (total, range) => 
+            showSizeChanger: !isMobile,
+            showQuickJumper: !isMobile,
+            showTotal: isMobile ? undefined : (total, range) =>
               `第 ${range[0]}-${range[1]} 項，共 ${total} 項`,
             onChange: (page, size) => {
               setCurrent(page);
               setPageSize(size || 10);
             },
+            size: isMobile ? 'small' : 'default',
           }}
         />
       </Card>
@@ -345,7 +372,7 @@ const VendorList: React.FC = () => {
           form.resetFields();
         }}
         footer={null}
-        width={600}
+        width={isMobile ? '95%' : 600}
       >
         <Form
           form={form}
