@@ -9,6 +9,11 @@ from sqlalchemy import select, and_, text
 from datetime import datetime
 
 from app.extended.models import User, SystemNotification, DocumentCalendarEvent
+from app.services.notification_template_service import (
+    NotificationTemplateService,
+    NotificationType,
+    get_notification_template_service
+)
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +21,7 @@ class ProjectNotificationService:
     """專案通知服務"""
 
     def __init__(self):
-        pass
+        self.template_service = get_notification_template_service()
 
     async def get_project_team_members(
         self,
@@ -141,12 +146,28 @@ class ProjectNotificationService:
                 logger.info(f"事件 {event.id} 無需通知的對象")
                 return []
 
-            # 2. 建立通知內容
+            # 2. 使用模板服務建立通知內容
             event_date_str = event.start_date.strftime('%Y-%m-%d %H:%M') if event.start_date else '未指定'
-            title = f"📅 新事件通知: {event.title}"
-            message = f"新的行事曆事件已建立\n時間: {event_date_str}\n類型: {event.event_type or '一般'}"
-            if event.description:
-                message += f"\n描述: {event.description[:100]}{'...' if len(event.description) > 100 else ''}"
+
+            rendered = self.template_service.render(
+                NotificationType.CALENDAR_EVENT_CREATED,
+                event_title=event.title,
+                event_time=event_date_str,
+                event_type=event.event_type or '一般',
+                event_id=event.id
+            )
+
+            if rendered:
+                title = rendered.title
+                message = rendered.message
+                if event.description:
+                    message += f"\n描述: {event.description[:100]}{'...' if len(event.description) > 100 else ''}"
+            else:
+                # 回退到原始格式
+                title = f"📅 新事件通知: {event.title}"
+                message = f"新的行事曆事件已建立\n時間: {event_date_str}\n類型: {event.event_type or '一般'}"
+                if event.description:
+                    message += f"\n描述: {event.description[:100]}{'...' if len(event.description) > 100 else ''}"
 
             # 3. 為每位收件人建立通知
             for recipient_id in recipients:

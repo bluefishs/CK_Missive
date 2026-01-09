@@ -41,6 +41,14 @@ from .document_calendar_integrator import DocumentCalendarIntegrator
 from .reminder_service import ReminderService
 from .notification_service import NotificationService
 from .project_notification_service import ProjectNotificationService
+from .notification_template_service import (
+    NotificationTemplateService,
+    NotificationType,
+    NotificationPriority,
+    NotificationTemplate,
+    RenderedNotification,
+    get_notification_template_service
+)
 
 # 匯入匯出服務
 from .document_import_service import DocumentImportService
@@ -79,6 +87,13 @@ __all__ = [
     "ReminderService",
     "NotificationService",
     "ProjectNotificationService",
+    # 通知模板
+    "NotificationTemplateService",
+    "NotificationType",
+    "NotificationPriority",
+    "NotificationTemplate",
+    "RenderedNotification",
+    "get_notification_template_service",
     # 匯入匯出
     "DocumentImportService",
     "DocumentExportService",
