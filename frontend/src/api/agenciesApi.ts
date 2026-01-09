@@ -133,7 +133,7 @@ export const agenciesApi = {
           agencies: AgencyWithStats[];
           total: number;
           returned: number;
-        }>('/agencies', {
+        }>(API_ENDPOINTS.AGENCIES.CREATE, {
           params: {
             skip: ((params?.page ?? 1) - 1) * (params?.limit ?? 20),
             limit: params?.limit ?? 100,

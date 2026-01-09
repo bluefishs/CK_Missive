@@ -585,6 +585,64 @@ export const documentsApi = {
     const { filesApi } = await import('./filesApi');
     return filesApi.getStorageInfo();
   },
+
+  // ==========================================================================
+  // 審計日誌方法
+  // ==========================================================================
+
+  /**
+   * 取得審計日誌列表
+   *
+   * @param params 查詢參數
+   * @returns 審計日誌分頁列表
+   */
+  async getAuditLogs(params?: {
+    page?: number;
+    limit?: number;
+    action?: string;
+    user_id?: number;
+    resource_type?: string;
+    date_from?: string;
+    date_to?: string;
+  }): Promise<{
+    success: boolean;
+    items: Array<{
+      id: number;
+      action: string;
+      resource_type: string;
+      resource_id: number;
+      user_id: number;
+      user_name: string;
+      details: Record<string, unknown>;
+      ip_address?: string;
+      created_at: string;
+    }>;
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    return await apiClient.post(API_ENDPOINTS.DOCUMENTS.AUDIT_LOGS, params || {});
+  },
+
+  /**
+   * 取得單一公文的審計歷史
+   *
+   * @param documentId 公文 ID
+   * @returns 該公文的審計歷史記錄
+   */
+  async getDocumentAuditHistory(documentId: number): Promise<{
+    success: boolean;
+    document_id: number;
+    history: Array<{
+      id: number;
+      action: string;
+      user_name: string;
+      details: Record<string, unknown>;
+      created_at: string;
+    }>;
+  }> {
+    return await apiClient.post(API_ENDPOINTS.DOCUMENTS.AUDIT_HISTORY(documentId));
+  },
 };
 
 // 預設匯出

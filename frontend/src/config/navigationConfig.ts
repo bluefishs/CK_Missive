@@ -1,13 +1,21 @@
 /**
  * 導覽列配置常數
- * @description 從 NavigationManagement.tsx 提取
+ * @description 整合共用模組配置
+ * @version 2.0.0 - 2026-01-09
  */
+import type { IconOption } from '../types/navigation';
 
-// 圖示選項
+// 圖示選項 (舊版相容)
 export const ICON_OPTIONS = [
   'dashboard', 'file-text', 'number', 'folder', 'project', 'team',
   'setting', 'user', 'global', 'database', 'bug', 'bar-chart', 'calendar'
 ];
+
+// 圖示選項 (新版 - 支援 IconOption 格式)
+export const ICON_OPTIONS_V2: IconOption[] = ICON_OPTIONS.map(icon => ({
+  value: icon,
+  label: icon,
+}));
 
 // 模組名稱對照
 export const MODULE_NAMES: Record<string, string> = {

@@ -1,6 +1,7 @@
 /**
  * 導覽列管理組件
  * @description 管理系統導覽選單的樹狀結構
+ * @version 2.0.0 - 2026-01-09 整合共用模組
  */
 import React, { useState, useEffect, useMemo } from 'react';
 import {
@@ -14,7 +15,7 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import { secureApiService } from '../../services/secureApiService';
 import type { NavigationItem, NavigationFormData, ParentOption } from '../../types/navigation';
-import { formatPermissionLabel } from '../../config/navigationConfig';
+import { formatPermissionLabel, ICON_OPTIONS_V2, PERMISSION_GROUPS } from '../../config/navigationConfig';
 import NavigationItemForm from './NavigationItemForm';
 
 const NavigationManagement: React.FC = () => {
@@ -418,6 +419,8 @@ const NavigationManagement: React.FC = () => {
         editingItem={editingItem}
         parentOptions={getParentOptions(items)}
         defaultSortOrder={items.length + 1}
+        iconOptions={ICON_OPTIONS_V2}
+        permissionGroups={PERMISSION_GROUPS}
         onSubmit={handleSubmit}
         onCancel={() => setModalVisible(false)}
       />

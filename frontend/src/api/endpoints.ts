@@ -46,6 +46,10 @@ export const DOCUMENTS_ENDPOINTS = {
   BY_PROJECT: '/documents-enhanced/by-project',
   /** 匯出公文 POST /documents-enhanced/export */
   EXPORT: '/documents-enhanced/export',
+  /** 審計日誌列表 POST /documents-enhanced/audit-logs */
+  AUDIT_LOGS: '/documents-enhanced/audit-logs',
+  /** 公文審計歷史 POST /documents-enhanced/:id/audit-history */
+  AUDIT_HISTORY: (id: number) => `/documents-enhanced/${id}/audit-history`,
 } as const;
 
 /** 承攬案件 API 端點 */

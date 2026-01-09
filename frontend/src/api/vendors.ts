@@ -74,7 +74,7 @@ export const vendorsApi = {
       // 若新 API 失敗，嘗試舊版 GET API（相容性）
       if (error instanceof ApiException && error.statusCode === 404) {
         const response = await apiClient.get<LegacyListResponse<Vendor>>(
-          '/vendors',
+          API_ENDPOINTS.VENDORS.CREATE,
           {
             params: {
               skip: ((params?.page ?? 1) - 1) * (params?.limit ?? 20),
