@@ -19,6 +19,9 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@ck-shared/core": "file:../../shared-modules/core",
+    "@ck-shared/ui-components": "file:../../shared-modules/ui-components",
+    "@ck-shared/site-management-module": "file:../../shared-modules/site-management-module",
     "@ant-design/icons": "^6.0.1",
     "@tanstack/react-query": "^5.45.1",
     "@tanstack/react-query-devtools": "^5.45.1",
