@@ -1,0 +1,23 @@
+{
+  "$schema": "https://raw.githubusercontent.com/anthropics/claude-code/main/schemas/settings.json",
+  "project": {
+    "name": "CK_Missive",
+    "description": "乾坤測繪公文管理系統"
+  },
+  "skills": {
+    "inherit": [
+      "../../.claude/skills/shared",
+      "../../.claude/skills/backend"
+    ]
+  },
+  "commands": {
+    "inherit": [
+      "../../.claude/commands/shared"
+    ]
+  },
+  "codeStyle": {
+    "language": "zh-TW",
+    "indentation": 2,
+    "quotes": "single"
+  }
+}
