@@ -33,8 +33,11 @@ class DocumentExportService:
             logger.warning("找不到任何符合條件的公文可供匯出。")
             return b""
 
-        # 2. 將資料轉換為字典列表
-        data_to_export: List[Dict[str, Any]] = [doc.dict() for doc in documents]
+        # 2. 將資料轉換為字典列表 (支援 Pydantic v1/v2)
+        data_to_export: List[Dict[str, Any]] = [
+            doc.model_dump() if hasattr(doc, 'model_dump') else doc.dict()
+            for doc in documents
+        ]
         
         # 3. 使用 pandas 創建 DataFrame
         df = pd.DataFrame(data_to_export)

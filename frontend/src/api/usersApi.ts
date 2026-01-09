@@ -13,6 +13,7 @@ import {
   normalizePaginatedResponse,
   LegacyListResponse,
 } from './types';
+import { API_ENDPOINTS } from './endpoints';
 
 // ============================================================================
 // 型別定義
@@ -97,7 +98,7 @@ export const usersApi = {
 
     try {
       // 使用新版 POST API
-      return await apiClient.postList<User>('/users/list', queryParams);
+      return await apiClient.postList<User>(API_ENDPOINTS.USERS.LIST, queryParams);
     } catch (error) {
       // 若新 API 失敗，嘗試舊版格式（相容性）
       if (error instanceof ApiException && error.statusCode === 404) {
@@ -107,7 +108,7 @@ export const usersApi = {
           page: number;
           page_size: number;
           total_pages: number;
-        }>('/users/list', {
+        }>(API_ENDPOINTS.USERS.LIST, {
           skip: ((params?.page ?? 1) - 1) * (params?.limit ?? 20),
           limit: params?.limit ?? 100,
           search: params?.search,
@@ -135,7 +136,7 @@ export const usersApi = {
    * @returns 使用者資料
    */
   async getUser(userId: number): Promise<User> {
-    return await apiClient.post<User>(`/users/${userId}/detail`);
+    return await apiClient.post<User>(API_ENDPOINTS.USERS.DETAIL(userId));
   },
 
   /**
@@ -145,7 +146,7 @@ export const usersApi = {
    * @returns 新建的使用者
    */
   async createUser(data: UserCreate): Promise<User> {
-    return await apiClient.post<User>('/users', data);
+    return await apiClient.post<User>(API_ENDPOINTS.USERS.CREATE, data);
   },
 
   /**
@@ -156,7 +157,7 @@ export const usersApi = {
    * @returns 更新後的使用者
    */
   async updateUser(userId: number, data: UserUpdate): Promise<User> {
-    return await apiClient.post<User>(`/users/${userId}/update`, data);
+    return await apiClient.post<User>(API_ENDPOINTS.USERS.UPDATE(userId), data);
   },
 
   /**
@@ -166,7 +167,7 @@ export const usersApi = {
    * @returns 刪除結果
    */
   async deleteUser(userId: number): Promise<DeleteResponse> {
-    return await apiClient.post<DeleteResponse>(`/users/${userId}/delete`);
+    return await apiClient.post<DeleteResponse>(API_ENDPOINTS.USERS.DELETE(userId));
   },
 
   /**
@@ -177,7 +178,7 @@ export const usersApi = {
    * @returns 更新後的使用者
    */
   async updateUserStatus(userId: number, isActive: boolean): Promise<User> {
-    return await apiClient.post<User>(`/users/${userId}/status`, {
+    return await apiClient.post<User>(API_ENDPOINTS.USERS.STATUS(userId), {
       is_active: isActive,
     });
   },

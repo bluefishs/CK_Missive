@@ -91,7 +91,7 @@ class DocumentCalendarService:
             return None
 
         # 排除 event_id，它只用於識別，不需更新
-        update_data = event_update.dict(exclude_unset=True, exclude={'event_id'})
+        update_data = event_update.model_dump(exclude_unset=True, exclude={'event_id'})
         for key, value in update_data.items():
             if hasattr(db_event, key):
                 setattr(db_event, key, value)

@@ -7,6 +7,7 @@
 import { apiClient, API_BASE_URL } from './client';
 import { authService } from '../services/authService';
 import dayjs from 'dayjs';
+import { API_ENDPOINTS } from './endpoints';
 
 // ============================================================================
 // 型別定義
@@ -98,7 +99,7 @@ export const calendarApi = {
       const startDate = now.subtract(2, 'month').format('YYYY-MM-DD');
       const endDate = now.add(2, 'month').format('YYYY-MM-DD');
 
-      const response = await api.post('/calendar/users/calendar-events', {
+      const response = await api.post(API_ENDPOINTS.CALENDAR.USER_EVENTS, {
         user_id: userId,
         start_date: startDate,
         end_date: endDate,
@@ -135,7 +136,7 @@ export const calendarApi = {
    */
   async getGoogleStatus(): Promise<GoogleCalendarStatus> {
     try {
-      const response = await fetch(`${API_BASE_URL}/public/calendar-status`);
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.PUBLIC.CALENDAR_STATUS}`);
       if (response.ok) {
         const data = await response.json();
         return {
@@ -202,7 +203,7 @@ export const calendarApi = {
   async updateEvent(eventId: number, updates: Partial<CalendarEvent>): Promise<void> {
     try {
       const api = authService.getAxiosInstance();
-      const response = await api.post('/calendar/events/update', {
+      const response = await api.post(API_ENDPOINTS.CALENDAR.EVENTS_UPDATE, {
         event_id: eventId,
         title: updates.title,
         description: updates.description,
@@ -230,7 +231,7 @@ export const calendarApi = {
   async deleteEvent(eventId: number): Promise<void> {
     try {
       const api = authService.getAxiosInstance();
-      const response = await api.post('/calendar/events/delete', {
+      const response = await api.post(API_ENDPOINTS.CALENDAR.EVENTS_DELETE, {
         event_id: eventId,
         confirm: true,  // 後端需要 confirm: true 才會執行刪除
       });
@@ -251,7 +252,7 @@ export const calendarApi = {
   async bulkSync(): Promise<{ success: boolean; message: string; synced_count: number; failed_count: number }> {
     try {
       const api = authService.getAxiosInstance();
-      const response = await api.post('/calendar/events/bulk-sync', {
+      const response = await api.post(API_ENDPOINTS.CALENDAR.EVENTS_BULK_SYNC, {
         sync_all_pending: true,
       });
       return response.data;
@@ -267,7 +268,7 @@ export const calendarApi = {
   async syncEvent(eventId: number, forceSync: boolean = false): Promise<{ success: boolean; message: string; google_event_id?: string }> {
     try {
       const api = authService.getAxiosInstance();
-      const response = await api.post('/calendar/events/sync', {
+      const response = await api.post(API_ENDPOINTS.CALENDAR.EVENTS_SYNC, {
         event_id: eventId,
         force_sync: forceSync,
       });

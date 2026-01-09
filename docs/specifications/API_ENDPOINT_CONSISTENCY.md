@@ -1,9 +1,28 @@
 # API 端點一致性規範 (API Endpoint Consistency)
 
-> 版本：1.1.0
+> 版本：2.0.0
 > 建立日期：2026-01-08
 > 最後更新：2026-01-08
 > 用途：確保前後端 API 端點路徑、HTTP 方法、參數格式一致
+
+---
+
+## 重要更新 (v2.0.0)
+
+✅ **集中式端點管理已實施**
+
+從 2026-01-08 起，所有前端 API 端點路徑統一由 `frontend/src/api/endpoints.ts` 管理。
+
+```typescript
+// 使用方式
+import { API_ENDPOINTS } from './endpoints';
+
+// 靜態端點
+apiClient.post(API_ENDPOINTS.DOCUMENTS.LIST, params);
+
+// 動態端點
+apiClient.post(API_ENDPOINTS.DOCUMENTS.DETAIL(123));
+```
 
 ---
 
@@ -53,34 +72,41 @@ api_router.include_router(agencies.router, prefix="/agencies", tags=["機關管�
 
 ### 2.2 前端 API 路徑定義規則
 
-前端必須使用 **集中式 API 配置**：
+前端必須使用 **集中式 API 配置** (`frontend/src/api/endpoints.ts`)：
 
 ```typescript
-// frontend/src/api/endpoints.ts (建議新增)
-export const API_ENDPOINTS = {
-  // 公文管理
-  DOCUMENTS: {
-    LIST: '/documents-enhanced/list',
-    CREATE: '/documents-enhanced',
-    UPDATE: (id: number) => `/documents-enhanced/${id}`,
-    DELETE: (id: number) => `/documents-enhanced/${id}`,
-  },
+// frontend/src/api/endpoints.ts (已實施)
+import { API_ENDPOINTS } from './endpoints';
 
-  // 行事曆 - 注意: 後端前綴是 /calendar 不是 /document-calendar
-  CALENDAR: {
-    EVENTS: '/calendar/events',
-    EVENTS_LIST: '/calendar/events/list',
-    EVENTS_DELETE: '/calendar/events/delete',
-    STATS: '/calendar/stats',
-  },
+// 完整模組結構
+API_ENDPOINTS.DOCUMENTS.LIST        // → '/documents-enhanced/list'
+API_ENDPOINTS.DOCUMENTS.CREATE      // → '/documents-enhanced'
+API_ENDPOINTS.DOCUMENTS.DETAIL(id)  // → '/documents-enhanced/{id}/detail'
+API_ENDPOINTS.DOCUMENTS.UPDATE(id)  // → '/documents-enhanced/{id}/update'
+API_ENDPOINTS.DOCUMENTS.DELETE(id)  // → '/documents-enhanced/{id}/delete'
 
-  // 機關管理
-  AGENCIES: {
-    LIST: '/agencies/list',
-    DROPDOWN: '/agencies/dropdown',
-  },
-} as const;
+API_ENDPOINTS.CALENDAR.USER_EVENTS       // → '/calendar/users/calendar-events'
+API_ENDPOINTS.CALENDAR.EVENTS_UPDATE     // → '/calendar/events/update'
+API_ENDPOINTS.CALENDAR.EVENTS_DELETE     // → '/calendar/events/delete'
+API_ENDPOINTS.CALENDAR.EVENTS_SYNC       // → '/calendar/events/sync'
+
+API_ENDPOINTS.AGENCIES.LIST              // → '/agencies/list'
+API_ENDPOINTS.AGENCIES.DETAIL(id)        // → '/agencies/{id}/detail'
+API_ENDPOINTS.AGENCIES.STATISTICS        // → '/agencies/statistics'
+
+// 其他模組: PROJECTS, VENDORS, USERS, FILES, SYSTEM_NOTIFICATIONS 等
 ```
+
+**已更新的 API 客戶端檔案**：
+- `documentsApi.ts` - 公文管理
+- `calendarApi.ts` - 行事曆
+- `agenciesApi.ts` - 機關管理
+- `projectsApi.ts` - 專案管理
+- `vendorsApi.ts` - 廠商管理
+- `usersApi.ts` - 使用者管理
+- `filesApi.ts` - 檔案管理
+- `dashboardApi.ts` - 儀表板
+- `NotificationCenter.tsx` - 系統通知元件
 
 ### 2.3 禁止行為
 
@@ -273,6 +299,7 @@ if start_date.tzinfo is not None:
 
 | 版本 | 日期 | 變更內容 |
 |------|------|----------|
+| 2.0.0 | 2026-01-08 | 實施集中式端點管理，建立 endpoints.ts，更新所有 API 客戶端 |
 | 1.1.0 | 2026-01-08 | 遷移至 docs/specifications/，更新相關文件路徑 |
 | 1.0.0 | 2026-01-08 | 初版 - 基於 404 錯誤案例建立規範 |
 

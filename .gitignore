@@ -49,6 +49,11 @@ test*.csv
 test*.py
 debug*.py
 
+# Test coverage
+backend/.coverage
+.coverage
+htmlcov/
+
 # Screenshots
 *.png
 

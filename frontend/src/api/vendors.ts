@@ -19,6 +19,7 @@ import {
   VendorUpdate,
   VendorOption,
 } from '../types/api';
+import { API_ENDPOINTS } from './endpoints';
 
 // ============================================================================
 // 查詢參數型別
@@ -68,7 +69,7 @@ export const vendorsApi = {
 
     try {
       // 嘗試使用新版 POST API
-      return await apiClient.postList<Vendor>('/vendors/list', queryParams);
+      return await apiClient.postList<Vendor>(API_ENDPOINTS.VENDORS.LIST, queryParams);
     } catch (error) {
       // 若新 API 失敗，嘗試舊版 GET API（相容性）
       if (error instanceof ApiException && error.statusCode === 404) {
@@ -95,7 +96,7 @@ export const vendorsApi = {
    * @returns 廠商資料
    */
   async getVendor(vendorId: number): Promise<Vendor> {
-    return await apiClient.post<Vendor>(`/vendors/${vendorId}/detail`);
+    return await apiClient.post<Vendor>(API_ENDPOINTS.VENDORS.DETAIL(vendorId));
   },
 
   /**
@@ -105,7 +106,7 @@ export const vendorsApi = {
    * @returns 新建的廠商
    */
   async createVendor(data: VendorCreate): Promise<Vendor> {
-    return await apiClient.post<Vendor>('/vendors', data);
+    return await apiClient.post<Vendor>(API_ENDPOINTS.VENDORS.CREATE, data);
   },
 
   /**
@@ -116,7 +117,7 @@ export const vendorsApi = {
    * @returns 更新後的廠商
    */
   async updateVendor(vendorId: number, data: VendorUpdate): Promise<Vendor> {
-    return await apiClient.post<Vendor>(`/vendors/${vendorId}/update`, data);
+    return await apiClient.post<Vendor>(API_ENDPOINTS.VENDORS.UPDATE(vendorId), data);
   },
 
   /**
@@ -126,7 +127,7 @@ export const vendorsApi = {
    * @returns 刪除結果
    */
   async deleteVendor(vendorId: number): Promise<DeleteResponse> {
-    return await apiClient.post<DeleteResponse>(`/vendors/${vendorId}/delete`);
+    return await apiClient.post<DeleteResponse>(API_ENDPOINTS.VENDORS.DELETE(vendorId));
   },
 
   /**
@@ -138,7 +139,7 @@ export const vendorsApi = {
     const response = await apiClient.post<{
       success: boolean;
       data: VendorStatistics;
-    }>('/vendors/statistics');
+    }>(API_ENDPOINTS.VENDORS.STATISTICS);
     return response.data;
   },
 

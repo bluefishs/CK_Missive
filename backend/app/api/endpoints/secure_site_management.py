@@ -140,7 +140,7 @@ async def navigation_action(
         elif action == "create":
             # 創建導覽項目
             nav_data = NavigationItemCreate(**data)
-            new_item = SiteNavigationItem(**nav_data.dict())
+            new_item = SiteNavigationItem(**nav_data.model_dump())
             session.add(new_item)
             await session.commit()
             await session.refresh(new_item)
@@ -300,7 +300,7 @@ async def config_action(
             result = await session.execute(query)
             configs = result.scalars().all()
             
-            config_list = [SiteConfigResponse.model_validate(config).dict() for config in configs]
+            config_list = [SiteConfigResponse.model_validate(config).model_dump() for config in configs]
             
             return SecureResponse(
                 success=True,
@@ -327,7 +327,7 @@ async def config_action(
             if existing_result.scalar_one_or_none():
                 raise HTTPException(status_code=400, detail="Configuration key already exists")
             
-            new_config = SiteConfiguration(**config_data.dict())
+            new_config = SiteConfiguration(**config_data.model_dump())
             session.add(new_config)
             await session.commit()
             await session.refresh(new_config)
@@ -335,7 +335,7 @@ async def config_action(
             return SecureResponse(
                 success=True,
                 message="Configuration created successfully",
-                data={"config": SiteConfigResponse.model_validate(new_config).dict()},
+                data={"config": SiteConfigResponse.model_validate(new_config).model_dump()},
                 csrf_token=generate_csrf_token()
             )
         
@@ -367,7 +367,7 @@ async def config_action(
             return SecureResponse(
                 success=True,
                 message="Configuration updated successfully",
-                data={"config": SiteConfigResponse.model_validate(config).dict()},
+                data={"config": SiteConfigResponse.model_validate(config).model_dump()},
                 csrf_token=generate_csrf_token()
             )
         

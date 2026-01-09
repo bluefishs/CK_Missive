@@ -326,6 +326,11 @@ export interface OfficialDocument {
   created_at: string;
   updated_at: string;
 
+  // 標題與內容欄位 (2026-01-08 新增)
+  title?: string;            // 標題
+  cloud_file_link?: string;  // 雲端檔案連結
+  dispatch_format?: string;  // 發文形式 (與 delivery_method 區分)
+
   // 發文形式與附件欄位
   delivery_method?: string;   // 發文形式 (電子交換/紙本郵寄/電子+紙本)
   has_attachment?: boolean;   // 是否含附件
@@ -339,7 +344,11 @@ export interface OfficialDocument {
     role: string;
   }>;
 
-  // 公文字號拆分欄位
+  // 機關名稱（虛擬欄位，由後端填充）
+  sender_agency_name?: string;    // 發文機關名稱
+  receiver_agency_name?: string;  // 受文機關名稱
+
+  // 公文字號拆分欄位（前端解析用）
   doc_zi?: string;       // 公文「字」部分，如「桃工用」
   doc_wen_hao?: string;  // 公文「文號」部分，如「1140024090」
 }

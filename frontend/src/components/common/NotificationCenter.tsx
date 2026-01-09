@@ -22,6 +22,7 @@ import {
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
+import { API_ENDPOINTS } from '../../api/endpoints';
 
 const { Text, Paragraph } = Typography;
 
@@ -92,7 +93,7 @@ export const NotificationCenter: React.FC = () => {
     queryKey: ['notifications-unread-count'],
     queryFn: async () => {
       // apiClient.post 已返回 response.data，無需再解包
-      return await apiClient.post<UnreadCountResponse>('/system-notifications/unread-count', {});
+      return await apiClient.post<UnreadCountResponse>(API_ENDPOINTS.SYSTEM_NOTIFICATIONS.UNREAD_COUNT, {});
     },
     refetchInterval: 30000, // 每 30 秒自動刷新
   });
@@ -102,7 +103,7 @@ export const NotificationCenter: React.FC = () => {
     queryKey: ['notifications-list'],
     queryFn: async () => {
       // apiClient.post 已返回 response.data，無需再解包
-      return await apiClient.post<NotificationListResponse>('/system-notifications/list', {
+      return await apiClient.post<NotificationListResponse>(API_ENDPOINTS.SYSTEM_NOTIFICATIONS.LIST, {
         limit: 20,
         is_read: null, // 取得所有通知
       });
@@ -114,7 +115,7 @@ export const NotificationCenter: React.FC = () => {
   const markReadMutation = useMutation<MarkReadResponse, Error, number[]>({
     mutationFn: async (ids: number[]) => {
       // apiClient.post 已返回 response.data，無需再解包
-      return await apiClient.post<MarkReadResponse>('/system-notifications/mark-read', {
+      return await apiClient.post<MarkReadResponse>(API_ENDPOINTS.SYSTEM_NOTIFICATIONS.MARK_READ, {
         notification_ids: ids,
       });
     },
@@ -128,7 +129,7 @@ export const NotificationCenter: React.FC = () => {
   const markAllReadMutation = useMutation<MarkReadResponse, Error, void>({
     mutationFn: async () => {
       // apiClient.post 已返回 response.data，無需再解包
-      return await apiClient.post<MarkReadResponse>('/system-notifications/mark-all-read', {});
+      return await apiClient.post<MarkReadResponse>(API_ENDPOINTS.SYSTEM_NOTIFICATIONS.MARK_ALL_READ, {});
     },
     onSuccess: (data) => {
       message.success(data.message);

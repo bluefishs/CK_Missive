@@ -13,6 +13,7 @@ import {
   normalizePaginatedResponse,
   LegacyListResponse,
 } from './types';
+import { API_ENDPOINTS } from './endpoints';
 
 // ============================================================================
 // 型別定義
@@ -124,7 +125,7 @@ export const agenciesApi = {
 
     try {
       // 使用新版 POST API
-      return await apiClient.postList<AgencyWithStats>('/agencies/list', queryParams);
+      return await apiClient.postList<AgencyWithStats>(API_ENDPOINTS.AGENCIES.LIST, queryParams);
     } catch (error) {
       // 若新 API 失敗，嘗試舊版格式（相容性）
       if (error instanceof ApiException && error.statusCode === 404) {
@@ -161,7 +162,7 @@ export const agenciesApi = {
    * @returns 機關資料
    */
   async getAgency(agencyId: number): Promise<Agency> {
-    return await apiClient.post<Agency>(`/agencies/${agencyId}/detail`);
+    return await apiClient.post<Agency>(API_ENDPOINTS.AGENCIES.DETAIL(agencyId));
   },
 
   /**
@@ -171,7 +172,7 @@ export const agenciesApi = {
    * @returns 新建的機關
    */
   async createAgency(data: AgencyCreate): Promise<Agency> {
-    return await apiClient.post<Agency>('/agencies', data);
+    return await apiClient.post<Agency>(API_ENDPOINTS.AGENCIES.CREATE, data);
   },
 
   /**
@@ -182,7 +183,7 @@ export const agenciesApi = {
    * @returns 更新後的機關
    */
   async updateAgency(agencyId: number, data: AgencyUpdate): Promise<Agency> {
-    return await apiClient.post<Agency>(`/agencies/${agencyId}/update`, data);
+    return await apiClient.post<Agency>(API_ENDPOINTS.AGENCIES.UPDATE(agencyId), data);
   },
 
   /**
@@ -192,7 +193,7 @@ export const agenciesApi = {
    * @returns 刪除結果
    */
   async deleteAgency(agencyId: number): Promise<DeleteResponse> {
-    return await apiClient.post<DeleteResponse>(`/agencies/${agencyId}/delete`);
+    return await apiClient.post<DeleteResponse>(API_ENDPOINTS.AGENCIES.DELETE(agencyId));
   },
 
   /**
@@ -201,7 +202,7 @@ export const agenciesApi = {
    * @returns 統計資料
    */
   async getStatistics(): Promise<AgencyStatistics> {
-    return await apiClient.post<AgencyStatistics>('/agencies/statistics');
+    return await apiClient.post<AgencyStatistics>(API_ENDPOINTS.AGENCIES.STATISTICS);
   },
 
   /**

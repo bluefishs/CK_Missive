@@ -33,6 +33,12 @@ export default defineConfig(({ mode }) => {
       open: true, // Automatically open in browser
       cors: true,
       strictPort: true, // 強制使用指定端口，避免自動切換造成混淆
+      // HMR 配置：支援內網存取
+      hmr: {
+        host: '192.168.50.38', // 內網 IP
+        port: 3000,
+        protocol: 'ws',
+      },
       proxy: {
         // Proxy API requests to the backend server
         '/api': {

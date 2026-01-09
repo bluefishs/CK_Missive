@@ -212,6 +212,24 @@ async def list_documents(
             for row in attachment_result:
                 attachment_count_map[row.document_id] = row.count
 
+        # 批次查詢機關名稱（2026-01-08 新增，支援前端顯示）
+        agency_map = {}
+        agency_ids = set()
+        for doc in items:
+            if doc.sender_agency_id:
+                agency_ids.add(doc.sender_agency_id)
+            if doc.receiver_agency_id:
+                agency_ids.add(doc.receiver_agency_id)
+
+        if agency_ids:
+            agency_query = select(
+                GovernmentAgency.id,
+                GovernmentAgency.agency_name
+            ).where(GovernmentAgency.id.in_(agency_ids))
+            agency_result = await db.execute(agency_query)
+            for row in agency_result:
+                agency_map[row.id] = row.agency_name
+
         # 轉換為 DocumentResponse
         response_items = []
         for doc in items:
@@ -220,7 +238,10 @@ async def list_documents(
                     **doc.__dict__,
                     'contract_project_name': project_map.get(doc.contract_project_id) if doc.contract_project_id else None,
                     'assigned_staff': staff_map.get(doc.contract_project_id, []) if doc.contract_project_id else [],
-                    'attachment_count': attachment_count_map.get(doc.id, 0)
+                    'attachment_count': attachment_count_map.get(doc.id, 0),
+                    # 機關名稱虛擬欄位
+                    'sender_agency_name': agency_map.get(doc.sender_agency_id) if doc.sender_agency_id else None,
+                    'receiver_agency_name': agency_map.get(doc.receiver_agency_id) if doc.receiver_agency_id else None,
                 }
                 # 移除 SQLAlchemy 內部屬性
                 doc_dict.pop('_sa_instance_state', None)
@@ -861,7 +882,7 @@ async def get_document_detail(
     document_id: int,
     db: AsyncSession = Depends(get_async_db)
 ):
-    """取得單一公文詳情（POST-only 資安機制）"""
+    """取得單一公文詳情（POST-only 資安機制，含擴充欄位）"""
     try:
         query = select(OfficialDocument).where(OfficialDocument.id == document_id)
         result = await db.execute(query)
@@ -870,7 +891,40 @@ async def get_document_detail(
         if not document:
             raise NotFoundException(f"找不到公文 ID: {document_id}")
 
-        return DocumentResponse.model_validate(document)
+        # 準備擴充欄位
+        doc_dict = {k: v for k, v in document.__dict__.items() if not k.startswith('_')}
+
+        # 查詢承攬案件名稱
+        if document.contract_project_id:
+            project_query = select(ContractProject.project_name).where(
+                ContractProject.id == document.contract_project_id
+            )
+            project_result = await db.execute(project_query)
+            doc_dict['contract_project_name'] = project_result.scalar()
+
+        # 查詢機關名稱（2026-01-08 新增）
+        if document.sender_agency_id:
+            agency_query = select(GovernmentAgency.agency_name).where(
+                GovernmentAgency.id == document.sender_agency_id
+            )
+            agency_result = await db.execute(agency_query)
+            doc_dict['sender_agency_name'] = agency_result.scalar()
+
+        if document.receiver_agency_id:
+            agency_query = select(GovernmentAgency.agency_name).where(
+                GovernmentAgency.id == document.receiver_agency_id
+            )
+            agency_result = await db.execute(agency_query)
+            doc_dict['receiver_agency_name'] = agency_result.scalar()
+
+        # 查詢附件數量
+        attachment_count_query = select(func.count(DocumentAttachment.id)).where(
+            DocumentAttachment.document_id == document_id
+        )
+        attachment_result = await db.execute(attachment_count_query)
+        doc_dict['attachment_count'] = attachment_result.scalar() or 0
+
+        return DocumentResponse.model_validate(doc_dict)
     except NotFoundException:
         raise
     except Exception as e:

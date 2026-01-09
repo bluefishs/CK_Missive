@@ -20,6 +20,7 @@ import {
   ProjectUpdate,
   ProjectOption,
 } from '../types/api';
+import { API_ENDPOINTS } from './endpoints';
 
 // ============================================================================
 // 查詢參數型別
@@ -77,7 +78,7 @@ export const projectsApi = {
 
     try {
       // 使用新版 POST API
-      return await apiClient.postList<Project>('/projects/list', queryParams);
+      return await apiClient.postList<Project>(API_ENDPOINTS.PROJECTS.LIST, queryParams);
     } catch (error) {
       // 若新 API 失敗，嘗試舊版格式（相容性）
       if (error instanceof ApiException && error.statusCode === 404) {
@@ -86,7 +87,7 @@ export const projectsApi = {
           total: number;
           skip: number;
           limit: number;
-        }>('/projects/list', {
+        }>(API_ENDPOINTS.PROJECTS.LIST, {
           skip: ((params?.page ?? 1) - 1) * (params?.limit ?? 20),
           limit: params?.limit ?? 100,
           search: params?.search,
@@ -115,7 +116,7 @@ export const projectsApi = {
    * @returns 專案資料
    */
   async getProject(projectId: number): Promise<Project> {
-    return await apiClient.post<Project>(`/projects/${projectId}/detail`);
+    return await apiClient.post<Project>(API_ENDPOINTS.PROJECTS.DETAIL(projectId));
   },
 
   /**
@@ -125,7 +126,7 @@ export const projectsApi = {
    * @returns 新建的專案
    */
   async createProject(data: ProjectCreate): Promise<Project> {
-    return await apiClient.post<Project>('/projects', data);
+    return await apiClient.post<Project>(API_ENDPOINTS.PROJECTS.CREATE, data);
   },
 
   /**
@@ -136,7 +137,7 @@ export const projectsApi = {
    * @returns 更新後的專案
    */
   async updateProject(projectId: number, data: ProjectUpdate): Promise<Project> {
-    return await apiClient.post<Project>(`/projects/${projectId}/update`, data);
+    return await apiClient.post<Project>(API_ENDPOINTS.PROJECTS.UPDATE(projectId), data);
   },
 
   /**
@@ -146,7 +147,7 @@ export const projectsApi = {
    * @returns 刪除結果
    */
   async deleteProject(projectId: number): Promise<DeleteResponse> {
-    return await apiClient.post<DeleteResponse>(`/projects/${projectId}/delete`);
+    return await apiClient.post<DeleteResponse>(API_ENDPOINTS.PROJECTS.DELETE(projectId));
   },
 
   /**
@@ -156,7 +157,7 @@ export const projectsApi = {
    */
   async getStatistics(): Promise<ProjectStatistics> {
     const response = await apiClient.post<SuccessResponse<ProjectStatistics>>(
-      '/projects/statistics'
+      API_ENDPOINTS.PROJECTS.STATISTICS
     );
     return response.data ?? {
       total_projects: 0,
@@ -173,7 +174,7 @@ export const projectsApi = {
    */
   async getYearOptions(): Promise<number[]> {
     const response = await apiClient.post<SuccessResponse<{ years: number[] }>>(
-      '/projects/years'
+      API_ENDPOINTS.PROJECTS.YEARS
     );
     return response.data?.years ?? [];
   },
@@ -185,7 +186,7 @@ export const projectsApi = {
    */
   async getCategoryOptions(): Promise<string[]> {
     const response = await apiClient.post<SuccessResponse<{ categories: string[] }>>(
-      '/projects/categories'
+      API_ENDPOINTS.PROJECTS.CATEGORIES
     );
     return response.data?.categories ?? [];
   },
@@ -197,7 +198,7 @@ export const projectsApi = {
    */
   async getStatusOptions(): Promise<string[]> {
     const response = await apiClient.post<SuccessResponse<{ statuses: string[] }>>(
-      '/projects/statuses'
+      API_ENDPOINTS.PROJECTS.STATUSES
     );
     return response.data?.statuses ?? [];
   },

@@ -142,6 +142,10 @@ class DocumentResponse(BaseModel):
     assigned_staff: Optional[List[StaffInfo]] = Field(default=[], description="負責業務同仁")
     attachment_count: int = Field(default=0, description="附件數量")
 
+    # 機關名稱虛擬欄位 (2026-01-08 新增)
+    sender_agency_name: Optional[str] = Field(None, description="發文機關名稱")
+    receiver_agency_name: Optional[str] = Field(None, description="受文機關名稱")
+
     model_config = ConfigDict(from_attributes=True)
 
 class DocumentFilter(BaseModel):

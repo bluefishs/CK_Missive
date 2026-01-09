@@ -136,7 +136,9 @@ def generate_cache_key(*args, prefix: str = "api", **kwargs) -> str:
     key_parts = [prefix]
 
     for arg in args:
-        if hasattr(arg, 'dict'):  # Pydantic 模型
+        if hasattr(arg, 'model_dump'):  # Pydantic v2 模型
+            key_parts.append(json.dumps(arg.model_dump(), sort_keys=True, default=str))
+        elif hasattr(arg, 'dict'):  # Pydantic v1 模型
             key_parts.append(json.dumps(arg.dict(), sort_keys=True, default=str))
         else:
             key_parts.append(str(arg))

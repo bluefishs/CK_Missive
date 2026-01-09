@@ -9,6 +9,7 @@
  */
 
 import { apiClient } from './client';
+import { API_ENDPOINTS } from './endpoints';
 
 // ============================================================================
 // 型別定義
@@ -152,7 +153,7 @@ export const filesApi = {
     }
 
     // 從後端取得最新設定
-    const info = await apiClient.post<StorageInfo>('/files/storage-info', {});
+    const info = await apiClient.post<StorageInfo>(API_ENDPOINTS.FILES.STORAGE_INFO, {});
     cachedStorageInfo = info;
     storageInfoLoadedAt = now;
 
@@ -235,7 +236,7 @@ export const filesApi = {
 
     try {
       const result = await apiClient.uploadWithProgress<UploadResult>(
-        `/files/upload?document_id=${documentId}`,
+        API_ENDPOINTS.FILES.UPLOAD(documentId),
         files,
         'files',
         callbacks?.onProgress
@@ -260,7 +261,7 @@ export const filesApi = {
     documentId: number
   ): Promise<FileAttachment[]> {
     const response = await apiClient.post<AttachmentListResponse>(
-      `/files/document/${documentId}`,
+      API_ENDPOINTS.FILES.DOCUMENT_ATTACHMENTS(documentId),
       {}
     );
     return response.attachments || [];
@@ -277,7 +278,7 @@ export const filesApi = {
     filename: string
   ): Promise<void> {
     await apiClient.downloadPost(
-      `/files/${attachmentId}/download`,
+      API_ENDPOINTS.FILES.DOWNLOAD(attachmentId),
       {},
       filename || 'download'
     );
@@ -313,7 +314,7 @@ export const filesApi = {
    */
   async deleteAttachment(attachmentId: number): Promise<DeleteResult> {
     return await apiClient.post<DeleteResult>(
-      `/files/${attachmentId}/delete`,
+      API_ENDPOINTS.FILES.DELETE(attachmentId),
       {}
     );
   },
@@ -326,7 +327,7 @@ export const filesApi = {
    */
   async verifyAttachment(attachmentId: number): Promise<FileVerifyResult> {
     return await apiClient.post<FileVerifyResult>(
-      `/files/verify/${attachmentId}`,
+      API_ENDPOINTS.FILES.VERIFY(attachmentId),
       {}
     );
   },
@@ -338,7 +339,7 @@ export const filesApi = {
    */
   async checkNetworkStorage(): Promise<NetworkCheckResult> {
     return await apiClient.post<NetworkCheckResult>(
-      '/files/check-network',
+      API_ENDPOINTS.FILES.CHECK_NETWORK,
       {}
     );
   },

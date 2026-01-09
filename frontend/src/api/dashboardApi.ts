@@ -5,6 +5,7 @@
  */
 
 import { apiClient } from './client';
+import { API_ENDPOINTS } from './endpoints';
 
 // ============================================================================
 // 型別定義
@@ -60,7 +61,7 @@ export const dashboardApi = {
    */
   async getDashboardData(): Promise<DashboardResponse> {
     try {
-      const response = await apiClient.post<DashboardResponse>('/dashboard/stats', {});
+      const response = await apiClient.post<DashboardResponse>(API_ENDPOINTS.DASHBOARD.STATS, {});
       return {
         stats: response?.stats || { total: 0, approved: 0, pending: 0, rejected: 0 },
         recent_documents: response?.recent_documents || [],

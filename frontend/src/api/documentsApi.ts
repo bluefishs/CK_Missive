@@ -13,6 +13,7 @@ import {
   normalizePaginatedResponse,
   LegacyListResponse,
 } from './types';
+import { API_ENDPOINTS } from './endpoints';
 
 // ============================================================================
 // 型別定義
@@ -225,7 +226,7 @@ export const documentsApi = {
 
     try {
       // 使用新版 POST API
-      return await apiClient.postList<Document>('/documents-enhanced/list', queryParams);
+      return await apiClient.postList<Document>(API_ENDPOINTS.DOCUMENTS.LIST, queryParams);
     } catch (error) {
       // 若新 API 失敗，嘗試舊版格式（相容性）
       if (error instanceof ApiException && error.statusCode === 404) {
@@ -275,7 +276,7 @@ export const documentsApi = {
    * @returns 公文資料
    */
   async getDocument(documentId: number): Promise<Document> {
-    return await apiClient.post<Document>(`/documents-enhanced/${documentId}/detail`);
+    return await apiClient.post<Document>(API_ENDPOINTS.DOCUMENTS.DETAIL(documentId));
   },
 
   /**
@@ -285,7 +286,7 @@ export const documentsApi = {
    * @returns 新建的公文
    */
   async createDocument(data: DocumentCreate): Promise<Document> {
-    return await apiClient.post<Document>('/documents-enhanced', data);
+    return await apiClient.post<Document>(API_ENDPOINTS.DOCUMENTS.CREATE, data);
   },
 
   /**
@@ -296,7 +297,7 @@ export const documentsApi = {
    * @returns 更新後的公文
    */
   async updateDocument(documentId: number, data: DocumentUpdate): Promise<Document> {
-    return await apiClient.post<Document>(`/documents-enhanced/${documentId}/update`, data);
+    return await apiClient.post<Document>(API_ENDPOINTS.DOCUMENTS.UPDATE(documentId), data);
   },
 
   /**
@@ -306,7 +307,7 @@ export const documentsApi = {
    * @returns 刪除結果
    */
   async deleteDocument(documentId: number): Promise<DeleteResponse> {
-    return await apiClient.post<DeleteResponse>(`/documents-enhanced/${documentId}/delete`);
+    return await apiClient.post<DeleteResponse>(API_ENDPOINTS.DOCUMENTS.DELETE(documentId));
   },
 
   /**
@@ -315,7 +316,7 @@ export const documentsApi = {
    * @returns 統計資料
    */
   async getStatistics(): Promise<DocumentStatistics> {
-    return await apiClient.post<DocumentStatistics>('/documents-enhanced/statistics');
+    return await apiClient.post<DocumentStatistics>(API_ENDPOINTS.DOCUMENTS.STATISTICS);
   },
 
   /**
@@ -350,7 +351,7 @@ export const documentsApi = {
       contract_case: params?.contract_case || undefined,
     };
 
-    return await apiClient.post('/documents-enhanced/filtered-statistics', queryParams);
+    return await apiClient.post(API_ENDPOINTS.DOCUMENTS.FILTERED_STATISTICS, queryParams);
   },
 
   /**
@@ -359,7 +360,7 @@ export const documentsApi = {
    * @returns 年度列表
    */
   async getYearOptions(): Promise<number[]> {
-    const response = await apiClient.post<{ years: number[] }>('/documents-enhanced/years');
+    const response = await apiClient.post<{ years: number[] }>(API_ENDPOINTS.DOCUMENTS.YEARS);
     return response.years || [];
   },
 
@@ -372,7 +373,7 @@ export const documentsApi = {
    */
   async getContractProjectOptions(search?: string, limit = 100): Promise<DropdownOption[]> {
     const response = await apiClient.post<{ options: DropdownOption[] }>(
-      '/documents-enhanced/contract-projects-dropdown',
+      API_ENDPOINTS.DOCUMENTS.CONTRACT_PROJECTS_DROPDOWN,
       { search, limit }
     );
     return response.options || [];
@@ -387,7 +388,7 @@ export const documentsApi = {
    */
   async getAgencyOptions(search?: string, limit = 100): Promise<DropdownOption[]> {
     const response = await apiClient.post<{ options: DropdownOption[] }>(
-      '/documents-enhanced/agencies-dropdown',
+      API_ENDPOINTS.DOCUMENTS.AGENCIES_DROPDOWN,
       { search, limit }
     );
     return response.options || [];
@@ -424,7 +425,7 @@ export const documentsApi = {
     limit = 50
   ): Promise<PaginatedResponse<Document>> {
     try {
-      return await apiClient.postList<Document>('/documents-enhanced/by-project', {
+      return await apiClient.postList<Document>(API_ENDPOINTS.DOCUMENTS.BY_PROJECT, {
         project_id: projectId,
         page,
         limit,
@@ -464,7 +465,7 @@ export const documentsApi = {
     const filename = `documents_export_${dateStr}.csv`;
 
     await apiClient.downloadPost(
-      '/documents-enhanced/export',
+      API_ENDPOINTS.DOCUMENTS.EXPORT,
       {
         document_ids: options?.documentIds || null,
         category: options?.category || null,

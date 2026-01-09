@@ -160,7 +160,7 @@ async def update_user(
         )
     
     # 更新欄位
-    update_data = user_update.dict(exclude_unset=True)
+    update_data = user_update.model_dump(exclude_unset=True)
     
     # 檢查 email 唯一性
     if "email" in update_data and update_data["email"] != user.email:
