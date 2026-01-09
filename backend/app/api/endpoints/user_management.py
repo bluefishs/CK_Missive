@@ -1,6 +1,11 @@
 """
 使用者管理與權限管理 API 端點
+
+v2.0 - 2026-01-09
+- 整合 AuditService 記錄所有使用者變更
+- 整合權限變更審計
 """
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, func
@@ -14,7 +19,9 @@ from app.schemas.auth import (
     UserPermissions, PermissionCheck, UserSessionsResponse, UserRegister
 )
 from app.extended.models import User, UserSession
+from app.services.audit_service import AuditService
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 async def require_admin(current_user: User = Depends(get_current_user)) -> User:
@@ -152,16 +159,24 @@ async def update_user(
     """更新使用者資訊 (管理員功能)"""
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
-    
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="使用者不存在"
         )
-    
+
+    # 記錄原始值用於審計
+    old_data = {
+        "email": user.email,
+        "full_name": user.full_name,
+        "is_active": user.is_active,
+        "role": user.role
+    }
+
     # 更新欄位
     update_data = user_update.model_dump(exclude_unset=True)
-    
+
     # 檢查 email 唯一性
     if "email" in update_data and update_data["email"] != user.email:
         existing_email = await AuthService.get_user_by_email(db, update_data["email"])
@@ -170,7 +185,7 @@ async def update_user(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="該電子郵件已被使用"
             )
-    
+
     # 檢查 username 唯一性
     if "username" in update_data and update_data["username"] != user.username:
         existing_username = await AuthService.get_user_by_username(db, update_data["username"])
@@ -179,14 +194,43 @@ async def update_user(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="該使用者名稱已被使用"
             )
-    
+
     # 執行更新
     await db.execute(
         update(User).where(User.id == user_id).values(**update_data)
     )
     await db.commit()
     await db.refresh(user)
-    
+
+    # 計算實際變更
+    changes = {}
+    for key, new_value in update_data.items():
+        old_value = old_data.get(key)
+        if old_value != new_value:
+            changes[key] = {"old": old_value, "new": new_value}
+
+    # 記錄審計日誌
+    if changes:
+        # 檢查是否有啟用/停用操作
+        if "is_active" in changes:
+            event_type = "ACCOUNT_ACTIVATED" if update_data.get("is_active") else "ACCOUNT_DEACTIVATED"
+            await AuditService.log_auth_event(
+                event_type=event_type,
+                user_id=user_id,
+                email=user.email,
+                details={"admin_id": admin_user.id, "admin_name": admin_user.full_name},
+                success=True
+            )
+
+        await AuditService.log_user_change(
+            user_id=user_id,
+            action="UPDATE",
+            changes=changes,
+            admin_id=admin_user.id,
+            admin_name=admin_user.full_name
+        )
+
+    logger.info(f"[USER_MGMT] 使用者 {user_id} 已更新 by {admin_user.email}")
     return UserResponse.model_validate(user)
 
 @router.delete("/users/{user_id}", summary="刪除使用者")
@@ -201,20 +245,45 @@ async def delete_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="無法刪除自己的帳號"
         )
-    
-    result = await db.execute(
-        update(User)
-        .where(User.id == user_id)
-        .values(is_active=False)
-    )
-    
-    if result.rowcount == 0:
+
+    # 先查詢使用者資訊用於審計
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="使用者不存在"
         )
-    
+
+    user_email = user.email
+
+    # 執行軟刪除
+    await db.execute(
+        update(User)
+        .where(User.id == user_id)
+        .values(is_active=False)
+    )
     await db.commit()
+
+    # 記錄審計日誌
+    await AuditService.log_auth_event(
+        event_type="ACCOUNT_DEACTIVATED",
+        user_id=user_id,
+        email=user_email,
+        details={"admin_id": admin_user.id, "admin_name": admin_user.full_name, "action": "soft_delete"},
+        success=True
+    )
+
+    await AuditService.log_user_change(
+        user_id=user_id,
+        action="DELETE",
+        changes={"is_active": {"old": True, "new": False}},
+        admin_id=admin_user.id,
+        admin_name=admin_user.full_name
+    )
+
+    logger.info(f"[USER_MGMT] 使用者 {user_id} ({user_email}) 已刪除 by {admin_user.email}")
     return {"message": "使用者已刪除"}
 
 # === 權限管理 ===
@@ -258,16 +327,25 @@ async def update_user_permissions(
     """更新指定使用者的權限 (管理員功能)"""
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
-    
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="使用者不存在"
         )
-    
+
+    # 記錄原始權限用於審計
+    old_permissions = []
+    if user.permissions:
+        try:
+            old_permissions = json.loads(user.permissions)
+        except json.JSONDecodeError:
+            old_permissions = []
+    old_role = user.role
+
     # 更新權限
     permissions_json = json.dumps(permissions_data.permissions)
-    
+
     await db.execute(
         update(User)
         .where(User.id == user_id)
@@ -277,7 +355,20 @@ async def update_user_permissions(
         )
     )
     await db.commit()
-    
+
+    # 記錄權限變更審計
+    await AuditService.log_permission_change(
+        user_id=user_id,
+        action="PERMISSION_UPDATE",
+        old_permissions=old_permissions,
+        new_permissions=permissions_data.permissions,
+        old_role=old_role,
+        new_role=permissions_data.role,
+        admin_id=admin_user.id,
+        admin_name=admin_user.full_name
+    )
+
+    logger.info(f"[USER_MGMT] 使用者 {user_id} 權限已更新 by {admin_user.email}")
     return permissions_data
 
 @router.post("/permissions/check", summary="檢查權限")

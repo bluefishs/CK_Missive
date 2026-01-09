@@ -94,7 +94,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="乾坤測繪公文管理系統 API",
     description="公文記錄管理、檢索查詢、案件歸聯系統後端API",
-    version="3.0.0",
+    version="3.0.1",  # Trigger reload for audit fix
     docs_url="/api/docs",
     redoc_url="/api/redoc",
     lifespan=lifespan,

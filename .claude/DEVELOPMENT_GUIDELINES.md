@@ -234,6 +234,80 @@ def clean_string(value: Any) -> Optional[str]:
 **原因**: 匯入時未使用智慧匹配
 **解法**: 整合 `AgencyMatcher` / `ProjectMatcher`
 
+### 5. 🔴 交易污染 (Transaction Pollution) - 嚴重
+
+**錯誤訊息**: `InFailedSQLTransactionError: current transaction is aborted, commands ignored until end of transaction block`
+
+**原因**: 在 `db.commit()` 後繼續使用同一個 session 執行其他操作（如審計日誌、通知），若這些操作失敗，session 狀態變為 "aborted"，被歸還連接池後污染後續請求。
+
+**流程圖解**:
+```
+1. update_document() 使用 db session
+2. await db.commit()  ← 主交易成功
+3. await log_audit(db, ...)  ← 使用同一個 session
+4. 如果步驟 3 失敗 → session 狀態 = "aborted"
+5. session 歸還連接池（帶著錯誤狀態）
+6. 下一個請求拿到這個 session → 所有 SQL 都失敗
+```
+
+**❌ 錯誤做法**:
+```python
+async def update_document(db: AsyncSession, ...):
+    await db.execute(update_stmt)
+    await db.commit()  # 交易結束
+
+    # 危險！使用同一個 session
+    await log_document_change(db, ...)  # 失敗會污染 session
+```
+
+**✅ 正確做法 - 使用統一服務 (2026-01-09 更新)**:
+```python
+async def update_document(db: AsyncSession, ...):
+    await db.execute(update_stmt)
+    await db.commit()  # 主交易結束
+
+    # ✅ 使用 AuditService（自動使用獨立 session）
+    from app.services.audit_service import AuditService
+    await AuditService.log_document_change(
+        document_id=doc_id,
+        action="UPDATE",
+        changes=changes,
+        user_id=user_id,
+        user_name=user_name
+    )
+
+    # ✅ 使用 safe_* 方法（自動使用獨立 session）
+    from app.services.notification_service import NotificationService
+    await NotificationService.safe_notify_critical_change(
+        document_id=doc_id,
+        field="subject",
+        old_value=old_val,
+        new_value=new_val
+    )
+```
+
+**可用的安全服務**:
+
+| 服務 | 方法 | 說明 |
+|------|------|------|
+| `AuditService` | `log_change()` | 通用審計日誌 |
+| `AuditService` | `log_document_change()` | 公文審計日誌 |
+| `NotificationService` | `safe_notify_critical_change()` | 關鍵欄位變更通知 |
+| `NotificationService` | `safe_notify_document_deleted()` | 公文刪除通知 |
+
+**核心原則**:
+| 原則 | 說明 |
+|------|------|
+| Session 生命週期 | 一個 request = 一個 session，用完即還 |
+| 非關鍵操作隔離 | 審計、通知等使用獨立 session |
+| 不重用 committed session | commit 後不要再用同一個 session 做新操作 |
+| 錯誤邊界清晰 | 每個 session 有自己的 try-except-rollback |
+
+**相關檔案**:
+- `backend/app/api/endpoints/documents_enhanced.py` - update_document, delete_document
+- `backend/app/core/audit_logger.py` - log_document_change
+- `backend/app/services/notification_service.py` - notify_critical_change
+
 詳細說明請參考: `docs/ERROR_HANDLING_GUIDE.md`
 
 ---
@@ -247,6 +321,89 @@ def clean_string(value: Any) -> Optional[str]:
 | `docs/reports/SYSTEM_SPECIFICATION_UPDATE_20260108.md` | 系統規範更新 |
 | `docs/wiki/Service-Layer-Architecture.md` | 服務層架構 |
 | `docs/DATABASE_SCHEMA.md` | 資料庫結構 |
+
+---
+
+---
+
+## ✅ Code Review Checklist (2026-01-09)
+
+### 交易安全檢查
+- [ ] 審計/通知操作是否使用 `AuditService` 或 `safe_*` 方法？
+- [ ] 是否有在 `db.commit()` 後繼續使用同一個 session？
+- [ ] 非核心操作是否有完整異常處理？
+
+### SQL 安全檢查
+- [ ] 參數綁定是否使用 `:param` 格式？
+- [ ] JSON 轉型是否使用 `CAST(:data AS jsonb)` 而非 `:data::jsonb`？
+- [ ] 是否有 SQL 注入風險？
+
+### 錯誤處理檢查
+- [ ] 是否使用 `@non_critical` 裝飾器包裝非關鍵操作？
+- [ ] 失敗時是否有適當的日誌記錄？
+- [ ] 錯誤訊息是否足夠清晰以便排查？
+
+### 效能檢查
+- [ ] 是否有 N+1 查詢問題？
+- [ ] 是否有不必要的資料庫往返？
+- [ ] 背景任務是否適當使用？
+
+### 測試檢查
+- [ ] 是否有對應的單元測試？
+- [ ] 是否測試了異常情境？
+- [ ] 測試是否涵蓋邊界條件？
+
+---
+
+## 🆕 新增服務與工具 (2026-01-09)
+
+### 核心服務
+
+| 檔案 | 說明 |
+|------|------|
+| `app/services/audit_service.py` | 統一審計服務（獨立 session） |
+| `app/core/decorators.py` | 通用裝飾器 (@non_critical, @retry_on_failure) |
+| `app/core/background_tasks.py` | 背景任務管理器 |
+| `app/core/db_monitor.py` | 連接池監控器 |
+
+### 健康檢查端點
+
+| 端點 | 說明 |
+|------|------|
+| `GET /health` | 基本健康檢查 |
+| `GET /health/detailed` | 詳細健康報告 |
+| `GET /health/pool` | 連接池狀態 |
+| `GET /health/tasks` | 背景任務狀態 |
+| `GET /health/audit` | 審計服務狀態 |
+| `GET /health/summary` | 系統健康摘要 |
+
+### 使用範例
+
+```python
+# 非關鍵操作裝飾器
+from app.core.decorators import non_critical, retry_on_failure
+
+@non_critical(default_return=False)
+async def send_email_notification():
+    # 失敗不影響主流程
+    ...
+
+@retry_on_failure(max_retries=3, delay=1.0)
+async def call_external_api():
+    # 自動重試
+    ...
+
+# 背景任務
+from app.core.background_tasks import BackgroundTaskManager
+
+BackgroundTaskManager.add_audit_task(
+    background_tasks,
+    table_name="documents",
+    record_id=doc_id,
+    action="UPDATE",
+    changes=changes
+)
+```
 
 ---
 

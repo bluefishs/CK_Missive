@@ -1,5 +1,6 @@
 """
 API 健康監控端點
+v2.0 - 整合連接池監控與背景任務統計 (2026-01-09)
 """
 import time
 import psutil
@@ -11,6 +12,25 @@ from datetime import datetime
 
 from app.db.database import get_async_db, engine
 from app.extended.models import OfficialDocument, GovernmentAgency, PartnerVendor, ContractProject
+
+# 應用啟動時間
+_startup_time: datetime = None
+
+
+def set_startup_time():
+    """設定應用啟動時間（在 main.py 啟動時呼叫）"""
+    global _startup_time
+    _startup_time = datetime.now()
+
+
+def get_uptime() -> str:
+    """取得應用運行時間"""
+    if _startup_time is None:
+        return "unknown"
+    delta = datetime.now() - _startup_time
+    hours, remainder = divmod(int(delta.total_seconds()), 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f"{hours}h {minutes}m {seconds}s"
 
 router = APIRouter()
 
@@ -254,3 +274,186 @@ async def liveness_check():
         "timestamp": datetime.now().isoformat(),
         "message": "Service is alive"
     }
+
+
+@router.get("/health/pool", summary="連接池狀態")
+async def connection_pool_status():
+    """
+    取得資料庫連接池詳細狀態
+
+    包含：
+    - 連接池監控指標
+    - 健康狀態評估
+    - 最近連接事件
+    """
+    try:
+        from app.core.db_monitor import DatabaseMonitor
+        health = DatabaseMonitor.get_health_status()
+        events = DatabaseMonitor.get_recent_events(limit=20)
+
+        return {
+            "timestamp": datetime.now().isoformat(),
+            "health": health,
+            "recent_events": events
+        }
+    except Exception as e:
+        return {
+            "timestamp": datetime.now().isoformat(),
+            "status": "monitor_not_available",
+            "error": str(e),
+            "message": "連接池監控未啟用或發生錯誤"
+        }
+
+
+@router.get("/health/tasks", summary="背景任務狀態")
+async def background_tasks_status():
+    """
+    取得背景任務執行統計
+
+    包含：
+    - 任務總數
+    - 成功/失敗數
+    - 最後執行時間
+    """
+    try:
+        from app.core.background_tasks import BackgroundTaskManager
+        stats = BackgroundTaskManager.get_stats()
+
+        success_rate = 0.0
+        if stats["total_tasks"] > 0:
+            success_rate = stats["completed_tasks"] / stats["total_tasks"]
+
+        return {
+            "timestamp": datetime.now().isoformat(),
+            "status": "healthy" if success_rate >= 0.9 else "degraded",
+            "stats": stats,
+            "success_rate": round(success_rate * 100, 2)
+        }
+    except Exception as e:
+        return {
+            "timestamp": datetime.now().isoformat(),
+            "status": "unknown",
+            "error": str(e)
+        }
+
+
+@router.get("/health/audit", summary="審計服務狀態")
+async def audit_service_status(db: AsyncSession = Depends(get_async_db)):
+    """
+    檢查審計服務運行狀態
+
+    包含：
+    - 審計日誌表狀態
+    - 最近審計記錄統計
+    """
+    try:
+        # 檢查審計日誌表
+        count_result = await db.execute(text("SELECT COUNT(*) FROM audit_logs"))
+        total_logs = count_result.scalar() or 0
+
+        # 最近 24 小時審計記錄
+        recent_result = await db.execute(text("""
+            SELECT COUNT(*) FROM audit_logs
+            WHERE created_at > NOW() - INTERVAL '24 hours'
+        """))
+        recent_logs = recent_result.scalar() or 0
+
+        # 各操作類型統計
+        action_result = await db.execute(text("""
+            SELECT action, COUNT(*) as count
+            FROM audit_logs
+            WHERE created_at > NOW() - INTERVAL '24 hours'
+            GROUP BY action
+        """))
+        action_stats = {row.action: row.count for row in action_result}
+
+        return {
+            "timestamp": datetime.now().isoformat(),
+            "status": "healthy",
+            "total_logs": total_logs,
+            "last_24h": {
+                "total": recent_logs,
+                "by_action": action_stats
+            }
+        }
+    except Exception as e:
+        return {
+            "timestamp": datetime.now().isoformat(),
+            "status": "error",
+            "error": str(e)
+        }
+
+
+@router.get("/health/summary", summary="系統健康摘要")
+async def health_summary(db: AsyncSession = Depends(get_async_db)):
+    """
+    整合所有健康檢查的摘要報告
+
+    適用於 Dashboard 監控面板
+    """
+    summary = {
+        "timestamp": datetime.now().isoformat(),
+        "uptime": get_uptime(),
+        "overall_status": "healthy",
+        "components": {}
+    }
+
+    issues = []
+
+    # 1. 資料庫
+    try:
+        start = time.time()
+        await db.execute(text("SELECT 1"))
+        db_time = (time.time() - start) * 1000
+        summary["components"]["database"] = {
+            "status": "healthy",
+            "response_ms": round(db_time, 2)
+        }
+    except Exception as e:
+        summary["components"]["database"] = {"status": "unhealthy", "error": str(e)}
+        issues.append("database")
+
+    # 2. 連接池
+    try:
+        from app.core.db_monitor import DatabaseMonitor
+        pool_health = DatabaseMonitor.get_health_status()
+        summary["components"]["connection_pool"] = {
+            "status": pool_health["status"],
+            "active": pool_health["stats"].get("active_connections", 0)
+        }
+        if pool_health["status"] != "healthy":
+            issues.append("connection_pool")
+    except:
+        summary["components"]["connection_pool"] = {"status": "unknown"}
+
+    # 3. 背景任務
+    try:
+        from app.core.background_tasks import BackgroundTaskManager
+        task_stats = BackgroundTaskManager.get_stats()
+        summary["components"]["background_tasks"] = {
+            "status": "healthy",
+            "total": task_stats["total_tasks"],
+            "failed": task_stats["failed_tasks"]
+        }
+    except:
+        summary["components"]["background_tasks"] = {"status": "unknown"}
+
+    # 4. 系統資源
+    try:
+        memory = psutil.virtual_memory()
+        summary["components"]["system"] = {
+            "status": "healthy" if memory.percent < 90 else "warning",
+            "memory_percent": memory.percent,
+            "cpu_percent": psutil.cpu_percent()
+        }
+        if memory.percent > 90:
+            issues.append("memory")
+    except:
+        summary["components"]["system"] = {"status": "unknown"}
+
+    # 整體狀態
+    if issues:
+        summary["overall_status"] = "degraded" if len(issues) < 2 else "unhealthy"
+        summary["issues"] = issues
+
+    return summary

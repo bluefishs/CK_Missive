@@ -1,10 +1,16 @@
 """
 認證服務 - JWT 令牌管理、Google OAuth 驗證與權限檢查
+
+v2.0 - 2026-01-09
+- 簡化為僅 Google OAuth 認證
+- 新增網域白名單檢查
+- 新增新帳號審核機制
 """
 import json
 import secrets
+import logging
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from google.oauth2 import id_token
@@ -19,6 +25,8 @@ from app.core.config import settings
 from app.extended.models import User, UserSession
 from app.schemas.auth import UserResponse, GoogleUserInfo, TokenResponse
 
+logger = logging.getLogger(__name__)
+
 # 密碼加密設定
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -31,8 +39,70 @@ REFRESH_TOKEN_EXPIRE_DAYS = 7
 security = HTTPBearer(auto_error=False)  # 不自動拋出錯誤，讓 get_current_user 處理
 
 class AuthService:
-    """認證服務類別"""
-    
+    """
+    認證服務類別
+
+    v2.0 - 僅支援 Google OAuth 認證
+    """
+
+    # ============ 網域白名單檢查 ============
+
+    @staticmethod
+    def get_allowed_domains() -> List[str]:
+        """取得允許的 Google 網域清單"""
+        domains_str = settings.GOOGLE_ALLOWED_DOMAINS or ""
+        if not domains_str.strip():
+            return []  # 空白表示允許所有
+        return [d.strip().lower() for d in domains_str.split(",") if d.strip()]
+
+    @staticmethod
+    def check_email_domain(email: str) -> bool:
+        """
+        檢查 email 是否在允許的網域內
+
+        Args:
+            email: 使用者 email
+
+        Returns:
+            True 表示允許，False 表示拒絕
+        """
+        allowed_domains = AuthService.get_allowed_domains()
+        if not allowed_domains:
+            return True  # 未設定白名單，允許所有
+
+        email_domain = email.split("@")[-1].lower()
+        is_allowed = email_domain in allowed_domains
+
+        if not is_allowed:
+            logger.warning(f"[AUTH] 網域被拒: {email_domain} 不在允許清單 {allowed_domains}")
+
+        return is_allowed
+
+    @staticmethod
+    def should_auto_activate() -> bool:
+        """檢查新帳號是否應自動啟用"""
+        return settings.AUTO_ACTIVATE_NEW_USER
+
+    @staticmethod
+    def get_default_user_role() -> str:
+        """取得新帳號預設角色"""
+        return settings.DEFAULT_USER_ROLE or "user"
+
+    @staticmethod
+    def get_default_permissions() -> str:
+        """取得新帳號預設權限"""
+        default_permissions = [
+            "documents:read",
+            "projects:read",
+            "agencies:read",
+            "vendors:read",
+            "calendar:read",
+            "reports:view"
+        ]
+        return json.dumps(default_permissions)
+
+    # ============ 密碼相關 (保留但標記棄用) ============
+
     @staticmethod
     def verify_password(plain_password: str, hashed_password: str) -> bool:
         """驗證密碼 - 暫時支援明文比較"""

@@ -83,7 +83,8 @@ async def log_audit_entry(
             logger.info(log_message)
 
         # 嘗試寫入資料庫審計表（如果存在）
-        # 使用 savepoint 確保失敗時不會影響主交易
+        # 注意：這個函數可能在 commit 之後被調用，此時沒有活躍的交易
+        # 因此不使用 begin_nested()，而是直接執行並在失敗時忽略
         try:
             # 檢查審計表是否存在
             result = await db.execute(
@@ -117,8 +118,10 @@ async def log_audit_entry(
                         "created_at": datetime.now()
                     }
                 )
+                await db.commit()
         except Exception as audit_error:
             # 審計表操作失敗時僅記錄到日誌，不影響主交易
+            await db.rollback()
             logger.debug(f"審計表寫入跳過: {audit_error}")
 
     except Exception as e:

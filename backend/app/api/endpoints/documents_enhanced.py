@@ -1,5 +1,11 @@
 """
 增強版公文管理 API 端點 - POST-only 資安機制，統一回應格式
+v2.2 - 審計/通知服務優化 (2026-01-09)
+
+變更紀錄:
+- 使用 AuditService 統一管理審計日誌（獨立 session，不會污染主交易）
+- 使用 NotificationService.safe_* 方法（獨立 session）
+- 移除對舊 log_document_change 函數的依賴
 """
 import io
 import os
@@ -13,7 +19,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text, select, or_, and_, func
 from sqlalchemy.orm import selectinload
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +52,7 @@ from app.schemas.common import (
     SortOrder,
 )
 from app.core.exceptions import NotFoundException
-from app.core.audit_logger import DocumentUpdateGuard, log_document_change
+from app.core.audit_logger import DocumentUpdateGuard
 from app.services.notification_service import NotificationService, CRITICAL_FIELDS
 
 # 可選的使用者認證（開發模式下不強制）
@@ -823,6 +829,10 @@ async def get_popular_searches(
 # 公文 CRUD API（POST-only 資安機制）
 # ============================================================================
 
+# doc_type 白名單 - 與 DocumentType Enum 對齊
+VALID_DOC_TYPES = {"函", "發文", "收文", "開會通知單", "會勘通知單", "書函", "公告", "通知"}
+
+
 class DocumentCreateRequest(BaseModel):
     """公文建立請求"""
     doc_number: str = Field(..., description="公文編號")
@@ -846,6 +856,16 @@ class DocumentCreateRequest(BaseModel):
     # 發文形式與附件欄位
     delivery_method: Optional[str] = Field("電子交換", description="發文形式 (電子交換/紙本郵寄/電子+紙本)")
     has_attachment: Optional[bool] = Field(False, description="是否含附件")
+
+    @field_validator('doc_type')
+    @classmethod
+    def validate_doc_type(cls, v: str) -> str:
+        """驗證 doc_type 是否在白名單中"""
+        if v and v not in VALID_DOC_TYPES:
+            raise ValueError(
+                f"無效的公文類型 '{v}'。有效值: {', '.join(sorted(VALID_DOC_TYPES))}"
+            )
+        return v
 
 
 class DocumentUpdateRequest(BaseModel):
@@ -871,6 +891,16 @@ class DocumentUpdateRequest(BaseModel):
     # 發文形式與附件欄位
     delivery_method: Optional[str] = Field(None, description="發文形式 (電子交換/紙本郵寄/電子+紙本)")
     has_attachment: Optional[bool] = Field(None, description="是否含附件")
+
+    @field_validator('doc_type')
+    @classmethod
+    def validate_doc_type(cls, v: Optional[str]) -> Optional[str]:
+        """驗證 doc_type 是否在白名單中"""
+        if v and v not in VALID_DOC_TYPES:
+            raise ValueError(
+                f"無效的公文類型 '{v}'。有效值: {', '.join(sorted(VALID_DOC_TYPES))}"
+            )
+        return v
 
 
 @router.post(
@@ -989,11 +1019,13 @@ async def create_document(
         await db.commit()
         await db.refresh(document)
 
-        # 記錄審計日誌（建立操作）
+        # 審計日誌（使用 AuditService，自動使用獨立 session，不會污染主交易）
         user_id = current_user.id if current_user else None
         user_name = current_user.username if current_user else "Anonymous"
-        await log_document_change(
-            db=db,
+        logger.info(f"公文 {document.id} 建立 by {user_name}")
+
+        from app.services.audit_service import AuditService
+        await AuditService.log_document_change(
             document_id=document.id,
             action="CREATE",
             changes={"created": filtered_data},
@@ -1001,7 +1033,6 @@ async def create_document(
             user_name=user_name,
             source="API"
         )
-        logger.info(f"公文 {document.id} 建立 by {user_name}")
 
         return DocumentResponse.model_validate(document)
     except Exception as e:
@@ -1021,7 +1052,7 @@ async def update_document(
     db: AsyncSession = Depends(get_async_db),
     current_user: Optional[User] = Depends(get_optional_user)
 ):
-    """更新公文（POST-only 資安機制，含審計日誌與使用者追蹤）"""
+    """更新公文（POST-only 資安機制，含審計日誌與使用者追蹤） v2"""
     try:
         logger.info(f"[更新公文] 開始更新公文 ID: {document_id}")
         logger.debug(f"[更新公文] 收到資料: {data.model_dump()}")
@@ -1078,13 +1109,19 @@ async def update_document(
             if old_value != new_value:
                 changes[key] = {"old": str(old_value), "new": str(new_value)}
 
+        # 先提交主要更新操作
+        await db.commit()
+        await db.refresh(document)
+
+        # 審計日誌和通知（使用統一服務，自動管理獨立 session）
         if changes:
-            # 記錄使用者資訊（如有）
             user_id = current_user.id if current_user else None
             user_name = current_user.username if current_user else "Anonymous"
+            logger.info(f"公文 {document_id} 更新 by {user_name}: {list(changes.keys())}")
 
-            await log_document_change(
-                db=db,
+            # 使用 AuditService（自動使用獨立 session，不會污染主交易）
+            from app.services.audit_service import AuditService
+            await AuditService.log_document_change(
                 document_id=document_id,
                 action="UPDATE",
                 changes=changes,
@@ -1092,14 +1129,12 @@ async def update_document(
                 user_name=user_name,
                 source="API"
             )
-            logger.info(f"公文 {document_id} 更新 by {user_name}: {list(changes.keys())}")
 
-            # P3: 關鍵欄位變更通知
+            # 關鍵欄位變更通知（使用 safe_* 方法，自動使用獨立 session）
             critical_field_names = CRITICAL_FIELDS.get("documents", {})
             for field_key, change_info in changes.items():
                 if field_key in critical_field_names:
-                    await NotificationService.notify_critical_change(
-                        db=db,
+                    await NotificationService.safe_notify_critical_change(
                         document_id=document_id,
                         field=field_key,
                         old_value=change_info.get("old", ""),
@@ -1109,8 +1144,6 @@ async def update_document(
                         table_name="documents"
                     )
 
-        await db.commit()
-        await db.refresh(document)
         return DocumentResponse.model_validate(document)
     except NotFoundException:
         raise
@@ -1167,41 +1200,45 @@ async def delete_document(
                 if parent_folder:
                     folders_to_check.add(parent_folder)
 
-        # 4. 記錄審計日誌（刪除前記錄）
+        # 4. 記錄公文資訊（在刪除前保存，用於後續審計日誌）
         user_id = current_user.id if current_user else None
         user_name = current_user.username if current_user else "Anonymous"
-        await log_document_change(
-            db=db,
+        doc_number = document.doc_number or ""
+        subject = document.subject or ""
+        attachments_count = len(attachments)
+        logger.info(f"公文 {document_id} 刪除 by {user_name}")
+
+        # 5. 刪除資料庫記錄（CASCADE 會自動刪除 document_attachments）
+        await db.delete(document)
+        await db.commit()
+
+        # 6. 審計日誌和通知（使用統一服務，自動管理獨立 session）
+        from app.services.audit_service import AuditService
+        await AuditService.log_document_change(
             document_id=document_id,
             action="DELETE",
             changes={
                 "deleted": {
-                    "doc_number": document.doc_number,
-                    "subject": document.subject,
-                    "attachments_count": len(attachments)
+                    "doc_number": doc_number,
+                    "subject": subject,
+                    "attachments_count": attachments_count
                 }
             },
             user_id=user_id,
             user_name=user_name,
             source="API"
         )
-        logger.info(f"公文 {document_id} 刪除 by {user_name}")
 
-        # P3: 公文刪除通知
-        await NotificationService.notify_document_deleted(
-            db=db,
+        # 公文刪除通知（使用 safe_* 方法，自動使用獨立 session）
+        await NotificationService.safe_notify_document_deleted(
             document_id=document_id,
-            doc_number=document.doc_number or "",
-            subject=document.subject or "",
+            doc_number=doc_number,
+            subject=subject,
             user_id=user_id,
             user_name=user_name
         )
 
-        # 5. 刪除資料庫記錄（CASCADE 會自動刪除 document_attachments）
-        await db.delete(document)
-        await db.commit()
-
-        # 6. 刪除實體檔案（在資料庫成功刪除後執行）
+        # 7. 刪除實體檔案（在資料庫成功刪除後執行）
         deleted_files = 0
         file_errors = []
 
@@ -1215,7 +1252,7 @@ async def delete_document(
                 file_errors.append(f"{file_path}: {str(e)}")
                 logger.warning(f"刪除附件檔案失敗: {file_path}, 錯誤: {e}")
 
-        # 7. 嘗試刪除空的公文資料夾（doc_{id}）
+        # 8. 嘗試刪除空的公文資料夾（doc_{id}）
         deleted_folders = 0
         for folder in folders_to_check:
             try:
@@ -1228,7 +1265,7 @@ async def delete_document(
             except Exception as e:
                 logger.warning(f"刪除資料夾失敗: {folder}, 錯誤: {e}")
 
-        # 8. 建構回應訊息
+        # 9. 建構回應訊息
         message = f"公文已刪除"
         if deleted_files > 0:
             message += f"，同步刪除 {deleted_files} 個附件檔案"

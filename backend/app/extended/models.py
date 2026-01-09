@@ -2,6 +2,7 @@
 擴展數據模型 - 四大功能模組 (已修復級聯刪除)
 """
 from sqlalchemy import Column, Integer, String, Float, Date, DateTime, ForeignKey, Text, Boolean, Table, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -347,6 +348,7 @@ class SystemNotification(Base):
     is_read = Column(Boolean, default=False, index=True, comment="是否已讀")
     created_at = Column(DateTime, server_default=func.now(), index=True, comment="建立時間")
     read_at = Column(DateTime, nullable=True, comment="已讀時間")
+    data = Column(JSONB, nullable=True, comment="附加資料 (severity, source_table, source_id, changes, user_name)")
 
     # 關聯關係 (暫時移除 back_populates)
     # user = relationship("User", back_populates="notifications")

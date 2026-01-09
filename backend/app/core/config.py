@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     GOOGLE_REDIRECT_URI: str = "http://localhost:3000/auth/callback"
     GOOGLE_CALENDAR_ID: str = "primary"
     GOOGLE_CREDENTIALS_PATH: str = "./GoogleCalendarAPIKEY.json"
+
+    # Google OAuth 安全設定 (2026-01-09)
+    GOOGLE_ALLOWED_DOMAINS: str = ""  # 允許的 Google 網域，多個用逗號分隔，空白表示允許所有
+    AUTO_ACTIVATE_NEW_USER: bool = True  # 新帳號是否自動啟用 (建議生產環境設為 False)
+    DEFAULT_USER_ROLE: str = "user"  # 新帳號預設角色
     
     # 日誌設定
     LOG_LEVEL: str = "INFO"

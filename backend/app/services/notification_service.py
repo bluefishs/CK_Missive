@@ -8,17 +8,26 @@ Notification Service
 2. 支援多種通知管道（系統內、Email、Webhook）
 3. 提供通知查詢與管理功能
 
-使用方式：
+重要：2026-01-09 修正
+- 新增 safe_* 系列方法，使用獨立 session 避免交易污染
+- 原有方法保留向後相容，但建議使用 safe_* 版本
+
+使用方式（推薦）：
     from app.services.notification_service import NotificationService
 
-    # 記錄關鍵欄位變更通知
-    await NotificationService.notify_critical_change(
-        db=db,
+    # 推薦：使用獨立 session 的安全版本
+    await NotificationService.safe_notify_critical_change(
         document_id=524,
         field="subject",
         old_value="舊主旨",
         new_value="新主旨",
         user_name="admin"
+    )
+
+舊版使用方式（不建議，可能導致交易污染）：
+    await NotificationService.notify_critical_change(
+        db=db,  # 共用 session 有風險
+        ...
     )
 """
 import json
@@ -145,34 +154,48 @@ class NotificationService:
             通知 ID
         """
         try:
-            changes_json = json.dumps(changes, ensure_ascii=False, default=str) if changes else None
+            # 注意：這個函數可能在主交易 commit 之後被調用
+            # 因此不使用 begin_nested()，而是直接執行並使用獨立的 commit/rollback
+
+            # 檢查表是否存在
+            table_check = await db.execute(
+                text("SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'system_notifications')")
+            )
+            if not table_check.scalar():
+                logger.debug("system_notifications 表不存在，跳過通知建立")
+                return None
+
+            # 將額外資訊放入 data JSON 欄位
+            data_payload = {
+                "severity": severity,
+                "source_table": source_table,
+                "source_id": source_id,
+                "changes": changes,
+                "user_name": user_name
+            }
+            data_json = json.dumps(data_payload, ensure_ascii=False, default=str)
 
             result = await db.execute(
                 text("""
-                    INSERT INTO notifications (
-                        type, severity, title, message,
-                        source_table, source_id, changes,
-                        user_id, user_name, created_at
+                    INSERT INTO system_notifications (
+                        user_id, title, message,
+                        notification_type, is_read, created_at, data
                     ) VALUES (
-                        :type, :severity, :title, :message,
-                        :source_table, :source_id, :changes::jsonb,
-                        :user_id, :user_name, :created_at
+                        :user_id, :title, :message,
+                        :notification_type, FALSE, :created_at, CAST(:data AS jsonb)
                     ) RETURNING id
                 """),
                 {
-                    "type": type,
-                    "severity": severity,
+                    "user_id": user_id,
                     "title": title,
                     "message": message,
-                    "source_table": source_table,
-                    "source_id": source_id,
-                    "changes": changes_json,
-                    "user_id": user_id,
-                    "user_name": user_name,
-                    "created_at": datetime.now()
+                    "notification_type": type,
+                    "created_at": datetime.now(),
+                    "data": data_json
                 }
             )
             notification_id = result.scalar()
+            await db.commit()
 
             # 記錄日誌
             log_level = logging.WARNING if severity in [NotificationSeverity.WARNING, NotificationSeverity.ERROR, NotificationSeverity.CRITICAL] else logging.INFO
@@ -181,6 +204,7 @@ class NotificationService:
             return notification_id
 
         except Exception as e:
+            await db.rollback()
             logger.error(f"建立通知失敗: {e}")
             return None
 
@@ -322,35 +346,35 @@ class NotificationService:
                 conditions.append("is_read = :is_read")
                 params["is_read"] = is_read
             if severity:
-                conditions.append("severity = :severity")
+                # severity 存放在 data JSONB 欄位中
+                conditions.append("data->>'severity' = :severity")
                 params["severity"] = severity
             if type:
-                conditions.append("type = :type")
+                conditions.append("notification_type = :type")
                 params["type"] = type
 
             where_clause = " AND ".join(conditions) if conditions else "1=1"
 
             # 取得總數
             count_result = await db.execute(
-                text(f"SELECT COUNT(*) FROM notifications WHERE {where_clause}"),
+                text(f"SELECT COUNT(*) FROM system_notifications WHERE {where_clause}"),
                 params
             )
             total = count_result.scalar() or 0
 
             # 取得未讀數
             unread_result = await db.execute(
-                text("SELECT COUNT(*) FROM notifications WHERE is_read = FALSE")
+                text("SELECT COUNT(*) FROM system_notifications WHERE is_read = FALSE")
             )
             unread_count = unread_result.scalar() or 0
 
             # 查詢資料
             result = await db.execute(
                 text(f"""
-                    SELECT id, type, severity, title, message,
-                           source_table, source_id, changes,
-                           user_id, user_name, is_read, read_at,
+                    SELECT id, notification_type, title, message,
+                           user_id, is_read, read_at, data,
                            TO_CHAR(created_at, 'YYYY-MM-DD HH24:MI:SS') as created_at
-                    FROM notifications
+                    FROM system_notifications
                     WHERE {where_clause}
                     ORDER BY created_at DESC
                     LIMIT :limit OFFSET :offset
@@ -359,24 +383,27 @@ class NotificationService:
             )
             rows = result.fetchall()
 
-            items = [
-                {
+            items = []
+            for row in rows:
+                # 從 data JSONB 欄位提取額外資訊
+                data = row.data if row.data else {}
+                if isinstance(data, str):
+                    data = json.loads(data)
+                items.append({
                     "id": row.id,
-                    "type": row.type,
-                    "severity": row.severity,
+                    "type": row.notification_type,
+                    "severity": data.get("severity", "info"),
                     "title": row.title,
                     "message": row.message,
-                    "source_table": row.source_table,
-                    "source_id": row.source_id,
-                    "changes": row.changes,
+                    "source_table": data.get("source_table"),
+                    "source_id": data.get("source_id"),
+                    "changes": data.get("changes"),
                     "user_id": row.user_id,
-                    "user_name": row.user_name,
+                    "user_name": data.get("user_name"),
                     "is_read": row.is_read,
                     "read_at": row.read_at,
                     "created_at": row.created_at
-                }
-                for row in rows
-            ]
+                })
 
             return {
                 "items": items,
@@ -401,14 +428,13 @@ class NotificationService:
 
             result = await db.execute(
                 text("""
-                    UPDATE notifications
-                    SET is_read = TRUE, read_at = :read_at, read_by = :read_by
+                    UPDATE system_notifications
+                    SET is_read = TRUE, read_at = :read_at
                     WHERE id = ANY(:ids) AND is_read = FALSE
                 """),
                 {
                     "ids": notification_ids,
-                    "read_at": datetime.now(),
-                    "read_by": read_by
+                    "read_at": datetime.now()
                 }
             )
             await db.commit()
@@ -428,13 +454,12 @@ class NotificationService:
         try:
             result = await db.execute(
                 text("""
-                    UPDATE notifications
-                    SET is_read = TRUE, read_at = :read_at, read_by = :read_by
+                    UPDATE system_notifications
+                    SET is_read = TRUE, read_at = :read_at
                     WHERE is_read = FALSE
                 """),
                 {
-                    "read_at": datetime.now(),
-                    "read_by": read_by
+                    "read_at": datetime.now()
                 }
             )
             await db.commit()
@@ -444,3 +469,160 @@ class NotificationService:
             logger.error(f"標記所有通知已讀失敗: {e}")
             await db.rollback()
             return 0
+
+    # =========================================================================
+    # 安全版本 API (使用獨立 Session，避免交易污染)
+    # =========================================================================
+
+    @staticmethod
+    async def safe_notify_critical_change(
+        document_id: int,
+        field: str,
+        old_value: str,
+        new_value: str,
+        user_id: Optional[int] = None,
+        user_name: Optional[str] = None,
+        table_name: str = "documents"
+    ) -> bool:
+        """
+        安全版本：通知關鍵欄位變更
+
+        使用獨立 session，確保：
+        1. 不影響主交易
+        2. 失敗時自動回滾
+        3. 不會污染連接池
+
+        Args:
+            document_id: 公文/記錄 ID
+            field: 變更欄位名
+            old_value: 原始值
+            new_value: 新值
+            user_id: 操作者 ID
+            user_name: 操作者名稱
+            table_name: 資料表名稱
+
+        Returns:
+            bool: 是否成功建立通知
+        """
+        field_label = CRITICAL_FIELDS.get(table_name, {}).get(field, field)
+        operator = user_name or f"User#{user_id}" if user_id else "System"
+
+        title = f"關鍵欄位變更: {field_label}"
+        message = (
+            f"公文 ID {document_id} 的「{field_label}」已被 {operator} 修改。"
+            f"原值: {str(old_value)[:50]} → 新值: {str(new_value)[:50]}"
+        )
+
+        try:
+            from app.db.database import AsyncSessionLocal
+
+            async with AsyncSessionLocal() as db:
+                try:
+                    data_payload = {
+                        "severity": NotificationSeverity.WARNING,
+                        "source_table": table_name,
+                        "source_id": document_id,
+                        "changes": {
+                            "field": field,
+                            "field_label": field_label,
+                            "old_value": str(old_value),
+                            "new_value": str(new_value)
+                        },
+                        "user_name": user_name
+                    }
+                    data_json = json.dumps(data_payload, ensure_ascii=False, default=str)
+
+                    await db.execute(
+                        text("""
+                            INSERT INTO system_notifications (
+                                user_id, title, message,
+                                notification_type, is_read, created_at, data
+                            ) VALUES (
+                                :user_id, :title, :message,
+                                :notification_type, FALSE, :created_at, CAST(:data AS jsonb)
+                            )
+                        """),
+                        {
+                            "user_id": user_id,
+                            "title": title,
+                            "message": message,
+                            "notification_type": NotificationType.CRITICAL_CHANGE,
+                            "created_at": datetime.now(),
+                            "data": data_json
+                        }
+                    )
+                    await db.commit()
+                    logger.warning(f"[NOTIFICATION] 關鍵欄位變更: {title}")
+                    return True
+
+                except Exception as db_error:
+                    await db.rollback()
+                    logger.warning(f"[NOTIFICATION] 通知建立失敗: {db_error}")
+                    return False
+
+        except Exception as session_error:
+            logger.error(f"[NOTIFICATION] Session 建立失敗: {session_error}")
+            return False
+
+    @staticmethod
+    async def safe_notify_document_deleted(
+        document_id: int,
+        doc_number: str,
+        subject: str,
+        user_id: Optional[int] = None,
+        user_name: Optional[str] = None
+    ) -> bool:
+        """安全版本：通知公文刪除"""
+        operator = user_name or f"User#{user_id}" if user_id else "System"
+        title = f"公文刪除: {doc_number}"
+        message = f"公文「{doc_number}」已被 {operator} 刪除。主旨: {subject[:80]}"
+
+        try:
+            from app.db.database import AsyncSessionLocal
+
+            async with AsyncSessionLocal() as db:
+                try:
+                    data_payload = {
+                        "severity": NotificationSeverity.WARNING,
+                        "source_table": "documents",
+                        "source_id": document_id,
+                        "changes": {
+                            "action": "DELETE",
+                            "doc_number": doc_number,
+                            "subject": subject
+                        },
+                        "user_name": user_name
+                    }
+                    data_json = json.dumps(data_payload, ensure_ascii=False, default=str)
+
+                    await db.execute(
+                        text("""
+                            INSERT INTO system_notifications (
+                                user_id, title, message,
+                                notification_type, is_read, created_at, data
+                            ) VALUES (
+                                :user_id, :title, :message,
+                                :notification_type, FALSE, :created_at, CAST(:data AS jsonb)
+                            )
+                        """),
+                        {
+                            "user_id": user_id,
+                            "title": title,
+                            "message": message,
+                            "notification_type": NotificationType.CRITICAL_CHANGE,
+                            "created_at": datetime.now(),
+                            "data": data_json
+                        }
+                    )
+                    await db.commit()
+                    logger.warning(f"[NOTIFICATION] 公文刪除: {title}")
+                    return True
+
+                except Exception as db_error:
+                    await db.rollback()
+                    logger.warning(f"[NOTIFICATION] 通知建立失敗: {db_error}")
+                    return False
+
+        except Exception as session_error:
+            logger.error(f"[NOTIFICATION] Session 建立失敗: {session_error}")
+            return False
