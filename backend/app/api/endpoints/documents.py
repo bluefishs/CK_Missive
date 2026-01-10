@@ -6,19 +6,25 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_async_db
+from app.core.dependencies import require_auth
+from app.extended.models import User
 
 router = APIRouter()
 
 # 暫時移除DocumentService依賴項
 
 @router.get("/test")
-async def test_simple():
+async def test_simple(
+    current_user: User = Depends(require_auth())
+):
     """簡單測試端點"""
     return {"message": "測試成功", "items": [], "total": 0}
 
 @router.get("/")
 async def get_documents(
-    skip: int = 0, limit: int = 100
+    skip: int = 0,
+    limit: int = 100,
+    current_user: User = Depends(require_auth())
 ):
     """簡化的documents端點，返回固定數據用於測試"""
     return {
@@ -36,7 +42,8 @@ async def get_documents(
 
 @router.get("/statistics")
 async def get_documents_statistics(
-    search: Optional[str] = Query("", description="搜尋條件")
+    search: Optional[str] = Query("", description="搜尋條件"),
+    current_user: User = Depends(require_auth())
 ):
     """取得公文統計資料"""
     return {
@@ -47,14 +54,17 @@ async def get_documents_statistics(
     }
 
 @router.get("/documents-years")
-async def get_documents_years():
+async def get_documents_years(
+    current_user: User = Depends(require_auth())
+):
     """取得公文年度列表"""
     return {"years": []}
 
 @router.get("/agencies-dropdown")
 async def get_agencies_dropdown(
     limit: int = Query(500, description="限制數量"),
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """取得機關下拉選單"""
     from sqlalchemy import select
@@ -78,7 +88,8 @@ async def get_agencies_dropdown(
 @router.get("/contract-projects-dropdown")
 async def get_contract_projects_dropdown(
     limit: int = Query(1000, description="限制數量"),
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """取得承攬案件下拉選單"""
     from sqlalchemy import select

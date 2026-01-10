@@ -6,16 +6,19 @@ from typing import Optional
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.database import get_async_db
+from app.core.dependencies import require_auth
+from app.extended.models import User
 
 router = APIRouter()
 
-@router.get("/", summary="查詢案件列表") 
+@router.get("/", summary="查詢案件列表")
 async def get_cases(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     status: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """查詢案件列表 (模擬)"""
     return {
@@ -32,7 +35,11 @@ async def get_cases(
     }
 
 @router.get("/{case_id}", summary="取得案件詳情")
-async def get_case(case_id: int, db: AsyncSession = Depends(get_async_db)):
+async def get_case(
+    case_id: int,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
+):
     """取得案件詳細資訊 (模擬)"""
     return {
         "id": case_id,
@@ -43,6 +50,9 @@ async def get_case(case_id: int, db: AsyncSession = Depends(get_async_db)):
     }
 
 @router.post("/", summary="建立新案件")
-async def create_case(db: AsyncSession = Depends(get_async_db)):
+async def create_case(
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
+):
     """建立新案件 (模擬)"""
     return {"id": 2, "message": "案件建立成功"}

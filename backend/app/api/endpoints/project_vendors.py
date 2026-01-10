@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 案件與廠商關聯管理API端點 (POST-only 資安機制)
+所有端點需要認證。
 """
 
 from typing import Optional
@@ -11,7 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
 from app.db.database import get_async_db
-from app.extended.models import ContractProject, PartnerVendor, project_vendor_association
+from app.core.dependencies import require_auth
+from app.extended.models import ContractProject, PartnerVendor, project_vendor_association, User
 from app.schemas.project_vendor import (
     ProjectVendorCreate,
     ProjectVendorUpdate,
@@ -37,7 +39,8 @@ class VendorAssociationListQuery(BaseModel):
 @router.post("", summary="建立案件與廠商關聯")
 async def create_project_vendor_association(
     association_data: ProjectVendorCreate,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """建立案件與廠商關聯"""
 
@@ -99,7 +102,8 @@ async def create_project_vendor_association(
 @router.post("/project/{project_id}/list", response_model=ProjectVendorListResponse, summary="取得案件廠商列表")
 async def get_project_vendor_associations(
     project_id: int,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """取得特定案件的所有廠商關聯"""
 
@@ -167,7 +171,8 @@ async def get_project_vendor_associations(
 @router.post("/vendor/{vendor_id}/projects", summary="取得廠商參與案件列表")
 async def get_vendor_project_associations(
     vendor_id: int,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """取得特定廠商的所有案件關聯"""
 
@@ -237,7 +242,8 @@ async def update_project_vendor_association(
     project_id: int,
     vendor_id: int,
     association_data: ProjectVendorUpdate,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """更新案件與廠商關聯資訊"""
 
@@ -274,7 +280,8 @@ async def update_project_vendor_association(
 async def delete_project_vendor_association(
     project_id: int,
     vendor_id: int,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """刪除案件與廠商關聯"""
 
@@ -308,7 +315,8 @@ async def delete_project_vendor_association(
 @router.post("/list", summary="取得所有廠商關聯列表")
 async def get_all_associations(
     query: VendorAssociationListQuery = Body(default=VendorAssociationListQuery()),
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """取得所有案件與廠商關聯列表"""
 

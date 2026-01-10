@@ -11,7 +11,8 @@ from sqlalchemy import text
 from datetime import datetime
 
 from app.db.database import get_async_db, engine
-from app.extended.models import OfficialDocument, GovernmentAgency, PartnerVendor, ContractProject
+from app.extended.models import OfficialDocument, GovernmentAgency, PartnerVendor, ContractProject, User
+from app.core.dependencies import require_auth, require_admin
 
 # 應用啟動時間
 _startup_time: datetime = None
@@ -44,7 +45,10 @@ async def basic_health_check():
     }
 
 @router.get("/health/detailed", summary="詳細健康檢查")
-async def detailed_health_check(db: AsyncSession = Depends(get_async_db)) -> Dict[str, Any]:
+async def detailed_health_check(
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_admin())
+) -> Dict[str, Any]:
     """詳細系統健康檢查"""
     start_time = time.time()
     health_data = {
@@ -172,7 +176,10 @@ async def detailed_health_check(db: AsyncSession = Depends(get_async_db)) -> Dic
     return health_data
 
 @router.get("/health/metrics", summary="效能指標")
-async def get_performance_metrics(db: AsyncSession = Depends(get_async_db)):
+async def get_performance_metrics(
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_admin())
+):
     """獲取系統效能指標"""
     try:
         # 資料庫查詢效能測試
@@ -277,7 +284,9 @@ async def liveness_check():
 
 
 @router.get("/health/pool", summary="連接池狀態")
-async def connection_pool_status():
+async def connection_pool_status(
+    current_user: User = Depends(require_admin())
+):
     """
     取得資料庫連接池詳細狀態
 
@@ -306,7 +315,9 @@ async def connection_pool_status():
 
 
 @router.get("/health/tasks", summary="背景任務狀態")
-async def background_tasks_status():
+async def background_tasks_status(
+    current_user: User = Depends(require_admin())
+):
     """
     取得背景任務執行統計
 
@@ -338,7 +349,10 @@ async def background_tasks_status():
 
 
 @router.get("/health/audit", summary="審計服務狀態")
-async def audit_service_status(db: AsyncSession = Depends(get_async_db)):
+async def audit_service_status(
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_admin())
+):
     """
     檢查審計服務運行狀態
 
@@ -385,7 +399,10 @@ async def audit_service_status(db: AsyncSession = Depends(get_async_db)):
 
 
 @router.get("/health/summary", summary="系統健康摘要")
-async def health_summary(db: AsyncSession = Depends(get_async_db)):
+async def health_summary(
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_admin())
+):
     """
     整合所有健康檢查的摘要報告
 

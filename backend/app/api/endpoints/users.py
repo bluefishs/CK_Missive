@@ -29,6 +29,7 @@ from app.core.exceptions import (
     ConflictException,
     ForbiddenException,
 )
+from app.core.dependencies import require_admin
 
 router = APIRouter()
 
@@ -68,7 +69,8 @@ class UserListQuery(BaseModel):
 )
 async def get_users(
     query: UserListQuery = Body(default=UserListQuery()),
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_admin())
 ):
     """
     查詢使用者列表（POST-only 資安機制）
@@ -163,7 +165,8 @@ async def get_users(
 )
 async def get_user(
     user_id: int,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_admin())
 ):
     """取得指定使用者的詳細資訊"""
     result = await db.execute(select(User).where(User.id == user_id))
@@ -183,7 +186,8 @@ async def get_user(
 )
 async def create_user(
     user_data: UserCreate,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_admin())
 ):
     """建立新使用者"""
     # 檢查帳號是否已存在
@@ -235,7 +239,8 @@ async def create_user(
 async def update_user(
     user_id: int,
     user_data: UserUpdate,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_admin())
 ):
     """更新指定使用者的資訊"""
     result = await db.execute(select(User).where(User.id == user_id))
@@ -285,7 +290,8 @@ async def update_user(
 )
 async def delete_user(
     user_id: int,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_admin())
 ):
     """刪除指定使用者"""
     result = await db.execute(select(User).where(User.id == user_id))
@@ -316,7 +322,8 @@ async def delete_user(
 async def update_user_status(
     user_id: int,
     status_data: UserStatusUpdate,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_admin())
 ):
     """啟用或停用使用者"""
     result = await db.execute(select(User).where(User.id == user_id))

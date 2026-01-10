@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 案件與承辦同仁關聯管理API端點 (POST-only 資安機制)
+所有端點需要認證。
 """
 
 from typing import Optional
@@ -11,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
 from app.db.database import get_async_db
+from app.core.dependencies import require_auth
 from app.extended.models import ContractProject, User, project_user_assignment
 from app.schemas.project_staff import (
     ProjectStaffCreate,
@@ -37,7 +39,8 @@ class StaffListQuery(BaseModel):
 @router.post("", summary="建立案件與承辦同仁關聯")
 async def create_project_staff_assignment(
     assignment_data: ProjectStaffCreate,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """建立案件與承辦同仁關聯"""
 
@@ -98,7 +101,8 @@ async def create_project_staff_assignment(
 @router.post("/project/{project_id}/list", response_model=ProjectStaffListResponse, summary="取得案件承辦同仁列表")
 async def get_project_staff_assignments(
     project_id: int,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """取得特定案件的所有承辦同仁"""
 
@@ -167,7 +171,8 @@ async def update_project_staff_assignment(
     project_id: int,
     user_id: int,
     assignment_data: ProjectStaffUpdate,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """更新案件與承辦同仁關聯資訊"""
 
@@ -204,7 +209,8 @@ async def update_project_staff_assignment(
 async def delete_project_staff_assignment(
     project_id: int,
     user_id: int,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """刪除案件與承辦同仁關聯"""
 
@@ -238,7 +244,8 @@ async def delete_project_staff_assignment(
 @router.post("/list", summary="取得所有承辦同仁關聯列表")
 async def get_all_staff_assignments(
     query: StaffListQuery = Body(default=StaffListQuery()),
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """取得所有案件與承辦同仁關聯列表"""
 

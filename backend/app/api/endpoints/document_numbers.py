@@ -30,8 +30,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 
 from app.db.database import get_async_db
-from app.extended.models import OfficialDocument, ContractProject
+from app.extended.models import OfficialDocument, ContractProject, User
 from app.core.config import settings
+from app.core.dependencies import require_auth
 
 router = APIRouter()
 
@@ -151,7 +152,8 @@ class DocumentNumberUpdateRequest(BaseModel):
 @router.post("/query", response_model=DocumentNumberListResponse)
 async def query_document_numbers(
     request: DocumentNumberQueryRequest,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """
     查詢發文字號列表 (POST-only 資安機制)
@@ -261,7 +263,8 @@ async def query_document_numbers(
 
 @router.post("/stats", response_model=DocumentNumberStats)
 async def get_document_numbers_stats(
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """取得發文字號統計資料 (POST-only)"""
     try:
@@ -352,7 +355,8 @@ async def get_document_numbers_stats(
 @router.post("/next-number", response_model=NextNumberResponse)
 async def get_next_document_number(
     request: NextNumberRequest = NextNumberRequest(),
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """
     取得下一個可用的發文字號 (POST-only)
@@ -433,7 +437,8 @@ async def get_next_document_number(
 @router.post("/create", response_model=DocumentNumberItem)
 async def create_document_number(
     request: DocumentNumberCreateRequest,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """建立新發文字號 (POST-only)"""
     try:
@@ -502,7 +507,8 @@ async def create_document_number(
 async def update_document_number(
     document_id: int,
     request: DocumentNumberUpdateRequest,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """更新發文字號 (POST-only)"""
     try:
@@ -576,7 +582,8 @@ async def update_document_number(
 @router.post("/delete/{document_id}")
 async def delete_document_number(
     document_id: int,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """刪除發文字號 (POST-only，軟刪除)"""
     try:
@@ -612,7 +619,8 @@ async def get_document_numbers_legacy(
     year: Optional[int] = None,
     status: Optional[str] = None,
     keyword: Optional[str] = None,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """
     [已棄用] 取得發文字號列表
@@ -630,7 +638,10 @@ async def get_document_numbers_legacy(
 
 
 @router.get("/stats", response_model=DocumentNumberStats, deprecated=True)
-async def get_stats_legacy(db: AsyncSession = Depends(get_async_db)):
+async def get_stats_legacy(
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
+):
     """
     [已棄用] 取得統計資料
 
@@ -643,7 +654,8 @@ async def get_stats_legacy(db: AsyncSession = Depends(get_async_db)):
 async def get_next_number_legacy(
     prefix: Optional[str] = None,
     year: Optional[int] = None,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """
     [已棄用] 取得下一個字號

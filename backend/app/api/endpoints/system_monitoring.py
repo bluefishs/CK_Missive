@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 系統監控和錯誤LOG管理API端點
+所有端點需要管理員認證。
 """
 
 from typing import Optional
@@ -9,13 +10,18 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging_manager import log_manager, LogLevel, ErrorCategory, log_info, log_error
+from app.core.dependencies import require_admin
+from app.extended.models import User
 from app.db.database import get_async_db
 
 router = APIRouter()
 
 
 @router.get("/health-detailed", summary="詳細系統健康檢查")
-async def get_detailed_health_check(db: AsyncSession = Depends(get_async_db)):
+async def get_detailed_health_check(
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_admin())
+):
     """
     獲取系統的詳細健康狀況，包括錯誤統計
     """
@@ -59,7 +65,7 @@ async def get_detailed_health_check(db: AsyncSession = Depends(get_async_db)):
 
 
 @router.get("/error-summary", summary="錯誤統計摘要")
-async def get_error_summary():
+async def get_error_summary(current_user: User = Depends(require_admin())):
     """
     獲取系統錯誤統計摘要
     """
@@ -71,7 +77,8 @@ async def get_error_summary():
 async def get_recent_errors(
     limit: int = Query(50, ge=1, le=200),
     category: Optional[str] = Query(None, description="錯誤類別篩選"),
-    level: Optional[str] = Query(None, description="錯誤級別篩選")
+    level: Optional[str] = Query(None, description="錯誤級別篩選"),
+    current_user: User = Depends(require_admin())
 ):
     """
     獲取最近的錯誤記錄，支持篩選
@@ -103,7 +110,7 @@ async def get_recent_errors(
 
 
 @router.post("/clear-error-stats", summary="清除錯誤統計")
-async def clear_error_stats():
+async def clear_error_stats(current_user: User = Depends(require_admin())):
     """
     清除錯誤統計數據（僅統計，不刪除日誌文件）
     """
@@ -120,7 +127,7 @@ async def clear_error_stats():
 
 
 @router.get("/log-files", summary="日誌文件狀態")
-async def get_log_files_status():
+async def get_log_files_status(current_user: User = Depends(require_admin())):
     """
     獲取日誌文件的狀態信息
     """
@@ -163,8 +170,9 @@ async def get_log_files_status():
 @router.post("/test-logging", summary="測試日誌記錄")
 async def test_logging(
     level: str = "INFO",
-    category: str = "SYSTEM", 
-    message: str = "Test log message"
+    category: str = "SYSTEM",
+    message: str = "Test log message",
+    current_user: User = Depends(require_admin())
 ):
     """
     測試日誌記錄功能
@@ -198,7 +206,8 @@ async def test_logging(
 @router.get("/error-logs", summary="取得錯誤日誌")
 async def get_error_logs(
     limit: int = Query(100, ge=1, le=500),
-    offset: int = Query(0, ge=0)
+    offset: int = Query(0, ge=0),
+    current_user: User = Depends(require_admin())
 ):
     """
     取得錯誤日誌記錄
@@ -222,7 +231,7 @@ async def get_error_logs(
 
 
 @router.get("/system-metrics", summary="系統性能指標")
-async def get_system_metrics():
+async def get_system_metrics(current_user: User = Depends(require_admin())):
     """
     獲取系統性能指標
     """

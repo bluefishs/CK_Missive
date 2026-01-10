@@ -17,6 +17,8 @@ from app.schemas.project_agency_contact import (
     ProjectAgencyContactResponse,
     ProjectAgencyContactListResponse
 )
+from app.core.dependencies import require_auth
+from app.extended.models import User
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -28,7 +30,8 @@ agency_contact_service = ProjectAgencyContactService()
 @router.post("/list", response_model=ProjectAgencyContactListResponse)
 async def get_project_agency_contacts(
     project_id: int = Body(..., embed=True),
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """取得專案的機關承辦列表"""
     try:
@@ -42,7 +45,8 @@ async def get_project_agency_contacts(
 @router.post("/detail", response_model=ProjectAgencyContactResponse)
 async def get_agency_contact(
     contact_id: int = Body(..., embed=True),
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """取得單一機關承辦資料"""
     contact = await agency_contact_service.get_contact(db, contact_id)
@@ -54,7 +58,8 @@ async def get_agency_contact(
 @router.post("/create", response_model=ProjectAgencyContactResponse)
 async def create_agency_contact(
     contact: ProjectAgencyContactCreate,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """建立機關承辦資料"""
     try:
@@ -81,7 +86,8 @@ class UpdateContactRequest(BaseModel):
 @router.post("/update", response_model=ProjectAgencyContactResponse)
 async def update_agency_contact(
     request: UpdateContactRequest,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """更新機關承辦資料"""
     try:
@@ -110,7 +116,8 @@ async def update_agency_contact(
 @router.post("/delete")
 async def delete_agency_contact(
     contact_id: int = Body(..., embed=True),
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """刪除機關承辦資料"""
     try:

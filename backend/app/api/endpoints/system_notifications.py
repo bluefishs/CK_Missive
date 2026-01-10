@@ -20,6 +20,8 @@ from app.services.notification_service import (
     NotificationType,
     NotificationSeverity
 )
+from app.core.dependencies import require_auth
+from app.extended.models import User
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +97,8 @@ class UnreadCountResponse(BaseModel):
 )
 async def get_notifications(
     query: NotificationQuery = Body(default=NotificationQuery()),
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """
     查詢系統通知列表
@@ -160,7 +163,8 @@ async def get_notifications(
     summary="取得未讀通知數量"
 )
 async def get_unread_count(
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """
     取得未讀通知數量
@@ -192,7 +196,8 @@ async def get_unread_count(
 )
 async def mark_notifications_read(
     request: MarkReadRequest = Body(...),
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """
     標記指定通知為已讀
@@ -226,7 +231,8 @@ async def mark_notifications_read(
     summary="標記所有通知為已讀"
 )
 async def mark_all_notifications_read(
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """
     標記所有未讀通知為已讀
@@ -255,7 +261,9 @@ async def mark_all_notifications_read(
     "/types",
     summary="取得通知類型選項"
 )
-async def get_notification_types():
+async def get_notification_types(
+    current_user: User = Depends(require_auth())
+):
     """
     取得通知類型和嚴重程度的選項列表
 
