@@ -922,9 +922,10 @@ class DocumentUpdateRequest(BaseModel):
 )
 async def get_document_detail(
     document_id: int,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
-    """取得單一公文詳情（POST-only 資安機制，含擴充欄位）"""
+    """取得單一公文詳情（POST-only 資安機制，含擴充欄位與權限檢查）"""
     try:
         query = select(OfficialDocument).where(OfficialDocument.id == document_id)
         result = await db.execute(query)
@@ -932,6 +933,24 @@ async def get_document_detail(
 
         if not document:
             raise NotFoundException(f"找不到公文 ID: {document_id}")
+
+        # 🔒 行級別權限檢查 (RLS)
+        if not current_user.is_admin and not current_user.is_superuser:
+            # 檢查使用者是否有權限查看此公文
+            if document.contract_project_id:
+                # 公文有關聯專案，檢查使用者是否為專案成員
+                access_check = await db.execute(
+                    select(project_user_assignment.c.id).where(
+                        and_(
+                            project_user_assignment.c.project_id == document.contract_project_id,
+                            project_user_assignment.c.user_id == current_user.id,
+                            project_user_assignment.c.status.in_(['active', 'Active', None])
+                        )
+                    ).limit(1)
+                )
+                if not access_check.scalar_one_or_none():
+                    raise ForbiddenException("您沒有權限查看此公文")
+            # 無專案關聯的公文視為公開，不需額外檢查
 
         # 準備擴充欄位
         doc_dict = {k: v for k, v in document.__dict__.items() if not k.startswith('_')}
@@ -982,9 +1001,13 @@ async def get_document_detail(
 async def create_document(
     data: DocumentCreateRequest = Body(...),
     db: AsyncSession = Depends(get_async_db),
-    current_user: Optional[User] = Depends(get_optional_user)
+    current_user: User = Depends(require_permission("documents:create"))
 ):
-    """建立新公文（POST-only 資安機制，含使用者追蹤）"""
+    """
+    建立新公文（POST-only 資安機制，含使用者追蹤）
+
+    🔒 權限要求：documents:create
+    """
     try:
         create_data = data.model_dump(exclude_unset=True)
 
@@ -1062,9 +1085,14 @@ async def update_document(
     document_id: int,
     data: DocumentUpdateRequest = Body(...),
     db: AsyncSession = Depends(get_async_db),
-    current_user: Optional[User] = Depends(get_optional_user)
+    current_user: User = Depends(require_permission("documents:edit"))
 ):
-    """更新公文（POST-only 資安機制，含審計日誌與使用者追蹤） v2"""
+    """
+    更新公文（POST-only 資安機制，含審計日誌與使用者追蹤）
+
+    🔒 權限要求：documents:edit
+    🔒 行級別權限：一般使用者只能編輯關聯專案的公文
+    """
     try:
         logger.info(f"[更新公文] 開始更新公文 ID: {document_id}")
         logger.debug(f"[更新公文] 收到資料: {data.model_dump()}")
@@ -1075,6 +1103,21 @@ async def update_document(
 
         if not document:
             raise NotFoundException(f"找不到公文 ID: {document_id}")
+
+        # 🔒 行級別權限檢查 (RLS) - 非管理員只能編輯關聯專案的公文
+        if not current_user.is_admin and not current_user.is_superuser:
+            if document.contract_project_id:
+                access_check = await db.execute(
+                    select(project_user_assignment.c.id).where(
+                        and_(
+                            project_user_assignment.c.project_id == document.contract_project_id,
+                            project_user_assignment.c.user_id == current_user.id,
+                            project_user_assignment.c.status.in_(['active', 'Active', None])
+                        )
+                    ).limit(1)
+                )
+                if not access_check.scalar_one_or_none():
+                    raise ForbiddenException("您沒有權限編輯此公文")
 
         # 初始化審計保護器，記錄原始資料
         guard = DocumentUpdateGuard(db, document_id)
@@ -1173,10 +1216,13 @@ async def update_document(
 async def delete_document(
     document_id: int,
     db: AsyncSession = Depends(get_async_db),
-    current_user: Optional[User] = Depends(get_optional_user)
+    current_user: User = Depends(require_permission("documents:delete"))
 ):
     """
-    刪除公文（POST-only 資安機制，含使用者追蹤）
+    刪除公文（POST-only 資安機制）
+
+    🔒 權限要求：documents:delete
+    🔒 行級別權限：一般使用者只能刪除關聯專案的公文
 
     同步刪除：
     - 公文資料庫記錄
@@ -1192,6 +1238,21 @@ async def delete_document(
 
         if not document:
             raise NotFoundException(f"找不到公文 ID: {document_id}")
+
+        # 🔒 行級別權限檢查 (RLS) - 非管理員只能刪除關聯專案的公文
+        if not current_user.is_admin and not current_user.is_superuser:
+            if document.contract_project_id:
+                access_check = await db.execute(
+                    select(project_user_assignment.c.id).where(
+                        and_(
+                            project_user_assignment.c.project_id == document.contract_project_id,
+                            project_user_assignment.c.user_id == current_user.id,
+                            project_user_assignment.c.status.in_(['active', 'Active', None])
+                        )
+                    ).limit(1)
+                )
+                if not access_check.scalar_one_or_none():
+                    raise ForbiddenException("您沒有權限刪除此公文")
 
         # 2. 查詢關聯的附件記錄（在刪除前取得檔案路徑）
         attachment_query = select(DocumentAttachment).where(
@@ -1213,8 +1274,8 @@ async def delete_document(
                     folders_to_check.add(parent_folder)
 
         # 4. 記錄公文資訊（在刪除前保存，用於後續審計日誌）
-        user_id = current_user.id if current_user else None
-        user_name = current_user.username if current_user else "Anonymous"
+        user_id = current_user.id
+        user_name = current_user.username
         doc_number = document.doc_number or ""
         subject = document.subject or ""
         attachments_count = len(attachments)

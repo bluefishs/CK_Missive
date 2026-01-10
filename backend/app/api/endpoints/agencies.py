@@ -8,8 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 
 from app.db.database import get_async_db
-from app.api.endpoints.auth import get_current_user
-from app.core.dependencies import require_auth, require_admin
+from app.core.dependencies import require_auth, require_admin, require_permission
 from app.extended.models import User
 from app.schemas.agency import (
     Agency, AgencyCreate, AgencyUpdate, AgencyWithStats,
@@ -144,9 +143,13 @@ async def create_agency(
     agency: AgencyCreate = Body(...),
     db: AsyncSession = Depends(get_async_db),
     agency_service: AgencyService = Depends(),
-    current_user: User = Depends(require_auth())
+    current_user: User = Depends(require_permission("agencies:create"))
 ):
-    """建立新機關單位"""
+    """
+    建立新機關單位
+
+    🔒 權限要求：agencies:create
+    """
     try:
         return await agency_service.create_agency(db=db, agency=agency)
     except ValueError as e:
@@ -166,9 +169,13 @@ async def update_agency(
     agency: AgencyUpdate = Body(...),
     db: AsyncSession = Depends(get_async_db),
     agency_service: AgencyService = Depends(),
-    current_user: User = Depends(require_auth())
+    current_user: User = Depends(require_permission("agencies:edit"))
 ):
-    """更新機關單位資料"""
+    """
+    更新機關單位資料
+
+    🔒 權限要求：agencies:edit
+    """
     updated = await agency_service.update_agency(
         db, agency_id=agency_id, agency_update=agency
     )
@@ -188,9 +195,13 @@ async def delete_agency(
     agency_id: int,
     db: AsyncSession = Depends(get_async_db),
     agency_service: AgencyService = Depends(),
-    current_user: User = Depends(require_auth())
+    current_user: User = Depends(require_permission("agencies:delete"))
 ):
-    """刪除機關單位"""
+    """
+    刪除機關單位
+
+    🔒 權限要求：agencies:delete
+    """
     try:
         success = await agency_service.delete_agency(db, agency_id=agency_id)
         if not success:

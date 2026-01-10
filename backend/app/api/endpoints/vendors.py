@@ -10,8 +10,7 @@ from pydantic import BaseModel, Field
 
 from app.db.database import get_async_db
 from app.extended.models import User
-from app.api.endpoints.auth import get_current_user
-from app.core.dependencies import require_auth
+from app.core.dependencies import require_auth, require_permission
 from app.schemas.vendor import Vendor, VendorCreate, VendorUpdate
 from app.schemas.common import (
     PaginatedResponse,
@@ -102,12 +101,13 @@ async def list_vendors(
 async def create_vendor(
     vendor: VendorCreate,
     db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_permission("vendors:create"))
 ):
     """
     建立新廠商
 
-    需要認證。若廠商代碼已存在會回傳 409 Conflict 錯誤。
+    🔒 權限要求：vendors:create
+    若廠商代碼已存在會回傳 409 Conflict 錯誤。
     """
     try:
         return await vendor_service.create_vendor(db, vendor)
@@ -127,12 +127,12 @@ async def create_vendor(
 async def get_vendor_detail(
     vendor_id: int,
     db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_auth())
 ):
     """
     取得單一廠商詳情
 
-    需要認證。若找不到廠商會回傳 404 Not Found 錯誤。
+    🔒 需要認證。若找不到廠商會回傳 404 Not Found 錯誤。
     """
     db_vendor = await vendor_service.get_vendor(db, vendor_id)
     if not db_vendor:
@@ -149,12 +149,13 @@ async def update_vendor(
     vendor_id: int,
     vendor: VendorUpdate,
     db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_permission("vendors:edit"))
 ):
     """
     更新廠商資料
 
-    需要認證。若找不到廠商會回傳 404 Not Found 錯誤。
+    🔒 權限要求：vendors:edit
+    若找不到廠商會回傳 404 Not Found 錯誤。
     """
     updated_vendor = await vendor_service.update_vendor(db, vendor_id, vendor)
     if not updated_vendor:
@@ -170,12 +171,12 @@ async def update_vendor(
 async def delete_vendor(
     vendor_id: int,
     db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_permission("vendors:delete"))
 ):
     """
     刪除廠商
 
-    需要認證。
+    🔒 權限要求：vendors:delete
     - 若找不到廠商會回傳 404 Not Found 錯誤
     - 若廠商與專案有關聯會回傳 409 Conflict 錯誤
     """
@@ -202,11 +203,12 @@ async def delete_vendor(
 )
 async def get_vendor_statistics(
     db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_auth())
 ):
     """
     取得廠商統計資料
 
+    🔒 需要認證
     包含：
     - 總廠商數
     - 按業務類型分組統計

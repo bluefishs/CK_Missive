@@ -20,12 +20,13 @@ from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status
 from fastapi.responses import FileResponse
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, and_
 from app.db.database import get_async_db
-from app.extended.models import DocumentAttachment, User, OfficialDocument
+from app.extended.models import DocumentAttachment, User, OfficialDocument, project_user_assignment
 from app.api.endpoints.auth import get_current_user
 from app.core.dependencies import require_auth
 from app.core.config import settings
+from app.core.exceptions import ForbiddenException
 
 router = APIRouter()
 
@@ -232,6 +233,47 @@ def get_file_extension(filename: str) -> str:
     return os.path.splitext(filename or '')[1].lower()
 
 
+async def check_document_access(
+    db: AsyncSession,
+    document_id: int,
+    current_user: User
+) -> bool:
+    """
+    🔒 檢查使用者是否有權限存取指定公文
+
+    權限規則：
+    - superuser/admin: 可存取所有公文
+    - 一般使用者: 只能存取關聯專案的公文
+    """
+    # 管理員可存取所有
+    if current_user.is_admin or current_user.is_superuser:
+        return True
+
+    # 查詢公文的專案 ID
+    doc_result = await db.execute(
+        select(OfficialDocument.contract_project_id)
+        .where(OfficialDocument.id == document_id)
+    )
+    project_id = doc_result.scalar_one_or_none()
+
+    # 如果沒有專案關聯，所有人可存取（通用公文）
+    if not project_id:
+        return True
+
+    # 檢查使用者與專案的關聯
+    access_check = await db.execute(
+        select(project_user_assignment.c.id).where(
+            and_(
+                project_user_assignment.c.project_id == project_id,
+                project_user_assignment.c.user_id == current_user.id,
+                project_user_assignment.c.status.in_(['active', 'Active', None])
+            )
+        ).limit(1)
+    )
+
+    return access_check.scalar_one_or_none() is not None
+
+
 # ============================================================================
 # API 端點 (POST-only 資安機制)
 # ============================================================================
@@ -349,7 +391,11 @@ async def download_file(
 ):
     """
     下載指定檔案（POST-only 資安機制）
-    需要認證。
+
+    🔒 權限規則：
+    - 需要登入認證
+    - 管理員可下載所有檔案
+    - 一般使用者只能下載關聯專案公文的附件
     """
     result = await db.execute(
         select(DocumentAttachment).where(DocumentAttachment.id == file_id)
@@ -361,6 +407,12 @@ async def download_file(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="檔案不存在"
         )
+
+    # 🔒 行級別權限檢查 (RLS)
+    if attachment.document_id:
+        has_access = await check_document_access(db, attachment.document_id, current_user)
+        if not has_access:
+            raise ForbiddenException("您沒有權限下載此檔案")
 
     if not attachment.file_path or not os.path.exists(attachment.file_path):
         raise HTTPException(
@@ -382,13 +434,15 @@ async def download_file(
 async def delete_file(
     file_id: int,
     db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_auth())
 ):
     """
     刪除指定檔案（POST-only 資安機制）
 
-    - 同時刪除實體檔案與資料庫記錄
+    🔒 權限規則：
     - 需要登入認證
+    - 管理員可刪除所有檔案
+    - 一般使用者只能刪除關聯專案公文的附件
     """
     result = await db.execute(
         select(DocumentAttachment).where(DocumentAttachment.id == file_id)
@@ -400,6 +454,12 @@ async def delete_file(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="檔案不存在"
         )
+
+    # 🔒 行級別權限檢查 (RLS)
+    if attachment.document_id:
+        has_access = await check_document_access(db, attachment.document_id, current_user)
+        if not has_access:
+            raise ForbiddenException("您沒有權限刪除此檔案")
 
     deleted_filename = attachment.file_name or attachment.original_name or 'unknown'
 
@@ -432,8 +492,17 @@ async def get_document_attachments(
 ):
     """
     取得指定文件的所有附件（POST-only 資安機制）
-    需要認證。
+
+    🔒 權限規則：
+    - 需要登入認證
+    - 管理員可查看所有公文附件
+    - 一般使用者只能查看關聯專案公文的附件
     """
+    # 🔒 行級別權限檢查 (RLS)
+    has_access = await check_document_access(db, document_id, current_user)
+    if not has_access:
+        raise ForbiddenException("您沒有權限查看此公文的附件")
+
     result = await db.execute(
         select(DocumentAttachment)
         .where(DocumentAttachment.document_id == document_id)
