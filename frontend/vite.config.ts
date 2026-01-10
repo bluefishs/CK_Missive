@@ -22,6 +22,13 @@ export default defineConfig(({ mode }) => {
       alias: {
         '@': resolve(__dirname, './src'),
       },
+      // 確保本地模組使用主專案的依賴（解決 peerDependencies）
+      dedupe: ['react', 'react-dom', 'antd', '@ant-design/icons'],
+    },
+
+    // 優化配置：確保本地模組的依賴被正確處理
+    optimizeDeps: {
+      include: ['antd', '@ant-design/icons', 'react', 'react-dom'],
     },
 
     // Development server settings

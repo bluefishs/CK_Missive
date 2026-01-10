@@ -1,0 +1,154 @@
+/* 網站管理頁面樣式 */
+
+.site-management-page {
+  padding: 24px;
+  background: #f0f2f5;
+  min-height: calc(100vh - 64px);
+}
+
+/* Tree 節點內容佈局 */
+.tree-node-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  width: 100%;
+}
+
+.tree-node-content:hover {
+  background: #f5f5f5;
+}
+
+/* 節點操作按鈕 - 預設隱藏，hover 時顯示 */
+.tree-node-content:hover .tree-node-actions {
+  opacity: 1;
+}
+
+.tree-node-title {
+  font-weight: 500;
+  color: #262626;
+  margin-right: 8px;
+}
+
+.tree-node-path {
+  color: #8c8c8c;
+  font-size: 12px;
+}
+
+.tree-node-actions {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  display: flex;
+  gap: 4px;
+}
+
+/* 拖曳進行中 - 禁用操作按鈕的滑鼠事件 */
+.navigation-tree.is-dragging .tree-node-actions {
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+
+.navigation-tree.is-dragging .tree-node-content {
+  pointer-events: auto;
+}
+
+.navigation-tree.is-dragging .ant-tag {
+  pointer-events: none !important;
+}
+
+/* 拖放圖示 */
+.ant-tree-draggable-icon {
+  color: #1890ff !important;
+  opacity: 0.8;
+  transition: all 0.3s;
+  cursor: grab !important;
+  font-size: 14px;
+  padding: 4px;
+}
+
+.ant-tree-draggable-icon:hover {
+  opacity: 1;
+  color: #40a9ff !important;
+  transform: scale(1.1);
+}
+
+.ant-tree-draggable-icon:active {
+  cursor: grabbing !important;
+}
+
+.ant-tree-node-content-wrapper:hover {
+  background: transparent !important;
+}
+
+.navigation-tree {
+  background: white;
+  padding: 16px;
+  border-radius: 8px;
+}
+
+.navigation-tree .ant-tree-treenode {
+  padding: 4px 0;
+}
+
+.ant-tree-treenode-draggable {
+  transition: all 0.3s;
+}
+
+.ant-tree-treenode-dragging {
+  opacity: 0.5;
+}
+
+.ant-tree-drop-indicator {
+  background-color: #1890ff;
+  border-radius: 2px;
+  height: 2px;
+}
+
+.navigation-tree .ant-tree-treenode-drag-enter {
+  background-color: #e6f7ff !important;
+  border: 2px dashed #1890ff !important;
+  border-radius: 4px;
+}
+
+.navigation-tree .ant-tree-treenode-drag-enter > .ant-tree-node-content-wrapper {
+  background-color: transparent !important;
+}
+
+.navigation-tree.is-dragging .ant-tree-title {
+  pointer-events: auto;
+}
+
+.site-management-page .ant-card {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.site-management-page .ant-card-head {
+  border-bottom: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+
+.tree-node-content .ant-tag {
+  margin: 0 4px;
+  font-size: 11px;
+}
+
+@media (max-width: 768px) {
+  .site-management-page {
+    padding: 16px;
+  }
+
+  .tree-node-actions {
+    opacity: 1;
+  }
+
+  .tree-node-path {
+    display: none;
+  }
+}
+
+.site-management-page .ant-alert {
+  border-radius: 8px;
+}
