@@ -25,7 +25,7 @@ export * from './projectVendorsApi';
 export * from './projectAgencyContacts';
 
 // 基礎資料
-export * from './vendors';
+export * from './vendorsApi';
 export * from './agenciesApi';
 export * from './usersApi';
 

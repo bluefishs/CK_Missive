@@ -52,7 +52,7 @@ import { ROUTES } from '../router/types';
 // 使用統一 API 服務
 import { projectsApi } from '../api/projectsApi';
 import { usersApi } from '../api/usersApi';
-import { vendorsApi } from '../api/vendors';
+import { vendorsApi } from '../api/vendorsApi';
 import { documentsApi } from '../api/documentsApi';
 import { filesApi, FileAttachment } from '../api/filesApi';
 import { projectStaffApi, type ProjectStaff } from '../api/projectStaffApi';

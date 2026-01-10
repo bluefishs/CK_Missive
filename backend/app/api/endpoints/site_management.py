@@ -35,7 +35,13 @@ def has_permission_for_navigation(user: User, navigation_item: SiteNavigationIte
     except (json.JSONDecodeError, TypeError):
         return False
 
-@router.get("/navigation", response_model=NavigationTreeResponse, summary="取得導覽樹狀結構 (已修復)")
+@router.get(
+    "/navigation",
+    response_model=NavigationTreeResponse,
+    summary="[已棄用] 取得導覽樹狀結構",
+    deprecated=True,
+    description="此端點已棄用，請改用 POST /secure-site-management/navigation/action"
+)
 async def get_navigation_tree(
     include_disabled: bool = Query(False, description="是否包含已停用項目"),
     db: AsyncSession = Depends(get_async_db),
