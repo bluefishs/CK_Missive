@@ -1,6 +1,10 @@
 """
 公文服務層 - 業務邏輯處理 (已重構)
 
+v2.1 - 2026-01-10
+- 新增行級別權限過濾 (Row-Level Security)
+- 非管理員只能查看關聯專案的公文
+
 職責：
 - 公文 CRUD 操作
 - 公文查詢與篩選
@@ -14,15 +18,24 @@
 import logging
 import time
 import pandas as pd
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, TYPE_CHECKING
 from datetime import datetime, date
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import and_, or_, extract, func, select
+from sqlalchemy import and_, or_, extract, func, select, exists
 from sqlalchemy.exc import IntegrityError
 
 from sqlalchemy.orm import selectinload, joinedload
 
-from app.extended.models import OfficialDocument as Document, ContractProject, GovernmentAgency
+from app.extended.models import (
+    OfficialDocument as Document,
+    ContractProject,
+    GovernmentAgency,
+    project_user_assignment
+)
+
+if TYPE_CHECKING:
+    from app.extended.models import User
+
 from app.schemas.document import DocumentFilter, DocumentImportResult, DocumentSearchRequest
 from app.services.document_calendar_integrator import DocumentCalendarIntegrator
 from app.services.strategies.agency_matcher import AgencyMatcher, ProjectMatcher
@@ -267,16 +280,22 @@ class DocumentService:
         skip: int = 0,
         limit: int = 100,
         filters: Optional[DocumentFilter] = None,
-        include_relations: bool = True
+        include_relations: bool = True,
+        current_user: Optional["User"] = None
     ) -> Dict[str, Any]:
         """
-        取得公文列表
+        取得公文列表（含行級別權限過濾）
+
+        權限規則：
+        - superuser/admin: 可查看所有公文
+        - 一般使用者: 只能查看關聯專案的公文，或無專案關聯的公文
 
         Args:
             skip: 跳過筆數
             limit: 取得筆數
             filters: 篩選條件
             include_relations: 是否預載入關聯資料 (N+1 優化)
+            current_user: 當前使用者（用於權限過濾）
 
         Returns:
             分頁結果字典
@@ -291,6 +310,39 @@ class DocumentService:
                     selectinload(Document.sender_agency),
                     selectinload(Document.receiver_agency),
                 )
+
+            # ================================================================
+            # 🔒 行級別權限過濾 (Row-Level Security)
+            # ================================================================
+            if current_user is not None:
+                is_admin = getattr(current_user, 'is_admin', False)
+                is_superuser = getattr(current_user, 'is_superuser', False)
+
+                if not is_admin and not is_superuser:
+                    user_id = current_user.id
+                    logger.info(f"[RLS] 使用者 {user_id} 執行公文查詢（非管理員，套用行級別過濾）")
+
+                    # 取得使用者關聯的專案 ID 子查詢
+                    user_project_ids = select(
+                        project_user_assignment.c.project_id
+                    ).where(
+                        and_(
+                            project_user_assignment.c.user_id == user_id,
+                            project_user_assignment.c.status.in_(['active', 'Active', None])
+                        )
+                    )
+
+                    # 公文過濾邏輯：
+                    # 1. 無專案關聯的公文（公開公文）
+                    # 2. 使用者有關聯的專案的公文
+                    query = query.where(
+                        or_(
+                            Document.contract_project_id.is_(None),  # 無專案關聯
+                            Document.contract_project_id.in_(user_project_ids)  # 有關聯的專案
+                        )
+                    )
+                else:
+                    logger.debug(f"[RLS] 管理員 {current_user.id} 執行公文查詢（不套用行級別過濾）")
 
             if filters:
                 query = self._apply_filters(query, filters)

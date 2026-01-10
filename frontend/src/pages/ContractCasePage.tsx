@@ -41,6 +41,7 @@ import dayjs from 'dayjs';
 import { ROUTES } from '../router/types';
 import ProjectVendorManagement from '../components/project/ProjectVendorManagement';
 import { useProjectsPage } from '../hooks';
+import { useAuthGuard } from '../hooks/useAuthGuard';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -130,6 +131,12 @@ export const ContractCasePage: React.FC = () => {
   const { message } = App.useApp();
   const navigate = useNavigate();
   const [form] = Form.useForm();
+
+  // 🔒 權限控制 Hook
+  const { hasPermission } = useAuthGuard();
+  const canCreate = hasPermission('projects:write' as any);
+  const canEdit = hasPermission('projects:write' as any);
+  const canDelete = hasPermission('projects:delete' as any);
 
   // ---[UI 狀態管理]---
   const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -444,10 +451,23 @@ export const ContractCasePage: React.FC = () => {
     {
       title: '操作',
       key: 'actions',
-      width: 120,
+      width: 150,
       fixed: 'right',
       render: (_, record) => (
         <Space>
+          {/* 編輯按鈕 - 需要 projects:write 權限 */}
+          {canEdit && (
+            <Button
+              type="link"
+              size="small"
+              icon={<EditOutlined />}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEdit(record);
+              }}
+            >編輯</Button>
+          )}
+          {/* 廠商管理按鈕 - 所有人可見 */}
           <Button
             type="link"
             size="small"
@@ -458,19 +478,22 @@ export const ContractCasePage: React.FC = () => {
               setVendorManagementVisible(true);
             }}
           >廠商</Button>
-          <Popconfirm
-            title="確定刪除此專案嗎？"
-            description="此操作不可撤銷"
-            onConfirm={(e) => {
-              e?.stopPropagation();
-              handleDelete(record.id);
-            }}
-            onCancel={(e) => e?.stopPropagation()}
-            okText="確定"
-            cancelText="取消"
-          >
-            <Button type="link" size="small" danger icon={<DeleteOutlined />} onClick={(e) => e.stopPropagation()}>刪除</Button>
-          </Popconfirm>
+          {/* 刪除按鈕 - 需要 projects:delete 權限 */}
+          {canDelete && (
+            <Popconfirm
+              title="確定刪除此專案嗎？"
+              description="此操作不可撤銷"
+              onConfirm={(e) => {
+                e?.stopPropagation();
+                handleDelete(record.id);
+              }}
+              onCancel={(e) => e?.stopPropagation()}
+              okText="確定"
+              cancelText="取消"
+            >
+              <Button type="link" size="small" danger icon={<DeleteOutlined />} onClick={(e) => e.stopPropagation()}>刪除</Button>
+            </Popconfirm>
+          )}
         </Space>
       ),
     },
@@ -479,6 +502,37 @@ export const ContractCasePage: React.FC = () => {
   // 看板視圖渲染
   const renderBoardView = () => {
     if (projects.length === 0) return <Empty description="暫無數據" />;
+
+    // 🔒 根據權限動態生成操作按鈕
+    const getCardActions = (item: Project) => {
+      const actions = [
+        <EyeOutlined key="view" onClick={() => handleView(item)} />,
+        <TeamOutlined key="vendor" onClick={() => { setSelectedProject(item); setVendorManagementVisible(true); }} />,
+      ];
+
+      // 編輯按鈕 - 需要 projects:write 權限
+      if (canEdit) {
+        actions.splice(1, 0, <EditOutlined key="edit" onClick={() => handleEdit(item)} />);
+      }
+
+      // 刪除按鈕 - 需要 projects:delete 權限
+      if (canDelete) {
+        actions.push(
+          <Popconfirm
+            key="delete"
+            title="確定刪除此專案嗎？"
+            onConfirm={() => handleDelete(item.id)}
+            okText="確定"
+            cancelText="取消"
+          >
+            <DeleteOutlined />
+          </Popconfirm>
+        );
+      }
+
+      return actions;
+    };
+
     return (
       <Row gutter={[16, 16]}>
         {projects.map((item) => (
@@ -486,19 +540,7 @@ export const ContractCasePage: React.FC = () => {
             <Card
               title={item.project_name}
               size="small"
-              actions={[
-                <EyeOutlined key="view" onClick={() => handleView(item)} />,
-                <EditOutlined key="edit" onClick={() => handleEdit(item)} />,
-                <TeamOutlined key="vendor" onClick={() => { setSelectedProject(item); setVendorManagementVisible(true); }} />,
-                <Popconfirm
-                  title="確定刪除此專案嗎？"
-                  onConfirm={() => handleDelete(item.id)}
-                  okText="確定"
-                  cancelText="取消"
-                >
-                  <DeleteOutlined key="delete" />
-                </Popconfirm>,
-              ]}
+              actions={getCardActions(item)}
             >
               <Space direction="vertical" style={{ width: '100%' }}>
                 <div>
@@ -571,7 +613,10 @@ export const ContractCasePage: React.FC = () => {
             </Col>
             <Col>
               <Space>
-                <Button type="primary" icon={<PlusOutlined />} onClick={handleAddNew}>新增案件</Button>
+                {/* 🔒 新增按鈕 - 需要 projects:write 權限 */}
+                {canCreate && (
+                  <Button type="primary" icon={<PlusOutlined />} onClick={handleAddNew}>新增案件</Button>
+                )}
                 <Space>
                   <AppstoreOutlined />
                   <Switch checked={viewMode === 'board'} onChange={(c) => setViewMode(c ? 'board' : 'list')} />

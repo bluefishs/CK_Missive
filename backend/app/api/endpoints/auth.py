@@ -368,15 +368,18 @@ async def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: AsyncSession = Depends(get_async_db)
 ) -> User:
-    """取得當前認證使用者 - 依賴注入函數"""
-    # 開發模式：直接跳過認證檢查
-    DEVELOPMENT_MODE = True  # 暫時硬編碼為開發模式
+    """
+    取得當前認證使用者 - 依賴注入函數
 
-    print(f"DEBUG: DEVELOPMENT_MODE = {DEVELOPMENT_MODE}")
-    if DEVELOPMENT_MODE:
-        print("WARNING: 開發模式 - 認證已停用，回傳模擬管理員使用者。")
+    權限控制說明：
+    - 使用 settings.AUTH_DISABLED 環境變數控制開發模式
+    - 生產環境必須設為 False
+    - 開發模式下會返回模擬的超級管理員
+    """
+    # 使用環境變數控制開發模式（從 config.py 讀取）
+    if settings.AUTH_DISABLED:
+        logger.warning("[AUTH] 開發模式 - 認證已停用，回傳模擬管理員使用者")
         # 在開發模式下，直接回傳一個模擬使用者，避免資料庫依賴
-        # 為模擬使用者設置完整的權限以支援導覽功能
         dev_permissions = [
             "documents:read", "documents:create", "documents:edit", "documents:delete",
             "projects:read", "projects:create", "projects:edit", "projects:delete",

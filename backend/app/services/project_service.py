@@ -1,13 +1,21 @@
 """
 Service layer for Contract Project operations
+
+v2.0 - 2026-01-10
+- 新增行級別權限過濾 (Row-Level Security)
+- 非管理員只能查看自己關聯的專案
 """
 import logging
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, TYPE_CHECKING
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, delete, distinct
+from sqlalchemy import select, func, delete, distinct, exists, and_
 from sqlalchemy.exc import IntegrityError
 
 from app.extended.models import ContractProject, project_vendor_association, project_user_assignment
+
+if TYPE_CHECKING:
+    from app.extended.models import User
+
 from app.schemas.project import ProjectCreate, ProjectUpdate
 
 logger = logging.getLogger(__name__)
@@ -19,21 +27,114 @@ class ProjectService:
         result = await db.execute(select(ContractProject).where(ContractProject.id == project_id))
         return result.scalar_one_or_none()
 
-    async def get_projects(self, db: AsyncSession, query_params) -> Dict[str, Any]:
+    async def check_user_project_access(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        project_id: int
+    ) -> bool:
+        """
+        檢查使用者是否有權限存取指定專案
+
+        透過 project_user_assignments 表檢查使用者與專案的關聯。
+
+        Args:
+            db: 資料庫 session
+            user_id: 使用者 ID
+            project_id: 專案 ID
+
+        Returns:
+            bool: 是否有存取權限
+        """
+        query = select(
+            exists(
+                select(1).where(
+                    and_(
+                        project_user_assignment.c.project_id == project_id,
+                        project_user_assignment.c.user_id == user_id,
+                        project_user_assignment.c.status.in_(['active', 'Active', None])
+                    )
+                )
+            )
+        )
+        result = await db.execute(query)
+        return result.scalar()
+
+    async def get_projects(
+        self,
+        db: AsyncSession,
+        query_params,
+        current_user: Optional["User"] = None
+    ) -> Dict[str, Any]:
+        """
+        查詢專案列表（含行級別權限過濾）
+
+        權限規則：
+        - superuser/admin: 可查看所有專案
+        - 一般使用者: 只能查看自己關聯的專案（透過 project_user_assignments）
+
+        Args:
+            db: 資料庫 session
+            query_params: 查詢參數（分頁、篩選等）
+            current_user: 當前使用者（用於權限過濾）
+
+        Returns:
+            包含專案列表和總數的字典
+        """
         query = select(ContractProject)
+
+        # ====================================================================
+        # 🔒 行級別權限過濾 (Row-Level Security)
+        # ====================================================================
+        if current_user is not None:
+            # 檢查是否為管理員或超級管理員
+            is_admin = getattr(current_user, 'is_admin', False)
+            is_superuser = getattr(current_user, 'is_superuser', False)
+
+            if not is_admin and not is_superuser:
+                # 非管理員：只能查看自己關聯的專案
+                user_id = current_user.id
+                logger.info(f"[RLS] 使用者 {user_id} 執行專案查詢（非管理員，套用行級別過濾）")
+
+                # 使用 EXISTS 子查詢檢查使用者是否與專案有關聯
+                user_project_filter = exists(
+                    select(1).where(
+                        and_(
+                            project_user_assignment.c.project_id == ContractProject.id,
+                            project_user_assignment.c.user_id == user_id,
+                            # 只查看 active 狀態的指派
+                            project_user_assignment.c.status.in_(['active', 'Active', None])
+                        )
+                    )
+                )
+                query = query.where(user_project_filter)
+            else:
+                logger.debug(f"[RLS] 管理員 {current_user.id} 執行專案查詢（不套用行級別過濾）")
+
+        # ====================================================================
+        # 一般篩選條件
+        # ====================================================================
         if query_params.search:
             query = query.where(ContractProject.project_name.ilike(f"%{query_params.search}%"))
-        if query_params.year: query = query.where(ContractProject.year == query_params.year)
-        if query_params.category: query = query.where(ContractProject.category == query_params.category)
-        if query_params.status: query = query.where(ContractProject.status == query_params.status)
+        if query_params.year:
+            query = query.where(ContractProject.year == query_params.year)
+        if query_params.category:
+            query = query.where(ContractProject.category == query_params.category)
+        if query_params.status:
+            query = query.where(ContractProject.status == query_params.status)
 
+        # 計算總數
         count_query = select(func.count()).select_from(query.subquery())
         total = (await db.execute(count_query)).scalar_one()
 
+        # 執行分頁查詢
         result = await db.execute(
-            query.order_by(ContractProject.id.desc()).offset(query_params.skip).limit(query_params.limit)
+            query.order_by(ContractProject.id.desc())
+            .offset(query_params.skip)
+            .limit(query_params.limit)
         )
         projects = result.scalars().all()
+
         return {"projects": projects, "total": total}
 
     async def _generate_project_code(

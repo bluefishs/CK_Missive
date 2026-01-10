@@ -1,11 +1,12 @@
 """
 增強版公文管理 API 端點 - POST-only 資安機制，統一回應格式
-v2.2 - 審計/通知服務優化 (2026-01-09)
+v2.3 - 權限管控升級 (2026-01-10)
 
 變更紀錄:
-- 使用 AuditService 統一管理審計日誌（獨立 session，不會污染主交易）
-- 使用 NotificationService.safe_* 方法（獨立 session）
-- 移除對舊 log_document_change 函數的依賴
+- v2.3: 新增行級別權限過濾（非管理員只能查看關聯專案的公文）
+- v2.2: 使用 AuditService 統一管理審計日誌（獨立 session，不會污染主交易）
+- v2.2: 使用 NotificationService.safe_* 方法（獨立 session）
+- v2.2: 移除對舊 log_document_change 函數的依賴
 """
 import io
 import os
@@ -51,23 +52,26 @@ from app.schemas.common import (
     SuccessResponse,
     SortOrder,
 )
-from app.core.exceptions import NotFoundException
+from app.core.exceptions import NotFoundException, ForbiddenException
 from app.core.audit_logger import DocumentUpdateGuard
 from app.services.notification_service import NotificationService, CRITICAL_FIELDS
+from app.core.dependencies import require_auth, require_permission
 
-# 可選的使用者認證（開發模式下不強制）
+# 使用者認證（v2.3 升級為必要）
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 security = HTTPBearer(auto_error=False)
+
+# 統一使用 require_auth 進行認證
+from app.api.endpoints.auth import get_current_user
 
 async def get_optional_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: AsyncSession = Depends(get_async_db)
 ) -> Optional[User]:
-    """取得當前使用者（可選，不強制認證）"""
+    """取得當前使用者（可選，不強制認證）- 僅用於向後相容"""
     try:
         if not credentials:
             return None
-        from app.api.endpoints.auth import get_current_user
         return await get_current_user(credentials, db)
     except Exception:
         return None
@@ -98,14 +102,20 @@ class AgencyDropdownQuery(DropdownQuery):
     "/list",
     response_model=DocumentListResponse,
     summary="查詢公文列表",
-    description="使用統一分頁格式查詢公文列表（POST-only 資安機制）"
+    description="使用統一分頁格式查詢公文列表（POST-only 資安機制，含行級別權限過濾）"
 )
 async def list_documents(
     query: DocumentListQuery = Body(default=DocumentListQuery()),
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """
     查詢公文列表（POST-only 資安機制）
+
+    🔒 權限規則：
+    - 需要登入認證
+    - superuser/admin: 可查看所有公文
+    - 一般使用者: 只能查看關聯專案的公文，或無專案關聯的公文
 
     回應格式：
     ```json
@@ -158,10 +168,12 @@ async def list_documents(
         # 計算 skip
         skip = (query.page - 1) * query.limit
 
+        # 傳遞 current_user 進行行級別權限過濾
         result = await service.get_documents(
             skip=skip,
             limit=query.limit,
-            filters=filters
+            filters=filters,
+            current_user=current_user
         )
 
         # 轉換為統一回應格式
