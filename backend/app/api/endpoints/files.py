@@ -24,6 +24,7 @@ from sqlalchemy import select, delete
 from app.db.database import get_async_db
 from app.extended.models import DocumentAttachment, User, OfficialDocument
 from app.api.endpoints.auth import get_current_user
+from app.core.dependencies import require_auth
 from app.core.config import settings
 
 router = APIRouter()
@@ -343,10 +344,12 @@ async def upload_files(
 @router.post("/{file_id}/download", summary="下載檔案")
 async def download_file(
     file_id: int,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """
     下載指定檔案（POST-only 資安機制）
+    需要認證。
     """
     result = await db.execute(
         select(DocumentAttachment).where(DocumentAttachment.id == file_id)
@@ -424,10 +427,12 @@ async def delete_file(
 @router.post("/document/{document_id}", summary="取得文件附件列表")
 async def get_document_attachments(
     document_id: int,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """
     取得指定文件的所有附件（POST-only 資安機制）
+    需要認證。
     """
     result = await db.execute(
         select(DocumentAttachment)
@@ -461,10 +466,12 @@ async def get_document_attachments(
 @router.post("/verify/{file_id}", summary="驗證檔案完整性")
 async def verify_file_integrity(
     file_id: int,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """
-    驗證檔案 SHA256 校驗碼是否一致
+    驗證檔案 SHA256 校驗碼是否一致。
+    需要認證。
     """
     result = await db.execute(
         select(DocumentAttachment).where(DocumentAttachment.id == file_id)

@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from app.db.database import get_async_db
 from app.extended.models import User
 from app.api.endpoints.auth import get_current_user
+from app.core.dependencies import require_auth
 from app.schemas.vendor import Vendor, VendorCreate, VendorUpdate
 from app.schemas.common import (
     PaginatedResponse,
@@ -61,7 +62,8 @@ class VendorStatisticsResponse(BaseModel):
 )
 async def list_vendors(
     query: VendorListQuery = Body(default=VendorListQuery()),
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """
     查詢廠商列表
@@ -69,7 +71,7 @@ async def list_vendors(
     - 支援分頁（page, limit）
     - 支援搜尋（search: 廠商名稱、代碼、聯絡人）
     - 支援排序（sort_by, sort_order）
-    - 不需認證（供前端下拉選單使用）
+    - 需要認證
     """
     skip = (query.page - 1) * query.limit if query.page else 0
 
@@ -228,12 +230,14 @@ async def list_vendors_legacy(
     skip: int = 0,
     limit: int = 100,
     search: Optional[str] = None,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """
     [相容性端點] 取得廠商列表
 
     此端點為向後相容保留，請改用 POST /vendors/list
+    需要認證。
     """
     vendors = await vendor_service.get_vendors(db, skip, limit, search)
     total = await vendor_service.get_total_vendors(db, search)

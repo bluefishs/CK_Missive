@@ -1,20 +1,26 @@
 """
 儀表板專用 API 端點 (已修復)
+所有端點需要認證。
 """
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from app.db.database import get_async_db
-from app.extended.models import OfficialDocument as Document
+from app.core.dependencies import require_auth, require_admin
+from app.extended.models import OfficialDocument as Document, User
 
 router = APIRouter()
 
 @router.get("/stats")
 @router.post("/stats")
-async def get_dashboard_stats(db: AsyncSession = Depends(get_async_db)):
+async def get_dashboard_stats(
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
+):
     """
     提供儀表板所需的所有統計數據和近期公文列表。
+    需要認證。
     """
     try:
         # 1. 高效計算各種狀態的公文數量
@@ -51,9 +57,12 @@ async def get_dashboard_stats(db: AsyncSession = Depends(get_async_db)):
         raise HTTPException(status_code=500, detail=f"無法獲取儀表板數據: {str(e)}")
 
 @router.get("/statistics/overview")
-async def get_statistics_overview(db: AsyncSession = Depends(get_async_db)):
+async def get_statistics_overview(
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
+):
     """
-    提供系統統計概覽
+    提供系統統計概覽。需要認證。
     """
     try:
         # 公文統計
@@ -78,9 +87,13 @@ async def get_statistics_overview(db: AsyncSession = Depends(get_async_db)):
         raise HTTPException(status_code=500, detail=f"無法獲取統計概覽: {str(e)}")
 
 @router.get("/dev-mapping", summary="獲取 API 對應關係 (調試用)")
-async def get_api_mapping(request: Request):
+async def get_api_mapping(
+    request: Request,
+    current_user: User = Depends(require_admin())
+):
     """
-    臨時放在儀表板路由中的 API 對應關係調試端點
+    臨時放在儀表板路由中的 API 對應關係調試端點。
+    需要管理員權限。
     """
     app = request.app
 
@@ -124,8 +137,11 @@ async def get_api_mapping(request: Request):
 
 # 臨時備用端點：為純行事曆提供必要的API
 @router.get("/pure-calendar-stats", summary="純行事曆統計 (臨時)")
-async def get_pure_calendar_stats_temp(db: AsyncSession = Depends(get_async_db)):
-    """臨時備用：純行事曆統計資料"""
+async def get_pure_calendar_stats_temp(
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
+):
+    """臨時備用：純行事曆統計資料。需要認證。"""
     try:
         from app.extended.models import DocumentCalendarEvent
         from datetime import datetime, timedelta
@@ -170,8 +186,11 @@ async def get_pure_calendar_stats_temp(db: AsyncSession = Depends(get_async_db))
         }
 
 @router.get("/pure-calendar-categories", summary="純行事曆分類 (臨時)")
-async def get_pure_calendar_categories_temp(db: AsyncSession = Depends(get_async_db)):
-    """臨時備用：純行事曆事件分類"""
+async def get_pure_calendar_categories_temp(
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
+):
+    """臨時備用：純行事曆事件分類。需要認證。"""
     try:
         from app.extended.models import DocumentCalendarEvent
 
@@ -213,9 +232,10 @@ async def get_pure_calendar_categories_temp(db: AsyncSession = Depends(get_async
 async def get_users_temp(
     page: int = 1,
     per_page: int = 20,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_admin())
 ):
-    """臨時備用：使用者列表"""
+    """臨時備用：使用者列表。需要管理員權限。"""
     try:
         from app.extended.models import User
 
@@ -260,8 +280,10 @@ async def get_users_temp(
         }
 
 @router.get("/user-management-permissions", summary="可用權限列表 (臨時)")
-async def get_available_permissions_temp():
-    """臨時備用：可用權限列表"""
+async def get_available_permissions_temp(
+    current_user: User = Depends(require_admin())
+):
+    """臨時備用：可用權限列表。需要管理員權限。"""
     return {
         "permissions": [
             "documents:read", "documents:create", "documents:edit", "documents:delete",

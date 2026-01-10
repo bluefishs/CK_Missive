@@ -14,7 +14,8 @@ import {
   useDocuments,
   useCreateDocument,
   useUpdateDocument,
-  useDeleteDocument
+  useDeleteDocument,
+  useAuthGuard
 } from '../hooks';
 import { useDocumentsStore } from '../store';
 import { Document, DocumentFilter as IDocumentFilter } from '../types';
@@ -35,6 +36,12 @@ export const DocumentPage: React.FC = () => {
   const navigate = useNavigate();
   const { message } = App.useApp();
   const queryClient = useQueryClient();
+
+  // 權限控制
+  const { hasPermission } = useAuthGuard();
+  const canCreate = hasPermission('documents:create' as any);
+  const canEdit = hasPermission('documents:edit' as any);
+  const canDelete = hasPermission('documents:delete' as any);
 
   // Zustand: 只用於 UI 狀態（篩選條件、分頁設定）
   const { filters, pagination, setFilters, setPagination, resetFilters } = useDocumentsStore();
@@ -312,8 +319,8 @@ export const DocumentPage: React.FC = () => {
         loading={isLoading}
         filters={{ ...filters, page: pagination.page, limit: pagination.limit }}
         total={totalCount}
-        onEdit={handleEditDocument}
-        onDelete={handleDeleteDocument}
+        onEdit={canEdit ? handleEditDocument : () => {}}
+        onDelete={canDelete ? handleDeleteDocument : () => {}}
         onView={handleViewDocument}
         onExport={handleExportExcel}
         onTableChange={handleTableChange}
@@ -344,13 +351,17 @@ export const DocumentPage: React.FC = () => {
             重新整理
           </Button>
 
-          <Button icon={<UploadOutlined />} onClick={() => setImportModalVisible(true)}>
-            公文匯入
-          </Button>
+          {canCreate && (
+            <Button icon={<UploadOutlined />} onClick={() => setImportModalVisible(true)}>
+              公文匯入
+            </Button>
+          )}
 
-          <Button type="primary" icon={<PlusOutlined />} onClick={handleCreateDocument}>
-            新增公文
-          </Button>
+          {canCreate && (
+            <Button type="primary" icon={<PlusOutlined />} onClick={handleCreateDocument}>
+              新增公文
+            </Button>
+          )}
         </Space>
       </div>
 

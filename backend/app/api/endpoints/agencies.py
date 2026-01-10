@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from app.db.database import get_async_db
 from app.api.endpoints.auth import get_current_user
+from app.core.dependencies import require_auth, require_admin
 from app.extended.models import User
 from app.schemas.agency import (
     Agency, AgencyCreate, AgencyUpdate, AgencyWithStats,
@@ -57,7 +58,8 @@ class AgencyListResponse(BaseModel):
 async def list_agencies(
     query: AgencyListQuery = Body(default=AgencyListQuery()),
     db: AsyncSession = Depends(get_async_db),
-    agency_service: AgencyService = Depends()
+    agency_service: AgencyService = Depends(),
+    current_user: User = Depends(require_auth())
 ):
     """
     查詢機關列表（POST-only 資安機制）
@@ -119,7 +121,8 @@ async def list_agencies(
 async def get_agency_detail(
     agency_id: int,
     db: AsyncSession = Depends(get_async_db),
-    agency_service: AgencyService = Depends()
+    agency_service: AgencyService = Depends(),
+    current_user: User = Depends(require_auth())
 ):
     """取得單一機關詳情"""
     agency = await agency_service.get_agency(db, agency_id=agency_id)
@@ -140,7 +143,8 @@ async def get_agency_detail(
 async def create_agency(
     agency: AgencyCreate = Body(...),
     db: AsyncSession = Depends(get_async_db),
-    agency_service: AgencyService = Depends()
+    agency_service: AgencyService = Depends(),
+    current_user: User = Depends(require_auth())
 ):
     """建立新機關單位"""
     try:
@@ -161,7 +165,8 @@ async def update_agency(
     agency_id: int,
     agency: AgencyUpdate = Body(...),
     db: AsyncSession = Depends(get_async_db),
-    agency_service: AgencyService = Depends()
+    agency_service: AgencyService = Depends(),
+    current_user: User = Depends(require_auth())
 ):
     """更新機關單位資料"""
     updated = await agency_service.update_agency(
@@ -182,7 +187,8 @@ async def update_agency(
 async def delete_agency(
     agency_id: int,
     db: AsyncSession = Depends(get_async_db),
-    agency_service: AgencyService = Depends()
+    agency_service: AgencyService = Depends(),
+    current_user: User = Depends(require_auth())
 ):
     """刪除機關單位"""
     try:
@@ -211,7 +217,8 @@ async def delete_agency(
 )
 async def get_agency_statistics(
     db: AsyncSession = Depends(get_async_db),
-    agency_service: AgencyService = Depends()
+    agency_service: AgencyService = Depends(),
+    current_user: User = Depends(require_auth())
 ):
     """取得機關統計資料"""
     return await agency_service.get_agency_statistics(db)
@@ -233,7 +240,8 @@ async def list_agencies_legacy(
     search: Optional[str] = None,
     include_stats: bool = True,
     db: AsyncSession = Depends(get_async_db),
-    agency_service: AgencyService = Depends()
+    agency_service: AgencyService = Depends(),
+    current_user: User = Depends(require_auth())
 ):
     """
     [相容性端點] 取得機關列表
@@ -257,7 +265,8 @@ async def list_agencies_legacy(
 )
 async def get_statistics_legacy(
     db: AsyncSession = Depends(get_async_db),
-    agency_service: AgencyService = Depends()
+    agency_service: AgencyService = Depends(),
+    current_user: User = Depends(require_auth())
 ):
     """此端點為向後相容保留，請改用 POST /agencies/statistics"""
     return await agency_service.get_agency_statistics(db)
@@ -287,7 +296,8 @@ class FixAgenciesRequest(BaseModel):
 )
 async def fix_agency_parsed_names(
     request: FixAgenciesRequest = Body(default=FixAgenciesRequest()),
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_admin())
 ):
     """
     修復機關名稱/代碼解析錯誤
@@ -462,7 +472,8 @@ class AgencySuggestResponse(BaseModel):
 )
 async def get_association_summary(
     db: AsyncSession = Depends(get_async_db),
-    agency_service: AgencyService = Depends()
+    agency_service: AgencyService = Depends(),
+    current_user: User = Depends(require_auth())
 ):
     """
     取得公文與機關關聯的統計資料
@@ -483,7 +494,8 @@ async def get_association_summary(
 async def batch_associate_agencies(
     request: BatchAssociateRequest = Body(default=BatchAssociateRequest()),
     db: AsyncSession = Depends(get_async_db),
-    agency_service: AgencyService = Depends()
+    agency_service: AgencyService = Depends(),
+    current_user: User = Depends(require_admin())
 ):
     """
     批次為所有公文自動關聯機關
@@ -541,7 +553,8 @@ async def batch_associate_agencies(
 async def suggest_agencies(
     request: AgencySuggestRequest = Body(...),
     db: AsyncSession = Depends(get_async_db),
-    agency_service: AgencyService = Depends()
+    agency_service: AgencyService = Depends(),
+    current_user: User = Depends(require_auth())
 ):
     """
     根據輸入文字智慧建議可能的機關
