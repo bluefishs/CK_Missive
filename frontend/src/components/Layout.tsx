@@ -49,6 +49,7 @@ import { ROUTES } from '../router/types';
 import authService, { UserInfo } from '../services/authService';
 import { usePermissions, NavigationItem as PermissionNavigationItem } from '../hooks/usePermissions';
 import { navigationService } from '../services/navigationService';
+import { secureApiService } from '../services/secureApiService';
 import NotificationCenter from './NotificationCenter';
 
 const { Header, Sider, Content } = AntLayout;
@@ -235,14 +236,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         return;
       }
 
-      // 正常模式：嘗試載入動態導覽列
-      // 清除快取並載入導覽項目
+      // 正常模式：使用 secureApiService 載入動態導覽列（與 SiteManagementPage 一致）
       navigationService.clearNavigationCache();
       localStorage.removeItem('cache_navigation_items');
       sessionStorage.removeItem('cache_navigation_items');
       console.log('🗑️ All navigation caches cleared');
 
-      const navigationItems = await navigationService.getNavigationItems(false);
+      // 使用 secureApiService 確保與網站管理頁面資料一致
+      const result = await secureApiService.getNavigationItems() as { items?: NavigationItem[] };
+      const navigationItems = result.items || [];
       console.log('📥 Raw navigation items received:', navigationItems.length, 'items');
 
       // 根據使用者權限和角色過濾導覽項目
