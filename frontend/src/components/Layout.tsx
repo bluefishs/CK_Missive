@@ -218,11 +218,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     try {
       setNavigationLoading(true);
 
-      // 檢查是否為開發模式 - 多種檢查方式
-      const authDisabled = true || // 暫時強制開發模式
-                          (import.meta.env.VITE_AUTH_DISABLED === 'true') ||
-                          (import.meta.env.MODE === 'development') ||
-                          (!import.meta.env.VITE_AUTH_DISABLED && import.meta.env.DEV === true);
+      // 檢查是否為開發模式 - 根據環境變數決定
+      const authDisabled = import.meta.env.VITE_AUTH_DISABLED === 'true';
       console.log('🔧 Environment variables:', {
         VITE_AUTH_DISABLED: import.meta.env.VITE_AUTH_DISABLED,
         VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL,

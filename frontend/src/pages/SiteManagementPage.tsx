@@ -259,10 +259,10 @@ const NavigationManagementImproved: FC = () => {
     if (dropPosition === 0) {
       // Drop into target node
       try {
-        const { children: _children, ...itemData } = draggedItem;
+        const { children: _children, id: _dragId, ...itemData } = draggedItem;
         await secureApiService.updateNavigationItem({
-          id: dragKey,
           ...itemData,
+          id: dragKey,
           parent_id: targetItem.id
         });
         message.success('已移入目標項目');
@@ -276,10 +276,10 @@ const NavigationManagementImproved: FC = () => {
       // Drop beside target
       if (draggedItem.parent_id !== targetItem.parent_id) {
         try {
-          const { children: _children, ...itemData } = draggedItem;
+          const { children: _children, id: _dragId2, ...itemData } = draggedItem;
           await secureApiService.updateNavigationItem({
-            id: dragKey,
             ...itemData,
+            id: dragKey,
             parent_id: targetItem.parent_id
           });
           message.success('已移動至新層級');
