@@ -116,43 +116,29 @@ class NavigationService {
   }
 
   /**
-   * 取得導覽項目（優先使用快取）
+   * 取得導覽項目（從 API 載入，支援快取）
    */
   async getNavigationItems(useCache = true): Promise<NavigationItem[]> {
-    // 檢查是否為開發模式 - 多種檢查方式
-    const authDisabled = true || // 暫時強制開發模式
-                        (import.meta.env?.VITE_AUTH_DISABLED === 'true') ||
-                        (typeof window !== 'undefined' && window.localStorage?.getItem('VITE_AUTH_DISABLED') === 'true') ||
-                        (import.meta.env?.MODE === 'development') ||
-                        (!import.meta.env?.VITE_AUTH_DISABLED && import.meta.env?.DEV === true);
+    console.log('🔧 NavigationService - Loading navigation from database...');
 
-    console.log('🔧 NavigationService - Auth disabled mode:', authDisabled);
-    console.log('🔧 NavigationService - Environment:', import.meta.env?.VITE_AUTH_DISABLED);
-
-    if (authDisabled) {
-      console.log('🛠️ Development mode: Using default navigation items without API call');
-      // 開發模式：直接返回預設導覽項目，清除權限要求
-      const defaultItems = this.getDefaultNavigationItems().map(item => ({
-        ...item,
-        permission_required: [], // 清除所有權限要求
-        children: item.children?.map(child => ({
-          ...child,
-          permission_required: [] // 清除子項目權限要求
-        }))
-      }));
-      return defaultItems;
+    // 優先從快取取得（如果啟用快取）
+    if (useCache) {
+      const cached = this.getCachedNavigation();
+      if (cached && cached.length > 0) {
+        console.log('📋 Using cached navigation items:', cached.length);
+        return cached;
+      }
     }
 
-    // 正常模式：使用API載入導航項目
-    console.log('🔄 Production mode: Loading navigation from API...');
+    // 從 API 載入導航項目
+    console.log('🔄 Loading navigation from API...');
     try {
-      // 從 API 載入
       const apiItems = await this.loadNavigationFromAPI();
       console.log('✅ API navigation loaded successfully:', apiItems.length, 'items');
       return apiItems;
     } catch (error) {
       console.error('❌ API navigation failed, using default items:', error);
-      // 如果API失敗，使用預設項目但清除權限要求
+      // 如果 API 失敗，使用預設項目
       const defaultItems = this.getDefaultNavigationItems().map(item => ({
         ...item,
         permission_required: [], // 清除所有權限要求
@@ -514,15 +500,25 @@ class NavigationService {
    * 取得帶有回退機制的導覽項目
    */
   async getNavigationItemsWithFallback(): Promise<NavigationItem[]> {
-    // 檢查是否已有快取的導覽項目，避免重複載入
+    // 檢查是否已有快取的導覽項目
     const cached = this.getCachedNavigation();
     if (cached && cached.length > 0) {
       console.log('📋 Using cached navigation items');
       return cached;
     }
 
-    // 在開發模式下直接使用預設導航，避免 API 調用問題
-    console.log('🔄 Using default navigation items for stable development');
+    // 從 API 載入
+    console.log('🔄 Loading navigation from API with fallback...');
+    try {
+      const apiItems = await this.loadNavigationFromAPI();
+      if (apiItems && apiItems.length > 0) {
+        return apiItems;
+      }
+    } catch (error) {
+      console.warn('⚠️ API failed, falling back to default items:', error);
+    }
+
+    // API 失敗時使用預設項目
     const defaultItems = this.getDefaultNavigationItems();
     this.setCachedNavigation(defaultItems);
     return defaultItems;

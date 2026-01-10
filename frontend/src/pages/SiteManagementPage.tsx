@@ -18,6 +18,7 @@ import {
   GlobalOutlined, MenuOutlined, SettingOutlined
 } from '@ant-design/icons';
 import { secureApiService } from '../services/secureApiService';
+import { navigationService } from '../services/navigationService';
 import { usePermissions } from '../hooks/usePermissions';
 import { message } from 'antd';
 import SiteConfigManagement from '../components/site-management/SiteConfigManagement';
@@ -163,6 +164,9 @@ const NavigationManagementImproved: FC = () => {
       setModalVisible(false);
       form.resetFields();
       setEditingItem(null);
+
+      // 清除導覽快取，確保其他頁面能載入最新資料
+      navigationService.clearNavigationCache();
       loadNavigation();
     } catch (error) {
       console.error('Submit error:', error);
@@ -175,6 +179,9 @@ const NavigationManagementImproved: FC = () => {
     try {
       await secureApiService.deleteNavigationItem(id);
       message.success('刪除成功');
+
+      // 清除導覽快取，確保其他頁面能載入最新資料
+      navigationService.clearNavigationCache();
       loadNavigation();
     } catch (error) {
       console.error('Delete error:', error);
@@ -259,6 +266,7 @@ const NavigationManagementImproved: FC = () => {
           parent_id: targetItem.id
         });
         message.success('已移入目標項目');
+        navigationService.clearNavigationCache();
         loadNavigation();
       } catch (error) {
         console.error('Move error:', error);
@@ -275,6 +283,7 @@ const NavigationManagementImproved: FC = () => {
             parent_id: targetItem.parent_id
           });
           message.success('已移動至新層級');
+          navigationService.clearNavigationCache();
           loadNavigation();
         } catch (error) {
           console.error('Level change error:', error);
