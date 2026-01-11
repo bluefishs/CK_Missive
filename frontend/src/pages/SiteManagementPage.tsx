@@ -43,6 +43,9 @@ interface NavigationItem {
   permission_required?: string;
   target?: string;
   children?: NavigationItem[];
+  // 後端回傳的時間戳記欄位（前端不應傳送回後端）
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface TreeNodeData {
@@ -259,7 +262,8 @@ const NavigationManagementImproved: FC = () => {
     if (dropPosition === 0) {
       // Drop into target node
       try {
-        const { children: _children, id: _dragId, ...itemData } = draggedItem;
+        // 排除不應傳送的欄位：children, id, created_at, updated_at
+        const { children: _children, id: _dragId, created_at: _ca, updated_at: _ua, ...itemData } = draggedItem;
         await secureApiService.updateNavigationItem({
           ...itemData,
           id: dragKey,
@@ -276,7 +280,8 @@ const NavigationManagementImproved: FC = () => {
       // Drop beside target
       if (draggedItem.parent_id !== targetItem.parent_id) {
         try {
-          const { children: _children, id: _dragId2, ...itemData } = draggedItem;
+          // 排除不應傳送的欄位：children, id, created_at, updated_at
+          const { children: _children, id: _dragId2, created_at: _ca2, updated_at: _ua2, ...itemData } = draggedItem;
           await secureApiService.updateNavigationItem({
             ...itemData,
             id: dragKey,
