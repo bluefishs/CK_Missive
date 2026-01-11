@@ -326,6 +326,22 @@ export const SYSTEM_ENDPOINTS = {
   METRICS: '/system/metrics',
 } as const;
 
+/** 資料庫備份 API 端點 */
+export const BACKUP_ENDPOINTS = {
+  /** 建立備份 POST /backup/create */
+  CREATE: '/backup/create',
+  /** 備份列表 POST /backup/list */
+  LIST: '/backup/list',
+  /** 刪除備份 POST /backup/delete */
+  DELETE: '/backup/delete',
+  /** 還原備份 POST /backup/restore */
+  RESTORE: '/backup/restore',
+  /** 備份設定 POST /backup/config */
+  CONFIG: '/backup/config',
+  /** 備份狀態 POST /backup/status */
+  STATUS: '/backup/status',
+} as const;
+
 // ============================================================================
 // 統一匯出
 // ============================================================================
@@ -378,6 +394,7 @@ export const API_ENDPOINTS = {
   CSV_IMPORT: CSV_IMPORT_ENDPOINTS,
   PUBLIC: PUBLIC_ENDPOINTS,
   SYSTEM: SYSTEM_ENDPOINTS,
+  BACKUP: BACKUP_ENDPOINTS,
 } as const;
 
 // 預設匯出

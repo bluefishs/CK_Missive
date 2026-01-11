@@ -2,6 +2,40 @@
 
 管理 CK_Missive PostgreSQL 資料庫與附件檔案的備份與還原操作。
 
+## API 端點 (POST-only)
+
+系統提供 RESTful API 進行備份管理：
+
+| 端點 | 說明 |
+|------|------|
+| `POST /api/backup/create` | 建立備份 |
+| `POST /api/backup/list` | 列出備份 |
+| `POST /api/backup/delete` | 刪除備份 |
+| `POST /api/backup/restore` | 還原資料庫 |
+| `POST /api/backup/config` | 取得設定 |
+| `POST /api/backup/status` | 取得狀態 |
+
+### API 範例
+
+```bash
+# 建立備份
+curl -X POST http://localhost:8001/api/backup/create \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"include_database": true, "include_attachments": true, "retention_days": 7}'
+
+# 查看備份列表
+curl -X POST http://localhost:8001/api/backup/list \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+## 自動排程
+
+系統啟動時自動啟用每日備份排程器：
+- **執行時間**: 每日凌晨 02:00
+- **備份內容**: 資料庫 + 附件
+- **保留天數**: 7 天
+
 ## 快速指令
 
 ### 執行完整備份（資料庫 + 附件）
@@ -123,8 +157,9 @@ Get-Content "C:\GeminiCli\CK_Missive\logs\backup\backup_*.log" -Tail 50
 
 | 檔案 | 說明 |
 |------|------|
-| `scripts/backup/db_backup.ps1` | 主要備份腳本（含附件） |
-| `scripts/backup/db_backup.sh` | Linux 版備份腳本 |
-| `scripts/backup/db_restore.ps1` | 還原腳本 |
-| `scripts/backup/setup_scheduled_task.ps1` | 排程設定 |
-| `scripts/backup/README.md` | 完整使用說明 |
+| `backend/app/services/backup_service.py` | 備份服務核心 |
+| `backend/app/services/backup_scheduler.py` | 自動排程器 |
+| `backend/app/api/endpoints/backup.py` | API 端點 |
+| `scripts/backup/db_backup.ps1` | PowerShell 備份腳本 |
+| `scripts/backup/db_restore.ps1` | PowerShell 還原腳本 |
+| `scripts/backup/setup_scheduled_task.ps1` | Windows 排程設定 |

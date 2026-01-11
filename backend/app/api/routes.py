@@ -9,7 +9,7 @@ from app.api.endpoints import (
     documents_enhanced, secure_site_management,
     # --- 新增 dashboard 匯入 ---
     dashboard, project_notifications, debug, project_vendors, project_staff,
-    project_agency_contacts, system_notifications
+    project_agency_contacts, system_notifications, backup
 )
 
 api_router = APIRouter()
@@ -49,3 +49,4 @@ api_router.include_router(files.router, prefix="/files", tags=["檔案管理"])
 api_router.include_router(csv_import.router, prefix="/csv-import", tags=["CSV匯入"])
 api_router.include_router(public.router, prefix="/public", tags=["公開API"])
 api_router.include_router(debug.router, prefix="/debug", tags=["調試工具"])  # Debug routes
+api_router.include_router(backup.router, prefix="/backup", tags=["資料庫備份"])

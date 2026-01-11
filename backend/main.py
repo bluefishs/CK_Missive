@@ -19,6 +19,7 @@ from app.db.database import get_async_db, engine
 from app.core.logging_manager import log_manager, LoggingMiddleware, log_info
 from app.services.reminder_scheduler import start_reminder_scheduler, stop_reminder_scheduler
 from app.services.google_sync_scheduler import start_google_sync_scheduler, stop_google_sync_scheduler
+from app.services.backup_scheduler import start_backup_scheduler, stop_backup_scheduler
 from app.core.exceptions import register_exception_handlers
 from app.core.schema_validator import validate_schema
 from app.extended.models import Base
@@ -71,9 +72,23 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"⚠️ Google Calendar 同步排程器啟動失敗: {e}")
 
+    # 啟動資料庫備份排程器
+    try:
+        await start_backup_scheduler()
+        logger.info("✅ 資料庫備份排程器已啟動")
+    except Exception as e:
+        logger.warning(f"⚠️ 資料庫備份排程器啟動失敗: {e}")
+
     logger.info("應用程式已啟動。")
     yield
     logger.info("應用程式關閉中...")
+
+    # 停止資料庫備份排程器
+    try:
+        await stop_backup_scheduler()
+        logger.info("✅ 資料庫備份排程器已停止")
+    except Exception as e:
+        logger.warning(f"⚠️ 資料庫備份排程器停止失敗: {e}")
 
     # 停止 Google Calendar 同步排程器
     try:
