@@ -34,6 +34,7 @@ import {
   ReloadOutlined,
 } from '@ant-design/icons';
 import { apiClient } from '../api/client';
+import { API_ENDPOINTS } from '../api/endpoints';
 import { useTableColumnSearch } from '../hooks/useTableColumnSearch';
 
 const { Title } = Typography;
@@ -119,7 +120,7 @@ export const StaffPage: React.FC = () => {
       if (activeFilter !== undefined) requestBody.is_active = activeFilter;
 
       // POST-only: 使用 POST /users/list 端點
-      const response = await apiClient.post('/users/list', requestBody);
+      const response = await apiClient.post(API_ENDPOINTS.USERS.LIST, requestBody);
       const data = response as any;
 
       // API 回傳 items 欄位
@@ -152,11 +153,11 @@ export const StaffPage: React.FC = () => {
     try {
       if (editingStaff) {
         // 更新 (POST-only)
-        await apiClient.post(`/users/${editingStaff.id}/update`, values);
+        await apiClient.post(API_ENDPOINTS.USERS.UPDATE(editingStaff.id), values);
         message.success('承辦同仁更新成功');
       } else {
         // 新增 (POST-only)
-        await apiClient.post('/users', values);
+        await apiClient.post(API_ENDPOINTS.USERS.CREATE, values);
         message.success('承辦同仁建立成功');
       }
 
@@ -174,7 +175,7 @@ export const StaffPage: React.FC = () => {
   // 刪除承辦同仁 (POST 機制)
   const handleDelete = async (id: number) => {
     try {
-      await apiClient.post(`/users/${id}/delete`);
+      await apiClient.post(API_ENDPOINTS.USERS.DELETE(id));
       message.success('承辦同仁刪除成功');
       loadStaffList();
     } catch (error: any) {
@@ -186,7 +187,7 @@ export const StaffPage: React.FC = () => {
   // 切換啟用狀態 (POST 機制)
   const handleToggleActive = async (id: number, isActive: boolean) => {
     try {
-      await apiClient.post(`/users/${id}/status`, { is_active: isActive });
+      await apiClient.post(API_ENDPOINTS.USERS.STATUS(id), { is_active: isActive });
       message.success(isActive ? '已啟用' : '已停用');
       loadStaffList();
     } catch (error: any) {
