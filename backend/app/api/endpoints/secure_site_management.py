@@ -184,7 +184,9 @@ async def navigation_action(
             if not item:
                 raise HTTPException(status_code=404, detail="Navigation item not found")
 
-            update_data = {k: v for k, v in data.items() if k != "id" and v is not None}
+            # 排除不應該被前端更新的欄位
+            excluded_fields = {"id", "created_at", "updated_at"}
+            update_data = {k: v for k, v in data.items() if k not in excluded_fields and v is not None}
 
             for key, value in update_data.items():
                 setattr(item, key, value)
