@@ -1,30 +1,36 @@
+/**
+ * LoginPage.tsx - 登入頁面
+ *
+ * @version 1.1.0
+ * @date 2026-01-11
+ */
 import React, { useState, useEffect } from 'react';
-import { 
-  Card, 
-  Form, 
-  Input, 
-  Button, 
-  Typography, 
-  Alert, 
-  Divider, 
+import {
+  Card,
+  Form,
+  Input,
+  Button,
+  Typography,
+  Alert,
+  Divider,
   Space,
   Row,
   Col,
   App
 } from 'antd';
-import { 
-  UserOutlined, 
-  LockOutlined, 
+import {
+  UserOutlined,
+  LockOutlined,
   GoogleOutlined,
   MailOutlined
 } from '@ant-design/icons';
 import { useNavigate, Link } from 'react-router-dom';
 import authService, { LoginRequest } from '../services/authService';
+import { isAuthDisabled, GOOGLE_CLIENT_ID } from '../config/env';
 
 const { Title, Text } = Typography;
 
-// Google Client ID - 需要從環境變數或配置中取得
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+// Google 登入啟用條件
 const GOOGLE_LOGIN_ENABLED = GOOGLE_CLIENT_ID && GOOGLE_CLIENT_ID !== 'your-actual-google-client-id.apps.googleusercontent.com';
 
 interface LoginFormValues {
@@ -40,9 +46,8 @@ const LoginPage: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // 如果認證已停用，直接重定向到儀表板
-    const authDisabled = import.meta.env.VITE_AUTH_DISABLED === 'true';
-    if (authDisabled) {
+    // 如果認證已停用（環境變數或內網 IP），直接重定向到儀表板
+    if (isAuthDisabled()) {
       navigate('/dashboard');
       return;
     }

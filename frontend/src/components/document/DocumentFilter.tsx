@@ -25,6 +25,7 @@ import {
   InfoCircleOutlined,
 } from '@ant-design/icons';
 import { DocumentFilter as DocumentFilterType } from '../../types';
+import { VITE_API_BASE_URL } from '../../config/env';
 const { Option } = Select;
 const { Title } = Typography;
 
@@ -56,9 +57,8 @@ const deliveryMethodOptions = [
 ];
 
 // 年度選項將從API獲取
-
-// API 基礎 URL - 統一使用環境變數避免 proxy 問題
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001';
+// 使用共用的 API 基礎 URL
+const API_BASE_URL = VITE_API_BASE_URL;
 
 const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
   filters,

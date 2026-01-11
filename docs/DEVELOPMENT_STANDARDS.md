@@ -1,7 +1,8 @@
 # CK_Missive 統一開發規範總綱
 
-> 版本: 1.0.0
+> 版本: 1.1.0
 > 建立日期: 2026-01-08
+> 最後更新: 2026-01-11
 > 狀態: 強制遵守
 
 ---
@@ -345,7 +346,59 @@ project_id = await self.match_project(project_name)
 
 ---
 
-## 九、相關文件
+## 九、前端開發規範
+
+### 9.1 認證與環境檢測
+
+**唯一來源**: `frontend/src/config/env.ts`
+
+```typescript
+// 必須使用共用函數
+import { isAuthDisabled, isInternalIP, detectEnvironment } from '../config/env';
+
+// ✅ 正確
+const authDisabled = isAuthDisabled();
+
+// ❌ 禁止 - 重複定義邏輯
+const authDisabled = import.meta.env.VITE_AUTH_DISABLED === 'true';
+```
+
+### 9.2 環境類型
+
+| 類型 | 判斷條件 | 認證要求 |
+|------|----------|----------|
+| `localhost` | localhost / 127.0.0.1 | Google OAuth |
+| `internal` | 內網 IP (10.x / 172.16-31.x / 192.168.x) | 免認證 |
+| `ngrok` | *.ngrok.io / *.ngrok-free.app | Google OAuth |
+| `public` | 其他 | Google OAuth |
+
+### 9.3 API 呼叫規範
+
+```typescript
+// 必須使用 apiClient 和 API_ENDPOINTS
+import { apiClient } from '../api/client';
+import { API_ENDPOINTS } from '../api/endpoints';
+
+const result = await apiClient.post(API_ENDPOINTS.DOCUMENTS.LIST, params);
+```
+
+### 9.4 路由保護
+
+```tsx
+// 需要認證的頁面
+<ProtectedRoute>
+  <MyPage />
+</ProtectedRoute>
+
+// 需要管理員權限
+<ProtectedRoute roles={['admin']}>
+  <AdminPage />
+</ProtectedRoute>
+```
+
+---
+
+## 十、相關文件
 
 | 文件 | 說明 |
 |------|------|
@@ -354,10 +407,11 @@ project_id = await self.match_project(project_name)
 | `docs/reports/ARCHITECTURE_REVIEW_20260108.md` | 架構檢視報告 |
 | `docs/wiki/Service-Layer-Architecture.md` | 服務層架構說明 |
 | `.claude/DEVELOPMENT_GUIDELINES.md` | 開發指引 |
+| `.claude/skills/frontend-architecture.md` | **前端架構規範 (v1.0.0)** |
 
 ---
 
-## 十、規範遵守聲明
+## 十一、規範遵守聲明
 
 **本規範為強制遵守文件，違反規範將導致：**
 
@@ -370,6 +424,7 @@ project_id = await self.match_project(project_name)
 | 版本 | 日期 | 說明 |
 |------|------|------|
 | 1.0.0 | 2026-01-08 | 初版建立 |
+| 1.1.0 | 2026-01-11 | 新增前端開發規範、認證環境檢測規範 |
 
 ---
 

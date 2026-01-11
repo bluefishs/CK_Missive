@@ -40,11 +40,15 @@ export default defineConfig(({ mode }) => {
       open: true, // Automatically open in browser
       cors: true,
       strictPort: true, // 強制使用指定端口，避免自動切換造成混淆
-      // HMR 配置：支援內網存取
+      // 允許的主機名稱
+      // 'all' 允許所有主機（開發環境適用）
+      // 生產環境應限制為特定域名
+      allowedHosts: 'all',
+      // HMR 配置：自動偵測主機
+      // 移除硬編碼 IP，讓 Vite 自動根據存取來源設定
       hmr: {
-        host: '192.168.50.38', // 內網 IP
+        // host 留空讓 Vite 自動偵測
         port: 3000,
-        protocol: 'ws',
       },
       proxy: {
         // Proxy API requests to the backend server

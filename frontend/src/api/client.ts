@@ -25,10 +25,47 @@ import {
 // 配置常量
 // ============================================================================
 
-/** API 基礎 URL */
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
-  ? `${import.meta.env.VITE_API_BASE_URL}/api`
-  : '/api';
+/**
+ * 動態 API URL 計算
+ * 根據存取來源自動選擇正確的後端位址
+ */
+function getDynamicApiBaseUrl(): string {
+  const hostname = window.location.hostname;
+  const defaultPort = '8001';
+
+  // 1. localhost 或 127.0.0.1 → 使用 localhost 後端
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return `http://localhost:${defaultPort}/api`;
+  }
+
+  // 2. 內網 IP (10.x.x.x, 172.16-31.x.x, 192.168.x.x) → 使用相同 IP 的後端
+  const internalIPPatterns = [
+    /^10\./,
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
+    /^192\.168\./
+  ];
+  if (internalIPPatterns.some(pattern => pattern.test(hostname))) {
+    return `http://${hostname}:${defaultPort}/api`;
+  }
+
+  // 3. ngrok 或其他公網域名 → 使用環境變數或相對路徑
+  // ngrok 需要後端也有隧道，這裡使用環境變數或 fallback
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return `${import.meta.env.VITE_API_BASE_URL}/api`;
+  }
+
+  // 4. 預設使用相對路徑（適用於同源部署）
+  return '/api';
+}
+
+/** API 基礎 URL（動態計算） */
+export const API_BASE_URL = getDynamicApiBaseUrl();
+
+// 開發模式下輸出 API URL 資訊
+if (import.meta.env.DEV) {
+  console.log('🔗 Dynamic API URL:', API_BASE_URL);
+  console.log('   Hostname:', window.location.hostname);
+}
 
 /** 預設請求超時時間（毫秒） */
 const DEFAULT_TIMEOUT = 30000;

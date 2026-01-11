@@ -212,19 +212,27 @@ export const AUTH_ENDPOINTS = {
   ME: '/auth/me',
 } as const;
 
-/** 管理員使用者管理 API 端點 */
+/** 管理員使用者管理 API 端點 (POST-only) */
 export const ADMIN_USER_MANAGEMENT_ENDPOINTS = {
-  /** 使用者列表 GET /admin/user-management/users */
-  USERS_LIST: '/admin/user-management/users',
+  /** 使用者列表 POST /admin/user-management/users/list */
+  USERS_LIST: '/admin/user-management/users/list',
   /** 建立使用者 POST /admin/user-management/users */
   USERS_CREATE: '/admin/user-management/users',
-  /** 更新使用者 PUT /admin/user-management/users/:id */
-  USERS_UPDATE: (id: number) => `/admin/user-management/users/${id}`,
-  /** 刪除使用者 DELETE /admin/user-management/users/:id */
-  USERS_DELETE: (id: number) => `/admin/user-management/users/${id}`,
-  /** 使用者權限 GET /admin/user-management/users/:id/permissions */
-  USERS_PERMISSIONS: (id: number) => `/admin/user-management/users/${id}/permissions`,
-  /** 可用權限 GET /admin/user-management/permissions/available */
+  /** 使用者詳情 POST /admin/user-management/users/:id/detail */
+  USERS_DETAIL: (id: number) => `/admin/user-management/users/${id}/detail`,
+  /** 更新使用者 POST /admin/user-management/users/:id/update */
+  USERS_UPDATE: (id: number) => `/admin/user-management/users/${id}/update`,
+  /** 刪除使用者 POST /admin/user-management/users/:id/delete */
+  USERS_DELETE: (id: number) => `/admin/user-management/users/${id}/delete`,
+  /** 使用者權限詳情 POST /admin/user-management/users/:id/permissions/detail */
+  USERS_PERMISSIONS_DETAIL: (id: number) => `/admin/user-management/users/${id}/permissions/detail`,
+  /** 更新使用者權限 POST /admin/user-management/users/:id/permissions/update */
+  USERS_PERMISSIONS_UPDATE: (id: number) => `/admin/user-management/users/${id}/permissions/update`,
+  /** 使用者會話列表 POST /admin/user-management/users/:id/sessions/list */
+  USERS_SESSIONS_LIST: (id: number) => `/admin/user-management/users/${id}/sessions/list`,
+  /** 撤銷會話 POST /admin/user-management/sessions/:id/revoke */
+  SESSIONS_REVOKE: (id: number) => `/admin/user-management/sessions/${id}/revoke`,
+  /** 可用權限 POST /admin/user-management/permissions/available */
   PERMISSIONS_AVAILABLE: '/admin/user-management/permissions/available',
 } as const;
 

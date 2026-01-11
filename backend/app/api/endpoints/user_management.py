@@ -1,9 +1,10 @@
 """
 使用者管理與權限管理 API 端點
 
-v2.0 - 2026-01-09
+v2.1 - 2026-01-10
 - 整合 AuditService 記錄所有使用者變更
 - 整合權限變更審計
+- POST-only API 設計 (資安規範)
 """
 import logging
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -35,14 +36,14 @@ async def require_admin(current_user: User = Depends(get_current_user)) -> User:
 
 # === 使用者管理 ===
 
-@router.get("/users", response_model=UserListResponse, summary="取得使用者列表")
+@router.post("/users/list", response_model=UserListResponse, summary="取得使用者列表")
 async def get_users(
-    params: UserSearchParams = Depends(),
+    params: UserSearchParams,
     db: AsyncSession = Depends(get_async_db),
     admin_user: User = Depends(require_admin)
 ):
     """
-    取得使用者列表 (管理員功能)
+    取得使用者列表 (管理員功能) - POST-only
     - 支援搜尋、篩選與分頁
     """
     query = select(User).where(User.is_active == True)
@@ -131,13 +132,13 @@ async def create_user(
     
     return UserResponse.model_validate(new_user)
 
-@router.get("/users/{user_id}", response_model=UserResponse, summary="取得指定使用者")
+@router.post("/users/{user_id}/detail", response_model=UserResponse, summary="取得指定使用者")
 async def get_user_by_id(
     user_id: int,
     db: AsyncSession = Depends(get_async_db),
     admin_user: User = Depends(require_admin)
 ):
-    """取得指定使用者詳細資訊 (管理員功能)"""
+    """取得指定使用者詳細資訊 (管理員功能) - POST-only"""
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     
@@ -149,14 +150,14 @@ async def get_user_by_id(
     
     return UserResponse.model_validate(user)
 
-@router.put("/users/{user_id}", response_model=UserResponse, summary="更新使用者資訊")
+@router.post("/users/{user_id}/update", response_model=UserResponse, summary="更新使用者資訊")
 async def update_user(
     user_id: int,
     user_update: UserUpdate,
     db: AsyncSession = Depends(get_async_db),
     admin_user: User = Depends(require_admin)
 ):
-    """更新使用者資訊 (管理員功能)"""
+    """更新使用者資訊 (管理員功能) - POST-only"""
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 
@@ -233,13 +234,13 @@ async def update_user(
     logger.info(f"[USER_MGMT] 使用者 {user_id} 已更新 by {admin_user.email}")
     return UserResponse.model_validate(user)
 
-@router.delete("/users/{user_id}", summary="刪除使用者")
+@router.post("/users/{user_id}/delete", summary="刪除使用者")
 async def delete_user(
     user_id: int,
     db: AsyncSession = Depends(get_async_db),
     admin_user: User = Depends(require_admin)
 ):
-    """軟刪除使用者 (管理員功能)"""
+    """軟刪除使用者 (管理員功能) - POST-only"""
     if user_id == admin_user.id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -288,13 +289,13 @@ async def delete_user(
 
 # === 權限管理 ===
 
-@router.get("/users/{user_id}/permissions", response_model=UserPermissions, summary="取得使用者權限")
+@router.post("/users/{user_id}/permissions/detail", response_model=UserPermissions, summary="取得使用者權限")
 async def get_user_permissions(
     user_id: int,
     db: AsyncSession = Depends(get_async_db),
     admin_user: User = Depends(require_admin)
 ):
-    """取得指定使用者的權限列表 (管理員功能)"""
+    """取得指定使用者的權限列表 (管理員功能) - POST-only"""
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     
@@ -317,14 +318,14 @@ async def get_user_permissions(
         role=user.role
     )
 
-@router.put("/users/{user_id}/permissions", response_model=UserPermissions, summary="更新使用者權限")
+@router.post("/users/{user_id}/permissions/update", response_model=UserPermissions, summary="更新使用者權限")
 async def update_user_permissions(
     user_id: int,
     permissions_data: UserPermissions,
     db: AsyncSession = Depends(get_async_db),
     admin_user: User = Depends(require_admin)
 ):
-    """更新指定使用者的權限 (管理員功能)"""
+    """更新指定使用者的權限 (管理員功能) - POST-only"""
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 
@@ -389,13 +390,13 @@ async def check_permission(
 
 # === 會話管理 ===
 
-@router.get("/users/{user_id}/sessions", response_model=UserSessionsResponse, summary="取得使用者會話")
+@router.post("/users/{user_id}/sessions/list", response_model=UserSessionsResponse, summary="取得使用者會話")
 async def get_user_sessions(
     user_id: int,
     db: AsyncSession = Depends(get_async_db),
     admin_user: User = Depends(require_admin)
 ):
-    """取得指定使用者的所有會話 (管理員功能)"""
+    """取得指定使用者的所有會話 (管理員功能) - POST-only"""
     result = await db.execute(
         select(UserSession)
         .where(UserSession.user_id == user_id)
@@ -423,13 +424,13 @@ async def get_user_sessions(
         current_session_id=current_session_id or 0
     )
 
-@router.delete("/sessions/{session_id}", summary="撤銷會話")
+@router.post("/sessions/{session_id}/revoke", summary="撤銷會話")
 async def revoke_user_session(
     session_id: int,
     db: AsyncSession = Depends(get_async_db),
     admin_user: User = Depends(require_admin)
 ):
-    """撤銷指定會話 (管理員功能)"""
+    """撤銷指定會話 (管理員功能) - POST-only"""
     result = await db.execute(select(UserSession).where(UserSession.id == session_id))
     session = result.scalar_one_or_none()
     
@@ -451,11 +452,11 @@ async def revoke_user_session(
 
 # === 權限預設清單 ===
 
-@router.get("/permissions/available", summary="取得可用權限列表")
+@router.post("/permissions/available", summary="取得可用權限列表")
 async def get_available_permissions(
     admin_user: User = Depends(require_admin)
 ):
-    """取得系統中所有可用的權限列表 (管理員功能)"""
+    """取得系統中所有可用的權限列表 (管理員功能) - POST-only"""
     return {
         "permissions": [
             # 公文管理權限

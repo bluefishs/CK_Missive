@@ -18,6 +18,7 @@ export interface RouteConfig {
 // 路由常量
 export const ROUTES = {
   HOME: '/',
+  ENTRY: '/entry',  // 系統入口頁面
   DOCUMENTS: '/documents',
   DOCUMENT_DETAIL: '/documents/:id',
   DOCUMENT_CREATE: '/documents/create',
@@ -64,6 +65,11 @@ export const ROUTE_META = {
     title: '首頁',
     description: '系統首頁',
     icon: 'Home',
+  },
+  [ROUTES.ENTRY]: {
+    title: '系統入口',
+    description: '乾坤測繪公文系統入口',
+    icon: 'LoginOutlined',
   },
   [ROUTES.API_MAPPING]: { // 新增 API 對應頁面元數據
     title: 'API 對應',

@@ -1,14 +1,20 @@
+/**
+ * ApiDocsPage.tsx - API 文件頁面
+ *
+ * @version 1.1.0
+ * @date 2026-01-11
+ */
 import React from 'react';
 import SwaggerUI from 'swagger-ui-react';
 import 'swagger-ui-react/swagger-ui.css';
 import { Card, Typography, Spin, Alert } from 'antd';
+import { API_BASE_URL, VITE_API_BASE_URL } from '../config/env';
 
 const { Title, Paragraph } = Typography;
 
 export const ApiDocumentationPage: React.FC = () => {
-  // 使用正確的API base URL
-  const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001') + '/api';
-  const baseUrl = API_BASE_URL.replace('/api', ''); // 移除 /api 後綴
+  // 使用共用的 API base URL
+  const baseUrl = VITE_API_BASE_URL; // 不含 /api 後綴
   const swaggerUrl = `${baseUrl}/openapi.json`; // Backend OpenAPI JSON endpoint
 
   return (

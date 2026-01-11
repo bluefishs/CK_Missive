@@ -1,15 +1,32 @@
 # API 端點一致性規範 (API Endpoint Consistency)
 
-> 版本：2.0.0
+> 版本：2.1.0
 > 建立日期：2026-01-08
-> 最後更新：2026-01-08
+> 最後更新：2026-01-10
 > 用途：確保前後端 API 端點路徑、HTTP 方法、參數格式一致
 
 ---
 
-## 重要更新 (v2.0.0)
+## 重要更新 (v2.1.0)
 
-✅ **集中式端點管理已實施**
+### ✅ POST-only API 設計 (資安規範)
+
+從 2026-01-10 起，所有 API 端點**強制使用 POST 方法**，不再使用 GET/PUT/DELETE：
+
+```
+# 端點命名規範
+POST /xxx/list          # 取得列表 (原 GET /xxx)
+POST /xxx/{id}/detail   # 取得詳情 (原 GET /xxx/{id})
+POST /xxx/{id}/update   # 更新資料 (原 PUT /xxx/{id})
+POST /xxx/{id}/delete   # 刪除資料 (原 DELETE /xxx/{id})
+```
+
+**安全優勢**：
+- 避免 URL 參數洩漏敏感資訊
+- 統一 CSRF 防護機制
+- 簡化前端 API 客戶端實作
+
+### ✅ 集中式端點管理已實施
 
 從 2026-01-08 起，所有前端 API 端點路徑統一由 `frontend/src/api/endpoints.ts` 管理。
 
@@ -299,6 +316,7 @@ if start_date.tzinfo is not None:
 
 | 版本 | 日期 | 變更內容 |
 |------|------|----------|
+| 2.1.0 | 2026-01-10 | 強制 POST-only API 設計，更新 user_management.py 端點，新增資安規範章節 |
 | 2.0.0 | 2026-01-08 | 實施集中式端點管理，建立 endpoints.ts，更新所有 API 客戶端 |
 | 1.1.0 | 2026-01-08 | 遷移至 docs/specifications/，更新相關文件路徑 |
 | 1.0.0 | 2026-01-08 | 初版 - 基於 404 錯誤案例建立規範 |

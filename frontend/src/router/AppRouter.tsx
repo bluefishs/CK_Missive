@@ -28,6 +28,7 @@ const SettingsPage = lazy(() => import('../pages/SettingsPage').then(module => (
 const ProfilePage = lazy(() => import('../pages/ProfilePage').then(module => ({ default: module.ProfilePage })));
 const NotFoundPage = lazy(() => import('../pages/NotFoundPage').then(module => ({ default: module.NotFoundPage })));
 const DatabaseManagementPage = lazy(() => import('../pages/DatabaseManagementPage').then(module => ({ default: module.DatabaseManagementPage })));
+const EntryPage = lazy(() => import('../pages/EntryPage'));
 const LoginPage = lazy(() => import('../pages/LoginPage'));
 const RegisterPage = lazy(() => import('../pages/RegisterPage'));
 const ForgotPasswordPage = lazy(() => import('../pages/ForgotPasswordPage'));
@@ -68,13 +69,14 @@ export const AppRouter: React.FC = () => {
     <Layout>
       <Suspense fallback={<PageLoading message="載入頁面中..." />}>
         <Routes>
-          {/* 登入相關頁面 */}
+          {/* 系統入口與登入相關頁面 */}
+          <Route path={ROUTES.ENTRY} element={<EntryPage />} />
           <Route path={ROUTES.LOGIN} element={<LoginPage />} />
           <Route path={ROUTES.REGISTER} element={<RegisterPage />} />
           <Route path={ROUTES.FORGOT_PASSWORD} element={<ForgotPasswordPage />} />
 
-          {/* 首頁重定向到儀表板 */}
-          <Route path={ROUTES.HOME} element={<Navigate to={ROUTES.DASHBOARD} replace />} />
+          {/* 首頁重定向到入口頁面 */}
+          <Route path={ROUTES.HOME} element={<Navigate to={ROUTES.ENTRY} replace />} />
           
           {/* 公文相關路由 */}
           <Route path={ROUTES.DOCUMENTS} element={<DocumentPage />} />

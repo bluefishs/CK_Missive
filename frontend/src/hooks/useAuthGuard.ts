@@ -3,14 +3,15 @@
  *
  * 提供統一的認證與權限檢查功能
  *
- * @version 1.0.0
- * @date 2026-01-06
+ * @version 1.1.0
+ * @date 2026-01-11
  */
 
 import { useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import authService from '../services/authService';
 import { ROUTES } from '../router/types';
+import { isAuthDisabled } from '../config/env';
 
 /** 權限類型 */
 export type Permission =
@@ -80,8 +81,8 @@ export function useAuthGuard(options: AuthGuardOptions = {}) {
     showAlert = false,
   } = options;
 
-  // 檢查是否禁用認證 (開發模式)
-  const authDisabled = import.meta.env['VITE_AUTH_DISABLED'] === 'true';
+  // 檢查是否禁用認證 (開發模式或內網 IP)
+  const authDisabled = isAuthDisabled();
 
   // 取得認證狀態
   const authState = useMemo<AuthState>(() => {

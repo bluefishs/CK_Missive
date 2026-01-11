@@ -3,8 +3,8 @@
  *
  * 提供統一的路由保護功能，整合 useAuthGuard Hook
  *
- * @version 1.0.0
- * @date 2026-01-06
+ * @version 1.1.0
+ * @date 2026-01-11
  */
 
 import React from 'react';
@@ -12,6 +12,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthGuard, Permission } from '../hooks/useAuthGuard';
 import { ROUTES } from './types';
 import { PageLoading } from '../components/common';
+import { isAuthDisabled } from '../config/env';
 
 /** 受保護路由選項 */
 export interface ProtectedRouteProps {
@@ -64,7 +65,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   requireAuth = true,
   roles = [],
   permissions = [],
-  redirectTo = ROUTES.LOGIN,
+  redirectTo = ROUTES.ENTRY,
   loadingMessage,
   enabled = true,
 }) => {
@@ -87,7 +88,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <>{children}</>;
   }
 
-  // 開發模式下直接渲染
+  // 開發模式或內網 IP 直接渲染（跳過認證）
+  // authDisabled 已包含內網 IP 檢測，直接使用即可
   if (authDisabled) {
     return <>{children}</>;
   }

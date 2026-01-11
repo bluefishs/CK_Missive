@@ -28,6 +28,7 @@ import {
 } from '@ant-design/icons';
 import { DocumentFilter as DocumentFilterType } from '../../types';
 import { useResponsive } from '../../hooks/useResponsive';
+import { VITE_API_BASE_URL } from '../../config/env';
 const { Option } = Select;
 const { Title } = Typography;
 
@@ -195,8 +196,8 @@ const DocumentFilterEnhanced: React.FC<DocumentFilterProps> = ({
 
   // 年度選項
   const fetchYearOptions = async () => {
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001/api';
-    await fetchWithLoading(`${API_BASE_URL}/documents/documents-years`, 'years', (data) => {
+    // 使用共用的 API 基礎 URL
+    await fetchWithLoading(`${VITE_API_BASE_URL}/api/documents/documents-years`, 'years', (data) => {
       const options = (data.years || []).map((year: string) => ({
         value: year,
         label: `${year}年`

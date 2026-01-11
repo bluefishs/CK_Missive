@@ -329,18 +329,28 @@ async def refresh_token(
 @router.post("/logout", summary="使用者登出")
 async def logout(
     request: Request,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: AsyncSession = Depends(get_async_db)
 ):
     """使用者登出 - 撤銷當前會話"""
+    # 開發模式下允許無 token 登出
+    if settings.AUTH_DISABLED:
+        logger.info("[AUTH] 開發模式 - 登出請求（無需驗證）")
+        return {"message": "登出成功（開發模式）"}
+
+    # 檢查是否有提供認證資訊
+    if not credentials or not credentials.credentials:
+        # 沒有 token 也視為成功登出（可能是 token 已過期）
+        logger.info("[AUTH] 登出請求（無 token）")
+        return {"message": "登出成功"}
+
     token = credentials.credentials
     payload = AuthService.verify_token(token)
 
     if not payload:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="無效的令牌"
-        )
+        # token 無效也視為成功登出
+        logger.info("[AUTH] 登出請求（token 無效或已過期）")
+        return {"message": "登出成功"}
 
     jti = payload.get("jti")
     user_id = payload.get("sub")

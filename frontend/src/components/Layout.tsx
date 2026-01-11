@@ -48,6 +48,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { ROUTES } from '../router/types';
 import authService, { UserInfo } from '../services/authService';
 import { usePermissions, NavigationItem as PermissionNavigationItem } from '../hooks/usePermissions';
+import { isAuthDisabled, isInternalIP } from '../config/env';
 import { navigationService } from '../services/navigationService';
 import { secureApiService } from '../services/secureApiService';
 import NotificationCenter from './NotificationCenter';
@@ -68,6 +69,9 @@ interface NavigationItem extends PermissionNavigationItem {
   target?: string;
 }
 
+// 不需要布局的公開頁面路徑
+const PUBLIC_ROUTES = ['/entry', '/login', '/register', '/forgot-password'];
+
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [menuItems, setMenuItems] = useState<any[]>([]);
@@ -76,6 +80,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<UserInfo | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // 檢查是否為公開頁面（不需要布局）
+  const isPublicRoute = PUBLIC_ROUTES.some(route => location.pathname === route || location.pathname.startsWith(route + '/'));
 
   // 使用權限 Hook
   const {
@@ -102,7 +109,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   // 載入用戶資訊
   const loadUserInfo = () => {
     let userInfo = authService.getUserInfo();
-    const authDisabled = import.meta.env.VITE_AUTH_DISABLED === 'true';
+    const authDisabled = isAuthDisabled();
 
     // 如果沒有使用者資訊或認證已停用，在開發模式下使用預設資訊
     if (!userInfo || authDisabled) {
@@ -219,11 +226,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     try {
       setNavigationLoading(true);
 
-      // 檢查是否為開發模式 - 根據環境變數決定
-      const authDisabled = import.meta.env.VITE_AUTH_DISABLED === 'true';
+      // 檢查是否為開發模式 - 根據環境變數或內網 IP 決定
+      const authDisabled = isAuthDisabled();
       console.log('🔧 Environment variables:', {
         VITE_AUTH_DISABLED: import.meta.env.VITE_AUTH_DISABLED,
         VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
+        isInternalIP: isInternalIP(),
         authDisabled
       });
 
@@ -248,9 +256,19 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       console.log('📥 Raw navigation items received:', navigationItems.length, 'items');
 
       // 根據使用者權限和角色過濾導覽項目
-      const filteredItems = userPermissions
+      let filteredItems = userPermissions
         ? filterNavigationByRole(navigationItems)
         : [];
+
+      // 如果過濾後沒有項目，顯示基本選單（已登入用戶至少能看到一些功能）
+      if (filteredItems.length === 0 && navigationItems.length > 0) {
+        console.log('⚠️ No items after permission filter, showing public items');
+        // 顯示不需要權限的項目，或 permission_required 為空的項目
+        filteredItems = navigationItems.filter(item => {
+          const permRequired = item.permission_required;
+          return !permRequired || !Array.isArray(permRequired) || permRequired.length === 0;
+        });
+      }
 
       // 轉換為 Ant Design Menu 格式
       const menuItems = convertToMenuItems(filteredItems);
@@ -261,7 +279,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       console.error('❌ Failed to load navigation:', error);
       // 如果完全失敗，使用靜態導覽列作為備用
       const staticItems = getStaticMenuItems();
-      const authDisabled = import.meta.env.VITE_AUTH_DISABLED === 'true';
+      const authDisabled = isAuthDisabled();
       const filteredStaticItems = authDisabled
         ? staticItems
         : filterMenuItemsByPermissionLegacy(staticItems);
@@ -580,11 +598,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     return [];
   };
 
+  // 公開頁面直接渲染內容，不顯示布局
+  if (isPublicRoute) {
+    return <>{children}</>;
+  }
+
   return (
     <AntLayout style={{ minHeight: '100vh' }}>
-      <Sider 
-        trigger={null} 
-        collapsible 
+      <Sider
+        trigger={null}
+        collapsible
         collapsed={collapsed}
         theme="dark"
         style={{

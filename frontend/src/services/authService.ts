@@ -1,11 +1,12 @@
 /**
  * 認證服務 - 處理使用者登入、登出、權限檢查等功能
+ *
+ * @version 1.2.0
+ * @date 2026-01-11
  */
 import axios, { AxiosResponse } from 'axios';
 import { jwtDecode } from 'jwt-decode';
-
-// API 基礎 URL - 使用環境變數或代理
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001') + '/api';
+import { isAuthDisabled, API_BASE_URL } from '../config/env';
 
 // Token 相關常數
 const ACCESS_TOKEN_KEY = 'access_token';
@@ -89,7 +90,7 @@ class AuthService {
       response => response,
       async error => {
         if (error.response?.status === 401) {
-          const authDisabled = import.meta.env.VITE_AUTH_DISABLED === 'true';
+          const authDisabled = isAuthDisabled();
 
           if (!authDisabled) {
             // 只有在非開發模式下才清除認證資訊和重導向
@@ -155,7 +156,7 @@ class AuthService {
    */
   async logout(): Promise<void> {
     // 在開發模式下仍然嘗試調用 API，但不處理錯誤
-    const authDisabled = import.meta.env.VITE_AUTH_DISABLED === 'true';
+    const authDisabled = isAuthDisabled();
 
     try {
       await this.axios.post('/auth/logout');

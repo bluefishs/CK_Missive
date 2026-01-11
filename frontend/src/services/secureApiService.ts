@@ -4,11 +4,12 @@
  * 提供統一的 POST 方法 API 調用，包含 CSRF 保護
  * 重構版本：使用統一的 apiClient
  *
- * @version 2.0
- * @date 2026-01-06
+ * @version 2.1.0
+ * @date 2026-01-11
  */
 
 import { apiClient, API_BASE_URL } from '../api/client';
+import { isAuthDisabled } from '../config/env';
 
 // ============================================================================
 // 型別定義
@@ -33,7 +34,11 @@ interface SecureResponse<T = unknown> {
 
 class SecureApiService {
   private csrfToken: string | null = null;
-  private readonly authDisabled = import.meta.env.VITE_AUTH_DISABLED === 'true';
+
+  /** 檢查是否停用認證（環境變數或內網 IP） */
+  private get authDisabled(): boolean {
+    return isAuthDisabled();
+  }
 
   /**
    * 獲取 CSRF 令牌

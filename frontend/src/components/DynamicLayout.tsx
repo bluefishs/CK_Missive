@@ -32,6 +32,7 @@ import {
   PlusOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { API_BASE_URL } from '../config/env';
 
 const { Header, Sider, Content } = AntLayout;
 const { Title } = Typography;
@@ -71,7 +72,6 @@ const DynamicLayout: React.FC<LayoutProps> = ({ children }) => {
 
   const loadNavigationData = async () => {
     try {
-      const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001') + '/api';
       const response = await fetch(`${API_BASE_URL}/site-management/navigation`);
       if (response.ok) {
         const data = await response.json();

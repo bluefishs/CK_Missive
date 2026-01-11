@@ -1,11 +1,15 @@
 /**
  * 權限檢查 Hook
  * 提供動態權限檢查和導覽過濾功能
+ *
+ * @version 1.1.0
+ * @date 2026-01-11
  */
 import { useState, useEffect, useCallback } from 'react';
 import { authService } from '../services/authService';
 import { cacheService, CACHE_KEYS, CACHE_TTL } from '../services/cacheService';
 import { USER_ROLES } from '../constants/permissions';
+import { isAuthDisabled } from '../config/env';
 
 export interface NavigationItem {
   key: string;
@@ -36,7 +40,7 @@ export const usePermissions = () => {
       setLoading(true);
       setError(null);
 
-      const authDisabled = import.meta.env.VITE_AUTH_DISABLED === 'true';
+      const authDisabled = isAuthDisabled();
 
       // 在開發模式或無認證模式下，創建一個預設的管理員使用者
       let userInfo = authService.getUserInfo();
@@ -129,7 +133,7 @@ export const usePermissions = () => {
   // 檢查是否擁有特定權限 (暫時關閉權限控制，所有功能開放)
   const hasPermission = useCallback((permission: string | string[]): boolean => {
     // 暫時關閉權限檢查，所有功能都開放
-    const authDisabled = import.meta.env.VITE_AUTH_DISABLED === 'true';
+    const authDisabled = isAuthDisabled();
     if (authDisabled) {
       return true;
     }
@@ -152,7 +156,7 @@ export const usePermissions = () => {
   // 檢查是否擁有任一權限 (暫時關閉權限控制，所有功能開放)
   const hasAnyPermission = useCallback((permissions: string[]): boolean => {
     // 暫時關閉權限檢查，所有功能都開放
-    const authDisabled = import.meta.env.VITE_AUTH_DISABLED === 'true';
+    const authDisabled = isAuthDisabled();
     if (authDisabled) {
       return true;
     }
@@ -173,7 +177,7 @@ export const usePermissions = () => {
   // 過濾可見的導覽項目 (暫時關閉權限控制，顯示所有選單)
   const filterNavigationItems = useCallback((items: NavigationItem[]): NavigationItem[] => {
     // 暫時關閉權限檢查，顯示所有導覽項目
-    const authDisabled = import.meta.env.VITE_AUTH_DISABLED === 'true';
+    const authDisabled = isAuthDisabled();
     if (authDisabled) {
       return items.map(item => ({
         ...item,
@@ -203,7 +207,7 @@ export const usePermissions = () => {
   // 根據角色過濾導覽項目 (暫時關閉權限控制，顯示所有選單)
   const filterNavigationByRole = useCallback((items: NavigationItem[]): NavigationItem[] => {
     // 暫時關閉權限檢查，顯示所有導覽項目
-    const authDisabled = import.meta.env.VITE_AUTH_DISABLED === 'true';
+    const authDisabled = isAuthDisabled();
     if (authDisabled) {
       return filterNavigationItems(items);
     }
@@ -248,7 +252,7 @@ export const usePermissions = () => {
   // 檢查是否為管理員 (暫時關閉權限控制，所有人都是管理員)
   const isAdmin = useCallback((): boolean => {
     // 暫時關閉權限檢查，所有人都是管理員
-    const authDisabled = import.meta.env.VITE_AUTH_DISABLED === 'true';
+    const authDisabled = isAuthDisabled();
     if (authDisabled) {
       return true;
     }
@@ -258,7 +262,7 @@ export const usePermissions = () => {
   // 檢查是否為超級管理員 (暫時關閉權限控制，所有人都是超級管理員)
   const isSuperuser = useCallback((): boolean => {
     // 暫時關閉權限檢查，所有人都是超級管理員
-    const authDisabled = import.meta.env.VITE_AUTH_DISABLED === 'true';
+    const authDisabled = isAuthDisabled();
     if (authDisabled) {
       return true;
     }
