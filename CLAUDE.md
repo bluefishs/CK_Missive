@@ -2,7 +2,8 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.0.0
+> **Claude Code 配置版本**: 1.3.0
+> **最後更新**: 2026-01-11
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase)
 
 ---
@@ -24,12 +25,14 @@ CK_Missive 是一套企業級公文管理系統，具備以下核心功能：
 
 | 指令 | 說明 | 檔案 |
 |------|------|------|
-| `/data-quality-check` | 資料品質檢查 | `.claude/commands/data-quality-check.md` |
-| `/db-backup` | 資料庫備份管理 | `.claude/commands/db-backup.md` |
-| `/csv-import-validate` | CSV 匯入驗證 | `.claude/commands/csv-import-validate.md` |
+| `/pre-dev-check` | ⚠️ **開發前強制檢查** (必用) | `.claude/commands/pre-dev-check.md` |
+| `/route-sync-check` | 前後端路由一致性檢查 | `.claude/commands/route-sync-check.md` |
 | `/api-check` | API 端點一致性檢查 | `.claude/commands/api-check.md` |
 | `/type-sync` | 型別同步檢查 | `.claude/commands/type-sync.md` |
 | `/dev-check` | 開發環境檢查 | `.claude/commands/dev-check.md` |
+| `/data-quality-check` | 資料品質檢查 | `.claude/commands/data-quality-check.md` |
+| `/db-backup` | 資料庫備份管理 | `.claude/commands/db-backup.md` |
+| `/csv-import-validate` | CSV 匯入驗證 | `.claude/commands/csv-import-validate.md` |
 
 ### 領域知識 Skills (自動載入)
 
@@ -42,6 +45,7 @@ CK_Missive 是一套企業級公文管理系統，具備以下核心功能：
 | `api-development.md` | API, endpoint, 端點 | API 開發規範 |
 | `database-schema.md` | schema, 資料庫, PostgreSQL | 資料庫結構說明 |
 | `testing-guide.md` | test, 測試, pytest | 測試框架指南 |
+| `frontend-architecture.md` | 前端, React, 認證, auth, 架構 | **前端架構規範 (v1.0.0)** |
 
 ---
 
@@ -83,12 +87,14 @@ CK_Missive 是一套企業級公文管理系統，具備以下核心功能：
 ```
 .claude/
 ├── commands/                    # Slash Commands
-│   ├── data-quality-check.md   # 資料品質檢查
-│   ├── db-backup.md            # 資料庫備份管理
-│   ├── csv-import-validate.md  # CSV 匯入驗證
+│   ├── pre-dev-check.md        # ⚠️ 開發前強制檢查 (必用)
+│   ├── route-sync-check.md     # 前後端路由一致性檢查
 │   ├── api-check.md            # API 端點一致性檢查
 │   ├── type-sync.md            # 型別同步檢查
-│   └── dev-check.md            # 開發環境檢查
+│   ├── dev-check.md            # 開發環境檢查
+│   ├── data-quality-check.md   # 資料品質檢查
+│   ├── db-backup.md            # 資料庫備份管理
+│   └── csv-import-validate.md  # CSV 匯入驗證
 ├── skills/                      # 領域知識 Skills
 │   ├── document-management.md  # 公文管理
 │   ├── calendar-integration.md # 行事曆整合
@@ -105,8 +111,83 @@ CK_Missive 是一套企業級公文管理系統，具備以下核心功能：
 │   ├── python-lint.ps1         # Python 檢查
 │   └── validate-file-location.ps1 # 檔案位置驗證
 ├── DEVELOPMENT_GUIDELINES.md   # 開發指引
+├── MANDATORY_CHECKLIST.md      # ⚠️ 強制性開發檢查清單 (必讀)
 └── settings.local.json         # 本地權限設定
 ```
+
+---
+
+## 🔐 認證與環境檢測規範
+
+### 環境類型定義
+
+| 環境類型 | 判斷條件 | 認證要求 |
+|----------|----------|----------|
+| `localhost` | hostname = localhost / 127.0.0.1 | Google OAuth |
+| `internal` | 內網 IP (10.x / 172.16-31.x / 192.168.x) | **免認證** |
+| `ngrok` | *.ngrok.io / *.ngrok-free.app | Google OAuth |
+| `public` | 其他 | Google OAuth |
+
+### 集中式認證檢測 (必須遵守)
+
+**所有認證相關判斷必須使用 `config/env.ts` 的共用函數：**
+
+```typescript
+// ✅ 正確 - 使用共用函數
+import { isAuthDisabled, isInternalIP, detectEnvironment } from '../config/env';
+
+const authDisabled = isAuthDisabled();  // 自動判斷是否停用認證
+const envType = detectEnvironment();    // 取得環境類型
+
+// ❌ 禁止 - 自行定義檢測邏輯
+const isInternal = () => { /* 重複的 IP 檢測邏輯 */ };
+const authDisabled = import.meta.env.VITE_AUTH_DISABLED === 'true';
+```
+
+### 內網 IP 規則
+
+```typescript
+// config/env.ts 中的標準定義
+const internalIPPatterns = [
+  /^10\./,                           // 10.0.0.0 - 10.255.255.255 (Class A)
+  /^172\.(1[6-9]|2[0-9]|3[0-1])\./,  // 172.16.0.0 - 172.31.255.255 (Class B)
+  /^192\.168\./                       // 192.168.0.0 - 192.168.255.255 (Class C)
+];
+```
+
+---
+
+## ⚠️ 開發前強制檢視 (MANDATORY)
+
+> **重要**：任何開發任務開始前，必須先完成對應規範檢視。
+
+### 強制檢查清單
+
+**檔案位置**: `.claude/MANDATORY_CHECKLIST.md`
+
+| 任務類型 | 必讀檢查清單 |
+|---------|-------------|
+| 新增前端路由/頁面 | 清單 A - 前端路由開發 |
+| 新增後端 API | 清單 B - 後端 API 開發 |
+| 新增/修改導覽項目 | 清單 C - 導覽項目變更 |
+| 修改認證/權限 | 清單 D - 認證權限變更 |
+| 資料匯入功能 | 清單 E - 資料匯入功能 |
+| 資料庫變更 | 清單 F - 資料庫變更 |
+| Bug 修復 | 清單 G - Bug 修復 |
+
+### 必須同步的三處位置
+
+新增導覽項目時，**必須同步更新**：
+
+1. `frontend/src/router/types.ts` - ROUTES 常數
+2. `frontend/src/router/AppRouter.tsx` - Route 元素
+3. `backend/app/scripts/init_navigation_data.py` - DEFAULT_NAVIGATION_ITEMS
+
+### 違規後果
+
+- 程式碼審查不通過
+- 前後端資料不同步
+- 系統運行異常
 
 ---
 
@@ -146,6 +227,7 @@ cd backend && python -m py_compile app/main.py
 
 | 文件 | 說明 |
 |------|------|
+| `.claude/MANDATORY_CHECKLIST.md` | ⚠️ **強制性開發檢查清單** (開發前必讀) |
 | `docs/DEVELOPMENT_STANDARDS.md` | 統一開發規範總綱 |
 | `docs/specifications/API_ENDPOINT_CONSISTENCY.md` | API 端點一致性 v2.0.0 |
 | `docs/specifications/TYPE_CONSISTENCY.md` | 型別一致性規範 |
@@ -187,4 +269,4 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 ---
 
 *配置維護: Claude Code Assistant*
-*最後更新: 2026-01-09*
+*最後更新: 2026-01-11*

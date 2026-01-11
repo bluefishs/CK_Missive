@@ -1,6 +1,9 @@
 /**
  * 環境變數配置
  * 統一管理所有環境變數存取，避免 TypeScript 索引簽名錯誤
+ *
+ * @version 2.0.0
+ * @date 2026-01-11
  */
 
 // 安全獲取環境變數的輔助函數
@@ -8,15 +11,94 @@ const getEnvVar = (key: string): string | undefined => {
   return import.meta.env[key] as string | undefined;
 };
 
+// ============================================================================
 // API 配置
+// ============================================================================
 export const API_BASE_URL = (getEnvVar('VITE_API_BASE_URL') || 'http://localhost:8001') + '/api';
 export const VITE_API_BASE_URL = getEnvVar('VITE_API_BASE_URL') || 'http://localhost:8001';
 
+// ============================================================================
 // 認證配置
-export const AUTH_DISABLED = getEnvVar('VITE_AUTH_DISABLED') === 'true';
+// ============================================================================
+export const AUTH_DISABLED_ENV = getEnvVar('VITE_AUTH_DISABLED') === 'true';
 export const GOOGLE_CLIENT_ID = getEnvVar('VITE_GOOGLE_CLIENT_ID') || '';
 
+/**
+ * 檢測是否為內網 IP
+ * 內網 IP 規則：
+ * - 10.x.x.x (Class A private)
+ * - 172.16-31.x.x (Class B private)
+ * - 192.168.x.x (Class C private)
+ *
+ * 開發模式（DEV=true）下，localhost 也視為內網環境
+ */
+export const isInternalIP = (): boolean => {
+  if (typeof window === 'undefined') return false;
+
+  const hostname = window.location.hostname;
+
+  // 開發模式下，localhost 視為內網環境（自動獲得 admin 權限）
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    // 僅在 Vite 開發模式下視為內網
+    return import.meta.env.DEV === true;
+  }
+
+  // 內網 IP 範圍檢測
+  const internalIPPatterns = [
+    /^10\./,                           // 10.0.0.0 - 10.255.255.255
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./,  // 172.16.0.0 - 172.31.255.255
+    /^192\.168\./                       // 192.168.0.0 - 192.168.255.255
+  ];
+
+  return internalIPPatterns.some(pattern => pattern.test(hostname));
+};
+
+/**
+ * 檢測環境類型
+ * - localhost: 本機開發（開發模式下自動繞過認證）
+ * - internal: 內網存取（自動繞過認證）
+ * - ngrok: ngrok 隧道
+ * - public: 公網存取
+ */
+export type EnvironmentType = 'localhost' | 'internal' | 'ngrok' | 'public';
+
+export const detectEnvironment = (): EnvironmentType => {
+  if (typeof window === 'undefined') return 'localhost';
+
+  const hostname = window.location.hostname;
+
+  // localhost/127.0.0.1 在開發模式視為 internal，生產模式視為 localhost
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return import.meta.env.DEV === true ? 'internal' : 'localhost';
+  }
+
+  if (hostname.endsWith('.ngrok.io') || hostname.endsWith('.ngrok-free.app')) {
+    return 'ngrok';
+  }
+
+  if (isInternalIP()) {
+    return 'internal';
+  }
+
+  return 'public';
+};
+
+/**
+ * 檢查是否應該停用認證
+ * 當以下任一條件成立時，停用認證：
+ * 1. 環境變數 VITE_AUTH_DISABLED=true
+ * 2. 從內網 IP 存取
+ */
+export const isAuthDisabled = (): boolean => {
+  return AUTH_DISABLED_ENV || isInternalIP();
+};
+
+// 向後相容：保留舊的 AUTH_DISABLED 常數（但建議改用 isAuthDisabled() 函數）
+export const AUTH_DISABLED = AUTH_DISABLED_ENV;
+
+// ============================================================================
 // 開發環境配置
+// ============================================================================
 export const IS_DEV = import.meta.env.DEV === true;
 export const NODE_ENV = getEnvVar('NODE_ENV') || 'development';
 
@@ -33,8 +115,13 @@ export default {
   API_BASE_URL,
   VITE_API_BASE_URL,
   AUTH_DISABLED,
+  AUTH_DISABLED_ENV,
   GOOGLE_CLIENT_ID,
   IS_DEV,
   NODE_ENV,
   ENV_CONFIG,
+  // 函數
+  isInternalIP,
+  isAuthDisabled,
+  detectEnvironment,
 };
