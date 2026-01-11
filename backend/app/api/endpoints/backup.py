@@ -10,7 +10,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from app.core.auth import get_current_user
+from app.api.endpoints.auth import get_current_user
 from app.services.backup_service import backup_service
 
 router = APIRouter()

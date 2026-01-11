@@ -2,111 +2,193 @@
 資料庫備份排程器
 提供每日自動備份功能
 
-@version 1.0.0
+使用 asyncio 實現，與其他排程器保持一致
+
+@version 1.1.0
 @date 2026-01-11
 """
 
+import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, time, timedelta
 from typing import Optional
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
 
 from app.services.backup_service import backup_service
 
 logger = logging.getLogger(__name__)
 
-# 排程器實例
-backup_scheduler: Optional[AsyncIOScheduler] = None
 
+class BackupScheduler:
+    """備份排程器"""
 
-async def perform_daily_backup():
-    """
-    執行每日備份任務
+    def __init__(self, backup_hour: int = 2, backup_minute: int = 0):
+        """
+        初始化備份排程器
 
-    此函數由排程器自動觸發
-    """
-    logger.info(f"[{datetime.now()}] 開始執行每日自動備份...")
+        Args:
+            backup_hour: 備份執行小時 (0-23)，預設 2 點
+            backup_minute: 備份執行分鐘 (0-59)，預設 0 分
+        """
+        self.backup_hour = backup_hour
+        self.backup_minute = backup_minute
+        self.is_running = False
+        self._task: Optional[asyncio.Task] = None
+        self._last_backup_time: Optional[datetime] = None
+        self._backup_stats = {
+            'total_backups': 0,
+            'successful_backups': 0,
+            'failed_backups': 0,
+            'last_backup_result': None
+        }
 
-    try:
-        result = await backup_service.create_backup(
-            include_database=True,
-            include_attachments=True,
-            retention_days=7  # 保留 7 天
+    def _get_next_backup_time(self) -> datetime:
+        """計算下次備份時間"""
+        now = datetime.now()
+        backup_time = now.replace(
+            hour=self.backup_hour,
+            minute=self.backup_minute,
+            second=0,
+            microsecond=0
         )
 
-        if result.get("success"):
-            db_info = result.get("database_backup", {})
-            att_info = result.get("attachments_backup", {})
+        # 如果今天的備份時間已過，則設定為明天
+        if backup_time <= now:
+            backup_time += timedelta(days=1)
 
-            logger.info(
-                f"✅ 每日備份完成 - "
-                f"資料庫: {db_info.get('filename', 'N/A')} ({db_info.get('size_kb', 0)} KB), "
-                f"附件: {att_info.get('dirname', 'N/A')} ({att_info.get('file_count', 0)} 檔案)"
+        return backup_time
+
+    def _get_seconds_until_backup(self) -> float:
+        """計算距離下次備份的秒數"""
+        next_backup = self._get_next_backup_time()
+        delta = next_backup - datetime.now()
+        return max(delta.total_seconds(), 0)
+
+    async def _perform_backup(self):
+        """執行備份任務"""
+        logger.info(f"[{datetime.now()}] 開始執行每日自動備份...")
+        self._backup_stats['total_backups'] += 1
+
+        try:
+            result = await backup_service.create_backup(
+                include_database=True,
+                include_attachments=True,
+                retention_days=7  # 保留 7 天
             )
-        else:
-            errors = result.get("errors", [])
-            logger.error(f"❌ 每日備份失敗: {errors}")
 
-    except Exception as e:
-        logger.exception(f"❌ 每日備份發生例外: {e}")
+            self._last_backup_time = datetime.now()
+            self._backup_stats['last_backup_result'] = result
+
+            if result.get("success"):
+                self._backup_stats['successful_backups'] += 1
+                db_info = result.get("database_backup", {})
+                att_info = result.get("attachments_backup", {})
+
+                logger.info(
+                    f"✅ 每日備份完成 - "
+                    f"資料庫: {db_info.get('filename', 'N/A')} ({db_info.get('size_kb', 0)} KB), "
+                    f"附件: {att_info.get('dirname', 'N/A')} ({att_info.get('file_count', 0)} 檔案)"
+                )
+            else:
+                self._backup_stats['failed_backups'] += 1
+                errors = result.get("errors", [])
+                logger.error(f"❌ 每日備份失敗: {errors}")
+
+        except Exception as e:
+            self._backup_stats['failed_backups'] += 1
+            self._backup_stats['last_backup_result'] = {"success": False, "error": str(e)}
+            logger.exception(f"❌ 每日備份發生例外: {e}")
+
+    async def _scheduler_loop(self):
+        """排程器主迴圈"""
+        while self.is_running:
+            try:
+                # 計算等待時間
+                wait_seconds = self._get_seconds_until_backup()
+                next_backup = self._get_next_backup_time()
+
+                logger.info(
+                    f"📅 下次備份時間: {next_backup.strftime('%Y-%m-%d %H:%M:%S')} "
+                    f"(約 {wait_seconds / 3600:.1f} 小時後)"
+                )
+
+                # 等待到備份時間
+                await asyncio.sleep(wait_seconds)
+
+                # 執行備份
+                if self.is_running:
+                    await self._perform_backup()
+
+            except asyncio.CancelledError:
+                logger.info("備份排程器迴圈被取消")
+                break
+            except Exception as e:
+                logger.exception(f"備份排程器迴圈發生錯誤: {e}")
+                # 發生錯誤時等待 5 分鐘後重試
+                await asyncio.sleep(300)
+
+    async def start(self):
+        """啟動排程器"""
+        if self.is_running:
+            logger.warning("備份排程器已經在運行中")
+            return
+
+        self.is_running = True
+        self._task = asyncio.create_task(self._scheduler_loop())
+        next_backup = self._get_next_backup_time()
+        logger.info(
+            f"✅ 備份排程器已啟動 "
+            f"(每日 {self.backup_hour:02d}:{self.backup_minute:02d} 執行，"
+            f"下次: {next_backup.strftime('%Y-%m-%d %H:%M:%S')})"
+        )
+
+    async def stop(self):
+        """停止排程器"""
+        if not self.is_running:
+            return
+
+        self.is_running = False
+        if self._task:
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
+            self._task = None
+
+        logger.info("✅ 備份排程器已停止")
+
+    def get_status(self) -> dict:
+        """取得排程器狀態"""
+        return {
+            "running": self.is_running,
+            "backup_time": f"{self.backup_hour:02d}:{self.backup_minute:02d}",
+            "next_backup": self._get_next_backup_time().isoformat() if self.is_running else None,
+            "last_backup": self._last_backup_time.isoformat() if self._last_backup_time else None,
+            "stats": self._backup_stats
+        }
+
+
+# 全域排程器實例
+_backup_scheduler: Optional[BackupScheduler] = None
 
 
 async def start_backup_scheduler():
-    """
-    啟動備份排程器
-
-    預設排程: 每日凌晨 2:00 執行備份
-    """
-    global backup_scheduler
-
-    if backup_scheduler is not None and backup_scheduler.running:
-        logger.warning("備份排程器已在運行中")
-        return
-
-    backup_scheduler = AsyncIOScheduler()
-
-    # 每日凌晨 2:00 執行
-    backup_scheduler.add_job(
-        perform_daily_backup,
-        CronTrigger(hour=2, minute=0),
-        id="daily_backup",
-        name="每日資料庫備份",
-        replace_existing=True
-    )
-
-    backup_scheduler.start()
-    logger.info("✅ 備份排程器已啟動 (每日 02:00 執行)")
+    """啟動備份排程器"""
+    global _backup_scheduler
+    if _backup_scheduler is None:
+        _backup_scheduler = BackupScheduler(backup_hour=2, backup_minute=0)
+    await _backup_scheduler.start()
 
 
 async def stop_backup_scheduler():
     """停止備份排程器"""
-    global backup_scheduler
-
-    if backup_scheduler is not None:
-        backup_scheduler.shutdown(wait=False)
-        backup_scheduler = None
-        logger.info("✅ 備份排程器已停止")
+    global _backup_scheduler
+    if _backup_scheduler is not None:
+        await _backup_scheduler.stop()
 
 
 def get_backup_scheduler_status() -> dict:
-    """
-    取得備份排程器狀態
-
-    Returns:
-        排程器狀態資訊
-    """
-    if backup_scheduler is None:
-        return {"running": False, "next_run": None}
-
-    job = backup_scheduler.get_job("daily_backup")
-    next_run = None
-
-    if job and job.next_run_time:
-        next_run = job.next_run_time.isoformat()
-
-    return {
-        "running": backup_scheduler.running,
-        "next_run": next_run,
-        "job_count": len(backup_scheduler.get_jobs())
-    }
+    """取得備份排程器狀態"""
+    if _backup_scheduler is None:
+        return {"running": False, "next_backup": None}
+    return _backup_scheduler.get_status()
