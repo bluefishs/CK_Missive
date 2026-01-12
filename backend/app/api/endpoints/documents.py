@@ -1,14 +1,21 @@
 """
 公文管理 API 端點 (已重構)
+
+@version 2.0.0 - 改善異常處理
+@date 2026-01-12
 """
+import logging
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.db.database import get_async_db
 from app.core.dependencies import require_auth
+from app.core.exceptions import DatabaseException
 from app.extended.models import User
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # 暫時移除DocumentService依賴項
@@ -62,52 +69,108 @@ async def get_documents_years(
 
 @router.get("/agencies-dropdown")
 async def get_agencies_dropdown(
-    limit: int = Query(500, description="限制數量"),
+    search: Optional[str] = Query(None, description="搜尋關鍵字"),
+    page: int = Query(1, ge=1, description="頁碼"),
+    limit: int = Query(50, ge=1, le=200, description="每頁筆數"),
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_auth())
 ):
-    """取得機關下拉選單"""
-    from sqlalchemy import select
+    """取得機關下拉選單（支援搜尋與分頁）"""
+    from sqlalchemy import select, func, or_
     from app.extended.models import GovernmentAgency
     try:
-        query = select(GovernmentAgency).limit(limit)
+        # 基本查詢
+        base_query = select(GovernmentAgency)
+        count_query = select(func.count()).select_from(GovernmentAgency)
+
+        # 搜尋過濾
+        if search:
+            search_filter = or_(
+                GovernmentAgency.agency_name.ilike(f"%{search}%"),
+                GovernmentAgency.agency_code.ilike(f"%{search}%")
+            )
+            base_query = base_query.where(search_filter)
+            count_query = count_query.where(search_filter)
+
+        # 取得總數
+        total_result = await db.execute(count_query)
+        total = total_result.scalar() or 0
+
+        # 分頁
+        offset = (page - 1) * limit
+        query = base_query.offset(offset).limit(limit).order_by(GovernmentAgency.agency_name)
         result = await db.execute(query)
         agencies = result.scalars().all()
 
-        return [
-            {
-                "id": agency.id,
-                "agency_name": agency.agency_name,
-                "agency_code": agency.agency_code or ""
-            }
-            for agency in agencies
-        ]
-    except Exception:
-        return []
+        return {
+            "items": [
+                {
+                    "id": agency.id,
+                    "agency_name": agency.agency_name,
+                    "agency_code": agency.agency_code or ""
+                }
+                for agency in agencies
+            ],
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "has_more": offset + len(agencies) < total
+        }
+    except SQLAlchemyError as e:
+        logger.error(f"資料庫查詢機關失敗: {e}")
+        raise DatabaseException("查詢機關資料失敗")
 
 @router.get("/contract-projects-dropdown")
 async def get_contract_projects_dropdown(
-    limit: int = Query(1000, description="限制數量"),
+    search: Optional[str] = Query(None, description="搜尋關鍵字"),
+    page: int = Query(1, ge=1, description="頁碼"),
+    limit: int = Query(50, ge=1, le=200, description="每頁筆數"),
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_auth())
 ):
-    """取得承攬案件下拉選單"""
-    from sqlalchemy import select
+    """取得承攬案件下拉選單（支援搜尋與分頁）"""
+    from sqlalchemy import select, func, or_
     from app.extended.models import ContractProject
     try:
-        query = select(ContractProject).limit(limit)
+        # 基本查詢
+        base_query = select(ContractProject)
+        count_query = select(func.count()).select_from(ContractProject)
+
+        # 搜尋過濾
+        if search:
+            search_filter = or_(
+                ContractProject.project_name.ilike(f"%{search}%"),
+                ContractProject.project_code.ilike(f"%{search}%")
+            )
+            base_query = base_query.where(search_filter)
+            count_query = count_query.where(search_filter)
+
+        # 取得總數
+        total_result = await db.execute(count_query)
+        total = total_result.scalar() or 0
+
+        # 分頁
+        offset = (page - 1) * limit
+        query = base_query.offset(offset).limit(limit).order_by(ContractProject.project_name)
         result = await db.execute(query)
         projects = result.scalars().all()
 
-        return [
-            {
-                "id": project.id,
-                "project_name": project.project_name,
-                "project_code": project.project_code or ""
-            }
-            for project in projects
-        ]
-    except Exception:
-        return []
+        return {
+            "items": [
+                {
+                    "id": project.id,
+                    "project_name": project.project_name,
+                    "project_code": project.project_code or ""
+                }
+                for project in projects
+            ],
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "has_more": offset + len(projects) < total
+        }
+    except SQLAlchemyError as e:
+        logger.error(f"資料庫查詢承攬案件失敗: {e}")
+        raise DatabaseException("查詢承攬案件資料失敗")
 
 # ... (其他端點 GET/id, PUT, DELETE 也將依此模式重構) ...

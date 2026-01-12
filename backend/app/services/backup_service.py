@@ -35,13 +35,13 @@ class BackupService:
         self.backup_script = self.project_root / "scripts" / "backup" / "db_backup.ps1"
         self.restore_script = self.project_root / "scripts" / "backup" / "db_restore.ps1"
 
-        # 資料庫連線設定
-        self.db_user = "ck_user"
-        self.db_password = "ck_password_2024"
-        self.db_name = "ck_documents"
+        # 資料庫連線設定 - 從 settings 讀取，不再硬編碼
+        self.db_user = settings.POSTGRES_USER
+        self.db_password = settings.POSTGRES_PASSWORD
+        self.db_name = settings.POSTGRES_DB
         self.container_name = "ck_missive_postgres_dev"
 
-        # 從環境變數讀取設定
+        # 從環境變數讀取設定 (覆蓋 settings 的值)
         self._load_env_config()
 
         # 確保目錄存在

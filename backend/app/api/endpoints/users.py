@@ -4,13 +4,15 @@
 使用者管理 API 端點
 
 使用統一回應格式和錯誤處理機制
+
+@version 2.0.0 - 整合 AuthService 密碼加密
+@date 2026-01-12
 """
 from fastapi import APIRouter, Depends, status, Body
 from typing import Optional
 from datetime import datetime
 from sqlalchemy import select, func, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
-from passlib.context import CryptContext
 from pydantic import BaseModel, Field
 
 from app.db.database import get_async_db
@@ -30,16 +32,14 @@ from app.core.exceptions import (
     ForbiddenException,
 )
 from app.core.dependencies import require_admin
+from app.core.auth_service import AuthService
 
 router = APIRouter()
 
-# 密碼加密
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 
 def get_password_hash(password: str) -> str:
-    """密碼加密"""
-    return pwd_context.hash(password)
+    """密碼加密 - 委託給 AuthService"""
+    return AuthService.get_password_hash(password)
 
 
 # ============================================================================
