@@ -235,14 +235,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         authDisabled
       });
 
-      if (authDisabled) {
-        // 開發模式：直接使用靜態導覽列，不進行權限過濾
-        console.log('🛠️ Development mode: Using static navigation without permission filtering');
-        const staticItems = getStaticMenuItems();
-        setMenuItems(staticItems);
-        console.log('📋 Static menu items loaded:', staticItems.length, 'items');
-        return;
-      }
+      // 開發模式也使用動態導覽列，確保與網站管理頁面一致
+      // if (authDisabled) {
+      //   console.log('🛠️ Development mode: Using static navigation');
+      //   const staticItems = getStaticMenuItems();
+      //   setMenuItems(staticItems);
+      //   return;
+      // }
 
       // 正常模式：使用 secureApiService 載入動態導覽列（與 SiteManagementPage 一致）
       navigationService.clearNavigationCache();
@@ -256,18 +255,27 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       console.log('📥 Raw navigation items received:', navigationItems.length, 'items');
 
       // 根據使用者權限和角色過濾導覽項目
-      let filteredItems = userPermissions
-        ? filterNavigationByRole(navigationItems)
-        : [];
+      let filteredItems: NavigationItem[];
 
-      // 如果過濾後沒有項目，顯示基本選單（已登入用戶至少能看到一些功能）
-      if (filteredItems.length === 0 && navigationItems.length > 0) {
-        console.log('⚠️ No items after permission filter, showing public items');
-        // 顯示不需要權限的項目，或 permission_required 為空的項目
-        filteredItems = navigationItems.filter(item => {
-          const permRequired = item.permission_required;
-          return !permRequired || !Array.isArray(permRequired) || permRequired.length === 0;
-        });
+      if (authDisabled) {
+        // 開發模式：不進行權限過濾，顯示所有導覽項目
+        console.log('🛠️ Development mode: Showing all navigation items without permission filtering');
+        filteredItems = navigationItems;
+      } else {
+        // 正式模式：根據權限過濾
+        filteredItems = userPermissions
+          ? filterNavigationByRole(navigationItems)
+          : [];
+
+        // 如果過濾後沒有項目，顯示基本選單（已登入用戶至少能看到一些功能）
+        if (filteredItems.length === 0 && navigationItems.length > 0) {
+          console.log('⚠️ No items after permission filter, showing public items');
+          // 顯示不需要權限的項目，或 permission_required 為空的項目
+          filteredItems = navigationItems.filter(item => {
+            const permRequired = item.permission_required;
+            return !permRequired || !Array.isArray(permRequired) || permRequired.length === 0;
+          });
+        }
       }
 
       // 轉換為 Ant Design Menu 格式
