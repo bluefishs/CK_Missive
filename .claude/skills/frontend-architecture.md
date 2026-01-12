@@ -1,7 +1,7 @@
 # 前端架構規範 (Frontend Architecture)
 
-> **版本**: 1.0.0
-> **更新日期**: 2026-01-11
+> **版本**: 1.1.0
+> **更新日期**: 2026-01-12
 > **適用範圍**: frontend/src/**
 
 ---
@@ -17,7 +17,9 @@ frontend/src/
 │   ├── common/           # 共用元件
 │   ├── document/         # 公文相關元件
 │   ├── hoc/              # 高階元件 (HOC)
-│   └── Layout.tsx        # 主佈局元件
+│   ├── Layout.tsx        # 主佈局元件 ⭐ (AppRouter 使用)
+│   ├── DynamicLayout.tsx # 動態佈局元件 (備用)
+│   └── site-management/  # 網站管理元件
 ├── config/               # 配置檔案
 │   ├── env.ts           # 環境變數與認證函數 ⭐
 │   ├── navigationConfig.ts
@@ -27,14 +29,16 @@ frontend/src/
 │   ├── useAuthGuard.ts  # 認證守衛
 │   └── usePermissions.ts # 權限檢查
 ├── pages/               # 頁面元件
+│   └── SiteManagementPage.tsx # 網站管理頁面 ⭐
 ├── router/              # 路由配置
-│   ├── AppRouter.tsx
+│   ├── AppRouter.tsx    # 主路由（使用 Layout.tsx）⭐
 │   ├── ProtectedRoute.tsx
 │   └── types.ts
 ├── services/            # 業務服務
 │   ├── authService.ts   # 認證服務
 │   ├── cacheService.ts  # 快取服務
-│   └── secureApiService.ts # 安全 API 服務
+│   ├── navigationService.ts # 導覽服務
+│   └── secureApiService.ts # 安全 API 服務 ⭐
 ├── types/               # TypeScript 型別
 └── utils/               # 工具函數
 ```
@@ -177,7 +181,83 @@ const result = await axios.post('/api/documents/list', params);
 
 ---
 
-## 六、相關文件
+## 六、導覽系統架構 (Navigation System)
+
+### 6.1 核心元件關係
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                        AppRouter.tsx                              │
+│                      (使用 Layout.tsx)                            │
+└──────────────────────────────────────────────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                        Layout.tsx ⭐                              │
+│              (主佈局元件 - 側邊導覽列)                              │
+│                                                                   │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │  secureApiService.getNavigationItems()                       │ │
+│  │  ↓                                                           │ │
+│  │  convertToMenuItems() → Ant Design Menu                      │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+│                                                                   │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │  window.addEventListener('navigation-updated', handler)      │ │
+│  │  ↑ 監聽來自 SiteManagementPage 的更新事件                    │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────┘
+                               │
+        ┌──────────────────────┴──────────────────────┐
+        ▼                                              ▼
+┌─────────────────────┐                    ┌─────────────────────┐
+│  secureApiService   │                    │ SiteManagementPage  │
+│  (統一 API 服務)    │                    │   (網站管理頁面)     │
+│                     │                    │                     │
+│  GET /navigation/   │ ◄─────────────────►│  CRUD 導覽項目      │
+│       items         │                    │                     │
+│                     │                    │  dispatchEvent      │
+│                     │                    │  ('navigation-     │
+│                     │                    │   updated')         │
+└─────────────────────┘                    └─────────────────────┘
+```
+
+### 6.2 重要檔案說明
+
+| 檔案 | 說明 | 注意事項 |
+|------|------|----------|
+| `components/Layout.tsx` | 主佈局元件 | **AppRouter 使用此元件**，非 DynamicLayout |
+| `components/DynamicLayout.tsx` | 動態佈局元件 | 備用，目前未被使用 |
+| `pages/SiteManagementPage.tsx` | 網站管理頁面 | 管理導覽項目，觸發更新事件 |
+| `services/secureApiService.ts` | 安全 API 服務 | Layout 與 SiteManagement 共用 |
+
+### 6.3 導覽更新機制
+
+```typescript
+// SiteManagementPage.tsx - 觸發更新事件
+window.dispatchEvent(new CustomEvent('navigation-updated'));
+
+// Layout.tsx - 監聯更新事件
+useEffect(() => {
+  const handleNavigationUpdate = () => {
+    loadNavigationData(); // 重新載入導覽資料
+  };
+  window.addEventListener('navigation-updated', handleNavigationUpdate);
+  return () => {
+    window.removeEventListener('navigation-updated', handleNavigationUpdate);
+  };
+}, []);
+```
+
+### 6.4 開發模式行為
+
+- **開發模式** (`AUTH_DISABLED=true`)：使用動態 API 載入，跳過權限過濾
+- **正式模式**：使用動態 API 載入，根據用戶權限過濾導覽項目
+- **API 失敗時**：使用靜態選單 `getStaticMenuItems()` 作為備用
+
+---
+
+## 七、相關文件
 
 - `CLAUDE.md` - 專案配置總覽
 - `docs/DEVELOPMENT_STANDARDS.md` - 開發規範總綱

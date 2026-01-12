@@ -106,6 +106,18 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     }
   }, [userPermissions, permissionsLoading]);
 
+  // 監聽導覽更新事件（從網站管理頁面觸發）
+  useEffect(() => {
+    const handleNavigationUpdate = () => {
+      console.log('🔄 Navigation update event received, reloading navigation data...');
+      loadNavigationData();
+    };
+    window.addEventListener('navigation-updated', handleNavigationUpdate);
+    return () => {
+      window.removeEventListener('navigation-updated', handleNavigationUpdate);
+    };
+  }, []);
+
   // 載入用戶資訊
   const loadUserInfo = () => {
     let userInfo = authService.getUserInfo();

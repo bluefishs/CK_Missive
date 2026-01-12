@@ -230,11 +230,33 @@ def clean_string(value: Any) -> Optional[str]:
 **錯誤**: `<div> cannot appear as descendant of <p>`
 **解法**: 將 `<p>` 改為 `<div>` 容器
 
-### 4. 機關關聯遺失
+### 4. 導覽列與網站管理不一致
+**原因**: 修改了錯誤的佈局元件（DynamicLayout.tsx 而非 Layout.tsx）
+**解法**:
+- AppRouter 使用 `Layout.tsx`，**非** `DynamicLayout.tsx`
+- 修改導覽相關功能時，必須修改 `Layout.tsx`
+- 確保 `Layout.tsx` 監聽 `navigation-updated` 事件
+
+### 5. 導覽更新後頁面未即時反映
+**原因**: 缺少事件監聽器
+**解法**: 在 Layout.tsx 加入事件監聽：
+```typescript
+useEffect(() => {
+  const handleNavigationUpdate = () => {
+    loadNavigationData(); // 重新載入導覽資料
+  };
+  window.addEventListener('navigation-updated', handleNavigationUpdate);
+  return () => {
+    window.removeEventListener('navigation-updated', handleNavigationUpdate);
+  };
+}, []);
+```
+
+### 6. 機關關聯遺失
 **原因**: 匯入時未使用智慧匹配
 **解法**: 整合 `AgencyMatcher` / `ProjectMatcher`
 
-### 5. 🔴 交易污染 (Transaction Pollution) - 嚴重
+### 7. 🔴 交易污染 (Transaction Pollution) - 嚴重
 
 **錯誤訊息**: `InFailedSQLTransactionError: current transaction is aborted, commands ignored until end of transaction block`
 

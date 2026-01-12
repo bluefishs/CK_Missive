@@ -76,8 +76,25 @@
 
 ### 必讀文件
 - [ ] `.claude/commands/route-sync-check.md`
+- [ ] `.claude/skills/frontend-architecture.md`（六、導覽系統架構）
 - [ ] `backend/app/scripts/init_navigation_data.py`
 - [ ] `frontend/src/router/types.ts`
+
+### ⚠️ 重要架構須知
+
+**主佈局元件是 `Layout.tsx`，非 `DynamicLayout.tsx`**
+
+```
+AppRouter.tsx → Layout.tsx → 側邊導覽列
+                    ↓
+             secureApiService.getNavigationItems()
+                    ↓
+             convertToMenuItems() → Ant Design Menu
+```
+
+**導覽更新事件機制：**
+- `SiteManagementPage` 觸發：`window.dispatchEvent(new CustomEvent('navigation-updated'))`
+- `Layout.tsx` 監聽：`window.addEventListener('navigation-updated', handler)`
 
 ### 同步檢查項目
 
@@ -301,6 +318,7 @@ cd backend && python -m py_compile app/main.py
 
 | 版本 | 日期 | 說明 |
 |------|------|------|
+| 1.1.0 | 2026-01-12 | 新增導覽系統架構說明（Layout.tsx vs DynamicLayout.tsx） |
 | 1.0.0 | 2026-01-11 | 初版建立 |
 
 ---
