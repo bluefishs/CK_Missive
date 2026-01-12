@@ -32,7 +32,7 @@ import {
   PlusOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { navigationService } from '../services/navigationService';
+import { secureApiService } from '../services/secureApiService';
 
 const { Header, Sider, Content } = AntLayout;
 const { Title } = Typography;
@@ -66,12 +66,13 @@ const DynamicLayout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
 
   // 載入動態導覽列數據
-  const loadNavigationData = useCallback(async (useCache = true) => {
+  const loadNavigationData = useCallback(async () => {
     setLoading(true);
     try {
-      // 使用 navigationService 統一管理導覽資料和快取
-      const items = await navigationService.getNavigationItems(useCache);
-      const dynamicMenuItems = convertToMenuItems(items as unknown as NavigationItem[]);
+      // 直接使用 secureApiService，確保與網站管理頁面一致
+      const result = await secureApiService.getNavigationItems() as { items?: NavigationItem[] };
+      const items = result.items || [];
+      const dynamicMenuItems = convertToMenuItems(items);
       setMenuItems(dynamicMenuItems);
     } catch (error) {
       console.error('Failed to load navigation:', error);
@@ -81,17 +82,15 @@ const DynamicLayout: React.FC<LayoutProps> = ({ children }) => {
     }
   }, []);
 
-  // 初始載入 - 強制從 API 載入，不使用快取
+  // 初始載入
   useEffect(() => {
-    // 清除舊快取，確保載入最新資料
-    navigationService.clearNavigationCache();
-    loadNavigationData(false);
+    loadNavigationData();
   }, [loadNavigationData]);
 
-  // 監聽導覽更新事件（從網站管理頁面觸發）
+  // 監聯導覽更新事件（從網站管理頁面觸發）
   useEffect(() => {
     const handleNavigationUpdate = () => {
-      loadNavigationData(false); // 強制重新載入，不使用快取
+      loadNavigationData(); // 重新載入導覽資料
     };
     window.addEventListener('navigation-updated', handleNavigationUpdate);
     return () => {
