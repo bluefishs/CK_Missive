@@ -192,6 +192,14 @@ async def navigation_action(
             excluded_fields = {"id", "created_at", "updated_at"}
             update_data = {k: v for k, v in data.items() if k not in excluded_fields}
 
+            # 型別轉換：確保數值欄位為正確型別
+            if "sort_order" in update_data and update_data["sort_order"] is not None:
+                update_data["sort_order"] = int(update_data["sort_order"])
+            if "level" in update_data and update_data["level"] is not None:
+                update_data["level"] = int(update_data["level"])
+            if "parent_id" in update_data and update_data["parent_id"] is not None:
+                update_data["parent_id"] = int(update_data["parent_id"])
+
             # 取得新的 parent_id 和 sort_order
             new_parent_id = update_data.get("parent_id", old_parent_id)
             new_sort_order = update_data.get("sort_order", old_sort_order)
@@ -251,19 +259,19 @@ async def navigation_action(
                     continue
 
                 result = await session.execute(
-                    select(SiteNavigationItem).filter(SiteNavigationItem.id == item_id)
+                    select(SiteNavigationItem).filter(SiteNavigationItem.id == int(item_id))
                 )
                 item = result.scalar_one_or_none()
                 if not item:
                     continue
 
-                # 更新排序相關欄位
-                if "sort_order" in item_data:
-                    item.sort_order = item_data["sort_order"]
+                # 更新排序相關欄位（確保型別正確）
+                if "sort_order" in item_data and item_data["sort_order"] is not None:
+                    item.sort_order = int(item_data["sort_order"])
                 if "parent_id" in item_data:
-                    item.parent_id = item_data["parent_id"]
-                if "level" in item_data:
-                    item.level = item_data["level"]
+                    item.parent_id = int(item_data["parent_id"]) if item_data["parent_id"] is not None else None
+                if "level" in item_data and item_data["level"] is not None:
+                    item.level = int(item_data["level"])
 
                 item.updated_at = datetime.utcnow()
 
