@@ -170,6 +170,8 @@ const NavigationManagementImproved: FC = () => {
 
       // 清除導覽快取，確保其他頁面能載入最新資料
       navigationService.clearNavigationCache();
+      // 觸發導覽更新事件，通知 DynamicLayout 重新載入
+      window.dispatchEvent(new CustomEvent('navigation-updated'));
       loadNavigation();
     } catch (error) {
       console.error('Submit error:', error);
@@ -185,6 +187,8 @@ const NavigationManagementImproved: FC = () => {
 
       // 清除導覽快取，確保其他頁面能載入最新資料
       navigationService.clearNavigationCache();
+      // 觸發導覽更新事件，通知 DynamicLayout 重新載入
+      window.dispatchEvent(new CustomEvent('navigation-updated'));
       loadNavigation();
     } catch (error) {
       console.error('Delete error:', error);
@@ -260,54 +264,75 @@ const NavigationManagementImproved: FC = () => {
     }
 
     if (dropPosition === 0) {
-      // Drop into target node
+      // Drop into target node (成為子項目)
       try {
         // 排除不應傳送的欄位：children, id, created_at, updated_at
         const { children: _children, id: _dragId, created_at: _ca, updated_at: _ua, ...itemData } = draggedItem;
+        // 計算新的 sort_order（放到目標的子項目最後）
+        const targetChildren = targetItem.children || [];
+        const newSortOrder = targetChildren.length > 0
+          ? Math.max(...targetChildren.map(c => c.sort_order)) + 1
+          : 1;
         await secureApiService.updateNavigationItem({
           ...itemData,
           id: dragKey,
-          parent_id: targetItem.id
+          parent_id: targetItem.id,
+          level: targetItem.level + 1,
+          sort_order: newSortOrder
         });
         message.success('已移入目標項目');
         navigationService.clearNavigationCache();
+        window.dispatchEvent(new CustomEvent('navigation-updated'));
         loadNavigation();
       } catch (error) {
         console.error('Move error:', error);
         message.error('移動失敗');
       }
     } else {
-      // Drop beside target
-      if (draggedItem.parent_id !== targetItem.parent_id) {
-        try {
-          // 排除不應傳送的欄位：children, id, created_at, updated_at
-          const { children: _children, id: _dragId2, created_at: _ca2, updated_at: _ua2, ...itemData } = draggedItem;
-          await secureApiService.updateNavigationItem({
-            ...itemData,
-            id: dragKey,
-            parent_id: targetItem.parent_id
-          });
-          message.success('已移動至新層級');
-          navigationService.clearNavigationCache();
-          loadNavigation();
-        } catch (error) {
-          console.error('Level change error:', error);
-          message.error('移動失敗');
-        }
+      // Drop beside target (同層重新排序或移動到其他層級)
+      try {
+        // 排除不應傳送的欄位：children, id, created_at, updated_at
+        const { children: _children, id: _dragId2, created_at: _ca2, updated_at: _ua2, ...itemData } = draggedItem;
+        // 計算新的 sort_order（放在目標項目的前後）
+        const newSortOrder = dropPosition < 0
+          ? targetItem.sort_order  // 放在前面，取相同排序（後端會調整）
+          : targetItem.sort_order + 1; // 放在後面
+        await secureApiService.updateNavigationItem({
+          ...itemData,
+          id: dragKey,
+          parent_id: targetItem.parent_id,
+          level: targetItem.level,
+          sort_order: newSortOrder
+        });
+        message.success('已調整順序');
+        navigationService.clearNavigationCache();
+        window.dispatchEvent(new CustomEvent('navigation-updated'));
+        loadNavigation();
+      } catch (error) {
+        console.error('Level change error:', error);
+        message.error('移動失敗');
       }
     }
     setIsDragging(false);
   };
 
   // Helper: 判斷導覽項目類型
+  // 優先判斷是否有子項目（Group），其次判斷路徑格式
   const getNavigationType = (item: NavigationItem): { type: 'tab' | 'page' | 'group'; tabKey?: string } => {
+    // 有子項目的都是 Group（無論是否有 path）
+    if (item.children && item.children.length > 0) {
+      return { type: 'group' };
+    }
+    // 無路徑的是 Group
     if (!item.path) {
       return { type: 'group' };
     }
+    // 路徑包含 ?tab= 的是 Tab
     if (item.path.includes('?tab=')) {
       const match = item.path.match(/\?tab=([^&]+)/);
       return { type: 'tab', tabKey: match?.[1] };
     }
+    // 其他的是 Page
     return { type: 'page' };
   };
 

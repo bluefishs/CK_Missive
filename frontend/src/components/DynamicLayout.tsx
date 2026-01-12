@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Layout as AntLayout, 
-  Menu, 
-  Typography, 
-  Button, 
-  Avatar, 
-  Dropdown, 
-  Badge, 
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Layout as AntLayout,
+  Menu,
+  Typography,
+  Button,
+  Avatar,
+  Dropdown,
+  Badge,
   Space,
   Spin
 } from 'antd';
-import { 
+import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   DashboardOutlined,
@@ -32,7 +32,7 @@ import {
   PlusOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { API_BASE_URL } from '../config/env';
+import { navigationService } from '../services/navigationService';
 
 const { Header, Sider, Content } = AntLayout;
 const { Title } = Typography;
@@ -66,28 +66,36 @@ const DynamicLayout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
 
   // 載入動態導覽列數據
-  useEffect(() => {
-    loadNavigationData();
-  }, []);
-
-  const loadNavigationData = async () => {
+  const loadNavigationData = useCallback(async (useCache = true) => {
+    setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/site-management/navigation`);
-      if (response.ok) {
-        const data = await response.json();
-        const dynamicMenuItems = convertToMenuItems(data.items || []);
-        setMenuItems(dynamicMenuItems);
-      } else {
-        console.error('Failed to load navigation data');
-        setMenuItems([]);
-      }
+      // 使用 navigationService 統一管理導覽資料和快取
+      const items = await navigationService.getNavigationItems(useCache);
+      const dynamicMenuItems = convertToMenuItems(items as unknown as NavigationItem[]);
+      setMenuItems(dynamicMenuItems);
     } catch (error) {
       console.error('Failed to load navigation:', error);
       setMenuItems([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // 初始載入
+  useEffect(() => {
+    loadNavigationData();
+  }, [loadNavigationData]);
+
+  // 監聽導覽更新事件（從網站管理頁面觸發）
+  useEffect(() => {
+    const handleNavigationUpdate = () => {
+      loadNavigationData(false); // 強制重新載入，不使用快取
+    };
+    window.addEventListener('navigation-updated', handleNavigationUpdate);
+    return () => {
+      window.removeEventListener('navigation-updated', handleNavigationUpdate);
+    };
+  }, [loadNavigationData]);
 
   // 圖示映射
   const getIcon = (iconName?: string) => {
