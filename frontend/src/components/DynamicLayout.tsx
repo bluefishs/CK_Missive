@@ -81,9 +81,11 @@ const DynamicLayout: React.FC<LayoutProps> = ({ children }) => {
     }
   }, []);
 
-  // 初始載入
+  // 初始載入 - 強制從 API 載入，不使用快取
   useEffect(() => {
-    loadNavigationData();
+    // 清除舊快取，確保載入最新資料
+    navigationService.clearNavigationCache();
+    loadNavigationData(false);
   }, [loadNavigationData]);
 
   // 監聽導覽更新事件（從網站管理頁面觸發）
