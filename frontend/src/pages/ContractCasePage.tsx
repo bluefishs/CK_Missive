@@ -42,6 +42,7 @@ import { ROUTES } from '../router/types';
 import ProjectVendorManagement from '../components/project/ProjectVendorManagement';
 import { useProjectsPage } from '../hooks';
 import { useAuthGuard } from '../hooks/useAuthGuard';
+import { useResponsive } from '../hooks/useResponsive';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -131,6 +132,9 @@ export const ContractCasePage: React.FC = () => {
   const { message } = App.useApp();
   const navigate = useNavigate();
   const [form] = Form.useForm();
+
+  // 📱 響應式設計
+  const { isMobile } = useResponsive();
 
   // 🔒 權限控制 Hook
   const { hasPermission } = useAuthGuard();
@@ -637,7 +641,8 @@ export const ContractCasePage: React.FC = () => {
               dataSource={projects}
               rowKey="id"
               pagination={false}
-              scroll={{ x: 1400 }}
+              scroll={{ x: isMobile ? 600 : 1400 }}
+              size={isMobile ? 'small' : 'middle'}
               onRow={(record) => ({
                 onClick: () => handleView(record),
                 style: { cursor: 'pointer' },
@@ -662,7 +667,7 @@ export const ContractCasePage: React.FC = () => {
         )}
       </Card>
 
-      {/* 新增/編輯/檢視模態框 */}
+      {/* 新增/編輯/檢視模態框 - 響應式 */}
       <Modal
         title={
           modalMode === 'view' ? '檢視專案詳情' :
@@ -676,7 +681,7 @@ export const ContractCasePage: React.FC = () => {
           form.resetFields();
         }}
         footer={null}
-        width={800}
+        width={isMobile ? '95%' : 800}
         destroyOnHidden
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit} initialValues={{ status: '執行中' }}>

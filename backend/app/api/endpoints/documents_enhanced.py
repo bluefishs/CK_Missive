@@ -841,8 +841,9 @@ async def get_popular_searches(
 # 公文 CRUD API（POST-only 資安機制）
 # ============================================================================
 
-# doc_type 白名單 - 與 DocumentType Enum 對齊
-VALID_DOC_TYPES = {"函", "發文", "收文", "開會通知單", "會勘通知單", "書函", "公告", "通知"}
+# doc_type 白名單 - 與 DocumentValidators.VALID_DOC_TYPES 對齊
+# 注意：「發文」和「收文」是 category（類別），不是 doc_type（公文類型）
+VALID_DOC_TYPES = {"函", "開會通知單", "會勘通知單", "書函", "公告", "令", "通知"}
 
 
 class DocumentCreateRequest(BaseModel):

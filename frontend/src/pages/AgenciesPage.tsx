@@ -53,6 +53,10 @@ export const AgenciesPage: React.FC = () => {
   const { message } = App.useApp();
   const [form] = Form.useForm();
 
+  // 響應式設計
+  const { isMobile, isTablet, responsiveValue } = useResponsive();
+  const pagePadding = responsiveValue({ mobile: 12, tablet: 16, desktop: 24 });
+
   // UI 狀態
   const [searchText, setSearchText] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
@@ -284,70 +288,123 @@ export const AgenciesPage: React.FC = () => {
     }
   };
 
-  // 表格欄位定義 - 含排序與篩選功能
-  const columns: TableColumnType<AgencyWithStats>[] = [
-    {
-      title: '機關名稱',
-      dataIndex: 'agency_name',
-      key: 'agency_name',
-      width: 280,
-      sorter: (a, b) => a.agency_name.localeCompare(b.agency_name, 'zh-TW'),
-      ...getColumnSearchProps('agency_name'),
-      render: (text: string, record: AgencyWithStats) => (
-        <div>
-          <div style={{ fontWeight: 500 }}>
-            {searchedColumn === 'agency_name' ? (
-              <Highlighter
-                highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
-                searchWords={[columnSearchText]}
-                autoEscape
-                textToHighlight={text || ''}
+  // 表格欄位定義 - 含排序與篩選功能（響應式）
+  const columns: TableColumnType<AgencyWithStats>[] = isMobile
+    ? [
+        // 手機版：簡化欄位
+        {
+          title: '機關資訊',
+          dataIndex: 'agency_name',
+          key: 'agency_name',
+          render: (text: string, record: AgencyWithStats) => (
+            <div>
+              <div style={{ fontWeight: 500 }}>{text}</div>
+              {record.agency_short_name && (
+                <Text type="secondary" style={{ fontSize: '12px' }}>
+                  簡稱: {record.agency_short_name}
+                </Text>
+              )}
+              <div style={{ marginTop: 4 }}>
+                <Tag icon={getCategoryIcon(record.category)} color="blue" style={{ fontSize: '11px' }}>
+                  {['其他機關', '教育機構', '社會團體'].includes(record.category) ? '其他單位' : record.category}
+                </Tag>
+              </div>
+            </div>
+          ),
+        },
+        {
+          title: '操作',
+          key: 'action',
+          width: 60,
+          align: 'center' as const,
+          render: (_: unknown, record: AgencyWithStats) => (
+            <Popconfirm
+              title="確定要刪除此機關單位？"
+              description="刪除後將無法復原"
+              onConfirm={(e) => {
+                e?.stopPropagation();
+                handleDelete(record.id);
+              }}
+              onCancel={(e) => e?.stopPropagation()}
+              okText="確定"
+              cancelText="取消"
+              okButtonProps={{ danger: true }}
+            >
+              <Button
+                type="link"
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
+                onClick={(e) => e.stopPropagation()}
               />
-            ) : text}
-          </div>
-          {record.agency_short_name && (
-            <Text type="secondary" style={{ fontSize: '12px' }}>
-              簡稱: {record.agency_short_name}
-            </Text>
-          )}
-        </div>
-      ),
-    },
-    {
-      title: '機關代碼',
-      dataIndex: 'agency_code',
-      key: 'agency_code',
-      width: 120,
-      align: 'center' as const,
-      ...getColumnSearchProps('agency_code'),
-      render: (code: string) => code || <Text type="secondary">-</Text>,
-    },
-    {
-      title: '分類',
-      dataIndex: 'category',
-      key: 'category',
-      width: 120,
-      align: 'center' as const,
-      filters: [
-        { text: '政府機關', value: '政府機關' },
-        { text: '民間企業', value: '民間企業' },
-        { text: '其他單位', value: '其他單位' },
-        // 相容舊分類資料
-        { text: '其他機關', value: '其他機關' },
-        { text: '教育機構', value: '教育機構' },
-        { text: '社會團體', value: '社會團體' },
-      ],
-      onFilter: (value, record) => record.category === value,
-      render: (category: string) => {
-        // 將舊分類映射到新分類顯示（其他機關/教育機構/社會團體 → 其他單位）
-        const displayCategory = ['其他機關', '教育機構', '社會團體'].includes(category) ? '其他單位' : category;
-        return (
-          <Tag icon={getCategoryIcon(category)} color="blue">
-            {displayCategory}
-          </Tag>
-        );
-      },
-    },
+            </Popconfirm>
+          ),
+        },
+      ]
+    : [
+        // 桌面版：完整欄位
+        {
+          title: '機關名稱',
+          dataIndex: 'agency_name',
+          key: 'agency_name',
+          width: 280,
+          sorter: (a, b) => a.agency_name.localeCompare(b.agency_name, 'zh-TW'),
+          ...getColumnSearchProps('agency_name'),
+          render: (text: string, record: AgencyWithStats) => (
+            <div>
+              <div style={{ fontWeight: 500 }}>
+                {searchedColumn === 'agency_name' ? (
+                  <Highlighter
+                    highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
+                    searchWords={[columnSearchText]}
+                    autoEscape
+                    textToHighlight={text || ''}
+                  />
+                ) : text}
+              </div>
+              {record.agency_short_name && (
+                <Text type="secondary" style={{ fontSize: '12px' }}>
+                  簡稱: {record.agency_short_name}
+                </Text>
+              )}
+            </div>
+          ),
+        },
+        {
+          title: '機關代碼',
+          dataIndex: 'agency_code',
+          key: 'agency_code',
+          width: 120,
+          align: 'center' as const,
+          ...getColumnSearchProps('agency_code'),
+          render: (code: string) => code || <Text type="secondary">-</Text>,
+        },
+        {
+          title: '分類',
+          dataIndex: 'category',
+          key: 'category',
+          width: 120,
+          align: 'center' as const,
+          filters: [
+            { text: '政府機關', value: '政府機關' },
+            { text: '民間企業', value: '民間企業' },
+            { text: '其他單位', value: '其他單位' },
+            // 相容舊分類資料
+            { text: '其他機關', value: '其他機關' },
+            { text: '教育機構', value: '教育機構' },
+            { text: '社會團體', value: '社會團體' },
+          ],
+          onFilter: (value, record) => record.category === value,
+          render: (category: string) => {
+            // 將舊分類映射到新分類顯示（其他機關/教育機構/社會團體 → 其他單位）
+            const displayCategory = ['其他機關', '教育機構', '社會團體'].includes(category) ? '其他單位' : category;
+            return (
+              <Tag icon={getCategoryIcon(category)} color="blue">
+                {displayCategory}
+              </Tag>
+            );
+          },
+        },
     // 註解隱藏: 機關類型 (primary_type) - 因公文尚未關聯機關ID，目前無法判斷發文/收文機關
     // {
     //   title: '機關類型',
@@ -460,54 +517,56 @@ export const AgenciesPage: React.FC = () => {
     : agencies;
 
   return (
-    <div style={{ padding: '24px' }}>
-      <div style={{ marginBottom: '24px' }}>
-        <Title level={2}>
-          <BankOutlined style={{ marginRight: '12px', color: '#1890ff' }} />
-          機關單位管理
+    <div style={{ padding: pagePadding }}>
+      <div style={{ marginBottom: isMobile ? 16 : 24 }}>
+        <Title level={isMobile ? 4 : 2}>
+          <BankOutlined style={{ marginRight: isMobile ? 8 : 12, color: '#1890ff' }} />
+          {isMobile ? '機關管理' : '機關單位管理'}
         </Title>
-        <Text type="secondary">
-          統計和管理公文往來的所有機關單位資訊
-        </Text>
+        {!isMobile && (
+          <Text type="secondary">
+            統計和管理公文往來的所有機關單位資訊
+          </Text>
+        )}
       </div>
 
-      {/* 統計卡片 - 依序：機關總數、政府機關、民間企業、其他單位 */}
+      {/* 統計卡片 - 響應式：手機2列、平板/桌面4列 */}
       {statistics && (
-        <Row gutter={16} style={{ marginBottom: '24px' }}>
-          <Col span={6}>
-            <Card>
+        <Row gutter={[isMobile ? 8 : 16, isMobile ? 8 : 16]} style={{ marginBottom: isMobile ? 16 : 24 }}>
+          <Col xs={12} sm={6}>
+            <Card size={isMobile ? 'small' : 'default'}>
               <Statistic
-                title="機關總數"
+                title={isMobile ? '總數' : '機關總數'}
                 value={statistics.total_agencies}
                 prefix={<BankOutlined />}
-                valueStyle={{ color: '#3f8600' }}
+                valueStyle={{ color: '#3f8600', fontSize: isMobile ? 20 : 24 }}
               />
             </Card>
           </Col>
-          <Col span={6}>
-            <Card>
+          <Col xs={12} sm={6}>
+            <Card size={isMobile ? 'small' : 'default'}>
               <Statistic
                 title="政府機關"
                 value={statistics.categories.find(c => c.category === '政府機關')?.count || 0}
-                suffix={`(${statistics.categories.find(c => c.category === '政府機關')?.percentage || 0}%)`}
+                suffix={!isMobile ? `(${statistics.categories.find(c => c.category === '政府機關')?.percentage || 0}%)` : undefined}
                 prefix={<BankOutlined />}
-                valueStyle={{ color: '#1890ff' }}
+                valueStyle={{ color: '#1890ff', fontSize: isMobile ? 20 : 24 }}
               />
             </Card>
           </Col>
-          <Col span={6}>
-            <Card>
+          <Col xs={12} sm={6}>
+            <Card size={isMobile ? 'small' : 'default'}>
               <Statistic
                 title="民間企業"
                 value={statistics.categories.find(c => c.category === '民間企業')?.count || 0}
-                suffix={`(${statistics.categories.find(c => c.category === '民間企業')?.percentage || 0}%)`}
+                suffix={!isMobile ? `(${statistics.categories.find(c => c.category === '民間企業')?.percentage || 0}%)` : undefined}
                 prefix={<BuildOutlined />}
-                valueStyle={{ color: '#722ed1' }}
+                valueStyle={{ color: '#722ed1', fontSize: isMobile ? 20 : 24 }}
               />
             </Card>
           </Col>
-          <Col span={6}>
-            <Card>
+          <Col xs={12} sm={6}>
+            <Card size={isMobile ? 'small' : 'default'}>
               <Statistic
                 title="其他單位"
                 value={
@@ -517,97 +576,103 @@ export const AgenciesPage: React.FC = () => {
                   (statistics.categories.find(c => c.category === '教育機構')?.count || 0)
                 }
                 prefix={<TeamOutlined />}
-                valueStyle={{ color: '#fa541c' }}
+                valueStyle={{ color: '#fa541c', fontSize: isMobile ? 20 : 24 }}
               />
             </Card>
           </Col>
         </Row>
       )}
 
-      {/* 搜尋和篩選 */}
-      <Card style={{ marginBottom: '24px' }}>
-        <Row gutter={16} align="middle">
-          <Col flex="1">
+      {/* 搜尋和篩選 - 響應式 */}
+      <Card style={{ marginBottom: isMobile ? 12 : 24 }} size={isMobile ? 'small' : 'default'}>
+        <Row gutter={[isMobile ? 8 : 16, isMobile ? 8 : 0]} align="middle">
+          <Col xs={24} sm={24} md={10} lg={8}>
             <Search
-              placeholder="搜尋機關名稱..."
+              placeholder={isMobile ? '搜尋機關...' : '搜尋機關名稱...'}
               allowClear
               enterButton={<SearchOutlined />}
-              size="large"
+              size={isMobile ? 'middle' : 'large'}
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               onSearch={handleSearch}
-              style={{ maxWidth: '400px' }}
+              style={{ width: '100%' }}
             />
           </Col>
-          <Col>
-            <Select
-              placeholder="選擇機關類別"
-              allowClear
-              value={categoryFilter || undefined}
-              onChange={setCategoryFilter}
-              style={{ width: '160px' }}
-              options={statistics?.categories.map(cat => ({
-                label: `${cat.category} (${cat.count})`,
-                value: cat.category,
-              })) || []}
-            />
-          </Col>
-          <Col>
-            <Space>
+          {!isMobile && (
+            <Col xs={12} sm={8} md={6} lg={4}>
+              <Select
+                placeholder="選擇機關類別"
+                allowClear
+                value={categoryFilter || undefined}
+                onChange={setCategoryFilter}
+                style={{ width: '100%' }}
+                options={statistics?.categories.map(cat => ({
+                  label: `${cat.category} (${cat.count})`,
+                  value: cat.category,
+                })) || []}
+              />
+            </Col>
+          )}
+          <Col xs={24} sm={24} md={8} lg={12} style={{ textAlign: isMobile ? 'left' : 'right' }}>
+            <Space wrap size={isMobile ? 'small' : 'middle'}>
               <Button
                 icon={<ReloadOutlined />}
                 onClick={handleRefresh}
                 loading={isLoading}
+                size={isMobile ? 'small' : 'middle'}
               >
-                重新載入
+                {isMobile ? '' : '重新載入'}
               </Button>
               <Button
                 type="primary"
                 icon={<PlusOutlined />}
                 onClick={handleAdd}
+                size={isMobile ? 'small' : 'middle'}
               >
-                新增機關
+                {isMobile ? '新增' : '新增機關'}
               </Button>
             </Space>
           </Col>
         </Row>
       </Card>
 
-      {/* 機關列表 */}
-      <Card>
+      {/* 機關列表 - 響應式 */}
+      <Card size={isMobile ? 'small' : 'default'}>
         <Table
           columns={columns}
           dataSource={filteredAgencies}
           rowKey="id"
           loading={isLoading || isDeleting}
           pagination={false}
-          scroll={{ x: 700 }}
-          size="middle"
+          scroll={{ x: isMobile ? 300 : 700 }}
+          size={isMobile ? 'small' : 'middle'}
           tableLayout="fixed"
           onRow={(record) => ({
             onClick: () => handleEdit(record),
             style: { cursor: 'pointer' },
           })}
-          style={{ marginBottom: '16px' }}
+          style={{ marginBottom: isMobile ? 8 : 16 }}
         />
 
-        {/* 自訂分頁 */}
-        <div style={{ textAlign: 'center', marginTop: '16px' }}>
+        {/* 自訂分頁 - 響應式 */}
+        <div style={{ textAlign: 'center', marginTop: isMobile ? 8 : 16 }}>
           <Pagination
             current={currentPage}
             total={totalAgencies}
             pageSize={pageSize}
             showSizeChanger={false}
-            showQuickJumper
-            showTotal={(total, range) =>
-              `第 ${range[0]}-${range[1]} 項，共 ${total} 個機關`
+            showQuickJumper={!isMobile}
+            size={isMobile ? 'small' : 'default'}
+            showTotal={isMobile
+              ? (total) => `共 ${total} 項`
+              : (total, range) => `第 ${range[0]}-${range[1]} 項，共 ${total} 個機關`
             }
             onChange={handlePageChange}
           />
         </div>
       </Card>
 
-      {/* 新增/編輯 Modal */}
+      {/* 新增/編輯 Modal - 響應式 */}
       <Modal
         title={editingAgency ? '編輯機關單位' : '新增機關單位'}
         open={modalVisible}
@@ -617,16 +682,17 @@ export const AgenciesPage: React.FC = () => {
           setEditingAgency(null);
         }}
         footer={null}
-        width={600}
+        width={isMobile ? '95%' : 600}
         destroyOnHidden
       >
         <Form
           form={form}
           layout="vertical"
           onFinish={handleSubmit}
+          size={isMobile ? 'middle' : 'large'}
         >
-          <Row gutter={16}>
-            <Col span={12}>
+          <Row gutter={isMobile ? 8 : 16}>
+            <Col xs={24} sm={12}>
               <Form.Item
                 name="agency_name"
                 label="機關名稱"
@@ -635,19 +701,19 @@ export const AgenciesPage: React.FC = () => {
                 <Input placeholder="請輸入機關全名" />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col xs={24} sm={12}>
               <Form.Item
                 name="agency_short_name"
                 label="機關簡稱"
-                tooltip="可用於公文顯示的簡短名稱"
+                tooltip={!isMobile ? '可用於公文顯示的簡短名稱' : undefined}
               >
                 <Input placeholder="請輸入機關簡稱" />
               </Form.Item>
             </Col>
           </Row>
 
-          <Row gutter={16}>
-            <Col span={12}>
+          <Row gutter={isMobile ? 8 : 16}>
+            <Col xs={24} sm={12}>
               <Form.Item
                 name="agency_code"
                 label="機關代碼"
@@ -655,7 +721,7 @@ export const AgenciesPage: React.FC = () => {
                 <Input placeholder="請輸入機關代碼" />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col xs={24} sm={12}>
               <Form.Item
                 name="agency_type"
                 label="機關類型"
