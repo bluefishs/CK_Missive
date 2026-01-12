@@ -166,6 +166,16 @@ class SecureApiService {
     return this.secureRequest('/secure-site-management/navigation/action', 'delete', { id });
   }
 
+  /**
+   * 批次重新排序導覽項目
+   * @param items 要重新排序的項目陣列，每個項目包含 id, sort_order, parent_id, level
+   */
+  async reorderNavigationItems(
+    items: Array<{ id: number; sort_order: number; parent_id?: number | null; level?: number }>
+  ): Promise<unknown> {
+    return this.secureRequest('/secure-site-management/navigation/action', 'reorder', { items });
+  }
+
   // ==========================================================================
   // 配置管理 API
   // ==========================================================================

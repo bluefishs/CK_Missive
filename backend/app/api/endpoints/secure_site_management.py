@@ -184,14 +184,31 @@ async def navigation_action(
             if not item:
                 raise HTTPException(status_code=404, detail="Navigation item not found")
 
+            # 記錄舊的 parent_id 和 sort_order
+            old_parent_id = item.parent_id
+            old_sort_order = item.sort_order
+
             # 排除不應該被前端更新的欄位
             excluded_fields = {"id", "created_at", "updated_at"}
-            update_data = {k: v for k, v in data.items() if k not in excluded_fields and v is not None}
+            update_data = {k: v for k, v in data.items() if k not in excluded_fields}
 
+            # 取得新的 parent_id 和 sort_order
+            new_parent_id = update_data.get("parent_id", old_parent_id)
+            new_sort_order = update_data.get("sort_order", old_sort_order)
+
+            # 更新項目屬性
             for key, value in update_data.items():
-                setattr(item, key, value)
+                if value is not None or key in ("parent_id", "path"):  # 允許 parent_id 和 path 為 None
+                    setattr(item, key, value)
 
             item.updated_at = datetime.utcnow()
+
+            # 如果 parent_id 或 sort_order 變更，需要重新排序同層級項目
+            if old_parent_id != new_parent_id or old_sort_order != new_sort_order:
+                await reorder_siblings_after_move(
+                    session, item_id, old_parent_id, new_parent_id, new_sort_order
+                )
+
             await session.commit()
             await session.refresh(item)
             
@@ -221,6 +238,44 @@ async def navigation_action(
             }
             return response_data
         
+        elif action == "reorder":
+            # 批次重新排序導覽項目
+            items = data.get("items", [])
+            if not items:
+                raise HTTPException(status_code=400, detail="Items list is required")
+
+            # 批次更新每個項目的 sort_order, parent_id, level
+            for item_data in items:
+                item_id = item_data.get("id")
+                if not item_id:
+                    continue
+
+                result = await session.execute(
+                    select(SiteNavigationItem).filter(SiteNavigationItem.id == item_id)
+                )
+                item = result.scalar_one_or_none()
+                if not item:
+                    continue
+
+                # 更新排序相關欄位
+                if "sort_order" in item_data:
+                    item.sort_order = item_data["sort_order"]
+                if "parent_id" in item_data:
+                    item.parent_id = item_data["parent_id"]
+                if "level" in item_data:
+                    item.level = item_data["level"]
+
+                item.updated_at = datetime.utcnow()
+
+            await session.commit()
+
+            response_data = {
+                "success": True,
+                "message": f"Successfully reordered {len(items)} items",
+                "csrf_token": generate_csrf_token()
+            }
+            return response_data
+
         elif action == "delete":
             # 刪除導覽項目
             item_id = data.get("id")
@@ -406,6 +461,70 @@ async def config_action(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+async def reorder_siblings_after_move(
+    session: AsyncSession,
+    moved_item_id: int,
+    old_parent_id: Optional[int],
+    new_parent_id: Optional[int],
+    new_sort_order: int
+) -> None:
+    """
+    在項目移動後重新排序同層級的項目
+
+    Args:
+        session: 資料庫 session
+        moved_item_id: 被移動項目的 ID
+        old_parent_id: 舊的父層 ID
+        new_parent_id: 新的父層 ID
+        new_sort_order: 新的排序位置
+    """
+    # 查詢新父層下的所有同層項目（排除被移動的項目）
+    if new_parent_id is None:
+        siblings_query = select(SiteNavigationItem).filter(
+            SiteNavigationItem.parent_id.is_(None),
+            SiteNavigationItem.id != moved_item_id
+        ).order_by(SiteNavigationItem.sort_order)
+    else:
+        siblings_query = select(SiteNavigationItem).filter(
+            SiteNavigationItem.parent_id == new_parent_id,
+            SiteNavigationItem.id != moved_item_id
+        ).order_by(SiteNavigationItem.sort_order)
+
+    siblings_result = await session.execute(siblings_query)
+    siblings = list(siblings_result.scalars().all())
+
+    # 重新計算排序
+    # 將同層項目重新編號，為被移動的項目騰出位置
+    current_order = 0
+    for sibling in siblings:
+        if current_order == new_sort_order:
+            current_order += 1  # 跳過被移動項目的位置
+        sibling.sort_order = current_order
+        sibling.updated_at = datetime.utcnow()
+        current_order += 1
+
+    # 如果舊父層不同於新父層，也需要重新排序舊父層的項目
+    if old_parent_id != new_parent_id:
+        if old_parent_id is None:
+            old_siblings_query = select(SiteNavigationItem).filter(
+                SiteNavigationItem.parent_id.is_(None),
+                SiteNavigationItem.id != moved_item_id
+            ).order_by(SiteNavigationItem.sort_order)
+        else:
+            old_siblings_query = select(SiteNavigationItem).filter(
+                SiteNavigationItem.parent_id == old_parent_id,
+                SiteNavigationItem.id != moved_item_id
+            ).order_by(SiteNavigationItem.sort_order)
+
+        old_siblings_result = await session.execute(old_siblings_query)
+        old_siblings = list(old_siblings_result.scalars().all())
+
+        # 重新編號舊父層的項目
+        for idx, old_sibling in enumerate(old_siblings):
+            old_sibling.sort_order = idx
+            old_sibling.updated_at = datetime.utcnow()
+
 
 async def get_children_recursive(session: AsyncSession, parent_id: int, level: int = 2) -> List[Dict]:
     """遞歸獲取子項目"""
