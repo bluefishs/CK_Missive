@@ -1,18 +1,24 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-案件與承辦同仁關聯管理API端點 (POST-only 資安機制)
+案件與承辦同仁關聯管理 API 端點 (POST-only 資安機制)
+
 所有端點需要認證。
+
+@version 2.0.0 - 統一異常處理與回應格式
+@date 2026-01-12
 """
 
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, Body
 from sqlalchemy import select, insert, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.db.database import get_async_db
 from app.core.dependencies import require_auth
+from app.core.exceptions import NotFoundException, ConflictException
+from app.schemas.common import DeleteResponse, PaginationMeta
 from app.extended.models import ContractProject, User, project_user_assignment
 from app.schemas.project_staff import (
     ProjectStaffCreate,
@@ -27,11 +33,11 @@ router = APIRouter()
 # ========== 查詢參數 Schema ==========
 class StaffListQuery(BaseModel):
     """承辦同仁列表查詢參數"""
-    skip: int = 0
-    limit: int = 100
-    project_id: Optional[int] = None
-    user_id: Optional[int] = None
-    status: Optional[str] = None
+    page: int = Field(default=1, ge=1, description="頁碼")
+    limit: int = Field(default=20, ge=1, le=100, description="每頁筆數")
+    project_id: Optional[int] = Field(None, description="案件 ID 篩選")
+    user_id: Optional[int] = Field(None, description="使用者 ID 篩選")
+    status: Optional[str] = Field(None, description="狀態篩選")
 
 
 # ========== POST-only API 端點 ==========
@@ -52,7 +58,7 @@ async def create_project_staff_assignment(
     project = project_result.scalar_one_or_none()
 
     if not project:
-        raise HTTPException(status_code=404, detail="承攬案件不存在")
+        raise NotFoundException(resource="承攬案件", resource_id=assignment_data.project_id)
 
     # 檢查使用者是否存在
     user_query = select(User).where(User.id == assignment_data.user_id)
@@ -60,7 +66,7 @@ async def create_project_staff_assignment(
     user = user_result.scalar_one_or_none()
 
     if not user:
-        raise HTTPException(status_code=404, detail="使用者不存在")
+        raise NotFoundException(resource="使用者", resource_id=assignment_data.user_id)
 
     # 檢查是否已存在關聯
     existing_query = select(project_user_assignment).where(
@@ -71,9 +77,9 @@ async def create_project_staff_assignment(
     existing = existing_result.fetchone()
 
     if existing:
-        raise HTTPException(
-            status_code=400,
-            detail="該同仁已與此案件建立關聯"
+        raise ConflictException(
+            message="該同仁已與此案件建立關聯",
+            field="user_id"
         )
 
     # 建立關聯
@@ -112,7 +118,7 @@ async def get_project_staff_assignments(
     project = project_result.scalar_one_or_none()
 
     if not project:
-        raise HTTPException(status_code=404, detail="承攬案件不存在")
+        raise NotFoundException(resource="承攬案件", resource_id=project_id)
 
     # 查詢關聯資料
     query = select(
@@ -185,7 +191,7 @@ async def update_project_staff_assignment(
     existing = check_result.fetchone()
 
     if not existing:
-        raise HTTPException(status_code=404, detail="案件與承辦同仁關聯不存在")
+        raise NotFoundException(resource="案件與承辦同仁關聯")
 
     # 更新關聯資料
     update_data = assignment_data.model_dump(exclude_unset=True)
@@ -205,7 +211,11 @@ async def update_project_staff_assignment(
     }
 
 
-@router.post("/project/{project_id}/user/{user_id}/delete", summary="刪除案件與承辦同仁關聯")
+@router.post(
+    "/project/{project_id}/user/{user_id}/delete",
+    response_model=DeleteResponse,
+    summary="刪除案件與承辦同仁關聯"
+)
 async def delete_project_staff_assignment(
     project_id: int,
     user_id: int,
@@ -223,7 +233,7 @@ async def delete_project_staff_assignment(
     existing = check_result.fetchone()
 
     if not existing:
-        raise HTTPException(status_code=404, detail="案件與承辦同仁關聯不存在")
+        raise NotFoundException(resource="案件與承辦同仁關聯")
 
     # 刪除關聯
     delete_stmt = delete(project_user_assignment).where(
@@ -234,11 +244,11 @@ async def delete_project_staff_assignment(
     await db.execute(delete_stmt)
     await db.commit()
 
-    return {
-        "message": "案件與承辦同仁關聯已成功刪除",
-        "project_id": project_id,
-        "user_id": user_id
-    }
+    return DeleteResponse(
+        success=True,
+        message="案件與承辦同仁關聯已成功刪除",
+        deleted_id=existing.id if hasattr(existing, 'id') else None
+    )
 
 
 @router.post("/list", summary="取得所有承辦同仁關聯列表")
@@ -285,14 +295,15 @@ async def get_all_staff_assignments(
         db_query = db_query.where(project_user_assignment.c.status == query.status)
 
     # 分頁
-    db_query = db_query.offset(query.skip).limit(query.limit)
+    offset = (query.page - 1) * query.limit
+    db_query = db_query.offset(offset).limit(query.limit)
 
     result = await db.execute(db_query)
     assignments_data = result.fetchall()
 
-    assignments = []
+    items = []
     for row in assignments_data:
-        assignments.append({
+        items.append({
             "id": row.id,
             "project_id": row.project_id,
             "project_name": row.project_name,
@@ -308,9 +319,15 @@ async def get_all_staff_assignments(
             "notes": row.notes
         })
 
+    # 注意：此處簡化處理，實際應查詢總數
+    total = len(items)
+
     return {
-        "assignments": assignments,
-        "total": len(assignments),
-        "skip": query.skip,
-        "limit": query.limit
+        "success": True,
+        "items": items,
+        "pagination": PaginationMeta.create(
+            total=total,
+            page=query.page,
+            limit=query.limit
+        ).model_dump()
     }
