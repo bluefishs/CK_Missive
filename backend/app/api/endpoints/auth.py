@@ -442,18 +442,18 @@ async def get_current_user(
         print(f"ERROR in get_current_user: {e}")
         raise
 
-@router.get("/me", response_model=UserProfile, summary="取得當前使用者資訊")
+@router.post("/me", response_model=UserProfile, summary="取得當前使用者資訊")
 async def get_current_user_info(
     current_user: User = Depends(get_current_user)
 ):
-    """取得當前登入使用者的詳細資訊"""
+    """取得當前登入使用者的詳細資訊 (POST-only 安全模式)"""
     return UserProfile.model_validate(current_user)
 
-@router.get("/check", summary="檢查認證狀態")
+@router.post("/check", summary="檢查認證狀態")
 async def check_auth_status(
     current_user: User = Depends(get_current_user)
 ):
-    """檢查當前認證狀態"""
+    """檢查當前認證狀態 (POST-only 安全模式)"""
     return {
         "authenticated": True,
         "user_id": current_user.id,

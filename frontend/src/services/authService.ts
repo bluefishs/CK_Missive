@@ -173,18 +173,18 @@ class AuthService {
   }
 
   /**
-   * 取得當前使用者資訊
+   * 取得當前使用者資訊 (POST-only 安全模式)
    */
   async getCurrentUser(): Promise<UserInfo> {
-    const response: AxiosResponse<UserInfo> = await this.axios.get('/auth/me');
+    const response: AxiosResponse<UserInfo> = await this.axios.post('/auth/me', {});
     return response.data;
   }
 
   /**
-   * 檢查認證狀態
+   * 檢查認證狀態 (POST-only 安全模式)
    */
   async checkAuthStatus(): Promise<any> {
-    const response = await this.axios.get('/auth/check');
+    const response = await this.axios.post('/auth/check', {});
     return response.data;
   }
 

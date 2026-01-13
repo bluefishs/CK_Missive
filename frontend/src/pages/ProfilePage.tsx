@@ -76,9 +76,12 @@ export const ProfilePage = () => {
         // 嘗試從後端 API 獲取完整資訊
         try {
           const response = await fetch(`${API_BASE_URL}/auth/me`, {
+            method: 'POST',
             headers: {
-              'Authorization': `Bearer ${authService.getToken()}`
-            }
+              'Authorization': `Bearer ${authService.getToken()}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({})
           });
           if (response.ok) {
             const fullProfile = await response.json();

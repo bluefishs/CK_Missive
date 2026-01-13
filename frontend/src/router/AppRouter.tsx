@@ -74,10 +74,6 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.REGISTER} element={<RegisterPage />} />
           <Route path={ROUTES.FORGOT_PASSWORD} element={<ForgotPasswordPage />} />
 
-          {/* 首頁與舊入口重定向到統一登入頁 */}
-          <Route path={ROUTES.HOME} element={<Navigate to={ROUTES.LOGIN} replace />} />
-          <Route path={ROUTES.ENTRY} element={<Navigate to={ROUTES.LOGIN} replace />} />
-          
           {/* 公文相關路由 */}
           <Route path={ROUTES.DOCUMENTS} element={<DocumentPage />} />
           <Route path={ROUTES.DOCUMENT_DETAIL} element={<DocumentDetailPage />} />
@@ -97,13 +93,6 @@ export const AppRouter: React.FC = () => {
           {/* 新增/編輯頁面 */}
           <Route path={ROUTES.CONTRACT_CASE_CREATE} element={<ContractCaseFormPage />} />
           <Route path={ROUTES.CONTRACT_CASE_EDIT} element={<ContractCaseFormPage />} />
-
-          {/* 舊路由重定向 */}
-          <Route path={ROUTES.CASES} element={<Navigate to={ROUTES.CONTRACT_CASES} replace />} />
-          <Route path={ROUTES.PROJECTS} element={<Navigate to={ROUTES.CONTRACT_CASES} replace />} />
-          <Route path={ROUTES.CASE_DETAIL} element={<Navigate to={ROUTES.CONTRACT_CASES} replace />} />
-          <Route path={ROUTES.CASE_CREATE} element={<Navigate to={ROUTES.CONTRACT_CASES} replace />} />
-          <Route path={ROUTES.CASE_EDIT} element={<Navigate to={ROUTES.CONTRACT_CASES} replace />} />
 
           {/* 發文字號管理 */}
           <Route path={ROUTES.DOCUMENT_NUMBERS} element={<DocumentNumbersPage />} />
@@ -126,9 +115,6 @@ export const AppRouter: React.FC = () => {
 
           {/* 行事曆 */}
           <Route path={ROUTES.CALENDAR} element={<CalendarPage />} />
-
-          {/* 純粹行事曆 - 重導向至整合行事曆 */}
-          <Route path={ROUTES.PURE_CALENDAR} element={<Navigate to={ROUTES.CALENDAR} replace />} />
 
           {/* 統計報表 */}
           <Route path={ROUTES.REPORTS} element={<ReportsPage />} />
