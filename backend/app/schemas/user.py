@@ -22,6 +22,8 @@ class UserBase(BaseModel):
     full_name: Optional[str] = Field(None, max_length=100, description="姓名")
     role: Optional[str] = Field('專案PM', max_length=50, description="專案角色")
     is_active: bool = Field(True, description="是否啟用")
+    department: Optional[str] = Field(None, max_length=100, description="部門名稱")
+    position: Optional[str] = Field(None, max_length=100, description="職稱")
 
     @field_validator('role')
     @classmethod
@@ -46,6 +48,8 @@ class UserUpdate(BaseModel):
     role: Optional[str] = Field(None, max_length=50, description="專案角色")
     is_active: Optional[bool] = Field(None, description="是否啟用")
     password: Optional[str] = Field(None, min_length=6, description="新密碼")
+    department: Optional[str] = Field(None, max_length=100, description="部門名稱")
+    position: Optional[str] = Field(None, max_length=100, description="職稱")
 
     @field_validator('role')
     @classmethod
@@ -72,6 +76,8 @@ class UserResponse(BaseModel):
     is_active: bool = True
     last_login: Optional[datetime] = None
     created_at: Optional[datetime] = None
+    department: Optional[str] = None
+    position: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

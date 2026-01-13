@@ -33,7 +33,8 @@ import {
 } from '@ant-design/icons';
 
 import { DocumentList } from '../components/document/DocumentList';
-import { DocumentOperations } from '../components/document/DocumentOperations';
+// 複製功能已停用 (2026-01-12)
+// import { DocumentOperations } from '../components/document/DocumentOperations';
 import { useDocuments } from '../hooks';
 import { documentsApi, DocumentStatistics } from '../api/documentsApi';
 import { documentNumbersApi, NextNumberResponse } from '../api/documentNumbersApi';
@@ -223,31 +224,31 @@ export const DocumentNumbersPage: React.FC = () => {
     }
   };
 
-  // 複製公文處理（其他操作已改用頁面導航）
-  const handleSaveDocument = async (documentData: Partial<Document>): Promise<Document | void> => {
-    try {
-      // 只處理複製
-      if (documentOperation.type !== 'copy') return;
-
-      const payload = {
-        ...documentData,
-        category: '發文',
-        doc_type: '發文',
-      };
-
-      const result = await documentsApi.createDocument(payload as any);
-      message.success('發文複製成功！');
-
-      setDocumentOperation({ type: null, document: null, visible: false });
-      refetch();
-      loadStats();
-      loadNextNumber();
-      return result;
-    } catch (error) {
-      console.error('複製公文失敗:', error);
-      throw error;
-    }
-  };
+  // 複製公文處理 - 功能已停用 (2026-01-12)
+  // const handleSaveDocument = async (documentData: Partial<Document>): Promise<Document | void> => {
+  //   try {
+  //     // 只處理複製
+  //     if (documentOperation.type !== 'copy') return;
+  //
+  //     const payload = {
+  //       ...documentData,
+  //       category: '發文',
+  //       doc_type: '發文',
+  //     };
+  //
+  //     const result = await documentsApi.createDocument(payload as any);
+  //     message.success('發文複製成功！');
+  //
+  //     setDocumentOperation({ type: null, document: null, visible: false });
+  //     refetch();
+  //     loadStats();
+  //     loadNextNumber();
+  //     return result;
+  //   } catch (error) {
+  //     console.error('複製公文失敗:', error);
+  //     throw error;
+  //   }
+  // };
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -415,14 +416,14 @@ export const DocumentNumbersPage: React.FC = () => {
         <p>確定要刪除公文「{deleteModal.document?.doc_number}」嗎？此操作無法復原。</p>
       </Modal>
 
-      {/* 公文操作 Modal (檢視/編輯/新增/複製) */}
-      <DocumentOperations
+      {/* 公文操作 Modal (檢視/編輯/新增/複製) - 複製功能已停用 (2026-01-12) */}
+      {/* <DocumentOperations
         document={documentOperation.document}
         operation={documentOperation.type}
         visible={documentOperation.visible}
         onClose={() => setDocumentOperation({ type: null, document: null, visible: false })}
         onSave={handleSaveDocument}
-      />
+      /> */}
     </div>
   );
 };

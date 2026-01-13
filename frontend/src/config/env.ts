@@ -55,10 +55,12 @@ export const isInternalIP = (): boolean => {
 
 /**
  * 檢測環境類型
- * - localhost: 本機開發（開發模式下自動繞過認證）
- * - internal: 內網存取（自動繞過認證）
- * - ngrok: ngrok 隧道
- * - public: 公網存取
+ * - localhost: 本機開發（三種登入方式：快速進入、帳密、Google）
+ * - internal: 內網存取（僅帳密登入）
+ * - ngrok: ngrok 隧道（帳密 + Google 登入）
+ * - public: 公網存取（帳密 + Google 登入）
+ *
+ * @version 2.1.0 - 2026-01-13 調整環境判斷邏輯
  */
 export type EnvironmentType = 'localhost' | 'internal' | 'ngrok' | 'public';
 
@@ -67,30 +69,33 @@ export const detectEnvironment = (): EnvironmentType => {
 
   const hostname = window.location.hostname;
 
-  // localhost/127.0.0.1 在開發模式視為 internal，生產模式視為 localhost
+  // localhost/127.0.0.1 永遠視為 localhost（支援三種登入方式）
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return import.meta.env.DEV === true ? 'internal' : 'localhost';
+    return 'localhost';
   }
 
+  // ngrok 隧道
   if (hostname.endsWith('.ngrok.io') || hostname.endsWith('.ngrok-free.app')) {
     return 'ngrok';
   }
 
+  // 內網 IP（僅帳密登入）
   if (isInternalIP()) {
     return 'internal';
   }
 
+  // 公網
   return 'public';
 };
 
 /**
  * 檢查是否應該停用認證
- * 當以下任一條件成立時，停用認證：
- * 1. 環境變數 VITE_AUTH_DISABLED=true
- * 2. 從內網 IP 存取
+ * 僅當環境變數 VITE_AUTH_DISABLED=true 時停用認證
+ *
+ * 注意：內網 IP 不再自動繞過認證，必須明確設定環境變數
  */
 export const isAuthDisabled = (): boolean => {
-  return AUTH_DISABLED_ENV || isInternalIP();
+  return AUTH_DISABLED_ENV;
 };
 
 // 向後相容：保留舊的 AUTH_DISABLED 常數（但建議改用 isAuthDisabled() 函數）

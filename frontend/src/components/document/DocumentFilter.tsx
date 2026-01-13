@@ -25,7 +25,7 @@ import {
   InfoCircleOutlined,
 } from '@ant-design/icons';
 import { DocumentFilter as DocumentFilterType } from '../../types';
-import { VITE_API_BASE_URL } from '../../config/env';
+import { API_BASE_URL } from '../../api/client';
 const { Option } = Select;
 const { Title } = Typography;
 
@@ -57,8 +57,6 @@ const deliveryMethodOptions = [
 ];
 
 // 年度選項將從API獲取
-// 使用共用的 API 基礎 URL
-const API_BASE_URL = VITE_API_BASE_URL;
 
 const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
   filters,
@@ -89,7 +87,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/documents-enhanced/list`, {
+      const response = await fetch(`${API_BASE_URL}/documents-enhanced/list`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ keyword: query, limit: 50, page: 1 })
@@ -119,7 +117,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/documents-enhanced/agencies-dropdown`, {
+      const response = await fetch(`${API_BASE_URL}/documents-enhanced/agencies-dropdown`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ search: query, limit: 100 })
@@ -145,7 +143,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/documents-enhanced/agencies-dropdown`, {
+      const response = await fetch(`${API_BASE_URL}/documents-enhanced/agencies-dropdown`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ search: query, limit: 100 })
@@ -170,7 +168,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/documents-enhanced/list`, {
+      const response = await fetch(`${API_BASE_URL}/documents-enhanced/list`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ keyword: query, limit: 100, page: 1 })
@@ -206,7 +204,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/documents-enhanced/contract-projects-dropdown`, {
+      const response = await fetch(`${API_BASE_URL}/documents-enhanced/contract-projects-dropdown`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ search: query, limit: 100 })
@@ -227,7 +225,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
   // 獲取年度選項
   const fetchYearOptions = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/documents-enhanced/years`, {
+      const response = await fetch(`${API_BASE_URL}/documents-enhanced/years`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
@@ -249,7 +247,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
   const fetchContractCaseDropdownOptions = async () => {
     try {
       // 先嘗試新的增強版 API (使用 POST 方法)
-      let response = await fetch(`${API_BASE_URL}/api/documents-enhanced/contract-projects-dropdown`, {
+      let response = await fetch(`${API_BASE_URL}/documents-enhanced/contract-projects-dropdown`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ limit: 1000 })
@@ -268,7 +266,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
 
       // 如果新 API 不可用，降級使用原有方式
       console.warn('⚠️  增強版 API 不可用，使用原有方式');
-      response = await fetch(`${API_BASE_URL}/api/documents-enhanced/integrated-search`, {
+      response = await fetch(`${API_BASE_URL}/documents-enhanced/integrated-search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ limit: 1000 })
@@ -298,7 +296,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
   const fetchSenderDropdownOptions = async () => {
     try {
       // 使用新的增強版 API，取得標準化機關名稱 (不含統計數據，使用 POST 方法)
-      const response = await fetch(`${API_BASE_URL}/api/documents-enhanced/agencies-dropdown`, {
+      const response = await fetch(`${API_BASE_URL}/documents-enhanced/agencies-dropdown`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ limit: 500 })
@@ -319,7 +317,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
 
       // 降級方案：直接從公文表查詢
       console.warn('⚠️  增強版 API 不可用，使用降級方案');
-      const fallbackResponse = await fetch(`${API_BASE_URL}/api/documents-enhanced/integrated-search`, {
+      const fallbackResponse = await fetch(`${API_BASE_URL}/documents-enhanced/integrated-search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ limit: 500 })
@@ -349,7 +347,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
   const fetchReceiverDropdownOptions = async () => {
     try {
       // 使用新的增強版 API，取得標準化機關名稱 (不含統計數據，使用 POST 方法)
-      const response = await fetch(`${API_BASE_URL}/api/documents-enhanced/agencies-dropdown`, {
+      const response = await fetch(`${API_BASE_URL}/documents-enhanced/agencies-dropdown`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ limit: 500 })
@@ -370,7 +368,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
 
       // 降級方案：直接從公文表查詢
       console.warn('⚠️  增強版 API 不可用，使用降級方案');
-      const fallbackResponse = await fetch(`${API_BASE_URL}/api/documents-enhanced/integrated-search`, {
+      const fallbackResponse = await fetch(`${API_BASE_URL}/documents-enhanced/integrated-search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ limit: 500 })

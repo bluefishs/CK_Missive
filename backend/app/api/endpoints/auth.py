@@ -1,9 +1,10 @@
 """
 認證相關API端點
 
-v2.0 - 2026-01-09
-- 主要認證方式: Google OAuth
-- 傳統帳密登入: 已棄用 (保留但標記 deprecated)
+v2.1 - 2026-01-12
+- 支援雙認證方式: 傳統帳密登入 + Google OAuth
+- 內網環境優先使用帳密登入
+- 公網環境優先使用 Google OAuth
 - 新增: 網域白名單檢查
 - 新增: 新帳號審核機制
 """
@@ -38,9 +39,7 @@ def get_client_info(request: Request) -> tuple[Optional[str], Optional[str]]:
 @router.post(
     "/login",
     response_model=TokenResponse,
-    summary="傳統帳密登入 (已棄用)",
-    deprecated=True,
-    tags=["deprecated"]
+    summary="帳號密碼登入"
 )
 async def login_for_access_token(
     request: Request,
@@ -48,15 +47,17 @@ async def login_for_access_token(
     db: AsyncSession = Depends(get_async_db)
 ):
     """
-    ⚠️ **已棄用** - 請使用 Google OAuth 登入 (/auth/google)
+    使用者帳號密碼登入（內網環境主要認證方式）
 
-    使用者傳統帳密登入
     - **username**: 使用者名稱或信箱
     - **password**: 密碼
 
-    注意: 此端點將在未來版本移除，請改用 Google OAuth 登入。
+    適用場景:
+    - 內網環境（無法使用 Google OAuth）
+    - 本地開發測試
+    - 備用認證方式
     """
-    logger.warning(f"[AUTH] 使用已棄用的帳密登入: {form_data.username}")
+    logger.info(f"[AUTH] 帳密登入嘗試: {form_data.username}")
     try:
         # 驗證使用者
         user = await AuthService.authenticate_user(db, form_data.username, form_data.password)

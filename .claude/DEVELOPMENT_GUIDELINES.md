@@ -256,7 +256,20 @@ useEffect(() => {
 **原因**: 匯入時未使用智慧匹配
 **解法**: 整合 `AgencyMatcher` / `ProjectMatcher`
 
-### 7. 🔴 交易污染 (Transaction Pollution) - 嚴重
+### 7. 導覽路徑不一致 (2026-01-12 新增)
+**錯誤**: 導覽選單點擊後顯示 404 或空白頁面
+**原因**: 資料庫中的導覽路徑與前端 ROUTES 定義不一致
+**解法**:
+- 使用 `/route-sync-check` 指令檢查路徑一致性
+- 修正資料庫中的導覽路徑
+- 使用 `init_navigation_data.py --force-update` 強制同步
+
+**預防機制**:
+- 後端 API 內建路徑白名單驗證（`navigation_validator.py`）
+- 前端 SiteManagementPage 使用下拉選單選擇路徑
+- 新增前端路由時，同步更新 `navigation_validator.py` 白名單
+
+### 8. 🔴 交易污染 (Transaction Pollution) - 嚴重
 
 **錯誤訊息**: `InFailedSQLTransactionError: current transaction is aborted, commands ignored until end of transaction block`
 
@@ -377,7 +390,7 @@ async def update_document(db: AsyncSession, ...):
 
 ---
 
-## 🆕 新增服務與工具 (2026-01-09)
+## 🆕 新增服務與工具 (2026-01-12 更新)
 
 ### 核心服務
 
@@ -387,6 +400,7 @@ async def update_document(db: AsyncSession, ...):
 | `app/core/decorators.py` | 通用裝飾器 (@non_critical, @retry_on_failure) |
 | `app/core/background_tasks.py` | 背景任務管理器 |
 | `app/core/db_monitor.py` | 連接池監控器 |
+| `app/core/navigation_validator.py` | 導覽路徑白名單驗證器 (2026-01-12) |
 
 ### 健康檢查端點
 

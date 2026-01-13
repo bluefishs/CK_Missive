@@ -98,27 +98,39 @@ AppRouter.tsx → Layout.tsx → 側邊導覽列
 
 ### 同步檢查項目
 
-**新增導覽項目時，必須同步更新三處：**
+**新增導覽項目時，必須同步更新四處：**
 
 | 序號 | 位置 | 檔案 | 說明 |
 |------|------|------|------|
 | 1 | 前端路由定義 | `frontend/src/router/types.ts` | ROUTES 常數 |
 | 2 | 前端路由實作 | `frontend/src/router/AppRouter.tsx` | Route 元素 |
-| 3 | 後端導覽定義 | `backend/app/scripts/init_navigation_data.py` | DEFAULT_NAVIGATION_ITEMS |
+| 3 | 後端路徑白名單 | `backend/app/core/navigation_validator.py` | VALID_NAVIGATION_PATHS |
+| 4 | 後端導覽定義 | `backend/app/scripts/init_navigation_data.py` | DEFAULT_NAVIGATION_ITEMS |
 
 ### 路徑一致性規則
 - 前端 ROUTES 定義的路徑 **必須** 與後端導覽的 `path` 完全一致
+- 後端路徑白名單會在 API 層面驗證路徑合法性
 - 圖標名稱使用 Ant Design 格式：`XxxOutlined`
+
+### 自動化驗證機制 (2026-01-12 新增)
+
+| 機制 | 說明 |
+|------|------|
+| 後端 API 驗證 | `navigation/action` 的 create/update 會驗證路徑 |
+| 前端下拉選單 | SiteManagementPage 路徑欄位使用下拉選單 |
+| 初始化腳本 | `--force-update` 參數可強制同步路徑 |
+| PowerShell 腳本 | `.claude/hooks/route-sync-check.ps1` |
 
 ### 開發後驗證
 ```bash
-# 檢查前端路由數量
-grep -c "ROUTES\." frontend/src/router/types.ts
+# 執行路徑同步檢查
+/route-sync-check
 
-# 檢查後端導覽數量
-grep -c '"path":' backend/app/scripts/init_navigation_data.py
+# 或使用 PowerShell 腳本
+.\.claude\hooks\route-sync-check.ps1
 
-# 兩者數量應相近（允許群組項目差異）
+# 強制同步資料庫導覽路徑
+cd backend && python app/scripts/init_navigation_data.py --force-update
 ```
 
 ---
@@ -291,6 +303,7 @@ cd backend && python -m py_compile app/main.py
 | 前端路由定義 | `frontend/src/router/types.ts` |
 | 前端路由實作 | `frontend/src/router/AppRouter.tsx` |
 | 後端導覽定義 | `backend/app/scripts/init_navigation_data.py` |
+| 後端路徑白名單 | `backend/app/core/navigation_validator.py` |
 | 認證配置 | `frontend/src/config/env.ts` |
 | 服務基類 | `backend/app/services/base/` |
 | 驗證器 | `backend/app/services/base/validators.py` |
@@ -318,6 +331,7 @@ cd backend && python -m py_compile app/main.py
 
 | 版本 | 日期 | 說明 |
 |------|------|------|
+| 1.2.0 | 2026-01-12 | 新增導覽路徑自動化驗證機制（白名單、下拉選單、強制同步） |
 | 1.1.0 | 2026-01-12 | 新增導覽系統架構說明（Layout.tsx vs DynamicLayout.tsx） |
 | 1.0.0 | 2026-01-11 | 初版建立 |
 

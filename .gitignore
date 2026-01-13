@@ -72,3 +72,7 @@ backend/*.json
 backend/credentials.json
 backend/GoogleCalendarAPIKEY.json
 backend/ck-missive-OAuth*.json
+
+# Claude Code temporary directories
+tmpclaude-*/
+**/tmpclaude-*/

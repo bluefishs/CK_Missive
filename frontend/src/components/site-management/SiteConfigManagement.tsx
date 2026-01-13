@@ -8,7 +8,7 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { secureApiService } from '../../services/secureApiService';
-import { VITE_API_BASE_URL } from '../../config/env';
+import { API_BASE_URL } from '../../api/client';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -115,7 +115,7 @@ const SiteConfigManagement: React.FC = () => {
   const loadCategories = async () => {
     try {
       // 使用共用的 API 基礎 URL
-      const apiUrl = `${VITE_API_BASE_URL}/api/site-management/config/categories`;
+      const apiUrl = `${API_BASE_URL}/site-management/config/categories`;
       const response = await fetch(apiUrl);
       if (response.ok) {
         const data = await response.json();

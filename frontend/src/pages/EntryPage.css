@@ -287,6 +287,43 @@
   font-size: 18px;
 }
 
+/* 內網登入選項區域 */
+.internal-login-options {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+/* 帳號密碼登入按鈕 */
+.password-login-btn {
+  height: 50px;
+  padding: 0 40px;
+  font-size: 16px;
+  font-weight: 500;
+  border-radius: 25px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.password-login-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: #60a5fa;
+  color: #60a5fa;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(96, 165, 250, 0.3);
+}
+
+.password-login-btn .anticon {
+  margin-right: 10px;
+  font-size: 18px;
+}
+
 .entry-hint {
   color: rgba(255, 255, 255, 0.5);
   font-size: 14px;

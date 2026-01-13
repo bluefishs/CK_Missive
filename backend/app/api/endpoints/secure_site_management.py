@@ -17,6 +17,9 @@ from app.extended.models import SiteNavigationItem, SiteConfiguration
 from app.schemas.site_management import (
     NavigationItemCreate, SiteConfigCreate, SiteConfigResponse
 )
+from app.core.navigation_validator import (
+    validate_navigation_path, get_all_valid_paths
+)
 
 router = APIRouter()
 security = HTTPBearer()
@@ -139,6 +142,12 @@ async def navigation_action(
         
         elif action == "create":
             # 創建導覽項目
+            # 驗證路徑是否有效
+            path = data.get("path")
+            is_valid, error_msg = validate_navigation_path(path)
+            if not is_valid:
+                raise HTTPException(status_code=400, detail=error_msg)
+
             nav_data = NavigationItemCreate(**data)
             new_item = SiteNavigationItem(**nav_data.model_dump())
             session.add(new_item)
@@ -176,6 +185,13 @@ async def navigation_action(
             item_id = data.get("id")
             if not item_id:
                 raise HTTPException(status_code=400, detail="Item ID is required")
+
+            # 驗證路徑是否有效（如果有提供 path 欄位）
+            if "path" in data:
+                path = data.get("path")
+                is_valid, error_msg = validate_navigation_path(path)
+                if not is_valid:
+                    raise HTTPException(status_code=400, detail=error_msg)
 
             result = await session.execute(
                 select(SiteNavigationItem).filter(SiteNavigationItem.id == item_id)
@@ -602,3 +618,29 @@ async def test_navigation_endpoint(
             "message": "Navigation test failed"
         }
 
+
+@router.get("/navigation/valid-paths")
+async def get_valid_navigation_paths():
+    """
+    獲取所有有效的導覽路徑列表
+    用於前端下拉選單和路徑驗證
+
+    Returns:
+        包含所有有效路徑及其描述的列表
+    """
+    try:
+        paths = get_all_valid_paths()
+        return {
+            "success": True,
+            "message": "Valid paths retrieved successfully",
+            "data": {
+                "paths": paths,
+                "total": len(paths)
+            }
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to retrieve valid paths"
+        }

@@ -210,9 +210,16 @@ class User(Base):
     updated_at = Column(DateTime, server_default=func.now())
     email_verified = Column(Boolean, default=False)
 
+    # 新增欄位 (2026-01-12)
+    department = Column(String(100), comment="部門名稱")
+    position = Column(String(100), comment="職稱")
+
     # 關聯關係 (暫時移除以解決 SQLAlchemy 衝突)
     # notifications = relationship("SystemNotification", back_populates="user")
     # sessions = relationship("UserSession", back_populates="user")
+
+    # 證照關聯
+    certifications = relationship("StaffCertification", back_populates="user", cascade="all, delete-orphan")
 
 class DocumentCalendarEvent(Base):
     __tablename__ = "document_calendar_events"
@@ -426,3 +433,38 @@ class ProjectAgencyContact(Base):
 
     # 關聯關係
     project = relationship("ContractProject", backref="agency_contacts")
+
+
+class StaffCertification(Base):
+    """
+    承辦同仁證照紀錄模型
+    支援三種類型：核發證照、評量證書、訓練證明
+    """
+    __tablename__ = "staff_certifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete="CASCADE"), nullable=False, index=True, comment="關聯的使用者ID")
+
+    # 證照分類
+    cert_type = Column(String(50), nullable=False, comment="證照類型: 核發證照/評量證書/訓練證明")
+    cert_name = Column(String(200), nullable=False, comment="證照名稱")
+
+    # 核發資訊
+    issuing_authority = Column(String(200), comment="核發機關")
+    cert_number = Column(String(100), comment="證照編號")
+    issue_date = Column(Date, comment="核發日期")
+    expiry_date = Column(Date, comment="有效期限（可為空表示永久有效）")
+
+    # 狀態與備註
+    status = Column(String(50), default="有效", comment="狀態: 有效/已過期/已撤銷")
+    notes = Column(Text, comment="備註")
+
+    # 附件
+    attachment_path = Column(String(500), comment="證照掃描檔路徑")
+
+    # 時間戳
+    created_at = Column(DateTime, server_default=func.now(), comment="建立時間")
+    updated_at = Column(DateTime, server_default=func.now(), comment="更新時間")
+
+    # 關聯關係
+    user = relationship("User", back_populates="certifications")

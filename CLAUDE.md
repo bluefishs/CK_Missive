@@ -80,6 +80,12 @@ CK_Missive 是一套企業級公文管理系統，具備以下核心功能：
 | `typescript-check` | 修改 .ts/.tsx | 自動執行 TypeScript 編譯檢查 | `.claude/hooks/typescript-check.ps1` |
 | `python-lint` | 修改 .py | 自動執行 Python 語法檢查 | `.claude/hooks/python-lint.ps1` |
 
+### 手動執行 Hooks
+
+| Hook | 說明 | 檔案 |
+|------|------|------|
+| `route-sync-check` | 檢查前後端路徑一致性 | `.claude/hooks/route-sync-check.ps1` |
+
 ---
 
 ## 📁 配置目錄結構
@@ -109,7 +115,8 @@ CK_Missive 是一套企業級公文管理系統，具備以下核心功能：
 │   ├── README.md               # Hooks 說明
 │   ├── typescript-check.ps1    # TypeScript 檢查
 │   ├── python-lint.ps1         # Python 檢查
-│   └── validate-file-location.ps1 # 檔案位置驗證
+│   ├── validate-file-location.ps1 # 檔案位置驗證
+│   └── route-sync-check.ps1    # 路徑同步檢查 (2026-01-12)
 ├── DEVELOPMENT_GUIDELINES.md   # 開發指引
 ├── MANDATORY_CHECKLIST.md      # ⚠️ 強制性開發檢查清單 (必讀)
 └── settings.local.json         # 本地權限設定

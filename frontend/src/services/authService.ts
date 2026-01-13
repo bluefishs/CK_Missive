@@ -6,7 +6,8 @@
  */
 import axios, { AxiosResponse } from 'axios';
 import { jwtDecode } from 'jwt-decode';
-import { isAuthDisabled, API_BASE_URL } from '../config/env';
+import { isAuthDisabled } from '../config/env';
+import { API_BASE_URL } from '../api/client';
 
 // Token 相關常數
 const ACCESS_TOKEN_KEY = 'access_token';

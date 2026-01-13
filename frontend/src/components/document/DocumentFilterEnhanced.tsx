@@ -28,7 +28,7 @@ import {
 } from '@ant-design/icons';
 import { DocumentFilter as DocumentFilterType } from '../../types';
 import { useResponsive } from '../../hooks/useResponsive';
-import { VITE_API_BASE_URL } from '../../config/env';
+import { API_BASE_URL } from '../../api/client';
 const { Option } = Select;
 const { Title } = Typography;
 
@@ -120,8 +120,8 @@ const DocumentFilterEnhanced: React.FC<DocumentFilterProps> = ({
   // 承攬案件 AutoComplete - 改為從 contract_projects 表查詢
   const fetchContractCaseOptions = async (search?: string) => {
     const url = search
-      ? `/api/documents-enhanced/contract-projects-dropdown?search=${encodeURIComponent(search)}&limit=50`
-      : `/api/documents-enhanced/contract-projects-dropdown?limit=100`;
+      ? `${API_BASE_URL}/documents-enhanced/contract-projects-dropdown?search=${encodeURIComponent(search)}&limit=50`
+      : `${API_BASE_URL}/documents-enhanced/contract-projects-dropdown?limit=100`;
 
     await fetchWithLoading(url, 'contractCase', (data) => {
       setContractCaseOptions(data.options || []);
@@ -131,8 +131,8 @@ const DocumentFilterEnhanced: React.FC<DocumentFilterProps> = ({
   // 發文單位 AutoComplete - 改為從 government_agencies 表查詢
   const fetchSenderOptions = async (search?: string) => {
     const url = search
-      ? `/api/documents-enhanced/agencies-dropdown?search=${encodeURIComponent(search)}&limit=50`
-      : `/api/documents-enhanced/agencies-dropdown?limit=100`;
+      ? `${API_BASE_URL}/documents-enhanced/agencies-dropdown?search=${encodeURIComponent(search)}&limit=50`
+      : `${API_BASE_URL}/documents-enhanced/agencies-dropdown?limit=100`;
 
     await fetchWithLoading(url, 'sender', (data) => {
       setSenderOptions(data.options || []);
@@ -142,8 +142,8 @@ const DocumentFilterEnhanced: React.FC<DocumentFilterProps> = ({
   // 受文單位 AutoComplete - 改為從 government_agencies 表查詢
   const fetchReceiverOptions = async (search?: string) => {
     const url = search
-      ? `/api/documents-enhanced/agencies-dropdown?search=${encodeURIComponent(search)}&limit=50`
-      : `/api/documents-enhanced/agencies-dropdown?limit=100`;
+      ? `${API_BASE_URL}/documents-enhanced/agencies-dropdown?search=${encodeURIComponent(search)}&limit=50`
+      : `${API_BASE_URL}/documents-enhanced/agencies-dropdown?limit=100`;
 
     await fetchWithLoading(url, 'receiver', (data) => {
       setReceiverOptions(data.options || []);
@@ -158,7 +158,7 @@ const DocumentFilterEnhanced: React.FC<DocumentFilterProps> = ({
     }
 
     await fetchWithLoading(
-      `/api/documents/search-suggestions?q=${encodeURIComponent(search)}&limit=20`,
+      `${API_BASE_URL}/documents/search-suggestions?q=${encodeURIComponent(search)}&limit=20`,
       'docNumbers',
       (data) => {
         const documents = data.documents || [];
@@ -180,7 +180,7 @@ const DocumentFilterEnhanced: React.FC<DocumentFilterProps> = ({
     }
 
     await fetchWithLoading(
-      `/api/documents/search-suggestions?q=${encodeURIComponent(search)}&limit=20`,
+      `${API_BASE_URL}/documents/search-suggestions?q=${encodeURIComponent(search)}&limit=20`,
       'docNumbers',
       (data) => {
         const documents = data.documents || [];
@@ -197,7 +197,7 @@ const DocumentFilterEnhanced: React.FC<DocumentFilterProps> = ({
   // 年度選項
   const fetchYearOptions = async () => {
     // 使用共用的 API 基礎 URL
-    await fetchWithLoading(`${VITE_API_BASE_URL}/api/documents/documents-years`, 'years', (data) => {
+    await fetchWithLoading(`${API_BASE_URL}/documents/documents-years`, 'years', (data) => {
       const options = (data.years || []).map((year: string) => ({
         value: year,
         label: `${year}年`

@@ -8,7 +8,7 @@
  * @date 2026-01-06
  */
 
-import { apiClient } from './client';
+import { apiClient, API_BASE_URL } from './client';
 import { API_ENDPOINTS } from './endpoints';
 
 // ============================================================================
@@ -292,7 +292,7 @@ export const filesApi = {
    */
   async getAttachmentBlob(attachmentId: number): Promise<Blob> {
     const response = await fetch(
-      `${import.meta.env.VITE_API_BASE_URL || ''}/api/files/${attachmentId}/download`,
+      `${API_BASE_URL}/files/${attachmentId}/download`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

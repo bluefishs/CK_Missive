@@ -52,7 +52,7 @@ import {
   CloudUploadOutlined,
   FileOutlined,
   LoadingOutlined,
-  CopyOutlined,
+  // CopyOutlined, // 複製功能已隱藏
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import {
@@ -455,33 +455,46 @@ export const DocumentDetailPage: React.FC = () => {
     console.log('[handleEventCreated] 新建事件 ID:', eventId);
   };
 
-  /** 複製公文 */
-  const handleCopy = async () => {
-    if (!document) return;
-    try {
-      const copyData = {
-        doc_number: `${document.doc_number}-副本`,
-        doc_type: document.doc_type || '函',
-        subject: document.subject || '',
-        sender: document.sender,
-        receiver: document.receiver,
-        content: document.content,
-        doc_date: document.doc_date,
-        receive_date: document.receive_date,
-        send_date: document.send_date,
-        status: document.status,
-        priority: (document as any).priority,
-        contract_project_id: (document as any).contract_project_id,
-        assignee: (document as any).assignee,
-        notes: (document as any).notes,
-      };
+  /** 複製公文（功能已隱藏，保留備用） */
+  // const handleCopy = async () => {
+  //   if (!document) return;
+  //   try {
+  //     const copyData = {
+  //       doc_number: `${document.doc_number}-副本`,
+  //       doc_type: document.doc_type || '函',
+  //       subject: document.subject || '',
+  //       sender: document.sender,
+  //       receiver: document.receiver,
+  //       content: document.content,
+  //       doc_date: document.doc_date,
+  //       receive_date: document.receive_date,
+  //       send_date: document.send_date,
+  //       status: document.status,
+  //       priority: (document as any).priority,
+  //       contract_project_id: (document as any).contract_project_id,
+  //       assignee: (document as any).assignee,
+  //       notes: (document as any).notes,
+  //     };
+  //
+  //     const newDoc = await documentsApi.createDocument(copyData);
+  //     message.success('公文複製成功');
+  //     navigate(`/documents/${newDoc.id}`);
+  //   } catch (error) {
+  //     console.error('複製公文失敗:', error);
+  //     message.error('複製公文失敗');
+  //   }
+  // };
 
-      const newDoc = await documentsApi.createDocument(copyData);
-      message.success('公文複製成功');
-      navigate(`/documents/${newDoc.id}`);
+  /** 刪除公文 */
+  const handleDelete = async () => {
+    if (!document || !id) return;
+    try {
+      await documentsApi.deleteDocument(parseInt(id, 10));
+      message.success('公文刪除成功');
+      navigate('/documents');
     } catch (error) {
-      console.error('複製公文失敗:', error);
-      message.error('複製公文失敗');
+      console.error('刪除公文失敗:', error);
+      message.error('刪除公文失敗');
     }
   };
 
@@ -1116,9 +1129,6 @@ export const DocumentDetailPage: React.FC = () => {
             >
               加入行事曆
             </Button>
-            <Button icon={<CopyOutlined />} onClick={handleCopy}>
-              複製
-            </Button>
             <Button
               type="primary"
               icon={<EditOutlined />}
@@ -1126,6 +1136,21 @@ export const DocumentDetailPage: React.FC = () => {
             >
               編輯
             </Button>
+            <Popconfirm
+              title="確定要刪除此公文嗎？"
+              description="刪除後將無法復原，請確認是否繼續。"
+              onConfirm={handleDelete}
+              okText="確定刪除"
+              cancelText="取消"
+              okButtonProps={{ danger: true }}
+            >
+              <Button
+                danger
+                icon={<DeleteOutlined />}
+              >
+                刪除
+              </Button>
+            </Popconfirm>
           </>
         )}
       </Space>

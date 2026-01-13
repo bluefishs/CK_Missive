@@ -9,7 +9,7 @@ import { Card, Typography, Alert, Spin, Space, Button, Divider } from 'antd';
 import { ApiOutlined, ReloadOutlined, ExportOutlined } from '@ant-design/icons';
 import SwaggerUI from 'swagger-ui-react';
 import 'swagger-ui-react/swagger-ui.css';
-import { VITE_API_BASE_URL } from '../config/env';
+import { SERVER_BASE_URL } from '../api/client';
 import './ApiDocumentationPage.css';
 
 const { Title, Paragraph, Text } = Typography;
@@ -25,8 +25,8 @@ const ApiDocumentationPage: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      // 使用共用的 API base URL
-      const baseUrl = VITE_API_BASE_URL;
+      // 使用動態計算的 Server base URL
+      const baseUrl = SERVER_BASE_URL;
       const timestamp = new Date().getTime();
       const response = await fetch(`${baseUrl}/openapi.json?t=${timestamp}`, {
         cache: 'no-cache',

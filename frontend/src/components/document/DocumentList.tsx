@@ -287,9 +287,9 @@ export const DocumentList: React.FC<DocumentListProps> = ({
   // 移除：類型、狀態、業務同仁
   const columns: ColumnsType<Document> = [
     {
-      title: '序號',
+      title: '序',
       key: 'rowNumber',
-      width: 70,
+      width: 45,
       align: 'center',
       render: (_: any, __: Document, index: number) => (
         <Typography.Text type="secondary">{getRowNumber(index)}</Typography.Text>
@@ -299,7 +299,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
       title: '發文形式',
       dataIndex: 'delivery_method',
       key: 'delivery_method',
-      width: 95,
+      width: 85,
       align: 'center',
       filters: [
         { text: '電子交換', value: '電子交換' },
@@ -317,7 +317,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
     {
       title: '收發單位',
       key: 'correspondent',
-      width: 160,
+      width: 140,
       ellipsis: { showTitle: false },
       sorter: (a, b) => {
         // 收文顯示 sender，發文顯示 receiver
@@ -413,7 +413,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
       title: '公文字號',
       dataIndex: 'doc_number',
       key: 'doc_number',
-      width: 180,
+      width: 170,
       ellipsis: { showTitle: false },
       sorter: (a, b) => (a.doc_number || '').localeCompare(b.doc_number || '', 'zh-TW'),
       sortDirections: ['descend', 'ascend'],
@@ -439,7 +439,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
       title: '公文日期',
       dataIndex: 'doc_date',
       key: 'doc_date',
-      width: 100,
+      width: 95,
       align: 'center',
       sorter: (a, b) => {
         if (!a.doc_date) return 1;
@@ -460,7 +460,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
       title: '主旨',
       dataIndex: 'subject',
       key: 'subject',
-      width: 280,
+      width: 300,
       ellipsis: { showTitle: false },
       sorter: (a, b) => (a.subject || '').localeCompare(b.subject || '', 'zh-TW'),
       sortDirections: ['descend', 'ascend'],
@@ -492,7 +492,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
       title: '附件',
       dataIndex: 'attachment_count',
       key: 'attachment_count',
-      width: 70,
+      width: 55,
       align: 'center',
       sorter: (a, b) => (a.attachment_count || 0) - (b.attachment_count || 0),
       sortDirections: ['descend', 'ascend'],
@@ -593,7 +593,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
       title: '承攬案件',
       dataIndex: 'contract_project_name',
       key: 'contract_project_name',
-      width: 180,
+      width: 160,
       ellipsis: true,
       render: (projectName: string | undefined) => (
         projectName ? (
@@ -608,31 +608,32 @@ export const DocumentList: React.FC<DocumentListProps> = ({
         )
       ),
     },
-    {
-      title: '操作',
-      key: 'action',
-      width: 80,
-      align: 'center',
-      fixed: 'right',
-      render: (_: any, record: Document) => (
-        <DocumentActions
-          document={record}
-          onView={onView}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          onCopy={onCopy}
-          onExportPdf={onExportPdf}
-          onSend={onSend}
-          onArchive={onArchive}
-          loadingStates={{
-            isExporting: isExporting,
-            isAddingToCalendar: isAddingToCalendar,
-          }}
-          mode="dropdown"
-          size="small"
-        />
-      ),
-    },
+    // 操作欄位已移除 - 用戶點擊行進入詳情頁後，在頂部功能鈕進行操作 (2026-01-12)
+    // {
+    //   title: '操作',
+    //   key: 'action',
+    //   width: 80,
+    //   align: 'center',
+    //   fixed: 'right',
+    //   render: (_: any, record: Document) => (
+    //     <DocumentActions
+    //       document={record}
+    //       onView={onView}
+    //       onEdit={onEdit}
+    //       onDelete={onDelete}
+    //       onCopy={onCopy}
+    //       onExportPdf={onExportPdf}
+    //       onSend={onSend}
+    //       onArchive={onArchive}
+    //       loadingStates={{
+    //         isExporting: isExporting,
+    //         isAddingToCalendar: isAddingToCalendar,
+    //       }}
+    //       mode="dropdown"
+    //       size="small"
+    //     />
+    //   ),
+    // },
   ];
 
   const rowSelection = {
@@ -667,7 +668,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
       showTotal: (totalNum, range) => `第 ${range[0]}-${range[1]} 筆，共 ${totalNum} 筆`,
       size: 'default',
     },
-    scroll: { x: 1215 }, // 總欄寬: 70+95+160+180+100+280+70+180+80 = 1215
+    scroll: { x: 1050 }, // 總欄寬: 45+85+140+170+95+300+55+160 = 1050 (操作欄位已移除，欄位寬度已優化)
     tableLayout: 'fixed',
     locale: {
       emptyText: (

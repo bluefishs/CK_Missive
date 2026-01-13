@@ -3,17 +3,23 @@
  *
  * 設計風格：深藍星空背景、金色強調
  * 功能：智慧環境偵測登入機制
- *   - localhost / 公網域名：Google OAuth 登入
- *   - 內網 IP：開發模式快速進入
- *   - ngrok 隧道：Google OAuth 登入
  *
- * @version 2.2.0
- * @date 2026-01-11
+ * 登入方式依環境決定：
+ * ┌──────────────┬──────────┬──────────┬────────────┐
+ * │ 環境          │ 快速進入  │ 帳密登入  │ Google登入 │
+ * ├──────────────┼──────────┼──────────┼────────────┤
+ * │ localhost    │ ✅       │ ✅       │ ✅         │
+ * │ internal     │ ✅       │ ✅       │ ❌         │
+ * │ ngrok/public │ ❌       │ ✅       │ ✅         │
+ * └──────────────┴──────────┴──────────┴────────────┘
+ *
+ * @version 2.5.0
+ * @date 2026-01-13
  */
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button, Spin, App, Tag } from 'antd';
-import { GoogleOutlined, LoadingOutlined, LoginOutlined } from '@ant-design/icons';
+import { GoogleOutlined, LoadingOutlined, LoginOutlined, UserOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
 import { detectEnvironment, isAuthDisabled, GOOGLE_CLIENT_ID } from '../config/env';
@@ -22,14 +28,31 @@ import './EntryPage.css';
 // 使用共用的環境偵測
 const ENV_TYPE = detectEnvironment();
 
-// Google OAuth 啟用條件：有效的 Client ID + 非內網環境
+// Google OAuth 啟用條件：有效的 Client ID
 const GOOGLE_LOGIN_ENABLED =
   GOOGLE_CLIENT_ID &&
-  GOOGLE_CLIENT_ID !== 'your-actual-google-client-id.apps.googleusercontent.com' &&
-  ENV_TYPE !== 'internal';
+  GOOGLE_CLIENT_ID !== 'your-actual-google-client-id.apps.googleusercontent.com';
 
-// 是否為內網開發模式
-const IS_INTERNAL_DEV = ENV_TYPE === 'internal';
+// 是否為認證停用模式（VITE_AUTH_DISABLED=true）
+const IS_AUTH_DISABLED = isAuthDisabled();
+
+// 環境類型判斷
+const IS_LOCALHOST = ENV_TYPE === 'localhost';      // 本機開發
+const IS_INTERNAL = ENV_TYPE === 'internal';        // 內網 IP
+const IS_NGROK_OR_PUBLIC = ENV_TYPE === 'ngrok' || ENV_TYPE === 'public';  // ngrok 或公網
+
+/**
+ * 登入選項配置（依環境決定）
+ *
+ * | 環境          | 快速進入 | 帳密登入 | Google登入 |
+ * |--------------|---------|---------|-----------|
+ * | localhost    | ✅      | ✅      | ✅        |
+ * | internal     | ✅      | ✅      | ❌        |
+ * | ngrok/public | ❌      | ✅      | ✅        |
+ */
+const SHOW_QUICK_ENTRY = IS_AUTH_DISABLED || IS_LOCALHOST || IS_INTERNAL;  // localhost + 內網 顯示快速進入
+const SHOW_PASSWORD_LOGIN = true;                                          // 所有環境都有帳密登入
+const SHOW_GOOGLE_LOGIN = GOOGLE_LOGIN_ENABLED && (IS_LOCALHOST || IS_NGROK_OR_PUBLIC);  // localhost/ngrok/public 顯示 Google 登入
 
 // 星星組件
 interface StarProps {
@@ -103,27 +126,28 @@ const EntryPage: React.FC = () => {
   }, [message, navigate]);
 
   useEffect(() => {
-    // 使用共用的認證停用判斷（已包含內網 IP 檢測）
-    const authDisabled = isAuthDisabled();
-
-    // 內網開發模式或認證停用：直接顯示快速進入按鈕
-    if (authDisabled) {
-      setGoogleReady(true);
-      return;
-    }
-
     // 檢查是否已登入
     if (authService.isAuthenticated()) {
       navigate('/dashboard');
       return;
     }
 
-    // 初始化 Google 登入（僅限 localhost、公網域名、ngrok）
-    if (GOOGLE_LOGIN_ENABLED) {
+    // 根據環境初始化登入選項
+    if (SHOW_GOOGLE_LOGIN) {
+      // localhost / ngrok / public：初始化 Google 登入
       initializeGoogleSignIn();
     } else {
+      // internal（內網）：不需要 Google 登入，直接準備就緒
       setGoogleReady(true);
     }
+
+    // 日誌：顯示當前環境和登入選項
+    console.log('🔐 EntryPage 環境配置:', {
+      ENV_TYPE,
+      SHOW_QUICK_ENTRY,
+      SHOW_PASSWORD_LOGIN,
+      SHOW_GOOGLE_LOGIN,
+    });
   }, [navigate]);
 
   const initializeGoogleSignIn = async () => {
@@ -166,25 +190,22 @@ const EntryPage: React.FC = () => {
     }
   };
 
-  // 內網快速進入（開發模式）
+  // 快速進入（localhost、內網 IP 或 AUTH_DISABLED）
   const handleDevModeEntry = () => {
-    message.info('內網開發模式 - 快速進入系統');
+    if (IS_AUTH_DISABLED) {
+      message.info('開發模式 - 快速進入系統（認證已停用）');
+    } else if (IS_LOCALHOST) {
+      message.info('本機開發模式 - 快速進入系統');
+    } else if (IS_INTERNAL) {
+      message.info('內網環境 - 快速進入系統');
+    }
     navigate('/dashboard');
   };
 
   // 觸發 Google 登入
   const handleGoogleLogin = () => {
-    // 使用共用的認證停用判斷
-    const authDisabled = isAuthDisabled();
-
-    // 內網開發模式或認證停用：快速進入
-    if (authDisabled) {
-      handleDevModeEntry();
-      return;
-    }
-
-    if (!GOOGLE_LOGIN_ENABLED) {
-      message.warning('Google 登入尚未設定，請聯絡管理員');
+    if (!SHOW_GOOGLE_LOGIN) {
+      message.warning('此環境不支援 Google 登入');
       return;
     }
 
@@ -218,7 +239,7 @@ const EntryPage: React.FC = () => {
   const envLabel = getEnvLabel();
 
   return (
-    <div className="entry-page" onClick={googleReady && !loading ? handleGoogleLogin : undefined}>
+    <div className="entry-page" onClick={SHOW_QUICK_ENTRY && googleReady && !loading ? handleDevModeEntry : undefined}>
       {/* 星空背景 */}
       <div className="stars-container">
         {stars.small.map((star, i) => (
@@ -300,38 +321,64 @@ const EntryPage: React.FC = () => {
             <Spin indicator={<LoadingOutlined style={{ fontSize: 32, color: '#c9a962' }} spin />} />
           ) : googleReady ? (
             <>
-              {IS_INTERNAL_DEV ? (
-                // 內網開發模式：顯示快速進入按鈕
-                <Button
-                  className="dev-entry-btn"
-                  icon={<LoginOutlined />}
-                  size="large"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDevModeEntry();
-                  }}
-                >
-                  快速進入系統
-                </Button>
-              ) : (
-                // 其他環境：Google 登入
-                <Button
-                  id="google-signin-btn"
-                  className="google-login-btn"
-                  icon={<GoogleOutlined />}
-                  size="large"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleGoogleLogin();
-                  }}
-                >
-                  使用 Google 帳號登入
-                </Button>
-              )}
+              {/* 動態顯示登入選項 */}
+              <div className="internal-login-options">
+                {/* 快速進入：localhost + internal */}
+                {SHOW_QUICK_ENTRY && (
+                  <Button
+                    className="dev-entry-btn"
+                    icon={<LoginOutlined />}
+                    size="large"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDevModeEntry();
+                    }}
+                  >
+                    快速進入系統
+                  </Button>
+                )}
+
+                {/* 帳密登入：所有環境 */}
+                {SHOW_PASSWORD_LOGIN && (
+                  <Button
+                    className="password-login-btn"
+                    icon={<UserOutlined />}
+                    size="large"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate('/login');
+                    }}
+                  >
+                    帳號密碼登入
+                  </Button>
+                )}
+
+                {/* Google 登入：localhost + ngrok + public */}
+                {SHOW_GOOGLE_LOGIN && (
+                  <Button
+                    id="google-signin-btn"
+                    className="google-login-btn"
+                    icon={<GoogleOutlined />}
+                    size="large"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleGoogleLogin();
+                    }}
+                  >
+                    使用 Google 帳號登入
+                  </Button>
+                )}
+              </div>
+
+              {/* 環境提示 */}
               <p className="entry-hint">
-                {IS_INTERNAL_DEV
-                  ? '內網開發模式 - 點擊進入系統'
-                  : '點擊畫面任意處或按鈕開始'}
+                {IS_AUTH_DISABLED
+                  ? '開發模式 - 認證已停用，點擊任意處進入'
+                  : IS_LOCALHOST
+                    ? '本機開發模式 - 三種登入方式可用'
+                    : IS_INTERNAL
+                      ? '內網環境 - 快速進入或帳密登入'
+                      : '請選擇登入方式'}
               </p>
             </>
           ) : (

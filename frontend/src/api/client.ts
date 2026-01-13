@@ -58,8 +58,11 @@ function getDynamicApiBaseUrl(): string {
   return '/api';
 }
 
-/** API 基礎 URL（動態計算） */
+/** API 基礎 URL（動態計算，包含 /api） */
 export const API_BASE_URL = getDynamicApiBaseUrl();
+
+/** 伺服器基礎 URL（動態計算，不含 /api） */
+export const SERVER_BASE_URL = API_BASE_URL.replace(/\/api$/, '');
 
 // 開發模式下輸出 API URL 資訊
 if (import.meta.env.DEV) {

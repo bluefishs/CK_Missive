@@ -90,7 +90,6 @@ export const calendarApi = {
    */
   async getEvents(): Promise<CalendarEvent[]> {
     try {
-      const api = authService.getAxiosInstance();
       const userInfo = authService.getUserInfo();
       const userId = userInfo?.id || 1;
 
@@ -99,13 +98,14 @@ export const calendarApi = {
       const startDate = now.subtract(2, 'month').format('YYYY-MM-DD');
       const endDate = now.add(2, 'month').format('YYYY-MM-DD');
 
-      const response = await api.post(API_ENDPOINTS.CALENDAR.USER_EVENTS, {
-        user_id: userId,
-        start_date: startDate,
-        end_date: endDate,
-      });
-
-      const data = response.data;
+      const data = await apiClient.post<{success: boolean; events: any[]; total: number}>(
+        API_ENDPOINTS.CALENDAR.USER_EVENTS,
+        {
+          user_id: userId,
+          start_date: startDate,
+          end_date: endDate,
+        }
+      );
       if (data && Array.isArray(data.events)) {
         return data.events.map((event: any) => ({
           id: event.id,
@@ -202,8 +202,8 @@ export const calendarApi = {
    */
   async updateEvent(eventId: number, updates: Partial<CalendarEvent>): Promise<void> {
     try {
-      const api = authService.getAxiosInstance();
-      const response = await api.post(API_ENDPOINTS.CALENDAR.EVENTS_UPDATE, {
+      const result = await apiClient.post<{success: boolean; message?: string}>(
+        API_ENDPOINTS.CALENDAR.EVENTS_UPDATE, {
         event_id: eventId,
         title: updates.title,
         description: updates.description,
@@ -216,8 +216,8 @@ export const calendarApi = {
       });
 
       // 檢查後端回傳的 success 欄位
-      if (response.data && response.data.success === false) {
-        throw new Error(response.data.message || '更新事件失敗');
+      if (result && result.success === false) {
+        throw new Error(result.message || '更新事件失敗');
       }
     } catch (error) {
       console.error('更新事件失敗:', error);
@@ -230,15 +230,15 @@ export const calendarApi = {
    */
   async deleteEvent(eventId: number): Promise<void> {
     try {
-      const api = authService.getAxiosInstance();
-      const response = await api.post(API_ENDPOINTS.CALENDAR.EVENTS_DELETE, {
+      const result = await apiClient.post<{success: boolean; message?: string}>(
+        API_ENDPOINTS.CALENDAR.EVENTS_DELETE, {
         event_id: eventId,
         confirm: true,  // 後端需要 confirm: true 才會執行刪除
       });
 
       // 檢查後端回傳的 success 欄位
-      if (response.data && response.data.success === false) {
-        throw new Error(response.data.message || '刪除事件失敗');
+      if (result && result.success === false) {
+        throw new Error(result.message || '刪除事件失敗');
       }
     } catch (error) {
       console.error('刪除事件失敗:', error);
@@ -251,11 +251,10 @@ export const calendarApi = {
    */
   async bulkSync(): Promise<{ success: boolean; message: string; synced_count: number; failed_count: number }> {
     try {
-      const api = authService.getAxiosInstance();
-      const response = await api.post(API_ENDPOINTS.CALENDAR.EVENTS_BULK_SYNC, {
+      return await apiClient.post<{ success: boolean; message: string; synced_count: number; failed_count: number }>(
+        API_ENDPOINTS.CALENDAR.EVENTS_BULK_SYNC, {
         sync_all_pending: true,
       });
-      return response.data;
     } catch (error) {
       console.error('批次同步失敗:', error);
       throw error;
@@ -267,12 +266,11 @@ export const calendarApi = {
    */
   async syncEvent(eventId: number, forceSync: boolean = false): Promise<{ success: boolean; message: string; google_event_id?: string }> {
     try {
-      const api = authService.getAxiosInstance();
-      const response = await api.post(API_ENDPOINTS.CALENDAR.EVENTS_SYNC, {
+      return await apiClient.post<{ success: boolean; message: string; google_event_id?: string }>(
+        API_ENDPOINTS.CALENDAR.EVENTS_SYNC, {
         event_id: eventId,
         force_sync: forceSync,
       });
-      return response.data;
     } catch (error) {
       console.error('同步事件失敗:', error);
       throw error;

@@ -9,7 +9,7 @@ from app.api.endpoints import (
     documents_enhanced, secure_site_management,
     # --- 新增 dashboard 匯入 ---
     dashboard, project_notifications, debug, project_vendors, project_staff,
-    project_agency_contacts, system_notifications, backup
+    project_agency_contacts, system_notifications, backup, certifications
 )
 
 api_router = APIRouter()
@@ -36,6 +36,7 @@ api_router.include_router(document_calendar.router, prefix="/calendar", tags=["�
 # --- 系統與管理模組 ---
 api_router.include_router(auth.router, prefix="/auth", tags=["認證"])
 api_router.include_router(users.router, prefix="/users", tags=["使用者"])
+api_router.include_router(certifications.router, prefix="/certifications", tags=["證照管理"])
 api_router.include_router(user_management.router, prefix="/admin/user-management", tags=["權限管理"])
 api_router.include_router(admin.router, prefix="/admin", tags=["管理後台"])
 api_router.include_router(site_management.router, prefix="/site-management", tags=["網站管理"])

@@ -8,13 +8,13 @@ import React from 'react';
 import SwaggerUI from 'swagger-ui-react';
 import 'swagger-ui-react/swagger-ui.css';
 import { Card, Typography, Spin, Alert } from 'antd';
-import { API_BASE_URL, VITE_API_BASE_URL } from '../config/env';
+import { SERVER_BASE_URL } from '../api/client';
 
 const { Title, Paragraph } = Typography;
 
 export const ApiDocumentationPage: React.FC = () => {
   // 使用共用的 API base URL
-  const baseUrl = VITE_API_BASE_URL; // 不含 /api 後綴
+  const baseUrl = SERVER_BASE_URL; // 動態計算，不含 /api 後綴
   const swaggerUrl = `${baseUrl}/openapi.json`; // Backend OpenAPI JSON endpoint
 
   return (

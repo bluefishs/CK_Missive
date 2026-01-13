@@ -200,6 +200,22 @@ export const USERS_ENDPOINTS = {
   STATUS: (id: number) => `/users/${id}/status`,
 } as const;
 
+/** 證照管理 API 端點 */
+export const CERTIFICATIONS_ENDPOINTS = {
+  /** 新增證照 POST /certifications/create */
+  CREATE: '/certifications/create',
+  /** 使用者證照列表 POST /certifications/user/:userId/list */
+  USER_LIST: (userId: number) => `/certifications/user/${userId}/list`,
+  /** 證照詳情 POST /certifications/:id/detail */
+  DETAIL: (id: number) => `/certifications/${id}/detail`,
+  /** 更新證照 POST /certifications/:id/update */
+  UPDATE: (id: number) => `/certifications/${id}/update`,
+  /** 刪除證照 POST /certifications/:id/delete */
+  DELETE: (id: number) => `/certifications/${id}/delete`,
+  /** 使用者證照統計 POST /certifications/stats/:userId */
+  STATS: (userId: number) => `/certifications/stats/${userId}`,
+} as const;
+
 /** 認證 API 端點 */
 export const AUTH_ENDPOINTS = {
   /** 登入 POST /auth/login */
@@ -382,6 +398,7 @@ export const API_ENDPOINTS = {
   USERS: USERS_ENDPOINTS,
   AUTH: AUTH_ENDPOINTS,
   ADMIN_USER_MANAGEMENT: ADMIN_USER_MANAGEMENT_ENDPOINTS,
+  CERTIFICATIONS: CERTIFICATIONS_ENDPOINTS,
 
   // 關聯模組
   PROJECT_VENDORS: PROJECT_VENDORS_ENDPOINTS,

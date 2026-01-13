@@ -28,7 +28,7 @@ const SettingsPage = lazy(() => import('../pages/SettingsPage').then(module => (
 const ProfilePage = lazy(() => import('../pages/ProfilePage').then(module => ({ default: module.ProfilePage })));
 const NotFoundPage = lazy(() => import('../pages/NotFoundPage').then(module => ({ default: module.NotFoundPage })));
 const DatabaseManagementPage = lazy(() => import('../pages/DatabaseManagementPage').then(module => ({ default: module.DatabaseManagementPage })));
-const EntryPage = lazy(() => import('../pages/EntryPage'));
+// EntryPage 已整合至 LoginPage，保留重導向
 const LoginPage = lazy(() => import('../pages/LoginPage'));
 const RegisterPage = lazy(() => import('../pages/RegisterPage'));
 const ForgotPasswordPage = lazy(() => import('../pages/ForgotPasswordPage'));
@@ -69,14 +69,14 @@ export const AppRouter: React.FC = () => {
     <Layout>
       <Suspense fallback={<PageLoading message="載入頁面中..." />}>
         <Routes>
-          {/* 系統入口與登入相關頁面 */}
-          <Route path={ROUTES.ENTRY} element={<EntryPage />} />
+          {/* 統一登入入口 */}
           <Route path={ROUTES.LOGIN} element={<LoginPage />} />
           <Route path={ROUTES.REGISTER} element={<RegisterPage />} />
           <Route path={ROUTES.FORGOT_PASSWORD} element={<ForgotPasswordPage />} />
 
-          {/* 首頁重定向到入口頁面 */}
-          <Route path={ROUTES.HOME} element={<Navigate to={ROUTES.ENTRY} replace />} />
+          {/* 首頁與舊入口重定向到統一登入頁 */}
+          <Route path={ROUTES.HOME} element={<Navigate to={ROUTES.LOGIN} replace />} />
+          <Route path={ROUTES.ENTRY} element={<Navigate to={ROUTES.LOGIN} replace />} />
           
           {/* 公文相關路由 */}
           <Route path={ROUTES.DOCUMENTS} element={<DocumentPage />} />

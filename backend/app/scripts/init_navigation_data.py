@@ -4,17 +4,23 @@
 初始化導覽列數據腳本
 為系統建立預設的導覽列結構和配置
 
-@version 2.0.0
-@date 2026-01-11
+@version 2.1.0
+@date 2026-01-12
 
 變更記錄：
+- v2.1.0: 新增 --force-update 參數，支援強制更新已存在的項目路徑
 - v2.0.0: 同步前端路由定義，修正欄位名稱，新增缺失項目
 - v1.0.0: 初始版本
+
+用法：
+  python init_navigation_data.py              # 僅新增不存在的項目
+  python init_navigation_data.py --force-update  # 強制更新所有項目的路徑
 """
 
 import asyncio
 import sys
 import os
+import argparse
 from datetime import datetime
 
 # 添加 backend 目錄到 Python 路徑
@@ -441,16 +447,60 @@ async def check_config_exists(db: AsyncSession, config_key: str) -> bool:
     result = await db.execute(query)
     return result.scalar_one_or_none() is not None
 
-async def create_navigation_items(db: AsyncSession):
-    """創建導覽列項目"""
-    print("開始創建導覽列項目...")
 
-    # 第一階段：創建所有父級項目
+async def get_item_by_key(db: AsyncSession, key: str) -> SiteNavigationItem:
+    """根據 key 獲取導覽項目"""
+    query = select(SiteNavigationItem).where(SiteNavigationItem.key == key)
+    result = await db.execute(query)
+    return result.scalar_one_or_none()
+
+
+async def update_item_path(db: AsyncSession, key: str, new_path: str, title: str) -> bool:
+    """
+    更新導覽項目的路徑
+
+    Args:
+        db: 資料庫 session
+        key: 項目的唯一 key
+        new_path: 新的路徑
+        title: 項目標題（用於日誌）
+
+    Returns:
+        bool: 是否有更新
+    """
+    item = await get_item_by_key(db, key)
+    if not item:
+        return False
+
+    if item.path != new_path:
+        old_path = item.path
+        item.path = new_path
+        print(f"  ✓ 更新 '{title}': {old_path} → {new_path}")
+        return True
+    return False
+
+
+async def create_navigation_items(db: AsyncSession, force_update: bool = False):
+    """創建導覽列項目"""
+    if force_update:
+        print("開始更新導覽列項目（強制更新模式）...")
+    else:
+        print("開始創建導覽列項目...")
+
+    update_count = 0
+
+    # 第一階段：創建或更新所有父級項目
     parent_items = {}
     for item_data in DEFAULT_NAVIGATION_ITEMS:
         if item_data.get("parent_key") is None:  # 頂級項目
             if await check_item_exists(db, item_data["key"]):
-                print(f"導覽項目 '{item_data['title']}' 已存在，跳過...")
+                # 項目已存在
+                if force_update:
+                    # 強制更新模式：更新路徑
+                    if await update_item_path(db, item_data["key"], item_data.get("path"), item_data["title"]):
+                        update_count += 1
+                else:
+                    print(f"導覽項目 '{item_data['title']}' 已存在，跳過...")
                 # 獲取已存在的項目用於建立關聯
                 query = select(SiteNavigationItem).where(SiteNavigationItem.key == item_data["key"])
                 result = await db.execute(query)
@@ -483,11 +533,17 @@ async def create_navigation_items(db: AsyncSession):
         result = await db.execute(query)
         parent_items[key] = result.scalar_one()
 
-    # 第二階段：創建子級項目
+    # 第二階段：創建或更新子級項目
     for item_data in DEFAULT_NAVIGATION_ITEMS:
         if item_data.get("parent_key") is not None:  # 子級項目
             if await check_item_exists(db, item_data["key"]):
-                print(f"導覽項目 '{item_data['title']}' 已存在，跳過...")
+                # 項目已存在
+                if force_update:
+                    # 強制更新模式：更新路徑
+                    if await update_item_path(db, item_data["key"], item_data.get("path"), item_data["title"]):
+                        update_count += 1
+                else:
+                    print(f"導覽項目 '{item_data['title']}' 已存在，跳過...")
                 continue
 
             parent_item = parent_items.get(item_data["parent_key"])
@@ -513,7 +569,11 @@ async def create_navigation_items(db: AsyncSession):
             print(f"創建子級導覽項目: {item_data['title']} (父級: {parent_item.title})")
 
     await db.commit()
-    print("導覽列項目創建完成！")
+
+    if force_update and update_count > 0:
+        print(f"導覽列項目更新完成！共更新 {update_count} 個項目的路徑。")
+    else:
+        print("導覽列項目創建完成！")
 
 async def create_site_configs(db: AsyncSession):
     """創建網站配置"""
@@ -538,39 +598,69 @@ async def create_site_configs(db: AsyncSession):
     await db.commit()
     print("網站配置創建完成！")
 
-async def init_navigation_data():
-    """初始化導覽列數據的主函數"""
-    print("=== 初始化導覽列數據 ===")
+async def init_navigation_data(force_update: bool = False):
+    """
+    初始化導覽列數據的主函數
+
+    Args:
+        force_update: 是否強制更新已存在項目的路徑
+    """
+    mode = "強制更新" if force_update else "初始化"
+    print(f"=== 導覽列數據{mode} ===")
     print(f"開始時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     try:
         async with AsyncSessionLocal() as db:
-            # 創建導覽列項目
-            await create_navigation_items(db)
+            # 創建或更新導覽列項目
+            await create_navigation_items(db, force_update=force_update)
 
-            # 創建網站配置
-            await create_site_configs(db)
+            # 創建網站配置（配置不支援強制更新）
+            if not force_update:
+                await create_site_configs(db)
 
-        print("=== 初始化完成 ===")
+        print(f"=== {mode}完成 ===")
         print(f"結束時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     except Exception as e:
-        print(f"初始化失敗: {str(e)}")
+        print(f"{mode}失敗: {str(e)}")
         import traceback
         traceback.print_exc()
         return False
 
     return True
 
+
+def parse_args():
+    """解析命令行參數"""
+    parser = argparse.ArgumentParser(
+        description="初始化導覽列數據腳本",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+範例:
+  python init_navigation_data.py                # 僅新增不存在的項目
+  python init_navigation_data.py --force-update # 強制更新所有項目的路徑
+        """
+    )
+    parser.add_argument(
+        "--force-update",
+        action="store_true",
+        help="強制更新已存在項目的路徑（同步前端路由定義）"
+    )
+    return parser.parse_args()
+
+
 async def main():
     """主執行函數"""
-    success = await init_navigation_data()
+    args = parse_args()
+    success = await init_navigation_data(force_update=args.force_update)
     if success:
-        print("導覽列數據初始化成功！")
+        mode = "更新" if args.force_update else "初始化"
+        print(f"導覽列數據{mode}成功！")
         return 0
     else:
-        print("導覽列數據初始化失敗！")
+        print("導覽列數據處理失敗！")
         return 1
+
 
 if __name__ == "__main__":
     # 執行初始化

@@ -29,6 +29,8 @@ export interface User {
   is_active: boolean;
   last_login?: string;
   created_at?: string;
+  department?: string;
+  position?: string;
 }
 
 /** 使用者建立請求 */
@@ -39,6 +41,8 @@ export interface UserCreate {
   role?: string;
   is_active?: boolean;
   password: string;
+  department?: string;
+  position?: string;
 }
 
 /** 使用者更新請求 */
@@ -48,6 +52,8 @@ export interface UserUpdate {
   role?: string;
   is_active?: boolean;
   password?: string;
+  department?: string;
+  position?: string;
 }
 
 /** 使用者狀態更新請求 */

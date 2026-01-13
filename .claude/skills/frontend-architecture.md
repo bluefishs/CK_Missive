@@ -1,6 +1,6 @@
 # 前端架構規範 (Frontend Architecture)
 
-> **版本**: 1.1.0
+> **版本**: 1.2.0
 > **更新日期**: 2026-01-12
 > **適用範圍**: frontend/src/**
 
@@ -228,8 +228,20 @@ const result = await axios.post('/api/documents/list', params);
 |------|------|----------|
 | `components/Layout.tsx` | 主佈局元件 | **AppRouter 使用此元件**，非 DynamicLayout |
 | `components/DynamicLayout.tsx` | 動態佈局元件 | 備用，目前未被使用 |
-| `pages/SiteManagementPage.tsx` | 網站管理頁面 | 管理導覽項目，觸發更新事件 |
+| `pages/SiteManagementPage.tsx` | 網站管理頁面 | 路徑欄位使用下拉選單，觸發更新事件 |
 | `services/secureApiService.ts` | 安全 API 服務 | Layout 與 SiteManagement 共用 |
+| `router/types.ts` | 前端路由定義 | ROUTES 常數，是路徑的真實來源 |
+
+### 6.2.1 後端路徑驗證 (2026-01-12 新增)
+
+| 檔案 (後端) | 說明 |
+|------------|------|
+| `backend/app/core/navigation_validator.py` | 路徑白名單驗證器 |
+| `backend/app/api/endpoints/secure_site_management.py` | 在 create/update 時驗證路徑 |
+
+- SiteManagementPage 的路徑欄位已改為下拉選單
+- 下拉選單選項從後端 API `/navigation/valid-paths` 載入
+- 後端 API 會驗證路徑是否在白名單中，無效路徑會被拒絕
 
 ### 6.3 導覽更新機制
 

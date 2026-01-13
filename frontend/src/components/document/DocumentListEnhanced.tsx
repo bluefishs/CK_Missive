@@ -11,7 +11,9 @@ import {
   Menu,
   Switch,
   Input,
-  Checkbox
+  Checkbox,
+  Pagination,
+  Spin,
 } from 'antd';
 import type {
   TablePaginationConfig,
@@ -32,8 +34,10 @@ import {
   EyeOutlined,
 } from '@ant-design/icons';
 import { Document } from '../../types';
-import { DocumentActions, BatchActions } from './DocumentActions';
+import { BatchActions } from './DocumentActions';
+import { DocumentCard } from './DocumentCard';
 import { useResponsive } from '../../hooks/useResponsive';
+import './DocumentCard.css';
 
 const { Text } = Typography;
 
@@ -82,17 +86,17 @@ interface ColumnConfig {
 }
 
 const defaultColumnConfigs: ColumnConfig[] = [
-  { key: 'doc_number', title: '公文字號', visible: true, sortable: true, filterable: true, width: 150 },
-  { key: 'subject', title: '主旨', visible: true, sortable: true, filterable: true, width: 300 },
-  { key: 'doc_type', title: '類型', visible: true, sortable: true, filterable: true, width: 100 },
-  { key: 'sender', title: '發文單位', visible: true, sortable: true, filterable: true, width: 150 },
-  { key: 'receiver', title: '受文單位', visible: true, sortable: true, filterable: true, width: 150 },
-  { key: 'contract_case', title: '承攬案件', visible: true, sortable: true, filterable: true, width: 200 },
-  { key: 'doc_date', title: '公文日期', visible: true, sortable: true, filterable: false, width: 120 },
-  { key: 'attachment_count', title: '附件', visible: true, sortable: true, filterable: false, width: 80 },
-  { key: 'status', title: '狀態', visible: true, sortable: true, filterable: true, width: 100 },
-  { key: 'created_at', title: '建立時間', visible: false, sortable: true, filterable: false, width: 120 },
-  { key: 'updated_at', title: '更新時間', visible: false, sortable: true, filterable: false, width: 120 },
+  { key: 'doc_number', title: '公文字號', visible: true, sortable: true, filterable: true, width: 165 },
+  { key: 'subject', title: '主旨', visible: true, sortable: true, filterable: true, width: 320 },
+  { key: 'doc_type', title: '類型', visible: true, sortable: true, filterable: true, width: 80 },
+  { key: 'sender', title: '發文單位', visible: true, sortable: true, filterable: true, width: 130 },
+  { key: 'receiver', title: '受文單位', visible: true, sortable: true, filterable: true, width: 130 },
+  { key: 'contract_case', title: '承攬案件', visible: true, sortable: true, filterable: true, width: 160 },
+  { key: 'doc_date', title: '公文日期', visible: true, sortable: true, filterable: false, width: 95 },
+  { key: 'attachment_count', title: '附件', visible: true, sortable: true, filterable: false, width: 60 },
+  { key: 'status', title: '狀態', visible: true, sortable: true, filterable: true, width: 80 },
+  { key: 'created_at', title: '建立時間', visible: false, sortable: true, filterable: false, width: 100 },
+  { key: 'updated_at', title: '更新時間', visible: false, sortable: true, filterable: false, width: 100 },
 ];
 
 export const DocumentListEnhanced: React.FC<DocumentListProps> = ({
@@ -364,26 +368,8 @@ export const DocumentListEnhanced: React.FC<DocumentListProps> = ({
       columns.push(column);
     });
 
-    // 操作欄位
-    columns.push({
-      title: '操作',
-      key: 'actions',
-      fixed: 'right',
-      width: 120,
-      render: (_, record) => (
-        <DocumentActions
-          document={record}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          onView={onView}
-          onCopy={onCopy}
-          onExportPdf={onExportPdf}
-          onSend={onSend}
-          onArchive={onArchive}
-          loadingStates={{ isAddingToCalendar }}
-        />
-      ),
-    });
+    // 操作欄位已移除 - 用戶點擊行進入詳情頁後，在頂部功能鈕進行操作
+    // 此設計可讓列表頁資訊最大化
 
     return columns;
   };
@@ -499,46 +485,91 @@ export const DocumentListEnhanced: React.FC<DocumentListProps> = ({
         </div>
       </div>
 
-      {/* 表格 */}
-      <Table<Document>
-        columns={generateColumns()}
-        dataSource={documents}
-        rowKey="id"
-        loading={loading}
-        pagination={{
-          current: pagination.current,
-          pageSize: isMobile ? 10 : pagination.pageSize,
-          total: total,
-          showSizeChanger: !isMobile,
-          showQuickJumper: !isMobile,
-          showTotal: isMobile ? undefined : (total, range) =>
-            `第 ${range[0]}-${range[1]} 筆，共 ${total} 筆`,
-          pageSizeOptions: ['10', '20', '50', '100'],
-          size: isMobile ? 'small' : 'default',
-        }}
-        rowSelection={isMobile ? undefined : rowSelection}
-        {...(onTableChange && { onChange: onTableChange })}
-        scroll={{ x: isMobile ? 300 : 1200, y: isMobile ? 400 : 600 }}
-        size={isMobile ? 'small' : 'small'}
-        locale={{
-          emptyText: (
-            <Empty
-              description="暫無資料"
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-            />
-          )
-        }}
-        style={{
-          backgroundColor: '#fff',
-          borderRadius: '6px',
-          overflow: 'hidden'
-        }}
-        className="enhanced-document-table"
-        onRow={(record) => isMobile ? {
-          onClick: () => onView(record),
-          style: { cursor: 'pointer' }
-        } : {}}
-      />
+      {/* 手機版：卡片列表 */}
+      {isMobile ? (
+        <Spin spinning={loading}>
+          <div className="document-card-list">
+            {documents.length > 0 ? (
+              <>
+                {documents.map((doc) => (
+                  <DocumentCard
+                    key={doc.id}
+                    document={doc}
+                    onClick={onView}
+                  />
+                ))}
+                <div className="document-card-pagination">
+                  <Pagination
+                    current={pagination.current}
+                    pageSize={pagination.pageSize}
+                    total={total}
+                    size="small"
+                    simple
+                    onChange={(page, pageSize) => {
+                      if (onTableChange) {
+                        onTableChange(
+                          { current: page, pageSize },
+                          {},
+                          {} as any,
+                          { currentDataSource: documents, action: 'paginate' }
+                        );
+                      }
+                    }}
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="document-card-list-empty">
+                <Empty
+                  description="暫無資料"
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                />
+              </div>
+            )}
+          </div>
+        </Spin>
+      ) : (
+        /* 桌面版：表格 */
+        <Table<Document>
+          columns={generateColumns()}
+          dataSource={documents}
+          rowKey="id"
+          loading={loading}
+          pagination={{
+            current: pagination.current,
+            pageSize: pagination.pageSize,
+            total: total,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: (total, range) =>
+              `第 ${range[0]}-${range[1]} 筆，共 ${total} 筆`,
+            pageSizeOptions: ['10', '20', '50', '100'],
+            size: 'default',
+          }}
+          rowSelection={rowSelection}
+          {...(onTableChange && { onChange: onTableChange })}
+          scroll={{ x: 1200, y: 600 }}
+          size="small"
+          locale={{
+            emptyText: (
+              <Empty
+                description="暫無資料"
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+              />
+            )
+          }}
+          style={{
+            backgroundColor: '#fff',
+            borderRadius: '6px',
+            overflow: 'hidden'
+          }}
+          className="enhanced-document-table"
+          onRow={(record) => ({
+            onClick: () => onView(record),
+            style: { cursor: 'pointer' }
+          })}
+        />
+      )}
 
       {/* 表格功能說明 - 僅桌面版顯示 */}
       {!isMobile && (

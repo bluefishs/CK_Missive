@@ -71,6 +71,11 @@ interface FormValues {
   target?: string;
 }
 
+interface ValidPath {
+  path: string | null;
+  description: string;
+}
+
 // 導覽管理組件
 const NavigationManagementImproved: FC = () => {
   const [navigationItems, setNavigationItems] = useState<NavigationItem[]>([]);
@@ -82,6 +87,7 @@ const NavigationManagementImproved: FC = () => {
   const [expandedKeys, setExpandedKeys] = useState<Key[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const stableTreeDataRef = useRef<TreeNodeData[]>([]);
+  const [validPaths, setValidPaths] = useState<ValidPath[]>([]);
 
   // Icon options
   const iconOptions = [
@@ -120,8 +126,48 @@ const NavigationManagementImproved: FC = () => {
     }
   };
 
+  // Load valid paths for dropdown
+  const loadValidPaths = async () => {
+    try {
+      const response = await fetch('/api/secure-site-management/navigation/valid-paths');
+      const result = await response.json();
+      if (result.success && result.data?.paths) {
+        setValidPaths(result.data.paths);
+      }
+    } catch (error) {
+      console.error('Failed to load valid paths:', error);
+      // 如果 API 失敗，使用內建的路徑列表作為後備
+      setValidPaths([
+        { path: null, description: '（無 - 群組項目）' },
+        { path: '/dashboard', description: '儀表板' },
+        { path: '/documents', description: '公文管理' },
+        { path: '/document-numbers', description: '發文字號管理' },
+        { path: '/contract-cases', description: '承攬計畫' },
+        { path: '/agencies', description: '機關管理' },
+        { path: '/vendors', description: '廠商管理' },
+        { path: '/staff', description: '承辦同仁' },
+        { path: '/calendar', description: '行事曆' },
+        { path: '/pure-calendar', description: '專案行事曆' },
+        { path: '/reports', description: '統計報表' },
+        { path: '/profile', description: '個人資料' },
+        { path: '/settings', description: '系統設定' },
+        { path: '/admin/database', description: '資料庫管理' },
+        { path: '/admin/user-management', description: '使用者管理' },
+        { path: '/admin/site-management', description: '網站管理' },
+        { path: '/admin/permissions', description: '權限管理' },
+        { path: '/admin/dashboard', description: '管理員面板' },
+        { path: '/system', description: '系統監控' },
+        { path: '/google-auth-diagnostic', description: 'Google認證診斷' },
+        { path: '/unified-form-demo', description: '統一表單示例' },
+        { path: '/api-mapping', description: 'API對應表' },
+        { path: '/api/docs', description: 'API文件' },
+      ]);
+    }
+  };
+
   useEffect(() => {
     loadNavigation();
+    loadValidPaths();
   }, []);
 
   // Helper to find item by id
@@ -552,8 +598,22 @@ const NavigationManagementImproved: FC = () => {
             <Input placeholder="例如：documents" />
           </Form.Item>
 
-          <Form.Item label="路徑" name="path" tooltip="URL 路徑，群組項目可留空">
-            <Input placeholder="例如：/documents" />
+          <Form.Item label="路徑" name="path" tooltip="URL 路徑，群組項目可選擇「無」">
+            <Select
+              placeholder="選擇路徑"
+              allowClear
+              showSearch
+              optionFilterProp="children"
+              filterOption={(input, option) =>
+                (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
+              }
+            >
+              {validPaths.map((item) => (
+                <Option key={item.path ?? 'null'} value={item.path ?? ''}>
+                  {item.path ? `${item.description} (${item.path})` : item.description}
+                </Option>
+              ))}
+            </Select>
           </Form.Item>
 
           <Form.Item label="圖示" name="icon" rules={[{ required: true, message: '請選擇圖示' }]}>

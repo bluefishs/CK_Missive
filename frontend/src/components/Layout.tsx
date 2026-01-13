@@ -118,15 +118,34 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     };
   }, []);
 
+  // 監聽登入事件，重新載入使用者資訊
+  useEffect(() => {
+    const handleUserLogin = () => {
+      console.log('🔐 User login event received, reloading user info...');
+      loadUserInfo();
+    };
+    window.addEventListener('user-logged-in', handleUserLogin);
+    return () => {
+      window.removeEventListener('user-logged-in', handleUserLogin);
+    };
+  }, []);
+
   // 載入用戶資訊
   const loadUserInfo = () => {
-    let userInfo = authService.getUserInfo();
+    const userInfo = authService.getUserInfo();
     const authDisabled = isAuthDisabled();
 
-    // 如果沒有使用者資訊或認證已停用，在開發模式下使用預設資訊
-    if (!userInfo || authDisabled) {
-      userInfo = {
-        id: 0,  // 開發用預設 ID
+    // 優先使用 localStorage 中的使用者資訊（由登入流程設定）
+    if (userInfo) {
+      setCurrentUser(userInfo);
+      console.log('✅ 使用 localStorage 中的使用者資訊:', userInfo.full_name || userInfo.username);
+      return;
+    }
+
+    // 僅在認證停用且無 localStorage 資訊時使用預設開發者資訊
+    if (authDisabled) {
+      setCurrentUser({
+        id: 0,
         username: 'developer',
         full_name: '開發者',
         email: 'dev@ck-missive.local',
@@ -137,11 +156,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         created_at: new Date().toISOString(),
         login_count: 0,
         email_verified: true
-      };
-      console.log('Using default developer user info (superuser) for layout');
+      });
+      console.log('⚠️ 使用預設開發者資訊 (AUTH_DISABLED=true, 無 localStorage)');
+      return;
     }
 
-    setCurrentUser(userInfo);
+    // 無使用者資訊
+    setCurrentUser(null);
   };
 
   // 舊版權限檢查 (保留相容性)

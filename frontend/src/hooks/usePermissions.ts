@@ -42,9 +42,9 @@ export const usePermissions = () => {
 
       const authDisabled = isAuthDisabled();
 
-      // 在開發模式或無認證模式下，創建一個預設的管理員使用者
+      // 僅在明確停用認證時使用預設管理員
       let userInfo = authService.getUserInfo();
-      if (!userInfo || authDisabled) {
+      if (authDisabled) {
         // 創建預設的開發者帳號資訊，使用超級管理員角色
         userInfo = {
           id: 0,  // 開發用預設 ID
@@ -60,7 +60,13 @@ export const usePermissions = () => {
           login_count: 0,
           email_verified: true
         };
-        console.log('Using default developer user info (superuser) for navigation');
+        console.log('Using default developer user info (AUTH_DISABLED=true)');
+      }
+
+      // 如果沒有使用者資訊且認證未停用，則返回（應該會被重導向到登入頁）
+      if (!userInfo) {
+        setLoading(false);
+        return;
       }
 
       // 建立快取鍵

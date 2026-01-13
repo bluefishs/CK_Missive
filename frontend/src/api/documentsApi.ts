@@ -4,7 +4,7 @@
  * 使用統一的 API Client 和型別定義
  */
 
-import { apiClient, ApiException } from './client';
+import { apiClient, ApiException, API_BASE_URL } from './client';
 import {
   PaginatedResponse,
   PaginationParams,
@@ -499,7 +499,7 @@ export const documentsApi = {
     formData.append('file', file);
 
     const response = await fetch(
-      `${import.meta.env.VITE_API_BASE_URL || ''}/api/csv-import/upload-and-import`,
+      `${API_BASE_URL}/csv-import/upload-and-import`,
       {
         method: 'POST',
         body: formData,

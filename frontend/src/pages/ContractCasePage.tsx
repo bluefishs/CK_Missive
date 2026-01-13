@@ -355,12 +355,13 @@ export const ContractCasePage: React.FC = () => {
   // ---[渲染邏輯]---
 
   // 列表視圖的欄位定義 - 欄位順序: 專案編號、年度、專案名稱、委託單位、案件類別、案件狀態、契約期程
+  // 欄位寬度已優化 (2026-01-12)
   const columns: TableColumnType<Project>[] = [
     {
       title: '專案編號',
       dataIndex: 'project_code',
       key: 'project_code',
-      width: 160,
+      width: 100,
       sorter: (a, b) => (a.project_code || '').localeCompare(b.project_code || ''),
       ...getColumnSearchProps('project_code'),
       render: (text) => (
@@ -377,7 +378,7 @@ export const ContractCasePage: React.FC = () => {
       ),
     },
     {
-      title: '年度',
+      title: '案件年度',
       dataIndex: 'year',
       key: 'year',
       width: 80,
@@ -391,7 +392,7 @@ export const ContractCasePage: React.FC = () => {
       title: '專案名稱',
       dataIndex: 'project_name',
       key: 'project_name',
-      width: 250,
+      width: 260,
       ellipsis: true,
       sorter: (a, b) => a.project_name.localeCompare(b.project_name, 'zh-TW'),
       ...getColumnSearchProps('project_name'),
@@ -412,7 +413,7 @@ export const ContractCasePage: React.FC = () => {
       title: '委託單位',
       dataIndex: 'client_agency',
       key: 'client_agency',
-      width: 200,
+      width: 160,
       ellipsis: true,
       sorter: (a, b) => (a.client_agency || '').localeCompare(b.client_agency || '', 'zh-TW'),
       ...getColumnSearchProps('client_agency'),
@@ -421,7 +422,7 @@ export const ContractCasePage: React.FC = () => {
       title: '案件類別',
       dataIndex: 'category',
       key: 'category',
-      width: 130,
+      width: 90,
       align: 'center',
       filters: CATEGORY_OPTIONS.map(c => ({ text: c.label, value: c.value })),
       onFilter: (value, record) => normalizeCategory(record.category) === value,
@@ -435,7 +436,7 @@ export const ContractCasePage: React.FC = () => {
       title: '案件狀態',
       dataIndex: 'status',
       key: 'status',
-      width: 100,
+      width: 80,
       align: 'center',
       filters: availableStatuses.map(s => ({ text: s, value: s })),
       onFilter: (value, record) => record.status === value,
@@ -444,7 +445,7 @@ export const ContractCasePage: React.FC = () => {
     {
       title: '契約期程',
       key: 'contract_period',
-      width: 200,
+      width: 120,
       render: (_, record) => {
         const startDate = record.start_date ? dayjs(record.start_date).format('YYYY/MM/DD') : '';
         const endDate = record.end_date ? dayjs(record.end_date).format('YYYY/MM/DD') : '';
@@ -452,88 +453,69 @@ export const ContractCasePage: React.FC = () => {
         return `${startDate || '未定'}~${endDate || '未定'}`;
       },
     },
-    {
-      title: '操作',
-      key: 'actions',
-      width: 150,
-      fixed: 'right',
-      render: (_, record) => (
-        <Space>
-          {/* 編輯按鈕 - 需要 projects:write 權限 */}
-          {canEdit && (
-            <Button
-              type="link"
-              size="small"
-              icon={<EditOutlined />}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleEdit(record);
-              }}
-            >編輯</Button>
-          )}
-          {/* 廠商管理按鈕 - 所有人可見 */}
-          <Button
-            type="link"
-            size="small"
-            icon={<TeamOutlined />}
-            onClick={(e) => {
-              e.stopPropagation();
-              setSelectedProject(record);
-              setVendorManagementVisible(true);
-            }}
-          >廠商</Button>
-          {/* 刪除按鈕 - 需要 projects:delete 權限 */}
-          {canDelete && (
-            <Popconfirm
-              title="確定刪除此專案嗎？"
-              description="此操作不可撤銷"
-              onConfirm={(e) => {
-                e?.stopPropagation();
-                handleDelete(record.id);
-              }}
-              onCancel={(e) => e?.stopPropagation()}
-              okText="確定"
-              cancelText="取消"
-            >
-              <Button type="link" size="small" danger icon={<DeleteOutlined />} onClick={(e) => e.stopPropagation()}>刪除</Button>
-            </Popconfirm>
-          )}
-        </Space>
-      ),
-    },
+    // 操作欄位已簡化 - 編輯與廠商管理已移至詳情頁 TAB 分頁 (2026-01-12)
+    // 點擊行可直接進入詳情頁進行完整操作
+    // {
+    //   title: '操作',
+    //   key: 'actions',
+    //   width: 150,
+    //   fixed: 'right',
+    //   render: (_, record) => (
+    //     <Space>
+    //       {/* 編輯按鈕 - 需要 projects:write 權限 */}
+    //       {canEdit && (
+    //         <Button
+    //           type="link"
+    //           size="small"
+    //           icon={<EditOutlined />}
+    //           onClick={(e) => {
+    //             e.stopPropagation();
+    //             handleEdit(record);
+    //           }}
+    //         >編輯</Button>
+    //       )}
+    //       {/* 廠商管理按鈕 - 所有人可見 */}
+    //       <Button
+    //         type="link"
+    //         size="small"
+    //         icon={<TeamOutlined />}
+    //         onClick={(e) => {
+    //           e.stopPropagation();
+    //           setSelectedProject(record);
+    //           setVendorManagementVisible(true);
+    //         }}
+    //       >廠商</Button>
+    //       {/* 刪除按鈕 - 需要 projects:delete 權限 */}
+    //       {canDelete && (
+    //         <Popconfirm
+    //           title="確定刪除此專案嗎？"
+    //           description="此操作不可撤銷"
+    //           onConfirm={(e) => {
+    //             e?.stopPropagation();
+    //             handleDelete(record.id);
+    //           }}
+    //           onCancel={(e) => e?.stopPropagation()}
+    //           okText="確定"
+    //           cancelText="取消"
+    //         >
+    //           <Button type="link" size="small" danger icon={<DeleteOutlined />} onClick={(e) => e.stopPropagation()}>刪除</Button>
+    //         </Popconfirm>
+    //       )}
+    //     </Space>
+    //   ),
+    // },
   ];
 
   // 看板視圖渲染
   const renderBoardView = () => {
     if (projects.length === 0) return <Empty description="暫無數據" />;
 
-    // 🔒 根據權限動態生成操作按鈕
+    // 操作按鈕已簡化 - 點擊卡片直接進入詳情頁 (2026-01-12)
     const getCardActions = (item: Project) => {
+      // 只保留檢視按鈕，編輯與廠商管理已移至詳情頁 TAB 分頁
       const actions = [
         <EyeOutlined key="view" onClick={() => handleView(item)} />,
-        <TeamOutlined key="vendor" onClick={() => { setSelectedProject(item); setVendorManagementVisible(true); }} />,
       ];
-
-      // 編輯按鈕 - 需要 projects:write 權限
-      if (canEdit) {
-        actions.splice(1, 0, <EditOutlined key="edit" onClick={() => handleEdit(item)} />);
-      }
-
-      // 刪除按鈕 - 需要 projects:delete 權限
-      if (canDelete) {
-        actions.push(
-          <Popconfirm
-            key="delete"
-            title="確定刪除此專案嗎？"
-            onConfirm={() => handleDelete(item.id)}
-            okText="確定"
-            cancelText="取消"
-          >
-            <DeleteOutlined />
-          </Popconfirm>
-        );
-      }
-
       return actions;
     };
 
@@ -641,7 +623,7 @@ export const ContractCasePage: React.FC = () => {
               dataSource={projects}
               rowKey="id"
               pagination={false}
-              scroll={{ x: isMobile ? 600 : 1400 }}
+              scroll={{ x: isMobile ? 600 : 890 }}
               size={isMobile ? 'small' : 'middle'}
               onRow={(record) => ({
                 onClick: () => handleView(record),

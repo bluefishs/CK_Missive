@@ -71,9 +71,10 @@ export const DocumentActions: React.FC<DocumentActionsProps> = ({
     icon: React.ReactNode;
   }[] = [
     { key: 'delete', handler: onDelete, title: '刪除', icon: <DeleteOutlined /> },
-    ...(onCopy
-      ? [{ key: 'copy', handler: onCopy, title: '複製內容', icon: <CopyOutlined /> }]
-      : []),
+    // 複製公文功能已停用 (2026-01-12)
+    // ...(onCopy
+    //   ? [{ key: 'copy', handler: onCopy, title: '複製內容', icon: <CopyOutlined /> }]
+    //   : []),
     ...(onExportPdf
       ? [{ key: 'exportPdf', handler: onExportPdf, title: '匯出 PDF', icon: <FilePdfOutlined /> }]
       : []),
@@ -83,33 +84,36 @@ export const DocumentActions: React.FC<DocumentActionsProps> = ({
       : []),
   ];
 
-  // 更多操作放入下拉選單
+  // 更多操作下拉選單 - 功能已移至詳情頁頂部按鈕 (2026-01-12)
+  // 列表頁操作欄已移除，點擊行直接進入詳情頁進行操作
   const moreMenuItems: MenuProps['items'] = [
-    {
-      key: 'addToCalendar',
-      label: '新增至日曆',
-      icon: <CalendarOutlined />,
-      onClick: async () => {
-        const success = await addToCalendar(document);
-        if (success) {
-          message.success(`公文 ${document.doc_number || document.id} 已成功新增至日曆`);
-        } else {
-          message.error('新增至日曆失敗，請稍後再試');
-        }
-      },
-    },
+    // 新增至日曆 - 已移至詳情頁頂部
+    // {
+    //   key: 'addToCalendar',
+    //   label: '新增至日曆',
+    //   icon: <CalendarOutlined />,
+    //   onClick: async () => {
+    //     const success = await addToCalendar(document);
+    //     if (success) {
+    //       message.success(`公文 ${document.doc_number || document.id} 已成功新增至日曆`);
+    //     } else {
+    //       message.error('新增至日曆失敗，請稍後再試');
+    //     }
+    //   },
+    // },
     ...(onExportPdf ? [{
       key: 'exportPdf',
       label: '匯出 PDF',
       icon: <FilePdfOutlined />,
       onClick: () => handleAction('exportPdf', onExportPdf),
     }] : []),
-    ...(onCopy ? [{
-      key: 'copy',
-      label: '複製內容',
-      icon: <CopyOutlined />,
-      onClick: () => handleAction('copy', onCopy),
-    }] : []),
+    // 複製公文功能已停用 (2026-01-12)
+    // ...(onCopy ? [{
+    //   key: 'copy',
+    //   label: '複製內容',
+    //   icon: <CopyOutlined />,
+    //   onClick: () => handleAction('copy', onCopy),
+    // }] : []),
     ...(onSend ? [{
       key: 'send',
       label: '傳送',
@@ -122,14 +126,15 @@ export const DocumentActions: React.FC<DocumentActionsProps> = ({
       icon: <FileZipOutlined />,
       onClick: () => handleAction('archive', onArchive),
     }] : []),
-    { type: 'divider' as const },
-    {
-      key: 'delete',
-      label: '刪除',
-      icon: <DeleteOutlined />,
-      danger: true,
-      onClick: () => handleAction('delete', onDelete),
-    },
+    // 刪除 - 已移至詳情頁頂部
+    // { type: 'divider' as const },
+    // {
+    //   key: 'delete',
+    //   label: '刪除',
+    //   icon: <DeleteOutlined />,
+    //   danger: true,
+    //   onClick: () => handleAction('delete', onDelete),
+    // },
   ];
 
   // 操作按鈕：只顯示下拉選單（點擊列可檢視/編輯）
@@ -216,10 +221,13 @@ export const BatchActions: React.FC<BatchActionsProps> = ({
           批量匯出
         </Button>
 
+        {/* 批量複製功能已停用 (2026-01-12)
         <Button size="small" icon={<CopyOutlined />} onClick={onCopySelected} loading={loading}>
           批量複製
         </Button>
+        */}
 
+        {/* 批量歸檔功能 - 目前尚無管理需求，暫時隱藏 (2026-01-12)
         <Button
           size="small"
           icon={<FileZipOutlined />}
@@ -228,7 +236,9 @@ export const BatchActions: React.FC<BatchActionsProps> = ({
         >
           批量歸檔
         </Button>
+        */}
 
+        {/* 批量刪除功能 - 已移至詳情頁操作 (2026-01-12)
         <Popconfirm
           title={`確定要刪除選中的 ${selectedCount} 個公文嗎？`}
           onConfirm={onDeleteSelected}
@@ -239,6 +249,7 @@ export const BatchActions: React.FC<BatchActionsProps> = ({
             批量刪除
           </Button>
         </Popconfirm>
+        */}
 
         <Button size="small" type="text" onClick={onClearSelection}>
           取消選擇
