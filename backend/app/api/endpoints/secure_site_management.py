@@ -619,7 +619,7 @@ async def test_navigation_endpoint(
         }
 
 
-@router.get("/navigation/valid-paths")
+@router.post("/navigation/valid-paths")
 async def get_valid_navigation_paths():
     """
     獲取所有有效的導覽路徑列表

@@ -35,7 +35,7 @@ def has_permission_for_navigation(user: User, navigation_item: SiteNavigationIte
     except (json.JSONDecodeError, TypeError):
         return False
 
-@router.get(
+@router.post(
     "/navigation",
     response_model=NavigationTreeResponse,
     summary="[已棄用] 取得導覽樹狀結構",

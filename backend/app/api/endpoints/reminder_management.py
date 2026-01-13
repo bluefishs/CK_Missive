@@ -54,8 +54,7 @@ class BatchProcessResponse(BaseModel):
 calendar_integrator = DocumentCalendarIntegrator()
 reminder_service = ReminderService()
 
-@router.get("/events/{event_id}/reminders", response_model=ReminderStatusResponse)
-@router.post("/events/{event_id}/reminders")
+@router.post("/events/{event_id}/reminders", response_model=ReminderStatusResponse)
 async def get_event_reminders_status(
     event_id: int,
     db: AsyncSession = Depends(get_async_db),
@@ -102,7 +101,7 @@ async def get_event_reminders_status(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"獲取提醒狀態失敗: {str(e)}")
 
-@router.get("/documents/{document_id}/reminders", response_model=Dict[str, Any])
+@router.post("/documents/{document_id}/reminders", response_model=Dict[str, Any])
 async def get_document_reminders_status(
     document_id: int,
     db: AsyncSession = Depends(get_async_db),
@@ -220,7 +219,7 @@ async def process_pending_reminders(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"處理提醒失敗: {str(e)}")
 
-@router.get("/pending-count")
+@router.post("/pending-count")
 async def get_pending_reminders_count(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user)
@@ -245,7 +244,7 @@ async def get_pending_reminders_count(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"獲取待處理提醒失敗: {str(e)}")
 
-@router.get("/templates/defaults")
+@router.post("/templates/defaults")
 async def get_default_reminder_templates(
     current_user: User = Depends(get_current_user)
 ):
@@ -307,7 +306,7 @@ async def send_test_reminder(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"發送測試提醒失敗: {str(e)}")
 
-@router.get("/statistics")
+@router.post("/statistics")
 async def get_reminder_statistics(
     days: int = Query(30, description="統計天數"),
     db: AsyncSession = Depends(get_async_db),
@@ -356,7 +355,7 @@ async def get_reminder_statistics(
 
 # --- 排程器控制 API ---
 
-@router.get("/scheduler/status")
+@router.post("/scheduler/status")
 async def get_scheduler_status(
     current_user: User = Depends(get_current_user)
 ):
@@ -422,7 +421,7 @@ async def trigger_manual_process(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"手動觸發失敗: {str(e)}")
 
-@router.put("/scheduler/interval")
+@router.post("/scheduler/interval")
 async def update_check_interval(
     interval: int = Query(..., description="新的檢查間隔（秒）", ge=60),
     current_user: User = Depends(get_current_user)

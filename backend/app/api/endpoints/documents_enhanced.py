@@ -1521,7 +1521,7 @@ async def get_document_audit_history(
 # 向後相容：保留 GET 端點（已棄用，將在未來版本移除）
 # ============================================================================
 
-@router.get(
+@router.post(
     "/integrated-search",
     summary="整合式公文搜尋（已棄用，請改用 POST /list）",
     deprecated=True
@@ -1579,7 +1579,7 @@ async def integrated_document_search_legacy(
         return {"items": [], "total": 0, "page": 1, "limit": limit, "total_pages": 0}
 
 
-@router.get("/document-years", summary="取得年度選項（已棄用）", deprecated=True)
+@router.post("/document-years", summary="取得年度選項（已棄用）", deprecated=True)
 async def get_document_years_legacy(db: AsyncSession = Depends(get_async_db)):
     """已棄用，請改用 POST /documents-enhanced/years"""
     return await get_document_years(db)
@@ -2184,7 +2184,7 @@ async def import_documents_excel(
         raise HTTPException(status_code=500, detail=f"Excel 匯入失敗: {str(e)}")
 
 
-@router.get("/import/excel/template", summary="下載 Excel 匯入範本")
+@router.post("/import/excel/template", summary="下載 Excel 匯入範本")
 async def download_excel_template():
     """
     下載 Excel 匯入範本

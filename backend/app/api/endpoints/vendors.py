@@ -222,7 +222,7 @@ async def get_vendor_statistics(
 # 相容性端點（供前端下拉選單使用，將逐步淘汰）
 # ============================================================================
 
-@router.get(
+@router.post(
     "",
     response_model=dict,
     summary="[相容] 取得廠商列表",

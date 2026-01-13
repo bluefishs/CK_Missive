@@ -12,7 +12,6 @@ from app.extended.models import OfficialDocument as Document, User
 
 router = APIRouter()
 
-@router.get("/stats")
 @router.post("/stats")
 async def get_dashboard_stats(
     db: AsyncSession = Depends(get_async_db),
@@ -56,7 +55,7 @@ async def get_dashboard_stats(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"無法獲取儀表板數據: {str(e)}")
 
-@router.get("/statistics/overview")
+@router.post("/statistics/overview")
 async def get_statistics_overview(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_auth())
@@ -86,7 +85,7 @@ async def get_statistics_overview(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"無法獲取統計概覽: {str(e)}")
 
-@router.get("/dev-mapping", summary="獲取 API 對應關係 (調試用)")
+@router.post("/dev-mapping", summary="獲取 API 對應關係 (調試用)")
 async def get_api_mapping(
     request: Request,
     current_user: User = Depends(require_admin())
@@ -136,7 +135,7 @@ async def get_api_mapping(
     }
 
 # 臨時備用端點：為純行事曆提供必要的API
-@router.get("/pure-calendar-stats", summary="純行事曆統計 (臨時)")
+@router.post("/pure-calendar-stats", summary="純行事曆統計 (臨時)")
 async def get_pure_calendar_stats_temp(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_auth())
@@ -185,7 +184,7 @@ async def get_pure_calendar_stats_temp(
             "active_documents": 0
         }
 
-@router.get("/pure-calendar-categories", summary="純行事曆分類 (臨時)")
+@router.post("/pure-calendar-categories", summary="純行事曆分類 (臨時)")
 async def get_pure_calendar_categories_temp(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_auth())
@@ -228,7 +227,7 @@ async def get_pure_calendar_categories_temp(
         }
 
 # 臨時備用端點：為使用者管理提供必要的API
-@router.get("/user-management-users", summary="使用者列表 (臨時)")
+@router.post("/user-management-users", summary="使用者列表 (臨時)")
 async def get_users_temp(
     page: int = 1,
     per_page: int = 20,
@@ -279,7 +278,7 @@ async def get_users_temp(
             "per_page": per_page
         }
 
-@router.get("/user-management-permissions", summary="可用權限列表 (臨時)")
+@router.post("/user-management-permissions", summary="可用權限列表 (臨時)")
 async def get_available_permissions_temp(
     current_user: User = Depends(require_admin())
 ):

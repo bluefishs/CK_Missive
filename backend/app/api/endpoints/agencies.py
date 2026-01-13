@@ -239,7 +239,7 @@ async def get_agency_statistics(
 # 向後相容：保留 GET 端點（已棄用，將在未來版本移除）
 # ============================================================================
 
-@router.get(
+@router.post(
     "",
     response_model=AgenciesResponse,
     summary="[相容] 取得機關列表",
@@ -268,7 +268,7 @@ async def list_agencies_legacy(
         return AgenciesResponse(agencies=agencies, total=len(agencies), returned=len(agencies))
 
 
-@router.get(
+@router.post(
     "/statistics",
     response_model=AgencyStatistics,
     summary="[相容] 取得統計資料",

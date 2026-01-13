@@ -17,7 +17,7 @@ from app.services.admin_service import AdminService
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-@router.get("/database/info", summary="獲取資料庫基本信息 (PostgreSQL)")
+@router.post("/database/info", summary="獲取資料庫基本信息 (PostgreSQL)")
 async def get_database_info(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_admin())
@@ -37,7 +37,7 @@ async def get_database_info(
         raise HTTPException(status_code=500, detail=f"獲取資料庫信息失敗: {str(e)}")
 
 
-@router.get("/database/table/{table_name}", summary="獲取表格數據 (PostgreSQL)")
+@router.post("/database/table/{table_name}", summary="獲取表格數據 (PostgreSQL)")
 async def get_table_data(
     table_name: str,
     limit: int = 50,
@@ -80,7 +80,7 @@ async def execute_query(
         logger.error(f"SQL 查詢執行失敗: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"查詢執行失敗: {str(e)}")
 
-@router.get("/database/health", summary="檢查資料庫健康狀況 (PostgreSQL)")
+@router.post("/database/health", summary="檢查資料庫健康狀況 (PostgreSQL)")
 async def check_database_health(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_admin())
@@ -99,7 +99,7 @@ async def check_database_health(
         logger.error(f"資料庫健康檢查失敗: {e}", exc_info=True)
         raise HTTPException(status_code=503, detail=f"無法連線到資料庫: {str(e)}")
 
-@router.get("/database/integrity", summary="檢查資料庫完整性")
+@router.post("/database/integrity", summary="檢查資料庫完整性")
 async def check_database_integrity(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_admin())

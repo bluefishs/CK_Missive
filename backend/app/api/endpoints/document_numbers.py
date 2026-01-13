@@ -612,7 +612,7 @@ async def delete_document_number(
 # 向後相容的 GET 端點 (將逐步棄用)
 # =============================================================================
 
-@router.get("", response_model=DocumentNumberListResponse, deprecated=True)
+@router.post("", response_model=DocumentNumberListResponse, deprecated=True)
 async def get_document_numbers_legacy(
     page: int = 1,
     per_page: int = 20,
@@ -637,7 +637,7 @@ async def get_document_numbers_legacy(
     return await query_document_numbers(request, db)
 
 
-@router.get("/stats", response_model=DocumentNumberStats, deprecated=True)
+@router.post("/stats", response_model=DocumentNumberStats, deprecated=True)
 async def get_stats_legacy(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_auth())
@@ -650,7 +650,7 @@ async def get_stats_legacy(
     return await get_document_numbers_stats(db)
 
 
-@router.get("/next-number", response_model=NextNumberResponse, deprecated=True)
+@router.post("/next-number", response_model=NextNumberResponse, deprecated=True)
 async def get_next_number_legacy(
     prefix: Optional[str] = None,
     year: Optional[int] = None,

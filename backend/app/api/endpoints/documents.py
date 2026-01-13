@@ -20,14 +20,14 @@ router = APIRouter()
 
 # 暫時移除DocumentService依賴項
 
-@router.get("/test")
+@router.post("/test")
 async def test_simple(
     current_user: User = Depends(require_auth())
 ):
     """簡單測試端點"""
     return {"message": "測試成功", "items": [], "total": 0}
 
-@router.get("/")
+@router.post("/")
 async def get_documents(
     skip: int = 0,
     limit: int = 100,
@@ -47,7 +47,7 @@ async def get_documents(
 # @router.post("/", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
 # async def create_document(...): ...
 
-@router.get("/statistics")
+@router.post("/statistics")
 async def get_documents_statistics(
     search: Optional[str] = Query("", description="搜尋條件"),
     current_user: User = Depends(require_auth())
@@ -60,14 +60,14 @@ async def get_documents_statistics(
         "current_year_count": 0
     }
 
-@router.get("/documents-years")
+@router.post("/documents-years")
 async def get_documents_years(
     current_user: User = Depends(require_auth())
 ):
     """取得公文年度列表"""
     return {"years": []}
 
-@router.get("/agencies-dropdown")
+@router.post("/agencies-dropdown")
 async def get_agencies_dropdown(
     search: Optional[str] = Query(None, description="搜尋關鍵字"),
     page: int = Query(1, ge=1, description="頁碼"),
@@ -120,7 +120,7 @@ async def get_agencies_dropdown(
         logger.error(f"資料庫查詢機關失敗: {e}")
         raise DatabaseException("查詢機關資料失敗")
 
-@router.get("/contract-projects-dropdown")
+@router.post("/contract-projects-dropdown")
 async def get_contract_projects_dropdown(
     search: Optional[str] = Query(None, description="搜尋關鍵字"),
     page: int = Query(1, ge=1, description="頁碼"),

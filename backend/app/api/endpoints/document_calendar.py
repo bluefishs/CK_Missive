@@ -686,7 +686,7 @@ async def get_user_calendar_events(
 # 統計與分類端點 (整合自 pure_calendar.py)
 # ============================================================================
 
-@router.get("/stats", summary="獲取行事曆統計資料")
+@router.post("/stats", summary="獲取行事曆統計資料")
 async def get_calendar_stats(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user)
@@ -773,7 +773,7 @@ async def get_calendar_stats(
         )
 
 
-@router.get("/categories", summary="獲取行事曆事件分類")
+@router.post("/categories", summary="獲取行事曆事件分類")
 async def get_calendar_categories(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user)
@@ -813,7 +813,7 @@ async def get_calendar_categories(
         )
 
 
-@router.get("/status", summary="獲取行事曆服務狀態")
+@router.post("/status", summary="獲取行事曆服務狀態")
 async def get_calendar_status():
     """獲取行事曆服務狀態"""
     return {
@@ -824,7 +824,7 @@ async def get_calendar_status():
     }
 
 
-@router.get("/google-events", summary="列出 Google Calendar 事件（測試用）")
+@router.post("/google-events", summary="列出 Google Calendar 事件（測試用）")
 async def list_google_events():
     """直接從 Google Calendar 讀取事件，用於驗證同步結果"""
     if not calendar_service.is_ready():
@@ -923,7 +923,7 @@ async def check_event_conflicts(
 from app.services.google_sync_scheduler import GoogleSyncSchedulerController
 
 
-@router.get("/sync-scheduler/status", summary="取得同步排程器狀態")
+@router.post("/sync-scheduler/status", summary="取得同步排程器狀態")
 async def get_sync_scheduler_status(
     current_user: User = Depends(get_current_user)
 ):
