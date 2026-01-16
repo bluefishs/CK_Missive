@@ -106,7 +106,7 @@ function generateFilename(filters?: DocumentFilter): string {
   const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
   const timeStr = now.toTimeString().slice(0, 5).replace(':', '');
 
-  let prefix = '乾坤測繪公文清單';
+  let prefix = '乾坤測繪公文紀錄';
 
   // 根據篩選條件調整檔案名稱
   if (filters) {

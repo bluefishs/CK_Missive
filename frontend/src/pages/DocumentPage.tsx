@@ -299,7 +299,11 @@ export const DocumentPage: React.FC = () => {
   const handleExportExcel = async () => {
     setIsExporting(true);
     try {
-      await exportDocumentsToExcel(documents, 'documents.xlsx', filters);
+      // 生成檔名：乾坤測繪公文紀錄_年月日
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+      const filename = `乾坤測繪公文紀錄_${dateStr}`;
+      await exportDocumentsToExcel(documents, filename, filters);
       message.success('文件已成功匯出');
     } catch (error) {
       console.error('匯出失敗:', error);
