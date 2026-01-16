@@ -933,7 +933,17 @@ async def get_document_detail(
         document = result.scalar_one_or_none()
 
         if not document:
-            raise NotFoundException(f"找不到公文 ID: {document_id}")
+            from fastapi.responses import JSONResponse
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "success": False,
+                    "error": {
+                        "code": "ERR_NOT_FOUND",
+                        "message": f"公文 (ID: {document_id}) 不存在"
+                    }
+                }
+            )
 
         # 🔒 行級別權限檢查 (RLS)
         if not current_user.is_admin and not current_user.is_superuser:
@@ -987,11 +997,19 @@ async def get_document_detail(
         doc_dict['attachment_count'] = attachment_result.scalar() or 0
 
         return DocumentResponse.model_validate(doc_dict)
-    except NotFoundException:
-        raise
     except Exception as e:
         logger.error(f"取得公文詳情失敗: {e}", exc_info=True)
-        raise
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "error": {
+                    "code": "ERR_INTERNAL",
+                    "message": f"取得公文詳情失敗: {str(e)}"
+                }
+            }
+        )
 
 
 @router.post(
@@ -1103,7 +1121,7 @@ async def update_document(
         document = result.scalar_one_or_none()
 
         if not document:
-            raise NotFoundException(f"找不到公文 ID: {document_id}")
+            raise NotFoundException(resource="公文", resource_id=document_id)
 
         # 🔒 行級別權限檢查 (RLS) - 非管理員只能編輯關聯專案的公文
         if not current_user.is_admin and not current_user.is_superuser:
@@ -1238,7 +1256,7 @@ async def delete_document(
         document = result.scalar_one_or_none()
 
         if not document:
-            raise NotFoundException(f"找不到公文 ID: {document_id}")
+            raise NotFoundException(resource="公文", resource_id=document_id)
 
         # 🔒 行級別權限檢查 (RLS) - 非管理員只能刪除關聯專案的公文
         if not current_user.is_admin and not current_user.is_superuser:
