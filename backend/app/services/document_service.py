@@ -189,9 +189,13 @@ class DocumentService:
         effective_date_from = filters.get_effective_date_from() if hasattr(filters, 'get_effective_date_from') else (filters.date_from or getattr(filters, 'doc_date_from', None))
         effective_date_to = filters.get_effective_date_to() if hasattr(filters, 'get_effective_date_to') else (filters.date_to or getattr(filters, 'doc_date_to', None))
 
+        # 取得 doc_number 篩選值（專用公文字號搜尋）
+        doc_number_filter = getattr(filters, 'doc_number', None)
+
         # 調試日誌
-        logger.info(f"[篩選] 有效條件: keyword={effective_keyword}, doc_type={filters.doc_type}, "
-                   f"year={filters.year}, sender={filters.sender}, receiver={filters.receiver}, "
+        logger.info(f"[篩選] 有效條件: keyword={effective_keyword}, doc_number={doc_number_filter}, "
+                   f"doc_type={filters.doc_type}, year={filters.year}, "
+                   f"sender={filters.sender}, receiver={filters.receiver}, "
                    f"delivery_method={filters.delivery_method}, "
                    f"date_from={effective_date_from}, date_to={effective_date_to}, "
                    f"contract_case={filters.contract_case}, category={filters.category}")
@@ -204,12 +208,17 @@ class DocumentService:
         if filters.year:
             query = query.where(extract('year', Document.doc_date) == filters.year)
 
-        # 關鍵字搜尋（主旨、文號、說明、備註）
+        # 公文字號專用篩選（僅搜尋 doc_number 欄位）
+        if doc_number_filter:
+            doc_num_kw = f"%{doc_number_filter}%"
+            logger.debug(f"[篩選] 套用 doc_number 專用篩選: {doc_number_filter}")
+            query = query.where(Document.doc_number.ilike(doc_num_kw))
+
+        # 關鍵字搜尋（主旨、說明、備註 - 不包含 doc_number）
         if effective_keyword:
             kw = f"%{effective_keyword}%"
             query = query.where(or_(
                 Document.subject.ilike(kw),
-                Document.doc_number.ilike(kw),
                 Document.content.ilike(kw),
                 Document.notes.ilike(kw)
             ))

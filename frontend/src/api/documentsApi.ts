@@ -194,9 +194,9 @@ export const documentsApi = {
   async getDocuments(
     params?: DocumentListParams
   ): Promise<PaginatedResponse<Document>> {
-    // 合併 search、keyword 和 doc_number，優先順序：keyword > search > doc_number
-    // 如果有 doc_number 且沒有其他關鍵字，則使用 doc_number 作為搜尋詞
-    const keywordValue = params?.keyword || params?.search || params?.doc_number || undefined;
+    // 合併 search 和 keyword，優先順序：keyword > search
+    // doc_number 作為獨立參數發送，僅搜尋公文字號欄位
+    const keywordValue = params?.keyword || params?.search || undefined;
 
     // 處理年度值（可能是字串或數字）
     const yearValue = params?.year ? Number(params.year) || undefined : undefined;
@@ -204,8 +204,10 @@ export const documentsApi = {
     const queryParams = {
       page: params?.page ?? 1,
       limit: params?.limit ?? 20,
-      // 關鍵字搜尋
+      // 關鍵字搜尋（主旨、說明、備註）
       keyword: keywordValue,
+      // 公文字號專用篩選（僅搜尋 doc_number 欄位）
+      doc_number: params?.doc_number || undefined,
       // 類型篩選
       doc_type: params?.doc_type || undefined,
       year: yearValue,
@@ -335,12 +337,13 @@ export const documentsApi = {
     receive_count: number;
     filters_applied: boolean;
   }> {
-    // 合併 search 和 keyword
-    const keywordValue = params?.keyword || params?.search || params?.doc_number || undefined;
+    // 合併 search 和 keyword，doc_number 獨立發送
+    const keywordValue = params?.keyword || params?.search || undefined;
     const yearValue = params?.year ? Number(params.year) || undefined : undefined;
 
     const queryParams = {
       keyword: keywordValue,
+      doc_number: params?.doc_number || undefined,  // 公文字號專用篩選
       doc_type: params?.doc_type || undefined,
       year: yearValue,
       sender: params?.sender || undefined,

@@ -135,8 +135,9 @@ async def list_documents(
     """
     try:
         # 詳細記錄所有查詢參數
-        logger.info(f"[API] 公文查詢請求: keyword={query.keyword}, doc_type={query.doc_type}, "
-                   f"year={query.year}, sender={query.sender}, receiver={query.receiver}, "
+        logger.info(f"[API] 公文查詢請求: keyword={query.keyword}, doc_number={query.doc_number}, "
+                   f"doc_type={query.doc_type}, year={query.year}, "
+                   f"sender={query.sender}, receiver={query.receiver}, "
                    f"delivery_method={query.delivery_method}, "
                    f"doc_date_from={query.doc_date_from}, doc_date_to={query.doc_date_to}, "
                    f"contract_case={query.contract_case}, category={query.category}")
@@ -146,6 +147,7 @@ async def list_documents(
         # 構建篩選條件
         filters = DocumentFilter(
             keyword=query.keyword,
+            doc_number=query.doc_number,  # 公文字號專用篩選
             doc_type=query.doc_type,
             year=query.year,
             status=query.status,
@@ -574,9 +576,15 @@ async def get_filtered_statistics(
         conditions = []
         params = {}
 
+        # 公文字號專用篩選（僅搜尋 doc_number 欄位）
+        if query.doc_number:
+            conditions.append("doc_number ILIKE :doc_number")
+            params["doc_number"] = f"%{query.doc_number}%"
+
+        # 關鍵字搜尋（主旨、說明、備註 - 不含 doc_number）
         if query.keyword:
             conditions.append("""
-                (subject ILIKE :keyword OR doc_number ILIKE :keyword
+                (subject ILIKE :keyword
                  OR content ILIKE :keyword OR notes ILIKE :keyword)
             """)
             params["keyword"] = f"%{query.keyword}%"

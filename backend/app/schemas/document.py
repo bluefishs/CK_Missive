@@ -155,13 +155,15 @@ class DocumentFilter(BaseModel):
     支援前端多種命名慣例：
     - 日期：date_from/date_to 或 doc_date_from/doc_date_to
     - 搜尋：keyword 或 search
+    - 公文字號：doc_number（僅搜尋 doc_number 欄位）
     - 分類：category (send/receive) 自動轉換為資料庫值 (發文/收文)
 
     注意：所有日期欄位使用字串格式 'YYYY-MM-DD'，由服務層轉換
     """
     # 關鍵字搜尋
-    keyword: Optional[str] = Field(None, description="關鍵字搜尋 (主旨、文號、說明、備註)")
+    keyword: Optional[str] = Field(None, description="關鍵字搜尋 (主旨、說明、備註)")
     search: Optional[str] = Field(None, description="搜尋 (別名，與 keyword 等效)")
+    doc_number: Optional[str] = Field(None, description="公文字號搜尋（僅搜尋 doc_number 欄位）")
 
     # 類型與狀態篩選
     doc_type: Optional[str] = Field(None, description="公文類型 (函/開會通知單/會勘通知單)")
@@ -211,7 +213,8 @@ class DocumentListQuery(BaseModel):
     page: int = Field(default=1, ge=1, description="頁碼")
     limit: int = Field(default=20, ge=1, le=1000, description="每頁筆數")
     # 基本篩選
-    keyword: Optional[str] = Field(None, description="關鍵字搜尋")
+    keyword: Optional[str] = Field(None, description="關鍵字搜尋（主旨、說明、備註）")
+    doc_number: Optional[str] = Field(None, description="公文字號搜尋（僅搜尋公文字號欄位）")
     doc_type: Optional[str] = Field(None, description="公文類型")
     year: Optional[int] = Field(None, description="年度")
     status: Optional[str] = Field(None, description="狀態")
