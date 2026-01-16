@@ -2081,7 +2081,9 @@ async def export_documents_excel(
             iter([output.getvalue()]),
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={
-                "Content-Disposition": f"attachment; filename*=UTF-8''{filename_encoded}"
+                "Content-Disposition": f"attachment; filename*=UTF-8''{filename_encoded}",
+                "X-Content-Type-Options": "nosniff",
+                "Cache-Control": "no-cache, no-store, must-revalidate",
             }
         )
 
