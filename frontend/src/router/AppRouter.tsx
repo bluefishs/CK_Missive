@@ -53,7 +53,7 @@ const SiteManagementPage = lazy(() => import('../pages/SiteManagementPage').then
 const CalendarPage = lazy(() => import('../pages/CalendarPage'));
 const ReportsPage = lazy(() => import('../pages/ReportsPage'));
 const GoogleAuthDiagnosticPage = lazy(() => import('../pages/GoogleAuthDiagnosticPage'));
-const SystemPage = lazy(() => import('../pages/SystemPage'));
+// SystemPage 已移除，功能整合至其他管理頁面
 const PermissionManagementPage = lazy(() => import('../pages/PermissionManagementPage'));
 // PureCalendarPage 已整合至 CalendarPage，保留重導向以維持相容性
 // const PureCalendarPage = lazy(() => import('../pages/PureCalendarPage'));
@@ -129,7 +129,8 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.GOOGLE_AUTH_DIAGNOSTIC} element={<GoogleAuthDiagnosticPage />} />
 
           {/* 系統管理 */}
-          <Route path={ROUTES.SYSTEM} element={<SystemPage />} />
+          {/* /system 已移除，重定向至管理後台 */}
+          <Route path={ROUTES.SYSTEM} element={<Navigate to={ROUTES.ADMIN_DASHBOARD} replace />} />
 
           {/* 管理員面板 */}
           <Route path="/admin/dashboard" element={<ProtectedRoute requireAuth={true} roles={['admin']}><AdminDashboardPage /></ProtectedRoute>} />

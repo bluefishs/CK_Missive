@@ -90,7 +90,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     loading: permissionsLoading,
     filterNavigationByRole,
     hasPermission,
-    isAdmin
+    isAdmin,
+    reloadPermissions
   } = usePermissions();
 
   // 載入動態導覽列數據和用戶資訊
@@ -118,17 +119,21 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     };
   }, []);
 
-  // 監聽登入事件，重新載入使用者資訊
+  // 監聽登入事件，重新載入使用者資訊和權限
   useEffect(() => {
-    const handleUserLogin = () => {
-      console.log('🔐 User login event received, reloading user info...');
+    const handleUserLogin = async () => {
+      console.log('🔐 User login event received, reloading user info and permissions...');
       loadUserInfo();
+      // 重新載入權限資訊
+      await reloadPermissions();
+      // 重新載入導覽列
+      loadNavigationData();
     };
     window.addEventListener('user-logged-in', handleUserLogin);
     return () => {
       window.removeEventListener('user-logged-in', handleUserLogin);
     };
-  }, []);
+  }, [reloadPermissions]);
 
   // 載入用戶資訊
   const loadUserInfo = () => {
@@ -544,12 +549,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           icon: <GlobalOutlined />,
           label: '網站管理',
           path: ROUTES.SITE_MANAGEMENT,
-        },
-        {
-          key: ROUTES.SYSTEM,
-          icon: <MonitorOutlined />,
-          label: '系統監控',
-          path: ROUTES.SYSTEM,
         },
         {
           key: ROUTES.ADMIN_DASHBOARD,
