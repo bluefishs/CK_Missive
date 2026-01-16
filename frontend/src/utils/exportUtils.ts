@@ -28,14 +28,16 @@ export const exportDocumentsToExcel = async (
   }
 
   // 加入篩選條件（讓後端根據篩選條件匯出全部符合的資料）
-  if (filters?.doc_type) {
-    requestBody.category = filters.doc_type;
+  // category 對應收文/發文
+  if (filters?.category) {
+    requestBody.category = filters.category;
   }
   if (filters?.year) {
     requestBody.year = filters.year;
   }
-  if (filters?.keyword) {
-    requestBody.keyword = filters.keyword;
+  // 支援 keyword 和 search 兩種欄位名稱
+  if (filters?.keyword || filters?.search) {
+    requestBody.keyword = filters.keyword || filters.search;
   }
   if (filters?.status) {
     requestBody.status = filters.status;
