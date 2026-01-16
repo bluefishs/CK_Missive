@@ -24,7 +24,6 @@ const DocumentDetailPage = lazy(() => import('../pages/DocumentDetailPage').then
 const DocumentCreatePage = lazy(() => import('../pages/DocumentCreatePage').then(module => ({ default: module.DocumentCreatePage })));
 const DocumentEditPage = lazy(() => import('../pages/DocumentEditPage').then(module => ({ default: module.DocumentEditPage })));
 const DashboardPage = lazy(() => import('../pages/DashboardPage').then(module => ({ default: module.DashboardPage })));
-const SettingsPage = lazy(() => import('../pages/SettingsPage').then(module => ({ default: module.SettingsPage })));
 const ProfilePage = lazy(() => import('../pages/ProfilePage').then(module => ({ default: module.ProfilePage })));
 const NotFoundPage = lazy(() => import('../pages/NotFoundPage').then(module => ({ default: module.NotFoundPage })));
 const DatabaseManagementPage = lazy(() => import('../pages/DatabaseManagementPage').then(module => ({ default: module.DatabaseManagementPage })));
@@ -71,6 +70,7 @@ export const AppRouter: React.FC = () => {
         <Routes>
           {/* 統一登入入口 */}
           <Route path={ROUTES.LOGIN} element={<LoginPage />} />
+          <Route path={ROUTES.ENTRY} element={<LoginPage />} />  {/* /entry 使用 LoginPage */}
           <Route path={ROUTES.REGISTER} element={<RegisterPage />} />
           <Route path={ROUTES.FORGOT_PASSWORD} element={<ForgotPasswordPage />} />
 
@@ -113,8 +113,11 @@ export const AppRouter: React.FC = () => {
           {/* 承辦同仁管理 */}
           <Route path={ROUTES.STAFF} element={<StaffPage />} />
 
-          {/* 行事曆 */}
+{/* 行事曆 */}
           <Route path={ROUTES.CALENDAR} element={<CalendarPage />} />
+          
+          {/* 純粹行事曆 - 重導向至 /calendar */}
+          <Route path={ROUTES.PURE_CALENDAR} element={<Navigate to={ROUTES.CALENDAR} replace />} />
 
           {/* 統計報表 */}
           <Route path={ROUTES.REPORTS} element={<ReportsPage />} />
@@ -138,7 +141,8 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.SITE_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><SiteManagementPage /></ProtectedRoute>} />
 
           {/* 需要認證的路由 */}
-          <Route path={ROUTES.SETTINGS} element={<ProtectedRoute requireAuth={true} roles={['admin']}><SettingsPage /></ProtectedRoute>} />
+          {/* /settings 已統一至 /profile */}
+          <Route path={ROUTES.SETTINGS} element={<Navigate to={ROUTES.PROFILE} replace />} />
           <Route path={ROUTES.USER_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><UserManagementPage /></ProtectedRoute>} />
           <Route path={ROUTES.PROFILE} element={<ProtectedRoute requireAuth={true}><ProfilePage /></ProtectedRoute>} />
           <Route path={ROUTES.DATABASE} element={<ProtectedRoute requireAuth={true} roles={['admin']}><DatabaseManagementPage /></ProtectedRoute>} />
