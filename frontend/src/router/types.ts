@@ -32,10 +32,6 @@ export const ROUTES = {
   CONTRACT_CASE_DETAIL: '/contract-cases/:id',
   CONTRACT_CASE_CREATE: '/contract-cases/create',
   CONTRACT_CASE_EDIT: '/contract-cases/:id/edit',
-  CASES: '/cases',
-  CASE_DETAIL: '/cases/:id',
-  CASE_CREATE: '/cases/create',
-  CASE_EDIT: '/cases/:id/edit',
   DOCUMENT_NUMBERS: '/document-numbers',
   SEND_DOCUMENT_CREATE: '/document-numbers/create',
   AGENCIES: '/agencies',
@@ -147,26 +143,6 @@ export const ROUTE_META = {
     breadcrumb: true,
   },
   [ROUTES.CONTRACT_CASE_EDIT]: {
-    title: '編輯承攬案件',
-    description: '編輯現有承攬案件',
-    breadcrumb: true,
-  },
-  [ROUTES.CASES]: {
-    title: '承攬案件管理',
-    description: '承攬案件維護與管理',
-    icon: 'ProjectOutlined',
-  },
-  [ROUTES.CASE_DETAIL]: {
-    title: '承攬案件詳情',
-    description: '檢視承攬案件詳細內容',
-    breadcrumb: true,
-  },
-  [ROUTES.CASE_CREATE]: {
-    title: '新增承攬案件',
-    description: '建立新的承攬案件',
-    breadcrumb: true,
-  },
-  [ROUTES.CASE_EDIT]: {
     title: '編輯承攬案件',
     description: '編輯現有承攬案件',
     breadcrumb: true,
