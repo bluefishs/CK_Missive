@@ -59,7 +59,8 @@ export const exportDocumentsToExcel = async (
 
     // 從 Content-Disposition 標頭獲取檔名 (支援 RFC 5987 UTF-8 編碼)
     const disposition = response.headers.get('Content-Disposition');
-    let finalFilename = filename || generateFilename(filters);
+    // 確保移除傳入 filename 可能已包含的 .xlsx 擴展名，避免重複
+    let finalFilename = (filename || generateFilename(filters)).replace(/\.xlsx$/i, '');
     if (disposition && disposition.indexOf('attachment') !== -1) {
       // 優先解析 filename*=UTF-8''... 格式 (RFC 5987)
       const utf8Regex = /filename\*=UTF-8''([^;\s]+)/i;
