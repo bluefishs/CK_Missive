@@ -321,6 +321,7 @@ export interface OfficialDocument {
   creator?: string;
   is_deleted?: boolean;
   notes?: string;
+  ck_note?: string;  // 簡要說明(乾坤備註)
   priority_level?: string;
   content?: string;
   created_at: string;
@@ -371,6 +372,7 @@ export interface DocumentCreate {
   receiver_agency_id?: number;
   content?: string;           // 說明
   notes?: string;             // 備註
+  ck_note?: string;           // 簡要說明(乾坤備註)
   assignee?: string;          // 承辦人
   priority_level?: string;
   // 發文形式與附件欄位

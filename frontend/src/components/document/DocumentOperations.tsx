@@ -918,6 +918,18 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
                       showCount
                     />
                   </Form.Item>
+
+                  <Form.Item
+                    label="簡要說明(乾坤備註)"
+                    name="ck_note"
+                  >
+                    <TextArea
+                      rows={3}
+                      placeholder="請輸入乾坤內部簡要說明或備註"
+                      maxLength={1000}
+                      showCount
+                    />
+                  </Form.Item>
                 </>
               )
             },

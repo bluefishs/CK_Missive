@@ -739,6 +739,10 @@ export const DocumentDetailPage: React.FC = () => {
         <TextArea rows={3} placeholder="請輸入備註" maxLength={500} showCount />
       </Form.Item>
 
+      <Form.Item label="簡要說明(乾坤備註)" name="ck_note">
+        <TextArea rows={3} placeholder="請輸入乾坤內部簡要說明或備註" maxLength={1000} showCount />
+      </Form.Item>
+
       {/* 唯讀模式下顯示系統資訊 */}
       {!isEditing && document && (
         <>

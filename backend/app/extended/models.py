@@ -145,6 +145,7 @@ class OfficialDocument(Base):
 
     # 備註欄位
     notes = Column(Text, comment="備註")
+    ck_note = Column(Text, comment="簡要說明(乾坤備註)")
 
     # 時間戳欄位
     created_at = Column(DateTime, server_default=func.now(), comment="建立時間")

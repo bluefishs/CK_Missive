@@ -53,6 +53,7 @@ class DocumentBase(BaseModel):
     creator: Optional[str] = Field(None, description="建立者")
     is_deleted: Optional[bool] = Field(False, description="是否已軟刪除")
     notes: Optional[str] = Field(None, description="備註")
+    ck_note: Optional[str] = Field(None, description="簡要說明(乾坤備註)")
     priority_level: Optional[str] = Field("普通", description="速別 (例如：普通, 速件, 最速件)") # 修正: 預設值
     content: Optional[str] = Field(None, description="公文內容摘要") # 修正: 欄位名稱
 
@@ -85,6 +86,7 @@ class DocumentUpdate(BaseModel):
     creator: Optional[str] = None
     is_deleted: Optional[bool] = None
     notes: Optional[str] = None
+    ck_note: Optional[str] = None
     priority_level: Optional[str] = None
     content: Optional[str] = None
     delivery_method: Optional[str] = None
@@ -129,6 +131,7 @@ class DocumentResponse(BaseModel):
     title: Optional[str] = Field(None, description="標題")
     content: Optional[str] = Field(None, description="說明")
     notes: Optional[str] = Field(None, description="備註")
+    ck_note: Optional[str] = Field(None, description="簡要說明(乾坤備註)")
     cloud_file_link: Optional[str] = Field(None, description="雲端檔案連結")
     dispatch_format: Optional[str] = Field(None, description="發文形式")
     assignee: Optional[str] = Field(None, description="承辦人")
@@ -251,6 +254,7 @@ class DocumentImportData(BaseModel):
     creator: Optional[str] = Field(None, description="建立者")
     is_deleted: Optional[bool] = Field(None, description="是否刪除")
     notes: Optional[str] = Field(None, description="備註")
+    ck_note: Optional[str] = Field(None, description="簡要說明(乾坤備註)")
     priority_level: Optional[str] = Field(None, description="速別")
     content: Optional[str] = Field(None, description="公文內容摘要")
     delivery_method: Optional[str] = Field("電子交換", description="發文形式 (電子交換/紙本郵寄/電子+紙本)")
