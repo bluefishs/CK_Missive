@@ -2,6 +2,8 @@
 
 > **用途**: Bug 調查代理
 > **觸發**: 當需要調查和修復 Bug 時
+> **版本**: 1.1.0
+> **更新日期**: 2026-01-15
 
 ---
 
@@ -156,3 +158,65 @@ curl -X POST http://localhost:8001/api/xxx \
   -H "Content-Type: application/json" \
   -d '{"key": "value"}'
 ```
+
+---
+
+## 專案特有問題模式
+
+### 模式 6: 認證繞過失敗
+```
+症狀: 內網環境仍需要登入
+原因: useAuthGuard 的繞過條件未滿足
+檢查:
+1. config/env.ts 的 isInternalNetwork() 邏輯
+2. authService.getUserInfo() 是否有 user_info
+3. user_info.auth_provider 是否為 'internal'
+```
+
+### 模式 7: 角色權限不足
+```
+症狀: 用戶無法訪問管理頁面，跳轉到登入頁
+原因: useAuthGuard 的角色檢查失敗
+檢查:
+1. ProtectedRoute 的 roles 參數
+2. 用戶的 is_admin 和 role 欄位
+3. useAuthGuard.ts 的 hasRole 邏輯
+```
+
+### 模式 8: 導覽路徑不同步
+```
+症狀: 側邊欄項目點擊後 404 或空白
+原因: 三處位置未同步
+檢查:
+1. frontend/src/router/types.ts - ROUTES 常數
+2. frontend/src/router/AppRouter.tsx - Route 元素
+3. 資料庫 navigation_items 表
+```
+
+### 模式 9: 快速進入後無權限
+```
+症狀: 快速進入成功但功能受限
+原因: handleDevModeEntry 未正確設定 user_info
+檢查:
+1. EntryPage.tsx 的 handleDevModeEntry
+2. authService.setUserInfo() 是否被呼叫
+3. localStorage 中的 user_info 內容
+```
+
+### 模式 10: API 端點 404
+```
+症狀: 前端呼叫 API 回傳 404
+原因: 後端缺少對應端點
+檢查:
+1. 前端呼叫的 URL 路徑
+2. backend/app/api/endpoints/ 對應的路由
+3. backend/app/api/routes.py 的 include_router
+```
+
+---
+
+## 參考資源
+
+- **系統化除錯**: `.claude/skills/_shared/shared/systematic-debugging.md`
+- **錯誤處理指南**: `docs/ERROR_HANDLING_GUIDE.md`
+- **強制檢查清單**: `.claude/MANDATORY_CHECKLIST.md` (清單 G - Bug 修復)
