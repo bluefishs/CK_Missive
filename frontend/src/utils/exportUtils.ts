@@ -20,6 +20,9 @@ export const exportDocumentsToExcel = async (
     year?: number;
     keyword?: string;
     status?: string;
+    contract_case?: string;
+    sender?: string;
+    receiver?: string;
   } = {};
 
   // 如果不是匯出全部，才傳入 document_ids（用於批次匯出選定項目）
@@ -28,7 +31,10 @@ export const exportDocumentsToExcel = async (
   }
 
   // 加入篩選條件（讓後端根據篩選條件匯出全部符合的資料）
-  // category 對應收文/發文
+  // category 對應收文/發文（支援 doc_type 和 category 兩種欄位名稱）
+  if (filters?.doc_type) {
+    requestBody.category = filters.doc_type;
+  }
   if (filters?.category) {
     requestBody.category = filters.category;
   }
@@ -41,6 +47,16 @@ export const exportDocumentsToExcel = async (
   }
   if (filters?.status) {
     requestBody.status = filters.status;
+  }
+  // 新增：承攬案件、發文單位、受文單位篩選
+  if (filters?.contract_case) {
+    requestBody.contract_case = filters.contract_case;
+  }
+  if (filters?.sender) {
+    requestBody.sender = filters.sender;
+  }
+  if (filters?.receiver) {
+    requestBody.receiver = filters.receiver;
   }
 
   try {

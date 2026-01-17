@@ -60,6 +60,9 @@ const PermissionManagementPage = lazy(() => import('../pages/PermissionManagemen
 const UnifiedFormDemoPage = lazy(() => import('../pages/UnifiedFormDemoPage'));
 const AdminDashboardPage = lazy(() => import('../pages/AdminDashboardPage'));
 
+// 桃園查估專區
+const TaoyuanDispatchPage = lazy(() => import('../pages/TaoyuanDispatchPage'));
+
 // ProtectedRoute 已移至獨立模組：./ProtectedRoute.tsx
 
 // 主路由器組件
@@ -121,6 +124,9 @@ export const AppRouter: React.FC = () => {
 
           {/* 統計報表 */}
           <Route path={ROUTES.REPORTS} element={<ReportsPage />} />
+
+          {/* 桃園查估專區 */}
+          <Route path={ROUTES.TAOYUAN_DISPATCH} element={<TaoyuanDispatchPage />} />
 
           {/* 統一表單示例 */}
           <Route path={ROUTES.UNIFIED_FORM_DEMO} element={<UnifiedFormDemoPage />} />

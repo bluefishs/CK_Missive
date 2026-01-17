@@ -53,6 +53,8 @@ export const ROUTES = {
   UNIFIED_FORM_DEMO: '/unified-form-demo',
   GOOGLE_AUTH_DIAGNOSTIC: '/google-auth-diagnostic',
   ADMIN_DASHBOARD: '/admin/dashboard',
+  // 桃園查估專區
+  TAOYUAN_DISPATCH: '/taoyuan/dispatch',
 } as const;
 
 // 路由元數據
@@ -192,5 +194,10 @@ export const ROUTE_META = {
     description: '導覽列與網站配置管理',
     icon: 'GlobalOutlined',
     requireAuth: true,
+  },
+  [ROUTES.TAOYUAN_DISPATCH]: {
+    title: '派工管理',
+    description: '桃園查估專區 - 派工管理',
+    icon: 'ScheduleOutlined',
   },
 } as const;

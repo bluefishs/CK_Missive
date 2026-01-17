@@ -76,3 +76,29 @@ backend/ck-missive-OAuth*.json
 # Claude Code temporary directories
 tmpclaude-*/
 **/tmpclaude-*/
+**/tmpclaude-*-cwd
+
+# Backend uploads and backups (data files)
+backend/backups/
+backend/uploads/
+backups/attachments/
+
+# Root level test files
+/minimal_test.py
+/test_login.html
+/package-lock.json
+
+# Temporary Windows paths
+C\357\200\272*
+
+# Data files
+data/ngrok_recovery_codes.txt
+
+# Editor swap files
+*.swp
+*.swo
+*~
+
+# Screenshot files (Chinese named)
+*.jpg
+入口頁面.jpg

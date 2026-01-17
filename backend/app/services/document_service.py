@@ -1,6 +1,9 @@
 """
 公文服務層 - 業務邏輯處理 (已重構)
 
+v2.2 - 2026-01-16
+- 新增 Unicode 字元正規化（康熙部首轉標準中文）
+
 v2.1 - 2026-01-10
 - 新增行級別權限過濾 (Row-Level Security)
 - 非管理員只能查看關聯專案的公文
@@ -17,6 +20,7 @@ v2.1 - 2026-01-10
 """
 import logging
 import time
+import unicodedata
 import pandas as pd
 from typing import List, Optional, Dict, Any, TYPE_CHECKING
 from datetime import datetime, date
@@ -43,6 +47,38 @@ from app.services.calendar.event_auto_builder import CalendarEventAutoBuilder
 from app.core.cache_manager import cache_dropdown_data, cache_statistics
 
 logger = logging.getLogger(__name__)
+
+
+# 康熙部首對照表 (常見問題字元)
+KANGXI_RADICALS = {
+    '⽤': '用', '⼟': '土', '⼝': '口', '⽇': '日', '⽉': '月',
+    '⽔': '水', '⽕': '火', '⽊': '木', '⾦': '金', '⼈': '人',
+    '⼤': '大', '⼩': '小', '⼭': '山', '⽥': '田', '⽬': '目',
+    '⼿': '手', '⾜': '足', '⾞': '車', '⾨': '門', '⾺': '馬',
+}
+
+
+def normalize_text(text: str) -> str:
+    """
+    將康熙部首等異常 Unicode 字元轉換為標準中文字元
+
+    Args:
+        text: 輸入文字
+
+    Returns:
+        正規化後的文字
+    """
+    if not text or not isinstance(text, str):
+        return text
+
+    result = text
+    for kangxi, normal in KANGXI_RADICALS.items():
+        result = result.replace(kangxi, normal)
+
+    # 使用 NFKC 正規化處理其他相容字元
+    result = unicodedata.normalize('NFKC', result)
+
+    return result
 
 
 class DocumentService:
@@ -486,6 +522,11 @@ class DocumentService:
 
         for idx, doc_data in enumerate(processed_documents):
             try:
+                # Unicode 正規化：清理康熙部首等異常字元
+                for key in ['doc_number', 'subject', 'sender', 'receiver', 'contract_case', 'notes']:
+                    if key in doc_data and doc_data[key]:
+                        doc_data[key] = normalize_text(str(doc_data[key]))
+
                 doc_number = doc_data.get('doc_number', '').strip()
 
                 # 檢查是否已存在（去重）

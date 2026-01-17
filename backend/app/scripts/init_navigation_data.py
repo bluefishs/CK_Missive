@@ -125,6 +125,18 @@ DEFAULT_NAVIGATION_ITEMS = [
         "permission_required": "[]"
     },
 
+    # 桃園查估專區 (群組)
+    {
+        "title": "桃園查估專區",
+        "key": "taoyuan-zone",
+        "path": None,
+        "icon": "EnvironmentOutlined",
+        "sort_order": 8,
+        "level": 1,
+        "description": "桃園,查估,專區",
+        "permission_required": "[]"
+    },
+
     # =========================================================================
     # 公文管理 子項目
     # =========================================================================
@@ -365,6 +377,23 @@ DEFAULT_NAVIGATION_ITEMS = [
         "description": "Google,認證",
         "permission_required": "[\"admin:settings\"]"
     },
+
+    # =========================================================================
+    # 桃園查估專區 子項目
+    # =========================================================================
+
+    # 派工管理 (對應 ROUTES.TAOYUAN_DISPATCH)
+    {
+        "title": "派工管理",
+        "key": "taoyuan-dispatch",
+        "path": "/taoyuan/dispatch",
+        "icon": "ScheduleOutlined",
+        "sort_order": 1,
+        "level": 2,
+        "parent_key": "taoyuan-zone",
+        "description": "派工,管理,桃園",
+        "permission_required": "[]"
+    },
 ]
 
 # =============================================================================
@@ -434,11 +463,28 @@ DEFAULT_SITE_CONFIGS = [
     }
 ]
 
-async def check_item_exists(db: AsyncSession, key: str) -> bool:
-    """檢查導覽項目是否已存在"""
+async def check_item_exists(db: AsyncSession, key: str, title: str = None) -> bool:
+    """
+    檢查導覽項目是否已存在
+
+    檢查順序：
+    1. 先檢查 key 是否存在
+    2. 再檢查 title 是否存在（避免不同 key 但相同 title 的重複）
+    """
+    # 檢查 key
     query = select(SiteNavigationItem).where(SiteNavigationItem.key == key)
     result = await db.execute(query)
-    return result.scalar_one_or_none() is not None
+    if result.scalar_one_or_none() is not None:
+        return True
+
+    # 檢查 title（避免重複標題）
+    if title:
+        query = select(SiteNavigationItem).where(SiteNavigationItem.title == title)
+        result = await db.execute(query)
+        if result.scalar_one_or_none() is not None:
+            return True
+
+    return False
 
 async def check_config_exists(db: AsyncSession, config_key: str) -> bool:
     """檢查配置項目是否已存在"""
@@ -493,8 +539,8 @@ async def create_navigation_items(db: AsyncSession, force_update: bool = False):
     parent_items = {}
     for item_data in DEFAULT_NAVIGATION_ITEMS:
         if item_data.get("parent_key") is None:  # 頂級項目
-            if await check_item_exists(db, item_data["key"]):
-                # 項目已存在
+            if await check_item_exists(db, item_data["key"], item_data["title"]):
+                # 項目已存在（key 或 title 重複）
                 if force_update:
                     # 強制更新模式：更新路徑
                     if await update_item_path(db, item_data["key"], item_data.get("path"), item_data["title"]):
@@ -536,8 +582,8 @@ async def create_navigation_items(db: AsyncSession, force_update: bool = False):
     # 第二階段：創建或更新子級項目
     for item_data in DEFAULT_NAVIGATION_ITEMS:
         if item_data.get("parent_key") is not None:  # 子級項目
-            if await check_item_exists(db, item_data["key"]):
-                # 項目已存在
+            if await check_item_exists(db, item_data["key"], item_data["title"]):
+                # 項目已存在（key 或 title 重複）
                 if force_update:
                     # 強制更新模式：更新路徑
                     if await update_item_path(db, item_data["key"], item_data.get("path"), item_data["title"]):
