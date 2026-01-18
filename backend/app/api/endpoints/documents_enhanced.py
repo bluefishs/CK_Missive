@@ -1044,7 +1044,7 @@ async def create_document(
             'doc_date', 'receive_date', 'send_date', 'status', 'category',
             'delivery_method', 'has_attachment', 'contract_project_id',
             'sender_agency_id', 'receiver_agency_id', 'title', 'cloud_file_link',
-            'dispatch_format', 'assignee', 'notes', 'content'
+            'dispatch_format', 'assignee', 'notes', 'ck_note', 'content'
         }
 
         # 過濾掉不存在於模型的欄位（避免 TypeError）
@@ -1162,7 +1162,7 @@ async def update_document(
             'doc_date', 'receive_date', 'send_date', 'status', 'category',
             'delivery_method', 'has_attachment', 'contract_project_id',
             'sender_agency_id', 'receiver_agency_id', 'title', 'cloud_file_link',
-            'dispatch_format', 'assignee', 'notes', 'content'
+            'dispatch_format', 'assignee', 'notes', 'ck_note', 'content'
         }
 
         # 過濾掉不存在於模型的欄位
@@ -1840,6 +1840,9 @@ class ExcelExportRequest(BaseModel):
     year: Optional[int] = Field(None, description="年度篩選")
     keyword: Optional[str] = Field(None, description="關鍵字搜尋")
     status: Optional[str] = Field(None, description="狀態篩選")
+    contract_case: Optional[str] = Field(None, description="承攬案件篩選")
+    sender: Optional[str] = Field(None, description="發文單位篩選")
+    receiver: Optional[str] = Field(None, description="受文單位篩選")
 
 
 @router.post("/export/excel", summary="匯出公文為 Excel")
@@ -1896,6 +1899,17 @@ async def export_documents_excel(
                     OfficialDocument.notes.ilike(keyword)
                 )
             )
+        if request.contract_case:
+            # contract_case 需要透過關聯查詢 ContractProject.project_name
+            contract_case_keyword = f"%{request.contract_case}%"
+            doc_query = doc_query.outerjoin(ContractProject, OfficialDocument.contract_project_id == ContractProject.id)
+            conditions.append(ContractProject.project_name.ilike(contract_case_keyword))
+        if request.sender:
+            sender_keyword = f"%{request.sender}%"
+            conditions.append(OfficialDocument.sender.ilike(sender_keyword))
+        if request.receiver:
+            receiver_keyword = f"%{request.receiver}%"
+            conditions.append(OfficialDocument.receiver.ilike(receiver_keyword))
 
         if conditions:
             doc_query = doc_query.where(and_(*conditions))
