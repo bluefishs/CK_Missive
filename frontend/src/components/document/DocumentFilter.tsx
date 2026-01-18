@@ -24,11 +24,43 @@ import {
   QuestionCircleOutlined,
   InfoCircleOutlined,
 } from '@ant-design/icons';
-import { DocumentFilter as DocumentFilterType } from '../../types';
+import { DocumentFilter as DocumentFilterType, OfficialDocument } from '../../types';
 import { API_BASE_URL } from '../../api/client';
 import { logger } from '../../utils/logger';
 const { Option } = Select;
 const { Title } = Typography;
+
+// ============================================================================
+// API 回應型別定義
+// ============================================================================
+
+/** 下拉選單選項 */
+interface DropdownOption {
+  value: string;
+  label: string;
+}
+
+/** 機關下拉選項 API 回應 */
+interface AgenciesDropdownResponse {
+  options: DropdownOption[];
+}
+
+/** 承攬案件下拉選項 API 回應 */
+interface ContractProjectsDropdownResponse {
+  options: DropdownOption[];
+}
+
+/** 年度選項 API 回應 */
+interface YearsResponse {
+  years: (number | string)[];
+}
+
+/** 公文列表 API 回應 */
+interface DocumentListResponse {
+  items?: OfficialDocument[];
+  documents?: OfficialDocument[];
+  total?: number;
+}
 
 interface DocumentFilterProps {
   filters: DocumentFilterType;
@@ -94,19 +126,19 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
         body: JSON.stringify({ keyword: query, limit: 50, page: 1 })
       });
       if (response.ok) {
-        const data = await response.json();
+        const data: DocumentListResponse = await response.json();
         const documents = data.items || [];
         const suggestions = documents
-          .map((doc: any) => doc.subject || '')
-          .filter((subject: string, index: number, arr: string[]) =>
+          .map((doc) => doc.subject || '')
+          .filter((subject, index, arr) =>
             subject && arr.indexOf(subject) === index
           )
           .slice(0, 10)
-          .map((subject: string) => ({ value: subject }));
+          .map((subject) => ({ value: subject }));
         setSearchOptions(suggestions);
       }
     } catch (error) {
-      console.error('獲取搜尋建議失敗:', error);
+      logger.error('獲取搜尋建議失敗:', error);
     }
   };
 
@@ -124,15 +156,15 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
         body: JSON.stringify({ search: query, limit: 100 })
       });
       if (response.ok) {
-        const data = await response.json();
+        const data: AgenciesDropdownResponse = await response.json();
         const options = data.options || [];
         const senders = options
-          .filter((opt: any) => opt.value?.toString().toLowerCase().includes(query?.toString().toLowerCase()))
-          .map((opt: any) => ({ value: opt.value }));
+          .filter((opt) => opt.value?.toString().toLowerCase().includes(query?.toString().toLowerCase()))
+          .map((opt) => ({ value: opt.value }));
         _setSenderOptions(senders.slice(0, 10));
       }
     } catch (error) {
-      console.error('獲取發文單位建議失敗:', error);
+      logger.error('獲取發文單位建議失敗:', error);
     }
   };
 
@@ -150,15 +182,15 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
         body: JSON.stringify({ search: query, limit: 100 })
       });
       if (response.ok) {
-        const data = await response.json();
+        const data: AgenciesDropdownResponse = await response.json();
         const options = data.options || [];
         const receivers = options
-          .filter((opt: any) => opt.value?.toString().toLowerCase().includes(query?.toString().toLowerCase()))
-          .map((opt: any) => ({ value: opt.value }));
+          .filter((opt) => opt.value?.toString().toLowerCase().includes(query?.toString().toLowerCase()))
+          .map((opt) => ({ value: opt.value }));
         _setReceiverOptions(receivers.slice(0, 10));
       }
     } catch (error) {
-      console.error('獲取受文單位建議失敗:', error);
+      logger.error('獲取受文單位建議失敗:', error);
     }
   };
 
@@ -175,24 +207,24 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
         body: JSON.stringify({ keyword: query, limit: 100, page: 1 })
       });
       if (response.ok) {
-        const responseData = await response.json();
+        const responseData: DocumentListResponse = await response.json();
         const documents = responseData.items || [];
 
         if (Array.isArray(documents)) {
           const docNumbers = documents
-            .map((doc: any) => doc.doc_number || '')
-            .filter((docNumber: string, index: number, arr: string[]) =>
+            .map((doc) => doc.doc_number || '')
+            .filter((docNumber, index, arr) =>
               docNumber && docNumber?.toString().toLowerCase().includes(query?.toString().toLowerCase()) && arr.indexOf(docNumber) === index
             )
-            .map((docNumber: string) => ({ value: docNumber }));
+            .map((docNumber) => ({ value: docNumber }));
           setDocNumberOptions(docNumbers.slice(0, 10));
         } else {
-          console.warn('API 回應不包含有效的文件陣列:', responseData);
+          logger.warn('API 回應不包含有效的文件陣列:', responseData);
           setDocNumberOptions([]);
         }
       }
     } catch (error) {
-      console.error('獲取公文字號建議失敗:', error);
+      logger.error('獲取公文字號建議失敗:', error);
       setDocNumberOptions([]);
     }
   };
@@ -211,15 +243,15 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
         body: JSON.stringify({ search: query, limit: 100 })
       });
       if (response.ok) {
-        const data = await response.json();
+        const data: ContractProjectsDropdownResponse = await response.json();
         const options = data.options || [];
         const contractCases = options
-          .filter((opt: any) => opt.value?.toString().toLowerCase().includes(query?.toString().toLowerCase()))
-          .map((opt: any) => ({ value: opt.value }));
+          .filter((opt) => opt.value?.toString().toLowerCase().includes(query?.toString().toLowerCase()))
+          .map((opt) => ({ value: opt.value }));
         _setContractCaseOptions(contractCases.slice(0, 10));
       }
     } catch (error) {
-      console.error('獲取承攬案件建議失敗:', error);
+      logger.error('獲取承攬案件建議失敗:', error);
     }
   };
 
@@ -232,15 +264,15 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
         body: JSON.stringify({})
       });
       if (response.ok) {
-        const data = await response.json();
-        const options = (data.years || []).map((year: number | string) => ({
+        const data: YearsResponse = await response.json();
+        const options = (data.years || []).map((year) => ({
           value: String(year),
           label: `${year}年`
         }));
         setYearOptions(options);
       }
     } catch (error) {
-      console.error('獲取年度選項失敗:', error);
+      logger.error('獲取年度選項失敗:', error);
     }
   };
 
@@ -255,8 +287,8 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
       });
 
       if (response.ok) {
-        const data = await response.json();
-        const options = (data.options || []).map((option: any) => ({
+        const data: ContractProjectsDropdownResponse = await response.json();
+        const options = (data.options || []).map((option) => ({
           value: option.value,
           label: option.label
         }));
@@ -266,22 +298,22 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
       }
 
       // 如果新 API 不可用，降級使用原有方式
-      console.warn('⚠️  增強版 API 不可用，使用原有方式');
+      logger.warn('⚠️  增強版 API 不可用，使用原有方式');
       response = await fetch(`${API_BASE_URL}/documents-enhanced/integrated-search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ limit: 1000 })
       });
       if (response.ok) {
-        const data = await response.json();
+        const data: DocumentListResponse = await response.json();
         const documents = data.documents || [];
         const contractCases = documents
-          .map((doc: any) => doc.contract_case || '')
-          .filter((contractCase: string, index: number, arr: string[]) =>
+          .map((doc) => doc.contract_case || '')
+          .filter((contractCase, index, arr) =>
             contractCase && arr.indexOf(contractCase) === index
           )
           .sort()
-          .map((contractCase: string) => ({
+          .map((contractCase) => ({
             value: contractCase,
             label: contractCase
           }));
@@ -289,7 +321,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
         logger.debug('📄 從公文表載入承攬案件選項:', contractCases.length);
       }
     } catch (error) {
-      console.error('獲取承攬案件選項失敗:', error);
+      logger.error('獲取承攬案件選項失敗:', error);
     }
   };
 
@@ -303,11 +335,11 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
         body: JSON.stringify({ limit: 500 })
       });
       if (response.ok) {
-        const data = await response.json();
+        const data: AgenciesDropdownResponse = await response.json();
         const agencies = data.options || [];
         const senders = agencies
-          .filter((agency: any) => agency.value !== '相關機關') // 排除佔位符
-          .map((agency: any) => ({
+          .filter((agency) => agency.value !== '相關機關') // 排除佔位符
+          .map((agency) => ({
             value: agency.value,
             label: agency.label // 使用標準化名稱，不含統計數據
           }));
@@ -317,22 +349,22 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
       }
 
       // 降級方案：直接從公文表查詢
-      console.warn('⚠️  增強版 API 不可用，使用降級方案');
+      logger.warn('⚠️  增強版 API 不可用，使用降級方案');
       const fallbackResponse = await fetch(`${API_BASE_URL}/documents-enhanced/integrated-search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ limit: 500 })
       });
       if (fallbackResponse.ok) {
-        const data = await fallbackResponse.json();
+        const data: DocumentListResponse = await fallbackResponse.json();
         const documents = data.documents || [];
         const senders = documents
-          .map((doc: any) => doc.sender || '')
-          .filter((sender: string, index: number, arr: string[]) =>
+          .map((doc) => doc.sender || '')
+          .filter((sender, index, arr) =>
             sender && sender !== '相關機關' && arr.indexOf(sender) === index
           )
           .sort()
-          .map((sender: string) => ({
+          .map((sender) => ({
             value: sender,
             label: sender
           }));
@@ -340,7 +372,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
         logger.debug('📄 從公文表載入發文單位選項:', senders.length);
       }
     } catch (error) {
-      console.error('獲取發文單位選項失敗:', error);
+      logger.error('獲取發文單位選項失敗:', error);
     }
   };
 
@@ -354,11 +386,11 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
         body: JSON.stringify({ limit: 500 })
       });
       if (response.ok) {
-        const data = await response.json();
+        const data: AgenciesDropdownResponse = await response.json();
         const agencies = data.options || [];
         const receivers = agencies
-          .filter((agency: any) => agency.value !== '相關機關') // 排除佔位符
-          .map((agency: any) => ({
+          .filter((agency) => agency.value !== '相關機關') // 排除佔位符
+          .map((agency) => ({
             value: agency.value,
             label: agency.label // 使用標準化名稱，不含統計數據
           }));
@@ -368,22 +400,22 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
       }
 
       // 降級方案：直接從公文表查詢
-      console.warn('⚠️  增強版 API 不可用，使用降級方案');
+      logger.warn('⚠️  增強版 API 不可用，使用降級方案');
       const fallbackResponse = await fetch(`${API_BASE_URL}/documents-enhanced/integrated-search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ limit: 500 })
       });
       if (fallbackResponse.ok) {
-        const data = await fallbackResponse.json();
+        const data: DocumentListResponse = await fallbackResponse.json();
         const documents = data.documents || [];
         const receivers = documents
-          .map((doc: any) => doc.receiver || '')
-          .filter((receiver: string, index: number, arr: string[]) =>
+          .map((doc) => doc.receiver || '')
+          .filter((receiver, index, arr) =>
             receiver && receiver !== '相關機關' && arr.indexOf(receiver) === index
           )
           .sort()
-          .map((receiver: string) => ({
+          .map((receiver) => ({
             value: receiver,
             label: receiver
           }));
@@ -391,7 +423,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
         logger.debug('📄 從公文表載入受文單位選項:', receivers.length);
       }
     } catch (error) {
-      console.error('獲取受文單位選項失敗:', error);
+      logger.error('獲取受文單位選項失敗:', error);
     }
   };
 
@@ -403,7 +435,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
     fetchReceiverDropdownOptions();
   }, []);
 
-  const handleFilterChange = (field: keyof DocumentFilterType, value: any) => {
+  const handleFilterChange = <K extends keyof DocumentFilterType>(field: K, value: DocumentFilterType[K]) => {
     setLocalFilters(prev => ({ ...prev, [field]: value }));
   };
 
@@ -574,8 +606,8 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
               </div>
               <Select
                 placeholder="請選擇年度 (預設：所有年度)"
-                value={localFilters.year || ''}
-                onChange={(value) => handleFilterChange('year', value)}
+                value={localFilters.year}
+                onChange={(value) => handleFilterChange('year', value ? Number(value) : undefined)}
                 style={{ width: '100%' }}
                 allowClear
                 suffixIcon={
