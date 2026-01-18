@@ -65,6 +65,71 @@ import {
   deleteAgencyContact,
   type ProjectAgencyContact,
 } from '../api/projectAgencyContacts';
+import { logger } from '../utils/logger';
+import { User, Vendor } from '../types/api';
+import type { PaginatedResponse } from '../api/types';
+
+// ============================================================================
+// 表單值型別定義
+// ============================================================================
+
+/** 新增同仁表單值 */
+interface StaffFormValues {
+  user_id: number;
+  role: string;
+}
+
+/** 新增廠商表單值 */
+interface VendorFormValues {
+  vendor_id: number;
+  role: string;
+  contract_amount?: number;
+  start_date?: dayjs.Dayjs;
+  end_date?: dayjs.Dayjs;
+}
+
+/** 案件資訊表單值 */
+interface CaseInfoFormValues {
+  project_name: string;
+  year: number;
+  client_agency?: string;
+  contract_doc_number?: string;
+  project_code?: string;
+  category?: string;
+  case_nature?: string;
+  contract_amount?: number;
+  winning_amount?: number;
+  date_range?: [dayjs.Dayjs, dayjs.Dayjs];
+  status?: string;
+  progress?: number;
+  project_path?: string;
+  notes?: string;
+}
+
+/** 機關承辦表單值 */
+interface AgencyContactFormValues {
+  contact_name: string;
+  position?: string;
+  department?: string;
+  phone?: string;
+  mobile?: string;
+  email?: string;
+  is_primary?: boolean;
+  notes?: string;
+}
+
+/** Pydantic 驗證錯誤項目 */
+interface PydanticValidationError {
+  msg?: string;
+  message?: string;
+  loc?: string[];
+  type?: string;
+}
+
+/** API 錯誤回應 */
+interface ApiErrorResponse {
+  detail?: string | PydanticValidationError[];
+}
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -275,7 +340,7 @@ export const ContractCaseDetailPage: React.FC = () => {
         id: v.vendor_id,
         vendor_id: v.vendor_id,
         vendor_name: v.vendor_name || '未知廠商',  // 提供預設值避免 undefined
-        vendor_code: (v as any).vendor_code,  // 使用 any 繞過缺少的屬性
+        vendor_code: v.vendor?.vendor_code,  // 從關聯的 Vendor 資料取得
         contact_person: v.vendor_contact_person,
         phone: v.vendor_phone,
         role: v.role || '供應商',
@@ -306,8 +371,8 @@ export const ContractCaseDetailPage: React.FC = () => {
           has_attachment: doc.has_attachment || false,
         }));
         setRelatedDocs(loadedDocs);
-      } catch (error) {
-        console.error('載入關聯公文失敗:', error);
+      } catch (error: unknown) {
+        logger.error('載入關聯公文失敗:', error);
         setRelatedDocs([]);
       }
 
@@ -356,23 +421,23 @@ export const ContractCaseDetailPage: React.FC = () => {
                 attachments: mappedAttachments,
               });
             }
-          } catch (attError) {
-            console.warn(`載入公文 ${doc.doc_number} 的附件失敗:`, attError);
+          } catch (attError: unknown) {
+            logger.warn(`載入公文 ${doc.doc_number} 的附件失敗:`, attError);
           }
         }
         setAttachments(allAttachments);
         setGroupedAttachments(grouped);
-      } catch (attError) {
-        console.error('載入附件失敗:', attError);
+      } catch (attError: unknown) {
+        logger.error('載入附件失敗:', attError);
         setAttachments([]);
         setGroupedAttachments([]);
       } finally {
         setAttachmentsLoading(false);
       }
 
-      console.log('載入專案資料成功:', { projectResponse, staffResponse, vendorsResponse, agencyContactsResponse });
-    } catch (error) {
-      console.error('載入數據失敗:', error);
+      logger.debug('載入專案資料成功:', { projectResponse, staffResponse, vendorsResponse, agencyContactsResponse });
+    } catch (error: unknown) {
+      logger.error('載入數據失敗:', error);
       message.error('載入數據失敗');
     } finally {
       setLoading(false);
@@ -382,32 +447,30 @@ export const ContractCaseDetailPage: React.FC = () => {
   // 載入使用者選項 (用於新增同仁)
   const loadUserOptions = async () => {
     try {
-      const response = await usersApi.getUsers({ limit: 100 });
-      // API 回傳 items 欄位
-      const users = (response as any).items || (response as any).users || response || [];
-      setUserOptions(Array.isArray(users) ? users.map((u: any) => ({
+      const response = await usersApi.getUsers({ limit: 100 }) as PaginatedResponse<User>;
+      const users = response.items || [];
+      setUserOptions(users.map((u) => ({
         id: u.id,
         name: u.full_name || u.username,
         email: u.email,
-      })) : []);
+      })));
     } catch (error) {
-      console.error('載入使用者列表失敗:', error);
+      logger.error('載入使用者列表失敗:', error);
     }
   };
 
   // 載入廠商選項 (用於新增廠商)
   const loadVendorOptions = async () => {
     try {
-      const response = await vendorsApi.getVendors({ limit: 100 });
-      // 統一 API 回傳 items 欄位
-      const vendors = (response as any).items || (response as any).vendors || response || [];
-      setVendorOptions(Array.isArray(vendors) ? vendors.map((v: any) => ({
+      const response = await vendorsApi.getVendors({ limit: 100 }) as PaginatedResponse<Vendor>;
+      const vendors = response.items || [];
+      setVendorOptions(vendors.map((v) => ({
         id: v.id,
         name: v.vendor_name,
-        code: v.vendor_code,
-      })) : []);
+        code: v.vendor_code || '',
+      })));
     } catch (error) {
-      console.error('載入廠商列表失敗:', error);
+      logger.error('載入廠商列表失敗:', error);
     }
   };
 
@@ -509,7 +572,7 @@ export const ContractCaseDetailPage: React.FC = () => {
   };
 
   // 處理新增同仁表單提交
-  const handleAddStaff = async (values: any) => {
+  const handleAddStaff = async (values: StaffFormValues) => {
     if (!id) return;
     const projectId = parseInt(id, 10);
 
@@ -527,22 +590,23 @@ export const ContractCaseDetailPage: React.FC = () => {
       setStaffModalVisible(false);
       message.success('新增承辦同仁成功');
       loadData();
-    } catch (error: any) {
-      console.error('新增承辦同仁失敗:', error);
+    } catch (error: unknown) {
+      logger.error('新增承辦同仁失敗:', error);
       // 處理 Pydantic 驗證錯誤格式
-      const detail = error.response?.data?.detail;
+      const axiosError = error as { response?: { data?: ApiErrorResponse } };
+      const detail = axiosError.response?.data?.detail;
       let errorMsg = '新增承辦同仁失敗';
       if (typeof detail === 'string') {
         errorMsg = detail;
       } else if (Array.isArray(detail) && detail.length > 0) {
-        errorMsg = detail.map((d: any) => d.msg || d.message || JSON.stringify(d)).join(', ');
+        errorMsg = detail.map((d: PydanticValidationError) => d.msg || d.message || JSON.stringify(d)).join(', ');
       }
       message.error(errorMsg);
     }
   };
 
   // 處理新增廠商表單提交
-  const handleAddVendor = async (values: any) => {
+  const handleAddVendor = async (values: VendorFormValues) => {
     if (!id) return;
     const projectId = parseInt(id, 10);
 
@@ -578,70 +642,73 @@ export const ContractCaseDetailPage: React.FC = () => {
       setVendorModalVisible(false);
       message.success('新增協力廠商成功');
       loadData();
-    } catch (error: any) {
-      console.error('新增協力廠商失敗:', error);
-      message.error(error.response?.data?.detail || '新增協力廠商失敗');
+    } catch (error: unknown) {
+      logger.error('新增協力廠商失敗:', error);
+      const axiosError = error as { response?: { data?: ApiErrorResponse } };
+      message.error(axiosError.response?.data?.detail as string || '新增協力廠商失敗');
     }
   };
 
   // 處理案件資訊編輯 - 支援所有欄位
-  const handleSaveCaseInfo = async (values: any) => {
+  const handleSaveCaseInfo = async (values: CaseInfoFormValues) => {
     if (!data || !id) return;
     const projectId = parseInt(id, 10);
 
     try {
       // 自動設定進度：當狀態設為「已結案」時，進度自動設為 100%
-      const autoProgress = values.status === '已結案' ? 100 : (values.progress ?? null);
+      const autoProgress = values.status === '已結案' ? 100 : values.progress;
 
       // 從 date_range 提取開始和結束日期
-      const startDate = values.date_range?.[0] ? dayjs(values.date_range[0]).format('YYYY-MM-DD') : null;
-      const endDate = values.date_range?.[1] ? dayjs(values.date_range[1]).format('YYYY-MM-DD') : null;
+      const startDate = values.date_range?.[0] ? dayjs(values.date_range[0]).format('YYYY-MM-DD') : undefined;
+      const endDate = values.date_range?.[1] ? dayjs(values.date_range[1]).format('YYYY-MM-DD') : undefined;
 
       // 格式化日期欄位，建立更新物件
-      const updateData: Record<string, any> = {
+      const updateData = {
         project_name: values.project_name,
         year: values.year,
-        client_agency: values.client_agency || null,
-        contract_doc_number: values.contract_doc_number || null,
-        project_code: values.project_code || null,
-        category: values.category || null,
-        case_nature: values.case_nature || null,
-        contract_amount: values.contract_amount || null,
-        winning_amount: values.winning_amount || null,
+        client_agency: values.client_agency || undefined,
+        contract_doc_number: values.contract_doc_number || undefined,
+        project_code: values.project_code || undefined,
+        category: values.category || undefined,
+        case_nature: values.case_nature || undefined,
+        contract_amount: values.contract_amount || undefined,
+        winning_amount: values.winning_amount || undefined,
         start_date: startDate,
         end_date: endDate,
-        status: values.status || null,
-        progress: autoProgress,
-        project_path: values.project_path || null,
-        notes: values.notes || null,
+        status: values.status || undefined,
+        progress: autoProgress ?? undefined,
+        project_path: values.project_path || undefined,
+        notes: values.notes || undefined,
       };
 
-      await projectsApi.updateProject(projectId, updateData);
+      // 使用型別斷言，因為前端使用中文狀態值，與 ProjectStatus 定義不同
+      await projectsApi.updateProject(projectId, updateData as Parameters<typeof projectsApi.updateProject>[1]);
 
       // 更新本地資料
       setData({
         ...data,
-        project_name: updateData['project_name'],
-        year: updateData['year'],
-        client_agency: updateData['client_agency'],
-        contract_doc_number: updateData['contract_doc_number'],
-        project_code: updateData['project_code'],
-        category: updateData['category'],
-        case_nature: updateData['case_nature'],
-        contract_amount: updateData['contract_amount'],
-        winning_amount: updateData['winning_amount'],
-        start_date: updateData['start_date'],
-        end_date: updateData['end_date'],
-        status: updateData['status'],
-        progress: updateData['progress'],
-        project_path: updateData['project_path'],
-        notes: updateData['notes'],
+        project_name: updateData.project_name,
+        year: updateData.year,
+        client_agency: updateData.client_agency,
+        contract_doc_number: updateData.contract_doc_number,
+        project_code: updateData.project_code,
+        category: updateData.category,
+        case_nature: updateData.case_nature,
+        contract_amount: updateData.contract_amount,
+        winning_amount: updateData.winning_amount,
+        start_date: updateData.start_date,
+        end_date: updateData.end_date,
+        status: updateData.status,
+        progress: updateData.progress,
+        project_path: updateData.project_path,
+        notes: updateData.notes,
       });
       setIsEditingCaseInfo(false);
       message.success('案件資訊已更新');
-    } catch (error: any) {
-      console.error('更新案件資訊失敗:', error);
-      message.error(error.response?.data?.detail || '更新案件資訊失敗');
+    } catch (error: unknown) {
+      logger.error('更新案件資訊失敗:', error);
+      const axiosError = error as { response?: { data?: ApiErrorResponse } };
+      message.error(axiosError.response?.data?.detail as string || '更新案件資訊失敗');
     }
   };
 
@@ -691,9 +758,10 @@ export const ContractCaseDetailPage: React.FC = () => {
       ));
       setEditingStaffId(null);
       message.success('角色已更新');
-    } catch (error: any) {
-      console.error('更新角色失敗:', error);
-      message.error(error.response?.data?.detail || '更新角色失敗');
+    } catch (error: unknown) {
+      logger.error('更新角色失敗:', error);
+      const axiosError = error as { response?: { data?: ApiErrorResponse } };
+      message.error(axiosError.response?.data?.detail as string || '更新角色失敗');
       setEditingStaffId(null);
     }
   };
@@ -713,9 +781,10 @@ export const ContractCaseDetailPage: React.FC = () => {
       ));
       setEditingVendorId(null);
       message.success('角色已更新');
-    } catch (error: any) {
-      console.error('更新角色失敗:', error);
-      message.error(error.response?.data?.detail || '更新角色失敗');
+    } catch (error: unknown) {
+      logger.error('更新角色失敗:', error);
+      const axiosError = error as { response?: { data?: ApiErrorResponse } };
+      message.error(axiosError.response?.data?.detail as string || '更新角色失敗');
       setEditingVendorId(null);
     }
   };
@@ -731,9 +800,10 @@ export const ContractCaseDetailPage: React.FC = () => {
       await projectStaffApi.deleteStaff(projectId, staff.user_id);
       setStaffList(staffList.filter(s => s.id !== staffId));
       message.success('已移除同仁');
-    } catch (error: any) {
-      console.error('移除同仁失敗:', error);
-      message.error(error.response?.data?.detail || '移除同仁失敗');
+    } catch (error: unknown) {
+      logger.error('移除同仁失敗:', error);
+      const axiosError = error as { response?: { data?: ApiErrorResponse } };
+      message.error(axiosError.response?.data?.detail as string || '移除同仁失敗');
     }
   };
 
@@ -746,9 +816,10 @@ export const ContractCaseDetailPage: React.FC = () => {
       await projectVendorsApi.deleteVendor(projectId, vendorId);
       setVendorList(vendorList.filter(v => v.vendor_id !== vendorId));
       message.success('已移除廠商');
-    } catch (error: any) {
-      console.error('移除廠商失敗:', error);
-      message.error(error.response?.data?.detail || '移除廠商失敗');
+    } catch (error: unknown) {
+      logger.error('移除廠商失敗:', error);
+      const axiosError = error as { response?: { data?: ApiErrorResponse } };
+      message.error(axiosError.response?.data?.detail as string || '移除廠商失敗');
     }
   };
 
@@ -993,7 +1064,7 @@ export const ContractCaseDetailPage: React.FC = () => {
       key: 'correspondent',
       width: 160,
       ellipsis: true,
-      render: (_: any, record: RelatedDocument) => {
+      render: (_: unknown, record: RelatedDocument) => {
         // 收文顯示 sender (來文機關)，發文顯示 receiver (受文機關)
         const rawValue = record.category === '收文' ? record.sender : record.receiver;
         const labelPrefix = record.category === '收文' ? '來文：' : '發至：';
@@ -1032,8 +1103,8 @@ export const ContractCaseDetailPage: React.FC = () => {
   const handleDownloadAttachment = async (attachmentId: number, filename: string) => {
     try {
       await filesApi.downloadAttachment(attachmentId, filename);
-    } catch (error) {
-      console.error('下載附件失敗:', error);
+    } catch (error: unknown) {
+      logger.error('下載附件失敗:', error);
       message.error('下載附件失敗');
     }
   };
@@ -1045,8 +1116,8 @@ export const ContractCaseDetailPage: React.FC = () => {
       const previewUrl = window.URL.createObjectURL(blob);
       window.open(previewUrl, '_blank');
       setTimeout(() => window.URL.revokeObjectURL(previewUrl), 10000);
-    } catch (error) {
-      console.error('預覽附件失敗:', error);
+    } catch (error: unknown) {
+      logger.error('預覽附件失敗:', error);
       message.error(`預覽 ${filename} 失敗`);
     }
   };
@@ -1073,8 +1144,8 @@ export const ContractCaseDetailPage: React.FC = () => {
     for (const att of group.attachments) {
       try {
         await filesApi.downloadAttachment(att.id, att.filename);
-      } catch (error) {
-        console.error(`下載 ${att.filename} 失敗:`, error);
+      } catch (error: unknown) {
+        logger.error(`下載 ${att.filename} 失敗:`, error);
       }
     }
     message.success({ content: '下載完成', key: 'download-all' });
@@ -1640,7 +1711,7 @@ export const ContractCaseDetailPage: React.FC = () => {
   );
 
   // 處理新增/編輯機關承辦表單提交
-  const handleAgencyContactSubmit = async (values: any) => {
+  const handleAgencyContactSubmit = async (values: AgencyContactFormValues) => {
     if (!id) return;
     const projectId = parseInt(id, 10);
 
@@ -1658,8 +1729,8 @@ export const ContractCaseDetailPage: React.FC = () => {
       setEditingAgencyContactId(null);
       agencyContactForm.resetFields();
       loadData();
-    } catch (error) {
-      console.error('儲存機關承辦失敗:', error);
+    } catch (error: unknown) {
+      logger.error('儲存機關承辦失敗:', error);
       message.error('儲存失敗');
     }
   };
@@ -1670,8 +1741,8 @@ export const ContractCaseDetailPage: React.FC = () => {
       await deleteAgencyContact(contactId);
       message.success('刪除成功');
       loadData();
-    } catch (error) {
-      console.error('刪除機關承辦失敗:', error);
+    } catch (error: unknown) {
+      logger.error('刪除機關承辦失敗:', error);
       message.error('刪除失敗');
     }
   };
@@ -1712,7 +1783,7 @@ export const ContractCaseDetailPage: React.FC = () => {
     {
       title: '聯絡電話',
       key: 'phones',
-      render: (_: any, record: ProjectAgencyContact) => (
+      render: (_: unknown, record: ProjectAgencyContact) => (
         <Space direction="vertical" size={0}>
           {record.phone && <span><PhoneOutlined /> {record.phone}</span>}
           {record.mobile && <span><PhoneOutlined /> {record.mobile}</span>}
@@ -1730,7 +1801,7 @@ export const ContractCaseDetailPage: React.FC = () => {
       title: '操作',
       key: 'actions',
       width: 120,
-      render: (_: any, record: ProjectAgencyContact) => (
+      render: (_: unknown, record: ProjectAgencyContact) => (
         <Space>
           <Button type="link" size="small" icon={<EditOutlined />} onClick={() => openEditAgencyContactModal(record)}>
             編輯
