@@ -4,6 +4,51 @@
 
 ---
 
+## [1.6.0] - 2026-01-18
+
+### 重大變更：型別定義統一整合 (SSOT 架構)
+
+**背景**: 消除前後端型別重複定義問題，建立單一真實來源
+
+### 新增
+- `type-management.md` Skill - 型別管理規範 v1.0.0
+- `MANDATORY_CHECKLIST.md` 清單 H - 型別管理開發檢查
+- 11 個新 Schema 檔案整合至 `backend/app/schemas/`
+- 前端 OpenAPI 自動生成機制 (`npm run api:generate`)
+- 型別變更日誌生成器 (`scripts/type-changelog.js`)
+- Pre-commit TypeScript 編譯檢查
+
+### 改進
+- `type-sync.md` 升級至 v2.0.0 - 完整 SSOT 架構驗證
+- `api-development.md` 新增 SSOT 規範說明
+- `MANDATORY_CHECKLIST.md` 升級至 v1.3.0
+
+### 整合的 Schema 檔案
+
+| Schema 檔案 | 整合的類別數量 | 來源 |
+|------------|--------------|------|
+| `notification.py` | 11 | system_notifications.py, project_notifications.py |
+| `document_query.py` | 10 | documents_enhanced.py |
+| `document_number.py` | 10 | document_numbers.py |
+| `document_calendar.py` | +2 | ConflictCheckRequest, SyncIntervalRequest |
+| `reminder.py` | 6 | reminder_management.py |
+| `backup.py` | 3 | backup.py |
+| `case.py` | 3 | cases.py |
+| `secure.py` | 2 | secure_site_management.py |
+| `agency.py` | +2 | FixAgenciesRequest, FixAgenciesResponse |
+| `project.py` | +1 | ProjectListQuery |
+| `user.py` | +1 | UserListQuery |
+| `vendor.py` | +2 | VendorListQuery, VendorStatisticsResponse |
+| `project_staff.py` | +1 | StaffListQuery |
+| `project_vendor.py` | +1 | VendorAssociationListQuery |
+| `project_agency_contact.py` | +1 | UpdateContactRequest |
+
+### 成果指標
+- endpoints 本地 BaseModel：62+ → 0 (100% 減少)
+- 新增欄位修改位置：6+ → 2 (僅後端 Schema + 前端自動生成)
+
+---
+
 ## [1.5.0] - 2026-01-15
 
 ### 新增

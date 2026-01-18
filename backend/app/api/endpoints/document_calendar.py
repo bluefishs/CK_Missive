@@ -26,7 +26,10 @@ from app.schemas.document_calendar import (
     BulkSyncRequest,
     UserEventsRequest,
     IntegratedEventCreate,
-    ReminderConfig
+    ReminderConfig,
+    # 衝突檢查與同步設定
+    ConflictCheckRequest,
+    SyncIntervalRequest
 )
 import logging
 
@@ -871,12 +874,7 @@ async def list_google_events():
 # ============================================================================
 # 衝突偵測端點
 # ============================================================================
-
-class ConflictCheckRequest(BaseModel):
-    """衝突檢查請求"""
-    start_date: str  # ISO format datetime
-    end_date: str    # ISO format datetime
-    exclude_event_id: Optional[int] = None
+# 注意：ConflictCheckRequest 已統一定義於 app/schemas/document_calendar.py
 
 
 @router.post("/events/check-conflicts", summary="檢查事件時間衝突")
@@ -965,9 +963,7 @@ async def trigger_manual_sync(
     return await GoogleSyncSchedulerController.trigger_manual_sync()
 
 
-class SyncIntervalRequest(BaseModel):
-    """同步間隔設定請求"""
-    interval_seconds: int  # 最小 60 秒
+# 注意：SyncIntervalRequest 已統一定義於 app/schemas/document_calendar.py
 
 
 @router.post("/sync-scheduler/set-interval", summary="設定同步間隔")

@@ -126,3 +126,19 @@ class DocumentCalendarEventResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ============================================================================
+# 衝突檢查與同步設定 Schema
+# ============================================================================
+
+class ConflictCheckRequest(BaseModel):
+    """衝突檢查請求"""
+    start_date: str = Field(..., description="開始日期時間 (ISO format)")
+    end_date: str = Field(..., description="結束日期時間 (ISO format)")
+    exclude_event_id: Optional[int] = Field(None, description="排除的事件 ID")
+
+
+class SyncIntervalRequest(BaseModel):
+    """同步間隔設定請求"""
+    interval_seconds: int = Field(..., ge=60, description="同步間隔秒數（最小 60 秒）")

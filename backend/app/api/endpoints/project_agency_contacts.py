@@ -15,7 +15,8 @@ from app.schemas.project_agency_contact import (
     ProjectAgencyContactCreate,
     ProjectAgencyContactUpdate,
     ProjectAgencyContactResponse,
-    ProjectAgencyContactListResponse
+    ProjectAgencyContactListResponse,
+    UpdateContactRequest
 )
 from app.core.dependencies import require_auth
 from app.extended.models import User
@@ -70,17 +71,7 @@ async def create_agency_contact(
         raise HTTPException(status_code=500, detail=f"建立機關承辦失敗: {str(e)}")
 
 
-class UpdateContactRequest(BaseModel):
-    """更新機關承辦請求"""
-    contact_id: int
-    contact_name: Optional[str] = None
-    position: Optional[str] = None
-    department: Optional[str] = None
-    phone: Optional[str] = None
-    mobile: Optional[str] = None
-    email: Optional[str] = None
-    is_primary: Optional[bool] = None
-    notes: Optional[str] = None
+# 注意：UpdateContactRequest 已統一定義於 app/schemas/project_agency_contact.py
 
 
 @router.post("/update", response_model=ProjectAgencyContactResponse)

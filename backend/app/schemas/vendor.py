@@ -60,3 +60,23 @@ class Vendor(VendorBase):
     id: int
     created_at: datetime
     updated_at: datetime
+
+
+# ============================================================================
+# 查詢參數與回應 Schema
+# ============================================================================
+
+class VendorListQuery(BaseModel):
+    """廠商列表查詢參數"""
+    page: int = Field(default=1, ge=1, description="頁碼")
+    limit: int = Field(default=20, ge=1, le=100, description="每頁筆數")
+    search: Optional[str] = Field(None, description="搜尋關鍵字")
+    business_type: Optional[str] = Field(None, description="業務類型篩選")
+    sort_by: str = Field(default="id", description="排序欄位")
+    sort_order: str = Field(default="desc", description="排序方向 (asc/desc)")
+
+
+class VendorStatisticsResponse(BaseModel):
+    """廠商統計回應"""
+    success: bool = True
+    data: dict = Field(..., description="統計資料")

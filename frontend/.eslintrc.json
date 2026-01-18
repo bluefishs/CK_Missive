@@ -1,14 +1,13 @@
 {
   "root": true,
-  "env": { 
-    "browser": true, 
+  "env": {
+    "browser": true,
     "es2020": true,
-    "node": true 
+    "node": true
   },
   "extends": [
     "eslint:recommended",
-    "@typescript-eslint/recommended",
-    "@typescript-eslint/recommended-requiring-type-checking",
+    "plugin:@typescript-eslint/recommended",
     "plugin:react-hooks/recommended",
     "plugin:react/recommended",
     "plugin:react/jsx-runtime",
@@ -37,14 +36,13 @@
   ],
   "rules": {
     // TypeScript 嚴格規則
-    "@typescript-eslint/no-unused-vars": "error",
+    "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
     "@typescript-eslint/no-explicit-any": "warn",
     "@typescript-eslint/explicit-function-return-type": "off",
     "@typescript-eslint/explicit-module-boundary-types": "off",
     "@typescript-eslint/no-empty-interface": "error",
     "@typescript-eslint/no-inferrable-types": "off",
-    "@typescript-eslint/prefer-const": "error",
-    "@typescript-eslint/no-var-requires": "error",
+    "@typescript-eslint/no-require-imports": "error",
     
     // React 規則
     "react-refresh/only-export-components": [

@@ -15,113 +15,43 @@ import {
 } from './types';
 import { API_ENDPOINTS } from './endpoints';
 
+// 從 types/api.ts 匯入統一的公文型別
+import {
+  OfficialDocument,
+  DocumentCreate as ApiDocumentCreate,
+  DocumentUpdate as ApiDocumentUpdate,
+} from '../types/api';
+
 // ============================================================================
-// 型別定義
+// 型別定義 - 統一使用 types/api.ts 作為單一真實來源
 // ============================================================================
 
-/** 公文基礎介面 - 與後端 DocumentResponse Schema 完整對應 */
-export interface Document {
-  id: number;
-  doc_number: string;
-  doc_type: string;
-  subject: string;
-  sender?: string;
-  receiver?: string;
-  doc_date?: string;
-  receive_date?: string;
-  send_date?: string;
-  status?: string;
-  category?: string;
-  contract_case?: string;
+/**
+ * 公文基礎介面 - Document 是 OfficialDocument 的別名
+ * 保持相容性，現有程式碼可繼續使用 Document
+ */
+export type Document = OfficialDocument;
+
+/**
+ * 公文建立請求 - 擴展 API 型別，添加額外欄位
+ */
+export interface DocumentCreate extends ApiDocumentCreate {
   doc_word?: string;
   doc_class?: string;
-  assignee?: string;
-  user_confirm?: boolean;
-  auto_serial?: string;  // 流水序號 (R0001=收文, S0001=發文)
-  creator?: string;
-  is_deleted?: boolean;
-  notes?: string;
-  priority_level?: string;
-  content?: string;
-  created_at: string;
-  updated_at: string;
-
-  // === 新增欄位 (與後端 DocumentResponse 對應) ===
-
-  // 發文形式與附件欄位
-  delivery_method?: string;      // 發文形式 (電子交換/紙本郵寄/電子+紙本)
-  has_attachment?: boolean;      // 是否含附件
-
-  // 承攬案件關聯資訊
-  contract_project_id?: number;    // 承攬案件 ID
-  contract_project_name?: string;  // 承攬案件名稱
-  assigned_staff?: Array<{         // 負責業務同仁
-    user_id: number;
-    name: string;
-    role: string;
-  }>;
-
-  // 附件統計
-  attachment_count?: number;  // 附件數量
-
-  // 公文字號拆分欄位
-  doc_zi?: string;       // 公文「字」部分，如「桃工用」
-  doc_wen_hao?: string;  // 公文「文號」部分，如「1140024090」
 }
 
-/** 公文建立請求 - 與後端 DocumentCreate Schema 對應 */
-export interface DocumentCreate {
-  doc_number: string;
-  doc_type: string;
-  subject: string;
-  sender?: string;
-  receiver?: string;
-  doc_date?: string;
-  receive_date?: string;
-  send_date?: string;
-  status?: string;
-  category?: string;
-  contract_case?: string;
-  contract_project_id?: number;   // 承攬案件 ID
-  sender_agency_id?: number;      // 發文機關 ID
-  receiver_agency_id?: number;    // 受文機關 ID
-  doc_word?: string;
-  doc_class?: string;
-  assignee?: string;              // 承辦人
-  content?: string;               // 說明
-  notes?: string;                 // 備註
-  priority_level?: string;
-  // 發文形式與附件欄位
-  delivery_method?: string;       // 發文形式 (電子交換/紙本郵寄/電子+紙本)
-  has_attachment?: boolean;       // 是否含附件
+/**
+ * 公文更新請求 - 擴展 API 型別，添加額外欄位
+ */
+export interface DocumentUpdate extends Partial<DocumentCreate> {
+  title?: string;
+  cloud_file_link?: string;
+  dispatch_format?: string;
+  auto_serial?: string;
 }
 
-/** 公文更新請求 - 與後端 DocumentUpdate Schema 對應 */
-export interface DocumentUpdate {
-  doc_number?: string;
-  doc_type?: string;
-  subject?: string;
-  sender?: string;
-  receiver?: string;
-  doc_date?: string;
-  receive_date?: string;
-  send_date?: string;
-  status?: string;
-  category?: string;
-  contract_case?: string;
-  contract_project_id?: number;   // 承攬案件 ID
-  sender_agency_id?: number;      // 發文機關 ID
-  receiver_agency_id?: number;    // 受文機關 ID
-  doc_word?: string;
-  doc_class?: string;
-  assignee?: string;              // 承辦人
-  content?: string;               // 說明
-  notes?: string;                 // 備註
-  priority_level?: string;
-  // 發文形式與附件欄位
-  delivery_method?: string;       // 發文形式 (電子交換/紙本郵寄/電子+紙本)
-  has_attachment?: boolean;       // 是否含附件
-}
+// 重新匯出供外部使用
+export type { OfficialDocument };
 
 /** 公文列表查詢參數 */
 export interface DocumentListParams extends PaginationParams, SortParams {
@@ -172,10 +102,9 @@ export interface DropdownOption {
   category?: string;
 }
 
-/** 文件附件 - 從 filesApi 匯入並重新匯出 */
-import type { FileAttachment } from './filesApi';
-export type { FileAttachment as DocumentAttachment };
-type DocumentAttachment = FileAttachment;
+/** 文件附件 - 從 filesApi 匯入（DocumentAttachment 已在 filesApi 中匯出） */
+import type { FileAttachment, DocumentAttachment } from './filesApi';
+// 本地別名，不再重複匯出以避免與 filesApi 衝突
 
 // ============================================================================
 // API 方法

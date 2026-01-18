@@ -114,3 +114,16 @@ class ProjectStaffListResponse(BaseModel):
     project_name: str
     staff: List[ProjectStaffResponse]
     total: int = Field(..., description="總人數")
+
+
+# ============================================================================
+# 查詢參數 Schema
+# ============================================================================
+
+class StaffListQuery(BaseModel):
+    """承辦同仁列表查詢參數"""
+    page: int = Field(default=1, ge=1, description="頁碼")
+    limit: int = Field(default=20, ge=1, le=100, description="每頁筆數")
+    project_id: Optional[int] = Field(None, description="案件 ID 篩選")
+    user_id: Optional[int] = Field(None, description="使用者 ID 篩選")
+    status: Optional[str] = Field(None, description="狀態篩選")

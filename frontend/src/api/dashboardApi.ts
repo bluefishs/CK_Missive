@@ -7,8 +7,11 @@
 import { apiClient } from './client';
 import { API_ENDPOINTS } from './endpoints';
 
+// 從 types/api.ts 匯入統一的公文型別
+import { OfficialDocument, DocumentStats } from '../types/api';
+
 // ============================================================================
-// 型別定義
+// 型別定義 - 儀表板專用
 // ============================================================================
 
 /** 儀表板統計資料 */
@@ -19,18 +22,21 @@ export interface DashboardStats {
   rejected: number;
 }
 
-/** 近期公文 */
-export interface RecentDocument {
-  id: number;
-  doc_number: string;
-  subject: string;
-  doc_type: string;
-  status: string;
-  sender: string;
-  creator: string;
-  created_at: string;
-  receive_date: string;
-}
+/**
+ * 近期公文 - 基於 OfficialDocument 的簡化版本
+ * 僅包含儀表板顯示所需的欄位
+ */
+export interface RecentDocument extends Pick<OfficialDocument,
+  | 'id'
+  | 'doc_number'
+  | 'subject'
+  | 'doc_type'
+  | 'status'
+  | 'sender'
+  | 'creator'
+  | 'created_at'
+  | 'receive_date'
+> {}
 
 /** 儀表板完整回應 */
 export interface DashboardResponse {
@@ -50,6 +56,9 @@ export interface FormattedDocument {
   createDate: string;
   deadline: string;
 }
+
+// 重新匯出供外部使用
+export type { DocumentStats };
 
 // ============================================================================
 // API 方法

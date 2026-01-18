@@ -64,6 +64,25 @@ export const API_ENDPOINTS = {
 
 ## Schema 設計
 
+### ⚠️ SSOT 架構 (Single Source of Truth)
+
+**核心規範：所有 Pydantic Schema 必須定義在 `schemas/` 目錄**
+
+```
+backend/app/schemas/     ← 唯一的型別定義來源
+backend/app/api/endpoints/  ← 只匯入，禁止本地定義
+```
+
+```python
+# ❌ 禁止：在 endpoints 中定義 BaseModel
+# backend/app/api/endpoints/xxx.py
+class LocalRequest(BaseModel):  # 違規！
+    field: str
+
+# ✅ 正確：從 schemas 匯入
+from app.schemas.xxx import XxxRequest
+```
+
 ### 後端 Pydantic Schema
 ```python
 # backend/app/schemas/document.py
@@ -91,6 +110,12 @@ class DocumentResponse(DocumentBase):
     receiver_agency_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+# 查詢參數也必須定義在 schemas 中
+class DocumentListQuery(BaseModel):
+    page: int = Field(default=1, ge=1)
+    limit: int = Field(default=20, ge=1, le=100)
+    search: Optional[str] = None
 ```
 
 ### 前端 TypeScript 型別
@@ -197,5 +222,8 @@ const result = await apiClient.post(API_ENDPOINTS.XXX.ACTION, data);
 | 文件 | 說明 |
 |------|------|
 | `docs/specifications/API_ENDPOINT_CONSISTENCY.md` | API 端點一致性 v2.0.0 |
+| `.claude/skills/type-management.md` | 型別管理規範 (SSOT) |
+| `.claude/commands/type-sync.md` | 型別同步檢查命令 |
 | `frontend/src/api/endpoints.ts` | 前端端點定義 |
 | `backend/app/api/routes.py` | 後端路由註冊 |
+| `backend/app/schemas/` | 後端 Schema 定義目錄 |

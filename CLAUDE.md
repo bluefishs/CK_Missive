@@ -2,8 +2,8 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.3.0
-> **最後更新**: 2026-01-11
+> **Claude Code 配置版本**: 1.6.0
+> **最後更新**: 2026-01-18
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase)
 
 ---
@@ -33,6 +33,8 @@ CK_Missive 是一套企業級公文管理系統，具備以下核心功能：
 | `/data-quality-check` | 資料品質檢查 | `.claude/commands/data-quality-check.md` |
 | `/db-backup` | 資料庫備份管理 | `.claude/commands/db-backup.md` |
 | `/csv-import-validate` | CSV 匯入驗證 | `.claude/commands/csv-import-validate.md` |
+| `/security-audit` | 🔒 **資安審計檢查** (新增) | `.claude/commands/security-audit.md` |
+| `/performance-check` | ⚡ **效能診斷檢查** (新增) | `.claude/commands/performance-check.md` |
 
 ### 領域知識 Skills (自動載入)
 
@@ -46,6 +48,25 @@ CK_Missive 是一套企業級公文管理系統，具備以下核心功能：
 | `database-schema.md` | schema, 資料庫, PostgreSQL | 資料庫結構說明 |
 | `testing-guide.md` | test, 測試, pytest | 測試框架指南 |
 | `frontend-architecture.md` | 前端, React, 認證, auth, 架構 | **前端架構規範 (v1.0.0)** |
+| `error-handling.md` | 錯誤處理, error, exception, 例外 | **錯誤處理指南 (v1.0.0)** |
+| `security-hardening.md` | 安全, security, 漏洞, XSS | **安全加固指南 (v1.0.0)** |
+| `type-management.md` | 型別, type, Pydantic, TypeScript, BaseModel | **型別管理規範 (v1.0.0) - SSOT 架構** |
+
+### 共享 Skills 庫 (_shared)
+
+專案包含可重複使用的共享 Skills：
+
+| 類別 | Skill | 觸發關鍵字 | 說明 |
+|------|-------|-----------|------|
+| **後端模式** | `postgres-patterns` | PostgreSQL, query, index | PostgreSQL 最佳實踐 |
+| **後端模式** | `websocket-patterns` | WebSocket, 即時, real-time | WebSocket 整合指南 |
+| **共享實踐** | `security-patterns` | 安全, security, 防護 | 安全性最佳實踐 |
+| **共享實踐** | `testing-patterns` | 測試, test, coverage | 測試模式指南 |
+| **共享實踐** | `systematic-debugging` | 除錯, debug, 調試 | 系統化除錯方法 |
+| **共享實踐** | `dangerous-operations-policy` | 危險操作, 刪除, 重置 | 危險操作政策 |
+| **共享實踐** | `code-standards` | 程式碼規範, coding style | 程式碼標準 |
+
+> 📁 位置: `.claude/skills/_shared/`
 
 ---
 
@@ -106,7 +127,12 @@ CK_Missive 是一套企業級公文管理系統，具備以下核心功能：
 │   ├── calendar-integration.md # 行事曆整合
 │   ├── api-development.md      # API 開發
 │   ├── database-schema.md      # 資料庫結構
-│   └── testing-guide.md        # 測試指南
+│   ├── testing-guide.md        # 測試指南
+│   ├── frontend-architecture.md # 前端架構規範
+│   ├── error-handling.md       # 錯誤處理指南
+│   ├── security-hardening.md   # 安全加固指南
+│   ├── type-management.md      # 型別管理規範 (SSOT) ✨新增
+│   └── _shared/                # 共享 Skills 庫
 ├── agents/                      # 專業代理
 │   ├── code-review.md          # 程式碼審查
 │   ├── api-design.md           # API 設計
@@ -181,6 +207,7 @@ const internalIPPatterns = [
 | 資料匯入功能 | 清單 E - 資料匯入功能 |
 | 資料庫變更 | 清單 F - 資料庫變更 |
 | Bug 修復 | 清單 G - Bug 修復 |
+| **新增/修改型別定義** | **清單 H - 型別管理 (SSOT)** |
 
 ### 必須同步的三處位置
 
@@ -212,11 +239,49 @@ apiClient.post(API_ENDPOINTS.DOCUMENTS.LIST, params);
 apiClient.post('/documents-enhanced/list', params);
 ```
 
-### 2. 型別定義同步
+### 2. 型別定義同步 (Single Source of Truth)
 
-- 後端 Schema: `backend/app/schemas/`
-- 前端型別: `frontend/src/types/api.ts`
-- 兩者必須保持同步
+**架構原則**：每個實體型別只能有一個「真實來源」定義。
+
+#### 後端型別管理
+
+| 位置 | 用途 | 規範 |
+|------|------|------|
+| `backend/app/schemas/` | Pydantic Schema (唯一來源) | 所有 Request/Response 型別 |
+| `backend/app/api/endpoints/` | API 端點 | **禁止**本地 BaseModel，必須從 schemas 匯入 |
+
+```python
+# ✅ 正確 - 從 schemas 匯入
+from app.schemas.document import DocumentCreateRequest, DocumentUpdateRequest
+
+# ❌ 禁止 - 本地定義 BaseModel
+class DocumentCreateRequest(BaseModel):  # 不允許！
+    ...
+```
+
+#### 前端型別管理
+
+| 位置 | 用途 | 規範 |
+|------|------|------|
+| `frontend/src/types/api.ts` | 業務實體型別 (唯一來源) | User, Document, Agency 等 |
+| `frontend/src/api/*.ts` | API 呼叫 | **禁止**本地 interface，必須從 types/api.ts 匯入 |
+
+```typescript
+// ✅ 正確 - 從 types/api.ts 匯入
+import { User, Agency, OfficialDocument } from '../types/api';
+export type { User, Agency };  // 重新匯出供外部使用
+
+// ❌ 禁止 - 在 api/*.ts 中定義
+export interface User { ... }  // 不允許！
+```
+
+#### 新增欄位流程
+
+新增一個欄位時，只需修改以下兩處：
+1. **後端**: `backend/app/schemas/{entity}.py`
+2. **前端**: `frontend/src/types/api.ts`
+
+其他檔案透過匯入自動取得新欄位。
 
 ### 3. 程式碼修改後自檢
 
@@ -235,6 +300,8 @@ cd backend && python -m py_compile app/main.py
 | 文件 | 說明 |
 |------|------|
 | `.claude/MANDATORY_CHECKLIST.md` | ⚠️ **強制性開發檢查清單** (開發前必讀) |
+| `.claude/skills/type-management.md` | 🆕 **型別管理規範 (SSOT 架構)** |
+| `.claude/commands/type-sync.md` | 🆕 **型別同步檢查 v2.0.0** |
 | `docs/DEVELOPMENT_STANDARDS.md` | 統一開發規範總綱 |
 | `docs/specifications/API_ENDPOINT_CONSISTENCY.md` | API 端點一致性 v2.0.0 |
 | `docs/specifications/TYPE_CONSISTENCY.md` | 型別一致性規範 |
@@ -276,4 +343,4 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 ---
 
 *配置維護: Claude Code Assistant*
-*最後更新: 2026-01-11*
+*最後更新: 2026-01-18*

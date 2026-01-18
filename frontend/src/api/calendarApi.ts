@@ -10,23 +10,27 @@ import dayjs from 'dayjs';
 import { API_ENDPOINTS } from './endpoints';
 
 // ============================================================================
-// 型別定義
+// 型別定義 - API 專用
 // ============================================================================
 
-/** 行事曆事件 */
+/**
+ * 行事曆事件 - API 回應專用型別
+ * 注意: 此型別與 types/api.ts 中的 CalendarEvent 欄位名稱不同
+ *       API 回應使用 start_datetime/end_datetime
+ */
 export interface CalendarEvent {
   id: number;
   title: string;
   description?: string;
-  start_datetime: string;
-  end_datetime: string;
+  start_datetime: string;    // API 回應欄位名稱
+  end_datetime: string;      // API 回應欄位名稱
   document_id?: number;
-  doc_number?: string;
+  doc_number?: string;       // 關聯公文字號
   event_type?: string;
   priority?: number | string;
   location?: string;
-  google_event_id?: string;
-  google_sync_status?: 'pending' | 'synced' | 'failed';
+  google_event_id?: string;  // Google Calendar 事件 ID
+  google_sync_status?: 'pending' | 'synced' | 'failed';  // 同步狀態
 }
 
 /** Google Calendar 狀態 */

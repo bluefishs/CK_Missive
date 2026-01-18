@@ -1,27 +1,12 @@
 /**
  * 使用者管理相關型別定義
  * @description 從 UserManagementPage.tsx 提取
+ *
+ * 注意: User 型別統一從 types/api.ts 匯入，此處只保留表單相關專用型別
  */
 
-export interface User {
-  id: number;
-  email: string;
-  username: string;
-  full_name: string;
-  is_active: boolean;
-  is_admin: boolean;
-  auth_provider: string;
-  avatar_url?: string;
-  role: string;
-  status: string;
-  created_at: string;
-  last_login?: string;
-  login_count: number;
-  email_verified: boolean;
-  verification_status?: string;
-  suspended_reason?: string;
-  can_login?: boolean;
-}
+// 從 types/api.ts 匯入統一的 User 型別
+export type { User, UserStatus } from './api';
 
 export interface Permission {
   name: string;

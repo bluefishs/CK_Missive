@@ -15,59 +15,17 @@ import {
 } from './types';
 import { API_ENDPOINTS } from './endpoints';
 
-// ============================================================================
-// 型別定義
-// ============================================================================
+// 從 types/api.ts 匯入統一的機關型別
+import {
+  Agency,
+  AgencyWithStats,
+  AgencyCreate,
+  AgencyUpdate,
+  AgencyOption,
+} from '../types/api';
 
-/** 機關基礎介面 */
-export interface Agency {
-  id: number;
-  agency_name: string;
-  agency_short_name?: string;
-  agency_code?: string;
-  agency_type?: string;
-  contact_person?: string;
-  phone?: string;
-  address?: string;
-  email?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-/** 機關（含統計資料） */
-export interface AgencyWithStats extends Agency {
-  document_count: number;
-  sent_count: number;
-  received_count: number;
-  last_activity: string | null;
-  primary_type: 'sender' | 'receiver' | 'both' | 'unknown';
-  category: string;
-  original_names?: string[];
-}
-
-/** 機關建立請求 */
-export interface AgencyCreate {
-  agency_name: string;
-  agency_short_name?: string;
-  agency_code?: string;
-  agency_type?: string;
-  contact_person?: string;
-  phone?: string;
-  address?: string;
-  email?: string;
-}
-
-/** 機關更新請求 */
-export interface AgencyUpdate {
-  agency_name?: string;
-  agency_short_name?: string;
-  agency_code?: string;
-  agency_type?: string;
-  contact_person?: string;
-  phone?: string;
-  address?: string;
-  email?: string;
-}
+// 重新匯出供外部使用
+export type { Agency, AgencyWithStats, AgencyCreate, AgencyUpdate, AgencyOption };
 
 /** 機關列表查詢參數 */
 export interface AgencyListParams extends PaginationParams, SortParams {
@@ -89,12 +47,7 @@ export interface AgencyStatistics {
   categories: CategoryStat[];
 }
 
-/** 機關選項（下拉選單用） */
-export interface AgencyOption {
-  id: number;
-  agency_name: string;
-  agency_code?: string;
-}
+// AgencyOption 已從 types/api.ts 匯入，不再重複定義
 
 // ============================================================================
 // API 方法

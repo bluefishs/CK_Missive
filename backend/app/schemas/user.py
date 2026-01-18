@@ -7,7 +7,7 @@ from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel, Field, EmailStr, ConfigDict, field_validator
 
-from app.schemas.common import PaginatedResponse, PaginationMeta
+from app.schemas.common import PaginatedResponse, PaginationMeta, SortOrder
 
 # 專案角色選項 (承辦同仁專用)
 ALLOWED_PROJECT_ROLES = ['計畫主持', '計畫協同', '專案PM', '職安主管']
@@ -104,3 +104,18 @@ class UserListResponseLegacy(BaseModel):
     page: int
     page_size: int
     total_pages: int
+
+
+# ============================================================================
+# 查詢參數 Schema
+# ============================================================================
+
+class UserListQuery(BaseModel):
+    """使用者列表查詢參數（統一格式）"""
+    page: int = Field(default=1, ge=1, description="頁碼")
+    limit: int = Field(default=20, ge=1, le=100, description="每頁筆數")
+    role: Optional[str] = Field(None, description="角色篩選")
+    is_active: Optional[bool] = Field(None, description="啟用狀態篩選")
+    search: Optional[str] = Field(None, description="搜尋關鍵字")
+    sort_by: str = Field(default="id", description="排序欄位")
+    sort_order: SortOrder = Field(default=SortOrder.ASC, description="排序方向")

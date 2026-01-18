@@ -19,6 +19,7 @@ from app.schemas.project import (
     ProjectUpdate,
     ProjectResponse,
     ProjectListResponse,
+    ProjectListQuery,
 )
 from app.schemas.common import (
     PaginationMeta,
@@ -41,21 +42,7 @@ from app.extended.models import User
 
 router = APIRouter()
 
-
-# ============================================================================
-# 查詢參數 Schema
-# ============================================================================
-
-class ProjectListQuery(BaseModel):
-    """專案列表查詢參數（統一格式）"""
-    page: int = Field(default=1, ge=1, description="頁碼")
-    limit: int = Field(default=20, ge=1, le=100, description="每頁筆數")
-    search: Optional[str] = Field(None, description="搜尋關鍵字")
-    year: Optional[int] = Field(None, description="年度篩選")
-    category: Optional[str] = Field(None, description="類別篩選")
-    status: Optional[str] = Field(None, description="狀態篩選")
-    sort_by: str = Field(default="id", description="排序欄位")
-    sort_order: SortOrder = Field(default=SortOrder.DESC, description="排序方向")
+# 注意：ProjectListQuery 已統一定義於 app/schemas/project.py
 
 
 # ============================================================================

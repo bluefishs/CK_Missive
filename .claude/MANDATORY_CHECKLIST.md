@@ -31,6 +31,7 @@
 | **資料匯入功能** | 服務層規範 | [清單 E](#清單-e資料匯入功能) |
 | **資料庫變更** | 資料庫規範 | [清單 F](#清單-f資料庫變更) |
 | **Bug 修復** | 通用規範 | [清單 G](#清單-g-bug-修復) |
+| **新增/修改型別定義** | 型別管理規範 | [清單 H](#清單-h型別管理) |
 
 ---
 
@@ -250,6 +251,77 @@ DEFAULT_CONFIGS = [
 
 ---
 
+## 清單 H：型別管理
+
+### 必讀文件
+- [ ] `.claude/skills/type-management.md`
+- [ ] `.claude/commands/type-sync.md`
+- [ ] `backend/app/schemas/` (現有 Schema 結構)
+
+### ⚠️ 核心規範：單一真實來源 (SSOT)
+
+**所有 Pydantic BaseModel 定義必須集中在 `schemas/` 目錄**
+
+```
+backend/app/schemas/     ← 唯一的型別定義來源
+backend/app/api/endpoints/  ← 只匯入，禁止本地定義
+```
+
+### 禁止事項
+
+```python
+# ❌ 禁止：在 endpoints 中定義 BaseModel
+# backend/app/api/endpoints/xxx.py
+class MyRequest(BaseModel):  # 違規！
+    field: str
+
+# ✅ 正確：從 schemas 匯入
+from app.schemas.xxx import MyRequest
+```
+
+### 新增型別定義流程
+
+1. **在 `schemas/` 建立或擴展 Schema 檔案**
+   ```python
+   # backend/app/schemas/xxx.py
+   class NewEntity(BaseModel):
+       field: str = Field(..., description="欄位說明")
+   ```
+
+2. **在 endpoint 匯入使用**
+   ```python
+   from app.schemas.xxx import NewEntity
+   ```
+
+3. **重新生成前端型別**
+   ```bash
+   cd frontend && npm run api:generate
+   ```
+
+4. **(可選) 更新前端型別包裝層**
+   ```typescript
+   // frontend/src/types/generated/index.ts
+   export type ApiNewEntity = components['schemas']['NewEntity'];
+   ```
+
+### 開發後檢查
+- [ ] `endpoints/` 目錄無本地 BaseModel 定義
+- [ ] Python 語法檢查通過：`python -m py_compile app/schemas/*.py`
+- [ ] 執行 `npm run api:generate` 更新前端型別
+- [ ] TypeScript 編譯通過：`npx tsc --noEmit`
+
+### 快速驗證命令
+
+```bash
+# 檢查 endpoints 本地定義數量 (應為 0)
+grep -r "class.*\(BaseModel\)" backend/app/api/endpoints/ --include="*.py" | wc -l
+
+# 完整型別同步檢查
+/type-sync
+```
+
+---
+
 ## 二、通用開發後檢查清單
 
 **所有開發任務完成後，必須執行：**
@@ -331,6 +403,7 @@ cd backend && python -m py_compile app/main.py
 
 | 版本 | 日期 | 說明 |
 |------|------|------|
+| 1.3.0 | 2026-01-18 | 新增清單 H - 型別管理規範 (SSOT 架構) |
 | 1.2.0 | 2026-01-12 | 新增導覽路徑自動化驗證機制（白名單、下拉選單、強制同步） |
 | 1.1.0 | 2026-01-12 | 新增導覽系統架構說明（Layout.tsx vs DynamicLayout.tsx） |
 | 1.0.0 | 2026-01-11 | 初版建立 |

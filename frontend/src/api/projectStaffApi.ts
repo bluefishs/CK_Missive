@@ -6,28 +6,25 @@
 
 import { apiClient } from './client';
 
+// 從 types/api.ts 匯入統一的型別定義
+import { ProjectStaff as BaseProjectStaff, ProjectStaffCreate } from '../types/api';
+
 // ============================================================================
-// 型別定義
+// 型別定義 - API 專用擴展
 // ============================================================================
 
-/** 承辦同仁資料 */
-export interface ProjectStaff {
-  id: number;
-  project_id: number;
-  user_id: number;
-  user_name: string;
+/**
+ * 承辦同仁資料 - 擴展基礎型別，包含 API 回應專用欄位
+ * 基礎型別定義於 types/api.ts
+ */
+export interface ProjectStaff extends BaseProjectStaff {
   user_email?: string;
   department?: string;
   phone?: string;
-  role?: string;
-  is_primary: boolean;
-  start_date?: string;
-  end_date?: string;
-  status?: string;
-  notes?: string;
-  created_at?: string;
-  updated_at?: string;
 }
+
+// 重新匯出供外部使用
+export type { ProjectStaffCreate };
 
 /** 承辦同仁列表回應 */
 export interface ProjectStaffListResponse {

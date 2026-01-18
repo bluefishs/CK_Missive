@@ -3,7 +3,7 @@
 
 使用統一回應格式
 """
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from typing import Optional, List
 from datetime import datetime, date
 from enum import Enum
@@ -309,6 +309,101 @@ class ExportRequest(BaseModel):
     filters: Optional[DocumentFilter] = None
     format: str = Field(default="xlsx", description="匯出格式")
     filename: Optional[str] = None
+
+# =============================================================================
+# API 請求專用 Schema（日期使用字串格式，由 endpoint 轉換）
+# =============================================================================
+
+# doc_type 白名單 - 統一定義，供所有 endpoints 使用
+# 注意：「發文」和「收文」是 category（類別），不是 doc_type（公文類型）
+VALID_DOC_TYPES = {"函", "開會通知單", "會勘通知單", "書函", "公告", "令", "通知"}
+
+
+class DocumentCreateRequest(BaseModel):
+    """
+    公文建立請求 (API 專用)
+
+    注意：日期欄位使用字串格式 'YYYY-MM-DD'，由 endpoint 轉換為 date 物件
+    此 Schema 統一由 API endpoints 使用，避免重複定義
+    """
+    doc_number: str = Field(..., description="公文編號")
+    doc_type: str = Field(..., description="公文類型")
+    subject: str = Field(..., description="主旨")
+    sender: Optional[str] = Field(None, description="發文單位")
+    receiver: Optional[str] = Field(None, description="受文單位")
+    doc_date: Optional[str] = Field(None, description="公文日期 (YYYY-MM-DD)")
+    receive_date: Optional[str] = Field(None, description="收文日期 (YYYY-MM-DD)")
+    send_date: Optional[str] = Field(None, description="發文日期 (YYYY-MM-DD)")
+    status: Optional[str] = Field(None, description="狀態")
+    category: Optional[str] = Field(None, description="收發文類別")
+    contract_case: Optional[str] = Field(None, description="承攬案件名稱")
+    contract_project_id: Optional[int] = Field(None, description="承攬案件 ID")
+    doc_word: Optional[str] = Field(None, description="發文字")
+    doc_class: Optional[str] = Field(None, description="文別")
+    assignee: Optional[str] = Field(None, description="承辦人")
+    notes: Optional[str] = Field(None, description="備註")
+    ck_note: Optional[str] = Field(None, description="簡要說明(乾坤備註)")
+    priority_level: Optional[str] = Field(None, description="優先級")
+    content: Optional[str] = Field(None, description="內容")
+    delivery_method: Optional[str] = Field("電子交換", description="發文形式 (電子交換/紙本郵寄/電子+紙本)")
+    has_attachment: Optional[bool] = Field(False, description="是否含附件")
+
+    @field_validator('doc_type')
+    @classmethod
+    def validate_doc_type(cls, v: str) -> str:
+        """驗證 doc_type 是否在白名單中"""
+        if v and v not in VALID_DOC_TYPES:
+            raise ValueError(
+                f"無效的公文類型 '{v}'。有效值: {', '.join(sorted(VALID_DOC_TYPES))}"
+            )
+        return v
+
+
+class DocumentUpdateRequest(BaseModel):
+    """
+    公文更新請求 (API 專用)
+
+    注意：日期欄位使用字串格式 'YYYY-MM-DD'，由 endpoint 轉換為 date 物件
+    此 Schema 統一由 API endpoints 使用，避免重複定義
+    """
+    doc_number: Optional[str] = Field(None, description="公文編號")
+    doc_type: Optional[str] = Field(None, description="公文類型")
+    subject: Optional[str] = Field(None, description="主旨")
+    sender: Optional[str] = Field(None, description="發文單位")
+    receiver: Optional[str] = Field(None, description="受文單位")
+    doc_date: Optional[str] = Field(None, description="公文日期 (YYYY-MM-DD)")
+    receive_date: Optional[str] = Field(None, description="收文日期 (YYYY-MM-DD)")
+    send_date: Optional[str] = Field(None, description="發文日期 (YYYY-MM-DD)")
+    status: Optional[str] = Field(None, description="狀態")
+    category: Optional[str] = Field(None, description="收發文類別")
+    contract_case: Optional[str] = Field(None, description="承攬案件名稱")
+    contract_project_id: Optional[int] = Field(None, description="承攬案件 ID")
+    sender_agency_id: Optional[int] = Field(None, description="發文機關 ID")
+    receiver_agency_id: Optional[int] = Field(None, description="受文機關 ID")
+    doc_word: Optional[str] = Field(None, description="發文字")
+    doc_class: Optional[str] = Field(None, description="文別")
+    assignee: Optional[str] = Field(None, description="承辦人")
+    notes: Optional[str] = Field(None, description="備註")
+    ck_note: Optional[str] = Field(None, description="簡要說明(乾坤備註)")
+    priority_level: Optional[str] = Field(None, description="優先級")
+    content: Optional[str] = Field(None, description="內容")
+    delivery_method: Optional[str] = Field(None, description="發文形式 (電子交換/紙本郵寄/電子+紙本)")
+    has_attachment: Optional[bool] = Field(None, description="是否含附件")
+    title: Optional[str] = Field(None, description="標題")
+    cloud_file_link: Optional[str] = Field(None, description="雲端檔案連結")
+    dispatch_format: Optional[str] = Field(None, description="發文形式")
+    auto_serial: Optional[str] = Field(None, description="流水序號")
+
+    @field_validator('doc_type')
+    @classmethod
+    def validate_doc_type(cls, v: Optional[str]) -> Optional[str]:
+        """驗證 doc_type 是否在白名單中"""
+        if v and v not in VALID_DOC_TYPES:
+            raise ValueError(
+                f"無效的公文類型 '{v}'。有效值: {', '.join(sorted(VALID_DOC_TYPES))}"
+            )
+        return v
+
 
 class DocumentSearchRequest(BaseModel):
     """

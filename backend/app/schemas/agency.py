@@ -69,3 +69,99 @@ class AgenciesResponse(BaseModel):
     total: int
     returned: int
     search: Optional[str] = None
+
+
+# =============================================================================
+# 查詢與回應 Schema（統一定義，供 endpoints 匯入）
+# =============================================================================
+
+class SortOrder(str):
+    """排序方向"""
+    ASC = "asc"
+    DESC = "desc"
+
+
+class AgencyListQuery(BaseModel):
+    """機關列表查詢參數（統一格式）"""
+    page: int = Field(default=1, ge=1, description="頁碼")
+    limit: int = Field(default=20, ge=1, le=1000, description="每頁筆數")
+    search: Optional[str] = Field(None, description="搜尋關鍵字")
+    agency_type: Optional[str] = Field(None, description="機關類型")
+    include_stats: bool = Field(default=True, description="是否包含統計資料")
+    sort_by: str = Field(default="agency_name", description="排序欄位")
+    sort_order: str = Field(default="asc", description="排序方向 (asc/desc)")
+
+
+class PaginationMeta(BaseModel):
+    """分頁元資料"""
+    page: int
+    limit: int
+    total: int
+    total_pages: int
+
+
+class AgencyListResponse(BaseModel):
+    """機關列表回應 Schema（統一分頁格式）"""
+    success: bool = True
+    items: List[AgencyWithStats] = Field(default=[], description="機關列表")
+    pagination: PaginationMeta
+
+
+# =============================================================================
+# 機關建議與關聯 Schema
+# =============================================================================
+
+class AgencySuggestRequest(BaseModel):
+    """機關建議請求"""
+    text: str = Field(..., min_length=2, description="搜尋文字")
+    limit: int = Field(default=5, ge=1, le=20, description="回傳數量")
+
+
+class AgencySuggestResponse(BaseModel):
+    """機關建議回應"""
+    success: bool = True
+    suggestions: List[dict] = []
+
+
+class AssociationSummary(BaseModel):
+    """機關關聯統計"""
+    total_documents: int = Field(..., description="公文總數")
+    sender_associated: int = Field(..., description="已關聯發文機關")
+    sender_unassociated: int = Field(..., description="未關聯發文機關")
+    receiver_associated: int = Field(..., description="已關聯受文機關")
+    receiver_unassociated: int = Field(..., description="未關聯受文機關")
+    association_rate: dict = Field(..., description="關聯率")
+
+
+class BatchAssociateRequest(BaseModel):
+    """批次關聯請求"""
+    overwrite: bool = Field(default=False, description="是否覆蓋現有關聯")
+
+
+class BatchAssociateResponse(BaseModel):
+    """批次關聯回應"""
+    success: bool
+    message: str
+    total_documents: int = 0
+    sender_updated: int = 0
+    receiver_updated: int = 0
+    sender_matched: int = 0
+    receiver_matched: int = 0
+    errors: List[str] = []
+
+
+# =============================================================================
+# 機關資料修復 Schema
+# =============================================================================
+
+class FixAgenciesRequest(BaseModel):
+    """修復機關資料請求"""
+    dry_run: bool = Field(default=True, description="乾跑模式（預設 true，不實際修改）")
+
+
+class FixAgenciesResponse(BaseModel):
+    """修復機關資料回應"""
+    success: bool
+    message: str
+    fixed_count: int = 0
+    details: List[dict] = []

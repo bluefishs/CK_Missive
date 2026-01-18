@@ -10,7 +10,7 @@ from typing import List, Optional
 from datetime import datetime, date
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 
-from app.schemas.common import PaginatedResponse, PaginationMeta
+from app.schemas.common import PaginatedResponse, PaginationMeta, SortOrder
 
 class ProjectBase(BaseModel):
     """承攬案件基礎Schema"""
@@ -126,4 +126,20 @@ class ProjectOption(BaseModel):
     project_code: Optional[str] = None
     year: Optional[int] = None
 
-    model_config = ConfigDict(from_attributes=True) # 使用 model_config
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ============================================================================
+# 查詢參數 Schema
+# ============================================================================
+
+class ProjectListQuery(BaseModel):
+    """專案列表查詢參數（統一格式）"""
+    page: int = Field(default=1, ge=1, description="頁碼")
+    limit: int = Field(default=20, ge=1, le=100, description="每頁筆數")
+    search: Optional[str] = Field(None, description="搜尋關鍵字")
+    year: Optional[int] = Field(None, description="年度篩選")
+    category: Optional[str] = Field(None, description="類別篩選")
+    status: Optional[str] = Field(None, description="狀態篩選")
+    sort_by: str = Field(default="id", description="排序欄位")
+    sort_order: SortOrder = Field(default=SortOrder.DESC, description="排序方向")

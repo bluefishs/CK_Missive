@@ -149,3 +149,16 @@ class VendorProjectListResponse(BaseModel):
     vendor_name: str
     associations: List[VendorProjectResponse]
     total: int = Field(..., description="總關聯數")
+
+
+# ============================================================================
+# 查詢參數 Schema
+# ============================================================================
+
+class VendorAssociationListQuery(BaseModel):
+    """廠商關聯列表查詢參數"""
+    skip: int = Field(default=0, ge=0, description="跳過筆數")
+    limit: int = Field(default=100, ge=1, le=1000, description="限制筆數")
+    project_id: Optional[int] = Field(None, description="案件 ID 篩選")
+    vendor_id: Optional[int] = Field(None, description="廠商 ID 篩選")
+    status: Optional[str] = Field(None, description="狀態篩選")

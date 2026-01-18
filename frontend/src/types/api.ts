@@ -168,6 +168,18 @@ export interface AgencyOption {
   id: number;
   agency_name: string;
   agency_short_name?: string;
+  agency_code?: string;
+}
+
+/** 機關（含統計資料） */
+export interface AgencyWithStats extends Agency {
+  document_count: number;
+  sent_count: number;
+  received_count: number;
+  last_activity: string | null;
+  primary_type: 'sender' | 'receiver' | 'both' | 'unknown';
+  category?: string;
+  original_names?: string[];
 }
 
 // ============================================================================
@@ -258,7 +270,7 @@ export type UserRole = 'unverified' | 'user' | 'staff' | 'admin' | 'superuser';
 /** 使用者狀態 */
 export type UserStatus = 'active' | 'inactive' | 'suspended' | 'pending';
 
-/** 使用者基礎介面 */
+/** 使用者基礎介面 - 單一真實來源 (Single Source of Truth) */
 export interface User {
   id: number;
   username: string;
@@ -270,12 +282,20 @@ export interface User {
   role?: string;
   auth_provider?: string;
   avatar_url?: string;
-  permissions?: string;
+  permissions?: string | string[];
   login_count?: number;
   last_login?: string;
   email_verified?: boolean;
   created_at: string;
   updated_at?: string;
+  // 狀態相關欄位
+  status?: UserStatus;
+  verification_status?: string;
+  suspended_reason?: string;
+  can_login?: boolean;
+  // 組織相關欄位
+  department?: string;
+  position?: string;
 }
 
 /** 使用者選項（下拉選單用） */

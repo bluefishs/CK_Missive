@@ -6,27 +6,25 @@
 
 import { apiClient } from './client';
 
+// 從 types/api.ts 匯入統一的型別定義
+import { ProjectVendor as BaseProjectVendor, ProjectVendorCreate } from '../types/api';
+
 // ============================================================================
-// 型別定義
+// 型別定義 - API 專用擴展
 // ============================================================================
 
-/** 協力廠商資料 */
-export interface ProjectVendor {
-  project_id: number;
-  vendor_id: number;
-  vendor_name: string;
-  vendor_code?: string;
+/**
+ * 協力廠商資料 - 擴展基礎型別，包含 API 回應專用欄位
+ * 基礎型別定義於 types/api.ts
+ */
+export interface ProjectVendor extends BaseProjectVendor {
   vendor_contact_person?: string;
   vendor_phone?: string;
   vendor_business_type?: string;
-  role?: string;
-  contract_amount?: number;
-  start_date?: string;
-  end_date?: string;
-  status?: string;
-  created_at: string;
-  updated_at: string;
 }
+
+// 重新匯出供外部使用
+export type { ProjectVendorCreate };
 
 /** 協力廠商列表回應 */
 export interface ProjectVendorListResponse {

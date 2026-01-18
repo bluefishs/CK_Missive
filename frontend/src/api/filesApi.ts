@@ -11,23 +11,21 @@
 import { apiClient, API_BASE_URL } from './client';
 import { API_ENDPOINTS } from './endpoints';
 
+// 從 types/api.ts 匯入統一的附件型別
+import { DocumentAttachment } from '../types/api';
+
 // ============================================================================
-// 型別定義
+// 型別定義 - 統一使用 types/api.ts 作為單一真實來源
 // ============================================================================
 
-/** 檔案附件介面（與後端 DocumentAttachment 對應） */
-export interface FileAttachment {
-  id: number;
-  filename: string;
-  original_filename?: string;
-  file_size: number;
-  content_type?: string;
-  storage_type?: 'local' | 'network' | 'nas';
-  checksum?: string;
-  uploaded_at?: string;
-  uploaded_by?: number;
-  created_at?: string;
-}
+/**
+ * FileAttachment 是 DocumentAttachment 的別名
+ * 保持相容性，現有程式碼可繼續使用 FileAttachment
+ */
+export type FileAttachment = DocumentAttachment;
+
+// 重新匯出供外部使用
+export type { DocumentAttachment };
 
 /** 上傳結果 */
 export interface UploadResult {

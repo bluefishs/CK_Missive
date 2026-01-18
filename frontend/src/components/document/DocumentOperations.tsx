@@ -42,6 +42,7 @@ import dayjs from 'dayjs';
 import { calendarIntegrationService } from '../../services/calendarIntegrationService';
 import { apiClient } from '../../api/client';
 import { filesApi } from '../../api/filesApi';
+import { logger } from '../../utils/logger';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -204,7 +205,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
 
   // 選擇專案後自動填入所有業務同仁
   const handleProjectChange = async (projectId: number | null | undefined) => {
-    console.log('[handleProjectChange] 選擇專案:', projectId);
+    logger.debug('[handleProjectChange] 選擇專案:', projectId);
 
     // 處理 undefined (allowClear 時會傳入 undefined)
     const effectiveProjectId = projectId ?? null;
@@ -221,7 +222,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
 
     // 取得專案業務同仁資料
     const staffList = await fetchProjectStaff(effectiveProjectId);
-    console.log('[handleProjectChange] 取得業務同仁:', staffList);
+    logger.debug('[handleProjectChange] 取得業務同仁:', staffList);
 
     // 直接填入所有業務同仁（不等待 state 更新）
     if (!staffList || staffList.length === 0) {
@@ -231,7 +232,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
     }
 
     const allStaffNames = staffList.map((s: any) => s.user_name);
-    console.log('[handleProjectChange] 準備填入:', allStaffNames);
+    logger.debug('[handleProjectChange] 準備填入:', allStaffNames);
 
     // 同時更新 selectedProjectId 和 form 值
     // 使用函數式更新確保順序正確
@@ -244,7 +245,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
       if (currentStaff && currentStaff.length > 0) {
         const names = currentStaff.map((s: any) => s.user_name);
         form.setFieldsValue({ assignee: names });
-        console.log('[handleProjectChange] 已填入業務同仁:', names);
+        logger.debug('[handleProjectChange] 已填入業務同仁:', names);
         message.success(`已自動填入 ${names.length} 位業務同仁`);
       }
     }, 150);
@@ -544,7 +545,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
             const allStaffNames = staffList.map((s: any) => s.user_name);
             setTimeout(() => {
               form.setFieldsValue({ assignee: allStaffNames });
-              console.log('[載入公文] 自動填入專案業務同仁:', allStaffNames);
+              logger.debug('[載入公文] 自動填入專案業務同仁:', allStaffNames);
             }, 100);
           }
         });
@@ -770,7 +771,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
     },
     onPreview: (file: any) => {
       // 可以添加檔案預覽功能
-      console.log('Preview file:', file.name);
+      logger.debug('Preview file:', file.name);
     },
   };
 

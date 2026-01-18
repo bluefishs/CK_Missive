@@ -43,7 +43,8 @@ from app.db.database import get_async_db
 from app.extended.models import OfficialDocument, ContractProject, GovernmentAgency, DocumentAttachment
 from app.services.document_service import DocumentService
 from app.schemas.document import (
-    DocumentFilter, DocumentListQuery, DocumentListResponse, DocumentResponse, StaffInfo
+    DocumentFilter, DocumentListQuery, DocumentListResponse, DocumentResponse, StaffInfo,
+    DocumentCreateRequest, DocumentUpdateRequest, VALID_DOC_TYPES
 )
 from app.extended.models import User, project_user_assignment
 from app.schemas.common import (
@@ -51,6 +52,19 @@ from app.schemas.common import (
     DeleteResponse,
     SuccessResponse,
     SortOrder,
+)
+# 統一從 schemas 匯入查詢相關型別
+from app.schemas.document_query import (
+    DropdownQuery,
+    AgencyDropdownQuery,
+    OptimizedSearchRequest,
+    SearchSuggestionRequest,
+    AuditLogQuery,
+    AuditLogItem,
+    AuditLogResponse,
+    ProjectDocumentsQuery,
+    DocumentExportQuery,
+    ExcelExportRequest,
 )
 from app.core.exceptions import NotFoundException, ForbiddenException
 from app.core.audit_logger import DocumentUpdateGuard
@@ -77,21 +91,6 @@ async def get_optional_user(
         return None
 
 router = APIRouter()
-
-
-# ============================================================================
-# 查詢參數 Schema（下拉選項用）
-# ============================================================================
-
-class DropdownQuery(BaseModel):
-    """下拉選項查詢參數"""
-    search: Optional[str] = Field(None, description="搜尋關鍵字")
-    limit: int = Field(default=100, ge=1, le=1000, description="限制筆數")
-
-
-class AgencyDropdownQuery(DropdownQuery):
-    """機關下拉選項查詢參數"""
-    agency_type: Optional[str] = Field(None, description="機關類型")
 
 
 # ============================================================================
@@ -671,22 +670,6 @@ async def get_filtered_statistics(
 # 優化搜尋 API
 # ============================================================================
 
-class OptimizedSearchRequest(BaseModel):
-    """優化搜尋請求"""
-    keyword: str = Field(..., min_length=1, description="搜尋關鍵字")
-    category: Optional[str] = Field(None, description="收發文分類 (send/receive)")
-    delivery_method: Optional[str] = Field(None, description="發文形式")
-    year: Optional[int] = Field(None, description="年度")
-    page: int = Field(default=1, ge=1, description="頁碼")
-    limit: int = Field(default=20, ge=1, le=100, description="每頁筆數")
-
-
-class SearchSuggestionRequest(BaseModel):
-    """搜尋建議請求"""
-    prefix: str = Field(..., min_length=2, description="輸入前綴")
-    limit: int = Field(default=10, ge=1, le=20, description="建議數量上限")
-
-
 @router.post(
     "/search/optimized",
     summary="優化全文搜尋",
@@ -849,79 +832,8 @@ async def get_popular_searches(
 # 公文 CRUD API（POST-only 資安機制）
 # ============================================================================
 
-# doc_type 白名單 - 與 DocumentValidators.VALID_DOC_TYPES 對齊
-# 注意：「發文」和「收文」是 category（類別），不是 doc_type（公文類型）
-VALID_DOC_TYPES = {"函", "開會通知單", "會勘通知單", "書函", "公告", "令", "通知"}
-
-
-class DocumentCreateRequest(BaseModel):
-    """公文建立請求"""
-    doc_number: str = Field(..., description="公文編號")
-    doc_type: str = Field(..., description="公文類型")
-    subject: str = Field(..., description="主旨")
-    sender: Optional[str] = Field(None, description="發文單位")
-    receiver: Optional[str] = Field(None, description="受文單位")
-    doc_date: Optional[str] = Field(None, description="公文日期")
-    receive_date: Optional[str] = Field(None, description="收文日期")
-    send_date: Optional[str] = Field(None, description="發文日期")
-    status: Optional[str] = Field(None, description="狀態")
-    category: Optional[str] = Field(None, description="收發文類別")
-    contract_case: Optional[str] = Field(None, description="承攬案件名稱")
-    contract_project_id: Optional[int] = Field(None, description="承攬案件 ID")
-    doc_word: Optional[str] = Field(None, description="發文字")
-    doc_class: Optional[str] = Field(None, description="文別")
-    assignee: Optional[str] = Field(None, description="承辦人")
-    notes: Optional[str] = Field(None, description="備註")
-    priority_level: Optional[str] = Field(None, description="優先級")
-    content: Optional[str] = Field(None, description="內容")
-    # 發文形式與附件欄位
-    delivery_method: Optional[str] = Field("電子交換", description="發文形式 (電子交換/紙本郵寄/電子+紙本)")
-    has_attachment: Optional[bool] = Field(False, description="是否含附件")
-
-    @field_validator('doc_type')
-    @classmethod
-    def validate_doc_type(cls, v: str) -> str:
-        """驗證 doc_type 是否在白名單中"""
-        if v and v not in VALID_DOC_TYPES:
-            raise ValueError(
-                f"無效的公文類型 '{v}'。有效值: {', '.join(sorted(VALID_DOC_TYPES))}"
-            )
-        return v
-
-
-class DocumentUpdateRequest(BaseModel):
-    """公文更新請求"""
-    doc_number: Optional[str] = Field(None, description="公文編號")
-    doc_type: Optional[str] = Field(None, description="公文類型")
-    subject: Optional[str] = Field(None, description="主旨")
-    sender: Optional[str] = Field(None, description="發文單位")
-    receiver: Optional[str] = Field(None, description="受文單位")
-    doc_date: Optional[str] = Field(None, description="公文日期")
-    receive_date: Optional[str] = Field(None, description="收文日期")
-    send_date: Optional[str] = Field(None, description="發文日期")
-    status: Optional[str] = Field(None, description="狀態")
-    category: Optional[str] = Field(None, description="收發文類別")
-    contract_case: Optional[str] = Field(None, description="承攬案件名稱")
-    contract_project_id: Optional[int] = Field(None, description="承攬案件 ID")
-    doc_word: Optional[str] = Field(None, description="發文字")
-    doc_class: Optional[str] = Field(None, description="文別")
-    assignee: Optional[str] = Field(None, description="承辦人")
-    notes: Optional[str] = Field(None, description="備註")
-    priority_level: Optional[str] = Field(None, description="優先級")
-    content: Optional[str] = Field(None, description="內容")
-    # 發文形式與附件欄位
-    delivery_method: Optional[str] = Field(None, description="發文形式 (電子交換/紙本郵寄/電子+紙本)")
-    has_attachment: Optional[bool] = Field(None, description="是否含附件")
-
-    @field_validator('doc_type')
-    @classmethod
-    def validate_doc_type(cls, v: Optional[str]) -> Optional[str]:
-        """驗證 doc_type 是否在白名單中"""
-        if v and v not in VALID_DOC_TYPES:
-            raise ValueError(
-                f"無效的公文類型 '{v}'。有效值: {', '.join(sorted(VALID_DOC_TYPES))}"
-            )
-        return v
+# 注意：DocumentCreateRequest, DocumentUpdateRequest, VALID_DOC_TYPES
+# 已統一定義於 app/schemas/document.py，此處透過 import 使用
 
 
 @router.post(
@@ -1391,37 +1303,6 @@ async def delete_document(
 # 審計日誌查詢 API
 # ============================================================================
 
-class AuditLogQuery(BaseModel):
-    """審計日誌查詢參數"""
-    document_id: Optional[int] = Field(None, description="公文 ID")
-    table_name: Optional[str] = Field(None, description="表格名稱")
-    action: Optional[str] = Field(None, description="操作類型 (CREATE/UPDATE/DELETE)")
-    user_id: Optional[int] = Field(None, description="操作者 ID")
-    is_critical: Optional[bool] = Field(None, description="是否為關鍵欄位變更")
-    date_from: Optional[str] = Field(None, description="起始日期 (YYYY-MM-DD)")
-    date_to: Optional[str] = Field(None, description="結束日期 (YYYY-MM-DD)")
-    page: int = Field(default=1, ge=1, description="頁碼")
-    limit: int = Field(default=20, ge=1, le=100, description="每頁筆數")
-
-class AuditLogItem(BaseModel):
-    """審計日誌項目"""
-    id: int
-    table_name: str
-    record_id: int
-    action: str
-    changes: Optional[str] = None
-    user_id: Optional[int] = None
-    user_name: Optional[str] = None
-    source: Optional[str] = None
-    is_critical: bool = False
-    created_at: Optional[str] = None
-
-class AuditLogResponse(BaseModel):
-    """審計日誌查詢回應"""
-    success: bool = True
-    items: List[AuditLogItem] = []
-    pagination: PaginationMeta
-
 @router.post(
     "/audit-logs",
     response_model=AuditLogResponse,
@@ -1615,13 +1496,6 @@ async def get_document_years_legacy(db: AsyncSession = Depends(get_async_db)):
 # 專案關聯公文 API（自動關聯機制）
 # ============================================================================
 
-class ProjectDocumentsQuery(BaseModel):
-    """專案關聯公文查詢參數"""
-    project_id: int = Field(..., description="專案 ID")
-    page: int = Field(default=1, ge=1, description="頁碼")
-    limit: int = Field(default=50, ge=1, le=100, description="每頁筆數")
-
-
 @router.post(
     "/by-project",
     response_model=DocumentListResponse,
@@ -1733,14 +1607,6 @@ async def get_documents_by_project(
 # 公文匯出 API
 # ============================================================================
 
-class DocumentExportQuery(BaseModel):
-    """公文匯出查詢參數"""
-    document_ids: Optional[List[int]] = Field(None, description="指定匯出的公文ID列表，若為空則匯出全部")
-    category: Optional[str] = Field(None, description="類別篩選 (收文/發文)")
-    year: Optional[int] = Field(None, description="年度篩選")
-    format: str = Field(default="csv", description="匯出格式 (csv)")
-
-
 @router.post("/export", summary="匯出公文資料")
 async def export_documents(
     query: DocumentExportQuery = Body(...),
@@ -1832,18 +1698,6 @@ async def export_documents(
 # ============================================================================
 # Excel 匯出端點
 # ============================================================================
-
-class ExcelExportRequest(BaseModel):
-    """Excel 匯出請求"""
-    document_ids: Optional[List[int]] = Field(None, description="指定匯出的公文 ID 列表")
-    category: Optional[str] = Field(None, description="類別篩選 (收文/發文)")
-    year: Optional[int] = Field(None, description="年度篩選")
-    keyword: Optional[str] = Field(None, description="關鍵字搜尋")
-    status: Optional[str] = Field(None, description="狀態篩選")
-    contract_case: Optional[str] = Field(None, description="承攬案件篩選")
-    sender: Optional[str] = Field(None, description="發文單位篩選")
-    receiver: Optional[str] = Field(None, description="受文單位篩選")
-
 
 @router.post("/export/excel", summary="匯出公文為 Excel")
 async def export_documents_excel(

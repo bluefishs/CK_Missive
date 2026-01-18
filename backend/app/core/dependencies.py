@@ -160,10 +160,55 @@ def optional_auth() -> Callable:
     可選認證的依賴
 
     若有 token 則驗證並返回用戶，無 token 則返回 None
-    注意：需要在 auth.py 中實作 get_current_user_optional
+
+    使用方式:
+        @router.get("/public-or-private")
+        async def endpoint(
+            current_user: Optional[User] = Depends(optional_auth())
+        ):
+            if current_user:
+                return {"user": current_user.username}
+            return {"message": "Anonymous access"}
     """
-    # TODO: 待實作 get_current_user_optional
-    return get_current_user
+    from typing import Optional
+    from fastapi import Header
+    from fastapi.security import OAuth2PasswordBearer
+
+    async def _get_current_user_optional(
+        authorization: Optional[str] = Header(None)
+    ) -> Optional[User]:
+        """
+        可選的用戶認證 - 有 token 時驗證，無 token 時返回 None
+        """
+        if not authorization:
+            return None
+
+        # 嘗試解析 Bearer token
+        if not authorization.startswith("Bearer "):
+            return None
+
+        token = authorization.replace("Bearer ", "")
+        if not token:
+            return None
+
+        try:
+            # 使用現有的 get_current_user 進行驗證
+            from app.api.endpoints.auth import verify_token_and_get_user
+            from app.db.database import get_async_db
+
+            # 注意：這裡需要手動取得 db session
+            async for db in get_async_db():
+                try:
+                    user = await verify_token_and_get_user(token, db)
+                    return user
+                except Exception:
+                    return None
+        except Exception:
+            return None
+
+        return None
+
+    return _get_current_user_optional
 
 
 def require_admin():

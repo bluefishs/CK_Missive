@@ -18,20 +18,13 @@ from app.schemas.project_vendor import (
     ProjectVendorCreate,
     ProjectVendorUpdate,
     ProjectVendorResponse,
-    ProjectVendorListResponse
+    ProjectVendorListResponse,
+    VendorAssociationListQuery
 )
 
 router = APIRouter()
 
-
-# ========== 查詢參數 Schema ==========
-class VendorAssociationListQuery(BaseModel):
-    """廠商關聯列表查詢參數"""
-    skip: int = 0
-    limit: int = 100
-    project_id: Optional[int] = None
-    vendor_id: Optional[int] = None
-    status: Optional[str] = None
+# 注意：VendorAssociationListQuery 已統一定義於 app/schemas/project_vendor.py
 
 
 # ========== POST-only API 端點 ==========

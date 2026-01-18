@@ -9,6 +9,7 @@ from enum import Enum
 class AuthProvider(str, Enum):
     EMAIL = "email"
     GOOGLE = "google"
+    INTERNAL = "internal"  # 內網免認證模式
 
 class UserRole(str, Enum):
     UNVERIFIED = "unverified"
@@ -35,6 +36,11 @@ class GoogleAuthRequest(BaseModel):
 class PasswordChange(BaseModel):
     current_password: str
     new_password: str = Field(..., min_length=6, max_length=100)
+
+class ProfileUpdate(BaseModel):
+    """更新個人資料請求"""
+    username: Optional[str] = Field(None, min_length=3, max_length=50)
+    full_name: Optional[str] = Field(None, min_length=1, max_length=200)
 
 class PasswordReset(BaseModel):
     email: EmailStr

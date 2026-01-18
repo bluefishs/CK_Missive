@@ -26,6 +26,7 @@ import {
 } from '@ant-design/icons';
 import { DocumentFilter as DocumentFilterType } from '../../types';
 import { API_BASE_URL } from '../../api/client';
+import { logger } from '../../utils/logger';
 const { Option } = Select;
 const { Title } = Typography;
 
@@ -260,7 +261,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
           label: option.label
         }));
         setContractCaseDropdownOptions(options);
-        console.log('✅ 成功從 contract_projects 表載入承攬案件選項:', options.length);
+        logger.debug('✅ 成功從 contract_projects 表載入承攬案件選項:', options.length);
         return;
       }
 
@@ -285,7 +286,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
             label: contractCase
           }));
         setContractCaseDropdownOptions(contractCases);
-        console.log('📄 從公文表載入承攬案件選項:', contractCases.length);
+        logger.debug('📄 從公文表載入承攬案件選項:', contractCases.length);
       }
     } catch (error) {
       console.error('獲取承攬案件選項失敗:', error);
@@ -311,7 +312,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
             label: agency.label // 使用標準化名稱，不含統計數據
           }));
         setSenderDropdownOptions(senders);
-        console.log('✅ 成功載入標準化發文單位選項:', senders.length);
+        logger.debug('✅ 成功載入標準化發文單位選項:', senders.length);
         return;
       }
 
@@ -336,7 +337,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
             label: sender
           }));
         setSenderDropdownOptions(senders);
-        console.log('📄 從公文表載入發文單位選項:', senders.length);
+        logger.debug('📄 從公文表載入發文單位選項:', senders.length);
       }
     } catch (error) {
       console.error('獲取發文單位選項失敗:', error);
@@ -362,7 +363,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
             label: agency.label // 使用標準化名稱，不含統計數據
           }));
         setReceiverDropdownOptions(receivers);
-        console.log('✅ 成功載入標準化受文單位選項:', receivers.length);
+        logger.debug('✅ 成功載入標準化受文單位選項:', receivers.length);
         return;
       }
 
@@ -387,7 +388,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
             label: receiver
           }));
         setReceiverDropdownOptions(receivers);
-        console.log('📄 從公文表載入受文單位選項:', receivers.length);
+        logger.debug('📄 從公文表載入受文單位選項:', receivers.length);
       }
     } catch (error) {
       console.error('獲取受文單位選項失敗:', error);

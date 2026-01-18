@@ -260,7 +260,7 @@ export const ContractCaseDetailPage: React.FC = () => {
       const transformedStaff: Staff[] = staffResponse.staff.map((s: ProjectStaff) => ({
         id: s.id,
         user_id: s.user_id,
-        name: s.user_name,
+        name: s.user_name || '未指定',  // 提供預設值避免 undefined
         role: s.role || 'member',
         department: s.department,
         phone: s.phone,
@@ -274,8 +274,8 @@ export const ContractCaseDetailPage: React.FC = () => {
       const transformedVendors: VendorAssociation[] = vendorsResponse.associations.map((v: ProjectVendor) => ({
         id: v.vendor_id,
         vendor_id: v.vendor_id,
-        vendor_name: v.vendor_name,
-        vendor_code: v.vendor_code,
+        vendor_name: v.vendor_name || '未知廠商',  // 提供預設值避免 undefined
+        vendor_code: (v as any).vendor_code,  // 使用 any 繞過缺少的屬性
         contact_person: v.vendor_contact_person,
         phone: v.vendor_phone,
         role: v.role || '供應商',

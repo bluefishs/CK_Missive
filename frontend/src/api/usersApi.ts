@@ -15,23 +15,15 @@ import {
 } from './types';
 import { API_ENDPOINTS } from './endpoints';
 
-// ============================================================================
-// 型別定義
-// ============================================================================
+// 從 types/api.ts 匯入統一的 User 型別
+import { User, UserOption } from '../types/api';
 
-/** 使用者基礎介面 */
-export interface User {
-  id: number;
-  username: string;
-  email: string;
-  full_name?: string;
-  role?: string;
-  is_active: boolean;
-  last_login?: string;
-  created_at?: string;
-  department?: string;
-  position?: string;
-}
+// 重新匯出供外部使用
+export type { User, UserOption };
+
+// ============================================================================
+// API 專用型別定義
+// ============================================================================
 
 /** 使用者建立請求 */
 export interface UserCreate {
@@ -61,12 +53,7 @@ export interface UserStatusUpdate {
   is_active: boolean;
 }
 
-/** 使用者選項（下拉選單用） */
-export interface UserOption {
-  id: number;
-  username: string;
-  full_name?: string;
-}
+// UserOption 已從 types/api.ts 匯入，不再重複定義
 
 /** 使用者列表查詢參數 */
 export interface UserListParams extends PaginationParams, SortParams {

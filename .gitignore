@@ -102,3 +102,13 @@ data/ngrok_recovery_codes.txt
 # Screenshot files (Chinese named)
 *.jpg
 入口頁面.jpg
+
+# Frontend auto-generated types (regenerated via npm run api:generate)
+frontend/src/types/generated/api.d.ts
+
+# Legacy config files (superseded by .env and docs/)
+/monitoring_config.json
+/port-config.json
+
+# Temporary nav items file
+**/nav_items.json

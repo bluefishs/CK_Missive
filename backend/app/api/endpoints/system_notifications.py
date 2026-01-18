@@ -9,10 +9,8 @@ System Notifications API Endpoints
 3. 取得未讀通知數量
 """
 import logging
-from typing import Optional, List
 from fastapi import APIRouter, Depends, Body
 from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel, Field
 
 from app.db.database import get_async_db
 from app.services.notification_service import (
@@ -23,67 +21,19 @@ from app.services.notification_service import (
 from app.core.dependencies import require_auth
 from app.extended.models import User
 
+# 統一從 schemas 匯入型別定義
+from app.schemas.notification import (
+    NotificationQuery,
+    NotificationItem,
+    NotificationListResponse,
+    MarkReadRequest,
+    MarkReadResponse,
+    UnreadCountResponse
+)
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-# ============================================================================
-# Schema 定義
-# ============================================================================
-
-class NotificationQuery(BaseModel):
-    """通知查詢參數"""
-    is_read: Optional[bool] = Field(None, description="是否已讀")
-    severity: Optional[str] = Field(None, description="嚴重程度 (info/warning/error/critical)")
-    type: Optional[str] = Field(None, description="通知類型 (system/critical_change/import/error)")
-    page: int = Field(default=1, ge=1, description="頁碼")
-    limit: int = Field(default=20, ge=1, le=100, description="每頁筆數")
-
-
-class NotificationItem(BaseModel):
-    """通知項目"""
-    id: int
-    type: str
-    severity: str
-    title: str
-    message: str
-    source_table: Optional[str] = None
-    source_id: Optional[int] = None
-    changes: Optional[dict] = None
-    user_id: Optional[int] = None
-    user_name: Optional[str] = None
-    is_read: bool = False
-    read_at: Optional[str] = None
-    created_at: Optional[str] = None
-
-
-class NotificationListResponse(BaseModel):
-    """通知列表回應"""
-    success: bool = True
-    items: List[NotificationItem] = []
-    total: int = 0
-    unread_count: int = 0
-    page: int = 1
-    limit: int = 20
-
-
-class MarkReadRequest(BaseModel):
-    """標記已讀請求"""
-    notification_ids: List[int] = Field(..., description="要標記為已讀的通知 ID 列表")
-
-
-class MarkReadResponse(BaseModel):
-    """標記已讀回應"""
-    success: bool = True
-    updated_count: int = 0
-    message: str = ""
-
-
-class UnreadCountResponse(BaseModel):
-    """未讀數量回應"""
-    success: bool = True
-    unread_count: int = 0
 
 
 # ============================================================================

@@ -17,6 +17,9 @@ from app.extended.models import SiteNavigationItem, SiteConfiguration
 from app.schemas.site_management import (
     NavigationItemCreate, SiteConfigCreate, SiteConfigResponse
 )
+from app.schemas.secure import (
+    SecureRequest, SecureResponse
+)
 from app.core.navigation_validator import (
     validate_navigation_path, get_all_valid_paths
 )
@@ -27,21 +30,8 @@ security = HTTPBearer()
 # CSRF Token 儲存 (生產環境應使用 Redis 或資料庫)
 csrf_tokens: Dict[str, float] = {}
 
-class SecureRequest(BaseModel):
-    """安全請求基礎模型"""
-    action: str = Field(..., description="操作類型")
-    csrf_token: Optional[str] = Field(None, description="CSRF 防護令牌 (開發模式下可選)")
-    data: Optional[Dict[str, Any]] = Field(None, description="請求數據")
+# 注意：SecureRequest, SecureResponse 已統一定義於 app/schemas/secure.py
 
-    class Config:
-        extra = "forbid"
-
-class SecureResponse(BaseModel):
-    """安全回應基礎模型"""
-    success: bool
-    message: str
-    data: Optional[Dict[str, Any]] = None
-    csrf_token: Optional[str] = None
 
 def generate_csrf_token() -> str:
     """生成 CSRF 令牌"""

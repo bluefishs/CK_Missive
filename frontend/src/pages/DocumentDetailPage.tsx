@@ -64,8 +64,8 @@ import { documentsApi } from '../api/documentsApi';
 import { filesApi } from '../api/filesApi';
 import { apiClient } from '../api/client';
 import { Document } from '../types';
-import { calendarIntegrationService } from '../services/calendarIntegrationService';
 import { IntegratedEventModal } from '../components/calendar/IntegratedEventModal';
+import { logger } from '../utils/logger';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -172,13 +172,14 @@ export const DocumentDetailPage: React.FC = () => {
     try {
       const docId = parseInt(id, 10);
       const doc = await documentsApi.getDocument(docId);
-      console.log('[loadDocument] API 完整回傳:', JSON.stringify(doc, null, 2));
+      logger.debug('[loadDocument] API 完整回傳:', JSON.stringify(doc, null, 2));
+      logger.debug('[loadDocument] ck_note 值:', doc.ck_note);
       setDocument(doc);
 
       // 處理 assignee 欄位：字串轉陣列
       let assigneeArray: string[] = [];
       const rawAssignee = (doc as any).assignee;
-      console.log('[loadDocument] 原始 assignee:', rawAssignee, '類型:', typeof rawAssignee);
+      logger.debug('[loadDocument] 原始 assignee:', rawAssignee, '類型:', typeof rawAssignee);
       if (rawAssignee) {
         if (Array.isArray(rawAssignee)) {
           assigneeArray = rawAssignee;
@@ -186,11 +187,11 @@ export const DocumentDetailPage: React.FC = () => {
           assigneeArray = rawAssignee.split(',').map((s: string) => s.trim()).filter(Boolean);
         }
       }
-      console.log('[loadDocument] 處理後 assigneeArray:', assigneeArray);
+      logger.debug('[loadDocument] 處理後 assigneeArray:', assigneeArray);
 
       // 也檢查 assigned_staff 欄位（後端可能使用不同欄位名）
       const assignedStaff = (doc as any).assigned_staff;
-      console.log('[loadDocument] assigned_staff:', assignedStaff);
+      logger.debug('[loadDocument] assigned_staff:', assignedStaff);
 
       // 儲存到狀態變數（作為備用）
       setCurrentAssigneeValues(assigneeArray);
@@ -206,17 +207,17 @@ export const DocumentDetailPage: React.FC = () => {
 
       // 設定專案 ID 並載入業務同仁
       const projectId = (doc as any).contract_project_id;
-      console.log('[loadDocument] contract_project_id:', projectId);
+      logger.debug('[loadDocument] contract_project_id:', projectId);
       if (projectId) {
         setSelectedProjectId(projectId);
         // 等待專案同仁載入完成
         const staffList = await fetchProjectStaff(projectId);
-        console.log('[loadDocument] 載入專案同仁完成:', staffList);
+        logger.debug('[loadDocument] 載入專案同仁完成:', staffList);
 
         // 如果 assignee 為空但有專案同仁，自動填入
         if ((!assigneeArray || assigneeArray.length === 0) && staffList && staffList.length > 0) {
           const staffNames = staffList.map((s: any) => s.user_name);
-          console.log('[loadDocument] 自動填入業務同仁:', staffNames);
+          logger.debug('[loadDocument] 自動填入業務同仁:', staffNames);
           form.setFieldsValue({ assignee: staffNames });
           setCurrentAssigneeValues(staffNames);
         }
@@ -274,7 +275,7 @@ export const DocumentDetailPage: React.FC = () => {
         { page: 1, limit: 100 }
       );
       const usersData = data.users || data.items || [];
-      console.log('[loadUsers] 載入使用者:', usersData.length, '筆');
+      logger.debug('[loadUsers] 載入使用者:', usersData.length, '筆');
       setUsers(Array.isArray(usersData) ? usersData : []);
     } catch (error) {
       console.error('[loadUsers] 載入使用者失敗:', error);
@@ -340,8 +341,9 @@ export const DocumentDetailPage: React.FC = () => {
     try {
       setSaving(true);
       const values = await form.validateFields();
-      console.log('[handleSave] 表單值:', values);
-      console.log('[handleSave] assignee 值:', values.assignee, '類型:', typeof values.assignee);
+      logger.debug('[handleSave] 表單值:', values);
+      logger.debug('[handleSave] ck_note 值:', values.ck_note);
+      logger.debug('[handleSave] assignee 值:', values.assignee, '類型:', typeof values.assignee);
 
       // 處理 assignee：陣列轉逗號分隔字串
       let assigneeStr = '';
@@ -350,7 +352,7 @@ export const DocumentDetailPage: React.FC = () => {
       } else if (values.assignee) {
         assigneeStr = values.assignee;
       }
-      console.log('[handleSave] 儲存的 assigneeStr:', assigneeStr);
+      logger.debug('[handleSave] 儲存的 assigneeStr:', assigneeStr);
 
       const documentData = {
         ...values,
@@ -359,9 +361,10 @@ export const DocumentDetailPage: React.FC = () => {
         send_date: values.send_date?.format('YYYY-MM-DD'),
         assignee: assigneeStr,
       };
+      logger.debug('[handleSave] 送出的 documentData.ck_note:', documentData.ck_note);
 
       const updatedDoc = await documentsApi.updateDocument(parseInt(id!, 10), documentData);
-      console.log('[handleSave] API 回傳:', updatedDoc);
+      logger.debug('[handleSave] API 回傳 ck_note:', updatedDoc.ck_note);
 
       // 上傳新附件
       if (fileList.length > 0) {
@@ -372,9 +375,9 @@ export const DocumentDetailPage: React.FC = () => {
       message.success('儲存成功');
 
       // 重新載入資料（在退出編輯模式之前）
-      console.log('[handleSave] 開始重新載入資料...');
+      logger.debug('[handleSave] 開始重新載入資料...');
       await loadDocument();
-      console.log('[handleSave] 重新載入完成');
+      logger.debug('[handleSave] 重新載入完成');
 
       // 最後才退出編輯模式，確保表單值已更新
       setIsEditing(false);
@@ -430,7 +433,6 @@ export const DocumentDetailPage: React.FC = () => {
       return;
     }
 
-    const allStaffNames = staffList.map((s: any) => s.user_name);
     setSelectedProjectId(effectiveProjectId);
 
     setTimeout(() => {
@@ -452,7 +454,7 @@ export const DocumentDetailPage: React.FC = () => {
   /** 事件建立成功回調 */
   const handleEventCreated = (eventId: number) => {
     message.success('行事曆事件建立成功');
-    console.log('[handleEventCreated] 新建事件 ID:', eventId);
+    logger.debug('[handleEventCreated] 新建事件 ID:', eventId);
   };
 
   /** 複製公文（功能已隱藏，保留備用） */
@@ -814,7 +816,7 @@ export const DocumentDetailPage: React.FC = () => {
 
   // 除錯：監控 watchedAssignee 變化
   useEffect(() => {
-    console.log('[useEffect] watchedAssignee 變化:', watchedAssignee);
+    logger.debug('[useEffect] watchedAssignee 變化:', watchedAssignee);
   }, [watchedAssignee]);
 
   /** Tab 3: 承案人資 */
@@ -857,7 +859,7 @@ export const DocumentDetailPage: React.FC = () => {
         .map((v) => ({ value: v, label: v, key: `current-${v}` }));
 
       const finalOptions = [...baseOptions, ...missingOptions];
-      console.log('[buildAssigneeOptions] currentAssignees:', currentAssignees, 'options count:', finalOptions.length);
+      logger.debug('[buildAssigneeOptions] currentAssignees:', currentAssignees, 'options count:', finalOptions.length);
       return finalOptions;
     };
 

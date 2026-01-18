@@ -52,6 +52,7 @@ import { isAuthDisabled, isInternalIP } from '../config/env';
 import { navigationService } from '../services/navigationService';
 import { secureApiService } from '../services/secureApiService';
 import NotificationCenter from './NotificationCenter';
+import { logger } from '../utils/logger';
 
 const { Header, Sider, Content } = AntLayout;
 const { Title } = Typography;
@@ -110,7 +111,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   // 監聽導覽更新事件（從網站管理頁面觸發）
   useEffect(() => {
     const handleNavigationUpdate = () => {
-      console.log('🔄 Navigation update event received, reloading navigation data...');
+      logger.debug('🔄 Navigation update event received, reloading navigation data...');
       loadNavigationData();
     };
     window.addEventListener('navigation-updated', handleNavigationUpdate);
@@ -122,7 +123,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   // 監聽登入事件，重新載入使用者資訊和權限
   useEffect(() => {
     const handleUserLogin = async () => {
-      console.log('🔐 User login event received, reloading user info and permissions...');
+      logger.debug('🔐 User login event received, reloading user info and permissions...');
       loadUserInfo();
       // 重新載入權限資訊
       await reloadPermissions();
@@ -143,7 +144,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     // 優先使用 localStorage 中的使用者資訊（由登入流程設定）
     if (userInfo) {
       setCurrentUser(userInfo);
-      console.log('✅ 使用 localStorage 中的使用者資訊:', userInfo.full_name || userInfo.username);
+      logger.debug('✅ 使用 localStorage 中的使用者資訊:', userInfo.full_name || userInfo.username);
       return;
     }
 
@@ -162,7 +163,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         login_count: 0,
         email_verified: true
       });
-      console.log('⚠️ 使用預設開發者資訊 (AUTH_DISABLED=true, 無 localStorage)');
+      logger.debug('⚠️ 使用預設開發者資訊 (AUTH_DISABLED=true, 無 localStorage)');
       return;
     }
 
@@ -201,16 +202,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       const adminPermissions = ['admin:users', 'admin:database', 'admin:site_management'];
       if (adminPermissions.includes(permission)) {
         const hasAccess = currentUser.is_admin || currentUser.role === 'admin' || currentUser.role === 'superuser';
-        console.log(`Admin permission ${permission} check result:`, hasAccess);
+        logger.debug(`Admin permission ${permission} check result:`, hasAccess);
         return hasAccess;
       }
       // admin:settings 只有超級管理員可存取
       if (permission === 'admin:settings') {
         const hasAccess = currentUser.role === 'superuser';
-        console.log(`Settings permission ${permission} check result:`, hasAccess);
+        logger.debug(`Settings permission ${permission} check result:`, hasAccess);
         return hasAccess;
       }
-      console.log(`Unknown admin permission: ${permission}`);
+      logger.debug(`Unknown admin permission: ${permission}`);
       return false;
     }
     
@@ -266,7 +267,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       // 檢查是否為開發模式 - 根據環境變數或內網 IP 決定
       const authDisabled = isAuthDisabled();
-      console.log('🔧 Environment variables:', {
+      logger.debug('🔧 Environment variables:', {
         VITE_AUTH_DISABLED: import.meta.env.VITE_AUTH_DISABLED,
         VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
         isInternalIP: isInternalIP(),
@@ -275,7 +276,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       // 開發模式也使用動態導覽列，確保與網站管理頁面一致
       // if (authDisabled) {
-      //   console.log('🛠️ Development mode: Using static navigation');
+      //   logger.debug('🛠️ Development mode: Using static navigation');
       //   const staticItems = getStaticMenuItems();
       //   setMenuItems(staticItems);
       //   return;
@@ -285,19 +286,19 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       navigationService.clearNavigationCache();
       localStorage.removeItem('cache_navigation_items');
       sessionStorage.removeItem('cache_navigation_items');
-      console.log('🗑️ All navigation caches cleared');
+      logger.debug('🗑️ All navigation caches cleared');
 
       // 使用 secureApiService 確保與網站管理頁面資料一致
       const result = await secureApiService.getNavigationItems() as { items?: NavigationItem[] };
       const navigationItems = result.items || [];
-      console.log('📥 Raw navigation items received:', navigationItems.length, 'items');
+      logger.debug('📥 Raw navigation items received:', navigationItems.length, 'items');
 
       // 根據使用者權限和角色過濾導覽項目
       let filteredItems: NavigationItem[];
 
       if (authDisabled) {
         // 開發模式：不進行權限過濾，顯示所有導覽項目
-        console.log('🛠️ Development mode: Showing all navigation items without permission filtering');
+        logger.debug('🛠️ Development mode: Showing all navigation items without permission filtering');
         filteredItems = navigationItems;
       } else {
         // 正式模式：根據權限過濾
@@ -307,7 +308,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         // 如果過濾後沒有項目，顯示基本選單（已登入用戶至少能看到一些功能）
         if (filteredItems.length === 0 && navigationItems.length > 0) {
-          console.log('⚠️ No items after permission filter, showing public items');
+          logger.debug('⚠️ No items after permission filter, showing public items');
           // 顯示不需要權限的項目，或 permission_required 為空的項目
           filteredItems = navigationItems.filter(item => {
             const permRequired = item.permission_required;
@@ -318,7 +319,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       // 轉換為 Ant Design Menu 格式
       const menuItems = convertToMenuItems(filteredItems);
-      console.log('🌲 Dynamic menu items loaded:', menuItems.length, 'items');
+      logger.debug('🌲 Dynamic menu items loaded:', menuItems.length, 'items');
       setMenuItems(menuItems);
 
     } catch (error) {
@@ -329,7 +330,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       const filteredStaticItems = authDisabled
         ? staticItems
         : filterMenuItemsByPermissionLegacy(staticItems);
-      console.log('🔄 Using static menu items as fallback:', filteredStaticItems.length, 'items');
+      logger.debug('🔄 Using static menu items as fallback:', filteredStaticItems.length, 'items');
       setMenuItems(filteredStaticItems);
     } finally {
       setNavigationLoading(false);
@@ -689,7 +690,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             items={menuItems}
             style={{ borderRight: 0 }}
             onClick={({ key }) => {
-              console.log(`🔗 Menu clicked: ${key}`);
+              logger.debug(`🔗 Menu clicked: ${key}`);
               // 查找對應的導覽項目並導航
               const findItemByKey = (items: any[], targetKey: string): any => {
                 for (const item of items) {
@@ -704,10 +705,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
               const clickedItem = findItemByKey(menuItems, key);
               if (clickedItem && clickedItem.path) {
-                console.log(`🚀 Navigating to: ${clickedItem.path}`);
+                logger.debug(`🚀 Navigating to: ${clickedItem.path}`);
                 navigate(clickedItem.path);
               } else {
-                console.log(`❌ No path found for key: ${key}`);
+                logger.debug(`❌ No path found for key: ${key}`);
               }
             }}
           />

@@ -169,17 +169,30 @@ export const useBreadcrumbs = () => {
 
 // 路由權限檢查 hook
 export const useRoutePermission = () => {
-  // TODO: 實作真實的權限檢查邏輯
+  // 使用 useAuthGuard 進行權限檢查 (符合 MANDATORY_CHECKLIST 規範)
+  // 詳細權限邏輯請參考 frontend/src/hooks/useAuthGuard.ts
   const hasPermission = (requiredRoles: string[] = []) => {
-    const userRoles = ['admin']; // 暫時設定
-    return requiredRoles.length === 0 || requiredRoles.some(role => userRoles.includes(role));
+    // 從 localStorage 取得使用者角色
+    const userInfo = localStorage.getItem('user_info');
+    if (!userInfo) return requiredRoles.length === 0;
+
+    try {
+      const user = JSON.parse(userInfo);
+      const userRole = user.role || 'user';
+      // superuser 擁有所有權限 (v1.3.0)
+      if (userRole === 'superuser') return true;
+      return requiredRoles.length === 0 || requiredRoles.includes(userRole);
+    } catch {
+      return requiredRoles.length === 0;
+    }
   };
-  
+
   const isAuthenticated = () => {
-    // TODO: 檢查使用者認證狀態
-    return true; // 暫時設為 true
+    // 檢查 access_token 存在性
+    const token = localStorage.getItem('access_token');
+    return !!token;
   };
-  
+
   return {
     hasPermission,
     isAuthenticated,

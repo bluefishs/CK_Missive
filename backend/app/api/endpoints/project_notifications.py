@@ -4,8 +4,6 @@
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Dict, Any, Optional
-from datetime import datetime
 import logging
 
 from app.db.database import get_async_db
@@ -13,42 +11,19 @@ from app.api.endpoints.auth import get_current_user
 from app.extended.models import User, SystemNotification
 from app.services.project_notification_service import ProjectNotificationService
 from app.services.document_calendar_integrator import DocumentCalendarIntegrator
-from pydantic import BaseModel
+
+# 統一從 schemas 匯入型別定義
+from app.schemas.notification import (
+    NotificationSettingsRequest,
+    TeamNotificationRequest,
+    ProjectUpdateRequest,
+    SingleMarkReadRequest,
+    NotificationResponse
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-# Pydantic 模型
-class NotificationSettingsRequest(BaseModel):
-    project_id: int
-    notification_settings: Dict[str, Any]
-
-class TeamNotificationRequest(BaseModel):
-    project_id: int
-    event_id: int
-    custom_recipients: Optional[List[int]] = None
-
-class ProjectUpdateRequest(BaseModel):
-    project_id: int
-    update_content: str
-    assignee_name: Optional[str] = "系統"
-    exclude_user_ids: Optional[List[int]] = None
-
-class MarkReadRequest(BaseModel):
-    notification_id: int
-
-class NotificationResponse(BaseModel):
-    id: int
-    title: str
-    message: str
-    notification_type: str
-    priority: int
-    is_read: bool
-    created_at: datetime
-    related_object_type: Optional[str] = None
-    related_object_id: Optional[int] = None
-    action_url: Optional[str] = None
 
 # 服務實例
 notification_service = ProjectNotificationService()

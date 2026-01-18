@@ -2,10 +2,8 @@
 提醒管理API端點
 管理行事曆事件的多層級提醒
 """
-from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel
 
 from app.db.database import get_async_db
 from app.api.endpoints.auth import get_current_user
@@ -14,41 +12,16 @@ from app.services.reminder_service import ReminderService
 from app.services.reminder_scheduler import ReminderSchedulerController
 from app.extended.models import User
 
+# 統一從 schemas 匯入型別定義
+from app.schemas.reminder import (
+    ReminderTemplateConfig,
+    CustomReminderTemplate,
+    ReminderActionRequest,
+    ReminderStatusResponse,
+    BatchProcessResponse,
+)
+
 router = APIRouter()
-
-class ReminderTemplateConfig(BaseModel):
-    """提醒模板配置"""
-    minutes: int
-    type: str = "email"  # email/system（內部系統訊息）
-    priority: int = 3
-    title: Optional[str] = None
-
-class CustomReminderTemplate(BaseModel):
-    """自訂提醒模板"""
-    event_id: int
-    template: List[ReminderTemplateConfig]
-
-
-class ReminderActionRequest(BaseModel):
-    """提醒操作請求 (新增/刪除)"""
-    action: str  # 'add' or 'delete'
-    reminder_type: Optional[str] = "system"
-    reminder_minutes: Optional[int] = 60
-    reminder_time: Optional[str] = None
-    reminder_id: Optional[int] = None
-
-class ReminderStatusResponse(BaseModel):
-    """提醒狀態回應"""
-    total: int
-    by_status: Dict[str, int]
-    reminders: List[Dict[str, Any]]
-
-class BatchProcessResponse(BaseModel):
-    """批量處理回應"""
-    total: int
-    sent: int
-    failed: int
-    retries: int
 
 # 初始化服務
 calendar_integrator = DocumentCalendarIntegrator()

@@ -265,24 +265,17 @@ class ReminderService:
                 logger.warning(f"提醒 {reminder.id} 沒有指定收件人")
                 return False
 
-            # 使用現有的專案通知服務發送系統內部通知
-            try:
-                await self.notification_service.send_system_notification(
-                    user_id=reminder.recipient_user_id,
-                    title=reminder.title,
-                    message=reminder.message,
-                    notification_type="reminder",
-                    priority=reminder.priority
-                )
+            # 使用 NotificationService 發送系統內部通知
+            await self.notification_service.send_system_notification(
+                user_id=reminder.recipient_user_id,
+                title=reminder.title,
+                message=reminder.message,
+                notification_type="reminder",
+                priority=reminder.priority
+            )
 
-                logger.info(f"成功發送系統提醒給用戶 {reminder.recipient_user_id}: {reminder.title}")
-                return True
-
-            except AttributeError:
-                # 如果 NotificationService 沒有 send_system_notification 方法，先記錄然後返回成功
-                logger.info(f"發送系統提醒給用戶 {reminder.recipient_user_id}: {reminder.title}")
-                # TODO: 整合到現有的內部通知系統
-                return True
+            logger.info(f"成功發送系統提醒給用戶 {reminder.recipient_user_id}: {reminder.title}")
+            return True
 
         except Exception as e:
             logger.error(f"發送系統提醒失敗: {e}")

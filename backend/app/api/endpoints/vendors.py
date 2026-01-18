@@ -11,7 +11,10 @@ from pydantic import BaseModel, Field
 from app.db.database import get_async_db
 from app.extended.models import User
 from app.core.dependencies import require_auth, require_permission
-from app.schemas.vendor import Vendor, VendorCreate, VendorUpdate
+from app.schemas.vendor import (
+    Vendor, VendorCreate, VendorUpdate,
+    VendorListQuery, VendorStatisticsResponse
+)
 from app.schemas.common import (
     PaginatedResponse,
     PaginationMeta,
@@ -25,28 +28,16 @@ router = APIRouter()
 vendor_service = VendorService()
 
 
-# ============================================================================
-# 查詢參數 Schema
-# ============================================================================
-
-class VendorListQuery(BaseQueryParams):
-    """廠商列表查詢參數"""
-    business_type: Optional[str] = Field(None, description="業務類型篩選")
+# 注意：VendorListQuery, VendorStatisticsResponse 已統一定義於 app/schemas/vendor.py
 
 
 # ============================================================================
-# 回應格式 Schema
+# 回應格式 Schema (保留 VendorListResponse 作為統一分頁格式)
 # ============================================================================
 
 class VendorListResponse(PaginatedResponse):
     """廠商列表回應（使用統一分頁格式）"""
     items: list[Vendor] = Field(default=[], description="廠商列表")
-
-
-class VendorStatisticsResponse(BaseModel):
-    """廠商統計回應"""
-    success: bool = True
-    data: dict = Field(..., description="統計資料")
 
 
 # ============================================================================
