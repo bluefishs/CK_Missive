@@ -16,6 +16,7 @@ from datetime import datetime
 import logging
 
 from app.schemas.common import ErrorCode, ErrorDetail
+from app.core.cors import allowed_origins
 
 logger = logging.getLogger(__name__)
 
@@ -244,13 +245,8 @@ def format_error_response(
 def _get_cors_headers(request: Request) -> dict:
     """取得 CORS 標頭，確保錯誤回應也包含正確的 CORS 設定"""
     origin = request.headers.get("origin", "")
-    allowed_origins = [
-        "http://localhost:3000", "http://localhost:3001", "http://localhost:3002",
-        "http://localhost:3003", "http://localhost:3004", "http://localhost:3005",
-        "http://127.0.0.1:3000", "http://127.0.0.1:3001", "http://127.0.0.1:3002",
-    ]
-
-    # 如果來源在允許清單中，回傳 CORS 標頭
+    
+    # 從 app.core.cors 模組導入統一的 allowed_origins
     if origin in allowed_origins:
         return {
             "Access-Control-Allow-Origin": origin,

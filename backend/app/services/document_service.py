@@ -45,6 +45,7 @@ from app.services.document_calendar_integrator import DocumentCalendarIntegrator
 from app.services.strategies.agency_matcher import AgencyMatcher, ProjectMatcher
 from app.services.calendar.event_auto_builder import CalendarEventAutoBuilder
 from app.core.cache_manager import cache_dropdown_data, cache_statistics
+from app.core.rls_filter import RLSFilter
 
 logger = logging.getLogger(__name__)
 
@@ -357,37 +358,13 @@ class DocumentService:
                 )
 
             # ================================================================
-            # 🔒 行級別權限過濾 (Row-Level Security)
+            # 🔒 行級別權限過濾 (Row-Level Security) - 使用統一 RLSFilter
             # ================================================================
             if current_user is not None:
-                is_admin = getattr(current_user, 'is_admin', False)
-                is_superuser = getattr(current_user, 'is_superuser', False)
-
-                if not is_admin and not is_superuser:
-                    user_id = current_user.id
-                    logger.info(f"[RLS] 使用者 {user_id} 執行公文查詢（非管理員，套用行級別過濾）")
-
-                    # 取得使用者關聯的專案 ID 子查詢
-                    user_project_ids = select(
-                        project_user_assignment.c.project_id
-                    ).where(
-                        and_(
-                            project_user_assignment.c.user_id == user_id,
-                            project_user_assignment.c.status.in_(['active', 'Active', None])
-                        )
-                    )
-
-                    # 公文過濾邏輯：
-                    # 1. 無專案關聯的公文（公開公文）
-                    # 2. 使用者有關聯的專案的公文
-                    query = query.where(
-                        or_(
-                            Document.contract_project_id.is_(None),  # 無專案關聯
-                            Document.contract_project_id.in_(user_project_ids)  # 有關聯的專案
-                        )
-                    )
-                else:
-                    logger.debug(f"[RLS] 管理員 {current_user.id} 執行公文查詢（不套用行級別過濾）")
+                user_id, is_admin, is_superuser = RLSFilter.get_user_rls_flags(current_user)
+                query = RLSFilter.apply_document_rls(
+                    query, Document, user_id, is_admin, is_superuser
+                )
 
             if filters:
                 query = self._apply_filters(query, filters)

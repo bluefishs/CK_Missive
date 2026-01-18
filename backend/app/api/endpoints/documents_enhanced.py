@@ -67,6 +67,7 @@ from app.schemas.document_query import (
     ExcelExportRequest,
 )
 from app.core.exceptions import NotFoundException, ForbiddenException
+from app.core.rls_filter import RLSFilter
 from app.core.audit_logger import DocumentUpdateGuard
 from app.services.notification_service import NotificationService, CRITICAL_FIELDS
 from app.core.dependencies import require_auth, require_permission
@@ -865,21 +866,13 @@ async def get_document_detail(
                 }
             )
 
-        # 🔒 行級別權限檢查 (RLS)
+        # 🔒 行級別權限檢查 (RLS) - 使用統一 RLSFilter
         if not current_user.is_admin and not current_user.is_superuser:
-            # 檢查使用者是否有權限查看此公文
             if document.contract_project_id:
-                # 公文有關聯專案，檢查使用者是否為專案成員
-                access_check = await db.execute(
-                    select(project_user_assignment.c.id).where(
-                        and_(
-                            project_user_assignment.c.project_id == document.contract_project_id,
-                            project_user_assignment.c.user_id == current_user.id,
-                            project_user_assignment.c.status.in_(['active', 'Active', None])
-                        )
-                    ).limit(1)
+                has_access = await RLSFilter.check_user_project_access(
+                    db, current_user.id, document.contract_project_id
                 )
-                if not access_check.scalar_one_or_none():
+                if not has_access:
                     raise ForbiddenException("您沒有權限查看此公文")
             # 無專案關聯的公文視為公開，不需額外檢查
 
@@ -1043,19 +1036,13 @@ async def update_document(
         if not document:
             raise NotFoundException(resource="公文", resource_id=document_id)
 
-        # 🔒 行級別權限檢查 (RLS) - 非管理員只能編輯關聯專案的公文
+        # 🔒 行級別權限檢查 (RLS) - 使用統一 RLSFilter
         if not current_user.is_admin and not current_user.is_superuser:
             if document.contract_project_id:
-                access_check = await db.execute(
-                    select(project_user_assignment.c.id).where(
-                        and_(
-                            project_user_assignment.c.project_id == document.contract_project_id,
-                            project_user_assignment.c.user_id == current_user.id,
-                            project_user_assignment.c.status.in_(['active', 'Active', None])
-                        )
-                    ).limit(1)
+                has_access = await RLSFilter.check_user_project_access(
+                    db, current_user.id, document.contract_project_id
                 )
-                if not access_check.scalar_one_or_none():
+                if not has_access:
                     raise ForbiddenException("您沒有權限編輯此公文")
 
         # 初始化審計保護器，記錄原始資料
@@ -1178,19 +1165,13 @@ async def delete_document(
         if not document:
             raise NotFoundException(resource="公文", resource_id=document_id)
 
-        # 🔒 行級別權限檢查 (RLS) - 非管理員只能刪除關聯專案的公文
+        # 🔒 行級別權限檢查 (RLS) - 使用統一 RLSFilter
         if not current_user.is_admin and not current_user.is_superuser:
             if document.contract_project_id:
-                access_check = await db.execute(
-                    select(project_user_assignment.c.id).where(
-                        and_(
-                            project_user_assignment.c.project_id == document.contract_project_id,
-                            project_user_assignment.c.user_id == current_user.id,
-                            project_user_assignment.c.status.in_(['active', 'Active', None])
-                        )
-                    ).limit(1)
+                has_access = await RLSFilter.check_user_project_access(
+                    db, current_user.id, document.contract_project_id
                 )
-                if not access_check.scalar_one_or_none():
+                if not has_access:
                     raise ForbiddenException("您沒有權限刪除此公文")
 
         # 2. 查詢關聯的附件記錄（在刪除前取得檔案路徑）

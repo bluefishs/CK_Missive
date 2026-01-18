@@ -22,6 +22,7 @@
 """
 
 from datetime import datetime, date
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select, desc, extract, or_
 from sqlalchemy.orm import selectinload

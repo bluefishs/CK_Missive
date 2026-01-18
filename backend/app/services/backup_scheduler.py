@@ -187,8 +187,15 @@ async def stop_backup_scheduler():
         await _backup_scheduler.stop()
 
 
+def get_backup_scheduler() -> Optional[BackupScheduler]:
+    """取得備份排程器實例"""
+    return _backup_scheduler
+
+
 def get_backup_scheduler_status() -> dict:
     """取得備份排程器狀態"""
     if _backup_scheduler is None:
         return {"running": False, "next_backup": None}
     return _backup_scheduler.get_status()
+
+

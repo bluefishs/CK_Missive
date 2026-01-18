@@ -2,6 +2,7 @@
 提醒管理API端點
 管理行事曆事件的多層級提醒
 """
+from typing import Any, Dict, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 

@@ -22,18 +22,20 @@ class BackupService:
     """備份服務類別"""
 
     def __init__(self):
-        # 專案根目錄
-        self.project_root = Path(__file__).parent.parent.parent.parent
+        # 專案根目錄 - 容器內使用 /app
+        self.project_root = Path("/app")
 
-        # 備份目錄
-        self.backup_dir = self.project_root / "backups" / "database"
-        self.attachment_backup_dir = self.project_root / "backups" / "attachments"
-        self.uploads_dir = self.project_root / "backend" / "uploads"
-        self.log_dir = self.project_root / "logs" / "backup"
+        # 備份目錄 - 使用容器內路徑
+        self.backup_dir = Path("/app/backups/database")
+        self.attachment_backup_dir = Path("/app/backups/attachments")
+        self.uploads_dir = Path("/app/uploads")
+        self.log_dir = Path("/app/logs/backup")
 
         # 備份腳本路徑
         self.backup_script = self.project_root / "scripts" / "backup" / "db_backup.ps1"
-        self.restore_script = self.project_root / "scripts" / "backup" / "db_restore.ps1"
+        self.restore_script = (
+            self.project_root / "scripts" / "backup" / "db_restore.ps1"
+        )
 
         # 資料庫連線設定 - 從 settings 讀取，不再硬編碼
         self.db_user = settings.POSTGRES_USER
@@ -51,7 +53,7 @@ class BackupService:
         """從環境變數載入設定"""
         env_file = self.project_root / ".env"
         if env_file.exists():
-            with open(env_file, 'r', encoding='utf-8') as f:
+            with open(env_file, "r", encoding="utf-8") as f:
                 for line in f:
                     line = line.strip()
                     if line.startswith("POSTGRES_USER="):
@@ -74,10 +76,10 @@ class BackupService:
                 ["docker", "ps", "--filter", "name=postgres", "--format", "{{.Names}}"],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=10,
             )
             if result.returncode == 0 and result.stdout.strip():
-                return result.stdout.strip().split('\n')[0]
+                return result.stdout.strip().split("\n")[0]
         except Exception:
             pass
         return self.container_name
@@ -86,7 +88,7 @@ class BackupService:
         self,
         include_database: bool = True,
         include_attachments: bool = True,
-        retention_days: int = 7
+        retention_days: int = 7,
     ) -> Dict[str, Any]:
         """
         建立備份
@@ -105,7 +107,7 @@ class BackupService:
             "timestamp": timestamp,
             "database_backup": None,
             "attachments_backup": None,
-            "errors": []
+            "errors": [],
         }
 
         # 資料庫備份
@@ -140,19 +142,26 @@ class BackupService:
 
             result = subprocess.run(
                 [
-                    "docker", "exec", container,
-                    "pg_dump", "-U", self.db_user, "-d", self.db_name,
-                    "--no-owner", "--no-acl"
+                    "docker",
+                    "exec",
+                    container,
+                    "pg_dump",
+                    "-U",
+                    self.db_user,
+                    "-d",
+                    self.db_name,
+                    "--no-owner",
+                    "--no-acl",
                 ],
                 capture_output=True,
                 text=True,
                 timeout=300,
-                env=env
+                env=env,
             )
 
             if result.returncode == 0:
                 # 寫入備份檔案
-                with open(backup_file, 'w', encoding='utf-8') as f:
+                with open(backup_file, "w", encoding="utf-8") as f:
                     f.write(result.stdout)
 
                 file_size = backup_file.stat().st_size
@@ -161,13 +170,10 @@ class BackupService:
                     "file": str(backup_file),
                     "filename": backup_file.name,
                     "size_bytes": file_size,
-                    "size_kb": round(file_size / 1024, 2)
+                    "size_kb": round(file_size / 1024, 2),
                 }
             else:
-                return {
-                    "success": False,
-                    "error": f"pg_dump failed: {result.stderr}"
-                }
+                return {"success": False, "error": f"pg_dump failed: {result.stderr}"}
 
         except subprocess.TimeoutExpired:
             return {"success": False, "error": "Backup timeout"}
@@ -191,7 +197,9 @@ class BackupService:
             shutil.copytree(self.uploads_dir, backup_path)
 
             # 計算備份大小
-            total_size = sum(f.stat().st_size for f in backup_path.rglob("*") if f.is_file())
+            total_size = sum(
+                f.stat().st_size for f in backup_path.rglob("*") if f.is_file()
+            )
 
             return {
                 "success": True,
@@ -199,7 +207,7 @@ class BackupService:
                 "dirname": backup_path.name,
                 "file_count": file_count,
                 "size_bytes": total_size,
-                "size_mb": round(total_size / (1024 * 1024), 2)
+                "size_mb": round(total_size / (1024 * 1024), 2),
             }
         except Exception as e:
             return {"success": False, "error": str(e)}
@@ -225,34 +233,44 @@ class BackupService:
         attachment_backups = []
 
         # 資料庫備份列表
-        for backup_file in sorted(self.backup_dir.glob("ck_missive_backup_*.sql"), reverse=True):
+        for backup_file in sorted(
+            self.backup_dir.glob("ck_missive_backup_*.sql"), reverse=True
+        ):
             stat = backup_file.stat()
-            database_backups.append({
-                "filename": backup_file.name,
-                "path": str(backup_file),
-                "size_bytes": stat.st_size,
-                "size_kb": round(stat.st_size / 1024, 2),
-                "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
-                "type": "database"
-            })
+            database_backups.append(
+                {
+                    "filename": backup_file.name,
+                    "path": str(backup_file),
+                    "size_bytes": stat.st_size,
+                    "size_kb": round(stat.st_size / 1024, 2),
+                    "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                    "type": "database",
+                }
+            )
 
         # 附件備份列表
-        for backup_dir in sorted(self.attachment_backup_dir.glob("attachments_backup_*"), reverse=True):
+        for backup_dir in sorted(
+            self.attachment_backup_dir.glob("attachments_backup_*"), reverse=True
+        ):
             if backup_dir.is_dir():
                 stat = backup_dir.stat()
                 # 計算目錄大小
-                total_size = sum(f.stat().st_size for f in backup_dir.rglob("*") if f.is_file())
+                total_size = sum(
+                    f.stat().st_size for f in backup_dir.rglob("*") if f.is_file()
+                )
                 file_count = len(list(backup_dir.rglob("*")))
 
-                attachment_backups.append({
-                    "dirname": backup_dir.name,
-                    "path": str(backup_dir),
-                    "size_bytes": total_size,
-                    "size_mb": round(total_size / (1024 * 1024), 2),
-                    "file_count": file_count,
-                    "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
-                    "type": "attachments"
-                })
+                attachment_backups.append(
+                    {
+                        "dirname": backup_dir.name,
+                        "path": str(backup_dir),
+                        "size_bytes": total_size,
+                        "size_mb": round(total_size / (1024 * 1024), 2),
+                        "file_count": file_count,
+                        "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                        "type": "attachments",
+                    }
+                )
 
         # 統計資訊
         total_db_size = sum(b["size_bytes"] for b in database_backups)
@@ -266,11 +284,15 @@ class BackupService:
                 "attachment_backup_count": len(attachment_backups),
                 "total_database_size_mb": round(total_db_size / (1024 * 1024), 2),
                 "total_attachment_size_mb": round(total_att_size / (1024 * 1024), 2),
-                "total_size_mb": round((total_db_size + total_att_size) / (1024 * 1024), 2)
-            }
+                "total_size_mb": round(
+                    (total_db_size + total_att_size) / (1024 * 1024), 2
+                ),
+            },
         }
 
-    async def delete_backup(self, backup_name: str, backup_type: str = "database") -> Dict[str, Any]:
+    async def delete_backup(
+        self, backup_name: str, backup_type: str = "database"
+    ) -> Dict[str, Any]:
         """刪除指定備份"""
         try:
             if backup_type == "database":
@@ -299,7 +321,7 @@ class BackupService:
 
         try:
             # 讀取備份內容
-            with open(backup_file, 'r', encoding='utf-8') as f:
+            with open(backup_file, "r", encoding="utf-8") as f:
                 sql_content = f.read()
 
             # 使用 psql 還原
@@ -308,26 +330,30 @@ class BackupService:
 
             result = subprocess.run(
                 [
-                    "docker", "exec", "-i", container,
-                    "psql", "-U", self.db_user, "-d", self.db_name
+                    "docker",
+                    "exec",
+                    "-i",
+                    container,
+                    "psql",
+                    "-U",
+                    self.db_user,
+                    "-d",
+                    self.db_name,
                 ],
                 input=sql_content,
                 capture_output=True,
                 text=True,
                 timeout=600,
-                env=env
+                env=env,
             )
 
             if result.returncode == 0:
                 return {
                     "success": True,
-                    "message": f"Database restored from {backup_name}"
+                    "message": f"Database restored from {backup_name}",
                 }
             else:
-                return {
-                    "success": False,
-                    "error": f"Restore failed: {result.stderr}"
-                }
+                return {"success": False, "error": f"Restore failed: {result.stderr}"}
 
         except subprocess.TimeoutExpired:
             return {"success": False, "error": "Restore timeout"}
@@ -345,7 +371,7 @@ class BackupService:
             "script_exists": self.backup_script.exists(),
             "container_name": self._get_running_container() or self.container_name,
             "database_name": self.db_name,
-            "database_user": self.db_user
+            "database_user": self.db_user,
         }
 
 

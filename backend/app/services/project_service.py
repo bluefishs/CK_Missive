@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from app.extended.models import User
 
 from app.schemas.project import ProjectCreate, ProjectUpdate
+from app.core.rls_filter import RLSFilter
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ class ProjectService:
         """
         檢查使用者是否有權限存取指定專案
 
-        透過 project_user_assignments 表檢查使用者與專案的關聯。
+        使用統一的 RLSFilter 進行權限檢查。
 
         Args:
             db: 資料庫 session
@@ -46,19 +47,7 @@ class ProjectService:
         Returns:
             bool: 是否有存取權限
         """
-        query = select(
-            exists(
-                select(1).where(
-                    and_(
-                        project_user_assignment.c.project_id == project_id,
-                        project_user_assignment.c.user_id == user_id,
-                        project_user_assignment.c.status.in_(['active', 'Active', None])
-                    )
-                )
-            )
-        )
-        result = await db.execute(query)
-        return result.scalar()
+        return await RLSFilter.check_user_project_access(db, user_id, project_id)
 
     async def get_projects(
         self,
@@ -84,32 +73,13 @@ class ProjectService:
         query = select(ContractProject)
 
         # ====================================================================
-        # 🔒 行級別權限過濾 (Row-Level Security)
+        # 🔒 行級別權限過濾 (Row-Level Security) - 使用統一 RLSFilter
         # ====================================================================
         if current_user is not None:
-            # 檢查是否為管理員或超級管理員
-            is_admin = getattr(current_user, 'is_admin', False)
-            is_superuser = getattr(current_user, 'is_superuser', False)
-
-            if not is_admin and not is_superuser:
-                # 非管理員：只能查看自己關聯的專案
-                user_id = current_user.id
-                logger.info(f"[RLS] 使用者 {user_id} 執行專案查詢（非管理員，套用行級別過濾）")
-
-                # 使用 EXISTS 子查詢檢查使用者是否與專案有關聯
-                user_project_filter = exists(
-                    select(1).where(
-                        and_(
-                            project_user_assignment.c.project_id == ContractProject.id,
-                            project_user_assignment.c.user_id == user_id,
-                            # 只查看 active 狀態的指派
-                            project_user_assignment.c.status.in_(['active', 'Active', None])
-                        )
-                    )
-                )
-                query = query.where(user_project_filter)
-            else:
-                logger.debug(f"[RLS] 管理員 {current_user.id} 執行專案查詢（不套用行級別過濾）")
+            user_id, is_admin, is_superuser = RLSFilter.get_user_rls_flags(current_user)
+            query = RLSFilter.apply_project_rls(
+                query, ContractProject, user_id, is_admin, is_superuser
+            )
 
         # ====================================================================
         # 一般篩選條件

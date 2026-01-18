@@ -27,6 +27,7 @@ from app.api.endpoints.auth import get_current_user
 from app.core.dependencies import require_auth
 from app.core.config import settings
 from app.core.exceptions import ForbiddenException
+from app.core.rls_filter import RLSFilter
 
 router = APIRouter()
 
@@ -239,7 +240,7 @@ async def check_document_access(
     current_user: User
 ) -> bool:
     """
-    🔒 檢查使用者是否有權限存取指定公文
+    🔒 檢查使用者是否有權限存取指定公文 - 使用統一 RLSFilter
 
     權限規則：
     - superuser/admin: 可存取所有公文
@@ -260,18 +261,8 @@ async def check_document_access(
     if not project_id:
         return True
 
-    # 檢查使用者與專案的關聯
-    access_check = await db.execute(
-        select(project_user_assignment.c.id).where(
-            and_(
-                project_user_assignment.c.project_id == project_id,
-                project_user_assignment.c.user_id == current_user.id,
-                project_user_assignment.c.status.in_(['active', 'Active', None])
-            )
-        ).limit(1)
-    )
-
-    return access_check.scalar_one_or_none() is not None
+    # 使用統一 RLSFilter 檢查專案存取權限
+    return await RLSFilter.check_user_project_access(db, current_user.id, project_id)
 
 
 # ============================================================================
