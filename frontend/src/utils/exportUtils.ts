@@ -1,5 +1,6 @@
 import { Document, DocumentFilter } from '../types';
 import { API_BASE_URL } from '../api/client';
+import { logger } from './logger';
 
 /**
  * 匯出文件到 Excel（非同步版本，呼叫後端 API）
@@ -108,9 +109,9 @@ export const exportDocumentsToExcel = async (
     a.remove();
     window.URL.revokeObjectURL(url);
 
-    console.log(`已成功請求匯出 ${documents.length} 筆文件到 ${finalFilename}.xlsx`);
+    logger.debug(`已成功請求匯出 ${documents.length} 筆文件到 ${finalFilename}.xlsx`);
   } catch (error) {
-    console.error('匯出 Excel 失敗:', error);
+    logger.error('匯出 Excel 失敗:', error);
     // 將錯誤向上拋出，以便 UI 層可以捕獲並顯示訊息
     throw error;
   }

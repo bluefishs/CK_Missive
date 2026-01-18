@@ -54,6 +54,7 @@ class ErrorBoundary extends Component<Props, State> {
     }
 
     // 記錄錯誤到控制台和可能的錯誤追蹤服務
+    // eslint-disable-next-line no-console
     console.error('ErrorBoundary caught an error:', error, errorInfo);
 
     // 這裡可以集成錯誤追蹤服務 (如 Sentry)
@@ -73,6 +74,7 @@ class ErrorBoundary extends Component<Props, State> {
     };
 
     // 在實際應用中，這裡會發送到錯誤追蹤服務
+    // eslint-disable-next-line no-console
     console.log('Error Report:', errorReport);
 
     // 可以發送到後端 API

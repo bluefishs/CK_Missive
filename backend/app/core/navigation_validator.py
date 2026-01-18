@@ -50,6 +50,9 @@ VALID_NAVIGATION_PATHS: Set[str] = {
     "/unified-form-demo",
     "/api-mapping",
     "/api/docs",
+
+    # 專案專區
+    "/taoyuan/dispatch",
 }
 
 # 路徑描述對照表（用於錯誤訊息和前端下拉選單）
@@ -79,6 +82,7 @@ PATH_DESCRIPTIONS = {
     "/unified-form-demo": "統一表單示例",
     "/api-mapping": "API對應表",
     "/api/docs": "API文件",
+    "/taoyuan/dispatch": "桃園查估派工",
 }
 
 

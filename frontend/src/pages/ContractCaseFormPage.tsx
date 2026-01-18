@@ -14,6 +14,7 @@ import {
   message,
   Spin,
 } from 'antd';
+import { logger } from '../utils/logger';
 import {
   ArrowLeftOutlined,
   SaveOutlined,
@@ -107,7 +108,7 @@ export const ContractCaseFormPage: React.FC = () => {
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // 這裡未來會替換為真實的API調用
-      console.log('Submitting data:', submitData);
+      logger.debug('Submitting data:', submitData);
       
       message.success(isEdit ? '更新成功' : '新增成功');
       navigate(ROUTES.CONTRACT_CASES);

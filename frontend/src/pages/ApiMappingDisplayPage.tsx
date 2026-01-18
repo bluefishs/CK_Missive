@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Typography, Table, Spin, Alert } from 'antd';
+import { logger } from '../utils/logger';
 
 const { Title, Paragraph } = Typography;
 
@@ -92,8 +93,8 @@ export const ApiMappingDisplayPage: React.FC = () => {
 
   useEffect(() => {
     // 強制使用 fallback 數據，完全繞過任何 API 調用
-    console.log('🔧 [ApiMappingDisplayPage] 強制使用 fallback 數據');
-    console.log('🔧 [ApiMappingDisplayPage] Environment:', {
+    logger.debug('🔧 [ApiMappingDisplayPage] 強制使用 fallback 數據');
+    logger.debug('🔧 [ApiMappingDisplayPage] Environment:', {
       NODE_ENV: process.env.NODE_ENV,
       DEV: import.meta.env.DEV,
       MODE: import.meta.env.MODE,
@@ -105,7 +106,7 @@ export const ApiMappingDisplayPage: React.FC = () => {
     setApiMappings(FALLBACK_DATA);
     setLoading(false);
 
-    console.log('🔧 [ApiMappingDisplayPage] Fallback data loaded:', FALLBACK_DATA.length, 'items');
+    logger.debug('🔧 [ApiMappingDisplayPage] Fallback data loaded:', FALLBACK_DATA.length, 'items');
   }, []);
 
   const columns = [

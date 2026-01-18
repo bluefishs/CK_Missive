@@ -2,6 +2,7 @@ import React from 'react';
 import { Form, Input, Select, Button, Card, Row, Col, App } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { logger } from '../utils/logger';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -12,7 +13,7 @@ export const DocumentCreatePage: React.FC = () => {
   const [form] = Form.useForm();
 
   const onFinish = (values: any) => {
-    console.log('Form values:', values);
+    logger.debug('Form values:', values);
     message.success('公文建立成功！');
     navigate('/documents');
   };

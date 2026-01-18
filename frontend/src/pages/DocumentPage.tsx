@@ -21,6 +21,7 @@ import { useDocumentsStore } from '../store';
 import { Document, DocumentFilter as IDocumentFilter } from '../types';
 import { calendarIntegrationService } from '../services/calendarIntegrationService';
 import { queryKeys } from '../config/queryConfig';
+import { logger } from '../utils/logger';
 
 const { Title } = Typography;
 
@@ -39,9 +40,9 @@ export const DocumentPage: React.FC = () => {
 
   // 權限控制
   const { hasPermission } = useAuthGuard();
-  const canCreate = hasPermission('documents:create' as any);
-  const canEdit = hasPermission('documents:edit' as any);
-  const canDelete = hasPermission('documents:delete' as any);
+  const canCreate = hasPermission('documents:create');
+  const canEdit = hasPermission('documents:edit');
+  const canDelete = hasPermission('documents:delete');
 
   // Zustand: 只用於 UI 狀態（篩選條件、分頁設定）
   const { filters, pagination, setFilters, setPagination, resetFilters } = useDocumentsStore();
@@ -226,7 +227,7 @@ export const DocumentPage: React.FC = () => {
   const handleBatchDelete = async (selectedDocuments: Document[]) => {
     try {
       const ids = selectedDocuments.map(d => d.id);
-      console.log('批量刪除 IDs:', ids);
+      logger.debug('批量刪除 IDs:', ids);
       message.success(`已刪除 ${selectedDocuments.length} 個公文`);
       await forceRefresh();
     } catch (error) {
@@ -237,7 +238,7 @@ export const DocumentPage: React.FC = () => {
   const handleBatchArchive = async (selectedDocuments: Document[]) => {
     try {
       const ids = selectedDocuments.map(d => d.id);
-      console.log('批量歸檔 IDs:', ids);
+      logger.debug('批量歸檔 IDs:', ids);
       message.success(`已歸檔 ${selectedDocuments.length} 個公文`);
       await forceRefresh();
     } catch (error) {

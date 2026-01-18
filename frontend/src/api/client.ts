@@ -66,7 +66,9 @@ export const SERVER_BASE_URL = API_BASE_URL.replace(/\/api$/, '');
 
 // 開發模式下輸出 API URL 資訊
 if (import.meta.env.DEV) {
+  // eslint-disable-next-line no-console
   console.log('🔗 Dynamic API URL:', API_BASE_URL);
+  // eslint-disable-next-line no-console
   console.log('   Hostname:', window.location.hostname);
 }
 

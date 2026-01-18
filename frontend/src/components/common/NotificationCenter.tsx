@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Badge,
   Button,
@@ -12,6 +12,7 @@ import {
   Divider,
   message,
 } from 'antd';
+import { logger } from '../../utils/logger';
 import {
   BellOutlined,
   CheckOutlined,
@@ -147,7 +148,7 @@ export const NotificationCenter: React.FC = () => {
     // 若有關聯公文，可以導航到公文詳情
     if (notification.source_table === 'documents' && notification.source_id) {
       // 這裡可以實作導航邏輯
-      console.log(`Navigate to document ${notification.source_id}`);
+      logger.debug(`Navigate to document ${notification.source_id}`);
     }
   }, [markReadMutation]);
 

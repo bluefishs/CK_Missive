@@ -1,18 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Card, 
-  Typography, 
-  Row, 
-  Col, 
-  Statistic, 
-  Select, 
-  DatePicker, 
+import {
+  Card,
+  Typography,
+  Row,
+  Col,
+  Statistic,
+  Select,
+  DatePicker,
   Space,
   Table,
   Button,
   Spin,
   message
 } from 'antd';
+import { logger } from '../utils/logger';
 import {
   BarChart,
   Bar,
@@ -61,7 +62,7 @@ const ReportsPage: React.FC = () => {
     setLoading(true);
     try {
       // 載入文件統計數據 (暫時使用模擬數據)
-      console.log('Loading reports data for period:', selectedPeriod);
+      logger.debug('Loading reports data for period:', selectedPeriod);
 
       // 模擬 API 回應數據
       const mockData = {
@@ -109,7 +110,7 @@ const ReportsPage: React.FC = () => {
       setTotalStats(mockTotalStats);
 
     } catch (error) {
-      console.error('Failed to load report data:', error);
+      logger.error('Failed to load report data:', error);
       message.error('載入報表數據失敗');
 
       // 設置空數據

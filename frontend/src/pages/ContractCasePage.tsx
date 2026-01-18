@@ -138,9 +138,9 @@ export const ContractCasePage: React.FC = () => {
 
   // 🔒 權限控制 Hook
   const { hasPermission } = useAuthGuard();
-  const canCreate = hasPermission('projects:write' as any);
-  const canEdit = hasPermission('projects:write' as any);
-  const canDelete = hasPermission('projects:delete' as any);
+  const canCreate = hasPermission('projects:write');
+  const canEdit = hasPermission('projects:write');
+  const canDelete = hasPermission('projects:delete');
 
   // ---[UI 狀態管理]---
   const [viewMode, setViewMode] = useState<ViewMode>('list');

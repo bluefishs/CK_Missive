@@ -20,6 +20,7 @@ import {
   getCategoryColor,
   type TableMetadataItem
 } from '../../config/databaseMetadata';
+import { logger } from '../../utils/logger';
 
 const { Title, Text } = Typography;
 
@@ -61,9 +62,9 @@ export const SimpleDatabaseViewer: React.FC = () => {
   const fetchDatabaseInfo = async () => {
     setLoading(true);
     try {
-      console.log('🔍 Fetching database info via apiClient');
+      logger.debug('🔍 Fetching database info via apiClient');
       const data = await apiClient.post<DatabaseInfo>('/admin/database/info', {});
-      console.log('✅ Database info loaded:', data);
+      logger.debug('✅ Database info loaded:', data);
       setDatabaseInfo(data);
       message.success('資料庫信息載入成功');
     } catch (error) {
@@ -111,7 +112,7 @@ export const SimpleDatabaseViewer: React.FC = () => {
         ]
       };
 
-      console.log('🔄 Using fallback data for development mode');
+      logger.debug('🔄 Using fallback data for development mode');
       setDatabaseInfo(fallbackData);
       message.warning('使用離線資料模式（API連接失敗）');
     } finally {

@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Logger 服務 - 統一日誌管理
  *

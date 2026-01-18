@@ -3,20 +3,25 @@
  *
  * 提供統一的認證與權限檢查功能
  *
- * @version 1.1.0
- * @date 2026-01-11
+ * @version 1.3.0
+ * @date 2026-01-15
+ * @changelog
+ * - v1.3.0: 新增 superuser 角色擁有所有角色權限的邏輯
  */
 
 import { useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import authService from '../services/authService';
 import { ROUTES } from '../router/types';
-import { isAuthDisabled } from '../config/env';
+import { isAuthDisabled, isInternalNetwork } from '../config/env';
+import { logger } from '../utils/logger';
 
 /** 權限類型 */
 export type Permission =
   | 'documents:read'
   | 'documents:write'
+  | 'documents:create'
+  | 'documents:edit'
   | 'documents:delete'
   | 'projects:read'
   | 'projects:write'
@@ -50,24 +55,38 @@ export interface AuthGuardOptions {
 }
 
 /**
+ * 檢查是否應該繞過認證檢查
+ * 條件：
+ * 1. VITE_AUTH_DISABLED=true（完全停用認證）
+ * 2. 內網環境 + 已有 internal auth_provider 的 user_info
+ */
+const shouldBypassAuth = (): boolean => {
+  // 環境變數完全停用認證
+  if (isAuthDisabled()) {
+    logger.debug('[AuthGuard] Bypass: AUTH_DISABLED=true');
+    return true;
+  }
+
+  // 內網環境 + 已通過快速進入
+  const isInternal = isInternalNetwork();
+  const userInfo = authService.getUserInfo();
+
+  logger.debug('[AuthGuard] Check:', {
+    isInternalNetwork: isInternal,
+    hasUserInfo: !!userInfo,
+    authProvider: userInfo?.auth_provider
+  });
+
+  if (isInternal && userInfo && userInfo.auth_provider === 'internal') {
+    logger.debug('[AuthGuard] Bypass: Internal network + internal auth');
+    return true;
+  }
+
+  return false;
+};
+
+/**
  * 認證守衛 Hook
- *
- * @example
- * ```tsx
- * // 基本使用
- * const { isAuthenticated, checkAuth } = useAuthGuard();
- *
- * // 需要認證
- * const { isAllowed } = useAuthGuard({ requireAuth: true });
- *
- * // 需要管理員權限
- * const { isAllowed } = useAuthGuard({ roles: ['admin'] });
- *
- * // 需要特定權限
- * const { isAllowed, hasPermission } = useAuthGuard({
- *   permissions: ['documents:write']
- * });
- * ```
  */
 export function useAuthGuard(options: AuthGuardOptions = {}) {
   const navigate = useNavigate();
@@ -81,22 +100,25 @@ export function useAuthGuard(options: AuthGuardOptions = {}) {
     showAlert = false,
   } = options;
 
-  // 檢查是否禁用認證 (開發模式或內網 IP)
-  const authDisabled = isAuthDisabled();
+  // 檢查是否繞過認證
+  const authBypassed = shouldBypassAuth();
 
   // 取得認證狀態
   const authState = useMemo<AuthState>(() => {
-    if (authDisabled) {
+    if (authBypassed) {
+      // 繞過模式：從 localStorage 取得 user_info 或使用預設管理員
+      const userInfo = authService.getUserInfo();
       return {
         isAuthenticated: true,
-        isAdmin: true,
-        userId: 0,
-        username: 'dev-user',
-        role: 'admin',
+        isAdmin: userInfo?.is_admin ?? true,
+        userId: userInfo?.id ?? 0,
+        username: userInfo?.username ?? 'dev-user',
+        role: userInfo?.role ?? 'admin',
         permissions: [] as Permission[],
       };
     }
 
+    // 正常模式：檢查實際認證狀態
     const userInfo = authService.getUserInfo();
     const isAuthenticated = authService.isAuthenticated();
     const isAdmin = authService.isAdmin();
@@ -109,42 +131,45 @@ export function useAuthGuard(options: AuthGuardOptions = {}) {
       role: userInfo?.role ?? null,
       permissions: (userInfo?.permissions as Permission[]) ?? [],
     };
-  }, [authDisabled]);
+  }, [authBypassed]);
 
   // 檢查角色
   const hasRole = useMemo(() => {
-    if (authDisabled || roles.length === 0) return true;
+    if (authBypassed || roles.length === 0) return true;
+
+    // superuser 擁有所有角色權限
+    if (authState.role === 'superuser') return true;
 
     return roles.some((role) => {
       if (role === 'admin') return authState.isAdmin;
       return authState.role === role;
     });
-  }, [authDisabled, roles, authState]);
+  }, [authBypassed, roles, authState]);
 
   // 檢查權限
   const hasAllPermissions = useMemo(() => {
-    if (authDisabled || permissions.length === 0) return true;
+    if (authBypassed || permissions.length === 0) return true;
 
     // 管理員擁有所有權限
     if (authState.isAdmin) return true;
 
     return permissions.every((perm) => authState.permissions.includes(perm));
-  }, [authDisabled, permissions, authState]);
+  }, [authBypassed, permissions, authState]);
 
   // 是否允許訪問
   const isAllowed = useMemo(() => {
-    if (authDisabled) return true;
+    if (authBypassed) return true;
 
     if (requireAuth && !authState.isAuthenticated) return false;
     if (!hasRole) return false;
     if (!hasAllPermissions) return false;
 
     return true;
-  }, [authDisabled, requireAuth, authState, hasRole, hasAllPermissions]);
+  }, [authBypassed, requireAuth, authState, hasRole, hasAllPermissions]);
 
   // 執行守衛邏輯
   useEffect(() => {
-    if (authDisabled) return;
+    if (authBypassed) return;
 
     if (!isAllowed) {
       if (showAlert) {
@@ -155,18 +180,18 @@ export function useAuthGuard(options: AuthGuardOptions = {}) {
       const returnUrl = encodeURIComponent(location.pathname + location.search);
       navigate(`${redirectTo}?returnUrl=${returnUrl}`, { replace: true });
     }
-  }, [isAllowed, authDisabled, navigate, redirectTo, location, showAlert]);
+  }, [isAllowed, authBypassed, navigate, redirectTo, location, showAlert]);
 
   // 檢查單一權限
   const hasPermission = (permission: Permission): boolean => {
-    if (authDisabled) return true;
+    if (authBypassed) return true;
     if (authState.isAdmin) return true;
     return authState.permissions.includes(permission);
   };
 
   // 手動檢查認證
   const checkAuth = (): boolean => {
-    if (authDisabled) return true;
+    if (authBypassed) return true;
     return authService.isAuthenticated();
   };
 
@@ -184,18 +209,12 @@ export function useAuthGuard(options: AuthGuardOptions = {}) {
     hasPermission,
     checkAuth,
     logout,
-    authDisabled,
+    authDisabled: authBypassed,  // 向後相容
   };
 }
 
 /**
  * 權限檢查 Hook (簡化版)
- *
- * @example
- * ```tsx
- * const canEdit = usePermission('documents:write');
- * const canDelete = usePermission('documents:delete');
- * ```
  */
 export function usePermission(permission: Permission): boolean {
   const { hasPermission, authDisabled, isAdmin } = useAuthGuard();
@@ -206,12 +225,6 @@ export function usePermission(permission: Permission): boolean {
 
 /**
  * 多權限檢查 Hook
- *
- * @example
- * ```tsx
- * const permissions = usePermissions(['documents:write', 'documents:delete']);
- * // permissions = { 'documents:write': true, 'documents:delete': false }
- * ```
  */
 export function usePermissions(
   permissionList: Permission[]

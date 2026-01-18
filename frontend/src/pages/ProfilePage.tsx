@@ -1,19 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Card, 
-  Form, 
-  Input, 
-  Button, 
-  Avatar, 
-  Typography, 
+import {
+  Card,
+  Form,
+  Input,
+  Button,
+  Avatar,
+  Typography,
   Divider,
-  Row, 
-  Col, 
-  message,
+  Row,
+  Col,
+  App,
   Modal,
   Space,
   Tag
 } from 'antd';
+import { logger } from '../utils/logger';
 import { 
   UserOutlined, 
   MailOutlined, 
@@ -52,6 +53,7 @@ interface PasswordChangeForm {
 }
 
 export const ProfilePage = () => {
+  const { message } = App.useApp();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -93,7 +95,7 @@ export const ProfilePage = () => {
             });
           }
         } catch (apiError) {
-          console.log('使用本地用戶資訊:', apiError);
+          logger.debug('使用本地用戶資訊:', apiError);
           form.setFieldsValue({
             username: userInfo.username,
             full_name: userInfo.full_name,
@@ -104,7 +106,7 @@ export const ProfilePage = () => {
         navigate('/login');
       }
     } catch (error) {
-      console.error('載入用戶資料失敗:', error);
+      logger.error('載入用戶資料失敗:', error);
       message.error('載入用戶資料失敗');
       navigate('/login');
     } finally {
@@ -115,8 +117,8 @@ export const ProfilePage = () => {
   // 更新個人資料
   const handleUpdateProfile = async (values: any) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/profile`, {
-        method: 'PUT',
+      const response = await fetch(`${API_BASE_URL}/auth/profile/update`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${authService.getToken()}`
@@ -147,7 +149,7 @@ export const ProfilePage = () => {
         message.error(error.detail || '更新失敗');
       }
     } catch (error) {
-      console.error('更新個人資料失敗:', error);
+      logger.error('更新個人資料失敗:', error);
       message.error('更新失敗');
     }
   };
@@ -155,8 +157,8 @@ export const ProfilePage = () => {
   // 修改密碼
   const handlePasswordChange = async (values: PasswordChangeForm) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/password`, {
-        method: 'PUT',
+      const response = await fetch(`${API_BASE_URL}/auth/password/change`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${authService.getToken()}`
@@ -176,7 +178,7 @@ export const ProfilePage = () => {
         message.error(error.detail || '密碼修改失敗');
       }
     } catch (error) {
-      console.error('密碼修改失敗:', error);
+      logger.error('密碼修改失敗:', error);
       message.error('密碼修改失敗');
     }
   };

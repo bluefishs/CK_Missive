@@ -15,6 +15,7 @@ import type {
   FilterValue,
   SortOrder,
 } from 'antd/es/table/interface';
+import { logger } from '../../utils/logger';
 
 const { Title } = Typography;
 
@@ -87,7 +88,7 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
         const { category: _, page: __, limit: ___, ...filterParams } = filters;
 
         const stats = await documentsApi.getFilteredStatistics(filterParams);
-        console.log('=== 篩選統計數據 ===', stats, '篩選條件:', filterParams);
+        logger.debug('=== 篩選統計數據 ===', stats, '篩選條件:', filterParams);
 
         if (stats.success) {
           setFilteredStats({
@@ -179,7 +180,7 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
     sent: filteredStats?.send ?? (totalSent || 0),
   };
 
-  console.log('=== 有效統計數據 (篩選後) ===', effectiveStats, isLoadingStats ? '(載入中...)' : '');
+  logger.debug('=== 有效統計數據 (篩選後) ===', effectiveStats, isLoadingStats ? '(載入中...)' : '');
   const tabItems = [
     {
       key: 'all',

@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * 日誌工具
  * @description 提供統一的日誌記錄功能

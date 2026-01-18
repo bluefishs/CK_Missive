@@ -14,6 +14,7 @@ import {
   Tooltip,
   Divider
 } from 'antd';
+import { logger } from '../utils/logger';
 import {
   BellOutlined,
   CheckOutlined,
@@ -76,7 +77,7 @@ const NotificationCenter: React.FC = () => {
         setUnreadCount(response.data.unread_count);
       }
     } catch (error) {
-      console.error('獲取通知失敗:', error);
+      logger.error('獲取通知失敗:', error);
       message.error('獲取通知失敗');
     } finally {
       setLoading(false);
@@ -95,7 +96,7 @@ const NotificationCenter: React.FC = () => {
         setUnreadCount(response.data.unread_count);
       }
     } catch (error) {
-      console.error('獲取未讀通知數量失敗:', error);
+      logger.error('獲取未讀通知數量失敗:', error);
     }
   };
 
@@ -125,7 +126,7 @@ const NotificationCenter: React.FC = () => {
         message.success('已標記為已讀');
       }
     } catch (error) {
-      console.error('標記已讀失敗:', error);
+      logger.error('標記已讀失敗:', error);
       message.error('標記已讀失敗');
     }
   };

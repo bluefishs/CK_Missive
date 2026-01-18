@@ -11,6 +11,7 @@ import SwaggerUI from 'swagger-ui-react';
 import 'swagger-ui-react/swagger-ui.css';
 import { SERVER_BASE_URL } from '../api/client';
 import './ApiDocumentationPage.css';
+import { logger } from '../utils/logger';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -36,24 +37,24 @@ const ApiDocumentationPage: React.FC = () => {
         }
       });
 
-      console.log('OpenAPI response status:', response.status);
-      console.log('OpenAPI response headers:', response.headers);
+      logger.debug('OpenAPI response status:', response.status);
+      logger.debug('OpenAPI response headers:', response.headers);
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       const contentType = response.headers.get('content-type');
-      console.log('Content-Type:', contentType);
+      logger.debug('Content-Type:', contentType);
 
       if (!contentType || !contentType.includes('application/json')) {
         const text = await response.text();
-        console.error('Received non-JSON response:', text.substring(0, 200));
+        logger.error('Received non-JSON response:', text.substring(0, 200));
         throw new Error(`Expected JSON but got ${contentType}. Response: ${text.substring(0, 100)}...`);
       }
 
       const apiSpec = await response.json();
-      console.log('OpenAPI spec loaded:', apiSpec);
+      logger.debug('OpenAPI spec loaded:', apiSpec);
 
       // 驗證 OpenAPI 規範格式
       if (!apiSpec.openapi && !apiSpec.swagger) {
@@ -63,7 +64,7 @@ const ApiDocumentationPage: React.FC = () => {
       setSpec(apiSpec);
     } catch (err) {
       setError(err instanceof Error ? err.message : '載入 API 文件失敗');
-      console.error('Error fetching API spec:', err);
+      logger.error('Error fetching API spec:', err);
     } finally {
       setLoading(false);
     }
@@ -86,15 +87,15 @@ const ApiDocumentationPage: React.FC = () => {
     tryItOutEnabled: true, // 啟用 "Try it out" 功能
     requestInterceptor: (request: any) => {
       // 可以在這裡添加認證 header 等
-      console.log('API Request:', request);
+      logger.debug('API Request:', request);
       return request;
     },
     responseInterceptor: (response: any) => {
-      console.log('API Response:', response);
+      logger.debug('API Response:', response);
       return response;
     },
     onComplete: () => {
-      console.log('Swagger UI loaded successfully');
+      logger.debug('Swagger UI loaded successfully');
     },
     layout: 'BaseLayout',
     deepLinking: true,
