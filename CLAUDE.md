@@ -2,9 +2,9 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.6.0
+> **Claude Code 配置版本**: 1.7.0
 > **最後更新**: 2026-01-18
-> **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase)
+> **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers)
 
 ---
 
@@ -36,6 +36,16 @@ CK_Missive 是一套企業級公文管理系統，具備以下核心功能：
 | `/security-audit` | 🔒 **資安審計檢查** (新增) | `.claude/commands/security-audit.md` |
 | `/performance-check` | ⚡ **效能診斷檢查** (新增) | `.claude/commands/performance-check.md` |
 
+### 🦸 Superpowers 指令 (v4.0.3)
+
+整合自 [obra/superpowers](https://github.com/obra/superpowers) 的進階開發工作流：
+
+| 指令 | 說明 | 檔案 |
+|------|------|------|
+| `/superpowers:brainstorm` | 互動式設計精煉 - 在編碼前釐清需求 | `.claude/commands/superpowers/brainstorm.md` |
+| `/superpowers:write-plan` | 建立詳細實作計畫 | `.claude/commands/superpowers/write-plan.md` |
+| `/superpowers:execute-plan` | 批次執行計畫並進行檢查點審核 | `.claude/commands/superpowers/execute-plan.md` |
+
 ### 領域知識 Skills (自動載入)
 
 以下 Skills 會根據關鍵字自動載入對應的領域知識：
@@ -51,6 +61,24 @@ CK_Missive 是一套企業級公文管理系統，具備以下核心功能：
 | `error-handling.md` | 錯誤處理, error, exception, 例外 | **錯誤處理指南 (v1.0.0)** |
 | `security-hardening.md` | 安全, security, 漏洞, XSS | **安全加固指南 (v1.0.0)** |
 | `type-management.md` | 型別, type, Pydantic, TypeScript, BaseModel | **型別管理規範 (v1.0.0) - SSOT 架構** |
+
+### 🦸 Superpowers Skills (v4.0.3)
+
+整合自 [obra/superpowers](https://github.com/obra/superpowers) 的開發工作流技能：
+
+| Skill | 觸發關鍵字 | 說明 |
+|-------|-----------|------|
+| `brainstorming` | 設計, design, 規劃 | 蘇格拉底式設計精煉 |
+| `test-driven-development` | TDD, 測試驅動 | RED-GREEN-REFACTOR 循環 |
+| `systematic-debugging` | 除錯, debug, 根因分析 | 4 階段根因追蹤流程 |
+| `writing-plans` | 計畫, plan, 實作 | 詳細實作計畫撰寫 |
+| `executing-plans` | 執行計畫, execute | 批次執行與檢查點 |
+| `subagent-driven-development` | subagent, 子代理 | 兩階段審查的子代理開發 |
+| `requesting-code-review` | 程式碼審查, code review | 審查前檢查清單 |
+| `using-git-worktrees` | worktree, 分支 | 平行開發分支管理 |
+| `verification-before-completion` | 驗證, 完成 | 確保修復真正完成 |
+
+> 📁 位置: `.claude/skills/superpowers/`
 
 ### 共享 Skills 庫 (_shared)
 
@@ -121,7 +149,11 @@ CK_Missive 是一套企業級公文管理系統，具備以下核心功能：
 │   ├── dev-check.md            # 開發環境檢查
 │   ├── data-quality-check.md   # 資料品質檢查
 │   ├── db-backup.md            # 資料庫備份管理
-│   └── csv-import-validate.md  # CSV 匯入驗證
+│   ├── csv-import-validate.md  # CSV 匯入驗證
+│   └── superpowers/            # 🦸 Superpowers 指令
+│       ├── brainstorm.md       # 互動式設計精煉
+│       ├── write-plan.md       # 建立實作計畫
+│       └── execute-plan.md     # 批次執行計畫
 ├── skills/                      # 領域知識 Skills
 │   ├── document-management.md  # 公文管理
 │   ├── calendar-integration.md # 行事曆整合
@@ -131,8 +163,15 @@ CK_Missive 是一套企業級公文管理系統，具備以下核心功能：
 │   ├── frontend-architecture.md # 前端架構規範
 │   ├── error-handling.md       # 錯誤處理指南
 │   ├── security-hardening.md   # 安全加固指南
-│   ├── type-management.md      # 型別管理規範 (SSOT) ✨新增
-│   └── _shared/                # 共享 Skills 庫
+│   ├── type-management.md      # 型別管理規範 (SSOT)
+│   ├── _shared/                # 共享 Skills 庫
+│   └── superpowers/            # 🦸 Superpowers Skills (v4.0.3)
+│       ├── brainstorming/      # 設計精煉
+│       ├── test-driven-development/ # TDD 循環
+│       ├── systematic-debugging/    # 系統化除錯
+│       ├── writing-plans/      # 計畫撰寫
+│       ├── executing-plans/    # 計畫執行
+│       └── ...                 # 其他技能
 ├── agents/                      # 專業代理
 │   ├── code-review.md          # 程式碼審查
 │   ├── api-design.md           # API 設計
@@ -364,12 +403,27 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 
 ## 🔄 整合來源
 
-本配置參考 [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase) 最佳實踐：
+本配置整合以下最佳實踐：
 
+### [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase)
 - **Skills**: 可重複使用的領域知識文檔
 - **Hooks**: 自動化工具鉤子 (PreToolUse, PostToolUse)
 - **Agents**: 專業化任務代理
 - **Commands**: Slash 指令快捷操作
+
+### [superpowers](https://github.com/obra/superpowers) (v4.0.3)
+完整軟體開發工作流，強調紀律性開發：
+- **brainstorming**: 在編碼前進行蘇格拉底式設計精煉
+- **test-driven-development**: 強制 RED-GREEN-REFACTOR 循環
+- **systematic-debugging**: 4 階段根因追蹤流程
+- **subagent-driven-development**: 子代理驅動的並行開發
+- **writing-plans/executing-plans**: 詳細計畫與批次執行
+
+**核心理念**:
+- 測試驅動開發 (TDD) - 先寫測試
+- 系統化優於臨時性 - 流程優於猜測
+- 複雜度簡化 - 簡潔為首要目標
+- 證據優於聲稱 - 驗證後才宣告成功
 
 ---
 
