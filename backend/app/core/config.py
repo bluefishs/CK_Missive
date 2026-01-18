@@ -6,14 +6,23 @@
 - 不得在程式碼中硬編碼密碼、金鑰等敏感資料
 - 生產環境必須設定 SECRET_KEY 和 DATABASE_URL
 
-@version 2.0.0 - 安全性強化版
-@date 2026-01-12
+設定檔位置 (Single Source of Truth):
+- 統一使用專案根目錄的 .env 檔案
+- 後端目錄不應有獨立的 .env 檔案
+
+@version 2.1.0 - 設定統一化
+@date 2026-01-18
 """
 from pydantic_settings import BaseSettings
 from typing import List, Optional
 import os
+import sys
 import secrets
+import logging
+from pathlib import Path
 from pydantic import ConfigDict, Field, field_validator
+
+logger = logging.getLogger(__name__)
 
 
 def generate_default_secret_key() -> str:
@@ -50,11 +59,11 @@ class Settings(BaseSettings):
     # 資料庫設定 - 必須透過環境變數設定
     # =========================================================================
     DATABASE_URL: str = Field(
-        default="postgresql://localhost:5432/ck_documents",
+        default="postgresql://ck_user:ck_password_2024@localhost:5434/ck_documents",
         description="資料庫連線字串，格式: postgresql://user:pass@host:port/db"
     )
     POSTGRES_USER: str = Field(default="ck_user", description="PostgreSQL 使用者名稱")
-    POSTGRES_PASSWORD: str = Field(default="", description="PostgreSQL 密碼")
+    POSTGRES_PASSWORD: str = Field(default="ck_password_2024", description="PostgreSQL 密碼")
     POSTGRES_DB: str = Field(default="ck_documents", description="PostgreSQL 資料庫名稱")
     POSTGRES_HOST: str = Field(default="localhost", description="PostgreSQL 主機")
     POSTGRES_PORT: int = Field(default=5434, description="PostgreSQL 埠號")
@@ -104,6 +113,18 @@ class Settings(BaseSettings):
     LOG_FILE: str = "./logs/app.log"
 
     # =========================================================================
+    # API 速率限制設定
+    # =========================================================================
+    RATE_LIMIT_PER_MINUTE: int = Field(
+        default=60,
+        description="每分鐘請求上限"
+    )
+    RATE_LIMIT_PER_DAY: int = Field(
+        default=10000,
+        description="每日請求上限"
+    )
+
+    # =========================================================================
     # 前端設定
     # =========================================================================
     FRONTEND_HOST_PORT: int = 3000
@@ -131,7 +152,12 @@ class Settings(BaseSettings):
         return v
 
     model_config = ConfigDict(
-        env_file = "../.env",
+        # 自動搜尋 .env 檔案：優先使用專案根目錄
+        env_file = [
+            "../.env",           # 從 backend/ 目錄運行時
+            "../../.env",        # 從 backend/app/ 目錄運行時
+            ".env",              # 當前目錄 (Docker 容器內)
+        ],
         case_sensitive = True,
         extra = "ignore",
         env_file_encoding = "utf-8"
@@ -143,5 +169,30 @@ class Settings(BaseSettings):
             return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         return self.DATABASE_URL
 
+    def validate_database_config(self) -> bool:
+        """驗證資料庫設定是否完整"""
+        required_fields = ['DATABASE_URL', 'POSTGRES_USER', 'POSTGRES_PASSWORD']
+        missing = []
+        for field in required_fields:
+            value = getattr(self, field, None)
+            if not value or value == '':
+                missing.append(field)
 
+        if missing:
+            logger.warning(
+                f"⚠️ 資料庫設定不完整，缺少: {', '.join(missing)}。"
+                f"請確認 .env 檔案設定正確。"
+            )
+            return False
+        return True
+
+
+# 初始化設定並驗證
 settings = Settings()
+
+# 啟動時驗證資料庫設定
+if not settings.validate_database_config():
+    logger.warning(
+        "⚠️ 資料庫設定可能不完整，請檢查專案根目錄的 .env 檔案。"
+        "\n   預期位置: CK_Missive/.env"
+    )

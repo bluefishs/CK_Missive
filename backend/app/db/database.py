@@ -14,19 +14,21 @@ logger = logging.getLogger(__name__)
 # PostgreSQL 非同步驅動設定
 async_db_url = settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
 
-# 建立非同步引擎（簡化配置以修復連接問題）
+# 建立非同步引擎（增強連接穩定性）
 engine = create_async_engine(
     async_db_url,
     echo=settings.DATABASE_ECHO,
-    pool_pre_ping=True,
-    pool_recycle=300,
-    pool_size=5,
-    max_overflow=10,
-    future=True,  # SQLAlchemy 2.0 style
+    pool_pre_ping=True,          # 每次取得連接前檢查連接是否有效
+    pool_recycle=180,            # 每 3 分鐘回收連接（避免 PostgreSQL 斷開閒置連接）
+    pool_size=5,                 # 連接池大小
+    max_overflow=10,             # 最大溢出連接數
+    pool_timeout=30,             # 等待連接的超時時間
+    future=True,                 # SQLAlchemy 2.0 style
     connect_args={
         "server_settings": {
             "application_name": "ck_missive_app",
-        }
+        },
+        "command_timeout": 60,   # 命令超時時間（秒）
     }
 )
 
@@ -48,16 +50,25 @@ async_session_maker = AsyncSessionLocal
 Base = declarative_base()
 
 async def get_async_db() -> AsyncSession:
-    """取得非同步資料庫會話的依賴項"""
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        except Exception as e:
-            await session.rollback()
+    """
+    取得非同步資料庫會話的依賴項
+
+    增強錯誤處理以應對 connection_lost 等連接問題
+    """
+    session = AsyncSessionLocal()
+    try:
+        yield session
+        await session.commit()
+    except Exception as e:
+        await session.rollback()
+        error_msg = str(e)
+        if "connection_lost" in error_msg.lower():
+            logger.warning(f"Database connection lost, session rolled back: {e}")
+        else:
             logger.error(f"Database session error: {e}", exc_info=True)
-            raise
-        finally:
-            await session.close()
+        raise
+    finally:
+        await session.close()
 
 # -- (可選) 同步操作，用於腳本或 Alembic --
 # 雖然應用程式本身是非同步的，但某些腳本可能需要同步操作

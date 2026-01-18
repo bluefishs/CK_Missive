@@ -37,7 +37,7 @@ jobs:
         continue-on-error: true  # 暫時允許警告，待完全清理後移除
 
   backend-check:
-    name: Backend Python Syntax
+    name: Backend Python Checks
     runs-on: ubuntu-latest
 
     defaults:
@@ -63,7 +63,52 @@ jobs:
           python -m py_compile main.py
           python -m py_compile app/core/config.py
           python -m py_compile app/core/dependencies.py
+          python -m py_compile app/db/database.py
+
+      - name: Validate configuration
+        run: |
+          python -c "
+          from app.core.config import settings
+          print('=== Configuration Validation ===')
+          print(f'DATABASE_URL configured: {bool(settings.DATABASE_URL)}')
+          print(f'POSTGRES_PASSWORD configured: {bool(settings.POSTGRES_PASSWORD)}')
+          print(f'Config validation: {settings.validate_database_config()}')
+          print('Config OK')
+          "
 
       - name: Run basic import test
         run: |
           python -c "from app.core.config import settings; print('Config OK')"
+
+      - name: Run unit tests
+        run: |
+          pip install pytest pytest-asyncio
+          python -m pytest tests/unit/ -v --tb=short
+
+  config-consistency:
+    name: Configuration Consistency Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for duplicate .env files
+        run: |
+          echo "=== Checking for configuration consistency ==="
+
+          # 檢查 backend/.env 是否存在（不應該存在）
+          if [ -f "backend/.env" ]; then
+            echo "⚠️ WARNING: backend/.env exists!"
+            echo "建議使用專案根目錄的 .env 作為唯一設定來源"
+            exit 1
+          else
+            echo "✓ No duplicate backend/.env found"
+          fi
+
+          # 確認根目錄 .env.example 存在
+          if [ -f ".env" ] || [ -f ".env.example" ]; then
+            echo "✓ Root .env configuration exists"
+          fi
+
+          echo "=== Configuration check passed ==="

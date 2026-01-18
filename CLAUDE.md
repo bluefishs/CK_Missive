@@ -239,7 +239,38 @@ apiClient.post(API_ENDPOINTS.DOCUMENTS.LIST, params);
 apiClient.post('/documents-enhanced/list', params);
 ```
 
-### 2. 型別定義同步 (Single Source of Truth)
+### 2. 環境設定管理 (Single Source of Truth)
+
+**架構原則**：所有環境設定統一使用專案根目錄的 `.env` 檔案。
+
+| 位置 | 用途 | 規範 |
+|------|------|------|
+| `/.env` | 環境設定 (唯一來源) | 所有環境變數設定 |
+| `/backend/.env` | **禁止存在** | 會導致設定衝突 |
+| `/backend/.env.example` | 範本 | 僅供參考，不應直接使用 |
+
+```bash
+# ✅ 正確 - 設定檔位置
+CK_Missive/
+├── .env                    # 唯一的環境設定檔
+├── .env.example            # 範本檔案
+└── backend/
+    └── .env.example        # 後端範本（僅供參考）
+
+# ❌ 禁止 - 重複的設定檔
+CK_Missive/
+├── .env
+└── backend/
+    └── .env                # 不應存在！
+```
+
+**驗證設定一致性**：
+```powershell
+# 執行設定檢查腳本
+.\scripts\check-config.ps1
+```
+
+### 3. 型別定義同步 (Single Source of Truth)
 
 **架構原則**：每個實體型別只能有一個「真實來源」定義。
 
@@ -283,7 +314,7 @@ export interface User { ... }  // 不允許！
 
 其他檔案透過匯入自動取得新欄位。
 
-### 3. 程式碼修改後自檢
+### 4. 程式碼修改後自檢
 
 ```bash
 # 前端 TypeScript 檢查
