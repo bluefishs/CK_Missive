@@ -1,9 +1,9 @@
 /**
  * 環境變數配置
- * 統一管理所有環境變數存取，避免 TypeScript 索引簽名錯誤
+ * 統一管理所有環境變數存取
  *
- * @version 2.0.0
- * @date 2026-01-11
+ * @version 2.1.0
+ * @date 2026-01-13
  */
 
 // 安全獲取環境變數的輔助函數
@@ -24,43 +24,11 @@ export const AUTH_DISABLED_ENV = getEnvVar('VITE_AUTH_DISABLED') === 'true';
 export const GOOGLE_CLIENT_ID = getEnvVar('VITE_GOOGLE_CLIENT_ID') || '';
 
 /**
- * 檢測是否為內網 IP
- * 內網 IP 規則：
- * - 10.x.x.x (Class A private)
- * - 172.16-31.x.x (Class B private)
- * - 192.168.x.x (Class C private)
- *
- * 開發模式（DEV=true）下，localhost 也視為內網環境
- */
-export const isInternalIP = (): boolean => {
-  if (typeof window === 'undefined') return false;
-
-  const hostname = window.location.hostname;
-
-  // 開發模式下，localhost 視為內網環境（自動獲得 admin 權限）
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    // 僅在 Vite 開發模式下視為內網
-    return import.meta.env.DEV === true;
-  }
-
-  // 內網 IP 範圍檢測
-  const internalIPPatterns = [
-    /^10\./,                           // 10.0.0.0 - 10.255.255.255
-    /^172\.(1[6-9]|2[0-9]|3[0-1])\./,  // 172.16.0.0 - 172.31.255.255
-    /^192\.168\./                       // 192.168.0.0 - 192.168.255.255
-  ];
-
-  return internalIPPatterns.some(pattern => pattern.test(hostname));
-};
-
-/**
  * 檢測環境類型
- * - localhost: 本機開發（三種登入方式：快速進入、帳密、Google）
- * - internal: 內網存取（僅帳密登入）
- * - ngrok: ngrok 隧道（帳密 + Google 登入）
- * - public: 公網存取（帳密 + Google 登入）
- *
- * @version 2.1.0 - 2026-01-13 調整環境判斷邏輯
+ * - localhost: 本機開發（支援快速進入、帳密、Google）
+ * - internal: 內網存取（支援快速進入、帳密）
+ * - ngrok: ngrok 隧道（帳密 + Google）
+ * - public: 公網存取（帳密 + Google）
  */
 export type EnvironmentType = 'localhost' | 'internal' | 'ngrok' | 'public';
 
@@ -69,7 +37,7 @@ export const detectEnvironment = (): EnvironmentType => {
 
   const hostname = window.location.hostname;
 
-  // localhost/127.0.0.1 永遠視為 localhost（支援三種登入方式）
+  // localhost/127.0.0.1
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     return 'localhost';
   }
@@ -79,8 +47,14 @@ export const detectEnvironment = (): EnvironmentType => {
     return 'ngrok';
   }
 
-  // 內網 IP（僅帳密登入）
-  if (isInternalIP()) {
+  // 內網 IP 範圍
+  const internalIPPatterns = [
+    /^10\./,                           // 10.0.0.0 - 10.255.255.255
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./,  // 172.16.0.0 - 172.31.255.255
+    /^192\.168\./                       // 192.168.0.0 - 192.168.255.255
+  ];
+
+  if (internalIPPatterns.some(pattern => pattern.test(hostname))) {
     return 'internal';
   }
 
@@ -89,17 +63,24 @@ export const detectEnvironment = (): EnvironmentType => {
 };
 
 /**
- * 檢查是否應該停用認證
- * 僅當環境變數 VITE_AUTH_DISABLED=true 時停用認證
- *
- * 注意：內網 IP 不再自動繞過認證，必須明確設定環境變數
+ * 檢查是否為內網環境（localhost 或內網 IP）
+ */
+export const isInternalNetwork = (): boolean => {
+  const env = detectEnvironment();
+  return env === 'localhost' || env === 'internal';
+};
+
+/**
+ * 檢查是否完全停用認證（僅當 VITE_AUTH_DISABLED=true）
+ * 注意：這不同於「內網免認證」，內網模式仍需通過快速進入取得 user_info
  */
 export const isAuthDisabled = (): boolean => {
   return AUTH_DISABLED_ENV;
 };
 
-// 向後相容：保留舊的 AUTH_DISABLED 常數（但建議改用 isAuthDisabled() 函數）
+// 向後相容
 export const AUTH_DISABLED = AUTH_DISABLED_ENV;
+export const isInternalIP = isInternalNetwork;
 
 // ============================================================================
 // 開發環境配置
@@ -126,6 +107,7 @@ export default {
   NODE_ENV,
   ENV_CONFIG,
   // 函數
+  isInternalNetwork,
   isInternalIP,
   isAuthDisabled,
   detectEnvironment,

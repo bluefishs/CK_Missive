@@ -305,8 +305,8 @@ export const AgenciesPage: React.FC = () => {
                 </Text>
               )}
               <div style={{ marginTop: 4 }}>
-                <Tag icon={getCategoryIcon(record.category)} color="blue" style={{ fontSize: '11px' }}>
-                  {['其他機關', '教育機構', '社會團體'].includes(record.category) ? '其他單位' : record.category}
+                <Tag icon={getCategoryIcon(record.category || '')} color="blue" style={{ fontSize: '11px' }}>
+                  {['其他機關', '教育機構', '社會團體'].includes(record.category || '') ? '其他單位' : record.category}
                 </Tag>
               </div>
             </div>

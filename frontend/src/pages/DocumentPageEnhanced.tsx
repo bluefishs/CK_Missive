@@ -74,17 +74,34 @@ const DocumentPageEnhanced: React.FC = () => {
 
   const testEnhancedFeatures = async () => {
     try {
-      // 測試承攬案件 API
-      const contractProjectsResponse = await fetch(`${API_BASE_URL}/documents-enhanced/contract-projects-dropdown?limit=5`);
+      // 測試承攬案件 API (POST)
+      const contractProjectsResponse = await fetch(`${API_BASE_URL}/documents-enhanced/contract-projects-dropdown`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ limit: 5 })
+      });
       const contractProjectsTest = contractProjectsResponse.ok;
 
-      // 測試政府機關 API
-      const agenciesResponse = await fetch(`${API_BASE_URL}/documents-enhanced/agencies-dropdown?limit=5`);
+      // 測試政府機關 API (POST)
+      const agenciesResponse = await fetch(`${API_BASE_URL}/documents-enhanced/agencies-dropdown`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ limit: 5 })
+      });
       const agenciesTest = agenciesResponse.ok;
 
-      // 測試整合搜尋 API
-      const integratedSearchResponse = await fetch(`${API_BASE_URL}/documents-enhanced/integrated-search?limit=5`);
-      const integratedSearchTest = integratedSearchResponse.ok;
+      // 測試整合搜尋 API (POST) - 如果端點存在
+      let integratedSearchTest = true;
+      try {
+        const integratedSearchResponse = await fetch(`${API_BASE_URL}/documents-enhanced/integrated-search`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ limit: 5 })
+        });
+        integratedSearchTest = integratedSearchResponse.ok;
+      } catch {
+        integratedSearchTest = false;
+      }
 
       setTestResults({
         contractProjectsTest,
@@ -139,10 +156,85 @@ const DocumentPageEnhanced: React.FC = () => {
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      // 這裡可以實作匯出邏輯
+      // 構建匯出請求參數，將篩選條件傳遞給後端
+      const exportParams: {
+        category?: string;
+        year?: number;
+        keyword?: string;
+        status?: string;
+        contract_case?: string;
+        sender?: string;
+        receiver?: string;
+      } = {};
+
+      // 映射篩選條件到匯出 API 參數
+      if (state.filters.doc_type) {
+        exportParams.category = state.filters.doc_type;
+      }
+      if (state.filters.category) {
+        exportParams.category = state.filters.category;
+      }
+      if (state.filters.year) {
+        exportParams.year = state.filters.year;
+      }
+      if (state.filters.keyword) {
+        exportParams.keyword = state.filters.keyword;
+      }
+      if (state.filters.search) {
+        exportParams.keyword = state.filters.search;
+      }
+      if (state.filters.status) {
+        exportParams.status = state.filters.status;
+      }
+      if (state.filters.contract_case) {
+        exportParams.contract_case = state.filters.contract_case;
+      }
+      if (state.filters.sender) {
+        exportParams.sender = state.filters.sender;
+      }
+      if (state.filters.receiver) {
+        exportParams.receiver = state.filters.receiver;
+      }
+
+      // 調用後端匯出 API
+      const response = await fetch(`${API_BASE_URL}/documents-enhanced/export/excel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(exportParams),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `匯出失敗 (${response.status})`);
+      }
+
+      // 從 response headers 取得檔名
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `乾坤測繪公文紀錄_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.xlsx`;
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';\n]+)/i);
+        if (filenameMatch && filenameMatch[1]) {
+          filename = decodeURIComponent(filenameMatch[1]);
+        }
+      }
+
+      // 下載檔案
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
       message.success('匯出完成');
     } catch (error) {
-      message.error('匯出失敗');
+      console.error('匯出失敗:', error);
+      message.error(error instanceof Error ? error.message : '匯出失敗');
     } finally {
       setIsExporting(false);
     }

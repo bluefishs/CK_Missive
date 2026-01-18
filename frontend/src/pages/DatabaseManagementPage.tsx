@@ -58,7 +58,11 @@ export const DatabaseManagementPage: React.FC = () => {
   const fetchDatabaseInfo = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/database/info`);
+      const response = await fetch(`${API_BASE_URL}/admin/database/info`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
@@ -77,7 +81,11 @@ export const DatabaseManagementPage: React.FC = () => {
   const fetchTableData = async (tableName: string, limit: number = 50, offset: number = 0) => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/database/table/${tableName}?limit=${limit}&offset=${offset}`);
+      const response = await fetch(`${API_BASE_URL}/admin/database/table/${tableName}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ limit, offset })
+      });
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
@@ -130,7 +138,11 @@ export const DatabaseManagementPage: React.FC = () => {
   const checkIntegrity = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/database/integrity`);
+      const response = await fetch(`${API_BASE_URL}/admin/database/integrity`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }

@@ -10,6 +10,7 @@
 
 import { apiClient, API_BASE_URL } from '../api/client';
 import { isAuthDisabled } from '../config/env';
+import { logger } from '../utils/logger';
 
 // ============================================================================
 // 型別定義
@@ -90,7 +91,7 @@ class SecureApiService {
 
     // 在開發模式下跳過 CSRF 檢查
     if (this.authDisabled) {
-      console.log(`🔒 Auth disabled - skipping CSRF for secure request: ${action}`);
+      logger.debug(`🔒 Auth disabled - skipping CSRF for secure request: ${action}`);
       const requestBody: SecureRequest = {
         action,
         csrf_token: 'dev-mode-skip',
@@ -162,8 +163,12 @@ class SecureApiService {
     return this.secureRequest('/secure-site-management/navigation/action', 'update', data);
   }
 
-  async deleteNavigationItem(id: number): Promise<unknown> {
+async deleteNavigationItem(id: number): Promise<unknown> {
     return this.secureRequest('/secure-site-management/navigation/action', 'delete', { id });
+  }
+
+  async getValidPaths(): Promise<unknown> {
+    return this.secureRequest('/secure-site-management/navigation/valid-paths', 'get');
   }
 
   /**

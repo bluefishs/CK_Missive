@@ -16,7 +16,9 @@ import { FileExcelOutlined, SearchOutlined, PaperClipOutlined, DownloadOutlined,
 import Highlighter from 'react-highlight-words';
 import { Document } from '../../types';
 import { DocumentActions, BatchActions } from './DocumentActions';
-import { documentsApi, DocumentAttachment } from '../../api/documentsApi';
+import { documentsApi } from '../../api/documentsApi';
+import type { DocumentAttachment } from '../../api/filesApi';
+import { logger } from '../../utils/logger';
 
 interface DocumentListProps {
   documents: Document[];
@@ -155,7 +157,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
   };
 
   // Debug logging
-  console.log('=== DocumentList: 收到的 props ===', {
+  logger.debug('=== DocumentList: 收到的 props ===', {
     documentsCount: documents?.length || 0,
     documents: documents,
     loading,
@@ -264,15 +266,15 @@ export const DocumentList: React.FC<DocumentListProps> = ({
   };
 
   const handleBatchDeleteClick = () => {
-    console.log('批次刪除按鈕已被點擊，但功能尚未實作。');
+    logger.debug('批次刪除按鈕已被點擊，但功能尚未實作。');
   };
 
   const handleBatchArchiveClick = () => {
-    console.log('批次封存按鈕已被點擊，但功能尚未實作。');
+    logger.debug('批次封存按鈕已被點擊，但功能尚未實作。');
   };
 
   const handleBatchCopyClick = () => {
-    console.log('批次複製按鈕已被點擊，但功能尚未實作。');
+    logger.debug('批次複製按鈕已被點擊，但功能尚未實作。');
   };
 
 
@@ -643,7 +645,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
 
   // Ensure documents is always an array
   const safeDocuments = Array.isArray(documents) ? documents : [];
-  console.log('=== DocumentList: 安全文件陣列 ===', {
+  logger.debug('=== DocumentList: 安全文件陣列 ===', {
     originalDocuments: documents,
     safeDocuments: safeDocuments,
     length: safeDocuments.length

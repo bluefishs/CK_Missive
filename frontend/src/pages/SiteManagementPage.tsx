@@ -126,11 +126,10 @@ const NavigationManagementImproved: FC = () => {
     }
   };
 
-  // Load valid paths for dropdown
+// Load valid paths for dropdown
   const loadValidPaths = async () => {
     try {
-      const response = await fetch('/api/secure-site-management/navigation/valid-paths');
-      const result = await response.json();
+      const result = await secureApiService.getValidPaths() as { success?: boolean; data?: { paths?: ValidPath[] } };
       if (result.success && result.data?.paths) {
         setValidPaths(result.data.paths);
       }

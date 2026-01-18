@@ -10,6 +10,7 @@ import { authService } from '../services/authService';
 import { cacheService, CACHE_KEYS, CACHE_TTL } from '../services/cacheService';
 import { USER_ROLES } from '../constants/permissions';
 import { isAuthDisabled } from '../config/env';
+import { logger } from '../utils/logger';
 
 export interface NavigationItem {
   key: string;
@@ -60,7 +61,7 @@ export const usePermissions = () => {
           login_count: 0,
           email_verified: true
         };
-        console.log('Using default developer user info (AUTH_DISABLED=true)');
+        logger.debug('Using default developer user info (AUTH_DISABLED=true)');
       }
 
       // 如果沒有使用者資訊且認證未停用，則返回（應該會被重導向到登入頁）
@@ -104,7 +105,7 @@ export const usePermissions = () => {
           }
         }
       } else {
-        console.log('🔒 Auth disabled - skipping API call for permissions');
+        logger.debug('🔒 Auth disabled - skipping API call for permissions');
       }
 
       // 使用既有角色權限配置

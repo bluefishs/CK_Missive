@@ -71,6 +71,17 @@ const DELIVERY_METHOD_OPTIONS = [
   { value: '紙本郵寄', label: '紙本郵寄', color: 'orange' },
 ];
 
+/** 公文類型選項（與後端 VALID_DOC_TYPES 對齊） */
+const DOC_TYPE_OPTIONS = [
+  { value: '函', label: '函' },
+  { value: '書函', label: '書函' },
+  { value: '開會通知單', label: '開會通知單' },
+  { value: '會勘通知單', label: '會勘通知單' },
+  { value: '公告', label: '公告' },
+  { value: '令', label: '令' },
+  { value: '通知', label: '通知' },
+];
+
 /** 預設發文機關 */
 const DEFAULT_SENDER = '乾坤測繪科技有限公司';
 
@@ -141,17 +152,15 @@ export const SendDocumentCreatePage: React.FC = () => {
     try {
       const result = await documentNumbersApi.getNextNumber();
       setNextNumber(result);
-      // 自動設定表單值
-      form.setFieldsValue({
-        doc_number: result.full_number,
-      });
+      // 注意：不在這裡調用 form.setFieldsValue，因為 Form 可能還沒渲染
+      // 表單值會在 initialize 完成後統一設定
     } catch (error) {
       console.error('載入下一個字號失敗:', error);
       message.warning('無法取得下一個發文字號，請手動填寫');
     } finally {
       setNextNumberLoading(false);
     }
-  }, [form, message]);
+  }, [message]);
 
   /** 載入機關選項 */
   const loadAgencies = useCallback(async () => {
@@ -253,16 +262,25 @@ export const SendDocumentCreatePage: React.FC = () => {
         loadUsers(),
         loadFileSettings(),
       ]);
-      // 設定表單初始值
-      form.setFieldsValue({
-        delivery_method: '電子交換',  // 預設發文形式
-        sender: DEFAULT_SENDER,
-        doc_date: dayjs(),
-      });
+      // 完成載入後設定 loading = false，讓 Form 先渲染
       setLoading(false);
     };
     initialize();
-  }, [loadNextNumber, loadAgencies, loadCases, loadUsers, loadFileSettings, form]);
+  }, [loadNextNumber, loadAgencies, loadCases, loadUsers, loadFileSettings]);
+
+  // 當 loading 完成且 nextNumber 已取得時，設定表單初始值
+  // 這確保 form.setFieldsValue 只在 Form 元件已渲染後調用
+  useEffect(() => {
+    if (!loading && nextNumber) {
+      form.setFieldsValue({
+        doc_number: nextNumber.full_number,
+        delivery_method: '電子交換',  // 預設發文形式
+        sender: DEFAULT_SENDER,
+        doc_date: dayjs(),
+        doc_type: '函',  // 預設公文類型（必須是有效的 doc_type）
+      });
+    }
+  }, [loading, nextNumber, form]);
 
   // =============================================================================
   // 事件處理
@@ -315,10 +333,12 @@ export const SendDocumentCreatePage: React.FC = () => {
       }
 
       // 準備資料（確定發文才建立，狀態固定為已發文）
+      // 注意：doc_type 必須是有效的公文類型（函、開會通知單等），不是「發文」
+      //       category 才是收發文分類（發文/收文）
       const documentData = {
         ...values,
-        doc_type: '發文',
-        category: '發文',
+        doc_type: values.doc_type || '函',  // 使用表單值或預設為「函」
+        category: '發文',  // 收發文分類
         status: 'sent',  // 確定發文，直接標記為已發文
         doc_date: values.doc_date?.format('YYYY-MM-DD'),
         assignee: assigneeStr,
@@ -474,7 +494,20 @@ export const SendDocumentCreatePage: React.FC = () => {
       </Card>
 
       <Row gutter={16}>
-        <Col span={12}>
+        <Col span={8}>
+          <Form.Item
+            label="公文類型"
+            name="doc_type"
+            rules={[{ required: true, message: '請選擇公文類型' }]}
+          >
+            <Select placeholder="請選擇公文類型">
+              {DOC_TYPE_OPTIONS.map(opt => (
+                <Option key={opt.value} value={opt.value}>{opt.label}</Option>
+              ))}
+            </Select>
+          </Form.Item>
+        </Col>
+        <Col span={8}>
           <Form.Item
             label="發文形式"
             name="delivery_method"
@@ -487,7 +520,7 @@ export const SendDocumentCreatePage: React.FC = () => {
             </Select>
           </Form.Item>
         </Col>
-        <Col span={12}>
+        <Col span={8}>
           <Form.Item
             label="發文日期"
             name="doc_date"

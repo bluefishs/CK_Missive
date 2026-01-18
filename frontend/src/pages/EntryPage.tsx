@@ -23,6 +23,7 @@ import { GoogleOutlined, LoadingOutlined, LoginOutlined, UserOutlined } from '@a
 import { useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
 import { detectEnvironment, isAuthDisabled, GOOGLE_CLIENT_ID } from '../config/env';
+import { logger } from '../utils/logger';
 import './EntryPage.css';
 
 // 使用共用的環境偵測
@@ -142,7 +143,7 @@ const EntryPage: React.FC = () => {
     }
 
     // 日誌：顯示當前環境和登入選項
-    console.log('🔐 EntryPage 環境配置:', {
+    logger.debug('🔐 EntryPage 環境配置:', {
       ENV_TYPE,
       SHOW_QUICK_ENTRY,
       SHOW_PASSWORD_LOGIN,
@@ -191,7 +192,7 @@ const EntryPage: React.FC = () => {
   };
 
   // 快速進入（localhost、內網 IP 或 AUTH_DISABLED）
-  const handleDevModeEntry = () => {
+  const handleDevModeEntry = async () => {
     if (IS_AUTH_DISABLED) {
       message.info('開發模式 - 快速進入系統（認證已停用）');
     } else if (IS_LOCALHOST) {
@@ -199,7 +200,24 @@ const EntryPage: React.FC = () => {
     } else if (IS_INTERNAL) {
       message.info('內網環境 - 快速進入系統');
     }
-    navigate('/dashboard');
+
+    setLoading(true);
+    try {
+      // 從後端獲取當前用戶資訊並儲存到 localStorage
+      const userInfo = await authService.getCurrentUser();
+      authService.setUserInfo(userInfo);
+
+      // 觸發登入事件
+      window.dispatchEvent(new CustomEvent('user-logged-in'));
+
+      message.success(`歡迎, ${userInfo.full_name || userInfo.username}!`);
+      navigate('/dashboard');
+    } catch (error: any) {
+      console.error('Quick entry failed:', error);
+      message.error('快速進入失敗，請確認後端服務是否啟動');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // 觸發 Google 登入

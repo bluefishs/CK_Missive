@@ -1,18 +1,16 @@
 /**
  * 受保護路由元件
  *
- * 提供統一的路由保護功能，整合 useAuthGuard Hook
+ * 提供統一的路由保護功能
  *
- * @version 1.1.0
- * @date 2026-01-11
+ * @version 1.2.0
+ * @date 2026-01-13
  */
 
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthGuard, Permission } from '../hooks/useAuthGuard';
 import { ROUTES } from './types';
-import { PageLoading } from '../components/common';
-import { isAuthDisabled } from '../config/env';
 
 /** 受保護路由選項 */
 export interface ProtectedRouteProps {
@@ -26,8 +24,6 @@ export interface ProtectedRouteProps {
   permissions?: Permission[];
   /** 重定向路徑 */
   redirectTo?: string;
-  /** 顯示載入中訊息 */
-  loadingMessage?: string;
   /** 是否啟用認證檢查 (用於條件式保護) */
   enabled?: boolean;
 }
@@ -35,30 +31,10 @@ export interface ProtectedRouteProps {
 /**
  * 受保護路由元件
  *
- * 使用 useAuthGuard Hook 提供認證與權限控制
- *
- * @example
- * ```tsx
- * // 基本認證保護
- * <ProtectedRoute>
- *   <MyPage />
- * </ProtectedRoute>
- *
- * // 需要管理員權限
- * <ProtectedRoute roles={['admin']}>
- *   <AdminPage />
- * </ProtectedRoute>
- *
- * // 需要特定權限
- * <ProtectedRoute permissions={['documents:write']}>
- *   <DocumentEditPage />
- * </ProtectedRoute>
- *
- * // 條件式保護 (用於公開頁面)
- * <ProtectedRoute enabled={false}>
- *   <PublicPage />
- * </ProtectedRoute>
- * ```
+ * 認證檢查邏輯由 useAuthGuard 統一處理：
+ * - VITE_AUTH_DISABLED=true 時完全繞過
+ * - 內網環境 + auth_provider=internal 時繞過
+ * - 其他情況正常檢查
  */
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
@@ -66,16 +42,14 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   roles = [],
   permissions = [],
   redirectTo = ROUTES.ENTRY,
-  loadingMessage,
   enabled = true,
 }) => {
   const location = useLocation();
   const {
     isAuthenticated,
-    isAllowed,
-    authDisabled,
     hasRole,
     hasAllPermissions,
+    authDisabled,
   } = useAuthGuard({
     requireAuth: enabled && requireAuth,
     roles,
@@ -88,8 +62,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <>{children}</>;
   }
 
-  // 開發模式或內網 IP 直接渲染（跳過認證）
-  // authDisabled 已包含內網 IP 檢測，直接使用即可
+  // 認證被繞過（開發模式或內網已登入），直接渲染
   if (authDisabled) {
     return <>{children}</>;
   }
@@ -100,13 +73,13 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to={`${redirectTo}?returnUrl=${returnUrl}`} replace />;
   }
 
-  // 角色不足，重定向
+  // 角色不足，重定向到儀表板
   if (roles.length > 0 && !hasRole) {
     console.warn(`[ProtectedRoute] 角色不足: 需要 ${roles.join(' 或 ')}`);
     return <Navigate to={ROUTES.DASHBOARD} replace />;
   }
 
-  // 權限不足，重定向
+  // 權限不足，重定向到儀表板
   if (permissions.length > 0 && !hasAllPermissions) {
     console.warn(`[ProtectedRoute] 權限不足: 需要 ${permissions.join(', ')}`);
     return <Navigate to={ROUTES.DASHBOARD} replace />;
@@ -118,13 +91,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
 /**
  * 管理員路由元件 (便捷封裝)
- *
- * @example
- * ```tsx
- * <AdminRoute>
- *   <AdminDashboard />
- * </AdminRoute>
- * ```
  */
 export const AdminRoute: React.FC<Omit<ProtectedRouteProps, 'roles'>> = ({
   children,
@@ -139,15 +105,6 @@ export const AdminRoute: React.FC<Omit<ProtectedRouteProps, 'roles'>> = ({
 
 /**
  * 公開路由元件 (便捷封裝)
- *
- * 用於不需要認證的頁面
- *
- * @example
- * ```tsx
- * <PublicRoute>
- *   <LoginPage />
- * </PublicRoute>
- * ```
  */
 export const PublicRoute: React.FC<Omit<ProtectedRouteProps, 'requireAuth' | 'enabled'>> = ({
   children,

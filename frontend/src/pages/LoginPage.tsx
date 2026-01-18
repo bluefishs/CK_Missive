@@ -1,8 +1,6 @@
 /**
  * LoginPage.tsx - 統一登入頁面
  *
- * 整合環境感知登入機制 + 傳統帳密表單
- *
  * 登入方式依環境決定：
  * ┌──────────────┬──────────┬──────────┬────────────┐
  * │ 環境          │ 快速進入  │ 帳密登入  │ Google登入 │
@@ -12,7 +10,7 @@
  * │ ngrok/public │ ❌       │ ✅       │ ✅         │
  * └──────────────┴──────────┴──────────┴────────────┘
  *
- * @version 2.0.0
+ * @version 2.1.0
  * @date 2026-01-13
  */
 import React, { useState, useEffect, useCallback } from 'react';
@@ -33,33 +31,12 @@ import {
   GoogleOutlined,
   LoginOutlined
 } from '@ant-design/icons';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import authService, { LoginRequest } from '../services/authService';
 import { detectEnvironment, isAuthDisabled, GOOGLE_CLIENT_ID } from '../config/env';
+import { logger } from '../utils/logger';
 
 const { Title, Text } = Typography;
-
-// 使用共用的環境偵測
-const ENV_TYPE = detectEnvironment();
-
-// Google OAuth 啟用條件：有效的 Client ID
-const GOOGLE_LOGIN_ENABLED =
-  GOOGLE_CLIENT_ID &&
-  GOOGLE_CLIENT_ID !== 'your-actual-google-client-id.apps.googleusercontent.com';
-
-// 是否為認證停用模式（VITE_AUTH_DISABLED=true）
-const IS_AUTH_DISABLED = isAuthDisabled();
-
-// 環境類型判斷
-const IS_LOCALHOST = ENV_TYPE === 'localhost';
-const IS_INTERNAL = ENV_TYPE === 'internal';
-const IS_NGROK_OR_PUBLIC = ENV_TYPE === 'ngrok' || ENV_TYPE === 'public';
-
-/**
- * 登入選項配置（依環境決定）
- */
-const SHOW_QUICK_ENTRY = IS_AUTH_DISABLED || IS_LOCALHOST || IS_INTERNAL;
-const SHOW_GOOGLE_LOGIN = GOOGLE_LOGIN_ENABLED && (IS_LOCALHOST || IS_NGROK_OR_PUBLIC);
 
 interface LoginFormValues {
   username: string;
@@ -72,8 +49,24 @@ const LoginPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string>('');
-  const [googleReady, setGoogleReady] = useState(!SHOW_GOOGLE_LOGIN);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // 取得環境和 returnUrl
+  const envType = detectEnvironment();
+  const returnUrl = searchParams.get('returnUrl');
+
+  // Google OAuth 啟用條件
+  const googleLoginEnabled = Boolean(
+    GOOGLE_CLIENT_ID &&
+    GOOGLE_CLIENT_ID !== 'your-actual-google-client-id.apps.googleusercontent.com'
+  );
+
+  // 根據環境決定顯示哪些登入選項
+  const showQuickEntry = isAuthDisabled() || envType === 'localhost' || envType === 'internal';
+  const showGoogleLogin = googleLoginEnabled && (envType === 'localhost' || envType === 'ngrok' || envType === 'public');
+
+  const [googleReady, setGoogleReady] = useState(!showGoogleLogin);
 
   // Google 登入回調處理
   const handleGoogleCallback = useCallback(async (response: any) => {
@@ -83,61 +76,37 @@ const LoginPage: React.FC = () => {
       try {
         const result = await authService.googleLogin(response.credential);
         message.success('Google 登入成功！');
-
-        // 觸發登入事件，通知 Layout 更新使用者資訊
         window.dispatchEvent(new CustomEvent('user-logged-in'));
 
-        if (result.user_info.is_admin) {
-          navigate('/admin/dashboard');
-        } else {
-          navigate('/dashboard');
-        }
+        const targetUrl = returnUrl
+          ? decodeURIComponent(returnUrl)
+          : (result.user_info.is_admin ? '/admin/dashboard' : '/dashboard');
+        navigate(targetUrl);
       } catch (error: any) {
         console.error('Google login failed:', error);
         const errorMessage = error.response?.data?.detail || 'Google 登入失敗';
-
-        if (error.response?.status === 403) {
-          if (errorMessage.includes('未驗證') || errorMessage.includes('unverified')) {
-            setError('您的帳戶尚未通過管理者驗證，請聯絡管理者。');
-          } else if (errorMessage.includes('停用') || errorMessage.includes('suspended')) {
-            setError('您的帳戶已被停用，請聯絡管理者。');
-          } else {
-            setError('登入被拒絕：' + errorMessage);
-          }
-        } else {
-          setError(errorMessage);
-        }
+        setError(errorMessage);
       } finally {
         setGoogleLoading(false);
       }
     }
-  }, [message, navigate]);
+  }, [message, navigate, returnUrl]);
 
   useEffect(() => {
-    // 調試：確認組件載入和環境配置
-    console.log('========================================');
-    console.log('🔐 LoginPage 組件已載入');
-    console.log('📍 ENV_TYPE:', ENV_TYPE);
-    console.log('📍 IS_LOCALHOST:', IS_LOCALHOST);
-    console.log('📍 IS_INTERNAL:', IS_INTERNAL);
-    console.log('📍 IS_AUTH_DISABLED:', IS_AUTH_DISABLED);
-    console.log('📍 SHOW_QUICK_ENTRY:', SHOW_QUICK_ENTRY);
-    console.log('📍 SHOW_GOOGLE_LOGIN:', SHOW_GOOGLE_LOGIN);
-    console.log('📍 googleReady (初始):', !SHOW_GOOGLE_LOGIN);
-    console.log('========================================');
+    logger.debug('🔐 LoginPage 載入 | 環境:', envType, '| 快速進入:', showQuickEntry, '| Google:', showGoogleLogin);
 
     // 檢查是否已登入
     if (authService.isAuthenticated()) {
-      console.log('⚠️ 已登入，重導向到 dashboard');
+      logger.debug('⚠️ 已登入，重導向到 dashboard');
       navigate('/dashboard');
       return;
     }
 
-    // 根據環境初始化登入選項
-    if (SHOW_GOOGLE_LOGIN) {
+    // 初始化 Google 登入
+    if (showGoogleLogin) {
       initializeGoogleSignIn();
     }
-  }, [navigate]);
+  }, [navigate, envType, showQuickEntry, showGoogleLogin]);
 
   const initializeGoogleSignIn = async () => {
     try {
@@ -178,40 +147,30 @@ const LoginPage: React.FC = () => {
     }
   };
 
-  // 快速進入（localhost、內網 IP 或 AUTH_DISABLED）
+  // 快速進入
   const handleQuickEntry = async () => {
-    console.log('🔐 handleQuickEntry 開始執行');
+    logger.debug('🔐 快速進入開始');
     message.loading({ content: '正在連接伺服器...', key: 'quickEntry' });
     setLoading(true);
     setError('');
 
     try {
-      // 從後端取得開發者帳戶資訊（AUTH_DISABLED 模式會回傳 mock admin）
-      console.log('📡 呼叫 /api/auth/me ...');
       const userInfo = await authService.getCurrentUser();
-      console.log('✅ 取得使用者資訊:', userInfo);
-      message.success({ content: `歡迎, ${userInfo.full_name || userInfo.username}!`, key: 'quickEntry' });
+      logger.debug('✅ 取得使用者資訊:', userInfo);
 
-      // 儲存使用者資訊到 localStorage
+      // 儲存使用者資訊
       authService.setUserInfo(userInfo);
 
-      // 觸發登入事件，通知 Layout 更新使用者資訊
+      // 觸發登入事件
       window.dispatchEvent(new CustomEvent('user-logged-in'));
 
-      if (IS_AUTH_DISABLED) {
-        message.success(`開發模式 - 以 ${userInfo.full_name || userInfo.username} 身份進入`);
-      } else if (IS_LOCALHOST) {
-        message.success(`本機模式 - 以 ${userInfo.full_name || userInfo.username} 身份進入`);
-      } else if (IS_INTERNAL) {
-        message.success(`內網模式 - 以 ${userInfo.full_name || userInfo.username} 身份進入`);
-      }
+      message.success({ content: `歡迎, ${userInfo.full_name || userInfo.username}!`, key: 'quickEntry' });
 
-      // 根據權限導向不同頁面
-      if (userInfo.is_admin) {
-        navigate('/admin/dashboard');
-      } else {
-        navigate('/dashboard');
-      }
+      // 導航到目標頁面
+      const targetUrl = returnUrl
+        ? decodeURIComponent(returnUrl)
+        : '/dashboard';
+      navigate(targetUrl);
     } catch (error: any) {
       console.error('Quick entry failed:', error);
       const errorMsg = error?.message || '快速進入失敗，請確認後端服務是否啟動';
@@ -228,22 +187,17 @@ const LoginPage: React.FC = () => {
     setError('');
 
     try {
-      const loginRequest: LoginRequest = {
+      const response = await authService.login({
         username: values.username,
         password: values.password,
-      };
-
-      const response = await authService.login(loginRequest);
+      });
       message.success('登入成功！');
-
-      // 觸發登入事件，通知 Layout 更新使用者資訊
       window.dispatchEvent(new CustomEvent('user-logged-in'));
 
-      if (response.user_info.is_admin) {
-        navigate('/admin/user-management');
-      } else {
-        navigate('/dashboard');
-      }
+      const targetUrl = returnUrl
+        ? decodeURIComponent(returnUrl)
+        : (response.user_info.is_admin ? '/admin/dashboard' : '/dashboard');
+      navigate(targetUrl);
     } catch (error: any) {
       console.error('Login failed:', error);
       const errorMessage = error.response?.data?.detail || '登入失敗，請檢查帳號密碼';
@@ -270,9 +224,9 @@ const LoginPage: React.FC = () => {
     }
   };
 
-  // 取得環境標籤顯示
+  // 環境標籤
   const getEnvLabel = () => {
-    switch (ENV_TYPE) {
+    switch (envType) {
       case 'localhost': return { text: 'localhost', color: 'blue' };
       case 'internal': return { text: '內網環境', color: 'orange' };
       case 'ngrok': return { text: 'ngrok', color: 'green' };
@@ -327,8 +281,8 @@ const LoginPage: React.FC = () => {
           />
         )}
 
-        {/* 快速進入按鈕 (localhost / internal) */}
-        {SHOW_QUICK_ENTRY && (
+        {/* 快速進入按鈕 */}
+        {showQuickEntry && (
           <>
             <Button
               type="primary"
@@ -336,11 +290,7 @@ const LoginPage: React.FC = () => {
               size="large"
               block
               loading={loading}
-              onClick={(e) => {
-                e.preventDefault();
-                console.log('🚀 快速進入按鈕被點擊');
-                handleQuickEntry();
-              }}
+              onClick={handleQuickEntry}
               style={{
                 height: '48px',
                 backgroundColor: '#52c41a',
@@ -397,8 +347,8 @@ const LoginPage: React.FC = () => {
           </Form.Item>
         </Form>
 
-        {/* Google 登入 (localhost / ngrok / public) */}
-        {SHOW_GOOGLE_LOGIN && googleReady && (
+        {/* Google 登入 */}
+        {showGoogleLogin && googleReady && (
           <>
             <Divider style={{ margin: '16px 0', color: '#8c8c8c' }}>或</Divider>
             <div id="google-signin-container" style={{ display: 'flex', justifyContent: 'center' }}>

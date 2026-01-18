@@ -19,3 +19,31 @@ if [ -f "scripts/env-manager.js" ]; then
 fi
 
 echo "✅ 環境變數檢查通過"
+
+# =============================================================================
+# 型別同步檢查 (Type Sync Check)
+# =============================================================================
+
+echo "🔍 檢查型別定義..."
+
+# 1. TypeScript 編譯檢查
+echo "  ⏳ 執行 TypeScript 編譯檢查..."
+npx tsc --noEmit > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+  echo "  ❌ TypeScript 編譯失敗，請修復型別錯誤後再提交"
+  npx tsc --noEmit
+  exit 1
+fi
+echo "  ✅ TypeScript 編譯通過"
+
+# 2. 後端 Schema 變更檢測
+SCHEMA_CHANGED=$(git diff --cached --name-only | grep -E "backend/app/schemas/.*\.py$" || true)
+if [ -n "$SCHEMA_CHANGED" ]; then
+  echo "  ⚠️  偵測到後端 Schema 變更:"
+  echo "$SCHEMA_CHANGED" | while read file; do
+    echo "      - $file"
+  done
+  echo "  💡 提示: 如果後端正在運行，請執行 'npm run api:generate' 更新前端型別"
+fi
+
+echo "✅ 型別檢查完成"
