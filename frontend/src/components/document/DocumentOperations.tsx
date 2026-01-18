@@ -21,6 +21,7 @@ import {
   Progress,
   Alert,
 } from 'antd';
+import type { UploadFile, UploadChangeParam } from 'antd/es/upload';
 import {
   InboxOutlined,
   FileTextOutlined,
@@ -37,7 +38,7 @@ import {
   FilePdfOutlined,
   FileImageOutlined,
 } from '@ant-design/icons';
-import { Document } from '../../types';
+import { Document, Project, User, DocumentAttachment, ProjectStaff } from '../../types';
 import dayjs from 'dayjs';
 import { calendarIntegrationService } from '../../services/calendarIntegrationService';
 import { apiClient } from '../../api/client';
@@ -128,13 +129,13 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [calendarLoading, setCalendarLoading] = useState(false);
-  const [fileList, setFileList] = useState<any[]>([]);
-  const [cases, setCases] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
+  const [fileList, setFileList] = useState<UploadFile[]>([]);
+  const [cases, setCases] = useState<Project[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [casesLoading, setCasesLoading] = useState(false);
   const [usersLoading, setUsersLoading] = useState(false);
   // 附件相關狀態
-  const [existingAttachments, setExistingAttachments] = useState<any[]>([]);
+  const [existingAttachments, setExistingAttachments] = useState<DocumentAttachment[]>([]);
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
   // 上傳進度狀態
   const [uploadProgress, setUploadProgress] = useState<number>(0);
@@ -144,7 +145,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
   const [duplicateModal, setDuplicateModal] = useState<{
     visible: boolean;
     file: File | null;
-    existingAttachment: any | null;
+    existingAttachment: DocumentAttachment | null;
   }>({ visible: false, file: null, existingAttachment: null });
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   // 關鍵欄位變更確認狀態
@@ -167,15 +168,15 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
   const isCopy = operation === 'copy';
 
   // 專案同仁資料 (依專案 ID 快取)
-  const [projectStaffMap, setProjectStaffMap] = useState<Record<number, any[]>>({});
+  const [projectStaffMap, setProjectStaffMap] = useState<Record<number, ProjectStaff[]>>({});
   const [staffLoading, setStaffLoading] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
 
   // 專案同仁快取 ref（避免閉包問題）
-  const projectStaffCacheRef = React.useRef<Record<number, any[]>>({});
+  const projectStaffCacheRef = React.useRef<Record<number, ProjectStaff[]>>({});
 
   // 根據專案 ID 取得業務同仁列表
-  const fetchProjectStaff = async (projectId: number): Promise<any[]> => {
+  const fetchProjectStaff = async (projectId: number): Promise<ProjectStaff[]> => {
     // 檢查快取 (使用 ref 避免閉包問題)
     if (projectStaffCacheRef.current[projectId]) {
       const cachedData = projectStaffCacheRef.current[projectId];
@@ -187,7 +188,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
     setStaffLoading(true);
     try {
       const data = await apiClient.post<{
-        staff?: any[];
+        staff?: ProjectStaff[];
         total?: number;
       }>(`/project-staff/project/${projectId}/list`, {});
       const staffData = data.staff || [];
@@ -196,7 +197,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
       setProjectStaffMap(prev => ({ ...prev, [projectId]: staffData }));
       return staffData;
     } catch (error) {
-      console.error('Failed to fetch project staff:', error);
+      logger.error('Failed to fetch project staff:', error);
       return [];
     } finally {
       setStaffLoading(false);
@@ -231,7 +232,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
       return;
     }
 
-    const allStaffNames = staffList.map((s: any) => s.user_name);
+    const allStaffNames = staffList.map((s) => s.user_name);
     logger.debug('[handleProjectChange] 準備填入:', allStaffNames);
 
     // 同時更新 selectedProjectId 和 form 值
@@ -243,7 +244,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
       // 再次檢查確保有資料
       const currentStaff = projectStaffCacheRef.current[effectiveProjectId];
       if (currentStaff && currentStaff.length > 0) {
-        const names = currentStaff.map((s: any) => s.user_name);
+        const names = currentStaff.map((s) => s.user_name);
         form.setFieldsValue({ assignee: names });
         logger.debug('[handleProjectChange] 已填入業務同仁:', names);
         message.success(`已自動填入 ${names.length} 位業務同仁`);
@@ -261,7 +262,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
           maxFileSizeMB: info.max_file_size_mb,
         });
       } catch (error) {
-        console.warn('Failed to load file settings, using defaults:', error);
+        logger.warn('Failed to load file settings, using defaults:', error);
       }
     };
     loadFileSettings();
@@ -274,7 +275,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
       const attachments = await filesApi.getDocumentAttachments(documentId);
       setExistingAttachments(attachments);
     } catch (error) {
-      console.error('Failed to fetch attachments:', error);
+      logger.error('Failed to fetch attachments:', error);
       setExistingAttachments([]);
     } finally {
       setAttachmentsLoading(false);
@@ -285,13 +286,13 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
   // 最小顯示時間確保用戶能看到進度條
   const MIN_PROGRESS_DISPLAY_MS = 800;
 
-  const uploadFiles = async (documentId: number, files: any[]): Promise<any> => {
-    if (files.length === 0) return { success: true, files: [], errors: [] };
+  const uploadFiles = async (documentId: number, files: UploadFile[]) => {
+    if (files.length === 0) return { success: true, files: [], errors: [] as string[] };
 
     // 提取原始 File 物件
-    const fileObjects: File[] = files
+    const fileObjects = files
       .map(f => f.originFileObj)
-      .filter((f): f is File => f !== undefined);
+      .filter((f): f is NonNullable<typeof f> => f != null) as File[];
 
     if (fileObjects.length === 0) {
       return { success: true, files: [], errors: [] };
@@ -334,7 +335,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
     try {
       await filesApi.downloadAttachment(attachmentId, filename || 'download');
     } catch (error) {
-      console.error('下載附件失敗:', error);
+      logger.error('下載附件失敗:', error);
       message.error('下載附件失敗');
     }
   };
@@ -349,7 +350,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
         fetchAttachments(document.id);
       }
     } catch (error) {
-      console.error('Failed to delete attachment:', error);
+      logger.error('Failed to delete attachment:', error);
       message.error('附件刪除失敗');
     }
   };
@@ -380,7 +381,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
       // 延遲釋放 URL，讓新視窗有時間載入
       setTimeout(() => window.URL.revokeObjectURL(previewUrl), 10000);
     } catch (error) {
-      console.error('預覽附件失敗:', error);
+      logger.error('預覽附件失敗:', error);
       message.error(`預覽 ${filename} 失敗`);
     }
   };
@@ -398,7 +399,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
   };
 
   // 檢查是否有重複檔名
-  const checkDuplicateFile = (filename: string): any | null => {
+  const checkDuplicateFile = (filename: string): DocumentAttachment | undefined => {
     return existingAttachments.find(
       (att) => (att.original_filename || att.filename)?.toLowerCase() === filename.toLowerCase()
     );
@@ -414,11 +415,11 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
       message.success(`已刪除舊檔案：${duplicateModal.existingAttachment.original_filename || duplicateModal.existingAttachment.filename}`);
 
       // 將檔案加入待上傳列表
-      const newFile = {
+      const newFile: UploadFile = {
         uid: `${Date.now()}-${duplicateModal.file.name}`,
         name: duplicateModal.file.name,
-        status: 'done',
-        originFileObj: duplicateModal.file,
+        status: 'done' as const,
+        originFileObj: duplicateModal.file as UploadFile['originFileObj'],
         size: duplicateModal.file.size,
       };
       setFileList((prev) => [...prev, newFile]);
@@ -428,7 +429,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
         fetchAttachments(document.id);
       }
     } catch (error) {
-      console.error('刪除舊檔案失敗:', error);
+      logger.error('刪除舊檔案失敗:', error);
       message.error('刪除舊檔案失敗');
     } finally {
       setDuplicateModal({ visible: false, file: null, existingAttachment: null });
@@ -440,11 +441,11 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
     if (!duplicateModal.file) return;
 
     // 直接加入待上傳列表（後端會自動加 UUID 前綴）
-    const newFile = {
+    const newFile: UploadFile = {
       uid: `${Date.now()}-${duplicateModal.file.name}`,
       name: duplicateModal.file.name,
-      status: 'done',
-      originFileObj: duplicateModal.file,
+      status: 'done' as const,
+      originFileObj: duplicateModal.file as UploadFile['originFileObj'],
       size: duplicateModal.file.size,
     };
     setFileList((prev) => [...prev, newFile]);
@@ -464,15 +465,15 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
       try {
         // POST-only 資安機制 (使用 apiClient 確保正確的 base URL)
         const data = await apiClient.post<{
-          projects?: any[];
-          items?: any[];
+          projects?: Project[];
+          items?: Project[];
           total?: number;
         }>('/projects/list', { page: 1, limit: 100 });
         // 適應新的API回應格式
         const projectsData = data.projects || data.items || [];
         setCases(Array.isArray(projectsData) ? projectsData : []);
       } catch (error) {
-        console.error('Failed to fetch projects:', error);
+        logger.error('Failed to fetch projects:', error);
         setCases([]);
       } finally {
         setCasesLoading(false);
@@ -484,15 +485,15 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
       try {
         // POST-only 資安機制 (使用 apiClient 確保正確的 base URL)
         const data = await apiClient.post<{
-          users?: any[];
-          items?: any[];
+          users?: User[];
+          items?: User[];
           total?: number;
         }>('/users/list', { page: 1, limit: 100 });
         // 處理可能的不同回應格式
         const usersData = data.users || data.items || [];
         setUsers(Array.isArray(usersData) ? usersData : []);
       } catch (error) {
-        console.error('Failed to fetch users:', error);
+        logger.error('Failed to fetch users:', error);
         setUsers([]);
       } finally {
         setUsersLoading(false);
@@ -509,7 +510,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
     if (visible && document) {
       // 處理 assignee 欄位：字串轉陣列（支援逗號分隔）
       let assigneeArray: string[] = [];
-      const rawAssignee = (document as any).assignee;
+      const rawAssignee = document.assignee;
       if (rawAssignee) {
         if (Array.isArray(rawAssignee)) {
           assigneeArray = rawAssignee;
@@ -528,21 +529,22 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
 
       if (isCopy) {
         // 複製時清除ID和重複欄位
-        delete (formValues as any).id;
+        const formValuesWithId = formValues as { id?: number };
+        delete formValuesWithId.id;
         formValues.doc_number = `${document.doc_number}-副本`;
       }
 
       form.setFieldsValue(formValues);
 
       // 設定選中的專案 ID 並載入該專案的業務同仁
-      const projectId = (document as any).contract_project_id;
+      const projectId = document.contract_project_id;
       if (projectId) {
         setSelectedProjectId(projectId);
         // 載入專案業務同仁，如果公文沒有指定 assignee 則自動填入
         fetchProjectStaff(projectId).then(staffList => {
           if (staffList && staffList.length > 0 && assigneeArray.length === 0) {
             // 公文沒有指定業務同仁，自動從專案填入
-            const allStaffNames = staffList.map((s: any) => s.user_name);
+            const allStaffNames = staffList.map((s) => s.user_name);
             setTimeout(() => {
               form.setFieldsValue({ assignee: allStaffNames });
               logger.debug('[載入公文] 自動填入專案業務同仁:', allStaffNames);
@@ -590,9 +592,10 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
             message.error(`附件上傳失敗（共 ${errorCount} 個錯誤）`);
           }
           setFileList([]);
-        } catch (uploadError: any) {
-          console.error('File upload failed:', uploadError);
-          message.error(`附件上傳失敗: ${uploadError.message || '上傳失敗'}`);
+        } catch (uploadError) {
+          logger.error('File upload failed:', uploadError);
+          const errorMsg = uploadError instanceof Error ? uploadError.message : '上傳失敗';
+          message.error(`附件上傳失敗: ${errorMsg}`);
         }
       } else if (fileList.length > 0 && !targetDocumentId) {
         message.warning('無法取得公文 ID，附件稍後上傳');
@@ -601,7 +604,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
       message.success(`${getOperationText()}成功！`);
       onClose();
     } catch (error) {
-      console.error('Save document failed:', error);
+      logger.error('Save document failed:', error);
       message.error(`${getOperationText()}失敗`);
     } finally {
       setLoading(false);
@@ -656,7 +659,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
       // 直接執行儲存（建立/複製或無關鍵欄位變更）
       await performSave(documentData);
     } catch (error) {
-      console.error('Form validation failed:', error);
+      logger.error('Form validation failed:', error);
     }
   };
 
@@ -668,7 +671,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
       await calendarIntegrationService.addDocumentToCalendar(document);
       // 成功訊息已在服務中處理
     } catch (error) {
-      console.error('Add to calendar failed:', error);
+      logger.error('Add to calendar failed:', error);
       // 錯誤訊息已在服務中處理
     } finally {
       setCalendarLoading(false);
@@ -762,14 +765,14 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
 
       return false; // 阻止自動上傳，我們將手動處理
     },
-    onChange: ({ fileList: newFileList }: any) => {
+    onChange: ({ fileList: newFileList }: UploadChangeParam<UploadFile>) => {
       setFileList(newFileList);
     },
-    onRemove: (file: any) => {
+    onRemove: (file: UploadFile) => {
       const newFileList = fileList.filter(item => item.uid !== file.uid);
       setFileList(newFileList);
     },
-    onPreview: (file: any) => {
+    onPreview: (file: UploadFile) => {
       // 可以添加檔案預覽功能
       logger.debug('Preview file:', file.name);
     },
@@ -1041,7 +1044,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
                           onChange={handleProjectChange}
                           options={Array.isArray(cases) ? cases.map(case_ => ({
                             value: case_.id,
-                            label: case_.project_name || case_.case_name || '未命名案件',
+                            label: case_.project_name || '未命名案件',
                             key: case_.id
                           })) : []}
                         />
@@ -1110,7 +1113,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
                       <List
                         size="small"
                         dataSource={existingAttachments}
-                        renderItem={(item: any) => (
+                        renderItem={(item: DocumentAttachment) => (
                           <List.Item
                             actions={[
                               // 預覽按鈕（僅支援 PDF/圖片/文字檔）
@@ -1131,7 +1134,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
                                 type="link"
                                 size="small"
                                 icon={<DownloadOutlined />}
-                                onClick={() => handleDownload(item.id, item.original_filename)}
+                                onClick={() => handleDownload(item.id, item.original_filename || item.filename)}
                               >
                                 下載
                               </Button>,
@@ -1199,12 +1202,12 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
                           <List
                             size="small"
                             dataSource={fileList}
-                            renderItem={(file: any) => (
+                            renderItem={(file: UploadFile) => (
                               <List.Item>
                                 <List.Item.Meta
                                   avatar={<FileOutlined style={{ color: '#1890ff' }} />}
                                   title={file.name}
-                                  description={`${(file.size / 1024).toFixed(1)} KB`}
+                                  description={file.size ? `${(file.size / 1024).toFixed(1)} KB` : ''}
                                 />
                               </List.Item>
                             )}
@@ -1288,7 +1291,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
                     </Col>
                     <Col span={8}>
                       <strong>建立者:</strong><br />
-                      {(document as any).creator || '系統'}
+                      {document.creator || '系統'}
                     </Col>
                   </Row>
                 </Card>
@@ -1440,7 +1443,7 @@ export const DocumentSendModal: React.FC<DocumentSendModalProps> = ({
       message.success('公文發送成功！');
       onClose();
     } catch (error) {
-      console.error('Send document failed:', error);
+      logger.error('Send document failed:', error);
       message.error('公文發送失敗');
     } finally {
       setLoading(false);
