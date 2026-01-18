@@ -2,6 +2,8 @@
 
 > **觸發關鍵字**: 行事曆, calendar, Google Calendar, 事件, 截止日, event
 > **適用範圍**: 行事曆事件管理、Google Calendar 同步、公文到期追蹤
+> **版本**: 1.1.0
+> **最後更新**: 2026-01-18
 
 ---
 
@@ -156,3 +158,88 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 1. Token 是否過期
 2. 網路連線
 3. Google Calendar API 配額
+
+---
+
+## 自動事件建立
+
+### CalendarEventAutoBuilder
+
+公文匯入時自動建立行事曆事件：
+
+```python
+# backend/app/services/calendar/event_auto_builder.py
+from app.services.calendar.event_auto_builder import CalendarEventAutoBuilder
+
+builder = CalendarEventAutoBuilder(db)
+await builder.auto_create_event(document, skip_if_exists=False)
+```
+
+### 自動建立規則
+
+| 條件 | 事件類型 | 標題格式 |
+|------|---------|---------|
+| 有截止日 | `deadline` | `[截止] {subject}` |
+| 會議通知單 | `meeting` | `[會議] {subject}` |
+| 會勘通知單 | `site_visit` | `[會勘] {subject}` |
+
+---
+
+## 排程服務
+
+### 排程器管理
+
+```python
+# backend/main.py (lifespan)
+from app.services.google_sync_scheduler import (
+    start_google_sync_scheduler,
+    stop_google_sync_scheduler,
+)
+from app.services.reminder_scheduler import (
+    start_reminder_scheduler,
+    stop_reminder_scheduler,
+)
+```
+
+### 排程器狀態
+
+| 排程器 | 說明 | 間隔 |
+|--------|------|------|
+| `reminder_scheduler` | 到期提醒 | 60 秒 |
+| `google_sync_scheduler` | Google Calendar 同步 | 300 秒 |
+| `backup_scheduler` | 資料庫備份 | 每日 02:00 |
+
+### 健康檢查
+
+```bash
+# 查看排程器狀態
+GET /health/detailed
+# Response:
+{
+  "checks": {
+    "schedulers": {
+      "reminder": { "status": "running", "interval_seconds": 60 },
+      "google_sync": { "status": "running", "interval_seconds": 300 },
+      "backup": { "status": "running", "scheduled_time": "02:00" }
+    }
+  }
+}
+```
+
+---
+
+## 服務層完整結構
+
+```
+backend/app/services/
+├── calendar/
+│   ├── event_auto_builder.py    # 自動事件建立
+│   └── ...
+├── google_calendar_service.py       # Google API 呼叫
+├── google_calendar_auth_service.py  # OAuth 認證
+├── google_sync_scheduler.py         # Google 同步排程
+├── calendar_sync_service.py         # 同步邏輯
+├── document_calendar_service.py     # 公文行事曆服務
+├── document_calendar_integrator.py  # 公文與事件整合
+└── reminder_scheduler.py            # 提醒排程
+```

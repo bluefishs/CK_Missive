@@ -150,6 +150,141 @@ class StringCleaners:
         return name.strip() if name.strip() else None
 
 
+class AgencyNameParser:
+    """
+    機關名稱解析器 - 統一的機關文字解析工具
+
+    支援格式：
+    - "機關名稱" -> [(None, "機關名稱")]
+    - "代碼 (機關名稱)" -> [("代碼", "機關名稱")]
+    - "代碼 機關名稱" -> [("代碼", "機關名稱")]
+    - "代碼1 (名稱1) | 代碼2 (名稱2)" -> 多個機關
+    - "代碼\\n(機關名稱)" -> 換行格式
+
+    使用範例:
+        from app.services.base.validators import AgencyNameParser
+
+        # 解析單一機關
+        results = AgencyNameParser.parse("380110000G (桃園市政府工務局)")
+        # [("380110000G", "桃園市政府工務局")]
+
+        # 提取名稱列表
+        names = AgencyNameParser.extract_names("A01 (機關A) | B02 (機關B)")
+        # ["機關A", "機關B"]
+    """
+
+    # 機關代碼正則表達式（英數字組合，通常 9-11 碼）
+    AGENCY_CODE_PATTERN = r'[A-Z0-9]{5,15}'
+
+    @classmethod
+    def parse(cls, text: str) -> List[tuple]:
+        """
+        解析機關文字，提取機關代碼和名稱
+
+        Args:
+            text: 原始機關文字
+
+        Returns:
+            [(機關代碼, 機關名稱), ...] 的列表，代碼可能為 None
+        """
+        if not text or not text.strip():
+            return []
+
+        results = []
+        # 處理多個受文者（以 | 分隔）
+        parts = text.split("|")
+
+        for part in parts:
+            part = part.strip()
+            if not part:
+                continue
+
+            parsed = cls._parse_single(part)
+            if parsed:
+                results.append(parsed)
+
+        return results
+
+    @classmethod
+    def _parse_single(cls, part: str) -> Optional[tuple]:
+        """解析單一機關文字"""
+        # 模式1: "代碼 (機關名稱)" 或 "代碼\n(機關名稱)"
+        match = re.match(
+            r'^([A-Z0-9]+)\s*[\n\(（](.+?)[\)）]?\s*$',
+            part,
+            re.IGNORECASE
+        )
+        if match:
+            return (match.group(1).upper(), match.group(2).strip())
+
+        # 模式2: "代碼 機關名稱"（代碼與名稱以空白分隔）
+        match = re.match(
+            r'^([A-Z0-9]{5,15})\s+(.+)$',
+            part,
+            re.IGNORECASE
+        )
+        if match:
+            return (match.group(1).upper(), match.group(2).strip())
+
+        # 模式3: 純名稱（無代碼）
+        return (None, part.strip())
+
+    @classmethod
+    def extract_names(cls, text: str) -> List[str]:
+        """
+        從機關文字中提取機關名稱列表
+
+        Args:
+            text: 原始機關文字
+
+        Returns:
+            機關名稱列表
+        """
+        parsed = cls.parse(text)
+        return [name for _, name in parsed if name]
+
+    @classmethod
+    def extract_codes(cls, text: str) -> List[str]:
+        """
+        從機關文字中提取機關代碼列表
+
+        Args:
+            text: 原始機關文字
+
+        Returns:
+            機關代碼列表（不含 None）
+        """
+        parsed = cls.parse(text)
+        return [code for code, _ in parsed if code]
+
+    @classmethod
+    def clean_name(cls, name: str) -> Optional[str]:
+        """
+        清理機關名稱，移除代碼後綴
+
+        Args:
+            name: 機關名稱
+
+        Returns:
+            清理後的機關名稱
+        """
+        if not name:
+            return None
+
+        name = str(name).strip()
+        if not name:
+            return None
+
+        # 移除括號內的代碼
+        name = re.sub(r'\s*\([^)]*\)\s*$', '', name)
+        # 移除開頭的數字代碼
+        name = re.sub(r'^\d+\s*', '', name)
+        # 移除開頭的英數字代碼（機關代碼格式）
+        name = re.sub(r'^[A-Z0-9]{5,15}\s*', '', name, flags=re.IGNORECASE)
+
+        return name.strip() if name.strip() else None
+
+
 class DateParsers:
     """日期解析工具"""
 

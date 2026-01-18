@@ -19,5 +19,35 @@
     "language": "zh-TW",
     "indentation": 2,
     "quotes": "single"
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "filePattern": "**/*.ts",
+        "script": ".claude/hooks/typescript-check.ps1",
+        "description": "TypeScript 編譯檢查"
+      },
+      {
+        "matcher": "Edit|Write",
+        "filePattern": "**/*.tsx",
+        "script": ".claude/hooks/typescript-check.ps1",
+        "description": "React TypeScript 編譯檢查"
+      },
+      {
+        "matcher": "Edit|Write",
+        "filePattern": "**/*.py",
+        "script": ".claude/hooks/python-lint.ps1",
+        "description": "Python 語法檢查"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "filePattern": "**/*",
+        "script": ".claude/hooks/validate-file-location.ps1",
+        "description": "驗證檔案位置符合架構規範"
+      }
+    ]
   }
 }

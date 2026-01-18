@@ -1,13 +1,19 @@
 /**
  * 認證服務 - 處理使用者登入、登出、權限檢查等功能
  *
- * @version 1.2.0
- * @date 2026-01-11
+ * @version 1.3.0
+ * @date 2026-01-18
+ *
+ * 變更記錄：
+ * - v1.3.0: 統一使用 types/api.ts 的 User 型別 (SSOT 架構)
+ * - v1.2.0: 初版
  */
 import axios, { AxiosResponse } from 'axios';
 import { jwtDecode } from 'jwt-decode';
 import { isAuthDisabled } from '../config/env';
 import { API_BASE_URL } from '../api/client';
+import { logger } from '../utils/logger';
+import { User } from '../types/api';
 
 // Token 相關常數
 const ACCESS_TOKEN_KEY = 'access_token';
@@ -31,21 +37,17 @@ export interface RegisterRequest {
   password: string;
 }
 
-export interface UserInfo {
-  id: number;
-  email: string;
-  username?: string;
-  full_name?: string;
-  is_active: boolean;
-  is_admin: boolean;
-  auth_provider?: string;
-  avatar_url?: string;
-  permissions?: string | string[];  // 權限列表 (JSON 字串或陣列)
-  role: string;
-  created_at: string;
-  last_login?: string;
-  login_count: number;
-  email_verified: boolean;
+/**
+ * 使用者資訊型別
+ *
+ * 基於 types/api.ts 的 User 型別，擴展認證相關欄位
+ * 這確保了 SSOT (Single Source of Truth) 架構
+ */
+export interface UserInfo extends User {
+  // 認證特定欄位（可能由後端 TokenResponse 提供）
+  role: string;           // 覆寫為必填
+  login_count: number;    // 覆寫為必填
+  email_verified: boolean; // 覆寫為必填
 }
 
 export interface TokenResponse {
@@ -98,7 +100,7 @@ class AuthService {
             this.clearAuth();
             window.location.href = '/login';
           } else {
-            console.log('🔧 Development mode: Ignoring 401 error for auth bypass');
+            logger.debug('🔧 Development mode: Ignoring 401 error for auth bypass');
           }
         }
         return Promise.reject(error);
@@ -163,7 +165,7 @@ class AuthService {
       await this.axios.post('/auth/logout');
     } catch (error) {
       if (authDisabled) {
-        console.log('🔒 Auth disabled - ignoring logout API error');
+        logger.debug('🔒 Auth disabled - ignoring logout API error');
       } else {
         console.error('Logout request failed:', error);
       }
@@ -271,20 +273,38 @@ class AuthService {
 
   /**
    * 檢查是否已登入
+   *
+   * 認證判斷邏輯：
+   * 1. 如果有有效的 JWT token，返回 true
+   * 2. 如果是內網/開發模式且有 user_info，返回 true（快速進入模式）
    */
   isAuthenticated(): boolean {
     const token = this.getAccessToken();
-    if (!token) return false;
+    const userInfo = this.getUserInfo();
 
-    try {
-      const decoded = jwtDecode<JwtPayload>(token);
-      // 檢查 token 是否過期
-      const currentTime = Date.now() / 1000;
-      return decoded.exp > currentTime;
-    } catch (error) {
-      console.error('Token decode failed:', error);
-      return false;
+    // 方式一：有效的 JWT token
+    if (token) {
+      try {
+        const decoded = jwtDecode<JwtPayload>(token);
+        const currentTime = Date.now() / 1000;
+        if (decoded.exp > currentTime) {
+          return true;
+        }
+      } catch (error) {
+        console.error('Token decode failed:', error);
+      }
     }
+
+    // 方式二：內網/開發模式下的快速進入（只有 user_info，沒有 token）
+    if (userInfo && !token) {
+      const authDisabled = isAuthDisabled();
+      // 檢查 user_info 是否為內網模式登入（auth_provider = 'internal'）
+      if (authDisabled || userInfo.auth_provider === 'internal') {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   /**

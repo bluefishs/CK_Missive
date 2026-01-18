@@ -28,7 +28,8 @@ import {
   SettingOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { API_BASE_URL } from '../api/client';
+import { apiClient } from '../api/client';
+import { API_ENDPOINTS } from '../api/endpoints';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
 dayjs.extend(relativeTime);
@@ -83,9 +84,11 @@ const AdminDashboardPage: React.FC = () => {
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      // 載入真實數據
-      const usersResponse = await fetch(`${API_BASE_URL}/users`);
-      const usersData = await usersResponse.json();
+      // 載入真實數據 (POST-only 安全模式，使用集中式 API 端點)
+      const usersData = await apiClient.post<{ users: PendingUser[] }>(
+        API_ENDPOINTS.ADMIN_USER_MANAGEMENT.USERS_LIST,
+        { page: 1, per_page: 100 }
+      );
 
       // 篩選待驗證使用者
       const pendingUsersList = usersData.users?.filter((user: any) =>
@@ -151,20 +154,14 @@ const AdminDashboardPage: React.FC = () => {
       content: '確定要將此使用者驗證為一般使用者嗎？',
       onOk: async () => {
         try {
-          const response = await fetch(`/api/users/${userId}`, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
+          // 使用集中式 API 端點 (POST-only 安全模式)
+          await apiClient.post(
+            API_ENDPOINTS.ADMIN_USER_MANAGEMENT.USERS_UPDATE(userId),
+            {
               role: 'user',
               status: 'active'
-            })
-          });
-
-          if (!response.ok) {
-            throw new Error('Failed to approve user');
-          }
+            }
+          );
 
           message.success('使用者已成功驗證');
 
@@ -187,13 +184,11 @@ const AdminDashboardPage: React.FC = () => {
       okButtonProps: { danger: true },
       onOk: async () => {
         try {
-          const response = await fetch(`/api/users/${userId}`, {
-            method: 'DELETE'
-          });
-
-          if (!response.ok) {
-            throw new Error('Failed to delete user');
-          }
+          // 使用集中式 API 端點 (POST-only 安全模式)
+          await apiClient.post(
+            API_ENDPOINTS.ADMIN_USER_MANAGEMENT.USERS_DELETE(userId),
+            {}
+          );
 
           message.success('已拒絕使用者申請');
 

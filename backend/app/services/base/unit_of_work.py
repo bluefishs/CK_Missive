@@ -175,11 +175,63 @@ class AgencyServiceAdapter(BaseServiceAdapter):
         return await self._service.get_usage_count(self._session, agency_id)
 
 
-class ProjectServiceAdapter(BaseServiceAdapter):
-    """ProjectService 適配器"""
+class ProjectServiceAdapter:
+    """
+    ProjectService 適配器
 
-    async def search(self, keyword: str = None, page: int = 1, limit: int = 20):
-        return await self._service.search(self._session, keyword, page, limit)
+    ProjectService 未繼承 BaseService，使用不同的方法簽名，
+    因此需要專門的適配器來橋接 UnitOfWork 介面。
+    """
+
+    def __init__(self, service, session: AsyncSession):
+        self._service = service
+        self._session = session
+
+    async def get_by_id(self, entity_id: int):
+        """適配 get_project 方法"""
+        return await self._service.get_project(self._session, entity_id)
+
+    async def get_list(self, skip: int = 0, limit: int = 100, query=None):
+        """適配 get_projects 方法"""
+        # 建立簡單的查詢參數物件
+        class QueryParams:
+            def __init__(self, skip, limit, search=None, year=None, category=None, status=None):
+                self.skip = skip
+                self.limit = limit
+                self.search = search
+                self.year = year
+                self.category = category
+                self.status = status
+        params = QueryParams(skip, limit)
+        result = await self._service.get_projects(self._session, params)
+        return result.get('projects', [])
+
+    async def create(self, data):
+        """適配 create_project 方法"""
+        return await self._service.create_project(self._session, data)
+
+    async def update(self, entity_id: int, data):
+        """適配 update_project 方法"""
+        return await self._service.update_project(self._session, entity_id, data)
+
+    async def delete(self, entity_id: int):
+        """適配 delete_project 方法"""
+        return await self._service.delete_project(self._session, entity_id)
+
+    async def exists(self, entity_id: int):
+        """檢查專案是否存在"""
+        project = await self.get_by_id(entity_id)
+        return project is not None
+
+    async def get_statistics(self):
+        """取得專案統計"""
+        return await self._service.get_project_statistics(self._session)
+
+    async def check_user_access(self, user_id: int, project_id: int) -> bool:
+        """檢查使用者是否有權限存取專案"""
+        return await self._service.check_user_project_access(
+            self._session, user_id, project_id
+        )
 
 
 # ============================================================================

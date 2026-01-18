@@ -2,6 +2,8 @@
 
 > **觸發關鍵字**: schema, 資料庫, PostgreSQL, model, 模型, table, 資料表
 > **適用範圍**: 資料庫設計、模型定義、遷移管理
+> **版本**: 1.1.0
+> **最後更新**: 2026-01-18
 
 ---
 
@@ -20,6 +22,37 @@ User: ck_user
 # Docker 容器內連線
 docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 ```
+
+---
+
+## 模型定義位置
+
+**重要**: 所有 SQLAlchemy 模型定義在單一檔案中：
+
+```
+backend/app/extended/models.py    ← 所有模型的唯一來源
+```
+
+### 模型清單
+
+| 模型 | 資料表 | 說明 |
+|------|--------|------|
+| `OfficialDocument` | `documents` | 公文 |
+| `DocumentAttachment` | `document_attachments` | 公文附件 |
+| `GovernmentAgency` | `government_agencies` | 機關 |
+| `ContractProject` | `contract_projects` | 承攬專案 |
+| `PartnerVendor` | `partner_vendors` | 合作廠商 |
+| `DocumentCalendarEvent` | `document_calendar_events` | 行事曆事件 |
+| `User` | `users` | 使用者 |
+| `NavigationItem` | `navigation_items` | 導覽項目 |
+| `SiteConfiguration` | `site_configurations` | 網站設定 |
+
+### 關聯表
+
+| 關聯表 | 說明 |
+|--------|------|
+| `project_user_assignment` | 專案-使用者配置 (多對多) |
+| `project_vendor_association` | 專案-廠商關聯 (多對多) |
 
 ---
 
@@ -143,23 +176,35 @@ CREATE TABLE document_calendar_events (
 
 ### 模型位置
 ```
-backend/app/models/
-├── document.py           # Document, DocumentAttachment
-├── agency.py             # Agency
-├── contract_project.py   # ContractProject
-├── calendar_event.py     # DocumentCalendarEvent
-├── user.py               # User
-└── base.py               # Base 類別
+backend/app/extended/models.py    ← 所有模型的唯一來源 (單一檔案)
+```
+
+### 關聯表定義
+```python
+# project_user_assignment - 專案與使用者的多對多關聯
+project_user_assignment = Table(
+    'project_user_assignments',
+    Base.metadata,
+    Column('id', Integer, primary_key=True),
+    Column('project_id', Integer, ForeignKey('contract_projects.id'), nullable=False),
+    Column('user_id', Integer, ForeignKey('users.id'), nullable=False),
+    Column('role', String(50)),           # 專案角色
+    Column('is_primary', Boolean, default=False),  # 是否為主要負責人
+    Column('start_date', Date),
+    Column('end_date', Date),
+    Column('status', String(20), default='active'),  # active/inactive
+    Column('notes', Text)
+)
 ```
 
 ### 模型範例
 ```python
-# backend/app/models/document.py
+# backend/app/extended/models.py
 from sqlalchemy import Column, Integer, String, Text, Date, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
-from app.models.base import Base
+from app.db.database import Base
 
-class Document(Base):
+class OfficialDocument(Base):
     __tablename__ = "documents"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -170,11 +215,46 @@ class Document(Base):
     # ...
 
     # 關聯
-    sender_agency = relationship("Agency", foreign_keys=[sender_agency_id])
-    receiver_agency = relationship("Agency", foreign_keys=[receiver_agency_id])
+    sender_agency = relationship("GovernmentAgency", foreign_keys=[sender_agency_id])
+    receiver_agency = relationship("GovernmentAgency", foreign_keys=[receiver_agency_id])
     contract_project = relationship("ContractProject", back_populates="documents")
     attachments = relationship("DocumentAttachment", back_populates="document", cascade="all, delete-orphan")
 ```
+
+---
+
+## Row-Level Security (RLS)
+
+### 權限過濾邏輯
+
+系統使用統一的 RLS 過濾器 (`app/core/rls_filter.py`)：
+
+```python
+from app.core.rls_filter import RLSFilter
+
+# 取得使用者可存取的專案 ID 子查詢
+project_ids_query = RLSFilter.get_user_accessible_project_ids(user_id)
+
+# 檢查使用者是否有權限存取特定專案
+has_access = await RLSFilter.check_user_project_access(db, user_id, project_id)
+
+# 套用公文查詢的 RLS 過濾
+query = RLSFilter.apply_document_rls(query, Document, user_id, is_admin)
+```
+
+### 權限規則
+
+| 角色 | 公文權限 | 專案權限 |
+|------|---------|---------|
+| superuser | 全部 | 全部 |
+| admin | 全部 | 全部 |
+| 一般使用者 | 關聯專案的公文 + 無專案關聯的公文 | 關聯的專案 |
+
+### 專案配置表
+
+使用者透過 `project_user_assignments` 關聯到專案：
+- `status = 'active'` 或 `null` 時視為有效配置
+- `is_primary = true` 表示主要負責人
 
 ---
 

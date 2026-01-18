@@ -197,11 +197,28 @@ function createAxiosInstance(): AxiosInstance {
     },
   });
 
+  // Token Key 常數（與 authService 統一）
+  const ACCESS_TOKEN_KEY = 'access_token';
+  const REFRESH_TOKEN_KEY = 'refresh_token';
+
+  // 標記是否正在刷新 token
+  let isRefreshing = false;
+  let refreshSubscribers: Array<(token: string) => void> = [];
+
+  const subscribeTokenRefresh = (cb: (token: string) => void) => {
+    refreshSubscribers.push(cb);
+  };
+
+  const onTokenRefreshed = (token: string) => {
+    refreshSubscribers.forEach((cb) => cb(token));
+    refreshSubscribers = [];
+  };
+
   // 請求攔截器
   instance.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
-      // 添加認證 Token
-      const token = localStorage.getItem('auth_token');
+      // 添加認證 Token（使用統一的 key）
+      const token = localStorage.getItem(ACCESS_TOKEN_KEY);
       if (token && config.headers) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -212,19 +229,80 @@ function createAxiosInstance(): AxiosInstance {
     }
   );
 
-  // 回應攔截器
+  // 回應攔截器（含 Token 自動刷新機制）
   instance.interceptors.response.use(
     (response: AxiosResponse) => {
       // 直接返回資料（不做自動解包，由各 API 方法處理）
       return response;
     },
-    (error: AxiosError<ErrorResponse>) => {
+    async (error: AxiosError<ErrorResponse>) => {
+      const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+
       // 處理 401 未授權
       if (error.response?.status === 401 && !AUTH_DISABLED) {
-        localStorage.removeItem('auth_token');
-        // 避免在登入頁面重複跳轉
-        if (!window.location.pathname.includes('/login')) {
-          window.location.href = '/login';
+        // 檢查是否有 refresh token 可用於刷新
+        const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+
+        if (refreshToken && !originalRequest._retry) {
+          if (isRefreshing) {
+            // 如果正在刷新，等待刷新完成後重試
+            return new Promise((resolve) => {
+              subscribeTokenRefresh((token: string) => {
+                if (originalRequest.headers) {
+                  originalRequest.headers.Authorization = `Bearer ${token}`;
+                }
+                resolve(instance(originalRequest));
+              });
+            });
+          }
+
+          originalRequest._retry = true;
+          isRefreshing = true;
+
+          try {
+            // 嘗試刷新 token
+            const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+              refresh_token: refreshToken,
+            });
+
+            const { access_token, refresh_token: newRefreshToken } = response.data;
+
+            // 更新 localStorage
+            localStorage.setItem(ACCESS_TOKEN_KEY, access_token);
+            if (newRefreshToken) {
+              localStorage.setItem(REFRESH_TOKEN_KEY, newRefreshToken);
+            }
+
+            // 通知所有等待的請求
+            onTokenRefreshed(access_token);
+            isRefreshing = false;
+
+            // 重試原始請求
+            if (originalRequest.headers) {
+              originalRequest.headers.Authorization = `Bearer ${access_token}`;
+            }
+            return instance(originalRequest);
+          } catch (refreshError) {
+            // 刷新失敗，清除認證資訊並跳轉登入
+            isRefreshing = false;
+            localStorage.removeItem(ACCESS_TOKEN_KEY);
+            localStorage.removeItem(REFRESH_TOKEN_KEY);
+            localStorage.removeItem('user_info');
+
+            if (!window.location.pathname.includes('/login')) {
+              window.location.href = '/login';
+            }
+            throw ApiException.fromAxiosError(error);
+          }
+        } else {
+          // 沒有 refresh token，直接清除並跳轉
+          localStorage.removeItem(ACCESS_TOKEN_KEY);
+          localStorage.removeItem(REFRESH_TOKEN_KEY);
+          localStorage.removeItem('user_info');
+
+          if (!window.location.pathname.includes('/login')) {
+            window.location.href = '/login';
+          }
         }
       }
 
