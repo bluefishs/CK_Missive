@@ -1,3 +1,12 @@
+/**
+ * @deprecated 此組件已過時，請使用 DocumentFilter.tsx
+ *
+ * DocumentFilterEnhanced 是一個實驗性版本，目前未被系統使用。
+ * 主要功能已整合至 DocumentFilter.tsx。
+ *
+ * @version 1.0.0 (deprecated)
+ * @date 2026-01-19
+ */
 import React, { useState, useEffect } from 'react';
 import {
   Input,
