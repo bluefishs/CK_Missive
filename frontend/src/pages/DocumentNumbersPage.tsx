@@ -36,8 +36,11 @@ import { DocumentList } from '../components/document/DocumentList';
 // 複製功能已停用 (2026-01-12)
 // import { DocumentOperations } from '../components/document/DocumentOperations';
 import { useDocuments } from '../hooks';
-import { documentsApi, DocumentStatistics } from '../api/documentsApi';
-import { documentNumbersApi, NextNumberResponse } from '../api/documentNumbersApi';
+import {
+  documentsApi,
+  DocumentStatistics,
+  NextSendNumberResponse,
+} from '../api/documentsApi';
 import { Document } from '../types';
 
 const { Title, Text } = Typography;
@@ -59,7 +62,7 @@ export const DocumentNumbersPage: React.FC = () => {
   const [statsLoading, setStatsLoading] = useState(false);
 
   // 下一個可用字號
-  const [nextNumber, setNextNumber] = useState<NextNumberResponse | null>(null);
+  const [nextNumber, setNextNumber] = useState<NextSendNumberResponse | null>(null);
   const [nextNumberLoading, setNextNumberLoading] = useState(false);
 
   // 公文操作狀態
@@ -109,11 +112,11 @@ export const DocumentNumbersPage: React.FC = () => {
     }
   }, []);
 
-  // 載入下一個可用字號
+  // 載入下一個可用字號 (使用新的 documentsApi)
   const loadNextNumber = useCallback(async () => {
     setNextNumberLoading(true);
     try {
-      const result = await documentNumbersApi.getNextNumber();
+      const result = await documentsApi.getNextSendNumber();
       setNextNumber(result);
     } catch (error) {
       console.error('載入下一個字號失敗:', error);

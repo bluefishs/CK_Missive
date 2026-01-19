@@ -102,6 +102,22 @@ export interface DropdownOption {
   category?: string;
 }
 
+/** 下一個發文字號回應 */
+export interface NextSendNumberResponse {
+  /** 完整文號 (如: 乾坤測字第1150000001號) */
+  full_number: string;
+  /** 西元年 */
+  year: number;
+  /** 民國年 */
+  roc_year: number;
+  /** 流水號 */
+  sequence_number: number;
+  /** 前一個最大序號 */
+  previous_max: number;
+  /** 文號前綴 */
+  prefix: string;
+}
+
 /** 文件附件 - 從 filesApi 匯入（DocumentAttachment 已在 filesApi 中匯出） */
 import type { FileAttachment, DocumentAttachment } from './filesApi';
 // 本地別名，不再重複匯出以避免與 filesApi 衝突
@@ -248,6 +264,23 @@ export const documentsApi = {
    */
   async getStatistics(): Promise<DocumentStatistics> {
     return await apiClient.post<DocumentStatistics>(API_ENDPOINTS.DOCUMENTS.STATISTICS);
+  },
+
+  /**
+   * 取得下一個可用的發文字號
+   *
+   * 文號格式：{前綴}{民國年3位}{流水號7位}號
+   * 範例：乾坤測字第1150000001號 (民國115年第1號)
+   *
+   * @param prefix 文號前綴 (可選，預設使用系統設定)
+   * @param year 西元年 (可選，預設使用當前年度)
+   * @returns 下一個可用的發文字號資訊
+   */
+  async getNextSendNumber(prefix?: string, year?: number): Promise<NextSendNumberResponse> {
+    return await apiClient.post<NextSendNumberResponse>(
+      API_ENDPOINTS.DOCUMENTS.NEXT_SEND_NUMBER,
+      { prefix, year }
+    );
   },
 
   /**

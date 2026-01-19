@@ -7,7 +7,7 @@
  * - 附件紀錄：附件上傳與管理
  *
  * 特色：
- * - 公文字號自動帶入（從 documentNumbersApi.getNextNumber）
+ * - 公文字號自動帶入（從 documentsApi.getNextSendNumber）
  * - 發文機關預設「乾坤測繪科技有限公司」
  * - 受文單位使用機關下拉選單
  *
@@ -51,8 +51,10 @@ import {
   DetailPageLayout,
   createTabItem,
 } from '../components/common/DetailPage';
-import { documentsApi } from '../api/documentsApi';
-import { documentNumbersApi, NextNumberResponse } from '../api/documentNumbersApi';
+import {
+  documentsApi,
+  NextSendNumberResponse,
+} from '../api/documentsApi';
 import { agenciesApi, AgencyOption } from '../api/agenciesApi';
 import { filesApi } from '../api/filesApi';
 import { apiClient } from '../api/client';
@@ -109,7 +111,7 @@ export const SendDocumentCreatePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('info');
 
   // 下一個字號
-  const [nextNumber, setNextNumber] = useState<NextNumberResponse | null>(null);
+  const [nextNumber, setNextNumber] = useState<NextSendNumberResponse | null>(null);
   const [nextNumberLoading, setNextNumberLoading] = useState(false);
 
   // 機關選項
@@ -146,11 +148,11 @@ export const SendDocumentCreatePage: React.FC = () => {
   // 資料載入
   // =============================================================================
 
-  /** 載入下一個可用字號 */
+  /** 載入下一個可用字號 (使用新的 documentsApi) */
   const loadNextNumber = useCallback(async () => {
     setNextNumberLoading(true);
     try {
-      const result = await documentNumbersApi.getNextNumber();
+      const result = await documentsApi.getNextSendNumber();
       setNextNumber(result);
       // 注意：不在這裡調用 form.setFieldsValue，因為 Form 可能還沒渲染
       // 表單值會在 initialize 完成後統一設定

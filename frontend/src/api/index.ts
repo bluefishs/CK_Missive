@@ -15,7 +15,7 @@ export * from './endpoints';
 
 // 核心業務
 export * from './documentsApi';
-export * from './documentNumbersApi';
+// documentNumbersApi 已棄用並移除，請使用 documentsApi.getNextSendNumber()
 export * from './projectsApi';
 export * from './filesApi';
 

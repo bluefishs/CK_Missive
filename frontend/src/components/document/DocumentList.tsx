@@ -16,8 +16,8 @@ import { FileExcelOutlined, SearchOutlined, PaperClipOutlined, DownloadOutlined,
 import Highlighter from 'react-highlight-words';
 import { Document } from '../../types';
 import { DocumentActions, BatchActions } from './DocumentActions';
+import { filesApi, type DocumentAttachment } from '../../api/filesApi';
 import { documentsApi } from '../../api/documentsApi';
-import type { DocumentAttachment } from '../../api/filesApi';
 import { logger } from '../../utils/logger';
 
 interface DocumentListProps {
@@ -96,7 +96,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
   const [attachmentCache, setAttachmentCache] = useState<Record<number, DocumentAttachment[]>>({});
   const [loadingAttachments, setLoadingAttachments] = useState<Record<number, boolean>>({});
 
-  // 載入附件列表
+  // 載入附件列表 (使用 filesApi)
   const loadAttachments = async (documentId: number) => {
     if (attachmentCache[documentId]) {
       return; // 已載入過，直接使用快取
@@ -104,7 +104,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
 
     setLoadingAttachments(prev => ({ ...prev, [documentId]: true }));
     try {
-      const attachments = await documentsApi.getDocumentAttachments(documentId);
+      const attachments = await filesApi.getDocumentAttachments(documentId);
       setAttachmentCache(prev => ({ ...prev, [documentId]: attachments }));
     } catch (error) {
       console.error('載入附件失敗:', error);
@@ -114,22 +114,22 @@ export const DocumentList: React.FC<DocumentListProps> = ({
     }
   };
 
-  // 下載附件
+  // 下載附件 (使用 filesApi)
   const handleDownloadAttachment = async (attachment: DocumentAttachment, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      await documentsApi.downloadAttachment(attachment.id, attachment.filename);
+      await filesApi.downloadAttachment(attachment.id, attachment.filename);
       message.success(`下載 ${attachment.filename} 成功`);
     } catch (error) {
       message.error(`下載 ${attachment.filename} 失敗`);
     }
   };
 
-  // 預覽附件 (POST-only 資安機制)
+  // 預覽附件 (POST-only 資安機制，使用 filesApi)
   const handlePreviewAttachment = async (attachment: DocumentAttachment, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      const blob = await documentsApi.getAttachmentBlob(attachment.id);
+      const blob = await filesApi.getAttachmentBlob(attachment.id);
       const previewUrl = window.URL.createObjectURL(blob);
       window.open(previewUrl, '_blank');
       // 延遲釋放 URL，讓新視窗有時間載入

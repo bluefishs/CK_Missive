@@ -52,6 +52,8 @@ export const DOCUMENTS_ENDPOINTS = {
   AUDIT_HISTORY: (id: number) => `/documents-enhanced/${id}/audit-history`,
   /** 整合搜尋 POST /documents-enhanced/integrated-search */
   INTEGRATED_SEARCH: '/documents-enhanced/integrated-search',
+  /** 取得下一個發文字號 POST /document-numbers/next-number */
+  NEXT_SEND_NUMBER: '/document-numbers/next-number',
 } as const;
 
 /** 承攬案件 API 端點 */
@@ -292,19 +294,9 @@ export const PROJECT_AGENCY_CONTACTS_ENDPOINTS = {
 // 系統管理端點
 // ============================================================================
 
-/** 發文字號 API 端點 */
-export const DOCUMENT_NUMBERS_ENDPOINTS = {
-  /** 字號列表 POST /document-numbers/list */
-  LIST: '/document-numbers/list',
-  /** 建立字號 POST /document-numbers */
-  CREATE: '/document-numbers',
-  /** 更新字號 POST /document-numbers/:id/update */
-  UPDATE: (id: number) => `/document-numbers/${id}/update`,
-  /** 刪除字號 POST /document-numbers/:id/delete */
-  DELETE: (id: number) => `/document-numbers/${id}/delete`,
-  /** 產生下一序號 POST /document-numbers/next-serial */
-  NEXT_SERIAL: '/document-numbers/next-serial',
-} as const;
+// DOCUMENT_NUMBERS_ENDPOINTS 已移除
+// 請使用 DOCUMENTS_ENDPOINTS 並設定 category='send'
+// 取得下一個發文字號請使用 DOCUMENTS_ENDPOINTS.NEXT_SEND_NUMBER
 
 /** 提醒管理 API 端點 */
 export const REMINDER_MANAGEMENT_ENDPOINTS = {
@@ -477,7 +469,7 @@ export const API_ENDPOINTS = {
   PROJECT_AGENCY_CONTACTS: PROJECT_AGENCY_CONTACTS_ENDPOINTS,
 
   // 系統管理
-  DOCUMENT_NUMBERS: DOCUMENT_NUMBERS_ENDPOINTS,
+  // DOCUMENT_NUMBERS 已移除，請使用 DOCUMENTS.NEXT_SEND_NUMBER
   REMINDER_MANAGEMENT: REMINDER_MANAGEMENT_ENDPOINTS,
   CSV_IMPORT: CSV_IMPORT_ENDPOINTS,
   PUBLIC: PUBLIC_ENDPOINTS,
