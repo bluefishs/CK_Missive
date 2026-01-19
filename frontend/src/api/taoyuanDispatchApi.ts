@@ -113,6 +113,22 @@ export const taoyuanProjectsApi = {
       }
     );
   },
+
+  /**
+   * 下載匯入範本
+   */
+  async downloadImportTemplate(): Promise<void> {
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001';
+    const url = `${baseUrl}/api${API_ENDPOINTS.TAOYUAN_DISPATCH.PROJECTS_IMPORT_TEMPLATE}`;
+
+    // 使用 window.open 或 anchor 下載
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'taoyuan_projects_import_template.xlsx';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  },
 };
 
 // ============================================================================

@@ -3,22 +3,32 @@
 """
 發文字號管理 API 端點
 
-.. deprecated:: 3.0.0
-    此模組已棄用，請改用 documents_enhanced 端點並設定 category='發文'
+⚠️ 此模組已棄用 (DEPRECATED)
+================================
 
-    遷移指南：
-    - POST /document-numbers/query → POST /documents-enhanced/list (category='發文')
-    - POST /document-numbers/stats → POST /documents-enhanced/statistics
-    - POST /document-numbers/create → POST /documents-enhanced (doc_type='發文')
-    - POST /document-numbers/update/{id} → POST /documents-enhanced/{id}/update
-    - POST /document-numbers/delete/{id} → POST /documents-enhanced/{id}/delete
+此模組將在未來版本中移除。請改用 documents_enhanced 端點。
 
-採用 POST-only 資安機制：
-- 所有查詢操作使用 POST
-- 防止 GET 請求參數被記錄於 URL/日誌
+遷移指南：
+=========
 
-@version 2.0.0 (DEPRECATED)
-@date 2026-01-06
+舊端點 → 新端點
+- POST /document-numbers/query      → POST /documents-enhanced/list (category='發文')
+- POST /document-numbers/stats      → POST /documents-enhanced/statistics (category='send')
+- POST /document-numbers/next-number → POST /documents-enhanced/next-send-number
+- POST /document-numbers/create     → POST /documents-enhanced/create (doc_type='發文')
+- POST /document-numbers/update/{id} → POST /documents-enhanced/{id}/update
+- POST /document-numbers/delete/{id} → POST /documents-enhanced/{id}/delete
+
+前端已完成遷移：
+- DocumentNumbersPage 使用 documentsApi（documents-enhanced 端點）
+- NextSendNumber 使用 DOCUMENTS_ENDPOINTS.NEXT_SEND_NUMBER
+
+此模組保留目的：
+- 向後相容性（過渡期）
+- 將於 v4.0.0 正式移除
+
+@version 2.1.0 (DEPRECATED)
+@date 2026-01-19
 """
 
 from datetime import datetime, date

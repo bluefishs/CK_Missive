@@ -1,8 +1,8 @@
 /**
  * Hooks 模組統一匯出
  *
- * @version 1.0.0
- * @date 2026-01-06
+ * @version 2.0.0
+ * @date 2026-01-19
  */
 
 // 業務邏輯 Hooks
@@ -10,6 +10,11 @@ export * from './useDocuments';
 export * from './useProjects';
 export * from './useVendors';
 export * from './useAgencies';
+
+// 整合 Store 的 Hooks (React Query + Zustand)
+export * from './useProjectsWithStore';
+export * from './useAgenciesWithStore';
+export * from './useVendorsWithStore';
 
 // 效能與統計 Hooks
 export * from './usePerformance';

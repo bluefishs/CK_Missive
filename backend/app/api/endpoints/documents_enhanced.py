@@ -66,6 +66,9 @@ from app.schemas.document_query import (
     DocumentExportQuery,
     ExcelExportRequest,
 )
+# 發文字號相關 Schema (從 document_numbers 遷移)
+from app.schemas.document_number import NextNumberRequest, NextNumberResponse
+from datetime import datetime
 from app.core.exceptions import NotFoundException, ForbiddenException
 from app.core.rls_filter import RLSFilter
 from app.core.audit_logger import DocumentUpdateGuard
@@ -2131,3 +2134,88 @@ async def download_excel_template():
         logger.error(f"下載範本失敗: {e}", exc_info=True)
         from fastapi import HTTPException
         raise HTTPException(status_code=500, detail=f"下載範本失敗: {str(e)}")
+
+
+# =============================================================================
+# 發文字號相關端點 (從 document_numbers 遷移)
+# =============================================================================
+
+# 發文字號前綴 (可從設定檔讀取)
+from app.core.config import settings
+DEFAULT_DOC_PREFIX = getattr(settings, 'DOC_NUMBER_PREFIX', '乾坤測字第')
+
+
+@router.post("/next-send-number", response_model=NextNumberResponse)
+async def get_next_send_number(
+    request: NextNumberRequest = NextNumberRequest(),
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
+):
+    """
+    取得下一個可用的發文字號 (POST-only)
+
+    文號格式：{前綴}{民國年3位}{流水號7位}號
+    範例：乾坤測字第1150000001號 (民國115年第1號)
+
+    新年度自動重置流水號從 0000001 開始
+    """
+    try:
+        prefix = request.prefix or DEFAULT_DOC_PREFIX
+        current_year = request.year or datetime.now().year
+        roc_year = current_year - 1911
+
+        # 查詢該民國年度的最大流水號
+        year_pattern = f"{prefix}{roc_year}%"
+
+        # 使用原生 SQL 查詢，提取流水號
+        prefix_len = len(prefix)
+        year_len = len(str(roc_year))
+
+        raw_query = text(f"""
+            SELECT MAX(
+                CAST(
+                    SUBSTRING(doc_number, {prefix_len + year_len + 1}, 7)
+                    AS INTEGER
+                )
+            ) as max_seq
+            FROM documents
+            WHERE doc_number LIKE :pattern
+            AND (category = '發文' OR doc_type = '發文')
+        """)
+
+        max_seq_result = await db.execute(
+            raw_query,
+            {"pattern": year_pattern}
+        )
+        row = max_seq_result.fetchone()
+        max_sequence = row[0] if row and row[0] else 0
+
+        next_sequence = max_sequence + 1
+
+        # 生成完整文號：前綴 + 民國年(3位) + 流水號(7位) + 號
+        full_number = f"{prefix}{roc_year}{next_sequence:07d}號"
+
+        return NextNumberResponse(
+            full_number=full_number,
+            year=current_year,
+            roc_year=roc_year,
+            sequence_number=next_sequence,
+            previous_max=max_sequence,
+            prefix=prefix
+        )
+
+    except Exception as e:
+        # 查詢失敗時返回預設值 (新年度第1號)
+        logger.error(f"取得下一個字號失敗: {e}")
+        fallback_year = request.year or datetime.now().year
+        roc_year = fallback_year - 1911
+        prefix = request.prefix or DEFAULT_DOC_PREFIX
+
+        return NextNumberResponse(
+            full_number=f"{prefix}{roc_year}0000001號",
+            year=fallback_year,
+            roc_year=roc_year,
+            sequence_number=1,
+            previous_max=0,
+            prefix=prefix
+        )

@@ -36,6 +36,21 @@ export const useAgencies = (params?: AgencyListParams) => {
 };
 
 /**
+ * 取得單一機關詳情
+ *
+ * @param agencyId 機關 ID
+ * @returns React Query 結果
+ */
+export const useAgency = (agencyId: number | null | undefined) => {
+  return useQuery({
+    queryKey: queryKeys.agencies.detail(agencyId ?? 0),
+    queryFn: () => agenciesApi.getAgency(agencyId!),
+    ...defaultQueryOptions.detail,
+    enabled: !!agencyId,
+  });
+};
+
+/**
  * 取得機關下拉選項
  *
  * @returns React Query 結果

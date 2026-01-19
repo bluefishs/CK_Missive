@@ -118,9 +118,8 @@ export interface NextSendNumberResponse {
   prefix: string;
 }
 
-/** 文件附件 - 從 filesApi 匯入（DocumentAttachment 已在 filesApi 中匯出） */
-import type { FileAttachment, DocumentAttachment } from './filesApi';
-// 本地別名，不再重複匯出以避免與 filesApi 衝突
+// 文件附件型別請直接從 filesApi 匯入
+// import type { FileAttachment, DocumentAttachment } from './filesApi';
 
 // ============================================================================
 // API 方法
@@ -480,76 +479,9 @@ export const documentsApi = {
   },
 
   // ==========================================================================
-  // 檔案附件方法 - 委託給 filesApi（統一 API 呼叫）
+  // 檔案附件方法已移除 - 請直接使用 filesApi
+  // filesApi.getDocumentAttachments, filesApi.downloadAttachment, etc.
   // ==========================================================================
-
-  /**
-   * 取得文件附件列表
-   * @deprecated 請直接使用 filesApi.getDocumentAttachments
-   */
-  async getDocumentAttachments(documentId: number): Promise<DocumentAttachment[]> {
-    const { filesApi } = await import('./filesApi');
-    return filesApi.getDocumentAttachments(documentId);
-  },
-
-  /**
-   * 下載附件
-   * @deprecated 請直接使用 filesApi.downloadAttachment
-   */
-  async downloadAttachment(attachmentId: number, filename: string): Promise<void> {
-    const { filesApi } = await import('./filesApi');
-    return filesApi.downloadAttachment(attachmentId, filename);
-  },
-
-  /**
-   * 取得附件 Blob（用於預覽）
-   * @deprecated 請直接使用 filesApi.getAttachmentBlob
-   */
-  async getAttachmentBlob(attachmentId: number): Promise<Blob> {
-    const { filesApi } = await import('./filesApi');
-    return filesApi.getAttachmentBlob(attachmentId);
-  },
-
-  /**
-   * 刪除附件
-   * @deprecated 請直接使用 filesApi.deleteAttachment
-   */
-  async deleteAttachment(attachmentId: number): Promise<{ success: boolean; message: string }> {
-    const { filesApi } = await import('./filesApi');
-    return filesApi.deleteAttachment(attachmentId);
-  },
-
-  /**
-   * 驗證附件完整性
-   * @deprecated 請直接使用 filesApi.verifyAttachment
-   */
-  async verifyAttachment(attachmentId: number): Promise<{
-    success: boolean;
-    file_id: number;
-    status: string;
-    is_valid?: boolean;
-    message: string;
-  }> {
-    const { filesApi } = await import('./filesApi');
-    return filesApi.verifyAttachment(attachmentId);
-  },
-
-  /**
-   * 取得儲存系統資訊
-   * @deprecated 請直接使用 filesApi.getStorageInfo
-   */
-  async getStorageInfo(): Promise<{
-    success: boolean;
-    storage_path: string;
-    storage_type: string;
-    total_files: number;
-    total_size_mb: number;
-    allowed_extensions: string[];
-    max_file_size_mb: number;
-  }> {
-    const { filesApi } = await import('./filesApi');
-    return filesApi.getStorageInfo();
-  },
 
   // ==========================================================================
   // 審計日誌方法

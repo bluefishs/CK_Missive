@@ -2,7 +2,8 @@
 桃園查估派工管理系統 API 端點
 """
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.orm import selectinload
@@ -166,10 +167,80 @@ async def delete_taoyuan_project(
     return {"success": True, "message": "刪除成功"}
 
 
+@router.get("/projects/import-template", summary="下載轄管工程匯入範本")
+async def download_import_template():
+    """
+    下載 Excel 匯入範本
+
+    範本包含所有支援的欄位及範例資料
+    """
+    # 定義範本欄位（與匯入時的 column_mapping 一致）
+    template_columns = [
+        '項次', '審議年度', '案件類型', '行政區', '工程名稱',
+        '工程起點', '工程迄點', '道路長度(公尺)', '現況路寬(公尺)', '計畫路寬(公尺)',
+        '公有土地(筆)', '私有土地(筆)', 'RC數量(棟)', '鐵皮屋數量(棟)',
+        '工程費(元)', '用地費(元)', '補償費(元)', '總經費(元)',
+        '審議結果', '都市計畫', '完工日期', '提案人', '備註'
+    ]
+
+    # 範例資料
+    sample_data = [{
+        '項次': 1,
+        '審議年度': 114,
+        '案件類型': '新建',
+        '行政區': '桃園區',
+        '工程名稱': '○○路拓寬工程',
+        '工程起點': '中山路口',
+        '工程迄點': '民生路口',
+        '道路長度(公尺)': 500,
+        '現況路寬(公尺)': 8,
+        '計畫路寬(公尺)': 12,
+        '公有土地(筆)': 5,
+        '私有土地(筆)': 10,
+        'RC數量(棟)': 2,
+        '鐵皮屋數量(棟)': 3,
+        '工程費(元)': 5000000,
+        '用地費(元)': 3000000,
+        '補償費(元)': 2000000,
+        '總經費(元)': 10000000,
+        '審議結果': '通過',
+        '都市計畫': '住宅區',
+        '完工日期': '2025-12-31',
+        '提案人': '王○○',
+        '備註': '範例資料，請刪除後填入實際資料'
+    }]
+
+    # 建立 DataFrame
+    df = pd.DataFrame(sample_data, columns=template_columns)
+
+    # 寫入 Excel
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='轄管工程清單')
+
+        # 調整欄寬
+        worksheet = writer.sheets['轄管工程清單']
+        for idx, col in enumerate(template_columns):
+            # 根據欄位名稱長度設定欄寬
+            width = max(len(col) * 2, 12)
+            col_letter = chr(65 + idx) if idx < 26 else f'A{chr(65 + idx - 26)}'
+            worksheet.column_dimensions[col_letter].width = width
+
+    output.seek(0)
+
+    return StreamingResponse(
+        output,
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={
+            'Content-Disposition': 'attachment; filename=taoyuan_projects_import_template.xlsx'
+        }
+    )
+
+
 @router.post("/projects/import", response_model=ExcelImportResult, summary="匯入轄管工程清單")
 async def import_taoyuan_projects(
-    contract_project_id: int,
     file: UploadFile = File(...),
+    contract_project_id: int = Form(...),
     db: AsyncSession = Depends(get_async_db),
     current_user = Depends(require_auth)
 ):

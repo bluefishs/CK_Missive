@@ -40,6 +40,7 @@ import {
   PlusOutlined,
   ReloadOutlined,
   UploadOutlined,
+  DownloadOutlined,
   FileExcelOutlined,
   EditOutlined,
   DeleteOutlined,
@@ -434,6 +435,17 @@ const ProjectsTab: React.FC<ProjectsTabProps> = ({ contractProjectId }) => {
         onCancel={() => setImportModalVisible(false)}
         footer={null}
       >
+        <div style={{ marginBottom: 16 }}>
+          <Button
+            icon={<DownloadOutlined />}
+            onClick={() => taoyuanProjectsApi.downloadImportTemplate()}
+          >
+            下載匯入範本
+          </Button>
+          <span style={{ marginLeft: 8, color: '#666', fontSize: 12 }}>
+            請先下載範本，按照格式填寫後再上傳
+          </span>
+        </div>
         <Upload.Dragger
           accept=".xlsx,.xls"
           maxCount={1}

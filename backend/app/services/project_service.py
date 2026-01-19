@@ -1,6 +1,11 @@
 """
 Service layer for Contract Project operations
 
+v3.0 - 2026-01-19
+- 重構: 繼承 BaseService 泛型基類
+- 統一 CRUD 操作介面
+- 保留專案特有的業務邏輯
+
 v2.0 - 2026-01-10
 - 新增行級別權限過濾 (Row-Level Security)
 - 非管理員只能查看自己關聯的專案
@@ -18,15 +23,31 @@ if TYPE_CHECKING:
 
 from app.schemas.project import ProjectCreate, ProjectUpdate
 from app.core.rls_filter import RLSFilter
+from app.services.base_service import BaseService
 
 logger = logging.getLogger(__name__)
 
-class ProjectService:
-    """承攬案件相關的資料庫操作服務"""
+
+class ProjectService(BaseService[ContractProject, ProjectCreate, ProjectUpdate]):
+    """
+    承攬案件服務
+
+    繼承 BaseService 提供標準 CRUD 操作，並擴展專案特有的業務邏輯：
+    - 自動產生專案編號
+    - 行級別權限過濾 (RLS)
+    - 專案統計與選項查詢
+    """
+
+    def __init__(self):
+        super().__init__(ContractProject, "承攬案件")
+
+    # =========================================================================
+    # 覆寫基礎方法以支援專案特有邏輯
+    # =========================================================================
 
     async def get_project(self, db: AsyncSession, project_id: int) -> Optional[ContractProject]:
-        result = await db.execute(select(ContractProject).where(ContractProject.id == project_id))
-        return result.scalar_one_or_none()
+        """取得單一專案（相容舊介面）"""
+        return await self.get_by_id(db, project_id)
 
     async def check_user_project_access(
         self,
@@ -147,8 +168,22 @@ class ProjectService:
 
         return f"{prefix}{str(new_serial).zfill(3)}"
 
-    async def create_project(self, db: AsyncSession, project: ProjectCreate) -> ContractProject:
-        project_data = project.model_dump()
+    async def create(
+        self,
+        db: AsyncSession,
+        data: ProjectCreate
+    ) -> ContractProject:
+        """
+        建立新專案（覆寫基類方法以支援自動編號）
+
+        Args:
+            db: 資料庫 session
+            data: 專案建立資料
+
+        Returns:
+            新建的專案物件
+        """
+        project_data = data.model_dump()
 
         # 如果沒有提供 project_code，則自動產生
         if not project_data.get('project_code'):
@@ -160,9 +195,7 @@ class ProjectService:
             )
         else:
             # 檢查專案編號是否已存在
-            existing = (await db.execute(
-                select(ContractProject).where(ContractProject.project_code == project_data['project_code'])
-            )).scalar_one_or_none()
+            existing = await self.get_by_field(db, 'project_code', project_data['project_code'])
             if existing:
                 raise ValueError(f"專案編號 {project_data['project_code']} 已存在")
 
@@ -170,14 +203,36 @@ class ProjectService:
         db.add(db_project)
         await db.commit()
         await db.refresh(db_project)
+
+        self.logger.info(f"建立{self.entity_name}: ID={db_project.id}, Code={db_project.project_code}")
         return db_project
 
-    async def update_project(self, db: AsyncSession, project_id: int, project_update: ProjectUpdate) -> Optional[ContractProject]:
-        db_project = await self.get_project(db, project_id)
+    async def create_project(self, db: AsyncSession, project: ProjectCreate) -> ContractProject:
+        """建立新專案（相容舊介面）"""
+        return await self.create(db, project)
+
+    async def update(
+        self,
+        db: AsyncSession,
+        entity_id: int,
+        data: ProjectUpdate
+    ) -> Optional[ContractProject]:
+        """
+        更新專案（覆寫基類方法以支援自動進度設定）
+
+        Args:
+            db: 資料庫 session
+            entity_id: 專案 ID
+            data: 更新資料
+
+        Returns:
+            更新後的專案物件，若不存在則返回 None
+        """
+        db_project = await self.get_by_id(db, entity_id)
         if not db_project:
             return None
 
-        update_data = project_update.model_dump(exclude_unset=True)
+        update_data = data.model_dump(exclude_unset=True)
 
         # 自動設定進度：當狀態設為「已結案」時，進度自動設為 100%
         if update_data.get('status') == '已結案':
@@ -188,10 +243,30 @@ class ProjectService:
 
         await db.commit()
         await db.refresh(db_project)
+
+        self.logger.info(f"更新{self.entity_name}: ID={entity_id}")
         return db_project
 
-    async def delete_project(self, db: AsyncSession, project_id: int) -> bool:
-        db_project = await self.get_project(db, project_id)
+    async def update_project(self, db: AsyncSession, project_id: int, project_update: ProjectUpdate) -> Optional[ContractProject]:
+        """更新專案（相容舊介面）"""
+        return await self.update(db, project_id, project_update)
+
+    async def delete(
+        self,
+        db: AsyncSession,
+        entity_id: int
+    ) -> bool:
+        """
+        刪除專案（覆寫基類方法以處理關聯資料）
+
+        Args:
+            db: 資料庫 session
+            entity_id: 專案 ID
+
+        Returns:
+            刪除是否成功
+        """
+        db_project = await self.get_by_id(db, entity_id)
         if not db_project:
             return False
 
@@ -199,25 +274,31 @@ class ProjectService:
             # 先刪除關聯的承辦同仁資料
             await db.execute(
                 delete(project_user_assignment).where(
-                    project_user_assignment.c.project_id == project_id
+                    project_user_assignment.c.project_id == entity_id
                 )
             )
 
             # 再刪除關聯的廠商資料
             await db.execute(
                 delete(project_vendor_association).where(
-                    project_vendor_association.c.project_id == project_id
+                    project_vendor_association.c.project_id == entity_id
                 )
             )
 
             # 最後刪除專案本身
             await db.delete(db_project)
             await db.commit()
+
+            self.logger.info(f"刪除{self.entity_name}: ID={entity_id}")
             return True
         except IntegrityError as e:
             await db.rollback()
-            logger.error(f"刪除專案失敗 (外鍵約束): {e}")
+            self.logger.error(f"刪除專案失敗 (外鍵約束): {e}")
             raise ValueError("無法刪除此專案，可能仍有關聯的公文或其他資料")
+
+    async def delete_project(self, db: AsyncSession, project_id: int) -> bool:
+        """刪除專案（相容舊介面）"""
+        return await self.delete(db, project_id)
 
     async def get_project_statistics(self, db: AsyncSession) -> dict:
         """取得專案統計資料"""

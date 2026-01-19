@@ -2,8 +2,8 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.7.0
-> **最後更新**: 2026-01-18
+> **Claude Code 配置版本**: 1.8.0
+> **最後更新**: 2026-01-19
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers)
 
 ---
@@ -363,6 +363,56 @@ cd frontend && npx tsc --noEmit
 cd backend && python -m py_compile app/main.py
 ```
 
+### 5. 服務層架構 (v1.8.0)
+
+**後端服務層分層原則**：
+
+| 層級 | 位置 | 職責 |
+|------|------|------|
+| API 層 | `backend/app/api/endpoints/` | HTTP 處理、參數驗證、回應格式化 |
+| Service 層 | `backend/app/services/` | 業務邏輯、資料處理、跨實體操作 |
+| Repository 層 | `backend/app/extended/` | 資料存取、ORM 模型 |
+
+**BaseService 繼承原則**：
+
+| 服務類型 | 繼承 BaseService | 說明 |
+|----------|------------------|------|
+| 簡單 CRUD | ✅ 推薦 | VendorService, AgencyService |
+| 複雜業務邏輯 | ❌ 不建議 | DocumentService (有行事曆整合、匹配策略) |
+
+```python
+# ✅ 簡單實體 - 繼承 BaseService
+class ProjectService(BaseService[ContractProject, ProjectCreate, ProjectUpdate]):
+    def __init__(self):
+        super().__init__(ContractProject, "承攬案件")
+
+# ✅ 複雜實體 - 獨立實現
+class DocumentService:
+    def __init__(self, db: AsyncSession, auto_create_events: bool = True):
+        self.db = db
+        self._agency_matcher = AgencyMatcher(db)  # 策略類別
+```
+
+### 6. 前端狀態管理架構 (v1.8.0)
+
+**雙層狀態管理**：React Query (Server State) + Zustand (UI State)
+
+| 層級 | 位置 | 職責 |
+|------|------|------|
+| React Query | `frontend/src/hooks/use*.ts` | API 快取、伺服器同步 |
+| Zustand Store | `frontend/src/store/*.ts` | UI 狀態、篩選條件、分頁 |
+| 整合 Hook | `frontend/src/hooks/use*WithStore.ts` | 結合兩者的統一介面 |
+
+```typescript
+// ✅ 使用整合 Hook（推薦）
+import { useProjectsWithStore } from '../hooks';
+const { projects, filters, setFilters, createProject } = useProjectsWithStore();
+
+// ✅ 只需要 Server State
+import { useProjects } from '../hooks';
+const { data, isLoading } = useProjects(params);
+```
+
 ---
 
 ## 📖 重要規範文件
@@ -428,4 +478,4 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 ---
 
 *配置維護: Claude Code Assistant*
-*最後更新: 2026-01-18*
+*最後更新: 2026-01-19*

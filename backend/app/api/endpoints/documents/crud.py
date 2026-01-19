@@ -3,8 +3,12 @@
 
 包含：詳情查詢、建立、更新、刪除
 
-@version 3.0.0
-@date 2026-01-18
+@version 3.1.0
+@date 2026-01-19
+
+變更紀錄:
+- v3.1.0: 業務邏輯下沉至 DocumentService (get_document_with_extra_info)
+- v3.0.0: 初始模組化版本
 """
 import os
 from fastapi import APIRouter, Body
@@ -20,6 +24,7 @@ from .common import (
     RLSFilter, DocumentUpdateGuard, NotificationService, CRITICAL_FIELDS,
     require_auth, require_permission, parse_date_string,
 )
+from app.services.document_service import DocumentService
 
 router = APIRouter()
 
@@ -38,13 +43,17 @@ async def get_document_detail(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_auth())
 ):
-    """取得單一公文詳情（POST-only 資安機制，含擴充欄位與權限檢查）"""
-    try:
-        query = select(OfficialDocument).where(OfficialDocument.id == document_id)
-        result = await db.execute(query)
-        document = result.scalar_one_or_none()
+    """
+    取得單一公文詳情（POST-only 資安機制，含擴充欄位與權限檢查）
 
-        if not document:
+    業務邏輯已下沉至 DocumentService.get_document_with_extra_info()
+    """
+    try:
+        # 使用 DocumentService 取得公文及額外資訊
+        service = DocumentService(db, auto_create_events=False)
+        doc_dict = await service.get_document_with_extra_info(document_id)
+
+        if not doc_dict:
             return JSONResponse(
                 status_code=404,
                 content={
@@ -58,48 +67,18 @@ async def get_document_detail(
 
         # 🔒 行級別權限檢查 (RLS) - 使用統一 RLSFilter
         if not current_user.is_admin and not current_user.is_superuser:
-            if document.contract_project_id:
+            contract_project_id = doc_dict.get('contract_project_id')
+            if contract_project_id:
                 has_access = await RLSFilter.check_user_project_access(
-                    db, current_user.id, document.contract_project_id
+                    db, current_user.id, contract_project_id
                 )
                 if not has_access:
                     raise ForbiddenException("您沒有權限查看此公文")
             # 無專案關聯的公文視為公開，不需額外檢查
 
-        # 準備擴充欄位
-        doc_dict = {k: v for k, v in document.__dict__.items() if not k.startswith('_')}
-
-        # 查詢承攬案件名稱
-        if document.contract_project_id:
-            project_query = select(ContractProject.project_name).where(
-                ContractProject.id == document.contract_project_id
-            )
-            project_result = await db.execute(project_query)
-            doc_dict['contract_project_name'] = project_result.scalar()
-
-        # 查詢機關名稱（2026-01-08 新增）
-        if document.sender_agency_id:
-            agency_query = select(GovernmentAgency.agency_name).where(
-                GovernmentAgency.id == document.sender_agency_id
-            )
-            agency_result = await db.execute(agency_query)
-            doc_dict['sender_agency_name'] = agency_result.scalar()
-
-        if document.receiver_agency_id:
-            agency_query = select(GovernmentAgency.agency_name).where(
-                GovernmentAgency.id == document.receiver_agency_id
-            )
-            agency_result = await db.execute(agency_query)
-            doc_dict['receiver_agency_name'] = agency_result.scalar()
-
-        # 查詢附件數量
-        attachment_count_query = select(func.count(DocumentAttachment.id)).where(
-            DocumentAttachment.document_id == document_id
-        )
-        attachment_result = await db.execute(attachment_count_query)
-        doc_dict['attachment_count'] = attachment_result.scalar() or 0
-
         return DocumentResponse.model_validate(doc_dict)
+    except ForbiddenException:
+        raise
     except Exception as e:
         logger.error(f"取得公文詳情失敗: {e}", exc_info=True)
         return JSONResponse(

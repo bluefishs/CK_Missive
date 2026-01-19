@@ -52,8 +52,8 @@ export const DOCUMENTS_ENDPOINTS = {
   AUDIT_HISTORY: (id: number) => `/documents-enhanced/${id}/audit-history`,
   /** 整合搜尋 POST /documents-enhanced/integrated-search */
   INTEGRATED_SEARCH: '/documents-enhanced/integrated-search',
-  /** 取得下一個發文字號 POST /document-numbers/next-number */
-  NEXT_SEND_NUMBER: '/document-numbers/next-number',
+  /** 取得下一個發文字號 POST /documents-enhanced/next-send-number */
+  NEXT_SEND_NUMBER: '/documents-enhanced/next-send-number',
 } as const;
 
 /** 承攬案件 API 端點 */
@@ -385,6 +385,8 @@ export const TAOYUAN_DISPATCH_ENDPOINTS = {
   PROJECTS_DELETE: (id: number) => `/taoyuan-dispatch/projects/${id}/delete`,
   /** Excel 匯入工程 POST /taoyuan-dispatch/projects/import */
   PROJECTS_IMPORT: '/taoyuan-dispatch/projects/import',
+  /** 下載匯入範本 GET /taoyuan-dispatch/projects/import-template */
+  PROJECTS_IMPORT_TEMPLATE: '/taoyuan-dispatch/projects/import-template',
 
   // 派工紀錄
   /** 派工單列表 POST /taoyuan-dispatch/dispatch/list */

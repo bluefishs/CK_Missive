@@ -445,6 +445,68 @@ class DocumentService:
         result = await self.db.execute(query)
         return result.scalars().first()
 
+    async def get_document_with_extra_info(
+        self,
+        document_id: int
+    ) -> Optional[Dict[str, Any]]:
+        """
+        取得公文詳情及額外資訊（用於詳情頁）
+
+        此方法將 API 層的資料補充邏輯下沉到 Service 層，包括：
+        - 承攬案件名稱
+        - 發文/受文機關名稱
+        - 附件數量
+
+        Args:
+            document_id: 公文 ID
+
+        Returns:
+            包含公文資料及額外資訊的字典，若不存在則返回 None
+
+        @version 1.0.0
+        @date 2026-01-19
+        """
+        from app.extended.models import DocumentAttachment
+
+        # 取得公文（含關聯資料）
+        document = await self.get_document_by_id(document_id, include_relations=True)
+        if not document:
+            return None
+
+        # 轉換為字典
+        doc_dict = {k: v for k, v in document.__dict__.items() if not k.startswith('_')}
+
+        # 補充承攬案件名稱
+        if document.contract_project:
+            doc_dict['contract_project_name'] = document.contract_project.project_name
+        else:
+            doc_dict['contract_project_name'] = None
+
+        # 補充發文機關名稱
+        if document.sender_agency:
+            doc_dict['sender_agency_name'] = document.sender_agency.agency_name
+        else:
+            doc_dict['sender_agency_name'] = None
+
+        # 補充受文機關名稱
+        if document.receiver_agency:
+            doc_dict['receiver_agency_name'] = document.receiver_agency.agency_name
+        else:
+            doc_dict['receiver_agency_name'] = None
+
+        # 計算附件數量
+        if document.attachments:
+            doc_dict['attachment_count'] = len(document.attachments)
+        else:
+            # 若未預載入，則查詢計算
+            attachment_count_query = select(func.count(DocumentAttachment.id)).where(
+                DocumentAttachment.document_id == document_id
+            )
+            attachment_result = await self.db.execute(attachment_count_query)
+            doc_dict['attachment_count'] = attachment_result.scalar() or 0
+
+        return doc_dict
+
     async def _get_next_auto_serial(self, doc_type: str) -> str:
         """產生下一個流水號 (R0001=收文, S0001=發文)"""
         prefix = 'R' if doc_type == '收文' else 'S'
