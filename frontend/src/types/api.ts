@@ -686,56 +686,102 @@ export type DocumentPriority = 'normal' | 'urgent' | 'critical';
 // 桃園查估派工管理系統 (TaoyuanDispatch) 相關型別
 // ============================================================================
 
-/** 工程類別常數 */
+/** 作業類別常數 (匹配後端 WORK_TYPES) */
 export const TAOYUAN_WORK_TYPES = [
-  '徵收補償案件',
-  '工程拆遷補償案件',
-  '撥用補償案件',
-  '一般案件',
-  '抵價案件',
-  '農地重劃案件',
-  '市地重劃案件',
-  '畸零地案件',
-  '區段徵收案件',
-  '容移代金案件',
+  '#0.專案行政作業',
+  '00.專案會議',
+  '01.地上物查估作業',
+  '02.土地協議市價查估作業',
+  '03.土地徵收市價查估作業',
+  '04.相關計畫書製作',
+  '05.測量作業',
+  '06.樁位測釘作業',
+  '07.辦理教育訓練',
+  '08.作業提繳事項',
 ] as const;
 
-export type TaoyuanWorkType = typeof TAOYUAN_WORK_TYPES[number];
+export type TaoyuanWorkType = (typeof TAOYUAN_WORK_TYPES)[number];
 
-/** 轄管工程基礎介面 */
+/** 轄管工程基礎介面 (匹配後端 TaoyuanProject Schema) */
 export interface TaoyuanProject {
   id: number;
   contract_project_id?: number;
-  contract_project_name?: string;
-  project_name: string;
-  sub_case_name?: string;
-  district?: string;
+
+  // 縣府原始資料
+  sequence_no?: number;
   review_year?: number;
-  work_type?: string;
-  estimated_count?: number;
-  estimated_area?: number;
+  case_type?: string;
+  district?: string;
+  project_name: string;
+  start_point?: string;
+  end_point?: string;
+  road_length?: number;
+  current_width?: number;
+  planned_width?: number;
+  public_land_count?: number;
+  private_land_count?: number;
+  rc_count?: number;
+  iron_sheet_count?: number;
+  construction_cost?: number;
+  land_cost?: number;
+  compensation_cost?: number;
+  total_cost?: number;
+  review_result?: string;
+  urban_plan?: string;
+  completion_date?: string;
+  proposer?: string;
+  remark?: string;
+
+  // 派工關聯欄位
+  sub_case_name?: string;
   case_handler?: string;
-  notes?: string;
-  cloud_path?: string;
-  is_dispatch?: boolean;
-  is_completed?: boolean;
-  created_at: string;
-  updated_at: string;
+  survey_unit?: string;
+
+  // 進度追蹤欄位
+  land_agreement_status?: string;
+  land_expropriation_status?: string;
+  building_survey_status?: string;
+  actual_entry_date?: string;
+  acceptance_status?: string;
+
+  created_at?: string;
+  updated_at?: string;
 }
 
 /** 轄管工程建立請求 */
 export interface TaoyuanProjectCreate {
   contract_project_id?: number;
-  project_name: string;
-  sub_case_name?: string;
-  district?: string;
+  sequence_no?: number;
   review_year?: number;
-  work_type?: string;
-  estimated_count?: number;
-  estimated_area?: number;
+  case_type?: string;
+  district?: string;
+  project_name: string;
+  start_point?: string;
+  end_point?: string;
+  road_length?: number;
+  current_width?: number;
+  planned_width?: number;
+  public_land_count?: number;
+  private_land_count?: number;
+  rc_count?: number;
+  iron_sheet_count?: number;
+  construction_cost?: number;
+  land_cost?: number;
+  compensation_cost?: number;
+  total_cost?: number;
+  review_result?: string;
+  urban_plan?: string;
+  completion_date?: string;
+  proposer?: string;
+  remark?: string;
+  sub_case_name?: string;
   case_handler?: string;
-  notes?: string;
-  cloud_path?: string;
+  survey_unit?: string;
+  land_agreement_status?: string;
+  land_expropriation_status?: string;
+  building_survey_status?: string;
+  actual_entry_date?: string;
+  acceptance_status?: string;
 }
 
 /** 轄管工程更新請求 */
@@ -749,8 +795,6 @@ export interface TaoyuanProjectListQuery {
   contract_project_id?: number;
   district?: string;
   review_year?: number;
-  is_dispatch?: boolean;
-  is_completed?: boolean;
   sort_by?: string;
   sort_order?: 'asc' | 'desc';
 }
@@ -762,59 +806,62 @@ export interface TaoyuanProjectListResponse {
   pagination: PaginationMeta;
 }
 
-/** 派工單基礎介面 */
+/** 派工單基礎介面 (匹配後端 DispatchOrder Schema) */
 export interface DispatchOrder {
   id: number;
   contract_project_id?: number;
-  dispatch_number?: string;
-  dispatch_date?: string;
-  title: string;
-  description?: string;
-  dispatch_agency?: string;
-  received_date?: string;
-  deadline_date?: string;
-  completion_date?: string;
-  actual_payment?: number;
-  status: 'draft' | 'dispatched' | 'in_progress' | 'completed' | 'cancelled';
-  notes?: string;
-  created_at: string;
-  updated_at: string;
-  // 關聯資料
+  dispatch_no: string;
+  agency_doc_id?: number;
+  company_doc_id?: number;
+  project_name?: string;
+  work_type?: TaoyuanWorkType | string;
+  sub_case_name?: string;
+  deadline?: string;
+  case_handler?: string;
+  survey_unit?: string;
+  cloud_folder?: string;
+  project_folder?: string;
+  created_at?: string;
+  updated_at?: string;
+
+  // 關聯資訊（列表顯示用）
+  agency_doc_number?: string;
+  company_doc_number?: string;
   linked_projects?: TaoyuanProject[];
-  linked_documents?: DispatchDocumentLink[];
 }
 
 /** 派工單建立請求 */
 export interface DispatchOrderCreate {
+  dispatch_no: string;
   contract_project_id?: number;
-  dispatch_number?: string;
-  dispatch_date?: string;
-  title: string;
-  description?: string;
-  dispatch_agency?: string;
-  received_date?: string;
-  deadline_date?: string;
-  status?: 'draft' | 'dispatched' | 'in_progress' | 'completed' | 'cancelled';
-  notes?: string;
-  project_ids?: number[];
-  document_ids?: number[];
+  agency_doc_id?: number;
+  company_doc_id?: number;
+  project_name?: string;
+  work_type?: string;
+  sub_case_name?: string;
+  deadline?: string;
+  case_handler?: string;
+  survey_unit?: string;
+  cloud_folder?: string;
+  project_folder?: string;
+  linked_project_ids?: number[];
 }
 
 /** 派工單更新請求 */
 export interface DispatchOrderUpdate {
-  dispatch_number?: string;
-  dispatch_date?: string;
-  title?: string;
-  description?: string;
-  dispatch_agency?: string;
-  received_date?: string;
-  deadline_date?: string;
-  completion_date?: string;
-  actual_payment?: number;
-  status?: 'draft' | 'dispatched' | 'in_progress' | 'completed' | 'cancelled';
-  notes?: string;
-  project_ids?: number[];
-  document_ids?: number[];
+  dispatch_no?: string;
+  contract_project_id?: number;
+  agency_doc_id?: number;
+  company_doc_id?: number;
+  project_name?: string;
+  work_type?: string;
+  sub_case_name?: string;
+  deadline?: string;
+  case_handler?: string;
+  survey_unit?: string;
+  cloud_folder?: string;
+  project_folder?: string;
+  linked_project_ids?: number[];
 }
 
 /** 派工單列表查詢參數 */
@@ -823,9 +870,7 @@ export interface DispatchOrderListQuery {
   limit?: number;
   search?: string;
   contract_project_id?: number;
-  status?: string;
-  dispatch_date_from?: string;
-  dispatch_date_to?: string;
+  work_type?: string;
   sort_by?: string;
   sort_order?: 'asc' | 'desc';
 }
@@ -837,100 +882,139 @@ export interface DispatchOrderListResponse {
   pagination: PaginationMeta;
 }
 
+/** 公文關聯類型 */
+export type DispatchDocumentLinkType = 'agency_incoming' | 'company_outgoing';
+
 /** 派工單公文關聯 */
 export interface DispatchDocumentLink {
   id: number;
   dispatch_order_id: number;
   document_id: number;
-  link_type: '派工來文' | '辦理回文' | '相關文件';
-  notes?: string;
-  created_at: string;
-  // 關聯的公文資料
-  document?: OfficialDocument;
+  link_type: DispatchDocumentLinkType;
+  created_at?: string;
+
+  // 公文資訊
+  doc_number?: string;
+  doc_date?: string;
+  subject?: string;
 }
 
 /** 派工單公文關聯建立請求 */
 export interface DispatchDocumentLinkCreate {
-  dispatch_order_id: number;
   document_id: number;
-  link_type: '派工來文' | '辦理回文' | '相關文件';
-  notes?: string;
+  link_type: DispatchDocumentLinkType;
 }
 
-/** 契金付款紀錄基礎介面 */
+/** 契金管控紀錄 (匹配後端 ContractPayment Schema) */
 export interface ContractPayment {
   id: number;
   dispatch_order_id: number;
-  payment_type: '頭期款' | '期中款' | '尾款' | '追加款' | '其他';
-  payment_date?: string;
-  invoice_number?: string;
-  invoice_date?: string;
-  amount: number;
-  tax_amount?: number;
-  total_amount?: number;
-  status: 'pending' | 'invoiced' | 'paid' | 'cancelled';
-  notes?: string;
-  created_at: string;
-  updated_at: string;
+
+  // 7種作業類別的派工日期/金額
+  work_01_date?: string;
+  work_01_amount?: number;
+  work_02_date?: string;
+  work_02_amount?: number;
+  work_03_date?: string;
+  work_03_amount?: number;
+  work_04_date?: string;
+  work_04_amount?: number;
+  work_05_date?: string;
+  work_05_amount?: number;
+  work_06_date?: string;
+  work_06_amount?: number;
+  work_07_date?: string;
+  work_07_amount?: number;
+
+  // 彙總欄位
+  current_amount?: number;
+  cumulative_amount?: number;
+  remaining_amount?: number;
+  acceptance_date?: string;
+
+  created_at?: string;
+  updated_at?: string;
+
+  // 派工單資訊
+  dispatch_no?: string;
+  project_name?: string;
 }
 
-/** 契金付款建立請求 */
+/** 契金管控建立請求 */
 export interface ContractPaymentCreate {
   dispatch_order_id: number;
-  payment_type: '頭期款' | '期中款' | '尾款' | '追加款' | '其他';
-  payment_date?: string;
-  invoice_number?: string;
-  invoice_date?: string;
-  amount: number;
-  tax_amount?: number;
-  status?: 'pending' | 'invoiced' | 'paid' | 'cancelled';
-  notes?: string;
+  work_01_date?: string;
+  work_01_amount?: number;
+  work_02_date?: string;
+  work_02_amount?: number;
+  work_03_date?: string;
+  work_03_amount?: number;
+  work_04_date?: string;
+  work_04_amount?: number;
+  work_05_date?: string;
+  work_05_amount?: number;
+  work_06_date?: string;
+  work_06_amount?: number;
+  work_07_date?: string;
+  work_07_amount?: number;
+  current_amount?: number;
+  cumulative_amount?: number;
+  remaining_amount?: number;
+  acceptance_date?: string;
 }
 
-/** 契金付款更新請求 */
-export type ContractPaymentUpdate = Partial<ContractPaymentCreate>;
+/** 契金管控更新請求 */
+export type ContractPaymentUpdate = Partial<Omit<ContractPaymentCreate, 'dispatch_order_id'>>;
 
-/** 契金付款列表回應 */
+/** 契金管控列表回應 */
 export interface ContractPaymentListResponse {
   success: boolean;
   items: ContractPayment[];
-  total_amount: number;
-  total_tax: number;
-  grand_total: number;
+  pagination: PaginationMeta;
 }
 
 /** 總控表查詢參數 */
 export interface MasterControlQuery {
   contract_project_id?: number;
-  review_year?: number;
   district?: string;
-  include_completed?: boolean;
+  review_year?: number;
+  search?: string;
 }
 
-/** 總控表項目 */
+/** 公文歷程資訊 */
+export interface DocumentHistory {
+  doc_number: string;
+  doc_date?: string;
+  subject?: string;
+}
+
+/** 總控表項目 (匹配後端 MasterControlItem Schema) */
 export interface MasterControlItem {
-  project_id: number;
+  // 工程基本資訊
+  id: number;
   project_name: string;
   sub_case_name?: string;
   district?: string;
-  work_type?: string;
-  estimated_count?: number;
-  estimated_area?: number;
-  dispatch_orders: DispatchOrderSummary[];
-  total_dispatched: number;
-  total_payment: number;
-  completion_rate: number;
-}
+  review_year?: number;
 
-/** 派工單摘要 (總控表用) */
-export interface DispatchOrderSummary {
-  dispatch_id: number;
-  dispatch_number?: string;
-  dispatch_date?: string;
-  status: string;
-  actual_payment?: number;
-  completion_date?: string;
-  document_count: number;
+  // 進度追蹤
+  land_agreement_status?: string;
+  land_expropriation_status?: string;
+  building_survey_status?: string;
+  actual_entry_date?: string;
+  acceptance_status?: string;
+
+  // 派工資訊
+  dispatch_no?: string;
+  case_handler?: string;
+  survey_unit?: string;
+
+  // 公文歷程
+  agency_documents?: DocumentHistory[];
+  company_documents?: DocumentHistory[];
+
+  // 契金資訊
+  payment_info?: ContractPayment;
 }
 
 /** 總控表回應 */
@@ -940,13 +1024,12 @@ export interface MasterControlResponse {
   summary: MasterControlSummary;
 }
 
-/** 總控表摘要統計 */
+/** 總控表摘要統計 (匹配後端回應) */
 export interface MasterControlSummary {
   total_projects: number;
-  total_dispatched: number;
-  total_completed: number;
-  total_payment: number;
-  completion_rate: number;
+  total_dispatches: number;
+  total_agency_docs: number;
+  total_company_docs: number;
 }
 
 /** Excel 匯入請求 */

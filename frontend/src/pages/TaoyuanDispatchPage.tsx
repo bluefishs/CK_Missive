@@ -77,6 +77,7 @@ import {
   DispatchOrderUpdate,
   ContractPayment,
   ContractPaymentCreate,
+  ContractPaymentUpdate,
   MasterControlItem,
   TAOYUAN_WORK_TYPES,
 } from '../types/api';
@@ -205,10 +206,10 @@ const ProjectsTab: React.FC<ProjectsTabProps> = ({ contractProjectId }) => {
 
   const columns: ColumnsType<TaoyuanProject> = [
     {
-      title: '序號',
-      dataIndex: 'id',
+      title: '項次',
+      dataIndex: 'sequence_no',
       width: 70,
-      render: (_, __, index) => index + 1,
+      render: (val: number | undefined, _record: TaoyuanProject, index: number) => val ?? index + 1,
     },
     {
       title: '工程名稱',
@@ -223,25 +224,19 @@ const ProjectsTab: React.FC<ProjectsTabProps> = ({ contractProjectId }) => {
       ellipsis: true,
     },
     {
-      title: '區域',
+      title: '行政區',
       dataIndex: 'district',
       width: 80,
     },
     {
-      title: '年度',
+      title: '審議年度',
       dataIndex: 'review_year',
-      width: 80,
-    },
-    {
-      title: '類別',
-      dataIndex: 'work_type',
-      width: 120,
-    },
-    {
-      title: '預估筆數',
-      dataIndex: 'estimated_count',
       width: 90,
-      align: 'right',
+    },
+    {
+      title: '案件類型',
+      dataIndex: 'case_type',
+      width: 100,
     },
     {
       title: '承辦人',
@@ -249,18 +244,23 @@ const ProjectsTab: React.FC<ProjectsTabProps> = ({ contractProjectId }) => {
       width: 100,
     },
     {
-      title: '已派工',
-      dataIndex: 'is_dispatch',
-      width: 80,
-      render: (val: boolean) =>
-        val ? <Badge status="success" text="是" /> : <Badge status="default" text="否" />,
+      title: '土地協議進度',
+      dataIndex: 'land_agreement_status',
+      width: 120,
+      render: (val?: string) => val ? <Tag color="blue">{val}</Tag> : '-',
     },
     {
-      title: '已完成',
-      dataIndex: 'is_completed',
-      width: 80,
-      render: (val: boolean) =>
-        val ? <Badge status="success" text="是" /> : <Badge status="default" text="否" />,
+      title: '地上物查估進度',
+      dataIndex: 'building_survey_status',
+      width: 120,
+      render: (val?: string) => val ? <Tag color="green">{val}</Tag> : '-',
+    },
+    {
+      title: '驗收狀態',
+      dataIndex: 'acceptance_status',
+      width: 100,
+      render: (val?: string) =>
+        val === '已驗收' ? <Badge status="success" text={val} /> : (val || '-'),
     },
     {
       title: '操作',
@@ -280,9 +280,9 @@ const ProjectsTab: React.FC<ProjectsTabProps> = ({ contractProjectId }) => {
     },
   ];
 
-  // 統計資料
-  const dispatchedCount = projects.filter((p) => p.is_dispatch).length;
-  const completedCount = projects.filter((p) => p.is_completed).length;
+  // 統計資料 (基於進度狀態判斷)
+  const dispatchedCount = projects.filter((p) => p.land_agreement_status || p.building_survey_status).length;
+  const completedCount = projects.filter((p) => p.acceptance_status === '已驗收').length;
 
   return (
     <div>
@@ -784,11 +784,15 @@ const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({ contractProjectId
   const handleEdit = (order: DispatchOrder) => {
     setEditingOrder(order);
     form.setFieldsValue({
-      ...order,
-      dispatch_date: order.dispatch_date ? dayjs(order.dispatch_date) : null,
-      received_date: order.received_date ? dayjs(order.received_date) : null,
-      deadline_date: order.deadline_date ? dayjs(order.deadline_date) : null,
-      completion_date: order.completion_date ? dayjs(order.completion_date) : null,
+      dispatch_no: order.dispatch_no,
+      project_name: order.project_name,
+      work_type: order.work_type,
+      sub_case_name: order.sub_case_name,
+      deadline: order.deadline,
+      case_handler: order.case_handler,
+      survey_unit: order.survey_unit,
+      cloud_folder: order.cloud_folder,
+      project_folder: order.project_folder,
     });
     setModalVisible(true);
   };
@@ -796,24 +800,28 @@ const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({ contractProjectId
   const handleCreate = () => {
     setEditingOrder(null);
     form.resetFields();
-    form.setFieldsValue({ contract_project_id: contractProjectId, status: 'draft' });
+    form.setFieldsValue({ contract_project_id: contractProjectId });
     setModalVisible(true);
   };
 
   const handleSubmit = async () => {
     const values = await form.validateFields();
-    const data = {
-      ...values,
-      dispatch_date: values.dispatch_date?.format('YYYY-MM-DD'),
-      received_date: values.received_date?.format('YYYY-MM-DD'),
-      deadline_date: values.deadline_date?.format('YYYY-MM-DD'),
-      completion_date: values.completion_date?.format('YYYY-MM-DD'),
+    const data: DispatchOrderCreate | DispatchOrderUpdate = {
+      dispatch_no: values.dispatch_no,
+      project_name: values.project_name,
+      work_type: values.work_type,
+      sub_case_name: values.sub_case_name,
+      deadline: values.deadline,
+      case_handler: values.case_handler,
+      survey_unit: values.survey_unit,
+      cloud_folder: values.cloud_folder,
+      project_folder: values.project_folder,
     };
 
     if (editingOrder) {
-      updateMutation.mutate({ id: editingOrder.id, data });
+      updateMutation.mutate({ id: editingOrder.id, data: data as DispatchOrderUpdate });
     } else {
-      createMutation.mutate({ ...data, contract_project_id: contractProjectId });
+      createMutation.mutate({ ...data, contract_project_id: contractProjectId } as DispatchOrderCreate);
     }
   };
 
@@ -1039,9 +1047,10 @@ const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) => {
   });
 
   const payments = paymentsData?.items ?? [];
-  const totalAmount = paymentsData?.total_amount ?? 0;
-  const totalTax = paymentsData?.total_tax ?? 0;
-  const grandTotal = paymentsData?.grand_total ?? 0;
+  // 計算彙總金額
+  const totalCurrentAmount = payments.reduce((sum, p) => sum + (p.current_amount ?? 0), 0);
+  const totalCumulativeAmount = payments.reduce((sum, p) => sum + (p.cumulative_amount ?? 0), 0);
+  const totalRemainingAmount = payments.reduce((sum, p) => sum + (p.remaining_amount ?? 0), 0);
 
   const [editingPayment, setEditingPayment] = useState<ContractPayment | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -1059,7 +1068,7 @@ const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) => {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<ContractPaymentCreate> }) =>
+    mutationFn: ({ id, data }: { id: number; data: ContractPaymentUpdate }) =>
       contractPaymentsApi.update(id, data),
     onSuccess: () => {
       message.success('契金紀錄更新成功');
@@ -1083,9 +1092,24 @@ const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) => {
   const handleEdit = (payment: ContractPayment) => {
     setEditingPayment(payment);
     form.setFieldsValue({
-      ...payment,
-      payment_date: payment.payment_date ? dayjs(payment.payment_date) : null,
-      invoice_date: payment.invoice_date ? dayjs(payment.invoice_date) : null,
+      work_01_date: payment.work_01_date ? dayjs(payment.work_01_date) : null,
+      work_01_amount: payment.work_01_amount,
+      work_02_date: payment.work_02_date ? dayjs(payment.work_02_date) : null,
+      work_02_amount: payment.work_02_amount,
+      work_03_date: payment.work_03_date ? dayjs(payment.work_03_date) : null,
+      work_03_amount: payment.work_03_amount,
+      work_04_date: payment.work_04_date ? dayjs(payment.work_04_date) : null,
+      work_04_amount: payment.work_04_amount,
+      work_05_date: payment.work_05_date ? dayjs(payment.work_05_date) : null,
+      work_05_amount: payment.work_05_amount,
+      work_06_date: payment.work_06_date ? dayjs(payment.work_06_date) : null,
+      work_06_amount: payment.work_06_amount,
+      work_07_date: payment.work_07_date ? dayjs(payment.work_07_date) : null,
+      work_07_amount: payment.work_07_amount,
+      current_amount: payment.current_amount,
+      cumulative_amount: payment.cumulative_amount,
+      remaining_amount: payment.remaining_amount,
+      acceptance_date: payment.acceptance_date ? dayjs(payment.acceptance_date) : null,
     });
     setModalVisible(true);
   };
@@ -1097,84 +1121,80 @@ const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) => {
     }
     setEditingPayment(null);
     form.resetFields();
-    form.setFieldsValue({ dispatch_order_id: selectedOrderId, status: 'pending' });
+    form.setFieldsValue({ dispatch_order_id: selectedOrderId });
     setModalVisible(true);
   };
 
   const handleSubmit = async () => {
     const values = await form.validateFields();
-    const data = {
-      ...values,
-      payment_date: values.payment_date?.format('YYYY-MM-DD'),
-      invoice_date: values.invoice_date?.format('YYYY-MM-DD'),
+    const data: ContractPaymentCreate = {
+      dispatch_order_id: selectedOrderId!,
+      work_01_date: values.work_01_date?.format('YYYY-MM-DD'),
+      work_01_amount: values.work_01_amount,
+      work_02_date: values.work_02_date?.format('YYYY-MM-DD'),
+      work_02_amount: values.work_02_amount,
+      work_03_date: values.work_03_date?.format('YYYY-MM-DD'),
+      work_03_amount: values.work_03_amount,
+      work_04_date: values.work_04_date?.format('YYYY-MM-DD'),
+      work_04_amount: values.work_04_amount,
+      work_05_date: values.work_05_date?.format('YYYY-MM-DD'),
+      work_05_amount: values.work_05_amount,
+      work_06_date: values.work_06_date?.format('YYYY-MM-DD'),
+      work_06_amount: values.work_06_amount,
+      work_07_date: values.work_07_date?.format('YYYY-MM-DD'),
+      work_07_amount: values.work_07_amount,
+      current_amount: values.current_amount,
+      cumulative_amount: values.cumulative_amount,
+      remaining_amount: values.remaining_amount,
+      acceptance_date: values.acceptance_date?.format('YYYY-MM-DD'),
     };
 
     if (editingPayment) {
-      updateMutation.mutate({ id: editingPayment.id, data });
+      const { dispatch_order_id, ...updateData } = data;
+      updateMutation.mutate({ id: editingPayment.id, data: updateData });
     } else {
       createMutation.mutate(data);
     }
   };
 
-  const statusColors: Record<string, string> = {
-    pending: 'default',
-    invoiced: 'processing',
-    paid: 'success',
-    cancelled: 'error',
-  };
-
-  const statusLabels: Record<string, string> = {
-    pending: '待請款',
-    invoiced: '已開發票',
-    paid: '已收款',
-    cancelled: '已取消',
-  };
-
   const columns: ColumnsType<ContractPayment> = [
     {
-      title: '款項類型',
-      dataIndex: 'payment_type',
-      width: 100,
-    },
-    {
-      title: '發票號碼',
-      dataIndex: 'invoice_number',
+      title: '派工單號',
+      dataIndex: 'dispatch_no',
       width: 120,
     },
     {
-      title: '發票日期',
-      dataIndex: 'invoice_date',
+      title: '工程名稱',
+      dataIndex: 'project_name',
+      width: 200,
+      ellipsis: true,
+    },
+    {
+      title: '本次派工金額',
+      dataIndex: 'current_amount',
+      width: 130,
+      align: 'right',
+      render: (val?: number) => (val ? `$${val.toLocaleString()}` : '-'),
+    },
+    {
+      title: '累進派工金額',
+      dataIndex: 'cumulative_amount',
+      width: 130,
+      align: 'right',
+      render: (val?: number) => (val ? `$${val.toLocaleString()}` : '-'),
+    },
+    {
+      title: '剩餘金額',
+      dataIndex: 'remaining_amount',
+      width: 130,
+      align: 'right',
+      render: (val?: number) => (val ? `$${val.toLocaleString()}` : '-'),
+    },
+    {
+      title: '驗收日期',
+      dataIndex: 'acceptance_date',
       width: 110,
-      render: (val: string) => (val ? dayjs(val).format('YYYY-MM-DD') : '-'),
-    },
-    {
-      title: '金額',
-      dataIndex: 'amount',
-      width: 120,
-      align: 'right',
-      render: (val: number) => `$${val.toLocaleString()}`,
-    },
-    {
-      title: '稅額',
-      dataIndex: 'tax_amount',
-      width: 100,
-      align: 'right',
-      render: (val?: number) => (val ? `$${val.toLocaleString()}` : '-'),
-    },
-    {
-      title: '含稅總額',
-      dataIndex: 'total_amount',
-      width: 120,
-      align: 'right',
-      render: (val?: number) => (val ? `$${val.toLocaleString()}` : '-'),
-    },
-    {
-      title: '狀態',
-      dataIndex: 'status',
-      width: 90,
-      render: (val: string) => (
-        <Tag color={statusColors[val] || 'default'}>{statusLabels[val] || val}</Tag>
-      ),
+      render: (val?: string) => (val ? dayjs(val).format('YYYY-MM-DD') : '-'),
     },
     {
       title: '操作',
@@ -1200,8 +1220,8 @@ const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) => {
         <Col span={8}>
           <Card size="small">
             <Statistic
-              title="金額小計"
-              value={totalAmount}
+              title="本次派工金額"
+              value={totalCurrentAmount}
               prefix={<DollarOutlined />}
               precision={0}
             />
@@ -1209,14 +1229,14 @@ const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) => {
         </Col>
         <Col span={8}>
           <Card size="small">
-            <Statistic title="稅額小計" value={totalTax} precision={0} />
+            <Statistic title="累進派工金額" value={totalCumulativeAmount} precision={0} />
           </Card>
         </Col>
         <Col span={8}>
           <Card size="small">
             <Statistic
-              title="含稅總計"
-              value={grandTotal}
+              title="剩餘金額"
+              value={totalRemainingAmount}
               valueStyle={{ color: '#1890ff' }}
               precision={0}
             />
@@ -1235,7 +1255,7 @@ const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) => {
         >
           {orders.map((order) => (
             <Select.Option key={order.id} value={order.id}>
-              {order.dispatch_number || `派工單 #${order.id}`} - {order.title}
+              {order.dispatch_no || `派工單 #${order.id}`} - {order.project_name || ''}
             </Select.Option>
           ))}
         </Select>
@@ -1267,76 +1287,132 @@ const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) => {
           setEditingPayment(null);
           form.resetFields();
         }}
-        width={600}
+        width={800}
         confirmLoading={createMutation.isPending || updateMutation.isPending}
       >
         <Form form={form} layout="vertical">
           <Form.Item name="dispatch_order_id" hidden>
             <Input />
           </Form.Item>
+
+          <Title level={5}>作業類別派工</Title>
+          {/* 01.地上物查估作業 */}
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="payment_type" label="款項類型" rules={[{ required: true }]}>
-                <Select>
-                  <Select.Option value="頭期款">頭期款</Select.Option>
-                  <Select.Option value="期中款">期中款</Select.Option>
-                  <Select.Option value="尾款">尾款</Select.Option>
-                  <Select.Option value="追加款">追加款</Select.Option>
-                  <Select.Option value="其他">其他</Select.Option>
-                </Select>
+              <Form.Item name="work_01_date" label="01.地上物查估 - 派工日期">
+                <DatePicker style={{ width: '100%' }} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="status" label="狀態" rules={[{ required: true }]}>
-                <Select>
-                  <Select.Option value="pending">待請款</Select.Option>
-                  <Select.Option value="invoiced">已開發票</Select.Option>
-                  <Select.Option value="paid">已收款</Select.Option>
-                  <Select.Option value="cancelled">已取消</Select.Option>
-                </Select>
+              <Form.Item name="work_01_amount" label="01.地上物查估 - 金額">
+                <InputNumber style={{ width: '100%' }} min={0} />
+              </Form.Item>
+            </Col>
+          </Row>
+          {/* 02.土地協議市價查估作業 */}
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="work_02_date" label="02.土地協議市價查估 - 派工日期">
+                <DatePicker style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="work_02_amount" label="02.土地協議市價查估 - 金額">
+                <InputNumber style={{ width: '100%' }} min={0} />
+              </Form.Item>
+            </Col>
+          </Row>
+          {/* 03.土地徵收市價查估作業 */}
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="work_03_date" label="03.土地徵收市價查估 - 派工日期">
+                <DatePicker style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="work_03_amount" label="03.土地徵收市價查估 - 金額">
+                <InputNumber style={{ width: '100%' }} min={0} />
+              </Form.Item>
+            </Col>
+          </Row>
+          {/* 04.相關計畫書製作 */}
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="work_04_date" label="04.相關計畫書製作 - 派工日期">
+                <DatePicker style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="work_04_amount" label="04.相關計畫書製作 - 金額">
+                <InputNumber style={{ width: '100%' }} min={0} />
+              </Form.Item>
+            </Col>
+          </Row>
+          {/* 05.測量作業 */}
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="work_05_date" label="05.測量作業 - 派工日期">
+                <DatePicker style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="work_05_amount" label="05.測量作業 - 金額">
+                <InputNumber style={{ width: '100%' }} min={0} />
+              </Form.Item>
+            </Col>
+          </Row>
+          {/* 06.樁位測釘作業 */}
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="work_06_date" label="06.樁位測釘作業 - 派工日期">
+                <DatePicker style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="work_06_amount" label="06.樁位測釘作業 - 金額">
+                <InputNumber style={{ width: '100%' }} min={0} />
+              </Form.Item>
+            </Col>
+          </Row>
+          {/* 07.辦理教育訓練 */}
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="work_07_date" label="07.辦理教育訓練 - 派工日期">
+                <DatePicker style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="work_07_amount" label="07.辦理教育訓練 - 金額">
+                <InputNumber style={{ width: '100%' }} min={0} />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Title level={5} style={{ marginTop: 16 }}>金額彙總</Title>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="current_amount" label="本次派工金額">
+                <InputNumber style={{ width: '100%' }} min={0} />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="cumulative_amount" label="累進派工金額">
+                <InputNumber style={{ width: '100%' }} min={0} />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="remaining_amount" label="剩餘金額">
+                <InputNumber style={{ width: '100%' }} min={0} />
               </Form.Item>
             </Col>
           </Row>
           <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="invoice_number" label="發票號碼">
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="invoice_date" label="發票日期">
+            <Col span={8}>
+              <Form.Item name="acceptance_date" label="完成驗收日期">
                 <DatePicker style={{ width: '100%' }} />
               </Form.Item>
             </Col>
           </Row>
-          <Row gutter={16}>
-            <Col span={8}>
-              <Form.Item name="amount" label="金額" rules={[{ required: true }]}>
-                <InputNumber
-                  style={{ width: '100%' }}
-                  formatter={(value) => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                  parser={(value) => value?.replace(/\$\s?|(,*)/g, '') as unknown as number}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item name="tax_amount" label="稅額">
-                <InputNumber
-                  style={{ width: '100%' }}
-                  formatter={(value) => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                  parser={(value) => value?.replace(/\$\s?|(,*)/g, '') as unknown as number}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item name="payment_date" label="付款日期">
-                <DatePicker style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Form.Item name="notes" label="備註">
-            <Input.TextArea rows={2} />
-          </Form.Item>
         </Form>
       </Modal>
     </div>

@@ -135,6 +135,20 @@ async def update_taoyuan_project(
     return TaoyuanProjectSchema.model_validate(project)
 
 
+@router.post("/projects/{project_id}/detail", response_model=TaoyuanProjectSchema, summary="取得轄管工程詳情")
+async def get_taoyuan_project_detail(
+    project_id: int,
+    db: AsyncSession = Depends(get_async_db),
+    current_user = Depends(require_auth)
+):
+    """取得轄管工程詳情"""
+    result = await db.execute(select(TaoyuanProject).where(TaoyuanProject.id == project_id))
+    project = result.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="工程不存在")
+    return TaoyuanProjectSchema.model_validate(project)
+
+
 @router.post("/projects/{project_id}/delete", summary="刪除轄管工程")
 async def delete_taoyuan_project(
     project_id: int,
@@ -411,6 +425,50 @@ async def update_dispatch_order(
     return DispatchOrderSchema.model_validate(order)
 
 
+@router.post("/dispatch/{dispatch_id}/detail", response_model=DispatchOrderSchema, summary="取得派工紀錄詳情")
+async def get_dispatch_order_detail(
+    dispatch_id: int,
+    db: AsyncSession = Depends(get_async_db),
+    current_user = Depends(require_auth)
+):
+    """取得派工紀錄詳情"""
+    stmt = select(TaoyuanDispatchOrder).options(
+        selectinload(TaoyuanDispatchOrder.agency_doc),
+        selectinload(TaoyuanDispatchOrder.company_doc),
+        selectinload(TaoyuanDispatchOrder.project_links).selectinload(TaoyuanDispatchProjectLink.project)
+    ).where(TaoyuanDispatchOrder.id == dispatch_id)
+
+    result = await db.execute(stmt)
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=404, detail="派工紀錄不存在")
+
+    order_dict = {
+        'id': order.id,
+        'dispatch_no': order.dispatch_no,
+        'contract_project_id': order.contract_project_id,
+        'agency_doc_id': order.agency_doc_id,
+        'company_doc_id': order.company_doc_id,
+        'project_name': order.project_name,
+        'work_type': order.work_type,
+        'sub_case_name': order.sub_case_name,
+        'deadline': order.deadline,
+        'case_handler': order.case_handler,
+        'survey_unit': order.survey_unit,
+        'cloud_folder': order.cloud_folder,
+        'project_folder': order.project_folder,
+        'created_at': order.created_at,
+        'updated_at': order.updated_at,
+        'agency_doc_number': order.agency_doc.doc_number if order.agency_doc else None,
+        'company_doc_number': order.company_doc.doc_number if order.company_doc else None,
+        'linked_projects': [
+            TaoyuanProjectSchema.model_validate(link.project)
+            for link in order.project_links
+        ] if order.project_links else []
+    }
+    return DispatchOrderSchema(**order_dict)
+
+
 @router.post("/dispatch/{dispatch_id}/delete", summary="刪除派工紀錄")
 async def delete_dispatch_order(
     dispatch_id: int,
@@ -462,6 +520,29 @@ async def link_document_to_dispatch(
     db.add(link)
     await db.commit()
     return {"success": True, "message": "關聯成功"}
+
+
+@router.post("/dispatch/{dispatch_id}/unlink-document/{link_id}", summary="移除公文關聯")
+async def unlink_document_from_dispatch(
+    dispatch_id: int,
+    link_id: int,
+    db: AsyncSession = Depends(get_async_db),
+    current_user = Depends(require_auth)
+):
+    """移除派工單的公文關聯"""
+    result = await db.execute(
+        select(TaoyuanDispatchDocumentLink).where(
+            TaoyuanDispatchDocumentLink.id == link_id,
+            TaoyuanDispatchDocumentLink.dispatch_order_id == dispatch_id
+        )
+    )
+    link = result.scalar_one_or_none()
+    if not link:
+        raise HTTPException(status_code=404, detail="公文關聯不存在")
+
+    await db.delete(link)
+    await db.commit()
+    return {"success": True, "message": "移除關聯成功"}
 
 
 @router.post("/dispatch/{dispatch_id}/documents", summary="取得派工單關聯公文")
