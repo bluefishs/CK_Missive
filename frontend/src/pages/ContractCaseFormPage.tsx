@@ -27,7 +27,7 @@ import {
   ContractCaseStatus,
   CONTRACT_CASE_TYPE_LABELS,
   CONTRACT_CASE_STATUS_LABELS,
-} from '../types/contractCase';
+} from '../types/api';
 import { ROUTES } from '../router/types';
 
 const { Title } = Typography;

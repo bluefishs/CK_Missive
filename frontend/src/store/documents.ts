@@ -5,7 +5,7 @@
 
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import type { Document, DocumentFilter } from '../types/document';
+import type { OfficialDocument as Document, DocumentFilter } from '../types/api';
 
 interface DocumentsState {
   // 文件列表

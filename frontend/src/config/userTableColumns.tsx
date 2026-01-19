@@ -20,7 +20,7 @@ import {
   getRoleDisplayName,
   getStatusDisplayName
 } from '../constants/permissions';
-import type { User } from '../types/user';
+import type { User } from '../types/api';
 
 const { Text } = Typography;
 

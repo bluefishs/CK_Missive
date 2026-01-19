@@ -77,56 +77,51 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.REGISTER} element={<RegisterPage />} />
           <Route path={ROUTES.FORGOT_PASSWORD} element={<ForgotPasswordPage />} />
 
-          {/* 公文相關路由 */}
-          <Route path={ROUTES.DOCUMENTS} element={<DocumentPage />} />
-          <Route path={ROUTES.DOCUMENT_DETAIL} element={<DocumentDetailPage />} />
-          <Route path={ROUTES.DOCUMENT_CREATE} element={<ReceiveDocumentCreatePage />} />
-          <Route path={ROUTES.DOCUMENT_EDIT} element={<DocumentEditPage />} />
-          
-          {/* 儀表板 */}
-          <Route path={ROUTES.DASHBOARD} element={<DashboardPage />} />
-          
-          {/* --- 承攬案件路由 (以 /contract-cases 為主) --- */}
-          {/* 列表頁面 */}
-          <Route path={ROUTES.CONTRACT_CASES} element={<ContractCasePage />} />
+          {/* 公文相關路由（需要認證） */}
+          <Route path={ROUTES.DOCUMENTS} element={<ProtectedRoute><DocumentPage /></ProtectedRoute>} />
+          <Route path={ROUTES.DOCUMENT_DETAIL} element={<ProtectedRoute><DocumentDetailPage /></ProtectedRoute>} />
+          <Route path={ROUTES.DOCUMENT_CREATE} element={<ProtectedRoute><ReceiveDocumentCreatePage /></ProtectedRoute>} />
+          <Route path={ROUTES.DOCUMENT_EDIT} element={<ProtectedRoute><DocumentEditPage /></ProtectedRoute>} />
 
-          {/* 詳情頁面 - TAB 分頁（案件資訊、承辦同仁、協力廠商） */}
-          <Route path={ROUTES.CONTRACT_CASE_DETAIL} element={<ContractCaseDetailPage />} />
+          {/* 儀表板（需要認證） */}
+          <Route path={ROUTES.DASHBOARD} element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
 
-          {/* 新增/編輯頁面 */}
-          <Route path={ROUTES.CONTRACT_CASE_CREATE} element={<ContractCaseFormPage />} />
-          <Route path={ROUTES.CONTRACT_CASE_EDIT} element={<ContractCaseFormPage />} />
+          {/* --- 承攬案件路由（需要認證） --- */}
+          <Route path={ROUTES.CONTRACT_CASES} element={<ProtectedRoute><ContractCasePage /></ProtectedRoute>} />
+          <Route path={ROUTES.CONTRACT_CASE_DETAIL} element={<ProtectedRoute><ContractCaseDetailPage /></ProtectedRoute>} />
+          <Route path={ROUTES.CONTRACT_CASE_CREATE} element={<ProtectedRoute><ContractCaseFormPage /></ProtectedRoute>} />
+          <Route path={ROUTES.CONTRACT_CASE_EDIT} element={<ProtectedRoute><ContractCaseFormPage /></ProtectedRoute>} />
 
-          {/* 發文字號管理 */}
-          <Route path={ROUTES.DOCUMENT_NUMBERS} element={<DocumentNumbersPage />} />
-          <Route path={ROUTES.SEND_DOCUMENT_CREATE} element={<SendDocumentCreatePage />} />
-          
-          {/* 機關單位管理 */}
-          <Route path={ROUTES.AGENCIES} element={<AgenciesPage />} />
-          
-          {/* API 對應頁面 */}
+          {/* 發文字號管理（需要認證） */}
+          <Route path={ROUTES.DOCUMENT_NUMBERS} element={<ProtectedRoute><DocumentNumbersPage /></ProtectedRoute>} />
+          <Route path={ROUTES.SEND_DOCUMENT_CREATE} element={<ProtectedRoute><SendDocumentCreatePage /></ProtectedRoute>} />
+
+          {/* 機關單位管理（需要認證） */}
+          <Route path={ROUTES.AGENCIES} element={<ProtectedRoute><AgenciesPage /></ProtectedRoute>} />
+
+          {/* API 對應頁面（公開） */}
           <Route path={ROUTES.API_MAPPING} element={<ApiMappingDisplayPage />} />
-          
-          {/* API 文件頁面 */}
+
+          {/* API 文件頁面（公開） */}
           <Route path={ROUTES.API_DOCS} element={<ApiDocumentationPage />} />
-          
-          {/* 廠商管理 */}
-          <Route path={ROUTES.VENDORS} element={<VendorPage />} />
 
-          {/* 承辦同仁管理 */}
-          <Route path={ROUTES.STAFF} element={<StaffPage />} />
+          {/* 廠商管理（需要認證） */}
+          <Route path={ROUTES.VENDORS} element={<ProtectedRoute><VendorPage /></ProtectedRoute>} />
 
-{/* 行事曆 */}
-          <Route path={ROUTES.CALENDAR} element={<CalendarPage />} />
+          {/* 承辦同仁管理（需要認證） */}
+          <Route path={ROUTES.STAFF} element={<ProtectedRoute><StaffPage /></ProtectedRoute>} />
+
+          {/* 行事曆（需要認證） */}
+          <Route path={ROUTES.CALENDAR} element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
           
           {/* 純粹行事曆 - 重導向至 /calendar */}
           <Route path={ROUTES.PURE_CALENDAR} element={<Navigate to={ROUTES.CALENDAR} replace />} />
 
-          {/* 統計報表 */}
-          <Route path={ROUTES.REPORTS} element={<ReportsPage />} />
+          {/* 統計報表（需要認證） */}
+          <Route path={ROUTES.REPORTS} element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
 
-          {/* 桃園查估專區 */}
-          <Route path={ROUTES.TAOYUAN_DISPATCH} element={<TaoyuanDispatchPage />} />
+          {/* 桃園查估專區（需要認證） */}
+          <Route path={ROUTES.TAOYUAN_DISPATCH} element={<ProtectedRoute><TaoyuanDispatchPage /></ProtectedRoute>} />
 
           {/* 統一表單示例 */}
           <Route path={ROUTES.UNIFIED_FORM_DEMO} element={<UnifiedFormDemoPage />} />

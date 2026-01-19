@@ -306,6 +306,39 @@ export interface UserOption {
   email?: string;
 }
 
+/** 權限定義 */
+export interface Permission {
+  name: string;
+  display_name: string;
+  default_permissions: string[];
+}
+
+/** 使用者權限 */
+export interface UserPermissions {
+  user_id: number;
+  permissions: string[];
+  role: string;
+}
+
+/** 使用者表單資料 */
+export interface UserFormData {
+  email: string;
+  username: string;
+  full_name?: string;
+  password?: string;
+  role: string;
+  status: string;
+  is_admin?: boolean;
+  suspended_reason?: string;
+}
+
+/** 使用者分頁 */
+export interface UserPagination {
+  current: number;
+  pageSize: number;
+  total: number;
+}
+
 // ============================================================================
 // 公文 (Document) 相關型別
 // ============================================================================
@@ -501,3 +534,150 @@ export interface Timestamps {
   created_at: string;
   updated_at: string;
 }
+
+// ============================================================================
+// 承攬案件 (ContractCase) 相關型別 - 從 contractCase.ts 統一
+// ============================================================================
+
+/** 承攬案件介面 */
+export interface ContractCase {
+  id: number;
+  year: string;
+  project_name: string;
+  client_unit: string;
+  contract_period_start: string;
+  contract_period_end: string;
+  responsible_staff: string;
+  partner_vendor: string;
+  case_type: ContractCaseType;
+  case_status: ContractCaseStatus;
+  contract_amount?: number;
+  description?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/** 案件性質分類 */
+export enum ContractCaseType {
+  INNOVATION = 0,
+  COMMISSION = 1,
+  COOPERATION = 2,
+  EXTENSION = 3,
+  SMALL_PURCHASE = 4,
+}
+
+/** 案件性質標籤 */
+export const CONTRACT_CASE_TYPE_LABELS = {
+  [ContractCaseType.INNOVATION]: '創新專案',
+  [ContractCaseType.COMMISSION]: '委辦計畫',
+  [ContractCaseType.COOPERATION]: '協辦計畫',
+  [ContractCaseType.EXTENSION]: '委辦擴充',
+  [ContractCaseType.SMALL_PURCHASE]: '小額採購',
+} as const;
+
+/** 案件性質顏色 */
+export const CONTRACT_CASE_TYPE_COLORS = {
+  [ContractCaseType.INNOVATION]: 'purple',
+  [ContractCaseType.COMMISSION]: 'blue',
+  [ContractCaseType.COOPERATION]: 'green',
+  [ContractCaseType.EXTENSION]: 'orange',
+  [ContractCaseType.SMALL_PURCHASE]: 'cyan',
+} as const;
+
+/** 案件狀態 */
+export enum ContractCaseStatus {
+  PLANNED = 'planned',
+  IN_PROGRESS = 'in_progress',
+  COMPLETED = 'completed',
+  SUSPENDED = 'suspended',
+  CANCELLED = 'cancelled',
+}
+
+/** 案件狀態標籤 */
+export const CONTRACT_CASE_STATUS_LABELS = {
+  [ContractCaseStatus.PLANNED]: '規劃中',
+  [ContractCaseStatus.IN_PROGRESS]: '執行中',
+  [ContractCaseStatus.COMPLETED]: '已完成',
+  [ContractCaseStatus.SUSPENDED]: '暫停',
+  [ContractCaseStatus.CANCELLED]: '已取消',
+} as const;
+
+/** 案件狀態顏色 */
+export const CONTRACT_CASE_STATUS_COLORS = {
+  [ContractCaseStatus.PLANNED]: 'default',
+  [ContractCaseStatus.IN_PROGRESS]: 'processing',
+  [ContractCaseStatus.COMPLETED]: 'success',
+  [ContractCaseStatus.SUSPENDED]: 'warning',
+  [ContractCaseStatus.CANCELLED]: 'error',
+} as const;
+
+/** 承攬案件篩選條件 */
+export interface ContractCaseFilter {
+  search?: string;
+  year?: string;
+  case_type?: ContractCaseType;
+  case_status?: ContractCaseStatus;
+  client_unit?: string;
+  responsible_staff?: string;
+  partner_vendor?: string;
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+/** 承攬案件列表參數 */
+export interface ContractCaseListParams {
+  page?: number;
+  limit?: number;
+  filters?: ContractCaseFilter;
+}
+
+/** 承攬案件列表響應 */
+export interface ContractCaseListResponse {
+  items: ContractCase[];
+  total: number;
+  page: number;
+  limit: number;
+  total_pages: number;
+}
+
+/** 視圖模式 */
+export type ViewMode = 'board' | 'list';
+
+/** 看板項目 */
+export interface BoardItem extends ContractCase {
+  progress?: number;
+}
+
+// ============================================================================
+// 文件列表相關型別 - 從 document.ts 統一
+// ============================================================================
+
+/** 文件列表參數 */
+export interface DocumentListParams {
+  readonly page?: number;
+  readonly limit?: number;
+  readonly search?: string;
+  readonly status?: DocStatus;
+  readonly type?: DocType;
+  readonly priority?: DocumentPriority;
+  readonly category?: string;
+  readonly creator?: string;
+  readonly assignee?: string;
+  readonly dateFrom?: string;
+  readonly dateTo?: string;
+}
+
+/** 文件列表響應 */
+export interface DocumentListResponse {
+  readonly items: readonly OfficialDocument[];
+  readonly total: number;
+  readonly page: number;
+  readonly limit: number;
+  readonly total_pages: number;
+}
+
+/** 公文優先等級 */
+export type DocumentPriority = 'normal' | 'urgent' | 'critical';

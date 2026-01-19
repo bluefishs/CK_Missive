@@ -7,7 +7,7 @@ import {
   Modal, Form, Input, Select, Switch, Row, Col, Space, Button
 } from 'antd';
 import { USER_ROLES, USER_STATUSES } from '../../constants/permissions';
-import type { User } from '../../types/user';
+import type { User } from '../../types/api';
 import type { UserInfo } from '../../services/authService';
 
 const { Option } = Select;

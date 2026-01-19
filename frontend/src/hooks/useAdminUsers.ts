@@ -12,7 +12,7 @@ import {
   AdminPermissionUpdate,
 } from '../api/adminUsersApi';
 import { queryKeys, defaultQueryOptions } from '../config/queryConfig';
-import type { User, Permission, UserPermissions } from '../types/user';
+import type { User, Permission, UserPermissions } from '../types/api';
 
 // ============================================================================
 // 查詢鍵擴展

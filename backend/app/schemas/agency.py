@@ -42,8 +42,8 @@ class Agency(AgencyBase):
 class AgencyWithStats(AgencyBase):
     """包含統計資訊的機關 schema"""
     id: int
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     document_count: int = 0
     sent_count: int = 0
     received_count: int = 0
@@ -92,19 +92,17 @@ class AgencyListQuery(BaseModel):
     sort_order: str = Field(default="asc", description="排序方向 (asc/desc)")
 
 
-class PaginationMeta(BaseModel):
-    """分頁元資料"""
-    page: int
-    limit: int
-    total: int
-    total_pages: int
-
-
 class AgencyListResponse(BaseModel):
     """機關列表回應 Schema（統一分頁格式）"""
     success: bool = True
     items: List[AgencyWithStats] = Field(default=[], description="機關列表")
-    pagination: PaginationMeta
+    pagination: "PaginationMeta"  # 使用 common.py 中的 PaginationMeta
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# PaginationMeta 使用 common.py 中的定義，避免重複
+from app.schemas.common import PaginationMeta
 
 
 # =============================================================================

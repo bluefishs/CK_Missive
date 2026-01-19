@@ -24,8 +24,8 @@ export const DASHBOARD_ENDPOINTS = {
 export const DOCUMENTS_ENDPOINTS = {
   /** 公文列表 POST /documents-enhanced/list */
   LIST: '/documents-enhanced/list',
-  /** 建立公文 POST /documents-enhanced */
-  CREATE: '/documents-enhanced',
+  /** 建立公文 POST /documents-enhanced/create */
+  CREATE: '/documents-enhanced/create',
   /** 公文詳情 POST /documents-enhanced/:id/detail */
   DETAIL: (id: number) => `/documents-enhanced/${id}/detail`,
   /** 更新公文 POST /documents-enhanced/:id/update */

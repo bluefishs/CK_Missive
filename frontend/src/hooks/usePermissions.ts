@@ -137,9 +137,9 @@ export const usePermissions = () => {
     }
   }, []);
 
-  // 檢查是否擁有特定權限 (暫時關閉權限控制，所有功能開放)
+  // 檢查是否擁有特定權限
   const hasPermission = useCallback((permission: string | string[]): boolean => {
-    // 暫時關閉權限檢查，所有功能都開放
+    // 開發模式 (AUTH_DISABLED=true) 時，所有功能開放
     const authDisabled = isAuthDisabled();
     if (authDisabled) {
       return true;
@@ -160,9 +160,9 @@ export const usePermissions = () => {
     );
   }, [userPermissions]);
 
-  // 檢查是否擁有任一權限 (暫時關閉權限控制，所有功能開放)
+  // 檢查是否擁有任一權限
   const hasAnyPermission = useCallback((permissions: string[]): boolean => {
-    // 暫時關閉權限檢查，所有功能都開放
+    // 開發模式 (AUTH_DISABLED=true) 時，所有功能開放
     const authDisabled = isAuthDisabled();
     if (authDisabled) {
       return true;
@@ -181,9 +181,9 @@ export const usePermissions = () => {
     );
   }, [userPermissions]);
 
-  // 過濾可見的導覽項目 (暫時關閉權限控制，顯示所有選單)
+  // 過濾可見的導覽項目
   const filterNavigationItems = useCallback((items: NavigationItem[]): NavigationItem[] => {
-    // 暫時關閉權限檢查，顯示所有導覽項目
+    // 開發模式 (AUTH_DISABLED=true) 時，顯示所有導覽項目
     const authDisabled = isAuthDisabled();
     if (authDisabled) {
       return items.map(item => ({
@@ -211,9 +211,9 @@ export const usePermissions = () => {
     }));
   }, [userPermissions, hasPermission]);
 
-  // 根據角色過濾導覽項目 (暫時關閉權限控制，顯示所有選單)
+  // 根據角色過濾導覽項目
   const filterNavigationByRole = useCallback((items: NavigationItem[]): NavigationItem[] => {
-    // 暫時關閉權限檢查，顯示所有導覽項目
+    // 開發模式 (AUTH_DISABLED=true) 時，顯示所有導覽項目
     const authDisabled = isAuthDisabled();
     if (authDisabled) {
       return filterNavigationItems(items);
@@ -256,9 +256,9 @@ export const usePermissions = () => {
     return filterNavigationItems(roleFiltered);
   }, [userPermissions, filterNavigationItems]);
 
-  // 檢查是否為管理員 (暫時關閉權限控制，所有人都是管理員)
+  // 檢查是否為管理員
   const isAdmin = useCallback((): boolean => {
-    // 暫時關閉權限檢查，所有人都是管理員
+    // 開發模式 (AUTH_DISABLED=true) 時，視為管理員
     const authDisabled = isAuthDisabled();
     if (authDisabled) {
       return true;
@@ -266,9 +266,9 @@ export const usePermissions = () => {
     return userPermissions?.is_admin || userPermissions?.role === 'admin' || userPermissions?.role === 'superuser' || false;
   }, [userPermissions]);
 
-  // 檢查是否為超級管理員 (暫時關閉權限控制，所有人都是超級管理員)
+  // 檢查是否為超級管理員
   const isSuperuser = useCallback((): boolean => {
-    // 暫時關閉權限檢查，所有人都是超級管理員
+    // 開發模式 (AUTH_DISABLED=true) 時，視為超級管理員
     const authDisabled = isAuthDisabled();
     if (authDisabled) {
       return true;

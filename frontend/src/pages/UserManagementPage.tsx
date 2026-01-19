@@ -30,7 +30,7 @@ import {
 import { createUserTableColumns } from '../config/userTableColumns';
 import UserEditModal from '../components/admin/UserEditModal';
 import UserPermissionModal from '../components/admin/UserPermissionModal';
-import type { User, UserPermissions } from '../types/user';
+import type { User, UserPermissions } from '../types/api';
 import {
   useAdminUsersPage,
   useUserPermissions,

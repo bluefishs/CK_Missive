@@ -10,7 +10,7 @@
 
 import { apiClient } from './client';
 import { API_ENDPOINTS } from './endpoints';
-import type { User, Permission, UserPermissions } from '../types/user';
+import type { User, Permission, UserPermissions } from '../types/api';
 
 // ============================================================================
 // 型別定義
