@@ -559,8 +559,8 @@ class TaoyuanDispatchOrder(Base):
 
     # 關聯關係
     contract_project = relationship("ContractProject", backref="dispatch_orders")
-    agency_doc = relationship("Document", foreign_keys=[agency_doc_id])
-    company_doc = relationship("Document", foreign_keys=[company_doc_id])
+    agency_doc = relationship("OfficialDocument", foreign_keys=[agency_doc_id])
+    company_doc = relationship("OfficialDocument", foreign_keys=[company_doc_id])
     project_links = relationship("TaoyuanDispatchProjectLink", back_populates="dispatch_order", cascade="all, delete-orphan")
     document_links = relationship("TaoyuanDispatchDocumentLink", back_populates="dispatch_order", cascade="all, delete-orphan")
     payment = relationship("TaoyuanContractPayment", back_populates="dispatch_order", uselist=False, cascade="all, delete-orphan")
@@ -592,7 +592,7 @@ class TaoyuanDispatchDocumentLink(Base):
 
     # 關聯關係
     dispatch_order = relationship("TaoyuanDispatchOrder", back_populates="document_links")
-    document = relationship("Document")
+    document = relationship("OfficialDocument")
 
 
 class TaoyuanContractPayment(Base):
