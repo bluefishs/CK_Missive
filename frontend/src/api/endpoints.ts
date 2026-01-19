@@ -393,6 +393,8 @@ export const TAOYUAN_DISPATCH_ENDPOINTS = {
   // 派工單公文關聯
   /** 新增公文關聯 POST /taoyuan-dispatch/dispatch/:id/link-document */
   DISPATCH_LINK_DOCUMENT: (id: number) => `/taoyuan-dispatch/dispatch/${id}/link-document`,
+  /** 移除派工單公文關聯 POST /taoyuan-dispatch/dispatch/:id/unlink-document/:linkId */
+  DISPATCH_UNLINK_DOCUMENT: (id: number, linkId: number) => `/taoyuan-dispatch/dispatch/${id}/unlink-document/${linkId}`,
   /** 取得派工單公文 POST /taoyuan-dispatch/dispatch/:id/documents */
   DISPATCH_DOCUMENTS: (id: number) => `/taoyuan-dispatch/dispatch/${id}/documents`,
 
