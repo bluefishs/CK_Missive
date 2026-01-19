@@ -367,41 +367,40 @@ export const TAOYUAN_DISPATCH_ENDPOINTS = {
   // 轄管工程清單
   /** 工程列表 POST /taoyuan-dispatch/projects/list */
   PROJECTS_LIST: '/taoyuan-dispatch/projects/list',
-  /** 建立工程 POST /taoyuan-dispatch/projects */
-  PROJECTS_CREATE: '/taoyuan-dispatch/projects',
+  /** 建立工程 POST /taoyuan-dispatch/projects/create */
+  PROJECTS_CREATE: '/taoyuan-dispatch/projects/create',
   /** 工程詳情 POST /taoyuan-dispatch/projects/:id/detail */
   PROJECTS_DETAIL: (id: number) => `/taoyuan-dispatch/projects/${id}/detail`,
   /** 更新工程 POST /taoyuan-dispatch/projects/:id/update */
   PROJECTS_UPDATE: (id: number) => `/taoyuan-dispatch/projects/${id}/update`,
   /** 刪除工程 POST /taoyuan-dispatch/projects/:id/delete */
   PROJECTS_DELETE: (id: number) => `/taoyuan-dispatch/projects/${id}/delete`,
-  /** Excel 匯入工程 POST /taoyuan-dispatch/projects/import-excel */
-  PROJECTS_IMPORT: '/taoyuan-dispatch/projects/import-excel',
+  /** Excel 匯入工程 POST /taoyuan-dispatch/projects/import */
+  PROJECTS_IMPORT: '/taoyuan-dispatch/projects/import',
 
   // 派工紀錄
-  /** 派工單列表 POST /taoyuan-dispatch/dispatch-orders/list */
-  DISPATCH_ORDERS_LIST: '/taoyuan-dispatch/dispatch-orders/list',
-  /** 建立派工單 POST /taoyuan-dispatch/dispatch-orders */
-  DISPATCH_ORDERS_CREATE: '/taoyuan-dispatch/dispatch-orders',
-  /** 派工單詳情 POST /taoyuan-dispatch/dispatch-orders/:id/detail */
-  DISPATCH_ORDERS_DETAIL: (id: number) => `/taoyuan-dispatch/dispatch-orders/${id}/detail`,
-  /** 更新派工單 POST /taoyuan-dispatch/dispatch-orders/:id/update */
-  DISPATCH_ORDERS_UPDATE: (id: number) => `/taoyuan-dispatch/dispatch-orders/${id}/update`,
-  /** 刪除派工單 POST /taoyuan-dispatch/dispatch-orders/:id/delete */
-  DISPATCH_ORDERS_DELETE: (id: number) => `/taoyuan-dispatch/dispatch-orders/${id}/delete`,
+  /** 派工單列表 POST /taoyuan-dispatch/dispatch/list */
+  DISPATCH_ORDERS_LIST: '/taoyuan-dispatch/dispatch/list',
+  /** 建立派工單 POST /taoyuan-dispatch/dispatch/create */
+  DISPATCH_ORDERS_CREATE: '/taoyuan-dispatch/dispatch/create',
+  /** 派工單詳情 POST /taoyuan-dispatch/dispatch/:id/detail */
+  DISPATCH_ORDERS_DETAIL: (id: number) => `/taoyuan-dispatch/dispatch/${id}/detail`,
+  /** 更新派工單 POST /taoyuan-dispatch/dispatch/:id/update */
+  DISPATCH_ORDERS_UPDATE: (id: number) => `/taoyuan-dispatch/dispatch/${id}/update`,
+  /** 刪除派工單 POST /taoyuan-dispatch/dispatch/:id/delete */
+  DISPATCH_ORDERS_DELETE: (id: number) => `/taoyuan-dispatch/dispatch/${id}/delete`,
 
   // 派工單公文關聯
-  /** 新增公文關聯 POST /taoyuan-dispatch/dispatch-orders/:id/link-document */
-  DISPATCH_LINK_DOCUMENT: (id: number) => `/taoyuan-dispatch/dispatch-orders/${id}/link-document`,
-  /** 移除公文關聯 POST /taoyuan-dispatch/dispatch-orders/:dispatchId/unlink-document/:linkId */
-  DISPATCH_UNLINK_DOCUMENT: (dispatchId: number, linkId: number) =>
-    `/taoyuan-dispatch/dispatch-orders/${dispatchId}/unlink-document/${linkId}`,
+  /** 新增公文關聯 POST /taoyuan-dispatch/dispatch/:id/link-document */
+  DISPATCH_LINK_DOCUMENT: (id: number) => `/taoyuan-dispatch/dispatch/${id}/link-document`,
+  /** 取得派工單公文 POST /taoyuan-dispatch/dispatch/:id/documents */
+  DISPATCH_DOCUMENTS: (id: number) => `/taoyuan-dispatch/dispatch/${id}/documents`,
 
   // 契金管控
   /** 契金列表 POST /taoyuan-dispatch/payments/list */
   PAYMENTS_LIST: '/taoyuan-dispatch/payments/list',
-  /** 建立契金 POST /taoyuan-dispatch/payments */
-  PAYMENTS_CREATE: '/taoyuan-dispatch/payments',
+  /** 建立契金 POST /taoyuan-dispatch/payments/create */
+  PAYMENTS_CREATE: '/taoyuan-dispatch/payments/create',
   /** 更新契金 POST /taoyuan-dispatch/payments/:id/update */
   PAYMENTS_UPDATE: (id: number) => `/taoyuan-dispatch/payments/${id}/update`,
   /** 刪除契金 POST /taoyuan-dispatch/payments/:id/delete */
