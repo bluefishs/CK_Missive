@@ -91,37 +91,15 @@ const getCategoryTagText = (category?: string) => {
 };
 
 // ---[類型定義]---
-import type { ProjectStatus } from '../types/api';
+import type { Project, ProjectStatus, ProjectCreate } from '../types/api';
 
-interface Project {
-  id: number;
-  project_name: string;
-  project_code?: string;
-  year?: number;
-  category?: string;
-  case_nature?: string;
-  status?: ProjectStatus;
-  client_agency?: string;
-  contract_amount?: number;
-  start_date?: string;
-  end_date?: string;
-  description?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface ProjectFormData {
-  project_name: string;
-  project_code?: string;
-  year?: number;
-  category?: string;
-  case_nature?: string;
-  status?: ProjectStatus;
-  client_agency?: string;
-  contract_amount?: number;
-  start_date?: any; // 使用 any 以便處理 dayjs 物件
-  end_date?: any;
-  description?: string;
+/**
+ * 專案表單資料型別
+ * 基於 ProjectCreate，但日期欄位使用 dayjs 物件
+ */
+interface ProjectFormData extends Omit<ProjectCreate, 'start_date' | 'end_date'> {
+  start_date?: import('dayjs').Dayjs | string | null;
+  end_date?: import('dayjs').Dayjs | string | null;
 }
 
 type ViewMode = 'list' | 'board';

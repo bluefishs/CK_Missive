@@ -66,8 +66,77 @@ import {
   type ProjectAgencyContact,
 } from '../api/projectAgencyContacts';
 import { logger } from '../utils/logger';
-import { User, Vendor } from '../types/api';
+import {
+  User,
+  Vendor,
+  Project,
+  OfficialDocument,
+  ProjectVendorAssociation,
+} from '../types/api';
 import type { PaginatedResponse } from '../api/types';
+
+// ============================================================================
+// 型別別名 - 使用 types/api.ts 作為 SSOT
+// ============================================================================
+
+/**
+ * 專案資料型別 - 擴展 Project 以支援中文狀態值
+ * 注意：後端回傳中文狀態，但 types/api.ts 定義為英文 enum
+ */
+interface ProjectData extends Omit<Project, 'status'> {
+  status?: string;  // 中文狀態值：待執行/執行中/已結案/暫停
+}
+
+/** 關聯文件型別 - 使用 OfficialDocument 的子集 */
+type RelatedDocument = Pick<OfficialDocument,
+  'id' | 'doc_number' | 'doc_type' | 'subject' | 'doc_date' |
+  'sender' | 'receiver' | 'category' | 'delivery_method' | 'has_attachment'
+>;
+
+/**
+ * 附件型別 - 此頁面專用的附件呈現結構
+ * 包含所屬公文資訊，用於專案附件彙整顯示
+ */
+interface Attachment {
+  id: number;
+  document_id: number;
+  filename: string;
+  original_filename?: string;
+  file_size: number;
+  file_type: string;
+  content_type?: string;
+  uploaded_at?: string;
+  uploaded_by: string;  // 上傳者名稱（顯示用）
+  document_number: string;
+  document_subject: string;
+}
+
+/** 按公文分組的附件 - 此頁面專用 */
+interface LocalGroupedAttachment {
+  document_id: number;
+  document_number: string;
+  document_subject: string;
+  file_count: number;
+  total_size: number;
+  last_updated: string;
+  attachments: Attachment[];
+}
+
+/** 協力廠商關聯型別 - 使用 ProjectVendorAssociation */
+type VendorAssociation = ProjectVendorAssociation;
+
+/** 專案同仁型別 - 在此頁面的呈現結構 */
+interface Staff {
+  id: number;
+  user_id: number;
+  name: string;
+  role: string;
+  department?: string;
+  phone?: string;
+  email?: string;
+  join_date?: string;
+  status: string;
+}
 
 // ============================================================================
 // 表單值型別定義
@@ -173,97 +242,7 @@ const VENDOR_ROLE_OPTIONS = [
   { value: '其他類別', label: '其他類別', color: 'default' },
 ];
 
-// 專案資料類型 (對應後端 ProjectResponse - 完整欄位)
-interface ProjectData {
-  id: number;
-  project_name: string;           // 案件名稱
-  year?: number;                  // 年度 (可選)
-  client_agency?: string;         // 委託單位
-  category?: string;              // 案件類別 (01-04)
-  case_nature?: string;           // 案件性質 (01測量案, 02資訊案)
-  contract_doc_number?: string;   // 契約文號
-  project_code?: string;          // 專案編號 (CK年度_類別_性質_流水號)
-  contract_amount?: number;       // 契約金額
-  winning_amount?: number;        // 得標金額
-  start_date?: string;            // 開始日期
-  end_date?: string;              // 結束日期
-  status?: string;                // 執行狀態
-  progress?: number;              // 完成進度 (0-100)
-  notes?: string;                 // 備註
-  project_path?: string;          // 專案路徑
-  description?: string;           // 專案描述
-  created_at: string;
-  updated_at: string;
-}
-
-// 承辦同仁類型
-interface Staff {
-  id: number;
-  user_id: number;
-  name: string;
-  role: string;
-  department?: string | undefined;
-  phone?: string | undefined;
-  email?: string | undefined;
-  join_date?: string | undefined;
-  status: string;
-}
-
-// 協力廠商關聯類型
-interface VendorAssociation {
-  id: number;
-  vendor_id: number;
-  vendor_name: string;
-  vendor_code?: string | undefined;
-  contact_person?: string | undefined;
-  phone?: string | undefined;
-  role: string;
-  contract_amount?: number | undefined;
-  start_date?: string | undefined;
-  end_date?: string | undefined;
-  status: string;
-}
-
-// 關聯文件類型（對應 Document 型別）
-interface RelatedDocument {
-  id: number;
-  doc_number: string;
-  doc_type: string;
-  subject: string;
-  doc_date: string;
-  sender: string;
-  receiver: string;
-  category: string;           // 收文/發文
-  delivery_method: string;    // 發文形式：電子交換/紙本郵寄/電子+紙本
-  has_attachment: boolean;    // 是否含附件
-}
-
-// 附件類型（彙整自關聯公文）
-interface Attachment {
-  id: number;
-  filename: string;
-  original_filename?: string;
-  file_size: number;
-  file_type: string;
-  content_type?: string;
-  uploaded_at: string;
-  uploaded_by: string;
-  // 所屬公文資訊
-  document_id: number;
-  document_number: string;
-  document_subject: string;
-}
-
-// 按公文分組的附件（用於摺疊顯示）
-interface GroupedAttachment {
-  document_id: number;
-  document_number: string;
-  document_subject: string;
-  file_count: number;
-  total_size: number;
-  last_updated: string;
-  attachments: Attachment[];
-}
+// 注意：業務型別定義已移至文件開頭，使用 types/api.ts 作為 SSOT
 
 export const ContractCaseDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -275,7 +254,7 @@ export const ContractCaseDetailPage: React.FC = () => {
   const [vendorList, setVendorList] = useState<VendorAssociation[]>([]);
   const [relatedDocs, setRelatedDocs] = useState<RelatedDocument[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const [groupedAttachments, setGroupedAttachments] = useState<GroupedAttachment[]>([]);
+  const [groupedAttachments, setLocalGroupedAttachments] = useState<LocalGroupedAttachment[]>([]);
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
   const [agencyContacts, setAgencyContacts] = useState<ProjectAgencyContact[]>([]);
 
@@ -380,7 +359,7 @@ export const ContractCaseDetailPage: React.FC = () => {
       setAttachmentsLoading(true);
       try {
         const allAttachments: Attachment[] = [];
-        const grouped: GroupedAttachment[] = [];
+        const grouped: LocalGroupedAttachment[] = [];
 
         // 遍歷每個關聯公文，取得其附件
         for (const doc of loadedDocs) {
@@ -426,11 +405,11 @@ export const ContractCaseDetailPage: React.FC = () => {
           }
         }
         setAttachments(allAttachments);
-        setGroupedAttachments(grouped);
+        setLocalGroupedAttachments(grouped);
       } catch (attError: unknown) {
         logger.error('載入附件失敗:', attError);
         setAttachments([]);
-        setGroupedAttachments([]);
+        setLocalGroupedAttachments([]);
       } finally {
         setAttachmentsLoading(false);
       }
@@ -1139,7 +1118,7 @@ export const ContractCaseDetailPage: React.FC = () => {
   };
 
   // 批次下載某公文的所有附件
-  const handleDownloadAllAttachments = async (group: GroupedAttachment) => {
+  const handleDownloadAllAttachments = async (group: LocalGroupedAttachment) => {
     message.loading({ content: `正在下載 ${group.file_count} 個檔案...`, key: 'download-all' });
     for (const att of group.attachments) {
       try {
@@ -1152,7 +1131,7 @@ export const ContractCaseDetailPage: React.FC = () => {
   };
 
   // 分組附件表格欄位（父層：公文）
-  const groupedAttachmentColumns: ColumnsType<GroupedAttachment> = [
+  const groupedAttachmentColumns: ColumnsType<LocalGroupedAttachment> = [
     {
       title: '公文字號',
       dataIndex: 'document_number',

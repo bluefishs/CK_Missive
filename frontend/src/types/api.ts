@@ -30,6 +30,7 @@ export interface Project {
   year?: number;
   client_agency?: string;
   category?: string;
+  case_nature?: string;           // 案件性質 (01測量案/02資訊案/03複合案)
   contract_doc_number?: string;
   contract_amount?: number;
   winning_amount?: number;
@@ -51,6 +52,7 @@ export interface ProjectCreate {
   year?: number;
   client_agency?: string;
   category?: string;
+  case_nature?: string;
   contract_doc_number?: string;
   contract_amount?: number;
   winning_amount?: number;
@@ -122,6 +124,21 @@ export interface VendorOption {
   id: number;
   vendor_name: string;
   vendor_code?: string;
+}
+
+/** 專案廠商關聯 - 用於承攬案件中的協力廠商列表 */
+export interface ProjectVendorAssociation {
+  id: number;
+  vendor_id: number;
+  vendor_name: string;
+  vendor_code?: string;
+  contact_person?: string;
+  phone?: string;
+  role: string;
+  contract_amount?: number;
+  start_date?: string;
+  end_date?: string;
+  status: string;
 }
 
 // ============================================================================
@@ -454,6 +471,24 @@ export interface DocumentAttachment {
   uploaded_by?: number;
   created_at?: string;
   updated_at?: string;
+}
+
+/** 擴展附件資訊 - 包含所屬公文資訊（用於專案附件彙整） */
+export interface ExtendedAttachment extends DocumentAttachment {
+  document_number: string;
+  document_subject: string;
+  uploaded_by_name?: string;
+}
+
+/** 按公文分組的附件（用於摺疊顯示） */
+export interface GroupedAttachment {
+  document_id: number;
+  document_number: string;
+  document_subject: string;
+  file_count: number;
+  total_size: number;
+  last_updated: string;
+  attachments: ExtendedAttachment[];
 }
 
 /** 公文篩選參數 */

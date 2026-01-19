@@ -44,6 +44,16 @@ import { calendarIntegrationService } from '../../services/calendarIntegrationSe
 import { apiClient } from '../../api/client';
 import { filesApi } from '../../api/filesApi';
 import { logger } from '../../utils/logger';
+// 子組件與共用型別
+import {
+  CriticalChangeConfirmModal,
+  DuplicateFileModal,
+  CRITICAL_FIELDS,
+  type CriticalFieldKey,
+  type CriticalChange,
+  type CriticalChangeModalState,
+  type DuplicateModalState,
+} from './operations';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -60,25 +70,7 @@ const DEFAULT_ALLOWED_EXTENSIONS = [
 ];
 const DEFAULT_MAX_FILE_SIZE_MB = 50;
 
-// ============================================================================
-// 關鍵欄位定義（修改這些欄位需要確認）
-// ============================================================================
-const CRITICAL_FIELDS = {
-  subject: { label: '主旨', icon: '📝' },
-  doc_number: { label: '公文字號', icon: '🔢' },
-  sender: { label: '發文單位', icon: '📤' },
-  receiver: { label: '受文單位', icon: '📥' },
-};
-
-type CriticalFieldKey = keyof typeof CRITICAL_FIELDS;
-
-interface CriticalChange {
-  field: CriticalFieldKey;
-  label: string;
-  icon: string;
-  oldValue: string;
-  newValue: string;
-}
+// 關鍵欄位定義已移至 ./operations/types.ts (SSOT)
 
 /**
  * 檢測關鍵欄位變更
@@ -1301,118 +1293,24 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
         />
       </Form>
 
-      {/* 關鍵欄位變更確認 Modal */}
-      <Modal
-        title={
-          <span style={{ color: '#ff4d4f' }}>
-            <FileTextOutlined style={{ marginRight: 8 }} />
-            確認修改關鍵欄位
-          </span>
-        }
-        open={criticalChangeModal.visible}
+      {/* 關鍵欄位變更確認 Modal - 使用子組件 */}
+      <CriticalChangeConfirmModal
+        visible={criticalChangeModal.visible}
+        changes={criticalChangeModal.changes}
+        loading={loading}
+        onConfirm={handleCriticalChangeConfirm}
         onCancel={() => setCriticalChangeModal({ visible: false, changes: [], pendingData: null })}
-        footer={[
-          <Button
-            key="cancel"
-            onClick={() => setCriticalChangeModal({ visible: false, changes: [], pendingData: null })}
-          >
-            取消
-          </Button>,
-          <Button
-            key="confirm"
-            type="primary"
-            danger
-            onClick={handleCriticalChangeConfirm}
-            loading={loading}
-          >
-            確認修改
-          </Button>,
-        ]}
-        width={550}
-      >
-        <div style={{ padding: '16px 0' }}>
-          <Alert
-            message="您即將修改以下關鍵欄位"
-            description={
-              <div>
-                <p style={{ marginBottom: 12, color: '#666' }}>
-                  這些變更將被記錄在審計日誌中。請確認以下修改內容：
-                </p>
-                <List
-                  size="small"
-                  dataSource={criticalChangeModal.changes}
-                  renderItem={(change) => (
-                    <List.Item style={{ padding: '8px 0' }}>
-                      <div style={{ width: '100%' }}>
-                        <div style={{ fontWeight: 'bold', marginBottom: 4 }}>
-                          {change.icon} {change.label}
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <Tag color="red" style={{ maxWidth: '45%', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {change.oldValue.length > 30 ? change.oldValue.slice(0, 30) + '...' : change.oldValue}
-                          </Tag>
-                          <span>→</span>
-                          <Tag color="green" style={{ maxWidth: '45%', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {change.newValue.length > 30 ? change.newValue.slice(0, 30) + '...' : change.newValue}
-                          </Tag>
-                        </div>
-                      </div>
-                    </List.Item>
-                  )}
-                />
-              </div>
-            }
-            type="warning"
-            showIcon
-          />
-        </div>
-      </Modal>
+      />
 
-      {/* 重複檔案確認對話框 */}
-      <Modal
-        title={
-          <span style={{ color: '#faad14' }}>
-            <FileOutlined style={{ marginRight: 8 }} />
-            發現重複檔案
-          </span>
-        }
-        open={duplicateModal.visible}
+      {/* 重複檔案確認對話框 - 使用子組件 */}
+      <DuplicateFileModal
+        visible={duplicateModal.visible}
+        file={duplicateModal.file}
+        existingAttachment={duplicateModal.existingAttachment}
+        onOverwrite={handleOverwriteFile}
+        onKeepBoth={handleKeepBoth}
         onCancel={handleCancelDuplicate}
-        footer={[
-          <Button key="cancel" onClick={handleCancelDuplicate}>
-            取消上傳
-          </Button>,
-          <Button key="keep" onClick={handleKeepBoth}>
-            保留兩個
-          </Button>,
-          <Button key="overwrite" type="primary" danger onClick={handleOverwriteFile}>
-            覆蓋舊檔
-          </Button>,
-        ]}
-        width={500}
-      >
-        <div style={{ padding: '16px 0' }}>
-          <Alert
-            message="已存在相同檔名的附件"
-            description={
-              <div>
-                <p><strong>新檔案：</strong>{duplicateModal.file?.name}</p>
-                <p><strong>現有檔案：</strong>{duplicateModal.existingAttachment?.original_filename || duplicateModal.existingAttachment?.filename}</p>
-                <p style={{ marginTop: 12, color: '#666' }}>
-                  請選擇處理方式：
-                </p>
-                <ul style={{ marginTop: 8, paddingLeft: 20, color: '#666' }}>
-                  <li><strong>覆蓋舊檔</strong>：刪除現有檔案，上傳新檔案</li>
-                  <li><strong>保留兩個</strong>：新檔案將以不同名稱儲存</li>
-                  <li><strong>取消上傳</strong>：不上傳此檔案</li>
-                </ul>
-              </div>
-            }
-            type="warning"
-            showIcon
-          />
-        </div>
-      </Modal>
+      />
     </Modal>
   );
 };

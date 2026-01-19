@@ -68,27 +68,25 @@ const extractErrorMessage = (error: any): string => {
   return JSON.stringify(detail);
 };
 
+// ---[型別定義]---
+import type { User } from '../types/api';
+
+/**
+ * Staff 型別別名 - 使用 User 作為統一型別來源
+ * 承辦同仁本質上是系統使用者，使用相同的資料結構
+ */
+type Staff = User;
+
 // 使用表格搜尋 Hook
 const useStaffTableSearch = () => useTableColumnSearch<Staff>();
 
 // 部門選項
 const DEPARTMENT_OPTIONS = ['空間資訊部', '測量部', '管理部'];
 
-// 承辦同仁資料類型
-interface Staff {
-  id: number;
-  username: string;
-  email: string;
-  full_name: string;
-  role: string;
-  is_active: boolean;
-  last_login?: string;
-  created_at?: string;
-  department?: string;
-  position?: string;
-}
-
-// 表單資料類型 (專案角色在承攬案件詳情頁管理)
+/**
+ * 表單資料類型 (專案角色在承攬案件詳情頁管理)
+ * 僅包含表單編輯所需的欄位
+ */
 interface StaffFormData {
   username: string;
   email: string;
