@@ -91,7 +91,6 @@ import { queryKeys } from '../config/queryConfig';
 import { logger } from '../utils/logger';
 
 const { Title, Text } = Typography;
-const { TabPane } = Tabs;
 const { Search } = Input;
 
 // 固定的承攬案件
@@ -1373,55 +1372,54 @@ export const TaoyuanDispatchPage: React.FC = () => {
       </Card>
 
       {/* TAB 頁籤 */}
-      <Tabs activeKey={activeTab} onChange={setActiveTab} type="card" size="large">
-        <TabPane
-          tab={
-            <span>
-              <ProjectOutlined />
-              工程資訊
-            </span>
-          }
-          key="1"
-        >
-          <ProjectsTab contractProjectId={FIXED_CONTRACT_PROJECT_ID} />
-        </TabPane>
-
-        <TabPane
-          tab={
-            <span>
-              <FileTextOutlined />
-              函文紀錄
-            </span>
-          }
-          key="2"
-        >
-          <DocumentsTab contractCode={FIXED_CONTRACT_CODE} />
-        </TabPane>
-
-        <TabPane
-          tab={
-            <span>
-              <SendOutlined />
-              派工紀錄
-            </span>
-          }
-          key="3"
-        >
-          <DispatchOrdersTab contractProjectId={FIXED_CONTRACT_PROJECT_ID} />
-        </TabPane>
-
-        <TabPane
-          tab={
-            <span>
-              <DollarOutlined />
-              契金管控
-            </span>
-          }
-          key="4"
-        >
-          <PaymentsTab contractProjectId={FIXED_CONTRACT_PROJECT_ID} />
-        </TabPane>
-      </Tabs>
+      <Tabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        type="card"
+        size="large"
+        items={[
+          {
+            key: '1',
+            label: (
+              <span>
+                <ProjectOutlined />
+                工程資訊
+              </span>
+            ),
+            children: <ProjectsTab contractProjectId={FIXED_CONTRACT_PROJECT_ID} />,
+          },
+          {
+            key: '2',
+            label: (
+              <span>
+                <FileTextOutlined />
+                函文紀錄
+              </span>
+            ),
+            children: <DocumentsTab contractCode={FIXED_CONTRACT_CODE} />,
+          },
+          {
+            key: '3',
+            label: (
+              <span>
+                <SendOutlined />
+                派工紀錄
+              </span>
+            ),
+            children: <DispatchOrdersTab contractProjectId={FIXED_CONTRACT_PROJECT_ID} />,
+          },
+          {
+            key: '4',
+            label: (
+              <span>
+                <DollarOutlined />
+                契金管控
+              </span>
+            ),
+            children: <PaymentsTab contractProjectId={FIXED_CONTRACT_PROJECT_ID} />,
+          },
+        ]}
+      />
     </div>
   );
 };
