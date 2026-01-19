@@ -30,6 +30,10 @@ from .strategies.agency_matcher import AgencyMatcher, ProjectMatcher
 from .document_service import DocumentService
 from .project_service import ProjectService
 
+# 公文專責服務 (v1.0.0 - 2026-01-19)
+from .document_query_filter_service import DocumentQueryFilterService
+from .document_serial_number_service import DocumentSerialNumberService
+
 # 關聯管理服務
 from .vendor_service import VendorService
 from .agency_service import AgencyService
@@ -80,6 +84,9 @@ __all__ = [
     # 核心業務
     "DocumentService",
     "ProjectService",
+    # 公文專責服務
+    "DocumentQueryFilterService",
+    "DocumentSerialNumberService",
     # 關聯管理
     "VendorService",
     "AgencyService",

@@ -14,6 +14,7 @@ import {
   FieldTimeOutlined, FileTextOutlined
 } from '@ant-design/icons';
 import { apiClient } from '../../api/client';
+import { API_ENDPOINTS } from '../../api/endpoints';
 import {
   databaseMetadata,
   getCategoryDisplayName,
@@ -63,7 +64,7 @@ export const SimpleDatabaseViewer: React.FC = () => {
     setLoading(true);
     try {
       logger.debug('🔍 Fetching database info via apiClient');
-      const data = await apiClient.post<DatabaseInfo>('/admin/database/info', {});
+      const data = await apiClient.post<DatabaseInfo>(API_ENDPOINTS.ADMIN_DATABASE.INFO, {});
       logger.debug('✅ Database info loaded:', data);
       setDatabaseInfo(data);
       message.success('資料庫信息載入成功');

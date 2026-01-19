@@ -50,6 +50,8 @@ export const DOCUMENTS_ENDPOINTS = {
   AUDIT_LOGS: '/documents-enhanced/audit-logs',
   /** 公文審計歷史 POST /documents-enhanced/:id/audit-history */
   AUDIT_HISTORY: (id: number) => `/documents-enhanced/${id}/audit-history`,
+  /** 整合搜尋 POST /documents-enhanced/integrated-search */
+  INTEGRATED_SEARCH: '/documents-enhanced/integrated-search',
 } as const;
 
 /** 承攬案件 API 端點 */
@@ -342,6 +344,20 @@ export const SYSTEM_ENDPOINTS = {
   METRICS: '/system/metrics',
 } as const;
 
+/** 管理員資料庫 API 端點 */
+export const ADMIN_DATABASE_ENDPOINTS = {
+  /** 資料庫資訊 POST /admin/database/info */
+  INFO: '/admin/database/info',
+  /** 資料表詳情 POST /admin/database/table/:tableName */
+  TABLE: (tableName: string) => `/admin/database/table/${tableName}`,
+  /** 執行查詢 POST /admin/database/query */
+  QUERY: '/admin/database/query',
+  /** 健康檢查 POST /admin/database/health */
+  HEALTH: '/admin/database/health',
+  /** 完整性檢查 POST /admin/database/integrity */
+  INTEGRITY: '/admin/database/integrity',
+} as const;
+
 /** 資料庫備份 API 端點 */
 export const BACKUP_ENDPOINTS = {
   /** 建立備份 POST /backup/create */
@@ -466,6 +482,7 @@ export const API_ENDPOINTS = {
   CSV_IMPORT: CSV_IMPORT_ENDPOINTS,
   PUBLIC: PUBLIC_ENDPOINTS,
   SYSTEM: SYSTEM_ENDPOINTS,
+  ADMIN_DATABASE: ADMIN_DATABASE_ENDPOINTS,
   BACKUP: BACKUP_ENDPOINTS,
 
   // 桃園派工管理

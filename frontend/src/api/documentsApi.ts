@@ -167,7 +167,7 @@ export const documentsApi = {
           page: number;
           limit: number;
           total_pages: number;
-        }>('/documents-enhanced/integrated-search', {
+        }>(API_ENDPOINTS.DOCUMENTS.INTEGRATED_SEARCH, {
           params: {
             skip: ((params?.page ?? 1) - 1) * (params?.limit ?? 20),
             limit: params?.limit ?? 100,

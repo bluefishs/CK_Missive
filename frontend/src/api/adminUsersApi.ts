@@ -58,6 +58,20 @@ export interface AdminUserListResponse {
   limit?: number;
 }
 
+/** 使用者會話資訊 */
+export interface UserSession {
+  id: number;
+  user_id: number;
+  token_hash?: string;
+  device_info?: string;
+  ip_address?: string;
+  user_agent?: string;
+  created_at: string;
+  expires_at: string;
+  last_activity?: string;
+  is_active: boolean;
+}
+
 /** 可用權限回應 */
 export interface AvailablePermissionsResponse {
   roles: Permission[];
@@ -171,8 +185,8 @@ export const adminUsersApi = {
   /**
    * 取得使用者會話列表 (POST)
    */
-  async getUserSessions(userId: number): Promise<any[]> {
-    const response = await apiClient.post<{ sessions: any[] }>(
+  async getUserSessions(userId: number): Promise<UserSession[]> {
+    const response = await apiClient.post<{ sessions: UserSession[] }>(
       API_ENDPOINTS.ADMIN_USER_MANAGEMENT.USERS_SESSIONS_LIST(userId)
     );
     return response.sessions || [];

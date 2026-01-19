@@ -12,6 +12,7 @@ import { DocumentListEnhanced } from '../components/document/DocumentListEnhance
 import { useDocuments } from '../hooks/useDocuments';
 import { Document, DocumentFilter } from '../types';
 import { API_BASE_URL } from '../api/client';
+import { API_ENDPOINTS } from '../api/endpoints';
 import { useResponsive } from '../hooks/useResponsive';
 import { HideOn } from '../components/common/ResponsiveContainer';
 
@@ -93,7 +94,7 @@ const DocumentPageEnhanced: React.FC = () => {
       // 測試整合搜尋 API (POST) - 如果端點存在
       let integratedSearchTest = true;
       try {
-        const integratedSearchResponse = await fetch(`${API_BASE_URL}/documents-enhanced/integrated-search`, {
+        const integratedSearchResponse = await fetch(`${API_BASE_URL}${API_ENDPOINTS.DOCUMENTS.INTEGRATED_SEARCH}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ limit: 5 })

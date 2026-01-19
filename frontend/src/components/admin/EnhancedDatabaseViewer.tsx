@@ -10,6 +10,7 @@ import {
   BranchesOutlined, InfoCircleOutlined, EyeOutlined
 } from '@ant-design/icons';
 import { apiClient } from '../../api/client';
+import { API_ENDPOINTS } from '../../api/endpoints';
 import { databaseMetadata, TableMetadataItem } from '../../config/databaseMetadata';
 
 const { Title, Text } = Typography;
@@ -51,7 +52,7 @@ export const EnhancedDatabaseViewer: React.FC = () => {
   const fetchDatabaseInfo = async () => {
     setLoading(true);
     try {
-      const data = await apiClient.post<DatabaseInfo>('/admin/database/info', {});
+      const data = await apiClient.post<DatabaseInfo>(API_ENDPOINTS.ADMIN_DATABASE.INFO, {});
       setDatabaseInfo(data);
       message.success('資料庫信息載入成功');
     } catch (error) {

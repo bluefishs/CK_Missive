@@ -12,7 +12,8 @@ import {
   DownloadOutlined, CheckCircleOutlined, ExclamationCircleOutlined,
   PlayCircleOutlined, CopyOutlined, EyeOutlined, UpOutlined
 } from '@ant-design/icons';
-import { API_BASE_URL } from '../api/client';
+import { apiClient } from '../api/client';
+import { API_ENDPOINTS } from '../api/endpoints';
 import { SimpleDatabaseViewer } from '../components/admin/SimpleDatabaseViewer';
 
 const { Title, Text, Paragraph } = Typography;
@@ -41,6 +42,20 @@ interface ColumnInfo {
   primaryKey: boolean;
 }
 
+interface QueryResult {
+  totalRows: number;
+  executionTime: number;
+  columns: string[];
+  rows: unknown[][];
+}
+
+interface IntegrityResult {
+  issues: Array<{ table: string; description: string }>;
+  status: string;
+  totalIssues: number;
+  checkTime: string;
+}
+
 export const DatabaseManagementPage: React.FC = () => {
   const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
@@ -48,8 +63,8 @@ export const DatabaseManagementPage: React.FC = () => {
   const [selectedTable, setSelectedTable] = useState<string>('');
   const [tableData, setTableData] = useState<any>({ columns: [], rows: [] });
   const [customQuery, setCustomQuery] = useState<string>('SELECT * FROM documents LIMIT 10;');
-  const [queryResult, setQueryResult] = useState<any>(null);
-  const [integrityResult, setIntegrityResult] = useState<any>(null);
+  const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
+  const [integrityResult, setIntegrityResult] = useState<IntegrityResult | null>(null);
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [useEnhancedView, setUseEnhancedView] = useState(false);
   const [enhancedDrawerVisible, setEnhancedDrawerVisible] = useState(false);
@@ -58,15 +73,7 @@ export const DatabaseManagementPage: React.FC = () => {
   const fetchDatabaseInfo = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/database/info`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      const data = await response.json();
+      const data = await apiClient.post<DatabaseInfo>(API_ENDPOINTS.ADMIN_DATABASE.INFO, {});
       setDatabaseInfo(data);
       message.success('資料庫信息載入成功');
     } catch (error) {
@@ -81,15 +88,7 @@ export const DatabaseManagementPage: React.FC = () => {
   const fetchTableData = async (tableName: string, limit: number = 50, offset: number = 0) => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/database/table/${tableName}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ limit, offset })
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      const data = await response.json();
+      const data = await apiClient.post(API_ENDPOINTS.ADMIN_DATABASE.TABLE(tableName), { limit, offset });
       setTableData(data);
       setSelectedTable(tableName);
       message.success(`載入 ${tableName} 數據成功`);
@@ -110,20 +109,7 @@ export const DatabaseManagementPage: React.FC = () => {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/database/query`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ query: customQuery }),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || `HTTP ${response.status}`);
-      }
-      
-      const result = await response.json();
+      const result = await apiClient.post<QueryResult>(API_ENDPOINTS.ADMIN_DATABASE.QUERY, { query: customQuery });
       setQueryResult(result);
       message.success(`查詢完成，返回 ${result.totalRows} 條結果，耗時 ${result.executionTime}ms`);
     } catch (error: any) {
@@ -138,15 +124,7 @@ export const DatabaseManagementPage: React.FC = () => {
   const checkIntegrity = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/database/integrity`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      const result = await response.json();
+      const result = await apiClient.post<IntegrityResult>(API_ENDPOINTS.ADMIN_DATABASE.INTEGRITY, {});
       setIntegrityResult(result);
       
       if (result.issues.length === 0) {

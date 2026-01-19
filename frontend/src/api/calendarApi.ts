@@ -14,16 +14,35 @@ import { API_ENDPOINTS } from './endpoints';
 // ============================================================================
 
 /**
- * 行事曆事件 - API 回應專用型別
+ * 行事曆事件原始 API 回應格式
+ * 後端回傳的原始格式，欄位名稱為 start_date/end_date
+ */
+interface RawCalendarEventResponse {
+  id: number;
+  title: string;
+  description?: string;
+  start_date: string;       // 後端原始欄位名稱
+  end_date: string;         // 後端原始欄位名稱
+  document_id?: number;
+  doc_number?: string;
+  event_type?: string;
+  priority?: number | string;
+  location?: string;
+  google_event_id?: string;
+  google_sync_status?: 'pending' | 'synced' | 'failed';
+}
+
+/**
+ * 行事曆事件 - 前端使用的型別
  * 注意: 此型別與 types/api.ts 中的 CalendarEvent 欄位名稱不同
- *       API 回應使用 start_datetime/end_datetime
+ *       前端統一使用 start_datetime/end_datetime
  */
 export interface CalendarEvent {
   id: number;
   title: string;
   description?: string;
-  start_datetime: string;    // API 回應欄位名稱
-  end_datetime: string;      // API 回應欄位名稱
+  start_datetime: string;    // 前端統一欄位名稱
+  end_datetime: string;      // 前端統一欄位名稱
   document_id?: number;
   doc_number?: string;       // 關聯公文字號
   event_type?: string;
@@ -102,7 +121,7 @@ export const calendarApi = {
       const startDate = now.subtract(2, 'month').format('YYYY-MM-DD');
       const endDate = now.add(2, 'month').format('YYYY-MM-DD');
 
-      const data = await apiClient.post<{success: boolean; events: any[]; total: number}>(
+      const data = await apiClient.post<{success: boolean; events: RawCalendarEventResponse[]; total: number}>(
         API_ENDPOINTS.CALENDAR.USER_EVENTS,
         {
           user_id: userId,
@@ -111,7 +130,7 @@ export const calendarApi = {
         }
       );
       if (data && Array.isArray(data.events)) {
-        return data.events.map((event: any) => ({
+        return data.events.map((event: RawCalendarEventResponse) => ({
           id: event.id,
           title: event.title,
           description: event.description,

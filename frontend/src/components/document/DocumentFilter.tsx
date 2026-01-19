@@ -26,6 +26,7 @@ import {
 } from '@ant-design/icons';
 import { DocumentFilter as DocumentFilterType, OfficialDocument } from '../../types';
 import { API_BASE_URL } from '../../api/client';
+import { API_ENDPOINTS } from '../../api/endpoints';
 import { logger } from '../../utils/logger';
 const { Option } = Select;
 const { Title } = Typography;
@@ -299,7 +300,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
 
       // 如果新 API 不可用，降級使用原有方式
       logger.warn('⚠️  增強版 API 不可用，使用原有方式');
-      response = await fetch(`${API_BASE_URL}/documents-enhanced/integrated-search`, {
+      response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.DOCUMENTS.INTEGRATED_SEARCH}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ limit: 1000 })
@@ -350,7 +351,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
 
       // 降級方案：直接從公文表查詢
       logger.warn('⚠️  增強版 API 不可用，使用降級方案');
-      const fallbackResponse = await fetch(`${API_BASE_URL}/documents-enhanced/integrated-search`, {
+      const fallbackResponse = await fetch(`${API_BASE_URL}${API_ENDPOINTS.DOCUMENTS.INTEGRATED_SEARCH}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ limit: 500 })
@@ -401,7 +402,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
 
       // 降級方案：直接從公文表查詢
       logger.warn('⚠️  增強版 API 不可用，使用降級方案');
-      const fallbackResponse = await fetch(`${API_BASE_URL}/documents-enhanced/integrated-search`, {
+      const fallbackResponse = await fetch(`${API_BASE_URL}${API_ENDPOINTS.DOCUMENTS.INTEGRATED_SEARCH}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ limit: 500 })
