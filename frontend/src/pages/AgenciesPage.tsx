@@ -683,7 +683,7 @@ export const AgenciesPage: React.FC = () => {
         }}
         footer={null}
         width={isMobile ? '95%' : 600}
-        destroyOnHidden
+        forceRender
       >
         <Form
           form={form}

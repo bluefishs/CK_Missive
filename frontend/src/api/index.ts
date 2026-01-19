@@ -29,6 +29,9 @@ export * from './vendorsApi';
 export * from './agenciesApi';
 export * from './usersApi';
 
+// 桃園派工管理
+export * from './taoyuanDispatchApi';
+
 // 主要匯出
 export { apiClient, API_BASE_URL } from './client';
 

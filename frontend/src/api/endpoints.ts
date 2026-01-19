@@ -359,6 +359,60 @@ export const BACKUP_ENDPOINTS = {
 } as const;
 
 // ============================================================================
+// 桃園查估派工管理系統端點
+// ============================================================================
+
+/** 桃園派工管理 API 端點 */
+export const TAOYUAN_DISPATCH_ENDPOINTS = {
+  // 轄管工程清單
+  /** 工程列表 POST /taoyuan-dispatch/projects/list */
+  PROJECTS_LIST: '/taoyuan-dispatch/projects/list',
+  /** 建立工程 POST /taoyuan-dispatch/projects */
+  PROJECTS_CREATE: '/taoyuan-dispatch/projects',
+  /** 工程詳情 POST /taoyuan-dispatch/projects/:id/detail */
+  PROJECTS_DETAIL: (id: number) => `/taoyuan-dispatch/projects/${id}/detail`,
+  /** 更新工程 POST /taoyuan-dispatch/projects/:id/update */
+  PROJECTS_UPDATE: (id: number) => `/taoyuan-dispatch/projects/${id}/update`,
+  /** 刪除工程 POST /taoyuan-dispatch/projects/:id/delete */
+  PROJECTS_DELETE: (id: number) => `/taoyuan-dispatch/projects/${id}/delete`,
+  /** Excel 匯入工程 POST /taoyuan-dispatch/projects/import-excel */
+  PROJECTS_IMPORT: '/taoyuan-dispatch/projects/import-excel',
+
+  // 派工紀錄
+  /** 派工單列表 POST /taoyuan-dispatch/dispatch-orders/list */
+  DISPATCH_ORDERS_LIST: '/taoyuan-dispatch/dispatch-orders/list',
+  /** 建立派工單 POST /taoyuan-dispatch/dispatch-orders */
+  DISPATCH_ORDERS_CREATE: '/taoyuan-dispatch/dispatch-orders',
+  /** 派工單詳情 POST /taoyuan-dispatch/dispatch-orders/:id/detail */
+  DISPATCH_ORDERS_DETAIL: (id: number) => `/taoyuan-dispatch/dispatch-orders/${id}/detail`,
+  /** 更新派工單 POST /taoyuan-dispatch/dispatch-orders/:id/update */
+  DISPATCH_ORDERS_UPDATE: (id: number) => `/taoyuan-dispatch/dispatch-orders/${id}/update`,
+  /** 刪除派工單 POST /taoyuan-dispatch/dispatch-orders/:id/delete */
+  DISPATCH_ORDERS_DELETE: (id: number) => `/taoyuan-dispatch/dispatch-orders/${id}/delete`,
+
+  // 派工單公文關聯
+  /** 新增公文關聯 POST /taoyuan-dispatch/dispatch-orders/:id/link-document */
+  DISPATCH_LINK_DOCUMENT: (id: number) => `/taoyuan-dispatch/dispatch-orders/${id}/link-document`,
+  /** 移除公文關聯 POST /taoyuan-dispatch/dispatch-orders/:dispatchId/unlink-document/:linkId */
+  DISPATCH_UNLINK_DOCUMENT: (dispatchId: number, linkId: number) =>
+    `/taoyuan-dispatch/dispatch-orders/${dispatchId}/unlink-document/${linkId}`,
+
+  // 契金管控
+  /** 契金列表 POST /taoyuan-dispatch/payments/list */
+  PAYMENTS_LIST: '/taoyuan-dispatch/payments/list',
+  /** 建立契金 POST /taoyuan-dispatch/payments */
+  PAYMENTS_CREATE: '/taoyuan-dispatch/payments',
+  /** 更新契金 POST /taoyuan-dispatch/payments/:id/update */
+  PAYMENTS_UPDATE: (id: number) => `/taoyuan-dispatch/payments/${id}/update`,
+  /** 刪除契金 POST /taoyuan-dispatch/payments/:id/delete */
+  PAYMENTS_DELETE: (id: number) => `/taoyuan-dispatch/payments/${id}/delete`,
+
+  // 總控表
+  /** 總控表查詢 POST /taoyuan-dispatch/master-control */
+  MASTER_CONTROL: '/taoyuan-dispatch/master-control',
+} as const;
+
+// ============================================================================
 // 統一匯出
 // ============================================================================
 
@@ -412,6 +466,9 @@ export const API_ENDPOINTS = {
   PUBLIC: PUBLIC_ENDPOINTS,
   SYSTEM: SYSTEM_ENDPOINTS,
   BACKUP: BACKUP_ENDPOINTS,
+
+  // 桃園派工管理
+  TAOYUAN_DISPATCH: TAOYUAN_DISPATCH_ENDPOINTS,
 } as const;
 
 // 預設匯出

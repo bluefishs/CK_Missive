@@ -416,7 +416,7 @@ class SiteConfiguration(Base):
 
 
 class ProjectAgencyContact(Base):
-    """專案機關承辦模型 - 記錄委託單位的承辦人資訊"""
+    """專案機關承辦模型 - 記錄委託單位的承辦人資訊（含桃園專案通訊錄擴充欄位）"""
     __tablename__ = "project_agency_contacts"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -431,6 +431,13 @@ class ProjectAgencyContact(Base):
     notes = Column(Text, comment="備註")
     created_at = Column(DateTime, server_default=func.now(), comment="建立時間")
     updated_at = Column(DateTime, server_default=func.now(), comment="更新時間")
+
+    # 桃園專案通訊錄擴充欄位
+    line_name = Column(String(100), comment="LINE名稱")
+    org_short_name = Column(String(100), comment="單位簡稱")
+    category = Column(String(50), comment="類別(機關/乾坤/廠商)")
+    cloud_path = Column(String(500), comment="專案雲端路徑")
+    related_project_name = Column(String(500), comment="對應工程名稱")
 
     # 關聯關係
     project = relationship("ContractProject", backref="agency_contacts")
@@ -469,3 +476,156 @@ class StaffCertification(Base):
 
     # 關聯關係
     user = relationship("User", back_populates="certifications")
+
+
+# =============================================================================
+# 桃園查估派工管理系統 Models
+# =============================================================================
+
+class TaoyuanProject(Base):
+    """轄管工程清單 - 縣府原始工程資料"""
+    __tablename__ = "taoyuan_projects"
+
+    id = Column(Integer, primary_key=True, index=True)
+    contract_project_id = Column(Integer, ForeignKey('contract_projects.id'), nullable=True, index=True, comment="關聯承攬案件")
+
+    # 縣府原始資料
+    sequence_no = Column(Integer, comment="項次")
+    review_year = Column(Integer, index=True, comment="審議年度")
+    case_type = Column(String(50), comment="案件類型")
+    district = Column(String(50), index=True, comment="行政區")
+    project_name = Column(String(500), nullable=False, index=True, comment="工程名稱")
+    start_point = Column(String(200), comment="工程起點")
+    end_point = Column(String(200), comment="工程迄點")
+    road_length = Column(Float, comment="道路長度(公尺)")
+    current_width = Column(Float, comment="現況路寬")
+    planned_width = Column(Float, comment="計畫路寬")
+    public_land_count = Column(Integer, comment="公有土地筆數")
+    private_land_count = Column(Integer, comment="私有土地筆數")
+    rc_count = Column(Integer, comment="RC數量")
+    iron_sheet_count = Column(Integer, comment="鐵皮屋數量")
+    construction_cost = Column(Float, comment="工程費")
+    land_cost = Column(Float, comment="用地費")
+    compensation_cost = Column(Float, comment="補償費")
+    total_cost = Column(Float, comment="總經費")
+    review_result = Column(String(100), comment="審議結果")
+    urban_plan = Column(String(200), comment="都市計畫")
+    completion_date = Column(Date, comment="完工日期")
+    proposer = Column(String(100), comment="提案人")
+    remark = Column(Text, comment="備註")
+
+    # 派工關聯欄位
+    sub_case_name = Column(String(200), comment="分案名稱")
+    case_handler = Column(String(50), comment="案件承辦")
+    survey_unit = Column(String(100), comment="查估單位")
+
+    # 總控表進度欄位
+    land_agreement_status = Column(String(100), comment="土地協議進度")
+    land_expropriation_status = Column(String(100), comment="土地徵收進度")
+    building_survey_status = Column(String(100), comment="地上物查估進度")
+    actual_entry_date = Column(Date, comment="實際進場日期")
+    acceptance_status = Column(String(100), comment="驗收狀態")
+
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now())
+
+    # 關聯關係
+    contract_project = relationship("ContractProject", backref="taoyuan_projects")
+    dispatch_links = relationship("TaoyuanDispatchProjectLink", back_populates="project", cascade="all, delete-orphan")
+
+
+class TaoyuanDispatchOrder(Base):
+    """派工紀錄"""
+    __tablename__ = "taoyuan_dispatch_orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    contract_project_id = Column(Integer, ForeignKey('contract_projects.id'), nullable=True, index=True, comment="關聯承攬案件")
+
+    dispatch_no = Column(String(50), unique=True, nullable=False, index=True, comment="派工單號")
+    agency_doc_id = Column(Integer, ForeignKey('documents.id'), nullable=True, comment="關聯機關公文")
+    company_doc_id = Column(Integer, ForeignKey('documents.id'), nullable=True, comment="關聯乾坤公文")
+
+    project_name = Column(String(500), comment="工程名稱/派工事項")
+    work_type = Column(String(50), index=True, comment="作業類別")
+    sub_case_name = Column(String(200), comment="分案名稱/派工備註")
+    deadline = Column(String(200), comment="履約期限")
+    case_handler = Column(String(50), comment="案件承辦")
+    survey_unit = Column(String(100), comment="查估單位")
+    cloud_folder = Column(String(500), comment="雲端資料夾")
+    project_folder = Column(String(500), comment="專案資料夾")
+
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now())
+
+    # 關聯關係
+    contract_project = relationship("ContractProject", backref="dispatch_orders")
+    agency_doc = relationship("Document", foreign_keys=[agency_doc_id])
+    company_doc = relationship("Document", foreign_keys=[company_doc_id])
+    project_links = relationship("TaoyuanDispatchProjectLink", back_populates="dispatch_order", cascade="all, delete-orphan")
+    document_links = relationship("TaoyuanDispatchDocumentLink", back_populates="dispatch_order", cascade="all, delete-orphan")
+    payment = relationship("TaoyuanContractPayment", back_populates="dispatch_order", uselist=False, cascade="all, delete-orphan")
+
+
+class TaoyuanDispatchProjectLink(Base):
+    """派工-工程關聯（多對多）"""
+    __tablename__ = "taoyuan_dispatch_project_link"
+
+    id = Column(Integer, primary_key=True, index=True)
+    dispatch_order_id = Column(Integer, ForeignKey('taoyuan_dispatch_orders.id', ondelete='CASCADE'), nullable=False, index=True)
+    taoyuan_project_id = Column(Integer, ForeignKey('taoyuan_projects.id', ondelete='CASCADE'), nullable=False, index=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    # 關聯關係
+    dispatch_order = relationship("TaoyuanDispatchOrder", back_populates="project_links")
+    project = relationship("TaoyuanProject", back_populates="dispatch_links")
+
+
+class TaoyuanDispatchDocumentLink(Base):
+    """派工-公文關聯（歷程追蹤）"""
+    __tablename__ = "taoyuan_dispatch_document_link"
+
+    id = Column(Integer, primary_key=True, index=True)
+    dispatch_order_id = Column(Integer, ForeignKey('taoyuan_dispatch_orders.id', ondelete='CASCADE'), nullable=False, index=True)
+    document_id = Column(Integer, ForeignKey('documents.id', ondelete='CASCADE'), nullable=False, index=True)
+    link_type = Column(String(20), nullable=False, index=True, comment="agency_incoming/company_outgoing")
+    created_at = Column(DateTime, server_default=func.now())
+
+    # 關聯關係
+    dispatch_order = relationship("TaoyuanDispatchOrder", back_populates="document_links")
+    document = relationship("Document")
+
+
+class TaoyuanContractPayment(Base):
+    """契金管控紀錄"""
+    __tablename__ = "taoyuan_contract_payments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    dispatch_order_id = Column(Integer, ForeignKey('taoyuan_dispatch_orders.id', ondelete='CASCADE'), nullable=False, index=True)
+
+    # 7種作業類別的派工日期/金額
+    work_01_date = Column(Date, comment="01.地上物查估-派工日期")
+    work_01_amount = Column(Float, comment="01.地上物查估-派工金額")
+    work_02_date = Column(Date, comment="02.土地協議市價查估-派工日期")
+    work_02_amount = Column(Float, comment="02.土地協議市價查估-派工金額")
+    work_03_date = Column(Date, comment="03.土地徵收市價查估-派工日期")
+    work_03_amount = Column(Float, comment="03.土地徵收市價查估-派工金額")
+    work_04_date = Column(Date, comment="04.相關計畫書製作-派工日期")
+    work_04_amount = Column(Float, comment="04.相關計畫書製作-派工金額")
+    work_05_date = Column(Date, comment="05.測量作業-派工日期")
+    work_05_amount = Column(Float, comment="05.測量作業-派工金額")
+    work_06_date = Column(Date, comment="06.樁位測釘作業-派工日期")
+    work_06_amount = Column(Float, comment="06.樁位測釘作業-派工金額")
+    work_07_date = Column(Date, comment="07.辦理教育訓練-派工日期")
+    work_07_amount = Column(Float, comment="07.辦理教育訓練-派工金額")
+
+    # 彙總欄位
+    current_amount = Column(Float, comment="本次派工金額")
+    cumulative_amount = Column(Float, comment="累進派工金額")
+    remaining_amount = Column(Float, comment="剩餘金額")
+    acceptance_date = Column(Date, comment="完成驗收日期")
+
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now())
+
+    # 關聯關係
+    dispatch_order = relationship("TaoyuanDispatchOrder", back_populates="payment")
