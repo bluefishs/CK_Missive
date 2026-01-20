@@ -18,6 +18,30 @@ export const API_BASE_URL = (getEnvVar('VITE_API_BASE_URL') || 'http://localhost
 export const VITE_API_BASE_URL = getEnvVar('VITE_API_BASE_URL') || 'http://localhost:8001';
 
 // ============================================================================
+// 內網 IP 模式 (Single Source of Truth)
+// ============================================================================
+/**
+ * 內網 IP 位址匹配模式
+ * - 10.0.0.0 - 10.255.255.255 (Class A)
+ * - 172.16.0.0 - 172.31.255.255 (Class B)
+ * - 192.168.0.0 - 192.168.255.255 (Class C)
+ *
+ * 此常數為唯一來源，其他模組應從此處匯入使用
+ */
+export const INTERNAL_IP_PATTERNS: RegExp[] = [
+  /^10\./,                           // 10.0.0.0 - 10.255.255.255
+  /^172\.(1[6-9]|2[0-9]|3[0-1])\./,  // 172.16.0.0 - 172.31.255.255
+  /^192\.168\./                       // 192.168.0.0 - 192.168.255.255
+];
+
+/**
+ * 檢查 hostname 是否為內網 IP
+ */
+export const isInternalIPAddress = (hostname: string): boolean => {
+  return INTERNAL_IP_PATTERNS.some(pattern => pattern.test(hostname));
+};
+
+// ============================================================================
 // 認證配置
 // ============================================================================
 export const AUTH_DISABLED_ENV = getEnvVar('VITE_AUTH_DISABLED') === 'true';
@@ -47,14 +71,8 @@ export const detectEnvironment = (): EnvironmentType => {
     return 'ngrok';
   }
 
-  // 內網 IP 範圍
-  const internalIPPatterns = [
-    /^10\./,                           // 10.0.0.0 - 10.255.255.255
-    /^172\.(1[6-9]|2[0-9]|3[0-1])\./,  // 172.16.0.0 - 172.31.255.255
-    /^192\.168\./                       // 192.168.0.0 - 192.168.255.255
-  ];
-
-  if (internalIPPatterns.some(pattern => pattern.test(hostname))) {
+  // 內網 IP 範圍（使用共用常數）
+  if (isInternalIPAddress(hostname)) {
     return 'internal';
   }
 
@@ -106,9 +124,12 @@ export default {
   IS_DEV,
   NODE_ENV,
   ENV_CONFIG,
+  // 內網 IP 常數
+  INTERNAL_IP_PATTERNS,
   // 函數
   isInternalNetwork,
   isInternalIP,
+  isInternalIPAddress,
   isAuthDisabled,
   detectEnvironment,
 };

@@ -1414,8 +1414,9 @@ async def get_document_audit_history(
 
 @router.post(
     "/integrated-search",
-    summary="整合式公文搜尋（已棄用，請改用 POST /list）",
-    deprecated=True
+    summary="整合式公文搜尋（已棄用）",
+    deprecated=True,
+    description="⚠️ 廢止日期: 2026-04-20，請改用 POST /documents-enhanced/list"
 )
 async def integrated_document_search_legacy(
     skip: int = Query(0, ge=0, description="跳過筆數"),
@@ -1470,9 +1471,19 @@ async def integrated_document_search_legacy(
         return {"items": [], "total": 0, "page": 1, "limit": limit, "total_pages": 0}
 
 
-@router.post("/document-years", summary="取得年度選項（已棄用）", deprecated=True)
+@router.post(
+    "/document-years",
+    summary="取得年度選項（已棄用）",
+    deprecated=True,
+    description="⚠️ 廢止日期: 2026-04-20，請改用 POST /documents-enhanced/years"
+)
 async def get_document_years_legacy(db: AsyncSession = Depends(get_async_db)):
-    """已棄用，請改用 POST /documents-enhanced/years"""
+    """
+    已棄用端點 - 請改用 POST /documents-enhanced/years
+
+    廢止日期: 2026-04-20
+    此端點將於廢止日期後移除，請盡快遷移至新端點
+    """
     return await get_document_years(db)
 
 
@@ -2064,10 +2075,10 @@ async def import_documents_excel(
         raise HTTPException(status_code=500, detail=f"Excel 匯入失敗: {str(e)}")
 
 
-@router.post("/import/excel/template", summary="下載 Excel 匯入範本")
+@router.get("/import/excel/template", summary="下載 Excel 匯入範本")
 async def download_excel_template():
     """
-    下載 Excel 匯入範本
+    下載 Excel 匯入範本（GET 方法支援瀏覽器直接下載）
 
     範本包含：
     - 標題列（欄位名稱）

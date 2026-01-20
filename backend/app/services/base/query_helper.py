@@ -4,7 +4,7 @@
 
 提供統一的篩選、排序、搜尋邏輯，減少各服務中的重複代碼。
 """
-from typing import Any, Dict, List, Optional, Type, TypeVar, Generic
+from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Generic
 from datetime import date, datetime
 from math import ceil
 
@@ -444,3 +444,222 @@ class FilterBuilder(Generic[ModelType]):
         """重置所有條件"""
         self._operations.clear()
         return self
+
+
+class StatisticsHelper:
+    """
+    統計助手
+
+    提供統一的統計查詢功能，減少各服務中的重複統計代碼。
+
+    Usage:
+        stats = await StatisticsHelper.get_basic_stats(db, MyModel)
+        group_stats = await StatisticsHelper.get_grouped_stats(
+            db, MyModel, 'status', MyModel.id
+        )
+    """
+
+    @staticmethod
+    async def get_basic_stats(
+        db: AsyncSession,
+        model: Type[ModelType],
+        count_field: Any = None
+    ) -> Dict[str, int]:
+        """
+        取得基本統計資料（總數）
+
+        Args:
+            db: 資料庫 session
+            model: SQLAlchemy 模型類
+            count_field: 計數欄位（預設使用模型的 id）
+
+        Returns:
+            包含 total 的字典
+        """
+        if count_field is None:
+            count_field = model.id if hasattr(model, 'id') else func.count()
+
+        query = select(func.count(count_field))
+        result = await db.execute(query)
+        total = result.scalar_one()
+
+        return {"total": total}
+
+    @staticmethod
+    async def get_grouped_stats(
+        db: AsyncSession,
+        model: Type[ModelType],
+        group_field_name: str,
+        count_field: Any = None,
+        filter_condition: Any = None
+    ) -> Dict[str, int]:
+        """
+        取得分組統計資料
+
+        Args:
+            db: 資料庫 session
+            model: SQLAlchemy 模型類
+            group_field_name: 分組欄位名稱
+            count_field: 計數欄位（預設使用模型的 id）
+            filter_condition: 可選的篩選條件
+
+        Returns:
+            {group_value: count} 的字典
+        """
+        if not hasattr(model, group_field_name):
+            return {}
+
+        group_field = getattr(model, group_field_name)
+        if count_field is None:
+            count_field = model.id if hasattr(model, 'id') else func.count()
+
+        query = select(
+            group_field,
+            func.count(count_field).label('count')
+        ).group_by(group_field)
+
+        if filter_condition is not None:
+            query = query.where(filter_condition)
+
+        result = await db.execute(query)
+        rows = result.all()
+
+        return {str(row[0]) if row[0] else 'null': row[1] for row in rows}
+
+    @staticmethod
+    async def get_date_range_stats(
+        db: AsyncSession,
+        model: Type[ModelType],
+        date_field_name: str,
+        count_field: Any = None,
+        filter_condition: Any = None
+    ) -> Dict[str, Any]:
+        """
+        取得日期範圍統計
+
+        Args:
+            db: 資料庫 session
+            model: SQLAlchemy 模型類
+            date_field_name: 日期欄位名稱
+            count_field: 計數欄位
+            filter_condition: 可選的篩選條件
+
+        Returns:
+            包含 min_date, max_date, total 的字典
+        """
+        if not hasattr(model, date_field_name):
+            return {"min_date": None, "max_date": None, "total": 0}
+
+        date_field = getattr(model, date_field_name)
+        if count_field is None:
+            count_field = model.id if hasattr(model, 'id') else func.count()
+
+        query = select(
+            func.min(date_field).label('min_date'),
+            func.max(date_field).label('max_date'),
+            func.count(count_field).label('total')
+        )
+
+        if filter_condition is not None:
+            query = query.where(filter_condition)
+
+        result = await db.execute(query)
+        row = result.one()
+
+        return {
+            "min_date": row.min_date,
+            "max_date": row.max_date,
+            "total": row.total
+        }
+
+
+class DeleteCheckHelper:
+    """
+    刪除檢查助手
+
+    提供統一的刪除前關聯檢查功能。
+
+    Usage:
+        can_delete, count = await DeleteCheckHelper.check_usage(
+            db, OfficialDocument, 'sender_agency_id', agency_id
+        )
+        if not can_delete:
+            raise ResourceInUseException(f"機關", f"仍有 {count} 筆公文關聯")
+    """
+
+    @staticmethod
+    async def check_usage(
+        db: AsyncSession,
+        related_model: Type[ModelType],
+        foreign_key_field: str,
+        entity_id: int
+    ) -> Tuple[bool, int]:
+        """
+        檢查實體是否被其他資料使用
+
+        Args:
+            db: 資料庫 session
+            related_model: 關聯模型類
+            foreign_key_field: 外鍵欄位名稱
+            entity_id: 要檢查的實體 ID
+
+        Returns:
+            (可否刪除, 使用計數) 的元組
+        """
+        if not hasattr(related_model, foreign_key_field):
+            return True, 0
+
+        fk_field = getattr(related_model, foreign_key_field)
+        id_field = related_model.id if hasattr(related_model, 'id') else None
+
+        if id_field is None:
+            return True, 0
+
+        query = select(func.count(id_field)).where(fk_field == entity_id)
+        result = await db.execute(query)
+        count = result.scalar_one()
+
+        return count == 0, count
+
+    @staticmethod
+    async def check_multiple_usages(
+        db: AsyncSession,
+        related_model: Type[ModelType],
+        checks: List[Tuple[str, int]]
+    ) -> Tuple[bool, int]:
+        """
+        檢查多個外鍵欄位的使用情況（OR 邏輯）
+
+        Args:
+            db: 資料庫 session
+            related_model: 關聯模型類
+            checks: [(欄位名, 實體ID), ...] 的列表
+
+        Returns:
+            (可否刪除, 總使用計數) 的元組
+
+        Example:
+            # 檢查機關是否作為發文或收文單位
+            can_delete, count = await DeleteCheckHelper.check_multiple_usages(
+                db, OfficialDocument,
+                [('sender_agency_id', agency_id), ('receiver_agency_id', agency_id)]
+            )
+        """
+        conditions = []
+        for field_name, entity_id in checks:
+            if hasattr(related_model, field_name):
+                field = getattr(related_model, field_name)
+                conditions.append(field == entity_id)
+
+        if not conditions:
+            return True, 0
+
+        id_field = related_model.id if hasattr(related_model, 'id') else None
+        if id_field is None:
+            return True, 0
+
+        query = select(func.count(id_field)).where(or_(*conditions))
+        result = await db.execute(query)
+        count = result.scalar_one()
+
+        return count == 0, count

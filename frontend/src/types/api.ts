@@ -366,8 +366,16 @@ export type DocType = '收文' | '發文' | '函' | '開會通知單' | '會勘�
 /** 公文狀態 */
 export type DocStatus = '待處理' | '處理中' | '已結案' | 'active' | 'inactive' | 'completed';
 
-/** 公文基礎介面 - 與後端 DocumentResponse 完整對應 */
+/**
+ * 公文基礎介面 - 與後端 DocumentResponse 完整對應
+ *
+ * 虛擬欄位說明 (Virtual Fields):
+ * - 標記為 @virtual 的欄位由 API endpoint 在執行時查詢填充
+ * - 這些欄位不存儲於資料庫，在建立/更新時會被忽略
+ * - 前端應使用對應的 ID 欄位（如 contract_project_id）來關聯資料
+ */
 export interface OfficialDocument {
+  // === 主鍵與核心欄位 ===
   id: number;
   doc_number: string;
   doc_type?: string;
@@ -397,29 +405,51 @@ export interface OfficialDocument {
   created_at: string;
   updated_at: string;
 
-  // 標題與內容欄位 (2026-01-08 新增)
+  // === 標題與內容欄位 (2026-01-08 新增) ===
   title?: string;            // 標題
   cloud_file_link?: string;  // 雲端檔案連結
   dispatch_format?: string;  // 發文形式 (與 delivery_method 區分)
 
-  // 發文形式與附件欄位
+  // === 發文形式與附件欄位 ===
   delivery_method?: string;   // 發文形式 (電子交換/紙本郵寄/電子+紙本)
   has_attachment?: boolean;   // 是否含附件
   attachment_count?: number;  // 附件數量
 
-  // 承攬案件關聯資訊 (由後端填充)
-  contract_project_name?: string;  // 承攬案件名稱
-  assigned_staff?: Array<{         // 負責業務同仁
+  // === 虛擬欄位 (Virtual Fields) - 由 API endpoint 填充，建立/更新時忽略 ===
+
+  /**
+   * @virtual 承攬案件名稱
+   * 由 endpoint 從 contract_project_id 查詢 ContractProject.project_name 填充
+   * 建立公文時請使用 contract_project_id 而非此欄位
+   */
+  contract_project_name?: string;
+
+  /**
+   * @virtual 負責業務同仁列表
+   * 由 endpoint 從 ProjectStaff 表查詢填充
+   * 人員指派請使用 ProjectStaff API
+   */
+  assigned_staff?: Array<{
     user_id: number;
     name: string;
     role: string;
   }>;
 
-  // 機關名稱（虛擬欄位，由後端填充）
-  sender_agency_name?: string;    // 發文機關名稱
-  receiver_agency_name?: string;  // 受文機關名稱
+  /**
+   * @virtual 發文機關名稱
+   * 由 endpoint 從 sender_agency_id 查詢 GovernmentAgency.agency_name 填充
+   * 建立公文時請使用 sender_agency_id 而非此欄位
+   */
+  sender_agency_name?: string;
 
-  // 公文字號拆分欄位（前端解析用）
+  /**
+   * @virtual 受文機關名稱
+   * 由 endpoint 從 receiver_agency_id 查詢 GovernmentAgency.agency_name 填充
+   * 建立公文時請使用 receiver_agency_id 而非此欄位
+   */
+  receiver_agency_name?: string;
+
+  // === 前端解析用欄位 ===
   doc_zi?: string;       // 公文「字」部分，如「桃工用」
   doc_wen_hao?: string;  // 公文「文號」部分，如「1140024090」
 }

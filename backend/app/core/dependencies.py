@@ -4,7 +4,49 @@
 依賴注入模組
 
 提供統一的依賴注入機制，用於 FastAPI 端點。
-使用工廠函數模式，確保 Service 實例正確接收資料庫 session。
+
+依賴注入模式說明
+================
+
+模式 1：Singleton 模式（舊版，向後相容）
+-----------------------------------------
+Service 無狀態，db session 作為方法參數傳遞。
+適用於繼承 BaseService 的簡單 CRUD 服務。
+
+    @lru_cache()
+    def get_vendor_service() -> VendorService:
+        return VendorService()
+
+    @router.get("/vendors")
+    async def list_vendors(
+        vendor_service: VendorService = Depends(get_vendor_service),
+        db: AsyncSession = Depends(get_async_db)
+    ):
+        return await vendor_service.get_vendors(db, ...)
+
+模式 2：工廠模式（推薦，新開發使用）
+-------------------------------------
+Service 在建構時接收 db session，方法簽名更簡潔。
+適用於需要事務管理或複雜業務邏輯的服務。
+
+    def get_service(service_class: Type[T]) -> Callable[[AsyncSession], T]:
+        def _get_service(db: AsyncSession = Depends(get_async_db)) -> T:
+            return service_class(db)
+        return _get_service
+
+    @router.get("/items")
+    async def list_items(
+        item_service: ItemService = Depends(get_service(ItemService))
+    ):
+        return await item_service.get_items()  # 無需傳遞 db
+
+遷移計劃
+========
+新開發的 Service 應使用模式 2（工廠模式）。
+現有 Service 將逐步遷移，遷移順序：
+1. 新服務 → 直接使用工廠模式
+2. 獨立服務 → 修改 __init__ 接受 db 參數
+3. 核心服務 → 保持向後相容直到大版本更新
 """
 
 from typing import Type, TypeVar, Callable, Any
@@ -273,3 +315,40 @@ def require_permission(permission: str):
 #     """取得快取管理器"""
 #     from app.core.cache_manager import cache_manager
 #     return cache_manager
+
+
+# ============================================================================
+# 服務層建構依賴（新模式示範）
+# ============================================================================
+
+def get_service_with_db(service_class: Type[T]) -> Callable[[AsyncSession], T]:
+    """
+    建立帶 db session 的 Service 依賴注入
+
+    這是推薦的新模式，Service 在建構時接收 db session。
+
+    使用前提：Service 類別的 __init__ 需要接受 db 參數：
+        class MyService:
+            def __init__(self, db: AsyncSession):
+                self.db = db
+
+    使用方式:
+        @router.get("/items")
+        async def list_items(
+            my_service: MyService = Depends(get_service_with_db(MyService))
+        ):
+            return await my_service.get_items()  # 無需傳遞 db
+
+    Args:
+        service_class: Service 類別（需在 __init__ 接受 db 參數）
+
+    Returns:
+        依賴注入函數
+    """
+    def _get_service(db: AsyncSession = Depends(get_async_db)) -> T:
+        return service_class(db)
+    return _get_service
+
+
+# 別名，與 get_service 功能相同但命名更明確
+get_service_factory = get_service_with_db

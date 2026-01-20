@@ -25,9 +25,13 @@ import {
 // 配置常量
 // ============================================================================
 
+import { isInternalIPAddress } from '../config/env';
+
 /**
  * 動態 API URL 計算
  * 根據存取來源自動選擇正確的後端位址
+ *
+ * 內網 IP 判斷使用 config/env.ts 的共用常數 (SSOT)
  */
 function getDynamicApiBaseUrl(): string {
   const hostname = window.location.hostname;
@@ -38,13 +42,8 @@ function getDynamicApiBaseUrl(): string {
     return `http://localhost:${defaultPort}/api`;
   }
 
-  // 2. 內網 IP (10.x.x.x, 172.16-31.x.x, 192.168.x.x) → 使用相同 IP 的後端
-  const internalIPPatterns = [
-    /^10\./,
-    /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
-    /^192\.168\./
-  ];
-  if (internalIPPatterns.some(pattern => pattern.test(hostname))) {
+  // 2. 內網 IP → 使用相同 IP 的後端（使用 config/env.ts 共用函數）
+  if (isInternalIPAddress(hostname)) {
     return `http://${hostname}:${defaultPort}/api`;
   }
 
