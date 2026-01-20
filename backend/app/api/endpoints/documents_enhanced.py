@@ -2075,10 +2075,10 @@ async def import_documents_excel(
         raise HTTPException(status_code=500, detail=f"Excel 匯入失敗: {str(e)}")
 
 
-@router.get("/import/excel/template", summary="下載 Excel 匯入範本")
+@router.post("/import/excel/template", summary="下載 Excel 匯入範本")
 async def download_excel_template():
     """
-    下載 Excel 匯入範本（GET 方法支援瀏覽器直接下載）
+    下載 Excel 匯入範本（POST 方法，符合資安規範）
 
     範本包含：
     - 標題列（欄位名稱）
