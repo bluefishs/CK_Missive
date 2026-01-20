@@ -494,7 +494,7 @@ async def get_documents_by_project(
 
 @router.post(
     "/integrated-search",
-    summary="整合式公文搜尋（已棄用，請改用 POST /list）",
+    summary="整合式公文搜尋（已棄用，預計 2026-07 移除）",
     deprecated=True
 )
 async def integrated_document_search_legacy(
@@ -516,6 +516,7 @@ async def integrated_document_search_legacy(
     """
     整合式公文搜尋（已棄用）
 
+    ⚠️ **預計廢止日期**: 2026-07
     請改用 POST /documents-enhanced/list 端點
     """
     try:

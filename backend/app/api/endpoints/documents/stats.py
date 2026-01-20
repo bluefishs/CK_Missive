@@ -363,9 +363,12 @@ async def get_filtered_statistics(
 # 向後相容：保留已棄用端點
 # ============================================================================
 
-@router.post("/document-years", summary="取得年度選項（已棄用）", deprecated=True)
+@router.post("/document-years", summary="取得年度選項（已棄用，預計 2026-07 移除）", deprecated=True)
 async def get_document_years_legacy(db: AsyncSession = Depends(get_async_db)):
-    """已棄用，請改用 POST /documents-enhanced/years"""
+    """
+    ⚠️ **預計廢止日期**: 2026-07
+    已棄用，請改用 POST /documents-enhanced/years
+    """
     return await get_document_years(db)
 
 

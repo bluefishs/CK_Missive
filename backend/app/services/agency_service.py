@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc, or_, update
 
 from app.services.base_service import BaseService
+from app.services.base import QueryHelper, DeleteCheckHelper, StatisticsHelper
 from app.extended.models import GovernmentAgency, OfficialDocument
 from app.schemas.agency import AgencyCreate, AgencyUpdate
 
@@ -75,17 +76,13 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
         Raises:
             ValueError: 機關仍有關聯公文
         """
-        # 檢查是否有關聯公文
-        usage_query = select(func.count(OfficialDocument.id)).where(
-            or_(
-                OfficialDocument.sender_agency_id == agency_id,
-                OfficialDocument.receiver_agency_id == agency_id
-            )
+        # 使用 DeleteCheckHelper 檢查關聯公文
+        can_delete, usage_count = await DeleteCheckHelper.check_multiple_usages(
+            db, OfficialDocument,
+            [('sender_agency_id', agency_id), ('receiver_agency_id', agency_id)]
         )
-        result = await db.execute(usage_query)
-        usage_count = result.scalar_one()
 
-        if usage_count > 0:
+        if not can_delete:
             raise ValueError(f"無法刪除，尚有 {usage_count} 筆公文與此機關關聯")
 
         return await super().delete(db, agency_id)
@@ -132,15 +129,12 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
         """
         query = select(GovernmentAgency)
 
-        # 搜尋條件 - 支援名稱和簡稱
-        if search:
-            search_filter = or_(
-                GovernmentAgency.agency_name.ilike(f"%{search}%"),
-                GovernmentAgency.agency_short_name.ilike(f"%{search}%")
-            )
-            query = query.where(search_filter)
+        # 使用 QueryHelper 簡化搜尋
+        helper = QueryHelper(GovernmentAgency)
+        query = helper.apply_search(query, search, ['agency_name', 'agency_short_name'])
+        query = helper.apply_sorting(query, 'agency_name', 'asc', 'agency_name')
+        query = query.offset(skip).limit(limit)
 
-        query = query.order_by(GovernmentAgency.agency_name).offset(skip).limit(limit)
         result = await db.execute(query)
         agencies = result.scalars().all()
 
@@ -178,15 +172,15 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
         Returns:
             符合條件的機關總數
         """
-        query = select(func.count(GovernmentAgency.id))
+        # 建立子查詢
+        subquery = select(GovernmentAgency.id)
 
-        if search:
-            search_filter = or_(
-                GovernmentAgency.agency_name.ilike(f"%{search}%"),
-                GovernmentAgency.agency_short_name.ilike(f"%{search}%")
-            )
-            query = query.where(search_filter)
+        # 使用 QueryHelper 簡化搜尋
+        helper = QueryHelper(GovernmentAgency)
+        subquery = helper.apply_search(subquery, search, ['agency_name', 'agency_short_name'])
 
+        # 計算總數
+        query = select(func.count()).select_from(subquery.subquery())
         result = await db.execute(query)
         return result.scalar() or 0
 
@@ -313,18 +307,22 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
             統計資料字典
         """
         try:
-            # 總數
-            total_agencies = await self.get_count(db)
+            # 使用 StatisticsHelper 取得基本統計
+            basic_stats = await StatisticsHelper.get_basic_stats(db, GovernmentAgency)
+            total_agencies = basic_stats.get("total", 0)
 
-            # 依類型統計
-            agencies = (await db.execute(
-                select(GovernmentAgency.agency_type)
-            )).scalars().all()
+            # 使用 StatisticsHelper 取得分組統計
+            grouped_stats = await StatisticsHelper.get_grouped_stats(
+                db, GovernmentAgency, 'agency_type'
+            )
 
+            # 套用分類標準化邏輯
             category_counts: Dict[str, int] = {}
-            for agency_type in agencies:
-                category = self._normalize_category(agency_type)
-                category_counts[category] = category_counts.get(category, 0) + 1
+            for agency_type, count in grouped_stats.items():
+                # 'null' 代表空值
+                original_type = None if agency_type == 'null' else agency_type
+                category = self._normalize_category(original_type)
+                category_counts[category] = category_counts.get(category, 0) + count
 
             # 依照指定順序排序
             category_order = ['政府機關', '民間企業', '其他單位']

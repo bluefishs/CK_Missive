@@ -228,7 +228,7 @@ async def get_agency_statistics(
 @router.post(
     "",
     response_model=AgenciesResponse,
-    summary="[相容] 取得機關列表",
+    summary="[相容] 取得機關列表 (預計 2026-07 移除)",
     deprecated=True
 )
 async def list_agencies_legacy(
@@ -243,6 +243,7 @@ async def list_agencies_legacy(
     """
     [相容性端點] 取得機關列表
 
+    ⚠️ **預計廢止日期**: 2026-07
     此端點為向後相容保留，請改用 POST /agencies/list
     """
     if include_stats:
@@ -257,7 +258,7 @@ async def list_agencies_legacy(
 @router.post(
     "/statistics",
     response_model=AgencyStatistics,
-    summary="[相容] 取得統計資料",
+    summary="[相容] 取得統計資料 (預計 2026-07 移除)",
     deprecated=True
 )
 async def get_statistics_legacy(
@@ -265,7 +266,10 @@ async def get_statistics_legacy(
     agency_service: AgencyService = Depends(),
     current_user: User = Depends(require_auth())
 ):
-    """此端點為向後相容保留，請改用 POST /agencies/statistics"""
+    """
+    ⚠️ **預計廢止日期**: 2026-07
+    此端點為向後相容保留，請改用 POST /agencies/statistics
+    """
     return await agency_service.get_agency_statistics(db)
 
 

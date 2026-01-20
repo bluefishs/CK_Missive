@@ -572,6 +572,132 @@ class StatisticsHelper:
             "total": row.total
         }
 
+    @staticmethod
+    async def get_average_stats(
+        db: AsyncSession,
+        model: Type[ModelType],
+        numeric_field_name: str,
+        filter_condition: Any = None,
+        exclude_null: bool = True
+    ) -> Dict[str, Any]:
+        """
+        取得數值欄位的平均值統計
+
+        Args:
+            db: 資料庫 session
+            model: SQLAlchemy 模型類
+            numeric_field_name: 數值欄位名稱
+            filter_condition: 可選的篩選條件
+            exclude_null: 是否排除空值（預設 True）
+
+        Returns:
+            包含 average, min, max, count 的字典
+
+        Example:
+            # 取得廠商平均評等
+            stats = await StatisticsHelper.get_average_stats(
+                db, PartnerVendor, 'rating'
+            )
+            # 回傳: {"average": 4.5, "min": 1.0, "max": 5.0, "count": 100}
+        """
+        if not hasattr(model, numeric_field_name):
+            return {"average": None, "min": None, "max": None, "count": 0}
+
+        numeric_field = getattr(model, numeric_field_name)
+
+        query = select(
+            func.avg(numeric_field).label('average'),
+            func.min(numeric_field).label('min'),
+            func.max(numeric_field).label('max'),
+            func.count(numeric_field).label('count')
+        )
+
+        # 排除空值
+        if exclude_null:
+            query = query.where(numeric_field.isnot(None))
+
+        if filter_condition is not None:
+            query = query.where(filter_condition)
+
+        result = await db.execute(query)
+        row = result.one()
+
+        return {
+            "average": round(float(row.average), 2) if row.average else None,
+            "min": float(row.min) if row.min else None,
+            "max": float(row.max) if row.max else None,
+            "count": row.count
+        }
+
+    @staticmethod
+    async def get_trend_stats(
+        db: AsyncSession,
+        model: Type[ModelType],
+        date_field_name: str,
+        group_by: str = 'month',
+        count_field: Any = None,
+        filter_condition: Any = None,
+        limit: int = 12
+    ) -> List[Dict[str, Any]]:
+        """
+        取得時間趨勢統計
+
+        Args:
+            db: 資料庫 session
+            model: SQLAlchemy 模型類
+            date_field_name: 日期欄位名稱
+            group_by: 分組方式 ('day', 'week', 'month', 'year')
+            count_field: 計數欄位
+            filter_condition: 可選的篩選條件
+            limit: 回傳筆數限制
+
+        Returns:
+            時間序列統計列表
+
+        Example:
+            # 取得每月公文數量趨勢
+            trends = await StatisticsHelper.get_trend_stats(
+                db, OfficialDocument, 'doc_date', group_by='month'
+            )
+            # 回傳: [{"period": "2026-01", "count": 50}, ...]
+        """
+        if not hasattr(model, date_field_name):
+            return []
+
+        date_field = getattr(model, date_field_name)
+        if count_field is None:
+            count_field = model.id if hasattr(model, 'id') else func.count()
+
+        # 根據分組方式決定截取格式
+        if group_by == 'day':
+            period_expr = func.to_char(date_field, 'YYYY-MM-DD')
+        elif group_by == 'week':
+            period_expr = func.to_char(date_field, 'IYYY-IW')
+        elif group_by == 'year':
+            period_expr = func.to_char(date_field, 'YYYY')
+        else:  # month (預設)
+            period_expr = func.to_char(date_field, 'YYYY-MM')
+
+        query = select(
+            period_expr.label('period'),
+            func.count(count_field).label('count')
+        ).where(
+            date_field.isnot(None)
+        ).group_by(
+            period_expr
+        ).order_by(
+            desc(period_expr)
+        ).limit(limit)
+
+        if filter_condition is not None:
+            query = query.where(filter_condition)
+
+        result = await db.execute(query)
+        rows = result.all()
+
+        # 反轉順序（從舊到新）
+        return [{"period": row.period, "count": row.count} for row in reversed(rows)]
+
 
 class DeleteCheckHelper:
     """
@@ -659,6 +785,65 @@ class DeleteCheckHelper:
             return True, 0
 
         query = select(func.count(id_field)).where(or_(*conditions))
+        result = await db.execute(query)
+        count = result.scalar_one()
+
+        return count == 0, count
+
+    @staticmethod
+    async def check_association_usage(
+        db: AsyncSession,
+        association_table: Any,
+        foreign_key_column: str,
+        entity_id: int,
+        count_column: Optional[str] = None
+    ) -> Tuple[bool, int]:
+        """
+        檢查多對多關聯表中的使用情況
+
+        用於檢查 association table（如 project_vendor_association）中的關聯。
+
+        Args:
+            db: 資料庫 session
+            association_table: SQLAlchemy Table 物件（多對多關聯表）
+            foreign_key_column: 外鍵欄位名稱
+            entity_id: 要檢查的實體 ID
+            count_column: 用於計數的欄位名稱（預設使用外鍵欄位的對應欄位）
+
+        Returns:
+            (可否刪除, 使用計數) 的元組
+
+        Example:
+            from app.extended.models import project_vendor_association
+
+            can_delete, count = await DeleteCheckHelper.check_association_usage(
+                db,
+                project_vendor_association,
+                'vendor_id',
+                vendor_id,
+                'project_id'
+            )
+            if not can_delete:
+                raise ValueError(f"此廠商仍與 {count} 個專案關聯")
+        """
+        # 取得關聯表的欄位
+        if not hasattr(association_table, 'c'):
+            return True, 0
+
+        fk_col = getattr(association_table.c, foreign_key_column, None)
+        if fk_col is None:
+            return True, 0
+
+        # 決定計數欄位
+        if count_column:
+            count_col = getattr(association_table.c, count_column, None)
+        else:
+            count_col = fk_col
+
+        if count_col is None:
+            return True, 0
+
+        query = select(func.count(count_col)).where(fk_col == entity_id)
         result = await db.execute(query)
         count = result.scalar_one()
 

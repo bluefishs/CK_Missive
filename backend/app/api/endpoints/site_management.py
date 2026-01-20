@@ -38,7 +38,7 @@ def has_permission_for_navigation(user: User, navigation_item: SiteNavigationIte
 @router.post(
     "/navigation",
     response_model=NavigationTreeResponse,
-    summary="[已棄用] 取得導覽樹狀結構",
+    summary="[已棄用] 取得導覽樹狀結構 (預計 2026-07 移除)",
     deprecated=True,
     description="此端點已棄用，請改用 POST /secure-site-management/navigation/action"
 )
@@ -49,6 +49,8 @@ async def get_navigation_tree(
 ):
     """
     取得完整的導覽樹狀結構 (已修復模型屬性錯誤)。
+
+    ⚠️ **預計廢止日期**: 2026-07
     """
     try:
         query = select(SiteNavigationItem).where(SiteNavigationItem.parent_id.is_(None))

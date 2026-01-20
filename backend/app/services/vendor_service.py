@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 
 from app.services.base_service import BaseService
+from app.services.base import QueryHelper, DeleteCheckHelper, StatisticsHelper
 from app.extended.models import PartnerVendor, project_vendor_association
 from app.schemas.vendor import VendorCreate, VendorUpdate
 
@@ -74,14 +75,16 @@ class VendorService(BaseService[PartnerVendor, VendorCreate, VendorUpdate]):
         Raises:
             ValueError: 廠商仍有關聯專案
         """
-        # 檢查是否有關聯專案
-        usage_query = select(func.count(project_vendor_association.c.project_id)).where(
-            project_vendor_association.c.vendor_id == vendor_id
+        # 使用 DeleteCheckHelper 檢查關聯專案
+        can_delete, usage_count = await DeleteCheckHelper.check_association_usage(
+            db,
+            project_vendor_association,
+            'vendor_id',
+            vendor_id,
+            'project_id'
         )
-        result = await db.execute(usage_query)
-        usage_count = result.scalar_one()
 
-        if usage_count > 0:
+        if not can_delete:
             raise ValueError(f"無法刪除，此廠商仍與 {usage_count} 個專案關聯")
 
         return await super().delete(db, vendor_id)
@@ -111,15 +114,12 @@ class VendorService(BaseService[PartnerVendor, VendorCreate, VendorUpdate]):
         """
         query = select(PartnerVendor)
 
-        # 搜尋條件
-        if search:
-            search_filter = or_(
-                PartnerVendor.vendor_name.ilike(f"%{search}%"),
-                PartnerVendor.vendor_code.ilike(f"%{search}%")
-            )
-            query = query.where(search_filter)
+        # 使用 QueryHelper 簡化搜尋
+        helper = QueryHelper(PartnerVendor)
+        query = helper.apply_search(query, search, ['vendor_name', 'vendor_code'])
+        query = helper.apply_sorting(query, 'vendor_name', 'asc', 'vendor_name')
+        query = query.offset(skip).limit(limit)
 
-        query = query.order_by(PartnerVendor.vendor_name).offset(skip).limit(limit)
         result = await db.execute(query)
         vendors = result.scalars().all()
 
@@ -156,15 +156,15 @@ class VendorService(BaseService[PartnerVendor, VendorCreate, VendorUpdate]):
         Returns:
             符合條件的廠商總數
         """
-        query = select(func.count(PartnerVendor.id))
+        # 建立子查詢
+        subquery = select(PartnerVendor.id)
 
-        if search:
-            search_filter = or_(
-                PartnerVendor.vendor_name.ilike(f"%{search}%"),
-                PartnerVendor.vendor_code.ilike(f"%{search}%")
-            )
-            query = query.where(search_filter)
+        # 使用 QueryHelper 簡化搜尋
+        helper = QueryHelper(PartnerVendor)
+        subquery = helper.apply_search(subquery, search, ['vendor_name', 'vendor_code'])
 
+        # 計算總數
+        query = select(func.count()).select_from(subquery.subquery())
         result = await db.execute(query)
         return result.scalar() or 0
 
@@ -182,26 +182,24 @@ class VendorService(BaseService[PartnerVendor, VendorCreate, VendorUpdate]):
             統計資料字典
         """
         try:
-            # 總數
-            total_vendors = await self.get_count(db)
+            # 使用 StatisticsHelper 取得基本統計
+            basic_stats = await StatisticsHelper.get_basic_stats(db, PartnerVendor)
+            total_vendors = basic_stats.get("total", 0)
 
-            # 依業務類型統計
-            type_result = await db.execute(
-                select(PartnerVendor.business_type, func.count(PartnerVendor.id))
-                .group_by(PartnerVendor.business_type)
-                .order_by(PartnerVendor.business_type)
+            # 使用 StatisticsHelper 取得分組統計
+            grouped_stats = await StatisticsHelper.get_grouped_stats(
+                db, PartnerVendor, 'business_type'
             )
             type_stats = [
-                {"business_type": row[0] or "未分類", "count": row[1]}
-                for row in type_result.fetchall()
+                {"business_type": k if k != 'null' else "未分類", "count": v}
+                for k, v in sorted(grouped_stats.items())
             ]
 
-            # 平均評等
-            rating_result = await db.execute(
-                select(func.avg(PartnerVendor.rating)).where(PartnerVendor.rating.isnot(None))
+            # 使用 StatisticsHelper 取得平均評等
+            rating_stats = await StatisticsHelper.get_average_stats(
+                db, PartnerVendor, 'rating'
             )
-            avg_rating = rating_result.scalar()
-            avg_rating = round(float(avg_rating), 2) if avg_rating else 0.0
+            avg_rating = rating_stats.get("average") or 0.0
 
             return {
                 "total_vendors": total_vendors,

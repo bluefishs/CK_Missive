@@ -79,3 +79,47 @@ class CertificationListParams(BaseModel):
     cert_type: Optional[str] = Field(None, description="證照類型篩選")
     status: Optional[str] = Field(None, description="狀態篩選")
     keyword: Optional[str] = Field(None, description="關鍵字搜尋")
+
+
+# ============================================================================
+# 統一 API 回應 Schema
+# ============================================================================
+
+class CertificationApiResponse(BaseModel):
+    """證照 API 統一回應格式"""
+    success: bool = Field(True, description="操作是否成功")
+    data: Optional[CertificationResponse] = Field(None, description="證照資料")
+    message: Optional[str] = Field(None, description="訊息")
+    code: str = Field("OK", description="狀態碼")
+    errors: List[str] = Field(default_factory=list, description="錯誤列表")
+    warnings: List[str] = Field(default_factory=list, description="警告列表")
+
+
+class CertificationListApiResponse(BaseModel):
+    """證照列表 API 統一回應格式"""
+    success: bool = Field(True, description="操作是否成功")
+    data: Optional[dict] = Field(None, description="包含 items 和 pagination 的資料")
+    message: Optional[str] = Field(None, description="訊息")
+    code: str = Field("OK", description="狀態碼")
+    errors: List[str] = Field(default_factory=list, description="錯誤列表")
+    warnings: List[str] = Field(default_factory=list, description="警告列表")
+
+
+class CertificationStatsApiResponse(BaseModel):
+    """證照統計 API 統一回應格式"""
+    success: bool = Field(True, description="操作是否成功")
+    data: Optional[dict] = Field(None, description="統計資料")
+    message: Optional[str] = Field(None, description="訊息")
+    code: str = Field("OK", description="狀態碼")
+    errors: List[str] = Field(default_factory=list, description="錯誤列表")
+    warnings: List[str] = Field(default_factory=list, description="警告列表")
+
+
+class CertificationDeleteApiResponse(BaseModel):
+    """證照刪除 API 統一回應格式"""
+    success: bool = Field(True, description="操作是否成功")
+    data: None = Field(None, description="無資料")
+    message: Optional[str] = Field(None, description="訊息")
+    code: str = Field("OK", description="狀態碼")
+    errors: List[str] = Field(default_factory=list, description="錯誤列表")
+    warnings: List[str] = Field(default_factory=list, description="警告列表")

@@ -535,7 +535,8 @@ async def delete_document_number(
 # 向後相容的 GET 端點 (將逐步棄用)
 # =============================================================================
 
-@router.post("", response_model=DocumentNumberListResponse, deprecated=True)
+@router.post("", response_model=DocumentNumberListResponse, deprecated=True,
+              summary="[相容] 取得發文字號列表 (預計 2026-07 移除)")
 async def get_document_numbers_legacy(
     page: int = 1,
     per_page: int = 20,
@@ -548,6 +549,7 @@ async def get_document_numbers_legacy(
     """
     [已棄用] 取得發文字號列表
 
+    ⚠️ **預計廢止日期**: 2026-07
     請改用 POST /document-numbers/query
     """
     request = DocumentNumberQueryRequest(
@@ -560,7 +562,8 @@ async def get_document_numbers_legacy(
     return await query_document_numbers(request, db)
 
 
-@router.post("/stats", response_model=DocumentNumberStats, deprecated=True)
+@router.post("/stats", response_model=DocumentNumberStats, deprecated=True,
+              summary="[相容] 取得統計資料 (預計 2026-07 移除)")
 async def get_stats_legacy(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_auth())
@@ -568,12 +571,14 @@ async def get_stats_legacy(
     """
     [已棄用] 取得統計資料
 
+    ⚠️ **預計廢止日期**: 2026-07
     請改用 POST /document-numbers/stats
     """
     return await get_document_numbers_stats(db)
 
 
-@router.post("/next-number", response_model=NextNumberResponse, deprecated=True)
+@router.post("/next-number", response_model=NextNumberResponse, deprecated=True,
+              summary="[相容] 取得下一個字號 (預計 2026-07 移除)")
 async def get_next_number_legacy(
     prefix: Optional[str] = None,
     year: Optional[int] = None,
@@ -583,6 +588,7 @@ async def get_next_number_legacy(
     """
     [已棄用] 取得下一個字號
 
+    ⚠️ **預計廢止日期**: 2026-07
     請改用 POST /document-numbers/next-number
     """
     request = NextNumberRequest(prefix=prefix, year=year)

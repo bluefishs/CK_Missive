@@ -18,6 +18,10 @@ from app.schemas.certification import (
     CertificationResponse,
     CertificationListResponse,
     CertificationListParams,
+    CertificationApiResponse,
+    CertificationListApiResponse,
+    CertificationStatsApiResponse,
+    CertificationDeleteApiResponse,
 )
 from app.schemas.common import PaginationMeta
 from app.api.response_helper import (
@@ -28,7 +32,7 @@ from app.api.response_helper import (
 router = APIRouter()
 
 
-@router.post("/create", response_model=dict)
+@router.post("/create", response_model=CertificationApiResponse)
 async def create_certification(
     data: CertificationCreate,
     db: AsyncSession = Depends(get_async_db)
@@ -70,7 +74,7 @@ async def create_certification(
         return error_response(f"新增證照失敗: {str(e)}")
 
 
-@router.post("/user/{user_id}/list", response_model=dict)
+@router.post("/user/{user_id}/list", response_model=CertificationListApiResponse)
 async def get_user_certifications(
     user_id: int,
     params: Optional[CertificationListParams] = None,
@@ -143,7 +147,7 @@ async def get_user_certifications(
         return error_response(f"取得證照列表失敗: {str(e)}")
 
 
-@router.post("/{cert_id}/detail", response_model=dict)
+@router.post("/{cert_id}/detail", response_model=CertificationApiResponse)
 async def get_certification_detail(
     cert_id: int,
     db: AsyncSession = Depends(get_async_db)
@@ -168,7 +172,7 @@ async def get_certification_detail(
         return error_response(f"取得證照詳情失敗: {str(e)}")
 
 
-@router.post("/{cert_id}/update", response_model=dict)
+@router.post("/{cert_id}/update", response_model=CertificationApiResponse)
 async def update_certification(
     cert_id: int,
     data: CertificationUpdate,
@@ -206,7 +210,7 @@ async def update_certification(
         return error_response(f"更新證照失敗: {str(e)}")
 
 
-@router.post("/{cert_id}/delete", response_model=dict)
+@router.post("/{cert_id}/delete", response_model=CertificationDeleteApiResponse)
 async def delete_certification(
     cert_id: int,
     db: AsyncSession = Depends(get_async_db)
@@ -233,7 +237,7 @@ async def delete_certification(
         return error_response(f"刪除證照失敗: {str(e)}")
 
 
-@router.post("/stats/{user_id}", response_model=dict)
+@router.post("/stats/{user_id}", response_model=CertificationStatsApiResponse)
 async def get_certification_stats(
     user_id: int,
     db: AsyncSession = Depends(get_async_db)

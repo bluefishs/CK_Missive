@@ -216,7 +216,7 @@ async def get_vendor_statistics(
 @router.post(
     "",
     response_model=dict,
-    summary="[相容] 取得廠商列表",
+    summary="[相容] 取得廠商列表 (預計 2026-07 移除)",
     deprecated=True
 )
 async def list_vendors_legacy(
@@ -229,6 +229,7 @@ async def list_vendors_legacy(
     """
     [相容性端點] 取得廠商列表
 
+    ⚠️ **預計廢止日期**: 2026-07
     此端點為向後相容保留，請改用 POST /vendors/list
     需要認證。
     """
