@@ -219,25 +219,43 @@ class VendorService(BaseService[PartnerVendor, VendorCreate, VendorUpdate]):
     # =========================================================================
 
     async def get_vendor(self, db: AsyncSession, vendor_id: int) -> Optional[PartnerVendor]:
-        """@deprecated 使用 get_by_id"""
+        """
+        @deprecated v2.0 (2026-01-20) 使用 get_by_id 代替
+        移除計畫: v3.0 (2026-03-01)
+        """
         return await self.get_by_id(db, vendor_id)
 
     async def get_vendors(self, db: AsyncSession, skip: int = 0, limit: int = 100, search: Optional[str] = None) -> List[dict]:
-        """@deprecated 使用 get_vendors_with_search"""
+        """
+        @deprecated v2.0 (2026-01-20) 使用 get_vendors_with_search 代替
+        移除計畫: v3.0 (2026-03-01)
+        """
         return await self.get_vendors_with_search(db, skip, limit, search)
 
     async def get_total_vendors(self, db: AsyncSession, search: Optional[str] = None) -> int:
-        """@deprecated 使用 get_total_with_search"""
+        """
+        @deprecated v2.0 (2026-01-20) 使用 get_total_with_search 代替
+        移除計畫: v3.0 (2026-03-01)
+        """
         return await self.get_total_with_search(db, search)
 
     async def create_vendor(self, db: AsyncSession, vendor: VendorCreate) -> PartnerVendor:
-        """@deprecated 使用 create"""
+        """
+        @deprecated v2.0 (2026-01-20) 使用 create 代替
+        移除計畫: v3.0 (2026-03-01)
+        """
         return await self.create(db, vendor)
 
     async def update_vendor(self, db: AsyncSession, vendor_id: int, vendor_update: VendorUpdate) -> Optional[PartnerVendor]:
-        """@deprecated 使用 update"""
+        """
+        @deprecated v2.0 (2026-01-20) 使用 update 代替
+        移除計畫: v3.0 (2026-03-01)
+        """
         return await self.update(db, vendor_id, vendor_update)
 
     async def delete_vendor(self, db: AsyncSession, vendor_id: int) -> bool:
-        """@deprecated 使用 delete"""
+        """
+        @deprecated v2.0 (2026-01-20) 使用 delete 代替
+        移除計畫: v3.0 (2026-03-01)
+        """
         return await self.delete(db, vendor_id)

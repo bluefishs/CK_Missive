@@ -26,6 +26,7 @@ import {
 // ============================================================================
 
 import { isInternalIPAddress } from '../config/env';
+import { AUTH_ENDPOINTS } from './endpoints';
 
 /**
  * 動態 API URL 計算
@@ -260,7 +261,7 @@ function createAxiosInstance(): AxiosInstance {
 
           try {
             // 嘗試刷新 token
-            const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+            const response = await axios.post(`${API_BASE_URL}${AUTH_ENDPOINTS.REFRESH}`, {
               refresh_token: refreshToken,
             });
 

@@ -731,21 +731,36 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
     # =========================================================================
 
     async def get_agency(self, db: AsyncSession, agency_id: int) -> Optional[GovernmentAgency]:
-        """@deprecated 使用 get_by_id"""
+        """
+        @deprecated v2.0 (2026-01-20) 使用 get_by_id 代替
+        移除計畫: v3.0 (2026-03-01)
+        """
         return await self.get_by_id(db, agency_id)
 
     async def get_agencies(self, db: AsyncSession, skip: int = 0, limit: int = 100) -> List[GovernmentAgency]:
-        """@deprecated 使用 get_list"""
+        """
+        @deprecated v2.0 (2026-01-20) 使用 get_list 代替
+        移除計畫: v3.0 (2026-03-01)
+        """
         return await self.get_list(db, skip=skip, limit=limit)
 
     async def create_agency(self, db: AsyncSession, agency: AgencyCreate) -> GovernmentAgency:
-        """@deprecated 使用 create"""
+        """
+        @deprecated v2.0 (2026-01-20) 使用 create 代替
+        移除計畫: v3.0 (2026-03-01)
+        """
         return await self.create(db, agency)
 
     async def update_agency(self, db: AsyncSession, agency_id: int, agency_update: AgencyUpdate) -> Optional[GovernmentAgency]:
-        """@deprecated 使用 update"""
+        """
+        @deprecated v2.0 (2026-01-20) 使用 update 代替
+        移除計畫: v3.0 (2026-03-01)
+        """
         return await self.update(db, agency_id, agency_update)
 
     async def delete_agency(self, db: AsyncSession, agency_id: int) -> bool:
-        """@deprecated 使用 delete"""
+        """
+        @deprecated v2.0 (2026-01-20) 使用 delete 代替
+        移除計畫: v3.0 (2026-03-01)
+        """
         return await self.delete(db, agency_id)
