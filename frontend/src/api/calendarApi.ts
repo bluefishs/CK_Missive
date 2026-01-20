@@ -8,6 +8,7 @@ import { apiClient, API_BASE_URL } from './client';
 import { authService } from '../services/authService';
 import dayjs from 'dayjs';
 import { API_ENDPOINTS } from './endpoints';
+import type { CalendarEvent as ApiCalendarEvent, CalendarEventUI } from '../types/api';
 
 // ============================================================================
 // 型別定義 - API 專用
@@ -33,24 +34,15 @@ interface RawCalendarEventResponse {
 }
 
 /**
- * 行事曆事件 - 前端使用的型別
- * 注意: 此型別與 types/api.ts 中的 CalendarEvent 欄位名稱不同
- *       前端統一使用 start_datetime/end_datetime
+ * 行事曆事件 - 前端 UI 使用的型別
+ *
+ * 此型別別名指向 types/api.ts 中的 CalendarEventUI
+ * 使用 start_datetime/end_datetime 欄位名稱
+ *
+ * @see CalendarEventUI - 完整型別定義
+ * @see ApiCalendarEvent - 後端 API 格式（使用 start_date/end_date）
  */
-export interface CalendarEvent {
-  id: number;
-  title: string;
-  description?: string;
-  start_datetime: string;    // 前端統一欄位名稱
-  end_datetime: string;      // 前端統一欄位名稱
-  document_id?: number;
-  doc_number?: string;       // 關聯公文字號
-  event_type?: string;
-  priority?: number | string;
-  location?: string;
-  google_event_id?: string;  // Google Calendar 事件 ID
-  google_sync_status?: 'pending' | 'synced' | 'failed';  // 同步狀態
-}
+export type CalendarEvent = CalendarEventUI;
 
 /** Google Calendar 狀態 */
 export interface GoogleCalendarStatus {

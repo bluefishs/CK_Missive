@@ -564,7 +564,17 @@ export interface DocumentStats {
 // 行事曆事件相關型別
 // ============================================================================
 
-/** 行事曆事件 */
+/** 行事曆事件提醒 */
+export interface CalendarEventReminder {
+  id: number;
+  reminder_time: string;
+  notification_type: 'email' | 'system';
+  status: 'pending' | 'sent' | 'failed';
+  is_sent: boolean;
+  retry_count: number;
+}
+
+/** 行事曆事件（後端 API 格式） */
 export interface CalendarEvent {
   id: number;
   document_id?: number;
@@ -573,13 +583,38 @@ export interface CalendarEvent {
   start_date: string;
   end_date?: string;
   all_day?: boolean;
-  event_type?: string;
-  priority?: string;
+  event_type?: 'deadline' | 'meeting' | 'review' | 'reminder' | 'reference' | string;
+  priority?: number | string;
   location?: string;
   assigned_user_id?: number;
   created_by?: number;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
+  // Google Calendar 整合
+  google_event_id?: string;
+  google_sync_status?: 'pending' | 'synced' | 'failed';
+  // 提醒功能
+  status?: 'pending' | 'completed' | 'cancelled';
+  reminder_enabled?: boolean;
+  reminders?: CalendarEventReminder[];
+  // 關聯公文
+  doc_number?: string;
+}
+
+/** 行事曆事件（前端 UI 格式，使用 datetime 欄位名稱） */
+export interface CalendarEventUI {
+  id: number;
+  title: string;
+  description?: string;
+  start_datetime: string;
+  end_datetime: string;
+  document_id?: number;
+  doc_number?: string;
+  event_type?: string;
+  priority?: number | string;
+  location?: string;
+  google_event_id?: string;
+  google_sync_status?: 'pending' | 'synced' | 'failed';
 }
 
 // ============================================================================

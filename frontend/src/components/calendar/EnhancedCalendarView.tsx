@@ -32,6 +32,18 @@ const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 const { Search } = Input;
 
+/**
+ * 行事曆事件型別 - 增強版組件專用
+ *
+ * 此型別為 types/api.ts 中 CalendarEvent 的擴展版本，
+ * 包含額外的必填欄位以支援完整的行事曆功能。
+ *
+ * 與 types/api.ts 的差異：
+ * - event_type: 必填且為特定列舉值
+ * - priority: 必填數字
+ * - status: 必填狀態
+ * - reminder_enabled: 必填布林值
+ */
 interface CalendarEvent {
   id: number;
   title: string;
@@ -50,6 +62,7 @@ interface CalendarEvent {
   reminders?: EventReminder[];
 }
 
+/** 事件提醒 - 對應 types/api.ts 中的 CalendarEventReminder */
 interface EventReminder {
   id: number;
   reminder_time: string;

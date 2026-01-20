@@ -16,29 +16,27 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { apiClient } from '../../api/client';
+import type { CalendarEvent } from '../../types/api';
 
 const { Text } = Typography;
 
+/** 提醒設定專用的事件提醒型別（包含 reminder_type 欄位） */
 interface EventReminder {
   id: number;
   reminder_time: string;
-  reminder_type: string;
+  reminder_type: string;  // 此元件使用 reminder_type 而非 notification_type
   status: 'pending' | 'sent' | 'failed';
   is_sent: boolean;
   retry_count: number;
   message?: string;
 }
 
-interface CalendarEvent {
-  id: number;
-  title: string;
-  start_date: string;
-  reminder_enabled?: boolean;
-}
+/** 提醒設定用的事件型別（CalendarEvent 的子集） */
+type ReminderEvent = Pick<CalendarEvent, 'id' | 'title' | 'start_date' | 'reminder_enabled'>;
 
 interface ReminderSettingsModalProps {
   visible: boolean;
-  event: CalendarEvent | null;
+  event: ReminderEvent | null;
   onClose: () => void;
   onSuccess?: () => void;
 }

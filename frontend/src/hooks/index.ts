@@ -15,6 +15,7 @@ export * from './useAgencies';
 export * from './useProjectsWithStore';
 export * from './useAgenciesWithStore';
 export * from './useVendorsWithStore';
+export * from './useDocumentsWithStore';
 
 // 效能與統計 Hooks
 export * from './usePerformance';

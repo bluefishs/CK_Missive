@@ -1,6 +1,11 @@
 """
-儀表板專用 API 端點 (已修復)
+儀表板專用 API 端點
+
+提供儀表板統計數據和系統概覽資訊。
 所有端點需要認證。
+
+@version 2.0.0
+@date 2026-01-20
 """
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,10 +14,18 @@ from sqlalchemy import select, func
 from app.db.database import get_async_db
 from app.core.dependencies import require_auth, require_admin
 from app.extended.models import OfficialDocument as Document, User
+from app.schemas.dashboard import (
+    DashboardStatsResponse,
+    DashboardStats,
+    StatisticsOverviewResponse,
+    DocumentTypeCount,
+    CalendarCategoriesResponse,
+    CalendarCategoryItem,
+)
 
 router = APIRouter()
 
-@router.post("/stats")
+@router.post("/stats", response_model=DashboardStatsResponse)
 async def get_dashboard_stats(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_auth())
@@ -39,23 +52,23 @@ async def get_dashboard_stats(
         recent_docs_result = await db.execute(recent_docs_query)
         recent_documents = recent_docs_result.scalars().all()
 
-        # 3. 組合回應數據
-        stats = {
-            'total': sum(status_counts.values()),
-            'approved': status_counts.get('使用者確認', 0),
-            'pending': status_counts.get('收文完成', 0),
-            'rejected': status_counts.get('收文異常', 0)
-        }
+        # 3. 組合回應數據（使用統一 Schema）
+        stats = DashboardStats(
+            total=sum(status_counts.values()),
+            approved=status_counts.get('使用者確認', 0),
+            pending=status_counts.get('收文完成', 0),
+            rejected=status_counts.get('收文異常', 0)
+        )
 
-        return {
-            "stats": stats,
-            "recent_documents": recent_documents
-        }
+        return DashboardStatsResponse(
+            stats=stats,
+            recent_documents=recent_documents
+        )
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"無法獲取儀表板數據: {str(e)}")
 
-@router.post("/statistics/overview")
+@router.post("/statistics/overview", response_model=StatisticsOverviewResponse)
 async def get_statistics_overview(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_auth())
@@ -74,13 +87,26 @@ async def get_statistics_overview(
             .group_by(Document.type)
         )
         type_result = await db.execute(type_query)
-        document_types = [{"type": row[0] or "未分類", "count": row[1]} for row in type_result.all()]
+        document_types = [
+            DocumentTypeCount(type=row[0] or "未分類", count=row[1])
+            for row in type_result.all()
+        ]
 
-        return {
-            "total_documents": total_documents,
-            "document_types": document_types,
-            "last_updated": "2025-09-19"
-        }
+        # 使用者統計
+        total_users_result = await db.execute(select(func.count(User.id)))
+        total_users = total_users_result.scalar() or 0
+
+        active_users_result = await db.execute(
+            select(func.count(User.id)).where(User.is_active == True)
+        )
+        active_users = active_users_result.scalar() or 0
+
+        return StatisticsOverviewResponse(
+            total_documents=total_documents,
+            document_types=document_types,
+            total_users=total_users,
+            active_users=active_users
+        )
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"無法獲取統計概覽: {str(e)}")
