@@ -337,6 +337,18 @@ async def import_taoyuan_projects(
     current_user = Depends(require_auth)
 ):
     """從 Excel 匯入轄管工程清單"""
+    # 驗證承攬案件是否存在
+    from app.extended.models import ContractProject
+    contract_project = await db.execute(
+        select(ContractProject).where(ContractProject.id == contract_project_id)
+    )
+    contract_project = contract_project.scalar_one_or_none()
+    if not contract_project:
+        raise HTTPException(
+            status_code=400,
+            detail=f"承攬案件 ID={contract_project_id} 不存在，請選擇有效的承攬案件"
+        )
+
     if not file.filename.endswith(('.xlsx', '.xls')):
         raise HTTPException(status_code=400, detail="僅支援 Excel 檔案格式")
 
