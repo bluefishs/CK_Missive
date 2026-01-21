@@ -511,8 +511,12 @@ async def list_dispatch_orders(
             'agency_doc_number': item.agency_doc.doc_number if item.agency_doc else None,
             'company_doc_number': item.company_doc.doc_number if item.company_doc else None,
             'linked_projects': [
-                TaoyuanProjectSchema.model_validate(link.project)
-                for link in item.project_links
+                {
+                    'link_id': link.id,
+                    'project_id': link.project_id,
+                    **TaoyuanProjectSchema.model_validate(link.project).model_dump()
+                }
+                for link in item.project_links if link.project
             ] if item.project_links else [],
             'linked_documents': [
                 {
@@ -988,8 +992,12 @@ async def get_dispatch_order_detail(
         'agency_doc_number': order.agency_doc.doc_number if order.agency_doc else None,
         'company_doc_number': order.company_doc.doc_number if order.company_doc else None,
         'linked_projects': [
-            TaoyuanProjectSchema.model_validate(link.project)
-            for link in order.project_links
+            {
+                'link_id': link.id,
+                'project_id': link.project_id,
+                **TaoyuanProjectSchema.model_validate(link.project).model_dump()
+            }
+            for link in order.project_links if link.project
         ] if order.project_links else [],
         'linked_documents': linked_documents,
     }
@@ -1834,8 +1842,12 @@ async def get_dispatch_order_detail_with_history(
         'agency_doc_number': order.agency_doc.doc_number if order.agency_doc else None,
         'company_doc_number': order.company_doc.doc_number if order.company_doc else None,
         'linked_projects': [
-            TaoyuanProjectSchema.model_validate(link.project)
-            for link in order.project_links
+            {
+                'link_id': link.id,
+                'project_id': link.project_id,
+                **TaoyuanProjectSchema.model_validate(link.project).model_dump()
+            }
+            for link in order.project_links if link.project
         ] if order.project_links else []
     }
 

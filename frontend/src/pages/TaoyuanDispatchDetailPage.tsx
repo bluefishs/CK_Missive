@@ -233,13 +233,14 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
   });
 
   // 移除工程關聯 mutation
-  // linked_projects 實際結構包含 link_id, project_id 及專案欄位
-  type LinkedProject = TaoyuanProject & { link_id: number; project_id: number };
   const unlinkProjectMutation = useMutation({
     mutationFn: (linkId: number) => {
-      const linkedProjects = (dispatch?.linked_projects || []) as LinkedProject[];
+      const linkedProjects = dispatch?.linked_projects || [];
       const targetProject = linkedProjects.find((p) => p.link_id === linkId);
-      return projectLinksApi.unlinkDispatch(targetProject?.project_id || 0, linkId);
+      if (!targetProject) {
+        return Promise.reject(new Error('找不到關聯工程'));
+      }
+      return projectLinksApi.unlinkDispatch(targetProject.project_id, linkId);
     },
     onSuccess: () => {
       message.success('已移除工程關聯');

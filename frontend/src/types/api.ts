@@ -986,7 +986,8 @@ export interface DispatchOrder {
   // 關聯資訊（列表顯示用）
   agency_doc_number?: string;
   company_doc_number?: string;
-  linked_projects?: TaoyuanProject[];
+  /** 關聯工程（包含 link_id 用於解除關聯） */
+  linked_projects?: (TaoyuanProject & { link_id: number; project_id: number })[];
   linked_documents?: {
     link_id: number;
     link_type: 'agency_incoming' | 'company_outgoing';
