@@ -11,10 +11,10 @@
 
 import { useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import authService from '../services/authService';
-import { ROUTES } from '../router/types';
-import { isAuthDisabled, isInternalNetwork } from '../config/env';
-import { logger } from '../utils/logger';
+import authService from '../../services/authService';
+import { ROUTES } from '../../router/types';
+import { isAuthDisabled, isInternalNetwork } from '../../config/env';
+import { logger } from '../../utils/logger';
 
 /** 權限類型 */
 export type Permission =
@@ -225,8 +225,9 @@ export function usePermission(permission: Permission): boolean {
 
 /**
  * 多權限檢查 Hook
+ * @deprecated 使用 usePermissions().hasPermission() 代替
  */
-export function usePermissions(
+export function useMultiplePermissions(
   permissionList: Permission[]
 ): Record<Permission, boolean> {
   const { hasPermission, authDisabled, isAdmin } = useAuthGuard();

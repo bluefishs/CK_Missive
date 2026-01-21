@@ -5,9 +5,9 @@
  */
 // @ts-ignore
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { vendorsApi, VendorListParams, VendorStatistics } from '../api/vendorsApi';
-import { queryKeys, defaultQueryOptions } from '../config/queryConfig';
-import type { Vendor, VendorCreate, VendorUpdate, VendorOption } from '../types/api';
+import { vendorsApi, VendorListParams, VendorStatistics } from '../../api/vendorsApi';
+import { queryKeys, defaultQueryOptions } from '../../config/queryConfig';
+import type { Vendor, VendorCreate, VendorUpdate, VendorOption } from '../../types/api';
 
 // ============================================================================
 // 查詢 Hooks

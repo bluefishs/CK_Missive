@@ -5,6 +5,52 @@
  */
 
 // ============================================================================
+// 公文類別 (Document Category) 常數與判斷函數
+// ============================================================================
+
+/**
+ * 公文類別常數
+ * 用於統一處理資料庫可能存在的中英文混用問題
+ */
+export const DOCUMENT_CATEGORY = {
+  /** 收文 */
+  RECEIVE: 'receive',
+  /** 發文 */
+  SEND: 'send',
+  /** 收文（中文） */
+  RECEIVE_CN: '收文',
+  /** 發文（中文） */
+  SEND_CN: '發文',
+} as const;
+
+/** 公文類別型別 */
+export type DocumentCategoryType = 'receive' | 'send' | '收文' | '發文';
+
+/**
+ * 判斷是否為收文
+ * @param category 公文類別（可能是中文或英文）
+ */
+export const isReceiveDocument = (category?: string | null): boolean =>
+  category === DOCUMENT_CATEGORY.RECEIVE || category === DOCUMENT_CATEGORY.RECEIVE_CN;
+
+/**
+ * 判斷是否為發文
+ * @param category 公文類別（可能是中文或英文）
+ */
+export const isSendDocument = (category?: string | null): boolean =>
+  category === DOCUMENT_CATEGORY.SEND || category === DOCUMENT_CATEGORY.SEND_CN;
+
+/**
+ * 取得標準化的公文類別（轉為英文）
+ * @param category 公文類別
+ */
+export const normalizeDocumentCategory = (category?: string | null): 'receive' | 'send' | null => {
+  if (isReceiveDocument(category)) return 'receive';
+  if (isSendDocument(category)) return 'send';
+  return null;
+};
+
+// ============================================================================
 // 專案 (Project) 相關型別
 // ============================================================================
 
@@ -814,7 +860,9 @@ export interface TaoyuanProject {
   district?: string;
   project_name: string;
   start_point?: string;
+  start_coordinate?: string;  // 起點坐標(經緯度)
   end_point?: string;
+  end_coordinate?: string;    // 迄點坐標(經緯度)
   road_length?: number;
   current_width?: number;
   planned_width?: number;
@@ -836,6 +884,10 @@ export interface TaoyuanProject {
   sub_case_name?: string;
   case_handler?: string;
   survey_unit?: string;
+  work_type?: string;
+  estimated_count?: number;
+  cloud_path?: string;
+  notes?: string;
 
   // 進度追蹤欄位
   land_agreement_status?: string;
@@ -857,7 +909,9 @@ export interface TaoyuanProjectCreate {
   district?: string;
   project_name: string;
   start_point?: string;
+  start_coordinate?: string;  // 起點坐標(經緯度)
   end_point?: string;
+  end_coordinate?: string;    // 迄點坐標(經緯度)
   road_length?: number;
   current_width?: number;
   planned_width?: number;
@@ -877,6 +931,10 @@ export interface TaoyuanProjectCreate {
   sub_case_name?: string;
   case_handler?: string;
   survey_unit?: string;
+  work_type?: string;
+  estimated_count?: number;
+  cloud_path?: string;
+  notes?: string;
   land_agreement_status?: string;
   land_expropriation_status?: string;
   building_survey_status?: string;
@@ -921,6 +979,7 @@ export interface DispatchOrder {
   survey_unit?: string;
   cloud_folder?: string;
   project_folder?: string;
+  contact_note?: string; // 聯絡備註 (原始需求欄位 #13)
   created_at?: string;
   updated_at?: string;
 
@@ -928,6 +987,13 @@ export interface DispatchOrder {
   agency_doc_number?: string;
   company_doc_number?: string;
   linked_projects?: TaoyuanProject[];
+  linked_documents?: {
+    link_id: number;
+    link_type: 'agency_incoming' | 'company_outgoing';
+    document_id: number;
+    doc_number?: string;
+    subject?: string;
+  }[];
 }
 
 /** 派工單建立請求 */
@@ -944,6 +1010,7 @@ export interface DispatchOrderCreate {
   survey_unit?: string;
   cloud_folder?: string;
   project_folder?: string;
+  contact_note?: string; // 聯絡備註
   linked_project_ids?: number[];
 }
 
@@ -961,6 +1028,7 @@ export interface DispatchOrderUpdate {
   survey_unit?: string;
   cloud_folder?: string;
   project_folder?: string;
+  contact_note?: string; // 聯絡備註
   linked_project_ids?: number[];
 }
 
@@ -980,6 +1048,38 @@ export interface DispatchOrderListResponse {
   success: boolean;
   items: DispatchOrder[];
   pagination: PaginationMeta;
+}
+
+/** 工程統計資料 */
+export interface ProjectStatistics {
+  total_count: number;
+  dispatched_count: number;
+  completed_count: number;
+  completion_rate: number;
+}
+
+/** 派工統計資料 */
+export interface DispatchStatistics {
+  total_count: number;
+  with_agency_doc_count: number;
+  with_company_doc_count: number;
+  work_type_count: number;
+}
+
+/** 契金統計資料 */
+export interface PaymentStatistics {
+  total_current_amount: number;
+  total_cumulative_amount: number;
+  total_remaining_amount: number;
+  payment_count: number;
+}
+
+/** 桃園查估派工統計資料回應 */
+export interface TaoyuanStatisticsResponse {
+  success: boolean;
+  projects: ProjectStatistics;
+  dispatches: DispatchStatistics;
+  payments: PaymentStatistics;
 }
 
 /** 公文關聯類型 */
@@ -1073,6 +1173,65 @@ export interface ContractPaymentListResponse {
   pagination: PaginationMeta;
 }
 
+// =============================================================================
+// 關聯類型定義 (公文-派工-工程三角關係)
+// =============================================================================
+
+/** 關聯類型：機關來函 / 乾坤發文 */
+export type LinkType = 'agency_incoming' | 'company_outgoing';
+
+/** 公文關聯的派工單資訊 */
+export interface DocumentDispatchLink {
+  link_id: number;
+  link_type: LinkType;
+  dispatch_order_id: number;
+  dispatch_no: string;
+  project_name?: string;
+  work_type?: string;
+  sub_case_name?: string;
+  deadline?: string;
+  case_handler?: string;
+  survey_unit?: string;
+  contact_note?: string;
+  cloud_folder?: string;
+  project_folder?: string;
+  agency_doc_number?: string;
+  company_doc_number?: string;
+  created_at?: string;
+}
+
+/** 公文關聯的工程資訊 */
+export interface DocumentProjectLink {
+  link_id: number;
+  link_type?: LinkType;
+  notes?: string;
+  project_id: number;
+  project_name: string;
+  district?: string;
+  review_year?: number;
+  case_type?: string;
+  sub_case_name?: string;
+  case_handler?: string;
+  survey_unit?: string;
+  start_point?: string;
+  end_point?: string;
+  road_length?: number;
+  current_width?: number;
+  planned_width?: number;
+  review_result?: string;
+  created_at?: string;
+}
+
+/** 工程關聯的派工單資訊 */
+export interface ProjectDispatchLink {
+  link_id: number;
+  link_type?: LinkType;
+  dispatch_order_id: number;
+  dispatch_no: string;
+  project_name?: string;
+  work_type?: string;
+}
+
 /** 總控表查詢參數 */
 export interface MasterControlQuery {
   contract_project_id?: number;
@@ -1153,6 +1312,47 @@ export interface ExcelImportError {
   row: number;
   field?: string;
   message: string;
+}
+
+// ============================================================================
+// 公文歷程匹配型別 (對應原始需求欄位 14-17)
+// ============================================================================
+
+/** 公文歷程項目 (詳細版，用於匹配 API) */
+export interface DocumentHistoryItem {
+  id: number;
+  doc_number?: string;
+  doc_date?: string;
+  subject?: string;
+  sender?: string;
+  receiver?: string;
+  doc_type?: '收文' | '發文';
+  match_type?: 'project_name' | 'subject';
+}
+
+/** 公文歷程匹配回應 */
+export interface DocumentHistoryMatchResponse {
+  success: boolean;
+  project_name: string;
+  agency_documents: DocumentHistoryItem[];
+  company_documents: DocumentHistoryItem[];
+  total_agency_docs: number;
+  total_company_docs: number;
+}
+
+/** 派工單詳情 (含公文歷程) */
+export interface DispatchOrderWithHistory extends DispatchOrder {
+  // 公文歷程欄位 (對應原始需求欄位 14-17)
+  agency_doc_history_by_name?: DocumentHistoryItem[];
+  agency_doc_history_by_subject?: DocumentHistoryItem[];
+  company_doc_history_by_name?: DocumentHistoryItem[];
+  company_doc_history_by_subject?: DocumentHistoryItem[];
+}
+
+/** 派工單詳情含歷程回應 */
+export interface DispatchOrderWithHistoryResponse {
+  success: boolean;
+  data: DispatchOrderWithHistory;
 }
 
 // ============================================================================

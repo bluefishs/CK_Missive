@@ -55,6 +55,10 @@ export const ROUTES = {
   ADMIN_DASHBOARD: '/admin/dashboard',
   // 桃園查估專區
   TAOYUAN_DISPATCH: '/taoyuan/dispatch',
+  TAOYUAN_DISPATCH_CREATE: '/taoyuan/dispatch/create',
+  TAOYUAN_DISPATCH_DETAIL: '/taoyuan/dispatch/:id',
+  TAOYUAN_PROJECT_CREATE: '/taoyuan/project/create',
+  TAOYUAN_PROJECT_DETAIL: '/taoyuan/project/:id',
 } as const;
 
 // 路由元數據
@@ -199,5 +203,29 @@ export const ROUTE_META = {
     title: '派工管理',
     description: '桃園查估專區 - 派工管理',
     icon: 'ScheduleOutlined',
+  },
+  [ROUTES.TAOYUAN_DISPATCH_DETAIL]: {
+    title: '派工詳情',
+    description: '桃園查估專區 - 派工單詳細資訊',
+    icon: 'SendOutlined',
+    hideInMenu: true,
+  },
+  [ROUTES.TAOYUAN_PROJECT_DETAIL]: {
+    title: '工程詳情',
+    description: '桃園查估專區 - 轄管工程詳細資訊',
+    icon: 'ProjectOutlined',
+    hideInMenu: true,
+  },
+  [ROUTES.TAOYUAN_PROJECT_CREATE]: {
+    title: '新增工程',
+    description: '桃園查估專區 - 新增轄管工程',
+    icon: 'PlusOutlined',
+    hideInMenu: true,
+  },
+  [ROUTES.TAOYUAN_DISPATCH_CREATE]: {
+    title: '新增派工單',
+    description: '桃園查估專區 - 新增派工單',
+    icon: 'PlusOutlined',
+    hideInMenu: true,
   },
 } as const;

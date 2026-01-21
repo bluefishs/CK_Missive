@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useCallback } from 'react';
-import { useDocumentsStore } from '../store/documents';
+import { useDocumentsStore } from '../../store/documents';
 import {
   useDocuments,
   useDocument,
@@ -19,8 +19,8 @@ import {
   useDocumentYearOptions,
   useContractProjectOptions,
 } from './useDocuments';
-import type { OfficialDocument as Document, DocumentFilter } from '../types/api';
-import type { DocumentListParams, DocumentCreate, DocumentUpdate } from '../api/documentsApi';
+import type { OfficialDocument as Document, DocumentFilter } from '../../types/api';
+import type { DocumentListParams, DocumentCreate, DocumentUpdate } from '../../api/documentsApi';
 
 /**
  * 公文列表整合 Hook

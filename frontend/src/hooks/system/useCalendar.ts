@@ -15,8 +15,8 @@ import {
   GoogleCalendarStatus,
   DEFAULT_CATEGORIES,
   EventCategory,
-} from '../api/calendarApi';
-import { defaultQueryOptions } from '../config/queryConfig';
+} from '../../api/calendarApi';
+import { defaultQueryOptions } from '../../config/queryConfig';
 
 // 啟用 dayjs 週計算插件
 dayjs.extend(isoWeek);

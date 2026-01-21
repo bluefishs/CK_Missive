@@ -4,8 +4,8 @@
  */
 
 import { useState, useCallback } from 'react';
-import { Document } from '../types';
-import { calendarIntegrationService } from '../services/calendarIntegrationService';
+import { Document } from '../../types';
+import { calendarIntegrationService } from '../../services/calendarIntegrationService';
 
 export const useCalendarIntegration = () => {
   const [loading, setLoading] = useState(false);

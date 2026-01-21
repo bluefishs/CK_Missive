@@ -28,7 +28,19 @@ import {
   MasterControlQuery,
   MasterControlResponse,
   ExcelImportResult,
+  DocumentHistoryMatchResponse,
+  DispatchOrderWithHistoryResponse,
+  // 關聯型別
+  LinkType,
+  DocumentDispatchLink,
+  DocumentProjectLink,
+  ProjectDispatchLink,
+  // 統計型別
+  TaoyuanStatisticsResponse,
 } from '../types/api';
+
+// 重新匯出關聯型別供外部使用
+export type { LinkType, DocumentDispatchLink, DocumentProjectLink, ProjectDispatchLink };
 
 // ============================================================================
 // 轄管工程 API
@@ -63,11 +75,11 @@ export const taoyuanProjectsApi = {
    * 取得轄管工程詳情
    */
   async getDetail(id: number): Promise<TaoyuanProject> {
-    const response = await apiClient.post<{ success: boolean; data: TaoyuanProject }>(
+    // 後端直接返回 TaoyuanProjectSchema，非包裝格式
+    return apiClient.post<TaoyuanProject>(
       API_ENDPOINTS.TAOYUAN_DISPATCH.PROJECTS_DETAIL(id),
       {}
     );
-    return response.data;
   },
 
   /**
@@ -115,19 +127,33 @@ export const taoyuanProjectsApi = {
   },
 
   /**
-   * 下載匯入範本
+   * 下載匯入範本 (POST + blob 下載，符合資安規範)
    */
   async downloadImportTemplate(): Promise<void> {
     const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001';
     const url = `${baseUrl}/api${API_ENDPOINTS.TAOYUAN_DISPATCH.PROJECTS_IMPORT_TEMPLATE}`;
 
-    // 使用 window.open 或 anchor 下載
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error('下載範本失敗');
+    }
+
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href = url;
+    link.href = downloadUrl;
     link.download = 'taoyuan_projects_import_template.xlsx';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    window.URL.revokeObjectURL(downloadUrl);
   },
 };
 
@@ -150,36 +176,49 @@ export const dispatchOrdersApi = {
   },
 
   /**
+   * 取得下一個派工單號（自動生成）
+   * 格式: 115年_派工單號001, 115年_派工單號002, ...
+   */
+  async getNextDispatchNo(): Promise<{
+    success: boolean;
+    next_dispatch_no: string;
+    current_year: number;
+    next_sequence: number;
+  }> {
+    return apiClient.post(API_ENDPOINTS.TAOYUAN_DISPATCH.DISPATCH_NEXT_NO, {});
+  },
+
+  /**
    * 建立派工單
+   * 後端直接返回 DispatchOrderSchema，非包裝格式
    */
   async create(data: DispatchOrderCreate): Promise<DispatchOrder> {
-    const response = await apiClient.post<{ success: boolean; data: DispatchOrder }>(
+    return apiClient.post<DispatchOrder>(
       API_ENDPOINTS.TAOYUAN_DISPATCH.DISPATCH_ORDERS_CREATE,
       data
     );
-    return response.data;
   },
 
   /**
    * 取得派工單詳情
    */
   async getDetail(id: number): Promise<DispatchOrder> {
-    const response = await apiClient.post<{ success: boolean; data: DispatchOrder }>(
+    // 後端直接返回 DispatchOrderSchema，非包裝格式
+    return apiClient.post<DispatchOrder>(
       API_ENDPOINTS.TAOYUAN_DISPATCH.DISPATCH_ORDERS_DETAIL(id),
       {}
     );
-    return response.data;
   },
 
   /**
    * 更新派工單
+   * 後端直接返回 DispatchOrderSchema，非包裝格式
    */
   async update(id: number, data: DispatchOrderUpdate): Promise<DispatchOrder> {
-    const response = await apiClient.post<{ success: boolean; data: DispatchOrder }>(
+    return apiClient.post<DispatchOrder>(
       API_ENDPOINTS.TAOYUAN_DISPATCH.DISPATCH_ORDERS_UPDATE(id),
       data
     );
-    return response.data;
   },
 
   /**
@@ -207,6 +246,84 @@ export const dispatchOrdersApi = {
       API_ENDPOINTS.TAOYUAN_DISPATCH.DISPATCH_UNLINK_DOCUMENT(dispatchOrderId, linkId),
       {}
     );
+  },
+
+  /**
+   * 取得派工單詳情 (含公文歷程)
+   * 對應原始需求欄位 14-17
+   */
+  async getDetailWithHistory(id: number): Promise<DispatchOrderWithHistoryResponse> {
+    return apiClient.post<DispatchOrderWithHistoryResponse>(
+      API_ENDPOINTS.TAOYUAN_DISPATCH.DISPATCH_DETAIL_WITH_HISTORY(id),
+      {}
+    );
+  },
+
+  /**
+   * 匹配公文歷程
+   * 根據工程名稱自動匹配公文紀錄
+   */
+  async matchDocuments(projectName: string, includeSubject?: boolean): Promise<DocumentHistoryMatchResponse> {
+    return apiClient.post<DocumentHistoryMatchResponse>(
+      API_ENDPOINTS.TAOYUAN_DISPATCH.MATCH_DOCUMENTS,
+      {
+        project_name: projectName,
+        include_subject: includeSubject ?? false,
+      }
+    );
+  },
+
+  /**
+   * Excel 匯入派工紀錄
+   * 對應原始需求的 12 個欄位
+   */
+  async importExcel(
+    file: File,
+    contractProjectId: number
+  ): Promise<ExcelImportResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('contract_project_id', String(contractProjectId));
+
+    return apiClient.post<ExcelImportResult>(
+      API_ENDPOINTS.TAOYUAN_DISPATCH.DISPATCH_IMPORT,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+  },
+
+  /**
+   * 下載匯入範本 (POST + blob 下載，符合資安規範)
+   */
+  async downloadImportTemplate(): Promise<void> {
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001';
+    const url = `${baseUrl}/api${API_ENDPOINTS.TAOYUAN_DISPATCH.DISPATCH_IMPORT_TEMPLATE}`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error('下載範本失敗');
+    }
+
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = 'dispatch_orders_import_template.xlsx';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(downloadUrl);
   },
 };
 
@@ -278,8 +395,236 @@ export const masterControlApi = {
 };
 
 // ============================================================================
+// 統計 API
+// ============================================================================
+
+/**
+ * 統計 API 服務
+ */
+export const statisticsApi = {
+  /**
+   * 取得桃園查估派工統計資料
+   * 包含工程、派工、契金三大類統計數據
+   */
+  async getStatistics(contractProjectId: number): Promise<TaoyuanStatisticsResponse> {
+    return apiClient.post<TaoyuanStatisticsResponse>(
+      API_ENDPOINTS.TAOYUAN_DISPATCH.STATISTICS,
+      {},
+      {
+        params: {
+          contract_project_id: contractProjectId,
+        },
+      }
+    );
+  },
+};
+
+// ============================================================================
 // 統一匯出
 // ============================================================================
+
+// ============================================================================
+// 公文關聯 API (以公文為主體)
+// ============================================================================
+
+/**
+ * 公文關聯 API 服務
+ */
+export const documentLinksApi = {
+  /**
+   * 查詢公文關聯的派工單
+   */
+  async getDispatchLinks(documentId: number): Promise<{
+    success: boolean;
+    document_id: number;
+    dispatch_orders: DocumentDispatchLink[];
+    total: number;
+  }> {
+    return apiClient.post(
+      API_ENDPOINTS.TAOYUAN_DISPATCH.DOCUMENT_DISPATCH_LINKS(documentId),
+      {}
+    );
+  },
+
+  /**
+   * 將公文關聯到派工單
+   */
+  async linkDispatch(
+    documentId: number,
+    dispatchOrderId: number,
+    linkType: 'agency_incoming' | 'company_outgoing' = 'agency_incoming'
+  ): Promise<{ success: boolean; message: string; link_id: number }> {
+    return apiClient.post(
+      API_ENDPOINTS.TAOYUAN_DISPATCH.DOCUMENT_LINK_DISPATCH(documentId),
+      {},
+      {
+        params: {
+          dispatch_order_id: dispatchOrderId,
+          link_type: linkType,
+        },
+      }
+    );
+  },
+
+  /**
+   * 移除公文與派工的關聯
+   */
+  async unlinkDispatch(documentId: number, linkId: number): Promise<{ success: boolean; message: string }> {
+    return apiClient.post(
+      API_ENDPOINTS.TAOYUAN_DISPATCH.DOCUMENT_UNLINK_DISPATCH(documentId, linkId),
+      {}
+    );
+  },
+
+  /**
+   * 批次查詢多筆公文的派工關聯
+   */
+  async getBatchDispatchLinks(documentIds: number[]): Promise<{
+    success: boolean;
+    links: Record<number, DocumentDispatchLink[]>;
+  }> {
+    return apiClient.post(
+      API_ENDPOINTS.TAOYUAN_DISPATCH.DOCUMENTS_BATCH_DISPATCH_LINKS,
+      documentIds
+    );
+  },
+};
+
+// ============================================================================
+// 公文-工程直接關聯 API (不經過派工單)
+// ============================================================================
+
+/**
+ * 公文-工程直接關聯 API 服務
+ * 用於將公文直接關聯到工程，不經過派工單
+ */
+export const documentProjectLinksApi = {
+  /**
+   * 查詢公文關聯的工程
+   */
+  async getProjectLinks(documentId: number): Promise<{
+    success: boolean;
+    document_id: number;
+    projects: DocumentProjectLink[];
+    total: number;
+  }> {
+    return apiClient.post(
+      API_ENDPOINTS.TAOYUAN_DISPATCH.DOCUMENT_PROJECT_LINKS(documentId),
+      {}
+    );
+  },
+
+  /**
+   * 將公文關聯到工程
+   */
+  async linkProject(
+    documentId: number,
+    projectId: number,
+    linkType: 'agency_incoming' | 'company_outgoing' = 'agency_incoming',
+    notes?: string
+  ): Promise<{ success: boolean; message: string; link_id: number }> {
+    return apiClient.post(
+      API_ENDPOINTS.TAOYUAN_DISPATCH.DOCUMENT_LINK_PROJECT(documentId),
+      {},
+      {
+        params: {
+          project_id: projectId,
+          link_type: linkType,
+          notes: notes,
+        },
+      }
+    );
+  },
+
+  /**
+   * 移除公文與工程的關聯
+   */
+  async unlinkProject(documentId: number, linkId: number): Promise<{ success: boolean; message: string }> {
+    return apiClient.post(
+      API_ENDPOINTS.TAOYUAN_DISPATCH.DOCUMENT_UNLINK_PROJECT(documentId, linkId),
+      {}
+    );
+  },
+
+  /**
+   * 批次查詢多筆公文的工程關聯
+   */
+  async getBatchProjectLinks(documentIds: number[]): Promise<{
+    success: boolean;
+    data: Record<number, DocumentProjectLink[]>;
+    total: number;
+  }> {
+    return apiClient.post(
+      API_ENDPOINTS.TAOYUAN_DISPATCH.DOCUMENTS_BATCH_PROJECT_LINKS,
+      documentIds
+    );
+  },
+};
+
+// ============================================================================
+// 工程關聯 API (以工程為主體)
+// ============================================================================
+
+/**
+ * 工程關聯 API 服務
+ */
+export const projectLinksApi = {
+  /**
+   * 查詢工程關聯的派工單
+   */
+  async getDispatchLinks(projectId: number): Promise<{
+    success: boolean;
+    project_id: number;
+    dispatch_orders: ProjectDispatchLink[];
+    total: number;
+  }> {
+    return apiClient.post(
+      API_ENDPOINTS.TAOYUAN_DISPATCH.PROJECT_DISPATCH_LINKS(projectId),
+      {}
+    );
+  },
+
+  /**
+   * 將工程關聯到派工單
+   */
+  async linkDispatch(
+    projectId: number,
+    dispatchOrderId: number
+  ): Promise<{ success: boolean; message: string; link_id: number }> {
+    return apiClient.post(
+      API_ENDPOINTS.TAOYUAN_DISPATCH.PROJECT_LINK_DISPATCH(projectId),
+      {},
+      {
+        params: {
+          dispatch_order_id: dispatchOrderId,
+        },
+      }
+    );
+  },
+
+  /**
+   * 移除工程與派工的關聯
+   */
+  async unlinkDispatch(projectId: number, linkId: number): Promise<{ success: boolean; message: string }> {
+    return apiClient.post(
+      API_ENDPOINTS.TAOYUAN_DISPATCH.PROJECT_UNLINK_DISPATCH(projectId, linkId),
+      {}
+    );
+  },
+
+  /**
+   * 批次查詢多筆工程的派工關聯
+   */
+  async getBatchDispatchLinks(projectIds: number[]): Promise<{
+    success: boolean;
+    links: Record<number, ProjectDispatchLink[]>;
+  }> {
+    return apiClient.post(
+      API_ENDPOINTS.TAOYUAN_DISPATCH.PROJECTS_BATCH_DISPATCH_LINKS,
+      projectIds
+    );
+  },
+};
 
 /**
  * 桃園派工管理 API 統一入口
@@ -289,6 +634,10 @@ export const taoyuanDispatchApi = {
   dispatchOrders: dispatchOrdersApi,
   payments: contractPaymentsApi,
   masterControl: masterControlApi,
+  statistics: statisticsApi,
+  documentLinks: documentLinksApi,
+  documentProjectLinks: documentProjectLinksApi,
+  projectLinks: projectLinksApi,
 };
 
 export default taoyuanDispatchApi;

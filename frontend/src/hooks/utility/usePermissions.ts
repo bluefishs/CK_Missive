@@ -6,11 +6,11 @@
  * @date 2026-01-11
  */
 import { useState, useEffect, useCallback } from 'react';
-import { authService } from '../services/authService';
-import { cacheService, CACHE_KEYS, CACHE_TTL } from '../services/cacheService';
-import { USER_ROLES } from '../constants/permissions';
-import { isAuthDisabled } from '../config/env';
-import { logger } from '../utils/logger';
+import { authService } from '../../services/authService';
+import { cacheService, CACHE_KEYS, CACHE_TTL } from '../../services/cacheService';
+import { USER_ROLES } from '../../constants/permissions';
+import { isAuthDisabled } from '../../config/env';
+import { logger } from '../../utils/logger';
 
 export interface NavigationItem {
   key: string;

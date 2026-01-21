@@ -14,8 +14,8 @@ import {
   AgencyWithStats,
   AgencyOption,
   AgencyStatistics,
-} from '../api/agenciesApi';
-import { queryKeys, defaultQueryOptions } from '../config/queryConfig';
+} from '../../api/agenciesApi';
+import { queryKeys, defaultQueryOptions } from '../../config/queryConfig';
 
 // ============================================================================
 // 查詢 Hooks

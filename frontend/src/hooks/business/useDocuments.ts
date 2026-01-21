@@ -5,8 +5,8 @@
  */
 // @ts-ignore
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { documentsApi, DocumentListParams, DocumentCreate, DocumentUpdate } from '../api/documentsApi';
-import { queryKeys, defaultQueryOptions } from '../config/queryConfig';
+import { documentsApi, DocumentListParams, DocumentCreate, DocumentUpdate } from '../../api/documentsApi';
+import { queryKeys, defaultQueryOptions } from '../../config/queryConfig';
 
 // ============================================================================
 // 查詢 Hooks

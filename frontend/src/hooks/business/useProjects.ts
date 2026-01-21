@@ -5,10 +5,10 @@
  */
 // @ts-ignore
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { projectsApi, ProjectListParams, ProjectStatistics } from '../api/projectsApi';
-import { queryKeys, defaultQueryOptions } from '../config/queryConfig';
-import type { Project, ProjectCreate, ProjectUpdate } from '../types/api';
-import type { PaginatedResponse } from '../api/types';
+import { projectsApi, ProjectListParams, ProjectStatistics } from '../../api/projectsApi';
+import { queryKeys, defaultQueryOptions } from '../../config/queryConfig';
+import type { Project, ProjectCreate, ProjectUpdate } from '../../types/api';
+import type { PaginatedResponse } from '../../api/types';
 
 // ============================================================================
 // 查詢 Hooks

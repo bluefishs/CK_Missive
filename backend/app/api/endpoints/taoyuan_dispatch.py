@@ -14,7 +14,8 @@ from app.db.database import get_async_db
 from app.core.dependencies import require_auth
 from app.extended.models import (
     TaoyuanProject, TaoyuanDispatchOrder, TaoyuanDispatchProjectLink,
-    TaoyuanDispatchDocumentLink, TaoyuanContractPayment, OfficialDocument as Document
+    TaoyuanDispatchDocumentLink, TaoyuanDocumentProjectLink, TaoyuanContractPayment,
+    OfficialDocument as Document
 )
 from app.schemas.taoyuan_dispatch import (
     TaoyuanProjectCreate, TaoyuanProjectUpdate, TaoyuanProject as TaoyuanProjectSchema,
@@ -26,7 +27,9 @@ from app.schemas.taoyuan_dispatch import (
     ContractPaymentListResponse,
     MasterControlQuery, MasterControlResponse, MasterControlItem,
     ExcelImportRequest, ExcelImportResult,
-    WORK_TYPES
+    WORK_TYPES,
+    # 統計資料
+    ProjectStatistics, DispatchStatistics, PaymentStatistics, TaoyuanStatisticsResponse,
 )
 from app.schemas.common import PaginationMeta
 import re
@@ -259,7 +262,7 @@ async def delete_taoyuan_project(
     return {"success": True, "message": "刪除成功"}
 
 
-@router.get("/projects/import-template", summary="下載轄管工程匯入範本")
+@router.post("/projects/import-template", summary="下載轄管工程匯入範本")
 async def download_import_template():
     """
     下載 Excel 匯入範本
@@ -451,7 +454,8 @@ async def list_dispatch_orders(
     stmt = select(TaoyuanDispatchOrder).options(
         selectinload(TaoyuanDispatchOrder.agency_doc),
         selectinload(TaoyuanDispatchOrder.company_doc),
-        selectinload(TaoyuanDispatchOrder.project_links).selectinload(TaoyuanDispatchProjectLink.project)
+        selectinload(TaoyuanDispatchOrder.project_links).selectinload(TaoyuanDispatchProjectLink.project),
+        selectinload(TaoyuanDispatchOrder.document_links).selectinload(TaoyuanDispatchDocumentLink.document)
     )
 
     conditions = []
@@ -501,6 +505,7 @@ async def list_dispatch_orders(
             'survey_unit': item.survey_unit,
             'cloud_folder': item.cloud_folder,
             'project_folder': item.project_folder,
+            'contact_note': item.contact_note,
             'created_at': item.created_at,
             'updated_at': item.updated_at,
             'agency_doc_number': item.agency_doc.doc_number if item.agency_doc else None,
@@ -508,7 +513,17 @@ async def list_dispatch_orders(
             'linked_projects': [
                 TaoyuanProjectSchema.model_validate(link.project)
                 for link in item.project_links
-            ] if item.project_links else []
+            ] if item.project_links else [],
+            'linked_documents': [
+                {
+                    'link_id': link.id,
+                    'link_type': link.link_type,
+                    'document_id': link.document_id,
+                    'doc_number': link.document.doc_number if link.document else None,
+                    'subject': link.document.subject if link.document else None,
+                }
+                for link in item.document_links
+            ] if item.document_links else []
         }
         response_items.append(DispatchOrderSchema(**order_dict))
 
@@ -526,6 +541,325 @@ async def list_dispatch_orders(
             has_prev=query.page > 1
         )
     )
+
+
+# =============================================================================
+# 派工紀錄匯入 API
+# =============================================================================
+
+@router.post("/dispatch/import-template", summary="下載派工紀錄匯入範本")
+async def download_dispatch_import_template():
+    """
+    下載派工紀錄 Excel 匯入範本
+
+    範本包含對應原始需求的 12 個欄位：
+    - 派工單號 (必填)
+    - 機關函文號
+    - 工程名稱/派工事項 (必填)
+    - 作業類別
+    - 分案名稱/派工備註
+    - 履約期限
+    - 案件承辦
+    - 查估單位
+    - 乾坤函文號
+    - 雲端資料夾
+    - 專案資料夾
+    - 聯絡備註
+    """
+    # 定義範本欄位
+    template_columns = [
+        '派工單號', '機關函文號', '工程名稱/派工事項', '作業類別',
+        '分案名稱/派工備註', '履約期限', '案件承辦', '查估單位',
+        '乾坤函文號', '雲端資料夾', '專案資料夾', '聯絡備註'
+    ]
+
+    # 範例資料
+    sample_data = [{
+        '派工單號': 'D-2026-001',
+        '機關函文號': '桃工養字第1140001234號',
+        '工程名稱/派工事項': '○○路拓寬工程',
+        '作業類別': '土地查估',
+        '分案名稱/派工備註': '第一標段',
+        '履約期限': '2026-06-30',
+        '案件承辦': '王○○',
+        '查估單位': '第一組',
+        '乾坤函文號': '乾字第1140000001號',
+        '雲端資料夾': 'https://drive.google.com/...',
+        '專案資料夾': 'D:/Projects/2026/001',
+        '聯絡備註': '範例資料，請刪除後填入實際資料'
+    }]
+
+    # 建立 DataFrame
+    df = pd.DataFrame(sample_data, columns=template_columns)
+
+    # 寫入 Excel
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='派工紀錄')
+
+        # 調整欄寬
+        worksheet = writer.sheets['派工紀錄']
+        for idx, col in enumerate(template_columns):
+            width = max(len(col) * 2.5, 15)
+            col_letter = chr(65 + idx) if idx < 26 else f'A{chr(65 + idx - 26)}'
+            worksheet.column_dimensions[col_letter].width = width
+
+    output.seek(0)
+
+    return StreamingResponse(
+        output,
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={
+            'Content-Disposition': 'attachment; filename=dispatch_orders_import_template.xlsx'
+        }
+    )
+
+
+@router.post("/dispatch/import", response_model=ExcelImportResult, summary="匯入派工紀錄")
+async def import_dispatch_orders(
+    file: UploadFile = File(...),
+    contract_project_id: int = Form(...),
+    db: AsyncSession = Depends(get_async_db),
+    current_user = Depends(require_auth)
+):
+    """
+    從 Excel 匯入派工紀錄
+
+    支援欄位對應原始需求的 12 個欄位：
+    - 派工單號 (必填，需唯一)
+    - 機關函文號
+    - 工程名稱/派工事項 (必填)
+    - 作業類別
+    - 分案名稱/派工備註
+    - 履約期限 (日期格式)
+    - 案件承辦
+    - 查估單位
+    - 乾坤函文號
+    - 雲端資料夾
+    - 專案資料夾
+    - 聯絡備註
+    """
+    # 驗證承攬案件是否存在
+    from app.extended.models import ContractProject
+    contract_project = await db.execute(
+        select(ContractProject).where(ContractProject.id == contract_project_id)
+    )
+    contract_project = contract_project.scalar_one_or_none()
+    if not contract_project:
+        raise HTTPException(
+            status_code=400,
+            detail=f"承攬案件 ID={contract_project_id} 不存在，請選擇有效的承攬案件"
+        )
+
+    if not file.filename.endswith(('.xlsx', '.xls')):
+        raise HTTPException(status_code=400, detail="僅支援 Excel 檔案格式")
+
+    content = await file.read()
+    try:
+        df = pd.read_excel(io.BytesIO(content), sheet_name=0, header=0)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"讀取 Excel 失敗: {str(e)}")
+
+    # 欄位對應 (Excel 欄位 -> 資料庫欄位)
+    column_mapping = {
+        '派工單號': 'dispatch_no',
+        '機關函文號': 'agency_doc_number_text',  # 暫存文字，稍後處理
+        '工程名稱/派工事項': 'project_name',
+        '作業類別': 'work_type',
+        '分案名稱/派工備註': 'sub_case_name',
+        '履約期限': 'deadline',
+        '案件承辦': 'case_handler',
+        '查估單位': 'survey_unit',
+        '乾坤函文號': 'company_doc_number_text',  # 暫存文字，稍後處理
+        '雲端資料夾': 'cloud_folder',
+        '專案資料夾': 'project_folder',
+        '聯絡備註': 'contact_note',
+    }
+
+    imported_count = 0
+    skipped_count = 0
+    linked_count = 0  # 公文關聯數量
+    errors = []
+
+    for idx, row in df.iterrows():
+        row_num = idx + 2  # Excel 行號 (從 2 開始，因為第 1 行是標題)
+        try:
+            # 取得派工單號
+            dispatch_no = row.get('派工單號')
+            if pd.isna(dispatch_no) or not str(dispatch_no).strip():
+                errors.append({'row': row_num, 'error': '派工單號不可為空'})
+                skipped_count += 1
+                continue
+
+            dispatch_no = str(dispatch_no).strip()
+
+            # 檢查派工單號是否已存在
+            existing = await db.execute(
+                select(TaoyuanDispatchOrder).where(
+                    TaoyuanDispatchOrder.dispatch_no == dispatch_no
+                )
+            )
+            if existing.scalar_one_or_none():
+                errors.append({'row': row_num, 'error': f'派工單號 {dispatch_no} 已存在'})
+                skipped_count += 1
+                continue
+
+            # 取得工程名稱
+            project_name = row.get('工程名稱/派工事項')
+            if pd.isna(project_name) or not str(project_name).strip():
+                errors.append({'row': row_num, 'error': '工程名稱/派工事項不可為空'})
+                skipped_count += 1
+                continue
+
+            # 建立派工紀錄資料
+            order_data = {
+                'contract_project_id': contract_project_id,
+                'dispatch_no': dispatch_no,
+                'project_name': str(project_name).strip(),
+            }
+
+            # 暫存公文號資訊，稍後用於建立關聯
+            agency_doc_number_text = None
+            company_doc_number_text = None
+
+            # 處理其他欄位
+            for excel_col, db_col in column_mapping.items():
+                if excel_col in ['派工單號', '工程名稱/派工事項']:
+                    continue  # 已處理
+
+                if excel_col in row.index:
+                    value = row[excel_col]
+                    if pd.notna(value) and str(value).strip():
+                        # 處理日期欄位
+                        if db_col == 'deadline':
+                            if hasattr(value, 'date'):
+                                value = value.date()
+                            elif isinstance(value, str):
+                                try:
+                                    from datetime import datetime
+                                    value = datetime.strptime(value.strip(), '%Y-%m-%d').date()
+                                except ValueError:
+                                    value = None
+                        # 保存公文號文字，稍後處理關聯
+                        elif db_col == 'agency_doc_number_text':
+                            agency_doc_number_text = str(value).strip()
+                            continue
+                        elif db_col == 'company_doc_number_text':
+                            company_doc_number_text = str(value).strip()
+                            continue
+                        else:
+                            value = str(value).strip()
+
+                        if value is not None:
+                            order_data[db_col] = value
+
+            # 根據公文號查找公文 ID
+            if agency_doc_number_text:
+                agency_doc_result = await db.execute(
+                    select(Document).where(Document.doc_number == agency_doc_number_text)
+                )
+                agency_doc = agency_doc_result.scalar_one_or_none()
+                if agency_doc:
+                    order_data['agency_doc_id'] = agency_doc.id
+
+            if company_doc_number_text:
+                company_doc_result = await db.execute(
+                    select(Document).where(Document.doc_number == company_doc_number_text)
+                )
+                company_doc = company_doc_result.scalar_one_or_none()
+                if company_doc:
+                    order_data['company_doc_id'] = company_doc.id
+
+            # 建立派工紀錄
+            order = TaoyuanDispatchOrder(**order_data)
+            db.add(order)
+            await db.flush()  # 取得 order.id
+
+            # 建立公文關聯記錄
+            if order_data.get('agency_doc_id'):
+                link = TaoyuanDispatchDocumentLink(
+                    dispatch_order_id=order.id,
+                    document_id=order_data['agency_doc_id'],
+                    link_type='agency_incoming'
+                )
+                db.add(link)
+                linked_count += 1
+
+            if order_data.get('company_doc_id'):
+                link = TaoyuanDispatchDocumentLink(
+                    dispatch_order_id=order.id,
+                    document_id=order_data['company_doc_id'],
+                    link_type='company_outgoing'
+                )
+                db.add(link)
+                linked_count += 1
+
+            imported_count += 1
+
+        except Exception as e:
+            errors.append({'row': row_num, 'error': str(e)})
+
+    await db.commit()
+
+    # 建立關聯資訊
+    linked_info = f"，自動建立 {linked_count} 筆公文關聯" if linked_count > 0 else ""
+
+    return ExcelImportResult(
+        success=True,
+        message=f"匯入完成：成功 {imported_count} 筆，跳過 {skipped_count} 筆{linked_info}",
+        total_rows=len(df),
+        imported_count=imported_count,
+        skipped_count=skipped_count,
+        error_count=len(errors),
+        errors=errors[:20]  # 只回傳前 20 個錯誤
+    )
+
+
+@router.post("/dispatch/next-dispatch-no", summary="取得下一個派工單號")
+async def get_next_dispatch_no(
+    db: AsyncSession = Depends(get_async_db),
+    current_user = Depends(require_auth)
+):
+    """
+    根據現有派工單號自動生成下一個單號
+    格式: 115年_派工單號001, 115年_派工單號002, ...
+    """
+    import re
+    from datetime import datetime
+
+    # 取得當前民國年
+    current_year = datetime.now().year - 1911  # 西元轉民國
+
+    # 查詢當年度所有派工單號
+    year_prefix = f"{current_year}年_派工單號"
+    result = await db.execute(
+        select(TaoyuanDispatchOrder.dispatch_no)
+        .where(TaoyuanDispatchOrder.dispatch_no.like(f"{year_prefix}%"))
+        .order_by(TaoyuanDispatchOrder.dispatch_no.desc())
+    )
+    existing_nos = [r[0] for r in result.fetchall()]
+
+    # 找出最大序號
+    max_seq = 0
+    pattern = re.compile(rf"^{current_year}年_派工單號(\d+)$")
+    for no in existing_nos:
+        if no:
+            match = pattern.match(no)
+            if match:
+                seq = int(match.group(1))
+                if seq > max_seq:
+                    max_seq = seq
+
+    # 生成下一個單號
+    next_seq = max_seq + 1
+    next_dispatch_no = f"{current_year}年_派工單號{next_seq:03d}"
+
+    return {
+        "success": True,
+        "next_dispatch_no": next_dispatch_no,
+        "current_year": current_year,
+        "next_sequence": next_seq
+    }
 
 
 @router.post("/dispatch/create", response_model=DispatchOrderSchema, summary="建立派工紀錄")
@@ -611,13 +945,28 @@ async def get_dispatch_order_detail(
     stmt = select(TaoyuanDispatchOrder).options(
         selectinload(TaoyuanDispatchOrder.agency_doc),
         selectinload(TaoyuanDispatchOrder.company_doc),
-        selectinload(TaoyuanDispatchOrder.project_links).selectinload(TaoyuanDispatchProjectLink.project)
+        selectinload(TaoyuanDispatchOrder.project_links).selectinload(TaoyuanDispatchProjectLink.project),
+        selectinload(TaoyuanDispatchOrder.document_links).selectinload(TaoyuanDispatchDocumentLink.document)
     ).where(TaoyuanDispatchOrder.id == dispatch_id)
 
     result = await db.execute(stmt)
     order = result.scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=404, detail="派工紀錄不存在")
+
+    # 處理關聯公文列表
+    linked_documents = []
+    for link in (order.document_links or []):
+        if link.document:
+            linked_documents.append({
+                'link_id': link.id,
+                'link_type': link.link_type,
+                'document_id': link.document.id,
+                'doc_number': link.document.doc_number,
+                'subject': link.document.subject,
+                'doc_date': link.document.doc_date.isoformat() if link.document.doc_date else None,
+                'created_at': link.created_at.isoformat() if link.created_at else None,
+            })
 
     order_dict = {
         'id': order.id,
@@ -633,6 +982,7 @@ async def get_dispatch_order_detail(
         'survey_unit': order.survey_unit,
         'cloud_folder': order.cloud_folder,
         'project_folder': order.project_folder,
+        'contact_note': order.contact_note,
         'created_at': order.created_at,
         'updated_at': order.updated_at,
         'agency_doc_number': order.agency_doc.doc_number if order.agency_doc else None,
@@ -640,7 +990,8 @@ async def get_dispatch_order_detail(
         'linked_projects': [
             TaoyuanProjectSchema.model_validate(link.project)
             for link in order.project_links
-        ] if order.project_links else []
+        ] if order.project_links else [],
+        'linked_documents': linked_documents,
     }
     return DispatchOrderSchema(**order_dict)
 
@@ -756,6 +1107,336 @@ async def get_dispatch_documents(
         "success": True,
         "agency_documents": agency_docs,
         "company_documents": company_docs
+    }
+
+
+# =============================================================================
+# 公文關聯查詢 API (以公文為主體)
+# =============================================================================
+
+@router.post("/document/{document_id}/dispatch-links", summary="查詢公文關聯的派工單")
+async def get_document_dispatch_links(
+    document_id: int,
+    db: AsyncSession = Depends(get_async_db),
+    current_user = Depends(require_auth)
+):
+    """
+    以公文為主體，查詢該公文關聯的所有派工單
+    用於「函文紀錄」Tab 顯示已關聯的派工
+    """
+    result = await db.execute(
+        select(TaoyuanDispatchDocumentLink)
+        .options(selectinload(TaoyuanDispatchDocumentLink.dispatch_order))
+        .where(TaoyuanDispatchDocumentLink.document_id == document_id)
+    )
+    links = result.scalars().all()
+
+    dispatch_orders = []
+    for link in links:
+        if link.dispatch_order:
+            order = link.dispatch_order
+            # 取得關聯的機關/乾坤函文文號
+            agency_doc_number = None
+            company_doc_number = None
+            if order.agency_doc_id:
+                agency_doc = await db.execute(
+                    select(Document.doc_number).where(Document.id == order.agency_doc_id)
+                )
+                agency_doc_number = agency_doc.scalar_one_or_none()
+            if order.company_doc_id:
+                company_doc = await db.execute(
+                    select(Document.doc_number).where(Document.id == order.company_doc_id)
+                )
+                company_doc_number = company_doc.scalar_one_or_none()
+
+            dispatch_orders.append({
+                'link_id': link.id,
+                'link_type': link.link_type,
+                'dispatch_order_id': order.id,
+                'dispatch_no': order.dispatch_no,
+                'project_name': order.project_name,
+                'work_type': order.work_type,
+                # 完整派工資訊欄位
+                'sub_case_name': order.sub_case_name,
+                'deadline': order.deadline,
+                'case_handler': order.case_handler,
+                'survey_unit': order.survey_unit,
+                'contact_note': order.contact_note,
+                'cloud_folder': order.cloud_folder,
+                'project_folder': order.project_folder,
+                'agency_doc_number': agency_doc_number,
+                'company_doc_number': company_doc_number,
+                'created_at': order.created_at.isoformat() if order.created_at else None,
+            })
+
+    return {
+        "success": True,
+        "document_id": document_id,
+        "dispatch_orders": dispatch_orders,
+        "total": len(dispatch_orders)
+    }
+
+
+@router.post("/document/{document_id}/link-dispatch", summary="將公文關聯到派工單")
+async def link_dispatch_to_document(
+    document_id: int,
+    dispatch_order_id: int,
+    link_type: str = 'agency_incoming',  # agency_incoming 或 company_outgoing
+    db: AsyncSession = Depends(get_async_db),
+    current_user = Depends(require_auth)
+):
+    """
+    以公文為主體，將公文關聯到指定的派工單
+
+    link_type:
+    - agency_incoming: 機關來函（機關發文）
+    - company_outgoing: 乾坤發文
+    """
+    # 檢查公文是否存在
+    doc = await db.execute(select(Document).where(Document.id == document_id))
+    if not doc.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="公文不存在")
+
+    # 檢查派工單是否存在
+    order = await db.execute(
+        select(TaoyuanDispatchOrder).where(TaoyuanDispatchOrder.id == dispatch_order_id)
+    )
+    if not order.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="派工單不存在")
+
+    # 檢查是否已存在關聯
+    existing = await db.execute(
+        select(TaoyuanDispatchDocumentLink).where(
+            TaoyuanDispatchDocumentLink.document_id == document_id,
+            TaoyuanDispatchDocumentLink.dispatch_order_id == dispatch_order_id
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="此關聯已存在")
+
+    # 建立關聯
+    link = TaoyuanDispatchDocumentLink(
+        dispatch_order_id=dispatch_order_id,
+        document_id=document_id,
+        link_type=link_type
+    )
+    db.add(link)
+    await db.commit()
+    await db.refresh(link)
+
+    return {
+        "success": True,
+        "message": "關聯成功",
+        "link_id": link.id
+    }
+
+
+@router.post("/document/{document_id}/unlink-dispatch/{link_id}", summary="移除公文與派工的關聯")
+async def unlink_dispatch_from_document(
+    document_id: int,
+    link_id: int,
+    db: AsyncSession = Depends(get_async_db),
+    current_user = Depends(require_auth)
+):
+    """移除公文與派工的關聯"""
+    result = await db.execute(
+        select(TaoyuanDispatchDocumentLink).where(
+            TaoyuanDispatchDocumentLink.id == link_id,
+            TaoyuanDispatchDocumentLink.document_id == document_id
+        )
+    )
+    link = result.scalar_one_or_none()
+    if not link:
+        raise HTTPException(status_code=404, detail="關聯不存在")
+
+    await db.delete(link)
+    await db.commit()
+    return {"success": True, "message": "移除關聯成功"}
+
+
+@router.post("/documents/batch-dispatch-links", summary="批次查詢多筆公文的派工關聯")
+async def get_batch_document_dispatch_links(
+    document_ids: List[int],
+    db: AsyncSession = Depends(get_async_db),
+    current_user = Depends(require_auth)
+):
+    """
+    批次查詢多筆公文的派工關聯
+    用於「函文紀錄」Tab 一次載入所有公文的關聯狀態
+    """
+    result = await db.execute(
+        select(TaoyuanDispatchDocumentLink)
+        .options(selectinload(TaoyuanDispatchDocumentLink.dispatch_order))
+        .where(TaoyuanDispatchDocumentLink.document_id.in_(document_ids))
+    )
+    links = result.scalars().all()
+
+    # 按公文 ID 分組
+    links_by_doc = {}
+    for link in links:
+        doc_id = link.document_id
+        if doc_id not in links_by_doc:
+            links_by_doc[doc_id] = []
+        if link.dispatch_order:
+            links_by_doc[doc_id].append({
+                'link_id': link.id,
+                'link_type': link.link_type,
+                'dispatch_order_id': link.dispatch_order.id,
+                'dispatch_no': link.dispatch_order.dispatch_no,
+                'project_name': link.dispatch_order.project_name,
+            })
+
+    return {
+        "success": True,
+        "links": links_by_doc
+    }
+
+
+# =============================================================================
+# 以工程為主體的關聯 API
+# =============================================================================
+
+@router.post("/project/{project_id}/dispatch-links", summary="查詢工程關聯的派工單")
+async def get_project_dispatch_links(
+    project_id: int,
+    db: AsyncSession = Depends(get_async_db),
+    current_user = Depends(require_auth)
+):
+    """
+    以工程為主體，查詢該工程關聯的所有派工單
+    用於「工程資訊」Tab 顯示已關聯的派工
+    """
+    result = await db.execute(
+        select(TaoyuanDispatchProjectLink)
+        .options(selectinload(TaoyuanDispatchProjectLink.dispatch_order))
+        .where(TaoyuanDispatchProjectLink.taoyuan_project_id == project_id)
+    )
+    links = result.scalars().all()
+
+    dispatch_orders = []
+    for link in links:
+        if link.dispatch_order:
+            dispatch_orders.append({
+                'link_id': link.id,
+                'dispatch_order_id': link.dispatch_order.id,
+                'dispatch_no': link.dispatch_order.dispatch_no,
+                'project_name': link.dispatch_order.project_name,
+                'work_type': link.dispatch_order.work_type,
+            })
+
+    return {
+        "success": True,
+        "project_id": project_id,
+        "dispatch_orders": dispatch_orders,
+        "total": len(dispatch_orders)
+    }
+
+
+@router.post("/project/{project_id}/link-dispatch", summary="將工程關聯到派工單")
+async def link_dispatch_to_project(
+    project_id: int,
+    dispatch_order_id: int,
+    db: AsyncSession = Depends(get_async_db),
+    current_user = Depends(require_auth)
+):
+    """
+    以工程為主體，將工程關聯到指定的派工單
+    """
+    # 檢查工程是否存在
+    proj = await db.execute(select(TaoyuanProject).where(TaoyuanProject.id == project_id))
+    if not proj.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="工程不存在")
+
+    # 檢查派工單是否存在
+    order = await db.execute(
+        select(TaoyuanDispatchOrder).where(TaoyuanDispatchOrder.id == dispatch_order_id)
+    )
+    if not order.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="派工單不存在")
+
+    # 檢查是否已存在關聯
+    existing = await db.execute(
+        select(TaoyuanDispatchProjectLink).where(
+            TaoyuanDispatchProjectLink.taoyuan_project_id == project_id,
+            TaoyuanDispatchProjectLink.dispatch_order_id == dispatch_order_id
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="此關聯已存在")
+
+    # 建立關聯
+    link = TaoyuanDispatchProjectLink(
+        dispatch_order_id=dispatch_order_id,
+        taoyuan_project_id=project_id
+    )
+    db.add(link)
+    await db.commit()
+    await db.refresh(link)
+
+    return {
+        "success": True,
+        "message": "關聯成功",
+        "link_id": link.id
+    }
+
+
+@router.post("/project/{project_id}/unlink-dispatch/{link_id}", summary="移除工程與派工的關聯")
+async def unlink_dispatch_from_project(
+    project_id: int,
+    link_id: int,
+    db: AsyncSession = Depends(get_async_db),
+    current_user = Depends(require_auth)
+):
+    """移除工程與派工的關聯"""
+    result = await db.execute(
+        select(TaoyuanDispatchProjectLink).where(
+            TaoyuanDispatchProjectLink.id == link_id,
+            TaoyuanDispatchProjectLink.taoyuan_project_id == project_id
+        )
+    )
+    link = result.scalar_one_or_none()
+    if not link:
+        raise HTTPException(status_code=404, detail="關聯不存在")
+
+    await db.delete(link)
+    await db.commit()
+    return {"success": True, "message": "移除關聯成功"}
+
+
+@router.post("/projects/batch-dispatch-links", summary="批次查詢多筆工程的派工關聯")
+async def get_batch_project_dispatch_links(
+    project_ids: List[int],
+    db: AsyncSession = Depends(get_async_db),
+    current_user = Depends(require_auth)
+):
+    """
+    批次查詢多筆工程的派工關聯
+    用於「工程資訊」Tab 一次載入所有工程的關聯狀態
+    """
+    result = await db.execute(
+        select(TaoyuanDispatchProjectLink)
+        .options(selectinload(TaoyuanDispatchProjectLink.dispatch_order))
+        .where(TaoyuanDispatchProjectLink.taoyuan_project_id.in_(project_ids))
+    )
+    links = result.scalars().all()
+
+    # 按工程 ID 分組
+    links_by_project = {}
+    for link in links:
+        proj_id = link.taoyuan_project_id
+        if proj_id not in links_by_project:
+            links_by_project[proj_id] = []
+        if link.dispatch_order:
+            links_by_project[proj_id].append({
+                'link_id': link.id,
+                'dispatch_order_id': link.dispatch_order.id,
+                'dispatch_no': link.dispatch_order.dispatch_no,
+                'project_name': link.dispatch_order.project_name,
+            })
+
+    return {
+        "success": True,
+        "links": links_by_project
     }
 
 
@@ -1015,3 +1696,471 @@ async def get_districts(
     districts = [row[0] for row in result.fetchall() if row[0]]
 
     return {"success": True, "items": sorted(districts)}
+
+
+# =============================================================================
+# 公文歷程匹配 API (對應原始需求欄位 14-17)
+# =============================================================================
+
+@router.post("/dispatch/match-documents", summary="匹配公文歷程")
+async def match_document_history(
+    project_name: str,
+    include_subject: bool = False,
+    db: AsyncSession = Depends(get_async_db),
+    current_user = Depends(require_auth)
+):
+    """
+    根據工程名稱自動匹配公文歷程
+
+    - 機關函文：doc_type = '收文' 且 subject 包含工程名稱
+    - 乾坤函文：doc_type = '發文' 且 subject 包含工程名稱
+
+    對應原始需求欄位：
+    - 14. 機關函文歷程(對應工程名稱)
+    - 15. 機關函文歷程(對應工程名稱+主旨)
+    - 16. 乾坤函文紀錄(對應工程名稱)
+    - 17. 乾坤函文歷程(對應工程名稱+主旨)
+    """
+    if not project_name or not project_name.strip():
+        return {
+            "success": False,
+            "message": "工程名稱不可為空",
+            "agency_documents": [],
+            "company_documents": []
+        }
+
+    search_pattern = f"%{project_name.strip()}%"
+
+    # 查詢機關函文 (收文)
+    agency_stmt = select(Document).where(
+        and_(
+            Document.type == '收文',
+            Document.subject.ilike(search_pattern)
+        )
+    ).order_by(Document.doc_date.desc()).limit(50)
+
+    agency_result = await db.execute(agency_stmt)
+    agency_docs = agency_result.scalars().all()
+
+    # 查詢乾坤函文 (發文)
+    company_stmt = select(Document).where(
+        and_(
+            Document.type == '發文',
+            Document.subject.ilike(search_pattern)
+        )
+    ).order_by(Document.doc_date.desc()).limit(50)
+
+    company_result = await db.execute(company_stmt)
+    company_docs = company_result.scalars().all()
+
+    # 格式化回應
+    def format_doc(doc, match_type="project_name"):
+        return {
+            "id": doc.id,
+            "doc_number": doc.doc_number,
+            "doc_date": doc.doc_date,
+            "subject": doc.subject,
+            "sender": doc.sender,
+            "receiver": doc.receiver,
+            "doc_type": doc.type,
+            "match_type": match_type
+        }
+
+    return {
+        "success": True,
+        "project_name": project_name,
+        "agency_documents": [format_doc(d) for d in agency_docs],
+        "company_documents": [format_doc(d) for d in company_docs],
+        "total_agency_docs": len(agency_docs),
+        "total_company_docs": len(company_docs)
+    }
+
+
+@router.post("/dispatch/{dispatch_id}/detail-with-history", summary="取得派工紀錄詳情 (含公文歷程)")
+async def get_dispatch_order_detail_with_history(
+    dispatch_id: int,
+    db: AsyncSession = Depends(get_async_db),
+    current_user = Depends(require_auth)
+):
+    """
+    取得派工紀錄詳情，並自動匹配公文歷程
+
+    回應包含原始需求的 17 個欄位:
+    1. 序 (id)
+    2. 派工單號
+    3. 機關函文號 (來自 agency_doc)
+    4. 工程名稱/派工事項
+    5. 作業類別
+    6. 分案名稱/派工備註
+    7. 履約期限
+    8. 案件承辦
+    9. 查估單位
+    10. 乾坤函文號 (來自 company_doc)
+    11. 雲端資料夾
+    12. 專案資料夾
+    13. 聯絡備註
+    14-17. 公文歷程 (自動匹配)
+    """
+    stmt = select(TaoyuanDispatchOrder).options(
+        selectinload(TaoyuanDispatchOrder.agency_doc),
+        selectinload(TaoyuanDispatchOrder.company_doc),
+        selectinload(TaoyuanDispatchOrder.project_links).selectinload(TaoyuanDispatchProjectLink.project),
+        selectinload(TaoyuanDispatchOrder.document_links).selectinload(TaoyuanDispatchDocumentLink.document)
+    ).where(TaoyuanDispatchOrder.id == dispatch_id)
+
+    result = await db.execute(stmt)
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=404, detail="派工紀錄不存在")
+
+    # 基本資訊
+    order_dict = {
+        'id': order.id,
+        'dispatch_no': order.dispatch_no,
+        'contract_project_id': order.contract_project_id,
+        'agency_doc_id': order.agency_doc_id,
+        'company_doc_id': order.company_doc_id,
+        'project_name': order.project_name,
+        'work_type': order.work_type,
+        'sub_case_name': order.sub_case_name,
+        'deadline': order.deadline,
+        'case_handler': order.case_handler,
+        'survey_unit': order.survey_unit,
+        'cloud_folder': order.cloud_folder,
+        'project_folder': order.project_folder,
+        'contact_note': order.contact_note,
+        'created_at': order.created_at,
+        'updated_at': order.updated_at,
+        'agency_doc_number': order.agency_doc.doc_number if order.agency_doc else None,
+        'company_doc_number': order.company_doc.doc_number if order.company_doc else None,
+        'linked_projects': [
+            TaoyuanProjectSchema.model_validate(link.project)
+            for link in order.project_links
+        ] if order.project_links else []
+    }
+
+    # 自動匹配公文歷程 (如果有工程名稱)
+    doc_history = {
+        'agency_doc_history_by_name': [],
+        'agency_doc_history_by_subject': [],
+        'company_doc_history_by_name': [],
+        'company_doc_history_by_subject': []
+    }
+
+    if order.project_name:
+        search_pattern = f"%{order.project_name}%"
+
+        # 機關函文歷程 (收文)
+        agency_stmt = select(Document).where(
+            and_(
+                Document.type == '收文',
+                Document.subject.ilike(search_pattern)
+            )
+        ).order_by(Document.doc_date.desc()).limit(20)
+        agency_result = await db.execute(agency_stmt)
+        agency_docs = agency_result.scalars().all()
+
+        for doc in agency_docs:
+            doc_info = {
+                'id': doc.id,
+                'doc_number': doc.doc_number,
+                'doc_date': doc.doc_date,
+                'subject': doc.subject,
+                'sender': doc.sender,
+                'receiver': doc.receiver,
+                'doc_type': doc.type,
+                'match_type': 'project_name'
+            }
+            doc_history['agency_doc_history_by_name'].append(doc_info)
+            if order.project_name in (doc.subject or ''):
+                doc_history['agency_doc_history_by_subject'].append(doc_info)
+
+        # 乾坤函文歷程 (發文)
+        company_stmt = select(Document).where(
+            and_(
+                Document.type == '發文',
+                Document.subject.ilike(search_pattern)
+            )
+        ).order_by(Document.doc_date.desc()).limit(20)
+        company_result = await db.execute(company_stmt)
+        company_docs = company_result.scalars().all()
+
+        for doc in company_docs:
+            doc_info = {
+                'id': doc.id,
+                'doc_number': doc.doc_number,
+                'doc_date': doc.doc_date,
+                'subject': doc.subject,
+                'sender': doc.sender,
+                'receiver': doc.receiver,
+                'doc_type': doc.type,
+                'match_type': 'project_name'
+            }
+            doc_history['company_doc_history_by_name'].append(doc_info)
+            if order.project_name in (doc.subject or ''):
+                doc_history['company_doc_history_by_subject'].append(doc_info)
+
+    # 合併回應
+    order_dict.update(doc_history)
+
+    return {
+        "success": True,
+        "data": order_dict
+    }
+
+
+# =============================================================================
+# 公文-工程關聯 API (直接關聯，不經過派工單)
+# =============================================================================
+
+@router.post("/document/{document_id}/project-links", summary="查詢公文關聯的工程")
+async def get_document_project_links(
+    document_id: int,
+    db: AsyncSession = Depends(get_async_db),
+    current_user = Depends(require_auth)
+):
+    """
+    以公文為主體，查詢該公文直接關聯的所有工程
+    用於「工程關聯」Tab 顯示已關聯的工程
+    """
+    result = await db.execute(
+        select(TaoyuanDocumentProjectLink)
+        .options(selectinload(TaoyuanDocumentProjectLink.project))
+        .where(TaoyuanDocumentProjectLink.document_id == document_id)
+    )
+    links = result.scalars().all()
+
+    projects = []
+    for link in links:
+        if link.project:
+            proj = link.project
+            projects.append({
+                'link_id': link.id,
+                'link_type': link.link_type,
+                'notes': link.notes,
+                'project_id': proj.id,
+                'project_name': proj.project_name,
+                'district': proj.district,
+                'review_year': proj.review_year,
+                'case_type': proj.case_type,
+                'sub_case_name': proj.sub_case_name,
+                'case_handler': proj.case_handler,
+                'survey_unit': proj.survey_unit,
+                'start_point': proj.start_point,
+                'end_point': proj.end_point,
+                'road_length': float(proj.road_length) if proj.road_length else None,
+                'current_width': float(proj.current_width) if proj.current_width else None,
+                'planned_width': float(proj.planned_width) if proj.planned_width else None,
+                'review_result': proj.review_result,
+                'created_at': link.created_at.isoformat() if link.created_at else None,
+            })
+
+    return {
+        "success": True,
+        "document_id": document_id,
+        "projects": projects,
+        "total": len(projects)
+    }
+
+
+@router.post("/document/{document_id}/link-project", summary="將公文關聯到工程")
+async def link_project_to_document(
+    document_id: int,
+    project_id: int,
+    link_type: str = 'agency_incoming',  # agency_incoming 或 company_outgoing
+    notes: Optional[str] = None,
+    db: AsyncSession = Depends(get_async_db),
+    current_user = Depends(require_auth)
+):
+    """
+    以公文為主體，將公文直接關聯到指定的工程
+
+    link_type:
+    - agency_incoming: 機關來函（機關發文）
+    - company_outgoing: 乾坤發文
+    """
+    # 檢查公文是否存在
+    doc = await db.execute(select(Document).where(Document.id == document_id))
+    if not doc.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="公文不存在")
+
+    # 檢查工程是否存在
+    project = await db.execute(
+        select(TaoyuanProject).where(TaoyuanProject.id == project_id)
+    )
+    if not project.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="工程不存在")
+
+    # 檢查是否已存在關聯
+    existing = await db.execute(
+        select(TaoyuanDocumentProjectLink).where(
+            TaoyuanDocumentProjectLink.document_id == document_id,
+            TaoyuanDocumentProjectLink.taoyuan_project_id == project_id
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="此關聯已存在")
+
+    # 建立關聯
+    link = TaoyuanDocumentProjectLink(
+        document_id=document_id,
+        taoyuan_project_id=project_id,
+        link_type=link_type,
+        notes=notes
+    )
+    db.add(link)
+    await db.commit()
+    await db.refresh(link)
+
+    return {
+        "success": True,
+        "message": "關聯成功",
+        "link_id": link.id
+    }
+
+
+@router.post("/document/{document_id}/unlink-project/{link_id}", summary="移除公文與工程的關聯")
+async def unlink_project_from_document(
+    document_id: int,
+    link_id: int,
+    db: AsyncSession = Depends(get_async_db),
+    current_user = Depends(require_auth)
+):
+    """移除公文與工程的直接關聯"""
+    result = await db.execute(
+        select(TaoyuanDocumentProjectLink).where(
+            TaoyuanDocumentProjectLink.id == link_id,
+            TaoyuanDocumentProjectLink.document_id == document_id
+        )
+    )
+    link = result.scalar_one_or_none()
+    if not link:
+        raise HTTPException(status_code=404, detail="關聯不存在")
+
+    await db.delete(link)
+    await db.commit()
+    return {"success": True, "message": "移除關聯成功"}
+
+
+@router.post("/documents/batch-project-links", summary="批次查詢多筆公文的工程關聯")
+async def get_batch_document_project_links(
+    document_ids: List[int],
+    db: AsyncSession = Depends(get_async_db),
+    current_user = Depends(require_auth)
+):
+    """
+    批次查詢多筆公文的工程關聯
+    用於「工程關聯」Tab 一次載入所有公文的關聯狀態
+    """
+    result = await db.execute(
+        select(TaoyuanDocumentProjectLink)
+        .options(selectinload(TaoyuanDocumentProjectLink.project))
+        .where(TaoyuanDocumentProjectLink.document_id.in_(document_ids))
+    )
+    links = result.scalars().all()
+
+    # 按 document_id 分組
+    grouped = {}
+    for link in links:
+        doc_id = link.document_id
+        if doc_id not in grouped:
+            grouped[doc_id] = []
+        if link.project:
+            proj = link.project
+            grouped[doc_id].append({
+                'link_id': link.id,
+                'link_type': link.link_type,
+                'notes': link.notes,
+                'project_id': proj.id,
+                'project_name': proj.project_name,
+                'district': proj.district,
+                'review_year': proj.review_year,
+            })
+
+    return {
+        "success": True,
+        "data": grouped,
+        "total": len(links)
+    }
+
+
+# =============================================================================
+# 統計 API
+# =============================================================================
+@router.post("/statistics", response_model=TaoyuanStatisticsResponse, summary="桃園查估派工統計資料")
+async def get_statistics(
+    contract_project_id: int,
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    取得桃園查估派工統計資料
+
+    包含：
+    - 工程統計：總數、已派工、已完成、完成率
+    - 派工統計：總數、有機關函文、有乾坤函文、作業類別數
+    - 契金統計：本次派工金額、累進金額、剩餘金額、紀錄數
+    """
+    # 查詢工程統計
+    project_query = select(TaoyuanProject).filter(
+        TaoyuanProject.contract_project_id == contract_project_id
+    )
+    project_result = await db.execute(project_query)
+    projects = project_result.scalars().all()
+
+    total_projects = len(projects)
+    dispatched_count = sum(1 for p in projects if p.land_agreement_status or p.building_survey_status)
+    completed_count = sum(1 for p in projects if p.acceptance_status == '已驗收')
+    completion_rate = round((completed_count / total_projects * 100) if total_projects > 0 else 0, 1)
+
+    # 查詢派工統計
+    dispatch_query = select(TaoyuanDispatchOrder).filter(
+        TaoyuanDispatchOrder.contract_project_id == contract_project_id
+    )
+    dispatch_result = await db.execute(dispatch_query)
+    dispatches = dispatch_result.scalars().all()
+
+    total_dispatches = len(dispatches)
+    with_agency_doc = sum(1 for d in dispatches if d.agency_doc_id is not None)
+    with_company_doc = sum(1 for d in dispatches if d.company_doc_id is not None)
+    work_types = set(d.work_type for d in dispatches if d.work_type)
+    work_type_count = len(work_types)
+
+    # 查詢契金統計
+    # 先取得該專案所有派工單 ID
+    dispatch_ids = [d.id for d in dispatches]
+
+    if dispatch_ids:
+        payment_query = select(TaoyuanContractPayment).filter(
+            TaoyuanContractPayment.dispatch_order_id.in_(dispatch_ids)
+        )
+        payment_result = await db.execute(payment_query)
+        payments = payment_result.scalars().all()
+    else:
+        payments = []
+
+    total_current = sum(float(p.current_amount or 0) for p in payments)
+    total_cumulative = sum(float(p.cumulative_amount or 0) for p in payments)
+    total_remaining = sum(float(p.remaining_amount or 0) for p in payments)
+    payment_count = len(payments)
+
+    return TaoyuanStatisticsResponse(
+        success=True,
+        projects=ProjectStatistics(
+            total_count=total_projects,
+            dispatched_count=dispatched_count,
+            completed_count=completed_count,
+            completion_rate=completion_rate,
+        ),
+        dispatches=DispatchStatistics(
+            total_count=total_dispatches,
+            with_agency_doc_count=with_agency_doc,
+            with_company_doc_count=with_company_doc,
+            work_type_count=work_type_count,
+        ),
+        payments=PaymentStatistics(
+            total_current_amount=total_current,
+            total_cumulative_amount=total_cumulative,
+            total_remaining_amount=total_remaining,
+            payment_count=payment_count,
+        ),
+    )

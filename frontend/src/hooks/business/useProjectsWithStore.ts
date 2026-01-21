@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useCallback } from 'react';
-import { useProjectsStore, ProjectFilter } from '../store';
+import { useProjectsStore, ProjectFilter } from '../../store';
 import {
   useProjects,
   useProject,
@@ -20,8 +20,8 @@ import {
   useProjectCategoryOptions,
   useProjectStatusOptions,
 } from './useProjects';
-import type { Project, ProjectCreate, ProjectUpdate } from '../types/api';
-import type { ProjectListParams } from '../api/projectsApi';
+import type { Project, ProjectCreate, ProjectUpdate } from '../../types/api';
+import type { ProjectListParams } from '../../api/projectsApi';
 
 /**
  * 專案列表整合 Hook

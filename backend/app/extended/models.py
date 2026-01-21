@@ -1,7 +1,7 @@
 """
 擴展數據模型 - 四大功能模組 (已修復級聯刪除)
 """
-from sqlalchemy import Column, Integer, String, Float, Date, DateTime, ForeignKey, Text, Boolean, Table, func
+from sqlalchemy import Column, Integer, String, Float, Date, DateTime, ForeignKey, Text, Boolean, Table, func, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -496,7 +496,9 @@ class TaoyuanProject(Base):
     district = Column(String(50), index=True, comment="行政區")
     project_name = Column(String(500), nullable=False, index=True, comment="工程名稱")
     start_point = Column(String(200), comment="工程起點")
+    start_coordinate = Column(String(100), comment="起點坐標(經緯度)")
     end_point = Column(String(200), comment="工程迄點")
+    end_coordinate = Column(String(100), comment="迄點坐標(經緯度)")
     road_length = Column(Float, comment="道路長度(公尺)")
     current_width = Column(Float, comment="現況路寬")
     planned_width = Column(Float, comment="計畫路寬")
@@ -532,6 +534,7 @@ class TaoyuanProject(Base):
     # 關聯關係
     contract_project = relationship("ContractProject", backref="taoyuan_projects")
     dispatch_links = relationship("TaoyuanDispatchProjectLink", back_populates="project", cascade="all, delete-orphan")
+    document_links = relationship("TaoyuanDocumentProjectLink", back_populates="project", cascade="all, delete-orphan")
 
 
 class TaoyuanDispatchOrder(Base):
@@ -553,6 +556,7 @@ class TaoyuanDispatchOrder(Base):
     survey_unit = Column(String(100), comment="查估單位")
     cloud_folder = Column(String(500), comment="雲端資料夾")
     project_folder = Column(String(500), comment="專案資料夾")
+    contact_note = Column(String(500), comment="聯絡備註")
 
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now())
@@ -569,6 +573,9 @@ class TaoyuanDispatchOrder(Base):
 class TaoyuanDispatchProjectLink(Base):
     """派工-工程關聯（多對多）"""
     __tablename__ = "taoyuan_dispatch_project_link"
+    __table_args__ = (
+        UniqueConstraint('dispatch_order_id', 'taoyuan_project_id', name='uq_dispatch_project'),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     dispatch_order_id = Column(Integer, ForeignKey('taoyuan_dispatch_orders.id', ondelete='CASCADE'), nullable=False, index=True)
@@ -583,6 +590,9 @@ class TaoyuanDispatchProjectLink(Base):
 class TaoyuanDispatchDocumentLink(Base):
     """派工-公文關聯（歷程追蹤）"""
     __tablename__ = "taoyuan_dispatch_document_link"
+    __table_args__ = (
+        UniqueConstraint('dispatch_order_id', 'document_id', name='uq_dispatch_document'),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     dispatch_order_id = Column(Integer, ForeignKey('taoyuan_dispatch_orders.id', ondelete='CASCADE'), nullable=False, index=True)
@@ -593,6 +603,28 @@ class TaoyuanDispatchDocumentLink(Base):
     # 關聯關係
     dispatch_order = relationship("TaoyuanDispatchOrder", back_populates="document_links")
     document = relationship("OfficialDocument")
+
+
+class TaoyuanDocumentProjectLink(Base):
+    """公文-工程關聯（多對多）
+
+    用於將公文直接關聯到桃園工程，不經過派工單
+    """
+    __tablename__ = "taoyuan_document_project_link"
+    __table_args__ = (
+        UniqueConstraint('document_id', 'taoyuan_project_id', name='uq_document_project'),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    document_id = Column(Integer, ForeignKey('documents.id', ondelete='CASCADE'), nullable=False, index=True)
+    taoyuan_project_id = Column(Integer, ForeignKey('taoyuan_projects.id', ondelete='CASCADE'), nullable=False, index=True)
+    link_type = Column(String(20), nullable=True, comment="關聯類型：agency_incoming/company_outgoing")
+    notes = Column(String(500), nullable=True, comment="關聯備註")
+    created_at = Column(DateTime, server_default=func.now())
+
+    # 關聯關係
+    document = relationship("OfficialDocument")
+    project = relationship("TaoyuanProject", back_populates="document_links")
 
 
 class TaoyuanContractPayment(Base):

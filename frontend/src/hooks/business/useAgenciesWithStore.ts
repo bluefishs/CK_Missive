@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useCallback } from 'react';
-import { useAgenciesStore, AgencyFilter } from '../store';
+import { useAgenciesStore, AgencyFilter } from '../../store';
 import {
   useAgencies,
   useAgency,
@@ -16,8 +16,8 @@ import {
   useUpdateAgency,
   useDeleteAgency,
 } from './useAgencies';
-import type { Agency, AgencyCreate, AgencyUpdate, AgencyWithStats } from '../types/api';
-import type { AgencyListParams } from '../api/agenciesApi';
+import type { Agency, AgencyCreate, AgencyUpdate, AgencyWithStats } from '../../types/api';
+import type { AgencyListParams } from '../../api/agenciesApi';
 
 /**
  * 機關列表整合 Hook

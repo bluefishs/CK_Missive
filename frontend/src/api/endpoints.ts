@@ -385,14 +385,20 @@ export const TAOYUAN_DISPATCH_ENDPOINTS = {
   PROJECTS_DELETE: (id: number) => `/taoyuan-dispatch/projects/${id}/delete`,
   /** Excel 匯入工程 POST /taoyuan-dispatch/projects/import */
   PROJECTS_IMPORT: '/taoyuan-dispatch/projects/import',
-  /** 下載匯入範本 GET /taoyuan-dispatch/projects/import-template */
+  /** 下載匯入範本 POST /taoyuan-dispatch/projects/import-template */
   PROJECTS_IMPORT_TEMPLATE: '/taoyuan-dispatch/projects/import-template',
 
   // 派工紀錄
   /** 派工單列表 POST /taoyuan-dispatch/dispatch/list */
   DISPATCH_ORDERS_LIST: '/taoyuan-dispatch/dispatch/list',
+  /** 取得下一個派工單號 POST /taoyuan-dispatch/dispatch/next-dispatch-no */
+  DISPATCH_NEXT_NO: '/taoyuan-dispatch/dispatch/next-dispatch-no',
   /** 建立派工單 POST /taoyuan-dispatch/dispatch/create */
   DISPATCH_ORDERS_CREATE: '/taoyuan-dispatch/dispatch/create',
+  /** Excel 匯入派工紀錄 POST /taoyuan-dispatch/dispatch/import */
+  DISPATCH_IMPORT: '/taoyuan-dispatch/dispatch/import',
+  /** 下載派工紀錄匯入範本 POST /taoyuan-dispatch/dispatch/import-template */
+  DISPATCH_IMPORT_TEMPLATE: '/taoyuan-dispatch/dispatch/import-template',
   /** 派工單詳情 POST /taoyuan-dispatch/dispatch/:id/detail */
   DISPATCH_ORDERS_DETAIL: (id: number) => `/taoyuan-dispatch/dispatch/${id}/detail`,
   /** 更新派工單 POST /taoyuan-dispatch/dispatch/:id/update */
@@ -408,6 +414,42 @@ export const TAOYUAN_DISPATCH_ENDPOINTS = {
   /** 取得派工單公文 POST /taoyuan-dispatch/dispatch/:id/documents */
   DISPATCH_DOCUMENTS: (id: number) => `/taoyuan-dispatch/dispatch/${id}/documents`,
 
+  // 公文歷程匹配 (對應原始需求欄位 14-17)
+  /** 匹配公文歷程 POST /taoyuan-dispatch/dispatch/match-documents */
+  MATCH_DOCUMENTS: '/taoyuan-dispatch/dispatch/match-documents',
+  /** 派工單詳情含公文歷程 POST /taoyuan-dispatch/dispatch/:id/detail-with-history */
+  DISPATCH_DETAIL_WITH_HISTORY: (id: number) => `/taoyuan-dispatch/dispatch/${id}/detail-with-history`,
+
+  // 以公文為主體的關聯 API
+  /** 查詢公文關聯的派工單 POST /taoyuan-dispatch/document/:id/dispatch-links */
+  DOCUMENT_DISPATCH_LINKS: (id: number) => `/taoyuan-dispatch/document/${id}/dispatch-links`,
+  /** 將公文關聯到派工單 POST /taoyuan-dispatch/document/:id/link-dispatch */
+  DOCUMENT_LINK_DISPATCH: (id: number) => `/taoyuan-dispatch/document/${id}/link-dispatch`,
+  /** 移除公文與派工的關聯 POST /taoyuan-dispatch/document/:docId/unlink-dispatch/:linkId */
+  DOCUMENT_UNLINK_DISPATCH: (docId: number, linkId: number) => `/taoyuan-dispatch/document/${docId}/unlink-dispatch/${linkId}`,
+  /** 批次查詢多筆公文的派工關聯 POST /taoyuan-dispatch/documents/batch-dispatch-links */
+  DOCUMENTS_BATCH_DISPATCH_LINKS: '/taoyuan-dispatch/documents/batch-dispatch-links',
+
+  // 以工程為主體的關聯 API
+  /** 查詢工程關聯的派工單 POST /taoyuan-dispatch/project/:id/dispatch-links */
+  PROJECT_DISPATCH_LINKS: (id: number) => `/taoyuan-dispatch/project/${id}/dispatch-links`,
+  /** 將工程關聯到派工單 POST /taoyuan-dispatch/project/:id/link-dispatch */
+  PROJECT_LINK_DISPATCH: (id: number) => `/taoyuan-dispatch/project/${id}/link-dispatch`,
+  /** 移除工程與派工的關聯 POST /taoyuan-dispatch/project/:projId/unlink-dispatch/:linkId */
+  PROJECT_UNLINK_DISPATCH: (projId: number, linkId: number) => `/taoyuan-dispatch/project/${projId}/unlink-dispatch/${linkId}`,
+  /** 批次查詢多筆工程的派工關聯 POST /taoyuan-dispatch/projects/batch-dispatch-links */
+  PROJECTS_BATCH_DISPATCH_LINKS: '/taoyuan-dispatch/projects/batch-dispatch-links',
+
+  // 公文-工程直接關聯 API (不經過派工單)
+  /** 查詢公文關聯的工程 POST /taoyuan-dispatch/document/:id/project-links */
+  DOCUMENT_PROJECT_LINKS: (id: number) => `/taoyuan-dispatch/document/${id}/project-links`,
+  /** 將公文關聯到工程 POST /taoyuan-dispatch/document/:id/link-project */
+  DOCUMENT_LINK_PROJECT: (id: number) => `/taoyuan-dispatch/document/${id}/link-project`,
+  /** 移除公文與工程的關聯 POST /taoyuan-dispatch/document/:docId/unlink-project/:linkId */
+  DOCUMENT_UNLINK_PROJECT: (docId: number, linkId: number) => `/taoyuan-dispatch/document/${docId}/unlink-project/${linkId}`,
+  /** 批次查詢多筆公文的工程關聯 POST /taoyuan-dispatch/documents/batch-project-links */
+  DOCUMENTS_BATCH_PROJECT_LINKS: '/taoyuan-dispatch/documents/batch-project-links',
+
   // 契金管控
   /** 契金列表 POST /taoyuan-dispatch/payments/list */
   PAYMENTS_LIST: '/taoyuan-dispatch/payments/list',
@@ -421,6 +463,10 @@ export const TAOYUAN_DISPATCH_ENDPOINTS = {
   // 總控表
   /** 總控表查詢 POST /taoyuan-dispatch/master-control */
   MASTER_CONTROL: '/taoyuan-dispatch/master-control',
+
+  // 統計資料
+  /** 桃園查估派工統計 POST /taoyuan-dispatch/statistics */
+  STATISTICS: '/taoyuan-dispatch/statistics',
 } as const;
 
 // ============================================================================

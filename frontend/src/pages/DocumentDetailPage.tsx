@@ -34,6 +34,7 @@ import {
   Alert,
   Descriptions,
   Divider,
+  Typography,
 } from 'antd';
 import {
   FileTextOutlined,
@@ -52,8 +53,28 @@ import {
   CloudUploadOutlined,
   FileOutlined,
   LoadingOutlined,
+  SendOutlined,
+  PlusOutlined,
+  LinkOutlined,
+  EnvironmentOutlined,
   // CopyOutlined, // 複製功能已隱藏
 } from '@ant-design/icons';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  dispatchOrdersApi,
+  documentLinksApi,
+  documentProjectLinksApi,
+  taoyuanProjectsApi,
+} from '../api/taoyuanDispatchApi';
+import type {
+  DispatchOrder,
+  DispatchOrderCreate,
+  TaoyuanProject,
+  DocumentDispatchLink,
+  DocumentProjectLink,
+  LinkType,
+} from '../types/api';
+import { isReceiveDocument } from '../types/api';
 import dayjs from 'dayjs';
 import {
   DetailPageLayout,
@@ -66,10 +87,14 @@ import { apiClient } from '../api/client';
 import { Document } from '../types';
 import { IntegratedEventModal } from '../components/calendar/IntegratedEventModal';
 import { logger } from '../utils/logger';
+import { getProjectAgencyContacts, type ProjectAgencyContact } from '../api/projectAgencyContacts';
+import { projectVendorsApi, type ProjectVendor } from '../api/projectVendorsApi';
+import { TAOYUAN_CONTRACT } from '../constants/taoyuanOptions';
 
 const { TextArea } = Input;
 const { Option } = Select;
 const { Dragger } = Upload;
+const { Text } = Typography;
 
 // =============================================================================
 // 常數定義
@@ -145,7 +170,7 @@ export const DocumentDetailPage: React.FC = () => {
   const [usersLoading, setUsersLoading] = useState(false);
   const [projectStaffMap, setProjectStaffMap] = useState<Record<number, any[]>>({});
   const [staffLoading, setStaffLoading] = useState(false);
-  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+  const [selectedContractProjectId, setSelectedContractProjectId] = useState<number | null>(null);
   const projectStaffCacheRef = React.useRef<Record<number, any[]>>({});
 
   // 儲存 assignee 的狀態（作為備用）
@@ -160,9 +185,84 @@ export const DocumentDetailPage: React.FC = () => {
   // 行事曆整合式事件模態框
   const [showIntegratedEventModal, setShowIntegratedEventModal] = useState(false);
 
+  // 派工安排相關狀態
+  const [dispatchLinks, setDispatchLinks] = useState<DocumentDispatchLink[]>([]);
+  const [dispatchLinksLoading, setDispatchLinksLoading] = useState(false);
+  const [dispatchForm] = Form.useForm();
+  const queryClient = useQueryClient();
+
+  // 工程關聯相關狀態
+  const [projectLinks, setProjectLinks] = useState<DocumentProjectLink[]>([]);
+  const [projectLinksLoading, setProjectLinksLoading] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<number>();
+  const [projectSearch, setProjectSearch] = useState('');
+  const [linkingProject, setLinkingProject] = useState(false);
+
+  // 桃園派工作業類別 (匹配後端 WORK_TYPES)
+  const TAOYUAN_WORK_TYPES_LIST = [
+    '#0.專案行政作業',
+    '00.專案會議',
+    '01.地上物查估作業',
+    '02.土地協議市價查估作業',
+    '03.土地徵收市價查估作業',
+    '04.相關計畫書製作',
+    '05.測量作業',
+    '06.樁位測釘作業',
+    '07.辦理教育訓練',
+    '08.作業提繳事項',
+  ];
+
+  // 查詢機關承辦清單（用於派工安排的案件承辦下拉選單）
+  const { data: agencyContactsData } = useQuery({
+    queryKey: ['agency-contacts-for-dispatch', TAOYUAN_CONTRACT.PROJECT_ID],
+    queryFn: () => getProjectAgencyContacts(TAOYUAN_CONTRACT.PROJECT_ID),
+    enabled: isEditing, // 只在編輯模式才載入
+  });
+  const agencyContacts = agencyContactsData?.items ?? [];
+
+  // 查詢協力廠商清單（用於派工安排的查估單位下拉選單）
+  const { data: vendorsData } = useQuery({
+    queryKey: ['project-vendors-for-dispatch', TAOYUAN_CONTRACT.PROJECT_ID],
+    queryFn: () => projectVendorsApi.getProjectVendors(TAOYUAN_CONTRACT.PROJECT_ID),
+    enabled: isEditing, // 只在編輯模式才載入
+  });
+  const projectVendors = vendorsData?.associations ?? [];
+
   // =============================================================================
   // 資料載入
   // =============================================================================
+
+  /** 載入公文關聯的派工紀錄 */
+  const loadDispatchLinks = useCallback(async () => {
+    if (!id) return;
+    setDispatchLinksLoading(true);
+    try {
+      const docId = parseInt(id, 10);
+      const result = await documentLinksApi.getDispatchLinks(docId);
+      setDispatchLinks(result.dispatch_orders || []);
+    } catch (error) {
+      console.error('載入派工關聯失敗:', error);
+      setDispatchLinks([]);
+    } finally {
+      setDispatchLinksLoading(false);
+    }
+  }, [id]);
+
+  /** 載入公文關聯的工程紀錄 */
+  const loadProjectLinks = useCallback(async () => {
+    if (!id) return;
+    setProjectLinksLoading(true);
+    try {
+      const docId = parseInt(id, 10);
+      const result = await documentProjectLinksApi.getProjectLinks(docId);
+      setProjectLinks(result.projects || []);
+    } catch (error) {
+      console.error('載入工程關聯失敗:', error);
+      setProjectLinks([]);
+    } finally {
+      setProjectLinksLoading(false);
+    }
+  }, [id]);
 
   /** 載入公文資料 */
   const loadDocument = useCallback(async () => {
@@ -209,7 +309,7 @@ export const DocumentDetailPage: React.FC = () => {
       const projectId = (doc as any).contract_project_id;
       logger.debug('[loadDocument] contract_project_id:', projectId);
       if (projectId) {
-        setSelectedProjectId(projectId);
+        setSelectedContractProjectId(projectId);
         // 等待專案同仁載入完成
         const staffList = await fetchProjectStaff(projectId);
         logger.debug('[loadDocument] 載入專案同仁完成:', staffList);
@@ -330,7 +430,40 @@ export const DocumentDetailPage: React.FC = () => {
     loadCases();
     loadUsers();
     loadFileSettings();
-  }, [loadDocument]);
+    loadDispatchLinks();
+    loadProjectLinks();
+  }, [loadDocument, loadDispatchLinks, loadProjectLinks]);
+
+  // 當公文載入完成後且進入編輯模式時，自動設定派工表單的機關/乾坤函文號
+  // 只在 isEditing 為 true 時才設定，避免 useForm 未連接 Form 元件的警告
+  useEffect(() => {
+    if (document?.doc_number && isEditing) {
+      const isReceiveDoc = isReceiveDocument(document.category);
+      dispatchForm.setFieldsValue({
+        agency_doc_no: isReceiveDoc ? document.doc_number : undefined,
+        company_doc_no: !isReceiveDoc ? document.doc_number : undefined,
+      });
+    }
+  }, [document?.doc_number, document?.category, dispatchForm, isEditing]);
+
+  // 當進入編輯模式時，自動載入下一個派工單號
+  useEffect(() => {
+    if (isEditing) {
+      const loadNextDispatchNo = async () => {
+        try {
+          const result = await dispatchOrdersApi.getNextDispatchNo();
+          if (result.success && result.next_dispatch_no) {
+            dispatchForm.setFieldsValue({
+              dispatch_no: result.next_dispatch_no,
+            });
+          }
+        } catch (error) {
+          console.error('載入派工單號失敗:', error);
+        }
+      };
+      loadNextDispatchNo();
+    }
+  }, [isEditing, dispatchForm]);
 
   // =============================================================================
   // 事件處理
@@ -421,19 +554,19 @@ export const DocumentDetailPage: React.FC = () => {
     form.setFieldsValue({ contract_project_id: effectiveProjectId });
 
     if (!effectiveProjectId) {
-      setSelectedProjectId(null);
+      setSelectedContractProjectId(null);
       form.setFieldsValue({ assignee: [] });
       return;
     }
 
     const staffList = await fetchProjectStaff(effectiveProjectId);
     if (!staffList || staffList.length === 0) {
-      setSelectedProjectId(effectiveProjectId);
+      setSelectedContractProjectId(effectiveProjectId);
       message.info('此專案尚無指派業務同仁');
       return;
     }
 
-    setSelectedProjectId(effectiveProjectId);
+    setSelectedContractProjectId(effectiveProjectId);
 
     setTimeout(() => {
       const currentStaff = projectStaffCacheRef.current[effectiveProjectId];
@@ -830,7 +963,7 @@ export const DocumentDetailPage: React.FC = () => {
     // 建立業務同仁選項
     const buildAssigneeOptions = () => {
       // 專案業務同仁選項
-      const staffList = selectedProjectId ? projectStaffMap[selectedProjectId] : undefined;
+      const staffList = selectedContractProjectId ? projectStaffMap[selectedContractProjectId] : undefined;
       const projectStaffOptions =
         staffList && staffList.length > 0
           ? staffList.map((staff) => ({
@@ -1071,6 +1204,717 @@ export const DocumentDetailPage: React.FC = () => {
     </Spin>
   );
 
+  // 搜尋派工紀錄的狀態
+  const [dispatchSearch, setDispatchSearch] = useState('');
+  const [selectedDispatchId, setSelectedDispatchId] = useState<number | undefined>();
+  const [linkingDispatch, setLinkingDispatch] = useState(false);
+
+  // 查詢可關聯的派工紀錄（排除已關聯的）
+  const { data: availableDispatches } = useQuery({
+    queryKey: ['dispatch-orders-for-link', dispatchSearch],
+    queryFn: async () => {
+      const result = await dispatchOrdersApi.getList({
+        search: dispatchSearch || undefined,
+        page: 1,
+        limit: 50,
+      });
+      return result;
+    },
+    enabled: isEditing,
+  });
+
+  // 查詢可關聯的工程（排除已關聯的）
+  const { data: availableProjects } = useQuery({
+    queryKey: ['projects-for-link', projectSearch],
+    queryFn: async () => {
+      const result = await taoyuanProjectsApi.getList({
+        search: projectSearch || undefined,
+        page: 1,
+        limit: 50,
+      });
+      return result;
+    },
+    enabled: isEditing,
+  });
+
+  /** Tab 5: 派工安排 */
+  const renderDispatchTab = () => {
+    // 判斷當前公文類型 (收文/發文)
+    // 注意：category 可能是中文「收文」/「發文」或英文 'receive'/'send'
+    const isReceiveDoc = isReceiveDocument(document?.category);
+    const linkType = isReceiveDoc ? 'agency_incoming' : 'company_outgoing';
+
+    // 已關聯的派工 ID 列表，用於過濾
+    const linkedDispatchIds = dispatchLinks.map(link => link.dispatch_order_id);
+
+    // 過濾掉已關聯的派工
+    const filteredDispatches = (availableDispatches?.items ?? []).filter(
+      (dispatch: DispatchOrder) => !linkedDispatchIds.includes(dispatch.id)
+    );
+
+    // 新增派工
+    const handleCreateDispatch = async () => {
+      try {
+        const values = await dispatchForm.validateFields();
+        const docId = parseInt(id || '0', 10);
+
+        // 建立派工單，自動關聯當前公文
+        const dispatchData: DispatchOrderCreate = {
+          dispatch_no: values.dispatch_no,
+          project_name: values.project_name || document?.subject || '',
+          work_type: values.work_type,
+          sub_case_name: values.sub_case_name,
+          deadline: values.deadline,
+          case_handler: values.case_handler,
+          survey_unit: values.survey_unit,
+          contact_note: values.contact_note,
+          cloud_folder: values.cloud_folder,
+          project_folder: values.project_folder,
+          contract_project_id: (document as any)?.contract_project_id || undefined,
+          // 自動關聯當前公文 ID
+          agency_doc_id: isReceiveDoc ? docId : undefined,
+          company_doc_id: !isReceiveDoc ? docId : undefined,
+        };
+
+        logger.debug('[handleCreateDispatch] 建立派工單:', dispatchData);
+        const newDispatch = await dispatchOrdersApi.create(dispatchData);
+        logger.debug('[handleCreateDispatch] 派工單建立成功:', newDispatch);
+
+        if (!newDispatch || !newDispatch.id) {
+          throw new Error('派工單建立失敗：未取得派工單 ID');
+        }
+
+        // 關聯到此公文
+        logger.debug('[handleCreateDispatch] 建立公文關聯:', { docId, dispatchId: newDispatch.id, linkType });
+        await documentLinksApi.linkDispatch(docId, newDispatch.id, linkType);
+        logger.debug('[handleCreateDispatch] 公文關聯建立成功');
+
+        message.success('派工新增成功');
+
+        // 先重新載入關聯列表，確保資料更新
+        await loadDispatchLinks();
+
+        // 再重置表單
+        dispatchForm.resetFields();
+
+        // 刷新派工紀錄列表
+        queryClient.invalidateQueries({ queryKey: ['dispatch-orders'] });
+        queryClient.invalidateQueries({ queryKey: ['dispatch-orders-for-link'] });
+      } catch (error: any) {
+        logger.error('[handleCreateDispatch] 錯誤:', error);
+        message.error(error?.message || '新增派工失敗');
+      }
+    };
+
+    // 關聯已有派工
+    const handleLinkExistingDispatch = async () => {
+      if (!selectedDispatchId) {
+        message.warning('請選擇要關聯的派工紀錄');
+        return;
+      }
+      setLinkingDispatch(true);
+      try {
+        const docId = parseInt(id || '0', 10);
+        await documentLinksApi.linkDispatch(docId, selectedDispatchId, linkType);
+        message.success('關聯成功');
+        setSelectedDispatchId(undefined);
+        // 先重新載入關聯列表，確保資料更新
+        await loadDispatchLinks();
+        queryClient.invalidateQueries({ queryKey: ['dispatch-orders-for-link'] });
+      } catch (error: any) {
+        message.error(error?.message || '關聯失敗');
+      } finally {
+        setLinkingDispatch(false);
+      }
+    };
+
+    // 移除關聯
+    const handleUnlinkDispatch = async (linkId: number) => {
+      try {
+        const docId = parseInt(id || '0', 10);
+        await documentLinksApi.unlinkDispatch(docId, linkId);
+        message.success('已移除關聯');
+        // 先重新載入關聯列表，確保資料更新
+        await loadDispatchLinks();
+        queryClient.invalidateQueries({ queryKey: ['dispatch-orders-for-link'] });
+      } catch (error) {
+        message.error('移除關聯失敗');
+      }
+    };
+
+    return (
+      <Spin spinning={dispatchLinksLoading}>
+        {/* 已關聯派工列表 - 完整顯示派工資訊 */}
+        {dispatchLinks.length > 0 && (
+          <Card
+            size="small"
+            title={
+              <Space>
+                <SendOutlined />
+                <span>已關聯派工（{dispatchLinks.length} 筆）</span>
+              </Space>
+            }
+            style={{ marginBottom: 16 }}
+          >
+            {dispatchLinks.map((item, index) => (
+              <Card
+                key={item.link_id}
+                size="small"
+                type="inner"
+                style={{ marginBottom: index < dispatchLinks.length - 1 ? 12 : 0 }}
+                title={
+                  <Space>
+                    <SendOutlined style={{ color: item.link_type === 'agency_incoming' ? '#1890ff' : '#52c41a' }} />
+                    <Tag color={item.link_type === 'agency_incoming' ? 'blue' : 'green'}>
+                      {item.dispatch_no}
+                    </Tag>
+                    <span>{item.project_name || '(無工程名稱)'}</span>
+                    <Tag>{item.link_type === 'agency_incoming' ? '機關來函派工' : '乾坤發文派工'}</Tag>
+                  </Space>
+                }
+                extra={
+                  <Space>
+                    <Button
+                      type="link"
+                      size="small"
+                      onClick={() => navigate(`/taoyuan/dispatch/${item.dispatch_order_id}`)}
+                    >
+                      查看詳情
+                    </Button>
+                    {isEditing && (
+                      <Popconfirm
+                        title="確定要移除此派工關聯嗎？"
+                        onConfirm={() => handleUnlinkDispatch(item.link_id)}
+                        okText="確定"
+                        cancelText="取消"
+                      >
+                        <Button type="link" size="small" danger>
+                          移除關聯
+                        </Button>
+                      </Popconfirm>
+                    )}
+                  </Space>
+                }
+              >
+                {/* 派工基本資訊 - 使用 Row/Col 布局 */}
+                <Row gutter={[16, 8]} style={{ marginBottom: 12 }}>
+                  <Col xs={24} sm={8}>
+                    <Text type="secondary">作業類別：</Text>
+                    <Text strong>{item.work_type || '-'}</Text>
+                  </Col>
+                  <Col xs={24} sm={8}>
+                    <Text type="secondary">履約期限：</Text>
+                    <Text strong style={{ color: '#fa8c16' }}>{item.deadline || '-'}</Text>
+                  </Col>
+                  <Col xs={24} sm={8}>
+                    <Text type="secondary">建立時間：</Text>
+                    <Text>{item.created_at ? dayjs(item.created_at).format('YYYY-MM-DD HH:mm') : '-'}</Text>
+                  </Col>
+                </Row>
+
+                {/* 承辦資訊 */}
+                <Row gutter={[16, 8]} style={{ marginBottom: 12 }}>
+                  <Col xs={24} sm={8}>
+                    <Text type="secondary">案件承辦：</Text>
+                    <Text>{item.case_handler || '-'}</Text>
+                  </Col>
+                  <Col xs={24} sm={8}>
+                    <Text type="secondary">查估單位：</Text>
+                    <Text>{item.survey_unit || '-'}</Text>
+                  </Col>
+                  <Col xs={24} sm={8}>
+                    <Text type="secondary">分案名稱：</Text>
+                    <Text>{item.sub_case_name || '-'}</Text>
+                  </Col>
+                </Row>
+
+                {/* 聯絡備註 - 獨立顯示 */}
+                {item.contact_note && (
+                  <div style={{ marginBottom: 12, padding: '8px 12px', backgroundColor: '#fffbe6', borderRadius: 4 }}>
+                    <Text type="secondary">聯絡備註：</Text>
+                    <div style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{item.contact_note}</div>
+                  </div>
+                )}
+
+                {/* 資料夾連結 */}
+                <Row gutter={[16, 8]} style={{ marginBottom: 12 }}>
+                  <Col xs={24} sm={12}>
+                    <Text type="secondary">雲端資料夾：</Text>
+                    {item.cloud_folder ? (
+                      <a href={item.cloud_folder} target="_blank" rel="noopener noreferrer" style={{ wordBreak: 'break-all' }}>
+                        {item.cloud_folder}
+                      </a>
+                    ) : <Text type="secondary">-</Text>}
+                  </Col>
+                  <Col xs={24} sm={12}>
+                    <Text type="secondary">專案資料夾：</Text>
+                    <Text copyable={!!item.project_folder} style={{ wordBreak: 'break-all' }}>
+                      {item.project_folder || '-'}
+                    </Text>
+                  </Col>
+                </Row>
+
+                {/* 公文關聯 */}
+                <Divider style={{ margin: '8px 0' }} />
+                <Row gutter={[16, 8]}>
+                  <Col xs={24} sm={12}>
+                    <Text type="secondary">機關函文號：</Text>
+                    <Text>{item.agency_doc_number || '-'}</Text>
+                  </Col>
+                  <Col xs={24} sm={12}>
+                    <Text type="secondary">乾坤函文號：</Text>
+                    <Text>{item.company_doc_number || '-'}</Text>
+                  </Col>
+                </Row>
+              </Card>
+            ))}
+          </Card>
+        )}
+
+        {/* 新增派工表單 - 編輯模式才顯示，排版與「新增派工單」完全一致 */}
+        {isEditing && (
+          <Card
+            size="small"
+            title={
+              <Space>
+                <PlusOutlined />
+                <span>新增派工</span>
+              </Space>
+            }
+          >
+            <Form form={dispatchForm} layout="vertical" size="small">
+              {/* 第一行：派工單號 + 工程名稱/派工事項 */}
+              <Row gutter={16}>
+                <Col span={8}>
+                  <Form.Item
+                    name="dispatch_no"
+                    label="派工單號"
+                    rules={[{ required: true, message: '請輸入派工單號' }]}
+                  >
+                    <Input placeholder="例: TY-2026-001" />
+                  </Form.Item>
+                </Col>
+                <Col span={16}>
+                  <Form.Item name="project_name" label="工程名稱/派工事項">
+                    <Input placeholder="派工事項說明" />
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              {/* 第二行：作業類別 + 分案名稱/派工備註 + 履約期限 */}
+              <Row gutter={16}>
+                <Col span={8}>
+                  <Form.Item name="work_type" label="作業類別">
+                    <Select allowClear placeholder="選擇作業類別">
+                      {TAOYUAN_WORK_TYPES_LIST.map((type) => (
+                        <Option key={type} value={type}>
+                          {type}
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item name="sub_case_name" label="分案名稱/派工備註">
+                    <Input />
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item name="deadline" label="履約期限">
+                    <Input placeholder="例: 114/12/31" />
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              {/* 第三行：案件承辦 + 查估單位 + 聯絡備註 */}
+              <Row gutter={16}>
+                <Col span={8}>
+                  <Form.Item
+                    name="case_handler"
+                    label="案件承辦"
+                    tooltip="從機關承辦清單選擇"
+                  >
+                    <Select
+                      placeholder="選擇案件承辦"
+                      allowClear
+                      showSearch
+                      optionFilterProp="label"
+                    >
+                      {agencyContacts.map((contact: ProjectAgencyContact) => (
+                        <Option
+                          key={contact.id}
+                          value={contact.contact_name}
+                          label={contact.contact_name}
+                        >
+                          <div style={{ lineHeight: 1.4 }}>
+                            <div>{contact.contact_name}</div>
+                            {(contact.position || contact.department) && (
+                              <Text type="secondary" style={{ fontSize: 11 }}>
+                                {[contact.position, contact.department].filter(Boolean).join(' / ')}
+                              </Text>
+                            )}
+                          </div>
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item
+                    name="survey_unit"
+                    label="查估單位"
+                    tooltip="從協力廠商清單選擇"
+                  >
+                    <Select
+                      placeholder="選擇查估單位"
+                      allowClear
+                      showSearch
+                      optionFilterProp="label"
+                    >
+                      {projectVendors.map((vendor: ProjectVendor) => (
+                        <Option
+                          key={vendor.vendor_id}
+                          value={vendor.vendor_name}
+                          label={vendor.vendor_name}
+                        >
+                          <div style={{ lineHeight: 1.4 }}>
+                            <div>{vendor.vendor_name}</div>
+                            {(vendor.role || vendor.vendor_business_type) && (
+                              <Text type="secondary" style={{ fontSize: 11 }}>
+                                {[vendor.role, vendor.vendor_business_type].filter(Boolean).join(' / ')}
+                              </Text>
+                            )}
+                          </div>
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item name="contact_note" label="聯絡備註">
+                    <Input />
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              {/* 第四行：雲端資料夾 + 專案資料夾 */}
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item name="cloud_folder" label="雲端資料夾">
+                    <Input placeholder="Google Drive 連結" />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item name="project_folder" label="專案資料夾">
+                    <Input placeholder="本地路徑" />
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              {/* 公文關聯區塊 - 自動帶入當前公文 */}
+              <Divider style={{ margin: '16px 0' }} />
+              <div style={{ marginBottom: 16 }}>
+                <Space>
+                  <FileTextOutlined />
+                  <span style={{ fontWeight: 500 }}>公文關聯</span>
+                  <Tag color={isReceiveDoc ? 'blue' : 'green'}>
+                    {isReceiveDoc ? '收文' : '發文'}
+                  </Tag>
+                </Space>
+              </div>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item
+                    label="機關函文號"
+                    tooltip={isReceiveDoc ? '自動帶入當前公文文號' : '如需關聯機關函文，請至派工紀錄編輯'}
+                  >
+                    <Input
+                      value={isReceiveDoc ? document?.doc_number : undefined}
+                      disabled
+                      style={{ backgroundColor: '#f5f5f5' }}
+                      placeholder={isReceiveDoc ? '' : '(非機關來函)'}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item
+                    label="乾坤函文號"
+                    tooltip={!isReceiveDoc ? '自動帶入當前公文文號' : '如需關聯乾坤函文，請至派工紀錄編輯'}
+                  >
+                    <Input
+                      value={!isReceiveDoc ? document?.doc_number : undefined}
+                      disabled
+                      style={{ backgroundColor: '#f5f5f5' }}
+                      placeholder={!isReceiveDoc ? '' : '(非乾坤發文)'}
+                    />
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              <Form.Item style={{ marginBottom: 0, marginTop: 16 }}>
+                <Button type="primary" onClick={handleCreateDispatch}>
+                  建立派工
+                </Button>
+              </Form.Item>
+            </Form>
+          </Card>
+        )}
+
+        {/* 關聯已有派工 - 編輯模式才顯示 */}
+        {isEditing && (
+          <Card
+            size="small"
+            title={
+              <Space>
+                <LinkOutlined />
+                <span>關聯已有派工</span>
+              </Space>
+            }
+            style={{ marginTop: 16 }}
+          >
+            <Row gutter={16} align="middle">
+              <Col flex="auto">
+                <Select
+                  showSearch
+                  allowClear
+                  placeholder="搜尋並選擇已有的派工紀錄"
+                  value={selectedDispatchId}
+                  onChange={setSelectedDispatchId}
+                  onSearch={setDispatchSearch}
+                  filterOption={false}
+                  style={{ width: '100%' }}
+                  notFoundContent={filteredDispatches.length === 0 ? '無可關聯的派工紀錄' : '輸入關鍵字搜尋'}
+                  options={filteredDispatches.map((dispatch: DispatchOrder) => ({
+                    value: dispatch.id,
+                    label: (
+                      <span>
+                        <Tag color="blue" style={{ marginRight: 8 }}>{dispatch.dispatch_no}</Tag>
+                        {dispatch.project_name || '(無工程名稱)'}
+                        {dispatch.work_type && <span style={{ color: '#999', marginLeft: 8 }}>- {dispatch.work_type}</span>}
+                      </span>
+                    ),
+                  }))}
+                />
+              </Col>
+              <Col>
+                <Button
+                  type="primary"
+                  icon={<LinkOutlined />}
+                  onClick={handleLinkExistingDispatch}
+                  loading={linkingDispatch}
+                  disabled={!selectedDispatchId}
+                >
+                  關聯
+                </Button>
+              </Col>
+            </Row>
+            <div style={{ marginTop: 8, fontSize: 12, color: '#999' }}>
+              提示：選擇已存在的派工紀錄進行關聯，該派工的「{isReceiveDoc ? '機關函文號' : '乾坤函文號'}」將自動更新為當前公文文號
+            </div>
+          </Card>
+        )}
+
+        {/* 非編輯模式提示 */}
+        {!isEditing && dispatchLinks.length === 0 && (
+          <Empty
+            description="此公文尚無關聯派工"
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+          >
+            <Text type="secondary">點擊右上方「編輯」按鈕可新增派工關聯</Text>
+          </Empty>
+        )}
+      </Spin>
+    );
+  };
+
+  /** Tab 6: 工程關聯 */
+  const renderProjectLinkTab = () => {
+    // 判斷當前公文類型 (收文/發文)
+    const isReceiveDoc = isReceiveDocument(document?.category);
+    const linkType = isReceiveDoc ? 'agency_incoming' : 'company_outgoing';
+
+    // 已關聯的工程 ID 列表，用於過濾
+    const linkedProjectIds = projectLinks.map(link => link.project_id);
+
+    // 過濾掉已關聯的工程
+    const filteredProjects = (availableProjects?.items ?? []).filter(
+      (project: TaoyuanProject) => !linkedProjectIds.includes(project.id)
+    );
+
+    // 關聯已有工程
+    const handleLinkExistingProject = async () => {
+      if (!selectedProjectId) {
+        message.warning('請選擇要關聯的工程');
+        return;
+      }
+      setLinkingProject(true);
+      try {
+        const docId = parseInt(id || '0', 10);
+        await documentProjectLinksApi.linkProject(docId, selectedProjectId, linkType);
+        message.success('關聯成功');
+        setSelectedProjectId(undefined);
+        loadProjectLinks();
+        queryClient.invalidateQueries({ queryKey: ['projects-for-link'] });
+      } catch (error: any) {
+        message.error(error?.message || '關聯失敗');
+      } finally {
+        setLinkingProject(false);
+      }
+    };
+
+    // 移除關聯
+    const handleUnlinkProject = async (linkId: number) => {
+      try {
+        const docId = parseInt(id || '0', 10);
+        await documentProjectLinksApi.unlinkProject(docId, linkId);
+        message.success('已移除關聯');
+        loadProjectLinks();
+        queryClient.invalidateQueries({ queryKey: ['projects-for-link'] });
+      } catch (error) {
+        message.error('移除關聯失敗');
+      }
+    };
+
+    return (
+      <Spin spinning={projectLinksLoading}>
+        {/* 已關聯工程列表 - 完整顯示工程資訊 */}
+        {projectLinks.length > 0 && (
+          <Card
+            size="small"
+            title={
+              <Space>
+                <EnvironmentOutlined />
+                <span>已關聯工程（{projectLinks.length} 筆）</span>
+              </Space>
+            }
+            style={{ marginBottom: 16 }}
+          >
+            {projectLinks.map((item, index) => (
+              <Card
+                key={item.link_id}
+                size="small"
+                type="inner"
+                style={{ marginBottom: index < projectLinks.length - 1 ? 12 : 0 }}
+                title={
+                  <Space>
+                    <EnvironmentOutlined style={{ color: '#52c41a' }} />
+                    <Tag color="green">{item.district || '未分區'}</Tag>
+                    <span>{item.project_name || '(無工程名稱)'}</span>
+                    <Tag>{item.link_type === 'agency_incoming' ? '機關來函' : '乾坤發文'}</Tag>
+                  </Space>
+                }
+                extra={
+                  isEditing && (
+                    <Popconfirm
+                      title="確定要移除此工程關聯嗎？"
+                      onConfirm={() => handleUnlinkProject(item.link_id)}
+                      okText="確定"
+                      cancelText="取消"
+                    >
+                      <Button type="link" size="small" danger>
+                        移除關聯
+                      </Button>
+                    </Popconfirm>
+                  )
+                }
+              >
+                <Descriptions size="small" column={{ xs: 1, sm: 2, md: 3 }} bordered>
+                  <Descriptions.Item label="審議年度">{item.review_year || '-'}</Descriptions.Item>
+                  <Descriptions.Item label="案件類型">{item.case_type || '-'}</Descriptions.Item>
+                  <Descriptions.Item label="行政區">{item.district || '-'}</Descriptions.Item>
+                  <Descriptions.Item label="分案名稱">{item.sub_case_name || '-'}</Descriptions.Item>
+                  <Descriptions.Item label="案件承辦">{item.case_handler || '-'}</Descriptions.Item>
+                  <Descriptions.Item label="查估單位">{item.survey_unit || '-'}</Descriptions.Item>
+                  <Descriptions.Item label="工程起點">{item.start_point || '-'}</Descriptions.Item>
+                  <Descriptions.Item label="工程迄點">{item.end_point || '-'}</Descriptions.Item>
+                  <Descriptions.Item label="道路長度">
+                    {item.road_length ? `${item.road_length} 公尺` : '-'}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="現況路寬">
+                    {item.current_width ? `${item.current_width} 公尺` : '-'}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="計畫路寬">
+                    {item.planned_width ? `${item.planned_width} 公尺` : '-'}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="審議結果">{item.review_result || '-'}</Descriptions.Item>
+                  {item.notes && (
+                    <Descriptions.Item label="關聯備註" span={3}>{item.notes}</Descriptions.Item>
+                  )}
+                  <Descriptions.Item label="關聯時間">
+                    {item.created_at ? dayjs(item.created_at).format('YYYY-MM-DD HH:mm') : '-'}
+                  </Descriptions.Item>
+                </Descriptions>
+              </Card>
+            ))}
+          </Card>
+        )}
+
+        {/* 關聯已有工程 - 編輯模式才顯示 */}
+        {isEditing && (
+          <Card
+            size="small"
+            title={
+              <Space>
+                <LinkOutlined />
+                <span>關聯已有工程</span>
+              </Space>
+            }
+          >
+            <Row gutter={16} align="middle">
+              <Col flex="auto">
+                <Select
+                  showSearch
+                  allowClear
+                  placeholder="搜尋並選擇已有的工程"
+                  value={selectedProjectId}
+                  onChange={setSelectedProjectId}
+                  onSearch={setProjectSearch}
+                  filterOption={false}
+                  style={{ width: '100%' }}
+                  notFoundContent={filteredProjects.length === 0 ? '無可關聯的工程' : '輸入關鍵字搜尋'}
+                  options={filteredProjects.map((project: TaoyuanProject) => ({
+                    value: project.id,
+                    label: (
+                      <span>
+                        <Tag color="green" style={{ marginRight: 8 }}>{project.district || '未分區'}</Tag>
+                        {project.project_name || '(無工程名稱)'}
+                        {project.review_year && <span style={{ color: '#999', marginLeft: 8 }}>- {project.review_year}年度</span>}
+                      </span>
+                    ),
+                  }))}
+                />
+              </Col>
+              <Col>
+                <Button
+                  type="primary"
+                  icon={<LinkOutlined />}
+                  onClick={handleLinkExistingProject}
+                  loading={linkingProject}
+                  disabled={!selectedProjectId}
+                >
+                  關聯
+                </Button>
+              </Col>
+            </Row>
+            <div style={{ marginTop: 8, fontSize: 12, color: '#999' }}>
+              提示：選擇已存在的工程進行關聯，建立公文與工程的直接對應關係
+            </div>
+          </Card>
+        )}
+
+        {/* 非編輯模式提示 */}
+        {!isEditing && projectLinks.length === 0 && (
+          <Empty
+            description="此公文尚無關聯工程"
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+          >
+            <Text type="secondary">點擊右上方「編輯」按鈕可新增工程關聯</Text>
+          </Empty>
+        )}
+      </Spin>
+    );
+  };
+
   // =============================================================================
   // Tab 配置
   // =============================================================================
@@ -1095,6 +1939,16 @@ export const DocumentDetailPage: React.FC = () => {
       'attachments',
       { icon: <PaperClipOutlined />, text: '附件紀錄', count: attachments.length },
       renderAttachmentsTab()
+    ),
+    createTabItem(
+      'dispatch',
+      { icon: <SendOutlined />, text: '派工安排', count: dispatchLinks.length },
+      renderDispatchTab()
+    ),
+    createTabItem(
+      'project-link',
+      { icon: <EnvironmentOutlined />, text: '工程關聯', count: projectLinks.length },
+      renderProjectLinkTab()
     ),
   ];
 

@@ -44,12 +44,16 @@ export default defineConfig(({ mode }) => {
       // 'all' 允許所有主機（開發環境適用）
       // 生產環境應限制為特定域名
       allowedHosts: 'all',
-      // HMR 配置：自動偵測主機
-      // 移除硬編碼 IP，讓 Vite 自動根據存取來源設定
+      // HMR 配置：支援 IP 地址訪問
+      // 使用環境變數或預設 IP，支援區網存取
       hmr: {
-        // host 留空讓 Vite 自動偵測
+        host: env.VITE_DEV_HOST || '192.168.50.210',
         port: 3000,
+        protocol: 'ws',
       },
+      // 解決 IP 地址訪問時動態模組載入問題
+      // 使用環境變數或預設 IP，確保模組 URL 正確解析
+      origin: env.VITE_DEV_ORIGIN || 'http://192.168.50.210:3000',
       proxy: {
         // Proxy API requests to the backend server
         '/api': {

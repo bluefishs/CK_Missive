@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useCallback } from 'react';
-import { useVendorsStore, VendorFilter } from '../store';
+import { useVendorsStore, VendorFilter } from '../../store';
 import {
   useVendors,
   useVendor,
@@ -16,8 +16,8 @@ import {
   useUpdateVendor,
   useDeleteVendor,
 } from './useVendors';
-import type { Vendor, VendorCreate, VendorUpdate } from '../types/api';
-import type { VendorListParams } from '../api/vendorsApi';
+import type { Vendor, VendorCreate, VendorUpdate } from '../../types/api';
+import type { VendorListParams } from '../../api/vendorsApi';
 
 /**
  * 廠商列表整合 Hook

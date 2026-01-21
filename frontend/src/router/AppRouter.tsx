@@ -62,6 +62,10 @@ const AdminDashboardPage = lazy(() => import('../pages/AdminDashboardPage'));
 
 // 桃園查估專區
 const TaoyuanDispatchPage = lazy(() => import('../pages/TaoyuanDispatchPage'));
+const TaoyuanDispatchCreatePage = lazy(() => import('../pages/TaoyuanDispatchCreatePage'));
+const TaoyuanDispatchDetailPage = lazy(() => import('../pages/TaoyuanDispatchDetailPage'));
+const TaoyuanProjectCreatePage = lazy(() => import('../pages/TaoyuanProjectCreatePage'));
+const TaoyuanProjectDetailPage = lazy(() => import('../pages/TaoyuanProjectDetailPage'));
 
 // ProtectedRoute 已移至獨立模組：./ProtectedRoute.tsx
 
@@ -122,6 +126,10 @@ export const AppRouter: React.FC = () => {
 
           {/* 桃園查估專區（需要認證） */}
           <Route path={ROUTES.TAOYUAN_DISPATCH} element={<ProtectedRoute><TaoyuanDispatchPage /></ProtectedRoute>} />
+          <Route path={ROUTES.TAOYUAN_DISPATCH_CREATE} element={<ProtectedRoute><TaoyuanDispatchCreatePage /></ProtectedRoute>} />
+          <Route path={ROUTES.TAOYUAN_DISPATCH_DETAIL} element={<ProtectedRoute><TaoyuanDispatchDetailPage /></ProtectedRoute>} />
+          <Route path={ROUTES.TAOYUAN_PROJECT_CREATE} element={<ProtectedRoute><TaoyuanProjectCreatePage /></ProtectedRoute>} />
+          <Route path={ROUTES.TAOYUAN_PROJECT_DETAIL} element={<ProtectedRoute><TaoyuanProjectDetailPage /></ProtectedRoute>} />
 
           {/* 統一表單示例 */}
           <Route path={ROUTES.UNIFIED_FORM_DEMO} element={<UnifiedFormDemoPage />} />

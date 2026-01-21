@@ -37,7 +37,9 @@ class TaoyuanProjectBase(BaseModel):
     district: Optional[str] = Field(None, max_length=50, description="行政區")
     project_name: str = Field(..., max_length=500, description="工程名稱")
     start_point: Optional[str] = Field(None, max_length=200, description="工程起點")
+    start_coordinate: Optional[str] = Field(None, max_length=100, description="起點坐標(經緯度)")
     end_point: Optional[str] = Field(None, max_length=200, description="工程迄點")
+    end_coordinate: Optional[str] = Field(None, max_length=100, description="迄點坐標(經緯度)")
     road_length: Optional[Decimal] = Field(None, description="道路長度(公尺)")
     current_width: Optional[Decimal] = Field(None, description="現況路寬")
     planned_width: Optional[Decimal] = Field(None, description="計畫路寬")
@@ -84,7 +86,9 @@ class TaoyuanProjectUpdate(BaseModel):
     district: Optional[str] = None
     project_name: Optional[str] = None
     start_point: Optional[str] = None
+    start_coordinate: Optional[str] = None
     end_point: Optional[str] = None
+    end_coordinate: Optional[str] = None
     road_length: Optional[Decimal] = None
     current_width: Optional[Decimal] = None
     planned_width: Optional[Decimal] = None
@@ -154,6 +158,7 @@ class DispatchOrderBase(BaseModel):
     survey_unit: Optional[str] = Field(None, max_length=100, description="查估單位")
     cloud_folder: Optional[str] = Field(None, max_length=500, description="雲端資料夾")
     project_folder: Optional[str] = Field(None, max_length=500, description="專案資料夾")
+    contact_note: Optional[str] = Field(None, max_length=500, description="聯絡備註")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -180,6 +185,7 @@ class DispatchOrderUpdate(BaseModel):
     survey_unit: Optional[str] = None
     cloud_folder: Optional[str] = None
     project_folder: Optional[str] = None
+    contact_note: Optional[str] = None
     linked_project_ids: Optional[List[int]] = None
 
 
@@ -196,6 +202,7 @@ class DispatchOrder(DispatchOrderBase):
     agency_doc_number: Optional[str] = Field(None, description="機關函文號")
     company_doc_number: Optional[str] = Field(None, description="乾坤函文號")
     linked_projects: Optional[List[TaoyuanProject]] = Field(None, description="關聯工程")
+    linked_documents: Optional[List[dict]] = Field(None, description="關聯公文")
 
 
 class DispatchOrderListQuery(BaseModel):
@@ -430,3 +437,98 @@ class ExcelImportResult(BaseModel):
     skipped_count: int = 0
     error_count: int = 0
     errors: List[dict] = []
+
+
+# =============================================================================
+# 公文歷程匹配 Schemas
+# =============================================================================
+class DocumentHistoryItem(BaseModel):
+    """公文歷程項目"""
+    id: int = Field(..., description="公文ID")
+    doc_number: Optional[str] = Field(None, description="文號")
+    doc_date: Optional[date] = Field(None, description="日期")
+    subject: Optional[str] = Field(None, description="主旨")
+    sender: Optional[str] = Field(None, description="發文單位")
+    receiver: Optional[str] = Field(None, description="收文單位")
+    doc_type: Optional[str] = Field(None, description="公文類型 (收文/發文)")
+    match_type: Optional[str] = Field(None, description="匹配方式 (project_name/subject)")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DocumentHistoryMatchRequest(BaseModel):
+    """公文歷程匹配請求"""
+    project_name: str = Field(..., description="工程名稱 (用於匹配)")
+    include_subject: bool = Field(default=False, description="是否包含主旨匹配")
+
+
+class DocumentHistoryResponse(BaseModel):
+    """公文歷程匹配回應"""
+    success: bool = True
+    project_name: str = Field(..., description="查詢的工程名稱")
+    agency_documents: List[DocumentHistoryItem] = Field(default_factory=list, description="機關函文歷程 (收文)")
+    company_documents: List[DocumentHistoryItem] = Field(default_factory=list, description="乾坤函文歷程 (發文)")
+    total_agency_docs: int = Field(0, description="機關函文總數")
+    total_company_docs: int = Field(0, description="乾坤函文總數")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DispatchOrderWithHistory(DispatchOrder):
+    """派工紀錄 (含公文歷程)"""
+    # 公文歷程欄位 (對應原始需求欄位 14-17)
+    agency_doc_history_by_name: Optional[List[DocumentHistoryItem]] = Field(
+        None, description="機關函文歷程(對應工程名稱)"
+    )
+    agency_doc_history_by_subject: Optional[List[DocumentHistoryItem]] = Field(
+        None, description="機關函文歷程(對應工程名稱+主旨)"
+    )
+    company_doc_history_by_name: Optional[List[DocumentHistoryItem]] = Field(
+        None, description="乾坤函文紀錄(對應工程名稱)"
+    )
+    company_doc_history_by_subject: Optional[List[DocumentHistoryItem]] = Field(
+        None, description="乾坤函文歷程(對應工程名稱+主旨)"
+    )
+
+
+# =============================================================================
+# 統計資料 Schemas
+# =============================================================================
+class ProjectStatistics(BaseModel):
+    """工程統計資料"""
+    total_count: int = Field(..., description="總工程數")
+    dispatched_count: int = Field(..., description="已派工數")
+    completed_count: int = Field(..., description="已完成數")
+    completion_rate: float = Field(..., description="完成率 (%)")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DispatchStatistics(BaseModel):
+    """派工統計資料"""
+    total_count: int = Field(..., description="總派工單數")
+    with_agency_doc_count: int = Field(..., description="有機關函文數")
+    with_company_doc_count: int = Field(..., description="有乾坤函文數")
+    work_type_count: int = Field(..., description="作業類別數")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PaymentStatistics(BaseModel):
+    """契金統計資料"""
+    total_current_amount: float = Field(..., description="本次派工金額總計")
+    total_cumulative_amount: float = Field(..., description="累進派工金額總計")
+    total_remaining_amount: float = Field(..., description="剩餘金額總計")
+    payment_count: int = Field(..., description="契金紀錄數")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TaoyuanStatisticsResponse(BaseModel):
+    """桃園查估派工統計資料回應"""
+    success: bool = True
+    projects: ProjectStatistics = Field(..., description="工程統計")
+    dispatches: DispatchStatistics = Field(..., description="派工統計")
+    payments: PaymentStatistics = Field(..., description="契金統計")
+
+    model_config = ConfigDict(from_attributes=True)
