@@ -1,6 +1,6 @@
 # CK_Missive 強制性開發規範檢查清單
 
-> **版本**: 1.4.0
+> **版本**: 1.5.0
 > **建立日期**: 2026-01-11
 > **最後更新**: 2026-01-21
 > **狀態**: 強制執行 - 所有開發任務啟動前必須檢視
@@ -34,6 +34,7 @@
 | **Bug 修復** | 通用規範 | [清單 G](#清單-g-bug-修復) |
 | **新增/修改型別定義** | 型別管理規範 | [清單 H](#清單-h型別管理) |
 | **前端元件/Hook 開發** | 前端架構規範 | [清單 I](#清單-i前端元件hook-開發) |
+| **多對多關聯功能** | **Link ID 規範** | [清單 J](#清單-j關聯記錄處理) |
 
 ---
 
@@ -374,6 +375,112 @@ repositories/
 
 ---
 
+## 清單 J：關聯記錄處理
+
+### 必讀文件
+- [ ] `docs/specifications/LINK_ID_HANDLING_SPECIFICATION.md`
+- [ ] `frontend/src/types/api.ts`（BaseLink 介面定義）
+- [ ] 相關的關聯表模型（如 `taoyuan_dispatch_project_link`）
+
+### ⚠️ 核心概念：實體 ID vs 關聯 ID
+
+**ID 類型區分（必須理解）：**
+
+| ID 類型 | 說明 | 用途 |
+|---------|------|------|
+| 實體 ID (`id`) | 業務實體主鍵 | 查看、編輯實體 |
+| 關聯 ID (`link_id`) | 多對多關聯表主鍵 | **解除關聯操作** |
+
+**錯誤示例（導致 404）：**
+```typescript
+// ❌ 危險：當 link_id 為 undefined 時會使用實體 ID
+const linkId = proj.link_id ?? proj.id;
+unlinkApi(projectId, linkId);  // 可能傳入錯誤的 ID
+```
+
+### 強制規範
+
+#### 前端：禁止回退邏輯
+
+```typescript
+// ❌ 禁止
+const linkId = item.link_id ?? item.id;
+
+// ✅ 正確：嚴格要求 link_id 存在
+if (item.link_id === undefined || item.link_id === null) {
+  message.error('關聯資料缺少 link_id，請重新整理頁面');
+  console.error('[unlink] link_id 缺失:', item);
+  refetch();
+  return;
+}
+const linkId = item.link_id;
+```
+
+#### 前端：UI 條件渲染
+
+```typescript
+// ✅ 只有當 link_id 存在時才顯示移除按鈕
+{canEdit && item.link_id !== undefined && (
+  <Popconfirm onConfirm={() => handleUnlink(item.link_id)}>
+    <Button danger>移除關聯</Button>
+  </Popconfirm>
+)}
+```
+
+#### 後端：詳細錯誤訊息
+
+```python
+# ✅ 區分「ID 不匹配」和「ID 不存在」兩種錯誤
+if not link:
+    existing = await db.execute(select(LinkTable).where(LinkTable.id == link_id))
+    if existing.scalar_one_or_none():
+        raise HTTPException(404, f"link_id={link_id} 對應的實體 ID 不匹配")
+    else:
+        raise HTTPException(404, f"關聯記錄 ID {link_id} 不存在")
+```
+
+### 關聯表設計規範
+
+**命名規範：**
+| 項目 | 規則 | 範例 |
+|------|------|------|
+| 關聯表名稱 | `{entity1}_{entity2}_link` | `taoyuan_dispatch_project_link` |
+| API 響應欄位 | 統一使用 `link_id` | `"link_id": 123` |
+| 外鍵命名 | `{entity}_id` | `dispatch_order_id`, `project_id` |
+
+**API 響應必須包含：**
+```json
+{
+  "link_id": 123,        // 關聯記錄 ID（必填）
+  "entity_id": 456,      // 被關聯實體 ID
+  "link_type": "...",    // 關聯類型（若適用）
+  "created_at": "..."    // 建立時間
+}
+```
+
+### 開發前檢查
+- [ ] 確認後端 API 響應包含 `link_id` 欄位
+- [ ] 確認前端類型定義 `link_id: number`（非 optional）
+- [ ] 確認 unlink API 的參數說明文檔
+
+### 開發後檢查
+- [ ] 搜尋危險模式：`grep -r "link_id ??" frontend/src/`
+- [ ] 搜尋 any 類型：`grep -r ": any" frontend/src/pages/`
+- [ ] 後端錯誤訊息能區分「ID 不匹配」和「ID 不存在」
+- [ ] TypeScript 編譯通過
+- [ ] Python 語法檢查通過
+
+### 受影響的 API 端點
+
+| 端點 | link_id 來源表 |
+|------|----------------|
+| `/project/{id}/unlink-dispatch/{link_id}` | `taoyuan_dispatch_project_link` |
+| `/dispatch/{id}/unlink-document/{link_id}` | `taoyuan_dispatch_document_link` |
+| `/document/{id}/unlink-dispatch/{link_id}` | `taoyuan_dispatch_document_link` |
+| `/document/{id}/unlink-project/{link_id}` | `taoyuan_document_project_link` |
+
+---
+
 ## 二、通用開發後檢查清單
 
 **所有開發任務完成後，必須執行：**
@@ -459,6 +566,7 @@ cd backend && python -m py_compile app/main.py
 
 | 版本 | 日期 | 說明 |
 |------|------|------|
+| 1.5.0 | 2026-01-21 | **新增清單 J - 關聯記錄處理規範**（link_id vs id 概念區分、禁止回退邏輯、詳細錯誤訊息） |
 | 1.4.0 | 2026-01-21 | 新增清單 I - 前端元件/Hook 開發（Hooks 目錄重組、Repository 層、共用驗證器） |
 | 1.3.0 | 2026-01-18 | 新增清單 H - 型別管理規範 (SSOT 架構) |
 | 1.2.0 | 2026-01-12 | 新增導覽路徑自動化驗證機制（白名單、下拉選單、強制同步） |

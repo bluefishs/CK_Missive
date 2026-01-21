@@ -2,7 +2,7 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.9.0
+> **Claude Code 配置版本**: 1.10.0
 > **最後更新**: 2026-01-21
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers)
 
@@ -413,20 +413,45 @@ import { useProjects } from '../hooks';
 const { data, isLoading } = useProjects(params);
 ```
 
+### 7. 關聯記錄處理規範 (v1.10.0)
+
+**核心概念**：區分「實體 ID」與「關聯 ID」
+
+| ID 類型 | 說明 | 用途 |
+|---------|------|------|
+| 實體 ID (`id`) | 業務實體主鍵 | 查看、編輯實體 |
+| 關聯 ID (`link_id`) | 多對多關聯表主鍵 | **解除關聯操作** |
+
+```typescript
+// ❌ 禁止 - 危險的回退邏輯（可能傳入錯誤的 ID）
+const linkId = proj.link_id ?? proj.id;
+
+// ✅ 正確 - 嚴格要求 link_id 存在
+if (item.link_id === undefined) {
+  message.error('關聯資料缺少 link_id，請重新整理頁面');
+  refetch();
+  return;
+}
+const linkId = item.link_id;
+```
+
+**詳細規範**：參見 `docs/specifications/LINK_ID_HANDLING_SPECIFICATION.md`
+
 ---
 
 ## 📖 重要規範文件
 
 | 文件 | 說明 |
 |------|------|
-| `.claude/MANDATORY_CHECKLIST.md` | ⚠️ **強制性開發檢查清單** (開發前必讀) |
-| `.claude/skills/type-management.md` | 🆕 **型別管理規範 (SSOT 架構)** |
-| `.claude/commands/type-sync.md` | 🆕 **型別同步檢查 v2.0.0** |
+| `.claude/MANDATORY_CHECKLIST.md` | ⚠️ **強制性開發檢查清單 v1.5.0** (開發前必讀) |
+| `.claude/skills/type-management.md` | 型別管理規範 (SSOT 架構) |
+| `.claude/commands/type-sync.md` | 型別同步檢查 v2.0.0 |
 | `docs/DEVELOPMENT_STANDARDS.md` | 統一開發規範總綱 |
 | `docs/specifications/API_ENDPOINT_CONSISTENCY.md` | API 端點一致性 v2.0.0 |
 | `docs/specifications/TYPE_CONSISTENCY.md` | 型別一致性規範 |
+| `docs/specifications/LINK_ID_HANDLING_SPECIFICATION.md` | 🆕 **關聯記錄處理規範 v1.0.0** |
 | `docs/specifications/TESTING_FRAMEWORK.md` | 測試框架規範 |
-| `docs/Architecture_Optimization_Recommendations.md` | 📐 **架構優化建議** |
+| `docs/Architecture_Optimization_Recommendations.md` | 📐 架構優化建議 |
 | `@AGENT.md` | 開發代理指引 |
 
 ---

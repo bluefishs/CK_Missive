@@ -242,23 +242,27 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
       }
 
       const linkedProjects = dispatch?.linked_projects || [];
-      console.debug('[unlinkProjectMutation] linked_projects:', linkedProjects);
+      console.debug('[unlinkProjectMutation] linked_projects:', JSON.stringify(
+        linkedProjects.map(p => ({ id: p.id, link_id: p.link_id, project_id: p.project_id }))
+      ));
 
-      // 相容新舊資料結構：link_id 或 id
-      const targetProject = linkedProjects.find((p) => (p.link_id ?? p.id) === linkId);
+      // 嚴格匹配：只用 link_id 查找，不使用回退值
+      const targetProject = linkedProjects.find((p) => p.link_id === linkId);
       if (!targetProject) {
-        console.error('[unlinkProjectMutation] 找不到 link_id:', linkId, '在', linkedProjects);
-        return Promise.reject(new Error('找不到關聯工程'));
+        // 如果找不到，記錄詳細信息以便調試
+        console.error('[unlinkProjectMutation] 找不到 link_id:', linkId);
+        console.error('[unlinkProjectMutation] 可用的 link_ids:', linkedProjects.map(p => p.link_id));
+        return Promise.reject(new Error('找不到關聯工程，請重新整理頁面'));
       }
 
-      // 相容新舊資料結構：project_id 或 id
+      // 使用 project_id，回退到 id（工程 ID）
       const projectId = targetProject.project_id ?? targetProject.id;
       if (!projectId) {
         console.error('[unlinkProjectMutation] project_id 無效:', targetProject);
         return Promise.reject(new Error('工程 ID 無效，請重新整理頁面'));
       }
 
-      console.debug('[unlinkProjectMutation] 準備移除:', { projectId, linkId });
+      console.debug('[unlinkProjectMutation] 準備移除:', { projectId, linkId, targetProject });
       return projectLinksApi.unlinkDispatch(projectId, linkId);
     },
     onSuccess: () => {
@@ -267,7 +271,11 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['dispatch-orders'] });
       queryClient.invalidateQueries({ queryKey: ['taoyuan-projects'] });
     },
-    onError: () => message.error('移除關聯失敗'),
+    onError: (error: Error) => {
+      message.error(`移除關聯失敗: ${error.message}`);
+      // 自動重新載入以確保數據同步
+      refetch();
+    },
   });
 
   // 設定表單初始值
@@ -574,10 +582,18 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
                   >
                     查看公文
                   </Button>
-                  {canEdit && (
+                  {canEdit && doc.link_id !== undefined && (
                     <Popconfirm
                       title="確定要移除此關聯嗎？"
-                      onConfirm={() => unlinkDocMutation.mutate(doc.link_id)}
+                      onConfirm={() => {
+                        if (doc.link_id === undefined || doc.link_id === null) {
+                          message.error('關聯資料缺少 link_id，請重新整理頁面');
+                          console.error('[unlinkDoc] link_id 缺失:', doc);
+                          refetch();
+                          return;
+                        }
+                        unlinkDocMutation.mutate(doc.link_id);
+                      }}
                       okText="確定"
                       cancelText="取消"
                     >
@@ -699,14 +715,30 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
                     <Popconfirm
                       title="確定要移除此關聯嗎？"
                       onConfirm={() => {
-                        // 優先使用 link_id，其次用 id
-                        const linkId = proj.link_id ?? proj.id;
+                        // 必須使用 link_id（關聯記錄 ID），不可使用 id（工程 ID）
+                        const linkId = proj.link_id;
                         const projectId = proj.project_id ?? proj.id;
-                        if (!linkId || !projectId) {
-                          message.error('關聯資料不完整，請重新整理頁面');
-                          console.error('[unlinkProject] 資料不完整:', proj);
+
+                        // 嚴格驗證：link_id 必須存在且不等於 project_id
+                        if (linkId === undefined || linkId === null) {
+                          message.error('關聯資料缺少 link_id，請重新整理頁面後再試');
+                          console.error('[unlinkProject] link_id 缺失:', {
+                            proj,
+                            link_id: proj.link_id,
+                            project_id: proj.project_id,
+                            id: proj.id,
+                          });
+                          refetch(); // 自動重新載入數據
                           return;
                         }
+
+                        if (!projectId) {
+                          message.error('工程資料不完整，請重新整理頁面');
+                          console.error('[unlinkProject] project_id 缺失:', proj);
+                          return;
+                        }
+
+                        console.debug('[unlinkProject] 執行移除:', { linkId, projectId, proj });
                         unlinkProjectMutation.mutate(linkId);
                       }}
                       okText="確定"

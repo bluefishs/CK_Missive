@@ -1069,7 +1069,13 @@ async def unlink_document_from_dispatch(
     db: AsyncSession = Depends(get_async_db),
     current_user = Depends(require_auth)
 ):
-    """移除派工單的公文關聯"""
+    """
+    移除派工單的公文關聯
+
+    參數說明：
+    - dispatch_id: TaoyuanDispatchOrder.id（派工單 ID）
+    - link_id: TaoyuanDispatchDocumentLink.id（關聯記錄 ID，非公文 ID）
+    """
     result = await db.execute(
         select(TaoyuanDispatchDocumentLink).where(
             TaoyuanDispatchDocumentLink.id == link_id,
@@ -1078,7 +1084,21 @@ async def unlink_document_from_dispatch(
     )
     link = result.scalar_one_or_none()
     if not link:
-        raise HTTPException(status_code=404, detail="公文關聯不存在")
+        # 提供更詳細的錯誤訊息
+        link_by_id = await db.execute(
+            select(TaoyuanDispatchDocumentLink).where(TaoyuanDispatchDocumentLink.id == link_id)
+        )
+        existing_link = link_by_id.scalar_one_or_none()
+        if existing_link:
+            raise HTTPException(
+                status_code=404,
+                detail=f"關聯不存在：link_id={link_id} 對應的派工單 ID 是 {existing_link.dispatch_order_id}，而非傳入的 {dispatch_id}"
+            )
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail=f"關聯記錄 ID {link_id} 不存在。請確認傳入的是 link_id（關聯記錄 ID），而非公文 ID"
+            )
 
     await db.delete(link)
     await db.commit()
@@ -1251,7 +1271,13 @@ async def unlink_dispatch_from_document(
     db: AsyncSession = Depends(get_async_db),
     current_user = Depends(require_auth)
 ):
-    """移除公文與派工的關聯"""
+    """
+    移除公文與派工的關聯
+
+    參數說明：
+    - document_id: OfficialDocument.id（公文 ID）
+    - link_id: TaoyuanDispatchDocumentLink.id（關聯記錄 ID，非派工單 ID）
+    """
     result = await db.execute(
         select(TaoyuanDispatchDocumentLink).where(
             TaoyuanDispatchDocumentLink.id == link_id,
@@ -1260,7 +1286,21 @@ async def unlink_dispatch_from_document(
     )
     link = result.scalar_one_or_none()
     if not link:
-        raise HTTPException(status_code=404, detail="關聯不存在")
+        # 提供更詳細的錯誤訊息
+        link_by_id = await db.execute(
+            select(TaoyuanDispatchDocumentLink).where(TaoyuanDispatchDocumentLink.id == link_id)
+        )
+        existing_link = link_by_id.scalar_one_or_none()
+        if existing_link:
+            raise HTTPException(
+                status_code=404,
+                detail=f"關聯不存在：link_id={link_id} 對應的公文 ID 是 {existing_link.document_id}，而非傳入的 {document_id}"
+            )
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail=f"關聯記錄 ID {link_id} 不存在。請確認傳入的是 link_id（關聯記錄 ID），而非派工單 ID"
+            )
 
     await db.delete(link)
     await db.commit()
@@ -1400,7 +1440,13 @@ async def unlink_dispatch_from_project(
     db: AsyncSession = Depends(get_async_db),
     current_user = Depends(require_auth)
 ):
-    """移除工程與派工的關聯"""
+    """
+    移除工程與派工的關聯
+
+    參數說明：
+    - project_id: TaoyuanProject.id（工程 ID）
+    - link_id: TaoyuanDispatchProjectLink.id（關聯記錄 ID，非工程 ID）
+    """
     result = await db.execute(
         select(TaoyuanDispatchProjectLink).where(
             TaoyuanDispatchProjectLink.id == link_id,
@@ -1409,7 +1455,25 @@ async def unlink_dispatch_from_project(
     )
     link = result.scalar_one_or_none()
     if not link:
-        raise HTTPException(status_code=404, detail="關聯不存在")
+        # 提供更詳細的錯誤訊息以便調試
+        # 檢查 link_id 是否存在（可能是傳錯了工程 ID）
+        link_by_id = await db.execute(
+            select(TaoyuanDispatchProjectLink).where(TaoyuanDispatchProjectLink.id == link_id)
+        )
+        existing_link = link_by_id.scalar_one_or_none()
+
+        if existing_link:
+            # link_id 存在但 project_id 不匹配
+            raise HTTPException(
+                status_code=404,
+                detail=f"關聯不存在：link_id={link_id} 對應的工程 ID 是 {existing_link.taoyuan_project_id}，而非傳入的 {project_id}"
+            )
+        else:
+            # link_id 不存在，可能前端傳錯了（例如傳了工程 ID 而非關聯記錄 ID）
+            raise HTTPException(
+                status_code=404,
+                detail=f"關聯記錄 ID {link_id} 不存在。請確認傳入的是 link_id（關聯記錄 ID），而非工程 ID"
+            )
 
     await db.delete(link)
     await db.commit()
@@ -2043,7 +2107,13 @@ async def unlink_project_from_document(
     db: AsyncSession = Depends(get_async_db),
     current_user = Depends(require_auth)
 ):
-    """移除公文與工程的直接關聯"""
+    """
+    移除公文與工程的直接關聯
+
+    參數說明：
+    - document_id: OfficialDocument.id（公文 ID）
+    - link_id: TaoyuanDocumentProjectLink.id（關聯記錄 ID，非工程 ID）
+    """
     result = await db.execute(
         select(TaoyuanDocumentProjectLink).where(
             TaoyuanDocumentProjectLink.id == link_id,
@@ -2052,7 +2122,21 @@ async def unlink_project_from_document(
     )
     link = result.scalar_one_or_none()
     if not link:
-        raise HTTPException(status_code=404, detail="關聯不存在")
+        # 提供更詳細的錯誤訊息
+        link_by_id = await db.execute(
+            select(TaoyuanDocumentProjectLink).where(TaoyuanDocumentProjectLink.id == link_id)
+        )
+        existing_link = link_by_id.scalar_one_or_none()
+        if existing_link:
+            raise HTTPException(
+                status_code=404,
+                detail=f"關聯不存在：link_id={link_id} 對應的公文 ID 是 {existing_link.document_id}，而非傳入的 {document_id}"
+            )
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail=f"關聯記錄 ID {link_id} 不存在。請確認傳入的是 link_id（關聯記錄 ID），而非工程 ID"
+            )
 
     await db.delete(link)
     await db.commit()
