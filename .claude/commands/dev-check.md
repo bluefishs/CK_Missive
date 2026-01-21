@@ -79,7 +79,8 @@ if ($backendResult -eq 0) {
 
 ### 後端 API
 ```bash
-cd backend && uvicorn app.main:app --reload --port 8001
+# main.py 在 backend/ 根目錄
+cd backend && uvicorn main:app --reload --host 0.0.0.0 --port 8001
 ```
 
 ### 前端開發

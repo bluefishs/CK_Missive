@@ -439,11 +439,14 @@ const { data, isLoading } = useProjects(params);
 
 ### 常用命令
 ```bash
-# 啟動後端
-cd backend && uvicorn app.main:app --reload --port 8001
+# 啟動後端（注意：main.py 在 backend/ 根目錄）
+cd backend && uvicorn main:app --reload --host 0.0.0.0 --port 8001
 
 # 啟動前端
 cd frontend && npm run dev
+
+# 使用 PM2 一鍵啟動全部服務
+pm2 start ecosystem.config.js
 
 # 資料庫連線
 docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
