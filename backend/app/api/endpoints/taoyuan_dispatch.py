@@ -19,7 +19,7 @@ from app.extended.models import (
 )
 from app.schemas.taoyuan_dispatch import (
     TaoyuanProjectCreate, TaoyuanProjectUpdate, TaoyuanProject as TaoyuanProjectSchema,
-    TaoyuanProjectListQuery, TaoyuanProjectListResponse,
+    TaoyuanProjectListQuery, TaoyuanProjectListResponse, LinkedProjectItem,
     DispatchOrderCreate, DispatchOrderUpdate, DispatchOrder as DispatchOrderSchema,
     DispatchOrderListQuery, DispatchOrderListResponse,
     DispatchDocumentLinkCreate, DispatchDocumentLink,
@@ -511,11 +511,11 @@ async def list_dispatch_orders(
             'agency_doc_number': item.agency_doc.doc_number if item.agency_doc else None,
             'company_doc_number': item.company_doc.doc_number if item.company_doc else None,
             'linked_projects': [
-                {
+                LinkedProjectItem.model_validate({
                     **TaoyuanProjectSchema.model_validate(link.project).model_dump(),
-                    'link_id': link.id,  # 放在展開之後確保不被覆蓋
-                    'project_id': link.taoyuan_project_id,  # 放在展開之後確保不被覆蓋
-                }
+                    'link_id': link.id,
+                    'project_id': link.taoyuan_project_id,
+                }).model_dump()
                 for link in item.project_links if link.project
             ] if item.project_links else [],
             'linked_documents': [
@@ -996,15 +996,16 @@ async def get_dispatch_order_detail(
         'agency_doc_number': order.agency_doc.doc_number if order.agency_doc else None,
         'company_doc_number': order.company_doc.doc_number if order.company_doc else None,
         'linked_projects': [
-            {
+            LinkedProjectItem.model_validate({
                 **TaoyuanProjectSchema.model_validate(link.project).model_dump(),
-                'link_id': link.id,  # 放在展開之後確保不被覆蓋
-                'project_id': link.taoyuan_project_id,  # 放在展開之後確保不被覆蓋
-            }
+                'link_id': link.id,
+                'project_id': link.taoyuan_project_id,
+            }).model_dump()
             for link in order.project_links if link.project
         ] if order.project_links else [],
         'linked_documents': linked_documents,
     }
+
     # 直接返回 dict，讓 FastAPI 用 response_model 序列化
     return order_dict
 
@@ -1911,11 +1912,11 @@ async def get_dispatch_order_detail_with_history(
         'agency_doc_number': order.agency_doc.doc_number if order.agency_doc else None,
         'company_doc_number': order.company_doc.doc_number if order.company_doc else None,
         'linked_projects': [
-            {
+            LinkedProjectItem.model_validate({
                 **TaoyuanProjectSchema.model_validate(link.project).model_dump(),
-                'link_id': link.id,  # 放在展開之後確保不被覆蓋
-                'project_id': link.taoyuan_project_id,  # 放在展開之後確保不被覆蓋
-            }
+                'link_id': link.id,
+                'project_id': link.taoyuan_project_id,
+            }).model_dump()
             for link in order.project_links if link.project
         ] if order.project_links else []
     }
