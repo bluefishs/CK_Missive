@@ -2,8 +2,8 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.8.0
-> **最後更新**: 2026-01-19
+> **Claude Code 配置版本**: 1.9.0
+> **最後更新**: 2026-01-21
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers)
 
 ---
@@ -426,7 +426,59 @@ const { data, isLoading } = useProjects(params);
 | `docs/specifications/API_ENDPOINT_CONSISTENCY.md` | API 端點一致性 v2.0.0 |
 | `docs/specifications/TYPE_CONSISTENCY.md` | 型別一致性規範 |
 | `docs/specifications/TESTING_FRAMEWORK.md` | 測試框架規範 |
+| `docs/Architecture_Optimization_Recommendations.md` | 📐 **架構優化建議** |
 | `@AGENT.md` | 開發代理指引 |
+
+---
+
+## 📂 專案結構規範 (v1.9.0)
+
+### 根目錄結構
+
+```
+CK_Missive/
+├── .claude/                    # Claude Code 配置
+├── backend/                    # FastAPI 後端
+├── frontend/                   # React 前端
+├── docs/                       # 文件目錄 (指南、報告歸檔)
+├── scripts/                    # 腳本目錄 (啟動、維護、檢查)
+├── .env                        # 環境設定 (唯一來源)
+├── CLAUDE.md                   # 本文件
+├── README.md                   # 專案說明
+└── ecosystem.config.js         # PM2 配置
+```
+
+### 後端模型結構
+
+ORM 模型統一位於 `backend/app/extended/models.py`，按 7 個模組分區：
+
+| 模組 | 包含模型 |
+|------|----------|
+| 1. 關聯表 | project_vendor_association, project_user_assignment |
+| 2. 基礎實體 | PartnerVendor, ContractProject, GovernmentAgency, User |
+| 3. 公文模組 | OfficialDocument, DocumentAttachment |
+| 4. 行事曆模組 | DocumentCalendarEvent, EventReminder |
+| 5. 系統模組 | SystemNotification, UserSession, SiteNavigationItem, SiteConfiguration |
+| 6. 專案人員模組 | ProjectAgencyContact, StaffCertification |
+| 7. 桃園派工模組 | TaoyuanProject, TaoyuanDispatchOrder, TaoyuanDispatchProjectLink, etc. |
+
+### 後端 API 結構
+
+公文 API 使用模組化目錄結構：
+
+```
+backend/app/api/endpoints/
+├── documents/              # 公文 API (模組化)
+│   ├── __init__.py
+│   ├── list.py            # 列表查詢
+│   ├── crud.py            # CRUD 操作
+│   ├── stats.py           # 統計分析
+│   ├── export.py          # 匯出功能
+│   ├── import_.py         # 匯入功能
+│   └── audit.py           # 審計日誌
+├── _archived/              # 已歸檔的舊 API
+└── *.py                    # 其他 API 端點
+```
 
 ---
 
@@ -480,5 +532,24 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 
 ---
 
+---
+
+## 📋 版本更新記錄
+
+### v1.9.0 (2026-01-21) - 架構優化版
+
+**架構優化**:
+- 前端 DocumentOperations.tsx: 1421 → 1229 行 (減少 13.5%)
+- 後端 ORM models.py: 664 → 605 行 (減少 9%)，添加 7 個模組分區
+- 根目錄整理：21 個腳本移至 scripts/，22 個報告歸檔至 docs/archive/
+- 歸檔已廢棄的 documents_enhanced.py 和 models/document.py
+
+**一致性驗證**:
+- 新增 backend/check_consistency.py 後端一致性檢查腳本
+- 確認 Alembic 遷移狀態健康 (單一 HEAD)
+- 前後端路由一致性驗證通過
+
+---
+
 *配置維護: Claude Code Assistant*
-*最後更新: 2026-01-19*
+*最後更新: 2026-01-21*
