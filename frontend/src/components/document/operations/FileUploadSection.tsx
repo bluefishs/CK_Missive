@@ -30,7 +30,9 @@ export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
   readOnly,
   onFileListChange,
   onRemove,
+  onClearErrors,
   validateFile,
+  onCheckDuplicate,
 }) => {
   // 如果是唯讀模式且沒有檔案列表，顯示空狀態
   if (readOnly) {
@@ -49,6 +51,12 @@ export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
       if (!validation.valid) {
         return Upload.LIST_IGNORE; // 不加入列表
       }
+
+      // 檢查重複檔案（編輯模式）
+      if (onCheckDuplicate && onCheckDuplicate(file)) {
+        return Upload.LIST_IGNORE; // 已由外部處理（顯示確認對話框）
+      }
+
       return false; // 阻止自動上傳，我們將手動處理
     },
     onChange: ({ fileList: newFileList }: UploadChangeParam<UploadFile>) => {
@@ -143,6 +151,7 @@ export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
           type="warning"
           showIcon
           closable
+          onClose={onClearErrors}
           style={{ marginTop: 16 }}
           message="部分檔案上傳失敗"
           description={

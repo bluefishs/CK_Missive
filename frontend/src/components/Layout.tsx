@@ -47,11 +47,11 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ROUTES } from '../router/types';
 import authService, { UserInfo } from '../services/authService';
-import { usePermissions, NavigationItem as PermissionNavigationItem } from '../hooks/usePermissions';
+import { usePermissions, NavigationItem as PermissionNavigationItem } from '../hooks';
 import { isAuthDisabled, isInternalIP } from '../config/env';
 import { navigationService } from '../services/navigationService';
 import { secureApiService } from '../services/secureApiService';
-import NotificationCenter from './NotificationCenter';
+import { NotificationCenter } from './common';
 import { logger } from '../utils/logger';
 
 const { Header, Sider, Content } = AntLayout;

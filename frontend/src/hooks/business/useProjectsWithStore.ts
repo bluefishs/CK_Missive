@@ -8,7 +8,8 @@
  */
 
 import { useEffect, useCallback } from 'react';
-import { useProjectsStore, ProjectFilter } from '../../store';
+import { ProjectFilter } from '../../store';
+import { useProjectsStoreCompat } from '../../store/projects';
 import {
   useProjects,
   useProject,
@@ -29,7 +30,7 @@ import type { ProjectListParams } from '../../api/projectsApi';
  * 自動同步 React Query 資料到 Zustand Store，提供統一的狀態管理介面
  */
 export const useProjectsWithStore = () => {
-  const store = useProjectsStore();
+  const store = useProjectsStoreCompat();
 
   // 將 Store 的 filters 轉換為 API 參數
   const apiParams: ProjectListParams = {
@@ -167,7 +168,7 @@ export const useProjectsWithStore = () => {
  * 單一專案詳情 Hook（整合 Store）
  */
 export const useProjectDetailWithStore = (projectId: number | null | undefined) => {
-  const store = useProjectsStore();
+  const store = useProjectsStoreCompat();
   const projectQuery = useProject(projectId);
 
   // 同步到 Store

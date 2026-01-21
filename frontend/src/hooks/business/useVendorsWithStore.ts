@@ -8,7 +8,8 @@
  */
 
 import { useEffect, useCallback } from 'react';
-import { useVendorsStore, VendorFilter } from '../../store';
+import { VendorFilter } from '../../store';
+import { useVendorsStoreCompat } from '../../store/vendors';
 import {
   useVendors,
   useVendor,
@@ -25,7 +26,7 @@ import type { VendorListParams } from '../../api/vendorsApi';
  * 自動同步 React Query 資料到 Zustand Store
  */
 export const useVendorsWithStore = () => {
-  const store = useVendorsStore();
+  const store = useVendorsStoreCompat();
 
   // 將 Store 的 filters 轉換為 API 參數
   const apiParams: VendorListParams = {
@@ -148,7 +149,7 @@ export const useVendorsWithStore = () => {
  * 單一廠商詳情 Hook（整合 Store）
  */
 export const useVendorDetailWithStore = (vendorId: number | null | undefined) => {
-  const store = useVendorsStore();
+  const store = useVendorsStoreCompat();
   const vendorQuery = useVendor(vendorId);
 
   // 同步到 Store

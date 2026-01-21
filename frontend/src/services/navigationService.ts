@@ -6,7 +6,7 @@
  * @version 2.0.0
  * @date 2026-01-10
  */
-import { NavigationItem } from '../hooks/usePermissions';
+import { NavigationItem } from '../hooks';
 import { cacheService, CACHE_KEYS, CACHE_TTL } from './cacheService';
 import { secureApiService } from './secureApiService';
 
@@ -77,10 +77,8 @@ class NavigationService {
 
     } catch (error) {
       console.error('Failed to load navigation from API:', error);
-      // 當 API 失敗時，回傳預設導航項目
-      const defaultItems = this.getDefaultNavigationItems();
-      this.setCachedNavigation(defaultItems);
-      return defaultItems;
+      // API 失敗時回傳預設項目，但不快取，下次會重新嘗試 API
+      return this.getDefaultNavigationItems();
     }
   }
 
@@ -423,10 +421,8 @@ class NavigationService {
       console.warn('API failed, falling back to default items:', error);
     }
 
-    // API 失敗時使用預設項目
-    const defaultItems = this.getDefaultNavigationItems();
-    this.setCachedNavigation(defaultItems);
-    return defaultItems;
+    // API 失敗時使用預設項目，但不快取，下次會重新嘗試 API
+    return this.getDefaultNavigationItems();
   }
 }
 

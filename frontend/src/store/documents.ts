@@ -1,94 +1,80 @@
 /**
  * 文件管理 Store
- * 基於 Zustand 的文件狀態管理
+ *
+ * 使用通用 Store Factory 建立，減少重複程式碼。
+ *
+ * @version 2.0.0
+ * @date 2026-01-21
  */
 
-import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
 import type { OfficialDocument as Document, DocumentFilter } from '../types/api';
+import { createEntityStore, type EntityState } from './createEntityStore';
 
-interface DocumentsState {
-  // 文件列表
-  documents: Document[];
-  
-  // 當前選中的文件
-  selectedDocument: Document | null;
-  
-  // 篩選條件
-  filters: DocumentFilter;
-  
-  // 分頁資訊
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-  
-  // Actions
-  setDocuments: (documents: Document[]) => void;
-  setSelectedDocument: (document: Document | null) => void;
-  setFilters: (filters: Partial<DocumentFilter>) => void;
-  setPagination: (pagination: Partial<DocumentsState['pagination']>) => void;
-  addDocument: (document: Document) => void;
-  updateDocument: (id: string, document: Partial<Document>) => void;
-  removeDocument: (id: string) => void;
-  resetFilters: () => void;
-}
+// ============================================================================
+// 型別定義
+// ============================================================================
+
+/** 文件 Store 狀態型別 */
+export type DocumentsState = EntityState<Document, DocumentFilter>;
+
+// ============================================================================
+// Store 建立
+// ============================================================================
 
 const initialFilters: DocumentFilter = {
   search: '',
 };
 
-export const useDocumentsStore = create<DocumentsState>()(
-  devtools(
-    (set, get) => ({
-      // Initial state
-      documents: [],
-      selectedDocument: null,
-      filters: initialFilters,
-      pagination: {
-        page: 1,
-        limit: 10,
-        total: 0,
-        totalPages: 0,
-      },
+/**
+ * 文件 Store
+ *
+ * @example
+ * ```typescript
+ * const {
+ *   items: documents,
+ *   selectedItem: selectedDocument,
+ *   filters,
+ *   pagination,
+ *   setItems,
+ *   addItem,
+ *   updateItem,
+ *   removeItem,
+ *   setFilters,
+ *   resetFilters,
+ * } = useDocumentsStore();
+ * ```
+ */
+export const useDocumentsStore = createEntityStore<Document, DocumentFilter>({
+  name: 'documents-store',
+  initialFilters,
+});
 
-      // Actions
-      setDocuments: (documents) => set({ documents }),
-      
-      setSelectedDocument: (selectedDocument) => set({ selectedDocument }),
-      
-      setFilters: (newFilters) => set((state) => ({ 
-        filters: { ...state.filters, ...newFilters },
-        pagination: { ...state.pagination, page: 1 }
-      })),
-      
-      setPagination: (newPagination) => set((state) => ({
-        pagination: { ...state.pagination, ...newPagination }
-      })),
-      
-      addDocument: (document) => set((state) => ({
-        documents: [...state.documents, document]
-      })),
-      
-      updateDocument: (id, updates) => set((state) => ({
-        documents: state.documents.map(doc => 
-          doc.id === Number(id) ? { ...doc, ...updates } as Document : doc
-        )
-      })),
-      
-      removeDocument: (id) => set((state) => ({
-        documents: state.documents.filter(doc => doc.id !== Number(id))
-      })),
-      
-      resetFilters: () => set({ 
-        filters: initialFilters,
-        pagination: { ...get().pagination, page: 1 }
-      }),
-    }),
-    { name: 'documents-store' }
-  )
-);
+// ============================================================================
+// 相容性別名（向後相容舊 API）
+// ============================================================================
 
-export type { DocumentsState };
+/**
+ * 文件 Store 相容性包裝
+ * 提供舊版 API 的別名，方便漸進式遷移
+ *
+ * 注意：舊版 API 的 updateDocument/removeDocument 接受 string id，
+ * 這裡提供轉換以維持向後相容。
+ */
+export function useDocumentsStoreCompat() {
+  const store = useDocumentsStore();
+  return {
+    // 舊版別名
+    documents: store.items,
+    selectedDocument: store.selectedItem,
+    setDocuments: store.setItems,
+    setSelectedDocument: store.setSelectedItem,
+    addDocument: store.addItem,
+    // 舊版接受 string id，轉換為 number
+    updateDocument: (id: string | number, updates: Partial<Document>) =>
+      store.updateItem(typeof id === 'string' ? Number(id) : id, updates),
+    removeDocument: (id: string | number) =>
+      store.removeItem(typeof id === 'string' ? Number(id) : id),
+    // 新版 API
+    ...store,
+  };
+}

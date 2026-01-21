@@ -512,9 +512,9 @@ async def list_dispatch_orders(
             'company_doc_number': item.company_doc.doc_number if item.company_doc else None,
             'linked_projects': [
                 {
-                    'link_id': link.id,
-                    'project_id': link.project_id,
-                    **TaoyuanProjectSchema.model_validate(link.project).model_dump()
+                    **TaoyuanProjectSchema.model_validate(link.project).model_dump(),
+                    'link_id': link.id,  # 放在展開之後確保不被覆蓋
+                    'project_id': link.taoyuan_project_id,  # 放在展開之後確保不被覆蓋
                 }
                 for link in item.project_links if link.project
             ] if item.project_links else [],
@@ -522,9 +522,12 @@ async def list_dispatch_orders(
                 {
                     'link_id': link.id,
                     'link_type': link.link_type,
+                    'dispatch_order_id': link.dispatch_order_id,  # 新增：派工單 ID
                     'document_id': link.document_id,
                     'doc_number': link.document.doc_number if link.document else None,
                     'subject': link.document.subject if link.document else None,
+                    'doc_date': link.document.doc_date.isoformat() if link.document and link.document.doc_date else None,
+                    'created_at': link.created_at.isoformat() if link.created_at else None,
                 }
                 for link in item.document_links
             ] if item.document_links else []
@@ -965,6 +968,7 @@ async def get_dispatch_order_detail(
             linked_documents.append({
                 'link_id': link.id,
                 'link_type': link.link_type,
+                'dispatch_order_id': link.dispatch_order_id,  # 新增：派工單 ID
                 'document_id': link.document.id,
                 'doc_number': link.document.doc_number,
                 'subject': link.document.subject,
@@ -993,15 +997,16 @@ async def get_dispatch_order_detail(
         'company_doc_number': order.company_doc.doc_number if order.company_doc else None,
         'linked_projects': [
             {
-                'link_id': link.id,
-                'project_id': link.project_id,
-                **TaoyuanProjectSchema.model_validate(link.project).model_dump()
+                **TaoyuanProjectSchema.model_validate(link.project).model_dump(),
+                'link_id': link.id,  # 放在展開之後確保不被覆蓋
+                'project_id': link.taoyuan_project_id,  # 放在展開之後確保不被覆蓋
             }
             for link in order.project_links if link.project
         ] if order.project_links else [],
         'linked_documents': linked_documents,
     }
-    return DispatchOrderSchema(**order_dict)
+    # 直接返回 dict，讓 FastAPI 用 response_model 序列化
+    return order_dict
 
 
 @router.post("/dispatch/{dispatch_id}/delete", summary="刪除派工紀錄")
@@ -1843,9 +1848,9 @@ async def get_dispatch_order_detail_with_history(
         'company_doc_number': order.company_doc.doc_number if order.company_doc else None,
         'linked_projects': [
             {
-                'link_id': link.id,
-                'project_id': link.project_id,
-                **TaoyuanProjectSchema.model_validate(link.project).model_dump()
+                **TaoyuanProjectSchema.model_validate(link.project).model_dump(),
+                'link_id': link.id,  # 放在展開之後確保不被覆蓋
+                'project_id': link.taoyuan_project_id,  # 放在展開之後確保不被覆蓋
             }
             for link in order.project_links if link.project
         ] if order.project_links else []

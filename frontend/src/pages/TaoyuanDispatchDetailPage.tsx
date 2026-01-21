@@ -235,12 +235,31 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
   // 移除工程關聯 mutation
   const unlinkProjectMutation = useMutation({
     mutationFn: (linkId: number) => {
+      // 防禦性檢查：確保 linkId 有效
+      if (linkId === undefined || linkId === null) {
+        console.error('[unlinkProjectMutation] linkId 無效:', linkId);
+        return Promise.reject(new Error('關聯 ID 無效'));
+      }
+
       const linkedProjects = dispatch?.linked_projects || [];
-      const targetProject = linkedProjects.find((p) => p.link_id === linkId);
+      console.debug('[unlinkProjectMutation] linked_projects:', linkedProjects);
+
+      // 相容新舊資料結構：link_id 或 id
+      const targetProject = linkedProjects.find((p) => (p.link_id ?? p.id) === linkId);
       if (!targetProject) {
+        console.error('[unlinkProjectMutation] 找不到 link_id:', linkId, '在', linkedProjects);
         return Promise.reject(new Error('找不到關聯工程'));
       }
-      return projectLinksApi.unlinkDispatch(targetProject.project_id, linkId);
+
+      // 相容新舊資料結構：project_id 或 id
+      const projectId = targetProject.project_id ?? targetProject.id;
+      if (!projectId) {
+        console.error('[unlinkProjectMutation] project_id 無效:', targetProject);
+        return Promise.reject(new Error('工程 ID 無效，請重新整理頁面'));
+      }
+
+      console.debug('[unlinkProjectMutation] 準備移除:', { projectId, linkId });
+      return projectLinksApi.unlinkDispatch(projectId, linkId);
     },
     onSuccess: () => {
       message.success('已移除工程關聯');
@@ -672,14 +691,24 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
                   <Button
                     type="link"
                     size="small"
-                    onClick={() => navigate(`/taoyuan/project/${proj.project_id}`)}
+                    onClick={() => navigate(`/taoyuan/project/${proj.project_id || proj.id}`)}
                   >
                     查看工程詳情
                   </Button>
                   {canEdit && (
                     <Popconfirm
                       title="確定要移除此關聯嗎？"
-                      onConfirm={() => unlinkProjectMutation.mutate(proj.link_id)}
+                      onConfirm={() => {
+                        // 優先使用 link_id，其次用 id
+                        const linkId = proj.link_id ?? proj.id;
+                        const projectId = proj.project_id ?? proj.id;
+                        if (!linkId || !projectId) {
+                          message.error('關聯資料不完整，請重新整理頁面');
+                          console.error('[unlinkProject] 資料不完整:', proj);
+                          return;
+                        }
+                        unlinkProjectMutation.mutate(linkId);
+                      }}
                       okText="確定"
                       cancelText="取消"
                     >

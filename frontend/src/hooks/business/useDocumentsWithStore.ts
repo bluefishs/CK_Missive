@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useCallback } from 'react';
-import { useDocumentsStore } from '../../store/documents';
+import { useDocumentsStoreCompat } from '../../store/documents';
 import {
   useDocuments,
   useDocument,
@@ -28,7 +28,7 @@ import type { DocumentListParams, DocumentCreate, DocumentUpdate } from '../../a
  * 自動同步 React Query 資料到 Zustand Store，提供統一的狀態管理介面
  */
 export const useDocumentsWithStore = () => {
-  const store = useDocumentsStore();
+  const store = useDocumentsStoreCompat();
 
   // 將 Store 的 filters 轉換為 API 參數
   const apiParams: DocumentListParams = {
@@ -165,7 +165,7 @@ export const useDocumentsWithStore = () => {
  * 單一公文詳情整合 Hook
  */
 export const useDocumentWithStore = (documentId: number | null | undefined) => {
-  const store = useDocumentsStore();
+  const store = useDocumentsStoreCompat();
   const documentQuery = useDocument(documentId);
 
   // 同步到 Store

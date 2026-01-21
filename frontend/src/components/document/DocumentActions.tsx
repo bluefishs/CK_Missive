@@ -12,7 +12,7 @@ import {
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { Document } from '../../types';
-import { useCalendarIntegration } from '../../hooks/useCalendarIntegration';
+import { useCalendarIntegration } from '../../hooks';
 
 type ActionHandler = (document: Document) => void | Promise<void>;
 

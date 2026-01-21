@@ -115,7 +115,10 @@ export interface FileUploadSectionProps {
   readOnly: boolean;
   onFileListChange: (fileList: UploadFile[]) => void;
   onRemove: (file: UploadFile) => void;
+  onClearErrors?: () => void;
   validateFile: (file: File) => FileValidationResult;
+  /** 檢查重複檔案的回調，回傳 true 表示已處理（顯示確認對話框），false 表示可繼續上傳 */
+  onCheckDuplicate?: (file: File) => boolean;
 }
 
 /** 專案與人員 Tab Props */

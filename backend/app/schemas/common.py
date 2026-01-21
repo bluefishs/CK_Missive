@@ -293,3 +293,55 @@ class SelectOptionStr(BaseModel):
     label: str = Field(..., description="顯示文字")
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class DropdownResponse(BaseModel, Generic[T]):
+    """
+    統一下拉選項回應格式
+
+    所有下拉選項 API 都應使用此格式回應。
+
+    Example:
+        {
+            "success": true,
+            "options": [
+                {"value": 1, "label": "選項一"},
+                {"value": 2, "label": "選項二"}
+            ],
+            "total": 2
+        }
+    """
+    success: bool = Field(default=True, description="操作是否成功")
+    options: List[T] = Field(default=[], description="選項列表")
+    total: int = Field(default=0, description="選項總數")
+
+    @classmethod
+    def create(cls, options: List[T]) -> "DropdownResponse[T]":
+        """建立下拉選項回應"""
+        return cls(options=options, total=len(options))
+
+
+# ============================================================================
+# 統計資料格式
+# ============================================================================
+
+class StatisticsResponse(BaseModel, Generic[T]):
+    """
+    統一統計資料回應格式
+
+    所有統計 API 都應使用此格式回應。
+
+    Example:
+        {
+            "success": true,
+            "data": {
+                "total_count": 100,
+                "active_count": 80,
+                "by_category": {...}
+            },
+            "generated_at": "2024-01-01T12:00:00Z"
+        }
+    """
+    success: bool = Field(default=True, description="操作是否成功")
+    data: T = Field(..., description="統計資料")
+    generated_at: datetime = Field(default_factory=datetime.utcnow, description="統計產生時間")

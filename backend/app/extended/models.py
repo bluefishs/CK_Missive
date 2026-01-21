@@ -1,5 +1,48 @@
 """
-擴展數據模型 - 四大功能模組 (已修復級聯刪除)
+CK_Missive 資料庫模型定義
+
+本檔案包含系統所有 SQLAlchemy ORM 模型，按功能模組分類：
+
+模型結構:
+============================================================================
+1. 關聯表 (Association Tables)
+   - project_vendor_association: 專案-廠商關聯
+   - project_user_assignment: 專案-使用者關聯
+
+2. 基礎實體 (Core Entities)
+   - PartnerVendor: 協力廠商
+   - ContractProject: 承攬案件
+   - GovernmentAgency: 政府機關
+   - User: 使用者
+
+3. 公文模組 (Document Module)
+   - OfficialDocument: 公文
+   - DocumentAttachment: 公文附件
+
+4. 行事曆模組 (Calendar Module)
+   - DocumentCalendarEvent: 公文行事曆事件
+   - EventReminder: 事件提醒
+
+5. 系統模組 (System Module)
+   - SystemNotification: 系統通知
+   - UserSession: 使用者會話
+   - SiteNavigationItem: 導覽項目
+   - SiteConfiguration: 網站配置
+
+6. 專案人員模組 (Project Staff Module)
+   - ProjectAgencyContact: 專案機關承辦
+   - StaffCertification: 員工證照
+
+7. 桃園派工模組 (Taoyuan Dispatch Module)
+   - TaoyuanProject: 轄管工程
+   - TaoyuanDispatchOrder: 派工紀錄
+   - TaoyuanDispatchProjectLink: 派工-工程關聯
+   - TaoyuanDispatchDocumentLink: 派工-公文關聯
+   - TaoyuanDocumentProjectLink: 公文-工程關聯
+   - TaoyuanContractPayment: 契金管控
+
+最後更新: 2026-01-21
+============================================================================
 """
 from sqlalchemy import Column, Integer, String, Float, Date, DateTime, ForeignKey, Text, Boolean, Table, func, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
@@ -8,6 +51,11 @@ from datetime import datetime
 
 # 從共享的 database.py 匯入 Base，確保所有模型都使用同一個 metadata
 from app.db.database import Base
+
+
+# =============================================================================
+# 1. 關聯表 (Association Tables)
+# =============================================================================
 
 # 案件與廠商關聯表
 project_vendor_association = Table(
@@ -45,6 +93,11 @@ project_user_assignment = Table(
     Column('updated_at', DateTime, server_default=func.now(), comment="更新時間"),
     extend_existing=True
 )
+
+
+# =============================================================================
+# 2. 基礎實體 (Core Entities)
+# =============================================================================
 
 class PartnerVendor(Base):
     """協力廠商模型"""
@@ -104,6 +157,11 @@ class ContractProject(Base):
     # 關聯關係
     documents = relationship("OfficialDocument", back_populates="contract_project")
     client_agency_ref = relationship("GovernmentAgency", foreign_keys=[client_agency_id])
+
+
+# =============================================================================
+# 3. 公文模組 (Document Module)
+# =============================================================================
 
 class OfficialDocument(Base):
     """
@@ -188,7 +246,6 @@ class GovernmentAgency(Base):
     sent_documents = relationship("OfficialDocument", foreign_keys="OfficialDocument.sender_agency_id", back_populates="sender_agency", lazy="dynamic")
     received_documents = relationship("OfficialDocument", foreign_keys="OfficialDocument.receiver_agency_id", back_populates="receiver_agency", lazy="dynamic")
 
-# ... (PartnerVendor, DocNumberSequence, etc. 保持不變) ...
 
 class User(Base):
     __tablename__ = "users"
@@ -221,6 +278,11 @@ class User(Base):
 
     # 證照關聯
     certifications = relationship("StaffCertification", back_populates="user", cascade="all, delete-orphan")
+
+
+# =============================================================================
+# 4. 行事曆模組 (Calendar Module)
+# =============================================================================
 
 class DocumentCalendarEvent(Base):
     __tablename__ = "document_calendar_events"
@@ -343,6 +405,11 @@ class EventReminder(Base):
     event = relationship("DocumentCalendarEvent", back_populates="reminders")
     recipient_user = relationship("User", foreign_keys=[recipient_user_id])
 
+
+# =============================================================================
+# 5. 系統模組 (System Module)
+# =============================================================================
+
 class SystemNotification(Base):
     """系統通知模型"""
     __tablename__ = "system_notifications"
@@ -414,6 +481,10 @@ class SiteConfiguration(Base):
     created_at = Column(DateTime, server_default=func.now(), comment="建立時間")
     updated_at = Column(DateTime, server_default=func.now(), comment="更新時間")
 
+
+# =============================================================================
+# 6. 專案人員模組 (Project Staff Module)
+# =============================================================================
 
 class ProjectAgencyContact(Base):
     """專案機關承辦模型 - 記錄委託單位的承辦人資訊（含桃園專案通訊錄擴充欄位）"""

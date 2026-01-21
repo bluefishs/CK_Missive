@@ -235,13 +235,17 @@ export const DocumentDetailPage: React.FC = () => {
   /** 載入公文關聯的派工紀錄 */
   const loadDispatchLinks = useCallback(async () => {
     if (!id) return;
+    logger.debug('[loadDispatchLinks] 開始載入, docId:', id);
     setDispatchLinksLoading(true);
     try {
       const docId = parseInt(id, 10);
       const result = await documentLinksApi.getDispatchLinks(docId);
-      setDispatchLinks(result.dispatch_orders || []);
+      logger.debug('[loadDispatchLinks] API 回應:', result);
+      const orders = result.dispatch_orders || [];
+      logger.debug('[loadDispatchLinks] 設定 dispatchLinks, 數量:', orders.length);
+      setDispatchLinks(orders);
     } catch (error) {
-      console.error('載入派工關聯失敗:', error);
+      logger.error('[loadDispatchLinks] 載入派工關聯失敗:', error);
       setDispatchLinks([]);
     } finally {
       setDispatchLinksLoading(false);

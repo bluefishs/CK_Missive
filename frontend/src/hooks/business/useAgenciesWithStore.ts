@@ -8,7 +8,8 @@
  */
 
 import { useEffect, useCallback } from 'react';
-import { useAgenciesStore, AgencyFilter } from '../../store';
+import { AgencyFilter } from '../../store';
+import { useAgenciesStoreCompat } from '../../store/agencies';
 import {
   useAgencies,
   useAgency,
@@ -25,7 +26,7 @@ import type { AgencyListParams } from '../../api/agenciesApi';
  * 自動同步 React Query 資料到 Zustand Store
  */
 export const useAgenciesWithStore = () => {
-  const store = useAgenciesStore();
+  const store = useAgenciesStoreCompat();
 
   // 將 Store 的 filters 轉換為 API 參數
   const apiParams: AgencyListParams = {
@@ -148,7 +149,7 @@ export const useAgenciesWithStore = () => {
  * 單一機關詳情 Hook（整合 Store）
  */
 export const useAgencyDetailWithStore = (agencyId: number | null | undefined) => {
-  const store = useAgenciesStore();
+  const store = useAgenciesStoreCompat();
   const agencyQuery = useAgency(agencyId);
 
   // 同步到 Store

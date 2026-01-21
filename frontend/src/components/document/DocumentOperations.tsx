@@ -7,36 +7,21 @@ import {
   DatePicker,
   Button,
   App,
-  Upload,
   Card,
   Space,
   Row,
   Col,
   Tag,
   Tabs,
-  List,
-  Popconfirm,
   Spin,
   Empty,
-  Progress,
-  Alert,
 } from 'antd';
-import type { UploadFile, UploadChangeParam } from 'antd/es/upload';
+import type { UploadFile } from 'antd/es/upload';
 import {
-  InboxOutlined,
   FileTextOutlined,
   SendOutlined,
   CopyOutlined,
   CalendarOutlined,
-  DownloadOutlined,
-  DeleteOutlined,
-  PaperClipOutlined,
-  CloudUploadOutlined,
-  FileOutlined,
-  LoadingOutlined,
-  EyeOutlined,
-  FilePdfOutlined,
-  FileImageOutlined,
 } from '@ant-design/icons';
 import { Document, Project, User, DocumentAttachment, ProjectStaff } from '../../types';
 import dayjs from 'dayjs';
@@ -48,16 +33,18 @@ import { logger } from '../../utils/logger';
 import {
   CriticalChangeConfirmModal,
   DuplicateFileModal,
+  ExistingAttachmentsList,
+  FileUploadSection,
   CRITICAL_FIELDS,
   type CriticalFieldKey,
   type CriticalChange,
   type CriticalChangeModalState,
   type DuplicateModalState,
+  type FileValidationResult,
 } from './operations';
 
 const { TextArea } = Input;
 const { Option } = Select;
-const { Dragger } = Upload;
 
 // ============================================================================
 // 預設檔案驗證常數（作為後備，實際值從後端載入）
@@ -347,23 +334,6 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
     }
   };
 
-  // 判斷是否可預覽的檔案類型
-  const isPreviewable = (contentType?: string, filename?: string): boolean => {
-    if (contentType) {
-      if (contentType.startsWith('image/') ||
-          contentType === 'application/pdf' ||
-          contentType.startsWith('text/')) {
-        return true;
-      }
-    }
-    // 也根據副檔名判斷
-    if (filename) {
-      const ext = filename.toLowerCase().split('.').pop();
-      return ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'txt', 'csv'].includes(ext || '');
-    }
-    return false;
-  };
-
   // 預覽附件 - 在新視窗開啟
   const handlePreviewAttachment = async (attachmentId: number, filename: string) => {
     try {
@@ -376,18 +346,6 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
       logger.error('預覽附件失敗:', error);
       message.error(`預覽 ${filename} 失敗`);
     }
-  };
-
-  // 取得檔案圖示
-  const getFileIcon = (contentType?: string, filename?: string) => {
-    const ext = filename?.toLowerCase().split('.').pop();
-    if (contentType?.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'bmp'].includes(ext || '')) {
-      return <FileImageOutlined style={{ fontSize: 20, color: '#52c41a' }} />;
-    }
-    if (contentType === 'application/pdf' || ext === 'pdf') {
-      return <FilePdfOutlined style={{ fontSize: 20, color: '#ff4d4f' }} />;
-    }
-    return <PaperClipOutlined style={{ fontSize: 20, color: '#1890ff' }} />;
   };
 
   // 檢查是否有重複檔名
@@ -703,71 +661,62 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
   };
 
   // 檔案驗證函數（使用動態載入的設定）
-  const validateFile = (file: File): { valid: boolean; error?: string } => {
+  const validateFile = (file: File): FileValidationResult => {
     const { allowedExtensions, maxFileSizeMB } = fileSettings;
 
     // 檢查副檔名
     const fileName = file.name.toLowerCase();
     const ext = '.' + (fileName.split('.').pop() || '');
     if (!allowedExtensions.includes(ext)) {
-      return {
-        valid: false,
-        error: `不支援 ${ext} 檔案格式。允許的格式: ${allowedExtensions.slice(0, 5).join(', ')} 等`,
-      };
+      const errorMsg = `不支援 ${ext} 檔案格式。允許的格式: ${allowedExtensions.slice(0, 5).join(', ')} 等`;
+      message.error(errorMsg);
+      return { valid: false, error: errorMsg };
     }
 
     // 檢查檔案大小
     const maxSizeBytes = maxFileSizeMB * 1024 * 1024;
     if (file.size > maxSizeBytes) {
       const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-      return {
-        valid: false,
-        error: `檔案 "${file.name}" 大小 ${sizeMB}MB 超過限制 (最大 ${maxFileSizeMB}MB)`,
-      };
+      const errorMsg = `檔案 "${file.name}" 大小 ${sizeMB}MB 超過限制 (最大 ${maxFileSizeMB}MB)`;
+      message.error(errorMsg);
+      return { valid: false, error: errorMsg };
     }
 
     return { valid: true };
   };
 
-  const uploadProps = {
-    multiple: true,
-    fileList,
-    showUploadList: false, // 隱藏預設列表，使用自定義卡片顯示
-    beforeUpload: (file: File) => {
-      // 前端驗證
-      const validation = validateFile(file);
-      if (!validation.valid) {
-        message.error(validation.error);
-        return Upload.LIST_IGNORE; // 不加入列表
-      }
+  // 檢查重複檔案（回傳 true 表示已處理，false 表示可繼續）
+  const handleCheckDuplicate = (file: File): boolean => {
+    // 僅在編輯模式下檢查已上傳附件
+    if (isCreate || isCopy) return false;
 
-      // 檢查是否有重複檔名（僅在編輯模式下檢查已上傳附件）
-      if (!isCreate && !isCopy) {
-        const existingFile = checkDuplicateFile(file.name);
-        if (existingFile) {
-          // 顯示重複檔案確認對話框
-          setDuplicateModal({
-            visible: true,
-            file: file,
-            existingAttachment: existingFile,
-          });
-          return Upload.LIST_IGNORE; // 先不加入列表，等用戶確認
-        }
-      }
+    const existingFile = checkDuplicateFile(file.name);
+    if (existingFile) {
+      // 顯示重複檔案確認對話框
+      setDuplicateModal({
+        visible: true,
+        file: file,
+        existingAttachment: existingFile,
+      });
+      return true; // 已由 DuplicateFileModal 處理
+    }
+    return false;
+  };
 
-      return false; // 阻止自動上傳，我們將手動處理
-    },
-    onChange: ({ fileList: newFileList }: UploadChangeParam<UploadFile>) => {
-      setFileList(newFileList);
-    },
-    onRemove: (file: UploadFile) => {
-      const newFileList = fileList.filter(item => item.uid !== file.uid);
-      setFileList(newFileList);
-    },
-    onPreview: (file: UploadFile) => {
-      // 可以添加檔案預覽功能
-      logger.debug('Preview file:', file.name);
-    },
+  // 處理檔案列表變更
+  const handleFileListChange = (newFileList: UploadFile[]) => {
+    setFileList(newFileList);
+  };
+
+  // 處理移除檔案
+  const handleRemoveFile = (file: UploadFile) => {
+    const newFileList = fileList.filter(item => item.uid !== file.uid);
+    setFileList(newFileList);
+  };
+
+  // 清除上傳錯誤
+  const handleClearUploadErrors = () => {
+    setUploadErrors([]);
   };
 
   return (
@@ -1090,172 +1039,32 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
               ),
               children: (
                 <Spin spinning={attachmentsLoading}>
-                  {/* 既有附件列表 */}
-                  {existingAttachments.length > 0 && (
-                    <Card
-                      size="small"
-                      title={
-                        <Space>
-                          <PaperClipOutlined />
-                          <span>已上傳附件（{existingAttachments.length} 個）</span>
-                        </Space>
-                      }
-                      style={{ marginBottom: 16 }}
-                    >
-                      <List
-                        size="small"
-                        dataSource={existingAttachments}
-                        renderItem={(item: DocumentAttachment) => (
-                          <List.Item
-                            actions={[
-                              // 預覽按鈕（僅支援 PDF/圖片/文字檔）
-                              isPreviewable(item.content_type, item.original_filename || item.filename) && (
-                                <Button
-                                  key="preview"
-                                  type="link"
-                                  size="small"
-                                  icon={<EyeOutlined />}
-                                  onClick={() => handlePreviewAttachment(item.id, item.original_filename || item.filename)}
-                                  style={{ color: '#52c41a' }}
-                                >
-                                  預覽
-                                </Button>
-                              ),
-                              <Button
-                                key="download"
-                                type="link"
-                                size="small"
-                                icon={<DownloadOutlined />}
-                                onClick={() => handleDownload(item.id, item.original_filename || item.filename)}
-                              >
-                                下載
-                              </Button>,
-                              !isReadOnly && (
-                                <Popconfirm
-                                  key="delete"
-                                  title="確定要刪除此附件嗎？"
-                                  onConfirm={() => handleDeleteAttachment(item.id)}
-                                  okText="確定"
-                                  cancelText="取消"
-                                >
-                                  <Button
-                                    type="link"
-                                    size="small"
-                                    danger
-                                    icon={<DeleteOutlined />}
-                                  >
-                                    刪除
-                                  </Button>
-                                </Popconfirm>
-                              ),
-                            ].filter(Boolean)}
-                          >
-                            <List.Item.Meta
-                              avatar={getFileIcon(item.content_type, item.original_filename || item.filename)}
-                              title={item.original_filename || item.filename}
-                              description={
-                                <span style={{ fontSize: 12, color: '#999' }}>
-                                  {item.file_size ? `${(item.file_size / 1024).toFixed(1)} KB` : ''}
-                                  {item.created_at && ` · ${dayjs(item.created_at).format('YYYY-MM-DD HH:mm')}`}
-                                </span>
-                              }
-                            />
-                          </List.Item>
-                        )}
-                      />
-                    </Card>
-                  )}
+                  {/* 既有附件列表 - 使用子元件 */}
+                  <ExistingAttachmentsList
+                    attachments={existingAttachments}
+                    loading={false}
+                    readOnly={isReadOnly}
+                    onDownload={handleDownload}
+                    onPreview={handlePreviewAttachment}
+                    onDelete={handleDeleteAttachment}
+                  />
 
-                  {/* 上傳區域（非唯讀模式才顯示）*/}
+                  {/* 上傳區域 - 使用子元件（非唯讀模式才顯示）*/}
                   {!isReadOnly ? (
-                    <Form.Item label="上傳新附件">
-                      <Dragger {...uploadProps} disabled={uploading}>
-                        <p className="ant-upload-drag-icon">
-                          <InboxOutlined />
-                        </p>
-                        <p className="ant-upload-text">點擊或拖拽文件到此區域上傳</p>
-                        <p className="ant-upload-hint">
-                          支援 PDF、DOC、DOCX、XLS、XLSX、JPG、PNG 等格式，單檔最大 {fileSettings.maxFileSizeMB}MB
-                        </p>
-                      </Dragger>
-
-                      {/* 待上傳檔案預覽 */}
-                      {fileList.length > 0 && !uploading && (
-                        <Card
-                          size="small"
-                          style={{ marginTop: 16, background: '#f6ffed', border: '1px solid #b7eb8f' }}
-                          title={
-                            <span style={{ color: '#52c41a' }}>
-                              <CloudUploadOutlined style={{ marginRight: 8 }} />
-                              待上傳檔案（{fileList.length} 個）
-                            </span>
-                          }
-                        >
-                          <List
-                            size="small"
-                            dataSource={fileList}
-                            renderItem={(file: UploadFile) => (
-                              <List.Item>
-                                <List.Item.Meta
-                                  avatar={<FileOutlined style={{ color: '#1890ff' }} />}
-                                  title={file.name}
-                                  description={file.size ? `${(file.size / 1024).toFixed(1)} KB` : ''}
-                                />
-                              </List.Item>
-                            )}
-                          />
-                          <p style={{ color: '#999', fontSize: 12, marginTop: 8, marginBottom: 0 }}>
-                            點擊下方「儲存變更」按鈕後開始上傳
-                          </p>
-                        </Card>
-                      )}
-
-                      {/* 上傳進度條 */}
-                      {uploading && (
-                        <Card
-                          size="small"
-                          style={{ marginTop: 16, background: '#e6f7ff', border: '1px solid #91d5ff' }}
-                          title={
-                            <span style={{ color: '#1890ff' }}>
-                              <LoadingOutlined style={{ marginRight: 8 }} />
-                              正在上傳檔案...
-                            </span>
-                          }
-                        >
-                          <Progress
-                            percent={uploadProgress}
-                            status="active"
-                            strokeColor={{
-                              '0%': '#108ee9',
-                              '100%': '#87d068',
-                            }}
-                            strokeWidth={12}
-                          />
-                          <p style={{ textAlign: 'center', color: '#1890ff', marginTop: 12, marginBottom: 0, fontWeight: 500 }}>
-                            上傳進度：{uploadProgress}%
-                          </p>
-                        </Card>
-                      )}
-
-                      {/* 上傳錯誤訊息 */}
-                      {uploadErrors.length > 0 && (
-                        <Alert
-                          type="warning"
-                          showIcon
-                          closable
-                          onClose={() => setUploadErrors([])}
-                          style={{ marginTop: 16 }}
-                          message="部分檔案上傳失敗"
-                          description={
-                            <ul style={{ margin: 0, paddingLeft: 20 }}>
-                              {uploadErrors.map((err, idx) => (
-                                <li key={idx}>{err}</li>
-                              ))}
-                            </ul>
-                          }
-                        />
-                      )}
-                    </Form.Item>
+                    <FileUploadSection
+                      fileList={fileList}
+                      uploading={uploading}
+                      uploadProgress={uploadProgress}
+                      uploadErrors={uploadErrors}
+                      maxFileSizeMB={fileSettings.maxFileSizeMB}
+                      allowedExtensions={fileSettings.allowedExtensions}
+                      readOnly={isReadOnly}
+                      onFileListChange={handleFileListChange}
+                      onRemove={handleRemoveFile}
+                      onClearErrors={handleClearUploadErrors}
+                      validateFile={validateFile}
+                      onCheckDuplicate={handleCheckDuplicate}
+                    />
                   ) : (
                     existingAttachments.length === 0 && (
                       <Empty

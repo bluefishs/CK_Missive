@@ -9,7 +9,7 @@
 
 import React, { ComponentType } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuthGuard, Permission, AuthGuardOptions } from '../../hooks/useAuthGuard';
+import { useAuthGuard, Permission, AuthGuardOptions } from '../../hooks';
 import { ROUTES } from '../../router/types';
 import { PageLoading } from '../common';
 

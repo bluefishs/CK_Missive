@@ -19,7 +19,7 @@ import {
 } from '@ant-design/icons';
 import { secureApiService } from '../services/secureApiService';
 import { navigationService } from '../services/navigationService';
-import { usePermissions } from '../hooks/usePermissions';
+import { usePermissions } from '../hooks';
 import { message } from 'antd';
 import SiteConfigManagement from '../components/site-management/SiteConfigManagement';
 import './SiteManagementPage.css';

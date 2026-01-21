@@ -1,8 +1,8 @@
 # CK_Missive 強制性開發規範檢查清單
 
-> **版本**: 1.3.0
+> **版本**: 1.4.0
 > **建立日期**: 2026-01-11
-> **最後更新**: 2026-01-18
+> **最後更新**: 2026-01-21
 > **狀態**: 強制執行 - 所有開發任務啟動前必須檢視
 
 ---
@@ -33,6 +33,7 @@
 | **資料庫變更** | 資料庫規範 | [清單 F](#清單-f資料庫變更) |
 | **Bug 修復** | 通用規範 | [清單 G](#清單-g-bug-修復) |
 | **新增/修改型別定義** | 型別管理規範 | [清單 H](#清單-h型別管理) |
+| **前端元件/Hook 開發** | 前端架構規範 | [清單 I](#清單-i前端元件hook-開發) |
 
 ---
 
@@ -323,6 +324,56 @@ grep -r "class.*\(BaseModel\)" backend/app/api/endpoints/ --include="*.py" | wc 
 
 ---
 
+## 清單 I：前端元件/Hook 開發
+
+### 必讀文件
+- [ ] `frontend/src/components/README.md`（組件架構規範）
+- [ ] `frontend/src/hooks/index.ts`（Hook 組織結構）
+- [ ] `frontend/src/utils/validators.ts`（共用驗證器）
+- [ ] `frontend/src/repositories/`（Repository 模式）
+
+### ⚠️ 架構須知 (v1.4.0 更新)
+
+**Hooks 目錄結構：**
+```
+hooks/
+├── business/     # 業務邏輯 Hooks (useDocuments, useProjects)
+├── system/       # 系統功能 Hooks (useAuth, usePermissions)
+├── utility/      # 工具類 Hooks (useResponsive, useForm)
+└── index.ts      # 統一匯出
+```
+
+**Repository 抽象層：**
+```
+repositories/
+├── BaseRepository.ts    # 抽象基類
+├── VendorRepository.ts  # 廠商資料存取
+├── AgencyRepository.ts  # 機關資料存取
+└── index.ts             # 統一匯出
+```
+
+### 組件命名規範
+
+| 類型 | 規則 | 範例 |
+|------|------|------|
+| 頁面組件 | `*Page.tsx` | `DocumentPage.tsx` |
+| 彈窗組件 | `*Modal.tsx` | `UserEditModal.tsx` |
+| 表單組件 | `*Form.tsx` | `NavigationItemForm.tsx` |
+| 列表組件 | `*List.tsx` | `VendorList.tsx` |
+| 管理面板 | `*Management.tsx` | `AgencyManagement.tsx` |
+
+### 開發前檢查
+- [ ] 確認組件位置符合架構規範
+- [ ] Hook 放置於正確的子目錄 (business/system/utility)
+- [ ] 使用 `frontend/src/utils/validators.ts` 的共用驗證器
+
+### 開發後檢查
+- [ ] TypeScript 編譯通過：`cd frontend && npx tsc --noEmit`
+- [ ] 組件/Hook 已加入對應的 `index.ts` 匯出
+- [ ] 驗證規則與後端 `validators.py` 保持一致
+
+---
+
 ## 二、通用開發後檢查清單
 
 **所有開發任務完成後，必須執行：**
@@ -379,7 +430,11 @@ cd backend && python -m py_compile app/main.py
 | 後端路徑白名單 | `backend/app/core/navigation_validator.py` |
 | 認證配置 | `frontend/src/config/env.ts` |
 | 服務基類 | `backend/app/services/base/` |
-| 驗證器 | `backend/app/services/base/validators.py` |
+| 後端驗證器 | `backend/app/services/base/validators.py` |
+| 前端驗證器 | `frontend/src/utils/validators.ts` |
+| 前端 Repository | `frontend/src/repositories/` |
+| 前端 Hooks | `frontend/src/hooks/` |
+| 組件架構規範 | `frontend/src/components/README.md` |
 | 開發規範 | `docs/DEVELOPMENT_STANDARDS.md` |
 
 ### 常用指令
@@ -404,6 +459,7 @@ cd backend && python -m py_compile app/main.py
 
 | 版本 | 日期 | 說明 |
 |------|------|------|
+| 1.4.0 | 2026-01-21 | 新增清單 I - 前端元件/Hook 開發（Hooks 目錄重組、Repository 層、共用驗證器） |
 | 1.3.0 | 2026-01-18 | 新增清單 H - 型別管理規範 (SSOT 架構) |
 | 1.2.0 | 2026-01-12 | 新增導覽路徑自動化驗證機制（白名單、下拉選單、強制同步） |
 | 1.1.0 | 2026-01-12 | 新增導覽系統架構說明（Layout.tsx vs DynamicLayout.tsx） |

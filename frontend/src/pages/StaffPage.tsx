@@ -46,7 +46,7 @@ import {
 import dayjs from 'dayjs';
 import { apiClient } from '../api/client';
 import { API_ENDPOINTS } from '../api/endpoints';
-import { useTableColumnSearch } from '../hooks/useTableColumnSearch';
+import { useTableColumnSearch } from '../hooks';
 import { certificationsApi, Certification, CertificationCreate, CertificationUpdate, CERT_TYPES, CERT_STATUS } from '../api/certificationsApi';
 
 const { Title } = Typography;

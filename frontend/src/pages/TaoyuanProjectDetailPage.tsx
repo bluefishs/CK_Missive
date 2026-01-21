@@ -184,14 +184,26 @@ export const TaoyuanProjectDetailPage: React.FC = () => {
 
   // 移除派工關聯 mutation
   const unlinkDispatchMutation = useMutation({
-    mutationFn: (linkId: number) =>
-      projectLinksApi.unlinkDispatch(parseInt(id || '0', 10), linkId),
+    mutationFn: (linkId: number) => {
+      // 防禦性檢查
+      if (linkId === undefined || linkId === null) {
+        console.error('[unlinkDispatchMutation] linkId 無效:', linkId);
+        return Promise.reject(new Error('關聯 ID 無效'));
+      }
+      const projectId = parseInt(id || '0', 10);
+      if (!projectId || projectId === 0) {
+        console.error('[unlinkDispatchMutation] projectId 無效:', id);
+        return Promise.reject(new Error('工程 ID 無效'));
+      }
+      console.debug('[unlinkDispatchMutation] 準備移除:', { projectId, linkId });
+      return projectLinksApi.unlinkDispatch(projectId, linkId);
+    },
     onSuccess: () => {
       message.success('已移除派工關聯');
       refetchDispatchLinks();
       queryClient.invalidateQueries({ queryKey: ['dispatch-orders'] });
     },
-    onError: () => message.error('移除關聯失敗'),
+    onError: (error: Error) => message.error(error.message || '移除關聯失敗'),
   });
 
   // 設定表單初始值
@@ -879,7 +891,7 @@ export const TaoyuanProjectDetailPage: React.FC = () => {
                 >
                   查看派工詳情
                 </Button>
-                {canEdit && isEditing && (
+                {canEdit && isEditing && dispatch.link_id !== undefined && (
                   <Popconfirm
                     title="確定要移除此關聯嗎？"
                     onConfirm={() => unlinkDispatchMutation.mutate(dispatch.link_id)}

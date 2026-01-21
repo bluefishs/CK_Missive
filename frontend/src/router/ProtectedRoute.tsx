@@ -9,7 +9,7 @@
 
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuthGuard, Permission } from '../hooks/useAuthGuard';
+import { useAuthGuard, Permission } from '../hooks';
 import { ROUTES } from './types';
 
 /** 受保護路由選項 */

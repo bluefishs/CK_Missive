@@ -10,8 +10,8 @@
 import React, { ReactNode } from 'react';
 import { Row, Col, Space } from 'antd';
 import type { SpaceProps } from 'antd';
-import { useResponsive, RESPONSIVE_SPACING } from '../../hooks/useResponsive';
-import type { ResponsiveConfig } from '../../hooks/useResponsive';
+import { useResponsive, RESPONSIVE_SPACING } from '../../hooks';
+import type { ResponsiveConfig } from '../../hooks/utility/useResponsive';
 
 /**
  * 響應式顯示組件 Props

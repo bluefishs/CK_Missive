@@ -27,7 +27,7 @@ import {
 } from '@ant-design/icons';
 import type { TableColumnType } from 'antd';
 import { useVendorsPage } from '../../hooks';
-import { useResponsive } from '../../hooks/useResponsive';
+import { useResponsive } from '../../hooks';
 import type { Vendor as ApiVendor, VendorCreate, VendorUpdate } from '../../types/api';
 
 const { Title } = Typography;

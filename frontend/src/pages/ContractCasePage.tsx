@@ -41,8 +41,7 @@ import dayjs from 'dayjs';
 import { ROUTES } from '../router/types';
 import ProjectVendorManagement from '../components/project/ProjectVendorManagement';
 import { useProjectsPage } from '../hooks';
-import { useAuthGuard } from '../hooks/useAuthGuard';
-import { useResponsive } from '../hooks/useResponsive';
+import { useAuthGuard, useResponsive } from '../hooks';
 
 const { Title } = Typography;
 const { Option } = Select;

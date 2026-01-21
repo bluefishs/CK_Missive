@@ -986,15 +986,20 @@ export interface DispatchOrder {
   // 關聯資訊（列表顯示用）
   agency_doc_number?: string;
   company_doc_number?: string;
-  /** 關聯工程（包含 link_id 用於解除關聯） */
+  /** 關聯工程（包含 link_id 和 project_id 用於解除關聯） */
   linked_projects?: (TaoyuanProject & { link_id: number; project_id: number })[];
-  linked_documents?: {
-    link_id: number;
-    link_type: 'agency_incoming' | 'company_outgoing';
-    document_id: number;
-    doc_number?: string;
-    subject?: string;
-  }[];
+  /** 關聯公文（使用統一的關聯格式） */
+  linked_documents?: DispatchDocumentLink[];
+}
+
+/** 派工單關聯的公文資訊 */
+export interface DispatchDocumentLink extends BaseLink {
+  link_type: LinkType;
+  dispatch_order_id: number;
+  document_id: number;
+  doc_number?: string;
+  subject?: string;
+  doc_date?: string;
 }
 
 /** 派工單建立請求 */
@@ -1083,27 +1088,13 @@ export interface TaoyuanStatisticsResponse {
   payments: PaymentStatistics;
 }
 
-/** 公文關聯類型 */
-export type DispatchDocumentLinkType = 'agency_incoming' | 'company_outgoing';
-
-/** 派工單公文關聯 */
-export interface DispatchDocumentLink {
-  id: number;
-  dispatch_order_id: number;
-  document_id: number;
-  link_type: DispatchDocumentLinkType;
-  created_at?: string;
-
-  // 公文資訊
-  doc_number?: string;
-  doc_date?: string;
-  subject?: string;
-}
-
-/** 派工單公文關聯建立請求 */
+/**
+ * 派工單公文關聯建立請求
+ * 注意：DispatchDocumentLink 已移至關聯類型定義區塊 (繼承 BaseLink)
+ */
 export interface DispatchDocumentLinkCreate {
   document_id: number;
-  link_type: DispatchDocumentLinkType;
+  link_type: LinkType;
 }
 
 /** 契金管控紀錄 (匹配後端 ContractPayment Schema) */
@@ -1181,14 +1172,48 @@ export interface ContractPaymentListResponse {
 /** 關聯類型：機關來函 / 乾坤發文 */
 export type LinkType = 'agency_incoming' | 'company_outgoing';
 
-/** 公文關聯的派工單資訊 */
-export interface DocumentDispatchLink {
+/**
+ * 基礎關聯介面 (SSOT)
+ * 所有關聯型別都必須包含這些欄位
+ */
+export interface BaseLink {
+  /** 關聯記錄 ID (用於刪除操作) */
   link_id: number;
-  link_type: LinkType;
+  /** 關聯類型 */
+  link_type?: LinkType;
+  /** 建立時間 */
+  created_at?: string;
+}
+
+/**
+ * 派工單關聯基礎介面
+ * 擴展 BaseLink，包含派工單識別資訊
+ */
+export interface DispatchLinkBase extends BaseLink {
+  /** 派工單 ID */
   dispatch_order_id: number;
+  /** 派工單號 */
   dispatch_no: string;
+  /** 工程名稱 */
   project_name?: string;
+  /** 作業類別 */
   work_type?: string;
+}
+
+/**
+ * 工程關聯基礎介面
+ * 擴展 BaseLink，包含工程識別資訊
+ */
+export interface ProjectLinkBase extends BaseLink {
+  /** 工程 ID */
+  project_id: number;
+  /** 工程名稱 */
+  project_name: string;
+}
+
+/** 公文關聯的派工單資訊 (完整版) */
+export interface DocumentDispatchLink extends DispatchLinkBase {
+  link_type: LinkType; // 必填（覆蓋可選）
   sub_case_name?: string;
   deadline?: string;
   case_handler?: string;
@@ -1198,16 +1223,11 @@ export interface DocumentDispatchLink {
   project_folder?: string;
   agency_doc_number?: string;
   company_doc_number?: string;
-  created_at?: string;
 }
 
-/** 公文關聯的工程資訊 */
-export interface DocumentProjectLink {
-  link_id: number;
-  link_type?: LinkType;
+/** 公文關聯的工程資訊 (完整版) */
+export interface DocumentProjectLink extends ProjectLinkBase {
   notes?: string;
-  project_id: number;
-  project_name: string;
   district?: string;
   review_year?: number;
   case_type?: string;
@@ -1220,17 +1240,11 @@ export interface DocumentProjectLink {
   current_width?: number;
   planned_width?: number;
   review_result?: string;
-  created_at?: string;
 }
 
-/** 工程關聯的派工單資訊 */
-export interface ProjectDispatchLink {
-  link_id: number;
-  link_type?: LinkType;
-  dispatch_order_id: number;
-  dispatch_no: string;
-  project_name?: string;
-  work_type?: string;
+/** 工程關聯的派工單資訊 (簡化版) */
+export interface ProjectDispatchLink extends DispatchLinkBase {
+  // 繼承 DispatchLinkBase 的所有欄位
 }
 
 /** 總控表查詢參數 */

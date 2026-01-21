@@ -40,7 +40,7 @@ import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
 import { EnhancedCalendarView } from '../components/calendar/EnhancedCalendarView';
 import { useCalendarPage } from '../hooks';
-import { useResponsive } from '../hooks/useResponsive';
+import { useResponsive } from '../hooks';
 import type { CalendarEvent, EventCategory } from '../api/calendarApi';
 
 // 啟用 dayjs 週計算插件

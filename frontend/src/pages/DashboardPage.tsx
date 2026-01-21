@@ -20,7 +20,7 @@ import {
   EditOutlined,
 } from '@ant-design/icons';
 import { useDashboardPage } from '../hooks';
-import { useResponsive } from '../hooks/useResponsive';
+import { useResponsive } from '../hooks';
 
 const { Title } = Typography;
 
