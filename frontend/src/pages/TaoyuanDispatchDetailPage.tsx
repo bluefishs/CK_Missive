@@ -53,7 +53,10 @@ import { dispatchOrdersApi, taoyuanProjectsApi, projectLinksApi } from '../api/t
 import { documentsApi } from '../api/documentsApi';
 import { getProjectAgencyContacts, type ProjectAgencyContact } from '../api/projectAgencyContacts';
 import { projectVendorsApi, type ProjectVendor } from '../api/projectVendorsApi';
-import type { DispatchOrder, DispatchOrderUpdate, OfficialDocument, LinkType, TaoyuanProject } from '../types/api';
+import type { DispatchOrder, DispatchOrderUpdate, OfficialDocument, LinkType, TaoyuanProject, DispatchDocumentLink } from '../types/api';
+
+/** 關聯工程型別（包含 link_id 用於刪除操作） */
+type LinkedProject = TaoyuanProject & { link_id: number; project_id: number };
 import { TAOYUAN_WORK_TYPES, isReceiveDocument } from '../types/api';
 import { useAuthGuard } from '../hooks';
 import { TAOYUAN_CONTRACT } from '../constants/taoyuanOptions';
@@ -126,7 +129,7 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
   });
 
   // 已關聯的公文 ID 列表
-  const linkedDocIds = (dispatch?.linked_documents || []).map((d: any) => d.document_id);
+  const linkedDocIds = (dispatch?.linked_documents || []).map((d: DispatchDocumentLink) => d.document_id);
   // 過濾掉已關聯的公文
   const availableDocs = (searchedDocs || []).filter(
     (doc: OfficialDocument) => !linkedDocIds.includes(doc.id)
@@ -159,7 +162,7 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
   const availableProjects = availableProjectsData?.items ?? [];
 
   // 已關聯的工程 ID 列表
-  const linkedProjectIds = (dispatch?.linked_projects || []).map((p: any) => p.project_id);
+  const linkedProjectIds = (dispatch?.linked_projects || []).map((p: LinkedProject) => p.project_id);
   // 過濾掉已關聯的工程
   const filteredProjects = availableProjects.filter(
     (proj: TaoyuanProject) => !linkedProjectIds.includes(proj.id)
@@ -559,7 +562,7 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
         {documents.length > 0 ? (
           <List
             dataSource={documents}
-            renderItem={(doc: any) => (
+            renderItem={(doc: DispatchDocumentLink) => (
               <Card size="small" style={{ marginBottom: 12 }}>
                 <Descriptions size="small" column={2}>
                   <Descriptions.Item label="公文字號">
@@ -684,7 +687,7 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
         {projects.length > 0 ? (
           <List
             dataSource={projects}
-            renderItem={(proj: any) => (
+            renderItem={(proj: LinkedProject) => (
               <Card size="small" style={{ marginBottom: 12 }}>
                 <Descriptions size="small" column={2}>
                   <Descriptions.Item label="工程名稱" span={2}>

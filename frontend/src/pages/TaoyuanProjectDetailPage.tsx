@@ -62,7 +62,7 @@ import {
 import { taoyuanProjectsApi, projectLinksApi, dispatchOrdersApi } from '../api/taoyuanDispatchApi';
 import { getProjectAgencyContacts, type ProjectAgencyContact } from '../api/projectAgencyContacts';
 import { projectVendorsApi, type ProjectVendor } from '../api/projectVendorsApi';
-import type { TaoyuanProject, TaoyuanProjectUpdate, DispatchOrder } from '../types/api';
+import type { TaoyuanProject, TaoyuanProjectUpdate, DispatchOrder, ProjectDispatchLink } from '../types/api';
 import { useAuthGuard } from '../hooks';
 import {
   CASE_TYPE_OPTIONS,
@@ -864,7 +864,7 @@ export const TaoyuanProjectDetailPage: React.FC = () => {
       {linkedDispatches.length > 0 ? (
         <List
           dataSource={linkedDispatches}
-          renderItem={(dispatch: any) => (
+          renderItem={(dispatch: ProjectDispatchLink) => (
             <Card size="small" style={{ marginBottom: 12 }}>
               <Descriptions size="small" column={2}>
                 <Descriptions.Item label="派工單號">
@@ -875,12 +875,6 @@ export const TaoyuanProjectDetailPage: React.FC = () => {
                 </Descriptions.Item>
                 <Descriptions.Item label="工程名稱" span={2}>
                   {dispatch.project_name || '-'}
-                </Descriptions.Item>
-                <Descriptions.Item label="履約期限">
-                  {dispatch.deadline || '-'}
-                </Descriptions.Item>
-                <Descriptions.Item label="案件承辦">
-                  {dispatch.case_handler || '-'}
                 </Descriptions.Item>
               </Descriptions>
               <Space style={{ marginTop: 8 }}>
@@ -894,7 +888,15 @@ export const TaoyuanProjectDetailPage: React.FC = () => {
                 {canEdit && isEditing && dispatch.link_id !== undefined && (
                   <Popconfirm
                     title="確定要移除此關聯嗎？"
-                    onConfirm={() => unlinkDispatchMutation.mutate(dispatch.link_id)}
+                    onConfirm={() => {
+                      // 防禦性檢查：確保 link_id 存在
+                      if (dispatch.link_id === undefined || dispatch.link_id === null) {
+                        message.error('關聯資料缺少 link_id，請重新整理頁面');
+                        refetch();
+                        return;
+                      }
+                      unlinkDispatchMutation.mutate(dispatch.link_id);
+                    }}
                     okText="確定"
                     cancelText="取消"
                   >
