@@ -28,6 +28,7 @@ import { DocumentFilter as DocumentFilterType, OfficialDocument } from '../../ty
 import { API_BASE_URL } from '../../api/client';
 import { API_ENDPOINTS } from '../../api/endpoints';
 import { logger } from '../../utils/logger';
+import { useResponsive } from '../../hooks';
 const { Option } = Select;
 const { Title } = Typography;
 
@@ -97,6 +98,9 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
   onFiltersChange,
   onReset,
 }) => {
+  // RWD 響應式
+  const { isMobile } = useResponsive();
+
   // 預設收闔篩選區，公文資訊最大化
   const [expanded, setExpanded] = useState(false);
   const [localFilters, setLocalFilters] = useState<DocumentFilterType>(filters);
@@ -465,65 +469,71 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
   ).length;
 
   return (
-    <Card style={{ marginBottom: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
+    <Card style={{ marginBottom: isMobile ? 12 : 16 }} size={isMobile ? 'small' : 'default'}>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: isMobile ? 12 : 16 }}>
         <SearchOutlined style={{ marginRight: 8 }} />
-        <Title level={5} style={{ margin: 0, flexGrow: 1 }}>
-          搜尋與篩選
+        <Title level={5} style={{ margin: 0, flexGrow: 1, fontSize: isMobile ? 14 : undefined }}>
+          {isMobile ? '篩選' : '搜尋與篩選'}
         </Title>
-        
+
         {hasActiveFilters && (
-          <Tag color="blue" style={{ marginRight: 8 }}>
+          <Tag color="blue" style={{ marginRight: 8, fontSize: isMobile ? 12 : undefined }}>
             <FilterOutlined style={{ marginRight: 4 }} />
-            {activeFilterCount} 個篩選條件
+            {activeFilterCount}
           </Tag>
         )}
-        
+
         <Button
           type="text"
           size="small"
           onClick={() => setExpanded(!expanded)}
           icon={expanded ? <UpOutlined /> : <DownOutlined />}
         >
-          {expanded ? '收起' : '展開'}
+          {isMobile ? '' : (expanded ? '收起' : '展開')}
         </Button>
       </div>
 
       {/* 主要搜尋條件 */}
-      <Row gutter={[16, 16]}>
+      <Row gutter={[isMobile ? 8 : 16, isMobile ? 8 : 16]}>
         {/* 關鍵字搜尋 (文號/主旨/說明/備註) - 加寬欄位 */}
         <Col span={24} md={8}>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
-            <span style={{ marginRight: 4, fontSize: '14px', color: '#666' }}>關鍵字搜尋</span>
-            <Tooltip title="搜尋範圍包含：公文字號、主旨、說明、備註。支援模糊搜尋，輸入2個字元以上開始提供建議。按 Enter 快速套用篩選。">
-              <QuestionCircleOutlined style={{ color: '#999', fontSize: '12px' }} />
-            </Tooltip>
-          </div>
+          {!isMobile && (
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+              <span style={{ marginRight: 4, fontSize: '14px', color: '#666' }}>關鍵字搜尋</span>
+              <Tooltip title="搜尋範圍包含：公文字號、主旨、說明、備註。支援模糊搜尋，輸入2個字元以上開始提供建議。按 Enter 快速套用篩選。">
+                <QuestionCircleOutlined style={{ color: '#999', fontSize: '12px' }} />
+              </Tooltip>
+            </div>
+          )}
           <Input.Search
-            placeholder="文號/主旨/說明/備註..."
+            placeholder={isMobile ? '搜尋...' : '文號/主旨/說明/備註...'}
             value={localFilters.search || ''}
             onChange={(e) => handleFilterChange('search', e.target.value)}
             onSearch={handleApplyFilters}
             allowClear
             enterButton={false}
             style={{ width: '100%' }}
+            size={isMobile ? 'small' : 'middle'}
           />
         </Col>
 
         {/* 公文類型篩選 */}
-        <Col span={24} md={4}>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
-            <span style={{ marginRight: 4, fontSize: '14px', color: '#666' }}>公文類型</span>
-            <Tooltip title="選擇特定的公文類型進行篩選。包含：函、開會通知單、會勘通知單。留空顯示所有類型。">
-              <QuestionCircleOutlined style={{ color: '#999', fontSize: '12px' }} />
-            </Tooltip>
-          </div>
+        <Col span={12} md={4}>
+          {!isMobile && (
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+              <span style={{ marginRight: 4, fontSize: '14px', color: '#666' }}>公文類型</span>
+              <Tooltip title="選擇特定的公文類型進行篩選。包含：函、開會通知單、會勘通知單。留空顯示所有類型。">
+                <QuestionCircleOutlined style={{ color: '#999', fontSize: '12px' }} />
+              </Tooltip>
+            </div>
+          )}
           <Select
-            placeholder="請選擇公文類型"
+            placeholder={isMobile ? '類型' : '請選擇公文類型'}
             value={localFilters.doc_type || ''}
             onChange={(value) => handleFilterChange('doc_type', value)}
             style={{ width: '100%' }}
             allowClear
+            size={isMobile ? 'small' : 'middle'}
           >
             {docTypeOptions.map((option) => (
               <Option key={option.value} value={option.value}>
@@ -534,19 +544,22 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
         </Col>
 
         {/* 發文形式篩選 */}
-        <Col span={24} md={4}>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
-            <span style={{ marginRight: 4, fontSize: '14px', color: '#666' }}>發文形式</span>
-            <Tooltip title="選擇公文發送方式：電子交換或紙本郵寄">
-              <QuestionCircleOutlined style={{ color: '#999', fontSize: '12px' }} />
-            </Tooltip>
-          </div>
+        <Col span={12} md={4}>
+          {!isMobile && (
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+              <span style={{ marginRight: 4, fontSize: '14px', color: '#666' }}>發文形式</span>
+              <Tooltip title="選擇公文發送方式：電子交換或紙本郵寄">
+                <QuestionCircleOutlined style={{ color: '#999', fontSize: '12px' }} />
+              </Tooltip>
+            </div>
+          )}
           <Select
-            placeholder="請選擇發文形式"
+            placeholder={isMobile ? '形式' : '請選擇發文形式'}
             value={localFilters.delivery_method || ''}
             onChange={(value) => handleFilterChange('delivery_method', value)}
             style={{ width: '100%' }}
             allowClear
+            size={isMobile ? 'small' : 'middle'}
           >
             {deliveryMethodOptions.map((option) => (
               <Option key={option.value} value={option.value}>
@@ -558,29 +571,34 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
 
         {/* 承攬案件 - 使用 Select 搭配 AutoComplete 功能 */}
         <Col span={24} md={8}>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
-            <span style={{ marginRight: 4, fontSize: '14px', color: '#666' }}>承攬案件</span>
-            <Tooltip title="選擇相關的承攬案件進行篩選。可輸入關鍵字快速搜尋現有案件。選項基於系統中已登記的承攬案件。">
-              <QuestionCircleOutlined style={{ color: '#999', fontSize: '12px' }} />
-            </Tooltip>
-          </div>
+          {!isMobile && (
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+              <span style={{ marginRight: 4, fontSize: '14px', color: '#666' }}>承攬案件</span>
+              <Tooltip title="選擇相關的承攬案件進行篩選。可輸入關鍵字快速搜尋現有案件。選項基於系統中已登記的承攬案件。">
+                <QuestionCircleOutlined style={{ color: '#999', fontSize: '12px' }} />
+              </Tooltip>
+            </div>
+          )}
           <Select
-            placeholder="請選擇或搜尋承攬案件..."
+            placeholder={isMobile ? '案件' : '請選擇或搜尋承攬案件...'}
             value={localFilters.contract_case || ''}
             onChange={(value) => handleFilterChange('contract_case', value)}
             style={{ width: '100%' }}
             allowClear
             showSearch
+            size={isMobile ? 'small' : 'middle'}
             filterOption={(input, option) =>
               (option?.label as string)?.toLowerCase().indexOf((input as string)?.toLowerCase()) >= 0
             }
             suffixIcon={
-              <div>
-                <SearchOutlined style={{ marginRight: 4 }} />
-                <Tooltip title="可搜尋案件名稱">
-                  <InfoCircleOutlined style={{ color: '#ccc', fontSize: '12px' }} />
-                </Tooltip>
-              </div>
+              isMobile ? null : (
+                <div>
+                  <SearchOutlined style={{ marginRight: 4 }} />
+                  <Tooltip title="可搜尋案件名稱">
+                    <InfoCircleOutlined style={{ color: '#ccc', fontSize: '12px' }} />
+                  </Tooltip>
+                </div>
+              )
             }
           >
             {contractCaseDropdownOptions.map((option) => (
@@ -750,49 +768,49 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
       )}
 
       {/* 操作按鈕 */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
-        {/* 篩選結果提示 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {hasActiveFilters && (
-            <>
-              <InfoCircleOutlined style={{ color: '#1890ff' }} />
-              <span style={{ color: '#666', fontSize: '13px' }}>
-                已套用 {activeFilterCount} 個篩選條件
-              </span>
-            </>
-          )}
-        </div>
+      <div style={{
+        display: 'flex',
+        justifyContent: isMobile ? 'flex-end' : 'space-between',
+        alignItems: 'center',
+        marginTop: isMobile ? 12 : 16,
+        flexWrap: 'wrap',
+        gap: 8,
+      }}>
+        {/* 篩選結果提示 - 手機版隱藏 */}
+        {!isMobile && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {hasActiveFilters && (
+              <>
+                <InfoCircleOutlined style={{ color: '#1890ff' }} />
+                <span style={{ color: '#666', fontSize: '13px' }}>
+                  已套用 {activeFilterCount} 個篩選條件
+                </span>
+              </>
+            )}
+          </div>
+        )}
 
         <div style={{ display: 'flex', gap: 8 }}>
-          <Tooltip title="清除所有篩選條件，回復預設狀態">
+          <Tooltip title={isMobile ? '' : '清除所有篩選條件，回復預設狀態'}>
             <Button
               onClick={handleReset}
               icon={<ClearOutlined />}
               disabled={!hasActiveFilters}
+              size={isMobile ? 'small' : 'middle'}
               style={{ borderColor: hasActiveFilters ? '#ff4d4f' : '', color: hasActiveFilters ? '#ff4d4f' : '' }}
             >
-              清除篩選
+              {isMobile ? '' : '清除篩選'}
             </Button>
           </Tooltip>
 
-          <Tooltip title={`套用當前篩選條件。快速鍵：在任一輸入框中按 Enter`}>
+          <Tooltip title={isMobile ? '' : '套用當前篩選條件。快速鍵：在任一輸入框中按 Enter'}>
             <Button
               type="primary"
               onClick={handleApplyFilters}
               icon={<FilterOutlined />}
-              style={{ position: 'relative' }}
+              size={isMobile ? 'small' : 'middle'}
             >
-              套用篩選
-              <span style={{
-                position: 'absolute',
-                right: 8,
-                top: -2,
-                fontSize: '10px',
-                color: '#87d068',
-                fontWeight: 'normal'
-              }}>
-                Enter
-              </span>
+              {isMobile ? '篩選' : '套用篩選'}
             </Button>
           </Tooltip>
         </div>

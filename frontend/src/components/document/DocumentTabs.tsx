@@ -16,6 +16,7 @@ import type {
   SortOrder,
 } from 'antd/es/table/interface';
 import { logger } from '../../utils/logger';
+import { useResponsive } from '../../hooks';
 
 const { Title } = Typography;
 
@@ -61,6 +62,9 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
   totalReceived,
   totalSent,
 }) => {
+  // RWD 響應式
+  const { isMobile } = useResponsive();
+
   // Set active tab based on current category filter
   const [activeTab, setActiveTab] = useState(() => {
     return filters.category === 'receive' ? 'received' :
@@ -185,12 +189,14 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
     {
       key: 'all',
       label: (
-        <Space>
+        <Space size={isMobile ? 4 : 8}>
           <UnorderedListOutlined />
-          <Title level={5} style={{ margin: 0 }}>
-            全部公文
-          </Title>
-          <Badge count={effectiveStats.total} showZero overflowCount={99999} color="blue" />
+          {!isMobile && (
+            <Title level={5} style={{ margin: 0 }}>
+              全部
+            </Title>
+          )}
+          <Badge count={effectiveStats.total} showZero overflowCount={9999} color="blue" />
         </Space>
       ),
       children: (
@@ -216,12 +222,14 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
     {
       key: 'received',
       label: (
-        <Space>
+        <Space size={isMobile ? 4 : 8}>
           <InboxOutlined />
-          <Title level={5} style={{ margin: 0 }}>
-            收文
-          </Title>
-          <Badge count={effectiveStats.received} showZero overflowCount={99999} color="green" />
+          {!isMobile && (
+            <Title level={5} style={{ margin: 0 }}>
+              收文
+            </Title>
+          )}
+          <Badge count={effectiveStats.received} showZero overflowCount={9999} color="green" />
         </Space>
       ),
       children: (
@@ -247,12 +255,14 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
     {
       key: 'sent',
       label: (
-        <Space>
+        <Space size={isMobile ? 4 : 8}>
           <SendOutlined />
-          <Title level={5} style={{ margin: 0 }}>
-            發文
-          </Title>
-          <Badge count={effectiveStats.sent} showZero overflowCount={99999} color="red" />
+          {!isMobile && (
+            <Title level={5} style={{ margin: 0 }}>
+              發文
+            </Title>
+          )}
+          <Badge count={effectiveStats.sent} showZero overflowCount={9999} color="red" />
         </Space>
       ),
       children: (
@@ -278,6 +288,11 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
   ];
 
   return (
-    <Tabs activeKey={activeTab} onChange={handleTabChange} items={tabItems} />
+    <Tabs
+      activeKey={activeTab}
+      onChange={handleTabChange}
+      items={tabItems}
+      size={isMobile ? 'small' : 'large'}
+    />
   );
 };

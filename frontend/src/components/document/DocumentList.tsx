@@ -19,6 +19,7 @@ import { DocumentActions, BatchActions } from './DocumentActions';
 import { filesApi, type DocumentAttachment } from '../../api/filesApi';
 import { documentsApi } from '../../api/documentsApi';
 import { logger } from '../../utils/logger';
+import { useResponsive } from '../../hooks';
 
 interface DocumentListProps {
   documents: Document[];
@@ -80,6 +81,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
   isAddingToCalendar = false,
 }) => {
   const navigate = useNavigate();
+  const { isMobile } = useResponsive();
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [batchLoading, _setBatchLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
@@ -287,6 +289,44 @@ export const DocumentList: React.FC<DocumentListProps> = ({
   // 預設排序：公文日期降冪（最新日期在最上方，由後端控制）
   // 序號為流水號（依排序後的順序計算），非資料庫 ID
   // 移除：類型、狀態、業務同仁
+
+  // ========== 手機版簡化欄位 ==========
+  const mobileColumns: ColumnsType<Document> = [
+    {
+      title: '公文資訊',
+      key: 'document_info',
+      render: (_: any, record: Document, index: number) => (
+        <Space direction="vertical" size={0} style={{ width: '100%' }}>
+          <Space size={4} wrap>
+            <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+              #{getRowNumber(index)}
+            </Typography.Text>
+            <Tag color={record.delivery_method === '電子交換' ? 'green' : 'orange'} style={{ fontSize: 11 }}>
+              {record.delivery_method || '電子'}
+            </Tag>
+            {(record.attachment_count || 0) > 0 && (
+              <Tag color="cyan" icon={<PaperClipOutlined />} style={{ fontSize: 11 }}>
+                {record.attachment_count}
+              </Tag>
+            )}
+          </Space>
+          <Typography.Text strong style={{ fontSize: 13 }}>
+            {record.subject || '無主旨'}
+          </Typography.Text>
+          <Space size={8} style={{ fontSize: 12, color: '#666' }}>
+            <span>{record.doc_number || '-'}</span>
+            <span>
+              {record.doc_date
+                ? new Date(record.doc_date).toLocaleDateString('zh-TW')
+                : '-'}
+            </span>
+          </Space>
+        </Space>
+      ),
+    },
+  ];
+
+  // ========== 桌面版完整欄位 ==========
   const columns: ColumnsType<Document> = [
     {
       title: '序',
@@ -652,11 +692,11 @@ export const DocumentList: React.FC<DocumentListProps> = ({
   });
 
   const tableProps: TableProps<Document> = {
-    columns,
+    columns: isMobile ? mobileColumns : columns,
     dataSource: safeDocuments,
     rowKey: 'id',
     loading: loading || batchLoading,
-    size: 'middle',
+    size: isMobile ? 'small' : 'middle',
     bordered: false,
     onRow: (record) => ({
       onClick: () => handleRowClick(record),
@@ -665,13 +705,14 @@ export const DocumentList: React.FC<DocumentListProps> = ({
     pagination: {
       ...pagination,
       total,
-      showSizeChanger: true,
+      showSizeChanger: !isMobile,
       pageSizeOptions: ['10', '20', '50', '100'],
-      showTotal: (totalNum, range) => `第 ${range[0]}-${range[1]} 筆，共 ${totalNum} 筆`,
-      size: 'default',
+      showTotal: isMobile ? undefined : (totalNum, range) => `第 ${range[0]}-${range[1]} 筆，共 ${totalNum} 筆`,
+      size: isMobile ? 'small' : 'default',
+      showQuickJumper: !isMobile,
     },
-    scroll: { x: 1050 }, // 總欄寬: 45+85+140+170+95+300+55+160 = 1050 (操作欄位已移除，欄位寬度已優化)
-    tableLayout: 'fixed',
+    scroll: isMobile ? undefined : { x: 1050 }, // 手機版不需水平捲動
+    tableLayout: isMobile ? 'auto' : 'fixed',
     locale: {
       emptyText: (
         <Empty
@@ -683,7 +724,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
         />
       ),
     },
-    ...(enableBatchOperations && { rowSelection }),
+    ...(enableBatchOperations && !isMobile && { rowSelection }), // 手機版停用批次選取
   };
 
   if (onTableChange) {

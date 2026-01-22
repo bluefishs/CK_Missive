@@ -15,7 +15,8 @@ import {
   useCreateDocument,
   useUpdateDocument,
   useDeleteDocument,
-  useAuthGuard
+  useAuthGuard,
+  useResponsive,
 } from '../hooks';
 import { useDocumentsStore } from '../store';
 import { Document, DocumentFilter as IDocumentFilter } from '../types';
@@ -37,6 +38,10 @@ export const DocumentPage: React.FC = () => {
   const navigate = useNavigate();
   const { message } = App.useApp();
   const queryClient = useQueryClient();
+
+  // RWD 響應式
+  const { isMobile, responsiveValue } = useResponsive();
+  const pagePadding = responsiveValue({ mobile: 12, tablet: 16, desktop: 24 });
 
   // 權限控制
   const { hasPermission } = useAuthGuard();
@@ -338,33 +343,49 @@ export const DocumentPage: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '24px' }}>
+    <div style={{ padding: pagePadding }}>
       <div
         style={{
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 24,
+          alignItems: isMobile ? 'flex-start' : 'center',
+          flexDirection: isMobile ? 'column' : 'row',
+          gap: isMobile ? 12 : 0,
+          marginBottom: isMobile ? 12 : 24,
         }}
       >
-        <Title level={2} style={{ margin: 0 }}>
+        <Title level={isMobile ? 4 : 2} style={{ margin: 0 }}>
           公文管理
         </Title>
 
-        <Space>
-          <Button icon={<ReloadOutlined />} onClick={() => forceRefresh()} loading={isLoading}>
-            重新整理
+        <Space size={isMobile ? 'small' : 'middle'} wrap>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={() => forceRefresh()}
+            loading={isLoading}
+            size={isMobile ? 'small' : 'middle'}
+          >
+            {isMobile ? '' : '重新整理'}
           </Button>
 
           {canCreate && (
-            <Button icon={<UploadOutlined />} onClick={() => setImportModalVisible(true)}>
-              公文匯入
+            <Button
+              icon={<UploadOutlined />}
+              onClick={() => setImportModalVisible(true)}
+              size={isMobile ? 'small' : 'middle'}
+            >
+              {isMobile ? '' : '公文匯入'}
             </Button>
           )}
 
           {canCreate && (
-            <Button type="primary" icon={<PlusOutlined />} onClick={handleCreateDocument}>
-              新增公文
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={handleCreateDocument}
+              size={isMobile ? 'small' : 'middle'}
+            >
+              {isMobile ? '' : '新增公文'}
             </Button>
           )}
         </Space>
