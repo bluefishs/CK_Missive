@@ -327,9 +327,10 @@ const ListPage: React.FC = () => {
 
 | 頁面 | 檔案路徑 | 狀態 | 更新日期 |
 |------|---------|------|---------|
-| 公文管理 | `pages/DocumentPageEnhanced.tsx` | ✅ 完成 | 2026-01-09 |
-| 公文篩選 | `components/document/DocumentFilterEnhanced.tsx` | ✅ 完成 | 2026-01-09 |
-| 公文列表 | `components/document/DocumentListEnhanced.tsx` | ✅ 完成 | 2026-01-09 |
+| 公文管理 | `pages/DocumentPage.tsx` | ✅ 完成 | 2026-01-22 |
+| 公文篩選 | `components/document/DocumentFilter.tsx` | ✅ 完成 | 2026-01-22 |
+| 公文列表 | `components/document/DocumentList.tsx` | ✅ 完成 | 2026-01-22 |
+| 公文分頁標籤 | `components/document/DocumentTabs.tsx` | ✅ 完成 | 2026-01-22 |
 | 儀表板 | `pages/DashboardPage.tsx` | ✅ 完成 | 2026-01-09 |
 | 行事曆 | `pages/CalendarPage.tsx` | ✅ 完成 | 2026-01-09 |
 | 廠商列表 | `components/vendor/VendorList.tsx` | ✅ 完成 | 2026-01-09 |
