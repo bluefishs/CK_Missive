@@ -66,15 +66,18 @@ export const agenciesApi = {
   async getAgencies(
     params?: AgencyListParams
   ): Promise<PaginatedResponse<AgencyWithStats>> {
-    const queryParams = {
+    // 構建查詢參數，過濾 undefined 值避免 422 錯誤
+    const queryParams: Record<string, unknown> = {
       page: params?.page ?? 1,
       limit: params?.limit ?? 20,
-      search: params?.search,
-      agency_type: params?.agency_type,
       include_stats: params?.include_stats ?? true,
       sort_by: params?.sort_by ?? 'agency_name',
       sort_order: params?.sort_order ?? 'asc',
     };
+
+    // 只添加有值的可選參數
+    if (params?.search) queryParams.search = params.search;
+    if (params?.agency_type) queryParams.agency_type = params.agency_type;
 
     try {
       // 使用新版 POST API
@@ -82,17 +85,19 @@ export const agenciesApi = {
     } catch (error) {
       // 若新 API 失敗，嘗試舊版格式（相容性）
       if (error instanceof ApiException && error.statusCode === 404) {
+        const legacyParams: Record<string, unknown> = {
+          skip: ((params?.page ?? 1) - 1) * (params?.limit ?? 20),
+          limit: params?.limit ?? 100,
+          include_stats: params?.include_stats ?? true,
+        };
+        if (params?.search) legacyParams.search = params.search;
+
         const response = await apiClient.get<{
           agencies: AgencyWithStats[];
           total: number;
           returned: number;
         }>(API_ENDPOINTS.AGENCIES.CREATE, {
-          params: {
-            skip: ((params?.page ?? 1) - 1) * (params?.limit ?? 20),
-            limit: params?.limit ?? 100,
-            search: params?.search,
-            include_stats: params?.include_stats ?? true,
-          },
+          params: legacyParams,
         });
         // 轉換舊版格式
         return normalizePaginatedResponse(

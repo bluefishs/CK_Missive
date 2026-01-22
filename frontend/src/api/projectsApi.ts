@@ -65,16 +65,19 @@ export const projectsApi = {
   async getProjects(
     params?: ProjectListParams
   ): Promise<PaginatedResponse<Project>> {
-    const queryParams = {
+    // 構建查詢參數，過濾 undefined 值避免 422 錯誤
+    const queryParams: Record<string, unknown> = {
       page: params?.page ?? 1,
       limit: params?.limit ?? 20,
-      search: params?.search,
-      year: params?.year,
-      category: params?.category,
-      status: params?.status,
       sort_by: params?.sort_by ?? 'year',  // 預設依年度排序
       sort_order: params?.sort_order ?? 'desc',  // 預設降冪排序
     };
+
+    // 只添加有值的可選參數
+    if (params?.search) queryParams.search = params.search;
+    if (params?.year !== undefined) queryParams.year = params.year;
+    if (params?.category) queryParams.category = params.category;
+    if (params?.status) queryParams.status = params.status;
 
     try {
       // 使用新版 POST API
@@ -82,19 +85,21 @@ export const projectsApi = {
     } catch (error) {
       // 若新 API 失敗，嘗試舊版格式（相容性）
       if (error instanceof ApiException && error.statusCode === 404) {
+        const legacyParams: Record<string, unknown> = {
+          skip: ((params?.page ?? 1) - 1) * (params?.limit ?? 20),
+          limit: params?.limit ?? 100,
+        };
+        if (params?.search) legacyParams.search = params.search;
+        if (params?.year !== undefined) legacyParams.year = params.year;
+        if (params?.category) legacyParams.category = params.category;
+        if (params?.status) legacyParams.status = params.status;
+
         const response = await apiClient.post<{
           projects: Project[];
           total: number;
           skip: number;
           limit: number;
-        }>(API_ENDPOINTS.PROJECTS.LIST, {
-          skip: ((params?.page ?? 1) - 1) * (params?.limit ?? 20),
-          limit: params?.limit ?? 100,
-          search: params?.search,
-          year: params?.year,
-          category: params?.category,
-          status: params?.status,
-        });
+        }>(API_ENDPOINTS.PROJECTS.LIST, legacyParams);
         // 轉換舊版格式
         return normalizePaginatedResponse(
           {

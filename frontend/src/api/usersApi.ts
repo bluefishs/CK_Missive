@@ -79,15 +79,18 @@ export const usersApi = {
   async getUsers(
     params?: UserListParams
   ): Promise<PaginatedResponse<User>> {
-    const queryParams = {
+    // 構建查詢參數，過濾 undefined 值避免 422 錯誤
+    const queryParams: Record<string, unknown> = {
       page: params?.page ?? 1,
       limit: params?.limit ?? 20,
-      search: params?.search,
-      role: params?.role,
-      is_active: params?.is_active,
       sort_by: params?.sort_by ?? 'id',
       sort_order: params?.sort_order ?? 'asc',
     };
+
+    // 只添加有值的可選參數
+    if (params?.search) queryParams.search = params.search;
+    if (params?.role) queryParams.role = params.role;
+    if (params?.is_active !== undefined) queryParams.is_active = params.is_active;
 
     try {
       // 使用新版 POST API
@@ -95,19 +98,21 @@ export const usersApi = {
     } catch (error) {
       // 若新 API 失敗，嘗試舊版格式（相容性）
       if (error instanceof ApiException && error.statusCode === 404) {
+        const legacyParams: Record<string, unknown> = {
+          skip: ((params?.page ?? 1) - 1) * (params?.limit ?? 20),
+          limit: params?.limit ?? 100,
+        };
+        if (params?.search) legacyParams.search = params.search;
+        if (params?.role) legacyParams.role = params.role;
+        if (params?.is_active !== undefined) legacyParams.is_active = params.is_active;
+
         const response = await apiClient.post<{
           items: User[];
           total: number;
           page: number;
           page_size: number;
           total_pages: number;
-        }>(API_ENDPOINTS.USERS.LIST, {
-          skip: ((params?.page ?? 1) - 1) * (params?.limit ?? 20),
-          limit: params?.limit ?? 100,
-          search: params?.search,
-          role: params?.role,
-          is_active: params?.is_active,
-        });
+        }>(API_ENDPOINTS.USERS.LIST, legacyParams);
         // 轉換舊版格式
         return normalizePaginatedResponse(
           {

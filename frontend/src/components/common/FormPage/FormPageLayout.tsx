@@ -121,13 +121,11 @@ export const FormPageLayout: React.FC<FormPageLayoutProps> = ({
 
       {/* 表單內容 */}
       <Card>
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: 48 }}>
-            <Spin size="large" tip="載入中..." />
+        <Spin spinning={loading} tip="載入中...">
+          <div style={{ minHeight: loading ? 200 : 'auto' }}>
+            {!loading && children}
           </div>
-        ) : (
-          children
-        )}
+        </Spin>
       </Card>
     </div>
   );

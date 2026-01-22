@@ -58,14 +58,17 @@ export const vendorsApi = {
   async getVendors(
     params?: VendorListParams
   ): Promise<PaginatedResponse<Vendor>> {
-    const queryParams = {
+    // 構建查詢參數，過濾 undefined 值避免 422 錯誤
+    const queryParams: Record<string, unknown> = {
       page: params?.page ?? 1,
       limit: params?.limit ?? 20,
-      search: params?.search,
       sort_by: params?.sort_by ?? 'vendor_name',
       sort_order: params?.sort_order ?? 'asc',
-      business_type: params?.business_type,
     };
+
+    // 只添加有值的可選參數
+    if (params?.search) queryParams.search = params.search;
+    if (params?.business_type) queryParams.business_type = params.business_type;
 
     try {
       // 嘗試使用新版 POST API
