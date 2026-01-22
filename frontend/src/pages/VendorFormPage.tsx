@@ -2,14 +2,16 @@
  * 廠商表單頁
  *
  * 共享新增/編輯表單，根據路由參數自動切換模式
+ * 導航模式：編輯模式支援刪除功能
  *
- * @version 1.0.0
- * @date 2026-01-22
+ * @version 1.1.0 - 整合刪除功能 (導航模式規範)
+ * @date 2026-01-23
  */
 
 import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Form, Input, Select, Row, Col, App, Rate } from 'antd';
+import { Form, Input, Select, Row, Col, App, Rate, Modal } from 'antd';
+import { ExclamationCircleOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FormPageLayout } from '../components/common/FormPage';
 import { vendorsApi } from '../api';
@@ -89,6 +91,32 @@ export const VendorFormPage: React.FC = () => {
     },
   });
 
+  // 刪除 mutation (導航模式：從列表頁移至此處)
+  const deleteMutation = useMutation({
+    mutationFn: () => vendorsApi.deleteVendor(vendorId!),
+    onSuccess: () => {
+      message.success('廠商刪除成功');
+      queryClient.invalidateQueries({ queryKey: ['vendors'] });
+      navigate(ROUTES.VENDORS);
+    },
+    onError: (error: any) => {
+      message.error(error?.message || '刪除失敗');
+    },
+  });
+
+  // 刪除確認
+  const handleDelete = () => {
+    Modal.confirm({
+      title: '確定要刪除此廠商？',
+      icon: <ExclamationCircleOutlined />,
+      content: '刪除後將無法復原，請確保沒有關聯的專案。',
+      okText: '確定刪除',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: () => deleteMutation.mutate(),
+    });
+  };
+
   // 保存處理
   const handleSave = async () => {
     try {
@@ -110,8 +138,10 @@ export const VendorFormPage: React.FC = () => {
       title={title}
       backPath={ROUTES.VENDORS}
       onSave={handleSave}
+      onDelete={isEdit ? handleDelete : undefined}
       loading={isEdit && isLoading}
       saving={isSaving}
+      deleting={deleteMutation.isPending}
     >
       <Form form={form} layout="vertical" size="large">
         <Row gutter={16}>

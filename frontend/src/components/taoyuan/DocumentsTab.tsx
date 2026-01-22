@@ -6,8 +6,8 @@
  * - 使用 DocumentFilter 組件進行篩選
  * - 點擊公文可導航至詳情頁，在「派工安排」Tab 進行派工管理
  *
- * @version 1.0.0
- * @date 2026-01-21
+ * @version 1.1.0 - RWD 響應式改造
+ * @date 2026-01-23
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
@@ -18,12 +18,15 @@ import {
   Space,
   Modal,
   App,
+  Row,
+  Col,
 } from 'antd';
 import {
   PlusOutlined,
   ReloadOutlined,
   UploadOutlined,
 } from '@ant-design/icons';
+import { useResponsive } from '../../hooks';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { DocumentTabs } from '../document/DocumentTabs';
@@ -53,6 +56,9 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ contractCode }) => {
   const navigate = useNavigate();
   const { message } = App.useApp();
   const queryClient = useQueryClient();
+
+  // RWD 響應式
+  const { isMobile } = useResponsive();
 
   const { hasPermission } = useAuthGuard();
   const canCreate = hasPermission('documents:create');
@@ -229,25 +235,45 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ contractCode }) => {
 
   return (
     <div>
-      {/* 標題列與工具按鈕 */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <Title level={4} style={{ margin: 0 }}>桃園查估派工 - 函文紀錄</Title>
-        <Space>
-          <Button icon={<ReloadOutlined />} onClick={() => forceRefresh()} loading={isLoading}>
-            重新整理
-          </Button>
-          {canCreate && (
-            <Button icon={<UploadOutlined />} onClick={() => setImportModalVisible(true)}>
-              公文匯入
+      {/* 標題列與工具按鈕 - RWD 響應式 */}
+      <Row gutter={[8, 8]} style={{ marginBottom: isMobile ? 12 : 16 }} align="middle">
+        <Col xs={24} sm={12}>
+          <Title level={isMobile ? 5 : 4} style={{ margin: 0 }}>
+            {isMobile ? '函文紀錄' : '桃園查估派工 - 函文紀錄'}
+          </Title>
+        </Col>
+        <Col xs={24} sm={12} style={{ textAlign: isMobile ? 'left' : 'right' }}>
+          <Space wrap size={isMobile ? 'small' : 'middle'}>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={() => forceRefresh()}
+              loading={isLoading}
+              size={isMobile ? 'small' : 'middle'}
+            >
+              {isMobile ? '' : '重新整理'}
             </Button>
-          )}
-          {canCreate && (
-            <Button type="primary" icon={<PlusOutlined />} onClick={handleCreateDocument}>
-              新增公文
-            </Button>
-          )}
-        </Space>
-      </div>
+            {canCreate && (
+              <Button
+                icon={<UploadOutlined />}
+                onClick={() => setImportModalVisible(true)}
+                size={isMobile ? 'small' : 'middle'}
+              >
+                {isMobile ? '' : '公文匯入'}
+              </Button>
+            )}
+            {canCreate && (
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={handleCreateDocument}
+                size={isMobile ? 'small' : 'middle'}
+              >
+                {isMobile ? '' : '新增公文'}
+              </Button>
+            )}
+          </Space>
+        </Col>
+      </Row>
 
       {/* 篩選區 - 使用 DocumentFilter 組件 */}
       <DocumentFilter

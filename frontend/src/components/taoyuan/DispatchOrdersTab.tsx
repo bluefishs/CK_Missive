@@ -5,8 +5,8 @@
  * - 新增派工單導航到獨立的新增頁面
  * - 點擊列表項目導航至派工單詳情頁進行編輯
  *
- * @version 1.1.0
- * @date 2026-01-21
+ * @version 1.2.0 - RWD 響應式改造
+ * @date 2026-01-23
  */
 
 import React, { useState } from 'react';
@@ -26,6 +26,7 @@ import {
   Col,
   Upload,
   Tooltip,
+  List,
 } from 'antd';
 import {
   PlusOutlined,
@@ -36,6 +37,7 @@ import {
   SendOutlined,
   LinkOutlined,
   PaperClipOutlined,
+  RightOutlined,
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import type { ColumnsType } from 'antd/es/table';
@@ -44,6 +46,7 @@ import Highlighter from 'react-highlight-words';
 import { dispatchOrdersApi } from '../../api/taoyuanDispatchApi';
 import type { DispatchOrder } from '../../types/api';
 import { useTableColumnSearch } from '../../hooks/utility/useTableColumnSearch';
+import { useResponsive } from '../../hooks';
 import { WORK_TYPE_OPTIONS } from '../../constants/taoyuanOptions';
 
 const { Text } = Typography;
@@ -56,12 +59,15 @@ export interface DispatchOrdersTabProps {
 
 export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
   contractProjectId,
-  contractCode,
+  contractCode: _contractCode,
 }) => {
   const navigate = useNavigate();
   const { message } = App.useApp();
   const [searchText, setSearchText] = useState('');
   const [importModalVisible, setImportModalVisible] = useState(false);
+
+  // RWD 響應式
+  const { isMobile } = useResponsive();
 
   // 使用共用的表格搜尋 Hook
   const {
@@ -80,7 +86,7 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
       dispatchOrdersApi.getList({
         contract_project_id: contractProjectId,
         search: searchText || undefined,
-        limit: 1000,
+        limit: 100,
       }),
   });
 
@@ -357,95 +363,173 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
     navigate(`/taoyuan/dispatch/${record.id}`);
   };
 
+  // 手機版卡片清單
+  const MobileDispatchList = () => (
+    <List
+      dataSource={orders}
+      loading={isLoading}
+      pagination={{
+        size: 'small',
+        pageSize: 10,
+        showTotal: (total) => `共 ${total} 筆`,
+      }}
+      renderItem={(order) => (
+        <Card
+          size="small"
+          style={{ marginBottom: 8, cursor: 'pointer' }}
+          onClick={() => handleRowClick(order)}
+          hoverable
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ flex: 1 }}>
+              <Text strong style={{ color: '#1890ff', fontSize: 13 }}>
+                {order.dispatch_no}
+              </Text>
+              <div style={{ fontSize: 13, marginTop: 2 }}>
+                {order.project_name}
+              </div>
+              <Space wrap size={4} style={{ marginTop: 6 }}>
+                {order.work_type && (
+                  <Tag color="blue" style={{ fontSize: 11 }}>
+                    {order.work_type.split(',')[0]}
+                  </Tag>
+                )}
+                {order.case_handler && <Tag style={{ fontSize: 11 }}>{order.case_handler}</Tag>}
+              </Space>
+              <div style={{ marginTop: 6, fontSize: 11, color: '#999' }}>
+                公文: {order.linked_documents?.length || 0} |
+                工程: {order.linked_projects?.length || 0} |
+                附件: {order.attachment_count || 0}
+              </div>
+            </div>
+            <RightOutlined style={{ color: '#ccc', marginTop: 4 }} />
+          </div>
+        </Card>
+      )}
+    />
+  );
+
   return (
     <div>
-      {/* 統計卡片 */}
-      <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={6}>
-          <Card size="small">
-            <Statistic title="總派工單數" value={orders.length} prefix={<SendOutlined />} />
-          </Card>
-        </Col>
-        <Col span={6}>
+      {/* 統計卡片 - RWD 響應式 */}
+      <Row gutter={[isMobile ? 8 : 16, isMobile ? 8 : 16]} style={{ marginBottom: isMobile ? 12 : 16 }}>
+        <Col xs={12} sm={6}>
           <Card size="small">
             <Statistic
-              title="關聯公文"
+              title={isMobile ? '總數' : '總派工單數'}
+              value={orders.length}
+              prefix={<SendOutlined />}
+              valueStyle={{ fontSize: isMobile ? 18 : 24 }}
+            />
+          </Card>
+        </Col>
+        <Col xs={12} sm={6}>
+          <Card size="small">
+            <Statistic
+              title={isMobile ? '公文' : '關聯公文'}
               value={orders.reduce((sum, o) => sum + (o.linked_documents?.length ?? 0), 0)}
-              valueStyle={{ color: '#1890ff' }}
+              valueStyle={{ color: '#1890ff', fontSize: isMobile ? 18 : 24 }}
               prefix={<LinkOutlined />}
             />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col xs={12} sm={6}>
           <Card size="small">
             <Statistic
-              title="關聯工程"
+              title={isMobile ? '工程' : '關聯工程'}
               value={orders.reduce((sum, o) => sum + (o.linked_projects?.length ?? 0), 0)}
-              valueStyle={{ color: '#52c41a' }}
+              valueStyle={{ color: '#52c41a', fontSize: isMobile ? 18 : 24 }}
               prefix={<LinkOutlined />}
             />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col xs={12} sm={6}>
           <Card size="small">
             <Statistic
-              title="作業類別數"
+              title={isMobile ? '類別' : '作業類別數'}
               value={new Set(orders.map((o) => o.work_type).filter(Boolean)).size}
+              valueStyle={{ fontSize: isMobile ? 18 : 24 }}
             />
           </Card>
         </Col>
       </Row>
 
-      {/* 工具列 */}
-      <Space style={{ marginBottom: 16 }}>
-        <Search
-          placeholder="搜尋派工單號、工程名稱"
-          allowClear
-          onSearch={setSearchText}
-          style={{ width: 280 }}
+      {/* 工具列 - RWD 響應式 */}
+      <Row gutter={[8, 8]} style={{ marginBottom: isMobile ? 12 : 16 }}>
+        <Col xs={24} sm={12} md={8}>
+          <Search
+            placeholder={isMobile ? '搜尋派工單...' : '搜尋派工單號、工程名稱'}
+            allowClear
+            onSearch={setSearchText}
+            style={{ width: '100%' }}
+            size={isMobile ? 'middle' : 'middle'}
+          />
+        </Col>
+        <Col xs={24} sm={12} md={16} style={{ textAlign: isMobile ? 'left' : 'right' }}>
+          <Space wrap size={isMobile ? 'small' : 'middle'}>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={() => refetch()}
+              size={isMobile ? 'small' : 'middle'}
+            >
+              {isMobile ? '' : '重新整理'}
+            </Button>
+            <Button
+              icon={<UploadOutlined />}
+              onClick={() => setImportModalVisible(true)}
+              size={isMobile ? 'small' : 'middle'}
+            >
+              {isMobile ? '' : 'Excel 匯入'}
+            </Button>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={handleCreate}
+              size={isMobile ? 'small' : 'middle'}
+            >
+              {isMobile ? '' : '新增派工單'}
+            </Button>
+          </Space>
+        </Col>
+      </Row>
+
+      {/* 提示文字 - 手機版隱藏 */}
+      {!isMobile && (
+        <div style={{ marginBottom: 8, color: '#666', fontSize: 12 }}>
+          <Text type="secondary">點擊列表項目可進入詳情頁進行編輯</Text>
+        </div>
+      )}
+
+      {/* 派工紀錄 - RWD: 手機用卡片清單，桌面用表格 */}
+      {isMobile ? (
+        <MobileDispatchList />
+      ) : (
+        <Table
+          columns={columns}
+          dataSource={orders}
+          rowKey="id"
+          loading={isLoading}
+          scroll={{ x: 1250 }}
+          size="small"
+          pagination={{
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: (total) => `共 ${total} 筆`,
+          }}
+          onRow={(record) => ({
+            onClick: () => handleRowClick(record),
+            style: { cursor: 'pointer' },
+          })}
         />
-        <Button icon={<ReloadOutlined />} onClick={() => refetch()}>
-          重新整理
-        </Button>
-        <Button icon={<UploadOutlined />} onClick={() => setImportModalVisible(true)}>
-          Excel 匯入
-        </Button>
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-          新增派工單
-        </Button>
-      </Space>
+      )}
 
-      {/* 提示文字 */}
-      <div style={{ marginBottom: 8, color: '#666', fontSize: 12 }}>
-        <Text type="secondary">點擊列表項目可進入詳情頁進行編輯</Text>
-      </div>
-
-      {/* 派工紀錄表格 - 點擊行導航到詳情頁 */}
-      <Table
-        columns={columns}
-        dataSource={orders}
-        rowKey="id"
-        loading={isLoading}
-        scroll={{ x: 1250 }}
-        size="small"
-        pagination={{
-          showSizeChanger: true,
-          showQuickJumper: true,
-          showTotal: (total) => `共 ${total} 筆`,
-        }}
-        onRow={(record) => ({
-          onClick: () => handleRowClick(record),
-          style: { cursor: 'pointer' },
-        })}
-      />
-
-      {/* Excel 匯入 Modal */}
+      {/* Excel 匯入 Modal - RWD 響應式 */}
       <Modal
         title="Excel 匯入派工紀錄"
         open={importModalVisible}
         onCancel={() => setImportModalVisible(false)}
         footer={null}
-        width={600}
+        width={isMobile ? '95%' : 600}
       >
         <div style={{ marginBottom: 16 }}>
           <Button icon={<DownloadOutlined />} onClick={handleDownloadTemplate}>

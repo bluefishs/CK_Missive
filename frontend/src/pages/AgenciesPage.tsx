@@ -15,8 +15,6 @@ import {
   App,
   Select,
   Pagination,
-  Popconfirm,
-  Tooltip,
 } from 'antd';
 import {
   SearchOutlined,
@@ -25,9 +23,7 @@ import {
   BuildOutlined,
   TeamOutlined,
   BookOutlined,
-  DeleteOutlined,
   PlusOutlined,
-  EditOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import Highlighter from 'react-highlight-words';
@@ -76,8 +72,6 @@ export const AgenciesPage: React.FC = () => {
     statistics,
     refetch,
     refetchStatistics,
-    deleteAgency,
-    isDeleting,
   } = useAgenciesPage(queryParams);
 
   const totalAgencies = pagination?.total ?? 0;
@@ -195,16 +189,7 @@ export const AgenciesPage: React.FC = () => {
     navigate(ROUTES.AGENCY_EDIT.replace(':id', String(agency.id)));
   };
 
-  // 刪除機關單位
-  const handleDelete = async (id: number) => {
-    try {
-      await deleteAgency(id);
-      message.success('機關單位刪除成功');
-    } catch (error: any) {
-      console.error('刪除失敗:', error);
-      message.error(error.message || '刪除失敗');
-    }
-  };
+  // 刪除功能已移至 AgencyFormPage (導航模式規範)
 
   // 獲取類型標籤顏色
   const getTypeTagColor = (type: string) => {
@@ -241,6 +226,7 @@ export const AgenciesPage: React.FC = () => {
   };
 
   // 表格欄位定義 - 含排序與篩選功能（響應式）
+  // 導航模式：刪除功能已整合至 AgencyFormPage
   const columns: TableColumnType<AgencyWithStats>[] = isMobile
     ? [
         // 手機版：簡化欄位
@@ -262,34 +248,6 @@ export const AgenciesPage: React.FC = () => {
                 </Tag>
               </div>
             </div>
-          ),
-        },
-        {
-          title: '操作',
-          key: 'action',
-          width: 60,
-          align: 'center' as const,
-          render: (_: unknown, record: AgencyWithStats) => (
-            <Popconfirm
-              title="確定要刪除此機關單位？"
-              description="刪除後將無法復原"
-              onConfirm={(e) => {
-                e?.stopPropagation();
-                handleDelete(record.id);
-              }}
-              onCancel={(e) => e?.stopPropagation()}
-              okText="確定"
-              cancelText="取消"
-              okButtonProps={{ danger: true }}
-            >
-              <Button
-                type="link"
-                size="small"
-                danger
-                icon={<DeleteOutlined />}
-                onClick={(e) => e.stopPropagation()}
-              />
-            </Popconfirm>
           ),
         },
       ]
@@ -430,37 +388,7 @@ export const AgenciesPage: React.FC = () => {
       render: (date: string) =>
         date ? new Date(date).toLocaleDateString('zh-TW') : '-',
     },
-    {
-      title: '操作',
-      key: 'action',
-      width: 80,
-      align: 'center' as const,
-      fixed: 'right' as const,
-      render: (_: unknown, record: AgencyWithStats) => (
-        <Popconfirm
-          title="確定要刪除此機關單位？"
-          description="刪除後將無法復原"
-          onConfirm={(e) => {
-            e?.stopPropagation();
-            handleDelete(record.id);
-          }}
-          onCancel={(e) => e?.stopPropagation()}
-          okText="確定"
-          cancelText="取消"
-          okButtonProps={{ danger: true }}
-        >
-          <Tooltip title="刪除">
-            <Button
-              type="link"
-              size="small"
-              danger
-              icon={<DeleteOutlined />}
-              onClick={(e) => e.stopPropagation()}
-            />
-          </Tooltip>
-        </Popconfirm>
-      ),
-    },
+    // 導航模式：刪除功能已整合至 AgencyFormPage
   ];
 
   // 篩選後的機關列表
@@ -594,7 +522,7 @@ export const AgenciesPage: React.FC = () => {
           columns={columns}
           dataSource={filteredAgencies}
           rowKey="id"
-          loading={isLoading || isDeleting}
+          loading={isLoading}
           pagination={false}
           scroll={{ x: isMobile ? 300 : 700 }}
           size={isMobile ? 'small' : 'middle'}

@@ -9,7 +9,6 @@ import {
   Select,
   Typography,
   Tag,
-  Popconfirm,
   Row,
   Col,
   Statistic
@@ -17,12 +16,10 @@ import {
 import {
   PlusOutlined,
   SearchOutlined,
-  DeleteOutlined,
   UserOutlined,
   PhoneOutlined,
   MailOutlined,
   ShopOutlined,
-  EditOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import type { TableColumnType } from 'antd';
@@ -80,8 +77,6 @@ const VendorList: React.FC = () => {
     pagination,
     isLoading,
     isError,
-    deleteVendor,
-    isDeleting,
   } = useVendorsPage(queryParams);
 
   const total = pagination?.total ?? 0;
@@ -96,16 +91,7 @@ const VendorList: React.FC = () => {
     navigate(ROUTES.VENDOR_EDIT.replace(':id', String(vendor.id)));
   };
 
-  // 刪除廠商
-  const handleDelete = async (id: number) => {
-    try {
-      await deleteVendor(id);
-      message.success('廠商刪除成功');
-    } catch (error: any) {
-      console.error('刪除廠商失敗:', error);
-      message.error(error?.message || '刪除失敗');
-    }
-  };
+  // 刪除功能已移至 VendorFormPage (導航模式規範)
 
   // 評價顏色
   const getRatingColor = (rating?: number) => {
@@ -115,7 +101,7 @@ const VendorList: React.FC = () => {
     return 'red';
   };
 
-  // 響應式表格欄位
+  // 響應式表格欄位 (導航模式：刪除功能已整合至 VendorFormPage)
   const columns: TableColumnType<Vendor>[] = isMobile
     ? [
         {
@@ -128,22 +114,6 @@ const VendorList: React.FC = () => {
               {record.contact_person && <small><UserOutlined /> {record.contact_person}</small>}
               {record.business_type && <Tag color={getBusinessTypeColor(record.business_type)}>{record.business_type}</Tag>}
             </Space>
-          ),
-        },
-        {
-          title: '操作',
-          key: 'action',
-          width: 60,
-          render: (_, record: Vendor) => (
-            <Popconfirm
-              title="刪除廠商？"
-              onConfirm={(e) => { e?.stopPropagation(); handleDelete(record.id); }}
-              onCancel={(e) => e?.stopPropagation()}
-              okText="確定"
-              cancelText="取消"
-            >
-              <Button type="link" danger icon={<DeleteOutlined />} size="small" onClick={(e) => e.stopPropagation()} />
-            </Popconfirm>
           ),
         },
       ]
@@ -211,23 +181,7 @@ const VendorList: React.FC = () => {
           sorter: (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
           render: (date: string) => new Date(date).toLocaleDateString(),
         },
-        {
-          title: '操作',
-          key: 'action',
-          width: 80,
-          render: (_, record: Vendor) => (
-            <Popconfirm
-              title="確定要刪除此廠商嗎？"
-              description="刪除後無法恢復，且需確保沒有關聯的專案。"
-              onConfirm={(e) => { e?.stopPropagation(); handleDelete(record.id); }}
-              onCancel={(e) => e?.stopPropagation()}
-              okText="確定"
-              cancelText="取消"
-            >
-              <Button type="link" danger icon={<DeleteOutlined />} onClick={(e) => e.stopPropagation()}>刪除</Button>
-            </Popconfirm>
-          ),
-        },
+        // 導航模式：刪除功能已整合至 VendorFormPage
       ];
 
   return (
@@ -303,7 +257,7 @@ const VendorList: React.FC = () => {
           columns={columns}
           dataSource={vendors}
           rowKey="id"
-          loading={isLoading || isDeleting}
+          loading={isLoading}
           size={isMobile ? 'small' : 'middle'}
           scroll={{ x: isMobile ? 300 : undefined }}
           onRow={(record) => ({

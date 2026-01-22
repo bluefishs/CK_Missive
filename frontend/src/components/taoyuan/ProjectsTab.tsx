@@ -6,8 +6,8 @@
  * - 新增工程導航到獨立的新增頁面
  * - 在詳情頁進行編輯操作，列表頁只負責瀏覽和搜尋
  *
- * @version 1.0.0
- * @date 2026-01-21
+ * @version 1.1.0 - RWD 響應式改造
+ * @date 2026-01-23
  */
 
 import React, { useState } from 'react';
@@ -27,15 +27,16 @@ import {
   Col,
   Upload,
   Badge,
+  List,
 } from 'antd';
 import {
   PlusOutlined,
   ReloadOutlined,
   UploadOutlined,
   DownloadOutlined,
-  SearchOutlined,
   ProjectOutlined,
   SendOutlined,
+  RightOutlined,
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import type { ColumnsType } from 'antd/es/table';
@@ -44,6 +45,7 @@ import Highlighter from 'react-highlight-words';
 import { taoyuanProjectsApi } from '../../api/taoyuanDispatchApi';
 import type { TaoyuanProject, ProjectDispatchLinkItem, ProjectDocumentLinkItem } from '../../types/api';
 import { useTableColumnSearch } from '../../hooks/utility/useTableColumnSearch';
+import { useResponsive } from '../../hooks';
 import {
   DISTRICT_OPTIONS,
   CASE_TYPE_OPTIONS,
@@ -75,6 +77,9 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({ contractProjectId }) =
   const [searchText, setSearchText] = useState('');
   const [importModalVisible, setImportModalVisible] = useState(false);
 
+  // RWD 響應式
+  const { isMobile } = useResponsive();
+
   // 使用共用的表格搜尋 Hook
   const {
     searchText: columnSearchText,
@@ -93,7 +98,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({ contractProjectId }) =
       taoyuanProjectsApi.getList({
         contract_project_id: contractProjectId,
         search: searchText || undefined,
-        limit: 1000,
+        limit: 100,
       }),
   });
 
@@ -275,95 +280,173 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({ contractProjectId }) =
   // 已完成：驗收狀態為「已驗收」的工程
   const completedCount = projects.filter((p) => p.acceptance_status === '已驗收').length;
 
+  // 手機版卡片清單
+  const MobileProjectList = () => (
+    <List
+      dataSource={projects}
+      loading={isLoading}
+      pagination={{
+        size: 'small',
+        pageSize: 10,
+        showTotal: (total) => `共 ${total} 筆`,
+      }}
+      renderItem={(project) => (
+        <Card
+          size="small"
+          style={{ marginBottom: 8, cursor: 'pointer' }}
+          onClick={() => handleRowClick(project)}
+          hoverable
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ flex: 1 }}>
+              <Text strong style={{ color: '#1890ff', fontSize: 14 }}>
+                {project.project_name}
+              </Text>
+              {project.sub_case_name && (
+                <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
+                  {project.sub_case_name}
+                </div>
+              )}
+              <Space wrap size={4} style={{ marginTop: 6 }}>
+                {project.district && <Tag color="green" style={{ fontSize: 11 }}>{project.district}</Tag>}
+                {project.case_type && <Tag style={{ fontSize: 11 }}>{project.case_type}</Tag>}
+                {project.case_handler && <Tag color="blue" style={{ fontSize: 11 }}>{project.case_handler}</Tag>}
+              </Space>
+              <div style={{ marginTop: 6, fontSize: 11, color: '#999' }}>
+                派工: {project.linked_dispatches?.length || 0} 筆 |
+                公文: {project.linked_documents?.length || 0} 筆
+              </div>
+            </div>
+            <RightOutlined style={{ color: '#ccc', marginTop: 4 }} />
+          </div>
+        </Card>
+      )}
+    />
+  );
+
   return (
     <div>
-      {/* 統計卡片 */}
-      <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={6}>
+      {/* 統計卡片 - RWD 響應式 */}
+      <Row gutter={[isMobile ? 8 : 16, isMobile ? 8 : 16]} style={{ marginBottom: isMobile ? 12 : 16 }}>
+        <Col xs={12} sm={6}>
           <Card size="small">
-            <Statistic title="總工程數" value={projects.length} prefix={<ProjectOutlined />} />
+            <Statistic
+              title={isMobile ? '總數' : '總工程數'}
+              value={projects.length}
+              prefix={<ProjectOutlined />}
+              valueStyle={{ fontSize: isMobile ? 18 : 24 }}
+            />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col xs={12} sm={6}>
           <Card size="small">
             <Statistic
               title="已派工"
               value={dispatchedCount}
-              valueStyle={{ color: '#1890ff' }}
+              valueStyle={{ color: '#1890ff', fontSize: isMobile ? 18 : 24 }}
               prefix={<SendOutlined />}
             />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col xs={12} sm={6}>
           <Card size="small">
             <Statistic
               title="已完成"
               value={completedCount}
-              valueStyle={{ color: '#52c41a' }}
+              valueStyle={{ color: '#52c41a', fontSize: isMobile ? 18 : 24 }}
               prefix={<Badge status="success" />}
             />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col xs={12} sm={6}>
           <Card size="small">
             <Statistic
               title="完成率"
               value={projects.length ? Math.round((completedCount / projects.length) * 100) : 0}
               suffix="%"
+              valueStyle={{ fontSize: isMobile ? 18 : 24 }}
             />
           </Card>
         </Col>
       </Row>
 
-      {/* 工具列 */}
-      <Space style={{ marginBottom: 16 }}>
-        <Search
-          placeholder="搜尋工程名稱、承辦人"
-          allowClear
-          onSearch={setSearchText}
-          style={{ width: 280 }}
+      {/* 工具列 - RWD 響應式 */}
+      <Row gutter={[8, 8]} style={{ marginBottom: isMobile ? 12 : 16 }}>
+        <Col xs={24} sm={12} md={8}>
+          <Search
+            placeholder={isMobile ? '搜尋工程...' : '搜尋工程名稱、承辦人'}
+            allowClear
+            onSearch={setSearchText}
+            style={{ width: '100%' }}
+            size={isMobile ? 'middle' : 'middle'}
+          />
+        </Col>
+        <Col xs={24} sm={12} md={16} style={{ textAlign: isMobile ? 'left' : 'right' }}>
+          <Space wrap size={isMobile ? 'small' : 'middle'}>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={() => refetch()}
+              size={isMobile ? 'small' : 'middle'}
+            >
+              {isMobile ? '' : '重新整理'}
+            </Button>
+            <Button
+              icon={<UploadOutlined />}
+              onClick={() => setImportModalVisible(true)}
+              size={isMobile ? 'small' : 'middle'}
+            >
+              {isMobile ? '' : 'Excel 匯入'}
+            </Button>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={handleCreate}
+              size={isMobile ? 'small' : 'middle'}
+            >
+              {isMobile ? '' : '新增工程'}
+            </Button>
+          </Space>
+        </Col>
+      </Row>
+
+      {/* 提示文字 - 手機版隱藏 */}
+      {!isMobile && (
+        <div style={{ marginBottom: 8, color: '#666', fontSize: 12 }}>
+          <Text type="secondary">點擊列表項目可進入詳情頁進行編輯</Text>
+        </div>
+      )}
+
+      {/* 工程列表 - RWD: 手機用卡片清單，桌面用表格 */}
+      {isMobile ? (
+        <MobileProjectList />
+      ) : (
+        <Table
+          columns={columns}
+          dataSource={projects}
+          rowKey="id"
+          loading={isLoading}
+          scroll={{ x: 1100 }}
+          size="middle"
+          pagination={{
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: (total) => `共 ${total} 筆`,
+          }}
+          onRow={(record) => ({
+            onClick: () => handleRowClick(record),
+            style: { cursor: 'pointer' },
+          })}
+          rowClassName={() => 'clickable-row'}
         />
-        <Button icon={<ReloadOutlined />} onClick={() => refetch()}>
-          重新整理
-        </Button>
-        <Button icon={<UploadOutlined />} onClick={() => setImportModalVisible(true)}>
-          Excel 匯入
-        </Button>
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-          新增工程
-        </Button>
-      </Space>
+      )}
 
-      {/* 提示文字 */}
-      <div style={{ marginBottom: 8, color: '#666', fontSize: 12 }}>
-        <Text type="secondary">點擊列表項目可進入詳情頁進行編輯</Text>
-      </div>
-
-      {/* 工程列表表格 */}
-      <Table
-        columns={columns}
-        dataSource={projects}
-        rowKey="id"
-        loading={isLoading}
-        scroll={{ x: 1100 }}
-        pagination={{
-          showSizeChanger: true,
-          showQuickJumper: true,
-          showTotal: (total) => `共 ${total} 筆`,
-        }}
-        onRow={(record) => ({
-          onClick: () => handleRowClick(record),
-          style: { cursor: 'pointer' },
-        })}
-        rowClassName={() => 'clickable-row'}
-      />
-
-      {/* Excel 匯入 Modal */}
+      {/* Excel 匯入 Modal - RWD 響應式 */}
       <Modal
         title="Excel 匯入工程資料"
         open={importModalVisible}
         onCancel={() => setImportModalVisible(false)}
         footer={null}
+        width={isMobile ? '95%' : 520}
       >
         <div style={{ marginBottom: 16 }}>
           <Button

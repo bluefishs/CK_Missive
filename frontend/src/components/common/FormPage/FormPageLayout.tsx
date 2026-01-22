@@ -2,17 +2,17 @@
  * 通用表單頁佈局元件
  *
  * 提供統一的新增/編輯表單頁面結構：
- * - Header（標題、返回按鈕、保存按鈕）
+ * - Header（標題、返回按鈕、保存按鈕、刪除按鈕）
  * - 表單內容區
  * - Loading 狀態
  *
- * @version 1.0.0
- * @date 2026-01-22
+ * @version 1.1.0 - 支援刪除功能 (導航模式規範)
+ * @date 2026-01-23
  */
 
 import React from 'react';
 import { Card, Button, Space, Typography, Spin } from 'antd';
-import { ArrowLeftOutlined, SaveOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, SaveOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 
 const { Title } = Typography;
@@ -24,14 +24,20 @@ export interface FormPageLayoutProps {
   backPath: string;
   /** 保存按鈕點擊事件 */
   onSave: () => void;
+  /** 刪除按鈕點擊事件（編輯模式，導航模式規範） */
+  onDelete?: () => void;
   /** 是否正在載入資料 */
   loading?: boolean;
   /** 是否正在保存 */
   saving?: boolean;
+  /** 是否正在刪除 */
+  deleting?: boolean;
   /** 返回按鈕文字 */
   backText?: string;
   /** 保存按鈕文字 */
   saveText?: string;
+  /** 刪除按鈕文字 */
+  deleteText?: string;
   /** 是否顯示取消按鈕 */
   showCancel?: boolean;
   /** 最大寬度 */
@@ -61,10 +67,13 @@ export const FormPageLayout: React.FC<FormPageLayoutProps> = ({
   title,
   backPath,
   onSave,
+  onDelete,
   loading = false,
   saving = false,
+  deleting = false,
   backText = '返回列表',
   saveText = '保存',
+  deleteText = '刪除',
   showCancel = true,
   maxWidth = 800,
   children,
@@ -102,6 +111,17 @@ export const FormPageLayout: React.FC<FormPageLayoutProps> = ({
 
           {/* 右側：操作按鈕 */}
           <Space>
+            {/* 刪除按鈕（編輯模式，導航模式規範） */}
+            {onDelete && (
+              <Button
+                danger
+                icon={<DeleteOutlined />}
+                onClick={onDelete}
+                loading={deleting}
+              >
+                {deleteText}
+              </Button>
+            )}
             {showCancel && (
               <Button onClick={handleBack}>
                 取消
