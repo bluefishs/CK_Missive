@@ -1,7 +1,8 @@
 # RWD 響應式設計規範
 
-> **版本**: 1.0.0
+> **版本**: 1.1.0
 > **建立日期**: 2026-01-09
+> **最後更新**: 2026-01-22
 > **狀態**: 生效中
 
 ---
@@ -324,27 +325,33 @@ const ListPage: React.FC = () => {
 
 ## 七、已完成 RWD 頁面
 
-| 頁面 | 檔案路徑 | 狀態 |
-|------|---------|------|
-| 公文管理 | `pages/DocumentPageEnhanced.tsx` | ✅ 完成 |
-| 公文篩選 | `components/document/DocumentFilterEnhanced.tsx` | ✅ 完成 |
-| 公文列表 | `components/document/DocumentListEnhanced.tsx` | ✅ 完成 |
-| 儀表板 | `pages/DashboardPage.tsx` | ✅ 完成 |
-| 行事曆 | `pages/CalendarPage.tsx` | ✅ 完成 |
-| 廠商列表 | `components/vendor/VendorList.tsx` | ✅ 完成 |
+| 頁面 | 檔案路徑 | 狀態 | 更新日期 |
+|------|---------|------|---------|
+| 公文管理 | `pages/DocumentPageEnhanced.tsx` | ✅ 完成 | 2026-01-09 |
+| 公文篩選 | `components/document/DocumentFilterEnhanced.tsx` | ✅ 完成 | 2026-01-09 |
+| 公文列表 | `components/document/DocumentListEnhanced.tsx` | ✅ 完成 | 2026-01-09 |
+| 儀表板 | `pages/DashboardPage.tsx` | ✅ 完成 | 2026-01-09 |
+| 行事曆 | `pages/CalendarPage.tsx` | ✅ 完成 | 2026-01-09 |
+| 廠商列表 | `components/vendor/VendorList.tsx` | ✅ 完成 | 2026-01-09 |
+| 機關管理 | `pages/AgenciesPage.tsx` | ✅ 完成 | 2026-01-22 |
+| 案件管理 | `pages/ContractCasePage.tsx` | ✅ 完成 | 2026-01-22 |
+| 承辦同仁 | `pages/StaffPage.tsx` | ✅ 完成 | 2026-01-22 |
+| 桃園派工 | `pages/TaoyuanDispatchPage.tsx` | ✅ 完成 | 2026-01-22 |
+| 詳情頁佈局 | `components/common/DetailPage/DetailPageLayout.tsx` | ✅ 完成 | 2026-01-22 |
+| 詳情頁標題 | `components/common/DetailPage/DetailPageHeader.tsx` | ✅ 完成 | 2026-01-22 |
 
 ---
 
 ## 八、待優化頁面
 
 ### 優先級 1 (核心頁面)
-- [ ] 專案管理頁面 (`ProjectPage.tsx`)
-- [ ] 機關管理頁面 (`AgenciesPage.tsx`)
+- [x] 專案管理頁面 (`ContractCasePage.tsx`) - 已完成
+- [x] 機關管理頁面 (`AgenciesPage.tsx`) - 已完成
 - [ ] 使用者管理頁面 (`UserManagementPage.tsx`)
 
 ### 優先級 2 (次要頁面)
 - [ ] 登入頁面 (`LoginPage.tsx`)
-- [ ] 設定頁面 (`SettingsPage.tsx`)
+- [ ] 個人設定頁面 (`ProfilePage.tsx`)
 - [ ] 報表頁面 (`ReportsPage.tsx`)
 
 ---
@@ -392,5 +399,44 @@ Row 元件的 `align` 只接受：`'top' | 'middle' | 'bottom' | 'stretch'`
 
 ---
 
+## 十一、通用元件 RWD 支援
+
+### 11.1 DetailPageLayout
+
+詳情頁佈局元件已整合 RWD 支援：
+
+```typescript
+import { DetailPageLayout } from '../components/common/DetailPage';
+
+<DetailPageLayout
+  header={{
+    title: '案件名稱',
+    tags: [{ text: '執行中', color: 'processing' }],
+    backPath: '/contract-cases',
+  }}
+  tabs={[
+    { key: 'info', label: <span><InfoIcon /> 基本資訊</span>, children: <InfoTab /> },
+    { key: 'staff', label: <span><TeamIcon /> 承辦同仁</span>, children: <StaffTab /> },
+  ]}
+  loading={loading}
+  hasData={!!data}
+/>
+```
+
+RWD 特性：
+- 響應式間距（mobile: 12px, tablet: 16px, desktop: 24px）
+- 響應式標題大小（mobile: h4, desktop: h3）
+- 響應式 Tab 大小（mobile: middle, desktop: large）
+- 手機版自動收起返回按鈕文字
+
+### 11.2 FormPageLayout
+
+表單頁佈局元件支援：
+- 統一的返回/保存按鈕佈局
+- 響應式表單欄位排列
+- Loading 狀態顯示
+
+---
+
 *文件維護: Claude Code Assistant*
-*最後更新: 2026-01-09*
+*最後更新: 2026-01-22*

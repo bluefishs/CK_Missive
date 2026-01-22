@@ -25,6 +25,7 @@ import {
   DollarOutlined,
 } from '@ant-design/icons';
 
+import { useResponsive } from '../hooks';
 import { ProjectsTab } from '../components/taoyuan/ProjectsTab';
 import { DocumentsTab } from '../components/taoyuan/DocumentsTab';
 import { DispatchOrdersTab } from '../components/taoyuan/DispatchOrdersTab';
@@ -38,25 +39,31 @@ const { Title, Text } = Typography;
  */
 export const TaoyuanDispatchPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('1');
+  const { isMobile, responsiveValue } = useResponsive();
+  const pagePadding = responsiveValue({ mobile: 12, tablet: 16, desktop: 24 });
 
   return (
-    <div style={{ padding: '24px' }}>
+    <div style={{ padding: pagePadding }}>
       {/* 頁面標題 */}
-      <div style={{ marginBottom: 16 }}>
-        <Title level={2} style={{ margin: 0 }}>
-          桃園查估派工管理系統
+      <div style={{ marginBottom: isMobile ? 12 : 16 }}>
+        <Title level={isMobile ? 4 : 2} style={{ margin: 0 }}>
+          {isMobile ? '桃園派工系統' : '桃園查估派工管理系統'}
         </Title>
-        <Text type="secondary">派工管理 / 函文紀錄 / 契金管控</Text>
+        {!isMobile && (
+          <Text type="secondary">派工管理 / 函文紀錄 / 契金管控</Text>
+        )}
       </div>
 
       {/* 專案資訊卡片 */}
-      <Card size="small" style={{ marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      <Card size="small" style={{ marginBottom: isMobile ? 12 : 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 12, flexWrap: 'wrap' }}>
           <Tag color="blue">承攬案件</Tag>
           <Tag color="cyan">{TAOYUAN_CONTRACT.CODE}</Tag>
-          <Text strong style={{ fontSize: '14px' }}>
-            {TAOYUAN_CONTRACT.NAME}
-          </Text>
+          {!isMobile && (
+            <Text strong style={{ fontSize: '14px' }}>
+              {TAOYUAN_CONTRACT.NAME}
+            </Text>
+          )}
         </div>
       </Card>
 
@@ -65,14 +72,15 @@ export const TaoyuanDispatchPage: React.FC = () => {
         activeKey={activeTab}
         onChange={setActiveTab}
         type="card"
-        size="large"
+        size={isMobile ? 'middle' : 'large'}
+        tabPosition="top"
         items={[
           {
             key: '1',
             label: (
               <span>
                 <ProjectOutlined />
-                工程資訊
+                {isMobile ? '工程' : '工程資訊'}
               </span>
             ),
             children: <ProjectsTab contractProjectId={TAOYUAN_CONTRACT.PROJECT_ID} />,
@@ -82,7 +90,7 @@ export const TaoyuanDispatchPage: React.FC = () => {
             label: (
               <span>
                 <FileTextOutlined />
-                函文紀錄
+                {isMobile ? '函文' : '函文紀錄'}
               </span>
             ),
             children: <DocumentsTab contractCode={TAOYUAN_CONTRACT.CODE} />,
@@ -92,7 +100,7 @@ export const TaoyuanDispatchPage: React.FC = () => {
             label: (
               <span>
                 <SendOutlined />
-                派工紀錄
+                {isMobile ? '派工' : '派工紀錄'}
               </span>
             ),
             children: (
@@ -107,7 +115,7 @@ export const TaoyuanDispatchPage: React.FC = () => {
             label: (
               <span>
                 <DollarOutlined />
-                契金管控
+                {isMobile ? '契金' : '契金管控'}
               </span>
             ),
             children: <PaymentsTab contractProjectId={TAOYUAN_CONTRACT.PROJECT_ID} />,

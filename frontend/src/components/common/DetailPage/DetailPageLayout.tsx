@@ -6,14 +6,16 @@
  * - Tab 分頁內容區
  * - Loading 狀態
  * - Empty 狀態
+ * - RWD 響應式支援
  *
- * @version 1.0.0
- * @date 2026-01-07
+ * @version 1.1.0
+ * @date 2026-01-22
  */
 
 import React, { useState } from 'react';
 import { Card, Tabs, Spin, Empty, Button } from 'antd';
 import { useNavigate } from 'react-router-dom';
+import { useResponsive } from '../../../hooks';
 import { DetailPageHeader } from './DetailPageHeader';
 import type { DetailPageLayoutProps } from './types';
 
@@ -51,11 +53,15 @@ export const DetailPageLayout: React.FC<DetailPageLayoutProps> = ({
   children,
 }) => {
   const navigate = useNavigate();
+  const { isMobile, responsiveValue } = useResponsive();
 
   // 內部 activeTab 狀態（若未受控則使用內部狀態）
   const [internalActiveTab, setInternalActiveTab] = useState(tabs[0]?.key || '');
   const activeTab = controlledActiveTab ?? internalActiveTab;
   const handleTabChange = onTabChange ?? setInternalActiveTab;
+
+  // 響應式間距
+  const padding = responsiveValue({ mobile: 12, tablet: 16, desktop: 24 });
 
   // Loading 狀態
   if (loading) {
@@ -83,17 +89,18 @@ export const DetailPageLayout: React.FC<DetailPageLayoutProps> = ({
   }
 
   return (
-    <div>
+    <div style={{ padding }}>
       {/* Header */}
       <DetailPageHeader {...header} />
 
       {/* Tab 分頁內容 */}
-      <Card>
+      <Card bodyStyle={{ padding: isMobile ? 12 : 24 }}>
         <Tabs
           activeKey={activeTab}
           onChange={handleTabChange}
           items={tabs}
-          size="large"
+          size={isMobile ? 'middle' : 'large'}
+          tabPosition={isMobile ? 'top' : 'top'}
         />
       </Card>
 
