@@ -41,8 +41,7 @@ export const VendorFormPage: React.FC = () => {
   const { data: vendor, isLoading } = useQuery({
     queryKey: ['vendor', vendorId],
     queryFn: async () => {
-      const response = await vendorsApi.getVendors({ limit: 1000 });
-      return response.items.find(v => v.id === vendorId);
+      return await vendorsApi.getVendor(vendorId!);
     },
     enabled: isEdit && !!vendorId,
   });

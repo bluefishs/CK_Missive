@@ -105,7 +105,7 @@ export const StaffPage: React.FC = () => {
     setLoading(true);
     try {
       const requestBody: Record<string, any> = {
-        skip: (current - 1) * pageSize,
+        page: current,
         limit: pageSize,
       };
 

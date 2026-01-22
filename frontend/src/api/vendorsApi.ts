@@ -154,7 +154,7 @@ export const vendorsApi = {
    * @returns 廠商選項列表
    */
   async getVendorOptions(): Promise<VendorOption[]> {
-    const response = await this.getVendors({ limit: 1000 });
+    const response = await this.getVendors({ limit: 100 });
     return response.items.map((vendor) => {
       const option: VendorOption = {
         id: vendor.id,

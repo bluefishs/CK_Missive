@@ -104,11 +104,9 @@ export const StaffDetailPage: React.FC = () => {
     if (!staffId) return;
     setLoading(true);
     try {
-      // 使用 list API 並篩選出指定 ID
-      const response = await apiClient.post(API_ENDPOINTS.USERS.LIST, {
-        skip: 0,
-        limit: 1000,
-      });
+      // 使用 detail API 直接取得指定 ID 的使用者
+      const user = await apiClient.post(API_ENDPOINTS.USERS.DETAIL(staffId));
+      const response = { items: [user] };
       const data = response as any;
       const items = data.items || data.users || [];
       const found = items.find((s: Staff) => s.id === staffId);

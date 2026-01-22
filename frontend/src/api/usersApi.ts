@@ -190,7 +190,7 @@ export const usersApi = {
    * @returns 使用者選項列表
    */
   async getUserOptions(activeOnly = true): Promise<UserOption[]> {
-    const params: UserListParams = { limit: 1000 };
+    const params: UserListParams = { limit: 100 };
     if (activeOnly) {
       params.is_active = true;
     }

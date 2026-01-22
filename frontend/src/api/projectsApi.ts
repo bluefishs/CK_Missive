@@ -217,7 +217,7 @@ export const projectsApi = {
    * @returns 專案選項列表
    */
   async getProjectOptions(year?: number): Promise<ProjectOption[]> {
-    const params: ProjectListParams = { limit: 1000 };
+    const params: ProjectListParams = { limit: 100 };
     if (year !== undefined) {
       params.year = year;
     }

@@ -118,7 +118,7 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
       const response = await fetch(`${API_BASE_URL}/vendors/list`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ limit: 1000 })
+        body: JSON.stringify({ page: 1, limit: 100 })
       });
       const data = await response.json();
 
