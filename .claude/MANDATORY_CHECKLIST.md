@@ -1,6 +1,6 @@
 # CK_Missive 強制性開發規範檢查清單
 
-> **版本**: 1.8.0
+> **版本**: 1.9.0
 > **建立日期**: 2026-01-11
 > **最後更新**: 2026-01-22
 > **狀態**: 強制執行 - 所有開發任務啟動前必須檢視
@@ -38,6 +38,8 @@
 | **後端 API 開發/返回** | **序列化規範** | [清單 K](#清單-k-api-序列化與資料返回) |
 | **前端 API 呼叫** | **端點常數規範** | [清單 L](#清單-l-api-端點常數使用) |
 | **效能敏感操作** | **效能檢查規範** | [清單 M](#清單-m效能檢查) |
+| **前端 API 請求** | **請求參數處理規範** | [清單 N](#清單-n前端-api-請求參數處理) |
+| **Ant Design 元件** | **元件使用規範** | [清單 O](#清單-oant-design-元件使用規範) |
 
 ---
 
@@ -843,6 +845,160 @@ export SQLALCHEMY_ECHO=True
 
 ---
 
+## 清單 N：前端 API 請求參數處理
+
+### 必讀文件
+- [ ] `.claude/skills/_shared/backend/api-development.md`（前端 API 請求參數處理規範）
+- [ ] `frontend/src/api/vendorsApi.ts`（參考範本）
+
+### ⚠️ 核心問題：undefined 值導致 422 錯誤
+
+**問題描述**：
+前端傳送 API 請求時，`undefined` 值會被 `JSON.stringify()` 轉換為 `null`，
+後端 Pydantic 收到 `null` 後驗證失敗，回傳 422 Unprocessable Entity。
+
+**典型錯誤日誌**：
+```
+POST /api/vendors/list 422 (Unprocessable Content)
+```
+
+### 強制規範
+
+#### 規範 1：禁止直接傳入可能為 undefined 的值
+
+```typescript
+// ❌ 禁止：undefined 會被序列化為 null
+const queryParams = {
+  page: params?.page ?? 1,
+  search: params?.search,         // undefined → JSON null → 422
+  status: params?.status,         // undefined → JSON null → 422
+};
+
+// ✅ 正確：使用條件式添加
+const queryParams: Record<string, unknown> = {
+  page: params?.page ?? 1,
+};
+if (params?.search) queryParams.search = params.search;
+if (params?.status) queryParams.status = params.status;
+```
+
+#### 規範 2：特殊類型的判斷條件
+
+| 參數類型 | 判斷條件 | 說明 |
+|---------|---------|------|
+| 字串 | `if (params?.field)` | 空字串視為無效 |
+| 數值 | `if (params?.field !== undefined)` | 0 是有效值 |
+| 布林 | `if (params?.field !== undefined)` | false 是有效值 |
+| 陣列 | `if (params?.field?.length)` | 空陣列視為無效 |
+
+```typescript
+// 布林值範例
+if (params?.is_active !== undefined) queryParams.is_active = params.is_active;
+
+// 數值範例（0 是有效年度）
+if (params?.year !== undefined) queryParams.year = params.year;
+```
+
+### 開發前檢查
+- [ ] 確認 API 的可選參數有哪些
+- [ ] 確認各參數的資料類型（字串/數值/布林）
+
+### 開發後檢查
+- [ ] 搜尋可能的違規模式：
+```bash
+grep -rn "params\?\." frontend/src/api/ --include="*.ts" | grep -v "if ("
+```
+- [ ] 測試 API 無 422 錯誤
+- [ ] TypeScript 編譯通過
+
+### 已修復的參考範本
+
+| 檔案 | 修復的參數 |
+|------|-----------|
+| `vendorsApi.ts` | `search`, `business_type` |
+| `projectsApi.ts` | `search`, `year`, `category`, `status` |
+| `agenciesApi.ts` | `search`, `agency_type` |
+| `usersApi.ts` | `search`, `role`, `is_active` |
+
+---
+
+## 清單 O：Ant Design 元件使用規範
+
+### 必讀文件
+- [ ] [Ant Design 官方文件](https://ant.design/components/overview)
+- [ ] `frontend/src/components/common/`（通用元件）
+
+### ⚠️ 常見元件警告與錯誤
+
+#### 問題 1：Spin 元件 tip 屬性警告
+
+**警告訊息**：
+```
+[antd: Spin] `tip` only work in nest or fullscreen pattern
+```
+
+**原因**：`tip` 屬性只在 Spin 包裹子元件（nest 模式）時有效
+
+```tsx
+// ❌ 錯誤：獨立 Spin 使用 tip
+<Spin size="large" tip="載入中..." />
+
+// ✅ 正確：Spin 包裹內容（nest 模式）
+<Spin spinning={loading} tip="載入中...">
+  <div style={{ minHeight: 200 }}>
+    {!loading && children}
+  </div>
+</Spin>
+```
+
+#### 問題 2：Tag 元件沒有 size 屬性
+
+**錯誤訊息**：
+```
+Property 'size' does not exist on type 'IntrinsicAttributes & TagProps'
+```
+
+**解決方案**：使用 style 控制大小
+
+```tsx
+// ❌ 錯誤：Tag 沒有 size 屬性
+<Tag size="small">標籤</Tag>
+
+// ✅ 正確：使用 style
+<Tag style={{ fontSize: 12 }}>標籤</Tag>
+```
+
+#### 問題 3：Row 元件 align 屬性
+
+**有效值**：`'top' | 'middle' | 'bottom' | 'stretch'`
+
+```tsx
+// ❌ 錯誤：使用無效值
+<Row align="start">...</Row>
+
+// ✅ 正確
+<Row align="top">...</Row>
+<Row align="middle">...</Row>
+```
+
+### 強制規範
+
+| 元件 | 常見錯誤 | 正確用法 |
+|------|---------|---------|
+| `Spin` | 獨立使用 `tip` | 必須包裹子元件 |
+| `Tag` | 使用 `size` 屬性 | 使用 `style={{ fontSize }}` |
+| `Row` | `align="start"` | `align="top"` |
+| `Modal` | 未設定 `destroyOnClose` | 表單 Modal 需設定 |
+
+### 開發前檢查
+- [ ] 查閱 Ant Design 官方文件確認 API
+
+### 開發後檢查
+- [ ] 瀏覽器 Console 無 antd 警告
+- [ ] TypeScript 編譯通過
+
+---
+
 ## 二、通用開發後檢查清單
 
 **所有開發任務完成後，必須執行：**
@@ -928,6 +1084,7 @@ cd backend && python -m py_compile app/main.py
 
 | 版本 | 日期 | 說明 |
 |------|------|------|
+| 1.9.0 | 2026-01-22 | **新增清單 N、O**（前端 API 請求參數處理、Ant Design 元件使用規範） |
 | 1.8.0 | 2026-01-22 | **新增清單 L、M**（API 端點常數使用規範、效能檢查規範） |
 | 1.7.0 | 2026-01-22 | 新增 React Hooks 使用規範、批次處理效能優化、避免硬編碼設定值 |
 | 1.6.0 | 2026-01-21 | **新增清單 K - API 序列化與資料返回**（ORM 模型序列化、Schema-DB 類型一致性、欄位名稱檢查） |

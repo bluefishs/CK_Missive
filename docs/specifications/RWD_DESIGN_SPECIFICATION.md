@@ -397,6 +397,38 @@ const ListPage: React.FC = () => {
 Row 元件的 `align` 只接受：`'top' | 'middle' | 'bottom' | 'stretch'`
 不要使用 `'start'` 或 `'end'`，改用 `'top'` 或 `'bottom'`。
 
+### Q4: Spin 元件 `tip` 警告?
+
+```
+[antd: Spin] `tip` only work in nest or fullscreen pattern
+```
+
+**解決方案**：Spin 必須包裹子元件（nest 模式）才能使用 `tip`：
+
+```tsx
+// ❌ 錯誤
+<Spin size="large" tip="載入中..." />
+
+// ✅ 正確
+<Spin spinning={loading} tip="載入中...">
+  <div style={{ minHeight: 200 }}>
+    {!loading && children}
+  </div>
+</Spin>
+```
+
+### Q5: Tag 元件沒有 `size` 屬性?
+
+Tag 元件不支援 `size` 屬性，使用 `style` 控制大小：
+
+```tsx
+// ❌ 錯誤
+<Tag size="small">標籤</Tag>
+
+// ✅ 正確
+<Tag style={{ fontSize: 12 }}>標籤</Tag>
+```
+
 ---
 
 ## 十一、通用元件 RWD 支援
