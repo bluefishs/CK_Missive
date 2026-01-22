@@ -1,6 +1,6 @@
 import React, { useState, useRef, useMemo } from 'react';
 import type { InputRef, TableColumnType } from 'antd';
-import type { FilterDropdownProps, SorterResult } from 'antd/es/table/interface';
+import type { FilterDropdownProps } from 'antd/es/table/interface';
 import {
   Typography,
   Table,
@@ -15,8 +15,6 @@ import {
   App,
   Select,
   Pagination,
-  Modal,
-  Form,
   Popconfirm,
   Tooltip,
 } from 'antd';
@@ -29,29 +27,23 @@ import {
   BookOutlined,
   DeleteOutlined,
   PlusOutlined,
+  EditOutlined,
 } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import Highlighter from 'react-highlight-words';
 import { useAgenciesPage } from '../hooks';
 import { useResponsive } from '../hooks';
-import type { AgencyWithStats, AgencyCreate, AgencyUpdate } from '../api';
+import type { AgencyWithStats } from '../api';
+import { ROUTES } from '../router/types';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
-
-// 使用 agenciesApi 匯出的型別，本地介面定義已移除以避免重複
-
-// 機關類型選項（三大分類）
-const AGENCY_TYPE_OPTIONS = [
-  { value: '政府機關', label: '政府機關' },
-  { value: '民間企業', label: '民間企業' },
-  { value: '其他單位', label: '其他單位' },
-];
 
 type DataIndex = keyof AgencyWithStats;
 
 export const AgenciesPage: React.FC = () => {
   const { message } = App.useApp();
-  const [form] = Form.useForm();
+  const navigate = useNavigate();
 
   // 響應式設計
   const { isMobile, isTablet, responsiveValue } = useResponsive();
@@ -62,10 +54,6 @@ export const AgenciesPage: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 20;
-
-  // Modal 狀態
-  const [modalVisible, setModalVisible] = useState(false);
-  const [editingAgency, setEditingAgency] = useState<AgencyWithStats | null>(null);
 
   // 欄位搜尋狀態
   const [columnSearchText, setColumnSearchText] = useState('');
@@ -88,11 +76,7 @@ export const AgenciesPage: React.FC = () => {
     statistics,
     refetch,
     refetchStatistics,
-    createAgency,
-    updateAgency,
     deleteAgency,
-    isCreating,
-    isUpdating,
     isDeleting,
   } = useAgenciesPage(queryParams);
 
@@ -201,46 +185,14 @@ export const AgenciesPage: React.FC = () => {
     setCurrentPage(page);
   };
 
-  // 開啟新增 Modal
+  // 新增機關 - 導航至表單頁
   const handleAdd = () => {
-    setEditingAgency(null);
-    form.resetFields();
-    setModalVisible(true);
+    navigate(ROUTES.AGENCY_CREATE);
   };
 
-  // 開啟編輯 Modal
+  // 編輯機關 - 導航至表單頁
   const handleEdit = (agency: AgencyWithStats) => {
-    setEditingAgency(agency);
-    form.setFieldsValue({
-      agency_name: agency.agency_name,
-      agency_short_name: agency.agency_short_name,
-      agency_code: agency.agency_code,
-      agency_type: agency.agency_type,
-      contact_person: agency.contact_person,
-      phone: agency.phone,
-      address: agency.address,
-      email: agency.email,
-    });
-    setModalVisible(true);
-  };
-
-  // 提交表單 (新增/更新)
-  const handleSubmit = async (values: AgencyCreate) => {
-    try {
-      if (editingAgency) {
-        await updateAgency({ agencyId: editingAgency.id, data: values as AgencyUpdate });
-        message.success('機關單位更新成功');
-      } else {
-        await createAgency(values);
-        message.success('機關單位建立成功');
-      }
-      setModalVisible(false);
-      form.resetFields();
-      setEditingAgency(null);
-    } catch (error: any) {
-      console.error('操作失敗:', error);
-      message.error(error.message || '操作失敗，請稍後再試');
-    }
+    navigate(ROUTES.AGENCY_EDIT.replace(':id', String(agency.id)));
   };
 
   // 刪除機關單位
@@ -671,124 +623,6 @@ export const AgenciesPage: React.FC = () => {
           />
         </div>
       </Card>
-
-      {/* 新增/編輯 Modal - 響應式 */}
-      <Modal
-        title={editingAgency ? '編輯機關單位' : '新增機關單位'}
-        open={modalVisible}
-        onCancel={() => {
-          setModalVisible(false);
-          form.resetFields();
-          setEditingAgency(null);
-        }}
-        footer={null}
-        width={isMobile ? '95%' : 600}
-        forceRender
-      >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSubmit}
-          size={isMobile ? 'middle' : 'large'}
-        >
-          <Row gutter={isMobile ? 8 : 16}>
-            <Col xs={24} sm={12}>
-              <Form.Item
-                name="agency_name"
-                label="機關名稱"
-                rules={[{ required: true, message: '請輸入機關名稱' }]}
-              >
-                <Input placeholder="請輸入機關全名" />
-              </Form.Item>
-            </Col>
-            <Col xs={24} sm={12}>
-              <Form.Item
-                name="agency_short_name"
-                label="機關簡稱"
-                tooltip={!isMobile ? '可用於公文顯示的簡短名稱' : undefined}
-              >
-                <Input placeholder="請輸入機關簡稱" />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={isMobile ? 8 : 16}>
-            <Col xs={24} sm={12}>
-              <Form.Item
-                name="agency_code"
-                label="機關代碼"
-              >
-                <Input placeholder="請輸入機關代碼" />
-              </Form.Item>
-            </Col>
-            <Col xs={24} sm={12}>
-              <Form.Item
-                name="agency_type"
-                label="機關類型"
-              >
-                <Select
-                  placeholder="請選擇機關類型"
-                  options={AGENCY_TYPE_OPTIONS}
-                  allowClear
-                />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          {/* 註解隱藏: 聯絡人、電話、Email - 機關對應窗口眾多，並非單一人 */}
-          {/* <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="contact_person"
-                label="聯絡人"
-              >
-                <Input placeholder="請輸入聯絡人姓名" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="phone"
-                label="電話"
-              >
-                <Input placeholder="請輸入聯絡電話" />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Form.Item
-            name="email"
-            label="Email"
-            rules={[{ type: 'email', message: '請輸入有效的 Email' }]}
-          >
-            <Input placeholder="請輸入 Email" />
-          </Form.Item> */}
-
-          <Form.Item
-            name="address"
-            label="地址"
-          >
-            <Input.TextArea rows={2} placeholder="請輸入地址" />
-          </Form.Item>
-
-          <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
-            <Space>
-              <Button
-                onClick={() => setModalVisible(false)}
-                disabled={isCreating || isUpdating}
-              >
-                取消
-              </Button>
-              <Button
-                type="primary"
-                htmlType="submit"
-                loading={isCreating || isUpdating}
-              >
-                {editingAgency ? '更新' : '建立'}
-              </Button>
-            </Space>
-          </Form.Item>
-        </Form>
-      </Modal>
     </div>
   );
 };

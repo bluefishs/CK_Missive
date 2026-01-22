@@ -17,11 +17,6 @@ import {
   Typography,
   Empty,
   Spin,
-  Modal,
-  Form,
-  Popconfirm,
-  DatePicker,
-  InputNumber,
   App,
 } from 'antd';
 import {
@@ -30,9 +25,6 @@ import {
   UnorderedListOutlined,
   SearchOutlined,
   ReloadOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  TeamOutlined,
   EyeOutlined,
 } from '@ant-design/icons';
 import Highlighter from 'react-highlight-words';
@@ -52,13 +44,6 @@ const CATEGORY_OPTIONS = [
   { value: '02', label: '02協力計畫', color: 'green' },
   { value: '03', label: '03小額採購', color: 'orange' },
   { value: '04', label: '04其他類別', color: 'default' },
-];
-
-// 案件性質選項
-const CASE_NATURE_OPTIONS = [
-  { value: '01', label: '01測量案' },
-  { value: '02', label: '02資訊案' },
-  { value: '03', label: '03複合案' },
 ];
 
 // 類別映射表 (處理舊資料格式)
@@ -90,16 +75,7 @@ const getCategoryTagText = (category?: string) => {
 };
 
 // ---[類型定義]---
-import type { Project, ProjectStatus, ProjectCreate } from '../types/api';
-
-/**
- * 專案表單資料型別
- * 基於 ProjectCreate，但日期欄位使用 dayjs 物件
- */
-interface ProjectFormData extends Omit<ProjectCreate, 'start_date' | 'end_date'> {
-  start_date?: import('dayjs').Dayjs | string | null;
-  end_date?: import('dayjs').Dayjs | string | null;
-}
+import type { Project, ProjectStatus } from '../types/api';
 
 type ViewMode = 'list' | 'board';
 type DataIndex = keyof Project;
@@ -108,7 +84,6 @@ type DataIndex = keyof Project;
 export const ContractCasePage: React.FC = () => {
   const { message } = App.useApp();
   const navigate = useNavigate();
-  const [form] = Form.useForm();
 
   // 📱 響應式設計
   const { isMobile } = useResponsive();
@@ -129,11 +104,6 @@ export const ContractCasePage: React.FC = () => {
   const [yearFilter, setYearFilter] = useState<number | undefined>();
   const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
-
-  // 模態框狀態
-  const [modalVisible, setModalVisible] = useState(false);
-  const [editingProject, setEditingProject] = useState<Project | null>(null);
-  const [modalMode, setModalMode] = useState<'view' | 'edit' | 'create'>('create');
 
   // 廠商管理模態框狀態
   const [vendorManagementVisible, setVendorManagementVisible] = useState(false);
@@ -160,14 +130,9 @@ export const ContractCasePage: React.FC = () => {
     isLoading,
     statistics,
     availableYears,
-    availableCategories,
     availableStatuses,
     refetch,
-    createProject,
-    updateProject,
     deleteProject,
-    isCreating,
-    isUpdating,
     isDeleting,
   } = useProjectsPage(queryParams);
 
@@ -257,31 +222,6 @@ export const ContractCasePage: React.FC = () => {
 
   // ---[事件處理]---
 
-  // 新增或編輯專案
-  const handleSubmit = async (values: ProjectFormData) => {
-    try {
-      const formData = {
-        ...values,
-        start_date: values.start_date ? dayjs(values.start_date).format('YYYY-MM-DD') : undefined,
-        end_date: values.end_date ? dayjs(values.end_date).format('YYYY-MM-DD') : undefined,
-      };
-
-      if (editingProject) {
-        await updateProject({ projectId: editingProject.id, data: formData });
-        message.success('專案更新成功');
-      } else {
-        await createProject(formData);
-        message.success('專案建立成功');
-      }
-
-      setModalVisible(false);
-      form.resetFields();
-      setEditingProject(null);
-    } catch (error: any) {
-      message.error(error.message || '操作失敗');
-    }
-  };
-
   // 刪除專案
   const handleDelete = async (id: number) => {
     try {
@@ -304,10 +244,8 @@ export const ContractCasePage: React.FC = () => {
   };
 
   const handleAddNew = () => {
-    setEditingProject(null);
-    setModalMode('create');
-    form.resetFields();
-    setModalVisible(true);
+    // 導航至新增案件頁面
+    navigate(ROUTES.CONTRACT_CASE_CREATE);
   };
 
   const handleResetFilters = () => {
@@ -625,95 +563,6 @@ export const ContractCasePage: React.FC = () => {
           </div>
         )}
       </Card>
-
-      {/* 新增/編輯/檢視模態框 - 響應式 */}
-      <Modal
-        title={
-          modalMode === 'view' ? '檢視專案詳情' :
-          modalMode === 'edit' ? '編輯專案' : '新增專案'
-        }
-        open={modalVisible}
-        onCancel={() => {
-          setModalVisible(false);
-          setEditingProject(null);
-          setModalMode('create');
-          form.resetFields();
-        }}
-        footer={null}
-        width={isMobile ? '95%' : 800}
-        destroyOnHidden
-      >
-        <Form form={form} layout="vertical" onFinish={handleSubmit} initialValues={{ status: '執行中' }}>
-          <Form.Item name="project_name" label="專案名稱" rules={[{ required: true, message: '請輸入專案名稱' }]}>
-            <Input placeholder="請輸入專案名稱" readOnly={modalMode === 'view'} />
-          </Form.Item>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="project_code" label="專案編號" tooltip="留空可自動產生 (如 CK2025_01_01_001)"><Input placeholder="留空自動產生" readOnly={modalMode === 'view'} /></Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="year" label="年度"><InputNumber placeholder="請輸入年度" min={2000} max={2050} style={{ width: '100%' }} readOnly={modalMode === 'view'} /></Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={16}>
-            <Col span={8}>
-              <Form.Item name="category" label="案件類別">
-                <Select placeholder="請選擇案件類別" disabled={modalMode === 'view'}>
-                  {CATEGORY_OPTIONS.map(opt => (
-                    <Option key={opt.value} value={opt.value}>{opt.label}</Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item name="case_nature" label="案件性質">
-                <Select placeholder="請選擇案件性質" disabled={modalMode === 'view'}>
-                  {CASE_NATURE_OPTIONS.map(opt => (
-                    <Option key={opt.value} value={opt.value}>{opt.label}</Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item name="status" label="案件狀態">
-                <Select placeholder="請選擇狀態" disabled={modalMode === 'view'}>
-                  {availableStatuses.map(stat => <Option key={stat} value={stat}>{stat}</Option>)}
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
-          <Form.Item name="client_agency" label="委託單位"><Input placeholder="請輸入委託單位" readOnly={modalMode === 'view'} /></Form.Item>
-          <Form.Item name="contract_amount" label="合約金額">
-            <InputNumber<number> placeholder="請輸入合約金額" min={0} style={{ width: '100%' }} formatter={(v) => `$ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} parser={(v) => Number(v!.replace(/\$\s?|(,*)/g, ''))} readOnly={modalMode === 'view'} />
-          </Form.Item>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="start_date" label="起始日期"><DatePicker style={{ width: '100%' }} disabled={modalMode === 'view'} /></Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="end_date" label="結束日期"><DatePicker style={{ width: '100%' }} disabled={modalMode === 'view'} /></Form.Item>
-            </Col>
-          </Row>
-          <Form.Item name="description" label="專案描述"><Input.TextArea placeholder="請輸入專案描述" rows={3} readOnly={modalMode === 'view'} /></Form.Item>
-          <Form.Item style={{ textAlign: 'right', marginBottom: 0 }}>
-            <Space>
-              <Button onClick={() => {
-                setModalVisible(false);
-                setEditingProject(null);
-                setModalMode('create');
-                form.resetFields();
-              }}>
-                {modalMode === 'view' ? '關閉' : '取消'}
-              </Button>
-              {modalMode !== 'view' && (
-                <Button type="primary" htmlType="submit" loading={isCreating || isUpdating}>
-                  {modalMode === 'edit' ? '更新' : '建立'}
-                </Button>
-              )}
-            </Space>
-          </Form.Item>
-        </Form>
-      </Modal>
 
       {/* 廠商關聯管理模態框 */}
       {selectedProject && (

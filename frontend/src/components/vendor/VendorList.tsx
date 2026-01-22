@@ -6,8 +6,6 @@ import {
   Space,
   Card,
   App,
-  Modal,
-  Form,
   Select,
   Typography,
   Tag,
@@ -23,12 +21,15 @@ import {
   UserOutlined,
   PhoneOutlined,
   MailOutlined,
-  ShopOutlined
+  ShopOutlined,
+  EditOutlined
 } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import type { TableColumnType } from 'antd';
 import { useVendorsPage } from '../../hooks';
 import { useResponsive } from '../../hooks';
-import type { Vendor as ApiVendor, VendorCreate, VendorUpdate } from '../../types/api';
+import type { Vendor as ApiVendor } from '../../types/api';
+import { ROUTES } from '../../router/types';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -52,19 +53,9 @@ const getBusinessTypeColor = (type?: string) => {
 // 使用統一型別定義
 type Vendor = ApiVendor;
 
-interface VendorFormData {
-  vendor_name: string;
-  vendor_code?: string;
-  contact_person?: string;
-  phone?: string;
-  address?: string;
-  email?: string;
-  business_type?: string;
-  rating?: number;
-}
-
 const VendorList: React.FC = () => {
   const { message } = App.useApp();
+  const navigate = useNavigate();
   const { isMobile, responsiveValue } = useResponsive();
   const pagePadding = responsiveValue({ mobile: 12, tablet: 16, desktop: 24 });
 
@@ -74,9 +65,6 @@ const VendorList: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [businessTypeFilter, setBusinessTypeFilter] = useState<string>('');
   const [ratingFilter, setRatingFilter] = useState<number | undefined>();
-  const [modalVisible, setModalVisible] = useState(false);
-  const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
-  const [form] = Form.useForm();
 
   // 構建查詢參數
   const queryParams = useMemo(() => ({
@@ -92,33 +80,20 @@ const VendorList: React.FC = () => {
     pagination,
     isLoading,
     isError,
-    createVendor,
-    updateVendor,
     deleteVendor,
-    isCreating,
-    isUpdating,
     isDeleting,
   } = useVendorsPage(queryParams);
 
   const total = pagination?.total ?? 0;
 
-  // 新增或編輯廠商
-  const handleSubmit = async (values: VendorFormData) => {
-    try {
-      if (editingVendor) {
-        await updateVendor({ vendorId: editingVendor.id, data: values as VendorUpdate });
-        message.success('廠商更新成功');
-      } else {
-        await createVendor(values as VendorCreate);
-        message.success('廠商建立成功');
-      }
-      setModalVisible(false);
-      form.resetFields();
-      setEditingVendor(null);
-    } catch (error: any) {
-      console.error('廠商操作失敗:', error);
-      message.error(error?.message || '操作失敗');
-    }
+  // 新增廠商 - 導航至表單頁
+  const handleAdd = () => {
+    navigate(ROUTES.VENDOR_CREATE);
+  };
+
+  // 編輯廠商 - 導航至表單頁
+  const handleEdit = (vendor: Vendor) => {
+    navigate(ROUTES.VENDOR_EDIT.replace(':id', String(vendor.id)));
   };
 
   // 刪除廠商
@@ -130,13 +105,6 @@ const VendorList: React.FC = () => {
       console.error('刪除廠商失敗:', error);
       message.error(error?.message || '刪除失敗');
     }
-  };
-
-  // 開啟編輯模態框
-  const handleEdit = (vendor: Vendor) => {
-    setEditingVendor(vendor);
-    form.setFieldsValue(vendor);
-    setModalVisible(true);
   };
 
   // 評價顏色
@@ -275,11 +243,7 @@ const VendorList: React.FC = () => {
                 type="primary"
                 icon={<PlusOutlined />}
                 size={isMobile ? 'small' : 'middle'}
-                onClick={() => {
-                  setEditingVendor(null);
-                  form.resetFields();
-                  setModalVisible(true);
-                }}
+                onClick={handleAdd}
               >
                 {isMobile ? '' : '新增廠商'}
               </Button>
@@ -362,128 +326,6 @@ const VendorList: React.FC = () => {
           }}
         />
       </Card>
-
-      <Modal
-        title={editingVendor ? '編輯廠商' : '新增廠商'}
-        open={modalVisible}
-        onCancel={() => {
-          setModalVisible(false);
-          setEditingVendor(null);
-          form.resetFields();
-        }}
-        footer={null}
-        width={isMobile ? '95%' : 600}
-      >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSubmit}
-        >
-          <Form.Item
-            name="vendor_name"
-            label="廠商名稱"
-            rules={[{ required: true, message: '請輸入廠商名稱' }]}
-          >
-            <Input placeholder="請輸入廠商名稱" />
-          </Form.Item>
-
-          <Form.Item
-            name="vendor_code"
-            label="統一編號"
-          >
-            <Input placeholder="請輸入統一編號" />
-          </Form.Item>
-
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="contact_person"
-                label="聯絡人"
-              >
-                <Input placeholder="請輸入聯絡人" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="phone"
-                label="電話"
-              >
-                <Input placeholder="請輸入電話" />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Form.Item
-            name="email"
-            label="電子郵件"
-            rules={[{ type: 'email', message: '請輸入有效的電子郵件地址' }]}
-          >
-            <Input placeholder="請輸入電子郵件" />
-          </Form.Item>
-
-          <Form.Item
-            name="address"
-            label="地址"
-          >
-            <Input.TextArea 
-              placeholder="請輸入地址" 
-              rows={2}
-            />
-          </Form.Item>
-
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="business_type"
-                label="營業項目"
-                rules={[{ required: true, message: '請選擇營業項目' }]}
-              >
-                <Select placeholder="請選擇營業項目">
-                  {BUSINESS_TYPE_OPTIONS.map(opt => (
-                    <Option key={opt.value} value={opt.value}>{opt.label}</Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="rating"
-                label="合作評價"
-              >
-                <Select placeholder="請選擇評價">
-                  <Option value={5}>5星 - 優秀</Option>
-                  <Option value={4}>4星 - 良好</Option>
-                  <Option value={3}>3星 - 普通</Option>
-                  <Option value={2}>2星 - 待改善</Option>
-                  <Option value={1}>1星 - 不佳</Option>
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Form.Item style={{ textAlign: 'right', marginBottom: 0 }}>
-            <Space>
-              <Button
-                onClick={() => {
-                  setModalVisible(false);
-                  setEditingVendor(null);
-                  form.resetFields();
-                }}
-                disabled={isCreating || isUpdating}
-              >
-                取消
-              </Button>
-              <Button
-                type="primary"
-                htmlType="submit"
-                loading={isCreating || isUpdating}
-              >
-                {editingVendor ? '更新' : '建立'}
-              </Button>
-            </Space>
-          </Form.Item>
-        </Form>
-      </Modal>
     </div>
   );
 };

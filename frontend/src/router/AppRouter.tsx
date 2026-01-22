@@ -45,10 +45,14 @@ const DocumentNumbersPage = lazy(() => import('../pages/DocumentNumbersPage').th
 const SendDocumentCreatePage = lazy(() => import('../pages/SendDocumentCreatePage').then(module => ({ default: module.SendDocumentCreatePage })));
 const ReceiveDocumentCreatePage = lazy(() => import('../pages/ReceiveDocumentCreatePage').then(module => ({ default: module.ReceiveDocumentCreatePage })));
 const AgenciesPage = lazy(() => import('../pages/AgenciesPage').then(module => ({ default: module.AgenciesPage })));
+const AgencyFormPage = lazy(() => import('../pages/AgencyFormPage').then(module => ({ default: module.AgencyFormPage })));
 const ApiMappingDisplayPage = lazy(() => import('../pages/ApiMappingDisplayPage').then(module => ({ default: module.ApiMappingDisplayPage })));
 const ApiDocumentationPage = lazy(() => import('../pages/ApiDocumentationPage'));
 const VendorPage = lazy(() => import('../pages/VendorPage'));
+const VendorFormPage = lazy(() => import('../pages/VendorFormPage').then(module => ({ default: module.VendorFormPage })));
 const StaffPage = lazy(() => import('../pages/StaffPage'));
+const StaffCreatePage = lazy(() => import('../pages/StaffCreatePage').then(module => ({ default: module.StaffCreatePage })));
+const StaffDetailPage = lazy(() => import('../pages/StaffDetailPage').then(module => ({ default: module.StaffDetailPage })));
 const SiteManagementPage = lazy(() => import('../pages/SiteManagementPage').then(module => ({ default: module.default })));
 const CalendarPage = lazy(() => import('../pages/CalendarPage'));
 const ReportsPage = lazy(() => import('../pages/ReportsPage'));
@@ -102,6 +106,8 @@ export const AppRouter: React.FC = () => {
 
           {/* 機關單位管理（需要認證） */}
           <Route path={ROUTES.AGENCIES} element={<ProtectedRoute><AgenciesPage /></ProtectedRoute>} />
+          <Route path={ROUTES.AGENCY_CREATE} element={<ProtectedRoute><AgencyFormPage /></ProtectedRoute>} />
+          <Route path={ROUTES.AGENCY_EDIT} element={<ProtectedRoute><AgencyFormPage /></ProtectedRoute>} />
 
           {/* API 對應頁面（公開） */}
           <Route path={ROUTES.API_MAPPING} element={<ApiMappingDisplayPage />} />
@@ -111,9 +117,13 @@ export const AppRouter: React.FC = () => {
 
           {/* 廠商管理（需要認證） */}
           <Route path={ROUTES.VENDORS} element={<ProtectedRoute><VendorPage /></ProtectedRoute>} />
+          <Route path={ROUTES.VENDOR_CREATE} element={<ProtectedRoute><VendorFormPage /></ProtectedRoute>} />
+          <Route path={ROUTES.VENDOR_EDIT} element={<ProtectedRoute><VendorFormPage /></ProtectedRoute>} />
 
           {/* 承辦同仁管理（需要認證） */}
           <Route path={ROUTES.STAFF} element={<ProtectedRoute><StaffPage /></ProtectedRoute>} />
+          <Route path={ROUTES.STAFF_CREATE} element={<ProtectedRoute><StaffCreatePage /></ProtectedRoute>} />
+          <Route path={ROUTES.STAFF_DETAIL} element={<ProtectedRoute><StaffDetailPage /></ProtectedRoute>} />
 
           {/* 行事曆（需要認證） */}
           <Route path={ROUTES.CALENDAR} element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
