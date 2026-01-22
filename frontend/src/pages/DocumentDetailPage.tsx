@@ -1787,14 +1787,99 @@ export const DocumentDetailPage: React.FC = () => {
           </Card>
         )}
 
-        {/* 非編輯模式提示 */}
+        {/* 非編輯模式 - 顯示唯讀表單欄位 */}
         {!isEditing && dispatchLinks.length === 0 && (
-          <Empty
-            description="此公文尚無關聯派工"
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
+          <Card
+            size="small"
+            title={
+              <Space>
+                <SendOutlined />
+                <span>派工資訊（唯讀）</span>
+              </Space>
+            }
           >
-            <Text type="secondary">點擊右上方「編輯」按鈕可新增派工關聯</Text>
-          </Empty>
+            <Alert
+              message="此公文尚無關聯派工"
+              description="點擊右上方「編輯」按鈕可新增派工關聯"
+              type="info"
+              showIcon
+              style={{ marginBottom: 16 }}
+            />
+            {/* 派工基本資訊 - 唯讀顯示 */}
+            <Row gutter={16}>
+              <Col span={8}>
+                <Form.Item label="派工單號">
+                  <Input placeholder="-" disabled />
+                </Form.Item>
+              </Col>
+              <Col span={16}>
+                <Form.Item label="工程名稱/派工事項">
+                  <Input placeholder="-" disabled />
+                </Form.Item>
+              </Col>
+            </Row>
+            <Row gutter={16}>
+              <Col span={8}>
+                <Form.Item label="作業類別">
+                  <Input placeholder="-" disabled />
+                </Form.Item>
+              </Col>
+              <Col span={8}>
+                <Form.Item label="分案名稱/派工備註">
+                  <Input placeholder="-" disabled />
+                </Form.Item>
+              </Col>
+              <Col span={8}>
+                <Form.Item label="履約期限">
+                  <Input placeholder="-" disabled />
+                </Form.Item>
+              </Col>
+            </Row>
+            <Divider orientation="left" style={{ margin: '12px 0' }}>承辦資訊</Divider>
+            <Row gutter={16}>
+              <Col span={8}>
+                <Form.Item label="案件承辦">
+                  <Input placeholder="-" disabled />
+                </Form.Item>
+              </Col>
+              <Col span={8}>
+                <Form.Item label="查估單位">
+                  <Input placeholder="-" disabled />
+                </Form.Item>
+              </Col>
+              <Col span={8}>
+                <Form.Item label="聯絡備註">
+                  <Input placeholder="-" disabled />
+                </Form.Item>
+              </Col>
+            </Row>
+            <Divider orientation="left" style={{ margin: '12px 0' }}>資料夾路徑</Divider>
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item label="雲端資料夾">
+                  <Input placeholder="-" disabled />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item label="專案資料夾">
+                  <Input placeholder="-" disabled />
+                </Form.Item>
+              </Col>
+            </Row>
+            <Divider orientation="left" style={{ margin: '12px 0' }}>公文關聯</Divider>
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item label="機關函文號">
+                  <Input value={isReceiveDocument(document?.category) ? document?.doc_number : '-'} disabled />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item label="乾坤函文號">
+                  <Input value={!isReceiveDocument(document?.category) ? document?.doc_number : '-'} disabled />
+                </Form.Item>
+              </Col>
+            </Row>
+          </Card>
         )}
       </Spin>
     );

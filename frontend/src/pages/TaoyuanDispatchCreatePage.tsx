@@ -224,7 +224,7 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '24px', maxWidth: 1200, margin: '0 auto' }}>
+    <div style={{ padding: '24px' }}>
       {/* Header */}
       <Card style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -474,7 +474,7 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
           </Row>
         </Card>
 
-        {/* 契金資訊 */}
+        {/* 契金資訊 - 直接顯示所有 7 種作業類別金額欄位 */}
         <Card
           title={
             <Space>
@@ -484,47 +484,92 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
           }
           style={{ marginBottom: 16 }}
         >
-          <Form.Item noStyle shouldUpdate={(prev, curr) => prev.work_type !== curr.work_type}>
-            {({ getFieldValue }) => {
-              const selectedWorkTypes: string[] = getFieldValue('work_type') || [];
-              // 篩選有對應金額欄位的作業類別
-              const validWorkTypes = selectedWorkTypes.filter((wt) => WORK_TYPE_AMOUNT_MAPPING[wt]);
-
-              if (validWorkTypes.length === 0) {
-                return (
-                  <Alert
-                    message="請先選擇作業類別"
-                    description="選擇作業類別後，將顯示對應的金額輸入欄位"
-                    type="info"
-                    showIcon
-                  />
-                );
-              }
-
-              return (
-                <Row gutter={16}>
-                  {validWorkTypes.map((wt) => {
-                    const mapping = WORK_TYPE_AMOUNT_MAPPING[wt];
-                    if (!mapping) return null;
-                    return (
-                      <Col span={8} key={wt}>
-                        <Form.Item name={mapping.amountField} label={`${mapping.label} 金額`}>
-                          <InputNumber
-                            style={{ width: '100%' }}
-                            min={0}
-                            precision={0}
-                            formatter={(value) => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                            parser={(value) => Number(value?.replace(/\$\s?|(,*)/g, '') || 0) as unknown as 0}
-                            placeholder="輸入金額"
-                          />
-                        </Form.Item>
-                      </Col>
-                    );
-                  })}
-                </Row>
-              );
-            }}
-          </Form.Item>
+          <Row gutter={[16, 16]}>
+            <Col span={6}>
+              <Form.Item name="work_01_amount" label="01.地上物查估">
+                <InputNumber
+                  style={{ width: '100%' }}
+                  min={0}
+                  precision={0}
+                  formatter={(value) => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                  parser={(value) => Number(value?.replace(/\$\s?|(,*)/g, '') || 0) as unknown as 0}
+                  placeholder="輸入金額"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={6}>
+              <Form.Item name="work_02_amount" label="02.土地協議市價查估">
+                <InputNumber
+                  style={{ width: '100%' }}
+                  min={0}
+                  precision={0}
+                  formatter={(value) => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                  parser={(value) => Number(value?.replace(/\$\s?|(,*)/g, '') || 0) as unknown as 0}
+                  placeholder="輸入金額"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={6}>
+              <Form.Item name="work_03_amount" label="03.土地徵收市價查估">
+                <InputNumber
+                  style={{ width: '100%' }}
+                  min={0}
+                  precision={0}
+                  formatter={(value) => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                  parser={(value) => Number(value?.replace(/\$\s?|(,*)/g, '') || 0) as unknown as 0}
+                  placeholder="輸入金額"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={6}>
+              <Form.Item name="work_04_amount" label="04.相關計畫書製作">
+                <InputNumber
+                  style={{ width: '100%' }}
+                  min={0}
+                  precision={0}
+                  formatter={(value) => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                  parser={(value) => Number(value?.replace(/\$\s?|(,*)/g, '') || 0) as unknown as 0}
+                  placeholder="輸入金額"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={6}>
+              <Form.Item name="work_05_amount" label="05.測量作業">
+                <InputNumber
+                  style={{ width: '100%' }}
+                  min={0}
+                  precision={0}
+                  formatter={(value) => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                  parser={(value) => Number(value?.replace(/\$\s?|(,*)/g, '') || 0) as unknown as 0}
+                  placeholder="輸入金額"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={6}>
+              <Form.Item name="work_06_amount" label="06.樁位測釘作業">
+                <InputNumber
+                  style={{ width: '100%' }}
+                  min={0}
+                  precision={0}
+                  formatter={(value) => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                  parser={(value) => Number(value?.replace(/\$\s?|(,*)/g, '') || 0) as unknown as 0}
+                  placeholder="輸入金額"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={6}>
+              <Form.Item name="work_07_amount" label="07.辦理教育訓練">
+                <InputNumber
+                  style={{ width: '100%' }}
+                  min={0}
+                  precision={0}
+                  formatter={(value) => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                  parser={(value) => Number(value?.replace(/\$\s?|(,*)/g, '') || 0) as unknown as 0}
+                  placeholder="輸入金額"
+                />
+              </Form.Item>
+            </Col>
+          </Row>
         </Card>
 
         {/* 工程關聯 */}
