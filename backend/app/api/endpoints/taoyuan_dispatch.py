@@ -2,8 +2,13 @@
 桃園查估派工管理系統 API 端點
 """
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
-from fastapi.responses import StreamingResponse
+import os
+import uuid
+import hashlib
+import aiofiles
+from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Body
+from fastapi.responses import StreamingResponse, FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.orm import selectinload
@@ -15,21 +20,26 @@ from app.core.dependencies import require_auth
 from app.extended.models import (
     TaoyuanProject, TaoyuanDispatchOrder, TaoyuanDispatchProjectLink,
     TaoyuanDispatchDocumentLink, TaoyuanDocumentProjectLink, TaoyuanContractPayment,
+    TaoyuanDispatchAttachment,
     OfficialDocument as Document
 )
 from app.schemas.taoyuan_dispatch import (
     TaoyuanProjectCreate, TaoyuanProjectUpdate, TaoyuanProject as TaoyuanProjectSchema,
     TaoyuanProjectListQuery, TaoyuanProjectListResponse, LinkedProjectItem,
+    TaoyuanProjectWithLinks, ProjectDispatchLink, ProjectDocumentLink,
     DispatchOrderCreate, DispatchOrderUpdate, DispatchOrder as DispatchOrderSchema,
     DispatchOrderListQuery, DispatchOrderListResponse,
     DispatchDocumentLinkCreate, DispatchDocumentLink,
     ContractPaymentCreate, ContractPaymentUpdate, ContractPayment as ContractPaymentSchema,
-    ContractPaymentListResponse,
+    ContractPaymentListResponse, PaymentControlItem, PaymentControlResponse,
     MasterControlQuery, MasterControlResponse, MasterControlItem,
     ExcelImportRequest, ExcelImportResult,
     WORK_TYPES,
     # 統計資料
     ProjectStatistics, DispatchStatistics, PaymentStatistics, TaoyuanStatisticsResponse,
+    # 附件相關
+    DispatchAttachment, DispatchAttachmentListResponse,
+    DispatchAttachmentUploadResult, DispatchAttachmentDeleteResult, DispatchAttachmentVerifyResult,
 )
 from app.schemas.common import PaginationMeta
 import re
@@ -138,9 +148,12 @@ async def list_taoyuan_projects(
     db: AsyncSession = Depends(get_async_db),
     current_user = Depends(require_auth)
 ):
-    """查詢轄管工程清單"""
-    # 建立基本查詢
-    stmt = select(TaoyuanProject)
+    """查詢轄管工程清單（包含派工關聯和公文關聯）"""
+    # 建立基本查詢，加載關聯資料
+    stmt = select(TaoyuanProject).options(
+        selectinload(TaoyuanProject.dispatch_links).selectinload(TaoyuanDispatchProjectLink.dispatch_order),
+        selectinload(TaoyuanProject.document_links).selectinload(TaoyuanDocumentProjectLink.document)
+    )
 
     # 篩選條件
     conditions = []
@@ -161,8 +174,10 @@ async def list_taoyuan_projects(
     if conditions:
         stmt = stmt.where(and_(*conditions))
 
-    # 計算總數
-    count_stmt = select(func.count()).select_from(stmt.subquery())
+    # 計算總數（不含關聯，以提高效能）
+    count_stmt = select(func.count(TaoyuanProject.id))
+    if conditions:
+        count_stmt = count_stmt.where(and_(*conditions))
     total = (await db.execute(count_stmt)).scalar() or 0
 
     # 排序
@@ -181,9 +196,40 @@ async def list_taoyuan_projects(
 
     total_pages = (total + query.limit - 1) // query.limit
 
+    # 轉換為包含關聯資訊的格式
+    project_items = []
+    for item in items:
+        # 處理派工關聯
+        linked_dispatches = []
+        for link in (item.dispatch_links or []):
+            if link.dispatch_order:
+                linked_dispatches.append(ProjectDispatchLink(
+                    link_id=link.id,
+                    dispatch_order_id=link.dispatch_order_id,
+                    dispatch_no=link.dispatch_order.dispatch_no,
+                    work_type=link.dispatch_order.work_type
+                ))
+
+        # 處理公文關聯
+        linked_documents = []
+        for link in (item.document_links or []):
+            if link.document:
+                linked_documents.append(ProjectDocumentLink(
+                    link_id=link.id,
+                    document_id=link.document_id,
+                    doc_number=link.document.doc_number,
+                    link_type=link.link_type or 'agency_incoming'
+                ))
+
+        # 建立完整的工程資料
+        project_data = TaoyuanProjectSchema.model_validate(item).model_dump()
+        project_data['linked_dispatches'] = linked_dispatches
+        project_data['linked_documents'] = linked_documents
+        project_items.append(TaoyuanProjectWithLinks(**project_data))
+
     return TaoyuanProjectListResponse(
         success=True,
-        items=[TaoyuanProjectSchema.model_validate(item) for item in items],
+        items=project_items,
         pagination=PaginationMeta(
             total=total,
             page=query.page,
@@ -455,7 +501,8 @@ async def list_dispatch_orders(
         selectinload(TaoyuanDispatchOrder.agency_doc),
         selectinload(TaoyuanDispatchOrder.company_doc),
         selectinload(TaoyuanDispatchOrder.project_links).selectinload(TaoyuanDispatchProjectLink.project),
-        selectinload(TaoyuanDispatchOrder.document_links).selectinload(TaoyuanDispatchDocumentLink.document)
+        selectinload(TaoyuanDispatchOrder.document_links).selectinload(TaoyuanDispatchDocumentLink.document),
+        selectinload(TaoyuanDispatchOrder.attachments)  # 載入附件以計算數量
     )
 
     conditions = []
@@ -510,6 +557,7 @@ async def list_dispatch_orders(
             'updated_at': item.updated_at,
             'agency_doc_number': item.agency_doc.doc_number if item.agency_doc else None,
             'company_doc_number': item.company_doc.doc_number if item.company_doc else None,
+            'attachment_count': len(item.attachments) if item.attachments else 0,  # 新增：附件數量
             'linked_projects': [
                 LinkedProjectItem.model_validate({
                     **TaoyuanProjectSchema.model_validate(link.project).model_dump(),
@@ -1524,18 +1572,23 @@ async def get_batch_project_dispatch_links(
 
 @router.post("/payments/list", response_model=ContractPaymentListResponse, summary="契金管控列表")
 async def list_contract_payments(
-    contract_project_id: Optional[int] = None,
-    page: int = 1,
-    limit: int = 20,
+    dispatch_order_id: Optional[int] = Body(None),
+    contract_project_id: Optional[int] = Body(None),
+    page: int = Body(1),
+    limit: int = Body(20),
     db: AsyncSession = Depends(get_async_db),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """查詢契金管控列表"""
     stmt = select(TaoyuanContractPayment).options(
         selectinload(TaoyuanContractPayment.dispatch_order)
     )
 
-    if contract_project_id:
+    # 依派工單 ID 過濾（優先）
+    if dispatch_order_id:
+        stmt = stmt.where(TaoyuanContractPayment.dispatch_order_id == dispatch_order_id)
+    # 依承攬案件 ID 過濾
+    elif contract_project_id:
         stmt = stmt.join(TaoyuanDispatchOrder).where(
             TaoyuanDispatchOrder.contract_project_id == contract_project_id
         )
@@ -1549,8 +1602,27 @@ async def list_contract_payments(
     result = await db.execute(stmt)
     items = result.scalars().all()
 
+    # 收集需要更新的項目（批次處理）
+    items_to_update = []
+
     response_items = []
     for item in items:
+        # 如果累進金額為空或為0，重新計算
+        cumulative = item.cumulative_amount
+        remaining = item.remaining_amount
+
+        if (cumulative is None or cumulative == 0) and item.dispatch_order:
+            # 重新計算累進金額
+            cumulative, remaining = await _calculate_cumulative_payment(
+                db,
+                item.dispatch_order.contract_project_id,
+                item.dispatch_order_id
+            )
+            # 標記需要更新（延遲寫入）
+            item.cumulative_amount = cumulative
+            item.remaining_amount = remaining
+            items_to_update.append(item)
+
         payment_dict = {
             'id': item.id,
             'dispatch_order_id': item.dispatch_order_id,
@@ -1569,8 +1641,8 @@ async def list_contract_payments(
             'work_07_date': item.work_07_date,
             'work_07_amount': item.work_07_amount,
             'current_amount': item.current_amount,
-            'cumulative_amount': item.cumulative_amount,
-            'remaining_amount': item.remaining_amount,
+            'cumulative_amount': cumulative,
+            'remaining_amount': remaining,
             'acceptance_date': item.acceptance_date,
             'created_at': item.created_at,
             'updated_at': item.updated_at,
@@ -1578,6 +1650,10 @@ async def list_contract_payments(
             'project_name': item.dispatch_order.project_name if item.dispatch_order else None
         }
         response_items.append(ContractPaymentSchema(**payment_dict))
+
+    # 批次更新累進金額（一次 commit，避免每筆都寫入）
+    if items_to_update:
+        await db.commit()
 
     total_pages = (total + limit - 1) // limit
 
@@ -1595,6 +1671,48 @@ async def list_contract_payments(
     )
 
 
+async def _calculate_cumulative_payment(db: AsyncSession, contract_project_id: int, current_dispatch_id: int) -> tuple[float, float]:
+    """
+    計算累進派工金額和剩餘金額
+
+    Args:
+        db: 資料庫連線
+        contract_project_id: 承攬案件 ID
+        current_dispatch_id: 當前派工單 ID
+
+    Returns:
+        (cumulative_amount, remaining_amount)
+    """
+    # 從承攬案件動態取得總預算（優先使用得標金額，其次契約金額）
+    from app.extended.models import ContractProject
+    budget_result = await db.execute(
+        select(ContractProject.winning_amount, ContractProject.contract_amount)
+        .where(ContractProject.id == contract_project_id)
+    )
+    budget_row = budget_result.first()
+    total_budget = float(budget_row[0] or budget_row[1] or 0) if budget_row else 0
+
+    # 查詢所有相同承攬案件的契金記錄（按派工單號排序）
+    stmt = (
+        select(TaoyuanContractPayment)
+        .join(TaoyuanDispatchOrder, TaoyuanContractPayment.dispatch_order_id == TaoyuanDispatchOrder.id)
+        .where(TaoyuanDispatchOrder.contract_project_id == contract_project_id)
+        .order_by(TaoyuanDispatchOrder.dispatch_no)
+    )
+    result = await db.execute(stmt)
+    all_payments = result.scalars().all()
+
+    # 計算累進金額（包含當前派工單之前的所有金額 + 當前派工單金額）
+    cumulative = 0.0
+    for payment in all_payments:
+        cumulative += float(payment.current_amount or 0)
+        if payment.dispatch_order_id == current_dispatch_id:
+            break
+
+    remaining = total_budget - cumulative
+    return cumulative, remaining
+
+
 @router.post("/payments/create", response_model=ContractPaymentSchema, summary="建立契金管控")
 async def create_contract_payment(
     data: ContractPaymentCreate,
@@ -1603,16 +1721,27 @@ async def create_contract_payment(
 ):
     """建立契金管控記錄"""
     # 檢查派工單
-    order = await db.execute(
+    order_result = await db.execute(
         select(TaoyuanDispatchOrder).where(TaoyuanDispatchOrder.id == data.dispatch_order_id)
     )
-    if not order.scalar_one_or_none():
+    order = order_result.scalar_one_or_none()
+    if not order:
         raise HTTPException(status_code=404, detail="派工紀錄不存在")
 
     payment = TaoyuanContractPayment(**data.model_dump())
     db.add(payment)
     await db.commit()
     await db.refresh(payment)
+
+    # 計算並更新累進派工金額和剩餘金額
+    cumulative, remaining = await _calculate_cumulative_payment(
+        db, order.contract_project_id, data.dispatch_order_id
+    )
+    payment.cumulative_amount = cumulative
+    payment.remaining_amount = remaining
+    await db.commit()
+    await db.refresh(payment)
+
     return ContractPaymentSchema.model_validate(payment)
 
 
@@ -1625,7 +1754,9 @@ async def update_contract_payment(
 ):
     """更新契金管控記錄"""
     result = await db.execute(
-        select(TaoyuanContractPayment).where(TaoyuanContractPayment.id == payment_id)
+        select(TaoyuanContractPayment)
+        .options(selectinload(TaoyuanContractPayment.dispatch_order))
+        .where(TaoyuanContractPayment.id == payment_id)
     )
     payment = result.scalar_one_or_none()
     if not payment:
@@ -1637,7 +1768,198 @@ async def update_contract_payment(
 
     await db.commit()
     await db.refresh(payment)
+
+    # 計算並更新累進派工金額和剩餘金額
+    if payment.dispatch_order:
+        cumulative, remaining = await _calculate_cumulative_payment(
+            db, payment.dispatch_order.contract_project_id, payment.dispatch_order_id
+        )
+        payment.cumulative_amount = cumulative
+        payment.remaining_amount = remaining
+        await db.commit()
+        await db.refresh(payment)
+
     return ContractPaymentSchema.model_validate(payment)
+
+
+@router.post("/payments/control", response_model=PaymentControlResponse, summary="契金管控展示")
+async def get_payment_control(
+    contract_project_id: Optional[int] = Body(None),
+    page: int = Body(1),
+    limit: int = Body(100),
+    db: AsyncSession = Depends(get_async_db),
+    current_user = Depends(require_auth())
+):
+    """
+    取得契金管控展示資料
+
+    以派工單為主，包含：
+    - 派工單基本資訊（派工單號、工程名稱、作業類別）
+    - 派工日期（取第一筆機關來函日期）
+    - 契金資訊（各作業類別金額）
+    """
+    # 查詢派工單（含關聯公文和契金紀錄）
+    stmt = select(TaoyuanDispatchOrder).options(
+        selectinload(TaoyuanDispatchOrder.document_links)
+        .selectinload(TaoyuanDispatchDocumentLink.document),
+        selectinload(TaoyuanDispatchOrder.payment)
+    )
+
+    if contract_project_id:
+        stmt = stmt.where(TaoyuanDispatchOrder.contract_project_id == contract_project_id)
+
+    # 按派工單號排序
+    stmt = stmt.order_by(TaoyuanDispatchOrder.dispatch_no)
+
+    # 計算總數
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    total = (await db.execute(count_stmt)).scalar() or 0
+
+    # 分頁
+    offset = (page - 1) * limit
+    stmt = stmt.offset(offset).limit(limit)
+
+    result = await db.execute(stmt)
+    orders = result.scalars().unique().all()
+
+    # 從承攬案件動態取得總預算（優先使用得標金額，其次契約金額）
+    total_budget = 0
+    if contract_project_id:
+        from app.extended.models import ContractProject
+        budget_result = await db.execute(
+            select(ContractProject.winning_amount, ContractProject.contract_amount)
+            .where(ContractProject.id == contract_project_id)
+        )
+        budget_row = budget_result.first()
+        total_budget = float(budget_row[0] or budget_row[1] or 0) if budget_row else 0
+
+    items = []
+    running_total = 0  # 累進金額計算用
+
+    for order in orders:
+        # 取得第一筆機關來函日期作為派工日期
+        dispatch_date = None
+        agency_docs = [
+            link for link in order.document_links
+            if link.link_type == 'agency_incoming' and link.document
+        ]
+        company_docs = [
+            link for link in order.document_links
+            if link.link_type == 'company_outgoing' and link.document
+        ]
+
+        # 機關函文歷程
+        agency_doc_history = None
+        if agency_docs:
+            # 按日期排序，取最早的一筆作為派工日期
+            sorted_agency = sorted(
+                agency_docs,
+                key=lambda x: x.document.doc_date if x.document and x.document.doc_date else '9999-12-31'
+            )
+            if sorted_agency and sorted_agency[0].document and sorted_agency[0].document.doc_date:
+                dispatch_date = sorted_agency[0].document.doc_date
+            # 組合公文歷程字串
+            history_items = []
+            for link in sorted_agency:
+                if link.document:
+                    doc_date_str = link.document.doc_date.strftime('%Y年%m月%d日') if link.document.doc_date else ''
+                    doc_number = link.document.doc_number or ''
+                    if doc_date_str or doc_number:
+                        history_items.append(f"{doc_date_str}_{doc_number}")
+            agency_doc_history = '\n'.join(history_items) if history_items else None
+
+        # 乾坤函文歷程
+        company_doc_history = None
+        if company_docs:
+            sorted_company = sorted(
+                company_docs,
+                key=lambda x: x.document.doc_date if x.document and x.document.doc_date else '9999-12-31'
+            )
+            history_items = []
+            for link in sorted_company:
+                if link.document:
+                    doc_date_str = link.document.doc_date.strftime('%Y年%m月%d日') if link.document.doc_date else ''
+                    doc_number = link.document.doc_number or ''
+                    if doc_date_str or doc_number:
+                        history_items.append(f"{doc_date_str}_{doc_number}")
+            company_doc_history = '\n'.join(history_items) if history_items else None
+
+        # 取得契金資訊
+        payment = order.payment
+        current_amount = 0
+        payment_data = {}
+
+        if payment:
+            current_amount = float(payment.current_amount or 0)
+            # 當作業類別派工日期為空時，使用機關來函日期(dispatch_date)作為預設值
+            payment_data = {
+                'payment_id': payment.id,
+                'work_01_date': payment.work_01_date or dispatch_date,
+                'work_01_amount': payment.work_01_amount,
+                'work_02_date': payment.work_02_date or dispatch_date,
+                'work_02_amount': payment.work_02_amount,
+                'work_03_date': payment.work_03_date or dispatch_date,
+                'work_03_amount': payment.work_03_amount,
+                'work_04_date': payment.work_04_date or dispatch_date,
+                'work_04_amount': payment.work_04_amount,
+                'work_05_date': payment.work_05_date or dispatch_date,
+                'work_05_amount': payment.work_05_amount,
+                'work_06_date': payment.work_06_date or dispatch_date,
+                'work_06_amount': payment.work_06_amount,
+                'work_07_date': payment.work_07_date or dispatch_date,
+                'work_07_amount': payment.work_07_amount,
+                'current_amount': payment.current_amount,
+                'acceptance_date': payment.acceptance_date,
+            }
+        else:
+            # 沒有契金記錄時，若有金額相關的作業類別，也使用 dispatch_date
+            # (此情況通常不會有金額，但日期應該顯示)
+            payment_data = {}
+
+        # 計算累進金額和剩餘金額
+        running_total += current_amount
+        cumulative_amount = running_total
+        remaining_amount = total_budget - running_total
+
+        item = PaymentControlItem(
+            dispatch_order_id=order.id,
+            dispatch_no=order.dispatch_no,
+            project_name=order.project_name,
+            work_type=order.work_type,
+            sub_case_name=order.sub_case_name,
+            case_handler=order.case_handler,
+            survey_unit=order.survey_unit,
+            cloud_folder=order.cloud_folder,
+            project_folder=order.project_folder,
+            deadline=order.deadline,
+            dispatch_date=dispatch_date,
+            agency_doc_history=agency_doc_history,
+            company_doc_history=company_doc_history,
+            cumulative_amount=cumulative_amount,
+            remaining_amount=remaining_amount,
+            **payment_data
+        )
+        items.append(item)
+
+    total_pages = (total + limit - 1) // limit
+    total_dispatched = running_total
+    total_remaining = total_budget - running_total
+
+    return PaymentControlResponse(
+        success=True,
+        items=items,
+        total_budget=total_budget,
+        total_dispatched=total_dispatched,
+        total_remaining=total_remaining,
+        pagination=PaginationMeta(
+            total=total,
+            page=page,
+            limit=limit,
+            total_pages=total_pages,
+            has_next=page < total_pages,
+            has_prev=page > 1
+        )
+    )
 
 
 # =============================================================================
@@ -2265,4 +2587,286 @@ async def get_statistics(
             total_remaining_amount=total_remaining,
             payment_count=payment_count,
         ),
+    )
+
+
+# =============================================================================
+# 派工單附件管理 API (POST-only 資安規範)
+# =============================================================================
+
+# 附件儲存設定 (複用 files.py 的設定)
+from app.core.config import settings
+ATTACHMENT_STORAGE_PATH = getattr(settings, 'ATTACHMENT_STORAGE_PATH', None) or os.getenv('ATTACHMENT_STORAGE_PATH', 'uploads')
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+
+# 允許的副檔名白名單
+ALLOWED_EXTENSIONS = {
+    # 文件
+    '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+    # 圖片
+    '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff',
+    # 壓縮
+    '.zip', '.rar', '.7z',
+    # 資料
+    '.txt', '.csv', '.xml', '.json',
+    # 設計
+    '.dwg', '.dxf',
+    # 地理
+    '.shp', '.kml', '.kmz',
+}
+
+
+def _validate_file_extension(filename: str) -> bool:
+    """驗證檔案副檔名"""
+    ext = os.path.splitext(filename)[1].lower()
+    return ext in ALLOWED_EXTENSIONS
+
+
+def _calculate_checksum(content: bytes) -> str:
+    """計算 SHA256 校驗碼"""
+    return hashlib.sha256(content).hexdigest()
+
+
+def _get_structured_path(dispatch_order_id: int, filename: str) -> tuple[str, str]:
+    """
+    生成結構化儲存路徑
+    格式: {base}/{year}/{month}/dispatch_{id}/{uuid}_{filename}
+    """
+    now = datetime.now()
+    year_month = now.strftime("%Y/%m")
+    unique_prefix = str(uuid.uuid4())[:8]
+    safe_filename = f"{unique_prefix}_{filename}"
+
+    relative_path = f"{year_month}/dispatch_{dispatch_order_id}/{safe_filename}"
+    full_path = os.path.join(ATTACHMENT_STORAGE_PATH, relative_path)
+
+    return full_path, relative_path
+
+
+@router.post("/dispatch/{dispatch_order_id}/attachments/upload", summary="上傳派工單附件")
+async def upload_dispatch_attachments(
+    dispatch_order_id: int,
+    files: List[UploadFile] = File(...),
+    db: AsyncSession = Depends(get_async_db),
+    current_user = Depends(require_auth())
+) -> DispatchAttachmentUploadResult:
+    """
+    上傳派工單附件（支援多檔案）
+
+    - 檔案類型白名單驗證
+    - 檔案大小限制 50MB
+    - 自動計算 SHA256 校驗碼
+    - 結構化目錄儲存
+    """
+    # 驗證派工單存在
+    dispatch_query = select(TaoyuanDispatchOrder).where(TaoyuanDispatchOrder.id == dispatch_order_id)
+    result = await db.execute(dispatch_query)
+    dispatch = result.scalar_one_or_none()
+
+    if not dispatch:
+        raise HTTPException(status_code=404, detail=f"派工單 {dispatch_order_id} 不存在")
+
+    uploaded_files = []
+    errors = []
+
+    for file in files:
+        try:
+            # 驗證副檔名
+            if not _validate_file_extension(file.filename):
+                errors.append(f"檔案 {file.filename} 副檔名不在允許清單內")
+                continue
+
+            # 讀取檔案內容
+            content = await file.read()
+
+            # 驗證檔案大小
+            if len(content) > MAX_FILE_SIZE:
+                errors.append(f"檔案 {file.filename} 超過 50MB 限制")
+                continue
+
+            # 計算校驗碼
+            checksum = _calculate_checksum(content)
+
+            # 生成儲存路徑
+            full_path, relative_path = _get_structured_path(dispatch_order_id, file.filename)
+
+            # 建立目錄
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+
+            # 寫入檔案
+            async with aiofiles.open(full_path, 'wb') as f:
+                await f.write(content)
+
+            # 建立資料庫記錄
+            attachment = TaoyuanDispatchAttachment(
+                dispatch_order_id=dispatch_order_id,
+                file_name=os.path.basename(full_path),
+                file_path=relative_path,
+                file_size=len(content),
+                mime_type=file.content_type,
+                storage_type='local',
+                original_name=file.filename,
+                checksum=checksum,
+                uploaded_by=current_user.id if current_user else None,
+            )
+            db.add(attachment)
+            await db.flush()
+
+            uploaded_files.append({
+                'id': attachment.id,
+                'filename': attachment.file_name,
+                'original_name': file.filename,
+                'size': len(content),
+                'content_type': file.content_type,
+                'checksum': checksum,
+                'storage_path': relative_path,
+                'uploaded_by': current_user.username if current_user else None,
+            })
+
+        except Exception as e:
+            errors.append(f"上傳 {file.filename} 失敗: {str(e)}")
+
+    await db.commit()
+
+    return DispatchAttachmentUploadResult(
+        success=len(errors) == 0,
+        message=f"成功上傳 {len(uploaded_files)} 個檔案" if uploaded_files else "上傳失敗",
+        files=uploaded_files,
+        errors=errors,
+    )
+
+
+@router.post("/dispatch/{dispatch_order_id}/attachments/list", summary="取得派工單附件列表")
+async def get_dispatch_attachments(
+    dispatch_order_id: int,
+    db: AsyncSession = Depends(get_async_db),
+    current_user = Depends(require_auth())
+) -> DispatchAttachmentListResponse:
+    """取得指定派工單的所有附件"""
+    # 驗證派工單存在
+    dispatch_query = select(TaoyuanDispatchOrder).where(TaoyuanDispatchOrder.id == dispatch_order_id)
+    result = await db.execute(dispatch_query)
+    dispatch = result.scalar_one_or_none()
+
+    if not dispatch:
+        raise HTTPException(status_code=404, detail=f"派工單 {dispatch_order_id} 不存在")
+
+    # 查詢附件
+    attachments_query = select(TaoyuanDispatchAttachment).where(
+        TaoyuanDispatchAttachment.dispatch_order_id == dispatch_order_id
+    ).order_by(TaoyuanDispatchAttachment.created_at.desc())
+
+    attachments_result = await db.execute(attachments_query)
+    attachments = attachments_result.scalars().all()
+
+    return DispatchAttachmentListResponse(
+        success=True,
+        dispatch_order_id=dispatch_order_id,
+        total=len(attachments),
+        attachments=[DispatchAttachment.model_validate(a) for a in attachments],
+    )
+
+
+@router.post("/dispatch/attachments/{attachment_id}/download", summary="下載派工單附件")
+async def download_dispatch_attachment(
+    attachment_id: int,
+    db: AsyncSession = Depends(get_async_db),
+    current_user = Depends(require_auth())
+) -> FileResponse:
+    """下載指定附件（POST-only 資安機制）"""
+    # 查詢附件
+    attachment_query = select(TaoyuanDispatchAttachment).where(TaoyuanDispatchAttachment.id == attachment_id)
+    result = await db.execute(attachment_query)
+    attachment = result.scalar_one_or_none()
+
+    if not attachment:
+        raise HTTPException(status_code=404, detail=f"附件 {attachment_id} 不存在")
+
+    # 組合完整路徑
+    full_path = os.path.join(ATTACHMENT_STORAGE_PATH, attachment.file_path)
+
+    if not os.path.exists(full_path):
+        raise HTTPException(status_code=404, detail="檔案不存在於儲存系統")
+
+    return FileResponse(
+        path=full_path,
+        filename=attachment.original_name or attachment.file_name,
+        media_type=attachment.mime_type or 'application/octet-stream',
+    )
+
+
+@router.post("/dispatch/attachments/{attachment_id}/delete", summary="刪除派工單附件")
+async def delete_dispatch_attachment(
+    attachment_id: int,
+    db: AsyncSession = Depends(get_async_db),
+    current_user = Depends(require_auth())
+) -> DispatchAttachmentDeleteResult:
+    """刪除指定附件（POST-only 資安機制）"""
+    # 查詢附件
+    attachment_query = select(TaoyuanDispatchAttachment).where(TaoyuanDispatchAttachment.id == attachment_id)
+    result = await db.execute(attachment_query)
+    attachment = result.scalar_one_or_none()
+
+    if not attachment:
+        raise HTTPException(status_code=404, detail=f"附件 {attachment_id} 不存在")
+
+    # 刪除實體檔案
+    full_path = os.path.join(ATTACHMENT_STORAGE_PATH, attachment.file_path)
+    if os.path.exists(full_path):
+        try:
+            os.remove(full_path)
+        except Exception as e:
+            # 記錄錯誤但繼續刪除資料庫記錄
+            pass
+
+    # 刪除資料庫記錄
+    await db.delete(attachment)
+    await db.commit()
+
+    return DispatchAttachmentDeleteResult(
+        success=True,
+        message=f"附件 {attachment_id} 已刪除",
+    )
+
+
+@router.post("/dispatch/attachments/{attachment_id}/verify", summary="驗證附件完整性")
+async def verify_dispatch_attachment(
+    attachment_id: int,
+    db: AsyncSession = Depends(get_async_db),
+    current_user = Depends(require_auth())
+) -> DispatchAttachmentVerifyResult:
+    """驗證 SHA256 校驗碼"""
+    # 查詢附件
+    attachment_query = select(TaoyuanDispatchAttachment).where(TaoyuanDispatchAttachment.id == attachment_id)
+    result = await db.execute(attachment_query)
+    attachment = result.scalar_one_or_none()
+
+    if not attachment:
+        raise HTTPException(status_code=404, detail=f"附件 {attachment_id} 不存在")
+
+    # 組合完整路徑
+    full_path = os.path.join(ATTACHMENT_STORAGE_PATH, attachment.file_path)
+
+    if not os.path.exists(full_path):
+        return DispatchAttachmentVerifyResult(
+            success=False,
+            message="檔案不存在於儲存系統",
+            valid=False,
+            expected_checksum=attachment.checksum,
+            actual_checksum=None,
+        )
+
+    # 計算實際校驗碼
+    async with aiofiles.open(full_path, 'rb') as f:
+        content = await f.read()
+    actual_checksum = _calculate_checksum(content)
+
+    is_valid = actual_checksum == attachment.checksum
+
+    return DispatchAttachmentVerifyResult(
+        success=True,
+        message="檔案完整性驗證通過" if is_valid else "檔案完整性驗證失敗",
+        valid=is_valid,
+        expected_checksum=attachment.checksum,
+        actual_checksum=actual_checksum,
     )

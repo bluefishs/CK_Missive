@@ -35,6 +35,7 @@ import {
   FileExcelOutlined,
   SendOutlined,
   LinkOutlined,
+  PaperClipOutlined,
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import type { ColumnsType } from 'antd/es/table';
@@ -126,19 +127,33 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
   const dispatchSurveyUnitFilters = [...new Set(orders.map((o) => o.survey_unit).filter(Boolean))]
     .map((s) => ({ text: s as string, value: s as string }));
 
-  // 對應原始需求的 17 欄位表格（含篩選排序）
+  /**
+   * 根據公文字號自動判斷關聯類型
+   * - 以「乾坤」開頭的公文 → 乾坤發文 (company_outgoing)
+   * - 其他 → 機關來函 (agency_incoming)
+   */
+  const detectLinkType = (docNumber?: string): 'agency_incoming' | 'company_outgoing' => {
+    if (!docNumber) return 'agency_incoming';
+    if (docNumber.startsWith('乾坤')) {
+      return 'company_outgoing';
+    }
+    return 'agency_incoming';
+  };
+
+  // 欄位順序：序、派工單號、工程名稱/派工事項、作業類別、履約期限、承辦、查估單位、雲端、關聯公文、關聯工程
   const columns: ColumnsType<DispatchOrder> = [
     {
       title: '序',
       dataIndex: 'id',
-      width: 60,
+      width: 45,
       fixed: 'left',
+      align: 'center',
       sorter: (a, b) => a.id - b.id,
     },
     {
       title: '派工單號',
       dataIndex: 'dispatch_no',
-      width: 130,
+      width: 135,
       fixed: 'left',
       sorter: (a, b) => (a.dispatch_no ?? '').localeCompare(b.dispatch_no ?? ''),
       ...getColumnSearchProps('dispatch_no'),
@@ -151,14 +166,8 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
             textToHighlight={val ? val.toString() : ''}
           />
         ) : (
-          val
+          <Text style={{ color: '#1890ff', cursor: 'pointer' }}>{val}</Text>
         ),
-    },
-    {
-      title: '機關函文號',
-      dataIndex: 'agency_doc_number',
-      width: 140,
-      render: (val?: string) => val || '-',
     },
     {
       title: '工程名稱/派工事項',
@@ -182,27 +191,49 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
     {
       title: '作業類別',
       dataIndex: 'work_type',
-      width: 150,
+      width: 180,
+      ellipsis: false,
       filters: WORK_TYPE_OPTIONS.map((opt) => ({ text: opt.label, value: opt.value })),
       onFilter: (value, record) => record.work_type === value,
-      render: (val?: string) => val ? <Tag color="blue">{val}</Tag> : '-',
-    },
-    {
-      title: '分案名稱/派工備註',
-      dataIndex: 'sub_case_name',
-      width: 150,
-      ellipsis: true,
+      render: (val?: string) => {
+        if (!val) return '-';
+        // 支援逗號分隔的多個作業類別
+        const types = val.split(',').map((t) => t.trim()).filter(Boolean);
+        if (types.length === 1) {
+          return <Tag color="blue">{types[0]}</Tag>;
+        }
+        // 多個作業類別顯示為多個 Tag
+        return (
+          <Space direction="vertical" size={2}>
+            {types.slice(0, 2).map((t, idx) => (
+              <Tag key={idx} color="blue" style={{ fontSize: 11 }}>{t}</Tag>
+            ))}
+            {types.length > 2 && (
+              <Tooltip title={types.slice(2).join(', ')}>
+                <Text type="secondary" style={{ fontSize: 11 }}>+{types.length - 2} 項</Text>
+              </Tooltip>
+            )}
+          </Space>
+        );
+      },
     },
     {
       title: '履約期限',
       dataIndex: 'deadline',
-      width: 120,
+      width: 140,
+      ellipsis: true,
       sorter: (a, b) => (a.deadline ?? '').localeCompare(b.deadline ?? ''),
+      render: (val?: string) => val ? (
+        <Tooltip title={val}>
+          <span>{val}</span>
+        </Tooltip>
+      ) : '-',
     },
     {
-      title: '案件承辦',
+      title: '承辦',
       dataIndex: 'case_handler',
-      width: 100,
+      width: 60,
+      align: 'center',
       sorter: (a, b) => (a.case_handler ?? '').localeCompare(b.case_handler ?? ''),
       filters: dispatchCaseHandlerFilters,
       onFilter: (value, record) => record.case_handler === value,
@@ -210,57 +241,60 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
     {
       title: '查估單位',
       dataIndex: 'survey_unit',
-      width: 100,
+      width: 130,
+      ellipsis: true,
       filters: dispatchSurveyUnitFilters,
       onFilter: (value, record) => record.survey_unit === value,
+      render: (val?: string) => val ? (
+        <Tooltip title={val}>
+          <span>{val}</span>
+        </Tooltip>
+      ) : '-',
     },
     {
-      title: '乾坤函文號',
-      dataIndex: 'company_doc_number',
-      width: 140,
-      render: (val?: string) => val || '-',
-    },
-    {
-      title: '雲端資料夾',
+      title: '雲端',
       dataIndex: 'cloud_folder',
-      width: 150,
-      ellipsis: true,
+      width: 55,
+      align: 'center',
       render: (val?: string) => val ? (
         <Tooltip title={val}>
           <a href={val} target="_blank" rel="noopener noreferrer">
-            <LinkOutlined /> 連結
+            <LinkOutlined />
           </a>
         </Tooltip>
       ) : '-',
     },
     {
-      title: '專案資料夾',
-      dataIndex: 'project_folder',
-      width: 150,
-      ellipsis: true,
-    },
-    {
-      title: '聯絡備註',
-      dataIndex: 'contact_note',
-      width: 150,
-      ellipsis: true,
-    },
-    {
       title: '關聯公文',
       key: 'linked_documents',
-      width: 180,
+      width: 155,
       render: (_, record) => {
         const docs = record.linked_documents || [];
         if (docs.length === 0) return <Text type="secondary">-</Text>;
+        // 依日期排序（最新的在前）
+        const sortedDocs = [...docs].sort((a, b) => {
+          const dateA = a.doc_date || '';
+          const dateB = b.doc_date || '';
+          return dateB.localeCompare(dateA);
+        });
         return (
-          <Space size={[0, 4]} wrap>
-            {docs.map((doc) => (
-              <Tooltip key={doc.link_id} title={doc.subject || ''}>
-                <Tag color={doc.link_type === 'agency_incoming' ? 'blue' : 'green'}>
-                  {doc.doc_number || `#${doc.document_id}`}
-                </Tag>
-              </Tooltip>
-            ))}
+          <Space direction="vertical" size={0}>
+            {sortedDocs.slice(0, 2).map((doc) => {
+              const correctedType = detectLinkType(doc.doc_number);
+              const isAgency = correctedType === 'agency_incoming';
+              return (
+                <Tooltip key={doc.link_id} title={doc.subject || ''}>
+                  <Tag color={isAgency ? 'cyan' : 'orange'} style={{ marginBottom: 2, fontSize: 11 }}>
+                    {doc.doc_number || `#${doc.document_id}`}
+                  </Tag>
+                </Tooltip>
+              );
+            })}
+            {sortedDocs.length > 2 && (
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                +{sortedDocs.length - 2} 筆
+              </Text>
+            )}
           </Space>
         );
       },
@@ -268,18 +302,51 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
     {
       title: '關聯工程',
       key: 'linked_projects',
-      width: 200,
+      width: 145,
       render: (_, record) => {
         const projects = record.linked_projects || [];
         if (projects.length === 0) return <Text type="secondary">-</Text>;
         return (
-          <Space size={[0, 4]} wrap>
-            {projects.map((proj) => (
+          <Space direction="vertical" size={0}>
+            {projects.slice(0, 2).map((proj) => (
               <Tooltip key={proj.id} title={proj.project_name}>
-                <Tag color="purple">{proj.project_name?.slice(0, 15) || `工程#${proj.id}`}</Tag>
+                <Tag color="purple" style={{ marginBottom: 2, fontSize: 11 }}>
+                  {proj.project_name?.slice(0, 10) || `工程#${proj.id}`}
+                </Tag>
               </Tooltip>
             ))}
+            {projects.length > 2 && (
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                +{projects.length - 2} 筆
+              </Text>
+            )}
           </Space>
+        );
+      },
+    },
+    {
+      title: '附件',
+      key: 'attachment_count',
+      width: 60,
+      align: 'center',
+      render: (_, record) => {
+        const count = record.attachment_count ?? 0;
+        if (count === 0) return <Text type="secondary">-</Text>;
+        return (
+          <Tooltip title={`${count} 個附件`}>
+            <Button
+              type="link"
+              size="small"
+              icon={<PaperClipOutlined />}
+              onClick={(e) => {
+                e.stopPropagation();
+                // 導航到派工單詳情頁的附件 Tab
+                navigate(`/taoyuan/dispatch/${record.id}?tab=attachments`);
+              }}
+            >
+              {count}
+            </Button>
+          </Tooltip>
         );
       },
     },
@@ -302,18 +369,20 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
         <Col span={6}>
           <Card size="small">
             <Statistic
-              title="有機關函文"
-              value={orders.filter((o) => o.agency_doc_number).length}
+              title="關聯公文"
+              value={orders.reduce((sum, o) => sum + (o.linked_documents?.length ?? 0), 0)}
               valueStyle={{ color: '#1890ff' }}
+              prefix={<LinkOutlined />}
             />
           </Card>
         </Col>
         <Col span={6}>
           <Card size="small">
             <Statistic
-              title="有乾坤函文"
-              value={orders.filter((o) => o.company_doc_number).length}
+              title="關聯工程"
+              value={orders.reduce((sum, o) => sum + (o.linked_projects?.length ?? 0), 0)}
               valueStyle={{ color: '#52c41a' }}
+              prefix={<LinkOutlined />}
             />
           </Card>
         </Col>
@@ -346,13 +415,18 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
         </Button>
       </Space>
 
+      {/* 提示文字 */}
+      <div style={{ marginBottom: 8, color: '#666', fontSize: 12 }}>
+        <Text type="secondary">點擊列表項目可進入詳情頁進行編輯</Text>
+      </div>
+
       {/* 派工紀錄表格 - 點擊行導航到詳情頁 */}
       <Table
         columns={columns}
         dataSource={orders}
         rowKey="id"
         loading={isLoading}
-        scroll={{ x: 2100 }}
+        scroll={{ x: 1250 }}
         size="small"
         pagination={{
           showSizeChanger: true,

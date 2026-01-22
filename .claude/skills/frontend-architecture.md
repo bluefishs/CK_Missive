@@ -1,7 +1,7 @@
 # 前端架構規範 (Frontend Architecture)
 
-> **版本**: 1.2.0
-> **更新日期**: 2026-01-12
+> **版本**: 1.3.0
+> **更新日期**: 2026-01-22
 > **適用範圍**: frontend/src/**
 
 ---
@@ -136,6 +136,79 @@ const result = await axios.post('/api/documents/list', params);
 2. 在 `router/AppRouter.tsx` 加入路由
 3. 使用 `ProtectedRoute` 包裝（如需認證）
 4. 在導覽配置中加入選單項目
+
+### 3.4 React Hooks 使用規範 (v1.3.0 新增)
+
+#### ⚠️ 重要：Hooks 必須在元件頂層呼叫
+
+**典型錯誤場景**:
+```
+Error: Rendered more hooks than during the previous render
+```
+
+**根本原因**: Hooks 在 render 函數或條件判斷內呼叫，違反 React Hooks 規則。
+
+#### 常見違規案例：Form.useWatch
+
+```tsx
+// ❌ 錯誤：在 render 函數內呼叫 useWatch
+function MyComponent() {
+  const renderSection = () => {
+    const watchedValue = Form.useWatch('field', form);  // 違規！
+    return <div>{watchedValue}</div>;
+  };
+
+  return <div>{renderSection()}</div>;
+}
+
+// ✅ 正確：在元件頂層呼叫
+function MyComponent() {
+  // 所有 useWatch 必須在頂層
+  const watchedValue = Form.useWatch('field', form);
+
+  const renderSection = () => {
+    return <div>{watchedValue}</div>;  // 使用頂層的變數
+  };
+
+  return <div>{renderSection()}</div>;
+}
+```
+
+#### 多欄位監聽的正確模式
+
+```tsx
+function PaymentForm({ form }: { form: FormInstance }) {
+  // ✅ 所有 watch 在元件頂層定義
+  const watchedWorkTypes: string[] = Form.useWatch('work_type', form) || [];
+  const watchedWork01Amount = Form.useWatch('work_01_amount', form) || 0;
+  const watchedWork02Amount = Form.useWatch('work_02_amount', form) || 0;
+  const watchedWork03Amount = Form.useWatch('work_03_amount', form) || 0;
+
+  // 計算總金額
+  const totalAmount = useMemo(() => {
+    return watchedWork01Amount + watchedWork02Amount + watchedWork03Amount;
+  }, [watchedWork01Amount, watchedWork02Amount, watchedWork03Amount]);
+
+  // render 函數使用頂層變數
+  const renderPaymentSection = () => {
+    return (
+      <div>
+        <span>已選擇: {watchedWorkTypes.join(', ')}</span>
+        <span>總金額: {totalAmount}</span>
+      </div>
+    );
+  };
+
+  return <Form form={form}>{renderPaymentSection()}</Form>;
+}
+```
+
+#### Hooks 規則檢查清單
+
+- [ ] 所有 `useState`、`useEffect`、`useMemo`、`useCallback` 在元件頂層
+- [ ] 所有 `Form.useWatch` 在元件頂層（不在 render 函數內）
+- [ ] 不在條件判斷 (`if`) 或迴圈 (`for`) 內呼叫 Hooks
+- [ ] 自訂 Hooks 的名稱以 `use` 開頭
 
 ---
 

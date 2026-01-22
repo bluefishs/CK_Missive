@@ -1,7 +1,8 @@
 # Claude Code Hooks 配置
 
-> **版本**: 1.0.0
+> **版本**: 1.1.0
 > **用途**: 定義 Claude Code 自動化鉤子
+> **最後更新**: 2026-01-21
 
 ---
 
@@ -96,6 +97,31 @@ cd backend
 python -m py_compile "$EDITED_FILE"
 exit $?
 ```
+
+### api-serialization-check.ps1 (v1.0.0 - 2026-01-21)
+API 序列化問題檢查。
+
+**用途**: 檢查 API 端點是否可能直接返回未序列化的 ORM 模型
+
+**檢查項目**:
+1. `.scalars().all()` 後直接返回（未經 `model_validate` 或字典轉換）
+2. datetime 欄位未使用 `.isoformat()` 序列化
+
+**使用方式**:
+```powershell
+# 檢查單一檔案
+.\.claude\hooks\api-serialization-check.ps1 -FilePath "backend/app/api/endpoints/dashboard.py"
+
+# 檢查所有 API 端點
+.\.claude\hooks\api-serialization-check.ps1
+```
+
+**相關文件**:
+- `.claude/skills/api-serialization.md`
+- `docs/specifications/SCHEMA_DB_MAPPING.md`
+
+### route-sync-check.ps1 (v1.0.0 - 2026-01-12)
+前後端路由一致性檢查。
 
 ---
 

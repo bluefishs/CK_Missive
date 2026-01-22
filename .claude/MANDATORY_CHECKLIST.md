@@ -1,8 +1,8 @@
 # CK_Missive 強制性開發規範檢查清單
 
-> **版本**: 1.5.0
+> **版本**: 1.7.0
 > **建立日期**: 2026-01-11
-> **最後更新**: 2026-01-21
+> **最後更新**: 2026-01-22
 > **狀態**: 強制執行 - 所有開發任務啟動前必須檢視
 
 ---
@@ -35,6 +35,7 @@
 | **新增/修改型別定義** | 型別管理規範 | [清單 H](#清單-h型別管理) |
 | **前端元件/Hook 開發** | 前端架構規範 | [清單 I](#清單-i前端元件hook-開發) |
 | **多對多關聯功能** | **Link ID 規範** | [清單 J](#清單-j關聯記錄處理) |
+| **後端 API 開發/返回** | **序列化規範** | [清單 K](#清單-k-api-序列化與資料返回) |
 
 ---
 
@@ -363,15 +364,55 @@ repositories/
 | 列表組件 | `*List.tsx` | `VendorList.tsx` |
 | 管理面板 | `*Management.tsx` | `AgencyManagement.tsx` |
 
+### ⚠️ React Hooks 使用規範 (v1.7.0 新增)
+
+**核心規則：Hooks 必須在元件頂層呼叫，不可在 render 函數內呼叫**
+
+**常見違規案例 - Form.useWatch：**
+```tsx
+// ❌ 違規：在 render 函數內呼叫 Hook
+function MyComponent() {
+  const renderPaymentSection = () => {
+    const watchedValue = Form.useWatch('field', form);  // 錯誤！
+    return <div>{watchedValue}</div>;
+  };
+  return <div>{renderPaymentSection()}</div>;
+}
+
+// ✅ 正確：所有 Hook 在元件頂層
+function MyComponent() {
+  const watchedValue = Form.useWatch('field', form);  // 頂層
+
+  const renderPaymentSection = () => {
+    return <div>{watchedValue}</div>;  // 使用頂層變數
+  };
+  return <div>{renderPaymentSection()}</div>;
+}
+```
+
+**多欄位監聽模式：**
+```tsx
+// ✅ 正確：多個 watch 都在頂層
+const watchedWork01 = Form.useWatch('work_01_amount', form) || 0;
+const watchedWork02 = Form.useWatch('work_02_amount', form) || 0;
+const watchedWork03 = Form.useWatch('work_03_amount', form) || 0;
+
+const totalAmount = useMemo(() => {
+  return watchedWork01 + watchedWork02 + watchedWork03;
+}, [watchedWork01, watchedWork02, watchedWork03]);
+```
+
 ### 開發前檢查
 - [ ] 確認組件位置符合架構規範
 - [ ] Hook 放置於正確的子目錄 (business/system/utility)
 - [ ] 使用 `frontend/src/utils/validators.ts` 的共用驗證器
+- [ ] **確認所有 Hooks 呼叫在元件頂層（不在 render 函數、條件判斷內）**
 
 ### 開發後檢查
 - [ ] TypeScript 編譯通過：`cd frontend && npx tsc --noEmit`
 - [ ] 組件/Hook 已加入對應的 `index.ts` 匯出
 - [ ] 驗證規則與後端 `validators.py` 保持一致
+- [ ] **無 "Rendered more hooks than during the previous render" 錯誤**
 
 ---
 
@@ -481,6 +522,159 @@ if not link:
 
 ---
 
+## 清單 K：API 序列化與資料返回
+
+### 必讀文件
+- [ ] `docs/FIX_REPORT_2026-01-21_API_SERIALIZATION.md`（案例分析）
+- [ ] `.claude/skills/type-management.md`
+- [ ] `backend/app/schemas/`（現有 Schema 結構）
+
+### ⚠️ 核心問題：ORM 模型無法直接序列化
+
+**典型錯誤**:
+```
+pydantic_core.PydanticSerializationError: Unable to serialize unknown type: <class 'app.extended.models.XXX'>
+```
+
+**原因**: 直接返回 SQLAlchemy ORM 模型，Pydantic 無法自動序列化。
+
+### 強制規範
+
+#### 規範 1：禁止直接返回 ORM 模型
+
+```python
+# ❌ 禁止：直接返回 ORM 模型列表
+result = await db.execute(select(Document))
+documents = result.scalars().all()
+return {"items": documents}  # 錯誤！
+
+# ✅ 正確方式 A：使用 Pydantic Schema
+from app.schemas.document import DocumentResponse
+return {"items": [DocumentResponse.model_validate(doc) for doc in documents]}
+
+# ✅ 正確方式 B：手動轉換為字典
+return {"items": [
+    {
+        "id": doc.id,
+        "name": doc.name,
+        "created_at": doc.created_at.isoformat() if doc.created_at else None,
+    }
+    for doc in documents
+]}
+```
+
+#### 規範 2：Schema 欄位類型必須與資料庫一致
+
+**典型錯誤**:
+```
+asyncpg.exceptions.DataError: invalid input for query argument: expected str, got int
+```
+
+**對照表範例**:
+
+| 欄位 | DB 類型 | Schema 類型 | 說明 |
+|------|---------|------------|------|
+| `priority` | `VARCHAR(50)` | `str` | 需一致 |
+| `status` | `VARCHAR(50)` | `str` | 需一致 |
+| `count` | `INTEGER` | `int` | 需一致 |
+
+**若無法修改 Schema，需在 Service 層轉換**:
+```python
+# Service 層類型轉換
+if key == 'priority' and value is not None:
+    value = str(value)  # 確保類型正確
+```
+
+#### 規範 3：欄位名稱必須與資料庫模型一致
+
+```python
+# ❌ 錯誤：使用不存在的欄位名稱
+{"type": doc.type}  # OfficialDocument 沒有 'type' 欄位
+
+# ✅ 正確：使用實際欄位名稱
+{"doc_type": doc.doc_type}  # 正確的欄位名稱
+```
+
+#### 規範 4：datetime 欄位必須轉換為 ISO 格式
+
+```python
+# ❌ 錯誤：直接返回 datetime 對象
+{"created_at": doc.created_at}  # 可能無法序列化
+
+# ✅ 正確：轉換為 ISO 格式字串
+{"created_at": doc.created_at.isoformat() if doc.created_at else None}
+```
+
+### 常見 Schema-DB 類型不一致
+
+| 情境 | Schema 定義 | DB 定義 | 問題 | 解法 |
+|------|------------|---------|------|------|
+| 優先級 | `priority: int` | `VARCHAR(50)` | asyncpg 類型錯誤 | 改 Schema 為 `str` 或 Service 層轉換 |
+| 狀態 | `status: StatusEnum` | `VARCHAR` | Enum 序列化 | 使用 `.value` |
+| ID | `id: str` | `INTEGER` | 類型不符 | 統一使用 `int` |
+
+#### 規範 5：批次處理效能優化 (v1.7.0 新增)
+
+```python
+# ❌ 錯誤：每筆都 commit，造成 N 次資料庫寫入
+for item in items:
+    if needs_update(item):
+        item.calculated_field = await calculate(item)
+        await db.commit()  # N 次 commit！
+
+# ✅ 正確：收集後批次 commit
+items_to_update = []
+for item in items:
+    if needs_update(item):
+        item.calculated_field = await calculate(item)
+        items_to_update.append(item)
+if items_to_update:
+    await db.commit()  # 一次 commit
+```
+
+#### 規範 6：避免硬編碼設定值 (v1.7.0 新增)
+
+```python
+# ❌ 錯誤：硬編碼預算金額
+total_budget = 6035000  # 如果金額變更需改程式碼
+
+# ✅ 正確：從資料庫動態取得
+budget_result = await db.execute(
+    select(ContractProject.winning_amount)
+    .where(ContractProject.id == contract_project_id)
+)
+total_budget = budget_result.scalar_one_or_none() or 0
+```
+
+### 開發前檢查
+- [ ] 確認 API 返回格式（Schema 或字典）
+- [ ] 確認 Schema 欄位類型與 DB 一致
+- [ ] 確認欄位名稱與 ORM 模型一致
+- [ ] **確認業務設定值從資料庫或設定檔取得（非硬編碼）**
+
+### 開發後檢查
+- [ ] 測試 API 端點，確認無 500 錯誤
+- [ ] 檢查 response 中 datetime 已轉換為 ISO 格式
+- [ ] 搜尋直接返回 ORM 的程式碼：
+```bash
+grep -r "\.scalars()\.all()" backend/app/api/endpoints/ --include="*.py"
+```
+- [ ] **確認迴圈內無逐筆 commit（應批次處理）**
+
+### 快速驗證命令
+
+```bash
+# 測試 API 端點
+curl -X POST http://localhost:8001/api/{endpoint} \
+  -H "Content-Type: application/json" \
+  -d '{}' | jq .
+
+# 檢查後端日誌中的序列化錯誤
+pm2 logs ck-backend --lines 50 | grep -i "serialize\|serialization"
+```
+
+---
+
 ## 二、通用開發後檢查清單
 
 **所有開發任務完成後，必須執行：**
@@ -566,7 +760,8 @@ cd backend && python -m py_compile app/main.py
 
 | 版本 | 日期 | 說明 |
 |------|------|------|
-| 1.5.0 | 2026-01-21 | **新增清單 J - 關聯記錄處理規範**（link_id vs id 概念區分、禁止回退邏輯、詳細錯誤訊息） |
+| 1.6.0 | 2026-01-21 | **新增清單 K - API 序列化與資料返回**（ORM 模型序列化、Schema-DB 類型一致性、欄位名稱檢查） |
+| 1.5.0 | 2026-01-21 | 新增清單 J - 關聯記錄處理規範（link_id vs id 概念區分、禁止回退邏輯、詳細錯誤訊息） |
 | 1.4.0 | 2026-01-21 | 新增清單 I - 前端元件/Hook 開發（Hooks 目錄重組、Repository 層、共用驗證器） |
 | 1.3.0 | 2026-01-18 | 新增清單 H - 型別管理規範 (SSOT 架構) |
 | 1.2.0 | 2026-01-12 | 新增導覽路徑自動化驗證機制（白名單、下拉選單、強制同步） |

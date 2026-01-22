@@ -131,6 +131,34 @@ class TaoyuanProject(TaoyuanProjectBase):
     updated_at: Optional[datetime] = None
 
 
+class ProjectDispatchLink(BaseModel):
+    """工程關聯的派工單簡要資訊"""
+    link_id: int = Field(..., description="關聯記錄 ID")
+    dispatch_order_id: int = Field(..., description="派工單 ID")
+    dispatch_no: Optional[str] = Field(None, description="派工單號")
+    work_type: Optional[str] = Field(None, description="作業類別")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProjectDocumentLink(BaseModel):
+    """工程關聯的公文簡要資訊"""
+    link_id: int = Field(..., description="關聯記錄 ID")
+    document_id: int = Field(..., description="公文 ID")
+    doc_number: Optional[str] = Field(None, description="公文字號")
+    link_type: str = Field(..., description="關聯類型 (agency_incoming/company_outgoing)")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TaoyuanProjectWithLinks(TaoyuanProject):
+    """轄管工程完整資訊（包含關聯）"""
+    linked_dispatches: List[ProjectDispatchLink] = Field(default_factory=list, description="關聯派工單")
+    linked_documents: List[ProjectDocumentLink] = Field(default_factory=list, description="關聯公文")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class LinkedProjectItem(TaoyuanProject):
     """派工單關聯的工程項目 (包含關聯資訊)"""
     link_id: int = Field(..., description="關聯記錄 ID (用於刪除操作)")
@@ -152,9 +180,9 @@ class TaoyuanProjectListQuery(BaseModel):
 
 
 class TaoyuanProjectListResponse(BaseModel):
-    """轄管工程列表回應"""
+    """轄管工程列表回應（包含關聯資訊）"""
     success: bool = True
-    items: List[TaoyuanProject] = []
+    items: List[TaoyuanProjectWithLinks] = []
     pagination: PaginationMeta
 
     model_config = ConfigDict(from_attributes=True)
@@ -217,6 +245,7 @@ class DispatchOrder(DispatchOrderBase):
     # 關聯資訊（用於列表顯示）
     agency_doc_number: Optional[str] = Field(None, description="機關函文號")
     company_doc_number: Optional[str] = Field(None, description="乾坤函文號")
+    attachment_count: int = Field(0, description="附件數量")
     linked_projects: Optional[List[LinkedProjectItem]] = Field(None, description="關聯工程 (含 link_id, project_id)")
     linked_documents: Optional[List[dict]] = Field(None, description="關聯公文")
 
@@ -437,6 +466,64 @@ class ContractPaymentListResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PaymentControlItem(BaseModel):
+    """契金管控展示項目（派工單為主）"""
+    # 派工單基本資訊
+    dispatch_order_id: int
+    dispatch_no: str
+    project_name: Optional[str] = None
+    work_type: Optional[str] = None
+    sub_case_name: Optional[str] = Field(None, description="分案名稱/派工備註")
+    case_handler: Optional[str] = None
+    survey_unit: Optional[str] = None
+    cloud_folder: Optional[str] = Field(None, description="雲端資料夾")
+    project_folder: Optional[str] = Field(None, description="專案資料夾")
+    deadline: Optional[str] = Field(None, description="履約期限")
+
+    # 派工日期（取第一筆機關來函日期）
+    dispatch_date: Optional[date] = Field(None, description="派工日期（第一筆機關來函日期）")
+
+    # 公文歷程
+    agency_doc_history: Optional[str] = Field(None, description="機關函文歷程")
+    company_doc_history: Optional[str] = Field(None, description="乾坤函文歷程")
+
+    # 契金資訊
+    payment_id: Optional[int] = None
+    work_01_date: Optional[date] = None
+    work_01_amount: Optional[Decimal] = None
+    work_02_date: Optional[date] = None
+    work_02_amount: Optional[Decimal] = None
+    work_03_date: Optional[date] = None
+    work_03_amount: Optional[Decimal] = None
+    work_04_date: Optional[date] = None
+    work_04_amount: Optional[Decimal] = None
+    work_05_date: Optional[date] = None
+    work_05_amount: Optional[Decimal] = None
+    work_06_date: Optional[date] = None
+    work_06_amount: Optional[Decimal] = None
+    work_07_date: Optional[date] = None
+    work_07_amount: Optional[Decimal] = None
+    current_amount: Optional[Decimal] = None
+    cumulative_amount: Optional[Decimal] = None
+    remaining_amount: Optional[Decimal] = None
+    acceptance_date: Optional[date] = None
+    remark: Optional[str] = Field(None, description="備註")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PaymentControlResponse(BaseModel):
+    """契金管控展示回應"""
+    success: bool = True
+    items: List[PaymentControlItem] = []
+    total_budget: Optional[Decimal] = Field(None, description="總預算金額")
+    total_dispatched: Optional[Decimal] = Field(None, description="累計派工金額")
+    total_remaining: Optional[Decimal] = Field(None, description="剩餘金額")
+    pagination: PaginationMeta
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # =============================================================================
 # 總控表 Schemas
 # =============================================================================
@@ -600,5 +687,82 @@ class TaoyuanStatisticsResponse(BaseModel):
     projects: ProjectStatistics = Field(..., description="工程統計")
     dispatches: DispatchStatistics = Field(..., description="派工統計")
     payments: PaymentStatistics = Field(..., description="契金統計")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# =============================================================================
+# 派工單附件 Schemas
+# =============================================================================
+class DispatchAttachmentBase(BaseModel):
+    """派工單附件基礎欄位"""
+    file_name: str = Field(..., description="儲存檔案名稱")
+    original_name: Optional[str] = Field(None, description="原始檔案名稱")
+    file_size: int = Field(..., description="檔案大小(bytes)")
+    mime_type: Optional[str] = Field(None, description="MIME類型")
+    storage_type: Optional[str] = Field(default='local', description="儲存類型: local/network/s3")
+    checksum: Optional[str] = Field(None, description="SHA256校驗碼")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DispatchAttachment(DispatchAttachmentBase):
+    """派工單附件完整資訊"""
+    id: int
+    dispatch_order_id: int
+    file_path: Optional[str] = Field(None, description="檔案路徑")
+    uploaded_by: Optional[int] = Field(None, description="上傳者ID")
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    # 相容前端欄位名稱
+    @property
+    def filename(self) -> str:
+        return self.file_name
+
+    @property
+    def original_filename(self) -> Optional[str]:
+        return self.original_name
+
+    @property
+    def content_type(self) -> Optional[str]:
+        return self.mime_type
+
+
+class DispatchAttachmentListResponse(BaseModel):
+    """派工單附件列表回應"""
+    success: bool = True
+    dispatch_order_id: int
+    total: int
+    attachments: List[DispatchAttachment]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DispatchAttachmentUploadResult(BaseModel):
+    """派工單附件上傳結果"""
+    success: bool
+    message: str
+    files: List[dict] = Field(default_factory=list, description="上傳成功的檔案列表")
+    errors: List[str] = Field(default_factory=list, description="上傳失敗的錯誤訊息")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DispatchAttachmentDeleteResult(BaseModel):
+    """派工單附件刪除結果"""
+    success: bool
+    message: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DispatchAttachmentVerifyResult(BaseModel):
+    """派工單附件驗證結果"""
+    success: bool
+    message: str
+    valid: bool = Field(..., description="檔案完整性是否有效")
+    expected_checksum: Optional[str] = Field(None, description="預期的校驗碼")
+    actual_checksum: Optional[str] = Field(None, description="實際的校驗碼")
 
     model_config = ConfigDict(from_attributes=True)

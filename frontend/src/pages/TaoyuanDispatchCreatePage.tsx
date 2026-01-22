@@ -22,6 +22,8 @@ import {
   Typography,
   Space,
   Divider,
+  InputNumber,
+  Alert,
 } from 'antd';
 import {
   SendOutlined,
@@ -30,19 +32,31 @@ import {
   FileTextOutlined,
   LinkOutlined,
   UserOutlined,
+  DollarOutlined,
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { dispatchOrdersApi, taoyuanProjectsApi } from '../api/taoyuanDispatchApi';
+import { dispatchOrdersApi, taoyuanProjectsApi, contractPaymentsApi } from '../api/taoyuanDispatchApi';
 import { documentsApi } from '../api/documentsApi';
 import { getProjectAgencyContacts, type ProjectAgencyContact } from '../api/projectAgencyContacts';
 import { projectVendorsApi, type ProjectVendor } from '../api/projectVendorsApi';
-import type { DispatchOrderCreate } from '../types/api';
+import type { DispatchOrderCreate, ContractPaymentCreate } from '../types/api';
 import { TAOYUAN_CONTRACT } from '../constants/taoyuanOptions';
 import { TAOYUAN_WORK_TYPES } from '../types/api';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
+
+// 作業類別與金額欄位對應
+const WORK_TYPE_AMOUNT_MAPPING: Record<string, { amountField: string; label: string }> = {
+  '01.地上物查估作業': { amountField: 'work_01_amount', label: '01.地上物查估' },
+  '02.土地協議市價查估作業': { amountField: 'work_02_amount', label: '02.土地協議市價查估' },
+  '03.土地徵收市價查估作業': { amountField: 'work_03_amount', label: '03.土地徵收市價查估' },
+  '04.相關計畫書製作': { amountField: 'work_04_amount', label: '04.相關計畫書製作' },
+  '05.測量作業': { amountField: 'work_05_amount', label: '05.測量作業' },
+  '06.樁位測釘作業': { amountField: 'work_06_amount', label: '06.樁位測釘作業' },
+  '07.辦理教育訓練': { amountField: 'work_07_amount', label: '07.辦理教育訓練' },
+};
 
 export const TaoyuanDispatchCreatePage: React.FC = () => {
   const navigate = useNavigate();
@@ -103,9 +117,35 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
       }),
   });
 
-  // 新增 mutation
+  // 新增派工單 mutation
   const createMutation = useMutation({
-    mutationFn: (data: DispatchOrderCreate) => dispatchOrdersApi.create(data),
+    mutationFn: async (data: DispatchOrderCreate & { paymentData?: Partial<ContractPaymentCreate> }) => {
+      const { paymentData, ...dispatchData } = data;
+      // 建立派工單
+      const result = await dispatchOrdersApi.create(dispatchData);
+
+      // 如果有契金資料，一併建立契金記錄
+      if (paymentData && Object.values(paymentData).some((v) => v !== undefined && v !== 0)) {
+        const currentAmount =
+          (paymentData.work_01_amount || 0) +
+          (paymentData.work_02_amount || 0) +
+          (paymentData.work_03_amount || 0) +
+          (paymentData.work_04_amount || 0) +
+          (paymentData.work_05_amount || 0) +
+          (paymentData.work_06_amount || 0) +
+          (paymentData.work_07_amount || 0);
+
+        if (currentAmount > 0) {
+          await contractPaymentsApi.create({
+            dispatch_order_id: result.id,
+            ...paymentData,
+            current_amount: currentAmount,
+          } as ContractPaymentCreate);
+        }
+      }
+
+      return result;
+    },
     onSuccess: (result) => {
       message.success('派工單新增成功');
       queryClient.invalidateQueries({ queryKey: ['dispatch-orders'] });
@@ -138,11 +178,28 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
   const handleSave = async () => {
     try {
       const values = await form.validateFields();
-      const data: DispatchOrderCreate = {
+
+      // 收集契金資料
+      const paymentData: Partial<ContractPaymentCreate> = {
+        work_01_amount: values.work_01_amount || undefined,
+        work_02_amount: values.work_02_amount || undefined,
+        work_03_amount: values.work_03_amount || undefined,
+        work_04_amount: values.work_04_amount || undefined,
+        work_05_amount: values.work_05_amount || undefined,
+        work_06_amount: values.work_06_amount || undefined,
+        work_07_amount: values.work_07_amount || undefined,
+      };
+
+      // work_type 轉換：陣列轉逗號分隔字串
+      const workTypeString = Array.isArray(values.work_type)
+        ? values.work_type.join(', ')
+        : values.work_type || '';
+
+      const data = {
         dispatch_no: values.dispatch_no,
         contract_project_id: TAOYUAN_CONTRACT.PROJECT_ID,
         project_name: values.project_name,
-        work_type: values.work_type,
+        work_type: workTypeString,
         sub_case_name: values.sub_case_name,
         deadline: values.deadline,
         case_handler: values.case_handler,
@@ -153,6 +210,7 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
         agency_doc_id: values.agency_doc_id || undefined,
         company_doc_id: values.company_doc_id || undefined,
         linked_project_ids: values.linked_project_ids || [],
+        paymentData,
       };
       createMutation.mutate(data);
     } catch {
@@ -222,7 +280,12 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
           <Row gutter={16}>
             <Col span={8}>
               <Form.Item name="work_type" label="作業類別">
-                <Select allowClear placeholder="選擇作業類別">
+                <Select
+                  mode="multiple"
+                  allowClear
+                  placeholder="選擇作業類別（可多選）"
+                  maxTagCount={2}
+                >
                   {TAOYUAN_WORK_TYPES.map((type) => (
                     <Option key={type} value={type}>
                       {type}
@@ -409,6 +472,59 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
               </Form.Item>
             </Col>
           </Row>
+        </Card>
+
+        {/* 契金資訊 */}
+        <Card
+          title={
+            <Space>
+              <DollarOutlined />
+              <span>契金資訊</span>
+            </Space>
+          }
+          style={{ marginBottom: 16 }}
+        >
+          <Form.Item noStyle shouldUpdate={(prev, curr) => prev.work_type !== curr.work_type}>
+            {({ getFieldValue }) => {
+              const selectedWorkTypes: string[] = getFieldValue('work_type') || [];
+              // 篩選有對應金額欄位的作業類別
+              const validWorkTypes = selectedWorkTypes.filter((wt) => WORK_TYPE_AMOUNT_MAPPING[wt]);
+
+              if (validWorkTypes.length === 0) {
+                return (
+                  <Alert
+                    message="請先選擇作業類別"
+                    description="選擇作業類別後，將顯示對應的金額輸入欄位"
+                    type="info"
+                    showIcon
+                  />
+                );
+              }
+
+              return (
+                <Row gutter={16}>
+                  {validWorkTypes.map((wt) => {
+                    const mapping = WORK_TYPE_AMOUNT_MAPPING[wt];
+                    if (!mapping) return null;
+                    return (
+                      <Col span={8} key={wt}>
+                        <Form.Item name={mapping.amountField} label={`${mapping.label} 金額`}>
+                          <InputNumber
+                            style={{ width: '100%' }}
+                            min={0}
+                            precision={0}
+                            formatter={(value) => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                            parser={(value) => Number(value?.replace(/\$\s?|(,*)/g, '') || 0) as unknown as 0}
+                            placeholder="輸入金額"
+                          />
+                        </Form.Item>
+                      </Col>
+                    );
+                  })}
+                </Row>
+              );
+            }}
+          </Form.Item>
         </Card>
 
         {/* 工程關聯 */}

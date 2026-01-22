@@ -94,6 +94,9 @@ class DocumentCalendarService:
         update_data = event_update.model_dump(exclude_unset=True, exclude={'event_id'})
         for key, value in update_data.items():
             if hasattr(db_event, key):
+                # 特別處理 priority：資料庫欄位是 String，schema 是 int
+                if key == 'priority' and value is not None:
+                    value = str(value)
                 setattr(db_event, key, value)
 
         # 特別處理時區問題

@@ -50,7 +50,21 @@ async def get_dashboard_stats(
             .limit(10)
         )
         recent_docs_result = await db.execute(recent_docs_query)
-        recent_documents = recent_docs_result.scalars().all()
+        recent_documents_raw = recent_docs_result.scalars().all()
+
+        # 轉換為可序列化的字典列表
+        recent_documents = [
+            {
+                "id": doc.id,
+                "doc_number": doc.doc_number,
+                "subject": doc.subject,
+                "doc_type": doc.doc_type,
+                "status": doc.status,
+                "created_at": doc.created_at.isoformat() if doc.created_at else None,
+                "deadline": doc.deadline.isoformat() if hasattr(doc, 'deadline') and doc.deadline else None,
+            }
+            for doc in recent_documents_raw
+        ]
 
         # 3. 組合回應數據（使用統一 Schema）
         stats = DashboardStats(
@@ -83,8 +97,8 @@ async def get_statistics_overview(
 
         # 按類型分組的公文數量
         type_query = (
-            select(Document.type, func.count(Document.id))
-            .group_by(Document.type)
+            select(Document.doc_type, func.count(Document.id))
+            .group_by(Document.doc_type)
         )
         type_result = await db.execute(type_query)
         document_types = [

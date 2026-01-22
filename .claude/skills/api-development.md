@@ -2,6 +2,8 @@
 
 > **觸發關鍵字**: API, endpoint, 端點, route, 路由, FastAPI
 > **適用範圍**: API 設計、端點定義、前後端整合
+> **版本**: 1.1.0
+> **最後更新**: 2026-01-22
 
 ---
 
@@ -40,6 +42,60 @@ export const API_ENDPOINTS = {
   // ... 其他模組
 };
 ```
+
+### ⚠️ 端點常數強制規範 (v1.1.0 新增)
+
+**核心規範：所有 API 路徑必須使用 `API_ENDPOINTS` 常數，禁止硬編碼**
+
+```typescript
+// ❌ 禁止：硬編碼 API 路徑
+async uploadFiles(dispatchOrderId: number) {
+  return apiClient.post(
+    `/taoyuan-dispatch/dispatch/${dispatchOrderId}/attachments/upload`,  // 違規！
+    ...
+  );
+}
+
+// ✅ 正確：使用端點常數
+async uploadFiles(dispatchOrderId: number) {
+  return apiClient.post(
+    API_ENDPOINTS.TAOYUAN_DISPATCH.DISPATCH_ATTACHMENTS_UPLOAD(dispatchOrderId),
+    ...
+  );
+}
+```
+
+### 新增端點流程
+
+1. **後端新增 API**
+   ```python
+   @router.post("/dispatch/{id}/attachments/upload")
+   async def upload_attachments(...):
+       ...
+   ```
+
+2. **前端補充端點常數**
+   ```typescript
+   // frontend/src/api/endpoints.ts
+   DISPATCH_ATTACHMENTS_UPLOAD: (id: number) => `/taoyuan-dispatch/dispatch/${id}/attachments/upload`,
+   ```
+
+3. **API 服務使用常數**
+   ```typescript
+   // frontend/src/api/taoyuanDispatchApi.ts
+   return apiClient.post(
+     API_ENDPOINTS.TAOYUAN_DISPATCH.DISPATCH_ATTACHMENTS_UPLOAD(id),
+     ...
+   );
+   ```
+
+### 常見遺漏場景
+
+| 場景 | 容易遺漏原因 | 檢查方式 |
+|------|-------------|----------|
+| 檔案上傳 | 使用 FormData 時容易直接寫路徑 | grep 檢查 `apiClient.upload` |
+| 檔案下載 | 使用 blob 下載時容易直接寫路徑 | grep 檢查 `downloadPost` |
+| 動態 ID 路徑 | 覺得用模板字串較方便 | grep 檢查 `\`/` 模式 |
 
 ---
 

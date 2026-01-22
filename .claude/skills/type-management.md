@@ -2,8 +2,9 @@
 
 > **觸發關鍵字**: 型別, type, schema, Pydantic, TypeScript, BaseModel, interface
 > **適用範圍**: 後端 Schema 定義、前端型別定義、型別同步
-> **版本**: 1.0.0
+> **版本**: 1.1.0
 > **建立日期**: 2026-01-18
+> **最後更新**: 2026-01-21
 
 ---
 
@@ -87,6 +88,68 @@ class MyRequest(BaseModel):  # 禁止！
 # ✅ 正確：從 schemas 匯入
 from app.schemas.xxx import MyRequest
 ```
+
+---
+
+## Schema 與資料庫模型一致性 (v1.1.0 新增)
+
+### ⚠️ 重要：類型不一致會導致 500 錯誤
+
+**典型錯誤場景**:
+```
+asyncpg.exceptions.DataError: invalid input for query argument $2: 3 (expected str, got int)
+[SQL: UPDATE table SET priority=$2::VARCHAR ...]
+```
+
+**根本原因**: Pydantic Schema 定義的類型與資料庫欄位類型不一致。
+
+### 常見類型不一致案例
+
+| 欄位 | Schema 定義 | DB 定義 | 問題 | 解法 |
+|------|------------|---------|------|------|
+| `priority` | `int` | `VARCHAR(50)` | asyncpg 拒絕整數寫入字串欄位 | 改 Schema 為 `str` |
+| `status` | `Enum` | `VARCHAR` | Enum 需序列化 | 使用 `status.value` |
+| `id` | `str` | `INTEGER` | 類型不符 | 統一使用 `int` |
+| `amount` | `float` | `DECIMAL` | 精度問題 | 使用 `Decimal` |
+
+### 解決方案
+
+#### 方案 1：修改 Schema 使其與 DB 一致（推薦）
+
+```python
+# backend/app/schemas/document_calendar.py
+class DocumentCalendarEventUpdate(BaseModel):
+    # 改為 str 與資料庫 VARCHAR 一致
+    priority: Optional[str] = None
+
+    @field_validator('priority', mode='before')
+    @classmethod
+    def normalize_priority(cls, v):
+        """接受 int 或 str，統一轉為 str"""
+        if v is not None:
+            return str(v)
+        return v
+```
+
+#### 方案 2：在 Service 層進行類型轉換
+
+```python
+# backend/app/services/xxx_service.py
+async def update_entity(self, db, entity_id, update_data):
+    for key, value in update_data.items():
+        if hasattr(db_entity, key):
+            # 特別處理：資料庫欄位是 String，但輸入可能是 int
+            if key == 'priority' and value is not None:
+                value = str(value)
+            setattr(db_entity, key, value)
+```
+
+### 檢查清單
+
+- [ ] 新增/修改 Schema 欄位前，先確認資料庫欄位類型
+- [ ] 特別注意 `VARCHAR` 欄位，Schema 應定義為 `str`
+- [ ] 使用 `field_validator` 處理類型正規化
+- [ ] 測試 API 確認無類型錯誤
 
 ### Schema 檔案範本
 
@@ -330,6 +393,7 @@ field?: number;  // 或 field: number | null;
 
 | 版本 | 日期 | 說明 |
 |------|------|------|
+| 1.1.0 | 2026-01-21 | **新增 Schema-DB 類型一致性章節**（類型不一致案例、解決方案、檢查清單） |
 | 1.0.0 | 2026-01-18 | 初版建立，包含 SSOT 架構、OpenAPI 自動生成、命名規範 |
 
 ---

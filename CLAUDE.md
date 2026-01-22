@@ -2,7 +2,7 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.10.0
+> **Claude Code 配置版本**: 1.12.0
 > **最後更新**: 2026-01-21
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers)
 
@@ -60,7 +60,8 @@ CK_Missive 是一套企業級公文管理系統，具備以下核心功能：
 | `frontend-architecture.md` | 前端, React, 認證, auth, 架構 | **前端架構規範 (v1.0.0)** |
 | `error-handling.md` | 錯誤處理, error, exception, 例外 | **錯誤處理指南 (v1.0.0)** |
 | `security-hardening.md` | 安全, security, 漏洞, XSS | **安全加固指南 (v1.0.0)** |
-| `type-management.md` | 型別, type, Pydantic, TypeScript, BaseModel | **型別管理規範 (v1.0.0) - SSOT 架構** |
+| `type-management.md` | 型別, type, Pydantic, TypeScript, BaseModel | **型別管理規範 (v1.1.0) - SSOT 架構** |
+| `api-serialization.md` | 序列化, serialize, ORM, API 返回, 500 錯誤 | **API 序列化規範 (v1.0.0)** |
 
 ### 🦸 Superpowers Skills (v4.0.3)
 
@@ -134,6 +135,7 @@ CK_Missive 是一套企業級公文管理系統，具備以下核心功能：
 | Hook | 說明 | 檔案 |
 |------|------|------|
 | `route-sync-check` | 檢查前後端路徑一致性 | `.claude/hooks/route-sync-check.ps1` |
+| `api-serialization-check` | 🆕 檢查 API 序列化問題 (v1.0.0) | `.claude/hooks/api-serialization-check.ps1` |
 
 ---
 
@@ -443,13 +445,15 @@ const linkId = item.link_id;
 
 | 文件 | 說明 |
 |------|------|
-| `.claude/MANDATORY_CHECKLIST.md` | ⚠️ **強制性開發檢查清單 v1.5.0** (開發前必讀) |
-| `.claude/skills/type-management.md` | 型別管理規範 (SSOT 架構) |
+| `.claude/MANDATORY_CHECKLIST.md` | ⚠️ **強制性開發檢查清單 v1.6.0** (開發前必讀) |
+| `.claude/skills/type-management.md` | 型別管理規範 v1.1.0 (SSOT 架構) |
+| `.claude/skills/api-serialization.md` | 🆕 **API 序列化規範 v1.0.0** |
 | `.claude/commands/type-sync.md` | 型別同步檢查 v2.0.0 |
 | `docs/DEVELOPMENT_STANDARDS.md` | 統一開發規範總綱 |
 | `docs/specifications/API_ENDPOINT_CONSISTENCY.md` | API 端點一致性 v2.0.0 |
 | `docs/specifications/TYPE_CONSISTENCY.md` | 型別一致性規範 |
-| `docs/specifications/LINK_ID_HANDLING_SPECIFICATION.md` | 🆕 **關聯記錄處理規範 v1.0.0** |
+| `docs/specifications/SCHEMA_DB_MAPPING.md` | 🆕 **Schema-DB 欄位對照表 v1.0.0** |
+| `docs/specifications/LINK_ID_HANDLING_SPECIFICATION.md` | 關聯記錄處理規範 v1.0.0 |
 | `docs/specifications/TESTING_FRAMEWORK.md` | 測試框架規範 |
 | `docs/Architecture_Optimization_Recommendations.md` | 📐 架構優化建議 |
 | `@AGENT.md` | 開發代理指引 |

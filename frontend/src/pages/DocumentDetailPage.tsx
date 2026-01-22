@@ -439,20 +439,20 @@ export const DocumentDetailPage: React.FC = () => {
   }, [loadDocument, loadDispatchLinks, loadProjectLinks]);
 
   // 當公文載入完成後且進入編輯模式時，自動設定派工表單的機關/乾坤函文號
-  // 只在 isEditing 為 true 時才設定，避免 useForm 未連接 Form 元件的警告
+  // 只在 isEditing 為 true 且在派工安排 Tab 時才設定，避免 useForm 未連接 Form 元件的警告
   useEffect(() => {
-    if (document?.doc_number && isEditing) {
+    if (document?.doc_number && isEditing && activeTab === 'dispatch') {
       const isReceiveDoc = isReceiveDocument(document.category);
       dispatchForm.setFieldsValue({
         agency_doc_no: isReceiveDoc ? document.doc_number : undefined,
         company_doc_no: !isReceiveDoc ? document.doc_number : undefined,
       });
     }
-  }, [document?.doc_number, document?.category, dispatchForm, isEditing]);
+  }, [document?.doc_number, document?.category, dispatchForm, isEditing, activeTab]);
 
-  // 當進入編輯模式時，自動載入下一個派工單號
+  // 當進入編輯模式且在派工安排 Tab 時，自動載入下一個派工單號
   useEffect(() => {
-    if (isEditing) {
+    if (isEditing && activeTab === 'dispatch') {
       const loadNextDispatchNo = async () => {
         try {
           const result = await dispatchOrdersApi.getNextDispatchNo();
@@ -467,7 +467,7 @@ export const DocumentDetailPage: React.FC = () => {
       };
       loadNextDispatchNo();
     }
-  }, [isEditing, dispatchForm]);
+  }, [isEditing, activeTab, dispatchForm]);
 
   // =============================================================================
   // 事件處理
@@ -509,11 +509,65 @@ export const DocumentDetailPage: React.FC = () => {
         setFileList([]);
       }
 
+      // 如果在「派工安排」Tab 且有填寫派工表單，則建立派工
+      if (activeTab === 'dispatch') {
+        try {
+          const dispatchValues = dispatchForm.getFieldsValue();
+          logger.debug('[handleSave] 派工表單值:', dispatchValues);
+
+          // 只有當有填寫派工單號時才建立派工
+          if (dispatchValues.dispatch_no && dispatchValues.dispatch_no.trim()) {
+            const docId = parseInt(id || '0', 10);
+            const isReceiveDoc = isReceiveDocument(document?.category);
+            const linkType: LinkType = isReceiveDoc ? 'agency_incoming' : 'company_outgoing';
+
+            // 建立派工單
+            const dispatchData: DispatchOrderCreate = {
+              dispatch_no: dispatchValues.dispatch_no,
+              project_name: dispatchValues.project_name || document?.subject || '',
+              work_type: dispatchValues.work_type,
+              sub_case_name: dispatchValues.sub_case_name,
+              deadline: dispatchValues.deadline,
+              case_handler: dispatchValues.case_handler,
+              survey_unit: dispatchValues.survey_unit,
+              contact_note: dispatchValues.contact_note,
+              cloud_folder: dispatchValues.cloud_folder,
+              project_folder: dispatchValues.project_folder,
+              contract_project_id: (document as any)?.contract_project_id || undefined,
+              agency_doc_id: isReceiveDoc ? docId : undefined,
+              company_doc_id: !isReceiveDoc ? docId : undefined,
+            };
+
+            logger.debug('[handleSave] 建立派工單:', dispatchData);
+            const newDispatch = await dispatchOrdersApi.create(dispatchData);
+            logger.debug('[handleSave] 派工單建立成功:', newDispatch);
+
+            if (newDispatch && newDispatch.id) {
+              // 關聯到此公文
+              await documentLinksApi.linkDispatch(docId, newDispatch.id, linkType);
+              logger.debug('[handleSave] 公文關聯建立成功');
+              message.success('派工建立並關聯成功');
+
+              // 重置派工表單
+              dispatchForm.resetFields();
+
+              // 刷新派工紀錄列表
+              queryClient.invalidateQueries({ queryKey: ['dispatch-orders'] });
+              queryClient.invalidateQueries({ queryKey: ['dispatch-orders-for-link'] });
+            }
+          }
+        } catch (dispatchError: any) {
+          logger.error('[handleSave] 建立派工失敗:', dispatchError);
+          message.warning(`公文已儲存，但派工建立失敗：${dispatchError?.message || '未知錯誤'}`);
+        }
+      }
+
       message.success('儲存成功');
 
       // 重新載入資料（在退出編輯模式之前）
       logger.debug('[handleSave] 開始重新載入資料...');
       await loadDocument();
+      await loadDispatchLinks();
       logger.debug('[handleSave] 重新載入完成');
 
       // 最後才退出編輯模式，確保表單值已更新
@@ -1334,14 +1388,24 @@ export const DocumentDetailPage: React.FC = () => {
 
     // 移除關聯
     const handleUnlinkDispatch = async (linkId: number) => {
+      // 防禦性檢查：確保 linkId 存在
+      if (linkId === undefined || linkId === null) {
+        message.error('關聯資料缺少 link_id，請重新整理頁面');
+        logger.error('[handleUnlinkDispatch] link_id 缺失:', linkId);
+        await loadDispatchLinks();
+        return;
+      }
+
       try {
         const docId = parseInt(id || '0', 10);
+        logger.debug('[handleUnlinkDispatch] 準備移除:', { docId, linkId });
         await documentLinksApi.unlinkDispatch(docId, linkId);
         message.success('已移除關聯');
         // 先重新載入關聯列表，確保資料更新
         await loadDispatchLinks();
         queryClient.invalidateQueries({ queryKey: ['dispatch-orders-for-link'] });
       } catch (error) {
+        logger.error('[handleUnlinkDispatch] 移除失敗:', error);
         message.error('移除關聯失敗');
       }
     };
@@ -1656,9 +1720,14 @@ export const DocumentDetailPage: React.FC = () => {
               </Row>
 
               <Form.Item style={{ marginBottom: 0, marginTop: 16 }}>
-                <Button type="primary" onClick={handleCreateDispatch}>
-                  建立派工
-                </Button>
+                <Space>
+                  <Button type="primary" onClick={handleCreateDispatch}>
+                    建立派工
+                  </Button>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    或點擊右上角「儲存」按鈕一併建立
+                  </Text>
+                </Space>
               </Form.Item>
             </Form>
           </Card>
@@ -1768,13 +1837,23 @@ export const DocumentDetailPage: React.FC = () => {
 
     // 移除關聯
     const handleUnlinkProject = async (linkId: number) => {
+      // 防禦性檢查：確保 linkId 存在
+      if (linkId === undefined || linkId === null) {
+        message.error('關聯資料缺少 link_id，請重新整理頁面');
+        logger.error('[handleUnlinkProject] link_id 缺失:', linkId);
+        loadProjectLinks();
+        return;
+      }
+
       try {
         const docId = parseInt(id || '0', 10);
+        logger.debug('[handleUnlinkProject] 準備移除:', { docId, linkId });
         await documentProjectLinksApi.unlinkProject(docId, linkId);
         message.success('已移除關聯');
         loadProjectLinks();
         queryClient.invalidateQueries({ queryKey: ['projects-for-link'] });
       } catch (error) {
+        logger.error('[handleUnlinkProject] 移除失敗:', error);
         message.error('移除關聯失敗');
       }
     };

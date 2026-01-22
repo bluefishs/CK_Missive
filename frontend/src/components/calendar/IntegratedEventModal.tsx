@@ -5,8 +5,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Modal, Form, Input, Select, DatePicker, Switch, InputNumber,
-  Row, Col, Space, Button, notification, Spin, Divider, Card,
-  List, Tag, Tooltip, Typography, Grid, Collapse
+  Row, Col, Space, Button, Spin, Divider, Card,
+  List, Tag, Tooltip, Typography, Grid, Collapse, App
 } from 'antd';
 
 const { useBreakpoint } = Grid;
@@ -106,6 +106,7 @@ export const IntegratedEventModal: React.FC<IntegratedEventModalProps> = ({
   onSuccess
 }) => {
   const [form] = Form.useForm();
+  const { notification } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [allDay, setAllDay] = useState(true);
   const [reminderEnabled, setReminderEnabled] = useState(true);

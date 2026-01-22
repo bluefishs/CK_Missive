@@ -459,6 +459,8 @@ export const TAOYUAN_DISPATCH_ENDPOINTS = {
   PAYMENTS_UPDATE: (id: number) => `/taoyuan-dispatch/payments/${id}/update`,
   /** 刪除契金 POST /taoyuan-dispatch/payments/:id/delete */
   PAYMENTS_DELETE: (id: number) => `/taoyuan-dispatch/payments/${id}/delete`,
+  /** 契金管控展示 POST /taoyuan-dispatch/payments/control */
+  PAYMENTS_CONTROL: '/taoyuan-dispatch/payments/control',
 
   // 總控表
   /** 總控表查詢 POST /taoyuan-dispatch/master-control */
@@ -467,6 +469,18 @@ export const TAOYUAN_DISPATCH_ENDPOINTS = {
   // 統計資料
   /** 桃園查估派工統計 POST /taoyuan-dispatch/statistics */
   STATISTICS: '/taoyuan-dispatch/statistics',
+
+  // 派工單附件
+  /** 上傳派工單附件 POST /taoyuan-dispatch/dispatch/:id/attachments/upload */
+  DISPATCH_ATTACHMENTS_UPLOAD: (id: number) => `/taoyuan-dispatch/dispatch/${id}/attachments/upload`,
+  /** 取得派工單附件列表 POST /taoyuan-dispatch/dispatch/:id/attachments/list */
+  DISPATCH_ATTACHMENTS_LIST: (id: number) => `/taoyuan-dispatch/dispatch/${id}/attachments/list`,
+  /** 下載附件 POST /taoyuan-dispatch/dispatch/attachments/:id/download */
+  DISPATCH_ATTACHMENT_DOWNLOAD: (id: number) => `/taoyuan-dispatch/dispatch/attachments/${id}/download`,
+  /** 刪除附件 POST /taoyuan-dispatch/dispatch/attachments/:id/delete */
+  DISPATCH_ATTACHMENT_DELETE: (id: number) => `/taoyuan-dispatch/dispatch/attachments/${id}/delete`,
+  /** 驗證附件完整性 POST /taoyuan-dispatch/dispatch/attachments/:id/verify */
+  DISPATCH_ATTACHMENT_VERIFY: (id: number) => `/taoyuan-dispatch/dispatch/attachments/${id}/verify`,
 } as const;
 
 // ============================================================================

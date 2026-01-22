@@ -848,6 +848,22 @@ export const TAOYUAN_WORK_TYPES = [
 
 export type TaoyuanWorkType = (typeof TAOYUAN_WORK_TYPES)[number];
 
+/** 工程關聯的派工單簡要資訊 */
+export interface ProjectDispatchLinkItem {
+  link_id: number;
+  dispatch_order_id: number;
+  dispatch_no?: string;
+  work_type?: string;
+}
+
+/** 工程關聯的公文簡要資訊 */
+export interface ProjectDocumentLinkItem {
+  link_id: number;
+  document_id: number;
+  doc_number?: string;
+  link_type: LinkType;
+}
+
 /** 轄管工程基礎介面 (匹配後端 TaoyuanProject Schema) */
 export interface TaoyuanProject {
   id: number;
@@ -895,6 +911,10 @@ export interface TaoyuanProject {
   building_survey_status?: string;
   actual_entry_date?: string;
   acceptance_status?: string;
+
+  // 關聯資訊 (從 API 返回)
+  linked_dispatches?: ProjectDispatchLinkItem[];
+  linked_documents?: ProjectDocumentLinkItem[];
 
   created_at?: string;
   updated_at?: string;
@@ -986,6 +1006,8 @@ export interface DispatchOrder {
   // 關聯資訊（列表顯示用）
   agency_doc_number?: string;
   company_doc_number?: string;
+  /** 附件數量 */
+  attachment_count?: number;
   /** 關聯工程（包含 link_id 和 project_id 用於解除關聯） */
   linked_projects?: (TaoyuanProject & { link_id: number; project_id: number })[];
   /** 關聯公文（使用統一的關聯格式） */
@@ -1054,6 +1076,70 @@ export interface DispatchOrderListResponse {
   success: boolean;
   items: DispatchOrder[];
   pagination: PaginationMeta;
+}
+
+// =============================================================================
+// 派工單附件 (DispatchAttachment) 相關型別
+// =============================================================================
+
+/** 派工單附件介面 */
+export interface DispatchAttachment {
+  id: number;
+  dispatch_order_id: number;
+  file_name: string;
+  file_path?: string;
+  file_size: number;
+  mime_type?: string;
+  storage_type?: 'local' | 'network' | 'nas' | 's3';
+  original_name?: string;
+  checksum?: string;
+  uploaded_by?: number;
+  created_at?: string;
+  updated_at?: string;
+  // 相容欄位
+  filename?: string;
+  original_filename?: string;
+  content_type?: string;
+}
+
+/** 派工單附件列表回應 */
+export interface DispatchAttachmentListResponse {
+  success: boolean;
+  dispatch_order_id: number;
+  total: number;
+  attachments: DispatchAttachment[];
+}
+
+/** 派工單附件上傳結果 */
+export interface DispatchAttachmentUploadResult {
+  success: boolean;
+  message: string;
+  files: Array<{
+    id: number | null;
+    filename: string;
+    original_name: string;
+    size: number;
+    content_type: string;
+    checksum: string;
+    storage_path: string;
+    uploaded_by: string | null;
+  }>;
+  errors?: string[];
+}
+
+/** 派工單附件刪除結果 */
+export interface DispatchAttachmentDeleteResult {
+  success: boolean;
+  message: string;
+}
+
+/** 派工單附件驗證結果 */
+export interface DispatchAttachmentVerifyResult {
+  success: boolean;
+  message: string;
+  valid: boolean;
+  expected_checksum?: string;
+  actual_checksum?: string;
 }
 
 /** 工程統計資料 */
@@ -1162,6 +1248,63 @@ export type ContractPaymentUpdate = Partial<Omit<ContractPaymentCreate, 'dispatc
 export interface ContractPaymentListResponse {
   success: boolean;
   items: ContractPayment[];
+  pagination: PaginationMeta;
+}
+
+/** 契金管控展示項目（派工單為主） */
+export interface PaymentControlItem {
+  dispatch_order_id: number;
+  dispatch_no: string;
+  project_name?: string;
+  work_type?: string;
+  sub_case_name?: string;
+  case_handler?: string;
+  survey_unit?: string;
+  cloud_folder?: string;
+  project_folder?: string;
+  deadline?: string;
+
+  /** 派工日期（取第一筆機關來函日期） */
+  dispatch_date?: string;
+
+  /** 公文歷程 */
+  agency_doc_history?: string;
+  company_doc_history?: string;
+
+  /** 契金紀錄 ID */
+  payment_id?: number;
+
+  // 7種作業類別的派工日期/金額
+  work_01_date?: string;
+  work_01_amount?: number;
+  work_02_date?: string;
+  work_02_amount?: number;
+  work_03_date?: string;
+  work_03_amount?: number;
+  work_04_date?: string;
+  work_04_amount?: number;
+  work_05_date?: string;
+  work_05_amount?: number;
+  work_06_date?: string;
+  work_06_amount?: number;
+  work_07_date?: string;
+  work_07_amount?: number;
+
+  // 彙總欄位
+  current_amount?: number;
+  cumulative_amount?: number;
+  remaining_amount?: number;
+  acceptance_date?: string;
+  remark?: string;
+}
+
+/** 契金管控展示回應 */
+export interface PaymentControlResponse {
+  success: boolean;
+  items: PaymentControlItem[];
+  total_budget?: number;
+  total_dispatched?: number;
+  total_remaining?: number;
   pagination: PaginationMeta;
 }
 

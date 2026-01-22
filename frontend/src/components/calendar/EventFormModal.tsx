@@ -5,7 +5,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Modal, Form, Input, Select, DatePicker, Switch,
-  Row, Col, Space, Button, notification, Spin, Divider, Grid
+  Row, Col, Space, Button, Spin, Divider, Grid, App
 } from 'antd';
 
 const { useBreakpoint } = Grid;
@@ -89,6 +89,7 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
   onSuccess
 }) => {
   const [form] = Form.useForm();
+  const { notification } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [allDay, setAllDay] = useState(false);
   const [documentOptions, setDocumentOptions] = useState<DocumentOption[]>([]);

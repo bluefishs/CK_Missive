@@ -639,6 +639,7 @@ class TaoyuanDispatchOrder(Base):
     project_links = relationship("TaoyuanDispatchProjectLink", back_populates="dispatch_order", cascade="all, delete-orphan")
     document_links = relationship("TaoyuanDispatchDocumentLink", back_populates="dispatch_order", cascade="all, delete-orphan")
     payment = relationship("TaoyuanContractPayment", back_populates="dispatch_order", uselist=False, cascade="all, delete-orphan")
+    attachments = relationship("TaoyuanDispatchAttachment", back_populates="dispatch_order", cascade="all, delete-orphan", passive_deletes=True)
 
 
 class TaoyuanDispatchProjectLink(Base):
@@ -732,3 +733,50 @@ class TaoyuanContractPayment(Base):
 
     # 關聯關係
     dispatch_order = relationship("TaoyuanDispatchOrder", back_populates="payment")
+
+
+class TaoyuanDispatchAttachment(Base):
+    """
+    派工單附件模型
+
+    提供派工單的附件上傳、儲存功能
+    設計參照 DocumentAttachment 模型
+
+    變更記錄：
+    - 2026-01-22: 初始建立
+    """
+    __tablename__ = 'taoyuan_dispatch_attachments'
+
+    # 主鍵與外鍵
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    dispatch_order_id = Column(
+        Integer,
+        ForeignKey('taoyuan_dispatch_orders.id', ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="關聯派工單ID"
+    )
+
+    # 基本附件資訊
+    file_name = Column(String(255), comment="儲存檔案名稱")
+    file_path = Column(String(500), comment="檔案路徑")
+    file_size = Column(Integer, comment="檔案大小(bytes)")
+    mime_type = Column(String(100), comment="MIME類型")
+
+    # 擴充欄位
+    storage_type = Column(String(20), default='local', comment="儲存類型: local/network/s3")
+    original_name = Column(String(255), comment="原始檔案名稱")
+    checksum = Column(String(64), index=True, comment="SHA256 校驗碼")
+    uploaded_by = Column(
+        Integer,
+        ForeignKey('users.id', ondelete="SET NULL"),
+        nullable=True,
+        comment="上傳者ID"
+    )
+
+    # 系統欄位
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    # 關聯關係
+    dispatch_order = relationship("TaoyuanDispatchOrder", back_populates="attachments")

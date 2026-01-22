@@ -201,16 +201,7 @@ export const TaoyuanProjectCreatePage: React.FC = () => {
                       value={contact.contact_name}
                       label={contact.contact_name}
                     >
-                      <div style={{ lineHeight: 1.3 }}>
-                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {contact.contact_name}
-                        </div>
-                        {(contact.position || contact.department) && (
-                          <div style={{ fontSize: 11, color: '#999', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {[contact.position, contact.department].filter(Boolean).join(' / ')}
-                          </div>
-                        )}
-                      </div>
+                      {contact.contact_name}
                     </Option>
                   ))}
                 </Select>
@@ -234,16 +225,7 @@ export const TaoyuanProjectCreatePage: React.FC = () => {
                       value={vendor.vendor_name}
                       label={vendor.vendor_name}
                     >
-                      <div style={{ lineHeight: 1.3 }}>
-                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {vendor.vendor_name}
-                        </div>
-                        {(vendor.role || vendor.vendor_business_type) && (
-                          <div style={{ fontSize: 11, color: '#999', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {[vendor.role, vendor.vendor_business_type].filter(Boolean).join(' / ')}
-                          </div>
-                        )}
-                      </div>
+                      {vendor.vendor_name}
                     </Option>
                   ))}
                 </Select>
