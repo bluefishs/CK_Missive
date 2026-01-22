@@ -1,6 +1,6 @@
 # CK_Missive 強制性開發規範檢查清單
 
-> **版本**: 1.7.0
+> **版本**: 1.8.0
 > **建立日期**: 2026-01-11
 > **最後更新**: 2026-01-22
 > **狀態**: 強制執行 - 所有開發任務啟動前必須檢視
@@ -36,6 +36,8 @@
 | **前端元件/Hook 開發** | 前端架構規範 | [清單 I](#清單-i前端元件hook-開發) |
 | **多對多關聯功能** | **Link ID 規範** | [清單 J](#清單-j關聯記錄處理) |
 | **後端 API 開發/返回** | **序列化規範** | [清單 K](#清單-k-api-序列化與資料返回) |
+| **前端 API 呼叫** | **端點常數規範** | [清單 L](#清單-l-api-端點常數使用) |
+| **效能敏感操作** | **效能檢查規範** | [清單 M](#清單-m效能檢查) |
 
 ---
 
@@ -675,6 +677,172 @@ pm2 logs ck-backend --lines 50 | grep -i "serialize\|serialization"
 
 ---
 
+## 清單 L：API 端點常數使用
+
+### 必讀文件
+- [ ] `frontend/src/api/endpoints.ts`（API 端點定義）
+- [ ] `docs/specifications/API_ENDPOINT_CONSISTENCY.md`
+- [ ] `.claude/skills/api-development.md`
+
+### ⚠️ 核心規範：禁止硬編碼 API 路徑
+
+**所有 API 呼叫必須使用 `API_ENDPOINTS` 常數**
+
+```typescript
+// ❌ 禁止：硬編碼路徑
+apiClient.post('/documents-enhanced/list', params);
+apiClient.get('/taoyuan-dispatch/projects/123');
+
+// ✅ 正確：使用集中管理的端點常數
+import { API_ENDPOINTS } from '../api/endpoints';
+apiClient.post(API_ENDPOINTS.DOCUMENTS.LIST, params);
+apiClient.get(`${API_ENDPOINTS.TAOYUAN_DISPATCH.PROJECTS.BASE}/${id}`);
+```
+
+### 端點命名規範
+
+| 類型 | 命名格式 | 範例 |
+|------|---------|------|
+| 列表查詢 | `{ENTITY}.LIST` | `API_ENDPOINTS.DOCUMENTS.LIST` |
+| 單筆查詢 | `{ENTITY}.GET` | `API_ENDPOINTS.DOCUMENTS.GET` |
+| 新增 | `{ENTITY}.CREATE` | `API_ENDPOINTS.PROJECTS.CREATE` |
+| 更新 | `{ENTITY}.UPDATE` | `API_ENDPOINTS.VENDORS.UPDATE` |
+| 刪除 | `{ENTITY}.DELETE` | `API_ENDPOINTS.AGENCIES.DELETE` |
+| 基礎路徑 | `{ENTITY}.BASE` | `API_ENDPOINTS.TAOYUAN_DISPATCH.BASE` |
+
+### 新增端點流程
+
+1. **後端建立 API 端點**
+2. **更新前端 `endpoints.ts`**
+   ```typescript
+   export const API_ENDPOINTS = {
+     NEW_MODULE: {
+       BASE: '/new-module',
+       LIST: '/new-module/list',
+       CREATE: '/new-module/create',
+     }
+   };
+   ```
+3. **在呼叫處使用常數**
+
+### 開發前檢查
+- [ ] 確認需要呼叫的 API 是否已在 `endpoints.ts` 定義
+- [ ] 若無，先更新 `endpoints.ts`
+
+### 開發後檢查
+- [ ] 搜尋硬編碼路徑：
+```bash
+grep -rn "apiClient\.\(get\|post\|put\|delete\).*'/\|\"/" frontend/src/ --include="*.ts" --include="*.tsx" | grep -v "endpoints"
+```
+- [ ] 確認新端點已加入 `API_ENDPOINTS`
+- [ ] TypeScript 編譯通過
+
+---
+
+## 清單 M：效能檢查
+
+### 必讀文件
+- [ ] `.claude/skills/database-performance.md`
+- [ ] `.claude/hooks/performance-check.ps1`
+- [ ] `docs/Architecture_Optimization_Recommendations.md`
+
+### ⚠️ 核心問題：N+1 查詢
+
+**N+1 查詢是最常見的效能問題**
+
+```python
+# ❌ 問題：N+1 查詢
+projects = await db.execute(select(Project))
+for project in projects.scalars():
+    # 每次迭代都發出額外查詢！
+    print(project.vendors)  # N 次額外查詢
+
+# ✅ 正確：使用 selectinload 預載入
+from sqlalchemy.orm import selectinload
+
+stmt = select(Project).options(
+    selectinload(Project.vendors),
+    selectinload(Project.documents)
+)
+projects = await db.execute(stmt)
+for project in projects.scalars():
+    print(project.vendors)  # 無額外查詢
+```
+
+### 強制規範
+
+#### 規範 1：迴圈中禁止 db 查詢
+
+```python
+# ❌ 禁止
+for doc_id in document_ids:
+    doc = await db.execute(select(Document).where(Document.id == doc_id))
+
+# ✅ 正確：批次查詢
+docs = await db.execute(
+    select(Document).where(Document.id.in_(document_ids))
+)
+```
+
+#### 規範 2：列表查詢必須有分頁
+
+```python
+# ❌ 禁止：無限制查詢
+result = await db.execute(select(Document))
+
+# ✅ 正確：使用分頁
+result = await db.execute(
+    select(Document).offset(skip).limit(limit)
+)
+```
+
+#### 規範 3：多層關聯必須明確載入
+
+```python
+# ✅ 多層關聯載入
+stmt = select(TaoyuanDispatchOrder).options(
+    selectinload(TaoyuanDispatchOrder.project_links)
+        .selectinload(TaoyuanDispatchProjectLink.project),
+    selectinload(TaoyuanDispatchOrder.document_links)
+        .selectinload(TaoyuanDispatchDocumentLink.document)
+)
+```
+
+### 效能檢測指令
+
+```bash
+# 執行效能檢查 Hook
+powershell -File .claude/hooks/performance-check.ps1
+
+# 搜尋潛在 N+1 模式
+grep -rn "for .* in.*:" backend/app/api/endpoints/ --include="*.py" -A 5 | grep "await db\."
+
+# 啟用 SQLAlchemy 查詢日誌
+export SQLALCHEMY_ECHO=True
+```
+
+### 效能反模式清單
+
+| 反模式 | 問題 | 解法 |
+|--------|------|------|
+| 迴圈中 db 查詢 | N+1 查詢 | 批次查詢 + IN 子句 |
+| 無分頁 | 載入過多資料 | 加入 limit/offset |
+| SELECT * | 傳輸無用欄位 | 只選取需要的欄位 |
+| 未使用索引 | 全表掃描 | 建立適當索引 |
+| 重複查詢 | 相同資料多次取得 | 快取或變數暫存 |
+
+### 開發前檢查
+- [ ] 確認是否涉及大量資料操作
+- [ ] 確認關聯資料載入策略
+
+### 開發後檢查
+- [ ] 執行 `/performance-check` 指令
+- [ ] 無 N+1 查詢警告
+- [ ] 列表 API 已實作分頁
+- [ ] 多層關聯已使用 selectinload
+
+---
+
 ## 二、通用開發後檢查清單
 
 **所有開發任務完成後，必須執行：**
@@ -760,6 +928,8 @@ cd backend && python -m py_compile app/main.py
 
 | 版本 | 日期 | 說明 |
 |------|------|------|
+| 1.8.0 | 2026-01-22 | **新增清單 L、M**（API 端點常數使用規範、效能檢查規範） |
+| 1.7.0 | 2026-01-22 | 新增 React Hooks 使用規範、批次處理效能優化、避免硬編碼設定值 |
 | 1.6.0 | 2026-01-21 | **新增清單 K - API 序列化與資料返回**（ORM 模型序列化、Schema-DB 類型一致性、欄位名稱檢查） |
 | 1.5.0 | 2026-01-21 | 新增清單 J - 關聯記錄處理規範（link_id vs id 概念區分、禁止回退邏輯、詳細錯誤訊息） |
 | 1.4.0 | 2026-01-21 | 新增清單 I - 前端元件/Hook 開發（Hooks 目錄重組、Repository 層、共用驗證器） |

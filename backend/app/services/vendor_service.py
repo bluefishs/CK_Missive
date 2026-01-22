@@ -2,14 +2,18 @@
 廠商服務層 - 繼承 BaseService 實現標準 CRUD
 
 使用泛型基類減少重複代碼，提供統一的資料庫操作介面。
+
+v2.1.0 (2026-01-22): 重構使用 BaseService 新方法
+- get_vendors_with_search → 使用 get_list_with_search
+- get_total_with_search → 使用 get_count_with_search
+- get_vendor_statistics → 使用 @with_stats_error_handling
 """
 import logging
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_
 
-from app.services.base_service import BaseService
-from app.services.base import QueryHelper, DeleteCheckHelper, StatisticsHelper
+from app.services.base_service import BaseService, with_stats_error_handling
+from app.services.base import DeleteCheckHelper, StatisticsHelper
 from app.extended.models import PartnerVendor, project_vendor_association
 from app.schemas.vendor import VendorCreate, VendorUpdate
 
@@ -23,9 +27,29 @@ class VendorService(BaseService[PartnerVendor, VendorCreate, VendorUpdate]):
     提供廠商相關的 CRUD 操作和業務邏輯。
     """
 
+    # 類別層級設定
+    SEARCH_FIELDS = ['vendor_name', 'vendor_code']
+    DEFAULT_SORT_FIELD = 'vendor_name'
+
     def __init__(self):
         """初始化廠商服務"""
         super().__init__(PartnerVendor, "廠商")
+
+    def _to_dict(self, vendor: PartnerVendor) -> Dict[str, Any]:
+        """將廠商實體轉換為字典"""
+        return {
+            "id": vendor.id,
+            "vendor_name": vendor.vendor_name,
+            "vendor_code": vendor.vendor_code,
+            "contact_person": vendor.contact_person,
+            "phone": vendor.phone,
+            "address": vendor.address,
+            "email": vendor.email,
+            "business_type": vendor.business_type,
+            "rating": vendor.rating,
+            "created_at": vendor.created_at,
+            "updated_at": vendor.updated_at
+        }
 
     # =========================================================================
     # 覆寫方法 - 加入業務邏輯
@@ -101,7 +125,7 @@ class VendorService(BaseService[PartnerVendor, VendorCreate, VendorUpdate]):
         search: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
-        取得廠商列表（含搜尋）
+        取得廠商列表（含搜尋）- 使用 BaseService.get_list_with_search
 
         Args:
             db: 資料庫 session
@@ -112,34 +136,12 @@ class VendorService(BaseService[PartnerVendor, VendorCreate, VendorUpdate]):
         Returns:
             廠商列表（字典格式）
         """
-        query = select(PartnerVendor)
-
-        # 使用 QueryHelper 簡化搜尋
-        helper = QueryHelper(PartnerVendor)
-        query = helper.apply_search(query, search, ['vendor_name', 'vendor_code'])
-        query = helper.apply_sorting(query, 'vendor_name', 'asc', 'vendor_name')
-        query = query.offset(skip).limit(limit)
-
-        result = await db.execute(query)
-        vendors = result.scalars().all()
-
-        # 轉換為字典格式
-        return [
-            {
-                "id": vendor.id,
-                "vendor_name": vendor.vendor_name,
-                "vendor_code": vendor.vendor_code,
-                "contact_person": vendor.contact_person,
-                "phone": vendor.phone,
-                "address": vendor.address,
-                "email": vendor.email,
-                "business_type": vendor.business_type,
-                "rating": vendor.rating,
-                "created_at": vendor.created_at,
-                "updated_at": vendor.updated_at
-            }
-            for vendor in vendors
-        ]
+        return await self.get_list_with_search(
+            db, skip, limit, search,
+            search_fields=self.SEARCH_FIELDS,
+            sort_by=self.DEFAULT_SORT_FIELD,
+            to_dict_func=self._to_dict
+        )
 
     async def get_total_with_search(
         self,
@@ -147,7 +149,7 @@ class VendorService(BaseService[PartnerVendor, VendorCreate, VendorUpdate]):
         search: Optional[str] = None
     ) -> int:
         """
-        取得廠商總數（含搜尋條件）
+        取得廠商總數（含搜尋條件）- 使用 BaseService.get_count_with_search
 
         Args:
             db: 資料庫 session
@@ -156,24 +158,18 @@ class VendorService(BaseService[PartnerVendor, VendorCreate, VendorUpdate]):
         Returns:
             符合條件的廠商總數
         """
-        # 建立子查詢
-        subquery = select(PartnerVendor.id)
+        return await self.get_count_with_search(db, search, self.SEARCH_FIELDS)
 
-        # 使用 QueryHelper 簡化搜尋
-        helper = QueryHelper(PartnerVendor)
-        subquery = helper.apply_search(subquery, search, ['vendor_name', 'vendor_code'])
-
-        # 計算總數
-        query = select(func.count()).select_from(subquery.subquery())
-        result = await db.execute(query)
-        return result.scalar() or 0
-
+    @with_stats_error_handling(
+        default_return={"total_vendors": 0, "business_types": [], "average_rating": 0.0},
+        operation_name="統計資料"
+    )
     async def get_vendor_statistics(
         self,
         db: AsyncSession
     ) -> Dict[str, Any]:
         """
-        取得廠商統計資料
+        取得廠商統計資料 - 使用 @with_stats_error_handling 裝飾器
 
         Args:
             db: 資料庫 session
@@ -181,38 +177,30 @@ class VendorService(BaseService[PartnerVendor, VendorCreate, VendorUpdate]):
         Returns:
             統計資料字典
         """
-        try:
-            # 使用 StatisticsHelper 取得基本統計
-            basic_stats = await StatisticsHelper.get_basic_stats(db, PartnerVendor)
-            total_vendors = basic_stats.get("total", 0)
+        # 使用 StatisticsHelper 取得基本統計
+        basic_stats = await StatisticsHelper.get_basic_stats(db, PartnerVendor)
+        total_vendors = basic_stats.get("total", 0)
 
-            # 使用 StatisticsHelper 取得分組統計
-            grouped_stats = await StatisticsHelper.get_grouped_stats(
-                db, PartnerVendor, 'business_type'
-            )
-            type_stats = [
-                {"business_type": k if k != 'null' else "未分類", "count": v}
-                for k, v in sorted(grouped_stats.items())
-            ]
+        # 使用 StatisticsHelper 取得分組統計
+        grouped_stats = await StatisticsHelper.get_grouped_stats(
+            db, PartnerVendor, 'business_type'
+        )
+        type_stats = [
+            {"business_type": k if k != 'null' else "未分類", "count": v}
+            for k, v in sorted(grouped_stats.items())
+        ]
 
-            # 使用 StatisticsHelper 取得平均評等
-            rating_stats = await StatisticsHelper.get_average_stats(
-                db, PartnerVendor, 'rating'
-            )
-            avg_rating = rating_stats.get("average") or 0.0
+        # 使用 StatisticsHelper 取得平均評等
+        rating_stats = await StatisticsHelper.get_average_stats(
+            db, PartnerVendor, 'rating'
+        )
+        avg_rating = rating_stats.get("average") or 0.0
 
-            return {
-                "total_vendors": total_vendors,
-                "business_types": type_stats,
-                "average_rating": avg_rating
-            }
-        except Exception as e:
-            logger.error(f"取得廠商統計資料失敗: {e}", exc_info=True)
-            return {
-                "total_vendors": 0,
-                "business_types": [],
-                "average_rating": 0.0
-            }
+        return {
+            "total_vendors": total_vendors,
+            "business_types": type_stats,
+            "average_rating": avg_rating
+        }
 
     # =========================================================================
     # 向後相容方法 (逐步淘汰)

@@ -3,6 +3,11 @@
 
 使用泛型基類減少重複代碼，提供統一的資料庫操作介面。
 包含智慧機關匹配功能，支援自動關聯公文與機關。
+
+v2.1.0 (2026-01-22): 重構使用 BaseService 新方法
+- get_agencies_with_search → 使用 get_list_with_search
+- get_total_with_search → 使用 get_count_with_search
+- get_agency_statistics → 使用 @with_stats_error_handling
 """
 import logging
 import re
@@ -10,8 +15,8 @@ from typing import List, Optional, Dict, Any, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc, or_, update
 
-from app.services.base_service import BaseService
-from app.services.base import QueryHelper, DeleteCheckHelper, StatisticsHelper
+from app.services.base_service import BaseService, with_stats_error_handling
+from app.services.base import DeleteCheckHelper, StatisticsHelper
 from app.extended.models import GovernmentAgency, OfficialDocument
 from app.schemas.agency import AgencyCreate, AgencyUpdate
 
@@ -25,9 +30,30 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
     提供機關相關的 CRUD 操作和業務邏輯。
     """
 
+    # 類別層級設定
+    SEARCH_FIELDS = ['agency_name', 'agency_short_name']
+    DEFAULT_SORT_FIELD = 'agency_name'
+
     def __init__(self):
         """初始化機關服務"""
         super().__init__(GovernmentAgency, "機關")
+
+    def _to_dict(self, agency: GovernmentAgency) -> Dict[str, Any]:
+        """將機關實體轉換為字典"""
+        return {
+            "id": agency.id,
+            "agency_name": agency.agency_name,
+            "agency_short_name": agency.agency_short_name,
+            "agency_code": agency.agency_code,
+            "agency_type": agency.agency_type,
+            "contact_person": agency.contact_person,
+            "phone": agency.phone,
+            "email": agency.email,
+            "address": agency.address,
+            "notes": agency.notes,
+            "created_at": agency.created_at,
+            "updated_at": agency.updated_at
+        }
 
     # =========================================================================
     # 覆寫方法 - 加入業務邏輯
@@ -116,7 +142,7 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
         search: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
-        取得機關列表（含搜尋）
+        取得機關列表（含搜尋）- 使用 BaseService.get_list_with_search
 
         Args:
             db: 資料庫 session
@@ -127,35 +153,12 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
         Returns:
             機關列表（字典格式）
         """
-        query = select(GovernmentAgency)
-
-        # 使用 QueryHelper 簡化搜尋
-        helper = QueryHelper(GovernmentAgency)
-        query = helper.apply_search(query, search, ['agency_name', 'agency_short_name'])
-        query = helper.apply_sorting(query, 'agency_name', 'asc', 'agency_name')
-        query = query.offset(skip).limit(limit)
-
-        result = await db.execute(query)
-        agencies = result.scalars().all()
-
-        # 轉換為字典格式
-        return [
-            {
-                "id": agency.id,
-                "agency_name": agency.agency_name,
-                "agency_short_name": agency.agency_short_name,
-                "agency_code": agency.agency_code,
-                "agency_type": agency.agency_type,
-                "contact_person": agency.contact_person,
-                "phone": agency.phone,
-                "email": agency.email,
-                "address": agency.address,
-                "notes": agency.notes,
-                "created_at": agency.created_at,
-                "updated_at": agency.updated_at
-            }
-            for agency in agencies
-        ]
+        return await self.get_list_with_search(
+            db, skip, limit, search,
+            search_fields=self.SEARCH_FIELDS,
+            sort_by=self.DEFAULT_SORT_FIELD,
+            to_dict_func=self._to_dict
+        )
 
     async def get_total_with_search(
         self,
@@ -163,7 +166,7 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
         search: Optional[str] = None
     ) -> int:
         """
-        取得機關總數（含搜尋條件）
+        取得機關總數（含搜尋條件）- 使用 BaseService.get_count_with_search
 
         Args:
             db: 資料庫 session
@@ -172,17 +175,7 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
         Returns:
             符合條件的機關總數
         """
-        # 建立子查詢
-        subquery = select(GovernmentAgency.id)
-
-        # 使用 QueryHelper 簡化搜尋
-        helper = QueryHelper(GovernmentAgency)
-        subquery = helper.apply_search(subquery, search, ['agency_name', 'agency_short_name'])
-
-        # 計算總數
-        query = select(func.count()).select_from(subquery.subquery())
-        result = await db.execute(query)
-        return result.scalar() or 0
+        return await self.get_count_with_search(db, search, self.SEARCH_FIELDS)
 
     async def get_agencies_with_stats(
         self,
@@ -293,12 +286,16 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
             "updated_at": agency.updated_at
         }
 
+    @with_stats_error_handling(
+        default_return={"total_agencies": 0, "categories": []},
+        operation_name="統計資料"
+    )
     async def get_agency_statistics(
         self,
         db: AsyncSession
     ) -> Dict[str, Any]:
         """
-        取得機關統計資料
+        取得機關統計資料 - 使用 @with_stats_error_handling 裝飾器
 
         Args:
             db: 資料庫 session
@@ -306,46 +303,39 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
         Returns:
             統計資料字典
         """
-        try:
-            # 使用 StatisticsHelper 取得基本統計
-            basic_stats = await StatisticsHelper.get_basic_stats(db, GovernmentAgency)
-            total_agencies = basic_stats.get("total", 0)
+        # 使用 StatisticsHelper 取得基本統計
+        basic_stats = await StatisticsHelper.get_basic_stats(db, GovernmentAgency)
+        total_agencies = basic_stats.get("total", 0)
 
-            # 使用 StatisticsHelper 取得分組統計
-            grouped_stats = await StatisticsHelper.get_grouped_stats(
-                db, GovernmentAgency, 'agency_type'
-            )
+        # 使用 StatisticsHelper 取得分組統計
+        grouped_stats = await StatisticsHelper.get_grouped_stats(
+            db, GovernmentAgency, 'agency_type'
+        )
 
-            # 套用分類標準化邏輯
-            category_counts: Dict[str, int] = {}
-            for agency_type, count in grouped_stats.items():
-                # 'null' 代表空值
-                original_type = None if agency_type == 'null' else agency_type
-                category = self._normalize_category(original_type)
-                category_counts[category] = category_counts.get(category, 0) + count
+        # 套用分類標準化邏輯
+        category_counts: Dict[str, int] = {}
+        for agency_type, count in grouped_stats.items():
+            # 'null' 代表空值
+            original_type = None if agency_type == 'null' else agency_type
+            category = self._normalize_category(original_type)
+            category_counts[category] = category_counts.get(category, 0) + count
 
-            # 依照指定順序排序
-            category_order = ['政府機關', '民間企業', '其他單位']
-            categories = []
-            for cat in category_order:
-                cnt = category_counts.get(cat, 0)
-                if cnt > 0:
-                    categories.append({
-                        'category': cat,
-                        'count': cnt,
-                        'percentage': round((cnt / total_agencies * 100), 1) if total_agencies > 0 else 0
-                    })
+        # 依照指定順序排序
+        category_order = ['政府機關', '民間企業', '其他單位']
+        categories = []
+        for cat in category_order:
+            cnt = category_counts.get(cat, 0)
+            if cnt > 0:
+                categories.append({
+                    'category': cat,
+                    'count': cnt,
+                    'percentage': round((cnt / total_agencies * 100), 1) if total_agencies > 0 else 0
+                })
 
-            return {
-                "total_agencies": total_agencies,
-                "categories": categories
-            }
-        except Exception as e:
-            logger.error(f"取得機關統計資料失敗: {e}", exc_info=True)
-            return {
-                "total_agencies": 0,
-                "categories": []
-            }
+        return {
+            "total_agencies": total_agencies,
+            "categories": categories
+        }
 
     def _normalize_category(self, agency_type: Optional[str]) -> str:
         """

@@ -4,9 +4,10 @@ Base Service - 提供 CRUD 操作的基礎類別
 使用泛型支援不同的 Model 和 Schema 類型，減少重複代碼。
 """
 import logging
-from typing import TypeVar, Generic, Optional, List, Dict, Any, Type
+from typing import TypeVar, Generic, Optional, List, Dict, Any, Type, Callable, Union
+from functools import wraps
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, distinct, or_
 from sqlalchemy.sql import Select
 from pydantic import BaseModel
 
@@ -313,3 +314,196 @@ class BaseService(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
 
         self.logger.info(f"批次刪除{self.entity_name}: {deleted_count}/{len(entity_ids)}")
         return deleted_count
+
+    # =========================================================================
+    # 搜尋與篩選方法 (v1.1.0 新增)
+    # =========================================================================
+
+    async def get_list_with_search(
+        self,
+        db: AsyncSession,
+        skip: int = 0,
+        limit: int = 100,
+        search: Optional[str] = None,
+        search_fields: Optional[List[str]] = None,
+        sort_by: Optional[str] = None,
+        sort_order: str = 'asc',
+        to_dict_func: Optional[Callable[[ModelType], Dict]] = None
+    ) -> List[Union[ModelType, Dict[str, Any]]]:
+        """
+        通用搜尋列表方法
+
+        整合搜尋、排序、分頁功能，減少子類重複代碼。
+
+        Args:
+            db: 資料庫 session
+            skip: 跳過筆數
+            limit: 取得筆數
+            search: 搜尋關鍵字（可選）
+            search_fields: 搜尋欄位名稱列表（search 非空時必填）
+            sort_by: 排序欄位
+            sort_order: 排序方向 ('asc' 或 'desc')
+            to_dict_func: 將實體轉換為字典的函數（可選）
+
+        Returns:
+            實體列表或字典列表
+
+        Example:
+            async def get_vendors_with_search(self, db, skip=0, limit=100, search=None):
+                return await self.get_list_with_search(
+                    db, skip, limit, search,
+                    search_fields=['vendor_name', 'vendor_code'],
+                    sort_by='vendor_name',
+                    to_dict_func=lambda v: {"id": v.id, "vendor_name": v.vendor_name}
+                )
+        """
+        query = select(self.model)
+
+        # 應用搜尋條件
+        if search and search_fields:
+            search_pattern = f"%{search}%"
+            conditions = []
+            for field_name in search_fields:
+                field = getattr(self.model, field_name, None)
+                if field is not None:
+                    conditions.append(field.ilike(search_pattern))
+            if conditions:
+                query = query.where(or_(*conditions))
+
+        # 應用排序
+        if sort_by:
+            sort_column = getattr(self.model, sort_by, self.model.id)
+            if sort_order.lower() == 'desc':
+                query = query.order_by(sort_column.desc())
+            else:
+                query = query.order_by(sort_column.asc())
+
+        # 應用分頁
+        query = query.offset(skip).limit(limit)
+
+        result = await db.execute(query)
+        items = result.scalars().all()
+
+        # 轉換為字典（如果提供了轉換函數）
+        if to_dict_func:
+            return [to_dict_func(item) for item in items]
+
+        return list(items)
+
+    async def get_count_with_search(
+        self,
+        db: AsyncSession,
+        search: Optional[str] = None,
+        search_fields: Optional[List[str]] = None
+    ) -> int:
+        """
+        通用搜尋計數方法
+
+        Args:
+            db: 資料庫 session
+            search: 搜尋關鍵字（可選）
+            search_fields: 搜尋欄位名稱列表（search 非空時必填）
+
+        Returns:
+            符合條件的資料總數
+
+        Example:
+            async def get_total_with_search(self, db, search=None):
+                return await self.get_count_with_search(
+                    db, search, search_fields=['vendor_name', 'vendor_code']
+                )
+        """
+        subquery = select(self.model.id)
+
+        # 應用搜尋條件
+        if search and search_fields:
+            search_pattern = f"%{search}%"
+            conditions = []
+            for field_name in search_fields:
+                field = getattr(self.model, field_name, None)
+                if field is not None:
+                    conditions.append(field.ilike(search_pattern))
+            if conditions:
+                subquery = subquery.where(or_(*conditions))
+
+        query = select(func.count()).select_from(subquery.subquery())
+        result = await db.execute(query)
+        return result.scalar() or 0
+
+    async def get_distinct_options(
+        self,
+        db: AsyncSession,
+        field_name: str,
+        sort_order: str = 'asc',
+        exclude_null: bool = True
+    ) -> List[Any]:
+        """
+        取得欄位的去重值（用於下拉選單選項）
+
+        Args:
+            db: 資料庫 session
+            field_name: 欄位名稱
+            sort_order: 排序方向 ('asc' 或 'desc')
+            exclude_null: 是否排除 NULL 值（預設 True）
+
+        Returns:
+            去重後的值列表
+
+        Example:
+            async def get_year_options(self, db):
+                return await self.get_distinct_options(db, 'year', sort_order='desc')
+        """
+        field = getattr(self.model, field_name, None)
+        if field is None:
+            self.logger.warning(f"欄位 {field_name} 不存在於 {self.model.__name__}")
+            return []
+
+        query = select(distinct(field))
+
+        if exclude_null:
+            query = query.where(field.isnot(None))
+
+        if sort_order.lower() == 'desc':
+            query = query.order_by(field.desc())
+        else:
+            query = query.order_by(field)
+
+        result = await db.execute(query)
+        return [row[0] for row in result.fetchall() if row[0] is not None]
+
+
+def with_stats_error_handling(
+    default_return: Dict[str, Any],
+    operation_name: str = "statistics"
+):
+    """
+    統計方法的標準化異常處理裝飾器
+
+    自動包裝 try/except，記錄錯誤日誌，並返回預設值。
+
+    Args:
+        default_return: 發生錯誤時返回的預設值
+        operation_name: 操作名稱（用於日誌）
+
+    Example:
+        @with_stats_error_handling(
+            default_return={"total": 0, "items": []},
+            operation_name="vendor statistics"
+        )
+        async def get_vendor_statistics(self, db: AsyncSession) -> Dict[str, Any]:
+            # 實作統計邏輯，無需 try/except
+            ...
+    """
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        async def wrapper(self, db: AsyncSession, *args, **kwargs):
+            try:
+                return await func(self, db, *args, **kwargs)
+            except Exception as e:
+                self.logger.error(
+                    f"取得{self.entity_name} {operation_name}失敗: {e}",
+                    exc_info=True
+                )
+                return default_return.copy()
+        return wrapper
+    return decorator
