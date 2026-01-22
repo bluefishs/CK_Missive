@@ -112,3 +112,7 @@ frontend/src/types/generated/api.d.ts
 
 # Temporary nav items file
 **/nav_items.json
+
+# Temporary data extraction files
+backend/sheet*.txt
+openapi_temp*.json

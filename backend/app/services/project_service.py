@@ -1,6 +1,10 @@
 """
 Service layer for Contract Project operations
 
+v3.1 - 2026-01-22
+- 重構: 選項查詢方法改用 BaseService.get_distinct_options
+- 減少 ~40 行重複代碼
+
 v3.0 - 2026-01-19
 - 重構: 繼承 BaseService 泛型基類
 - 統一 CRUD 操作介面
@@ -356,52 +360,13 @@ class ProjectService(BaseService[ContractProject, ProjectCreate, ProjectUpdate])
     # =========================================================================
 
     async def get_year_options(self, db: AsyncSession) -> List[int]:
-        """
-        取得所有專案年度選項
-
-        Args:
-            db: 資料庫 session
-
-        Returns:
-            年度列表（降序排列）
-        """
-        query = select(distinct(ContractProject.year)).where(
-            ContractProject.year.isnot(None)
-        ).order_by(ContractProject.year.desc())
-
-        result = await db.execute(query)
-        return [row[0] for row in result.fetchall()]
+        """取得所有專案年度選項（降序排列）- 使用 BaseService.get_distinct_options"""
+        return await self.get_distinct_options(db, 'year', sort_order='desc')
 
     async def get_category_options(self, db: AsyncSession) -> List[str]:
-        """
-        取得所有專案類別選項
-
-        Args:
-            db: 資料庫 session
-
-        Returns:
-            類別列表（升序排列）
-        """
-        query = select(distinct(ContractProject.category)).where(
-            ContractProject.category.isnot(None)
-        ).order_by(ContractProject.category)
-
-        result = await db.execute(query)
-        return [row[0] for row in result.fetchall()]
+        """取得所有專案類別選項（升序排列）- 使用 BaseService.get_distinct_options"""
+        return await self.get_distinct_options(db, 'category', sort_order='asc')
 
     async def get_status_options(self, db: AsyncSession) -> List[str]:
-        """
-        取得所有專案狀態選項
-
-        Args:
-            db: 資料庫 session
-
-        Returns:
-            狀態列表（升序排列）
-        """
-        query = select(distinct(ContractProject.status)).where(
-            ContractProject.status.isnot(None)
-        ).order_by(ContractProject.status)
-
-        result = await db.execute(query)
-        return [row[0] for row in result.fetchall()]
+        """取得所有專案狀態選項（升序排列）- 使用 BaseService.get_distinct_options"""
+        return await self.get_distinct_options(db, 'status', sort_order='asc')
