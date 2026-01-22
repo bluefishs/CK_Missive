@@ -451,13 +451,18 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) =
                   </Table.Summary.Cell>
                 </React.Fragment>
               ))}
-              {/* 金額合計 */}
+              {/* 金額合計 - 本次派工總金額欄位留空（個別金額已在各列顯示） */}
               <Table.Summary.Cell index={16} align="right">
+                <Text strong style={{ color: '#1890ff' }}>
+                  {formatAmount(Object.values(workTypeTotals).reduce((a, b) => a + b, 0))}
+                </Text>
+              </Table.Summary.Cell>
+              {/* 累進派工金額 - 顯示累計總金額 */}
+              <Table.Summary.Cell index={17} align="right">
                 <Text strong style={{ color: '#1890ff' }}>
                   {formatAmount(totalDispatched)}
                 </Text>
               </Table.Summary.Cell>
-              <Table.Summary.Cell index={17}>-</Table.Summary.Cell>
               <Table.Summary.Cell index={18} align="right">
                 <Text type={totalRemaining < 1000000 ? 'warning' : undefined}>
                   {formatAmount(totalRemaining)}

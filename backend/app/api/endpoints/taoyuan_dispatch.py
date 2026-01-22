@@ -1889,32 +1889,44 @@ async def get_payment_control(
         current_amount = 0
         payment_data = {}
 
+        # 解析作業類別，判斷公文日期應顯示在哪個欄位
+        # work_type 格式如 "07.辦理教育訓練" 或 "01.地上物查估"
+        work_type_code = None
+        if order.work_type:
+            # 提取作業類別代碼 (01~07)
+            import re
+            match = re.match(r'^(\d{2})\.', order.work_type)
+            if match:
+                work_type_code = match.group(1)
+
         if payment:
             current_amount = float(payment.current_amount or 0)
-            # 當作業類別派工日期為空時，使用機關來函日期(dispatch_date)作為預設值
+            # 只有對應作業類別的日期欄位才使用 dispatch_date 作為預設值
             payment_data = {
                 'payment_id': payment.id,
-                'work_01_date': payment.work_01_date or dispatch_date,
+                'work_01_date': payment.work_01_date or (dispatch_date if work_type_code == '01' else None),
                 'work_01_amount': payment.work_01_amount,
-                'work_02_date': payment.work_02_date or dispatch_date,
+                'work_02_date': payment.work_02_date or (dispatch_date if work_type_code == '02' else None),
                 'work_02_amount': payment.work_02_amount,
-                'work_03_date': payment.work_03_date or dispatch_date,
+                'work_03_date': payment.work_03_date or (dispatch_date if work_type_code == '03' else None),
                 'work_03_amount': payment.work_03_amount,
-                'work_04_date': payment.work_04_date or dispatch_date,
+                'work_04_date': payment.work_04_date or (dispatch_date if work_type_code == '04' else None),
                 'work_04_amount': payment.work_04_amount,
-                'work_05_date': payment.work_05_date or dispatch_date,
+                'work_05_date': payment.work_05_date or (dispatch_date if work_type_code == '05' else None),
                 'work_05_amount': payment.work_05_amount,
-                'work_06_date': payment.work_06_date or dispatch_date,
+                'work_06_date': payment.work_06_date or (dispatch_date if work_type_code == '06' else None),
                 'work_06_amount': payment.work_06_amount,
-                'work_07_date': payment.work_07_date or dispatch_date,
+                'work_07_date': payment.work_07_date or (dispatch_date if work_type_code == '07' else None),
                 'work_07_amount': payment.work_07_amount,
                 'current_amount': payment.current_amount,
                 'acceptance_date': payment.acceptance_date,
             }
         else:
-            # 沒有契金記錄時，若有金額相關的作業類別，也使用 dispatch_date
-            # (此情況通常不會有金額，但日期應該顯示)
-            payment_data = {}
+            # 沒有契金記錄時，根據作業類別設定對應的日期欄位
+            if work_type_code and dispatch_date:
+                payment_data = {
+                    f'work_{work_type_code}_date': dispatch_date
+                }
 
         # 計算累進金額和剩餘金額
         running_total += current_amount
