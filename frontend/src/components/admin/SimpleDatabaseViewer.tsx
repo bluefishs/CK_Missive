@@ -359,7 +359,7 @@ export const SimpleDatabaseViewer: React.FC = () => {
                         <div style={{ padding: '16px', background: '#fafafa' }}>
                           <Row gutter={[16, 16]}>
                             <Col span={8}>
-                              <Card size="small" title="主要欄位" headStyle={{ background: '#e6f7ff' }}>
+                              <Card size="small" title="主要欄位" styles={{ header: { background: '#e6f7ff' } }}>
                                 <Space wrap>
                                   {record.main_fields.map((field: string, index: number) => (
                                     <Tag key={index} color="cyan" style={{ margin: '2px' }}>
@@ -371,7 +371,7 @@ export const SimpleDatabaseViewer: React.FC = () => {
                               </Card>
                             </Col>
                             <Col span={8}>
-                              <Card size="small" title="API 端點詳情" headStyle={{ background: '#f6ffed' }}>
+                              <Card size="small" title="API 端點詳情" styles={{ header: { background: '#f6ffed' } }}>
                                 <Space direction="vertical" size="small" style={{ width: '100%' }}>
                                   {record.api_endpoints.map((api: string, index: number) => (
                                     <Tag key={index} color="green" style={{ width: '100%', textAlign: 'left' }}>
@@ -383,7 +383,7 @@ export const SimpleDatabaseViewer: React.FC = () => {
                               </Card>
                             </Col>
                             <Col span={8}>
-                              <Card size="small" title="關聯頁面" headStyle={{ background: '#fff7e6' }}>
+                              <Card size="small" title="關聯頁面" styles={{ header: { background: '#fff7e6' } }}>
                                 <Space direction="vertical" size="small" style={{ width: '100%' }}>
                                   {record.frontend_pages.map((page: string, index: number) => (
                                     <Tag key={index} color="blue" style={{ width: '100%', textAlign: 'left' }}>
@@ -468,7 +468,7 @@ export const SimpleDatabaseViewer: React.FC = () => {
           <Col span={8} key={category}>
             <Card
               title={getCategoryDisplayName(category)}
-              headStyle={{ background: getCategoryColor(category), color: 'white' }}
+              styles={{ header: { background: getCategoryColor(category), color: 'white' } }}
               size="small"
             >
               <Space direction="vertical" style={{ width: '100%' }}>
