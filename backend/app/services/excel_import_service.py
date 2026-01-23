@@ -51,6 +51,7 @@ class ExcelImportService(ImportBaseService):
         '發文單位': 'sender',
         '受文單位': 'receiver',
         '備註': 'notes',
+        '簡要說明(乾坤備註)': 'ck_note',
         '狀態': 'status',
         '承攬案件': 'contract_project_name',
     }
@@ -470,6 +471,7 @@ class ExcelImportService(ImportBaseService):
             'contract_project_id': contract_project_id,
             'delivery_method': self.clean_string(row_data.get('發文形式')) or '紙本郵寄',
             'notes': self.clean_string(row_data.get('備註')),
+            'ck_note': self.clean_string(row_data.get('簡要說明(乾坤備註)')),
             'status': self.clean_string(row_data.get('狀態')) or 'active',
         }
 

@@ -251,13 +251,14 @@ class DocumentService:
             logger.debug(f"[篩選] 套用 doc_number 專用篩選: {doc_number_filter}")
             query = query.where(Document.doc_number.ilike(doc_num_kw))
 
-        # 關鍵字搜尋（主旨、說明、備註 - 不包含 doc_number）
+        # 關鍵字搜尋（主旨、說明、備註、簡要說明 - 不包含 doc_number）
         if effective_keyword:
             kw = f"%{effective_keyword}%"
             query = query.where(or_(
                 Document.subject.ilike(kw),
                 Document.content.ilike(kw),
-                Document.notes.ilike(kw)
+                Document.notes.ilike(kw),
+                Document.ck_note.ilike(kw)  # 簡要說明(乾坤備註)
             ))
 
         # 收發文分類篩選

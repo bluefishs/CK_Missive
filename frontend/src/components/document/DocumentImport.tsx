@@ -236,9 +236,34 @@ export const DocumentImport: React.FC<DocumentImportProps> = ({
     return false;
   };
 
-  // 下載 Excel 範本
-  const handleDownloadTemplate = () => {
-    window.open(`${API_BASE_URL}/documents-enhanced/import/excel/template`, '_blank');
+  // 下載 Excel 範本（使用 POST 方法，符合資安規範）
+  const handleDownloadTemplate = async () => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/documents-enhanced/import/excel/template`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('下載範本失敗');
+      }
+
+      // 取得檔案並下載
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = '公文匯入範本.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('下載範本失敗:', error);
+    }
   };
 
   // 渲染預覽結果

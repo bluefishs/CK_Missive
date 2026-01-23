@@ -140,7 +140,7 @@ async def download_excel_template():
     try:
         import pandas as pd
 
-        # 建立範本資料（欄位順序與匯出一致：19 欄）
+        # 建立範本資料（欄位順序與匯出一致：20 欄）
         template_data = [
             {
                 "公文ID": "",  # 空白=新增
@@ -158,6 +158,7 @@ async def download_excel_template():
                 "受文單位": "乾坤測繪科技有限公司",
                 "附件紀錄": "",  # 僅供參考，匯入忽略
                 "備註": "",
+                "簡要說明(乾坤備註)": "",  # 內部備註，匯入時對應 ck_note 欄位
                 "狀態": "active",
                 "承攬案件": "",
                 "建立時間": "",  # 系統自動
