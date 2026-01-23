@@ -1809,14 +1809,14 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
       renderDocumentsTab()
     ),
     createTabItem(
-      'projects',
-      { icon: <ProjectOutlined />, text: '工程關聯', count: dispatch?.linked_projects?.length || 0 },
-      renderProjectsTab()
-    ),
-    createTabItem(
       'attachments',
       { icon: <PaperClipOutlined />, text: '派工附件', count: attachments?.length || 0 },
       renderAttachmentsTab()
+    ),
+    createTabItem(
+      'projects',
+      { icon: <ProjectOutlined />, text: '工程關聯', count: dispatch?.linked_projects?.length || 0 },
+      renderProjectsTab()
     ),
   ];
 
