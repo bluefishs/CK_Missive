@@ -55,6 +55,7 @@ import {
   FileImageOutlined,
   LoadingOutlined,
   DollarOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -1205,6 +1206,38 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
     return <FileOutlined style={{ fontSize: 24, color: '#1890ff' }} />;
   };
 
+  // 判斷檔案是否可預覽
+  const isPreviewable = (mimeType?: string, filename?: string): boolean => {
+    // 根據 MIME type 判斷
+    if (mimeType) {
+      if (mimeType.startsWith('image/') ||
+          mimeType === 'application/pdf' ||
+          mimeType.startsWith('text/')) {
+        return true;
+      }
+    }
+    // 根據副檔名判斷
+    if (filename) {
+      const ext = filename.toLowerCase().split('.').pop();
+      return ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'txt', 'csv'].includes(ext || '');
+    }
+    return false;
+  };
+
+  // 預覽附件
+  const handlePreview = async (attachmentId: number, filename: string) => {
+    try {
+      const blob = await dispatchAttachmentsApi.getAttachmentBlob(attachmentId);
+      const previewUrl = window.URL.createObjectURL(blob);
+      window.open(previewUrl, '_blank');
+      // 10 秒後釋放記憶體
+      setTimeout(() => window.URL.revokeObjectURL(previewUrl), 10000);
+    } catch (error) {
+      console.error('預覽附件失敗:', error);
+      message.error(`預覽 ${filename} 失敗`);
+    }
+  };
+
   // 驗證檔案
   const validateFile = (file: File): { valid: boolean; message?: string } => {
     const maxSize = 50 * 1024 * 1024; // 50MB
@@ -1245,8 +1278,8 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
 
     return (
       <Spin spinning={isLoading}>
-        {/* 上傳區塊 */}
-        {canEdit && (
+        {/* 上傳區塊（僅編輯模式顯示）*/}
+        {isEditing && (
           <Card size="small" style={{ marginBottom: 16 }} title="上傳附件">
             <Dragger {...uploadProps} disabled={uploading}>
               <p className="ant-upload-drag-icon">
@@ -1365,6 +1398,21 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
               renderItem={(item: DispatchAttachment) => (
                 <List.Item
                   actions={[
+                    // 預覽按鈕（僅支援 PDF/圖片/文字檔）
+                    isPreviewable(item.mime_type, item.original_name || item.file_name) && (
+                      <Button
+                        key="preview"
+                        type="link"
+                        size="small"
+                        icon={<EyeOutlined />}
+                        style={{ color: '#52c41a' }}
+                        onClick={() =>
+                          handlePreview(item.id, item.original_name || item.file_name)
+                        }
+                      >
+                        預覽
+                      </Button>
+                    ),
                     <Button
                       key="download"
                       type="link"
@@ -1379,12 +1427,14 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
                     >
                       下載
                     </Button>,
-                    canEdit && (
+                    isEditing && (
                       <Popconfirm
                         key="delete"
                         title="確定要刪除此附件嗎？"
+                        description="刪除後無法復原，請確認是否繼續？"
                         onConfirm={() => deleteAttachmentMutation.mutate(item.id)}
-                        okText="確定"
+                        okText="確定刪除"
+                        okButtonProps={{ danger: true }}
                         cancelText="取消"
                       >
                         <Button
@@ -1415,7 +1465,7 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
             />
           </Card>
         ) : (
-          !canEdit && (
+          !isEditing && (
             <Empty description="此派工單尚無附件" image={Empty.PRESENTED_IMAGE_SIMPLE} />
           )
         )}
