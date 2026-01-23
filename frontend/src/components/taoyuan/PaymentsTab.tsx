@@ -34,8 +34,7 @@ import {
   DownloadOutlined,
   RightOutlined,
 } from '@ant-design/icons';
-import { useResponsive } from '../../hooks';
-import { useQuery } from '@tanstack/react-query';
+import { useResponsive, useTaoyuanPaymentControl } from '../../hooks';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnGroupType, ColumnType } from 'antd/es/table';
 import dayjs from 'dayjs';
@@ -83,19 +82,16 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) =
   // RWD 響應式
   const { isMobile } = useResponsive();
 
+  // 使用集中的 Hook 查詢契金管控資料
   const {
-    data: controlData,
+    items,
+    totalBudget,
+    totalDispatched,
     isLoading,
     refetch,
-  } = useQuery({
-    queryKey: ['payment-control', contractProjectId],
-    queryFn: () => contractPaymentsApi.getControlList(contractProjectId),
-  });
+  } = useTaoyuanPaymentControl(contractProjectId);
 
-  const items = controlData?.items ?? [];
-  const totalBudget = controlData?.total_budget ?? 9630000;
-  const totalDispatched = controlData?.total_dispatched ?? 0;
-  const totalRemaining = totalBudget - totalDispatched;
+  const totalRemaining = (totalBudget || 9630000) - totalDispatched;
 
   // 建立表格欄位
   const columns: (ColumnGroupType<PaymentControlItem> | ColumnType<PaymentControlItem>)[] = useMemo(() => {
@@ -133,28 +129,74 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) =
     // 7 種作業類別欄位群組
     const workTypeColumnGroups: ColumnGroupType<PaymentControlItem>[] = WORK_TYPE_COLUMNS.map(
       (workType) => ({
-        title: workType.label,
+        title: <span style={{ fontWeight: 600, color: '#262626' }}>{workType.label}</span>,
         key: workType.key,
+        align: 'center' as const,
+        onHeaderCell: () => ({
+          style: {
+            background: workType.color,
+            textAlign: 'center',
+            fontWeight: 600,
+            padding: '8px 4px',
+          },
+        }),
         children: [
           {
             title: '派工日期',
             dataIndex: workType.dateField,
             key: `${workType.key}_date`,
-            width: 72,
+            width: 76,
             align: 'center' as const,
-            onCell: () => ({ style: { background: workType.color, fontSize: 11, padding: '4px 2px' } }),
-            onHeaderCell: () => ({ style: { background: workType.color, fontSize: 10, padding: '4px 2px' } }),
-            render: (val: string | null) => formatDate(val),
+            onCell: () => ({
+              style: {
+                background: workType.color,
+                fontSize: 12,
+                padding: '6px 4px',
+                textAlign: 'center',
+              },
+            }),
+            onHeaderCell: () => ({
+              style: {
+                background: workType.color,
+                fontSize: 11,
+                padding: '6px 4px',
+                textAlign: 'center',
+                fontWeight: 500,
+              },
+            }),
+            render: (val: string | null) => (
+              <span style={{ color: val ? '#595959' : '#bfbfbf' }}>
+                {formatDate(val)}
+              </span>
+            ),
           },
           {
             title: '派工金額',
             dataIndex: workType.amountField,
             key: `${workType.key}_amount`,
-            width: 78,
+            width: 82,
             align: 'right' as const,
-            onCell: () => ({ style: { background: workType.color, fontSize: 11, padding: '4px 4px' } }),
-            onHeaderCell: () => ({ style: { background: workType.color, fontSize: 10, padding: '4px 2px' } }),
-            render: (val: number | null) => formatAmount(val),
+            onCell: () => ({
+              style: {
+                background: workType.color,
+                fontSize: 12,
+                padding: '6px 6px',
+              },
+            }),
+            onHeaderCell: () => ({
+              style: {
+                background: workType.color,
+                fontSize: 11,
+                padding: '6px 4px',
+                textAlign: 'center',
+                fontWeight: 500,
+              },
+            }),
+            render: (val: number | null) => (
+              <span style={{ color: val ? '#1890ff' : '#bfbfbf', fontWeight: val ? 500 : 400 }}>
+                {formatAmount(val)}
+              </span>
+            ),
           },
         ],
       })
@@ -481,24 +523,32 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) =
           <Row gutter={[8, 8]}>
             {WORK_TYPE_COLUMNS.map((wt) => (
               <Col key={wt.key} xs={12} sm={6} md={3}>
-                <Card size="small" style={{ background: wt.color }}>
-                  <Statistic
-                    title={<Text style={{ fontSize: 11 }}>{wt.label}</Text>}
-                    value={workTypeTotals[wt.key] || 0}
-                    precision={0}
-                    valueStyle={{ fontSize: 14 }}
-                  />
+                <Card
+                  size="small"
+                  style={{ background: wt.color, textAlign: 'center' }}
+                  styles={{ body: { padding: '8px 12px' } }}
+                >
+                  <div style={{ fontSize: 11, color: '#595959', marginBottom: 4 }}>
+                    {wt.label}
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 600, color: '#262626' }}>
+                    {formatAmount(workTypeTotals[wt.key]) || '0'}
+                  </div>
                 </Card>
               </Col>
             ))}
             <Col xs={12} sm={6} md={3}>
-              <Card size="small" style={{ background: '#fffbe6' }}>
-                <Statistic
-                  title={<Text style={{ fontSize: 11 }}>合計</Text>}
-                  value={Object.values(workTypeTotals).reduce((a, b) => a + b, 0)}
-                  precision={0}
-                  valueStyle={{ fontSize: 14, color: '#1890ff' }}
-                />
+              <Card
+                size="small"
+                style={{ background: '#fffbe6', textAlign: 'center', borderColor: '#faad14' }}
+                styles={{ body: { padding: '8px 12px' } }}
+              >
+                <div style={{ fontSize: 11, color: '#595959', marginBottom: 4 }}>
+                  合計
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: '#1890ff' }}>
+                  {formatAmount(Object.values(workTypeTotals).reduce((a, b) => a + b, 0))}
+                </div>
               </Card>
             </Col>
           </Row>
