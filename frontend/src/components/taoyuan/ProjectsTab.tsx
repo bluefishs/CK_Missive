@@ -38,14 +38,13 @@ import {
   SendOutlined,
   RightOutlined,
 } from '@ant-design/icons';
-import { useQuery } from '@tanstack/react-query';
 import type { ColumnsType } from 'antd/es/table';
 import Highlighter from 'react-highlight-words';
 
 import { taoyuanProjectsApi } from '../../api/taoyuanDispatchApi';
 import type { TaoyuanProject, ProjectDispatchLinkItem, ProjectDocumentLinkItem } from '../../types/api';
 import { useTableColumnSearch } from '../../hooks/utility/useTableColumnSearch';
-import { useResponsive } from '../../hooks';
+import { useResponsive, useTaoyuanProjects } from '../../hooks';
 import {
   DISTRICT_OPTIONS,
   CASE_TYPE_OPTIONS,
@@ -87,22 +86,16 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({ contractProjectId }) =
     getColumnSearchProps,
   } = useTableColumnSearch<TaoyuanProject>();
 
-  // 查詢工程列表
+  // 查詢工程列表 - 使用集中的 Hook
   const {
-    data: projectsData,
+    projects,
     isLoading,
     refetch,
-  } = useQuery({
-    queryKey: ['taoyuan-projects', contractProjectId, searchText],
-    queryFn: () =>
-      taoyuanProjectsApi.getList({
-        contract_project_id: contractProjectId,
-        search: searchText || undefined,
-        limit: 100,
-      }),
+  } = useTaoyuanProjects({
+    contract_project_id: contractProjectId,
+    search: searchText || undefined,
+    limit: 100,
   });
-
-  const projects = projectsData?.items ?? [];
 
   // 導航到新增工程頁面
   const handleCreate = () => {
@@ -376,6 +369,13 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({ contractProjectId }) =
           <Search
             placeholder={isMobile ? '搜尋工程...' : '搜尋工程名稱、承辦人'}
             allowClear
+            value={searchText}
+            onChange={(e) => {
+              const val = e.target.value;
+              setSearchText(val);
+              // 清空時立即觸發（allowClear 點擊時 value 會變成空字串）
+              if (!val) setSearchText('');
+            }}
             onSearch={setSearchText}
             style={{ width: '100%' }}
             size={isMobile ? 'middle' : 'middle'}

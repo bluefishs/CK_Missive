@@ -39,14 +39,13 @@ import {
   PaperClipOutlined,
   RightOutlined,
 } from '@ant-design/icons';
-import { useQuery } from '@tanstack/react-query';
 import type { ColumnsType } from 'antd/es/table';
 import Highlighter from 'react-highlight-words';
 
 import { dispatchOrdersApi } from '../../api/taoyuanDispatchApi';
 import type { DispatchOrder } from '../../types/api';
 import { useTableColumnSearch } from '../../hooks/utility/useTableColumnSearch';
-import { useResponsive } from '../../hooks';
+import { useResponsive, useTaoyuanDispatchOrders } from '../../hooks';
 import { WORK_TYPE_OPTIONS } from '../../constants/taoyuanOptions';
 
 const { Text } = Typography;
@@ -76,21 +75,16 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
     getColumnSearchProps,
   } = useTableColumnSearch<DispatchOrder>();
 
+  // 使用集中的 Hook 查詢派工紀錄
   const {
-    data: ordersData,
+    dispatchOrders: orders,
     isLoading,
     refetch,
-  } = useQuery({
-    queryKey: ['dispatch-orders', contractProjectId, searchText],
-    queryFn: () =>
-      dispatchOrdersApi.getList({
-        contract_project_id: contractProjectId,
-        search: searchText || undefined,
-        limit: 100,
-      }),
+  } = useTaoyuanDispatchOrders({
+    contract_project_id: contractProjectId,
+    search: searchText || undefined,
+    limit: 100,
   });
-
-  const orders = ordersData?.items ?? [];
 
   // 導航到新增派工單頁面
   const handleCreate = () => {
@@ -460,6 +454,13 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
           <Search
             placeholder={isMobile ? '搜尋派工單...' : '搜尋派工單號、工程名稱'}
             allowClear
+            value={searchText}
+            onChange={(e) => {
+              const val = e.target.value;
+              setSearchText(val);
+              // 清空時立即觸發（allowClear 點擊時 value 會變成空字串）
+              if (!val) setSearchText('');
+            }}
             onSearch={setSearchText}
             style={{ width: '100%' }}
             size={isMobile ? 'middle' : 'middle'}
