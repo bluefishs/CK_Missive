@@ -94,7 +94,7 @@ export const DetailPageLayout: React.FC<DetailPageLayoutProps> = ({
       <DetailPageHeader {...header} />
 
       {/* Tab 分頁內容 */}
-      <Card bodyStyle={{ padding: isMobile ? 12 : 24 }}>
+      <Card styles={{ body: { padding: isMobile ? 12 : 24 } }}>
         <Tabs
           activeKey={activeTab}
           onChange={handleTabChange}
