@@ -336,10 +336,14 @@ const ListPage: React.FC = () => {
 | 廠商列表 | `components/vendor/VendorList.tsx` | ✅ 完成 | 2026-01-09 |
 | 機關管理 | `pages/AgenciesPage.tsx` | ✅ 完成 | 2026-01-22 |
 | 案件管理 | `pages/ContractCasePage.tsx` | ✅ 完成 | 2026-01-22 |
-| 承辦同仁 | `pages/StaffPage.tsx` | ✅ 完成 | 2026-01-22 |
+| 承辦同仁列表 | `pages/StaffPage.tsx` | ✅ 完成 | 2026-01-22 |
+| 承辦同仁詳情 | `pages/StaffDetailPage.tsx` | ✅ 完成 | 2026-01-22 |
 | 桃園派工 | `pages/TaoyuanDispatchPage.tsx` | ✅ 完成 | 2026-01-22 |
 | 詳情頁佈局 | `components/common/DetailPage/DetailPageLayout.tsx` | ✅ 完成 | 2026-01-22 |
 | 詳情頁標題 | `components/common/DetailPage/DetailPageHeader.tsx` | ✅ 完成 | 2026-01-22 |
+| 使用者管理 | `pages/UserManagementPage.tsx` | ✅ 完成 | 2026-01-22 |
+| 登入頁面 | `pages/LoginPage.tsx` | ✅ 完成 | 2026-01-22 |
+| 個人設定 | `pages/ProfilePage.tsx` | ✅ 完成 | 2026-01-22 |
 
 ---
 
@@ -348,11 +352,11 @@ const ListPage: React.FC = () => {
 ### 優先級 1 (核心頁面)
 - [x] 專案管理頁面 (`ContractCasePage.tsx`) - 已完成
 - [x] 機關管理頁面 (`AgenciesPage.tsx`) - 已完成
-- [ ] 使用者管理頁面 (`UserManagementPage.tsx`)
+- [x] 使用者管理頁面 (`UserManagementPage.tsx`) - 已完成
 
 ### 優先級 2 (次要頁面)
-- [ ] 登入頁面 (`LoginPage.tsx`)
-- [ ] 個人設定頁面 (`ProfilePage.tsx`)
+- [x] 登入頁面 (`LoginPage.tsx`) - 已完成
+- [x] 個人設定頁面 (`ProfilePage.tsx`) - 已完成
 - [ ] 報表頁面 (`ReportsPage.tsx`)
 
 ---

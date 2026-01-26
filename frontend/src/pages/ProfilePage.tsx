@@ -15,10 +15,10 @@ import {
   Tag
 } from 'antd';
 import { logger } from '../utils/logger';
-import { 
-  UserOutlined, 
-  MailOutlined, 
-  LockOutlined, 
+import {
+  UserOutlined,
+  MailOutlined,
+  LockOutlined,
   GoogleOutlined,
   EditOutlined,
   KeyOutlined
@@ -26,6 +26,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
 import { API_BASE_URL } from '../api/client';
+import { useResponsive } from '../hooks';
 
 const { Title, Text } = Typography;
 
@@ -61,6 +62,10 @@ export const ProfilePage = () => {
   const [passwordModalVisible, setPasswordModalVisible] = useState(false);
   const [form] = Form.useForm();
   const [passwordForm] = Form.useForm();
+
+  // RWD 響應式
+  const { isMobile, responsiveValue } = useResponsive();
+  const pagePadding = responsiveValue({ mobile: 12, tablet: 16, desktop: 24 });
 
   // 載入用戶資料
   useEffect(() => {
@@ -185,8 +190,8 @@ export const ProfilePage = () => {
 
   if (loading) {
     return (
-      <div style={{ padding: '24px' }}>
-        <Card loading />
+      <div style={{ padding: pagePadding }}>
+        <Card loading size={isMobile ? 'small' : 'default'} />
       </div>
     );
   }
@@ -212,30 +217,33 @@ export const ProfilePage = () => {
   };
 
   return (
-    <div style={{ padding: '24px', maxWidth: '800px', margin: '0 auto' }}>
-      <Title level={2}>
-        <UserOutlined /> 個人設定
+    <div style={{ padding: pagePadding, maxWidth: '800px', margin: '0 auto' }}>
+      <Title level={isMobile ? 4 : 2} style={{ marginBottom: isMobile ? 12 : 16 }}>
+        <UserOutlined style={{ marginRight: 8 }} />
+        {isMobile ? '個人設定' : '個人設定'}
       </Title>
-      
-      <Row gutter={[16, 16]}>
+
+      <Row gutter={[isMobile ? 8 : 16, isMobile ? 8 : 16]}>
         {/* 基本資訊卡片 */}
         <Col span={24}>
           <Card
             title="基本資訊"
+            size={isMobile ? 'small' : 'default'}
             extra={
-              <Button 
-                type="primary" 
+              <Button
+                type="primary"
                 icon={<EditOutlined />}
+                size={isMobile ? 'small' : 'middle'}
                 onClick={() => setEditing(!editing)}
               >
-                {editing ? '取消編輯' : '編輯資料'}
+                {isMobile ? (editing ? '取消' : '編輯') : (editing ? '取消編輯' : '編輯資料')}
               </Button>
             }
           >
-            <Row gutter={[24, 16]} align="middle">
-              <Col xs={24} sm={6} style={{ textAlign: 'center' }}>
-                <Avatar 
-                  size={80} 
+            <Row gutter={[isMobile ? 12 : 24, isMobile ? 12 : 16]} align="middle">
+              <Col xs={24} sm={6} style={{ textAlign: 'center', marginBottom: isMobile ? 12 : 0 }}>
+                <Avatar
+                  size={isMobile ? 64 : 80}
                   src={profile.avatar_url}
                   icon={<UserOutlined />}
                 />
@@ -304,23 +312,23 @@ export const ProfilePage = () => {
 
         {/* 帳戶資訊卡片 */}
         <Col span={24}>
-          <Card title="帳戶資訊">
-            <Row gutter={[16, 16]}>
-              <Col span={12}>
-                <Text strong>帳戶狀態：</Text>
+          <Card title="帳戶資訊" size={isMobile ? 'small' : 'default'}>
+            <Row gutter={[isMobile ? 8 : 16, isMobile ? 8 : 16]}>
+              <Col xs={12} sm={12}>
+                <Text strong style={{ fontSize: isMobile ? 12 : 14 }}>帳戶狀態：</Text>
                 <br />
-                {profile.is_active ? 
-                  <Tag color="green">已啟用</Tag> : 
+                {profile.is_active ?
+                  <Tag color="green">已啟用</Tag> :
                   <Tag color="red">已停用</Tag>
                 }
               </Col>
-              <Col span={12}>
-                <Text strong>用戶角色：</Text>
+              <Col xs={12} sm={12}>
+                <Text strong style={{ fontSize: isMobile ? 12 : 14 }}>用戶角色：</Text>
                 <br />
                 {getRoleTag(profile.role, profile.is_admin)}
               </Col>
-              <Col span={12}>
-                <Text strong>驗證方式：</Text>
+              <Col xs={12} sm={12}>
+                <Text strong style={{ fontSize: isMobile ? 12 : 14 }}>驗證方式：</Text>
                 <br />
                 {profile.auth_provider === 'google' ? (
                   <Tag icon={<GoogleOutlined />} color="blue">Google</Tag>
@@ -328,24 +336,24 @@ export const ProfilePage = () => {
                   <Tag icon={<MailOutlined />} color="green">郵箱</Tag>
                 )}
               </Col>
-              <Col span={12}>
-                <Text strong>郵箱驗證：</Text>
+              <Col xs={12} sm={12}>
+                <Text strong style={{ fontSize: isMobile ? 12 : 14 }}>郵箱驗證：</Text>
                 <br />
-                {profile.email_verified ? 
-                  <Tag color="green">已驗證</Tag> : 
+                {profile.email_verified ?
+                  <Tag color="green">已驗證</Tag> :
                   <Tag color="orange">未驗證</Tag>
                 }
               </Col>
-              <Col span={12}>
-                <Text strong>註冊時間：</Text>
+              <Col xs={12} sm={12}>
+                <Text strong style={{ fontSize: isMobile ? 12 : 14 }}>註冊時間：</Text>
                 <br />
-                <Text>{new Date(profile.created_at).toLocaleString()}</Text>
+                <Text style={{ fontSize: isMobile ? 12 : 14 }}>{new Date(profile.created_at).toLocaleString()}</Text>
               </Col>
-              <Col span={12}>
-                <Text strong>最後登入：</Text>
+              <Col xs={12} sm={12}>
+                <Text strong style={{ fontSize: isMobile ? 12 : 14 }}>最後登入：</Text>
                 <br />
-                <Text>
-                  {profile.last_login 
+                <Text style={{ fontSize: isMobile ? 12 : 14 }}>
+                  {profile.last_login
                     ? new Date(profile.last_login).toLocaleString()
                     : '從未登入'
                   }
@@ -358,10 +366,11 @@ export const ProfilePage = () => {
         {/* 安全設定卡片 */}
         {profile.auth_provider === 'email' && (
           <Col span={24}>
-            <Card title="安全設定">
+            <Card title="安全設定" size={isMobile ? 'small' : 'default'}>
               <Button
                 type="primary"
                 icon={<KeyOutlined />}
+                size={isMobile ? 'small' : 'middle'}
                 onClick={() => setPasswordModalVisible(true)}
               >
                 修改密碼
@@ -381,6 +390,7 @@ export const ProfilePage = () => {
         }}
         footer={null}
         destroyOnHidden
+        width={isMobile ? '95%' : 520}
       >
         <Form
           form={passwordForm}

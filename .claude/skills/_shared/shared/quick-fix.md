@@ -1,7 +1,24 @@
+---
+name: quick-fix
+description: 快速修復常見問題與錯誤
+version: 1.0.0
+category: shared
+triggers:
+  - 快速修復
+  - quick fix
+  - hotfix
+  - 緊急修復
+  - 常見問題
+updated: 2026-01-22
+---
+
 # Quick Fix Skill
 
-**技能名稱**：快速修復
-**用途**：快速修復常見問題與錯誤
+> **用途**: 快速修復常見問題與錯誤
+> **觸發**: 快速修復, quick fix, hotfix, 緊急修復
+> **版本**: 1.0.0
+> **分類**: shared
+
 **適用場景**：緊急修復、已知問題快速處理
 
 ---

@@ -33,9 +33,14 @@ import {
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { isReceiveDocument } from '../../../types/api';
-import type { DispatchOrder } from '../../../types/api';
+import type {
+  DispatchOrder,
+  OfficialDocument,
+  DocumentDispatchLink,
+} from '../../../types/api';
 import type { ProjectAgencyContact } from '../../../api/projectAgencyContacts';
 import type { ProjectVendor } from '../../../api/projectVendorsApi';
+import type { FormInstance } from 'antd';
 import { logger } from '../../../utils/logger';
 import { TAOYUAN_WORK_TYPES_LIST } from './constants';
 
@@ -44,11 +49,11 @@ const { Text } = Typography;
 
 interface DocumentDispatchTabProps {
   documentId: number | null;
-  document: any;
+  document: OfficialDocument | null;
   isEditing: boolean;
-  dispatchLinks: any[];
+  dispatchLinks: DocumentDispatchLink[];
   dispatchLinksLoading: boolean;
-  dispatchForm: any;
+  dispatchForm: FormInstance;
   agencyContacts: ProjectAgencyContact[];
   projectVendors: ProjectVendor[];
   availableDispatches: DispatchOrder[];
@@ -98,8 +103,9 @@ export const DocumentDispatchTab: React.FC<DocumentDispatchTabProps> = ({
     try {
       await onLinkDispatch(selectedDispatchId);
       setSelectedDispatchId(undefined);
-    } catch (error: any) {
-      message.error(error?.message || '關聯失敗');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '關聯失敗';
+      message.error(errorMessage);
     } finally {
       setLinkingDispatch(false);
     }

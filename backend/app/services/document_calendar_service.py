@@ -5,7 +5,7 @@
 import logging
 import os
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, List, Optional
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -26,13 +26,13 @@ SCOPES = ['https://www.googleapis.com/auth/calendar']
 class DocumentCalendarService:
     """公文行事曆相關的資料庫與 Google API 操作服務"""
 
-    def __init__(self):
-        self.credentials = None
-        self.service = None
-        self.calendar_id = getattr(settings, 'GOOGLE_CALENDAR_ID', 'primary')
+    def __init__(self) -> None:
+        self.credentials: Optional[service_account.Credentials] = None
+        self.service: Optional[Any] = None
+        self.calendar_id: str = getattr(settings, 'GOOGLE_CALENDAR_ID', 'primary')
         self._init_google_service()
 
-    def _init_google_service(self):
+    def _init_google_service(self) -> None:
         """初始化 Google Calendar API 服務"""
         try:
             credentials_path = getattr(settings, 'GOOGLE_CREDENTIALS_PATH', './GoogleCalendarAPIKEY.json')

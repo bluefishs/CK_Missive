@@ -1,8 +1,17 @@
+/**
+ * 公文新增頁面
+ *
+ * RWD 優化版本
+ * @version 1.1.0
+ * @date 2026-01-23
+ */
+
 import React from 'react';
-import { Form, Input, Select, Button, Card, Row, Col, App } from 'antd';
+import { Form, Input, Select, Button, Card, Row, Col, App, Space } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { logger } from '../utils/logger';
+import { useResponsive } from '../hooks';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -12,6 +21,9 @@ export const DocumentCreatePage: React.FC = () => {
   const navigate = useNavigate();
   const [form] = Form.useForm();
 
+  // RWD 響應式
+  const { isMobile, isTablet } = useResponsive();
+
   const onFinish = (values: any) => {
     logger.debug('Form values:', values);
     message.success('公文建立成功！');
@@ -19,34 +31,56 @@ export const DocumentCreatePage: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '24px', background: '#f5f5f5', minHeight: '100vh' }}>
+    <div style={{
+      padding: isMobile ? '12px' : '24px',
+      background: '#f5f5f5',
+      minHeight: '100vh'
+    }}>
       <div style={{ maxWidth: 800, margin: '0 auto' }}>
-        
-        <div style={{ marginBottom: 24 }}>
-          <Button 
-            icon={<ArrowLeftOutlined />} 
+
+        {/* 頁面標題 - RWD 響應式 */}
+        <div style={{
+          marginBottom: isMobile ? 16 : 24,
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          gap: isMobile ? 8 : 16
+        }}>
+          <Button
+            icon={<ArrowLeftOutlined />}
             onClick={() => navigate('/documents')}
-            style={{ marginRight: 16 }}
+            size={isMobile ? 'small' : 'middle'}
           >
-            返回列表
+            {isMobile ? '返回' : '返回列表'}
           </Button>
-          <span style={{ fontSize: 20, fontWeight: 'bold', color: '#1976d2' }}>
+          <span style={{
+            fontSize: isMobile ? 16 : 20,
+            fontWeight: 'bold',
+            color: '#1976d2'
+          }}>
             新增公文
           </span>
         </div>
 
-        <Card title="公文基本資訊">
+        <Card
+          title="公文基本資訊"
+          size={isMobile ? 'small' : 'default'}
+          styles={{
+            body: { padding: isMobile ? 12 : 24 }
+          }}
+        >
           <Form
             form={form}
             layout="vertical"
             onFinish={onFinish}
+            size={isMobile ? 'middle' : 'large'}
             initialValues={{
               type: 'official',
               priority: 'medium',
               status: 'draft'
             }}
           >
-            <Row gutter={16}>
+            <Row gutter={[isMobile ? 8 : 16, 0]}>
               <Col xs={24} md={12}>
                 <Form.Item
                   label="公文標題"
@@ -56,7 +90,7 @@ export const DocumentCreatePage: React.FC = () => {
                   <Input placeholder="請輸入公文標題" />
                 </Form.Item>
               </Col>
-              
+
               <Col xs={24} md={12}>
                 <Form.Item
                   label="公文類型"
@@ -73,7 +107,7 @@ export const DocumentCreatePage: React.FC = () => {
               </Col>
             </Row>
 
-            <Row gutter={16}>
+            <Row gutter={[isMobile ? 8 : 16, 0]}>
               <Col xs={24} md={12}>
                 <Form.Item
                   label="承辦機關"
@@ -104,16 +138,16 @@ export const DocumentCreatePage: React.FC = () => {
               </Col>
             </Row>
 
-            <Row gutter={16}>
+            <Row gutter={[isMobile ? 8 : 16, 0]}>
               <Col xs={24}>
                 <Form.Item
                   label="關聯承攬案件"
                   name="contract_case"
-                  help="選擇與此公文相關的承攬案件"
+                  help={isMobile ? undefined : '選擇與此公文相關的承攬案件'}
                 >
-                  <Select 
+                  <Select
                     mode="multiple"
-                    placeholder="請選擇相關承攬案件"
+                    placeholder={isMobile ? '選擇承攬案件' : '請選擇相關承攬案件'}
                     showSearch
                     optionFilterProp="children"
                     allowClear
@@ -133,8 +167,8 @@ export const DocumentCreatePage: React.FC = () => {
               name="content"
               rules={[{ required: true, message: '請輸入公文內容' }]}
             >
-              <TextArea 
-                rows={6} 
+              <TextArea
+                rows={isMobile ? 4 : 6}
                 placeholder="請輸入公文詳細內容..."
               />
             </Form.Item>
@@ -143,22 +177,38 @@ export const DocumentCreatePage: React.FC = () => {
               label="備註"
               name="notes"
             >
-              <TextArea 
-                rows={3} 
+              <TextArea
+                rows={isMobile ? 2 : 3}
                 placeholder="其他備註事項..."
               />
             </Form.Item>
 
-            <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
-              <Button 
-                onClick={() => navigate('/documents')} 
-                style={{ marginRight: 8 }}
-              >
-                取消
-              </Button>
-              <Button type="primary" htmlType="submit">
-                建立公文
-              </Button>
+            {/* 表單操作按鈕 - RWD 響應式 */}
+            <Form.Item style={{ marginBottom: 0 }}>
+              {isMobile ? (
+                // 手機版: 按鈕堆疊
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <Button type="primary" htmlType="submit" block>
+                    建立公文
+                  </Button>
+                  <Button onClick={() => navigate('/documents')} block>
+                    取消
+                  </Button>
+                </Space>
+              ) : (
+                // 桌面版: 按鈕並排靠右
+                <div style={{ textAlign: 'right' }}>
+                  <Button
+                    onClick={() => navigate('/documents')}
+                    style={{ marginRight: 8 }}
+                  >
+                    取消
+                  </Button>
+                  <Button type="primary" htmlType="submit">
+                    建立公文
+                  </Button>
+                </div>
+              )}
             </Form.Item>
           </Form>
         </Card>

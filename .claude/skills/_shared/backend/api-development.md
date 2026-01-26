@@ -152,72 +152,8 @@ interface ErrorResponse {
 |------|------|---------|
 | 404 | Not Found | 路由前綴錯誤 |
 | 405 | Method Not Allowed | HTTP Method 錯誤 (GET vs POST) |
-| 422 | Unprocessable Entity | Schema 驗證失敗、**undefined 值被序列化為 null** |
+| 422 | Unprocessable Entity | Schema 驗證失敗 |
 | 500 | Internal Server Error | 後端邏輯錯誤 |
-
----
-
-## 前端 API 請求參數處理規範 (v1.1.0)
-
-> **重要**: 此規範解決 POST 請求 422 錯誤的常見問題
-
-### 問題描述
-
-前端傳送 API 請求時，若將 `undefined` 值直接放入請求物件：
-1. `JSON.stringify()` 會將 `undefined` 轉換為 `null`
-2. 後端 Pydantic 收到 `null` 但 Schema 定義為 `Optional[str]`
-3. Pydantic 驗證失敗，回傳 422 Unprocessable Entity
-
-### 錯誤模式
-
-```typescript
-// ❌ 錯誤：直接賦值可能為 undefined 的值
-const queryParams = {
-  page: params?.page ?? 1,
-  limit: params?.limit ?? 20,
-  search: params?.search,        // undefined → JSON null → 422
-  status: params?.status,        // undefined → JSON null → 422
-  business_type: params?.business_type,  // undefined → JSON null → 422
-};
-```
-
-### 正確模式
-
-```typescript
-// ✅ 正確：先建立必要參數，再條件式添加可選參數
-const queryParams: Record<string, unknown> = {
-  page: params?.page ?? 1,
-  limit: params?.limit ?? 20,
-  sort_by: params?.sort_by ?? 'name',
-  sort_order: params?.sort_order ?? 'asc',
-};
-
-// 只在有值時添加可選參數
-if (params?.search) queryParams.search = params.search;
-if (params?.status) queryParams.status = params.status;
-if (params?.business_type) queryParams.business_type = params.business_type;
-// 布林值需特別處理（false 是有效值）
-if (params?.is_active !== undefined) queryParams.is_active = params.is_active;
-// 數值 0 可能是有效值
-if (params?.year !== undefined) queryParams.year = params.year;
-```
-
-### 注意事項
-
-| 參數類型 | 判斷條件 | 說明 |
-|---------|---------|------|
-| 字串 | `if (params?.field)` | 空字串視為無效 |
-| 數值 | `if (params?.field !== undefined)` | 0 是有效值 |
-| 布林 | `if (params?.field !== undefined)` | false 是有效值 |
-| 陣列 | `if (params?.field?.length)` | 空陣列視為無效 |
-
-### 受影響的 API 檔案
-
-已修復的檔案（可作為參考範本）：
-- `frontend/src/api/vendorsApi.ts`
-- `frontend/src/api/projectsApi.ts`
-- `frontend/src/api/agenciesApi.ts`
-- `frontend/src/api/usersApi.ts`
 
 ---
 

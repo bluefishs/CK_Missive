@@ -26,6 +26,7 @@ interface RawCalendarEventResponse {
   end_date: string;         // 後端原始欄位名稱
   document_id?: number;
   doc_number?: string;
+  contract_project_name?: string;  // 承攬案件名稱
   event_type?: string;
   priority?: number | string;
   status?: 'pending' | 'completed' | 'cancelled';  // 事件狀態
@@ -131,9 +132,10 @@ export const calendarApi = {
           end_datetime: event.end_date,
           document_id: event.document_id,
           doc_number: event.doc_number,
+          contract_project_name: event.contract_project_name,  // 承攬案件名稱
           event_type: event.event_type,
           priority: event.priority,
-          status: event.status || 'pending',  // 新增：事件狀態
+          status: event.status || 'pending',  // 事件狀態
           location: event.location,
           google_event_id: event.google_event_id,
           google_sync_status: event.google_sync_status || 'pending',

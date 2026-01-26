@@ -31,7 +31,7 @@ class VendorService(BaseService[PartnerVendor, VendorCreate, VendorUpdate]):
     SEARCH_FIELDS = ['vendor_name', 'vendor_code']
     DEFAULT_SORT_FIELD = 'vendor_name'
 
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化廠商服務"""
         super().__init__(PartnerVendor, "廠商")
 

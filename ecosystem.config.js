@@ -36,13 +36,13 @@ module.exports = {
       // 日誌配置
       error_file: './logs/backend-error.log',
       out_file: './logs/backend-out.log',
-      log_date_format: 'YYYY-MM-DD HH:mm:ss',
+      log_date_format: 'YYYY-MM-DD HHmm:ss',
       merge_logs: true,
 
       // 重啟策略
-      restart_delay: 3000,
-      max_restarts: 10,
-      min_uptime: '10s',
+      restart_delay: 10000,  // 增加到 10 秒，讓端口有時間釋放
+      max_restarts: 5,
+      min_uptime: '30s',
     },
 
     // ===== 前端 Vite 開發服務 =====

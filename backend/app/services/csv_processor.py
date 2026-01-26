@@ -18,8 +18,9 @@ logger = logging.getLogger(__name__)
 
 class DocumentCSVProcessor:
     """文件 CSV 處理器 - 完整17欄位版本"""
-    
-    def __init__(self):
+
+    def __init__(self) -> None:
+        """初始化 CSV 處理器"""
         # 根據資料庫模型的17個必要欄位設計對應
         self.field_mappings = {
             # 17個核心欄位對應
@@ -76,6 +77,15 @@ class DocumentCSVProcessor:
         self.supported_encodings = ['utf-8', 'utf-8-sig', 'big5', 'cp950']
 
     def _detect_encoding(self, content: bytes) -> str:
+        """
+        偵測 CSV 內容的編碼
+
+        Args:
+            content: 二進位內容
+
+        Returns:
+            偵測到的編碼名稱
+        """
         for encoding in self.supported_encodings:
             try:
                 content.decode(encoding)

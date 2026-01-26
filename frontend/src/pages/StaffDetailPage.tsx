@@ -1,7 +1,7 @@
 /**
  * 承辦同仁詳情頁面
  * @description 顯示同仁詳情，含 Tab 分頁（基本資料、證照紀錄）
- * @version 1.0.0
+ * @version 1.2.0 - 整合刪除功能 (導航模式規範)
  * @date 2026-01-22
  */
 import React, { useState, useEffect, useCallback } from 'react';
@@ -44,6 +44,7 @@ import {
   BankOutlined,
 } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useResponsive } from '../hooks';
 import dayjs from 'dayjs';
 import { apiClient } from '../api/client';
 import { API_ENDPOINTS } from '../api/endpoints';
@@ -85,6 +86,10 @@ export const StaffDetailPage: React.FC = () => {
   const [certForm] = Form.useForm();
 
   const staffId = id ? parseInt(id, 10) : undefined;
+
+  // RWD 響應式
+  const { isMobile, responsiveValue } = useResponsive();
+  const pagePadding = responsiveValue({ mobile: 12, tablet: 16, desktop: 24 });
 
   // 狀態
   const [staff, setStaff] = useState<Staff | null>(null);
@@ -159,9 +164,18 @@ export const StaffDetailPage: React.FC = () => {
       const values = await form.validateFields();
       setSaving(true);
 
-      const updateData = { ...values };
-      if (!showPasswordChange) {
-        delete updateData.password;
+      // 只傳送後端 UserUpdate schema 允許的欄位
+      const updateData: Record<string, any> = {
+        email: values.email,
+        full_name: values.full_name,
+        is_active: values.is_active,
+        department: values.department,
+        position: values.position,
+      };
+
+      // 如果有修改密碼，才傳送 password
+      if (showPasswordChange && values.password) {
+        updateData.password = values.password;
       }
 
       await apiClient.post(API_ENDPOINTS.USERS.UPDATE(staffId), updateData);
@@ -189,6 +203,19 @@ export const StaffDetailPage: React.FC = () => {
         department: staff.department,
         position: staff.position,
       });
+    }
+  };
+
+  // 刪除同仁 (導航模式：刪除功能從列表頁移至此處)
+  const handleDelete = async () => {
+    if (!staffId) return;
+    try {
+      await apiClient.post(API_ENDPOINTS.USERS.DELETE(staffId));
+      message.success('承辦同仁已刪除');
+      navigate(ROUTES.STAFF);
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail;
+      message.error(typeof detail === 'string' ? detail : '刪除失敗');
     }
   };
 
@@ -270,33 +297,40 @@ export const StaffDetailPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div style={{ padding: 24, textAlign: 'center' }}>
-        <Spin size="large" />
+      <div style={{ padding: pagePadding, textAlign: 'center' }}>
+        <Spin size={isMobile ? 'default' : 'large'} />
       </div>
     );
   }
 
   if (!staff) {
     return (
-      <div style={{ padding: 24 }}>
+      <div style={{ padding: pagePadding }}>
         <Empty description="找不到此承辦同仁" />
       </div>
     );
   }
 
   return (
-    <div style={{ padding: 24 }}>
+    <div style={{ padding: pagePadding }}>
       {/* 頁面標題 */}
-      <Card style={{ marginBottom: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Space>
+      <Card size={isMobile ? 'small' : 'default'} style={{ marginBottom: isMobile ? 8 : 16 }}>
+        <div style={{
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          justifyContent: 'space-between',
+          alignItems: isMobile ? 'stretch' : 'center',
+          gap: isMobile ? 8 : 0
+        }}>
+          <Space wrap size={isMobile ? 'small' : 'middle'}>
             <Button
               icon={<ArrowLeftOutlined />}
+              size={isMobile ? 'small' : 'middle'}
               onClick={() => navigate(ROUTES.STAFF)}
             >
-              返回列表
+              {isMobile ? '返回' : '返回列表'}
             </Button>
-            <Title level={4} style={{ margin: 0 }}>
+            <Title level={isMobile ? 5 : 4} style={{ margin: 0 }}>
               <UserOutlined style={{ marginRight: 8 }} />
               {staff.full_name || staff.username}
             </Title>
@@ -305,16 +339,42 @@ export const StaffDetailPage: React.FC = () => {
             </Tag>
           </Space>
           {!isEditing && (
-            <Button type="primary" icon={<EditOutlined />} onClick={() => setIsEditing(true)}>
-              編輯
-            </Button>
+            <Space size={isMobile ? 'small' : 'middle'} style={{ width: isMobile ? '100%' : 'auto' }}>
+              <Button
+                type="primary"
+                icon={<EditOutlined />}
+                size={isMobile ? 'small' : 'middle'}
+                onClick={() => setIsEditing(true)}
+                style={isMobile ? { flex: 1 } : undefined}
+              >
+                編輯
+              </Button>
+              <Popconfirm
+                title="確定要刪除此承辦同仁？"
+                description="刪除後將無法復原"
+                onConfirm={handleDelete}
+                okText="確定"
+                cancelText="取消"
+                okButtonProps={{ danger: true }}
+              >
+                <Button
+                  danger
+                  icon={<DeleteOutlined />}
+                  size={isMobile ? 'small' : 'middle'}
+                  style={isMobile ? { flex: 1 } : undefined}
+                >
+                  {isMobile ? '' : '刪除'}
+                </Button>
+              </Popconfirm>
+            </Space>
           )}
         </div>
       </Card>
 
       {/* Tab 分頁 */}
-      <Card>
+      <Card size={isMobile ? 'small' : 'default'}>
         <Tabs
+          size={isMobile ? 'small' : 'middle'}
           items={[
             {
               key: 'basic',
@@ -404,14 +464,19 @@ export const StaffDetailPage: React.FC = () => {
                     <Switch checkedChildren="啟用" unCheckedChildren="停用" />
                   </Form.Item>
 
-                  <div style={{ textAlign: 'right' }}>
-                    <Space>
-                      <Button icon={<CloseOutlined />} onClick={handleCancelEdit}>
+                  <div style={{ textAlign: isMobile ? 'center' : 'right' }}>
+                    <Space size={isMobile ? 'small' : 'middle'}>
+                      <Button
+                        icon={<CloseOutlined />}
+                        size={isMobile ? 'small' : 'middle'}
+                        onClick={handleCancelEdit}
+                      >
                         取消
                       </Button>
                       <Button
                         type="primary"
                         icon={<SaveOutlined />}
+                        size={isMobile ? 'small' : 'middle'}
                         onClick={handleSave}
                         loading={saving}
                       >
@@ -454,15 +519,20 @@ export const StaffDetailPage: React.FC = () => {
               ),
               children: (
                 <div>
-                  <div style={{ marginBottom: 16 }}>
-                    <Button type="primary" icon={<PlusOutlined />} onClick={handleAddCert}>
-                      新增證照
+                  <div style={{ marginBottom: isMobile ? 8 : 16 }}>
+                    <Button
+                      type="primary"
+                      icon={<PlusOutlined />}
+                      size={isMobile ? 'small' : 'middle'}
+                      onClick={handleAddCert}
+                    >
+                      {isMobile ? '新增' : '新增證照'}
                     </Button>
                   </div>
 
                   {certLoading ? (
-                    <div style={{ textAlign: 'center', padding: 40 }}>
-                      <Spin />
+                    <div style={{ textAlign: 'center', padding: isMobile ? 20 : 40 }}>
+                      <Spin size={isMobile ? 'default' : 'large'} />
                     </div>
                   ) : certifications.length === 0 ? (
                     <Empty description="尚無證照紀錄" />
@@ -471,6 +541,7 @@ export const StaffDetailPage: React.FC = () => {
                       dataSource={certifications}
                       rowKey="id"
                       size="small"
+                      scroll={{ x: isMobile ? 400 : undefined }}
                       pagination={false}
                       columns={[
                         {
@@ -557,7 +628,7 @@ export const StaffDetailPage: React.FC = () => {
           certForm.resetFields();
         }}
         footer={null}
-        width={500}
+        width={isMobile ? '95%' : 500}
         destroyOnHidden
       >
         <Form form={certForm} layout="vertical" onFinish={handleCertSubmit}>
@@ -585,13 +656,13 @@ export const StaffDetailPage: React.FC = () => {
             <Input placeholder="請輸入核發機關" />
           </Form.Item>
 
-          <Row gutter={16}>
-            <Col span={12}>
+          <Row gutter={isMobile ? 8 : 16}>
+            <Col xs={24} sm={12}>
               <Form.Item name="cert_number" label="證照編號">
                 <Input placeholder="請輸入證照編號" />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col xs={24} sm={12}>
               <Form.Item name="status" label="狀態">
                 <Select placeholder="請選擇狀態">
                   {CERT_STATUS.map(s => (
@@ -602,13 +673,13 @@ export const StaffDetailPage: React.FC = () => {
             </Col>
           </Row>
 
-          <Row gutter={16}>
-            <Col span={12}>
+          <Row gutter={isMobile ? 8 : 16}>
+            <Col xs={24} sm={12}>
               <Form.Item name="issue_date" label="核發日期">
                 <DatePicker style={{ width: '100%' }} placeholder="請選擇核發日期" />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col xs={24} sm={12}>
               <Form.Item name="expiry_date" label="有效期限">
                 <DatePicker style={{ width: '100%' }} placeholder="永久有效可不填" />
               </Form.Item>
@@ -620,9 +691,11 @@ export const StaffDetailPage: React.FC = () => {
           </Form.Item>
 
           <div style={{ textAlign: 'right' }}>
-            <Space>
-              <Button onClick={() => setCertModalVisible(false)}>取消</Button>
-              <Button type="primary" htmlType="submit">
+            <Space size={isMobile ? 'small' : 'middle'}>
+              <Button size={isMobile ? 'small' : 'middle'} onClick={() => setCertModalVisible(false)}>
+                取消
+              </Button>
+              <Button type="primary" size={isMobile ? 'small' : 'middle'} htmlType="submit">
                 {editingCert ? '更新' : '新增'}
               </Button>
             </Space>

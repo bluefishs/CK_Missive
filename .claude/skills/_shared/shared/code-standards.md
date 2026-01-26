@@ -1,7 +1,25 @@
+---
+name: code-standards
+description: 程式碼標準規範，確保品質、一致性與最佳實踐
+version: 1.1.0
+category: shared
+triggers:
+  - 程式碼規範
+  - coding style
+  - ESLint
+  - code review
+  - 程式碼品質
+updated: 2026-01-22
+---
+
 # Code Standards Skill
 
-**技能名稱**：程式碼標準
-**用途**：確保程式碼品質、一致性與最佳實踐
+> **用途**: 確保程式碼品質、一致性與最佳實踐
+> **觸發**: 程式碼規範, coding style, ESLint, code review
+> **版本**: 1.1.0
+> **分類**: shared
+> **更新日期**: 2026-01-22
+
 **適用場景**：開發新功能、程式碼審查、重構
 
 ---

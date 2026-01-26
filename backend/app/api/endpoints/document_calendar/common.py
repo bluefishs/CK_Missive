@@ -42,8 +42,18 @@ calendar_service = DocumentCalendarService()
 calendar_integrator = DocumentCalendarIntegrator()
 
 
-def event_to_dict(event: DocumentCalendarEvent, doc_number: Optional[str] = None) -> Dict[str, Any]:
-    """將事件實體轉換為字典"""
+def event_to_dict(
+    event: DocumentCalendarEvent,
+    doc_number: Optional[str] = None,
+    contract_project_name: Optional[str] = None
+) -> Dict[str, Any]:
+    """將事件實體轉換為字典
+
+    Args:
+        event: 行事曆事件
+        doc_number: 關聯公文號
+        contract_project_name: 關聯承攬案件名稱
+    """
     return {
         "id": event.id,
         "title": event.title,
@@ -57,6 +67,7 @@ def event_to_dict(event: DocumentCalendarEvent, doc_number: Optional[str] = None
         "location": event.location,
         "document_id": event.document_id,
         "doc_number": doc_number,
+        "contract_project_name": contract_project_name,  # 新增：承攬案件名稱
         "assigned_user_id": event.assigned_user_id,
         "created_by": event.created_by,
         "google_event_id": getattr(event, 'google_event_id', None),

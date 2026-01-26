@@ -1,7 +1,27 @@
+---
+name: testing-patterns
+description: 測試策略和模式指南 - Vitest, Pytest, MSW
+version: 1.0.0
+category: shared
+triggers:
+  - 測試模式
+  - testing patterns
+  - Vitest
+  - Pytest
+  - MSW
+  - 測試策略
+updated: 2026-01-22
+---
+
 # 測試模式技能
 
+> **用途**: 測試策略和模式指南
+> **觸發**: 測試模式, testing patterns, Vitest, Pytest
+> **版本**: 1.0.0
+> **分類**: shared
+
 ## 概述
-CK_GPS 專案的測試策略和模式指南。
+專案的測試策略和模式指南。
 
 ## 測試框架
 

@@ -1,7 +1,24 @@
+---
+name: service-refactoring
+description: 拆分大型服務、統一服務架構
+version: 1.0.0
+category: shared
+triggers:
+  - 服務重構
+  - service refactoring
+  - 拆分服務
+  - 模組化
+  - monolith
+updated: 2026-01-22
+---
+
 # Service Refactoring Skill
 
-**技能名稱**：服務重構
-**用途**：拆分大型服務、統一服務架構
+> **用途**: 拆分大型服務、統一服務架構
+> **觸發**: 服務重構, service refactoring, 拆分服務, 模組化
+> **版本**: 1.0.0
+> **分類**: shared
+
 **適用場景**：大型單體服務重構、模組化架構建立
 
 ---

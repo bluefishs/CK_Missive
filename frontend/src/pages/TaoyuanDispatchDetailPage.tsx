@@ -32,12 +32,11 @@ import {
   Radio,
   Typography,
   Upload,
-  Progress,
   Alert,
   InputNumber,
   DatePicker,
 } from 'antd';
-import type { UploadFile, UploadChangeParam, UploadProps } from 'antd/es/upload';
+import type { UploadFile, UploadChangeParam } from 'antd/es/upload';
 import {
   SendOutlined,
   EditOutlined,
@@ -48,14 +47,7 @@ import {
   ProjectOutlined,
   PlusOutlined,
   PaperClipOutlined,
-  InboxOutlined,
-  DownloadOutlined,
-  FileOutlined,
-  FilePdfOutlined,
-  FileImageOutlined,
-  LoadingOutlined,
   DollarOutlined,
-  EyeOutlined,
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -70,15 +62,13 @@ import { getProjectAgencyContacts, type ProjectAgencyContact } from '../api/proj
 import { projectVendorsApi, type ProjectVendor } from '../api/projectVendorsApi';
 import type { DispatchOrder, DispatchOrderUpdate, OfficialDocument, LinkType, TaoyuanProject, DispatchDocumentLink, DispatchAttachment, ContractPayment, ContractPaymentCreate, ContractPaymentUpdate } from '../types/api';
 
-/** 關聯工程型別（包含 link_id 用於刪除操作） */
-type LinkedProject = TaoyuanProject & { link_id: number; project_id: number };
 import { TAOYUAN_WORK_TYPES, isReceiveDocument } from '../types/api';
 import { useAuthGuard } from '../hooks';
 import { TAOYUAN_CONTRACT } from '../constants/taoyuanOptions';
+import { DispatchProjectsTab, DispatchAttachmentsTab, type LinkedProject } from './taoyuanDispatch/tabs';
 
 const { Option } = Select;
 const { Text } = Typography;
-const { Dragger } = Upload;
 
 /**
  * 根據公文字號自動判斷關聯類型
@@ -1056,422 +1046,6 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
     linkProjectMutation.mutate(selectedProjectId);
   }, [selectedProjectId, linkProjectMutation, message]);
 
-  // Tab 3: 工程關聯
-  const renderProjectsTab = () => {
-    const projects = dispatch?.linked_projects || [];
-
-    return (
-      <Spin spinning={isLoading}>
-        {/* 新增關聯區塊 */}
-        {canEdit && (
-          <Card size="small" style={{ marginBottom: 16 }} title="新增工程關聯">
-            <Row gutter={[12, 12]} align="middle">
-              <Col span={16}>
-                <Select
-                  showSearch
-                  allowClear
-                  placeholder="搜尋工程名稱..."
-                  style={{ width: '100%' }}
-                  value={selectedProjectId}
-                  onChange={setSelectedProjectId}
-                  filterOption={(input, option) =>
-                    String(option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
-                  notFoundContent={
-                    filteredProjects.length === 0 ? (
-                      <Empty description="無可關聯的工程" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                    ) : undefined
-                  }
-                  options={filteredProjects.map((proj: TaoyuanProject) => ({
-                    value: proj.id,
-                    label: `${proj.project_name}${proj.district ? ` (${proj.district})` : ''}`,
-                  }))}
-                />
-              </Col>
-              <Col span={8}>
-                <Button
-                  type="primary"
-                  icon={<PlusOutlined />}
-                  onClick={handleLinkProject}
-                  loading={linkProjectMutation.isPending}
-                  disabled={!selectedProjectId}
-                >
-                  建立關聯
-                </Button>
-              </Col>
-            </Row>
-          </Card>
-        )}
-
-        {/* 已關聯工程列表 */}
-        {projects.length > 0 ? (
-          <List
-            dataSource={projects}
-            renderItem={(proj: LinkedProject) => (
-              <Card size="small" style={{ marginBottom: 12 }}>
-                <Descriptions size="small" column={2}>
-                  <Descriptions.Item label="工程名稱" span={2}>
-                    {proj.project_name || '-'}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="分案名稱">
-                    {proj.sub_case_name || '-'}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="行政區">
-                    {proj.district || '-'}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="案件承辦">
-                    {proj.case_handler || '-'}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="案件類型">
-                    {proj.case_type ? <Tag color="blue">{proj.case_type}</Tag> : '-'}
-                  </Descriptions.Item>
-                </Descriptions>
-                <Space style={{ marginTop: 8 }}>
-                  <Button
-                    type="link"
-                    size="small"
-                    onClick={() => navigate(`/taoyuan/project/${proj.project_id || proj.id}`)}
-                  >
-                    查看工程詳情
-                  </Button>
-                  {canEdit && (
-                    <Popconfirm
-                      title="確定要移除此關聯嗎？"
-                      onConfirm={() => {
-                        // 必須使用 link_id（關聯記錄 ID），不可使用 id（工程 ID）
-                        const linkId = proj.link_id;
-                        const projectId = proj.project_id ?? proj.id;
-
-                        // 嚴格驗證：link_id 必須存在且不等於 project_id
-                        if (linkId === undefined || linkId === null) {
-                          message.error('關聯資料缺少 link_id，請重新整理頁面後再試');
-                          console.error('[unlinkProject] link_id 缺失:', {
-                            proj,
-                            link_id: proj.link_id,
-                            project_id: proj.project_id,
-                            id: proj.id,
-                          });
-                          refetch(); // 自動重新載入數據
-                          return;
-                        }
-
-                        if (!projectId) {
-                          message.error('工程資料不完整，請重新整理頁面');
-                          console.error('[unlinkProject] project_id 缺失:', proj);
-                          return;
-                        }
-
-                        console.debug('[unlinkProject] 執行移除:', { linkId, projectId, proj });
-                        unlinkProjectMutation.mutate(linkId);
-                      }}
-                      okText="確定"
-                      cancelText="取消"
-                    >
-                      <Button
-                        type="link"
-                        size="small"
-                        danger
-                        loading={unlinkProjectMutation.isPending}
-                      >
-                        移除關聯
-                      </Button>
-                    </Popconfirm>
-                  )}
-                </Space>
-              </Card>
-            )}
-          />
-        ) : (
-          <Empty description="此派工單尚無關聯工程" image={Empty.PRESENTED_IMAGE_SIMPLE}>
-            {!canEdit && (
-              <Button type="link" onClick={() => navigate('/taoyuan/dispatch')}>
-                返回派工列表
-              </Button>
-            )}
-          </Empty>
-        )}
-      </Spin>
-    );
-  };
-
-  // 取得檔案圖示
-  const getFileIcon = (mimeType: string | undefined, filename: string) => {
-    const ext = filename.split('.').pop()?.toLowerCase();
-    if (mimeType?.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'bmp'].includes(ext || '')) {
-      return <FileImageOutlined style={{ fontSize: 24, color: '#52c41a' }} />;
-    }
-    if (mimeType === 'application/pdf' || ext === 'pdf') {
-      return <FilePdfOutlined style={{ fontSize: 24, color: '#ff4d4f' }} />;
-    }
-    return <FileOutlined style={{ fontSize: 24, color: '#1890ff' }} />;
-  };
-
-  // 判斷檔案是否可預覽
-  const isPreviewable = (mimeType?: string, filename?: string): boolean => {
-    // 根據 MIME type 判斷
-    if (mimeType) {
-      if (mimeType.startsWith('image/') ||
-          mimeType === 'application/pdf' ||
-          mimeType.startsWith('text/')) {
-        return true;
-      }
-    }
-    // 根據副檔名判斷
-    if (filename) {
-      const ext = filename.toLowerCase().split('.').pop();
-      return ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'txt', 'csv'].includes(ext || '');
-    }
-    return false;
-  };
-
-  // 預覽附件
-  const handlePreview = async (attachmentId: number, filename: string) => {
-    try {
-      const blob = await dispatchAttachmentsApi.getAttachmentBlob(attachmentId);
-      const previewUrl = window.URL.createObjectURL(blob);
-      window.open(previewUrl, '_blank');
-      // 10 秒後釋放記憶體
-      setTimeout(() => window.URL.revokeObjectURL(previewUrl), 10000);
-    } catch (error) {
-      console.error('預覽附件失敗:', error);
-      message.error(`預覽 ${filename} 失敗`);
-    }
-  };
-
-  // 驗證檔案
-  const validateFile = (file: File): { valid: boolean; message?: string } => {
-    const maxSize = 50 * 1024 * 1024; // 50MB
-    const allowedExts = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'jpg', 'jpeg', 'png', 'gif', 'zip', 'rar', '7z', 'txt', 'csv'];
-    const ext = file.name.split('.').pop()?.toLowerCase();
-
-    if (file.size > maxSize) {
-      message.error(`檔案 ${file.name} 超過 50MB 限制`);
-      return { valid: false, message: '檔案超過大小限制' };
-    }
-    if (!ext || !allowedExts.includes(ext)) {
-      message.error(`檔案 ${file.name} 格式不支援`);
-      return { valid: false, message: '不支援的檔案格式' };
-    }
-    return { valid: true };
-  };
-
-  // Tab 4: 附件管理
-  const renderAttachmentsTab = () => {
-    const uploadProps: UploadProps = {
-      multiple: true,
-      fileList,
-      showUploadList: false,
-      beforeUpload: (file: File) => {
-        const validation = validateFile(file);
-        if (!validation.valid) {
-          return Upload.LIST_IGNORE;
-        }
-        return false;
-      },
-      onChange: ({ fileList: newFileList }: UploadChangeParam<UploadFile>) => {
-        setFileList(newFileList);
-      },
-      onRemove: (file: UploadFile) => {
-        setFileList((prev) => prev.filter((f) => f.uid !== file.uid));
-      },
-    };
-
-    return (
-      <Spin spinning={isLoading}>
-        {/* 上傳區塊（僅編輯模式顯示）*/}
-        {isEditing && (
-          <Card size="small" style={{ marginBottom: 16 }} title="上傳附件">
-            <Dragger {...uploadProps} disabled={uploading}>
-              <p className="ant-upload-drag-icon">
-                <InboxOutlined />
-              </p>
-              <p className="ant-upload-text">點擊或拖拽檔案到此區域上傳</p>
-              <p className="ant-upload-hint">
-                支援 PDF、DOC、DOCX、XLS、XLSX、JPG、PNG 等格式，單檔最大 50MB
-              </p>
-            </Dragger>
-
-            {/* 待上傳檔案預覽 */}
-            {fileList.length > 0 && !uploading && (
-              <Card
-                size="small"
-                style={{ marginTop: 16, background: '#f6ffed', border: '1px solid #b7eb8f' }}
-                title={
-                  <span style={{ color: '#52c41a' }}>
-                    <PaperClipOutlined style={{ marginRight: 8 }} />
-                    待上傳檔案（{fileList.length} 個）
-                  </span>
-                }
-              >
-                <List
-                  size="small"
-                  dataSource={fileList}
-                  renderItem={(file: UploadFile) => (
-                    <List.Item
-                      actions={[
-                        <Button
-                          key="remove"
-                          type="link"
-                          size="small"
-                          danger
-                          onClick={() => setFileList((prev) => prev.filter((f) => f.uid !== file.uid))}
-                        >
-                          移除
-                        </Button>,
-                      ]}
-                    >
-                      <List.Item.Meta
-                        avatar={<FileOutlined style={{ color: '#1890ff' }} />}
-                        title={file.name}
-                        description={file.size ? `${(file.size / 1024).toFixed(1)} KB` : ''}
-                      />
-                    </List.Item>
-                  )}
-                />
-                <Button
-                  type="primary"
-                  style={{ marginTop: 12 }}
-                  onClick={() => uploadAttachmentsMutation.mutate()}
-                  loading={uploading}
-                >
-                  開始上傳
-                </Button>
-              </Card>
-            )}
-
-            {/* 上傳進度 */}
-            {uploading && (
-              <Card
-                size="small"
-                style={{ marginTop: 16, background: '#e6f7ff', border: '1px solid #91d5ff' }}
-                title={
-                  <span style={{ color: '#1890ff' }}>
-                    <LoadingOutlined style={{ marginRight: 8 }} />
-                    正在上傳檔案...
-                  </span>
-                }
-              >
-                <Progress
-                  percent={uploadProgress}
-                  status="active"
-                  strokeColor={{ '0%': '#108ee9', '100%': '#87d068' }}
-                  strokeWidth={12}
-                />
-              </Card>
-            )}
-
-            {/* 上傳錯誤訊息 */}
-            {uploadErrors.length > 0 && (
-              <Alert
-                type="warning"
-                showIcon
-                closable
-                onClose={() => setUploadErrors([])}
-                style={{ marginTop: 16 }}
-                message="部分檔案上傳失敗"
-                description={
-                  <ul style={{ margin: 0, paddingLeft: 20 }}>
-                    {uploadErrors.map((err, idx) => (
-                      <li key={idx}>{err}</li>
-                    ))}
-                  </ul>
-                }
-              />
-            )}
-          </Card>
-        )}
-
-        {/* 已上傳附件列表 */}
-        {(attachments?.length ?? 0) > 0 ? (
-          <Card
-            size="small"
-            title={
-              <Space>
-                <PaperClipOutlined />
-                <span>已上傳附件（{attachments?.length ?? 0} 個）</span>
-              </Space>
-            }
-          >
-            <List
-              size="small"
-              dataSource={attachments}
-              renderItem={(item: DispatchAttachment) => (
-                <List.Item
-                  actions={[
-                    // 預覽按鈕（僅支援 PDF/圖片/文字檔）
-                    isPreviewable(item.mime_type, item.original_name || item.file_name) && (
-                      <Button
-                        key="preview"
-                        type="link"
-                        size="small"
-                        icon={<EyeOutlined />}
-                        style={{ color: '#52c41a' }}
-                        onClick={() =>
-                          handlePreview(item.id, item.original_name || item.file_name)
-                        }
-                      >
-                        預覽
-                      </Button>
-                    ),
-                    <Button
-                      key="download"
-                      type="link"
-                      size="small"
-                      icon={<DownloadOutlined />}
-                      onClick={() =>
-                        dispatchAttachmentsApi.downloadAttachment(
-                          item.id,
-                          item.original_name || item.file_name
-                        )
-                      }
-                    >
-                      下載
-                    </Button>,
-                    isEditing && (
-                      <Popconfirm
-                        key="delete"
-                        title="確定要刪除此附件嗎？"
-                        description="刪除後無法復原，請確認是否繼續？"
-                        onConfirm={() => deleteAttachmentMutation.mutate(item.id)}
-                        okText="確定刪除"
-                        okButtonProps={{ danger: true }}
-                        cancelText="取消"
-                      >
-                        <Button
-                          type="link"
-                          size="small"
-                          danger
-                          icon={<DeleteOutlined />}
-                          loading={deleteAttachmentMutation.isPending}
-                        >
-                          刪除
-                        </Button>
-                      </Popconfirm>
-                    ),
-                  ].filter(Boolean)}
-                >
-                  <List.Item.Meta
-                    avatar={getFileIcon(item.mime_type, item.original_name || item.file_name)}
-                    title={item.original_name || item.file_name}
-                    description={
-                      <span style={{ fontSize: 12, color: '#999' }}>
-                        {item.file_size ? `${(item.file_size / 1024).toFixed(1)} KB` : ''}
-                        {item.created_at && ` · ${dayjs(item.created_at).format('YYYY-MM-DD HH:mm')}`}
-                      </span>
-                    }
-                  />
-                </List.Item>
-              )}
-            />
-          </Card>
-        ) : (
-          !isEditing && (
-            <Empty description="此派工單尚無附件" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-          )
-        )}
-      </Spin>
-    );
-  };
 
   // 貨幣格式化 helper
   const currencyFormatter = (value: number | string | undefined) =>
@@ -1811,12 +1385,39 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
     createTabItem(
       'attachments',
       { icon: <PaperClipOutlined />, text: '派工附件', count: attachments?.length || 0 },
-      renderAttachmentsTab()
+      <DispatchAttachmentsTab
+        dispatchId={parseInt(id || '0', 10)}
+        isEditing={isEditing}
+        isLoading={isLoading}
+        attachments={attachments || []}
+        fileList={fileList}
+        setFileList={setFileList}
+        uploading={uploading}
+        uploadProgress={uploadProgress}
+        uploadErrors={uploadErrors}
+        setUploadErrors={setUploadErrors}
+        uploadAttachmentsMutation={uploadAttachmentsMutation}
+        deleteAttachmentMutation={deleteAttachmentMutation}
+      />
     ),
     createTabItem(
       'projects',
       { icon: <ProjectOutlined />, text: '工程關聯', count: dispatch?.linked_projects?.length || 0 },
-      renderProjectsTab()
+      <DispatchProjectsTab
+        isLoading={isLoading}
+        canEdit={canEdit}
+        linkedProjects={(dispatch?.linked_projects || []) as LinkedProject[]}
+        filteredProjects={filteredProjects}
+        selectedProjectId={selectedProjectId}
+        setSelectedProjectId={setSelectedProjectId}
+        onLinkProject={handleLinkProject}
+        linkProjectLoading={linkProjectMutation.isPending}
+        onUnlinkProject={(linkId) => unlinkProjectMutation.mutate(linkId)}
+        unlinkProjectLoading={unlinkProjectMutation.isPending}
+        navigate={navigate}
+        messageError={message.error}
+        refetch={refetch}
+      />
     ),
   ];
 

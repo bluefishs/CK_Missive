@@ -34,7 +34,7 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
     SEARCH_FIELDS = ['agency_name', 'agency_short_name']
     DEFAULT_SORT_FIELD = 'agency_name'
 
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化機關服務"""
         super().__init__(GovernmentAgency, "機關")
 

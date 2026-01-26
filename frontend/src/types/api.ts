@@ -656,6 +656,7 @@ export interface CalendarEventUI {
   end_datetime: string;
   document_id?: number;
   doc_number?: string;
+  contract_project_name?: string;  // 承攬案件名稱
   event_type?: string;
   priority?: number | string;
   status?: 'pending' | 'completed' | 'cancelled';  // 事件狀態

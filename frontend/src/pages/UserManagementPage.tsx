@@ -34,6 +34,7 @@ import type { User, UserPermissions } from '../types/api';
 import {
   useAdminUsersPage,
   useUserPermissions,
+  useResponsive,
 } from '../hooks';
 
 const { Title } = Typography;
@@ -41,6 +42,10 @@ const { Option } = Select;
 
 const UserManagementPage: React.FC = () => {
   const { message } = App.useApp();
+
+  // RWD 響應式
+  const { isMobile, responsiveValue } = useResponsive();
+  const pagePadding = responsiveValue({ mobile: 12, tablet: 16, desktop: 24 });
 
   // ============================================================================
   // UI 狀態（本地狀態）
@@ -324,30 +329,35 @@ const UserManagementPage: React.FC = () => {
   // ============================================================================
 
   return (
-    <div style={{ padding: '24px' }}>
-      <Card>
+    <div style={{ padding: pagePadding }}>
+      <Card size={isMobile ? 'small' : 'default'}>
         {/* 標題列 */}
-        <div style={{ marginBottom: '24px' }}>
-          <Row justify="space-between" align="middle">
-            <Col>
-              <Title level={3} style={{ margin: 0 }}>
-                <TeamOutlined style={{ marginRight: '8px' }} />
-                使用者權限管理
+        <div style={{ marginBottom: isMobile ? 12 : 24 }}>
+          <Row
+            justify="space-between"
+            align={isMobile ? 'top' : 'middle'}
+            gutter={[8, 8]}
+          >
+            <Col xs={24} sm={12}>
+              <Title level={isMobile ? 4 : 3} style={{ margin: 0 }}>
+                <TeamOutlined style={{ marginRight: 8 }} />
+                {isMobile ? '使用者管理' : '使用者權限管理'}
               </Title>
             </Col>
-            <Col>
-              <Space>
+            <Col xs={24} sm={12} style={{ textAlign: isMobile ? 'left' : 'right' }}>
+              <Space size={isMobile ? 'small' : 'middle'} wrap>
                 <Button
                   type="primary"
                   icon={<PlusOutlined />}
+                  size={isMobile ? 'small' : 'middle'}
                   onClick={() => {
                     setCurrentUser(null);
                     setEditModalVisible(true);
                   }}
                 >
-                  新增使用者
+                  {isMobile ? '' : '新增使用者'}
                 </Button>
-                {selectedRowKeys.length > 0 && (
+                {selectedRowKeys.length > 0 && !isMobile && (
                   <>
                     <Button
                       type="primary"
@@ -355,7 +365,7 @@ const UserManagementPage: React.FC = () => {
                       onClick={() => handleBatchRoleChange('user')}
                       loading={isBatchUpdating}
                     >
-                      批量驗證為使用者 ({selectedRowKeys.length})
+                      批量驗證 ({selectedRowKeys.length})
                     </Button>
                     <Button
                       icon={<CheckOutlined />}
@@ -387,8 +397,8 @@ const UserManagementPage: React.FC = () => {
         </div>
 
         {/* 篩選列 */}
-        <Row gutter={16} style={{ marginBottom: '16px' }}>
-          <Col span={6}>
+        <Row gutter={[isMobile ? 8 : 16, isMobile ? 8 : 16]} style={{ marginBottom: isMobile ? 12 : 16 }}>
+          <Col xs={24} sm={12} md={8} lg={6}>
             <AutoComplete
               options={searchOptions}
               onSearch={handleAutoCompleteSearch}
@@ -396,42 +406,51 @@ const UserManagementPage: React.FC = () => {
               style={{ width: '100%' }}
             >
               <Input
-                placeholder="搜尋使用者名稱或電子郵件"
+                placeholder={isMobile ? '搜尋...' : '搜尋使用者名稱或電子郵件'}
                 prefix={<SearchOutlined />}
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
                 onPressEnter={() => refetch()}
+                size={isMobile ? 'small' : 'middle'}
                 allowClear
               />
             </AutoComplete>
           </Col>
-          <Col span={4}>
+          <Col xs={12} sm={6} md={4}>
             <Select
-              placeholder="角色篩選"
+              placeholder={isMobile ? '角色' : '角色篩選'}
               allowClear
               value={roleFilter || undefined}
               onChange={setRoleFilter}
               style={{ width: '100%' }}
+              size={isMobile ? 'small' : 'middle'}
             >
               <Option value="user">一般使用者</Option>
               <Option value="admin">管理員</Option>
               <Option value="superuser">超級管理員</Option>
             </Select>
           </Col>
-          <Col span={4}>
-            <Select
-              placeholder="認證方式"
-              allowClear
-              value={providerFilter || undefined}
-              onChange={setProviderFilter}
-              style={{ width: '100%' }}
+          {!isMobile && (
+            <Col sm={6} md={4}>
+              <Select
+                placeholder="認證方式"
+                allowClear
+                value={providerFilter || undefined}
+                onChange={setProviderFilter}
+                style={{ width: '100%' }}
+              >
+                <Option value="email">電子郵件</Option>
+                <Option value="google">Google</Option>
+              </Select>
+            </Col>
+          )}
+          <Col xs={12} sm={6} md={4}>
+            <Button
+              type="primary"
+              onClick={() => refetch()}
+              size={isMobile ? 'small' : 'middle'}
+              style={{ width: isMobile ? '100%' : 'auto' }}
             >
-              <Option value="email">電子郵件</Option>
-              <Option value="google">Google</Option>
-            </Select>
-          </Col>
-          <Col span={4}>
-            <Button type="primary" onClick={() => refetch()}>
               搜尋
             </Button>
           </Col>
@@ -443,12 +462,14 @@ const UserManagementPage: React.FC = () => {
           dataSource={users}
           loading={isLoading || isDeleting}
           rowKey="id"
+          size={isMobile ? 'small' : 'middle'}
+          scroll={{ x: isMobile ? 400 : 800 }}
           onChange={handleTableChange}
           onRow={(record) => ({
             onClick: () => handleEdit(record),
             style: { cursor: 'pointer' },
           })}
-          rowSelection={{
+          rowSelection={isMobile ? undefined : {
             selectedRowKeys,
             onChange: (newSelectedRowKeys) => setSelectedRowKeys(newSelectedRowKeys),
             getCheckboxProps: (record: User) => ({
@@ -457,16 +478,17 @@ const UserManagementPage: React.FC = () => {
           }}
           pagination={{
             current: currentPage,
-            pageSize: pageSize,
+            pageSize: isMobile ? 10 : pageSize,
             total: total,
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (total, range) =>
+            showSizeChanger: !isMobile,
+            showQuickJumper: !isMobile,
+            showTotal: isMobile ? undefined : (total, range) =>
               `第 ${range[0]}-${range[1]} 項，共 ${total} 項`,
             onChange: (page, size) => {
               setCurrentPage(page);
               setPageSize(size || 20);
             },
+            size: isMobile ? 'small' : 'default',
           }}
         />
       </Card>

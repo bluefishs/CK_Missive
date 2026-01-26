@@ -42,7 +42,8 @@ class ProjectService(BaseService[ContractProject, ProjectCreate, ProjectUpdate])
     - 專案統計與選項查詢
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
+        """初始化承攬案件服務"""
         super().__init__(ContractProject, "承攬案件")
 
     # =========================================================================

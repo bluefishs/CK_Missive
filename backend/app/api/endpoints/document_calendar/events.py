@@ -28,6 +28,7 @@ from .common import (
     event_to_dict, check_event_permission, get_user_project_doc_ids,
     logger, datetime, timedelta
 )
+from app.extended.models import ContractProject
 
 router = APIRouter()
 
@@ -67,8 +68,13 @@ async def list_calendar_events(
                 )
 
         query = (
-            select(DocumentCalendarEvent, OfficialDocument.doc_number)
+            select(
+                DocumentCalendarEvent,
+                OfficialDocument.doc_number,
+                ContractProject.project_name
+            )
             .outerjoin(OfficialDocument, DocumentCalendarEvent.document_id == OfficialDocument.id)
+            .outerjoin(ContractProject, OfficialDocument.contract_project_id == ContractProject.id)
             .where(
                 DocumentCalendarEvent.start_date >= start_dt,
                 DocumentCalendarEvent.start_date <= end_dt,
@@ -109,7 +115,10 @@ async def list_calendar_events(
 
         return {
             "success": True,
-            "events": [event_to_dict(event, doc_number) for event, doc_number in events],
+            "events": [
+                event_to_dict(event, doc_number, project_name)
+                for event, doc_number, project_name in events
+            ],
             "total": total,
             "page": page,
             "page_size": page_size,
@@ -174,19 +183,50 @@ async def create_calendar_event(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user)
 ):
-    """新增一個日曆事件"""
+    """新增一個日曆事件
+
+    注意：document_id 為必填，所有事件必須關聯公文
+    """
     try:
+        # 驗證公文存在
+        doc_check = await db.execute(
+            select(OfficialDocument.id).where(OfficialDocument.id == event_create.document_id)
+        )
+        if not doc_check.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"找不到公文 ID: {event_create.document_id}"
+            )
+
+        # 檢查重複事件（相同公文+相同標題+相同日期）
+        start_date_only = event_create.start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_date_only = start_date_only + timedelta(days=1)
+
+        duplicate_check = await db.execute(
+            select(DocumentCalendarEvent).where(
+                DocumentCalendarEvent.document_id == event_create.document_id,
+                DocumentCalendarEvent.title == event_create.title,
+                DocumentCalendarEvent.start_date >= start_date_only,
+                DocumentCalendarEvent.start_date < end_date_only
+            )
+        )
+        existing_duplicate = duplicate_check.scalar_one_or_none()
+        if existing_duplicate:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"此公文在同一天已有相同標題的事件 (ID: {existing_duplicate.id})"
+            )
+
         # 檢查公文是否已有事件（提供警告但不阻擋建立）
         existing_event_warning = None
-        if event_create.document_id:
-            query = select(func.count()).select_from(DocumentCalendarEvent).where(
-                DocumentCalendarEvent.document_id == event_create.document_id
-            )
-            result = await db.execute(query)
-            existing_count = result.scalar()
-            if existing_count > 0:
-                existing_event_warning = f"注意：此公文已有 {existing_count} 筆行事曆事件"
-                logger.info(f"公文 {event_create.document_id} 已有 {existing_count} 筆事件，仍建立新事件")
+        query = select(func.count()).select_from(DocumentCalendarEvent).where(
+            DocumentCalendarEvent.document_id == event_create.document_id
+        )
+        result = await db.execute(query)
+        existing_count = result.scalar()
+        if existing_count > 0:
+            existing_event_warning = f"注意：此公文已有 {existing_count} 筆行事曆事件"
+            logger.info(f"公文 {event_create.document_id} 已有 {existing_count} 筆事件，仍建立新事件")
 
         # 處理時區問題
         start_date = event_create.start_date
@@ -245,8 +285,21 @@ async def create_event_with_reminders(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user)
 ):
-    """整合式事件建立 - 一站完成事件建立、提醒設定、Google 同步"""
+    """整合式事件建立 - 一站完成事件建立、提醒設定、Google 同步
+
+    注意：document_id 為必填，所有事件必須關聯公文
+    """
     try:
+        # 0. 驗證公文存在
+        doc_check = await db.execute(
+            select(OfficialDocument.id).where(OfficialDocument.id == request.document_id)
+        )
+        if not doc_check.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"找不到公文 ID: {request.document_id}"
+            )
+
         # 1. 處理時區
         start_date = request.start_date
         if start_date.tzinfo is not None:
@@ -258,6 +311,25 @@ async def create_event_with_reminders(
                 end_date = end_date.replace(tzinfo=None)
         else:
             end_date = start_date + timedelta(hours=1)
+
+        # 1.5. 檢查重複事件（相同公文+相同標題+相同日期）
+        start_date_only = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_date_only = start_date_only + timedelta(days=1)
+
+        duplicate_check = await db.execute(
+            select(DocumentCalendarEvent).where(
+                DocumentCalendarEvent.document_id == request.document_id,
+                DocumentCalendarEvent.title == request.title,
+                DocumentCalendarEvent.start_date >= start_date_only,
+                DocumentCalendarEvent.start_date < end_date_only
+            )
+        )
+        existing_duplicate = duplicate_check.scalar_one_or_none()
+        if existing_duplicate:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"此公文在同一天已有相同標題的事件 (ID: {existing_duplicate.id})"
+            )
 
         # 2. 建立事件
         priority_str = str(request.priority) if request.priority else '3'
@@ -468,7 +540,7 @@ async def get_user_calendar_events(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user)
 ):
-    """獲取指定使用者的日曆事件"""
+    """獲取指定使用者的日曆事件（含承攬案件名稱）"""
     try:
         if request.user_id != current_user.id and not current_user.is_admin:
             raise HTTPException(
@@ -484,9 +556,15 @@ async def get_user_calendar_events(
             start_dt = datetime.fromisoformat(request.start_date)
             end_dt = datetime.fromisoformat(request.end_date)
 
+        # 查詢事件，同時 JOIN 公文和承攬案件以取得案件名稱
         query = (
-            select(DocumentCalendarEvent, OfficialDocument.doc_number)
+            select(
+                DocumentCalendarEvent,
+                OfficialDocument.doc_number,
+                ContractProject.project_name
+            )
             .outerjoin(OfficialDocument, DocumentCalendarEvent.document_id == OfficialDocument.id)
+            .outerjoin(ContractProject, OfficialDocument.contract_project_id == ContractProject.id)
             .where(
                 DocumentCalendarEvent.start_date >= start_dt,
                 DocumentCalendarEvent.start_date <= end_dt,
@@ -502,7 +580,10 @@ async def get_user_calendar_events(
 
         return {
             "success": True,
-            "events": [event_to_dict(event, doc_number) for event, doc_number in events],
+            "events": [
+                event_to_dict(event, doc_number, project_name)
+                for event, doc_number, project_name in events
+            ],
             "total": len(events),
             "start_date": start_dt.isoformat(),
             "end_date": end_dt.isoformat()

@@ -38,7 +38,9 @@ import {
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
+import { useQueryClient } from '@tanstack/react-query';
 import { EnhancedCalendarView } from '../components/calendar/EnhancedCalendarView';
+import { EventFormModal } from '../components/calendar/EventFormModal';
 import { useCalendarPage } from '../hooks';
 import { useResponsive } from '../hooks';
 import type { CalendarEvent, EventCategory } from '../api/calendarApi';
@@ -56,6 +58,8 @@ const CalendarPage: React.FC = () => {
   // ============================================================================
   // React Query: 唯一的伺服器資料來源
   // ============================================================================
+
+  const queryClient = useQueryClient();
 
   const {
     events: calendarEvents,
@@ -84,6 +88,10 @@ const CalendarPage: React.FC = () => {
 
   const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs());
   const [sidebarVisible, setSidebarVisible] = useState(false);
+
+  // 編輯事件 Modal 狀態
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
 
   // ============================================================================
   // 事件處理函數
@@ -155,6 +163,29 @@ const CalendarPage: React.FC = () => {
     }
   };
 
+  // 開啟編輯 Modal
+  const handleEditEvent = (event: CalendarEvent) => {
+    setEditingEvent(event);
+    setEditModalVisible(true);
+  };
+
+  // 編輯成功後刷新
+  const handleEditSuccess = async () => {
+    console.log('[CalendarPage] handleEditSuccess 開始執行');
+    setEditModalVisible(false);
+    setEditingEvent(null);
+
+    // 強制使所有行事曆查詢失效並重新獲取
+    console.log('[CalendarPage] 執行 invalidateQueries...');
+    await queryClient.invalidateQueries({ queryKey: ['calendar', 'events'] });
+    await queryClient.invalidateQueries({ queryKey: ['dashboardCalendar'] });
+
+    // 明確呼叫 refetch 確保資料更新
+    console.log('[CalendarPage] 執行 refetch...');
+    await refetch();
+    console.log('[CalendarPage] 刷新完成');
+  };
+
   // 事件操作選單（側邊欄用）
   const getEventActionMenu = (event: CalendarEvent): MenuProps['items'] => [
     {
@@ -162,7 +193,18 @@ const CalendarPage: React.FC = () => {
       label: '編輯事件',
       icon: <EditOutlined />,
       onClick: () => {
-        message.info('請在行事曆中點選該事件進行編輯');
+        handleEditEvent(event);
+      }
+    },
+    {
+      key: 'markComplete',
+      label: event.status === 'completed' ? '標記為待處理' : '標記為完成',
+      icon: <CheckCircleOutlined />,
+      onClick: async () => {
+        const newStatus = event.status === 'completed' ? 'pending' : 'completed';
+        await handleEventUpdate(event.id, { status: newStatus });
+        // invalidateQueries 會自動觸發 refetch
+        message.success(`事件已標記為${newStatus === 'completed' ? '完成' : '待處理'}`);
       }
     },
     {
@@ -382,6 +424,32 @@ const CalendarPage: React.FC = () => {
       >
         {renderSidebarContent()}
       </Drawer>
+
+      {/* 編輯事件 Modal */}
+      <EventFormModal
+        visible={editModalVisible}
+        mode="edit"
+        event={editingEvent ? {
+          id: editingEvent.id,
+          title: editingEvent.title,
+          description: editingEvent.description,
+          start_date: editingEvent.start_datetime,
+          end_date: editingEvent.end_datetime,
+          all_day: false, // CalendarEventUI 沒有 all_day，使用預設值
+          event_type: editingEvent.event_type || 'reminder',
+          priority: typeof editingEvent.priority === 'string'
+            ? parseInt(editingEvent.priority, 10)
+            : (editingEvent.priority ?? 3),
+          location: editingEvent.location,
+          document_id: editingEvent.document_id,
+          doc_number: editingEvent.doc_number,
+        } : null}
+        onClose={() => {
+          setEditModalVisible(false);
+          setEditingEvent(null);
+        }}
+        onSuccess={handleEditSuccess}
+      />
     </div>
   );
 };

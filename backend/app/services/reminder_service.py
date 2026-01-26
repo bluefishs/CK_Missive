@@ -17,8 +17,9 @@ logger = logging.getLogger(__name__)
 class ReminderService:
     """多層級提醒服務"""
 
-    def __init__(self):
-        self.notification_service = NotificationService()
+    def __init__(self) -> None:
+        """初始化提醒服務"""
+        self.notification_service: NotificationService = NotificationService()
 
     # 預設提醒配置模板（統一一天前email提醒）
     DEFAULT_REMINDER_TEMPLATES = {
@@ -281,7 +282,7 @@ class ReminderService:
             logger.error(f"發送系統提醒失敗: {e}")
             return False
 
-    async def _handle_failed_reminder(self, db: AsyncSession, reminder: EventReminder):
+    async def _handle_failed_reminder(self, db: AsyncSession, reminder: EventReminder) -> None:
         """處理發送失敗的提醒"""
         reminder.retry_count += 1
 

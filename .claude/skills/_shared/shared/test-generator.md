@@ -1,7 +1,25 @@
+---
+name: test-generator
+description: 快速生成單元測試與整合測試
+version: 1.0.0
+category: shared
+triggers:
+  - 測試生成
+  - generate test
+  - 單元測試
+  - unit test
+  - pytest
+  - vitest
+updated: 2026-01-22
+---
+
 # Test Generator Skill
 
-**技能名稱**：測試生成器
-**用途**：快速生成單元測試與整合測試
+> **用途**: 快速生成單元測試與整合測試
+> **觸發**: 測試生成, generate test, 單元測試, pytest
+> **版本**: 1.0.0
+> **分類**: shared
+
 **適用場景**：新功能開發、重構、提升測試覆蓋率
 
 ---

@@ -192,7 +192,12 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
   // 初始化表單數據
   useEffect(() => {
     if (visible && mode === 'edit' && event) {
-      form.setFieldsValue({
+      // 調試：記錄接收到的事件資料
+      console.log('[EventFormModal] 初始化編輯模式，接收事件:', event);
+      console.log('[EventFormModal] event.start_date:', event.start_date);
+      console.log('[EventFormModal] 轉換後 dayjs:', dayjs(event.start_date).format('YYYY-MM-DD HH:mm'));
+
+      const formValues = {
         title: event.title,
         description: event.description,
         start_date: dayjs(event.start_date),
@@ -203,7 +208,10 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
         location: event.location,
         document_id: event.document_id,
         assigned_user_id: event.assigned_user_id
-      });
+      };
+      console.log('[EventFormModal] 設定表單值:', formValues);
+
+      form.setFieldsValue(formValues);
       setAllDay(event.all_day);
       // 如果有關聯公文，預載公文選項
       if (event.document_id && event.doc_number) {
@@ -233,6 +241,11 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
       const values = await form.validateFields();
       setLoading(true);
 
+      // 調試：檢查表單值
+      console.log('[EventFormModal] 表單值:', values);
+      console.log('[EventFormModal] start_date 原始值:', values.start_date);
+      console.log('[EventFormModal] start_date ISO:', values.start_date?.toISOString?.());
+
       const submitData = {
         title: values.title,
         description: values.description || null,
@@ -245,6 +258,8 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
         document_id: values.document_id || null,
         assigned_user_id: values.assigned_user_id || null
       };
+
+      console.log('[EventFormModal] 提交資料:', submitData);
 
       if (mode === 'create') {
         // 新增事件 (POST /api/calendar/events)
@@ -261,13 +276,15 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
         }
       } else if (mode === 'edit' && event) {
         // 更新事件 (POST /api/calendar/events/update)
-        const response = await apiClient.post<{ success: boolean; message: string }>(
+        console.log('[EventFormModal] 發送更新請求, event_id:', event.id);
+        const response = await apiClient.post<{ success: boolean; message: string; event?: any }>(
           '/calendar/events/update',
           {
             event_id: event.id,
             ...submitData
           }
         );
+        console.log('[EventFormModal] 更新回應:', response);
         if (response.success) {
           notification.success({ message: '事件更新成功' });
           onSuccess();
@@ -277,10 +294,11 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
         }
       }
     } catch (error: any) {
-      console.error('Error submitting event:', error);
+      console.error('[EventFormModal] 提交失敗:', error);
+      console.error('[EventFormModal] 錯誤詳情:', error.response?.data || error.message);
       notification.error({
         message: mode === 'create' ? '建立事件失敗' : '更新事件失敗',
-        description: error.message || '請稍後再試'
+        description: error.response?.data?.detail || error.message || '請稍後再試'
       });
     } finally {
       setLoading(false);
@@ -422,6 +440,7 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
             name="document_id"
             label="關聯公文"
             tooltip="輸入公文字號或主旨關鍵字搜尋（至少2個字元）"
+            rules={[{ required: true, message: '請選擇關聯公文（所有事件必須關聯公文）' }]}
             help={
               existingEventsWarning ? (
                 <span style={{ color: '#fa8c16' }}>{existingEventsWarning}</span>

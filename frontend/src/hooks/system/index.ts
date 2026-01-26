@@ -13,6 +13,7 @@ export * from './useCalendarIntegration';
 
 // 儀表板
 export * from './useDashboard';
+export * from './useDashboardCalendar';
 
 // 管理員
 export * from './useAdminUsers';
@@ -20,3 +21,6 @@ export * from './useAdminUsers';
 // 文件統計與關聯
 export * from './useDocumentStats';
 export * from './useDocumentRelations';
+
+// 通知中心
+export * from './useNotifications';

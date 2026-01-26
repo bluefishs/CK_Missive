@@ -1,19 +1,31 @@
 # -*- coding: utf-8 -*-
+"""
+公文匯出服務
+
+處理將公文資料匯出為 Excel 檔案的邏輯。
+"""
 import pandas as pd
 from io import BytesIO
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 from app.services.document_service import DocumentService
 import logging
 
 logger = logging.getLogger(__name__)
+
 
 class DocumentExportService:
     """
     服務層：處理將公文資料匯出為 Excel 檔案的邏輯
     """
 
-    def __init__(self, document_service: DocumentService):
-        self.document_service = document_service
+    def __init__(self, document_service: DocumentService) -> None:
+        """
+        初始化匯出服務
+
+        Args:
+            document_service: 公文服務實例
+        """
+        self.document_service: DocumentService = document_service
 
     async def export_documents_to_excel(self, document_ids: List[int]) -> bytes:
         """

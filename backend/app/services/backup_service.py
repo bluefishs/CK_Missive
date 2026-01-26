@@ -21,9 +21,10 @@ from app.core.config import settings
 class BackupService:
     """備份服務類別"""
 
-    def __init__(self):
+    def __init__(self) -> None:
+        """初始化備份服務"""
         # 專案根目錄 - 容器內使用 /app
-        self.project_root = Path("/app")
+        self.project_root: Path = Path("/app")
 
         # 備份目錄 - 使用容器內路徑
         self.backup_dir = Path("/app/backups/database")
@@ -49,7 +50,7 @@ class BackupService:
         # 確保目錄存在
         self._ensure_directories()
 
-    def _load_env_config(self):
+    def _load_env_config(self) -> None:
         """從環境變數載入設定"""
         env_file = self.project_root / ".env"
         if env_file.exists():
@@ -63,7 +64,7 @@ class BackupService:
                     elif line.startswith("POSTGRES_DB="):
                         self.db_name = line.split("=", 1)[1]
 
-    def _ensure_directories(self):
+    def _ensure_directories(self) -> None:
         """確保備份目錄存在"""
         self.backup_dir.mkdir(parents=True, exist_ok=True)
         self.attachment_backup_dir.mkdir(parents=True, exist_ok=True)
@@ -212,7 +213,7 @@ class BackupService:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    async def _cleanup_old_backups(self, retention_days: int):
+    async def _cleanup_old_backups(self, retention_days: int) -> None:
         """清理過期備份"""
         cutoff = datetime.now() - timedelta(days=retention_days)
 

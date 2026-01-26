@@ -1,7 +1,7 @@
 /**
  * 承辦同仁管理頁面
  * @description 提供承辦同仁的列表與導航管理功能
- * @version 2.0.0 - 移除 Modal，改用導航模式
+ * @version 2.1.0 - 移除列表刪除按鈕，整合至詳情頁 (導航模式規範)
  * @date 2026-01-22
  */
 import React, { useState, useEffect, useCallback } from 'react';
@@ -14,19 +14,16 @@ import {
   Card,
   Select,
   Typography,
-  Popconfirm,
   Row,
   Col,
   Statistic,
   App,
-  Tooltip,
   Switch,
   Tag,
 } from 'antd';
 import {
   PlusOutlined,
   SearchOutlined,
-  DeleteOutlined,
   UserOutlined,
   MailOutlined,
   TeamOutlined,
@@ -140,17 +137,7 @@ export const StaffPage: React.FC = () => {
     loadStaffList();
   }, [loadStaffList]);
 
-  // 刪除承辦同仁 (POST 機制)
-  const handleDelete = async (id: number) => {
-    try {
-      await apiClient.post(API_ENDPOINTS.USERS.DELETE(id));
-      message.success('承辦同仁刪除成功');
-      loadStaffList();
-    } catch (error: any) {
-      console.error('刪除失敗:', error);
-      message.error(extractErrorMessage(error));
-    }
-  };
+  // 刪除功能已移至 StaffDetailPage (導航模式規範)
 
   // 切換啟用狀態 (POST 機制)
   const handleToggleActive = async (id: number, isActive: boolean) => {
@@ -174,7 +161,7 @@ export const StaffPage: React.FC = () => {
     navigate(ROUTES.STAFF_CREATE);
   };
 
-  // 響應式表格欄位定義
+  // 響應式表格欄位定義 (導航模式：刪除功能整合至詳情頁)
   const columns: TableColumnType<Staff>[] = isMobile
     ? [
         {
@@ -198,24 +185,12 @@ export const StaffPage: React.FC = () => {
             <Switch
               size="small"
               checked={isActive}
-              onChange={(checked) => handleToggleActive(record.id, checked)}
+              onChange={(checked, e) => {
+                e.stopPropagation();
+                handleToggleActive(record.id, checked);
+              }}
+              onClick={(_, e) => e.stopPropagation()}
             />
-          ),
-        },
-        {
-          title: '',
-          key: 'action',
-          width: 50,
-          render: (_, record: Staff) => (
-            <Popconfirm
-              title="刪除此同仁？"
-              onConfirm={(e) => { e?.stopPropagation(); handleDelete(record.id); }}
-              onCancel={(e) => e?.stopPropagation()}
-              okText="確定"
-              cancelText="取消"
-            >
-              <Button type="link" size="small" danger icon={<DeleteOutlined />} onClick={(e) => e.stopPropagation()} />
-            </Popconfirm>
           ),
         },
       ]
@@ -308,36 +283,7 @@ export const StaffPage: React.FC = () => {
           },
           render: (date: string) => date ? new Date(date).toLocaleString('zh-TW') : '-',
         },
-        {
-          title: '操作',
-          key: 'action',
-          width: 80,
-          fixed: 'right',
-          render: (_, record: Staff) => (
-            <Popconfirm
-              title="確定要刪除此承辦同仁？"
-              description="刪除後將無法復原"
-              onConfirm={(e) => {
-                e?.stopPropagation();
-                handleDelete(record.id);
-              }}
-              onCancel={(e) => e?.stopPropagation()}
-              okText="確定"
-              cancelText="取消"
-              okButtonProps={{ danger: true }}
-            >
-              <Tooltip title="刪除">
-                <Button
-                  type="link"
-                  size="small"
-                  danger
-                  icon={<DeleteOutlined />}
-                  onClick={(e) => e.stopPropagation()}
-                />
-              </Tooltip>
-            </Popconfirm>
-          ),
-        },
+        // 導航模式：刪除功能整合至詳情頁，列表頁不顯示刪除按鈕
       ];
 
   return (

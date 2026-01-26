@@ -1,3 +1,12 @@
+/**
+ * 通知中心元件
+ *
+ * 使用集中的 hooks 管理 useQuery 邏輯
+ *
+ * @version 2.0.0
+ * @date 2026-01-23
+ */
+
 import React, { useState, useCallback } from 'react';
 import {
   Badge,
@@ -21,44 +30,16 @@ import {
   WarningOutlined,
   CloseCircleOutlined,
 } from '@ant-design/icons';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '../../api/client';
-import { API_ENDPOINTS } from '../../api/endpoints';
+
+// 使用集中的 Hooks
+import {
+  useUnreadNotificationCount,
+  useNotificationList,
+  useNotificationMutations,
+  type SystemNotification,
+} from '../../hooks';
 
 const { Text, Paragraph } = Typography;
-
-// 通知類型定義
-interface Notification {
-  id: number;
-  type: string;
-  severity: string;
-  title: string;
-  message: string;
-  source_table?: string;
-  source_id?: number;
-  changes?: Record<string, unknown>;
-  user_name?: string;
-  is_read: boolean;
-  created_at?: string;
-}
-
-interface NotificationListResponse {
-  success: boolean;
-  items: Notification[];
-  total: number;
-  unread_count: number;
-}
-
-interface UnreadCountResponse {
-  success: boolean;
-  unread_count: number;
-}
-
-interface MarkReadResponse {
-  success: boolean;
-  updated_count: number;
-  message: string;
-}
 
 // 嚴重程度圖示和顏色（使用具體類型以支援 TypeScript 嚴格模式）
 type SeverityType = 'info' | 'warning' | 'error' | 'critical';
@@ -87,62 +68,16 @@ const typeLabels: Record<string, string> = {
 
 export const NotificationCenter: React.FC = () => {
   const [open, setOpen] = useState(false);
-  const queryClient = useQueryClient();
 
-  // 取得未讀數量
-  const { data: unreadData } = useQuery<UnreadCountResponse>({
-    queryKey: ['notifications-unread-count'],
-    queryFn: async () => {
-      // apiClient.post 已返回 response.data，無需再解包
-      return await apiClient.post<UnreadCountResponse>(API_ENDPOINTS.SYSTEM_NOTIFICATIONS.UNREAD_COUNT, {});
-    },
-    refetchInterval: 30000, // 每 30 秒自動刷新
-  });
-
-  // 取得通知列表
-  const { data: listData, isLoading } = useQuery<NotificationListResponse>({
-    queryKey: ['notifications-list'],
-    queryFn: async () => {
-      // apiClient.post 已返回 response.data，無需再解包
-      return await apiClient.post<NotificationListResponse>(API_ENDPOINTS.SYSTEM_NOTIFICATIONS.LIST, {
-        limit: 20,
-        is_read: null, // 取得所有通知
-      });
-    },
-    enabled: open, // 只在打開時載入
-  });
-
-  // 標記已讀 mutation
-  const markReadMutation = useMutation<MarkReadResponse, Error, number[]>({
-    mutationFn: async (ids: number[]) => {
-      // apiClient.post 已返回 response.data，無需再解包
-      return await apiClient.post<MarkReadResponse>(API_ENDPOINTS.SYSTEM_NOTIFICATIONS.MARK_READ, {
-        notification_ids: ids,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
-      queryClient.invalidateQueries({ queryKey: ['notifications-list'] });
-    },
-  });
-
-  // 全部標記已讀 mutation
-  const markAllReadMutation = useMutation<MarkReadResponse, Error, void>({
-    mutationFn: async () => {
-      // apiClient.post 已返回 response.data，無需再解包
-      return await apiClient.post<MarkReadResponse>(API_ENDPOINTS.SYSTEM_NOTIFICATIONS.MARK_ALL_READ, {});
-    },
-    onSuccess: (data) => {
-      message.success(data.message);
-      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
-      queryClient.invalidateQueries({ queryKey: ['notifications-list'] });
-    },
-  });
+  // 使用集中的 Hooks
+  const { unreadCount } = useUnreadNotificationCount(true);
+  const { notifications, total, isLoading } = useNotificationList(open);
+  const { markRead, markAllRead, isMarkingAllRead } = useNotificationMutations();
 
   // 點擊通知項目
-  const handleNotificationClick = useCallback((notification: Notification) => {
+  const handleNotificationClick = useCallback((notification: SystemNotification) => {
     if (!notification.is_read) {
-      markReadMutation.mutate([notification.id]);
+      markRead([notification.id]);
     }
 
     // 若有關聯公文，可以導航到公文詳情
@@ -150,7 +85,14 @@ export const NotificationCenter: React.FC = () => {
       // 這裡可以實作導航邏輯
       logger.debug(`Navigate to document ${notification.source_id}`);
     }
-  }, [markReadMutation]);
+  }, [markRead]);
+
+  // 全部標記已讀
+  const handleMarkAllRead = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    markAllRead();
+    message.success('已將所有通知標記為已讀');
+  }, [markAllRead]);
 
   // 格式化時間
   const formatTime = (dateStr?: string) => {
@@ -168,9 +110,6 @@ export const NotificationCenter: React.FC = () => {
     if (diffDays < 7) return `${diffDays} 天前`;
     return dateStr.split(' ')[0];
   };
-
-  const unreadCount = unreadData?.unread_count || 0;
-  const notifications = listData?.items || [];
 
   // 下拉內容
   const dropdownContent = (
@@ -193,11 +132,8 @@ export const NotificationCenter: React.FC = () => {
             type="link"
             size="small"
             icon={<CheckOutlined />}
-            onClick={(e) => {
-              e.stopPropagation();
-              markAllReadMutation.mutate();
-            }}
-            loading={markAllReadMutation.isPending}
+            onClick={handleMarkAllRead}
+            loading={isMarkingAllRead}
           >
             全部已讀
           </Button>
@@ -291,7 +227,7 @@ export const NotificationCenter: React.FC = () => {
           <Divider style={{ margin: 0 }} />
           <div style={{ padding: '8px 16px', textAlign: 'center' }}>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              共 {listData?.total || 0} 筆通知
+              共 {total || 0} 筆通知
             </Text>
           </div>
         </>

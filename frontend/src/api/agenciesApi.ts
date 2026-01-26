@@ -171,7 +171,7 @@ export const agenciesApi = {
    * @returns 機關選項列表
    */
   async getAgencyOptions(): Promise<AgencyOption[]> {
-    const response = await this.getAgencies({ limit: 1000, include_stats: false });
+    const response = await this.getAgencies({ limit: 100, include_stats: false });
     return response.items.map((agency) => {
       const option: AgencyOption = {
         id: agency.id,

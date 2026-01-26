@@ -1,0 +1,1 @@
+const fs = require("fs"); const path = "frontend/src/components/document/operations/documentOperationsUtils.ts"; const c = require("fs").readFileSync("frontend/src/components/document/operations/types.ts", "utf-8").replace(/子組件共用型別定義/g, "工具函數"); fs.writeFileSync(path, c); console.log("done");

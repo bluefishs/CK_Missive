@@ -29,7 +29,7 @@ class BaseService(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
                 super().__init__(PartnerVendor, "廠商")
     """
 
-    def __init__(self, model: Type[ModelType], entity_name: str = "實體"):
+    def __init__(self, model: Type[ModelType], entity_name: str = "實體") -> None:
         """
         初始化基礎服務
 
@@ -37,9 +37,9 @@ class BaseService(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
             model: SQLAlchemy Model 類別
             entity_name: 實體名稱（用於錯誤訊息）
         """
-        self.model = model
-        self.entity_name = entity_name
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.model: Type[ModelType] = model
+        self.entity_name: str = entity_name
+        self.logger: logging.Logger = logging.getLogger(self.__class__.__name__)
 
     # =========================================================================
     # 基礎查詢方法

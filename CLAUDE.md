@@ -2,8 +2,8 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.12.0
-> **最後更新**: 2026-01-21
+> **Claude Code 配置版本**: 1.13.0
+> **最後更新**: 2026-01-26
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers)
 
 ---
@@ -365,7 +365,7 @@ cd frontend && npx tsc --noEmit
 cd backend && python -m py_compile app/main.py
 ```
 
-### 5. 服務層架構 (v1.8.0)
+### 5. 服務層架構 (v1.13.0)
 
 **後端服務層分層原則**：
 
@@ -373,7 +373,39 @@ cd backend && python -m py_compile app/main.py
 |------|------|------|
 | API 層 | `backend/app/api/endpoints/` | HTTP 處理、參數驗證、回應格式化 |
 | Service 層 | `backend/app/services/` | 業務邏輯、資料處理、跨實體操作 |
-| Repository 層 | `backend/app/extended/` | 資料存取、ORM 模型 |
+| Repository 層 | `backend/app/repositories/` | 資料存取、ORM 查詢封裝 |
+| Model 層 | `backend/app/extended/models.py` | ORM 模型定義 |
+
+**Repository 層架構** (v1.13.0 新增)：
+
+| Repository | 說明 | 特有方法 |
+|------------|------|----------|
+| `BaseRepository[T]` | 泛型基類 | CRUD + 分頁 + 搜尋 |
+| `DocumentRepository` | 公文存取 | `get_by_doc_number()`, `filter_documents()`, `get_statistics()` |
+| `ProjectRepository` | 專案存取 | `get_by_project_code()`, `check_user_access()`, `filter_projects()` |
+| `AgencyRepository` | 機關存取 | `match_agency()`, `suggest_agencies()`, `filter_agencies()` |
+
+```python
+# ✅ 使用 Repository 進行資料存取
+from app.repositories import DocumentRepository, ProjectRepository
+
+async def some_service_method(db: AsyncSession):
+    doc_repo = DocumentRepository(db)
+
+    # 基礎查詢
+    doc = await doc_repo.get_by_id(1)
+
+    # 進階篩選
+    docs, total = await doc_repo.filter_documents(
+        doc_type='收文',
+        status='待處理',
+        search='桃園',
+        skip=0, limit=20
+    )
+
+    # 統計
+    stats = await doc_repo.get_statistics()
+```
 
 **BaseService 繼承原則**：
 
@@ -388,11 +420,12 @@ class ProjectService(BaseService[ContractProject, ProjectCreate, ProjectUpdate])
     def __init__(self):
         super().__init__(ContractProject, "承攬案件")
 
-# ✅ 複雜實體 - 獨立實現
+# ✅ 複雜實體 - 使用 Repository
 class DocumentService:
     def __init__(self, db: AsyncSession, auto_create_events: bool = True):
         self.db = db
-        self._agency_matcher = AgencyMatcher(db)  # 策略類別
+        self.repository = DocumentRepository(db)  # 使用 Repository
+        self._agency_matcher = AgencyMatcher(db)
 ```
 
 ### 6. 前端狀態管理架構 (v1.8.0)
@@ -439,6 +472,51 @@ const linkId = item.link_id;
 
 **詳細規範**：參見 `docs/specifications/LINK_ID_HANDLING_SPECIFICATION.md`
 
+### 8. 依賴注入架構 (v1.13.0)
+
+**後端服務依賴注入**：統一使用 `backend/app/core/dependencies.py`
+
+#### 兩種注入模式
+
+| 模式 | 適用場景 | 說明 |
+|------|----------|------|
+| **Singleton 模式** | 簡單 CRUD 服務 | 服務無狀態，db 作為方法參數 |
+| **工廠模式** (推薦) | 複雜業務服務 | 服務在建構時接收 db session |
+
+```python
+# ✅ Singleton 模式 - 向後相容
+from app.core.dependencies import get_vendor_service
+
+@router.get("/vendors")
+async def list_vendors(
+    vendor_service: VendorService = Depends(get_vendor_service),
+    db: AsyncSession = Depends(get_async_db)
+):
+    return await vendor_service.get_vendors(db, ...)
+
+# ✅ 工廠模式 - 推薦用於新開發
+from app.core.dependencies import get_service_with_db
+
+@router.get("/documents")
+async def list_documents(
+    service: DocumentService = Depends(get_service_with_db(DocumentService))
+):
+    return await service.get_list()  # 無需傳遞 db
+```
+
+#### 其他依賴函數
+
+| 函數 | 用途 |
+|------|------|
+| `get_pagination()` | 分頁參數依賴 |
+| `get_query_params()` | 通用查詢參數（分頁+搜尋+排序） |
+| `require_auth()` | 需要認證 |
+| `require_admin()` | 需要管理員權限 |
+| `require_permission(permission)` | 需要特定權限 |
+| `optional_auth()` | 可選認證 |
+
+**詳細說明**：參見 `backend/app/core/dependencies.py`
+
 ---
 
 ## 📖 重要規範文件
@@ -447,12 +525,13 @@ const linkId = item.link_id;
 |------|------|
 | `.claude/MANDATORY_CHECKLIST.md` | ⚠️ **強制性開發檢查清單 v1.6.0** (開發前必讀) |
 | `.claude/skills/type-management.md` | 型別管理規範 v1.1.0 (SSOT 架構) |
-| `.claude/skills/api-serialization.md` | 🆕 **API 序列化規範 v1.0.0** |
+| `.claude/skills/api-serialization.md` | API 序列化規範 v1.0.0 |
 | `.claude/commands/type-sync.md` | 型別同步檢查 v2.0.0 |
+| `backend/app/core/dependencies.py` | 🆕 **依賴注入模組 v1.13.0** |
 | `docs/DEVELOPMENT_STANDARDS.md` | 統一開發規範總綱 |
 | `docs/specifications/API_ENDPOINT_CONSISTENCY.md` | API 端點一致性 v2.0.0 |
 | `docs/specifications/TYPE_CONSISTENCY.md` | 型別一致性規範 |
-| `docs/specifications/SCHEMA_DB_MAPPING.md` | 🆕 **Schema-DB 欄位對照表 v1.0.0** |
+| `docs/specifications/SCHEMA_DB_MAPPING.md` | Schema-DB 欄位對照表 v1.0.0 |
 | `docs/specifications/LINK_ID_HANDLING_SPECIFICATION.md` | 關聯記錄處理規範 v1.0.0 |
 | `docs/specifications/TESTING_FRAMEWORK.md` | 測試框架規範 |
 | `docs/Architecture_Optimization_Recommendations.md` | 📐 架構優化建議 |
@@ -505,9 +584,32 @@ backend/app/api/endpoints/
 │   ├── export.py          # 匯出功能
 │   ├── import_.py         # 匯入功能
 │   └── audit.py           # 審計日誌
-├── _archived/              # 已歸檔的舊 API
+├── document_calendar/      # 行事曆 API (模組化)
+├── taoyuan_dispatch/       # 桃園派工 API (模組化)
 └── *.py                    # 其他 API 端點
 ```
+
+### 前端元件工具函數
+
+DocumentOperations 相關工具函數與 Hooks 已模組化 (v1.13.0)：
+
+```
+frontend/src/components/document/operations/
+├── types.ts                    # 型別定義
+├── documentOperationsUtils.ts  # 工具函數
+├── useDocumentOperations.ts    # 操作邏輯 Hook (545 行)
+├── useDocumentForm.ts          # 表單處理 Hook (293 行)
+├── CriticalChangeConfirmModal.tsx
+├── DuplicateFileModal.tsx
+├── ExistingAttachmentsList.tsx
+├── FileUploadSection.tsx
+└── index.ts                    # 統一匯出
+```
+
+**DocumentOperations 重構成果**：
+- 主元件：1,229 行 → **327 行** (減少 73%)
+- 業務邏輯提取至 Custom Hooks
+- UI 渲染與邏輯完全分離
 
 ---
 
@@ -565,6 +667,49 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 
 ## 📋 版本更新記錄
 
+### v1.13.0 (2026-01-26) - 架構現代化版
+
+**依賴注入系統**:
+- 新增 `backend/app/core/dependencies.py` (355 行)
+- 支援 Singleton 模式與工廠模式兩種依賴注入方式
+- 提供認證、權限、分頁等常用依賴函數
+
+**Repository 層架構** (Phase 3):
+- 新增 `backend/app/repositories/` 目錄 (3,022 行)
+- `BaseRepository[T]` 泛型基類：CRUD + 分頁 + 搜尋
+- `DocumentRepository`：公文特定查詢、統計、流水號生成
+- `ProjectRepository`：專案查詢、權限檢查、人員關聯
+- `AgencyRepository`：機關查詢、智慧匹配、建議功能
+
+**前端元件重構** (Phase 3):
+- `DocumentOperations.tsx`：1,229 行 → **327 行** (減少 73%)
+- 新增 `useDocumentOperations.ts` (545 行) - 操作邏輯 Hook
+- 新增 `useDocumentForm.ts` (293 行) - 表單處理 Hook
+
+**型別安全強化**:
+- 修復前端 5 個檔案的 `any` 型別問題
+- 完全遵循 SSOT 原則，所有型別從 `types/api.ts` 匯入
+- TypeScript 編譯 100% 通過
+
+**程式碼精簡**:
+- 總計減少約 **18,040 行**程式碼
+- 前端程式碼減少約 9,110 行 (Phase 3)
+- 刪除 `_archived/` 廢棄目錄，減少約 6,100 行
+
+**測試範本建立** (Phase 3):
+- 後端：`tests/unit/test_dependencies.py`、`test_services/`
+- 前端：`__tests__/hooks/`、`__tests__/components/`
+
+**工具模組化**:
+- 新增 `documentOperationsUtils.ts` (273 行) - 提取共用工具函數
+- 包含：檔案驗證、關鍵欄位檢測、Assignee 處理、錯誤處理等
+
+**Skills 清理**:
+- 刪除重複的 Skills 文件
+- 統一保留頂層版本作為專案特定配置
+
+---
+
 ### v1.9.0 (2026-01-21) - 架構優化版
 
 **架構優化**:
@@ -581,4 +726,4 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 ---
 
 *配置維護: Claude Code Assistant*
-*最後更新: 2026-01-21*
+*最後更新: 2026-01-26*

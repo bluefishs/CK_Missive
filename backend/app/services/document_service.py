@@ -136,7 +136,7 @@ class DocumentService:
         """
         return await self._project_matcher.match_or_create(project_name)
 
-    def _parse_date_string(self, date_str: str) -> date:
+    def _parse_date_string(self, date_str: str) -> Optional[date]:
         """
         解析日期字串為 date 物件
 
@@ -157,7 +157,7 @@ class DocumentService:
             logger.warning(f"[篩選] 無效的日期格式: {date_str}")
             return None
 
-    def _extract_agency_names(self, agency_value: str) -> list:
+    def _extract_agency_names(self, agency_value: str) -> List[str]:
         """
         從下拉選項值中提取機關名稱
 
@@ -207,7 +207,7 @@ class DocumentService:
 
         return names
 
-    def _apply_filters(self, query, filters: DocumentFilter):
+    def _apply_filters(self, query: Any, filters: DocumentFilter) -> Any:
         """
         套用篩選條件到查詢
 
@@ -394,7 +394,21 @@ class DocumentService:
             logger.error(f"get_documents 失敗: {e}", exc_info=True)
             return {"items": [], "total": 0, "page": 1, "limit": limit, "total_pages": 0}
 
-    async def create_document(self, doc_data: Dict[str, Any], current_user_id: int) -> Optional[Document]:
+    async def create_document(
+        self,
+        doc_data: Dict[str, Any],
+        current_user_id: int
+    ) -> Optional[Document]:
+        """
+        建立公文
+
+        Args:
+            doc_data: 公文資料字典
+            current_user_id: 當前使用者 ID
+
+        Returns:
+            新建的公文物件，失敗時返回 None
+        """
         try:
             sender_agency_id = await self._get_or_create_agency_id(doc_data.get('sender'))
             receiver_agency_id = await self._get_or_create_agency_id(doc_data.get('receiver'))
@@ -509,7 +523,15 @@ class DocumentService:
         return doc_dict
 
     async def _get_next_auto_serial(self, doc_type: str) -> str:
-        """產生下一個流水號 (R0001=收文, S0001=發文)"""
+        """
+        產生下一個流水號 (R0001=收文, S0001=發文)
+
+        Args:
+            doc_type: 公文類型 ('收文' 或 '發文')
+
+        Returns:
+            自動產生的流水號字串
+        """
         prefix = 'R' if doc_type == '收文' else 'S'
         # 查詢當前最大流水號
         result = await self.db.execute(

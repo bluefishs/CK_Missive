@@ -1,3 +1,11 @@
+/**
+ * 承攬案件表單頁面
+ *
+ * RWD 優化版本
+ * @version 1.1.0
+ * @date 2026-01-23
+ */
+
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -29,6 +37,7 @@ import {
   CONTRACT_CASE_STATUS_LABELS,
 } from '../types/api';
 import { ROUTES } from '../router/types';
+import { useResponsive } from '../hooks';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -60,7 +69,10 @@ export const ContractCaseFormPage: React.FC = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  
+
+  // RWD 響應式
+  const { isMobile } = useResponsive();
+
   const isEdit = Boolean(id);
   const title = isEdit ? '編輯承攬案件' : '新增承攬案件';
 
@@ -135,42 +147,60 @@ export const ContractCaseFormPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div style={{ textAlign: 'center', padding: 50 }}>
+      <div style={{
+        textAlign: 'center',
+        padding: isMobile ? 24 : 50
+      }}>
         <Spin size="large" />
       </div>
     );
   }
 
   return (
-    <div>
-      {/* 頁面標題 */}
-      <Card style={{ marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <Button 
-            type="text" 
+    <div style={{ padding: isMobile ? '12px' : undefined }}>
+      {/* 頁面標題 - RWD 響應式 */}
+      <Card
+        style={{ marginBottom: isMobile ? 12 : 16 }}
+        size={isMobile ? 'small' : 'default'}
+      >
+        <div style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          gap: isMobile ? 8 : 16
+        }}>
+          <Button
+            type="text"
             icon={<ArrowLeftOutlined />}
             onClick={handleBack}
+            size={isMobile ? 'small' : 'middle'}
           >
-            返回
+            {isMobile ? '返回' : '返回列表'}
           </Button>
-          <Title level={3} style={{ margin: 0 }}>
+          <Title level={isMobile ? 4 : 3} style={{ margin: 0 }}>
             {title}
           </Title>
         </div>
       </Card>
 
       {/* 表單 */}
-      <Card>
+      <Card
+        size={isMobile ? 'small' : 'default'}
+        styles={{
+          body: { padding: isMobile ? 12 : 24 }
+        }}
+      >
         <Form
           form={form}
           layout="vertical"
           onFinish={handleSubmit}
+          size={isMobile ? 'middle' : 'large'}
           initialValues={{
             year: new Date().getFullYear().toString(),
             case_status: ContractCaseStatus.PLANNED,
           }}
         >
-          <Row gutter={[16, 0]}>
+          <Row gutter={[isMobile ? 8 : 16, 0]}>
             {/* 第一行：專案名稱（全寬） */}
             <Col span={24}>
               <Form.Item
@@ -294,7 +324,7 @@ export const ContractCaseFormPage: React.FC = () => {
                 name="description"
               >
                 <TextArea
-                  rows={4}
+                  rows={isMobile ? 3 : 4}
                   placeholder="請輸入案件說明"
                 />
               </Form.Item>
@@ -307,28 +337,47 @@ export const ContractCaseFormPage: React.FC = () => {
                 name="notes"
               >
                 <TextArea
-                  rows={3}
+                  rows={isMobile ? 2 : 3}
                   placeholder="請輸入備註"
                 />
               </Form.Item>
             </Col>
 
-            {/* 操作按鈕 */}
+            {/* 操作按鈕 - RWD 響應式 */}
             <Col span={24}>
-              <Form.Item>
-                <Space>
-                  <Button
-                    type="primary"
-                    htmlType="submit"
-                    icon={<SaveOutlined />}
-                    loading={submitting}
-                  >
-                    {isEdit ? '更新' : '新增'}
-                  </Button>
-                  <Button onClick={handleBack}>
-                    取消
-                  </Button>
-                </Space>
+              <Form.Item style={{ marginBottom: 0 }}>
+                {isMobile ? (
+                  // 手機版: 按鈕堆疊
+                  <Space direction="vertical" style={{ width: '100%' }}>
+                    <Button
+                      type="primary"
+                      htmlType="submit"
+                      icon={<SaveOutlined />}
+                      loading={submitting}
+                      block
+                    >
+                      {isEdit ? '更新' : '新增'}
+                    </Button>
+                    <Button onClick={handleBack} block>
+                      取消
+                    </Button>
+                  </Space>
+                ) : (
+                  // 桌面版: 按鈕並排
+                  <Space>
+                    <Button
+                      type="primary"
+                      htmlType="submit"
+                      icon={<SaveOutlined />}
+                      loading={submitting}
+                    >
+                      {isEdit ? '更新' : '新增'}
+                    </Button>
+                    <Button onClick={handleBack}>
+                      取消
+                    </Button>
+                  </Space>
+                )}
               </Form.Item>
             </Col>
           </Row>

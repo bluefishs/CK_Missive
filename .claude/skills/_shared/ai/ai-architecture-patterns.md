@@ -1,9 +1,28 @@
+---
+name: ai-architecture-patterns
+description: AI 功能架構設計模式 - RAG、工具調用、意圖識別
+version: 1.0.0
+category: ai
+triggers:
+  - AI 架構
+  - RAG
+  - 意圖識別
+  - intent
+  - 工具調用
+  - LLM
+  - AI 功能
+updated: 2026-01-22
+---
+
 # AI Architecture Patterns Skill
 
-**技能名稱**：AI 架構模式
-**用途**：定義與指導專案中 AI 功能的架構設計，確保 RAG、工具調用等複雜功能的開發一致性與可擴展性。
-**適用場景**：開發新的 AI 功能、重構現有 AI 服務、設計 AI 與系統其他部分的互動。
-**最後更新**：2026-01-10 (Phase 13 三層意圖識別架構)
+> **用途**: 定義與指導專案中 AI 功能的架構設計
+> **觸發**: AI 架構, RAG, 意圖識別, intent, LLM
+> **版本**: 1.0.0
+> **分類**: ai
+> **更新日期**: 2026-01-22
+
+**適用場景**：開發新的 AI 功能、重構現有 AI 服務、設計 AI 與系統其他部分的互動
 
 ---
 

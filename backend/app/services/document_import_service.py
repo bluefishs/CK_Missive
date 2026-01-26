@@ -32,7 +32,7 @@ class DocumentImportService(ImportBaseService):
     繼承 ImportBaseService 以使用共用的驗證邏輯與回應結構。
     """
 
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession) -> None:
         """
         初始化 CSV 匯入服務
 
@@ -40,8 +40,8 @@ class DocumentImportService(ImportBaseService):
             db: 資料庫連線
         """
         super().__init__(db)
-        self.csv_processor = DocumentCSVProcessor()
-        self.document_service = DocumentService(db)
+        self.csv_processor: DocumentCSVProcessor = DocumentCSVProcessor()
+        self.document_service: DocumentService = DocumentService(db)
 
     async def import_from_file(
         self,

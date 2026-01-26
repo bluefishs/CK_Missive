@@ -16,7 +16,7 @@ from .common import (
     DocumentService, DocumentFilter, DocumentListQuery, DocumentListResponse,
     DocumentResponse, StaffInfo, PaginationMeta,
     ProjectDocumentsQuery, OptimizedSearchRequest, SearchSuggestionRequest,
-    require_auth,
+    require_auth, get_document_service,
 )
 
 router = APIRouter()
@@ -34,7 +34,7 @@ router = APIRouter()
 )
 async def list_documents(
     query: DocumentListQuery = Body(default=DocumentListQuery()),
-    db: AsyncSession = Depends(get_async_db),
+    service: DocumentService = Depends(get_document_service),
     current_user: User = Depends(require_auth())
 ):
     """
@@ -69,8 +69,6 @@ async def list_documents(
                    f"delivery_method={query.delivery_method}, "
                    f"doc_date_from={query.doc_date_from}, doc_date_to={query.doc_date_to}, "
                    f"contract_case={query.contract_case}, category={query.category}")
-
-        service = DocumentService(db)
 
         # 構建篩選條件
         filters = DocumentFilter(
@@ -109,6 +107,9 @@ async def list_documents(
         # 轉換為統一回應格式
         items = result.get("items", [])
         total = result.get("total", 0)
+
+        # 取得 db session (從 service)
+        db = service.db
 
         # 收集所有 project_id 以批次查詢
         project_ids = list(set(doc.contract_project_id for doc in items if doc.contract_project_id))
@@ -511,7 +512,7 @@ async def integrated_document_search_legacy(
     doc_date_to: str | None = Query(None, description="公文日期迄"),
     sort_by: str | None = Query("updated_at", description="排序欄位"),
     sort_order: str | None = Query("desc", description="排序順序"),
-    db: AsyncSession = Depends(get_async_db)
+    service: DocumentService = Depends(get_document_service)
 ):
     """
     整合式公文搜尋（已棄用）
@@ -520,8 +521,6 @@ async def integrated_document_search_legacy(
     請改用 POST /documents-enhanced/list 端點
     """
     try:
-        service = DocumentService(db)
-
         filters = DocumentFilter(
             keyword=keyword,
             doc_type=doc_type,

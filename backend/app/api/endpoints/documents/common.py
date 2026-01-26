@@ -55,8 +55,11 @@ from app.core.exceptions import NotFoundException, ForbiddenException
 from app.core.rls_filter import RLSFilter
 from app.core.audit_logger import DocumentUpdateGuard
 from app.services.notification_service import NotificationService, CRITICAL_FIELDS
-from app.core.dependencies import require_auth, require_permission
+from app.core.dependencies import require_auth, require_permission, get_service_with_db
 from app.api.endpoints.auth import get_current_user
+
+# DocumentService 依賴注入工廠函數
+get_document_service = get_service_with_db(DocumentService)
 
 logger = logging.getLogger(__name__)
 
@@ -138,6 +141,8 @@ __all__ = [
     "DocumentService",
     "NotificationService",
     "CRITICAL_FIELDS",
+    # Dependencies
+    "get_document_service",
     # Schemas - Document
     "DocumentFilter",
     "DocumentListQuery",

@@ -1,7 +1,25 @@
+---
+name: dangerous-operations-policy
+description: 定義系統禁止執行的危險操作，確保資料安全
+version: 1.0.0
+category: shared
+triggers:
+  - 危險操作
+  - 禁止
+  - DROP
+  - DELETE
+  - TRUNCATE
+  - 資料安全
+updated: 2026-01-22
+---
+
 # Dangerous Operations Policy
 
-**技能名稱**：危險操作策略
-**用途**：定義系統禁止執行的危險操作，確保資料安全
+> **用途**: 定義系統禁止執行的危險操作
+> **觸發**: 危險操作, 禁止, DROP, DELETE, TRUNCATE
+> **版本**: 1.0.0
+> **分類**: shared
+
 **適用場景**：所有涉及資料庫、系統配置的操作
 
 ---

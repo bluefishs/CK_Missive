@@ -71,7 +71,9 @@ export const useUpdateCalendarEvent = () => {
     mutationFn: ({ eventId, updates }: { eventId: number; updates: Partial<CalendarEvent> }) =>
       calendarApi.updateEvent(eventId, updates),
     onSuccess: () => {
+      // 同時 invalidate Calendar 和 Dashboard 的 queryKey
       queryClient.invalidateQueries({ queryKey: calendarKeys.events() });
+      queryClient.invalidateQueries({ queryKey: ['dashboardCalendar'] });
     },
   });
 };
@@ -85,7 +87,9 @@ export const useDeleteCalendarEvent = () => {
   return useMutation({
     mutationFn: (eventId: number) => calendarApi.deleteEvent(eventId),
     onSuccess: () => {
+      // 同時 invalidate Calendar 和 Dashboard 的 queryKey
       queryClient.invalidateQueries({ queryKey: calendarKeys.events() });
+      queryClient.invalidateQueries({ queryKey: ['dashboardCalendar'] });
     },
   });
 };

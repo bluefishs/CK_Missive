@@ -78,7 +78,10 @@ class ReminderConfig(BaseModel):
     notification_type: str = Field("system", description="通知類型 (email/system)")
 
 class DocumentCalendarEventCreate(BaseModel):
-    """Schema for creating a document calendar event"""
+    """Schema for creating a document calendar event
+
+    注意：document_id 為必填欄位，所有行事曆事件必須關聯公文
+    """
     title: str
     description: Optional[str] = None
     start_date: datetime
@@ -87,7 +90,7 @@ class DocumentCalendarEventCreate(BaseModel):
     event_type: Optional[str] = "reminder"
     priority: Optional[str] = "3"
     location: Optional[str] = None
-    document_id: Optional[int] = None
+    document_id: int = Field(..., description="關聯公文 ID（必填）")
     assigned_user_id: Optional[int] = None
     reminder_enabled: Optional[bool] = True
     reminder_minutes: Optional[int] = 60
@@ -98,7 +101,10 @@ class DocumentCalendarEventCreate(BaseModel):
         return normalize_priority(v)
 
 class IntegratedEventCreate(BaseModel):
-    """整合式事件建立 (事件+提醒+同步一站完成)"""
+    """整合式事件建立 (事件+提醒+同步一站完成)
+
+    注意：document_id 為必填欄位，所有行事曆事件必須關聯公文
+    """
     title: str = Field(..., description="事件標題")
     description: Optional[str] = Field(None, description="事件描述")
     start_date: datetime = Field(..., description="開始時間")
@@ -107,7 +113,7 @@ class IntegratedEventCreate(BaseModel):
     event_type: str = Field("reminder", description="事件類型")
     priority: str = Field("3", description="優先級 (1-5)")
     location: Optional[str] = Field(None, description="地點")
-    document_id: Optional[int] = Field(None, description="關聯公文 ID")
+    document_id: int = Field(..., description="關聯公文 ID（必填）")
     reminder_enabled: bool = Field(True, description="是否啟用提醒")
     reminders: List[ReminderConfig] = Field(default_factory=list, description="提醒設定列表")
     sync_to_google: bool = Field(False, description="是否同步至 Google Calendar")

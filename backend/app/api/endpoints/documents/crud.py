@@ -23,8 +23,8 @@ from .common import (
     NotFoundException, ForbiddenException,
     RLSFilter, DocumentUpdateGuard, NotificationService, CRITICAL_FIELDS,
     require_auth, require_permission, parse_date_string,
+    DocumentService, get_document_service,
 )
-from app.services.document_service import DocumentService
 
 router = APIRouter()
 
@@ -40,7 +40,7 @@ router = APIRouter()
 )
 async def get_document_detail(
     document_id: int,
-    db: AsyncSession = Depends(get_async_db),
+    service: DocumentService = Depends(get_document_service),
     current_user: User = Depends(require_auth())
 ):
     """
@@ -50,8 +50,8 @@ async def get_document_detail(
     """
     try:
         # 使用 DocumentService 取得公文及額外資訊
-        service = DocumentService(db, auto_create_events=False)
         doc_dict = await service.get_document_with_extra_info(document_id)
+        db = service.db
 
         if not doc_dict:
             return JSONResponse(
@@ -100,7 +100,7 @@ async def get_document_detail(
 )
 async def create_document(
     data: DocumentCreateRequest = Body(...),
-    db: AsyncSession = Depends(get_async_db),
+    service: DocumentService = Depends(get_document_service),
     current_user: User = Depends(require_permission("documents:create"))
 ):
     """
@@ -109,6 +109,7 @@ async def create_document(
     🔒 權限要求：documents:create
     """
     try:
+        db = service.db
         create_data = data.model_dump(exclude_unset=True)
 
         # OfficialDocument 模型的有效欄位（與資料庫 schema 對齊）
@@ -184,7 +185,7 @@ async def create_document(
 async def update_document(
     document_id: int,
     data: DocumentUpdateRequest = Body(...),
-    db: AsyncSession = Depends(get_async_db),
+    service: DocumentService = Depends(get_document_service),
     current_user: User = Depends(require_permission("documents:edit"))
 ):
     """
@@ -194,6 +195,7 @@ async def update_document(
     🔒 行級別權限：一般使用者只能編輯關聯專案的公文
     """
     try:
+        db = service.db
         logger.info(f"[更新公文] 開始更新公文 ID: {document_id}")
         logger.debug(f"[更新公文] 收到資料: {data.model_dump()}")
 
@@ -309,7 +311,7 @@ async def update_document(
 )
 async def delete_document(
     document_id: int,
-    db: AsyncSession = Depends(get_async_db),
+    service: DocumentService = Depends(get_document_service),
     current_user: User = Depends(require_permission("documents:delete"))
 ):
     """
@@ -325,6 +327,7 @@ async def delete_document(
     - 公文附件資料夾（若為空）
     """
     try:
+        db = service.db
         # 1. 查詢公文是否存在
         query = select(OfficialDocument).where(OfficialDocument.id == document_id)
         result = await db.execute(query)

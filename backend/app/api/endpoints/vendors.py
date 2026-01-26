@@ -23,9 +23,9 @@ from app.schemas.common import (
 )
 from app.services.vendor_service import VendorService
 from app.core.exceptions import NotFoundException, ConflictException, ResourceInUseException
+from app.core.dependencies import get_vendor_service
 
 router = APIRouter()
-vendor_service = VendorService()
 
 
 # 注意：VendorListQuery, VendorStatisticsResponse 已統一定義於 app/schemas/vendor.py
@@ -53,6 +53,7 @@ class VendorListResponse(PaginatedResponse):
 async def list_vendors(
     query: VendorListQuery = Body(default=VendorListQuery()),
     db: AsyncSession = Depends(get_async_db),
+    vendor_service: VendorService = Depends(get_vendor_service),
     current_user: User = Depends(require_auth())
 ):
     """
@@ -92,6 +93,7 @@ async def list_vendors(
 async def create_vendor(
     vendor: VendorCreate,
     db: AsyncSession = Depends(get_async_db),
+    vendor_service: VendorService = Depends(get_vendor_service),
     current_user: User = Depends(require_permission("vendors:create"))
 ):
     """
@@ -118,6 +120,7 @@ async def create_vendor(
 async def get_vendor_detail(
     vendor_id: int,
     db: AsyncSession = Depends(get_async_db),
+    vendor_service: VendorService = Depends(get_vendor_service),
     current_user: User = Depends(require_auth())
 ):
     """
@@ -140,6 +143,7 @@ async def update_vendor(
     vendor_id: int,
     vendor: VendorUpdate,
     db: AsyncSession = Depends(get_async_db),
+    vendor_service: VendorService = Depends(get_vendor_service),
     current_user: User = Depends(require_permission("vendors:edit"))
 ):
     """
@@ -162,6 +166,7 @@ async def update_vendor(
 async def delete_vendor(
     vendor_id: int,
     db: AsyncSession = Depends(get_async_db),
+    vendor_service: VendorService = Depends(get_vendor_service),
     current_user: User = Depends(require_permission("vendors:delete"))
 ):
     """
@@ -194,6 +199,7 @@ async def delete_vendor(
 )
 async def get_vendor_statistics(
     db: AsyncSession = Depends(get_async_db),
+    vendor_service: VendorService = Depends(get_vendor_service),
     current_user: User = Depends(require_auth())
 ):
     """
@@ -224,6 +230,7 @@ async def list_vendors_legacy(
     limit: int = 100,
     search: Optional[str] = None,
     db: AsyncSession = Depends(get_async_db),
+    vendor_service: VendorService = Depends(get_vendor_service),
     current_user: User = Depends(require_auth())
 ):
     """

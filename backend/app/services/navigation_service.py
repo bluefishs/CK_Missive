@@ -23,8 +23,9 @@ class NavigationService:
     處理網站導覽項目的 CRUD 操作和樹狀結構管理。
     """
 
-    def __init__(self):
-        self.logger = logging.getLogger(self.__class__.__name__)
+    def __init__(self) -> None:
+        """初始化導覽服務"""
+        self.logger: logging.Logger = logging.getLogger(self.__class__.__name__)
 
     # =========================================================================
     # 查詢方法

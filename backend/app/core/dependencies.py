@@ -122,10 +122,8 @@ def get_agency_service() -> AgencyService:
     return AgencyService()
 
 
-@lru_cache()
-def get_document_service() -> DocumentService:
-    """取得 DocumentService 實例（Singleton）"""
-    return DocumentService()
+# 注意：DocumentService 需要 db 參數，使用 get_service_with_db 工廠模式
+# 在 documents/common.py 中定義: get_document_service = get_service_with_db(DocumentService)
 
 
 # ============================================================================

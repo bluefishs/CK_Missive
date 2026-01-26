@@ -4,10 +4,11 @@
  * 使用原有的公文管理設計：
  * - 使用 DocumentTabs 組件呈現「全部公文/收文/發文」三個標籤頁
  * - 使用 DocumentFilter 組件進行篩選
- * - 點擊公文可導航至詳情頁，在「派工安排」Tab 進行派工管理
+ * - 桌面版：點擊公文開啟預覽抽屜，可快速查看摘要
+ * - 手機版：直接導航至詳情頁
  *
- * @version 1.1.0 - RWD 響應式改造
- * @date 2026-01-23
+ * @version 1.2.0 - 新增預覽抽屜功能
+ * @date 2026-01-26
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
@@ -25,9 +26,10 @@ import {
   PlusOutlined,
   ReloadOutlined,
   UploadOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 import { useResponsive } from '../../hooks';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 
 import { DocumentTabs } from '../document/DocumentTabs';
 import { DocumentFilter } from '../document/DocumentFilter';
@@ -45,6 +47,9 @@ import { Document, DocumentFilter as IDocumentFilter } from '../../types';
 import { calendarIntegrationService } from '../../services/calendarIntegrationService';
 import { queryKeys } from '../../config/queryConfig';
 import { logger } from '../../utils/logger';
+import { documentsApi } from '../../api/documentsApi';
+import { filesApi } from '../../api/filesApi';
+import { PreviewDrawer, DocumentPreview } from '../common/PreviewDrawer';
 
 const { Title } = Typography;
 
@@ -74,6 +79,26 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ contractCode }) => {
   // 排序狀態
   const [sortField, setSortField] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<'ascend' | 'descend' | null>(null);
+
+  // 預覽抽屜狀態
+  const [previewDrawer, setPreviewDrawer] = useState<{
+    open: boolean;
+    documentId: number | null;
+  }>({ open: false, documentId: null });
+
+  // 預覽公文資料查詢
+  const { data: previewDocument, isLoading: previewLoading } = useQuery({
+    queryKey: ['document-preview', previewDrawer.documentId],
+    queryFn: () => documentsApi.getDocument(previewDrawer.documentId!),
+    enabled: previewDrawer.open && previewDrawer.documentId !== null,
+  });
+
+  // 預覽公文附件數量查詢
+  const { data: previewAttachments } = useQuery({
+    queryKey: ['document-attachments-preview', previewDrawer.documentId],
+    queryFn: () => filesApi.getDocumentAttachments(previewDrawer.documentId!),
+    enabled: previewDrawer.open && previewDrawer.documentId !== null,
+  });
 
   // Modal 狀態
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; document: Document | null }>({
@@ -155,8 +180,17 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ contractCode }) => {
 
   // 公文操作處理
   const handleViewDocument = (document: Document) => {
-    // 導航到公文詳情頁，可在「派工安排」Tab 中進行派工管理
-    navigate(`/documents/${document.id}`);
+    // 手機版：直接跳轉詳情頁
+    // 桌面版：開啟預覽抽屜
+    if (isMobile) {
+      navigate(`/documents/${document.id}`);
+    } else {
+      setPreviewDrawer({ open: true, documentId: document.id });
+    }
+  };
+
+  const handleClosePreview = () => {
+    setPreviewDrawer({ open: false, documentId: null });
   };
 
   const handleEditDocument = (document: Document) => {
@@ -328,6 +362,26 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ contractCode }) => {
         onClose={() => setDocumentOperation({ type: null, document: null, visible: false })}
         onSave={handleSaveDocument}
       />
+
+      {/* 公文預覽抽屜 */}
+      <PreviewDrawer
+        open={previewDrawer.open}
+        onClose={handleClosePreview}
+        title={
+          <Space>
+            <FileTextOutlined />
+            公文預覽
+          </Space>
+        }
+        subtitle={previewDocument?.doc_number}
+        detailPath={previewDrawer.documentId ? `/documents/${previewDrawer.documentId}` : undefined}
+        loading={previewLoading}
+      >
+        <DocumentPreview
+          document={previewDocument || null}
+          attachmentCount={previewAttachments?.length || 0}
+        />
+      </PreviewDrawer>
     </div>
   );
 };

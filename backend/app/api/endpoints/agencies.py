@@ -22,6 +22,7 @@ from app.schemas.agency import (
 )
 from app.schemas.common import PaginationMeta, SortOrder
 from app.services.agency_service import AgencyService
+from app.core.dependencies import get_agency_service
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ router = APIRouter()
 async def list_agencies(
     query: AgencyListQuery = Body(default=AgencyListQuery()),
     db: AsyncSession = Depends(get_async_db),
-    agency_service: AgencyService = Depends(),
+    agency_service: AgencyService = Depends(get_agency_service),
     current_user: User = Depends(require_auth())
 ):
     """
@@ -106,7 +107,7 @@ async def list_agencies(
 async def get_agency_detail(
     agency_id: int,
     db: AsyncSession = Depends(get_async_db),
-    agency_service: AgencyService = Depends(),
+    agency_service: AgencyService = Depends(get_agency_service),
     current_user: User = Depends(require_auth())
 ):
     """取得單一機關詳情"""
@@ -128,7 +129,7 @@ async def get_agency_detail(
 async def create_agency(
     agency: AgencyCreate = Body(...),
     db: AsyncSession = Depends(get_async_db),
-    agency_service: AgencyService = Depends(),
+    agency_service: AgencyService = Depends(get_agency_service),
     current_user: User = Depends(require_permission("agencies:create"))
 ):
     """
@@ -154,7 +155,7 @@ async def update_agency(
     agency_id: int,
     agency: AgencyUpdate = Body(...),
     db: AsyncSession = Depends(get_async_db),
-    agency_service: AgencyService = Depends(),
+    agency_service: AgencyService = Depends(get_agency_service),
     current_user: User = Depends(require_permission("agencies:edit"))
 ):
     """
@@ -180,7 +181,7 @@ async def update_agency(
 async def delete_agency(
     agency_id: int,
     db: AsyncSession = Depends(get_async_db),
-    agency_service: AgencyService = Depends(),
+    agency_service: AgencyService = Depends(get_agency_service),
     current_user: User = Depends(require_permission("agencies:delete"))
 ):
     """
@@ -214,7 +215,7 @@ async def delete_agency(
 )
 async def get_agency_statistics(
     db: AsyncSession = Depends(get_async_db),
-    agency_service: AgencyService = Depends(),
+    agency_service: AgencyService = Depends(get_agency_service),
     current_user: User = Depends(require_auth())
 ):
     """取得機關統計資料"""
@@ -237,7 +238,7 @@ async def list_agencies_legacy(
     search: Optional[str] = None,
     include_stats: bool = True,
     db: AsyncSession = Depends(get_async_db),
-    agency_service: AgencyService = Depends(),
+    agency_service: AgencyService = Depends(get_agency_service),
     current_user: User = Depends(require_auth())
 ):
     """
@@ -263,7 +264,7 @@ async def list_agencies_legacy(
 )
 async def get_statistics_legacy(
     db: AsyncSession = Depends(get_async_db),
-    agency_service: AgencyService = Depends(),
+    agency_service: AgencyService = Depends(get_agency_service),
     current_user: User = Depends(require_auth())
 ):
     """
@@ -427,7 +428,7 @@ async def fix_agency_parsed_names(
 )
 async def get_association_summary(
     db: AsyncSession = Depends(get_async_db),
-    agency_service: AgencyService = Depends(),
+    agency_service: AgencyService = Depends(get_agency_service),
     current_user: User = Depends(require_auth())
 ):
     """
@@ -449,7 +450,7 @@ async def get_association_summary(
 async def batch_associate_agencies(
     request: BatchAssociateRequest = Body(default=BatchAssociateRequest()),
     db: AsyncSession = Depends(get_async_db),
-    agency_service: AgencyService = Depends(),
+    agency_service: AgencyService = Depends(get_agency_service),
     current_user: User = Depends(require_admin())
 ):
     """
@@ -508,7 +509,7 @@ async def batch_associate_agencies(
 async def suggest_agencies(
     request: AgencySuggestRequest = Body(...),
     db: AsyncSession = Depends(get_async_db),
-    agency_service: AgencyService = Depends(),
+    agency_service: AgencyService = Depends(get_agency_service),
     current_user: User = Depends(require_auth())
 ):
     """

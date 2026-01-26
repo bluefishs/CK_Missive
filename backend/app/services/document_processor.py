@@ -112,7 +112,7 @@ logging.getLogger().setLevel(log_level)
 
 
 class DocumentImportProcessor:
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Dict[str, Any]) -> None:
         """初始化 CSV 匯入處理器"""
         try:
             self.config = config
@@ -192,7 +192,7 @@ class DocumentImportProcessor:
             logger.debug(f"無法解析日期格式: '{date_str}'")
             return None
 
-    def process_documents(self):
+    def process_documents(self) -> None:
         """主處理流程"""
         start_time = time.time()
         output_file = None # 初始化以避免未綁定錯誤

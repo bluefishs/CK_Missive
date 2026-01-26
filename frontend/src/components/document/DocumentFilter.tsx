@@ -288,7 +288,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
       let response = await fetch(`${API_BASE_URL}/documents-enhanced/contract-projects-dropdown`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ limit: 1000 })
+        body: JSON.stringify({ limit: 100 })
       });
 
       if (response.ok) {
@@ -307,7 +307,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
       response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.DOCUMENTS.INTEGRATED_SEARCH}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ limit: 1000 })
+        body: JSON.stringify({ limit: 100 })
       });
       if (response.ok) {
         const data: DocumentListResponse = await response.json();
@@ -612,70 +612,80 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
 
       {expanded && (
         <>
-          <Divider style={{ margin: '16px 0' }}>進階查詢</Divider>
-          
-          <Row gutter={[16, 16]}>
+          <Divider style={{ margin: isMobile ? '12px 0' : '16px 0', fontSize: isMobile ? 12 : undefined }}>
+            進階查詢
+          </Divider>
+
+          <Row gutter={[isMobile ? 8 : 16, isMobile ? 8 : 16]}>
             {/* 第一行：公文年度、公文字號、公文日期 */}
-            <Col span={24} md={8}>
-              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
-                <span style={{ marginRight: 4, fontSize: '14px', color: '#666' }}>篩選年度</span>
-                <Tooltip title="選擇公文的年度。選項基於系統現有公文的年份。可用於統計特定年度的公文量。">
-                  <QuestionCircleOutlined style={{ color: '#999', fontSize: '12px' }} />
-                </Tooltip>
-              </div>
+            <Col xs={12} sm={12} md={8}>
+              {!isMobile && (
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+                  <span style={{ marginRight: 4, fontSize: '14px', color: '#666' }}>篩選年度</span>
+                  <Tooltip title="選擇公文的年度。選項基於系統現有公文的年份。可用於統計特定年度的公文量。">
+                    <QuestionCircleOutlined style={{ color: '#999', fontSize: '12px' }} />
+                  </Tooltip>
+                </div>
+              )}
               <Select
-                placeholder="請選擇年度 (預設：所有年度)"
+                placeholder={isMobile ? '年度' : '請選擇年度 (預設：所有年度)'}
                 value={localFilters.year}
                 onChange={(value) => handleFilterChange('year', value ? Number(value) : undefined)}
                 style={{ width: '100%' }}
                 allowClear
-                suffixIcon={
+                size={isMobile ? 'small' : 'middle'}
+                suffixIcon={isMobile ? null : (
                   <div>
                     <Tooltip title="動態載入現有年份">
                       <InfoCircleOutlined style={{ color: '#ccc', fontSize: '12px' }} />
                     </Tooltip>
                   </div>
-                }
+                )}
               >
                 {yearOptions.map((option) => (
                   <Option key={option.value} value={option.value}>
-                    {option.value}年 ({yearOptions.length > 0 ? '有資料' : '無資料'})
+                    {isMobile ? option.value : `${option.value}年 (${yearOptions.length > 0 ? '有資料' : '無資料'})`}
                   </Option>
                 ))}
               </Select>
             </Col>
 
-            <Col span={24} md={8}>
-              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
-                <span style={{ marginRight: 4, fontSize: '14px', color: '#666' }}>公文字號</span>
-                <Tooltip title="輸入完整或部分公文字號。例如：乾坤字第1130001號、府字第、部字第等。輸入2個字以上即可取得智能建議。">
-                  <QuestionCircleOutlined style={{ color: '#999', fontSize: '12px' }} />
-                </Tooltip>
-              </div>
+            <Col xs={12} sm={12} md={8}>
+              {!isMobile && (
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+                  <span style={{ marginRight: 4, fontSize: '14px', color: '#666' }}>公文字號</span>
+                  <Tooltip title="輸入完整或部分公文字號。例如：乾坤字第1130001號、府字第、部字第等。輸入2個字以上即可取得智能建議。">
+                    <QuestionCircleOutlined style={{ color: '#999', fontSize: '12px' }} />
+                  </Tooltip>
+                </div>
+              )}
               <Input
-                placeholder="請輸入公文字號 (例：乾坤字第)"
+                placeholder={isMobile ? '字號' : '請輸入公文字號 (例：乾坤字第)'}
                 value={localFilters.doc_number || ''}
                 onChange={(e) => handleFilterChange('doc_number', e.target.value)}
                 onPressEnter={handleApplyFilters}
                 allowClear
+                size={isMobile ? 'small' : 'middle'}
                 style={{ width: '100%' }}
-                suffix={
+                suffix={isMobile ? null : (
                   <Tooltip title="按 Enter 套用篩選">
                     <SearchOutlined style={{ color: '#ccc' }} />
                   </Tooltip>
-                }
+                )}
               />
             </Col>
 
             <Col span={24} md={8}>
-              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
-                <span style={{ marginRight: 4, fontSize: '14px', color: '#666' }}>公文日期</span>
-                <Tooltip title="選擇公文日期範圍。可只選擇開始日期或結束日期。日期格式：YYYY-MM-DD。適用於統計特定時間段的公文。">
-                  <QuestionCircleOutlined style={{ color: '#999', fontSize: '12px' }} />
-                </Tooltip>
-              </div>
+              {!isMobile && (
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+                  <span style={{ marginRight: 4, fontSize: '14px', color: '#666' }}>公文日期</span>
+                  <Tooltip title="選擇公文日期範圍。可只選擇開始日期或結束日期。日期格式：YYYY-MM-DD。適用於統計特定時間段的公文。">
+                    <QuestionCircleOutlined style={{ color: '#999', fontSize: '12px' }} />
+                  </Tooltip>
+                </div>
+              )}
               <RangePicker
-                placeholder={['選擇開始日期 (可選)', '選擇結束日期 (可選)']}
+                placeholder={isMobile ? ['起始', '結束'] : ['選擇開始日期 (可選)', '選擇結束日期 (可選)']}
                 value={dateRange}
                 onChange={(dates, dateStrings) => {
                   setDateRange(dates);
@@ -686,41 +696,45 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
                   });
                 }}
                 style={{ width: '100%' }}
+                size={isMobile ? 'small' : 'middle'}
                 format="YYYY-MM-DD"
-                suffixIcon={
+                suffixIcon={isMobile ? null : (
                   <Tooltip title="日期格式：YYYY-MM-DD">
                     <InfoCircleOutlined style={{ color: '#ccc', fontSize: '12px' }} />
                   </Tooltip>
-                }
+                )}
               />
             </Col>
 
             {/* 第二行：受文單位、發文單位 */}
             <Col span={24} md={12}>
-              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
-                <span style={{ marginRight: 4, fontSize: '14px', color: '#666' }}>受文單位</span>
-                <Tooltip title="選擇接收公文的機關單位。可輸入關鍵字快速搜尋現有單位。選項基於系統中已登記的公文資料。">
-                  <QuestionCircleOutlined style={{ color: '#999', fontSize: '12px' }} />
-                </Tooltip>
-              </div>
+              {!isMobile && (
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+                  <span style={{ marginRight: 4, fontSize: '14px', color: '#666' }}>受文單位</span>
+                  <Tooltip title="選擇接收公文的機關單位。可輸入關鍵字快速搜尋現有單位。選項基於系統中已登記的公文資料。">
+                    <QuestionCircleOutlined style={{ color: '#999', fontSize: '12px' }} />
+                  </Tooltip>
+                </div>
+              )}
               <Select
-                placeholder="請選擇或搜尋受文單位..."
+                placeholder={isMobile ? '受文單位' : '請選擇或搜尋受文單位...'}
                 value={localFilters.receiver || ''}
                 onChange={(value) => handleFilterChange('receiver', value)}
                 style={{ width: '100%' }}
                 allowClear
                 showSearch
+                size={isMobile ? 'small' : 'middle'}
                 filterOption={(input, option) =>
                   (option?.label as string)?.toLowerCase().indexOf((input as string)?.toLowerCase()) >= 0
                 }
-                suffixIcon={
+                suffixIcon={isMobile ? null : (
                   <div>
                     <SearchOutlined style={{ marginRight: 4 }} />
                     <Tooltip title="可搜尋單位名稱">
                       <InfoCircleOutlined style={{ color: '#ccc', fontSize: '12px' }} />
                     </Tooltip>
                   </div>
-                }
+                )}
               >
                 {receiverDropdownOptions.map((option) => (
                   <Option key={option.value} value={option.value} label={option.label}>
@@ -731,30 +745,33 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
             </Col>
 
             <Col span={24} md={12}>
-              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
-                <span style={{ marginRight: 4, fontSize: '14px', color: '#666' }}>發文單位</span>
-                <Tooltip title="選擇發送公文的機關單位。可輸入關鍵字快速搜尋現有單位。適用於統計特定機關的公文往來。">
-                  <QuestionCircleOutlined style={{ color: '#999', fontSize: '12px' }} />
-                </Tooltip>
-              </div>
+              {!isMobile && (
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+                  <span style={{ marginRight: 4, fontSize: '14px', color: '#666' }}>發文單位</span>
+                  <Tooltip title="選擇發送公文的機關單位。可輸入關鍵字快速搜尋現有單位。適用於統計特定機關的公文往來。">
+                    <QuestionCircleOutlined style={{ color: '#999', fontSize: '12px' }} />
+                  </Tooltip>
+                </div>
+              )}
               <Select
-                placeholder="請選擇或搜尋發文單位..."
+                placeholder={isMobile ? '發文單位' : '請選擇或搜尋發文單位...'}
                 value={localFilters.sender || ''}
                 onChange={(value) => handleFilterChange('sender', value)}
                 style={{ width: '100%' }}
                 allowClear
                 showSearch
+                size={isMobile ? 'small' : 'middle'}
                 filterOption={(input, option) =>
                   (option?.label as string)?.toLowerCase().indexOf((input as string)?.toLowerCase()) >= 0
                 }
-                suffixIcon={
+                suffixIcon={isMobile ? null : (
                   <div>
                     <SearchOutlined style={{ marginRight: 4 }} />
                     <Tooltip title="可搜尋單位名稱">
                       <InfoCircleOutlined style={{ color: '#ccc', fontSize: '12px' }} />
                     </Tooltip>
                   </div>
-                }
+                )}
               >
                 {senderDropdownOptions.map((option) => (
                   <Option key={option.value} value={option.value} label={option.label}>

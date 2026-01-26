@@ -19,10 +19,11 @@ logger = logging.getLogger(__name__)
 class DocumentCalendarIntegrator:
     """公文行事曆整合器"""
 
-    def __init__(self):
-        self.calendar_service = DocumentCalendarService()
-        self.notification_service = ProjectNotificationService()
-        self.reminder_service = ReminderService()
+    def __init__(self) -> None:
+        """初始化行事曆整合器"""
+        self.calendar_service: DocumentCalendarService = DocumentCalendarService()
+        self.notification_service: ProjectNotificationService = ProjectNotificationService()
+        self.reminder_service: ReminderService = ReminderService()
 
     def parse_document_dates(self, document: OfficialDocument) -> List[Tuple[str, datetime, str]]:
         """
@@ -126,20 +127,49 @@ class DocumentCalendarIntegrator:
             raise
 
     def _build_event_description(self, document: OfficialDocument, base_description: str) -> str:
+        """
+        構建事件描述
+
+        Args:
+            document: 公文物件
+            base_description: 基礎描述
+
+        Returns:
+            完整的事件描述字串
+        """
         return f"{base_description}\n公文字號: {document.doc_number}"
 
     def _determine_priority(self, event_type: str, document: OfficialDocument) -> int:
-        return 3 # 簡化
+        """
+        決定事件優先級
+
+        Args:
+            event_type: 事件類型
+            document: 公文物件
+
+        Returns:
+            優先級數值 (1-5)
+        """
+        return 3  # 簡化
 
     def _get_default_reminder_minutes(self, event_type: str) -> int:
-        return 60 # 簡化
+        """
+        取得預設提醒時間（分鐘）
+
+        Args:
+            event_type: 事件類型
+
+        Returns:
+            提醒時間（分鐘）
+        """
+        return 60  # 簡化
 
     async def _sync_events_to_google(
         self,
         db: AsyncSession,
         events: List[DocumentCalendarEvent],
         document: OfficialDocument
-    ):
+    ) -> None:
         """同步事件到Google Calendar (已修復參數不匹配問題)"""
         try:
             synced_count = 0

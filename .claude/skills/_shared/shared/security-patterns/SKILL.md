@@ -1,7 +1,27 @@
+---
+name: security-patterns
+description: 安全最佳實踐和常見漏洞防護
+version: 1.0.0
+category: shared
+triggers:
+  - 安全模式
+  - security patterns
+  - JWT
+  - 認證
+  - 授權
+  - authentication
+updated: 2026-01-22
+---
+
 # 安全模式技能
 
+> **用途**: 安全最佳實踐和常見漏洞防護
+> **觸發**: 安全模式, security patterns, JWT, 認證
+> **版本**: 1.0.0
+> **分類**: shared
+
 ## 概述
-CK_GPS 專案的安全最佳實踐和常見漏洞防護。
+專案的安全最佳實踐和常見漏洞防護。
 
 ## 認證與授權
 

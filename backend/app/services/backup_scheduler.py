@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 class BackupScheduler:
     """備份排程器"""
 
-    def __init__(self, backup_hour: int = 2, backup_minute: int = 0):
+    def __init__(self, backup_hour: int = 2, backup_minute: int = 0) -> None:
         """
         初始化備份排程器
 
@@ -29,12 +29,12 @@ class BackupScheduler:
             backup_hour: 備份執行小時 (0-23)，預設 2 點
             backup_minute: 備份執行分鐘 (0-59)，預設 0 分
         """
-        self.backup_hour = backup_hour
-        self.backup_minute = backup_minute
-        self.is_running = False
+        self.backup_hour: int = backup_hour
+        self.backup_minute: int = backup_minute
+        self.is_running: bool = False
         self._task: Optional[asyncio.Task] = None
         self._last_backup_time: Optional[datetime] = None
-        self._backup_stats = {
+        self._backup_stats: dict = {
             'total_backups': 0,
             'successful_backups': 0,
             'failed_backups': 0,
@@ -58,12 +58,17 @@ class BackupScheduler:
         return backup_time
 
     def _get_seconds_until_backup(self) -> float:
-        """計算距離下次備份的秒數"""
+        """
+        計算距離下次備份的秒數
+
+        Returns:
+            距離下次備份的秒數
+        """
         next_backup = self._get_next_backup_time()
         delta = next_backup - datetime.now()
         return max(delta.total_seconds(), 0)
 
-    async def _perform_backup(self):
+    async def _perform_backup(self) -> None:
         """執行備份任務"""
         logger.info(f"[{datetime.now()}] 開始執行每日自動備份...")
         self._backup_stats['total_backups'] += 1
@@ -98,7 +103,7 @@ class BackupScheduler:
             self._backup_stats['last_backup_result'] = {"success": False, "error": str(e)}
             logger.exception(f"❌ 每日備份發生例外: {e}")
 
-    async def _scheduler_loop(self):
+    async def _scheduler_loop(self) -> None:
         """排程器主迴圈"""
         while self.is_running:
             try:
@@ -126,7 +131,7 @@ class BackupScheduler:
                 # 發生錯誤時等待 5 分鐘後重試
                 await asyncio.sleep(300)
 
-    async def start(self):
+    async def start(self) -> None:
         """啟動排程器"""
         if self.is_running:
             logger.warning("備份排程器已經在運行中")
@@ -141,7 +146,7 @@ class BackupScheduler:
             f"下次: {next_backup.strftime('%Y-%m-%d %H:%M:%S')})"
         )
 
-    async def stop(self):
+    async def stop(self) -> None:
         """停止排程器"""
         if not self.is_running:
             return
@@ -172,7 +177,7 @@ class BackupScheduler:
 _backup_scheduler: Optional[BackupScheduler] = None
 
 
-async def start_backup_scheduler():
+async def start_backup_scheduler() -> None:
     """啟動備份排程器"""
     global _backup_scheduler
     if _backup_scheduler is None:
@@ -180,7 +185,7 @@ async def start_backup_scheduler():
     await _backup_scheduler.start()
 
 
-async def stop_backup_scheduler():
+async def stop_backup_scheduler() -> None:
     """停止備份排程器"""
     global _backup_scheduler
     if _backup_scheduler is not None:

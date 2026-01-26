@@ -33,6 +33,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import authService, { LoginRequest } from '../services/authService';
+import { useResponsive } from '../hooks';
 import { detectEnvironment, isAuthDisabled, GOOGLE_CLIENT_ID } from '../config/env';
 import { logger } from '../utils/logger';
 
@@ -51,6 +52,10 @@ const LoginPage: React.FC = () => {
   const [error, setError] = useState<string>('');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+
+  // RWD 響應式
+  const { isMobile, responsiveValue } = useResponsive();
+  const cardPadding = responsiveValue({ mobile: '24px 16px', tablet: '32px 24px', desktop: '40px 32px' });
 
   // 取得環境和 returnUrl
   const envType = detectEnvironment();
@@ -244,24 +249,24 @@ const LoginPage: React.FC = () => {
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',
-      padding: '20px'
+      padding: isMobile ? '12px' : '20px'
     }}>
       <Card
         style={{
           width: '100%',
-          maxWidth: 420,
+          maxWidth: isMobile ? '100%' : 420,
           boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-          borderRadius: '16px',
+          borderRadius: isMobile ? '12px' : '16px',
           border: '1px solid rgba(201, 169, 98, 0.2)'
         }}
-        styles={{ body: { padding: '40px 32px' } }}
+        styles={{ body: { padding: cardPadding } }}
       >
         {/* 標題區 */}
-        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-          <Title level={2} style={{ color: '#c9a962', marginBottom: '4px' }}>
+        <div style={{ textAlign: 'center', marginBottom: isMobile ? '16px' : '24px' }}>
+          <Title level={isMobile ? 3 : 2} style={{ color: '#c9a962', marginBottom: '4px' }}>
             乾坤測繪
           </Title>
-          <Text style={{ color: '#8c8c8c' }}>公文管理系統</Text>
+          <Text style={{ color: '#8c8c8c', fontSize: isMobile ? 13 : 14 }}>公文管理系統</Text>
           {envLabel && (
             <div style={{ marginTop: '8px' }}>
               <Tag color={envLabel.color}>{envLabel.text}</Tag>
@@ -287,20 +292,22 @@ const LoginPage: React.FC = () => {
             <Button
               type="primary"
               icon={<LoginOutlined />}
-              size="large"
+              size={isMobile ? 'middle' : 'large'}
               block
               loading={loading}
               onClick={handleQuickEntry}
               style={{
-                height: '48px',
+                height: isMobile ? '40px' : '48px',
                 backgroundColor: '#52c41a',
                 borderColor: '#52c41a',
-                marginBottom: '16px'
+                marginBottom: isMobile ? '12px' : '16px'
               }}
             >
               快速進入系統
             </Button>
-            <Divider style={{ margin: '16px 0', color: '#8c8c8c' }}>或使用帳號登入</Divider>
+            <Divider style={{ margin: isMobile ? '12px 0' : '16px 0', color: '#8c8c8c', fontSize: isMobile ? 12 : 14 }}>
+              或使用帳號登入
+            </Divider>
           </>
         )}
 
@@ -309,7 +316,7 @@ const LoginPage: React.FC = () => {
           form={form}
           layout="vertical"
           onFinish={handleLogin}
-          size="large"
+          size={isMobile ? 'middle' : 'large'}
         >
           <Form.Item
             name="username"
@@ -333,14 +340,14 @@ const LoginPage: React.FC = () => {
             />
           </Form.Item>
 
-          <Form.Item style={{ marginBottom: '16px' }}>
+          <Form.Item style={{ marginBottom: isMobile ? '12px' : '16px' }}>
             <Button
               type="primary"
               htmlType="submit"
               loading={loading}
               block
-              size="large"
-              style={{ height: '44px' }}
+              size={isMobile ? 'middle' : 'large'}
+              style={{ height: isMobile ? '40px' : '44px' }}
             >
               帳號密碼登入
             </Button>
@@ -350,40 +357,40 @@ const LoginPage: React.FC = () => {
         {/* Google 登入 */}
         {showGoogleLogin && googleReady && (
           <>
-            <Divider style={{ margin: '16px 0', color: '#8c8c8c' }}>或</Divider>
+            <Divider style={{ margin: isMobile ? '12px 0' : '16px 0', color: '#8c8c8c', fontSize: isMobile ? 12 : 14 }}>或</Divider>
             <div id="google-signin-container" style={{ display: 'flex', justifyContent: 'center' }}>
               <Button
                 icon={<GoogleOutlined />}
-                size="large"
+                size={isMobile ? 'middle' : 'large'}
                 block
                 loading={googleLoading}
                 onClick={handleGoogleLogin}
                 style={{
-                  height: '44px',
+                  height: isMobile ? '40px' : '44px',
                   backgroundColor: '#fff',
                   borderColor: '#d9d9d9',
                   color: '#333'
                 }}
               >
-                使用 Google 帳號登入
+                {isMobile ? 'Google 登入' : '使用 Google 帳號登入'}
               </Button>
             </div>
           </>
         )}
 
         {/* 輔助連結 */}
-        <Divider style={{ margin: '20px 0' }} />
+        <Divider style={{ margin: isMobile ? '16px 0' : '20px 0' }} />
         <div style={{ textAlign: 'center' }}>
-          <Text type="secondary">
+          <Text type="secondary" style={{ fontSize: isMobile ? 13 : 14 }}>
             還沒有帳號？
             <Link to="/register" style={{ marginLeft: '8px', color: '#c9a962' }}>
               立即註冊
             </Link>
           </Text>
         </div>
-        <div style={{ textAlign: 'center', marginTop: '12px' }}>
+        <div style={{ textAlign: 'center', marginTop: isMobile ? '8px' : '12px' }}>
           <Link to="/forgot-password">
-            <Text type="secondary" style={{ fontSize: '13px' }}>忘記密碼？</Text>
+            <Text type="secondary" style={{ fontSize: isMobile ? 12 : 13 }}>忘記密碼？</Text>
           </Link>
         </div>
       </Card>

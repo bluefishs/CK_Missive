@@ -1,7 +1,24 @@
+---
+name: crud-migration
+description: 統一 CRUD 層架構，處理棄用 API 遷移
+version: 1.0.0
+category: shared
+triggers:
+  - CRUD 遷移
+  - crud migration
+  - API 遷移
+  - 棄用警告
+  - deprecation
+updated: 2026-01-22
+---
+
 # CRUD Migration Skill
 
-**技能名稱**：CRUD 遷移模式
-**用途**：統一 CRUD 層架構，處理棄用 API 遷移
+> **用途**: 統一 CRUD 層架構，處理棄用 API 遷移
+> **觸發**: CRUD 遷移, crud migration, API 遷移
+> **版本**: 1.0.0
+> **分類**: shared
+
 **適用場景**：新增 CRUD 模組、遷移舊模組、處理棄用警告
 
 ---
