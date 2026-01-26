@@ -2,26 +2,26 @@
  * 權限管理頁面
  *
  * 功能：
+ * - 顯示角色與權限的矩陣對照
  * - 顯示系統中所有可用權限（分類顯示）
- * - 顯示角色定義與預設權限
  * - 使用真實 API: /admin/user-management/permissions/available
  *
- * 注意：此頁面管理「權限定義」，而非「使用者權限分配」
- * 使用者權限分配請至 /admin/user-management
- *
- * @version 2.0.0 - 改為使用真實 API
+ * @version 3.0.0 - 新增角色-權限矩陣視圖
  * @date 2026-01-26
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Card, Typography, Space, Alert, Row, Col, Table, Tag, Collapse, List, Spin, Button
+  Card, Typography, Space, Alert, Row, Col, Table, Tag, Collapse, List, Spin,
+  Button, Checkbox, Tabs, Tooltip
 } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import {
   SecurityScanOutlined, TeamOutlined, CheckCircleOutlined,
   FileTextOutlined, ProjectOutlined, BankOutlined, ShopOutlined,
-  SettingOutlined, BarChartOutlined, CalendarOutlined, BellOutlined, UserOutlined
+  SettingOutlined, BarChartOutlined, CalendarOutlined, BellOutlined,
+  UserOutlined, TableOutlined, AppstoreOutlined
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { adminUsersApi } from '../api/adminUsersApi';
@@ -116,8 +116,15 @@ const PERMISSION_LABELS: Record<string, string> = {
   'notifications:read': '檢視通知',
 };
 
+interface RoleData {
+  name: string;
+  display_name: string;
+  default_permissions: string[];
+}
+
 const PermissionManagementPage: React.FC = () => {
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('matrix');
 
   // 從 API 載入權限與角色資料
   const { data, isLoading, error } = useQuery({
@@ -126,7 +133,7 @@ const PermissionManagementPage: React.FC = () => {
   });
 
   const permissions = data?.permissions || [];
-  const roles = data?.roles || [];
+  const roles: RoleData[] = data?.roles || [];
 
   // 將權限按分類整理
   const categorizedPermissions = useMemo(() => {
@@ -139,13 +146,104 @@ const PermissionManagementPage: React.FC = () => {
     return result;
   }, [permissions]);
 
-  // 角色表格欄位
+  // 檢查角色是否擁有某權限
+  const roleHasPermission = (role: RoleData, permission: string): boolean => {
+    if (role.default_permissions.includes('*')) return true;
+    return role.default_permissions.includes(permission);
+  };
+
+  // 角色-權限矩陣表格欄位
+  const matrixColumns: ColumnsType<{ permission: string; category: string }> = useMemo(() => {
+    const cols: ColumnsType<{ permission: string; category: string }> = [
+      {
+        title: '權限分類',
+        dataIndex: 'category',
+        key: 'category',
+        width: 120,
+        fixed: 'left',
+        render: (category: string) => {
+          const config = PERMISSION_CATEGORIES[category];
+          return config ? (
+            <Tag color={config.color} icon={config.icon}>
+              {config.label}
+            </Tag>
+          ) : category;
+        },
+      },
+      {
+        title: '權限名稱',
+        dataIndex: 'permission',
+        key: 'permission',
+        width: 150,
+        fixed: 'left',
+        render: (permission: string) => (
+          <Tooltip title={permission}>
+            <Text>{PERMISSION_LABELS[permission] || permission}</Text>
+          </Tooltip>
+        ),
+      },
+    ];
+
+    // 為每個角色添加一列
+    roles.forEach((role) => {
+      cols.push({
+        title: (
+          <Tooltip title={role.name}>
+            <Space direction="vertical" size={0} style={{ textAlign: 'center' }}>
+              <Text strong>{role.display_name}</Text>
+              {role.default_permissions.includes('*') && (
+                <Tag color="red" style={{ fontSize: 10 }}>全權限</Tag>
+              )}
+            </Space>
+          </Tooltip>
+        ),
+        key: role.name,
+        width: 100,
+        align: 'center' as const,
+        render: (_: unknown, record: { permission: string }) => {
+          const hasPermission = roleHasPermission(role, record.permission);
+          return (
+            <Checkbox
+              checked={hasPermission}
+              disabled
+              style={{
+                pointerEvents: 'none',
+              }}
+            />
+          );
+        },
+      });
+    });
+
+    return cols;
+  }, [roles]);
+
+  // 矩陣表格資料
+  const matrixData = useMemo(() => {
+    const data: { permission: string; category: string; key: string }[] = [];
+
+    Object.entries(PERMISSION_CATEGORIES).forEach(([category, config]) => {
+      config.permissions.forEach((permission) => {
+        if (permissions.includes(permission)) {
+          data.push({
+            key: permission,
+            permission,
+            category,
+          });
+        }
+      });
+    });
+
+    return data;
+  }, [permissions]);
+
+  // 角色表格欄位（傳統視圖）
   const roleColumns = [
     {
       title: '角色名稱',
       dataIndex: 'display_name',
       key: 'display_name',
-      render: (text: string, record: any) => (
+      render: (text: string, record: RoleData) => (
         <Space>
           <UserOutlined />
           <Text strong>{text}</Text>
@@ -210,6 +308,109 @@ const PermissionManagementPage: React.FC = () => {
     );
   }
 
+  const tabItems = [
+    {
+      key: 'matrix',
+      label: (
+        <Space>
+          <TableOutlined />
+          矩陣視圖
+        </Space>
+      ),
+      children: (
+        <div>
+          <Alert
+            message="角色-權限對照表"
+            description="此矩陣顯示各角色的預設權限配置。勾選表示該角色擁有該權限。如需修改個別使用者權限，請至「使用者管理」頁面。"
+            type="info"
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
+          <Table
+            columns={matrixColumns}
+            dataSource={matrixData}
+            rowKey="key"
+            pagination={false}
+            size="small"
+            bordered
+            scroll={{ x: 'max-content' }}
+            sticky
+          />
+        </div>
+      ),
+    },
+    {
+      key: 'roles',
+      label: (
+        <Space>
+          <TeamOutlined />
+          角色列表
+        </Space>
+      ),
+      children: (
+        <div>
+          <Title level={4}>
+            <TeamOutlined style={{ marginRight: 8 }} />
+            角色定義 ({roles.length} 個角色)
+          </Title>
+          <Table
+            columns={roleColumns}
+            dataSource={roles}
+            rowKey="name"
+            pagination={false}
+            size="middle"
+          />
+        </div>
+      ),
+    },
+    {
+      key: 'permissions',
+      label: (
+        <Space>
+          <AppstoreOutlined />
+          權限分類
+        </Space>
+      ),
+      children: (
+        <div>
+          <Title level={4}>
+            <CheckCircleOutlined style={{ marginRight: 8 }} />
+            權限分類 (共 {permissions.length} 個權限)
+          </Title>
+          <Collapse
+            defaultActiveKey={['documents', 'projects']}
+            items={Object.entries(PERMISSION_CATEGORIES).map(([key, config]) => ({
+              key,
+              label: (
+                <Space>
+                  {config.icon}
+                  <Text strong>{config.label}</Text>
+                  <Tag color={config.color}>{categorizedPermissions[key]?.length || 0} 個權限</Tag>
+                </Space>
+              ),
+              children: (
+                <List
+                  size="small"
+                  dataSource={categorizedPermissions[key] || []}
+                  renderItem={(permission: string) => (
+                    <List.Item>
+                      <Space>
+                        <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                        <Text>{PERMISSION_LABELS[permission] || permission}</Text>
+                        <Text type="secondary" code>{permission}</Text>
+                      </Space>
+                    </List.Item>
+                  )}
+                  locale={{ emptyText: '此分類沒有權限' }}
+                />
+              ),
+            }))}
+          />
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div style={{ padding: 24 }}>
       <Card>
@@ -221,7 +422,7 @@ const PermissionManagementPage: React.FC = () => {
                 權限管理中心
               </Title>
               <Text type="secondary">
-                管理系統權限定義與角色預設權限
+                檢視系統角色與權限的對應關係
               </Text>
             </Col>
             <Col>
@@ -236,69 +437,10 @@ const PermissionManagementPage: React.FC = () => {
           </Row>
         </div>
 
-        <Alert
-          message="權限管理說明"
-          description={
-            <ul style={{ margin: '8px 0 0 0', paddingLeft: 20 }}>
-              <li>此頁面顯示系統中所有可用的權限與角色定義</li>
-              <li>權限定義是系統預設，目前不支援自訂新增權限</li>
-              <li>若需為使用者分配權限，請至「使用者管理」頁面</li>
-            </ul>
-          }
-          type="info"
-          showIcon
-          style={{ marginBottom: 24 }}
-        />
-
-        {/* 角色定義區塊 */}
-        <div style={{ marginBottom: 32 }}>
-          <Title level={4}>
-            <TeamOutlined style={{ marginRight: 8 }} />
-            角色定義 ({roles.length} 個角色)
-          </Title>
-          <Table
-            columns={roleColumns}
-            dataSource={roles}
-            rowKey="name"
-            pagination={false}
-            size="middle"
-          />
-        </div>
-
-        {/* 權限分類區塊 */}
-        <Title level={4}>
-          <CheckCircleOutlined style={{ marginRight: 8 }} />
-          權限分類 (共 {permissions.length} 個權限)
-        </Title>
-
-        <Collapse
-          defaultActiveKey={['documents', 'projects']}
-          items={Object.entries(PERMISSION_CATEGORIES).map(([key, config]) => ({
-            key,
-            label: (
-              <Space>
-                {config.icon}
-                <Text strong>{config.label}</Text>
-                <Tag color={config.color}>{categorizedPermissions[key]?.length || 0} 個權限</Tag>
-              </Space>
-            ),
-            children: (
-              <List
-                size="small"
-                dataSource={categorizedPermissions[key] || []}
-                renderItem={(permission: string) => (
-                  <List.Item>
-                    <Space>
-                      <CheckCircleOutlined style={{ color: '#52c41a' }} />
-                      <Text>{PERMISSION_LABELS[permission] || permission}</Text>
-                      <Text type="secondary" code>{permission}</Text>
-                    </Space>
-                  </List.Item>
-                )}
-                locale={{ emptyText: '此分類沒有權限' }}
-              />
-            ),
-          }))}
+        <Tabs
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          items={tabItems}
         />
       </Card>
     </div>

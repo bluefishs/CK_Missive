@@ -1,3 +1,22 @@
+/**
+ * UnifiedFormDemoPage - 統一表單元件示範頁面
+ *
+ * ⚠️ 示範頁面 (DEMO ONLY)
+ * ================================
+ * 此頁面用於展示通用表單元件的使用方式，供開發人員參考。
+ *
+ * 展示元件：
+ * - UnifiedTable: 統一表格元件
+ * - SequenceNumberGenerator: 流水號生成器 (EXPERIMENTAL)
+ * - RemarksField: 備註欄位元件
+ *
+ * 注意事項：
+ * - 此頁面使用模擬數據，不與後端 API 連接
+ * - 僅供開發測試與元件展示使用
+ *
+ * @version 1.0.0
+ * @status DEMO
+ */
 import React, { useState } from 'react';
 import {
   Card,

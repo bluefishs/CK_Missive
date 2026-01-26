@@ -1,6 +1,20 @@
+/**
+ * ApiMappingDisplayPage - API 對應參考頁面
+ *
+ * ⚠️ 開發參考頁面 (REFERENCE ONLY)
+ * ================================
+ * 此頁面顯示靜態的 API 對應關係，僅供開發人員參考。
+ *
+ * 重要說明：
+ * - 此數據為靜態示例，可能與實際 API 不同步
+ * - 正式 API 文件請參考 /api/docs (Swagger UI)
+ * - 此頁面不會從後端獲取數據
+ *
+ * @version 1.0.0
+ * @status REFERENCE
+ */
 import React, { useEffect, useState } from 'react';
 import { Card, Typography, Table, Spin, Alert } from 'antd';
-import { logger } from '../utils/logger';
 
 const { Title, Paragraph } = Typography;
 
@@ -92,21 +106,9 @@ export const ApiMappingDisplayPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    // 強制使用 fallback 數據，完全繞過任何 API 調用
-    logger.debug('🔧 [ApiMappingDisplayPage] 強制使用 fallback 數據');
-    logger.debug('🔧 [ApiMappingDisplayPage] Environment:', {
-      NODE_ENV: process.env.NODE_ENV,
-      DEV: import.meta.env.DEV,
-      MODE: import.meta.env.MODE,
-      VITE_AUTH_DISABLED: import.meta.env.VITE_AUTH_DISABLED,
-      timestamp: new Date().toISOString()
-    });
-
-    // 立即設置 fallback 數據
+    // 直接載入靜態數據（參考用途）
     setApiMappings(FALLBACK_DATA);
     setLoading(false);
-
-    logger.debug('🔧 [ApiMappingDisplayPage] Fallback data loaded:', FALLBACK_DATA.length, 'items');
   }, []);
 
   const columns = [

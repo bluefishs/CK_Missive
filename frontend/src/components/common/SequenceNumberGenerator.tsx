@@ -1,3 +1,21 @@
+/**
+ * SequenceNumberGenerator 流水號生成器
+ *
+ * ⚠️ 實驗性元件 (EXPERIMENTAL)
+ * ================================
+ * 此元件使用 localStorage 模擬流水號計數，僅供展示/開發使用。
+ *
+ * 生產環境注意事項：
+ * - 若需要正式的文號生成，請使用 /document-numbers/next-number API
+ * - localStorage 數據在不同瀏覽器/設備間不同步
+ * - 多用戶並發時可能產生重複編號
+ *
+ * 目前使用位置：
+ * - UnifiedFormDemoPage (示範頁面)
+ *
+ * @version 1.0.0
+ * @status EXPERIMENTAL
+ */
 import React, { useState, useEffect } from 'react';
 import {
   Input,
@@ -148,10 +166,13 @@ const SequenceNumberGenerator: React.FC<SequenceNumberGeneratorProps> = ({
     message.success('流水號已生成');
   };
 
-  // 獲取下一個流水號（模擬邏輯）
+  /**
+   * 獲取下一個流水號（localStorage 模擬）
+   *
+   * ⚠️ 此為 DEMO 實現，僅供開發測試
+   * 生產環境請使用 /document-numbers/next-number API
+   */
   const getNextSequenceNumber = (): number => {
-    // 這裡應該從後端獲取當前類別的最新流水號
-    // 暫時使用隨機數模擬
     const today = dayjs().format('YYYYMMDD');
     const storageKey = `sequence_${category}_${today}`;
     const lastNumber = parseInt(localStorage.getItem(storageKey) || '0', 10);
