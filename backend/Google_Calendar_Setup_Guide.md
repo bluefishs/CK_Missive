@@ -114,6 +114,45 @@ GOOGLE_SERVICE_ACCOUNT_EMAIL=ck-missive-calendar@ck-missive-calendar.iam.gservic
 GOOGLE_PROJECT_ID=ck-missive-calendar
 ```
 
+## 🏷️ 變更服務帳戶顯示名稱
+
+> **問題**：Google Calendar 事件的建立者顯示為完整的服務帳戶郵箱
+> `ck-missive-calendar@ck-missive-calendar.iam.gserviceaccount.com`
+
+### 解決方案：修改服務帳戶顯示名稱
+
+**步驟：**
+
+1. 前往 [Google Cloud Console](https://console.cloud.google.com/)
+2. 選擇專案 `ck-missive-calendar`
+3. 進入 **IAM 與管理** → **服務帳戶**
+4. 找到 `ck-missive-calendar@ck-missive-calendar.iam.gserviceaccount.com`
+5. 點選編輯（鉛筆圖示）
+6. 修改「**服務帳戶名稱**」欄位為：
+   ```
+   cksurvey
+   ```
+   或
+   ```
+   乾坤測繪行事曆
+   ```
+7. 點選「**儲存**」
+
+### ⚠️ 注意事項
+
+- **郵箱地址無法更改**：服務帳戶的電子郵件地址（`...@iam.gserviceaccount.com`）是永久性的，無法修改
+- **顯示名稱效果有限**：在某些 Google Calendar 介面中，仍可能顯示完整郵箱
+- **替代方案**：如需完全隱藏服務帳戶身份，需改用 OAuth 2.0 使用者授權流程（需重新架構）
+
+### 技術說明
+
+使用 Service Account 建立的 Google Calendar 事件，其 `organizer` 欄位會被設定為服務帳戶本身，這是 Google API 的設計限制。要讓事件以真實使用者身份建立，需要：
+
+1. **Domain-Wide Delegation**（需 Google Workspace 企業版）
+2. **OAuth 2.0 使用者授權**（需使用者登入授權）
+
+目前系統使用 Service Account 是最簡單的整合方式，建議接受此限制或修改顯示名稱作為折衷方案。
+
 ## 🎉 完成！
 
 完成權限設定後，您的公文管理系統就能自動將重要截止日期推送到 Google Calendar，幫助您更好地管理時間和提醒！

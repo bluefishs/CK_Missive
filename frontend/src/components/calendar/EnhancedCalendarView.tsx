@@ -82,6 +82,9 @@ interface FilterState {
   hasReminders?: boolean;
 }
 
+/** 快速篩選類型 */
+type QuickFilterType = 'all' | 'today' | 'thisWeek' | 'upcoming' | 'overdue' | null;
+
 type ViewMode = 'month' | 'week' | 'list' | 'timeline';
 
 const EVENT_TYPE_CONFIG = {
@@ -145,9 +148,38 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
     searchText: ''
   });
 
+  // 快速篩選狀態
+  const [quickFilter, setQuickFilter] = useState<QuickFilterType>(null);
+
   // 篩選後的事件
   const filteredEvents = useMemo(() => {
     return events.filter(event => {
+      // === 快速篩選（優先處理）===
+      if (quickFilter) {
+        const eventDate = dayjs(event.start_date);
+        const today = dayjs();
+
+        switch (quickFilter) {
+          case 'today':
+            if (!eventDate.isSame(today, 'day')) return false;
+            break;
+          case 'thisWeek':
+            if (!eventDate.isSame(today, 'week')) return false;
+            break;
+          case 'upcoming':
+            if (!eventDate.isAfter(today, 'day') || !eventDate.isBefore(today.add(7, 'day'), 'day')) return false;
+            break;
+          case 'overdue':
+            if (!(event.status === 'pending' && eventDate.isBefore(today, 'day'))) return false;
+            break;
+          case 'all':
+          default:
+            // 顯示全部，不過濾
+            break;
+        }
+      }
+
+      // === 標準篩選 ===
       // 事件類型篩選
       if (filters.eventTypes.length > 0 && !filters.eventTypes.includes(event.event_type)) {
         return false;
@@ -191,7 +223,7 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
 
       return true;
     });
-  }, [events, filters]);
+  }, [events, filters, quickFilter]);
 
   // 獲取指定日期的事件
   const getEventsForDate = (date: Dayjs) => {
@@ -202,25 +234,201 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
     });
   };
 
-  // 統計數據
+  // 統計數據（使用原始事件計算，不受快速篩選影響）
   const statistics = useMemo(() => {
-    const total = filteredEvents.length;
-    const today = filteredEvents.filter(e =>
+    const total = events.length;
+    const today = events.filter(e =>
       dayjs(e.start_date).isSame(dayjs(), 'day')
     ).length;
-    const thisWeek = filteredEvents.filter(e =>
+    const thisWeek = events.filter(e =>
       dayjs(e.start_date).isSame(dayjs(), 'week')
     ).length;
-    const upcoming = filteredEvents.filter(e =>
+    const upcoming = events.filter(e =>
       dayjs(e.start_date).isAfter(dayjs(), 'day') &&
       dayjs(e.start_date).isBefore(dayjs().add(7, 'day'), 'day')
     ).length;
-    const overdue = filteredEvents.filter(e =>
+    const overdue = events.filter(e =>
       e.status === 'pending' && dayjs(e.start_date).isBefore(dayjs(), 'day')
     ).length;
 
     return { total, today, thisWeek, upcoming, overdue };
-  }, [filteredEvents]);
+  }, [events]);
+
+  // 快速篩選處理器
+  const handleQuickFilter = (filterType: QuickFilterType) => {
+    // 如果點擊相同的篩選，則清除
+    if (quickFilter === filterType) {
+      setQuickFilter(null);
+      notification.info({ message: '已清除快速篩選', duration: 1.5 });
+    } else {
+      setQuickFilter(filterType);
+      // 切換到列表視圖以便查看篩選結果
+      if (filterType && filterType !== 'all') {
+        setViewMode('list');
+      }
+      const filterNames: Record<QuickFilterType & string, string> = {
+        all: '全部事件',
+        today: '今日事件',
+        thisWeek: '本週事件',
+        upcoming: '即將到來',
+        overdue: '已逾期事件',
+      };
+      notification.success({
+        message: `篩選：${filterNames[filterType || 'all']}`,
+        duration: 1.5,
+      });
+    }
+  };
+
+  // 快速篩選標籤
+  const getQuickFilterLabel = (): string | null => {
+    if (!quickFilter || quickFilter === 'all') return null;
+    const labels: Record<string, string> = {
+      today: '今日事件',
+      thisWeek: '本週事件',
+      upcoming: '即將到來',
+      overdue: '已逾期',
+    };
+    return labels[quickFilter] || null;
+  };
+
+  // 批次處理狀態
+  const [batchProcessing, setBatchProcessing] = useState(false);
+
+  // 取得逾期事件列表
+  const overdueEvents = useMemo(() => {
+    return events.filter(e =>
+      e.status === 'pending' && dayjs(e.start_date).isBefore(dayjs(), 'day')
+    );
+  }, [events]);
+
+  // 批次標記完成
+  const handleBatchMarkComplete = async () => {
+    if (!onEventUpdate) {
+      notification.warning({ message: '此功能暫不可用' });
+      return;
+    }
+
+    const eventsToUpdate = quickFilter === 'overdue' ? filteredEvents : overdueEvents;
+
+    if (eventsToUpdate.length === 0) {
+      notification.info({ message: '沒有需要處理的事件' });
+      return;
+    }
+
+    modal.confirm({
+      title: '批次標記完成',
+      content: (
+        <div>
+          <p>確定要將以下 <strong>{eventsToUpdate.length}</strong> 個逾期事件標記為「已完成」嗎？</p>
+          <div style={{ maxHeight: 200, overflow: 'auto', marginTop: 12 }}>
+            {eventsToUpdate.slice(0, 10).map(event => (
+              <div key={event.id} style={{ padding: '4px 0', borderBottom: '1px solid #f0f0f0' }}>
+                <Tag color={EVENT_TYPE_CONFIG[event.event_type]?.color || 'default'} style={{ marginRight: 8 }}>
+                  {EVENT_TYPE_CONFIG[event.event_type]?.name || event.event_type}
+                </Tag>
+                <span>{event.title}</span>
+                <span style={{ color: '#999', marginLeft: 8 }}>
+                  ({dayjs(event.start_date).format('MM/DD')})
+                </span>
+              </div>
+            ))}
+            {eventsToUpdate.length > 10 && (
+              <div style={{ padding: '8px 0', color: '#999', textAlign: 'center' }}>
+                ...還有 {eventsToUpdate.length - 10} 個事件
+              </div>
+            )}
+          </div>
+        </div>
+      ),
+      okText: '確定標記完成',
+      okType: 'primary',
+      cancelText: '取消',
+      onOk: async () => {
+        setBatchProcessing(true);
+        let successCount = 0;
+        let failCount = 0;
+
+        try {
+          for (const event of eventsToUpdate) {
+            try {
+              await onEventUpdate(event.id, { status: 'completed' });
+              successCount++;
+            } catch (error) {
+              failCount++;
+              console.error(`標記事件 ${event.id} 失敗:`, error);
+            }
+          }
+
+          if (successCount > 0) {
+            notification.success({
+              message: '批次處理完成',
+              description: `成功標記 ${successCount} 個事件為已完成${failCount > 0 ? `，${failCount} 個失敗` : ''}`,
+            });
+            // 清除篩選並刷新
+            setQuickFilter(null);
+            onRefresh?.();
+          } else {
+            notification.error({
+              message: '批次處理失敗',
+              description: '所有事件標記失敗，請稍後再試',
+            });
+          }
+        } finally {
+          setBatchProcessing(false);
+        }
+      },
+    });
+  };
+
+  // 批次標記取消
+  const handleBatchMarkCancelled = async () => {
+    if (!onEventUpdate) {
+      notification.warning({ message: '此功能暫不可用' });
+      return;
+    }
+
+    const eventsToUpdate = quickFilter === 'overdue' ? filteredEvents : overdueEvents;
+
+    if (eventsToUpdate.length === 0) {
+      notification.info({ message: '沒有需要處理的事件' });
+      return;
+    }
+
+    modal.confirm({
+      title: '批次標記取消',
+      content: `確定要將 ${eventsToUpdate.length} 個逾期事件標記為「已取消」嗎？`,
+      okText: '確定取消事件',
+      okType: 'danger',
+      cancelText: '返回',
+      onOk: async () => {
+        setBatchProcessing(true);
+        let successCount = 0;
+
+        try {
+          for (const event of eventsToUpdate) {
+            try {
+              await onEventUpdate(event.id, { status: 'cancelled' });
+              successCount++;
+            } catch (error) {
+              console.error(`標記事件 ${event.id} 失敗:`, error);
+            }
+          }
+
+          if (successCount > 0) {
+            notification.success({
+              message: '批次處理完成',
+              description: `成功標記 ${successCount} 個事件為已取消`,
+            });
+            setQuickFilter(null);
+            onRefresh?.();
+          }
+        } finally {
+          setBatchProcessing(false);
+        }
+      },
+    });
+  };
 
   // 行事曆渲染
   const dateCellRender = (value: Dayjs) => {
@@ -783,47 +991,116 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
           </Space>
         </div>
 
-        {/* 統計數據 - 響應式 */}
+        {/* 統計數據 - 響應式 (可點擊快速篩選) */}
         <Card size={isMobile ? 'small' : 'default'}>
+          {/* 快速篩選提示 */}
+          {quickFilter && quickFilter !== 'all' && (
+            <div style={{ marginBottom: 12 }}>
+              <Tag
+                color="blue"
+                closable
+                onClose={() => handleQuickFilter(null)}
+              >
+                目前篩選：{getQuickFilterLabel()}（顯示 {filteredEvents.length} 筆）
+              </Tag>
+            </div>
+          )}
           <Row gutter={[16, 16]}>
             <Col xs={12} sm={12} md={6}>
-              <Statistic
-                title="總事件數"
-                value={statistics.total}
-                prefix={<CalendarOutlined />}
-                valueStyle={{ color: '#1890ff', fontSize: isMobile ? '18px' : '24px' }}
-              />
+              <Tooltip title="點擊顯示全部事件">
+                <div
+                  onClick={() => handleQuickFilter('all')}
+                  style={{ cursor: 'pointer', padding: 4, borderRadius: 4, background: quickFilter === 'all' ? '#e6f7ff' : 'transparent' }}
+                >
+                  <Statistic
+                    title="總事件數"
+                    value={statistics.total}
+                    prefix={<CalendarOutlined />}
+                    valueStyle={{ color: '#1890ff', fontSize: isMobile ? '18px' : '24px' }}
+                  />
+                </div>
+              </Tooltip>
             </Col>
             <Col xs={12} sm={12} md={6}>
-              <Statistic
-                title="今日事件"
-                value={statistics.today}
-                valueStyle={{ color: '#52c41a', fontSize: isMobile ? '18px' : '24px' }}
-                prefix={<ClockCircleOutlined />}
-              />
+              <Tooltip title="點擊篩選今日事件">
+                <div
+                  onClick={() => handleQuickFilter('today')}
+                  style={{ cursor: 'pointer', padding: 4, borderRadius: 4, background: quickFilter === 'today' ? '#f6ffed' : 'transparent' }}
+                >
+                  <Statistic
+                    title="今日事件"
+                    value={statistics.today}
+                    valueStyle={{ color: '#52c41a', fontSize: isMobile ? '18px' : '24px' }}
+                    prefix={<ClockCircleOutlined />}
+                  />
+                </div>
+              </Tooltip>
             </Col>
             <Col xs={12} sm={12} md={6}>
-              <Statistic
-                title="本週事件"
-                value={statistics.thisWeek}
-                valueStyle={{ color: '#faad14', fontSize: isMobile ? '18px' : '24px' }}
-                prefix={<CalendarOutlined />}
-              />
+              <Tooltip title="點擊篩選本週事件">
+                <div
+                  onClick={() => handleQuickFilter('thisWeek')}
+                  style={{ cursor: 'pointer', padding: 4, borderRadius: 4, background: quickFilter === 'thisWeek' ? '#fffbe6' : 'transparent' }}
+                >
+                  <Statistic
+                    title="本週事件"
+                    value={statistics.thisWeek}
+                    valueStyle={{ color: '#faad14', fontSize: isMobile ? '18px' : '24px' }}
+                    prefix={<CalendarOutlined />}
+                  />
+                </div>
+              </Tooltip>
             </Col>
             <Col xs={12} sm={12} md={6}>
-              <Statistic
-                title="即將到來"
-                value={statistics.upcoming}
-                valueStyle={{ color: '#722ed1', fontSize: isMobile ? '18px' : '24px' }}
-                prefix={<BellOutlined />}
-              />
+              <Tooltip title="點擊篩選即將到來事件">
+                <div
+                  onClick={() => handleQuickFilter('upcoming')}
+                  style={{ cursor: 'pointer', padding: 4, borderRadius: 4, background: quickFilter === 'upcoming' ? '#f9f0ff' : 'transparent' }}
+                >
+                  <Statistic
+                    title="即將到來"
+                    value={statistics.upcoming}
+                    valueStyle={{ color: '#722ed1', fontSize: isMobile ? '18px' : '24px' }}
+                    prefix={<BellOutlined />}
+                  />
+                </div>
+              </Tooltip>
             </Col>
           </Row>
           {statistics.overdue > 0 && (
-            <div style={{ marginTop: 16 }}>
-              <Tag color="red">
-                <ExclamationCircleOutlined /> {statistics.overdue} 個事件已逾期
-              </Tag>
+            <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+              <Tooltip title="點擊查看已逾期事件">
+                <Tag
+                  color="red"
+                  style={{ cursor: 'pointer', padding: quickFilter === 'overdue' ? '4px 8px' : undefined, border: quickFilter === 'overdue' ? '2px solid #ff4d4f' : undefined }}
+                  onClick={() => handleQuickFilter('overdue')}
+                >
+                  <ExclamationCircleOutlined /> {statistics.overdue} 個事件已逾期
+                  {quickFilter !== 'overdue' && ' (點擊查看)'}
+                </Tag>
+              </Tooltip>
+              {/* 批次處理按鈕 - 逾期事件操作 */}
+              {(quickFilter === 'overdue' || statistics.overdue > 0) && (
+                <Space size="small">
+                  <Button
+                    type="primary"
+                    size="small"
+                    icon={<CheckCircleOutlined />}
+                    loading={batchProcessing}
+                    onClick={handleBatchMarkComplete}
+                  >
+                    {isMobile ? '全標完成' : '一鍵標記完成'}
+                  </Button>
+                  <Button
+                    size="small"
+                    danger
+                    loading={batchProcessing}
+                    onClick={handleBatchMarkCancelled}
+                  >
+                    {isMobile ? '全標取消' : '批次標記取消'}
+                  </Button>
+                </Space>
+              )}
             </div>
           )}
         </Card>

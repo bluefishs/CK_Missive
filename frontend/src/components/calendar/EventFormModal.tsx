@@ -93,6 +93,7 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [allDay, setAllDay] = useState(false);
   const [documentOptions, setDocumentOptions] = useState<DocumentOption[]>([]);
+  const [documentSearchError, setDocumentSearchError] = useState<string | null>(null);
 
   // 響應式斷點
   const screens = useBreakpoint();
@@ -102,6 +103,8 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
   // 搜尋公文（防抖動）
   const searchDocuments = useCallback(
     debounce(async (keyword: string) => {
+      setDocumentSearchError(null);
+
       if (!keyword || keyword.length < 2) {
         setDocumentOptions([]);
         return;
@@ -111,7 +114,11 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
       try {
         const response = await apiClient.post<{
           success: boolean;
-          items: DocumentOption[];
+          items: Array<{
+            id: number;
+            doc_number: string;
+            subject?: string;
+          }>;
         }>('/documents-enhanced/list', {
           keyword,
           limit: 20,
@@ -122,16 +129,27 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
           setDocumentOptions(response.items.map(doc => ({
             id: doc.id,
             doc_number: doc.doc_number,
-            subject: doc.subject
+            subject: doc.subject || ''
           })));
+          if (response.items.length === 0) {
+            setDocumentSearchError('找不到符合的公文');
+          }
+        } else {
+          setDocumentSearchError('搜尋失敗，請稍後再試');
         }
       } catch (error) {
         console.error('搜尋公文失敗:', error);
+        setDocumentSearchError('搜尋時發生錯誤');
+        notification.error({
+          message: '搜尋公文失敗',
+          description: '請檢查網路連線或稍後再試',
+          duration: 3,
+        });
       } finally {
         setDocumentSearching(false);
       }
     }, 300),
-    []
+    [notification]
   );
 
   // 初始化表單數據
@@ -365,7 +383,8 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
           <Form.Item
             name="document_id"
             label="關聯公文"
-            tooltip="輸入公文字號或主旨關鍵字搜尋"
+            tooltip="輸入公文字號或主旨關鍵字搜尋（至少2個字元）"
+            help={documentSearchError && !documentSearching ? <span style={{ color: '#faad14' }}>{documentSearchError}</span> : undefined}
           >
             <Select
               showSearch
@@ -374,8 +393,24 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
               filterOption={false}
               onSearch={searchDocuments}
               loading={documentSearching}
-              notFoundContent={documentSearching ? <Spin size="small" /> : '輸入至少2個字元搜尋'}
+              notFoundContent={
+                documentSearching ? (
+                  <div style={{ textAlign: 'center', padding: 8 }}>
+                    <Spin size="small" />
+                    <div style={{ marginTop: 4, color: '#888' }}>搜尋中...</div>
+                  </div>
+                ) : documentSearchError ? (
+                  <div style={{ textAlign: 'center', padding: 8, color: '#faad14' }}>
+                    {documentSearchError}
+                  </div>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: 8, color: '#888' }}>
+                    輸入至少2個字元搜尋
+                  </div>
+                )
+              }
               optionLabelProp="label"
+              status={documentSearchError ? 'warning' : undefined}
             >
               {documentOptions.map(doc => (
                 <Select.Option
@@ -386,7 +421,7 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
                   <div>
                     <div style={{ fontWeight: 500 }}>{doc.doc_number}</div>
                     {doc.subject && (
-                      <div style={{ fontSize: 12, color: '#888', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <div style={{ fontSize: 12, color: '#888', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 250 }}>
                         {doc.subject}
                       </div>
                     )}
