@@ -127,6 +127,7 @@ class DocumentCalendarEventUpdate(BaseModel):
     all_day: Optional[bool] = None
     event_type: Optional[str] = None
     priority: Optional[str] = None
+    status: Optional[str] = Field(None, description="事件狀態: pending/completed/cancelled")
     location: Optional[str] = None
     document_id: Optional[int] = None  # 新增：關聯公文 ID
     assigned_user_id: Optional[int] = None
@@ -148,6 +149,7 @@ class DocumentCalendarEventResponse(BaseModel):
     all_day: bool
     event_type: str
     priority: str  # 資料庫欄位為 VARCHAR
+    status: str = "pending"  # 事件狀態: pending/completed/cancelled
     location: Optional[str] = None
     document_id: Optional[int] = None
     doc_number: Optional[str] = None

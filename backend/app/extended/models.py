@@ -301,6 +301,9 @@ class DocumentCalendarEvent(Base):
     created_at = Column(DateTime, server_default=func.now(), comment="建立時間")
     updated_at = Column(DateTime, server_default=func.now(), comment="更新時間")
 
+    # 事件狀態欄位
+    status = Column(String(50), default='pending', comment="事件狀態: pending/completed/cancelled")
+
     # Google Calendar 同步欄位
     google_event_id = Column(String(255), nullable=True, index=True, comment="Google Calendar 事件 ID")
     google_sync_status = Column(String(50), default='pending', comment="同步狀態: pending/synced/failed")

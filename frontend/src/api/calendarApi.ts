@@ -28,6 +28,7 @@ interface RawCalendarEventResponse {
   doc_number?: string;
   event_type?: string;
   priority?: number | string;
+  status?: 'pending' | 'completed' | 'cancelled';  // 事件狀態
   location?: string;
   google_event_id?: string;
   google_sync_status?: 'pending' | 'synced' | 'failed';
@@ -132,6 +133,7 @@ export const calendarApi = {
           doc_number: event.doc_number,
           event_type: event.event_type,
           priority: event.priority,
+          status: event.status || 'pending',  // 新增：事件狀態
           location: event.location,
           google_event_id: event.google_event_id,
           google_sync_status: event.google_sync_status || 'pending',
@@ -226,6 +228,7 @@ export const calendarApi = {
         end_date: updates.end_datetime,
         event_type: updates.event_type,
         priority: updates.priority,
+        status: updates.status,  // 新增：事件狀態
         location: updates.location,
         document_id: updates.document_id,
       });

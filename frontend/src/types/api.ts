@@ -658,6 +658,7 @@ export interface CalendarEventUI {
   doc_number?: string;
   event_type?: string;
   priority?: number | string;
+  status?: 'pending' | 'completed' | 'cancelled';  // 事件狀態
   location?: string;
   google_event_id?: string;
   google_sync_status?: 'pending' | 'synced' | 'failed';
@@ -1525,4 +1526,74 @@ export interface PaginationMeta {
   total_pages: number;
   has_next: boolean;
   has_prev: boolean;
+}
+
+// ============================================================================
+// 證照管理型別 (Certifications)
+// ============================================================================
+
+/** 證照類型選項 */
+export const CERT_TYPES = ['核發證照', '評量證書', '訓練證明'] as const;
+export type CertType = typeof CERT_TYPES[number];
+
+/** 證照狀態選項 */
+export const CERT_STATUS = ['有效', '已過期', '已撤銷'] as const;
+export type CertStatus = typeof CERT_STATUS[number];
+
+/** 證照基礎介面 */
+export interface Certification {
+  id: number;
+  user_id: number;
+  cert_type: CertType;
+  cert_name: string;
+  issuing_authority?: string;
+  cert_number?: string;
+  issue_date?: string;
+  expiry_date?: string;
+  status: CertStatus;
+  notes?: string;
+  attachment_path?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** 建立證照請求 */
+export interface CertificationCreate {
+  user_id: number;
+  cert_type: CertType;
+  cert_name: string;
+  issuing_authority?: string;
+  cert_number?: string;
+  issue_date?: string;
+  expiry_date?: string;
+  status?: CertStatus;
+  notes?: string;
+}
+
+/** 更新證照請求 */
+export interface CertificationUpdate {
+  cert_type?: CertType;
+  cert_name?: string;
+  issuing_authority?: string;
+  cert_number?: string;
+  issue_date?: string;
+  expiry_date?: string;
+  status?: CertStatus;
+  notes?: string;
+}
+
+/** 證照列表查詢參數 */
+export interface CertificationListParams {
+  page?: number;
+  page_size?: number;
+  cert_type?: CertType;
+  status?: CertStatus;
+  keyword?: string;
+}
+
+/** 證照統計 */
+export interface CertificationStats {
+  by_type: Record<string, number>;
+  by_status: Record<string, number>;
+  total: number;
 }

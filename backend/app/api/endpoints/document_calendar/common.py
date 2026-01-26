@@ -53,6 +53,7 @@ def event_to_dict(event: DocumentCalendarEvent, doc_number: Optional[str] = None
         "all_day": event.all_day,
         "event_type": event.event_type,
         "priority": event.priority,
+        "status": getattr(event, 'status', 'pending'),  # 事件狀態
         "location": event.location,
         "document_id": event.document_id,
         "doc_number": doc_number,
