@@ -1,32 +1,25 @@
 /**
- * 使用者權限管理頁面
+ * 使用者管理頁面
  *
  * 架構說明：
  * - React Query: 唯一的伺服器資料來源（使用者列表）
- * - 導航模式：點擊編輯導航至 UserFormPage
- * - 批量操作：支援批量啟用、停用、刪除
+ * - 純導航模式：點擊列直接導航至 UserFormPage
+ * - 無操作按鈕：編輯/刪除操作統一在 UserFormPage 處理
  *
- * @version 3.0.0 - 改為導航模式，移除 Modal
+ * @version 4.0.0 - 純導航模式，移除 Modal 和操作按鈕
  * @date 2026-01-26
  */
 import React, { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Card, Table, Button, Space, Input, Select, App, Row, Col, Typography,
-  Modal, AutoComplete
+  Card, Table, Button, Space, Input, Select, Row, Col, Typography, AutoComplete
 } from 'antd';
 import type { TableProps } from 'antd';
 import debounce from 'lodash/debounce';
-import {
-  PlusOutlined, SearchOutlined, TeamOutlined,
-  DeleteOutlined, StopOutlined, CheckOutlined
-} from '@ant-design/icons';
-import authService, { type UserInfo } from '../services/authService';
-import { logger } from '../utils/logger';
+import { PlusOutlined, SearchOutlined, TeamOutlined } from '@ant-design/icons';
 import {
   getRoleDisplayName,
   getStatusDisplayName,
-  getRoleDefaultPermissions
 } from '../constants/permissions';
 import type { User } from '../types/api';
 import {
@@ -40,7 +33,6 @@ const { Option } = Select;
 
 const UserManagementPage: React.FC = () => {
   const navigate = useNavigate();
-  const { message } = App.useApp();
 
   // RWD 響應式
   const { isMobile, responsiveValue } = useResponsive();
@@ -60,14 +52,6 @@ const UserManagementPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
-  // 選擇狀態
-  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
-
-  // 當前登入使用者
-  const currentLoggedInUser = useMemo<UserInfo | null>(() => {
-    return authService.getUserInfo();
-  }, []);
-
   // ============================================================================
   // React Query: 唯一的伺服器資料來源
   // ============================================================================
@@ -85,12 +69,6 @@ const UserManagementPage: React.FC = () => {
     total,
     isLoading,
     refetch,
-    deleteUser,
-    batchUpdateStatus,
-    batchDelete,
-    batchUpdateRole,
-    isDeleting,
-    isBatchUpdating,
   } = useAdminUsersPage(queryParams);
 
   // ============================================================================
@@ -127,116 +105,19 @@ const UserManagementPage: React.FC = () => {
   }, []);
 
   // ============================================================================
-  // 導航操作（取代 Modal）
+  // 導航操作
   // ============================================================================
 
   const handleCreate = useCallback(() => {
     navigate(ROUTES.USER_CREATE);
   }, [navigate]);
 
-  const handleEdit = useCallback((user: User) => {
+  const handleRowClick = useCallback((user: User) => {
     navigate(ROUTES.USER_EDIT.replace(':id', String(user.id)));
   }, [navigate]);
 
-  const handleDeleteUser = useCallback(async (userId: number) => {
-    Modal.confirm({
-      title: '確認刪除',
-      content: '確定要刪除此使用者嗎？',
-      okText: '確定',
-      okType: 'danger',
-      cancelText: '取消',
-      onOk: async () => {
-        try {
-          await deleteUser(userId);
-          message.success('使用者已刪除');
-        } catch (error: any) {
-          logger.error('Failed to delete user:', error);
-          const errorMessage = error.response?.data?.detail || '刪除使用者失敗';
-          message.error(errorMessage);
-        }
-      },
-    });
-  }, [message, deleteUser]);
-
   // ============================================================================
-  // 批量操作
-  // ============================================================================
-
-  const handleBatchDelete = useCallback(async () => {
-    if (selectedRowKeys.length === 0) {
-      message.warning('請選擇要刪除的使用者');
-      return;
-    }
-
-    Modal.confirm({
-      title: '確認批量刪除',
-      content: `確定要刪除選中的 ${selectedRowKeys.length} 個使用者嗎？`,
-      onOk: async () => {
-        try {
-          await batchDelete(selectedRowKeys as number[]);
-          message.success(`已成功刪除 ${selectedRowKeys.length} 個使用者`);
-          setSelectedRowKeys([]);
-        } catch (error: any) {
-          logger.error('Batch delete failed:', error);
-          message.error('批量刪除失敗');
-        }
-      },
-    });
-  }, [selectedRowKeys, message, batchDelete]);
-
-  const handleBatchStatusChange = useCallback(async (status: string) => {
-    if (selectedRowKeys.length === 0) {
-      message.warning('請選擇要更新的使用者');
-      return;
-    }
-
-    const statusName = getStatusDisplayName(status);
-
-    try {
-      await batchUpdateStatus({
-        userIds: selectedRowKeys as number[],
-        status,
-        isActive: status === 'active',
-      });
-      message.success(`已成功將 ${selectedRowKeys.length} 個使用者狀態更新為 ${statusName}`);
-      setSelectedRowKeys([]);
-    } catch (error: any) {
-      logger.error('Batch status update failed:', error);
-      message.error('批量更新狀態失敗');
-    }
-  }, [selectedRowKeys, message, batchUpdateStatus]);
-
-  const handleBatchRoleChange = useCallback(async (role: string) => {
-    if (selectedRowKeys.length === 0) {
-      message.warning('請選擇要更新的使用者');
-      return;
-    }
-
-    const roleName = getRoleDisplayName(role);
-
-    Modal.confirm({
-      title: '批量驗證使用者',
-      content: `確定要將選中的 ${selectedRowKeys.length} 個使用者驗證為 ${roleName} 嗎？這將會給予他們相應的系統權限。`,
-      onOk: async () => {
-        try {
-          const defaultPermissions = getRoleDefaultPermissions(role);
-          await batchUpdateRole({
-            userIds: selectedRowKeys as number[],
-            role,
-            permissions: defaultPermissions,
-          });
-          message.success(`已成功驗證 ${selectedRowKeys.length} 個使用者為 ${roleName}`);
-          setSelectedRowKeys([]);
-        } catch (error: any) {
-          logger.error('Batch role update failed:', error);
-          message.error('批量驗證失敗');
-        }
-      },
-    });
-  }, [selectedRowKeys, message, batchUpdateRole]);
-
-  // ============================================================================
-  // 表格欄位（導航模式）
+  // 表格欄位（純顯示，無操作按鈕）
   // ============================================================================
 
   const columns = useMemo(() => [
@@ -272,38 +153,7 @@ const UserManagementPage: React.FC = () => {
         </span>
       ),
     },
-    {
-      title: '操作',
-      key: 'actions',
-      width: 150,
-      render: (_: any, record: User) => (
-        <Space size="small">
-          <Button
-            type="link"
-            size="small"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleEdit(record);
-            }}
-          >
-            編輯
-          </Button>
-          <Button
-            type="link"
-            size="small"
-            danger
-            disabled={currentLoggedInUser?.id === record.id}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDeleteUser(record.id);
-            }}
-          >
-            刪除
-          </Button>
-        </Space>
-      ),
-    },
-  ], [handleEdit, handleDeleteUser, currentLoggedInUser]);
+  ], []);
 
   // ============================================================================
   // 渲染
@@ -322,54 +172,18 @@ const UserManagementPage: React.FC = () => {
             <Col xs={24} sm={12}>
               <Title level={isMobile ? 4 : 3} style={{ margin: 0 }}>
                 <TeamOutlined style={{ marginRight: 8 }} />
-                {isMobile ? '使用者管理' : '使用者權限管理'}
+                {isMobile ? '使用者管理' : '使用者管理'}
               </Title>
             </Col>
             <Col xs={24} sm={12} style={{ textAlign: isMobile ? 'left' : 'right' }}>
-              <Space size={isMobile ? 'small' : 'middle'} wrap>
-                <Button
-                  type="primary"
-                  icon={<PlusOutlined />}
-                  size={isMobile ? 'small' : 'middle'}
-                  onClick={handleCreate}
-                >
-                  {isMobile ? '' : '新增使用者'}
-                </Button>
-                {selectedRowKeys.length > 0 && !isMobile && (
-                  <>
-                    <Button
-                      type="primary"
-                      icon={<CheckOutlined />}
-                      onClick={() => handleBatchRoleChange('user')}
-                      loading={isBatchUpdating}
-                    >
-                      批量驗證 ({selectedRowKeys.length})
-                    </Button>
-                    <Button
-                      icon={<CheckOutlined />}
-                      onClick={() => handleBatchStatusChange('active')}
-                      loading={isBatchUpdating}
-                    >
-                      批量啟用
-                    </Button>
-                    <Button
-                      icon={<StopOutlined />}
-                      onClick={() => handleBatchStatusChange('suspended')}
-                      loading={isBatchUpdating}
-                    >
-                      批量暫停
-                    </Button>
-                    <Button
-                      danger
-                      icon={<DeleteOutlined />}
-                      onClick={handleBatchDelete}
-                      loading={isBatchUpdating}
-                    >
-                      批量刪除
-                    </Button>
-                  </>
-                )}
-              </Space>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                size={isMobile ? 'small' : 'middle'}
+                onClick={handleCreate}
+              >
+                {isMobile ? '' : '新增使用者'}
+              </Button>
             </Col>
           </Row>
         </div>
@@ -438,22 +252,15 @@ const UserManagementPage: React.FC = () => {
         <Table
           columns={columns}
           dataSource={users}
-          loading={isLoading || isDeleting}
+          loading={isLoading}
           rowKey="id"
           size={isMobile ? 'small' : 'middle'}
           scroll={{ x: isMobile ? 400 : 800 }}
           onChange={handleTableChange}
           onRow={(record) => ({
-            onClick: () => handleEdit(record),
+            onClick: () => handleRowClick(record),
             style: { cursor: 'pointer' },
           })}
-          rowSelection={isMobile ? undefined : {
-            selectedRowKeys,
-            onChange: (newSelectedRowKeys) => setSelectedRowKeys(newSelectedRowKeys),
-            getCheckboxProps: (record: User) => ({
-              disabled: currentLoggedInUser ? record.id === currentLoggedInUser.id : false,
-            }),
-          }}
           pagination={{
             current: currentPage,
             pageSize: isMobile ? 10 : pageSize,
