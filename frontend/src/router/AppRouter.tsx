@@ -53,12 +53,13 @@ const VendorFormPage = lazy(() => import('../pages/VendorFormPage').then(module 
 const StaffPage = lazy(() => import('../pages/StaffPage'));
 const StaffCreatePage = lazy(() => import('../pages/StaffCreatePage').then(module => ({ default: module.StaffCreatePage })));
 const StaffDetailPage = lazy(() => import('../pages/StaffDetailPage').then(module => ({ default: module.StaffDetailPage })));
+const CertificationFormPage = lazy(() => import('../pages/CertificationFormPage').then(module => ({ default: module.CertificationFormPage })));
 const SiteManagementPage = lazy(() => import('../pages/SiteManagementPage').then(module => ({ default: module.default })));
 const CalendarPage = lazy(() => import('../pages/CalendarPage'));
 const ReportsPage = lazy(() => import('../pages/ReportsPage'));
 const GoogleAuthDiagnosticPage = lazy(() => import('../pages/GoogleAuthDiagnosticPage'));
 // SystemPage 已移除，功能整合至其他管理頁面
-const PermissionManagementPage = lazy(() => import('../pages/PermissionManagementPage'));
+// PermissionManagementPage 已整合至 UserManagementPage，保留重導向以維持相容性
 // PureCalendarPage 已整合至 CalendarPage，保留重導向以維持相容性
 // const PureCalendarPage = lazy(() => import('../pages/PureCalendarPage'));
 const UnifiedFormDemoPage = lazy(() => import('../pages/UnifiedFormDemoPage'));
@@ -124,6 +125,9 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.STAFF} element={<ProtectedRoute><StaffPage /></ProtectedRoute>} />
           <Route path={ROUTES.STAFF_CREATE} element={<ProtectedRoute><StaffCreatePage /></ProtectedRoute>} />
           <Route path={ROUTES.STAFF_DETAIL} element={<ProtectedRoute><StaffDetailPage /></ProtectedRoute>} />
+          {/* 證照管理（導航模式） */}
+          <Route path={ROUTES.CERTIFICATION_CREATE} element={<ProtectedRoute><CertificationFormPage /></ProtectedRoute>} />
+          <Route path={ROUTES.CERTIFICATION_EDIT} element={<ProtectedRoute><CertificationFormPage /></ProtectedRoute>} />
 
           {/* 行事曆（需要認證） */}
           <Route path={ROUTES.CALENDAR} element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
@@ -154,8 +158,8 @@ export const AppRouter: React.FC = () => {
           {/* 管理員面板 */}
           <Route path="/admin/dashboard" element={<ProtectedRoute requireAuth={true} roles={['admin']}><AdminDashboardPage /></ProtectedRoute>} />
 
-          {/* 權限管理 */}
-          <Route path={ROUTES.PERMISSION_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><PermissionManagementPage /></ProtectedRoute>} />
+          {/* 權限管理 - 重導向至使用者管理（已整合權限功能） */}
+          <Route path={ROUTES.PERMISSION_MANAGEMENT} element={<Navigate to={ROUTES.USER_MANAGEMENT} replace />} />
 
           {/* 網站管理 */}
           <Route path={ROUTES.SITE_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><SiteManagementPage /></ProtectedRoute>} />

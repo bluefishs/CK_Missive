@@ -63,9 +63,10 @@ async def get_notifications(
     try:
         result = await NotificationService.get_notifications(
             db=db,
+            user_id=current_user.id,
             is_read=query.is_read,
             severity=query.severity,
-            type=query.type,
+            notification_type=query.type,
             limit=query.limit,
             offset=(query.page - 1) * query.limit
         )
@@ -124,6 +125,7 @@ async def get_unread_count(
     try:
         result = await NotificationService.get_notifications(
             db=db,
+            user_id=current_user.id,
             is_read=False,
             limit=1,
             offset=0
@@ -157,7 +159,8 @@ async def mark_notifications_read(
     try:
         updated_count = await NotificationService.mark_as_read(
             db=db,
-            notification_ids=request.notification_ids
+            notification_ids=request.notification_ids,
+            user_id=current_user.id
         )
 
         return MarkReadResponse(
@@ -190,7 +193,10 @@ async def mark_all_notifications_read(
     一鍵清除所有未讀通知
     """
     try:
-        updated_count = await NotificationService.mark_all_as_read(db=db)
+        updated_count = await NotificationService.mark_all_as_read(
+            db=db,
+            user_id=current_user.id
+        )
 
         return MarkReadResponse(
             success=True,

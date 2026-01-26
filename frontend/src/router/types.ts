@@ -43,6 +43,9 @@ export const ROUTES = {
   STAFF: '/staff',
   STAFF_CREATE: '/staff/create',
   STAFF_DETAIL: '/staff/:id',
+  // 證照管理（導航模式）
+  CERTIFICATION_CREATE: '/staff/:userId/certifications/create',
+  CERTIFICATION_EDIT: '/staff/:userId/certifications/:certId/edit',
   PROJECTS: '/projects',
   CALENDAR: '/calendar',
   PURE_CALENDAR: '/pure-calendar', // 重導向至 /calendar
@@ -54,7 +57,7 @@ export const ROUTES = {
   NOT_FOUND: '/404',
   API_MAPPING: '/api-mapping', // 新增 API 對應頁面路由
   API_DOCS: '/api/docs', // API 文件頁面路由
-  PERMISSION_MANAGEMENT: '/admin/permissions',
+  PERMISSION_MANAGEMENT: '/admin/permissions',  // 重導向至 USER_MANAGEMENT
   SYSTEM: '/system',
   UNIFIED_FORM_DEMO: '/unified-form-demo',
   GOOGLE_AUTH_DIAGNOSTIC: '/google-auth-diagnostic',
@@ -183,6 +186,16 @@ export const ROUTE_META = {
     title: '承辦同仁',
     description: '承辦同仁清單與管理',
     icon: 'TeamOutlined',
+  },
+  [ROUTES.CERTIFICATION_CREATE]: {
+    title: '新增證照',
+    description: '新增承辦同仁證照',
+    breadcrumb: true,
+  },
+  [ROUTES.CERTIFICATION_EDIT]: {
+    title: '編輯證照',
+    description: '編輯承辦同仁證照',
+    breadcrumb: true,
   },
   [ROUTES.PROJECTS]: {
     title: '承攬案件',
