@@ -70,9 +70,16 @@ async def list_vendors(
         db,
         skip=skip,
         limit=query.limit,
-        search=query.search
+        search=query.search,
+        business_type=query.business_type,
+        rating=query.rating
     )
-    total = await vendor_service.get_total_vendors(db, search=query.search)
+    total = await vendor_service.get_total_vendors(
+        db,
+        search=query.search,
+        business_type=query.business_type,
+        rating=query.rating
+    )
 
     return VendorListResponse(
         items=vendors,

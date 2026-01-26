@@ -61,8 +61,9 @@ export const AgenciesPage: React.FC = () => {
     page: currentPage,
     limit: pageSize,
     ...(searchText && { search: searchText }),
+    ...(categoryFilter && { category: categoryFilter }),
     include_stats: true,
-  }), [currentPage, pageSize, searchText]);
+  }), [currentPage, pageSize, searchText, categoryFilter]);
 
   // 使用 React Query Hook
   const {
@@ -391,10 +392,8 @@ export const AgenciesPage: React.FC = () => {
     // 導航模式：刪除功能已整合至 AgencyFormPage
   ];
 
-  // 篩選後的機關列表
-  const filteredAgencies = categoryFilter
-    ? agencies.filter(agency => agency.category === categoryFilter)
-    : agencies;
+  // 機關列表（現在由後端篩選，不需要前端再篩選）
+  const filteredAgencies = agencies;
 
   return (
     <div style={{ padding: pagePadding }}>
@@ -484,7 +483,10 @@ export const AgenciesPage: React.FC = () => {
                 placeholder="選擇機關類別"
                 allowClear
                 value={categoryFilter || undefined}
-                onChange={setCategoryFilter}
+                onChange={(value) => {
+                  setCategoryFilter(value || '');
+                  setCurrentPage(1);  // 切換分類時重置頁碼
+                }}
                 style={{ width: '100%' }}
                 options={statistics?.categories.map(cat => ({
                   label: `${cat.category} (${cat.count})`,

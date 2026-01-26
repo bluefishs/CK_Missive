@@ -87,7 +87,6 @@ export const DocumentDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { message } = App.useApp();
   const [form] = Form.useForm();
-  const [dispatchForm] = Form.useForm();
   const queryClient = useQueryClient();
 
   // 基本狀態
@@ -362,22 +361,6 @@ export const DocumentDetailPage: React.FC = () => {
     }
   }, [document, hasDispatchFeature, hasProjectLinkFeature, loadDispatchLinks, loadProjectLinks]);
 
-  // 編輯模式時自動載入派工單號 (僅有派工功能時)
-  useEffect(() => {
-    if (isEditing && activeTab === 'dispatch' && hasDispatchFeature) {
-      const loadNextDispatchNo = async () => {
-        try {
-          const result = await dispatchOrdersApi.getNextDispatchNo();
-          if (result.success && result.next_dispatch_no) {
-            dispatchForm.setFieldsValue({ dispatch_no: result.next_dispatch_no });
-          }
-        } catch (error) {
-          console.error('載入派工單號失敗:', error);
-        }
-      };
-      loadNextDispatchNo();
-    }
-  }, [isEditing, activeTab, dispatchForm, hasDispatchFeature]);
 
   // =============================================================================
   // 事件處理
@@ -510,6 +493,9 @@ export const DocumentDetailPage: React.FC = () => {
   const handleEventCreated = (eventId: number) => {
     message.success('行事曆事件建立成功');
     logger.debug('[handleEventCreated] 新建事件 ID:', eventId);
+    // 刷新行事曆相關的 React Query 緩存，確保新事件在行事曆頁面顯示
+    queryClient.invalidateQueries({ queryKey: ['calendar', 'events'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboardCalendar'] });
   };
 
   // 附件操作
@@ -549,24 +535,23 @@ export const DocumentDetailPage: React.FC = () => {
   };
 
   // 派工操作
-  const handleCreateDispatch = async () => {
+  const handleCreateDispatch = async (formValues: Record<string, unknown>) => {
     try {
-      const values = await dispatchForm.validateFields();
       const docId = parseInt(id || '0', 10);
       const isReceiveDoc = isReceiveDocument(document?.category);
       const linkType: LinkType = isReceiveDoc ? 'agency_incoming' : 'company_outgoing';
 
       const dispatchData: DispatchOrderCreate = {
-        dispatch_no: values.dispatch_no,
-        project_name: values.project_name || document?.subject || '',
-        work_type: values.work_type,
-        sub_case_name: values.sub_case_name,
-        deadline: values.deadline,
-        case_handler: values.case_handler,
-        survey_unit: values.survey_unit,
-        contact_note: values.contact_note,
-        cloud_folder: values.cloud_folder,
-        project_folder: values.project_folder,
+        dispatch_no: formValues.dispatch_no as string,
+        project_name: (formValues.project_name as string) || document?.subject || '',
+        work_type: formValues.work_type as string | undefined,
+        sub_case_name: formValues.sub_case_name as string | undefined,
+        deadline: formValues.deadline as string | undefined,
+        case_handler: formValues.case_handler as string | undefined,
+        survey_unit: formValues.survey_unit as string | undefined,
+        contact_note: formValues.contact_note as string | undefined,
+        cloud_folder: formValues.cloud_folder as string | undefined,
+        project_folder: formValues.project_folder as string | undefined,
         contract_project_id: (document as any)?.contract_project_id || undefined,
         agency_doc_id: isReceiveDoc ? docId : undefined,
         company_doc_id: !isReceiveDoc ? docId : undefined,
@@ -577,13 +562,13 @@ export const DocumentDetailPage: React.FC = () => {
         await documentLinksApi.linkDispatch(docId, newDispatch.id, linkType);
         message.success('派工新增成功');
         await loadDispatchLinks();
-        dispatchForm.resetFields();
         queryClient.invalidateQueries({ queryKey: ['dispatch-orders'] });
         queryClient.invalidateQueries({ queryKey: ['dispatch-orders-for-link'] });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('[handleCreateDispatch] 錯誤:', error);
-      message.error(error?.message || '新增派工失敗');
+      const errorMessage = error instanceof Error ? error.message : '新增派工失敗';
+      message.error(errorMessage);
     }
   };
 
@@ -697,7 +682,6 @@ export const DocumentDetailPage: React.FC = () => {
           isEditing={isEditing}
           dispatchLinks={dispatchLinks}
           dispatchLinksLoading={dispatchLinksLoading}
-          dispatchForm={dispatchForm}
           agencyContacts={agencyContacts}
           projectVendors={projectVendors}
           availableDispatches={availableDispatches}

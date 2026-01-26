@@ -1,9 +1,34 @@
 """
 Pydantic schemas for Government Agencies
+
+v1.1.0 - 2026-01-26: 新增名稱標準化驗證器，避免重複資料
 """
 from typing import Optional, List
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from datetime import datetime
+import re
+
+
+def normalize_name(value: Optional[str]) -> Optional[str]:
+    """
+    標準化名稱字串
+    - 移除前後空白
+    - 移除中間多餘空白
+    - 統一全形/半形括號
+    - 移除全形空白
+    """
+    if not value:
+        return value
+    # 移除前後空白
+    result = value.strip()
+    # 移除全形空白
+    result = result.replace('\u3000', '')
+    # 統一全形括號為半形
+    result = result.replace('（', '(').replace('）', ')')
+    # 移除連續空白，保留單一空白
+    result = re.sub(r'\s+', ' ', result)
+    return result if result else None
+
 
 class AgencyBase(BaseModel):
     """所有 Agency schema 的基礎模型，定義通用欄位"""
@@ -17,6 +42,12 @@ class AgencyBase(BaseModel):
     email: Optional[str] = Field(None, max_length=100)
 
     model_config = ConfigDict(from_attributes=True)
+
+    # 名稱欄位自動標準化
+    @field_validator('agency_name', 'agency_short_name', mode='before')
+    @classmethod
+    def normalize_names(cls, v: Optional[str]) -> Optional[str]:
+        return normalize_name(v)
 
 class AgencyCreate(AgencyBase):
     """用於新增機關單位的 schema"""
@@ -32,6 +63,12 @@ class AgencyUpdate(BaseModel):
     phone: Optional[str] = Field(None, max_length=50)
     address: Optional[str] = Field(None, max_length=300)
     email: Optional[str] = Field(None, max_length=100)
+
+    # 名稱欄位自動標準化
+    @field_validator('agency_name', 'agency_short_name', mode='before')
+    @classmethod
+    def normalize_names(cls, v: Optional[str]) -> Optional[str]:
+        return normalize_name(v)
 
 class Agency(AgencyBase):
     """用於 API 回應的 schema，包含資料庫生成的欄位"""
@@ -87,6 +124,7 @@ class AgencyListQuery(BaseModel):
     limit: int = Field(default=20, ge=1, le=1000, description="每頁筆數")
     search: Optional[str] = Field(None, description="搜尋關鍵字")
     agency_type: Optional[str] = Field(None, description="機關類型")
+    category: Optional[str] = Field(None, description="機關分類 (政府機關/民間企業/其他單位)")
     include_stats: bool = Field(default=True, description="是否包含統計資料")
     sort_by: str = Field(default="agency_name", description="排序欄位")
     sort_order: str = Field(default="asc", description="排序方向 (asc/desc)")

@@ -37,6 +37,7 @@ import { apiClient } from '../api/client';
 import { API_ENDPOINTS } from '../api/endpoints';
 import { useTableColumnSearch, useResponsive } from '../hooks';
 import { ROUTES } from '../router/types';
+import { DEPARTMENT_OPTIONS } from '../constants';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -44,18 +45,6 @@ const { Option } = Select;
 // 注意：專案角色在「承攬案件詳情頁」中管理
 // 同一位同仁可在不同專案擔任不同角色 (計畫主持、計畫協同、專案PM、職安主管)
 // 此頁面僅管理基本帳號資訊，不顯示專案角色
-
-// 輔助函數：提取錯誤訊息
-const extractErrorMessage = (error: any): string => {
-  const detail = error?.response?.data?.detail;
-  if (!detail) return '操作失敗，請稍後再試';
-  if (typeof detail === 'string') return detail;
-  if (Array.isArray(detail)) {
-    // Pydantic 驗證錯誤格式
-    return detail.map((e: any) => e.msg || JSON.stringify(e)).join(', ');
-  }
-  return JSON.stringify(detail);
-};
 
 // ---[型別定義]---
 import type { User } from '../types/api';
@@ -68,9 +57,6 @@ type Staff = User;
 
 // 使用表格搜尋 Hook
 const useStaffTableSearch = () => useTableColumnSearch<Staff>();
-
-// 部門選項
-const DEPARTMENT_OPTIONS = ['空間資訊部', '測量部', '管理部'];
 
 export const StaffPage: React.FC = () => {
   const { message } = App.useApp();
@@ -89,6 +75,7 @@ export const StaffPage: React.FC = () => {
   // 篩選狀態
   const [searchText, setSearchText] = useState('');
   const [activeFilter, setActiveFilter] = useState<boolean | undefined>();
+  const [departmentFilter, setDepartmentFilter] = useState<string>('');
 
   // 統計資料
   const [stats, setStats] = useState({
@@ -108,6 +95,7 @@ export const StaffPage: React.FC = () => {
 
       if (searchText) requestBody.search = searchText;
       if (activeFilter !== undefined) requestBody.is_active = activeFilter;
+      if (departmentFilter) requestBody.department = departmentFilter;
 
       // POST-only: 使用 POST /users/list 端點
       const response = await apiClient.post(API_ENDPOINTS.USERS.LIST, requestBody);
@@ -131,7 +119,7 @@ export const StaffPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [current, pageSize, searchText, activeFilter, message]);
+  }, [current, pageSize, searchText, activeFilter, departmentFilter, message]);
 
   useEffect(() => {
     loadStaffList();
@@ -344,16 +332,35 @@ export const StaffPage: React.FC = () => {
                 allowClear
               />
               {!isMobile && (
-                <Select
-                  placeholder="狀態篩選"
-                  value={activeFilter}
-                  onChange={(v) => setActiveFilter(v)}
-                  style={{ width: 120 }}
-                  allowClear
-                >
-                  <Option value={true}>啟用中</Option>
-                  <Option value={false}>已停用</Option>
-                </Select>
+                <>
+                  <Select
+                    placeholder="部門篩選"
+                    value={departmentFilter || undefined}
+                    onChange={(v) => {
+                      setDepartmentFilter(v || '');
+                      setCurrent(1);  // 切換篩選時重置頁碼
+                    }}
+                    style={{ width: 130 }}
+                    allowClear
+                  >
+                    {DEPARTMENT_OPTIONS.map(d => (
+                      <Option key={d} value={d}>{d}</Option>
+                    ))}
+                  </Select>
+                  <Select
+                    placeholder="狀態篩選"
+                    value={activeFilter}
+                    onChange={(v) => {
+                      setActiveFilter(v);
+                      setCurrent(1);  // 切換篩選時重置頁碼
+                    }}
+                    style={{ width: 120 }}
+                    allowClear
+                  >
+                    <Option value={true}>啟用中</Option>
+                    <Option value={false}>已停用</Option>
+                  </Select>
+                </>
               )}
             </Space>
           </Col>

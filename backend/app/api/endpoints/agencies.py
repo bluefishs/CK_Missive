@@ -71,7 +71,8 @@ async def list_agencies(
 
         if query.include_stats:
             result = await agency_service.get_agencies_with_stats(
-                db, skip=skip, limit=query.limit, search=query.search
+                db, skip=skip, limit=query.limit, search=query.search,
+                category=query.category
             )
             items = result["agencies"]
             total = result["total"]

@@ -5,7 +5,7 @@
  * @date 2026-01-23
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Card,
   Form,
@@ -40,7 +40,7 @@ import type {
 } from '../../../types/api';
 import type { ProjectAgencyContact } from '../../../api/projectAgencyContacts';
 import type { ProjectVendor } from '../../../api/projectVendorsApi';
-import type { FormInstance } from 'antd';
+import { dispatchOrdersApi } from '../../../api/taoyuanDispatchApi';
 import { logger } from '../../../utils/logger';
 import { TAOYUAN_WORK_TYPES_LIST } from './constants';
 
@@ -53,11 +53,10 @@ interface DocumentDispatchTabProps {
   isEditing: boolean;
   dispatchLinks: DocumentDispatchLink[];
   dispatchLinksLoading: boolean;
-  dispatchForm: FormInstance;
   agencyContacts: ProjectAgencyContact[];
   projectVendors: ProjectVendor[];
   availableDispatches: DispatchOrder[];
-  onCreateDispatch: () => Promise<void>;
+  onCreateDispatch: (formValues: Record<string, unknown>) => Promise<void>;
   onLinkDispatch: (dispatchId: number) => Promise<void>;
   onUnlinkDispatch: (linkId: number) => Promise<void>;
 }
@@ -67,7 +66,6 @@ export const DocumentDispatchTab: React.FC<DocumentDispatchTabProps> = ({
   isEditing,
   dispatchLinks,
   dispatchLinksLoading,
-  dispatchForm,
   agencyContacts,
   projectVendors,
   availableDispatches,
@@ -78,9 +76,29 @@ export const DocumentDispatchTab: React.FC<DocumentDispatchTabProps> = ({
   const navigate = useNavigate();
   const { message } = App.useApp();
 
+  // 在組件內部創建 form，避免父組件的 useForm 警告
+  const [dispatchForm] = Form.useForm();
+
   // 搜尋派工紀錄的狀態
   const [selectedDispatchId, setSelectedDispatchId] = useState<number | undefined>();
   const [linkingDispatch, setLinkingDispatch] = useState(false);
+
+  // 編輯模式時自動載入下一個派工單號
+  useEffect(() => {
+    if (isEditing) {
+      const loadNextDispatchNo = async () => {
+        try {
+          const result = await dispatchOrdersApi.getNextDispatchNo();
+          if (result.success && result.next_dispatch_no) {
+            dispatchForm.setFieldsValue({ dispatch_no: result.next_dispatch_no });
+          }
+        } catch (error) {
+          logger.error('[loadNextDispatchNo] 載入派工單號失敗:', error);
+        }
+      };
+      loadNextDispatchNo();
+    }
+  }, [isEditing, dispatchForm]);
 
   // 判斷當前公文類型 (收文/發文)
   const isReceiveDoc = isReceiveDocument(document?.category);
@@ -432,7 +450,18 @@ export const DocumentDispatchTab: React.FC<DocumentDispatchTabProps> = ({
 
             <Form.Item style={{ marginBottom: 0, marginTop: 16 }}>
               <Space>
-                <Button type="primary" onClick={onCreateDispatch}>
+                <Button
+                  type="primary"
+                  onClick={async () => {
+                    try {
+                      const values = await dispatchForm.validateFields();
+                      await onCreateDispatch(values);
+                      dispatchForm.resetFields();
+                    } catch (error) {
+                      // 表單驗證失敗，不做額外處理
+                    }
+                  }}
+                >
                   建立派工
                 </Button>
                 <Text type="secondary" style={{ fontSize: 12 }}>

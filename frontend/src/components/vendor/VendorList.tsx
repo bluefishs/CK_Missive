@@ -27,25 +27,14 @@ import { useVendorsPage } from '../../hooks';
 import { useResponsive } from '../../hooks';
 import type { Vendor as ApiVendor } from '../../types/api';
 import { ROUTES } from '../../router/types';
+import {
+  BUSINESS_TYPE_OPTIONS,
+  getBusinessTypeColor,
+  getRatingColor,
+} from '../../constants';
 
 const { Title } = Typography;
 const { Option } = Select;
-
-// 營業項目選項
-const BUSINESS_TYPE_OPTIONS = [
-  { value: '測量業務', label: '測量業務', color: 'blue' },
-  { value: '資訊系統', label: '資訊系統', color: 'cyan' },
-  { value: '查估業務', label: '查估業務', color: 'orange' },
-  { value: '不動產估價', label: '不動產估價', color: 'purple' },
-  { value: '大地工程', label: '大地工程', color: 'gold' },
-  { value: '其他類別', label: '其他類別', color: 'default' },
-];
-
-// 取得營業項目標籤顏色
-const getBusinessTypeColor = (type?: string) => {
-  const option = BUSINESS_TYPE_OPTIONS.find(opt => opt.value === type);
-  return option?.color || 'default';
-};
 
 // 使用統一型別定義
 type Vendor = ApiVendor;
@@ -69,7 +58,8 @@ const VendorList: React.FC = () => {
     limit: pageSize,
     ...(searchText && { search: searchText }),
     ...(businessTypeFilter && { business_type: businessTypeFilter }),
-  }), [current, pageSize, searchText, businessTypeFilter]);
+    ...(ratingFilter && { rating: ratingFilter }),
+  }), [current, pageSize, searchText, businessTypeFilter, ratingFilter]);
 
   // 使用 React Query Hook (自動快取與更新)
   const {
@@ -92,14 +82,6 @@ const VendorList: React.FC = () => {
   };
 
   // 刪除功能已移至 VendorFormPage (導航模式規範)
-
-  // 評價顏色
-  const getRatingColor = (rating?: number) => {
-    if (!rating) return 'default';
-    if (rating >= 4) return 'green';
-    if (rating >= 3) return 'orange';
-    return 'red';
-  };
 
   // 響應式表格欄位 (導航模式：刪除功能已整合至 VendorFormPage)
   const columns: TableColumnType<Vendor>[] = isMobile
@@ -226,7 +208,10 @@ const VendorList: React.FC = () => {
                 <Select
                   placeholder="營業項目篩選"
                   value={businessTypeFilter || undefined}
-                  onChange={(value) => setBusinessTypeFilter(value || '')}
+                  onChange={(value) => {
+                    setBusinessTypeFilter(value || '');
+                    setCurrent(1);  // 切換篩選時重置頁碼
+                  }}
                   style={{ width: 150 }}
                   allowClear
                 >
@@ -238,7 +223,10 @@ const VendorList: React.FC = () => {
                 <Select
                   placeholder="評價篩選"
                   value={ratingFilter}
-                  onChange={setRatingFilter}
+                  onChange={(value) => {
+                    setRatingFilter(value);
+                    setCurrent(1);  // 切換篩選時重置頁碼
+                  }}
                   style={{ width: 120 }}
                   allowClear
                 >

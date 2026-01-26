@@ -93,6 +93,10 @@ async def get_users(
         db_query = db_query.where(User.is_active == query.is_active)
         count_query = count_query.where(User.is_active == query.is_active)
 
+    if query.department:
+        db_query = db_query.where(User.department == query.department)
+        count_query = count_query.where(User.department == query.department)
+
     if query.search:
         search_filter = or_(
             User.username.ilike(f"%{query.search}%"),
@@ -128,7 +132,9 @@ async def get_users(
             role=user.role or "user",
             is_active=user.is_active if user.is_active is not None else True,
             last_login=user.last_login,
-            created_at=user.created_at
+            created_at=user.created_at,
+            department=user.department,
+            position=user.position
         )
         for user in users
     ]

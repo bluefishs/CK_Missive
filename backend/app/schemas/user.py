@@ -116,6 +116,7 @@ class UserListQuery(BaseModel):
     limit: int = Field(default=20, ge=1, le=100, description="每頁筆數")
     role: Optional[str] = Field(None, description="角色篩選")
     is_active: Optional[bool] = Field(None, description="啟用狀態篩選")
+    department: Optional[str] = Field(None, description="部門篩選")
     search: Optional[str] = Field(None, description="搜尋關鍵字")
     sort_by: str = Field(default="id", description="排序欄位")
     sort_order: SortOrder = Field(default=SortOrder.ASC, description="排序方向")

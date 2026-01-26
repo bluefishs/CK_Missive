@@ -182,7 +182,8 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
         db: AsyncSession,
         skip: int = 0,
         limit: int = 100,
-        search: Optional[str] = None
+        search: Optional[str] = None,
+        category: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         取得機關列表含統計資料
@@ -192,6 +193,7 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
             skip: 跳過筆數
             limit: 取得筆數
             search: 搜尋關鍵字
+            category: 機關分類篩選 (政府機關/民間企業/其他單位)
 
         Returns:
             含統計資料的機關列表
@@ -205,6 +207,25 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
                     GovernmentAgency.agency_short_name.ilike(f"%{search}%")
                 )
             )
+
+        # 分類篩選（基於 agency_type 欄位）
+        if category:
+            if category == '政府機關':
+                query = query.where(GovernmentAgency.agency_type == '政府機關')
+            elif category == '民間企業':
+                query = query.where(GovernmentAgency.agency_type == '民間企業')
+            elif category == '其他單位':
+                # 其他單位包含：其他機關、社會團體、教育機構、空值等
+                query = query.where(
+                    or_(
+                        GovernmentAgency.agency_type.is_(None),
+                        GovernmentAgency.agency_type == '',
+                        GovernmentAgency.agency_type == '其他單位',
+                        GovernmentAgency.agency_type == '其他機關',
+                        GovernmentAgency.agency_type == '社會團體',
+                        GovernmentAgency.agency_type == '教育機構',
+                    )
+                )
 
         # 計算總數
         count_query = select(func.count()).select_from(query.subquery())
