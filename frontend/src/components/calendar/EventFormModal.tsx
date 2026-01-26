@@ -89,16 +89,53 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
   onSuccess
 }) => {
   const [form] = Form.useForm();
-  const { notification } = App.useApp();
+  const { notification, modal } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [allDay, setAllDay] = useState(false);
   const [documentOptions, setDocumentOptions] = useState<DocumentOption[]>([]);
   const [documentSearchError, setDocumentSearchError] = useState<string | null>(null);
+  const [existingEventsWarning, setExistingEventsWarning] = useState<string | null>(null);
 
   // 響應式斷點
   const screens = useBreakpoint();
   const isMobile = !screens.md;
   const [documentSearching, setDocumentSearching] = useState(false);
+
+  // 檢查公文是否已有行事曆事件
+  const checkDocumentEvents = async (documentId: number) => {
+    try {
+      const response = await apiClient.post<{
+        has_events: boolean;
+        event_count: number;
+        events: Array<{ id: number; title: string; start_date: string }>;
+        message: string;
+      }>('/calendar/events/check-document', { document_id: documentId });
+
+      if (response.has_events && response.event_count > 0) {
+        setExistingEventsWarning(
+          `此公文已有 ${response.event_count} 筆行事曆事件。建立新事件可能造成重複。`
+        );
+        notification.warning({
+          message: '公文已有事件',
+          description: `此公文已有 ${response.event_count} 筆行事曆事件，建議先確認是否需要新增。`,
+          duration: 5,
+        });
+      } else {
+        setExistingEventsWarning(null);
+      }
+    } catch (error) {
+      console.error('檢查公文事件失敗:', error);
+      // 靜默失敗，不影響使用者操作
+    }
+  };
+
+  // 處理關聯公文選擇變更
+  const handleDocumentChange = (value: number | undefined) => {
+    setExistingEventsWarning(null);
+    if (value && mode === 'create') {
+      checkDocumentEvents(value);
+    }
+  };
 
   // 搜尋公文（防抖動）
   const searchDocuments = useCallback(
@@ -186,6 +223,7 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
       });
       setAllDay(false);
       setDocumentOptions([]);
+      setExistingEventsWarning(null);
     }
   }, [visible, mode, event, form]);
 
@@ -384,7 +422,13 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
             name="document_id"
             label="關聯公文"
             tooltip="輸入公文字號或主旨關鍵字搜尋（至少2個字元）"
-            help={documentSearchError && !documentSearching ? <span style={{ color: '#faad14' }}>{documentSearchError}</span> : undefined}
+            help={
+              existingEventsWarning ? (
+                <span style={{ color: '#fa8c16' }}>{existingEventsWarning}</span>
+              ) : documentSearchError && !documentSearching ? (
+                <span style={{ color: '#faad14' }}>{documentSearchError}</span>
+              ) : undefined
+            }
           >
             <Select
               showSearch
@@ -392,6 +436,7 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
               placeholder="輸入公文字號或主旨搜尋..."
               filterOption={false}
               onSearch={searchDocuments}
+              onChange={handleDocumentChange}
               loading={documentSearching}
               notFoundContent={
                 documentSearching ? (

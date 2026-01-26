@@ -123,6 +123,51 @@ async def list_calendar_events(
         )
 
 
+@router.post("/events/check-document", summary="檢查公文是否已有行事曆事件")
+async def check_document_events(
+    document_id: int,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user)
+):
+    """檢查指定公文是否已有行事曆事件，用於前端提示"""
+    try:
+        query = (
+            select(DocumentCalendarEvent)
+            .where(DocumentCalendarEvent.document_id == document_id)
+            .order_by(DocumentCalendarEvent.start_date)
+        )
+        result = await db.execute(query)
+        existing_events = result.scalars().all()
+
+        if existing_events:
+            return {
+                "has_events": True,
+                "event_count": len(existing_events),
+                "events": [
+                    {
+                        "id": e.id,
+                        "title": e.title,
+                        "start_date": e.start_date.isoformat(),
+                        "status": getattr(e, 'status', 'pending')
+                    }
+                    for e in existing_events
+                ],
+                "message": f"此公文已有 {len(existing_events)} 筆行事曆事件"
+            }
+        return {
+            "has_events": False,
+            "event_count": 0,
+            "events": [],
+            "message": "此公文尚無行事曆事件"
+        }
+    except Exception as e:
+        logger.error(f"Error checking document events: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"檢查公文事件失敗: {str(e)}"
+        )
+
+
 @router.post("/events", summary="新增日曆事件")
 async def create_calendar_event(
     event_create: DocumentCalendarEventCreate,
@@ -131,6 +176,18 @@ async def create_calendar_event(
 ):
     """新增一個日曆事件"""
     try:
+        # 檢查公文是否已有事件（提供警告但不阻擋建立）
+        existing_event_warning = None
+        if event_create.document_id:
+            query = select(func.count()).select_from(DocumentCalendarEvent).where(
+                DocumentCalendarEvent.document_id == event_create.document_id
+            )
+            result = await db.execute(query)
+            existing_count = result.scalar()
+            if existing_count > 0:
+                existing_event_warning = f"注意：此公文已有 {existing_count} 筆行事曆事件"
+                logger.info(f"公文 {event_create.document_id} 已有 {existing_count} 筆事件，仍建立新事件")
+
         # 處理時區問題
         start_date = event_create.start_date
         if start_date.tzinfo is not None:
@@ -164,11 +221,15 @@ async def create_calendar_event(
 
         logger.info(f"使用者 {current_user.id} 建立日曆事件: {new_event.title} (ID: {new_event.id})")
 
-        return {
+        response = {
             "success": True,
             "message": "事件建立成功",
             "event": event_to_dict(new_event)
         }
+        if existing_event_warning:
+            response["warning"] = existing_event_warning
+
+        return response
     except Exception as e:
         logger.error(f"Error creating calendar event: {e}", exc_info=True)
         await db.rollback()
