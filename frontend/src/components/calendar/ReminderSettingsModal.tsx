@@ -4,7 +4,7 @@
  */
 import React, { useState, useEffect } from 'react';
 import {
-  Modal, Form, Switch, Select, InputNumber, Button, Space,
+  Modal, Select, Button, Space,
   List, Tag, Tooltip, notification, Empty, Spin, Typography, Row, Col, Grid
 } from 'antd';
 
@@ -64,7 +64,7 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
   onClose,
   onSuccess
 }) => {
-  const [form] = Form.useForm();
+  // 注意：此元件不使用 Form，移除未使用的 useForm 避免 Antd 警告
   const [loading, setLoading] = useState(false);
   const [reminders, setReminders] = useState<EventReminder[]>([]);
   const [newReminderMinutes, setNewReminderMinutes] = useState<number>(60);

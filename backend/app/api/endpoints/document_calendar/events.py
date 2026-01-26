@@ -463,35 +463,54 @@ async def update_calendar_event(
     current_user: User = Depends(get_current_user)
 ):
     """更新一個已存在的日曆事件"""
-    event_id = event_update.event_id
+    try:
+        event_id = event_update.event_id
 
-    event_to_update = await calendar_service.get_event(db, event_id)
-    if not event_to_update:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="找不到指定的事件")
+        # 記錄收到的更新資料
+        logger.info(f"[events/update] 收到更新請求: event_id={event_id}")
+        logger.info(f"[events/update] 更新資料: {event_update.model_dump(exclude_unset=True)}")
 
-    await check_event_permission(event_to_update, current_user, "修改")
+        event_to_update = await calendar_service.get_event(db, event_id)
+        if not event_to_update:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="找不到指定的事件")
 
-    updated_event = await calendar_service.update_event(db, event_id=event_id, event_update=event_update)
-    if not updated_event:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="更新過程中找不到指定的事件")
+        # 記錄原始事件資料
+        logger.info(f"[events/update] 原始 start_date: {event_to_update.start_date}")
 
-    logger.info(f"使用者 {current_user.id} 更新日曆事件: {updated_event.title} (ID: {event_id})")
+        await check_event_permission(event_to_update, current_user, "修改")
 
-    return {
-        "success": True,
-        "message": "事件更新成功",
-        "event": {
-            "id": updated_event.id,
-            "title": updated_event.title,
-            "description": updated_event.description,
-            "start_date": updated_event.start_date.isoformat(),
-            "end_date": updated_event.end_date.isoformat() if updated_event.end_date else None,
-            "all_day": updated_event.all_day,
-            "event_type": updated_event.event_type,
-            "priority": updated_event.priority,
-            "updated_at": updated_event.updated_at.isoformat()
+        updated_event = await calendar_service.update_event(db, event_id=event_id, event_update=event_update)
+        if not updated_event:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="更新過程中找不到指定的事件")
+
+        # 記錄更新後的事件資料
+        logger.info(f"[events/update] 更新後 start_date: {updated_event.start_date}")
+        logger.info(f"使用者 {current_user.id} 更新日曆事件: {updated_event.title} (ID: {event_id})")
+
+        return {
+            "success": True,
+            "message": "事件更新成功",
+            "event": {
+                "id": updated_event.id,
+                "title": updated_event.title,
+                "description": updated_event.description,
+                "start_date": updated_event.start_date.isoformat(),
+                "end_date": updated_event.end_date.isoformat() if updated_event.end_date else None,
+                "all_day": updated_event.all_day,
+                "event_type": updated_event.event_type,
+                "priority": updated_event.priority,
+                "updated_at": updated_event.updated_at.isoformat() if updated_event.updated_at else None
+            }
         }
-    }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[events/update] 更新失敗: {e}", exc_info=True)
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"更新事件失敗: {str(e)}"
+        )
 
 
 @router.post("/events/delete", summary="刪除日曆事件")
