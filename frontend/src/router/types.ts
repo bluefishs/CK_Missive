@@ -28,6 +28,8 @@ export const ROUTES = {
   PROFILE: '/profile',
   DATABASE: '/admin/database',
   USER_MANAGEMENT: '/admin/user-management',
+  USER_CREATE: '/admin/user-management/create',
+  USER_EDIT: '/admin/user-management/:id/edit',
   CONTRACT_CASES: '/contract-cases',
   CONTRACT_CASE_DETAIL: '/contract-cases/:id',
   CONTRACT_CASE_CREATE: '/contract-cases/create',

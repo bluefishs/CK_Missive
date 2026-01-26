@@ -2,14 +2,15 @@
  * 使用者權限管理頁面
  *
  * 架構說明：
- * - React Query: 唯一的伺服器資料來源（使用者列表、權限）
- * - Zustand: 不使用（本頁面無需跨頁面共享狀態）
- * - Mutation Hooks: 處理建立/更新/刪除，自動失效快取
+ * - React Query: 唯一的伺服器資料來源（使用者列表）
+ * - 導航模式：點擊編輯導航至 UserFormPage
+ * - 批量操作：支援批量啟用、停用、刪除
  *
- * @version 2.0.0 - 優化為 React Query 架構
- * @date 2026-01-08
+ * @version 3.0.0 - 改為導航模式，移除 Modal
+ * @date 2026-01-26
  */
 import React, { useState, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Card, Table, Button, Space, Input, Select, App, Row, Col, Typography,
   Modal, AutoComplete
@@ -27,20 +28,18 @@ import {
   getStatusDisplayName,
   getRoleDefaultPermissions
 } from '../constants/permissions';
-import { createUserTableColumns } from '../config/userTableColumns';
-import UserEditModal from '../components/admin/UserEditModal';
-import UserPermissionModal from '../components/admin/UserPermissionModal';
-import type { User, UserPermissions } from '../types/api';
+import type { User } from '../types/api';
 import {
   useAdminUsersPage,
-  useUserPermissions,
   useResponsive,
 } from '../hooks';
+import { ROUTES } from '../router/types';
 
 const { Title } = Typography;
 const { Option } = Select;
 
 const UserManagementPage: React.FC = () => {
+  const navigate = useNavigate();
   const { message } = App.useApp();
 
   // RWD 響應式
@@ -60,11 +59,6 @@ const UserManagementPage: React.FC = () => {
   // 分頁狀態
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
-
-  // Modal 狀態
-  const [editModalVisible, setEditModalVisible] = useState(false);
-  const [permissionModalVisible, setPermissionModalVisible] = useState(false);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   // 選擇狀態
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
@@ -90,26 +84,14 @@ const UserManagementPage: React.FC = () => {
     users,
     total,
     isLoading,
-    roles,
     refetch,
-    createUser,
-    updateUser,
     deleteUser,
-    updatePermissions,
     batchUpdateStatus,
     batchDelete,
     batchUpdateRole,
-    isCreating,
-    isUpdating,
     isDeleting,
     isBatchUpdating,
   } = useAdminUsersPage(queryParams);
-
-  // 使用者權限查詢（當 permissionModal 開啟時才查詢）
-  const {
-    data: userPermissions,
-    isLoading: isPermissionsLoading,
-  } = useUserPermissions(permissionModalVisible ? currentUser?.id ?? null : null);
 
   // ============================================================================
   // 搜尋處理
@@ -145,89 +127,35 @@ const UserManagementPage: React.FC = () => {
   }, []);
 
   // ============================================================================
-  // 使用者操作（使用 Mutation Hooks）
+  // 導航操作（取代 Modal）
   // ============================================================================
 
+  const handleCreate = useCallback(() => {
+    navigate(ROUTES.USER_CREATE);
+  }, [navigate]);
+
   const handleEdit = useCallback((user: User) => {
-    setCurrentUser(user);
-    setEditModalVisible(true);
-  }, []);
-
-  const handleEditPermissions = useCallback((user: User) => {
-    setCurrentUser(user);
-    setPermissionModalVisible(true);
-  }, []);
-
-  const handleUpdateUser = useCallback(async (values: any) => {
-    try {
-      const updateData = {
-        ...values,
-        is_active: values.status === 'active',
-      };
-      delete updateData.status;
-
-      if (currentUser) {
-        await updateUser({ userId: currentUser.id, data: updateData });
-        message.success('使用者資訊更新成功');
-      } else {
-        await createUser(updateData);
-        message.success('新增使用者成功');
-      }
-
-      setEditModalVisible(false);
-    } catch (error: any) {
-      logger.error('Failed to save user:', error);
-      let errorMessage = currentUser ? '更新使用者失敗' : '新增使用者失敗';
-
-      if (error.response?.data) {
-        const errorData = error.response.data;
-        if (Array.isArray(errorData.detail)) {
-          const validationErrors = errorData.detail.map((err: any) =>
-            `${err.loc?.join('.')}: ${err.msg}`
-          ).join(', ');
-          errorMessage = `驗證錯誤: ${validationErrors}`;
-        } else if (typeof errorData.detail === 'string') {
-          errorMessage = errorData.detail;
-        } else if (errorData.message) {
-          errorMessage = errorData.message;
-        }
-      }
-
-      message.error(errorMessage);
-    }
-  }, [currentUser, message, updateUser, createUser]);
-
-  const handleUpdatePermissions = useCallback(async (values: any) => {
-    if (!currentUser) return;
-
-    try {
-      await updatePermissions({
-        userId: currentUser.id,
-        data: {
-          user_id: currentUser.id,
-          permissions: values.permissions || [],
-          role: values.role,
-        },
-      });
-
-      message.success('使用者權限更新成功');
-      setPermissionModalVisible(false);
-    } catch (error: any) {
-      logger.error('Failed to update permissions:', error);
-      const errorMessage = error.response?.data?.detail || '更新權限失敗';
-      message.error(errorMessage);
-    }
-  }, [currentUser, message, updatePermissions]);
+    navigate(ROUTES.USER_EDIT.replace(':id', String(user.id)));
+  }, [navigate]);
 
   const handleDeleteUser = useCallback(async (userId: number) => {
-    try {
-      await deleteUser(userId);
-      message.success('使用者已刪除');
-    } catch (error: any) {
-      logger.error('Failed to delete user:', error);
-      const errorMessage = error.response?.data?.detail || '刪除使用者失敗';
-      message.error(errorMessage);
-    }
+    Modal.confirm({
+      title: '確認刪除',
+      content: '確定要刪除此使用者嗎？',
+      okText: '確定',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          await deleteUser(userId);
+          message.success('使用者已刪除');
+        } catch (error: any) {
+          logger.error('Failed to delete user:', error);
+          const errorMessage = error.response?.data?.detail || '刪除使用者失敗';
+          message.error(errorMessage);
+        }
+      },
+    });
   }, [message, deleteUser]);
 
   // ============================================================================
@@ -307,22 +235,75 @@ const UserManagementPage: React.FC = () => {
     });
   }, [selectedRowKeys, message, batchUpdateRole]);
 
-  const handleRoleChange = useCallback((role: string) => {
-    const selectedRole = roles.find(r => r.name === role);
-    if (selectedRole) {
-      // Role change handled in UserPermissionModal
-    }
-  }, [roles]);
-
   // ============================================================================
-  // 表格欄位
+  // 表格欄位（導航模式）
   // ============================================================================
 
-  const columns = useMemo(() => createUserTableColumns({
-    onEdit: handleEdit,
-    onEditPermissions: handleEditPermissions,
-    onDelete: handleDeleteUser,
-  }), [handleEdit, handleEditPermissions, handleDeleteUser]);
+  const columns = useMemo(() => [
+    {
+      title: '電子郵件',
+      dataIndex: 'email',
+      key: 'email',
+      ellipsis: true,
+    },
+    {
+      title: '使用者名稱',
+      dataIndex: 'username',
+      key: 'username',
+    },
+    {
+      title: '姓名',
+      dataIndex: 'full_name',
+      key: 'full_name',
+    },
+    {
+      title: '角色',
+      dataIndex: 'role',
+      key: 'role',
+      render: (role: string) => getRoleDisplayName(role),
+    },
+    {
+      title: '狀態',
+      dataIndex: 'is_active',
+      key: 'is_active',
+      render: (isActive: boolean, record: User) => (
+        <span style={{ color: isActive ? '#52c41a' : '#ff4d4f' }}>
+          {getStatusDisplayName(record.status || (isActive ? 'active' : 'inactive'))}
+        </span>
+      ),
+    },
+    {
+      title: '操作',
+      key: 'actions',
+      width: 150,
+      render: (_: any, record: User) => (
+        <Space size="small">
+          <Button
+            type="link"
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEdit(record);
+            }}
+          >
+            編輯
+          </Button>
+          <Button
+            type="link"
+            size="small"
+            danger
+            disabled={currentLoggedInUser?.id === record.id}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDeleteUser(record.id);
+            }}
+          >
+            刪除
+          </Button>
+        </Space>
+      ),
+    },
+  ], [handleEdit, handleDeleteUser, currentLoggedInUser]);
 
   // ============================================================================
   // 渲染
@@ -350,10 +331,7 @@ const UserManagementPage: React.FC = () => {
                   type="primary"
                   icon={<PlusOutlined />}
                   size={isMobile ? 'small' : 'middle'}
-                  onClick={() => {
-                    setCurrentUser(null);
-                    setEditModalVisible(true);
-                  }}
+                  onClick={handleCreate}
                 >
                   {isMobile ? '' : '新增使用者'}
                 </Button>
@@ -492,27 +470,6 @@ const UserManagementPage: React.FC = () => {
           }}
         />
       </Card>
-
-      {/* 編輯使用者 Modal */}
-      <UserEditModal
-        visible={editModalVisible}
-        user={currentUser}
-        currentLoggedInUser={currentLoggedInUser}
-        onSubmit={handleUpdateUser}
-        onCancel={() => setEditModalVisible(false)}
-      />
-
-      {/* 權限管理 Modal */}
-      <UserPermissionModal
-        visible={permissionModalVisible}
-        user={currentUser}
-        userPermissions={userPermissions ?? null}
-        roles={roles}
-        currentLoggedInUser={currentLoggedInUser}
-        onSubmit={handleUpdatePermissions}
-        onCancel={() => setPermissionModalVisible(false)}
-        onRoleChange={handleRoleChange}
-      />
     </div>
   );
 };

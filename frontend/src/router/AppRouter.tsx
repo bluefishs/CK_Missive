@@ -32,6 +32,7 @@ const LoginPage = lazy(() => import('../pages/LoginPage'));
 const RegisterPage = lazy(() => import('../pages/RegisterPage'));
 const ForgotPasswordPage = lazy(() => import('../pages/ForgotPasswordPage'));
 const UserManagementPage = lazy(() => import('../pages/UserManagementPage'));
+const UserFormPage = lazy(() => import('../pages/UserFormPage').then(module => ({ default: module.UserFormPage })));
 
 // --- 承攬案件管理 ---
 // 列表頁面
@@ -168,6 +169,8 @@ export const AppRouter: React.FC = () => {
           {/* /settings 已統一至 /profile */}
           <Route path={ROUTES.SETTINGS} element={<Navigate to={ROUTES.PROFILE} replace />} />
           <Route path={ROUTES.USER_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><UserManagementPage /></ProtectedRoute>} />
+          <Route path={ROUTES.USER_CREATE} element={<ProtectedRoute requireAuth={true} roles={['admin']}><UserFormPage /></ProtectedRoute>} />
+          <Route path={ROUTES.USER_EDIT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><UserFormPage /></ProtectedRoute>} />
           <Route path={ROUTES.PROFILE} element={<ProtectedRoute requireAuth={true}><ProfilePage /></ProtectedRoute>} />
           <Route path={ROUTES.DATABASE} element={<ProtectedRoute requireAuth={true} roles={['admin']}><DatabaseManagementPage /></ProtectedRoute>} />
 
