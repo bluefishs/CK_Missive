@@ -60,7 +60,7 @@ const CalendarPage = lazy(() => import('../pages/CalendarPage'));
 const ReportsPage = lazy(() => import('../pages/ReportsPage'));
 const GoogleAuthDiagnosticPage = lazy(() => import('../pages/GoogleAuthDiagnosticPage'));
 // SystemPage 已移除，功能整合至其他管理頁面
-// PermissionManagementPage 已整合至 UserManagementPage，保留重導向以維持相容性
+const PermissionManagementPage = lazy(() => import('../pages/PermissionManagementPage'));
 // PureCalendarPage 已整合至 CalendarPage，保留重導向以維持相容性
 // const PureCalendarPage = lazy(() => import('../pages/PureCalendarPage'));
 const UnifiedFormDemoPage = lazy(() => import('../pages/UnifiedFormDemoPage'));
@@ -159,8 +159,8 @@ export const AppRouter: React.FC = () => {
           {/* 管理員面板 */}
           <Route path="/admin/dashboard" element={<ProtectedRoute requireAuth={true} roles={['admin']}><AdminDashboardPage /></ProtectedRoute>} />
 
-          {/* 權限管理 - 重導向至使用者管理（已整合權限功能） */}
-          <Route path={ROUTES.PERMISSION_MANAGEMENT} element={<Navigate to={ROUTES.USER_MANAGEMENT} replace />} />
+          {/* 權限管理 - 獨立頁面：管理系統權限定義與角色 */}
+          <Route path={ROUTES.PERMISSION_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><PermissionManagementPage /></ProtectedRoute>} />
 
           {/* 網站管理 */}
           <Route path={ROUTES.SITE_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><SiteManagementPage /></ProtectedRoute>} />
