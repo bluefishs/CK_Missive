@@ -4,8 +4,8 @@
  * 共享新增/編輯表單，根據路由參數自動切換模式
  * 導航模式：編輯模式支援刪除功能
  *
- * @version 1.1.0 - 整合刪除功能 (導航模式規範)
- * @date 2026-01-23
+ * @version 1.2.0 - 新增名稱標準化處理，避免重複資料
+ * @date 2026-01-26
  */
 
 import React, { useEffect, useState } from 'react';
@@ -17,13 +17,25 @@ import { FormPageLayout } from '../components/common/FormPage';
 import { agenciesApi } from '../api';
 import type { AgencyCreate, AgencyUpdate } from '../api';
 import { ROUTES } from '../router/types';
+import { AGENCY_CATEGORY_OPTIONS } from '../constants';
 
-// 機關類型選項
-const AGENCY_TYPE_OPTIONS = [
-  { value: '政府機關', label: '政府機關' },
-  { value: '民間企業', label: '民間企業' },
-  { value: '其他單位', label: '其他單位' },
-];
+/**
+ * 標準化名稱字串（與後端一致）
+ * - 移除前後空白
+ * - 移除全形空白
+ * - 統一全形/半形括號
+ * - 移除連續空白
+ */
+const normalizeName = (value: string | undefined | null): string | undefined => {
+  if (!value) return undefined;
+  return value
+    .trim()
+    .replace(/\u3000/g, '')        // 移除全形空白
+    .replace(/（/g, '(')           // 統一全形括號
+    .replace(/）/g, ')')
+    .replace(/\s+/g, ' ')          // 移除連續空白
+    || undefined;
+};
 
 export const AgencyFormPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -112,14 +124,22 @@ export const AgencyFormPage: React.FC = () => {
     });
   };
 
-  // 保存處理
+  // 保存處理（含名稱標準化）
   const handleSave = async () => {
     try {
       const values = await form.validateFields();
+
+      // 標準化名稱欄位
+      const normalizedValues = {
+        ...values,
+        agency_name: normalizeName(values.agency_name),
+        agency_short_name: normalizeName(values.agency_short_name),
+      };
+
       if (isEdit) {
-        updateMutation.mutate(values);
+        updateMutation.mutate(normalizedValues);
       } else {
-        createMutation.mutate(values);
+        createMutation.mutate(normalizedValues as AgencyCreate);
       }
     } catch {
       message.error('請檢查表單欄位');
@@ -170,7 +190,7 @@ export const AgencyFormPage: React.FC = () => {
             <Form.Item name="agency_type" label="機關類型">
               <Select
                 placeholder="請選擇機關類型"
-                options={AGENCY_TYPE_OPTIONS}
+                options={[...AGENCY_CATEGORY_OPTIONS]}
                 allowClear
               />
             </Form.Item>

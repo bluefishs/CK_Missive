@@ -1,8 +1,8 @@
 /**
  * 承辦同仁詳情頁面
  * @description 顯示同仁詳情，含 Tab 分頁（基本資料、證照紀錄）
- * @version 1.2.0 - 整合刪除功能 (導航模式規範)
- * @date 2026-01-22
+ * @version 2.1.0 - 導航模式設計，整合編輯/新增按鈕
+ * @date 2026-01-26
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -22,9 +22,6 @@ import {
   Empty,
   App,
   Popconfirm,
-  Tooltip,
-  Modal,
-  DatePicker,
   Spin,
   Descriptions,
 } from 'antd';
@@ -42,30 +39,21 @@ import {
   DeleteOutlined,
   KeyOutlined,
   BankOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useResponsive } from '../hooks';
-import dayjs from 'dayjs';
-import { apiClient } from '../api/client';
+import { apiClient, SERVER_BASE_URL } from '../api/client';
 import { API_ENDPOINTS } from '../api/endpoints';
 import { ROUTES } from '../router/types';
-import {
-  certificationsApi,
-  Certification,
-  CertificationCreate,
-  CertificationUpdate,
-  CERT_TYPES,
-  CERT_STATUS,
-} from '../api/certificationsApi';
+import { certificationsApi, Certification } from '../api/certificationsApi';
 import type { User } from '../types/api';
+import { DEPARTMENT_OPTIONS } from '../constants';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 
 type Staff = User;
-
-// 部門選項
-const DEPARTMENT_OPTIONS = ['空間資訊部', '測量部', '管理部'];
 
 // 輔助函數：提取錯誤訊息
 const extractErrorMessage = (error: any): string => {
@@ -83,7 +71,6 @@ export const StaffDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { message } = App.useApp();
   const [form] = Form.useForm();
-  const [certForm] = Form.useForm();
 
   const staffId = id ? parseInt(id, 10) : undefined;
 
@@ -101,15 +88,12 @@ export const StaffDetailPage: React.FC = () => {
   // 證照狀態
   const [certifications, setCertifications] = useState<Certification[]>([]);
   const [certLoading, setCertLoading] = useState(false);
-  const [certModalVisible, setCertModalVisible] = useState(false);
-  const [editingCert, setEditingCert] = useState<Certification | null>(null);
 
   // 載入同仁資料
   const loadStaff = useCallback(async () => {
     if (!staffId) return;
     setLoading(true);
     try {
-      // 使用 detail API 直接取得指定 ID 的使用者
       const user = await apiClient.post(API_ENDPOINTS.USERS.DETAIL(staffId));
       const response = { items: [user] };
       const data = response as any;
@@ -164,7 +148,6 @@ export const StaffDetailPage: React.FC = () => {
       const values = await form.validateFields();
       setSaving(true);
 
-      // 只傳送後端 UserUpdate schema 允許的欄位
       const updateData: Record<string, any> = {
         email: values.email,
         full_name: values.full_name,
@@ -173,7 +156,6 @@ export const StaffDetailPage: React.FC = () => {
         position: values.position,
       };
 
-      // 如果有修改密碼，才傳送 password
       if (showPasswordChange && values.password) {
         updateData.password = values.password;
       }
@@ -206,7 +188,7 @@ export const StaffDetailPage: React.FC = () => {
     }
   };
 
-  // 刪除同仁 (導航模式：刪除功能從列表頁移至此處)
+  // 刪除同仁
   const handleDelete = async () => {
     if (!staffId) return;
     try {
@@ -219,22 +201,13 @@ export const StaffDetailPage: React.FC = () => {
     }
   };
 
-  // === 證照操作 ===
+  // === 證照操作（導航模式） ===
   const handleAddCert = () => {
-    setEditingCert(null);
-    certForm.resetFields();
-    certForm.setFieldsValue({ status: '有效' });
-    setCertModalVisible(true);
+    navigate(`/staff/${staffId}/certifications/create`);
   };
 
   const handleEditCert = (cert: Certification) => {
-    setEditingCert(cert);
-    certForm.setFieldsValue({
-      ...cert,
-      issue_date: cert.issue_date ? dayjs(cert.issue_date) : undefined,
-      expiry_date: cert.expiry_date ? dayjs(cert.expiry_date) : undefined,
-    });
-    setCertModalVisible(true);
+    navigate(`/staff/${staffId}/certifications/${cert.id}/edit`);
   };
 
   const handleDeleteCert = async (certId: number) => {
@@ -242,37 +215,19 @@ export const StaffDetailPage: React.FC = () => {
       await certificationsApi.delete(certId);
       message.success('證照刪除成功');
       loadCertifications();
-    } catch (error) {
-      message.error('刪除證照失敗');
+    } catch (error: any) {
+      message.error(extractErrorMessage(error));
     }
   };
 
-  const handleCertSubmit = async (values: any) => {
-    if (!staffId) return;
-    try {
-      const certData = {
-        ...values,
-        issue_date: values.issue_date?.format('YYYY-MM-DD'),
-        expiry_date: values.expiry_date?.format('YYYY-MM-DD'),
-      };
-
-      if (editingCert) {
-        await certificationsApi.update(editingCert.id, certData as CertificationUpdate);
-        message.success('證照更新成功');
-      } else {
-        await certificationsApi.create({
-          ...certData,
-          user_id: staffId,
-        } as CertificationCreate);
-        message.success('證照新增成功');
-      }
-
-      setCertModalVisible(false);
-      setEditingCert(null);
-      certForm.resetFields();
-      loadCertifications();
-    } catch (error) {
-      message.error(extractErrorMessage(error));
+  // 預覽附件
+  const handlePreviewAttachment = (cert: Certification) => {
+    if (cert.attachment_path) {
+      // 使用 uploads 目錄路徑
+      const attachmentUrl = `${SERVER_BASE_URL}/uploads/${cert.attachment_path}`;
+      window.open(attachmentUrl, '_blank');
+    } else {
+      message.info('此證照沒有附件');
     }
   };
 
@@ -519,30 +474,40 @@ export const StaffDetailPage: React.FC = () => {
               ),
               children: (
                 <div>
-                  <div style={{ marginBottom: isMobile ? 8 : 16 }}>
-                    <Button
-                      type="primary"
-                      icon={<PlusOutlined />}
-                      size={isMobile ? 'small' : 'middle'}
-                      onClick={handleAddCert}
-                    >
-                      {isMobile ? '新增' : '新增證照'}
-                    </Button>
-                  </div>
-
                   {certLoading ? (
                     <div style={{ textAlign: 'center', padding: isMobile ? 20 : 40 }}>
                       <Spin size={isMobile ? 'default' : 'large'} />
                     </div>
                   ) : certifications.length === 0 ? (
-                    <Empty description="尚無證照紀錄" />
+                    <Empty description="尚無證照紀錄">
+                      <Button
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        size={isMobile ? 'small' : 'middle'}
+                        onClick={handleAddCert}
+                      >
+                        新增證照
+                      </Button>
+                    </Empty>
                   ) : (
                     <Table
                       dataSource={certifications}
                       rowKey="id"
                       size="small"
-                      scroll={{ x: isMobile ? 400 : undefined }}
+                      scroll={{ x: isMobile ? 500 : undefined }}
                       pagination={false}
+                      title={() => (
+                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                          <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            size="small"
+                            onClick={handleAddCert}
+                          >
+                            新增證照
+                          </Button>
+                        </div>
+                      )}
                       columns={[
                         {
                           title: '類型',
@@ -577,33 +542,50 @@ export const StaffDetailPage: React.FC = () => {
                           ),
                         },
                         {
+                          title: '附件',
+                          dataIndex: 'attachment_path',
+                          key: 'attachment',
+                          width: 60,
+                          render: (path: string, record: Certification) => (
+                            path ? (
+                              <Button
+                                type="link"
+                                size="small"
+                                icon={<EyeOutlined />}
+                                onClick={() => handlePreviewAttachment(record)}
+                              />
+                            ) : (
+                              <Text type="secondary">-</Text>
+                            )
+                          ),
+                        },
+                        {
                           title: '操作',
                           key: 'action',
-                          width: 100,
+                          width: 120,
                           render: (_: any, record: Certification) => (
                             <Space size="small">
-                              <Tooltip title="編輯">
-                                <Button
-                                  type="link"
-                                  size="small"
-                                  icon={<EditOutlined />}
-                                  onClick={() => handleEditCert(record)}
-                                />
-                              </Tooltip>
+                              <Button
+                                type="link"
+                                size="small"
+                                icon={<EditOutlined />}
+                                onClick={() => handleEditCert(record)}
+                              >
+                                編輯
+                              </Button>
                               <Popconfirm
                                 title="確定要刪除此證照？"
                                 onConfirm={() => handleDeleteCert(record.id)}
                                 okText="確定"
                                 cancelText="取消"
+                                okButtonProps={{ danger: true }}
                               >
-                                <Tooltip title="刪除">
-                                  <Button
-                                    type="link"
-                                    size="small"
-                                    danger
-                                    icon={<DeleteOutlined />}
-                                  />
-                                </Tooltip>
+                                <Button
+                                  type="link"
+                                  size="small"
+                                  danger
+                                  icon={<DeleteOutlined />}
+                                />
                               </Popconfirm>
                             </Space>
                           ),
@@ -617,91 +599,6 @@ export const StaffDetailPage: React.FC = () => {
           ]}
         />
       </Card>
-
-      {/* 證照新增/編輯 Modal */}
-      <Modal
-        title={editingCert ? '編輯證照' : '新增證照'}
-        open={certModalVisible}
-        onCancel={() => {
-          setCertModalVisible(false);
-          setEditingCert(null);
-          certForm.resetFields();
-        }}
-        footer={null}
-        width={isMobile ? '95%' : 500}
-        destroyOnHidden
-      >
-        <Form form={certForm} layout="vertical" onFinish={handleCertSubmit}>
-          <Form.Item
-            name="cert_type"
-            label="證照類型"
-            rules={[{ required: true, message: '請選擇證照類型' }]}
-          >
-            <Select placeholder="請選擇證照類型">
-              {CERT_TYPES.map(type => (
-                <Option key={type} value={type}>{type}</Option>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            name="cert_name"
-            label="證照名稱"
-            rules={[{ required: true, message: '請輸入證照名稱' }]}
-          >
-            <Input placeholder="請輸入證照名稱" />
-          </Form.Item>
-
-          <Form.Item name="issuing_authority" label="核發機關">
-            <Input placeholder="請輸入核發機關" />
-          </Form.Item>
-
-          <Row gutter={isMobile ? 8 : 16}>
-            <Col xs={24} sm={12}>
-              <Form.Item name="cert_number" label="證照編號">
-                <Input placeholder="請輸入證照編號" />
-              </Form.Item>
-            </Col>
-            <Col xs={24} sm={12}>
-              <Form.Item name="status" label="狀態">
-                <Select placeholder="請選擇狀態">
-                  {CERT_STATUS.map(s => (
-                    <Option key={s} value={s}>{s}</Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={isMobile ? 8 : 16}>
-            <Col xs={24} sm={12}>
-              <Form.Item name="issue_date" label="核發日期">
-                <DatePicker style={{ width: '100%' }} placeholder="請選擇核發日期" />
-              </Form.Item>
-            </Col>
-            <Col xs={24} sm={12}>
-              <Form.Item name="expiry_date" label="有效期限">
-                <DatePicker style={{ width: '100%' }} placeholder="永久有效可不填" />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Form.Item name="notes" label="備註">
-            <Input.TextArea rows={2} placeholder="請輸入備註" />
-          </Form.Item>
-
-          <div style={{ textAlign: 'right' }}>
-            <Space size={isMobile ? 'small' : 'middle'}>
-              <Button size={isMobile ? 'small' : 'middle'} onClick={() => setCertModalVisible(false)}>
-                取消
-              </Button>
-              <Button type="primary" size={isMobile ? 'small' : 'middle'} htmlType="submit">
-                {editingCert ? '更新' : '新增'}
-              </Button>
-            </Space>
-          </div>
-        </Form>
-      </Modal>
     </div>
   );
 };

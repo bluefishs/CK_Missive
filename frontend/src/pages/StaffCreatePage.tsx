@@ -16,11 +16,9 @@ import { FormPageLayout } from '../components/common/FormPage';
 import { apiClient } from '../api/client';
 import { API_ENDPOINTS } from '../api/endpoints';
 import { ROUTES } from '../router/types';
+import { DEPARTMENT_OPTIONS } from '../constants';
 
 const { Option } = Select;
-
-// 部門選項
-const DEPARTMENT_OPTIONS = ['空間資訊部', '測量部', '管理部'];
 
 interface StaffFormData {
   username: string;

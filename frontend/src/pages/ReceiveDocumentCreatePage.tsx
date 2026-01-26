@@ -63,32 +63,15 @@ import { agenciesApi, AgencyOption } from '../api/agenciesApi';
 import { filesApi } from '../api/filesApi';
 import { apiClient } from '../api/client';
 
+import {
+  DELIVERY_METHOD_OPTIONS,
+  DOC_DIRECTION_OPTIONS,
+  DOC_TYPE_OPTIONS,
+} from '../constants';
+
 const { TextArea } = Input;
 const { Option } = Select;
 const { Dragger } = Upload;
-
-// =============================================================================
-// 常數定義
-// =============================================================================
-
-/** 發文形式選項（電子交換/紙本郵寄） */
-const DELIVERY_METHOD_OPTIONS = [
-  { value: '電子交換', label: '電子交換' },
-  { value: '紙本郵寄', label: '紙本郵寄' },
-];
-
-/** 類別選項（收文/發文） */
-const CATEGORY_OPTIONS = [
-  { value: '收文', label: '收文' },
-  { value: '發文', label: '發文' },
-];
-
-/** 公文類型選項 */
-const DOC_TYPE_OPTIONS = [
-  { value: '函', label: '函' },
-  { value: '開會通知單', label: '開會通知單' },
-  { value: '會勘通知單', label: '會勘通知單' },
-];
 
 /** 預設受文單位（本公司） */
 const DEFAULT_RECEIVER = '乾坤測繪科技有限公司';
@@ -488,7 +471,7 @@ export const ReceiveDocumentCreatePage: React.FC = () => {
             initialValue="收文"
           >
             <Select placeholder="請選擇類別" onChange={handleCategoryChange}>
-              {CATEGORY_OPTIONS.map(opt => (
+              {DOC_DIRECTION_OPTIONS.map(opt => (
                 <Option key={opt.value} value={opt.value}>{opt.label}</Option>
               ))}
             </Select>

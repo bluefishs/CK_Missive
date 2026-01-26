@@ -4,8 +4,8 @@
  * 共享新增/編輯表單，根據路由參數自動切換模式
  * 導航模式：編輯模式支援刪除功能
  *
- * @version 1.1.0 - 整合刪除功能 (導航模式規範)
- * @date 2026-01-23
+ * @version 1.2.0 - 新增名稱標準化處理，避免重複資料
+ * @date 2026-01-26
  */
 
 import React, { useEffect } from 'react';
@@ -17,16 +17,25 @@ import { FormPageLayout } from '../components/common/FormPage';
 import { vendorsApi } from '../api';
 import type { VendorCreate, VendorUpdate } from '../types/api';
 import { ROUTES } from '../router/types';
+import { BUSINESS_TYPE_OPTIONS } from '../constants';
 
-// 營業項目選項
-const BUSINESS_TYPE_OPTIONS = [
-  { value: '測量業務', label: '測量業務' },
-  { value: '資訊系統', label: '資訊系統' },
-  { value: '查估業務', label: '查估業務' },
-  { value: '不動產估價', label: '不動產估價' },
-  { value: '大地工程', label: '大地工程' },
-  { value: '其他類別', label: '其他類別' },
-];
+/**
+ * 標準化名稱字串（與後端一致）
+ * - 移除前後空白
+ * - 移除全形空白
+ * - 統一全形/半形括號
+ * - 移除連續空白
+ */
+const normalizeName = (value: string | undefined | null): string | undefined => {
+  if (!value) return undefined;
+  return value
+    .trim()
+    .replace(/\u3000/g, '')        // 移除全形空白
+    .replace(/（/g, '(')           // 統一全形括號
+    .replace(/）/g, ')')
+    .replace(/\s+/g, ' ')          // 移除連續空白
+    || undefined;
+};
 
 export const VendorFormPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -117,14 +126,21 @@ export const VendorFormPage: React.FC = () => {
     });
   };
 
-  // 保存處理
+  // 保存處理（含名稱標準化）
   const handleSave = async () => {
     try {
       const values = await form.validateFields();
+
+      // 標準化名稱欄位
+      const normalizedValues = {
+        ...values,
+        vendor_name: normalizeName(values.vendor_name),
+      };
+
       if (isEdit) {
-        updateMutation.mutate(values);
+        updateMutation.mutate(normalizedValues);
       } else {
-        createMutation.mutate(values);
+        createMutation.mutate(normalizedValues as VendorCreate);
       }
     } catch {
       message.error('請檢查表單欄位');
@@ -155,8 +171,8 @@ export const VendorFormPage: React.FC = () => {
             </Form.Item>
           </Col>
           <Col xs={24} sm={12}>
-            <Form.Item name="vendor_code" label="廠商代碼">
-              <Input placeholder="請輸入廠商代碼" />
+            <Form.Item name="vendor_code" label="廠商統編">
+              <Input placeholder="請輸入廠商統編" />
             </Form.Item>
           </Col>
         </Row>
@@ -170,7 +186,7 @@ export const VendorFormPage: React.FC = () => {
             >
               <Select
                 placeholder="請選擇營業項目"
-                options={BUSINESS_TYPE_OPTIONS}
+                options={[...BUSINESS_TYPE_OPTIONS]}
                 allowClear
               />
             </Form.Item>

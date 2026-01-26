@@ -31,6 +31,7 @@ import { useAgenciesPage } from '../hooks';
 import { useResponsive } from '../hooks';
 import type { AgencyWithStats } from '../api';
 import { ROUTES } from '../router/types';
+import { AGENCY_CATEGORY_OPTIONS } from '../constants';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
@@ -488,10 +489,10 @@ export const AgenciesPage: React.FC = () => {
                   setCurrentPage(1);  // 切換分類時重置頁碼
                 }}
                 style={{ width: '100%' }}
-                options={statistics?.categories.map(cat => ({
-                  label: `${cat.category} (${cat.count})`,
-                  value: cat.category,
-                })) || []}
+                options={AGENCY_CATEGORY_OPTIONS.map(opt => ({
+                  label: opt.label,
+                  value: opt.value,
+                }))}
               />
             </Col>
           )}

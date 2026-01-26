@@ -59,6 +59,8 @@ import { agenciesApi, AgencyOption } from '../api/agenciesApi';
 import { filesApi } from '../api/filesApi';
 import { apiClient } from '../api/client';
 
+import { DELIVERY_METHOD_OPTIONS } from '../constants';
+
 const { TextArea } = Input;
 const { Option } = Select;
 const { Dragger } = Upload;
@@ -67,14 +69,8 @@ const { Dragger } = Upload;
 // 常數定義
 // =============================================================================
 
-/** 發文形式選項（電子交換/紙本郵寄） */
-const DELIVERY_METHOD_OPTIONS = [
-  { value: '電子交換', label: '電子交換', color: 'green' },
-  { value: '紙本郵寄', label: '紙本郵寄', color: 'orange' },
-];
-
-/** 公文類型選項（與後端 VALID_DOC_TYPES 對齊） */
-const DOC_TYPE_OPTIONS = [
+/** 公文類型選項（發文專用，含更多類型） */
+const SEND_DOC_TYPE_OPTIONS = [
   { value: '函', label: '函' },
   { value: '書函', label: '書函' },
   { value: '開會通知單', label: '開會通知單' },
@@ -503,7 +499,7 @@ export const SendDocumentCreatePage: React.FC = () => {
             rules={[{ required: true, message: '請選擇公文類型' }]}
           >
             <Select placeholder="請選擇公文類型">
-              {DOC_TYPE_OPTIONS.map(opt => (
+              {SEND_DOC_TYPE_OPTIONS.map(opt => (
                 <Option key={opt.value} value={opt.value}>{opt.label}</Option>
               ))}
             </Select>
