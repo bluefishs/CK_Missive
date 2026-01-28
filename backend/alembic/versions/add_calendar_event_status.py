@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'add_calendar_event_status'
-down_revision: Union[str, None] = None
+down_revision: Union[str, None] = 'add_dispatch_attachments'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
