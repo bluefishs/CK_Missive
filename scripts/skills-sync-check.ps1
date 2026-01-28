@@ -135,6 +135,7 @@ $expectedAgents = @(
 
 $agentsPath = ".claude/agents"
 $missingAgents = 0
+$invalidAgents = 0
 
 foreach ($agent in $expectedAgents) {
     $fullPath = Join-Path $agentsPath $agent
@@ -142,12 +143,26 @@ foreach ($agent in $expectedAgents) {
         Write-Host "   [FAIL] Missing: $agent" -ForegroundColor Red
         [void]$errors.Add("Missing Agent: $agent")
         $missingAgents++
-    } elseif ($Verbose) {
-        Write-Host "   [PASS] $agent" -ForegroundColor Green
+    } else {
+        # Validate agent structure
+        $content = Get-Content $fullPath -Raw
+        $hasTitle = $content -match "^# "
+        $hasPurpose = $content -match "用途"
+        $hasTrigger = $content -match "觸發"
+
+        if (-not $hasTitle -or -not $hasPurpose -or -not $hasTrigger) {
+            Write-Host "   [WARN] $agent missing required fields" -ForegroundColor Yellow
+            [void]$warnings.Add("Agent missing fields: $agent")
+            $invalidAgents++
+        } elseif ($Verbose) {
+            Write-Host "   [PASS] $agent (structure OK)" -ForegroundColor Green
+        }
     }
 }
 
-if ($missingAgents -eq 0) {
+if ($missingAgents -eq 0 -and $invalidAgents -eq 0) {
+    Write-Host "   [PASS] All $($expectedAgents.Count) Agents files exist and valid" -ForegroundColor Green
+} elseif ($missingAgents -eq 0) {
     Write-Host "   [PASS] All $($expectedAgents.Count) Agents files exist" -ForegroundColor Green
 }
 

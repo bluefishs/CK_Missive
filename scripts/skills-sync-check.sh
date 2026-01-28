@@ -140,18 +140,33 @@ EXPECTED_AGENTS=(
 
 AGENTS_PATH=".claude/agents"
 MISSING_AGENTS=0
+INVALID_AGENTS=0
 
 for agent in "${EXPECTED_AGENTS[@]}"; do
     if [ ! -f "$AGENTS_PATH/$agent" ]; then
         echo -e "   ${RED}[FAIL] Missing: $agent${NC}"
         ((ERRORS++))
         ((MISSING_AGENTS++))
-    elif [ "$VERBOSE" == "-v" ]; then
-        echo -e "   ${GREEN}[PASS] $agent${NC}"
+    else
+        # Validate agent structure
+        AGENT_FILE="$AGENTS_PATH/$agent"
+        HAS_TITLE=$(grep -c "^# " "$AGENT_FILE" || true)
+        HAS_PURPOSE=$(grep -c "用途" "$AGENT_FILE" || true)
+        HAS_TRIGGER=$(grep -c "觸發" "$AGENT_FILE" || true)
+
+        if [ "$HAS_TITLE" -eq 0 ] || [ "$HAS_PURPOSE" -eq 0 ] || [ "$HAS_TRIGGER" -eq 0 ]; then
+            echo -e "   ${YELLOW}[WARN] $agent missing required fields (title/purpose/trigger)${NC}"
+            ((WARNINGS++))
+            ((INVALID_AGENTS++))
+        elif [ "$VERBOSE" == "-v" ]; then
+            echo -e "   ${GREEN}[PASS] $agent (structure OK)${NC}"
+        fi
     fi
 done
 
-if [ $MISSING_AGENTS -eq 0 ]; then
+if [ $MISSING_AGENTS -eq 0 ] && [ $INVALID_AGENTS -eq 0 ]; then
+    echo -e "   ${GREEN}[PASS] All ${#EXPECTED_AGENTS[@]} Agents files exist and valid${NC}"
+elif [ $MISSING_AGENTS -eq 0 ]; then
     echo -e "   ${GREEN}[PASS] All ${#EXPECTED_AGENTS[@]} Agents files exist${NC}"
 fi
 
