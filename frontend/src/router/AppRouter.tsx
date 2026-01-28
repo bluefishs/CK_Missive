@@ -82,6 +82,9 @@ export const AppRouter: React.FC = () => {
     <Layout>
       <Suspense fallback={<PageLoading message="載入頁面中..." />}>
         <Routes>
+          {/* 首頁重導向至儀表板 */}
+          <Route path={ROUTES.HOME} element={<Navigate to={ROUTES.DASHBOARD} replace />} />
+
           {/* 統一登入入口 */}
           <Route path={ROUTES.LOGIN} element={<LoginPage />} />
           <Route path={ROUTES.ENTRY} element={<LoginPage />} />  {/* /entry 使用 LoginPage */}
@@ -138,6 +141,9 @@ export const AppRouter: React.FC = () => {
           {/* 純粹行事曆 - 重導向至 /calendar */}
           <Route path={ROUTES.PURE_CALENDAR} element={<Navigate to={ROUTES.CALENDAR} replace />} />
 
+          {/* 專案路由 - 重導向至承攬案件 */}
+          <Route path={ROUTES.PROJECTS} element={<Navigate to={ROUTES.CONTRACT_CASES} replace />} />
+
           {/* 統計報表（需要認證） */}
           <Route path={ROUTES.REPORTS} element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
 
@@ -159,7 +165,7 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.SYSTEM} element={<Navigate to={ROUTES.ADMIN_DASHBOARD} replace />} />
 
           {/* 管理員面板 */}
-          <Route path="/admin/dashboard" element={<ProtectedRoute requireAuth={true} roles={['admin']}><AdminDashboardPage /></ProtectedRoute>} />
+          <Route path={ROUTES.ADMIN_DASHBOARD} element={<ProtectedRoute requireAuth={true} roles={['admin']}><AdminDashboardPage /></ProtectedRoute>} />
 
           {/* 權限管理 - 獨立頁面：管理系統權限定義與角色 */}
           <Route path={ROUTES.PERMISSION_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><PermissionManagementPage /></ProtectedRoute>} />
@@ -177,6 +183,7 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.DATABASE} element={<ProtectedRoute requireAuth={true} roles={['admin']}><DatabaseManagementPage /></ProtectedRoute>} />
 
           {/* 404 頁面 */}
+          <Route path={ROUTES.NOT_FOUND} element={<NotFoundPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Suspense>
