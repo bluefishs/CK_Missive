@@ -62,6 +62,7 @@ CK_Missive 是一套企業級公文管理系統，具備以下核心功能：
 | `security-hardening.md` | 安全, security, 漏洞, XSS | **安全加固指南 (v1.0.0)** |
 | `type-management.md` | 型別, type, Pydantic, TypeScript, BaseModel | **型別管理規範 (v1.1.0) - SSOT 架構** |
 | `api-serialization.md` | 序列化, serialize, ORM, API 返回, 500 錯誤 | **API 序列化規範 (v1.0.0)** |
+| `python-common-pitfalls.md` | Pydantic, forward reference, async, MissingGreenlet, 預設參數 | **Python 常見陷阱規範 (v1.0.0)** |
 
 ### 🦸 Superpowers Skills (v4.0.3)
 

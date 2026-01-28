@@ -1,8 +1,8 @@
 # CK_Missive 強制性開發規範檢查清單
 
-> **版本**: 1.9.0
+> **版本**: 1.10.0
 > **建立日期**: 2026-01-11
-> **最後更新**: 2026-01-22
+> **最後更新**: 2026-01-28
 > **狀態**: 強制執行 - 所有開發任務啟動前必須檢視
 
 ---
@@ -40,6 +40,8 @@
 | **效能敏感操作** | **效能檢查規範** | [清單 M](#清單-m效能檢查) |
 | **前端 API 請求** | **請求參數處理規範** | [清單 N](#清單-n前端-api-請求參數處理) |
 | **Ant Design 元件** | **元件使用規範** | [清單 O](#清單-oant-design-元件使用規範) |
+| **Pydantic Schema 開發** | **Python 常見陷阱** | [清單 P](#清單-ppydantic-schema-開發) |
+| **非同步資料庫查詢** | **Python 常見陷阱** | [清單 Q](#清單-q非同步資料庫查詢) |
 
 ---
 
@@ -999,6 +1001,170 @@ Property 'size' does not exist on type 'IntrinsicAttributes & TagProps'
 
 ---
 
+## 清單 P：Pydantic Schema 開發
+
+### 必讀文件
+- [ ] `.claude/skills/python-common-pitfalls.md`（Python 常見陷阱規範）
+- [ ] `backend/app/schemas/`（現有 Schema 結構）
+
+### ⚠️ 核心問題 1：前向引用 (Forward Reference)
+
+**錯誤訊息**：
+```
+PydanticUserError: TaoyuanProjectListResponse is not fully defined;
+you may need to call TaoyuanProjectListResponse.model_rebuild()
+```
+
+**原因**：使用字串型別提示時，該型別在使用時尚未被解析。
+
+### 強制規範
+
+#### 規範 1：在 `__init__.py` 呼叫 model_rebuild()
+
+```python
+# ❌ 錯誤：直接匯出未解析的 Schema
+# schemas/__init__.py
+from .project import TaoyuanProjectListResponse
+from .links import TaoyuanProjectWithLinks
+# 直接使用會報錯！
+
+# ✅ 正確：匯入後呼叫 model_rebuild()
+from .project import TaoyuanProjectListResponse
+from .links import TaoyuanProjectWithLinks
+
+# 重建前向引用 (解決循環依賴)
+TaoyuanProjectListResponse.model_rebuild()
+```
+
+#### 規範 2：使用 TYPE_CHECKING 避免循環匯入
+
+```python
+# schemas/project.py
+from typing import List, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .links import TaoyuanProjectWithLinks
+
+class TaoyuanProjectListResponse(BaseModel):
+    items: List["TaoyuanProjectWithLinks"]  # 使用字串前向引用
+```
+
+### ⚠️ 核心問題 2：預設參數被 None 覆蓋
+
+**問題**：函數參數有預設值，但傳入 `None` 時預設值不會生效。
+
+```python
+# ❌ 錯誤：None 會覆蓋預設值
+def get_next_number(prefix: str = '乾坤測字第'):
+    return f"{prefix}001號"
+
+get_next_number(None)  # 返回 "None001號" 而非 "乾坤測字第001號"
+
+# ✅ 正確：在函數內部處理 None
+def get_next_number(prefix: Optional[str] = None):
+    if prefix is None:
+        prefix = '乾坤測字第'
+    return f"{prefix}001號"
+```
+
+### 開發前檢查
+- [ ] 確認是否使用前向引用（字串型別提示）
+- [ ] 確認函數參數是否可能接收 None
+
+### 開發後檢查
+- [ ] `__init__.py` 中有呼叫 `model_rebuild()`（若使用前向引用）
+- [ ] 函數內部有處理 `None` 參數的邏輯
+- [ ] 測試 API 端點無序列化錯誤
+
+---
+
+## 清單 Q：非同步資料庫查詢
+
+### 必讀文件
+- [ ] `.claude/skills/python-common-pitfalls.md`（Python 常見陷阱規範）
+- [ ] `backend/app/repositories/`（Repository 模式範例）
+
+### ⚠️ 核心問題：MissingGreenlet 錯誤
+
+**錯誤訊息**：
+```
+sqlalchemy.exc.MissingGreenlet: greenlet_spawn has not been called;
+can't call await_only() here. Was IO attempted in an unexpected place?
+```
+
+**原因**：在 async context 中存取未預載入的 relationship 屬性。
+
+### 強制規範
+
+#### 規範 1：必須使用 selectinload() 預載入關聯
+
+```python
+# ❌ 錯誤：未預載入關聯
+async def get_document(db: AsyncSession, doc_id: int):
+    result = await db.execute(
+        select(OfficialDocument).where(OfficialDocument.id == doc_id)
+    )
+    doc = result.scalar_one()
+    project_name = doc.contract_project.project_name  # MissingGreenlet 錯誤！
+
+# ✅ 正確：預載入關聯
+from sqlalchemy.orm import selectinload
+
+async def get_document(db: AsyncSession, doc_id: int):
+    result = await db.execute(
+        select(OfficialDocument)
+        .options(selectinload(OfficialDocument.contract_project))
+        .where(OfficialDocument.id == doc_id)
+    )
+    doc = result.scalar_one()
+    project_name = doc.contract_project.project_name  # 安全
+```
+
+#### 規範 2：多層關聯必須鏈式載入
+
+```python
+# ✅ 多層關聯預載入
+result = await db.execute(
+    select(TaoyuanDispatchOrder)
+    .options(
+        selectinload(TaoyuanDispatchOrder.project_links)
+            .selectinload(TaoyuanDispatchProjectLink.project),
+        selectinload(TaoyuanDispatchOrder.document_links)
+            .selectinload(TaoyuanDispatchDocumentLink.document),
+    )
+    .where(TaoyuanDispatchOrder.id == dispatch_id)
+)
+```
+
+#### 規範 3：載入策略選擇
+
+| 策略 | 用途 | SQL 行為 |
+|------|------|----------|
+| `selectinload()` | 一對多、多對多 | 額外 SELECT IN 查詢 |
+| `joinedload()` | 多對一 | LEFT JOIN 同一查詢 |
+| `raiseload('*')` | 禁止 lazy load | 存取時拋出異常（開發時除錯用） |
+
+### 開發前檢查
+- [ ] 列出查詢後會存取的所有 relationship 屬性
+- [ ] 確認關聯的層級（一層或多層）
+
+### 開發後檢查
+- [ ] 測試 API 端點無 MissingGreenlet 錯誤
+- [ ] 確認無 N+1 查詢問題
+- [ ] 複雜查詢使用 `raiseload('*')` 驗證無遺漏
+
+### 快速驗證命令
+
+```bash
+# 搜尋可能缺少預載入的查詢
+grep -rn "\.scalars()" backend/app/api/endpoints/ --include="*.py" -B 5 | grep -v "selectinload\|joinedload"
+
+# 啟用 SQLAlchemy 查詢日誌檢查 N+1
+export SQLALCHEMY_ECHO=True
+```
+
+---
+
 ## 二、通用開發後檢查清單
 
 **所有開發任務完成後，必須執行：**
@@ -1084,6 +1250,7 @@ cd backend && python -m py_compile app/main.py
 
 | 版本 | 日期 | 說明 |
 |------|------|------|
+| 1.10.0 | 2026-01-28 | **新增清單 P、Q**（Pydantic Schema 開發、非同步資料庫查詢）- Python 常見陷阱規範 |
 | 1.9.0 | 2026-01-22 | **新增清單 N、O**（前端 API 請求參數處理、Ant Design 元件使用規範） |
 | 1.8.0 | 2026-01-22 | **新增清單 L、M**（API 端點常數使用規範、效能檢查規範） |
 | 1.7.0 | 2026-01-22 | 新增 React Hooks 使用規範、批次處理效能優化、避免硬編碼設定值 |
