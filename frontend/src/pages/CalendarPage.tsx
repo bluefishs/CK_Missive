@@ -5,9 +5,10 @@
  * - React Query: 唯一的伺服器資料來源（事件列表、Google 狀態）
  * - Zustand: 不使用（本頁面無需跨頁面共享狀態）
  * - 統一使用 dayjs 日期套件
+ * - 編輯事件採導航模式（符合 UI 規範）
  *
- * @version 2.0.0 - 優化為 React Query 架構
- * @date 2026-01-08
+ * @version 2.1.0 - 編輯事件改用導航模式，移除 Modal
+ * @date 2026-01-28
  */
 import React, { useState, useCallback } from 'react';
 import {
@@ -33,14 +34,13 @@ import {
   DeleteOutlined,
   MoreOutlined,
   MenuOutlined,
-  CloseOutlined,
 } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
 import { useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { EnhancedCalendarView } from '../components/calendar/EnhancedCalendarView';
-import { EventFormModal } from '../components/calendar/EventFormModal';
 import { useCalendarPage } from '../hooks';
 import { useResponsive } from '../hooks';
 import type { CalendarEvent, EventCategory } from '../api/calendarApi';
@@ -60,6 +60,7 @@ const CalendarPage: React.FC = () => {
   // ============================================================================
 
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const {
     events: calendarEvents,
@@ -79,7 +80,7 @@ const CalendarPage: React.FC = () => {
   // ============================================================================
   // 響應式設計 (使用標準化 useResponsive hook)
   // ============================================================================
-  const { isMobile, isTablet, responsiveValue } = useResponsive();
+  const { isMobile, responsiveValue } = useResponsive();
   const pagePadding = responsiveValue({ mobile: 12, tablet: 16, desktop: 24 });
 
   // ============================================================================
@@ -88,10 +89,6 @@ const CalendarPage: React.FC = () => {
 
   const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs());
   const [sidebarVisible, setSidebarVisible] = useState(false);
-
-  // 編輯事件 Modal 狀態
-  const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
 
   // ============================================================================
   // 事件處理函數
@@ -163,27 +160,11 @@ const CalendarPage: React.FC = () => {
     }
   };
 
-  // 開啟編輯 Modal
+  // 導航到編輯頁面（導航模式，取代 Modal）
   const handleEditEvent = (event: CalendarEvent) => {
-    setEditingEvent(event);
-    setEditModalVisible(true);
-  };
-
-  // 編輯成功後刷新
-  const handleEditSuccess = async () => {
-    console.log('[CalendarPage] handleEditSuccess 開始執行');
-    setEditModalVisible(false);
-    setEditingEvent(null);
-
-    // 強制使所有行事曆查詢失效並重新獲取
-    console.log('[CalendarPage] 執行 invalidateQueries...');
-    await queryClient.invalidateQueries({ queryKey: ['calendar', 'events'] });
-    await queryClient.invalidateQueries({ queryKey: ['dashboardCalendar'] });
-
-    // 明確呼叫 refetch 確保資料更新
-    console.log('[CalendarPage] 執行 refetch...');
-    await refetch();
-    console.log('[CalendarPage] 刷新完成');
+    navigate(`/calendar/event/${event.id}/edit`, {
+      state: { returnTo: '/calendar' }
+    });
   };
 
   // 事件操作選單（側邊欄用）
@@ -424,32 +405,6 @@ const CalendarPage: React.FC = () => {
       >
         {renderSidebarContent()}
       </Drawer>
-
-      {/* 編輯事件 Modal */}
-      <EventFormModal
-        visible={editModalVisible}
-        mode="edit"
-        event={editingEvent ? {
-          id: editingEvent.id,
-          title: editingEvent.title,
-          description: editingEvent.description,
-          start_date: editingEvent.start_datetime,
-          end_date: editingEvent.end_datetime,
-          all_day: editingEvent.all_day ?? false,  // 使用實際值
-          event_type: editingEvent.event_type || 'reminder',
-          priority: typeof editingEvent.priority === 'string'
-            ? parseInt(editingEvent.priority, 10)
-            : (editingEvent.priority ?? 3),
-          location: editingEvent.location,
-          document_id: editingEvent.document_id,
-          doc_number: editingEvent.doc_number,
-        } : null}
-        onClose={() => {
-          setEditModalVisible(false);
-          setEditingEvent(null);
-        }}
-        onSuccess={handleEditSuccess}
-      />
     </div>
   );
 };

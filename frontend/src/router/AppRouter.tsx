@@ -57,6 +57,7 @@ const StaffDetailPage = lazy(() => import('../pages/StaffDetailPage').then(modul
 const CertificationFormPage = lazy(() => import('../pages/CertificationFormPage').then(module => ({ default: module.CertificationFormPage })));
 const SiteManagementPage = lazy(() => import('../pages/SiteManagementPage').then(module => ({ default: module.default })));
 const CalendarPage = lazy(() => import('../pages/CalendarPage'));
+const CalendarEventFormPage = lazy(() => import('../pages/CalendarEventFormPage'));
 const ReportsPage = lazy(() => import('../pages/ReportsPage'));
 const GoogleAuthDiagnosticPage = lazy(() => import('../pages/GoogleAuthDiagnosticPage'));
 // SystemPage 已移除，功能整合至其他管理頁面
@@ -132,7 +133,8 @@ export const AppRouter: React.FC = () => {
 
           {/* 行事曆（需要認證） */}
           <Route path={ROUTES.CALENDAR} element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
-          
+          <Route path={ROUTES.CALENDAR_EVENT_EDIT} element={<ProtectedRoute><CalendarEventFormPage /></ProtectedRoute>} />
+
           {/* 純粹行事曆 - 重導向至 /calendar */}
           <Route path={ROUTES.PURE_CALENDAR} element={<Navigate to={ROUTES.CALENDAR} replace />} />
 

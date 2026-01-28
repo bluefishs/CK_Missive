@@ -1,0 +1,423 @@
+/**
+ * 日曆事件表單頁面（導航模式）
+ *
+ * 用於編輯日曆事件，遵循系統 UI 規範採用導航模式而非 Modal。
+ * 支援從不同頁面導航並正確返回。
+ *
+ * @version 1.0.0
+ * @date 2026-01-28
+ */
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import {
+  Card,
+  Form,
+  Input,
+  Select,
+  DatePicker,
+  Switch,
+  Row,
+  Col,
+  Button,
+  Space,
+  Spin,
+  Divider,
+  App,
+  Typography,
+} from 'antd';
+import {
+  CalendarOutlined,
+  BellOutlined,
+  AlertOutlined,
+  EyeOutlined,
+  UnorderedListOutlined,
+  FileTextOutlined,
+  SaveOutlined,
+  ArrowLeftOutlined,
+} from '@ant-design/icons';
+import dayjs from 'dayjs';
+import debounce from 'lodash/debounce';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+import { apiClient } from '../api/client';
+import type { CalendarEvent } from '../api/calendarApi';
+import { EVENT_TYPE_OPTIONS, PRIORITY_OPTIONS } from '../components/calendar/form/types';
+
+const { TextArea } = Input;
+const { Title } = Typography;
+
+interface DocumentOption {
+  id: number;
+  doc_number: string;
+  subject: string;
+}
+
+const EVENT_TYPE_ICONS: Record<string, React.ReactNode> = {
+  deadline: <AlertOutlined style={{ color: '#f5222d' }} />,
+  meeting: <CalendarOutlined style={{ color: '#722ed1' }} />,
+  review: <EyeOutlined style={{ color: '#1890ff' }} />,
+  reminder: <BellOutlined style={{ color: '#fa8c16' }} />,
+  reference: <UnorderedListOutlined style={{ color: '#666' }} />,
+};
+
+const CalendarEventFormPage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [form] = Form.useForm();
+  const { message, notification } = App.useApp();
+  const queryClient = useQueryClient();
+
+  // 從 location.state 取得返回路徑
+  const returnTo = (location.state as { returnTo?: string })?.returnTo;
+
+  // 本地狀態
+  const [allDay, setAllDay] = useState(false);
+  const [documentOptions, setDocumentOptions] = useState<DocumentOption[]>([]);
+  const [documentSearching, setDocumentSearching] = useState(false);
+  const [documentSearchError, setDocumentSearchError] = useState<string | null>(null);
+
+  // 查詢事件資料
+  const { data: event, isLoading } = useQuery({
+    queryKey: ['calendar-event', id],
+    queryFn: async () => {
+      const response = await apiClient.post<{
+        success: boolean;
+        event: CalendarEvent;
+      }>('/calendar/events/get', { event_id: parseInt(id || '0', 10) });
+      return response.event;
+    },
+    enabled: !!id,
+  });
+
+  // 更新事件 mutation
+  const updateMutation = useMutation({
+    mutationFn: async (data: Record<string, unknown>) => {
+      const response = await apiClient.post<{ success: boolean; message: string }>(
+        '/calendar/events/update',
+        { event_id: parseInt(id || '0', 10), ...data }
+      );
+      if (!response.success) {
+        throw new Error(response.message || '更新失敗');
+      }
+      return response;
+    },
+    onSuccess: () => {
+      message.success('事件更新成功');
+      // 使快取失效
+      queryClient.invalidateQueries({ queryKey: ['calendar', 'events'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardCalendar'] });
+      // 導航返回
+      handleBack();
+    },
+    onError: (error: Error) => {
+      notification.error({
+        message: '更新事件失敗',
+        description: error.message || '請稍後再試',
+      });
+    },
+  });
+
+  // 初始化表單
+  useEffect(() => {
+    if (event) {
+      form.setFieldsValue({
+        title: event.title,
+        description: event.description,
+        start_date: dayjs(event.start_datetime),
+        end_date: event.end_datetime ? dayjs(event.end_datetime) : undefined,
+        all_day: event.all_day ?? false,
+        event_type: event.event_type || 'reminder',
+        priority: typeof event.priority === 'string'
+          ? parseInt(event.priority, 10)
+          : (event.priority ?? 3),
+        location: event.location,
+        document_id: event.document_id,
+      });
+      setAllDay(event.all_day ?? false);
+      // 設定已關聯的公文選項
+      if (event.document_id) {
+        setDocumentOptions([{
+          id: event.document_id,
+          doc_number: event.doc_number || `公文 #${event.document_id}`,
+          subject: '',
+        }]);
+      }
+    }
+  }, [event, form]);
+
+  // 公文搜尋
+  const searchDocuments = useCallback(
+    debounce(async (keyword: string) => {
+      setDocumentSearchError(null);
+
+      if (!keyword || keyword.length < 2) {
+        setDocumentOptions([]);
+        return;
+      }
+
+      setDocumentSearching(true);
+      try {
+        const response = await apiClient.post<{
+          success: boolean;
+          items: Array<{
+            id: number;
+            doc_number: string;
+            subject?: string;
+          }>;
+        }>('/documents-enhanced/list', {
+          keyword,
+          limit: 20,
+          page: 1,
+        });
+
+        if (response.success && response.items) {
+          setDocumentOptions(response.items.map(doc => ({
+            id: doc.id,
+            doc_number: doc.doc_number,
+            subject: doc.subject || '',
+          })));
+          if (response.items.length === 0) {
+            setDocumentSearchError('找不到符合的公文');
+          }
+        } else {
+          setDocumentSearchError('搜尋失敗，請稍後再試');
+        }
+      } catch (error) {
+        console.error('搜尋公文失敗:', error);
+        setDocumentSearchError('搜尋時發生錯誤');
+      } finally {
+        setDocumentSearching(false);
+      }
+    }, 300),
+    []
+  );
+
+  // 返回處理
+  const handleBack = () => {
+    navigate(returnTo || '/calendar');
+  };
+
+  // 儲存處理
+  const handleSave = async () => {
+    try {
+      const values = await form.validateFields();
+
+      const submitData = {
+        title: values.title,
+        description: values.description || null,
+        start_date: values.start_date.toISOString(),
+        end_date: values.end_date?.toISOString() || null,
+        all_day: values.all_day || false,
+        event_type: values.event_type,
+        priority: values.priority,
+        location: values.location || null,
+        document_id: values.document_id || null,
+      };
+
+      updateMutation.mutate(submitData);
+    } catch (error) {
+      // form validation error - 不需額外處理
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center' }}>
+        <Spin size="large" />
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: 24 }}>
+      <Card>
+        {/* Header */}
+        <div style={{ marginBottom: 24 }}>
+          <Space align="center" style={{ marginBottom: 16 }}>
+            <Button
+              type="text"
+              icon={<ArrowLeftOutlined />}
+              onClick={handleBack}
+            >
+              返回行事曆
+            </Button>
+          </Space>
+          <Title level={4} style={{ margin: 0 }}>
+            <CalendarOutlined style={{ marginRight: 8 }} />
+            編輯日曆事件
+          </Title>
+        </div>
+
+        {/* Form */}
+        <Form
+          form={form}
+          layout="vertical"
+          initialValues={{
+            event_type: 'reminder',
+            priority: 3,
+            all_day: false,
+          }}
+        >
+          <Form.Item
+            name="title"
+            label="事件標題"
+            rules={[{ required: true, message: '請輸入事件標題' }]}
+          >
+            <Input placeholder="輸入事件標題" maxLength={200} showCount />
+          </Form.Item>
+
+          <Form.Item name="description" label="事件描述">
+            <TextArea rows={3} placeholder="輸入事件描述（選填）" maxLength={1000} showCount />
+          </Form.Item>
+
+          <Row gutter={16}>
+            <Col xs={24} sm={12}>
+              <Form.Item
+                name="event_type"
+                label="事件類型"
+                rules={[{ required: true, message: '請選擇事件類型' }]}
+              >
+                <Select placeholder="選擇事件類型">
+                  {EVENT_TYPE_OPTIONS.map(opt => (
+                    <Select.Option key={opt.value} value={opt.value}>
+                      <Space>{EVENT_TYPE_ICONS[opt.value]}{opt.label}</Space>
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item
+                name="priority"
+                label="優先級"
+                rules={[{ required: true, message: '請選擇優先級' }]}
+              >
+                <Select placeholder="選擇優先級">
+                  {PRIORITY_OPTIONS.map(opt => (
+                    <Select.Option key={opt.value} value={opt.value}>
+                      <span style={{ color: opt.color }}>{opt.label}</span>
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col xs={12} sm={8}>
+              <Form.Item name="all_day" label="全天事件" valuePropName="checked">
+                <Switch onChange={setAllDay} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={16}>
+              <Form.Item name="location" label="地點">
+                <Input placeholder="輸入地點（選填）" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col xs={24} sm={12}>
+              <Form.Item
+                name="start_date"
+                label="開始時間"
+                rules={[{ required: true, message: '請選擇開始時間' }]}
+              >
+                <DatePicker
+                  showTime={!allDay}
+                  format={allDay ? 'YYYY-MM-DD' : 'YYYY-MM-DD HH:mm'}
+                  style={{ width: '100%' }}
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item name="end_date" label="結束時間">
+                <DatePicker
+                  showTime={!allDay}
+                  format={allDay ? 'YYYY-MM-DD' : 'YYYY-MM-DD HH:mm'}
+                  style={{ width: '100%' }}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Divider orientation="left" plain>
+            <Space><FileTextOutlined />關聯公文</Space>
+          </Divider>
+
+          <Form.Item
+            name="document_id"
+            label="關聯公文"
+            tooltip="輸入公文字號或主旨關鍵字搜尋（至少2個字元）"
+          >
+            <Select
+              showSearch
+              allowClear
+              placeholder="輸入公文字號或主旨搜尋..."
+              filterOption={false}
+              onSearch={searchDocuments}
+              loading={documentSearching}
+              notFoundContent={
+                documentSearching ? (
+                  <div style={{ textAlign: 'center', padding: 8 }}>
+                    <Spin size="small" />
+                    <div style={{ marginTop: 4, color: '#888' }}>搜尋中...</div>
+                  </div>
+                ) : documentSearchError ? (
+                  <div style={{ textAlign: 'center', padding: 8, color: '#faad14' }}>
+                    {documentSearchError}
+                  </div>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: 8, color: '#888' }}>
+                    輸入至少2個字元搜尋
+                  </div>
+                )
+              }
+              optionLabelProp="label"
+            >
+              {documentOptions.map(doc => (
+                <Select.Option key={doc.id} value={doc.id} label={doc.doc_number}>
+                  <div>
+                    <div style={{ fontWeight: 500 }}>{doc.doc_number}</div>
+                    {doc.subject && (
+                      <div style={{
+                        fontSize: 12,
+                        color: '#888',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        maxWidth: 300,
+                      }}>
+                        {doc.subject}
+                      </div>
+                    )}
+                  </div>
+                </Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
+
+          {/* Actions */}
+          <Divider />
+          <Row justify="end">
+            <Space>
+              <Button onClick={handleBack}>取消</Button>
+              <Button
+                type="primary"
+                icon={<SaveOutlined />}
+                loading={updateMutation.isPending}
+                onClick={handleSave}
+              >
+                儲存
+              </Button>
+            </Space>
+          </Row>
+        </Form>
+      </Card>
+    </div>
+  );
+};
+
+export default CalendarEventFormPage;

@@ -50,6 +50,7 @@ export const ROUTES = {
   CERTIFICATION_EDIT: '/staff/:userId/certifications/:certId/edit',
   PROJECTS: '/projects',
   CALENDAR: '/calendar',
+  CALENDAR_EVENT_EDIT: '/calendar/event/:id/edit',
   PURE_CALENDAR: '/pure-calendar', // 重導向至 /calendar
   REPORTS: '/reports',
   SITE_MANAGEMENT: '/admin/site-management',
@@ -208,6 +209,11 @@ export const ROUTE_META = {
     title: '行事曆',
     description: '行事曆管理與排程',
     icon: 'CalendarOutlined',
+  },
+  [ROUTES.CALENDAR_EVENT_EDIT]: {
+    title: '編輯日曆事件',
+    description: '編輯日曆事件詳情',
+    breadcrumb: true,
   },
   [ROUTES.REPORTS]: {
     title: '統計報表',
