@@ -26,7 +26,7 @@ class TestAuditServiceIsolation:
         from app.services.audit_service import AuditService
 
         # Mock 資料庫連接失敗
-        with patch('app.services.audit_service.AsyncSessionLocal') as mock_session:
+        with patch('app.db.database.AsyncSessionLocal') as mock_session:
             mock_session.side_effect = Exception("Database connection failed")
 
             result = await AuditService.log_change(
@@ -47,7 +47,7 @@ class TestAuditServiceIsolation:
         from app.services.audit_service import AuditService
 
         # Mock 成功的資料庫操作
-        with patch('app.services.audit_service.AsyncSessionLocal') as mock_session:
+        with patch('app.db.database.AsyncSessionLocal') as mock_session:
             mock_db = AsyncMock()
             mock_session.return_value.__aenter__.return_value = mock_db
             mock_session.return_value.__aexit__.return_value = None
@@ -68,7 +68,7 @@ class TestAuditServiceIsolation:
         """測試：審計服務使用獨立 session"""
         from app.services.audit_service import AuditService
 
-        with patch('app.services.audit_service.AsyncSessionLocal') as mock_session:
+        with patch('app.db.database.AsyncSessionLocal') as mock_session:
             mock_db = AsyncMock()
             mock_session.return_value.__aenter__.return_value = mock_db
             mock_session.return_value.__aexit__.return_value = None
@@ -92,7 +92,7 @@ class TestNotificationServiceIsolation:
         """測試：safe_notify_critical_change 失敗時返回 False"""
         from app.services.notification_service import NotificationService
 
-        with patch('app.services.notification_service.AsyncSessionLocal') as mock_session:
+        with patch('app.db.database.AsyncSessionLocal') as mock_session:
             mock_session.side_effect = Exception("Database error")
 
             result = await NotificationService.safe_notify_critical_change(
@@ -110,7 +110,7 @@ class TestNotificationServiceIsolation:
         """測試：safe_notify_document_deleted 使用獨立 session"""
         from app.services.notification_service import NotificationService
 
-        with patch('app.services.notification_service.AsyncSessionLocal') as mock_session:
+        with patch('app.db.database.AsyncSessionLocal') as mock_session:
             mock_db = AsyncMock()
             mock_session.return_value.__aenter__.return_value = mock_db
             mock_session.return_value.__aexit__.return_value = None

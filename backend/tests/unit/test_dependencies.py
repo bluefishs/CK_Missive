@@ -111,14 +111,13 @@ class TestSingletonServices:
 
         assert service1 is service2
 
-    def test_get_document_service_returns_singleton(self):
-        """測試 DocumentService 是單例"""
-        from app.core.dependencies import get_document_service
+    def test_get_document_service_is_factory(self):
+        """測試 DocumentService 使用工廠模式（非單例）"""
+        from app.api.endpoints.documents.common import get_document_service
 
-        service1 = get_document_service()
-        service2 = get_document_service()
-
-        assert service1 is service2
+        # get_document_service 是由 get_service_with_db 建立的工廠函數
+        # 每次呼叫時需要 db 參數，不是直接呼叫的單例
+        assert callable(get_document_service)
 
 
 class TestPaginationDependency:

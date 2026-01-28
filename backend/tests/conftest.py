@@ -282,7 +282,7 @@ def override_document_service(mock_document_service):
             mock_document_service.get_documents.return_value = {...}
             response = await client.post("/api/documents-enhanced/list")
     """
-    from app.core.dependencies import get_document_service
+    from app.api.endpoints.documents.common import get_document_service
 
     app.dependency_overrides[get_document_service] = lambda: mock_document_service
     yield mock_document_service

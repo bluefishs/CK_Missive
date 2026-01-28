@@ -246,16 +246,14 @@ class TestGetDocumentWithExtraInfo:
         """測試找到公文並補充額外資訊"""
         service = DocumentService(db=mock_db_session, auto_create_events=False)
 
-        # 建立 mock 公文
-        mock_doc = MagicMock()
+        # 使用簡單物件模擬 ORM Document，確保 __dict__ 可正確遍歷
+        class FakeDoc:
+            pass
+
+        mock_doc = FakeDoc()
         mock_doc.id = 1
         mock_doc.doc_number = "TEST-001"
         mock_doc.subject = "測試主旨"
-        mock_doc.__dict__ = {
-            'id': 1,
-            'doc_number': 'TEST-001',
-            'subject': '測試主旨'
-        }
 
         # Mock 關聯資料
         mock_project = MagicMock()
@@ -272,9 +270,13 @@ class TestGetDocumentWithExtraInfo:
 
         mock_doc.attachments = []
 
-        mock_result = MagicMock()
-        mock_result.scalars.return_value.first.return_value = mock_doc
-        mock_db_session.execute.return_value = mock_result
+        # 直接 mock get_document_by_id（get_document_with_extra_info 內部呼叫）
+        service.get_document_by_id = AsyncMock(return_value=mock_doc)
+
+        # 當 attachments 為空列表時，服務層會查詢 DB 計算附件數量
+        mock_count_result = MagicMock()
+        mock_count_result.scalar.return_value = 0
+        mock_db_session.execute.return_value = mock_count_result
 
         result = await service.get_document_with_extra_info(1)
 
