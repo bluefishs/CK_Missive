@@ -107,8 +107,11 @@ export const useUpdateAgency = () => {
   return useMutation({
     mutationFn: ({ agencyId, data }: { agencyId: number; data: AgencyUpdate }) =>
       agenciesApi.updateAgency(agencyId, data),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.agencies.all });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.agencies.detail(variables.agencyId),
+      });
     },
   });
 };

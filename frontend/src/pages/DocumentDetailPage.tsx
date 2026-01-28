@@ -35,6 +35,7 @@ import {
   EnvironmentOutlined,
 } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../config/queryConfig';
 import dayjs from 'dayjs';
 
 // API
@@ -439,6 +440,7 @@ export const DocumentDetailPage: React.FC = () => {
       }
 
       message.success('儲存成功');
+      queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
       await loadDocument();
       await loadDispatchLinks();
       setIsEditing(false);
@@ -477,6 +479,7 @@ export const DocumentDetailPage: React.FC = () => {
     if (!document || !id) return;
     try {
       await documentsApi.deleteDocument(parseInt(id, 10));
+      queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
       message.success('公文刪除成功');
       navigate('/documents');
     } catch (error) {

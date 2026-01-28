@@ -32,6 +32,8 @@ import {
   CalendarOutlined,
 } from '@ant-design/icons';
 
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../config/queryConfig';
 import { DocumentList } from '../components/document/DocumentList';
 // 複製功能已停用 (2026-01-12)
 // import { DocumentOperations } from '../components/document/DocumentOperations';
@@ -47,6 +49,7 @@ const { Title, Text } = Typography;
 
 export const DocumentNumbersPage: React.FC = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { message } = App.useApp();
 
   // 分頁狀態
@@ -215,6 +218,7 @@ export const DocumentNumbersPage: React.FC = () => {
     if (deleteModal.document) {
       try {
         await documentsApi.deleteDocument(deleteModal.document.id);
+        queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
         message.success(`已刪除公文: ${deleteModal.document.doc_number}`);
         refetch();
         loadStats();

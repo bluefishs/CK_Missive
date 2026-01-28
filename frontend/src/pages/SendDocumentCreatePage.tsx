@@ -47,6 +47,8 @@ import {
   LoadingOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../config/queryConfig';
 import {
   DetailPageLayout,
   createTabItem,
@@ -98,6 +100,7 @@ const DEFAULT_MAX_FILE_SIZE_MB = 50;
 
 export const SendDocumentCreatePage: React.FC = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { message } = App.useApp();
   const [form] = Form.useForm();
 
@@ -350,6 +353,7 @@ export const SendDocumentCreatePage: React.FC = () => {
         await uploadFiles(newDoc.id, fileList);
       }
 
+      queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
       message.success('發文建立成功！');
       navigate('/document-numbers');
     } catch (error) {

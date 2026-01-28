@@ -28,8 +28,10 @@ import {
   FileTextOutlined,
 } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { ROUTES } from '../router/types';
+import { queryKeys } from '../config/queryConfig';
 
 // 使用統一 API 服務
 import { projectsApi } from '../api/projectsApi';
@@ -99,6 +101,7 @@ const getCategoryTagColor = (category?: string) => {
 export const ContractCaseDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { message } = App.useApp();
 
   // 主要狀態
@@ -356,6 +359,7 @@ export const ContractCaseDetailPage: React.FC = () => {
       };
 
       await projectsApi.updateProject(projectId, updateData as Parameters<typeof projectsApi.updateProject>[1]);
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
 
       setData({ ...data, ...updateData });
       setIsEditingCaseInfo(false);
