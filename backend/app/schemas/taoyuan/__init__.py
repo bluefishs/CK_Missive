@@ -77,6 +77,9 @@ from app.schemas.taoyuan.statistics import (
     TaoyuanStatisticsResponse,
 )
 
+# 重建前向引用 (解決循環依賴)
+TaoyuanProjectListResponse.model_rebuild()
+
 __all__ = [
     # Constants
     "LinkTypeEnum",

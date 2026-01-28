@@ -104,6 +104,7 @@ class DispatchOrderRepository(BaseRepository[TaoyuanDispatchOrder]):
                 TaoyuanDispatchDocumentLink.document
             ),
             selectinload(TaoyuanDispatchOrder.attachments),
+            selectinload(TaoyuanDispatchOrder.payment),  # 契金資料
         )
 
         conditions = []

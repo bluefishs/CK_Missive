@@ -55,8 +55,7 @@ class DispatchDocumentLink(BaseModel):
 
 
 class DispatchDocumentLinkCreate(BaseModel):
-    """建立派工-公文關聯"""
-    dispatch_order_id: int
+    """建立派工-公文關聯 (dispatch_order_id 由 URL path 提供)"""
     document_id: int
     link_type: LinkTypeEnum = Field(..., description="關聯類型：agency_incoming(機關來函) / company_outgoing(乾坤發文)")
 
