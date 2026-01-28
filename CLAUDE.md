@@ -81,7 +81,7 @@ CK_Missive 是一套企業級公文管理系統，具備以下核心功能：
 | `using-git-worktrees` | worktree, 分支 | 平行開發分支管理 |
 | `verification-before-completion` | 驗證, 完成 | 確保修復真正完成 |
 
-> 📁 位置: `.claude/skills/superpowers/`
+> 📁 位置: `.claude/skills/_shared/shared/superpowers/` (透過 inherit 載入)
 
 ### 共享 Skills 庫 (_shared)
 
