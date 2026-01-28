@@ -25,6 +25,7 @@ import {
   EnvironmentOutlined,
   LinkOutlined,
 } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { isReceiveDocument } from '../../../types/api';
 import type { TaoyuanProject, DocumentProjectLink, OfficialDocument } from '../../../types/api';
@@ -52,6 +53,7 @@ export const DocumentProjectLinkTab: React.FC<DocumentProjectLinkTabProps> = ({
   onLinkProject,
   onUnlinkProject,
 }) => {
+  const navigate = useNavigate();
   const { message } = App.useApp();
 
   const [selectedProjectId, setSelectedProjectId] = useState<number | undefined>();
@@ -122,18 +124,27 @@ export const DocumentProjectLinkTab: React.FC<DocumentProjectLinkTabProps> = ({
                 </Space>
               }
               extra={
-                isEditing && (
-                  <Popconfirm
-                    title="確定要移除此工程關聯嗎？"
-                    onConfirm={() => handleUnlinkProject(item.link_id)}
-                    okText="確定"
-                    cancelText="取消"
+                <Space>
+                  <Button
+                    type="link"
+                    size="small"
+                    onClick={() => navigate(`/taoyuan/project/${item.project_id}`)}
                   >
-                    <Button type="link" size="small" danger>
-                      移除關聯
-                    </Button>
-                  </Popconfirm>
-                )
+                    查看詳情
+                  </Button>
+                  {isEditing && (
+                    <Popconfirm
+                      title="確定要移除此工程關聯嗎？"
+                      onConfirm={() => handleUnlinkProject(item.link_id)}
+                      okText="確定"
+                      cancelText="取消"
+                    >
+                      <Button type="link" size="small" danger>
+                        移除關聯
+                      </Button>
+                    </Popconfirm>
+                  )}
+                </Space>
               }
             >
               <Descriptions size="small" column={{ xs: 1, sm: 2, md: 3 }} bordered>

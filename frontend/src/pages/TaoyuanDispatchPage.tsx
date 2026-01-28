@@ -11,7 +11,8 @@
  * @date 2026-01-21
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Typography,
   Card,
@@ -38,9 +39,25 @@ const { Title, Text } = Typography;
  * 桃園查估派工管理系統主頁面
  */
 export const TaoyuanDispatchPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('1');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') || '1';
+  const [activeTab, setActiveTab] = useState(initialTab);
   const { isMobile, responsiveValue } = useResponsive();
   const pagePadding = responsiveValue({ mobile: 12, tablet: 16, desktop: 24 });
+
+  // 同步 URL 參數與 Tab 狀態
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab');
+    if (tabFromUrl && tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [searchParams]);
+
+  // Tab 切換時更新 URL
+  const handleTabChange = (key: string) => {
+    setActiveTab(key);
+    setSearchParams({ tab: key }, { replace: true });
+  };
 
   return (
     <div style={{ padding: pagePadding }}>
@@ -70,7 +87,7 @@ export const TaoyuanDispatchPage: React.FC = () => {
       {/* TAB 頁籤 */}
       <Tabs
         activeKey={activeTab}
-        onChange={setActiveTab}
+        onChange={handleTabChange}
         type="card"
         size={isMobile ? 'middle' : 'large'}
         tabPosition="top"

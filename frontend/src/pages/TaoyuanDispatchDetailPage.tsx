@@ -8,13 +8,13 @@
  * - 工程關聯：關聯的工程資訊
  * - 契金維護：契金紀錄管理
  *
- * @version 2.0.0
- * @date 2026-01-26
- * @description 重構版本 - 使用拆分的 Tab 元件
+ * @version 2.1.0
+ * @date 2026-01-28
+ * @description 統一編輯模式控制，契金維護 Tab 使用頁面層級 isEditing
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Form, Button, App, Space, Popconfirm } from 'antd';
 import type { UploadFile } from 'antd/es/upload';
 import {
@@ -41,12 +41,10 @@ import {
   dispatchAttachmentsApi,
   contractPaymentsApi,
 } from '../api/taoyuanDispatchApi';
-import { documentsApi } from '../api/documentsApi';
 import { getProjectAgencyContacts } from '../api/projectAgencyContacts';
 import { projectVendorsApi } from '../api/projectVendorsApi';
 import type {
   DispatchOrderUpdate,
-  OfficialDocument,
   LinkType,
   TaoyuanProject,
   DispatchDocumentLink,
@@ -68,6 +66,7 @@ import {
 export const TaoyuanDispatchDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { message } = App.useApp();
   const [form] = Form.useForm();
   const queryClient = useQueryClient();
@@ -77,9 +76,24 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
   const canEdit = hasPermission('documents:edit');
   const canDelete = hasPermission('documents:delete');
 
-  // 狀態
-  const [activeTab, setActiveTab] = useState('info');
+  // 從 URL 參數讀取初始 Tab
+  const initialTab = searchParams.get('tab') || 'info';
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [isEditing, setIsEditing] = useState(false);
+
+  // 同步 URL 參數變化到 activeTab（處理瀏覽器後退/前進）
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab') || 'info';
+    if (tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [searchParams, activeTab]);
+
+  // Tab 變更處理（同時更新 URL 參數）
+  const handleTabChange = useCallback((tabKey: string) => {
+    setActiveTab(tabKey);
+    setSearchParams({ tab: tabKey }, { replace: true });
+  }, [setSearchParams]);
 
   // 公文關聯狀態
   const [docSearchKeyword, setDocSearchKeyword] = useState('');
@@ -96,10 +110,6 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadErrors, setUploadErrors] = useState<string[]>([]);
 
-  // 契金維護狀態
-  const [paymentForm] = Form.useForm();
-  const [isPaymentEditing, setIsPaymentEditing] = useState(false);
-
   // =============================================================================
   // 資料查詢
   // =============================================================================
@@ -115,24 +125,28 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
     enabled: !!id,
   });
 
-  // 搜尋可關聯的公文
-  const { data: searchedDocs, isLoading: searchingDocs } = useQuery({
-    queryKey: ['documents-for-dispatch-link', docSearchKeyword],
-    queryFn: async () => {
-      if (!docSearchKeyword.trim()) return [];
-      return documentsApi.searchDocuments(docSearchKeyword, 20);
-    },
-    enabled: !!docSearchKeyword.trim(),
-  });
-
-  // 已關聯的公文 ID 列表
+  // 已關聯的公文 ID 列表（提前計算，供搜尋 API 排除已關聯公文）
   const linkedDocIds = (dispatch?.linked_documents || []).map(
     (d: DispatchDocumentLink) => d.document_id
   );
-  // 過濾掉已關聯的公文
-  const availableDocs = (searchedDocs || []).filter(
-    (doc: OfficialDocument) => !linkedDocIds.includes(doc.id)
-  );
+
+  // 搜尋可關聯的公文 (僅限桃園派工相關公文)
+  const { data: searchedDocsResult, isLoading: searchingDocs } = useQuery({
+    queryKey: ['documents-for-dispatch-link', docSearchKeyword, linkedDocIds],
+    queryFn: async () => {
+      if (!docSearchKeyword.trim()) return { items: [] };
+      // 使用專用 API 搜尋桃園派工相關公文 (contract_project_id = 21)
+      // 後端已自動排除 exclude_document_ids 中的公文
+      return dispatchOrdersApi.searchLinkableDocuments(
+        docSearchKeyword,
+        20,
+        linkedDocIds.length > 0 ? linkedDocIds : undefined
+      );
+    },
+    enabled: !!docSearchKeyword.trim(),
+  });
+  // 後端已排除已關聯公文，直接使用搜尋結果
+  const availableDocs = searchedDocsResult?.items || [];
 
   // 查詢機關承辦清單
   const { data: agencyContactsData } = useQuery({
@@ -234,7 +248,6 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
     onSuccess: () => {
       message.success('契金紀錄儲存成功');
       refetchPayment();
-      setIsPaymentEditing(false);
     },
     onError: () => message.error('契金儲存失敗'),
   });
@@ -482,6 +495,11 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
         };
         paymentMutation.mutate(paymentValues);
       }
+
+      // 若有待上傳附件，一併上傳（與附件紀錄機制一致）
+      if (fileList.length > 0) {
+        uploadAttachmentsMutation.mutate();
+      }
     } catch (error) {
       message.error('請檢查表單欄位');
     }
@@ -585,6 +603,7 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
         unlinkDocMutationPending={unlinkDocMutation.isPending}
         refetch={refetch}
         navigate={navigate}
+        returnPath={`/taoyuan/dispatch/${id}?tab=documents`}
       />
     ),
     createTabItem(
@@ -638,10 +657,7 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
       <DispatchPaymentTab
         dispatch={dispatch}
         paymentData={paymentData}
-        canEdit={canEdit}
-        isPaymentEditing={isPaymentEditing}
-        setIsPaymentEditing={setIsPaymentEditing}
-        paymentForm={paymentForm}
+        isEditing={isEditing}
         isSaving={paymentMutation.isPending}
         onSavePayment={(values) => paymentMutation.mutate(values)}
       />
@@ -720,7 +736,7 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
       header={headerConfig}
       tabs={tabs}
       activeTab={activeTab}
-      onTabChange={setActiveTab}
+      onTabChange={handleTabChange}
       loading={isLoading}
       hasData={!!dispatch}
     />

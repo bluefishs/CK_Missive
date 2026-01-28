@@ -12,7 +12,6 @@
 import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { Table, Button, Space, Empty, Input, InputRef, App } from 'antd';
 import type { TableProps } from 'antd';
-import { useNavigate } from 'react-router-dom';
 import type {
   TablePaginationConfig,
   FilterValue,
@@ -87,7 +86,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
   onTableChange,
   onEdit: _onEdit,
   onDelete: _onDelete,
-  onView: _onView,
+  onView,
   onCopy: _onCopy,
   onExportPdf: _onExportPdf,
   onSend: _onSend,
@@ -102,7 +101,6 @@ export const DocumentList: React.FC<DocumentListProps> = ({
   isExporting = false,
   isAddingToCalendar: _isAddingToCalendar = false,
 }) => {
-  const navigate = useNavigate();
   const { isMobile } = useResponsive();
   const { message } = App.useApp();
 
@@ -259,8 +257,8 @@ export const DocumentList: React.FC<DocumentListProps> = ({
   // ============================================================================
 
   const handleRowClick = useCallback((record: Document) => {
-    navigate(`/documents/${record.id}`);
-  }, [navigate]);
+    onView(record);
+  }, [onView]);
 
   // ============================================================================
   // 資料處理

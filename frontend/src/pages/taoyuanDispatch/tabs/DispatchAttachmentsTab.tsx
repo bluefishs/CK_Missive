@@ -102,8 +102,7 @@ export const DispatchAttachmentsTab: React.FC<DispatchAttachmentsTabProps> = ({
             setUploadErrors={setUploadErrors}
             allowedExtensions={ALLOWED_EXTENSIONS}
             maxFileSizeMB={MAX_FILE_SIZE_MB}
-            showUploadButton={true}
-            onStartUpload={() => uploadAttachmentsMutation.mutate()}
+            showUploadButton={false}
           />
         </div>
       )}

@@ -1,20 +1,30 @@
 /**
  * TaoyuanDispatchDetailPage Tab 元件型別定義
  *
- * @version 1.1.0
- * @date 2026-01-26
+ * @version 1.2.0
+ * @date 2026-01-28
+ * @description 移除 DispatchPaymentTabProps（已整合至元件檔案）
  */
 
-import type { FormInstance } from 'antd';
 import type {
   DispatchOrder,
-  DispatchDocumentLink,
   DispatchAttachment,
-  OfficialDocument,
   LinkType,
-  ContractPayment,
-  ContractPaymentCreate,
 } from '../../../types/api';
+
+/**
+ * 可關聯公文選項（簡化型別，用於下拉選單）
+ * 對應後端 /dispatch/search-linkable-documents API 回傳格式
+ */
+export interface LinkableDocumentOption {
+  id: number;
+  doc_number: string | null;
+  subject: string | null;
+  doc_date: string | null;
+  category: string | null;
+  sender: string | null;
+  receiver: string | null;
+}
 import type { UploadFile } from 'antd/es/upload';
 import type { UseMutationResult } from '@tanstack/react-query';
 
@@ -36,8 +46,8 @@ export interface DispatchDocumentsTabProps {
   docSearchKeyword: string;
   /** 設定公文搜尋關鍵字 */
   setDocSearchKeyword: (keyword: string) => void;
-  /** 可選公文列表（搜尋結果） */
-  availableDocs: OfficialDocument[];
+  /** 可選公文列表（搜尋結果）- 僅限桃園派工相關公文 */
+  availableDocs: LinkableDocumentOption[];
   /** 是否正在搜尋公文 */
   searchingDocs: boolean;
 
@@ -64,7 +74,9 @@ export interface DispatchDocumentsTabProps {
   /** 重新取得資料 */
   refetch: () => void;
   /** 導航函數 */
-  navigate: (path: string) => void;
+  navigate: (path: string, options?: { state?: { returnTo?: string } }) => void;
+  /** 返回路徑（用於公文詳情頁返回） */
+  returnPath?: string;
 }
 
 // ============================================================================
@@ -107,25 +119,7 @@ export interface DispatchAttachmentsTabProps {
 export type DetectLinkTypeFn = (docNumber?: string) => LinkType;
 
 // ============================================================================
-// 契金維護 Tab Props 型別定義
+// 契金維護 Tab Props 型別定義 - 已移至 DispatchPaymentTab.tsx
 // ============================================================================
-
-/** 契金維護 Tab Props */
-export interface DispatchPaymentTabProps {
-  /** 派工單資料 */
-  dispatch?: DispatchOrder;
-  /** 契金資料 */
-  paymentData?: ContractPayment | null;
-  /** 是否可編輯 */
-  canEdit: boolean;
-  /** 是否處於編輯模式 */
-  isPaymentEditing: boolean;
-  /** 設定編輯模式 */
-  setIsPaymentEditing: (editing: boolean) => void;
-  /** 契金表單實例 */
-  paymentForm: FormInstance;
-  /** 儲存中狀態 */
-  isSaving: boolean;
-  /** 儲存契金處理函數 */
-  onSavePayment: (values: ContractPaymentCreate) => void;
-}
+// 注意：DispatchPaymentTabProps 現在直接定義在元件檔案中
+// 使用頁面層級的 isEditing 狀態進行統一控制

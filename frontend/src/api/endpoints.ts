@@ -419,6 +419,8 @@ export const TAOYUAN_DISPATCH_ENDPOINTS = {
   DISPATCH_UNLINK_DOCUMENT: (id: number, linkId: number) => `/taoyuan-dispatch/dispatch/${id}/unlink-document/${linkId}`,
   /** 取得派工單公文 POST /taoyuan-dispatch/dispatch/:id/documents */
   DISPATCH_DOCUMENTS: (id: number) => `/taoyuan-dispatch/dispatch/${id}/documents`,
+  /** 搜尋可關聯的桃園派工公文 POST /taoyuan-dispatch/dispatch/search-linkable-documents */
+  DISPATCH_SEARCH_LINKABLE_DOCUMENTS: '/taoyuan-dispatch/dispatch/search-linkable-documents',
 
   // 公文歷程匹配 (對應原始需求欄位 14-17)
   /** 匹配公文歷程 POST /taoyuan-dispatch/dispatch/match-documents */

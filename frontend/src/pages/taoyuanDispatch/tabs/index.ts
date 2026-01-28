@@ -1,8 +1,9 @@
 /**
  * 桃園派工詳情頁 Tab 元件匯出
  *
- * @version 1.4.0
- * @date 2026-01-26
+ * @version 1.5.0
+ * @date 2026-01-28
+ * @description DispatchPaymentTabProps 改從元件檔案匯出
  */
 
 // Tab 元件
@@ -17,6 +18,7 @@ export type { DispatchInfoTabProps } from './DispatchInfoTab';
 export type {
   DispatchDocumentsTabProps,
   DispatchAttachmentsTabProps,
-  DispatchPaymentTabProps,
+  LinkableDocumentOption,
 } from './types';
+export type { DispatchPaymentTabProps } from './DispatchPaymentTab';
 export type { DispatchProjectsTabProps, LinkedProject } from './DispatchProjectsTab';

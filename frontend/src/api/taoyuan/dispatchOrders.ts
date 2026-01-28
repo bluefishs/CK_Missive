@@ -104,6 +104,43 @@ export const dispatchOrdersApi = {
   },
 
   /**
+   * 搜尋可關聯的桃園派工公文
+   *
+   * 此方法只回傳 contract_project_id = 21 (桃園查估派工專案) 的公文
+   * 用於派工單公文關聯的下拉選單
+   *
+   * @param keyword 搜尋關鍵字（公文字號或主旨）
+   * @param limit 回傳筆數上限
+   * @param excludeDocumentIds 排除的公文 ID 列表（已關聯的公文）
+   */
+  async searchLinkableDocuments(
+    keyword: string,
+    limit = 20,
+    excludeDocumentIds?: number[]
+  ): Promise<{
+    success: boolean;
+    items: Array<{
+      id: number;
+      doc_number: string | null;
+      subject: string | null;
+      doc_date: string | null;
+      category: string | null;
+      sender: string | null;
+      receiver: string | null;
+    }>;
+    total: number;
+  }> {
+    return apiClient.post(
+      API_ENDPOINTS.TAOYUAN_DISPATCH.DISPATCH_SEARCH_LINKABLE_DOCUMENTS,
+      {
+        keyword,
+        limit,
+        exclude_document_ids: excludeDocumentIds,
+      }
+    );
+  },
+
+  /**
    * 取得派工單詳情 (含公文歷程)
    */
   async getDetailWithHistory(id: number): Promise<DispatchOrderWithHistoryResponse> {

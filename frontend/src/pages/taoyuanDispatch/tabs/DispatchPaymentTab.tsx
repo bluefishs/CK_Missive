@@ -6,8 +6,9 @@
  * - 本次派工總金額（自動計算）
  * - 累進派工金額和剩餘金額（統計值，由後端計算）
  *
- * @version 1.0.0
- * @date 2026-01-26
+ * @version 1.1.0
+ * @date 2026-01-28
+ * @description 統一使用頁面層級 isEditing 狀態，移除獨立編輯按鈕
  */
 
 import React from 'react';
@@ -27,7 +28,7 @@ import {
   Typography,
 } from 'antd';
 import type { FormInstance } from 'antd';
-import { EditOutlined, CloseOutlined, SaveOutlined } from '@ant-design/icons';
+import { SaveOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
 import type {
@@ -48,14 +49,8 @@ export interface DispatchPaymentTabProps {
   dispatch?: DispatchOrder;
   /** 契金資料 */
   paymentData?: ContractPayment | null;
-  /** 是否可編輯 */
-  canEdit: boolean;
-  /** 是否處於編輯模式 */
-  isPaymentEditing: boolean;
-  /** 設定編輯模式 */
-  setIsPaymentEditing: (editing: boolean) => void;
-  /** 契金表單實例 */
-  paymentForm: FormInstance;
+  /** 是否處於編輯模式（由頁面統一控制） */
+  isEditing: boolean;
   /** 儲存中狀態 */
   isSaving: boolean;
   /** 儲存契金處理函數 */
@@ -249,31 +244,29 @@ const PaymentReadOnlyView: React.FC<PaymentReadOnlyViewProps> = ({
 
 interface PaymentEditFormProps {
   paymentForm: FormInstance;
-  onCancel: () => void;
   onSave: () => void;
   isSaving: boolean;
 }
 
 const PaymentEditForm: React.FC<PaymentEditFormProps> = ({
   paymentForm,
-  onCancel,
   onSave,
   isSaving,
 }) => (
   <Form form={paymentForm} layout="vertical">
-    <Space style={{ marginBottom: 16 }}>
-      <Button icon={<CloseOutlined />} onClick={onCancel}>
-        取消
-      </Button>
+    <div style={{ marginBottom: 16 }}>
       <Button
         type="primary"
         icon={<SaveOutlined />}
         loading={isSaving}
         onClick={onSave}
       >
-        儲存
+        儲存契金
       </Button>
-    </Space>
+      <Text type="secondary" style={{ marginLeft: 12, fontSize: 12 }}>
+        契金資料獨立儲存，不受頁面「儲存」按鈕影響
+      </Text>
+    </div>
 
     <Divider orientation="left">作業類別派工金額</Divider>
     <Row gutter={16}>
@@ -446,13 +439,13 @@ const PaymentEditForm: React.FC<PaymentEditFormProps> = ({
 export const DispatchPaymentTab: React.FC<DispatchPaymentTabProps> = ({
   dispatch,
   paymentData,
-  canEdit,
-  isPaymentEditing,
-  setIsPaymentEditing,
-  paymentForm,
+  isEditing,
   isSaving,
   onSavePayment,
 }) => {
+  // 在組件內部管理 Form 實例，避免 useForm 警告
+  const [paymentForm] = Form.useForm();
+
   /**
    * 計算派工日期（機關第一筆來函日期）
    */
@@ -472,11 +465,9 @@ export const DispatchPaymentTab: React.FC<DispatchPaymentTabProps> = ({
 
   const dispatchDate = getDispatchDate();
 
-  /**
-   * 處理開始編輯
-   */
-  const handleStartEdit = () => {
-    if (paymentData) {
+  // 當進入編輯模式時，初始化表單值
+  React.useEffect(() => {
+    if (isEditing && paymentData) {
       paymentForm.setFieldsValue({
         work_01_date: paymentData.work_01_date
           ? dayjs(paymentData.work_01_date)
@@ -510,8 +501,7 @@ export const DispatchPaymentTab: React.FC<DispatchPaymentTabProps> = ({
         remaining_amount: paymentData.remaining_amount,
       });
     }
-    setIsPaymentEditing(true);
-  };
+  }, [isEditing, paymentData, paymentForm]);
 
   /**
    * 處理儲存契金
@@ -557,41 +547,28 @@ export const DispatchPaymentTab: React.FC<DispatchPaymentTabProps> = ({
     }
   };
 
-  // 編輯模式
-  if (isPaymentEditing) {
-    return (
-      <div>
-        <DispatchInfoCard dispatch={dispatch} dispatchDate={dispatchDate} />
-        <PaymentEditForm
-          paymentForm={paymentForm}
-          onCancel={() => setIsPaymentEditing(false)}
-          onSave={handleSave}
-          isSaving={isSaving}
-        />
-      </div>
-    );
-  }
-
-  // 唯讀模式
+  // 根據編輯模式顯示不同內容
   return (
     <div>
       <DispatchInfoCard dispatch={dispatch} dispatchDate={dispatchDate} />
 
-      <Space style={{ marginBottom: 16 }}>
-        {canEdit && (
-          <Button type="primary" icon={<EditOutlined />} onClick={handleStartEdit}>
-            {paymentData ? '編輯契金' : '新增契金'}
-          </Button>
-        )}
-      </Space>
-
-      {paymentData ? (
-        <PaymentReadOnlyView
-          paymentData={paymentData}
-          dispatchDate={dispatchDate}
+      {isEditing ? (
+        // 編輯模式：顯示表單
+        <PaymentEditForm
+          paymentForm={paymentForm}
+          onSave={handleSave}
+          isSaving={isSaving}
         />
       ) : (
-        <Empty description="尚無契金紀錄" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        // 唯讀模式：顯示資料
+        paymentData ? (
+          <PaymentReadOnlyView
+            paymentData={paymentData}
+            dispatchDate={dispatchDate}
+          />
+        ) : (
+          <Empty description="尚無契金紀錄，請點擊「編輯」新增" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        )
       )}
     </div>
   );

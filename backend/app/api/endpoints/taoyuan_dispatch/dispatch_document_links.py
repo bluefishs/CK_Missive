@@ -5,16 +5,18 @@
 - /dispatch/{dispatch_id}/link-document - 關聯公文到派工單
 - /dispatch/{dispatch_id}/unlink-document/{link_id} - 移除公文關聯
 - /dispatch/{dispatch_id}/documents - 取得派工單關聯公文
+- /dispatch/search-linkable-documents - 搜尋可關聯的桃園派工公文
 - /document/{document_id}/dispatch-links - 查詢公文關聯的派工單
 - /document/{document_id}/link-dispatch - 將公文關聯到派工單
 - /document/{document_id}/unlink-dispatch/{link_id} - 移除公文與派工的關聯
 - /documents/batch-dispatch-links - 批次查詢多筆公文的派工關聯
 """
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.orm import selectinload
+from pydantic import BaseModel
 
 from .common import (
     get_async_db, require_auth,
@@ -22,7 +24,91 @@ from .common import (
     DispatchDocumentLinkCreate
 )
 
+# 桃園派工專案 ID (固定為桃園市府委外查估案)
+TAOYUAN_PROJECT_ID = 21
+
+
+class SearchLinkableDocumentsRequest(BaseModel):
+    """搜尋可關聯公文請求"""
+    keyword: str
+    limit: int = 20
+    exclude_document_ids: Optional[List[int]] = None
+
 router = APIRouter()
+
+
+@router.post(
+    "/dispatch/search-linkable-documents",
+    summary="搜尋可關聯的桃園派工公文"
+)
+async def search_linkable_documents(
+    request: SearchLinkableDocumentsRequest = Body(...),
+    db: AsyncSession = Depends(get_async_db),
+    current_user = Depends(require_auth)
+):
+    """
+    搜尋可關聯的桃園派工公文
+
+    此 API 專門用於派工單公文關聯，只回傳：
+    - contract_project_id = 21 (桃園查估派工專案) 的公文
+
+    搜尋範圍：
+    - 公文字號 (doc_number)
+    - 主旨 (subject)
+
+    Args:
+        keyword: 搜尋關鍵字
+        limit: 回傳筆數上限 (預設 20)
+        exclude_document_ids: 排除的公文 ID 列表 (已關聯的公文)
+
+    Returns:
+        符合條件的公文列表
+    """
+    keyword = request.keyword.strip()
+    if not keyword:
+        return {"success": True, "items": [], "total": 0}
+
+    # 構建查詢：限定 contract_project_id
+    query = (
+        select(Document)
+        .where(Document.contract_project_id == TAOYUAN_PROJECT_ID)
+        .where(
+            or_(
+                Document.doc_number.ilike(f"%{keyword}%"),
+                Document.subject.ilike(f"%{keyword}%")
+            )
+        )
+    )
+
+    # 排除已關聯的公文
+    if request.exclude_document_ids:
+        query = query.where(Document.id.notin_(request.exclude_document_ids))
+
+    # 排序並限制筆數
+    query = query.order_by(Document.doc_date.desc()).limit(request.limit)
+
+    result = await db.execute(query)
+    documents = result.scalars().all()
+
+    # 轉換為回應格式
+    items = [
+        {
+            "id": doc.id,
+            "doc_number": doc.doc_number,
+            "subject": doc.subject,
+            "doc_date": str(doc.doc_date) if doc.doc_date else None,
+            "category": doc.category,
+            "sender": doc.sender,
+            "receiver": doc.receiver,
+        }
+        for doc in documents
+    ]
+
+    return {
+        "success": True,
+        "items": items,
+        "total": len(items)
+    }
 
 
 @router.post("/dispatch/{dispatch_id}/link-document", summary="關聯公文到派工單")
@@ -157,19 +243,29 @@ async def get_document_dispatch_links(
     for link in links:
         if link.dispatch_order:
             order = link.dispatch_order
-            # 取得關聯的機關/乾坤函文文號
+
+            # 從關聯表取得機關/乾坤函文文號（而非舊的 agency_doc_id/company_doc_id）
             agency_doc_number = None
             company_doc_number = None
-            if order.agency_doc_id:
-                agency_doc = await db.execute(
-                    select(Document.doc_number).where(Document.id == order.agency_doc_id)
-                )
-                agency_doc_number = agency_doc.scalar_one_or_none()
-            if order.company_doc_id:
-                company_doc = await db.execute(
-                    select(Document.doc_number).where(Document.id == order.company_doc_id)
-                )
-                company_doc_number = company_doc.scalar_one_or_none()
+
+            # 查詢該派工單的所有公文關聯
+            doc_links_result = await db.execute(
+                select(TaoyuanDispatchDocumentLink)
+                .options(selectinload(TaoyuanDispatchDocumentLink.document))
+                .where(TaoyuanDispatchDocumentLink.dispatch_order_id == order.id)
+            )
+            doc_links = doc_links_result.scalars().all()
+
+            for doc_link in doc_links:
+                if doc_link.document:
+                    if doc_link.link_type == 'agency_incoming':
+                        # 機關來函：取最新一筆（或所有，這裡簡化取第一筆找到的）
+                        if not agency_doc_number:
+                            agency_doc_number = doc_link.document.doc_number
+                    elif doc_link.link_type == 'company_outgoing':
+                        # 乾坤發文：取最新一筆
+                        if not company_doc_number:
+                            company_doc_number = doc_link.document.doc_number
 
             dispatch_orders.append({
                 'link_id': link.id,

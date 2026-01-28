@@ -27,12 +27,13 @@ import {
   Popconfirm,
   Radio,
   Typography,
+  Tooltip,
 } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
-import type { DispatchDocumentsTabProps } from './types';
-import type { OfficialDocument, DispatchDocumentLink, LinkType } from '../../../types/api';
+import type { DispatchDocumentsTabProps, LinkableDocumentOption } from './types';
+import type { DispatchDocumentLink, LinkType } from '../../../types/api';
 import { isReceiveDocument } from '../../../types/api';
 
 const { Option } = Select;
@@ -74,6 +75,7 @@ export const DispatchDocumentsTab: React.FC<DispatchDocumentsTabProps> = ({
   unlinkDocMutationPending,
   refetch,
   navigate,
+  returnPath,
 }) => {
   // 按公文日期排序（最新的排前面）
   const documents = [...(dispatch?.linked_documents || [])].sort((a, b) => {
@@ -88,7 +90,7 @@ export const DispatchDocumentsTab: React.FC<DispatchDocumentsTabProps> = ({
     setSelectedDocId(docId);
     // 自動判斷關聯類型
     if (docId) {
-      const selectedDoc = availableDocs.find((d: OfficialDocument) => d.id === docId);
+      const selectedDoc = availableDocs.find((d: LinkableDocumentOption) => d.id === docId);
       if (selectedDoc?.doc_number) {
         setSelectedLinkType(detectLinkType(selectedDoc.doc_number));
       }
@@ -101,7 +103,7 @@ export const DispatchDocumentsTab: React.FC<DispatchDocumentsTabProps> = ({
       {canEdit && (
         <Card size="small" style={{ marginBottom: 16 }} title="新增公文關聯">
           <Row gutter={[12, 12]} align="middle">
-            <Col span={10}>
+            <Col xs={24} sm={24} md={12} lg={12}>
               <Select
                 showSearch
                 allowClear
@@ -111,30 +113,64 @@ export const DispatchDocumentsTab: React.FC<DispatchDocumentsTabProps> = ({
                 onChange={handleDocumentChange}
                 onSearch={setDocSearchKeyword}
                 filterOption={false}
+                popupMatchSelectWidth={false}
+                styles={{ popup: { root: { minWidth: 500, maxWidth: 700 } } }}
                 notFoundContent={
                   docSearchKeyword ? (
                     <Empty description="無符合的公文" image={Empty.PRESENTED_IMAGE_SIMPLE} />
                   ) : (
-                    <Typography.Text type="secondary">請輸入關鍵字搜尋</Typography.Text>
+                    <Typography.Text type="secondary">請輸入關鍵字搜尋（僅顯示桃園派工相關公文）</Typography.Text>
                   )
                 }
                 loading={searchingDocs}
+                optionLabelProp="label"
               >
-                {availableDocs.map((doc: OfficialDocument) => (
-                  <Option key={doc.id} value={doc.id}>
-                    <Space>
-                      <Tag color={isReceiveDocument(doc.category) ? 'blue' : 'green'}>
-                        {doc.doc_number || `#${doc.id}`}
-                      </Tag>
-                      <Text ellipsis style={{ maxWidth: 200 }}>
-                        {doc.subject || '(無主旨)'}
-                      </Text>
-                    </Space>
-                  </Option>
-                ))}
+                {availableDocs.map((doc: LinkableDocumentOption) => {
+                  const docNumber = doc.doc_number || `#${doc.id}`;
+                  const subject = doc.subject || '(無主旨)';
+                  const isReceive = isReceiveDocument(doc.category);
+                  const dateStr = doc.doc_date ? doc.doc_date.substring(0, 10) : '';
+                  const tooltipContent = (
+                    <div style={{ maxWidth: 400 }}>
+                      <div><strong>字號：</strong>{docNumber}</div>
+                      <div><strong>主旨：</strong>{subject}</div>
+                      {dateStr && <div><strong>日期：</strong>{dateStr}</div>}
+                      {doc.sender && <div><strong>發文：</strong>{doc.sender}</div>}
+                      {doc.receiver && <div><strong>受文：</strong>{doc.receiver}</div>}
+                    </div>
+                  );
+
+                  return (
+                    <Option key={doc.id} value={doc.id} label={docNumber}>
+                      <Tooltip title={tooltipContent} placement="right" mouseEnterDelay={0.5}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <Tag
+                            color={isReceive ? 'blue' : 'green'}
+                            style={{ flexShrink: 0, margin: 0 }}
+                          >
+                            {isReceive ? '收' : '發'}
+                          </Tag>
+                          <Text
+                            strong
+                            style={{ flexShrink: 0, minWidth: 180 }}
+                          >
+                            {docNumber}
+                          </Text>
+                          <Text
+                            type="secondary"
+                            ellipsis
+                            style={{ flex: 1, maxWidth: 300 }}
+                          >
+                            {subject}
+                          </Text>
+                        </div>
+                      </Tooltip>
+                    </Option>
+                  );
+                })}
               </Select>
             </Col>
-            <Col span={8}>
+            <Col xs={16} sm={14} md={7} lg={7}>
               <Radio.Group
                 value={selectedLinkType}
                 onChange={(e) => setSelectedLinkType(e.target.value)}
@@ -143,7 +179,7 @@ export const DispatchDocumentsTab: React.FC<DispatchDocumentsTabProps> = ({
                 <Radio.Button value="company_outgoing">乾坤發文</Radio.Button>
               </Radio.Group>
             </Col>
-            <Col span={6}>
+            <Col xs={8} sm={10} md={5} lg={5}>
               <Button
                 type="primary"
                 icon={<PlusOutlined />}
@@ -196,7 +232,10 @@ export const DispatchDocumentsTab: React.FC<DispatchDocumentsTabProps> = ({
                   <Button
                     type="link"
                     size="small"
-                    onClick={() => navigate(`/documents/${doc.document_id}`)}
+                    onClick={() => navigate(
+                      `/documents/${doc.document_id}`,
+                      returnPath ? { state: { returnTo: returnPath } } : undefined
+                    )}
                   >
                     查看公文
                   </Button>

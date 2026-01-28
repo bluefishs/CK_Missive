@@ -37,6 +37,8 @@ export interface PreviewDrawerProps {
   subtitle?: string;
   /** 完整頁面路徑 (用於「檢視完整」和「新分頁開啟」) */
   detailPath?: string;
+  /** 返回路徑 (用於導航時傳遞 state) */
+  returnTo?: string;
   /** 載入中狀態 */
   loading?: boolean;
   /** 自訂寬度 (桌面版) */
@@ -59,6 +61,7 @@ export const PreviewDrawer: React.FC<PreviewDrawerProps> = ({
   title,
   subtitle,
   detailPath,
+  returnTo,
   loading = false,
   width,
   children,
@@ -80,7 +83,8 @@ export const PreviewDrawer: React.FC<PreviewDrawerProps> = ({
   const handleViewDetail = () => {
     if (detailPath) {
       onClose();
-      navigate(detailPath);
+      // 傳遞 returnTo 狀態，讓詳情頁知道如何返回
+      navigate(detailPath, returnTo ? { state: { returnTo } } : undefined);
     }
   };
 

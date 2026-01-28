@@ -14,7 +14,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Form,
   Button,
@@ -86,9 +86,13 @@ import { hasProjectFeature } from '../config/projectModules';
 export const DocumentDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { message } = App.useApp();
   const [form] = Form.useForm();
   const queryClient = useQueryClient();
+
+  // 從 state 讀取返回路徑（支援從函文紀錄等頁面返回）
+  const returnTo = (location.state as { returnTo?: string })?.returnTo;
 
   // 基本狀態
   const [loading, setLoading] = useState(true);
@@ -481,7 +485,7 @@ export const DocumentDetailPage: React.FC = () => {
       await documentsApi.deleteDocument(parseInt(id, 10));
       queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
       message.success('公文刪除成功');
-      navigate('/documents');
+      navigate(returnTo || '/documents');
     } catch (error) {
       console.error('刪除公文失敗:', error);
       message.error('刪除公文失敗');
@@ -723,8 +727,12 @@ export const DocumentDetailPage: React.FC = () => {
   const headerConfig = {
     title: document?.subject || '公文詳情',
     icon: <FileTextOutlined />,
-    backText: '返回公文列表',
-    backPath: '/documents',
+    backText: returnTo?.includes('taoyuan/dispatch/')
+      ? '返回派工單'
+      : returnTo?.includes('taoyuan/dispatch')
+        ? '返回函文紀錄'
+        : '返回公文列表',
+    backPath: returnTo || '/documents',
     tags: document ? [
       { text: document.doc_type || '函', color: getTagColor(document.doc_type, DOC_TYPE_OPTIONS, 'blue') },
       { text: document.status || '未設定', color: getTagColor(document.status, STATUS_OPTIONS, 'default') },

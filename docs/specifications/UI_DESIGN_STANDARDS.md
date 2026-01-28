@@ -260,7 +260,96 @@ export interface AttachmentsTabProps {
 
 ---
 
-## 5. 既有實作參考
+## 5. 導航返回機制 (returnTo Pattern)
+
+### 設計原則
+
+當從 A 頁面導航到 B 頁面後，點擊返回應回到 A 頁面的正確狀態（包含 Tab）。
+
+### 實作架構
+
+```typescript
+// 1. 來源頁面：導航時傳遞 returnTo 狀態
+navigate(`/documents/${id}`, {
+  state: { returnTo: '/taoyuan/dispatch/3?tab=documents' }
+});
+
+// 2. 目標頁面：讀取並使用 returnTo
+const location = useLocation();
+const returnTo = (location.state as { returnTo?: string })?.returnTo;
+
+const headerConfig = {
+  backPath: returnTo || '/default-path',
+  backText: returnTo?.includes('dispatch/') ? '返回派工單' : '返回列表',
+};
+
+// 3. DetailPageHeader：使用 backPath 導航
+const handleBack = () => {
+  navigate(backPath);
+};
+```
+
+### URL Tab 參數同步
+
+詳情頁需支援 URL Tab 參數，以便返回時恢復正確的 Tab：
+
+```typescript
+// 讀取初始 Tab
+const [searchParams, setSearchParams] = useSearchParams();
+const initialTab = searchParams.get('tab') || 'info';
+const [activeTab, setActiveTab] = useState(initialTab);
+
+// 同步 URL 參數變化（處理瀏覽器後退/前進）
+useEffect(() => {
+  const tabFromUrl = searchParams.get('tab') || 'info';
+  if (tabFromUrl !== activeTab) {
+    setActiveTab(tabFromUrl);
+  }
+}, [searchParams, activeTab]);
+
+// Tab 變更時更新 URL
+const handleTabChange = useCallback((tabKey: string) => {
+  setActiveTab(tabKey);
+  setSearchParams({ tab: tabKey }, { replace: true });
+}, [setSearchParams]);
+```
+
+### 範例：派工單公文關聯
+
+| 步驟 | 動作 | URL |
+|------|------|-----|
+| 1 | 進入派工單詳情頁 | `/taoyuan/dispatch/3` |
+| 2 | 切換到公文關聯 Tab | `/taoyuan/dispatch/3?tab=documents` |
+| 3 | 點擊「查看公文」 | `/documents/827` (state: returnTo) |
+| 4 | 顯示「返回派工單」 | - |
+| 5 | 點擊返回 | `/taoyuan/dispatch/3?tab=documents` |
+
+### Props 設計
+
+傳遞 returnPath 給子元件：
+
+```typescript
+interface ChildComponentProps {
+  navigate: (path: string, options?: { state?: { returnTo?: string } }) => void;
+  returnPath?: string;
+}
+
+// 父元件傳遞
+<ChildComponent
+  navigate={navigate}
+  returnPath={`/parent/${id}?tab=current`}
+/>
+
+// 子元件使用
+onClick={() => navigate(
+  `/target/${targetId}`,
+  returnPath ? { state: { returnTo: returnPath } } : undefined
+)}
+```
+
+---
+
+## 6. 既有實作參考
 
 | 功能 | 參考檔案 |
 |------|----------|
@@ -269,6 +358,8 @@ export interface AttachmentsTabProps {
 | 檔案上傳 UI | `frontend/src/components/document/operations/FileUploadSection.tsx` |
 | 附件列表 UI | `frontend/src/components/document/operations/ExistingAttachmentsList.tsx` |
 | 檔案 API | `frontend/src/api/filesApi.ts` |
+| 導航返回機制 | `frontend/src/pages/TaoyuanDispatchDetailPage.tsx` |
+| returnTo 處理 | `frontend/src/pages/DocumentDetailPage.tsx` |
 
 ---
 
@@ -276,4 +367,5 @@ export interface AttachmentsTabProps {
 
 | 版本 | 日期 | 變更內容 |
 |------|------|----------|
+| 1.1.0 | 2026-01-28 | 新增導航返回機制 (returnTo Pattern) 規範 |
 | 1.0.0 | 2026-01-26 | 初版建立，含導航模式、檔案上傳、表單頁面規範 |
