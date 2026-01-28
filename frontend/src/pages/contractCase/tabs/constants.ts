@@ -25,7 +25,7 @@ export const STATUS_OPTIONS = [
   { value: '待執行', label: '待執行', color: 'warning' },
   { value: '執行中', label: '執行中', color: 'processing' },
   { value: '已結案', label: '已結案', color: 'success' },
-  { value: '暫停', label: '暫停', color: 'error' },
+  { value: '未得標', label: '未得標', color: 'error' },
 ];
 
 // 承辦同仁角色選項 (與 StaffPage ROLE_OPTIONS 一致)

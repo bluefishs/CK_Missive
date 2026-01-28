@@ -527,12 +527,13 @@ async def list_documents(
 | `.claude/skills/type-management.md` | 型別管理規範 v1.1.0 (SSOT 架構) |
 | `.claude/skills/api-serialization.md` | API 序列化規範 v1.0.0 |
 | `.claude/commands/type-sync.md` | 型別同步檢查 v2.0.0 |
-| `backend/app/core/dependencies.py` | 🆕 **依賴注入模組 v1.13.0** |
+| `backend/app/core/dependencies.py` | 依賴注入模組 v1.13.0 |
 | `docs/DEVELOPMENT_STANDARDS.md` | 統一開發規範總綱 |
 | `docs/specifications/API_ENDPOINT_CONSISTENCY.md` | API 端點一致性 v2.0.0 |
 | `docs/specifications/TYPE_CONSISTENCY.md` | 型別一致性規範 |
 | `docs/specifications/SCHEMA_DB_MAPPING.md` | Schema-DB 欄位對照表 v1.0.0 |
 | `docs/specifications/LINK_ID_HANDLING_SPECIFICATION.md` | 關聯記錄處理規範 v1.0.0 |
+| `docs/specifications/UI_DESIGN_STANDARDS.md` | 🆕 **UI 設計規範 v1.0.0** (導航模式、檔案上傳) |
 | `docs/specifications/TESTING_FRAMEWORK.md` | 測試框架規範 |
 | `docs/Architecture_Optimization_Recommendations.md` | 📐 架構優化建議 |
 | `@AGENT.md` | 開發代理指引 |

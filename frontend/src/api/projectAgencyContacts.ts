@@ -3,44 +3,17 @@
  */
 import { apiClient } from './client';
 
-export interface ProjectAgencyContact {
-  id: number;
-  project_id: number;
-  contact_name: string;
-  position?: string;
-  department?: string;
-  phone?: string;
-  mobile?: string;
-  email?: string;
-  is_primary: boolean;
-  notes?: string;
-  created_at: string;
-  updated_at: string;
-}
+// 從 types/api.ts 匯入統一的型別定義
+import {
+  ProjectAgencyContact,
+  ProjectAgencyContactCreate,
+  ProjectAgencyContactUpdate,
+} from '../types/api';
 
-export interface ProjectAgencyContactCreate {
-  project_id: number;
-  contact_name: string;
-  position?: string;
-  department?: string;
-  phone?: string;
-  mobile?: string;
-  email?: string;
-  is_primary?: boolean;
-  notes?: string;
-}
+// 重新匯出供外部使用
+export type { ProjectAgencyContact, ProjectAgencyContactCreate, ProjectAgencyContactUpdate };
 
-export interface ProjectAgencyContactUpdate {
-  contact_name?: string;
-  position?: string;
-  department?: string;
-  phone?: string;
-  mobile?: string;
-  email?: string;
-  is_primary?: boolean;
-  notes?: string;
-}
-
+/** 專案機關承辦列表回應 */
 export interface ProjectAgencyContactListResponse {
   items: ProjectAgencyContact[];
   total: number;

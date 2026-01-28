@@ -560,6 +560,32 @@ class ApiClient {
 
     return null;
   }
+
+  /**
+   * POST 請求（FormData）
+   *
+   * 用於上傳檔案或提交 FormData
+   */
+  async postForm<T>(url: string, formData: FormData): Promise<T> {
+    const response = await this.axios.post<T>(url, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  }
+
+  /**
+   * POST 請求（取得 Blob 回應）
+   *
+   * 用於下載二進位檔案
+   */
+  async postBlob(url: string, data?: unknown): Promise<Blob> {
+    const response = await this.axios.post(url, data, {
+      responseType: 'blob',
+    });
+    return response.data;
+  }
 }
 
 // ============================================================================

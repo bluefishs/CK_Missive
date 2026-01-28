@@ -1,309 +1,55 @@
 /**
  * 日曆事件表單模態框
  * 用於新增和編輯日曆事件 (符合 POST 資安機制)
+ *
+ * @version 2.0.0 - 模組化重構：Hook 提取
+ * @date 2026-01-28
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React from 'react';
 import {
   Modal, Form, Input, Select, DatePicker, Switch,
-  Row, Col, Space, Button, Spin, Divider, Grid, App
+  Row, Col, Space, Button, Spin, Divider,
 } from 'antd';
-
-const { useBreakpoint } = Grid;
 import {
   BellOutlined, CalendarOutlined, AlertOutlined,
-  EyeOutlined, UnorderedListOutlined, FileTextOutlined
+  EyeOutlined, UnorderedListOutlined, FileTextOutlined,
 } from '@ant-design/icons';
-import type { Dayjs } from 'dayjs';
-import dayjs from 'dayjs';
-import { apiClient } from '../../api/client';
-import debounce from 'lodash/debounce';
+
+import { useEventForm } from './form/useEventForm';
+import type { EventFormModalProps } from './form/types';
+import { EVENT_TYPE_OPTIONS, PRIORITY_OPTIONS } from './form/types';
 
 const { TextArea } = Input;
 
-interface EventFormData {
-  title: string;
-  description?: string;
-  start_date: Dayjs;
-  end_date?: Dayjs;
-  all_day: boolean;
-  event_type: string;
-  priority: number;
-  location?: string;
-  document_id?: number;
-  assigned_user_id?: number;
-  reminder_enabled?: boolean;
-  reminder_minutes?: number;
-}
-
-interface CalendarEvent {
-  id: number;
-  title: string;
-  description?: string;
-  start_date: string;
-  end_date?: string;
-  all_day: boolean;
-  event_type: string;
-  priority: string | number;
-  location?: string;
-  document_id?: number;
-  doc_number?: string;
-  assigned_user_id?: number;
-}
-
-// 公文選項介面
-interface DocumentOption {
-  id: number;
-  doc_number: string;
-  subject: string;
-}
-
-interface EventFormModalProps {
-  visible: boolean;
-  mode: 'create' | 'edit';
-  event?: CalendarEvent | null;
-  onClose: () => void;
-  onSuccess: () => void;
-}
-
-const EVENT_TYPE_OPTIONS = [
-  { value: 'deadline', label: '截止提醒', icon: <AlertOutlined style={{ color: '#f5222d' }} /> },
-  { value: 'meeting', label: '會議安排', icon: <CalendarOutlined style={{ color: '#722ed1' }} /> },
-  { value: 'review', label: '審核提醒', icon: <EyeOutlined style={{ color: '#1890ff' }} /> },
-  { value: 'reminder', label: '一般提醒', icon: <BellOutlined style={{ color: '#fa8c16' }} /> },
-  { value: 'reference', label: '參考事件', icon: <UnorderedListOutlined style={{ color: '#666' }} /> }
-];
-
-const PRIORITY_OPTIONS = [
-  { value: 1, label: '緊急', color: '#f5222d' },
-  { value: 2, label: '重要', color: '#fa8c16' },
-  { value: 3, label: '普通', color: '#1890ff' },
-  { value: 4, label: '低', color: '#52c41a' },
-  { value: 5, label: '最低', color: '#d9d9d9' }
-];
+const EVENT_TYPE_ICONS: Record<string, React.ReactNode> = {
+  deadline: <AlertOutlined style={{ color: '#f5222d' }} />,
+  meeting: <CalendarOutlined style={{ color: '#722ed1' }} />,
+  review: <EyeOutlined style={{ color: '#1890ff' }} />,
+  reminder: <BellOutlined style={{ color: '#fa8c16' }} />,
+  reference: <UnorderedListOutlined style={{ color: '#666' }} />,
+};
 
 export const EventFormModal: React.FC<EventFormModalProps> = ({
   visible,
   mode,
   event,
   onClose,
-  onSuccess
+  onSuccess,
 }) => {
-  const [form] = Form.useForm();
-  const { notification, modal } = App.useApp();
-  const [loading, setLoading] = useState(false);
-  const [allDay, setAllDay] = useState(false);
-  const [documentOptions, setDocumentOptions] = useState<DocumentOption[]>([]);
-  const [documentSearchError, setDocumentSearchError] = useState<string | null>(null);
-  const [existingEventsWarning, setExistingEventsWarning] = useState<string | null>(null);
-
-  // 響應式斷點
-  const screens = useBreakpoint();
-  const isMobile = !screens.md;
-  const [documentSearching, setDocumentSearching] = useState(false);
-
-  // 檢查公文是否已有行事曆事件
-  const checkDocumentEvents = async (documentId: number) => {
-    try {
-      const response = await apiClient.post<{
-        has_events: boolean;
-        event_count: number;
-        events: Array<{ id: number; title: string; start_date: string }>;
-        message: string;
-      }>('/calendar/events/check-document', { document_id: documentId });
-
-      if (response.has_events && response.event_count > 0) {
-        setExistingEventsWarning(
-          `此公文已有 ${response.event_count} 筆行事曆事件。建立新事件可能造成重複。`
-        );
-        notification.warning({
-          message: '公文已有事件',
-          description: `此公文已有 ${response.event_count} 筆行事曆事件，建議先確認是否需要新增。`,
-          duration: 5,
-        });
-      } else {
-        setExistingEventsWarning(null);
-      }
-    } catch (error) {
-      console.error('檢查公文事件失敗:', error);
-      // 靜默失敗，不影響使用者操作
-    }
-  };
-
-  // 處理關聯公文選擇變更
-  const handleDocumentChange = (value: number | undefined) => {
-    setExistingEventsWarning(null);
-    if (value && mode === 'create') {
-      checkDocumentEvents(value);
-    }
-  };
-
-  // 搜尋公文（防抖動）
-  const searchDocuments = useCallback(
-    debounce(async (keyword: string) => {
-      setDocumentSearchError(null);
-
-      if (!keyword || keyword.length < 2) {
-        setDocumentOptions([]);
-        return;
-      }
-
-      setDocumentSearching(true);
-      try {
-        const response = await apiClient.post<{
-          success: boolean;
-          items: Array<{
-            id: number;
-            doc_number: string;
-            subject?: string;
-          }>;
-        }>('/documents-enhanced/list', {
-          keyword,
-          limit: 20,
-          page: 1
-        });
-
-        if (response.success && response.items) {
-          setDocumentOptions(response.items.map(doc => ({
-            id: doc.id,
-            doc_number: doc.doc_number,
-            subject: doc.subject || ''
-          })));
-          if (response.items.length === 0) {
-            setDocumentSearchError('找不到符合的公文');
-          }
-        } else {
-          setDocumentSearchError('搜尋失敗，請稍後再試');
-        }
-      } catch (error) {
-        console.error('搜尋公文失敗:', error);
-        setDocumentSearchError('搜尋時發生錯誤');
-        notification.error({
-          message: '搜尋公文失敗',
-          description: '請檢查網路連線或稍後再試',
-          duration: 3,
-        });
-      } finally {
-        setDocumentSearching(false);
-      }
-    }, 300),
-    [notification]
-  );
-
-  // 初始化表單數據
-  useEffect(() => {
-    if (visible && mode === 'edit' && event) {
-      // 調試：記錄接收到的事件資料
-      console.log('[EventFormModal] 初始化編輯模式，接收事件:', event);
-      console.log('[EventFormModal] event.start_date:', event.start_date);
-      console.log('[EventFormModal] 轉換後 dayjs:', dayjs(event.start_date).format('YYYY-MM-DD HH:mm'));
-
-      const formValues = {
-        title: event.title,
-        description: event.description,
-        start_date: dayjs(event.start_date),
-        end_date: event.end_date ? dayjs(event.end_date) : undefined,
-        all_day: event.all_day,
-        event_type: event.event_type,
-        priority: typeof event.priority === 'string' ? parseInt(event.priority) : event.priority,
-        location: event.location,
-        document_id: event.document_id,
-        assigned_user_id: event.assigned_user_id
-      };
-      console.log('[EventFormModal] 設定表單值:', formValues);
-
-      form.setFieldsValue(formValues);
-      setAllDay(event.all_day);
-      // 如果有關聯公文，預載公文選項
-      if (event.document_id && event.doc_number) {
-        setDocumentOptions([{
-          id: event.document_id,
-          doc_number: event.doc_number,
-          subject: ''
-        }]);
-      }
-    } else if (visible && mode === 'create') {
-      form.resetFields();
-      form.setFieldsValue({
-        event_type: 'reminder',
-        priority: 3,
-        all_day: false,
-        start_date: dayjs()
-      });
-      setAllDay(false);
-      setDocumentOptions([]);
-      setExistingEventsWarning(null);
-    }
-  }, [visible, mode, event, form]);
-
-  // 提交表單
-  const handleSubmit = async () => {
-    try {
-      const values = await form.validateFields();
-      setLoading(true);
-
-      // 調試：檢查表單值
-      console.log('[EventFormModal] 表單值:', values);
-      console.log('[EventFormModal] start_date 原始值:', values.start_date);
-      console.log('[EventFormModal] start_date ISO:', values.start_date?.toISOString?.());
-
-      const submitData = {
-        title: values.title,
-        description: values.description || null,
-        start_date: values.start_date.toISOString(),
-        end_date: values.end_date?.toISOString() || null,
-        all_day: values.all_day || false,
-        event_type: values.event_type,
-        priority: values.priority,
-        location: values.location || null,
-        document_id: values.document_id || null,
-        assigned_user_id: values.assigned_user_id || null
-      };
-
-      console.log('[EventFormModal] 提交資料:', submitData);
-
-      if (mode === 'create') {
-        // 新增事件 (POST /api/calendar/events)
-        const response = await apiClient.post<{ success: boolean; message: string }>(
-          '/calendar/events',
-          submitData
-        );
-        if (response.success) {
-          notification.success({ message: '事件建立成功' });
-          onSuccess();
-          onClose();
-        } else {
-          throw new Error(response.message || '建立失敗');
-        }
-      } else if (mode === 'edit' && event) {
-        // 更新事件 (POST /api/calendar/events/update)
-        console.log('[EventFormModal] 發送更新請求, event_id:', event.id);
-        const response = await apiClient.post<{ success: boolean; message: string; event?: any }>(
-          '/calendar/events/update',
-          {
-            event_id: event.id,
-            ...submitData
-          }
-        );
-        console.log('[EventFormModal] 更新回應:', response);
-        if (response.success) {
-          notification.success({ message: '事件更新成功' });
-          onSuccess();
-          onClose();
-        } else {
-          throw new Error(response.message || '更新失敗');
-        }
-      }
-    } catch (error: any) {
-      console.error('[EventFormModal] 提交失敗:', error);
-      console.error('[EventFormModal] 錯誤詳情:', error.response?.data || error.message);
-      notification.error({
-        message: mode === 'create' ? '建立事件失敗' : '更新事件失敗',
-        description: error.response?.data?.detail || error.message || '請稍後再試'
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const {
+    form,
+    isMobile,
+    loading,
+    allDay,
+    setAllDay,
+    documentOptions,
+    documentSearchError,
+    existingEventsWarning,
+    documentSearching,
+    searchDocuments,
+    handleDocumentChange,
+    handleSubmit,
+  } = useEventForm(visible, mode, event, onClose, onSuccess);
 
   return (
     <Modal
@@ -312,18 +58,12 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
       onCancel={onClose}
       width={isMobile ? '95%' : 700}
       style={{ maxWidth: '95vw' }}
+      forceRender
       footer={[
-        <Button key="cancel" onClick={onClose}>
-          取消
-        </Button>,
-        <Button
-          key="submit"
-          type="primary"
-          loading={loading}
-          onClick={handleSubmit}
-        >
+        <Button key="cancel" onClick={onClose}>取消</Button>,
+        <Button key="submit" type="primary" loading={loading} onClick={handleSubmit}>
           {mode === 'create' ? '建立' : '儲存'}
-        </Button>
+        </Button>,
       ]}
     >
       <Spin spinning={loading}>
@@ -333,7 +73,7 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
           initialValues={{
             event_type: 'reminder',
             priority: 3,
-            all_day: false
+            all_day: false,
           }}
         >
           <Form.Item
@@ -344,10 +84,7 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
             <Input placeholder="輸入事件標題" maxLength={200} showCount />
           </Form.Item>
 
-          <Form.Item
-            name="description"
-            label="事件描述"
-          >
+          <Form.Item name="description" label="事件描述">
             <TextArea rows={3} placeholder="輸入事件描述（選填）" maxLength={1000} showCount />
           </Form.Item>
 
@@ -361,7 +98,7 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
                 <Select placeholder="選擇事件類型">
                   {EVENT_TYPE_OPTIONS.map(opt => (
                     <Select.Option key={opt.value} value={opt.value}>
-                      <Space>{opt.icon}{opt.label}</Space>
+                      <Space>{EVENT_TYPE_ICONS[opt.value]}{opt.label}</Space>
                     </Select.Option>
                   ))}
                 </Select>
@@ -386,19 +123,12 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
 
           <Row gutter={16}>
             <Col span={8}>
-              <Form.Item
-                name="all_day"
-                label="全天事件"
-                valuePropName="checked"
-              >
+              <Form.Item name="all_day" label="全天事件" valuePropName="checked">
                 <Switch onChange={setAllDay} />
               </Form.Item>
             </Col>
             <Col span={16}>
-              <Form.Item
-                name="location"
-                label="地點"
-              >
+              <Form.Item name="location" label="地點">
                 <Input placeholder="輸入地點（選填）" />
               </Form.Item>
             </Col>
@@ -419,10 +149,7 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item
-                name="end_date"
-                label="結束時間"
-              >
+              <Form.Item name="end_date" label="結束時間">
                 <DatePicker
                   showTime={!allDay}
                   format={allDay ? 'YYYY-MM-DD' : 'YYYY-MM-DD HH:mm'}
@@ -440,7 +167,7 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
             name="document_id"
             label="關聯公文"
             tooltip="輸入公文字號或主旨關鍵字搜尋（至少2個字元）"
-            rules={[{ required: true, message: '請選擇關聯公文（所有事件必須關聯公文）' }]}
+            rules={[{ required: mode === 'create', message: '請選擇關聯公文' }]}
             help={
               existingEventsWarning ? (
                 <span style={{ color: '#fa8c16' }}>{existingEventsWarning}</span>
@@ -477,11 +204,7 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
               status={documentSearchError ? 'warning' : undefined}
             >
               {documentOptions.map(doc => (
-                <Select.Option
-                  key={doc.id}
-                  value={doc.id}
-                  label={doc.doc_number}
-                >
+                <Select.Option key={doc.id} value={doc.id} label={doc.doc_number}>
                   <div>
                     <div style={{ fontWeight: 500 }}>{doc.doc_number}</div>
                     {doc.subject && (

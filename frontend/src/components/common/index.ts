@@ -14,3 +14,30 @@ export {
   ResponsiveCardGrid,
   ResponsiveContent,
 } from './ResponsiveContainer';
+
+// 附件相關共用元件（排除與 DetailPage 衝突的 formatFileSize）
+export {
+  AttachmentListItem,
+  AttachmentList,
+  AttachmentUploader,
+  isPreviewable,
+  getFileExtension,
+  getFileIconConfig,
+  validateFile,
+  createPreviewUrl,
+  downloadBlob,
+  PREVIEWABLE_MIME_TYPES,
+  PREVIEWABLE_EXTENSIONS,
+  DEFAULT_ALLOWED_EXTENSIONS,
+  DEFAULT_MAX_FILE_SIZE_MB,
+  // 重新命名以避免衝突
+  formatFileSize as formatAttachmentFileSize,
+} from './attachment';
+export type {
+  AttachmentListItemProps,
+  AttachmentItem,
+  AttachmentListProps,
+  AttachmentUploaderProps,
+  FileValidationResult,
+  FileValidationOptions,
+} from './attachment';

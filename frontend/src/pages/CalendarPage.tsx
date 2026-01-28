@@ -435,7 +435,7 @@ const CalendarPage: React.FC = () => {
           description: editingEvent.description,
           start_date: editingEvent.start_datetime,
           end_date: editingEvent.end_datetime,
-          all_day: false, // CalendarEventUI 沒有 all_day，使用預設值
+          all_day: editingEvent.all_day ?? false,  // 使用實際值
           event_type: editingEvent.event_type || 'reminder',
           priority: typeof editingEvent.priority === 'string'
             ? parseInt(editingEvent.priority, 10)

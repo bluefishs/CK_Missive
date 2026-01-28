@@ -24,10 +24,12 @@ from app.repositories.base_repository import BaseRepository
 from app.repositories.document_repository import DocumentRepository
 from app.repositories.project_repository import ProjectRepository
 from app.repositories.agency_repository import AgencyRepository
+from app.repositories.vendor_repository import VendorRepository
 
 __all__ = [
     "BaseRepository",
     "DocumentRepository",
     "ProjectRepository",
     "AgencyRepository",
+    "VendorRepository",
 ]

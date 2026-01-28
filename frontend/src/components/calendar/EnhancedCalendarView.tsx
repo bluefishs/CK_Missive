@@ -5,7 +5,7 @@
  * 重構版本：拆分為多個子元件
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Card, Space, Empty, App, Grid, Tag } from 'antd';
 import type { MenuProps } from 'antd';
 import {
@@ -100,15 +100,22 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
         const eventDate = dayjs(event.start_date);
         const today = dayjs();
 
+        // 使用 ISO Week（週一開始）確保一致性
+        const weekStart = today.startOf('isoWeek');
+        const weekEnd = today.endOf('isoWeek');
+        // 下週事件：下週一起算 7 天（下週一 ~ 下週日），與本週不重疊
+        const nextWeekStart = weekEnd.add(1, 'day').startOf('day');  // 下週一
+        const nextWeekEnd = nextWeekStart.add(6, 'day').endOf('day'); // 下週日
+
         switch (quickFilter) {
           case 'today':
             if (!eventDate.isSame(today, 'day')) return false;
             break;
           case 'thisWeek':
-            if (!eventDate.isSame(today, 'week')) return false;
+            if (!(eventDate.isSameOrAfter(weekStart, 'day') && eventDate.isSameOrBefore(weekEnd, 'day'))) return false;
             break;
           case 'upcoming':
-            if (!eventDate.isAfter(today, 'day') || !eventDate.isBefore(today.add(7, 'day'), 'day')) return false;
+            if (!(eventDate.isSameOrAfter(nextWeekStart, 'day') && eventDate.isSameOrBefore(nextWeekEnd, 'day'))) return false;
             break;
           case 'overdue':
             if (!(event.status === 'pending' && eventDate.isBefore(today, 'day'))) return false;
@@ -153,15 +160,26 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
 
   // 統計數據
   const statistics = useMemo<CalendarStatisticsType>(() => {
+    const now = dayjs();
+    // 使用 ISO Week（週一開始）確保一致性
+    const weekStart = now.startOf('isoWeek');
+    const weekEnd = now.endOf('isoWeek');
+    // 下週事件：下週一起算 7 天（下週一 ~ 下週日），與本週不重疊
+    const nextWeekStart = weekEnd.add(1, 'day').startOf('day');  // 下週一
+    const nextWeekEnd = nextWeekStart.add(6, 'day').endOf('day'); // 下週日
+
     const total = events.length;
-    const today = events.filter(e => dayjs(e.start_date).isSame(dayjs(), 'day')).length;
-    const thisWeek = events.filter(e => dayjs(e.start_date).isSame(dayjs(), 'week')).length;
-    const upcoming = events.filter(e =>
-      dayjs(e.start_date).isAfter(dayjs(), 'day') &&
-      dayjs(e.start_date).isBefore(dayjs().add(7, 'day'), 'day')
-    ).length;
+    const today = events.filter(e => dayjs(e.start_date).isSame(now, 'day')).length;
+    const thisWeek = events.filter(e => {
+      const eventDate = dayjs(e.start_date);
+      return eventDate.isSameOrAfter(weekStart, 'day') && eventDate.isSameOrBefore(weekEnd, 'day');
+    }).length;
+    const upcoming = events.filter(e => {
+      const eventDate = dayjs(e.start_date);
+      return eventDate.isSameOrAfter(nextWeekStart, 'day') && eventDate.isSameOrBefore(nextWeekEnd, 'day');
+    }).length;
     const overdue = events.filter(e =>
-      e.status === 'pending' && dayjs(e.start_date).isBefore(dayjs(), 'day')
+      e.status === 'pending' && dayjs(e.start_date).isBefore(now, 'day')
     ).length;
 
     return { total, today, thisWeek, upcoming, overdue };
@@ -321,6 +339,42 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
     });
   };
 
+  // 事件拖曳處理（變更日期）
+  const handleEventDrop = useCallback(async (eventId: number, newDate: Dayjs, originalDate: string) => {
+    if (!onEventUpdate) {
+      notification.warning({ message: '更新功能暫不可用' });
+      return;
+    }
+
+    // 計算日期差異，保持時間部分不變
+    const originalDayjs = dayjs(originalDate);
+    const daysDiff = newDate.diff(originalDayjs, 'day');
+
+    // 找到原事件以獲取完整資料
+    const event = events.find(e => e.id === eventId);
+    if (!event) {
+      notification.error({ message: '找不到事件' });
+      return;
+    }
+
+    // 計算新的開始和結束日期（保持原時間）
+    const newStartDate = dayjs(event.start_date).add(daysDiff, 'day');
+    const newEndDate = event.end_date
+      ? dayjs(event.end_date).add(daysDiff, 'day')
+      : newStartDate;
+
+    try {
+      await onEventUpdate(eventId, {
+        start_date: newStartDate.toISOString(),
+        end_date: newEndDate.toISOString()
+      });
+      onRefresh?.();
+    } catch (error) {
+      console.error('拖曳更新失敗:', error);
+      throw error;
+    }
+  }, [events, onEventUpdate, onRefresh, notification]);
+
   // 事件操作選單
   const getEventActionMenu = (event: CalendarEvent): MenuProps['items'] => [
     {
@@ -465,6 +519,8 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
                 setSelectedDate(date);
                 onDateSelect?.(date);
               }}
+              onEventDrop={handleEventDrop}
+              enableDragDrop={!isMobile && !!onEventUpdate}
             />
           )}
 
@@ -524,7 +580,10 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
             setSelectedEvent(null);
           }}
           onSuccess={() => {
-            notification.success({ message: '事件操作成功，請重新載入頁面' });
+            setShowEventFormModal(false);
+            setSelectedEvent(null);
+            // 觸發資料刷新
+            onRefresh?.();
           }}
         />
 
@@ -534,7 +593,8 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
           event={selectedEvent}
           onClose={() => setShowReminderModal(false)}
           onSuccess={() => {
-            notification.success({ message: '提醒設定已更新' });
+            // 觸發資料刷新
+            onRefresh?.();
           }}
         />
       </Space>

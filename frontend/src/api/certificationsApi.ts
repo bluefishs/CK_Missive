@@ -130,6 +130,53 @@ export const certificationsApi = {
     );
     return response.data;
   },
+
+  /**
+   * 上傳證照附件（含進度追蹤）
+   *
+   * @param certId 證照 ID
+   * @param file 檔案
+   * @param onProgress 進度回調 (percent: 0-100)
+   * @returns 上傳結果
+   */
+  async uploadAttachment(
+    certId: number,
+    file: File,
+    onProgress?: (percent: number) => void
+  ): Promise<{ cert_id: number; attachment_path: string; filename: string; file_size: number; checksum?: string }> {
+    const response = await apiClient.uploadWithProgress<{
+      success: boolean;
+      data: { cert_id: number; attachment_path: string; filename: string; file_size: number; checksum?: string };
+    }>(
+      API_ENDPOINTS.CERTIFICATIONS.UPLOAD_ATTACHMENT(certId),
+      file,
+      'file',
+      onProgress ? (percent) => onProgress(percent) : undefined
+    );
+
+    return response.data;
+  },
+
+  /**
+   * 下載證照附件
+   *
+   * @param certId 證照 ID
+   */
+  async downloadAttachment(certId: number): Promise<Blob> {
+    const response = await apiClient.postBlob(
+      API_ENDPOINTS.CERTIFICATIONS.DOWNLOAD_ATTACHMENT(certId)
+    );
+    return response;
+  },
+
+  /**
+   * 刪除證照附件
+   *
+   * @param certId 證照 ID
+   */
+  async deleteAttachment(certId: number): Promise<void> {
+    await apiClient.post(API_ENDPOINTS.CERTIFICATIONS.DELETE_ATTACHMENT(certId));
+  },
 };
 
 // 預設匯出

@@ -19,7 +19,22 @@ export { default as DocumentCardDefault } from './DocumentCard';
 export { DocumentList } from './DocumentList';
 
 // 公文篩選器
-export { DocumentFilter } from './DocumentFilter';
+export {
+  DocumentFilter,
+  type DocumentFilterProps,
+  // 子元件
+  PrimaryFilters,
+  AdvancedFilters,
+  FilterActions,
+  FilterFieldWrapper,
+  // Hooks
+  useFilterOptions,
+  useAutocompleteSuggestions,
+  // 常數
+  DOC_TYPE_OPTIONS,
+  DELIVERY_METHOD_OPTIONS,
+  STATUS_OPTIONS,
+} from './DocumentFilter';
 
 // 公文分頁
 export { DocumentPagination } from './DocumentPagination';

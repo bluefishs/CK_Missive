@@ -1,5 +1,17 @@
-import React, { useState, useRef } from 'react';
-import { Table, Button, Space, Typography, Tag, Empty, TableProps, Input, InputRef, Popover, List, Spin, App } from 'antd';
+/**
+ * DocumentList 公文列表元件
+ *
+ * 重構版本：使用提取的 Hooks 和 Column 定義
+ * - useAttachments: 附件管理邏輯
+ * - documentColumns: 桌面版/手機版欄位定義
+ *
+ * @version 2.0.0 - 模組化重構
+ * @date 2026-01-27
+ */
+
+import React, { useState, useRef, useCallback, useMemo } from 'react';
+import { Table, Button, Space, Empty, Input, InputRef, App } from 'antd';
+import type { TableProps } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import type {
   TablePaginationConfig,
@@ -10,16 +22,22 @@ import type {
   ColumnType,
   FilterDropdownProps,
 } from 'antd/es/table/interface';
-import type { ColumnsType } from 'antd/es/table';
 
-import { FileExcelOutlined, SearchOutlined, PaperClipOutlined, DownloadOutlined, EyeOutlined, FileOutlined } from '@ant-design/icons';
+import { FileExcelOutlined, SearchOutlined } from '@ant-design/icons';
 import Highlighter from 'react-highlight-words';
 import { Document } from '../../types';
-import { DocumentActions, BatchActions } from './DocumentActions';
-import { filesApi, type DocumentAttachment } from '../../api/filesApi';
+import { BatchActions } from './DocumentActions';
 import { documentsApi } from '../../api/documentsApi';
 import { logger } from '../../utils/logger';
 import { useResponsive } from '../../hooks';
+
+// 提取的模組
+import { useAttachments } from './hooks/useAttachments';
+import { getMobileColumns, getDesktopColumns } from './columns';
+
+// ============================================================================
+// 型別定義
+// ============================================================================
 
 interface DocumentListProps {
   documents: Document[];
@@ -44,7 +62,7 @@ interface DocumentListProps {
   onExportPdf?: (document: Document) => void;
   onSend?: (document: Document) => void;
   onArchive?: (document: Document) => void;
-  onAddToCalendar?: (document: Document) => void; // Add this prop
+  onAddToCalendar?: (document: Document) => void;
   onExport?: (() => void) | undefined;
   onBatchExport?: (documents: Document[]) => void;
   onBatchDelete?: (documents: Document[]) => void;
@@ -55,6 +73,10 @@ interface DocumentListProps {
   isAddingToCalendar?: boolean;
 }
 
+// ============================================================================
+// 主元件
+// ============================================================================
+
 export const DocumentList: React.FC<DocumentListProps> = ({
   documents,
   loading,
@@ -63,13 +85,13 @@ export const DocumentList: React.FC<DocumentListProps> = ({
   sortField: _sortField,
   sortOrder: _sortOrder,
   onTableChange,
-  onEdit,
-  onDelete,
-  onView,
-  onCopy,
-  onExportPdf,
-  onSend,
-  onArchive,
+  onEdit: _onEdit,
+  onDelete: _onDelete,
+  onView: _onView,
+  onCopy: _onCopy,
+  onExportPdf: _onExportPdf,
+  onSend: _onSend,
+  onArchive: _onArchive,
   onAddToCalendar: _onAddToCalendar,
   onExport,
   onBatchExport: _onBatchExport,
@@ -78,97 +100,29 @@ export const DocumentList: React.FC<DocumentListProps> = ({
   onBatchCopy: _onBatchCopy,
   enableBatchOperations = false,
   isExporting = false,
-  isAddingToCalendar = false,
+  isAddingToCalendar: _isAddingToCalendar = false,
 }) => {
   const navigate = useNavigate();
   const { isMobile } = useResponsive();
+  const { message } = App.useApp();
+
+  // 批次操作狀態
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [batchLoading, _setBatchLoading] = useState(false);
+
+  // 搜尋狀態
   const [searchText, setSearchText] = useState('');
   const [searchedColumn, setSearchedColumn] = useState('');
   const searchInput = useRef<InputRef>(null);
-  const { message } = App.useApp();
 
-  // 點擊行導向詳情頁面
-  const handleRowClick = (record: Document) => {
-    navigate(`/documents/${record.id}`);
-  };
+  // 使用提取的 Hook 管理附件
+  const attachmentHandlers = useAttachments();
 
-  // 附件管理狀態
-  const [attachmentCache, setAttachmentCache] = useState<Record<number, DocumentAttachment[]>>({});
-  const [loadingAttachments, setLoadingAttachments] = useState<Record<number, boolean>>({});
+  // ============================================================================
+  // 搜尋處理
+  // ============================================================================
 
-  // 載入附件列表 (使用 filesApi)
-  const loadAttachments = async (documentId: number) => {
-    if (attachmentCache[documentId]) {
-      return; // 已載入過，直接使用快取
-    }
-
-    setLoadingAttachments(prev => ({ ...prev, [documentId]: true }));
-    try {
-      const attachments = await filesApi.getDocumentAttachments(documentId);
-      setAttachmentCache(prev => ({ ...prev, [documentId]: attachments }));
-    } catch (error) {
-      console.error('載入附件失敗:', error);
-      message.error('載入附件列表失敗');
-    } finally {
-      setLoadingAttachments(prev => ({ ...prev, [documentId]: false }));
-    }
-  };
-
-  // 下載附件 (使用 filesApi)
-  const handleDownloadAttachment = async (attachment: DocumentAttachment, e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      await filesApi.downloadAttachment(attachment.id, attachment.filename);
-      message.success(`下載 ${attachment.filename} 成功`);
-    } catch (error) {
-      message.error(`下載 ${attachment.filename} 失敗`);
-    }
-  };
-
-  // 預覽附件 (POST-only 資安機制，使用 filesApi)
-  const handlePreviewAttachment = async (attachment: DocumentAttachment, e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      const blob = await filesApi.getAttachmentBlob(attachment.id);
-      const previewUrl = window.URL.createObjectURL(blob);
-      window.open(previewUrl, '_blank');
-      // 延遲釋放 URL，讓新視窗有時間載入
-      setTimeout(() => window.URL.revokeObjectURL(previewUrl), 10000);
-    } catch (error) {
-      message.error(`預覽 ${attachment.filename} 失敗`);
-    }
-  };
-
-  // 格式化檔案大小
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  // 判斷是否可預覽的檔案類型
-  const isPreviewable = (contentType?: string): boolean => {
-    if (!contentType) return false;
-    return contentType.startsWith('image/') ||
-           contentType === 'application/pdf' ||
-           contentType.startsWith('text/');
-  };
-
-  // Debug logging
-  logger.debug('=== DocumentList: 收到的 props ===', {
-    documentsCount: documents?.length || 0,
-    documents: documents,
-    loading,
-    total,
-    pagination
-  });
-
-  // 搜尋處理函數
-  const handleSearch = (
+  const handleSearch = useCallback((
     selectedKeys: string[],
     confirm: FilterDropdownProps['confirm'],
     dataIndex: string,
@@ -176,15 +130,15 @@ export const DocumentList: React.FC<DocumentListProps> = ({
     confirm();
     setSearchText(selectedKeys[0] || '');
     setSearchedColumn(dataIndex);
-  };
+  }, []);
 
-  const handleReset = (clearFilters: () => void) => {
+  const handleReset = useCallback((clearFilters: () => void) => {
     clearFilters();
     setSearchText('');
-  };
+  }, []);
 
   // 取得搜尋欄位的 column 配置
-  const getColumnSearchProps = (dataIndex: keyof Document): ColumnType<Document> => ({
+  const getColumnSearchProps = useCallback((dataIndex: keyof Document): ColumnType<Document> => ({
     filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters, close }) => (
       <div style={{ padding: 8 }} onKeyDown={(e) => e.stopPropagation()}>
         <Input
@@ -212,11 +166,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
           >
             重置
           </Button>
-          <Button
-            type="link"
-            size="small"
-            onClick={() => close()}
-          >
+          <Button type="link" size="small" onClick={() => close()}>
             關閉
           </Button>
         </Space>
@@ -247,452 +197,96 @@ export const DocumentList: React.FC<DocumentListProps> = ({
       ) : (
         text
       ),
-  });
+  }), [handleSearch, handleReset, searchedColumn, searchText]);
 
-  const handleBatchExportClick = async () => {
+  // ============================================================================
+  // 流水號計算
+  // ============================================================================
+
+  const getRowNumber = useCallback((index: number): number => {
+    return (pagination.current - 1) * pagination.pageSize + index + 1;
+  }, [pagination.current, pagination.pageSize]);
+
+  // ============================================================================
+  // 欄位定義
+  // ============================================================================
+
+  const columns = useMemo(() => {
+    if (isMobile) {
+      return getMobileColumns(getRowNumber);
+    }
+    return getDesktopColumns({
+      getRowNumber,
+      searchState: { searchText, searchedColumn },
+      getColumnSearchProps,
+      attachmentHandlers,
+    });
+  }, [isMobile, getRowNumber, searchText, searchedColumn, getColumnSearchProps, attachmentHandlers]);
+
+  // ============================================================================
+  // 批次操作處理
+  // ============================================================================
+
+  const handleBatchExportClick = useCallback(async () => {
     try {
-      // 如果有選取項目，匯出選取的公文；否則匯出全部
       const documentIds = selectedRowKeys.length > 0
         ? selectedRowKeys.map(key => Number(key))
         : [];
 
       message.loading({ content: '正在匯出公文...', key: 'export' });
-
       await documentsApi.exportDocuments(documentIds.length > 0 ? { documentIds } : {});
-
       message.success({ content: '匯出成功！', key: 'export' });
     } catch (error) {
       console.error('匯出失敗:', error);
       message.error({ content: '匯出失敗，請稍後再試', key: 'export' });
     }
-  };
+  }, [selectedRowKeys, message]);
 
-  const handleBatchDeleteClick = () => {
+  const handleBatchDeleteClick = useCallback(() => {
     logger.debug('批次刪除按鈕已被點擊，但功能尚未實作。');
-  };
+  }, []);
 
-  const handleBatchArchiveClick = () => {
+  const handleBatchArchiveClick = useCallback(() => {
     logger.debug('批次封存按鈕已被點擊，但功能尚未實作。');
-  };
+  }, []);
 
-  const handleBatchCopyClick = () => {
+  const handleBatchCopyClick = useCallback(() => {
     logger.debug('批次複製按鈕已被點擊，但功能尚未實作。');
-  };
+  }, []);
 
+  // ============================================================================
+  // 導航處理
+  // ============================================================================
 
-  // 計算流水號（基於分頁位置，非資料庫 ID）
-  const getRowNumber = (index: number): number => {
-    return (pagination.current - 1) * pagination.pageSize + index + 1;
-  };
+  const handleRowClick = useCallback((record: Document) => {
+    navigate(`/documents/${record.id}`);
+  }, [navigate]);
 
-  // 欄位順序：序號、發文形式、收發單位、公文字號、公文日期、主旨、附件、承攬案件、操作
-  // 預設排序：公文日期降冪（最新日期在最上方，由後端控制）
-  // 序號為流水號（依排序後的順序計算），非資料庫 ID
-  // 移除：類型、狀態、業務同仁
+  // ============================================================================
+  // 資料處理
+  // ============================================================================
 
-  // ========== 手機版簡化欄位 ==========
-  const mobileColumns: ColumnsType<Document> = [
-    {
-      title: '公文資訊',
-      key: 'document_info',
-      render: (_: any, record: Document, index: number) => (
-        <Space direction="vertical" size={0} style={{ width: '100%' }}>
-          <Space size={4} wrap>
-            <Typography.Text type="secondary" style={{ fontSize: 11 }}>
-              #{getRowNumber(index)}
-            </Typography.Text>
-            <Tag color={record.delivery_method === '電子交換' ? 'green' : 'orange'} style={{ fontSize: 11 }}>
-              {record.delivery_method || '電子'}
-            </Tag>
-            {(record.attachment_count || 0) > 0 && (
-              <Tag color="cyan" icon={<PaperClipOutlined />} style={{ fontSize: 11 }}>
-                {record.attachment_count}
-              </Tag>
-            )}
-          </Space>
-          <Typography.Text strong style={{ fontSize: 13 }}>
-            {record.subject || '無主旨'}
-          </Typography.Text>
-          <Space size={8} style={{ fontSize: 12, color: '#666' }}>
-            <span>{record.doc_number || '-'}</span>
-            <span>
-              {record.doc_date
-                ? new Date(record.doc_date).toLocaleDateString('zh-TW')
-                : '-'}
-            </span>
-          </Space>
-        </Space>
-      ),
-    },
-  ];
+  const safeDocuments = useMemo(() => {
+    const docs = Array.isArray(documents) ? documents : [];
+    logger.debug('=== DocumentList: 安全文件陣列 ===', {
+      documentsCount: docs.length,
+      total,
+      pagination
+    });
+    return docs;
+  }, [documents, total, pagination]);
 
-  // ========== 桌面版完整欄位 ==========
-  const columns: ColumnsType<Document> = [
-    {
-      title: '序',
-      key: 'rowNumber',
-      width: 45,
-      align: 'center',
-      render: (_: any, __: Document, index: number) => (
-        <Typography.Text type="secondary">{getRowNumber(index)}</Typography.Text>
-      ),
-    },
-    {
-      title: '發文形式',
-      dataIndex: 'delivery_method',
-      key: 'delivery_method',
-      width: 85,
-      align: 'center',
-      filters: [
-        { text: '電子交換', value: '電子交換' },
-        { text: '紙本郵寄', value: '紙本郵寄' },
-      ],
-      onFilter: (value, record) => record.delivery_method === value,
-      render: (method: string) => {
-        const colorMap: Record<string, string> = {
-          '電子交換': 'green',
-          '紙本郵寄': 'orange',
-        };
-        return <Tag color={colorMap[method] || 'default'}>{method || '電子交換'}</Tag>;
-      },
-    },
-    {
-      title: '收發單位',
-      key: 'correspondent',
-      width: 140,
-      ellipsis: { showTitle: false },
-      sorter: (a, b) => {
-        // 收文顯示 sender，發文顯示 receiver
-        const aValue = a.category === '收文' ? (a.sender || '') : (a.receiver || '');
-        const bValue = b.category === '收文' ? (b.sender || '') : (b.receiver || '');
-        return aValue.localeCompare(bValue, 'zh-TW');
-      },
-      sortDirections: ['descend', 'ascend'],
-      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters, close }) => (
-        <div style={{ padding: 8 }} onKeyDown={(e) => e.stopPropagation()}>
-          <Input
-            ref={searchInput}
-            placeholder="搜尋收發單位"
-            value={selectedKeys[0]}
-            onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
-            onPressEnter={() => handleSearch(selectedKeys as string[], confirm, 'correspondent')}
-            style={{ marginBottom: 8, display: 'block' }}
-          />
-          <Space>
-            <Button
-              type="primary"
-              onClick={() => handleSearch(selectedKeys as string[], confirm, 'correspondent')}
-              icon={<SearchOutlined />}
-              size="small"
-              style={{ width: 90 }}
-            >
-              搜尋
-            </Button>
-            <Button
-              onClick={() => clearFilters && handleReset(clearFilters)}
-              size="small"
-              style={{ width: 90 }}
-            >
-              重置
-            </Button>
-            <Button type="link" size="small" onClick={() => close()}>
-              關閉
-            </Button>
-          </Space>
-        </div>
-      ),
-      filterIcon: (filtered: boolean) => (
-        <SearchOutlined style={{ color: filtered ? '#1677ff' : undefined }} />
-      ),
-      onFilter: (value, record) => {
-        // 收文搜尋 sender，發文搜尋 receiver
-        const targetValue = record.category === '收文' ? record.sender : record.receiver;
-        return targetValue
-          ? targetValue.toString().toLowerCase().includes((value as string).toLowerCase())
-          : false;
-      },
-      render: (_: any, record: Document) => {
-        // 收文顯示 sender (發文機關)，發文顯示 receiver (受文機關)
-        const rawValue = record.category === '收文' ? record.sender : record.receiver;
-        const labelPrefix = record.category === '收文' ? '來文：' : '發至：';
-        const labelColor = record.category === '收文' ? '#52c41a' : '#1890ff';
+  // ============================================================================
+  // 表格配置
+  // ============================================================================
 
-        // 解析機關名稱：提取括號內的名稱，處理多個機關用 | 分隔的情況
-        // 格式: "CODE (NAME)" 或 "CODE (NAME) | CODE (NAME)"
-        const extractAgencyName = (value: string | undefined): string => {
-          if (!value) return '-';
-          // 處理多個機關的情況
-          const agencies = value.split(' | ').map(agency => {
-            // 提取括號內的名稱
-            const match = agency.match(/\(([^)]+)\)/);
-            return match ? match[1] : agency; // 如果沒有括號，返回原值
-          });
-          return agencies.join('、');
-        };
-
-        const displayValue = extractAgencyName(rawValue);
-
-        return (
-          <Typography.Text
-            ellipsis={{ tooltip: { title: displayValue, placement: 'topLeft' } }}
-          >
-            <span style={{ color: labelColor, fontWeight: 500, fontSize: '11px' }}>
-              {labelPrefix}
-            </span>
-            {searchedColumn === 'correspondent' ? (
-              <Highlighter
-                highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
-                searchWords={[searchText]}
-                autoEscape
-                textToHighlight={displayValue}
-              />
-            ) : displayValue}
-          </Typography.Text>
-        );
-      },
-    },
-    {
-      title: '公文字號',
-      dataIndex: 'doc_number',
-      key: 'doc_number',
-      width: 170,
-      ellipsis: { showTitle: false },
-      sorter: (a, b) => (a.doc_number || '').localeCompare(b.doc_number || '', 'zh-TW'),
-      sortDirections: ['descend', 'ascend'],
-      ...getColumnSearchProps('doc_number'),
-      render: (text: string) => (
-        <Typography.Text
-          strong
-          style={{ color: '#1890ff' }}
-          ellipsis={{ tooltip: { title: text, placement: 'topLeft' } }}
-        >
-          {searchedColumn === 'doc_number' ? (
-            <Highlighter
-              highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
-              searchWords={[searchText]}
-              autoEscape
-              textToHighlight={text || ''}
-            />
-          ) : text}
-        </Typography.Text>
-      ),
-    },
-    {
-      title: '公文日期',
-      dataIndex: 'doc_date',
-      key: 'doc_date',
-      width: 95,
-      align: 'center',
-      sorter: (a, b) => {
-        if (!a.doc_date) return 1;
-        if (!b.doc_date) return -1;
-        return new Date(a.doc_date).getTime() - new Date(b.doc_date).getTime();
-      },
-      sortDirections: ['descend', 'ascend'],
-      render: (date: string) =>
-        date
-          ? new Date(date).toLocaleDateString('zh-TW', {
-              year: 'numeric',
-              month: '2-digit',
-              day: '2-digit',
-            })
-          : '-',
-    },
-    {
-      title: '主旨',
-      dataIndex: 'subject',
-      key: 'subject',
-      width: 300,
-      ellipsis: { showTitle: false },
-      sorter: (a, b) => (a.subject || '').localeCompare(b.subject || '', 'zh-TW'),
-      sortDirections: ['descend', 'ascend'],
-      ...getColumnSearchProps('subject'),
-      render: (text: string) => (
-        <Typography.Paragraph
-          style={{ margin: 0, fontSize: '13px' }}
-          ellipsis={{
-            rows: 2,
-            tooltip: {
-              title: text,
-              placement: 'topLeft',
-              styles: { root: { maxWidth: 500 } }
-            }
-          }}
-        >
-          {searchedColumn === 'subject' ? (
-            <Highlighter
-              highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
-              searchWords={[searchText]}
-              autoEscape
-              textToHighlight={text || ''}
-            />
-          ) : text}
-        </Typography.Paragraph>
-      ),
-    },
-    {
-      title: '附件',
-      dataIndex: 'attachment_count',
-      key: 'attachment_count',
-      width: 55,
-      align: 'center',
-      sorter: (a, b) => (a.attachment_count || 0) - (b.attachment_count || 0),
-      sortDirections: ['descend', 'ascend'],
-      render: (count: number | undefined, record: Document) => {
-        const attachmentCount = count || 0;
-
-        // 沒有附件時顯示 -
-        if (attachmentCount === 0) {
-          return <Typography.Text type="secondary">-</Typography.Text>;
-        }
-
-        const documentId = record.id;
-        const attachments = attachmentCache[documentId] || [];
-        const isLoading = loadingAttachments[documentId];
-
-        const attachmentContent = (
-          <div style={{ width: 300, maxHeight: 300, overflow: 'auto' }}>
-            {isLoading ? (
-              <div style={{ textAlign: 'center', padding: '20px' }}>
-                <Spin size="small" />
-                <div style={{ marginTop: 8 }}>載入中...</div>
-              </div>
-            ) : attachments.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '20px', color: '#999' }}>
-                尚無附件資料
-              </div>
-            ) : (
-              <List
-                size="small"
-                dataSource={attachments}
-                renderItem={(attachment: DocumentAttachment) => (
-                  <List.Item
-                    key={attachment.id}
-                    actions={[
-                      isPreviewable(attachment.content_type) && (
-                        <Button
-                          type="text"
-                          size="small"
-                          icon={<EyeOutlined />}
-                          onClick={(e) => handlePreviewAttachment(attachment, e)}
-                          title="預覽"
-                        />
-                      ),
-                      <Button
-                        type="text"
-                        size="small"
-                        icon={<DownloadOutlined />}
-                        onClick={(e) => handleDownloadAttachment(attachment, e)}
-                        title="下載"
-                      />,
-                    ].filter(Boolean)}
-                  >
-                    <List.Item.Meta
-                      avatar={<FileOutlined style={{ fontSize: 16, color: '#1890ff' }} />}
-                      title={
-                        <Typography.Text ellipsis style={{ maxWidth: 180 }} title={attachment.filename}>
-                          {attachment.filename}
-                        </Typography.Text>
-                      }
-                      description={
-                        <Typography.Text type="secondary" style={{ fontSize: 11 }}>
-                          {formatFileSize(attachment.file_size)}
-                        </Typography.Text>
-                      }
-                    />
-                  </List.Item>
-                )}
-              />
-            )}
-          </div>
-        );
-
-        return (
-          <Popover
-            content={attachmentContent}
-            title={`附件列表 (${attachmentCount} 個)`}
-            trigger="click"
-            placement="left"
-            onOpenChange={(visible) => {
-              if (visible) {
-                loadAttachments(documentId);
-              }
-            }}
-          >
-            <Tag
-              color="cyan"
-              icon={<PaperClipOutlined />}
-              style={{ cursor: 'pointer' }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {attachmentCount}
-            </Tag>
-          </Popover>
-        );
-      },
-    },
-    {
-      title: '承攬案件',
-      dataIndex: 'contract_project_name',
-      key: 'contract_project_name',
-      width: 160,
-      ellipsis: true,
-      render: (projectName: string | undefined) => (
-        projectName ? (
-          <Typography.Text
-            ellipsis={{ tooltip: { title: projectName, placement: 'topLeft' } }}
-            style={{ color: '#722ed1' }}
-          >
-            {projectName}
-          </Typography.Text>
-        ) : (
-          <Typography.Text type="secondary">-</Typography.Text>
-        )
-      ),
-    },
-    // 操作欄位已移除 - 用戶點擊行進入詳情頁後，在頂部功能鈕進行操作 (2026-01-12)
-    // {
-    //   title: '操作',
-    //   key: 'action',
-    //   width: 80,
-    //   align: 'center',
-    //   fixed: 'right',
-    //   render: (_: any, record: Document) => (
-    //     <DocumentActions
-    //       document={record}
-    //       onView={onView}
-    //       onEdit={onEdit}
-    //       onDelete={onDelete}
-    //       onCopy={onCopy}
-    //       onExportPdf={onExportPdf}
-    //       onSend={onSend}
-    //       onArchive={onArchive}
-    //       loadingStates={{
-    //         isExporting: isExporting,
-    //         isAddingToCalendar: isAddingToCalendar,
-    //       }}
-    //       mode="dropdown"
-    //       size="small"
-    //     />
-    //   ),
-    // },
-  ];
-
-  const rowSelection = {
+  const rowSelection = useMemo(() => ({
     selectedRowKeys,
     onChange: (keys: React.Key[]) => setSelectedRowKeys(keys),
-  };
+  }), [selectedRowKeys]);
 
-  // Ensure documents is always an array
-  const safeDocuments = Array.isArray(documents) ? documents : [];
-  logger.debug('=== DocumentList: 安全文件陣列 ===', {
-    originalDocuments: documents,
-    safeDocuments: safeDocuments,
-    length: safeDocuments.length
-  });
-
-  const tableProps: TableProps<Document> = {
-    columns: isMobile ? mobileColumns : columns,
+  const tableProps: TableProps<Document> = useMemo(() => ({
+    columns,
     dataSource: safeDocuments,
     rowKey: 'id',
     loading: loading || batchLoading,
@@ -711,7 +305,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
       size: isMobile ? 'small' : 'default',
       showQuickJumper: !isMobile,
     },
-    scroll: isMobile ? undefined : { x: 1050 }, // 手機版不需水平捲動
+    scroll: isMobile ? undefined : { x: 1050 },
     tableLayout: isMobile ? 'auto' : 'fixed',
     locale: {
       emptyText: (
@@ -724,12 +318,16 @@ export const DocumentList: React.FC<DocumentListProps> = ({
         />
       ),
     },
-    ...(enableBatchOperations && !isMobile && { rowSelection }), // 手機版停用批次選取
-  };
+    ...(enableBatchOperations && !isMobile && { rowSelection }),
+    ...(onTableChange && { onChange: onTableChange }),
+  }), [
+    columns, safeDocuments, loading, batchLoading, isMobile, pagination, total,
+    handleRowClick, enableBatchOperations, rowSelection, onTableChange
+  ]);
 
-  if (onTableChange) {
-    tableProps.onChange = onTableChange;
-  }
+  // ============================================================================
+  // 渲染
+  // ============================================================================
 
   return (
     <>
@@ -758,3 +356,5 @@ export const DocumentList: React.FC<DocumentListProps> = ({
     </>
   );
 };
+
+export default DocumentList;

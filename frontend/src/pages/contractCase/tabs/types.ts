@@ -19,7 +19,7 @@ import type { ProjectAgencyContact } from '../../../api/projectAgencyContacts';
  * 注意：後端回傳中文狀態，但 types/api.ts 定義為英文 enum
  */
 export interface ProjectData extends Omit<Project, 'status'> {
-  status?: string;  // 中文狀態值：待執行/執行中/已結案/暫停
+  status?: string;  // 中文狀態值：待執行/執行中/已結案/未得標
 }
 
 /** 關聯文件型別 - 使用 OfficialDocument 的子集 */

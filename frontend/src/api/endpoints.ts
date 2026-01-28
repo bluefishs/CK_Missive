@@ -218,6 +218,12 @@ export const CERTIFICATIONS_ENDPOINTS = {
   DELETE: (id: number) => `/certifications/${id}/delete`,
   /** 使用者證照統計 POST /certifications/stats/:userId */
   STATS: (userId: number) => `/certifications/stats/${userId}`,
+  /** 上傳證照附件 POST /certifications/:id/upload-attachment */
+  UPLOAD_ATTACHMENT: (id: number) => `/certifications/${id}/upload-attachment`,
+  /** 下載證照附件 POST /certifications/:id/download-attachment */
+  DOWNLOAD_ATTACHMENT: (id: number) => `/certifications/${id}/download-attachment`,
+  /** 刪除證照附件 POST /certifications/:id/delete-attachment */
+  DELETE_ATTACHMENT: (id: number) => `/certifications/${id}/delete-attachment`,
 } as const;
 
 /** 認證 API 端點 */

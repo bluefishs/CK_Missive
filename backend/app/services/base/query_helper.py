@@ -1,14 +1,28 @@
 # -*- coding: utf-8 -*-
 """
-統一查詢助手
+統一查詢助手模組
 
 提供統一的篩選、排序、搜尋邏輯，減少各服務中的重複代碼。
+
+模組包含以下類別:
+- QueryHelper: 基本查詢篩選、排序、分頁操作
+- PaginationHelper: 分頁回應包裝和計算工具
+- FilterBuilder: 流暢 API 建構器（鏈式調用）
+- StatisticsHelper: 統計查詢功能（計數、分組、趨勢）
+- DeleteCheckHelper: 刪除前關聯檢查
+
+安全特性:
+- LIKE 查詢自動轉義特殊字元，防止 SQL 注入
+- 分頁參數自動驗證，防止過大查詢
+
+版本: 1.1.0
+更新: 2026-01-26
 """
-from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Generic
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, TypeVar, Generic
 from datetime import date, datetime
 from math import ceil
 
-from sqlalchemy import Select, or_, and_, asc, desc, func
+from sqlalchemy import Select, or_, and_, asc, desc, func, select
 from sqlalchemy.orm import Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -41,6 +55,25 @@ class QueryHelper(Generic[ModelType]):
         """
         self.model = model
 
+    @staticmethod
+    def _escape_like_pattern(keyword: str) -> str:
+        """
+        轉義 LIKE 模式中的特殊字元
+
+        防止 SQL 注入和意外的萬用字元匹配。
+
+        Args:
+            keyword: 原始搜尋關鍵字
+
+        Returns:
+            轉義後的關鍵字
+        """
+        # 轉義 LIKE 特殊字元: %, _, \
+        keyword = keyword.replace('\\', '\\\\')
+        keyword = keyword.replace('%', '\\%')
+        keyword = keyword.replace('_', '\\_')
+        return keyword
+
     def apply_search(
         self,
         query: Select,
@@ -66,15 +99,17 @@ class QueryHelper(Generic[ModelType]):
             return query
 
         keyword = keyword.strip()
+        # 轉義 LIKE 特殊字元以防止 SQL 注入
+        escaped_keyword = self._escape_like_pattern(keyword)
         conditions = []
 
         for field_name in search_fields:
             if hasattr(self.model, field_name):
                 field = getattr(self.model, field_name)
                 if use_ilike:
-                    conditions.append(field.ilike(f'%{keyword}%'))
+                    conditions.append(field.ilike(f'%{escaped_keyword}%', escape='\\'))
                 else:
-                    conditions.append(field.like(f'%{keyword}%'))
+                    conditions.append(field.like(f'%{escaped_keyword}%', escape='\\'))
 
         if conditions:
             query = query.where(or_(*conditions))
@@ -356,7 +391,7 @@ class FilterBuilder(Generic[ModelType]):
     def __init__(self, model: Type[ModelType]):
         self.model = model
         self.helper = QueryHelper(model)
-        self._operations: List[callable] = []
+        self._operations: List[Callable[[Select], Select]] = []
 
     def search(
         self,
@@ -366,24 +401,27 @@ class FilterBuilder(Generic[ModelType]):
     ) -> 'FilterBuilder':
         """添加搜尋條件"""
         if keyword:
+            # 使用預設參數捕獲當前值，避免閉包變數捕獲問題
             self._operations.append(
-                lambda q: self.helper.apply_search(q, keyword, fields, use_ilike)
+                lambda q, kw=keyword, f=fields, ui=use_ilike: self.helper.apply_search(q, kw, f, ui)
             )
         return self
 
     def exact(self, field: str, value: Any) -> 'FilterBuilder':
         """添加精確匹配條件"""
         if value is not None:
+            # 使用預設參數捕獲當前值
             self._operations.append(
-                lambda q: self.helper.apply_exact_filter(q, field, value)
+                lambda q, f=field, v=value: self.helper.apply_exact_filter(q, f, v)
             )
         return self
 
     def in_list(self, field: str, values: Optional[List[Any]]) -> 'FilterBuilder':
         """添加 IN 條件"""
         if values:
+            # 使用預設參數捕獲當前值
             self._operations.append(
-                lambda q: self.helper.apply_in_filter(q, field, values)
+                lambda q, f=field, v=values: self.helper.apply_in_filter(q, f, v)
             )
         return self
 
@@ -395,8 +433,9 @@ class FilterBuilder(Generic[ModelType]):
     ) -> 'FilterBuilder':
         """添加日期範圍條件"""
         if start or end:
+            # 使用預設參數捕獲當前值
             self._operations.append(
-                lambda q: self.helper.apply_date_range(q, field, start, end)
+                lambda q, f=field, s=start, e=end: self.helper.apply_date_range(q, f, s, e)
             )
         return self
 
@@ -407,22 +446,25 @@ class FilterBuilder(Generic[ModelType]):
         default: str = 'created_at'
     ) -> 'FilterBuilder':
         """添加排序"""
+        # 使用預設參數捕獲當前值
         self._operations.append(
-            lambda q: self.helper.apply_sorting(q, field, order, default)
+            lambda q, f=field, o=order, d=default: self.helper.apply_sorting(q, f, o, d)
         )
         return self
 
     def paginate(self, page: int = 1, page_size: int = 20) -> 'FilterBuilder':
         """添加分頁"""
+        # 使用預設參數捕獲當前值
         self._operations.append(
-            lambda q: self.helper.apply_pagination(q, page, page_size)
+            lambda q, p=page, ps=page_size: self.helper.apply_pagination(q, p, ps)
         )
         return self
 
     def exclude_deleted(self, deleted_field: str = 'is_deleted') -> 'FilterBuilder':
         """排除已刪除的資料"""
+        # 使用預設參數捕獲當前值
         self._operations.append(
-            lambda q: self.helper.apply_soft_delete_filter(q, False, deleted_field)
+            lambda q, df=deleted_field: self.helper.apply_soft_delete_filter(q, False, df)
         )
         return self
 

@@ -1,316 +1,62 @@
 /**
  * 整合式事件建立模態框
  * 在公文頁面一站式完成：事件建立 + 提醒設定 + Google 同步
+ *
+ * @version 2.0.0 - 模組化重構：Hook + 子元件提取
+ * @date 2026-01-28
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React from 'react';
 import {
-  Modal, Form, Input, Select, DatePicker, Switch, InputNumber,
-  Row, Col, Space, Button, Spin, Divider, Card,
-  List, Tag, Tooltip, Typography, Grid, Collapse, App
+  Modal, Form, Input, Select, DatePicker, Switch,
+  Row, Col, Space, Button, Spin, Card,
+  List, Tag, Tooltip, Typography,
 } from 'antd';
-
-const { useBreakpoint } = Grid;
-const { Panel } = Collapse;
 import {
   BellOutlined, CalendarOutlined, AlertOutlined, PlusOutlined,
   DeleteOutlined, MailOutlined, NotificationOutlined, GoogleOutlined,
-  FileTextOutlined, ClockCircleOutlined, EnvironmentOutlined
+  ClockCircleOutlined, EnvironmentOutlined,
 } from '@ant-design/icons';
-import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
-import { apiClient } from '../../api/client';
-import debounce from 'lodash/debounce';
+
+import { useIntegratedEvent } from './integrated/useIntegratedEvent';
+import type { IntegratedEventModalProps } from './integrated/types';
+import {
+  EVENT_TYPE_OPTIONS,
+  PRIORITY_OPTIONS,
+  REMINDER_TIME_OPTIONS,
+  REMINDER_TYPE_OPTIONS,
+} from './integrated/types';
 
 const { TextArea } = Input;
 const { Text } = Typography;
-
-// ============================================================================
-// 型別定義
-// ============================================================================
-
-interface ReminderConfig {
-  minutes_before: number;
-  notification_type: 'email' | 'system';
-}
-
-interface DocumentInfo {
-  id: number;
-  doc_number?: string;
-  subject?: string;
-  doc_date?: string;
-  send_date?: string;
-  receive_date?: string;
-  sender?: string;
-  receiver?: string;
-  assignee?: string;
-  priority_level?: string;
-  doc_type?: string;
-  content?: string;
-  notes?: string;
-  contract_case?: string;
-}
-
-interface IntegratedEventModalProps {
-  visible: boolean;
-  document?: DocumentInfo | null;
-  onClose: () => void;
-  onSuccess?: (eventId: number) => void;
-}
-
-// ============================================================================
-// 常數定義
-// ============================================================================
-
-const EVENT_TYPE_OPTIONS = [
-  { value: 'deadline', label: '截止提醒', icon: <AlertOutlined style={{ color: '#f5222d' }} /> },
-  { value: 'meeting', label: '會議安排', icon: <CalendarOutlined style={{ color: '#722ed1' }} /> },
-  { value: 'review', label: '審核提醒', icon: <ClockCircleOutlined style={{ color: '#1890ff' }} /> },
-  { value: 'reminder', label: '一般提醒', icon: <BellOutlined style={{ color: '#fa8c16' }} /> },
-  { value: 'reference', label: '參考事件', icon: <FileTextOutlined style={{ color: '#666' }} /> }
-];
-
-const PRIORITY_OPTIONS = [
-  { value: 1, label: '緊急', color: '#f5222d' },
-  { value: 2, label: '重要', color: '#fa8c16' },
-  { value: 3, label: '普通', color: '#1890ff' },
-  { value: 4, label: '低', color: '#52c41a' },
-  { value: 5, label: '最低', color: '#d9d9d9' }
-];
-
-const REMINDER_TIME_OPTIONS = [
-  { value: 0, label: '事件開始時' },
-  { value: 5, label: '5 分鐘前' },
-  { value: 15, label: '15 分鐘前' },
-  { value: 30, label: '30 分鐘前' },
-  { value: 60, label: '1 小時前' },
-  { value: 120, label: '2 小時前' },
-  { value: 480, label: '8 小時前' },
-  { value: 1440, label: '1 天前' },
-  { value: 2880, label: '2 天前' },
-  { value: 10080, label: '1 週前' }
-];
-
-const REMINDER_TYPE_OPTIONS = [
-  { value: 'system', label: '系統通知', icon: <NotificationOutlined /> },
-  { value: 'email', label: '郵件通知', icon: <MailOutlined /> }
-];
-
-// ============================================================================
-// 主元件
-// ============================================================================
 
 export const IntegratedEventModal: React.FC<IntegratedEventModalProps> = ({
   visible,
   document,
   onClose,
-  onSuccess
+  onSuccess,
 }) => {
-  const [form] = Form.useForm();
-  const { notification } = App.useApp();
-  const [loading, setLoading] = useState(false);
-  const [allDay, setAllDay] = useState(true);
-  const [reminderEnabled, setReminderEnabled] = useState(true);
-  const [syncToGoogle, setSyncToGoogle] = useState(false);
-  const [reminders, setReminders] = useState<ReminderConfig[]>([
-    { minutes_before: 1440, notification_type: 'system' }  // 預設 1 天前系統通知
-  ]);
-  const [newReminderMinutes, setNewReminderMinutes] = useState<number>(60);
-  const [newReminderType, setNewReminderType] = useState<'email' | 'system'>('system');
-
-  // 響應式斷點
-  const screens = useBreakpoint();
-  const isMobile = !screens.md;
-
-  // ============================================================================
-  // 輔助函數
-  // ============================================================================
-
-  /** 根據公文內容判斷事件類型 */
-  const determineEventType = useCallback((doc: DocumentInfo): string => {
-    const content = (doc.content || '').toLowerCase();
-    const subject = (doc.subject || '').toLowerCase();
-    const docType = (doc.doc_type || '').toLowerCase();
-
-    if (docType.includes('會議') || content.includes('會議') || subject.includes('會議')) {
-      return 'meeting';
-    }
-    if (content.includes('審查') || content.includes('審核') || subject.includes('審查')) {
-      return 'review';
-    }
-    if (content.includes('截止') || content.includes('期限') || subject.includes('截止')) {
-      return 'deadline';
-    }
-    return 'reminder';
-  }, []);
-
-  /** 根據公文內容判斷優先級 */
-  const determinePriority = useCallback((doc: DocumentInfo): number => {
-    if (doc.priority_level) {
-      const num = parseInt(doc.priority_level, 10);
-      if (num >= 1 && num <= 5) return num;
-    }
-    const docType = (doc.doc_type || '').toLowerCase();
-    if (docType.includes('急件') || docType.includes('特急')) return 1;
-    if (docType.includes('會議')) return 2;
-    return 3;
-  }, []);
-
-  /** 確定事件日期 */
-  const determineEventDate = useCallback((doc: DocumentInfo): Dayjs => {
-    if (doc.send_date) return dayjs(doc.send_date);
-    if (doc.receive_date) return dayjs(doc.receive_date);
-    if (doc.doc_date) return dayjs(doc.doc_date);
-    return dayjs();
-  }, []);
-
-  /** 構建事件描述 */
-  const buildDescription = useCallback((doc: DocumentInfo): string => {
-    const parts = [
-      `公文字號: ${doc.doc_number || '未指定'}`,
-      `主旨: ${doc.subject || '未指定'}`,
-      `發文單位: ${doc.sender || '未知'}`,
-    ];
-    if (doc.receiver) parts.push(`受文者: ${doc.receiver}`);
-    if (doc.contract_case) parts.push(`關聯案件: ${doc.contract_case}`);
-    if (doc.assignee) parts.push(`業務同仁: ${doc.assignee}`);
-    if (doc.notes) parts.push(`備註: ${doc.notes}`);
-    return parts.join('\n');
-  }, []);
-
-  // ============================================================================
-  // 初始化表單
-  // ============================================================================
-
-  useEffect(() => {
-    if (visible && document) {
-      const eventType = determineEventType(document);
-      const eventDate = determineEventDate(document);
-
-      form.setFieldsValue({
-        title: `公文提醒: ${document.subject || document.doc_number || '未命名'}`,
-        description: buildDescription(document),
-        start_date: eventDate,
-        end_date: eventDate,
-        all_day: true,
-        event_type: eventType,
-        priority: determinePriority(document),
-        location: ''
-      });
-
-      setAllDay(true);
-      setReminderEnabled(true);
-
-      // 根據事件類型設定預設提醒
-      const defaultMinutes = eventType === 'deadline' ? 1440 :
-                            eventType === 'meeting' ? 60 :
-                            eventType === 'review' ? 480 : 1440;
-      setReminders([{ minutes_before: defaultMinutes, notification_type: 'system' }]);
-
-    } else if (visible && !document) {
-      // 無公文時的預設值
-      form.resetFields();
-      form.setFieldsValue({
-        event_type: 'reminder',
-        priority: 3,
-        all_day: true,
-        start_date: dayjs()
-      });
-      setAllDay(true);
-      setReminders([{ minutes_before: 60, notification_type: 'system' }]);
-    }
-  }, [visible, document, form, determineEventType, determineEventDate, determinePriority, buildDescription]);
-
-  // ============================================================================
-  // 提醒管理
-  // ============================================================================
-
-  const handleAddReminder = () => {
-    // 檢查是否已存在相同設定
-    const exists = reminders.some(
-      r => r.minutes_before === newReminderMinutes && r.notification_type === newReminderType
-    );
-    if (exists) {
-      notification.warning({ message: '此提醒設定已存在' });
-      return;
-    }
-
-    setReminders([...reminders, {
-      minutes_before: newReminderMinutes,
-      notification_type: newReminderType
-    }]);
-  };
-
-  const handleRemoveReminder = (index: number) => {
-    setReminders(reminders.filter((_, i) => i !== index));
-  };
-
-  const getReminderLabel = (minutes: number): string => {
-    const option = REMINDER_TIME_OPTIONS.find(o => o.value === minutes);
-    return option?.label || `${minutes} 分鐘前`;
-  };
-
-  // ============================================================================
-  // 提交表單
-  // ============================================================================
-
-  const handleSubmit = async () => {
-    try {
-      const values = await form.validateFields();
-      setLoading(true);
-
-      // 準備提交資料
-      const submitData = {
-        title: values.title,
-        description: values.description || null,
-        start_date: values.start_date.toISOString(),
-        end_date: values.end_date?.toISOString() || values.start_date.toISOString(),
-        all_day: values.all_day || false,
-        event_type: values.event_type,
-        priority: values.priority,
-        location: values.location || null,
-        document_id: document?.id || null,
-        reminder_enabled: reminderEnabled,
-        // 新增: 提醒設定列表
-        reminders: reminderEnabled ? reminders : [],
-        // 新增: Google 同步選項
-        sync_to_google: syncToGoogle
-      };
-
-      // 呼叫後端 API
-      const response = await apiClient.post<{
-        success: boolean;
-        message: string;
-        event_id?: number;
-        google_event_id?: string;
-      }>('/calendar/events/create-with-reminders', submitData);
-
-      if (response.success) {
-        notification.success({
-          message: '事件建立成功',
-          description: response.google_event_id
-            ? '已同步至 Google Calendar'
-            : '事件已建立，提醒已設定'
-        });
-        onSuccess?.(response.event_id!);
-        onClose();
-      } else {
-        throw new Error(response.message || '建立失敗');
-      }
-
-    } catch (error: any) {
-      console.error('建立事件失敗:', error);
-      notification.error({
-        message: '建立事件失敗',
-        description: error.message || '請稍後再試'
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ============================================================================
-  // 渲染
-  // ============================================================================
+  const {
+    form,
+    isMobile,
+    loading,
+    allDay,
+    setAllDay,
+    reminderEnabled,
+    setReminderEnabled,
+    syncToGoogle,
+    setSyncToGoogle,
+    reminders,
+    newReminderMinutes,
+    setNewReminderMinutes,
+    newReminderType,
+    setNewReminderType,
+    existingEvents,
+    handleAddReminder,
+    handleRemoveReminder,
+    getReminderLabel,
+    handleSubmit,
+  } = useIntegratedEvent(visible, document, onClose, onSuccess);
 
   return (
     <Modal
@@ -325,23 +71,41 @@ export const IntegratedEventModal: React.FC<IntegratedEventModalProps> = ({
       onCancel={onClose}
       width={isMobile ? '95%' : 800}
       style={{ maxWidth: '95vw', top: 20 }}
+      forceRender
       footer={[
-        <Button key="cancel" onClick={onClose}>
-          取消
-        </Button>,
-        <Button
-          key="submit"
-          type="primary"
-          loading={loading}
-          onClick={handleSubmit}
-        >
+        <Button key="cancel" onClick={onClose}>取消</Button>,
+        <Button key="submit" type="primary" loading={loading} onClick={handleSubmit}>
           建立事件
-        </Button>
+        </Button>,
       ]}
     >
       <Spin spinning={loading}>
         <Form form={form} layout="vertical">
-          {/* ============ 基本資訊 ============ */}
+          {/* 已存在事件警告 */}
+          {existingEvents.length > 0 && (
+            <Card
+              size="small"
+              style={{ marginBottom: 16, borderColor: '#faad14', background: '#fffbe6' }}
+            >
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <Text strong style={{ color: '#d48806' }}>
+                  <AlertOutlined /> 此公文已有 {existingEvents.length} 筆行事曆事件
+                </Text>
+                <div style={{ maxHeight: 100, overflowY: 'auto' }}>
+                  {existingEvents.map(e => (
+                    <div key={e.id} style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>
+                      • {dayjs(e.start_date).format('YYYY-MM-DD HH:mm')} - {e.title.slice(0, 30)}...
+                    </div>
+                  ))}
+                </div>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  如果只是要修改日期，建議直接編輯現有事件。
+                </Text>
+              </Space>
+            </Card>
+          )}
+
+          {/* 基本資訊 */}
           <Card
             size="small"
             title={<><CalendarOutlined /> 事件資訊</>}
@@ -369,7 +133,7 @@ export const IntegratedEventModal: React.FC<IntegratedEventModalProps> = ({
                   <Select placeholder="選擇事件類型">
                     {EVENT_TYPE_OPTIONS.map(opt => (
                       <Select.Option key={opt.value} value={opt.value}>
-                        <Space>{opt.icon}{opt.label}</Space>
+                        {opt.label}
                       </Select.Option>
                     ))}
                   </Select>
@@ -431,25 +195,20 @@ export const IntegratedEventModal: React.FC<IntegratedEventModalProps> = ({
             </Row>
           </Card>
 
-          {/* ============ 提醒設定 ============ */}
+          {/* 提醒設定 */}
           <Card
             size="small"
             title={
               <Space>
                 <BellOutlined />
                 <span>提醒設定</span>
-                <Switch
-                  size="small"
-                  checked={reminderEnabled}
-                  onChange={setReminderEnabled}
-                />
+                <Switch size="small" checked={reminderEnabled} onChange={setReminderEnabled} />
               </Space>
             }
             style={{ marginBottom: 16 }}
           >
             {reminderEnabled ? (
               <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-                {/* 新增提醒 */}
                 <div>
                   <Text type="secondary" style={{ marginBottom: 8, display: 'block' }}>
                     新增提醒：
@@ -460,7 +219,7 @@ export const IntegratedEventModal: React.FC<IntegratedEventModalProps> = ({
                         value={newReminderMinutes}
                         onChange={setNewReminderMinutes}
                         style={{ width: '100%' }}
-                        options={REMINDER_TIME_OPTIONS}
+                        options={REMINDER_TIME_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
                       />
                     </Col>
                     <Col xs={8} sm={8}>
@@ -471,7 +230,10 @@ export const IntegratedEventModal: React.FC<IntegratedEventModalProps> = ({
                       >
                         {REMINDER_TYPE_OPTIONS.map(type => (
                           <Select.Option key={type.value} value={type.value}>
-                            <Space size="small">{type.icon}{!isMobile && type.label}</Space>
+                            <Space size="small">
+                              {type.value === 'system' ? <NotificationOutlined /> : <MailOutlined />}
+                              {!isMobile && type.label}
+                            </Space>
                           </Select.Option>
                         ))}
                       </Select>
@@ -489,7 +251,6 @@ export const IntegratedEventModal: React.FC<IntegratedEventModalProps> = ({
                   </Row>
                 </div>
 
-                {/* 已設定的提醒列表 */}
                 {reminders.length > 0 && (
                   <div>
                     <Text type="secondary" style={{ marginBottom: 8, display: 'block' }}>
@@ -501,7 +262,7 @@ export const IntegratedEventModal: React.FC<IntegratedEventModalProps> = ({
                       renderItem={(reminder, index) => (
                         <List.Item
                           actions={[
-                            <Tooltip title="移除">
+                            <Tooltip title="移除" key="remove">
                               <Button
                                 type="text"
                                 danger
@@ -509,7 +270,7 @@ export const IntegratedEventModal: React.FC<IntegratedEventModalProps> = ({
                                 icon={<DeleteOutlined />}
                                 onClick={() => handleRemoveReminder(index)}
                               />
-                            </Tooltip>
+                            </Tooltip>,
                           ]}
                         >
                           <Space>
@@ -540,7 +301,7 @@ export const IntegratedEventModal: React.FC<IntegratedEventModalProps> = ({
             )}
           </Card>
 
-          {/* ============ Google 同步 ============ */}
+          {/* Google 同步 */}
           <Card
             size="small"
             title={

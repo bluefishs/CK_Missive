@@ -34,9 +34,12 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
     SEARCH_FIELDS = ['agency_name', 'agency_short_name']
     DEFAULT_SORT_FIELD = 'agency_name'
 
-    def __init__(self) -> None:
+    def __init__(self, db: "AsyncSession | None" = None) -> None:
         """初始化機關服務"""
-        super().__init__(GovernmentAgency, "機關")
+        super().__init__(GovernmentAgency, "機關", db=db)
+        if db:
+            from app.repositories import AgencyRepository
+            self.repository = AgencyRepository(db)
 
     def _to_dict(self, agency: GovernmentAgency) -> Dict[str, Any]:
         """將機關實體轉換為字典"""

@@ -29,16 +29,23 @@ class BaseService(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
                 super().__init__(PartnerVendor, "廠商")
     """
 
-    def __init__(self, model: Type[ModelType], entity_name: str = "實體") -> None:
+    def __init__(
+        self,
+        model: Type[ModelType],
+        entity_name: str = "實體",
+        db: Optional[AsyncSession] = None,
+    ) -> None:
         """
         初始化基礎服務
 
         Args:
             model: SQLAlchemy Model 類別
             entity_name: 實體名稱（用於錯誤訊息）
+            db: 可選的資料庫 session（工廠模式注入）
         """
         self.model: Type[ModelType] = model
         self.entity_name: str = entity_name
+        self.db: Optional[AsyncSession] = db
         self.logger: logging.Logger = logging.getLogger(self.__class__.__name__)
 
     # =========================================================================

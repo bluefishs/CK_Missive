@@ -112,7 +112,7 @@ export const CaseInfoTab: React.FC<CaseInfoTabProps> = ({
           <Col span={18}>
             <Progress
               percent={data.progress ?? progress}
-              status={data.status === '已結案' ? 'success' : data.status === '暫停' ? 'exception' : 'active'}
+              status={data.status === '已結案' ? 'success' : (data.status === '未得標' || data.status === '暫停') ? 'exception' : 'active'}
             />
           </Col>
           <Col span={6} style={{ textAlign: 'right' }}>

@@ -481,3 +481,24 @@ export const getRoleDefaultPermissions = (roleKey: string): string[] => {
   const role = USER_ROLES[roleKey as keyof typeof USER_ROLES];
   return role ? role.default_permissions : [];
 };
+
+// ============================================================================
+// 簡化匯出 - 供權限管理頁面使用
+// ============================================================================
+
+/**
+ * 所有可用權限鍵值清單
+ */
+export const ALL_PERMISSIONS: string[] = Object.values(PERMISSION_CATEGORIES)
+  .flatMap(category => category.permissions.map(p => p.key));
+
+/**
+ * 各角色預設權限對照表
+ */
+export const ROLE_PERMISSIONS: Record<string, string[]> = {
+  superuser: ALL_PERMISSIONS,
+  admin: USER_ROLES.admin.default_permissions,
+  staff: USER_ROLES.user.default_permissions, // staff 使用 user 等級權限
+  user: USER_ROLES.user.default_permissions,
+  unverified: USER_ROLES.unverified.default_permissions,
+};

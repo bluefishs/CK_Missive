@@ -24,6 +24,7 @@ interface RawCalendarEventResponse {
   description?: string;
   start_date: string;       // 後端原始欄位名稱
   end_date: string;         // 後端原始欄位名稱
+  all_day?: boolean;        // 全天事件
   document_id?: number;
   doc_number?: string;
   contract_project_name?: string;  // 承攬案件名稱
@@ -130,6 +131,7 @@ export const calendarApi = {
           description: event.description,
           start_datetime: event.start_date,
           end_datetime: event.end_date,
+          all_day: event.all_day || false,  // 全天事件
           document_id: event.document_id,
           doc_number: event.doc_number,
           contract_project_name: event.contract_project_name,  // 承攬案件名稱
@@ -218,19 +220,25 @@ export const calendarApi = {
 
   /**
    * 更新事件 (POST 機制，符合資安要求)
+   * 支援 start_datetime/end_datetime（CalendarEvent 格式）
+   * 或 start_date/end_date（拖曳更新格式）
    */
-  async updateEvent(eventId: number, updates: Partial<CalendarEvent>): Promise<void> {
+  async updateEvent(eventId: number, updates: Partial<CalendarEvent> & { start_date?: string; end_date?: string }): Promise<void> {
     try {
+      // 支援兩種日期欄位名稱：start_datetime 或 start_date
+      const startDate = updates.start_datetime || updates.start_date;
+      const endDate = updates.end_datetime || updates.end_date;
+
       const result = await apiClient.post<{success: boolean; message?: string}>(
         API_ENDPOINTS.CALENDAR.EVENTS_UPDATE, {
         event_id: eventId,
         title: updates.title,
         description: updates.description,
-        start_date: updates.start_datetime,
-        end_date: updates.end_datetime,
+        start_date: startDate,
+        end_date: endDate,
         event_type: updates.event_type,
         priority: updates.priority,
-        status: updates.status,  // 新增：事件狀態
+        status: updates.status,
         location: updates.location,
         document_id: updates.document_id,
       });

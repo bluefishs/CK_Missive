@@ -1,0 +1,404 @@
+/**
+ * CK_Missive 響應式設計統一樣式表
+ * 建立日期: 2026-01-27
+ *
+ * Breakpoint 定義 (與 Ant Design 對齊):
+ * - xs: 0-575px (手機小螢幕)
+ * - sm: 576-767px (手機大螢幕)
+ * - md: 768-991px (平板)
+ * - lg: 992-1199px (桌面)
+ * - xl: 1200-1599px (大桌面)
+ * - xxl: 1600px+ (超寬螢幕)
+ *
+ * 使用指南:
+ * 1. 新增響應式樣式請統一在此檔案
+ * 2. 遵循 Mobile First 原則
+ * 3. 搭配 useResponsive Hook 使用
+ */
+
+/* ============================================
+   CSS 變數 - Breakpoint 參考值
+   ============================================ */
+:root {
+  --breakpoint-xs: 0px;
+  --breakpoint-sm: 576px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 992px;
+  --breakpoint-xl: 1200px;
+  --breakpoint-xxl: 1600px;
+
+  /* 響應式間距 */
+  --spacing-xs: 8px;
+  --spacing-sm: 12px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+}
+
+/* ============================================
+   XS: 手機小螢幕 (0-575px)
+   ============================================ */
+@media (max-width: 575px) {
+  /* 全域調整 */
+  .ant-layout-content {
+    padding: 12px !important;
+  }
+
+  /* 頁面標題 */
+  .page-title,
+  .ant-typography h1,
+  .ant-typography h2 {
+    font-size: 18px !important;
+  }
+
+  /* 卡片 */
+  .ant-card {
+    margin-bottom: 12px;
+  }
+
+  .ant-card-body {
+    padding: 12px;
+  }
+
+  /* 表格 */
+  .ant-table {
+    font-size: 12px;
+  }
+
+  .ant-table-thead > tr > th,
+  .ant-table-tbody > tr > td {
+    padding: 8px 4px !important;
+  }
+
+  /* 表單 */
+  .ant-form-item {
+    margin-bottom: 12px;
+  }
+
+  .ant-form-item-label {
+    padding-bottom: 4px;
+  }
+
+  /* 按鈕 */
+  .ant-btn {
+    font-size: 13px;
+  }
+
+  /* Modal */
+  .ant-modal {
+    max-width: calc(100vw - 32px);
+    margin: 16px;
+  }
+
+  .ant-modal-body {
+    padding: 16px;
+  }
+
+  /* 隱藏桌面專用元素 */
+  .hide-on-mobile,
+  .desktop-only {
+    display: none !important;
+  }
+}
+
+/* ============================================
+   SM: 手機大螢幕 (576-767px)
+   ============================================ */
+@media (min-width: 576px) and (max-width: 767px) {
+  .ant-layout-content {
+    padding: 16px !important;
+  }
+
+  .page-title,
+  .ant-typography h1,
+  .ant-typography h2 {
+    font-size: 20px !important;
+  }
+
+  .ant-card-body {
+    padding: 16px;
+  }
+
+  .ant-table {
+    font-size: 13px;
+  }
+}
+
+/* ============================================
+   MD: 平板 (768-991px)
+   ============================================ */
+@media (min-width: 768px) and (max-width: 991px) {
+  .ant-layout-content {
+    padding: 20px !important;
+  }
+
+  .page-title,
+  .ant-typography h1,
+  .ant-typography h2 {
+    font-size: 22px !important;
+  }
+
+  /* 側邊欄調整 */
+  .ant-layout-sider {
+    flex: 0 0 180px !important;
+    max-width: 180px !important;
+    min-width: 180px !important;
+    width: 180px !important;
+  }
+
+  .ant-layout-sider-collapsed {
+    flex: 0 0 60px !important;
+    max-width: 60px !important;
+    min-width: 60px !important;
+    width: 60px !important;
+  }
+}
+
+/* ============================================
+   LG+: 桌面 (992px+)
+   ============================================ */
+@media (min-width: 992px) {
+  .ant-layout-content {
+    padding: 24px !important;
+  }
+
+  /* 隱藏手機專用元素 */
+  .hide-on-desktop,
+  .mobile-only {
+    display: none !important;
+  }
+}
+
+/* ============================================
+   XL+: 大桌面 (1200px+)
+   ============================================ */
+@media (min-width: 1200px) {
+  /* 內容最大寬度限制 */
+  .content-container {
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+}
+
+/* ============================================
+   XXL: 超寬螢幕 (1600px+)
+   ============================================ */
+@media (min-width: 1600px) {
+  .content-container {
+    max-width: 1600px;
+  }
+
+  /* 多欄佈局 */
+  .dashboard-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* ============================================
+   通用響應式工具類別
+   ============================================ */
+
+/* 顯示/隱藏控制 */
+.show-xs { display: none; }
+.show-sm { display: none; }
+.show-md { display: none; }
+.show-lg { display: none; }
+
+@media (max-width: 575px) {
+  .show-xs { display: block; }
+  .hide-xs { display: none !important; }
+}
+
+@media (min-width: 576px) and (max-width: 767px) {
+  .show-sm { display: block; }
+  .hide-sm { display: none !important; }
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  .show-md { display: block; }
+  .hide-md { display: none !important; }
+}
+
+@media (min-width: 992px) {
+  .show-lg { display: block; }
+  .hide-lg { display: none !important; }
+}
+
+/* 響應式間距 */
+.responsive-padding {
+  padding: var(--spacing-xs);
+}
+
+@media (min-width: 576px) {
+  .responsive-padding {
+    padding: var(--spacing-sm);
+  }
+}
+
+@media (min-width: 768px) {
+  .responsive-padding {
+    padding: var(--spacing-md);
+  }
+}
+
+@media (min-width: 992px) {
+  .responsive-padding {
+    padding: var(--spacing-lg);
+  }
+}
+
+/* 響應式 Flex 方向 */
+.responsive-flex {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+@media (min-width: 768px) {
+  .responsive-flex {
+    flex-direction: row;
+    gap: var(--spacing-md);
+  }
+}
+
+/* 響應式網格 */
+.responsive-grid {
+  display: grid;
+  gap: var(--spacing-sm);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 576px) {
+  .responsive-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 992px) {
+  .responsive-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-md);
+  }
+}
+
+@media (min-width: 1200px) {
+  .responsive-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* ============================================
+   特定元件響應式覆寫
+   ============================================ */
+
+/* 表格響應式 - 固定表頭 */
+.ant-table-wrapper .ant-table-sticky-holder {
+  position: sticky;
+  top: 64px; /* Header 高度 */
+  z-index: 3;
+}
+
+/* 行動版表格卡片模式 */
+@media (max-width: 767px) {
+  .table-card-mode .ant-table-thead {
+    display: none;
+  }
+
+  .table-card-mode .ant-table-tbody > tr {
+    display: block;
+    margin-bottom: 12px;
+    border: 1px solid #f0f0f0;
+    border-radius: 8px;
+    padding: 12px;
+  }
+
+  .table-card-mode .ant-table-tbody > tr > td {
+    display: block;
+    border: none;
+    padding: 4px 0 !important;
+  }
+
+  .table-card-mode .ant-table-tbody > tr > td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #666;
+    margin-right: 8px;
+  }
+}
+
+/* 表單響應式佈局 */
+@media (max-width: 767px) {
+  .ant-form-horizontal .ant-form-item-label {
+    text-align: left;
+    flex: none;
+  }
+
+  .ant-form-horizontal .ant-form-item-control {
+    flex: 1 1 auto;
+  }
+}
+
+/* 導覽列響應式 */
+@media (max-width: 767px) {
+  .ant-layout-sider {
+    position: fixed !important;
+    z-index: 1000;
+    height: 100vh;
+  }
+
+  .ant-layout-sider-collapsed {
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    flex: 0 0 0 !important;
+  }
+}
+
+/* 日曆響應式 */
+@media (max-width: 767px) {
+  .ant-picker-calendar-header {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .ant-picker-calendar-header .ant-radio-group {
+    display: none; /* 隱藏年/月切換 */
+  }
+}
+
+/* Dashboard 響應式網格 */
+.dashboard-stats-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 576px) {
+  .dashboard-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 992px) {
+  .dashboard-stats-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* 詳情頁響應式 */
+@media (max-width: 767px) {
+  .detail-page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .detail-page-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .detail-page-tabs .ant-tabs-nav {
+    margin-bottom: 12px;
+  }
+}

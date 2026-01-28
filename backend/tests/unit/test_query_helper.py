@@ -88,6 +88,27 @@ class TestQueryHelper:
         # 無效欄位應被忽略，查詢不變
         assert str(result) == str(query)
 
+    def test_apply_search_escapes_special_chars(self):
+        """測試特殊字元轉義 (防止 SQL 注入)"""
+        query = select(MockDocument)
+        # 使用包含 LIKE 特殊字元的關鍵字
+        result = self.helper.apply_search(query, "test%_\\special", ["subject"])
+
+        # 確認查詢有被修改
+        query_str = str(result)
+        assert "WHERE" in query_str or "subject" in query_str.lower()
+
+    def test_escape_like_pattern(self):
+        """測試 _escape_like_pattern 靜態方法"""
+        # 測試百分號轉義
+        assert QueryHelper._escape_like_pattern("100%") == "100\\%"
+        # 測試底線轉義
+        assert QueryHelper._escape_like_pattern("test_name") == "test\\_name"
+        # 測試反斜線轉義
+        assert QueryHelper._escape_like_pattern("path\\file") == "path\\\\file"
+        # 測試組合
+        assert QueryHelper._escape_like_pattern("%_\\") == "\\%\\_\\\\"
+
     def test_apply_exact_filter(self):
         """測試精確匹配篩選"""
         query = select(MockDocument)

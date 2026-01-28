@@ -143,17 +143,23 @@ export const useCalendarPage = () => {
 
     const weekEvents = safeEvents.filter((e) => {
       const eventDate = dayjs(e.start_datetime);
-      return eventDate.isAfter(weekStart) && eventDate.isBefore(weekEnd);
+      // 使用 isSameOrAfter/isSameOrBefore 確保包含邊界（週一和週日）
+      return eventDate.isSameOrAfter(weekStart, 'day') && eventDate.isSameOrBefore(weekEnd, 'day');
     }).length;
 
     const monthEvents = safeEvents.filter((e) => {
       const eventDate = dayjs(e.start_datetime);
-      return eventDate.isAfter(monthStart) && eventDate.isBefore(monthEnd);
+      // 使用 isSameOrAfter/isSameOrBefore 確保包含邊界
+      return eventDate.isSameOrAfter(monthStart, 'day') && eventDate.isSameOrBefore(monthEnd, 'day');
     }).length;
 
-    const upcomingEvents = safeEvents.filter((e) =>
-      dayjs(e.start_datetime).isAfter(now)
-    ).length;
+    // 下週事件：下週一起算 7 天（下週一 ~ 下週日），與本週不重疊
+    const nextWeekStart = weekEnd.add(1, 'day').startOf('day');  // 下週一
+    const nextWeekEnd = nextWeekStart.add(6, 'day').endOf('day'); // 下週日
+    const upcomingEvents = safeEvents.filter((e) => {
+      const eventDate = dayjs(e.start_datetime);
+      return eventDate.isSameOrAfter(nextWeekStart, 'day') && eventDate.isSameOrBefore(nextWeekEnd, 'day');
+    }).length;
 
     return {
       total_events: safeEvents.length,

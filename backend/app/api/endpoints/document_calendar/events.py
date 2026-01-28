@@ -239,7 +239,7 @@ async def create_calendar_event(
         if not end_date:
             end_date = start_date + timedelta(hours=1)
 
-        priority_str = str(event_create.priority) if event_create.priority else 'normal'
+        priority_str = str(event_create.priority) if event_create.priority else '3'  # 統一預設為普通優先級
 
         new_event = DocumentCalendarEvent(
             title=event_create.title,

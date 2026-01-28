@@ -4,19 +4,28 @@
  * 架構說明：
  * - React Query: 唯一的伺服器資料來源（使用者列表）
  * - 純導航模式：點擊列直接導航至 UserFormPage
- * - 無操作按鈕：編輯/刪除操作統一在 UserFormPage 處理
+ * - 權限維護：點擊「管理」按鈕導航至權限管理頁面
  *
- * @version 4.0.0 - 純導航模式，移除 Modal 和操作按鈕
- * @date 2026-01-26
+ * 表格欄位：
+ * - 使用者（姓名 + 電子郵件）
+ * - 認證方式（Google/電子郵件）
+ * - 角色
+ * - 狀態
+ * - 註冊時間
+ * - 最後登入
+ * - 權限維護（導航模式）
+ *
+ * @version 5.0.0 - 調整欄位設計，新增認證方式、註冊時間、最後登入、權限維護
+ * @date 2026-01-27
  */
 import React, { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Card, Table, Button, Space, Input, Select, Row, Col, Typography, AutoComplete
+  Card, Table, Button, Space, Input, Select, Row, Col, Typography, AutoComplete, Tag
 } from 'antd';
 import type { TableProps } from 'antd';
 import debounce from 'lodash/debounce';
-import { PlusOutlined, SearchOutlined, TeamOutlined } from '@ant-design/icons';
+import { PlusOutlined, SearchOutlined, TeamOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
 import {
   getRoleDisplayName,
   getStatusDisplayName,
@@ -27,6 +36,29 @@ import {
   useResponsive,
 } from '../hooks';
 import { ROUTES } from '../router/types';
+
+// 認證方式顯示名稱
+const getAuthProviderDisplay = (provider?: string) => {
+  const providerNames: Record<string, { label: string; color: string }> = {
+    google: { label: 'Google', color: 'blue' },
+    email: { label: '電子郵件', color: 'green' },
+    local: { label: '本地帳號', color: 'default' },
+  };
+  return providerNames[provider || 'email'] || { label: provider || '未知', color: 'default' };
+};
+
+// 格式化日期時間
+const formatDateTime = (dateStr?: string | null) => {
+  if (!dateStr) return '-';
+  const date = new Date(dateStr);
+  return date.toLocaleString('zh-TW', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -117,43 +149,97 @@ const UserManagementPage: React.FC = () => {
   }, [navigate]);
 
   // ============================================================================
-  // 表格欄位（純顯示，無操作按鈕）
+  // 導航至權限管理（獨立頁面）
+  // ============================================================================
+
+  const handlePermissionClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation(); // 阻止觸發行點擊事件
+    navigate(ROUTES.PERMISSION_MANAGEMENT);
+  }, [navigate]);
+
+  // ============================================================================
+  // 表格欄位 - 依規範調整
   // ============================================================================
 
   const columns = useMemo(() => [
     {
-      title: '電子郵件',
-      dataIndex: 'email',
-      key: 'email',
-      ellipsis: true,
+      title: '使用者',
+      key: 'user',
+      width: isMobile ? 150 : 200,
+      render: (_: unknown, record: User) => (
+        <Space>
+          <UserOutlined style={{ color: '#1976d2' }} />
+          <div>
+            <div style={{ fontWeight: 500 }}>{record.full_name || record.username}</div>
+            <Typography.Text type="secondary" style={{ fontSize: '12px' }}>
+              {record.email}
+            </Typography.Text>
+          </div>
+        </Space>
+      ),
     },
     {
-      title: '使用者名稱',
-      dataIndex: 'username',
-      key: 'username',
-    },
-    {
-      title: '姓名',
-      dataIndex: 'full_name',
-      key: 'full_name',
+      title: '認證方式',
+      dataIndex: 'auth_provider',
+      key: 'auth_provider',
+      width: 100,
+      align: 'center' as const,
+      render: (provider: string) => {
+        const display = getAuthProviderDisplay(provider);
+        return <Tag color={display.color}>{display.label}</Tag>;
+      },
     },
     {
       title: '角色',
       dataIndex: 'role',
       key: 'role',
+      width: 100,
+      align: 'center' as const,
       render: (role: string) => getRoleDisplayName(role),
     },
     {
       title: '狀態',
       dataIndex: 'is_active',
       key: 'is_active',
+      width: 80,
+      align: 'center' as const,
       render: (isActive: boolean, record: User) => (
         <span style={{ color: isActive ? '#52c41a' : '#ff4d4f' }}>
           {getStatusDisplayName(record.status || (isActive ? 'active' : 'inactive'))}
         </span>
       ),
     },
-  ], []);
+    {
+      title: '註冊時間',
+      dataIndex: 'created_at',
+      key: 'created_at',
+      width: 140,
+      render: (date: string) => formatDateTime(date),
+    },
+    {
+      title: '最後登入',
+      dataIndex: 'last_login',
+      key: 'last_login',
+      width: 140,
+      render: (date: string) => formatDateTime(date),
+    },
+    {
+      title: '權限維護',
+      key: 'permissions',
+      width: 100,
+      align: 'center' as const,
+      render: () => (
+        <Button
+          type="link"
+          size="small"
+          icon={<SettingOutlined />}
+          onClick={handlePermissionClick}
+        >
+          {isMobile ? '' : '管理'}
+        </Button>
+      ),
+    },
+  ], [isMobile, handlePermissionClick]);
 
   // ============================================================================
   // 渲染

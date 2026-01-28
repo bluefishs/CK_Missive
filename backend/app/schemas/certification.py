@@ -44,6 +44,7 @@ class CertificationUpdate(BaseModel):
     expiry_date: Optional[date] = Field(None, description="有效期限")
     status: Optional[str] = Field(None, description="狀態")
     notes: Optional[str] = Field(None, description="備註")
+    attachment_path: Optional[str] = Field(None, max_length=500, description="證照掃描檔路徑")
 
 
 class CertificationResponse(BaseModel):

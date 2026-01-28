@@ -10,7 +10,7 @@
 
 import { apiClient } from './client';
 import { API_ENDPOINTS } from './endpoints';
-import type { User, Permission, UserPermissions } from '../types/api';
+import type { User, Permission, UserPermissions, UserSession } from '../types/api';
 
 // ============================================================================
 // 型別定義
@@ -58,19 +58,8 @@ export interface AdminUserListResponse {
   limit?: number;
 }
 
-/** 使用者會話資訊 */
-export interface UserSession {
-  id: number;
-  user_id: number;
-  token_hash?: string;
-  device_info?: string;
-  ip_address?: string;
-  user_agent?: string;
-  created_at: string;
-  expires_at: string;
-  last_activity?: string;
-  is_active: boolean;
-}
+// UserSession 從 types/api.ts 匯入，重新匯出供外部使用
+export type { UserSession };
 
 /** 可用權限回應 */
 export interface AvailablePermissionsResponse {

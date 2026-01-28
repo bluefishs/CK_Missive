@@ -110,7 +110,7 @@ export const CalendarStatistics: React.FC<CalendarStatisticsProps> = ({
           </Tooltip>
         </Col>
         <Col xs={12} sm={12} md={6}>
-          <Tooltip title="點擊篩選即將到來事件">
+          <Tooltip title="點擊篩選下週事件（下週一 ~ 下週日）">
             <div
               onClick={() => onQuickFilter('upcoming')}
               style={{
@@ -121,7 +121,7 @@ export const CalendarStatistics: React.FC<CalendarStatisticsProps> = ({
               }}
             >
               <Statistic
-                title="即將到來"
+                title="下週事件"
                 value={statistics.upcoming}
                 valueStyle={{ color: '#722ed1', fontSize: isMobile ? '18px' : '24px' }}
                 prefix={<BellOutlined />}

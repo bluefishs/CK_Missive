@@ -31,9 +31,12 @@ class VendorService(BaseService[PartnerVendor, VendorCreate, VendorUpdate]):
     SEARCH_FIELDS = ['vendor_name', 'vendor_code']
     DEFAULT_SORT_FIELD = 'vendor_name'
 
-    def __init__(self) -> None:
+    def __init__(self, db: "AsyncSession | None" = None) -> None:
         """初始化廠商服務"""
-        super().__init__(PartnerVendor, "廠商")
+        super().__init__(PartnerVendor, "廠商", db=db)
+        if db:
+            from app.repositories import VendorRepository
+            self.repository = VendorRepository(db)
 
     def _to_dict(self, vendor: PartnerVendor) -> Dict[str, Any]:
         """將廠商實體轉換為字典"""

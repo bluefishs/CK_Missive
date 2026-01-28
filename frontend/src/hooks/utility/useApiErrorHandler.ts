@@ -1,16 +1,13 @@
 /**
  * API 錯誤處理 Hook
+ *
+ * 錯誤解析邏輯已提取至 utils/apiErrorParser.ts 共用。
  */
 import { useCallback, useState } from 'react';
 import { message, notification } from 'antd';
+import { parseApiError, type ParsedApiError } from '../../utils/apiErrorParser';
 
-interface ApiError {
-  status?: number;
-  message: string;
-  detail?: string;
-  timestamp?: string;
-  path?: string;
-}
+type ApiError = ParsedApiError;
 
 interface UseApiErrorHandlerOptions {
   showNotification?: boolean;
@@ -44,68 +41,6 @@ export const useApiErrorHandler = (
   const [retryCount, setRetryCount] = useState(0);
   const [retryFunction, setRetryFunction] = useState<(() => Promise<void>) | null>(null);
 
-  const parseError = (error: any): ApiError => {
-    if (typeof error === 'string') {
-      return { message: error };
-    }
-
-    if (error.response) {
-      const status = error.response.status;
-      const data = error.response.data;
-
-      let messageText = '發生未知錯誤';
-      let detail = '';
-
-      if (typeof data === 'string') {
-        messageText = data;
-      } else if (data && typeof data === 'object') {
-        messageText = data.message || data.detail || data.error || messageText;
-        detail = data.detail || '';
-      }
-
-      return {
-        status,
-        message: getStatusMessage(status, messageText),
-        detail,
-        timestamp: new Date().toISOString(),
-        path: error.response.config?.url || ''
-      };
-    }
-
-    if (error.request) {
-      return {
-        message: '網路連線失敗，請檢查網路狀態',
-        detail: 'Network Error',
-        timestamp: new Date().toISOString()
-      };
-    }
-
-    return {
-      message: error.message || '發生未預期的錯誤',
-      detail: error.stack || '',
-      timestamp: new Date().toISOString()
-    };
-  };
-
-  const getStatusMessage = (status: number, originalMessage: string): string => {
-    const statusMessages: Record<number, string> = {
-      400: '請求參數錯誤',
-      401: '未授權，請重新登入',
-      403: '權限不足，無法執行此操作',
-      404: '請求的資源不存在',
-      408: '請求逾時，請重試',
-      409: '資料衝突，請檢查後重試',
-      422: '資料驗證失敗',
-      429: '請求過於頻繁，請稍後再試',
-      500: '伺服器內部錯誤',
-      502: '服務暫時不可用',
-      503: '服務維護中',
-      504: '伺服器回應逾時'
-    };
-
-    return statusMessages[status] || originalMessage;
-  };
-
   const showErrorFeedback = (error: ApiError) => {
     const { status, message: errorMessage, detail } = error;
 
@@ -135,7 +70,7 @@ export const useApiErrorHandler = (
   };
 
   const handleError = useCallback((error: any) => {
-    const parsedError = parseError(error);
+    const parsedError = parseApiError(error);
     setError(parsedError);
 
     showErrorFeedback(parsedError);

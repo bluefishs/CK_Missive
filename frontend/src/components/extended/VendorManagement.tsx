@@ -43,7 +43,7 @@ export const VendorManagement: React.FC = () => {
         {vendors.map(vendor => (
           <div key={vendor.id} className="vendor-card">
             <h3>{vendor.vendor_name}</h3>
-            <p>廠商代碼: {vendor.vendor_code}</p>
+            <p>廠商統編: {vendor.vendor_code}</p>
             <p>業務類型: {vendor.business_type}</p>
             <p>評級: {"★".repeat(vendor.rating || 0)}</p>
             {vendor.contact_person && <p>聯絡人: {vendor.contact_person}</p>}

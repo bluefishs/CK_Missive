@@ -3,7 +3,9 @@ import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 // @ts-ignore
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { message } from 'antd';
 import { staleTimeConfig } from '../config/queryConfig';
+import { parseApiError } from '../utils/apiErrorParser';
 
 /**
  * 建立 QueryClient
@@ -33,6 +35,16 @@ const queryClient = new QueryClient({
     mutations: {
       retry: 1,
       retryDelay: 1000,
+      onError: (error: Error) => {
+        const parsed = parseApiError(error);
+        // 401 由 API client 的 token refresh 機制處理，不重複顯示
+        if (parsed.status === 401) return;
+        const level = parsed.status && parsed.status >= 500 ? 'error' : 'warning';
+        message[level](parsed.message);
+        if (import.meta.env.DEV) {
+          console.error('[Mutation Error]', parsed);
+        }
+      },
     },
   },
 });

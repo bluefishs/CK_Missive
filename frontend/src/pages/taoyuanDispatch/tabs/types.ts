@@ -1,16 +1,19 @@
 /**
  * TaoyuanDispatchDetailPage Tab 元件型別定義
  *
- * @version 1.0.0
+ * @version 1.1.0
  * @date 2026-01-26
  */
 
+import type { FormInstance } from 'antd';
 import type {
   DispatchOrder,
   DispatchDocumentLink,
   DispatchAttachment,
   OfficialDocument,
   LinkType,
+  ContractPayment,
+  ContractPaymentCreate,
 } from '../../../types/api';
 import type { UploadFile } from 'antd/es/upload';
 import type { UseMutationResult } from '@tanstack/react-query';
@@ -102,3 +105,27 @@ export interface DispatchAttachmentsTabProps {
 
 /** 根據公文字號判斷關聯類型 */
 export type DetectLinkTypeFn = (docNumber?: string) => LinkType;
+
+// ============================================================================
+// 契金維護 Tab Props 型別定義
+// ============================================================================
+
+/** 契金維護 Tab Props */
+export interface DispatchPaymentTabProps {
+  /** 派工單資料 */
+  dispatch?: DispatchOrder;
+  /** 契金資料 */
+  paymentData?: ContractPayment | null;
+  /** 是否可編輯 */
+  canEdit: boolean;
+  /** 是否處於編輯模式 */
+  isPaymentEditing: boolean;
+  /** 設定編輯模式 */
+  setIsPaymentEditing: (editing: boolean) => void;
+  /** 契金表單實例 */
+  paymentForm: FormInstance;
+  /** 儲存中狀態 */
+  isSaving: boolean;
+  /** 儲存契金處理函數 */
+  onSavePayment: (values: ContractPaymentCreate) => void;
+}

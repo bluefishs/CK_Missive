@@ -56,8 +56,7 @@ from app.schemas.project_vendor import *
 # 專案人員關聯
 from app.schemas.project_staff import *
 
-# 行事曆相關
-from app.schemas.calendar import *
+# 行事曆相關 (calendar.py 已歸檔至 _archived，使用 document_calendar.py)
 from app.schemas.document_calendar import *
 
 # 網站管理

@@ -181,6 +181,18 @@ try:
 except RuntimeError:
     logger.warning("Static directory not found, skipping.")
 
+# 證照附件等上傳檔案目錄
+try:
+    import os
+    uploads_dir = getattr(settings, 'ATTACHMENT_STORAGE_PATH', None) or os.getenv('ATTACHMENT_STORAGE_PATH', 'uploads')
+    if os.path.exists(uploads_dir):
+        app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
+    else:
+        os.makedirs(uploads_dir, exist_ok=True)
+        app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
+except RuntimeError as e:
+    logger.warning(f"Uploads directory mount failed: {e}")
+
 
 # --- 健康檢查端點 ---
 @app.get("/health/detailed", tags=["System Monitoring"])

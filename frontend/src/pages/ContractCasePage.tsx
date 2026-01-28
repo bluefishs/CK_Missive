@@ -34,6 +34,7 @@ import { ROUTES } from '../router/types';
 import ProjectVendorManagement from '../components/project/ProjectVendorManagement';
 import { useProjectsPage } from '../hooks';
 import { useAuthGuard, useResponsive } from '../hooks';
+import { STATUS_OPTIONS } from './contractCase/tabs/constants';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -261,10 +262,17 @@ export const ContractCasePage: React.FC = () => {
     switch (status) {
       case '執行中': return 'processing';
       case '已結案': return 'success';
-      case '暫停': return 'warning';
-      case '取消': return 'error';
+      case '未得標': return 'error';
+      case '暫停': return 'error';  // 舊資料相容
       default: return 'default';
     }
+  };
+
+  // 取得狀態顯示標籤（暫停 → 未得標）
+  const getStatusLabel = (status?: string) => {
+    if (!status) return '未設定';
+    const option = STATUS_OPTIONS.find(opt => opt.value === status);
+    return option?.label || status;
   };
 
   // ---[渲染邏輯]---
@@ -353,9 +361,9 @@ export const ContractCasePage: React.FC = () => {
       key: 'status',
       width: 80,
       align: 'center',
-      filters: availableStatuses.map(s => ({ text: s, value: s })),
+      filters: availableStatuses.map(s => ({ text: getStatusLabel(s), value: s })),
       onFilter: (value, record) => record.status === value,
-      render: (status) => <Tag color={getStatusColor(status)}>{status || '未設定'}</Tag>,
+      render: (status) => <Tag color={getStatusColor(status)}>{getStatusLabel(status)}</Tag>,
     },
     {
       title: '契約期程',
@@ -445,7 +453,7 @@ export const ContractCasePage: React.FC = () => {
             >
               <Space direction="vertical" style={{ width: '100%' }}>
                 <div>
-                  <Tag color={getStatusColor(item.status)}>{item.status || '未設定'}</Tag>
+                  <Tag color={getStatusColor(item.status)}>{getStatusLabel(item.status)}</Tag>
                   {item.year && <Tag>{item.year}年</Tag>}
                 </div>
                 <p><strong>委託單位:</strong> {item.client_agency || '-'}</p>
@@ -501,7 +509,7 @@ export const ContractCasePage: React.FC = () => {
             </Col>
             <Col xs={12} sm={6} md={4} lg={4}>
               <Select placeholder="案件狀態" value={statusFilter} onChange={setStatusFilter} allowClear style={{ width: '100%' }}>
-                {availableStatuses.map(stat => <Option key={stat} value={stat}>{stat}</Option>)}
+                {availableStatuses.map(stat => <Option key={stat} value={stat}>{getStatusLabel(stat)}</Option>)}
               </Select>
             </Col>
           </Row>

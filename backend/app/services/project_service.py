@@ -42,9 +42,12 @@ class ProjectService(BaseService[ContractProject, ProjectCreate, ProjectUpdate])
     - 專案統計與選項查詢
     """
 
-    def __init__(self) -> None:
+    def __init__(self, db: "AsyncSession | None" = None) -> None:
         """初始化承攬案件服務"""
-        super().__init__(ContractProject, "承攬案件")
+        super().__init__(ContractProject, "承攬案件", db=db)
+        if db:
+            from app.repositories import ProjectRepository
+            self.repository = ProjectRepository(db)
 
     # =========================================================================
     # 覆寫基礎方法以支援專案特有邏輯

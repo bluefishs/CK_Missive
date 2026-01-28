@@ -91,8 +91,12 @@ export const useDashboardCalendar = () => {
   // 統計數據計算
   const statistics = useMemo<DashboardCalendarStats>(() => {
     const now = dayjs();
-    const weekStart = now.startOf('week');
-    const weekEnd = now.endOf('week');
+    // 使用 ISO Week（週一開始）確保與其他頁面一致
+    const weekStart = now.startOf('isoWeek');
+    const weekEnd = now.endOf('isoWeek');
+    // 下週事件：下週一起算 7 天（下週一 ~ 下週日），與本週不重疊
+    const nextWeekStart = weekEnd.add(1, 'day').startOf('day');  // 下週一
+    const nextWeekEnd = nextWeekStart.add(6, 'day').endOf('day'); // 下週日
 
     return {
       total: events.length,
@@ -106,8 +110,8 @@ export const useDashboardCalendar = () => {
       }).length,
       upcoming: events.filter((e) => {
         const eventDate = dayjs(e.start_datetime);
-        return eventDate.isAfter(now, 'day') &&
-               eventDate.isBefore(now.add(7, 'day'), 'day');
+        return eventDate.isSameOrAfter(nextWeekStart, 'day') &&
+               eventDate.isSameOrBefore(nextWeekEnd, 'day');
       }).length,
       overdue: events.filter((e) =>
         e.status === 'pending' && dayjs(e.start_datetime).isBefore(now, 'day')
@@ -135,6 +139,13 @@ export const useDashboardCalendar = () => {
 
     const now = dayjs();
 
+    // 使用 ISO Week（週一開始）確保與統計一致
+    const weekStart = now.startOf('isoWeek');
+    const weekEnd = now.endOf('isoWeek');
+    // 下週事件：下週一起算 7 天（下週一 ~ 下週日），與本週不重疊
+    const nextWeekStart = weekEnd.add(1, 'day').startOf('day');  // 下週一
+    const nextWeekEnd = nextWeekStart.add(6, 'day').endOf('day'); // 下週日
+
     return events.filter((event) => {
       const eventDate = dayjs(event.start_datetime);
 
@@ -142,10 +153,11 @@ export const useDashboardCalendar = () => {
         case 'today':
           return eventDate.isSame(now, 'day');
         case 'thisWeek':
-          return eventDate.isSame(now, 'week');
+          return eventDate.isSameOrAfter(weekStart, 'day') &&
+                 eventDate.isSameOrBefore(weekEnd, 'day');
         case 'upcoming':
-          return eventDate.isAfter(now, 'day') &&
-                 eventDate.isBefore(now.add(7, 'day'), 'day');
+          return eventDate.isSameOrAfter(nextWeekStart, 'day') &&
+                 eventDate.isSameOrBefore(nextWeekEnd, 'day');
         case 'overdue':
           return event.status === 'pending' && eventDate.isBefore(now, 'day');
         default:
@@ -179,7 +191,7 @@ export const useDashboardCalendar = () => {
       all: '全部',
       today: '今日',
       thisWeek: '本週',
-      upcoming: '即將到來',
+      upcoming: '下週事件',
       overdue: '已逾期',
     };
     return filter ? labels[filter] : '';

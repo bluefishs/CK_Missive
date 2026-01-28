@@ -39,6 +39,6 @@ export const QUICK_FILTER_LABELS: Record<string, string> = {
   all: '全部事件',
   today: '今日事件',
   thisWeek: '本週事件',
-  upcoming: '即將到來',
+  upcoming: '下週事件',
   overdue: '已逾期'
 };

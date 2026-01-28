@@ -125,6 +125,12 @@ def get_agency_service() -> AgencyService:
 # 注意：DocumentService 需要 db 參數，使用 get_service_with_db 工廠模式
 # 在 documents/common.py 中定義: get_document_service = get_service_with_db(DocumentService)
 
+# 工廠模式變體（推薦用於新端點）
+# 每個請求建立新實例，db session 在建構時注入
+get_vendor_service_factory = get_service(VendorService)
+get_project_service_factory = get_service(ProjectService)
+get_agency_service_factory = get_service(AgencyService)
+
 
 # ============================================================================
 # 分頁參數依賴

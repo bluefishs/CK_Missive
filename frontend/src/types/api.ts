@@ -654,6 +654,7 @@ export interface CalendarEventUI {
   description?: string;
   start_datetime: string;
   end_datetime: string;
+  all_day?: boolean;  // 全天事件
   document_id?: number;
   doc_number?: string;
   contract_project_name?: string;  // 承攬案件名稱
@@ -1581,6 +1582,7 @@ export interface CertificationUpdate {
   expiry_date?: string;
   status?: CertStatus;
   notes?: string;
+  attachment_path?: string;
 }
 
 /** 證照列表查詢參數 */
@@ -1597,4 +1599,67 @@ export interface CertificationStats {
   by_type: Record<string, number>;
   by_status: Record<string, number>;
   total: number;
+}
+
+// ============================================================================
+// 專案機關承辦 (ProjectAgencyContact) 相關型別
+// ============================================================================
+
+/** 專案機關承辦介面 */
+export interface ProjectAgencyContact {
+  id: number;
+  project_id: number;
+  contact_name: string;
+  position?: string;
+  department?: string;
+  phone?: string;
+  mobile?: string;
+  email?: string;
+  is_primary: boolean;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/** 專案機關承辦建立請求 */
+export interface ProjectAgencyContactCreate {
+  project_id: number;
+  contact_name: string;
+  position?: string;
+  department?: string;
+  phone?: string;
+  mobile?: string;
+  email?: string;
+  is_primary?: boolean;
+  notes?: string;
+}
+
+/** 專案機關承辦更新請求 */
+export interface ProjectAgencyContactUpdate {
+  contact_name?: string;
+  position?: string;
+  department?: string;
+  phone?: string;
+  mobile?: string;
+  email?: string;
+  is_primary?: boolean;
+  notes?: string;
+}
+
+// ============================================================================
+// 使用者會話 (UserSession) 相關型別
+// ============================================================================
+
+/** 使用者會話資訊 */
+export interface UserSession {
+  id: number;
+  user_id: number;
+  token_hash?: string;
+  device_info?: string;
+  ip_address?: string;
+  user_agent?: string;
+  created_at: string;
+  expires_at: string;
+  last_activity?: string;
+  is_active: boolean;
 }
