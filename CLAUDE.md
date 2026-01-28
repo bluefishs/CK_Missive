@@ -2,8 +2,8 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.13.0
-> **最後更新**: 2026-01-26
+> **Claude Code 配置版本**: 1.14.0
+> **最後更新**: 2026-01-28
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers)
 
 ---
@@ -63,6 +63,7 @@ CK_Missive 是一套企業級公文管理系統，具備以下核心功能：
 | `type-management.md` | 型別, type, Pydantic, TypeScript, BaseModel | **型別管理規範 (v1.1.0) - SSOT 架構** |
 | `api-serialization.md` | 序列化, serialize, ORM, API 返回, 500 錯誤 | **API 序列化規範 (v1.0.0)** |
 | `python-common-pitfalls.md` | Pydantic, forward reference, async, MissingGreenlet, 預設參數 | **Python 常見陷阱規範 (v1.0.0)** |
+| `unicode-handling.md` | Unicode, 編碼, 中文, UTF-8, 亂碼 | **Unicode 處理規範 (v1.0.0)** |
 
 ### 🦸 Superpowers Skills (v4.0.3)
 
@@ -95,6 +96,10 @@ CK_Missive 是一套企業級公文管理系統，具備以下核心功能：
 | **共享實踐** | `systematic-debugging` | 除錯, debug, 調試 | 系統化除錯方法 |
 | **共享實踐** | `dangerous-operations-policy` | 危險操作, 刪除, 重置 | 危險操作政策 |
 | **共享實踐** | `code-standards` | 程式碼規範, coding style | 程式碼標準 |
+| **AI 模式** | `ai-architecture-patterns` | AI, 架構, pattern | AI 架構模式 |
+| **AI 模式** | `ai-model-integration` | AI, 模型, integration | AI 模型整合 |
+| **AI 模式** | `ai-prompt-patterns` | AI, prompt, 提示詞 | AI 提示詞模式 |
+| **AI 模式** | `ai-workflow-patterns` | AI, workflow, 工作流 | AI 工作流程模式 |
 
 > 📁 位置: `.claude/skills/_shared/`
 
@@ -534,7 +539,8 @@ async def list_documents(
 | `docs/specifications/TYPE_CONSISTENCY.md` | 型別一致性規範 |
 | `docs/specifications/SCHEMA_DB_MAPPING.md` | Schema-DB 欄位對照表 v1.0.0 |
 | `docs/specifications/LINK_ID_HANDLING_SPECIFICATION.md` | 關聯記錄處理規範 v1.0.0 |
-| `docs/specifications/UI_DESIGN_STANDARDS.md` | 🆕 **UI 設計規範 v1.0.0** (導航模式、檔案上傳) |
+| `docs/specifications/UI_DESIGN_STANDARDS.md` | **UI 設計規範 v1.2.0** (導航模式、檔案上傳、returnTo) |
+| `docs/SYSTEM_OPTIMIZATION_REPORT.md` | 🆕 **系統優化報告 v1.0.0** (2026-01-28) |
 | `docs/specifications/TESTING_FRAMEWORK.md` | 測試框架規範 |
 | `docs/Architecture_Optimization_Recommendations.md` | 📐 架構優化建議 |
 | `@AGENT.md` | 開發代理指引 |
@@ -668,6 +674,30 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 ---
 
 ## 📋 版本更新記錄
+
+### v1.14.0 (2026-01-28) - UI 規範強化版
+
+**UI 設計規範強化**:
+- 日曆事件編輯改用導航模式，移除 Modal
+- 新增 `CalendarEventFormPage.tsx` 頁面
+- 路由新增 `/calendar/event/:id/edit`
+
+**派工單功能改進**:
+- 返回導航機制 (returnTo Pattern) 完善
+- 契金維護 Tab 編輯模式統一
+- 公文關聯 Tab 查看詳情導航
+
+**文件更新**:
+- `UI_DESIGN_STANDARDS.md` 升級至 v1.2.0
+- 新增 `SYSTEM_OPTIMIZATION_REPORT.md`
+- 新增 AI 相關 Skills 文件記錄
+- 修正 `settings.json` 的 inherit 路徑
+
+**Skills 補充**:
+- 記錄 `unicode-handling.md` 技能
+- 記錄 4 個 AI 相關技能 (`_shared/ai/`)
+
+---
 
 ### v1.13.0 (2026-01-26) - 架構現代化版
 

@@ -6,14 +6,12 @@
   },
   "skills": {
     "inherit": [
-      "../../.claude/skills/shared",
-      "../../.claude/skills/backend"
+      ".claude/skills/_shared/shared",
+      ".claude/skills/_shared/backend"
     ]
   },
   "commands": {
-    "inherit": [
-      "../../.claude/commands/shared"
-    ]
+    "inherit": []
   },
   "codeStyle": {
     "language": "zh-TW",
