@@ -1,5 +1,6 @@
 # 測試框架指南 (Testing Framework Guide)
 
+> **版本**: 1.0.0
 > **觸發關鍵字**: test, 測試, pytest, jest, unit test, 單元測試
 > **適用範圍**: 測試編寫、測試執行、覆蓋率
 

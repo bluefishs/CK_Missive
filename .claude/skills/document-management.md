@@ -1,5 +1,6 @@
 # 公文管理領域知識 (Document Management Domain)
 
+> **版本**: 1.0.0
 > **觸發關鍵字**: 公文, document, 收文, 發文, doc_number, 字號
 > **適用範圍**: 公文 CRUD、流水序號、附件管理
 
