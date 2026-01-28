@@ -1,8 +1,8 @@
 # 系統優化報告
 
-> **版本**: 1.5.0
+> **版本**: 1.6.0
 > **建立日期**: 2026-01-28
-> **最後更新**: 2026-01-28 (Phase 5 - CI 自動化完成)
+> **最後更新**: 2026-01-28 (Phase 6 - GitHub Actions 整合完成)
 > **分析範圍**: CK_Missive 專案配置與系統架構
 
 ---
@@ -342,23 +342,58 @@ docs/specifications/    # 13 個規範文件
 
 ### 6.6 CI 自動化工具
 
-**新增腳本**：`scripts/skills-sync-check.ps1` v1.0.0
+**新增腳本**：
+
+| 腳本 | 平台 | 用途 |
+|------|------|------|
+| `scripts/skills-sync-check.ps1` | Windows | 本地開發檢查 |
+| `scripts/skills-sync-check.sh` | Linux/macOS | CI/CD 整合 |
 
 **功能**：
 - 檢查 38 個配置檔案存在性
 - 驗證 settings.json inherit 配置
-- 支援 `-Verbose` 參數顯示詳細輸出
+- 檢查 README 檔案
+- 支援詳細輸出模式
 
 **用法**：
-```powershell
-# 基本檢查
-powershell -File scripts/skills-sync-check.ps1
-
-# 詳細輸出
+```bash
+# Windows (PowerShell)
 powershell -File scripts/skills-sync-check.ps1 -Verbose
+
+# Linux/macOS (Bash)
+bash scripts/skills-sync-check.sh -v
 ```
 
-**整合建議**：可加入 CI/CD 流程（GitHub Actions / GitLab CI）
+### 6.7 GitHub Actions 整合
+
+**已更新**：`.github/workflows/ci.yml`
+
+**新增 Job**：`skills-sync-check`
+
+**檢查項目**：
+1. Skills/Commands/Hooks/Agents 檔案存在性
+2. settings.json inherit 配置
+3. CLAUDE.md 存在與版本
+4. 規範文件數量驗證
+
+**觸發條件**：
+- Push 到 main/develop 分支
+- Pull Request 到 main/develop 分支
+
+**CI 流程圖**：
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│  frontend-check │    │  backend-check  │    │ skills-sync-    │
+│  (TypeScript)   │    │  (Python)       │    │ check           │
+└────────┬────────┘    └────────┬────────┘    └────────┬────────┘
+         │                      │                      │
+         └──────────────────────┴──────────────────────┘
+                               │
+                    ┌──────────┴──────────┐
+                    │ config-consistency  │
+                    │ (.env 檢查)         │
+                    └─────────────────────┘
+```
 
 ---
 

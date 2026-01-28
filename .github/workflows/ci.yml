@@ -112,3 +112,39 @@ jobs:
           fi
 
           echo "=== Configuration check passed ==="
+
+  skills-sync-check:
+    name: Skills & Config Sync Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Make script executable
+        run: chmod +x scripts/skills-sync-check.sh
+
+      - name: Run Skills sync check
+        run: ./scripts/skills-sync-check.sh
+
+      - name: Verify CLAUDE.md exists
+        run: |
+          if [ -f "CLAUDE.md" ]; then
+            echo "✓ CLAUDE.md exists"
+            # Check version
+            VERSION=$(grep -oP 'Claude Code 配置版本.*?(\d+\.\d+\.\d+)' CLAUDE.md | grep -oP '\d+\.\d+\.\d+' || echo "unknown")
+            echo "  Version: $VERSION"
+          else
+            echo "✗ CLAUDE.md not found"
+            exit 1
+          fi
+
+      - name: Check specifications count
+        run: |
+          SPEC_COUNT=$(find docs/specifications -name "*.md" 2>/dev/null | wc -l)
+          echo "Found $SPEC_COUNT specification files"
+          if [ "$SPEC_COUNT" -lt 10 ]; then
+            echo "⚠️ Warning: Expected at least 10 specifications, found $SPEC_COUNT"
+          else
+            echo "✓ Specification count OK"
+          fi
