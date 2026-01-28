@@ -1,8 +1,25 @@
 # Claude Code Hooks 配置
 
-> **版本**: 1.1.0
+> **版本**: 1.2.0
 > **用途**: 定義 Claude Code 自動化鉤子
-> **最後更新**: 2026-01-21
+> **最後更新**: 2026-01-28
+
+---
+
+## 快速參考：Hooks 執行方式
+
+| Hook 腳本 | 執行方式 | 觸發條件 | 說明 |
+|----------|---------|---------|------|
+| `typescript-check.ps1` | 🤖 自動 | 修改 .ts/.tsx | TypeScript 編譯檢查 |
+| `python-lint.ps1` | 🤖 自動 | 修改 .py | Python 語法檢查 |
+| `validate-file-location.ps1` | 🤖 自動 | Write/Edit 前 | 驗證檔案位置符合架構 |
+| `route-sync-check.ps1` | 📋 手動 | /route-sync-check | 前後端路由一致性 |
+| `api-serialization-check.ps1` | 📋 手動 | /api-check | API 序列化問題檢查 |
+| `link-id-check.ps1` | 📋 手動 | 需要時 | 前端 link_id 使用檢查 |
+| `link-id-validation.ps1` | 📋 手動 | 需要時 | 後端 link_id 傳遞檢查 |
+| `performance-check.ps1` | 📋 手動 | /performance-check | 效能診斷檢查 |
+
+**圖例**：🤖 自動 = 由 settings.json 配置自動觸發 | 📋 手動 = 搭配 Slash Command 或手動執行
 
 ---
 
@@ -156,10 +173,61 @@ API 序列化問題檢查。
 
 ---
 
+## 完整 Hooks 清單
+
+### 自動執行 Hooks (settings.json 配置)
+
+這些 hooks 已在 `.claude/settings.json` 中配置，會自動觸發。
+
+#### 1. typescript-check.ps1
+- **觸發時機**: PostToolUse (Edit/Write .ts/.tsx)
+- **功能**: 執行 `npx tsc --noEmit` 檢查 TypeScript 編譯
+- **失敗處理**: 顯示錯誤，阻止繼續
+
+#### 2. python-lint.ps1
+- **觸發時機**: PostToolUse (Edit/Write .py)
+- **功能**: 執行 Python 語法檢查
+- **失敗處理**: 顯示錯誤，阻止繼續
+
+#### 3. validate-file-location.ps1
+- **觸發時機**: PreToolUse (Write/Edit)
+- **功能**: 驗證新建/修改的檔案位置符合架構規範
+- **失敗處理**: 阻止在錯誤位置建立檔案
+
+### 手動執行 Hooks
+
+這些 hooks 需要透過 Slash Command 或手動執行。
+
+#### 4. route-sync-check.ps1
+- **搭配指令**: `/route-sync-check`
+- **功能**: 檢查前後端路由定義一致性
+- **檢查項目**: ROUTES 常數、AppRouter、導覽配置
+
+#### 5. api-serialization-check.ps1
+- **搭配指令**: `/api-check`
+- **功能**: 檢查 API 端點是否有序列化問題
+- **檢查項目**: ORM 直接返回、datetime 未序列化
+
+#### 6. link-id-check.ps1
+- **用途**: 檢查前端 JSX 中的 link_id 使用
+- **檢查項目**: 是否誤用 `.id` 而非 `.link_id`
+
+#### 7. link-id-validation.ps1
+- **用途**: 檢查後端 Python 中的 link_id 傳遞
+- **檢查項目**: API 回應是否包含 link_id
+
+#### 8. performance-check.ps1
+- **搭配指令**: `/performance-check`
+- **功能**: 效能診斷檢查
+- **檢查項目**: N+1 查詢、未使用索引、大量資料載入
+
+---
+
 ## 相關文件
 
 | 文件 | 說明 |
 |------|------|
-| `.claude/settings.local.json` | 本地配置 |
+| `.claude/settings.json` | Hooks 自動觸發配置 |
+| `.claude/settings.local.json` | 本地覆蓋配置 |
 | `CLAUDE.md` | 主配置文件 |
-| `@AGENT.md` | 開發代理指引 |
+| `docs/SYSTEM_OPTIMIZATION_REPORT.md` | 系統優化報告 |
