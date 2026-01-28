@@ -152,7 +152,7 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
       // 導航到新建立的派工單詳情頁
       navigate(`/taoyuan/dispatch/${result.id}`);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       message.error(error?.message || '新增失敗');
     },
   });

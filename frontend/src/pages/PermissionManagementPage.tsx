@@ -82,8 +82,9 @@ const PermissionManagementPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['userPermissions', selectedUser?.id] });
       queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
     },
-    onError: (error: any) => {
-      message.error(error?.response?.data?.detail || '權限更新失敗');
+    onError: (error: Error) => {
+      const detail = (error as any)?.response?.data?.detail;
+      message.error(detail || error.message || '權限更新失敗');
     },
   });
 

@@ -624,7 +624,7 @@ export const ContractCaseFormPage: React.FC = () => {
         okText="建立"
         cancelText="取消"
         width={isMobile ? '95%' : 500}
-        destroyOnClose
+        forceRender
       >
         <Form
           form={addAgencyForm}

@@ -1,6 +1,11 @@
 """
 公文行事曆同步服務 - 單向同步至 Google Calendar
 實作 Google Calendar API 整合
+
+重構版本 v2.0.0 (2026-01-28)：
+- 整合 CalendarRepository
+- 保留 Google Calendar API 整合
+- 減少直接資料庫查詢
 """
 import logging
 import os
@@ -16,6 +21,7 @@ from sqlalchemy.orm import selectinload
 from app.core.config import settings
 from app.extended.models import DocumentCalendarEvent, OfficialDocument
 from app.schemas.document_calendar import DocumentCalendarEventUpdate
+from app.repositories.calendar_repository import CalendarRepository
 
 logger = logging.getLogger(__name__)
 
@@ -70,17 +76,17 @@ class DocumentCalendarService:
         return self.service is not None
 
     # ==========================================================================
-    # 本地資料庫操作
+    # 本地資料庫操作 (使用 Repository)
     # ==========================================================================
+
+    def _get_repository(self, db: AsyncSession) -> CalendarRepository:
+        """取得 Repository 實例"""
+        return CalendarRepository(db)
 
     async def get_event(self, db: AsyncSession, event_id: int) -> Optional[DocumentCalendarEvent]:
         """透過 ID 取得單一本地日曆事件 (含提醒關聯)"""
-        result = await db.execute(
-            select(DocumentCalendarEvent)
-            .options(selectinload(DocumentCalendarEvent.reminders))
-            .where(DocumentCalendarEvent.id == event_id)
-        )
-        return result.scalar_one_or_none()
+        repository = self._get_repository(db)
+        return await repository.get_with_reminders(event_id)
 
     async def update_event(
         self, db: AsyncSession, event_id: int, event_update: DocumentCalendarEventUpdate
@@ -568,7 +574,8 @@ class DocumentCalendarService:
         db: AsyncSession,
         start_time: datetime,
         end_time: datetime,
-        exclude_event_id: int = None
+        exclude_event_id: int = None,
+        user_id: int = None
     ) -> List[Dict[str, Any]]:
         """
         偵測指定時間範圍內的衝突事件
@@ -578,23 +585,19 @@ class DocumentCalendarService:
             start_time: 查詢開始時間
             end_time: 查詢結束時間
             exclude_event_id: 要排除的事件 ID（用於編輯時排除自己）
+            user_id: 使用者 ID（可選，限定特定使用者的事件）
 
         Returns:
             衝突事件列表
         """
         try:
-            # 查詢時間範圍重疊的事件
-            # 重疊條件：新事件開始 < 現有事件結束 AND 新事件結束 > 現有事件開始
-            query = select(DocumentCalendarEvent).where(
-                DocumentCalendarEvent.start_date < end_time,
-                DocumentCalendarEvent.end_date > start_time
+            repository = self._get_repository(db)
+            conflicts = await repository.get_conflicting_events(
+                start_time=start_time,
+                end_time=end_time,
+                exclude_id=exclude_event_id,
+                user_id=user_id
             )
-
-            if exclude_event_id:
-                query = query.where(DocumentCalendarEvent.id != exclude_event_id)
-
-            result = await db.execute(query)
-            conflicts = result.scalars().all()
 
             conflict_list = []
             for event in conflicts:
@@ -632,19 +635,36 @@ class DocumentCalendarService:
             待同步事件列表
         """
         try:
-            result = await db.execute(
-                select(DocumentCalendarEvent)
-                .options(selectinload(DocumentCalendarEvent.reminders))
-                .where(
-                    (DocumentCalendarEvent.google_event_id == None) |
-                    (DocumentCalendarEvent.google_sync_status == 'pending') |
-                    (DocumentCalendarEvent.google_sync_status == 'failed')
-                ).limit(limit)
-            )
-            return result.scalars().all()
+            repository = self._get_repository(db)
+            return await repository.get_pending_sync_events(limit)
         except Exception as e:
             logger.error(f"取得待同步事件失敗: {e}", exc_info=True)
             return []
+
+    async def get_events_by_document(
+        self, db: AsyncSession, document_id: int
+    ) -> List[DocumentCalendarEvent]:
+        """取得公文的所有事件"""
+        repository = self._get_repository(db)
+        return await repository.get_by_document(document_id)
+
+    async def get_events_by_user(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        start_date: datetime = None,
+        end_date: datetime = None
+    ) -> List[DocumentCalendarEvent]:
+        """取得使用者的事件"""
+        repository = self._get_repository(db)
+        return await repository.get_by_user(user_id, start_date, end_date)
+
+    async def get_calendar_statistics(
+        self, db: AsyncSession, user_id: int = None
+    ) -> Dict[str, Any]:
+        """取得行事曆統計"""
+        repository = self._get_repository(db)
+        return await repository.get_statistics(user_id)
 
 
 # 建立全域服務實例

@@ -57,6 +57,7 @@ from .notification_template_service import (
 # 匯入匯出服務
 from .document_import_service import DocumentImportService
 from .document_export_service import DocumentExportService
+from .document_statistics_service import DocumentStatisticsService
 from .csv_processor import DocumentCSVProcessor
 from .excel_import_service import ExcelImportService
 
@@ -104,9 +105,10 @@ __all__ = [
     "NotificationTemplate",
     "RenderedNotification",
     "get_notification_template_service",
-    # 匯入匯出
+    # 匯入匯出統計
     "DocumentImportService",
     "DocumentExportService",
+    "DocumentStatisticsService",
     "DocumentCSVProcessor",
     "ExcelImportService",
     # 網站管理

@@ -81,7 +81,7 @@ export const VendorFormPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['vendors'] });
       navigate(ROUTES.VENDORS);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       message.error(error?.message || '建立失敗');
     },
   });
@@ -95,7 +95,7 @@ export const VendorFormPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['vendors'] });
       navigate(ROUTES.VENDORS);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       message.error(error?.message || '更新失敗');
     },
   });
@@ -108,7 +108,7 @@ export const VendorFormPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['vendors'] });
       navigate(ROUTES.VENDORS);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       message.error(error?.message || '刪除失敗');
     },
   });

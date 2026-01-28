@@ -98,8 +98,8 @@ export const UserFormPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
       navigate(ROUTES.USER_MANAGEMENT);
     },
-    onError: (error: any) => {
-      message.error(error?.response?.data?.detail || error?.message || '建立失敗');
+    onError: (error: Error) => {
+      message.error((error as any)?.response?.data?.detail || error?.message || '建立失敗');
     },
   });
 
@@ -112,8 +112,8 @@ export const UserFormPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['user', userId] });
       navigate(ROUTES.USER_MANAGEMENT);
     },
-    onError: (error: any) => {
-      message.error(error?.response?.data?.detail || error?.message || '更新失敗');
+    onError: (error: Error) => {
+      message.error((error as any)?.response?.data?.detail || error?.message || '更新失敗');
     },
   });
 
@@ -124,8 +124,8 @@ export const UserFormPage: React.FC = () => {
       message.success('權限更新成功');
       queryClient.invalidateQueries({ queryKey: ['userPermissions', userId] });
     },
-    onError: (error: any) => {
-      message.error(error?.response?.data?.detail || error?.message || '權限更新失敗');
+    onError: (error: Error) => {
+      message.error((error as any)?.response?.data?.detail || error?.message || '權限更新失敗');
     },
   });
 
@@ -137,8 +137,8 @@ export const UserFormPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
       navigate(ROUTES.USER_MANAGEMENT);
     },
-    onError: (error: any) => {
-      message.error(error?.response?.data?.detail || error?.message || '刪除失敗');
+    onError: (error: Error) => {
+      message.error((error as any)?.response?.data?.detail || error?.message || '刪除失敗');
     },
   });
 

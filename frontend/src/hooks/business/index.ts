@@ -10,6 +10,7 @@
 // 公文管理
 export * from './useDocuments';
 export * from './useDocumentsWithStore';
+export * from './useDocumentCreateForm';
 
 // 承攬案件管理
 export * from './useProjects';

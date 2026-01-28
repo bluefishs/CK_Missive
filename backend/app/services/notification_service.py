@@ -8,8 +8,9 @@ Notification Service
 2. 支援多種通知管道（系統內、Email、Webhook）
 3. 提供通知查詢與管理功能
 
-重構版本 v2.0.0 (2026-01-23)：
-- 使用 ORM 模型取代原始 SQL
+重構版本 v3.0.0 (2026-01-28)：
+- 整合 NotificationRepository
+- 保留 ORM 模型支援
 - 減少重複程式碼
 - 添加正確型別提示
 - 保留 safe_* 系列方法的交易隔離特性
@@ -25,16 +26,21 @@ Notification Service
         new_value="新主旨",
         user_name="admin"
     )
+
+    # 或使用實例版本（需要 db session）
+    service = NotificationService(db)
+    notifications, total = await service.list_notifications(user_id=1)
 """
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, func
 
 from app.extended.models import SystemNotification
 from app.schemas.notification import NotificationItem
+from app.repositories.notification_repository import NotificationRepository
 
 logger = logging.getLogger(__name__)
 
@@ -77,10 +83,118 @@ CRITICAL_FIELDS = {
 
 
 class NotificationService:
-    """統一通知服務"""
+    """
+    統一通知服務
 
-    def __init__(self) -> None:
+    支援兩種使用模式：
+    1. 實例模式 - 使用 Repository（推薦用於需要複雜查詢的場景）
+    2. 靜態方法模式 - 直接操作 ORM（向後相容）
+    """
+
+    def __init__(self, db: Optional[AsyncSession] = None) -> None:
+        self.db = db
+        self.repository = NotificationRepository(db) if db else None
         self.email_service: Optional[Any] = None  # 將來可整合郵件服務
+
+    # =========================================================================
+    # Repository-based 方法 (實例模式)
+    # =========================================================================
+
+    async def list_notifications(
+        self,
+        user_id: int,
+        is_read: Optional[bool] = None,
+        notification_type: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """
+        查詢使用者通知列表
+
+        Args:
+            user_id: 使用者 ID
+            is_read: 是否已讀
+            notification_type: 通知類型
+            limit: 每頁數量
+            offset: 偏移量
+
+        Returns:
+            (通知列表, 總筆數)
+        """
+        if not self.repository:
+            raise RuntimeError("NotificationService 未初始化 db session")
+
+        items, total = await self.repository.filter_notifications(
+            user_id=user_id,
+            is_read=is_read,
+            notification_type=notification_type,
+            limit=limit,
+            offset=offset,
+        )
+
+        result_items = []
+        for item in items:
+            data = item.data or {}
+            result_items.append({
+                "id": item.id,
+                "type": item.notification_type,
+                "severity": data.get("severity", "info"),
+                "title": item.title,
+                "message": item.message,
+                "source_table": data.get("source_table"),
+                "source_id": data.get("source_id"),
+                "changes": data.get("changes"),
+                "user_id": item.user_id,
+                "user_name": data.get("user_name"),
+                "is_read": item.is_read,
+                "read_at": item.read_at.isoformat() if item.read_at else None,
+                "created_at": item.created_at.isoformat() if item.created_at else None,
+            })
+
+        return result_items, total
+
+    async def get_unread_notifications(
+        self, user_id: int, limit: int = 50
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """取得使用者未讀通知"""
+        return await self.list_notifications(user_id, is_read=False, limit=limit)
+
+    async def mark_notifications_read(
+        self, notification_ids: List[int]
+    ) -> int:
+        """批次標記通知為已讀"""
+        if not self.repository:
+            raise RuntimeError("NotificationService 未初始化 db session")
+        return await self.repository.mark_read_batch(notification_ids)
+
+    async def mark_all_read_for_user(self, user_id: int) -> int:
+        """標記使用者所有通知為已讀"""
+        if not self.repository:
+            raise RuntimeError("NotificationService 未初始化 db session")
+        return await self.repository.mark_all_read(user_id)
+
+    async def get_unread_count_for_user(self, user_id: int) -> int:
+        """取得使用者未讀通知數量"""
+        if not self.repository:
+            raise RuntimeError("NotificationService 未初始化 db session")
+        return await self.repository.get_unread_count(user_id)
+
+    async def get_notification_statistics(self, user_id: int) -> Dict[str, Any]:
+        """取得使用者通知統計"""
+        if not self.repository:
+            raise RuntimeError("NotificationService 未初始化 db session")
+        return await self.repository.get_statistics(user_id)
+
+    async def cleanup_old_notifications(
+        self, older_than_days: int = 90, read_only: bool = True
+    ) -> int:
+        """清理舊通知"""
+        if not self.repository:
+            raise RuntimeError("NotificationService 未初始化 db session")
+
+        if read_only:
+            return await self.repository.delete_read_older_than(older_than_days)
+        return await self.repository.delete_old(older_than_days)
 
     # =========================================================================
     # 核心建立方法 (ORM 版本)

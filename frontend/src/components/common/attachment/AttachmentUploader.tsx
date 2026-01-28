@@ -226,7 +226,7 @@ export const AttachmentUploader: React.FC<AttachmentUploaderProps> = ({
             percent={uploadProgress}
             status="active"
             strokeColor={{ '0%': '#108ee9', '100%': '#87d068' }}
-            strokeWidth={12}
+            size={['100%', 12]}
           />
         </Card>
       )}

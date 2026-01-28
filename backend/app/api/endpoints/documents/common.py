@@ -23,6 +23,8 @@ from app.extended.models import (
     project_user_assignment,
 )
 from app.services.document_service import DocumentService
+from app.services.document_statistics_service import DocumentStatisticsService
+from app.services.document_export_service import DocumentExportService
 from app.schemas.document import (
     DocumentFilter,
     DocumentListQuery,
@@ -58,8 +60,10 @@ from app.services.notification_service import NotificationService, CRITICAL_FIEL
 from app.core.dependencies import require_auth, require_permission, get_service_with_db
 from app.api.endpoints.auth import get_current_user
 
-# DocumentService 依賴注入工廠函數
+# 依賴注入工廠函數
 get_document_service = get_service_with_db(DocumentService)
+get_statistics_service = get_service_with_db(DocumentStatisticsService)
+get_export_service = get_service_with_db(DocumentExportService)
 
 logger = logging.getLogger(__name__)
 
@@ -139,10 +143,14 @@ __all__ = [
     "project_user_assignment",
     # Services
     "DocumentService",
+    "DocumentStatisticsService",
+    "DocumentExportService",
     "NotificationService",
     "CRITICAL_FIELDS",
     # Dependencies
     "get_document_service",
+    "get_statistics_service",
+    "get_export_service",
     # Schemas - Document
     "DocumentFilter",
     "DocumentListQuery",

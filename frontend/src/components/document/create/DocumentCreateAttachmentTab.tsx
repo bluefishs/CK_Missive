@@ -1,81 +1,92 @@
 /**
- * 檔案上傳區塊組件
+ * 公文建立 - 附件紀錄 Tab
  *
- * 提供拖拽上傳、待上傳檔案預覽、上傳進度顯示和錯誤訊息。
+ * 共用於收文和發文建立頁面
  *
  * @version 1.0.0
- * @date 2026-01-19
+ * @date 2026-01-28
  */
 
 import React from 'react';
-import { Form, Upload, Card, List, Progress, Alert, Empty } from 'antd';
-import type { UploadFile, UploadChangeParam, UploadProps } from 'antd/es/upload';
+import {
+  Card,
+  Upload,
+  Spin,
+  List,
+  Alert,
+  Progress,
+  Button,
+  App,
+} from 'antd';
 import {
   InboxOutlined,
+  CloudUploadOutlined,
   FileOutlined,
   LoadingOutlined,
-  CloudUploadOutlined,
 } from '@ant-design/icons';
-import type { FileUploadSectionProps, FileValidationResult } from './types';
+import type { UploadFile, UploadProps } from 'antd/es/upload/interface';
+import type { FileSettings } from '../../../hooks/business/useDocumentCreateForm';
 
 const { Dragger } = Upload;
 
-export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
+export interface DocumentCreateAttachmentTabProps {
+  fileList: UploadFile[];
+  setFileList: React.Dispatch<React.SetStateAction<UploadFile[]>>;
+  uploading: boolean;
+  uploadProgress: number;
+  uploadErrors: string[];
+  clearUploadErrors: () => void;
+  fileSettings: FileSettings;
+  validateFile: (file: File) => { valid: boolean; error?: string };
+}
+
+export const DocumentCreateAttachmentTab: React.FC<DocumentCreateAttachmentTabProps> = ({
   fileList,
+  setFileList,
   uploading,
   uploadProgress,
   uploadErrors,
-  maxFileSizeMB,
-  allowedExtensions: _allowedExtensions,
-  readOnly,
-  onFileListChange,
-  onRemove,
-  onClearErrors,
+  clearUploadErrors,
+  fileSettings,
   validateFile,
-  onCheckDuplicate,
 }) => {
-  // 如果是唯讀模式且沒有檔案列表，顯示空狀態
-  if (readOnly) {
-    return (
-      <Empty description="此公文尚無附件" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-    );
-  }
+  const { message } = App.useApp();
 
   const uploadProps: UploadProps = {
     multiple: true,
     fileList,
-    showUploadList: false, // 隱藏預設列表，使用自定義卡片顯示
+    showUploadList: false,
     beforeUpload: (file: File) => {
-      // 前端驗證
-      const validation: FileValidationResult = validateFile(file);
+      const validation = validateFile(file);
       if (!validation.valid) {
-        return Upload.LIST_IGNORE; // 不加入列表
+        message.error(validation.error);
+        return Upload.LIST_IGNORE;
       }
-
-      // 檢查重複檔案（編輯模式）
-      if (onCheckDuplicate && onCheckDuplicate(file)) {
-        return Upload.LIST_IGNORE; // 已由外部處理（顯示確認對話框）
-      }
-
-      return false; // 阻止自動上傳，我們將手動處理
+      return false;
     },
-    onChange: ({ fileList: newFileList }: UploadChangeParam<UploadFile>) => {
-      onFileListChange(newFileList);
+    onChange: ({ fileList: newFileList }) => {
+      setFileList(newFileList);
     },
-    onRemove: (file: UploadFile) => {
-      onRemove(file);
+    onRemove: (file) => {
+      const newFileList = fileList.filter(item => item.uid !== file.uid);
+      setFileList(newFileList);
     },
   };
 
+  const handleRemoveFile = (uid: string) => {
+    const newList = fileList.filter(f => f.uid !== uid);
+    setFileList(newList);
+  };
+
   return (
-    <Form.Item label="上傳新附件">
+    <Spin spinning={uploading}>
       <Dragger {...uploadProps} disabled={uploading}>
         <p className="ant-upload-drag-icon">
           <InboxOutlined />
         </p>
         <p className="ant-upload-text">點擊或拖拽文件到此區域上傳</p>
         <p className="ant-upload-hint">
-          支援 PDF、DOC、DOCX、XLS、XLSX、JPG、PNG 等格式，單檔最大 {maxFileSizeMB}MB
+          支援 PDF、DOC、DOCX、XLS、XLSX、JPG、PNG 等格式，單檔最大 {fileSettings.maxFileSizeMB}MB
         </p>
       </Dragger>
 
@@ -95,17 +106,29 @@ export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
             size="small"
             dataSource={fileList}
             renderItem={(file: UploadFile) => (
-              <List.Item>
+              <List.Item
+                actions={[
+                  <Button
+                    key="remove"
+                    type="link"
+                    size="small"
+                    danger
+                    onClick={() => handleRemoveFile(file.uid)}
+                  >
+                    移除
+                  </Button>
+                ]}
+              >
                 <List.Item.Meta
                   avatar={<FileOutlined style={{ color: '#1890ff' }} />}
                   title={file.name}
-                  description={file.size ? `${(file.size / 1024).toFixed(1)} KB` : ''}
+                  description={`${((file.size || 0) / 1024).toFixed(1)} KB`}
                 />
               </List.Item>
             )}
           />
           <p style={{ color: '#999', fontSize: 12, marginTop: 8, marginBottom: 0 }}>
-            點擊下方「儲存變更」按鈕後開始上傳
+            點擊上方「儲存」按鈕後開始上傳
           </p>
         </Card>
       )}
@@ -125,23 +148,9 @@ export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
           <Progress
             percent={uploadProgress}
             status="active"
-            strokeColor={{
-              '0%': '#108ee9',
-              '100%': '#87d068',
-            }}
+            strokeColor={{ '0%': '#108ee9', '100%': '#87d068' }}
             size={['100%', 12]}
           />
-          <p
-            style={{
-              textAlign: 'center',
-              color: '#1890ff',
-              marginTop: 12,
-              marginBottom: 0,
-              fontWeight: 500,
-            }}
-          >
-            上傳進度：{uploadProgress}%
-          </p>
         </Card>
       )}
 
@@ -151,7 +160,7 @@ export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
           type="warning"
           showIcon
           closable
-          onClose={onClearErrors}
+          onClose={clearUploadErrors}
           style={{ marginTop: 16 }}
           message="部分檔案上傳失敗"
           description={
@@ -163,8 +172,8 @@ export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
           }
         />
       )}
-    </Form.Item>
+    </Spin>
   );
 };
 
-export default FileUploadSection;
+export default DocumentCreateAttachmentTab;

@@ -79,7 +79,7 @@ export const AgencyFormPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['agencies'] });
       navigate(ROUTES.AGENCIES);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       message.error(error?.message || '建立失敗');
     },
   });
@@ -93,7 +93,7 @@ export const AgencyFormPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['agencies'] });
       navigate(ROUTES.AGENCIES);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       message.error(error?.message || '更新失敗');
     },
   });
@@ -106,7 +106,7 @@ export const AgencyFormPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['agencies'] });
       navigate(ROUTES.AGENCIES);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       message.error(error?.message || '刪除失敗');
     },
   });

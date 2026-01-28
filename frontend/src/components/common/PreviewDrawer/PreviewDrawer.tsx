@@ -121,6 +121,10 @@ export const PreviewDrawer: React.FC<PreviewDrawerProps> = ({
         header: {
           borderBottom: '1px solid #f0f0f0',
         },
+        footer: {
+          borderTop: '1px solid #f0f0f0',
+          padding: isMobile ? '8px 12px' : '12px 16px',
+        },
       }}
       footer={
         detailPath && (
@@ -151,10 +155,6 @@ export const PreviewDrawer: React.FC<PreviewDrawerProps> = ({
           </div>
         )
       }
-      footerStyle={{
-        borderTop: '1px solid #f0f0f0',
-        padding: isMobile ? '8px 12px' : '12px 16px',
-      }}
     >
       <Spin spinning={loading}>
         <div style={{ flex: 1, overflow: 'auto' }}>

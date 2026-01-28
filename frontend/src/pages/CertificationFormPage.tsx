@@ -91,8 +91,9 @@ export const CertificationFormPage: React.FC = () => {
           setUploading(true);
           await certificationsApi.uploadAttachment(newCert.id, attachmentFile);
           message.success('證照及附件建立成功');
-        } catch (uploadError: any) {
-          message.warning(`證照已建立，但附件上傳失敗: ${uploadError?.message || '未知錯誤'}`);
+        } catch (uploadError) {
+          const errMsg = uploadError instanceof Error ? uploadError.message : '未知錯誤';
+          message.warning(`證照已建立，但附件上傳失敗: ${errMsg}`);
         } finally {
           setUploading(false);
         }
@@ -102,7 +103,7 @@ export const CertificationFormPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['certifications', staffId] });
       navigate(backPath);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       message.error(error?.message || '建立失敗');
     },
   });
@@ -118,8 +119,9 @@ export const CertificationFormPage: React.FC = () => {
           setUploading(true);
           await certificationsApi.uploadAttachment(certificationId, attachmentFile);
           message.success('證照及附件更新成功');
-        } catch (uploadError: any) {
-          message.warning(`證照已更新，但附件上傳失敗: ${uploadError?.message || '未知錯誤'}`);
+        } catch (uploadError) {
+          const errMsg = uploadError instanceof Error ? uploadError.message : '未知錯誤';
+          message.warning(`證照已更新，但附件上傳失敗: ${errMsg}`);
         } finally {
           setUploading(false);
         }
@@ -130,7 +132,7 @@ export const CertificationFormPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['certification', certificationId] });
       navigate(backPath);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       message.error(error?.message || '更新失敗');
     },
   });
@@ -143,7 +145,7 @@ export const CertificationFormPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['certifications', staffId] });
       navigate(backPath);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       message.error(error?.message || '刪除失敗');
     },
   });
@@ -156,7 +158,7 @@ export const CertificationFormPage: React.FC = () => {
       setAttachmentPreview(null);
       queryClient.invalidateQueries({ queryKey: ['certification', certificationId] });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       message.error(error?.message || '刪除附件失敗');
     },
   });

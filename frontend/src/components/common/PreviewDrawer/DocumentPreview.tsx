@@ -121,13 +121,15 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
       <Descriptions
         column={1}
         size="small"
-        labelStyle={{
-          width: isMobile ? 70 : 90,
-          color: '#666',
-          fontWeight: 500,
-        }}
-        contentStyle={{
-          color: '#333',
+        styles={{
+          label: {
+            width: isMobile ? 70 : 90,
+            color: '#666',
+            fontWeight: 500,
+          },
+          content: {
+            color: '#333',
+          },
         }}
       >
         <Descriptions.Item label="文號">
@@ -172,9 +174,11 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
       <Descriptions
         column={isMobile ? 1 : 2}
         size="small"
-        labelStyle={{
-          width: isMobile ? 70 : 80,
-          color: '#666',
+        styles={{
+          label: {
+            width: isMobile ? 70 : 80,
+            color: '#666',
+          },
         }}
       >
         <Descriptions.Item

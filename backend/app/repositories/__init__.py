@@ -25,6 +25,15 @@ from app.repositories.document_repository import DocumentRepository
 from app.repositories.project_repository import ProjectRepository
 from app.repositories.agency_repository import AgencyRepository
 from app.repositories.vendor_repository import VendorRepository
+from app.repositories.calendar_repository import CalendarRepository
+from app.repositories.notification_repository import NotificationRepository
+
+# Taoyuan 子模組
+from app.repositories.taoyuan import (
+    DispatchOrderRepository,
+    TaoyuanProjectRepository,
+    PaymentRepository,
+)
 
 __all__ = [
     "BaseRepository",
@@ -32,4 +41,10 @@ __all__ = [
     "ProjectRepository",
     "AgencyRepository",
     "VendorRepository",
+    "CalendarRepository",
+    "NotificationRepository",
+    # Taoyuan
+    "DispatchOrderRepository",
+    "TaoyuanProjectRepository",
+    "PaymentRepository",
 ]
