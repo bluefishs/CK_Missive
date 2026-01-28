@@ -327,19 +327,22 @@ class DocumentStatisticsService:
 
     async def get_next_send_number(
         self,
-        prefix: str = '乾坤測字第',
+        prefix: Optional[str] = None,
         year: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         取得下一個發文字號
 
         Args:
-            prefix: 字號前綴
+            prefix: 字號前綴（預設：乾坤測字第）
             year: 年度（預設當年）
 
         Returns:
             字號資訊
         """
+        # 處理預設值
+        if prefix is None:
+            prefix = '乾坤測字第'
         current_year = year or datetime.now().year
         roc_year = current_year - 1911
 
