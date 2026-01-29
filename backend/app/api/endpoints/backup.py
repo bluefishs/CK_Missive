@@ -30,6 +30,20 @@ router = APIRouter()
 
 
 # ============================================================================
+# 權限檢查輔助函數
+# ============================================================================
+
+def _is_admin(user) -> bool:
+    """檢查是否為管理員 (admin 或 superuser)"""
+    return user.is_admin or user.is_superuser
+
+
+def _is_superuser(user) -> bool:
+    """檢查是否為超級管理員"""
+    return user.is_superuser
+
+
+# ============================================================================
 # API 端點 (POST-only 安全模式)
 # ============================================================================
 
@@ -46,7 +60,7 @@ async def create_backup(
     - **retention_days**: 備份保留天數 (預設: 7)
     """
     # 檢查權限 (僅管理員可操作)
-    if current_user.role not in ["admin", "super_admin"]:
+    if not _is_admin(current_user):
         raise HTTPException(status_code=403, detail="僅管理員可執行備份操作")
 
     result = await backup_service.create_backup(
@@ -65,7 +79,7 @@ async def list_backups(current_user=Depends(get_current_user)):
 
     回傳資料庫備份和附件備份的詳細列表
     """
-    if current_user.role not in ["admin", "super_admin"]:
+    if not _is_admin(current_user):
         raise HTTPException(status_code=403, detail="僅管理員可查看備份列表")
 
     return await backup_service.list_backups()
@@ -82,7 +96,7 @@ async def delete_backup(
     - **backup_name**: 備份名稱
     - **backup_type**: database 或 attachments
     """
-    if current_user.role not in ["admin", "super_admin"]:
+    if not _is_admin(current_user):
         raise HTTPException(status_code=403, detail="僅管理員可刪除備份")
 
     result = await backup_service.delete_backup(
@@ -106,7 +120,7 @@ async def restore_database(
 
     **警告**: 此操作會覆蓋現有資料，請謹慎使用
     """
-    if current_user.role != "super_admin":
+    if not _is_superuser(current_user):
         raise HTTPException(status_code=403, detail="僅超級管理員可執行還原操作")
 
     result = await backup_service.restore_database(request.backup_name)
@@ -124,7 +138,7 @@ async def get_backup_config(current_user=Depends(get_current_user)):
 
     包含備份目錄、資料庫設定等
     """
-    if current_user.role not in ["admin", "super_admin"]:
+    if not _is_admin(current_user):
         raise HTTPException(status_code=403, detail="僅管理員可查看備份設定")
 
     return await backup_service.get_backup_config()
@@ -137,7 +151,7 @@ async def get_backup_status(current_user=Depends(get_current_user)):
 
     包含最近備份時間、下次排程時間等
     """
-    if current_user.role not in ["admin", "super_admin"]:
+    if not _is_admin(current_user):
         raise HTTPException(status_code=403, detail="僅管理員可查看備份狀態")
 
     # 取得備份列表以獲取最近備份資訊
@@ -174,7 +188,7 @@ async def get_remote_backup_config(current_user=Depends(get_current_user)):
 
     包含異地路徑、同步狀態、最後同步時間等
     """
-    if current_user.role not in ["admin", "super_admin"]:
+    if not _is_admin(current_user):
         raise HTTPException(status_code=403, detail="僅管理員可查看異地備份設定")
 
     return await backup_service.get_remote_config()
@@ -192,7 +206,7 @@ async def update_remote_backup_config(
     - **sync_enabled**: 是否啟用自動同步
     - **sync_interval_hours**: 同步間隔 (小時)
     """
-    if current_user.role != "super_admin":
+    if not _is_superuser(current_user):
         raise HTTPException(status_code=403, detail="僅超級管理員可修改異地備份設定")
 
     result = await backup_service.update_remote_config(
@@ -211,7 +225,7 @@ async def trigger_remote_sync(current_user=Depends(get_current_user)):
 
     將本地備份同步到設定的異地路徑
     """
-    if current_user.role != "super_admin":
+    if not _is_superuser(current_user):
         raise HTTPException(status_code=403, detail="僅超級管理員可觸發異地同步")
 
     result = await backup_service.sync_to_remote()
@@ -236,7 +250,7 @@ async def get_backup_logs(
 
     支援分頁、操作類型篩選、狀態篩選、日期範圍篩選
     """
-    if current_user.role not in ["admin", "super_admin"]:
+    if not _is_admin(current_user):
         raise HTTPException(status_code=403, detail="僅管理員可查看備份日誌")
 
     return await backup_service.get_backup_logs(
@@ -260,7 +274,7 @@ async def get_scheduler_status(current_user=Depends(get_current_user)):
 
     包含運行狀態、備份時間、下次執行時間、統計資訊等
     """
-    if current_user.role not in ["admin", "super_admin"]:
+    if not _is_admin(current_user):
         raise HTTPException(status_code=403, detail="僅管理員可查看排程器狀態")
 
     return get_backup_scheduler_status()
@@ -273,7 +287,7 @@ async def start_scheduler(current_user=Depends(get_current_user)):
 
     開始自動備份排程
     """
-    if current_user.role != "super_admin":
+    if not _is_superuser(current_user):
         raise HTTPException(status_code=403, detail="僅超級管理員可啟動排程器")
 
     await start_backup_scheduler()
@@ -287,7 +301,7 @@ async def stop_scheduler(current_user=Depends(get_current_user)):
 
     停止自動備份排程
     """
-    if current_user.role != "super_admin":
+    if not _is_superuser(current_user):
         raise HTTPException(status_code=403, detail="僅超級管理員可停止排程器")
 
     await stop_backup_scheduler()
