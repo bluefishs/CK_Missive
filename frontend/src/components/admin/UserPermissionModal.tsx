@@ -72,6 +72,7 @@ const UserPermissionModal: React.FC<UserPermissionModalProps> = ({
       onCancel={handleCancel}
       footer={null}
       width={800}
+      forceRender
     >
       <Form
         form={form}

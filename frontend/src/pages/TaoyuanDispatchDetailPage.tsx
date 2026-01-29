@@ -15,7 +15,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Form, Button, App, Space, Popconfirm } from 'antd';
+import { Form, Button, App, Space, Popconfirm, Modal } from 'antd';
 import type { UploadFile } from 'antd/es/upload';
 import {
   SendOutlined,
@@ -559,6 +559,27 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
     linkProjectMutation.mutate(selectedProjectId);
   }, [selectedProjectId, linkProjectMutation, message]);
 
+  // 處理從派工資訊 Tab 選擇工程（混合模式）
+  const handleProjectSelectFromInfo = useCallback((projectId: number, projectName: string) => {
+    // 檢查是否已關聯
+    const isAlreadyLinked = linkedProjectIds.includes(projectId);
+    if (isAlreadyLinked) {
+      message.info(`工程「${projectName}」已經關聯`);
+      return;
+    }
+
+    // 詢問是否同時建立工程關聯
+    Modal.confirm({
+      title: '建立工程關聯',
+      content: `您選擇了工程「${projectName}」，是否同時建立工程關聯？`,
+      okText: '是，建立關聯',
+      cancelText: '否，僅填入名稱',
+      onOk: () => {
+        linkProjectMutation.mutate(projectId);
+      },
+    });
+  }, [linkedProjectIds, message, linkProjectMutation]);
+
   // =============================================================================
   // Tab 配置
   // =============================================================================
@@ -576,6 +597,8 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
         paymentData={paymentData}
         watchedWorkTypes={watchedWorkTypes}
         watchedWorkAmounts={watchedWorkAmounts}
+        availableProjects={availableProjects}
+        onProjectSelect={handleProjectSelectFromInfo}
       />
     ),
     createTabItem(

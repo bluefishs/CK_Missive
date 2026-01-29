@@ -23,8 +23,16 @@ const queryClient = new QueryClient({
       staleTime: staleTimeConfig.list,
       // 5分鐘垃圾回收時間
       gcTime: 5 * 60 * 1000,
-      // 失敗時重試 3 次
-      retry: 3,
+      // 失敗時重試 3 次，但排除 429 (Too Many Requests) 和 401/403 錯誤
+      retry: (failureCount, error) => {
+        // 不重試的錯誤碼：401 (未授權)、403 (禁止)、429 (請求過多)
+        const err = error as { statusCode?: number; response?: { status?: number } };
+        const status = err.statusCode || err.response?.status;
+        if (status === 401 || status === 403 || status === 429) {
+          return false;
+        }
+        return failureCount < 3;
+      },
       // 重試延遲
       retryDelay: (attemptIndex: number) => Math.min(1000 * 2 ** attemptIndex, 30000),
       // 聚焦視窗時不重新獲取（避免頻繁請求）

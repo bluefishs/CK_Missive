@@ -87,6 +87,9 @@ export const useDocumentForm = ({
   // 專案同仁快取 ref（避免閉包問題）
   const projectStaffCacheRef = useRef<Record<number, ProjectStaff[]>>({});
 
+  // 追蹤已載入附件的文件 ID，防止重複請求
+  const loadedAttachmentsDocIdRef = useRef<number | null>(null);
+
   const isCreate = operation === 'create';
   const isCopy = operation === 'copy';
 
@@ -175,7 +178,9 @@ export const useDocumentForm = ({
         setSelectedProjectId(null);
       }
 
-      if (document.id && !isCopy) {
+      // 防止重複載入同一文件的附件
+      if (document.id && !isCopy && loadedAttachmentsDocIdRef.current !== document.id) {
+        loadedAttachmentsDocIdRef.current = document.id;
         fetchAttachments(document.id);
       }
     } else if (visible && isCreate) {
@@ -183,6 +188,11 @@ export const useDocumentForm = ({
       setSelectedProjectId(null);
       setExistingAttachments([]);
       setFileList([]);
+      // 重置追蹤 ref
+      loadedAttachmentsDocIdRef.current = null;
+    } else if (!visible) {
+      // Modal 關閉時重置追蹤，以便下次開啟能重新載入
+      loadedAttachmentsDocIdRef.current = null;
     }
   }, [
     visible,

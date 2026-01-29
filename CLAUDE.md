@@ -2,7 +2,7 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.15.0
+> **Claude Code 配置版本**: 1.18.0
 > **最後更新**: 2026-01-29
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers)
 
@@ -53,11 +53,11 @@ CK_Missive 是一套企業級公文管理系統，具備以下核心功能：
 | Skill 檔案 | 觸發關鍵字 | 說明 |
 |------------|------------|------|
 | `document-management.md` | 公文, document, 收文, 發文 | 公文管理領域知識 |
-| `calendar-integration.md` | 行事曆, calendar, Google Calendar | 行事曆整合規範 |
+| `calendar-integration.md` | 行事曆, calendar, Google Calendar | **行事曆整合規範 (v1.2.0)** |
 | `api-development.md` | API, endpoint, 端點 | API 開發規範 |
 | `database-schema.md` | schema, 資料庫, PostgreSQL | 資料庫結構說明 |
 | `testing-guide.md` | test, 測試, pytest | 測試框架指南 |
-| `frontend-architecture.md` | 前端, React, 認證, auth, 架構 | **前端架構規範 (v1.0.0)** |
+| `frontend-architecture.md` | 前端, React, 認證, auth, 架構 | **前端架構規範 (v1.4.0)** |
 | `error-handling.md` | 錯誤處理, error, exception, 例外 | **錯誤處理指南 (v1.0.0)** |
 | `security-hardening.md` | 安全, security, 漏洞, XSS | **安全加固指南 (v1.0.0)** |
 | `type-management.md` | 型別, type, Pydantic, TypeScript, BaseModel | **型別管理規範 (v1.1.0) - SSOT 架構** |
@@ -707,6 +707,81 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 ---
 
 ## 📋 版本更新記錄
+
+### v1.18.0 (2026-01-29) - 型別一致性修正
+
+**前後端型別同步**:
+- 移除前端 `TaoyuanProject` 中不存在於後端的欄位：`work_type`, `estimated_count`, `cloud_path`, `notes`
+- 強化後端 `DispatchOrder.linked_documents` 型別：`List[dict]` → `List[DispatchDocumentLink]`
+
+**TextArea 欄位優化**:
+- `DispatchFormFields.tsx` v1.3.0：分案名稱、履約期限、聯絡備註、雲端資料夾、專案資料夾改為 TextArea
+
+**驗證通過**:
+- TypeScript 編譯 ✅
+- Python 語法檢查 ✅
+- 前端建置 ✅
+- 後端導入 ✅
+
+---
+
+### v1.17.0 (2026-01-29) - 共用表單元件架構
+
+**派工表單共用元件重構**:
+- 新增 `DispatchFormFields.tsx` 共用表單元件 (448 行)
+- 統一 3 處派工表單：新增頁面、詳情編輯、公文內新增
+- 支援三種模式：`create`（完整）、`edit`（編輯）、`quick`（快速）
+- 解決欄位不一致問題（如 work_type 單選/多選差異）
+
+**AutoComplete 混合模式**:
+- 工程名稱/派工事項欄位支援「選擇 + 手動輸入」混合模式
+- 統一在共用元件中實作，避免重複維護
+
+**Tab 順序調整**:
+- `/taoyuan/dispatch` 頁面 Tab 順序：派工紀錄 → 函文紀錄 → 契金管控 → 工程資訊
+
+**Skills 文件更新**:
+- `frontend-architecture.md` v1.4.0 - 新增「共用表單元件架構」章節
+- `calendar-integration.md` v1.2.0 - 新增 MissingGreenlet 錯誤解決方案
+
+**受影響檔案**:
+- `frontend/src/components/taoyuan/DispatchFormFields.tsx` (新增)
+- `frontend/src/components/taoyuan/index.ts` (更新匯出)
+- `frontend/src/pages/TaoyuanDispatchCreatePage.tsx` (v2.0.0 重構)
+- `frontend/src/pages/taoyuanDispatch/tabs/DispatchInfoTab.tsx` (v2.0.0 重構)
+- `frontend/src/pages/document/tabs/DocumentDispatchTab.tsx` (v2.0.0 重構)
+- `frontend/src/pages/DocumentDetailPage.tsx` (傳遞 availableProjects)
+
+---
+
+### v1.16.0 (2026-01-29) - Modal 警告修復與備份優化
+
+**Antd Modal + useForm 警告修復**:
+- 修復 8 個 Modal 組件的 `useForm not connected` 警告
+- 新增 `forceRender` 屬性確保 Form 組件始終渲染
+- 受影響組件: `UserPermissionModal`, `UserEditModal`, `DocumentOperations`, `DocumentSendModal`, `SequenceNumberGenerator`, `ProjectVendorManagement`, `SiteConfigManagement`, `NavigationItemForm`
+
+**導航模式規範強化**:
+- `DocumentPage.tsx` 完全移除 Modal，採用導航模式
+- `DocumentsTab.tsx` 移除死程式碼（DocumentOperations modal）
+- 減少約 40 行無效程式碼
+
+**備份機制優化**:
+- 實作增量備份（Incremental Backup）機制
+- 新增 `attachments_latest` 目錄追蹤最新狀態
+- 新增 manifest 檔案記錄變更
+- 修復 Windows 環境路徑檢測問題
+- 修復 `uploads_dir` 錯誤路徑 (`uploads/` → `backend/uploads/`)
+- **修復 `list_backups()` 方法不顯示增量備份問題**
+- 前端備份列表新增「增量」標籤與統計資訊顯示
+- 禁止刪除 `attachments_latest` 增量備份主目錄
+
+**Skills 與文件更新**:
+- 更新 `db-backup.md` 新增增量備份機制說明
+- 更新 `DEVELOPMENT_GUIDELINES.md` 新增錯誤 #6.5
+- 全面檢視系統架構，確認無遺漏問題
+
+---
 
 ### v1.15.0 (2026-01-29) - CI 自動化版
 

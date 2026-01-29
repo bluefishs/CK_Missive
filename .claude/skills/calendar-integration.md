@@ -2,8 +2,8 @@
 
 > **觸發關鍵字**: 行事曆, calendar, Google Calendar, 事件, 截止日, event
 > **適用範圍**: 行事曆事件管理、Google Calendar 同步、公文到期追蹤
-> **版本**: 1.1.0
-> **最後更新**: 2026-01-18
+> **版本**: 1.2.0
+> **最後更新**: 2026-01-29
 
 ---
 
@@ -158,6 +158,73 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 1. Token 是否過期
 2. 網路連線
 3. Google Calendar API 配額
+
+### Q: MissingGreenlet 錯誤 (v1.2.0 新增)
+
+**錯誤訊息**:
+```
+sqlalchemy.exc.MissingGreenletError: greenlet_spawn has not been called;
+can't call await_only() here. Was IO attempted in an unexpected place?
+```
+
+**根本原因**:
+在 async SQLAlchemy 中存取未預先載入的 relationship 屬性（lazy loading 在 async 環境不支援）
+
+**典型場景**:
+```python
+# ❌ 錯誤：在背景任務中存取未載入的 relationship
+async def sync_events_background():
+    async with get_async_session() as db:
+        events = await db.execute(
+            select(DocumentCalendarEvent)
+        )
+        for event in events.scalars():
+            # 錯誤！reminders 是 lazy load，在 async 中會觸發 MissingGreenlet
+            for reminder in event.reminders:
+                print(reminder.time)
+```
+
+**解決方案：使用 selectinload 預先載入**:
+```python
+# ✅ 正確：使用 selectinload 預先載入 relationship
+from sqlalchemy.orm import selectinload
+
+async def sync_events_background():
+    async with get_async_session() as db:
+        events = await db.execute(
+            select(DocumentCalendarEvent)
+            .options(selectinload(DocumentCalendarEvent.reminders))  # 預先載入
+        )
+        for event in events.scalars():
+            # 現在可以安全存取
+            for reminder in event.reminders:
+                print(reminder.time)
+```
+
+**常見需要 selectinload 的場景**:
+
+| 模型 | Relationship | 修復方式 |
+|------|--------------|----------|
+| `DocumentCalendarEvent` | `reminders` | `selectinload(DocumentCalendarEvent.reminders)` |
+| `OfficialDocument` | `attachments` | `selectinload(OfficialDocument.attachments)` |
+| `OfficialDocument` | `calendar_events` | `selectinload(OfficialDocument.calendar_events)` |
+| `ContractProject` | `vendors` | `selectinload(ContractProject.vendors)` |
+
+**排程器服務修復範例**:
+```python
+# backend/app/services/google_sync_scheduler.py
+async def _sync_user_events(user_id: int):
+    async with get_async_session() as db:
+        stmt = (
+            select(DocumentCalendarEvent)
+            .options(selectinload(DocumentCalendarEvent.reminders))  # 關鍵！
+            .where(DocumentCalendarEvent.created_by == user_id)
+            .where(DocumentCalendarEvent.sync_status.in_(['pending', 'failed']))
+        )
+        result = await db.execute(stmt)
+        events = result.scalars().all()
+        # 現在可以安全存取 event.reminders
+```
 
 ---
 

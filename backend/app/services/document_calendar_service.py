@@ -451,10 +451,12 @@ class DocumentCalendarService:
         errors = []
 
         try:
-            # 取得要同步的事件
+            # 取得要同步的事件 (必須載入 reminders 關聯供計算提醒時間)
             if sync_all_pending:
                 result = await db.execute(
-                    select(DocumentCalendarEvent).where(
+                    select(DocumentCalendarEvent)
+                    .options(selectinload(DocumentCalendarEvent.reminders))
+                    .where(
                         (DocumentCalendarEvent.google_event_id == None) |
                         (DocumentCalendarEvent.google_sync_status != 'synced')
                     )
@@ -462,7 +464,9 @@ class DocumentCalendarService:
                 events = result.scalars().all()
             elif event_ids:
                 result = await db.execute(
-                    select(DocumentCalendarEvent).where(
+                    select(DocumentCalendarEvent)
+                    .options(selectinload(DocumentCalendarEvent.reminders))
+                    .where(
                         DocumentCalendarEvent.id.in_(event_ids)
                     )
                 )

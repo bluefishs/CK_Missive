@@ -132,9 +132,14 @@ async def list_calendar_events(
         )
 
 
+from pydantic import BaseModel, Field
+
+class CheckDocumentRequest(BaseModel):
+    document_id: int = Field(..., description="公文 ID")
+
 @router.post("/events/check-document", summary="檢查公文是否已有行事曆事件")
 async def check_document_events(
-    document_id: int,
+    request: CheckDocumentRequest,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -142,7 +147,7 @@ async def check_document_events(
     try:
         query = (
             select(DocumentCalendarEvent)
-            .where(DocumentCalendarEvent.document_id == document_id)
+            .where(DocumentCalendarEvent.document_id == request.document_id)
             .order_by(DocumentCalendarEvent.start_date)
         )
         result = await db.execute(query)

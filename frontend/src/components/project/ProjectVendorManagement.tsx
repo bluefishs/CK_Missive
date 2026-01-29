@@ -447,6 +447,7 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
         }}
         footer={null}
         width={600}
+        forceRender
       >
         <Form
           form={form}

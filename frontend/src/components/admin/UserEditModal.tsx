@@ -66,6 +66,7 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
       onCancel={handleCancel}
       footer={null}
       width={600}
+      forceRender
     >
       <Form
         form={form}

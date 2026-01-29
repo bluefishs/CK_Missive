@@ -270,6 +270,7 @@ const SequenceNumberGenerator: React.FC<SequenceNumberGeneratorProps> = ({
         onCancel={() => setConfigModalVisible(false)}
         footer={null}
         width={600}
+        forceRender
       >
         <Form
           form={form}

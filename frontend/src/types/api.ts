@@ -903,10 +903,6 @@ export interface TaoyuanProject {
   sub_case_name?: string;
   case_handler?: string;
   survey_unit?: string;
-  work_type?: string;
-  estimated_count?: number;
-  cloud_path?: string;
-  notes?: string;
 
   // 進度追蹤欄位
   land_agreement_status?: string;
@@ -954,10 +950,6 @@ export interface TaoyuanProjectCreate {
   sub_case_name?: string;
   case_handler?: string;
   survey_unit?: string;
-  work_type?: string;
-  estimated_count?: number;
-  cloud_path?: string;
-  notes?: string;
   land_agreement_status?: string;
   land_expropriation_status?: string;
   building_survey_status?: string;
@@ -1688,6 +1680,16 @@ export interface BackupItem {
   created_at: string;
   /** 備份類型 */
   type: 'database' | 'attachments';
+  /** 複製的檔案數 - 增量備份 */
+  copied_count?: number;
+  /** 跳過的檔案數 - 增量備份 */
+  skipped_count?: number;
+  /** 移除的檔案數 - 增量備份 */
+  removed_count?: number;
+  /** 備份模式 */
+  mode?: 'full' | 'incremental';
+  /** 本次複製大小 (MB) */
+  copied_size_mb?: number;
 }
 
 /** 備份統計資訊 */

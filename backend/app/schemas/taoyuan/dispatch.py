@@ -7,6 +7,7 @@ from datetime import date, datetime
 
 from app.schemas.common import PaginationMeta
 from app.schemas.taoyuan.project import TaoyuanProject, LinkedProjectItem
+from app.schemas.taoyuan.links import DispatchDocumentLink
 
 
 class DispatchOrderBase(BaseModel):
@@ -65,7 +66,7 @@ class DispatchOrder(DispatchOrderBase):
     company_doc_number: Optional[str] = Field(None, description="乾坤函文號")
     attachment_count: int = Field(0, description="附件數量")
     linked_projects: Optional[List[LinkedProjectItem]] = Field(None, description="關聯工程 (含 link_id, project_id)")
-    linked_documents: Optional[List[dict]] = Field(None, description="關聯公文")
+    linked_documents: Optional[List[DispatchDocumentLink]] = Field(None, description="關聯公文")
 
 
 class DispatchOrderListQuery(BaseModel):

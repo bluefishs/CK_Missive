@@ -150,6 +150,7 @@ export class ApiException extends Error {
       404: [ErrorCode.NOT_FOUND, '找不到請求的資源'],
       409: [ErrorCode.CONFLICT, '資源衝突'],
       422: [ErrorCode.VALIDATION_ERROR, '輸入資料驗證失敗'],
+      429: [ErrorCode.TOO_MANY_REQUESTS, '請求過於頻繁，請稍後再試'],
       500: [ErrorCode.INTERNAL_ERROR, '伺服器內部錯誤'],
       502: [ErrorCode.SERVICE_UNAVAILABLE, '服務暫時無法使用'],
       503: [ErrorCode.SERVICE_UNAVAILABLE, '服務暫時無法使用'],

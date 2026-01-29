@@ -283,6 +283,9 @@ export const BackupManagementPage: React.FC = () => {
         <Space>
           {record.type === 'database' ? <DatabaseOutlined /> : <FolderOutlined />}
           <Text>{record.filename || record.dirname}</Text>
+          {record.mode === 'incremental' && (
+            <Tag color="cyan">增量</Tag>
+          )}
         </Space>
       )
     },
@@ -309,6 +312,24 @@ export const BackupManagementPage: React.FC = () => {
       )
     },
     {
+      title: '統計',
+      key: 'stats',
+      width: 180,
+      render: (_, record) => {
+        if (record.mode === 'incremental' && (record.copied_count !== undefined || record.file_count !== undefined)) {
+          return (
+            <Tooltip title={`已複製: ${record.copied_count || 0}, 跳過: ${record.skipped_count || 0}, 移除: ${record.removed_count || 0}`}>
+              <Text type="secondary">
+                {record.file_count || 0} 檔案
+                {record.copied_count ? ` (+${record.copied_count})` : ''}
+              </Text>
+            </Tooltip>
+          );
+        }
+        return record.file_count ? `${record.file_count} 檔案` : '-';
+      }
+    },
+    {
       title: '建立時間',
       dataIndex: 'created_at',
       width: 180,
@@ -330,21 +351,24 @@ export const BackupManagementPage: React.FC = () => {
               />
             </Tooltip>
           )}
-          <Popconfirm
-            title="確定刪除此備份？"
-            onConfirm={() => handleDeleteBackup(record)}
-            okText="確定"
-            cancelText="取消"
-          >
-            <Tooltip title="刪除">
-              <Button
-                type="link"
-                size="small"
-                danger
-                icon={<DeleteOutlined />}
-              />
-            </Tooltip>
-          </Popconfirm>
+          {/* 禁止刪除增量備份主目錄 */}
+          {record.dirname !== 'attachments_latest' && (
+            <Popconfirm
+              title="確定刪除此備份？"
+              onConfirm={() => handleDeleteBackup(record)}
+              okText="確定"
+              cancelText="取消"
+            >
+              <Tooltip title="刪除">
+                <Button
+                  type="link"
+                  size="small"
+                  danger
+                  icon={<DeleteOutlined />}
+                />
+              </Tooltip>
+            </Popconfirm>
+          )}
         </Space>
       )
     }

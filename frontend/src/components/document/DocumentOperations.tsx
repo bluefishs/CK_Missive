@@ -7,7 +7,7 @@
  * @version 2.0.0
  * @date 2026-01-26
  */
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   Modal,
   Form,
@@ -73,6 +73,10 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
     message,
   });
 
+  // 穩定的空函數（避免每次渲染創建新引用導致無限循環）
+  const noopSetAttachments = useCallback(() => {}, []);
+  const noopSetFileList = useCallback(() => {}, []);
+
   // 使用 Hook 管理表單邏輯
   const formOps = useDocumentForm({
     form,
@@ -84,8 +88,8 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
     fetchProjectStaff: ops.fetchProjectStaff,
     setSelectedProjectId: ops.setSelectedProjectId,
     setCriticalChangeModal: ops.setCriticalChangeModal,
-    setExistingAttachments: () => {},
-    setFileList: () => {},
+    setExistingAttachments: noopSetAttachments,
+    setFileList: noopSetFileList,
   });
 
   // ============================================================================
@@ -273,6 +277,7 @@ export const DocumentOperations: React.FC<DocumentOperationsProps> = ({
       open={visible}
       onCancel={onClose}
       width={800}
+      forceRender
       footer={
         ops.isReadOnly ? (
           <Space>

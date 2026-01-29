@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from contextlib import asynccontextmanager
 
-from app.db.database import get_async_db
+from app.db.database import AsyncSessionLocal
 from app.services.reminder_service import ReminderService
 
 logger = logging.getLogger(__name__)
@@ -72,20 +72,29 @@ class ReminderScheduler:
 
     async def _process_reminders(self):
         """處理待發送的提醒"""
+        db = None
         try:
-            async for db in get_async_db():
-                stats = await self.reminder_service.process_pending_reminders(db)
+            # 直接創建 session（不使用依賴注入生成器）
+            db = AsyncSessionLocal()
+            stats = await self.reminder_service.process_pending_reminders(db)
 
-                if stats["total"] > 0:
-                    logger.info(
-                        f"提醒處理完成 - 總計: {stats['total']}, "
-                        f"成功: {stats['sent']}, "
-                        f"失敗: {stats['failed']}, "
-                        f"重試: {stats['retries']}"
-                    )
+            if stats["total"] > 0:
+                logger.info(
+                    f"提醒處理完成 - 總計: {stats['total']}, "
+                    f"成功: {stats['sent']}, "
+                    f"失敗: {stats['failed']}, "
+                    f"重試: {stats['retries']}"
+                )
+
+            await db.commit()
 
         except Exception as e:
             logger.error(f"處理提醒時發生錯誤: {e}", exc_info=True)
+            if db:
+                await db.rollback()
+        finally:
+            if db:
+                await db.close()
 
     async def process_once(self):
         """手動執行一次提醒處理（用於測試或手動觸發）"""

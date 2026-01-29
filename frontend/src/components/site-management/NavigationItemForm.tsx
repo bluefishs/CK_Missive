@@ -93,6 +93,7 @@ const NavigationItemForm: React.FC<NavigationItemFormProps> = ({
       onCancel={handleCancel}
       footer={null}
       width={600}
+      forceRender
     >
       <Form
         form={form}

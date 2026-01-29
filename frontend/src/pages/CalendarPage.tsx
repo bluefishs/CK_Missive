@@ -133,6 +133,15 @@ const CalendarPage: React.FC = () => {
         message.success(`同步成功：${result.synced_count} 個事件已同步至 Google Calendar`);
       } else if (result.synced_count > 0) {
         message.warning(`部分同步：${result.synced_count} 成功，${result.failed_count} 失敗`);
+      } else if (result.failed_count > 0) {
+        // 有失敗的事件，顯示詳細錯誤
+        const errors = (result as any).errors;
+        if (errors && errors.length > 0) {
+          message.error(`同步失敗 (${result.failed_count} 個)：${errors[0]}`);
+          console.error('Google Calendar 同步錯誤:', errors);
+        } else {
+          message.error(result.message || `同步失敗：${result.failed_count} 個事件無法同步至 Google Calendar`);
+        }
       } else {
         message.info(result.message || '沒有需要同步的事件');
       }

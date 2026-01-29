@@ -204,7 +204,7 @@ class CalendarRepository(BaseRepository[DocumentCalendarEvent]):
         self, limit: int = 100
     ) -> List[DocumentCalendarEvent]:
         """
-        取得待同步的事件
+        取得待同步的事件 (含 reminders 關聯，供 Google Calendar 同步使用)
 
         Args:
             limit: 筆數上限
@@ -214,7 +214,10 @@ class CalendarRepository(BaseRepository[DocumentCalendarEvent]):
         """
         query = (
             select(DocumentCalendarEvent)
-            .options(selectinload(DocumentCalendarEvent.document))
+            .options(
+                selectinload(DocumentCalendarEvent.document),
+                selectinload(DocumentCalendarEvent.reminders),  # 需要載入以計算提醒時間
+            )
             .where(
                 or_(
                     DocumentCalendarEvent.google_sync_status == 'pending',

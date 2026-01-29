@@ -76,6 +76,7 @@ export const DocumentSendModal: React.FC<DocumentSendModalProps> = ({
       }
       open={visible}
       onCancel={onClose}
+      forceRender
       footer={
         <Space>
           <Button onClick={onClose}>取消</Button>

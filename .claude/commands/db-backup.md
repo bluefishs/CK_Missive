@@ -89,9 +89,62 @@ powershell -ExecutionPolicy Bypass -File "C:\GeminiCli\CK_Missive\scripts\backup
 | 備份時間 | 每日 02:00 (排程) |
 | 保留天數 | 7 天 |
 | 資料庫格式 | SQL (未壓縮) |
-| 附件格式 | 目錄複製 (保留結構) |
+| 附件格式 | **增量備份** (v1.16.0+) |
 | 命名規則 | `ck_missive_backup_YYYYMMDD_HHMMSS.sql` |
-| 附件命名 | `attachments_backup_YYYYMMDD_HHMMSS/` |
+| 附件目錄 | `attachments_latest/` (增量) |
+
+## 增量備份機制 (v1.16.0)
+
+自 v1.16.0 起，附件備份採用增量備份機制，大幅減少備份時間與空間使用。
+
+### 運作原理
+
+```
+attachments_latest/          # 增量備份主目錄（始終保持最新狀態）
+├── documents/               # 公文附件
+├── projects/                # 專案附件
+└── ...
+
+manifest_20260129_120000.json  # 變更記錄
+```
+
+### 增量備份流程
+
+1. **檢查差異**: 比對 `st_mtime`（修改時間）和 `st_size`（檔案大小）
+2. **複製新增/修改的檔案**: 僅複製有變更的檔案
+3. **刪除已移除的檔案**: 同步刪除來源不存在的檔案
+4. **記錄 Manifest**: 保存本次備份統計資訊
+
+### Manifest 檔案格式
+
+```json
+{
+  "timestamp": "2026-01-29T12:00:00",
+  "copied_count": 5,
+  "skipped_count": 120,
+  "removed_count": 2,
+  "copied_size_mb": 15.5,
+  "total_files": 125
+}
+```
+
+### 空間效益比較
+
+| 備份模式 | 首次備份 | 後續備份 (假設 5% 變更) |
+|----------|----------|-------------------------|
+| 完整備份 | 100% | 100% |
+| 增量備份 | 100% | ~5% |
+
+### 異地備份同步
+
+增量備份支援同步到異地備份路徑（如 NAS）：
+
+```
+本地: C:\GeminiCli\CK_Missive\backups\attachments\attachments_latest\
+異地: Z:\backup\attachments_latest\
+```
+
+同步時會使用相同的增量機制，僅傳輸有變更的檔案。
 
 ## 參數說明
 

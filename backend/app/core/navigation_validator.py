@@ -43,6 +43,7 @@ VALID_NAVIGATION_PATHS: Set[str] = {
     "/admin/site-management",
     "/admin/permissions",
     "/admin/dashboard",
+    "/admin/backup",
 
     # 系統頁面
     "/system",
@@ -77,6 +78,7 @@ PATH_DESCRIPTIONS = {
     "/admin/site-management": "網站管理",
     "/admin/permissions": "權限管理",
     "/admin/dashboard": "管理員面板",
+    "/admin/backup": "備份管理",
     "/system": "系統監控",
     "/google-auth-diagnostic": "Google認證診斷",
     "/unified-form-demo": "統一表單示例",

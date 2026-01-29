@@ -2,44 +2,43 @@
  * 派工資訊 Tab 元件
  *
  * 顯示派工單的基本資訊，包含：
- * - 派工單號、工程名稱
+ * - 派工單號、工程名稱（支援自動完成選擇工程）
  * - 作業類別、分案名稱、履約期限
  * - 案件承辦、查估單位、聯絡備註
  * - 雲端資料夾、專案資料夾
  * - 契金資訊
  * - 系統資訊（唯讀模式）
  *
- * @version 1.0.0
- * @date 2026-01-26
+ * 使用共用 DispatchFormFields 元件（編輯模式）
+ *
+ * @version 2.0.0 - 重構使用共用表單元件
+ * @date 2026-01-29
  */
 
 import React from 'react';
 import {
   Form,
-  Input,
-  Select,
   Row,
   Col,
   Descriptions,
   Divider,
   Typography,
   InputNumber,
-  Alert,
 } from 'antd';
 import type { FormInstance } from 'antd';
 import dayjs from 'dayjs';
 
+import { DispatchFormFields } from '../../../components/taoyuan/DispatchFormFields';
 import type {
   DispatchOrder,
   DispatchDocumentLink,
   LinkType,
   ContractPayment,
+  TaoyuanProject,
 } from '../../../types/api';
-import { TAOYUAN_WORK_TYPES } from '../../../types/api';
 import { type ProjectAgencyContact } from '../../../api/projectAgencyContacts';
 import { type ProjectVendor } from '../../../api/projectVendorsApi';
 
-const { Option } = Select;
 const { Text } = Typography;
 
 // =============================================================================
@@ -94,16 +93,12 @@ const WORK_TYPE_AMOUNT_MAPPING: Record<
 
 /**
  * 根據公文字號自動判斷關聯類型
- * - 以「乾坤」開頭的公文 → 乾坤發文 (company_outgoing)
- * - 其他 → 機關來函 (agency_incoming)
  */
 const detectLinkType = (docNumber?: string): LinkType => {
   if (!docNumber) return 'agency_incoming';
-  // 「乾坤」開頭表示公司發文
   if (docNumber.startsWith('乾坤')) {
     return 'company_outgoing';
   }
-  // 其他都是機關來函
   return 'agency_incoming';
 };
 
@@ -144,33 +139,103 @@ export interface DispatchInfoTabProps {
     work_06_amount: number;
     work_07_amount: number;
   };
+  /** 可選擇的工程列表（用於 project_name 自動完成） */
+  availableProjects?: TaoyuanProject[];
+  /** 選擇工程時的回調（傳入工程 ID 和名稱） */
+  onProjectSelect?: (projectId: number, projectName: string) => void;
 }
 
 // =============================================================================
-// 子元件：契金資訊區塊
+// 子元件：契金資訊區塊（唯讀模式）
 // =============================================================================
 
-interface PaymentSectionProps {
-  isEditing: boolean;
+interface PaymentReadOnlySectionProps {
   paymentData?: ContractPayment | null;
   watchedWorkTypes: string[];
-  watchedWorkAmounts: DispatchInfoTabProps['watchedWorkAmounts'];
-  calculateCurrentAmount: () => number;
 }
 
-const PaymentSection: React.FC<PaymentSectionProps> = ({
-  isEditing,
+const PaymentReadOnlySection: React.FC<PaymentReadOnlySectionProps> = ({
   paymentData,
   watchedWorkTypes,
-  watchedWorkAmounts,
-  calculateCurrentAmount,
 }) => {
-  // 過濾有效的作業類別
   const validWorkTypes = watchedWorkTypes.filter(
     (wt) => WORK_TYPE_AMOUNT_MAPPING[wt]
   );
 
-  // 計算編輯時的本次派工總金額
+  // 計算本次派工金額
+  const currentAmount =
+    (paymentData?.work_01_amount || 0) +
+    (paymentData?.work_02_amount || 0) +
+    (paymentData?.work_03_amount || 0) +
+    (paymentData?.work_04_amount || 0) +
+    (paymentData?.work_05_amount || 0) +
+    (paymentData?.work_06_amount || 0) +
+    (paymentData?.work_07_amount || 0);
+
+  const cumulativeAmount = paymentData?.cumulative_amount ?? 0;
+  const remainingAmount = paymentData?.remaining_amount ?? 0;
+
+  const workTypeItems = validWorkTypes
+    .map((wt) => {
+      const mapping = WORK_TYPE_AMOUNT_MAPPING[wt];
+      if (!mapping) return null;
+      const amount = paymentData?.[
+        mapping.amountField as keyof typeof paymentData
+      ] as number | undefined;
+      return {
+        key: wt,
+        label: `${mapping.label} 金額`,
+        value: formatCurrency(amount),
+      };
+    })
+    .filter(Boolean);
+
+  return (
+    <Descriptions size="small" column={3} bordered>
+      {workTypeItems.map(
+        (item) =>
+          item && (
+            <Descriptions.Item key={item.key} label={item.label}>
+              {item.value}
+            </Descriptions.Item>
+          )
+      )}
+      <Descriptions.Item label="本次派工總金額">
+        <Text strong style={{ color: '#1890ff' }}>
+          {formatCurrency(currentAmount)}
+        </Text>
+      </Descriptions.Item>
+      <Descriptions.Item label="累進派工金額（統計）">
+        <Text>{formatCurrency(cumulativeAmount)}</Text>
+      </Descriptions.Item>
+      <Descriptions.Item label="剩餘金額（統計）">
+        <Text
+          type={
+            remainingAmount > 0 && remainingAmount < 1000000
+              ? 'warning'
+              : undefined
+          }
+        >
+          {formatCurrency(remainingAmount)}
+        </Text>
+      </Descriptions.Item>
+    </Descriptions>
+  );
+};
+
+// =============================================================================
+// 子元件：契金資訊區塊（編輯模式 - 金額彙總）
+// =============================================================================
+
+interface PaymentEditSummaryProps {
+  watchedWorkAmounts: DispatchInfoTabProps['watchedWorkAmounts'];
+  paymentData?: ContractPayment | null;
+}
+
+const PaymentEditSummary: React.FC<PaymentEditSummaryProps> = ({
+  watchedWorkAmounts,
+  paymentData,
+}) => {
   const editCurrentAmount =
     (watchedWorkAmounts.work_01_amount || 0) +
     (watchedWorkAmounts.work_02_amount || 0) +
@@ -180,110 +245,11 @@ const PaymentSection: React.FC<PaymentSectionProps> = ({
     (watchedWorkAmounts.work_06_amount || 0) +
     (watchedWorkAmounts.work_07_amount || 0);
 
-  // 計算本次派工金額
-  const currentAmount = paymentData?.current_amount ?? calculateCurrentAmount();
-
-  // 累進派工金額和剩餘金額從 API 取得
   const cumulativeAmount = paymentData?.cumulative_amount ?? 0;
   const remainingAmount = paymentData?.remaining_amount ?? 0;
 
-  if (!isEditing) {
-    // 唯讀模式：顯示契金摘要
-    const workTypeItems = validWorkTypes
-      .map((wt) => {
-        const mapping = WORK_TYPE_AMOUNT_MAPPING[wt];
-        if (!mapping) return null;
-        const amount = paymentData?.[
-          mapping.amountField as keyof typeof paymentData
-        ] as number | undefined;
-        return {
-          key: wt,
-          label: `${mapping.label} 金額`,
-          value: formatCurrency(amount),
-        };
-      })
-      .filter(Boolean);
-
-    return (
-      <Descriptions size="small" column={3} bordered>
-        {/* 先顯示各作業類別金額 */}
-        {workTypeItems.map(
-          (item) =>
-            item && (
-              <Descriptions.Item key={item.key} label={item.label}>
-                {item.value}
-              </Descriptions.Item>
-            )
-        )}
-        {/* 再顯示統計數據 */}
-        <Descriptions.Item label="本次派工總金額">
-          <Text strong style={{ color: '#1890ff' }}>
-            {formatCurrency(currentAmount)}
-          </Text>
-        </Descriptions.Item>
-        <Descriptions.Item label="累進派工金額（統計）">
-          <Text>{formatCurrency(cumulativeAmount)}</Text>
-        </Descriptions.Item>
-        <Descriptions.Item label="剩餘金額（統計）">
-          <Text
-            type={
-              remainingAmount > 0 && remainingAmount < 1000000
-                ? 'warning'
-                : undefined
-            }
-          >
-            {formatCurrency(remainingAmount)}
-          </Text>
-        </Descriptions.Item>
-      </Descriptions>
-    );
-  }
-
-  // 編輯模式：顯示根據作業類別的金額輸入欄位
   return (
     <>
-      {/* 各作業類別金額欄位 */}
-      {validWorkTypes.length > 0 ? (
-        <Row gutter={16}>
-          {validWorkTypes.map((wt) => {
-            const mapping = WORK_TYPE_AMOUNT_MAPPING[wt];
-            if (!mapping) return null;
-            return (
-              <Col span={8} key={wt}>
-                <Form.Item
-                  name={mapping.amountField}
-                  label={`${mapping.label} 金額`}
-                >
-                  <InputNumber
-                    style={{ width: '100%' }}
-                    min={0}
-                    precision={0}
-                    formatter={(value) =>
-                      `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-                    }
-                    parser={(value) =>
-                      Number(
-                        value?.replace(/\$\s?|(,*)/g, '') || 0
-                      ) as unknown as 0
-                    }
-                    placeholder="輸入金額"
-                  />
-                </Form.Item>
-              </Col>
-            );
-          })}
-        </Row>
-      ) : (
-        <Alert
-          message="請先選擇作業類別"
-          description="選擇作業類別後，將顯示對應的金額輸入欄位"
-          type="info"
-          showIcon
-          style={{ marginBottom: 16 }}
-        />
-      )}
-
-      {/* 金額彙總 */}
       <Divider dashed style={{ margin: '12px 0' }} />
       <Row gutter={16}>
         <Col span={8}>
@@ -343,201 +309,191 @@ export const DispatchInfoTab: React.FC<DispatchInfoTabProps> = ({
   paymentData,
   watchedWorkTypes,
   watchedWorkAmounts,
+  availableProjects = [],
+  onProjectSelect,
 }) => {
-  // 計算本次派工金額總和
-  const calculateCurrentAmount = (): number => {
-    if (!paymentData) return 0;
+  // 唯讀模式下的文字顯示元件（支援長文字換行）
+  const ReadOnlyField: React.FC<{ value?: string; placeholder?: string }> = ({ value, placeholder }) => (
+    <Text style={{
+      display: 'block',
+      padding: '4px 11px',
+      minHeight: 32,
+      lineHeight: '22px',
+      color: value ? 'rgba(0, 0, 0, 0.88)' : 'rgba(0, 0, 0, 0.25)',
+      background: '#fafafa',
+      borderRadius: 6,
+      border: '1px solid #d9d9d9',
+      whiteSpace: 'pre-wrap',
+      wordBreak: 'break-word',
+    }}>
+      {value || placeholder || '-'}
+    </Text>
+  );
+
+  // 編輯模式下使用共用元件，唯讀模式下使用純文字
+  if (!isEditing && dispatch) {
+    // 唯讀模式：顯示純文字
     return (
-      (paymentData.work_01_amount || 0) +
-      (paymentData.work_02_amount || 0) +
-      (paymentData.work_03_amount || 0) +
-      (paymentData.work_04_amount || 0) +
-      (paymentData.work_05_amount || 0) +
-      (paymentData.work_06_amount || 0) +
-      (paymentData.work_07_amount || 0)
+      <div>
+        {/* 第一行：派工單號 + 工程名稱 */}
+        <Row gutter={16} style={{ marginBottom: 16 }}>
+          <Col span={8}>
+            <div style={{ marginBottom: 8 }}>
+              <Text strong style={{ color: 'rgba(0, 0, 0, 0.88)' }}>
+                <span style={{ color: '#ff4d4f' }}>* </span>派工單號
+              </Text>
+            </div>
+            <ReadOnlyField value={dispatch.dispatch_no} />
+          </Col>
+          <Col span={16}>
+            <div style={{ marginBottom: 8 }}>
+              <Text strong style={{ color: 'rgba(0, 0, 0, 0.88)' }}>工程名稱/派工事項</Text>
+            </div>
+            <ReadOnlyField value={dispatch.project_name} />
+          </Col>
+        </Row>
+
+        {/* 第二行：作業類別 + 分案名稱 + 履約期限 */}
+        <Row gutter={16} style={{ marginBottom: 16 }}>
+          <Col span={8}>
+            <div style={{ marginBottom: 8 }}>
+              <Text strong style={{ color: 'rgba(0, 0, 0, 0.88)' }}>作業類別</Text>
+            </div>
+            <ReadOnlyField value={dispatch.work_type} />
+          </Col>
+          <Col span={8}>
+            <div style={{ marginBottom: 8 }}>
+              <Text strong style={{ color: 'rgba(0, 0, 0, 0.88)' }}>分案名稱/派工備註</Text>
+            </div>
+            <ReadOnlyField value={dispatch.sub_case_name} />
+          </Col>
+          <Col span={8}>
+            <div style={{ marginBottom: 8 }}>
+              <Text strong style={{ color: 'rgba(0, 0, 0, 0.88)' }}>履約期限</Text>
+            </div>
+            <ReadOnlyField value={dispatch.deadline} />
+          </Col>
+        </Row>
+
+        {/* 第三行：案件承辦 + 查估單位 + 聯絡備註 */}
+        <Row gutter={16} style={{ marginBottom: 16 }}>
+          <Col span={8}>
+            <div style={{ marginBottom: 8 }}>
+              <Text strong style={{ color: 'rgba(0, 0, 0, 0.88)' }}>案件承辦</Text>
+            </div>
+            <ReadOnlyField value={dispatch.case_handler} />
+          </Col>
+          <Col span={8}>
+            <div style={{ marginBottom: 8 }}>
+              <Text strong style={{ color: 'rgba(0, 0, 0, 0.88)' }}>查估單位</Text>
+            </div>
+            <ReadOnlyField value={dispatch.survey_unit} />
+          </Col>
+          <Col span={8}>
+            <div style={{ marginBottom: 8 }}>
+              <Text strong style={{ color: 'rgba(0, 0, 0, 0.88)' }}>聯絡備註</Text>
+            </div>
+            <ReadOnlyField value={dispatch.contact_note} />
+          </Col>
+        </Row>
+
+        {/* 第四行：雲端資料夾 + 專案資料夾 */}
+        <Row gutter={16} style={{ marginBottom: 16 }}>
+          <Col span={12}>
+            <div style={{ marginBottom: 8 }}>
+              <Text strong style={{ color: 'rgba(0, 0, 0, 0.88)' }}>雲端資料夾</Text>
+            </div>
+            {dispatch.cloud_folder ? (
+              <a href={dispatch.cloud_folder} target="_blank" rel="noopener noreferrer">
+                <ReadOnlyField value={dispatch.cloud_folder} />
+              </a>
+            ) : (
+              <ReadOnlyField value={undefined} />
+            )}
+          </Col>
+          <Col span={12}>
+            <div style={{ marginBottom: 8 }}>
+              <Text strong style={{ color: 'rgba(0, 0, 0, 0.88)' }}>專案資料夾</Text>
+            </div>
+            <ReadOnlyField value={dispatch.project_folder} />
+          </Col>
+        </Row>
+
+        {/* 契金資訊 */}
+        <Divider orientation="left">契金資訊</Divider>
+        <PaymentReadOnlySection
+          paymentData={paymentData}
+          watchedWorkTypes={watchedWorkTypes}
+        />
+
+        {/* 系統資訊 */}
+        <Divider />
+        <Descriptions size="small" column={3}>
+          <Descriptions.Item label="機關函文號">
+            {(() => {
+              const agencyDocs = (dispatch.linked_documents || [])
+                .filter(
+                  (d: DispatchDocumentLink) =>
+                    detectLinkType(d.doc_number) === 'agency_incoming'
+                )
+                .sort((a: DispatchDocumentLink, b: DispatchDocumentLink) => {
+                  const dateA = a.doc_date || '9999-12-31';
+                  const dateB = b.doc_date || '9999-12-31';
+                  return dateA.localeCompare(dateB);
+                });
+              return agencyDocs.length > 0
+                ? agencyDocs[0]?.doc_number || '-'
+                : '-';
+            })()}
+          </Descriptions.Item>
+          <Descriptions.Item label="乾坤函文號">
+            {(() => {
+              const companyDocs = (dispatch.linked_documents || [])
+                .filter(
+                  (d: DispatchDocumentLink) =>
+                    detectLinkType(d.doc_number) === 'company_outgoing'
+                )
+                .sort((a: DispatchDocumentLink, b: DispatchDocumentLink) => {
+                  const dateA = a.doc_date || '9999-12-31';
+                  const dateB = b.doc_date || '9999-12-31';
+                  return dateA.localeCompare(dateB);
+                });
+              return companyDocs.length > 0
+                ? companyDocs[0]?.doc_number || '-'
+                : '-';
+            })()}
+          </Descriptions.Item>
+          <Descriptions.Item label="建立時間">
+            {dispatch.created_at
+              ? dayjs(dispatch.created_at).format('YYYY-MM-DD HH:mm')
+              : '-'}
+          </Descriptions.Item>
+        </Descriptions>
+      </div>
     );
-  };
+  }
 
+  // 編輯模式：使用共用 Form 元件
   return (
-    <Form form={form} layout="vertical" disabled={!isEditing}>
-      {/* 第一行：派工單號 + 工程名稱 */}
-      <Row gutter={16}>
-        <Col span={8}>
-          <Form.Item
-            name="dispatch_no"
-            label="派工單號"
-            rules={[{ required: true, message: '請輸入派工單號' }]}
-          >
-            <Input placeholder="例: TY-2026-001" />
-          </Form.Item>
-        </Col>
-        <Col span={16}>
-          <Form.Item name="project_name" label="工程名稱/派工事項">
-            <Input placeholder="派工事項說明" />
-          </Form.Item>
-        </Col>
-      </Row>
-
-      {/* 第二行：作業類別 + 分案名稱 + 履約期限 */}
-      <Row gutter={16}>
-        <Col span={8}>
-          <Form.Item name="work_type" label="作業類別">
-            <Select
-              mode="multiple"
-              allowClear
-              placeholder="選擇作業類別（可多選）"
-              maxTagCount={2}
-            >
-              {TAOYUAN_WORK_TYPES.map((type) => (
-                <Option key={type} value={type}>
-                  {type}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-        </Col>
-        <Col span={8}>
-          <Form.Item name="sub_case_name" label="分案名稱/派工備註">
-            <Input />
-          </Form.Item>
-        </Col>
-        <Col span={8}>
-          <Form.Item name="deadline" label="履約期限">
-            <Input placeholder="例: 114/12/31" />
-          </Form.Item>
-        </Col>
-      </Row>
-
-      {/* 第三行：案件承辦 + 查估單位 + 聯絡備註 */}
-      <Row gutter={16}>
-        <Col span={8}>
-          <Form.Item
-            name="case_handler"
-            label="案件承辦"
-            tooltip="從機關承辦清單選擇（來源：承攬案件機關承辦）"
-          >
-            <Select
-              placeholder="選擇案件承辦"
-              allowClear
-              showSearch
-              optionFilterProp="label"
-            >
-              {agencyContacts.map((contact) => (
-                <Option
-                  key={contact.id}
-                  value={contact.contact_name}
-                  label={contact.contact_name}
-                >
-                  {contact.contact_name}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-        </Col>
-        <Col span={8}>
-          <Form.Item
-            name="survey_unit"
-            label="查估單位"
-            tooltip="從協力廠商清單選擇（來源：承攬案件協力廠商）"
-          >
-            <Select
-              placeholder="選擇查估單位"
-              allowClear
-              showSearch
-              optionFilterProp="label"
-            >
-              {projectVendors.map((vendor: ProjectVendor) => (
-                <Option
-                  key={vendor.vendor_id}
-                  value={vendor.vendor_name}
-                  label={vendor.vendor_name}
-                >
-                  {vendor.vendor_name}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-        </Col>
-        <Col span={8}>
-          <Form.Item name="contact_note" label="聯絡備註">
-            <Input />
-          </Form.Item>
-        </Col>
-      </Row>
-
-      {/* 第四行：雲端資料夾 + 專案資料夾 */}
-      <Row gutter={16}>
-        <Col span={12}>
-          <Form.Item name="cloud_folder" label="雲端資料夾">
-            <Input placeholder="Google Drive 連結" />
-          </Form.Item>
-        </Col>
-        <Col span={12}>
-          <Form.Item name="project_folder" label="專案資料夾">
-            <Input placeholder="本地路徑" />
-          </Form.Item>
-        </Col>
-      </Row>
-
-      {/* 契金資訊 */}
-      <Divider orientation="left">契金資訊</Divider>
-      <PaymentSection
-        isEditing={isEditing}
-        paymentData={paymentData}
+    <Form form={form} layout="vertical">
+      <DispatchFormFields
+        form={form}
+        mode="edit"
+        availableProjects={availableProjects}
+        agencyContacts={agencyContacts}
+        projectVendors={projectVendors}
+        onProjectSelect={onProjectSelect}
+        showPaymentFields={true}
         watchedWorkTypes={watchedWorkTypes}
-        watchedWorkAmounts={watchedWorkAmounts}
-        calculateCurrentAmount={calculateCurrentAmount}
+        showDocLinkFields={false}
+        showProjectLinkFields={false}
       />
 
-      {/* 唯讀模式下顯示系統資訊 */}
-      {!isEditing && dispatch && (
-        <>
-          <Divider />
-          <Descriptions size="small" column={3}>
-            <Descriptions.Item label="機關函文號">
-              {(() => {
-                // 從 linked_documents 取得機關來函
-                const agencyDocs = (dispatch.linked_documents || [])
-                  .filter(
-                    (d: DispatchDocumentLink) =>
-                      detectLinkType(d.doc_number) === 'agency_incoming'
-                  )
-                  .sort((a: DispatchDocumentLink, b: DispatchDocumentLink) => {
-                    const dateA = a.doc_date || '9999-12-31';
-                    const dateB = b.doc_date || '9999-12-31';
-                    return dateA.localeCompare(dateB);
-                  });
-                return agencyDocs.length > 0
-                  ? agencyDocs[0]?.doc_number || '-'
-                  : '-';
-              })()}
-            </Descriptions.Item>
-            <Descriptions.Item label="乾坤函文號">
-              {(() => {
-                // 從 linked_documents 取得乾坤發文
-                const companyDocs = (dispatch.linked_documents || [])
-                  .filter(
-                    (d: DispatchDocumentLink) =>
-                      detectLinkType(d.doc_number) === 'company_outgoing'
-                  )
-                  .sort((a: DispatchDocumentLink, b: DispatchDocumentLink) => {
-                    const dateA = a.doc_date || '9999-12-31';
-                    const dateB = b.doc_date || '9999-12-31';
-                    return dateA.localeCompare(dateB);
-                  });
-                return companyDocs.length > 0
-                  ? companyDocs[0]?.doc_number || '-'
-                  : '-';
-              })()}
-            </Descriptions.Item>
-            <Descriptions.Item label="建立時間">
-              {dispatch.created_at
-                ? dayjs(dispatch.created_at).format('YYYY-MM-DD HH:mm')
-                : '-'}
-            </Descriptions.Item>
-          </Descriptions>
-        </>
-      )}
+      {/* 金額彙總（編輯模式專用） */}
+      <PaymentEditSummary
+        watchedWorkAmounts={watchedWorkAmounts}
+        paymentData={paymentData}
+      />
     </Form>
   );
 };

@@ -56,17 +56,38 @@ limiter = Limiter(
 )
 
 
-async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
     """
-    速率限制超過時的自訂處理器
+    速率限制超過時的自訂處理器（同步版本）
 
     回傳統一的錯誤格式，並記錄日誌。
+    注意：
+    1. 必須是同步函數，因為 SlowAPIMiddleware 使用 sync_check_limits
+       (async 函數會被 slowapi 忽略，fallback 到默認處理器)
+    2. 需要手動加入 CORS 標頭，因為 BaseHTTPMiddleware 會繞過 CORS 中介軟體
     """
+    from app.core.cors import allowed_origins
+
     client_ip = get_client_identifier(request)
+    origin = request.headers.get("origin")
+
+    # 詳細日誌用於診斷
     logger.warning(
-        f"速率限制超過 - IP: {client_ip}, 路徑: {request.url.path}, "
-        f"限制: {exc.detail}"
+        f"[自訂處理器] 速率限制超過 - IP: {client_ip}, 路徑: {request.url.path}, "
+        f"Origin: {origin}, 限制: {exc.detail}"
     )
+    logger.info(f"[自訂處理器] allowed_origins 數量: {len(allowed_origins)}, Origin 是否允許: {origin in allowed_origins if origin else 'N/A'}")
+
+    # 建立 CORS 標頭
+    # 注意：當 credentials=true 時，Access-Control-Allow-Origin 不能是 "*"
+    cors_headers = {}
+    if origin and origin in allowed_origins:
+        cors_headers = {
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+        }
 
     return JSONResponse(
         status_code=429,
@@ -80,7 +101,9 @@ async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) 
             "Retry-After": exc.headers.get("Retry-After", "60") if exc.headers else "60",
             "X-RateLimit-Limit": exc.headers.get("X-RateLimit-Limit", "") if exc.headers else "",
             "X-RateLimit-Remaining": "0",
-            "X-RateLimit-Reset": exc.headers.get("X-RateLimit-Reset", "") if exc.headers else ""
+            "X-RateLimit-Reset": exc.headers.get("X-RateLimit-Reset", "") if exc.headers else "",
+            # CORS 標頭 - 確保 429 回應也能被前端正確處理
+            **cors_headers,
         }
     )
 

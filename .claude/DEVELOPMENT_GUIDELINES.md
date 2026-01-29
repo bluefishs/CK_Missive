@@ -256,6 +256,46 @@ useEffect(() => {
 **原因**: 匯入時未使用智慧匹配
 **解法**: 整合 `AgencyMatcher` / `ProjectMatcher`
 
+### 6.5 Antd Modal useForm 警告 (2026-01-29 新增)
+**錯誤**: `Warning: Instance created by useForm is not connected to any Form element`
+**原因**: 在 Modal 組件中使用 `Form.useForm()`，當 `open=false` 時 Modal 內容不渲染，但 hook 已執行
+
+**❌ 錯誤做法**:
+```tsx
+const MyModal = ({ visible }) => {
+  const [form] = Form.useForm();  // Hook 立即執行
+
+  return (
+    <Modal open={visible}>  {/* visible=false 時內容不渲染 */}
+      <Form form={form}>...</Form>
+    </Modal>
+  );
+};
+```
+
+**✅ 正確做法 - 使用 forceRender**:
+```tsx
+const MyModal = ({ visible }) => {
+  const [form] = Form.useForm();
+
+  return (
+    <Modal open={visible} forceRender>  {/* 強制渲染內容 */}
+      <Form form={form}>...</Form>
+    </Modal>
+  );
+};
+```
+
+**已修復的組件** (v1.14.0):
+- `UserPermissionModal.tsx`
+- `UserEditModal.tsx`
+- `DocumentOperations.tsx`
+- `DocumentSendModal.tsx`
+- `SequenceNumberGenerator.tsx`
+- `ProjectVendorManagement.tsx`
+- `SiteConfigManagement.tsx`
+- `NavigationItemForm.tsx`
+
 ### 7. 導覽路徑不一致 (2026-01-12 新增)
 **錯誤**: 導覽選單點擊後顯示 404 或空白頁面
 **原因**: 資料庫中的導覽路徑與前端 ROUTES 定義不一致

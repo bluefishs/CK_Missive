@@ -1,8 +1,15 @@
 /**
  * 派工安排 Tab
  *
- * @version 1.0.0
- * @date 2026-01-23
+ * 公文詳情頁面的派工安排功能，包含：
+ * - 已關聯派工列表
+ * - 新增派工表單（使用共用 DispatchFormFields）
+ * - 關聯已有派工
+ *
+ * 使用共用 DispatchFormFields 元件
+ *
+ * @version 2.0.0 - 重構使用共用表單元件
+ * @date 2026-01-29
  */
 
 import React, { useState, useEffect } from 'react';
@@ -19,32 +26,31 @@ import {
   Popconfirm,
   Spin,
   Empty,
-  Alert,
   Divider,
   Typography,
   App,
 } from 'antd';
 import {
-  FileTextOutlined,
   SendOutlined,
   PlusOutlined,
   LinkOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
+
+import { DispatchFormFields } from '../../../components/taoyuan/DispatchFormFields';
 import { isReceiveDocument } from '../../../types/api';
 import type {
   DispatchOrder,
   OfficialDocument,
   DocumentDispatchLink,
+  TaoyuanProject,
 } from '../../../types/api';
 import type { ProjectAgencyContact } from '../../../api/projectAgencyContacts';
 import type { ProjectVendor } from '../../../api/projectVendorsApi';
 import { dispatchOrdersApi } from '../../../api/taoyuanDispatchApi';
 import { logger } from '../../../utils/logger';
-import { TAOYUAN_WORK_TYPES_LIST } from './constants';
 
-const { Option } = Select;
 const { Text } = Typography;
 
 interface DocumentDispatchTabProps {
@@ -56,6 +62,8 @@ interface DocumentDispatchTabProps {
   agencyContacts: ProjectAgencyContact[];
   projectVendors: ProjectVendor[];
   availableDispatches: DispatchOrder[];
+  /** 可選擇的工程列表（用於工程名稱/派工事項 AutoComplete） */
+  availableProjects?: TaoyuanProject[];
   onCreateDispatch: (formValues: Record<string, unknown>) => Promise<void>;
   onLinkDispatch: (dispatchId: number) => Promise<void>;
   onUnlinkDispatch: (linkId: number) => Promise<void>;
@@ -69,6 +77,7 @@ export const DocumentDispatchTab: React.FC<DocumentDispatchTabProps> = ({
   agencyContacts,
   projectVendors,
   availableDispatches,
+  availableProjects = [],
   onCreateDispatch,
   onLinkDispatch,
   onUnlinkDispatch,
@@ -193,7 +202,7 @@ export const DocumentDispatchTab: React.FC<DocumentDispatchTabProps> = ({
                 </Space>
               }
             >
-              {/* 派工基本資訊 - 使用 Row/Col 布局 */}
+              {/* 派工基本資訊 */}
               <Row gutter={[16, 8]} style={{ marginBottom: 12 }}>
                 <Col xs={24} sm={8}>
                   <Text type="secondary">作業類別：</Text>
@@ -225,7 +234,7 @@ export const DocumentDispatchTab: React.FC<DocumentDispatchTabProps> = ({
                 </Col>
               </Row>
 
-              {/* 聯絡備註 - 獨立顯示 */}
+              {/* 聯絡備註 */}
               {item.contact_note && (
                 <div style={{ marginBottom: 12, padding: '8px 12px', backgroundColor: '#fffbe6', borderRadius: 4 }}>
                   <Text type="secondary">聯絡備註：</Text>
@@ -268,7 +277,7 @@ export const DocumentDispatchTab: React.FC<DocumentDispatchTabProps> = ({
         </Card>
       )}
 
-      {/* 新增派工表單 - Form 始終渲染以避免 useForm 警告 */}
+      {/* 新增派工表單 - 使用共用元件 */}
       <Form form={dispatchForm} layout="vertical" size="small">
         {isEditing && (
           <Card
@@ -280,173 +289,18 @@ export const DocumentDispatchTab: React.FC<DocumentDispatchTabProps> = ({
               </Space>
             }
           >
-            {/* 第一行：派工單號 + 工程名稱/派工事項 */}
-            <Row gutter={16}>
-              <Col span={8}>
-                <Form.Item
-                  name="dispatch_no"
-                  label="派工單號"
-                  rules={[{ required: true, message: '請輸入派工單號' }]}
-                >
-                  <Input placeholder="例: TY-2026-001" />
-                </Form.Item>
-              </Col>
-              <Col span={16}>
-                <Form.Item name="project_name" label="工程名稱/派工事項">
-                  <Input placeholder="派工事項說明" />
-                </Form.Item>
-              </Col>
-            </Row>
-
-            {/* 第二行：作業類別 + 分案名稱/派工備註 + 履約期限 */}
-            <Row gutter={16}>
-              <Col span={8}>
-                <Form.Item name="work_type" label="作業類別">
-                  <Select allowClear placeholder="選擇作業類別">
-                    {TAOYUAN_WORK_TYPES_LIST.map((type) => (
-                      <Option key={type} value={type}>
-                        {type}
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col span={8}>
-                <Form.Item name="sub_case_name" label="分案名稱/派工備註">
-                  <Input />
-                </Form.Item>
-              </Col>
-              <Col span={8}>
-                <Form.Item name="deadline" label="履約期限">
-                  <Input placeholder="例: 114/12/31" />
-                </Form.Item>
-              </Col>
-            </Row>
-
-            {/* 第三行：案件承辦 + 查估單位 + 聯絡備註 */}
-            <Row gutter={16}>
-              <Col span={8}>
-                <Form.Item
-                  name="case_handler"
-                  label="案件承辦"
-                  tooltip="從機關承辦清單選擇"
-                >
-                  <Select
-                    placeholder="選擇案件承辦"
-                    allowClear
-                    showSearch
-                    optionFilterProp="label"
-                  >
-                    {agencyContacts.map((contact: ProjectAgencyContact) => (
-                      <Option
-                        key={contact.id}
-                        value={contact.contact_name}
-                        label={contact.contact_name}
-                      >
-                        <div style={{ lineHeight: 1.4 }}>
-                          <div>{contact.contact_name}</div>
-                          {(contact.position || contact.department) && (
-                            <Text type="secondary" style={{ fontSize: 11 }}>
-                              {[contact.position, contact.department].filter(Boolean).join(' / ')}
-                            </Text>
-                          )}
-                        </div>
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col span={8}>
-                <Form.Item
-                  name="survey_unit"
-                  label="查估單位"
-                  tooltip="從協力廠商清單選擇"
-                >
-                  <Select
-                    placeholder="選擇查估單位"
-                    allowClear
-                    showSearch
-                    optionFilterProp="label"
-                  >
-                    {projectVendors.map((vendor: ProjectVendor) => (
-                      <Option
-                        key={vendor.vendor_id}
-                        value={vendor.vendor_name}
-                        label={vendor.vendor_name}
-                      >
-                        <div style={{ lineHeight: 1.4 }}>
-                          <div>{vendor.vendor_name}</div>
-                          {(vendor.role || vendor.vendor_business_type) && (
-                            <Text type="secondary" style={{ fontSize: 11 }}>
-                              {[vendor.role, vendor.vendor_business_type].filter(Boolean).join(' / ')}
-                            </Text>
-                          )}
-                        </div>
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col span={8}>
-                <Form.Item name="contact_note" label="聯絡備註">
-                  <Input />
-                </Form.Item>
-              </Col>
-            </Row>
-
-            {/* 第四行：雲端資料夾 + 專案資料夾 */}
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item name="cloud_folder" label="雲端資料夾">
-                  <Input placeholder="Google Drive 連結" />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item name="project_folder" label="專案資料夾">
-                  <Input placeholder="本地路徑" />
-                </Form.Item>
-              </Col>
-            </Row>
-
-            {/* 公文關聯區塊 - 自動帶入當前公文 */}
-            <Divider style={{ margin: '16px 0' }} />
-            <div style={{ marginBottom: 16 }}>
-              <Space>
-                <FileTextOutlined />
-                <span style={{ fontWeight: 500 }}>公文關聯</span>
-                <Tag color={isReceiveDoc ? 'blue' : 'green'}>
-                  {isReceiveDoc ? '收文' : '發文'}
-                </Tag>
-              </Space>
-            </div>
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item
-                  label="機關函文號"
-                  tooltip={isReceiveDoc ? '自動帶入當前公文文號' : '如需關聯機關函文，請至派工紀錄編輯'}
-                >
-                  <Input
-                    value={isReceiveDoc ? document?.doc_number : undefined}
-                    disabled
-                    style={{ backgroundColor: '#f5f5f5' }}
-                    placeholder={isReceiveDoc ? '' : '(非機關來函)'}
-                  />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item
-                  label="乾坤函文號"
-                  tooltip={!isReceiveDoc ? '自動帶入當前公文文號' : '如需關聯乾坤函文，請至派工紀錄編輯'}
-                >
-                  <Input
-                    value={!isReceiveDoc ? document?.doc_number : undefined}
-                    disabled
-                    style={{ backgroundColor: '#f5f5f5' }}
-                    placeholder={!isReceiveDoc ? '' : '(非乾坤發文)'}
-                  />
-                </Form.Item>
-              </Col>
-            </Row>
+            <DispatchFormFields
+              form={dispatchForm}
+              mode="quick"
+              availableProjects={availableProjects}
+              agencyContacts={agencyContacts}
+              projectVendors={projectVendors}
+              showPaymentFields={false}
+              showDocLinkFields={true}
+              document={document}
+              isReceiveDoc={isReceiveDoc}
+              showProjectLinkFields={false}
+            />
 
             <Form.Item style={{ marginBottom: 0, marginTop: 16 }}>
               <Space>
@@ -457,8 +311,8 @@ export const DocumentDispatchTab: React.FC<DocumentDispatchTabProps> = ({
                       const values = await dispatchForm.validateFields();
                       await onCreateDispatch(values);
                       dispatchForm.resetFields();
-                    } catch (error) {
-                      // 表單驗證失敗，不做額外處理
+                    } catch {
+                      // 表單驗證失敗
                     }
                   }}
                 >
@@ -473,7 +327,7 @@ export const DocumentDispatchTab: React.FC<DocumentDispatchTabProps> = ({
         )}
       </Form>
 
-      {/* 關聯已有派工 - 編輯模式才顯示 */}
+      {/* 關聯已有派工 */}
       {isEditing && (
         <Card
           size="small"

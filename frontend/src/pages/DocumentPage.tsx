@@ -7,7 +7,6 @@ import { DocumentList } from '../components/document/DocumentList';
 import { DocumentFilter } from '../components/document/DocumentFilter';
 import { DocumentTabs } from '../components/document/DocumentTabs';
 import { DocumentPagination } from '../components/document/DocumentPagination';
-import { DocumentOperations, DocumentSendModal } from '../components/document/DocumentOperations';
 import { DocumentImport } from '../components/document/DocumentImport';
 import { exportDocumentsToExcel } from '../utils/exportUtils';
 import {
@@ -66,16 +65,8 @@ export const DocumentPage: React.FC = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [isAddingToCalendar, setIsAddingToCalendar] = useState(false);
 
-  const [documentOperation, setDocumentOperation] = useState<{
-    type: 'view' | 'edit' | 'create' | 'copy' | null;
-    document: Document | null;
-    visible: boolean;
-  }>({ type: null, document: null, visible: false });
-
-  const [sendModal, setSendModal] = useState<{
-    visible: boolean;
-    document: Document | null;
-  }>({ visible: false, document: null });
+  // 注意：查看、編輯、新增、複製公文已改為導航模式
+  // 參見 docs/specifications/UI_DESIGN_STANDARDS.md
 
   // ============================================================================
   // React Query: 唯一的伺服器資料來源
@@ -159,14 +150,14 @@ export const DocumentPage: React.FC = () => {
   };
 
   // ============================================================================
-  // 公文操作處理
+  // 公文操作處理（使用導航模式）
   // ============================================================================
   const handleViewDocument = (document: Document) => {
-    setDocumentOperation({ type: 'view', document, visible: true });
+    navigate(`/documents/${document.id}`);
   };
 
   const handleEditDocument = (document: Document) => {
-    setDocumentOperation({ type: 'edit', document, visible: true });
+    navigate(`/documents/${document.id}/edit`);
   };
 
   const handleCreateDocument = () => {
@@ -174,15 +165,12 @@ export const DocumentPage: React.FC = () => {
   };
 
   const handleCopyDocument = (document: Document) => {
-    setDocumentOperation({ type: 'copy', document, visible: true });
+    // 複製功能導航到新增頁面，帶上 copy 參數
+    navigate(`/documents/create?copyFrom=${document.id}`);
   };
 
   const handleDeleteDocument = (document: Document) => {
     setDeleteModal({ open: true, document });
-  };
-
-  const handleSendDocument = (document: Document) => {
-    setSendModal({ visible: true, document });
   };
 
   const handleArchiveDocument = async (document: Document) => {
@@ -252,33 +240,8 @@ export const DocumentPage: React.FC = () => {
   };
 
   // ============================================================================
-  // CRUD 操作（使用 Mutation Hooks）
+  // 刪除操作（保留確認 Modal，符合 UI 規範）
   // ============================================================================
-  const handleSaveDocument = async (documentData: Partial<Document>): Promise<Document | void> => {
-    try {
-      let result: Document;
-
-      if (documentOperation.type === 'create' || documentOperation.type === 'copy') {
-        result = await createMutation.mutateAsync(documentData as any);
-        message.success('公文新增成功！');
-      } else if (documentOperation.type === 'edit' && documentOperation.document?.id) {
-        result = await updateMutation.mutateAsync({
-          documentId: documentOperation.document.id,
-          data: documentData as any,
-        });
-        message.success('公文更新成功！');
-      } else {
-        return;
-      }
-
-      setDocumentOperation({ type: null, document: null, visible: false });
-      return result;
-    } catch (error) {
-      console.error('Save document error:', error);
-      throw error;
-    }
-  };
-
   const handleConfirmDelete = async () => {
     if (deleteModal.document) {
       try {
@@ -289,16 +252,6 @@ export const DocumentPage: React.FC = () => {
         console.error('刪除公文失敗:', error);
         message.error('刪除公文失敗');
       }
-    }
-  };
-
-  const handleSend = async () => {
-    try {
-      message.success('公文發送成功！');
-      setSendModal({ visible: false, document: null });
-      await forceRefresh();
-    } catch (error) {
-      throw error;
     }
   };
 
@@ -418,21 +371,6 @@ export const DocumentPage: React.FC = () => {
         onSuccess={async () => {
           await forceRefresh();
         }}
-      />
-
-      <DocumentOperations
-        document={documentOperation.document}
-        operation={documentOperation.type}
-        visible={documentOperation.visible}
-        onClose={() => setDocumentOperation({ type: null, document: null, visible: false })}
-        onSave={handleSaveDocument}
-      />
-
-      <DocumentSendModal
-        document={sendModal.document}
-        visible={sendModal.visible}
-        onClose={() => setSendModal({ visible: false, document: null })}
-        onSend={handleSend}
       />
     </div>
   );

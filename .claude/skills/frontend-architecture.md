@@ -1,7 +1,7 @@
 # 前端架構規範 (Frontend Architecture)
 
-> **版本**: 1.3.0
-> **更新日期**: 2026-01-22
+> **版本**: 1.4.0
+> **更新日期**: 2026-01-29
 > **適用範圍**: frontend/src/**
 
 ---
@@ -209,6 +209,130 @@ function PaymentForm({ form }: { form: FormInstance }) {
 - [ ] 所有 `Form.useWatch` 在元件頂層（不在 render 函數內）
 - [ ] 不在條件判斷 (`if`) 或迴圈 (`for`) 內呼叫 Hooks
 - [ ] 自訂 Hooks 的名稱以 `use` 開頭
+
+### 3.5 共用表單元件架構 (v1.4.0 新增)
+
+當同一組表單欄位在多處使用時，應提取為共用元件，避免重複維護與不一致。
+
+#### 典型問題場景
+
+```
+❌ 問題：相同表單在 3 處分別維護
+TaoyuanDispatchCreatePage.tsx  → 19 個欄位
+DispatchInfoTab.tsx            → 17 個欄位
+DocumentDispatchTab.tsx        → 12 個欄位
+
+結果：
+- work_type 有的是單選、有的是多選
+- 欄位順序不一致
+- 修改需要同步 3 處
+```
+
+#### 解決方案：共用表單欄位元件
+
+```tsx
+// ✅ 正確：建立共用表單欄位元件
+// frontend/src/components/taoyuan/DispatchFormFields.tsx
+
+export interface DispatchFormFieldsProps {
+  form: FormInstance;
+  mode: 'create' | 'edit' | 'quick';  // 三種模式
+  availableProjects?: TaoyuanProject[];
+  agencyContacts?: ProjectAgencyContact[];
+  projectVendors?: ProjectVendor[];
+  onProjectSelect?: (projectId: number, projectName: string) => void;
+  showPaymentFields?: boolean;
+  showDocLinkFields?: boolean;
+  showProjectLinkFields?: boolean;
+  // ... 其他可選 props
+}
+
+export const DispatchFormFields: React.FC<DispatchFormFieldsProps> = ({
+  form,
+  mode,
+  // ...
+}) => {
+  // 根據 mode 決定顯示哪些欄位
+  const isQuickMode = mode === 'quick';
+  const isCreateMode = mode === 'create';
+  const isEditMode = mode === 'edit';
+
+  return (
+    <>
+      {/* 基礎欄位 - 所有模式都顯示 */}
+      <Form.Item name="dispatch_no" label="派工單號">...</Form.Item>
+      <Form.Item name="project_name" label="工程名稱">...</Form.Item>
+
+      {/* 進階欄位 - 非 quick 模式才顯示 */}
+      {!isQuickMode && (
+        <>
+          <Form.Item name="cloud_folder" label="雲端資料夾">...</Form.Item>
+          <Form.Item name="project_folder" label="專案資料夾">...</Form.Item>
+        </>
+      )}
+
+      {/* 契金欄位 - 僅建立/編輯模式 */}
+      {showPaymentFields && !isQuickMode && (
+        <PaymentFieldsSection form={form} />
+      )}
+    </>
+  );
+};
+```
+
+#### 使用方式
+
+```tsx
+// 1. 獨立建立頁面 - 完整模式
+<DispatchFormFields
+  form={form}
+  mode="create"
+  availableProjects={projects}
+  showPaymentFields={true}
+  showDocLinkFields={true}
+  showProjectLinkFields={true}
+/>
+
+// 2. 詳情頁編輯 - 編輯模式
+<DispatchFormFields
+  form={form}
+  mode="edit"
+  availableProjects={projects}
+  showPaymentFields={true}
+/>
+
+// 3. 公文內新增派工 - 快速模式
+<DispatchFormFields
+  form={form}
+  mode="quick"
+  availableProjects={projects}
+  showPaymentFields={false}
+  document={document}
+  isReceiveDoc={isReceiveDoc}
+/>
+```
+
+#### 共用元件設計原則
+
+| 原則 | 說明 |
+|------|------|
+| **模式驅動** | 使用 `mode` prop 控制顯示內容，而非多個布林值 |
+| **可選 Props** | 資料源與回調函數都應該是可選的 |
+| **向後相容** | 新增功能時使用預設值，不破壞現有用法 |
+| **單一職責** | 只負責表單欄位渲染，不處理提交邏輯 |
+
+#### 現有共用表單元件
+
+| 元件 | 位置 | 用途 |
+|------|------|------|
+| `DispatchFormFields` | `components/taoyuan/` | 派工單表單欄位 |
+
+#### 何時提取共用元件
+
+- [ ] 相同表單在 **2 處以上** 使用
+- [ ] 欄位邏輯複雜（如 AutoComplete 混合模式）
+- [ ] 欄位間有聯動關係（如選擇作業類別影響契金欄位顯示）
+- [ ] 需要保持一致的 UX 體驗
 
 ---
 

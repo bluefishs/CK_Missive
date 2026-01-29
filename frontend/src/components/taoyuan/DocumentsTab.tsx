@@ -6,8 +6,8 @@
  * - 使用 DocumentFilter 組件進行篩選
  * - 點擊公文直接導航至詳情頁，返回時回到函文紀錄 Tab
  *
- * @version 1.3.0 - 統一使用導航模式
- * @date 2026-01-28
+ * @version 1.4.0 - 移除 DocumentOperations modal，完全採用導航模式
+ * @date 2026-01-29
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
@@ -31,20 +31,16 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { DocumentTabs } from '../document/DocumentTabs';
 import { DocumentFilter } from '../document/DocumentFilter';
-import { DocumentOperations } from '../document/DocumentOperations';
 import { DocumentImport } from '../document/DocumentImport';
 import { exportDocumentsToExcel } from '../../utils/exportUtils';
 import {
   useDocuments,
-  useCreateDocument,
-  useUpdateDocument,
   useDeleteDocument,
   useAuthGuard,
 } from '../../hooks';
 import { Document, DocumentFilter as IDocumentFilter } from '../../types';
 import { calendarIntegrationService } from '../../services/calendarIntegrationService';
 import { queryKeys } from '../../config/queryConfig';
-import { logger } from '../../utils/logger';
 
 const { Title } = Typography;
 
@@ -84,12 +80,6 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ contractCode }) => {
   const [isExporting, setIsExporting] = useState(false);
   const [isAddingToCalendar, setIsAddingToCalendar] = useState(false);
 
-  const [documentOperation, setDocumentOperation] = useState<{
-    type: 'view' | 'edit' | 'create' | 'copy' | null;
-    document: Document | null;
-    visible: boolean;
-  }>({ type: null, document: null, visible: false });
-
   // 查詢公文列表
   const {
     data: documentsData,
@@ -107,8 +97,6 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ contractCode }) => {
   const documents = documentsData?.items ?? [];
   const totalCount = documentsData?.pagination?.total ?? 0;
 
-  const createMutation = useCreateDocument();
-  const updateMutation = useUpdateDocument();
   const deleteMutation = useDeleteDocument();
 
   const forceRefresh = useCallback(async () => {
@@ -183,29 +171,6 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ contractCode }) => {
       } catch {
         message.error('刪除公文失敗');
       }
-    }
-  };
-
-  const handleSaveDocument = async (documentData: Partial<Document>): Promise<Document | void> => {
-    try {
-      let result: Document;
-      if (documentOperation.type === 'create' || documentOperation.type === 'copy') {
-        result = await createMutation.mutateAsync(documentData as any);
-        message.success('公文新增成功！');
-      } else if (documentOperation.type === 'edit' && documentOperation.document?.id) {
-        result = await updateMutation.mutateAsync({
-          documentId: documentOperation.document.id,
-          data: documentData as any,
-        });
-        message.success('公文更新成功！');
-      } else {
-        return;
-      }
-      setDocumentOperation({ type: null, document: null, visible: false });
-      return result;
-    } catch (error) {
-      logger.error('Save document error:', error);
-      throw error;
     }
   };
 
@@ -320,15 +285,6 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ contractCode }) => {
         visible={importModalVisible}
         onClose={() => setImportModalVisible(false)}
         onSuccess={forceRefresh}
-      />
-
-      {/* 公文操作 Modal */}
-      <DocumentOperations
-        document={documentOperation.document}
-        operation={documentOperation.type}
-        visible={documentOperation.visible}
-        onClose={() => setDocumentOperation({ type: null, document: null, visible: false })}
-        onSave={handleSaveDocument}
       />
     </div>
   );

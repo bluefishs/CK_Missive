@@ -5,8 +5,8 @@
  * - 新增派工單導航到獨立的新增頁面
  * - 點擊列表項目導航至派工單詳情頁進行編輯
  *
- * @version 1.2.0 - RWD 響應式改造
- * @date 2026-01-23
+ * @version 1.3.0 - 新增文字欄位 (分案名稱、聯絡備註、專案資料夾)
+ * @date 2026-01-29
  */
 
 import React, { useState } from 'react';
@@ -252,6 +252,47 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
       ) : '-',
     },
     {
+      title: '分案名稱',
+      dataIndex: 'sub_case_name',
+      width: 150,
+      ellipsis: true,
+      ...getColumnSearchProps('sub_case_name'),
+      render: (val?: string) => val ? (
+        <Tooltip title={val}>
+          <span>{searchedColumn === 'sub_case_name' ? (
+            <Highlighter
+              highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
+              searchWords={[columnSearchText]}
+              autoEscape
+              textToHighlight={val}
+            />
+          ) : val}</span>
+        </Tooltip>
+      ) : '-',
+    },
+    {
+      title: '聯絡備註',
+      dataIndex: 'contact_note',
+      width: 150,
+      ellipsis: true,
+      render: (val?: string) => val ? (
+        <Tooltip title={val}>
+          <Text style={{ fontSize: 12 }}>{val}</Text>
+        </Tooltip>
+      ) : '-',
+    },
+    {
+      title: '專案資料夾',
+      dataIndex: 'project_folder',
+      width: 120,
+      ellipsis: true,
+      render: (val?: string) => val ? (
+        <Tooltip title={val}>
+          <Text style={{ fontSize: 12, color: '#666' }}>{val}</Text>
+        </Tooltip>
+      ) : '-',
+    },
+    {
       title: '雲端',
       dataIndex: 'cloud_folder',
       width: 55,
@@ -390,6 +431,16 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
                 )}
                 {order.case_handler && <Tag style={{ fontSize: 11 }}>{order.case_handler}</Tag>}
               </Space>
+              {order.sub_case_name && (
+                <div style={{ marginTop: 4, fontSize: 11, color: '#666' }}>
+                  分案: {order.sub_case_name}
+                </div>
+              )}
+              {order.contact_note && (
+                <div style={{ fontSize: 11, color: '#888' }}>
+                  備註: {order.contact_note}
+                </div>
+              )}
               <div style={{ marginTop: 6, fontSize: 11, color: '#999' }}>
                 公文: {order.linked_documents?.length || 0} |
                 工程: {order.linked_projects?.length || 0} |
@@ -510,7 +561,7 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
           dataSource={orders}
           rowKey="id"
           loading={isLoading}
-          scroll={{ x: 1250 }}
+          scroll={{ x: 1700 }}
           size="small"
           pagination={{
             showSizeChanger: true,

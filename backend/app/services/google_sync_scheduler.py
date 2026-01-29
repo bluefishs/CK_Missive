@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Optional
 from contextlib import asynccontextmanager
 
-from app.db.database import get_async_db
+from app.db.database import AsyncSessionLocal
 from app.services.document_calendar_service import calendar_service
 
 logger = logging.getLogger(__name__)
@@ -83,45 +83,56 @@ class GoogleSyncScheduler:
 
     async def _process_sync(self):
         """處理待同步的事件"""
+        db = None
         try:
-            async for db in get_async_db():
-                # 取得待同步事件
-                pending_events = await calendar_service.get_pending_sync_events(db, limit=20)
+            # 直接創建 session（不使用依賴注入生成器）
+            db = AsyncSessionLocal()
 
-                if not pending_events:
-                    logger.debug("沒有待同步的 Google Calendar 事件")
-                    return
+            # 取得待同步事件
+            pending_events = await calendar_service.get_pending_sync_events(db, limit=20)
 
-                logger.info(f"開始同步 {len(pending_events)} 個事件至 Google Calendar")
+            if not pending_events:
+                logger.debug("沒有待同步的 Google Calendar 事件")
+                return
 
-                synced_count = 0
-                failed_count = 0
+            logger.info(f"開始同步 {len(pending_events)} 個事件至 Google Calendar")
 
-                for event in pending_events:
-                    result = await calendar_service.sync_event_to_google(db, event)
-                    if result['success']:
-                        synced_count += 1
-                    else:
-                        failed_count += 1
+            synced_count = 0
+            failed_count = 0
 
-                # 更新統計
-                self._last_sync_time = datetime.now()
-                self._sync_stats['total_syncs'] += 1
-                self._sync_stats['successful_syncs'] += synced_count
-                self._sync_stats['failed_syncs'] += failed_count
-                self._sync_stats['last_sync_result'] = {
-                    'time': self._last_sync_time.isoformat(),
-                    'synced': synced_count,
-                    'failed': failed_count
-                }
+            for event in pending_events:
+                result = await calendar_service.sync_event_to_google(db, event)
+                if result['success']:
+                    synced_count += 1
+                else:
+                    failed_count += 1
 
-                if synced_count > 0 or failed_count > 0:
-                    logger.info(
-                        f"Google Calendar 同步完成 - 成功: {synced_count}, 失敗: {failed_count}"
-                    )
+            # 提交更改
+            await db.commit()
+
+            # 更新統計
+            self._last_sync_time = datetime.now()
+            self._sync_stats['total_syncs'] += 1
+            self._sync_stats['successful_syncs'] += synced_count
+            self._sync_stats['failed_syncs'] += failed_count
+            self._sync_stats['last_sync_result'] = {
+                'time': self._last_sync_time.isoformat(),
+                'synced': synced_count,
+                'failed': failed_count
+            }
+
+            if synced_count > 0 or failed_count > 0:
+                logger.info(
+                    f"Google Calendar 同步完成 - 成功: {synced_count}, 失敗: {failed_count}"
+                )
 
         except Exception as e:
             logger.error(f"處理 Google Calendar 同步時發生錯誤: {e}", exc_info=True)
+            if db:
+                await db.rollback()
+        finally:
+            if db:
+                await db.close()
 
     async def process_once(self):
         """手動執行一次同步（用於測試或手動觸發）"""

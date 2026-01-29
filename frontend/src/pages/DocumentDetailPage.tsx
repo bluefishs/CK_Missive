@@ -243,6 +243,17 @@ export const DocumentDetailPage: React.FC = () => {
     }
   };
 
+  // 待設置的表單值（延遲到 loading 結束後設置）
+  const [pendingFormValues, setPendingFormValues] = React.useState<Record<string, any> | null>(null);
+
+  // 當 loading 結束且有待設置的值時，設置表單
+  React.useEffect(() => {
+    if (!loading && pendingFormValues) {
+      form.setFieldsValue(pendingFormValues);
+      setPendingFormValues(null);
+    }
+  }, [loading, pendingFormValues, form]);
+
   const loadDocument = useCallback(async () => {
     if (!id) return;
     setLoading(true);
@@ -262,7 +273,8 @@ export const DocumentDetailPage: React.FC = () => {
       }
       setCurrentAssigneeValues(assigneeArray);
 
-      form.setFieldsValue({
+      // 延遲設置表單值，等待 Form 組件渲染完成
+      setPendingFormValues({
         ...doc,
         doc_date: doc.doc_date ? dayjs(doc.doc_date) : null,
         receive_date: doc.receive_date ? dayjs(doc.receive_date) : null,
@@ -276,7 +288,8 @@ export const DocumentDetailPage: React.FC = () => {
         const staffList = await fetchProjectStaff(projectId);
         if ((!assigneeArray || assigneeArray.length === 0) && staffList && staffList.length > 0) {
           const staffNames = staffList.map((s: any) => s.user_name);
-          form.setFieldsValue({ assignee: staffNames });
+          // 更新待設置值中的 assignee
+          setPendingFormValues(prev => prev ? { ...prev, assignee: staffNames } : null);
           setCurrentAssigneeValues(staffNames);
         }
       }
@@ -692,6 +705,7 @@ export const DocumentDetailPage: React.FC = () => {
           agencyContacts={agencyContacts}
           projectVendors={projectVendors}
           availableDispatches={availableDispatches}
+          availableProjects={availableProjects}
           onCreateDispatch={handleCreateDispatch}
           onLinkDispatch={handleLinkDispatch}
           onUnlinkDispatch={handleUnlinkDispatch}

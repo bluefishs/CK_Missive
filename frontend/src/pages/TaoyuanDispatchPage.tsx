@@ -2,13 +2,13 @@
  * 桃園查估派工管理系統
  *
  * 四頁籤架構:
- * - Tab 1: 工程資訊 (轄管工程清單 + 派工工程)
+ * - Tab 1: 派工紀錄
  * - Tab 2: 函文紀錄 (公文管理)
- * - Tab 3: 派工紀錄
- * - Tab 4: 契金管控
+ * - Tab 3: 契金管控
+ * - Tab 4: 工程資訊 (轄管工程清單 + 派工工程)
  *
- * @version 2.1.0
- * @date 2026-01-21
+ * @version 2.2.0
+ * @date 2026-01-29
  */
 
 import React, { useState, useEffect } from 'react';
@@ -96,11 +96,16 @@ export const TaoyuanDispatchPage: React.FC = () => {
             key: '1',
             label: (
               <span>
-                <ProjectOutlined />
-                {isMobile ? '工程' : '工程資訊'}
+                <SendOutlined />
+                {isMobile ? '派工' : '派工紀錄'}
               </span>
             ),
-            children: <ProjectsTab contractProjectId={TAOYUAN_CONTRACT.PROJECT_ID} />,
+            children: (
+              <DispatchOrdersTab
+                contractProjectId={TAOYUAN_CONTRACT.PROJECT_ID}
+                contractCode={TAOYUAN_CONTRACT.CODE}
+              />
+            ),
           },
           {
             key: '2',
@@ -116,26 +121,21 @@ export const TaoyuanDispatchPage: React.FC = () => {
             key: '3',
             label: (
               <span>
-                <SendOutlined />
-                {isMobile ? '派工' : '派工紀錄'}
-              </span>
-            ),
-            children: (
-              <DispatchOrdersTab
-                contractProjectId={TAOYUAN_CONTRACT.PROJECT_ID}
-                contractCode={TAOYUAN_CONTRACT.CODE}
-              />
-            ),
-          },
-          {
-            key: '4',
-            label: (
-              <span>
                 <DollarOutlined />
                 {isMobile ? '契金' : '契金管控'}
               </span>
             ),
             children: <PaymentsTab contractProjectId={TAOYUAN_CONTRACT.PROJECT_ID} />,
+          },
+          {
+            key: '4',
+            label: (
+              <span>
+                <ProjectOutlined />
+                {isMobile ? '工程' : '工程資訊'}
+              </span>
+            ),
+            children: <ProjectsTab contractProjectId={TAOYUAN_CONTRACT.PROJECT_ID} />,
           },
         ]}
       />
