@@ -339,13 +339,26 @@ DEFAULT_NAVIGATION_ITEMS = [
         "permission_required": "[\"admin:site_management\"]"
     },
 
+    # 備份管理 (對應 ROUTES.BACKUP_MANAGEMENT)
+    {
+        "title": "備份管理",
+        "key": "backup-management",
+        "path": "/admin/backup",
+        "icon": "CloudServerOutlined",
+        "sort_order": 5,
+        "level": 2,
+        "parent_key": "system-management",
+        "description": "備份,還原,同步",
+        "permission_required": "[\"admin:settings\"]"
+    },
+
     # 系統監控 (對應 ROUTES.SYSTEM)
     {
         "title": "系統監控",
         "key": "system-monitoring",
         "path": "/system",
         "icon": "MonitorOutlined",
-        "sort_order": 5,
+        "sort_order": 6,
         "level": 2,
         "parent_key": "system-management",
         "description": "監控,狀態",

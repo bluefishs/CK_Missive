@@ -370,6 +370,23 @@ export const BACKUP_ENDPOINTS = {
   CONFIG: '/backup/config',
   /** 備份狀態 POST /backup/status */
   STATUS: '/backup/status',
+  // === 異地備份設定 ===
+  /** 異地備份設定 POST /backup/remote-config */
+  REMOTE_CONFIG: '/backup/remote-config',
+  /** 更新異地備份設定 POST /backup/remote-config/update */
+  REMOTE_CONFIG_UPDATE: '/backup/remote-config/update',
+  /** 手動異地同步 POST /backup/remote-sync */
+  REMOTE_SYNC: '/backup/remote-sync',
+  // === 備份日誌 ===
+  /** 備份日誌 POST /backup/logs */
+  LOGS: '/backup/logs',
+  // === 排程器控制 ===
+  /** 排程器狀態 POST /backup/scheduler/status */
+  SCHEDULER_STATUS: '/backup/scheduler/status',
+  /** 啟動排程器 POST /backup/scheduler/start */
+  SCHEDULER_START: '/backup/scheduler/start',
+  /** 停止排程器 POST /backup/scheduler/stop */
+  SCHEDULER_STOP: '/backup/scheduler/stop',
 } as const;
 
 // ============================================================================

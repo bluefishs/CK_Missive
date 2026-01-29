@@ -1,14 +1,16 @@
 """
 資料庫備份服務
 提供資料庫與附件的備份、還原、列表與管理功能
+支援異地備份路徑設定與備份日誌記錄
 
-@version 1.0.0
-@date 2026-01-11
+@version 1.1.0
+@date 2026-01-29
 """
 
 import os
 import subprocess
 import asyncio
+import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Optional, Dict, Any
@@ -16,6 +18,8 @@ import shutil
 import json
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class BackupService:
@@ -46,6 +50,14 @@ class BackupService:
 
         # 從環境變數讀取設定 (覆蓋 settings 的值)
         self._load_env_config()
+
+        # 異地備份設定
+        self.remote_config_file = self.project_root / "config" / "remote_backup.json"
+        self._remote_config: Dict[str, Any] = self._load_remote_config()
+
+        # 備份日誌檔案
+        self.backup_log_file = self.log_dir / "backup_operations.json"
+        self._backup_logs: List[Dict[str, Any]] = self._load_backup_logs()
 
         # 確保目錄存在
         self._ensure_directories()
@@ -373,6 +385,237 @@ class BackupService:
             "container_name": self._get_running_container() or self.container_name,
             "database_name": self.db_name,
             "database_user": self.db_user,
+        }
+
+    # =========================================================================
+    # 異地備份設定功能
+    # =========================================================================
+
+    def _load_remote_config(self) -> Dict[str, Any]:
+        """載入異地備份設定"""
+        default_config = {
+            "remote_path": None,
+            "sync_enabled": False,
+            "sync_interval_hours": 24,
+            "last_sync_time": None,
+            "sync_status": "idle"
+        }
+        try:
+            if self.remote_config_file.exists():
+                with open(self.remote_config_file, "r", encoding="utf-8") as f:
+                    return {**default_config, **json.load(f)}
+        except Exception as e:
+            logger.warning(f"載入異地備份設定失敗: {e}")
+        return default_config
+
+    def _save_remote_config(self) -> None:
+        """儲存異地備份設定"""
+        try:
+            self.remote_config_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.remote_config_file, "w", encoding="utf-8") as f:
+                json.dump(self._remote_config, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logger.error(f"儲存異地備份設定失敗: {e}")
+
+    async def get_remote_config(self) -> Dict[str, Any]:
+        """取得異地備份設定"""
+        return self._remote_config.copy()
+
+    async def update_remote_config(
+        self,
+        remote_path: str,
+        sync_enabled: bool = True,
+        sync_interval_hours: int = 24
+    ) -> Dict[str, Any]:
+        """更新異地備份設定"""
+        # 驗證路徑
+        remote_path_obj = Path(remote_path)
+
+        # 更新設定
+        self._remote_config.update({
+            "remote_path": str(remote_path),
+            "sync_enabled": sync_enabled,
+            "sync_interval_hours": sync_interval_hours
+        })
+        self._save_remote_config()
+
+        # 記錄日誌
+        await self._log_backup_operation(
+            action="config_update",
+            status="success",
+            details=f"異地備份路徑設定為: {remote_path}",
+            operator="admin"
+        )
+
+        return {"success": True, "config": self._remote_config}
+
+    async def sync_to_remote(self) -> Dict[str, Any]:
+        """同步備份到異地路徑"""
+        if not self._remote_config.get("remote_path"):
+            return {"success": False, "error": "未設定異地備份路徑"}
+
+        remote_path = Path(self._remote_config["remote_path"])
+        start_time = datetime.now()
+
+        try:
+            # 更新同步狀態
+            self._remote_config["sync_status"] = "syncing"
+            self._save_remote_config()
+
+            # 確保遠端目錄存在
+            remote_db_dir = remote_path / "database"
+            remote_att_dir = remote_path / "attachments"
+            remote_db_dir.mkdir(parents=True, exist_ok=True)
+            remote_att_dir.mkdir(parents=True, exist_ok=True)
+
+            synced_files = 0
+            total_size = 0
+
+            # 同步資料庫備份
+            for backup_file in self.backup_dir.glob("ck_missive_backup_*.sql"):
+                dest_file = remote_db_dir / backup_file.name
+                if not dest_file.exists() or backup_file.stat().st_mtime > dest_file.stat().st_mtime:
+                    shutil.copy2(backup_file, dest_file)
+                    synced_files += 1
+                    total_size += backup_file.stat().st_size
+
+            # 同步附件備份
+            for backup_dir in self.attachment_backup_dir.glob("attachments_backup_*"):
+                if backup_dir.is_dir():
+                    dest_dir = remote_att_dir / backup_dir.name
+                    if not dest_dir.exists():
+                        shutil.copytree(backup_dir, dest_dir)
+                        synced_files += 1
+                        total_size += sum(f.stat().st_size for f in backup_dir.rglob("*") if f.is_file())
+
+            # 更新同步狀態
+            duration = (datetime.now() - start_time).total_seconds()
+            self._remote_config["last_sync_time"] = datetime.now().isoformat()
+            self._remote_config["sync_status"] = "idle"
+            self._save_remote_config()
+
+            # 記錄日誌
+            await self._log_backup_operation(
+                action="sync",
+                status="success",
+                details=f"同步 {synced_files} 個檔案到 {remote_path}",
+                file_size_kb=round(total_size / 1024, 2),
+                duration_seconds=round(duration, 2),
+                operator="admin"
+            )
+
+            return {
+                "success": True,
+                "synced_files": synced_files,
+                "total_size_kb": round(total_size / 1024, 2),
+                "duration_seconds": round(duration, 2),
+                "remote_path": str(remote_path)
+            }
+
+        except Exception as e:
+            self._remote_config["sync_status"] = "error"
+            self._save_remote_config()
+
+            await self._log_backup_operation(
+                action="sync",
+                status="failed",
+                details=f"同步失敗: {str(e)}",
+                error_message=str(e),
+                operator="admin"
+            )
+
+            return {"success": False, "error": str(e)}
+
+    # =========================================================================
+    # 備份日誌功能
+    # =========================================================================
+
+    def _load_backup_logs(self) -> List[Dict[str, Any]]:
+        """載入備份日誌"""
+        try:
+            if self.backup_log_file.exists():
+                with open(self.backup_log_file, "r", encoding="utf-8") as f:
+                    return json.load(f)
+        except Exception as e:
+            logger.warning(f"載入備份日誌失敗: {e}")
+        return []
+
+    def _save_backup_logs(self) -> None:
+        """儲存備份日誌"""
+        try:
+            self.backup_log_file.parent.mkdir(parents=True, exist_ok=True)
+            # 只保留最近 1000 筆日誌
+            logs_to_save = self._backup_logs[-1000:]
+            with open(self.backup_log_file, "w", encoding="utf-8") as f:
+                json.dump(logs_to_save, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logger.error(f"儲存備份日誌失敗: {e}")
+
+    async def _log_backup_operation(
+        self,
+        action: str,
+        status: str,
+        details: Optional[str] = None,
+        backup_name: Optional[str] = None,
+        file_size_kb: Optional[float] = None,
+        duration_seconds: Optional[float] = None,
+        error_message: Optional[str] = None,
+        operator: Optional[str] = None
+    ) -> None:
+        """記錄備份操作日誌"""
+        log_entry = {
+            "id": len(self._backup_logs) + 1,
+            "timestamp": datetime.now().isoformat(),
+            "action": action,
+            "status": status,
+            "details": details,
+            "backup_name": backup_name,
+            "file_size_kb": file_size_kb,
+            "duration_seconds": duration_seconds,
+            "error_message": error_message,
+            "operator": operator
+        }
+        self._backup_logs.append(log_entry)
+        self._save_backup_logs()
+
+    async def get_backup_logs(
+        self,
+        page: int = 1,
+        page_size: int = 20,
+        action_filter: Optional[str] = None,
+        status_filter: Optional[str] = None,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """查詢備份日誌"""
+        logs = self._backup_logs.copy()
+
+        # 篩選
+        if action_filter:
+            logs = [log for log in logs if log.get("action") == action_filter]
+        if status_filter:
+            logs = [log for log in logs if log.get("status") == status_filter]
+        if date_from:
+            logs = [log for log in logs if log.get("timestamp", "") >= date_from]
+        if date_to:
+            logs = [log for log in logs if log.get("timestamp", "") <= date_to]
+
+        # 倒序排列 (最新的在前)
+        logs = list(reversed(logs))
+
+        # 分頁
+        total = len(logs)
+        total_pages = (total + page_size - 1) // page_size
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        paged_logs = logs[start_idx:end_idx]
+
+        return {
+            "logs": paged_logs,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": total_pages
         }
 
 

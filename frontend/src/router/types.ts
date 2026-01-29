@@ -65,6 +65,7 @@ export const ROUTES = {
   UNIFIED_FORM_DEMO: '/unified-form-demo',
   GOOGLE_AUTH_DIAGNOSTIC: '/google-auth-diagnostic',
   ADMIN_DASHBOARD: '/admin/dashboard',
+  BACKUP_MANAGEMENT: '/admin/backup',
   // 桃園查估專區
   TAOYUAN_DISPATCH: '/taoyuan/dispatch',
   TAOYUAN_DISPATCH_CREATE: '/taoyuan/dispatch/create',
@@ -224,6 +225,12 @@ export const ROUTE_META = {
     title: '網站管理',
     description: '導覽列與網站配置管理',
     icon: 'GlobalOutlined',
+    requireAuth: true,
+  },
+  [ROUTES.BACKUP_MANAGEMENT]: {
+    title: '備份管理',
+    description: '系統備份、異地同步與排程管理',
+    icon: 'CloudServerOutlined',
     requireAuth: true,
   },
   [ROUTES.TAOYUAN_DISPATCH]: {

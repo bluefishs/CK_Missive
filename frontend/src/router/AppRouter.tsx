@@ -56,6 +56,7 @@ const StaffCreatePage = lazy(() => import('../pages/StaffCreatePage').then(modul
 const StaffDetailPage = lazy(() => import('../pages/StaffDetailPage').then(module => ({ default: module.StaffDetailPage })));
 const CertificationFormPage = lazy(() => import('../pages/CertificationFormPage').then(module => ({ default: module.CertificationFormPage })));
 const SiteManagementPage = lazy(() => import('../pages/SiteManagementPage').then(module => ({ default: module.default })));
+const BackupManagementPage = lazy(() => import('../pages/BackupManagementPage').then(module => ({ default: module.BackupManagementPage })));
 const CalendarPage = lazy(() => import('../pages/CalendarPage'));
 const CalendarEventFormPage = lazy(() => import('../pages/CalendarEventFormPage'));
 const ReportsPage = lazy(() => import('../pages/ReportsPage'));
@@ -172,6 +173,9 @@ export const AppRouter: React.FC = () => {
 
           {/* 網站管理 */}
           <Route path={ROUTES.SITE_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><SiteManagementPage /></ProtectedRoute>} />
+
+          {/* 備份管理 */}
+          <Route path={ROUTES.BACKUP_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><BackupManagementPage /></ProtectedRoute>} />
 
           {/* 需要認證的路由 */}
           {/* /settings 已統一至 /profile */}

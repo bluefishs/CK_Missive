@@ -1663,3 +1663,129 @@ export interface UserSession {
   last_activity?: string;
   is_active: boolean;
 }
+
+// ============================================================================
+// 備份管理 (Backup) 相關型別
+// ============================================================================
+
+/** 備份項目 */
+export interface BackupItem {
+  /** 檔案名稱 (資料庫備份) */
+  filename?: string;
+  /** 目錄名稱 (附件備份) */
+  dirname?: string;
+  /** 完整路徑 */
+  path: string;
+  /** 大小 (bytes) */
+  size_bytes: number;
+  /** 大小 (KB) - 資料庫備份 */
+  size_kb?: number;
+  /** 大小 (MB) - 附件備份 */
+  size_mb?: number;
+  /** 檔案數量 - 附件備份 */
+  file_count?: number;
+  /** 建立時間 */
+  created_at: string;
+  /** 備份類型 */
+  type: 'database' | 'attachments';
+}
+
+/** 備份統計資訊 */
+export interface BackupStatistics {
+  database_backup_count: number;
+  attachment_backup_count: number;
+  total_database_size_mb: number;
+  total_attachment_size_mb: number;
+  total_size_mb: number;
+}
+
+/** 備份列表回應 */
+export interface BackupListResponse {
+  database_backups: BackupItem[];
+  attachment_backups: BackupItem[];
+  statistics: BackupStatistics;
+}
+
+/** 建立備份請求 */
+export interface CreateBackupRequest {
+  include_database: boolean;
+  include_attachments: boolean;
+  retention_days: number;
+}
+
+/** 刪除備份請求 */
+export interface DeleteBackupRequest {
+  backup_name: string;
+  backup_type: 'database' | 'attachments';
+}
+
+/** 還原備份請求 */
+export interface RestoreBackupRequest {
+  backup_name: string;
+}
+
+/** 異地備份設定 */
+export interface RemoteBackupConfig {
+  remote_path?: string;
+  sync_enabled: boolean;
+  sync_interval_hours: number;
+  last_sync_time?: string;
+  sync_status: string;
+}
+
+/** 異地備份設定請求 */
+export interface RemoteBackupConfigRequest {
+  remote_path: string;
+  sync_enabled: boolean;
+  sync_interval_hours: number;
+}
+
+/** 排程器統計資訊 */
+export interface SchedulerStats {
+  total_backups: number;
+  successful_backups: number;
+  failed_backups: number;
+  last_backup_result?: Record<string, unknown>;
+}
+
+/** 排程器狀態 */
+export interface SchedulerStatus {
+  running: boolean;
+  backup_time: string;
+  next_backup?: string;
+  last_backup?: string;
+  stats: SchedulerStats;
+}
+
+/** 備份日誌項目 */
+export interface BackupLogEntry {
+  id: number;
+  timestamp: string;
+  action: 'create' | 'delete' | 'restore' | 'sync' | 'config_update';
+  status: 'success' | 'failed' | 'in_progress';
+  details?: string;
+  backup_name?: string;
+  file_size_kb?: number;
+  duration_seconds?: number;
+  error_message?: string;
+  operator?: string;
+}
+
+/** 備份日誌列表請求 */
+export interface BackupLogListRequest {
+  page: number;
+  page_size: number;
+  action_filter?: string;
+  status_filter?: string;
+  date_from?: string;
+  date_to?: string;
+}
+
+/** 備份日誌列表回應 */
+export interface BackupLogListResponse {
+  logs: BackupLogEntry[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
