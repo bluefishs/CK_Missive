@@ -2,8 +2,8 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.14.0
-> **最後更新**: 2026-01-28
+> **Claude Code 配置版本**: 1.15.0
+> **最後更新**: 2026-01-29
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers)
 
 ---
@@ -142,6 +142,39 @@ CK_Missive 是一套企業級公文管理系統，具備以下核心功能：
 |------|------|------|
 | `route-sync-check` | 檢查前後端路徑一致性 | `.claude/hooks/route-sync-check.ps1` |
 | `api-serialization-check` | 🆕 檢查 API 序列化問題 (v1.0.0) | `.claude/hooks/api-serialization-check.ps1` |
+
+---
+
+## 🔄 CI 自動化
+
+### GitHub Actions 整合
+
+專案已整合 GitHub Actions CI/CD，位於 `.github/workflows/ci.yml`。
+
+| Job | 說明 | 觸發條件 |
+|-----|------|---------|
+| `frontend-check` | TypeScript + ESLint 檢查 | Push/PR to main, develop |
+| `backend-check` | Python 語法 + pytest | Push/PR to main, develop |
+| `skills-sync-check` | Skills/Commands/Hooks 同步驗證 | Push/PR to main, develop |
+| `config-consistency` | .env 配置一致性 | Push/PR to main, develop |
+
+### 本地驗證腳本
+
+```bash
+# Windows (PowerShell)
+powershell -File scripts/skills-sync-check.ps1
+
+# Linux/macOS (Bash)
+bash scripts/skills-sync-check.sh
+```
+
+**檢查項目** (共 42 項)：
+- 14 個 Skills 檔案
+- 13 個 Commands 檔案
+- 8 個 Hooks 檔案
+- 3 個 Agents 檔案（含結構驗證）
+- settings.json inherit 配置
+- README 檔案
 
 ---
 
@@ -674,6 +707,31 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 ---
 
 ## 📋 版本更新記錄
+
+### v1.15.0 (2026-01-29) - CI 自動化版
+
+**CI/CD 整合**:
+- 整合 GitHub Actions CI 流程
+- 新增 `skills-sync-check` job
+- 支援 Push/PR 自動觸發檢查
+
+**驗證腳本**:
+- 新增 `scripts/skills-sync-check.ps1` (Windows)
+- 新增 `scripts/skills-sync-check.sh` (Linux/macOS)
+- 檢查 42 項配置（Skills/Commands/Hooks/Agents）
+- Agents 結構驗證（title/用途/觸發）
+
+**文檔完善**:
+- 新增 `.claude/skills/README.md` - Skills 分層設計說明
+- 更新 `.claude/hooks/README.md` v1.2.0 - Hooks 完整清單
+- 系統優化報告 v1.6.0
+
+**路由修復**:
+- 修復硬編碼路由路徑
+- 實現所有未使用的路由常數
+- 前後端路由一致性 100%
+
+---
 
 ### v1.14.0 (2026-01-28) - UI 規範強化版
 
