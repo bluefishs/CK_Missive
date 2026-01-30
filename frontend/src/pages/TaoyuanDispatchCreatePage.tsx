@@ -295,22 +295,6 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
           />
         </Form>
       </Card>
-
-      {/* 底部操作按鈕 */}
-      <Card style={{ marginTop: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <Button onClick={handleCancel}>取消</Button>
-          <Button
-            type="primary"
-            icon={<SaveOutlined />}
-            loading={createMutation.isPending}
-            disabled={createMutation.isPending}
-            onClick={handleSave}
-          >
-            儲存並查看
-          </Button>
-        </div>
-      </Card>
     </div>
   );
 };
