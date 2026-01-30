@@ -150,7 +150,7 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
     },
     onSuccess: (result) => {
       message.success('派工單新增成功');
-      queryClient.invalidateQueries({ queryKey: ['dispatch-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['taoyuan-dispatch-orders'] });
       navigate(`/taoyuan/dispatch/${result.id}`);
     },
     onError: (error: Error) => {
