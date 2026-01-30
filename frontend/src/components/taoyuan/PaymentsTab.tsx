@@ -106,7 +106,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) =
         render: (_, __, index) => index + 1,
       },
       {
-        title: '分案名稱',
+        title: '工程名稱/派工事項',
         dataIndex: 'project_name',
         width: 280,
         fixed: 'left',
