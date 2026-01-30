@@ -20,6 +20,7 @@ import io
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 
 from .common import (
     get_async_db, require_auth,
@@ -137,8 +138,18 @@ async def create_dispatch_order(
     current_user = Depends(require_auth)
 ):
     """建立派工紀錄"""
-    order = await service.create_dispatch_order(data, auto_generate_no=False)
-    return DispatchOrderSchema.model_validate(order)
+    try:
+        order = await service.create_dispatch_order(data, auto_generate_no=False)
+        return DispatchOrderSchema.model_validate(order)
+    except IntegrityError as e:
+        # 處理重複派工單號錯誤
+        error_msg = str(e.orig) if hasattr(e, 'orig') else str(e)
+        if 'dispatch_no' in error_msg.lower() or 'unique' in error_msg.lower():
+            raise HTTPException(
+                status_code=400,
+                detail=f"派工單號 '{data.dispatch_no}' 已存在，請使用其他單號"
+            )
+        raise HTTPException(status_code=400, detail="資料驗證失敗，請檢查輸入資料")
 
 
 @router.post("/dispatch/{dispatch_id}/update", response_model=DispatchOrderSchema, summary="更新派工紀錄")
