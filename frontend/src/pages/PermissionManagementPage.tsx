@@ -347,6 +347,7 @@ const PermissionManagementPage: React.FC = () => {
             type="primary"
             onClick={handleSaveAndClose}
             loading={updatePermissionsMutation.isPending}
+            disabled={updatePermissionsMutation.isPending}
           >
             完成
           </Button>

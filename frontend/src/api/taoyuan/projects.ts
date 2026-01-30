@@ -34,11 +34,11 @@ export const taoyuanProjectsApi = {
    * 建立轄管工程
    */
   async create(data: TaoyuanProjectCreate): Promise<TaoyuanProject> {
-    const response = await apiClient.post<{ success: boolean; data: TaoyuanProject }>(
+    // 後端直接返回 TaoyuanProject 物件
+    return apiClient.post<TaoyuanProject>(
       API_ENDPOINTS.TAOYUAN_DISPATCH.PROJECTS_CREATE,
       data
     );
-    return response.data;
   },
 
   /**
@@ -55,11 +55,11 @@ export const taoyuanProjectsApi = {
    * 更新轄管工程
    */
   async update(id: number, data: TaoyuanProjectUpdate): Promise<TaoyuanProject> {
-    const response = await apiClient.post<{ success: boolean; data: TaoyuanProject }>(
+    // 後端直接返回 TaoyuanProject 物件
+    return apiClient.post<TaoyuanProject>(
       API_ENDPOINTS.TAOYUAN_DISPATCH.PROJECTS_UPDATE(id),
       data
     );
-    return response.data;
   },
 
   /**

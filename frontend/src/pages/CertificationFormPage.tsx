@@ -409,6 +409,7 @@ export const CertificationFormPage: React.FC = () => {
                           icon={<DeleteOutlined />}
                           onClick={handleDeleteAttachment}
                           loading={deleteAttachmentMutation.isPending}
+                          disabled={deleteAttachmentMutation.isPending}
                           danger
                         >
                           刪除附件
@@ -433,6 +434,7 @@ export const CertificationFormPage: React.FC = () => {
                         icon={<DeleteOutlined />}
                         onClick={handleDeleteAttachment}
                         loading={deleteAttachmentMutation.isPending}
+                        disabled={deleteAttachmentMutation.isPending}
                         danger
                       >
                         刪除

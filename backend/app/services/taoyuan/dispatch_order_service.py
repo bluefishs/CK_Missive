@@ -163,10 +163,26 @@ class DispatchOrderService:
         """
         create_data = data.model_dump(exclude_unset=True)
 
+        # 提取關聯工程 ID 列表（非 ORM 欄位）
+        linked_project_ids = create_data.pop('linked_project_ids', None)
+
         if auto_generate_no and not create_data.get('dispatch_no'):
             create_data['dispatch_no'] = await self.get_next_dispatch_no()
 
-        return await self.repository.create(create_data)
+        # 建立派工單
+        dispatch_order = await self.repository.create(create_data)
+
+        # 建立工程關聯記錄
+        if linked_project_ids:
+            for project_id in linked_project_ids:
+                link = TaoyuanDispatchProjectLink(
+                    dispatch_order_id=dispatch_order.id,
+                    taoyuan_project_id=project_id
+                )
+                self.db.add(link)
+            await self.db.commit()
+
+        return dispatch_order
 
     async def update_dispatch_order(
         self, dispatch_id: int, data: DispatchOrderUpdate
@@ -182,7 +198,38 @@ class DispatchOrderService:
             更新後的派工單或 None
         """
         update_data = data.model_dump(exclude_unset=True)
-        return await self.repository.update(dispatch_id, update_data)
+
+        # 提取關聯工程 ID 列表（非 ORM 欄位）
+        linked_project_ids = update_data.pop('linked_project_ids', None)
+
+        # 更新派工單基本資料
+        dispatch_order = await self.repository.update(dispatch_id, update_data)
+
+        # 如果有指定關聯工程，更新關聯記錄
+        if dispatch_order and linked_project_ids is not None:
+            # 刪除現有關聯
+            await self.db.execute(
+                select(TaoyuanDispatchProjectLink).where(
+                    TaoyuanDispatchProjectLink.dispatch_order_id == dispatch_id
+                )
+            )
+            from sqlalchemy import delete
+            await self.db.execute(
+                delete(TaoyuanDispatchProjectLink).where(
+                    TaoyuanDispatchProjectLink.dispatch_order_id == dispatch_id
+                )
+            )
+
+            # 建立新關聯
+            for project_id in linked_project_ids:
+                link = TaoyuanDispatchProjectLink(
+                    dispatch_order_id=dispatch_id,
+                    taoyuan_project_id=project_id
+                )
+                self.db.add(link)
+            await self.db.commit()
+
+        return dispatch_order
 
     async def delete_dispatch_order(self, dispatch_id: int) -> bool:
         """

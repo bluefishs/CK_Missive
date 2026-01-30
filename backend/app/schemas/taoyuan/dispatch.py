@@ -14,7 +14,7 @@ class DispatchOrderBase(BaseModel):
     """派工紀錄基礎欄位"""
     dispatch_no: str = Field(..., max_length=50, description="派工單號")
     project_name: Optional[str] = Field(None, max_length=500, description="工程名稱/派工事項")
-    work_type: Optional[str] = Field(None, max_length=50, description="作業類別")
+    work_type: Optional[str] = Field(None, max_length=200, description="作業類別(可多選,逗號分隔)")
     sub_case_name: Optional[str] = Field(None, max_length=200, description="分案名稱/派工備註")
     deadline: Optional[str] = Field(None, max_length=200, description="履約期限")
     case_handler: Optional[str] = Field(None, max_length=50, description="案件承辦")

@@ -623,7 +623,7 @@ class TaoyuanDispatchOrder(Base):
     company_doc_id = Column(Integer, ForeignKey('documents.id'), nullable=True, comment="關聯乾坤公文")
 
     project_name = Column(String(500), comment="工程名稱/派工事項")
-    work_type = Column(String(50), index=True, comment="作業類別")
+    work_type = Column(String(200), index=True, comment="作業類別(可多選,逗號分隔)")
     sub_case_name = Column(String(200), comment="分案名稱/派工備註")
     deadline = Column(String(200), comment="履約期限")
     case_handler = Column(String(50), comment="案件承辦")

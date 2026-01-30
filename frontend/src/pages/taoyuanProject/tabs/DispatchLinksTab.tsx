@@ -86,7 +86,7 @@ export const DispatchLinksTab: React.FC<DispatchLinksTabProps> = ({
                 icon={<PlusOutlined />}
                 onClick={handleLinkDispatch}
                 loading={linkDispatchMutation.isPending}
-                disabled={!selectedDispatchId}
+                disabled={!selectedDispatchId || linkDispatchMutation.isPending}
               >
                 建立關聯
               </Button>
@@ -138,6 +138,7 @@ export const DispatchLinksTab: React.FC<DispatchLinksTabProps> = ({
                       size="small"
                       danger
                       loading={unlinkDispatchMutation.isPending}
+                      disabled={unlinkDispatchMutation.isPending}
                     >
                       移除關聯
                     </Button>

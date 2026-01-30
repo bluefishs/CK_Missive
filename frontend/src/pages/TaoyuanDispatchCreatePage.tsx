@@ -265,6 +265,7 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
               type="primary"
               icon={<SaveOutlined />}
               loading={createMutation.isPending}
+              disabled={createMutation.isPending}
               onClick={handleSave}
             >
               儲存
@@ -303,6 +304,7 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
             type="primary"
             icon={<SaveOutlined />}
             loading={createMutation.isPending}
+            disabled={createMutation.isPending}
             onClick={handleSave}
           >
             儲存並查看

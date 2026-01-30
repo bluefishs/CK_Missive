@@ -714,6 +714,7 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
               type="primary"
               icon={<SaveOutlined />}
               loading={updateMutation.isPending}
+              disabled={updateMutation.isPending}
               onClick={handleSave}
             >
               儲存
