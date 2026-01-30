@@ -142,6 +142,16 @@ export class ApiException extends Error {
       return ApiException.fromResponse(data as ErrorResponse, status);
     }
 
+    // FastAPI HTTPException 格式 ({"detail": "..."})
+    if (data && typeof data === 'object' && 'detail' in data) {
+      const detail = (data as { detail: string }).detail;
+      return new ApiException(
+        status === 400 ? ErrorCode.BAD_REQUEST : ErrorCode.INTERNAL_ERROR,
+        detail,
+        status
+      );
+    }
+
     // 根據 HTTP 狀態碼建立錯誤
     const statusMessages: Record<number, [ErrorCode, string]> = {
       400: [ErrorCode.BAD_REQUEST, '請求參數錯誤'],
