@@ -40,7 +40,7 @@ class TaoyuanProjectWithLinks(TaoyuanProject):
 # 派工-公文關聯 Schemas
 class DispatchDocumentLink(BaseModel):
     """派工-公文關聯"""
-    id: int
+    link_id: int = Field(..., description="關聯記錄 ID")
     dispatch_order_id: int
     document_id: int
     link_type: LinkTypeEnum = Field(..., description="關聯類型：agency_incoming(機關來函) / company_outgoing(乾坤發文)")
