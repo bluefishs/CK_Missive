@@ -2,7 +2,20 @@
 # CK_Missive Production 部署配置 (QNAP NAS Container Station)
 # =============================================================================
 # 目標: 192.168.50.41 NAS Container Station
-# 用法: docker-compose -f docker-compose.production.yml up -d
+#
+# 部署流程:
+#   1. 複製 .env.production.example 為 .env.production
+#   2. 執行部署前檢查: scripts/deploy/pre-deploy.sh (或 .ps1)
+#   3. 建置並啟動: docker compose -f docker-compose.production.yml up -d --build
+#   4. 全新部署需初始化資料庫:
+#      docker compose exec backend python scripts/deploy/init-database.py
+#      docker compose exec backend alembic stamp heads
+#
+# 常用命令:
+#   - 查看狀態: docker compose -f docker-compose.production.yml ps
+#   - 查看日誌: docker compose -f docker-compose.production.yml logs -f
+#   - 重建服務: docker compose -f docker-compose.production.yml up -d --build --force-recreate
+#   - 停止服務: docker compose -f docker-compose.production.yml down
 # =============================================================================
 
 name: ck_missive_prod
@@ -13,6 +26,11 @@ services:
     image: postgres:15-alpine
     container_name: ck_missive_postgres
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -38,6 +56,11 @@ services:
     image: redis:7-alpine
     container_name: ck_missive_redis
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     command: redis-server --appendonly yes
     environment:
       TZ: Asia/Taipei
@@ -61,6 +84,11 @@ services:
     image: ck-missive-backend:production
     container_name: ck_missive_backend
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
@@ -109,6 +137,11 @@ services:
     image: ck-missive-frontend:production
     container_name: ck_missive_frontend
     restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     environment:
       - TZ=Asia/Taipei
     ports:
