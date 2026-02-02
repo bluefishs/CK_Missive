@@ -345,9 +345,17 @@ jobs:
           echo "=============================================="
 
       - name: Slack 通知 (可選)
-        if: ${{ always() && secrets.SLACK_WEBHOOK_URL }}
+        if: ${{ always() }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         continue-on-error: true
         run: |
+          # 如果未設置 Slack Webhook，跳過通知
+          if [[ -z "$SLACK_WEBHOOK_URL" ]]; then
+            echo "Slack Webhook URL 未設置，跳過通知"
+            exit 0
+          fi
+
           if [[ "${{ needs.health-check.outputs.health_status }}" == "healthy" ]]; then
             STATUS="✅ 成功"
             COLOR="good"
@@ -356,7 +364,7 @@ jobs:
             COLOR="danger"
           fi
 
-          curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+          curl -X POST "$SLACK_WEBHOOK_URL" \
             -H 'Content-type: application/json' \
             -d "{
               \"attachments\": [{
