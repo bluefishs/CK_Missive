@@ -1,170 +1,258 @@
-# 🚀 增強版公文管理系統 - 部署指南
+# CK_Missive 自動部署指南
 
-## 📋 部署檢核清單
-
-### ✅ **階段一：資料庫遷移**
-
-1. **執行 Alembic 遷移**
-   ```bash
-   cd backend
-   alembic upgrade head
-   ```
-
-2. **執行資料遷移腳本**
-   ```bash
-   cd backend
-   python data_migration_script.py
-   ```
-
-3. **驗證遷移結果**
-   ```sql
-   -- 檢查新增的外鍵欄位
-   SELECT column_name, data_type, is_nullable
-   FROM information_schema.columns
-   WHERE table_name = 'documents'
-   AND column_name IN ('contract_project_id', 'sender_agency_id', 'receiver_agency_id');
-
-   -- 檢查關聯統計
-   SELECT
-     COUNT(*) as total_documents,
-     COUNT(contract_project_id) as with_project_link,
-     COUNT(sender_agency_id) as with_sender_link,
-     COUNT(receiver_agency_id) as with_receiver_link
-   FROM documents;
-   ```
-
-### ✅ **階段二：後端部署**
-
-1. **更新依賴套件**
-   ```bash
-   cd backend
-   pip install -r requirements.txt
-   ```
-
-2. **驗證新增的 API 端點**
-   ```bash
-   # 測試承攬案件下拉選項
-   curl http://localhost:8001/api/documents-enhanced/contract-projects-dropdown?limit=5
-
-   # 測試政府機關下拉選項
-   curl http://localhost:8001/api/documents-enhanced/agencies-dropdown?limit=5
-
-   # 測試整合搜尋
-   curl http://localhost:8001/api/documents-enhanced/integrated-search?limit=10
-   ```
-
-3. **檢查 API 文件**
-   - 訪問：http://localhost:8001/api/docs
-   - 確認新增的「增強版公文管理」分類
-
-### ✅ **階段三：前端部署**
-
-1. **更新前端依賴**
-   ```bash
-   cd frontend
-   npm install
-   ```
-
-2. **編譯前端應用**
-   ```bash
-   npm run build
-   ```
-
-3. **測試新功能**
-   - 訪問：http://localhost:3000/documents-enhanced
-   - 測試 AutoComplete 功能
-   - 測試表格排序與篩選
-   - 驗證承攬案件搜尋準確性
-
-### ✅ **階段四：整合測試**
-
-1. **功能完整性測試**
-   - [ ] 承攬案件搜尋正確對應 `contract_projects` 表
-   - [ ] 發文單位搜尋正確對應 `government_agencies` 表
-   - [ ] 所有篩選欄位具備 AutoComplete 功能
-   - [ ] 表格支援欄位排序
-   - [ ] 表格支援欄位篩選
-   - [ ] 批次操作功能正常
-
-2. **效能測試**
-   ```bash
-   # 測試大量資料查詢效能
-   curl "http://localhost:8001/api/documents-enhanced/integrated-search?limit=1000" -w "@curl-format.txt"
-
-   # 測試 JOIN 查詢效能
-   curl "http://localhost:8001/api/documents-enhanced/integrated-search?contract_case=測試&sender=桃園" -w "@curl-format.txt"
-   ```
-
-3. **向後相容性測試**
-   - [ ] 原有公文查詢功能正常
-   - [ ] 現有資料可正常顯示
-   - [ ] 無資料遺失或損壞
-
-## 🔧 **設定檔案**
-
-### **curl-format.txt** (效能測試用)
-```
-     time_namelookup:  %{time_namelookup}\n
-        time_connect:  %{time_connect}\n
-     time_appconnect:  %{time_appconnect}\n
-    time_pretransfer:  %{time_pretransfer}\n
-       time_redirect:  %{time_redirect}\n
-  time_starttransfer:  %{time_starttransfer}\n
-                     ----------\n
-          time_total:  %{time_total}\n
-```
-
-## 📊 **預期效果**
-
-### **修復前問題**
-- ❌ 承攬案件搜尋「桃園」會顯示南投案件
-- ❌ 搜尋條件無法精確匹配資料表
-- ❌ 缺乏多表整合查詢機制
-- ❌ 篩選欄位無 AutoComplete 功能
-
-### **修復後效果**
-- ✅ 承攬案件精確對應 `contract_projects` 表
-- ✅ 發文單位精確對應 `government_agencies` 表
-- ✅ 支援多表 JOIN 查詢
-- ✅ 所有篩選欄位具備 AutoComplete
-- ✅ 表格支援欄位排序與篩選
-- ✅ 向後相容現有功能
-
-## 🚨 **注意事項**
-
-1. **資料備份**
-   - 執行遷移前請備份資料庫
-   - 建議在測試環境先行驗證
-
-2. **效能考量**
-   - JOIN 查詢可能影響效能
-   - 建議監控資料庫查詢時間
-   - 必要時可加入更多索引
-
-3. **錯誤處理**
-   - 如遇到外鍵約束錯誤，檢查參照完整性
-   - 如遇到 API 404 錯誤，確認路由註冊正確
-
-## 📞 **技術支援**
-
-如遇到部署問題，請檢查：
-
-1. **後端日誌**
-   ```bash
-   tail -f backend/logs/api.log
-   tail -f backend/logs/errors.log
-   ```
-
-2. **前端控制台**
-   - 打開瀏覽器開發者工具
-   - 檢查 Network 和 Console 標籤
-
-3. **資料庫連接**
-   ```bash
-   # 測試資料庫連接
-   python -c "from app.db.database import engine; print('Database connection OK')"
-   ```
+> **版本**: 1.0.0
+> **建立日期**: 2026-02-02
+> **適用範圍**: GitHub Actions CD 工作流配置
 
 ---
 
-🏢 **乾坤測繪科技有限公司** - 增強版公文管理系統 v2.1
+## 概述
+
+本專案使用 GitHub Actions 實現自動部署 (CD - Continuous Deployment)，支援：
+
+- **自動部署**: main/develop 分支推送後自動觸發
+- **手動部署**: 透過 GitHub Actions 手動觸發
+- **環境隔離**: staging 和 production 環境分離
+- **Docker 映像檔**: 使用 GitHub Container Registry (ghcr.io)
+
+---
+
+## 部署架構
+
+```
+┌─────────────┐     ┌──────────────┐     ┌─────────────────┐
+│   GitHub    │────▶│   GitHub     │────▶│   Target        │
+│   Push      │     │   Actions    │     │   Server        │
+└─────────────┘     └──────────────┘     └─────────────────┘
+                           │
+                           ▼
+                    ┌──────────────┐
+                    │   ghcr.io    │
+                    │   Registry   │
+                    └──────────────┘
+```
+
+### 工作流程
+
+1. **develop 分支** → 自動部署到 **Staging**
+2. **main 分支** → 自動部署到 **Production**
+
+---
+
+## 設置指南
+
+### 1. GitHub Secrets 配置
+
+在 GitHub Repository → Settings → Secrets and variables → Actions 中設置：
+
+#### 通用 Secrets
+
+| Secret | 說明 | 範例 |
+|--------|------|------|
+| `VITE_API_BASE_URL` | API 基礎 URL | `https://api.example.com` |
+| `VITE_GOOGLE_CLIENT_ID` | Google OAuth Client ID | `xxx.apps.googleusercontent.com` |
+
+#### Staging 環境
+
+| Secret | 說明 | 範例 |
+|--------|------|------|
+| `STAGING_HOST` | Staging 伺服器 IP/域名 | `192.168.50.100` |
+| `STAGING_USER` | SSH 使用者名稱 | `deploy` |
+| `STAGING_SSH_KEY` | SSH 私鑰 (PEM 格式) | `-----BEGIN OPENSSH PRIVATE KEY-----...` |
+| `STAGING_SSH_PORT` | SSH 埠號 (可選) | `22` |
+| `STAGING_DEPLOY_PATH` | 部署目錄路徑 | `/opt/ck-missive` |
+| `STAGING_URL` | Staging 環境 URL | `https://staging.example.com` |
+
+#### Production 環境
+
+| Secret | 說明 | 範例 |
+|--------|------|------|
+| `PRODUCTION_HOST` | Production 伺服器 IP/域名 | `10.0.0.50` |
+| `PRODUCTION_USER` | SSH 使用者名稱 | `deploy` |
+| `PRODUCTION_SSH_KEY` | SSH 私鑰 (PEM 格式) | `-----BEGIN OPENSSH PRIVATE KEY-----...` |
+| `PRODUCTION_SSH_PORT` | SSH 埠號 (可選) | `22` |
+| `PRODUCTION_DEPLOY_PATH` | 部署目錄路徑 | `/opt/ck-missive` |
+| `PRODUCTION_URL` | Production 環境 URL | `https://app.example.com` |
+
+### 2. GitHub Environments 配置
+
+在 GitHub Repository → Settings → Environments 中建立：
+
+#### staging 環境
+- 無需額外保護規則
+- 用於開發測試
+
+#### production 環境
+- **啟用 Required reviewers**: 至少 1 人審核
+- **啟用 Wait timer**: 建議 5-10 分鐘
+- 確保生產環境部署經過審核
+
+### 3. 伺服器端準備
+
+在目標伺服器上執行：
+
+```bash
+# 1. 建立部署目錄
+sudo mkdir -p /opt/ck-missive
+sudo chown deploy:deploy /opt/ck-missive
+
+# 2. 安裝 Docker 和 Docker Compose
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker deploy
+
+# 3. 登入 GitHub Container Registry
+docker login ghcr.io -u <github-username>
+# 輸入 Personal Access Token (需有 read:packages 權限)
+
+# 4. 複製專案配置
+git clone https://github.com/<org>/CK_Missive.git /opt/ck-missive
+cd /opt/ck-missive
+cp .env.example .env
+# 編輯 .env 設置正確的環境變數
+
+# 5. 首次啟動
+docker-compose -f docker-compose.unified.yml up -d
+```
+
+---
+
+## 使用方式
+
+### 自動部署
+
+推送到對應分支即可觸發：
+
+```bash
+# 部署到 Staging
+git push origin develop
+
+# 部署到 Production
+git push origin main
+```
+
+### 手動部署
+
+1. 前往 GitHub → Actions → CD - Deploy
+2. 點擊 "Run workflow"
+3. 選擇環境 (staging/production)
+4. 選擇是否跳過測試 (緊急情況使用)
+5. 點擊 "Run workflow"
+
+### 查看部署狀態
+
+- GitHub Actions 頁面查看工作流程狀態
+- 點擊具體的 job 查看詳細日誌
+
+---
+
+## 回滾機制
+
+### 自動回滾 (建議)
+
+若部署失敗，可手動執行：
+
+```bash
+# SSH 到伺服器
+ssh deploy@<server>
+cd /opt/ck-missive
+
+# 回滾到前一版本
+docker tag ck-missive-backend:previous ck-missive-backend:latest
+docker tag ck-missive-frontend:previous ck-missive-frontend:latest
+docker-compose -f docker-compose.unified.yml up -d --force-recreate backend frontend
+```
+
+### 回滾到特定版本
+
+```bash
+# 查看可用版本
+docker images | grep ck-missive
+
+# 回滾到特定版本 (例如 20260202-abc1234)
+docker pull ghcr.io/<org>/ck_missive/backend:20260202-abc1234
+docker pull ghcr.io/<org>/ck_missive/frontend:20260202-abc1234
+docker tag ghcr.io/<org>/ck_missive/backend:20260202-abc1234 ck-missive-backend:latest
+docker tag ghcr.io/<org>/ck_missive/frontend:20260202-abc1234 ck-missive-frontend:latest
+docker-compose -f docker-compose.unified.yml up -d --force-recreate backend frontend
+```
+
+---
+
+## 本地部署
+
+若需要在本地或不使用 GitHub Actions 的情況下部署：
+
+```bash
+# 使用部署腳本
+./scripts/deploy.sh staging   # 部署到 Staging
+./scripts/deploy.sh production # 部署到 Production
+```
+
+---
+
+## 故障排除
+
+### 1. SSH 連線失敗
+
+```
+Error: ssh: connect to host xxx port 22: Connection timed out
+```
+
+**解決方案**:
+- 確認伺服器防火牆允許 SSH 連線
+- 確認 SSH 金鑰格式正確 (PEM 格式)
+- 確認 SSH 使用者有權限
+
+### 2. Docker 登入失敗
+
+```
+Error: unauthorized: authentication required
+```
+
+**解決方案**:
+- 在伺服器上重新登入 ghcr.io
+- 確認 Personal Access Token 有 `read:packages` 權限
+
+### 3. 健康檢查失敗
+
+```
+Error: curl: (7) Failed to connect to localhost port 8001
+```
+
+**解決方案**:
+- 檢查容器日誌: `docker logs ck_missive_backend`
+- 確認資料庫連線正常
+- 確認環境變數設置正確
+
+### 4. 資料庫遷移失敗
+
+```
+Error: alembic.util.exc.CommandError: Can't locate revision
+```
+
+**解決方案**:
+- 手動執行遷移: `docker exec -it ck_missive_backend alembic upgrade head`
+- 檢查遷移狀態: `docker exec -it ck_missive_backend alembic current`
+
+---
+
+## 安全注意事項
+
+1. **SSH 金鑰**: 使用專用的部署金鑰，不要使用個人金鑰
+2. **最小權限**: 部署使用者只需 docker 和部署目錄的權限
+3. **Secrets 輪換**: 定期更換 SSH 金鑰和 Token
+4. **審計日誌**: GitHub Actions 會保留所有部署記錄
+
+---
+
+## 相關文件
+
+- [CI 工作流](.github/workflows/ci.yml)
+- [CD 工作流](.github/workflows/cd.yml)
+- [Docker Compose 配置](docker-compose.unified.yml)
+- [環境變數範本](.env.example)
+
+---
+
+*文件維護: Claude Code Assistant*
+*最後更新: 2026-02-02*
