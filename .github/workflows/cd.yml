@@ -1,0 +1,364 @@
+# =============================================================================
+# CK_Missive 自動部署工作流 (CD - Continuous Deployment)
+# =============================================================================
+# 觸發條件：
+# 1. main 分支推送後自動部署到 production
+# 2. develop 分支推送後自動部署到 staging
+# 3. 手動觸發 (workflow_dispatch)
+# =============================================================================
+
+name: CD - Deploy
+
+on:
+  # main/develop 分支合併後自動部署
+  push:
+    branches:
+      - main
+      - develop
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.claude/**'
+
+  # 手動觸發部署
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: '部署環境'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      skip_tests:
+        description: '跳過測試 (緊急部署用)'
+        required: false
+        default: false
+        type: boolean
+
+# 確保同一環境只有一個部署在進行
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE: ghcr.io/${{ github.repository }}/backend
+  FRONTEND_IMAGE: ghcr.io/${{ github.repository }}/frontend
+
+jobs:
+  # ==========================================================================
+  # 準備階段：決定部署環境
+  # ==========================================================================
+  prepare:
+    name: Prepare Deployment
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+      should_deploy: ${{ steps.set-env.outputs.should_deploy }}
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine environment
+        id: set-env
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            ENV="${{ github.event.inputs.environment }}"
+          elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            ENV="production"
+          elif [ "${{ github.ref }}" == "refs/heads/develop" ]; then
+            ENV="staging"
+          else
+            ENV="none"
+          fi
+
+          echo "environment=$ENV" >> $GITHUB_OUTPUT
+          echo "should_deploy=$([[ $ENV != 'none' ]] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "🎯 Deployment environment: $ENV"
+
+      - name: Generate version
+        id: version
+        run: |
+          VERSION=$(date +%Y%m%d)-$(git rev-parse --short HEAD)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Version: $VERSION"
+
+  # ==========================================================================
+  # 測試階段：確保程式碼品質
+  # ==========================================================================
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: prepare
+    if: needs.prepare.outputs.should_deploy == 'true' && github.event.inputs.skip_tests != 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run frontend tests
+        working-directory: frontend
+        run: npm test -- --run
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio
+
+      - name: Run backend tests
+        working-directory: backend
+        run: python -m pytest tests/unit/ -v --tb=short
+
+  # ==========================================================================
+  # 建置階段：建構 Docker 映像檔
+  # ==========================================================================
+  build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [prepare, test]
+    if: always() && needs.prepare.outputs.should_deploy == 'true' && (needs.test.result == 'success' || needs.test.result == 'skipped')
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.BACKEND_IMAGE }}:${{ needs.prepare.outputs.version }}
+            ${{ env.BACKEND_IMAGE }}:${{ needs.prepare.outputs.environment }}
+            ${{ env.BACKEND_IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            ENVIRONMENT=${{ needs.prepare.outputs.environment }}
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:${{ needs.prepare.outputs.version }}
+            ${{ env.FRONTEND_IMAGE }}:${{ needs.prepare.outputs.environment }}
+            ${{ env.FRONTEND_IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
+            VITE_GOOGLE_CLIENT_ID=${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+
+  # ==========================================================================
+  # 部署階段：部署到目標伺服器
+  # ==========================================================================
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [prepare, build]
+    if: needs.prepare.outputs.environment == 'staging'
+    environment:
+      name: staging
+      url: ${{ secrets.STAGING_URL }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to staging server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          port: ${{ secrets.STAGING_SSH_PORT || 22 }}
+          script: |
+            cd ${{ secrets.STAGING_DEPLOY_PATH }}
+
+            # 備份當前版本
+            echo "📦 Backing up current version..."
+            docker-compose -f docker-compose.unified.yml ps > /tmp/pre-deploy-status.txt
+
+            # 拉取最新映像檔
+            echo "🔄 Pulling latest images..."
+            docker pull ${{ env.BACKEND_IMAGE }}:staging
+            docker pull ${{ env.FRONTEND_IMAGE }}:staging
+
+            # 更新本地標籤
+            docker tag ${{ env.BACKEND_IMAGE }}:staging ck-missive-backend:latest
+            docker tag ${{ env.FRONTEND_IMAGE }}:staging ck-missive-frontend:latest
+
+            # 重啟服務
+            echo "🚀 Restarting services..."
+            docker-compose -f docker-compose.unified.yml up -d --force-recreate backend frontend
+
+            # 等待服務啟動
+            echo "⏳ Waiting for services to be healthy..."
+            sleep 30
+
+            # 健康檢查
+            echo "🏥 Running health checks..."
+            curl -f http://localhost:8001/health || exit 1
+
+            echo "✅ Staging deployment completed!"
+
+      - name: Notify deployment success
+        if: success()
+        run: |
+          echo "🎉 Staging deployment successful!"
+          echo "Version: ${{ needs.prepare.outputs.version }}"
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [prepare, build]
+    if: needs.prepare.outputs.environment == 'production'
+    environment:
+      name: production
+      url: ${{ secrets.PRODUCTION_URL }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to production server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          port: ${{ secrets.PRODUCTION_SSH_PORT || 22 }}
+          script: |
+            cd ${{ secrets.PRODUCTION_DEPLOY_PATH }}
+
+            # 備份資料庫
+            echo "💾 Backing up database..."
+            docker exec ck_missive_postgres pg_dump -U $POSTGRES_USER $POSTGRES_DB > /tmp/backup-$(date +%Y%m%d%H%M%S).sql
+
+            # 備份當前版本
+            echo "📦 Backing up current version..."
+            docker-compose -f docker-compose.unified.yml ps > /tmp/pre-deploy-status.txt
+
+            # 拉取最新映像檔
+            echo "🔄 Pulling latest images..."
+            docker pull ${{ env.BACKEND_IMAGE }}:production
+            docker pull ${{ env.FRONTEND_IMAGE }}:production
+
+            # 更新本地標籤
+            docker tag ${{ env.BACKEND_IMAGE }}:production ck-missive-backend:latest
+            docker tag ${{ env.FRONTEND_IMAGE }}:production ck-missive-frontend:latest
+
+            # 執行資料庫遷移
+            echo "🗃️ Running database migrations..."
+            docker-compose -f docker-compose.unified.yml exec -T backend alembic upgrade head
+
+            # 藍綠部署：先啟動新服務
+            echo "🚀 Starting new services..."
+            docker-compose -f docker-compose.unified.yml up -d --force-recreate backend frontend
+
+            # 等待服務啟動
+            echo "⏳ Waiting for services to be healthy..."
+            sleep 45
+
+            # 健康檢查
+            echo "🏥 Running health checks..."
+            for i in 1 2 3; do
+              if curl -sf http://localhost:8001/health; then
+                echo "✅ Health check passed!"
+                break
+              fi
+              echo "⚠️ Health check attempt $i failed, retrying..."
+              sleep 10
+            done
+
+            # 清理舊映像檔
+            echo "🧹 Cleaning up old images..."
+            docker image prune -f
+
+            echo "✅ Production deployment completed!"
+
+      - name: Notify deployment success
+        if: success()
+        run: |
+          echo "🎉 Production deployment successful!"
+          echo "Version: ${{ needs.prepare.outputs.version }}"
+
+  # ==========================================================================
+  # 回滾機制 (手動觸發)
+  # ==========================================================================
+  rollback:
+    name: Rollback Deployment
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && failure()
+
+    steps:
+      - name: Trigger rollback
+        run: |
+          echo "⚠️ Deployment failed! Manual rollback may be required."
+          echo "To rollback, run on the server:"
+          echo "  docker-compose -f docker-compose.unified.yml down"
+          echo "  docker tag ck-missive-backend:previous ck-missive-backend:latest"
+          echo "  docker tag ck-missive-frontend:previous ck-missive-frontend:latest"
+          echo "  docker-compose -f docker-compose.unified.yml up -d"
+
+  # ==========================================================================
+  # 部署通知
+  # ==========================================================================
+  notify:
+    name: Send Notifications
+    runs-on: ubuntu-latest
+    needs: [prepare, deploy-staging, deploy-production]
+    if: always() && needs.prepare.outputs.should_deploy == 'true'
+
+    steps:
+      - name: Deployment Summary
+        run: |
+          echo "=========================================="
+          echo "📋 Deployment Summary"
+          echo "=========================================="
+          echo "Environment: ${{ needs.prepare.outputs.environment }}"
+          echo "Version: ${{ needs.prepare.outputs.version }}"
+          echo "Staging: ${{ needs.deploy-staging.result || 'skipped' }}"
+          echo "Production: ${{ needs.deploy-production.result || 'skipped' }}"
+          echo "=========================================="

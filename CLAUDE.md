@@ -2,7 +2,7 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.27.0
+> **Claude Code 配置版本**: 1.28.0
 > **最後更新**: 2026-02-02
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers)
 
@@ -158,9 +158,29 @@ CK_Missive 是一套企業級公文管理系統，具備以下核心功能：
 | `skills-sync-check` | Skills/Commands/Hooks 同步驗證 | Push/PR to main, develop |
 | `config-consistency` | .env 配置一致性 | Push/PR to main, develop |
 | `security-scan` | npm/pip audit + 硬編碼檢測 | Push/PR to main, develop |
-| `docker-build` | 🆕 Docker 映像建置驗證 (v1.22.0) | Push/PR to main, develop |
-| `test-coverage` | 🆕 前後端測試覆蓋率報告 (v1.22.0) | Push/PR to main, develop |
-| `migration-check` | 🆕 Alembic 遷移一致性檢查 (v1.22.0) | Push/PR to main, develop |
+| `docker-build` | Docker 映像建置驗證 | Push/PR to main, develop |
+| `test-coverage` | 前後端測試覆蓋率報告 | Push/PR to main, develop |
+| `migration-check` | Alembic 遷移一致性檢查 | Push/PR to main, develop |
+
+### CD 自動部署 (v1.28.0 新增)
+
+專案已整合自動部署工作流，位於 `.github/workflows/cd.yml`。
+
+| Job | 說明 | 觸發條件 |
+|-----|------|---------|
+| `prepare` | 決定部署環境與版本 | Push to main/develop |
+| `test` | 執行前後端測試 | 部署前驗證 |
+| `build` | 建構並推送 Docker 映像至 ghcr.io | 測試通過後 |
+| `deploy-staging` | 部署到 Staging 環境 | develop 分支 |
+| `deploy-production` | 部署到 Production 環境 | main 分支 |
+| `notify` | 發送部署通知 | 部署完成後 |
+
+**部署流程**:
+- `develop` 分支 → 自動部署到 **Staging**
+- `main` 分支 → 自動部署到 **Production**
+- 支援手動觸發 (workflow_dispatch)
+
+**詳細配置**: 參見 `docs/DEPLOYMENT_GUIDE.md`
 
 ### 本地驗證腳本
 
