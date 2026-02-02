@@ -12,7 +12,7 @@ from app.api.endpoints import (
     secure_site_management,
     dashboard, project_notifications, debug, project_vendors, project_staff,
     project_agency_contacts, system_notifications, backup, certifications,
-    taoyuan_dispatch
+    taoyuan_dispatch, deployment
 )
 # 模組化公文管理 API (v3.0.0 重構)
 from app.api.endpoints.documents import router as documents_router
@@ -55,6 +55,7 @@ api_router.include_router(csv_import.router, prefix="/csv-import", tags=["CSV匯
 api_router.include_router(public.router, prefix="/public", tags=["公開API"])
 api_router.include_router(debug.router, prefix="/debug", tags=["調試工具"])  # Debug routes
 api_router.include_router(backup.router, prefix="/backup", tags=["資料庫備份"])
+api_router.include_router(deployment.router, tags=["部署管理"])
 
 # --- 桃園查估派工管理系統 ---
 api_router.include_router(taoyuan_dispatch.router, tags=["桃園派工管理"])

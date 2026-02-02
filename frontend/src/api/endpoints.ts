@@ -509,6 +509,26 @@ export const TAOYUAN_DISPATCH_ENDPOINTS = {
 } as const;
 
 // ============================================================================
+// 部署管理端點
+// ============================================================================
+
+/** 部署管理 API 端點 */
+export const DEPLOYMENT_ENDPOINTS = {
+  /** 系統狀態 GET /deploy/status */
+  STATUS: '/deploy/status',
+  /** 部署歷史 GET /deploy/history */
+  HISTORY: '/deploy/history',
+  /** 觸發部署 POST /deploy/trigger */
+  TRIGGER: '/deploy/trigger',
+  /** 回滾部署 POST /deploy/rollback */
+  ROLLBACK: '/deploy/rollback',
+  /** 部署日誌 GET /deploy/logs/:runId */
+  LOGS: (runId: number) => `/deploy/logs/${runId}`,
+  /** 部署配置 GET /deploy/config */
+  CONFIG: '/deploy/config',
+} as const;
+
+// ============================================================================
 // 統一匯出
 // ============================================================================
 
@@ -563,6 +583,9 @@ export const API_ENDPOINTS = {
   SYSTEM: SYSTEM_ENDPOINTS,
   ADMIN_DATABASE: ADMIN_DATABASE_ENDPOINTS,
   BACKUP: BACKUP_ENDPOINTS,
+
+  // 部署管理
+  DEPLOYMENT: DEPLOYMENT_ENDPOINTS,
 
   // 桃園派工管理
   TAOYUAN_DISPATCH: TAOYUAN_DISPATCH_ENDPOINTS,

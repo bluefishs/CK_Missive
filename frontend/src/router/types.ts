@@ -67,6 +67,7 @@ export const ROUTES = {
   GOOGLE_AUTH_DIAGNOSTIC: '/google-auth-diagnostic',
   ADMIN_DASHBOARD: '/admin/dashboard',
   BACKUP_MANAGEMENT: '/admin/backup',
+  DEPLOYMENT_MANAGEMENT: '/admin/deployment',
   // 桃園查估專區
   TAOYUAN_DISPATCH: '/taoyuan/dispatch',
   TAOYUAN_DISPATCH_CREATE: '/taoyuan/dispatch/create',
@@ -233,6 +234,13 @@ export const ROUTE_META = {
     description: '系統備份、異地同步與排程管理',
     icon: 'CloudServerOutlined',
     requireAuth: true,
+  },
+  [ROUTES.DEPLOYMENT_MANAGEMENT]: {
+    title: '部署管理',
+    description: '系統部署狀態監控與操作',
+    icon: 'RocketOutlined',
+    requireAuth: true,
+    roles: ['admin', 'superuser'],
   },
   [ROUTES.TAOYUAN_DISPATCH]: {
     title: '派工管理',

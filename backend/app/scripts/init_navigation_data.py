@@ -355,6 +355,19 @@ DEFAULT_NAVIGATION_ITEMS = [
         "permission_required": "[\"admin:settings\"]"
     },
 
+    # 部署管理 (對應 ROUTES.DEPLOYMENT_MANAGEMENT)
+    {
+        "title": "部署管理",
+        "key": "deployment-management",
+        "path": "/admin/deployment",
+        "icon": "RocketOutlined",
+        "sort_order": 6,
+        "level": 2,
+        "parent_key": "system-management",
+        "description": "部署,CI/CD,版本",
+        "permission_required": "[\"admin:settings\"]"
+    },
+
     # 系統監控 (對應 ROUTES.SYSTEM)
     {
         "title": "系統監控",

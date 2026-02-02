@@ -68,6 +68,7 @@ const RolePermissionDetailPage = lazy(() => import('../pages/RolePermissionDetai
 // const PureCalendarPage = lazy(() => import('../pages/PureCalendarPage'));
 const UnifiedFormDemoPage = lazy(() => import('../pages/UnifiedFormDemoPage'));
 const AdminDashboardPage = lazy(() => import('../pages/AdminDashboardPage'));
+const DeploymentManagementPage = lazy(() => import('../pages/DeploymentManagementPage'));
 
 // 桃園查估專區
 const TaoyuanDispatchPage = lazy(() => import('../pages/TaoyuanDispatchPage'));
@@ -178,6 +179,9 @@ export const AppRouter: React.FC = () => {
 
           {/* 備份管理 */}
           <Route path={ROUTES.BACKUP_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><BackupManagementPage /></ProtectedRoute>} />
+
+          {/* 部署管理 */}
+          <Route path={ROUTES.DEPLOYMENT_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><DeploymentManagementPage /></ProtectedRoute>} />
 
           {/* 需要認證的路由 */}
           {/* /settings 已統一至 /profile */}
