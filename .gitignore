@@ -116,3 +116,9 @@ frontend/src/types/generated/api.d.ts
 # Temporary data extraction files
 backend/sheet*.txt
 openapi_temp*.json
+
+# Bug tracking files (Excel)
+"#BUG/"
+
+# Deployment packages
+*.tar.gz
