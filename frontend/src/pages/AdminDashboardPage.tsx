@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { logger } from '../services/logger';
 import {
   Card,
   Row,
@@ -132,7 +133,7 @@ const AdminDashboardPage: React.FC = () => {
       setSystemAlerts(alerts);
 
     } catch (error) {
-      console.error('Failed to load dashboard data:', error);
+      logger.error('Failed to load dashboard data:', error);
       message.error('載入數據失敗');
       setPendingUsers([]);
       setSystemStats({
@@ -168,7 +169,7 @@ const AdminDashboardPage: React.FC = () => {
           // 重新載入數據
           loadDashboardData();
         } catch (error) {
-          console.error('Approve user failed:', error);
+          logger.error('Approve user failed:', error);
           message.error('驗證使用者失敗');
         }
       }
@@ -195,7 +196,7 @@ const AdminDashboardPage: React.FC = () => {
           // 重新載入數據
           loadDashboardData();
         } catch (error) {
-          console.error('Delete user failed:', error);
+          logger.error('Delete user failed:', error);
           message.error('拒絕使用者失敗');
         }
       }

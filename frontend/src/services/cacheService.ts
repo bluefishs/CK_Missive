@@ -3,6 +3,8 @@
  * 支援記憶體快取、localStorage和sessionStorage
  */
 
+import { logger } from '../utils/logger';
+
 interface CacheItem<T> {
   data: T;
   timestamp: number;
@@ -45,14 +47,14 @@ class CacheService {
         try {
           localStorage.setItem(`cache_${key}`, JSON.stringify(cacheItem));
         } catch (error) {
-          console.warn('Failed to set localStorage cache:', error);
+          logger.warn('Failed to set localStorage cache:', error);
         }
         break;
       case 'sessionStorage':
         try {
           sessionStorage.setItem(`cache_${key}`, JSON.stringify(cacheItem));
         } catch (error) {
-          console.warn('Failed to set sessionStorage cache:', error);
+          logger.warn('Failed to set sessionStorage cache:', error);
         }
         break;
     }
@@ -89,7 +91,7 @@ class CacheService {
 
       return cacheItem.data;
     } catch (error) {
-      console.warn('Failed to get cache:', error);
+      logger.warn('Failed to get cache:', error);
       return null;
     }
   }

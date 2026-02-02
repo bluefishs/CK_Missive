@@ -32,6 +32,7 @@ import { getProjectAgencyContacts } from '../api/projectAgencyContacts';
 import { projectVendorsApi } from '../api/projectVendorsApi';
 import type { DispatchOrderCreate, ContractPaymentCreate } from '../types/api';
 import { TAOYUAN_CONTRACT } from '../constants/taoyuanOptions';
+import { logger } from '../services/logger';
 
 const { Title } = Typography;
 
@@ -173,7 +174,7 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
           });
         }
       } catch (error) {
-        console.error('載入派工單號失敗:', error);
+        logger.error('載入派工單號失敗:', error);
       }
     };
     loadNextDispatchNo();

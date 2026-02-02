@@ -11,6 +11,7 @@ import { Form, Input, Select, Button, Card, Row, Col, Spin, App, Space } from 'a
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useResponsive } from '../hooks';
+import { logger } from '../services/logger';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -61,7 +62,7 @@ export const DocumentEditPage: React.FC = () => {
 
         form.setFieldsValue(formData);
       } catch (error) {
-        console.error('Load document failed:', error);
+        logger.error('Load document failed:', error);
         message.error('載入公文資料失敗');
       } finally {
         setLoadingDocument(false);
@@ -99,7 +100,7 @@ export const DocumentEditPage: React.FC = () => {
       message.success('公文更新成功！');
       navigate('/documents');
     } catch (error) {
-      console.error('Update document failed:', error);
+      logger.error('Update document failed:', error);
       message.error('更新公文失敗');
     } finally {
       setLoading(false);

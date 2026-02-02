@@ -4,6 +4,7 @@
  */
 
 import { useState, useCallback } from 'react';
+import { logger } from '../../services/logger';
 import { Document } from '../../types';
 import { calendarIntegrationService } from '../../services/calendarIntegrationService';
 
@@ -22,7 +23,7 @@ export const useCalendarIntegration = () => {
       const result = await calendarIntegrationService.addDocumentToCalendar(document);
       return result.success;
     } catch (error) {
-      console.error('Calendar integration hook error:', error);
+      logger.error('Calendar integration hook error:', error);
       return false;
     } finally {
       setLoading(false);
@@ -40,7 +41,7 @@ export const useCalendarIntegration = () => {
       const result = await calendarIntegrationService.batchAddDocumentsToCalendar(documents);
       return result;
     } catch (error) {
-      console.error('Batch calendar integration hook error:', error);
+      logger.error('Batch calendar integration hook error:', error);
       return { successCount: 0, failedCount: documents.length };
     } finally {
       setBatchLoading(false);
@@ -54,7 +55,7 @@ export const useCalendarIntegration = () => {
     try {
       return await calendarIntegrationService.isDocumentInCalendar(documentId);
     } catch (error) {
-      console.error('Check calendar status error:', error);
+      logger.error('Check calendar status error:', error);
       return false;
     }
   }, []);
@@ -66,7 +67,7 @@ export const useCalendarIntegration = () => {
     try {
       return await calendarIntegrationService.removeDocumentFromCalendar(documentId);
     } catch (error) {
-      console.error('Remove from calendar error:', error);
+      logger.error('Remove from calendar error:', error);
       return false;
     }
   }, []);

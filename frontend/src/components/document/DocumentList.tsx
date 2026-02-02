@@ -235,7 +235,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
       await documentsApi.exportDocuments(documentIds.length > 0 ? { documentIds } : {});
       message.success({ content: '匯出成功！', key: 'export' });
     } catch (error) {
-      console.error('匯出失敗:', error);
+      logger.error('匯出失敗:', error);
       message.error({ content: '匯出失敗，請稍後再試', key: 'export' });
     }
   }, [selectedRowKeys, message]);

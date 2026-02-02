@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../../api/client';
+import { logger } from '../../services/logger';
 
 interface Agency {
   id: number;
@@ -25,7 +26,7 @@ export const AgencyManagement: React.FC = () => {
       const data = await response.json();
       setAgencies(data);
     } catch (error) {
-      console.error('Failed to fetch agencies:', error);
+      logger.error('Failed to fetch agencies:', error);
     } finally {
       setLoading(false);
     }

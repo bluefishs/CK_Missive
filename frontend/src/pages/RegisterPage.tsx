@@ -22,6 +22,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
+import { logger } from '../services/logger';
 
 const { Title, Text } = Typography;
 
@@ -51,7 +52,7 @@ const RegisterPage: React.FC = () => {
       setRegistered(true);
       message.success('註冊成功！請等待管理員審核您的帳號');
     } catch (error: unknown) {
-      console.error('Registration failed:', error);
+      logger.error('Registration failed:', error);
       const err = error as { response?: { data?: { message?: string } } };
       const errorMessage = err?.response?.data?.message || '註冊失敗，請稍後再試';
       message.error(errorMessage);

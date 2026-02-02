@@ -5,6 +5,7 @@
  */
 import { useCallback, useState } from 'react';
 import { message, notification } from 'antd';
+import { logger } from '../../utils/logger';
 import { parseApiError, type ParsedApiError } from '../../utils/apiErrorParser';
 
 type ApiError = ParsedApiError;
@@ -79,7 +80,7 @@ export const useApiErrorHandler = (
       onError(parsedError);
     }
 
-    console.error('API Error:', {
+    logger.error('API Error:', {
       originalError: error,
       parsedError,
       timestamp: new Date().toISOString()
@@ -126,7 +127,7 @@ export const useApiErrorHandler = (
 
 export const setupGlobalErrorHandler = () => {
   window.addEventListener('unhandledrejection', (event) => {
-    console.error('Unhandled promise rejection:', event.reason);
+    logger.error('Unhandled promise rejection:', event.reason);
     event.preventDefault();
 
     notification.error({
@@ -138,7 +139,7 @@ export const setupGlobalErrorHandler = () => {
   });
 
   window.addEventListener('error', (event) => {
-    console.error('Global error:', event.error);
+    logger.error('Global error:', event.error);
 
     notification.error({
       message: '頁面錯誤',

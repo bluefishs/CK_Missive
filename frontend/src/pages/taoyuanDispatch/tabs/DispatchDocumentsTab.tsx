@@ -35,6 +35,7 @@ import dayjs from 'dayjs';
 import type { DispatchDocumentsTabProps, LinkableDocumentOption } from './types';
 import type { DispatchDocumentLink, LinkType } from '../../../types/api';
 import { isReceiveDocument } from '../../../types/api';
+import { logger } from '../../../services/logger';
 
 const { Option } = Select;
 const { Text } = Typography;
@@ -244,7 +245,7 @@ export const DispatchDocumentsTab: React.FC<DispatchDocumentsTabProps> = ({
                       title="確定要移除此關聯嗎？"
                       onConfirm={() => {
                         if (doc.link_id === undefined || doc.link_id === null) {
-                          console.error('[unlinkDoc] link_id 缺失:', doc);
+                          logger.error('[unlinkDoc] link_id 缺失:', doc);
                           refetch();
                           return;
                         }

@@ -6,6 +6,7 @@
 import { useState, useCallback } from 'react';
 import { App } from 'antd';
 import { filesApi, type DocumentAttachment } from '../../../api/filesApi';
+import { logger } from '../../../services/logger';
 
 interface UseAttachmentsReturn {
   attachmentCache: Record<number, DocumentAttachment[]>;
@@ -33,7 +34,7 @@ export const useAttachments = (): UseAttachmentsReturn => {
       const attachments = await filesApi.getDocumentAttachments(documentId);
       setAttachmentCache(prev => ({ ...prev, [documentId]: attachments }));
     } catch (error) {
-      console.error('載入附件失敗:', error);
+      logger.error('載入附件失敗:', error);
       message.error('載入附件列表失敗');
     } finally {
       setLoadingAttachments(prev => ({ ...prev, [documentId]: false }));

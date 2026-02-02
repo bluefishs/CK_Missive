@@ -24,6 +24,7 @@ import type {
   TaoyuanProject,
   LinkType,
 } from '../../types/api';
+import { logger } from '../../services/logger';
 
 // =============================================================================
 // 派工關聯 Hook
@@ -76,7 +77,7 @@ export function useDispatchLinks({
       const result = await documentLinksApi.getDispatchLinks(documentId);
       setLinks(result.dispatch_orders || []);
     } catch (error) {
-      console.error('載入派工關聯失敗:', error);
+      logger.error('載入派工關聯失敗:', error);
       setLinks([]);
     } finally {
       setIsLoading(false);
@@ -209,7 +210,7 @@ export function useProjectLinks({
       const result = await documentProjectLinksApi.getProjectLinks(documentId);
       setLinks(result.projects || []);
     } catch (error) {
-      console.error('載入工程關聯失敗:', error);
+      logger.error('載入工程關聯失敗:', error);
       setLinks([]);
     } finally {
       setIsLoading(false);

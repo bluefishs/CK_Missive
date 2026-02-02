@@ -38,6 +38,7 @@ import { API_ENDPOINTS } from '../api/endpoints';
 import { useTableColumnSearch, useResponsive } from '../hooks';
 import { ROUTES } from '../router/types';
 import { DEPARTMENT_OPTIONS } from '../constants';
+import { logger } from '../services/logger';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -114,7 +115,7 @@ export const StaffPage: React.FC = () => {
         inactive: (data.total || items.length) - activeCount,
       });
     } catch (error) {
-      console.error('載入承辦同仁列表失敗:', error);
+      logger.error('載入承辦同仁列表失敗:', error);
       message.error('載入資料失敗，請稍後再試');
     } finally {
       setLoading(false);
@@ -134,7 +135,7 @@ export const StaffPage: React.FC = () => {
       message.success(isActive ? '已啟用' : '已停用');
       loadStaffList();
     } catch (error: unknown) {
-      console.error('狀態更新失敗:', error);
+      logger.error('狀態更新失敗:', error);
       message.error('狀態更新失敗');
     }
   };

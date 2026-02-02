@@ -110,7 +110,7 @@ const EntryPage: React.FC = () => {
           navigate('/dashboard');
         }
       } catch (error: unknown) {
-        console.error('Google login failed:', error);
+        logger.error('Google login failed:', error);
         const errorMessage = error instanceof Error ? error.message : 'Google 登入失敗';
         message.error(errorMessage);
       } finally {
@@ -175,7 +175,7 @@ const EntryPage: React.FC = () => {
         }
       }
     } catch (error) {
-      console.error('Failed to initialize Google Sign-In:', error);
+      logger.error('Failed to initialize Google Sign-In:', error);
       setGoogleReady(true);
     }
   };
@@ -202,7 +202,7 @@ const EntryPage: React.FC = () => {
       message.success(`歡迎, ${userInfo.full_name || userInfo.username}!`);
       navigate('/dashboard');
     } catch (error: unknown) {
-      console.error('Quick entry failed:', error);
+      logger.error('Quick entry failed:', error);
       message.error('快速進入失敗，請確認後端服務是否啟動');
     } finally {
       setLoading(false);

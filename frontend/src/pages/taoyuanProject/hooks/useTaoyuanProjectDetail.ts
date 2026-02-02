@@ -16,6 +16,7 @@ import { projectVendorsApi, type ProjectVendor } from '../../../api/projectVendo
 import type { TaoyuanProject, TaoyuanProjectUpdate, DispatchOrder, ProjectDispatchLink } from '../../../types/api';
 import { useAuthGuard } from '../../../hooks';
 import { TAOYUAN_CONTRACT } from '../../../constants/taoyuanOptions';
+import { logger } from '../../../services/logger';
 
 /** 表單初始值對映 */
 function projectToFormValues(project: TaoyuanProject) {
@@ -153,15 +154,15 @@ export function useTaoyuanProjectDetail() {
   const unlinkDispatchMutation = useMutation({
     mutationFn: (linkId: number) => {
       if (linkId === undefined || linkId === null) {
-        console.error('[unlinkDispatchMutation] linkId 無效:', linkId);
+        logger.error('[unlinkDispatchMutation] linkId 無效:', linkId);
         return Promise.reject(new Error('關聯 ID 無效'));
       }
       const projectId = parseInt(id || '0', 10);
       if (!projectId || projectId === 0) {
-        console.error('[unlinkDispatchMutation] projectId 無效:', id);
+        logger.error('[unlinkDispatchMutation] projectId 無效:', id);
         return Promise.reject(new Error('工程 ID 無效'));
       }
-      console.debug('[unlinkDispatchMutation] 準備移除:', { projectId, linkId });
+      logger.debug('[unlinkDispatchMutation] 準備移除:', { projectId, linkId });
       return projectLinksApi.unlinkDispatch(projectId, linkId);
     },
     onSuccess: () => {

@@ -29,6 +29,7 @@ import {
 } from '@ant-design/icons';
 import { useResponsive } from '../../hooks';
 import { useQueryClient } from '@tanstack/react-query';
+import { logger } from '../../services/logger';
 
 import { DocumentTabs } from '../document/DocumentTabs';
 import { DocumentFilter } from '../document/DocumentFilter';
@@ -202,7 +203,7 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ contractCode }) => {
     try {
       await calendarIntegrationService.addDocumentToCalendar(document);
     } catch (error) {
-      console.error('Calendar integration failed:', error);
+      logger.error('Calendar integration failed:', error);
     } finally {
       setIsAddingToCalendar(false);
     }

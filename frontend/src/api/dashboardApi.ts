@@ -6,6 +6,7 @@
 
 import { apiClient } from './client';
 import { API_ENDPOINTS } from './endpoints';
+import { logger } from '../services/logger';
 
 // 從 types/api.ts 匯入統一的公文型別
 import { OfficialDocument, DocumentStats } from '../types/api';
@@ -76,7 +77,7 @@ export const dashboardApi = {
         recent_documents: response?.recent_documents || [],
       };
     } catch (error) {
-      console.error('Dashboard API error:', error);
+      logger.error('Dashboard API error:', error);
       return {
         stats: { total: 0, approved: 0, pending: 0, rejected: 0 },
         recent_documents: [],

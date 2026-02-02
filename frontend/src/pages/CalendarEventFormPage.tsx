@@ -39,6 +39,7 @@ import {
 import dayjs from 'dayjs';
 import debounce from 'lodash/debounce';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { logger } from '../services/logger';
 
 import { apiClient } from '../api/client';
 import type { CalendarEvent } from '../api/calendarApi';
@@ -185,7 +186,7 @@ const CalendarEventFormPage: React.FC = () => {
           setDocumentSearchError('搜尋失敗，請稍後再試');
         }
       } catch (error) {
-        console.error('搜尋公文失敗:', error);
+        logger.error('搜尋公文失敗:', error);
         setDocumentSearchError('搜尋時發生錯誤');
       } finally {
         setDocumentSearching(false);

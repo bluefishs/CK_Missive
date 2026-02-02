@@ -7,6 +7,7 @@
 import { useState } from 'react';
 import { API_BASE_URL } from '../../../api/client';
 import type { PreviewResult, ImportResult, ImportStep } from './types';
+import { logger } from '../../../services/logger';
 
 export interface UseDocumentImportReturn {
   activeTab: string;
@@ -192,7 +193,7 @@ export function useDocumentImport(
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('下載範本失敗:', error);
+      logger.error('下載範本失敗:', error);
     }
   };
 

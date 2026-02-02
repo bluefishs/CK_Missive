@@ -21,6 +21,7 @@ import {
   DocumentCreate as ApiDocumentCreate,
   DocumentUpdate as ApiDocumentUpdate,
 } from '../types/api';
+import { logger } from '../services/logger';
 
 // ============================================================================
 // 型別定義 - 統一使用 types/api.ts 作為單一真實來源
@@ -395,7 +396,7 @@ export const documentsApi = {
         limit,
       });
     } catch (error) {
-      console.error('取得專案關聯公文失敗:', error);
+      logger.error('取得專案關聯公文失敗:', error);
       return {
         success: true,
         items: [],

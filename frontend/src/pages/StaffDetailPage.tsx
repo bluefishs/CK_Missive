@@ -49,6 +49,7 @@ import { ROUTES } from '../router/types';
 import { certificationsApi, Certification } from '../api/certificationsApi';
 import type { User } from '../types/api';
 import { DEPARTMENT_OPTIONS } from '../constants';
+import { logger } from '../services/logger';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -127,7 +128,7 @@ export const StaffDetailPage: React.FC = () => {
         navigate(ROUTES.STAFF);
       }
     } catch (error) {
-      console.error('載入同仁資料失敗:', error);
+      logger.error('載入同仁資料失敗:', error);
       message.error('載入資料失敗');
     } finally {
       setLoading(false);
@@ -142,7 +143,7 @@ export const StaffDetailPage: React.FC = () => {
       const response = await certificationsApi.getUserCertifications(staffId);
       setCertifications(response.items);
     } catch (error) {
-      console.error('載入證照列表失敗:', error);
+      logger.error('載入證照列表失敗:', error);
       setCertifications([]);
     } finally {
       setCertLoading(false);

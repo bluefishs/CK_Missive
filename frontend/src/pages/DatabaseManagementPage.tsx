@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { logger } from '../services/logger';
 import {
   Card, Table, Tabs, Button, Space, Typography, Row, Col,
   Statistic, Alert, Modal, Input, Select, Tag, App,
@@ -77,7 +78,7 @@ export const DatabaseManagementPage: React.FC = () => {
       setDatabaseInfo(data);
       message.success('資料庫信息載入成功');
     } catch (error) {
-      console.error('獲取資料庫信息失敗:', error);
+      logger.error('獲取資料庫信息失敗:', error);
       message.error('獲取資料庫信息失敗');
     } finally {
       setLoading(false);
@@ -93,7 +94,7 @@ export const DatabaseManagementPage: React.FC = () => {
       setSelectedTable(tableName);
       message.success(`載入 ${tableName} 數據成功`);
     } catch (error) {
-      console.error('獲取表格數據失敗:', error);
+      logger.error('獲取表格數據失敗:', error);
       message.error('獲取表格數據失敗');
     } finally {
       setLoading(false);
@@ -113,7 +114,7 @@ export const DatabaseManagementPage: React.FC = () => {
       setQueryResult(result);
       message.success(`查詢完成，返回 ${result.totalRows} 條結果，耗時 ${result.executionTime}ms`);
     } catch (error: unknown) {
-      console.error('查詢執行失敗:', error);
+      logger.error('查詢執行失敗:', error);
       message.error(`查詢執行失敗: ${error instanceof Error ? error.message : '未知錯誤'}`);
     } finally {
       setLoading(false);
@@ -144,7 +145,7 @@ export const DatabaseManagementPage: React.FC = () => {
         });
       }
     } catch (error) {
-      console.error('完整性檢查失敗:', error);
+      logger.error('完整性檢查失敗:', error);
       message.error('完整性檢查失敗');
     } finally {
       setLoading(false);

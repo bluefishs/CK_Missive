@@ -19,6 +19,7 @@ import {
 import type { DispatchAttachmentsTabProps } from './types';
 import type { DispatchAttachment } from '../../../types/api';
 import { dispatchAttachmentsApi } from '../../../api/taoyuanDispatchApi';
+import { logger } from '../../../services/logger';
 
 // ============================================================================
 // 檔案設定常數
@@ -73,7 +74,7 @@ export const DispatchAttachmentsTab: React.FC<DispatchAttachmentsTabProps> = ({
       window.open(previewUrl, '_blank');
       setTimeout(() => window.URL.revokeObjectURL(previewUrl), 10000);
     } catch (error) {
-      console.error('預覽附件失敗:', error);
+      logger.error('預覽附件失敗:', error);
       message.error(`預覽 ${filename} 失敗`);
     }
   };

@@ -8,6 +8,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { Result, Button, Typography, Collapse, Card } from 'antd';
 import { ReloadOutlined, BugOutlined } from '@ant-design/icons';
+import { logger } from '../../services/logger';
 
 const { Text, Paragraph } = Typography;
 const { Panel } = Collapse;
@@ -71,8 +72,7 @@ export class ErrorBoundary extends Component<Props, State> {
     }
 
     // 記錄錯誤到控制台
-    // eslint-disable-next-line no-console
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    logger.error('ErrorBoundary caught an error:', error, errorInfo);
 
     // 記錄錯誤報告
     this.logErrorToService(error, errorInfo);
@@ -90,8 +90,7 @@ export class ErrorBoundary extends Component<Props, State> {
     };
 
     // 開發環境輸出錯誤報告
-    // eslint-disable-next-line no-console
-    console.log('Error Report:', errorReport);
+    logger.log('Error Report:', errorReport);
 
     // 可以發送到後端 API 進行錯誤追蹤
     // fetch('/api/monitoring/error-report', {

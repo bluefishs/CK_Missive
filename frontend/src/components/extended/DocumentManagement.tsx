@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../../api/client';
+import { logger } from '../../services/logger';
 
 interface Document {
   id: number;
@@ -26,7 +27,7 @@ export const DocumentManagement: React.FC = () => {
       const data = await response.json();
       setDocuments(data);
     } catch (error) {
-      console.error('Failed to fetch documents:', error);
+      logger.error('Failed to fetch documents:', error);
     } finally {
       setLoading(false);
     }

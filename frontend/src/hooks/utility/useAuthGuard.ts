@@ -173,7 +173,7 @@ export function useAuthGuard(options: AuthGuardOptions = {}) {
 
     if (!isAllowed) {
       if (showAlert) {
-        console.warn('權限不足，正在跳轉...');
+        logger.warn('權限不足，正在跳轉...');
       }
 
       // 保存當前路徑以便登入後返回

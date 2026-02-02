@@ -102,7 +102,7 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
           });
         }
       } catch (error) {
-        console.error('取得篩選統計失敗:', error);
+        logger.error('取得篩選統計失敗:', error);
         // 降級：使用當前查詢結果的 total
         setFilteredStats({
           total: total,

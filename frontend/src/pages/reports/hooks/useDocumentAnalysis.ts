@@ -13,6 +13,7 @@ import { documentsApi } from '../../../api/documentsApi';
 import type { OfficialDocument } from '../../../types/api';
 import { isReceiveDocument, isSendDocument } from '../../../types/api';
 import { extractAgencyList } from '../constants';
+import { logger } from '../../../services/logger';
 
 interface NameCount {
   name: string;
@@ -64,7 +65,7 @@ export function useDocumentAnalysis(): UseDocumentAnalysisReturn {
           setSelectedYear('all');
         }
       } catch (error) {
-        console.error('載入年度選項失敗:', error);
+        logger.error('載入年度選項失敗:', error);
         setSelectedYear('all');
       }
     };
@@ -95,7 +96,7 @@ export function useDocumentAnalysis(): UseDocumentAnalysisReturn {
 
       setDocuments(allItems);
     } catch (error) {
-      console.error('載入公文資料失敗:', error);
+      logger.error('載入公文資料失敗:', error);
       message.error('載入資料失敗');
     } finally {
       setLoading(false);

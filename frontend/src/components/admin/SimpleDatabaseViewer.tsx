@@ -80,7 +80,7 @@ export const SimpleDatabaseViewer: React.FC = () => {
       setDatabaseInfo(data);
       message.success('資料庫信息載入成功');
     } catch (error) {
-      console.error('❌ 獲取資料庫信息失敗:', error);
+      logger.error('獲取資料庫信息失敗:', error);
 
       // 使用 fallback 資料以確保頁面可以正常顯示
       const fallbackData = {

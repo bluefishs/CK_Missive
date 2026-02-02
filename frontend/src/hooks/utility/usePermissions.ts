@@ -92,7 +92,7 @@ export const usePermissions = () => {
             permissions = currentUser.permissions;
           }
         } catch (apiError) {
-          console.warn('Failed to fetch permissions from API, using cached data:', apiError);
+          logger.warn('Failed to fetch permissions from API, using cached data:', apiError);
           // 如果 API 失敗，嘗試從本地資料取得
           if (userInfo.permissions) {
             try {
@@ -100,7 +100,7 @@ export const usePermissions = () => {
                 ? JSON.parse(userInfo.permissions)
                 : userInfo.permissions;
             } catch (parseError) {
-              console.warn('Failed to parse cached permissions:', parseError);
+              logger.warn('Failed to parse cached permissions:', parseError);
             }
           }
         }
@@ -130,7 +130,7 @@ export const usePermissions = () => {
       setUserPermissions(permissionsData);
 
     } catch (err) {
-      console.error('Error loading user permissions:', err);
+      logger.error('Error loading user permissions:', err);
       setError(err instanceof Error ? err.message : 'Failed to load permissions');
     } finally {
       setLoading(false);

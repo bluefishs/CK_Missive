@@ -16,6 +16,7 @@ import { useNavigate } from 'react-router-dom';
 import { UserInfo } from '../../services/authService';
 import authService from '../../services/authService';
 import { NotificationCenter } from '../common';
+import { logger } from '../../services/logger';
 
 const { Header: AntHeader } = Layout;
 const { Title } = Typography;
@@ -71,7 +72,7 @@ const Header: React.FC<HeaderProps> = ({
           onUserLogout();
           navigate('/login');
         } catch (error) {
-          console.error('Logout failed:', error);
+          logger.error('Logout failed:', error);
         }
       },
     },

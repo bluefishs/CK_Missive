@@ -3,6 +3,7 @@
  * 統一處理公文與行事曆的整合功能，避免重複代碼
  */
 
+import { logger } from '../utils/logger';
 import { Document } from '../types';
 import { API_BASE_URL } from '../api/client';
 
@@ -244,7 +245,7 @@ class CalendarIntegrationService {
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '新增至日曆失敗';
-      console.error('新增至日曆失敗:', error);
+      logger.error('新增至日曆失敗:', error);
 
       // 不在這裡顯示 message，讓調用者決定是否顯示
       return {
@@ -325,7 +326,7 @@ class CalendarIntegrationService {
 
       return false;
     } catch (error) {
-      console.error('檢查公文日曆狀態失敗:', error);
+      logger.error('檢查公文日曆狀態失敗:', error);
       return false;
     }
   }
@@ -394,7 +395,7 @@ class CalendarIntegrationService {
         message: `已從日曆中移除 ${deletedCount} 個相關事件`
       };
     } catch (error) {
-      console.error('從日曆移除事件失敗:', error);
+      logger.error('從日曆移除事件失敗:', error);
       return {
         success: false,
         message: '從日曆移除事件失敗'

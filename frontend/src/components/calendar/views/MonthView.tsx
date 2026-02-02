@@ -11,6 +11,7 @@ import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import type { CalendarEvent } from './types';
 import { EventCard } from './EventCard';
+import { logger } from '../../../services/logger';
 
 export interface MonthViewProps {
   events: CalendarEvent[];
@@ -83,7 +84,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
         description: `事件已移至 ${targetDate.format('YYYY-MM-DD')}`
       });
     } catch (error) {
-      console.error('拖曳失敗:', error);
+      logger.error('拖曳失敗:', error);
       notification.error({
         message: '移動失敗',
         description: '無法移動事件，請稍後再試'

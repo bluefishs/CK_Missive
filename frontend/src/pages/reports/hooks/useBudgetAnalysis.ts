@@ -17,6 +17,7 @@ import {
   getCategoryDisplayName,
   getStatusDisplayName,
 } from '../constants';
+import { logger } from '../../../services/logger';
 
 interface AgencyStats {
   name: string;
@@ -101,7 +102,7 @@ export function useBudgetAnalysis(): UseBudgetAnalysisReturn {
           setSelectedYear('all');
         }
       } catch (error) {
-        console.error('載入年度選項失敗:', error);
+        logger.error('載入年度選項失敗:', error);
         setSelectedYear('all');
       }
     };
@@ -136,7 +137,7 @@ export function useBudgetAnalysis(): UseBudgetAnalysisReturn {
       setFilterStatus(null);
       setFilterAgency(null);
     } catch (error) {
-      console.error('載入承攬案件失敗:', error);
+      logger.error('載入承攬案件失敗:', error);
       message.error('載入資料失敗');
     } finally {
       setLoading(false);

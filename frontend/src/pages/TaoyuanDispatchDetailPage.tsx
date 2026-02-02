@@ -66,6 +66,7 @@ import {
   parseWorkTypeCodes,
   validatePaymentConsistency,
 } from './taoyuanDispatch/tabs/DispatchPaymentTab';
+import { logger } from '../services/logger';
 
 export const TaoyuanDispatchDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -338,20 +339,20 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
   const unlinkProjectMutation = useMutation({
     mutationFn: (linkId: number) => {
       if (linkId === undefined || linkId === null) {
-        console.error('[unlinkProjectMutation] linkId 無效:', linkId);
+        logger.error('[unlinkProjectMutation] linkId 無效:', linkId);
         return Promise.reject(new Error('關聯 ID 無效'));
       }
 
       const linkedProjects = dispatch?.linked_projects || [];
       const targetProject = linkedProjects.find((p) => p.link_id === linkId);
       if (!targetProject) {
-        console.error('[unlinkProjectMutation] 找不到 link_id:', linkId);
+        logger.error('[unlinkProjectMutation] 找不到 link_id:', linkId);
         return Promise.reject(new Error('找不到關聯工程，請重新整理頁面'));
       }
 
       const projectId = targetProject.project_id ?? targetProject.id;
       if (!projectId) {
-        console.error('[unlinkProjectMutation] project_id 無效:', targetProject);
+        logger.error('[unlinkProjectMutation] project_id 無效:', targetProject);
         return Promise.reject(new Error('工程 ID 無效，請重新整理頁面'));
       }
 

@@ -10,6 +10,7 @@ import dayjs from 'dayjs';
 import { apiClient } from '../../../api/client';
 import debounce from 'lodash/debounce';
 import type { CalendarEventData, DocumentOption } from './types';
+import { logger } from '../../../services/logger';
 
 const { useBreakpoint } = Grid;
 
@@ -93,7 +94,7 @@ export function useEventForm(
         setDuplicateConfirmed(true);
       }
     } catch (error) {
-      console.error('檢查公文事件失敗:', error);
+      logger.error('檢查公文事件失敗:', error);
       setDuplicateConfirmed(true);
     }
   };
@@ -148,7 +149,7 @@ export function useEventForm(
           setDocumentSearchError('搜尋失敗，請稍後再試');
         }
       } catch (error) {
-        console.error('搜尋公文失敗:', error);
+        logger.error('搜尋公文失敗:', error);
         setDocumentSearchError('搜尋時發生錯誤');
         notification.error({
           message: '搜尋公文失敗',
@@ -259,7 +260,7 @@ export function useEventForm(
         }
       }
     } catch (error: unknown) {
-      console.error('[EventFormModal] 提交失敗:', error);
+      logger.error('[EventFormModal] 提交失敗:', error);
 
       // 定義 Ant Design Form 驗證錯誤的型別
       interface FormFieldError {

@@ -12,6 +12,7 @@ import {
   CheckCircleOutlined, EyeOutlined, EditOutlined, DeleteOutlined, BellOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { logger } from '../../services/logger';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import isBetween from 'dayjs/plugin/isBetween';
@@ -268,7 +269,7 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
               successCount++;
             } catch (error) {
               failCount++;
-              console.error(`標記事件 ${event.id} 失敗:`, error);
+              logger.error(`標記事件 ${event.id} 失敗:`, error);
             }
           }
 
@@ -321,7 +322,7 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
               await onEventUpdate(event.id, { status: 'cancelled' });
               successCount++;
             } catch (error) {
-              console.error(`標記事件 ${event.id} 失敗:`, error);
+              logger.error(`標記事件 ${event.id} 失敗:`, error);
             }
           }
 
@@ -371,7 +372,7 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
       });
       onRefresh?.();
     } catch (error) {
-      console.error('拖曳更新失敗:', error);
+      logger.error('拖曳更新失敗:', error);
       throw error;
     }
   }, [events, onEventUpdate, onRefresh, notification]);

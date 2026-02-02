@@ -4,6 +4,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { message } from 'antd';
 import { staleTimeConfig } from '../config/queryConfig';
 import { parseApiError } from '../utils/apiErrorParser';
+import { logger } from '../services/logger';
 
 /**
  * 建立 QueryClient
@@ -48,7 +49,7 @@ const queryClient = new QueryClient({
         const level = parsed.status && parsed.status >= 500 ? 'error' : 'warning';
         message[level](parsed.message);
         if (import.meta.env.DEV) {
-          console.error('[Mutation Error]', parsed);
+          logger.error('[Mutation Error]', parsed);
         }
       },
     },

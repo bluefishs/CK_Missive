@@ -11,6 +11,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { logger } from '../services/logger';
 import {
   Card,
   Button,
@@ -110,7 +111,7 @@ export const DocumentNumbersPage: React.FC = () => {
       const result = await documentsApi.getStatistics();
       setStats(result);
     } catch (error) {
-      console.error('載入統計失敗:', error);
+      logger.error('載入統計失敗:', error);
     } finally {
       setStatsLoading(false);
     }
@@ -123,7 +124,7 @@ export const DocumentNumbersPage: React.FC = () => {
       const result = await documentsApi.getNextSendNumber();
       setNextNumber(result);
     } catch (error) {
-      console.error('載入下一個字號失敗:', error);
+      logger.error('載入下一個字號失敗:', error);
     } finally {
       setNextNumberLoading(false);
     }
@@ -229,7 +230,7 @@ export const DocumentNumbersPage: React.FC = () => {
         loadNextNumber();
         setDeleteModal({ open: false, document: null });
       } catch (error) {
-        console.error('刪除公文失敗:', error);
+        logger.error('刪除公文失敗:', error);
         message.error('刪除公文失敗');
       }
     }
@@ -267,7 +268,7 @@ export const DocumentNumbersPage: React.FC = () => {
       await documentsApi.exportDocuments({ category: 'send' });
       message.success('發文資料已匯出');
     } catch (error) {
-      console.error('匯出失敗:', error);
+      logger.error('匯出失敗:', error);
       message.error('匯出失敗');
     } finally {
       setIsExporting(false);

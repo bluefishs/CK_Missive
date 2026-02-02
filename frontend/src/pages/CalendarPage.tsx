@@ -11,6 +11,7 @@
  * @date 2026-01-28
  */
 import React, { useState, useCallback } from 'react';
+import { logger } from '../services/logger';
 import {
   Card,
   Typography,
@@ -138,7 +139,7 @@ const CalendarPage: React.FC = () => {
         const errors = (result as any).errors;
         if (errors && errors.length > 0) {
           message.error(`同步失敗 (${result.failed_count} 個)：${errors[0]}`);
-          console.error('Google Calendar 同步錯誤:', errors);
+          logger.error('Google Calendar 同步錯誤:', errors);
         } else {
           message.error(result.message || `同步失敗：${result.failed_count} 個事件無法同步至 Google Calendar`);
         }
@@ -146,7 +147,7 @@ const CalendarPage: React.FC = () => {
         message.info(result.message || '沒有需要同步的事件');
       }
     } catch (error: unknown) {
-      console.error('同步失敗:', error);
+      logger.error('同步失敗:', error);
       const errorMessage = error instanceof Error ? error.message : '同步失敗，請稍後再試';
       message.error(errorMessage);
     }
@@ -157,7 +158,7 @@ const CalendarPage: React.FC = () => {
     try {
       await updateEvent({ eventId, updates });
     } catch (error) {
-      console.error('更新事件失敗:', error);
+      logger.error('更新事件失敗:', error);
     }
   };
 
@@ -166,7 +167,7 @@ const CalendarPage: React.FC = () => {
     try {
       await deleteEvent(eventId);
     } catch (error) {
-      console.error('刪除事件失敗:', error);
+      logger.error('刪除事件失敗:', error);
     }
   };
 

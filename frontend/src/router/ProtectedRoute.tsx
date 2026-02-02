@@ -11,6 +11,7 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthGuard, Permission } from '../hooks';
 import { ROUTES } from './types';
+import { logger } from '../services/logger';
 
 /** 受保護路由選項 */
 export interface ProtectedRouteProps {
@@ -75,13 +76,13 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   // 角色不足，重定向到儀表板
   if (roles.length > 0 && !hasRole) {
-    console.warn(`[ProtectedRoute] 角色不足: 需要 ${roles.join(' 或 ')}`);
+    logger.warn(`[ProtectedRoute] 角色不足: 需要 ${roles.join(' 或 ')}`);
     return <Navigate to={ROUTES.DASHBOARD} replace />;
   }
 
   // 權限不足，重定向到儀表板
   if (permissions.length > 0 && !hasAllPermissions) {
-    console.warn(`[ProtectedRoute] 權限不足: 需要 ${permissions.join(', ')}`);
+    logger.warn(`[ProtectedRoute] 權限不足: 需要 ${permissions.join(', ')}`);
     return <Navigate to={ROUTES.DASHBOARD} replace />;
   }
 

@@ -39,6 +39,7 @@ import { useNavigate } from 'react-router-dom';
 import type { ColumnGroupType, ColumnType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import * as XLSX from 'xlsx';
+import { logger } from '../../services/logger';
 
 import { contractPaymentsApi } from '../../api/taoyuanDispatchApi';
 import type { PaymentControlItem } from '../../types/api';
@@ -357,7 +358,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) =
 
       message.success({ content: '匯出完成', key: 'export' });
     } catch (error) {
-      console.error('匯出 Excel 失敗:', error);
+      logger.error('匯出 Excel 失敗:', error);
       message.error({ content: '匯出失敗', key: 'export' });
     }
   };

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../../api/client';
+import { logger } from '../../services/logger';
 
 interface Project {
   id: number;
@@ -26,7 +27,7 @@ export const ContractProjects: React.FC = () => {
       const data = await response.json();
       setProjects(data);
     } catch (error) {
-      console.error('Failed to fetch projects:', error);
+      logger.error('Failed to fetch projects:', error);
     } finally {
       setLoading(false);
     }

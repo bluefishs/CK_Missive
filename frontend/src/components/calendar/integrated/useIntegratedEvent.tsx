@@ -11,6 +11,7 @@ import dayjs from 'dayjs';
 import { apiClient } from '../../../api/client';
 import type { ReminderConfig, DocumentInfo } from './types';
 import { REMINDER_TIME_OPTIONS } from './types';
+import { logger } from '../../../services/logger';
 
 const { useBreakpoint } = Grid;
 
@@ -132,7 +133,7 @@ export function useIntegratedEvent(
         setExistingEvents([]);
       }
     } catch (error) {
-      console.error('檢查公文事件失敗:', error);
+      logger.error('檢查公文事件失敗:', error);
     }
   }, [modal]);
 
@@ -245,7 +246,7 @@ export function useIntegratedEvent(
         throw new Error(response.message || '建立失敗');
       }
     } catch (error: unknown) {
-      console.error('建立事件失敗:', error);
+      logger.error('建立事件失敗:', error);
       notification.error({
         message: '建立事件失敗',
         description: error instanceof Error ? error.message : '請稍後再試',

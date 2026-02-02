@@ -27,6 +27,7 @@ import {
 
 import { isInternalIPAddress } from '../config/env';
 import { AUTH_ENDPOINTS } from './endpoints';
+import { logger } from '../services/logger';
 
 /**
  * 動態 API URL 計算
@@ -66,10 +67,8 @@ export const SERVER_BASE_URL = API_BASE_URL.replace(/\/api$/, '');
 
 // 開發模式下輸出 API URL 資訊
 if (import.meta.env.DEV) {
-  // eslint-disable-next-line no-console
-  console.log('🔗 Dynamic API URL:', API_BASE_URL);
-  // eslint-disable-next-line no-console
-  console.log('   Hostname:', window.location.hostname);
+  logger.log('Dynamic API URL:', API_BASE_URL);
+  logger.log('Hostname:', window.location.hostname);
 }
 
 /** 預設請求超時時間（毫秒） */

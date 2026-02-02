@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../../api/client';
+import { logger } from '../../services/logger';
 
 interface Vendor {
   id: number;
@@ -26,7 +27,7 @@ export const VendorManagement: React.FC = () => {
       const data = await response.json();
       setVendors(data);
     } catch (error) {
-      console.error('Failed to fetch vendors:', error);
+      logger.error('Failed to fetch vendors:', error);
     } finally {
       setLoading(false);
     }

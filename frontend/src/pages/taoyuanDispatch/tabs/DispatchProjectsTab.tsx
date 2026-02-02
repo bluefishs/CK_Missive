@@ -27,6 +27,7 @@ import {
 } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import type { TaoyuanProject } from '../../../types/api';
+import { logger } from '../../../services/logger';
 
 /** 關聯工程型別（包含 link_id 用於刪除操作） */
 export type LinkedProject = TaoyuanProject & { link_id: number; project_id: number };
@@ -164,7 +165,7 @@ export const DispatchProjectsTab: React.FC<DispatchProjectsTabProps> = ({
                       // 嚴格驗證：link_id 必須存在且不等於 project_id
                       if (linkId === undefined || linkId === null) {
                         messageError('關聯資料缺少 link_id，請重新整理頁面後再試');
-                        console.error('[unlinkProject] link_id 缺失:', {
+                        logger.error('[unlinkProject] link_id 缺失:', {
                           proj,
                           link_id: proj.link_id,
                           project_id: proj.project_id,
@@ -176,11 +177,11 @@ export const DispatchProjectsTab: React.FC<DispatchProjectsTabProps> = ({
 
                       if (!projectId) {
                         messageError('工程資料不完整，請重新整理頁面');
-                        console.error('[unlinkProject] project_id 缺失:', proj);
+                        logger.error('[unlinkProject] project_id 缺失:', proj);
                         return;
                       }
 
-                      console.debug('[unlinkProject] 執行移除:', { linkId, projectId, proj });
+                      logger.debug('[unlinkProject] 執行移除:', { linkId, projectId, proj });
                       onUnlinkProject(linkId, projectId, proj);
                     }}
                     okText="確定"

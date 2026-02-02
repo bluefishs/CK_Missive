@@ -7,6 +7,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { logger } from '../services/logger';
 import {
   Card, Table, Tabs, Button, Space, Typography, Row, Col,
   Statistic, Alert, Modal, Input, Form, Tag, App,
@@ -72,7 +73,7 @@ export const BackupManagementPage: React.FC = () => {
       setBackups(data);
       setStatistics(data.statistics);
     } catch (error) {
-      console.error('載入備份列表失敗:', error);
+      logger.error('載入備份列表失敗:', error);
       message.error('載入備份列表失敗');
     }
   }, [message]);
@@ -87,7 +88,7 @@ export const BackupManagementPage: React.FC = () => {
         sync_interval_hours: data.sync_interval_hours
       });
     } catch (error) {
-      console.error('載入異地備份設定失敗:', error);
+      logger.error('載入異地備份設定失敗:', error);
     }
   }, [remoteConfigForm]);
 
@@ -96,7 +97,7 @@ export const BackupManagementPage: React.FC = () => {
       const data = await apiClient.post<SchedulerStatus>(API_ENDPOINTS.BACKUP.SCHEDULER_STATUS, {});
       setSchedulerStatus(data);
     } catch (error) {
-      console.error('載入排程器狀態失敗:', error);
+      logger.error('載入排程器狀態失敗:', error);
     }
   }, []);
 
@@ -105,7 +106,7 @@ export const BackupManagementPage: React.FC = () => {
       const data = await apiClient.post<BackupLogListResponse>(API_ENDPOINTS.BACKUP.LOGS, logFilters);
       setLogs(data);
     } catch (error) {
-      console.error('載入備份日誌失敗:', error);
+      logger.error('載入備份日誌失敗:', error);
     }
   }, [logFilters]);
 

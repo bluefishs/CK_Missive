@@ -138,7 +138,7 @@ export const useNavigationData = (): UseNavigationDataReturn => {
       setMenuItems(convertedItems);
 
     } catch (error) {
-      console.error('❌ Failed to load navigation:', error);
+      logger.error('Failed to load navigation:', error);
       const staticItems = getStaticMenuItems();
       const authDisabled = isAuthDisabled();
       const filteredStaticItems = authDisabled

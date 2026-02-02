@@ -3,6 +3,7 @@
  * 用於設定和管理日曆事件的提醒功能
  */
 import React, { useState, useEffect } from 'react';
+import { logger } from '../../services/logger';
 import {
   Modal, Select, Button, Space,
   List, Tag, Tooltip, notification, Empty, Spin, Typography, Row, Col, Grid
@@ -94,7 +95,7 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
         setReminders(response.reminders);
       }
     } catch (error) {
-      console.error('Failed to load reminders:', error);
+      logger.error('Failed to load reminders:', error);
       // 如果 API 失敗，使用空陣列
       setReminders([]);
     } finally {
@@ -127,7 +128,7 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
         onSuccess?.();
       }
     } catch (error: unknown) {
-      console.error('Failed to add reminder:', error);
+      logger.error('Failed to add reminder:', error);
       notification.error({
         message: '新增提醒失敗',
         description: error instanceof Error ? error.message : '請稍後再試'
@@ -157,7 +158,7 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
         onSuccess?.();
       }
     } catch (error: unknown) {
-      console.error('Failed to delete reminder:', error);
+      logger.error('Failed to delete reminder:', error);
       notification.error({
         message: '刪除提醒失敗',
         description: error instanceof Error ? error.message : '請稍後再試'
@@ -185,7 +186,7 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
         notification.success({ message: '測試提醒已發送' });
       }
     } catch (error: unknown) {
-      console.error('Failed to send test reminder:', error);
+      logger.error('Failed to send test reminder:', error);
       notification.error({
         message: '發送測試提醒失敗',
         description: error instanceof Error ? error.message : '請稍後再試'

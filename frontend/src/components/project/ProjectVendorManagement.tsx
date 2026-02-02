@@ -29,6 +29,7 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { API_BASE_URL } from '../../api/client';
+import { logger } from '../../services/logger';
 
 const { Option } = Select;
 
@@ -126,7 +127,7 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
         setVendors(data.items || data.vendors || []);
       }
     } catch (error) {
-      console.error('載入廠商列表失敗:', error);
+      logger.error('載入廠商列表失敗:', error);
     }
   };
 

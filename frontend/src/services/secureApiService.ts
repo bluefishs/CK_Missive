@@ -58,7 +58,7 @@ class SecureApiService {
         throw new Error('Invalid CSRF token response');
       }
     } catch (error) {
-      console.error('Error getting CSRF token:', error);
+      logger.error('Error getting CSRF token:', error);
       throw error;
     }
   }
@@ -107,7 +107,7 @@ class SecureApiService {
 
         return result.data as T;
       } catch (error) {
-        console.error('Secure request error:', error);
+        logger.error('Secure request error:', error);
         throw error;
       }
     }
@@ -142,7 +142,7 @@ class SecureApiService {
           return this.secureRequest(endpoint, action, data, false);
         }
       }
-      console.error('Secure request error:', error);
+      logger.error('Secure request error:', error);
       throw error;
     }
   }

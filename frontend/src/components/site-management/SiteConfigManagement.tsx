@@ -9,6 +9,7 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import { secureApiService } from '../../services/secureApiService';
 import { API_BASE_URL } from '../../api/client';
+import { logger } from '../../services/logger';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -72,7 +73,7 @@ const SiteConfigManagement: React.FC = () => {
       const data = await secureApiService.getConfigurations(filters) as { configs?: SiteConfig[] };
       setConfigs(data.configs || []);
     } catch (error) {
-      console.warn('Configuration API not available, using fallback data');
+      logger.warn('Configuration API not available, using fallback data');
       // 提供一些模擬配置數據作為 fallback
       setConfigs([
         {
@@ -121,7 +122,7 @@ const SiteConfigManagement: React.FC = () => {
         const data = await response.json();
         setCategories(data.categories);
       } else {
-        console.warn('Categories endpoint not available, using fallback data');
+        logger.warn('Categories endpoint not available, using fallback data');
         // 提供預設分類
         setCategories([
           { id: 'general', name: '一般設定', description: '系統一般配置項目' },
@@ -132,7 +133,7 @@ const SiteConfigManagement: React.FC = () => {
         ]);
       }
     } catch (error) {
-      console.error('Error loading categories:', error);
+      logger.error('Error loading categories:', error);
       // 提供預設分類作為 fallback
       setCategories([
         { id: 'general', name: '一般設定', description: '系統一般配置項目' },
@@ -187,7 +188,7 @@ const SiteConfigManagement: React.FC = () => {
       loadCategories();
     } catch (error) {
       message.error('操作失敗');
-      console.error('Error submitting form:', error);
+      logger.error('Error submitting form:', error);
     }
   };
 
@@ -199,7 +200,7 @@ const SiteConfigManagement: React.FC = () => {
       loadConfigData();
     } catch (error) {
       message.error('刪除失敗');
-      console.error('Error deleting config:', error);
+      logger.error('Error deleting config:', error);
     }
   };
 

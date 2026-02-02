@@ -7,6 +7,7 @@
  * @date 2026-01-10
  */
 import { NavigationItem } from '../hooks';
+import { logger } from '../utils/logger';
 import { cacheService, CACHE_KEYS, CACHE_TTL } from './cacheService';
 import { secureApiService } from './secureApiService';
 
@@ -76,7 +77,7 @@ class NavigationService {
       return treeItems;
 
     } catch (error) {
-      console.error('Failed to load navigation from API:', error);
+      logger.error('Failed to load navigation from API:', error);
       // API 失敗時回傳預設項目，但不快取，下次會重新嘗試 API
       return this.getDefaultNavigationItems();
     }
@@ -98,7 +99,7 @@ class NavigationService {
     try {
       return await this.loadNavigationFromAPI();
     } catch (error) {
-      console.error('API navigation failed, using default items:', error);
+      logger.error('API navigation failed, using default items:', error);
       // 如果 API 失敗，使用預設項目
       return this.getDefaultNavigationItems().map(item => ({
         ...item,
@@ -418,7 +419,7 @@ class NavigationService {
         return apiItems;
       }
     } catch (error) {
-      console.warn('API failed, falling back to default items:', error);
+      logger.warn('API failed, falling back to default items:', error);
     }
 
     // API 失敗時使用預設項目，但不快取，下次會重新嘗試 API

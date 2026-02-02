@@ -8,6 +8,8 @@
  * @see backend/app/services/base/validators.py
  */
 
+import { logger } from '../services/logger';
+
 // ============================================================
 // 公文相關驗證器
 // ============================================================
@@ -801,13 +803,13 @@ export const ApiResponseValidators = {
     idField: keyof T = 'link_id' as keyof T
   ): number | null {
     if (!data) {
-      console.warn('[ApiResponseValidators] safeGetLinkId: 資料為空');
+      logger.warn('[ApiResponseValidators] safeGetLinkId: 資料為空');
       return null;
     }
 
     const value = data[idField];
     if (!this.isValidId(value, String(idField))) {
-      console.warn(`[ApiResponseValidators] safeGetLinkId: ${String(idField)} 無效`, { value, data });
+      logger.warn(`[ApiResponseValidators] safeGetLinkId: ${String(idField)} 無效`, { value, data });
       return null;
     }
 
