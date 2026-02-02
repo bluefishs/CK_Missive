@@ -85,13 +85,13 @@ backend/app/schemas/
 
 ### 命名慣例
 
-| 類型 | 命名模式 | 範例 |
-|------|---------|------|
-| 基礎模型 | `{Entity}Base` | `DocumentBase`, `UserBase` |
-| 建立請求 | `{Entity}Create` | `DocumentCreate`, `UserCreate` |
-| 更新請求 | `{Entity}Update` | `DocumentUpdate`, `UserUpdate` |
-| 回應模型 | `{Entity}Response` | `DocumentResponse`, `UserResponse` |
-| 列表查詢 | `{Entity}ListQuery` | `DocumentListQuery`, `UserListQuery` |
+| 類型     | 命名模式               | 範例                                       |
+| -------- | ---------------------- | ------------------------------------------ |
+| 基礎模型 | `{Entity}Base`         | `DocumentBase`, `UserBase`                 |
+| 建立請求 | `{Entity}Create`       | `DocumentCreate`, `UserCreate`             |
+| 更新請求 | `{Entity}Update`       | `DocumentUpdate`, `UserUpdate`             |
+| 回應模型 | `{Entity}Response`     | `DocumentResponse`, `UserResponse`         |
+| 列表查詢 | `{Entity}ListQuery`    | `DocumentListQuery`, `UserListQuery`       |
 | 列表回應 | `{Entity}ListResponse` | `DocumentListResponse`, `UserListResponse` |
 
 ### 禁止事項
@@ -113,6 +113,7 @@ from app.schemas.xxx import MyRequest
 ### ⚠️ 重要：類型不一致會導致 500 錯誤
 
 **典型錯誤場景**:
+
 ```
 asyncpg.exceptions.DataError: invalid input for query argument $2: 3 (expected str, got int)
 [SQL: UPDATE table SET priority=$2::VARCHAR ...]
@@ -122,12 +123,12 @@ asyncpg.exceptions.DataError: invalid input for query argument $2: 3 (expected s
 
 ### 常見類型不一致案例
 
-| 欄位 | Schema 定義 | DB 定義 | 問題 | 解法 |
-|------|------------|---------|------|------|
-| `priority` | `int` | `VARCHAR(50)` | asyncpg 拒絕整數寫入字串欄位 | 改 Schema 為 `str` |
-| `status` | `Enum` | `VARCHAR` | Enum 需序列化 | 使用 `status.value` |
-| `id` | `str` | `INTEGER` | 類型不符 | 統一使用 `int` |
-| `amount` | `float` | `DECIMAL` | 精度問題 | 使用 `Decimal` |
+| 欄位       | Schema 定義 | DB 定義       | 問題                         | 解法                |
+| ---------- | ----------- | ------------- | ---------------------------- | ------------------- |
+| `priority` | `int`       | `VARCHAR(50)` | asyncpg 拒絕整數寫入字串欄位 | 改 Schema 為 `str`  |
+| `status`   | `Enum`      | `VARCHAR`     | Enum 需序列化                | 使用 `status.value` |
+| `id`       | `str`       | `INTEGER`     | 類型不符                     | 統一使用 `int`      |
+| `amount`   | `float`     | `DECIMAL`     | 精度問題                     | 使用 `Decimal`      |
 
 ### 解決方案
 
@@ -325,6 +326,7 @@ fi
 ### 步驟
 
 1. **後端 Schema 新增欄位**
+
    ```python
    # backend/app/schemas/document.py
    class DocumentResponse(DocumentBase):
@@ -332,11 +334,13 @@ fi
    ```
 
 2. **重新生成前端型別**
+
    ```bash
    cd frontend && npm run api:generate
    ```
 
 3. **驗證 TypeScript 編譯**
+
    ```bash
    cd frontend && npx tsc --noEmit
    ```
@@ -367,6 +371,7 @@ Property 'XXX' does not exist on type 'components["schemas"]'
 **原因**: OpenAPI 尚未包含該 Schema
 
 **解法**:
+
 1. 確認後端有定義對應的 Pydantic Schema
 2. 確認後端服務正在運行
 3. 重新執行 `npm run api:generate`
@@ -396,23 +401,23 @@ field?: number;  // 或 field: number | null;
 
 ## 相關文件
 
-| 文件 | 說明 |
-|------|------|
-| `/type-sync` | 型別同步檢查命令 |
-| `MANDATORY_CHECKLIST.md` 清單 H | 型別管理開發檢查清單 |
-| `backend/app/schemas/` | 後端 Schema 定義目錄 |
-| `frontend/src/types/generated/` | 前端自動生成型別 |
-| `docs/specifications/TYPE_CONSISTENCY.md` | 型別一致性規範 |
+| 文件                                      | 說明                 |
+| ----------------------------------------- | -------------------- |
+| `/type-sync`                              | 型別同步檢查命令     |
+| `MANDATORY_CHECKLIST.md` 清單 H           | 型別管理開發檢查清單 |
+| `backend/app/schemas/`                    | 後端 Schema 定義目錄 |
+| `frontend/src/types/generated/`           | 前端自動生成型別     |
+| `docs/specifications/TYPE_CONSISTENCY.md` | 型別一致性規範       |
 
 ---
 
 ## 版本記錄
 
-| 版本 | 日期 | 說明 |
-|------|------|------|
+| 版本  | 日期       | 說明                                                                    |
+| ----- | ---------- | ----------------------------------------------------------------------- |
 | 1.1.0 | 2026-01-21 | **新增 Schema-DB 類型一致性章節**（類型不一致案例、解決方案、檢查清單） |
-| 1.0.0 | 2026-01-18 | 初版建立，包含 SSOT 架構、OpenAPI 自動生成、命名規範 |
+| 1.0.0 | 2026-01-18 | 初版建立，包含 SSOT 架構、OpenAPI 自動生成、命名規範                    |
 
 ---
 
-*維護者: Claude Code Assistant*
+_維護者: Claude Code Assistant_

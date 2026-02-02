@@ -1,10 +1,17 @@
-# GitHub Workflow Agent
+---
+name: GitHub Workflow Agent
+role: 協助開發者遵循 Git 和 GitHub 最佳實踐的工作流程代理
+version: 1.0.0
+category: shared
+triggers:
+  - /git-workflow
+  - Git工作流
+  - GitHub
+  - 版本控制
+updated: 2026-02-02
+---
 
-> **用途**: Git/GitHub 工作流程代理
-> **觸發**: `/git-workflow`
-> **版本**: 1.0.0
-> **分類**: shared
-> **更新日期**: 2026-01-16
+# GitHub Workflow Agent
 
 ---
 
@@ -18,14 +25,14 @@
 
 ### 分支命名規範
 
-| 類型 | 前綴 | 範例 |
-|------|------|------|
-| 功能開發 | `feature/` | `feature/user-authentication` |
-| Bug 修復 | `fix/` | `fix/login-error` |
-| 緊急修復 | `hotfix/` | `hotfix/security-patch` |
-| 發布準備 | `release/` | `release/v1.2.0` |
-| 重構 | `refactor/` | `refactor/api-structure` |
-| 文件 | `docs/` | `docs/api-documentation` |
+| 類型     | 前綴        | 範例                          |
+| -------- | ----------- | ----------------------------- |
+| 功能開發 | `feature/`  | `feature/user-authentication` |
+| Bug 修復 | `fix/`      | `fix/login-error`             |
+| 緊急修復 | `hotfix/`   | `hotfix/security-patch`       |
+| 發布準備 | `release/`  | `release/v1.2.0`              |
+| 重構     | `refactor/` | `refactor/api-structure`      |
+| 文件     | `docs/`     | `docs/api-documentation`      |
 
 ### 分支流程
 
@@ -53,16 +60,16 @@ main (生產)
 
 ### Type 類型
 
-| Type | 說明 | 範例 |
-|------|------|------|
-| `feat` | 新功能 | `feat(auth): 新增 OAuth 登入` |
-| `fix` | Bug 修復 | `fix(api): 修正 CORS 設定` |
-| `docs` | 文件更新 | `docs: 更新 API 文件` |
-| `style` | 格式調整 | `style: 統一縮排格式` |
-| `refactor` | 重構 | `refactor(service): 重構用戶服務` |
-| `perf` | 效能優化 | `perf(query): 優化資料庫查詢` |
-| `test` | 測試相關 | `test: 新增單元測試` |
-| `chore` | 雜項 | `chore: 更新依賴套件` |
+| Type       | 說明     | 範例                              |
+| ---------- | -------- | --------------------------------- |
+| `feat`     | 新功能   | `feat(auth): 新增 OAuth 登入`     |
+| `fix`      | Bug 修復 | `fix(api): 修正 CORS 設定`        |
+| `docs`     | 文件更新 | `docs: 更新 API 文件`             |
+| `style`    | 格式調整 | `style: 統一縮排格式`             |
+| `refactor` | 重構     | `refactor(service): 重構用戶服務` |
+| `perf`     | 效能優化 | `perf(query): 優化資料庫查詢`     |
+| `test`     | 測試相關 | `test: 新增單元測試`              |
+| `chore`    | 雜項     | `chore: 更新依賴套件`             |
 
 ### 範例
 
@@ -87,6 +94,7 @@ Closes #123
 ```
 
 範例：
+
 - `[Feature] 新增使用者認證模組`
 - `[Fix] 修正登入頁面錯誤`
 - `[Refactor] 重構 API 路由結構`
@@ -95,9 +103,11 @@ Closes #123
 
 ```markdown
 ## 變更摘要
+
 <!-- 簡述這個 PR 做了什麼 -->
 
 ## 變更類型
+
 - [ ] 新功能
 - [ ] Bug 修復
 - [ ] 重構
@@ -105,21 +115,27 @@ Closes #123
 - [ ] 其他
 
 ## 相關 Issue
+
 Closes #XXX
 
 ## 變更內容
+
 <!-- 詳細說明變更內容 -->
 
 ## 測試方式
+
 <!-- 如何測試這些變更 -->
+
 - [ ] 單元測試
 - [ ] 整合測試
 - [ ] 手動測試
 
 ## 截圖（如適用）
+
 <!-- 附上相關截圖 -->
 
 ## 檢查清單
+
 - [ ] 程式碼符合專案規範
 - [ ] 已撰寫/更新測試
 - [ ] 已更新相關文件

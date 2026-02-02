@@ -33,6 +33,7 @@ updated: 2026-01-22
 **原因**：useCallback/useMemo 必須在使用它們的 useEffect 之前定義
 
 **正確做法**：
+
 ```typescript
 // ✅ 正確：useCallback 在 useEffect 之前定義
 const loadData = useCallback(async () => {
@@ -61,6 +62,7 @@ const loadData = useCallback(async () => {
 **原因**：useEffect 的清理函數執行時，ref.current 可能已變更
 
 **正確做法**：
+
 ```typescript
 // ✅ 正確：複製 ref 值到本地變數
 useEffect(() => {
@@ -93,6 +95,7 @@ useEffect(() => {
 ```
 
 **適用情境**：
+
 - IntersectionObserver
 - ResizeObserver
 - MutationObserver
@@ -106,6 +109,7 @@ useEffect(() => {
 **原因**：Context 檔案需要匯出 Provider 組件和 Hook，但 react-refresh 要求檔案只匯出組件
 
 **正確做法**：
+
 ```typescript
 // ✅ 正確：在 hook 匯出前添加 eslint-disable
 /**
@@ -127,6 +131,7 @@ import { createContext, useContext } from 'react';
 ```
 
 **適用情境**：
+
 - 所有 `*Context.tsx` 檔案
 - 同時匯出 Provider 和 Hook 的模組
 
@@ -135,6 +140,7 @@ import { createContext, useContext } from 'react';
 **問題**：React Hook 的依賴陣列警告
 
 **正確做法**：
+
 ```typescript
 // ✅ 正確：註解放在依賴陣列的正上方
 useEffect(() => {
@@ -151,6 +157,7 @@ useEffect(() => {
 ```
 
 **適用情境**：
+
 - 初始化時執行一次的效果
 - 回調函數已穩定化（useCallback 包裝）
 - 明確不需要依賴變更觸發的場景
@@ -158,6 +165,7 @@ useEffect(() => {
 ### 1.3 未使用變數處理
 
 **處理方式**：
+
 ```typescript
 // ✅ 使用底線前綴標記有意忽略的變數
 const [_unused, setUsed] = useState<string>('');
@@ -173,6 +181,7 @@ import { useCallback } from 'react'; // 如果未使用則刪除
 ### 1.4 any 類型處理
 
 **處理方式**：
+
 ```typescript
 // ✅ 使用 unknown 並進行類型斷言
 function handleResponse(data: unknown): void {
@@ -200,6 +209,7 @@ const legacy: any = getLegacyData();
 **核心原則**：所有 API 請求必須使用統一的 `apiClient`，禁止直接 import axios。
 
 **原因**：
+
 - `apiClient` 已內建 Cookie 認證 (withCredentials)
 - 自動處理 CSRF Token
 - 支援 Token 自動刷新
@@ -207,19 +217,21 @@ const legacy: any = getLegacyData();
 - **直接使用 axios 在無痕模式/清除快取後會失效**
 
 **正確做法**：
+
 ```typescript
 // ✅ 正確：使用統一 apiClient
 import apiClient from '@/api/client';
 
 const fetchData = async () => {
   const response = await apiClient.post('/basemap/layers/list', {
-    enabled_only: true
+    enabled_only: true,
   });
   return response.data;
 };
 ```
 
 **錯誤做法**：
+
 ```typescript
 // ❌ 錯誤：直接 import axios（會觸發 ESLint 錯誤）
 import axios from 'axios';
@@ -234,12 +246,14 @@ const fetchData = async () => {
 ### 2.2 例外情況
 
 僅以下檔案允許直接使用 axios：
+
 - `api/client.ts` - apiClient 定義檔
 - `api/axiosInstance.ts` - 底層實例（如需保留）
 
 ### 2.3 ESLint 規則
 
 已配置 `no-restricted-imports` 規則自動檢測：
+
 ```javascript
 // .eslintrc.cjs
 'no-restricted-imports': ['error', {
@@ -272,6 +286,7 @@ const response = await apiClient.post('/endpoint', data);
 **症狀**：所有 API 請求返回 404 Not Found
 
 **錯誤模式**：
+
 ```typescript
 // ❌ 錯誤：apiClient 已有 baseURL='/api/v1'，又加了前綴
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
@@ -285,17 +300,19 @@ apiClient.get(`${API_BASE_URL}/gislayers/identify`);
 ```
 
 **正確做法**：
+
 ```typescript
 // ✅ 正確：直接使用相對路徑
 apiClient.post('/analytics/trends', data);
 // 實際請求: /api/v1/analytics/trends ✓
 
 // ✅ 正確：若需保留 API_BASE_URL 變數，設為空字串
-const API_BASE_URL = '';  // 或直接移除此常數
+const API_BASE_URL = ''; // 或直接移除此常數
 apiClient.get(`${API_BASE_URL}/gislayers/identify`);
 ```
 
 **受影響的檔案範例**：
+
 - `pages/DashboardPage.tsx`
 - `pages/ModuleManagementPage.tsx`
 - `pages/SiteManagementPageImproved.tsx`
@@ -303,6 +320,7 @@ apiClient.get(`${API_BASE_URL}/gislayers/identify`);
 - `services/esriIdentifyService.ts`
 
 **檢查指令**：
+
 ```bash
 # 搜尋可能的錯誤模式
 grep -rn "apiClient.*API_BASE_URL" frontend/src/
@@ -323,6 +341,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 ```
 
 **正確做法**：
+
 ```typescript
 // ✅ 正確：使用相對路徑（不含 /api/v1）
 await apiClient.post('/code-categories/engineering');
@@ -351,6 +370,7 @@ const ENDPOINTS = {
 ### 2.3 後端路由註冊
 
 **正確做法**（`router_registry.py`）：
+
 ```python
 # ✅ 路由前綴包含完整路徑
 app.include_router(
@@ -368,12 +388,12 @@ app.include_router(
 
 **位置**：`frontend/src/api/utils/cacheConfig.ts`
 
-| 類型 | staleTime | gcTime | 適用場景 |
-|------|-----------|--------|----------|
-| SLOW | 30 分鐘 | 2 小時 | 導航、系統配置、參考資料 |
-| MEDIUM | 5 分鐘 | 30 分鐘 | 地價資料、案件列表 |
-| FAST | 1 分鐘 | 5 分鐘 | 即時資料、交易紀錄 |
-| REALTIME | 0 | 1 分鐘 | 地圖資料、即時狀態 |
+| 類型     | staleTime | gcTime  | 適用場景                 |
+| -------- | --------- | ------- | ------------------------ |
+| SLOW     | 30 分鐘   | 2 小時  | 導航、系統配置、參考資料 |
+| MEDIUM   | 5 分鐘    | 30 分鐘 | 地價資料、案件列表       |
+| FAST     | 1 分鐘    | 5 分鐘  | 即時資料、交易紀錄       |
+| REALTIME | 0         | 1 分鐘  | 地圖資料、即時狀態       |
 
 ### 3.2 使用範例
 
@@ -430,6 +450,7 @@ const DATA_TYPE_CACHE_MAP = {
 ### 4.1 嚴格模式檢查
 
 **tsconfig.json 必要配置**：
+
 ```json
 {
   "compilerOptions": {
@@ -475,7 +496,7 @@ const Status = {
   Active: 'active',
   Inactive: 'inactive',
 } as const;
-type Status = typeof Status[keyof typeof Status];
+type Status = (typeof Status)[keyof typeof Status];
 ```
 
 ---
@@ -484,14 +505,14 @@ type Status = typeof Status[keyof typeof Status];
 
 ### 5.1 檔案命名
 
-| 類型 | 規範 | 範例 |
-|------|------|------|
-| React 元件 | PascalCase | `UserProfile.tsx` |
-| Hook | camelCase + use 前綴 | `useMapView.ts` |
-| 服務/API | camelCase | `landInfoApi.ts` |
-| 常數 | UPPER_SNAKE_CASE | `ERROR_CODES.ts` |
-| 工具函數 | camelCase | `formatDate.ts` |
-| 後端模組 | snake_case | `land_parcel_crud.py` |
+| 類型       | 規範                 | 範例                  |
+| ---------- | -------------------- | --------------------- |
+| React 元件 | PascalCase           | `UserProfile.tsx`     |
+| Hook       | camelCase + use 前綴 | `useMapView.ts`       |
+| 服務/API   | camelCase            | `landInfoApi.ts`      |
+| 常數       | UPPER_SNAKE_CASE     | `ERROR_CODES.ts`      |
+| 工具函數   | camelCase            | `formatDate.ts`       |
+| 後端模組   | snake_case           | `land_parcel_crud.py` |
 
 ### 5.2 變數命名
 
@@ -550,6 +571,7 @@ import styles from './Component.module.css';
 **目的**：在開發時保留有用的日誌，但不影響 ESLint 檢查
 
 **正確做法**：
+
 ```typescript
 // ✅ 正確：使用 DEBUG 環境變數控制
 // 在檔案頂部定義
@@ -563,6 +585,7 @@ if (DEBUG_GIS) console.warn('[GisPlatformPage] Layer loaded:', layerName);
 ```
 
 **啟用調試**：
+
 ```bash
 # 在 .env 或 .env.development 中設定
 VITE_DEBUG_CACHE=true
@@ -581,22 +604,26 @@ VITE_DEBUG_LAYER=true
 ### 7.2 允許的 console.log 使用
 
 **偵錯工具類（永久保留）**：
+
 - `utils/diagnostics.ts` - 診斷工具
 - `utils/performanceMonitor.ts` - 效能監控
 - `utils/errorMonitoring.ts` - 錯誤監控
 - `utils/logger.ts` - 日誌工具
 
 **測試類（永久保留）**：
+
 - `__tests__/` 目錄下的測試檔案
 - `.stories.tsx` Storybook 故事檔
 
 **文檔類（永久保留）**：
+
 - JSDoc 註解中的範例代碼
 - README.md 中的使用範例
 
 ### 6.2 開發偵錯日誌規範
 
 **正確做法**：
+
 ```typescript
 // ✅ 正確：使用 DEV 環境檢查 + eslint-disable
 if (import.meta.env.DEV) {
@@ -613,6 +640,7 @@ console.warn('[Deprecation]', message);
 ```
 
 **錯誤做法**：
+
 ```typescript
 // ❌ 錯誤：未包裝的開發日誌
 console.log('debugging');
@@ -626,12 +654,12 @@ console.log('Token:', userToken);
 
 ### 6.3 日誌分類
 
-| 類型 | 方法 | 環境 | 說明 |
-|------|------|------|------|
-| 偵錯 | `console.log` | DEV only | 開發階段除錯 |
-| 警告 | `console.warn` | All | 潛在問題警示 |
-| 錯誤 | `console.error` | All | 錯誤追蹤 |
-| 資訊 | `console.info` | DEV only | 狀態資訊 |
+| 類型 | 方法            | 環境     | 說明         |
+| ---- | --------------- | -------- | ------------ |
+| 偵錯 | `console.log`   | DEV only | 開發階段除錯 |
+| 警告 | `console.warn`  | All      | 潛在問題警示 |
+| 錯誤 | `console.error` | All      | 錯誤追蹤     |
+| 資訊 | `console.info`  | DEV only | 狀態資訊     |
 
 ### 6.4 清理原則
 
@@ -678,6 +706,7 @@ exclude = [".git", "__pycache__", "migrations", ".venv"]
 **問題**：`extend-ignore` 區塊不可包含行內註解
 
 **正確做法**（`.flake8` 檔案）：
+
 ```ini
 # ✅ 正確：註解放在 extend-ignore 區塊之前
 # E203: Whitespace before ':' (conflicts with black)
@@ -699,6 +728,7 @@ extend-ignore =
 **問題**：測試時缺少環境變數導致 `ValidationError`
 
 **正確做法**（`conftest.py`）：
+
 ```python
 # ✅ 必須在導入 app 模組之前設定環境變數
 os.environ.setdefault("TESTING", "1")
@@ -752,13 +782,13 @@ from backend.app.schemas.user import UserCreate, UserResponse
 
 ### 8.6 命名規範
 
-| 類型 | 規範 | 範例 |
-|------|------|------|
-| 模組/套件 | snake_case | `user_service.py` |
-| 類別 | PascalCase | `UserService` |
-| 函數/方法 | snake_case | `get_user_by_id` |
-| 常數 | UPPER_SNAKE | `MAX_RETRY_COUNT` |
-| 私有成員 | _前綴 | `_internal_cache` |
+| 類型      | 規範        | 範例              |
+| --------- | ----------- | ----------------- |
+| 模組/套件 | snake_case  | `user_service.py` |
+| 類別      | PascalCase  | `UserService`     |
+| 函數/方法 | snake_case  | `get_user_by_id`  |
+| 常數      | UPPER_SNAKE | `MAX_RETRY_COUNT` |
+| 私有成員  | \_前綴      | `_internal_cache` |
 
 ### 8.7 FastAPI 路由規範
 
@@ -855,12 +885,12 @@ npm run build
 
 ### 目標指標
 
-| 指標 | 目標 |
-|------|------|
-| TypeScript 錯誤 | 0 個 |
-| ESLint 錯誤 | 0 個 |
-| ESLint 警告 | < 60 個 |
-| 測試覆蓋率 | > 70% |
+| 指標            | 目標    |
+| --------------- | ------- |
+| TypeScript 錯誤 | 0 個    |
+| ESLint 錯誤     | 0 個    |
+| ESLint 警告     | < 60 個 |
+| 測試覆蓋率      | > 70%   |
 
 ---
 
@@ -889,15 +919,16 @@ backend/app/layer_management/
 
 **目的**：統一資料庫欄位與 Schema 欄位命名
 
-| 表名 | 資料庫欄位 | Schema 欄位 | 說明 |
-|------|-----------|-------------|------|
-| `spatial_layers` | `layer_name` | `name` | 圖層名稱 |
-| `spatial_layers` | `is_visible` | `is_enabled` | 啟用狀態 |
-| `dynamic_layers` | `layer_code` | `name` | 圖層代碼 |
+| 表名             | 資料庫欄位     | Schema 欄位   | 說明     |
+| ---------------- | -------------- | ------------- | -------- |
+| `spatial_layers` | `layer_name`   | `name`        | 圖層名稱 |
+| `spatial_layers` | `is_visible`   | `is_enabled`  | 啟用狀態 |
+| `dynamic_layers` | `layer_code`   | `name`        | 圖層代碼 |
 | `dynamic_layers` | `api_endpoint` | `service_url` | 服務 URL |
-| `dynamic_layers` | `is_active` | `is_enabled` | 啟用狀態 |
+| `dynamic_layers` | `is_active`    | `is_enabled`  | 啟用狀態 |
 
 **正確做法**：
+
 ```python
 # ✅ 正確：在 Repository 層進行欄位映射
 def find_all_shapefiles(self) -> List[Dict[str, Any]]:
@@ -925,10 +956,10 @@ class ImportFromSourceRequest(BaseModel):
 
 ### 10.4 opacity 預設值規範
 
-| 圖層類型 | 預設 opacity | 說明 |
-|---------|--------------|------|
-| Basemap | 1.0 | 底圖完全不透明 |
-| GIS Layer | 0.8 | 疊加圖層 80% |
+| 圖層類型  | 預設 opacity | 說明           |
+| --------- | ------------ | -------------- |
+| Basemap   | 1.0          | 底圖完全不透明 |
+| GIS Layer | 0.8          | 疊加圖層 80%   |
 
 ```python
 # ✅ 正確：依目標類型設定預設值
@@ -993,14 +1024,14 @@ cd frontend && npx tsc --noEmit
 
 ### 11.2 常見 API 端點路徑
 
-| 模組 | 後端路徑 | HTTP 方法 | 說明 |
-|------|---------|----------|------|
-| Basemap 群組 | `/basemap-db/groups/list` | POST | 取得底圖群組列表 |
-| Basemap 圖層 | `/basemap-db/layers/list` | POST | 取得底圖圖層列表 |
-| GIS 群組 | `/gis/gislayers/groups/list` | POST | 取得 GIS 群組列表 |
-| GIS 圖層 | `/gis/gislayers/layers/list` | POST | 取得 GIS 圖層列表 |
-| Spatial 圖層 | `/spatial/layers/list` | POST | 取得 Shapefile 圖層列表 |
-| 統一圖層 | `/system/unified/layers/all` | GET | 取得所有圖層統一檢視 |
+| 模組         | 後端路徑                     | HTTP 方法 | 說明                    |
+| ------------ | ---------------------------- | --------- | ----------------------- |
+| Basemap 群組 | `/basemap-db/groups/list`    | POST      | 取得底圖群組列表        |
+| Basemap 圖層 | `/basemap-db/layers/list`    | POST      | 取得底圖圖層列表        |
+| GIS 群組     | `/gis/gislayers/groups/list` | POST      | 取得 GIS 群組列表       |
+| GIS 圖層     | `/gis/gislayers/layers/list` | POST      | 取得 GIS 圖層列表       |
+| Spatial 圖層 | `/spatial/layers/list`       | POST      | 取得 Shapefile 圖層列表 |
+| 統一圖層     | `/system/unified/layers/all` | GET       | 取得所有圖層統一檢視    |
 
 ### 11.3 前端 API 客戶端對應
 
@@ -1009,15 +1040,15 @@ cd frontend && npx tsc --noEmit
 import { gisApi } from '@/api/unified/gisUnifiedApi';
 
 // 底圖管理
-await gisApi.basemaps.listGroups();  // → POST /basemap-db/groups/list
-await gisApi.basemaps.listLayers();  // → POST /basemap-db/layers/list
+await gisApi.basemaps.listGroups(); // → POST /basemap-db/groups/list
+await gisApi.basemaps.listLayers(); // → POST /basemap-db/layers/list
 
 // GIS 圖層管理
-await gisApi.layers.listGroups();    // → POST /gis/gislayers/groups/list
-await gisApi.layers.listLayers();    // → POST /gis/gislayers/layers/list
+await gisApi.layers.listGroups(); // → POST /gis/gislayers/groups/list
+await gisApi.layers.listLayers(); // → POST /gis/gislayers/layers/list
 
 // 空間圖層
-await gisApi.spatial.listLayers();   // → POST /spatial/layers/list
+await gisApi.spatial.listLayers(); // → POST /spatial/layers/list
 ```
 
 ### 11.4 Vite 代理配置驗證
@@ -1037,12 +1068,12 @@ proxy: {
 
 ### 11.5 問題排除
 
-| 症狀 | 可能原因 | 解決方案 |
-|-----|---------|---------|
-| 404 Not Found | 路徑錯誤或方法錯誤 | 檢查 POST vs GET |
-| 405 Method Not Allowed | HTTP 方法不正確 | 確認端點要求的方法 |
-| 代理不生效 | Vite 未重啟 | 重新啟動前端服務 |
-| 連線被拒 | 後端未啟動 | 檢查 docker ps |
+| 症狀                   | 可能原因           | 解決方案           |
+| ---------------------- | ------------------ | ------------------ |
+| 404 Not Found          | 路徑錯誤或方法錯誤 | 檢查 POST vs GET   |
+| 405 Method Not Allowed | HTTP 方法不正確    | 確認端點要求的方法 |
+| 代理不生效             | Vite 未重啟        | 重新啟動前端服務   |
+| 連線被拒               | 後端未啟動         | 檢查 docker ps     |
 
 ---
 
@@ -1070,18 +1101,19 @@ frontend/src/api/
 ### 12.2 命名空間模式
 
 **正確做法**：
+
 ```typescript
 // ✅ 正確：使用命名空間物件
 export const positioningApi = {
   tools: {
-    list: (filter) => apiClient.post('/system/positioning-tools/list', filter),
-    create: (params) => apiClient.post('/system/positioning-tools/create', params),
+    list: filter => apiClient.post('/system/positioning-tools/list', filter),
+    create: params => apiClient.post('/system/positioning-tools/create', params),
     update: (id, params) => apiClient.post(`/system/positioning-tools/${id}/update`, params),
-    delete: (id) => apiClient.post(`/system/positioning-tools/${id}/delete`),
+    delete: id => apiClient.post(`/system/positioning-tools/${id}/delete`),
     toggle: (id, enabled) => positioningApi.tools.update(id, { is_enabled: enabled }),
   },
   locations: {
-    list: (filter) => apiClient.post('/system/topic-locations/list', filter),
+    list: filter => apiClient.post('/system/topic-locations/list', filter),
     // ...
   },
   constants: {
@@ -1091,8 +1123,8 @@ export const positioningApi = {
 };
 
 // ❌ 錯誤：獨立函數散落各處
-export function getPositioningTools() { }
-export function createPositioningTool() { }
+export function getPositioningTools() {}
+export function createPositioningTool() {}
 ```
 
 ### 12.3 使用統一 API
@@ -1131,7 +1163,7 @@ export {
 
 **目的**：提供清晰的遷移路徑，避免突然破壞
 
-```typescript
+````typescript
 /**
  * 定位工具 API
  *
@@ -1149,16 +1181,16 @@ export {
  * const { data: tools } = await positioningApi.tools.list({ page_id: 'gis-map' });
  * ```
  */
-```
+````
 
 ### 13.2 棄用週期
 
-| 階段 | 時長 | 動作 |
-|------|------|------|
-| 宣告棄用 | Day 0 | 加入 `@deprecated` 標記 |
-| 遷移期 | 60-90 天 | 保持功能正常，新功能不加入舊 API |
-| 日落期 | Day 60-90 | 加入 console.warn 警告 |
-| 移除 | Day 90+ | 刪除舊檔案 |
+| 階段     | 時長      | 動作                             |
+| -------- | --------- | -------------------------------- |
+| 宣告棄用 | Day 0     | 加入 `@deprecated` 標記          |
+| 遷移期   | 60-90 天  | 保持功能正常，新功能不加入舊 API |
+| 日落期   | Day 60-90 | 加入 console.warn 警告           |
+| 移除     | Day 90+   | 刪除舊檔案                       |
 
 ### 13.3 console.warn 範例
 
@@ -1167,7 +1199,7 @@ export {
 if (import.meta.env.DEV) {
   console.warn(
     '[Deprecation Warning] positioningToolsApi 將於 2026-03-01 移除。' +
-    '請遷移至 @/api/unified/positioningUnifiedApi'
+      '請遷移至 @/api/unified/positioningUnifiedApi'
   );
 }
 ```
@@ -1178,22 +1210,22 @@ if (import.meta.env.DEV) {
 
 ### 14.1 使用 React Query 的場景
 
-| 場景 | 適用 | 範例 |
-|------|------|------|
-| CRUD 操作 | ✅ | `usePositioningToolsQuery` |
-| 快取重要 | ✅ | 導覽項目、系統配置 |
-| 資料共享 | ✅ | 多組件需要同資料 |
-| 背景更新 | ✅ | 定期輪詢資料 |
-| 錯誤重試 | ✅ | API 請求自動重試 |
+| 場景      | 適用 | 範例                       |
+| --------- | ---- | -------------------------- |
+| CRUD 操作 | ✅   | `usePositioningToolsQuery` |
+| 快取重要  | ✅   | 導覽項目、系統配置         |
+| 資料共享  | ✅   | 多組件需要同資料           |
+| 背景更新  | ✅   | 定期輪詢資料               |
+| 錯誤重試  | ✅   | API 請求自動重試           |
 
 ### 14.2 保持 useState 的場景
 
-| 場景 | 原因 | 範例 |
-|------|------|------|
-| 複雜協調邏輯 | 多源併行查詢難以用 Query Key 管理 | `useComprehensiveQuery` |
-| 即時狀態管理 | 狀態轉換複雜 | `useUnifiedPolygonQuery` |
-| 事件處理 | 非資料獲取 | `useMapClickHandler` |
-| 本地 UI 狀態 | 不需伺服器同步 | 表單輸入、開關狀態 |
+| 場景         | 原因                              | 範例                     |
+| ------------ | --------------------------------- | ------------------------ |
+| 複雜協調邏輯 | 多源併行查詢難以用 Query Key 管理 | `useComprehensiveQuery`  |
+| 即時狀態管理 | 狀態轉換複雜                      | `useUnifiedPolygonQuery` |
+| 事件處理     | 非資料獲取                        | `useMapClickHandler`     |
+| 本地 UI 狀態 | 不需伺服器同步                    | 表單輸入、開關狀態       |
 
 ### 14.3 Query Key 命名規範
 
@@ -1284,6 +1316,7 @@ async def execute(self, intent: ParsedIntent, context: ExecutionContext) -> Dict
 詳見 `.claude/skills/gis-map-feature-patterns.md`
 
 **命名規範**：
+
 ```typescript
 // Hook 命名
 use{Feature}MapFeature  // useUrbanRenewalMapFeature
@@ -1295,6 +1328,7 @@ use{Feature}MapFeature  // useUrbanRenewalMapFeature
 ```
 
 **標準介面**：
+
 ```typescript
 interface MapFeatureReturn {
   // 面板狀態
@@ -1318,12 +1352,12 @@ interface MapFeatureReturn {
 
 ### 16.2 高亮標記視覺規範
 
-| 功能類型 | 主色調 | Hex Code |
-|---------|-------|----------|
-| 都市更新 | 紫色 | `#722ed1` |
-| 開發區 | 綠色 | `#52c41a` |
-| 控制點 | 藍色 | `#1890ff` |
-| 地標 | 橙色 | `#fa8c16` |
+| 功能類型 | 主色調 | Hex Code  |
+| -------- | ------ | --------- |
+| 都市更新 | 紫色   | `#722ed1` |
+| 開發區   | 綠色   | `#52c41a` |
+| 控制點   | 藍色   | `#1890ff` |
+| 地標     | 橙色   | `#fa8c16` |
 
 ### 16.3 必要自動行為
 
@@ -1384,6 +1418,7 @@ const handleClearAllFeatures = useCallback(() => {
 ### 17.2 新增功能檢查清單
 
 當新增地圖功能時：
+
 - [ ] 在 `handleClearAllFeatures` 加入清除邏輯
 - [ ] 清除包含：圖層可見性 + 高亮標記 + 相關面板
 
@@ -1422,5 +1457,113 @@ import { KmlExportButton } from '@/components/Export';
 
 ---
 
+## 十九、資安程式碼規範 (2026-02-02 新增)
+
+### 19.1 敏感資訊管理
+
+**禁止硬編碼敏感資訊**：
+
+```python
+# ❌ 錯誤：硬編碼 API Key
+API_KEY = "sk-1234567890abcdef"
+DATABASE_PASSWORD = "mypassword123"
+
+# ✅ 正確：使用環境變數
+import os
+API_KEY = os.environ.get("API_KEY")
+DATABASE_PASSWORD = os.environ.get("DATABASE_PASSWORD")
+
+# ✅ 正確：使用 Pydantic Settings
+from pydantic_settings import BaseSettings
+
+class Settings(BaseSettings):
+    api_key: str
+    database_password: str
+
+    class Config:
+        env_file = ".env"
+```
+
+**必須加入 .gitignore 的檔案**：
+
+```gitignore
+.env
+.env.local
+.env.production
+*.pem
+*.key
+credentials.json
+secrets/
+```
+
+### 19.2 SQL 注入防護
+
+```python
+# ❌ 危險：字串拼接
+query = f"SELECT * FROM users WHERE id = {user_id}"
+
+# ✅ 正確：使用 ORM
+from sqlalchemy import select
+stmt = select(User).where(User.id == user_id)
+
+# ✅ 正確：使用參數化查詢
+from sqlalchemy import text
+stmt = text("SELECT * FROM users WHERE id = :id")
+result = await db.execute(stmt, {"id": user_id})
+```
+
+### 19.3 XSS 防護
+
+```typescript
+// ❌ 危險：直接渲染 HTML
+<div dangerouslySetInnerHTML={{ __html: userInput }} />
+
+// ✅ 正確：React 自動轉義
+<div>{userInput}</div>
+
+// ✅ 如必須渲染 HTML，使用 DOMPurify
+import DOMPurify from 'dompurify';
+<div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(userInput) }} />
+```
+
+### 19.4 依賴安全檢查
+
+**每週執行**：
+
+```bash
+# 前端
+npm audit --audit-level=high
+
+# 後端
+pip-audit --desc
+```
+
+**必要配置**：
+
+- 啟用 Dependabot 或 Renovate
+- CI 加入 `npm audit` / `pip-audit` 步驟
+- 使用確切版本號鎖定依賴
+
+### 19.5 安全檢查清單
+
+**每次程式碼審查**：
+
+- [ ] 無硬編碼密鑰或密碼
+- [ ] SQL 使用 ORM 或參數化查詢
+- [ ] 無 `dangerouslySetInnerHTML` 或已用 DOMPurify
+- [ ] 環境變數已從 `.env.example` 提供範本
+- [ ] 敏感資料不記錄到日誌
+
+**部署前**：
+
+- [ ] 執行 `npm audit` / `pip-audit`
+- [ ] DEBUG 模式已關閉
+- [ ] CORS 只允許信任來源
+- [ ] 敏感端點有認證保護
+
+**詳細規範**：`.claude/skills/_shared/shared/security-patterns/`
+
+---
+
 **建立日期**：2025-12-24
-**最後更新**：2026-01-08 (加入 API 路徑重複 P0 警告)
+**最後更新**：2026-02-02 (加入資安程式碼規範)

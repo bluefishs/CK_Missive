@@ -162,7 +162,7 @@ class GeneratedReportCRUD:
 generated_report_crud = GeneratedReportCRUD()
 ```
 
-### 2.3 更新 __init__.py
+### 2.3 更新 **init**.py
 
 ```python
 # backend/app/api/v1/crud/__init__.py
@@ -269,13 +269,13 @@ def old_endpoint():
 
 ## 五、已遷移模組清單
 
-| 模組 | 舊位置 | 新位置 | 狀態 |
-|------|--------|--------|------|
-| transaction | `crud/transaction.py` | `api/v1/crud/transaction.py` | ✅ |
-| land_parcel | `crud/land_parcel.py` | `api/v1/crud/land_parcel.py` | ✅ |
-| ai_chat_log | `crud/crud_ai_chat_log.py` | `api/v1/crud/ai_chat_log.py` | ✅ |
-| analysis_module | `crud/analysis_module.py` | `api/v1/crud/analysis_module.py` | ✅ |
-| generated_report | `crud/crud_generated_report.py` | `api/v1/crud/generated_report.py` | ✅ |
+| 模組             | 舊位置                          | 新位置                            | 狀態 |
+| ---------------- | ------------------------------- | --------------------------------- | ---- |
+| transaction      | `crud/transaction.py`           | `api/v1/crud/transaction.py`      | ✅   |
+| land_parcel      | `crud/land_parcel.py`           | `api/v1/crud/land_parcel.py`      | ✅   |
+| ai_chat_log      | `crud/crud_ai_chat_log.py`      | `api/v1/crud/ai_chat_log.py`      | ✅   |
+| analysis_module  | `crud/analysis_module.py`       | `api/v1/crud/analysis_module.py`  | ✅   |
+| generated_report | `crud/crud_generated_report.py` | `api/v1/crud/generated_report.py` | ✅   |
 
 ---
 
@@ -305,6 +305,7 @@ cd backend && python -m uvicorn backend.app.main:app --reload
 ### 7.1 資安規範
 
 根據 `.speckit/api-standards.md` Section 0：
+
 - DELETE 方法 → POST + `/delete` 端點
 - PUT 方法 → POST + `/update` 端點
 

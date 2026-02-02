@@ -304,6 +304,7 @@ sequence = await DocumentNumberService.get_next_sequence(
 ## 錯誤處理檢查清單
 
 ### 後端
+
 - [ ] 所有 DB 操作都有 try-except-rollback
 - [ ] 使用標準 HTTPException 格式
 - [ ] 敏感資訊不暴露在錯誤訊息中
@@ -311,6 +312,7 @@ sequence = await DocumentNumberService.get_next_sequence(
 - [ ] 區分業務邏輯錯誤和系統錯誤
 
 ### 前端
+
 - [ ] API 請求有統一的錯誤處理
 - [ ] 使用 App.useApp() 取得 message
 - [ ] 關鍵頁面有 ErrorBoundary

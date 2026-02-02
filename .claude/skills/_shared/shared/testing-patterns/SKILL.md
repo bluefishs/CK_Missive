@@ -1,36 +1,27 @@
----
-name: testing-patterns
-description: 測試策略和模式指南 - Vitest, Pytest, MSW
-version: 1.0.0
-category: shared
-triggers:
-  - 測試模式
-  - testing patterns
-  - Vitest
-  - Pytest
-  - MSW
-  - 測試策略
-updated: 2026-01-22
----
-
 # 測試模式技能
 
-> **用途**: 測試策略和模式指南
-> **觸發**: 測試模式, testing patterns, Vitest, Pytest
+> **技能名稱**: testing-patterns
+> **觸發**: `測試模式`, `testing patterns`, `Vitest`, `Pytest`, `MSW`, `測試策略`
 > **版本**: 1.0.0
-> **分類**: shared
+> **分類**: project
+> **更新日期**: 2026-01-22
+> **用途**：測試策略和模式指南 - Vitest, Pytest, MSW
+> **適用場景**：開發新功能、程式碼審查、重構
 
 ## 概述
+
 專案的測試策略和模式指南。
 
 ## 測試框架
 
 ### 前端測試
+
 - **Vitest** - 單元測試框架
 - **React Testing Library** - 組件測試
 - **MSW** - API Mock
 
 ### 後端測試
+
 - **Jest** - 測試框架
 - **Supertest** - API 測試
 
@@ -88,9 +79,7 @@ import app from '../app';
 
 describe('GET /api/v1/control-points', () => {
   it('should return control points list', async () => {
-    const response = await request(app)
-      .get('/api/v1/control-points')
-      .expect(200);
+    const response = await request(app).get('/api/v1/control-points').expect(200);
 
     expect(response.body).toHaveProperty('data');
     expect(Array.isArray(response.body.data)).toBe(true);
@@ -106,8 +95,8 @@ describe('GET /api/v1/control-points', () => {
 
 ## 測試覆蓋目標
 
-| 類型 | 目標覆蓋率 |
-|------|-----------|
-| 單元測試 | 80% |
-| 集成測試 | 60% |
-| E2E 測試 | 關鍵路徑 |
+| 類型     | 目標覆蓋率 |
+| -------- | ---------- |
+| 單元測試 | 80%        |
+| 集成測試 | 60%        |
+| E2E 測試 | 關鍵路徑   |

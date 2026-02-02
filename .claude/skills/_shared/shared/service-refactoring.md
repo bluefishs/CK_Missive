@@ -27,20 +27,20 @@ updated: 2026-01-22
 
 ### 1.1 需要拆分的標準
 
-| 指標 | 閾值 | 說明 |
-|------|------|------|
-| 檔案大小 | > 30KB | 程式碼過於集中 |
-| 程式碼行數 | > 800 行 | 難以維護 |
-| 函數數量 | > 20 個 | 職責過多 |
-| 相依模組 | > 10 個 | 耦合度過高 |
+| 指標       | 閾值     | 說明           |
+| ---------- | -------- | -------------- |
+| 檔案大小   | > 30KB   | 程式碼過於集中 |
+| 程式碼行數 | > 800 行 | 難以維護       |
+| 函數數量   | > 20 個  | 職責過多       |
+| 相依模組   | > 10 個  | 耦合度過高     |
 
 ### 1.2 目前待拆分服務
 
-| 服務 | 大小 | 問題 | 優先級 |
-|------|------|------|--------|
-| `moi_building_query_service.py` | 54KB | 單體過大，包含模型、工具、服務 | P3 |
-| `coordinate_service.py` | 36KB | 驗證、轉換、快取混合 | P3 |
-| `land_price_service.py` | 16KB | 接近閾值 | P4 |
+| 服務                            | 大小 | 問題                           | 優先級 |
+| ------------------------------- | ---- | ------------------------------ | ------ |
+| `moi_building_query_service.py` | 54KB | 單體過大，包含模型、工具、服務 | P3     |
+| `coordinate_service.py`         | 36KB | 驗證、轉換、快取混合           | P3     |
+| `land_price_service.py`         | 16KB | 接近閾值                       | P4     |
 
 ---
 
@@ -51,6 +51,7 @@ updated: 2026-01-22
 **現狀**：54KB，包含資料模型、地址解析、API 呼叫、結果處理
 
 **目標結構**：
+
 ```
 backend/app/services/moi/building/
 ├── __init__.py           # 統一匯出
@@ -186,6 +187,7 @@ class MOIBuildingQueryService:
 **現狀**：36KB，混合驗證、轉換、快取邏輯
 
 **目標結構**：
+
 ```
 backend/app/services/coordinate/
 ├── __init__.py           # 統一匯出
@@ -308,13 +310,13 @@ backend/app/services/
 
 ### 4.2 模組命名規範
 
-| 類型 | 命名 | 範例 |
-|------|------|------|
-| 目錄 | snake_case | `moi/building/` |
-| 模組 | snake_case | `query_service.py` |
-| 類別 | PascalCase | `MOIBuildingQueryService` |
-| 函數 | snake_case | `parse_address` |
-| 常數 | UPPER_SNAKE | `MAX_RETRY_COUNT` |
+| 類型 | 命名        | 範例                      |
+| ---- | ----------- | ------------------------- |
+| 目錄 | snake_case  | `moi/building/`           |
+| 模組 | snake_case  | `query_service.py`        |
+| 類別 | PascalCase  | `MOIBuildingQueryService` |
+| 函數 | snake_case  | `parse_address`           |
+| 常數 | UPPER_SNAKE | `MAX_RETRY_COUNT`         |
 
 ---
 
@@ -339,22 +341,22 @@ python -c "from backend.app.services import *"
 
 ### 效能驗證
 
-| 指標 | 重構前 | 重構後目標 |
-|------|--------|------------|
-| 模組載入時間 | 基準 | <= 基準 |
-| 記憶體使用 | 基準 | <= 基準 |
-| API 響應時間 | 基準 | <= 基準 |
+| 指標         | 重構前 | 重構後目標 |
+| ------------ | ------ | ---------- |
+| 模組載入時間 | 基準   | <= 基準    |
+| 記憶體使用   | 基準   | <= 基準    |
+| API 響應時間 | 基準   | <= 基準    |
 
 ---
 
 ## 六、時程建議
 
-| 階段 | 工作項目 | 預估工作量 |
-|------|----------|------------|
-| Phase 1 | moi_building_query_service 拆分 | 2-3 天 |
-| Phase 2 | coordinate_service 拆分 | 1-2 天 |
-| Phase 3 | 測試與驗證 | 1 天 |
-| Phase 4 | 文件更新 | 0.5 天 |
+| 階段    | 工作項目                        | 預估工作量 |
+| ------- | ------------------------------- | ---------- |
+| Phase 1 | moi_building_query_service 拆分 | 2-3 天     |
+| Phase 2 | coordinate_service 拆分         | 1-2 天     |
+| Phase 3 | 測試與驗證                      | 1 天       |
+| Phase 4 | 文件更新                        | 0.5 天     |
 
 **總計**：約 5-7 個工作天
 

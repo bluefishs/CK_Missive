@@ -322,6 +322,7 @@ save_path = f"/uploads/{safe_name}"
 ## 安全檢查清單
 
 ### 每次部署前
+
 - [ ] 環境變數已正確設定
 - [ ] DEBUG 模式已關閉
 - [ ] CORS 只允許必要的來源
@@ -329,6 +330,7 @@ save_path = f"/uploads/{safe_name}"
 - [ ] Rate limiting 已啟用
 
 ### 程式碼審查時
+
 - [ ] 無硬編碼的密鑰或密碼
 - [ ] 使用參數化查詢，無 SQL 拼接
 - [ ] 輸入都經過驗證和清理
@@ -336,6 +338,7 @@ save_path = f"/uploads/{safe_name}"
 - [ ] 檔案上傳有類型和大小限制
 
 ### 定期檢查
+
 - [ ] 執行 `/security-audit` 指令
 - [ ] 檢查依賴套件的安全更新
 - [ ] 審查存取日誌中的異常模式

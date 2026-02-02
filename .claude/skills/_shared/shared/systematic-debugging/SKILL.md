@@ -1,6 +1,15 @@
 # 系統化除錯技能
 
+> **技能名稱**: 系統化除錯技能
+> **觸發**: `/skill`
+> **版本**: 1.0.0
+> **分類**: project
+> **更新日期**: 2026-01-28
+> **用途**：提供相關功能與規範
+> **適用場景**：開發新功能、程式碼審查、重構
+
 ## 概述
+
 CK_GPS 專案的系統化除錯方法和工具。
 
 ## 除錯策略
@@ -22,12 +31,14 @@ CK_GPS 專案的系統化除錯方法和工具。
 ### 2. 常見問題類型
 
 #### 前端問題
+
 - **渲染問題**: React DevTools 檢查
 - **狀態問題**: Console.log 或 React DevTools
 - **網路問題**: Network Tab 檢查
 - **效能問題**: Performance Tab 分析
 
 #### 後端問題
+
 - **API 錯誤**: 檢查 request/response
 - **資料庫問題**: 檢查 SQL 查詢
 - **認證問題**: 檢查 JWT/Session
@@ -73,6 +84,7 @@ SELECT * FROM pg_stat_user_indexes WHERE relname = 'control_points';
 ## 日誌策略
 
 ### 前端日誌
+
 ```typescript
 // 使用結構化日誌
 const logger = {
@@ -84,11 +96,12 @@ const logger = {
   error: (msg: string, error: Error) => {
     console.error(`[ERROR] ${msg}`, error);
     // 生產環境發送到監控系統
-  }
+  },
 };
 ```
 
 ### 後端日誌
+
 ```typescript
 // 使用 Winston
 import winston from 'winston';
@@ -98,16 +111,16 @@ const logger = winston.createLogger({
   format: winston.format.json(),
   transports: [
     new winston.transports.Console(),
-    new winston.transports.File({ filename: 'logs/error.log', level: 'error' })
-  ]
+    new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
+  ],
 });
 ```
 
 ## 常見問題速查
 
-| 症狀 | 可能原因 | 檢查方式 |
-|------|---------|---------|
+| 症狀         | 可能原因       | 檢查方式          |
+| ------------ | -------------- | ----------------- |
 | API 返回 500 | 資料庫連接失敗 | 檢查 DB_HOST 配置 |
-| 頁面空白 | JS 錯誤 | Console 檢查 |
-| 資料不更新 | 快取問題 | 清除 Redis |
-| 地圖不顯示 | API Key 問題 | 檢查 Leaflet 配置 |
+| 頁面空白     | JS 錯誤        | Console 檢查      |
+| 資料不更新   | 快取問題       | 清除 Redis        |
+| 地圖不顯示   | API Key 問題   | 檢查 Leaflet 配置 |

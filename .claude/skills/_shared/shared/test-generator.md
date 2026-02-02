@@ -15,14 +15,9 @@ updated: 2026-01-22
 
 # Test Generator Skill
 
-> **用途**: 快速生成單元測試與整合測試
-> **觸發**: 測試生成, generate test, 單元測試, pytest
-> **版本**: 1.0.0
-> **分類**: shared
+快速生成單元測試與整合測試
 
 **適用場景**：新功能開發、重構、提升測試覆蓋率
-
----
 
 ## 測試類型
 
@@ -31,6 +26,7 @@ updated: 2026-01-22
 **測試範本**：
 
 #### API 端點測試
+
 ```python
 # tests/api/test_real_estate_query.py
 import pytest
@@ -89,6 +85,7 @@ async def test_query_with_coordinates():
 ```
 
 #### 服務層測試
+
 ```python
 # tests/services/test_spatial_analysis.py
 import pytest
@@ -112,6 +109,7 @@ def test_calculate_buffer_invalid_input():
 ```
 
 #### 資料庫測試
+
 ```python
 # tests/db/test_connection.py
 import pytest
@@ -135,6 +133,7 @@ def test_health_check():
 **測試範本**：
 
 #### API 客戶端測試
+
 ```javascript
 // src/api/pathAnalysisApi.test.js
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -152,15 +151,15 @@ describe('Path Analysis API', () => {
     const mockResponse = {
       data: {
         success: true,
-        data: { id: 1, name: 'Test Facility' }
-      }
+        data: { id: 1, name: 'Test Facility' },
+      },
     };
     axios.post.mockResolvedValue(mockResponse);
 
     const facility = {
       name: 'Test Facility',
       category: 'school',
-      coordinates: [121.5, 25.0]
+      coordinates: [121.5, 25.0],
     };
 
     const result = await createFacility(facility);
@@ -182,6 +181,7 @@ describe('Path Analysis API', () => {
 ```
 
 #### React 組件測試
+
 ```javascript
 // src/components/PathAnalysis/FacilityListPanel.test.jsx
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
@@ -192,7 +192,7 @@ describe('FacilityListPanel', () => {
   it('renders facility list', async () => {
     const mockFacilities = [
       { id: 1, name: 'School A', category: 'school' },
-      { id: 2, name: 'Hospital B', category: 'hospital' }
+      { id: 2, name: 'Hospital B', category: 'hospital' },
     ];
 
     render(<FacilityListPanel facilities={mockFacilities} />);
@@ -205,12 +205,7 @@ describe('FacilityListPanel', () => {
     const mockOnDelete = vi.fn();
     const facility = { id: 1, name: 'Test', category: 'school' };
 
-    render(
-      <FacilityListPanel
-        facilities={[facility]}
-        onDelete={mockOnDelete}
-      />
-    );
+    render(<FacilityListPanel facilities={[facility]} onDelete={mockOnDelete} />);
 
     const deleteButton = screen.getByRole('button', { name: /delete/i });
     fireEvent.click(deleteButton);
@@ -223,6 +218,7 @@ describe('FacilityListPanel', () => {
 ```
 
 #### Hook 測試
+
 ```javascript
 // src/hooks/usePathAnalysis.test.js
 import { renderHook, act, waitFor } from '@testing-library/react';
@@ -248,7 +244,7 @@ describe('usePathAnalysis', () => {
   it('creates facility', async () => {
     api.createFacility.mockResolvedValue({
       success: true,
-      data: { id: 1 }
+      data: { id: 1 },
     });
 
     const { result } = renderHook(() => usePathAnalysis());
@@ -267,6 +263,7 @@ describe('usePathAnalysis', () => {
 ## 測試配置
 
 ### Pytest 配置
+
 ```ini
 # backend/pytest.ini
 [pytest]
@@ -287,6 +284,7 @@ markers =
 ```
 
 ### Vitest 配置
+
 ```javascript
 // frontend/vitest.config.js
 import { defineConfig } from 'vitest/config';
@@ -301,18 +299,13 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],
-      exclude: [
-        'node_modules/',
-        'src/test/',
-        '**/*.test.{js,jsx}',
-        '**/*.spec.{js,jsx}'
-      ],
+      exclude: ['node_modules/', 'src/test/', '**/*.test.{js,jsx}', '**/*.spec.{js,jsx}'],
       lines: 50,
       functions: 50,
       branches: 50,
-      statements: 50
-    }
-  }
+      statements: 50,
+    },
+  },
 });
 ```
 
@@ -321,6 +314,7 @@ export default defineConfig({
 ## 測試執行
 
 ### 後端測試
+
 ```bash
 # 執行所有測試
 cd backend
@@ -340,6 +334,7 @@ pytest --cov=backend.app --cov-report=html
 ```
 
 ### 前端測試
+
 ```bash
 # 執行所有測試
 cd frontend
@@ -360,11 +355,13 @@ npm run test -- pathAnalysisApi.test.js
 ## 測試最佳實踐
 
 ### 1. AAA 模式
+
 - **Arrange**（準備）：設定測試數據
 - **Act**（執行）：執行被測試的功能
 - **Assert**（斷言）：驗證結果
 
 ### 2. 測試命名
+
 ```python
 # ✅ 好的命名
 def test_create_facility_with_valid_data_returns_success():
@@ -376,11 +373,13 @@ def test_facility():
 ```
 
 ### 3. 測試隔離
+
 - 每個測試獨立運行
 - 不依賴其他測試的結果
 - 使用 fixture 或 beforeEach 設定初始狀態
 
 ### 4. Mock 外部依賴
+
 ```python
 # 使用 pytest-mock
 def test_api_call(mocker):
@@ -396,6 +395,7 @@ def test_api_call(mocker):
 ### 使用 AI 生成測試
 
 **提示詞範例**：
+
 ```
 為以下函數生成 pytest 單元測試：
 
