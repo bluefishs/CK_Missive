@@ -28,7 +28,7 @@ tqdm = "^4.66.1"
 tenacity = "^8.2.3"
 fastapi-users = {extras = ["sqlalchemy"], version = "^13.0.0"}
 psycopg2-binary = "^2.9.9" # Use binary for environments without build tools
-# asyncpg = "^0.29.0" # Temporarily disabled due to build issues
+asyncpg = "^0.30.0"
 httpx = "^0.27.0"
 google-auth = "^2.29.0"
 google-auth-oauthlib = "^1.2.0"

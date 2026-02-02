@@ -44,7 +44,7 @@ dist/
 build/
 
 # Ignore specific backend files that are not part of the application runtime
-alembic.ini
+# NOTE: alembic.ini is needed for migrations - do not ignore it
 check_navigation.py
 check_tables.py
 create_admin_user.py

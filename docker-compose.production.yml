@@ -63,6 +63,9 @@ services:
     restart: always
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
       - REDIS_URL=redis://redis:6379/0
       - SECRET_KEY=${SECRET_KEY}
       - ALGORITHM=HS256
@@ -73,10 +76,12 @@ services:
       - TZ=Asia/Taipei
       - ENVIRONMENT=production
     ports:
-      - "8001:8000"
+      - "8001:8001"
     volumes:
       - ./backend/uploads:/app/uploads
       - ./backend/logs:/app/logs
+      - ./backend/backups:/backups
+      - ./backend/backup-logs:/logs
       - ./backend/GoogleCalendarAPIKEY.json:/app/GoogleCalendarAPIKEY.json:ro
     networks:
       - ck_network
@@ -86,7 +91,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -107,7 +112,7 @@ services:
     environment:
       - TZ=Asia/Taipei
     ports:
-      - "80:80"
+      - "3000:80"
     networks:
       - ck_network
     depends_on:
