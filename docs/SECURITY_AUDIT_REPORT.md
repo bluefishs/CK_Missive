@@ -80,14 +80,14 @@ DATABASE_URL: str = Field(
 
 | # | 檔案 | 行號 | 問題類型 | 狀態 |
 |---|------|------|---------|------|
-| 1 | `admin_service.py` | 46, 110, 115 | 表格名動態構造 | ✅ 已修復 |
-| 2 | `document_statistics_service.py` | 148-162 | 動態 WHERE 拼接 | ⚠️ 待處理 |
-| 3 | `documents/audit.py` | 65-86 | 動態 WHERE 拼接 | ⚠️ 待處理 |
-| 4 | `health.py` | 93 | 無引號表格名 | ⚠️ 待處理 |
-| 5 | `system_health.py` | 51 | 無引號表格名 | ⚠️ 待處理 |
-| 6 | `normalize_unicode.py` | 115, 149-155 | 欄位/值直接拼接 | ⚠️ 待處理 |
-| 7 | `document_numbers.py` | 309-319 | 位置計算拼接 | ⚠️ 待處理 |
-| 8 | `admin_service.py` | 145 | 任意 SELECT 執行 | ⚠️ 待處理 |
+| 1 | `admin_service.py` | 46, 110, 115 | 表格名動態構造 | ✅ 已修復 (白名單驗證) |
+| 2 | `document_statistics_service.py` | 148-162 | 動態 WHERE 拼接 | ✅ 已修復 (使用 ORM) |
+| 3 | `documents/audit.py` | 65-86 | 動態 WHERE 拼接 | ✅ 已修復 (參數化查詢) |
+| 4 | `health.py` | 93 | 無引號表格名 | ✅ 已修復 (v2.0.0 使用 ORM) |
+| 5 | `system_health.py` | 51 | 無引號表格名 | ✅ 已評估 (同 health.py) |
+| 6 | `normalize_unicode.py` | 115, 149-155 | 欄位/值直接拼接 | ⚠️ 低風險 (內部遷移腳本) |
+| 7 | `document_numbers.py` | 309-319 | 位置計算拼接 | ✅ 已評估 (整數值，無風險) |
+| 8 | `admin_service.py` | 145 | 任意 SELECT 執行 | ✅ 已修復 (白名單驗證) |
 
 ### 2.2 已完成修復
 

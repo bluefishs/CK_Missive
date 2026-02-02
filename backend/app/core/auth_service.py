@@ -118,6 +118,32 @@ class AuthService:
     def get_password_hash(password: str) -> str:
         """生成密碼雜湊"""
         return pwd_context.hash(password)
+
+    @staticmethod
+    def validate_password_strength(
+        password: str,
+        username: str = None,
+        raise_on_invalid: bool = False
+    ) -> tuple:
+        """
+        驗證密碼強度
+
+        Args:
+            password: 要驗證的密碼
+            username: 可選的用戶名，用於檢查相似度
+            raise_on_invalid: 如果為 True，驗證失敗時拋出異常
+
+        Returns:
+            tuple: (是否有效, 訊息)
+
+        Raises:
+            ValueError: 當 raise_on_invalid=True 且密碼不符合要求時
+        """
+        from app.core.password_policy import validate_password
+        is_valid, message = validate_password(password, username)
+        if not is_valid and raise_on_invalid:
+            raise ValueError(message)
+        return is_valid, message
     
     @staticmethod
     def generate_token_jti() -> str:

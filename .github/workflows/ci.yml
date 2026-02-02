@@ -34,7 +34,6 @@ jobs:
 
       - name: ESLint check
         run: npx eslint src --ext .ts,.tsx --max-warnings 0
-        continue-on-error: true  # 暫時允許警告，待完全清理後移除
 
   backend-check:
     name: Backend Python Checks
@@ -181,6 +180,15 @@ jobs:
           echo "=== Checking Python dependencies ==="
           pip install pip-audit
           pip-audit -r requirements.txt || echo "⚠️ Some vulnerabilities found"
+        continue-on-error: true
+
+      - name: Bandit security scan
+        working-directory: backend
+        run: |
+          echo "=== Running Bandit Python security scanner ==="
+          pip install bandit
+          # 掃描 app 目錄，排除測試，中等及以上嚴重性
+          bandit -r app -ll -ii --exclude tests -f txt || echo "⚠️ Some security issues found"
         continue-on-error: true
 
       - name: Check for hardcoded secrets

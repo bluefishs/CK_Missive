@@ -158,6 +158,10 @@ app.add_middleware(
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(LoggingMiddleware, log_manager=log_manager)
 
+# --- 🛡️ 安全標頭中間件 (v1.27.0) ---
+from app.core.security_headers import SecurityHeadersMiddleware
+app.add_middleware(SecurityHeadersMiddleware)
+
 # --- 🛡️ 統一異常處理器 ---
 # 確保所有 AppException（NotFoundException, ForbiddenException 等）正確返回對應的 HTTP 狀態碼和 CORS 標頭
 register_exception_handlers(app)
