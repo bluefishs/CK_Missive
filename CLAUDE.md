@@ -2,7 +2,7 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.29.0
+> **Claude Code 配置版本**: 1.28.0
 > **最後更新**: 2026-02-02
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers)
 
@@ -734,6 +734,32 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 ---
 
 ## 📋 版本更新記錄
+
+### v1.28.0 (2026-02-02) - CD 自動部署工作流
+
+**GitHub Actions CD 自動部署** ✅:
+- 新增 `.github/workflows/deploy-production.yml` 完整 CD 工作流
+- 支援 Tag push (`v*`) 與手動觸發 (`workflow_dispatch`)
+- Self-hosted Runner 方案（無需對外開放 NAS 端口）
+
+**工作流功能**:
+| 功能 | 說明 |
+|------|------|
+| 版本驗證 | Tag/手動觸發支援 |
+| 自動備份 | 部署前備份映像與資料庫 |
+| 建置部署 | Docker Compose 建置與啟動 |
+| 健康檢查 | 後端 + 前端 + API 測試 |
+| 自動回滾 | 健康檢查失敗時自動回滾 |
+| Slack 通知 | 可選的部署通知 |
+
+**新增文件**:
+- `docs/GITHUB_RUNNER_SETUP.md` - Self-hosted Runner 設置指南
+
+**評分更新**:
+- CI/CD 成熟度：8.5/10 → **9.0/10**
+- 部署自動化：7.5/10 → **9.0/10**
+
+---
 
 ### v1.27.0 (2026-02-02) - CI/CD 全面強化與資安修復完成
 
