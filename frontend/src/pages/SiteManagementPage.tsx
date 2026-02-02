@@ -23,6 +23,7 @@ import { usePermissions } from '../hooks';
 import { message } from 'antd';
 import SiteConfigManagement from '../components/site-management/SiteConfigManagement';
 import './SiteManagementPage.css';
+import { logger } from '../utils/logger';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -119,7 +120,7 @@ const NavigationManagementImproved: FC = () => {
       };
       setExpandedKeys(getAllKeys(items));
     } catch (error) {
-      console.error('Failed to load navigation:', error);
+      logger.error('Failed to load navigation:', error);
       message.error('載入導覽資料失敗');
     } finally {
       setLoading(false);
@@ -134,7 +135,7 @@ const NavigationManagementImproved: FC = () => {
         setValidPaths(result.data.paths);
       }
     } catch (error) {
-      console.error('Failed to load valid paths:', error);
+      logger.error('Failed to load valid paths:', error);
       // 如果 API 失敗，使用內建的路徑列表作為後備
       setValidPaths([
         { path: null, description: '（無 - 群組項目）' },
@@ -219,7 +220,7 @@ const NavigationManagementImproved: FC = () => {
       window.dispatchEvent(new CustomEvent('navigation-updated'));
       loadNavigation();
     } catch (error) {
-      console.error('Submit error:', error);
+      logger.error('Submit error:', error);
       message.error('操作失敗');
     }
   };
@@ -236,7 +237,7 @@ const NavigationManagementImproved: FC = () => {
       window.dispatchEvent(new CustomEvent('navigation-updated'));
       loadNavigation();
     } catch (error) {
-      console.error('Delete error:', error);
+      logger.error('Delete error:', error);
       message.error('刪除失敗');
     }
   };
@@ -330,7 +331,7 @@ const NavigationManagementImproved: FC = () => {
         window.dispatchEvent(new CustomEvent('navigation-updated'));
         loadNavigation();
       } catch (error) {
-        console.error('Move error:', error);
+        logger.error('Move error:', error);
         message.error('移動失敗');
       }
     } else {
@@ -354,7 +355,7 @@ const NavigationManagementImproved: FC = () => {
         window.dispatchEvent(new CustomEvent('navigation-updated'));
         loadNavigation();
       } catch (error) {
-        console.error('Level change error:', error);
+        logger.error('Level change error:', error);
         message.error('移動失敗');
       }
     }

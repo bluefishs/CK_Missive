@@ -315,12 +315,21 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
   const linkProjectMutation = useMutation({
     mutationFn: (projectId: number) =>
       projectLinksApi.linkDispatch(projectId, parseInt(id || '0', 10)),
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // 顯示基本成功訊息
       message.success('工程關聯成功');
+
+      // 如果有自動同步到公文，顯示額外提示
+      if (data.auto_sync && data.auto_sync.auto_linked_count > 0) {
+        message.info(`已自動同步 ${data.auto_sync.auto_linked_count} 個公文的工程關聯`);
+      }
+
       setSelectedProjectId(undefined);
       refetch();
       queryClient.invalidateQueries({ queryKey: ['taoyuan-dispatch-orders'] });
       queryClient.invalidateQueries({ queryKey: ['taoyuan-projects'] });
+      // 同步刷新公文關聯
+      queryClient.invalidateQueries({ queryKey: ['document-project-links'] });
     },
     onError: () => message.error('關聯失敗'),
   });

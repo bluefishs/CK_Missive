@@ -1,9 +1,9 @@
 # 系統優化行動計畫
 
-> **版本**: 4.0.0
+> **版本**: 4.1.0
 > **建立日期**: 2026-02-02
 > **最後更新**: 2026-02-02
-> **基於**: 系統優化報告 v5.0.0 + 安全審計報告 v1.0.0
+> **基於**: 系統優化報告 v5.1.0 + 安全審計報告 v1.0.0
 
 ---
 
@@ -89,6 +89,61 @@
 | `normalize_unicode.py` | 一次性遷移腳本 | 低 |
 | `document_statistics_service.py` | 內部統計 | 低 |
 | `health.py` | 健康檢查 | 低 |
+
+---
+
+## 2.5 新識別待處理項目 🆕
+
+### 2.5.1 前端 console 使用清理
+
+**優先級**: 🟡 Medium | **數量**: 165 處 | **狀態**: 待處理
+
+**說明**: 前端程式碼中有 165 處直接使用 `console.log/error/warn`，建議遷移至統一的 logger 工具。
+
+**Top 10 檔案分布**:
+| 檔案 | 數量 | 建議 |
+|------|------|------|
+| `DocumentDetailPage.tsx` | 11 | 遷移至 logger |
+| `useDocumentCreateForm.ts` | 7 | 遷移至 logger |
+| `authService.ts` | 6 | 遷移至 logger |
+| `SiteManagementPage.tsx` | 6 | 遷移至 logger |
+| `calendarApi.ts` | 6 | 遷移至 logger |
+| `DocumentNumbersPage.tsx` | 5 | 遷移至 logger |
+| `SiteConfigManagement.tsx` | 5 | 遷移至 logger |
+| `LoginPage.tsx` | 4 | 遷移至 logger |
+| `DocumentPage.tsx` | 4 | 遷移至 logger |
+| `DatabaseManagementPage.tsx` | 4 | 遷移至 logger |
+
+**Logger 工具位置**: `frontend/src/utils/logger.ts`
+
+**遷移範例**:
+```typescript
+// ❌ 舊寫法
+console.log('載入完成', data);
+console.error('載入失敗', error);
+
+// ✅ 新寫法
+import { logger } from '../utils/logger';
+logger.info('載入完成', data);
+logger.error('載入失敗', error);
+```
+
+### 2.5.2 前端測試覆蓋擴充
+
+**優先級**: 🟡 Medium | **現況**: 3 個測試檔案 | **狀態**: 待處理
+
+**說明**: 前端測試檔案僅 3 個，建議擴充至 10+ 個以覆蓋核心功能。
+
+**建議新增測試**:
+| 測試對象 | 優先級 | 說明 |
+|----------|--------|------|
+| `useDocuments.ts` | 高 | 公文 CRUD Hook |
+| `useProjects.ts` | 高 | 專案 CRUD Hook |
+| `authService.ts` | 高 | 認證服務 |
+| `DocumentDetailPage.tsx` | 中 | 核心頁面 |
+| `calendarApi.ts` | 中 | 行事曆 API |
+
+**測試框架**: Vitest + @testing-library/react (已配置)
 
 ---
 

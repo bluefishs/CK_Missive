@@ -21,6 +21,7 @@ import { filesApi } from '../../api/filesApi';
 import { apiClient } from '../../api/client';
 import type { UploadFile } from 'antd/es/upload/interface';
 import type { Project, User, ProjectStaff, DocumentCreate } from '../../types/api';
+import { logger } from '../../utils/logger';
 
 // =============================================================================
 // 常數
@@ -209,7 +210,7 @@ export function useDocumentCreateForm(
       const result = await documentsApi.getNextSendNumber();
       setNextNumber(result);
     } catch (error) {
-      console.error('載入下一個字號失敗:', error);
+      logger.error('載入下一個字號失敗:', error);
       message.warning('無法取得下一個發文字號，請手動填寫');
     } finally {
       setNextNumberLoading(false);
@@ -223,7 +224,7 @@ export function useDocumentCreateForm(
       const options = await agenciesApi.getAgencyOptions();
       setAgencies(options);
     } catch (error) {
-      console.error('載入機關選項失敗:', error);
+      logger.error('載入機關選項失敗:', error);
       setAgencies([]);
     } finally {
       setAgenciesLoading(false);
@@ -241,7 +242,7 @@ export function useDocumentCreateForm(
       const projectsData = data.projects || data.items || [];
       setCases(Array.isArray(projectsData) ? projectsData : []);
     } catch (error) {
-      console.error('載入承攬案件失敗:', error);
+      logger.error('載入承攬案件失敗:', error);
       setCases([]);
     } finally {
       setCasesLoading(false);
@@ -259,7 +260,7 @@ export function useDocumentCreateForm(
       const usersData = data.users || data.items || [];
       setUsers(Array.isArray(usersData) ? usersData : []);
     } catch (error) {
-      console.error('載入使用者失敗:', error);
+      logger.error('載入使用者失敗:', error);
       setUsers([]);
     } finally {
       setUsersLoading(false);
@@ -285,7 +286,7 @@ export function useDocumentCreateForm(
       setProjectStaffMap(prev => ({ ...prev, [projectId]: staffData }));
       return staffData;
     } catch (error) {
-      console.error('載入專案業務同仁失敗:', error);
+      logger.error('載入專案業務同仁失敗:', error);
       return [];
     } finally {
       setStaffLoading(false);
@@ -301,7 +302,7 @@ export function useDocumentCreateForm(
         maxFileSizeMB: info.max_file_size_mb,
       });
     } catch (error) {
-      console.warn('載入檔案設定失敗，使用預設值:', error);
+      logger.warn('載入檔案設定失敗，使用預設值:', error);
     }
   }, []);
 
@@ -530,7 +531,7 @@ export function useDocumentCreateForm(
         navigate(targetPath);
       }
     } catch (error) {
-      console.error('儲存失敗:', error);
+      logger.error('儲存失敗:', error);
       message.error('儲存失敗，請檢查輸入資料');
     } finally {
       setSaving(false);

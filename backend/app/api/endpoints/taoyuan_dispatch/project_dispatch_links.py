@@ -17,8 +17,12 @@ from sqlalchemy.orm import selectinload
 
 from .common import (
     get_async_db, require_auth,
-    TaoyuanProject, TaoyuanDispatchOrder, TaoyuanDispatchProjectLink
+    TaoyuanProject, TaoyuanDispatchOrder, TaoyuanDispatchProjectLink,
+    TaoyuanDispatchDocumentLink, TaoyuanDocumentProjectLink
 )
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -66,17 +70,25 @@ async def link_dispatch_to_project(
     db: AsyncSession = Depends(get_async_db),
     current_user = Depends(require_auth)
 ):
-    """以工程為主體，將工程關聯到指定的派工單"""
+    """
+    以工程為主體，將工程關聯到指定的派工單
+
+    自動同步邏輯：
+    1. 建立派工-工程關聯
+    2. 查詢派工關聯的所有公文
+    3. 為每個公文建立工程關聯（自動同步）
+    """
     # 檢查工程是否存在
     proj = await db.execute(select(TaoyuanProject).where(TaoyuanProject.id == project_id))
     if not proj.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="工程不存在")
 
     # 檢查派工單是否存在
-    order = await db.execute(
+    order_result = await db.execute(
         select(TaoyuanDispatchOrder).where(TaoyuanDispatchOrder.id == dispatch_order_id)
     )
-    if not order.scalar_one_or_none():
+    order = order_result.scalar_one_or_none()
+    if not order:
         raise HTTPException(status_code=404, detail="派工單不存在")
 
     # 檢查是否已存在關聯
@@ -89,19 +101,60 @@ async def link_dispatch_to_project(
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="此關聯已存在")
 
-    # 建立關聯
+    # Step 1: 建立派工-工程關聯
     link = TaoyuanDispatchProjectLink(
         dispatch_order_id=dispatch_order_id,
         taoyuan_project_id=project_id
     )
     db.add(link)
+    await db.flush()  # 確保獲得 ID
+
+    # Step 2: 查詢派工關聯的所有公文及其 link_type
+    doc_links_result = await db.execute(
+        select(
+            TaoyuanDispatchDocumentLink.document_id,
+            TaoyuanDispatchDocumentLink.link_type
+        )
+        .where(TaoyuanDispatchDocumentLink.dispatch_order_id == dispatch_order_id)
+    )
+    doc_links = doc_links_result.all()
+
+    # Step 3: 為每個公文建立工程關聯（自動同步）
+    auto_linked_count = 0
+    for doc_id, doc_link_type in doc_links:
+        # 檢查公文-工程關聯是否已存在
+        existing_doc_proj = await db.execute(
+            select(TaoyuanDocumentProjectLink).where(
+                TaoyuanDocumentProjectLink.document_id == doc_id,
+                TaoyuanDocumentProjectLink.taoyuan_project_id == project_id
+            )
+        )
+
+        if not existing_doc_proj.scalar_one_or_none():
+            # 建立新的公文-工程直接關聯
+            doc_project_link = TaoyuanDocumentProjectLink(
+                document_id=doc_id,
+                taoyuan_project_id=project_id,
+                link_type=doc_link_type or 'agency_incoming',
+                notes=f"自動同步自派工單 {order.dispatch_no}"
+            )
+            db.add(doc_project_link)
+            auto_linked_count += 1
+            logger.info(f"自動同步公文-工程關聯: 公文 {doc_id} -> 工程 {project_id}")
+
+    # Step 4: 一次事務提交
     await db.commit()
     await db.refresh(link)
 
     return {
         "success": True,
         "message": "關聯成功",
-        "link_id": link.id
+        "link_id": link.id,
+        "auto_sync": {
+            "document_count": len(doc_links),
+            "auto_linked_count": auto_linked_count,
+            "message": f"已自動同步 {auto_linked_count} 個公文的工程關聯" if auto_linked_count > 0 else None
+        }
     }
 
 

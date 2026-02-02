@@ -9,6 +9,7 @@ import { authService } from '../services/authService';
 import dayjs from 'dayjs';
 import { API_ENDPOINTS } from './endpoints';
 import type { CalendarEvent as ApiCalendarEvent, CalendarEventUI } from '../types/api';
+import { logger } from '../utils/logger';
 
 // ============================================================================
 // 型別定義 - API 專用
@@ -147,7 +148,7 @@ export const calendarApi = {
       }
       return [];
     } catch (error) {
-      console.warn('無法載入行事曆事件:', error);
+      logger.warn('無法載入行事曆事件:', error);
       return [];
     }
   },
@@ -203,7 +204,7 @@ export const calendarApi = {
         };
       }
     } catch (error) {
-      console.error('獲取 Google Calendar 狀態失敗:', error);
+      logger.error('獲取 Google Calendar 狀態失敗:', error);
       return {
         google_calendar_available: false,
         connection_status: { status: 'error', message: '無法連接到行事曆服務' },
@@ -248,7 +249,7 @@ export const calendarApi = {
         throw new Error(result.message || '更新事件失敗');
       }
     } catch (error) {
-      console.error('更新事件失敗:', error);
+      logger.error('更新事件失敗:', error);
       throw error;
     }
   },
@@ -269,7 +270,7 @@ export const calendarApi = {
         throw new Error(result.message || '刪除事件失敗');
       }
     } catch (error) {
-      console.error('刪除事件失敗:', error);
+      logger.error('刪除事件失敗:', error);
       throw error;
     }
   },
@@ -284,7 +285,7 @@ export const calendarApi = {
         sync_all_pending: true,
       });
     } catch (error) {
-      console.error('批次同步失敗:', error);
+      logger.error('批次同步失敗:', error);
       throw error;
     }
   },
@@ -300,7 +301,7 @@ export const calendarApi = {
         force_sync: forceSync,
       });
     } catch (error) {
-      console.error('同步事件失敗:', error);
+      logger.error('同步事件失敗:', error);
       throw error;
     }
   },

@@ -92,7 +92,7 @@ const LoginPage: React.FC = () => {
           : (result.user_info.is_admin ? '/admin/dashboard' : '/dashboard');
         navigate(targetUrl);
       } catch (error: unknown) {
-        console.error('Google login failed:', error);
+        logger.error('Google login failed:', error);
         const errorMessage = error instanceof Error ? error.message : 'Google 登入失敗';
         setError(errorMessage);
       } finally {
@@ -147,7 +147,7 @@ const LoginPage: React.FC = () => {
         }
       }
     } catch (error) {
-      console.error('Failed to initialize Google Sign-In:', error);
+      logger.error('Failed to initialize Google Sign-In:', error);
       setGoogleReady(true);
     }
   };
@@ -177,7 +177,7 @@ const LoginPage: React.FC = () => {
         : '/dashboard';
       navigate(targetUrl);
     } catch (error: unknown) {
-      console.error('Quick entry failed:', error);
+      logger.error('Quick entry failed:', error);
       const errorMsg = error instanceof Error ? error.message : '快速進入失敗，請確認後端服務是否啟動';
       message.error({ content: errorMsg, key: 'quickEntry', duration: 5 });
       setError(errorMsg);
@@ -204,7 +204,7 @@ const LoginPage: React.FC = () => {
         : (response.user_info.is_admin ? '/admin/dashboard' : '/dashboard');
       navigate(targetUrl);
     } catch (error: unknown) {
-      console.error('Login failed:', error);
+      logger.error('Login failed:', error);
       const errorMessage = error instanceof Error ? error.message : '登入失敗，請檢查帳號密碼';
       setError(errorMessage);
     } finally {

@@ -167,7 +167,7 @@ class AuthService {
       if (authDisabled) {
         logger.debug('🔒 Auth disabled - ignoring logout API error');
       } else {
-        console.error('Logout request failed:', error);
+        logger.error('Logout request failed:', error);
       }
     } finally {
       this.clearAuth();
@@ -201,7 +201,7 @@ class AuthService {
       });
       return response.data.granted;
     } catch (error) {
-      console.error('Permission check failed:', error);
+      logger.error('Permission check failed:', error);
       return false;
     }
   }
@@ -250,7 +250,7 @@ class AuthService {
       try {
         return JSON.parse(userInfoStr) as UserInfo;
       } catch (error) {
-        console.error('Failed to parse user info:', error);
+        logger.error('Failed to parse user info:', error);
         return null;
       }
     }
@@ -291,7 +291,7 @@ class AuthService {
           return true;
         }
       } catch (error) {
-        console.error('Token decode failed:', error);
+        logger.error('Token decode failed:', error);
       }
     }
 
@@ -340,7 +340,7 @@ class AuthService {
     return new Promise((resolve, reject) => {
       // 檢查是否為有效的 Google Client ID
       if (!clientId || clientId === 'your-actual-google-client-id.apps.googleusercontent.com') {
-        console.warn('Google OAuth disabled: Invalid or placeholder client ID');
+        logger.warn('Google OAuth disabled: Invalid or placeholder client ID');
         resolve(); // 不拋出錯誤，允許正常進行
         return;
       }
@@ -409,7 +409,7 @@ class AuthService {
       // 登入成功，可以重新導向或更新 UI
       window.location.href = '/dashboard';
     } catch (error) {
-      console.error('Google login failed:', error);
+      logger.error('Google login failed:', error);
 
       // 根據錯誤類型顯示不同的提醒
       if (error instanceof Error || (error as any)?.response) {

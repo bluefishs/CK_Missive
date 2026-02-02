@@ -203,7 +203,7 @@ export const DocumentPage: React.FC = () => {
     try {
       await calendarIntegrationService.addDocumentToCalendar(document);
     } catch (error) {
-      console.error('Calendar integration failed:', error);
+      logger.error('Calendar integration failed:', error);
     } finally {
       setIsAddingToCalendar(false);
     }
@@ -218,7 +218,7 @@ export const DocumentPage: React.FC = () => {
       await exportDocumentsToExcel(selectedDocuments, undefined, undefined, false);
       message.success(`已成功匯出 ${selectedDocuments.length} 份文件`);
     } catch (error) {
-      console.error('批量匯出失敗:', error);
+      logger.error('批量匯出失敗:', error);
       message.error('批量匯出失敗');
     } finally {
       setIsExporting(false);
@@ -257,7 +257,7 @@ export const DocumentPage: React.FC = () => {
         message.success(`已刪除公文: ${deleteModal.document.doc_number}`);
         setDeleteModal({ open: false, document: null });
       } catch (error) {
-        console.error('刪除公文失敗:', error);
+        logger.error('刪除公文失敗:', error);
         message.error('刪除公文失敗');
       }
     }
@@ -273,7 +273,7 @@ export const DocumentPage: React.FC = () => {
       await exportDocumentsToExcel(documents, filename, filters);
       message.success('文件已成功匯出');
     } catch (error) {
-      console.error('匯出失敗:', error);
+      logger.error('匯出失敗:', error);
       message.error('匯出 Excel 失敗');
     } finally {
       setIsExporting(false);

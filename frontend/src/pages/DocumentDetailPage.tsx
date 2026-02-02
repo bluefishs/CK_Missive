@@ -212,7 +212,7 @@ export const DocumentDetailPage: React.FC = () => {
       const result = await documentProjectLinksApi.getProjectLinks(docId);
       setProjectLinks(result.projects || []);
     } catch (error) {
-      console.error('載入工程關聯失敗:', error);
+      logger.error('載入工程關聯失敗:', error);
       setProjectLinks([]);
     } finally {
       setProjectLinksLoading(false);
@@ -236,7 +236,7 @@ export const DocumentDetailPage: React.FC = () => {
       setProjectStaffMap(prev => ({ ...prev, [projectId]: staffData }));
       return staffData;
     } catch (error) {
-      console.error('載入專案業務同仁失敗:', error);
+      logger.error('載入專案業務同仁失敗:', error);
       return [];
     } finally {
       setStaffLoading(false);
@@ -303,7 +303,7 @@ export const DocumentDetailPage: React.FC = () => {
         setAttachmentsLoading(false);
       }
     } catch (error) {
-      console.error('載入公文失敗:', error);
+      logger.error('載入公文失敗:', error);
       message.error('載入公文失敗');
       setDocument(null);
     } finally {
@@ -321,7 +321,7 @@ export const DocumentDetailPage: React.FC = () => {
       const projectsData = data.projects || data.items || [];
       setCases(Array.isArray(projectsData) ? projectsData : []);
     } catch (error) {
-      console.error('載入承攬案件失敗:', error);
+      logger.error('載入承攬案件失敗:', error);
       setCases([]);
     } finally {
       setCasesLoading(false);
@@ -338,7 +338,7 @@ export const DocumentDetailPage: React.FC = () => {
       const usersData = data.users || data.items || [];
       setUsers(Array.isArray(usersData) ? usersData : []);
     } catch (error) {
-      console.error('[loadUsers] 載入使用者失敗:', error);
+      logger.error('[loadUsers] 載入使用者失敗:', error);
       setUsers([]);
     } finally {
       setUsersLoading(false);
@@ -353,7 +353,7 @@ export const DocumentDetailPage: React.FC = () => {
         maxFileSizeMB: info.max_file_size_mb,
       });
     } catch (error) {
-      console.warn('載入檔案設定失敗，使用預設值:', error);
+      logger.warn('載入檔案設定失敗，使用預設值:', error);
     }
   };
 
@@ -462,7 +462,7 @@ export const DocumentDetailPage: React.FC = () => {
       await loadDispatchLinks();
       setIsEditing(false);
     } catch (error) {
-      console.error('儲存失敗:', error);
+      logger.error('儲存失敗:', error);
       message.error('儲存失敗');
     } finally {
       setSaving(false);
@@ -500,7 +500,7 @@ export const DocumentDetailPage: React.FC = () => {
       message.success('公文刪除成功');
       navigate(returnTo || '/documents');
     } catch (error) {
-      console.error('刪除公文失敗:', error);
+      logger.error('刪除公文失敗:', error);
       message.error('刪除公文失敗');
     }
   };
@@ -523,7 +523,7 @@ export const DocumentDetailPage: React.FC = () => {
     try {
       await filesApi.downloadAttachment(attachmentId, filename);
     } catch (error) {
-      console.error('下載附件失敗:', error);
+      logger.error('下載附件失敗:', error);
       message.error('下載附件失敗');
     }
   };
@@ -535,7 +535,7 @@ export const DocumentDetailPage: React.FC = () => {
       window.open(previewUrl, '_blank');
       setTimeout(() => window.URL.revokeObjectURL(previewUrl), 10000);
     } catch (error) {
-      console.error('預覽附件失敗:', error);
+      logger.error('預覽附件失敗:', error);
       message.error(`預覽 ${filename} 失敗`);
     }
   };
@@ -549,7 +549,7 @@ export const DocumentDetailPage: React.FC = () => {
         setAttachments(atts);
       }
     } catch (error) {
-      console.error('刪除附件失敗:', error);
+      logger.error('刪除附件失敗:', error);
       message.error('附件刪除失敗');
     }
   };

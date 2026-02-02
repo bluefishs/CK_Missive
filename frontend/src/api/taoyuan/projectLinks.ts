@@ -30,11 +30,21 @@ export const projectLinksApi = {
 
   /**
    * 將工程關聯到派工單
+   * 自動同步：關聯成功後會自動將工程關聯到派工單關聯的所有公文
    */
   async linkDispatch(
     projectId: number,
     dispatchOrderId: number
-  ): Promise<{ success: boolean; message: string; link_id: number }> {
+  ): Promise<{
+    success: boolean;
+    message: string;
+    link_id: number;
+    auto_sync?: {
+      document_count: number;
+      auto_linked_count: number;
+      message?: string;
+    };
+  }> {
     return apiClient.post(
       API_ENDPOINTS.TAOYUAN_DISPATCH.PROJECT_LINK_DISPATCH(projectId),
       {},

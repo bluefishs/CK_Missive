@@ -2,7 +2,7 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.24.0
+> **Claude Code 配置版本**: 1.26.0
 > **最後更新**: 2026-02-02
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers)
 
@@ -707,6 +707,61 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 ---
 
 ## 📋 版本更新記錄
+
+### v1.26.0 (2026-02-02) - 派工-工程關聯自動同步
+
+**新功能**：派工單關聯工程時，自動同步到公文
+
+**實現邏輯**：
+1. 建立派工-工程關聯
+2. 查詢派工關聯的所有公文
+3. 為每個公文自動建立工程關聯
+
+**修改檔案**：
+- `backend/app/api/endpoints/taoyuan_dispatch/project_dispatch_links.py`
+  - `link_dispatch_to_project()` 函數新增自動同步邏輯
+- `frontend/src/api/taoyuan/projectLinks.ts`
+  - `linkDispatch()` 返回值新增 `auto_sync` 欄位
+- `frontend/src/pages/TaoyuanDispatchDetailPage.tsx`
+  - 顯示同步結果提示
+
+**API 變更**：
+```
+POST /project/{project_id}/link-dispatch
+
+新增回傳欄位:
+{
+  "auto_sync": {
+    "document_count": 1,
+    "auto_linked_count": 1,
+    "message": "已自動同步 1 個公文的工程關聯"
+  }
+}
+```
+
+---
+
+### v1.25.0 (2026-02-02) - 系統檢視與待處理項目識別
+
+**新識別優化項目** 🆕:
+- 前端 console 使用: 165 處待遷移至 logger
+- 前端測試覆蓋: 僅 3 個測試檔案，建議擴充
+
+**文件更新**:
+- `SYSTEM_OPTIMIZATION_REPORT.md` v5.1.0 - 新增待處理項目
+- `OPTIMIZATION_ACTION_PLAN.md` v4.1.0 - 新增 console 清理計畫
+
+**系統統計**:
+| 指標 | 數值 |
+|------|------|
+| 系統健康度 | 9.2/10 |
+| Skills | 15 個 |
+| Commands | 10 個 |
+| Agents | 3 個 |
+| Hooks | 5 個 |
+| 規範文件 | 34+ 個 |
+
+---
 
 ### v1.24.0 (2026-02-02) - any 型別最終清理
 

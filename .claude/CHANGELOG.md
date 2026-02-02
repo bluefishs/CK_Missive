@@ -4,6 +4,61 @@
 
 ---
 
+## [1.26.0] - 2026-02-02
+
+### 派工-工程關聯自動同步功能
+
+**新功能實現**：
+當派工單關聯工程時，自動在派工關聯的所有公文中建立相同的工程關聯。
+
+**修改檔案**：
+- `backend/app/api/endpoints/taoyuan_dispatch/project_dispatch_links.py`
+- `frontend/src/api/taoyuan/projectLinks.ts`
+- `frontend/src/pages/TaoyuanDispatchDetailPage.tsx`
+
+**業務邏輯**：
+```
+派工單 A 關聯工程 X
+  ↓
+查詢派工單 A 關聯的公文（如公文 B, C）
+  ↓
+自動建立：公文 B ↔ 工程 X
+自動建立：公文 C ↔ 工程 X
+  ↓
+返回同步結果
+```
+
+**用戶體驗**：
+- 關聯成功後顯示「已自動同步 N 個公文的工程關聯」提示
+- 無需手動在公文頁面再次關聯工程
+
+---
+
+## [1.25.0] - 2026-02-02
+
+### 系統檢視與待處理項目識別
+
+**新識別優化項目** 🆕:
+
+1. **前端 console 使用清理**
+   - 數量: 165 處
+   - 分布: 30+ 個檔案
+   - 建議: 遷移至 `utils/logger.ts`
+
+2. **前端測試覆蓋擴充**
+   - 現況: 3 個測試檔案
+   - 目標: 10+ 個測試檔案
+   - 框架: Vitest (已配置)
+
+**文件更新**:
+- `SYSTEM_OPTIMIZATION_REPORT.md` v5.1.0
+- `OPTIMIZATION_ACTION_PLAN.md` v4.1.0
+- `CLAUDE.md` v1.25.0
+
+**系統健康度維持**: 9.2/10
+
+---
+
 ## [1.24.0] - 2026-02-02
 
 ### any 型別最終清理
