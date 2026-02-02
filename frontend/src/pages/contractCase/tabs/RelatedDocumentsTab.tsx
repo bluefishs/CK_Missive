@@ -24,18 +24,9 @@ import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
 import type { RelatedDocumentsTabProps, RelatedDocument } from './types';
+import { formatAgencyDisplay } from '../../../utils/agencyUtils';
 
 const { Text } = Typography;
-
-// 解析機關名稱：提取括號內的名稱
-const extractAgencyName = (value: string | undefined): string => {
-  if (!value) return '-';
-  const agencies = value.split(' | ').map(agency => {
-    const match = agency.match(/\(([^)]+)\)/);
-    return match ? match[1] : agency;
-  });
-  return agencies.join('、');
-};
 
 export const RelatedDocumentsTab: React.FC<RelatedDocumentsTabProps> = ({
   relatedDocs,
@@ -84,7 +75,7 @@ export const RelatedDocumentsTab: React.FC<RelatedDocumentsTabProps> = ({
         const rawValue = record.category === '收文' ? record.sender : record.receiver;
         const labelPrefix = record.category === '收文' ? '來文：' : '發至：';
         const labelColor = record.category === '收文' ? '#52c41a' : '#1890ff';
-        const displayValue = extractAgencyName(rawValue);
+        const displayValue = formatAgencyDisplay(rawValue);
 
         return (
           <Tooltip title={displayValue}>

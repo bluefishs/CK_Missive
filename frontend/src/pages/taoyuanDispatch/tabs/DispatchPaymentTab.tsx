@@ -6,9 +6,9 @@
  * - 本次派工總金額（自動計算）
  * - 累進派工金額和剩餘金額（統計值，由後端計算）
  *
- * @version 1.1.0
- * @date 2026-01-28
- * @description 統一使用頁面層級 isEditing 狀態，移除獨立編輯按鈕
+ * @version 2.0.0
+ * @date 2026-01-30
+ * @description 統一使用頁面層級 Form 和 isEditing 狀態，契金由頂部「儲存」按鈕統一保存
  */
 
 import React from 'react';
@@ -16,8 +16,6 @@ import {
   Form,
   Row,
   Col,
-  Button,
-  Space,
   Card,
   Empty,
   Descriptions,
@@ -28,17 +26,85 @@ import {
   Typography,
 } from 'antd';
 import type { FormInstance } from 'antd';
-import { SaveOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
 import type {
   DispatchOrder,
   DispatchDocumentLink,
   ContractPayment,
-  ContractPaymentCreate,
 } from '../../../types/api';
 
 const { Text } = Typography;
+
+// =============================================================================
+// 作業類別定義
+// =============================================================================
+
+/** 作業類別代碼與標籤對照 */
+const WORK_TYPE_MAP: Record<string, string> = {
+  '01': '地上物查估',
+  '02': '土地協議市價查估',
+  '03': '土地徵收市價查估',
+  '04': '相關計畫書製作',
+  '05': '測量作業',
+  '06': '樁位測釘作業',
+  '07': '辦理教育訓練',
+};
+
+/**
+ * 從 work_type 字串解析出作業類別代碼列表
+ * 例如: "01.地上物查估作業, 03.土地徵收市價查估作業" => ["01", "03"]
+ */
+export const parseWorkTypeCodes = (workType: string | string[] | undefined): string[] => {
+  if (!workType) return [];
+
+  // 如果是陣列（表單中的 Checkbox.Group 值）
+  if (Array.isArray(workType)) {
+    const result: string[] = [];
+    for (const item of workType) {
+      if (typeof item === 'string') {
+        const match = item.match(/^(\d{2})\./);
+        if (match && match[1]) {
+          result.push(match[1]);
+        }
+      }
+    }
+    return result;
+  }
+
+  // 如果是字串
+  const matches = workType.match(/(\d{2})\./g);
+  return matches ? matches.map(m => m.replace('.', '')) : [];
+};
+
+/**
+ * 檢查契金金額與作業類別的一致性
+ * 返回不一致的欄位列表
+ */
+export const validatePaymentConsistency = (
+  workTypeCodes: string[],
+  amounts: Record<string, number | undefined>
+): { field: string; code: string; label: string; amount: number }[] => {
+  const inconsistencies: { field: string; code: string; label: string; amount: number }[] = [];
+
+  for (let i = 1; i <= 7; i++) {
+    const code = i.toString().padStart(2, '0');
+    const field = `work_${code}_amount`;
+    const amount = amounts[field];
+
+    // 如果有金額但不在作業類別中
+    if (amount && amount > 0 && !workTypeCodes.includes(code)) {
+      inconsistencies.push({
+        field,
+        code,
+        label: WORK_TYPE_MAP[code] || `作業${code}`,
+        amount,
+      });
+    }
+  }
+
+  return inconsistencies;
+};
 
 // =============================================================================
 // Props 介面定義
@@ -51,10 +117,8 @@ export interface DispatchPaymentTabProps {
   paymentData?: ContractPayment | null;
   /** 是否處於編輯模式（由頁面統一控制） */
   isEditing: boolean;
-  /** 儲存中狀態 */
-  isSaving: boolean;
-  /** 儲存契金處理函數 */
-  onSavePayment: (values: ContractPaymentCreate) => void;
+  /** 頁面統一的 Form 實例 */
+  form: FormInstance;
 }
 
 // =============================================================================
@@ -243,28 +307,14 @@ const PaymentReadOnlyView: React.FC<PaymentReadOnlyViewProps> = ({
 // =============================================================================
 
 interface PaymentEditFormProps {
-  paymentForm: FormInstance;
-  onSave: () => void;
-  isSaving: boolean;
+  form: FormInstance;
 }
 
-const PaymentEditForm: React.FC<PaymentEditFormProps> = ({
-  paymentForm,
-  onSave,
-  isSaving,
-}) => (
-  <Form form={paymentForm} layout="vertical">
+const PaymentEditForm: React.FC<PaymentEditFormProps> = ({ form }) => (
+  <Form form={form} layout="vertical">
     <div style={{ marginBottom: 16 }}>
-      <Button
-        type="primary"
-        icon={<SaveOutlined />}
-        loading={isSaving}
-        onClick={onSave}
-      >
-        儲存契金
-      </Button>
-      <Text type="secondary" style={{ marginLeft: 12, fontSize: 12 }}>
-        契金資料獨立儲存，不受頁面「儲存」按鈕影響
+      <Text type="secondary" style={{ fontSize: 12 }}>
+        契金資料由頁面頂部「儲存」按鈕統一保存
       </Text>
     </div>
 
@@ -440,11 +490,8 @@ export const DispatchPaymentTab: React.FC<DispatchPaymentTabProps> = ({
   dispatch,
   paymentData,
   isEditing,
-  isSaving,
-  onSavePayment,
+  form,
 }) => {
-  // 在組件內部管理 Form 實例，避免 useForm 警告
-  const [paymentForm] = Form.useForm();
 
   /**
    * 計算派工日期（機關第一筆來函日期）
@@ -465,100 +512,14 @@ export const DispatchPaymentTab: React.FC<DispatchPaymentTabProps> = ({
 
   const dispatchDate = getDispatchDate();
 
-  // 當進入編輯模式時，初始化表單值
-  React.useEffect(() => {
-    if (isEditing && paymentData) {
-      paymentForm.setFieldsValue({
-        work_01_date: paymentData.work_01_date
-          ? dayjs(paymentData.work_01_date)
-          : null,
-        work_01_amount: paymentData.work_01_amount,
-        work_02_date: paymentData.work_02_date
-          ? dayjs(paymentData.work_02_date)
-          : null,
-        work_02_amount: paymentData.work_02_amount,
-        work_03_date: paymentData.work_03_date
-          ? dayjs(paymentData.work_03_date)
-          : null,
-        work_03_amount: paymentData.work_03_amount,
-        work_04_date: paymentData.work_04_date
-          ? dayjs(paymentData.work_04_date)
-          : null,
-        work_04_amount: paymentData.work_04_amount,
-        work_05_date: paymentData.work_05_date
-          ? dayjs(paymentData.work_05_date)
-          : null,
-        work_05_amount: paymentData.work_05_amount,
-        work_06_date: paymentData.work_06_date
-          ? dayjs(paymentData.work_06_date)
-          : null,
-        work_06_amount: paymentData.work_06_amount,
-        work_07_date: paymentData.work_07_date
-          ? dayjs(paymentData.work_07_date)
-          : null,
-        work_07_amount: paymentData.work_07_amount,
-        cumulative_amount: paymentData.cumulative_amount,
-        remaining_amount: paymentData.remaining_amount,
-      });
-    }
-  }, [isEditing, paymentData, paymentForm]);
-
-  /**
-   * 處理儲存契金
-   */
-  const handleSave = async () => {
-    try {
-      const values = await paymentForm.validateFields();
-
-      // 計算本次派工金額（7種作業類別金額總和）
-      const currentAmount =
-        (values.work_01_amount || 0) +
-        (values.work_02_amount || 0) +
-        (values.work_03_amount || 0) +
-        (values.work_04_amount || 0) +
-        (values.work_05_amount || 0) +
-        (values.work_06_amount || 0) +
-        (values.work_07_amount || 0);
-
-      const data: ContractPaymentCreate = {
-        dispatch_order_id: dispatch?.id || 0,
-        work_01_date: values.work_01_date?.format('YYYY-MM-DD'),
-        work_01_amount: values.work_01_amount,
-        work_02_date: values.work_02_date?.format('YYYY-MM-DD'),
-        work_02_amount: values.work_02_amount,
-        work_03_date: values.work_03_date?.format('YYYY-MM-DD'),
-        work_03_amount: values.work_03_amount,
-        work_04_date: values.work_04_date?.format('YYYY-MM-DD'),
-        work_04_amount: values.work_04_amount,
-        work_05_date: values.work_05_date?.format('YYYY-MM-DD'),
-        work_05_amount: values.work_05_amount,
-        work_06_date: values.work_06_date?.format('YYYY-MM-DD'),
-        work_06_amount: values.work_06_amount,
-        work_07_date: values.work_07_date?.format('YYYY-MM-DD'),
-        work_07_amount: values.work_07_amount,
-        current_amount: currentAmount,
-        cumulative_amount: values.cumulative_amount,
-        remaining_amount: values.remaining_amount,
-      };
-
-      onSavePayment(data);
-    } catch {
-      // form validation error
-    }
-  };
-
   // 根據編輯模式顯示不同內容
   return (
     <div>
       <DispatchInfoCard dispatch={dispatch} dispatchDate={dispatchDate} />
 
       {isEditing ? (
-        // 編輯模式：顯示表單
-        <PaymentEditForm
-          paymentForm={paymentForm}
-          onSave={handleSave}
-          isSaving={isSaving}
-        />
+        // 編輯模式：顯示表單（使用頁面統一的 Form）
+        <PaymentEditForm form={form} />
       ) : (
         // 唯讀模式：顯示資料
         paymentData ? (

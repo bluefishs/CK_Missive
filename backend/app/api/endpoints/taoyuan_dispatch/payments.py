@@ -69,8 +69,20 @@ async def create_contract_payment(
     service: PaymentService = Depends(get_payment_service),
     current_user = Depends(require_auth)
 ):
-    """建立契金管控記錄"""
-    payment = await service.create_payment(data)
+    """
+    建立或更新契金管控記錄 (Upsert)
+
+    防呆機制：若該 dispatch_order_id 已存在契金記錄，自動改為更新
+    """
+    # 檢查是否已有記錄（防呆：避免重複建立）
+    existing = await service.get_payment_by_dispatch_order(data.dispatch_order_id)
+    if existing:
+        # 已有記錄，改為更新
+        payment = await service.update_payment(existing.id, data)
+    else:
+        # 無記錄，新建
+        payment = await service.create_payment(data)
+
     if not payment:
         raise HTTPException(status_code=404, detail="派工紀錄不存在")
     return ContractPaymentSchema.model_validate(payment)

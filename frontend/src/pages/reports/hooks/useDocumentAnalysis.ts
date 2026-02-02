@@ -12,6 +12,7 @@ import { App } from 'antd';
 import { documentsApi } from '../../../api/documentsApi';
 import type { OfficialDocument } from '../../../types/api';
 import { isReceiveDocument, isSendDocument } from '../../../types/api';
+import { extractAgencyList } from '../constants';
 
 interface NameCount {
   name: string;
@@ -34,7 +35,7 @@ export interface DocumentStats {
 
 export interface UseDocumentAnalysisReturn {
   loading: boolean;
-  selectedYear: number | 'all';
+  selectedYear: number | 'all' | null;
   setSelectedYear: (year: number | 'all') => void;
   yearOptions: number[];
   documents: OfficialDocument[];
@@ -44,7 +45,8 @@ export interface UseDocumentAnalysisReturn {
 export function useDocumentAnalysis(): UseDocumentAnalysisReturn {
   const { message } = App.useApp();
   const [loading, setLoading] = useState(true);
-  const [selectedYear, setSelectedYear] = useState<number | 'all'>('all');
+  // 初始值改為 null，表示尚未載入年度選項
+  const [selectedYear, setSelectedYear] = useState<number | 'all' | null>(null);
   const [yearOptions, setYearOptions] = useState<number[]>([]);
   const [documents, setDocuments] = useState<OfficialDocument[]>([]);
 
@@ -54,11 +56,16 @@ export function useDocumentAnalysis(): UseDocumentAnalysisReturn {
       try {
         const years = await documentsApi.getYearOptions();
         setYearOptions(years.sort((a, b) => b - a));
+        // 預設選擇最新年度
         if (years.length > 0 && years[0] !== undefined) {
           setSelectedYear(years[0]);
+        } else {
+          // 無年度資料時設為 'all'
+          setSelectedYear('all');
         }
       } catch (error) {
         console.error('載入年度選項失敗:', error);
+        setSelectedYear('all');
       }
     };
     loadYears();
@@ -66,10 +73,14 @@ export function useDocumentAnalysis(): UseDocumentAnalysisReturn {
 
   // 載入公文資料（分頁獲取全部）
   const loadDocuments = useCallback(async () => {
+    // 等待年度選項載入完成
+    if (selectedYear === null) return;
+
     setLoading(true);
     try {
-      const params: { year?: number | string; limit: number; page: number } = { limit: 100, page: 1 };
-      if (selectedYear !== 'all') {
+      const params: { year?: number; limit: number; page: number } = { limit: 100, page: 1 };
+      // 只有選擇具體年度時才傳遞 year 參數
+      if (typeof selectedYear === 'number') {
         params.year = selectedYear;
       }
 
@@ -101,17 +112,31 @@ export function useDocumentAnalysis(): UseDocumentAnalysisReturn {
     const receiveDocs = documents.filter((d) => isReceiveDocument(d.category));
 
     // 來文機關統計：只統計「收文」的 sender
+    // 使用 extractAgencyList 分割多單位並標準化名稱
     const bySender: Record<string, number> = {};
     receiveDocs.forEach((d) => {
-      const sender = d.sender || '未指定機關';
-      bySender[sender] = (bySender[sender] || 0) + 1;
+      const agencies = extractAgencyList(d.sender);
+      if (agencies.length === 0) {
+        bySender['未指定機關'] = (bySender['未指定機關'] || 0) + 1;
+      } else {
+        agencies.forEach((agency) => {
+          bySender[agency] = (bySender[agency] || 0) + 1;
+        });
+      }
     });
 
     // 受文者統計：只統計「發文」的 receiver
+    // 使用 extractAgencyList 分割多單位並標準化名稱
     const byReceiver: Record<string, number> = {};
     sendDocs.forEach((d) => {
-      const receiver = d.receiver || '未指定受文者';
-      byReceiver[receiver] = (byReceiver[receiver] || 0) + 1;
+      const receivers = extractAgencyList(d.receiver);
+      if (receivers.length === 0) {
+        byReceiver['未指定受文者'] = (byReceiver['未指定受文者'] || 0) + 1;
+      } else {
+        receivers.forEach((receiver) => {
+          byReceiver[receiver] = (byReceiver[receiver] || 0) + 1;
+        });
+      }
     });
 
     // 收發文類型分組

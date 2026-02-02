@@ -4,6 +4,8 @@
  * 純 UI 元件，所有資料與邏輯由 useBudgetAnalysis Hook 提供。
  * 功能：案件類別圓餅圖、執行狀態長條圖、委託單位經費表。
  * 支援三維篩選互動（案件類別/執行狀態/委託單位聯動）。
+ *
+ * @version 1.1.0 - 新增表格搜尋篩選功能
  */
 
 import React from 'react';
@@ -41,9 +43,26 @@ import {
   ClearOutlined,
 } from '@ant-design/icons';
 import { useBudgetAnalysis } from './hooks/useBudgetAnalysis';
+import { useTableSearch } from './hooks/useTableSearch';
 import { formatCurrency, getCategoryDisplayName, getStatusDisplayName, COLORS } from './constants';
 
 const { Text } = Typography;
+
+// 委託單位表格資料型別
+interface AgencyRow {
+  name: string;
+  count: number;
+  amount: number;
+}
+
+// 案件明細資料型別
+interface ProjectRow {
+  id: number;
+  project_name?: string;
+  category?: string;
+  contract_amount?: number;
+  status?: string;
+}
 
 interface BudgetAnalysisTabProps {
   isMobile: boolean;
@@ -71,37 +90,80 @@ const BudgetAnalysisTab: React.FC<BudgetAnalysisTabProps> = ({ isMobile }) => {
     handleAgencyClick,
   } = useBudgetAnalysis();
 
-  // 委託單位表格欄位
+  // 表格搜尋功能
+  const { getColumnSearchProps: getAgencySearchProps } = useTableSearch<AgencyRow>();
+  const { getColumnSearchProps: getProjectSearchProps } = useTableSearch<ProjectRow>();
+
+  // 委託單位表格欄位（含搜尋篩選）
   const agencyColumns = [
     {
       title: '委託單位',
       dataIndex: 'name',
       key: 'name',
       ellipsis: true,
+      sorter: (a: AgencyRow, b: AgencyRow) => a.name.localeCompare(b.name, 'zh-TW'),
+      ...getAgencySearchProps('name', '單位名稱'),
     },
     {
       title: '案件數',
       dataIndex: 'count',
       key: 'count',
       width: 80,
-      sorter: (a: { count: number }, b: { count: number }) => a.count - b.count,
+      sorter: (a: AgencyRow, b: AgencyRow) => a.count - b.count,
+      defaultSortOrder: 'descend' as const,
     },
     {
       title: '經費總額',
       dataIndex: 'amount',
       key: 'amount',
       width: 120,
-      sorter: (a: { amount: number }, b: { amount: number }) => a.amount - b.amount,
+      sorter: (a: AgencyRow, b: AgencyRow) => a.amount - b.amount,
       render: (value: number) => formatCurrency(value),
     },
     {
       title: '占比',
       key: 'percentage',
       width: 80,
-      render: (_: unknown, record: { amount: number }) => {
+      render: (_: unknown, record: AgencyRow) => {
         const pct = stats.totalAmount > 0 ? (record.amount / stats.totalAmount) * 100 : 0;
         return `${pct.toFixed(1)}%`;
       },
+    },
+  ];
+
+  // 案件明細表格欄位（含搜尋篩選）
+  const projectDetailColumns = [
+    {
+      title: '案件名稱',
+      dataIndex: 'project_name',
+      key: 'project_name',
+      ellipsis: true,
+      sorter: (a: ProjectRow, b: ProjectRow) => (a.project_name || '').localeCompare(b.project_name || '', 'zh-TW'),
+      ...getProjectSearchProps('project_name', '案件名稱'),
+    },
+    {
+      title: '類別',
+      dataIndex: 'category',
+      key: 'category',
+      width: 120,
+      sorter: (a: ProjectRow, b: ProjectRow) => (a.category || '').localeCompare(b.category || '', 'zh-TW'),
+      render: (value: string | undefined) => getCategoryDisplayName(value || '未分類'),
+    },
+    {
+      title: '得標金額',
+      dataIndex: 'contract_amount',
+      key: 'contract_amount',
+      width: 120,
+      sorter: (a: ProjectRow, b: ProjectRow) => (a.contract_amount || 0) - (b.contract_amount || 0),
+      render: (value: number | undefined) => (value ? formatCurrency(value) : '-'),
+    },
+    {
+      title: '狀態',
+      dataIndex: 'status',
+      key: 'status',
+      width: 100,
+      sorter: (a: ProjectRow, b: ProjectRow) => (a.status || '').localeCompare(b.status || '', 'zh-TW'),
+      render: (value: string | undefined) => getStatusDisplayName(value || '未設定'),
     },
   ];
 
@@ -122,10 +184,11 @@ const BudgetAnalysisTab: React.FC<BudgetAnalysisTabProps> = ({ isMobile }) => {
             <Space wrap>
               <Text strong>分析年度：</Text>
               <Select
-                value={selectedYear}
+                value={selectedYear ?? undefined}
                 onChange={setSelectedYear}
                 style={{ width: 120 }}
-                placeholder="選擇年度"
+                placeholder="載入中..."
+                loading={selectedYear === null}
               >
                 <Select.Option value="all">全部年度</Select.Option>
                 {yearOptions.map((year) => (
@@ -245,6 +308,12 @@ const BudgetAnalysisTab: React.FC<BudgetAnalysisTabProps> = ({ isMobile }) => {
                         (點擊篩選)
                       </Text>
                     )}
+                    {/* 當總金額為 0 時顯示提示 */}
+                    {stats.totalAmount === 0 && stats.totalProjects > 0 && (
+                      <Text type="warning" style={{ fontSize: 11, fontWeight: 'normal' }}>
+                        (依案件數繪製)
+                      </Text>
+                    )}
                   </Space>
                 }
                 size="small"
@@ -270,7 +339,8 @@ const BudgetAnalysisTab: React.FC<BudgetAnalysisTabProps> = ({ isMobile }) => {
                       }
                       outerRadius={isMobile ? 70 : 80}
                       fill="#8884d8"
-                      dataKey="amount"
+                      // 當總金額為 0 時改用案件數繪製
+                      dataKey={stats.totalAmount > 0 ? 'amount' : 'count'}
                       onClick={(data) => handleCategoryClick(data.name)}
                       style={{ cursor: 'pointer' }}
                     >
@@ -436,35 +506,7 @@ const BudgetAnalysisTab: React.FC<BudgetAnalysisTabProps> = ({ isMobile }) => {
                   rowKey="id"
                   pagination={{ pageSize: 10, size: 'small' }}
                   scroll={{ x: isMobile ? 500 : undefined }}
-                  columns={[
-                    {
-                      title: '案件名稱',
-                      dataIndex: 'project_name',
-                      key: 'project_name',
-                      ellipsis: true,
-                    },
-                    {
-                      title: '類別',
-                      dataIndex: 'category',
-                      key: 'category',
-                      width: 120,
-                      render: (value: string) => getCategoryDisplayName(value || '未分類'),
-                    },
-                    {
-                      title: '得標金額',
-                      dataIndex: 'contract_amount',
-                      key: 'contract_amount',
-                      width: 120,
-                      render: (value: number) => (value ? formatCurrency(value) : '-'),
-                    },
-                    {
-                      title: '狀態',
-                      dataIndex: 'status',
-                      key: 'status',
-                      width: 100,
-                      render: (value: string) => getStatusDisplayName(value || '未設定'),
-                    },
-                  ]}
+                  columns={projectDetailColumns}
                 />
               </div>
             ) : (

@@ -61,6 +61,20 @@ class PaymentService:
         """
         return await self.repository.get_with_dispatch(payment_id)
 
+    async def get_payment_by_dispatch_order(
+        self, dispatch_order_id: int
+    ) -> Optional[TaoyuanContractPayment]:
+        """
+        根據派工單 ID 取得契金記錄
+
+        Args:
+            dispatch_order_id: 派工單 ID
+
+        Returns:
+            契金記錄或 None
+        """
+        return await self.repository.get_by_dispatch_order(dispatch_order_id)
+
     async def list_payments(
         self,
         dispatch_order_id: Optional[int] = None,

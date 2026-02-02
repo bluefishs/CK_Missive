@@ -138,18 +138,29 @@ async def create_dispatch_order(
     current_user = Depends(require_auth)
 ):
     """建立派工紀錄"""
+    import logging
+    logger = logging.getLogger(__name__)
+
     try:
         order = await service.create_dispatch_order(data, auto_generate_no=False)
         return DispatchOrderSchema.model_validate(order)
     except IntegrityError as e:
         # 處理重複派工單號錯誤
         error_msg = str(e.orig) if hasattr(e, 'orig') else str(e)
+        logger.warning(f"[dispatch/create] IntegrityError: {error_msg}")
         if 'dispatch_no' in error_msg.lower() or 'unique' in error_msg.lower():
             raise HTTPException(
                 status_code=400,
                 detail=f"派工單號 '{data.dispatch_no}' 已存在，請使用其他單號"
             )
         raise HTTPException(status_code=400, detail="資料驗證失敗，請檢查輸入資料")
+    except Exception as e:
+        # 捕獲其他異常並記錄詳細錯誤
+        logger.error(f"[dispatch/create] 未預期錯誤: {type(e).__name__}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"建立派工單失敗: {str(e)}"
+        )
 
 
 @router.post("/dispatch/{dispatch_id}/update", response_model=DispatchOrderSchema, summary="更新派工紀錄")

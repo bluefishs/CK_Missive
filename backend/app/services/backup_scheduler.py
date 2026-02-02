@@ -4,13 +4,18 @@
 
 使用 asyncio 實現，與其他排程器保持一致
 
-@version 1.1.0
-@date 2026-01-11
+@version 1.2.0
+@date 2026-02-02
+
+變更記錄:
+- v1.2.0: 從備份日誌檔案載入統計數據，避免重啟後歸零
 """
 
 import asyncio
+import json
 import logging
 from datetime import datetime, time, timedelta
+from pathlib import Path
 from typing import Optional
 
 from app.services.backup_service import backup_service
@@ -34,12 +39,54 @@ class BackupScheduler:
         self.is_running: bool = False
         self._task: Optional[asyncio.Task] = None
         self._last_backup_time: Optional[datetime] = None
-        self._backup_stats: dict = {
+        self._backup_stats: dict = self._load_stats_from_logs()
+
+    def _load_stats_from_logs(self) -> dict:
+        """
+        從備份日誌檔案載入統計數據
+
+        讀取 backup_operations.json，計算成功/失敗次數，
+        避免重啟後統計數據歸零。
+        """
+        stats = {
             'total_backups': 0,
             'successful_backups': 0,
             'failed_backups': 0,
             'last_backup_result': None
         }
+
+        try:
+            # 使用與 backup_service 相同的日誌路徑
+            log_file = backup_service.backup_log_file
+            if log_file.exists():
+                with open(log_file, 'r', encoding='utf-8') as f:
+                    logs = json.load(f)
+
+                # 統計 'create' 操作的成功/失敗次數
+                for log in logs:
+                    if log.get('action') == 'create':
+                        stats['total_backups'] += 1
+                        if log.get('status') == 'success':
+                            stats['successful_backups'] += 1
+                        else:
+                            stats['failed_backups'] += 1
+
+                # 取得最近的備份結果
+                create_logs = [l for l in logs if l.get('action') == 'create']
+                if create_logs:
+                    last_log = create_logs[-1]
+                    stats['last_backup_result'] = {
+                        'success': last_log.get('status') == 'success',
+                        'timestamp': last_log.get('timestamp'),
+                        'details': last_log.get('details')
+                    }
+
+                logger.info(f"從日誌載入備份統計: {stats['total_backups']} 次 "
+                           f"(成功: {stats['successful_backups']}, 失敗: {stats['failed_backups']})")
+        except Exception as e:
+            logger.warning(f"載入備份統計失敗: {e}")
+
+        return stats
 
     def _get_next_backup_time(self) -> datetime:
         """計算下次備份時間"""

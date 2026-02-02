@@ -60,7 +60,8 @@ export const ROUTES = {
   NOT_FOUND: '/404',
   API_MAPPING: '/api-mapping', // 新增 API 對應頁面路由
   API_DOCS: '/api/docs', // API 文件頁面路由
-  PERMISSION_MANAGEMENT: '/admin/permissions',  // 重導向至 USER_MANAGEMENT
+  PERMISSION_MANAGEMENT: '/admin/permissions',
+  PERMISSION_ROLE_DETAIL: '/admin/permissions/:role',  // 角色權限詳情頁
   SYSTEM: '/system',
   UNIFIED_FORM_DEMO: '/unified-form-demo',
   GOOGLE_AUTH_DIAGNOSTIC: '/google-auth-diagnostic',

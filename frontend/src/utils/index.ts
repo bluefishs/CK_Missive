@@ -20,5 +20,8 @@ export * from './exportUtils';
 // 日誌工具
 export * from './logger';
 
+// 機關名稱處理工具
+export * from './agencyUtils';
+
 // format.ts 的函數與 common.ts/date.ts 重複，不再匯出
 // 如需特定 format.ts 函數，請直接從 './format' 匯入

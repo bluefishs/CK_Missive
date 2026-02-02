@@ -1,6 +1,23 @@
 /**
  * 統計報表 - 共用常數與工具函數
+ *
+ * @version 1.1.0 - 機關名稱處理函數移至 utils/agencyUtils
+ * @date 2026-02-02
  */
+
+// ============================================================================
+// 機關名稱處理函數 - 從 utils/agencyUtils 重導出
+// ============================================================================
+export {
+  normalizeName,
+  extractAgencyName,
+  formatAgencyDisplay,
+  extractAgencyList
+} from '../../utils/agencyUtils';
+
+// ============================================================================
+// 報表專用常數
+// ============================================================================
 
 // 圖表顏色配置
 export const COLORS = ['#1890ff', '#52c41a', '#faad14', '#f5222d', '#722ed1', '#13c2c2', '#eb2f96', '#fa8c16'];
@@ -21,8 +38,15 @@ export const CATEGORY_LABEL_MAP: Record<string, string> = {
   '04': '04其他類別',
 };
 
+// ============================================================================
+// 報表專用工具函數
+// ============================================================================
+
 // 格式化金額
-export const formatCurrency = (value: number): string => {
+export const formatCurrency = (value: number | null | undefined): string => {
+  if (value === null || value === undefined || isNaN(value)) {
+    return '0';
+  }
   if (value >= 100000000) {
     return `${(value / 100000000).toFixed(2)} 億`;
   }
@@ -30,17 +54,6 @@ export const formatCurrency = (value: number): string => {
     return `${(value / 10000).toFixed(1)} 萬`;
   }
   return value.toLocaleString();
-};
-
-// 標準化名稱（去除空白、統一全形半形）
-export const normalizeName = (name: string | null | undefined): string => {
-  if (!name) return '未指定';
-  return name
-    .trim()
-    .replace(/\s+/g, '') // 移除所有空白
-    .replace(/　/g, '')   // 移除全形空白
-    .replace(/（/g, '(')  // 統一括號
-    .replace(/）/g, ')');
 };
 
 // 取得狀態顯示名稱

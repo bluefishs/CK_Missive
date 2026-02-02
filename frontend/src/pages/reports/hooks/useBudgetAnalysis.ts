@@ -55,7 +55,7 @@ export interface AllStats {
 
 export interface UseBudgetAnalysisReturn {
   loading: boolean;
-  selectedYear: number | 'all';
+  selectedYear: number | 'all' | null;
   setSelectedYear: (year: number | 'all') => void;
   yearOptions: number[];
   projects: Project[];
@@ -78,7 +78,8 @@ export interface UseBudgetAnalysisReturn {
 export function useBudgetAnalysis(): UseBudgetAnalysisReturn {
   const { message } = App.useApp();
   const [loading, setLoading] = useState(true);
-  const [selectedYear, setSelectedYear] = useState<number | 'all'>('all');
+  // 初始值改為 null，表示尚未載入年度選項
+  const [selectedYear, setSelectedYear] = useState<number | 'all' | null>(null);
   const [yearOptions, setYearOptions] = useState<number[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
 
@@ -93,11 +94,15 @@ export function useBudgetAnalysis(): UseBudgetAnalysisReturn {
       try {
         const years = await projectsApi.getYearOptions();
         setYearOptions(years.sort((a, b) => b - a));
+        // 預設選擇最新年度
         if (years.length > 0 && years[0] !== undefined) {
           setSelectedYear(years[0]);
+        } else {
+          setSelectedYear('all');
         }
       } catch (error) {
         console.error('載入年度選項失敗:', error);
+        setSelectedYear('all');
       }
     };
     loadYears();
@@ -105,10 +110,14 @@ export function useBudgetAnalysis(): UseBudgetAnalysisReturn {
 
   // 載入承攬案件資料（分頁獲取全部）
   const loadProjects = useCallback(async () => {
+    // 等待年度選項載入完成
+    if (selectedYear === null) return;
+
     setLoading(true);
     try {
       const params: { year?: number; limit: number; page: number } = { limit: 100, page: 1 };
-      if (selectedYear !== 'all') {
+      // 只有選擇具體年度時才傳遞 year 參數
+      if (typeof selectedYear === 'number') {
         params.year = selectedYear;
       }
 

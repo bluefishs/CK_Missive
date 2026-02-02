@@ -150,6 +150,26 @@ class BackupService:
         await self._cleanup_old_backups(retention_days)
 
         result["success"] = len(result["errors"]) == 0
+
+        # 記錄備份操作日誌
+        db_info = result.get("database_backup", {})
+        att_info = result.get("attachments_backup", {})
+        details = []
+        if db_info.get("success"):
+            details.append(f"資料庫: {db_info.get('filename', 'N/A')} ({db_info.get('size_kb', 0)} KB)")
+        if att_info.get("success"):
+            details.append(f"附件: {att_info.get('file_count', 0)} 檔案 ({att_info.get('size_mb', 0)} MB)")
+
+        await self._log_backup_operation(
+            action="create",
+            status="success" if result["success"] else "failed",
+            details=", ".join(details) if details else "備份失敗",
+            backup_name=db_info.get("filename") or att_info.get("dirname"),
+            file_size_kb=db_info.get("size_kb"),
+            error_message="; ".join(result["errors"]) if result["errors"] else None,
+            operator="system"
+        )
+
         return result
 
     async def _backup_database(self, timestamp: str) -> Dict[str, Any]:

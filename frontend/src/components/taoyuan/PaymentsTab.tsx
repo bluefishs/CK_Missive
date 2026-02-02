@@ -106,21 +106,32 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) =
         render: (_, __, index) => index + 1,
       },
       {
+        title: '派工單號',
+        dataIndex: 'dispatch_no',
+        width: 120,
+        fixed: 'left',
+        render: (val: string, record) => (
+          <Button
+            type="link"
+            size="small"
+            style={{ padding: 0, color: '#1890ff' }}
+            onClick={() => navigate(`/taoyuan/dispatch/${record.dispatch_order_id}`)}
+          >
+            {val}
+          </Button>
+        ),
+      },
+      {
         title: '工程名稱/派工事項',
         dataIndex: 'project_name',
         width: 280,
         fixed: 'left',
         ellipsis: { showTitle: false },
-        render: (val: string, record) => (
+        render: (val: string) => (
           <Tooltip title={val}>
-            <Button
-              type="link"
-              size="small"
-              style={{ padding: 0, textAlign: 'left', whiteSpace: 'normal', height: 'auto', lineHeight: 1.3 }}
-              onClick={() => navigate(`/taoyuan/dispatch/${record.dispatch_order_id}`)}
-            >
-              {val || record.dispatch_no}
-            </Button>
+            <span style={{ whiteSpace: 'normal', lineHeight: 1.3 }}>
+              {val || '-'}
+            </span>
           </Tooltip>
         ),
       },
@@ -599,7 +610,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) =
         summary={() => (
           <Table.Summary fixed>
             <Table.Summary.Row style={{ background: '#fafafa', fontWeight: 'bold' }}>
-              <Table.Summary.Cell index={0} colSpan={2}>
+              <Table.Summary.Cell index={0} colSpan={3}>
                 合計
               </Table.Summary.Cell>
               {/* 7 種作業類別的合計 */}

@@ -8,9 +8,9 @@
  * - 工程關聯：關聯的工程資訊
  * - 契金維護：契金紀錄管理
  *
- * @version 2.1.0
- * @date 2026-01-28
- * @description 統一編輯模式控制，契金維護 Tab 使用頁面層級 isEditing
+ * @version 2.2.0
+ * @date 2026-01-30
+ * @description 統一編輯與儲存：頂部「儲存」按鈕同時保存派工單和契金資料
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
@@ -62,6 +62,10 @@ import {
   DispatchPaymentTab,
   type LinkedProject,
 } from './taoyuanDispatch/tabs';
+import {
+  parseWorkTypeCodes,
+  validatePaymentConsistency,
+} from './taoyuanDispatch/tabs/DispatchPaymentTab';
 
 export const TaoyuanDispatchDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -248,6 +252,8 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
     onSuccess: () => {
       message.success('契金紀錄儲存成功');
       refetchPayment();
+      // 同步更新契金管控列表（PaymentsTab）
+      queryClient.invalidateQueries({ queryKey: ['payment-control'] });
     },
     onError: () => message.error('契金儲存失敗'),
   });
@@ -453,6 +459,9 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
         ? values.work_type.join(', ')
         : values.work_type || '';
 
+      // 解析作業類別代碼
+      const workTypeCodes = parseWorkTypeCodes(values.work_type);
+
       const {
         work_01_amount,
         work_02_amount,
@@ -467,30 +476,66 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
         ...dispatchValues
       } = values;
 
+      // 原始金額物件
+      const originalAmounts: Record<string, number | undefined> = {
+        work_01_amount,
+        work_02_amount,
+        work_03_amount,
+        work_04_amount,
+        work_05_amount,
+        work_06_amount,
+        work_07_amount,
+      };
+
+      // 檢查契金與作業類別一致性
+      const inconsistencies = validatePaymentConsistency(workTypeCodes, originalAmounts);
+
+      // 同步調整：只保留對應作業類別的金額
+      const syncedAmounts: Record<string, number | undefined> = {};
+      for (let i = 1; i <= 7; i++) {
+        const code = i.toString().padStart(2, '0');
+        const field = `work_${code}_amount`;
+        // 只有在作業類別中的金額才保留
+        if (workTypeCodes.includes(code)) {
+          syncedAmounts[field] = originalAmounts[field];
+        } else {
+          syncedAmounts[field] = undefined; // 清除不對應的金額
+        }
+      }
+
+      // 如果有不一致的金額被清除，顯示提示
+      if (inconsistencies.length > 0) {
+        const clearedInfo = inconsistencies
+          .map(item => `${item.label}: $${item.amount.toLocaleString()}`)
+          .join('、');
+        message.warning(`以下金額因作業類別變更已自動清除：${clearedInfo}`);
+      }
+
       updateMutation.mutate({
         ...dispatchValues,
         work_type: workTypeString,
       });
 
+      // 使用同步後的金額計算總金額
       const calculatedCurrentAmount =
-        (work_01_amount || 0) +
-        (work_02_amount || 0) +
-        (work_03_amount || 0) +
-        (work_04_amount || 0) +
-        (work_05_amount || 0) +
-        (work_06_amount || 0) +
-        (work_07_amount || 0);
+        (syncedAmounts.work_01_amount || 0) +
+        (syncedAmounts.work_02_amount || 0) +
+        (syncedAmounts.work_03_amount || 0) +
+        (syncedAmounts.work_04_amount || 0) +
+        (syncedAmounts.work_05_amount || 0) +
+        (syncedAmounts.work_06_amount || 0) +
+        (syncedAmounts.work_07_amount || 0);
 
       if (calculatedCurrentAmount > 0 || paymentData?.id) {
         const paymentValues: ContractPaymentCreate = {
           dispatch_order_id: parseInt(id || '0', 10),
-          work_01_amount: work_01_amount || undefined,
-          work_02_amount: work_02_amount || undefined,
-          work_03_amount: work_03_amount || undefined,
-          work_04_amount: work_04_amount || undefined,
-          work_05_amount: work_05_amount || undefined,
-          work_06_amount: work_06_amount || undefined,
-          work_07_amount: work_07_amount || undefined,
+          work_01_amount: syncedAmounts.work_01_amount,
+          work_02_amount: syncedAmounts.work_02_amount,
+          work_03_amount: syncedAmounts.work_03_amount,
+          work_04_amount: syncedAmounts.work_04_amount,
+          work_05_amount: syncedAmounts.work_05_amount,
+          work_06_amount: syncedAmounts.work_06_amount,
+          work_07_amount: syncedAmounts.work_07_amount,
           current_amount: calculatedCurrentAmount,
         };
         paymentMutation.mutate(paymentValues);
@@ -681,8 +726,7 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
         dispatch={dispatch}
         paymentData={paymentData}
         isEditing={isEditing}
-        isSaving={paymentMutation.isPending}
-        onSavePayment={(values) => paymentMutation.mutate(values)}
+        form={form}
       />
     ),
   ];

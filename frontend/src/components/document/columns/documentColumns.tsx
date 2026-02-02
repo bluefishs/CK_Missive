@@ -10,6 +10,7 @@ import type { ColumnsType, ColumnType } from 'antd/es/table';
 import Highlighter from 'react-highlight-words';
 import { Document } from '../../../types';
 import type { DocumentAttachment } from '../../../api/filesApi';
+import { formatAgencyDisplay } from '../../../utils/agencyUtils';
 
 // ========== 類型定義 ==========
 
@@ -73,18 +74,6 @@ export const getMobileColumns = (
     ),
   },
 ];
-
-// ========== 輔助函數 ==========
-
-// 解析機關名稱
-const extractAgencyName = (value: string | undefined): string => {
-  if (!value) return '-';
-  const agencies = value.split(' | ').map(agency => {
-    const match = agency.match(/\(([^)]+)\)/);
-    return match ? match[1] : agency;
-  });
-  return agencies.join('、');
-};
 
 // ========== 桌面版欄位 ==========
 
@@ -153,7 +142,7 @@ export const getDesktopColumns = (options: GetColumnsOptions): ColumnsType<Docum
         const rawValue = record.category === '收文' ? record.sender : record.receiver;
         const labelPrefix = record.category === '收文' ? '來文：' : '發至：';
         const labelColor = record.category === '收文' ? '#52c41a' : '#1890ff';
-        const displayValue = extractAgencyName(rawValue);
+        const displayValue = formatAgencyDisplay(rawValue);
 
         return (
           <Typography.Text ellipsis={{ tooltip: { title: displayValue, placement: 'topLeft' } }}>

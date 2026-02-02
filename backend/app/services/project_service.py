@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 from app.schemas.project import ProjectCreate, ProjectUpdate
 from app.core.rls_filter import RLSFilter
 from app.services.base_service import BaseService
+from app.repositories.taoyuan import PaymentRepository
 
 logger = logging.getLogger(__name__)
 
@@ -242,6 +243,9 @@ class ProjectService(BaseService[ContractProject, ProjectCreate, ProjectUpdate])
 
         update_data = data.model_dump(exclude_unset=True)
 
+        # 記錄原始契約金額，用於判斷是否需要同步契金
+        old_contract_amount = db_project.contract_amount
+
         # 自動設定進度：當狀態設為「已結案」時，進度自動設為 100%
         if update_data.get('status') == '已結案':
             update_data['progress'] = 100
@@ -251,6 +255,22 @@ class ProjectService(BaseService[ContractProject, ProjectCreate, ProjectUpdate])
 
         await db.commit()
         await db.refresh(db_project)
+
+        # 當契約金額變更時，同步更新相關契金記錄的累進金額
+        new_contract_amount = db_project.contract_amount
+        if ('contract_amount' in update_data and
+            old_contract_amount != new_contract_amount):
+            try:
+                payment_repo = PaymentRepository(db)
+                updated_count = await payment_repo.update_cumulative_amounts(entity_id)
+                if updated_count > 0:
+                    self.logger.info(
+                        f"專案 {entity_id} 契約金額變更 "
+                        f"({old_contract_amount} -> {new_contract_amount})，"
+                        f"已更新 {updated_count} 筆契金記錄"
+                    )
+            except Exception as e:
+                self.logger.warning(f"同步契金記錄失敗: {e}")
 
         self.logger.info(f"更新{self.entity_name}: ID={entity_id}")
         return db_project

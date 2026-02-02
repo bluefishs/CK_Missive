@@ -63,6 +63,7 @@ const ReportsPage = lazy(() => import('../pages/ReportsPage'));
 const GoogleAuthDiagnosticPage = lazy(() => import('../pages/GoogleAuthDiagnosticPage'));
 // SystemPage 已移除，功能整合至其他管理頁面
 const PermissionManagementPage = lazy(() => import('../pages/PermissionManagementPage'));
+const RolePermissionDetailPage = lazy(() => import('../pages/RolePermissionDetailPage'));
 // PureCalendarPage 已整合至 CalendarPage，保留重導向以維持相容性
 // const PureCalendarPage = lazy(() => import('../pages/PureCalendarPage'));
 const UnifiedFormDemoPage = lazy(() => import('../pages/UnifiedFormDemoPage'));
@@ -170,6 +171,7 @@ export const AppRouter: React.FC = () => {
 
           {/* 權限管理 - 獨立頁面：管理系統權限定義與角色 */}
           <Route path={ROUTES.PERMISSION_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><PermissionManagementPage /></ProtectedRoute>} />
+          <Route path={ROUTES.PERMISSION_ROLE_DETAIL} element={<ProtectedRoute requireAuth={true} roles={['admin']}><RolePermissionDetailPage /></ProtectedRoute>} />
 
           {/* 網站管理 */}
           <Route path={ROUTES.SITE_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><SiteManagementPage /></ProtectedRoute>} />

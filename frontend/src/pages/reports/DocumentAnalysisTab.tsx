@@ -3,6 +3,8 @@
  *
  * 純 UI 元件，所有資料與邏輯由 useDocumentAnalysis Hook 提供。
  * 功能：收發文統計卡片、來文機關排名、受文者排名。
+ *
+ * @version 1.1.0 - 新增表格搜尋篩選功能
  */
 
 import React from 'react';
@@ -24,8 +26,15 @@ import {
   FallOutlined,
 } from '@ant-design/icons';
 import { useDocumentAnalysis } from './hooks/useDocumentAnalysis';
+import { useTableSearch } from './hooks/useTableSearch';
 
 const { Text } = Typography;
+
+// 表格資料型別
+interface NameCountRow {
+  name: string;
+  count: number;
+}
 
 interface DocumentAnalysisTabProps {
   isMobile: boolean;
@@ -41,52 +50,62 @@ const DocumentAnalysisTab: React.FC<DocumentAnalysisTabProps> = ({ isMobile }) =
     stats,
   } = useDocumentAnalysis();
 
-  // 來文機關表格欄位
+  // 表格搜尋功能
+  const { getColumnSearchProps: getSenderSearchProps } = useTableSearch<NameCountRow>();
+  const { getColumnSearchProps: getReceiverSearchProps } = useTableSearch<NameCountRow>();
+
+  // 來文機關表格欄位（含搜尋篩選）
   const senderColumns = [
     {
       title: '來文機關',
       dataIndex: 'name',
       key: 'name',
       ellipsis: true,
+      sorter: (a: NameCountRow, b: NameCountRow) => a.name.localeCompare(b.name, 'zh-TW'),
+      ...getSenderSearchProps('name', '機關名稱'),
     },
     {
       title: '收文數',
       dataIndex: 'count',
       key: 'count',
       width: 80,
-      sorter: (a: { count: number }, b: { count: number }) => a.count - b.count,
+      sorter: (a: NameCountRow, b: NameCountRow) => a.count - b.count,
+      defaultSortOrder: 'descend' as const,
     },
     {
       title: '占比',
       key: 'percentage',
       width: 70,
-      render: (_: unknown, record: { count: number }) => {
+      render: (_: unknown, record: NameCountRow) => {
         const pct = stats.receiveCount > 0 ? (record.count / stats.receiveCount) * 100 : 0;
         return `${pct.toFixed(1)}%`;
       },
     },
   ];
 
-  // 受文者表格欄位
+  // 受文者表格欄位（含搜尋篩選）
   const receiverColumns = [
     {
       title: '受文者',
       dataIndex: 'name',
       key: 'name',
       ellipsis: true,
+      sorter: (a: NameCountRow, b: NameCountRow) => a.name.localeCompare(b.name, 'zh-TW'),
+      ...getReceiverSearchProps('name', '受文者名稱'),
     },
     {
       title: '發文數',
       dataIndex: 'count',
       key: 'count',
       width: 80,
-      sorter: (a: { count: number }, b: { count: number }) => a.count - b.count,
+      sorter: (a: NameCountRow, b: NameCountRow) => a.count - b.count,
+      defaultSortOrder: 'descend' as const,
     },
     {
       title: '占比',
       key: 'percentage',
       width: 70,
-      render: (_: unknown, record: { count: number }) => {
+      render: (_: unknown, record: NameCountRow) => {
         const pct = stats.sendCount > 0 ? (record.count / stats.sendCount) * 100 : 0;
         return `${pct.toFixed(1)}%`;
       },
@@ -108,10 +127,11 @@ const DocumentAnalysisTab: React.FC<DocumentAnalysisTabProps> = ({ isMobile }) =
         <Space>
           <Text strong>分析年度：</Text>
           <Select
-            value={selectedYear}
+            value={selectedYear ?? undefined}
             onChange={setSelectedYear}
             style={{ width: 120 }}
-            placeholder="選擇年度"
+            placeholder="載入中..."
+            loading={selectedYear === null}
           >
             <Select.Option value="all">全部年度</Select.Option>
             {yearOptions.map((year) => (

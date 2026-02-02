@@ -3,8 +3,7 @@
  *
  * 架構說明：
  * - React Query: 唯一的伺服器資料來源（使用者列表）
- * - 純導航模式：點擊列直接導航至 UserFormPage
- * - 權限維護：點擊「管理」按鈕導航至權限管理頁面
+ * - 純導航模式：點擊列直接導航至 UserFormPage 進行編輯
  *
  * 表格欄位：
  * - 使用者（姓名 + 電子郵件）
@@ -13,19 +12,21 @@
  * - 狀態
  * - 註冊時間
  * - 最後登入
- * - 權限維護（導航模式）
  *
- * @version 5.0.0 - 調整欄位設計，新增認證方式、註冊時間、最後登入、權限維護
- * @date 2026-01-27
+ * @version 5.2.0 - 移除權限維護欄位（改由使用者編輯頁處理）
+ * @date 2026-02-02
  */
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Card, Table, Button, Space, Input, Select, Row, Col, Typography, AutoComplete, Tag
 } from 'antd';
-import type { TableProps } from 'antd';
+import type { TableProps, InputRef } from 'antd';
+import type { ColumnsType, ColumnType } from 'antd/es/table';
+import type { FilterConfirmProps } from 'antd/es/table/interface';
+import Highlighter from 'react-highlight-words';
 import debounce from 'lodash/debounce';
-import { PlusOutlined, SearchOutlined, TeamOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
+import { PlusOutlined, SearchOutlined, TeamOutlined, UserOutlined } from '@ant-design/icons';
 import {
   getRoleDisplayName,
   getStatusDisplayName,
@@ -80,6 +81,11 @@ const UserManagementPage: React.FC = () => {
   const [providerFilter, setProviderFilter] = useState<string>('');
   const [searchOptions, setSearchOptions] = useState<{ value: string; label: string }[]>([]);
 
+  // 表格內建搜尋狀態
+  const [tableSearchText, setTableSearchText] = useState('');
+  const [searchedColumn, setSearchedColumn] = useState('');
+  const searchInput = useRef<InputRef>(null);
+
   // 分頁狀態
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -104,7 +110,89 @@ const UserManagementPage: React.FC = () => {
   } = useAdminUsersPage(queryParams);
 
   // ============================================================================
-  // 搜尋處理
+  // 表格內建搜尋處理
+  // ============================================================================
+
+  const handleTableSearch = useCallback(
+    (selectedKeys: string[], confirm: (param?: FilterConfirmProps) => void, dataIndex: string) => {
+      confirm();
+      setTableSearchText(selectedKeys[0] || '');
+      setSearchedColumn(dataIndex);
+    },
+    []
+  );
+
+  const handleTableReset = useCallback((clearFilters: () => void) => {
+    clearFilters();
+    setTableSearchText('');
+  }, []);
+
+  // 取得欄位搜尋配置
+  const getColumnSearchProps = useCallback(
+    (dataIndex: string, title: string): ColumnType<User> => ({
+      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters, close }) => (
+        <div style={{ padding: 8 }} onKeyDown={(e) => e.stopPropagation()}>
+          <Input
+            ref={searchInput}
+            placeholder={`搜尋${title}`}
+            value={selectedKeys[0]}
+            onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+            onPressEnter={() => handleTableSearch(selectedKeys as string[], confirm, dataIndex)}
+            style={{ marginBottom: 8, display: 'block' }}
+          />
+          <Space>
+            <Button
+              type="primary"
+              onClick={() => handleTableSearch(selectedKeys as string[], confirm, dataIndex)}
+              icon={<SearchOutlined />}
+              size="small"
+              style={{ width: 90 }}
+            >
+              搜尋
+            </Button>
+            <Button
+              onClick={() => clearFilters && handleTableReset(clearFilters)}
+              size="small"
+              style={{ width: 90 }}
+            >
+              重置
+            </Button>
+            <Button type="link" size="small" onClick={() => close()}>
+              關閉
+            </Button>
+          </Space>
+        </div>
+      ),
+      filterIcon: (filtered: boolean) => (
+        <SearchOutlined style={{ color: filtered ? '#1677ff' : undefined }} />
+      ),
+      onFilter: (value, record) => {
+        if (dataIndex === 'user') {
+          // 使用者欄位搜尋：名稱、email、帳號
+          const searchValue = (value as string).toLowerCase();
+          return (
+            (record.full_name?.toLowerCase().includes(searchValue) || false) ||
+            record.email.toLowerCase().includes(searchValue) ||
+            record.username.toLowerCase().includes(searchValue)
+          );
+        }
+        const fieldValue = record[dataIndex as keyof User];
+        if (fieldValue === null || fieldValue === undefined) return false;
+        return String(fieldValue).toLowerCase().includes((value as string).toLowerCase());
+      },
+      filterDropdownProps: {
+        onOpenChange(open: boolean) {
+          if (open) {
+            setTimeout(() => searchInput.current?.select(), 100);
+          }
+        },
+      },
+    }),
+    [handleTableSearch, handleTableReset]
+  );
+
+  // ============================================================================
+  // 外部搜尋處理（AutoComplete）
   // ============================================================================
 
   const handleAutoCompleteSearch = useCallback(
@@ -149,34 +237,71 @@ const UserManagementPage: React.FC = () => {
   }, [navigate]);
 
   // ============================================================================
-  // 導航至權限管理（獨立頁面）
+  // 篩選選項定義
   // ============================================================================
 
-  const handlePermissionClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation(); // 阻止觸發行點擊事件
-    navigate(ROUTES.PERMISSION_MANAGEMENT);
-  }, [navigate]);
+  // 角色篩選選項
+  const roleFilters = [
+    { text: '超級管理員', value: 'superuser' },
+    { text: '管理員', value: 'admin' },
+    { text: '一般使用者', value: 'user' },
+    { text: '訪客', value: 'guest' },
+  ];
+
+  // 認證方式篩選選項
+  const authProviderFilters = [
+    { text: 'Google', value: 'google' },
+    { text: '電子郵件', value: 'email' },
+    { text: '本地帳號', value: 'local' },
+  ];
+
+  // 狀態篩選選項
+  const statusFilters = [
+    { text: '啟用', value: true },
+    { text: '停用', value: false },
+  ];
 
   // ============================================================================
-  // 表格欄位 - 依規範調整
+  // 表格欄位 - 依規範調整（含排序、篩選、搜尋功能）
   // ============================================================================
 
-  const columns = useMemo(() => [
+  const columns: ColumnsType<User> = useMemo(() => [
     {
       title: '使用者',
       key: 'user',
       width: isMobile ? 150 : 200,
-      render: (_: unknown, record: User) => (
-        <Space>
-          <UserOutlined style={{ color: '#1976d2' }} />
-          <div>
-            <div style={{ fontWeight: 500 }}>{record.full_name || record.username}</div>
-            <Typography.Text type="secondary" style={{ fontSize: '12px' }}>
-              {record.email}
-            </Typography.Text>
-          </div>
-        </Space>
-      ),
+      ...getColumnSearchProps('user', '使用者'),
+      sorter: (a, b) => (a.full_name || a.username).localeCompare(b.full_name || b.username, 'zh-TW'),
+      render: (_: unknown, record: User) => {
+        const displayName = record.full_name || record.username;
+        return (
+          <Space>
+            <UserOutlined style={{ color: '#1976d2' }} />
+            <div>
+              <div style={{ fontWeight: 500 }}>
+                {searchedColumn === 'user' && tableSearchText ? (
+                  <Highlighter
+                    highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
+                    searchWords={[tableSearchText]}
+                    autoEscape
+                    textToHighlight={displayName}
+                  />
+                ) : displayName}
+              </div>
+              <Typography.Text type="secondary" style={{ fontSize: '12px' }}>
+                {searchedColumn === 'user' && tableSearchText ? (
+                  <Highlighter
+                    highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
+                    searchWords={[tableSearchText]}
+                    autoEscape
+                    textToHighlight={record.email}
+                  />
+                ) : record.email}
+              </Typography.Text>
+            </div>
+          </Space>
+        );
+      },
     },
     {
       title: '認證方式',
@@ -184,6 +309,9 @@ const UserManagementPage: React.FC = () => {
       key: 'auth_provider',
       width: 100,
       align: 'center' as const,
+      filters: authProviderFilters,
+      onFilter: (value, record) => (record.auth_provider || 'email') === value,
+      sorter: (a, b) => (a.auth_provider || 'email').localeCompare(b.auth_provider || 'email'),
       render: (provider: string) => {
         const display = getAuthProviderDisplay(provider);
         return <Tag color={display.color}>{display.label}</Tag>;
@@ -195,6 +323,9 @@ const UserManagementPage: React.FC = () => {
       key: 'role',
       width: 100,
       align: 'center' as const,
+      filters: roleFilters,
+      onFilter: (value, record) => record.role === value,
+      sorter: (a, b) => (a.role || '').localeCompare(b.role || '', 'zh-TW'),
       render: (role: string) => getRoleDisplayName(role),
     },
     {
@@ -203,6 +334,9 @@ const UserManagementPage: React.FC = () => {
       key: 'is_active',
       width: 80,
       align: 'center' as const,
+      filters: statusFilters,
+      onFilter: (value, record) => record.is_active === value,
+      sorter: (a, b) => (a.is_active === b.is_active ? 0 : a.is_active ? -1 : 1),
       render: (isActive: boolean, record: User) => (
         <span style={{ color: isActive ? '#52c41a' : '#ff4d4f' }}>
           {getStatusDisplayName(record.status || (isActive ? 'active' : 'inactive'))}
@@ -214,6 +348,11 @@ const UserManagementPage: React.FC = () => {
       dataIndex: 'created_at',
       key: 'created_at',
       width: 140,
+      sorter: (a, b) => {
+        const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return dateA - dateB;
+      },
       render: (date: string) => formatDateTime(date),
     },
     {
@@ -221,25 +360,14 @@ const UserManagementPage: React.FC = () => {
       dataIndex: 'last_login',
       key: 'last_login',
       width: 140,
+      sorter: (a, b) => {
+        const dateA = a.last_login ? new Date(a.last_login).getTime() : 0;
+        const dateB = b.last_login ? new Date(b.last_login).getTime() : 0;
+        return dateA - dateB;
+      },
       render: (date: string) => formatDateTime(date),
     },
-    {
-      title: '權限維護',
-      key: 'permissions',
-      width: 100,
-      align: 'center' as const,
-      render: () => (
-        <Button
-          type="link"
-          size="small"
-          icon={<SettingOutlined />}
-          onClick={handlePermissionClick}
-        >
-          {isMobile ? '' : '管理'}
-        </Button>
-      ),
-    },
-  ], [isMobile, handlePermissionClick]);
+  ], [isMobile, getColumnSearchProps, searchedColumn, tableSearchText]);
 
   // ============================================================================
   // 渲染
