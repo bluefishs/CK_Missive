@@ -1,0 +1,150 @@
+# =============================================================================
+# CK_Missive Production 部署配置 (QNAP NAS Container Station)
+# =============================================================================
+# 目標: 192.168.50.41 NAS Container Station
+# 用法: docker-compose -f docker-compose.production.yml up -d
+# =============================================================================
+
+name: ck_missive_prod
+
+services:
+  # --- 🗄️ PostgreSQL 資料庫 ---
+  postgres:
+    image: postgres:15-alpine
+    container_name: ck_missive_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+      TZ: Asia/Taipei
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./configs/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - ck_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # --- ⚡ Redis 快取 ---
+  redis:
+    image: redis:7-alpine
+    container_name: ck_missive_redis
+    restart: always
+    command: redis-server --appendonly yes
+    environment:
+      TZ: Asia/Taipei
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ck_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # --- 🐍 FastAPI 後端 ---
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: ck-missive-backend:production
+    container_name: ck_missive_backend
+    restart: always
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=60
+      - CORS_ORIGINS=${CORS_ORIGINS}
+      - DEBUG=false
+      - LOG_LEVEL=INFO
+      - TZ=Asia/Taipei
+      - ENVIRONMENT=production
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/logs:/app/logs
+      - ./backend/GoogleCalendarAPIKEY.json:/app/GoogleCalendarAPIKEY.json:ro
+    networks:
+      - ck_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # --- ⚛️ React 前端 (Nginx) ---
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL}
+        - VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
+        - VITE_AUTH_DISABLED=false
+    image: ck-missive-frontend:production
+    container_name: ck_missive_frontend
+    restart: always
+    environment:
+      - TZ=Asia/Taipei
+    ports:
+      - "80:80"
+    networks:
+      - ck_network
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # --- 🔧 Adminer (資料庫管理，可選) ---
+  adminer:
+    image: adminer:4.8.1
+    container_name: ck_missive_adminer
+    restart: unless-stopped
+    environment:
+      - ADMINER_DEFAULT_SERVER=postgres
+      - TZ=Asia/Taipei
+    ports:
+      - "8080:8080"
+    networks:
+      - ck_network
+    depends_on:
+      - postgres
+    profiles:
+      - tools
+
+# --- 📦 持久化儲存 ---
+volumes:
+  postgres_data:
+    name: ck_missive_postgres_data
+  redis_data:
+    name: ck_missive_redis_data
+
+# --- 🌐 網路 ---
+networks:
+  ck_network:
+    name: ck_missive_network
+    driver: bridge
