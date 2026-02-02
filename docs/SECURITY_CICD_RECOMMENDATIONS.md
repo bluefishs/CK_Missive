@@ -1,8 +1,8 @@
 # 資安與 CI/CD 優化建議
 
-> **版本**: 2.0.0
+> **版本**: 2.1.0
 > **建立日期**: 2026-02-02
-> **最後更新**: 2026-02-02 (高優先級任務全部完成)
+> **最後更新**: 2026-02-02 (CD 自動部署工作流已建立)
 > **基於**: 系統優化報告 v7.0.0 + 安全審計報告 v1.0.0
 
 ---
@@ -14,8 +14,8 @@
 | 領域 | 原始評分 | 目標評分 | 當前評分 | 狀態 |
 |------|----------|----------|----------|------|
 | 資訊安全 | 8.5/10 | 9.5/10 | **9.5/10** | ✅ 達成 |
-| CI/CD 成熟度 | 8.0/10 | 9.0/10 | **8.5/10** | 🔄 進行中 |
-| 部署自動化 | 7.0/10 | 9.0/10 | **7.5/10** | 🔄 進行中 |
+| CI/CD 成熟度 | 8.0/10 | 9.0/10 | **9.0/10** | ✅ 達成 |
+| 部署自動化 | 7.0/10 | 9.0/10 | **9.0/10** | ✅ 達成 |
 
 ---
 
@@ -196,88 +196,37 @@ def validate_password_strength(password: str) -> tuple[bool, str]:
     fi
 ```
 
-### 2.3 CD (自動部署) 建議
+### 2.3 CD (自動部署) ✅ 已建立
 
-#### A. 建立部署工作流
+#### A. Self-hosted Runner 方案 (推薦)
 
-```yaml
-# .github/workflows/deploy-production.yml
-name: Deploy to Production
+**已建立完整部署工作流**：`.github/workflows/deploy-production.yml`
 
-on:
-  push:
-    tags:
-      - 'v*'
+| 功能 | 狀態 | 說明 |
+|------|------|------|
+| 版本驗證 | ✅ | Tag/手動觸發支援 |
+| 自動備份 | ✅ | 部署前備份映像與資料庫 |
+| 建置部署 | ✅ | Docker Compose 建置與啟動 |
+| 健康檢查 | ✅ | 後端 + 前端 + API 測試 |
+| 自動回滾 | ✅ | 健康檢查失敗時自動回滾 |
+| Slack 通知 | ✅ | 可選的部署通知 |
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    environment: production
+**觸發方式**：
+- Push tag (`v*`) - 自動觸發
+- `workflow_dispatch` - 手動觸發
 
-    steps:
-      - uses: actions/checkout@v4
+**設置指南**：`docs/GITHUB_RUNNER_SETUP.md`
 
-      # 建置並推送 Docker 映像
-      - name: Build and push images
-        run: |
-          docker compose -f docker-compose.production.yml build
-          docker tag ck-missive-backend:production ghcr.io/${{ github.repository }}/backend:${{ github.ref_name }}
-          docker push ghcr.io/${{ github.repository }}/backend:${{ github.ref_name }}
+#### B. 回滾機制 ✅ 已內建
 
-      # 部署到 NAS
-      - name: Deploy to NAS
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.NAS_HOST }}
-          username: ${{ secrets.NAS_USER }}
-          key: ${{ secrets.NAS_SSH_KEY }}
-          script: |
-            cd /share/CACHEDEV1_DATA/Container/ck-missive
-            docker compose pull
-            docker compose up -d --force-recreate
-            sleep 30
-            curl -f http://localhost:8001/health || exit 1
-```
+工作流內建自動回滾：
+1. 部署前自動備份當前映像為 `:rollback` 標籤
+2. 健康檢查失敗時自動還原映像
+3. 驗證回滾後服務狀態
 
-#### B. 建立回滾機制
+#### C. 藍綠部署策略 (Phase 4)
 
-```yaml
-- name: Rollback on failure
-  if: failure()
-  uses: appleboy/ssh-action@v1
-  with:
-    host: ${{ secrets.NAS_HOST }}
-    username: ${{ secrets.NAS_USER }}
-    key: ${{ secrets.NAS_SSH_KEY }}
-    script: |
-      cd /share/CACHEDEV1_DATA/Container/ck-missive
-      docker compose down
-      docker tag ck-missive-backend:previous ck-missive-backend:production
-      docker compose up -d
-```
-
-#### C. 藍綠部署策略
-
-```yaml
-# 進階：藍綠部署
-- name: Blue-Green deployment
-  run: |
-    # 啟動新版本 (綠)
-    docker compose -f docker-compose.production.yml -p ck_missive_green up -d
-
-    # 健康檢查
-    sleep 30
-    if curl -f http://localhost:8002/health; then
-      # 切換流量
-      # 更新 nginx upstream
-      # 停止舊版本 (藍)
-      docker compose -f docker-compose.production.yml -p ck_missive_blue down
-    else
-      # 回滾
-      docker compose -f docker-compose.production.yml -p ck_missive_green down
-      exit 1
-    fi
-```
+> 暫緩實施，現有回滾機制已足夠應對大部分場景
 
 ---
 

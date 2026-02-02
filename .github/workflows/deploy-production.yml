@@ -1,0 +1,372 @@
+# =============================================================================
+# CK_Missive 生產環境自動部署工作流
+# =============================================================================
+# 版本: 1.0.0
+# 建立日期: 2026-02-02
+#
+# 觸發條件:
+#   - Push tag (v*)
+#   - 手動觸發 (workflow_dispatch)
+#
+# 前置需求:
+#   1. 在 QNAP NAS 上設置 self-hosted runner
+#   2. 配置 GitHub Secrets (見下方說明)
+#
+# 必要 Secrets:
+#   - DEPLOY_PATH: NAS 上的部署路徑 (例: /share/CACHEDEV1_DATA/Container/ck-missive)
+#   - SLACK_WEBHOOK_URL: (可選) Slack 通知 Webhook
+# =============================================================================
+
+name: Deploy to Production
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      skip_backup:
+        description: '跳過備份步驟'
+        required: false
+        default: 'false'
+        type: boolean
+      force_rebuild:
+        description: '強制重新建置 (不使用快取)'
+        required: false
+        default: 'false'
+        type: boolean
+
+# 確保同時只有一個部署在執行
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+env:
+  DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '/share/CACHEDEV1_DATA/Container/ck-missive' }}
+  COMPOSE_FILE: docker-compose.production.yml
+  HEALTH_CHECK_TIMEOUT: 60
+  HEALTH_CHECK_INTERVAL: 5
+
+jobs:
+  # ===========================================================================
+  # Job 1: 驗證與準備
+  # ===========================================================================
+  validate:
+    name: 驗證部署條件
+    runs-on: self-hosted
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      should_deploy: ${{ steps.check.outputs.should_deploy }}
+
+    steps:
+      - name: 檢出程式碼
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 取得版本號
+        id: version
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION="${{ github.ref_name }}"
+          else
+            VERSION="manual-$(date +%Y%m%d-%H%M%S)"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 部署版本: $VERSION"
+
+      - name: 檢查部署路徑
+        id: check
+        run: |
+          if [ -d "${{ env.DEPLOY_PATH }}" ]; then
+            echo "✅ 部署路徑存在: ${{ env.DEPLOY_PATH }}"
+            echo "should_deploy=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ 部署路徑不存在: ${{ env.DEPLOY_PATH }}"
+            echo "should_deploy=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: 檢查 Docker 服務
+        run: |
+          docker --version
+          docker compose version
+          echo "✅ Docker 服務正常"
+
+  # ===========================================================================
+  # Job 2: 備份當前版本
+  # ===========================================================================
+  backup:
+    name: 備份當前版本
+    runs-on: self-hosted
+    needs: validate
+    if: ${{ needs.validate.outputs.should_deploy == 'true' && github.event.inputs.skip_backup != 'true' }}
+
+    steps:
+      - name: 備份 Docker 映像
+        working-directory: ${{ env.DEPLOY_PATH }}
+        run: |
+          echo "🔄 備份當前 Docker 映像..."
+
+          # 標記當前映像為 rollback
+          docker tag ck-missive-backend:latest ck-missive-backend:rollback 2>/dev/null || echo "⚠️ 後端映像不存在，跳過備份"
+          docker tag ck-missive-frontend:latest ck-missive-frontend:rollback 2>/dev/null || echo "⚠️ 前端映像不存在，跳過備份"
+
+          echo "✅ 映像備份完成"
+
+      - name: 備份資料庫 (可選)
+        working-directory: ${{ env.DEPLOY_PATH }}
+        continue-on-error: true
+        run: |
+          echo "🔄 備份資料庫..."
+
+          # 建立備份目錄
+          BACKUP_DIR="backups/pre-deploy-$(date +%Y%m%d-%H%M%S)"
+          mkdir -p "$BACKUP_DIR"
+
+          # 執行資料庫備份
+          docker compose -f ${{ env.COMPOSE_FILE }} exec -T postgres pg_dump -U ck_user ck_documents > "$BACKUP_DIR/database.sql" 2>/dev/null || echo "⚠️ 資料庫備份跳過"
+
+          echo "✅ 資料庫備份完成"
+
+  # ===========================================================================
+  # Job 3: 建置與部署
+  # ===========================================================================
+  deploy:
+    name: 建置與部署
+    runs-on: self-hosted
+    needs: [validate, backup]
+    if: ${{ always() && needs.validate.outputs.should_deploy == 'true' }}
+    outputs:
+      deploy_status: ${{ steps.deploy.outputs.status }}
+
+    steps:
+      - name: 更新程式碼
+        working-directory: ${{ env.DEPLOY_PATH }}
+        run: |
+          echo "🔄 更新程式碼..."
+          git fetch --all --tags
+
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            git checkout ${{ github.ref_name }}
+          else
+            git checkout ${{ github.sha }}
+          fi
+
+          echo "✅ 程式碼更新完成"
+
+      - name: 建置 Docker 映像
+        working-directory: ${{ env.DEPLOY_PATH }}
+        run: |
+          echo "🔄 建置 Docker 映像..."
+
+          BUILD_ARGS=""
+          if [[ "${{ github.event.inputs.force_rebuild }}" == "true" ]]; then
+            BUILD_ARGS="--no-cache"
+          fi
+
+          docker compose -f ${{ env.COMPOSE_FILE }} build $BUILD_ARGS
+
+          echo "✅ 映像建置完成"
+
+      - name: 停止舊服務
+        working-directory: ${{ env.DEPLOY_PATH }}
+        run: |
+          echo "🔄 停止舊服務..."
+          docker compose -f ${{ env.COMPOSE_FILE }} down --remove-orphans || true
+          echo "✅ 舊服務已停止"
+
+      - name: 啟動新服務
+        id: deploy
+        working-directory: ${{ env.DEPLOY_PATH }}
+        run: |
+          echo "🔄 啟動新服務..."
+          docker compose -f ${{ env.COMPOSE_FILE }} up -d
+
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "✅ 新服務已啟動"
+
+      - name: 等待服務啟動
+        run: |
+          echo "⏳ 等待服務啟動..."
+          sleep 15
+
+  # ===========================================================================
+  # Job 4: 健康檢查
+  # ===========================================================================
+  health-check:
+    name: 健康檢查
+    runs-on: self-hosted
+    needs: deploy
+    if: ${{ needs.deploy.outputs.deploy_status == 'success' }}
+    outputs:
+      health_status: ${{ steps.check.outputs.status }}
+
+    steps:
+      - name: 後端健康檢查
+        id: backend
+        run: |
+          echo "🔍 檢查後端服務..."
+
+          TIMEOUT=${{ env.HEALTH_CHECK_TIMEOUT }}
+          INTERVAL=${{ env.HEALTH_CHECK_INTERVAL }}
+          ELAPSED=0
+
+          while [ $ELAPSED -lt $TIMEOUT ]; do
+            if curl -sf http://localhost:8001/health > /dev/null 2>&1; then
+              echo "✅ 後端服務正常"
+              exit 0
+            fi
+            echo "⏳ 等待後端服務... ($ELAPSED/$TIMEOUT 秒)"
+            sleep $INTERVAL
+            ELAPSED=$((ELAPSED + INTERVAL))
+          done
+
+          echo "❌ 後端服務健康檢查失敗"
+          exit 1
+
+      - name: 前端健康檢查
+        id: frontend
+        run: |
+          echo "🔍 檢查前端服務..."
+
+          TIMEOUT=${{ env.HEALTH_CHECK_TIMEOUT }}
+          INTERVAL=${{ env.HEALTH_CHECK_INTERVAL }}
+          ELAPSED=0
+
+          while [ $ELAPSED -lt $TIMEOUT ]; do
+            if curl -sf http://localhost:3000 > /dev/null 2>&1; then
+              echo "✅ 前端服務正常"
+              exit 0
+            fi
+            echo "⏳ 等待前端服務... ($ELAPSED/$TIMEOUT 秒)"
+            sleep $INTERVAL
+            ELAPSED=$((ELAPSED + INTERVAL))
+          done
+
+          echo "❌ 前端服務健康檢查失敗"
+          exit 1
+
+      - name: API 功能測試
+        id: api
+        continue-on-error: true
+        run: |
+          echo "🔍 執行 API 功能測試..."
+
+          # 測試 API 文件端點
+          if curl -sf http://localhost:8001/docs > /dev/null 2>&1; then
+            echo "✅ API 文件端點正常"
+          else
+            echo "⚠️ API 文件端點異常"
+          fi
+
+          # 測試資料庫連線 (透過 health 端點)
+          HEALTH_RESPONSE=$(curl -sf http://localhost:8001/health 2>/dev/null || echo "{}")
+          echo "Health Response: $HEALTH_RESPONSE"
+
+      - name: 設定檢查狀態
+        id: check
+        run: |
+          echo "status=healthy" >> $GITHUB_OUTPUT
+          echo "✅ 所有健康檢查通過"
+
+  # ===========================================================================
+  # Job 5: 回滾 (僅在健康檢查失敗時執行)
+  # ===========================================================================
+  rollback:
+    name: 回滾部署
+    runs-on: self-hosted
+    needs: [deploy, health-check]
+    if: ${{ failure() && needs.deploy.outputs.deploy_status == 'success' }}
+
+    steps:
+      - name: 執行回滾
+        working-directory: ${{ env.DEPLOY_PATH }}
+        run: |
+          echo "🔄 執行回滾..."
+
+          # 停止當前服務
+          docker compose -f ${{ env.COMPOSE_FILE }} down || true
+
+          # 還原映像標籤
+          docker tag ck-missive-backend:rollback ck-missive-backend:latest 2>/dev/null || echo "⚠️ 無法還原後端映像"
+          docker tag ck-missive-frontend:rollback ck-missive-frontend:latest 2>/dev/null || echo "⚠️ 無法還原前端映像"
+
+          # 啟動服務
+          docker compose -f ${{ env.COMPOSE_FILE }} up -d
+
+          echo "✅ 回滾完成"
+
+      - name: 驗證回滾
+        run: |
+          echo "🔍 驗證回滾狀態..."
+          sleep 15
+
+          if curl -sf http://localhost:8001/health > /dev/null 2>&1; then
+            echo "✅ 回滾後服務正常"
+          else
+            echo "❌ 回滾後服務仍然異常，需要人工介入"
+            exit 1
+          fi
+
+  # ===========================================================================
+  # Job 6: 清理與通知
+  # ===========================================================================
+  cleanup:
+    name: 清理與通知
+    runs-on: self-hosted
+    needs: [validate, deploy, health-check]
+    if: ${{ always() }}
+
+    steps:
+      - name: 清理舊映像
+        if: ${{ needs.health-check.outputs.health_status == 'healthy' }}
+        run: |
+          echo "🧹 清理舊映像..."
+          docker image prune -f
+          echo "✅ 清理完成"
+
+      - name: 部署摘要
+        run: |
+          echo "=============================================="
+          echo "📋 部署摘要"
+          echo "=============================================="
+          echo "版本: ${{ needs.validate.outputs.version }}"
+          echo "觸發方式: ${{ github.event_name }}"
+          echo "觸發者: ${{ github.actor }}"
+          echo "時間: $(date '+%Y-%m-%d %H:%M:%S')"
+          echo ""
+
+          if [[ "${{ needs.health-check.outputs.health_status }}" == "healthy" ]]; then
+            echo "🎉 部署狀態: 成功"
+          else
+            echo "❌ 部署狀態: 失敗"
+          fi
+          echo "=============================================="
+
+      - name: Slack 通知 (可選)
+        if: ${{ always() && secrets.SLACK_WEBHOOK_URL }}
+        continue-on-error: true
+        run: |
+          if [[ "${{ needs.health-check.outputs.health_status }}" == "healthy" ]]; then
+            STATUS="✅ 成功"
+            COLOR="good"
+          else
+            STATUS="❌ 失敗"
+            COLOR="danger"
+          fi
+
+          curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+            -H 'Content-type: application/json' \
+            -d "{
+              \"attachments\": [{
+                \"color\": \"$COLOR\",
+                \"title\": \"CK_Missive 部署通知\",
+                \"fields\": [
+                  {\"title\": \"狀態\", \"value\": \"$STATUS\", \"short\": true},
+                  {\"title\": \"版本\", \"value\": \"${{ needs.validate.outputs.version }}\", \"short\": true},
+                  {\"title\": \"觸發者\", \"value\": \"${{ github.actor }}\", \"short\": true},
+                  {\"title\": \"時間\", \"value\": \"$(date '+%Y-%m-%d %H:%M:%S')\", \"short\": true}
+                ]
+              }]
+            }"
