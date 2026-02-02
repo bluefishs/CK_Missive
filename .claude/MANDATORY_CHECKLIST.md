@@ -1,8 +1,8 @@
 # CK_Missive 強制性開發規範檢查清單
 
-> **版本**: 1.10.0
+> **版本**: 1.11.0
 > **建立日期**: 2026-01-11
-> **最後更新**: 2026-01-28
+> **最後更新**: 2026-02-03
 > **狀態**: 強制執行 - 所有開發任務啟動前必須檢視
 
 ---
@@ -42,6 +42,8 @@
 | **Ant Design 元件** | **元件使用規範** | [清單 O](#清單-oant-design-元件使用規範) |
 | **Pydantic Schema 開發** | **Python 常見陷阱** | [清單 P](#清單-ppydantic-schema-開發) |
 | **非同步資料庫查詢** | **Python 常見陷阱** | [清單 Q](#清單-q非同步資料庫查詢) |
+| **新功能部署上線** | **部署驗證規範** | [清單 R](#清單-r部署驗證-v1300-新增) |
+| **敏感功能開發** | **安全審查規範** | [清單 S](#清單-s安全審查-v1300-新增) |
 
 ---
 
@@ -1246,10 +1248,111 @@ cd backend && python -m py_compile app/main.py
 
 ---
 
+## 清單 R：部署驗證 (v1.30.0 新增)
+
+### 必讀文件
+- [ ] `docs/DEPLOYMENT_CHECKLIST.md` - 完整性檢查清單
+- [ ] `docs/DEPLOYMENT_GAP_ANALYSIS.md` - 缺漏分析
+- [ ] `.claude/commands/verify.md` - 驗證指令
+
+### ⚠️ 核心概念：代碼提交 ≠ 功能上線
+
+**部署流程三階段：**
+```
+本地開發 → Git 提交 → 生產部署
+                        ↑
+                  必須手動或自動觸發
+```
+
+### 開發完成後檢查
+
+#### 本地驗證
+- [ ] 執行 `/verify` 確認 Build/Type/Lint/Test 通過
+- [ ] 確認所有相關檔案已暫存：`git status`
+- [ ] 確認 TypeScript 編譯通過
+- [ ] 確認 Python 語法檢查通過
+
+#### Git 提交
+- [ ] 代碼已推送至遠端：`git push origin main`
+- [ ] CI 檢查通過（GitHub Actions）
+
+#### 生產部署
+- [ ] 通知運維或自行執行部署
+- [ ] 在生產服務器拉取最新代碼
+- [ ] 重啟相關服務
+- [ ] 執行端點可用性驗證
+
+### 部署驗證指令
+
+```bash
+# 在生產服務器執行
+cd /share/Container/CK_Missive
+git pull origin main
+docker-compose restart backend
+
+# 驗證 API 端點
+curl -X POST http://localhost:8001/api/[endpoint] \
+  -H "Content-Type: application/json" -d "{}"
+```
+
+### 功能驗證清單
+- [ ] 新增 API 端點可正常呼叫
+- [ ] 前端頁面可正常載入
+- [ ] 相關功能操作正常
+- [ ] 無 Console 錯誤
+- [ ] 無 Network 錯誤
+
+### 回滾準備
+- [ ] 記錄當前版本 commit hash
+- [ ] 確認回滾指令可用：`git checkout [hash]`
+- [ ] 備份資料庫（若有資料變更）
+
+---
+
+## 清單 S：安全審查 (v1.30.0 新增)
+
+### 必讀文件
+- [ ] `.claude/rules/security.md` - 安全規則
+- [ ] `.claude/agents/security-reviewer.md` (若有)
+- [ ] `backend/app/core/security_utils.py` - 安全工具
+
+### 敏感功能檢查
+
+#### 認證相關
+- [ ] 無硬編碼密碼
+- [ ] 密碼使用 bcrypt/argon2 雜湊
+- [ ] JWT 正確驗證
+- [ ] Session 管理安全
+
+#### 資料輸入
+- [ ] 所有輸入使用 Pydantic 驗證
+- [ ] SQL 查詢使用 ORM（無字串拼接）
+- [ ] 檔案上傳有驗證（類型、大小）
+
+#### API 安全
+- [ ] 敏感操作使用 POST 方法
+- [ ] 有適當的認證和授權檢查
+- [ ] 有 Rate Limiting
+- [ ] 錯誤訊息不洩漏敏感資訊
+
+### 安全掃描指令
+
+```bash
+# 依賴漏洞掃描
+npm audit
+pip-audit
+
+# 密碼掃描
+grep -r "password\|api_key\|secret" --include="*.py" --include="*.ts" .
+```
+
+---
+
 ## 版本記錄
 
 | 版本 | 日期 | 說明 |
 |------|------|------|
+| 1.11.0 | 2026-02-03 | **新增清單 R、S**（部署驗證、安全審查）- Everything Claude Code 整合 |
 | 1.10.0 | 2026-01-28 | **新增清單 P、Q**（Pydantic Schema 開發、非同步資料庫查詢）- Python 常見陷阱規範 |
 | 1.9.0 | 2026-01-22 | **新增清單 N、O**（前端 API 請求參數處理、Ant Design 元件使用規範） |
 | 1.8.0 | 2026-01-22 | **新增清單 L、M**（API 端點常數使用規範、效能檢查規範） |
