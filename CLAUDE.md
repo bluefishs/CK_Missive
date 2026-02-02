@@ -2,7 +2,7 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.28.0
+> **Claude Code 配置版本**: 1.29.0
 > **最後更新**: 2026-02-02
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers)
 
@@ -734,6 +734,36 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 ---
 
 ## 📋 版本更新記錄
+
+### v1.29.0 (2026-02-02) - 部署管理頁面
+
+**新增部署管理功能** ✅:
+- 新增 `/admin/deployment` 部署管理頁面
+- 整合 GitHub Actions API 實現遠端部署控制
+
+**後端 API** (`backend/app/api/endpoints/deployment.py`):
+| 端點 | 說明 |
+|------|------|
+| `GET /deploy/status` | 系統狀態 (後端、前端、資料庫) |
+| `GET /deploy/history` | 部署歷史 (GitHub Actions) |
+| `POST /deploy/trigger` | 觸發部署 |
+| `POST /deploy/rollback` | 回滾操作 |
+| `GET /deploy/logs/:runId` | 部署日誌 |
+| `GET /deploy/config` | 部署配置 |
+
+**前端頁面功能**:
+- 服務狀態即時監控 (自動刷新)
+- 部署歷史列表與分頁
+- 手動觸發部署 (分支選擇、強制建置、跳過備份)
+- 一鍵回滾確認對話
+- 部署日誌查看
+
+**新增檔案**:
+- `backend/app/api/endpoints/deployment.py` - 部署管理 API
+- `frontend/src/api/deploymentApi.ts` - API 服務
+- `frontend/src/pages/DeploymentManagementPage.tsx` - 管理頁面
+
+---
 
 ### v1.28.0 (2026-02-02) - CD 自動部署工作流
 
