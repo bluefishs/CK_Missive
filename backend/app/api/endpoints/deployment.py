@@ -155,7 +155,7 @@ def get_github_headers() -> dict:
 # API 端點
 # =============================================================================
 
-@router.get("/status", response_model=SystemStatusResponse, summary="取得系統狀態")
+@router.post("/status", response_model=SystemStatusResponse, summary="取得系統狀態")
 async def get_system_status(
     _: dict = Depends(require_admin)
 ):
@@ -256,7 +256,7 @@ async def get_system_status(
     )
 
 
-@router.get("/history", response_model=DeploymentHistoryResponse, summary="取得部署歷史")
+@router.post("/history", response_model=DeploymentHistoryResponse, summary="取得部署歷史")
 async def get_deployment_history(
     page: int = Query(1, ge=1, description="頁碼"),
     page_size: int = Query(10, ge=1, le=50, description="每頁數量"),
@@ -493,7 +493,7 @@ async def rollback_deployment(
         )
 
 
-@router.get("/logs/{run_id}", response_model=DeploymentLogsResponse, summary="取得部署日誌")
+@router.post("/logs/{run_id}", response_model=DeploymentLogsResponse, summary="取得部署日誌")
 async def get_deployment_logs(
     run_id: int,
     _: dict = Depends(require_admin)
@@ -561,7 +561,7 @@ async def get_deployment_logs(
         )
 
 
-@router.get("/config", summary="取得部署配置")
+@router.post("/config", summary="取得部署配置")
 async def get_deployment_config(
     _: dict = Depends(require_admin)
 ):

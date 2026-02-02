@@ -122,21 +122,21 @@ export interface DeploymentHistoryParams {
 // =============================================================================
 
 /**
- * 取得系統狀態
+ * 取得系統狀態 (POST-only 安全模式)
  */
 export async function getSystemStatus(): Promise<SystemStatusResponse> {
-  return apiClient.get<SystemStatusResponse>(API_ENDPOINTS.DEPLOYMENT.STATUS);
+  return apiClient.post<SystemStatusResponse>(API_ENDPOINTS.DEPLOYMENT.STATUS, {});
 }
 
 /**
- * 取得部署歷史
+ * 取得部署歷史 (POST-only 安全模式)
  */
 export async function getDeploymentHistory(
   params?: DeploymentHistoryParams
 ): Promise<DeploymentHistoryResponse> {
-  return apiClient.get<DeploymentHistoryResponse>(
+  return apiClient.post<DeploymentHistoryResponse>(
     API_ENDPOINTS.DEPLOYMENT.HISTORY,
-    { params }
+    params || {}
   );
 }
 
@@ -165,21 +165,22 @@ export async function rollbackDeployment(
 }
 
 /**
- * 取得部署日誌
+ * 取得部署日誌 (POST-only 安全模式)
  */
 export async function getDeploymentLogs(
   runId: number
 ): Promise<DeploymentLogsResponse> {
-  return apiClient.get<DeploymentLogsResponse>(
-    API_ENDPOINTS.DEPLOYMENT.LOGS(runId)
+  return apiClient.post<DeploymentLogsResponse>(
+    API_ENDPOINTS.DEPLOYMENT.LOGS(runId),
+    {}
   );
 }
 
 /**
- * 取得部署配置
+ * 取得部署配置 (POST-only 安全模式)
  */
 export async function getDeploymentConfig(): Promise<DeploymentConfig> {
-  return apiClient.get<DeploymentConfig>(API_ENDPOINTS.DEPLOYMENT.CONFIG);
+  return apiClient.post<DeploymentConfig>(API_ENDPOINTS.DEPLOYMENT.CONFIG, {});
 }
 
 // =============================================================================

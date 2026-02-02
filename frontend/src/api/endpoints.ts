@@ -512,19 +512,19 @@ export const TAOYUAN_DISPATCH_ENDPOINTS = {
 // 部署管理端點
 // ============================================================================
 
-/** 部署管理 API 端點 */
+/** 部署管理 API 端點 (POST-only 安全模式) */
 export const DEPLOYMENT_ENDPOINTS = {
-  /** 系統狀態 GET /deploy/status */
+  /** 系統狀態 POST /deploy/status */
   STATUS: '/deploy/status',
-  /** 部署歷史 GET /deploy/history */
+  /** 部署歷史 POST /deploy/history */
   HISTORY: '/deploy/history',
   /** 觸發部署 POST /deploy/trigger */
   TRIGGER: '/deploy/trigger',
   /** 回滾部署 POST /deploy/rollback */
   ROLLBACK: '/deploy/rollback',
-  /** 部署日誌 GET /deploy/logs/:runId */
+  /** 部署日誌 POST /deploy/logs/:runId */
   LOGS: (runId: number) => `/deploy/logs/${runId}`,
-  /** 部署配置 GET /deploy/config */
+  /** 部署配置 POST /deploy/config */
   CONFIG: '/deploy/config',
 } as const;
 
