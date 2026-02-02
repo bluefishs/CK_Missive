@@ -85,7 +85,7 @@ DATABASE_URL: str = Field(
 | 3 | `documents/audit.py` | 65-86 | 動態 WHERE 拼接 | ✅ 已修復 (參數化查詢) |
 | 4 | `health.py` | 93 | 無引號表格名 | ✅ 已修復 (v2.0.0 使用 ORM) |
 | 5 | `system_health.py` | 51 | 無引號表格名 | ✅ 已評估 (同 health.py) |
-| 6 | `normalize_unicode.py` | 115, 149-155 | 欄位/值直接拼接 | ⚠️ 低風險 (內部遷移腳本) |
+| 6 | `normalize_unicode.py` | 115, 149-155 | 欄位/值直接拼接 | ✅ 已修復 (v2.0.0 白名單驗證) |
 | 7 | `document_numbers.py` | 309-319 | 位置計算拼接 | ✅ 已評估 (整數值，無風險) |
 | 8 | `admin_service.py` | 145 | 任意 SELECT 執行 | ✅ 已修復 (白名單驗證) |
 

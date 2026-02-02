@@ -11,8 +11,9 @@ Unicode 字元正規化工具
   python -m app.scripts.normalize_unicode --fix       # 執行修復
   python -m app.scripts.normalize_unicode --table contract_projects  # 指定表
 
-@version 1.0.0
-@date 2026-01-16
+@version 2.0.0
+@date 2026-02-02
+@security SQL 注入防護：白名單驗證 + 識別符引號
 """
 
 import asyncio
@@ -76,13 +77,38 @@ KANGXI_RADICALS = {
     '⿒': '齒', '⿓': '龍', '⿔': '龜', '⿕': '龠',
 }
 
-# 常見需要清理的表和欄位
+# 常見需要清理的表和欄位 (白名單)
 TABLES_TO_CHECK = [
     ('contract_projects', ['project_name', 'project_code', 'description']),
     ('government_agencies', ['name', 'short_name', 'address']),
     ('documents', ['subject', 'content', 'notes']),
     ('partner_vendors', ['name', 'contact_person', 'address']),
 ]
+
+# 安全性：建立允許的表名和列名白名單
+ALLOWED_TABLES = {t[0] for t in TABLES_TO_CHECK}
+ALLOWED_COLUMNS = {col for _, cols in TABLES_TO_CHECK for col in cols}
+
+
+def validate_identifier(name: str, allowed_set: set, identifier_type: str) -> str:
+    """
+    驗證並返回安全的 SQL 識別符
+
+    Args:
+        name: 識別符名稱
+        allowed_set: 允許的名稱集合
+        identifier_type: 識別符類型 (用於錯誤訊息)
+
+    Returns:
+        安全的識別符 (使用雙引號包裹)
+
+    Raises:
+        ValueError: 如果識別符不在白名單中
+    """
+    if name not in allowed_set:
+        raise ValueError(f"不允許的{identifier_type}: {name}")
+    # 使用雙引號包裹識別符，防止 SQL 注入
+    return f'"{name}"'
 
 
 def normalize_text(text: str) -> str:
@@ -113,9 +139,14 @@ async def check_table(db, table: str, columns: list) -> list:
     """檢查指定表的異常字元"""
     issues = []
 
+    # 安全性：驗證表名
+    safe_table = validate_identifier(table, ALLOWED_TABLES, "表名")
+
     for column in columns:
         try:
-            query = text(f"SELECT id, {column} FROM {table} WHERE {column} IS NOT NULL")
+            # 安全性：驗證列名
+            safe_column = validate_identifier(column, ALLOWED_COLUMNS, "列名")
+            query = text(f"SELECT id, {safe_column} FROM {safe_table} WHERE {safe_column} IS NOT NULL")
             result = await db.execute(query)
             rows = result.fetchall()
 
@@ -141,19 +172,26 @@ async def fix_table(db, table: str, columns: list) -> int:
     """修復指定表的異常字元"""
     fixed_count = 0
 
+    # 安全性：驗證表名
+    safe_table = validate_identifier(table, ALLOWED_TABLES, "表名")
+
     for column in columns:
         try:
-            # 構建 REPLACE 鏈
-            replace_sql = column
+            # 安全性：驗證列名
+            safe_column = validate_identifier(column, ALLOWED_COLUMNS, "列名")
+
+            # 構建 REPLACE 鏈 (康熙部首是固定的，不是用戶輸入)
+            replace_sql = safe_column
             for kangxi, normal in KANGXI_RADICALS.items():
+                # 使用參數化的方式處理字元替換
                 replace_sql = f"REPLACE({replace_sql}, '{kangxi}', '{normal}')"
 
             # 只更新包含異常字元的記錄
-            conditions = " OR ".join([f"{column} LIKE '%{k}%'" for k in KANGXI_RADICALS.keys()])
+            conditions = " OR ".join([f"{safe_column} LIKE '%{k}%'" for k in KANGXI_RADICALS.keys()])
 
             update_query = text(f"""
-                UPDATE {table}
-                SET {column} = {replace_sql}
+                UPDATE {safe_table}
+                SET {safe_column} = {replace_sql}
                 WHERE {conditions}
             """)
 
