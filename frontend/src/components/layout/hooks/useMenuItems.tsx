@@ -32,7 +32,9 @@ import {
   GoogleOutlined,
   ScheduleOutlined,
   FolderOutlined,
-  LinkOutlined
+  LinkOutlined,
+  RocketOutlined,
+  CloudServerOutlined
 } from '@ant-design/icons';
 import { ROUTES } from '../../../router/types';
 import type { NavigationItem } from './useNavigationData';
@@ -88,7 +90,9 @@ const iconMap: { [key: string]: React.ReactNode } = {
   'SecurityScanOutlined': <SecurityScanOutlined />,
   'MonitorOutlined': <MonitorOutlined />,
   'GoogleOutlined': <GoogleOutlined />,
-  'ScheduleOutlined': <ScheduleOutlined />
+  'ScheduleOutlined': <ScheduleOutlined />,
+  'RocketOutlined': <RocketOutlined />,
+  'CloudServerOutlined': <CloudServerOutlined />
 };
 
 /**
@@ -276,6 +280,18 @@ export const getStaticMenuItems = (): MenuItem[] => [
         icon: <GoogleOutlined />,
         label: 'Google認證診斷',
         path: ROUTES.GOOGLE_AUTH_DIAGNOSTIC,
+      },
+      {
+        key: ROUTES.BACKUP_MANAGEMENT,
+        icon: <CloudServerOutlined />,
+        label: '備份管理',
+        path: ROUTES.BACKUP_MANAGEMENT,
+      },
+      {
+        key: ROUTES.DEPLOYMENT_MANAGEMENT,
+        icon: <RocketOutlined />,
+        label: '部署管理',
+        path: ROUTES.DEPLOYMENT_MANAGEMENT,
       },
     ],
   },
