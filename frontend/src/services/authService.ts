@@ -351,10 +351,8 @@ class AuthService {
       script.async = true;
       script.defer = true;
       script.onload = () => {
-        // @ts-ignore
-        if (window.google) {
-          // @ts-ignore
-          window.google.accounts.id.initialize({
+                if (window.google) {
+                    window.google.accounts.id.initialize({
             client_id: clientId,
             callback: this.handleGoogleResponse.bind(this),
           });
@@ -373,10 +371,8 @@ class AuthService {
       } else {
         // 腳本已存在，直接初始化
         setTimeout(() => {
-          // @ts-ignore
-          if (window.google) {
-            // @ts-ignore
-            window.google.accounts.id.initialize({
+                    if (window.google) {
+                        window.google.accounts.id.initialize({
               client_id: clientId,
               callback: this.handleGoogleResponse.bind(this),
             });
@@ -393,10 +389,8 @@ class AuthService {
    * 顯示 Google 登入按鈕
    */
   renderGoogleSignInButton(elementId: string): void {
-    // @ts-ignore
-    if (window.google) {
-      // @ts-ignore
-      window.google.accounts.id.renderButton(document.getElementById(elementId), {
+        if (window.google) {
+            window.google.accounts.id.renderButton(document.getElementById(elementId), {
         theme: 'outline',
         size: 'large',
         text: 'signin_with',
@@ -409,7 +403,7 @@ class AuthService {
   /**
    * 處理 Google 登入回應
    */
-  private async handleGoogleResponse(response: any): Promise<void> {
+  private async handleGoogleResponse(response: { credential: string }): Promise<void> {
     try {
       await this.googleLogin(response.credential);
       // 登入成功，可以重新導向或更新 UI

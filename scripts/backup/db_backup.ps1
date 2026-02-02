@@ -26,9 +26,10 @@ if ($TargetPath -and (Test-Path $TargetPath)) {
     Write-Host "Using custom backup path: $TargetPath" -ForegroundColor Yellow
 }
 
-$DbUser = "ck_user"
-$DbPassword = "ck_password_2024"
-$DbName = "ck_documents"
+# 安全性修正：移除硬編碼預設值，必須從 .env 讀取
+$DbUser = ""
+$DbPassword = ""
+$DbName = ""
 $ContainerName = "ck_missive_postgres"
 
 $EnvFile = Join-Path $ProjectRoot ".env"
@@ -39,6 +40,16 @@ if (Test-Path $EnvFile) {
         if ($_ -match "^POSTGRES_DB=(.+)$") { $script:DbName = $matches[1] }
         if ($_ -match "^COMPOSE_PROJECT_NAME=(.+)$") { $script:ContainerName = "$($matches[1])_postgres" }
     }
+} else {
+    Write-Host "ERROR: .env file not found at $EnvFile" -ForegroundColor Red
+    exit 1
+}
+
+# 驗證必要的環境變數
+if (-not $DbUser -or -not $DbPassword -or -not $DbName) {
+    Write-Host "ERROR: Missing required database configuration in .env file" -ForegroundColor Red
+    Write-Host "Required variables: POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB" -ForegroundColor Yellow
+    exit 1
 }
 
 $runningContainer = docker ps --filter "name=postgres" --format "{{.Names}}" 2>$null | Select-Object -First 1

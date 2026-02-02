@@ -155,25 +155,25 @@ async def run_batch_creation():
     async with async_session_maker() as db:
         # 顯示執行前統計
         before_stats = await get_calendar_statistics(db)
-        print(f"\n執行前統計:")
-        print(f"  公文總數: {before_stats['documents_total']}")
-        print(f"  事件總數: {before_stats['events_total']}")
-        print(f"  覆蓋率: {before_stats['coverage_rate']}%")
+        logger.info("執行前統計:")
+        logger.info(f"  公文總數: {before_stats['documents_total']}")
+        logger.info(f"  事件總數: {before_stats['events_total']}")
+        logger.info(f"  覆蓋率: {before_stats['coverage_rate']}%")
 
         # 執行批次建立
         result = await batch_create_calendar_events(db)
-        print(f"\n執行結果:")
-        print(f"  處理: {result['total_processed']} 筆")
-        print(f"  建立: {result['created']} 筆")
-        print(f"  跳過: {result['skipped']} 筆")
+        logger.info("執行結果:")
+        logger.info(f"  處理: {result['total_processed']} 筆")
+        logger.info(f"  建立: {result['created']} 筆")
+        logger.info(f"  跳過: {result['skipped']} 筆")
 
         # 顯示執行後統計
         after_stats = await get_calendar_statistics(db)
-        print(f"\n執行後統計:")
-        print(f"  公文總數: {after_stats['documents_total']}")
-        print(f"  事件總數: {after_stats['events_total']}")
-        print(f"  覆蓋率: {after_stats['coverage_rate']}%")
-        print(f"  事件類型分佈: {after_stats['events_by_type']}")
+        logger.info("執行後統計:")
+        logger.info(f"  公文總數: {after_stats['documents_total']}")
+        logger.info(f"  事件總數: {after_stats['events_total']}")
+        logger.info(f"  覆蓋率: {after_stats['coverage_rate']}%")
+        logger.info(f"  事件類型分佈: {after_stats['events_by_type']}")
 
 
 if __name__ == "__main__":

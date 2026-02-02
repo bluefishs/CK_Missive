@@ -228,8 +228,8 @@ export const ContractCasePage: React.FC = () => {
     try {
       await deleteProject(id);
       message.success('專案刪除成功');
-    } catch (error: any) {
-      message.error(error.message || '刪除失敗');
+    } catch (error: unknown) {
+      message.error(error instanceof Error ? error.message : '刪除失敗');
     }
   };
 

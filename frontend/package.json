@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "overrides": {
+    "lodash": ">=4.17.21"
+  },
   "scripts": {
     "dev": "vite",
     "dev:clean": "powershell -ExecutionPolicy Bypass -File ../scripts/port-manager.ps1 -Action kill -Service frontend && vite",

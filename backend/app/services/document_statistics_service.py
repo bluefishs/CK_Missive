@@ -91,83 +91,80 @@ class DocumentStatisticsService:
         """
         取得篩選後的統計資料
 
+        安全性修正 (v2.0.0): 使用 SQLAlchemy ORM 取代動態 SQL 字串拼接
+
         Returns:
             篩選統計資料
         """
-        conditions = []
-        params = {}
+        # 使用 SQLAlchemy ORM 建構安全的查詢條件
+        orm_conditions = []
 
         if doc_number:
-            conditions.append("doc_number ILIKE :doc_number")
-            params["doc_number"] = f"%{doc_number}%"
+            orm_conditions.append(OfficialDocument.doc_number.ilike(f"%{doc_number}%"))
 
         if keyword:
-            conditions.append("""
-                (subject ILIKE :keyword
-                 OR content ILIKE :keyword OR notes ILIKE :keyword)
-            """)
-            params["keyword"] = f"%{keyword}%"
+            orm_conditions.append(or_(
+                OfficialDocument.subject.ilike(f"%{keyword}%"),
+                OfficialDocument.content.ilike(f"%{keyword}%"),
+                OfficialDocument.notes.ilike(f"%{keyword}%")
+            ))
 
         if doc_type:
-            conditions.append("doc_type = :doc_type")
-            params["doc_type"] = doc_type
+            orm_conditions.append(OfficialDocument.doc_type == doc_type)
 
         if year:
-            conditions.append("EXTRACT(YEAR FROM doc_date) = :year")
-            params["year"] = year
+            orm_conditions.append(extract('year', OfficialDocument.doc_date) == year)
 
         if sender:
-            conditions.append("sender ILIKE :sender")
-            params["sender"] = f"%{sender}%"
+            orm_conditions.append(OfficialDocument.sender.ilike(f"%{sender}%"))
 
         if receiver:
-            conditions.append("receiver ILIKE :receiver")
-            params["receiver"] = f"%{receiver}%"
+            orm_conditions.append(OfficialDocument.receiver.ilike(f"%{receiver}%"))
 
         if delivery_method:
-            conditions.append("delivery_method = :delivery_method")
-            params["delivery_method"] = delivery_method
+            orm_conditions.append(OfficialDocument.delivery_method == delivery_method)
 
         if doc_date_from:
-            conditions.append("doc_date >= :doc_date_from")
-            params["doc_date_from"] = doc_date_from
+            orm_conditions.append(OfficialDocument.doc_date >= doc_date_from)
 
         if doc_date_to:
-            conditions.append("doc_date <= :doc_date_to")
-            params["doc_date_to"] = doc_date_to
+            orm_conditions.append(OfficialDocument.doc_date <= doc_date_to)
 
         if contract_case:
-            conditions.append("""
-                contract_project_id IN (
-                    SELECT id FROM contract_projects
-                    WHERE project_name ILIKE :contract_case OR project_code ILIKE :contract_case
+            # 子查詢：找出符合條件的專案 ID
+            project_subquery = select(ContractProject.id).where(
+                or_(
+                    ContractProject.project_name.ilike(f"%{contract_case}%"),
+                    ContractProject.project_code.ilike(f"%{contract_case}%")
                 )
-            """)
-            params["contract_case"] = f"%{contract_case}%"
+            )
+            orm_conditions.append(OfficialDocument.contract_project_id.in_(project_subquery))
 
-        where_clause = " AND ".join(conditions) if conditions else "1=1"
+        # 建構基礎查詢
+        base_filter = and_(*orm_conditions) if orm_conditions else True
 
-        # 總數查詢
-        total_query = f"SELECT COUNT(*) FROM documents WHERE {where_clause}"
-        total_result = await self.db.execute(text(total_query), params)
-        total = total_result.scalar() or 0
+        # 總數查詢 (使用 ORM)
+        total_query = select(func.count(OfficialDocument.id)).where(base_filter)
+        total = (await self.db.execute(total_query)).scalar() or 0
 
-        # 發文數查詢
-        send_query = f"SELECT COUNT(*) FROM documents WHERE {where_clause} AND category = '發文'"
-        send_result = await self.db.execute(text(send_query), params)
-        send_count = send_result.scalar() or 0
+        # 發文數查詢 (使用 ORM)
+        send_query = select(func.count(OfficialDocument.id)).where(
+            and_(base_filter, OfficialDocument.category == '發文')
+        )
+        send_count = (await self.db.execute(send_query)).scalar() or 0
 
-        # 收文數查詢
-        receive_query = f"SELECT COUNT(*) FROM documents WHERE {where_clause} AND category = '收文'"
-        receive_result = await self.db.execute(text(receive_query), params)
-        receive_count = receive_result.scalar() or 0
+        # 收文數查詢 (使用 ORM)
+        receive_query = select(func.count(OfficialDocument.id)).where(
+            and_(base_filter, OfficialDocument.category == '收文')
+        )
+        receive_count = (await self.db.execute(receive_query)).scalar() or 0
 
         return {
             'success': True,
             'total': total,
             'send_count': send_count,
             'receive_count': receive_count,
-            'filters_applied': bool(conditions),
+            'filters_applied': bool(orm_conditions),
         }
 
     async def _get_delivery_method_statistics(self) -> Dict[str, int]:

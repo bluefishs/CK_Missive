@@ -17,10 +17,19 @@ export default defineConfig(({ mode }) => {
       'process.env.NODE_ENV': JSON.stringify(env.NODE_ENV || 'development'),
     },
 
-    // Path aliases
+    // Path aliases (同步 tsconfig.json paths)
     resolve: {
       alias: {
         '@': resolve(__dirname, './src'),
+        '@/components': resolve(__dirname, './src/components'),
+        '@/pages': resolve(__dirname, './src/pages'),
+        '@/services': resolve(__dirname, './src/services'),
+        '@/types': resolve(__dirname, './src/types'),
+        '@/utils': resolve(__dirname, './src/utils'),
+        '@/hooks': resolve(__dirname, './src/hooks'),
+        '@/api': resolve(__dirname, './src/api'),
+        '@/config': resolve(__dirname, './src/config'),
+        '@/store': resolve(__dirname, './src/store'),
       },
       // 確保本地模組使用主專案的依賴（解決 peerDependencies）
       dedupe: ['react', 'react-dom', 'antd', '@ant-design/icons'],

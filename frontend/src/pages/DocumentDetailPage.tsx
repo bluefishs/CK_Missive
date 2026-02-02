@@ -53,7 +53,7 @@ import { projectVendorsApi } from '../api/projectVendorsApi';
 
 // 類型
 import { Document } from '../types';
-import type { DispatchOrderCreate, LinkType } from '../types/api';
+import type { DispatchOrderCreate, LinkType, ProjectStaff, Project, User } from '../types/api';
 import { isReceiveDocument } from '../types/api';
 
 // 元件
@@ -219,7 +219,7 @@ export const DocumentDetailPage: React.FC = () => {
     }
   }, [id]);
 
-  const fetchProjectStaff = async (projectId: number): Promise<any[]> => {
+  const fetchProjectStaff = async (projectId: number): Promise<ProjectStaff[]> => {
     if (projectStaffCacheRef.current[projectId]) {
       const cachedData = projectStaffCacheRef.current[projectId];
       setProjectStaffMap(prev => ({ ...prev, [projectId]: cachedData }));
@@ -227,7 +227,7 @@ export const DocumentDetailPage: React.FC = () => {
     }
     setStaffLoading(true);
     try {
-      const data = await apiClient.post<{ staff?: any[] }>(
+      const data = await apiClient.post<{ staff?: ProjectStaff[] }>(
         `/project-staff/project/${projectId}/list`,
         {}
       );
@@ -287,7 +287,7 @@ export const DocumentDetailPage: React.FC = () => {
         setSelectedContractProjectId(projectId);
         const staffList = await fetchProjectStaff(projectId);
         if ((!assigneeArray || assigneeArray.length === 0) && staffList && staffList.length > 0) {
-          const staffNames = staffList.map((s: any) => s.user_name);
+          const staffNames = staffList.map((s: ProjectStaff) => s.user_name).filter((name): name is string => !!name);
           // 更新待設置值中的 assignee
           setPendingFormValues(prev => prev ? { ...prev, assignee: staffNames } : null);
           setCurrentAssigneeValues(staffNames);
@@ -314,7 +314,7 @@ export const DocumentDetailPage: React.FC = () => {
   const loadCases = async () => {
     setCasesLoading(true);
     try {
-      const data = await apiClient.post<{ projects?: any[]; items?: any[] }>(
+      const data = await apiClient.post<{ projects?: Project[]; items?: Project[] }>(
         '/projects/list',
         { page: 1, limit: 100 }
       );
@@ -331,7 +331,7 @@ export const DocumentDetailPage: React.FC = () => {
   const loadUsers = async () => {
     setUsersLoading(true);
     try {
-      const data = await apiClient.post<{ users?: any[]; items?: any[] }>(
+      const data = await apiClient.post<{ users?: User[]; items?: User[] }>(
         '/users/list',
         { page: 1, limit: 100 }
       );
@@ -406,7 +406,7 @@ export const DocumentDetailPage: React.FC = () => {
     setTimeout(() => {
       const currentStaff = projectStaffCacheRef.current[effectiveProjectId];
       if (currentStaff && currentStaff.length > 0) {
-        const names = currentStaff.map((s: any) => s.user_name);
+        const names = currentStaff.map((s: ProjectStaff) => s.user_name).filter((name): name is string => !!name);
         form.setFieldsValue({ assignee: names });
         message.success(`已自動填入 ${names.length} 位業務同仁`);
       }

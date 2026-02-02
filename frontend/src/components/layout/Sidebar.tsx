@@ -5,16 +5,18 @@
 
 import React from 'react';
 import { Layout, Menu, Typography, Spin } from 'antd';
+import type { MenuProps } from 'antd';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getCurrentMenuKey, getDefaultOpenKeys } from './hooks/useMenuItems';
+import { getCurrentMenuKey, getDefaultOpenKeys, MenuItem } from './hooks/useMenuItems';
 import { logger } from '../../utils/logger';
 
 const { Sider } = Layout;
 const { Title } = Typography;
+type AntMenuItem = Required<MenuProps>['items'][number];
 
 interface SidebarProps {
   collapsed: boolean;
-  menuItems: any[];
+  menuItems: MenuItem[];
   loading: boolean;
 }
 
@@ -27,7 +29,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const location = useLocation();
 
   // 查找選單項目
-  const findItemByKey = (items: any[], targetKey: string): any => {
+  const findItemByKey = (items: MenuItem[], targetKey: string): MenuItem | null => {
     for (const item of items) {
       if (item.key === targetKey) return item;
       if (item.children) {
@@ -94,7 +96,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           mode="inline"
           selectedKeys={[getCurrentMenuKey(location.pathname)]}
           defaultOpenKeys={getDefaultOpenKeys(location.pathname)}
-          items={menuItems}
+          items={menuItems as AntMenuItem[]}
           style={{ borderRight: 0 }}
           onClick={handleMenuClick}
         />

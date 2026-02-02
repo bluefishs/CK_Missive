@@ -57,13 +57,14 @@ class Settings(BaseSettings):
 
     # =========================================================================
     # 資料庫設定 - 必須透過環境變數設定
+    # ⚠️ 安全性修正 (2026-02-02): 移除硬編碼密碼
     # =========================================================================
     DATABASE_URL: str = Field(
-        default="postgresql://ck_user:ck_password_2024@localhost:5434/ck_documents",
-        description="資料庫連線字串，格式: postgresql://user:pass@host:port/db"
+        default="",
+        description="資料庫連線字串，格式: postgresql://user:pass@host:port/db，必須透過 .env 設定"
     )
-    POSTGRES_USER: str = Field(default="ck_user", description="PostgreSQL 使用者名稱")
-    POSTGRES_PASSWORD: str = Field(default="ck_password_2024", description="PostgreSQL 密碼")
+    POSTGRES_USER: str = Field(default="", description="PostgreSQL 使用者名稱，必須透過 .env 設定")
+    POSTGRES_PASSWORD: str = Field(default="", description="PostgreSQL 密碼，必須透過 .env 設定")
     POSTGRES_DB: str = Field(default="ck_documents", description="PostgreSQL 資料庫名稱")
     POSTGRES_HOST: str = Field(default="localhost", description="PostgreSQL 主機")
     POSTGRES_PORT: int = Field(default=5434, description="PostgreSQL 埠號")
@@ -179,10 +180,32 @@ class Settings(BaseSettings):
                 missing.append(field)
 
         if missing:
-            logger.warning(
-                f"⚠️ 資料庫設定不完整，缺少: {', '.join(missing)}。"
-                f"請確認 .env 檔案設定正確。"
+            logger.error(
+                f"🔴 資料庫設定不完整，缺少: {', '.join(missing)}。"
+                f"\n   請在專案根目錄的 .env 檔案中設定這些必要的環境變數。"
+                f"\n   ⚠️ 安全提醒: 請勿在程式碼中硬編碼密碼！"
             )
+            return False
+        return True
+
+    def validate_security_config(self) -> bool:
+        """驗證安全性設定"""
+        issues = []
+
+        # 檢查是否使用開發用金鑰
+        if self.SECRET_KEY.startswith('dev_only_'):
+            issues.append("SECRET_KEY 使用自動生成的開發金鑰")
+
+        # 檢查生產環境設定
+        if not self.DEVELOPMENT_MODE:
+            if self.AUTH_DISABLED:
+                issues.append("生產環境禁用了認證")
+            if not self.GOOGLE_ALLOWED_DOMAINS:
+                issues.append("生產環境未設定 Google 網域白名單")
+
+        if issues:
+            for issue in issues:
+                logger.warning(f"⚠️ 安全性警告: {issue}")
             return False
         return True
 

@@ -50,9 +50,10 @@ const RegisterPage: React.FC = () => {
 
       setRegistered(true);
       message.success('註冊成功！請等待管理員審核您的帳號');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Registration failed:', error);
-      const errorMessage = error?.response?.data?.message || '註冊失敗，請稍後再試';
+      const err = error as { response?: { data?: { message?: string } } };
+      const errorMessage = err?.response?.data?.message || '註冊失敗，請稍後再試';
       message.error(errorMessage);
     } finally {
       setLoading(false);

@@ -3,14 +3,17 @@ API 健康監控端點
 v2.0 - 整合連接池監控與背景任務統計 (2026-01-09)
 """
 import time
+import logging
 import psutil
 from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text
+from sqlalchemy import text, select, func
 from datetime import datetime
 
 from app.db.database import get_async_db, engine
+
+logger = logging.getLogger(__name__)
 from app.extended.models import OfficialDocument, GovernmentAgency, PartnerVendor, ContractProject, User
 from app.core.dependencies import require_auth, require_admin
 
@@ -90,7 +93,8 @@ async def detailed_health_check(
     for table_name, model in tables:
         try:
             table_start = time.time()
-            result = await db.execute(text(f"SELECT COUNT(*) FROM {model.__tablename__}"))
+            # 安全性修正 (v2.0.0): 使用 ORM select() 取代動態 SQL
+            result = await db.execute(select(func.count()).select_from(model))
             count = result.scalar()
             table_response_time = (time.time() - table_start) * 1000
 
@@ -440,7 +444,8 @@ async def health_summary(
         }
         if pool_health["status"] != "healthy":
             issues.append("connection_pool")
-    except:
+    except Exception as e:
+        logger.debug(f"連接池健康檢查失敗: {e}")
         summary["components"]["connection_pool"] = {"status": "unknown"}
 
     # 3. 背景任務
@@ -452,7 +457,8 @@ async def health_summary(
             "total": task_stats["total_tasks"],
             "failed": task_stats["failed_tasks"]
         }
-    except:
+    except Exception as e:
+        logger.debug(f"背景任務健康檢查失敗: {e}")
         summary["components"]["background_tasks"] = {"status": "unknown"}
 
     # 4. 系統資源
@@ -465,7 +471,8 @@ async def health_summary(
         }
         if memory.percent > 90:
             issues.append("memory")
-    except:
+    except Exception as e:
+        logger.debug(f"系統資源健康檢查失敗: {e}")
         summary["components"]["system"] = {"status": "unknown"}
 
     # 整體狀態

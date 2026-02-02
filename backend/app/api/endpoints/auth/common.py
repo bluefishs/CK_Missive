@@ -187,5 +187,5 @@ async def get_current_user(
 
         return user
     except Exception as e:
-        print(f"ERROR in get_current_user: {e}")
+        logger.error(f"get_current_user 發生錯誤: {e}")
         raise

@@ -12,13 +12,18 @@ import type { UserInfo } from '../../services/authService';
 
 const { Option } = Select;
 
+interface PermissionFormValues {
+  role?: string;
+  permissions?: string[];
+}
+
 interface UserPermissionModalProps {
   visible: boolean;
   user: User | null;
   userPermissions: UserPermissions | null;
   roles: Permission[];
   currentLoggedInUser: UserInfo | null;
-  onSubmit: (values: any) => Promise<void>;
+  onSubmit: (values: PermissionFormValues) => Promise<void>;
   onCancel: () => void;
   onRoleChange: (role: string) => void;
 }
@@ -45,7 +50,7 @@ const UserPermissionModal: React.FC<UserPermissionModalProps> = ({
     }
   }, [visible, userPermissions, form]);
 
-  const handleFinish = async (values: any) => {
+  const handleFinish = async (values: PermissionFormValues) => {
     await onSubmit(values);
   };
 

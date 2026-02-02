@@ -43,10 +43,10 @@ TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 DATE_ONLY=$(date +"%Y%m%d")
 LOG_FILE="$LOG_DIR/backup_$DATE_ONLY.log"
 
-# 預設資料庫設定
-DB_USER="ck_user"
-DB_PASSWORD="ck_password_2024"
-DB_NAME="ck_documents"
+# 安全性修正：移除硬編碼預設值，必須從 .env 讀取
+DB_USER=""
+DB_PASSWORD=""
+DB_NAME=""
 DB_PORT="5434"
 CONTAINER_NAME="ck_missive_postgres"
 
@@ -62,6 +62,16 @@ if [[ -f "$ENV_FILE" ]]; then
             COMPOSE_PROJECT_NAME) CONTAINER_NAME="${value}_postgres" ;;
         esac
     done < <(grep -v '^#' "$ENV_FILE" | grep -v '^$')
+else
+    echo "❌ 錯誤：找不到 .env 檔案: $ENV_FILE"
+    exit 1
+fi
+
+# 驗證必要的環境變數
+if [[ -z "$DB_USER" ]] || [[ -z "$DB_PASSWORD" ]] || [[ -z "$DB_NAME" ]]; then
+    echo "❌ 錯誤：缺少必要的資料庫設定"
+    echo "請確認 .env 檔案包含: POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB"
+    exit 1
 fi
 
 # 日誌函數

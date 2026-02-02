@@ -10,7 +10,10 @@
 import os
 import uuid
 import hashlib
+import logging
 import aiofiles
+
+logger = logging.getLogger(__name__)
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -484,7 +487,7 @@ async def delete_certification_attachment(
             try:
                 os.remove(full_path)
             except Exception as e:
-                print(f"警告：刪除實體檔案失敗: {str(e)}")
+                logger.warning(f"刪除實體檔案失敗: {str(e)}")
 
         # 更新資料庫
         certification.attachment_path = None

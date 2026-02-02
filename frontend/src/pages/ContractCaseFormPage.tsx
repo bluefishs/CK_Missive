@@ -150,11 +150,30 @@ export const ContractCaseFormPage: React.FC = () => {
     }
   };
 
-  const handleSubmit = async (values: any) => {
+  interface FormValues {
+    project_name: string;
+    year?: number;
+    client_agency?: string;
+    category?: string;
+    case_nature?: string;
+    status?: 'pending' | 'in_progress' | 'completed' | 'suspended';
+    contract_doc_number?: string;
+    contract_amount?: number;
+    winning_amount?: number;
+    contract_period?: [{ format: (fmt: string) => string }, { format: (fmt: string) => string }];
+    progress?: number;
+    project_path?: string;
+    notes?: string;
+    description?: string;
+  }
+
+  const handleSubmit = async (values: FormValues) => {
     setSubmitting(true);
     try {
       // 處理日期範圍
-      const [startDate, endDate] = values.contract_period || [];
+      const contractPeriod = values.contract_period;
+      const startDate = contractPeriod?.[0];
+      const endDate = contractPeriod?.[1];
       const submitData = {
         project_name: values.project_name,
         year: values.year,
@@ -188,9 +207,9 @@ export const ContractCaseFormPage: React.FC = () => {
         return;
       }
       navigate(ROUTES.CONTRACT_CASES);
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('提交失敗:', error);
-      const errorMsg = error?.response?.data?.detail || error?.message || '操作失敗';
+      const errorMsg = error instanceof Error ? error.message : '操作失敗';
       message.error(isEdit ? `更新失敗: ${errorMsg}` : `新增失敗: ${errorMsg}`);
     } finally {
       setSubmitting(false);
@@ -280,9 +299,9 @@ export const ContractCaseFormPage: React.FC = () => {
       setAddAgencyModalVisible(false);
       addAgencyForm.resetFields();
       setDuplicateWarning(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('新增機關失敗:', error);
-      const errorMsg = error?.response?.data?.detail || error?.message || '新增失敗';
+      const errorMsg = error instanceof Error ? error.message : '新增失敗';
       message.error(`新增機關失敗: ${errorMsg}`);
     } finally {
       setAddAgencySubmitting(false);

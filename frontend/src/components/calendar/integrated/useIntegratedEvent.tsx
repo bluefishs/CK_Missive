@@ -244,11 +244,11 @@ export function useIntegratedEvent(
       } else {
         throw new Error(response.message || '建立失敗');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('建立事件失敗:', error);
       notification.error({
         message: '建立事件失敗',
-        description: error.message || '請稍後再試',
+        description: error instanceof Error ? error.message : '請稍後再試',
       });
     } finally {
       setLoading(false);

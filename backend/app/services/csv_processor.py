@@ -368,7 +368,8 @@ class DocumentCSVProcessor:
                     try:
                         parsed_date = pd.to_datetime(receive_date)
                         result['receive_date'] = parsed_date.strftime('%Y-%m-%d')
-                    except:
+                    except Exception as e:
+                        logger.debug(f"收文日期解析失敗，使用備用方法: {e}")
                         result['receive_date'] = self._parse_date(receive_date)
                 else:
                     result['receive_date'] = self._parse_date(receive_date)
@@ -383,7 +384,8 @@ class DocumentCSVProcessor:
                     try:
                         parsed_date = pd.to_datetime(send_date)
                         result['send_date'] = parsed_date.strftime('%Y-%m-%d')
-                    except:
+                    except Exception as e:
+                        logger.debug(f"發文日期解析失敗，使用備用方法: {e}")
                         result['send_date'] = self._parse_date(send_date)
                 else:
                     result['send_date'] = self._parse_date(send_date)

@@ -95,15 +95,15 @@ try:
         config = json.load(f)
     for key, value in DEFAULT_CONFIG.items():
         config.setdefault(key, value)
-    print(f"成功從 {CONFIG_FILE} 載入設定。")
+    logger.info(f"成功從 {CONFIG_FILE} 載入設定。")
 except FileNotFoundError:
-    print(f"警告：未找到設定檔 {CONFIG_FILE}，使用預設設定。")
+    logger.warning(f"未找到設定檔 {CONFIG_FILE}，使用預設設定。")
     config = DEFAULT_CONFIG
 except json.JSONDecodeError:
-    print(f"錯誤：設定檔 {CONFIG_FILE} 格式錯誤。使用預設設定。")
+    logger.error(f"設定檔 {CONFIG_FILE} 格式錯誤。使用預設設定。")
     config = DEFAULT_CONFIG
 except Exception as e:
-    print(f"讀取設定檔時發生錯誤: {e}，使用預設設定。")
+    logger.error(f"讀取設定檔時發生錯誤: {e}，使用預設設定。")
     config = DEFAULT_CONFIG
 
 log_level_str = config.get("log_level", "INFO").upper()
@@ -279,21 +279,16 @@ class DocumentImportProcessor:
             raise
 
 if __name__ == "__main__":
-    print("開始執行公文匯入腳本...")
-    logger.info("腳本執行開始。")
+    logger.info("開始執行公文匯入腳本...")
     try:
         sync_processor = DocumentImportProcessor(config)
         sync_processor.process_documents()
 
     except ValueError as ve:
         logger.critical(f"腳本初始化失敗: {ve}")
-        print(f"腳本初始化失敗: {ve}")
     except FileNotFoundError as fnfe:
         logger.critical(f"腳本初始化失敗: {fnfe}")
-        print(f"腳本初始化失敗: {fnfe}")
     except Exception as main_exc:
         logger.critical(f"執行時發生嚴重錯誤: {main_exc}", exc_info=True)
-        print(f"執行時發生嚴重錯誤，請檢查日誌。錯誤: {type(main_exc).__name__}")
     finally:
         logger.info("腳本執行完畢。")
-        print("腳本執行完畢。")

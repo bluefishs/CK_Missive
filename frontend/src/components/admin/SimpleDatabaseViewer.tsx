@@ -48,6 +48,17 @@ interface ColumnInfo {
   primaryKey: boolean;
 }
 
+/** 增強的表格資訊介面（含中文名稱、分類等） */
+interface EnhancedTableInfo extends TableInfo {
+  chinese_name: string;
+  description: string;
+  category: string;
+  frontend_pages: string[];
+  api_endpoints: string[];
+  main_fields: string[];
+  color: string;
+}
+
 // 使用共享的表格元數據
 const tableMetadata = databaseMetadata.table_metadata;
 
@@ -145,7 +156,7 @@ export const SimpleDatabaseViewer: React.FC = () => {
       title: '表格名稱',
       dataIndex: 'name',
       key: 'name',
-      render: (name: string, record: any) => (
+      render: (name: string, record: EnhancedTableInfo) => (
         <Space direction="vertical" size="small">
           <Space>
             <TableOutlined style={{ color: record.color }} />
@@ -173,13 +184,13 @@ export const SimpleDatabaseViewer: React.FC = () => {
       render: (count: number) => (
         <Badge count={count} style={{ backgroundColor: '#52c41a' }} />
       ),
-      sorter: (a: any, b: any) => a.recordCount - b.recordCount,
+      sorter: (a: EnhancedTableInfo, b: EnhancedTableInfo) => a.recordCount - b.recordCount,
       width: '15%'
     },
     {
       title: '前端頁面 & API',
       key: 'integration',
-      render: (record: any) => (
+      render: (_: unknown, record: EnhancedTableInfo) => (
         <Space direction="vertical" size="small" style={{ width: '100%' }}>
           <div>
             <Text strong style={{ fontSize: '12px', color: '#1976d2' }}>
@@ -233,7 +244,7 @@ export const SimpleDatabaseViewer: React.FC = () => {
     {
       title: '操作',
       key: 'actions',
-      render: (record: any) => (
+      render: (_: unknown, record: EnhancedTableInfo) => (
         <Tooltip title="檢視詳細資訊">
           <Button
             type="text"
@@ -454,17 +465,18 @@ export const SimpleDatabaseViewer: React.FC = () => {
 
   // 渲染關聯圖檢視
   function renderRelationView() {
-    const categorizedTables = enhancedTables.reduce((acc: any, table) => {
-      if (!acc[table.category]) {
-        acc[table.category] = [];
+    const categorizedTables = enhancedTables.reduce<Record<string, EnhancedTableInfo[]>>((acc, table) => {
+      const category = table.category;
+      if (!acc[category]) {
+        acc[category] = [];
       }
-      acc[table.category].push(table);
+      acc[category]!.push(table);  // Non-null assertion: 前一行已確保存在
       return acc;
     }, {});
 
     return (
       <Row gutter={[16, 16]}>
-        {Object.entries(categorizedTables).map(([category, tables]: [string, any]) => (
+        {Object.entries(categorizedTables).map(([category, tables]) => (
           <Col span={8} key={category}>
             <Card
               title={getCategoryDisplayName(category)}
@@ -472,7 +484,7 @@ export const SimpleDatabaseViewer: React.FC = () => {
               size="small"
             >
               <Space direction="vertical" style={{ width: '100%' }}>
-                {tables.map((table: any, index: number) => (
+                {tables.map((table, index: number) => (
                   <Card key={index} size="small" style={{ background: '#fafafa' }}>
                     <Space direction="vertical" size="small" style={{ width: '100%' }}>
                       <Text strong>{showChineseNames ? table.chinese_name : table.name}</Text>
@@ -496,7 +508,14 @@ export const SimpleDatabaseViewer: React.FC = () => {
 
   // 渲染API對應檢視
   function renderApiMappingView() {
-    const apiMappings: any[] = [];
+    interface ApiMappingItem {
+      table_name: string;
+      chinese_name: string;
+      api_endpoint: string;
+      frontend_pages: string[];
+      category: string;
+    }
+    const apiMappings: ApiMappingItem[] = [];
 
     enhancedTables.forEach(table => {
       table.api_endpoints.forEach((api: string) => {
@@ -515,7 +534,7 @@ export const SimpleDatabaseViewer: React.FC = () => {
         title: '資料表',
         dataIndex: 'chinese_name',
         key: 'chinese_name',
-        render: (text: string, record: any) => (
+        render: (text: string, record: ApiMappingItem) => (
           <Space direction="vertical" size="small">
             <Text strong>{showChineseNames ? text : record.table_name}</Text>
             <Tag color={getCategoryColor(record.category)} style={{ fontSize: '12px' }}>{record.category}</Tag>

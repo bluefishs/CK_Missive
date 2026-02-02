@@ -148,3 +148,65 @@ jobs:
           else
             echo "✓ Specification count OK"
           fi
+
+  security-scan:
+    name: Security Vulnerability Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Frontend npm audit
+        working-directory: frontend
+        run: |
+          echo "=== Running npm audit ==="
+          npm ci --ignore-scripts
+          npm audit --audit-level=high || echo "⚠️ Some high/critical vulnerabilities found"
+        continue-on-error: true
+
+      - name: Backend dependency check
+        working-directory: backend
+        run: |
+          echo "=== Checking Python dependencies ==="
+          pip install pip-audit
+          pip-audit -r requirements.txt || echo "⚠️ Some vulnerabilities found"
+        continue-on-error: true
+
+      - name: Check for hardcoded secrets
+        run: |
+          echo "=== Checking for potential hardcoded secrets ==="
+          # 檢查常見的硬編碼密碼模式 (排除測試和範例檔案)
+          if grep -rn --include="*.py" --include="*.ts" --include="*.tsx" \
+             -E "(password\s*=\s*['\"][^'\"]+['\"]|api_key\s*=\s*['\"][^'\"]+['\"])" \
+             --exclude-dir=node_modules --exclude-dir=__pycache__ \
+             --exclude="*test*" --exclude="*.example*" \
+             backend/app frontend/src 2>/dev/null | grep -v "password\s*=\s*['\"]['\"]\s*$" | head -20; then
+            echo "⚠️ Warning: Potential hardcoded secrets found (review manually)"
+          else
+            echo "✓ No obvious hardcoded secrets detected"
+          fi
+        continue-on-error: true
+
+      - name: Check for dangerous patterns
+        run: |
+          echo "=== Checking for dangerous patterns ==="
+          # SQL 注入風險
+          SQL_COUNT=$(grep -rn --include="*.py" "f\".*SELECT.*{" backend/app 2>/dev/null | wc -l)
+          echo "Potential SQL injection patterns: $SQL_COUNT"
+
+          # eval/exec 使用
+          EVAL_COUNT=$(grep -rn --include="*.py" -E "\b(eval|exec)\s*\(" backend/app 2>/dev/null | wc -l)
+          echo "eval/exec usage count: $EVAL_COUNT"
+
+          echo "=== Security scan complete ==="

@@ -11,7 +11,7 @@ import { isAuthDisabled, isInternalIP } from '../../../config/env';
 import { navigationService } from '../../../services/navigationService';
 import { secureApiService } from '../../../services/secureApiService';
 import { logger } from '../../../utils/logger';
-import { convertToMenuItems, getStaticMenuItems } from './useMenuItems';
+import { convertToMenuItems, getStaticMenuItems, MenuItem } from './useMenuItems';
 
 // 擴展導覽項目介面
 export interface NavigationItem extends PermissionNavigationItem {
@@ -23,7 +23,7 @@ export interface NavigationItem extends PermissionNavigationItem {
 }
 
 interface UseNavigationDataReturn {
-  menuItems: any[];
+  menuItems: MenuItem[];
   navigationLoading: boolean;
   permissionsLoading: boolean;
   currentUser: UserInfo | null;
@@ -32,7 +32,7 @@ interface UseNavigationDataReturn {
 }
 
 export const useNavigationData = (): UseNavigationDataReturn => {
-  const [menuItems, setMenuItems] = useState<any[]>([]);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [navigationLoading, setNavigationLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<UserInfo | null>(null);
 
@@ -78,7 +78,7 @@ export const useNavigationData = (): UseNavigationDataReturn => {
   }, []);
 
   // 舊版權限過濾 (保留相容性)
-  const filterMenuItemsByPermissionLegacy = useCallback((items: any[]): any[] => {
+  const filterMenuItemsByPermissionLegacy = useCallback((items: MenuItem[]): MenuItem[] => {
     return items.filter(item => {
       if (item.permission_required && !hasPermission(item.permission_required)) {
         return false;

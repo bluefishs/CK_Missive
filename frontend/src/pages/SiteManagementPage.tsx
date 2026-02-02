@@ -482,12 +482,19 @@ const NavigationManagementImproved: FC = () => {
       }
     }
 
-    const buildOptions = (items: NavigationItem[]): any[] => {
+    interface TreeSelectOption {
+      title: string;
+      value: number;
+      key: number;
+      children?: TreeSelectOption[];
+    }
+
+    const buildOptions = (items: NavigationItem[]): TreeSelectOption[] => {
       if (!items || items.length === 0) return [];
-      const options: any[] = [];
+      const options: TreeSelectOption[] = [];
       items.forEach(item => {
         if (excludeIds.has(item.id)) return;
-        const option: any = { title: item.title, value: item.id, key: item.id };
+        const option: TreeSelectOption = { title: item.title, value: item.id, key: item.id };
         if (item.children && item.children.length > 0) {
           const childOptions = buildOptions(item.children);
           if (childOptions.length > 0) option.children = childOptions;

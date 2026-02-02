@@ -20,7 +20,7 @@ interface UseApiErrorHandlerReturn {
   error: ApiError | null;
   isRetrying: boolean;
   retryCount: number;
-  handleError: (error: any) => void;
+  handleError: (error: unknown) => void;
   clearError: () => void;
   retry: () => Promise<void>;
   setRetryFunction: (fn: () => Promise<void>) => void;
@@ -69,7 +69,7 @@ export const useApiErrorHandler = (
     }
   };
 
-  const handleError = useCallback((error: any) => {
+  const handleError = useCallback((error: unknown) => {
     const parsedError = parseApiError(error);
     setError(parsedError);
 

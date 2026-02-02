@@ -109,8 +109,9 @@ class AuthService:
         try:
             # 嘗試bcrypt驗證
             return pwd_context.verify(plain_password, hashed_password)
-        except:
+        except Exception as e:
             # 如果bcrypt失敗，使用明文比較 (開發環境)
+            logger.warning(f"bcrypt 驗證失敗，回退到明文比較: {e}")
             return plain_password == hashed_password
     
     @staticmethod

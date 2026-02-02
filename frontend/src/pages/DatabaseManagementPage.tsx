@@ -112,9 +112,9 @@ export const DatabaseManagementPage: React.FC = () => {
       const result = await apiClient.post<QueryResult>(API_ENDPOINTS.ADMIN_DATABASE.QUERY, { query: customQuery });
       setQueryResult(result);
       message.success(`查詢完成，返回 ${result.totalRows} 條結果，耗時 ${result.executionTime}ms`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('查詢執行失敗:', error);
-      message.error(`查詢執行失敗: ${error.message}`);
+      message.error(`查詢執行失敗: ${error instanceof Error ? error.message : '未知錯誤'}`);
     } finally {
       setLoading(false);
     }
@@ -134,7 +134,7 @@ export const DatabaseManagementPage: React.FC = () => {
           title: '發現數據問題',
           content: (
             <div>
-              {result.issues.map((issue: any, index: number) => (
+              {result.issues.map((issue, index) => (
                 <div key={index}>
                   <Text type="danger">{issue.table}</Text>: {issue.description}
                 </div>
@@ -204,7 +204,7 @@ export const DatabaseManagementPage: React.FC = () => {
       {
         title: '操作',
         key: 'actions',
-        render: (_: any, record: TableInfo) => (
+        render: (_: unknown, record: TableInfo) => (
           <Space size="small">
             <Tooltip title="查看數據">
               <Button
@@ -248,7 +248,7 @@ export const DatabaseManagementPage: React.FC = () => {
     if (!table) return null;
 
     const columns = table.columns.map(col => {
-      const baseColumn: ColumnType<any> = {
+      const baseColumn: ColumnType<Record<string, unknown>> = {
         title: (
           <Space>
             {col.name}
@@ -264,31 +264,31 @@ export const DatabaseManagementPage: React.FC = () => {
           showTitle: false,
         },
         width: col.type.includes('TEXT') ? 200 : 120,
-        render: (text: any) => (
-          <Tooltip placement="topLeft" title={text}>
-            {text}
+        render: (text: unknown) => (
+          <Tooltip placement="topLeft" title={String(text)}>
+            {String(text)}
           </Tooltip>
         ),
       };
 
       // 添加排序功能
       if (col.type.includes('INTEGER') || col.type.includes('REAL')) {
-        baseColumn.sorter = (a: any, b: any) => {
-          const aVal = parseFloat(a[col.name]) || 0;
-          const bVal = parseFloat(b[col.name]) || 0;
+        baseColumn.sorter = (a: Record<string, unknown>, b: Record<string, unknown>) => {
+          const aVal = parseFloat(String(a[col.name])) || 0;
+          const bVal = parseFloat(String(b[col.name])) || 0;
           return aVal - bVal;
         };
       } else {
-        baseColumn.sorter = (a: any, b: any) => {
+        baseColumn.sorter = (a: Record<string, unknown>, b: Record<string, unknown>) => {
           const aVal = a[col.name] || '';
           const bVal = b[col.name] || '';
-          return aVal.toString().localeCompare(bVal.toString());
+          return String(aVal).localeCompare(String(bVal));
         };
       }
 
       // 添加篩選功能
       if (col.name === 'status' || col.name === 'doc_type' || col.name === 'category') {
-        const uniqueValues = [...new Set(tableData.rows.map((row: any[]) => {
+        const uniqueValues = [...new Set(tableData.rows.map((row: unknown[]) => {
           const colIndex = table.columns.findIndex(c => c.name === col.name);
           return row[colIndex];
         }))].filter(Boolean);
@@ -298,16 +298,16 @@ export const DatabaseManagementPage: React.FC = () => {
           value: value as React.Key,
         }));
 
-        baseColumn.onFilter = (value: any, record: any) => record[col.name] === value;
+        baseColumn.onFilter = (value: React.Key | boolean, record: Record<string, unknown>) => record[col.name] === value;
       }
 
       // 添加搜尋功能
       if (col.type.includes('TEXT') || col.type.includes('VARCHAR')) {
-        baseColumn.filterDropdown = ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: any) => (
+        baseColumn.filterDropdown = ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
           <div style={{ padding: 8 }}>
             <Input
               placeholder={`搜尋 ${col.name}`}
-              value={selectedKeys[0]}
+              value={selectedKeys[0] as string}
               onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
               onPressEnter={() => confirm()}
               style={{ marginBottom: 8, display: 'block' }}
@@ -322,7 +322,7 @@ export const DatabaseManagementPage: React.FC = () => {
               >
                 搜尋
               </Button>
-              <Button onClick={() => clearFilters()} size="small" style={{ width: 90 }}>
+              <Button onClick={() => clearFilters?.()} size="small" style={{ width: 90 }}>
                 重置
               </Button>
             </Space>
@@ -331,15 +331,17 @@ export const DatabaseManagementPage: React.FC = () => {
         baseColumn.filterIcon = (filtered: boolean) => (
           <SearchOutlined style={{ color: filtered ? '#1890ff' : undefined }} />
         );
-        baseColumn.onFilter = (value: any, record: any) =>
-          record[col.name] ? record[col.name].toString().toLowerCase().includes(value.toLowerCase()) : false;
+        baseColumn.onFilter = (value: React.Key | boolean, record: Record<string, unknown>) => {
+          const cellValue = record[col.name];
+          return cellValue ? String(cellValue).toLowerCase().includes(String(value).toLowerCase()) : false;
+        };
       }
 
       return baseColumn;
     });
 
-    const dataSource = tableData.rows.map((row: any[], index: number) => {
-      const obj: any = { key: index };
+    const dataSource = tableData.rows.map((row: unknown[], index: number) => {
+      const obj: Record<string, unknown> = { key: index };
       table.columns.forEach((col, colIndex) => {
         obj[col.name] = row[colIndex];
       });
@@ -498,8 +500,8 @@ export const DatabaseManagementPage: React.FC = () => {
               key: col,
               ellipsis: true
             }))}
-            dataSource={queryResult.rows.map((row: any[], index: number) => {
-              const obj: any = { key: index };
+            dataSource={queryResult.rows.map((row: unknown[], index: number) => {
+              const obj: Record<string, unknown> = { key: index };
               queryResult.columns.forEach((col: string, colIndex: number) => {
                 obj[col] = row[colIndex];
               });

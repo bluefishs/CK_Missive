@@ -15,6 +15,16 @@ import { useResponsive } from '../hooks';
 const { TextArea } = Input;
 const { Option } = Select;
 
+interface DocumentFormValues {
+  title?: string;
+  type?: string;
+  agency?: string;
+  priority?: string;
+  contract_case?: string[];
+  content?: string;
+  notes?: string;
+}
+
 export const DocumentEditPage: React.FC = () => {
   const { message } = App.useApp();
   const navigate = useNavigate();
@@ -63,7 +73,7 @@ export const DocumentEditPage: React.FC = () => {
     }
   }, [id, form]);
 
-  const onFinish = async (values: any) => {
+  const onFinish = async (values: DocumentFormValues) => {
     setLoading(true);
     try {
       const response = await fetch(`/api/documents/${id}`, {

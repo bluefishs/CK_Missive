@@ -5,12 +5,15 @@
 """
 
 import os
+import logging
 from pathlib import Path
 
 from fastapi import APIRouter, Depends
 
 from app.extended.models import User
 from app.api.endpoints.auth import get_current_user
+
+logger = logging.getLogger(__name__)
 
 from .common import (
     UPLOAD_BASE_DIR, STORAGE_TYPE, ALLOWED_EXTENSIONS,
@@ -46,7 +49,8 @@ async def get_storage_info(
             "free_gb": round(disk_usage.free / (1024**3), 2),
             "usage_percent": round(disk_usage.used / disk_usage.total * 100, 1)
         }
-    except:
+    except Exception as e:
+        logger.debug(f"取得磁碟使用量失敗: {e}")
         disk_info = None
 
     network_ip = extract_ip_from_path(UPLOAD_BASE_DIR)
@@ -115,7 +119,7 @@ async def check_network_storage(
                     result["checks"]["network_reachable"] = True
                     result["checks"]["connected_port"] = port
                     break
-                except:
+                except Exception:
                     continue
             else:
                 result["checks"]["network_reachable"] = False

@@ -117,8 +117,8 @@ export function useDispatchLinks({
         setSelectedDispatchId(undefined);
         await loadLinks();
         queryClient.invalidateQueries({ queryKey: ['dispatch-orders-for-link'] });
-      } catch (error: any) {
-        message.error(error?.message || '關聯失敗');
+      } catch (error: unknown) {
+        message.error(error instanceof Error ? error.message : '關聯失敗');
       } finally {
         setIsLinking(false);
       }
@@ -250,8 +250,8 @@ export function useProjectLinks({
         setSelectedProjectId(undefined);
         await loadLinks();
         queryClient.invalidateQueries({ queryKey: ['projects-for-link'] });
-      } catch (error: any) {
-        message.error(error?.message || '關聯失敗');
+      } catch (error: unknown) {
+        message.error(error instanceof Error ? error.message : '關聯失敗');
       } finally {
         setIsLinking(false);
       }

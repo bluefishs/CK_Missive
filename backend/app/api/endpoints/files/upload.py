@@ -5,6 +5,7 @@
 """
 
 import os
+import logging
 from typing import List, Optional
 
 import aiofiles
@@ -14,6 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.database import get_async_db
 from app.extended.models import DocumentAttachment, User
 from app.api.endpoints.auth import get_current_user
+
+logger = logging.getLogger(__name__)
 
 from .common import (
     validate_file_extension, calculate_checksum, get_structured_path,
@@ -89,8 +92,8 @@ async def upload_files(
             except Exception as e:
                 try:
                     os.remove(file_path)
-                except:
-                    pass
+                except Exception as remove_err:
+                    logger.warning(f"清理失敗的上傳檔案時發生錯誤: {remove_err}")
                 errors.append(f"建立附件記錄失敗: {str(e)}")
                 continue
 

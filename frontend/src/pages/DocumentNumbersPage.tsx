@@ -22,6 +22,7 @@ import {
   App,
   Modal,
 } from 'antd';
+import type { TablePaginationConfig, FilterValue, SorterResult, TableCurrentDataSource } from 'antd/es/table/interface';
 import {
   ReloadOutlined,
   FileTextOutlined,
@@ -161,9 +162,10 @@ export const DocumentNumbersPage: React.FC = () => {
   // ==========================================================================
 
   const handleTableChange = (
-    paginationConfig: any,
-    _filters: any,
-    sorter: any
+    paginationConfig: TablePaginationConfig,
+    _filters: Record<string, FilterValue | null>,
+    sorter: SorterResult<Document> | SorterResult<Document>[],
+    _extra: TableCurrentDataSource<Document>
   ) => {
     if (paginationConfig) {
       const newPage = paginationConfig.current ?? pagination.page;
@@ -175,9 +177,11 @@ export const DocumentNumbersPage: React.FC = () => {
       }));
     }
 
-    if (sorter?.field) {
-      setSortField(sorter.field);
-      setSortOrder(sorter.order);
+    // 處理單一或多重排序
+    const singleSorter = Array.isArray(sorter) ? sorter[0] : sorter;
+    if (singleSorter?.field) {
+      setSortField(String(singleSorter.field));
+      setSortOrder(singleSorter.order ?? null);
     } else {
       setSortField('');
       setSortOrder(null);

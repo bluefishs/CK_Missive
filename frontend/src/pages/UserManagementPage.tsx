@@ -216,7 +216,7 @@ const UserManagementPage: React.FC = () => {
   );
 
   const handleTableChange: TableProps<User>['onChange'] = useCallback((
-    paginationInfo: any,
+    paginationInfo: { current?: number; pageSize?: number } | undefined,
   ) => {
     if (paginationInfo) {
       setCurrentPage(paginationInfo.current || 1);

@@ -65,7 +65,7 @@ const SiteConfigManagement: React.FC = () => {
   const loadConfigData = async () => {
     setLoading(true);
     try {
-      const filters: any = {};
+      const filters: { category?: string; search?: string } = {};
       if (selectedCategory) filters.category = selectedCategory;
       if (searchText) filters.search = searchText;
 

@@ -91,7 +91,7 @@ const AdminDashboardPage: React.FC = () => {
       );
 
       // 篩選待驗證使用者
-      const pendingUsersList = usersData.users?.filter((user: any) =>
+      const pendingUsersList = usersData.users?.filter((user) =>
         user.status === 'pending' || user.role === 'unverified'
       ) || [];
 
@@ -99,10 +99,10 @@ const AdminDashboardPage: React.FC = () => {
       const allUsers = usersData.users || [];
       const stats = {
         totalUsers: allUsers.length,
-        activeUsers: allUsers.filter((u: any) => u.status === 'active').length,
+        activeUsers: allUsers.filter((u) => u.status === 'active').length,
         pendingUsers: pendingUsersList.length,
-        suspendedUsers: allUsers.filter((u: any) => u.status === 'suspended').length,
-        unverifiedUsers: allUsers.filter((u: any) => u.role === 'unverified').length
+        suspendedUsers: allUsers.filter((u) => u.status === 'suspended').length,
+        unverifiedUsers: allUsers.filter((u) => u.role === 'unverified').length
       };
 
       // 系統警告

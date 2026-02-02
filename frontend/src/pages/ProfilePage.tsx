@@ -120,7 +120,7 @@ export const ProfilePage = () => {
   };
 
   // 更新個人資料
-  const handleUpdateProfile = async (values: any) => {
+  const handleUpdateProfile = async (values: { username: string; full_name: string }) => {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/profile/update`, {
         method: 'POST',

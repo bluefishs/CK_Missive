@@ -90,22 +90,33 @@ export const UserFormPage: React.FC = () => {
     }
   }, [userPermissions, permissionForm]);
 
+  // 使用者資料型別
+  interface UserFormData {
+    username: string;
+    email: string;
+    password?: string;
+    full_name?: string;
+    role: string;
+    status: string;
+    is_admin?: boolean;
+  }
+
   // 新增 mutation
   const createMutation = useMutation({
-    mutationFn: (data: any) => adminUsersApi.createUser(data),
+    mutationFn: (data: UserFormData) => adminUsersApi.createUser(data),
     onSuccess: () => {
       message.success('使用者建立成功');
       queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
       navigate(ROUTES.USER_MANAGEMENT);
     },
     onError: (error: Error) => {
-      message.error((error as any)?.response?.data?.detail || error?.message || '建立失敗');
+      message.error(error.message || '建立失敗');
     },
   });
 
   // 更新 mutation
   const updateMutation = useMutation({
-    mutationFn: (data: any) => adminUsersApi.updateUser(userId!, data),
+    mutationFn: (data: Partial<UserFormData>) => adminUsersApi.updateUser(userId!, data),
     onSuccess: () => {
       message.success('使用者更新成功');
       queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
@@ -113,7 +124,7 @@ export const UserFormPage: React.FC = () => {
       navigate(ROUTES.USER_MANAGEMENT);
     },
     onError: (error: Error) => {
-      message.error((error as any)?.response?.data?.detail || error?.message || '更新失敗');
+      message.error(error.message || '更新失敗');
     },
   });
 
@@ -125,7 +136,7 @@ export const UserFormPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['userPermissions', userId] });
     },
     onError: (error: Error) => {
-      message.error((error as any)?.response?.data?.detail || error?.message || '權限更新失敗');
+      message.error(error.message || '權限更新失敗');
     },
   });
 
@@ -138,7 +149,7 @@ export const UserFormPage: React.FC = () => {
       navigate(ROUTES.USER_MANAGEMENT);
     },
     onError: (error: Error) => {
-      message.error((error as any)?.response?.data?.detail || error?.message || '刪除失敗');
+      message.error(error.message || '刪除失敗');
     },
   });
 
@@ -192,7 +203,7 @@ export const UserFormPage: React.FC = () => {
 
   // 角色變更時更新預設權限
   const handleRoleChange = (role: string) => {
-    const selectedRole = roles.find((r: any) => r.name === role);
+    const selectedRole = roles.find((r) => r.name === role);
     if (selectedRole) {
       permissionForm.setFieldsValue({
         permissions: selectedRole.default_permissions,
@@ -334,7 +345,7 @@ export const UserFormPage: React.FC = () => {
             rules={[{ required: true, message: '請選擇角色' }]}
           >
             <Select placeholder="請選擇角色" onChange={handleRoleChange}>
-              {roles.map((role: any) => (
+              {roles.map((role) => (
                 <Option key={role.name} value={role.name}>
                   {role.display_name}
                 </Option>

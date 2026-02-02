@@ -115,7 +115,8 @@ class MemoryCache:
                 total_size += sys.getsizeof(entry['value'])
                 total_size += sys.getsizeof(entry)
             return total_size / 1024
-        except:
+        except Exception as e:
+            logger.debug(f"估算記憶體使用量失敗: {e}")
             return 0.0
 
     def _calculate_hit_rate(self) -> float:

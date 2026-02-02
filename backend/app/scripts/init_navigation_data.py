@@ -21,10 +21,13 @@ import asyncio
 import sys
 import os
 import argparse
+import logging
 from datetime import datetime
 
 # 添加 backend 目錄到 Python 路徑
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+logger = logging.getLogger(__name__)
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -534,7 +537,7 @@ async def update_item_path(db: AsyncSession, key: str, new_path: str, title: str
     if item.path != new_path:
         old_path = item.path
         item.path = new_path
-        print(f"  ✓ 更新 '{title}': {old_path} → {new_path}")
+        logger.info(f"  更新 '{title}': {old_path} → {new_path}")
         return True
     return False
 
@@ -542,9 +545,9 @@ async def update_item_path(db: AsyncSession, key: str, new_path: str, title: str
 async def create_navigation_items(db: AsyncSession, force_update: bool = False):
     """創建導覽列項目"""
     if force_update:
-        print("開始更新導覽列項目（強制更新模式）...")
+        logger.info("開始更新導覽列項目（強制更新模式）...")
     else:
-        print("開始創建導覽列項目...")
+        logger.info("開始創建導覽列項目...")
 
     update_count = 0
 
@@ -559,7 +562,7 @@ async def create_navigation_items(db: AsyncSession, force_update: bool = False):
                     if await update_item_path(db, item_data["key"], item_data.get("path"), item_data["title"]):
                         update_count += 1
                 else:
-                    print(f"導覽項目 '{item_data['title']}' 已存在，跳過...")
+                    logger.debug(f"導覽項目 '{item_data['title']}' 已存在，跳過...")
                 # 獲取已存在的項目用於建立關聯
                 query = select(SiteNavigationItem).where(SiteNavigationItem.key == item_data["key"])
                 result = await db.execute(query)
@@ -581,7 +584,7 @@ async def create_navigation_items(db: AsyncSession, force_update: bool = False):
 
             db.add(navigation_item)
             parent_items[item_data["key"]] = navigation_item
-            print(f"創建頂級導覽項目: {item_data['title']}")
+            logger.info(f"創建頂級導覽項目: {item_data['title']}")
 
     # 提交第一階段
     await db.commit()
@@ -602,12 +605,12 @@ async def create_navigation_items(db: AsyncSession, force_update: bool = False):
                     if await update_item_path(db, item_data["key"], item_data.get("path"), item_data["title"]):
                         update_count += 1
                 else:
-                    print(f"導覽項目 '{item_data['title']}' 已存在，跳過...")
+                    logger.debug(f"導覽項目 '{item_data['title']}' 已存在，跳過...")
                 continue
 
             parent_item = parent_items.get(item_data["parent_key"])
             if not parent_item:
-                print(f"警告：找不到父級項目 '{item_data['parent_key']}'，跳過 '{item_data['title']}'")
+                logger.warning(f"找不到父級項目 '{item_data['parent_key']}'，跳過 '{item_data['title']}'")
                 continue
 
             navigation_item = SiteNavigationItem(
@@ -625,22 +628,22 @@ async def create_navigation_items(db: AsyncSession, force_update: bool = False):
             )
 
             db.add(navigation_item)
-            print(f"創建子級導覽項目: {item_data['title']} (父級: {parent_item.title})")
+            logger.info(f"創建子級導覽項目: {item_data['title']} (父級: {parent_item.title})")
 
     await db.commit()
 
     if force_update and update_count > 0:
-        print(f"導覽列項目更新完成！共更新 {update_count} 個項目的路徑。")
+        logger.info(f"導覽列項目更新完成！共更新 {update_count} 個項目的路徑。")
     else:
-        print("導覽列項目創建完成！")
+        logger.info("導覽列項目創建完成！")
 
 async def create_site_configs(db: AsyncSession):
     """創建網站配置"""
-    print("開始創建網站配置...")
+    logger.info("開始創建網站配置...")
 
     for config_data in DEFAULT_SITE_CONFIGS:
         if await check_config_exists(db, config_data["key"]):
-            print(f"配置項目 '{config_data['key']}' 已存在，跳過...")
+            logger.debug(f"配置項目 '{config_data['key']}' 已存在，跳過...")
             continue
 
         # 使用正確的欄位名稱
@@ -652,10 +655,10 @@ async def create_site_configs(db: AsyncSession):
         )
 
         db.add(site_config)
-        print(f"創建配置項目: {config_data['key']} = {config_data['value']}")
+        logger.info(f"創建配置項目: {config_data['key']} = {config_data['value']}")
 
     await db.commit()
-    print("網站配置創建完成！")
+    logger.info("網站配置創建完成！")
 
 async def init_navigation_data(force_update: bool = False):
     """
@@ -665,8 +668,8 @@ async def init_navigation_data(force_update: bool = False):
         force_update: 是否強制更新已存在項目的路徑
     """
     mode = "強制更新" if force_update else "初始化"
-    print(f"=== 導覽列數據{mode} ===")
-    print(f"開始時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.info(f"=== 導覽列數據{mode} ===")
+    logger.info(f"開始時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     try:
         async with AsyncSessionLocal() as db:
@@ -677,13 +680,11 @@ async def init_navigation_data(force_update: bool = False):
             if not force_update:
                 await create_site_configs(db)
 
-        print(f"=== {mode}完成 ===")
-        print(f"結束時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"=== {mode}完成 ===")
+        logger.info(f"結束時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     except Exception as e:
-        print(f"{mode}失敗: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"{mode}失敗: {str(e)}", exc_info=True)
         return False
 
     return True
@@ -714,10 +715,10 @@ async def main():
     success = await init_navigation_data(force_update=args.force_update)
     if success:
         mode = "更新" if args.force_update else "初始化"
-        print(f"導覽列數據{mode}成功！")
+        logger.info(f"導覽列數據{mode}成功！")
         return 0
     else:
-        print("導覽列數據處理失敗！")
+        logger.error("導覽列數據處理失敗！")
         return 1
 
 

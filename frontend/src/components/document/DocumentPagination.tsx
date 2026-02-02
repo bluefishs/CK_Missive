@@ -14,6 +14,7 @@ import {
   FileTextOutlined,
   BarChartOutlined,
 } from '@ant-design/icons';
+import type { OfficialDocument } from '../../types/api';
 
 const { Text } = Typography;
 const { Option } = Select;
@@ -25,7 +26,7 @@ interface DocumentPaginationProps {
   totalPages: number;
   onPageChange: (page: number) => void;
   onLimitChange: (limit: number) => void;
-  documents?: any[]; // 添加文檔數據用於統計
+  documents?: OfficialDocument[];
 }
 
 export const DocumentPagination: React.FC<DocumentPaginationProps> = ({

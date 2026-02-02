@@ -74,7 +74,11 @@ const LoginPage: React.FC = () => {
   const [googleReady, setGoogleReady] = useState(!showGoogleLogin);
 
   // Google 登入回調處理
-  const handleGoogleCallback = useCallback(async (response: any) => {
+  interface GoogleCredentialResponse {
+    credential?: string;
+  }
+
+  const handleGoogleCallback = useCallback(async (response: GoogleCredentialResponse) => {
     if (response.credential) {
       setGoogleLoading(true);
       setError('');
@@ -87,9 +91,9 @@ const LoginPage: React.FC = () => {
           ? decodeURIComponent(returnUrl)
           : (result.user_info.is_admin ? '/admin/dashboard' : '/dashboard');
         navigate(targetUrl);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Google login failed:', error);
-        const errorMessage = error.response?.data?.detail || 'Google 登入失敗';
+        const errorMessage = error instanceof Error ? error.message : 'Google 登入失敗';
         setError(errorMessage);
       } finally {
         setGoogleLoading(false);
@@ -120,9 +124,7 @@ const LoginPage: React.FC = () => {
       script.async = true;
       script.defer = true;
       script.onload = () => {
-        // @ts-ignore
         if (window.google) {
-          // @ts-ignore
           window.google.accounts.id.initialize({
             client_id: GOOGLE_CLIENT_ID,
             callback: handleGoogleCallback,
@@ -136,9 +138,7 @@ const LoginPage: React.FC = () => {
       if (!document.querySelector('script[src="https://accounts.google.com/gsi/client"]')) {
         document.head.appendChild(script);
       } else {
-        // @ts-ignore
         if (window.google) {
-          // @ts-ignore
           window.google.accounts.id.initialize({
             client_id: GOOGLE_CLIENT_ID,
             callback: handleGoogleCallback,
@@ -176,9 +176,9 @@ const LoginPage: React.FC = () => {
         ? decodeURIComponent(returnUrl)
         : '/dashboard';
       navigate(targetUrl);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Quick entry failed:', error);
-      const errorMsg = error?.message || '快速進入失敗，請確認後端服務是否啟動';
+      const errorMsg = error instanceof Error ? error.message : '快速進入失敗，請確認後端服務是否啟動';
       message.error({ content: errorMsg, key: 'quickEntry', duration: 5 });
       setError(errorMsg);
     } finally {
@@ -203,9 +203,9 @@ const LoginPage: React.FC = () => {
         ? decodeURIComponent(returnUrl)
         : (response.user_info.is_admin ? '/admin/dashboard' : '/dashboard');
       navigate(targetUrl);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Login failed:', error);
-      const errorMessage = error.response?.data?.detail || '登入失敗，請檢查帳號密碼';
+      const errorMessage = error instanceof Error ? error.message : '登入失敗，請檢查帳號密碼';
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -214,13 +214,10 @@ const LoginPage: React.FC = () => {
 
   // Google 登入觸發
   const handleGoogleLogin = () => {
-    // @ts-ignore
     if (window.google) {
-      // @ts-ignore
-      window.google.accounts.id.prompt((notification: any) => {
+      window.google.accounts.id.prompt((notification) => {
         if (notification.isNotDisplayed()) {
-          // @ts-ignore
-          window.google.accounts.id.renderButton(
+          window.google?.accounts.id.renderButton(
             document.getElementById('google-signin-container'),
             { theme: 'filled_blue', size: 'large', text: 'signin_with', shape: 'pill', width: 280 }
           );

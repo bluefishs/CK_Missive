@@ -335,7 +335,7 @@ const BudgetAnalysisTab: React.FC<BudgetAnalysisTabProps> = ({ isMobile }) => {
                       label={
                         isMobile
                           ? undefined
-                          : (entry: any) => entry.name.replace(/^0\d/, '').substring(0, 4)
+                          : (entry: { name?: string }) => (entry.name ?? '').replace(/^0\d/, '').substring(0, 4)
                       }
                       outerRadius={isMobile ? 70 : 80}
                       fill="#8884d8"
@@ -384,9 +384,9 @@ const BudgetAnalysisTab: React.FC<BudgetAnalysisTabProps> = ({ isMobile }) => {
                       verticalAlign="bottom"
                       align="center"
                       wrapperStyle={{ paddingTop: 16 }}
-                      formatter={(value: string, entry: any) => {
-                        const data = entry.payload;
-                        return `${value}: ${data.count}件 ${formatCurrency(data.amount)}`;
+                      formatter={(value: string, entry: unknown) => {
+                        const data = (entry as { payload?: { count?: number; amount?: number } })?.payload;
+                        return `${value}: ${data?.count ?? 0}件 ${formatCurrency(data?.amount ?? 0)}`;
                       }}
                     />
                   </PieChart>
@@ -450,7 +450,7 @@ const BudgetAnalysisTab: React.FC<BudgetAnalysisTabProps> = ({ isMobile }) => {
                     <Bar
                       dataKey="count"
                       name="案件數"
-                      onClick={(data: any) => handleStatusClick(data.name)}
+                      onClick={(data: { name?: string }) => data.name && handleStatusClick(data.name)}
                       style={{ cursor: 'pointer' }}
                     >
                       {stats.byStatus.map((entry, index) => (

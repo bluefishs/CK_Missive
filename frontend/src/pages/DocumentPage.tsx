@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Typography, Button, Space, Modal, App } from 'antd';
+import type { TablePaginationConfig, FilterValue, SorterResult, TableCurrentDataSource } from 'antd/es/table/interface';
 import { PlusOutlined, ReloadOutlined, UploadOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { DocumentList } from '../components/document/DocumentList';
@@ -132,7 +133,12 @@ export const DocumentPage: React.FC = () => {
     setPagination({ page: 1, limit: newLimit });
   };
 
-  const handleTableChange = (paginationInfo: any, __: any, sorter: any) => {
+  const handleTableChange = (
+    paginationInfo: TablePaginationConfig,
+    _filters: Record<string, FilterValue | null>,
+    sorter: SorterResult<Document> | SorterResult<Document>[],
+    _extra: TableCurrentDataSource<Document>
+  ) => {
     if (paginationInfo && (paginationInfo.current !== pagination.page || paginationInfo.pageSize !== pagination.limit)) {
       setPagination({
         page: paginationInfo.current || 1,
@@ -140,9 +146,11 @@ export const DocumentPage: React.FC = () => {
       });
     }
 
-    if (sorter && sorter.field) {
-      setSortField(sorter.field);
-      setSortOrder(sorter.order);
+    // 處理單一或多重排序
+    const singleSorter = Array.isArray(sorter) ? sorter[0] : sorter;
+    if (singleSorter && singleSorter.field) {
+      setSortField(String(singleSorter.field));
+      setSortOrder(singleSorter.order ?? null);
     } else {
       setSortField('');
       setSortOrder(null);

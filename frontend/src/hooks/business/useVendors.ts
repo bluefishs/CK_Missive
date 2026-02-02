@@ -3,7 +3,6 @@
  *
  * 整合 queryConfig 統一快取策略
  */
-// @ts-ignore
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { vendorsApi, VendorListParams, VendorStatistics } from '../../api/vendorsApi';
 import { queryKeys, defaultQueryOptions } from '../../config/queryConfig';

@@ -12,11 +12,21 @@ import type { UserInfo } from '../../services/authService';
 
 const { Option } = Select;
 
+interface UserEditFormValues {
+  email?: string;
+  username?: string;
+  full_name?: string;
+  is_active?: boolean;
+  is_admin?: boolean;
+  role?: string;
+  status?: string;
+}
+
 interface UserEditModalProps {
   visible: boolean;
   user: User | null;
   currentLoggedInUser: UserInfo | null;
-  onSubmit: (values: any) => Promise<void>;
+  onSubmit: (values: UserEditFormValues) => Promise<void>;
   onCancel: () => void;
 }
 
@@ -49,7 +59,7 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
     }
   }, [visible, user, form]);
 
-  const handleFinish = async (values: any) => {
+  const handleFinish = async (values: UserEditFormValues) => {
     await onSubmit(values);
     form.resetFields();
   };

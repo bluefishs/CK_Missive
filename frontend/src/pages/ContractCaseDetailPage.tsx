@@ -476,7 +476,15 @@ export const ContractCaseDetailPage: React.FC = () => {
     const projectId = parseInt(id, 10);
 
     try {
-      const vendorData: any = {
+      const vendorData: {
+        project_id: number;
+        vendor_id: number;
+        role: string;
+        status: string;
+        contract_amount?: number;
+        start_date?: string;
+        end_date?: string;
+      } = {
         project_id: projectId,
         vendor_id: values.vendor_id,
         role: values.role,

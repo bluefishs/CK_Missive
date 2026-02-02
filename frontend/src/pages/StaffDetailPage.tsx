@@ -56,12 +56,25 @@ const { Option } = Select;
 type Staff = User;
 
 // 輔助函數：提取錯誤訊息
-const extractErrorMessage = (error: any): string => {
-  const detail = error?.response?.data?.detail;
+const extractErrorMessage = (error: unknown): string => {
+  // 定義錯誤響應的型別
+  interface ErrorDetail {
+    msg?: string;
+  }
+  interface ApiErrorResponse {
+    response?: {
+      data?: {
+        detail?: string | ErrorDetail[];
+      };
+    };
+  }
+
+  const apiError = error as ApiErrorResponse;
+  const detail = apiError?.response?.data?.detail;
   if (!detail) return '操作失敗，請稍後再試';
   if (typeof detail === 'string') return detail;
   if (Array.isArray(detail)) {
-    return detail.map((e: any) => e.msg || JSON.stringify(e)).join(', ');
+    return detail.map((e: ErrorDetail) => e.msg || JSON.stringify(e)).join(', ');
   }
   return JSON.stringify(detail);
 };
@@ -165,7 +178,7 @@ export const StaffDetailPage: React.FC = () => {
       setIsEditing(false);
       setShowPasswordChange(false);
       loadStaff();
-    } catch (error: any) {
+    } catch (error: unknown) {
       message.error(extractErrorMessage(error));
     } finally {
       setSaving(false);
@@ -195,9 +208,8 @@ export const StaffDetailPage: React.FC = () => {
       await apiClient.post(API_ENDPOINTS.USERS.DELETE(staffId));
       message.success('承辦同仁已刪除');
       navigate(ROUTES.STAFF);
-    } catch (error: any) {
-      const detail = error?.response?.data?.detail;
-      message.error(typeof detail === 'string' ? detail : '刪除失敗');
+    } catch (error: unknown) {
+      message.error(extractErrorMessage(error));
     }
   };
 
@@ -215,7 +227,7 @@ export const StaffDetailPage: React.FC = () => {
       await certificationsApi.delete(certId);
       message.success('證照刪除成功');
       loadCertifications();
-    } catch (error: any) {
+    } catch (error: unknown) {
       message.error(extractErrorMessage(error));
     }
   };
@@ -563,7 +575,7 @@ export const StaffDetailPage: React.FC = () => {
                           title: '操作',
                           key: 'action',
                           width: 120,
-                          render: (_: any, record: Certification) => (
+                          render: (_: unknown, record: Certification) => (
                             <Space size="small">
                               <Button
                                 type="link"

@@ -1,7 +1,5 @@
 import React from 'react';
-// @ts-ignore
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-// @ts-ignore
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { message } from 'antd';
 import { staleTimeConfig } from '../config/queryConfig';

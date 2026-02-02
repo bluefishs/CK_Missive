@@ -5,8 +5,11 @@
 """
 
 import os
+import logging
 
 import aiofiles
+
+logger = logging.getLogger(__name__)
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -57,7 +60,7 @@ async def delete_file(
         try:
             os.remove(attachment.file_path)
         except Exception as e:
-            print(f"警告：刪除實體檔案失敗: {str(e)}")
+            logger.warning(f"刪除實體檔案失敗: {str(e)}")
 
     await db.execute(
         delete(DocumentAttachment).where(DocumentAttachment.id == file_id)

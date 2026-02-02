@@ -246,7 +246,7 @@ export function useEventForm(
           throw new Error(response.message || '建立失敗');
         }
       } else if (mode === 'edit' && event) {
-        const response = await apiClient.post<{ success: boolean; message: string; event?: any }>(
+        const response = await apiClient.post<{ success: boolean; message: string; event?: CalendarEventData }>(
           '/calendar/events/update',
           { event_id: event.id, ...submitData }
         );
@@ -258,20 +258,35 @@ export function useEventForm(
           throw new Error(response.message || '更新失敗');
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[EventFormModal] 提交失敗:', error);
 
-      if (error.errorFields) {
-        const errorMessages = error.errorFields.map((f: any) => `${f.name.join('.')}: ${f.errors.join(', ')}`).join('\n');
+      // 定義 Ant Design Form 驗證錯誤的型別
+      interface FormFieldError {
+        name: (string | number)[];
+        errors: string[];
+      }
+      interface FormValidationError {
+        errorFields: FormFieldError[];
+      }
+
+      const isFormValidationError = (err: unknown): err is FormValidationError => {
+        return typeof err === 'object' && err !== null && 'errorFields' in err;
+      };
+
+      if (isFormValidationError(error)) {
+        const errorMessages = error.errorFields.map((f) => `${f.name.join('.')}: ${f.errors.join(', ')}`).join('\n');
         notification.error({
           message: '表單驗證失敗',
           description: errorMessages,
           duration: 5,
         });
       } else {
+        // 處理 API 錯誤
+        const errorMessage = error instanceof Error ? error.message : '請稍後再試';
         notification.error({
           message: mode === 'create' ? '建立事件失敗' : '更新事件失敗',
-          description: error.response?.data?.detail || error.message || '請稍後再試',
+          description: errorMessage,
         });
       }
     } finally {

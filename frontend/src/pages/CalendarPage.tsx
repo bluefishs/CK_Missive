@@ -145,14 +145,15 @@ const CalendarPage: React.FC = () => {
       } else {
         message.info(result.message || '沒有需要同步的事件');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('同步失敗:', error);
-      message.error(error.response?.data?.detail || '同步失敗，請稍後再試');
+      const errorMessage = error instanceof Error ? error.message : '同步失敗，請稍後再試';
+      message.error(errorMessage);
     }
   };
 
   // 處理事件更新
-  const handleEventUpdate = async (eventId: number, updates: any) => {
+  const handleEventUpdate = async (eventId: number, updates: Partial<CalendarEvent>) => {
     try {
       await updateEvent({ eventId, updates });
     } catch (error) {

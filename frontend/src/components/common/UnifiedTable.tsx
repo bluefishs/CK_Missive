@@ -34,7 +34,7 @@ export interface FilterConfig {
   key: string;
   label: string;
   type: 'text' | 'select' | 'dateRange' | 'number' | 'autocomplete';
-  options?: Array<{ value: any; label: string }>;
+  options?: Array<{ value: string | number; label: string }>;
   placeholder?: string;
   autoCompleteOptions?: string[];
 }
@@ -162,7 +162,7 @@ function UnifiedTable<T extends Record<string, any>>({
   }, [data, filters, sortConfig, searchText, filterConfigs]);
 
   // 處理過濾器變化
-  const handleFilterChange = (key: string, value: any) => {
+  const handleFilterChange = (key: string, value: unknown) => {
     setFilters(prev => ({
       ...prev,
       [key]: value

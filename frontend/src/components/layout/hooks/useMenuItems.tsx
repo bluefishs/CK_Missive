@@ -101,13 +101,23 @@ export const getIcon = (iconName?: string): React.ReactNode => {
 /**
  * 將導覽項目轉換為 Ant Design Menu 格式
  */
-export const convertToMenuItems = (items: NavigationItem[]): any[] => {
-  const convertItem = (item: NavigationItem): any => {
+/** Ant Design Menu 項目格式 */
+export interface MenuItem {
+  key: string;
+  icon: React.ReactNode;
+  label: string;
+  path?: string;
+  children?: MenuItem[];
+  permission_required?: string;
+}
+
+export const convertToMenuItems = (items: NavigationItem[]): MenuItem[] => {
+  const convertItem = (item: NavigationItem): MenuItem => {
     const uniqueKey = item.children && item.children.length > 0
       ? `parent-${item.key || item.path || `nav-${Date.now()}`}`
       : item.path || item.key || `leaf-${Date.now()}`;
 
-    const menuItem: any = {
+    const menuItem: MenuItem = {
       key: uniqueKey,
       icon: getIcon(item.icon),
       label: item.title,
@@ -127,7 +137,7 @@ export const convertToMenuItems = (items: NavigationItem[]): any[] => {
 /**
  * 取得靜態選單項目 (備用)
  */
-export const getStaticMenuItems = (): any[] => [
+export const getStaticMenuItems = (): MenuItem[] => [
   {
     key: ROUTES.DASHBOARD,
     icon: <DashboardOutlined />,

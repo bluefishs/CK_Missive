@@ -164,8 +164,9 @@ class SystemLogManager:
             self._update_stats(entry)
             
         except Exception as e:
-            # 日誌系統自身的錯誤處理
-            print(f"LOGGING_ERROR: {e}")
+            # 日誌系統自身的錯誤處理 - 使用 stderr 避免遞迴
+            import sys
+            sys.stderr.write(f"LOGGING_ERROR: {e}\n")
     
     def _get_logger_for_category(self, category: ErrorCategory) -> logging.Logger:
         """根據錯誤類別選擇日誌記錄器"""
@@ -213,7 +214,7 @@ class SystemLogManager:
                         try:
                             safe_value = value.encode('utf-8', errors='ignore').decode('utf-8')
                             safe_details[key] = safe_value
-                        except:
+                        except Exception:
                             safe_details[key] = "[encoding_issue]"
                 else:
                     safe_details[key] = str(value)

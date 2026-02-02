@@ -126,11 +126,11 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
         await loadReminders();
         onSuccess?.();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to add reminder:', error);
       notification.error({
         message: '新增提醒失敗',
-        description: error.message || '請稍後再試'
+        description: error instanceof Error ? error.message : '請稍後再試'
       });
     } finally {
       setLoading(false);
@@ -156,11 +156,11 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
         await loadReminders();
         onSuccess?.();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to delete reminder:', error);
       notification.error({
         message: '刪除提醒失敗',
-        description: error.message || '請稍後再試'
+        description: error instanceof Error ? error.message : '請稍後再試'
       });
     } finally {
       setLoading(false);
@@ -184,11 +184,11 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
       if (response.success) {
         notification.success({ message: '測試提醒已發送' });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to send test reminder:', error);
       notification.error({
         message: '發送測試提醒失敗',
-        description: error.message || '請稍後再試'
+        description: error instanceof Error ? error.message : '請稍後再試'
       });
     } finally {
       setLoading(false);

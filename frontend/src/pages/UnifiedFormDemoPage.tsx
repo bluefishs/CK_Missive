@@ -250,7 +250,7 @@ const UnifiedFormDemoPage: React.FC = () => {
   ];
 
   // 表單提交
-  const handleFormSubmit = (values: any) => {
+  const handleFormSubmit = (values: { title: string; category: string; status?: string; priority?: string; amount?: number }) => {
     const newRecord: DemoRecord = {
       id: demoData.length + 1,
       sequence_number: formSequenceNumber || '',

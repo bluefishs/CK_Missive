@@ -21,6 +21,7 @@ import {
   Row,
   Col,
 } from 'antd';
+import type { TablePaginationConfig, FilterValue, SorterResult, TableCurrentDataSource } from 'antd/es/table/interface';
 import {
   PlusOutlined,
   ReloadOutlined,
@@ -124,7 +125,12 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ contractCode }) => {
     setFilters({ contract_case: contractCode });
   };
 
-  const handleTableChange = (paginationInfo: any, _tableFilters: any, sorter: any) => {
+  const handleTableChange = (
+    paginationInfo: TablePaginationConfig,
+    _tableFilters: Record<string, FilterValue | null>,
+    sorter: SorterResult<Document> | SorterResult<Document>[],
+    _extra: TableCurrentDataSource<Document>
+  ) => {
     if (paginationInfo && (paginationInfo.current !== pagination.page || paginationInfo.pageSize !== pagination.limit)) {
       setPagination({
         page: paginationInfo.current || 1,
@@ -132,9 +138,11 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ contractCode }) => {
       });
     }
 
-    if (sorter && sorter.field) {
-      setSortField(sorter.field);
-      setSortOrder(sorter.order);
+    // 處理單一或多重排序
+    const singleSorter = Array.isArray(sorter) ? sorter[0] : sorter;
+    if (singleSorter && singleSorter.field) {
+      setSortField(String(singleSorter.field));
+      setSortOrder(singleSorter.order ?? null);
     } else {
       setSortField('');
       setSortOrder(null);

@@ -16,6 +16,17 @@ import { useResponsive } from '../hooks';
 const { TextArea } = Input;
 const { Option } = Select;
 
+interface DocumentFormValues {
+  title?: string;
+  type?: string;
+  agency?: string;
+  priority?: string;
+  contract_case?: string[];
+  content?: string;
+  notes?: string;
+  status?: string;
+}
+
 export const DocumentCreatePage: React.FC = () => {
   const { message } = App.useApp();
   const navigate = useNavigate();
@@ -24,7 +35,7 @@ export const DocumentCreatePage: React.FC = () => {
   // RWD 響應式
   const { isMobile, isTablet } = useResponsive();
 
-  const onFinish = (values: any) => {
+  const onFinish = (values: DocumentFormValues) => {
     logger.debug('Form values:', values);
     message.success('公文建立成功！');
     navigate('/documents');

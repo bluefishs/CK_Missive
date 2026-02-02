@@ -133,7 +133,7 @@ export const StaffPage: React.FC = () => {
       await apiClient.post(API_ENDPOINTS.USERS.STATUS(id), { is_active: isActive });
       message.success(isActive ? '已啟用' : '已停用');
       loadStaffList();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('狀態更新失敗:', error);
       message.error('狀態更新失敗');
     }

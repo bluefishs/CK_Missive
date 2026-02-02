@@ -36,7 +36,8 @@ import type {
   FilterState,
   QuickFilterType,
   ViewMode,
-  CalendarStatisticsType
+  CalendarStatisticsType,
+  EventReminder
 } from './views';
 
 // 擴展 dayjs 以支援 isBetween
@@ -49,7 +50,7 @@ interface EnhancedCalendarViewProps {
   loading?: boolean;
   onEventUpdate?: (eventId: number, updates: Partial<CalendarEvent>) => Promise<void>;
   onEventDelete?: (eventId: number) => Promise<void>;
-  onReminderUpdate?: (eventId: number, reminders: any[]) => Promise<void>;
+  onReminderUpdate?: (eventId: number, reminders: EventReminder[]) => Promise<void>;
   onDateSelect?: (date: Dayjs) => void;
   onRefresh?: () => void;
 }

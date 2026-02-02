@@ -93,7 +93,11 @@ const EntryPage: React.FC = () => {
   );
 
   // Google 登入回調處理
-  const handleGoogleCallback = useCallback(async (response: any) => {
+  interface GoogleCredentialResponse {
+    credential?: string;
+  }
+
+  const handleGoogleCallback = useCallback(async (response: GoogleCredentialResponse) => {
     if (response.credential) {
       setLoading(true);
       try {
@@ -105,21 +109,10 @@ const EntryPage: React.FC = () => {
         } else {
           navigate('/dashboard');
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Google login failed:', error);
-        const errorMessage = error.response?.data?.detail || 'Google 登入失敗';
-
-        if (error.response?.status === 403) {
-          if (errorMessage.includes('未驗證') || errorMessage.includes('unverified')) {
-            message.error('您的帳戶尚未通過管理者驗證，請聯絡管理者。');
-          } else if (errorMessage.includes('停用') || errorMessage.includes('suspended')) {
-            message.error('您的帳戶已被停用，請聯絡管理者。');
-          } else {
-            message.error('登入被拒絕：' + errorMessage);
-          }
-        } else {
-          message.error(errorMessage);
-        }
+        const errorMessage = error instanceof Error ? error.message : 'Google 登入失敗';
+        message.error(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -159,9 +152,7 @@ const EntryPage: React.FC = () => {
       script.async = true;
       script.defer = true;
       script.onload = () => {
-        // @ts-ignore
         if (window.google) {
-          // @ts-ignore
           window.google.accounts.id.initialize({
             client_id: GOOGLE_CLIENT_ID,
             callback: handleGoogleCallback,
@@ -175,9 +166,7 @@ const EntryPage: React.FC = () => {
       if (!document.querySelector('script[src="https://accounts.google.com/gsi/client"]')) {
         document.head.appendChild(script);
       } else {
-        // @ts-ignore
         if (window.google) {
-          // @ts-ignore
           window.google.accounts.id.initialize({
             client_id: GOOGLE_CLIENT_ID,
             callback: handleGoogleCallback,
@@ -212,7 +201,7 @@ const EntryPage: React.FC = () => {
 
       message.success(`歡迎, ${userInfo.full_name || userInfo.username}!`);
       navigate('/dashboard');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Quick entry failed:', error);
       message.error('快速進入失敗，請確認後端服務是否啟動');
     } finally {
@@ -227,14 +216,11 @@ const EntryPage: React.FC = () => {
       return;
     }
 
-    // @ts-ignore
     if (window.google) {
-      // @ts-ignore
-      window.google.accounts.id.prompt((notification: any) => {
+      window.google.accounts.id.prompt((notification) => {
         if (notification.isNotDisplayed()) {
           // 如果 One Tap 無法顯示，使用按鈕模式
-          // @ts-ignore
-          window.google.accounts.id.renderButton(
+          window.google?.accounts.id.renderButton(
             document.getElementById('google-signin-btn'),
             { theme: 'filled_blue', size: 'large', text: 'signin_with', shape: 'pill' }
           );

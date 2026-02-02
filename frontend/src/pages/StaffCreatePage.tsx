@@ -45,11 +45,12 @@ export const StaffCreatePage: React.FC = () => {
       await apiClient.post(API_ENDPOINTS.USERS.CREATE, values);
       message.success('承辦同仁建立成功');
       navigate(ROUTES.STAFF);
-    } catch (error: any) {
-      if (error?.errorFields) {
+    } catch (error: unknown) {
+      const err = error as { errorFields?: unknown; response?: { data?: { detail?: string } } };
+      if (err?.errorFields) {
         message.error('請檢查表單欄位');
       } else {
-        const detail = error?.response?.data?.detail;
+        const detail = err?.response?.data?.detail;
         const errMsg = typeof detail === 'string' ? detail : '建立失敗';
         message.error(errMsg);
       }

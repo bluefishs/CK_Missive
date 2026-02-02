@@ -20,8 +20,11 @@ import argparse
 import sys
 import os
 import unicodedata
+import logging
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+logger = logging.getLogger(__name__)
 
 from sqlalchemy import text
 from app.db.database import AsyncSessionLocal
@@ -129,7 +132,7 @@ async def check_table(db, table: str, columns: list) -> list:
                             'original': value[:100] + '...' if len(value) > 100 else value
                         })
         except Exception as e:
-            print(f"  警告: 檢查 {table}.{column} 時發生錯誤: {e}")
+            logger.warning(f"檢查 {table}.{column} 時發生錯誤: {e}")
 
     return issues
 
@@ -156,65 +159,64 @@ async def fix_table(db, table: str, columns: list) -> int:
 
             result = await db.execute(update_query)
             if result.rowcount > 0:
-                print(f"  ✓ {table}.{column}: 修復 {result.rowcount} 筆")
+                logger.info(f"{table}.{column}: 修復 {result.rowcount} 筆")
                 fixed_count += result.rowcount
 
         except Exception as e:
-            print(f"  警告: 修復 {table}.{column} 時發生錯誤: {e}")
+            logger.warning(f"修復 {table}.{column} 時發生錯誤: {e}")
 
     return fixed_count
 
 
 async def main(args):
     """主函數"""
-    print("=" * 60)
-    print("Unicode 字元正規化工具")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("Unicode 字元正規化工具")
+    logger.info("=" * 60)
 
     tables = TABLES_TO_CHECK
     if args.table:
         tables = [(args.table, [col for t, cols in TABLES_TO_CHECK if t == args.table for col in cols])]
         if not tables[0][1]:
-            print(f"錯誤: 未找到表 '{args.table}' 的欄位配置")
+            logger.error(f"未找到表 '{args.table}' 的欄位配置")
             return 1
 
     async with AsyncSessionLocal() as db:
         if args.check:
-            print("\n[檢查模式] 掃描異常字元...\n")
+            logger.info("[檢查模式] 掃描異常字元...")
             all_issues = []
 
             for table, columns in tables:
-                print(f"檢查表: {table}")
+                logger.info(f"檢查表: {table}")
                 issues = await check_table(db, table, columns)
                 all_issues.extend(issues)
 
             if all_issues:
-                print(f"\n發現 {len(all_issues)} 筆異常記錄:\n")
+                logger.info(f"發現 {len(all_issues)} 筆異常記錄:")
                 for issue in all_issues:
-                    print(f"  [{issue['table']}.{issue['column']}] ID={issue['id']}")
-                    print(f"    異常字元: {issue['abnormal_chars']}")
-                    print(f"    原始內容: {issue['original']}")
-                    print()
+                    logger.info(f"  [{issue['table']}.{issue['column']}] ID={issue['id']}")
+                    logger.debug(f"    異常字元: {issue['abnormal_chars']}")
+                    logger.debug(f"    原始內容: {issue['original']}")
             else:
-                print("\n✓ 未發現異常字元")
+                logger.info("未發現異常字元")
 
         elif args.fix:
-            print("\n[修復模式] 正規化異常字元...\n")
+            logger.info("[修復模式] 正規化異常字元...")
             total_fixed = 0
 
             for table, columns in tables:
-                print(f"修復表: {table}")
+                logger.info(f"修復表: {table}")
                 fixed = await fix_table(db, table, columns)
                 total_fixed += fixed
 
             await db.commit()
-            print(f"\n✓ 共修復 {total_fixed} 筆記錄")
+            logger.info(f"共修復 {total_fixed} 筆記錄")
 
         else:
-            print("請指定 --check 或 --fix 參數")
+            logger.warning("請指定 --check 或 --fix 參數")
             return 1
 
-    print("\n" + "=" * 60)
+    logger.info("=" * 60)
     return 0
 
 
