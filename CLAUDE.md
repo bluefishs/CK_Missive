@@ -2,9 +2,9 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.29.0
-> **最後更新**: 2026-02-02
-> **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers)
+> **Claude Code 配置版本**: 1.30.0
+> **最後更新**: 2026-02-03
+> **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers), [everything-claude-code](https://github.com/affaan-m/everything-claude-code)
 
 ---
 
@@ -33,8 +33,20 @@ CK_Missive 是一套企業級公文管理系統，具備以下核心功能：
 | `/data-quality-check` | 資料品質檢查 | `.claude/commands/data-quality-check.md` |
 | `/db-backup` | 資料庫備份管理 | `.claude/commands/db-backup.md` |
 | `/csv-import-validate` | CSV 匯入驗證 | `.claude/commands/csv-import-validate.md` |
-| `/security-audit` | 🔒 **資安審計檢查** (新增) | `.claude/commands/security-audit.md` |
-| `/performance-check` | ⚡ **效能診斷檢查** (新增) | `.claude/commands/performance-check.md` |
+| `/security-audit` | 🔒 **資安審計檢查** | `.claude/commands/security-audit.md` |
+| `/performance-check` | ⚡ **效能診斷檢查** | `.claude/commands/performance-check.md` |
+
+### 🚀 Everything Claude Code 指令 (v1.30.0 新增)
+
+整合自 [everything-claude-code](https://github.com/affaan-m/everything-claude-code) 的生產級工作流：
+
+| 指令 | 說明 | 檔案 |
+|------|------|------|
+| `/verify` | 🔍 **綜合驗證檢查** - Build/Type/Lint/Test | `.claude/commands/verify.md` |
+| `/tdd` | 🧪 **TDD 工作流** - 測試驅動開發 (RED-GREEN-REFACTOR) | `.claude/commands/tdd.md` |
+| `/checkpoint` | 📍 **檢查點** - 長對話進度保存 | `.claude/commands/checkpoint.md` |
+| `/code-review` | 👀 **程式碼審查** - 全面代碼檢視 | `.claude/commands/code-review.md` |
+| `/build-fix` | 🔧 **構建修復** - 快速修復構建錯誤 | `.claude/commands/build-fix.md` |
 
 ### 🦸 Superpowers 指令 (v4.0.3)
 
@@ -114,6 +126,13 @@ CK_Missive 是一套企業級公文管理系統，具備以下核心功能：
 | Code Review | 程式碼審查 | `.claude/agents/code-review.md` |
 | API Design | API 設計 | `.claude/agents/api-design.md` |
 | Bug Investigator | Bug 調查 | `.claude/agents/bug-investigator.md` |
+
+### 🚀 Everything Claude Code Agents (v1.30.0 新增)
+
+| Agent | 用途 | 檔案 |
+|-------|------|------|
+| E2E Runner | 🧪 E2E 測試執行與管理 | `.claude/agents/e2e-runner.md` |
+| Build Error Resolver | 🔧 構建/TypeScript 錯誤快速修復 | `.claude/agents/build-error-resolver.md` |
 
 ---
 
@@ -735,21 +754,57 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 
 ## 📋 版本更新記錄
 
+### v1.30.0 (2026-02-03) - Everything Claude Code 整合
+
+**整合 everything-claude-code 生產級配置** ✅:
+- 來源: [everything-claude-code](https://github.com/affaan-m/everything-claude-code)
+- Anthropic x Forum Ventures 黑客松獲勝作品
+- 經過 10+ 個月密集日常使用打磨
+
+**新增 Commands** (5 個):
+| 指令 | 說明 |
+|------|------|
+| `/verify` | 綜合驗證 (Build/Type/Lint/Test/Security) |
+| `/tdd` | TDD 工作流 (RED-GREEN-REFACTOR) |
+| `/checkpoint` | 長對話進度保存 |
+| `/code-review` | 全面程式碼審查 |
+| `/build-fix` | 構建錯誤快速修復 |
+
+**新增 Agents** (2 個):
+| Agent | 說明 |
+|-------|------|
+| `e2e-runner` | E2E 測試執行與管理 (Playwright/Agent Browser) |
+| `build-error-resolver` | 構建/TypeScript 錯誤專家 (最小差異修復) |
+
+**新增 Rules** (2 個):
+- `security.md` - 安全強制檢查清單
+- `testing.md` - 測試最佳實踐規則
+
+**新增 Skills** (1 個):
+- `verification-loop/` - 持續驗證循環流程
+
+**部署管理缺漏修復**:
+- 建立 `docs/DEPLOYMENT_CHECKLIST.md` 完整性檢查清單
+- 建立 `docs/DEPLOYMENT_GAP_ANALYSIS.md` 缺漏分析與優化程序
+- 診斷生產環境 404 問題：後端代碼未部署
+
+---
+
 ### v1.29.0 (2026-02-02) - 部署管理頁面
 
 **新增部署管理功能** ✅:
 - 新增 `/admin/deployment` 部署管理頁面
 - 整合 GitHub Actions API 實現遠端部署控制
 
-**後端 API** (`backend/app/api/endpoints/deployment.py`):
+**後端 API** (`backend/app/api/endpoints/deployment.py`) - POST-only 安全模式:
 | 端點 | 說明 |
 |------|------|
-| `GET /deploy/status` | 系統狀態 (後端、前端、資料庫) |
-| `GET /deploy/history` | 部署歷史 (GitHub Actions) |
+| `POST /deploy/status` | 系統狀態 (後端、前端、資料庫) |
+| `POST /deploy/history` | 部署歷史 (GitHub Actions) |
 | `POST /deploy/trigger` | 觸發部署 |
 | `POST /deploy/rollback` | 回滾操作 |
-| `GET /deploy/logs/:runId` | 部署日誌 |
-| `GET /deploy/config` | 部署配置 |
+| `POST /deploy/logs/:runId` | 部署日誌 |
+| `POST /deploy/config` | 部署配置 |
 
 **前端頁面功能**:
 - 服務狀態即時監控 (自動刷新)
