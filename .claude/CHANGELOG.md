@@ -4,6 +4,30 @@
 
 ---
 
+## [1.27.0] - 2026-02-02
+
+### 部署架構優化與系統文件更新
+
+**部署優化完成**:
+- ✅ 統一依賴管理：移除 poetry.lock，改用 pip + requirements.txt
+- ✅ 部署前置腳本：pre-deploy.sh/ps1 + init-database.py
+- ✅ Alembic 遷移文檔：ALEMBIC_MIGRATION_GUIDE.md
+- ✅ Docker Compose 改進：添加註解和 logging 配置
+
+**CI/CD 管線完整性**:
+- 8 個 CI jobs 全部運作正常
+- Docker 建置驗證整合
+- 測試覆蓋率報告整合
+
+**文件更新**:
+- `SYSTEM_OPTIMIZATION_REPORT.md` 升級至 v7.0.0
+- `OPTIMIZATION_ACTION_PLAN.md` 同步更新
+- `CLAUDE.md` 升級至 v1.27.0
+
+**系統健康度**: 9.5/10 → **9.6/10** (提升 0.1 分)
+
+---
+
 ## [1.26.0] - 2026-02-02
 
 ### 派工-工程關聯自動同步功能

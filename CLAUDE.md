@@ -597,7 +597,10 @@ async def list_documents(
 | `docs/specifications/SCHEMA_DB_MAPPING.md` | Schema-DB 欄位對照表 v1.0.0 |
 | `docs/specifications/LINK_ID_HANDLING_SPECIFICATION.md` | 關聯記錄處理規範 v1.0.0 |
 | `docs/specifications/UI_DESIGN_STANDARDS.md` | **UI 設計規範 v1.2.0** (導航模式、檔案上傳、returnTo) |
-| `docs/SYSTEM_OPTIMIZATION_REPORT.md` | 🆕 **系統優化報告 v1.0.0** (2026-01-28) |
+| `docs/SYSTEM_OPTIMIZATION_REPORT.md` | 🆕 **系統優化報告 v7.0.0** (2026-02-02) |
+| `docs/SECURITY_CICD_RECOMMENDATIONS.md` | 🆕 **資安與 CI/CD 優化建議 v1.0.0** |
+| `docs/ALEMBIC_MIGRATION_GUIDE.md` | 🆕 **Alembic 遷移管理指南** |
+| `docs/DEPLOYMENT_LESSONS_LEARNED.md` | 🆕 **NAS 部署經驗總結** |
 | `docs/specifications/TESTING_FRAMEWORK.md` | 測試框架規範 |
 | `docs/Architecture_Optimization_Recommendations.md` | 📐 架構優化建議 |
 | `@AGENT.md` | 開發代理指引 |
