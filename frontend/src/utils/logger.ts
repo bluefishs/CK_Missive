@@ -4,7 +4,7 @@
  * @description 提供統一的日誌記錄功能
  */
 
-type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 interface Logger {
   debug: (...args: any[]) => void;
@@ -17,7 +17,7 @@ interface Logger {
 const isDevelopment = import.meta.env.DEV;
 
 const createLogger = (): Logger => {
-  const formatMessage = (level: LogLevel, ...args: any[]): string => {
+  const formatMessage = (level: LogLevel): string => {
     const timestamp = new Date().toISOString();
     return `[${timestamp}] [${level.toUpperCase()}]`;
   };

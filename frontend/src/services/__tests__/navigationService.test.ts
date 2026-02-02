@@ -215,7 +215,7 @@ describe('navigationService', () => {
       const items = await navigationService.loadNavigationFromAPI();
 
       expect(items.length).toBe(1);
-      expect(items[0].key).toBe('test');
+      expect(items[0]?.key).toBe('test');
       expect(cacheService.set).toHaveBeenCalled();
     });
 
