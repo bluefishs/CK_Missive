@@ -53,9 +53,9 @@
 - ✅ pip-audit 後端依賴掃描
 - ✅ 硬編碼密碼檢測
 
-### 1.2 中優先級 (2 週內完成)
+### 1.2 中優先級 ✅ 程式碼完成 (待部署配置)
 
-#### A. 實施 HTTPS
+#### A. 實施 HTTPS ⏳ 待部署配置
 
 **生產環境必須啟用 HTTPS**
 
@@ -80,9 +80,11 @@ server {
 }
 ```
 
-#### B. 配置安全標頭
+#### B. 配置安全標頭 ✅ 已完成
 
-**FastAPI 中間件配置**:
+**已實作**: `backend/app/core/security_headers.py`
+
+**FastAPI 中間件配置** (範例):
 ```python
 # backend/app/core/security_middleware.py
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -97,9 +99,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 ```
 
-#### C. 密碼策略加固
+#### C. 密碼策略加固 ✅ 已完成
 
-**建議密碼要求**:
+**已實作**: `backend/app/core/password_policy.py`
+
+**密碼要求**:
 - 最小長度: 12 字元
 - 必須包含: 大小寫字母、數字、特殊字元
 - 禁止: 常見密碼、用戶名相關
