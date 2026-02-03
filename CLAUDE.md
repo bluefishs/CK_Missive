@@ -2,7 +2,7 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.30.0
+> **Claude Code 配置版本**: 1.33.0
 > **最後更新**: 2026-02-03
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers), [everything-claude-code](https://github.com/affaan-m/everything-claude-code)
 
@@ -753,6 +753,40 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 ---
 
 ## 📋 版本更新記錄
+
+### v1.33.0 (2026-02-03) - 多對多關聯一致性修復
+
+**關鍵修復** 🔧:
+- 修復派工單-公文關聯的資料一致性問題（單向關聯→雙向同步）
+- 建立/更新派工單時自動同步 `agency_doc_id`/`company_doc_id` 到關聯表
+- 刪除派工單時清理孤立的公文-工程關聯記錄
+- 解除工程-派工關聯時反向清理自動建立的公文-工程關聯
+
+**新增資料遷移腳本**:
+```bash
+# 測試模式
+python -m app.scripts.sync_dispatch_document_links --dry-run
+
+# 執行遷移
+python -m app.scripts.sync_dispatch_document_links
+
+# 驗證結果
+python -m app.scripts.sync_dispatch_document_links --verify
+```
+
+**GitOps 評估完成**:
+- 推薦方案: Self-hosted Runner
+- ROI: 3 個月回本，部署時間 -83%
+- 詳見 `docs/GITOPS_EVALUATION.md`
+
+**受影響檔案**:
+- `backend/app/services/taoyuan/dispatch_order_service.py` - 新增 `_sync_document_links()`
+- `backend/app/api/endpoints/taoyuan_dispatch/project_dispatch_links.py` - 反向清理邏輯
+- `backend/app/scripts/sync_dispatch_document_links.py` - 資料遷移腳本
+
+**系統健康度**: 8.8/10 → **8.9/10**
+
+---
 
 ### v1.30.0 (2026-02-03) - Everything Claude Code 整合
 

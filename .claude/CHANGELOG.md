@@ -4,6 +4,44 @@
 
 ---
 
+## [1.33.0] - 2026-02-03
+
+### 派工單多對多關聯一致性修復與 GitOps 評估
+
+**關鍵修復** 🔧:
+- 修復派工單-公文關聯的資料一致性問題
+- 建立/更新派工單時自動同步公文到關聯表
+- 刪除派工單時清理孤立的公文-工程關聯
+- 解除工程-派工關聯時反向清理自動建立的關聯
+
+**新增檔案**:
+- `backend/app/scripts/sync_dispatch_document_links.py` - 資料遷移腳本
+- `docs/GITOPS_EVALUATION.md` - GitOps 評估與實施計畫
+- `docs/MANUAL_DEPLOYMENT_GUIDE.md` - 手動部署指引
+- `docs/OPTIMIZATION_REPORT_v1.32.md` - 系統優化報告
+
+**修改檔案**:
+- `backend/app/services/taoyuan/dispatch_order_service.py` - 新增 `_sync_document_links()` 方法
+- `backend/app/api/endpoints/taoyuan_dispatch/project_dispatch_links.py` - 新增反向清理邏輯
+- `.github/workflows/deploy-production.yml` - 修復 secrets 語法錯誤
+
+**整合項目**:
+- Everything Claude Code 配置（5 Commands, 2 Agents, 2 Rules, 1 Skill）
+- Skills 目錄重構（移除重複，統一 shared/ 結構）
+
+**測試修復**:
+- `frontend/src/utils/logger.ts` - 匯出 LogLevel 型別
+- `frontend/src/config/__tests__/queryConfig.test.ts` - 修正 calendar 測試
+- `frontend/src/services/__tests__/navigationService.test.ts` - 修正 undefined 錯誤
+
+**系統健康度**: 8.8/10 → **8.9/10** (提升 0.1 分)
+
+**待完成**:
+- ⏳ 生產環境部署（SSH 連線問題待解決）
+- ⏳ Self-hosted Runner 安裝（GitOps 實施）
+
+---
+
 ## [1.29.0] - 2026-02-02
 
 ### 資安強化與 CI/CD 優化
