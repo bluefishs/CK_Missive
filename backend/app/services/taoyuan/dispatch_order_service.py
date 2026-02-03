@@ -13,6 +13,7 @@ import logging
 from datetime import datetime, date
 from typing import Optional, List, Dict, Any, Tuple
 import pandas as pd
+from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.taoyuan import DispatchOrderRepository
@@ -166,6 +167,10 @@ class DispatchOrderService:
         # 提取關聯工程 ID 列表（非 ORM 欄位）
         linked_project_ids = create_data.pop('linked_project_ids', None)
 
+        # 提取公文 ID（用於同步到關聯表）
+        agency_doc_id = create_data.get('agency_doc_id')
+        company_doc_id = create_data.get('company_doc_id')
+
         if auto_generate_no and not create_data.get('dispatch_no'):
             create_data['dispatch_no'] = await self.get_next_dispatch_no()
 
@@ -180,7 +185,13 @@ class DispatchOrderService:
                     taoyuan_project_id=project_id
                 )
                 self.db.add(link)
-            await self.db.commit()
+
+        # 同步公文關聯到 TaoyuanDispatchDocumentLink 表
+        await self._sync_document_links(
+            dispatch_order.id, agency_doc_id, company_doc_id
+        )
+
+        await self.db.commit()
 
         return dispatch_order
 
@@ -202,18 +213,19 @@ class DispatchOrderService:
         # 提取關聯工程 ID 列表（非 ORM 欄位）
         linked_project_ids = update_data.pop('linked_project_ids', None)
 
+        # 提取公文 ID（用於同步到關聯表）
+        agency_doc_id = update_data.get('agency_doc_id')
+        company_doc_id = update_data.get('company_doc_id')
+
         # 更新派工單基本資料
         dispatch_order = await self.repository.update(dispatch_id, update_data)
 
+        if not dispatch_order:
+            return None
+
         # 如果有指定關聯工程，更新關聯記錄
-        if dispatch_order and linked_project_ids is not None:
+        if linked_project_ids is not None:
             # 刪除現有關聯
-            await self.db.execute(
-                select(TaoyuanDispatchProjectLink).where(
-                    TaoyuanDispatchProjectLink.dispatch_order_id == dispatch_id
-                )
-            )
-            from sqlalchemy import delete
             await self.db.execute(
                 delete(TaoyuanDispatchProjectLink).where(
                     TaoyuanDispatchProjectLink.dispatch_order_id == dispatch_id
@@ -227,7 +239,16 @@ class DispatchOrderService:
                     taoyuan_project_id=project_id
                 )
                 self.db.add(link)
-            await self.db.commit()
+
+        # 同步公文關聯到 TaoyuanDispatchDocumentLink 表
+        # 只有當 agency_doc_id 或 company_doc_id 有傳入時才同步
+        if 'agency_doc_id' in update_data or 'company_doc_id' in update_data:
+            # 取得當前完整的公文 ID
+            current_agency = agency_doc_id if 'agency_doc_id' in update_data else dispatch_order.agency_doc_id
+            current_company = company_doc_id if 'company_doc_id' in update_data else dispatch_order.company_doc_id
+            await self._sync_document_links(dispatch_id, current_agency, current_company)
+
+        await self.db.commit()
 
         return dispatch_order
 
@@ -235,13 +256,101 @@ class DispatchOrderService:
         """
         刪除派工單
 
+        包含級聯清理邏輯：
+        - ORM 自動刪除：project_links, document_links, payment, attachments
+        - 手動清理：自動建立的 TaoyuanDocumentProjectLink（孤立記錄）
+
         Args:
             dispatch_id: 派工單 ID
 
         Returns:
             是否刪除成功
         """
-        return await self.repository.delete(dispatch_id)
+        from app.extended.models import TaoyuanDocumentProjectLink
+
+        # 取得派工單資訊（用於清理孤立記錄）
+        dispatch = await self.repository.get_with_relations(dispatch_id)
+        if not dispatch:
+            return False
+
+        dispatch_no = dispatch.dispatch_no
+
+        # Step 1: 清理自動建立的公文-工程關聯
+        # 這些記錄的 notes 欄位包含 "自動同步自派工單 {dispatch_no}"
+        if dispatch_no:
+            auto_links_result = await self.db.execute(
+                select(TaoyuanDocumentProjectLink).where(
+                    TaoyuanDocumentProjectLink.notes.like(f"%自動同步自派工單 {dispatch_no}%")
+                )
+            )
+            auto_links = auto_links_result.scalars().all()
+            for auto_link in auto_links:
+                await self.db.delete(auto_link)
+                logger.info(f"清理孤立公文-工程關聯: 公文 {auto_link.document_id} <- 工程 {auto_link.taoyuan_project_id}")
+
+        # Step 2: 刪除派工單（ORM 會級聯刪除 project_links, document_links 等）
+        result = await self.repository.delete(dispatch_id)
+
+        return result
+
+    async def _sync_document_links(
+        self,
+        dispatch_id: int,
+        agency_doc_id: Optional[int],
+        company_doc_id: Optional[int]
+    ) -> None:
+        """
+        同步公文關聯到 TaoyuanDispatchDocumentLink 表
+
+        確保 agency_doc_id 和 company_doc_id 同步到關聯表，
+        以支援雙向查詢。
+
+        Args:
+            dispatch_id: 派工單 ID
+            agency_doc_id: 機關公文 ID
+            company_doc_id: 公司公文 ID
+        """
+        from datetime import datetime
+
+        # 同步機關公文關聯
+        if agency_doc_id:
+            # 檢查是否已存在
+            existing = await self.db.execute(
+                select(TaoyuanDispatchDocumentLink).where(
+                    TaoyuanDispatchDocumentLink.dispatch_order_id == dispatch_id,
+                    TaoyuanDispatchDocumentLink.document_id == agency_doc_id,
+                    TaoyuanDispatchDocumentLink.link_type == 'agency_incoming'
+                )
+            )
+            if not existing.scalar_one_or_none():
+                link = TaoyuanDispatchDocumentLink(
+                    dispatch_order_id=dispatch_id,
+                    document_id=agency_doc_id,
+                    link_type='agency_incoming',
+                    created_at=datetime.utcnow()
+                )
+                self.db.add(link)
+                logger.info(f"同步派工單 {dispatch_id} -> 機關公文 {agency_doc_id}")
+
+        # 同步公司公文關聯
+        if company_doc_id:
+            # 檢查是否已存在
+            existing = await self.db.execute(
+                select(TaoyuanDispatchDocumentLink).where(
+                    TaoyuanDispatchDocumentLink.dispatch_order_id == dispatch_id,
+                    TaoyuanDispatchDocumentLink.document_id == company_doc_id,
+                    TaoyuanDispatchDocumentLink.link_type == 'company_outgoing'
+                )
+            )
+            if not existing.scalar_one_or_none():
+                link = TaoyuanDispatchDocumentLink(
+                    dispatch_order_id=dispatch_id,
+                    document_id=company_doc_id,
+                    link_type='company_outgoing',
+                    created_at=datetime.utcnow()
+                )
+                self.db.add(link)
+                logger.info(f"同步派工單 {dispatch_id} -> 公司公文 {company_doc_id}")
 
     # =========================================================================
     # 序號生成

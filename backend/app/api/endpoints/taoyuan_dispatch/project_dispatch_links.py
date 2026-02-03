@@ -171,6 +171,9 @@ async def unlink_dispatch_from_project(
     參數說明：
     - project_id: TaoyuanProject.id（工程 ID）
     - link_id: TaoyuanDispatchProjectLink.id（關聯記錄 ID，非工程 ID）
+
+    反向清理邏輯：
+    - 同時刪除自動建立的公文-工程關聯（notes 包含 "自動同步自派工單"）
     """
     result = await db.execute(
         select(TaoyuanDispatchProjectLink).where(
@@ -197,9 +200,54 @@ async def unlink_dispatch_from_project(
                 detail=f"關聯記錄 ID {link_id} 不存在。請確認傳入的是 link_id（關聯記錄 ID），而非工程 ID"
             )
 
+    dispatch_order_id = link.dispatch_order_id
+
+    # Step 1: 取得派工單號（用於匹配自動同步的記錄）
+    order_result = await db.execute(
+        select(TaoyuanDispatchOrder.dispatch_no).where(
+            TaoyuanDispatchOrder.id == dispatch_order_id
+        )
+    )
+    dispatch_no = order_result.scalar_one_or_none()
+
+    # Step 2: 刪除自動建立的公文-工程關聯
+    auto_deleted_count = 0
+    if dispatch_no:
+        # 查詢該派工單關聯的所有公文
+        doc_links_result = await db.execute(
+            select(TaoyuanDispatchDocumentLink.document_id).where(
+                TaoyuanDispatchDocumentLink.dispatch_order_id == dispatch_order_id
+            )
+        )
+        doc_ids = [row[0] for row in doc_links_result.all()]
+
+        # 刪除自動建立的公文-工程關聯
+        for doc_id in doc_ids:
+            auto_link_result = await db.execute(
+                select(TaoyuanDocumentProjectLink).where(
+                    TaoyuanDocumentProjectLink.document_id == doc_id,
+                    TaoyuanDocumentProjectLink.taoyuan_project_id == project_id,
+                    TaoyuanDocumentProjectLink.notes.like(f"%自動同步自派工單 {dispatch_no}%")
+                )
+            )
+            auto_link = auto_link_result.scalar_one_or_none()
+            if auto_link:
+                await db.delete(auto_link)
+                auto_deleted_count += 1
+                logger.info(f"反向清理公文-工程關聯: 公文 {doc_id} <- 工程 {project_id}")
+
+    # Step 3: 刪除派工-工程關聯
     await db.delete(link)
     await db.commit()
-    return {"success": True, "message": "移除關聯成功"}
+
+    return {
+        "success": True,
+        "message": "移除關聯成功",
+        "auto_cleanup": {
+            "deleted_count": auto_deleted_count,
+            "message": f"已同時清理 {auto_deleted_count} 個自動建立的公文-工程關聯" if auto_deleted_count > 0 else None
+        }
+    }
 
 
 @router.post("/projects/batch-dispatch-links", summary="批次查詢多筆工程的派工關聯")
