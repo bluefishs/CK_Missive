@@ -67,6 +67,7 @@ import deploymentApi, {
   ServiceStatus,
   DeploymentStatus,
 } from '../api/deploymentApi';
+import { logger } from '../utils/logger';
 
 dayjs.extend(relativeTime);
 dayjs.locale('zh-tw');
@@ -156,7 +157,7 @@ const DeploymentManagementPage: React.FC = () => {
       const data = await deploymentApi.getSystemStatus();
       setSystemStatus(data);
     } catch (error) {
-      console.error('載入系統狀態失敗:', error);
+      logger.error('載入系統狀態失敗:', error);
       message.error('載入系統狀態失敗');
     } finally {
       setLoading(false);
@@ -172,7 +173,7 @@ const DeploymentManagementPage: React.FC = () => {
       });
       setDeployHistory(data);
     } catch (error) {
-      console.error('載入部署歷史失敗:', error);
+      logger.error('載入部署歷史失敗:', error);
       // 不顯示錯誤訊息，可能是未配置 GitHub Token
     } finally {
       setHistoryLoading(false);
@@ -184,7 +185,7 @@ const DeploymentManagementPage: React.FC = () => {
       const data = await deploymentApi.getDeploymentConfig();
       setDeployConfig(data);
     } catch (error) {
-      console.error('載入部署配置失敗:', error);
+      logger.error('載入部署配置失敗:', error);
     }
   }, []);
 
@@ -224,7 +225,7 @@ const DeploymentManagementPage: React.FC = () => {
         message.error(result.message);
       }
     } catch (error) {
-      console.error('觸發部署失敗:', error);
+      logger.error('觸發部署失敗:', error);
       message.error('觸發部署失敗');
     } finally {
       setTriggerLoading(false);
@@ -245,7 +246,7 @@ const DeploymentManagementPage: React.FC = () => {
         message.error(result.message);
       }
     } catch (error) {
-      console.error('回滾失敗:', error);
+      logger.error('回滾失敗:', error);
       message.error('回滾操作失敗');
     } finally {
       setRollbackLoading(false);
@@ -259,7 +260,7 @@ const DeploymentManagementPage: React.FC = () => {
       const data = await deploymentApi.getDeploymentLogs(runId);
       setSelectedLogs(data);
     } catch (error) {
-      console.error('載入日誌失敗:', error);
+      logger.error('載入日誌失敗:', error);
       message.error('載入部署日誌失敗');
     } finally {
       setLogsLoading(false);
