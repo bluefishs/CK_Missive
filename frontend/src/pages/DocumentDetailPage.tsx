@@ -205,7 +205,9 @@ export const DocumentDetailPage: React.FC = () => {
       setDispatchLinks(result.dispatch_orders || []);
     } catch (error) {
       logger.error('[loadDispatchLinks] 載入派工關聯失敗:', error);
-      setDispatchLinks([]);
+      // 重要：錯誤時不清空現有列表，避免「紀錄消失」問題
+      // setDispatchLinks([]); // 移除這行
+      message.error('載入派工關聯失敗，請重新整理頁面');
     } finally {
       setDispatchLinksLoading(false);
     }
