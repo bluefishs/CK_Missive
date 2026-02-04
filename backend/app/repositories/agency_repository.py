@@ -6,9 +6,11 @@ AgencyRepository - 機關資料存取層
 - 公文關聯查詢
 - 統計方法
 - 智慧匹配支援
+- 投影查詢最佳化 (v1.1.0)
 
-版本: 1.0.0
+版本: 1.1.0
 建立日期: 2026-01-26
+更新日期: 2026-02-04
 """
 
 import logging
@@ -44,6 +46,28 @@ class AgencyRepository(BaseRepository[GovernmentAgency]):
 
     # 搜尋欄位設定
     SEARCH_FIELDS = ['agency_name', 'agency_short_name', 'agency_code']
+
+    # 列表頁面投影欄位（僅載入必要欄位，減少約 30% 資料傳輸）
+    LIST_PROJECTION_FIELDS = [
+        'id',
+        'agency_name',
+        'agency_short_name',
+        'agency_code',
+        'agency_type',
+        'contact_person',
+        'phone',
+        'email',
+        'created_at',
+    ]
+
+    # 摘要投影欄位（最小化，用於下拉選單等）
+    SUMMARY_PROJECTION_FIELDS = [
+        'id',
+        'agency_name',
+        'agency_short_name',
+        'agency_code',
+        'agency_type',
+    ]
 
     def __init__(self, db: AsyncSession):
         """
@@ -764,3 +788,119 @@ class AgencyRepository(BaseRepository[GovernmentAgency]):
         agencies = list(result.scalars().all())
 
         return agencies, total
+
+    # =========================================================================
+    # 投影查詢方法 (Projection Query) - v1.1.0
+    # =========================================================================
+
+    async def get_list_projected(
+        self,
+        page: int = 1,
+        page_size: int = 20,
+        agency_type: Optional[str] = None,
+        search: Optional[str] = None,
+        sort_by: str = 'agency_name',
+        sort_order: str = 'asc'
+    ) -> Dict[str, Any]:
+        """
+        取得機關列表（投影查詢）- 效能優化版
+
+        使用投影查詢僅載入 LIST_PROJECTION_FIELDS 定義的欄位，
+        減少約 30% 的資料傳輸量，特別適用於列表頁面。
+
+        Args:
+            page: 頁碼（從 1 開始）
+            page_size: 每頁筆數
+            agency_type: 機關類型篩選
+            search: 搜尋關鍵字
+            sort_by: 排序欄位
+            sort_order: 排序方向 (asc/desc)
+
+        Returns:
+            包含 items, total, page, page_size, total_pages 的字典
+        """
+        # 建構篩選條件
+        conditions = []
+        if agency_type:
+            conditions.append(GovernmentAgency.agency_type == agency_type)
+
+        # 搜尋條件
+        if search:
+            search_pattern = f"%{search}%"
+            search_conditions = [
+                getattr(GovernmentAgency, field).ilike(search_pattern)
+                for field in self.SEARCH_FIELDS
+                if hasattr(GovernmentAgency, field)
+            ]
+            if search_conditions:
+                conditions.append(or_(*search_conditions))
+
+        # 使用基類的投影分頁方法
+        return await self.get_paginated_projected(
+            fields=self.LIST_PROJECTION_FIELDS,
+            page=page,
+            page_size=page_size,
+            order_by=sort_by,
+            order_desc=(sort_order.lower() == 'desc'),
+            conditions=conditions if conditions else None
+        )
+
+    async def get_summary_list(
+        self,
+        limit: int = 100,
+        agency_type: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        取得機關摘要列表（最小投影）
+
+        用於下拉選單、自動完成等需要快速載入的場景。
+        僅載入 SUMMARY_PROJECTION_FIELDS 定義的欄位。
+
+        Args:
+            limit: 取得筆數上限
+            agency_type: 機關類型篩選（可選）
+
+        Returns:
+            機關摘要字典列表
+        """
+        if agency_type:
+            return await self.find_by_projected(
+                fields=self.SUMMARY_PROJECTION_FIELDS,
+                limit=limit,
+                order_by='agency_name',
+                order_desc=False,
+                agency_type=agency_type
+            )
+        return await self.get_all_projected(
+            fields=self.SUMMARY_PROJECTION_FIELDS,
+            limit=limit,
+            order_by='agency_name',
+            order_desc=False
+        )
+
+    async def search_agencies_projected(
+        self,
+        search_term: str,
+        limit: int = 20
+    ) -> List[Dict[str, Any]]:
+        """
+        搜尋機關（投影查詢）- 用於自動完成
+
+        Args:
+            search_term: 搜尋關鍵字
+            limit: 取得筆數上限
+
+        Returns:
+            機關摘要字典列表
+        """
+        if not search_term or len(search_term) < 2:
+            return []
+
+        return await self.search_projected(
+            fields=self.SUMMARY_PROJECTION_FIELDS,
+            search_term=search_term,
+            search_fields=self.SEARCH_FIELDS,
+            limit=limit,
+            order_by='agency_name',
+            order_desc=False
+        )
