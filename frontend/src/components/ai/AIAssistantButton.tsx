@@ -94,6 +94,7 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
         style={{
           right: 24,
           bottom: 24,
+          zIndex: 1000,
         }}
       />
 

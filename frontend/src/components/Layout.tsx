@@ -74,38 +74,40 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   }
 
   return (
-    <AntLayout style={{ minHeight: '100vh' }}>
-      {/* 側邊欄 */}
-      <Sidebar
-        collapsed={collapsed}
-        menuItems={menuItems}
-        loading={navigationLoading || permissionsLoading}
-      />
-
-      {/* 主內容區 */}
-      <AntLayout style={{
-        marginLeft: collapsed ? 80 : 200,
-        transition: 'margin-left 0.2s'
-      }}>
-        {/* 頂部欄 */}
-        <LayoutHeader
+    <>
+      <AntLayout style={{ minHeight: '100vh' }}>
+        {/* 側邊欄 */}
+        <Sidebar
           collapsed={collapsed}
-          onToggleCollapse={() => setCollapsed(!collapsed)}
-          currentUser={currentUser}
-          onUserLogout={handleUserLogout}
+          menuItems={menuItems}
+          loading={navigationLoading || permissionsLoading}
         />
 
-        {/* 內容區 */}
-        <Content style={{
-          padding: '24px',
-          background: '#f5f5f5',
-          minHeight: 'calc(100vh - 64px)',
+        {/* 主內容區 */}
+        <AntLayout style={{
+          marginLeft: collapsed ? 80 : 200,
+          transition: 'margin-left 0.2s'
         }}>
-          {children}
-        </Content>
+          {/* 頂部欄 */}
+          <LayoutHeader
+            collapsed={collapsed}
+            onToggleCollapse={() => setCollapsed(!collapsed)}
+            currentUser={currentUser}
+            onUserLogout={handleUserLogout}
+          />
+
+          {/* 內容區 */}
+          <Content style={{
+            padding: '24px',
+            background: '#f5f5f5',
+            minHeight: 'calc(100vh - 64px)',
+          }}>
+            {children}
+          </Content>
+        </AntLayout>
       </AntLayout>
 
-      {/* AI 助手浮動按鈕 */}
+      {/* AI 助手浮動按鈕 - 移至 AntLayout 外部確保正確顯示 */}
       <AIAssistantButton
         onSummaryClick={() => setSummaryModalVisible(true)}
         onClassifyClick={() => message.info('分類建議功能請在公文詳情頁使用')}
@@ -125,7 +127,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           showCard={false}
         />
       </Modal>
-    </AntLayout>
+    </>
   );
 };
 
