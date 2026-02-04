@@ -14,6 +14,8 @@ from app.api.endpoints import (
     project_agency_contacts, system_notifications, backup, certifications,
     taoyuan_dispatch, deployment
 )
+# AI 服務模組 (v1.37.0)
+from app.api.endpoints.ai import router as ai_router
 # 模組化公文管理 API (v3.0.0 重構)
 from app.api.endpoints.documents import router as documents_router
 
@@ -59,3 +61,6 @@ api_router.include_router(deployment.router, tags=["部署管理"])
 
 # --- 桃園查估派工管理系統 ---
 api_router.include_router(taoyuan_dispatch.router, tags=["桃園派工管理"])
+
+# --- AI 服務模組 (v1.37.0) ---
+api_router.include_router(ai_router, tags=["AI服務"])

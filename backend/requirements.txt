@@ -59,3 +59,7 @@ psutil==5.9.8
 # --- Rate Limiting & Logging ---
 slowapi==0.1.9
 structlog==24.1.0
+
+# --- AI Services (v1.37.0) ---
+groq>=0.4.0
+ollama>=0.1.0

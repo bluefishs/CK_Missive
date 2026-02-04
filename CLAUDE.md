@@ -2,7 +2,7 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.36.0
+> **Claude Code 配置版本**: 1.37.0
 > **最後更新**: 2026-02-04
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers), [everything-claude-code](https://github.com/affaan-m/everything-claude-code)
 
@@ -753,6 +753,62 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 ---
 
 ## 📋 版本更新記錄
+
+### v1.37.0 (2026-02-04) - AI 語意精靈
+
+**新功能** 🤖:
+- 整合 Groq API（免費方案：30 req/min, 14,400/day）
+- 本地 Ollama 作為離線備援
+- 公文智慧摘要生成
+- AI 分類建議（doc_type、category）
+- 關鍵字自動提取
+- AI 機關匹配強化
+
+**後端新增** (7 個檔案):
+| 檔案 | 說明 |
+|------|------|
+| `backend/app/core/ai_connector.py` | 混合 AI 連接器（Groq + Ollama） |
+| `backend/app/services/ai/__init__.py` | AI 服務模組 |
+| `backend/app/services/ai/ai_config.py` | AI 配置管理 |
+| `backend/app/services/ai/base_ai_service.py` | AI 服務基類 |
+| `backend/app/services/ai/document_ai_service.py` | 公文 AI 服務 |
+| `backend/app/api/endpoints/ai/__init__.py` | AI API 路由 |
+| `backend/app/api/endpoints/ai/document_ai.py` | 公文 AI 端點 |
+
+**前端新增** (4 個檔案):
+| 檔案 | 說明 |
+|------|------|
+| `frontend/src/api/aiApi.ts` | AI API 服務 |
+| `frontend/src/components/ai/AIAssistantButton.tsx` | AI 浮動按鈕 |
+| `frontend/src/components/ai/AISummaryPanel.tsx` | 摘要面板 |
+| `frontend/src/components/ai/AIClassifyPanel.tsx` | 分類建議面板 |
+
+**API 端點**:
+| 端點 | 說明 |
+|------|------|
+| `POST /ai/document/summary` | 生成公文摘要 |
+| `POST /ai/document/classify` | 分類建議 |
+| `POST /ai/document/keywords` | 關鍵字提取 |
+| `POST /ai/agency/match` | AI 機關匹配 |
+| `GET /ai/health` | AI 服務健康檢查 |
+
+**環境變數新增**:
+```bash
+GROQ_API_KEY=           # Groq API 金鑰
+AI_ENABLED=true         # AI 功能開關
+AI_DEFAULT_MODEL=llama-3.3-70b-versatile
+OLLAMA_BASE_URL=http://localhost:11434
+```
+
+**依賴套件**:
+- `groq>=0.4.0` - Groq API 客戶端
+- `ollama>=0.1.0` - Ollama 客戶端
+
+**OpenClaw 評估結論**:
+- OpenClaw 適合全能個人助理場景
+- CK_Missive 採用 Groq + 自建服務，更輕量專注
+
+---
 
 ### v1.34.0 (2026-02-04) - E2E 測試框架與 Bug 修復
 

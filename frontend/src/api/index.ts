@@ -32,6 +32,9 @@ export * from './usersApi';
 // 桃園派工管理
 export * from './taoyuanDispatchApi';
 
+// AI 服務 (v1.37.0)
+export * from './aiApi';
+
 // 主要匯出
 export { apiClient, API_BASE_URL } from './client';
 
