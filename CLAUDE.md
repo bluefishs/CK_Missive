@@ -2,7 +2,7 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.38.0
+> **Claude Code 配置版本**: 1.39.0
 > **最後更新**: 2026-02-05
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers), [everything-claude-code](https://github.com/affaan-m/everything-claude-code)
 
@@ -753,6 +753,46 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 ---
 
 ## 📋 版本更新記錄
+
+### v1.39.0 (2026-02-05) - AI 助理優化與回饋機制
+
+**參考專案**: CK_lvrland_Webmap AI 助理架構
+
+**新增元件**:
+| 檔案 | 說明 |
+|------|------|
+| `AIFeedbackButton.tsx` | AI 回饋按鈕（讚/倒讚/詳細回饋） |
+| `aiConfig.ts` | AI 配置集中管理 |
+
+**功能特點**:
+- **快速回饋**: 讚/倒讚一鍵回饋
+- **詳細回饋**: 滿意度評分 + 補充說明
+- **配置集中化**: AI 功能配置統一管理
+- **功能名稱中文化**: `AI_FEATURE_NAMES` 映射表
+
+**UI 優化**:
+- 修復 AI 助手浮動按鈕顯示問題（zIndex + AntLayout 外部渲染）
+- AISummaryPanel 整合回饋按鈕
+
+**配置項目**:
+```typescript
+export const AI_CONFIG = {
+  summary: { maxLength: 100, ... },
+  keywords: { maxKeywords: 10, ... },
+  classify: { confidenceThreshold: 0.7, ... },
+  cache: { enabled: true, ttlSummary: 3600, ... },
+  rateLimit: { maxRequests: 30, windowSeconds: 60 },
+};
+```
+
+**借鑒自 CK_lvrland_Webmap 的功能**:
+- AI 回饋機制設計
+- 配置集中化架構
+- 功能名稱中文化映射
+
+**系統健康度**: 9.8/10 (維持)
+
+---
 
 ### v1.38.0 (2026-02-05) - AI 服務優化與測試擴充
 
