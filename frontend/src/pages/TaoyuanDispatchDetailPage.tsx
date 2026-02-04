@@ -13,7 +13,7 @@
  * @description 統一編輯與儲存：頂部「儲存」按鈕同時保存派工單和契金資料
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Form, Button, App, Space, Popconfirm, Modal } from 'antd';
 import type { UploadFile } from 'antd/es/upload';
@@ -131,8 +131,11 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
   });
 
   // 已關聯的公文 ID 列表（提前計算，供搜尋 API 排除已關聯公文）
-  const linkedDocIds = (dispatch?.linked_documents || []).map(
-    (d: DispatchDocumentLink) => d.document_id
+  const linkedDocIds = useMemo(
+    () => (dispatch?.linked_documents || []).map(
+      (d: DispatchDocumentLink) => d.document_id
+    ),
+    [dispatch?.linked_documents]
   );
 
   // 搜尋可關聯的公文 (僅限桃園派工相關公文)
@@ -151,14 +154,20 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
     enabled: !!docSearchKeyword.trim(),
   });
   // 後端已排除已關聯公文，直接使用搜尋結果
-  const availableDocs = searchedDocsResult?.items || [];
+  const availableDocs = useMemo(
+    () => searchedDocsResult?.items || [],
+    [searchedDocsResult?.items]
+  );
 
   // 查詢機關承辦清單
   const { data: agencyContactsData } = useQuery({
     queryKey: ['agency-contacts', TAOYUAN_CONTRACT.PROJECT_ID],
     queryFn: () => getProjectAgencyContacts(TAOYUAN_CONTRACT.PROJECT_ID),
   });
-  const agencyContacts = agencyContactsData?.items ?? [];
+  const agencyContacts = useMemo(
+    () => agencyContactsData?.items ?? [],
+    [agencyContactsData?.items]
+  );
 
   // 查詢協力廠商清單
   const { data: vendorsData } = useQuery({
@@ -166,7 +175,10 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
     queryFn: () =>
       projectVendorsApi.getProjectVendors(TAOYUAN_CONTRACT.PROJECT_ID),
   });
-  const projectVendors = vendorsData?.associations ?? [];
+  const projectVendors = useMemo(
+    () => vendorsData?.associations ?? [],
+    [vendorsData?.associations]
+  );
 
   // 查詢可關聯的工程
   const { data: availableProjectsData } = useQuery({
@@ -182,15 +194,25 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
       }),
     enabled: !!dispatch,
   });
-  const availableProjects = availableProjectsData?.items ?? [];
+  const availableProjects = useMemo(
+    () => availableProjectsData?.items ?? [],
+    [availableProjectsData?.items]
+  );
 
   // 已關聯的工程 ID 列表
-  const linkedProjectIds = (dispatch?.linked_projects || []).map(
-    (p: LinkedProject) => p.project_id
+  const linkedProjectIds = useMemo(
+    () => (dispatch?.linked_projects || []).map(
+      (p: LinkedProject) => p.project_id
+    ),
+    [dispatch?.linked_projects]
   );
+
   // 過濾掉已關聯的工程
-  const filteredProjects = availableProjects.filter(
-    (proj: TaoyuanProject) => !linkedProjectIds.includes(proj.id)
+  const filteredProjects = useMemo(
+    () => availableProjects.filter(
+      (proj: TaoyuanProject) => !linkedProjectIds.includes(proj.id)
+    ),
+    [availableProjects, linkedProjectIds]
   );
 
   // 查詢派工單附件
@@ -226,7 +248,7 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
   const watchedWork06Amount = Form.useWatch('work_06_amount', form) || 0;
   const watchedWork07Amount = Form.useWatch('work_07_amount', form) || 0;
 
-  const watchedWorkAmounts = {
+  const watchedWorkAmounts = useMemo(() => ({
     work_01_amount: watchedWork01Amount,
     work_02_amount: watchedWork02Amount,
     work_03_amount: watchedWork03Amount,
@@ -234,7 +256,11 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
     work_05_amount: watchedWork05Amount,
     work_06_amount: watchedWork06Amount,
     work_07_amount: watchedWork07Amount,
-  };
+  }), [
+    watchedWork01Amount, watchedWork02Amount, watchedWork03Amount,
+    watchedWork04Amount, watchedWork05Amount, watchedWork06Amount,
+    watchedWork07Amount
+  ]);
 
   // =============================================================================
   // Mutations

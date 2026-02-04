@@ -13,7 +13,7 @@
  * @date 2026-01-23
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Form,
@@ -159,7 +159,10 @@ export const DocumentDetailPage: React.FC = () => {
     queryFn: () => getProjectAgencyContacts(TAOYUAN_CONTRACT.PROJECT_ID),
     enabled: isEditing && hasDispatchFeature,
   });
-  const agencyContacts = agencyContactsData?.items ?? [];
+  const agencyContacts = useMemo(
+    () => agencyContactsData?.items ?? [],
+    [agencyContactsData?.items]
+  );
 
   // 查詢協力廠商清單
   const { data: vendorsData } = useQuery({
@@ -167,7 +170,10 @@ export const DocumentDetailPage: React.FC = () => {
     queryFn: () => projectVendorsApi.getProjectVendors(TAOYUAN_CONTRACT.PROJECT_ID),
     enabled: isEditing && hasDispatchFeature,
   });
-  const projectVendors = vendorsData?.associations ?? [];
+  const projectVendors = useMemo(
+    () => vendorsData?.associations ?? [],
+    [vendorsData?.associations]
+  );
 
   // 查詢可關聯的派工紀錄
   const { data: availableDispatchesData } = useQuery({
@@ -175,7 +181,10 @@ export const DocumentDetailPage: React.FC = () => {
     queryFn: () => dispatchOrdersApi.getList({ page: 1, limit: 50 }),
     enabled: isEditing && hasDispatchFeature,
   });
-  const availableDispatches = availableDispatchesData?.items ?? [];
+  const availableDispatches = useMemo(
+    () => availableDispatchesData?.items ?? [],
+    [availableDispatchesData?.items]
+  );
 
   // 查詢可關聯的工程 (僅桃園案件)
   const { data: availableProjectsData } = useQuery({
@@ -183,7 +192,10 @@ export const DocumentDetailPage: React.FC = () => {
     queryFn: () => taoyuanProjectsApi.getList({ page: 1, limit: 50 }),
     enabled: isEditing && hasProjectLinkFeature,
   });
-  const availableProjects = availableProjectsData?.items ?? [];
+  const availableProjects = useMemo(
+    () => availableProjectsData?.items ?? [],
+    [availableProjectsData?.items]
+  );
 
   // =============================================================================
   // 資料載入函數

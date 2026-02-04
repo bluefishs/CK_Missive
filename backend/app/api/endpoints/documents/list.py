@@ -3,9 +3,10 @@
 
 包含：列表查詢、優化搜尋、搜尋建議、專案關聯公文查詢
 
-@version 3.0.0
-@date 2026-01-18
+@version 3.1.0
+@date 2026-02-04
 """
+import asyncio
 from fastapi import APIRouter, Query, Body
 from sqlalchemy import select, func
 
@@ -111,58 +112,9 @@ async def list_documents(
         # 取得 db session (從 service)
         db = service.db
 
-        # 收集所有 project_id 以批次查詢
+        # 收集所有 ID 以批次查詢
         project_ids = list(set(doc.contract_project_id for doc in items if doc.contract_project_id))
-
-        # 批次查詢承攬案件資訊
-        project_map = {}
-        staff_map = {}
-        if project_ids:
-            # 查詢案件名稱
-            project_query = select(ContractProject.id, ContractProject.project_name).where(
-                ContractProject.id.in_(project_ids)
-            )
-            project_result = await db.execute(project_query)
-            for row in project_result:
-                project_map[row.id] = row.project_name
-
-            # 查詢業務同仁
-            staff_query = select(
-                project_user_assignment.c.project_id,
-                project_user_assignment.c.role,
-                User.id.label('user_id'),
-                User.full_name
-            ).select_from(
-                project_user_assignment.join(User, project_user_assignment.c.user_id == User.id)
-            ).where(project_user_assignment.c.project_id.in_(project_ids))
-
-            staff_result = await db.execute(staff_query)
-            for row in staff_result:
-                if row.project_id not in staff_map:
-                    staff_map[row.project_id] = []
-                staff_map[row.project_id].append(StaffInfo(
-                    user_id=row.user_id,
-                    name=row.full_name or '未知',
-                    role=row.role or 'member'
-                ))
-
-        # 批次查詢附件數量（N+1 優化）
-        attachment_count_map = {}
         doc_ids = [doc.id for doc in items]
-        if doc_ids:
-            attachment_query = select(
-                DocumentAttachment.document_id,
-                func.count(DocumentAttachment.id).label('count')
-            ).where(
-                DocumentAttachment.document_id.in_(doc_ids)
-            ).group_by(DocumentAttachment.document_id)
-
-            attachment_result = await db.execute(attachment_query)
-            for row in attachment_result:
-                attachment_count_map[row.document_id] = row.count
-
-        # 批次查詢機關名稱（2026-01-08 新增，支援前端顯示）
-        agency_map = {}
         agency_ids = set()
         for doc in items:
             if doc.sender_agency_id:
@@ -170,14 +122,80 @@ async def list_documents(
             if doc.receiver_agency_id:
                 agency_ids.add(doc.receiver_agency_id)
 
-        if agency_ids:
-            agency_query = select(
+        # 準備查詢
+        project_map = {}
+        staff_map = {}
+        attachment_count_map = {}
+        agency_map = {}
+
+        # 建立並行查詢任務 (v3.1.0 優化：asyncio.gather 並行執行)
+        async def fetch_projects():
+            if not project_ids:
+                return []
+            query = select(ContractProject.id, ContractProject.project_name).where(
+                ContractProject.id.in_(project_ids)
+            )
+            return (await db.execute(query)).all()
+
+        async def fetch_staff():
+            if not project_ids:
+                return []
+            query = select(
+                project_user_assignment.c.project_id,
+                project_user_assignment.c.role,
+                User.id.label('user_id'),
+                User.full_name
+            ).select_from(
+                project_user_assignment.join(User, project_user_assignment.c.user_id == User.id)
+            ).where(project_user_assignment.c.project_id.in_(project_ids))
+            return (await db.execute(query)).all()
+
+        async def fetch_attachments():
+            if not doc_ids:
+                return []
+            query = select(
+                DocumentAttachment.document_id,
+                func.count(DocumentAttachment.id).label('count')
+            ).where(
+                DocumentAttachment.document_id.in_(doc_ids)
+            ).group_by(DocumentAttachment.document_id)
+            return (await db.execute(query)).all()
+
+        async def fetch_agencies():
+            if not agency_ids:
+                return []
+            query = select(
                 GovernmentAgency.id,
                 GovernmentAgency.agency_name
             ).where(GovernmentAgency.id.in_(agency_ids))
-            agency_result = await db.execute(agency_query)
-            for row in agency_result:
-                agency_map[row.id] = row.agency_name
+            return (await db.execute(query)).all()
+
+        # 並行執行所有查詢
+        project_rows, staff_rows, attachment_rows, agency_rows = await asyncio.gather(
+            fetch_projects(),
+            fetch_staff(),
+            fetch_attachments(),
+            fetch_agencies(),
+        )
+
+        # 處理查詢結果
+        for row in project_rows:
+            project_map[row.id] = row.project_name
+
+        for row in staff_rows:
+            if row.project_id not in staff_map:
+                staff_map[row.project_id] = []
+            staff_map[row.project_id].append(StaffInfo(
+                user_id=row.user_id,
+                name=row.full_name or '未知',
+                role=row.role or 'member'
+            ))
+
+        for row in attachment_rows:
+            attachment_count_map[row.document_id] = row.count
+
+        for row in agency_rows:
+            agency_map[row.id] = row.agency_name
 
         # 轉換為 DocumentResponse
         response_items = []
@@ -421,34 +439,41 @@ async def get_documents_by_project(
         result = await db.execute(doc_query)
         documents = result.scalars().all()
 
-        # 查詢專案名稱（所有文件共用同一個專案）
+        # 並行查詢專案名稱和承辦同仁 (v3.1.0 優化)
         project_name = None
-        if query.project_id:
-            project_query = select(ContractProject.project_name).where(
-                ContractProject.id == query.project_id
-            )
-            project_result = await db.execute(project_query)
-            project_name = project_result.scalar()
-
-        # 查詢專案承辦同仁（使用 project_user_assignment 關聯表）
         assigned_staff = []
+
         if query.project_id:
-            # 從關聯表查詢專案成員，並 JOIN users 表獲取姓名
-            staff_query = (
-                select(
-                    project_user_assignment.c.user_id,
-                    project_user_assignment.c.role,
-                    User.full_name,
-                    User.username
+            async def fetch_project_name():
+                pq = select(ContractProject.project_name).where(
+                    ContractProject.id == query.project_id
                 )
-                .join(User, User.id == project_user_assignment.c.user_id)
-                .where(
-                    project_user_assignment.c.project_id == query.project_id,
-                    project_user_assignment.c.status == 'active'
+                result = await db.execute(pq)
+                return result.scalar()
+
+            async def fetch_project_staff():
+                sq = (
+                    select(
+                        project_user_assignment.c.user_id,
+                        project_user_assignment.c.role,
+                        User.full_name,
+                        User.username
+                    )
+                    .join(User, User.id == project_user_assignment.c.user_id)
+                    .where(
+                        project_user_assignment.c.project_id == query.project_id,
+                        project_user_assignment.c.status == 'active'
+                    )
                 )
+                result = await db.execute(sq)
+                return result.all()
+
+            # 並行執行
+            project_name, staff_rows = await asyncio.gather(
+                fetch_project_name(),
+                fetch_project_staff(),
             )
-            staff_result = await db.execute(staff_query)
-            staff_rows = staff_result.all()
+
             assigned_staff = [
                 StaffInfo(
                     user_id=row.user_id,
