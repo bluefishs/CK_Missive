@@ -96,8 +96,12 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
       }
     } catch (error) {
       logger.error('Failed to load reminders:', error);
-      // 如果 API 失敗，使用空陣列
-      setReminders([]);
+      // 重要：錯誤時不清空現有列表，避免「紀錄消失」問題
+      // setReminders([]);
+      notification.error({
+        message: '載入提醒設定失敗',
+        description: '請稍後重試',
+      });
     } finally {
       setLoading(false);
     }

@@ -144,11 +144,13 @@ export const StaffDetailPage: React.FC = () => {
       setCertifications(response.items);
     } catch (error) {
       logger.error('載入證照列表失敗:', error);
-      setCertifications([]);
+      // 重要：錯誤時不清空現有列表，避免「紀錄消失」問題
+      // setCertifications([]);
+      message.error('載入證照列表失敗');
     } finally {
       setCertLoading(false);
     }
-  }, [staffId]);
+  }, [staffId, message]);
 
   useEffect(() => {
     loadStaff();

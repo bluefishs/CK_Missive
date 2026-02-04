@@ -222,11 +222,13 @@ export const DocumentDetailPage: React.FC = () => {
       setProjectLinks(result.projects || []);
     } catch (error) {
       logger.error('載入工程關聯失敗:', error);
-      setProjectLinks([]);
+      // 重要：錯誤時不清空現有列表，避免「紀錄消失」問題
+      // setProjectLinks([]);
+      message.error('載入工程關聯失敗，請重新整理頁面');
     } finally {
       setProjectLinksLoading(false);
     }
-  }, [id]);
+  }, [id, message]);
 
   const fetchProjectStaff = async (projectId: number): Promise<ProjectStaff[]> => {
     if (projectStaffCacheRef.current[projectId]) {
