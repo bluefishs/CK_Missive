@@ -194,7 +194,14 @@ export const DocumentDetailPage: React.FC = () => {
     setDispatchLinksLoading(true);
     try {
       const docId = parseInt(id, 10);
+      logger.info('[loadDispatchLinks] 開始載入', { docId });
       const result = await documentLinksApi.getDispatchLinks(docId);
+      logger.info('[loadDispatchLinks] API 回應', {
+        success: result.success,
+        document_id: result.document_id,
+        total: result.total,
+        dispatch_orders_count: result.dispatch_orders?.length || 0,
+      });
       setDispatchLinks(result.dispatch_orders || []);
     } catch (error) {
       logger.error('[loadDispatchLinks] 載入派工關聯失敗:', error);
@@ -560,6 +567,12 @@ export const DocumentDetailPage: React.FC = () => {
       const docId = parseInt(id || '0', 10);
       const isReceiveDoc = isReceiveDocument(document?.category);
 
+      logger.info('[handleCreateDispatch] 開始建立派工', {
+        docId,
+        isReceiveDoc,
+        category: document?.category,
+      });
+
       const dispatchData: DispatchOrderCreate = {
         dispatch_no: formValues.dispatch_no as string,
         project_name: (formValues.project_name as string) || document?.subject || '',
@@ -577,18 +590,28 @@ export const DocumentDetailPage: React.FC = () => {
         company_doc_id: !isReceiveDoc ? docId : undefined,
       };
 
+      logger.info('[handleCreateDispatch] 發送請求', { dispatchData });
+
       const newDispatch = await dispatchOrdersApi.create(dispatchData);
+      logger.info('[handleCreateDispatch] API 回應', { newDispatch });
+
       if (newDispatch && newDispatch.id) {
         // 注意: 不需要再調用 linkDispatch，因為後端 create 時已經自動同步公文關聯
         message.success('派工新增成功');
+        logger.info('[handleCreateDispatch] 準備重新載入關聯');
         await loadDispatchLinks();
+        logger.info('[handleCreateDispatch] 關聯載入完成', { dispatchLinksCount: dispatchLinks.length });
         queryClient.invalidateQueries({ queryKey: ['dispatch-orders'] });
         queryClient.invalidateQueries({ queryKey: ['dispatch-orders-for-link'] });
+      } else {
+        logger.warn('[handleCreateDispatch] API 回應無 id', { newDispatch });
       }
     } catch (error: unknown) {
       logger.error('[handleCreateDispatch] 錯誤:', error);
       const errorMessage = error instanceof Error ? error.message : '新增派工失敗';
       message.error(errorMessage);
+      // 重新拋出錯誤，讓子元件知道操作失敗（避免表單被清空）
+      throw error;
     }
   };
 

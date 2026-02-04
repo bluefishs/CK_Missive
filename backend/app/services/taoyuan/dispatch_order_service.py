@@ -171,11 +171,14 @@ class DispatchOrderService:
         agency_doc_id = create_data.get('agency_doc_id')
         company_doc_id = create_data.get('company_doc_id')
 
+        logger.info(f"[create_dispatch_order] 收到請求: agency_doc_id={agency_doc_id}, company_doc_id={company_doc_id}")
+
         if auto_generate_no and not create_data.get('dispatch_no'):
             create_data['dispatch_no'] = await self.get_next_dispatch_no()
 
         # 建立派工單
         dispatch_order = await self.repository.create(create_data)
+        logger.info(f"[create_dispatch_order] 派工單已建立: id={dispatch_order.id}, dispatch_no={dispatch_order.dispatch_no}")
 
         # 建立工程關聯記錄
         if linked_project_ids:
@@ -187,11 +190,13 @@ class DispatchOrderService:
                 self.db.add(link)
 
         # 同步公文關聯到 TaoyuanDispatchDocumentLink 表
+        logger.info(f"[create_dispatch_order] 準備同步公文關聯: dispatch_id={dispatch_order.id}, agency_doc_id={agency_doc_id}, company_doc_id={company_doc_id}")
         await self._sync_document_links(
             dispatch_order.id, agency_doc_id, company_doc_id
         )
 
         await self.db.commit()
+        logger.info(f"[create_dispatch_order] 已提交: dispatch_id={dispatch_order.id}")
 
         return dispatch_order
 
