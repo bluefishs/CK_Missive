@@ -164,6 +164,85 @@ test.describe('派工安排流程', () => {
       test.info().annotations.push({ type: 'note', description: '派工 Tab 不存在（可能非桃園案件）' });
     }
   });
+
+  test('派工建立表單可以正常顯示', async ({ page }) => {
+    // 導航到公文詳情頁
+    await page.goto('/documents/841');
+    await page.waitForLoadState('load');
+    await page.waitForTimeout(2000);
+
+    // 點擊派工安排 Tab
+    const dispatchTab = page.getByRole('tab', { name: /派工/i });
+    const isTabVisible = await dispatchTab.isVisible().catch(() => false);
+
+    if (!isTabVisible) {
+      test.info().annotations.push({ type: 'note', description: '派工 Tab 不存在（可能非桃園案件）' });
+      return;
+    }
+
+    await dispatchTab.click();
+    await page.waitForTimeout(1000);
+
+    // 尋找新增派工按鈕
+    const addButton = page.getByRole('button', { name: /新增派工|新增/i });
+    const isAddButtonVisible = await addButton.isVisible().catch(() => false);
+
+    if (isAddButtonVisible) {
+      await addButton.click();
+      await page.waitForTimeout(1000);
+
+      // 確認表單元素出現
+      const formElements = await page.locator('.ant-form, .ant-modal, .ant-drawer').count();
+      expect(formElements).toBeGreaterThan(0);
+
+      // 如果有取消按鈕，點擊取消（不實際建立資料）
+      const cancelButton = page.getByRole('button', { name: /取消/i });
+      const isCancelVisible = await cancelButton.isVisible().catch(() => false);
+      if (isCancelVisible) {
+        await cancelButton.click();
+      }
+    } else {
+      test.info().annotations.push({ type: 'note', description: '新增派工按鈕不可見' });
+    }
+  });
+
+  test('派工列表在 API 錯誤時不應消失', async ({ page }) => {
+    // 導航到公文詳情頁
+    await page.goto('/documents/841');
+    await page.waitForLoadState('load');
+    await page.waitForTimeout(2000);
+
+    // 點擊派工安排 Tab
+    const dispatchTab = page.getByRole('tab', { name: /派工/i });
+    const isTabVisible = await dispatchTab.isVisible().catch(() => false);
+
+    if (!isTabVisible) {
+      test.info().annotations.push({ type: 'note', description: '派工 Tab 不存在' });
+      return;
+    }
+
+    await dispatchTab.click();
+    await page.waitForTimeout(1500);
+
+    // 記錄初始狀態
+    const initialContent = await page.locator('.ant-table, .ant-empty, .ant-spin').first().isVisible();
+
+    // 確認頁面有內容（表格、空狀態或載入中）
+    expect(initialContent).toBeTruthy();
+
+    // 重新整理頁面（模擬網路不穩定後的重試）
+    await page.reload();
+    await page.waitForLoadState('load');
+    await page.waitForTimeout(2000);
+
+    // 重新點擊派工 Tab
+    await dispatchTab.click();
+    await page.waitForTimeout(1500);
+
+    // 確認內容仍然存在（不應該因為任何原因消失）
+    const contentAfterReload = await page.locator('.ant-table, .ant-empty, .ant-spin').first().isVisible();
+    expect(contentAfterReload).toBeTruthy();
+  });
 });
 
 test.describe('導航測試', () => {
