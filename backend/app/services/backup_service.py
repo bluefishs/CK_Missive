@@ -29,9 +29,12 @@ class BackupService:
         """初始化備份服務"""
         # 自動偵測執行環境並設定正確的路徑
         # Docker 容器內使用 /app，Windows 直接執行使用專案目錄
-        if Path("/app").exists() and Path("/app/backend").exists():
-            # Docker 容器環境
+        if Path("/app").exists() and Path("/app/main.py").exists():
+            # Docker 容器環境 (backend 目錄掛載到 /app)
             self.project_root: Path = Path("/app")
+        elif Path("/app").exists() and Path("/app/backend").exists():
+            # Docker 容器環境 (專案根目錄掛載到 /app)
+            self.project_root = Path("/app")
         else:
             # Windows 直接執行環境 - 使用 backend 目錄的父目錄
             self.project_root = Path(__file__).resolve().parent.parent.parent.parent
