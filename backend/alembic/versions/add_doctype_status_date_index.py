@@ -15,7 +15,7 @@ from alembic import op
 
 # revision identifiers
 revision = 'add_doctype_status_idx'
-down_revision = 'optimize_doc_filter_idx'
+down_revision = 'increase_work_type_len'
 branch_labels = None
 depends_on = None
 
