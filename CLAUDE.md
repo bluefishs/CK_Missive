@@ -754,27 +754,21 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 
 ## 📋 版本更新記錄
 
-### v1.39.0 (2026-02-05) - AI 助理優化與回饋機制
+### v1.39.0 (2026-02-05) - AI 助理 UI 優化與配置集中化
 
 **參考專案**: CK_lvrland_Webmap AI 助理架構
 
-**新增元件**:
+**新增檔案**:
 | 檔案 | 說明 |
 |------|------|
-| `AIFeedbackButton.tsx` | AI 回饋按鈕（讚/倒讚/詳細回饋） |
 | `aiConfig.ts` | AI 配置集中管理 |
 
-**功能特點**:
-- **快速回饋**: 讚/倒讚一鍵回饋
-- **詳細回饋**: 滿意度評分 + 補充說明
-- **配置集中化**: AI 功能配置統一管理
-- **功能名稱中文化**: `AI_FEATURE_NAMES` 映射表
+**UI 修復**:
+- 修復 AI 助手浮動按鈕顯示問題
+  - 為 FloatButton 添加 `zIndex: 1000`
+  - 將 AIAssistantButton 移至 AntLayout 外部渲染
 
-**UI 優化**:
-- 修復 AI 助手浮動按鈕顯示問題（zIndex + AntLayout 外部渲染）
-- AISummaryPanel 整合回饋按鈕
-
-**配置項目**:
+**配置集中化**:
 ```typescript
 export const AI_CONFIG = {
   summary: { maxLength: 100, ... },
@@ -783,12 +777,14 @@ export const AI_CONFIG = {
   cache: { enabled: true, ttlSummary: 3600, ... },
   rateLimit: { maxRequests: 30, windowSeconds: 60 },
 };
-```
 
-**借鑒自 CK_lvrland_Webmap 的功能**:
-- AI 回饋機制設計
-- 配置集中化架構
-- 功能名稱中文化映射
+export const AI_FEATURE_NAMES = {
+  summary: '摘要生成',
+  classify: '分類建議',
+  keywords: '關鍵字提取',
+  agency_match: '機關匹配',
+};
+```
 
 **系統健康度**: 9.8/10 (維持)
 
