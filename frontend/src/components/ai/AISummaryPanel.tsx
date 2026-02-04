@@ -3,12 +3,13 @@
  *
  * 顯示 AI 生成的公文摘要
  *
- * @version 1.0.0
+ * @version 1.1.0
  * @created 2026-02-04
+ * @updated 2026-02-05 - 新增回饋按鈕
  */
 
 import React, { useState, useCallback } from 'react';
-import { Card, Button, Typography, Space, Spin, Tag, message, Tooltip } from 'antd';
+import { Card, Button, Typography, Space, Spin, Tag, message, Tooltip, Divider } from 'antd';
 import {
   RobotOutlined,
   CopyOutlined,
@@ -17,6 +18,7 @@ import {
   ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import { aiApi, SummaryResponse } from '../../api/aiApi';
+import AIFeedbackButton from './AIFeedbackButton';
 
 const { Paragraph, Text } = Typography;
 
@@ -183,6 +185,23 @@ export const AISummaryPanel: React.FC<AISummaryPanelProps> = ({
             <Text type="secondary" style={{ fontSize: 12 }}>
               備註：{result.error}
             </Text>
+          )}
+
+          {/* 回饋按鈕 */}
+          {result.source === 'ai' && (
+            <>
+              <Divider style={{ margin: '12px 0 8px' }} />
+              <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  這個摘要有幫助嗎？
+                </Text>
+                <AIFeedbackButton
+                  featureType="summary"
+                  input={subject}
+                  result={result.summary}
+                />
+              </Space>
+            </>
           )}
         </div>
       )}
