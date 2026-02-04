@@ -1,6 +1,7 @@
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+// DevTools 已停用 - 與 AI 助理浮動按鈕位置衝突
+// import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { message } from 'antd';
 import { staleTimeConfig } from '../config/queryConfig';
 import { parseApiError } from '../utils/apiErrorParser';
@@ -64,9 +65,6 @@ export const QueryProvider: React.FC<QueryProviderProps> = ({ children }) => {
   return (
     <QueryClientProvider client={queryClient}>
       {children}
-      {process.env.NODE_ENV === 'development' && (
-        <ReactQueryDevtools initialIsOpen={false} />
-      )}
     </QueryClientProvider>
   );
 };
