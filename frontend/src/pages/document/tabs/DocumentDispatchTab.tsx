@@ -311,8 +311,15 @@ export const DocumentDispatchTab: React.FC<DocumentDispatchTabProps> = ({
                       const values = await dispatchForm.validateFields();
                       await onCreateDispatch(values);
                       dispatchForm.resetFields();
-                    } catch {
-                      // 表單驗證失敗
+                    } catch (error) {
+                      // 只有表單驗證失敗時才是 errorFields，API 錯誤會被父元件處理
+                      if (error && typeof error === 'object' && 'errorFields' in error) {
+                        // 表單驗證失敗，Antd Form 會自動顯示錯誤
+                        return;
+                      }
+                      // API 錯誤，顯示給用戶
+                      const errorMessage = error instanceof Error ? error.message : '建立派工失敗';
+                      message.error(errorMessage);
                     }
                   }}
                 >

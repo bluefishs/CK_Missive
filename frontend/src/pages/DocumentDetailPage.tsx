@@ -559,7 +559,6 @@ export const DocumentDetailPage: React.FC = () => {
     try {
       const docId = parseInt(id || '0', 10);
       const isReceiveDoc = isReceiveDocument(document?.category);
-      const linkType: LinkType = isReceiveDoc ? 'agency_incoming' : 'company_outgoing';
 
       const dispatchData: DispatchOrderCreate = {
         dispatch_no: formValues.dispatch_no as string,
@@ -573,13 +572,14 @@ export const DocumentDetailPage: React.FC = () => {
         cloud_folder: formValues.cloud_folder as string | undefined,
         project_folder: formValues.project_folder as string | undefined,
         contract_project_id: (document as any)?.contract_project_id || undefined,
+        // 傳入公文 ID，後端 _sync_document_links 會自動建立關聯
         agency_doc_id: isReceiveDoc ? docId : undefined,
         company_doc_id: !isReceiveDoc ? docId : undefined,
       };
 
       const newDispatch = await dispatchOrdersApi.create(dispatchData);
       if (newDispatch && newDispatch.id) {
-        await documentLinksApi.linkDispatch(docId, newDispatch.id, linkType);
+        // 注意: 不需要再調用 linkDispatch，因為後端 create 時已經自動同步公文關聯
         message.success('派工新增成功');
         await loadDispatchLinks();
         queryClient.invalidateQueries({ queryKey: ['dispatch-orders'] });

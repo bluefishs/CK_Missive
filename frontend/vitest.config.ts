@@ -25,12 +25,11 @@ export default defineConfig({
         '**/index.ts',
       ],
       thresholds: {
-        // 目標覆蓋率 85% (根據 AGENT.md 規範)
-        // 初期設定較低，逐步提升
-        lines: 50,
-        functions: 50,
-        branches: 50,
-        statements: 50,
+        // 目標覆蓋率 80% (根據 .claude/rules/testing.md 規範)
+        lines: 80,
+        functions: 80,
+        branches: 80,
+        statements: 80,
       },
     },
     testTimeout: 10000,
