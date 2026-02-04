@@ -388,3 +388,122 @@ class TestDocumentAIService:
 
         assert result["groq"]["available"] is True
         assert result["ollama"]["available"] is False
+
+
+# ============================================================
+# 速率限制與快取測試 (v1.1.0)
+# ============================================================
+
+class TestRateLimiterAndCache:
+    """速率限制與快取測試"""
+
+    def test_rate_limiter_allows_requests(self):
+        """測試速率限制器允許請求"""
+        from app.services.ai.base_ai_service import RateLimiter
+
+        limiter = RateLimiter(max_requests=5, window_seconds=60)
+
+        # 應該允許前 5 個請求
+        for _ in range(5):
+            assert limiter.can_proceed() is True
+            limiter.record_request()
+
+        # 第 6 個請求應該被拒絕
+        assert limiter.can_proceed() is False
+
+    def test_rate_limiter_wait_time(self):
+        """測試速率限制器等待時間計算"""
+        from app.services.ai.base_ai_service import RateLimiter
+
+        limiter = RateLimiter(max_requests=1, window_seconds=60)
+        limiter.record_request()
+
+        # 應該需要等待
+        wait_time = limiter.get_wait_time()
+        assert wait_time > 0
+        assert wait_time <= 60
+
+    def test_simple_cache_set_get(self):
+        """測試簡單快取的設定與取得"""
+        from app.services.ai.base_ai_service import SimpleCache
+
+        cache = SimpleCache()
+        cache.set("test_key", "test_value", ttl=3600)
+
+        result = cache.get("test_key")
+        assert result == "test_value"
+
+    def test_simple_cache_miss(self):
+        """測試快取未命中"""
+        from app.services.ai.base_ai_service import SimpleCache
+
+        cache = SimpleCache()
+        result = cache.get("nonexistent_key")
+        assert result is None
+
+    def test_simple_cache_clear(self):
+        """測試快取清除"""
+        from app.services.ai.base_ai_service import SimpleCache
+
+        cache = SimpleCache()
+        cache.set("key1", "value1", ttl=3600)
+        cache.set("key2", "value2", ttl=3600)
+
+        cache.clear()
+
+        assert cache.get("key1") is None
+        assert cache.get("key2") is None
+
+    def test_generate_cache_key(self):
+        """測試快取鍵生成"""
+        from app.services.ai.base_ai_service import BaseAIService
+        from app.services.ai.ai_config import AIConfig
+
+        config = AIConfig(enabled=True)
+        service = DocumentAIService(config=config)
+
+        key1 = service._generate_cache_key("summary", "主旨1", "內容1")
+        key2 = service._generate_cache_key("summary", "主旨2", "內容2")
+        key3 = service._generate_cache_key("summary", "主旨1", "內容1")
+
+        # 相同輸入應產生相同鍵
+        assert key1 == key3
+        # 不同輸入應產生不同鍵
+        assert key1 != key2
+        # 鍵應包含前綴
+        assert key1.startswith("summary:")
+
+    @pytest.mark.asyncio
+    async def test_service_with_rate_limit(self):
+        """測試服務的速率限制整合"""
+        from app.services.ai.ai_config import AIConfig
+        from app.services.ai.base_ai_service import RateLimiter
+
+        config = AIConfig(
+            enabled=True,
+            groq_api_key="test_key",
+            rate_limit_requests=2,
+            rate_limit_window=60,
+            cache_enabled=False,  # 停用快取以測試速率限制
+        )
+
+        mock_connector = MagicMock(spec=AIConnector)
+        mock_connector.chat_completion = AsyncMock(return_value="測試摘要")
+
+        service = DocumentAIService(connector=mock_connector, config=config)
+
+        # 建立獨立的速率限制器以避免全域狀態干擾
+        service._rate_limiter = RateLimiter(max_requests=2, window_seconds=60)
+
+        # 前兩個請求應該成功
+        result1 = await service.generate_summary(subject="主旨1")
+        result2 = await service.generate_summary(subject="主旨2")
+
+        assert result1["source"] == "ai"
+        assert result2["source"] == "ai"
+
+        # 第三個請求應該被速率限制
+        result3 = await service.generate_summary(subject="主旨3")
+
+        assert result3["source"] == "rate_limited"
+        assert "error" in result3

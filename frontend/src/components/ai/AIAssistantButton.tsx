@@ -88,9 +88,17 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
         {loading ? (
           <Spin indicator={<LoadingOutlined spin />} size="small" />
         ) : healthStatus ? (
-          <Space wrap>
-            {renderStatusTag(healthStatus.groq.available, 'Groq')}
-            {renderStatusTag(healthStatus.ollama.available, 'Ollama')}
+          <Space direction="vertical" size="small" style={{ width: '100%' }}>
+            <Space wrap>
+              {renderStatusTag(healthStatus.groq.available, 'Groq')}
+              {renderStatusTag(healthStatus.ollama.available, 'Ollama')}
+            </Space>
+            {healthStatus.rate_limit && (
+              <div style={{ fontSize: 11, color: '#888' }}>
+                請求: {healthStatus.rate_limit.current_requests}/{healthStatus.rate_limit.max_requests}
+                ({healthStatus.rate_limit.window_seconds}秒)
+              </div>
+            )}
           </Space>
         ) : (
           <Tag>未檢查</Tag>

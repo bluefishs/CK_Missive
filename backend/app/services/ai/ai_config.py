@@ -1,12 +1,13 @@
 """
 AI 配置管理
 
-Version: 1.0.0
+Version: 1.1.0
 Created: 2026-02-04
+Updated: 2026-02-05 - 新增速率限制與快取配置
 """
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 
@@ -35,6 +36,16 @@ class AIConfig:
     classify_max_tokens: int = 128
     keywords_max_tokens: int = 64
 
+    # 速率限制 (v1.1.0 新增)
+    rate_limit_requests: int = 30  # Groq 免費方案: 30 req/min
+    rate_limit_window: int = 60  # 時間窗口 (秒)
+
+    # 快取設定 (v1.1.0 新增)
+    cache_enabled: bool = True
+    cache_ttl_summary: int = 3600  # 摘要快取 1 小時
+    cache_ttl_classify: int = 3600  # 分類快取 1 小時
+    cache_ttl_keywords: int = 3600  # 關鍵字快取 1 小時
+
     @classmethod
     def from_env(cls) -> "AIConfig":
         """從環境變數建立配置"""
@@ -46,6 +57,12 @@ class AIConfig:
             ollama_model=os.getenv("OLLAMA_MODEL", "llama3.1:8b"),
             cloud_timeout=int(os.getenv("AI_CLOUD_TIMEOUT", "30")),
             local_timeout=int(os.getenv("AI_LOCAL_TIMEOUT", "60")),
+            rate_limit_requests=int(os.getenv("AI_RATE_LIMIT_REQUESTS", "30")),
+            rate_limit_window=int(os.getenv("AI_RATE_LIMIT_WINDOW", "60")),
+            cache_enabled=os.getenv("AI_CACHE_ENABLED", "true").lower() == "true",
+            cache_ttl_summary=int(os.getenv("AI_CACHE_TTL_SUMMARY", "3600")),
+            cache_ttl_classify=int(os.getenv("AI_CACHE_TTL_CLASSIFY", "3600")),
+            cache_ttl_keywords=int(os.getenv("AI_CACHE_TTL_KEYWORDS", "3600")),
         )
 
 

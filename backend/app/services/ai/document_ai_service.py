@@ -1,13 +1,14 @@
 """
 公文 AI 服務
 
-Version: 1.0.0
+Version: 1.1.0
 Created: 2026-02-04
+Updated: 2026-02-05 - 整合速率限制與快取機制
 
 功能:
-- 公文摘要生成
-- 分類建議 (doc_type, category)
-- 關鍵字提取
+- 公文摘要生成 (帶快取)
+- 分類建議 (doc_type, category) (帶快取)
+- 關鍵字提取 (帶快取)
 - 機關匹配強化
 """
 
@@ -75,7 +76,14 @@ class DocumentAIService(BaseAIService):
             user_content += f"\n內容摘要：{content[:500]}"  # 限制輸入長度
 
         try:
-            response = await self._call_ai(
+            # 生成快取鍵
+            cache_key = self._generate_cache_key(
+                "summary", subject, content or "", sender or "", str(max_length)
+            )
+
+            response = await self._call_ai_with_cache(
+                cache_key=cache_key,
+                ttl=self.config.cache_ttl_summary,
                 system_prompt=system_prompt,
                 user_content=user_content,
                 temperature=0.3,  # 較低溫度以保持一致性
@@ -91,6 +99,15 @@ class DocumentAIService(BaseAIService):
                 "summary": summary,
                 "confidence": 0.85,
                 "source": "ai",
+            }
+        except RuntimeError as e:
+            # 速率限制錯誤
+            logger.warning(f"速率限制: {e}")
+            return {
+                "summary": subject[:max_length] if subject else "",
+                "confidence": 0.0,
+                "source": "rate_limited",
+                "error": str(e),
             }
         except Exception as e:
             logger.error(f"生成摘要失敗: {e}")
@@ -166,7 +183,14 @@ class DocumentAIService(BaseAIService):
             user_content += f"\n內容：{content[:300]}"
 
         try:
-            response = await self._call_ai(
+            # 生成快取鍵
+            cache_key = self._generate_cache_key(
+                "classify", subject, content or "", sender or ""
+            )
+
+            response = await self._call_ai_with_cache(
+                cache_key=cache_key,
+                ttl=self.config.cache_ttl_classify,
                 system_prompt=system_prompt,
                 user_content=user_content,
                 temperature=0.3,
@@ -192,6 +216,16 @@ class DocumentAIService(BaseAIService):
                 "category_confidence": float(result.get("category_confidence", 0.7)),
                 "reasoning": result.get("reasoning", ""),
                 "source": "ai",
+            }
+        except RuntimeError as e:
+            logger.warning(f"速率限制: {e}")
+            return {
+                "doc_type": "函",
+                "category": "收文",
+                "doc_type_confidence": 0.0,
+                "category_confidence": 0.0,
+                "source": "rate_limited",
+                "error": str(e),
             }
         except Exception as e:
             logger.error(f"分類建議失敗: {e}")
@@ -249,7 +283,14 @@ class DocumentAIService(BaseAIService):
             user_content += f"\n內容：{content[:500]}"
 
         try:
-            response = await self._call_ai(
+            # 生成快取鍵
+            cache_key = self._generate_cache_key(
+                "keywords", subject, content or "", str(max_keywords)
+            )
+
+            response = await self._call_ai_with_cache(
+                cache_key=cache_key,
+                ttl=self.config.cache_ttl_keywords,
                 system_prompt=system_prompt,
                 user_content=user_content,
                 temperature=0.3,
@@ -268,6 +309,14 @@ class DocumentAIService(BaseAIService):
                 "keywords": keywords,
                 "confidence": 0.85 if keywords else 0.0,
                 "source": "ai",
+            }
+        except RuntimeError as e:
+            logger.warning(f"速率限制: {e}")
+            return {
+                "keywords": [],
+                "confidence": 0.0,
+                "source": "rate_limited",
+                "error": str(e),
             }
         except Exception as e:
             logger.error(f"關鍵字提取失敗: {e}")

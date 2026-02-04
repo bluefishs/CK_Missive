@@ -26,7 +26,7 @@ export interface SummaryRequest {
 export interface SummaryResponse {
   summary: string;
   confidence: number;
-  source: 'ai' | 'fallback' | 'disabled';
+  source: 'ai' | 'fallback' | 'disabled' | 'rate_limited';
   error?: string;
 }
 
@@ -44,7 +44,7 @@ export interface ClassifyResponse {
   doc_type_confidence: number;
   category_confidence: number;
   reasoning?: string;
-  source: 'ai' | 'fallback' | 'disabled';
+  source: 'ai' | 'fallback' | 'disabled' | 'rate_limited';
   error?: string;
 }
 
@@ -59,7 +59,7 @@ export interface KeywordsRequest {
 export interface KeywordsResponse {
   keywords: string[];
   confidence: number;
-  source: 'ai' | 'fallback' | 'disabled';
+  source: 'ai' | 'fallback' | 'disabled' | 'rate_limited';
   error?: string;
 }
 
@@ -102,6 +102,12 @@ export interface AIHealthStatus {
   ollama: {
     available: boolean;
     message: string;
+  };
+  rate_limit?: {
+    can_proceed: boolean;
+    current_requests: number;
+    max_requests: number;
+    window_seconds: number;
   };
 }
 

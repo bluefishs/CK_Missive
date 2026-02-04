@@ -92,6 +92,12 @@ jobs:
           python -m pytest tests/integration/ -v --tb=short || echo "Integration tests skipped or failed"
         continue-on-error: true
 
+      - name: MyPy type check
+        run: |
+          pip install mypy types-requests types-redis
+          mypy app --config-file mypy.ini || echo "Type check completed with warnings"
+        continue-on-error: true
+
   config-consistency:
     name: Configuration Consistency Check
     runs-on: ubuntu-latest
