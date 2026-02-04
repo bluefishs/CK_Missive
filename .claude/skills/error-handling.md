@@ -1,8 +1,8 @@
 # Error Handling Skill - 錯誤處理指南
 
-> **版本**: 1.0.0
-> **觸發關鍵字**: 錯誤處理, error, exception, 例外, try-catch
-> **更新日期**: 2026-01-15
+> **版本**: 1.1.0
+> **觸發關鍵字**: 錯誤處理, error, exception, 例外, try-catch, 紀錄消失, 列表清空
+> **更新日期**: 2026-02-04
 
 ---
 
@@ -118,6 +118,61 @@ logger.exception("嚴重錯誤，包含堆疊追蹤")  # 用於 except 區塊
 ---
 
 ## 前端錯誤處理 (React + TypeScript)
+
+### 🔴 0. 錯誤時清空列表 - 嚴重問題 (2026-02-04 新增)
+
+**問題描述**: 用戶反映「紀錄儲存後消失」、「列表突然清空」
+
+**根因**: 在 `catch` 區塊中呼叫 `setXxx([])` 清空列表
+
+```typescript
+// ❌ 錯誤做法 - 會導致資料消失
+const loadItems = useCallback(async () => {
+  try {
+    const result = await api.getItems();
+    setItems(result.items);
+  } catch (error) {
+    logger.error('載入失敗:', error);
+    setItems([]);  // ❌ 危險：清空已存在的資料
+  }
+}, []);
+
+// ✅ 正確做法 - 保留現有資料
+const loadItems = useCallback(async () => {
+  try {
+    const result = await api.getItems();
+    setItems(result.items);
+  } catch (error) {
+    logger.error('載入失敗:', error);
+    // ✅ 不清空列表
+    // setItems([]);
+    message.error('載入失敗，請重新整理頁面');
+  }
+}, [message]);
+```
+
+**判斷何時可以清空**:
+| 場景 | 是否清空 | 說明 |
+|------|----------|------|
+| 詳情頁局部刷新 | ❌ 不清空 | 用戶已看到資料 |
+| 操作後重新載入 | ❌ 不清空 | 操作成功但刷新失敗 |
+| 頁面初始載入 | ⚠️ 視情況 | 新頁面無舊資料 |
+| 切換實體 | ✅ 可清空 | 避免顯示舊實體資料 |
+
+**強制測試要求**:
+```typescript
+it('API 錯誤時應該保留現有資料，不清空列表', async () => {
+  mockApi.mockResolvedValueOnce({ items: [mockItem] });
+  await act(() => result.current.refresh());
+  expect(result.current.items).toHaveLength(1);
+
+  mockApi.mockRejectedValueOnce(new Error('Error'));
+  await act(() => result.current.refresh());
+
+  // 關鍵斷言：資料仍然保留
+  expect(result.current.items).toHaveLength(1);
+});
+```
 
 ### 1. API 請求錯誤處理
 

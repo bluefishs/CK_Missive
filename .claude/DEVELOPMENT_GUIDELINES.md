@@ -309,7 +309,89 @@ const MyModal = ({ visible }) => {
 - 前端 SiteManagementPage 使用下拉選單選擇路徑
 - 新增前端路由時，同步更新 `navigation_validator.py` 白名單
 
-### 8. 🔴 交易污染 (Transaction Pollution) - 嚴重
+### 8. 🔴 錯誤時清空列表 (Error Clears List) - 嚴重 (2026-02-04 新增)
+
+**錯誤訊息**: 用戶反映「紀錄儲存後消失」、「列表突然清空」
+
+**原因**: 在 `catch` 區塊中呼叫 `setXxx([])` 清空列表，當 API 暫時失敗時，已載入的資料會消失。
+
+**問題流程**:
+```
+1. 用戶看到列表（資料已載入）
+2. 用戶執行操作（新增/編輯）
+3. 操作成功後自動重新載入列表
+4. 重新載入 API 暫時失敗
+5. catch 區塊執行 setItems([])
+6. 用戶看到列表消失 ❌
+```
+
+**❌ 錯誤做法**:
+```typescript
+const loadItems = useCallback(async () => {
+  setLoading(true);
+  try {
+    const result = await api.getItems();
+    setItems(result.items);
+  } catch (error) {
+    logger.error('載入失敗:', error);
+    setItems([]);  // ❌ 危險：清空已存在的資料
+  } finally {
+    setLoading(false);
+  }
+}, []);
+```
+
+**✅ 正確做法**:
+```typescript
+const loadItems = useCallback(async () => {
+  setLoading(true);
+  try {
+    const result = await api.getItems();
+    setItems(result.items);
+  } catch (error) {
+    logger.error('載入失敗:', error);
+    // ✅ 不清空列表，保留現有資料
+    // setItems([]);
+    message.error('載入失敗，請重新整理頁面');
+  } finally {
+    setLoading(false);
+  }
+}, [message]);
+```
+
+**適用場景**:
+| 場景 | 是否清空 | 說明 |
+|------|----------|------|
+| **詳情頁局部刷新** | ❌ 不清空 | 用戶已看到資料，清空會導致「消失」 |
+| **操作後重新載入** | ❌ 不清空 | 操作成功但刷新失敗，應保留資料 |
+| **頁面初始載入** | ⚠️ 視情況 | 新頁面無舊資料，可清空 |
+| **切換實體（如換專案）** | ✅ 可清空 | 避免顯示舊實體的資料 |
+
+**已修復的檔案** (v1.35.0):
+- `DocumentDetailPage.tsx` - loadDispatchLinks, loadProjectLinks
+- `useDocumentRelations.ts` - useDispatchLinks, useProjectLinks
+- `StaffDetailPage.tsx` - loadCertifications
+- `ReminderSettingsModal.tsx` - loadReminders
+
+**測試要求**:
+所有新增的載入函數必須包含「錯誤時保留資料」的測試：
+```typescript
+it('API 錯誤時應該保留現有資料，不清空列表', async () => {
+  // 1. 首次成功載入
+  mockApi.mockResolvedValueOnce({ items: [mockItem] });
+  await act(() => result.current.refresh());
+  expect(result.current.items).toHaveLength(1);
+
+  // 2. 第二次 API 錯誤
+  mockApi.mockRejectedValueOnce(new Error('Network Error'));
+  await act(() => result.current.refresh());
+
+  // 3. 關鍵斷言：資料仍然保留
+  expect(result.current.items).toHaveLength(1);
+});
+```
+
+### 9. 🔴 交易污染 (Transaction Pollution) - 嚴重
 
 **錯誤訊息**: `InFailedSQLTransactionError: current transaction is aborted, commands ignored until end of transaction block`
 
@@ -401,7 +483,13 @@ async def update_document(db: AsyncSession, ...):
 
 ---
 
-## ✅ Code Review Checklist (2026-01-09)
+## ✅ Code Review Checklist (2026-02-04 更新)
+
+### 🆕 前端錯誤處理檢查 (2026-02-04 新增)
+- [ ] **catch 區塊是否清空列表？** - 禁止在 catch 中 `setXxx([])`
+- [ ] 錯誤時是否保留現有資料？
+- [ ] 是否顯示錯誤訊息通知用戶？
+- [ ] 是否有對應的「錯誤時保留資料」測試？
 
 ### 交易安全檢查
 - [ ] 審計/通知操作是否使用 `AuditService` 或 `safe_*` 方法？

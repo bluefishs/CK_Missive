@@ -2,7 +2,7 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.34.0
+> **Claude Code 配置版本**: 1.35.0
 > **最後更新**: 2026-02-04
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers), [everything-claude-code](https://github.com/affaan-m/everything-claude-code)
 
@@ -803,6 +803,47 @@ npm run test:e2e:headed   # 有頭模式執行
 ```
 
 **系統健康度**: 9.7/10 → **9.8/10**
+
+---
+
+### v1.35.0 (2026-02-04) - 前端錯誤處理系統性修復
+
+**問題根因** 🔍:
+- 用戶反映「派工紀錄儲存後消失」
+- 根因：`catch` 區塊中 `setXxx([])` 清空列表
+- 系統性問題：同樣錯誤模式被複製到多處
+
+**修復內容** ✅:
+| 檔案 | 函數 | 問題 |
+|------|------|------|
+| `DocumentDetailPage.tsx` | `loadDispatchLinks` | 錯誤清空派工列表 |
+| `DocumentDetailPage.tsx` | `loadProjectLinks` | 錯誤清空工程列表 |
+| `useDocumentRelations.ts` | `useDispatchLinks` | 錯誤清空派工列表 |
+| `useDocumentRelations.ts` | `useProjectLinks` | 錯誤清空工程列表 |
+| `StaffDetailPage.tsx` | `loadCertifications` | 錯誤清空證照列表 |
+| `ReminderSettingsModal.tsx` | `loadReminders` | 錯誤清空提醒列表 |
+
+**新增測試** 🧪:
+- `useDocumentRelations.test.tsx` - 7 個回歸測試
+- 確保「錯誤時保留資料」行為
+
+**規範更新** 📚:
+- `DEVELOPMENT_GUIDELINES.md` - 新增錯誤 #8「錯誤時清空列表」
+- `error-handling.md` Skill v1.1.0 - 新增前端錯誤處理規範
+- Code Review Checklist 新增「前端錯誤處理檢查」
+
+**設計原則**:
+```typescript
+// ❌ 錯誤：catch 中清空列表
+catch (error) { setItems([]); }
+
+// ✅ 正確：保留現有資料
+catch (error) { message.error('載入失敗'); }
+```
+
+**測試結果**: 177 個測試全部通過
+
+**系統健康度**: 8.9/10 → **9.0/10**
 
 ---
 
