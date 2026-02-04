@@ -2,8 +2,8 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.33.0
-> **最後更新**: 2026-02-03
+> **Claude Code 配置版本**: 1.34.0
+> **最後更新**: 2026-02-04
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers), [everything-claude-code](https://github.com/affaan-m/everything-claude-code)
 
 ---
@@ -753,6 +753,58 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 ---
 
 ## 📋 版本更新記錄
+
+### v1.34.0 (2026-02-04) - E2E 測試框架與 Bug 修復
+
+**Bug 修復** 🐛:
+- 修復派工安排存檔後紀錄消失的問題
+  - 根因：重複建立關聯導致 API 400 錯誤
+  - 移除 `DocumentDetailPage.tsx` 中重複的 `linkDispatch` 調用
+  - 後端 `_sync_document_links()` 已自動處理公文關聯
+
+**E2E 測試框架** 🧪:
+- 安裝 Playwright ^1.58.1 + Chromium v1208
+- 新增 `playwright.config.ts` 配置
+- 新增 10 個 E2E 煙霧測試案例
+- 新增 E2E CI 工作流 `.github/workflows/ci-e2e.yml`
+
+**測試覆蓋範圍**:
+| 類別 | 測試數 |
+|------|--------|
+| 應用程式煙霧測試 | 2 |
+| 認證流程 | 1 |
+| 公文管理流程 | 4 |
+| 派工安排流程 | 1 |
+| 導航測試 | 2 |
+
+**CI/CD 優化**:
+- `frontend-check` job 新增單元測試執行
+- `backend-check` job 新增整合測試執行
+- 前端覆蓋率門檻從 50% 提升至 80%
+- 新增 Repository 層測試範本
+
+**新增檔案**:
+- `frontend/playwright.config.ts` - Playwright 配置
+- `frontend/e2e/smoke.spec.ts` - E2E 煙霧測試
+- `.github/workflows/ci-e2e.yml` - E2E CI 工作流
+- `backend/tests/unit/test_repositories/` - Repository 測試範本
+
+**修改檔案**:
+- `frontend/src/pages/DocumentDetailPage.tsx` - Bug 修復
+- `frontend/src/pages/document/tabs/DocumentDispatchTab.tsx` - 錯誤處理改善
+- `frontend/vitest.config.ts` - 覆蓋率門檻調整
+- `.github/workflows/ci.yml` - CI 流程優化
+
+**E2E 測試指令**:
+```bash
+npm run test:e2e          # 執行 E2E 測試
+npm run test:e2e:ui       # 開啟 Playwright UI
+npm run test:e2e:headed   # 有頭模式執行
+```
+
+**系統健康度**: 9.7/10 → **9.8/10**
+
+---
 
 ### v1.33.0 (2026-02-03) - 多對多關聯一致性修復
 
