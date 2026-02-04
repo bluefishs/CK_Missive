@@ -21,7 +21,8 @@ RUN apk add --no-cache curl
 COPY package*.json ./
 
 # 🔥 開發環境：安裝所有依賴（包括 devDependencies）
-RUN npm ci
+# 使用 npm install 替代 npm ci 以支援缺少 package-lock.json 的情況
+RUN npm install
 
 # 建立非 root 使用者
 RUN addgroup -g 1000 appuser && \

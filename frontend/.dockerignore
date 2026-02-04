@@ -28,7 +28,7 @@ tmp/
 .env.test.local
 .env.production.local
 # Keep .env for main environment variables
-*.json # Be careful with this if you have config JSONs that need to be copied
+# *.json - 不要排除，需要保留 package.json 和 package-lock.json
 *.md
 *.ps1
 # *.html (需要保留 index.html)
