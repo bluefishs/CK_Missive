@@ -2,8 +2,8 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.37.0
-> **最後更新**: 2026-02-04
+> **Claude Code 配置版本**: 1.38.0
+> **最後更新**: 2026-02-05
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers), [everything-claude-code](https://github.com/affaan-m/everything-claude-code)
 
 ---
@@ -753,6 +753,59 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 ---
 
 ## 📋 版本更新記錄
+
+### v1.38.0 (2026-02-05) - AI 服務優化與測試擴充
+
+**AI 服務優化** ⚡:
+- 新增 `RateLimiter` 速率限制器 (30 req/min, 60s 滑動窗口)
+- 新增 `SimpleCache` 記憶體快取 (TTL 1小時)
+- AI 服務整合快取機制避免重複請求
+- 新增 `rate_limited` 狀態處理
+- 前端顯示速率限制統計資訊
+
+**E2E 測試擴充** 🧪:
+| 測試檔案 | 說明 | 測試數 |
+|----------|------|--------|
+| `documents.spec.ts` | 公文 CRUD 完整流程 | 12 |
+| `dispatch.spec.ts` | 派工安排完整流程 | 14 |
+| `projects.spec.ts` | 專案管理完整流程 | 13 |
+
+**CI 整合**:
+- 新增 `mypy.ini` Python 型別檢查配置
+- CI 工作流整合 mypy 型別檢查步驟
+
+**後端修改**:
+| 檔案 | 說明 |
+|------|------|
+| `backend/mypy.ini` | 🆕 MyPy 配置 |
+| `backend/app/services/ai/ai_config.py` | v1.1.0 - 新增速率限制與快取配置 |
+| `backend/app/services/ai/base_ai_service.py` | v1.1.0 - 新增 RateLimiter + SimpleCache |
+| `backend/app/services/ai/document_ai_service.py` | v1.1.0 - 整合快取機制 |
+| `backend/tests/unit/test_services/test_ai_service.py` | 新增 8 個測試案例 |
+
+**前端修改**:
+| 檔案 | 說明 |
+|------|------|
+| `frontend/src/api/aiApi.ts` | 新增 `rate_limited` 型別 |
+| `frontend/src/components/ai/AIAssistantButton.tsx` | 顯示速率限制狀態 |
+
+**新增環境變數**:
+```bash
+AI_RATE_LIMIT_REQUESTS=30    # 速率限制請求數
+AI_RATE_LIMIT_WINDOW=60      # 時間窗口 (秒)
+AI_CACHE_ENABLED=true        # 快取開關
+AI_CACHE_TTL_SUMMARY=3600    # 摘要快取 TTL
+AI_CACHE_TTL_CLASSIFY=3600   # 分類快取 TTL
+AI_CACHE_TTL_KEYWORDS=3600   # 關鍵字快取 TTL
+```
+
+**測試結果**:
+- 前端測試：177 個全部通過 ✅
+- AI 服務測試：30 個全部通過 ✅
+
+**系統健康度**: 9.7/10 → **9.8/10**
+
+---
 
 ### v1.37.0 (2026-02-04) - AI 語意精靈
 
