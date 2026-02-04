@@ -78,11 +78,13 @@ export function useDispatchLinks({
       setLinks(result.dispatch_orders || []);
     } catch (error) {
       logger.error('載入派工關聯失敗:', error);
-      setLinks([]);
+      // 重要：錯誤時不清空現有列表，避免「紀錄消失」問題
+      // setLinks([]);
+      message.error('載入派工關聯失敗，請重新整理頁面');
     } finally {
       setIsLoading(false);
     }
-  }, [documentId]);
+  }, [documentId, message]);
 
   // 查詢可關聯的派工紀錄
   const { data: availableDispatchesData } = useQuery({
@@ -211,11 +213,13 @@ export function useProjectLinks({
       setLinks(result.projects || []);
     } catch (error) {
       logger.error('載入工程關聯失敗:', error);
-      setLinks([]);
+      // 重要：錯誤時不清空現有列表，避免「紀錄消失」問題
+      // setLinks([]);
+      message.error('載入工程關聯失敗，請重新整理頁面');
     } finally {
       setIsLoading(false);
     }
-  }, [documentId]);
+  }, [documentId, message]);
 
   // 查詢可關聯的工程
   const { data: availableProjectsData } = useQuery({
