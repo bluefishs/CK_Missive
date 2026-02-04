@@ -13,11 +13,13 @@
  */
 
 import React, { useState } from 'react';
-import { Layout as AntLayout } from 'antd';
+import { Layout as AntLayout, Modal, message } from 'antd';
 import { useLocation } from 'react-router-dom';
 import Sidebar from './layout/Sidebar';
 import LayoutHeader from './layout/Header';
 import { useNavigationData } from './layout/hooks/useNavigationData';
+import { AIAssistantButton, AISummaryPanel } from './ai';
+import { aiApi } from '../api/aiApi';
 
 const { Content } = AntLayout;
 
@@ -30,6 +32,7 @@ const PUBLIC_ROUTES = ['/entry', '/login', '/register', '/forgot-password'];
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
+  const [summaryModalVisible, setSummaryModalVisible] = useState(false);
   const location = useLocation();
 
   // 使用導覽資料 Hook
@@ -48,6 +51,21 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   // 處理使用者登出
   const handleUserLogout = () => {
     // 清除使用者狀態會由 useNavigationData 內部處理
+  };
+
+  // AI 功能：提取關鍵字（快速示範）
+  const handleKeywordsClick = async () => {
+    message.loading('正在提取關鍵字...', 0);
+    try {
+      const result = await aiApi.extractKeywords({
+        subject: '公文管理系統 AI 功能測試',
+      });
+      message.destroy();
+      message.success(`關鍵字: ${result.keywords.join(', ')}`);
+    } catch {
+      message.destroy();
+      message.error('關鍵字提取失敗');
+    }
   };
 
   // 公開頁面直接渲染內容
@@ -86,6 +104,27 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           {children}
         </Content>
       </AntLayout>
+
+      {/* AI 助手浮動按鈕 */}
+      <AIAssistantButton
+        onSummaryClick={() => setSummaryModalVisible(true)}
+        onClassifyClick={() => message.info('分類建議功能請在公文詳情頁使用')}
+        onKeywordsClick={handleKeywordsClick}
+      />
+
+      {/* AI 摘要 Modal */}
+      <Modal
+        title="AI 摘要生成"
+        open={summaryModalVisible}
+        onCancel={() => setSummaryModalVisible(false)}
+        footer={null}
+        width={600}
+      >
+        <AISummaryPanel
+          subject="請在公文詳情頁使用此功能以獲得最佳效果"
+          showCard={false}
+        />
+      </Modal>
     </AntLayout>
   );
 };
