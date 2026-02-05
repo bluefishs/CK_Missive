@@ -2,7 +2,7 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.39.0
+> **Claude Code 配置版本**: 1.40.0
 > **最後更新**: 2026-02-05
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers), [everything-claude-code](https://github.com/affaan-m/everything-claude-code)
 
@@ -753,6 +753,59 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 ---
 
 ## 📋 版本更新記錄
+
+### v1.40.0 (2026-02-05) - AI 助手 Portal 架構重構
+
+**參考專案**: CK_lvrland_Webmap FloatingAssistant 架構
+
+**重大變更** 🔄:
+- **移除 Drawer 抽屜模式**，改用 Card 浮動面板
+- 採用 `createPortal` 渲染，與主版面 CSS 完全隔離
+- 停用 React Query DevTools（避免與 AI 助理按鈕 z-index 遮蔽）
+
+**新增功能**:
+| 功能 | 說明 |
+|------|------|
+| Portal 渲染 | 建立獨立容器 `#ai-assistant-portal`，z-index: 9999 |
+| 可拖曳面板 | 標題列拖曳，自動限制視窗邊界 |
+| 縮合/展開 | 點擊最小化按鈕切換 |
+| 漸層設計 | 按鈕與標題使用 `#1890ff → #722ed1` 漸層 |
+
+**面板規格**:
+| 屬性 | 值 |
+|------|-----|
+| 面板尺寸 | 320 × 400 px |
+| 預設位置 | right: 80, bottom: 100 |
+| 浮動按鈕 | 56 × 56 px, right: 24, bottom: 24 |
+| z-index | 1000 (面板), 9999 (Portal 容器) |
+
+**修改檔案**:
+| 檔案 | 說明 |
+|------|------|
+| `AIAssistantButton.tsx` | v2.0.0 - 重構為 Portal + Card 模式 |
+| `QueryProvider.tsx` | 停用 ReactQueryDevtools |
+
+**關鍵程式碼**:
+```typescript
+// Portal 容器建立
+const portalContainer = useMemo(() => {
+  let container = document.getElementById('ai-assistant-portal');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'ai-assistant-portal';
+    container.style.zIndex = '9999';
+    container.style.pointerEvents = 'none';
+    document.body.appendChild(container);
+  }
+  return container;
+}, []);
+
+return createPortal(assistantContent, portalContainer);
+```
+
+**系統健康度**: 9.8/10 (維持)
+
+---
 
 ### v1.39.0 (2026-02-05) - AI 助理 UI 優化與配置集中化
 
