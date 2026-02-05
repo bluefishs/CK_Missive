@@ -49,7 +49,11 @@ from app.repositories.taoyuan import (
 )
 
 # Query Builders (v1.1.0 新增)
-from app.repositories.query_builders import DocumentQueryBuilder
+from app.repositories.query_builders import (
+    DocumentQueryBuilder,
+    ProjectQueryBuilder,
+    AgencyQueryBuilder,
+)
 
 __all__ = [
     "BaseRepository",
@@ -65,4 +69,6 @@ __all__ = [
     "PaymentRepository",
     # Query Builders
     "DocumentQueryBuilder",
+    "ProjectQueryBuilder",
+    "AgencyQueryBuilder",
 ]

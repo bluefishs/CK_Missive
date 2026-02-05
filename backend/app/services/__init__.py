@@ -36,6 +36,7 @@ from .document_serial_number_service import DocumentSerialNumberService
 
 # 關聯管理服務
 from .vendor_service import VendorService
+from .vendor_service_v2 import VendorServiceV2  # 工廠模式 (v1.42.0)
 from .agency_service import AgencyService
 from .project_agency_contact_service import ProjectAgencyContactService
 
@@ -90,6 +91,7 @@ __all__ = [
     "DocumentSerialNumberService",
     # 關聯管理
     "VendorService",
+    "VendorServiceV2",  # 工廠模式 (v1.42.0)
     "AgencyService",
     "ProjectAgencyContactService",
     # 行事曆與提醒
