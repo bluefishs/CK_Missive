@@ -27,7 +27,7 @@ router = APIRouter()
 async def get_master_control(
     query: MasterControlQuery,
     db: AsyncSession = Depends(get_async_db),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """查詢總控表（整合工程、派工、公文、契金資訊）"""
     stmt = select(TaoyuanProject).options(

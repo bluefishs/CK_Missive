@@ -44,7 +44,7 @@ router = APIRouter()
 async def search_linkable_documents(
     request: SearchLinkableDocumentsRequest = Body(...),
     db: AsyncSession = Depends(get_async_db),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """
     搜尋可關聯的桃園派工公文
@@ -116,7 +116,7 @@ async def link_document_to_dispatch(
     dispatch_id: int,
     data: DispatchDocumentLinkCreate,
     db: AsyncSession = Depends(get_async_db),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """關聯公文到派工單"""
     # 檢查派工單
@@ -146,7 +146,7 @@ async def unlink_document_from_dispatch(
     dispatch_id: int,
     link_id: int,
     db: AsyncSession = Depends(get_async_db),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """
     移除派工單的公文關聯
@@ -188,7 +188,7 @@ async def unlink_document_from_dispatch(
 async def get_dispatch_documents(
     dispatch_id: int,
     db: AsyncSession = Depends(get_async_db),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """取得派工單關聯的公文歷程"""
     result = await db.execute(
@@ -226,7 +226,7 @@ async def get_dispatch_documents(
 async def get_document_dispatch_links(
     document_id: int,
     db: AsyncSession = Depends(get_async_db),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """
     以公文為主體，查詢該公文關聯的所有派工單
@@ -300,7 +300,7 @@ async def link_dispatch_to_document(
     dispatch_order_id: int,
     link_type: str = 'agency_incoming',
     db: AsyncSession = Depends(get_async_db),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """
     以公文為主體，將公文關聯到指定的派工單
@@ -353,7 +353,7 @@ async def unlink_dispatch_from_document(
     document_id: int,
     link_id: int,
     db: AsyncSession = Depends(get_async_db),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """
     移除公文與派工的關聯
@@ -395,7 +395,7 @@ async def unlink_dispatch_from_document(
 async def get_batch_document_dispatch_links(
     document_ids: List[int],
     db: AsyncSession = Depends(get_async_db),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """
     批次查詢多筆公文的派工關聯

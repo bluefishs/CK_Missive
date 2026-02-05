@@ -31,7 +31,7 @@ router = APIRouter()
 async def get_project_dispatch_links(
     project_id: int,
     db: AsyncSession = Depends(get_async_db),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """
     以工程為主體，查詢該工程關聯的所有派工單
@@ -68,7 +68,7 @@ async def link_dispatch_to_project(
     project_id: int,
     dispatch_order_id: int,
     db: AsyncSession = Depends(get_async_db),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """
     以工程為主體，將工程關聯到指定的派工單
@@ -163,7 +163,7 @@ async def unlink_dispatch_from_project(
     project_id: int,
     link_id: int,
     db: AsyncSession = Depends(get_async_db),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """
     移除工程與派工的關聯
@@ -254,7 +254,7 @@ async def unlink_dispatch_from_project(
 async def get_batch_project_dispatch_links(
     project_ids: List[int],
     db: AsyncSession = Depends(get_async_db),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """
     批次查詢多筆工程的派工關聯

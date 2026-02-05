@@ -144,11 +144,11 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
   const columns: ColumnsType<DispatchOrder> = [
     {
       title: '序',
-      dataIndex: 'id',
+      key: 'rowIndex',
       width: 45,
       fixed: 'left',
       align: 'center',
-      sorter: (a, b) => a.id - b.id,
+      render: (_: unknown, __: DispatchOrder, index: number) => index + 1,
     },
     {
       title: '派工單號',

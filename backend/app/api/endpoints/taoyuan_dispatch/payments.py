@@ -67,7 +67,7 @@ async def list_contract_payments(
 async def create_contract_payment(
     data: ContractPaymentCreate,
     service: PaymentService = Depends(get_payment_service),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """
     建立或更新契金管控記錄 (Upsert)
@@ -93,7 +93,7 @@ async def update_contract_payment(
     payment_id: int,
     data: ContractPaymentUpdate,
     service: PaymentService = Depends(get_payment_service),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """更新契金管控記錄"""
     payment = await service.update_payment(payment_id, data)

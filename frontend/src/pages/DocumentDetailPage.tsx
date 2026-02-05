@@ -620,10 +620,19 @@ export const DocumentDetailPage: React.FC = () => {
         // 注意: 不需要再調用 linkDispatch，因為後端 create 時已經自動同步公文關聯
         message.success('派工新增成功');
         logger.info('[handleCreateDispatch] 準備重新載入關聯');
-        await loadDispatchLinks();
-        logger.info('[handleCreateDispatch] 關聯載入完成', { dispatchLinksCount: dispatchLinks.length });
+
+        // 短暫延遲確保後端事務完成，避免競態條件
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        // 失效所有相關快取，確保前端獲取最新資料
         queryClient.invalidateQueries({ queryKey: ['dispatch-orders'] });
         queryClient.invalidateQueries({ queryKey: ['dispatch-orders-for-link'] });
+        queryClient.invalidateQueries({ queryKey: ['document-dispatch-links'] });
+        queryClient.invalidateQueries({ queryKey: ['taoyuan-dispatch-orders'] });
+
+        // 重新載入關聯資料
+        await loadDispatchLinks();
+        logger.info('[handleCreateDispatch] 關聯載入完成', { dispatchLinksCount: dispatchLinks.length });
       } else {
         logger.warn('[handleCreateDispatch] API 回應無 id', { newDispatch });
       }

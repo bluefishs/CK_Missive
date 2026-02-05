@@ -42,7 +42,7 @@ def get_dispatch_service(db: AsyncSession = Depends(get_async_db)) -> DispatchOr
 async def list_dispatch_orders(
     query: DispatchOrderListQuery,
     service: DispatchOrderService = Depends(get_dispatch_service),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """查詢派工紀錄列表"""
     items, total = await service.list_dispatch_orders(query)
@@ -82,7 +82,7 @@ async def import_dispatch_orders(
     file: UploadFile = File(...),
     contract_project_id: int = Form(...),
     service: DispatchOrderService = Depends(get_dispatch_service),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """從 Excel 匯入派工紀錄"""
     if not file.filename.endswith(('.xlsx', '.xls')):
@@ -110,7 +110,7 @@ async def import_dispatch_orders(
 @router.post("/dispatch/next-dispatch-no", summary="取得下一個派工單號")
 async def get_next_dispatch_no(
     service: DispatchOrderService = Depends(get_dispatch_service),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """根據現有派工單號自動生成下一個單號"""
     from datetime import datetime
@@ -135,7 +135,7 @@ async def get_next_dispatch_no(
 async def create_dispatch_order(
     data: DispatchOrderCreate,
     service: DispatchOrderService = Depends(get_dispatch_service),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """建立派工紀錄"""
     import logging
@@ -168,7 +168,7 @@ async def update_dispatch_order(
     dispatch_id: int,
     data: DispatchOrderUpdate,
     service: DispatchOrderService = Depends(get_dispatch_service),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """更新派工紀錄"""
     order = await service.update_dispatch_order(dispatch_id, data)
@@ -181,7 +181,7 @@ async def update_dispatch_order(
 async def get_dispatch_order_detail(
     dispatch_id: int,
     service: DispatchOrderService = Depends(get_dispatch_service),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """取得派工紀錄詳情"""
     order = await service.get_dispatch_order(dispatch_id, with_relations=True)
@@ -195,7 +195,7 @@ async def get_dispatch_order_detail(
 async def delete_dispatch_order(
     dispatch_id: int,
     service: DispatchOrderService = Depends(get_dispatch_service),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """刪除派工紀錄"""
     success = await service.delete_dispatch_order(dispatch_id)
@@ -209,7 +209,7 @@ async def match_document_history(
     project_name: str,
     include_subject: bool = False,
     service: DispatchOrderService = Depends(get_dispatch_service),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """根據工程名稱自動匹配公文歷程"""
     if not project_name or not project_name.strip():
@@ -240,7 +240,7 @@ async def match_document_history(
 async def get_dispatch_order_detail_with_history(
     dispatch_id: int,
     service: DispatchOrderService = Depends(get_dispatch_service),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """取得派工紀錄詳情，並自動匹配公文歷程"""
     result = await service.get_dispatch_with_history(dispatch_id)

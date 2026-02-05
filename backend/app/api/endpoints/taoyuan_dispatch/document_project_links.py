@@ -27,7 +27,7 @@ router = APIRouter()
 async def get_document_project_links(
     document_id: int,
     db: AsyncSession = Depends(get_async_db),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """
     以公文為主體，查詢該公文直接關聯的所有工程
@@ -80,7 +80,7 @@ async def link_project_to_document(
     link_type: str = 'agency_incoming',
     notes: Optional[str] = None,
     db: AsyncSession = Depends(get_async_db),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """
     以公文為主體，將公文直接關聯到指定的工程（不經過派工單）
@@ -132,7 +132,7 @@ async def unlink_project_from_document(
     document_id: int,
     link_id: int,
     db: AsyncSession = Depends(get_async_db),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """
     移除公文與工程的直接關聯
@@ -174,7 +174,7 @@ async def unlink_project_from_document(
 async def get_batch_document_project_links(
     document_ids: List[int],
     db: AsyncSession = Depends(get_async_db),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """
     批次查詢多筆公文的工程關聯

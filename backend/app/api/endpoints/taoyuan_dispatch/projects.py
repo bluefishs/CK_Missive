@@ -48,7 +48,7 @@ router = APIRouter()
 async def list_taoyuan_projects(
     query: TaoyuanProjectListQuery,
     db: AsyncSession = Depends(get_async_db),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """查詢轄管工程清單（包含派工關聯和公文關聯）"""
     stmt = select(TaoyuanProject).options(
@@ -138,7 +138,7 @@ async def list_taoyuan_projects(
 async def create_taoyuan_project(
     data: TaoyuanProjectCreate,
     db: AsyncSession = Depends(get_async_db),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """建立轄管工程"""
     project = TaoyuanProject(**data.model_dump(exclude_unset=True))
@@ -153,7 +153,7 @@ async def update_taoyuan_project(
     project_id: int,
     data: TaoyuanProjectUpdate,
     db: AsyncSession = Depends(get_async_db),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """更新轄管工程"""
     result = await db.execute(select(TaoyuanProject).where(TaoyuanProject.id == project_id))
@@ -174,7 +174,7 @@ async def update_taoyuan_project(
 async def get_taoyuan_project_detail(
     project_id: int,
     db: AsyncSession = Depends(get_async_db),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """取得轄管工程詳情"""
     result = await db.execute(select(TaoyuanProject).where(TaoyuanProject.id == project_id))
@@ -188,7 +188,7 @@ async def get_taoyuan_project_detail(
 async def delete_taoyuan_project(
     project_id: int,
     db: AsyncSession = Depends(get_async_db),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """刪除轄管工程"""
     result = await db.execute(select(TaoyuanProject).where(TaoyuanProject.id == project_id))
@@ -263,7 +263,7 @@ async def import_taoyuan_projects(
     file: UploadFile = File(...),
     contract_project_id: int = Form(...),
     db: AsyncSession = Depends(get_async_db),
-    current_user = Depends(require_auth)
+    current_user = Depends(require_auth())
 ):
     """從 Excel 匯入轄管工程清單"""
     contract_project = await db.execute(

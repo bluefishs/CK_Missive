@@ -195,80 +195,153 @@ export const DispatchDocumentsTab: React.FC<DispatchDocumentsTabProps> = ({
         </Card>
       )}
 
-      {/* 已關聯公文列表 */}
+      {/* 已關聯公文列表 - 分類顯示 */}
       {documents.length > 0 ? (
-        <List
-          dataSource={documents}
-          renderItem={(doc: DispatchDocumentLink) => {
-            // 使用 detectLinkType 根據公文字號校正關聯類型顯示
-            // 解決資料庫中可能存在的錯誤 link_type 值
-            const correctedLinkType = detectLinkType(doc.doc_number);
-            const isAgencyIncoming = correctedLinkType === 'agency_incoming';
-
+        <>
+          {/* 機關來函區塊 */}
+          {(() => {
+            const agencyDocs = documents.filter(doc => detectLinkType(doc.doc_number) === 'agency_incoming');
+            if (agencyDocs.length === 0) return null;
             return (
-              <Card size="small" style={{ marginBottom: 12 }}>
-                <Descriptions size="small" column={2}>
-                  <Descriptions.Item label="公文字號">
-                    <Space>
-                      {doc.doc_date && (
-                        <Text type="secondary" style={{ fontSize: 12 }}>
-                          {dayjs(doc.doc_date).format('YYYY-MM-DD')}
-                        </Text>
-                      )}
-                      <Tag color={isAgencyIncoming ? 'blue' : 'green'}>
-                        {doc.doc_number || `#${doc.document_id}`}
-                      </Tag>
-                    </Space>
-                  </Descriptions.Item>
-                  <Descriptions.Item label="關聯類型">
-                    <Tag color={isAgencyIncoming ? 'blue' : 'green'}>
-                      {isAgencyIncoming ? '機關來函' : '乾坤發文'}
-                    </Tag>
-                  </Descriptions.Item>
-                  <Descriptions.Item label="主旨" span={2}>
-                    {doc.subject || '-'}
-                  </Descriptions.Item>
-                </Descriptions>
-                <Space>
-                  <Button
-                    type="link"
-                    size="small"
-                    onClick={() => navigate(
-                      `/documents/${doc.document_id}`,
-                      returnPath ? { state: { returnTo: returnPath } } : undefined
-                    )}
-                  >
-                    查看公文
-                  </Button>
-                  {canEdit && doc.link_id !== undefined && (
-                    <Popconfirm
-                      title="確定要移除此關聯嗎？"
-                      onConfirm={() => {
-                        if (doc.link_id === undefined || doc.link_id === null) {
-                          logger.error('[unlinkDoc] link_id 缺失:', doc);
-                          refetch();
-                          return;
-                        }
-                        onUnlinkDocument(doc.link_id);
-                      }}
-                      okText="確定"
-                      cancelText="取消"
-                    >
-                      <Button
-                        type="link"
-                        size="small"
-                        danger
-                        loading={unlinkDocMutationPending}
-                      >
-                        移除關聯
-                      </Button>
-                    </Popconfirm>
+              <Card
+                size="small"
+                title={<><Tag color="blue">機關來函</Tag> ({agencyDocs.length} 筆)</>}
+                style={{ marginBottom: 16 }}
+              >
+                <List
+                  dataSource={agencyDocs}
+                  renderItem={(doc: DispatchDocumentLink) => (
+                    <Card size="small" style={{ marginBottom: 8 }}>
+                      <Descriptions size="small" column={2}>
+                        <Descriptions.Item label="公文字號">
+                          <Space>
+                            {doc.doc_date && (
+                              <Text type="secondary" style={{ fontSize: 12 }}>
+                                {dayjs(doc.doc_date).format('YYYY-MM-DD')}
+                              </Text>
+                            )}
+                            <Tag color="blue">
+                              {doc.doc_number || `#${doc.document_id}`}
+                            </Tag>
+                          </Space>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="類型">
+                          <Tag color="blue">機關來函</Tag>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="主旨" span={2}>
+                          {doc.subject || '-'}
+                        </Descriptions.Item>
+                      </Descriptions>
+                      <Space>
+                        <Button
+                          type="link"
+                          size="small"
+                          onClick={() => navigate(
+                            `/documents/${doc.document_id}`,
+                            returnPath ? { state: { returnTo: returnPath } } : undefined
+                          )}
+                        >
+                          查看公文
+                        </Button>
+                        {canEdit && doc.link_id !== undefined && (
+                          <Popconfirm
+                            title="確定要移除此關聯嗎？"
+                            onConfirm={() => {
+                              if (doc.link_id === undefined || doc.link_id === null) {
+                                logger.error('[unlinkDoc] link_id 缺失:', doc);
+                                refetch();
+                                return;
+                              }
+                              onUnlinkDocument(doc.link_id);
+                            }}
+                            okText="確定"
+                            cancelText="取消"
+                          >
+                            <Button type="link" size="small" danger loading={unlinkDocMutationPending}>
+                              移除關聯
+                            </Button>
+                          </Popconfirm>
+                        )}
+                      </Space>
+                    </Card>
                   )}
-                </Space>
+                />
               </Card>
             );
-          }}
-        />
+          })()}
+
+          {/* 乾坤發文區塊 */}
+          {(() => {
+            const companyDocs = documents.filter(doc => detectLinkType(doc.doc_number) === 'company_outgoing');
+            if (companyDocs.length === 0) return null;
+            return (
+              <Card
+                size="small"
+                title={<><Tag color="green">乾坤發文</Tag> ({companyDocs.length} 筆)</>}
+                style={{ marginBottom: 16 }}
+              >
+                <List
+                  dataSource={companyDocs}
+                  renderItem={(doc: DispatchDocumentLink) => (
+                    <Card size="small" style={{ marginBottom: 8 }}>
+                      <Descriptions size="small" column={2}>
+                        <Descriptions.Item label="公文字號">
+                          <Space>
+                            {doc.doc_date && (
+                              <Text type="secondary" style={{ fontSize: 12 }}>
+                                {dayjs(doc.doc_date).format('YYYY-MM-DD')}
+                              </Text>
+                            )}
+                            <Tag color="green">
+                              {doc.doc_number || `#${doc.document_id}`}
+                            </Tag>
+                          </Space>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="類型">
+                          <Tag color="green">乾坤發文</Tag>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="主旨" span={2}>
+                          {doc.subject || '-'}
+                        </Descriptions.Item>
+                      </Descriptions>
+                      <Space>
+                        <Button
+                          type="link"
+                          size="small"
+                          onClick={() => navigate(
+                            `/documents/${doc.document_id}`,
+                            returnPath ? { state: { returnTo: returnPath } } : undefined
+                          )}
+                        >
+                          查看公文
+                        </Button>
+                        {canEdit && doc.link_id !== undefined && (
+                          <Popconfirm
+                            title="確定要移除此關聯嗎？"
+                            onConfirm={() => {
+                              if (doc.link_id === undefined || doc.link_id === null) {
+                                logger.error('[unlinkDoc] link_id 缺失:', doc);
+                                refetch();
+                                return;
+                              }
+                              onUnlinkDocument(doc.link_id);
+                            }}
+                            okText="確定"
+                            cancelText="取消"
+                          >
+                            <Button type="link" size="small" danger loading={unlinkDocMutationPending}>
+                              移除關聯
+                            </Button>
+                          </Popconfirm>
+                        )}
+                      </Space>
+                    </Card>
+                  )}
+                />
+              </Card>
+            );
+          })()}
+        </>
       ) : (
         <Empty description="此派工單尚無關聯公文" image={Empty.PRESENTED_IMAGE_SIMPLE}>
           {!canEdit && (
