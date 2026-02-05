@@ -392,3 +392,94 @@ jobs:
           alembic upgrade head
 
           echo "✓ Migration check passed"
+
+  # ==========================================================================
+  # AI 服務配置驗證 (v1.42.0 新增)
+  # ==========================================================================
+  ai-config-check:
+    name: AI Service Configuration Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Validate AI configuration module
+        working-directory: backend
+        run: |
+          echo "=== AI Configuration Validation ==="
+
+          # 驗證 AI 配置模組可以正確導入
+          python -c "
+          from app.services.ai.ai_config import get_ai_config, AIConfig
+
+          config = get_ai_config()
+          print(f'AI Enabled: {config.enabled}')
+          print(f'Groq Model: {config.groq_model}')
+          print(f'Ollama Model: {config.ollama_model}')
+          print(f'Rate Limit: {config.rate_limit_requests} req/{config.rate_limit_window}s')
+          print(f'Cache Enabled: {config.cache_enabled}')
+          print('✓ AI config module OK')
+          "
+
+      - name: Validate AI connector module
+        working-directory: backend
+        run: |
+          python -c "
+          from app.core.ai_connector import AIConnector, get_ai_connector
+
+          connector = get_ai_connector()
+          print(f'Groq API Key configured: {bool(connector.groq_api_key)}')
+          print(f'Ollama URL: {connector.ollama_base_url}')
+          print('✓ AI connector module OK')
+          "
+
+      - name: Validate AI API endpoints
+        working-directory: backend
+        run: |
+          python -c "
+          from app.api.endpoints.ai.document_ai import router
+          routes = [r.path for r in router.routes]
+          print(f'AI API routes: {routes}')
+          expected = ['/document/summary', '/document/classify', '/document/keywords', '/agency/match', '/health', '/config']
+          for ep in expected:
+            if ep in routes:
+              print(f'  ✓ {ep}')
+            else:
+              print(f'  ✗ {ep} MISSING')
+              exit(1)
+          print('✓ AI API endpoints OK')
+          "
+
+      - name: Check AI service syntax
+        working-directory: backend
+        run: |
+          echo "=== Checking AI service files ==="
+          python -m py_compile app/services/ai/__init__.py
+          python -m py_compile app/services/ai/ai_config.py
+          python -m py_compile app/services/ai/base_ai_service.py
+          python -m py_compile app/services/ai/document_ai_service.py
+          python -m py_compile app/core/ai_connector.py
+          python -m py_compile app/api/endpoints/ai/document_ai.py
+          echo "✓ All AI service files syntax OK"
+
+      - name: Summary
+        run: |
+          echo ""
+          echo "=========================================="
+          echo "  AI Service Configuration Check Complete"
+          echo "==========================================""
+          echo ""
+          echo "Note: This check validates configuration structure only."
+          echo "Actual AI service connectivity requires GROQ_API_KEY or Ollama."

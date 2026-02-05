@@ -111,6 +111,43 @@ export interface AIHealthStatus {
   };
 }
 
+/** AI 服務配置 (從後端取得) */
+export interface AIConfigResponse {
+  enabled: boolean;
+  providers: {
+    groq: {
+      name: string;
+      description: string;
+      priority: number;
+      model: string;
+      available: boolean;
+    };
+    ollama: {
+      name: string;
+      description: string;
+      priority: number;
+      model: string;
+      url: string;
+    };
+  };
+  rate_limit: {
+    max_requests: number;
+    window_seconds: number;
+  };
+  cache: {
+    enabled: boolean;
+    ttl_summary: number;
+    ttl_classify: number;
+    ttl_keywords: number;
+  };
+  features: {
+    summary: { max_tokens: number; default_max_length: number };
+    classify: { max_tokens: number; confidence_threshold: number };
+    keywords: { max_tokens: number; default_max_keywords: number };
+    agency_match: { score_threshold: number; max_alternatives: number };
+  };
+}
+
 // ============================================================================
 // API 端點
 // ============================================================================
@@ -121,6 +158,7 @@ const AI_ENDPOINTS = {
   KEYWORDS: '/ai/document/keywords',
   AGENCY_MATCH: '/ai/agency/match',
   HEALTH: '/ai/health',
+  CONFIG: '/ai/config',
 };
 
 // ============================================================================
@@ -230,6 +268,21 @@ export const aiApi = {
         groq: { available: false, message: '無法連接' },
         ollama: { available: false, message: '無法連接' },
       };
+    }
+  },
+
+  /**
+   * 取得 AI 服務配置 (Feature Flag)
+   *
+   * @returns AI 服務配置
+   */
+  async getConfig(): Promise<AIConfigResponse | null> {
+    try {
+      logger.log('取得 AI 服務配置');
+      return await apiClient.get<AIConfigResponse>(AI_ENDPOINTS.CONFIG);
+    } catch (error) {
+      logger.error('取得 AI 配置失敗:', error);
+      return null;
     }
   },
 

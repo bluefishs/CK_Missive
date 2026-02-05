@@ -22,6 +22,7 @@ from app.services.ai.document_ai_service import (
     DocumentAIService,
     get_document_ai_service,
 )
+from app.services.ai.ai_config import get_ai_config
 
 logger = logging.getLogger(__name__)
 
@@ -125,6 +126,16 @@ class HealthResponse(BaseModel):
 
     groq: Dict[str, Any]
     ollama: Dict[str, Any]
+
+
+class AIConfigResponse(BaseModel):
+    """AI 配置回應"""
+
+    enabled: bool = Field(description="AI 功能是否啟用")
+    providers: Dict[str, Any] = Field(description="可用的 AI 提供者")
+    rate_limit: Dict[str, int] = Field(description="速率限制設定")
+    cache: Dict[str, Any] = Field(description="快取設定")
+    features: Dict[str, Dict[str, Any]] = Field(description="各功能的配置")
 
 
 # ============================================================================
@@ -249,3 +260,62 @@ async def check_ai_health(
     result = await service.check_health()
 
     return HealthResponse(**result)
+
+
+@router.get("/config", response_model=AIConfigResponse)
+async def get_ai_config_endpoint() -> AIConfigResponse:
+    """
+    取得 AI 服務配置
+
+    回傳目前 AI 服務的配置設定，供前端使用。
+    實現 Feature Flag 模式，前端可根據此配置動態調整 UI。
+    """
+    config = get_ai_config()
+
+    return AIConfigResponse(
+        enabled=config.enabled,
+        providers={
+            "groq": {
+                "name": "Groq",
+                "description": "主要 AI 服務（雲端）",
+                "priority": 1,
+                "model": config.groq_model,
+                "available": bool(config.groq_api_key),
+            },
+            "ollama": {
+                "name": "Ollama",
+                "description": "本地 AI 備援服務",
+                "priority": 2,
+                "model": config.ollama_model,
+                "url": config.ollama_base_url,
+            },
+        },
+        rate_limit={
+            "max_requests": config.rate_limit_requests,
+            "window_seconds": config.rate_limit_window,
+        },
+        cache={
+            "enabled": config.cache_enabled,
+            "ttl_summary": config.cache_ttl_summary,
+            "ttl_classify": config.cache_ttl_classify,
+            "ttl_keywords": config.cache_ttl_keywords,
+        },
+        features={
+            "summary": {
+                "max_tokens": config.summary_max_tokens,
+                "default_max_length": 100,
+            },
+            "classify": {
+                "max_tokens": config.classify_max_tokens,
+                "confidence_threshold": 0.7,
+            },
+            "keywords": {
+                "max_tokens": config.keywords_max_tokens,
+                "default_max_keywords": 5,
+            },
+            "agency_match": {
+                "score_threshold": 0.7,
+                "max_alternatives": 3,
+            },
+        },
+    )
