@@ -189,6 +189,15 @@ from app.schemas.site_management import (
     DefaultNavigationData,
 )
 
+# AI 相關
+from app.schemas.ai import (
+    ParsedSearchIntent,
+    NaturalSearchRequest,
+    AttachmentInfo,
+    DocumentSearchResult,
+    NaturalSearchResponse,
+)
+
 __all__ = [
     # Common
     "ErrorCode",
@@ -334,4 +343,10 @@ __all__ = [
     "BulkOperationRequest",
     "BulkOperationResponse",
     "DefaultNavigationData",
+    # AI
+    "ParsedSearchIntent",
+    "NaturalSearchRequest",
+    "AttachmentInfo",
+    "DocumentSearchResult",
+    "NaturalSearchResponse",
 ]

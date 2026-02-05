@@ -3,8 +3,9 @@
  *
  * 提供公文 AI 智慧功能的前端 API 介面
  *
- * @version 1.0.0
+ * @version 1.1.0
  * @created 2026-02-04
+ * @updated 2026-02-05 - 新增自然語言公文搜尋
  */
 
 import { apiClient } from './client';
@@ -149,6 +150,73 @@ export interface AIConfigResponse {
 }
 
 // ============================================================================
+// 自然語言搜尋相關型別 (v1.1.0 新增)
+// ============================================================================
+
+/** 解析的搜尋意圖 */
+export interface ParsedSearchIntent {
+  keywords?: string[] | null;
+  doc_type?: string | null;
+  category?: string | null;
+  sender?: string | null;
+  receiver?: string | null;
+  date_from?: string | null;
+  date_to?: string | null;
+  status?: string | null;
+  has_deadline?: boolean | null;
+  contract_case?: string | null;
+  confidence: number;
+}
+
+/** 自然語言搜尋請求 */
+export interface NaturalSearchRequest {
+  query: string;
+  max_results?: number;
+  include_attachments?: boolean;
+}
+
+/** 附件資訊 */
+export interface AttachmentInfo {
+  id: number;
+  file_name: string;
+  original_name?: string | null;
+  file_size?: number | null;
+  mime_type?: string | null;
+  created_at?: string | null;
+}
+
+/** 公文搜尋結果項目 */
+export interface DocumentSearchResult {
+  id: number;
+  auto_serial?: string | null;
+  doc_number: string;
+  subject: string;
+  doc_type?: string | null;
+  category?: string | null;
+  sender?: string | null;
+  receiver?: string | null;
+  doc_date?: string | null;
+  status?: string | null;
+  contract_project_name?: string | null;
+  ck_note?: string | null;
+  attachment_count: number;
+  attachments: AttachmentInfo[];
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+/** 自然語言搜尋回應 */
+export interface NaturalSearchResponse {
+  success: boolean;
+  query: string;
+  parsed_intent: ParsedSearchIntent;
+  results: DocumentSearchResult[];
+  total: number;
+  source: 'ai' | 'fallback' | 'rate_limited' | 'error';
+  error?: string | null;
+}
+
+// ============================================================================
 // API 端點
 // ============================================================================
 
@@ -156,6 +224,7 @@ const AI_ENDPOINTS = {
   SUMMARY: '/ai/document/summary',
   CLASSIFY: '/ai/document/classify',
   KEYWORDS: '/ai/document/keywords',
+  NATURAL_SEARCH: '/ai/document/natural-search',
   AGENCY_MATCH: '/ai/agency/match',
   HEALTH: '/ai/health',
   CONFIG: '/ai/config',
@@ -308,6 +377,50 @@ export const aiApi = {
     ]);
 
     return { summary, classification };
+  },
+
+  /**
+   * 自然語言公文搜尋 (v1.1.0 新增)
+   *
+   * 使用 AI 解析自然語言查詢，搜尋相關公文並返回結果（含附件資訊）
+   *
+   * @param query 自然語言查詢
+   * @param maxResults 最大結果數（預設 20）
+   * @param includeAttachments 是否包含附件資訊（預設 true）
+   * @returns 搜尋結果
+   *
+   * @example
+   * // 搜尋範例
+   * const result = await aiApi.naturalSearch('找桃園市政府上個月的公文');
+   * const result = await aiApi.naturalSearch('有截止日的待處理公文', 10);
+   */
+  async naturalSearch(
+    query: string,
+    maxResults: number = 20,
+    includeAttachments: boolean = true
+  ): Promise<NaturalSearchResponse> {
+    try {
+      logger.log('AI 自然語言搜尋:', query.substring(0, 50));
+      return await apiClient.post<NaturalSearchResponse>(
+        AI_ENDPOINTS.NATURAL_SEARCH,
+        {
+          query,
+          max_results: maxResults,
+          include_attachments: includeAttachments,
+        }
+      );
+    } catch (error) {
+      logger.error('AI 自然語言搜尋失敗:', error);
+      return {
+        success: false,
+        query,
+        parsed_intent: { keywords: [query], confidence: 0 },
+        results: [],
+        total: 0,
+        source: 'error',
+        error: error instanceof Error ? error.message : '未知錯誤',
+      };
+    }
   },
 };
 

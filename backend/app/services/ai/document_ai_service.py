@@ -1,23 +1,36 @@
 """
 公文 AI 服務
 
-Version: 1.1.0
+Version: 1.2.0
 Created: 2026-02-04
-Updated: 2026-02-05 - 整合速率限制與快取機制
+Updated: 2026-02-05 - 新增自然語言公文搜尋功能
 
 功能:
 - 公文摘要生成 (帶快取)
 - 分類建議 (doc_type, category) (帶快取)
 - 關鍵字提取 (帶快取)
 - 機關匹配強化
+- 自然語言公文搜尋 (v1.2.0 新增)
 """
 
 import json
 import logging
 import re
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
+from sqlalchemy import and_, or_, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
 from .base_ai_service import BaseAIService
+from app.schemas.ai import (
+    ParsedSearchIntent,
+    NaturalSearchRequest,
+    AttachmentInfo,
+    DocumentSearchResult,
+    NaturalSearchResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -474,6 +487,272 @@ class DocumentAIService(BaseAIService):
 
         logger.warning(f"無法解析 JSON 回應: {response[:100]}...")
         return {}
+
+    # ========================================================================
+    # 自然語言搜尋功能 (v1.2.0 新增)
+    # ========================================================================
+
+    async def parse_search_intent(self, query: str) -> ParsedSearchIntent:
+        """
+        使用 AI 解析自然語言查詢為結構化搜尋條件
+
+        Args:
+            query: 自然語言查詢字串
+
+        Returns:
+            ParsedSearchIntent: 解析後的搜尋意圖
+        """
+        if not self.is_enabled():
+            # AI 未啟用，使用關鍵字降級
+            return ParsedSearchIntent(
+                keywords=[query],
+                confidence=0.0,
+            )
+
+        # 取得當前日期資訊供 AI 參考
+        today = datetime.now()
+        current_year = today.year
+        current_month = today.month
+        last_month_start = (today.replace(day=1) - timedelta(days=1)).replace(day=1)
+        last_month_end = today.replace(day=1) - timedelta(days=1)
+
+        system_prompt = f"""你是一個公文搜尋助手。請分析以下自然語言查詢，提取搜尋條件。
+
+當前日期：{today.strftime('%Y-%m-%d')}
+當前民國年：{current_year - 1911}年
+上個月：{last_month_start.strftime('%Y-%m-%d')} 至 {last_month_end.strftime('%Y-%m-%d')}
+
+請以 JSON 格式回應，包含以下欄位（如無法確定則為 null）：
+- keywords: 關鍵字陣列（從查詢中提取的實體名詞、專案名稱等）
+- doc_type: 公文類型 ("函"、"開會通知單"、"會勘通知單")
+- category: 收發類別 ("收文" 或 "發文")
+- sender: 發文單位（完整或部分名稱）
+- receiver: 受文單位
+- date_from: 日期起 (YYYY-MM-DD 格式)
+- date_to: 日期迄 (YYYY-MM-DD 格式)
+- status: 處理狀態 ("待處理" 或 "已完成")
+- has_deadline: 是否有截止日期要求 (true/false)
+- contract_case: 承攬案件名稱
+- confidence: 你對這次解析的信心度 (0.0-1.0)
+
+範例：
+輸入: "找桃園市政府上個月發的公文"
+輸出: {{"keywords": null, "category": "收文", "sender": "桃園市政府", "date_from": "{last_month_start.strftime('%Y-%m-%d')}", "date_to": "{last_month_end.strftime('%Y-%m-%d')}", "confidence": 0.9}}
+
+輸入: "有截止日的待處理公文"
+輸出: {{"status": "待處理", "has_deadline": true, "confidence": 0.85}}
+
+輸入: "中壢區相關的會勘通知"
+輸出: {{"keywords": ["中壢區"], "doc_type": "會勘通知單", "confidence": 0.8}}"""
+
+        user_content = f"查詢: {query}"
+
+        try:
+            # 生成快取鍵
+            cache_key = self._generate_cache_key("search_intent", query)
+
+            response = await self._call_ai_with_cache(
+                cache_key=cache_key,
+                ttl=1800,  # 30 分鐘快取
+                system_prompt=system_prompt,
+                user_content=user_content,
+                temperature=0.3,
+                max_tokens=256,
+            )
+
+            result = self._parse_json_response(response)
+
+            return ParsedSearchIntent(
+                keywords=result.get("keywords"),
+                doc_type=result.get("doc_type"),
+                category=result.get("category"),
+                sender=result.get("sender"),
+                receiver=result.get("receiver"),
+                date_from=result.get("date_from"),
+                date_to=result.get("date_to"),
+                status=result.get("status"),
+                has_deadline=result.get("has_deadline"),
+                contract_case=result.get("contract_case"),
+                confidence=float(result.get("confidence", 0.5)),
+            )
+        except RuntimeError as e:
+            logger.warning(f"解析搜尋意圖時速率限制: {e}")
+            return ParsedSearchIntent(
+                keywords=[query],
+                confidence=0.0,
+            )
+        except Exception as e:
+            logger.error(f"解析搜尋意圖失敗: {e}")
+            return ParsedSearchIntent(
+                keywords=[query],
+                confidence=0.0,
+            )
+
+    async def natural_search(
+        self,
+        db: AsyncSession,
+        request: NaturalSearchRequest,
+    ) -> NaturalSearchResponse:
+        """
+        執行自然語言公文搜尋
+
+        Args:
+            db: 資料庫 Session
+            request: 搜尋請求
+
+        Returns:
+            NaturalSearchResponse: 搜尋結果
+        """
+        from app.extended.models import OfficialDocument, DocumentAttachment, ContractProject
+
+        # 1. 解析搜尋意圖
+        parsed_intent = await self.parse_search_intent(request.query)
+        source = "ai" if parsed_intent.confidence > 0 else "fallback"
+
+        # 2. 建構查詢
+        query = select(OfficialDocument).where(OfficialDocument.is_deleted == False)
+
+        # 關鍵字搜尋
+        if parsed_intent.keywords:
+            keyword_conditions = []
+            for kw in parsed_intent.keywords:
+                keyword_conditions.append(
+                    or_(
+                        OfficialDocument.subject.ilike(f"%{kw}%"),
+                        OfficialDocument.doc_number.ilike(f"%{kw}%"),
+                        OfficialDocument.sender.ilike(f"%{kw}%"),
+                        OfficialDocument.receiver.ilike(f"%{kw}%"),
+                        OfficialDocument.content.ilike(f"%{kw}%"),
+                        OfficialDocument.ck_note.ilike(f"%{kw}%"),
+                    )
+                )
+            if keyword_conditions:
+                query = query.where(or_(*keyword_conditions))
+
+        # 公文類型
+        if parsed_intent.doc_type:
+            query = query.where(OfficialDocument.doc_type == parsed_intent.doc_type)
+
+        # 收發類別
+        if parsed_intent.category:
+            query = query.where(OfficialDocument.category == parsed_intent.category)
+
+        # 發文單位
+        if parsed_intent.sender:
+            query = query.where(OfficialDocument.sender.ilike(f"%{parsed_intent.sender}%"))
+
+        # 受文單位
+        if parsed_intent.receiver:
+            query = query.where(OfficialDocument.receiver.ilike(f"%{parsed_intent.receiver}%"))
+
+        # 日期範圍
+        if parsed_intent.date_from:
+            try:
+                date_from = datetime.strptime(parsed_intent.date_from, "%Y-%m-%d").date()
+                query = query.where(OfficialDocument.doc_date >= date_from)
+            except ValueError:
+                pass
+
+        if parsed_intent.date_to:
+            try:
+                date_to = datetime.strptime(parsed_intent.date_to, "%Y-%m-%d").date()
+                query = query.where(OfficialDocument.doc_date <= date_to)
+            except ValueError:
+                pass
+
+        # 處理狀態
+        if parsed_intent.status:
+            query = query.where(OfficialDocument.status == parsed_intent.status)
+
+        # 承攬案件
+        if parsed_intent.contract_case:
+            # 需要 join ContractProject
+            query = query.join(
+                ContractProject,
+                OfficialDocument.contract_project_id == ContractProject.id,
+                isouter=True
+            ).where(
+                ContractProject.project_name.ilike(f"%{parsed_intent.contract_case}%")
+            )
+
+        # 排序：最新更新在前
+        query = query.order_by(OfficialDocument.updated_at.desc())
+
+        # 限制結果數量
+        query = query.limit(request.max_results)
+
+        # 3. 執行查詢
+        result = await db.execute(query)
+        documents = result.scalars().all()
+
+        # 4. 取得附件資訊
+        doc_ids = [doc.id for doc in documents]
+        attachment_map: Dict[int, List[AttachmentInfo]] = {doc_id: [] for doc_id in doc_ids}
+
+        if request.include_attachments and doc_ids:
+            attachment_query = (
+                select(DocumentAttachment)
+                .where(DocumentAttachment.document_id.in_(doc_ids))
+                .order_by(DocumentAttachment.created_at)
+            )
+            attachment_result = await db.execute(attachment_query)
+            attachments = attachment_result.scalars().all()
+
+            for att in attachments:
+                if att.document_id in attachment_map:
+                    attachment_map[att.document_id].append(
+                        AttachmentInfo(
+                            id=att.id,
+                            file_name=att.file_name,
+                            original_name=att.original_name,
+                            file_size=att.file_size,
+                            mime_type=att.mime_type,
+                            created_at=att.created_at,
+                        )
+                    )
+
+        # 5. 取得專案名稱
+        project_ids = [doc.contract_project_id for doc in documents if doc.contract_project_id]
+        project_map: Dict[int, str] = {}
+        if project_ids:
+            project_query = select(ContractProject).where(ContractProject.id.in_(project_ids))
+            project_result = await db.execute(project_query)
+            for proj in project_result.scalars().all():
+                project_map[proj.id] = proj.project_name
+
+        # 6. 組裝結果
+        search_results: List[DocumentSearchResult] = []
+        for doc in documents:
+            doc_attachments = attachment_map.get(doc.id, [])
+            search_results.append(
+                DocumentSearchResult(
+                    id=doc.id,
+                    auto_serial=doc.auto_serial,
+                    doc_number=doc.doc_number,
+                    subject=doc.subject,
+                    doc_type=doc.doc_type,
+                    category=doc.category,
+                    sender=doc.sender,
+                    receiver=doc.receiver,
+                    doc_date=doc.doc_date,
+                    status=doc.status,
+                    contract_project_name=project_map.get(doc.contract_project_id) if doc.contract_project_id else None,
+                    ck_note=doc.ck_note,
+                    attachment_count=len(doc_attachments),
+                    attachments=doc_attachments,
+                    created_at=doc.created_at,
+                    updated_at=doc.updated_at,
+                )
+            )
+
+        return NaturalSearchResponse(
+            success=True,
+            query=request.query,
+            parsed_intent=parsed_intent,
+            results=search_results,
+            total=len(search_results),
+            source=source,
+        )
 
 
 # 全域服務實例

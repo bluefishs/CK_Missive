@@ -4,9 +4,9 @@
  * 提供快速存取 AI 功能的浮動按鈕
  * 使用 Portal 渲染，與主版面完全隔離
  *
- * @version 2.0.0
+ * @version 2.1.0
  * @created 2026-02-04
- * @updated 2026-02-05 - 重構為 Portal + Card 模式，移除 Drawer
+ * @updated 2026-02-05 - 新增自然語言公文搜尋功能
  * @reference CK_lvrland_Webmap FloatingAssistant 架構
  */
 
@@ -21,6 +21,7 @@ import {
   message,
   Tooltip,
   Badge,
+  Tabs,
 } from 'antd';
 import {
   RobotOutlined,
@@ -35,8 +36,10 @@ import {
   DragOutlined,
   MinusOutlined,
   ExpandOutlined,
+  SearchOutlined,
 } from '@ant-design/icons';
 import { aiApi, AIHealthStatus } from '../../api/aiApi';
+import { NaturalSearchPanel } from './NaturalSearchPanel';
 
 interface AIAssistantButtonProps {
   /** 是否顯示 */
@@ -65,6 +68,8 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
   const [isMinimized, setIsMinimized] = useState(false);
   const [healthStatus, setHealthStatus] = useState<AIHealthStatus | null>(null);
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'search' | 'tools'>('search');
+  const [searchResultCount, setSearchResultCount] = useState<number | null>(null);
 
   // 拖曳功能狀態
   const [position, setPosition] = useState({ right: 80, bottom: 100 });
@@ -292,98 +297,135 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
             },
           }}
         >
-          <Space direction="vertical" style={{ width: '100%' }} size="middle">
-            {/* 服務狀態 */}
-            <div>
-              <div style={{ fontSize: 12, color: '#666', marginBottom: 8, fontWeight: 500 }}>
-                AI 服務狀態
-              </div>
-              {loading ? (
-                <Spin indicator={<LoadingOutlined spin />} size="small" />
-              ) : healthStatus ? (
-                <Space direction="vertical" size="small" style={{ width: '100%' }}>
-                  <Space wrap>
-                    {renderStatusTag(healthStatus.groq.available, 'Groq')}
-                    {renderStatusTag(healthStatus.ollama.available, 'Ollama')}
+          <Tabs
+            activeKey={activeTab}
+            onChange={(key) => setActiveTab(key as 'search' | 'tools')}
+            size="small"
+            style={{ height: '100%' }}
+            items={[
+              {
+                key: 'search',
+                label: (
+                  <Space size={4}>
+                    <SearchOutlined />
+                    公文搜尋
+                    {searchResultCount !== null && searchResultCount > 0 && (
+                      <Badge count={searchResultCount} size="small" />
+                    )}
                   </Space>
-                  {healthStatus.rate_limit && (
-                    <div style={{ fontSize: 11, color: '#888' }}>
-                      請求: {healthStatus.rate_limit.current_requests}/{healthStatus.rate_limit.max_requests}
-                      ({healthStatus.rate_limit.window_seconds}秒)
+                ),
+                children: (
+                  <NaturalSearchPanel
+                    height={280}
+                    onSearchComplete={(count) => setSearchResultCount(count)}
+                  />
+                ),
+              },
+              {
+                key: 'tools',
+                label: (
+                  <Space size={4}>
+                    <BulbOutlined />
+                    AI 工具
+                  </Space>
+                ),
+                children: (
+                  <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                    {/* 服務狀態 */}
+                    <div>
+                      <div style={{ fontSize: 12, color: '#666', marginBottom: 8, fontWeight: 500 }}>
+                        AI 服務狀態
+                      </div>
+                      {loading ? (
+                        <Spin indicator={<LoadingOutlined spin />} size="small" />
+                      ) : healthStatus ? (
+                        <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                          <Space wrap>
+                            {renderStatusTag(healthStatus.groq.available, 'Groq')}
+                            {renderStatusTag(healthStatus.ollama.available, 'Ollama')}
+                          </Space>
+                          {healthStatus.rate_limit && (
+                            <div style={{ fontSize: 11, color: '#888' }}>
+                              請求: {healthStatus.rate_limit.current_requests}/{healthStatus.rate_limit.max_requests}
+                              ({healthStatus.rate_limit.window_seconds}秒)
+                            </div>
+                          )}
+                        </Space>
+                      ) : (
+                        <Tag>未檢查</Tag>
+                      )}
                     </div>
-                  )}
-                </Space>
-              ) : (
-                <Tag>未檢查</Tag>
-              )}
-            </div>
 
-            {/* 功能按鈕 */}
-            <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 16 }}>
-              <div style={{ fontSize: 12, color: '#666', marginBottom: 12, fontWeight: 500 }}>
-                AI 功能
-              </div>
-              <Space direction="vertical" style={{ width: '100%' }}>
-                <Button
-                  block
-                  icon={<FileTextOutlined />}
-                  onClick={() => handleFeatureClick(onSummaryClick)}
-                  disabled={!isAIAvailable}
-                  style={{ borderRadius: 8, height: 40 }}
-                >
-                  生成摘要
-                </Button>
+                    {/* 功能按鈕 */}
+                    <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 16 }}>
+                      <div style={{ fontSize: 12, color: '#666', marginBottom: 12, fontWeight: 500 }}>
+                        AI 功能
+                      </div>
+                      <Space direction="vertical" style={{ width: '100%' }}>
+                        <Button
+                          block
+                          icon={<FileTextOutlined />}
+                          onClick={() => handleFeatureClick(onSummaryClick)}
+                          disabled={!isAIAvailable}
+                          style={{ borderRadius: 8, height: 40 }}
+                        >
+                          生成摘要
+                        </Button>
 
-                <Button
-                  block
-                  icon={<TagsOutlined />}
-                  onClick={() => handleFeatureClick(onClassifyClick)}
-                  disabled={!isAIAvailable}
-                  style={{ borderRadius: 8, height: 40 }}
-                >
-                  分類建議
-                </Button>
+                        <Button
+                          block
+                          icon={<TagsOutlined />}
+                          onClick={() => handleFeatureClick(onClassifyClick)}
+                          disabled={!isAIAvailable}
+                          style={{ borderRadius: 8, height: 40 }}
+                        >
+                          分類建議
+                        </Button>
 
-                <Button
-                  block
-                  icon={<BulbOutlined />}
-                  onClick={() => handleFeatureClick(onKeywordsClick)}
-                  disabled={!isAIAvailable}
-                  style={{ borderRadius: 8, height: 40 }}
-                >
-                  提取關鍵字
-                </Button>
-              </Space>
-            </div>
+                        <Button
+                          block
+                          icon={<BulbOutlined />}
+                          onClick={() => handleFeatureClick(onKeywordsClick)}
+                          disabled={!isAIAvailable}
+                          style={{ borderRadius: 8, height: 40 }}
+                        >
+                          提取關鍵字
+                        </Button>
+                      </Space>
+                    </div>
 
-            {/* 重新檢查按鈕 */}
-            <Button
-              type="link"
-              size="small"
-              icon={<ReloadOutlined />}
-              onClick={checkHealth}
-              loading={loading}
-              style={{ padding: 0 }}
-            >
-              重新檢查服務狀態
-            </Button>
+                    {/* 重新檢查按鈕 */}
+                    <Button
+                      type="link"
+                      size="small"
+                      icon={<ReloadOutlined />}
+                      onClick={checkHealth}
+                      loading={loading}
+                      style={{ padding: 0 }}
+                    >
+                      重新檢查服務狀態
+                    </Button>
 
-            {/* 提示訊息 */}
-            {!isAIAvailable && healthStatus && (
-              <div
-                style={{
-                  fontSize: 12,
-                  color: '#ff4d4f',
-                  background: '#fff2f0',
-                  padding: 12,
-                  borderRadius: 8,
-                  border: '1px solid #ffccc7',
-                }}
-              >
-                AI 服務目前不可用，請稍後再試
-              </div>
-            )}
-          </Space>
+                    {/* 提示訊息 */}
+                    {!isAIAvailable && healthStatus && (
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: '#ff4d4f',
+                          background: '#fff2f0',
+                          padding: 12,
+                          borderRadius: 8,
+                          border: '1px solid #ffccc7',
+                        }}
+                      >
+                        AI 服務目前不可用，請稍後再試
+                      </div>
+                    )}
+                  </Space>
+                ),
+              },
+            ]}
+          />
         </Card>
       )}
     </>

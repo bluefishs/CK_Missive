@@ -1,13 +1,15 @@
 """
 公文 AI API 端點
 
-Version: 1.0.0
+Version: 1.1.0
 Created: 2026-02-04
+Updated: 2026-02-05 - 新增自然語言公文搜尋端點
 
 端點:
 - POST /ai/document/summary - 生成公文摘要
 - POST /ai/document/classify - 分類建議
 - POST /ai/document/keywords - 關鍵字提取
+- POST /ai/document/natural-search - 自然語言公文搜尋 (v1.1.0 新增)
 - POST /ai/agency/match - AI 機關匹配
 - GET /ai/health - AI 服務健康檢查
 """
@@ -17,12 +19,18 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.dependencies import get_async_db
 from app.services.ai.document_ai_service import (
     DocumentAIService,
     get_document_ai_service,
 )
 from app.services.ai.ai_config import get_ai_config
+from app.schemas.ai import (
+    NaturalSearchRequest,
+    NaturalSearchResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -205,6 +213,42 @@ async def extract_keywords(
     )
 
     return KeywordsResponse(**result)
+
+
+@router.post("/document/natural-search", response_model=NaturalSearchResponse)
+async def natural_search_documents(
+    request: NaturalSearchRequest,
+    db: AsyncSession = Depends(get_async_db),
+    service: DocumentAIService = Depends(get_document_ai_service),
+) -> NaturalSearchResponse:
+    """
+    自然語言公文搜尋
+
+    使用 AI 解析自然語言查詢，搜尋相關公文並返回結果（含附件資訊）。
+
+    範例查詢:
+    - "找桃園市政府上個月的公文"
+    - "有截止日的待處理公文"
+    - "中壢區相關的會勘通知"
+    """
+    logger.info(f"自然語言搜尋: {request.query[:50]}...")
+
+    try:
+        result = await service.natural_search(db=db, request=request)
+        return result
+    except Exception as e:
+        logger.error(f"自然語言搜尋失敗: {e}")
+        # 返回降級回應
+        from app.schemas.ai import ParsedSearchIntent
+        return NaturalSearchResponse(
+            success=False,
+            query=request.query,
+            parsed_intent=ParsedSearchIntent(keywords=[request.query], confidence=0.0),
+            results=[],
+            total=0,
+            source="error",
+            error=str(e),
+        )
 
 
 @router.post("/agency/match", response_model=AgencyMatchResponse)
