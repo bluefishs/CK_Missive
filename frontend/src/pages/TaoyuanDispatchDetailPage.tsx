@@ -139,16 +139,21 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
   );
 
   // 搜尋可關聯的公文 (僅限桃園派工相關公文)
+  // 根據 selectedLinkType 過濾：
+  // - agency_incoming: 只顯示機關公文（排除「乾坤」開頭）
+  // - company_outgoing: 只顯示「乾坤」開頭的公文
   const { data: searchedDocsResult, isLoading: searchingDocs } = useQuery({
-    queryKey: ['documents-for-dispatch-link', docSearchKeyword, linkedDocIds],
+    queryKey: ['documents-for-dispatch-link', docSearchKeyword, linkedDocIds, selectedLinkType],
     queryFn: async () => {
       if (!docSearchKeyword.trim()) return { items: [] };
       // 使用專用 API 搜尋桃園派工相關公文 (contract_project_id = 21)
       // 後端已自動排除 exclude_document_ids 中的公文
+      // 傳遞 link_type 過濾公文字號前綴
       return dispatchOrdersApi.searchLinkableDocuments(
         docSearchKeyword,
         20,
-        linkedDocIds.length > 0 ? linkedDocIds : undefined
+        linkedDocIds.length > 0 ? linkedDocIds : undefined,
+        selectedLinkType
       );
     },
     enabled: !!docSearchKeyword.trim(),
@@ -563,8 +568,29 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
         (syncedAmounts.work_07_amount || 0);
 
       if (calculatedCurrentAmount > 0 || paymentData?.id) {
+        // 日期欄位需要從 dayjs 轉換為字串格式
+        const formatDateField = (dateValue: unknown): string | undefined => {
+          if (!dateValue) return undefined;
+          // dayjs 物件轉字串
+          if (typeof dateValue === 'object' && dateValue !== null && 'format' in dateValue) {
+            return (dateValue as { format: (fmt: string) => string }).format('YYYY-MM-DD');
+          }
+          // 已經是字串
+          if (typeof dateValue === 'string') return dateValue;
+          return undefined;
+        };
+
         const paymentValues: ContractPaymentCreate = {
           dispatch_order_id: parseInt(id || '0', 10),
+          // 日期欄位 - 只保留對應作業類別的日期
+          work_01_date: workTypeCodes.includes('01') ? formatDateField(values.work_01_date) : undefined,
+          work_02_date: workTypeCodes.includes('02') ? formatDateField(values.work_02_date) : undefined,
+          work_03_date: workTypeCodes.includes('03') ? formatDateField(values.work_03_date) : undefined,
+          work_04_date: workTypeCodes.includes('04') ? formatDateField(values.work_04_date) : undefined,
+          work_05_date: workTypeCodes.includes('05') ? formatDateField(values.work_05_date) : undefined,
+          work_06_date: workTypeCodes.includes('06') ? formatDateField(values.work_06_date) : undefined,
+          work_07_date: workTypeCodes.includes('07') ? formatDateField(values.work_07_date) : undefined,
+          // 金額欄位
           work_01_amount: syncedAmounts.work_01_amount,
           work_02_amount: syncedAmounts.work_02_amount,
           work_03_amount: syncedAmounts.work_03_amount,

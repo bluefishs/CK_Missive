@@ -33,6 +33,7 @@ class SearchLinkableDocumentsRequest(BaseModel):
     keyword: str
     limit: int = 20
     exclude_document_ids: Optional[List[int]] = None
+    link_type: Optional[str] = None  # 'agency_incoming' | 'company_outgoing'
 
 router = APIRouter()
 
@@ -51,6 +52,9 @@ async def search_linkable_documents(
 
     此 API 專門用於派工單公文關聯，只回傳：
     - contract_project_id = 21 (桃園查估派工專案) 的公文
+    - 根據 link_type 過濾公文字號前綴：
+      - agency_incoming: 桃工用字第、桃工、府工、府養 等政府機關字號
+      - company_outgoing: 乾坤 開頭的公司發文
 
     搜尋範圍：
     - 公文字號 (doc_number)
@@ -60,6 +64,7 @@ async def search_linkable_documents(
         keyword: 搜尋關鍵字
         limit: 回傳筆數上限 (預設 20)
         exclude_document_ids: 排除的公文 ID 列表 (已關聯的公文)
+        link_type: 關聯類型 ('agency_incoming' | 'company_outgoing')
 
     Returns:
         符合條件的公文列表
@@ -79,6 +84,19 @@ async def search_linkable_documents(
             )
         )
     )
+
+    # 根據 link_type 過濾公文字號前綴
+    if request.link_type == 'agency_incoming':
+        # 機關來函：排除「乾坤」開頭的公文
+        query = query.where(
+            or_(
+                Document.doc_number.is_(None),
+                ~Document.doc_number.startswith('乾坤')
+            )
+        )
+    elif request.link_type == 'company_outgoing':
+        # 乾坤發文：只顯示「乾坤」開頭的公文
+        query = query.where(Document.doc_number.startswith('乾坤'))
 
     # 排除已關聯的公文
     if request.exclude_document_ids:

@@ -42,16 +42,41 @@ const { Text } = Typography;
 
 /**
  * 根據公文字號自動判斷關聯類型
- * - 以「乾坤」開頭的公文 -> 乾坤發文 (company_outgoing)
- * - 其他 -> 機關來函 (agency_incoming)
+ *
+ * 分類規則：
+ * - 「乾坤」開頭 (乾坤測字、乾坤估字等) -> 乾坤發文 (company_outgoing)
+ * - 「桃工用字第」、「桃工用字」、「桃工」開頭 -> 機關來函 (agency_incoming)
+ * - 其他政府機關字號 (府工、府養等) -> 機關來函 (agency_incoming)
+ * - 無法識別 -> 預設為機關來函 (agency_incoming)
  */
 const detectLinkType = (docNumber?: string): LinkType => {
   if (!docNumber) return 'agency_incoming';
-  // 「乾坤」開頭表示公司發文
+
+  // 「乾坤」開頭表示公司發文（乾坤測字、乾坤估字等）
   if (docNumber.startsWith('乾坤')) {
     return 'company_outgoing';
   }
-  // 其他都是機關來函
+
+  // 桃園市政府工務局相關字號 -> 機關來函
+  if (
+    docNumber.startsWith('桃工用字第') ||
+    docNumber.startsWith('桃工用字') ||
+    docNumber.startsWith('桃工') ||
+    docNumber.startsWith('府工') ||
+    docNumber.startsWith('府養')
+  ) {
+    return 'agency_incoming';
+  }
+
+  // 其他政府機關常見前綴 -> 機關來函
+  const agencyPrefixes = ['府', '市', '局', '處', '科', '課', '股'];
+  for (const prefix of agencyPrefixes) {
+    if (docNumber.startsWith(prefix)) {
+      return 'agency_incoming';
+    }
+  }
+
+  // 預設為機關來函
   return 'agency_incoming';
 };
 

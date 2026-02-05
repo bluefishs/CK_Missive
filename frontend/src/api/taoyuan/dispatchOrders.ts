@@ -112,11 +112,15 @@ export const dispatchOrdersApi = {
    * @param keyword 搜尋關鍵字（公文字號或主旨）
    * @param limit 回傳筆數上限
    * @param excludeDocumentIds 排除的公文 ID 列表（已關聯的公文）
+   * @param linkType 關聯類型 ('agency_incoming' | 'company_outgoing')
+   *                 - agency_incoming: 只顯示機關公文（排除「乾坤」開頭）
+   *                 - company_outgoing: 只顯示「乾坤」開頭的公文
    */
   async searchLinkableDocuments(
     keyword: string,
     limit = 20,
-    excludeDocumentIds?: number[]
+    excludeDocumentIds?: number[],
+    linkType?: 'agency_incoming' | 'company_outgoing'
   ): Promise<{
     success: boolean;
     items: Array<{
@@ -136,6 +140,7 @@ export const dispatchOrdersApi = {
         keyword,
         limit,
         exclude_document_ids: excludeDocumentIds,
+        link_type: linkType,
       }
     );
   },
