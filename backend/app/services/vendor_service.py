@@ -3,6 +3,11 @@
 
 使用泛型基類減少重複代碼，提供統一的資料庫操作介面。
 
+.. deprecated:: 1.42.0
+   Singleton 模式（db 在每個方法中傳入）將在 v2.0 棄用。
+   新開發請使用工廠模式（db 在建構函數注入）。
+   參見：docs/SERVICE_ARCHITECTURE_STANDARDS.md
+
 v2.1.0 (2026-01-22): 重構使用 BaseService 新方法
 - get_vendors_with_search → 使用 get_list_with_search
 - get_total_with_search → 使用 get_count_with_search

@@ -1,6 +1,11 @@
 """
 Service layer for Contract Project operations
 
+.. deprecated:: 1.42.0
+   Singleton 模式（db 在每個方法中傳入）將在 v2.0 棄用。
+   新開發請使用工廠模式（db 在建構函數注入）。
+   參見：docs/SERVICE_ARCHITECTURE_STANDARDS.md
+
 v3.1 - 2026-01-22
 - 重構: 選項查詢方法改用 BaseService.get_distinct_options
 - 減少 ~40 行重複代碼

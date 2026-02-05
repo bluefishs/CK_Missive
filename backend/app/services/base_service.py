@@ -2,8 +2,25 @@
 Base Service - 提供 CRUD 操作的基礎類別
 
 使用泛型支援不同的 Model 和 Schema 類型，減少重複代碼。
+
+.. deprecated:: 1.42.0
+   Singleton 模式（db 在每個方法中傳入）將在 v2.0 棄用。
+   新開發請使用工廠模式（db 在建構函數注入）。
+   參見：docs/SERVICE_ARCHITECTURE_STANDARDS.md
+
+遷移指南：
+    # 舊模式（棄用）
+    class MyService(BaseService):
+        async def my_method(self, db: AsyncSession): ...
+
+    # 新模式（推薦）
+    class MyServiceV2:
+        def __init__(self, db: AsyncSession):
+            self.db = db
+        async def my_method(self): ...
 """
 import logging
+import warnings
 from typing import TypeVar, Generic, Optional, List, Dict, Any, Type, Callable, Union
 from functools import wraps
 from sqlalchemy.ext.asyncio import AsyncSession

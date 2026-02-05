@@ -2,8 +2,8 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.41.0
-> **最後更新**: 2026-02-05
+> **Claude Code 配置版本**: 1.42.0
+> **最後更新**: 2026-02-06
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers), [everything-claude-code](https://github.com/affaan-m/everything-claude-code)
 
 ---
@@ -753,6 +753,59 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 ---
 
 ## 📋 版本更新記錄
+
+### v1.42.0 (2026-02-06) - 服務層架構優化與規範建立
+
+**架構文件** 📚:
+- 新增 `docs/SERVICE_ARCHITECTURE_STANDARDS.md` - 完整服務層架構規範
+- 新增 `frontend/src/hooks/README.md` - 前端 Hook 分層規範
+- 新增 `frontend/src/api/README.md` - API 服務層規範
+
+**後端優化** ⚙️:
+| 項目 | 說明 |
+|------|------|
+| Singleton 模式標記棄用 | `base_service.py` + 所有繼承服務添加 `@deprecated` |
+| Query Builder 模式 | 新增 `DocumentQueryBuilder` 流暢介面查詢 |
+| AI 自然語言搜尋 | 新增 `/ai/document/natural-search` API |
+
+**新增 Query Builder**:
+```python
+# 流暢介面查詢
+documents = await (
+    DocumentQueryBuilder(db)
+    .with_status("待處理")
+    .with_date_range(start_date, end_date)
+    .with_keyword("桃園")
+    .paginate(page=1, page_size=20)
+    .execute()
+)
+```
+
+**前端優化** 🎨:
+| 項目 | 說明 |
+|------|------|
+| AI 元件配置集中化 | `AISummaryPanel`, `AIClassifyPanel` 使用 `aiConfig.ts` |
+| 自然語言搜尋面板 | 新增 `NaturalSearchPanel.tsx` |
+| AI 助理整合搜尋功能 | `AIAssistantButton` 新增「公文搜尋」Tab |
+
+**新增檔案**:
+- `backend/app/repositories/query_builders/` - Query Builder 模組
+- `backend/app/schemas/ai.py` - AI Schema 定義
+- `frontend/src/components/ai/NaturalSearchPanel.tsx` - 搜尋面板
+
+**修改檔案**:
+- `backend/app/services/base_service.py` - 新增 deprecated 標記
+- `backend/app/services/vendor_service.py` - 新增 deprecated 標記
+- `backend/app/services/agency_service.py` - 新增 deprecated 標記
+- `backend/app/services/project_service.py` - 新增 deprecated 標記
+- `backend/app/services/ai/document_ai_service.py` - v1.2.0 新增自然語言搜尋
+- `frontend/src/components/ai/AISummaryPanel.tsx` - 使用集中配置
+- `frontend/src/components/ai/AIClassifyPanel.tsx` - 使用集中配置
+- `frontend/src/components/ai/AIAssistantButton.tsx` - v2.1.0 整合搜尋
+
+**系統健康度**: 9.8/10 → **9.9/10**
+
+---
 
 ### v1.41.0 (2026-02-05) - 派工安排 work_type 欄位修復
 

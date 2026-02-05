@@ -17,6 +17,7 @@ import {
   ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import { aiApi, SummaryResponse } from '../../api/aiApi';
+import { AI_CONFIG, getAISourceColor, getAISourceLabel } from '../../config/aiConfig';
 
 const { Paragraph, Text } = Typography;
 
@@ -44,7 +45,7 @@ export const AISummaryPanel: React.FC<AISummaryPanelProps> = ({
   subject,
   content,
   sender,
-  maxLength = 100,
+  maxLength = AI_CONFIG.summary.defaultMaxLength,
   showCard = true,
   style,
 }) => {
@@ -112,18 +113,11 @@ export const AISummaryPanel: React.FC<AISummaryPanelProps> = ({
     return null;
   };
 
-  // 渲染來源標籤
+  // 渲染來源標籤 (使用集中配置)
   const renderSourceTag = (source: string) => {
-    switch (source) {
-      case 'ai':
-        return <Tag color="blue">AI 生成</Tag>;
-      case 'fallback':
-        return <Tag color="orange">預設回應</Tag>;
-      case 'disabled':
-        return <Tag color="default">未啟用</Tag>;
-      default:
-        return null;
-    }
+    const label = getAISourceLabel(source as 'ai' | 'fallback' | 'disabled' | 'rate_limited');
+    const color = getAISourceColor(source as 'ai' | 'fallback' | 'disabled' | 'rate_limited');
+    return <Tag color={color}>{label}</Tag>;
   };
 
   // 面板內容

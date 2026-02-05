@@ -17,6 +17,7 @@ import {
   InfoCircleOutlined,
 } from '@ant-design/icons';
 import { aiApi, ClassifyResponse } from '../../api/aiApi';
+import { AI_CONFIG, getAISourceColor, getAISourceLabel, AISource } from '../../config/aiConfig';
 
 const { Text } = Typography;
 
@@ -87,18 +88,19 @@ export const AIClassifyPanel: React.FC<AIClassifyPanelProps> = ({
     }
   }, [result, onSelect]);
 
-  // 渲染信心度指示器
+  // 渲染信心度指示器 (使用集中配置閾值)
   const renderConfidence = (confidence: number, label: string) => {
+    const threshold = AI_CONFIG.classify.confidenceThreshold;
     let color = 'default';
     let icon = <InfoCircleOutlined />;
 
-    if (confidence >= 0.8) {
+    if (confidence >= threshold + 0.1) {  // 高信心度: 閾值 + 10%
       color = 'success';
       icon = <CheckCircleOutlined />;
-    } else if (confidence >= 0.5) {
+    } else if (confidence >= threshold) {  // 中信心度: 達到閾值
       color = 'warning';
       icon = <ExclamationCircleOutlined />;
-    } else if (confidence > 0) {
+    } else if (confidence > 0) {  // 低信心度: 低於閾值
       color = 'error';
       icon = <ExclamationCircleOutlined />;
     }
@@ -164,11 +166,11 @@ export const AIClassifyPanel: React.FC<AIClassifyPanelProps> = ({
             )}
           </Descriptions>
 
-          {/* 來源標籤 */}
+          {/* 來源標籤 (使用集中配置) */}
           <div style={{ marginTop: 8 }}>
-            {result.source === 'ai' && <Tag color="blue">AI 分析</Tag>}
-            {result.source === 'fallback' && <Tag color="orange">預設分類</Tag>}
-            {result.source === 'disabled' && <Tag color="default">未啟用</Tag>}
+            <Tag color={getAISourceColor(result.source as AISource)}>
+              {getAISourceLabel(result.source as AISource)}
+            </Tag>
           </div>
 
           {result.error && (
