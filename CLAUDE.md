@@ -2,7 +2,7 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.40.0
+> **Claude Code 配置版本**: 1.41.0
 > **最後更新**: 2026-02-05
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers), [everything-claude-code](https://github.com/affaan-m/everything-claude-code)
 
@@ -753,6 +753,41 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 ---
 
 ## 📋 版本更新記錄
+
+### v1.41.0 (2026-02-05) - 派工安排 work_type 欄位修復
+
+**Bug 修復** 🐛:
+- 修復公文詳情頁新增派工時 `work_type` 欄位傳遞格式錯誤
+
+**問題根因**:
+| 項目 | 說明 |
+|------|------|
+| 欄位 | `work_type`（作業類別） |
+| 表單型態 | 多選 Select (`mode="multiple"`)，返回 `string[]` |
+| 後端期望 | 逗號分隔字符串，如 `"鑑價, 複估"` |
+| 錯誤行為 | `DocumentDetailPage.tsx` 直接傳遞數組 |
+
+**修復內容**:
+```typescript
+// 修復前（錯誤）
+work_type: formValues.work_type as string | undefined,
+
+// 修復後（正確）
+const workTypeString = Array.isArray(formValues.work_type)
+  ? formValues.work_type.join(', ')
+  : formValues.work_type as string | undefined;
+```
+
+**一致性對齊**:
+- 與 `TaoyuanDispatchCreatePage.tsx` 保持一致
+- 與 `TaoyuanDispatchDetailPage.tsx` 保持一致
+
+**修改檔案**:
+- `frontend/src/pages/DocumentDetailPage.tsx` - 新增 work_type 數組轉字符串邏輯
+
+**系統健康度**: 9.8/10 (維持)
+
+---
 
 ### v1.40.0 (2026-02-05) - AI 助手 Portal 架構重構
 
