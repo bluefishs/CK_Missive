@@ -589,10 +589,15 @@ export const DocumentDetailPage: React.FC = () => {
         category: document?.category,
       });
 
+      // work_type 是多選欄位，需轉換為逗號分隔字符串
+      const workTypeString = Array.isArray(formValues.work_type)
+        ? formValues.work_type.join(', ')
+        : formValues.work_type as string | undefined;
+
       const dispatchData: DispatchOrderCreate = {
         dispatch_no: formValues.dispatch_no as string,
         project_name: (formValues.project_name as string) || document?.subject || '',
-        work_type: formValues.work_type as string | undefined,
+        work_type: workTypeString,
         sub_case_name: formValues.sub_case_name as string | undefined,
         deadline: formValues.deadline as string | undefined,
         case_handler: formValues.case_handler as string | undefined,
