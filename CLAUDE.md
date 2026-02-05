@@ -2,7 +2,7 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.42.0
+> **Claude Code 配置版本**: 1.43.0
 > **最後更新**: 2026-02-06
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers), [everything-claude-code](https://github.com/affaan-m/everything-claude-code)
 
@@ -753,6 +753,62 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 ---
 
 ## 📋 版本更新記錄
+
+### v1.43.0 (2026-02-06) - Phase 2 架構優化：Query Builder 擴展
+
+**Query Builder 擴展** 🏗️:
+| 新增 Builder | 說明 |
+|--------------|------|
+| `ProjectQueryBuilder` | 專案查詢建構器，支援 RLS 權限控制 |
+| `AgencyQueryBuilder` | 機關查詢建構器，含智慧匹配功能 |
+
+**ProjectQueryBuilder 方法**:
+- `with_status()`, `with_statuses()` - 狀態篩選
+- `with_year()`, `with_years()` - 年度篩選
+- `with_user_access()` - RLS 權限控制
+- `with_vendor_id()` - 廠商關聯篩選
+- `with_keyword()` - 關鍵字搜尋
+
+**AgencyQueryBuilder 方法**:
+- `with_type()`, `with_types()` - 機關類型篩選
+- `with_keyword()` - 關鍵字搜尋（名稱、簡稱、代碼）
+- `with_has_documents()` - 有關聯公文的機關
+- `match_by_name()` - 智慧模糊匹配
+
+**工廠模式服務示範** 🔧:
+- 新增 `VendorServiceV2` 作為工廠模式參考實作
+- db 在建構函數注入，非每個方法傳入
+- 整合 `VendorRepository` 進行資料存取
+
+**使用範例**:
+```python
+# 專案查詢
+projects = await (
+    ProjectQueryBuilder(db)
+    .with_status("進行中")
+    .with_year(2026)
+    .with_user_access(user_id)
+    .execute()
+)
+
+# 機關查詢
+agencies = await (
+    AgencyQueryBuilder(db)
+    .with_type("市政府")
+    .with_has_documents()
+    .order_by_name()
+    .execute()
+)
+```
+
+**新增檔案**:
+- `backend/app/repositories/query_builders/project_query_builder.py` (282 行)
+- `backend/app/repositories/query_builders/agency_query_builder.py` (313 行)
+- `backend/app/services/vendor_service_v2.py` (364 行)
+
+**系統健康度**: 9.9/10 (維持)
+
+---
 
 ### v1.42.0 (2026-02-06) - 服務層架構優化與規範建立
 
