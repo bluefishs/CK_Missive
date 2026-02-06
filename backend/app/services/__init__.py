@@ -15,7 +15,6 @@
 """
 
 # 基礎服務
-from .base_service import BaseService
 from .base.unit_of_work import UnitOfWork, get_uow, unit_of_work
 
 # 匯入基礎服務與回應結構
@@ -66,7 +65,6 @@ from .navigation_service import NavigationService, navigation_service
 
 __all__ = [
     # 基礎架構
-    "BaseService",
     "UnitOfWork",
     "get_uow",
     "unit_of_work",

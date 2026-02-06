@@ -81,17 +81,18 @@ class TestGetServiceWithDb:
         assert instance.db is mock_db
 
 
-class TestSingletonServices:
-    """測試 Singleton 模式的 Service 取得函數"""
+class TestFactoryServices:
+    """測試工廠模式的 Service 取得函數"""
 
-    def test_get_vendor_service_factory_creates_instance(self):
+    def test_get_vendor_service_via_get_service(self):
         """測試 VendorService 工廠模式，每次建立新實例"""
-        from app.core.dependencies import get_vendor_service_factory
-        from unittest.mock import MagicMock
+        from app.core.dependencies import get_service
+        from app.services.vendor_service import VendorService
 
+        factory = get_service(VendorService)
         mock_db = MagicMock()
-        service1 = get_vendor_service_factory(db=mock_db)
-        service2 = get_vendor_service_factory(db=mock_db)
+        service1 = factory(db=mock_db)
+        service2 = factory(db=mock_db)
 
         # 工廠模式每次建立新實例
         assert service1 is not service2
@@ -316,10 +317,10 @@ class TestRequirePermissionDependency:
 
 
 class TestServiceFactoryAlias:
-    """測試 Service 工廠函數別名"""
+    """測試 Service 工廠函數 (已移除 get_service_factory 別名)"""
 
-    def test_get_service_factory_is_alias(self):
-        """測試 get_service_factory 是 get_service_with_db 的別名"""
-        from app.core.dependencies import get_service_factory, get_service_with_db
+    def test_get_service_with_db_exists(self):
+        """測試 get_service_with_db 存在且可呼叫"""
+        from app.core.dependencies import get_service_with_db
 
-        assert get_service_factory is get_service_with_db
+        assert callable(get_service_with_db)

@@ -8,26 +8,9 @@
 依賴注入模式說明
 ================
 
-模式 1：Singleton 模式（舊版，向後相容）
------------------------------------------
-Service 無狀態，db session 作為方法參數傳遞。
-適用於繼承 BaseService 的簡單 CRUD 服務。
-
-    @lru_cache()
-    def get_vendor_service() -> VendorService:
-        return VendorService()
-
-    @router.get("/vendors")
-    async def list_vendors(
-        vendor_service: VendorService = Depends(get_vendor_service),
-        db: AsyncSession = Depends(get_async_db)
-    ):
-        return await vendor_service.get_vendors(db, ...)
-
-模式 2：工廠模式（推薦，新開發使用）
+工廠模式（所有服務統一使用）
 -------------------------------------
 Service 在建構時接收 db session，方法簽名更簡潔。
-適用於需要事務管理或複雜業務邏輯的服務。
 
     def get_service(service_class: Type[T]) -> Callable[[AsyncSession], T]:
         def _get_service(db: AsyncSession = Depends(get_async_db)) -> T:
@@ -103,10 +86,8 @@ from app.services.agency_service import AgencyService
 from app.services.document_service import DocumentService
 
 
-# VendorService 已升級為工廠模式 (v2.0.0)
-# ProjectService 已升級為工廠模式 (v4.0.0)
-# AgencyService 已升級為工廠模式 (v3.0.0)
-# 使用 get_service(ServiceClass) 或對應的 _factory 變體
+# 所有服務已統一使用工廠模式
+# 使用 get_service_with_db(ServiceClass) 或對應的具名依賴函數
 
 
 def get_project_service(db: AsyncSession = Depends(get_async_db)) -> ProjectService:
@@ -132,11 +113,8 @@ def get_agency_service(db: AsyncSession = Depends(get_async_db)) -> AgencyServic
 # 注意：DocumentService 需要 db 參數，使用 get_service_with_db 工廠模式
 # 在 documents/common.py 中定義: get_document_service = get_service_with_db(DocumentService)
 
-# 工廠模式變體（推薦用於新端點）
+# 工廠模式：使用 get_service(ServiceClass) 或 get_service_with_db(ServiceClass)
 # 每個請求建立新實例，db session 在建構時注入
-get_vendor_service_factory = get_service(VendorService)
-get_project_service_factory = get_service(ProjectService)
-get_agency_service_factory = get_service(AgencyService)
 
 
 # ============================================================================
@@ -359,7 +337,3 @@ def get_service_with_db(service_class: Type[T]) -> Callable[[AsyncSession], T]:
     def _get_service(db: AsyncSession = Depends(get_async_db)) -> T:
         return service_class(db)
     return _get_service
-
-
-# 別名，與 get_service 功能相同但命名更明確
-get_service_factory = get_service_with_db
