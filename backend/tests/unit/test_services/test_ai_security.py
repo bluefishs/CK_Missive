@@ -233,6 +233,7 @@ class TestNaturalSearchRLS:
             mock_qb_instance.order_by.return_value = mock_qb_instance
             mock_qb_instance.limit.return_value = mock_qb_instance
             mock_qb_instance.execute = AsyncMock(return_value=[])
+            mock_qb_instance.execute_with_count = AsyncMock(return_value=([], 0))
             MockQB.return_value = mock_qb_instance
 
             await service.natural_search(
@@ -263,6 +264,7 @@ class TestNaturalSearchRLS:
             mock_qb_instance.order_by.return_value = mock_qb_instance
             mock_qb_instance.limit.return_value = mock_qb_instance
             mock_qb_instance.execute = AsyncMock(return_value=[])
+            mock_qb_instance.execute_with_count = AsyncMock(return_value=([], 0))
             MockQB.return_value = mock_qb_instance
 
             await service.natural_search(
@@ -288,6 +290,7 @@ class TestNaturalSearchRLS:
             mock_qb_instance.order_by.return_value = mock_qb_instance
             mock_qb_instance.limit.return_value = mock_qb_instance
             mock_qb_instance.execute = AsyncMock(return_value=[])
+            mock_qb_instance.execute_with_count = AsyncMock(return_value=([], 0))
             MockQB.return_value = mock_qb_instance
 
             await service.natural_search(
@@ -318,6 +321,7 @@ class TestNaturalSearchRLS:
             mock_qb_instance.order_by.return_value = mock_qb_instance
             mock_qb_instance.limit.return_value = mock_qb_instance
             mock_qb_instance.execute = AsyncMock(return_value=[])
+            mock_qb_instance.execute_with_count = AsyncMock(return_value=([], 0))
             MockQB.return_value = mock_qb_instance
 
             await service.natural_search(
