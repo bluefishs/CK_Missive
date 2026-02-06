@@ -7,7 +7,7 @@
   "skills": {
     "inherit": [
       ".claude/skills/_shared/shared",
-      ".claude/skills/_shared/backend"
+      ".claude/skills/_shared/react"
     ]
   },
   "commands": {

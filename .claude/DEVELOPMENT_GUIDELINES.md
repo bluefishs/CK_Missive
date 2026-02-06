@@ -8,26 +8,32 @@
 ## 🛠️ 自動化架構維護機制
 
 ### 1. 結構驗證工具
-**Python 驗證器**: `claude_plant/development_tools/validation/validate_structure.py`
+
+**Skills 同步檢查腳本**:
+```powershell
+# Windows (PowerShell) - 檢查 42 項配置
+powershell -File scripts/skills-sync-check.ps1
+```
 ```bash
-# 執行結構檢查
-python claude_plant/development_tools/validation/validate_structure.py
+# Linux/macOS (Bash)
+bash scripts/skills-sync-check.sh
 ```
 
-**PowerShell 驗證器**: `claude_plant/development_tools/scripts/structure_check.ps1`
+**前後端路由一致性**:
 ```powershell
-# 僅檢查
-.\claude_plant\development_tools\scripts\structure_check.ps1
+powershell -File .claude/hooks/route-sync-check.ps1
+```
 
-# 檢查並自動修復
-.\claude_plant\development_tools\scripts\structure_check.ps1 -Fix
+**API 序列化檢查**:
+```powershell
+powershell -File .claude/hooks/api-serialization-check.ps1
 ```
 
 ### 2. 開發前檢查流程
 每次開始開發或添加新文件前：
 
-1. **閱讀架構規範**: 查看 `STRUCTURE.md`
-2. **執行結構檢查**: 運行驗證工具確認當前狀態
+1. **執行 `/pre-dev-check`**: Claude Code 中輸入此指令
+2. **閱讀強制檢查清單**: 查看 `.claude/MANDATORY_CHECKLIST.md`
 3. **按規範放置文件**: 新文件必須放在正確位置
 4. **提交前再檢查**: 確保沒有違反架構規範
 
@@ -35,12 +41,10 @@ python claude_plant/development_tools/validation/validate_structure.py
 
 ```
 新增文件時請問自己：
-├─ 是測試文件？ → claude_plant/development_tools/tests/
-├─ 是腳本工具？ → claude_plant/development_tools/scripts/
-├─ 是部署相關？ → claude_plant/development_tools/deployment/
-├─ 是維護工具？ → claude_plant/development_tools/maintenance/
-├─ 是備份文件？ → claude_plant/development_tools/backup/
-├─ 是開發文檔？ → claude_plant/development_tools/docs/
+├─ 是後端測試？ → backend/tests/
+├─ 是腳本工具？ → scripts/
+├─ 是部署相關？ → .github/workflows/ 或 docker-compose
+├─ 是文件？ → docs/
 ├─ 是核心後端代碼？ → backend/app/
 └─ 是前端代碼？ → frontend/src/
 ```
@@ -71,7 +75,7 @@ python claude_plant/development_tools/validation/validate_structure.py
    - 編譯失敗 → 自行修復後重新檢測
 
 ### 提交代碼前：
-- [ ] 執行 `validate_structure.py` 檢查
+- [ ] 執行 `scripts/skills-sync-check.ps1` 驗證配置同步
 - [ ] 確保沒有在禁止位置添加文件
 - [ ] 確認 backend/ 目錄保持純淨
 - [ ] 檢查是否有臨時或測試文件留在不當位置
@@ -86,7 +90,7 @@ python claude_plant/development_tools/validation/validate_structure.py
 
 ### 1. Backend 目錄污染
 **問題**: 在 backend/ 中添加測試或工具文件
-**解決**: 移動到 `claude_plant/development_tools/` 對應子目錄
+**解決**: 測試放 `backend/tests/`，工具放 `scripts/`
 
 ### 2. 根目錄雜亂
 **問題**: 在專案根目錄添加臨時文件
@@ -94,47 +98,32 @@ python claude_plant/development_tools/validation/validate_structure.py
 
 ### 3. 開發工具散落
 **問題**: 腳本和工具分散在各處
-**解決**: 統一歸類到 `claude_plant/development_tools/`
+**解決**: 統一歸類到 `scripts/` 目錄
 
 ## 🔧 自動化集成
 
-### Git Hooks (建議)
-在 `.git/hooks/pre-commit` 中添加：
-```bash
-#!/bin/sh
-echo "🔍 檢查專案結構..."
-python claude_plant/development_tools/validation/validate_structure.py
-if [ $? -ne 0 ]; then
-    echo "❌ 專案結構檢查失敗，請修正後再提交"
-    exit 1
-fi
-```
-
 ### CI/CD 集成
-在 CI 流程中添加結構檢查步驟：
-```yaml
-- name: Validate Project Structure
-  run: python claude_plant/development_tools/validation/validate_structure.py
-```
+專案已整合 GitHub Actions CI 流程（`.github/workflows/ci.yml`），包含：
+- Skills 同步檢查、前後端編譯、安全掃描、測試覆蓋率等
 
 ## 📚 學習資源
 
-1. **架構規範**: `STRUCTURE.md` - 完整的目錄結構說明
-2. **驗證工具**: `validate_structure.py` - 自動化檢查腳本
-3. **修復腳本**: `structure_check.ps1` - PowerShell 自動修復工具
+1. **強制檢查清單**: `.claude/MANDATORY_CHECKLIST.md` - 開發前必讀
+2. **開發規範**: `docs/DEVELOPMENT_STANDARDS.md` - 統一開發規範
+3. **Skills 同步驗證**: `scripts/skills-sync-check.ps1` - 自動化檢查
 4. **本指引**: 開發流程和最佳實踐
 
 ## ⚡ 快速命令
 
 ```bash
-# 結構檢查
-python claude_plant/development_tools/validation/validate_structure.py
+# Skills 同步檢查
+powershell -File scripts/skills-sync-check.ps1
 
-# PowerShell 檢查和修復
-.\claude_plant\development_tools\scripts\structure_check.ps1 -Fix
+# 前端 TypeScript 檢查
+cd frontend && npx tsc --noEmit
 
-# 查看架構規範
-cat STRUCTURE.md
+# 後端 Python 語法檢查
+cd backend && python -m py_compile app/main.py
 
 # 查看本指引
 cat .claude/DEVELOPMENT_GUIDELINES.md

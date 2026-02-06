@@ -103,12 +103,8 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
         }
       } catch (error) {
         logger.error('取得篩選統計失敗:', error);
-        // 降級：使用當前查詢結果的 total
-        setFilteredStats({
-          total: total,
-          receive: 0,
-          send: 0,
-        });
+        // 降級：保留現有統計資料，不清空也不用 total 覆蓋
+        // 避免觸發不必要的 re-render
       } finally {
         setIsLoadingStats(false);
       }
@@ -126,7 +122,8 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
     filters.doc_date_from,
     filters.doc_date_to,
     filters.contract_case,
-    total, // 當總數變化時也重新取得統計
+    // 移除 total 依賴：total 變化會觸發無限迴圈
+    // (fetchFilteredStats → setFilteredStats → re-render → total 變化 → 再次觸發)
   ]);
 
   // Handle tab changes by updating filters

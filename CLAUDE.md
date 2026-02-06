@@ -804,9 +804,12 @@ agencies = await (
 **新增檔案**:
 - `backend/app/repositories/query_builders/project_query_builder.py` (282 行)
 - `backend/app/repositories/query_builders/agency_query_builder.py` (313 行)
-- `backend/app/services/vendor_service_v2.py` (364 行)
 
-**系統健康度**: 9.9/10 (維持)
+**變更檔案**:
+- `backend/app/services/vendor_service.py` - 升級為工廠模式 v2.0.0 (合併自 vendor_service_v2.py)
+- `backend/app/services/vendor_service_v2.py` - 已刪除 (合併至 vendor_service.py)
+
+**系統健康度**: 9.0/10
 
 ---
 
@@ -859,7 +862,7 @@ documents = await (
 - `frontend/src/components/ai/AIClassifyPanel.tsx` - 使用集中配置
 - `frontend/src/components/ai/AIAssistantButton.tsx` - v2.1.0 整合搜尋
 
-**系統健康度**: 9.8/10 → **9.9/10**
+**系統健康度**: 9.8/10 → **9.0/10**
 
 ---
 
