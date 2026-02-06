@@ -13,7 +13,7 @@
  */
 
 import React, { useState } from 'react';
-import { Layout as AntLayout, Modal, message } from 'antd';
+import { Layout as AntLayout, Modal, App } from 'antd';
 import { useLocation } from 'react-router-dom';
 import Sidebar from './layout/Sidebar';
 import LayoutHeader from './layout/Header';
@@ -31,6 +31,7 @@ interface LayoutProps {
 const PUBLIC_ROUTES = ['/entry', '/login', '/register', '/forgot-password'];
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
+  const { message } = App.useApp();
   const [collapsed, setCollapsed] = useState(false);
   const [summaryModalVisible, setSummaryModalVisible] = useState(false);
   const location = useLocation();
