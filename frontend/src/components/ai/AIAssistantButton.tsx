@@ -18,10 +18,10 @@ import {
   Space,
   Spin,
   Tag,
-  message,
   Tooltip,
   Badge,
   Tabs,
+  App,
 } from 'antd';
 import {
   RobotOutlined,
@@ -63,6 +63,8 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
   onClassifyClick,
   onKeywordsClick,
 }) => {
+  const { message } = App.useApp();
+
   // 面板狀態
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);

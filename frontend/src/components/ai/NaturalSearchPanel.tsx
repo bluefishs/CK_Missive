@@ -19,7 +19,7 @@ import {
   Typography,
   Collapse,
   Tooltip,
-  message,
+  App,
 } from 'antd';
 import {
   SearchOutlined,
@@ -53,6 +53,7 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({
   onSearchComplete,
 }) => {
   const navigate = useNavigate();
+  const { message } = App.useApp();
 
   // 狀態
   const [query, setQuery] = useState('');

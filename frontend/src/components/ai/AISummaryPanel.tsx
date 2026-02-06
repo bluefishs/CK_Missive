@@ -8,7 +8,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { Card, Button, Typography, Space, Spin, Tag, message, Tooltip } from 'antd';
+import { Card, Button, Typography, Space, Spin, Tag, Tooltip, App } from 'antd';
 import {
   RobotOutlined,
   CopyOutlined,
@@ -49,6 +49,7 @@ export const AISummaryPanel: React.FC<AISummaryPanelProps> = ({
   showCard = true,
   style,
 }) => {
+  const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SummaryResponse | null>(null);
 

@@ -8,7 +8,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { Card, Button, Typography, Space, Spin, Tag, message, Descriptions } from 'antd';
+import { Card, Button, Typography, Space, Spin, Tag, Descriptions, App } from 'antd';
 import {
   RobotOutlined,
   TagsOutlined,
@@ -49,6 +49,7 @@ export const AIClassifyPanel: React.FC<AIClassifyPanelProps> = ({
   onSelect,
   style,
 }) => {
+  const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ClassifyResponse | null>(null);
 

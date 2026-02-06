@@ -454,6 +454,78 @@ class TestRateLimiterAndCache:
         assert cache.get("key1") is None
         assert cache.get("key2") is None
 
+    def test_cache_lru_eviction(self):
+        """測試 LRU 淘汰：超出 max_size 應自動移除最早項目"""
+        from app.services.ai.base_ai_service import SimpleCache
+
+        cache = SimpleCache(max_size=3)
+        cache.set("key1", "value1", ttl=3600)
+        cache.set("key2", "value2", ttl=3600)
+        cache.set("key3", "value3", ttl=3600)
+
+        # 第 4 個項目應觸發淘汰
+        cache.set("key4", "value4", ttl=3600)
+
+        # key1 應已被淘汰
+        assert cache.get("key1") is None
+        # 其他項目仍在
+        assert cache.get("key2") == "value2"
+        assert cache.get("key3") == "value3"
+        assert cache.get("key4") == "value4"
+
+    def test_cache_evict_expired_first(self):
+        """測試 LRU 優先淘汰過期項目"""
+        import time
+        from app.services.ai.base_ai_service import SimpleCache
+
+        cache = SimpleCache(max_size=3)
+        # 設定極短 TTL 使其立即過期
+        cache.set("expired1", "val1", ttl=0)
+        cache.set("expired2", "val2", ttl=0)
+        cache.set("valid", "val3", ttl=3600)
+
+        # 等待過期
+        time.sleep(0.01)
+
+        # 新增項目應觸發淘汰過期項目
+        cache.set("new_key", "new_val", ttl=3600)
+
+        # 過期項目應被淘汰
+        assert cache.get("expired1") is None
+        assert cache.get("expired2") is None
+        # 有效項目仍在
+        assert cache.get("valid") == "val3"
+        assert cache.get("new_key") == "new_val"
+
+    def test_cache_max_size_enforced(self):
+        """測試 max_size 強制限制"""
+        from app.services.ai.base_ai_service import SimpleCache
+
+        cache = SimpleCache(max_size=5)
+
+        # 插入超過限制的項目
+        for i in range(10):
+            cache.set(f"key{i}", f"value{i}", ttl=3600)
+
+        # 快取大小不應超過 max_size
+        assert len(cache._cache) <= 5
+
+    def test_cache_cleanup_expired(self):
+        """測試 cleanup_expired 清理過期項目"""
+        import time
+        from app.services.ai.base_ai_service import SimpleCache
+
+        cache = SimpleCache()
+        cache.set("expired1", "val1", ttl=0)
+        cache.set("expired2", "val2", ttl=0)
+        cache.set("valid", "val3", ttl=3600)
+
+        time.sleep(0.01)
+
+        cleaned = cache.cleanup_expired()
+        assert cleaned == 2  # 清理 2 個過期項目
+        assert cache.get("valid") == "val3"
+
     def test_generate_cache_key(self):
         """測試快取鍵生成"""
         from app.services.ai.base_ai_service import BaseAIService
