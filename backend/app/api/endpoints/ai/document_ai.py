@@ -12,7 +12,7 @@ Updated: 2026-02-06 - 權限過濾 + 429 錯誤處理
 - POST /ai/document/natural-search - 自然語言公文搜尋 (v1.1.0 新增)
 - POST /ai/document/parse-intent - 意圖解析（僅解析不搜尋）(v2.1.0 新增)
 - POST /ai/agency/match - AI 機關匹配
-- GET /ai/health - AI 服務健康檢查
+- POST /ai/health - AI 服務健康檢查
 """
 
 import logging
@@ -338,7 +338,7 @@ async def match_agency(
     )
 
 
-@router.get("/health", response_model=HealthResponse)
+@router.post("/health", response_model=HealthResponse)
 async def check_ai_health(
     service: DocumentAIService = Depends(get_document_ai_service),
 ) -> HealthResponse:
@@ -354,7 +354,7 @@ async def check_ai_health(
     return HealthResponse(**result)
 
 
-@router.get("/config", response_model=AIConfigResponse)
+@router.post("/config", response_model=AIConfigResponse)
 async def get_ai_config_endpoint() -> AIConfigResponse:
     """
     取得 AI 服務配置

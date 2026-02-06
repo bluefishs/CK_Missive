@@ -1,8 +1,8 @@
 # 系統優化報告
 
-> **版本**: 12.0.0
+> **版本**: 13.0.0
 > **建立日期**: 2026-01-28
-> **最後更新**: 2026-02-06 (v12.0.0 全面性優化建議與規劃)
+> **最後更新**: 2026-02-06 (v13.0.0 AI+DB+資安全面優化完成)
 > **分析範圍**: CK_Missive 專案配置、程式碼品質、系統架構、效能、響應式設計與部署流程
 
 ---
@@ -26,8 +26,95 @@
 - 全面架構檢視與優化路線圖 (v10.0.0)
 - v1.44-v1.47 架構整合與 AI 修復 (v11.0.0)
 - **v12.0.0 全面性優化建議：服務層、效能、響應式設計** (v12.0.0 新增)
+- **v13.0.0 AI 系統強化 + 資料庫效能 + 資安 POST 全面完成** (v13.0.0 新增)
 
-**整體評估**: 9.9/10 (維持) - 系統架構成熟度高，AI 搜尋功能全面修復上線。本版本新增整體性優化路線圖，聚焦服務層深度遷移、效能瓶頸消除與響應式設計補強。
+**整體評估**: 9.9/10 (維持) - 系統架構成熟度高，v13.0 計畫 Phase 1-3 全面完成。AI 意圖解析、同義詞擴展、pg_trgm similarity 排序、N+1 修復、PostgreSQL 調優、AI 端點 POST 資安強化均已到位。
+
+---
+
+## v13.0.0 AI + DB + 資安全面優化 (2026-02-06)
+
+### 完成項目總覽
+
+| Phase | 項目 | 狀態 | 影響 |
+|-------|------|------|------|
+| **1.1** | GIN trigram 索引 (4 個) | ✅ 完成 | content/assignee/short_name/code ILIKE 5-10x |
+| **1.2** | 連線池調優 | ✅ 完成 | pool_size=10, max_overflow=20 (30 連線) |
+| **1.3** | PostgreSQL 配置優化 | ✅ 完成 | shared_buffers=512MB, work_mem=16MB, random_page_cost=1.1 |
+| **2.1** | Prompt 模板外部化 | ✅ 完成 | prompts.yaml 5 組模板，支援版本管理 |
+| **2.2** | AI 使用統計 | ✅ 完成 | POST /ai/stats, POST /ai/stats/reset |
+| **2.3** | 機關匹配 similarity() | ✅ 完成 | PostgreSQL func.similarity() 取代全表載入 |
+| **3.1** | 公文列表 N+1 修復 | ✅ 完成 | selectinload(attachments) |
+| **3.2** | 專案列表 N+1 修復 | ✅ 完成 | selectinload(documents, client_agency_ref) |
+| **+** | 同義詞擴展引擎 | ✅ 完成 | synonyms.yaml 53 組，4 類別 |
+| **+** | 意圖解析後處理 | ✅ 完成 | 縮寫轉全稱 + 低信心度策略 |
+| **+** | similarity 排序 | ✅ 完成 | func.greatest(similarity(subject), similarity(sender)) |
+| **+** | AI 端點 POST 資安 | ✅ 完成 | 4 個 GET → POST (stats/reset/health/config) |
+| 4 | 視覺化儀表板 | ⏸ 暫緩 | 使用者決議暫緩 |
+
+### 新增/修改檔案清單
+
+#### 新增 (5 個)
+
+| 檔案 | 說明 |
+|------|------|
+| `backend/alembic/versions/add_missing_trgm_indexes.py` | 4 個 GIN trigram 索引 |
+| `backend/app/api/endpoints/ai/ai_stats.py` | AI 統計端點 (POST) |
+| `backend/app/services/ai/prompts.yaml` | 5 組 Prompt 模板 |
+| `backend/app/services/ai/synonyms.yaml` | 53 組同義詞字典 |
+| `configs/postgresql-tuning.conf` | PostgreSQL 效能調優配置 |
+
+#### 修改 (15 個)
+
+| 檔案 | 說明 |
+|------|------|
+| `backend/app/db/database.py` | pool_size=10, max_overflow=20 |
+| `backend/app/services/ai/document_ai_service.py` | v2.2.0 同義詞+意圖後處理 |
+| `backend/app/services/ai/base_ai_service.py` | v2.1.0 統計追蹤 |
+| `backend/app/api/endpoints/ai/__init__.py` | 註冊 ai_stats 路由 |
+| `backend/app/api/endpoints/ai/document_ai.py` | health/config → POST |
+| `backend/app/repositories/query_builders/document_query_builder.py` | v1.1.0 similarity 排序 |
+| `backend/app/repositories/query_builders/agency_query_builder.py` | similarity() 匹配 |
+| `backend/app/repositories/document_repository.py` | selectinload 附件 |
+| `backend/app/repositories/project_repository.py` | selectinload 文件/機關 |
+| `backend/app/schemas/ai.py` | search_strategy + synonym_expanded |
+| `backend/app/core/ai_connector.py` | generate_embedding() 預留介面 |
+| `frontend/src/api/aiApi.ts` | checkHealth/getConfig → POST |
+| `docker-compose.dev.yml` | 掛載 postgresql-tuning.conf |
+| `docker-compose.production.yml` | 掛載 postgresql-tuning.conf |
+| `docker-compose.unified.yml` | 掛載 postgresql-tuning.conf |
+
+### v13.0 效能提升預估
+
+| 指標 | 修改前 | 修改後 | 提升 |
+|------|--------|--------|------|
+| AI content ILIKE | 全表掃描 | GIN trigram | 5-10x |
+| 連線池容量 | 15 連線 | 30 連線 | +100% |
+| PostgreSQL 查詢 | 預設配置 | 調優配置 | +15-30% |
+| 機關匹配 | 全表載入記憶體 | similarity() SQL | 10x+ |
+| 公文列表 N+1 | 有風險 | selectinload | 消除 |
+| AI 搜尋召回率 | 基礎關鍵字 | 同義詞擴展 | +20-30% |
+| 搜尋結果相關性 | id DESC | similarity 排序 | 顯著改善 |
+
+### AI 意圖解析架構 (v2.2.0)
+
+```
+用戶查詢 → AI 解析 (Groq/Ollama) → _post_process_intent()
+                                        │
+                ┌───────────────────────┼───────────────────────┐
+                │                       │                       │
+        1. 同義詞擴展           2. 縮寫轉全稱          3. 低信心度策略
+        keywords → expand      "都發局" → "都市發展局"   confidence < 0.5
+        [鑑價] → [鑑價,鑑定,   "市府" → "桃園市政府"     確保 keywords 存在
+         估價,鑑估]
+                │                       │                       │
+                └───────────────────────┼───────────────────────┘
+                                        │
+                                        ▼
+                            DocumentQueryBuilder
+                            with_relevance_order(text)
+                            → similarity(subject, text)
+```
 
 ---
 
@@ -112,9 +199,9 @@ Phase 3B (中期 - 2-3 週):
 |----------|------|------|
 | 複合索引 | ✅ doc_type+status+date | 充足 |
 | 部分索引 | ✅ 待處理/收文/發文 | 充足 |
-| N+1 查詢風險 | ⚠️ 中等 (7/10) | 需審計高頻端點 |
+| N+1 查詢風險 | ✅ 已修復 (v13.0) | selectinload 覆蓋公文+專案 |
 | 查詢超時保護 | ✅ 已實作 | 保持 |
-| 連線池配置 | ✅ SQLAlchemy 預設 | 可調優 |
+| 連線池配置 | ✅ 已調優 (v13.0) | pool_size=10, max_overflow=20 |
 
 **N+1 風險熱點**:
 - 公文列表載入附件（`attachments` 關聯）
@@ -381,15 +468,15 @@ const { isMobile } = useResponsive();
 
 **教訓記錄**: Pydantic schema 欄位必須是 ORM 模型的子集，不能宣告模型不存在的欄位。
 
-### 最新系統規模統計 (v12.0.0)
+### 最新系統規模統計 (v13.0.0)
 
 | 層級 | 檔案數 | 代碼行數 | 說明 |
 |------|--------|---------|------|
-| **後端 Python 檔案** | 220+ 個 | - | app/ 目錄全部 |
-| **後端服務層** | 33 個 | 12,264+ 行 | 含 AI 服務模組 |
-| **Repository 層** | 15 個 | 5,700+ 行 | 含 3 個 Query Builder + ProjectVendor |
-| **AI 服務模組** | 4 個 | 1,123 行 | Groq + Ollama 整合 |
-| **API 端點** | 294 個 | - | 55 個端點檔案 |
+| **後端 Python 檔案** | 225+ 個 | - | app/ 目錄全部 |
+| **後端服務層** | 33 個 | 12,500+ 行 | 含 AI 服務模組 (v2.2.0) |
+| **Repository 層** | 15 個 | 5,800+ 行 | 含 3 個 Query Builder (v1.1.0) |
+| **AI 服務模組** | 6 個 | 1,500+ 行 | Groq + Ollama + 同義詞 + Prompt |
+| **API 端點** | 296 個 | - | 56 個端點檔案 (含 ai_stats) |
 | **後端測試** | 29+ 個 | 632 個測試 | 全部通過 |
 | **前端元件** | 87 個 | - | 含 14 個 React.memo |
 | **前端頁面** | 77 個 | - | 15 個 >500 行 |
@@ -401,7 +488,9 @@ const { isMobile } = useResponsive();
 | **types/api.ts** | 1 個 | 1,793 行 | SSOT 型別來源 |
 | **文件** | 121+ 個 | - | docs/ 目錄 |
 | **CI/CD 工作流** | 4 個 | - | CI + E2E + CD + Deploy |
-| **Alembic 遷移** | 28 個 | - | 含 trigram GIN 索引 |
+| **Alembic 遷移** | 29 個 | - | 含 11 個 GIN trigram 索引 |
+| **PostgreSQL 調優** | 1 個 | - | postgresql-tuning.conf |
+| **AI 同義詞字典** | 1 個 | 53 組 | 4 類別同義詞 |
 
 ### 服務層遷移進度更新
 

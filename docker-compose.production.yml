@@ -42,6 +42,8 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./configs/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./configs/postgresql-tuning.conf:/etc/postgresql/tuning.conf:ro
+    command: postgres -c 'include=/etc/postgresql/tuning.conf'
     networks:
       - ck_network
     healthcheck:

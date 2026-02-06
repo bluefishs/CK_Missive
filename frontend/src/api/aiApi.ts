@@ -366,7 +366,7 @@ export const aiApi = {
   async checkHealth(): Promise<AIHealthStatus> {
     try {
       logger.log('檢查 AI 服務健康狀態');
-      return await apiClient.get<AIHealthStatus>(AI_ENDPOINTS.HEALTH);
+      return await apiClient.post<AIHealthStatus>(AI_ENDPOINTS.HEALTH, {});
     } catch (error) {
       logger.error('AI 健康檢查失敗:', error);
       return {
@@ -384,7 +384,7 @@ export const aiApi = {
   async getConfig(): Promise<AIConfigResponse | null> {
     try {
       logger.log('取得 AI 服務配置');
-      return await apiClient.get<AIConfigResponse>(AI_ENDPOINTS.CONFIG);
+      return await apiClient.post<AIConfigResponse>(AI_ENDPOINTS.CONFIG, {});
     } catch (error) {
       logger.error('取得 AI 配置失敗:', error);
       return null;

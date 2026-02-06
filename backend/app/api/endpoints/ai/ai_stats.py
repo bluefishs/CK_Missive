@@ -1,16 +1,17 @@
 """
 AI 統計 API 端點
 
-Version: 1.0.0
+Version: 1.1.0
 Created: 2026-02-06
+Updated: 2026-02-06 - 改為 POST-only（資安規範）
 
 端點:
-- GET /ai/stats - 取得 AI 使用統計
-- GET /ai/stats/reset - 重設統計資料
+- POST /ai/stats - 取得 AI 使用統計
+- POST /ai/stats/reset - 重設統計資料
 """
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from fastapi import APIRouter, Depends
 
@@ -22,7 +23,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/stats")
+@router.post("/stats")
 async def get_ai_stats(
     current_user=Depends(optional_auth()),
 ) -> Dict[str, Any]:
@@ -40,7 +41,7 @@ async def get_ai_stats(
     return BaseAIService.get_stats()
 
 
-@router.get("/stats/reset")
+@router.post("/stats/reset")
 async def reset_ai_stats(
     current_user=Depends(optional_auth()),
 ) -> Dict[str, str]:

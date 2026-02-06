@@ -13,6 +13,8 @@ services:
       - "${POSTGRES_HOST_PORT}:${POSTGRES_CONTAINER_PORT}"
     volumes:
       - ck_missive_postgres_data:/var/lib/postgresql/data
+      - ./postgresql-tuning.conf:/etc/postgresql/tuning.conf:ro
+    command: postgres -c 'include=/etc/postgresql/tuning.conf'
     networks:
       - ck_missive_network
     restart: unless-stopped

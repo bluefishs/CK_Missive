@@ -621,7 +621,7 @@ async def list_documents(
 | `docs/ALEMBIC_MIGRATION_GUIDE.md` | 🆕 **Alembic 遷移管理指南** |
 | `docs/DEPLOYMENT_LESSONS_LEARNED.md` | 🆕 **NAS 部署經驗總結** |
 | `docs/specifications/TESTING_FRAMEWORK.md` | 測試框架規範 |
-| `docs/Architecture_Optimization_Recommendations.md` | 📐 架構優化建議 |
+| `docs/Architecture_Optimization_Recommendations.md` | 📐 **架構優化建議 v2.0.0** (RWD + AI UI + 服務架構) |
 | `@AGENT.md` | 開發代理指引 |
 
 ---
