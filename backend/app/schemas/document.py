@@ -51,7 +51,6 @@ class DocumentBase(BaseModel):
     user_confirm: Optional[bool] = Field(False, description="使用者確認狀態")
     auto_serial: Optional[str] = Field(None, description="自動生成流水號 (R0001=收文, S0001=發文)")
     creator: Optional[str] = Field(None, description="建立者")
-    is_deleted: Optional[bool] = Field(False, description="是否已軟刪除")
     notes: Optional[str] = Field(None, description="備註")
     ck_note: Optional[str] = Field(None, description="簡要說明(乾坤備註)")
     priority_level: Optional[str] = Field("普通", description="速別 (例如：普通, 速件, 最速件)") # 修正: 預設值
@@ -84,7 +83,6 @@ class DocumentUpdate(BaseModel):
     user_confirm: Optional[bool] = None
     auto_serial: Optional[str] = None
     creator: Optional[str] = None
-    is_deleted: Optional[bool] = None
     notes: Optional[str] = None
     ck_note: Optional[str] = None
     priority_level: Optional[str] = None
@@ -192,7 +190,6 @@ class DocumentFilter(BaseModel):
     # 其他篩選
     assignee: Optional[str] = Field(None, description="承辦人篩選")
     creator: Optional[str] = Field(None, description="建立者篩選")
-    is_deleted: Optional[bool] = Field(None, description="是否已刪除篩選")
 
     # 排序
     sort_by: Optional[str] = Field("updated_at", description="排序欄位")
@@ -252,7 +249,6 @@ class DocumentImportData(BaseModel):
     user_confirm: Optional[bool] = Field(None, description="使用者確認")
     auto_serial: Optional[str] = Field(None, description="流水序號 (R0001=收文, S0001=發文)")
     creator: Optional[str] = Field(None, description="建立者")
-    is_deleted: Optional[bool] = Field(None, description="是否刪除")
     notes: Optional[str] = Field(None, description="備註")
     ck_note: Optional[str] = Field(None, description="簡要說明(乾坤備註)")
     priority_level: Optional[str] = Field(None, description="速別")
@@ -424,8 +420,7 @@ class DocumentSearchRequest(BaseModel):
     statuses: Optional[List[str]] = Field(None, description="處理狀態列表")
     assignees: Optional[List[str]] = Field(None, description="承辦人列表")
     creators: Optional[List[str]] = Field(None, description="建立者列表")
-    is_deleted: Optional[bool] = Field(None, description="是否已軟刪除")
-    
+
     # 模糊搜尋關鍵字 (可同時搜尋多個欄位)
     keyword: Optional[str] = Field(None, description="模糊搜尋關鍵字 (主旨、文號、內容、備註)")
 

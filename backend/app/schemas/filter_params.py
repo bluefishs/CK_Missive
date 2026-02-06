@@ -155,7 +155,6 @@ class DocumentFilterParams(UnifiedFilterParams):
     """
     assignee: Optional[str] = Field(None, description="承辦人")
     creator: Optional[str] = Field(None, description="建立者")
-    is_deleted: Optional[bool] = Field(None, description="是否已刪除")
     doc_word: Optional[str] = Field(None, description="公文字")
 
     def to_service_filter(self) -> dict:
@@ -179,7 +178,6 @@ class DocumentFilterParams(UnifiedFilterParams):
             'date_to': self.get_effective_date_to(),
             'assignee': self.assignee,
             'creator': self.creator,
-            'is_deleted': self.is_deleted,
             'doc_word': self.doc_word,
             'sort_by': self.sort_by,
             'sort_order': self.sort_order,
