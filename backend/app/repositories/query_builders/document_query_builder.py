@@ -535,20 +535,18 @@ class DocumentQueryBuilder:
         """
         執行查詢並同時返回結果與總數
 
+        注意：AsyncSession 不支援並發操作，必須循序執行。
+
         Returns:
             (公文列表, 總數)
         """
-        # 使用 asyncio.gather 並行執行
-        import asyncio
-
         # 建立計數查詢器（不含分頁，但保留 JOIN 和條件）
         count_builder = DocumentQueryBuilder(self.db)
         count_builder._conditions = self._conditions.copy()
         count_builder._joins = self._joins.copy()
 
-        results, total = await asyncio.gather(
-            self.execute(),
-            count_builder.count()
-        )
+        # 循序執行（AsyncSession 不允許同一 session 並發查詢）
+        results = await self.execute()
+        total = await count_builder.count()
 
         return results, total
