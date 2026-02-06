@@ -337,7 +337,9 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({
       <div style={{ flex: 1, overflow: 'auto' }}>
         {loading ? (
           <div style={{ textAlign: 'center', padding: 40 }}>
-            <Spin tip="AI 正在搜尋中..." />
+            <Spin tip="AI 正在搜尋中...">
+              <div style={{ padding: '30px 50px' }} />
+            </Spin>
           </div>
         ) : error ? (
           <Empty

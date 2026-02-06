@@ -150,7 +150,9 @@ export const AISummaryPanel: React.FC<AISummaryPanelProps> = ({
       {/* 載入中 */}
       {loading && (
         <div style={{ textAlign: 'center', padding: '16px 0' }}>
-          <Spin tip="AI 正在生成摘要..." />
+          <Spin tip="AI 正在生成摘要...">
+            <div style={{ padding: '30px 50px' }} />
+          </Spin>
         </div>
       )}
 

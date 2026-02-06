@@ -610,7 +610,7 @@ class DocumentAIService(BaseAIService):
         source = "ai" if parsed_intent.confidence > 0 else "fallback"
 
         # 2. 建構查詢
-        query = select(OfficialDocument).where(OfficialDocument.is_deleted == False)
+        query = select(OfficialDocument)
 
         # 關鍵字搜尋
         if parsed_intent.keywords:

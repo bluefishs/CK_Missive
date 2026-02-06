@@ -137,7 +137,9 @@ export const AIClassifyPanel: React.FC<AIClassifyPanelProps> = ({
       {/* 載入中 */}
       {loading && (
         <div style={{ textAlign: 'center', padding: '16px 0' }}>
-          <Spin tip="AI 正在分析公文..." />
+          <Spin tip="AI 正在分析公文...">
+            <div style={{ padding: '30px 50px' }} />
+          </Spin>
         </div>
       )}
 
