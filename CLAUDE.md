@@ -1975,5 +1975,5 @@ POST /project/{project_id}/link-dispatch
 ---
 
 *配置維護: Claude Code Assistant*
-*版本: v1.44.0*
+*版本: v1.47.0*
 *最後更新: 2026-02-06*
