@@ -4,9 +4,9 @@
  * 提供快速存取 AI 功能的浮動按鈕
  * 使用 Portal 渲染，與主版面完全隔離
  *
- * @version 2.1.0
+ * @version 2.2.0
  * @created 2026-02-04
- * @updated 2026-02-05 - 新增自然語言公文搜尋功能
+ * @updated 2026-02-07 - 響應式面板尺寸 + AI 配置自動同步
  * @reference CK_lvrland_Webmap FloatingAssistant 架構
  */
 
@@ -39,6 +39,8 @@ import {
   SearchOutlined,
 } from '@ant-design/icons';
 import { aiApi, AIHealthStatus } from '../../api/aiApi';
+import { useResponsive } from '../../hooks';
+import { syncAIConfigFromServer } from '../../config/aiConfig';
 import { NaturalSearchPanel } from './NaturalSearchPanel';
 
 interface AIAssistantButtonProps {
@@ -64,6 +66,7 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
   onKeywordsClick,
 }) => {
   const { message } = App.useApp();
+  const { isMobile, responsiveValue } = useResponsive();
 
   // 面板狀態
   const [isOpen, setIsOpen] = useState(false);
@@ -77,6 +80,19 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
   const [position, setPosition] = useState({ right: 80, bottom: 100 });
   const [isDragging, setIsDragging] = useState(false);
   const dragStartPos = useRef({ x: 0, y: 0, right: 80, bottom: 100 });
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // 響應式面板尺寸
+  const panelWidth = responsiveValue({ mobile: 'calc(100vw - 32px)', desktop: '320px' }) || '320px';
+  const panelHeight = responsiveValue({ mobile: 'calc(100vh - 120px)', desktop: '400px' }) || '400px';
+  const buttonSize = responsiveValue({ mobile: 48, desktop: 56 }) || 56;
+
+  // S3: 元件首次掛載時同步 AI 配置（靜默失敗）
+  useEffect(() => {
+    syncAIConfigFromServer().catch(() => {
+      // 靜默失敗，不顯示錯誤
+    });
+  }, []);
 
   // 檢查 AI 服務健康狀態
   const checkHealth = useCallback(async () => {
@@ -106,6 +122,8 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
   // ============================================================================
 
   const handleDragStart = useCallback((e: React.MouseEvent) => {
+    // 手機版停用拖曳
+    if (isMobile) return;
     e.preventDefault();
     setIsDragging(true);
     dragStartPos.current = {
@@ -114,7 +132,7 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
       right: position.right,
       bottom: position.bottom,
     };
-  }, [position]);
+  }, [position, isMobile]);
 
   const handleDragMove = useCallback((e: MouseEvent) => {
     if (!isDragging) return;
@@ -122,9 +140,13 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
     const deltaX = dragStartPos.current.x - e.clientX;
     const deltaY = dragStartPos.current.y - e.clientY;
 
-    // 計算新位置 (確保不超出視窗，面板尺寸 320x400)
-    const newRight = Math.max(0, Math.min(window.innerWidth - 320, dragStartPos.current.right + deltaX));
-    const newBottom = Math.max(0, Math.min(window.innerHeight - 400, dragStartPos.current.bottom + deltaY));
+    // 使用 panelRef 動態取得面板尺寸
+    const panelEl = panelRef.current;
+    const panelW = panelEl?.offsetWidth ?? 320;
+    const panelH = panelEl?.offsetHeight ?? 400;
+
+    const newRight = Math.max(0, Math.min(window.innerWidth - panelW, dragStartPos.current.right + deltaX));
+    const newBottom = Math.max(0, Math.min(window.innerHeight - panelH, dragStartPos.current.bottom + deltaY));
 
     setPosition({ right: newRight, bottom: newBottom });
   }, [isDragging]);
@@ -210,8 +232,8 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
               position: 'fixed',
               right: 24,
               bottom: 24,
-              width: 56,
-              height: 56,
+              width: buttonSize,
+              height: buttonSize,
               zIndex: 1000,
               boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
               pointerEvents: 'auto',
@@ -230,13 +252,13 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
             <div
               onMouseDown={handleDragStart}
               style={{
-                cursor: isDragging ? 'grabbing' : 'grab',
+                cursor: isMobile ? 'default' : isDragging ? 'grabbing' : 'grab',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 8,
               }}
             >
-              <DragOutlined style={{ color: '#bfbfbf', fontSize: 12 }} />
+              {!isMobile && <DragOutlined style={{ color: '#bfbfbf', fontSize: 12 }} />}
               <RobotOutlined style={{ color: '#1890ff' }} />
               <span
                 style={{
@@ -269,13 +291,15 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
               />
             </Space>
           }
+          ref={panelRef as React.Ref<HTMLDivElement>}
           style={{
             position: 'fixed',
-            right: position.right,
-            bottom: position.bottom,
-            width: 320,
-            height: isMinimized ? 'auto' : 400,
-            maxHeight: isMinimized ? 56 : 400,
+            ...(isMobile
+              ? { left: 16, right: 16, bottom: 80 }
+              : { right: position.right, bottom: position.bottom }),
+            width: isMobile ? undefined : panelWidth,
+            height: isMinimized ? 'auto' : panelHeight,
+            maxHeight: isMinimized ? 56 : panelHeight,
             zIndex: 1000,
             borderRadius: 12,
             boxShadow: isDragging
@@ -293,9 +317,10 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
             },
             body: {
               padding: 16,
-              display: isMinimized ? 'none' : 'block',
-              height: 'calc(100% - 56px)',
-              overflowY: 'auto',
+              display: isMinimized ? 'none' : 'flex',
+              flexDirection: 'column' as const,
+              flex: 1,
+              overflow: 'hidden',
             },
           }}
         >
@@ -303,7 +328,7 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
             activeKey={activeTab}
             onChange={(key) => setActiveTab(key as 'search' | 'tools')}
             size="small"
-            style={{ height: '100%' }}
+            style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
             items={[
               {
                 key: 'search',
@@ -318,7 +343,6 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
                 ),
                 children: (
                   <NaturalSearchPanel
-                    height={280}
                     onSearchComplete={(count) => setSearchResultCount(count)}
                   />
                 ),

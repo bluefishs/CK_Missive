@@ -54,6 +54,10 @@ export const DOCUMENTS_ENDPOINTS = {
   INTEGRATED_SEARCH: '/documents-enhanced/integrated-search',
   /** 取得下一個發文字號 POST /documents-enhanced/next-send-number */
   NEXT_SEND_NUMBER: '/documents-enhanced/next-send-number',
+  /** 公文趨勢統計 POST /documents-enhanced/trends */
+  TRENDS: '/documents-enhanced/trends',
+  /** 公文處理效率 POST /documents-enhanced/efficiency */
+  EFFICIENCY: '/documents-enhanced/efficiency',
 } as const;
 
 /** 承攬案件 API 端點 */
@@ -340,6 +344,8 @@ export const SYSTEM_ENDPOINTS = {
   STATUS: '/system/status',
   /** 系統指標 POST /system/metrics */
   METRICS: '/system/metrics',
+  /** 系統健康摘要 GET /health/summary */
+  HEALTH_SUMMARY: '/health/summary',
 } as const;
 
 /** 管理員資料庫 API 端點 */

@@ -31,6 +31,7 @@ import {
 import dayjs from 'dayjs';
 import { apiClient } from '../api/client';
 import { API_ENDPOINTS } from '../api/endpoints';
+import { SystemHealthDashboard, AIStatsPanel } from '../components/dashboard';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
 dayjs.extend(relativeTime);
@@ -456,6 +457,14 @@ const AdminDashboardPage: React.FC = () => {
             </Card>
           </Col>
         </Row>
+
+        {/* 系統監控 */}
+        <Divider />
+        <Title level={4}>系統監控</Title>
+        <SystemHealthDashboard />
+        <div style={{ marginTop: 16 }}>
+          <AIStatsPanel />
+        </div>
 
         {/* 角色和狀態說明 */}
         <Row gutter={16}>

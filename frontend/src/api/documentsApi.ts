@@ -20,6 +20,8 @@ import {
   OfficialDocument,
   DocumentCreate as ApiDocumentCreate,
   DocumentUpdate as ApiDocumentUpdate,
+  DocumentTrendsResponse,
+  DocumentEfficiencyResponse,
 } from '../types/api';
 import { logger } from '../services/logger';
 
@@ -439,6 +441,38 @@ export const documentsApi = {
       },
       filename
     );
+  },
+
+  // ==========================================================================
+  // 儀表板統計方法 (v13.0 新增)
+  // ==========================================================================
+
+  /**
+   * 取得公文月度趨勢統計
+   *
+   * @returns 過去 12 個月每月收文/發文數量
+   */
+  async getDocumentTrends(): Promise<DocumentTrendsResponse> {
+    try {
+      return await apiClient.post<DocumentTrendsResponse>(API_ENDPOINTS.DOCUMENTS.TRENDS, {});
+    } catch (error) {
+      logger.error('取得公文趨勢失敗:', error);
+      return { trends: [] };
+    }
+  },
+
+  /**
+   * 取得公文處理效率統計
+   *
+   * @returns 狀態分布、逾期率等統計資料
+   */
+  async getDocumentEfficiency(): Promise<DocumentEfficiencyResponse> {
+    try {
+      return await apiClient.post<DocumentEfficiencyResponse>(API_ENDPOINTS.DOCUMENTS.EFFICIENCY, {});
+    } catch (error) {
+      logger.error('取得公文效率統計失敗:', error);
+      return { status_distribution: [], overdue_count: 0, overdue_rate: 0, total: 0 };
+    }
   },
 
   // ==========================================================================

@@ -1,22 +1,30 @@
 """
 公文統計與下拉選單 API 端點
 
-包含：下拉選項、統計資料、發文字號
+包含：下拉選項、統計資料、發文字號、趨勢分析、效率統計
 
-@version 4.0.0
-@date 2026-01-28
+@version 5.0.0
+@date 2026-02-07
 """
+from datetime import date, datetime
+from dateutil.relativedelta import relativedelta
+from typing import Optional
+
 from fastapi import APIRouter, Body, Request
+from sqlalchemy import select, func, extract, and_, case
 from starlette.responses import Response
 
 from .common import (
     logger, Depends, AsyncSession, get_async_db,
+    OfficialDocument,
     DocumentListQuery,
     DropdownQuery, AgencyDropdownQuery,
     User, require_auth,
     DocumentStatisticsService, get_statistics_service,
 )
+from app.core.dependencies import optional_auth
 from app.core.rate_limiter import limiter
+from app.extended.models import DocumentCalendarEvent
 from app.schemas.document_number import NextNumberRequest, NextNumberResponse
 
 router = APIRouter()
@@ -176,6 +184,199 @@ async def get_filtered_statistics(
             "receive_count": 0,
             "filters_applied": False,
             "error": str(e)
+        }
+
+
+# ============================================================================
+# 趨勢與效率分析 API
+# ============================================================================
+
+@router.post(
+    "/trends",
+    summary="取得公文收發趨勢（過去 12 個月）"
+)
+async def get_document_trends(
+    db: AsyncSession = Depends(get_async_db),
+    current_user: Optional[User] = Depends(optional_auth()),
+):
+    """
+    取得過去 12 個月每月收文/發文數量趨勢
+
+    使用 category 欄位區分收文/發文，按 doc_date 的年月分組統計。
+
+    回傳格式:
+        {
+          "success": true,
+          "trends": [
+            { "month": "2025-03", "received": 45, "sent": 23 },
+            ...
+          ]
+        }
+    """
+    try:
+        today = date.today()
+        # 計算 12 個月前的第一天
+        twelve_months_ago = (today - relativedelta(months=11)).replace(day=1)
+
+        # 使用 extract + GROUP BY 統計每月收發文數量
+        year_col = extract('year', OfficialDocument.doc_date)
+        month_col = extract('month', OfficialDocument.doc_date)
+
+        query = (
+            select(
+                year_col.label('year'),
+                month_col.label('month'),
+                func.sum(
+                    case(
+                        (OfficialDocument.category == '收文', 1),
+                        else_=0
+                    )
+                ).label('received'),
+                func.sum(
+                    case(
+                        (OfficialDocument.category == '發文', 1),
+                        else_=0
+                    )
+                ).label('sent'),
+            )
+            .where(
+                and_(
+                    OfficialDocument.doc_date.isnot(None),
+                    OfficialDocument.doc_date >= twelve_months_ago,
+                )
+            )
+            .group_by(year_col, month_col)
+            .order_by(year_col.asc(), month_col.asc())
+        )
+
+        result = await db.execute(query)
+        rows = result.all()
+
+        # 建立完整的 12 個月資料（即使某月無資料也填入 0）
+        month_map = {}
+        for row in rows:
+            key = f"{int(row.year)}-{int(row.month):02d}"
+            month_map[key] = {
+                "month": key,
+                "received": int(row.received or 0),
+                "sent": int(row.sent or 0),
+            }
+
+        trends = []
+        cursor = twelve_months_ago
+        while cursor <= today:
+            key = f"{cursor.year}-{cursor.month:02d}"
+            if key in month_map:
+                trends.append(month_map[key])
+            else:
+                trends.append({
+                    "month": key,
+                    "received": 0,
+                    "sent": 0,
+                })
+            cursor = cursor + relativedelta(months=1)
+
+        return {
+            "success": True,
+            "trends": trends,
+        }
+    except Exception as e:
+        logger.error(f"取得公文趨勢失敗: {e}", exc_info=True)
+        return {
+            "success": False,
+            "trends": [],
+            "error": str(e),
+        }
+
+
+@router.post(
+    "/efficiency",
+    summary="取得公文處理效率統計"
+)
+async def get_document_efficiency(
+    db: AsyncSession = Depends(get_async_db),
+    current_user: Optional[User] = Depends(optional_auth()),
+):
+    """
+    取得公文各狀態分布和逾期統計
+
+    狀態分布：按 status 欄位分組統計數量。
+    逾期判斷：status 不是「已結案」且關聯行事曆事件的 end_date 早於今天
+    （行事曆事件狀態非 completed）。
+
+    回傳格式:
+        {
+          "success": true,
+          "status_distribution": [
+            { "status": "待處理", "count": 120 },
+            ...
+          ],
+          "overdue_count": 8,
+          "overdue_rate": 0.016,
+          "total": 745
+        }
+    """
+    try:
+        # 1. 狀態分布查詢
+        status_query = (
+            select(
+                OfficialDocument.status,
+                func.count(OfficialDocument.id).label('count'),
+            )
+            .where(OfficialDocument.status.isnot(None))
+            .group_by(OfficialDocument.status)
+            .order_by(func.count(OfficialDocument.id).desc())
+        )
+        status_result = await db.execute(status_query)
+        status_rows = status_result.all()
+
+        status_distribution = [
+            {"status": row.status, "count": int(row.count)}
+            for row in status_rows
+        ]
+
+        # 2. 總數查詢
+        total_query = select(func.count(OfficialDocument.id))
+        total = (await db.execute(total_query)).scalar() or 0
+
+        # 3. 逾期統計：公文未結案且有已過期的行事曆事件
+        now = datetime.now()
+        overdue_query = (
+            select(func.count(func.distinct(OfficialDocument.id)))
+            .join(
+                DocumentCalendarEvent,
+                DocumentCalendarEvent.document_id == OfficialDocument.id,
+            )
+            .where(
+                and_(
+                    OfficialDocument.status != '已結案',
+                    DocumentCalendarEvent.end_date.isnot(None),
+                    DocumentCalendarEvent.end_date < now,
+                    DocumentCalendarEvent.status != 'completed',
+                )
+            )
+        )
+        overdue_count = (await db.execute(overdue_query)).scalar() or 0
+
+        # 4. 計算逾期率
+        overdue_rate = round(overdue_count / total, 3) if total > 0 else 0.0
+
+        return {
+            "success": True,
+            "status_distribution": status_distribution,
+            "overdue_count": overdue_count,
+            "overdue_rate": overdue_rate,
+            "total": total,
+        }
+    except Exception as e:
+        logger.error(f"取得公文效率統計失敗: {e}", exc_info=True)
+        return {
+            "success": False,
+            "status_distribution": [],
+            "overdue_count": 0,
+            "overdue_rate": 0.0,
+            "total": 0,
+            "error": str(e),
         }
 
 

@@ -11,6 +11,7 @@
 import axios from 'axios';
 import { apiClient } from './client';
 import { logger } from '../services/logger';
+import type { AIStatsResponse } from '../types/api';
 
 // ============================================================================
 // 型別定義
@@ -264,6 +265,8 @@ const AI_ENDPOINTS = {
   AGENCY_MATCH: '/ai/agency/match',
   HEALTH: '/ai/health',
   CONFIG: '/ai/config',
+  STATS: '/ai/stats',
+  STATS_RESET: '/ai/stats/reset',
 };
 
 // ============================================================================
@@ -463,6 +466,35 @@ export const aiApi = {
    * // 取消搜尋
    * abortNaturalSearch();
    */
+  /**
+   * 取得 AI 使用統計
+   *
+   * @returns AI 使用統計資料
+   */
+  async getStats(): Promise<AIStatsResponse | null> {
+    try {
+      logger.log('取得 AI 使用統計');
+      return await apiClient.post<AIStatsResponse>(AI_ENDPOINTS.STATS, {});
+    } catch (error) {
+      logger.error('取得 AI 統計失敗:', error);
+      return null;
+    }
+  },
+
+  /**
+   * 重設 AI 使用統計
+   */
+  async resetStats(): Promise<boolean> {
+    try {
+      logger.log('重設 AI 使用統計');
+      await apiClient.post(AI_ENDPOINTS.STATS_RESET, {});
+      return true;
+    } catch (error) {
+      logger.error('重設 AI 統計失敗:', error);
+      return false;
+    }
+  },
+
   async naturalSearch(
     query: string,
     maxResults: number = 20,

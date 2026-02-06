@@ -7,15 +7,16 @@
  *
  * 設計理念：
  * - 以「我的待辦事項」為核心，呈現使用者最需關注的行事曆事件
+ * - 下方搭配公文趨勢圖，提供整體收發文量變化
  * - 滿版設計，充分利用螢幕空間
  *
- * @version 2.3.0 - 滿版設計
- * @date 2026-01-26
+ * @version 3.0.0 - 新增公文趨勢圖
+ * @date 2026-02-07
  */
 import React from 'react';
 import { Typography } from 'antd';
 import { useResponsive } from '../hooks';
-import { DashboardCalendarSection } from '../components/dashboard';
+import { DashboardCalendarSection, DocumentTrendsChart } from '../components/dashboard';
 
 const { Title } = Typography;
 
@@ -55,6 +56,11 @@ export const DashboardPage: React.FC = () => {
 
       {/* 我的待辦事項 - 滿版 */}
       <DashboardCalendarSection maxEvents={15} />
+
+      {/* 公文趨勢圖 */}
+      <div style={{ marginTop: isMobile ? 12 : 20 }}>
+        <DocumentTrendsChart />
+      </div>
     </div>
   );
 };

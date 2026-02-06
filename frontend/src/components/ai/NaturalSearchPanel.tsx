@@ -49,7 +49,7 @@ interface NaturalSearchPanelProps {
  * AI 自然語言公文搜尋面板
  */
 export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({
-  height = 280,
+  height,
   onSearchComplete,
 }) => {
   const navigate = useNavigate();
@@ -346,7 +346,7 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({
   );
 
   return (
-    <div style={{ height, display: 'flex', flexDirection: 'column' }}>
+    <div style={{ flex: 1, minHeight: 200, display: 'flex', flexDirection: 'column', ...(height != null ? { height } : {}) }}>
       {/* 搜尋框 */}
       <Search
         placeholder="輸入自然語言搜尋，例如：找桃園市政府上個月的公文"

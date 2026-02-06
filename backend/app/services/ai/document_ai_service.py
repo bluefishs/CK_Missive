@@ -52,27 +52,82 @@ class DocumentAIService(BaseAIService):
     # Prompt 模板 (class-level 快取)
     _prompts: Optional[Dict[str, Any]] = None
 
+    # 內建預設 Prompt (當 prompts.yaml 載入失敗時使用)
+    _DEFAULT_PROMPTS: Dict[str, Any] = {
+        "summary": {
+            "system": (
+                "你是一位專業的公文處理助理。請根據公文資訊生成簡潔的摘要。"
+                "摘要必須在 {max_length} 字以內，使用正式簡潔的語言，"
+                "保留關鍵資訊。只輸出摘要內容，不要加說明文字。"
+            ),
+        },
+        "classify": {
+            "system": (
+                "你是一位專業的公文分類助理。公文類型選項：{doc_types_str}。"
+                "收發類別選項：收文、發文。"
+                '請以 JSON 格式回覆：{{"doc_type": "類型", "category": "收文或發文", '
+                '"doc_type_confidence": 0.0, "category_confidence": 0.0, "reasoning": "理由"}}'
+            ),
+        },
+        "keywords": {
+            "system": (
+                "你是一位專業的公文關鍵字提取助理。"
+                "請從公文中提取最重要的 {max_keywords} 個關鍵字。"
+                "優先提取專有名詞、機關名稱、地點。"
+                '只輸出 JSON 格式：{{"keywords": ["關鍵字1", "關鍵字2"]}}'
+            ),
+        },
+        "match_agency": {
+            "system": (
+                "你是一位專業的機關名稱匹配助理。"
+                "請根據輸入的機關名稱，從候選列表中找出最可能匹配的機關。"
+                '輸出 JSON 格式：{{"best_match_id": 1, "confidence": 0.95, "reasoning": "理由"}}。'
+                '無匹配時：{{"best_match_id": null, "confidence": 0, "reasoning": "原因"}}'
+            ),
+        },
+        "search_intent": {
+            "system": (
+                "你是一個公文搜尋助手。當前日期：{today}，民國{roc_year}年。"
+                "請分析自然語言查詢，以 JSON 回應搜尋條件："
+                "keywords(關鍵字陣列)、doc_type(公文類型)、category(收文/發文)、"
+                "sender(發文單位)、receiver(受文單位)、"
+                "date_from/date_to(YYYY-MM-DD)、status(處理狀態)、"
+                "has_deadline(布林)、contract_case(案件名稱)、confidence(0-1)。"
+                "無法確定的欄位設為 null。"
+            ),
+        },
+    }
+
     # 同義詞字典 (class-level 快取)
     _synonyms: Optional[Dict[str, List[List[str]]]] = None
     _synonym_lookup: Optional[Dict[str, List[str]]] = None
 
     @classmethod
     def _load_prompts(cls) -> Dict[str, Any]:
-        """從 YAML 檔案載入 Prompt 模板"""
+        """從 YAML 檔案載入 Prompt 模板，失敗時使用內建預設值"""
         if cls._prompts is not None:
             return cls._prompts
 
         prompts_path = Path(__file__).parent / "prompts.yaml"
         try:
             with open(prompts_path, "r", encoding="utf-8") as f:
-                cls._prompts = yaml.safe_load(f)
+                loaded = yaml.safe_load(f)
+            if not isinstance(loaded, dict) or not loaded:
+                raise ValueError("YAML 內容為空或格式不正確")
+            cls._prompts = loaded
             logger.info(f"已載入 Prompt 模板: {prompts_path}")
         except FileNotFoundError:
-            logger.error(f"Prompt 模板檔案不存在: {prompts_path}")
-            cls._prompts = {}
+            logger.error(
+                f"Prompt 模板檔案不存在: {prompts_path}，"
+                "將使用內建預設 Prompt"
+            )
+            cls._prompts = dict(cls._DEFAULT_PROMPTS)
         except Exception as e:
-            logger.error(f"載入 Prompt 模板失敗: {e}")
-            cls._prompts = {}
+            logger.error(
+                f"載入 Prompt 模板失敗: {e}，"
+                "將使用內建預設 Prompt"
+            )
+            cls._prompts = dict(cls._DEFAULT_PROMPTS)
 
         return cls._prompts
 

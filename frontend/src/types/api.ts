@@ -1791,3 +1791,57 @@ export interface BackupLogListResponse {
   page_size: number;
   total_pages: number;
 }
+
+// ============================================================================
+// 儀表板統計型別 (v13.0 新增)
+// ============================================================================
+
+/** 公文月度趨勢項目 */
+export interface DocumentTrendItem {
+  /** 月份格式 YYYY-MM */
+  month: string;
+  /** 收文數量 */
+  received: number;
+  /** 發文數量 */
+  sent: number;
+}
+
+/** 公文趨勢回應 */
+export interface DocumentTrendsResponse {
+  trends: DocumentTrendItem[];
+}
+
+/** 公文狀態分布項目 */
+export interface StatusDistributionItem {
+  status: string;
+  count: number;
+}
+
+/** 公文處理效率回應 */
+export interface DocumentEfficiencyResponse {
+  status_distribution: StatusDistributionItem[];
+  overdue_count: number;
+  overdue_rate: number;
+  total: number;
+}
+
+/** AI 功能使用統計 */
+export interface AIFeatureStats {
+  count: number;
+  cache_hits: number;
+  cache_misses: number;
+  errors: number;
+  total_latency_ms: number;
+  avg_latency_ms: number;
+}
+
+/** AI 使用統計回應 */
+export interface AIStatsResponse {
+  total_requests: number;
+  by_feature: Record<string, AIFeatureStats>;
+  rate_limit_hits: number;
+  groq_requests: number;
+  ollama_requests: number;
+  fallback_requests: number;
+  start_time: string;
+}
