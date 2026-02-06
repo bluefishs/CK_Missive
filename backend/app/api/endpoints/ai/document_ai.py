@@ -10,6 +10,7 @@ Updated: 2026-02-06 - 權限過濾 + 429 錯誤處理
 - POST /ai/document/classify - 分類建議
 - POST /ai/document/keywords - 關鍵字提取
 - POST /ai/document/natural-search - 自然語言公文搜尋 (v1.1.0 新增)
+- POST /ai/document/parse-intent - 意圖解析（僅解析不搜尋）(v2.1.0 新增)
 - POST /ai/agency/match - AI 機關匹配
 - GET /ai/health - AI 服務健康檢查
 """
@@ -28,8 +29,11 @@ from app.services.ai.document_ai_service import (
 )
 from app.services.ai.ai_config import get_ai_config
 from app.schemas.ai import (
+    ParseIntentRequest,
+    ParseIntentResponse,
     NaturalSearchRequest,
     NaturalSearchResponse,
+    ParsedSearchIntent,
 )
 
 logger = logging.getLogger(__name__)
@@ -220,7 +224,7 @@ async def natural_search_documents(
     request: NaturalSearchRequest,
     db: AsyncSession = Depends(get_async_db),
     service: DocumentAIService = Depends(get_document_ai_service),
-    current_user=Depends(optional_auth),
+    current_user=Depends(optional_auth()),
 ) -> NaturalSearchResponse:
     """
     自然語言公文搜尋
@@ -244,7 +248,7 @@ async def natural_search_documents(
         # 速率限制錯誤 → 429
         raise HTTPException(status_code=429, detail=str(e))
     except Exception as e:
-        logger.error(f"自然語言搜尋失敗: {e}")
+        logger.error(f"自然語言搜尋失敗: {type(e).__name__}: {e}", exc_info=True)
         from app.schemas.ai import ParsedSearchIntent
         return NaturalSearchResponse(
             success=False,
@@ -253,7 +257,45 @@ async def natural_search_documents(
             results=[],
             total=0,
             source="error",
-            error=str(e),
+            error=f"{type(e).__name__}: {e}",
+        )
+
+
+@router.post("/document/parse-intent", response_model=ParseIntentResponse)
+async def parse_search_intent(
+    request: ParseIntentRequest,
+    service: DocumentAIService = Depends(get_document_ai_service),
+) -> ParseIntentResponse:
+    """
+    解析搜尋意圖（僅解析，不執行搜尋）
+
+    使用 AI 將自然語言查詢解析為結構化搜尋條件，
+    供前端填充傳統篩選器使用。
+
+    範例查詢:
+    - "找桃園市政府上個月的公文" → sender=桃園市政府, date_from/date_to
+    - "待處理的會勘通知" → status=待處理, doc_type=會勘通知單
+    """
+    logger.info(f"意圖解析: {request.query[:50]}...")
+
+    try:
+        parsed_intent = await service.parse_search_intent(request.query)
+        return ParseIntentResponse(
+            success=True,
+            query=request.query,
+            parsed_intent=parsed_intent,
+            source="ai",
+        )
+    except RuntimeError as e:
+        raise HTTPException(status_code=429, detail=str(e))
+    except Exception as e:
+        logger.error(f"意圖解析失敗: {type(e).__name__}: {e}", exc_info=True)
+        return ParseIntentResponse(
+            success=False,
+            query=request.query,
+            parsed_intent=ParsedSearchIntent(keywords=[request.query], confidence=0.0),
+            source="error",
+            error=f"{type(e).__name__}: {e}",
         )
 
 

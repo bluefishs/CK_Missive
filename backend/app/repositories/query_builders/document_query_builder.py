@@ -78,6 +78,7 @@ class DocumentQueryBuilder:
         self.model = OfficialDocument
         self._query: Select = select(OfficialDocument)
         self._conditions: List = []
+        self._joins: List[tuple] = []  # [(target, onclause, isouter), ...]
         self._order_columns: List = []
         self._offset: Optional[int] = None
         self._limit: Optional[int] = None
@@ -339,11 +340,11 @@ class DocumentQueryBuilder:
             case_name: 案件名稱關鍵字
         """
         from app.extended.models import ContractProject
-        self._query = self._query.join(
+        self._joins.append((
             ContractProject,
             self.model.contract_project_id == ContractProject.id,
-            isouter=True
-        )
+            True,  # isouter
+        ))
         self._conditions.append(
             ContractProject.project_name.ilike(f"%{case_name}%")
         )
@@ -455,6 +456,10 @@ class DocumentQueryBuilder:
         """建構最終查詢"""
         query = self._query
 
+        # 套用 JOIN
+        for target, onclause, isouter in self._joins:
+            query = query.join(target, onclause, isouter=isouter)
+
         # 套用條件
         if self._conditions:
             query = query.where(and_(*self._conditions))
@@ -507,6 +512,10 @@ class DocumentQueryBuilder:
 
         count_query = select(func.count(self.model.id))
 
+        # 套用 JOIN（確保條件中引用的關聯表可用）
+        for target, onclause, isouter in self._joins:
+            count_query = count_query.join(target, onclause, isouter=isouter)
+
         if self._conditions:
             count_query = count_query.where(and_(*self._conditions))
 
@@ -532,9 +541,10 @@ class DocumentQueryBuilder:
         # 使用 asyncio.gather 並行執行
         import asyncio
 
-        # 建立計數查詢器（不含分頁）
+        # 建立計數查詢器（不含分頁，但保留 JOIN 和條件）
         count_builder = DocumentQueryBuilder(self.db)
         count_builder._conditions = self._conditions.copy()
+        count_builder._joins = self._joins.copy()
 
         results, total = await asyncio.gather(
             self.execute(),

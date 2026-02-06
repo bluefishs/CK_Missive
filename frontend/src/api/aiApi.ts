@@ -8,6 +8,7 @@
  * @updated 2026-02-05 - 新增自然語言公文搜尋
  */
 
+import axios from 'axios';
 import { apiClient } from './client';
 import { logger } from '../services/logger';
 
@@ -168,11 +169,26 @@ export interface ParsedSearchIntent {
   confidence: number;
 }
 
+/** 意圖解析請求 */
+export interface ParseIntentRequest {
+  query: string;
+}
+
+/** 意圖解析回應 */
+export interface ParseIntentResponse {
+  success: boolean;
+  query: string;
+  parsed_intent: ParsedSearchIntent;
+  source: 'ai' | 'error';
+  error?: string | null;
+}
+
 /** 自然語言搜尋請求 */
 export interface NaturalSearchRequest {
   query: string;
   max_results?: number;
   include_attachments?: boolean;
+  offset?: number;
 }
 
 /** 附件資訊 */
@@ -244,6 +260,7 @@ const AI_ENDPOINTS = {
   CLASSIFY: '/ai/document/classify',
   KEYWORDS: '/ai/document/keywords',
   NATURAL_SEARCH: '/ai/document/natural-search',
+  PARSE_INTENT: '/ai/document/parse-intent',
   AGENCY_MATCH: '/ai/agency/match',
   HEALTH: '/ai/health',
   CONFIG: '/ai/config',
@@ -399,6 +416,34 @@ export const aiApi = {
   },
 
   /**
+   * 解析搜尋意圖（僅解析，不執行搜尋）
+   *
+   * 將自然語言查詢解析為結構化搜尋條件，供前端填充傳統篩選器。
+   *
+   * @param query 自然語言查詢
+   * @returns 解析的搜尋意圖
+   *
+   * @example
+   * const result = await aiApi.parseSearchIntent('找桃園市政府上個月的公文');
+   * // result.parsed_intent.sender = '桃園市政府'
+   */
+  async parseSearchIntent(query: string): Promise<ParseIntentResponse> {
+    try {
+      logger.log('AI 意圖解析:', query.substring(0, 50));
+      return await apiClient.post<ParseIntentResponse>(AI_ENDPOINTS.PARSE_INTENT, { query });
+    } catch (error) {
+      logger.error('AI 意圖解析失敗:', error);
+      return {
+        success: false,
+        query,
+        parsed_intent: { keywords: [query], confidence: 0 },
+        source: 'error',
+        error: error instanceof Error ? error.message : '未知錯誤',
+      };
+    }
+  },
+
+  /**
    * 自然語言公文搜尋 (v1.2.0)
    *
    * 使用 AI 解析自然語言查詢，搜尋相關公文並返回結果（含附件資訊）
@@ -421,7 +466,8 @@ export const aiApi = {
   async naturalSearch(
     query: string,
     maxResults: number = 20,
-    includeAttachments: boolean = true
+    includeAttachments: boolean = true,
+    offset: number = 0
   ): Promise<NaturalSearchResponse> {
     // 取消上一次進行中的搜尋
     _naturalSearchController?.abort();
@@ -438,6 +484,7 @@ export const aiApi = {
           query,
           max_results: maxResults,
           include_attachments: includeAttachments,
+          offset,
         },
         { signal: _naturalSearchController.signal }
       );
@@ -446,8 +493,10 @@ export const aiApi = {
     } catch (error) {
       clearTimeout(timeoutId);
 
-      // AbortError: 搜尋被取消或超時
-      if (error instanceof DOMException && error.name === 'AbortError') {
+      // AbortError: 搜尋被取消或超時（Axios 使用 CanceledError，瀏覽器使用 DOMException）
+      const isAborted = axios.isCancel(error) ||
+        (error instanceof DOMException && error.name === 'AbortError');
+      if (isAborted) {
         logger.log('AI 自然語言搜尋已取消或超時');
         return {
           success: false,

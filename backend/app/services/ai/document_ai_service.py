@@ -673,10 +673,15 @@ class DocumentAIService(BaseAIService):
                 if user_name:
                     qb = qb.with_assignee_access(user_name)
 
-        qb = qb.order_by("updated_at", descending=True).limit(request.max_results)
+        qb = qb.order_by("updated_at", descending=True)
 
-        # 3. 執行查詢
-        documents = await qb.execute()
+        # 套用偏移量與限制 (分頁)
+        if request.offset > 0:
+            qb = qb.offset(request.offset)
+        qb = qb.limit(request.max_results)
+
+        # 3. 執行查詢並取得總數
+        documents, total_count = await qb.execute_with_count()
 
         # 4. 並行取得附件與專案資訊 (asyncio.gather 優化)
         doc_ids = [doc.id for doc in documents]
@@ -750,7 +755,7 @@ class DocumentAIService(BaseAIService):
             query=request.query,
             parsed_intent=parsed_intent,
             results=search_results,
-            total=len(search_results),
+            total=total_count,
             source=source,
         )
 

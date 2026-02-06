@@ -58,9 +58,11 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({
   // 狀態
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [results, setResults] = useState<DocumentSearchResult[]>([]);
   const [parsedIntent, setParsedIntent] = useState<ParsedSearchIntent | null>(null);
   const [total, setTotal] = useState(0);
+  const [offset, setOffset] = useState(0);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,35 +73,50 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({
     };
   }, []);
 
-  // 執行搜尋（防止重複提交）
-  const handleSearch = useCallback(async (searchQuery: string) => {
+  // 執行搜尋（防止重複提交，支援分頁載入更多）
+  const handleSearch = useCallback(async (searchQuery: string, searchOffset: number = 0) => {
     if (!searchQuery.trim()) {
       message.warning('請輸入搜尋內容');
       return;
     }
 
     // 防止重複提交
-    if (loading) return;
+    if (loading || loadingMore) return;
 
-    setLoading(true);
+    const isLoadMore = searchOffset > 0;
+    if (isLoadMore) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+      setOffset(0);
+    }
     setError(null);
 
     try {
-      const response = await aiApi.naturalSearch(searchQuery, 20, true);
+      const response = await aiApi.naturalSearch(searchQuery, 20, true, searchOffset);
 
       if (response.success) {
-        setResults(response.results);
+        if (isLoadMore) {
+          // 載入更多：追加結果
+          setResults((prev) => [...prev, ...response.results]);
+        } else {
+          // 新搜尋：替換結果
+          setResults(response.results);
+        }
         setParsedIntent(response.parsed_intent);
         setTotal(response.total);
         setSearched(true);
         onSearchComplete?.(response.total);
 
-        if (response.total === 0) {
+        if (response.total === 0 && !isLoadMore) {
           message.info('未找到符合條件的公文');
         }
       } else {
-        setError(response.error || '搜尋失敗');
-        message.error(response.error || '搜尋失敗');
+        // 區分錯誤類型提供更有用的訊息
+        const errorMsg = response.error || '搜尋失敗';
+        const isAiUnavailable = errorMsg.includes('AI 服務') || errorMsg.includes('ConnectError');
+        setError(isAiUnavailable ? '目前 AI 服務暫時無法使用，請稍後再試' : errorMsg);
+        message.error(isAiUnavailable ? 'AI 服務暫時無法使用' : errorMsg);
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : '搜尋發生錯誤';
@@ -107,8 +124,9 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({
       message.error(errorMsg);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
-  }, [onSearchComplete, loading]);
+  }, [onSearchComplete, loading, loadingMore]);
 
   // 點擊公文查看詳情
   const handleDocumentClick = useCallback((docId: number) => {
@@ -335,7 +353,7 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({
         enterButton={<><SearchOutlined /> 搜尋</>}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        onSearch={handleSearch}
+        onSearch={(value) => handleSearch(value)}
         loading={loading}
         style={{ marginBottom: 12 }}
         allowClear
@@ -364,11 +382,31 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({
             image={Empty.PRESENTED_IMAGE_SIMPLE}
             description={
               <div>
-                <Text type="secondary">請輸入搜尋條件</Text>
-                <div style={{ marginTop: 8 }}>
-                  <Text type="secondary" style={{ fontSize: 11 }}>
-                    範例: "找有截止日的待處理公文"、"桃園市政府的會勘通知"
+                <Text type="secondary">輸入自然語言搜尋公文</Text>
+                <div style={{ marginTop: 12 }}>
+                  <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 8 }}>
+                    試試看：
                   </Text>
+                  <Space size={[4, 8]} wrap>
+                    {[
+                      '找桃園市政府上個月的公文',
+                      '有截止日的待處理收文',
+                      '今年度的會勘通知',
+                      '乾坤測字 1140 開頭的公文',
+                    ].map((suggestion) => (
+                      <Tag
+                        key={suggestion}
+                        color="blue"
+                        style={{ cursor: 'pointer', fontSize: 12 }}
+                        onClick={() => {
+                          setQuery(suggestion);
+                          handleSearch(suggestion);
+                        }}
+                      >
+                        {suggestion}
+                      </Tag>
+                    ))}
+                  </Space>
                 </div>
               </div>
             }
@@ -382,7 +420,7 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({
           <>
             <div style={{ marginBottom: 8 }}>
               <Text type="secondary" style={{ fontSize: 12 }}>
-                找到 {total} 筆公文
+                找到 {total} 筆公文，已顯示 {results.length} 筆
               </Text>
             </div>
             <List
@@ -390,6 +428,21 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({
               dataSource={results}
               renderItem={renderResultItem}
             />
+            {results.length < total && (
+              <div style={{ textAlign: 'center', padding: '12px 0' }}>
+                <Button
+                  type="link"
+                  loading={loadingMore}
+                  onClick={() => {
+                    const newOffset = offset + 20;
+                    setOffset(newOffset);
+                    handleSearch(query, newOffset);
+                  }}
+                >
+                  載入更多
+                </Button>
+              </div>
+            )}
           </>
         )}
       </div>

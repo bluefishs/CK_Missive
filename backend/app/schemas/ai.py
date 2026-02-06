@@ -41,10 +41,25 @@ class ParsedSearchIntent(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ParseIntentRequest(BaseModel):
+    """意圖解析請求（僅解析，不執行搜尋）"""
+    query: str = Field(..., min_length=1, max_length=500, description="自然語言查詢")
+
+
+class ParseIntentResponse(BaseModel):
+    """意圖解析回應"""
+    success: bool = Field(default=True, description="是否成功")
+    query: str = Field(..., description="原始查詢")
+    parsed_intent: ParsedSearchIntent = Field(..., description="AI 解析的搜尋意圖")
+    source: str = Field(default="ai", description="資料來源")
+    error: Optional[str] = Field(None, description="錯誤訊息")
+
+
 class NaturalSearchRequest(BaseModel):
     """自然語言搜尋請求"""
     query: str = Field(..., min_length=1, max_length=500, description="自然語言查詢")
     max_results: int = Field(default=20, ge=1, le=100, description="最大結果數")
+    offset: int = Field(default=0, ge=0, description="偏移量（分頁用）")
     include_attachments: bool = Field(default=True, description="是否包含附件資訊")
 
 
