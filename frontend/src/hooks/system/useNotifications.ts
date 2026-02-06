@@ -65,8 +65,11 @@ export const useUnreadNotificationCount = (enabled: boolean = true) => {
     queryFn: async () => {
       return await apiClient.post<UnreadCountResponse>(API_ENDPOINTS.SYSTEM_NOTIFICATIONS.UNREAD_COUNT, {});
     },
-    refetchInterval: 30000, // 每 30 秒自動刷新
+    // 正常 60 秒輪詢，錯誤時延長至 5 分鐘避免壓垮伺服器
+    refetchInterval: (query) =>
+      query.state.error ? 300000 : 60000,
     enabled,
+    retry: 1, // 最多重試 1 次
   });
 
   return {

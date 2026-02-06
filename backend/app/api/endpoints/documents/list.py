@@ -170,13 +170,20 @@ async def list_documents(
             ).where(GovernmentAgency.id.in_(agency_ids))
             return (await db.execute(query)).all()
 
-        # 並行執行所有查詢
-        project_rows, staff_rows, attachment_rows, agency_rows = await asyncio.gather(
-            fetch_projects(),
-            fetch_staff(),
-            fetch_attachments(),
-            fetch_agencies(),
-        )
+        # 並行執行所有查詢（加入 10 秒超時保護）
+        try:
+            project_rows, staff_rows, attachment_rows, agency_rows = await asyncio.wait_for(
+                asyncio.gather(
+                    fetch_projects(),
+                    fetch_staff(),
+                    fetch_attachments(),
+                    fetch_agencies(),
+                ),
+                timeout=10.0
+            )
+        except asyncio.TimeoutError:
+            logger.warning("並行查詢超時 (10s)，回退至基本資料")
+            project_rows, staff_rows, attachment_rows, agency_rows = [], [], [], []
 
         # 處理查詢結果
         for row in project_rows:
