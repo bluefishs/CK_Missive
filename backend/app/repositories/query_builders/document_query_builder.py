@@ -266,6 +266,50 @@ class DocumentQueryBuilder:
         )
         return self
 
+    def with_keyword_full(self, keyword: str) -> 'DocumentQueryBuilder':
+        """
+        全欄位關鍵字搜尋（含 content 欄位，供 AI 搜尋使用）
+
+        Args:
+            keyword: 搜尋關鍵字
+        """
+        search_pattern = f"%{keyword}%"
+        self._conditions.append(
+            or_(
+                self.model.subject.ilike(search_pattern),
+                self.model.doc_number.ilike(search_pattern),
+                self.model.sender.ilike(search_pattern),
+                self.model.receiver.ilike(search_pattern),
+                self.model.content.ilike(search_pattern),
+                self.model.ck_note.ilike(search_pattern),
+            )
+        )
+        return self
+
+    def with_keywords_full(self, keywords: List[str]) -> 'DocumentQueryBuilder':
+        """
+        多關鍵字全欄位搜尋（OR 邏輯，任一關鍵字命中即可）
+
+        Args:
+            keywords: 關鍵字列表
+        """
+        all_conditions = []
+        for kw in keywords:
+            pattern = f"%{kw}%"
+            all_conditions.append(
+                or_(
+                    self.model.subject.ilike(pattern),
+                    self.model.doc_number.ilike(pattern),
+                    self.model.sender.ilike(pattern),
+                    self.model.receiver.ilike(pattern),
+                    self.model.content.ilike(pattern),
+                    self.model.ck_note.ilike(pattern),
+                )
+            )
+        if all_conditions:
+            self._conditions.append(or_(*all_conditions))
+        return self
+
     def with_keywords(self, keywords: List[str]) -> 'DocumentQueryBuilder':
         """
         多關鍵字搜尋（AND 邏輯）
@@ -275,6 +319,49 @@ class DocumentQueryBuilder:
         """
         for keyword in keywords:
             self.with_keyword(keyword)
+        return self
+
+    def with_receiver_like(self, receiver: str) -> 'DocumentQueryBuilder':
+        """
+        模糊篩選受文單位
+
+        Args:
+            receiver: 受文單位關鍵字
+        """
+        self._conditions.append(self.model.receiver.ilike(f"%{receiver}%"))
+        return self
+
+    def with_contract_case(self, case_name: str) -> 'DocumentQueryBuilder':
+        """
+        篩選承攬案件（JOIN ContractProject）
+
+        Args:
+            case_name: 案件名稱關鍵字
+        """
+        from app.extended.models import ContractProject
+        self._query = self._query.join(
+            ContractProject,
+            self.model.contract_project_id == ContractProject.id,
+            isouter=True
+        )
+        self._conditions.append(
+            ContractProject.project_name.ilike(f"%{case_name}%")
+        )
+        return self
+
+    def with_assignee_access(self, user_name: str) -> 'DocumentQueryBuilder':
+        """
+        權限過濾：僅返回使用者可存取的公文
+
+        Args:
+            user_name: 使用者名稱
+        """
+        self._conditions.append(
+            or_(
+                self.model.assignee.ilike(f"%{user_name}%"),
+                self.model.contract_project_id.is_(None),
+            )
+        )
         return self
 
     # =========================================================================

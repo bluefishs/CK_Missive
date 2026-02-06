@@ -7,7 +7,7 @@
  * @created 2026-02-05
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   Input,
   List,
@@ -32,7 +32,7 @@ import {
   InfoCircleOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { aiApi, DocumentSearchResult, ParsedSearchIntent, AttachmentInfo } from '../../api/aiApi';
+import { aiApi, abortNaturalSearch, DocumentSearchResult, ParsedSearchIntent, AttachmentInfo } from '../../api/aiApi';
 import { filesApi } from '../../api/filesApi';
 
 const { Search } = Input;
@@ -63,12 +63,22 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 執行搜尋
+  // 元件卸載時取消進行中的搜尋
+  useEffect(() => {
+    return () => {
+      abortNaturalSearch();
+    };
+  }, []);
+
+  // 執行搜尋（防止重複提交）
   const handleSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) {
       message.warning('請輸入搜尋內容');
       return;
     }
+
+    // 防止重複提交
+    if (loading) return;
 
     setLoading(true);
     setError(null);
@@ -97,7 +107,7 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [onSearchComplete]);
+  }, [onSearchComplete, loading]);
 
   // 點擊公文查看詳情
   const handleDocumentClick = useCallback((docId: number) => {
@@ -130,8 +140,8 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({
     }
   }, []);
 
-  // 渲染搜尋意圖標籤
-  const renderIntentTags = () => {
+  // 渲染搜尋意圖標籤（useMemo 優化，僅在 parsedIntent 變化時重新計算）
+  const intentTagsNode = useMemo(() => {
     if (!parsedIntent || parsedIntent.confidence === 0) return null;
 
     const tags: React.ReactNode[] = [];
@@ -170,7 +180,7 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({
         </div>
       </div>
     );
-  };
+  }, [parsedIntent]);
 
   // 渲染附件列表
   const renderAttachments = (attachments: AttachmentInfo[]) => {
@@ -331,7 +341,7 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({
       />
 
       {/* 搜尋意圖顯示 */}
-      {searched && renderIntentTags()}
+      {searched && intentTagsNode}
 
       {/* 搜尋結果區 */}
       <div style={{ flex: 1, overflow: 'auto' }}>

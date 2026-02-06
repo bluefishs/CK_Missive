@@ -217,6 +217,25 @@ export interface NaturalSearchResponse {
 }
 
 // ============================================================================
+// 模組級變數：自然語言搜尋 AbortController
+// ============================================================================
+
+/** 當前自然語言搜尋的 AbortController（用於取消進行中的請求） */
+let _naturalSearchController: AbortController | null = null;
+
+/**
+ * 取消進行中的自然語言搜尋
+ *
+ * 外部可呼叫此方法來主動取消搜尋（例如元件卸載時）
+ */
+export function abortNaturalSearch(): void {
+  if (_naturalSearchController) {
+    _naturalSearchController.abort();
+    _naturalSearchController = null;
+  }
+}
+
+// ============================================================================
 // API 端點
 // ============================================================================
 
@@ -380,9 +399,12 @@ export const aiApi = {
   },
 
   /**
-   * 自然語言公文搜尋 (v1.1.0 新增)
+   * 自然語言公文搜尋 (v1.2.0)
    *
    * 使用 AI 解析自然語言查詢，搜尋相關公文並返回結果（含附件資訊）
+   * - 自動取消上一次進行中的搜尋（競態防護）
+   * - 30 秒超時自動取消
+   * - 可透過 abortNaturalSearch() 從外部取消
    *
    * @param query 自然語言查詢
    * @param maxResults 最大結果數（預設 20）
@@ -393,23 +415,51 @@ export const aiApi = {
    * // 搜尋範例
    * const result = await aiApi.naturalSearch('找桃園市政府上個月的公文');
    * const result = await aiApi.naturalSearch('有截止日的待處理公文', 10);
+   * // 取消搜尋
+   * abortNaturalSearch();
    */
   async naturalSearch(
     query: string,
     maxResults: number = 20,
     includeAttachments: boolean = true
   ): Promise<NaturalSearchResponse> {
+    // 取消上一次進行中的搜尋
+    _naturalSearchController?.abort();
+    _naturalSearchController = new AbortController();
+
+    const TIMEOUT_MS = 30000;
+    const timeoutId = setTimeout(() => _naturalSearchController?.abort(), TIMEOUT_MS);
+
     try {
       logger.log('AI 自然語言搜尋:', query.substring(0, 50));
-      return await apiClient.post<NaturalSearchResponse>(
+      const response = await apiClient.post<NaturalSearchResponse>(
         AI_ENDPOINTS.NATURAL_SEARCH,
         {
           query,
           max_results: maxResults,
           include_attachments: includeAttachments,
-        }
+        },
+        { signal: _naturalSearchController.signal }
       );
+      clearTimeout(timeoutId);
+      return response;
     } catch (error) {
+      clearTimeout(timeoutId);
+
+      // AbortError: 搜尋被取消或超時
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        logger.log('AI 自然語言搜尋已取消或超時');
+        return {
+          success: false,
+          query,
+          parsed_intent: { keywords: [query], confidence: 0 },
+          results: [],
+          total: 0,
+          source: 'error',
+          error: '搜尋已取消或超時',
+        };
+      }
+
       logger.error('AI 自然語言搜尋失敗:', error);
       return {
         success: false,

@@ -1,9 +1,9 @@
 """
 公文 AI API 端點
 
-Version: 1.1.0
+Version: 2.0.0
 Created: 2026-02-04
-Updated: 2026-02-05 - 新增自然語言公文搜尋端點
+Updated: 2026-02-06 - 權限過濾 + 429 錯誤處理
 
 端點:
 - POST /ai/document/summary - 生成公文摘要
@@ -21,7 +21,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_async_db
+from app.core.dependencies import get_async_db, optional_auth
 from app.services.ai.document_ai_service import (
     DocumentAIService,
     get_document_ai_service,
@@ -220,11 +220,13 @@ async def natural_search_documents(
     request: NaturalSearchRequest,
     db: AsyncSession = Depends(get_async_db),
     service: DocumentAIService = Depends(get_document_ai_service),
+    current_user=Depends(optional_auth),
 ) -> NaturalSearchResponse:
     """
     自然語言公文搜尋
 
     使用 AI 解析自然語言查詢，搜尋相關公文並返回結果（含附件資訊）。
+    支援權限過濾：非管理員僅能搜尋自己可存取的公文。
 
     範例查詢:
     - "找桃園市政府上個月的公文"
@@ -234,11 +236,15 @@ async def natural_search_documents(
     logger.info(f"自然語言搜尋: {request.query[:50]}...")
 
     try:
-        result = await service.natural_search(db=db, request=request)
+        result = await service.natural_search(
+            db=db, request=request, current_user=current_user
+        )
         return result
+    except RuntimeError as e:
+        # 速率限制錯誤 → 429
+        raise HTTPException(status_code=429, detail=str(e))
     except Exception as e:
         logger.error(f"自然語言搜尋失敗: {e}")
-        # 返回降級回應
         from app.schemas.ai import ParsedSearchIntent
         return NaturalSearchResponse(
             success=False,

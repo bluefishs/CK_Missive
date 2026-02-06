@@ -1,9 +1,9 @@
 """
 AI 服務基類
 
-Version: 1.1.0
+Version: 2.0.0
 Created: 2026-02-04
-Updated: 2026-02-05 - 新增速率限制與快取機制
+Updated: 2026-02-06 - SimpleCache LRU 淘汰機制
 """
 
 import hashlib
@@ -48,9 +48,12 @@ class RateLimiter:
 
 
 class SimpleCache:
-    """簡單的記憶體快取"""
+    """簡單的記憶體快取（含 LRU 淘汰機制）"""
 
-    def __init__(self):
+    MAX_SIZE = 1000  # 最大快取項目數
+
+    def __init__(self, max_size: int = MAX_SIZE):
+        self.max_size = max_size
         self._cache: Dict[str, Tuple[Any, float]] = {}
 
     def get(self, key: str) -> Optional[Any]:
@@ -66,9 +69,22 @@ class SimpleCache:
         return value
 
     def set(self, key: str, value: Any, ttl: int) -> None:
-        """設定快取值"""
+        """設定快取值（超出上限時自動淘汰）"""
+        if len(self._cache) >= self.max_size and key not in self._cache:
+            self._evict_expired_or_oldest()
         expires_at = time.time() + ttl
         self._cache[key] = (value, expires_at)
+
+    def _evict_expired_or_oldest(self) -> None:
+        """清理過期項目，若仍超出限制則移除最早的項目"""
+        now = time.time()
+        expired_keys = [k for k, (_, exp) in self._cache.items() if now > exp]
+        for key in expired_keys:
+            del self._cache[key]
+        while len(self._cache) >= self.max_size:
+            oldest_key = next(iter(self._cache))
+            del self._cache[oldest_key]
+            logger.debug(f"LRU 淘汰快取項目: {oldest_key}")
 
     def clear(self) -> None:
         """清除所有快取"""
