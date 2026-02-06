@@ -102,136 +102,32 @@ class UnitOfWork:
 
     @property
     def vendors(self):
-        """廠商服務"""
+        """廠商服務（工廠模式，直接使用）"""
         if 'vendors' not in self._services:
             from app.services.vendor_service import VendorService
-            self._services['vendors'] = VendorServiceAdapter(VendorService(), self.session)
+            self._services['vendors'] = VendorService(self.session)
         return self._services['vendors']
 
     @property
     def agencies(self):
-        """機關服務"""
+        """機關服務（工廠模式，直接使用）"""
         if 'agencies' not in self._services:
             from app.services.agency_service import AgencyService
-            self._services['agencies'] = AgencyServiceAdapter(AgencyService(), self.session)
+            self._services['agencies'] = AgencyService(self.session)
         return self._services['agencies']
 
     @property
     def projects(self):
-        """專案服務"""
+        """專案服務（工廠模式，直接使用）"""
         if 'projects' not in self._services:
             from app.services.project_service import ProjectService
-            self._services['projects'] = ProjectServiceAdapter(ProjectService(), self.session)
+            self._services['projects'] = ProjectService(self.session)
         return self._services['projects']
 
 
-class BaseServiceAdapter:
-    """
-    BaseService 適配器
-
-    將方法級別 db 注入的 BaseService 適配為 UnitOfWork 使用的介面。
-    """
-
-    def __init__(self, service, session: AsyncSession):
-        self._service = service
-        self._session = session
-
-    async def get_by_id(self, entity_id: int):
-        return await self._service.get_by_id(self._session, entity_id)
-
-    async def get_list(self, skip: int = 0, limit: int = 100, query=None):
-        return await self._service.get_list(self._session, skip, limit, query)
-
-    async def get_paginated(self, page: int = 1, limit: int = 20, query=None):
-        return await self._service.get_paginated(self._session, page, limit, query)
-
-    async def create(self, data):
-        return await self._service.create(self._session, data)
-
-    async def update(self, entity_id: int, data):
-        return await self._service.update(self._session, entity_id, data)
-
-    async def delete(self, entity_id: int):
-        return await self._service.delete(self._session, entity_id)
-
-    async def exists(self, entity_id: int):
-        return await self._service.exists(self._session, entity_id)
-
-
-class VendorServiceAdapter(BaseServiceAdapter):
-    """VendorService 適配器"""
-
-    async def search(self, keyword: str = None, page: int = 1, limit: int = 20):
-        return await self._service.search(self._session, keyword, page, limit)
-
-
-class AgencyServiceAdapter(BaseServiceAdapter):
-    """AgencyService 適配器"""
-
-    async def search(self, keyword: str = None, page: int = 1, limit: int = 20):
-        return await self._service.search(self._session, keyword, page, limit)
-
-    async def get_usage_count(self, agency_id: int):
-        return await self._service.get_usage_count(self._session, agency_id)
-
-
-class ProjectServiceAdapter:
-    """
-    ProjectService 適配器
-
-    ProjectService 未繼承 BaseService，使用不同的方法簽名，
-    因此需要專門的適配器來橋接 UnitOfWork 介面。
-    """
-
-    def __init__(self, service, session: AsyncSession):
-        self._service = service
-        self._session = session
-
-    async def get_by_id(self, entity_id: int):
-        """適配 get_project 方法"""
-        return await self._service.get_project(self._session, entity_id)
-
-    async def get_list(self, skip: int = 0, limit: int = 100, query=None):
-        """適配 get_projects 方法"""
-        # 建立簡單的查詢參數物件
-        class QueryParams:
-            def __init__(self, skip, limit, search=None, year=None, category=None, status=None):
-                self.skip = skip
-                self.limit = limit
-                self.search = search
-                self.year = year
-                self.category = category
-                self.status = status
-        params = QueryParams(skip, limit)
-        result = await self._service.get_projects(self._session, params)
-        return result.get('projects', [])
-
-    async def create(self, data):
-        """適配 create_project 方法"""
-        return await self._service.create_project(self._session, data)
-
-    async def update(self, entity_id: int, data):
-        """適配 update_project 方法"""
-        return await self._service.update_project(self._session, entity_id, data)
-
-    async def delete(self, entity_id: int):
-        """適配 delete_project 方法"""
-        return await self._service.delete_project(self._session, entity_id)
-
-    async def exists(self, entity_id: int):
-        """檢查專案是否存在"""
-        project = await self.get_by_id(entity_id)
-        return project is not None
-
-    async def get_statistics(self):
-        """取得專案統計"""
-        return await self._service.get_project_statistics(self._session)
-
-    async def check_user_access(self, user_id: int, project_id: int) -> bool:
-        """檢查使用者是否有權限存取專案"""
-        return await self._service.check_user_project_access(
-            self._session, user_id, project_id
-        )
+    # 注意：原有的 BaseServiceAdapter, VendorServiceAdapter, AgencyServiceAdapter,
+    # ProjectServiceAdapter 已在 v3.0/v4.0 遷移後移除。
+    # 所有服務現在直接使用工廠模式，不需要 Adapter。
 
 
 # ============================================================================

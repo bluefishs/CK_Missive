@@ -2,7 +2,7 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.44.0
+> **Claude Code 配置版本**: 1.45.0
 > **最後更新**: 2026-02-06
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers), [everything-claude-code](https://github.com/affaan-m/everything-claude-code)
 
@@ -753,6 +753,47 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 ---
 
 ## 📋 版本更新記錄
+
+### v1.45.0 (2026-02-06) - 服務層工廠模式全面遷移
+
+**架構升級** :
+
+| 服務 | 遷移前 | 遷移後 | 版本 |
+|------|--------|--------|------|
+| VendorService | Singleton (BaseService) | 工廠模式 | v2.0.0 (已完成) |
+| AgencyService | Singleton (BaseService) | 工廠模式 | v3.0.0 |
+| ProjectService | Singleton (BaseService) | 工廠模式 | v4.0.0 |
+
+**工廠模式核心變更**:
+- `__init__(self, db: AsyncSession)` - db 在建構時注入
+- 所有方法不再需要 `db` 參數
+- 向後相容方法保留但標記 `@deprecated`
+- 使用 `get_service(ServiceClass)` 或對應的 `get_xxx_service` 工廠函數
+
+**端點更新**:
+- `agencies.py` v3.0 - 12 個端點移除 `db` 參數傳遞
+- `projects.py` v3.0 - 9 個端點移除 `db` 參數傳遞
+- `dependencies.py` - `get_project_service` / `get_agency_service` 改為工廠模式
+
+**UnitOfWork 簡化**:
+- 移除 4 個 Adapter 類別（BaseServiceAdapter, VendorServiceAdapter, AgencyServiceAdapter, ProjectServiceAdapter）
+- 所有服務直接使用工廠模式建立
+
+**新增 Repository**:
+| Repository | 說明 |
+|------------|------|
+| `UserRepository` | 使用者 CRUD + email/username 查詢 + 活躍使用者篩選 |
+| `ConfigurationRepository` | 系統配置 key-value 存取 |
+
+**前端優化**:
+- console.log/warn/error 遷移至 logger 工具
+- RequestThrottler 測試覆蓋
+
+**測試結果**: 24 個後端依賴注入測試全部通過
+
+**系統健康度**: 9.9/10 (維持)
+
+---
 
 ### v1.44.0 (2026-02-06) - 連鎖崩潰防護機制
 

@@ -97,7 +97,6 @@ def get_service(service_class: Type[T]) -> Callable[[AsyncSession], T]:
 # 這些 Service 不需要在建構函數接收 db，而是在方法中接收
 # 保持向後相容性
 
-from functools import lru_cache
 from app.services.vendor_service import VendorService
 from app.services.project_service import ProjectService
 from app.services.agency_service import AgencyService
@@ -105,19 +104,29 @@ from app.services.document_service import DocumentService
 
 
 # VendorService 已升級為工廠模式 (v2.0.0)
-# 使用 get_service(VendorService) 或 get_vendor_service_factory
+# ProjectService 已升級為工廠模式 (v4.0.0)
+# AgencyService 已升級為工廠模式 (v3.0.0)
+# 使用 get_service(ServiceClass) 或對應的 _factory 變體
 
 
-@lru_cache()
-def get_project_service() -> ProjectService:
-    """取得 ProjectService 實例（Singleton）"""
-    return ProjectService()
+def get_project_service(db: AsyncSession = Depends(get_async_db)) -> ProjectService:
+    """
+    取得 ProjectService 實例（工廠模式）
+
+    .. versionchanged:: 4.0.0
+       從 Singleton 模式改為工廠模式，每個請求建立新實例。
+    """
+    return ProjectService(db)
 
 
-@lru_cache()
-def get_agency_service() -> AgencyService:
-    """取得 AgencyService 實例（Singleton）"""
-    return AgencyService()
+def get_agency_service(db: AsyncSession = Depends(get_async_db)) -> AgencyService:
+    """
+    取得 AgencyService 實例（工廠模式）
+
+    .. versionchanged:: 3.0.0
+       從 Singleton 模式改為工廠模式，每個請求建立新實例。
+    """
+    return AgencyService(db)
 
 
 # 注意：DocumentService 需要 db 參數，使用 get_service_with_db 工廠模式

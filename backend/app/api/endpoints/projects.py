@@ -3,6 +3,9 @@
 """
 承攬案件管理 API 端點
 
+v3.0 - 2026-02-06
+- 重構: ProjectService 升級為工廠模式，移除端點中的 db 參數傳遞
+
 v2.0 - 2026-01-10
 - 新增認證依賴：所有端點需要登入
 - 新增行級別權限過濾：非管理員只能查看關聯專案
@@ -57,14 +60,13 @@ router = APIRouter()
 )
 async def list_projects(
     query: ProjectListQuery = Body(default=ProjectListQuery()),
-    db: AsyncSession = Depends(get_async_db),
     project_service: ProjectService = Depends(get_project_service),
     current_user: User = Depends(require_auth())
 ):
     """
     查詢專案列表（POST-only 資安機制）
 
-    🔒 權限規則：
+    權限規則：
     - 需要登入認證
     - superuser/admin: 可查看所有專案
     - 一般使用者: 只能查看自己關聯的專案
@@ -105,7 +107,7 @@ async def list_projects(
     )
 
     # 傳遞 current_user 進行行級別權限過濾
-    result = await project_service.get_projects(db, params, current_user)
+    result = await project_service.get_projects(params, current_user)
 
     return ProjectListResponse(
         items=[ProjectResponse.model_validate(p) for p in result["projects"]],
@@ -123,12 +125,11 @@ async def list_projects(
 
 @router.post("/years", summary="獲取專案年度選項")
 async def get_project_years(
-    db: AsyncSession = Depends(get_async_db),
     project_service: ProjectService = Depends(get_project_service),
     current_user: User = Depends(require_auth())
 ) -> SuccessResponse:
     """獲取所有專案的年度選項（需要登入）"""
-    years = await project_service.get_year_options(db)
+    years = await project_service.get_year_options()
     return SuccessResponse(
         success=True,
         data={"years": years}
@@ -137,12 +138,11 @@ async def get_project_years(
 
 @router.post("/categories", summary="獲取專案類別選項")
 async def get_project_categories(
-    db: AsyncSession = Depends(get_async_db),
     project_service: ProjectService = Depends(get_project_service),
     current_user: User = Depends(require_auth())
 ) -> SuccessResponse:
     """獲取所有專案的類別選項（需要登入）"""
-    categories = await project_service.get_category_options(db)
+    categories = await project_service.get_category_options()
     return SuccessResponse(
         success=True,
         data={"categories": categories}
@@ -151,12 +151,11 @@ async def get_project_categories(
 
 @router.post("/statuses", summary="獲取專案狀態選項")
 async def get_project_statuses(
-    db: AsyncSession = Depends(get_async_db),
     project_service: ProjectService = Depends(get_project_service),
     current_user: User = Depends(require_auth())
 ) -> SuccessResponse:
     """獲取所有專案的狀態選項（需要登入）"""
-    statuses = await project_service.get_status_options(db)
+    statuses = await project_service.get_status_options()
     return SuccessResponse(
         success=True,
         data={"statuses": statuses}
@@ -165,12 +164,11 @@ async def get_project_statuses(
 
 @router.post("/statistics", summary="獲取專案統計資料")
 async def get_project_statistics(
-    db: AsyncSession = Depends(get_async_db),
     project_service: ProjectService = Depends(get_project_service),
     current_user: User = Depends(require_auth())
 ) -> SuccessResponse:
     """獲取專案統計資料（需要登入）"""
-    stats = await project_service.get_project_statistics(db)
+    stats = await project_service.get_project_statistics()
     return SuccessResponse(
         success=True,
         data=stats
@@ -189,19 +187,18 @@ async def get_project_statistics(
 )
 async def create_project(
     project_data: ProjectCreate,
-    db: AsyncSession = Depends(get_async_db),
     project_service: ProjectService = Depends(get_project_service),
     current_user: User = Depends(require_permission("projects:create"))
 ):
     """
     建立新專案
 
-    🔒 權限要求：projects:create
+    權限要求：projects:create
 
     若專案編號已存在會回傳 409 Conflict 錯誤。
     """
     try:
-        project = await project_service.create_project(db, project_data)
+        project = await project_service.create(project_data)
         return ProjectResponse.model_validate(project)
     except ValueError as e:
         raise ConflictException(
@@ -218,19 +215,18 @@ async def create_project(
 )
 async def get_project_detail(
     project_id: int,
-    db: AsyncSession = Depends(get_async_db),
     project_service: ProjectService = Depends(get_project_service),
     current_user: User = Depends(require_auth())
 ):
     """
     取得單一專案詳情
 
-    🔒 權限規則：
+    權限規則：
     - 需要登入認證
     - 管理員可查看所有專案
     - 一般使用者只能查看自己關聯的專案
     """
-    project = await project_service.get_project(db, project_id)
+    project = await project_service.get_project(project_id)
     if not project:
         raise NotFoundException(resource="承攬案件", resource_id=project_id)
 
@@ -238,7 +234,7 @@ async def get_project_detail(
     if not current_user.is_admin and not current_user.is_superuser:
         # 檢查使用者是否與此專案有關聯
         has_access = await project_service.check_user_project_access(
-            db, current_user.id, project_id
+            current_user.id, project_id
         )
         if not has_access:
             raise ForbiddenException("您沒有權限查看此專案")
@@ -254,26 +250,25 @@ async def get_project_detail(
 async def update_project(
     project_id: int,
     project_data: ProjectUpdate,
-    db: AsyncSession = Depends(get_async_db),
     project_service: ProjectService = Depends(get_project_service),
     current_user: User = Depends(require_permission("projects:edit"))
 ):
     """
     更新專案資料
 
-    🔒 權限要求：projects:edit
+    權限要求：projects:edit
 
     注意：一般使用者只能更新自己關聯的專案
     """
     # 檢查非管理員是否有權限編輯此專案
     if not current_user.is_admin and not current_user.is_superuser:
         has_access = await project_service.check_user_project_access(
-            db, current_user.id, project_id
+            current_user.id, project_id
         )
         if not has_access:
             raise ForbiddenException("您沒有權限編輯此專案")
 
-    project = await project_service.update_project(db, project_id, project_data)
+    project = await project_service.update(project_id, project_data)
     if not project:
         raise NotFoundException(resource="承攬案件", resource_id=project_id)
     return ProjectResponse.model_validate(project)
@@ -286,19 +281,18 @@ async def update_project(
 )
 async def delete_project(
     project_id: int,
-    db: AsyncSession = Depends(get_async_db),
     project_service: ProjectService = Depends(get_project_service),
     current_user: User = Depends(require_permission("projects:delete"))
 ):
     """
     刪除專案
 
-    🔒 權限要求：projects:delete（通常只有管理員）
+    權限要求：projects:delete（通常只有管理員）
 
     會同時刪除關聯的承辦同仁和廠商資料。
     """
     try:
-        success = await project_service.delete_project(db, project_id)
+        success = await project_service.delete(project_id)
         if not success:
             raise NotFoundException(resource="承攬案件", resource_id=project_id)
         return DeleteResponse(

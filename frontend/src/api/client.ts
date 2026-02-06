@@ -203,7 +203,8 @@ export class ApiException extends Error {
  *
  * @see DEVELOPMENT_GUIDELINES.md 常見錯誤 #10
  */
-const THROTTLE_CONFIG = {
+/** @internal 導出供測試使用 */
+export const THROTTLE_CONFIG = {
   /** 同 URL 最小請求間隔 (ms) */
   MIN_INTERVAL_MS: 1000,
   /** 單 URL 滑動窗口內最大請求數 */
@@ -222,7 +223,8 @@ interface ThrottleRecord {
   lastTime: number;
 }
 
-class RequestThrottler {
+/** @internal 導出供測試使用 */
+export class RequestThrottler {
   private records = new Map<string, ThrottleRecord>();
   private globalTimestamps: number[] = [];
   private circuitOpenUntil = 0;

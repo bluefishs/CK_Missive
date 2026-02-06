@@ -1,18 +1,26 @@
 """
-機關服務層 - 繼承 BaseService 實現標準 CRUD
+機關服務層 - 工廠模式
 
-使用泛型基類減少重複代碼，提供統一的資料庫操作介面。
-包含智慧機關匹配功能，支援自動關聯公文與機關。
+使用工廠模式，db session 在建構函數注入。
 
-.. deprecated:: 1.42.0
-   Singleton 模式（db 在每個方法中傳入）將在 v2.0 棄用。
-   新開發請使用工廠模式（db 在建構函數注入）。
-   參見：docs/SERVICE_ARCHITECTURE_STANDARDS.md
+版本: 3.0.0
+更新日期: 2026-02-06
+變更: 從 BaseService 繼承模式升級為工廠模式
 
-v2.1.0 (2026-01-22): 重構使用 BaseService 新方法
-- get_agencies_with_search → 使用 get_list_with_search
-- get_total_with_search → 使用 get_count_with_search
-- get_agency_statistics → 使用 @with_stats_error_handling
+使用方式:
+    # 依賴注入（推薦）
+    from app.core.dependencies import get_service_with_db
+
+    @router.get("/agencies")
+    async def list_agencies(
+        service: AgencyService = Depends(get_service_with_db(AgencyService))
+    ):
+        return await service.get_agencies_with_stats()
+
+    # 手動建立
+    async def some_function(db: AsyncSession):
+        service = AgencyService(db)
+        stats = await service.get_agency_statistics()
 """
 import logging
 import re
@@ -20,7 +28,7 @@ from typing import List, Optional, Dict, Any, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc, or_, update
 
-from app.services.base_service import BaseService, with_stats_error_handling
+from app.repositories import AgencyRepository
 from app.services.base import DeleteCheckHelper, StatisticsHelper
 from app.extended.models import GovernmentAgency, OfficialDocument
 from app.schemas.agency import AgencyCreate, AgencyUpdate
@@ -28,23 +36,113 @@ from app.schemas.agency import AgencyCreate, AgencyUpdate
 logger = logging.getLogger(__name__)
 
 
-class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
+class AgencyService:
     """
-    機關服務 - 繼承 BaseService
+    機關服務 - 工廠模式
 
-    提供機關相關的 CRUD 操作和業務邏輯。
+    所有方法不再需要傳入 db 參數，db session 在建構時注入。
+
+    Example:
+        service = AgencyService(db)
+
+        # 列表查詢
+        agencies = await service.get_agencies_with_search(search="桃園")
+
+        # 建立
+        agency = await service.create(AgencyCreate(agency_name="新機關"))
+
+        # 智慧匹配
+        matched = await service.match_agency("桃園市政府")
     """
 
     # 類別層級設定
     SEARCH_FIELDS = ['agency_name', 'agency_short_name']
     DEFAULT_SORT_FIELD = 'agency_name'
 
-    def __init__(self, db: "AsyncSession | None" = None) -> None:
-        """初始化機關服務"""
-        super().__init__(GovernmentAgency, "機關", db=db)
-        if db:
-            from app.repositories import AgencyRepository
-            self.repository = AgencyRepository(db)
+    def __init__(self, db: AsyncSession) -> None:
+        """
+        初始化機關服務
+
+        Args:
+            db: AsyncSession 資料庫連線
+        """
+        self.db = db
+        self.repository = AgencyRepository(db)
+        self.model = GovernmentAgency
+        self.entity_name = "機關"
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+    # =========================================================================
+    # 基礎 CRUD 方法
+    # =========================================================================
+
+    async def get_by_id(self, agency_id: int) -> Optional[GovernmentAgency]:
+        """
+        根據 ID 取得機關
+
+        Args:
+            agency_id: 機關 ID
+
+        Returns:
+            機關物件或 None
+        """
+        return await self.repository.get_by_id(agency_id)
+
+    async def get_by_field(self, field_name: str, field_value: Any) -> Optional[GovernmentAgency]:
+        """
+        根據欄位值取得單筆機關
+
+        Args:
+            field_name: 欄位名稱
+            field_value: 欄位值
+
+        Returns:
+            機關物件，若不存在則返回 None
+        """
+        kwargs = {field_name: field_value}
+        return await self.repository.find_one_by(**kwargs)
+
+    async def get_list(
+        self,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> List[GovernmentAgency]:
+        """
+        取得機關列表
+
+        Args:
+            skip: 跳過筆數
+            limit: 取得筆數
+
+        Returns:
+            機關列表
+        """
+        query = select(self.model).order_by(self.model.agency_name)
+        query = query.offset(skip).limit(limit)
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def update(
+        self,
+        agency_id: int,
+        data: AgencyUpdate,
+    ) -> Optional[GovernmentAgency]:
+        """
+        更新機關
+
+        Args:
+            agency_id: 機關 ID
+            data: 更新資料
+
+        Returns:
+            更新後的機關，或 None（如不存在）
+        """
+        if hasattr(data, 'model_dump'):
+            update_data = data.model_dump(exclude_unset=True)
+        else:
+            update_data = data.dict(exclude_unset=True)
+
+        return await self.repository.update(agency_id, update_data)
 
     def _to_dict(self, agency: GovernmentAgency) -> Dict[str, Any]:
         """將機關實體轉換為字典"""
@@ -69,14 +167,12 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
 
     async def create(
         self,
-        db: AsyncSession,
         data: AgencyCreate
     ) -> GovernmentAgency:
         """
         建立機關 - 加入名稱重複檢查
 
         Args:
-            db: 資料庫 session
             data: 建立資料
 
         Returns:
@@ -86,22 +182,26 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
             ValueError: 機關名稱已存在
         """
         # 檢查機關名稱是否重複
-        existing = await self.get_by_field(db, "agency_name", data.agency_name)
+        existing = await self.get_by_field("agency_name", data.agency_name)
         if existing:
             raise ValueError(f"機關名稱已存在: {data.agency_name}")
 
-        return await super().create(db, data)
+        # 將 Pydantic schema 轉為 dict 後傳入 repository
+        if hasattr(data, 'model_dump'):
+            entity_data = data.model_dump()
+        else:
+            entity_data = data.dict()
+
+        return await self.repository.create(entity_data)
 
     async def delete(
         self,
-        db: AsyncSession,
         agency_id: int
     ) -> bool:
         """
         刪除機關 - 檢查是否有關聯公文
 
         Args:
-            db: 資料庫 session
             agency_id: 機關 ID
 
         Returns:
@@ -112,14 +212,14 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
         """
         # 使用 DeleteCheckHelper 檢查關聯公文
         can_delete, usage_count = await DeleteCheckHelper.check_multiple_usages(
-            db, OfficialDocument,
+            self.db, OfficialDocument,
             [('sender_agency_id', agency_id), ('receiver_agency_id', agency_id)]
         )
 
         if not can_delete:
             raise ValueError(f"無法刪除，尚有 {usage_count} 筆公文與此機關關聯")
 
-        return await super().delete(db, agency_id)
+        return await self.repository.delete(agency_id)
 
     # =========================================================================
     # 擴充方法 - 業務特定功能
@@ -127,33 +227,29 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
 
     async def get_agency_by_name(
         self,
-        db: AsyncSession,
         name: str
     ) -> Optional[GovernmentAgency]:
         """
         依名稱取得機關
 
         Args:
-            db: 資料庫 session
             name: 機關名稱
 
         Returns:
             機關或 None
         """
-        return await self.get_by_field(db, "agency_name", name)
+        return await self.get_by_field("agency_name", name)
 
     async def get_agencies_with_search(
         self,
-        db: AsyncSession,
         skip: int = 0,
         limit: int = 100,
         search: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
-        取得機關列表（含搜尋）- 使用 BaseService.get_list_with_search
+        取得機關列表（含搜尋）
 
         Args:
-            db: 資料庫 session
             skip: 跳過筆數
             limit: 取得筆數
             search: 搜尋關鍵字
@@ -161,33 +257,62 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
         Returns:
             機關列表（字典格式）
         """
-        return await self.get_list_with_search(
-            db, skip, limit, search,
-            search_fields=self.SEARCH_FIELDS,
-            sort_by=self.DEFAULT_SORT_FIELD,
-            to_dict_func=self._to_dict
-        )
+        query = select(self.model)
+
+        # 應用搜尋條件
+        if search:
+            search_pattern = f"%{search}%"
+            conditions = [
+                getattr(self.model, field).ilike(search_pattern)
+                for field in self.SEARCH_FIELDS
+                if hasattr(self.model, field)
+            ]
+            if conditions:
+                query = query.where(or_(*conditions))
+
+        # 排序與分頁
+        sort_column = getattr(self.model, self.DEFAULT_SORT_FIELD, self.model.id)
+        query = query.order_by(sort_column.asc())
+        query = query.offset(skip).limit(limit)
+
+        result = await self.db.execute(query)
+        items = result.scalars().all()
+
+        return [self._to_dict(item) for item in items]
 
     async def get_total_with_search(
         self,
-        db: AsyncSession,
         search: Optional[str] = None
     ) -> int:
         """
-        取得機關總數（含搜尋條件）- 使用 BaseService.get_count_with_search
+        取得機關總數（含搜尋條件）
 
         Args:
-            db: 資料庫 session
             search: 搜尋關鍵字
 
         Returns:
             符合條件的機關總數
         """
-        return await self.get_count_with_search(db, search, self.SEARCH_FIELDS)
+        subquery = select(self.model.id)
+
+        # 應用搜尋條件
+        if search:
+            search_pattern = f"%{search}%"
+            conditions = [
+                getattr(self.model, field).ilike(search_pattern)
+                for field in self.SEARCH_FIELDS
+                if hasattr(self.model, field)
+            ]
+            if conditions:
+                subquery = subquery.where(or_(*conditions))
+
+        query = select(func.count()).select_from(subquery.subquery())
+        result = await self.db.execute(query)
+        return result.scalar() or 0
 
     async def get_agencies_with_stats(
         self,
-        db: AsyncSession,
+        db: Optional[AsyncSession] = None,
         skip: int = 0,
         limit: int = 100,
         search: Optional[str] = None,
@@ -197,7 +322,7 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
         取得機關列表含統計資料
 
         Args:
-            db: 資料庫 session
+            db: (向後相容，已忽略) 資料庫 session
             skip: 跳過筆數
             limit: 取得筆數
             search: 搜尋關鍵字
@@ -237,10 +362,10 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
 
         # 計算總數
         count_query = select(func.count()).select_from(query.subquery())
-        total = (await db.execute(count_query)).scalar_one()
+        total = (await self.db.execute(count_query)).scalar_one()
 
         # 取得分頁資料
-        agencies_result = await db.execute(
+        agencies_result = await self.db.execute(
             query.order_by(
                 desc(func.coalesce(GovernmentAgency.updated_at, GovernmentAgency.created_at))
             ).offset(skip).limit(limit)
@@ -249,7 +374,7 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
 
         # 計算各機關統計
         agencies_with_stats = [
-            await self._calculate_agency_stats(db, agency)
+            await self._calculate_agency_stats(agency)
             for agency in agencies
         ]
 
@@ -261,30 +386,28 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
 
     async def _calculate_agency_stats(
         self,
-        db: AsyncSession,
         agency: GovernmentAgency
     ) -> Dict[str, Any]:
         """
         計算單一機關的統計資料
 
         Args:
-            db: 資料庫 session
             agency: 機關實體
 
         Returns:
             含統計資料的機關字典
         """
         # 發送/接收公文數
-        sent_count = (await db.execute(
+        sent_count = (await self.db.execute(
             select(func.count()).where(OfficialDocument.sender_agency_id == agency.id)
         )).scalar() or 0
 
-        received_count = (await db.execute(
+        received_count = (await self.db.execute(
             select(func.count()).where(OfficialDocument.receiver_agency_id == agency.id)
         )).scalar() or 0
 
         # 最後活動日期
-        last_activity = (await db.execute(
+        last_activity = (await self.db.execute(
             select(func.max(OfficialDocument.doc_date)).where(
                 or_(
                     OfficialDocument.sender_agency_id == agency.id,
@@ -315,56 +438,56 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
             "updated_at": agency.updated_at
         }
 
-    @with_stats_error_handling(
-        default_return={"total_agencies": 0, "categories": []},
-        operation_name="統計資料"
-    )
     async def get_agency_statistics(
         self,
-        db: AsyncSession
+        db: Optional[AsyncSession] = None,
     ) -> Dict[str, Any]:
         """
-        取得機關統計資料 - 使用 @with_stats_error_handling 裝飾器
+        取得機關統計資料
 
         Args:
-            db: 資料庫 session
+            db: (向後相容，已忽略) 資料庫 session
 
         Returns:
             統計資料字典
         """
-        # 使用 StatisticsHelper 取得基本統計
-        basic_stats = await StatisticsHelper.get_basic_stats(db, GovernmentAgency)
-        total_agencies = basic_stats.get("total", 0)
+        try:
+            # 使用 StatisticsHelper 取得基本統計
+            basic_stats = await StatisticsHelper.get_basic_stats(self.db, GovernmentAgency)
+            total_agencies = basic_stats.get("total", 0)
 
-        # 使用 StatisticsHelper 取得分組統計
-        grouped_stats = await StatisticsHelper.get_grouped_stats(
-            db, GovernmentAgency, 'agency_type'
-        )
+            # 使用 StatisticsHelper 取得分組統計
+            grouped_stats = await StatisticsHelper.get_grouped_stats(
+                self.db, GovernmentAgency, 'agency_type'
+            )
 
-        # 套用分類標準化邏輯
-        category_counts: Dict[str, int] = {}
-        for agency_type, count in grouped_stats.items():
-            # 'null' 代表空值
-            original_type = None if agency_type == 'null' else agency_type
-            category = self._normalize_category(original_type)
-            category_counts[category] = category_counts.get(category, 0) + count
+            # 套用分類標準化邏輯
+            category_counts: Dict[str, int] = {}
+            for agency_type, count in grouped_stats.items():
+                # 'null' 代表空值
+                original_type = None if agency_type == 'null' else agency_type
+                category = self._normalize_category(original_type)
+                category_counts[category] = category_counts.get(category, 0) + count
 
-        # 依照指定順序排序
-        category_order = ['政府機關', '民間企業', '其他單位']
-        categories = []
-        for cat in category_order:
-            cnt = category_counts.get(cat, 0)
-            if cnt > 0:
-                categories.append({
-                    'category': cat,
-                    'count': cnt,
-                    'percentage': round((cnt / total_agencies * 100), 1) if total_agencies > 0 else 0
-                })
+            # 依照指定順序排序
+            category_order = ['政府機關', '民間企業', '其他單位']
+            categories = []
+            for cat in category_order:
+                cnt = category_counts.get(cat, 0)
+                if cnt > 0:
+                    categories.append({
+                        'category': cat,
+                        'count': cnt,
+                        'percentage': round((cnt / total_agencies * 100), 1) if total_agencies > 0 else 0
+                    })
 
-        return {
-            "total_agencies": total_agencies,
-            "categories": categories
-        }
+            return {
+                "total_agencies": total_agencies,
+                "categories": categories
+            }
+        except Exception as e:
+            self.logger.error(f"取得機關統計資料失敗: {e}", exc_info=True)
+            return {"total_agencies": 0, "categories": []}
 
     def _normalize_category(self, agency_type: Optional[str]) -> str:
         """
@@ -459,7 +582,6 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
 
     async def match_agency(
         self,
-        db: AsyncSession,
         text: str
     ) -> Optional[GovernmentAgency]:
         """
@@ -472,7 +594,6 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
         4. 部分匹配機關名稱（名稱包含在文字中）
 
         Args:
-            db: 資料庫 session
             text: 發文/受文機關文字
 
         Returns:
@@ -490,17 +611,17 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
 
         # 1. 優先以機關代碼匹配
         if code:
-            agency = await self.get_by_field(db, "agency_code", code)
+            agency = await self.get_by_field("agency_code", code)
             if agency:
                 return agency
 
         # 2. 完全匹配機關名稱
-        agency = await self.get_by_field(db, "agency_name", name)
+        agency = await self.get_by_field("agency_name", name)
         if agency:
             return agency
 
         # 3. 完全匹配機關簡稱
-        result = await db.execute(
+        result = await self.db.execute(
             select(GovernmentAgency).where(
                 GovernmentAgency.agency_short_name == name
             )
@@ -510,7 +631,7 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
             return agency
 
         # 4. 部分匹配 - 機關名稱包含在搜尋文字中
-        result = await db.execute(
+        result = await self.db.execute(
             select(GovernmentAgency).where(
                 GovernmentAgency.agency_name.isnot(None)
             )
@@ -529,7 +650,6 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
 
     async def match_agencies_for_document(
         self,
-        db: AsyncSession,
         sender: Optional[str],
         receiver: Optional[str]
     ) -> Dict[str, Optional[int]]:
@@ -537,7 +657,6 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
         為公文匹配發文機關和受文機關
 
         Args:
-            db: 資料庫 session
             sender: 發文機關文字
             receiver: 受文機關文字
 
@@ -550,12 +669,12 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
         }
 
         if sender:
-            agency = await self.match_agency(db, sender)
+            agency = await self.match_agency(sender)
             if agency:
                 result["sender_agency_id"] = agency.id
 
         if receiver:
-            agency = await self.match_agency(db, receiver)
+            agency = await self.match_agency(receiver)
             if agency:
                 result["receiver_agency_id"] = agency.id
 
@@ -563,14 +682,14 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
 
     async def batch_associate_agencies(
         self,
-        db: AsyncSession,
+        db: Optional[AsyncSession] = None,
         overwrite: bool = False
     ) -> Dict[str, Any]:
         """
         批次為所有公文關聯機關
 
         Args:
-            db: 資料庫 session
+            db: (向後相容，已忽略) 資料庫 session
             overwrite: 是否覆蓋現有關聯
 
         Returns:
@@ -597,7 +716,7 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
                     )
                 )
 
-            result = await db.execute(query)
+            result = await self.db.execute(query)
             documents = result.scalars().all()
             stats["total_documents"] = len(documents)
 
@@ -607,7 +726,7 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
 
                     # 處理發文機關
                     if doc.sender and (overwrite or doc.sender_agency_id is None):
-                        agency = await self.match_agency(db, doc.sender)
+                        agency = await self.match_agency(doc.sender)
                         if agency:
                             stats["sender_matched"] += 1
                             if doc.sender_agency_id != agency.id:
@@ -616,7 +735,7 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
 
                     # 處理受文機關
                     if doc.receiver and (overwrite or doc.receiver_agency_id is None):
-                        agency = await self.match_agency(db, doc.receiver)
+                        agency = await self.match_agency(doc.receiver)
                         if agency:
                             stats["receiver_matched"] += 1
                             if doc.receiver_agency_id != agency.id:
@@ -625,7 +744,7 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
 
                     # 更新公文
                     if updates:
-                        await db.execute(
+                        await self.db.execute(
                             update(OfficialDocument)
                             .where(OfficialDocument.id == doc.id)
                             .values(**updates)
@@ -634,11 +753,11 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
                 except Exception as e:
                     stats["errors"].append(f"文件 {doc.id}: {str(e)}")
 
-            await db.commit()
+            await self.db.commit()
             logger.info(f"批次機關關聯完成: {stats}")
 
         except Exception as e:
-            await db.rollback()
+            await self.db.rollback()
             logger.error(f"批次機關關聯失敗: {e}", exc_info=True)
             stats["errors"].append(f"系統錯誤: {str(e)}")
 
@@ -646,21 +765,24 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
 
     async def get_unassociated_summary(
         self,
-        db: AsyncSession
+        db: Optional[AsyncSession] = None,
     ) -> Dict[str, Any]:
         """
         取得未關聯機關的公文統計
+
+        Args:
+            db: (向後相容，已忽略) 資料庫 session
 
         Returns:
             未關聯統計
         """
         # 總公文數
-        total = (await db.execute(
+        total = (await self.db.execute(
             select(func.count(OfficialDocument.id))
         )).scalar() or 0
 
         # 無發文機關關聯數
-        no_sender = (await db.execute(
+        no_sender = (await self.db.execute(
             select(func.count(OfficialDocument.id)).where(
                 OfficialDocument.sender_agency_id.is_(None),
                 OfficialDocument.sender.isnot(None),
@@ -669,7 +791,7 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
         )).scalar() or 0
 
         # 無受文機關關聯數
-        no_receiver = (await db.execute(
+        no_receiver = (await self.db.execute(
             select(func.count(OfficialDocument.id)).where(
                 OfficialDocument.receiver_agency_id.is_(None),
                 OfficialDocument.receiver.isnot(None),
@@ -678,14 +800,14 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
         )).scalar() or 0
 
         # 已關聯發文機關
-        has_sender = (await db.execute(
+        has_sender = (await self.db.execute(
             select(func.count(OfficialDocument.id)).where(
                 OfficialDocument.sender_agency_id.isnot(None)
             )
         )).scalar() or 0
 
         # 已關聯受文機關
-        has_receiver = (await db.execute(
+        has_receiver = (await self.db.execute(
             select(func.count(OfficialDocument.id)).where(
                 OfficialDocument.receiver_agency_id.isnot(None)
             )
@@ -705,15 +827,15 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
 
     async def suggest_agency(
         self,
-        db: AsyncSession,
-        text: str,
+        db: Optional[AsyncSession] = None,
+        text: Optional[str] = None,
         limit: int = 5
     ) -> List[Dict[str, Any]]:
         """
         根據文字建議可能的機關
 
         Args:
-            db: 資料庫 session
+            db: (向後相容，已忽略) 資料庫 session
             text: 搜尋文字
             limit: 回傳數量限制
 
@@ -724,7 +846,7 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
             return []
 
         # 模糊搜尋
-        result = await db.execute(
+        result = await self.db.execute(
             select(GovernmentAgency).where(
                 or_(
                     GovernmentAgency.agency_name.ilike(f"%{text}%"),
@@ -746,40 +868,56 @@ class AgencyService(BaseService[GovernmentAgency, AgencyCreate, AgencyUpdate]):
         ]
 
     # =========================================================================
-    # 向後相容方法 (逐步淘汰)
+    # 工具方法
+    # =========================================================================
+
+    async def exists(self, agency_id: int) -> bool:
+        """檢查機關是否存在"""
+        return await self.repository.exists(agency_id)
+
+    async def get_by_code(self, agency_code: str) -> Optional[GovernmentAgency]:
+        """根據機關代碼取得機關"""
+        return await self.repository.find_one_by(agency_code=agency_code)
+
+    # =========================================================================
+    # 向後相容方法 (保留至 v4.0)
+    #
+    # 這些方法保留舊的 db 參數簽名，但內部使用 self.db。
+    # 傳入的 db 參數會被忽略。
     # =========================================================================
 
     async def get_agency(self, db: AsyncSession, agency_id: int) -> Optional[GovernmentAgency]:
         """
-        @deprecated v2.0 (2026-01-20) 使用 get_by_id 代替
-        移除計畫: v3.0 (2026-03-01)
+        @deprecated v3.0 (2026-02-06) 使用 get_by_id 代替
+        移除計畫: v4.0 (2026-06-01)
         """
-        return await self.get_by_id(db, agency_id)
+        return await self.get_by_id(agency_id)
 
     async def get_agencies(self, db: AsyncSession, skip: int = 0, limit: int = 100) -> List[GovernmentAgency]:
         """
-        @deprecated v2.0 (2026-01-20) 使用 get_list 代替
-        移除計畫: v3.0 (2026-03-01)
+        @deprecated v3.0 (2026-02-06) 使用 get_list 代替
+        移除計畫: v4.0 (2026-06-01)
         """
-        return await self.get_list(db, skip=skip, limit=limit)
+        return await self.get_list(skip=skip, limit=limit)
 
     async def create_agency(self, db: AsyncSession, agency: AgencyCreate) -> GovernmentAgency:
         """
-        @deprecated v2.0 (2026-01-20) 使用 create 代替
-        移除計畫: v3.0 (2026-03-01)
+        @deprecated v3.0 (2026-02-06) 使用 create 代替
+        移除計畫: v4.0 (2026-06-01)
         """
-        return await self.create(db, agency)
+        return await self.create(agency)
 
     async def update_agency(self, db: AsyncSession, agency_id: int, agency_update: AgencyUpdate) -> Optional[GovernmentAgency]:
         """
-        @deprecated v2.0 (2026-01-20) 使用 update 代替
-        移除計畫: v3.0 (2026-03-01)
+        @deprecated v3.0 (2026-02-06) 使用 update 代替
+        移除計畫: v4.0 (2026-06-01)
         """
-        return await self.update(db, agency_id, agency_update)
+        return await self.update(agency_id, agency_update)
 
     async def delete_agency(self, db: AsyncSession, agency_id: int) -> bool:
         """
-        @deprecated v2.0 (2026-01-20) 使用 delete 代替
-        移除計畫: v3.0 (2026-03-01)
+        @deprecated v3.0 (2026-02-06) 使用 delete 代替
+        移除計畫: v4.0 (2026-06-01)
         """
-        return await self.delete(db, agency_id)
+        return await self.delete(agency_id)
+

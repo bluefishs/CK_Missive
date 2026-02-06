@@ -1,5 +1,8 @@
 """
 機關單位管理 API 端點 - POST-only 資安機制，統一回應格式
+
+v3.0 - 2026-02-06
+- 重構: AgencyService 升級為工廠模式，移除端點中的 db 參數傳遞
 """
 import logging
 from typing import Optional, List
@@ -8,21 +11,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 
 from app.db.database import get_async_db
-from app.core.dependencies import require_auth, require_admin, require_permission
+from app.core.dependencies import require_auth, require_admin, require_permission, get_agency_service
 from app.extended.models import User
 from app.schemas.agency import (
     Agency, AgencyCreate, AgencyUpdate, AgencyWithStats,
     AgenciesResponse, AgencyStatistics,
-    # 統一從 schemas 匯入查詢/回應型別
     AgencyListQuery, AgencyListResponse,
     AgencySuggestRequest, AgencySuggestResponse,
     AssociationSummary, BatchAssociateRequest, BatchAssociateResponse,
-    # 修復機關資料型別
     FixAgenciesRequest, FixAgenciesResponse
 )
 from app.schemas.common import PaginationMeta, SortOrder
 from app.services.agency_service import AgencyService
-from app.core.dependencies import get_agency_service
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,6 @@ router = APIRouter()
 )
 async def list_agencies(
     query: AgencyListQuery = Body(default=AgencyListQuery()),
-    db: AsyncSession = Depends(get_async_db),
     agency_service: AgencyService = Depends(get_agency_service),
     current_user: User = Depends(require_auth())
 ):
@@ -71,14 +70,14 @@ async def list_agencies(
 
         if query.include_stats:
             result = await agency_service.get_agencies_with_stats(
-                db, skip=skip, limit=query.limit, search=query.search,
+                skip=skip, limit=query.limit, search=query.search,
                 category=query.category
             )
             items = result["agencies"]
             total = result["total"]
         else:
-            items = await agency_service.get_agencies(
-                db, skip=skip, limit=query.limit
+            items = await agency_service.get_list(
+                skip=skip, limit=query.limit
             )
             total = len(items)
 
@@ -107,12 +106,11 @@ async def list_agencies(
 )
 async def get_agency_detail(
     agency_id: int,
-    db: AsyncSession = Depends(get_async_db),
     agency_service: AgencyService = Depends(get_agency_service),
     current_user: User = Depends(require_auth())
 ):
     """取得單一機關詳情"""
-    agency = await agency_service.get_agency(db, agency_id=agency_id)
+    agency = await agency_service.get_by_id(agency_id)
     if agency is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -129,7 +127,6 @@ async def get_agency_detail(
 )
 async def create_agency(
     agency: AgencyCreate = Body(...),
-    db: AsyncSession = Depends(get_async_db),
     agency_service: AgencyService = Depends(get_agency_service),
     current_user: User = Depends(require_permission("agencies:create"))
 ):
@@ -139,7 +136,7 @@ async def create_agency(
     🔒 權限要求：agencies:create
     """
     try:
-        return await agency_service.create_agency(db=db, agency=agency)
+        return await agency_service.create(agency)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -155,7 +152,6 @@ async def create_agency(
 async def update_agency(
     agency_id: int,
     agency: AgencyUpdate = Body(...),
-    db: AsyncSession = Depends(get_async_db),
     agency_service: AgencyService = Depends(get_agency_service),
     current_user: User = Depends(require_permission("agencies:edit"))
 ):
@@ -164,9 +160,7 @@ async def update_agency(
 
     🔒 權限要求：agencies:edit
     """
-    updated = await agency_service.update_agency(
-        db, agency_id=agency_id, agency_update=agency
-    )
+    updated = await agency_service.update(agency_id, agency)
     if updated is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -181,7 +175,6 @@ async def update_agency(
 )
 async def delete_agency(
     agency_id: int,
-    db: AsyncSession = Depends(get_async_db),
     agency_service: AgencyService = Depends(get_agency_service),
     current_user: User = Depends(require_permission("agencies:delete"))
 ):
@@ -191,7 +184,7 @@ async def delete_agency(
     🔒 權限要求：agencies:delete
     """
     try:
-        success = await agency_service.delete_agency(db, agency_id=agency_id)
+        success = await agency_service.delete(agency_id)
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -215,12 +208,11 @@ async def delete_agency(
     summary="取得機關統計資料"
 )
 async def get_agency_statistics(
-    db: AsyncSession = Depends(get_async_db),
     agency_service: AgencyService = Depends(get_agency_service),
     current_user: User = Depends(require_auth())
 ):
     """取得機關統計資料"""
-    return await agency_service.get_agency_statistics(db)
+    return await agency_service.get_agency_statistics()
 
 
 # ============================================================================
@@ -238,7 +230,6 @@ async def list_agencies_legacy(
     limit: int = 100,
     search: Optional[str] = None,
     include_stats: bool = True,
-    db: AsyncSession = Depends(get_async_db),
     agency_service: AgencyService = Depends(get_agency_service),
     current_user: User = Depends(require_auth())
 ):
@@ -250,10 +241,10 @@ async def list_agencies_legacy(
     """
     if include_stats:
         return await agency_service.get_agencies_with_stats(
-            db, skip=skip, limit=limit, search=search
+            skip=skip, limit=limit, search=search
         )
     else:
-        agencies = await agency_service.get_agencies(db, skip=skip, limit=limit)
+        agencies = await agency_service.get_list(skip=skip, limit=limit)
         return AgenciesResponse(agencies=agencies, total=len(agencies), returned=len(agencies))
 
 
@@ -264,7 +255,6 @@ async def list_agencies_legacy(
     deprecated=True
 )
 async def get_statistics_legacy(
-    db: AsyncSession = Depends(get_async_db),
     agency_service: AgencyService = Depends(get_agency_service),
     current_user: User = Depends(require_auth())
 ):
@@ -272,7 +262,7 @@ async def get_statistics_legacy(
     ⚠️ **預計廢止日期**: 2026-07
     此端點為向後相容保留，請改用 POST /agencies/statistics
     """
-    return await agency_service.get_agency_statistics(db)
+    return await agency_service.get_agency_statistics()
 
 
 # ============================================================================
@@ -428,7 +418,6 @@ async def fix_agency_parsed_names(
     summary="取得機關關聯統計"
 )
 async def get_association_summary(
-    db: AsyncSession = Depends(get_async_db),
     agency_service: AgencyService = Depends(get_agency_service),
     current_user: User = Depends(require_auth())
 ):
@@ -440,7 +429,7 @@ async def get_association_summary(
     - 已關聯/未關聯受文機關數量
     - 關聯率百分比
     """
-    return await agency_service.get_unassociated_summary(db)
+    return await agency_service.get_unassociated_summary()
 
 
 @router.post(
@@ -450,7 +439,6 @@ async def get_association_summary(
 )
 async def batch_associate_agencies(
     request: BatchAssociateRequest = Body(default=BatchAssociateRequest()),
-    db: AsyncSession = Depends(get_async_db),
     agency_service: AgencyService = Depends(get_agency_service),
     current_user: User = Depends(require_admin())
 ):
@@ -468,7 +456,7 @@ async def batch_associate_agencies(
     """
     try:
         stats = await agency_service.batch_associate_agencies(
-            db, overwrite=request.overwrite
+            overwrite=request.overwrite
         )
 
         message_parts = []
@@ -509,7 +497,6 @@ async def batch_associate_agencies(
 )
 async def suggest_agencies(
     request: AgencySuggestRequest = Body(...),
-    db: AsyncSession = Depends(get_async_db),
     agency_service: AgencyService = Depends(get_agency_service),
     current_user: User = Depends(require_auth())
 ):
@@ -520,7 +507,7 @@ async def suggest_agencies(
     """
     try:
         suggestions = await agency_service.suggest_agency(
-            db, text=request.text, limit=request.limit
+            text=request.text, limit=request.limit
         )
         return AgencySuggestResponse(success=True, suggestions=suggestions)
     except Exception as e:

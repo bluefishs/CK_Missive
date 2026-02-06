@@ -84,32 +84,44 @@ class TestGetServiceWithDb:
 class TestSingletonServices:
     """測試 Singleton 模式的 Service 取得函數"""
 
-    def test_get_vendor_service_returns_singleton(self):
-        """測試 VendorService 是單例"""
-        from app.core.dependencies import get_vendor_service
+    def test_get_vendor_service_factory_creates_instance(self):
+        """測試 VendorService 工廠模式，每次建立新實例"""
+        from app.core.dependencies import get_vendor_service_factory
+        from unittest.mock import MagicMock
 
-        service1 = get_vendor_service()
-        service2 = get_vendor_service()
+        mock_db = MagicMock()
+        service1 = get_vendor_service_factory(db=mock_db)
+        service2 = get_vendor_service_factory(db=mock_db)
 
-        assert service1 is service2
+        # 工廠模式每次建立新實例
+        assert service1 is not service2
+        assert service1.db is mock_db
 
-    def test_get_project_service_returns_singleton(self):
-        """測試 ProjectService 是單例"""
+    def test_get_project_service_returns_factory_instance(self):
+        """測試 ProjectService 工廠模式，每次呼叫建立新實例"""
         from app.core.dependencies import get_project_service
+        from unittest.mock import MagicMock
 
-        service1 = get_project_service()
-        service2 = get_project_service()
+        mock_db = MagicMock()
+        service1 = get_project_service(db=mock_db)
+        service2 = get_project_service(db=mock_db)
 
-        assert service1 is service2
+        # 工廠模式每次建立新實例
+        assert service1 is not service2
+        assert service1.db is mock_db
+        assert service2.db is mock_db
 
-    def test_get_agency_service_returns_singleton(self):
-        """測試 AgencyService 是單例"""
+    def test_get_agency_service_returns_factory_instance(self):
+        """測試 AgencyService 工廠模式，每次呼叫建立新實例"""
         from app.core.dependencies import get_agency_service
+        from unittest.mock import MagicMock
 
-        service1 = get_agency_service()
-        service2 = get_agency_service()
+        mock_db = MagicMock()
+        service1 = get_agency_service(db=mock_db)
+        service2 = get_agency_service(db=mock_db)
 
-        assert service1 is service2
+        # 工廠模式每次建立新實例
+        assert service1 is not service2
 
     def test_get_document_service_is_factory(self):
         """測試 DocumentService 使用工廠模式（非單例）"""
