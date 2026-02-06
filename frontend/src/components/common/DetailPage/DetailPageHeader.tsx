@@ -26,7 +26,7 @@ const { Title } = Typography;
  * - 右側操作區域
  * - RWD 響應式支援
  */
-export const DetailPageHeader: React.FC<DetailPageHeaderProps> = ({
+const DetailPageHeaderInner: React.FC<DetailPageHeaderProps> = ({
   title,
   subtitle,
   tags = [],
@@ -107,4 +107,5 @@ export const DetailPageHeader: React.FC<DetailPageHeaderProps> = ({
   );
 };
 
+export const DetailPageHeader = React.memo(DetailPageHeaderInner);
 export default DetailPageHeader;

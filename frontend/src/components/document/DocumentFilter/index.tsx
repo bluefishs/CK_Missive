@@ -120,6 +120,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
         isMobile={isMobile}
         contractCaseOptions={contractCaseOptions}
         onFilterChange={handleFilterChange}
+        onMultipleFilterChange={handleMultipleFilterChange}
         onApplyFilters={handleApplyFilters}
       />
 

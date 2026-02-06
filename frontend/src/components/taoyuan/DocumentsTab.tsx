@@ -113,33 +113,33 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ contractCode }) => {
   }, [queryError, message]);
 
   // 篩選與分頁處理
-  const handleFiltersChange = (newFilters: IDocumentFilter) => {
-    // 保留桃園專案的 contract_case
-    setPagination({ page: 1, limit: pagination.limit });
+  const handleFiltersChange = useCallback((newFilters: IDocumentFilter) => {
+    setPagination(prev => ({ page: 1, limit: prev.limit }));
     setFilters({ ...newFilters, contract_case: contractCode });
-  };
+  }, [contractCode]);
 
-  const handleResetFilters = () => {
+  const handleResetFilters = useCallback(() => {
     setPagination({ page: 1, limit: 20 });
     setSortField('');
     setSortOrder(null);
     setFilters({ contract_case: contractCode });
-  };
+  }, [contractCode]);
 
-  const handleTableChange = (
+  const handleTableChange = useCallback((
     paginationInfo: TablePaginationConfig,
     _tableFilters: Record<string, FilterValue | null>,
     sorter: SorterResult<Document> | SorterResult<Document>[],
     _extra: TableCurrentDataSource<Document>
   ) => {
-    if (paginationInfo && (paginationInfo.current !== pagination.page || paginationInfo.pageSize !== pagination.limit)) {
-      setPagination({
-        page: paginationInfo.current || 1,
-        limit: paginationInfo.pageSize || 20,
+    if (paginationInfo) {
+      setPagination(prev => {
+        if (paginationInfo.current !== prev.page || paginationInfo.pageSize !== prev.limit) {
+          return { page: paginationInfo.current || 1, limit: paginationInfo.pageSize || 20 };
+        }
+        return prev;
       });
     }
 
-    // 處理單一或多重排序
     const singleSorter = Array.isArray(sorter) ? sorter[0] : sorter;
     if (singleSorter && singleSorter.field) {
       setSortField(String(singleSorter.field));
@@ -148,30 +148,29 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ contractCode }) => {
       setSortField('');
       setSortOrder(null);
     }
-  };
+  }, []);
 
   // 返回路徑（記住來源頁面和 Tab）
   const returnPath = '/taoyuan/dispatch?tab=2';
 
   // 公文操作處理 - 統一使用導航模式
-  const handleViewDocument = (document: Document) => {
+  const handleViewDocument = useCallback((document: Document) => {
     navigate(`/documents/${document.id}`, { state: { returnTo: returnPath } });
-  };
+  }, [navigate, returnPath]);
 
-  const handleEditDocument = (document: Document) => {
-    // 導航到公文詳情頁進行編輯，帶返回路徑
+  const handleEditDocument = useCallback((document: Document) => {
     navigate(`/documents/${document.id}`, { state: { returnTo: returnPath } });
-  };
+  }, [navigate, returnPath]);
 
-  const handleCreateDocument = () => {
+  const handleCreateDocument = useCallback(() => {
     navigate('/documents/create', { state: { returnTo: returnPath } });
-  };
+  }, [navigate, returnPath]);
 
-  const handleDeleteDocument = (document: Document) => {
+  const handleDeleteDocument = useCallback((document: Document) => {
     setDeleteModal({ open: true, document });
-  };
+  }, []);
 
-  const handleConfirmDelete = async () => {
+  const handleConfirmDelete = useCallback(async () => {
     if (deleteModal.document) {
       try {
         await deleteMutation.mutateAsync(deleteModal.document.id);
@@ -181,9 +180,9 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ contractCode }) => {
         message.error('刪除公文失敗');
       }
     }
-  };
+  }, [deleteModal.document, deleteMutation, message]);
 
-  const handleExportExcel = async () => {
+  const handleExportExcel = useCallback(async () => {
     setIsExporting(true);
     try {
       const now = new Date();
@@ -196,9 +195,9 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ contractCode }) => {
     } finally {
       setIsExporting(false);
     }
-  };
+  }, [documents, filters, message]);
 
-  const handleAddToCalendar = async (document: Document) => {
+  const handleAddToCalendar = useCallback(async (document: Document) => {
     setIsAddingToCalendar(true);
     try {
       await calendarIntegrationService.addDocumentToCalendar(document);
@@ -207,7 +206,7 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ contractCode }) => {
     } finally {
       setIsAddingToCalendar(false);
     }
-  };
+  }, []);
 
   return (
     <div>
@@ -264,8 +263,8 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ contractCode }) => {
         loading={isLoading}
         filters={{ ...filters, page: pagination.page, limit: pagination.limit }}
         total={totalCount}
-        onEdit={canEdit ? handleEditDocument : () => {}}
-        onDelete={canDelete ? handleDeleteDocument : () => {}}
+        onEdit={canEdit ? handleEditDocument : handleViewDocument}
+        onDelete={canDelete ? handleDeleteDocument : handleViewDocument}
         onView={handleViewDocument}
         onExport={handleExportExcel}
         onTableChange={handleTableChange}

@@ -58,6 +58,7 @@ export interface PrimaryFiltersProps {
   isMobile: boolean;
   contractCaseOptions: DropdownOption[];
   onFilterChange: <K extends keyof DocumentFilterType>(field: K, value: DocumentFilterType[K]) => void;
+  onMultipleFilterChange?: (updates: Partial<DocumentFilterType>) => void;
   onApplyFilters: () => void;
 }
 

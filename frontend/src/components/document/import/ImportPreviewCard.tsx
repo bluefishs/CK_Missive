@@ -86,7 +86,7 @@ const previewColumns = [
   },
 ];
 
-export const ImportPreviewCard: React.FC<ImportPreviewCardProps> = ({
+const ImportPreviewCardInner: React.FC<ImportPreviewCardProps> = ({
   previewResult,
   importing,
   onReset,
@@ -178,3 +178,5 @@ export const ImportPreviewCard: React.FC<ImportPreviewCardProps> = ({
     </Card>
   );
 };
+
+export const ImportPreviewCard = React.memo(ImportPreviewCardInner);

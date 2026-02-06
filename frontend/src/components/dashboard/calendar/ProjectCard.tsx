@@ -21,8 +21,7 @@ import { TimeStatusTag } from './TimeStatusTag';
 
 const { Text } = Typography;
 
-/** 事件項目 */
-const EventItem: React.FC<{
+const EventItemInner: React.FC<{
   event: CalendarEvent;
   compact?: boolean;
   onViewDocument?: (id: number) => void;
@@ -89,8 +88,9 @@ const EventItem: React.FC<{
   );
 };
 
-/** 案件卡片 */
-export const ProjectCard: React.FC<{
+const EventItem = React.memo(EventItemInner);
+
+const ProjectCardInner: React.FC<{
   project: ProjectGroup;
   onViewDocument: (id: number) => void;
   compact?: boolean;
@@ -169,3 +169,5 @@ export const ProjectCard: React.FC<{
     </div>
   );
 };
+
+export const ProjectCard = React.memo(ProjectCardInner);

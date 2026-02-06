@@ -9,7 +9,7 @@
  * @date 2026-01-29
  */
 
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Typography,
@@ -86,13 +86,11 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
     limit: 100,
   });
 
-  // 導航到新增派工單頁面
-  const handleCreate = () => {
+  const handleCreate = useCallback(() => {
     navigate('/taoyuan/dispatch/create');
-  };
+  }, [navigate]);
 
-  // 匯入派工紀錄 - 使用統一的 API 方法
-  const handleImport = async (file: File) => {
+  const handleImport = useCallback(async (file: File) => {
     try {
       const result = await dispatchOrdersApi.importExcel(file, contractProjectId);
       if (result.success) {
@@ -108,24 +106,27 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
       message.error('匯入失敗');
     }
     setImportModalVisible(false);
-  };
+  }, [contractProjectId, message, refetch]);
 
-  // 下載匯入範本 (POST + blob 下載，符合資安規範)
-  const handleDownloadTemplate = async () => {
+  const handleDownloadTemplate = useCallback(async () => {
     try {
       await dispatchOrdersApi.downloadImportTemplate();
     } catch (error) {
       message.error('下載範本失敗');
     }
-  };
+  }, [message]);
 
-  // 從資料中取得不重複的承辦人清單（用於篩選）
-  const dispatchCaseHandlerFilters = [...new Set(orders.map((o) => o.case_handler).filter(Boolean))]
-    .map((h) => ({ text: h as string, value: h as string }));
+  const dispatchCaseHandlerFilters = useMemo(() =>
+    [...new Set(orders.map((o) => o.case_handler).filter(Boolean))]
+      .map((h) => ({ text: h as string, value: h as string })),
+    [orders]
+  );
 
-  // 從資料中取得不重複的查估單位（用於篩選）
-  const dispatchSurveyUnitFilters = [...new Set(orders.map((o) => o.survey_unit).filter(Boolean))]
-    .map((s) => ({ text: s as string, value: s as string }));
+  const dispatchSurveyUnitFilters = useMemo(() =>
+    [...new Set(orders.map((o) => o.survey_unit).filter(Boolean))]
+      .map((s) => ({ text: s as string, value: s as string })),
+    [orders]
+  );
 
   /**
    * 根據公文字號自動判斷關聯類型
@@ -393,10 +394,9 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
     },
   ];
 
-  // 點擊行導航到詳情頁
-  const handleRowClick = (record: DispatchOrder) => {
+  const handleRowClick = useCallback((record: DispatchOrder) => {
     navigate(`/taoyuan/dispatch/${record.id}`);
-  };
+  }, [navigate]);
 
   // 手機版卡片清單
   const MobileDispatchList = () => (
@@ -454,6 +454,13 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
     />
   );
 
+  const stats = useMemo(() => ({
+    total: orders.length,
+    linkedDocs: orders.reduce((sum, o) => sum + (o.linked_documents?.length ?? 0), 0),
+    linkedProjects: orders.reduce((sum, o) => sum + (o.linked_projects?.length ?? 0), 0),
+    workTypes: new Set(orders.map((o) => o.work_type).filter(Boolean)).size,
+  }), [orders]);
+
   return (
     <div>
       {/* 統計卡片 - RWD 響應式 */}
@@ -462,7 +469,7 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
           <Card size="small">
             <Statistic
               title={isMobile ? '總數' : '總派工單數'}
-              value={orders.length}
+              value={stats.total}
               prefix={<SendOutlined />}
               valueStyle={{ fontSize: isMobile ? 18 : 24 }}
             />
@@ -472,7 +479,7 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
           <Card size="small">
             <Statistic
               title={isMobile ? '公文' : '關聯公文'}
-              value={orders.reduce((sum, o) => sum + (o.linked_documents?.length ?? 0), 0)}
+              value={stats.linkedDocs}
               valueStyle={{ color: '#1890ff', fontSize: isMobile ? 18 : 24 }}
               prefix={<LinkOutlined />}
             />
@@ -482,7 +489,7 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
           <Card size="small">
             <Statistic
               title={isMobile ? '工程' : '關聯工程'}
-              value={orders.reduce((sum, o) => sum + (o.linked_projects?.length ?? 0), 0)}
+              value={stats.linkedProjects}
               valueStyle={{ color: '#52c41a', fontSize: isMobile ? 18 : 24 }}
               prefix={<LinkOutlined />}
             />
@@ -492,7 +499,7 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
           <Card size="small">
             <Statistic
               title={isMobile ? '類別' : '作業類別數'}
-              value={new Set(orders.map((o) => o.work_type).filter(Boolean)).size}
+              value={stats.workTypes}
               valueStyle={{ fontSize: isMobile ? 18 : 24 }}
             />
           </Card>

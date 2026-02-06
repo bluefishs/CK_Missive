@@ -17,7 +17,7 @@ export interface EventCardProps {
   onDragStart?: (event: CalendarEvent) => void;
 }
 
-export const EventCard: React.FC<EventCardProps> = ({
+const EventCardInner: React.FC<EventCardProps> = ({
   event,
   truncateLength = 8,
   draggable = false,
@@ -71,5 +71,7 @@ export const EventCard: React.FC<EventCardProps> = ({
     </li>
   );
 };
+
+export const EventCard = React.memo(EventCardInner);
 
 export default EventCard;

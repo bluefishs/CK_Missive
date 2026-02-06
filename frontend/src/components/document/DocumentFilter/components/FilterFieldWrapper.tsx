@@ -12,7 +12,7 @@ import { Tooltip } from 'antd';
 import { QuestionCircleOutlined } from '@ant-design/icons';
 import type { FilterFieldWrapperProps } from '../types';
 
-const FilterFieldWrapper: React.FC<FilterFieldWrapperProps> = ({
+const FilterFieldWrapperInner: React.FC<FilterFieldWrapperProps> = ({
   label,
   tooltip,
   isMobile,
@@ -35,4 +35,5 @@ const FilterFieldWrapper: React.FC<FilterFieldWrapperProps> = ({
   );
 };
 
+const FilterFieldWrapper = React.memo(FilterFieldWrapperInner);
 export default FilterFieldWrapper;

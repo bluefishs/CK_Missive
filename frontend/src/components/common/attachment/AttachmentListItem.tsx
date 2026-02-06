@@ -62,7 +62,7 @@ export interface AttachmentListItemProps {
 // 主元件
 // ============================================================================
 
-export const AttachmentListItem: React.FC<AttachmentListItemProps> = ({
+const AttachmentListItemInner: React.FC<AttachmentListItemProps> = ({
   attachment,
   editable = false,
   showPreview = true,
@@ -171,5 +171,7 @@ export const AttachmentListItem: React.FC<AttachmentListItemProps> = ({
     </List.Item>
   );
 };
+
+export const AttachmentListItem = React.memo(AttachmentListItemInner);
 
 export default AttachmentListItem;

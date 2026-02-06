@@ -12,7 +12,7 @@ interface TimeStatusTagProps {
   count?: number;
 }
 
-export const TimeStatusTag: React.FC<TimeStatusTagProps> = ({ status, count }) => {
+const TimeStatusTagInner: React.FC<TimeStatusTagProps> = ({ status, count }) => {
   const config = TIME_STATUS_CONFIG[status];
   return (
     <Tag
@@ -24,3 +24,5 @@ export const TimeStatusTag: React.FC<TimeStatusTagProps> = ({ status, count }) =
     </Tag>
   );
 };
+
+export const TimeStatusTag = React.memo(TimeStatusTagInner);

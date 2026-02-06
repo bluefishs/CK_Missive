@@ -1,18 +1,19 @@
 /**
  * PrimaryFilters 元件
  *
- * 主要篩選區塊：關鍵字搜尋、公文類型、發文形式、承攬案件
+ * 主要篩選區塊：關鍵字搜尋（含 AI 智慧填充）、公文類型、發文形式、承攬案件
  *
- * @version 1.0.0
- * @date 2026-01-26
+ * @version 1.1.0
+ * @date 2026-02-06
  */
 
-import React from 'react';
-import { Input, Select, Row, Col, Tooltip } from 'antd';
-import { SearchOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import React, { useState, useCallback } from 'react';
+import { Input, Select, Row, Col, Tooltip, Button, message } from 'antd';
+import { SearchOutlined, InfoCircleOutlined, RobotOutlined } from '@ant-design/icons';
 import FilterFieldWrapper from './FilterFieldWrapper';
 import { DOC_TYPE_OPTIONS, DELIVERY_METHOD_OPTIONS } from '../constants';
 import type { PrimaryFiltersProps } from '../types';
+import { aiApi } from '../../../../api/aiApi';
 
 const { Option } = Select;
 
@@ -21,19 +22,63 @@ const PrimaryFilters: React.FC<PrimaryFiltersProps> = ({
   isMobile,
   contractCaseOptions,
   onFilterChange,
+  onMultipleFilterChange,
   onApplyFilters,
 }) => {
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const handleAIParseIntent = useCallback(async () => {
+    const query = localFilters.search?.trim();
+    if (!query || query.length < 2) {
+      message.warning('請先輸入搜尋關鍵字（至少 2 個字元）');
+      return;
+    }
+
+    setAiLoading(true);
+    try {
+      const result = await aiApi.parseSearchIntent(query);
+      if (!result.success || result.parsed_intent.confidence < 0.1) {
+        message.info('AI 無法解析此查詢，請使用傳統篩選');
+        return;
+      }
+
+      const intent = result.parsed_intent;
+      const updates: Record<string, string | undefined> = {};
+
+      if (intent.keywords?.length) updates.search = intent.keywords.join(' ');
+      if (intent.doc_type) updates.doc_type = intent.doc_type;
+      if (intent.category) updates.category = intent.category;
+      if (intent.sender) updates.sender = intent.sender;
+      if (intent.receiver) updates.receiver = intent.receiver;
+      if (intent.date_from) updates.date_from = intent.date_from;
+      if (intent.date_to) updates.date_to = intent.date_to;
+      if (intent.status) updates.status = intent.status;
+      if (intent.contract_case) updates.contract_case = intent.contract_case;
+
+      if (onMultipleFilterChange) {
+        onMultipleFilterChange(updates);
+      }
+
+      const fieldCount = Object.keys(updates).length;
+      message.success(`AI 已解析並填充 ${fieldCount} 個篩選條件（信心度 ${Math.round(intent.confidence * 100)}%）`);
+    } catch {
+      message.error('AI 解析失敗，請稍後再試');
+    } finally {
+      setAiLoading(false);
+    }
+  }, [localFilters.search, onMultipleFilterChange]);
+
   return (
     <Row gutter={[isMobile ? 8 : 16, isMobile ? 8 : 16]}>
-      {/* 關鍵字搜尋 (文號/主旨/說明/備註) */}
+      {/* 關鍵字搜尋 (文號/主旨/說明/備註) + AI 智慧填充 */}
       <Col span={24} md={8}>
         <FilterFieldWrapper
           label="關鍵字搜尋"
-          tooltip="搜尋範圍包含：公文字號、主旨、說明、備註。支援模糊搜尋，輸入2個字元以上開始提供建議。按 Enter 快速套用篩選。"
+          tooltip="搜尋範圍包含：公文字號、主旨、說明、備註。支援模糊搜尋。點擊 AI 按鈕可智慧解析自然語言並自動填充篩選條件。"
           isMobile={isMobile}
         >
           <Input.Search
-            placeholder={isMobile ? '搜尋...' : '文號/主旨/說明/備註...'}
+            placeholder={isMobile ? '搜尋或輸入自然語言...' : '文號/主旨/說明/備註 或 自然語言查詢...'}
             value={localFilters.search || ''}
             onChange={(e) => onFilterChange('search', e.target.value)}
             onSearch={onApplyFilters}
@@ -41,6 +86,21 @@ const PrimaryFilters: React.FC<PrimaryFiltersProps> = ({
             enterButton={false}
             style={{ width: '100%' }}
             size={isMobile ? 'small' : 'middle'}
+            suffix={
+              <Tooltip title="AI 智慧解析：將自然語言查詢自動填充到篩選條件">
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<RobotOutlined />}
+                  loading={aiLoading}
+                  onClick={handleAIParseIntent}
+                  style={{
+                    color: aiLoading ? '#1890ff' : '#8c8c8c',
+                    padding: '0 4px',
+                  }}
+                />
+              </Tooltip>
+            }
           />
         </FilterFieldWrapper>
       </Col>

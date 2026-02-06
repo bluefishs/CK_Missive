@@ -58,7 +58,7 @@ const getStatusColor = (status: string | undefined): string => {
   return statusColors[status || ''] || 'default';
 };
 
-export const DocumentCard: React.FC<DocumentCardProps> = ({
+const DocumentCardInner: React.FC<DocumentCardProps> = ({
   document,
   onClick,
 }) => {
@@ -155,5 +155,7 @@ export const DocumentCard: React.FC<DocumentCardProps> = ({
     </Card>
   );
 };
+
+export const DocumentCard = React.memo(DocumentCardInner);
 
 export default DocumentCard;

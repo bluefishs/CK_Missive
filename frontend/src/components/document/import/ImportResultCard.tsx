@@ -25,7 +25,7 @@ interface ImportResultCardProps {
   onReset: () => void;
 }
 
-export const ImportResultCard: React.FC<ImportResultCardProps> = ({
+const ImportResultCardInner: React.FC<ImportResultCardProps> = ({
   importResult,
   onClose,
   onReset,
@@ -119,3 +119,5 @@ export const ImportResultCard: React.FC<ImportResultCardProps> = ({
     </Card>
   );
 };
+
+export const ImportResultCard = React.memo(ImportResultCardInner);
