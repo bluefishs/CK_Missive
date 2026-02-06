@@ -57,6 +57,7 @@ services:
       # 安全性修正：使用環境變數而非硬編碼密碼
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       - REDIS_URL=redis://redis:6379/0
+      - OLLAMA_BASE_URL=http://ollama:11434
       - DEBUG=true
       - LOG_LEVEL=DEBUG
     ports:
@@ -76,6 +77,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      ollama:
+        condition: service_started
     restart: unless-stopped
     # 🔥 開發模式啟動命令：支援熱重載
     command: uvicorn main:app --host 0.0.0.0 --port ${BACKEND_CONTAINER_PORT} --reload --reload-dir /app
@@ -119,6 +122,28 @@ services:
     # 🔥 開發模式啟動命令：Vite 開發伺服器
     command: npm run dev -- --host 0.0.0.0 --port ${VITE_PORT}
 
+  # --- 🤖 Ollama 本地 AI 備援服務 ---
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ${COMPOSE_PROJECT_NAME}_ollama_dev
+    ports:
+      - "${OLLAMA_HOST_PORT:-11434}:11434"
+    volumes:
+      - ollama_dev_data:/root/.ollama
+    networks:
+      - app_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
   # --- 🔧 Adminer 資料庫管理工具 ---
   adminer:
     image: adminer:4.8.1
@@ -140,6 +165,8 @@ volumes:
     name: ${COMPOSE_PROJECT_NAME}_postgres_dev_data
   redis_dev_data:
     name: ${COMPOSE_PROJECT_NAME}_redis_dev_data
+  ollama_dev_data:
+    name: ${COMPOSE_PROJECT_NAME}_ollama_dev_data
 
 # --- 🌐 網路配置 ---
 networks:
