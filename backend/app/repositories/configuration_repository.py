@@ -3,15 +3,17 @@ ConfigurationRepository - 網站配置資料存取層
 
 提供 SiteConfiguration 模型的 CRUD 操作。
 
-版本: 1.0.0
+版本: 1.1.0
 建立日期: 2026-02-06
+更新日期: 2026-02-06
+更新內容: 新增 get_configs_filtered() 支援搜尋與分類篩選
 """
 
 import logging
 from typing import Optional, List, Dict, Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, or_, and_
 
 from app.repositories.base_repository import BaseRepository
 from app.extended.models import SiteConfiguration
@@ -93,6 +95,43 @@ class ConfigurationRepository(BaseRepository[SiteConfiguration]):
         """取得所有配置為字典格式"""
         configs = await self.get_all_configs()
         return {c.key: c.value for c in configs}
+
+    async def get_configs_filtered(
+        self,
+        search: Optional[str] = None,
+        category: Optional[str] = None,
+    ) -> List[SiteConfiguration]:
+        """
+        根據搜尋條件和分類篩選配置項
+
+        Args:
+            search: 搜尋關鍵字（比對 key 和 description）
+            category: 分類篩選
+
+        Returns:
+            符合條件的配置項列表，按 category 和 key 排序
+        """
+        filters = []
+
+        if search:
+            filters.append(
+                or_(
+                    SiteConfiguration.key.ilike(f"%{search}%"),
+                    SiteConfiguration.description.ilike(f"%{search}%"),
+                )
+            )
+
+        if category:
+            filters.append(SiteConfiguration.category == category)
+
+        query = select(SiteConfiguration)
+        if filters:
+            query = query.where(and_(*filters))
+
+        query = query.order_by(SiteConfiguration.category, SiteConfiguration.key)
+
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
 
     async def delete_by_key(self, key: str) -> bool:
         """

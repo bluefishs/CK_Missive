@@ -42,6 +42,7 @@ from app.repositories.calendar_repository import CalendarRepository
 from app.repositories.notification_repository import NotificationRepository
 from app.repositories.user_repository import UserRepository
 from app.repositories.configuration_repository import ConfigurationRepository
+from app.repositories.navigation_repository import NavigationRepository
 
 # Taoyuan 子模組
 from app.repositories.taoyuan import (
@@ -67,6 +68,7 @@ __all__ = [
     "NotificationRepository",
     "UserRepository",
     "ConfigurationRepository",
+    "NavigationRepository",
     # Taoyuan
     "DispatchOrderRepository",
     "TaoyuanProjectRepository",

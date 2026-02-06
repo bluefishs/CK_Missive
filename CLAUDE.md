@@ -754,6 +754,33 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 
 ## 📋 版本更新記錄
 
+### v1.46.0 (2026-02-06) - Repository 層全面採用
+
+**Repository 遷移** :
+
+| 端點模組 | 遷移前 | 遷移後 |
+|----------|--------|--------|
+| `users.py` | 直接 ORM | UserRepository |
+| `user_management.py` | 直接 ORM | UserRepository |
+| `auth/profile.py` | 直接 ORM | UserRepository |
+| `secure_site_management/config.py` | 直接 ORM | ConfigurationRepository |
+| `secure_site_management/navigation.py` | 直接 ORM | NavigationRepository |
+
+**新增 Repository**:
+- `NavigationRepository` - SiteNavigationItem CRUD + 樹狀結構查詢
+
+**Repository 增強**:
+- `UserRepository` 新增 `get_users_filtered()` 支援角色/狀態/部門/搜尋/排序/分頁
+- `ConfigurationRepository` 新增 `get_configs_filtered()` 支援搜尋/分類篩選
+
+**Repository 層採用率**: 44% → **65%** (31 → 21 端點直接 ORM)
+
+**測試**: 457 個全部通過 (較 v1.45.0 增加 75 個)
+
+**系統健康度**: 9.9/10 (維持)
+
+---
+
 ### v1.45.0 (2026-02-06) - 服務層工廠模式全面遷移
 
 **架構升級** :

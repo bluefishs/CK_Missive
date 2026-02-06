@@ -3,20 +3,19 @@
 """
 使用者管理 API 端點
 
-使用統一回應格式和錯誤處理機制
+使用統一回應格式和錯誤處理機制。
+資料存取透過 UserRepository 進行，遵循 Repository Pattern。
 
-@version 2.0.0 - 整合 AuthService 密碼加密
-@date 2026-01-12
+@version 3.0.0 - 使用 UserRepository 取代直接 ORM 查詢
+@date 2026-02-06
 """
 from fastapi import APIRouter, Depends, status, Body
-from typing import Optional
 from datetime import datetime
-from sqlalchemy import select, func, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel, Field
 
 from app.db.database import get_async_db
 from app.extended.models import User
+from app.repositories.user_repository import UserRepository
 from app.schemas.user import (
     UserCreate, UserUpdate, UserStatusUpdate,
     UserResponse, UserListResponse,
@@ -25,7 +24,6 @@ from app.schemas.user import (
 from app.schemas.common import (
     PaginationMeta,
     DeleteResponse,
-    SortOrder,
 )
 from app.core.exceptions import (
     NotFoundException,
@@ -43,6 +41,15 @@ def get_password_hash(password: str) -> str:
     return AuthService.get_password_hash(password)
 
 
+def get_user_repository(db: AsyncSession = Depends(get_async_db)) -> UserRepository:
+    """
+    取得 UserRepository 實例（工廠模式）
+
+    每個請求建立新的 Repository 實例，db session 在建構時注入。
+    """
+    return UserRepository(db)
+
+
 # 注意：UserListQuery 已統一定義於 app/schemas/user.py
 
 
@@ -58,7 +65,7 @@ def get_password_hash(password: str) -> str:
 )
 async def get_users(
     query: UserListQuery = Body(default=UserListQuery()),
-    db: AsyncSession = Depends(get_async_db),
+    user_repo: UserRepository = Depends(get_user_repository),
     current_user: User = Depends(require_admin())
 ):
     """
@@ -80,47 +87,16 @@ async def get_users(
     }
     ```
     """
-    # 建立基本查詢
-    db_query = select(User)
-    count_query = select(func.count()).select_from(User)
-
-    # 篩選條件
-    if query.role:
-        db_query = db_query.where(User.role == query.role)
-        count_query = count_query.where(User.role == query.role)
-
-    if query.is_active is not None:
-        db_query = db_query.where(User.is_active == query.is_active)
-        count_query = count_query.where(User.is_active == query.is_active)
-
-    if query.department:
-        db_query = db_query.where(User.department == query.department)
-        count_query = count_query.where(User.department == query.department)
-
-    if query.search:
-        search_filter = or_(
-            User.username.ilike(f"%{query.search}%"),
-            User.email.ilike(f"%{query.search}%"),
-            User.full_name.ilike(f"%{query.search}%")
-        )
-        db_query = db_query.where(search_filter)
-        count_query = count_query.where(search_filter)
-
-    # 取得總數
-    total_result = await db.execute(count_query)
-    total = total_result.scalar() or 0
-
-    # 計算 skip 值並排序
-    skip = (query.page - 1) * query.limit
-
-    # 排序
-    sort_column = getattr(User, query.sort_by, User.id)
-    if query.sort_order == SortOrder.DESC:
-        sort_column = sort_column.desc()
-
-    db_query = db_query.offset(skip).limit(query.limit).order_by(sort_column)
-    result = await db.execute(db_query)
-    users = result.scalars().all()
+    users, total = await user_repo.get_users_filtered(
+        role=query.role,
+        is_active=query.is_active,
+        department=query.department,
+        search=query.search,
+        sort_by=query.sort_by,
+        sort_order=query.sort_order.value,
+        page=query.page,
+        limit=query.limit,
+    )
 
     # 轉換為回應格式
     items = [
@@ -160,12 +136,11 @@ async def get_users(
 )
 async def get_user(
     user_id: int,
-    db: AsyncSession = Depends(get_async_db),
+    user_repo: UserRepository = Depends(get_user_repository),
     current_user: User = Depends(require_admin())
 ):
     """取得指定使用者的詳細資訊"""
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
+    user = await user_repo.get_by_id(user_id)
 
     if not user:
         raise NotFoundException(resource="使用者", resource_id=user_id)
@@ -181,15 +156,12 @@ async def get_user(
 )
 async def create_user(
     user_data: UserCreate,
-    db: AsyncSession = Depends(get_async_db),
+    user_repo: UserRepository = Depends(get_user_repository),
     current_user: User = Depends(require_admin())
 ):
     """建立新使用者"""
     # 檢查帳號是否已存在
-    existing = await db.execute(
-        select(User).where(User.username == user_data.username)
-    )
-    if existing.scalar_one_or_none():
+    if await user_repo.check_username_exists(user_data.username):
         raise ConflictException(
             message=f"帳號 '{user_data.username}' 已存在",
             field="username",
@@ -197,17 +169,14 @@ async def create_user(
         )
 
     # 檢查 Email 是否已存在
-    existing_email = await db.execute(
-        select(User).where(User.email == user_data.email)
-    )
-    if existing_email.scalar_one_or_none():
+    if await user_repo.check_email_exists(user_data.email):
         raise ConflictException(
             message=f"Email '{user_data.email}' 已被使用",
             field="email",
             value=user_data.email
         )
 
-    # 建立使用者
+    # 建立使用者（需要密碼加密，因此手動建構 User 物件）
     new_user = User(
         username=user_data.username,
         email=user_data.email,
@@ -219,9 +188,9 @@ async def create_user(
         updated_at=datetime.now()
     )
 
-    db.add(new_user)
-    await db.commit()
-    await db.refresh(new_user)
+    user_repo.db.add(new_user)
+    await user_repo.db.commit()
+    await user_repo.db.refresh(new_user)
 
     return new_user
 
@@ -234,12 +203,11 @@ async def create_user(
 async def update_user(
     user_id: int,
     user_data: UserUpdate,
-    db: AsyncSession = Depends(get_async_db),
+    user_repo: UserRepository = Depends(get_user_repository),
     current_user: User = Depends(require_admin())
 ):
     """更新指定使用者的資訊"""
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
+    user = await user_repo.get_by_id(user_id)
 
     if not user:
         raise NotFoundException(resource="使用者", resource_id=user_id)
@@ -254,12 +222,7 @@ async def update_user(
 
     # 檢查 Email 是否與其他使用者重複
     if 'email' in update_data and update_data['email'] != user.email:
-        existing_email = await db.execute(
-            select(User).where(
-                and_(User.email == update_data['email'], User.id != user_id)
-            )
-        )
-        if existing_email.scalar_one_or_none():
+        if await user_repo.check_email_exists(update_data['email'], exclude_id=user_id):
             raise ConflictException(
                 message=f"Email '{update_data['email']}' 已被使用",
                 field="email",
@@ -272,8 +235,8 @@ async def update_user(
 
     user.updated_at = datetime.now()
 
-    await db.commit()
-    await db.refresh(user)
+    await user_repo.db.commit()
+    await user_repo.db.refresh(user)
 
     return user
 
@@ -285,12 +248,11 @@ async def update_user(
 )
 async def delete_user(
     user_id: int,
-    db: AsyncSession = Depends(get_async_db),
+    user_repo: UserRepository = Depends(get_user_repository),
     current_user: User = Depends(require_admin())
 ):
     """刪除指定使用者"""
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
+    user = await user_repo.get_by_id(user_id)
 
     if not user:
         raise NotFoundException(resource="使用者", resource_id=user_id)
@@ -299,8 +261,7 @@ async def delete_user(
     if user.is_superuser:
         raise ForbiddenException(message="無法刪除超級管理員")
 
-    await db.delete(user)
-    await db.commit()
+    await user_repo.delete(user_id)
 
     return DeleteResponse(
         success=True,
@@ -317,12 +278,11 @@ async def delete_user(
 async def update_user_status(
     user_id: int,
     status_data: UserStatusUpdate,
-    db: AsyncSession = Depends(get_async_db),
+    user_repo: UserRepository = Depends(get_user_repository),
     current_user: User = Depends(require_admin())
 ):
     """啟用或停用使用者"""
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
+    user = await user_repo.get_by_id(user_id)
 
     if not user:
         raise NotFoundException(resource="使用者", resource_id=user_id)
@@ -334,7 +294,7 @@ async def update_user_status(
     user.is_active = status_data.is_active
     user.updated_at = datetime.now()
 
-    await db.commit()
-    await db.refresh(user)
+    await user_repo.db.commit()
+    await user_repo.db.refresh(user)
 
     return user

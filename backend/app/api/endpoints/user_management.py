@@ -1,7 +1,8 @@
 """
 使用者管理與權限管理 API 端點
 
-v2.1 - 2026-01-10
+v3.0.0 - 2026-02-06
+- 使用 UserRepository 取代直接 ORM 查詢
 - 整合 AuditService 記錄所有使用者變更
 - 整合權限變更審計
 - POST-only API 設計 (資安規範)
@@ -15,6 +16,7 @@ import json
 from app.db.database import get_async_db
 from app.core.auth_service import AuthService
 from app.api.endpoints.auth import get_current_user
+from app.repositories.user_repository import UserRepository
 from app.schemas.auth import (
     UserResponse, UserUpdate, UserListResponse, UserSearchParams,
     UserPermissions, PermissionCheck, UserSessionsResponse, UserRegister
@@ -24,6 +26,12 @@ from app.services.audit_service import AuditService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def get_user_repository(db: AsyncSession = Depends(get_async_db)) -> UserRepository:
+    """取得 UserRepository 實例"""
+    return UserRepository(db)
+
 
 async def require_admin(current_user: User = Depends(get_current_user)) -> User:
     """需要管理員權限的依賴函數"""
@@ -39,15 +47,17 @@ async def require_admin(current_user: User = Depends(get_current_user)) -> User:
 @router.post("/users/list", response_model=UserListResponse, summary="取得使用者列表")
 async def get_users(
     params: UserSearchParams,
-    db: AsyncSession = Depends(get_async_db),
+    user_repo: UserRepository = Depends(get_user_repository),
     admin_user: User = Depends(require_admin)
 ):
     """
     取得使用者列表 (管理員功能) - POST-only
     - 支援搜尋、篩選與分頁
     """
+    db = user_repo.db
+
     query = select(User).where(User.is_active == True)
-    
+
     # 搜尋條件
     if params.q:
         search_term = f"%{params.q}%"
@@ -56,30 +66,30 @@ async def get_users(
             (User.username.ilike(search_term)) |
             (User.full_name.ilike(search_term))
         )
-    
+
     # 篩選條件
     if params.role:
         query = query.where(User.role == params.role)
-    
+
     if params.auth_provider:
         query = query.where(User.auth_provider == params.auth_provider)
-    
+
     if params.is_active is not None:
         query = query.where(User.is_active == params.is_active)
-    
+
     # 計算總數
     count_query = select(func.count()).select_from(query.subquery())
     total_result = await db.execute(count_query)
     total = total_result.scalar()
-    
+
     # 分頁
     offset = (params.page - 1) * params.per_page
     query = query.offset(offset).limit(params.per_page)
-    
+
     # 執行查詢
     result = await db.execute(query)
     users = result.scalars().all()
-    
+
     return UserListResponse(
         users=[UserResponse.model_validate(user) for user in users],
         total=total,
@@ -90,29 +100,27 @@ async def get_users(
 @router.post("/users", response_model=UserResponse, summary="新增使用者")
 async def create_user(
     user_data: UserRegister,
-    db: AsyncSession = Depends(get_async_db),
+    user_repo: UserRepository = Depends(get_user_repository),
     admin_user: User = Depends(require_admin)
 ):
     """新增使用者 (管理員功能)"""
     # 檢查 email 唯一性
-    existing_email = await AuthService.get_user_by_email(db, user_data.email)
-    if existing_email:
+    if await user_repo.check_email_exists(user_data.email):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="該電子郵件已被使用"
         )
-    
+
     # 檢查 username 唯一性
-    existing_username = await AuthService.get_user_by_username(db, user_data.username)
-    if existing_username:
+    if await user_repo.check_username_exists(user_data.username):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="該使用者名稱已被使用"
         )
-    
+
     # 建立新使用者
     password_hash = AuthService.get_password_hash(user_data.password)
-    
+
     new_user = User(
         email=user_data.email,
         username=user_data.username,
@@ -125,41 +133,39 @@ async def create_user(
         email_verified=False,
         permissions='["documents:read", "projects:read", "agencies:read", "vendors:read", "calendar:read", "reports:view"]'
     )
-    
-    db.add(new_user)
-    await db.commit()
-    await db.refresh(new_user)
-    
+
+    user_repo.db.add(new_user)
+    await user_repo.db.commit()
+    await user_repo.db.refresh(new_user)
+
     return UserResponse.model_validate(new_user)
 
 @router.post("/users/{user_id}/detail", response_model=UserResponse, summary="取得指定使用者")
 async def get_user_by_id(
     user_id: int,
-    db: AsyncSession = Depends(get_async_db),
+    user_repo: UserRepository = Depends(get_user_repository),
     admin_user: User = Depends(require_admin)
 ):
     """取得指定使用者詳細資訊 (管理員功能) - POST-only"""
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    
+    user = await user_repo.get_by_id(user_id)
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="使用者不存在"
         )
-    
+
     return UserResponse.model_validate(user)
 
 @router.post("/users/{user_id}/update", response_model=UserResponse, summary="更新使用者資訊")
 async def update_user(
     user_id: int,
     user_update: UserUpdate,
-    db: AsyncSession = Depends(get_async_db),
+    user_repo: UserRepository = Depends(get_user_repository),
     admin_user: User = Depends(require_admin)
 ):
     """更新使用者資訊 (管理員功能) - POST-only"""
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
+    user = await user_repo.get_by_id(user_id)
 
     if not user:
         raise HTTPException(
@@ -180,8 +186,7 @@ async def update_user(
 
     # 檢查 email 唯一性
     if "email" in update_data and update_data["email"] != user.email:
-        existing_email = await AuthService.get_user_by_email(db, update_data["email"])
-        if existing_email:
+        if await user_repo.check_email_exists(update_data["email"], exclude_id=user_id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="該電子郵件已被使用"
@@ -189,19 +194,18 @@ async def update_user(
 
     # 檢查 username 唯一性
     if "username" in update_data and update_data["username"] != user.username:
-        existing_username = await AuthService.get_user_by_username(db, update_data["username"])
-        if existing_username:
+        if await user_repo.check_username_exists(update_data["username"], exclude_id=user_id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="該使用者名稱已被使用"
             )
 
     # 執行更新
-    await db.execute(
+    await user_repo.db.execute(
         update(User).where(User.id == user_id).values(**update_data)
     )
-    await db.commit()
-    await db.refresh(user)
+    await user_repo.db.commit()
+    await user_repo.db.refresh(user)
 
     # 計算實際變更
     changes = {}
@@ -237,7 +241,7 @@ async def update_user(
 @router.post("/users/{user_id}/delete", summary="刪除使用者")
 async def delete_user(
     user_id: int,
-    db: AsyncSession = Depends(get_async_db),
+    user_repo: UserRepository = Depends(get_user_repository),
     admin_user: User = Depends(require_admin)
 ):
     """軟刪除使用者 (管理員功能) - POST-only"""
@@ -248,8 +252,7 @@ async def delete_user(
         )
 
     # 先查詢使用者資訊用於審計
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
+    user = await user_repo.get_by_id(user_id)
 
     if not user:
         raise HTTPException(
@@ -260,12 +263,12 @@ async def delete_user(
     user_email = user.email
 
     # 執行軟刪除
-    await db.execute(
+    await user_repo.db.execute(
         update(User)
         .where(User.id == user_id)
         .values(is_active=False)
     )
-    await db.commit()
+    await user_repo.db.commit()
 
     # 記錄審計日誌
     await AuditService.log_auth_event(
@@ -292,13 +295,12 @@ async def delete_user(
 @router.post("/users/{user_id}/permissions/detail", response_model=UserPermissions, summary="取得使用者權限")
 async def get_user_permissions(
     user_id: int,
-    db: AsyncSession = Depends(get_async_db),
+    user_repo: UserRepository = Depends(get_user_repository),
     admin_user: User = Depends(require_admin)
 ):
     """取得指定使用者的權限列表 (管理員功能) - POST-only"""
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    
+    user = await user_repo.get_by_id(user_id)
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -322,12 +324,11 @@ async def get_user_permissions(
 async def update_user_permissions(
     user_id: int,
     permissions_data: UserPermissions,
-    db: AsyncSession = Depends(get_async_db),
+    user_repo: UserRepository = Depends(get_user_repository),
     admin_user: User = Depends(require_admin)
 ):
     """更新指定使用者的權限 (管理員功能) - POST-only"""
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
+    user = await user_repo.get_by_id(user_id)
 
     if not user:
         raise HTTPException(
@@ -347,7 +348,7 @@ async def update_user_permissions(
     # 更新權限
     permissions_json = json.dumps(permissions_data.permissions)
 
-    await db.execute(
+    await user_repo.db.execute(
         update(User)
         .where(User.id == user_id)
         .values(
@@ -355,7 +356,7 @@ async def update_user_permissions(
             role=permissions_data.role
         )
     )
-    await db.commit()
+    await user_repo.db.commit()
 
     # 記錄權限變更審計
     await AuditService.log_permission_change(
