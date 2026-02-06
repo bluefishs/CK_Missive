@@ -20,32 +20,23 @@ import type { Project } from '../../types/api';
 /** 建立完整的專案 Mock 資料 */
 const createMockProject = (overrides: Partial<Project> = {}): Project => ({
   id: 1,
-  name: '測試專案',
+  project_name: '測試專案',
   project_code: 'PRJ-001',
-  status: '進行中',
+  status: 'in_progress',
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
   ...overrides,
 });
 
-/** 建立分頁回應 Mock 資料 */
-interface PaginatedResponse<T> {
-  items: T[];
-  pagination: {
-    total: number;
-    page: number;
-    limit: number;
-    total_pages: number;
-    has_next: boolean;
-    has_prev: boolean;
-  };
-}
+/** 建立分頁回應 Mock 資料（符合 api/types.ts PaginatedResponse） */
+import type { PaginatedResponse } from '../../api/types';
 
 function createMockPaginatedResponse<T>(
   items: T[],
   paginationOverrides: Partial<PaginatedResponse<T>['pagination']> = {}
 ): PaginatedResponse<T> {
   return {
+    success: true,
     items,
     pagination: {
       total: items.length,
@@ -144,8 +135,8 @@ describe('useProjects', () => {
 
   it('應該成功取得專案列表', async () => {
     const mockResponse = createMockPaginatedResponse([
-      createMockProject({ id: 1, name: '專案A', project_code: 'PRJ-001' }),
-      createMockProject({ id: 2, name: '專案B', project_code: 'PRJ-002' }),
+      createMockProject({ id: 1, project_name: '專案A', project_code: 'PRJ-001' }),
+      createMockProject({ id: 2, project_name: '專案B', project_code: 'PRJ-002' }),
     ], { total: 2 });
 
     vi.mocked(projectsApi.getProjects).mockResolvedValue(mockResponse);
@@ -159,7 +150,7 @@ describe('useProjects', () => {
     });
 
     expect(result.current.data?.items).toHaveLength(2);
-    expect(result.current.data?.items?.[0]?.name).toBe('專案A');
+    expect(result.current.data?.items?.[0]?.project_name).toBe('專案A');
   });
 
   it('應該正確傳遞查詢參數', async () => {
@@ -171,7 +162,7 @@ describe('useProjects', () => {
       page: 2,
       limit: 10,
       keyword: '桃園',
-      status: '進行中',
+      status: 'in_progress' as const,
       year: 2026,
     };
 
@@ -212,9 +203,9 @@ describe('useProject', () => {
   it('應該成功取得單一專案', async () => {
     const mockProject = createMockProject({
       id: 1,
-      name: '測試專案',
+      project_name: '測試專案',
       project_code: 'PRJ-001',
-      status: '進行中',
+      status: 'in_progress',
     });
 
     vi.mocked(projectsApi.getProject).mockResolvedValue(mockProject);
@@ -227,7 +218,7 @@ describe('useProject', () => {
       expect(result.current.isSuccess).toBe(true);
     });
 
-    expect(result.current.data?.name).toBe('測試專案');
+    expect(result.current.data?.project_name).toBe('測試專案');
   });
 
   it('當 projectId 為 null 時不應該發送請求', async () => {
@@ -260,16 +251,17 @@ describe('useProjectStatistics', () => {
 
   it('應該成功取得統計資料', async () => {
     const mockStats = {
-      total: 100,
-      by_status: {
-        '進行中': 50,
-        '已完成': 40,
-        '暫停': 10,
-      },
-      by_year: {
-        '2026': 30,
-        '2025': 70,
-      },
+      total_projects: 100,
+      status_breakdown: [
+        { status: 'in_progress', count: 50 },
+        { status: 'completed', count: 40 },
+        { status: 'suspended', count: 10 },
+      ],
+      year_breakdown: [
+        { year: 2026, count: 30 },
+        { year: 2025, count: 70 },
+      ],
+      average_contract_amount: 500000,
     };
 
     vi.mocked(projectsApi.getStatistics).mockResolvedValue(mockStats);
@@ -282,7 +274,7 @@ describe('useProjectStatistics', () => {
       expect(result.current.isSuccess).toBe(true);
     });
 
-    expect(result.current.data?.total).toBe(100);
+    expect(result.current.data?.total_projects).toBe(100);
   });
 });
 
@@ -297,8 +289,8 @@ describe('useProjectOptions', () => {
 
   it('應該成功取得專案選項', async () => {
     const mockOptions = [
-      { id: 1, name: '專案A' },
-      { id: 2, name: '專案B' },
+      { id: 1, project_name: '專案A' },
+      { id: 2, project_name: '專案B' },
     ];
 
     vi.mocked(projectsApi.getProjectOptions).mockResolvedValue(mockOptions);
@@ -365,7 +357,7 @@ describe('useCreateProject', () => {
   it('應該成功建立專案', async () => {
     const newProject = createMockProject({
       id: 1,
-      name: '新專案',
+      project_name: '新專案',
       project_code: 'NEW-001',
     });
 
@@ -376,7 +368,7 @@ describe('useCreateProject', () => {
     });
 
     await result.current.mutateAsync({
-      name: '新專案',
+      project_name: '新專案',
       project_code: 'NEW-001',
     });
 
@@ -392,7 +384,7 @@ describe('useUpdateProject', () => {
   it('應該成功更新專案', async () => {
     const updatedProject = createMockProject({
       id: 1,
-      name: '更新後名稱',
+      project_name: '更新後名稱',
     });
 
     vi.mocked(projectsApi.updateProject).mockResolvedValue(updatedProject);
@@ -403,11 +395,11 @@ describe('useUpdateProject', () => {
 
     await result.current.mutateAsync({
       projectId: 1,
-      data: { name: '更新後名稱' },
+      data: { project_name: '更新後名稱' },
     });
 
     expect(projectsApi.updateProject).toHaveBeenCalledWith(1, {
-      name: '更新後名稱',
+      project_name: '更新後名稱',
     });
   });
 });
@@ -418,7 +410,7 @@ describe('useDeleteProject', () => {
   });
 
   it('應該成功刪除專案', async () => {
-    vi.mocked(projectsApi.deleteProject).mockResolvedValue({ success: true });
+    vi.mocked(projectsApi.deleteProject).mockResolvedValue({ success: true, message: '刪除成功', deleted_id: 1 });
 
     const { result } = renderHook(() => useDeleteProject(), {
       wrapper: createWrapper(),
@@ -440,21 +432,23 @@ describe('useProjectsPage', () => {
 
     vi.mocked(projectsApi.getProjects).mockResolvedValue(
       createMockPaginatedResponse([
-        createMockProject({ id: 1, name: '專案A' }),
+        createMockProject({ id: 1, project_name: '專案A' }),
       ], { total: 1 })
     );
 
     vi.mocked(projectsApi.getStatistics).mockResolvedValue({
-      total: 100,
-      by_status: { '進行中': 50 },
+      total_projects: 100,
+      status_breakdown: [{ status: 'in_progress', count: 50 }],
+      year_breakdown: [{ year: 2026, count: 100 }],
+      average_contract_amount: 0,
     });
 
     vi.mocked(projectsApi.getYearOptions).mockResolvedValue([2026, 2025]);
     vi.mocked(projectsApi.getCategoryOptions).mockResolvedValue(['類別A', '類別B']);
-    vi.mocked(projectsApi.getStatusOptions).mockResolvedValue(['進行中', '已完成']);
+    vi.mocked(projectsApi.getStatusOptions).mockResolvedValue(['in_progress', 'completed']);
 
     vi.mocked(projectsApi.createProject).mockResolvedValue(
-      createMockProject({ id: 1, name: '新專案' })
+      createMockProject({ id: 1, project_name: '新專案' })
     );
   });
 
@@ -468,10 +462,10 @@ describe('useProjectsPage', () => {
     });
 
     expect(result.current.projects).toHaveLength(1);
-    expect(result.current.statistics?.total).toBe(100);
+    expect(result.current.statistics?.total_projects).toBe(100);
     expect(result.current.availableYears).toEqual([2026, 2025]);
     expect(result.current.availableCategories).toEqual(['類別A', '類別B']);
-    expect(result.current.availableStatuses).toEqual(['進行中', '已完成']);
+    expect(result.current.availableStatuses).toEqual(['in_progress', 'completed']);
   });
 
   it('應該提供操作方法', async () => {
@@ -490,7 +484,7 @@ describe('useProjectsPage', () => {
   });
 
   it('應該正確傳遞篩選參數', async () => {
-    const params = { keyword: '測試', status: '進行中' };
+    const params = { keyword: '測試', status: 'in_progress' as const };
 
     renderHook(() => useProjectsPage(params), {
       wrapper: createWrapper(),

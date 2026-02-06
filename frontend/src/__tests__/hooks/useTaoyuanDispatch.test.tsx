@@ -20,32 +20,23 @@ import type { DispatchOrder } from '../../types/api';
 /** 建立完整的派工單 Mock 資料 */
 const createMockDispatchOrder = (overrides: Partial<DispatchOrder> = {}): DispatchOrder => ({
   id: 1,
-  case_name: '測試派工案件',
+  dispatch_no: 'D-2026-001',
+  sub_case_name: '測試派工案件',
   work_type: '鑑價',
-  status: '待派工',
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
   ...overrides,
 });
 
-/** 建立分頁回應 Mock 資料 */
-interface PaginatedResponse<T> {
-  items: T[];
-  pagination: {
-    total: number;
-    page: number;
-    limit: number;
-    total_pages: number;
-    has_next: boolean;
-    has_prev: boolean;
-  };
-}
+/** 建立分頁回應 Mock 資料（符合 api/types.ts PaginatedResponse） */
+import type { PaginatedResponse } from '../../api/types';
 
 function createMockPaginatedResponse<T>(
   items: T[],
   paginationOverrides: Partial<PaginatedResponse<T>['pagination']> = {}
 ): PaginatedResponse<T> {
   return {
+    success: true,
     items,
     pagination: {
       total: items.length,
@@ -112,8 +103,8 @@ describe('useTaoyuanDispatchOrders', () => {
 
   it('應該成功取得派工單列表', async () => {
     const mockResponse = createMockPaginatedResponse([
-      createMockDispatchOrder({ id: 1, case_name: '派工案件A' }),
-      createMockDispatchOrder({ id: 2, case_name: '派工案件B' }),
+      createMockDispatchOrder({ id: 1, sub_case_name: '派工案件A' }),
+      createMockDispatchOrder({ id: 2, sub_case_name: '派工案件B' }),
     ], { total: 2 });
 
     vi.mocked(dispatchOrdersApi.getList).mockResolvedValue(mockResponse);
@@ -127,7 +118,7 @@ describe('useTaoyuanDispatchOrders', () => {
     });
 
     expect(result.current.dispatchOrders).toHaveLength(2);
-    expect(result.current.dispatchOrders[0]?.case_name).toBe('派工案件A');
+    expect(result.current.dispatchOrders[0]?.sub_case_name).toBe('派工案件A');
     expect(result.current.total).toBe(2);
   });
 
@@ -140,7 +131,6 @@ describe('useTaoyuanDispatchOrders', () => {
       skip: 20,
       limit: 10,
       search: '測試',
-      status: '已完成',
       work_type: '鑑價',
     };
 
@@ -186,7 +176,7 @@ describe('useTaoyuanDispatchOrders', () => {
   it('應該支援 project_id 篩選', async () => {
     vi.mocked(dispatchOrdersApi.getList).mockResolvedValue(
       createMockPaginatedResponse([
-        createMockDispatchOrder({ id: 1, case_name: '專案A派工' }),
+        createMockDispatchOrder({ id: 1, sub_case_name: '專案A派工' }),
       ])
     );
 
@@ -236,9 +226,8 @@ describe('useTaoyuanDispatchOrder', () => {
   it('應該成功取得單一派工單', async () => {
     const mockDispatch = createMockDispatchOrder({
       id: 1,
-      case_name: '測試派工',
+      sub_case_name: '測試派工',
       work_type: '鑑價',
-      status: '處理中',
     });
 
     vi.mocked(dispatchOrdersApi.getDetail).mockResolvedValue(mockDispatch);
@@ -251,7 +240,7 @@ describe('useTaoyuanDispatchOrder', () => {
       expect(result.current.isLoading).toBe(false);
     });
 
-    expect(result.current.dispatchOrder?.case_name).toBe('測試派工');
+    expect(result.current.dispatchOrder?.sub_case_name).toBe('測試派工');
     expect(result.current.dispatchOrder?.work_type).toBe('鑑價');
   });
 
