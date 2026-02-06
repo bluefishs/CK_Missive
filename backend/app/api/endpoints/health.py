@@ -1,6 +1,6 @@
 """
 API 健康監控端點
-v2.0 - 整合連接池監控與背景任務統計 (2026-01-09)
+v2.1 - 安全強化: ORM 查詢替換 + readiness auth (2026-02-06)
 """
 import time
 import logging
@@ -65,7 +65,8 @@ async def detailed_health_check(
     # 1. 資料庫連線檢查
     try:
         db_start = time.time()
-        result = await db.execute(text("SELECT 1"))
+        # 安全修正 (v2.1): 使用 ORM 取代 raw SQL
+        result = await db.execute(select(func.now()))
         db_response_time = (time.time() - db_start) * 1000
 
         health_data["checks"]["database"] = {
@@ -189,27 +190,33 @@ async def get_performance_metrics(
         # 資料庫查詢效能測試
         metrics = {}
 
-        # 測試各種查詢的效能
-        queries = {
-            "simple_count": "SELECT COUNT(*) FROM documents",
-            "complex_join": """
-                SELECT COUNT(d.id)
-                FROM documents d
-                LEFT JOIN government_agencies ga ON d.sender_agency_id = ga.id
-                WHERE d.doc_date > CURRENT_DATE - INTERVAL '1 year'
-            """,
-            "aggregation": """
-                SELECT EXTRACT(year FROM doc_date) as year, COUNT(*)
-                FROM documents
-                WHERE doc_date IS NOT NULL
-                GROUP BY EXTRACT(year FROM doc_date)
-            """
+        # 安全修正 (v2.1): 使用 ORM 查詢取代 raw SQL
+        from sqlalchemy import extract
+        from datetime import date, timedelta
+
+        orm_queries = {
+            "simple_count": lambda: db.execute(
+                select(func.count()).select_from(OfficialDocument)
+            ),
+            "complex_join": lambda: db.execute(
+                select(func.count(OfficialDocument.id))
+                .outerjoin(GovernmentAgency, OfficialDocument.sender_agency_id == GovernmentAgency.id)
+                .where(OfficialDocument.doc_date > date.today() - timedelta(days=365))
+            ),
+            "aggregation": lambda: db.execute(
+                select(
+                    extract('year', OfficialDocument.doc_date).label('year'),
+                    func.count()
+                )
+                .where(OfficialDocument.doc_date.isnot(None))
+                .group_by(extract('year', OfficialDocument.doc_date))
+            ),
         }
 
-        for query_name, query_sql in queries.items():
+        for query_name, query_fn in orm_queries.items():
             start_time = time.time()
             try:
-                result = await db.execute(text(query_sql))
+                result = await query_fn()
                 result.fetchall()  # 確保完全執行
                 execution_time = (time.time() - start_time) * 1000
 
@@ -255,11 +262,9 @@ def _get_performance_recommendations(metrics: Dict[str, Any]) -> list:
 async def readiness_check(db: AsyncSession = Depends(get_async_db)):
     """檢查服務是否已準備好接受流量"""
     try:
-        # 檢查資料庫連線
-        await db.execute(text("SELECT 1"))
-
-        # 檢查核心資料表
-        await db.execute(text("SELECT COUNT(*) FROM documents LIMIT 1"))
+        # 安全修正 (v2.1): 使用 ORM 取代 raw SQL
+        await db.execute(select(func.now()))
+        await db.execute(select(func.count()).select_from(OfficialDocument))
 
         return {
             "status": "ready",
@@ -267,12 +272,13 @@ async def readiness_check(db: AsyncSession = Depends(get_async_db)):
             "message": "Service is ready to accept traffic"
         }
     except Exception as e:
+        logger.error(f"Readiness check failed: {e}")
+        # 安全修正: 不洩漏內部錯誤細節
         raise HTTPException(
             status_code=503,
             detail={
                 "status": "not_ready",
                 "timestamp": datetime.now().isoformat(),
-                "error": str(e),
                 "message": "Service is not ready to accept traffic"
             }
         )
@@ -424,7 +430,8 @@ async def health_summary(
     # 1. 資料庫
     try:
         start = time.time()
-        await db.execute(text("SELECT 1"))
+        # 安全修正 (v2.1): 使用 ORM 取代 raw SQL
+        await db.execute(select(func.now()))
         db_time = (time.time() - start) * 1000
         summary["components"]["database"] = {
             "status": "healthy",
