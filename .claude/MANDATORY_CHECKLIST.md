@@ -44,6 +44,8 @@
 | **非同步資料庫查詢** | **Python 常見陷阱** | [清單 Q](#清單-q非同步資料庫查詢) |
 | **新功能部署上線** | **部署驗證規範** | [清單 R](#清單-r部署驗證-v1300-新增) |
 | **敏感功能開發** | **安全審查規範** | [清單 S](#清單-s安全審查-v1300-新增) |
+| **useEffect 中呼叫 API** | **無限迴圈防護** | [清單 T](#清單-tuseeffect-無限迴圈防護-v1120-新增) |
+| **重構/刪除模組** | **跨檔案引用安全** | [清單 U](#清單-u重構刪除模組安全-v1120-新增) |
 
 ---
 
@@ -1348,10 +1350,56 @@ grep -r "password\|api_key\|secret" --include="*.py" --include="*.ts" .
 
 ---
 
+## 清單 T：useEffect 無限迴圈防護 (v1.12.0 新增)
+
+### 事前檢查
+- [ ] useEffect 依賴陣列中**不包含**任何 API 回應值 (total, count, data.length, unreadCount)
+- [ ] useEffect 中的 API 呼叫**不會**透過 setState 間接改變自身依賴
+- [ ] 若需要 API 回應的派生狀態，使用 `useMemo` 而非 useEffect
+
+### Code Review 必查項目
+- [ ] 確認無「state → useEffect → API → setState → re-render → useEffect」循環
+- [ ] catch 區塊中**不要**用 API 回應值覆蓋 state（避免二次觸發）
+- [ ] 優先使用 React Query 的 `useQuery` 而非 useEffect + 手動 fetch
+
+### 判斷規則
+
+| 可以放入依賴陣列 | 禁止放入依賴陣列 |
+|------------------|------------------|
+| 使用者輸入的篩選條件 | API 回應的 total / count |
+| URL 參數 (id, page) | 從 API 回應衍生的 state |
+| 使用者選擇的 tab | data.length / isLoading |
+| 元件外部 props (非 API 回應) | refetch 回傳值 |
+
+**相關事故**: 2026-02-06 DocumentTabs.tsx 無限迴圈 → 後端 OOM → 全系統崩潰
+
+---
+
+## 清單 U：重構/刪除模組安全 (v1.12.0 新增)
+
+### 刪除函數或模組前
+- [ ] **已全域 grep 確認所有引用點** (`grep -r "函數名" backend/` 或 `Ctrl+Shift+F`)
+- [ ] 每個引用點都已更新或移除
+- [ ] 刪除後執行 `python -c "from app.api.routes import api_router"` 驗證 import
+
+### 重命名或移動後
+- [ ] 所有 `from old_module import xxx` 都改為 `from new_module import xxx`
+- [ ] 前端若有對應的 API 呼叫路徑也已同步更新
+- [ ] CI 的 Python import 驗證能捕捉到此類錯誤
+
+### 安全原則
+- 刪除前先 grep，永遠不要「先刪再看」
+- 重構大型模組時，保留向後相容的 re-export（至少一個版本週期）
+
+**相關事故**: 2026-02-06 vendors.py ImportError 導致後端啟動失敗
+
+---
+
 ## 版本記錄
 
 | 版本 | 日期 | 說明 |
 |------|------|------|
+| 1.12.0 | 2026-02-06 | **新增清單 T、U**（useEffect 無限迴圈防護、重構/刪除模組安全）- 連鎖崩潰事故後建立 |
 | 1.11.0 | 2026-02-03 | **新增清單 R、S**（部署驗證、安全審查）- Everything Claude Code 整合 |
 | 1.10.0 | 2026-01-28 | **新增清單 P、Q**（Pydantic Schema 開發、非同步資料庫查詢）- Python 常見陷阱規範 |
 | 1.9.0 | 2026-01-22 | **新增清單 N、O**（前端 API 請求參數處理、Ant Design 元件使用規範） |

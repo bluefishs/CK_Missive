@@ -2,7 +2,7 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.43.0
+> **Claude Code 配置版本**: 1.44.0
 > **最後更新**: 2026-02-06
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers), [everything-claude-code](https://github.com/affaan-m/everything-claude-code)
 
@@ -753,6 +753,63 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 ---
 
 ## 📋 版本更新記錄
+
+### v1.44.0 (2026-02-06) - 連鎖崩潰防護機制
+
+**事故回顧**:
+- `DocumentTabs.tsx` useEffect 依賴 `total` prop → 無限迴圈 (~10 req/sec)
+- 前端請求風暴 → 後端 OOM → PM2 重啟 421 次 → 全端點 ERR_EMPTY_RESPONSE
+- `vendors.py` 引用已刪除的 `get_vendor_service` 導致後端啟動失敗
+
+**五層防護架構** 🛡️:
+
+| 層級 | 防護機制 | 說明 |
+|------|----------|------|
+| 層 1 | 編碼規範 | DEVELOPMENT_GUIDELINES #10/#11 + MANDATORY_CHECKLIST T/U |
+| 層 2 | 前端熔斷器 | `RequestThrottler` - 同 URL 1s 間隔、20 req/10s、全域 50 req/10s |
+| 層 3 | 後端限流 | slowapi `@limiter.limit` 啟用 3 個高頻端點 |
+| 層 4 | CI 驗證 | 全模組 py_compile + import 驗證（捕捉刪除引用） |
+| 層 5 | 部署驗證 | API 端點回應確認 |
+
+**層 2 - RequestThrottler (client.ts)**:
+```typescript
+const THROTTLE_CONFIG = {
+  MIN_INTERVAL_MS: 1000,    // 同 URL 最小間隔
+  MAX_PER_URL: 20,          // 單 URL 滑動窗口 20/10s
+  GLOBAL_MAX: 50,           // 全域熔斷 50/10s
+  COOLDOWN_MS: 5_000,       // 熔斷冷卻 5 秒
+};
+```
+
+**層 3 - 後端限流端點**:
+| 端點 | 限制 |
+|------|------|
+| `/documents-enhanced/list` | 30/minute |
+| `/documents-enhanced/filtered-statistics` | 30/minute |
+| `/system-notifications/unread-count` | 20/minute |
+
+**層 4 - CI 強化**:
+- `find app -name "*.py" | xargs python -m py_compile` 全檔案編譯
+- 核心模組 import 驗證：`app.core.config`, `app.core.dependencies`, `app.db.database`, `app.api.routes`
+
+**規範新增**:
+| 文件 | 新增內容 |
+|------|----------|
+| `DEVELOPMENT_GUIDELINES.md` | 錯誤 #10 useEffect 無限迴圈、#11 重構遺漏引用 |
+| `MANDATORY_CHECKLIST.md` | 清單 T (useEffect 防護)、U (重構安全) |
+
+**修改檔案**:
+- `frontend/src/api/client.ts` - 新增 RequestThrottler 類別 + 攔截器
+- `backend/app/api/endpoints/documents/list.py` - 新增 rate limiting
+- `backend/app/api/endpoints/documents/stats.py` - 新增 rate limiting
+- `backend/app/api/endpoints/system_notifications.py` - 新增 rate limiting
+- `.github/workflows/ci.yml` - 全模組 import 驗證
+- `.claude/DEVELOPMENT_GUIDELINES.md` - 新增錯誤 #10, #11
+- `.claude/MANDATORY_CHECKLIST.md` - 新增清單 T, U
+
+**系統健康度**: 9.9/10 (維持)
+
+---
 
 ### v1.43.0 (2026-02-06) - Phase 2 架構優化：Query Builder 擴展
 
@@ -1804,5 +1861,5 @@ POST /project/{project_id}/link-dispatch
 ---
 
 *配置維護: Claude Code Assistant*
-*版本: v1.36.0*
-*最後更新: 2026-02-02*
+*版本: v1.44.0*
+*最後更新: 2026-02-06*

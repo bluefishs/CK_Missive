@@ -7,8 +7,10 @@
 @date 2026-02-04
 """
 import asyncio
-from fastapi import APIRouter, Query, Body
+from fastapi import APIRouter, Query, Body, Request
+from starlette.responses import Response
 from sqlalchemy import select, func
+from app.core.rate_limiter import limiter
 
 from .common import (
     logger, Depends, AsyncSession, get_async_db,
@@ -33,7 +35,10 @@ router = APIRouter()
     summary="查詢公文列表",
     description="使用統一分頁格式查詢公文列表（POST-only 資安機制，含行級別權限過濾）"
 )
+@limiter.limit("30/minute")
 async def list_documents(
+    request: Request,
+    response: Response,
     query: DocumentListQuery = Body(default=DocumentListQuery()),
     service: DocumentService = Depends(get_document_service),
     current_user: User = Depends(require_auth())

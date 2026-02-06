@@ -9,8 +9,10 @@ System Notifications API Endpoints
 3. 取得未讀通知數量
 """
 import logging
-from fastapi import APIRouter, Depends, Body
+from fastapi import APIRouter, Depends, Body, Request
+from starlette.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.rate_limiter import limiter
 
 from app.db.database import get_async_db
 from app.services.notification_service import (
@@ -113,7 +115,10 @@ async def get_notifications(
     response_model=UnreadCountResponse,
     summary="取得未讀通知數量"
 )
+@limiter.limit("20/minute")
 async def get_unread_count(
+    request: Request,
+    response: Response,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_auth())
 ):

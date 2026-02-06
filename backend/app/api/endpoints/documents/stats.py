@@ -6,7 +6,8 @@
 @version 4.0.0
 @date 2026-01-28
 """
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, Request
+from starlette.responses import Response
 
 from .common import (
     logger, Depends, AsyncSession, get_async_db,
@@ -15,6 +16,7 @@ from .common import (
     User, require_auth,
     DocumentStatisticsService, get_statistics_service,
 )
+from app.core.rate_limiter import limiter
 from app.schemas.document_number import NextNumberRequest, NextNumberResponse
 
 router = APIRouter()
@@ -135,7 +137,10 @@ async def get_documents_statistics(
     "/filtered-statistics",
     summary="取得篩選後的公文統計資料"
 )
+@limiter.limit("30/minute")
 async def get_filtered_statistics(
+    request: Request,
+    response: Response,
     query: DocumentListQuery = Body(default=DocumentListQuery()),
     service: DocumentStatisticsService = Depends(get_statistics_service)
 ):

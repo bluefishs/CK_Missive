@@ -60,12 +60,39 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Python syntax check
+      - name: Python syntax check (all files)
         run: |
+          echo "=== Compiling all Python files ==="
+          find app -name "*.py" | xargs python -m py_compile
           python -m py_compile main.py
-          python -m py_compile app/core/config.py
-          python -m py_compile app/core/dependencies.py
-          python -m py_compile app/db/database.py
+          echo "✓ All Python files compiled successfully"
+
+      - name: Verify all module imports
+        run: |
+          echo "=== Verifying Python imports ==="
+          python -c "
+          import sys
+          errors = []
+          # 驗證核心模組匯入鏈（捕捉刪除函數但未更新引用的問題）
+          modules_to_check = [
+              'app.core.config',
+              'app.core.dependencies',
+              'app.db.database',
+              'app.api.routes',
+          ]
+          for mod in modules_to_check:
+              try:
+                  __import__(mod)
+                  print(f'  ✓ {mod}')
+              except Exception as e:
+                  errors.append(f'{mod}: {e}')
+                  print(f'  ✗ {mod}: {e}')
+          if errors:
+              print(f'\n❌ {len(errors)} import error(s) found')
+              sys.exit(1)
+          else:
+              print('✓ All critical module imports verified')
+          "
 
       - name: Validate configuration
         run: |

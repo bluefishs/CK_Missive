@@ -192,6 +192,116 @@ export class ApiException extends Error {
 }
 
 // ============================================================================
+// Request Circuit Breaker（請求熔斷器）
+// ============================================================================
+
+/**
+ * 請求節流配置
+ *
+ * 防止前端程式錯誤（如 useEffect 無限迴圈）造成請求風暴，
+ * 導致後端 OOM 和全系統連鎖崩潰。
+ *
+ * @see DEVELOPMENT_GUIDELINES.md 常見錯誤 #10
+ */
+const THROTTLE_CONFIG = {
+  /** 同 URL 最小請求間隔 (ms) */
+  MIN_INTERVAL_MS: 1000,
+  /** 單 URL 滑動窗口內最大請求數 */
+  MAX_PER_URL: 20,
+  /** 滑動窗口時長 (ms) */
+  WINDOW_MS: 10_000,
+  /** 全域熔斷器閾值（窗口內總請求數） */
+  GLOBAL_MAX: 50,
+  /** 熔斷器冷卻時間 (ms) */
+  COOLDOWN_MS: 5_000,
+};
+
+interface ThrottleRecord {
+  timestamps: number[];
+  lastData: unknown;
+  lastTime: number;
+}
+
+class RequestThrottler {
+  private records = new Map<string, ThrottleRecord>();
+  private globalTimestamps: number[] = [];
+  private circuitOpenUntil = 0;
+
+  private getKey(method: string | undefined, url: string | undefined): string {
+    return `${(method || 'get').toUpperCase()}:${url || ''}`;
+  }
+
+  private pruneOld(arr: number[], windowMs: number): number[] {
+    const cutoff = Date.now() - windowMs;
+    return arr.filter(t => t > cutoff);
+  }
+
+  /**
+   * 檢查請求是否應被節流
+   * @returns null 表示放行，否則返回快取資料或 'reject'
+   */
+  check(method: string | undefined, url: string | undefined): { action: 'allow' } | { action: 'cache'; data: unknown } | { action: 'reject'; reason: string } {
+    const now = Date.now();
+    const key = this.getKey(method, url);
+
+    // 全域熔斷器
+    if (now < this.circuitOpenUntil) {
+      const remaining = Math.ceil((this.circuitOpenUntil - now) / 1000);
+      logger.error(`[CircuitBreaker] 熔斷中，剩餘 ${remaining}s - 請檢查是否有 useEffect 無限迴圈`);
+      return { action: 'reject', reason: `全域熔斷中 (${remaining}s)` };
+    }
+
+    let record = this.records.get(key);
+    if (!record) {
+      record = { timestamps: [], lastData: null, lastTime: 0 };
+      this.records.set(key, record);
+    }
+
+    // 清理過期時間戳
+    record.timestamps = this.pruneOld(record.timestamps, THROTTLE_CONFIG.WINDOW_MS);
+    this.globalTimestamps = this.pruneOld(this.globalTimestamps, THROTTLE_CONFIG.WINDOW_MS);
+
+    // 檢查 1：同 URL 最小間隔
+    if (record.lastData && (now - record.lastTime) < THROTTLE_CONFIG.MIN_INTERVAL_MS) {
+      return { action: 'cache', data: record.lastData };
+    }
+
+    // 檢查 2：單 URL 頻率上限
+    if (record.timestamps.length >= THROTTLE_CONFIG.MAX_PER_URL) {
+      logger.error(`[Throttle] ${key} 超頻 (${record.timestamps.length}/${THROTTLE_CONFIG.WINDOW_MS}ms) - 疑似無限迴圈`);
+      if (record.lastData) {
+        return { action: 'cache', data: record.lastData };
+      }
+      return { action: 'reject', reason: '單 URL 請求過於頻繁' };
+    }
+
+    // 檢查 3：全域熔斷
+    if (this.globalTimestamps.length >= THROTTLE_CONFIG.GLOBAL_MAX) {
+      logger.error(`[CircuitBreaker] 全域請求超限 (${this.globalTimestamps.length}/${THROTTLE_CONFIG.WINDOW_MS}ms) - 啟動熔斷`);
+      this.circuitOpenUntil = now + THROTTLE_CONFIG.COOLDOWN_MS;
+      return { action: 'reject', reason: '全域熔斷器觸發' };
+    }
+
+    // 放行：記錄時間戳
+    record.timestamps.push(now);
+    this.globalTimestamps.push(now);
+    return { action: 'allow' };
+  }
+
+  /** 記錄成功回應（供快取使用） */
+  recordResponse(method: string | undefined, url: string | undefined, data: unknown): void {
+    const key = this.getKey(method, url);
+    const record = this.records.get(key);
+    if (record) {
+      record.lastData = data;
+      record.lastTime = Date.now();
+    }
+  }
+}
+
+const requestThrottler = new RequestThrottler();
+
+// ============================================================================
 // 建立 Axios 實例
 // ============================================================================
 
@@ -224,7 +334,34 @@ function createAxiosInstance(): AxiosInstance {
     refreshSubscribers = [];
   };
 
-  // 請求攔截器
+  // 請求節流攔截器（防止無限迴圈造成請求風暴）
+  instance.interceptors.request.use(
+    (config: InternalAxiosRequestConfig) => {
+      const result = requestThrottler.check(config.method, config.url);
+
+      if (result.action === 'cache') {
+        // 返回快取：透過自訂 adapter 直接返回上次結果
+        const cachedData = result.data;
+        config.adapter = () => Promise.resolve({
+          data: cachedData,
+          status: 200,
+          statusText: 'OK (throttled cache)',
+          headers: {},
+          config,
+        } as AxiosResponse);
+      } else if (result.action === 'reject') {
+        return Promise.reject(new ApiException(
+          ErrorCode.TOO_MANY_REQUESTS,
+          `請求被熔斷器攔截: ${result.reason}`,
+          429
+        ));
+      }
+
+      return config;
+    }
+  );
+
+  // 請求攔截器（認證 Token）
   instance.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
       // 添加認證 Token（使用統一的 key）
@@ -242,7 +379,12 @@ function createAxiosInstance(): AxiosInstance {
   // 回應攔截器（含 Token 自動刷新機制）
   instance.interceptors.response.use(
     (response: AxiosResponse) => {
-      // 直接返回資料（不做自動解包，由各 API 方法處理）
+      // 記錄成功回應供節流快取使用
+      requestThrottler.recordResponse(
+        response.config?.method,
+        response.config?.url,
+        response.data
+      );
       return response;
     },
     async (error: AxiosError<ErrorResponse>) => {

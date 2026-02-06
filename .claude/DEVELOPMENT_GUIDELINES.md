@@ -456,6 +456,72 @@ async def update_document(db: AsyncSession, ...):
 
 詳細說明請參考: `docs/ERROR_HANDLING_GUIDE.md`
 
+### 10. 🔴 useEffect 中直接呼叫 API 造成無限迴圈 - 嚴重
+
+**錯誤訊息**: 無明確前端錯誤，但後端日誌出現同一端點每秒 5-10 次請求，最終 OOM 導致 ERR_EMPTY_RESPONSE
+
+**原因**: useEffect 依賴陣列中包含會因 API 回應而改變的值（如 `total`, `data.length`），形成無限觸發迴圈。
+
+**問題流程**:
+```
+1. useEffect 觸發 → 呼叫 API
+2. API 回應 → setState (e.g., setFilteredStats)
+3. 元件 re-render → 依賴值改變 (e.g., total prop)
+4. useEffect 再次觸發 → 回到步驟 1
+5. ~10 req/sec → 後端 OOM → 全系統 ERR_EMPTY_RESPONSE
+```
+
+**❌ 錯誤做法**:
+```typescript
+useEffect(() => {
+  const fetchStats = async () => {
+    const stats = await api.getFilteredStatistics(params);
+    setFilteredStats(stats);
+  };
+  fetchStats();
+}, [filters.search, filters.doc_type, total]);  // ← total 會因 API 回應而變！
+```
+
+**✅ 正確做法**:
+```typescript
+useEffect(() => {
+  const fetchStats = async () => {
+    const stats = await api.getFilteredStatistics(params);
+    setFilteredStats(stats);
+  };
+  fetchStats();
+}, [filters.search, filters.doc_type]);
+// 只依賴「使用者主動變更」的篩選條件，不依賴 API 回應值
+```
+
+**判斷規則**:
+
+| 可以放入依賴陣列 | 禁止放入依賴陣列 |
+|------------------|------------------|
+| 使用者輸入的篩選條件 | API 回應的 total / count |
+| URL 參數 (id, page) | 從 API 回應衍生的 state |
+| 使用者選擇的 tab | data.length |
+| 表單值 | loading 狀態 |
+
+**相關事故**: 2026-02-06 DocumentTabs.tsx 無限迴圈導致後端 OOM，全系統連鎖崩潰
+
+### 11. 🟡 重構或刪除模組時遺漏引用
+
+**錯誤訊息**: `ImportError: cannot import name 'xxx' from 'yyy'`
+
+**原因**: 重命名/刪除/移動 Python 模組或函數後，未全域搜尋並更新所有引用點。
+
+**❌ 錯誤做法**: 直接刪除 `get_vendor_service` 函數，未檢查其他檔案的 import。
+
+**✅ 正確做法**:
+```bash
+# 刪除或移動前，先全域搜尋所有引用
+grep -r "get_vendor_service" backend/
+# 確認每個引用點都已更新後，才刪除原始定義
+```
+
+**相關事故**: 2026-02-06 vendors.py ImportError 導致後端啟動失敗
+
 ---
 
 ## 📁 相關文件
