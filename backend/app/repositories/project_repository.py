@@ -758,6 +758,13 @@ class ProjectRepository(BaseRepository[ContractProject]):
             (專案列表, 總數) 元組
         """
         query = select(ContractProject)
+
+        # N+1 優化：預載入公文與委託機關關聯，避免迴圈存取時逐筆查詢
+        query = query.options(
+            selectinload(ContractProject.documents),
+            selectinload(ContractProject.client_agency_ref),
+        )
+
         conditions = []
 
         # 使用者權限過濾

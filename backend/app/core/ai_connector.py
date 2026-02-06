@@ -303,6 +303,33 @@ class AIConnector:
             "系統正在努力恢復服務。"
         )
 
+    async def generate_embedding(
+        self,
+        text: str,
+        model: Optional[str] = None,
+    ) -> List[float]:
+        """
+        生成文字的 embedding 向量（Phase 2 向量語意搜尋預留介面）
+
+        未來將透過 Ollama 的 embedding 模型（如 nomic-embed-text）
+        或本地 sentence-transformers 生成向量。
+
+        Args:
+            text: 要生成 embedding 的文字
+            model: embedding 模型名稱（可選）
+
+        Returns:
+            embedding 向量（浮點數列表）
+
+        Raises:
+            NotImplementedError: 目前尚未實作
+        """
+        # Phase 2: 將透過 Ollama /api/embed 端點實作
+        raise NotImplementedError(
+            "Embedding 功能尚未實作。"
+            "Phase 2 將透過 Ollama nomic-embed-text 模型 + pgvector 實現向量語意搜尋。"
+        )
+
     async def check_health(self) -> Dict[str, Any]:
         """檢查 AI 服務健康狀態"""
         status = {

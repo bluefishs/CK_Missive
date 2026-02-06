@@ -109,6 +109,14 @@ class NaturalSearchResponse(BaseModel):
     results: List[DocumentSearchResult] = Field(default=[], description="搜尋結果")
     total: int = Field(default=0, description="總筆數")
     source: str = Field(default="ai", description="資料來源 (ai/fallback/rate_limited)")
+    search_strategy: str = Field(
+        default="keyword",
+        description="搜尋策略 (keyword/similarity/hybrid/semantic)"
+    )
+    synonym_expanded: bool = Field(
+        default=False,
+        description="是否經過同義詞擴展"
+    )
     error: Optional[str] = Field(None, description="錯誤訊息")
 
     model_config = ConfigDict(from_attributes=True)

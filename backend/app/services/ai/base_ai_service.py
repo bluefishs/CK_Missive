@@ -1,16 +1,22 @@
 """
 AI 服務基類
 
-Version: 2.0.0
+Version: 2.1.0
 Created: 2026-02-04
-Updated: 2026-02-06 - SimpleCache LRU 淘汰機制
+Updated: 2026-02-06 - AI 使用統計追蹤
+
+功能:
+- 速率限制 (滑動窗口)
+- 記憶體快取 (LRU 淘汰)
+- AI 使用統計追蹤 (v2.1.0 新增)
 """
 
 import hashlib
 import logging
 import time
 from collections import deque
-from typing import Any, Callable, Deque, Dict, Optional, Tuple
+from datetime import datetime
+from typing import Any, Callable, Deque, Dict, List, Optional, Tuple
 
 from app.core.ai_connector import AIConnector, get_ai_connector
 from .ai_config import AIConfig, get_ai_config
@@ -126,6 +132,17 @@ def get_cache() -> SimpleCache:
 class BaseAIService:
     """AI 服務基類"""
 
+    # 類別層級統計資料 (跨實例共享)
+    _stats: Dict[str, Any] = {
+        "total_requests": 0,
+        "by_feature": {},
+        "rate_limit_hits": 0,
+        "groq_requests": 0,
+        "ollama_requests": 0,
+        "fallback_requests": 0,
+        "start_time": datetime.now().isoformat(),
+    }
+
     def __init__(
         self,
         connector: Optional[AIConnector] = None,
@@ -139,6 +156,71 @@ class BaseAIService:
     def is_enabled(self) -> bool:
         """檢查 AI 服務是否啟用"""
         return self.config.enabled
+
+    @classmethod
+    def _record_stat(
+        cls,
+        feature: str,
+        *,
+        cache_hit: bool = False,
+        cache_miss: bool = False,
+        error: bool = False,
+        latency_ms: float = 0.0,
+    ) -> None:
+        """記錄統計資料"""
+        cls._stats["total_requests"] += 1
+
+        if feature not in cls._stats["by_feature"]:
+            cls._stats["by_feature"][feature] = {
+                "count": 0,
+                "cache_hits": 0,
+                "cache_misses": 0,
+                "errors": 0,
+                "total_latency_ms": 0.0,
+            }
+
+        feat = cls._stats["by_feature"][feature]
+        feat["count"] += 1
+        if cache_hit:
+            feat["cache_hits"] += 1
+        if cache_miss:
+            feat["cache_misses"] += 1
+        if error:
+            feat["errors"] += 1
+        feat["total_latency_ms"] += latency_ms
+
+    @classmethod
+    def get_stats(cls) -> Dict[str, Any]:
+        """取得統計資料"""
+        stats = dict(cls._stats)
+        # 計算各 feature 平均延遲
+        by_feature_with_avg = {}
+        for feat_name, feat_data in stats.get("by_feature", {}).items():
+            feat_copy = dict(feat_data)
+            count = feat_copy["count"] - feat_copy["cache_hits"]
+            if count > 0:
+                feat_copy["avg_latency_ms"] = round(
+                    feat_copy["total_latency_ms"] / count, 2
+                )
+            else:
+                feat_copy["avg_latency_ms"] = 0.0
+            by_feature_with_avg[feat_name] = feat_copy
+        stats["by_feature"] = by_feature_with_avg
+        return stats
+
+    @classmethod
+    def reset_stats(cls) -> None:
+        """重設統計資料"""
+        cls._stats = {
+            "total_requests": 0,
+            "by_feature": {},
+            "rate_limit_hits": 0,
+            "groq_requests": 0,
+            "ollama_requests": 0,
+            "fallback_requests": 0,
+            "start_time": datetime.now().isoformat(),
+        }
+        logger.info("AI 統計資料已重設")
 
     def _generate_cache_key(self, prefix: str, *args: str) -> str:
         """生成快取鍵"""
@@ -169,29 +251,52 @@ class BaseAIService:
         Returns:
             AI 生成的回應
         """
+        # 從 cache_key 提取 feature 名稱 (格式: "feature:hash")
+        feature = cache_key.split(":")[0] if ":" in cache_key else "unknown"
+
         # 檢查快取
         if self.config.cache_enabled:
             cached = self._cache.get(cache_key)
             if cached is not None:
                 logger.debug(f"快取命中: {cache_key}")
+                self._record_stat(feature, cache_hit=True)
                 return cached
 
         # 檢查速率限制
         if not self._rate_limiter.can_proceed():
             wait_time = self._rate_limiter.get_wait_time()
             logger.warning(f"速率限制，需等待 {wait_time:.1f} 秒")
+            self.__class__._stats["rate_limit_hits"] += 1
             raise RuntimeError(f"AI 服務請求過於頻繁，請等待 {int(wait_time)} 秒後重試")
 
-        # 呼叫 AI
-        result = await self._call_ai(
-            system_prompt=system_prompt,
-            user_content=user_content,
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
+        # 呼叫 AI 並計時
+        start_time = time.time()
+        try:
+            result = await self._call_ai(
+                system_prompt=system_prompt,
+                user_content=user_content,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+        except Exception:
+            self._record_stat(feature, cache_miss=True, error=True)
+            raise
+
+        elapsed_ms = (time.time() - start_time) * 1000
 
         # 記錄請求
         self._rate_limiter.record_request()
+
+        # 統計: 記錄 provider 使用
+        provider = getattr(self.connector, '_last_provider', None)
+        if provider == 'groq':
+            self.__class__._stats["groq_requests"] += 1
+        elif provider == 'ollama':
+            self.__class__._stats["ollama_requests"] += 1
+        else:
+            self.__class__._stats["fallback_requests"] += 1
+
+        self._record_stat(feature, cache_miss=True, latency_ms=elapsed_ms)
 
         # 儲存到快取
         if self.config.cache_enabled and result:

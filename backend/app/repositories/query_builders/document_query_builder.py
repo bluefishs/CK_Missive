@@ -15,8 +15,9 @@ DocumentQueryBuilder - 公文查詢建構器
         .execute()
     )
 
-版本: 1.0.0
+版本: 1.1.0
 建立日期: 2026-02-06
+更新: 2026-02-06 - 新增 similarity 排序、多關鍵字 OR/AND 模式
 參見: docs/SERVICE_ARCHITECTURE_STANDARDS.md
 """
 
@@ -24,7 +25,7 @@ import logging
 from typing import List, Optional, TYPE_CHECKING
 from datetime import date
 
-from sqlalchemy import select, or_, and_, desc, asc
+from sqlalchemy import select, or_, and_, desc, asc, func, literal_column
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import Select
 
@@ -82,6 +83,7 @@ class DocumentQueryBuilder:
         self._order_columns: List = []
         self._offset: Optional[int] = None
         self._limit: Optional[int] = None
+        self._similarity_text: Optional[str] = None  # similarity 排序用
 
     # =========================================================================
     # 狀態篩選
@@ -396,6 +398,19 @@ class DocumentQueryBuilder:
     # 排序與分頁
     # =========================================================================
 
+    def with_relevance_order(self, text: str) -> 'DocumentQueryBuilder':
+        """
+        啟用相關性排序：利用 pg_trgm similarity() 計算主旨相似度
+
+        搜尋結果將優先按照與 text 的相似度降序排列，
+        然後按更新時間降序排列。需要 pg_trgm 擴展。
+
+        Args:
+            text: 用於計算相似度的文字
+        """
+        self._similarity_text = text
+        return self
+
     def order_by(
         self,
         column: str,
@@ -465,7 +480,14 @@ class DocumentQueryBuilder:
             query = query.where(and_(*self._conditions))
 
         # 套用排序
-        if self._order_columns:
+        if self._similarity_text and not self._order_columns:
+            # 使用 pg_trgm similarity() 做相關性排序
+            sim_score = func.greatest(
+                func.similarity(self.model.subject, self._similarity_text),
+                func.similarity(self.model.sender, self._similarity_text),
+            )
+            query = query.order_by(desc(sim_score), desc(self.model.updated_at))
+        elif self._order_columns:
             query = query.order_by(*self._order_columns)
         else:
             # 預設按 id 降冪

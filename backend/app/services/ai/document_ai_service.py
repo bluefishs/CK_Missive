@@ -1,9 +1,9 @@
 """
 公文 AI 服務
 
-Version: 2.0.0
+Version: 2.2.0
 Created: 2026-02-04
-Updated: 2026-02-06 - 安全強化 + 效能優化
+Updated: 2026-02-06 - 向量語意與意圖解析強化
 
 功能:
 - 公文摘要生成 (帶快取)
@@ -11,15 +11,20 @@ Updated: 2026-02-06 - 安全強化 + 效能優化
 - 關鍵字提取 (帶快取)
 - 機關匹配強化
 - 自然語言公文搜尋 (v1.2.0 新增)
+- Prompt 模板外部化 (v2.1.0 新增)
+- 同義詞擴展 + 意圖後處理 (v2.2.0 新增)
 """
 
 import asyncio
 import json
 import logging
+import os
 import re
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import yaml
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -43,6 +48,78 @@ class DocumentAIService(BaseAIService):
 
     # 收發類別
     CATEGORIES = ["收文", "發文"]
+
+    # Prompt 模板 (class-level 快取)
+    _prompts: Optional[Dict[str, Any]] = None
+
+    # 同義詞字典 (class-level 快取)
+    _synonyms: Optional[Dict[str, List[List[str]]]] = None
+    _synonym_lookup: Optional[Dict[str, List[str]]] = None
+
+    @classmethod
+    def _load_prompts(cls) -> Dict[str, Any]:
+        """從 YAML 檔案載入 Prompt 模板"""
+        if cls._prompts is not None:
+            return cls._prompts
+
+        prompts_path = Path(__file__).parent / "prompts.yaml"
+        try:
+            with open(prompts_path, "r", encoding="utf-8") as f:
+                cls._prompts = yaml.safe_load(f)
+            logger.info(f"已載入 Prompt 模板: {prompts_path}")
+        except FileNotFoundError:
+            logger.error(f"Prompt 模板檔案不存在: {prompts_path}")
+            cls._prompts = {}
+        except Exception as e:
+            logger.error(f"載入 Prompt 模板失敗: {e}")
+            cls._prompts = {}
+
+        return cls._prompts
+
+    @classmethod
+    def _load_synonyms(cls) -> Dict[str, List[str]]:
+        """
+        從 YAML 檔案載入同義詞字典並建立快速查找索引
+
+        Returns:
+            {詞彙: [同組所有詞彙]} 的查找表
+        """
+        if cls._synonym_lookup is not None:
+            return cls._synonym_lookup
+
+        synonyms_path = Path(__file__).parent / "synonyms.yaml"
+        try:
+            with open(synonyms_path, "r", encoding="utf-8") as f:
+                cls._synonyms = yaml.safe_load(f)
+            logger.info(f"已載入同義詞字典: {synonyms_path}")
+        except FileNotFoundError:
+            logger.warning(f"同義詞字典檔案不存在: {synonyms_path}")
+            cls._synonyms = {}
+        except Exception as e:
+            logger.error(f"載入同義詞字典失敗: {e}")
+            cls._synonyms = {}
+
+        # 建立快速查找索引: {任一詞 -> [同組所有詞]}
+        lookup: Dict[str, List[str]] = {}
+        for group_key in (cls._synonyms or {}):
+            groups = cls._synonyms.get(group_key, [])
+            if not isinstance(groups, list):
+                continue
+            for group in groups:
+                if not isinstance(group, list):
+                    continue
+                for word in group:
+                    lookup[word] = group
+
+        cls._synonym_lookup = lookup
+        logger.info(f"同義詞查找索引已建立: {len(lookup)} 個詞彙")
+        return cls._synonym_lookup
+
+    def __init__(self, **kwargs: Any):
+        super().__init__(**kwargs)
+        # 確保 Prompt 模板和同義詞已載入
+        self._load_prompts()
+        self._load_synonyms()
 
     async def generate_summary(
         self,
@@ -74,13 +151,10 @@ class DocumentAIService(BaseAIService):
                 "source": "disabled",
             }
 
-        system_prompt = f"""你是一位專業的公文處理助理。請根據以下公文資訊生成簡潔的摘要。
-
-要求：
-1. 摘要必須在 {max_length} 字以內
-2. 使用正式、簡潔的語言
-3. 保留關鍵資訊：目的、對象、重要日期或事項
-4. 只輸出摘要內容，不要加任何說明文字"""
+        prompts = self._load_prompts()
+        system_prompt = prompts.get("summary", {}).get("system", "").format(
+            max_length=max_length
+        )
 
         user_content = f"主旨：{subject}"
         if sender:
@@ -165,29 +239,10 @@ class DocumentAIService(BaseAIService):
 
         doc_types_str = "、".join(self.DOC_TYPES)
 
-        system_prompt = f"""你是一位專業的公文分類助理。請根據公文資訊判斷分類。
-
-公文類型選項：{doc_types_str}
-收發類別選項：收文、發文
-
-請以 JSON 格式回覆：
-{{
-    "doc_type": "類型",
-    "category": "收文或發文",
-    "doc_type_confidence": 0.0-1.0,
-    "category_confidence": 0.0-1.0,
-    "reasoning": "簡短說明判斷理由"
-}}
-
-判斷提示：
-- 「函」：一般公務往來、答復、通知
-- 「令」：法令發布、人事任免
-- 「公告」：對外公開事項
-- 「書函」：非正式聯繫
-- 「開會通知單」：會議召開通知
-- 「簽」：內部簽呈
-- 收文：由外部機關發來的公文
-- 發文：本機關對外發出的公文"""
+        prompts = self._load_prompts()
+        system_prompt = prompts.get("classify", {}).get("system", "").format(
+            doc_types_str=doc_types_str
+        )
 
         user_content = f"主旨：{subject}"
         if sender:
@@ -278,18 +333,10 @@ class DocumentAIService(BaseAIService):
                 "source": "disabled",
             }
 
-        system_prompt = f"""你是一位專業的公文關鍵字提取助理。
-
-請從公文中提取最重要的 {max_keywords} 個關鍵字。
-
-要求：
-1. 關鍵字應能代表公文的核心主題
-2. 優先提取專有名詞、機關名稱、地點、重要日期
-3. 避免過於通用的詞彙（如「關於」「有關」「請」等）
-4. 只輸出 JSON 格式，不要加任何說明
-
-輸出格式：
-{{"keywords": ["關鍵字1", "關鍵字2", ...]}}"""
+        prompts = self._load_prompts()
+        system_prompt = prompts.get("keywords", {}).get("system", "").format(
+            max_keywords=max_keywords
+        )
 
         user_content = f"主旨：{subject}"
         if content:
@@ -381,28 +428,8 @@ class DocumentAIService(BaseAIService):
              for c in candidates[:20]]  # 限制候選數量
         )
 
-        system_prompt = """你是一位專業的機關名稱匹配助理。
-
-請根據輸入的機關名稱，從候選列表中找出最可能匹配的機關。
-
-考慮因素：
-1. 名稱相似度（包含簡稱、全稱）
-2. 常見縮寫或別稱
-3. 層級對應（如：局、處、科）
-
-輸出 JSON 格式：
-{
-    "best_match_id": 1,
-    "confidence": 0.95,
-    "reasoning": "匹配理由"
-}
-
-如果沒有匹配的機關，輸出：
-{
-    "best_match_id": null,
-    "confidence": 0,
-    "reasoning": "原因"
-}"""
+        prompts = self._load_prompts()
+        system_prompt = prompts.get("match_agency", {}).get("system", "")
 
         user_content = f"輸入機關名稱：{agency_name}\n\n候選機關：\n{candidates_str}"
 
@@ -498,6 +525,92 @@ class DocumentAIService(BaseAIService):
         return {}
 
     # ========================================================================
+    # 同義詞擴展與意圖後處理 (v2.2.0 新增)
+    # ========================================================================
+
+    def _expand_keywords_with_synonyms(self, keywords: List[str]) -> List[str]:
+        """
+        擴展關鍵字列表：加入同義詞
+
+        Args:
+            keywords: 原始關鍵字列表
+
+        Returns:
+            擴展後的關鍵字列表（去重）
+        """
+        lookup = self._load_synonyms()
+        expanded = set(keywords)
+
+        for kw in keywords:
+            synonyms = lookup.get(kw, [])
+            for syn in synonyms:
+                expanded.add(syn)
+
+        result = list(expanded)
+        if len(result) > len(keywords):
+            logger.info(f"關鍵字擴展: {keywords} -> {result}")
+        return result
+
+    def _expand_agency_name(self, name: str) -> str:
+        """
+        擴展機關名稱：縮寫 -> 全稱
+
+        如果輸入是縮寫，返回同組的第一個詞（全稱）。
+
+        Args:
+            name: 機關名稱（可能是縮寫）
+
+        Returns:
+            擴展後的全稱（或原始名稱）
+        """
+        lookup = self._load_synonyms()
+        synonyms = lookup.get(name, [])
+        if synonyms:
+            # 返回同組第一個詞（通常是全稱）
+            return synonyms[0]
+        return name
+
+    def _post_process_intent(self, intent: ParsedSearchIntent) -> ParsedSearchIntent:
+        """
+        對 AI 解析的搜尋意圖進行後處理
+
+        1. 關鍵字同義詞擴展
+        2. 機關名稱縮寫轉全稱
+        3. 低 confidence 時擴大搜尋策略
+
+        Args:
+            intent: AI 解析的原始意圖
+
+        Returns:
+            後處理後的意圖
+        """
+        # 1. 關鍵字同義詞擴展
+        if intent.keywords:
+            intent.keywords = self._expand_keywords_with_synonyms(intent.keywords)
+
+        # 2. 機關名稱縮寫轉全稱
+        if intent.sender:
+            expanded = self._expand_agency_name(intent.sender)
+            if expanded != intent.sender:
+                logger.info(f"發文單位擴展: {intent.sender} -> {expanded}")
+                intent.sender = expanded
+
+        if intent.receiver:
+            expanded = self._expand_agency_name(intent.receiver)
+            if expanded != intent.receiver:
+                logger.info(f"受文單位擴展: {intent.receiver} -> {expanded}")
+                intent.receiver = expanded
+
+        # 3. 低 confidence 時的策略調整
+        if intent.confidence < 0.5:
+            # 確保至少有 keywords 作為備用搜尋條件
+            if not intent.keywords and not intent.sender and not intent.receiver:
+                # 從原始查詢中提取備用關鍵字（已在 parse_search_intent 中處理）
+                logger.info("低信心度且無搜尋條件，將保持原始查詢作為 keywords")
+
+        return intent
+
+    # ========================================================================
     # 自然語言搜尋功能 (v1.2.0 新增)
     # ========================================================================
 
@@ -525,34 +638,14 @@ class DocumentAIService(BaseAIService):
         last_month_start = (today.replace(day=1) - timedelta(days=1)).replace(day=1)
         last_month_end = today.replace(day=1) - timedelta(days=1)
 
-        system_prompt = f"""你是一個公文搜尋助手。請分析以下自然語言查詢，提取搜尋條件。
-
-當前日期：{today.strftime('%Y-%m-%d')}
-當前民國年：{current_year - 1911}年
-上個月：{last_month_start.strftime('%Y-%m-%d')} 至 {last_month_end.strftime('%Y-%m-%d')}
-
-請以 JSON 格式回應，包含以下欄位（如無法確定則為 null）：
-- keywords: 關鍵字陣列（從查詢中提取的實體名詞、專案名稱等）
-- doc_type: 公文類型 ("函"、"開會通知單"、"會勘通知單")
-- category: 收發類別 ("收文" 或 "發文")
-- sender: 發文單位（完整或部分名稱）
-- receiver: 受文單位
-- date_from: 日期起 (YYYY-MM-DD 格式)
-- date_to: 日期迄 (YYYY-MM-DD 格式)
-- status: 處理狀態 ("待處理" 或 "已完成")
-- has_deadline: 是否有截止日期要求 (true/false)
-- contract_case: 承攬案件名稱
-- confidence: 你對這次解析的信心度 (0.0-1.0)
-
-範例：
-輸入: "找桃園市政府上個月發的公文"
-輸出: {{"keywords": null, "category": "收文", "sender": "桃園市政府", "date_from": "{last_month_start.strftime('%Y-%m-%d')}", "date_to": "{last_month_end.strftime('%Y-%m-%d')}", "confidence": 0.9}}
-
-輸入: "有截止日的待處理公文"
-輸出: {{"status": "待處理", "has_deadline": true, "confidence": 0.85}}
-
-輸入: "中壢區相關的會勘通知"
-輸出: {{"keywords": ["中壢區"], "doc_type": "會勘通知單", "confidence": 0.8}}"""
+        prompts = self._load_prompts()
+        system_prompt = prompts.get("search_intent", {}).get("system", "").format(
+            today=today.strftime('%Y-%m-%d'),
+            today_year=current_year,
+            roc_year=current_year - 1911,
+            last_month_start=last_month_start.strftime('%Y-%m-%d'),
+            last_month_end=last_month_end.strftime('%Y-%m-%d'),
+        )
 
         # 防護提示注入：移除可能干擾 AI 的特殊字元，使用 XML 標籤隔離
         sanitized = query.replace("{", "（").replace("}", "）").replace("```", "")
@@ -577,7 +670,7 @@ class DocumentAIService(BaseAIService):
 
             result = self._parse_json_response(response)
 
-            return ParsedSearchIntent(
+            intent = ParsedSearchIntent(
                 keywords=result.get("keywords"),
                 doc_type=result.get("doc_type"),
                 category=result.get("category"),
@@ -590,6 +683,9 @@ class DocumentAIService(BaseAIService):
                 contract_case=result.get("contract_case"),
                 confidence=float(result.get("confidence", 0.5)),
             )
+
+            # 意圖後處理：同義詞擴展 + 縮寫轉換
+            return self._post_process_intent(intent)
         except RuntimeError as e:
             logger.warning(f"解析搜尋意圖時速率限制: {e}")
             return ParsedSearchIntent(
@@ -673,7 +769,13 @@ class DocumentAIService(BaseAIService):
                 if user_name:
                     qb = qb.with_assignee_access(user_name)
 
-        qb = qb.order_by("updated_at", descending=True)
+        # 根據搜尋條件決定排序策略
+        if parsed_intent.keywords:
+            # 有關鍵字時，使用 pg_trgm similarity 排序
+            relevance_text = " ".join(parsed_intent.keywords)
+            qb = qb.with_relevance_order(relevance_text)
+        else:
+            qb = qb.order_by("updated_at", descending=True)
 
         # 套用偏移量與限制 (分頁)
         if request.offset > 0:
@@ -750,6 +852,16 @@ class DocumentAIService(BaseAIService):
                 )
             )
 
+        # 判斷搜尋策略
+        search_strategy = "keyword"
+        if parsed_intent.keywords and parsed_intent.confidence > 0:
+            search_strategy = "similarity"  # 使用 pg_trgm similarity 排序
+        synonym_expanded = bool(
+            parsed_intent.keywords
+            and len(parsed_intent.keywords) > 0
+            and self._synonym_lookup
+        )
+
         return NaturalSearchResponse(
             success=True,
             query=request.query,
@@ -757,6 +869,8 @@ class DocumentAIService(BaseAIService):
             results=search_results,
             total=total_count,
             source=source,
+            search_strategy=search_strategy,
+            synonym_expanded=synonym_expanded,
         )
 
 

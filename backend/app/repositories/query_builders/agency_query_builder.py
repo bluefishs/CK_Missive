@@ -13,8 +13,9 @@ AgencyQueryBuilder - 機關查詢建構器
         .execute()
     )
 
-版本: 1.0.0
+版本: 1.1.0
 建立日期: 2026-02-06
+更新: 2026-02-06 - match_by_name 改用 pg_trgm similarity()
 """
 
 import logging
@@ -268,46 +269,41 @@ class AgencyQueryBuilder:
     async def match_by_name(
         self,
         name: str,
-        threshold: float = 0.7
+        threshold: float = 0.3
     ) -> List[tuple["GovernmentAgency", float]]:
         """
         根據名稱進行模糊匹配並返回相似度分數
 
+        使用 PostgreSQL pg_trgm 擴展的 similarity() 函數進行高效匹配，
+        取代原本的 Python 層逐筆比對，將計算下推至資料庫層。
+
         Args:
             name: 要匹配的名稱
-            threshold: 最低相似度閾值 (0-1)
+            threshold: 最低相似度閾值 (0-1)，pg_trgm 建議使用 0.3
 
         Returns:
-            (機關, 相似度) 的列表，按相似度降序
+            (機關, 相似度) 的列表，按相似度降序，最多 10 筆
         """
-        # 簡單的字串匹配策略
-        all_agencies = await self.execute()
+        similarity_col = func.similarity(self.model.agency_name, name).label("sim_score")
+
+        query = (
+            select(self.model, similarity_col)
+            .where(func.similarity(self.model.agency_name, name) > threshold)
+        )
+
+        # 套用現有條件 (如 with_type 等篩選)
+        if self._conditions:
+            query = query.where(and_(*self._conditions))
+
+        query = query.order_by(desc(similarity_col)).limit(10)
+
+        result = await self.db.execute(query)
+        rows = result.all()
+
         matches = []
+        for row in rows:
+            agency = row[0]
+            score = float(row[1])
+            matches.append((agency, score))
 
-        for agency in all_agencies:
-            # 精確匹配
-            if agency.agency_name == name:
-                matches.append((agency, 1.0))
-                continue
-
-            # 簡稱匹配
-            if agency.agency_short_name and agency.agency_short_name == name:
-                matches.append((agency, 0.95))
-                continue
-
-            # 包含匹配
-            name_lower = name.lower()
-            agency_name_lower = agency.agency_name.lower()
-
-            if name_lower in agency_name_lower:
-                score = len(name_lower) / len(agency_name_lower)
-                if score >= threshold:
-                    matches.append((agency, score))
-            elif agency_name_lower in name_lower:
-                score = len(agency_name_lower) / len(name_lower)
-                if score >= threshold:
-                    matches.append((agency, score))
-
-        # 按相似度降序排列
-        matches.sort(key=lambda x: x[1], reverse=True)
         return matches

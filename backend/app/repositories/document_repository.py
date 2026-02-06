@@ -778,6 +778,10 @@ class DocumentRepository(BaseRepository[OfficialDocument]):
             (公文列表, 總數) 元組
         """
         query = select(OfficialDocument)
+
+        # N+1 優化：預載入附件關聯，避免迴圈存取時逐筆查詢
+        query = query.options(selectinload(OfficialDocument.attachments))
+
         conditions = []
 
         # 套用篩選條件
