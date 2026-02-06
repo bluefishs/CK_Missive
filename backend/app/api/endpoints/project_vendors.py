@@ -3,28 +3,30 @@
 """
 案件與廠商關聯管理API端點 (POST-only 資安機制)
 所有端點需要認證。
+
+v2.0.0 - 遷移至 ProjectVendorRepository 資料存取層
 """
 
-from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Body
-from sqlalchemy import select, insert, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel
 
 from app.db.database import get_async_db
 from app.core.dependencies import require_auth
-from app.extended.models import ContractProject, PartnerVendor, project_vendor_association, User
+from app.extended.models import User
+from app.repositories.project_vendor_repository import ProjectVendorRepository
 from app.schemas.project_vendor import (
     ProjectVendorCreate,
     ProjectVendorUpdate,
     ProjectVendorResponse,
     ProjectVendorListResponse,
-    VendorAssociationListQuery
+    VendorAssociationListQuery,
 )
 
 router = APIRouter()
 
-# 注意：VendorAssociationListQuery 已統一定義於 app/schemas/project_vendor.py
+
+def _get_repo(db: AsyncSession) -> ProjectVendorRepository:
+    return ProjectVendorRepository(db)
 
 
 # ========== POST-only API 端點 ==========
@@ -33,110 +35,64 @@ router = APIRouter()
 async def create_project_vendor_association(
     association_data: ProjectVendorCreate,
     db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(require_auth())
+    current_user: User = Depends(require_auth()),
 ):
     """建立案件與廠商關聯"""
+    repo = _get_repo(db)
 
     # 檢查案件是否存在
-    project_query = select(ContractProject).where(
-        ContractProject.id == association_data.project_id
-    )
-    project_result = await db.execute(project_query)
-    project = project_result.scalar_one_or_none()
-
-    if not project:
+    if not await repo.project_exists(association_data.project_id):
         raise HTTPException(status_code=404, detail="承攬案件不存在")
 
     # 檢查廠商是否存在
-    vendor_query = select(PartnerVendor).where(
-        PartnerVendor.id == association_data.vendor_id
-    )
-    vendor_result = await db.execute(vendor_query)
-    vendor = vendor_result.scalar_one_or_none()
-
-    if not vendor:
+    if not await repo.vendor_exists(association_data.vendor_id):
         raise HTTPException(status_code=404, detail="廠商不存在")
 
     # 檢查是否已存在關聯
-    existing_query = select(project_vendor_association).where(
-        (project_vendor_association.c.project_id == association_data.project_id) &
-        (project_vendor_association.c.vendor_id == association_data.vendor_id)
-    )
-    existing_result = await db.execute(existing_query)
-    existing = existing_result.fetchone()
-
-    if existing:
-        raise HTTPException(
-            status_code=400,
-            detail="該廠商已與此案件建立關聯"
-        )
+    if await repo.exists(association_data.project_id, association_data.vendor_id):
+        raise HTTPException(status_code=400, detail="該廠商已與此案件建立關聯")
 
     # 建立關聯
-    insert_stmt = insert(project_vendor_association).values(
-        project_id=association_data.project_id,
-        vendor_id=association_data.vendor_id,
-        role=association_data.role,
-        contract_amount=association_data.contract_amount,
-        start_date=association_data.start_date,
-        end_date=association_data.end_date,
-        status=association_data.status or 'active'
-    )
-
-    await db.execute(insert_stmt)
-    await db.commit()
+    await repo.create_association({
+        "project_id": association_data.project_id,
+        "vendor_id": association_data.vendor_id,
+        "role": association_data.role,
+        "contract_amount": association_data.contract_amount,
+        "start_date": association_data.start_date,
+        "end_date": association_data.end_date,
+        "status": association_data.status or "active",
+    })
 
     return {
         "message": "案件與廠商關聯建立成功",
         "project_id": association_data.project_id,
-        "vendor_id": association_data.vendor_id
+        "vendor_id": association_data.vendor_id,
     }
 
 
-@router.post("/project/{project_id}/list", response_model=ProjectVendorListResponse, summary="取得案件廠商列表")
+@router.post(
+    "/project/{project_id}/list",
+    response_model=ProjectVendorListResponse,
+    summary="取得案件廠商列表",
+)
 async def get_project_vendor_associations(
     project_id: int,
     db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(require_auth())
+    current_user: User = Depends(require_auth()),
 ):
     """取得特定案件的所有廠商關聯"""
+    repo = _get_repo(db)
 
     # 檢查案件是否存在
-    project_query = select(ContractProject).where(ContractProject.id == project_id)
-    project_result = await db.execute(project_query)
-    project = project_result.scalar_one_or_none()
-
+    project = await repo.project_exists(project_id)
     if not project:
         raise HTTPException(status_code=404, detail="承攬案件不存在")
 
     # 查詢關聯資料
-    query = select(
-        project_vendor_association.c.project_id,
-        project_vendor_association.c.vendor_id,
-        project_vendor_association.c.role,
-        project_vendor_association.c.contract_amount,
-        project_vendor_association.c.start_date,
-        project_vendor_association.c.end_date,
-        project_vendor_association.c.status,
-        project_vendor_association.c.created_at,
-        project_vendor_association.c.updated_at,
-        PartnerVendor.vendor_name,
-        PartnerVendor.vendor_code,
-        PartnerVendor.contact_person,
-        PartnerVendor.phone,
-        PartnerVendor.business_type
-    ).select_from(
-        project_vendor_association.join(
-            PartnerVendor,
-            project_vendor_association.c.vendor_id == PartnerVendor.id
-        )
-    ).where(project_vendor_association.c.project_id == project_id)
+    rows = await repo.get_project_associations(project_id)
 
-    result = await db.execute(query)
-    associations_data = result.fetchall()
-
-    associations = []
-    for row in associations_data:
-        associations.append(ProjectVendorResponse(
+    associations = [
+        ProjectVendorResponse(
             project_id=row.project_id,
             vendor_id=row.vendor_id,
             vendor_name=row.vendor_name,
@@ -150,14 +106,16 @@ async def get_project_vendor_associations(
             end_date=row.end_date,
             status=row.status,
             created_at=row.created_at,
-            updated_at=row.updated_at
-        ))
+            updated_at=row.updated_at,
+        )
+        for row in rows
+    ]
 
     return ProjectVendorListResponse(
         project_id=project_id,
         project_name=project.project_name,
         associations=associations,
-        total=len(associations)
+        total=len(associations),
     )
 
 
@@ -165,47 +123,21 @@ async def get_project_vendor_associations(
 async def get_vendor_project_associations(
     vendor_id: int,
     db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(require_auth())
+    current_user: User = Depends(require_auth()),
 ):
     """取得特定廠商的所有案件關聯"""
+    repo = _get_repo(db)
 
     # 檢查廠商是否存在
-    vendor_query = select(PartnerVendor).where(PartnerVendor.id == vendor_id)
-    vendor_result = await db.execute(vendor_query)
-    vendor = vendor_result.scalar_one_or_none()
-
+    vendor = await repo.vendor_exists(vendor_id)
     if not vendor:
         raise HTTPException(status_code=404, detail="廠商不存在")
 
     # 查詢關聯資料
-    query = select(
-        project_vendor_association.c.project_id,
-        project_vendor_association.c.vendor_id,
-        project_vendor_association.c.role,
-        project_vendor_association.c.contract_amount,
-        project_vendor_association.c.start_date,
-        project_vendor_association.c.end_date,
-        project_vendor_association.c.status,
-        project_vendor_association.c.created_at,
-        project_vendor_association.c.updated_at,
-        ContractProject.project_name,
-        ContractProject.project_code,
-        ContractProject.year,
-        ContractProject.category,
-        ContractProject.status.label('project_status')
-    ).select_from(
-        project_vendor_association.join(
-            ContractProject,
-            project_vendor_association.c.project_id == ContractProject.id
-        )
-    ).where(project_vendor_association.c.vendor_id == vendor_id)
+    rows = await repo.get_vendor_associations(vendor_id)
 
-    result = await db.execute(query)
-    associations_data = result.fetchall()
-
-    associations = []
-    for row in associations_data:
-        associations.append({
+    associations = [
+        {
             "project_id": row.project_id,
             "project_name": row.project_name,
             "project_code": row.project_code,
@@ -219,89 +151,73 @@ async def get_vendor_project_associations(
             "end_date": row.end_date,
             "association_status": row.status,
             "created_at": row.created_at,
-            "updated_at": row.updated_at
-        })
+            "updated_at": row.updated_at,
+        }
+        for row in rows
+    ]
 
     return {
         "vendor_id": vendor_id,
         "vendor_name": vendor.vendor_name,
         "associations": associations,
-        "total": len(associations)
+        "total": len(associations),
     }
 
 
-@router.post("/project/{project_id}/vendor/{vendor_id}/update", summary="更新案件與廠商關聯")
+@router.post(
+    "/project/{project_id}/vendor/{vendor_id}/update",
+    summary="更新案件與廠商關聯",
+)
 async def update_project_vendor_association(
     project_id: int,
     vendor_id: int,
     association_data: ProjectVendorUpdate,
     db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(require_auth())
+    current_user: User = Depends(require_auth()),
 ):
     """更新案件與廠商關聯資訊"""
+    repo = _get_repo(db)
 
     # 檢查關聯是否存在
-    check_query = select(project_vendor_association).where(
-        (project_vendor_association.c.project_id == project_id) &
-        (project_vendor_association.c.vendor_id == vendor_id)
-    )
-    check_result = await db.execute(check_query)
-    existing = check_result.fetchone()
-
-    if not existing:
+    if not await repo.exists(project_id, vendor_id):
         raise HTTPException(status_code=404, detail="案件與廠商關聯不存在")
 
     # 更新關聯資料
     update_data = association_data.model_dump(exclude_unset=True)
     if update_data:
-        update_stmt = update(project_vendor_association).where(
-            (project_vendor_association.c.project_id == project_id) &
-            (project_vendor_association.c.vendor_id == vendor_id)
-        ).values(**update_data)
-
-        await db.execute(update_stmt)
-        await db.commit()
+        await repo.update_association(project_id, vendor_id, update_data)
 
     return {
         "message": "案件與廠商關聯更新成功",
         "project_id": project_id,
-        "vendor_id": vendor_id
+        "vendor_id": vendor_id,
     }
 
 
-@router.post("/project/{project_id}/vendor/{vendor_id}/delete", summary="刪除案件與廠商關聯")
+@router.post(
+    "/project/{project_id}/vendor/{vendor_id}/delete",
+    summary="刪除案件與廠商關聯",
+)
 async def delete_project_vendor_association(
     project_id: int,
     vendor_id: int,
     db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(require_auth())
+    current_user: User = Depends(require_auth()),
 ):
     """刪除案件與廠商關聯"""
+    repo = _get_repo(db)
 
     # 檢查關聯是否存在
-    check_query = select(project_vendor_association).where(
-        (project_vendor_association.c.project_id == project_id) &
-        (project_vendor_association.c.vendor_id == vendor_id)
-    )
-    check_result = await db.execute(check_query)
-    existing = check_result.fetchone()
-
-    if not existing:
+    if not await repo.exists(project_id, vendor_id):
         raise HTTPException(status_code=404, detail="案件與廠商關聯不存在")
 
     # 刪除關聯
-    delete_stmt = delete(project_vendor_association).where(
-        (project_vendor_association.c.project_id == project_id) &
-        (project_vendor_association.c.vendor_id == vendor_id)
-    )
-
-    await db.execute(delete_stmt)
-    await db.commit()
+    await repo.delete_association(project_id, vendor_id)
 
     return {
         "message": "案件與廠商關聯已成功刪除",
         "project_id": project_id,
-        "vendor_id": vendor_id
+        "vendor_id": vendor_id,
     }
 
 
@@ -309,54 +225,21 @@ async def delete_project_vendor_association(
 async def get_all_associations(
     query: VendorAssociationListQuery = Body(default=VendorAssociationListQuery()),
     db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(require_auth())
+    current_user: User = Depends(require_auth()),
 ):
     """取得所有案件與廠商關聯列表"""
+    repo = _get_repo(db)
 
-    db_query = select(
-        project_vendor_association.c.project_id,
-        project_vendor_association.c.vendor_id,
-        project_vendor_association.c.role,
-        project_vendor_association.c.contract_amount,
-        project_vendor_association.c.start_date,
-        project_vendor_association.c.end_date,
-        project_vendor_association.c.status,
-        project_vendor_association.c.created_at,
-        project_vendor_association.c.updated_at,
-        ContractProject.project_name,
-        ContractProject.project_code,
-        PartnerVendor.vendor_name,
-        PartnerVendor.vendor_code
-    ).select_from(
-        project_vendor_association.join(
-            ContractProject,
-            project_vendor_association.c.project_id == ContractProject.id
-        ).join(
-            PartnerVendor,
-            project_vendor_association.c.vendor_id == PartnerVendor.id
-        )
+    rows = await repo.list_all(
+        project_id=query.project_id,
+        vendor_id=query.vendor_id,
+        status=query.status,
+        skip=query.skip,
+        limit=query.limit,
     )
 
-    # 篩選條件
-    if query.project_id:
-        db_query = db_query.where(project_vendor_association.c.project_id == query.project_id)
-
-    if query.vendor_id:
-        db_query = db_query.where(project_vendor_association.c.vendor_id == query.vendor_id)
-
-    if query.status:
-        db_query = db_query.where(project_vendor_association.c.status == query.status)
-
-    # 分頁
-    db_query = db_query.order_by(project_vendor_association.c.created_at.desc())
-    db_query = db_query.offset(query.skip).limit(query.limit)
-
-    result = await db.execute(db_query)
-    associations_data = result.fetchall()
-
-    associations = []
-    for row in associations_data:
-        associations.append({
+    associations = [
+        {
             "project_id": row.project_id,
             "project_name": row.project_name,
             "project_code": row.project_code,
@@ -369,12 +252,14 @@ async def get_all_associations(
             "end_date": row.end_date,
             "status": row.status,
             "created_at": row.created_at,
-            "updated_at": row.updated_at
-        })
+            "updated_at": row.updated_at,
+        }
+        for row in rows
+    ]
 
     return {
         "associations": associations,
         "total": len(associations),
         "skip": query.skip,
-        "limit": query.limit
+        "limit": query.limit,
     }
