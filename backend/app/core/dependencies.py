@@ -104,10 +104,8 @@ from app.services.agency_service import AgencyService
 from app.services.document_service import DocumentService
 
 
-@lru_cache()
-def get_vendor_service() -> VendorService:
-    """取得 VendorService 實例（Singleton）"""
-    return VendorService()
+# VendorService 已升級為工廠模式 (v2.0.0)
+# 使用 get_service(VendorService) 或 get_vendor_service_factory
 
 
 @lru_cache()
