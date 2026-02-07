@@ -108,6 +108,14 @@ class Settings(BaseSettings):
     DEFAULT_USER_ROLE: str = "user"
 
     # =========================================================================
+    # Redis 設定
+    # =========================================================================
+    REDIS_URL: str = Field(
+        default="redis://localhost:6379/0",
+        description="Redis 連線字串，用於 AI 快取與統計持久化"
+    )
+
+    # =========================================================================
     # 日誌設定
     # =========================================================================
     LOG_LEVEL: str = "INFO"
@@ -143,12 +151,20 @@ class Settings(BaseSettings):
 
     @field_validator('SECRET_KEY', mode='after')
     @classmethod
-    def warn_default_secret_key(cls, v):
-        """警告使用預設金鑰"""
+    def validate_secret_key(cls, v, info):
+        """驗證 SECRET_KEY 安全性"""
         if v.startswith('dev_only_'):
+            # 生產環境拒絕啟動（支援 false/0/no 等常見否定值）
+            dev_mode = os.getenv('DEVELOPMENT_MODE', 'true').lower().strip()
+            if dev_mode not in ('true', '1', 'yes'):
+                raise ValueError(
+                    "生產環境必須在 .env 中設定固定的 SECRET_KEY，"
+                    "不得使用自動生成的開發金鑰"
+                )
             import logging
             logging.warning(
-                "⚠️ 使用自動生成的 SECRET_KEY，請在 .env 中設定固定的 SECRET_KEY"
+                "⚠️ 使用自動生成的 SECRET_KEY，重啟後所有已發行 token 將失效。"
+                "請在 .env 中設定固定的 SECRET_KEY"
             )
         return v
 

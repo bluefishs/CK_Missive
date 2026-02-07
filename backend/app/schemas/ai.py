@@ -101,6 +101,24 @@ class DocumentSearchResult(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ClassificationResponse(BaseModel):
+    """AI 分類建議回應 Schema（用於 _call_ai_with_validation 驗證）"""
+    doc_type: Optional[str] = Field(None, description="公文類型")
+    category: Optional[str] = Field(None, description="收發類別 (收文/發文)")
+    doc_type_confidence: float = Field(default=0.7, ge=0.0, le=1.0, description="類型信心度")
+    category_confidence: float = Field(default=0.7, ge=0.0, le=1.0, description="類別信心度")
+    reasoning: Optional[str] = Field(None, description="判斷理由")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class KeywordsResponse(BaseModel):
+    """AI 關鍵字提取回應 Schema（用於 _call_ai_with_validation 驗證）"""
+    keywords: List[str] = Field(default=[], description="關鍵字列表")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class NaturalSearchResponse(BaseModel):
     """自然語言搜尋回應"""
     success: bool = Field(default=True, description="是否成功")

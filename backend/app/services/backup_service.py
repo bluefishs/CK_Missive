@@ -3,8 +3,12 @@
 提供資料庫與附件的備份、還原、列表與管理功能
 支援異地備份路徑設定與備份日誌記錄
 
-@version 1.1.0
-@date 2026-01-29
+@version 2.0.0
+@date 2026-02-07
+
+變更記錄:
+- v2.0.0: Docker PATH 自動偵測、備份重試機制、完整性驗證、manifest 修正
+- v1.1.0: Bug 修復（stdout None、manifest 欄位、list_backups 錯誤處理）
 """
 
 import os
@@ -63,6 +67,14 @@ class BackupService:
         # 從環境變數讀取設定 (覆蓋 settings 的值)
         self._load_env_config()
 
+        # Docker CLI 路徑偵測
+        self._docker_path: str = self._find_docker_path()
+        self._docker_available: bool = self._check_docker_available()
+        if self._docker_available:
+            logger.info(f"Docker CLI 可用: {self._docker_path}")
+        else:
+            logger.warning(f"Docker CLI 不可用 (路徑: {self._docker_path})，資料庫備份功能將無法使用")
+
         # 異地備份設定
         self.remote_config_file = self.project_root / "config" / "remote_backup.json"
         self._remote_config: Dict[str, Any] = self._load_remote_config()
@@ -88,6 +100,68 @@ class BackupService:
                     elif line.startswith("POSTGRES_DB="):
                         self.db_name = line.split("=", 1)[1]
 
+    def _find_docker_path(self) -> str:
+        """查找 Docker CLI 的完整路徑"""
+        # 優先使用 shutil.which（搜尋系統 PATH）
+        docker_path = shutil.which("docker")
+        if docker_path:
+            return docker_path
+
+        # Windows 常見安裝路徑回退
+        common_paths = [
+            r"C:\Program Files\Docker\Docker\resources\bin\docker.exe",
+            r"C:\ProgramData\DockerDesktop\version-bin\docker.exe",
+        ]
+        for path in common_paths:
+            if Path(path).exists():
+                logger.info(f"在常見路徑找到 Docker CLI: {path}")
+                return path
+
+        # Linux/macOS 常見路徑
+        for path in ["/usr/bin/docker", "/usr/local/bin/docker"]:
+            if Path(path).exists():
+                return path
+
+        return "docker"  # 回退到系統 PATH 查找
+
+    def _check_docker_available(self) -> bool:
+        """檢查 Docker 是否可用"""
+        try:
+            result = subprocess.run(
+                [self._docker_path, "info"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            return result.returncode == 0
+        except Exception:
+            return False
+
+    def get_environment_status(self) -> Dict[str, Any]:
+        """取得備份環境狀態（供前端顯示）"""
+        # 重新檢查 Docker 可用性
+        self._docker_available = self._check_docker_available()
+
+        # 取得最後成功備份時間
+        last_success_time = None
+        consecutive_failures = 0
+        for log in reversed(self._backup_logs):
+            if log.get("action") == "create":
+                if log.get("status") == "success":
+                    last_success_time = log.get("timestamp")
+                    break
+                else:
+                    consecutive_failures += 1
+
+        return {
+            "docker_available": self._docker_available,
+            "docker_path": self._docker_path,
+            "last_success_time": last_success_time,
+            "consecutive_failures": consecutive_failures,
+            "backup_dir_exists": self.backup_dir.exists(),
+            "uploads_dir_exists": self.uploads_dir.exists(),
+        }
+
     def _ensure_directories(self) -> None:
         """確保備份目錄存在"""
         self.backup_dir.mkdir(parents=True, exist_ok=True)
@@ -98,7 +172,7 @@ class BackupService:
         """取得正在執行的 PostgreSQL 容器名稱"""
         try:
             result = subprocess.run(
-                ["docker", "ps", "--filter", "name=postgres", "--format", "{{.Names}}"],
+                [self._docker_path, "ps", "--filter", "name=postgres", "--format", "{{.Names}}"],
                 capture_output=True,
                 text=True,
                 timeout=10,
@@ -135,19 +209,19 @@ class BackupService:
             "errors": [],
         }
 
-        # 資料庫備份
+        # 資料庫備份（含重試機制）
         if include_database:
-            db_result = await self._backup_database(timestamp)
+            db_result = await self._backup_database_with_retry(timestamp)
             result["database_backup"] = db_result
             if not db_result.get("success"):
-                result["errors"].append(db_result.get("error"))
+                result["errors"].append(db_result.get("error", "資料庫備份失敗"))
 
         # 附件備份
         if include_attachments:
             att_result = await self._backup_attachments(timestamp)
             result["attachments_backup"] = att_result
             if not att_result.get("success"):
-                result["errors"].append(att_result.get("error"))
+                result["errors"].append(att_result.get("error", "附件備份失敗"))
 
         # 清理舊備份
         await self._cleanup_old_backups(retention_days)
@@ -177,6 +251,13 @@ class BackupService:
 
     async def _backup_database(self, timestamp: str) -> Dict[str, Any]:
         """備份資料庫"""
+        # 預先檢查 Docker 可用性
+        if not self._docker_available:
+            return {
+                "success": False,
+                "error": f"Docker CLI 不可用 (路徑: {self._docker_path})，請確認 Docker Desktop 已啟動",
+            }
+
         container = self._get_running_container()
         backup_file = self.backup_dir / f"ck_missive_backup_{timestamp}.sql"
 
@@ -187,7 +268,7 @@ class BackupService:
 
             result = subprocess.run(
                 [
-                    "docker",
+                    self._docker_path,
                     "exec",
                     container,
                     "pg_dump",
@@ -205,11 +286,35 @@ class BackupService:
             )
 
             if result.returncode == 0:
+                # 檢查 stdout 是否有效（Windows 下 docker exec 偶爾返回 None）
+                dump_data = result.stdout or ""
+                if not dump_data.strip():
+                    return {
+                        "success": False,
+                        "error": f"pg_dump 返回空資料 (returncode=0, stderr={result.stderr or 'N/A'})",
+                    }
+
                 # 寫入備份檔案
                 with open(backup_file, "w", encoding="utf-8") as f:
-                    f.write(result.stdout)
+                    f.write(dump_data)
 
                 file_size = backup_file.stat().st_size
+
+                # 備份完整性驗證
+                if file_size < 1024:
+                    logger.warning(f"備份檔案異常小: {file_size} bytes")
+
+                # 驗證 SQL dump 完整性（檢查結尾標記）
+                with open(backup_file, "r", encoding="utf-8") as f:
+                    f.seek(max(0, file_size - 500))
+                    tail = f.read()
+                    if "PostgreSQL database dump complete" not in tail:
+                        logger.warning(f"備份檔案可能不完整: 未找到結尾標記")
+                        return {
+                            "success": False,
+                            "error": "備份檔案不完整（缺少 pg_dump 結尾標記）",
+                        }
+
                 return {
                     "success": True,
                     "file": str(backup_file),
@@ -221,9 +326,45 @@ class BackupService:
                 return {"success": False, "error": f"pg_dump failed: {result.stderr}"}
 
         except subprocess.TimeoutExpired:
-            return {"success": False, "error": "Backup timeout"}
+            return {"success": False, "error": "Backup timeout (300s)"}
+        except FileNotFoundError:
+            # Docker CLI 路徑失效，更新狀態
+            self._docker_available = False
+            return {
+                "success": False,
+                "error": f"Docker CLI 找不到 (路徑: {self._docker_path})，請確認 Docker Desktop 已安裝並啟動",
+            }
         except Exception as e:
             return {"success": False, "error": str(e)}
+
+    async def _backup_database_with_retry(
+        self, timestamp: str, max_retries: int = 2, retry_delay: int = 30
+    ) -> Dict[str, Any]:
+        """帶重試的資料庫備份"""
+        last_error = None
+        for attempt in range(max_retries + 1):
+            result = await self._backup_database(timestamp)
+            if result["success"]:
+                if attempt > 0:
+                    logger.info(f"備份在第 {attempt + 1} 次嘗試成功")
+                return result
+            last_error = result.get("error", "Unknown error")
+
+            # Docker 不可用時不重試（系統級問題）
+            if not self._docker_available:
+                return result
+
+            if attempt < max_retries:
+                logger.warning(
+                    f"備份失敗 (嘗試 {attempt + 1}/{max_retries + 1}): {last_error}，"
+                    f"{retry_delay} 秒後重試..."
+                )
+                await asyncio.sleep(retry_delay)
+
+        return {
+            "success": False,
+            "error": f"重試 {max_retries} 次後仍失敗: {last_error}",
+        }
 
     async def _backup_attachments(self, timestamp: str) -> Dict[str, Any]:
         """
@@ -320,9 +461,10 @@ class BackupService:
             manifest_data = {
                 "timestamp": timestamp,
                 "total_files": file_count,
-                "copied": copied_count,
-                "skipped": skipped_count,
-                "removed": removed_count,
+                "copied_count": copied_count,
+                "skipped_count": skipped_count,
+                "removed_count": removed_count,
+                "copied_size_mb": round(total_copied_size / (1024 * 1024), 2),
                 "total_size_bytes": total_size,
                 "files": file_manifest
             }
@@ -390,85 +532,108 @@ class BackupService:
         for backup_file in sorted(
             self.backup_dir.glob("ck_missive_backup_*.sql"), reverse=True
         ):
-            stat = backup_file.stat()
-            database_backups.append(
-                {
-                    "filename": backup_file.name,
-                    "path": str(backup_file),
-                    "size_bytes": stat.st_size,
-                    "size_kb": round(stat.st_size / 1024, 2),
-                    "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
-                    "type": "database",
-                }
-            )
+            try:
+                stat = backup_file.stat()
+                # 略過 0-byte 的失敗備份檔案
+                if stat.st_size == 0:
+                    continue
+                database_backups.append(
+                    {
+                        "filename": backup_file.name,
+                        "path": str(backup_file),
+                        "size_bytes": stat.st_size,
+                        "size_kb": round(stat.st_size / 1024, 2),
+                        "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                        "type": "database",
+                    }
+                )
+            except OSError as e:
+                logger.warning(f"無法讀取備份檔案 {backup_file.name}: {e}")
 
         # 附件備份列表 - 優先顯示增量備份 (attachments_latest)
         latest_backup_dir = self.attachment_backup_dir / "attachments_latest"
         if latest_backup_dir.exists() and latest_backup_dir.is_dir():
-            stat = latest_backup_dir.stat()
-            # 計算目錄大小
-            total_size = sum(
-                f.stat().st_size for f in latest_backup_dir.rglob("*") if f.is_file()
-            )
-            file_count = len([f for f in latest_backup_dir.rglob("*") if f.is_file()])
+            try:
+                stat = latest_backup_dir.stat()
+                # 計算目錄大小（安全遍歷，跳過無法讀取的檔案）
+                total_size = 0
+                file_count = 0
+                for f in latest_backup_dir.rglob("*"):
+                    if f.is_file():
+                        try:
+                            total_size += f.stat().st_size
+                            file_count += 1
+                        except OSError:
+                            pass
 
-            # 嘗試從最新的 manifest 讀取統計資訊
-            manifest_stats = {}
-            manifest_files = sorted(
-                self.attachment_backup_dir.glob("manifest_*.json"), reverse=True
-            )
-            if manifest_files:
-                try:
-                    with open(manifest_files[0], "r", encoding="utf-8") as f:
-                        manifest_data = json.load(f)
-                        manifest_stats = {
-                            "copied_count": manifest_data.get("copied_count", 0),
-                            "skipped_count": manifest_data.get("skipped_count", 0),
-                            "removed_count": manifest_data.get("removed_count", 0),
-                            "copied_size_mb": manifest_data.get("copied_size_mb", 0),
-                            "last_sync": manifest_data.get("timestamp", ""),
-                        }
-                except Exception:
-                    pass
+                # 嘗試從最新的 manifest 讀取統計資訊
+                manifest_stats = {}
+                manifest_files = sorted(
+                    self.attachment_backup_dir.glob("manifest_*.json"), reverse=True
+                )
+                if manifest_files:
+                    try:
+                        with open(manifest_files[0], "r", encoding="utf-8") as f:
+                            manifest_data = json.load(f)
+                            # 相容兩種欄位命名（舊版 copied_count / 新版 copied）
+                            manifest_stats = {
+                                "copied_count": manifest_data.get("copied_count", manifest_data.get("copied", 0)),
+                                "skipped_count": manifest_data.get("skipped_count", manifest_data.get("skipped", 0)),
+                                "removed_count": manifest_data.get("removed_count", manifest_data.get("removed", 0)),
+                                "copied_size_mb": manifest_data.get("copied_size_mb", 0),
+                                "last_sync": manifest_data.get("timestamp", ""),
+                            }
+                    except Exception:
+                        pass
 
-            attachment_backups.append(
-                {
-                    "dirname": "attachments_latest",
-                    "path": str(latest_backup_dir),
-                    "size_bytes": total_size,
-                    "size_mb": round(total_size / (1024 * 1024), 2),
-                    "file_count": file_count,
-                    "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
-                    "type": "attachments",
-                    "mode": "incremental",
-                    **manifest_stats,
-                }
-            )
+                attachment_backups.append(
+                    {
+                        "dirname": "attachments_latest",
+                        "path": str(latest_backup_dir),
+                        "size_bytes": total_size,
+                        "size_mb": round(total_size / (1024 * 1024), 2),
+                        "file_count": file_count,
+                        "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                        "type": "attachments",
+                        "mode": "incremental",
+                        **manifest_stats,
+                    }
+                )
+            except OSError as e:
+                logger.warning(f"無法讀取增量備份目錄: {e}")
 
         # 舊版完整備份列表（供回溯）
         for backup_dir in sorted(
             self.attachment_backup_dir.glob("attachments_backup_*"), reverse=True
         ):
             if backup_dir.is_dir():
-                stat = backup_dir.stat()
-                # 計算目錄大小
-                total_size = sum(
-                    f.stat().st_size for f in backup_dir.rglob("*") if f.is_file()
-                )
-                file_count = len([f for f in backup_dir.rglob("*") if f.is_file()])
+                try:
+                    stat = backup_dir.stat()
+                    # 計算目錄大小（安全遍歷）
+                    total_size = 0
+                    file_count = 0
+                    for f in backup_dir.rglob("*"):
+                        if f.is_file():
+                            try:
+                                total_size += f.stat().st_size
+                                file_count += 1
+                            except OSError:
+                                pass
 
-                attachment_backups.append(
-                    {
-                        "dirname": backup_dir.name,
-                        "path": str(backup_dir),
-                        "size_bytes": total_size,
-                        "size_mb": round(total_size / (1024 * 1024), 2),
-                        "file_count": file_count,
-                        "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
-                        "type": "attachments",
-                        "mode": "full",
-                    }
-                )
+                    attachment_backups.append(
+                        {
+                            "dirname": backup_dir.name,
+                            "path": str(backup_dir),
+                            "size_bytes": total_size,
+                            "size_mb": round(total_size / (1024 * 1024), 2),
+                            "file_count": file_count,
+                            "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                            "type": "attachments",
+                            "mode": "full",
+                        }
+                    )
+                except OSError as e:
+                    logger.warning(f"無法讀取附件備份目錄 {backup_dir.name}: {e}")
 
         # 統計資訊
         total_db_size = sum(b["size_bytes"] for b in database_backups)
@@ -534,7 +699,7 @@ class BackupService:
 
             result = subprocess.run(
                 [
-                    "docker",
+                    self._docker_path,
                     "exec",
                     "-i",
                     container,
@@ -577,6 +742,28 @@ class BackupService:
             "database_name": self.db_name,
             "database_user": self.db_user,
         }
+
+    async def cleanup_orphan_files(self) -> Dict[str, Any]:
+        """清理 0-byte 孤立備份檔案"""
+        cleaned = []
+        for f in self.backup_dir.glob("ck_missive_backup_*.sql"):
+            try:
+                if f.stat().st_size == 0:
+                    f.unlink()
+                    cleaned.append(f.name)
+                    logger.info(f"已清理 0-byte 孤立檔案: {f.name}")
+            except OSError as e:
+                logger.warning(f"清理檔案失敗 {f.name}: {e}")
+
+        if cleaned:
+            await self._log_backup_operation(
+                action="cleanup",
+                status="success",
+                details=f"清理 {len(cleaned)} 個 0-byte 孤立檔案",
+                operator="admin",
+            )
+
+        return {"cleaned_count": len(cleaned), "files": cleaned}
 
     # =========================================================================
     # 異地備份設定功能

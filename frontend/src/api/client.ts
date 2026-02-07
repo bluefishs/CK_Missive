@@ -29,6 +29,28 @@ import { isInternalIPAddress } from '../config/env';
 import { AUTH_ENDPOINTS } from './endpoints';
 import { logger } from '../services/logger';
 
+// ============================================================================
+// Cookie 工具函數
+// ============================================================================
+
+/**
+ * 從 document.cookie 中讀取指定名稱的 cookie 值
+ *
+ * @param name cookie 名稱
+ * @returns cookie 值，或 null（若不存在）
+ */
+export function getCookie(name: string): string | null {
+  const nameEq = `${name}=`;
+  const cookies = document.cookie.split(';');
+  for (const cookie of cookies) {
+    const trimmed = cookie.trim();
+    if (trimmed.startsWith(nameEq)) {
+      return decodeURIComponent(trimmed.substring(nameEq.length));
+    }
+  }
+  return null;
+}
+
 /**
  * 動態 API URL 計算
  * 根據存取來源自動選擇正確的後端位址
@@ -314,6 +336,7 @@ function createAxiosInstance(): AxiosInstance {
   const instance = axios.create({
     baseURL: API_BASE_URL,
     timeout: DEFAULT_TIMEOUT,
+    withCredentials: true,  // 啟用 cookie 跨域傳送（httpOnly cookie 認證）
     headers: {
       'Content-Type': 'application/json',
     },
@@ -363,13 +386,32 @@ function createAxiosInstance(): AxiosInstance {
     }
   );
 
-  // 請求攔截器（認證 Token）
+  // 請求攔截器（認證 Token - 向後相容過渡期）
   instance.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
-      // 添加認證 Token（使用統一的 key）
+      // 向後相容：仍從 localStorage 讀取 token 附加到 header
+      // 當完全遷移到 cookie 後，此段可移除
       const token = localStorage.getItem(ACCESS_TOKEN_KEY);
       if (token && config.headers) {
         config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
+    },
+    (error) => {
+      return Promise.reject(error);
+    }
+  );
+
+  // 請求攔截器（CSRF Token）
+  instance.interceptors.request.use(
+    (config: InternalAxiosRequestConfig) => {
+      const method = config.method?.toUpperCase() || '';
+      // 非安全方法才需要附加 CSRF token
+      if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+        const csrfToken = getCookie('csrf_token');
+        if (csrfToken && config.headers) {
+          config.headers['X-CSRF-Token'] = csrfToken;
+        }
       }
       return config;
     },
@@ -395,16 +437,18 @@ function createAxiosInstance(): AxiosInstance {
       // 處理 401 未授權
       if (error.response?.status === 401 && !AUTH_DISABLED) {
         // 檢查是否有 refresh token 可用於刷新
+        // 支援 localStorage（向後相容）和 cookie（新機制，由 withCredentials 自動帶上）
         const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+        // cookie 中的 refresh_token 是 httpOnly，JS 無法讀取，
+        // 但 withCredentials 會自動附帶到 /api/auth/refresh 路徑
+        const hasRefreshCookie = !!getCookie('csrf_token');  // csrf_token 存在表示有認證 cookies
 
-        if (refreshToken && !originalRequest._retry) {
+        if ((refreshToken || hasRefreshCookie) && !originalRequest._retry) {
           if (isRefreshing) {
             // 如果正在刷新，等待刷新完成後重試
             return new Promise((resolve) => {
-              subscribeTokenRefresh((token: string) => {
-                if (originalRequest.headers) {
-                  originalRequest.headers.Authorization = `Bearer ${token}`;
-                }
+              subscribeTokenRefresh(() => {
+                // cookie 認證模式下，重試時不需要手動設定 header
                 resolve(instance(originalRequest));
               });
             });
@@ -415,24 +459,30 @@ function createAxiosInstance(): AxiosInstance {
 
           try {
             // 嘗試刷新 token
-            const response = await axios.post(`${API_BASE_URL}${AUTH_ENDPOINTS.REFRESH}`, {
-              refresh_token: refreshToken,
-            });
+            // 同時發送 body（向後相容）和依賴 cookie（新機制）
+            const refreshPayload = refreshToken ? { refresh_token: refreshToken } : {};
+            const response = await axios.post(
+              `${API_BASE_URL}${AUTH_ENDPOINTS.REFRESH}`,
+              refreshPayload,
+              { withCredentials: true }
+            );
 
             const { access_token, refresh_token: newRefreshToken } = response.data;
 
-            // 更新 localStorage
-            localStorage.setItem(ACCESS_TOKEN_KEY, access_token);
+            // 向後相容：更新 localStorage（過渡期）
+            if (access_token) {
+              localStorage.setItem(ACCESS_TOKEN_KEY, access_token);
+            }
             if (newRefreshToken) {
               localStorage.setItem(REFRESH_TOKEN_KEY, newRefreshToken);
             }
 
             // 通知所有等待的請求
-            onTokenRefreshed(access_token);
+            onTokenRefreshed(access_token || '');
             isRefreshing = false;
 
-            // 重試原始請求
-            if (originalRequest.headers) {
+            // 重試原始請求（cookie 會自動附帶新的 access_token）
+            if (access_token && originalRequest.headers) {
               originalRequest.headers.Authorization = `Bearer ${access_token}`;
             }
             return instance(originalRequest);
@@ -442,6 +492,8 @@ function createAxiosInstance(): AxiosInstance {
             localStorage.removeItem(ACCESS_TOKEN_KEY);
             localStorage.removeItem(REFRESH_TOKEN_KEY);
             localStorage.removeItem('user_info');
+            // 清除前端可寫入的 cookie
+            document.cookie = 'csrf_token=; Path=/; Max-Age=0';
 
             if (!window.location.pathname.includes('/login')) {
               window.location.href = '/login';
@@ -453,6 +505,7 @@ function createAxiosInstance(): AxiosInstance {
           localStorage.removeItem(ACCESS_TOKEN_KEY);
           localStorage.removeItem(REFRESH_TOKEN_KEY);
           localStorage.removeItem('user_info');
+          document.cookie = 'csrf_token=; Path=/; Max-Age=0';
 
           if (!window.location.pathname.includes('/login')) {
             window.location.href = '/login';

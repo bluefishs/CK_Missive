@@ -108,11 +108,16 @@ def get_superuser_mock() -> User:
 
 
 async def get_current_user(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: AsyncSession = Depends(get_async_db),
 ) -> User:
     """
     取得當前認證使用者 - 依賴注入函數
+
+    Token 取得優先順序（向後相容）：
+    1. Authorization header (Bearer token) - 傳統方式
+    2. access_token cookie (httpOnly) - 新的安全方式
 
     權限控制說明：
     - 使用 settings.AUTH_DISABLED 環境變數控制開發模式
@@ -168,14 +173,22 @@ async def get_current_user(
         )
 
     try:
-        if credentials is None:
+        # 優先使用 Authorization header（向後相容）
+        token = None
+        if credentials is not None:
+            token = credentials.credentials
+
+        # 若無 Authorization header，嘗試從 cookie 取得
+        if not token:
+            token = request.cookies.get("access_token")
+
+        if not token:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="未提供認證憑證",
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        token = credentials.credentials
         user = await AuthService.get_current_user_from_token(db, token)
 
         if not user:
@@ -186,6 +199,8 @@ async def get_current_user(
             )
 
         return user
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"get_current_user 發生錯誤: {e}")
         raise

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { logger } from '../services/logger';
 import {
   Card,
@@ -15,23 +16,26 @@ import {
   List,
   Avatar,
   Badge,
-  Modal,
-  message
+  App,
+  Progress,
 } from 'antd';
 import {
   UserOutlined,
   TeamOutlined,
-  SecurityScanOutlined,
   ClockCircleOutlined,
-  ExclamationCircleOutlined,
   CheckCircleOutlined,
   StopOutlined,
-  SettingOutlined
+  SettingOutlined,
+  ReloadOutlined,
+  WarningOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { apiClient } from '../api/client';
 import { API_ENDPOINTS } from '../api/endpoints';
-import { SystemHealthDashboard, AIStatsPanel } from '../components/dashboard';
+import { documentsApi } from '../api/documentsApi';
+import { SystemHealthDashboard, AIStatsPanel, DocumentTrendsChart } from '../components/dashboard';
+import { ROUTES } from '../router/types';
+import type { DocumentEfficiencyResponse, StatusDistributionItem } from '../types/api';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
 dayjs.extend(relativeTime);
@@ -39,10 +43,6 @@ dayjs.extend(relativeTime);
 import {
   USER_ROLES,
   USER_STATUSES,
-  getRoleDisplayName,
-  getStatusDisplayName,
-  canRoleLogin,
-  canStatusLogin
 } from '../constants/permissions';
 
 const { Title, Text } = Typography;
@@ -68,6 +68,9 @@ interface SystemAlert {
 }
 
 const AdminDashboardPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { message: messageApi, modal } = App.useApp();
+
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
   const [systemStats, setSystemStats] = useState({
     totalUsers: 0,
@@ -77,6 +80,7 @@ const AdminDashboardPage: React.FC = () => {
     unverifiedUsers: 0
   });
   const [systemAlerts, setSystemAlerts] = useState<SystemAlert[]>([]);
+  const [efficiency, setEfficiency] = useState<DocumentEfficiencyResponse | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -116,7 +120,7 @@ const AdminDashboardPage: React.FC = () => {
           title: '待驗證使用者',
           description: `有 ${stats.pendingUsers} 個新使用者等待驗證`,
           timestamp: dayjs().subtract(10, 'minutes').toISOString(),
-          action: () => window.location.href = '/admin/user-management',
+          action: () => navigate(ROUTES.USER_MANAGEMENT),
           actionText: '立即處理'
         });
       }
@@ -133,25 +137,24 @@ const AdminDashboardPage: React.FC = () => {
       setSystemStats(stats);
       setSystemAlerts(alerts);
 
+      // 載入公文效率統計（獨立 try/catch 避免影響主要資料）
+      try {
+        const effData = await documentsApi.getDocumentEfficiency();
+        setEfficiency(effData);
+      } catch {
+        logger.warn('載入公文效率統計失敗');
+      }
+
     } catch (error) {
       logger.error('Failed to load dashboard data:', error);
-      message.error('載入數據失敗');
-      setPendingUsers([]);
-      setSystemStats({
-        totalUsers: 0,
-        activeUsers: 0,
-        pendingUsers: 0,
-        suspendedUsers: 0,
-        unverifiedUsers: 0
-      });
-      setSystemAlerts([]);
+      messageApi.error('載入數據失敗');
     } finally {
       setLoading(false);
     }
   };
 
   const handleApproveUser = async (userId: number) => {
-    Modal.confirm({
+    modal.confirm({
       title: '確認驗證使用者',
       content: '確定要將此使用者驗證為一般使用者嗎？',
       onOk: async () => {
@@ -165,20 +168,20 @@ const AdminDashboardPage: React.FC = () => {
             }
           );
 
-          message.success('使用者已成功驗證');
+          messageApi.success('使用者已成功驗證');
 
           // 重新載入數據
           loadDashboardData();
         } catch (error) {
           logger.error('Approve user failed:', error);
-          message.error('驗證使用者失敗');
+          messageApi.error('驗證使用者失敗');
         }
       }
     });
   };
 
   const handleRejectUser = async (userId: number) => {
-    Modal.confirm({
+    modal.confirm({
       title: '確認拒絕使用者',
       content: '確定要拒絕此使用者的註冊申請嗎？此操作將刪除該使用者帳戶。',
       okText: '確認拒絕',
@@ -192,13 +195,13 @@ const AdminDashboardPage: React.FC = () => {
             {}
           );
 
-          message.success('已拒絕使用者申請');
+          messageApi.success('已拒絕使用者申請');
 
           // 重新載入數據
           loadDashboardData();
         } catch (error) {
           logger.error('Delete user failed:', error);
-          message.error('拒絕使用者失敗');
+          messageApi.error('拒絕使用者失敗');
         }
       }
     });
@@ -266,14 +269,23 @@ const AdminDashboardPage: React.FC = () => {
     <div style={{ padding: '24px' }}>
       <Space direction="vertical" style={{ width: '100%' }} size="large">
         {/* 頁面標題 */}
-        <div>
-          <Title level={2}>
-            <SettingOutlined style={{ marginRight: 8 }} />
-            管理員控制台
-          </Title>
-          <Text type="secondary">
-            系統管理概覽和使用者權限管理中心
-          </Text>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <Title level={2} style={{ marginBottom: 4 }}>
+              <SettingOutlined style={{ marginRight: 8 }} />
+              管理員控制台
+            </Title>
+            <Text type="secondary">
+              系統管理概覽和使用者權限管理中心
+            </Text>
+          </div>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={loadDashboardData}
+            loading={loading}
+          >
+            重新整理
+          </Button>
         </div>
 
         {/* 統計卡片 */}
@@ -371,9 +383,9 @@ const AdminDashboardPage: React.FC = () => {
               </Space>
             }
             extra={
-              <Button 
-                type="primary" 
-                href="/admin/user-management"
+              <Button
+                type="primary"
+                onClick={() => navigate(ROUTES.USER_MANAGEMENT)}
               >
                 管理所有使用者
               </Button>
@@ -403,7 +415,7 @@ const AdminDashboardPage: React.FC = () => {
             <Card
               title="使用者管理"
               actions={[
-                <Button type="link" href="/admin/user-management">
+                <Button type="link" onClick={() => navigate(ROUTES.USER_MANAGEMENT)}>
                   管理使用者
                 </Button>
               ]}
@@ -422,7 +434,7 @@ const AdminDashboardPage: React.FC = () => {
             <Card
               title="權限管理"
               actions={[
-                <Button type="link" href="/admin/permissions">
+                <Button type="link" onClick={() => navigate(ROUTES.PERMISSION_MANAGEMENT)}>
                   權限設定
                 </Button>
               ]}
@@ -439,21 +451,69 @@ const AdminDashboardPage: React.FC = () => {
           </Col>
           <Col xs={24} md={8}>
             <Card
-              title="系統設定"
+              title="備份與部署"
               actions={[
-                <Button type="link" href="/admin/system-settings">
-                  系統設定
+                <Button type="link" onClick={() => navigate(ROUTES.BACKUP_MANAGEMENT)}>
+                  備份管理
                 </Button>
               ]}
             >
               <Space direction="vertical" style={{ width: '100%' }}>
-                <Text>系統全域設定和安全配置</Text>
+                <Text>資料庫備份、附件備份與系統部署管理</Text>
                 <div>
-                  <Tag color="red">安全設定</Tag>
-                  <Tag color="yellow">系統配置</Tag>
-                  <Tag color="lime">監控管理</Tag>
+                  <Tag color="red">備份管理</Tag>
+                  <Tag color="orange">排程設定</Tag>
+                  <Tag color="lime">部署控制</Tag>
                 </div>
               </Space>
+            </Card>
+          </Col>
+        </Row>
+
+        {/* 公文統計 */}
+        <Divider />
+        <Title level={4}>公文統計</Title>
+        <Row gutter={16}>
+          <Col xs={24} lg={16}>
+            <DocumentTrendsChart />
+          </Col>
+          <Col xs={24} lg={8}>
+            <Card title={<><WarningOutlined style={{ marginRight: 8 }} />處理效率</>} size="small">
+              {efficiency ? (
+                <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                  <Statistic
+                    title="公文總數"
+                    value={efficiency.total}
+                    suffix="件"
+                  />
+                  <div>
+                    <Text type="secondary">逾期率</Text>
+                    <Progress
+                      percent={Math.round(efficiency.overdue_rate * 100)}
+                      status={efficiency.overdue_rate > 0.1 ? 'exception' : 'normal'}
+                      format={(percent) => `${percent}%`}
+                    />
+                  </div>
+                  <Statistic
+                    title="逾期公文"
+                    value={efficiency.overdue_count}
+                    suffix="件"
+                    valueStyle={{ color: efficiency.overdue_count > 0 ? '#f5222d' : '#52c41a' }}
+                  />
+                  {efficiency.status_distribution.length > 0 && (
+                    <div>
+                      <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>狀態分布</Text>
+                      {efficiency.status_distribution.map((item: StatusDistributionItem) => (
+                        <Tag key={item.status} style={{ marginBottom: 4 }}>
+                          {item.status}: {item.count}
+                        </Tag>
+                      ))}
+                    </div>
+                  )}
+                </Space>
+              ) : (
+                <Text type="secondary">載入中...</Text>
+              )}
             </Card>
           </Col>
         </Row>

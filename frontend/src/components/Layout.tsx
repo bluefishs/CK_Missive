@@ -18,6 +18,7 @@ import { useLocation } from 'react-router-dom';
 import Sidebar from './layout/Sidebar';
 import LayoutHeader from './layout/Header';
 import { useNavigationData } from './layout/hooks/useNavigationData';
+import { useIdleTimeout } from '../hooks';
 import { AIAssistantButton, AISummaryPanel } from './ai';
 import { aiApi } from '../api/aiApi';
 
@@ -68,6 +69,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       message.error('關鍵字提取失敗');
     }
   };
+
+  // 閒置超時自動登出（僅在非公開頁面啟用）
+  useIdleTimeout({ enabled: !isPublicRoute });
 
   // 公開頁面直接渲染內容
   if (isPublicRoute) {

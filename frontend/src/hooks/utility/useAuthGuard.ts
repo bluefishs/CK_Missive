@@ -9,12 +9,20 @@
  * - v1.3.0: 新增 superuser 角色擁有所有角色權限的邏輯
  */
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import authService from '../../services/authService';
 import { ROUTES } from '../../router/types';
 import { isAuthDisabled, isInternalNetwork } from '../../config/env';
 import { logger } from '../../utils/logger';
+
+/** 模組層級旗標：啟動驗證只執行一次 */
+let _startupValidated = false;
+
+/** 重置啟動驗證旗標（登出時呼叫） */
+export function resetStartupValidation() {
+  _startupValidated = false;
+}
 
 /** 權限類型 */
 export type Permission =
@@ -166,6 +174,24 @@ export function useAuthGuard(options: AuthGuardOptions = {}) {
 
     return true;
   }, [authBypassed, requireAuth, authState, hasRole, hasAllPermissions]);
+
+  // 啟動時向後端驗證 token 有效性（全局僅一次）
+  const validatingRef = useRef(false);
+  useEffect(() => {
+    if (authBypassed || _startupValidated || validatingRef.current) return;
+    if (!authState.isAuthenticated) return;
+
+    validatingRef.current = true;
+    _startupValidated = true;
+
+    authService.validateTokenOnStartup().then((valid) => {
+      if (!valid) {
+        logger.warn('[AuthGuard] 啟動驗證失敗，跳轉至登入頁');
+        navigate(ROUTES.LOGIN, { replace: true });
+      }
+      validatingRef.current = false;
+    });
+  }, [authBypassed, authState.isAuthenticated, navigate]);
 
   // 執行守衛邏輯
   useEffect(() => {

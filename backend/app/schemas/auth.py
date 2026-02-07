@@ -41,6 +41,8 @@ class ProfileUpdate(BaseModel):
     """更新個人資料請求"""
     username: Optional[str] = Field(None, min_length=3, max_length=50)
     full_name: Optional[str] = Field(None, min_length=1, max_length=200)
+    department: Optional[str] = Field(None, max_length=100)
+    position: Optional[str] = Field(None, max_length=100)
 
 class PasswordReset(BaseModel):
     email: EmailStr
@@ -71,6 +73,8 @@ class UserResponse(UserBase):
     login_count: int = 0
     email_verified: bool = False
     role: Optional[str] = None  # 覆寫為字串，支援中文角色名稱如 '專案PM'
+    department: Optional[str] = None
+    position: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True) # 使用 model_config
 

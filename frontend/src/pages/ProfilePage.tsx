@@ -1,3 +1,13 @@
+/**
+ * 個人資料頁面
+ *
+ * 顯示與編輯當前使用者的個人資訊、帳戶狀態、安全設定。
+ * 使用 apiClient 統一 API 呼叫，型別從 types/api.ts 匯入 (SSOT)。
+ *
+ * @version 2.0.0
+ * @date 2026-02-07
+ */
+
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -6,7 +16,6 @@ import {
   Button,
   Avatar,
   Typography,
-  Divider,
   Row,
   Col,
   App,
@@ -21,30 +30,24 @@ import {
   LockOutlined,
   GoogleOutlined,
   EditOutlined,
-  KeyOutlined
+  KeyOutlined,
+  BankOutlined,
+  IdcardOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
-import { API_BASE_URL } from '../api/client';
+import { apiClient } from '../api/client';
+import { API_ENDPOINTS } from '../api/endpoints';
 import { useResponsive } from '../hooks';
+import type { User } from '../types/api';
 
 const { Title, Text } = Typography;
 
-interface UserProfile {
-  id: number;
-  email: string;
-  username?: string;
-  full_name?: string;
-  avatar_url?: string;
-  auth_provider?: string;
-  role: string;
-  is_admin: boolean;
-  is_active: boolean;
-  created_at: string;
-  last_login?: string;
-  login_count: number;
-  email_verified: boolean;
-  permissions?: string | string[];
+interface ProfileUpdatePayload {
+  username: string;
+  full_name: string;
+  department?: string;
+  position?: string;
 }
 
 interface PasswordChangeForm {
@@ -56,8 +59,9 @@ interface PasswordChangeForm {
 export const ProfilePage = () => {
   const { message } = App.useApp();
   const navigate = useNavigate();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profile, setProfile] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
   const [passwordModalVisible, setPasswordModalVisible] = useState(false);
   const [form] = Form.useForm();
@@ -72,43 +76,36 @@ export const ProfilePage = () => {
     loadUserProfile();
   }, []);
 
+  /**
+   * 載入使用者資料
+   * 1. 先從 localStorage 取得快取資料（快速顯示）
+   * 2. 再從 /auth/me API 取得完整最新資料
+   * 3. 比對差異並同步 localStorage（解決管理員變更不即時問題）
+   */
   const loadUserProfile = async () => {
     try {
       setLoading(true);
       const userInfo = authService.getUserInfo();
-      if (userInfo) {
-        // 從 localStorage 獲取基本資訊
-        setProfile(userInfo);
-        
-        // 嘗試從後端 API 獲取完整資訊
-        try {
-          const response = await fetch(`${API_BASE_URL}/auth/me`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${authService.getToken()}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({})
-          });
-          if (response.ok) {
-            const fullProfile = await response.json();
-            setProfile(fullProfile);
-            form.setFieldsValue({
-              username: fullProfile.username,
-              full_name: fullProfile.full_name,
-              email: fullProfile.email
-            });
-          }
-        } catch (apiError) {
-          logger.debug('使用本地用戶資訊:', apiError);
-          form.setFieldsValue({
-            username: userInfo.username,
-            full_name: userInfo.full_name,
-            email: userInfo.email
-          });
-        }
-      } else {
+      if (!userInfo) {
         navigate('/login');
+        return;
+      }
+
+      // 先顯示 localStorage 快取
+      setProfile(userInfo as User);
+
+      // 從後端 API 取得最新完整資料
+      try {
+        const fullProfile = await apiClient.post<User>(API_ENDPOINTS.AUTH.ME, {});
+        setProfile(fullProfile);
+        setFormValues(fullProfile);
+
+        // 同步 localStorage：管理員可能已變更 role/permissions 等欄位
+        syncLocalStorage(userInfo, fullProfile);
+      } catch {
+        // API 不可用時使用 localStorage 資料
+        logger.debug('使用本地用戶資訊');
+        setFormValues(userInfo as User);
       }
     } catch (error) {
       logger.error('載入用戶資料失敗:', error);
@@ -119,72 +116,111 @@ export const ProfilePage = () => {
     }
   };
 
-  // 更新個人資料
-  const handleUpdateProfile = async (values: { username: string; full_name: string }) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/profile/update`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authService.getToken()}`
-        },
-        body: JSON.stringify({
-          username: values.username,
-          full_name: values.full_name
-        })
-      });
+  /** 設定表單欄位值 */
+  const setFormValues = (data: User) => {
+    form.setFieldsValue({
+      username: data.username,
+      full_name: data.full_name,
+      email: data.email,
+      department: data.department,
+      position: data.position,
+    });
+  };
 
-      if (response.ok) {
-        const updatedProfile = await response.json();
-        setProfile(updatedProfile);
-        setEditing(false);
-        message.success('個人資料更新成功');
-        
-        // 更新 localStorage 中的用戶資訊
-        const currentUserInfo = authService.getUserInfo();
-        if (currentUserInfo) {
-          authService.setUserInfo({
-            ...currentUserInfo,
-            username: values.username,
-            full_name: values.full_name
-          });
+  /**
+   * 同步 localStorage
+   * 當後端資料與本地快取有差異時（如管理員修改了角色/權限），自動更新
+   */
+  const syncLocalStorage = (local: Partial<User>, remote: User) => {
+    const keysToSync: (keyof User)[] = [
+      'role', 'is_admin', 'is_active', 'permissions',
+      'username', 'full_name', 'department', 'position',
+      'email_verified', 'login_count', 'last_login',
+    ];
+
+    let hasChanges = false;
+    for (const key of keysToSync) {
+      const localVal = JSON.stringify(local[key]);
+      const remoteVal = JSON.stringify(remote[key]);
+      if (localVal !== remoteVal) {
+        hasChanges = true;
+        break;
+      }
+    }
+
+    if (hasChanges) {
+      const currentUserInfo = authService.getUserInfo();
+      if (currentUserInfo) {
+        authService.setUserInfo({
+          ...currentUserInfo,
+          role: remote.role ?? currentUserInfo.role,
+          is_admin: remote.is_admin,
+          is_active: remote.is_active,
+          permissions: remote.permissions,
+          username: remote.username,
+          full_name: remote.full_name,
+          department: remote.department,
+          position: remote.position,
+          email_verified: remote.email_verified ?? currentUserInfo.email_verified,
+          login_count: remote.login_count ?? currentUserInfo.login_count,
+          last_login: remote.last_login,
+        });
+        logger.info('已同步本地使用者資訊');
+      }
+    }
+  };
+
+  // 更新個人資料
+  const handleUpdateProfile = async (values: ProfileUpdatePayload) => {
+    setSaving(true);
+    try {
+      const updatedProfile = await apiClient.post<User>(
+        API_ENDPOINTS.AUTH.PROFILE_UPDATE,
+        {
+          username: values.username,
+          full_name: values.full_name,
+          department: values.department || null,
+          position: values.position || null,
         }
-      } else {
-        const error = await response.json();
-        message.error(error.detail || '更新失敗');
+      );
+
+      setProfile(updatedProfile);
+      setEditing(false);
+      message.success('個人資料更新成功');
+
+      // 同步 localStorage
+      const currentUserInfo = authService.getUserInfo();
+      if (currentUserInfo) {
+        authService.setUserInfo({
+          ...currentUserInfo,
+          username: updatedProfile.username,
+          full_name: updatedProfile.full_name,
+          department: updatedProfile.department,
+          position: updatedProfile.position,
+        });
       }
     } catch (error) {
-      logger.error('更新個人資料失敗:', error);
-      message.error('更新失敗');
+      const detail = (error as { detail?: string })?.detail;
+      message.error(detail || '更新失敗');
+    } finally {
+      setSaving(false);
     }
   };
 
   // 修改密碼
   const handlePasswordChange = async (values: PasswordChangeForm) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/password/change`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authService.getToken()}`
-        },
-        body: JSON.stringify({
-          current_password: values.current_password,
-          new_password: values.new_password
-        })
+      await apiClient.post(API_ENDPOINTS.AUTH.PASSWORD_CHANGE, {
+        current_password: values.current_password,
+        new_password: values.new_password,
       });
 
-      if (response.ok) {
-        setPasswordModalVisible(false);
-        passwordForm.resetFields();
-        message.success('密碼修改成功');
-      } else {
-        const error = await response.json();
-        message.error(error.detail || '密碼修改失敗');
-      }
+      setPasswordModalVisible(false);
+      passwordForm.resetFields();
+      message.success('密碼修改成功');
     } catch (error) {
-      logger.error('密碼修改失敗:', error);
-      message.error('密碼修改失敗');
+      const detail = (error as { detail?: string })?.detail;
+      message.error(detail || '密碼修改失敗');
     }
   };
 
@@ -200,19 +236,23 @@ export const ProfilePage = () => {
     return null;
   }
 
-  const getRoleTag = (role: string, isAdmin: boolean) => {
+  const getRoleTag = (role: string | undefined, isAdmin: boolean) => {
     if (isAdmin) {
       return <Tag color="red">管理員</Tag>;
     }
     switch (role) {
+      case 'superuser':
+        return <Tag color="purple">超級管理員</Tag>;
       case 'admin':
         return <Tag color="red">管理員</Tag>;
+      case 'staff':
+        return <Tag color="geekblue">承辦同仁</Tag>;
       case 'user':
         return <Tag color="blue">一般用戶</Tag>;
       case 'unverified':
         return <Tag color="orange">未驗證</Tag>;
       default:
-        return <Tag>{role}</Tag>;
+        return <Tag>{role || '未設定'}</Tag>;
     }
   };
 
@@ -220,7 +260,7 @@ export const ProfilePage = () => {
     <div style={{ padding: pagePadding, maxWidth: '800px', margin: '0 auto' }}>
       <Title level={isMobile ? 4 : 2} style={{ marginBottom: isMobile ? 12 : 16 }}>
         <UserOutlined style={{ marginRight: 8 }} />
-        {isMobile ? '個人設定' : '個人設定'}
+        個人設定
       </Title>
 
       <Row gutter={[isMobile ? 8 : 16, isMobile ? 8 : 16]}>
@@ -256,49 +296,72 @@ export const ProfilePage = () => {
                   initialValues={{
                     username: profile.username,
                     full_name: profile.full_name,
-                    email: profile.email
+                    email: profile.email,
+                    department: profile.department,
+                    position: profile.position,
                   }}
                 >
-                  <Form.Item 
-                    label="使用者名稱" 
+                  <Form.Item
+                    label="使用者名稱"
                     name="username"
                     rules={[
                       { required: true, message: '請輸入使用者名稱' },
                       { min: 3, message: '使用者名稱至少需要 3 個字符' }
                     ]}
                   >
-                    <Input 
+                    <Input
                       prefix={<UserOutlined />}
                       disabled={!editing}
                     />
                   </Form.Item>
-                  
-                  <Form.Item 
-                    label="姓名" 
+
+                  <Form.Item
+                    label="姓名"
                     name="full_name"
                     rules={[
                       { required: true, message: '請輸入姓名' }
                     ]}
                   >
-                    <Input 
+                    <Input
                       disabled={!editing}
                     />
                   </Form.Item>
-                  
+
                   <Form.Item label="電子郵件" name="email">
-                    <Input 
+                    <Input
                       prefix={<MailOutlined />}
                       disabled
                     />
                   </Form.Item>
 
+                  <Row gutter={16}>
+                    <Col xs={24} sm={12}>
+                      <Form.Item label="部門" name="department">
+                        <Input
+                          prefix={<BankOutlined />}
+                          placeholder="例：工程部"
+                          disabled={!editing}
+                        />
+                      </Form.Item>
+                    </Col>
+                    <Col xs={24} sm={12}>
+                      <Form.Item label="職位" name="position">
+                        <Input
+                          prefix={<IdcardOutlined />}
+                          placeholder="例：專案經理"
+                          disabled={!editing}
+                        />
+                      </Form.Item>
+                    </Col>
+                  </Row>
+
                   {editing && (
                     <Form.Item>
                       <Space>
-                        <Button type="primary" htmlType="submit">
+                        <Button type="primary" htmlType="submit" loading={saving}>
                           儲存變更
                         </Button>
-                        <Button onClick={() => setEditing(false)}>
+                        <Button onClick={() => { setEditing(false); setFormValues(profile); }}>
                           取消
                         </Button>
                       </Space>
@@ -314,7 +377,7 @@ export const ProfilePage = () => {
         <Col span={24}>
           <Card title="帳戶資訊" size={isMobile ? 'small' : 'default'}>
             <Row gutter={[isMobile ? 8 : 16, isMobile ? 8 : 16]}>
-              <Col xs={12} sm={12}>
+              <Col xs={12} sm={8}>
                 <Text strong style={{ fontSize: isMobile ? 12 : 14 }}>帳戶狀態：</Text>
                 <br />
                 {profile.is_active ?
@@ -322,12 +385,12 @@ export const ProfilePage = () => {
                   <Tag color="red">已停用</Tag>
                 }
               </Col>
-              <Col xs={12} sm={12}>
+              <Col xs={12} sm={8}>
                 <Text strong style={{ fontSize: isMobile ? 12 : 14 }}>用戶角色：</Text>
                 <br />
                 {getRoleTag(profile.role, profile.is_admin)}
               </Col>
-              <Col xs={12} sm={12}>
+              <Col xs={12} sm={8}>
                 <Text strong style={{ fontSize: isMobile ? 12 : 14 }}>驗證方式：</Text>
                 <br />
                 {profile.auth_provider === 'google' ? (
@@ -336,7 +399,7 @@ export const ProfilePage = () => {
                   <Tag icon={<MailOutlined />} color="green">郵箱</Tag>
                 )}
               </Col>
-              <Col xs={12} sm={12}>
+              <Col xs={12} sm={8}>
                 <Text strong style={{ fontSize: isMobile ? 12 : 14 }}>郵箱驗證：</Text>
                 <br />
                 {profile.email_verified ?
@@ -344,12 +407,12 @@ export const ProfilePage = () => {
                   <Tag color="orange">未驗證</Tag>
                 }
               </Col>
-              <Col xs={12} sm={12}>
-                <Text strong style={{ fontSize: isMobile ? 12 : 14 }}>註冊時間：</Text>
+              <Col xs={12} sm={8}>
+                <Text strong style={{ fontSize: isMobile ? 12 : 14 }}>登入次數：</Text>
                 <br />
-                <Text style={{ fontSize: isMobile ? 12 : 14 }}>{new Date(profile.created_at).toLocaleString()}</Text>
+                <Text style={{ fontSize: isMobile ? 12 : 14 }}>{profile.login_count ?? 0} 次</Text>
               </Col>
-              <Col xs={12} sm={12}>
+              <Col xs={12} sm={8}>
                 <Text strong style={{ fontSize: isMobile ? 12 : 14 }}>最後登入：</Text>
                 <br />
                 <Text style={{ fontSize: isMobile ? 12 : 14 }}>
@@ -357,6 +420,13 @@ export const ProfilePage = () => {
                     ? new Date(profile.last_login).toLocaleString()
                     : '從未登入'
                   }
+                </Text>
+              </Col>
+              <Col xs={24} sm={8}>
+                <Text strong style={{ fontSize: isMobile ? 12 : 14 }}>註冊時間：</Text>
+                <br />
+                <Text style={{ fontSize: isMobile ? 12 : 14 }}>
+                  {new Date(profile.created_at).toLocaleString()}
                 </Text>
               </Col>
             </Row>
@@ -437,7 +507,7 @@ export const ProfilePage = () => {
 
           <Form.Item>
             <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
-              <Button 
+              <Button
                 onClick={() => {
                   setPasswordModalVisible(false);
                   passwordForm.resetFields();

@@ -117,6 +117,12 @@ async def update_profile(
         if profile_data.full_name is not None:
             user.full_name = profile_data.full_name
 
+        if profile_data.department is not None:
+            user.department = profile_data.department
+
+        if profile_data.position is not None:
+            user.position = profile_data.position
+
         await user_repo.db.commit()
         await user_repo.db.refresh(user)
 

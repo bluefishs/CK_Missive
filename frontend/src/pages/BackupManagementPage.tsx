@@ -2,8 +2,8 @@
  * 備份管理頁面
  * 提供備份列表、異地備份設定、排程器管理、備份日誌查詢
  *
- * @version 1.0.0
- * @date 2026-01-29
+ * @version 2.0.0
+ * @date 2026-02-07
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -19,7 +19,8 @@ import {
   CheckCircleOutlined, CloseCircleOutlined, SyncOutlined,
   PlayCircleOutlined, PauseCircleOutlined, HistoryOutlined,
   SettingOutlined, DatabaseOutlined, FolderOutlined,
-  CloudUploadOutlined, ExclamationCircleOutlined
+  CloudUploadOutlined, ExclamationCircleOutlined,
+  WarningOutlined, ClearOutlined
 } from '@ant-design/icons';
 import { apiClient } from '../api/client';
 import { API_ENDPOINTS } from '../api/endpoints';
@@ -36,12 +37,25 @@ import type {
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 
+/** 備份環境狀態 */
+interface EnvironmentStatus {
+  docker_available: boolean;
+  docker_path: string;
+  last_success_time: string | null;
+  consecutive_failures: number;
+  backup_dir_exists: boolean;
+  uploads_dir_exists: boolean;
+}
+
 export const BackupManagementPage: React.FC = () => {
   const { message, modal } = App.useApp();
 
   // 狀態
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('list');
+
+  // 環境狀態
+  const [envStatus, setEnvStatus] = useState<EnvironmentStatus | null>(null);
 
   // 備份列表狀態
   const [backups, setBackups] = useState<BackupListResponse | null>(null);
@@ -66,6 +80,15 @@ export const BackupManagementPage: React.FC = () => {
   // =========================================================================
   // 資料載入
   // =========================================================================
+
+  const fetchEnvironmentStatus = useCallback(async () => {
+    try {
+      const data = await apiClient.post<EnvironmentStatus>(API_ENDPOINTS.BACKUP.ENVIRONMENT_STATUS, {});
+      setEnvStatus(data);
+    } catch (error) {
+      logger.error('載入環境狀態失敗:', error);
+    }
+  }, []);
 
   const fetchBackups = useCallback(async () => {
     try {
@@ -114,6 +137,7 @@ export const BackupManagementPage: React.FC = () => {
     setLoading(true);
     try {
       await Promise.all([
+        fetchEnvironmentStatus(),
         fetchBackups(),
         fetchRemoteConfig(),
         fetchSchedulerStatus(),
@@ -123,7 +147,7 @@ export const BackupManagementPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [fetchBackups, fetchRemoteConfig, fetchSchedulerStatus, fetchLogs, message]);
+  }, [fetchEnvironmentStatus, fetchBackups, fetchRemoteConfig, fetchSchedulerStatus, fetchLogs, message]);
 
   useEffect(() => {
     refreshAll();
@@ -245,6 +269,26 @@ export const BackupManagementPage: React.FC = () => {
       await fetchRemoteConfig();
     } catch (error) {
       message.error('同步失敗');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCleanupOrphans = async () => {
+    setLoading(true);
+    try {
+      const result = await apiClient.post<{ cleaned_count: number; files: string[] }>(
+        API_ENDPOINTS.BACKUP.CLEANUP,
+        {}
+      );
+      if (result.cleaned_count > 0) {
+        message.success(`已清理 ${result.cleaned_count} 個孤立檔案`);
+        await fetchBackups();
+      } else {
+        message.info('沒有需要清理的孤立檔案');
+      }
+    } catch (error) {
+      message.error('清理失敗');
     } finally {
       setLoading(false);
     }
@@ -743,6 +787,43 @@ export const BackupManagementPage: React.FC = () => {
           </Col>
         </Row>
 
+        {/* 環境狀態警告 */}
+        {envStatus && !envStatus.docker_available && (
+          <Alert
+            message="Docker 環境不可用"
+            description={`Docker CLI 路徑: ${envStatus.docker_path}。資料庫備份功能將無法使用，請確認 Docker Desktop 已啟動。`}
+            type="error"
+            showIcon
+            icon={<WarningOutlined />}
+            style={{ marginBottom: 16 }}
+            action={
+              <Button size="small" onClick={fetchEnvironmentStatus}>
+                重新檢測
+              </Button>
+            }
+          />
+        )}
+
+        {envStatus && envStatus.consecutive_failures > 0 && (
+          <Alert
+            message={`備份連續失敗 ${envStatus.consecutive_failures} 次`}
+            description={
+              envStatus.last_success_time
+                ? `最後成功備份: ${new Date(envStatus.last_success_time).toLocaleString('zh-TW')}`
+                : '尚無成功的備份記錄'
+            }
+            type="warning"
+            showIcon
+            closable
+            style={{ marginBottom: 16 }}
+            action={
+              <Button size="small" icon={<ClearOutlined />} onClick={handleCleanupOrphans}>
+                清理孤立檔案
+              </Button>
+            }
+          />
+        )}
+
         {/* 統計卡片 */}
         <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
           <Col xs={12} md={6}>
@@ -778,12 +859,12 @@ export const BackupManagementPage: React.FC = () => {
           <Col xs={12} md={6}>
             <Card>
               <Statistic
-                title="排程狀態"
-                value={schedulerStatus?.running ? '運行中' : '已停止'}
+                title="Docker 狀態"
+                value={envStatus?.docker_available ? '可用' : '不可用'}
                 valueStyle={{
-                  color: schedulerStatus?.running ? '#3f8600' : '#cf1322'
+                  color: envStatus?.docker_available ? '#3f8600' : '#cf1322'
                 }}
-                prefix={schedulerStatus?.running ? <PlayCircleOutlined /> : <PauseCircleOutlined />}
+                prefix={envStatus?.docker_available ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
               />
             </Card>
           </Col>

@@ -1,8 +1,8 @@
 # CK_Missive 強制性開發規範檢查清單
 
-> **版本**: 1.11.0
+> **版本**: 1.12.0
 > **建立日期**: 2026-01-11
-> **最後更新**: 2026-02-03
+> **最後更新**: 2026-02-07
 > **狀態**: 強制執行 - 所有開發任務啟動前必須檢視
 
 ---
@@ -46,6 +46,7 @@
 | **敏感功能開發** | **安全審查規範** | [清單 S](#清單-s安全審查-v1300-新增) |
 | **useEffect 中呼叫 API** | **無限迴圈防護** | [清單 T](#清單-tuseeffect-無限迴圈防護-v1120-新增) |
 | **重構/刪除模組** | **跨檔案引用安全** | [清單 U](#清單-u重構刪除模組安全-v1120-新增) |
+| **認證與安全變更** | **認證安全規範** | [清單 V](#清單-v認證與安全變更-v1120-新增) |
 
 ---
 
@@ -1395,11 +1396,43 @@ grep -r "password\|api_key\|secret" --include="*.py" --include="*.ts" .
 
 ---
 
+## 清單 V：認證與安全變更 (v1.12.0 新增)
+
+> **適用場景**：修改 JWT/Token 邏輯、密碼驗證、Session 管理、公開端點安全性
+
+### 必須檢查
+
+- [ ] `verify_password()` 不使用明文密碼回退（bcrypt 失敗 → return False）
+- [ ] Refresh token 刷新後舊 token 已撤銷（Token Rotation）
+- [ ] 並發敏感的 DB 操作使用 `SELECT FOR UPDATE` 防競態
+- [ ] 公開端點不暴露 `auth_disabled`、`debug`、檔案路徑等內部資訊
+- [ ] 診斷/開發頁面包裹 `ProtectedRoute roles={['admin']}`
+- [ ] SECRET_KEY 在 .env 中已設定固定值（非 `dev_only_` 開頭）
+- [ ] 前端 `useIdleTimeout` 已啟用於認證頁面
+- [ ] 跨分頁 `storage` 事件同步已整合於 authService
+- [ ] 啟動時 token 驗證（`validateTokenOnStartup`）已整合於 useAuthGuard
+- [ ] 日誌中不包含密碼 hash、token 值或其他敏感資料
+
+### 相關檔案
+
+| 檔案 | 說明 |
+|------|------|
+| `backend/app/core/auth_service.py` | 認證服務（密碼、token、session） |
+| `backend/app/core/config.py` | SECRET_KEY 驗證 |
+| `backend/app/api/endpoints/auth/session.py` | Refresh/Logout 端點 |
+| `backend/app/api/endpoints/public.py` | 公開端點 |
+| `frontend/src/services/authService.ts` | 前端認證服務 |
+| `frontend/src/hooks/utility/useAuthGuard.ts` | 認證守衛 Hook |
+| `frontend/src/hooks/utility/useIdleTimeout.ts` | 閒置超時 Hook |
+| `frontend/src/router/AppRouter.tsx` | 路由保護 |
+
+---
+
 ## 版本記錄
 
 | 版本 | 日期 | 說明 |
 |------|------|------|
-| 1.12.0 | 2026-02-06 | **新增清單 T、U**（useEffect 無限迴圈防護、重構/刪除模組安全）- 連鎖崩潰事故後建立 |
+| 1.12.0 | 2026-02-07 | **新增清單 T、U、V**（useEffect 無限迴圈防護、重構/刪除模組安全、認證與安全變更）- 連鎖崩潰事故後建立 + 認證安全規範 |
 | 1.11.0 | 2026-02-03 | **新增清單 R、S**（部署驗證、安全審查）- Everything Claude Code 整合 |
 | 1.10.0 | 2026-01-28 | **新增清單 P、Q**（Pydantic Schema 開發、非同步資料庫查詢）- Python 常見陷阱規範 |
 | 1.9.0 | 2026-01-22 | **新增清單 N、O**（前端 API 請求參數處理、Ant Design 元件使用規範） |

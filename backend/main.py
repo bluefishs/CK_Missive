@@ -104,9 +104,33 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"⚠️ 資料庫備份排程器啟動失敗: {e}")
 
+    # 測試 Redis 連線（AI 快取與統計持久化）
+    try:
+        from app.core.redis_client import check_redis_health
+        redis_health = await check_redis_health()
+        if redis_health["status"] == "healthy":
+            logger.info(
+                f"✅ Redis 連線成功 (v{redis_health.get('redis_version', 'unknown')})"
+            )
+        else:
+            logger.warning(
+                f"⚠️ Redis 不可用，AI 快取與統計將使用記憶體模式: "
+                f"{redis_health.get('message', redis_health.get('error', ''))}"
+            )
+    except Exception as e:
+        logger.warning(f"⚠️ Redis 初始化失敗，將使用記憶體 fallback: {e}")
+
     logger.info("應用程式已啟動。")
     yield
     logger.info("應用程式關閉中...")
+
+    # 關閉 Redis 連線
+    try:
+        from app.core.redis_client import close_redis
+        await close_redis()
+        logger.info("✅ Redis 連線已關閉")
+    except Exception as e:
+        logger.warning(f"⚠️ Redis 關閉失敗: {e}")
 
     # 停止資料庫備份排程器
     try:
@@ -147,12 +171,14 @@ app = FastAPI(
 from fastapi.middleware.cors import CORSMiddleware
 
 # 使用 cors.py 中定義的 allowed_origins（包含 localhost 和所有內網 IP）
+# 注意: allow_credentials=True 時不能使用 ["*"] 作為 allow_origins
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,  # 從 cors.py 導入的完整來源清單
-    allow_credentials=True,
+    allow_credentials=True,  # 必須為 True 以支援 httpOnly cookie 認證
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["X-Process-Time"],  # 允許前端讀取的回應標頭
 )
 # 已移除重複的 CORSMiddleware - 使用上面已驗證可工作的配置
 app.add_middleware(GZipMiddleware, minimum_size=1000)
@@ -161,6 +187,10 @@ app.add_middleware(LoggingMiddleware, log_manager=log_manager)
 # --- 🛡️ 安全標頭中間件 (v1.27.0) ---
 from app.core.security_headers import SecurityHeadersMiddleware
 app.add_middleware(SecurityHeadersMiddleware)
+
+# --- 🛡️ CSRF 防護中間件 (v1.44.0) ---
+from app.core.csrf import CSRFMiddleware
+app.add_middleware(CSRFMiddleware)
 
 # --- 🛡️ 統一異常處理器 ---
 # 確保所有 AppException（NotFoundException, ForbiddenException 等）正確返回對應的 HTTP 狀態碼和 CORS 標頭

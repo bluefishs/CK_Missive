@@ -1,6 +1,11 @@
 """
 認證服務 - JWT 令牌管理、Google OAuth 驗證與權限檢查
 
+v2.1 - 2026-02-07
+- 新增 httpOnly cookie 認證支援
+- 新增 set_auth_cookies / clear_auth_cookies 方法
+- 保留 Authorization header 向後相容（過渡期）
+
 v2.0 - 2026-01-09
 - 簡化為僅 Google OAuth 認證
 - 新增網域白名單檢查
@@ -20,8 +25,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from fastapi import HTTPException, status
 from fastapi.security import HTTPBearer
+from starlette.responses import Response
 
 from app.core.config import settings
+from app.core.csrf import generate_csrf_token, set_csrf_cookie
 from app.extended.models import User, UserSession
 from app.schemas.auth import UserResponse, GoogleUserInfo, TokenResponse
 
@@ -105,14 +112,12 @@ class AuthService:
 
     @staticmethod
     def verify_password(plain_password: str, hashed_password: str) -> bool:
-        """驗證密碼 - 暫時支援明文比較"""
+        """驗證密碼 - 僅支援 bcrypt 雜湊比較"""
         try:
-            # 嘗試bcrypt驗證
             return pwd_context.verify(plain_password, hashed_password)
         except Exception as e:
-            # 如果bcrypt失敗，使用明文比較 (開發環境)
-            logger.warning(f"bcrypt 驗證失敗，回退到明文比較: {e}")
-            return plain_password == hashed_password
+            logger.error(f"bcrypt 驗證異常（可能是非法 hash 格式）: {type(e).__name__}")
+            return False
     
     @staticmethod
     def get_password_hash(password: str) -> str:
@@ -332,20 +337,49 @@ class AuthService:
     async def verify_refresh_token(db: AsyncSession, refresh_token: str) -> Optional[User]:
         """
         驗證刷新令牌並返回相關聯的使用者。
-        同時檢查會話是否活躍且未過期。
+
+        安全機制 (Refresh Token Rotation):
+        - 使用 SELECT FOR UPDATE 防止並發競態
+        - 驗證成功後，舊的 session 會被撤銷
+        - 偵測已撤銷 token 重複使用（token replay attack），自動撤銷該用戶所有 session
         """
+        # 使用 FOR UPDATE 鎖定行，防止並發 refresh 競態
         session_result = await db.execute(
             select(UserSession).where(
                 UserSession.refresh_token == refresh_token,
                 UserSession.is_active == True,
                 UserSession.expires_at > datetime.utcnow()
-            )
+            ).with_for_update()
         )
         session = session_result.scalar_one_or_none()
 
         if not session:
+            # Token Replay 偵測：檢查此 token 是否已被撤銷過
+            replay_result = await db.execute(
+                select(UserSession).where(
+                    UserSession.refresh_token == refresh_token,
+                    UserSession.is_active == False
+                )
+            )
+            replay_session = replay_result.scalar_one_or_none()
+            if replay_session:
+                # 已撤銷的 token 被重複使用 → 可能被竊取
+                logger.critical(
+                    f"[AUTH] Refresh token replay detected! "
+                    f"user_id={replay_session.user_id}, jti={replay_session.token_jti}"
+                )
+                # 撤銷該用戶的所有 session
+                await db.execute(
+                    update(UserSession)
+                    .where(
+                        UserSession.user_id == replay_session.user_id,
+                        UserSession.is_active == True
+                    )
+                    .values(is_active=False, revoked_at=datetime.utcnow())
+                )
+                await db.commit()
             return None
-        
+
         # 獲取相關聯的使用者
         user_result = await db.execute(
             select(User).where(
@@ -356,10 +390,16 @@ class AuthService:
         user = user_result.scalar_one_or_none()
 
         if not user:
-            # 如果使用者不存在或不活躍，則撤銷此會話
             await AuthService.revoke_session(db, session.token_jti)
             return None
-        
+
+        # Refresh Token Rotation: 撤銷舊 session，確認撤銷成功
+        revoked = await AuthService.revoke_session(db, session.token_jti)
+        if not revoked:
+            logger.error(f"[AUTH] Failed to revoke session during rotation: jti={session.token_jti}")
+            return None
+
+        logger.info(f"[AUTH] Refresh token rotated: user_id={user.id}, old_jti={session.token_jti}")
         return user
 
     @staticmethod
@@ -500,37 +540,107 @@ class AuthService:
         """檢查管理員權限"""
         return user.is_admin or user.is_superuser
     
+    # ============ httpOnly Cookie 認證 (v2.1) ============
+
+    @staticmethod
+    def set_auth_cookies(response: Response, token_data: TokenResponse) -> None:
+        """
+        設定認證相關的 httpOnly cookies
+
+        設定項目:
+        - access_token: HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=3600
+        - refresh_token: HttpOnly; Secure; SameSite=Strict; Path=/api/auth/refresh; Max-Age=604800
+        - csrf_token: non-HttpOnly (由 csrf 模組處理)
+
+        Args:
+            response: FastAPI/Starlette Response 物件
+            token_data: 包含 access_token 和 refresh_token 的 TokenResponse
+        """
+        is_dev = settings.DEVELOPMENT_MODE
+
+        # 設定 access_token cookie
+        response.set_cookie(
+            key="access_token",
+            value=token_data.access_token,
+            httponly=True,
+            secure=not is_dev,  # 開發環境允許 HTTP
+            samesite="lax",
+            path="/",
+            max_age=token_data.expires_in,  # 使用 token 本身的過期時間
+        )
+
+        # 設定 refresh_token cookie
+        if token_data.refresh_token:
+            response.set_cookie(
+                key="refresh_token",
+                value=token_data.refresh_token,
+                httponly=True,
+                secure=not is_dev,
+                samesite="strict",  # refresh token 使用更嚴格的 SameSite
+                path="/api/auth/refresh",  # 限制只在 refresh 端點發送
+                max_age=604800,  # 7 天
+            )
+
+        # 設定 CSRF token（non-httpOnly，前端 JS 需要讀取）
+        csrf_token = generate_csrf_token()
+        set_csrf_cookie(response, csrf_token, is_development=is_dev)
+
+        logger.info("[AUTH] 已設定認證 cookies (access_token, refresh_token, csrf_token)")
+
+    @staticmethod
+    def clear_auth_cookies(response: Response) -> None:
+        """
+        清除所有認證相關的 cookies
+
+        Args:
+            response: FastAPI/Starlette Response 物件
+        """
+        from app.core.csrf import clear_csrf_cookie
+
+        response.delete_cookie(key="access_token", path="/")
+        response.delete_cookie(key="refresh_token", path="/api/auth/refresh")
+        clear_csrf_cookie(response)
+
+        logger.info("[AUTH] 已清除認證 cookies")
+
     @staticmethod
     async def generate_login_response(
         db: AsyncSession,
         user: User,
         ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None
+        user_agent: Optional[str] = None,
+        is_refresh: bool = False
     ) -> TokenResponse:
-        """生成登入回應包含令牌和使用者資訊"""
+        """
+        生成登入回應包含令牌和使用者資訊
+
+        Args:
+            is_refresh: True 表示由 refresh token 觸發，不更新 login_count
+        """
         # 生成令牌
         jti = AuthService.generate_token_jti()
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-        
+
         access_token = AuthService.create_access_token(
             data={"sub": str(user.id), "email": user.email},
             expires_delta=access_token_expires,
             jti=jti
         )
-        
+
         refresh_token = AuthService.create_refresh_token()
-        
+
         # 建立會話
         await AuthService.create_user_session(
             db, user, jti, refresh_token, ip_address, user_agent
         )
-        
-        # 更新登入資訊
-        await AuthService.update_user_login_info(db, user)
-        
+
+        # 僅在正式登入時更新登入次數（refresh 不算新登入）
+        if not is_refresh:
+            await AuthService.update_user_login_info(db, user)
+
         # 重新取得使用者資料 (包含更新後的登入資訊)
         await db.refresh(user)
-        
+
         return TokenResponse(
             access_token=access_token,
             token_type="bearer",

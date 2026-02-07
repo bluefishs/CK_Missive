@@ -240,6 +240,10 @@ export const AUTH_ENDPOINTS = {
   REFRESH: '/auth/refresh',
   /** 當前使用者 POST /auth/me */
   ME: '/auth/me',
+  /** 更新個人資料 POST /auth/profile/update */
+  PROFILE_UPDATE: '/auth/profile/update',
+  /** 修改密碼 POST /auth/password/change */
+  PASSWORD_CHANGE: '/auth/password/change',
 } as const;
 
 /** 管理員使用者管理 API 端點 (POST-only) */
@@ -393,6 +397,11 @@ export const BACKUP_ENDPOINTS = {
   SCHEDULER_START: '/backup/scheduler/start',
   /** 停止排程器 POST /backup/scheduler/stop */
   SCHEDULER_STOP: '/backup/scheduler/stop',
+  // === 環境狀態與清理 ===
+  /** 環境狀態 POST /backup/environment-status */
+  ENVIRONMENT_STATUS: '/backup/environment-status',
+  /** 清理孤立檔案 POST /backup/cleanup */
+  CLEANUP: '/backup/cleanup',
 } as const;
 
 // ============================================================================

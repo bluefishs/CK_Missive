@@ -1,17 +1,22 @@
 /**
  * 認證服務 - 處理使用者登入、登出、權限檢查等功能
  *
- * @version 1.3.0
- * @date 2026-01-18
+ * @version 2.0.0
+ * @date 2026-02-07
  *
  * 變更記錄：
+ * - v2.0.0: httpOnly cookie 認證遷移
+ *   - access_token 不再存入 localStorage（由後端 Set-Cookie 設定 httpOnly cookie）
+ *   - user_info 仍保留在 localStorage（非敏感資料）
+ *   - refresh_token 仍保留在 localStorage（向後相容過渡期）
+ *   - isAuthenticated() 改為檢查 user_info + /auth/check 端點
+ *   - axios 實例啟用 withCredentials
  * - v1.3.0: 統一使用 types/api.ts 的 User 型別 (SSOT 架構)
  * - v1.2.0: 初版
  */
 import axios, { AxiosResponse } from 'axios';
-import { jwtDecode } from 'jwt-decode';
 import { isAuthDisabled } from '../config/env';
-import { API_BASE_URL } from '../api/client';
+import { API_BASE_URL, getCookie } from '../api/client';
 import { logger } from '../utils/logger';
 import { User } from '../types/api';
 
@@ -71,16 +76,41 @@ class AuthService {
   private axios = axios.create({
     baseURL: API_BASE_URL,
     timeout: 10000,
+    withCredentials: true,  // 啟用 cookie 跨域傳送（httpOnly cookie 認證）
   });
 
   constructor() {
-    // 添加請求攔截器，自動加入 Authorization header
+    // 跨分頁認證同步：監聽其他分頁的 localStorage 變化
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', (event) => {
+        if (event.key === USER_INFO_KEY) {
+          if (event.newValue === null) {
+            // 其他分頁已登出
+            logger.info('[Auth] 偵測到其他分頁登出，同步清除認證');
+            window.location.href = '/login';
+          }
+        }
+      });
+    }
+
+    // 添加請求攔截器：向後相容 Authorization header + CSRF token
     this.axios.interceptors.request.use(
       config => {
+        // 向後相容：仍從 localStorage 讀取 token（過渡期）
         const token = this.getAccessToken();
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
+
+        // 附加 CSRF token（非安全方法）
+        const method = config.method?.toUpperCase() || '';
+        if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+          const csrfToken = getCookie('csrf_token');
+          if (csrfToken) {
+            config.headers['X-CSRF-Token'] = csrfToken;
+          }
+        }
+
         return config;
       },
       error => {
@@ -100,7 +130,7 @@ class AuthService {
             this.clearAuth();
             window.location.href = '/login';
           } else {
-            logger.debug('🔧 Development mode: Ignoring 401 error for auth bypass');
+            logger.debug('Development mode: Ignoring 401 error for auth bypass');
           }
         }
         return Promise.reject(error);
@@ -208,11 +238,18 @@ class AuthService {
 
   /**
    * 儲存認證資料
+   *
+   * v2.0.0 變更:
+   * - access_token 不再存入 localStorage（由後端 Set-Cookie 設定 httpOnly cookie）
+   * - user_info 仍保留在 localStorage（非敏感資料，供前端 UI 使用）
+   * - refresh_token 仍保留在 localStorage（向後相容過渡期）
    */
   private saveAuthData(tokenResponse: TokenResponse): void {
-    localStorage.setItem(ACCESS_TOKEN_KEY, tokenResponse.access_token);
+    // access_token 由後端 httpOnly cookie 管理，不再存入 localStorage
+    // 保留 user_info（非敏感資料）
     localStorage.setItem(USER_INFO_KEY, JSON.stringify(tokenResponse.user_info));
 
+    // 向後相容過渡期：仍保留 refresh_token
     if (tokenResponse.refresh_token) {
       localStorage.setItem(REFRESH_TOKEN_KEY, tokenResponse.refresh_token);
     }
@@ -220,15 +257,30 @@ class AuthService {
 
   /**
    * 清除認證資料
+   *
+   * v2.0.0: 同時清除 localStorage 和可讀取的 cookies
+   * httpOnly cookies (access_token, refresh_token) 由後端 /auth/logout 清除
    */
   private clearAuth(): void {
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
     localStorage.removeItem(USER_INFO_KEY);
+
+    // 清除前端可寫入的 cookies（csrf_token 是 non-httpOnly）
+    document.cookie = 'csrf_token=; Path=/; Max-Age=0';
+
+    // 通知啟動驗證旗標需要重置（避免循環引用，使用動態 import）
+    import('../hooks/utility/useAuthGuard').then(m => m.resetStartupValidation());
   }
 
   /**
    * 取得存取令牌
+   *
+   * v2.0.0: access_token 現在儲存在 httpOnly cookie 中，JS 無法讀取。
+   * 此方法保留向後相容（過渡期仍嘗試從 localStorage 讀取），
+   * axios withCredentials 會自動附帶 cookie。
+   *
+   * @returns localStorage 中的 token（過渡期），或 null
    */
   getAccessToken(): string | null {
     return localStorage.getItem(ACCESS_TOKEN_KEY);
@@ -274,34 +326,38 @@ class AuthService {
   /**
    * 檢查是否已登入
    *
-   * 認證判斷邏輯：
-   * 1. 如果有有效的 JWT token，返回 true
-   * 2. 如果是內網/開發模式且有 user_info，返回 true（快速進入模式）
+   * v2.0.0 認證判斷邏輯：
+   * 1. 檢查 user_info 是否存在於 localStorage（登入時儲存）
+   * 2. 檢查 csrf_token cookie 是否存在（表示已通過後端認證設定 cookie）
+   * 3. 內網/開發模式下的快速進入
+   *
+   * 注意: access_token 現在是 httpOnly cookie，JS 無法直接讀取。
+   * 實際的 token 有效性由後端在每次 API 請求時驗證。
    */
   isAuthenticated(): boolean {
-    const token = this.getAccessToken();
     const userInfo = this.getUserInfo();
 
-    // 方式一：有效的 JWT token
-    if (token) {
-      try {
-        const decoded = jwtDecode<JwtPayload>(token);
-        const currentTime = Date.now() / 1000;
-        if (decoded.exp > currentTime) {
-          return true;
-        }
-      } catch (error) {
-        logger.error('Token decode failed:', error);
-      }
+    // 無 user_info，視為未登入
+    if (!userInfo) {
+      return false;
     }
 
-    // 方式二：內網/開發模式下的快速進入（只有 user_info，沒有 token）
-    if (userInfo && !token) {
-      const authDisabled = isAuthDisabled();
-      // 檢查 user_info 是否為內網模式登入（auth_provider = 'internal'）
-      if (authDisabled || userInfo.auth_provider === 'internal') {
-        return true;
-      }
+    // 檢查 csrf_token cookie 存在（表示後端已設定認證 cookies）
+    const csrfToken = getCookie('csrf_token');
+    if (csrfToken) {
+      return true;
+    }
+
+    // 向後相容：檢查 localStorage 中的 access_token（過渡期）
+    const token = this.getAccessToken();
+    if (token) {
+      return true;
+    }
+
+    // 內網/開發模式下的快速進入
+    const authDisabled = isAuthDisabled();
+    if (authDisabled || userInfo.auth_provider === 'internal') {
+      return true;
     }
 
     return false;
@@ -327,10 +383,25 @@ class AuthService {
 
   /**
    * 取得認證標頭
+   *
+   * v2.0.0: 向後相容。新機制透過 withCredentials cookie 自動附帶認證。
    */
   getAuthHeader(): Record<string, string> {
+    const headers: Record<string, string> = {};
+
+    // 向後相容：仍附加 Authorization header（過渡期）
     const token = this.getAccessToken();
-    return token ? { Authorization: `Bearer ${token}` } : {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    // 附加 CSRF token
+    const csrfToken = getCookie('csrf_token');
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken;
+    }
+
+    return headers;
   }
 
   /**
@@ -436,6 +507,36 @@ class AuthService {
 
       throw error;
     }
+  }
+
+  /**
+   * 啟動時驗證 Token 有效性
+   *
+   * 向後端 /auth/check 確認認證是否仍有效。
+   * v2.0.0: 支援 httpOnly cookie 認證（無需讀取 token）
+   *
+   * @returns true 表示認證有效，false 表示已清除
+   */
+  async validateTokenOnStartup(): Promise<boolean> {
+    // 如果沒有 user_info，直接返回 false
+    const userInfo = this.getUserInfo();
+    if (!userInfo) return false;
+
+    try {
+      await this.checkAuthStatus();
+      return true;
+    } catch {
+      logger.warn('[Auth] 啟動驗證失敗，清除本地認證資料');
+      this.clearAuth();
+      return false;
+    }
+  }
+
+  /**
+   * 公開清除認證方法（供外部 hook 使用）
+   */
+  clearAuthData(): void {
+    this.clearAuth();
   }
 
   /**

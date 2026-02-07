@@ -25,8 +25,6 @@ async def get_public_calendar_status():
         google_calendar_status = {
             "available": GOOGLE_AVAILABLE,
             "configured": google_configured,
-            "calendar_id": getattr(settings, 'GOOGLE_CALENDAR_ID', None),
-            "credentials_file": getattr(settings, 'GOOGLE_CREDENTIALS_PATH', None)
         }
         
         return {
@@ -54,13 +52,11 @@ async def get_public_calendar_status():
 @router.get("/system-info")
 async def get_public_system_info():
     """取得系統基本資訊（公開端點，無需認證）"""
-    
+
     from app.core.config import settings
-    
+
     return {
         "app_name": settings.APP_NAME,
-        "auth_disabled": settings.AUTH_DISABLED,
-        "debug": settings.DEBUG,
         "message": "系統運行中",
         "endpoint_type": "public"
     }

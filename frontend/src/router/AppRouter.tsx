@@ -118,11 +118,11 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.AGENCY_CREATE} element={<ProtectedRoute><AgencyFormPage /></ProtectedRoute>} />
           <Route path={ROUTES.AGENCY_EDIT} element={<ProtectedRoute><AgencyFormPage /></ProtectedRoute>} />
 
-          {/* API 對應頁面（公開） */}
-          <Route path={ROUTES.API_MAPPING} element={<ApiMappingDisplayPage />} />
+          {/* API 對應頁面（需管理員） */}
+          <Route path={ROUTES.API_MAPPING} element={<ProtectedRoute requireAuth={true} roles={['admin']}><ApiMappingDisplayPage /></ProtectedRoute>} />
 
-          {/* API 文件頁面（公開） */}
-          <Route path={ROUTES.API_DOCS} element={<ApiDocumentationPage />} />
+          {/* API 文件頁面（需管理員） */}
+          <Route path={ROUTES.API_DOCS} element={<ProtectedRoute requireAuth={true} roles={['admin']}><ApiDocumentationPage /></ProtectedRoute>} />
 
           {/* 廠商管理（需要認證） */}
           <Route path={ROUTES.VENDORS} element={<ProtectedRoute><VendorPage /></ProtectedRoute>} />
@@ -157,11 +157,11 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.TAOYUAN_PROJECT_CREATE} element={<ProtectedRoute><TaoyuanProjectCreatePage /></ProtectedRoute>} />
           <Route path={ROUTES.TAOYUAN_PROJECT_DETAIL} element={<ProtectedRoute><TaoyuanProjectDetailPage /></ProtectedRoute>} />
 
-          {/* 統一表單示例 */}
-          <Route path={ROUTES.UNIFIED_FORM_DEMO} element={<UnifiedFormDemoPage />} />
+          {/* 統一表單示例（需管理員） */}
+          <Route path={ROUTES.UNIFIED_FORM_DEMO} element={<ProtectedRoute requireAuth={true} roles={['admin']}><UnifiedFormDemoPage /></ProtectedRoute>} />
 
-          {/* Google認證診斷 */}
-          <Route path={ROUTES.GOOGLE_AUTH_DIAGNOSTIC} element={<GoogleAuthDiagnosticPage />} />
+          {/* Google認證診斷（需管理員） */}
+          <Route path={ROUTES.GOOGLE_AUTH_DIAGNOSTIC} element={<ProtectedRoute requireAuth={true} roles={['admin']}><GoogleAuthDiagnosticPage /></ProtectedRoute>} />
 
           {/* 系統管理 */}
           {/* /system 已移除，重定向至管理後台 */}

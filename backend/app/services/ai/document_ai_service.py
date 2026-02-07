@@ -1,25 +1,23 @@
 """
 公文 AI 服務
 
-Version: 2.2.0
+Version: 2.3.0
 Created: 2026-02-04
-Updated: 2026-02-06 - 向量語意與意圖解析強化
+Updated: 2026-02-07 - 使用 _call_ai_with_validation() 統一回應驗證
 
 功能:
 - 公文摘要生成 (帶快取)
-- 分類建議 (doc_type, category) (帶快取)
-- 關鍵字提取 (帶快取)
+- 分類建議 (doc_type, category) (帶快取 + schema 驗證)
+- 關鍵字提取 (帶快取 + schema 驗證)
 - 機關匹配強化
 - 自然語言公文搜尋 (v1.2.0 新增)
 - Prompt 模板外部化 (v2.1.0 新增)
 - 同義詞擴展 + 意圖後處理 (v2.2.0 新增)
+- 統一回應驗證層 (v2.3.0 新增)
 """
 
 import asyncio
-import json
 import logging
-import os
-import re
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -30,6 +28,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .base_ai_service import BaseAIService
 from app.schemas.ai import (
+    ClassificationResponse,
+    KeywordsResponse,
     ParsedSearchIntent,
     NaturalSearchRequest,
     AttachmentInfo,
@@ -311,17 +311,21 @@ class DocumentAIService(BaseAIService):
                 "classify", subject, content or "", sender or ""
             )
 
-            response = await self._call_ai_with_cache(
+            validated = await self._call_ai_with_validation(
                 cache_key=cache_key,
                 ttl=self.config.cache_ttl_classify,
                 system_prompt=system_prompt,
                 user_content=user_content,
+                response_schema=ClassificationResponse,
                 temperature=0.3,
                 max_tokens=self.config.classify_max_tokens,
             )
 
-            # 解析 JSON 回應
-            result = self._parse_json_response(response)
+            # 若驗證失敗回傳原始字串，則手動解析
+            if isinstance(validated, str):
+                result = self._parse_json_response(validated)
+            else:
+                result = validated
 
             # 驗證並設定預設值
             doc_type = result.get("doc_type", "函")
@@ -403,16 +407,22 @@ class DocumentAIService(BaseAIService):
                 "keywords", subject, content or "", str(max_keywords)
             )
 
-            response = await self._call_ai_with_cache(
+            validated = await self._call_ai_with_validation(
                 cache_key=cache_key,
                 ttl=self.config.cache_ttl_keywords,
                 system_prompt=system_prompt,
                 user_content=user_content,
+                response_schema=KeywordsResponse,
                 temperature=0.3,
                 max_tokens=self.config.keywords_max_tokens,
             )
 
-            result = self._parse_json_response(response)
+            # 若驗證失敗回傳原始字串，則手動解析
+            if isinstance(validated, str):
+                result = self._parse_json_response(validated)
+            else:
+                result = validated
+
             keywords = result.get("keywords", [])
 
             # 確保是列表且長度不超過限制
@@ -536,48 +546,8 @@ class DocumentAIService(BaseAIService):
                 "error": str(e),
             }
 
-    def _parse_json_response(self, response: str) -> Dict[str, Any]:
-        """
-        解析 AI 回應中的 JSON
-
-        支援處理：
-        - 純 JSON
-        - 包含 ```json``` 代碼塊
-        - 包含其他文字的回應
-        """
-        # 嘗試直接解析
-        try:
-            return json.loads(response)
-        except json.JSONDecodeError:
-            pass
-
-        # 嘗試提取 JSON 代碼塊
-        json_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", response, re.DOTALL)
-        if json_match:
-            try:
-                return json.loads(json_match.group(1))
-            except json.JSONDecodeError:
-                pass
-
-        # 嘗試提取平衡的 {...} 內容（支援巢狀 JSON）
-        depth = 0
-        start = -1
-        for i, char in enumerate(response):
-            if char == '{':
-                if depth == 0:
-                    start = i
-                depth += 1
-            elif char == '}':
-                depth -= 1
-                if depth == 0 and start >= 0:
-                    try:
-                        return json.loads(response[start:i + 1])
-                    except json.JSONDecodeError:
-                        start = -1
-                        continue
-
-        logger.warning(f"無法解析 JSON 回應: {response[:100]}...")
-        return {}
+    # _parse_json_response() 已提升至 BaseAIService (v2.2.0)
+    # DocumentAIService 透過繼承取得此方法
 
     # ========================================================================
     # 同義詞擴展與意圖後處理 (v2.2.0 新增)

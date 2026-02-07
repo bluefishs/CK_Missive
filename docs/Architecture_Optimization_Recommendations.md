@@ -1,8 +1,8 @@
 # CK_Missive 架構優化建議
 
-> **版本**: 2.0.0
+> **版本**: 3.0.0
 > **建立日期**: 2026-02-06
-> **最後更新**: 2026-02-06 (v13.0 全面架構檢視)
+> **最後更新**: 2026-02-07 (認證安全強化 + 整體架構檢視)
 > **狀態**: 建議中 (待逐步實施)
 
 ---
@@ -14,7 +14,9 @@
 3. [AI 助理 UI 架構優化](#3-ai-助理-ui-架構優化)
 4. [AI 服務後端架構優化](#4-ai-服務後端架構優化)
 5. [服務層遷移路線圖](#5-服務層遷移路線圖)
-6. [實施優先級與路線圖](#6-實施優先級與路線圖)
+6. [認證與安全架構](#6-認證與安全架構)
+7. [測試與品質保障](#7-測試與品質保障)
+8. [實施優先級與路線圖](#8-實施優先級與路線圖)
 
 ---
 
@@ -28,6 +30,23 @@
 | AI 助理 UI | 7.5/10 | 9.0/10 | 面板不響應、配置未自動同步 |
 | AI 後端服務 | 8.3/10 | 9.5/10 | 快取非線程安全、統計非持久化 |
 | 服務層架構 | 8.5/10 | 9.5/10 | Singleton 服務尚未全部遷移 |
+| **認證安全** | **9.5/10** | **10/10** | httpOnly cookie、Rate limit on refresh |
+| **測試覆蓋** | **8.0/10** | **9.0/10** | E2E 測試不足、認證流程測試缺 |
+
+### 1.3 v1.48.0 已完成項目 (2026-02-07)
+
+| 項目 | 說明 |
+|------|------|
+| 明文密碼回退移除 | `verify_password()` bcrypt 失敗 → return False |
+| Refresh Token Rotation | SELECT FOR UPDATE + Token Replay 偵測 |
+| 診斷路由保護 | 4 個診斷頁面 → admin 角色限制 |
+| 公開端點加固 | 移除 auth_disabled/debug/credentials_file |
+| SECRET_KEY 強制 | 生產環境拒絕 dev_only_ 金鑰 |
+| 啟動 Token 驗證 | useAuthGuard 首次載入向 /auth/me 驗證 |
+| 閒置超時 | useIdleTimeout 30 分鐘無操作登出 |
+| 跨分頁同步 | storage 事件監聽登出/token 變更 |
+| AdminDashboard 優化 | 趨勢圖 + 效能統計 + 導航修正 |
+| Profile v2.0 | apiClient 統一 + SSOT + department/position |
 
 ### 1.2 v13.0 已完成項目
 
@@ -431,40 +450,240 @@ class DocumentAIService(BaseAIService):
 
 ---
 
-## 6. 實施優先級與路線圖
+## 6. 認證與安全架構
 
-### 6.1 短期 (1-2 週)
+### 6.1 v1.48.0 安全強化成果
 
-| # | 項目 | 影響 | 工作量 |
-|---|------|------|--------|
-| S1 | Prompt 載入容錯 (4.4) | 高 - 防止服務不可用 | 1h |
-| S2 | AI 面板響應式 (2.2A) | 高 - 手機版無法使用 | 2h |
-| S3 | AI 配置自動同步 (3.2) | 中 - 減少手動操作 | 0.5h |
-| S4 | NaturalSearchPanel 彈性高度 (2.2B) | 中 - 改善顯示 | 1h |
+| 項目 | 修復前 | 修復後 | 影響 |
+|------|--------|--------|------|
+| 密碼驗證 | bcrypt 失敗 → 明文比對 | bcrypt 失敗 → 拒絕 | 消除憑證繞過 |
+| Refresh Token | 重複使用不撤銷 | Rotation + Replay 偵測 | 防竊取擴散 |
+| 診斷路由 | 無認證保護 | admin 角色限制 | 關閉資訊洩漏 |
+| 公開端點 | 回傳 auth_disabled/debug | 僅回傳基本資訊 | 減少攻擊面 |
+| SECRET_KEY | 生產環境可用開發金鑰 | 強制自訂金鑰 | 防 JWT 偽造 |
+| 會話管理 | 無閒置超時 | 30 分鐘閒置登出 | 防閒置劫持 |
+| 跨分頁 | 無同步機制 | storage 事件同步 | 統一登出狀態 |
+| 啟動驗證 | 僅檢查本地 JWT | 向 /auth/me 驗證 | 防撤銷 token 續用 |
 
-### 6.2 中期 (2-4 週)
+### 6.2 剩餘安全缺口
 
-| # | 項目 | 影響 | 工作量 |
-|---|------|------|--------|
-| M1 | SimpleCache 遷移至 Redis (4.1) | 中 - 支援 multi-worker | 4h |
-| M2 | 統計資料 Redis 持久化 (4.2) | 中 - 跨部署追蹤 | 3h |
-| M3 | AI 回應驗證層 (4.3) | 中 - 減少重複程式碼 | 3h |
-| M4 | VendorService 工廠遷移 (5.2) | 中 - 架構統一 | 4h |
-| M5 | AgencyService 工廠遷移 (5.2) | 中 - 架構統一 | 4h |
-| M6 | ProjectService 工廠遷移 (5.2) | 中 - 架構統一 | 4h |
-| M7 | 搜尋歷史 + 結果快取 (3.4) | 低 - 改善體驗 | 2h |
+#### 6.2.1 httpOnly Cookie 遷移 (優先級: 中)
 
-### 6.3 長期 (1-3 月)
+**現況**: Access Token 儲存於 `localStorage`，可被 XSS 讀取。
 
-| # | 項目 | 影響 | 工作量 |
-|---|------|------|--------|
-| L1 | pgvector 語意搜尋 | 高 - 搜尋品質飛躍 | 20h |
-| L2 | 27 個端點 Repository 遷移 | 中 - 架構完全統一 | 30h |
-| L3 | CalendarEvent Repository | 中 - 行事曆查詢優化 | 6h |
-| L4 | WebSocket 即時推送 | 中 - 即時通知 | 15h |
-| L5 | AI 串流回應前端整合 | 低 - 體驗提升 | 8h |
+**風險**: 若任何第三方套件存在 XSS 漏洞，攻擊者可竊取 token。
 
-### 6.4 不做的事項
+**遷移路徑**:
+
+```
+Phase A: 後端支援 Set-Cookie
+  ├── 登入成功 → Set-Cookie: access_token=xxx; HttpOnly; Secure; SameSite=Strict
+  ├── /auth/refresh → 更新 cookie
+  └── /auth/logout → 清除 cookie
+
+Phase B: 前端遷移
+  ├── 移除 localStorage.setItem(ACCESS_TOKEN_KEY)
+  ├── axios 改用 withCredentials: true
+  └── 保留 localStorage user_info (非敏感)
+
+Phase C: CSRF 防護
+  ├── 後端生成 CSRF token (Double Submit Cookie)
+  ├── 前端 meta tag 注入
+  └── axios 攔截器自動附加 X-CSRF-Token header
+```
+
+**工作量**: ~8h | **影響**: 大幅提升 XSS 防禦
+
+#### 6.2.2 Refresh 端點速率限制 (優先級: 高)
+
+**現況**: `/auth/refresh` 端點無獨立速率限制，可被暴力嘗試。
+
+**建議**:
+
+```python
+# 在 session.py refresh 端點加入 slowapi 限制
+@router.post("/refresh")
+@limiter.limit("10/minute")  # 每分鐘最多 10 次刷新
+async def refresh_token(request: Request, response: Response, ...):
+    ...
+```
+
+**工作量**: ~0.5h | **影響**: 防止 token 暴力刷新
+
+#### 6.2.3 密碼策略強化 (優先級: 低)
+
+**現況**: 使用者註冊無密碼複雜度要求。
+
+**建議**: 在 `RegisterRequest` schema 加入 validator:
+- 最短 8 字元
+- 包含大小寫 + 數字
+- 不得與 username/email 相同
+
+### 6.3 認證架構圖
+
+```
+瀏覽器                        後端
+┌─────────────────┐          ┌──────────────────────────┐
+│ localStorage    │          │ AuthService              │
+│ ├ access_token  │◄─────────│ ├ verify_password()      │
+│ ├ refresh_token │   JWT    │ │   bcrypt only, no      │
+│ └ user_info     │          │ │   plaintext fallback   │
+│                 │          │ ├ verify_refresh_token()  │
+│ authService.ts  │──────────│ │   SELECT FOR UPDATE    │
+│ ├ login()       │  /auth/* │ │   + replay detection   │
+│ ├ logout()      │          │ ├ generate_login_response│
+│ ├ isAuthenticated()        │ │   is_refresh flag      │
+│ └ validateTokenOnStartup() │ └ revoke_session()       │
+│                 │          │                          │
+│ useAuthGuard    │          │ UserSession (DB)         │
+│ ├ _startupValidated        │ ├ token_jti              │
+│ └ resetStartupValidation() │ ├ refresh_token          │
+│                 │          │ ├ is_active              │
+│ useIdleTimeout  │          │ └ revoked_at             │
+│ └ 30min idle    │          └──────────────────────────┘
+│                 │
+│ Cross-tab sync  │
+│ └ storage event │
+└─────────────────┘
+```
+
+---
+
+## 7. 測試與品質保障
+
+### 7.1 測試覆蓋現況
+
+| 類別 | 測試數 | 覆蓋率 | 目標 |
+|------|--------|--------|------|
+| 後端單元測試 | 628 | ~75% | 80% |
+| 前端單元測試 | 648 | ~70% | 80% |
+| E2E 煙霧測試 | 10 | 核心流程 | 30+ |
+| E2E 流程測試 | 39 | 3 模組 | 全模組 |
+
+### 7.2 測試缺口分析
+
+#### 7.2.1 認證流程測試 (優先級: 高)
+
+**缺失**: 以下認證場景無自動化測試覆蓋：
+
+| 場景 | 測試類型 | 狀態 |
+|------|----------|------|
+| 登入 → 取得 token | 整合測試 | 缺 |
+| Refresh Token Rotation | 整合測試 | 缺 |
+| Token Replay 偵測 | 整合測試 | 缺 |
+| 閒置超時登出 | E2E | 缺 |
+| 跨分頁同步 | E2E | 缺 |
+| 啟動 token 驗證 | 前端單元 | 缺 |
+| 密碼錯誤 5 次鎖定 | 整合測試 | 缺 (功能未實作) |
+| Google OAuth 流程 | E2E | 缺 |
+
+**建議**: 建立 `backend/tests/integration/test_auth_flow.py` 和 `frontend/src/__tests__/hooks/useAuthGuard.test.ts`
+
+#### 7.2.2 E2E 測試擴展 (優先級: 中)
+
+**已有 E2E 覆蓋**:
+- 公文 CRUD (12 tests)
+- 派工安排 (14 tests)
+- 專案管理 (13 tests)
+- 煙霧測試 (10 tests)
+
+**缺少 E2E 覆蓋**:
+| 模組 | 預估測試數 | 優先級 |
+|------|-----------|--------|
+| 認證登入/登出 | 5 | 高 |
+| 管理後台 (Admin) | 8 | 中 |
+| 行事曆功能 | 6 | 中 |
+| 機關/廠商管理 | 6 | 中 |
+| AI 助理功能 | 4 | 低 |
+| 備份管理 | 3 | 低 |
+
+#### 7.2.3 Repository 層測試 (優先級: 中)
+
+**現況**: Repository 層有測試範本但實際測試為 0。
+
+**建議**: 每個 Repository 至少 5 個核心測試:
+- `test_get_by_id()` / `test_get_not_found()`
+- `test_create()` / `test_update()` / `test_delete()`
+- `test_filter_*()` (Repository 特定篩選方法)
+- `test_search()` (全文搜尋)
+
+### 7.3 品質工具整合
+
+| 工具 | 狀態 | 說明 |
+|------|------|------|
+| TypeScript (tsc --noEmit) | 已整合 CI | 0 錯誤 |
+| ESLint | 已整合 CI | 前端規範 |
+| py_compile | 已整合 CI | Python 語法 |
+| mypy | 已整合 CI | Python 型別 |
+| npm audit | 已整合 CI | 前端依賴安全 |
+| pip-audit | 已整合 CI | 後端依賴安全 |
+| Codecov | 已整合 CI | 覆蓋率報告 |
+| **Playwright** | **CI 獨立** | E2E (需 Docker) |
+
+### 7.4 品質提升路線
+
+```
+Phase 1 (1 週): 認證流程測試
+  ├── 後端整合測試: login/refresh/replay/revoke
+  ├── 前端單元測試: useAuthGuard/useIdleTimeout
+  └── 目標: 認證模組 90%+ 覆蓋
+
+Phase 2 (2 週): Repository 層測試
+  ├── DocumentRepository: 10 tests
+  ├── ProjectRepository: 8 tests
+  ├── AgencyRepository: 8 tests
+  └── 目標: Repository 層 85%+ 覆蓋
+
+Phase 3 (2 週): E2E 擴展
+  ├── 認證流程 E2E: 5 tests
+  ├── 管理後台 E2E: 8 tests
+  ├── 行事曆 E2E: 6 tests
+  └── 目標: E2E 覆蓋 6+ 模組
+```
+
+---
+
+## 8. 實施優先級與路線圖
+
+### 8.1 短期 (1-2 週)
+
+| # | 項目 | 來源 | 影響 | 工作量 |
+|---|------|------|------|--------|
+| S1 | Refresh 端點速率限制 | 6.2.2 | **高** - 防暴力刷新 | 0.5h |
+| S2 | 認證流程整合測試 | 7.2.1 | **高** - 驗證安全修復 | 4h |
+| S3 | Prompt 載入容錯 | 4.4 | 高 - 防服務不可用 | 1h |
+| S4 | AI 面板響應式 | 2.2A | 高 - 手機版無法使用 | 2h |
+| S5 | AI 配置自動同步 | 3.2 | 中 - 減少手動操作 | 0.5h |
+| S6 | NaturalSearchPanel 彈性高度 | 2.2B | 中 - 改善顯示 | 1h |
+
+### 8.2 中期 (2-4 週)
+
+| # | 項目 | 來源 | 影響 | 工作量 |
+|---|------|------|------|--------|
+| M1 | httpOnly Cookie 遷移 | 6.2.1 | **高** - XSS 防禦 | 8h |
+| M2 | Repository 層測試 | 7.2.3 | 高 - 品質保障 | 6h |
+| M3 | E2E 認證流程測試 | 7.2.2 | 高 - 關鍵路徑 | 3h |
+| M4 | SimpleCache → Redis | 4.1 | 中 - multi-worker | 4h |
+| M5 | 統計資料 Redis 持久化 | 4.2 | 中 - 跨部署追蹤 | 3h |
+| M6 | AI 回應驗證層 | 4.3 | 中 - 減少重複 | 3h |
+| M7 | VendorService 工廠遷移 | 5.2 | 中 - 架構統一 | 4h |
+| M8 | AgencyService 工廠遷移 | 5.2 | 中 - 架構統一 | 4h |
+| M9 | ProjectService 工廠遷移 | 5.2 | 中 - 架構統一 | 4h |
+| M10 | 搜尋歷史 + 結果快取 | 3.4 | 低 - 改善體驗 | 2h |
+
+### 8.3 長期 (1-3 月)
+
+| # | 項目 | 來源 | 影響 | 工作量 |
+|---|------|------|------|--------|
+| L1 | pgvector 語意搜尋 | - | 高 - 搜尋品質飛躍 | 20h |
+| L2 | 27 端點 Repository 遷移 | 5.4 | 中 - 架構統一 | 30h |
+| L3 | CalendarEvent Repository | 5.3 | 中 - 行事曆優化 | 6h |
+| L4 | WebSocket 即時推送 | - | 中 - 即時通知 | 15h |
+| L5 | AI 串流回應整合 | - | 低 - 體驗提升 | 8h |
+| L6 | E2E 全模組覆蓋 | 7.2.2 | 中 - 品質保障 | 15h |
+| L7 | 密碼策略強化 | 6.2.3 | 低 - 安全加固 | 2h |
+
+### 8.4 不做的事項
 
 | 項目 | 原因 |
 |------|------|
@@ -560,5 +779,5 @@ Singleton (deprecated)          Factory (推薦)
 ---
 
 *文件維護: Claude Code Assistant*
-*版本: 2.0.0*
-*最後更新: 2026-02-06*
+*版本: 3.0.0*
+*最後更新: 2026-02-07*

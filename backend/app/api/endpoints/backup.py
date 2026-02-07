@@ -3,8 +3,8 @@
 提供備份、還原、列表與管理功能
 支援異地備份設定與備份日誌查詢
 
-@version 1.1.0
-@date 2026-01-29
+@version 2.0.0
+@date 2026-02-07
 """
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -142,6 +142,32 @@ async def get_backup_config(current_user=Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="僅管理員可查看備份設定")
 
     return await backup_service.get_backup_config()
+
+
+@router.post("/environment-status", summary="取得備份環境狀態")
+async def get_environment_status(current_user=Depends(get_current_user)):
+    """
+    取得備份環境狀態
+
+    包含 Docker 可用性、最後成功備份時間、連續失敗次數等
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=403, detail="僅管理員可查看環境狀態")
+
+    return backup_service.get_environment_status()
+
+
+@router.post("/cleanup", summary="清理孤立備份檔案")
+async def cleanup_orphan_files(current_user=Depends(get_current_user)):
+    """
+    清理 0-byte 孤立備份檔案
+
+    這些檔案是由於備份失敗產生的空檔案
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=403, detail="僅管理員可執行清理操作")
+
+    return await backup_service.cleanup_orphan_files()
 
 
 @router.post("/status", summary="取得備份狀態")

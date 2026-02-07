@@ -2,6 +2,9 @@
 認證模組 - OAuth 與登入端點
 
 包含: /login, /google, /register
+
+v3.1.0 - 2026-02-07
+- 登入成功後設定 httpOnly cookie（同時保留 JSON body 向後相容）
 """
 
 import logging
@@ -10,6 +13,9 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.responses import Response, JSONResponse
+
+from app.core.rate_limiter import limiter
 
 from app.db.database import get_async_db
 from app.core.auth_service import AuthService
@@ -29,8 +35,10 @@ router = APIRouter()
 
 
 @router.post("/login", response_model=TokenResponse, summary="帳號密碼登入")
+@limiter.limit("5/minute")
 async def login_for_access_token(
     request: Request,
+    response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -44,8 +52,13 @@ async def login_for_access_token(
     - 內網環境（無法使用 Google OAuth）
     - 本地開發測試
     - 備用認證方式
+
+    回應:
+    - JSON body 包含 token 資訊（向後相容）
+    - 同時設定 httpOnly cookies（新安全機制）
     """
-    logger.info(f"[AUTH] 帳密登入嘗試: {form_data.username}")
+    masked_user = form_data.username[:2] + "***" if len(form_data.username) > 2 else "***"
+    logger.info(f"[AUTH] 帳密登入嘗試: {masked_user}")
     try:
         user = await AuthService.authenticate_user(
             db, form_data.username, form_data.password
@@ -59,22 +72,35 @@ async def login_for_access_token(
 
         ip_address, user_agent = get_client_info(request)
 
-        return await AuthService.generate_login_response(
+        token_response = await AuthService.generate_login_response(
             db, user, ip_address, user_agent
         )
+
+        # 建立 JSONResponse 以便同時設定 cookies
+        response = JSONResponse(
+            content=token_response.model_dump(mode="json"),
+        )
+
+        # 設定 httpOnly cookies（新安全機制）
+        AuthService.set_auth_cookies(response, token_response)
+
+        return response
 
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
+        logger.error(f"[AUTH] 登入服務內部錯誤: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"登入服務內部錯誤，請稍後再試或聯繫管理員。錯誤詳情: {str(e)}",
+            detail="登入服務內部錯誤，請稍後再試或聯繫管理員",
         )
 
 
 @router.post("/google", response_model=TokenResponse, summary="Google OAuth 登入")
+@limiter.limit("10/minute")
 async def google_oauth_login(
     request: Request,
+    response: Response,
     google_request: GoogleAuthRequest,
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -193,7 +219,7 @@ async def google_oauth_login(
                 )
 
         # 5. 生成登入回應
-        response = await AuthService.generate_login_response(
+        token_response = await AuthService.generate_login_response(
             db, user, ip_address, user_agent
         )
 
@@ -208,6 +234,15 @@ async def google_oauth_login(
         )
 
         logger.info(f"[AUTH] 登入成功: {user.email}")
+
+        # 建立 JSONResponse 以便同時設定 cookies
+        response = JSONResponse(
+            content=token_response.model_dump(mode="json"),
+        )
+
+        # 設定 httpOnly cookies（新安全機制）
+        AuthService.set_auth_cookies(response, token_response)
+
         return response
 
     except HTTPException:
@@ -216,7 +251,7 @@ async def google_oauth_login(
         logger.error(f"[AUTH] Google 登入失敗: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Google 登入失敗: {str(e)}",
+            detail="Google 登入失敗，請稍後再試或聯繫管理員",
         )
 
 
