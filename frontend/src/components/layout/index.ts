@@ -4,6 +4,7 @@
  */
 
 export { default as Sidebar } from './Sidebar';
+export { default as SidebarContent } from './SidebarContent';
 export { default as Header } from './Header';
 export { useNavigationData, type NavigationItem } from './hooks/useNavigationData';
 export {

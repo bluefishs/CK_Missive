@@ -8,6 +8,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { ResponsiveContent } from '../components/common';
 import {
   Card,
   Row,
@@ -387,7 +388,7 @@ const DeploymentManagementPage: React.FC = () => {
   // =============================================================================
 
   return (
-    <div style={{ padding: 24 }}>
+    <ResponsiveContent maxWidth="full" padding="medium">
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
         {/* 標題區 */}
         <Row justify="space-between" align="middle">
@@ -720,7 +721,7 @@ const DeploymentManagementPage: React.FC = () => {
           )}
         </Modal>
       </Space>
-    </div>
+    </ResponsiveContent>
   );
 };
 

@@ -32,7 +32,7 @@ import {
   LoginOutlined
 } from '@ant-design/icons';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import authService, { LoginRequest } from '../services/authService';
+import authService, { LoginRequest, MFARequiredError } from '../services/authService';
 import { useResponsive } from '../hooks';
 import { detectEnvironment, isAuthDisabled, GOOGLE_CLIENT_ID } from '../config/env';
 import { logger } from '../utils/logger';
@@ -92,6 +92,14 @@ const LoginPage: React.FC = () => {
           : (result.user_info.is_admin ? '/admin/dashboard' : '/dashboard');
         navigate(targetUrl);
       } catch (error: unknown) {
+        // MFA 流程：Google 認證成功但需要雙因素認證
+        if (error instanceof MFARequiredError) {
+          message.info('請完成雙因素認證');
+          navigate('/mfa/verify', {
+            state: { mfa_token: error.mfa_token, returnUrl: returnUrl || undefined },
+          });
+          return;
+        }
         logger.error('Google login failed:', error);
         const errorMessage = error instanceof Error ? error.message : 'Google 登入失敗';
         setError(errorMessage);
@@ -204,6 +212,14 @@ const LoginPage: React.FC = () => {
         : (response.user_info.is_admin ? '/admin/dashboard' : '/dashboard');
       navigate(targetUrl);
     } catch (error: unknown) {
+      // MFA 流程：密碼正確但需要雙因素認證
+      if (error instanceof MFARequiredError) {
+        message.info('請完成雙因素認證');
+        navigate('/mfa/verify', {
+          state: { mfa_token: error.mfa_token, returnUrl: returnUrl || undefined },
+        });
+        return;
+      }
       logger.error('Login failed:', error);
       const errorMessage = error instanceof Error ? error.message : '登入失敗，請檢查帳號密碼';
       setError(errorMessage);

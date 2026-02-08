@@ -44,10 +44,15 @@ CK_Missive 資料庫模型定義
 最後更新: 2026-01-21
 ============================================================================
 """
-from sqlalchemy import Column, Integer, String, Float, Date, DateTime, ForeignKey, Text, Boolean, Table, func, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Float, Date, DateTime, ForeignKey, Text, Boolean, Table, func, UniqueConstraint, Index
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from datetime import datetime
+
+try:
+    from pgvector.sqlalchemy import Vector
+except ImportError:
+    Vector = None  # pgvector 未安裝時降級處理
 
 # 從共享的 database.py 匯入 Base，確保所有模型都使用同一個 metadata
 from app.db.database import Base
@@ -209,6 +214,13 @@ class OfficialDocument(Base):
     created_at = Column(DateTime, server_default=func.now(), comment="建立時間")
     updated_at = Column(DateTime, server_default=func.now(), comment="更新時間")
 
+    # 向量嵌入欄位 (pgvector 語意搜尋)
+    embedding = Column(
+        Vector(384) if Vector is not None else None,
+        nullable=True,
+        comment="文件向量嵌入 (nomic-embed-text, 384 維)",
+    )
+
     # 建立關聯關係
     contract_project = relationship("ContractProject", back_populates="documents", lazy="select")
     sender_agency = relationship("GovernmentAgency", foreign_keys=[sender_agency_id], back_populates="sent_documents", lazy="select")
@@ -271,6 +283,23 @@ class User(Base):
     # 新增欄位 (2026-01-12)
     department = Column(String(100), comment="部門名稱")
     position = Column(String(100), comment="職稱")
+
+    # 帳號鎖定欄位 (2026-02-08)
+    failed_login_attempts = Column(Integer, default=0, nullable=False, server_default="0", comment="連續登入失敗次數")
+    locked_until = Column(DateTime(timezone=True), nullable=True, comment="帳號鎖定到期時間")
+
+    # 密碼重設欄位 (2026-02-08)
+    password_reset_token = Column(String(128), nullable=True, comment="密碼重設 token (SHA-256 hash)")
+    password_reset_expires = Column(DateTime(timezone=True), nullable=True, comment="密碼重設 token 過期時間")
+
+    # Email 驗證欄位 (2026-02-08)
+    email_verification_token = Column(String(128), nullable=True, comment="Email 驗證 token (SHA-256 hash)")
+    email_verification_expires = Column(DateTime(timezone=True), nullable=True, comment="Email 驗證 token 過期時間")
+
+    # MFA 雙因素認證欄位 (2026-02-08)
+    mfa_enabled = Column(Boolean, default=False, nullable=False, server_default="false", comment="是否啟用 TOTP MFA")
+    mfa_secret = Column(String(64), nullable=True, comment="TOTP secret (base32 encoded)")
+    mfa_backup_codes = Column(Text, nullable=True, comment="備用碼 (JSON 格式, SHA-256 hashed)")
 
     # 關聯關係 (暫時移除以解決 SQLAlchemy 衝突)
     # notifications = relationship("SystemNotification", back_populates="user")
@@ -483,6 +512,26 @@ class SiteConfiguration(Base):
     is_active = Column(Boolean, default=True, comment="是否啟用")
     created_at = Column(DateTime, server_default=func.now(), comment="建立時間")
     updated_at = Column(DateTime, server_default=func.now(), comment="更新時間")
+
+
+class AIPromptVersion(Base):
+    """AI Prompt 版本控制"""
+    __tablename__ = "ai_prompt_versions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    feature = Column(String(50), nullable=False, comment="功能名稱 (summary, classify, keywords, search_intent, match_agency)")
+    version = Column(Integer, nullable=False, default=1, comment="版本號")
+    system_prompt = Column(Text, nullable=False, comment="系統提示詞")
+    user_template = Column(Text, nullable=True, comment="使用者提示詞模板")
+    is_active = Column(Boolean, default=False, nullable=False, comment="是否為啟用版本")
+    description = Column(String(500), nullable=True, comment="版本說明")
+    created_by = Column(String(100), nullable=True, comment="建立者")
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), comment="建立時間")
+
+    __table_args__ = (
+        Index('ix_prompt_feature_active', 'feature', 'is_active'),
+        Index('ix_prompt_feature_version', 'feature', 'version'),
+    )
 
 
 # =============================================================================
@@ -736,6 +785,18 @@ class TaoyuanContractPayment(Base):
 
     # 關聯關係
     dispatch_order = relationship("TaoyuanDispatchOrder", back_populates="payment")
+
+
+class AISynonym(Base):
+    """AI 同義詞群組 - 供自然語言搜尋的同義詞擴展"""
+    __tablename__ = "ai_synonyms"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    category = Column(String(100), nullable=False, index=True, comment="分類（如：機關、公文類型、狀態、業務）")
+    words = Column(Text, nullable=False, comment="同義詞列表，逗號分隔")
+    is_active = Column(Boolean, default=True, nullable=False, comment="是否啟用")
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), comment="建立時間")
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), comment="更新時間")
 
 
 class TaoyuanDispatchAttachment(Base):

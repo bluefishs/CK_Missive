@@ -1,9 +1,9 @@
 # CK_Missive 架構優化建議
 
-> **版本**: 3.0.0
+> **版本**: 4.0.0
 > **建立日期**: 2026-02-06
-> **最後更新**: 2026-02-07 (認證安全強化 + 整體架構檢視)
-> **狀態**: 建議中 (待逐步實施)
+> **最後更新**: 2026-02-08 (Phase 3 完成 + Phase 4 AI/RWD/帳號管控規劃)
+> **狀態**: Phase 3 已完成，Phase 4 規劃中
 
 ---
 
@@ -17,6 +17,9 @@
 6. [認證與安全架構](#6-認證與安全架構)
 7. [測試與品質保障](#7-測試與品質保障)
 8. [實施優先級與路線圖](#8-實施優先級與路線圖)
+9. [Phase 4A: RWD 響應式設計全面規劃](#9-phase-4a-rwd-響應式設計全面規劃)
+10. [Phase 4B: AI 助理深度優化規劃](#10-phase-4b-ai-助理深度優化規劃)
+11. [Phase 4C: 帳號登入管控強化規劃](#11-phase-4c-帳號登入管控強化規劃)
 
 ---
 
@@ -24,14 +27,15 @@
 
 ### 1.1 各模組成熟度
 
-| 模組 | 當前評分 | 目標評分 | 關鍵缺口 |
-|------|----------|----------|----------|
-| 響應式設計 | 6.5/10 | 8.5/10 | AI 面板固定尺寸、硬編碼 px 寬度 |
-| AI 助理 UI | 7.5/10 | 9.0/10 | 面板不響應、配置未自動同步 |
-| AI 後端服務 | 8.3/10 | 9.5/10 | 快取非線程安全、統計非持久化 |
-| 服務層架構 | 8.5/10 | 9.5/10 | Singleton 服務尚未全部遷移 |
-| **認證安全** | **9.5/10** | **10/10** | httpOnly cookie、Rate limit on refresh |
-| **測試覆蓋** | **8.0/10** | **9.0/10** | E2E 測試不足、認證流程測試缺 |
+| 模組 | v3.0 評分 | v4.0 評分 | 目標 | 關鍵缺口 |
+|------|-----------|-----------|------|----------|
+| 響應式設計 | 6.5/10 | **6.5/10** | 8.5 | 側邊欄無行動版、Table 無 scroll.x、表單硬編碼 |
+| AI 助理 UI | 7.5/10 | **8.5/10** ✅ | 9.0 | 搜尋歷史+快取已完成，串流回應待做 |
+| AI 後端服務 | 8.3/10 | **9.0/10** ✅ | 9.5 | Redis+驗證層已完成，pgvector 語意搜尋待做 |
+| 服務層架構 | 8.5/10 | **9.5/10** ✅ | 9.5 | 工廠模式遷移已全部完成 |
+| 認證安全 | 9.5/10 | **9.7/10** ✅ | 10 | httpOnly Cookie+CSRF 已完成，帳號鎖定/MFA 待做 |
+| **帳號管控** | **-** | **7.2/10** 🆕 | 9.0 | 密碼重設缺、帳號鎖定缺、MFA 缺、Session UI 缺 |
+| 測試覆蓋 | 8.0/10 | **8.8/10** ✅ | 9.0 | +136 新測試，E2E 全模組覆蓋待做 |
 
 ### 1.3 v1.48.0 已完成項目 (2026-02-07)
 
@@ -645,45 +649,62 @@ Phase 3 (2 週): E2E 擴展
 
 ## 8. 實施優先級與路線圖
 
-### 8.1 短期 (1-2 週)
+### 8.1 短期 Phase 3 — ✅ 已完成 (v1.49.0, 2026-02-07)
+
+| # | 項目 | 狀態 | 完成說明 |
+|---|------|------|----------|
+| S1 | Refresh 端點速率限制 | ✅ | `@limiter.limit("10/minute")` |
+| S2 | 認證流程整合測試 | ✅ | 22 個整合測試 |
+| S3 | Prompt 載入容錯 | ✅ | `_DEFAULT_PROMPTS` 已存在 |
+| S4 | AI 面板響應式 | ✅ | `responsiveValue()` 已整合 |
+| S5 | AI 配置自動同步 | ✅ | `syncAIConfigFromServer()` |
+| S6 | NaturalSearchPanel 彈性高度 | ✅ | flex 佈局 |
+
+### 8.2 中期 Phase 3 — ✅ 已完成 (v1.49.0, 2026-02-07)
+
+| # | 項目 | 狀態 | 完成說明 |
+|---|------|------|----------|
+| M1 | httpOnly Cookie + CSRF 遷移 | ✅ | csrf.py + set_auth_cookies + 前端 interceptor |
+| M2 | Repository 層測試 | ✅ | 109 個測試 (Document 36 + Project 34 + Agency 39) |
+| M3 | E2E 認證流程測試 | ✅ | 5 個 Playwright 測試 |
+| M4 | SimpleCache → Redis | ✅ | RedisCache + graceful fallback |
+| M5 | 統計資料 Redis 持久化 | ✅ | AIStatsManager + HINCRBY |
+| M6 | AI 回應驗證層 | ✅ | `_call_ai_with_validation()` + Pydantic |
+| M7-M9 | 服務工廠遷移 | ✅ | VendorService/AgencyService/ProjectService 已完成 |
+| M10 | 搜尋歷史 + 結果快取 | ✅ | localStorage + 5min Map cache |
+
+**安全審查額外修復** (v1.49.0):
+
+| 修復 | 嚴重度 | 說明 |
+|------|--------|------|
+| CSRF bypass fix | CRITICAL | access_token cookie 存在時強制要求 csrf_token |
+| Login rate limit | HIGH | `/login` 5/min + `/google` 10/min |
+| Error sanitization | HIGH | 移除 `str(e)` 洩漏 |
+| Redis URL redaction | HIGH | 密碼遮罩 |
+| Username masking | MEDIUM | 登入日誌部分遮罩 |
+
+### 8.3 Phase 4: 下一階段規劃 (詳見 Section 9-11)
+
+| 階段 | 主題 | 項目數 | 預估總工時 | 影響評分提升 |
+|------|------|--------|-----------|-------------|
+| **4A** | RWD 響應式設計 | 4 項 | 20h | 6.5 → 8.5 |
+| **4B** | AI 助理深度優化 | 5 項 | 41h | 9.0 → 9.5 |
+| **4C** | 帳號登入管控 | 7 項 | 31.5h | 7.2 → 9.0 |
+| | **合計** | **16 項** | **92.5h** | |
+
+**建議執行順序**: 4C-L1(密碼策略) → 4A-R1(側邊欄) → 4C-L2(帳號鎖定) → 4A-R2(表格) → 4C-L3(密碼重設) → 4B-A1(串流) → 其餘
+
+### 8.4 長期 (1-3 月)
 
 | # | 項目 | 來源 | 影響 | 工作量 |
 |---|------|------|------|--------|
-| S1 | Refresh 端點速率限制 | 6.2.2 | **高** - 防暴力刷新 | 0.5h |
-| S2 | 認證流程整合測試 | 7.2.1 | **高** - 驗證安全修復 | 4h |
-| S3 | Prompt 載入容錯 | 4.4 | 高 - 防服務不可用 | 1h |
-| S4 | AI 面板響應式 | 2.2A | 高 - 手機版無法使用 | 2h |
-| S5 | AI 配置自動同步 | 3.2 | 中 - 減少手動操作 | 0.5h |
-| S6 | NaturalSearchPanel 彈性高度 | 2.2B | 中 - 改善顯示 | 1h |
+| L1 | 27 端點 Repository 遷移 | 5.4 | 中 - 架構統一 | 30h |
+| L2 | CalendarEvent Repository | 5.3 | 中 - 行事曆優化 | 6h |
+| L3 | WebSocket 即時推送 | - | 中 - 即時通知 | 15h |
+| L4 | E2E 全模組覆蓋 | 7.2.2 | 中 - 品質保障 | 15h |
+| L5 | SSO/SAML 整合 | - | 低 - 企業級 | 20h |
 
-### 8.2 中期 (2-4 週)
-
-| # | 項目 | 來源 | 影響 | 工作量 |
-|---|------|------|------|--------|
-| M1 | httpOnly Cookie 遷移 | 6.2.1 | **高** - XSS 防禦 | 8h |
-| M2 | Repository 層測試 | 7.2.3 | 高 - 品質保障 | 6h |
-| M3 | E2E 認證流程測試 | 7.2.2 | 高 - 關鍵路徑 | 3h |
-| M4 | SimpleCache → Redis | 4.1 | 中 - multi-worker | 4h |
-| M5 | 統計資料 Redis 持久化 | 4.2 | 中 - 跨部署追蹤 | 3h |
-| M6 | AI 回應驗證層 | 4.3 | 中 - 減少重複 | 3h |
-| M7 | VendorService 工廠遷移 | 5.2 | 中 - 架構統一 | 4h |
-| M8 | AgencyService 工廠遷移 | 5.2 | 中 - 架構統一 | 4h |
-| M9 | ProjectService 工廠遷移 | 5.2 | 中 - 架構統一 | 4h |
-| M10 | 搜尋歷史 + 結果快取 | 3.4 | 低 - 改善體驗 | 2h |
-
-### 8.3 長期 (1-3 月)
-
-| # | 項目 | 來源 | 影響 | 工作量 |
-|---|------|------|------|--------|
-| L1 | pgvector 語意搜尋 | - | 高 - 搜尋品質飛躍 | 20h |
-| L2 | 27 端點 Repository 遷移 | 5.4 | 中 - 架構統一 | 30h |
-| L3 | CalendarEvent Repository | 5.3 | 中 - 行事曆優化 | 6h |
-| L4 | WebSocket 即時推送 | - | 中 - 即時通知 | 15h |
-| L5 | AI 串流回應整合 | - | 低 - 體驗提升 | 8h |
-| L6 | E2E 全模組覆蓋 | 7.2.2 | 中 - 品質保障 | 15h |
-| L7 | 密碼策略強化 | 6.2.3 | 低 - 安全加固 | 2h |
-
-### 8.4 不做的事項
+### 8.5 不做的事項
 
 | 項目 | 原因 |
 |------|------|
@@ -692,6 +713,310 @@ Phase 3 (2 週): E2E 擴展
 | 甘特圖 | 需專門套件，另開 session |
 | 微服務拆分 | 目前單體架構足夠，過早拆分增加複雜度 |
 | GraphQL | REST API 已滿足需求，切換成本高 |
+| FIDO2/WebAuthn | 硬體需求高，TOTP 先行 |
+
+---
+
+## 9. Phase 4A: RWD 響應式設計全面規劃
+
+### 9.1 現況問題分析
+
+**整體成熟度: 6.5/10** — 基礎設施優秀但實作不一致
+
+| 層面 | 評分 | 說明 |
+|------|------|------|
+| Hook 基礎設施 | 9/10 | `useResponsive()` 設計完善，breakpoint 對齊 Ant Design |
+| CSS 框架 | 8/10 | `responsive.css` 405 行工具類別完備 |
+| Layout 行動版 | 3/10 | **側邊欄無行動版收合，佔 17-23% 螢幕** |
+| Table 響應式 | 4/10 | `scroll.x` 定義但未實作，行動版看不全 |
+| Form 響應式 | 5/10 | 多數硬編碼 vertical layout |
+| 元件採用率 | 4/10 | ResponsiveContainer 元件定義了但鮮少使用 |
+
+### 9.2 優化項目
+
+#### R1: 行動裝置側邊欄 (CRITICAL, 4h)
+
+**問題**: 側邊欄固定 80-200px 寬度，行動版無自動收合/漢堡選單。
+
+**修改範圍**:
+- `frontend/src/components/Layout.tsx` — marginLeft 行動版設為 0
+- `frontend/src/components/Layout/Sidebar.tsx` — Drawer 模式 + 漢堡按鈕
+- `frontend/src/components/Layout/Header.tsx` — 新增行動版選單按鈕
+
+**方案**: 行動版 (< 768px) 側邊欄改為 Ant Design `Drawer` 覆蓋模式，點擊漢堡按鈕開啟/關閉。
+
+```
+Desktop (≥768px):          Mobile (<768px):
++------+----------+       +----------------+
+| Side | Content  |       | ☰ Header      |
+| bar  |          |       +----------------+
+|      |          |       | Content        |
++------+----------+       |                |
+                          +----------------+
+                          (Sidebar = Drawer overlay)
+```
+
+#### R2: Table 響應式 scroll + 卡片模式 (HIGH, 6h)
+
+**問題**: 所有欄位在行動版可見，水平溢出。
+
+**修改範圍**:
+- `frontend/src/components/document/DocumentList.tsx`
+- `frontend/src/components/common/UnifiedTable.tsx`
+- 所有使用 Table 的頁面元件
+
+**方案**:
+1. 統一加入 `scroll={{ x: responsiveValue(RESPONSIVE_TABLE.scrollX) }}`
+2. 行動版隱藏次要欄位 (sender, category 等)
+3. 小螢幕 (< 576px) 啟用卡片模式取代表格
+
+#### R3: Form 響應式佈局 (MEDIUM, 4h)
+
+**問題**: 表單固定單欄，未利用大螢幕空間。
+
+**修改範圍**: 所有含表單的頁面 (DocumentOperations, TaoyuanDispatchCreate, etc.)
+
+**方案**: 使用 `Row + Col xs={24} md={12}` 模式，md 以上 2 欄、以下 1 欄。
+
+#### R4: ResponsiveContainer 全面採用 (MEDIUM, 6h)
+
+**修改範圍**: 全部頁面元件
+
+**方案**: 以 `ResponsiveContent` 取代硬編碼 padding，`ResponsiveSpace` 取代固定 gap。
+
+### 9.3 驗收標準
+
+- [ ] 行動版 (375px) 側邊欄完全隱藏，點擊漢堡展開
+- [ ] 所有 Table 在 375px 可水平捲動或顯示卡片
+- [ ] 表單在 768px 以上顯示 2 欄
+- [ ] 0 處硬編碼 px 寬度 (使用 responsiveValue)
+- [ ] Chrome DevTools 行動模擬器 5 種裝置驗證通過
+
+---
+
+## 10. Phase 4B: AI 助理深度優化規劃
+
+### 10.1 現況問題分析
+
+**整體成熟度: 9.0/10** — 功能完善但缺少進階特性
+
+| 層面 | 評分 | 說明 |
+|------|------|------|
+| Provider 架構 | 9.5/10 | Groq + Ollama + fallback 三層冗餘 |
+| 快取策略 | 9.0/10 | Redis + SimpleCache 雙層完成 |
+| 自然語言搜尋 | 8.5/10 | 意圖解析 + 同義詞 + similarity 排序 |
+| 串流回應 | 0/10 | `stream_completion()` 存在但未暴露 API |
+| 語意搜尋 | 0/10 | `generate_embedding()` placeholder 待實作 |
+| Prompt 管理 | 7/10 | YAML 檔案制，無版本控制/A/B 測試 |
+| 同義詞管理 | 6/10 | YAML 硬編碼，無管理介面 |
+
+### 10.2 優化項目
+
+#### A1: AI 串流回應 SSE (HIGH, 8h)
+
+**目標**: 降低使用者感知延遲，逐字顯示 AI 回應。
+
+**後端**:
+- 新增 `POST /ai/document/summary/stream` SSE 端點
+- 使用 `StreamingResponse` + `stream_completion()` (已存在)
+- 回傳格式: `data: {"token": "字", "done": false}\n\n`
+
+**前端**:
+- 新增 `StreamingText` 元件 (逐字顯示動畫)
+- 使用 `EventSource` 或 `fetch` + `ReadableStream`
+- AISummaryPanel 整合串流模式
+
+#### A2: pgvector 語意搜尋 (HIGH, 20h)
+
+**目標**: 從關鍵字匹配升級到語意理解，大幅提升搜尋品質。
+
+**架構**:
+```
+使用者查詢 → Ollama nomic-embed-text → 384 維向量
+                                         ↓
+                         pgvector cosine_distance()
+                                         ↓
+                              相似度排序結果
+```
+
+**實施步驟**:
+1. PostgreSQL 安裝 pgvector 擴展
+2. OfficialDocument 新增 `embedding vector(384)` 欄位
+3. Alembic 遷移 + 批量回填既有公文 embedding
+4. `ai_connector.py` 實作 `generate_embedding()` (Ollama nomic-embed-text)
+5. DocumentQueryBuilder 新增 `with_semantic_search()` 方法
+6. `natural_search()` 混合策略: pg_trgm + pgvector 加權排序
+
+#### A3: Prompt 版本控制 (MEDIUM, 6h)
+
+**目標**: 追蹤 prompt 修改歷史，支援 A/B 測試。
+
+**方案**:
+- 新增 `ai_prompt_versions` 資料表 (version, content, created_at, is_active)
+- DocumentAIService 從 DB 載入 active prompt (fallback 到 YAML)
+- 管理介面: 列表 / 編輯 / 啟用 / 比較歷史版本
+
+#### A4: 同義詞管理介面 (MEDIUM, 4h)
+
+**目標**: 管理員可透過 UI 新增/編輯同義詞，無需改 YAML。
+
+**方案**:
+- 新增 `POST /ai/synonyms` CRUD API
+- DB 表 `ai_synonyms` (category, words, is_active)
+- 管理頁面: 分類瀏覽 / 新增 / 編輯 / 刪除
+- Hot reload: 修改後即時生效 (記憶體快取刷新)
+
+#### A5: AI 操作審計日誌 (LOW, 3h)
+
+**目標**: 追蹤 AI 輔助的文件修改，支援合規報告。
+
+**方案**: AuditService 新增 AI 事件類型:
+- `AI_SUMMARY_APPLIED` — 使用者採用 AI 摘要
+- `AI_CLASSIFY_APPLIED` — 使用者採用 AI 分類建議
+- `AI_SEARCH_EXECUTED` — 自然語言搜尋紀錄
+
+### 10.3 驗收標準
+
+- [ ] 摘要生成逐字顯示，總時間不變但感知等待 < 1 秒
+- [ ] 語意搜尋「找跟桃園市政府相關的公文」回傳相關結果 (不只精確匹配)
+- [ ] Prompt 歷史可追溯 3+ 個版本
+- [ ] 同義詞可透過 UI 新增，即時生效
+- [ ] AI 操作在審計日誌可查
+
+---
+
+## 11. Phase 4C: 帳號登入管控強化規劃
+
+### 11.1 現況問題分析
+
+**整體成熟度: 7.2/10** — 核心認證安全但帳號管理功能不足
+
+| 層面 | 評分 | 說明 |
+|------|------|------|
+| 認證機制 | 9.0/10 | Google OAuth + JWT + httpOnly Cookie + CSRF |
+| Token 管理 | 9.5/10 | Rotation + Replay 偵測 + SELECT FOR UPDATE |
+| 密碼策略 | 5.0/10 | **password_policy.py 存在但 /password/change 未呼叫** |
+| 帳號鎖定 | 0/10 | **無失敗次數追蹤，無鎖定機制** |
+| 密碼重設 | 0/10 | **前端有頁面，後端無端點** |
+| Session UI | 0/10 | **DB 有 UserSession 但使用者無法查看/終止** |
+| MFA | 0/10 | **無雙因素認證** |
+| Email 驗證 | 3/10 | 追蹤 flag 但不強制 |
+
+### 11.2 優化項目
+
+#### L1: 密碼策略強制執行 (CRITICAL, 0.5h)
+
+**問題**: `password_policy.py` 定義了規則但 `/auth/password/change` 端點未呼叫。
+
+**修改**: `backend/app/api/endpoints/auth/profile.py:185`
+```python
+# 新增一行:
+from app.core.password_policy import validate_password_strength
+validate_password_strength(password_data.new_password, raise_on_invalid=True)
+```
+
+#### L2: 帳號鎖定機制 (CRITICAL, 4h)
+
+**目標**: 5 次失敗鎖定 15 分鐘，防暴力破解。
+
+**修改範圍**:
+- `backend/app/extended/models.py` — User 新增 `failed_login_attempts`, `locked_until`
+- Alembic 遷移腳本
+- `backend/app/core/auth_service.py` — `authenticate_user()` 加入鎖定檢查/計數
+- 成功登入重置計數，鎖定時返回明確錯誤與剩餘時間
+
+#### L3: 密碼重設流程 (HIGH, 6h)
+
+**目標**: 使用者可透過 Email 重設密碼。
+
+**後端**:
+- `POST /auth/password-reset` — 寄送重設 email (token 15 分鐘有效)
+- `POST /auth/password-reset-confirm` — 驗證 token + 設定新密碼 + 撤銷所有 Session
+- Token 使用 `secrets.token_urlsafe(32)` + DB 存儲 (hash)
+
+**前端**:
+- 完善 `ForgotPasswordPage.tsx` — 輸入 email → 提交 → 成功提示
+- 新增 `ResetPasswordPage.tsx` — token 驗證 → 新密碼表單
+
+**依賴**: Email 服務 (SMTP / SendGrid)
+
+#### L4: Session 管理 UI (HIGH, 4h)
+
+**目標**: 使用者可查看活躍 Session，一鍵登出裝置。
+
+**後端**:
+- `POST /auth/sessions` — 列出使用者所有 active session (IP, User-Agent, created_at)
+- `POST /auth/sessions/revoke` — 撤銷指定 session
+- `POST /auth/sessions/revoke-all` — 撤銷所有 session (除當前)
+
+**前端**:
+- ProfilePage 新增「裝置管理」Tab
+- Session 列表: 裝置圖示 + IP + 最後活動時間 + 登出按鈕
+- 「登出所有裝置」一鍵操作 (二次確認)
+
+#### L5: TOTP 雙因素認證 (HIGH, 10h)
+
+**目標**: 支援 TOTP 標準 (Google Authenticator / Microsoft Authenticator)。
+
+**後端**:
+- User 模型新增 `mfa_enabled`, `mfa_secret`, `mfa_backup_codes`
+- `POST /auth/mfa/setup` — 生成 secret + QR code URI
+- `POST /auth/mfa/verify` — 驗證 TOTP code + 啟用 MFA
+- `POST /auth/mfa/disable` — 關閉 MFA (需驗證密碼)
+- Login flow 修改: 密碼正確後若 mfa_enabled → 要求 TOTP code
+- 10 組 backup codes 供手機遺失時使用
+
+**前端**:
+- ProfilePage 新增「安全設定」Tab — MFA 啟用/關閉
+- 新增 MFA 驗證頁面 (登入第二步)
+- QR code 顯示 (使用 `qrcode.react`)
+
+#### L6: Email 驗證流程 (MEDIUM, 4h)
+
+**目標**: 新帳號需驗證 email 後方可使用。
+
+**方案**:
+- 註冊/首次 Google 登入後寄送驗證 email
+- `POST /auth/verify-email` — 驗證 token
+- 未驗證帳號: 允許登入但顯示提醒 banner + 限制操作
+
+#### L7: 登入歷史儀表板 (LOW, 3h)
+
+**目標**: 使用者可查看登入時間軸。
+
+**方案**: ProfilePage 新增「登入紀錄」Tab，顯示:
+- 登入時間 + IP + 裝置 + 認證方式
+- 篩選: 日期範圍 / 成功/失敗
+- 異常偵測標記 (新 IP 或異常時間)
+
+### 11.3 實施順序與依賴
+
+```
+Week 1: L1 (密碼策略, 0.5h) → L2 (帳號鎖定, 4h)
+         ↳ 無依賴，可立即執行
+
+Week 2: L3 (密碼重設, 6h)
+         ↳ 依賴 Email 服務設定
+
+Week 3: L4 (Session UI, 4h) → L7 (登入歷史, 3h)
+         ↳ 共用 UserSession 查詢
+
+Week 4-5: L5 (TOTP MFA, 10h)
+           ↳ 獨立模組，需新增 pyotp + qrcode 依賴
+
+Week 5: L6 (Email 驗證, 4h)
+         ↳ 依賴 L3 的 Email 服務
+```
+
+### 11.4 驗收標準
+
+- [ ] 密碼變更時驗證策略 (12 字元+複雜度)
+- [ ] 5 次錯誤密碼後帳號鎖定 15 分鐘
+- [ ] 密碼重設 email 15 分鐘內可用，過期後失效
+- [ ] ProfilePage 可查看/終止所有活躍 Session
+- [ ] TOTP 設定 + QR code + backup codes 完整流程
+- [ ] 新帳號收到驗證 email
+- [ ] 登入歷史可查看 30 天內紀錄
 
 ---
 

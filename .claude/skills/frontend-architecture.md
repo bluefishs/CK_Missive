@@ -1,7 +1,7 @@
 # 前端架構規範 (Frontend Architecture)
 
-> **版本**: 1.4.0
-> **更新日期**: 2026-01-29
+> **版本**: 1.5.0
+> **更新日期**: 2026-02-08
 > **適用範圍**: frontend/src/**
 
 ---
@@ -463,6 +463,176 @@ useEffect(() => {
 - **開發模式** (`AUTH_DISABLED=true`)：使用動態 API 載入，跳過權限過濾
 - **正式模式**：使用動態 API 載入，根據用戶權限過濾導覽項目
 - **API 失敗時**：使用靜態選單 `getStaticMenuItems()` 作為備用
+
+---
+
+## 八、響應式設計規範 (RWD) (v1.5.0 新增)
+
+### 8.1 Breakpoint 系統
+
+| 名稱 | 範圍 | 說明 |
+|------|------|------|
+| `xs` | 0 - 575px | 手機直式 |
+| `sm` | 576 - 767px | 手機橫式 |
+| `md` | 768 - 991px | 平板 |
+| `lg` | 992 - 1199px | 小桌面 |
+| `xl` | 1200 - 1599px | 標準桌面 |
+| `xxl` | 1600px+ | 大螢幕 |
+
+### 8.2 必用 Hook: `useResponsive()`
+
+所有頁面元件必須使用 `useResponsive()` Hook 進行裝置判斷，禁止自行實作媒體查詢邏輯。
+
+```typescript
+import { useResponsive } from '../hooks/useResponsive';
+
+function MyPage() {
+  const { isMobile, isTablet, isDesktop, responsiveValue } = useResponsive();
+
+  // 根據裝置類型回傳對應值
+  const columns = responsiveValue({ xs: 1, md: 2, xl: 3 });
+  const fontSize = responsiveValue({ xs: 14, md: 16 });
+
+  return <div style={{ fontSize }}>{/* ... */}</div>;
+}
+```
+
+### 8.3 Layout 規範
+
+#### 側邊欄行動版自動收合
+
+```typescript
+// ✅ 正確 - 行動版自動隱藏側邊欄
+const { isMobile } = useResponsive();
+
+<Layout.Content style={{
+  marginLeft: isMobile ? 0 : collapsed ? 80 : 200,
+  transition: 'margin-left 0.2s',
+}}>
+  {children}
+</Layout.Content>
+```
+
+#### ResponsiveContainer 元件
+
+| 元件 | 說明 |
+|------|------|
+| `ShowOn` | 僅在指定斷點以上顯示 |
+| `HideOn` | 在指定斷點以下隱藏 |
+| `ResponsiveSpace` | 根據螢幕調整間距 |
+| `ResponsiveRow` | 根據螢幕調整 Row gutter |
+
+```tsx
+// ✅ 使用 ResponsiveContainer 元件
+<ShowOn breakpoint="md">
+  <SidePanel />
+</ShowOn>
+
+<HideOn breakpoint="sm">
+  <DetailedInfo />
+</HideOn>
+
+<ResponsiveSpace size={responsiveValue({ xs: 8, md: 16, xl: 24 })}>
+  {children}
+</ResponsiveSpace>
+```
+
+### 8.4 Table 規範
+
+#### 必須設定水平捲軸
+
+```tsx
+// ✅ 正確 - 設定 scroll.x
+<Table
+  columns={columns}
+  dataSource={data}
+  scroll={{ x: responsiveValue(RESPONSIVE_TABLE.scrollX) }}
+/>
+
+// ❌ 禁止 - Table 不設定 scroll.x
+<Table columns={columns} dataSource={data} />
+```
+
+#### 行動版隱藏非關鍵欄位
+
+```tsx
+const { isMobile } = useResponsive();
+
+const columns = useMemo(() => {
+  const base = [
+    { title: '文號', dataIndex: 'doc_number', key: 'doc_number' },
+    { title: '主旨', dataIndex: 'subject', key: 'subject' },
+  ];
+
+  if (!isMobile) {
+    base.push(
+      { title: '日期', dataIndex: 'doc_date', key: 'doc_date' },
+      { title: '承辦人', dataIndex: 'assignee', key: 'assignee' },
+    );
+  }
+
+  return base;
+}, [isMobile]);
+```
+
+#### 小螢幕使用卡片模式
+
+```tsx
+const { isMobile } = useResponsive();
+
+return isMobile ? (
+  <List
+    dataSource={data}
+    renderItem={(item) => (
+      <Card size="small" title={item.doc_number}>
+        <p>{item.subject}</p>
+      </Card>
+    )}
+  />
+) : (
+  <Table columns={columns} dataSource={data} scroll={{ x: 1200 }} />
+);
+```
+
+### 8.5 Form 規範
+
+#### 響應式欄位佈局
+
+- `md` 以上 (>=768px): 2 欄佈局
+- `md` 以下 (<768px): 1 欄佈局
+
+```tsx
+// ✅ 正確 - 使用 Col xs={24} md={12} 模式
+<Row gutter={16}>
+  <Col xs={24} md={12}>
+    <Form.Item name="doc_number" label="文號">
+      <Input />
+    </Form.Item>
+  </Col>
+  <Col xs={24} md={12}>
+    <Form.Item name="doc_date" label="日期">
+      <DatePicker style={{ width: '100%' }} />
+    </Form.Item>
+  </Col>
+</Row>
+
+// ❌ 禁止 - 固定欄位寬度
+<Row>
+  <Col span={12}>  {/* 在小螢幕會擠壓 */}
+    <Form.Item name="doc_number" label="文號">
+      <Input />
+    </Form.Item>
+  </Col>
+</Row>
+```
+
+### 8.6 禁止事項
+
+| 禁止事項 | 正確做法 |
+|----------|---------|
+| 硬編碼 px 寬度 (如 `width: 300px`) | 使用 `responsiveValue({ xs: '100%', md: 300 })` |
+| 不使用 `useResponsive` 的頁面元件 | 所有頁面元件必須引入 `useResponsive()` |
+| Table 不設定 `scroll.x` | 必須設定 `scroll={{ x: responsiveValue(...) }}` |
 
 ---
 

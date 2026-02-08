@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.database import get_async_db
 from app.core.auth_service import AuthService, security
 from app.core.config import settings
+from app.core.password_policy import validate_password
 from app.schemas.auth import UserProfile, ProfileUpdate, PasswordChange
 from app.extended.models import User
 from app.repositories.user_repository import UserRepository
@@ -180,6 +181,17 @@ async def change_password(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="目前密碼不正確"
+            )
+
+        # 密碼策略驗證
+        is_valid, message = validate_password(
+            password_data.new_password,
+            username=user.username
+        )
+        if not is_valid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=message
             )
 
         user.password_hash = AuthService.get_password_hash(password_data.new_password)

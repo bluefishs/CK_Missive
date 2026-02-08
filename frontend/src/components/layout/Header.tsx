@@ -8,6 +8,7 @@ import { Layout, Typography, Button, Avatar, Dropdown, Space } from 'antd';
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  MenuOutlined,
   UserOutlined,
   LogoutOutlined,
   ProfileOutlined
@@ -26,13 +27,16 @@ interface HeaderProps {
   onToggleCollapse: () => void;
   currentUser: UserInfo | null;
   onUserLogout: () => void;
+  /** 是否為行動裝置模式 */
+  isMobile?: boolean;
 }
 
 const Header: React.FC<HeaderProps> = ({
   collapsed,
   onToggleCollapse,
   currentUser,
-  onUserLogout
+  onUserLogout,
+  isMobile = false,
 }) => {
   const navigate = useNavigate();
 
@@ -94,7 +98,7 @@ const Header: React.FC<HeaderProps> = ({
       <div style={{ display: 'flex', alignItems: 'center' }}>
         <Button
           type="text"
-          icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+          icon={isMobile ? <MenuOutlined /> : (collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />)}
           onClick={onToggleCollapse}
           style={{
             fontSize: '16px',

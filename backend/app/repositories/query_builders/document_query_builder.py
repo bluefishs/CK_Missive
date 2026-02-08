@@ -15,9 +15,9 @@ DocumentQueryBuilder - 公文查詢建構器
         .execute()
     )
 
-版本: 1.1.0
+版本: 2.0.0
 建立日期: 2026-02-06
-更新: 2026-02-06 - 新增 similarity 排序、多關鍵字 OR/AND 模式
+更新: 2026-02-08 - 新增 pgvector 語意搜尋與混合排序支援
 參見: docs/SERVICE_ARCHITECTURE_STANDARDS.md
 """
 
@@ -84,6 +84,9 @@ class DocumentQueryBuilder:
         self._offset: Optional[int] = None
         self._limit: Optional[int] = None
         self._similarity_text: Optional[str] = None  # similarity 排序用
+        self._semantic_embedding: Optional[List[float]] = None  # 語意搜尋向量
+        self._semantic_weight: float = 0.4  # 語意搜尋權重
+        self._trigram_weight: float = 0.6  # 三元組搜尋權重
 
     # =========================================================================
     # 狀態篩選
@@ -395,6 +398,34 @@ class DocumentQueryBuilder:
         return self
 
     # =========================================================================
+    # 語意搜尋
+    # =========================================================================
+
+    def with_semantic_search(
+        self,
+        embedding: List[float],
+        weight: float = 0.4,
+    ) -> 'DocumentQueryBuilder':
+        """
+        啟用語意向量搜尋 (pgvector cosine distance)
+
+        搭配 with_relevance_order() 使用時，會啟用混合搜尋模式：
+        - hybrid_score = trigram_weight * trigram_similarity + semantic_weight * (1 - cosine_distance)
+
+        單獨使用時，僅按向量相似度排序。
+
+        Args:
+            embedding: 查詢向量 (384 維)
+            weight: 語意搜尋權重 (0-1)，搭配 trigram_weight 使用
+        """
+        self._semantic_embedding = embedding
+        self._semantic_weight = weight
+        self._trigram_weight = 1.0 - weight
+        # 過濾只有 embedding 的文件
+        self._conditions.append(self.model.embedding.isnot(None))
+        return self
+
+    # =========================================================================
     # 排序與分頁
     # =========================================================================
 
@@ -480,7 +511,28 @@ class DocumentQueryBuilder:
             query = query.where(and_(*self._conditions))
 
         # 套用排序
-        if self._similarity_text and not self._order_columns:
+        if self._similarity_text and self._semantic_embedding and not self._order_columns:
+            # 混合搜尋模式: pg_trgm similarity + pgvector cosine distance
+            trigram_score = func.greatest(
+                func.similarity(self.model.subject, self._similarity_text),
+                func.similarity(self.model.sender, self._similarity_text),
+            )
+            # cosine_distance 返回 0~2 (0=完全相同)，轉為相似度 (1 - distance)
+            semantic_score = (
+                1.0 - self.model.embedding.cosine_distance(self._semantic_embedding)
+            )
+            hybrid_score = (
+                literal_column(str(self._trigram_weight)) * trigram_score
+                + literal_column(str(self._semantic_weight)) * semantic_score
+            )
+            query = query.order_by(desc(hybrid_score), desc(self.model.updated_at))
+        elif self._semantic_embedding and not self._order_columns:
+            # 純語意搜尋模式: 僅使用 pgvector cosine distance
+            query = query.order_by(
+                self.model.embedding.cosine_distance(self._semantic_embedding),
+                desc(self.model.updated_at),
+            )
+        elif self._similarity_text and not self._order_columns:
             # 使用 pg_trgm similarity() 做相關性排序
             sim_score = func.greatest(
                 func.similarity(self.model.subject, self._similarity_text),

@@ -9,6 +9,7 @@ import { Card, Typography, Alert, Spin, Space, Button, Divider } from 'antd';
 import { ApiOutlined, ReloadOutlined, ExportOutlined } from '@ant-design/icons';
 import SwaggerUI from 'swagger-ui-react';
 import 'swagger-ui-react/swagger-ui.css';
+import { ResponsiveContent } from '../components/common';
 import { SERVER_BASE_URL } from '../api/client';
 import './ApiDocumentationPage.css';
 import { logger } from '../utils/logger';
@@ -109,18 +110,18 @@ const ApiDocumentationPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div style={{ padding: '24px', textAlign: 'center' }}>
+      <ResponsiveContent maxWidth="full" padding="medium" style={{ textAlign: 'center' }}>
         <Spin size="large" />
         <div style={{ marginTop: '16px' }}>
           <Text>載入 API 文件中...</Text>
         </div>
-      </div>
+      </ResponsiveContent>
     );
   }
 
   if (error) {
     return (
-      <div style={{ padding: '24px' }}>
+      <ResponsiveContent maxWidth="full" padding="medium">
         <Alert
           message="載入失敗"
           description={`無法載入 API 文件：${error}`}
@@ -132,12 +133,12 @@ const ApiDocumentationPage: React.FC = () => {
             </Button>
           }
         />
-      </div>
+      </ResponsiveContent>
     );
   }
 
   return (
-    <div style={{ padding: '24px' }}>
+    <ResponsiveContent maxWidth="full" padding="medium">
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
         
         {/* 頁面標題 */}
@@ -240,7 +241,7 @@ const ApiDocumentationPage: React.FC = () => {
         </Card>
 
       </Space>
-    </div>
+    </ResponsiveContent>
   );
 };
 

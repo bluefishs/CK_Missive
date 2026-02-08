@@ -10,7 +10,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Form, Input, Select, Row, Col, App, Modal } from 'antd';
+import { Form, Input, Select, App, Modal } from 'antd';
+import { ResponsiveFormRow } from '../components/common/ResponsiveFormRow';
 import { ExclamationCircleOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FormPageLayout } from '../components/common/FormPage';
@@ -159,43 +160,35 @@ export const AgencyFormPage: React.FC = () => {
       deleting={deleteMutation.isPending}
     >
       <Form form={form} layout="vertical" size="large">
-        <Row gutter={16}>
-          <Col xs={24} sm={12}>
-            <Form.Item
-              name="agency_name"
-              label="機關名稱"
-              rules={[{ required: true, message: '請輸入機關名稱' }]}
-            >
-              <Input placeholder="請輸入機關全名" />
-            </Form.Item>
-          </Col>
-          <Col xs={24} sm={12}>
-            <Form.Item
-              name="agency_short_name"
-              label="機關簡稱"
-              tooltip="可用於公文顯示的簡短名稱"
-            >
-              <Input placeholder="請輸入機關簡稱" />
-            </Form.Item>
-          </Col>
-        </Row>
+        <ResponsiveFormRow>
+          <Form.Item
+            name="agency_name"
+            label="機關名稱"
+            rules={[{ required: true, message: '請輸入機關名稱' }]}
+          >
+            <Input placeholder="請輸入機關全名" />
+          </Form.Item>
+          <Form.Item
+            name="agency_short_name"
+            label="機關簡稱"
+            tooltip="可用於公文顯示的簡短名稱"
+          >
+            <Input placeholder="請輸入機關簡稱" />
+          </Form.Item>
+        </ResponsiveFormRow>
 
-        <Row gutter={16}>
-          <Col xs={24} sm={12}>
-            <Form.Item name="agency_code" label="機關代碼">
-              <Input placeholder="請輸入機關代碼" />
-            </Form.Item>
-          </Col>
-          <Col xs={24} sm={12}>
-            <Form.Item name="agency_type" label="機關類型">
-              <Select
-                placeholder="請選擇機關類型"
-                options={[...AGENCY_CATEGORY_OPTIONS]}
-                allowClear
-              />
-            </Form.Item>
-          </Col>
-        </Row>
+        <ResponsiveFormRow>
+          <Form.Item name="agency_code" label="機關代碼">
+            <Input placeholder="請輸入機關代碼" />
+          </Form.Item>
+          <Form.Item name="agency_type" label="機關類型">
+            <Select
+              placeholder="請選擇機關類型"
+              options={[...AGENCY_CATEGORY_OPTIONS]}
+              allowClear
+            />
+          </Form.Item>
+        </ResponsiveFormRow>
 
         <Form.Item name="address" label="地址">
           <Input.TextArea rows={2} placeholder="請輸入地址" />

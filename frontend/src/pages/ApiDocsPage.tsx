@@ -7,7 +7,8 @@
 import React from 'react';
 import SwaggerUI from 'swagger-ui-react';
 import 'swagger-ui-react/swagger-ui.css';
-import { Card, Typography, Spin, Alert } from 'antd';
+import { Card, Typography } from 'antd';
+import { ResponsiveContent } from '../components/common';
 import { SERVER_BASE_URL } from '../api/client';
 
 const { Title, Paragraph } = Typography;
@@ -18,7 +19,7 @@ export const ApiDocumentationPage: React.FC = () => {
   const swaggerUrl = `${baseUrl}/openapi.json`; // Backend OpenAPI JSON endpoint
 
   return (
-    <div style={{ padding: '24px' }}>
+    <ResponsiveContent maxWidth="full" padding="medium">
       <Title level={2}>API 文件與測試介面</Title>
       <Paragraph>
         本頁面整合了後端 API 的 Swagger UI 文件，您可以直接在此處檢視所有 API 端點並進行測試。
@@ -27,7 +28,7 @@ export const ApiDocumentationPage: React.FC = () => {
       <Card style={{ minHeight: '600px' }}>
         <SwaggerUI url={swaggerUrl} />
       </Card>
-    </div>
+    </ResponsiveContent>
   );
 };
 

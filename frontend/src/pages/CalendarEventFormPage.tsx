@@ -10,6 +10,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { ResponsiveContent } from '../components/common';
 import {
   Card,
   Form,
@@ -225,14 +226,14 @@ const CalendarEventFormPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div style={{ padding: 24, textAlign: 'center' }}>
+      <ResponsiveContent maxWidth="full" padding="medium" style={{ textAlign: 'center' }}>
         <Spin size="large" />
-      </div>
+      </ResponsiveContent>
     );
   }
 
   return (
-    <div style={{ padding: 24 }}>
+    <ResponsiveContent maxWidth="full" padding="medium">
       <Card>
         {/* Header */}
         <div style={{ marginBottom: 24 }}>
@@ -418,7 +419,7 @@ const CalendarEventFormPage: React.FC = () => {
           </Row>
         </Form>
       </Card>
-    </div>
+    </ResponsiveContent>
   );
 };
 

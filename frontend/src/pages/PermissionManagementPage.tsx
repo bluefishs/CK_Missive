@@ -10,6 +10,7 @@
  * @date 2026-02-02
  */
 import React, { useMemo } from 'react';
+import { ResponsiveContent } from '../components/common';
 import {
   Card,
   Typography,
@@ -18,7 +19,6 @@ import {
   Alert,
   Row,
   Col,
-  Table,
   Tag,
   Tooltip
 } from 'antd';
@@ -34,6 +34,7 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useNavigate } from 'react-router-dom';
+import { ResponsiveTable } from '../components/common';
 
 import {
   PERMISSION_CATEGORIES,
@@ -194,7 +195,7 @@ const PermissionManagementPage: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '24px' }}>
+    <ResponsiveContent maxWidth="full" padding="medium">
       <Card>
         {/* 標題區 */}
         <div style={{ marginBottom: '24px' }}>
@@ -239,11 +240,13 @@ const PermissionManagementPage: React.FC = () => {
         />
 
         {/* 角色列表 */}
-        <Table
+        <ResponsiveTable
           columns={columns}
           dataSource={rolesData}
           rowKey="key"
           pagination={false}
+          scroll={{ x: 600 }}
+          mobileHiddenColumns={['description', 'status']}
           expandable={{
             expandedRowRender,
             rowExpandable: () => true,
@@ -273,7 +276,7 @@ const PermissionManagementPage: React.FC = () => {
           </Row>
         </div>
       </Card>
-    </div>
+    </ResponsiveContent>
   );
 };
 

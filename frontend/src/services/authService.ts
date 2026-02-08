@@ -61,6 +61,23 @@ export interface TokenResponse {
   expires_in: number;
   refresh_token?: string;
   user_info: UserInfo;
+  // MFA 相關欄位
+  mfa_required?: boolean;
+  mfa_token?: string;
+}
+
+/**
+ * MFA 需要驗證的錯誤
+ * 當登入成功但需要 MFA 驗證時拋出
+ */
+export class MFARequiredError extends Error {
+  public readonly mfa_token: string;
+
+  constructor(mfaToken: string) {
+    super('MFA 驗證必要');
+    this.name = 'MFARequiredError';
+    this.mfa_token = mfaToken;
+  }
 }
 
 export interface JwtPayload {
@@ -147,6 +164,10 @@ class AuthService {
 
   /**
    * 傳統帳密登入
+   *
+   * v2.1.0: 支援 MFA 流程
+   * 當後端回傳 mfa_required: true 時，拋出 MFARequiredError，
+   * 呼叫端需攔截此錯誤並導向 MFA 驗證頁面。
    */
   async login(credentials: LoginRequest): Promise<TokenResponse> {
     const formData = new FormData();
@@ -159,17 +180,29 @@ class AuthService {
       },
     });
 
+    // MFA 流程：密碼正確但需要 TOTP 驗證
+    if (response.data.mfa_required && response.data.mfa_token) {
+      throw new MFARequiredError(response.data.mfa_token);
+    }
+
     this.saveAuthData(response.data);
     return response.data;
   }
 
   /**
    * Google OAuth 登入
+   *
+   * v2.1.0: 支援 MFA 流程
    */
   async googleLogin(credential: string): Promise<TokenResponse> {
     const response: AxiosResponse<TokenResponse> = await this.axios.post('/auth/google', {
       credential,
     });
+
+    // MFA 流程：Google 認證成功但需要 TOTP 驗證
+    if (response.data.mfa_required && response.data.mfa_token) {
+      throw new MFARequiredError(response.data.mfa_token);
+    }
 
     this.saveAuthData(response.data);
     return response.data;

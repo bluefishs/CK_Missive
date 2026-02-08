@@ -15,6 +15,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import { Card, Typography, Table, Spin, Alert } from 'antd';
+import { ResponsiveContent } from '../components/common';
 
 const { Title, Paragraph } = Typography;
 
@@ -140,7 +141,7 @@ export const ApiMappingDisplayPage: React.FC = () => {
   ];
 
   return (
-    <div style={{ padding: '24px' }}>
+    <ResponsiveContent maxWidth="full" padding="medium">
       <Title level={2}>前端功能與後端 API 對應關係 (開發版)</Title>
       <Paragraph>
         本頁面展示了前端功能與後端 API 端點之間的對應關係。
@@ -176,6 +177,6 @@ export const ApiMappingDisplayPage: React.FC = () => {
           />
         </Card>
       )}
-    </div>
+    </ResponsiveContent>
   );
 };

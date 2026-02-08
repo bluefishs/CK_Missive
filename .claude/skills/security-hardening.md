@@ -565,6 +565,247 @@ DEVELOPMENT_MODE=false
 
 ---
 
+## 六、帳號安全強化規範
+
+### 6.1 密碼策略
+
+| 規則 | 要求 |
+|------|------|
+| 最低長度 | 12 字元 |
+| 大寫字母 | 至少 1 個 |
+| 小寫字母 | 至少 1 個 |
+| 數字 | 至少 1 個 |
+| 特殊字元 | 至少 1 個 (`!@#$%^&*()_+-=`) |
+| 常見密碼 | 禁止使用 (比對 NIST 黑名單) |
+| 密碼歷史 | 禁止重複最近 5 組密碼 |
+
+```python
+# backend/app/core/password_policy.py
+
+import re
+
+COMMON_PASSWORDS = {"password", "12345678", "qwerty123", ...}  # NIST 黑名單
+PASSWORD_MIN_LENGTH = 12
+
+def validate_password_policy(password: str) -> list[str]:
+    """驗證密碼是否符合策略，回傳錯誤訊息列表"""
+    errors = []
+
+    if len(password) < PASSWORD_MIN_LENGTH:
+        errors.append(f"密碼長度至少 {PASSWORD_MIN_LENGTH} 字元")
+    if not re.search(r'[A-Z]', password):
+        errors.append("密碼必須包含大寫字母")
+    if not re.search(r'[a-z]', password):
+        errors.append("密碼必須包含小寫字母")
+    if not re.search(r'[0-9]', password):
+        errors.append("密碼必須包含數字")
+    if not re.search(r'[!@#$%^&*()_+\-=]', password):
+        errors.append("密碼必須包含特殊字元")
+    if password.lower() in COMMON_PASSWORDS:
+        errors.append("密碼過於常見，請選擇更安全的密碼")
+
+    return errors
+```
+
+### 6.2 帳號鎖定機制
+
+| 規則 | 設定 |
+|------|------|
+| 失敗次數上限 | 5 次 |
+| 鎖定時間 | 15 分鐘 |
+| 成功登入 | 重置失敗計數 |
+| 鎖定期間行為 | 回傳相同錯誤訊息（防止帳號枚舉） |
+
+```python
+# backend/app/core/account_lockout.py
+
+from datetime import datetime, timedelta
+
+MAX_FAILED_ATTEMPTS = 5
+LOCKOUT_DURATION_MINUTES = 15
+
+async def check_account_lockout(user_id: int, db: AsyncSession) -> bool:
+    """檢查帳號是否被鎖定"""
+    stmt = select(User).where(User.id == user_id)
+    user = (await db.execute(stmt)).scalar_one_or_none()
+
+    if not user:
+        return False
+
+    if user.failed_login_attempts >= MAX_FAILED_ATTEMPTS:
+        lockout_until = user.last_failed_login + timedelta(minutes=LOCKOUT_DURATION_MINUTES)
+        if datetime.utcnow() < lockout_until:
+            return True  # 帳號仍在鎖定中
+        # 鎖定時間已過，重置計數
+        user.failed_login_attempts = 0
+        await db.flush()
+
+    return False
+
+async def record_failed_login(user_id: int, db: AsyncSession):
+    """記錄登入失敗"""
+    stmt = select(User).where(User.id == user_id)
+    user = (await db.execute(stmt)).scalar_one_or_none()
+    if user:
+        user.failed_login_attempts += 1
+        user.last_failed_login = datetime.utcnow()
+        await db.flush()
+
+async def reset_failed_login(user_id: int, db: AsyncSession):
+    """成功登入後重置失敗計數"""
+    stmt = select(User).where(User.id == user_id)
+    user = (await db.execute(stmt)).scalar_one_or_none()
+    if user:
+        user.failed_login_attempts = 0
+        user.last_failed_login = None
+        await db.flush()
+```
+
+### 6.3 Session 管理
+
+| 功能 | 說明 |
+|------|------|
+| 活躍 Session 查詢 | 用戶可查看所有活躍 Session（裝置、IP、最後活動時間） |
+| 單一登出 | 可登出指定 Session |
+| 全部登出 | 一鍵撤銷所有裝置的 Session |
+| Session 資訊 | 記錄 User-Agent、IP、登入時間 |
+
+```python
+# backend/app/api/endpoints/auth.py
+
+@router.get("/auth/sessions")
+async def list_active_sessions(
+    current_user: User = Depends(require_auth),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """查詢當前用戶的所有活躍 Session"""
+    stmt = select(UserSession).where(
+        UserSession.user_id == current_user.id,
+        UserSession.is_revoked == False,
+        UserSession.expires_at > datetime.utcnow(),
+    )
+    sessions = (await db.execute(stmt)).scalars().all()
+    return [
+        {
+            "session_id": s.id,
+            "device": s.user_agent,
+            "ip_address": s.ip_address,
+            "last_activity": s.last_activity,
+            "created_at": s.created_at,
+        }
+        for s in sessions
+    ]
+
+@router.post("/auth/sessions/revoke-all")
+async def revoke_all_sessions(
+    current_user: User = Depends(require_auth),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """一鍵登出所有裝置"""
+    stmt = (
+        update(UserSession)
+        .where(
+            UserSession.user_id == current_user.id,
+            UserSession.is_revoked == False,
+        )
+        .values(is_revoked=True)
+    )
+    await db.execute(stmt)
+    await db.commit()
+    return {"message": "已撤銷所有 Session"}
+```
+
+### 6.4 多因素認證 (MFA)
+
+| 規則 | 設定 |
+|------|------|
+| 標準 | TOTP (RFC 6238) |
+| 備份碼 | 10 組一次性備份碼 |
+| admin 角色 | 強制啟用 MFA |
+| 一般用戶 | 建議啟用，非強制 |
+| 備份碼格式 | 8 字元英數組合 |
+
+```python
+# backend/app/core/mfa.py
+
+import pyotp
+import secrets
+
+def generate_totp_secret() -> str:
+    """產生 TOTP 密鑰"""
+    return pyotp.random_base32()
+
+def verify_totp(secret: str, token: str) -> bool:
+    """驗證 TOTP token"""
+    totp = pyotp.TOTP(secret)
+    return totp.verify(token, valid_window=1)  # 允許前後 30 秒
+
+def generate_backup_codes(count: int = 10) -> list[str]:
+    """產生一次性備份碼"""
+    return [secrets.token_hex(4) for _ in range(count)]
+
+# admin 角色強制 MFA 檢查
+async def enforce_mfa_for_admin(user: User, db: AsyncSession):
+    """admin 角色必須啟用 MFA"""
+    if user.role == "admin" and not user.mfa_enabled:
+        raise HTTPException(
+            status_code=403,
+            detail="管理員帳號必須啟用多因素認證，請先至設定頁面啟用 MFA",
+        )
+```
+
+### 6.5 密碼重設流程
+
+| 步驟 | 說明 |
+|------|------|
+| 1. 發送重設請求 | 用戶提供 email |
+| 2. 產生 token | 隨機 token，有效期 15 分鐘 |
+| 3. 發送 email | 包含重設連結 |
+| 4. 驗證 token | 檢查有效期與一次性使用 |
+| 5. 重設密碼 | 套用新密碼策略驗證 |
+| 6. 撤銷 Session | 重設後撤銷該用戶所有 Session |
+
+```python
+# backend/app/core/password_reset.py
+
+from datetime import datetime, timedelta
+import secrets
+
+RESET_TOKEN_EXPIRE_MINUTES = 15
+
+async def create_password_reset_token(email: str, db: AsyncSession) -> str:
+    """建立密碼重設 token"""
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.utcnow() + timedelta(minutes=RESET_TOKEN_EXPIRE_MINUTES)
+
+    # 儲存 token（建議使用獨立的 password_reset_tokens 表）
+    # ...
+    return token
+
+async def reset_password_with_token(
+    token: str, new_password: str, db: AsyncSession
+):
+    """使用 token 重設密碼"""
+    # 1. 驗證 token 有效性（存在、未過期、未使用）
+    # 2. 驗證新密碼符合策略
+    errors = validate_password_policy(new_password)
+    if errors:
+        raise HTTPException(400, detail=errors)
+
+    # 3. 更新密碼
+    user.password_hash = get_password_hash(new_password)
+
+    # 4. 標記 token 已使用
+    reset_record.used_at = datetime.utcnow()
+
+    # 5. 撤銷該用戶所有 Session（強制重新登入）
+    await revoke_all_user_sessions(user.id, db)
+
+    await db.commit()
+```
+
+---
+
 ## 安全檢查清單
 
 ### 每次部署前

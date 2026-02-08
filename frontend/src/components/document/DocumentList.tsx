@@ -10,8 +10,9 @@
  */
 
 import React, { useState, useRef, useCallback, useMemo } from 'react';
-import { Table, Button, Space, Empty, Input, InputRef, App } from 'antd';
+import { Button, Space, Empty, Input, InputRef, App } from 'antd';
 import type { TableProps } from 'antd';
+import { ResponsiveTable } from '../common';
 import type {
   TablePaginationConfig,
   FilterValue,
@@ -350,7 +351,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
           />
         )}
       </Space>
-      <Table {...tableProps} />
+      <ResponsiveTable {...tableProps} mobileHiddenColumns={['category', 'status', 'created_at']} />
     </>
   );
 };

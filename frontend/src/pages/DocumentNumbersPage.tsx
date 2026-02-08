@@ -12,6 +12,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { logger } from '../services/logger';
+import { ResponsiveContent } from '../components/common';
 import {
   Card,
   Button,
@@ -280,7 +281,7 @@ export const DocumentNumbersPage: React.FC = () => {
   // ==========================================================================
 
   return (
-    <div style={{ padding: '24px' }}>
+    <ResponsiveContent maxWidth="full" padding="medium">
       {/* 頁面標題 */}
       <div
         style={{
@@ -436,7 +437,7 @@ export const DocumentNumbersPage: React.FC = () => {
         onClose={() => setDocumentOperation({ type: null, document: null, visible: false })}
         onSave={handleSaveDocument}
       /> */}
-    </div>
+    </ResponsiveContent>
   );
 };
 

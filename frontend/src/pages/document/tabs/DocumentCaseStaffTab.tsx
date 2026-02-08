@@ -9,9 +9,8 @@ import React from 'react';
 import {
   Form,
   Select,
-  Row,
-  Col,
 } from 'antd';
+import { ResponsiveFormRow } from '../../../components/common/ResponsiveFormRow';
 import { logger } from '../../../utils/logger';
 import type { DocumentCaseStaffTabProps } from './types';
 
@@ -75,42 +74,38 @@ export const DocumentCaseStaffTab: React.FC<DocumentCaseStaffTabProps> = ({
 
   return (
     <Form form={form} layout="vertical" disabled={!isEditing}>
-      <Row gutter={16}>
-        <Col span={12}>
-          <Form.Item label="承攬案件" name="contract_project_id">
-            <Select
-              placeholder="請選擇承攬案件"
-              loading={casesLoading || staffLoading}
-              allowClear
-              showSearch
-              filterOption={(input, option) =>
-                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-              }
-              onChange={onProjectChange}
-              options={cases.map((case_) => ({
-                value: case_.id,
-                label: case_.project_name || '未命名案件',
-                key: case_.id,
-              }))}
-            />
-          </Form.Item>
-        </Col>
-        <Col span={12}>
-          <Form.Item label="業務同仁" name="assignee">
-            <Select
-              mode="multiple"
-              placeholder="請選擇業務同仁（可複選）"
-              loading={staffLoading || usersLoading}
-              allowClear
-              showSearch
-              filterOption={(input, option) =>
-                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-              }
-              options={buildAssigneeOptions()}
-            />
-          </Form.Item>
-        </Col>
-      </Row>
+      <ResponsiveFormRow>
+        <Form.Item label="承攬案件" name="contract_project_id">
+          <Select
+            placeholder="請選擇承攬案件"
+            loading={casesLoading || staffLoading}
+            allowClear
+            showSearch
+            filterOption={(input, option) =>
+              (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+            }
+            onChange={onProjectChange}
+            options={cases.map((case_) => ({
+              value: case_.id,
+              label: case_.project_name || '未命名案件',
+              key: case_.id,
+            }))}
+          />
+        </Form.Item>
+        <Form.Item label="業務同仁" name="assignee">
+          <Select
+            mode="multiple"
+            placeholder="請選擇業務同仁（可複選）"
+            loading={staffLoading || usersLoading}
+            allowClear
+            showSearch
+            filterOption={(input, option) =>
+              (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+            }
+            options={buildAssigneeOptions()}
+          />
+        </Form.Item>
+      </ResponsiveFormRow>
     </Form>
   );
 };

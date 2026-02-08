@@ -3,22 +3,27 @@
 
 包含: /login, /google, /register
 
-v3.1.0 - 2026-02-07
+v3.2.0 - 2026-02-08
+- 新增 MFA 雙因素認證支援
+- 登入成功後檢查 MFA 狀態，若啟用則返回 mfa_required + mfa_token
 - 登入成功後設定 httpOnly cookie（同時保留 JSON body 向後相容）
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
+from jose import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import Response, JSONResponse
 
 from app.core.rate_limiter import limiter
 
 from app.db.database import get_async_db
-from app.core.auth_service import AuthService
+from app.core.auth_service import AuthService, ALGORITHM
+from app.core.config import settings
+from app.core.mfa_service import MFA_TOKEN_EXPIRE_SECONDS
 from app.schemas.auth import (
     UserRegister,
     GoogleAuthRequest,
@@ -32,6 +37,23 @@ from .common import get_client_info
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def _create_mfa_token(user: User) -> str:
+    """
+    建立 MFA 臨時 token
+
+    此 token 僅用於 MFA 驗證流程，不是完整的 access_token。
+    有效期為 5 分鐘。
+    """
+    expire = datetime.utcnow() + timedelta(seconds=MFA_TOKEN_EXPIRE_SECONDS)
+    payload = {
+        "sub": str(user.id),
+        "type": "mfa_pending",
+        "exp": expire,
+        "iat": datetime.utcnow(),
+    }
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=ALGORITHM)
 
 
 @router.post("/login", response_model=TokenResponse, summary="帳號密碼登入")
@@ -72,6 +94,18 @@ async def login_for_access_token(
 
         ip_address, user_agent = get_client_info(request)
 
+        # 檢查 MFA 狀態
+        if user.mfa_enabled and user.mfa_secret:
+            mfa_token = _create_mfa_token(user)
+            logger.info(f"[AUTH] 使用者 {user.id} 需要 MFA 驗證")
+            return JSONResponse(
+                content={
+                    "mfa_required": True,
+                    "mfa_token": mfa_token,
+                    "message": "請輸入雙因素認證驗證碼",
+                },
+            )
+
         token_response = await AuthService.generate_login_response(
             db, user, ip_address, user_agent
         )
@@ -87,6 +121,18 @@ async def login_for_access_token(
         return response
 
     except HTTPException as http_exc:
+        # 帳號鎖定 (423) 時，返回包含剩餘時間的 JSON 回應
+        if http_exc.status_code == 423:
+            locked_until = http_exc.headers.get("X-Locked-Until") if http_exc.headers else None
+            remaining_minutes = http_exc.headers.get("X-Remaining-Minutes") if http_exc.headers else None
+            return JSONResponse(
+                status_code=423,
+                content={
+                    "detail": http_exc.detail,
+                    "locked_until": locked_until,
+                    "remaining_minutes": int(remaining_minutes) if remaining_minutes else None,
+                },
+            )
         raise http_exc
     except Exception as e:
         logger.error(f"[AUTH] 登入服務內部錯誤: {e}", exc_info=True)
@@ -218,7 +264,19 @@ async def google_oauth_login(
                     detail="您的帳戶已被停用，無法登入系統。如有疑問請聯絡管理者。",
                 )
 
-        # 5. 生成登入回應
+        # 5. 檢查 MFA 狀態
+        if user.mfa_enabled and user.mfa_secret:
+            mfa_token = _create_mfa_token(user)
+            logger.info(f"[AUTH] Google 使用者 {user.id} 需要 MFA 驗證")
+            return JSONResponse(
+                content={
+                    "mfa_required": True,
+                    "mfa_token": mfa_token,
+                    "message": "請輸入雙因素認證驗證碼",
+                },
+            )
+
+        # 6. 生成登入回應
         token_response = await AuthService.generate_login_response(
             db, user, ip_address, user_agent
         )

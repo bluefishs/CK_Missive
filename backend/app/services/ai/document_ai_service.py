@@ -1,9 +1,9 @@
 """
 公文 AI 服務
 
-Version: 2.3.0
+Version: 3.0.0
 Created: 2026-02-04
-Updated: 2026-02-07 - 使用 _call_ai_with_validation() 統一回應驗證
+Updated: 2026-02-08 - 整合 pgvector 語意混合搜尋
 
 功能:
 - 公文摘要生成 (帶快取)
@@ -14,13 +14,15 @@ Updated: 2026-02-07 - 使用 _call_ai_with_validation() 統一回應驗證
 - Prompt 模板外部化 (v2.1.0 新增)
 - 同義詞擴展 + 意圖後處理 (v2.2.0 新增)
 - 統一回應驗證層 (v2.3.0 新增)
+- DB Prompt 版本控制整合 (v2.4.0 新增)
+- pgvector 語意混合搜尋 (v3.0.0 新增)
 """
 
 import asyncio
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
 import yaml
 from sqlalchemy import select
@@ -102,6 +104,68 @@ class DocumentAIService(BaseAIService):
     _synonyms: Optional[Dict[str, List[List[str]]]] = None
     _synonym_lookup: Optional[Dict[str, List[str]]] = None
 
+    # DB Prompt 版本快取 (class-level): {feature: {"system": ..., "user_template": ...}}
+    _db_prompt_cache: Optional[Dict[str, Dict[str, Any]]] = None
+    _db_prompts_loaded: bool = False
+
+    @classmethod
+    async def _ensure_db_prompts_loaded(cls) -> None:
+        """
+        確保 DB Prompt 版本已載入至記憶體快取
+
+        從 DB 載入所有 is_active=True 的 prompt 版本。
+        僅在首次呼叫時執行 DB 查詢，之後使用快取。
+        """
+        if cls._db_prompts_loaded:
+            return
+
+        cache: Dict[str, Dict[str, Any]] = {}
+        try:
+            from app.db.database import AsyncSessionLocal
+            from app.extended.models import AIPromptVersion
+
+            async with AsyncSessionLocal() as db:
+                query = select(AIPromptVersion).where(AIPromptVersion.is_active == True)
+                result = await db.execute(query)
+                active_versions = result.scalars().all()
+
+                for v in active_versions:
+                    cache[v.feature] = {
+                        "system": v.system_prompt,
+                        "user_template": v.user_template,
+                    }
+
+            if cache:
+                logger.info(f"已從 DB 載入 {len(cache)} 個 active Prompt 版本: {list(cache.keys())}")
+        except Exception as e:
+            logger.warning(f"從 DB 載入 Prompt 版本失敗，將使用 YAML fallback: {e}")
+
+        cls._db_prompt_cache = cache
+        cls._db_prompts_loaded = True
+
+    @classmethod
+    def _get_system_prompt(cls, feature: str) -> str:
+        """
+        取得指定功能的 system prompt
+
+        優先順序: DB active 版本 > YAML 檔案 > 內建預設值
+
+        注意：需先呼叫 _ensure_db_prompts_loaded() 以確保 DB 快取已載入。
+
+        Args:
+            feature: 功能名稱
+
+        Returns:
+            system prompt 文字
+        """
+        # 1. 嘗試從 DB 快取取得
+        if cls._db_prompt_cache and feature in cls._db_prompt_cache:
+            return cls._db_prompt_cache[feature]["system"]
+
+        # 2. Fallback 到 YAML / 內建預設
+        yaml_prompts = cls._load_prompts()
+        return yaml_prompts.get(feature, {}).get("system", "")
+
     @classmethod
     def _load_prompts(cls) -> Dict[str, Any]:
         """從 YAML 檔案載入 Prompt 模板，失敗時使用內建預設值"""
@@ -134,7 +198,11 @@ class DocumentAIService(BaseAIService):
     @classmethod
     def _load_synonyms(cls) -> Dict[str, List[str]]:
         """
-        從 YAML 檔案載入同義詞字典並建立快速查找索引
+        載入同義詞字典並建立快速查找索引
+
+        載入策略：
+        1. 優先使用已載入的快取（包含 DB 資料或 hot reload 結果）
+        2. Fallback 到 YAML 檔案
 
         Returns:
             {詞彙: [同組所有詞彙]} 的查找表
@@ -142,11 +210,12 @@ class DocumentAIService(BaseAIService):
         if cls._synonym_lookup is not None:
             return cls._synonym_lookup
 
+        # Fallback: 從 YAML 檔案載入
         synonyms_path = Path(__file__).parent / "synonyms.yaml"
         try:
             with open(synonyms_path, "r", encoding="utf-8") as f:
                 cls._synonyms = yaml.safe_load(f)
-            logger.info(f"已載入同義詞字典: {synonyms_path}")
+            logger.info(f"已載入同義詞字典 (YAML fallback): {synonyms_path}")
         except FileNotFoundError:
             logger.warning(f"同義詞字典檔案不存在: {synonyms_path}")
             cls._synonyms = {}
@@ -170,11 +239,111 @@ class DocumentAIService(BaseAIService):
         logger.info(f"同義詞查找索引已建立: {len(lookup)} 個詞彙")
         return cls._synonym_lookup
 
+    @classmethod
+    def reload_synonyms_from_db_sync(cls, synonym_records: list) -> int:
+        """
+        從 DB 記錄重建同義詞查找索引（同步方法，供 reload API 呼叫）
+
+        Args:
+            synonym_records: DB 查詢結果列表，每筆有 words 屬性
+
+        Returns:
+            載入的詞彙數
+        """
+        lookup: Dict[str, List[str]] = {}
+        total_words = 0
+
+        for record in synonym_records:
+            words = [w.strip() for w in record.words.split(",") if w.strip()]
+            total_words += len(words)
+            for word in words:
+                lookup[word] = words
+
+        cls._synonym_lookup = lookup
+        cls._synonyms = None  # 清除 YAML 快取
+        logger.info(f"同義詞查找索引已從 DB 重建: {total_words} 個詞彙")
+        return total_words
+
     def __init__(self, **kwargs: Any):
         super().__init__(**kwargs)
         # 確保 Prompt 模板和同義詞已載入
         self._load_prompts()
         self._load_synonyms()
+
+    def _build_summary_prompt(
+        self,
+        subject: str,
+        content: Optional[str] = None,
+        sender: Optional[str] = None,
+        max_length: int = 100,
+    ) -> Dict[str, str]:
+        """
+        建構摘要生成的 prompt
+
+        Returns:
+            {"system": system_prompt, "user": user_content}
+        """
+        system_prompt = self._get_system_prompt("summary").format(
+            max_length=max_length
+        )
+
+        user_content = f"主旨：{subject}"
+        if sender:
+            user_content += f"\n發文機關：{sender}"
+        if content:
+            user_content += f"\n內容摘要：{content[:500]}"
+
+        return {"system": system_prompt, "user": user_content}
+
+    async def stream_summary(
+        self,
+        subject: str,
+        content: Optional[str] = None,
+        sender: Optional[str] = None,
+        max_length: int = 100,
+    ) -> AsyncGenerator[str, None]:
+        """
+        串流生成公文摘要
+
+        Args:
+            subject: 公文主旨
+            content: 公文內容（可選）
+            sender: 發文機關（可選）
+            max_length: 摘要最大長度
+
+        Yields:
+            每個文字片段 (token)
+        """
+        if not self.is_enabled():
+            yield subject[:max_length] if subject else ""
+            return
+
+        # 確保 DB Prompt 快取已載入
+        await self._ensure_db_prompts_loaded()
+
+        # 檢查速率限制
+        if not self._rate_limiter.can_proceed():
+            wait_time = self._rate_limiter.get_wait_time()
+            await self._stats_manager.record_rate_limit_hit()
+            raise RuntimeError(
+                f"AI 服務請求過於頻繁，請等待 {int(wait_time)} 秒後重試"
+            )
+
+        prompt_data = self._build_summary_prompt(subject, content, sender, max_length)
+
+        messages = [
+            {"role": "system", "content": prompt_data["system"]},
+            {"role": "user", "content": prompt_data["user"]},
+        ]
+
+        self._rate_limiter.record_request()
+
+        async for token in self.connector.stream_completion(
+            messages=messages,
+            temperature=0.3,
+            max_tokens=self.config.summary_max_tokens,
+        ):
+            yield token
 
     async def generate_summary(
         self,
@@ -206,16 +375,12 @@ class DocumentAIService(BaseAIService):
                 "source": "disabled",
             }
 
-        prompts = self._load_prompts()
-        system_prompt = prompts.get("summary", {}).get("system", "").format(
-            max_length=max_length
-        )
+        # 確保 DB Prompt 快取已載入
+        await self._ensure_db_prompts_loaded()
 
-        user_content = f"主旨：{subject}"
-        if sender:
-            user_content += f"\n發文機關：{sender}"
-        if content:
-            user_content += f"\n內容摘要：{content[:500]}"  # 限制輸入長度
+        prompt_data = self._build_summary_prompt(subject, content, sender, max_length)
+        system_prompt = prompt_data["system"]
+        user_content = prompt_data["user"]
 
         try:
             # 生成快取鍵
@@ -292,10 +457,12 @@ class DocumentAIService(BaseAIService):
                 "source": "disabled",
             }
 
+        # 確保 DB Prompt 快取已載入
+        await self._ensure_db_prompts_loaded()
+
         doc_types_str = "、".join(self.DOC_TYPES)
 
-        prompts = self._load_prompts()
-        system_prompt = prompts.get("classify", {}).get("system", "").format(
+        system_prompt = self._get_system_prompt("classify").format(
             doc_types_str=doc_types_str
         )
 
@@ -392,8 +559,10 @@ class DocumentAIService(BaseAIService):
                 "source": "disabled",
             }
 
-        prompts = self._load_prompts()
-        system_prompt = prompts.get("keywords", {}).get("system", "").format(
+        # 確保 DB Prompt 快取已載入
+        await self._ensure_db_prompts_loaded()
+
+        system_prompt = self._get_system_prompt("keywords").format(
             max_keywords=max_keywords
         )
 
@@ -487,14 +656,16 @@ class DocumentAIService(BaseAIService):
                 "source": "ai",
             }
 
+        # 確保 DB Prompt 快取已載入
+        await self._ensure_db_prompts_loaded()
+
         # 準備候選列表字串
         candidates_str = "\n".join(
             [f"- ID {c.get('id')}: {c.get('name')} ({c.get('short_name', '')})"
              for c in candidates[:20]]  # 限制候選數量
         )
 
-        prompts = self._load_prompts()
-        system_prompt = prompts.get("match_agency", {}).get("system", "")
+        system_prompt = self._get_system_prompt("match_agency")
 
         user_content = f"輸入機關名稱：{agency_name}\n\n候選機關：\n{candidates_str}"
 
@@ -656,6 +827,9 @@ class DocumentAIService(BaseAIService):
                 confidence=0.0,
             )
 
+        # 確保 DB Prompt 快取已載入
+        await self._ensure_db_prompts_loaded()
+
         # 取得當前日期資訊供 AI 參考
         today = datetime.now()
         current_year = today.year
@@ -663,8 +837,7 @@ class DocumentAIService(BaseAIService):
         last_month_start = (today.replace(day=1) - timedelta(days=1)).replace(day=1)
         last_month_end = today.replace(day=1) - timedelta(days=1)
 
-        prompts = self._load_prompts()
-        system_prompt = prompts.get("search_intent", {}).get("system", "").format(
+        system_prompt = self._get_system_prompt("search_intent").format(
             today=today.strftime('%Y-%m-%d'),
             today_year=current_year,
             roc_year=current_year - 1911,
@@ -794,11 +967,26 @@ class DocumentAIService(BaseAIService):
                 if user_name:
                     qb = qb.with_assignee_access(user_name)
 
-        # 根據搜尋條件決定排序策略
+        # 根據搜尋條件決定排序策略 (混合搜尋: pg_trgm + pgvector)
+        query_embedding = None
         if parsed_intent.keywords:
-            # 有關鍵字時，使用 pg_trgm similarity 排序
             relevance_text = " ".join(parsed_intent.keywords)
-            qb = qb.with_relevance_order(relevance_text)
+
+            # 嘗試生成查詢的 embedding 向量
+            try:
+                query_embedding = await self.connector.generate_embedding(
+                    request.query
+                )
+            except Exception as e:
+                logger.warning(f"查詢 embedding 生成失敗，降級為 trigram 搜尋: {e}")
+
+            if query_embedding:
+                # 混合搜尋: pg_trgm + pgvector 加權排序
+                qb = qb.with_relevance_order(relevance_text)
+                qb = qb.with_semantic_search(query_embedding, weight=0.4)
+            else:
+                # Fallback: 僅使用 pg_trgm similarity 排序
+                qb = qb.with_relevance_order(relevance_text)
         else:
             qb = qb.order_by("updated_at", descending=True)
 
@@ -880,7 +1068,10 @@ class DocumentAIService(BaseAIService):
         # 判斷搜尋策略
         search_strategy = "keyword"
         if parsed_intent.keywords and parsed_intent.confidence > 0:
-            search_strategy = "similarity"  # 使用 pg_trgm similarity 排序
+            if query_embedding:
+                search_strategy = "hybrid"  # pg_trgm + pgvector 混合搜尋
+            else:
+                search_strategy = "similarity"  # 僅使用 pg_trgm similarity 排序
         synonym_expanded = bool(
             parsed_intent.keywords
             and len(parsed_intent.keywords) > 0

@@ -3,7 +3,6 @@ import type { InputRef, TableColumnType } from 'antd';
 import type { FilterDropdownProps } from 'antd/es/table/interface';
 import {
   Typography,
-  Table,
   Input,
   Button,
   Space,
@@ -27,6 +26,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import Highlighter from 'react-highlight-words';
+import { ResponsiveTable } from '../components/common';
 import { useAgenciesPage } from '../hooks';
 import { useResponsive } from '../hooks';
 import type { AgencyWithStats } from '../api';
@@ -521,14 +521,14 @@ export const AgenciesPage: React.FC = () => {
 
       {/* 機關列表 - 響應式 */}
       <Card size={isMobile ? 'small' : 'default'}>
-        <Table
+        <ResponsiveTable
           columns={columns}
           dataSource={filteredAgencies}
           rowKey="id"
           loading={isLoading}
           pagination={false}
           scroll={{ x: isMobile ? 300 : 700 }}
-          size={isMobile ? 'small' : 'middle'}
+          mobileHiddenColumns={['agency_code', 'created_at']}
           tableLayout="fixed"
           onRow={(record) => ({
             onClick: () => handleEdit(record),

@@ -31,6 +31,7 @@ from app.core.config import settings
 from app.core.csrf import generate_csrf_token, set_csrf_cookie
 from app.extended.models import User, UserSession
 from app.schemas.auth import UserResponse, GoogleUserInfo, TokenResponse
+from app.services.audit_service import AuditService
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,12 @@ class AuthService:
     認證服務類別
 
     v2.0 - 僅支援 Google OAuth 認證
+    v2.2 - 新增帳號鎖定機制 (5 次失敗鎖定 15 分鐘)
     """
+
+    # 帳號鎖定常數
+    MAX_FAILED_ATTEMPTS = 5
+    LOCKOUT_DURATION_MINUTES = 15
 
     # ============ 網域白名單檢查 ============
 
@@ -228,33 +234,138 @@ class AuthService:
             )
     
     @staticmethod
-    async def authenticate_user(db: AsyncSession, username_or_email: str, password: str) -> Optional[User]:
-        """驗證使用者帳密 - 支持email或username登入"""
-        # 嘗試通過email查找用戶
+    async def _find_user_by_credential(db: AsyncSession, username_or_email: str) -> Optional[User]:
+        """透過 email 或 username 查找使用者（不檢查 is_active，鎖定時也要能找到）"""
+        # 嘗試通過 email 查找
         result = await db.execute(
-            select(User).where(
-                User.email == username_or_email,
-                User.is_active == True
-            )
+            select(User).where(User.email == username_or_email)
         )
         user = result.scalar_one_or_none()
-        
-        # 如果email找不到，嘗試通過username查找
+
+        # 如果 email 找不到，嘗試通過 username 查找
         if not user:
             result = await db.execute(
-                select(User).where(
-                    User.username == username_or_email,
-                    User.is_active == True
-                )
+                select(User).where(User.username == username_or_email)
             )
             user = result.scalar_one_or_none()
-        
+
+        return user
+
+    @staticmethod
+    async def authenticate_user(db: AsyncSession, username_or_email: str, password: str) -> Optional[User]:
+        """
+        驗證使用者帳密 - 支持 email 或 username 登入
+
+        帳號鎖定機制：
+        - 連續 5 次密碼錯誤後，帳號鎖定 15 分鐘
+        - 成功登入後重置失敗計數
+        - 鎖定期間拒絕登入，拋出 HTTPException 包含剩餘鎖定時間
+
+        Raises:
+            HTTPException: 帳號已鎖定時，返回 423 狀態碼與鎖定剩餘時間
+        """
+        user = await AuthService._find_user_by_credential(db, username_or_email)
+
         if not user or not user.password_hash:
             return None
-        
-        if not AuthService.verify_password(password, user.password_hash):
+
+        # 檢查帳號是否停用
+        if not user.is_active:
             return None
-        
+
+        # 檢查帳號是否被鎖定
+        now = datetime.utcnow()
+        if user.locked_until and user.locked_until.replace(tzinfo=None) > now:
+            remaining_seconds = (user.locked_until.replace(tzinfo=None) - now).total_seconds()
+            remaining_minutes = int(remaining_seconds / 60) + 1  # 無條件進位
+            logger.warning(
+                f"[AUTH] 帳號鎖定中: user_id={user.id}, "
+                f"剩餘 {remaining_minutes} 分鐘"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_423_LOCKED,
+                detail=f"帳號已鎖定，請 {remaining_minutes} 分鐘後再試",
+                headers={
+                    "X-Locked-Until": user.locked_until.isoformat(),
+                    "X-Remaining-Minutes": str(remaining_minutes),
+                },
+            )
+
+        # 如果鎖定已過期，先重置（允許繼續驗證）
+        if user.locked_until and user.locked_until.replace(tzinfo=None) <= now:
+            await db.execute(
+                update(User)
+                .where(User.id == user.id)
+                .values(failed_login_attempts=0, locked_until=None)
+            )
+            await db.commit()
+
+        # 驗證密碼
+        if not AuthService.verify_password(password, user.password_hash):
+            # 密碼錯誤：遞增失敗次數
+            new_attempts = (user.failed_login_attempts or 0) + 1
+            update_values: Dict[str, Any] = {
+                "failed_login_attempts": new_attempts,
+            }
+
+            if new_attempts >= AuthService.MAX_FAILED_ATTEMPTS:
+                # 達到上限：鎖定帳號
+                lock_until = now + timedelta(minutes=AuthService.LOCKOUT_DURATION_MINUTES)
+                update_values["locked_until"] = lock_until
+                logger.warning(
+                    f"[AUTH] 帳號已鎖定: user_id={user.id}, "
+                    f"失敗 {new_attempts} 次, 鎖定至 {lock_until.isoformat()}"
+                )
+                # 記錄鎖定事件到審計日誌
+                await AuditService.log_auth_event(
+                    event_type="ACCOUNT_LOCKED",
+                    user_id=user.id,
+                    email=user.email,
+                    details={
+                        "reason": "max_failed_attempts",
+                        "failed_attempts": new_attempts,
+                        "locked_until": lock_until.isoformat(),
+                        "lockout_minutes": AuthService.LOCKOUT_DURATION_MINUTES,
+                    },
+                    success=False,
+                )
+            else:
+                logger.info(
+                    f"[AUTH] 密碼錯誤: user_id={user.id}, "
+                    f"失敗 {new_attempts}/{AuthService.MAX_FAILED_ATTEMPTS} 次"
+                )
+
+            await db.execute(
+                update(User)
+                .where(User.id == user.id)
+                .values(**update_values)
+            )
+            await db.commit()
+            return None
+
+        # 密碼正確：重置失敗計數與鎖定狀態
+        if user.failed_login_attempts and user.failed_login_attempts > 0:
+            await db.execute(
+                update(User)
+                .where(User.id == user.id)
+                .values(failed_login_attempts=0, locked_until=None)
+            )
+            await db.commit()
+            logger.info(
+                f"[AUTH] 登入成功，重置失敗計數: user_id={user.id}"
+            )
+            # 記錄解鎖事件到審計日誌
+            await AuditService.log_auth_event(
+                event_type="ACCOUNT_UNLOCKED",
+                user_id=user.id,
+                email=user.email,
+                details={
+                    "reason": "successful_login",
+                    "previous_failed_attempts": user.failed_login_attempts,
+                },
+                success=True,
+            )
+
         return user
     
     @staticmethod

@@ -9,7 +9,7 @@
  */
 
 import axios from 'axios';
-import { apiClient } from './client';
+import { apiClient, API_BASE_URL } from './client';
 import { logger } from '../services/logger';
 import type { AIStatsResponse } from '../types/api';
 
@@ -234,6 +234,139 @@ export interface NaturalSearchResponse {
 }
 
 // ============================================================================
+// 同義詞管理型別 (A4)
+// ============================================================================
+
+/** 同義詞群組 */
+export interface AISynonymItem {
+  id: number;
+  category: string;
+  words: string;
+  is_active: boolean;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+/** 同義詞列表請求 */
+export interface AISynonymListRequest {
+  category?: string | null;
+  is_active?: boolean | null;
+}
+
+/** 同義詞列表回應 */
+export interface AISynonymListResponse {
+  items: AISynonymItem[];
+  total: number;
+  categories: string[];
+}
+
+/** 同義詞建立請求 */
+export interface AISynonymCreateRequest {
+  category: string;
+  words: string;
+  is_active?: boolean;
+}
+
+/** 同義詞更新請求 */
+export interface AISynonymUpdateRequest {
+  id: number;
+  category?: string;
+  words?: string;
+  is_active?: boolean;
+}
+
+/** 同義詞刪除請求 */
+export interface AISynonymDeleteRequest {
+  id: number;
+}
+
+/** 同義詞重新載入回應 */
+export interface AISynonymReloadResponse {
+  success: boolean;
+  total_groups: number;
+  total_words: number;
+  message: string;
+}
+
+// ============================================================================
+// Prompt 版本管理相關型別 (v1.1.0 新增)
+// ============================================================================
+
+/** Prompt 版本項目 */
+export interface PromptVersionItem {
+  id: number;
+  feature: string;
+  version: number;
+  system_prompt: string;
+  user_template?: string | null;
+  is_active: boolean;
+  description?: string | null;
+  created_by?: string | null;
+  created_at?: string | null;
+}
+
+/** Prompt 列表請求 */
+export interface PromptListRequest {
+  feature?: string | null;
+}
+
+/** Prompt 列表回應 */
+export interface PromptListResponse {
+  items: PromptVersionItem[];
+  total: number;
+  features: string[];
+}
+
+/** Prompt 新增請求 */
+export interface PromptCreateRequest {
+  feature: string;
+  system_prompt: string;
+  user_template?: string | null;
+  description?: string | null;
+  activate?: boolean;
+}
+
+/** Prompt 新增回應 */
+export interface PromptCreateResponse {
+  success: boolean;
+  item: PromptVersionItem;
+  message: string;
+}
+
+/** Prompt 啟用請求 */
+export interface PromptActivateRequest {
+  id: number;
+}
+
+/** Prompt 啟用回應 */
+export interface PromptActivateResponse {
+  success: boolean;
+  message: string;
+  activated: PromptVersionItem;
+}
+
+/** Prompt 版本差異 */
+export interface PromptDiff {
+  field: string;
+  value_a?: string | null;
+  value_b?: string | null;
+  changed: boolean;
+}
+
+/** Prompt 比較請求 */
+export interface PromptCompareRequest {
+  id_a: number;
+  id_b: number;
+}
+
+/** Prompt 比較回應 */
+export interface PromptCompareResponse {
+  version_a: PromptVersionItem;
+  version_b: PromptVersionItem;
+  diffs: PromptDiff[];
+}
+
+// ============================================================================
 // 模組級變數：自然語言搜尋 AbortController
 // ============================================================================
 
@@ -258,6 +391,7 @@ export function abortNaturalSearch(): void {
 
 const AI_ENDPOINTS = {
   SUMMARY: '/ai/document/summary',
+  SUMMARY_STREAM: '/ai/document/summary/stream',
   CLASSIFY: '/ai/document/classify',
   KEYWORDS: '/ai/document/keywords',
   NATURAL_SEARCH: '/ai/document/natural-search',
@@ -267,6 +401,17 @@ const AI_ENDPOINTS = {
   CONFIG: '/ai/config',
   STATS: '/ai/stats',
   STATS_RESET: '/ai/stats/reset',
+  // 同義詞管理
+  SYNONYMS_LIST: '/ai/synonyms/list',
+  SYNONYMS_CREATE: '/ai/synonyms/create',
+  SYNONYMS_UPDATE: '/ai/synonyms/update',
+  SYNONYMS_DELETE: '/ai/synonyms/delete',
+  SYNONYMS_RELOAD: '/ai/synonyms/reload',
+  // Prompt 版本管理
+  PROMPTS_LIST: '/ai/prompts/list',
+  PROMPTS_CREATE: '/ai/prompts/create',
+  PROMPTS_ACTIVATE: '/ai/prompts/activate',
+  PROMPTS_COMPARE: '/ai/prompts/compare',
 };
 
 // ============================================================================
@@ -293,6 +438,120 @@ export const aiApi = {
         error: error instanceof Error ? error.message : '未知錯誤',
       };
     }
+  },
+
+  /**
+   * 串流生成公文摘要 (SSE)
+   *
+   * 使用 Server-Sent Events 逐字接收 AI 生成的摘要，
+   * 降低使用者感知延遲。
+   *
+   * @param params 摘要生成請求
+   * @param onToken 收到每個 token 時的回調
+   * @param onDone 串流完成時的回調
+   * @param onError 發生錯誤時的回調
+   * @returns AbortController 供外部取消串流
+   */
+  streamSummary(
+    params: SummaryRequest,
+    onToken: (token: string) => void,
+    onDone: () => void,
+    onError?: (error: string) => void,
+  ): AbortController {
+    const controller = new AbortController();
+
+    const baseUrl = API_BASE_URL;
+    const url = `${baseUrl}${AI_ENDPOINTS.SUMMARY_STREAM}`;
+
+    // 取得 token (向後相容)
+    const accessToken = localStorage.getItem('access_token');
+
+    (async () => {
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          },
+          body: JSON.stringify(params),
+          signal: controller.signal,
+          credentials: 'include',
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          onError?.(errorText || `HTTP ${response.status}`);
+          onDone();
+          return;
+        }
+
+        const reader = response.body?.getReader();
+        if (!reader) {
+          onError?.('ReadableStream not supported');
+          onDone();
+          return;
+        }
+
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+
+          // 解析 SSE: 每個事件以 \n\n 分隔
+          const parts = buffer.split('\n\n');
+          buffer = parts.pop() || '';
+
+          for (const part of parts) {
+            const line = part.trim();
+            if (!line.startsWith('data: ')) continue;
+
+            const dataStr = line.slice(6);
+            try {
+              const data = JSON.parse(dataStr) as {
+                token: string;
+                done: boolean;
+                error?: string;
+              };
+
+              if (data.error) {
+                onError?.(data.error);
+              }
+
+              if (data.token) {
+                onToken(data.token);
+              }
+
+              if (data.done) {
+                onDone();
+                return;
+              }
+            } catch {
+              // 跳過無法解析的行
+              logger.warn('SSE 解析失敗:', dataStr);
+            }
+          }
+        }
+
+        // reader 結束但沒收到 done 事件
+        onDone();
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          // 使用者主動取消，不算錯誤
+          return;
+        }
+        const message = err instanceof Error ? err.message : '串流連線失敗';
+        logger.error('SSE 串流錯誤:', message);
+        onError?.(message);
+        onDone();
+      }
+    })();
+
+    return controller;
   },
 
   /**
@@ -495,6 +754,81 @@ export const aiApi = {
     }
   },
 
+  // ==========================================================================
+  // 同義詞管理 API
+  // ==========================================================================
+
+  /**
+   * 列出同義詞群組
+   */
+  async listSynonyms(request: AISynonymListRequest = {}): Promise<AISynonymListResponse> {
+    try {
+      logger.log('取得同義詞列表');
+      return await apiClient.post<AISynonymListResponse>(AI_ENDPOINTS.SYNONYMS_LIST, request);
+    } catch (error) {
+      logger.error('取得同義詞列表失敗:', error);
+      return { items: [], total: 0, categories: [] };
+    }
+  },
+
+  /**
+   * 新增同義詞群組
+   */
+  async createSynonym(request: AISynonymCreateRequest): Promise<AISynonymItem | null> {
+    try {
+      logger.log('新增同義詞群組:', request.category);
+      return await apiClient.post<AISynonymItem>(AI_ENDPOINTS.SYNONYMS_CREATE, request);
+    } catch (error) {
+      logger.error('新增同義詞群組失敗:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * 更新同義詞群組
+   */
+  async updateSynonym(request: AISynonymUpdateRequest): Promise<AISynonymItem | null> {
+    try {
+      logger.log('更新同義詞群組:', request.id);
+      return await apiClient.post<AISynonymItem>(AI_ENDPOINTS.SYNONYMS_UPDATE, request);
+    } catch (error) {
+      logger.error('更新同義詞群組失敗:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * 刪除同義詞群組
+   */
+  async deleteSynonym(id: number): Promise<boolean> {
+    try {
+      logger.log('刪除同義詞群組:', id);
+      await apiClient.post(AI_ENDPOINTS.SYNONYMS_DELETE, { id });
+      return true;
+    } catch (error) {
+      logger.error('刪除同義詞群組失敗:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * 重新載入同義詞到記憶體
+   */
+  async reloadSynonyms(): Promise<AISynonymReloadResponse> {
+    try {
+      logger.log('重新載入同義詞');
+      return await apiClient.post<AISynonymReloadResponse>(AI_ENDPOINTS.SYNONYMS_RELOAD, {});
+    } catch (error) {
+      logger.error('重新載入同義詞失敗:', error);
+      return {
+        success: false,
+        total_groups: 0,
+        total_words: 0,
+        message: error instanceof Error ? error.message : '重新載入失敗',
+      };
+    }
+  },
+
   async naturalSearch(
     query: string,
     maxResults: number = 20,
@@ -551,6 +885,67 @@ export const aiApi = {
         source: 'error',
         error: error instanceof Error ? error.message : '未知錯誤',
       };
+    }
+  },
+
+  // ==========================================================================
+  // Prompt 版本管理 API
+  // ==========================================================================
+
+  /**
+   * 列出 Prompt 版本
+   */
+  async listPrompts(feature?: string): Promise<PromptListResponse> {
+    try {
+      logger.log('列出 Prompt 版本', feature ? `feature=${feature}` : '全部');
+      return await apiClient.post<PromptListResponse>(AI_ENDPOINTS.PROMPTS_LIST, {
+        feature: feature || null,
+      });
+    } catch (error) {
+      logger.error('列出 Prompt 版本失敗:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * 新增 Prompt 版本
+   */
+  async createPrompt(request: PromptCreateRequest): Promise<PromptCreateResponse> {
+    try {
+      logger.log('新增 Prompt 版本:', request.feature);
+      return await apiClient.post<PromptCreateResponse>(AI_ENDPOINTS.PROMPTS_CREATE, request);
+    } catch (error) {
+      logger.error('新增 Prompt 版本失敗:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * 啟用 Prompt 版本
+   */
+  async activatePrompt(id: number): Promise<PromptActivateResponse> {
+    try {
+      logger.log('啟用 Prompt 版本:', id);
+      return await apiClient.post<PromptActivateResponse>(AI_ENDPOINTS.PROMPTS_ACTIVATE, { id });
+    } catch (error) {
+      logger.error('啟用 Prompt 版本失敗:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * 比較兩個 Prompt 版本
+   */
+  async comparePrompts(idA: number, idB: number): Promise<PromptCompareResponse> {
+    try {
+      logger.log('比較 Prompt 版本:', idA, 'vs', idB);
+      return await apiClient.post<PromptCompareResponse>(AI_ENDPOINTS.PROMPTS_COMPARE, {
+        id_a: idA,
+        id_b: idB,
+      });
+    } catch (error) {
+      logger.error('比較 Prompt 版本失敗:', error);
+      throw error;
     }
   },
 };

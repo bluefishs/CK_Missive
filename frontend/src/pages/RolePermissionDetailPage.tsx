@@ -11,6 +11,7 @@
  */
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { ResponsiveContent } from '../components/common';
 import {
   Card,
   Typography,
@@ -114,7 +115,7 @@ const RolePermissionDetailPage: React.FC = () => {
   // 角色不存在
   if (!roleInfo) {
     return (
-      <div style={{ padding: '24px' }}>
+      <ResponsiveContent maxWidth="full" padding="medium">
         <Card>
           <Alert
             message="角色不存在"
@@ -131,12 +132,12 @@ const RolePermissionDetailPage: React.FC = () => {
             返回角色列表
           </Button>
         </Card>
-      </div>
+      </ResponsiveContent>
     );
   }
 
   return (
-    <div style={{ padding: '24px' }}>
+    <ResponsiveContent maxWidth="full" padding="medium">
       <Card>
         {/* 標題區 */}
         <div style={{ marginBottom: '24px' }}>
@@ -209,7 +210,7 @@ const RolePermissionDetailPage: React.FC = () => {
           readOnly={false}
         />
       </Card>
-    </div>
+    </ResponsiveContent>
   );
 };
 

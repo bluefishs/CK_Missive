@@ -19,7 +19,6 @@ import {
   App,
   Card,
   Tag,
-  Table,
   Input,
   Statistic,
   Row,
@@ -42,6 +41,7 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import Highlighter from 'react-highlight-words';
 
+import { ResponsiveTable } from '../common';
 import { dispatchOrdersApi } from '../../api/taoyuanDispatchApi';
 import type { DispatchOrder } from '../../types/api';
 import { useTableColumnSearch } from '../../hooks/utility/useTableColumnSearch';
@@ -563,17 +563,18 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
       {isMobile ? (
         <MobileDispatchList />
       ) : (
-        <Table
+        <ResponsiveTable
           columns={columns}
           dataSource={orders}
           rowKey="id"
           loading={isLoading}
           scroll={{ x: 1700 }}
           size="small"
+          mobileHiddenColumns={['sub_case_name', 'contact_note', 'project_folder', 'survey_unit']}
           pagination={{
             showSizeChanger: true,
             showQuickJumper: true,
-            showTotal: (total) => `共 ${total} 筆`,
+            showTotal: (total: number) => `共 ${total} 筆`,
           }}
           onRow={(record) => ({
             onClick: () => handleRowClick(record),

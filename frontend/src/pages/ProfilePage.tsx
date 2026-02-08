@@ -1,11 +1,11 @@
 /**
  * 個人資料頁面
  *
- * 顯示與編輯當前使用者的個人資訊、帳戶狀態、安全設定。
+ * 顯示與編輯當前使用者的個人資訊、帳戶狀態、安全設定、登入紀錄。
  * 使用 apiClient 統一 API 呼叫，型別從 types/api.ts 匯入 (SSOT)。
  *
- * @version 2.0.0
- * @date 2026-02-07
+ * @version 2.2.0
+ * @date 2026-02-08
  */
 
 import React, { useState, useEffect } from 'react';
@@ -21,7 +21,8 @@ import {
   App,
   Modal,
   Space,
-  Tag
+  Tag,
+  Tabs
 } from 'antd';
 import { logger } from '../utils/logger';
 import {
@@ -33,7 +34,13 @@ import {
   KeyOutlined,
   BankOutlined,
   IdcardOutlined,
+  HistoryOutlined,
+  SafetyOutlined,
+  LaptopOutlined,
 } from '@ant-design/icons';
+import { LoginHistoryTab } from '../components/auth/LoginHistoryTab';
+import { SessionManagementTab } from '../components/auth/SessionManagementTab';
+import { MFASettingsTab } from '../components/auth/MFASettingsTab';
 import { useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
 import { apiClient } from '../api/client';
@@ -263,192 +270,251 @@ export const ProfilePage = () => {
         個人設定
       </Title>
 
-      <Row gutter={[isMobile ? 8 : 16, isMobile ? 8 : 16]}>
-        {/* 基本資訊卡片 */}
-        <Col span={24}>
-          <Card
-            title="基本資訊"
-            size={isMobile ? 'small' : 'default'}
-            extra={
-              <Button
-                type="primary"
-                icon={<EditOutlined />}
-                size={isMobile ? 'small' : 'middle'}
-                onClick={() => setEditing(!editing)}
-              >
-                {isMobile ? (editing ? '取消' : '編輯') : (editing ? '取消編輯' : '編輯資料')}
-              </Button>
-            }
-          >
-            <Row gutter={[isMobile ? 12 : 24, isMobile ? 12 : 16]} align="middle">
-              <Col xs={24} sm={6} style={{ textAlign: 'center', marginBottom: isMobile ? 12 : 0 }}>
-                <Avatar
-                  size={isMobile ? 64 : 80}
-                  src={profile.avatar_url}
-                  icon={<UserOutlined />}
-                />
-              </Col>
-              <Col xs={24} sm={18}>
-                <Form
-                  form={form}
-                  layout="vertical"
-                  onFinish={handleUpdateProfile}
-                  initialValues={{
-                    username: profile.username,
-                    full_name: profile.full_name,
-                    email: profile.email,
-                    department: profile.department,
-                    position: profile.position,
-                  }}
-                >
-                  <Form.Item
-                    label="使用者名稱"
-                    name="username"
-                    rules={[
-                      { required: true, message: '請輸入使用者名稱' },
-                      { min: 3, message: '使用者名稱至少需要 3 個字符' }
-                    ]}
+      <Tabs
+        defaultActiveKey="profile"
+        size={isMobile ? 'small' : 'middle'}
+        items={[
+          {
+            key: 'profile',
+            label: (
+              <span>
+                <SafetyOutlined />
+                個人資料
+              </span>
+            ),
+            children: (
+              <Row gutter={[isMobile ? 8 : 16, isMobile ? 8 : 16]}>
+                {/* 基本資訊卡片 */}
+                <Col span={24}>
+                  <Card
+                    title="基本資訊"
+                    size={isMobile ? 'small' : 'default'}
+                    extra={
+                      <Button
+                        type="primary"
+                        icon={<EditOutlined />}
+                        size={isMobile ? 'small' : 'middle'}
+                        onClick={() => setEditing(!editing)}
+                      >
+                        {isMobile ? (editing ? '取消' : '編輯') : (editing ? '取消編輯' : '編輯資料')}
+                      </Button>
+                    }
                   >
-                    <Input
-                      prefix={<UserOutlined />}
-                      disabled={!editing}
-                    />
-                  </Form.Item>
-
-                  <Form.Item
-                    label="姓名"
-                    name="full_name"
-                    rules={[
-                      { required: true, message: '請輸入姓名' }
-                    ]}
-                  >
-                    <Input
-                      disabled={!editing}
-                    />
-                  </Form.Item>
-
-                  <Form.Item label="電子郵件" name="email">
-                    <Input
-                      prefix={<MailOutlined />}
-                      disabled
-                    />
-                  </Form.Item>
-
-                  <Row gutter={16}>
-                    <Col xs={24} sm={12}>
-                      <Form.Item label="部門" name="department">
-                        <Input
-                          prefix={<BankOutlined />}
-                          placeholder="例：工程部"
-                          disabled={!editing}
+                    <Row gutter={[isMobile ? 12 : 24, isMobile ? 12 : 16]} align="middle">
+                      <Col xs={24} sm={6} style={{ textAlign: 'center', marginBottom: isMobile ? 12 : 0 }}>
+                        <Avatar
+                          size={isMobile ? 64 : 80}
+                          src={profile.avatar_url}
+                          icon={<UserOutlined />}
                         />
-                      </Form.Item>
-                    </Col>
-                    <Col xs={24} sm={12}>
-                      <Form.Item label="職位" name="position">
-                        <Input
-                          prefix={<IdcardOutlined />}
-                          placeholder="例：專案經理"
-                          disabled={!editing}
-                        />
-                      </Form.Item>
-                    </Col>
-                  </Row>
+                      </Col>
+                      <Col xs={24} sm={18}>
+                        <Form
+                          form={form}
+                          layout="vertical"
+                          onFinish={handleUpdateProfile}
+                          initialValues={{
+                            username: profile.username,
+                            full_name: profile.full_name,
+                            email: profile.email,
+                            department: profile.department,
+                            position: profile.position,
+                          }}
+                        >
+                          <Form.Item
+                            label="使用者名稱"
+                            name="username"
+                            rules={[
+                              { required: true, message: '請輸入使用者名稱' },
+                              { min: 3, message: '使用者名稱至少需要 3 個字符' }
+                            ]}
+                          >
+                            <Input
+                              prefix={<UserOutlined />}
+                              disabled={!editing}
+                            />
+                          </Form.Item>
 
-                  {editing && (
-                    <Form.Item>
-                      <Space>
-                        <Button type="primary" htmlType="submit" loading={saving}>
-                          儲存變更
-                        </Button>
-                        <Button onClick={() => { setEditing(false); setFormValues(profile); }}>
-                          取消
-                        </Button>
-                      </Space>
-                    </Form.Item>
-                  )}
-                </Form>
-              </Col>
-            </Row>
-          </Card>
-        </Col>
+                          <Form.Item
+                            label="姓名"
+                            name="full_name"
+                            rules={[
+                              { required: true, message: '請輸入姓名' }
+                            ]}
+                          >
+                            <Input
+                              disabled={!editing}
+                            />
+                          </Form.Item>
 
-        {/* 帳戶資訊卡片 */}
-        <Col span={24}>
-          <Card title="帳戶資訊" size={isMobile ? 'small' : 'default'}>
-            <Row gutter={[isMobile ? 8 : 16, isMobile ? 8 : 16]}>
-              <Col xs={12} sm={8}>
-                <Text strong style={{ fontSize: isMobile ? 12 : 14 }}>帳戶狀態：</Text>
-                <br />
-                {profile.is_active ?
-                  <Tag color="green">已啟用</Tag> :
-                  <Tag color="red">已停用</Tag>
-                }
-              </Col>
-              <Col xs={12} sm={8}>
-                <Text strong style={{ fontSize: isMobile ? 12 : 14 }}>用戶角色：</Text>
-                <br />
-                {getRoleTag(profile.role, profile.is_admin)}
-              </Col>
-              <Col xs={12} sm={8}>
-                <Text strong style={{ fontSize: isMobile ? 12 : 14 }}>驗證方式：</Text>
-                <br />
-                {profile.auth_provider === 'google' ? (
-                  <Tag icon={<GoogleOutlined />} color="blue">Google</Tag>
-                ) : (
-                  <Tag icon={<MailOutlined />} color="green">郵箱</Tag>
+                          <Form.Item label="電子郵件" name="email">
+                            <Input
+                              prefix={<MailOutlined />}
+                              disabled
+                            />
+                          </Form.Item>
+
+                          <Row gutter={16}>
+                            <Col xs={24} sm={12}>
+                              <Form.Item label="部門" name="department">
+                                <Input
+                                  prefix={<BankOutlined />}
+                                  placeholder="例：工程部"
+                                  disabled={!editing}
+                                />
+                              </Form.Item>
+                            </Col>
+                            <Col xs={24} sm={12}>
+                              <Form.Item label="職位" name="position">
+                                <Input
+                                  prefix={<IdcardOutlined />}
+                                  placeholder="例：專案經理"
+                                  disabled={!editing}
+                                />
+                              </Form.Item>
+                            </Col>
+                          </Row>
+
+                          {editing && (
+                            <Form.Item>
+                              <Space>
+                                <Button type="primary" htmlType="submit" loading={saving}>
+                                  儲存變更
+                                </Button>
+                                <Button onClick={() => { setEditing(false); setFormValues(profile); }}>
+                                  取消
+                                </Button>
+                              </Space>
+                            </Form.Item>
+                          )}
+                        </Form>
+                      </Col>
+                    </Row>
+                  </Card>
+                </Col>
+
+                {/* 帳戶資訊卡片 */}
+                <Col span={24}>
+                  <Card title="帳戶資訊" size={isMobile ? 'small' : 'default'}>
+                    <Row gutter={[isMobile ? 8 : 16, isMobile ? 8 : 16]}>
+                      <Col xs={12} sm={8}>
+                        <Text strong style={{ fontSize: isMobile ? 12 : 14 }}>帳戶狀態：</Text>
+                        <br />
+                        {profile.is_active ?
+                          <Tag color="green">已啟用</Tag> :
+                          <Tag color="red">已停用</Tag>
+                        }
+                      </Col>
+                      <Col xs={12} sm={8}>
+                        <Text strong style={{ fontSize: isMobile ? 12 : 14 }}>用戶角色：</Text>
+                        <br />
+                        {getRoleTag(profile.role, profile.is_admin)}
+                      </Col>
+                      <Col xs={12} sm={8}>
+                        <Text strong style={{ fontSize: isMobile ? 12 : 14 }}>驗證方式：</Text>
+                        <br />
+                        {profile.auth_provider === 'google' ? (
+                          <Tag icon={<GoogleOutlined />} color="blue">Google</Tag>
+                        ) : (
+                          <Tag icon={<MailOutlined />} color="green">郵箱</Tag>
+                        )}
+                      </Col>
+                      <Col xs={12} sm={8}>
+                        <Text strong style={{ fontSize: isMobile ? 12 : 14 }}>郵箱驗證：</Text>
+                        <br />
+                        {profile.email_verified ?
+                          <Tag color="green">已驗證</Tag> :
+                          <Tag color="orange">未驗證</Tag>
+                        }
+                      </Col>
+                      <Col xs={12} sm={8}>
+                        <Text strong style={{ fontSize: isMobile ? 12 : 14 }}>登入次數：</Text>
+                        <br />
+                        <Text style={{ fontSize: isMobile ? 12 : 14 }}>{profile.login_count ?? 0} 次</Text>
+                      </Col>
+                      <Col xs={12} sm={8}>
+                        <Text strong style={{ fontSize: isMobile ? 12 : 14 }}>最後登入：</Text>
+                        <br />
+                        <Text style={{ fontSize: isMobile ? 12 : 14 }}>
+                          {profile.last_login
+                            ? new Date(profile.last_login).toLocaleString()
+                            : '從未登入'
+                          }
+                        </Text>
+                      </Col>
+                      <Col xs={24} sm={8}>
+                        <Text strong style={{ fontSize: isMobile ? 12 : 14 }}>註冊時間：</Text>
+                        <br />
+                        <Text style={{ fontSize: isMobile ? 12 : 14 }}>
+                          {new Date(profile.created_at).toLocaleString()}
+                        </Text>
+                      </Col>
+                    </Row>
+                  </Card>
+                </Col>
+
+                {/* 安全設定卡片 */}
+                {profile.auth_provider === 'email' && (
+                  <Col span={24}>
+                    <Card title="安全設定" size={isMobile ? 'small' : 'default'}>
+                      <Button
+                        type="primary"
+                        icon={<KeyOutlined />}
+                        size={isMobile ? 'small' : 'middle'}
+                        onClick={() => setPasswordModalVisible(true)}
+                      >
+                        修改密碼
+                      </Button>
+                    </Card>
+                  </Col>
                 )}
-              </Col>
-              <Col xs={12} sm={8}>
-                <Text strong style={{ fontSize: isMobile ? 12 : 14 }}>郵箱驗證：</Text>
-                <br />
-                {profile.email_verified ?
-                  <Tag color="green">已驗證</Tag> :
-                  <Tag color="orange">未驗證</Tag>
-                }
-              </Col>
-              <Col xs={12} sm={8}>
-                <Text strong style={{ fontSize: isMobile ? 12 : 14 }}>登入次數：</Text>
-                <br />
-                <Text style={{ fontSize: isMobile ? 12 : 14 }}>{profile.login_count ?? 0} 次</Text>
-              </Col>
-              <Col xs={12} sm={8}>
-                <Text strong style={{ fontSize: isMobile ? 12 : 14 }}>最後登入：</Text>
-                <br />
-                <Text style={{ fontSize: isMobile ? 12 : 14 }}>
-                  {profile.last_login
-                    ? new Date(profile.last_login).toLocaleString()
-                    : '從未登入'
-                  }
-                </Text>
-              </Col>
-              <Col xs={24} sm={8}>
-                <Text strong style={{ fontSize: isMobile ? 12 : 14 }}>註冊時間：</Text>
-                <br />
-                <Text style={{ fontSize: isMobile ? 12 : 14 }}>
-                  {new Date(profile.created_at).toLocaleString()}
-                </Text>
-              </Col>
-            </Row>
-          </Card>
-        </Col>
-
-        {/* 安全設定卡片 */}
-        {profile.auth_provider === 'email' && (
-          <Col span={24}>
-            <Card title="安全設定" size={isMobile ? 'small' : 'default'}>
-              <Button
-                type="primary"
-                icon={<KeyOutlined />}
-                size={isMobile ? 'small' : 'middle'}
-                onClick={() => setPasswordModalVisible(true)}
-              >
-                修改密碼
-              </Button>
-            </Card>
-          </Col>
-        )}
-      </Row>
+              </Row>
+            ),
+          },
+          {
+            key: 'login-history',
+            label: (
+              <span>
+                <HistoryOutlined />
+                登入紀錄
+              </span>
+            ),
+            children: (
+              <Card size={isMobile ? 'small' : 'default'}>
+                <LoginHistoryTab isMobile={isMobile} />
+              </Card>
+            ),
+          },
+          {
+            key: 'devices',
+            label: (
+              <span>
+                <LaptopOutlined />
+                裝置管理
+              </span>
+            ),
+            children: (
+              <Card size={isMobile ? 'small' : 'default'}>
+                <SessionManagementTab isMobile={isMobile} />
+              </Card>
+            ),
+          },
+          {
+            key: 'mfa',
+            label: (
+              <span>
+                <SafetyOutlined />
+                雙因素認證
+              </span>
+            ),
+            children: (
+              <Card size={isMobile ? 'small' : 'default'}>
+                <MFASettingsTab />
+              </Card>
+            ),
+          },
+        ]}
+      />
 
       {/* 修改密碼彈窗 */}
       <Modal

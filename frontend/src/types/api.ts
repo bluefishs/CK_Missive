@@ -359,6 +359,8 @@ export interface User {
   // 組織相關欄位
   department?: string;
   position?: string;
+  // MFA 雙因素認證
+  mfa_enabled?: boolean;
 }
 
 /** 使用者選項（下拉選單用） */
@@ -1844,4 +1846,27 @@ export interface AIStatsResponse {
   ollama_requests: number;
   fallback_requests: number;
   start_time: string;
+}
+
+// ============================================================================
+// 登入歷史 (LoginHistory) 相關型別
+// ============================================================================
+
+/** 登入歷史項目 */
+export interface LoginHistoryItem {
+  id: number;
+  event_type: string;
+  ip_address?: string;
+  user_agent?: string;
+  success: boolean;
+  created_at: string;
+  details?: Record<string, unknown>;
+}
+
+/** 登入歷史回應 */
+export interface LoginHistoryResponse {
+  items: LoginHistoryItem[];
+  total: number;
+  page: number;
+  page_size: number;
 }

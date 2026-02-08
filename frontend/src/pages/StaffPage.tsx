@@ -7,7 +7,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { TableColumnType } from 'antd';
 import {
-  Table,
   Button,
   Input,
   Space,
@@ -33,6 +32,7 @@ import {
   BankOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { ResponsiveTable } from '../components/common';
 import { apiClient } from '../api/client';
 import { API_ENDPOINTS } from '../api/endpoints';
 import { useTableColumnSearch, useResponsive } from '../hooks';
@@ -387,13 +387,13 @@ export const StaffPage: React.FC = () => {
         </Row>
 
         {/* 資料表格 */}
-        <Table
+        <ResponsiveTable
           columns={columns}
           dataSource={staffList}
           rowKey="id"
           loading={loading}
-          size={isMobile ? 'small' : 'middle'}
           scroll={{ x: isMobile ? 300 : 1000 }}
+          mobileHiddenColumns={['username', 'position', 'last_login']}
           onRow={(record) => ({
             onClick: () => handleEdit(record),
             style: { cursor: 'pointer' },
@@ -404,8 +404,8 @@ export const StaffPage: React.FC = () => {
             total,
             showSizeChanger: !isMobile,
             showQuickJumper: !isMobile,
-            showTotal: isMobile ? undefined : (t) => `共 ${t} 筆`,
-            onChange: (page, size) => {
+            showTotal: isMobile ? undefined : (t: number) => `共 ${t} 筆`,
+            onChange: (page: number, size: number) => {
               setCurrent(page);
               setPageSize(size);
             },

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { ResponsiveContent } from '../components/common';
 import {
   Card,
   Alert,
@@ -82,7 +83,7 @@ const GoogleAuthDiagnosticPage: React.FC = () => {
   ];
 
   return (
-    <div style={{ padding: '24px' }}>
+    <ResponsiveContent maxWidth="full" padding="medium">
       <Space direction="vertical" style={{ width: '100%' }} size="large">
         {/* 頁面標題 */}
         <Card>
@@ -277,7 +278,7 @@ const GoogleAuthDiagnosticPage: React.FC = () => {
           </Space>
         </Card>
       </Space>
-    </div>
+    </ResponsiveContent>
   );
 };
 

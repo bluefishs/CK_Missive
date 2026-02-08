@@ -15,6 +15,13 @@ export {
   ResponsiveContent,
 } from './ResponsiveContainer';
 
+// 響應式表單行元件
+export { ResponsiveFormRow } from './ResponsiveFormRow';
+
+// 響應式表格元件
+export { ResponsiveTable } from './ResponsiveTable';
+export type { ResponsiveTableProps } from './ResponsiveTable';
+
 // 附件相關共用元件（排除與 DetailPage 衝突的 formatFileSize）
 export {
   AttachmentListItem,

@@ -31,6 +31,9 @@ const DatabaseManagementPage = lazy(() => import('../pages/DatabaseManagementPag
 const LoginPage = lazy(() => import('../pages/LoginPage'));
 const RegisterPage = lazy(() => import('../pages/RegisterPage'));
 const ForgotPasswordPage = lazy(() => import('../pages/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('../pages/ResetPasswordPage'));
+const MFAVerifyPage = lazy(() => import('../pages/MFAVerifyPage'));
+const VerifyEmailPage = lazy(() => import('../pages/VerifyEmailPage'));
 const UserManagementPage = lazy(() => import('../pages/UserManagementPage'));
 const UserFormPage = lazy(() => import('../pages/UserFormPage').then(module => ({ default: module.UserFormPage })));
 
@@ -69,6 +72,8 @@ const RolePermissionDetailPage = lazy(() => import('../pages/RolePermissionDetai
 const UnifiedFormDemoPage = lazy(() => import('../pages/UnifiedFormDemoPage'));
 const AdminDashboardPage = lazy(() => import('../pages/AdminDashboardPage'));
 const DeploymentManagementPage = lazy(() => import('../pages/DeploymentManagementPage'));
+const AISynonymManagementPage = lazy(() => import('../pages/AISynonymManagementPage'));
+const AIPromptManagementPage = lazy(() => import('../pages/AIPromptManagementPage'));
 
 // 桃園查估專區
 const TaoyuanDispatchPage = lazy(() => import('../pages/TaoyuanDispatchPage'));
@@ -93,6 +98,9 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.ENTRY} element={<LoginPage />} />  {/* /entry 使用 LoginPage */}
           <Route path={ROUTES.REGISTER} element={<RegisterPage />} />
           <Route path={ROUTES.FORGOT_PASSWORD} element={<ForgotPasswordPage />} />
+          <Route path={ROUTES.RESET_PASSWORD} element={<ResetPasswordPage />} />
+          <Route path={ROUTES.MFA_VERIFY} element={<MFAVerifyPage />} />
+          <Route path={ROUTES.VERIFY_EMAIL} element={<VerifyEmailPage />} />
 
           {/* 公文相關路由（需要認證） */}
           <Route path={ROUTES.DOCUMENTS} element={<ProtectedRoute><DocumentPage /></ProtectedRoute>} />
@@ -182,6 +190,12 @@ export const AppRouter: React.FC = () => {
 
           {/* 部署管理 */}
           <Route path={ROUTES.DEPLOYMENT_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><DeploymentManagementPage /></ProtectedRoute>} />
+
+          {/* AI 同義詞管理 */}
+          <Route path={ROUTES.AI_SYNONYM_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><AISynonymManagementPage /></ProtectedRoute>} />
+
+          {/* AI Prompt 管理 */}
+          <Route path={ROUTES.AI_PROMPT_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><AIPromptManagementPage /></ProtectedRoute>} />
 
           {/* 需要認證的路由 */}
           {/* /settings 已統一至 /profile */}

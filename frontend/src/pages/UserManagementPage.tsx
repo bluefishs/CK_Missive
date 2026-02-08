@@ -19,9 +19,10 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Card, Table, Button, Space, Input, Select, Row, Col, Typography, AutoComplete, Tag
+  Card, Button, Space, Input, Select, Row, Col, Typography, AutoComplete, Tag
 } from 'antd';
 import type { TableProps, InputRef } from 'antd';
+import { ResponsiveTable } from '../components/common';
 import type { ColumnsType, ColumnType } from 'antd/es/table';
 import type { FilterConfirmProps } from 'antd/es/table/interface';
 import Highlighter from 'react-highlight-words';
@@ -463,13 +464,13 @@ const UserManagementPage: React.FC = () => {
         </Row>
 
         {/* 使用者表格 */}
-        <Table
+        <ResponsiveTable
           columns={columns}
           dataSource={users}
           loading={isLoading}
           rowKey="id"
-          size={isMobile ? 'small' : 'middle'}
           scroll={{ x: isMobile ? 400 : 800 }}
+          mobileHiddenColumns={['auth_provider', 'created_at', 'last_login']}
           onChange={handleTableChange}
           onRow={(record) => ({
             onClick: () => handleRowClick(record),

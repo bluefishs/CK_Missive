@@ -10,6 +10,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ResponsiveContent } from '../components/common';
 import {
   Form,
   Button,
@@ -248,7 +249,7 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
   // =============================================================================
 
   return (
-    <div style={{ padding: '24px' }}>
+    <ResponsiveContent maxWidth="full" padding="medium">
       {/* Header */}
       <Card style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -296,7 +297,7 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
           />
         </Form>
       </Card>
-    </div>
+    </ResponsiveContent>
   );
 };
 

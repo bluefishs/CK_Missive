@@ -244,6 +244,32 @@ export const AUTH_ENDPOINTS = {
   PROFILE_UPDATE: '/auth/profile/update',
   /** 修改密碼 POST /auth/password/change */
   PASSWORD_CHANGE: '/auth/password/change',
+  /** 請求密碼重設 POST /auth/password-reset */
+  PASSWORD_RESET: '/auth/password-reset',
+  /** 確認密碼重設 POST /auth/password-reset-confirm */
+  PASSWORD_RESET_CONFIRM: '/auth/password-reset-confirm',
+  /** 發送 Email 驗證信 POST /auth/send-verification */
+  SEND_VERIFICATION: '/auth/send-verification',
+  /** 驗證 Email POST /auth/verify-email */
+  VERIFY_EMAIL: '/auth/verify-email',
+  /** 登入歷史 POST /auth/login-history */
+  LOGIN_HISTORY: '/auth/login-history',
+  /** 活躍 Session 列表 POST /auth/sessions */
+  SESSIONS: '/auth/sessions',
+  /** 撤銷指定 Session POST /auth/sessions/revoke */
+  SESSION_REVOKE: '/auth/sessions/revoke',
+  /** 撤銷所有其他 Session POST /auth/sessions/revoke-all */
+  SESSION_REVOKE_ALL: '/auth/sessions/revoke-all',
+  /** MFA 設定 POST /auth/mfa/setup */
+  MFA_SETUP: '/auth/mfa/setup',
+  /** MFA 驗證並啟用 POST /auth/mfa/verify */
+  MFA_VERIFY: '/auth/mfa/verify',
+  /** MFA 停用 POST /auth/mfa/disable */
+  MFA_DISABLE: '/auth/mfa/disable',
+  /** MFA 登入驗證 POST /auth/mfa/validate */
+  MFA_VALIDATE: '/auth/mfa/validate',
+  /** MFA 狀態查詢 POST /auth/mfa/status */
+  MFA_STATUS: '/auth/mfa/status',
 } as const;
 
 /** 管理員使用者管理 API 端點 (POST-only) */

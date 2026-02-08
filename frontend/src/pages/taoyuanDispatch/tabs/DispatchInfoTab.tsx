@@ -18,13 +18,12 @@
 import React from 'react';
 import {
   Form,
-  Row,
-  Col,
   Descriptions,
   Divider,
   Typography,
   InputNumber,
 } from 'antd';
+import { ResponsiveFormRow } from '../../../components/common/ResponsiveFormRow';
 import type { FormInstance } from 'antd';
 import dayjs from 'dayjs';
 
@@ -251,47 +250,41 @@ const PaymentEditSummary: React.FC<PaymentEditSummaryProps> = ({
   return (
     <>
       <Divider dashed style={{ margin: '12px 0' }} />
-      <Row gutter={16}>
-        <Col span={8}>
-          <Form.Item label="本次派工總金額（自動加總）">
-            <InputNumber
-              style={{ width: '100%' }}
-              value={editCurrentAmount}
-              disabled
-              precision={0}
-              formatter={(value) =>
-                `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-              }
-            />
-          </Form.Item>
-        </Col>
-        <Col span={8}>
-          <Form.Item label="累進派工金額（統計）">
-            <InputNumber
-              style={{ width: '100%' }}
-              value={cumulativeAmount}
-              disabled
-              precision={0}
-              formatter={(value) =>
-                `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-              }
-            />
-          </Form.Item>
-        </Col>
-        <Col span={8}>
-          <Form.Item label="剩餘金額（統計）">
-            <InputNumber
-              style={{ width: '100%' }}
-              value={remainingAmount}
-              disabled
-              precision={0}
-              formatter={(value) =>
-                `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-              }
-            />
-          </Form.Item>
-        </Col>
-      </Row>
+      <ResponsiveFormRow>
+        <Form.Item label="本次派工總金額（自動加總）">
+          <InputNumber
+            style={{ width: '100%' }}
+            value={editCurrentAmount}
+            disabled
+            precision={0}
+            formatter={(value) =>
+              `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+            }
+          />
+        </Form.Item>
+        <Form.Item label="累進派工金額（統計）">
+          <InputNumber
+            style={{ width: '100%' }}
+            value={cumulativeAmount}
+            disabled
+            precision={0}
+            formatter={(value) =>
+              `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+            }
+          />
+        </Form.Item>
+        <Form.Item label="剩餘金額（統計）">
+          <InputNumber
+            style={{ width: '100%' }}
+            value={remainingAmount}
+            disabled
+            precision={0}
+            formatter={(value) =>
+              `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+            }
+          />
+        </Form.Item>
+      </ResponsiveFormRow>
     </>
   );
 };
@@ -336,88 +329,96 @@ export const DispatchInfoTab: React.FC<DispatchInfoTabProps> = ({
     return (
       <div>
         {/* 第一行：派工單號 + 工程名稱 */}
-        <Row gutter={16} style={{ marginBottom: 16 }}>
-          <Col span={8}>
-            <div style={{ marginBottom: 8 }}>
-              <Text strong style={{ color: 'rgba(0, 0, 0, 0.88)' }}>
-                <span style={{ color: '#ff4d4f' }}>* </span>派工單號
-              </Text>
+        <div style={{ marginBottom: 16 }}>
+          <ResponsiveFormRow>
+            <div>
+              <div style={{ marginBottom: 8 }}>
+                <Text strong style={{ color: 'rgba(0, 0, 0, 0.88)' }}>
+                  <span style={{ color: '#ff4d4f' }}>* </span>派工單號
+                </Text>
+              </div>
+              <ReadOnlyField value={dispatch.dispatch_no} />
             </div>
-            <ReadOnlyField value={dispatch.dispatch_no} />
-          </Col>
-          <Col span={16}>
-            <div style={{ marginBottom: 8 }}>
-              <Text strong style={{ color: 'rgba(0, 0, 0, 0.88)' }}>工程名稱/派工事項</Text>
+            <div>
+              <div style={{ marginBottom: 8 }}>
+                <Text strong style={{ color: 'rgba(0, 0, 0, 0.88)' }}>工程名稱/派工事項</Text>
+              </div>
+              <ReadOnlyField value={dispatch.project_name} />
             </div>
-            <ReadOnlyField value={dispatch.project_name} />
-          </Col>
-        </Row>
+          </ResponsiveFormRow>
+        </div>
 
         {/* 第二行：作業類別 + 分案名稱 + 履約期限 */}
-        <Row gutter={16} style={{ marginBottom: 16 }}>
-          <Col span={8}>
-            <div style={{ marginBottom: 8 }}>
-              <Text strong style={{ color: 'rgba(0, 0, 0, 0.88)' }}>作業類別</Text>
+        <div style={{ marginBottom: 16 }}>
+          <ResponsiveFormRow>
+            <div>
+              <div style={{ marginBottom: 8 }}>
+                <Text strong style={{ color: 'rgba(0, 0, 0, 0.88)' }}>作業類別</Text>
+              </div>
+              <ReadOnlyField value={dispatch.work_type} />
             </div>
-            <ReadOnlyField value={dispatch.work_type} />
-          </Col>
-          <Col span={8}>
-            <div style={{ marginBottom: 8 }}>
-              <Text strong style={{ color: 'rgba(0, 0, 0, 0.88)' }}>分案名稱/派工備註</Text>
+            <div>
+              <div style={{ marginBottom: 8 }}>
+                <Text strong style={{ color: 'rgba(0, 0, 0, 0.88)' }}>分案名稱/派工備註</Text>
+              </div>
+              <ReadOnlyField value={dispatch.sub_case_name} />
             </div>
-            <ReadOnlyField value={dispatch.sub_case_name} />
-          </Col>
-          <Col span={8}>
-            <div style={{ marginBottom: 8 }}>
-              <Text strong style={{ color: 'rgba(0, 0, 0, 0.88)' }}>履約期限</Text>
+            <div>
+              <div style={{ marginBottom: 8 }}>
+                <Text strong style={{ color: 'rgba(0, 0, 0, 0.88)' }}>履約期限</Text>
+              </div>
+              <ReadOnlyField value={dispatch.deadline} />
             </div>
-            <ReadOnlyField value={dispatch.deadline} />
-          </Col>
-        </Row>
+          </ResponsiveFormRow>
+        </div>
 
         {/* 第三行：案件承辦 + 查估單位 + 聯絡備註 */}
-        <Row gutter={16} style={{ marginBottom: 16 }}>
-          <Col span={8}>
-            <div style={{ marginBottom: 8 }}>
-              <Text strong style={{ color: 'rgba(0, 0, 0, 0.88)' }}>案件承辦</Text>
+        <div style={{ marginBottom: 16 }}>
+          <ResponsiveFormRow>
+            <div>
+              <div style={{ marginBottom: 8 }}>
+                <Text strong style={{ color: 'rgba(0, 0, 0, 0.88)' }}>案件承辦</Text>
+              </div>
+              <ReadOnlyField value={dispatch.case_handler} />
             </div>
-            <ReadOnlyField value={dispatch.case_handler} />
-          </Col>
-          <Col span={8}>
-            <div style={{ marginBottom: 8 }}>
-              <Text strong style={{ color: 'rgba(0, 0, 0, 0.88)' }}>查估單位</Text>
+            <div>
+              <div style={{ marginBottom: 8 }}>
+                <Text strong style={{ color: 'rgba(0, 0, 0, 0.88)' }}>查估單位</Text>
+              </div>
+              <ReadOnlyField value={dispatch.survey_unit} />
             </div>
-            <ReadOnlyField value={dispatch.survey_unit} />
-          </Col>
-          <Col span={8}>
-            <div style={{ marginBottom: 8 }}>
-              <Text strong style={{ color: 'rgba(0, 0, 0, 0.88)' }}>聯絡備註</Text>
+            <div>
+              <div style={{ marginBottom: 8 }}>
+                <Text strong style={{ color: 'rgba(0, 0, 0, 0.88)' }}>聯絡備註</Text>
+              </div>
+              <ReadOnlyField value={dispatch.contact_note} />
             </div>
-            <ReadOnlyField value={dispatch.contact_note} />
-          </Col>
-        </Row>
+          </ResponsiveFormRow>
+        </div>
 
         {/* 第四行：雲端資料夾 + 專案資料夾 */}
-        <Row gutter={16} style={{ marginBottom: 16 }}>
-          <Col span={12}>
-            <div style={{ marginBottom: 8 }}>
-              <Text strong style={{ color: 'rgba(0, 0, 0, 0.88)' }}>雲端資料夾</Text>
+        <div style={{ marginBottom: 16 }}>
+          <ResponsiveFormRow>
+            <div>
+              <div style={{ marginBottom: 8 }}>
+                <Text strong style={{ color: 'rgba(0, 0, 0, 0.88)' }}>雲端資料夾</Text>
+              </div>
+              {dispatch.cloud_folder ? (
+                <a href={dispatch.cloud_folder} target="_blank" rel="noopener noreferrer">
+                  <ReadOnlyField value={dispatch.cloud_folder} />
+                </a>
+              ) : (
+                <ReadOnlyField value={undefined} />
+              )}
             </div>
-            {dispatch.cloud_folder ? (
-              <a href={dispatch.cloud_folder} target="_blank" rel="noopener noreferrer">
-                <ReadOnlyField value={dispatch.cloud_folder} />
-              </a>
-            ) : (
-              <ReadOnlyField value={undefined} />
-            )}
-          </Col>
-          <Col span={12}>
-            <div style={{ marginBottom: 8 }}>
-              <Text strong style={{ color: 'rgba(0, 0, 0, 0.88)' }}>專案資料夾</Text>
+            <div>
+              <div style={{ marginBottom: 8 }}>
+                <Text strong style={{ color: 'rgba(0, 0, 0, 0.88)' }}>專案資料夾</Text>
+              </div>
+              <ReadOnlyField value={dispatch.project_folder} />
             </div>
-            <ReadOnlyField value={dispatch.project_folder} />
-          </Col>
-        </Row>
+          </ResponsiveFormRow>
+        </div>
 
         {/* 契金資訊 */}
         <Divider orientation="left">契金資訊</Divider>

@@ -64,3 +64,10 @@ structlog==24.1.0
 # --- AI Services (v1.37.0) ---
 groq>=0.4.0
 ollama>=0.1.0
+
+# --- Vector Search (v1.44.0) ---
+pgvector>=0.2.0
+
+# --- MFA / TOTP (v1.44.0) ---
+pyotp>=2.9.0
+qrcode[pil]>=7.4.0

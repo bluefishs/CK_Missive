@@ -18,6 +18,7 @@
  * @status DEMO
  */
 import React, { useState } from 'react';
+import { ResponsiveContent } from '../components/common';
 import {
   Card,
   Typography,
@@ -303,7 +304,7 @@ const UnifiedFormDemoPage: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '24px' }}>
+    <ResponsiveContent maxWidth="full" padding="medium">
       <Space direction="vertical" style={{ width: '100%' }} size="large">
         {/* 頁面標題 */}
         <Card>
@@ -491,7 +492,7 @@ const UnifiedFormDemoPage: React.FC = () => {
           </Card>
         </Card>
       </Space>
-    </div>
+    </ResponsiveContent>
   );
 };
 

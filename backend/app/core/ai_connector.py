@@ -307,28 +307,55 @@ class AIConnector:
         self,
         text: str,
         model: Optional[str] = None,
-    ) -> List[float]:
+    ) -> Optional[List[float]]:
         """
-        生成文字的 embedding 向量（Phase 2 向量語意搜尋預留介面）
+        使用 Ollama nomic-embed-text 生成 384 維向量嵌入
 
-        未來將透過 Ollama 的 embedding 模型（如 nomic-embed-text）
-        或本地 sentence-transformers 生成向量。
+        透過 Ollama /api/embed 端點呼叫 nomic-embed-text 模型，
+        將文字轉換為 384 維的向量表示，用於語意搜尋。
 
         Args:
             text: 要生成 embedding 的文字
-            model: embedding 模型名稱（可選）
+            model: embedding 模型名稱（預設: nomic-embed-text）
 
         Returns:
-            embedding 向量（浮點數列表）
-
-        Raises:
-            NotImplementedError: 目前尚未實作
+            384 維的 embedding 向量（浮點數列表），失敗時回傳 None
         """
-        # Phase 2: 將透過 Ollama /api/embed 端點實作
-        raise NotImplementedError(
-            "Embedding 功能尚未實作。"
-            "Phase 2 將透過 Ollama nomic-embed-text 模型 + pgvector 實現向量語意搜尋。"
-        )
+        embed_model = model or os.getenv("EMBEDDING_MODEL", "nomic-embed-text")
+        # 截斷過長文字（nomic-embed-text 建議 8192 tokens）
+        truncated_text = text[:8000] if text else ""
+        if not truncated_text.strip():
+            logger.warning("Embedding 生成跳過：輸入文字為空")
+            return None
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.ollama_base_url}/api/embed",
+                    json={
+                        "model": embed_model,
+                        "input": truncated_text,
+                    },
+                    timeout=self.local_timeout,
+                )
+                response.raise_for_status()
+                data = response.json()
+
+                # Ollama /api/embed 回傳格式: {"embeddings": [[...]]}
+                embeddings = data.get("embeddings", [])
+                if embeddings and len(embeddings) > 0:
+                    embedding = embeddings[0]
+                    logger.debug(
+                        f"Embedding 生成成功 (model={embed_model}, "
+                        f"dim={len(embedding)}, text_len={len(truncated_text)})"
+                    )
+                    return embedding
+
+                logger.warning(f"Embedding 回應中無有效向量: {data}")
+                return None
+        except Exception as e:
+            logger.warning(f"Embedding 生成失敗 (model={embed_model}): {e}")
+            return None
 
     async def check_health(self) -> Dict[str, Any]:
         """檢查 AI 服務健康狀態"""

@@ -55,8 +55,11 @@ export const ROUTES = {
   REPORTS: '/reports',
   SITE_MANAGEMENT: '/admin/site-management',
   LOGIN: '/login',
+  MFA_VERIFY: '/mfa/verify',
   REGISTER: '/register',
   FORGOT_PASSWORD: '/forgot-password',
+  RESET_PASSWORD: '/reset-password',
+  VERIFY_EMAIL: '/verify-email',
   NOT_FOUND: '/404',
   API_MAPPING: '/api-mapping', // 新增 API 對應頁面路由
   API_DOCS: '/api/docs', // API 文件頁面路由
@@ -68,6 +71,9 @@ export const ROUTES = {
   ADMIN_DASHBOARD: '/admin/dashboard',
   BACKUP_MANAGEMENT: '/admin/backup',
   DEPLOYMENT_MANAGEMENT: '/admin/deployment',
+  // AI 管理
+  AI_SYNONYM_MANAGEMENT: '/admin/ai-synonyms',
+  AI_PROMPT_MANAGEMENT: '/admin/ai-prompts',
   // 桃園查估專區
   TAOYUAN_DISPATCH: '/taoyuan/dispatch',
   TAOYUAN_DISPATCH_CREATE: '/taoyuan/dispatch/create',
@@ -242,6 +248,20 @@ export const ROUTE_META = {
     requireAuth: true,
     roles: ['admin', 'superuser'],
   },
+  [ROUTES.AI_SYNONYM_MANAGEMENT]: {
+    title: 'AI 同義詞管理',
+    description: 'AI 自然語言搜尋同義詞字典管理',
+    icon: 'TagsOutlined',
+    requireAuth: true,
+    roles: ['admin', 'superuser'],
+  },
+  [ROUTES.AI_PROMPT_MANAGEMENT]: {
+    title: 'AI Prompt 管理',
+    description: 'AI Prompt 版本控制與管理',
+    icon: 'RobotOutlined',
+    requireAuth: true,
+    roles: ['admin', 'superuser'],
+  },
   [ROUTES.TAOYUAN_DISPATCH]: {
     title: '派工管理',
     description: '桃園查估專區 - 派工管理',
@@ -264,6 +284,21 @@ export const ROUTE_META = {
     description: '桃園查估專區 - 新增轄管工程',
     icon: 'PlusOutlined',
     hideInMenu: true,
+  },
+  [ROUTES.MFA_VERIFY]: {
+    title: 'MFA 驗證',
+    description: '雙因素認證驗證',
+    icon: 'SafetyOutlined',
+  },
+  [ROUTES.RESET_PASSWORD]: {
+    title: '重設密碼',
+    description: '設定新密碼',
+    icon: 'LockOutlined',
+  },
+  [ROUTES.VERIFY_EMAIL]: {
+    title: 'Email 驗證',
+    description: '驗證您的電子郵件',
+    icon: 'MailOutlined',
   },
   [ROUTES.TAOYUAN_DISPATCH_CREATE]: {
     title: '新增派工單',

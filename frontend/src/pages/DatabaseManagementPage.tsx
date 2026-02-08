@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { logger } from '../services/logger';
+import { ResponsiveContent } from '../components/common';
 import {
   Card, Table, Tabs, Button, Space, Typography, Row, Col,
   Statistic, Alert, Modal, Input, Select, Tag, App,
@@ -518,7 +519,7 @@ export const DatabaseManagementPage: React.FC = () => {
   );
 
   return (
-    <div style={{ padding: '24px', background: '#f5f5f5', minHeight: '100vh' }}>
+    <ResponsiveContent maxWidth="full" padding="medium" style={{ background: '#f5f5f5', minHeight: '100vh' }}>
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
         
         {/* 頁面標題 */}
@@ -738,6 +739,6 @@ export const DatabaseManagementPage: React.FC = () => {
         </Drawer>
 
       </div>
-    </div>
+    </ResponsiveContent>
   );
 };

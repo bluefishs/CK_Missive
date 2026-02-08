@@ -25,6 +25,7 @@ import {
   Typography,
   Alert,
 } from 'antd';
+import { ResponsiveFormRow } from '../common/ResponsiveFormRow';
 import type { FormInstance } from 'antd';
 import { FileTextOutlined } from '@ant-design/icons';
 
@@ -185,175 +186,155 @@ export const DispatchFormFields: React.FC<DispatchFormFieldsProps> = ({
       {/* ================================================================= */}
       {/* 第一行：派工單號 + 工程名稱/派工事項 */}
       {/* ================================================================= */}
-      <Row gutter={16}>
-        <Col span={8}>
-          <Form.Item
-            name="dispatch_no"
-            label="派工單號"
-            rules={[{ required: true, message: '請輸入派工單號' }]}
-          >
-            <Input placeholder="例: TY-2026-001" />
-          </Form.Item>
-        </Col>
-        <Col span={16}>
-          <Form.Item
-            name="project_name"
-            label="工程名稱/派工事項"
-            tooltip="可從工程列表選擇或直接輸入（如：教育訓練）"
-          >
-            <AutoComplete
-              options={projectOptions}
-              onSelect={handleProjectSelect}
-              placeholder="輸入或選擇工程名稱/派工事項"
-              allowClear
-              filterOption={(inputValue, option) =>
-                option?.value?.toLowerCase().includes(inputValue.toLowerCase()) ?? false
-              }
-            />
-          </Form.Item>
-        </Col>
-      </Row>
+      <ResponsiveFormRow>
+        <Form.Item
+          name="dispatch_no"
+          label="派工單號"
+          rules={[{ required: true, message: '請輸入派工單號' }]}
+        >
+          <Input placeholder="例: TY-2026-001" />
+        </Form.Item>
+        <Form.Item
+          name="project_name"
+          label="工程名稱/派工事項"
+          tooltip="可從工程列表選擇或直接輸入（如：教育訓練）"
+        >
+          <AutoComplete
+            options={projectOptions}
+            onSelect={handleProjectSelect}
+            placeholder="輸入或選擇工程名稱/派工事項"
+            allowClear
+            filterOption={(inputValue, option) =>
+              option?.value?.toLowerCase().includes(inputValue.toLowerCase()) ?? false
+            }
+          />
+        </Form.Item>
+      </ResponsiveFormRow>
 
       {/* ================================================================= */}
       {/* 第二行：作業類別 + 分案名稱 + 履約期限 */}
       {/* ================================================================= */}
-      <Row gutter={16}>
-        <Col span={8}>
-          <Form.Item name="work_type" label="作業類別">
-            <Select
-              mode="multiple"
-              allowClear
-              placeholder="選擇作業類別（可多選）"
-              maxTagCount={2}
-            >
-              {TAOYUAN_WORK_TYPES.map((type) => (
-                <Option key={type} value={type}>
-                  {type}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-        </Col>
-        <Col span={8}>
-          <Form.Item name="sub_case_name" label="分案名稱/派工備註">
-            <Input.TextArea
-              rows={2}
-              placeholder="輸入分案名稱或備註"
-              style={{ resize: 'vertical' }}
-            />
-          </Form.Item>
-        </Col>
-        <Col span={8}>
-          <Form.Item name="deadline" label="履約期限">
-            <Input.TextArea
-              rows={2}
-              placeholder="例: 114/12/31"
-              style={{ resize: 'vertical' }}
-            />
-          </Form.Item>
-        </Col>
-      </Row>
+      <ResponsiveFormRow>
+        <Form.Item name="work_type" label="作業類別">
+          <Select
+            mode="multiple"
+            allowClear
+            placeholder="選擇作業類別（可多選）"
+            maxTagCount={2}
+          >
+            {TAOYUAN_WORK_TYPES.map((type) => (
+              <Option key={type} value={type}>
+                {type}
+              </Option>
+            ))}
+          </Select>
+        </Form.Item>
+        <Form.Item name="sub_case_name" label="分案名稱/派工備註">
+          <Input.TextArea
+            rows={2}
+            placeholder="輸入分案名稱或備註"
+            style={{ resize: 'vertical' }}
+          />
+        </Form.Item>
+        <Form.Item name="deadline" label="履約期限">
+          <Input.TextArea
+            rows={2}
+            placeholder="例: 114/12/31"
+            style={{ resize: 'vertical' }}
+          />
+        </Form.Item>
+      </ResponsiveFormRow>
 
       {/* ================================================================= */}
       {/* 第三行：案件承辦 + 查估單位 + 聯絡備註 */}
       {/* ================================================================= */}
-      <Row gutter={16}>
-        <Col span={8}>
-          <Form.Item
-            name="case_handler"
-            label="案件承辦"
-            tooltip="從機關承辦清單選擇（來源：承攬案件機關承辦）"
+      <ResponsiveFormRow>
+        <Form.Item
+          name="case_handler"
+          label="案件承辦"
+          tooltip="從機關承辦清單選擇（來源：承攬案件機關承辦）"
+        >
+          <Select
+            placeholder="選擇案件承辦"
+            allowClear
+            showSearch
+            optionFilterProp="label"
           >
-            <Select
-              placeholder="選擇案件承辦"
-              allowClear
-              showSearch
-              optionFilterProp="label"
-            >
-              {agencyContacts.map((contact) => (
-                <Option
-                  key={contact.id}
-                  value={contact.contact_name}
-                  label={contact.contact_name}
-                >
-                  <div style={{ lineHeight: 1.4 }}>
-                    <div>{contact.contact_name}</div>
-                    {(contact.position || contact.department) && (
-                      <Text type="secondary" style={{ fontSize: 11 }}>
-                        {[contact.position, contact.department].filter(Boolean).join(' / ')}
-                      </Text>
-                    )}
-                  </div>
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-        </Col>
-        <Col span={8}>
-          <Form.Item
-            name="survey_unit"
-            label="查估單位"
-            tooltip="從協力廠商清單選擇（來源：承攬案件協力廠商）"
+            {agencyContacts.map((contact) => (
+              <Option
+                key={contact.id}
+                value={contact.contact_name}
+                label={contact.contact_name}
+              >
+                <div style={{ lineHeight: 1.4 }}>
+                  <div>{contact.contact_name}</div>
+                  {(contact.position || contact.department) && (
+                    <Text type="secondary" style={{ fontSize: 11 }}>
+                      {[contact.position, contact.department].filter(Boolean).join(' / ')}
+                    </Text>
+                  )}
+                </div>
+              </Option>
+            ))}
+          </Select>
+        </Form.Item>
+        <Form.Item
+          name="survey_unit"
+          label="查估單位"
+          tooltip="從協力廠商清單選擇（來源：承攬案件協力廠商）"
+        >
+          <Select
+            placeholder="選擇查估單位"
+            allowClear
+            showSearch
+            optionFilterProp="label"
           >
-            <Select
-              placeholder="選擇查估單位"
-              allowClear
-              showSearch
-              optionFilterProp="label"
-            >
-              {projectVendors.map((vendor) => (
-                <Option
-                  key={vendor.vendor_id}
-                  value={vendor.vendor_name}
-                  label={vendor.vendor_name}
-                >
-                  <div style={{ lineHeight: 1.4 }}>
-                    <div>{vendor.vendor_name}</div>
-                    {(vendor.role || vendor.vendor_business_type) && (
-                      <Text type="secondary" style={{ fontSize: 11 }}>
-                        {[vendor.role, vendor.vendor_business_type].filter(Boolean).join(' / ')}
-                      </Text>
-                    )}
-                  </div>
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-        </Col>
-        <Col span={8}>
-          <Form.Item name="contact_note" label="聯絡備註">
-            <Input.TextArea
-              rows={2}
-              placeholder="輸入聯絡備註"
-              style={{ resize: 'vertical' }}
-            />
-          </Form.Item>
-        </Col>
-      </Row>
+            {projectVendors.map((vendor) => (
+              <Option
+                key={vendor.vendor_id}
+                value={vendor.vendor_name}
+                label={vendor.vendor_name}
+              >
+                <div style={{ lineHeight: 1.4 }}>
+                  <div>{vendor.vendor_name}</div>
+                  {(vendor.role || vendor.vendor_business_type) && (
+                    <Text type="secondary" style={{ fontSize: 11 }}>
+                      {[vendor.role, vendor.vendor_business_type].filter(Boolean).join(' / ')}
+                    </Text>
+                  )}
+                </div>
+              </Option>
+            ))}
+          </Select>
+        </Form.Item>
+        <Form.Item name="contact_note" label="聯絡備註">
+          <Input.TextArea
+            rows={2}
+            placeholder="輸入聯絡備註"
+            style={{ resize: 'vertical' }}
+          />
+        </Form.Item>
+      </ResponsiveFormRow>
 
       {/* ================================================================= */}
       {/* 第四行：雲端資料夾 + 專案資料夾 */}
       {/* ================================================================= */}
-      <Row gutter={16}>
-        <Col span={12}>
-          <Form.Item name="cloud_folder" label="雲端資料夾">
-            <Input.TextArea
-              rows={2}
-              placeholder="Google Drive 連結"
-              style={{ resize: 'vertical' }}
-            />
-          </Form.Item>
-        </Col>
-        <Col span={12}>
-          <Form.Item name="project_folder" label="專案資料夾">
-            <Input.TextArea
-              rows={2}
-              placeholder="本地路徑"
-              style={{ resize: 'vertical' }}
-            />
-          </Form.Item>
-        </Col>
-      </Row>
+      <ResponsiveFormRow>
+        <Form.Item name="cloud_folder" label="雲端資料夾">
+          <Input.TextArea
+            rows={2}
+            placeholder="Google Drive 連結"
+            style={{ resize: 'vertical' }}
+          />
+        </Form.Item>
+        <Form.Item name="project_folder" label="專案資料夾">
+          <Input.TextArea
+            rows={2}
+            placeholder="本地路徑"
+            style={{ resize: 'vertical' }}
+          />
+        </Form.Item>
+      </ResponsiveFormRow>
 
       {/* ================================================================= */}
       {/* 公文關聯區塊 */}
@@ -370,76 +351,68 @@ export const DispatchFormFields: React.FC<DispatchFormFieldsProps> = ({
 
           {mode === 'quick' && document ? (
             // quick 模式：自動帶入當前公文
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item
-                  label="機關函文號"
-                  tooltip={isReceiveDoc ? '自動帶入當前公文文號' : '如需關聯機關函文，請至派工紀錄編輯'}
-                >
-                  <Input
-                    value={isReceiveDoc ? document.doc_number : undefined}
-                    disabled
-                    style={{ backgroundColor: '#f5f5f5' }}
-                    placeholder={isReceiveDoc ? '' : '(非機關來函)'}
-                  />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item
-                  label="乾坤函文號"
-                  tooltip={!isReceiveDoc ? '自動帶入當前公文文號' : '如需關聯乾坤函文，請至派工紀錄編輯'}
-                >
-                  <Input
-                    value={!isReceiveDoc ? document.doc_number : undefined}
-                    disabled
-                    style={{ backgroundColor: '#f5f5f5' }}
-                    placeholder={!isReceiveDoc ? '' : '(非乾坤發文)'}
-                  />
-                </Form.Item>
-              </Col>
-            </Row>
+            <ResponsiveFormRow>
+              <Form.Item
+                label="機關函文號"
+                tooltip={isReceiveDoc ? '自動帶入當前公文文號' : '如需關聯機關函文，請至派工紀錄編輯'}
+              >
+                <Input
+                  value={isReceiveDoc ? document.doc_number : undefined}
+                  disabled
+                  style={{ backgroundColor: '#f5f5f5' }}
+                  placeholder={isReceiveDoc ? '' : '(非機關來函)'}
+                />
+              </Form.Item>
+              <Form.Item
+                label="乾坤函文號"
+                tooltip={!isReceiveDoc ? '自動帶入當前公文文號' : '如需關聯乾坤函文，請至派工紀錄編輯'}
+              >
+                <Input
+                  value={!isReceiveDoc ? document.doc_number : undefined}
+                  disabled
+                  style={{ backgroundColor: '#f5f5f5' }}
+                  placeholder={!isReceiveDoc ? '' : '(非乾坤發文)'}
+                />
+              </Form.Item>
+            </ResponsiveFormRow>
           ) : (
             // create 模式：可搜尋選擇公文
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item
-                  name="agency_doc_id"
-                  label="機關函文（收文）"
-                  tooltip="選擇對應的機關來文"
-                >
-                  <Select
-                    allowClear
-                    showSearch
-                    placeholder="搜尋並選擇機關函文"
-                    filterOption={false}
-                    onSearch={onAgencyDocSearch}
-                    notFoundContent={
-                      agencyDocOptions.length === 0 ? '無符合資料' : '輸入關鍵字搜尋'
-                    }
-                    options={agencyDocOptions}
-                  />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item
-                  name="company_doc_id"
-                  label="乾坤函文（發文）"
-                  tooltip="選擇對應的乾坤發文"
-                >
-                  <Select
-                    allowClear
-                    showSearch
-                    placeholder="搜尋並選擇乾坤函文"
-                    filterOption={false}
-                    onSearch={onCompanyDocSearch}
-                    notFoundContent={
-                      companyDocOptions.length === 0 ? '無符合資料' : '輸入關鍵字搜尋'
-                    }
-                    options={companyDocOptions}
-                  />
-                </Form.Item>
-              </Col>
-            </Row>
+            <ResponsiveFormRow>
+              <Form.Item
+                name="agency_doc_id"
+                label="機關函文（收文）"
+                tooltip="選擇對應的機關來文"
+              >
+                <Select
+                  allowClear
+                  showSearch
+                  placeholder="搜尋並選擇機關函文"
+                  filterOption={false}
+                  onSearch={onAgencyDocSearch}
+                  notFoundContent={
+                    agencyDocOptions.length === 0 ? '無符合資料' : '輸入關鍵字搜尋'
+                  }
+                  options={agencyDocOptions}
+                />
+              </Form.Item>
+              <Form.Item
+                name="company_doc_id"
+                label="乾坤函文（發文）"
+                tooltip="選擇對應的乾坤發文"
+              >
+                <Select
+                  allowClear
+                  showSearch
+                  placeholder="搜尋並選擇乾坤函文"
+                  filterOption={false}
+                  onSearch={onCompanyDocSearch}
+                  notFoundContent={
+                    companyDocOptions.length === 0 ? '無符合資料' : '輸入關鍵字搜尋'
+                  }
+                  options={companyDocOptions}
+                />
+              </Form.Item>
+            </ResponsiveFormRow>
           )}
         </>
       )}

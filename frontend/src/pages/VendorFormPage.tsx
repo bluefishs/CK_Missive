@@ -10,7 +10,8 @@
 
 import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Form, Input, Select, Row, Col, App, Rate, Modal } from 'antd';
+import { Form, Input, Select, App, Rate, Modal } from 'antd';
+import { ResponsiveFormRow } from '../components/common/ResponsiveFormRow';
 import { ExclamationCircleOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FormPageLayout } from '../components/common/FormPage';
@@ -160,56 +161,44 @@ export const VendorFormPage: React.FC = () => {
       deleting={deleteMutation.isPending}
     >
       <Form form={form} layout="vertical" size="large">
-        <Row gutter={16}>
-          <Col xs={24} sm={12}>
-            <Form.Item
-              name="vendor_name"
-              label="廠商名稱"
-              rules={[{ required: true, message: '請輸入廠商名稱' }]}
-            >
-              <Input placeholder="請輸入廠商名稱" />
-            </Form.Item>
-          </Col>
-          <Col xs={24} sm={12}>
-            <Form.Item name="vendor_code" label="廠商統編">
-              <Input placeholder="請輸入廠商統編" />
-            </Form.Item>
-          </Col>
-        </Row>
+        <ResponsiveFormRow>
+          <Form.Item
+            name="vendor_name"
+            label="廠商名稱"
+            rules={[{ required: true, message: '請輸入廠商名稱' }]}
+          >
+            <Input placeholder="請輸入廠商名稱" />
+          </Form.Item>
+          <Form.Item name="vendor_code" label="廠商統編">
+            <Input placeholder="請輸入廠商統編" />
+          </Form.Item>
+        </ResponsiveFormRow>
 
-        <Row gutter={16}>
-          <Col xs={24} sm={12}>
-            <Form.Item
-              name="business_type"
-              label="營業項目"
-              rules={[{ required: true, message: '請選擇營業項目' }]}
-            >
-              <Select
-                placeholder="請選擇營業項目"
-                options={[...BUSINESS_TYPE_OPTIONS]}
-                allowClear
-              />
-            </Form.Item>
-          </Col>
-          <Col xs={24} sm={12}>
-            <Form.Item name="rating" label="評價">
-              <Rate allowHalf />
-            </Form.Item>
-          </Col>
-        </Row>
+        <ResponsiveFormRow>
+          <Form.Item
+            name="business_type"
+            label="營業項目"
+            rules={[{ required: true, message: '請選擇營業項目' }]}
+          >
+            <Select
+              placeholder="請選擇營業項目"
+              options={[...BUSINESS_TYPE_OPTIONS]}
+              allowClear
+            />
+          </Form.Item>
+          <Form.Item name="rating" label="評價">
+            <Rate allowHalf />
+          </Form.Item>
+        </ResponsiveFormRow>
 
-        <Row gutter={16}>
-          <Col xs={24} sm={12}>
-            <Form.Item name="contact_person" label="聯絡人">
-              <Input placeholder="請輸入聯絡人姓名" />
-            </Form.Item>
-          </Col>
-          <Col xs={24} sm={12}>
-            <Form.Item name="phone" label="電話">
-              <Input placeholder="請輸入聯絡電話" />
-            </Form.Item>
-          </Col>
-        </Row>
+        <ResponsiveFormRow>
+          <Form.Item name="contact_person" label="聯絡人">
+            <Input placeholder="請輸入聯絡人姓名" />
+          </Form.Item>
+          <Form.Item name="phone" label="電話">
+            <Input placeholder="請輸入聯絡電話" />
+          </Form.Item>
+        </ResponsiveFormRow>
 
         <Form.Item
           name="email"

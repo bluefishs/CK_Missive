@@ -35,6 +35,9 @@ export * from './taoyuanDispatchApi';
 // AI 服務 (v1.37.0)
 export * from './aiApi';
 
+// Session 管理 (v1.44.0)
+export * from './sessionApi';
+
 // 主要匯出
 export { apiClient, API_BASE_URL } from './client';
 

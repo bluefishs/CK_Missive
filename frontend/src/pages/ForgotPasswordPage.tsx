@@ -1,21 +1,23 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Card,
   Form,
   Input,
   Button,
   Typography,
-  Alert,
+  Result,
   Space,
   Row,
   Col,
-  message
+  App,
 } from 'antd';
 import {
   MailOutlined,
-  ArrowLeftOutlined
+  ArrowLeftOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { apiClient } from '../api/client';
+import { AUTH_ENDPOINTS } from '../api/endpoints';
 
 const { Title, Text } = Typography;
 
@@ -24,13 +26,74 @@ interface ForgotPasswordForm {
 }
 
 const ForgotPasswordPage: React.FC = () => {
+  const { message } = App.useApp();
   const [form] = Form.useForm();
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = async (_values: ForgotPasswordForm) => {
-    // 後端 API 尚未實現，顯示功能開發中訊息
-    message.info('此功能尚在開發中，請聯繫系統管理員重設密碼');
+  const handleSubmit = async (values: ForgotPasswordForm) => {
+    setLoading(true);
+    try {
+      await apiClient.post(AUTH_ENDPOINTS.PASSWORD_RESET, {
+        email: values.email,
+      });
+      setSubmitted(true);
+    } catch {
+      // 即使 API 發生錯誤也顯示成功訊息（防帳號枚舉）
+      setSubmitted(true);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  if (submitted) {
+    return (
+      <Row
+        justify="center"
+        align="middle"
+        style={{
+          minHeight: '100vh',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          padding: '20px',
+        }}
+      >
+        <Col xs={24} sm={20} md={16} lg={12} xl={8}>
+          <Card
+            style={{
+              borderRadius: '12px',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+              border: 'none',
+            }}
+          >
+            <Result
+              status="success"
+              title="重設連結已發送"
+              subTitle="如果此 email 已註冊，您將收到密碼重設信件。請檢查您的收件匣（含垃圾郵件資料夾）。"
+              extra={[
+                <Button
+                  type="primary"
+                  key="login"
+                  onClick={() => navigate('/login')}
+                >
+                  返回登入
+                </Button>,
+                <Button
+                  key="retry"
+                  onClick={() => {
+                    setSubmitted(false);
+                    form.resetFields();
+                  }}
+                >
+                  重新發送
+                </Button>,
+              ]}
+            />
+          </Card>
+        </Col>
+      </Row>
+    );
+  }
 
   return (
     <Row
@@ -39,7 +102,7 @@ const ForgotPasswordPage: React.FC = () => {
       style={{
         minHeight: '100vh',
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        padding: '20px'
+        padding: '20px',
       }}
     >
       <Col xs={24} sm={20} md={16} lg={12} xl={8}>
@@ -47,7 +110,7 @@ const ForgotPasswordPage: React.FC = () => {
           style={{
             borderRadius: '12px',
             boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-            border: 'none'
+            border: 'none',
           }}
         >
           <Space
@@ -57,7 +120,7 @@ const ForgotPasswordPage: React.FC = () => {
           >
             <div style={{ textAlign: 'center' }}>
               <Title level={2} style={{ color: '#1890ff', marginBottom: 8 }}>
-                🔐 忘記密碼
+                忘記密碼
               </Title>
               <Text type="secondary">
                 請輸入您的電子郵件地址，我們將發送重設密碼的連結給您
@@ -77,7 +140,7 @@ const ForgotPasswordPage: React.FC = () => {
                 name="email"
                 rules={[
                   { required: true, message: '請輸入您的電子郵件！' },
-                  { type: 'email', message: '請輸入有效的電子郵件格式！' }
+                  { type: 'email', message: '請輸入有效的電子郵件格式！' },
                 ]}
               >
                 <Input
@@ -91,6 +154,7 @@ const ForgotPasswordPage: React.FC = () => {
                 <Button
                   type="primary"
                   htmlType="submit"
+                  loading={loading}
                   style={{ width: '100%' }}
                 >
                   發送重設連結
@@ -118,14 +182,6 @@ const ForgotPasswordPage: React.FC = () => {
                 </Space>
               </div>
             </Form>
-
-            <Alert
-              type="warning"
-              showIcon
-              message="功能開發中"
-              description="密碼重設功能尚在開發中。如需重設密碼，請聯繫系統管理員協助處理。"
-              style={{ marginTop: 16 }}
-            />
           </Space>
         </Card>
       </Col>

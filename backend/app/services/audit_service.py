@@ -326,6 +326,81 @@ class AuditService:
             ip_address=ip_address
         )
 
+    # ============ AI 操作審計 (2026-02-08) ============
+
+    @staticmethod
+    async def log_ai_event(
+        event_type: str,
+        feature: str,
+        input_text: str,
+        user_id: Optional[int] = None,
+        user_name: Optional[str] = None,
+        source_provider: str = "unknown",
+        tokens_used: int = 0,
+        latency_ms: float = 0,
+        success: bool = True,
+        error: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """
+        記錄 AI 操作事件
+
+        事件類型 (event_type):
+        - AI_SUMMARY_GENERATED: AI 生成摘要
+        - AI_CLASSIFY_SUGGESTED: AI 分類建議
+        - AI_KEYWORDS_EXTRACTED: AI 關鍵字提取
+        - AI_SEARCH_EXECUTED: 自然語言搜尋
+        - AI_INTENT_PARSED: 意圖解析
+        - AI_AGENCY_MATCHED: AI 機關匹配
+
+        Args:
+            event_type: 事件類型
+            feature: 功能名稱 (summary, classify, keywords, search, intent, agency_match)
+            input_text: 輸入文字（截取前 200 字）
+            user_id: 使用者 ID
+            user_name: 使用者名稱
+            source_provider: AI 提供者 (groq, ollama, cache, fallback)
+            tokens_used: 消耗 token 數
+            latency_ms: 延遲毫秒數
+            success: 是否成功
+            error: 錯誤訊息
+            details: 額外詳細資訊
+
+        Returns:
+            bool: 是否成功寫入
+        """
+        changes = {
+            "event_type": event_type,
+            "feature": feature,
+            "input_text": input_text[:200] if input_text else "",
+            "source_provider": source_provider,
+            "tokens_used": tokens_used,
+            "latency_ms": round(latency_ms, 2),
+            "success": success,
+        }
+        if error:
+            changes["error"] = error[:500]
+        if details:
+            changes.update(details)
+
+        log_level = logging.INFO if success else logging.WARNING
+        logger.log(
+            log_level,
+            f"[AI_AUDIT] {event_type} | Feature: {feature} | "
+            f"Provider: {source_provider} | Tokens: {tokens_used} | "
+            f"Latency: {latency_ms:.0f}ms | Success: {success}"
+        )
+
+        return await AuditService.log_change(
+            table_name="ai_events",
+            record_id=user_id or 0,
+            action=event_type,
+            changes=changes,
+            user_id=user_id,
+            user_name=user_name,
+            source="AI",
+        )
+
     @staticmethod
     async def log_permission_change(
         user_id: int,

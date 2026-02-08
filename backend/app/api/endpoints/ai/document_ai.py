@@ -1,12 +1,13 @@
 """
 公文 AI API 端點
 
-Version: 2.0.0
+Version: 2.1.0
 Created: 2026-02-04
-Updated: 2026-02-06 - 權限過濾 + 429 錯誤處理
+Updated: 2026-02-08 - 新增串流摘要 SSE 端點
 
 端點:
 - POST /ai/document/summary - 生成公文摘要
+- POST /ai/document/summary/stream - 串流生成公文摘要 (SSE) (v2.1.0 新增)
 - POST /ai/document/classify - 分類建議
 - POST /ai/document/keywords - 關鍵字提取
 - POST /ai/document/natural-search - 自然語言公文搜尋 (v1.1.0 新增)
@@ -15,12 +16,15 @@ Updated: 2026-02-06 - 權限過濾 + 429 錯誤處理
 - POST /ai/health - AI 服務健康檢查
 """
 
+import json
 import logging
+import time
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.responses import StreamingResponse
 
 from app.core.dependencies import get_async_db, optional_auth
 from app.services.ai.document_ai_service import (
@@ -28,6 +32,7 @@ from app.services.ai.document_ai_service import (
     get_document_ai_service,
 )
 from app.services.ai.ai_config import get_ai_config
+from app.services.audit_service import AuditService
 from app.schemas.ai import (
     ParseIntentRequest,
     ParseIntentResponse,
@@ -159,6 +164,7 @@ class AIConfigResponse(BaseModel):
 async def generate_summary(
     request: SummaryRequest,
     service: DocumentAIService = Depends(get_document_ai_service),
+    current_user=Depends(optional_auth()),
 ) -> SummaryResponse:
     """
     生成公文摘要
@@ -166,6 +172,7 @@ async def generate_summary(
     根據公文主旨和內容，使用 AI 生成簡潔的摘要。
     """
     logger.info(f"生成摘要: {request.subject[:50]}...")
+    start_time = time.time()
 
     result = await service.generate_summary(
         subject=request.subject,
@@ -174,13 +181,105 @@ async def generate_summary(
         max_length=request.max_length,
     )
 
+    latency_ms = (time.time() - start_time) * 1000
+    user_id = getattr(current_user, "id", None) if current_user else None
+    user_name = getattr(current_user, "email", None) if current_user else None
+    await AuditService.log_ai_event(
+        event_type="AI_SUMMARY_GENERATED",
+        feature="summary",
+        input_text=request.subject,
+        user_id=user_id,
+        user_name=user_name,
+        source_provider=result.get("source", "unknown"),
+        latency_ms=latency_ms,
+    )
+
     return SummaryResponse(**result)
+
+
+@router.post("/document/summary/stream")
+async def stream_summary(
+    request: SummaryRequest,
+    service: DocumentAIService = Depends(get_document_ai_service),
+    current_user=Depends(optional_auth()),
+) -> StreamingResponse:
+    """
+    串流生成公文摘要 (SSE)
+
+    使用 Server-Sent Events 逐字回傳 AI 生成的摘要，
+    降低使用者感知延遲。
+
+    SSE 格式:
+        data: {"token": "字", "done": false}
+        data: {"token": "", "done": true}
+    """
+    logger.info(f"串流生成摘要: {request.subject[:50]}...")
+
+    async def event_generator():
+        start_time_ms = time.time()
+        try:
+            async for token in service.stream_summary(
+                subject=request.subject,
+                content=request.content,
+                sender=request.sender,
+                max_length=request.max_length,
+            ):
+                data = json.dumps(
+                    {"token": token, "done": False}, ensure_ascii=False
+                )
+                yield f"data: {data}\n\n"
+
+            # 串流完成
+            yield f"data: {json.dumps({'token': '', 'done': True})}\n\n"
+
+            # 記錄審計日誌
+            latency_ms = (time.time() - start_time_ms) * 1000
+            user_id = (
+                getattr(current_user, "id", None) if current_user else None
+            )
+            user_name = (
+                getattr(current_user, "email", None) if current_user else None
+            )
+            await AuditService.log_ai_event(
+                event_type="AI_SUMMARY_STREAMED",
+                feature="summary_stream",
+                input_text=request.subject,
+                user_id=user_id,
+                user_name=user_name,
+                source_provider="ai",
+                latency_ms=latency_ms,
+            )
+        except RuntimeError as e:
+            # 速率限制
+            error_data = json.dumps(
+                {"token": "", "done": True, "error": str(e)},
+                ensure_ascii=False,
+            )
+            yield f"data: {error_data}\n\n"
+        except Exception as e:
+            logger.error(f"串流摘要失敗: {e}")
+            error_data = json.dumps(
+                {"token": "", "done": True, "error": str(e)},
+                ensure_ascii=False,
+            )
+            yield f"data: {error_data}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 @router.post("/document/classify", response_model=ClassifyResponse)
 async def suggest_classification(
     request: ClassifyRequest,
     service: DocumentAIService = Depends(get_document_ai_service),
+    current_user=Depends(optional_auth()),
 ) -> ClassifyResponse:
     """
     建議公文分類
@@ -188,11 +287,25 @@ async def suggest_classification(
     根據公文資訊，AI 建議公文類型和收發類別。
     """
     logger.info(f"分類建議: {request.subject[:50]}...")
+    start_time = time.time()
 
     result = await service.suggest_classification(
         subject=request.subject,
         content=request.content,
         sender=request.sender,
+    )
+
+    latency_ms = (time.time() - start_time) * 1000
+    user_id = getattr(current_user, "id", None) if current_user else None
+    user_name = getattr(current_user, "email", None) if current_user else None
+    await AuditService.log_ai_event(
+        event_type="AI_CLASSIFY_SUGGESTED",
+        feature="classify",
+        input_text=request.subject,
+        user_id=user_id,
+        user_name=user_name,
+        source_provider=result.get("source", "unknown"),
+        latency_ms=latency_ms,
     )
 
     return ClassifyResponse(**result)
@@ -202,6 +315,7 @@ async def suggest_classification(
 async def extract_keywords(
     request: KeywordsRequest,
     service: DocumentAIService = Depends(get_document_ai_service),
+    current_user=Depends(optional_auth()),
 ) -> KeywordsResponse:
     """
     提取公文關鍵字
@@ -209,11 +323,25 @@ async def extract_keywords(
     從公文中提取重要的關鍵字，用於搜尋和分類。
     """
     logger.info(f"提取關鍵字: {request.subject[:50]}...")
+    start_time = time.time()
 
     result = await service.extract_keywords(
         subject=request.subject,
         content=request.content,
         max_keywords=request.max_keywords,
+    )
+
+    latency_ms = (time.time() - start_time) * 1000
+    user_id = getattr(current_user, "id", None) if current_user else None
+    user_name = getattr(current_user, "email", None) if current_user else None
+    await AuditService.log_ai_event(
+        event_type="AI_KEYWORDS_EXTRACTED",
+        feature="keywords",
+        input_text=request.subject,
+        user_id=user_id,
+        user_name=user_name,
+        source_provider=result.get("source", "unknown"),
+        latency_ms=latency_ms,
     )
 
     return KeywordsResponse(**result)
@@ -239,17 +367,44 @@ async def natural_search_documents(
     """
     logger.info(f"自然語言搜尋: {request.query[:50]}...")
 
+    start_time = time.time()
     try:
         result = await service.natural_search(
             db=db, request=request, current_user=current_user
         )
+
+        latency_ms = (time.time() - start_time) * 1000
+        user_id = getattr(current_user, "id", None) if current_user else None
+        user_name = getattr(current_user, "email", None) if current_user else None
+        await AuditService.log_ai_event(
+            event_type="AI_SEARCH_EXECUTED",
+            feature="search",
+            input_text=request.query,
+            user_id=user_id,
+            user_name=user_name,
+            source_provider=result.source,
+            latency_ms=latency_ms,
+            details={"results_count": result.total},
+        )
+
         return result
     except RuntimeError as e:
         # 速率限制錯誤 → 429
         raise HTTPException(status_code=429, detail=str(e))
     except Exception as e:
         logger.error(f"自然語言搜尋失敗: {type(e).__name__}: {e}", exc_info=True)
-        from app.schemas.ai import ParsedSearchIntent
+        latency_ms = (time.time() - start_time) * 1000
+        user_id = getattr(current_user, "id", None) if current_user else None
+        await AuditService.log_ai_event(
+            event_type="AI_SEARCH_EXECUTED",
+            feature="search",
+            input_text=request.query,
+            user_id=user_id,
+            source_provider="error",
+            latency_ms=latency_ms,
+            success=False,
+            error=f"{type(e).__name__}: {e}",
+        )
         return NaturalSearchResponse(
             success=False,
             query=request.query,
@@ -310,6 +465,7 @@ async def match_agency(
     使用 AI 強化機關名稱匹配，支援簡稱、別稱識別。
     """
     logger.info(f"機關匹配: {request.agency_name}")
+    start_time = time.time()
 
     # 轉換候選列表格式
     candidates = None
@@ -322,6 +478,16 @@ async def match_agency(
     result = await service.match_agency_enhanced(
         agency_name=request.agency_name,
         candidates=candidates,
+    )
+
+    latency_ms = (time.time() - start_time) * 1000
+    await AuditService.log_ai_event(
+        event_type="AI_AGENCY_MATCHED",
+        feature="agency_match",
+        input_text=request.agency_name,
+        source_provider=result.get("source", "unknown"),
+        latency_ms=latency_ms,
+        details={"is_new": result.get("is_new", True)},
     )
 
     # 轉換回應格式

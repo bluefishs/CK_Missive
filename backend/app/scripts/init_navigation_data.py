@@ -394,6 +394,32 @@ DEFAULT_NAVIGATION_ITEMS = [
         "permission_required": "[\"admin:users\"]"
     },
 
+    # AI 同義詞管理 (對應 ROUTES.AI_SYNONYM_MANAGEMENT)
+    {
+        "title": "AI 同義詞管理",
+        "key": "ai-synonym-management",
+        "path": "/admin/ai-synonyms",
+        "icon": "TagsOutlined",
+        "sort_order": 8,
+        "level": 2,
+        "parent_key": "system-management",
+        "description": "AI,同義詞,搜尋",
+        "permission_required": "[\"admin:settings\"]"
+    },
+
+    # AI Prompt 管理 (對應 ROUTES.AI_PROMPT_MANAGEMENT)
+    {
+        "title": "AI Prompt 管理",
+        "key": "ai-prompt-management",
+        "path": "/admin/ai-prompts",
+        "icon": "RobotOutlined",
+        "sort_order": 9,
+        "level": 2,
+        "parent_key": "system-management",
+        "description": "AI,Prompt,提示詞,版本",
+        "permission_required": "[\"admin:settings\"]"
+    },
+
     # Google 認證診斷 (對應 ROUTES.GOOGLE_AUTH_DIAGNOSTIC)
     {
         "title": "Google認證診斷",

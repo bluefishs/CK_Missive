@@ -134,6 +134,21 @@ class Settings(BaseSettings):
     )
 
     # =========================================================================
+    # SMTP / Email 設定
+    # =========================================================================
+    SMTP_HOST: Optional[str] = Field(
+        default=None,
+        description="SMTP 伺服器位址，未設定時為開發模式（模擬發送）"
+    )
+    SMTP_PORT: int = Field(default=587, description="SMTP 埠號")
+    SMTP_USER: Optional[str] = Field(default=None, description="SMTP 帳號")
+    SMTP_PASSWORD: Optional[str] = Field(default=None, description="SMTP 密碼")
+    EMAIL_FROM: Optional[str] = Field(
+        default=None,
+        description="寄件人地址，預設使用 SMTP_USER"
+    )
+
+    # =========================================================================
     # 前端設定
     # =========================================================================
     FRONTEND_HOST_PORT: int = 3000

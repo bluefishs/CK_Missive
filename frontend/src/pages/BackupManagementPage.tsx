@@ -8,8 +8,9 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { logger } from '../services/logger';
+import { ResponsiveContent } from '../components/common';
 import {
-  Card, Table, Tabs, Button, Space, Typography, Row, Col,
+  Card, Tabs, Button, Space, Typography, Row, Col,
   Statistic, Alert, Modal, Input, Form, Tag, App,
   Tooltip, Popconfirm, Switch, Spin, DatePicker, Select, InputNumber
 } from 'antd';
@@ -22,6 +23,7 @@ import {
   CloudUploadOutlined, ExclamationCircleOutlined,
   WarningOutlined, ClearOutlined
 } from '@ant-design/icons';
+import { ResponsiveTable } from '../components/common';
 import { apiClient } from '../api/client';
 import { API_ENDPOINTS } from '../api/endpoints';
 import type {
@@ -492,22 +494,26 @@ export const BackupManagementPage: React.FC = () => {
       </Row>
 
       <Card title="資料庫備份" size="small">
-        <Table
+        <ResponsiveTable
           columns={backupColumns}
           dataSource={backups?.database_backups || []}
           rowKey="path"
           size="small"
+          scroll={{ x: 700 }}
+          mobileHiddenColumns={['stats', 'created_at']}
           pagination={{ pageSize: 10 }}
           loading={loading}
         />
       </Card>
 
       <Card title="附件備份" size="small">
-        <Table
+        <ResponsiveTable
           columns={backupColumns}
           dataSource={backups?.attachment_backups || []}
           rowKey="path"
           size="small"
+          scroll={{ x: 700 }}
+          mobileHiddenColumns={['stats', 'created_at']}
           pagination={{ pageSize: 10 }}
           loading={loading}
         />
@@ -739,18 +745,20 @@ export const BackupManagementPage: React.FC = () => {
         </Row>
       </Card>
 
-      <Table
+      <ResponsiveTable
         columns={logColumns}
         dataSource={logs?.logs || []}
         rowKey="id"
         size="small"
+        scroll={{ x: 600 }}
+        mobileHiddenColumns={['operator', 'details']}
         loading={loading}
         pagination={{
           current: logs?.page || 1,
           pageSize: logs?.page_size || 20,
           total: logs?.total || 0,
-          showTotal: (total) => `共 ${total} 筆記錄`,
-          onChange: (page, pageSize) => setLogFilters(prev => ({
+          showTotal: (total: number) => `共 ${total} 筆記錄`,
+          onChange: (page: number, pageSize: number) => setLogFilters(prev => ({
             ...prev,
             page,
             page_size: pageSize
@@ -765,7 +773,7 @@ export const BackupManagementPage: React.FC = () => {
   // =========================================================================
 
   return (
-    <div style={{ padding: '24px', background: '#f5f5f5', minHeight: '100vh' }}>
+    <ResponsiveContent maxWidth="full" padding="medium" style={{ background: '#f5f5f5', minHeight: '100vh' }}>
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
         {/* 頁面標題 */}
         <Row justify="space-between" align="middle" style={{ marginBottom: 24 }}>
@@ -902,6 +910,6 @@ export const BackupManagementPage: React.FC = () => {
           </Spin>
         </Card>
       </div>
-    </div>
+    </ResponsiveContent>
   );
 };

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useMemo } from 'react';
 import type { InputRef, TableColumnType } from 'antd';
 import type { FilterDropdownProps } from 'antd/es/table/interface';
+import { ResponsiveContent } from '../components/common';
 import {
   Card,
   Button,
@@ -9,7 +10,6 @@ import {
   Select,
   Row,
   Col,
-  Table,
   Tag,
   Statistic,
   Switch,
@@ -31,6 +31,7 @@ import Highlighter from 'react-highlight-words';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { ROUTES } from '../router/types';
+import { ResponsiveTable } from '../components/common';
 import ProjectVendorManagement from '../components/project/ProjectVendorManagement';
 import { useProjectsPage } from '../hooks';
 import { useAuthGuard, useResponsive } from '../hooks';
@@ -471,7 +472,7 @@ export const ContractCasePage: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: 24 }}>
+    <ResponsiveContent maxWidth="full" padding="medium">
       {/* 頁面標題和統計 - 使用全域統計數據（從後端 API 取得） */}
       <Card style={{ marginBottom: 16 }}>
         <Row justify="space-between" align="middle">
@@ -541,13 +542,13 @@ export const ContractCasePage: React.FC = () => {
       <Card>
         <Spin spinning={isLoading || isDeleting}>
           {viewMode === 'list' ? (
-            <Table
+            <ResponsiveTable
               columns={columns}
               dataSource={projects}
               rowKey="id"
               pagination={false}
               scroll={{ x: isMobile ? 600 : 890 }}
-              size={isMobile ? 'small' : 'middle'}
+              mobileHiddenColumns={['category', 'contract_period']}
               onRow={(record) => ({
                 onClick: () => handleView(record),
                 style: { cursor: 'pointer' },
@@ -581,7 +582,7 @@ export const ContractCasePage: React.FC = () => {
           onClose={() => { setVendorManagementVisible(false); setSelectedProject(null); }}
         />
       )}
-    </div>
+    </ResponsiveContent>
   );
 };
 

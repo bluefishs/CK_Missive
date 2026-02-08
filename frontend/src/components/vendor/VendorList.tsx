@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import {
-  Table,
   Button,
   Input,
   Space,
@@ -23,6 +22,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import type { TableColumnType } from 'antd';
+import { ResponsiveTable } from '../common';
 import { useVendorsPage } from '../../hooks';
 import { useResponsive } from '../../hooks';
 import type { Vendor as ApiVendor } from '../../types/api';
@@ -241,13 +241,13 @@ const VendorList: React.FC = () => {
           </Space>
         </div>
 
-        <Table
+        <ResponsiveTable
           columns={columns}
           dataSource={vendors}
           rowKey="id"
           loading={isLoading}
-          size={isMobile ? 'small' : 'middle'}
           scroll={{ x: isMobile ? 300 : undefined }}
+          mobileHiddenColumns={['created_at', 'rating']}
           onRow={(record) => ({
             onClick: () => handleEdit(record),
             style: { cursor: 'pointer' },

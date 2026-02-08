@@ -10,11 +10,10 @@ import {
   Form,
   Input,
   Select,
-  Row,
-  Col,
   Divider,
   Descriptions,
 } from 'antd';
+import { ResponsiveFormRow } from '../../../components/common/ResponsiveFormRow';
 import dayjs from 'dayjs';
 import type { DocumentInfoTabProps } from './types';
 import { DOC_TYPE_OPTIONS, DELIVERY_METHOD_OPTIONS } from './constants';
@@ -29,62 +28,54 @@ export const DocumentInfoTab: React.FC<DocumentInfoTabProps> = ({
 }) => {
   return (
     <Form form={form} layout="vertical" disabled={!isEditing}>
-      <Row gutter={16}>
-        <Col span={12}>
-          {/* 根據文件類別顯示不同欄位：發文用發文形式，收文用文件類型 */}
-          {document?.category === '發文' ? (
-            <Form.Item
-              label="發文形式"
-              name="delivery_method"
-              rules={[{ required: true, message: '請選擇發文形式' }]}
-            >
-              <Select placeholder="請選擇發文形式">
-                {DELIVERY_METHOD_OPTIONS.map(opt => (
-                  <Option key={opt.value} value={opt.value}>{opt.label}</Option>
-                ))}
-              </Select>
-            </Form.Item>
-          ) : (
-            <Form.Item
-              label="文件類型"
-              name="doc_type"
-              rules={[{ required: true, message: '請選擇文件類型' }]}
-            >
-              <Select placeholder="請選擇文件類型">
-                {DOC_TYPE_OPTIONS.map(opt => (
-                  <Option key={opt.value} value={opt.value}>{opt.label}</Option>
-                ))}
-              </Select>
-            </Form.Item>
-          )}
-        </Col>
-        <Col span={12}>
+      <ResponsiveFormRow>
+        {/* 根據文件類別顯示不同欄位：發文用發文形式，收文用文件類型 */}
+        {document?.category === '發文' ? (
           <Form.Item
-            label="公文字號"
-            name="doc_number"
-            rules={[{ required: true, message: '請輸入公文字號' }]}
+            label="發文形式"
+            name="delivery_method"
+            rules={[{ required: true, message: '請選擇發文形式' }]}
           >
-            <Input placeholder="如：乾坤字第1130001號" />
+            <Select placeholder="請選擇發文形式">
+              {DELIVERY_METHOD_OPTIONS.map(opt => (
+                <Option key={opt.value} value={opt.value}>{opt.label}</Option>
+              ))}
+            </Select>
           </Form.Item>
-        </Col>
-      </Row>
+        ) : (
+          <Form.Item
+            label="文件類型"
+            name="doc_type"
+            rules={[{ required: true, message: '請選擇文件類型' }]}
+          >
+            <Select placeholder="請選擇文件類型">
+              {DOC_TYPE_OPTIONS.map(opt => (
+                <Option key={opt.value} value={opt.value}>{opt.label}</Option>
+              ))}
+            </Select>
+          </Form.Item>
+        )}
+        <Form.Item
+          label="公文字號"
+          name="doc_number"
+          rules={[{ required: true, message: '請輸入公文字號' }]}
+        >
+          <Input placeholder="如：乾坤字第1130001號" />
+        </Form.Item>
+      </ResponsiveFormRow>
 
-      <Row gutter={16}>
-        <Col span={12}>
-          <Form.Item
-            label="發文機關"
-            name="sender"
-            rules={[{ required: true, message: '請輸入發文機關' }]}
-          >
-            <Input placeholder="請輸入發文機關" />
-          </Form.Item>
-        </Col>
-        <Col span={12}>
-          <Form.Item label="受文者" name="receiver">
-            <Input placeholder="請輸入受文者" />
-          </Form.Item>
-        </Col>
-      </Row>
+      <ResponsiveFormRow>
+        <Form.Item
+          label="發文機關"
+          name="sender"
+          rules={[{ required: true, message: '請輸入發文機關' }]}
+        >
+          <Input placeholder="請輸入發文機關" />
+        </Form.Item>
+        <Form.Item label="受文者" name="receiver">
+          <Input placeholder="請輸入受文者" />
+        </Form.Item>
+      </ResponsiveFormRow>
 
       <Form.Item
         label="主旨"
