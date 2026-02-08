@@ -1870,3 +1870,27 @@ export interface LoginHistoryResponse {
   page: number;
   page_size: number;
 }
+
+// ============================================================================
+// MFA (雙因素認證) 相關型別
+// ============================================================================
+
+/** MFA 設定回應 — /auth/mfa/setup 回傳 */
+export interface MFASetupData {
+  secret: string;
+  qr_uri: string;
+  qr_code_base64: string;
+  backup_codes: string[];
+}
+
+/** MFA 狀態 — /auth/mfa/status 回傳 */
+export interface MFAStatus {
+  mfa_enabled: boolean;
+  backup_codes_remaining: number;
+}
+
+/** MFA 驗證頁面的 location state */
+export interface MFALocationState {
+  mfa_token: string;
+  returnUrl?: string;
+}

@@ -550,6 +550,54 @@ export const TAOYUAN_DISPATCH_ENDPOINTS = {
 } as const;
 
 // ============================================================================
+// AI 服務端點
+// ============================================================================
+
+/** AI 服務 API 端點 */
+export const AI_ENDPOINTS = {
+  /** 公文摘要 POST /ai/document/summary */
+  SUMMARY: '/ai/document/summary',
+  /** 串流摘要 POST /ai/document/summary/stream */
+  SUMMARY_STREAM: '/ai/document/summary/stream',
+  /** 分類建議 POST /ai/document/classify */
+  CLASSIFY: '/ai/document/classify',
+  /** 關鍵字提取 POST /ai/document/keywords */
+  KEYWORDS: '/ai/document/keywords',
+  /** 自然語言搜尋 POST /ai/document/natural-search */
+  NATURAL_SEARCH: '/ai/document/natural-search',
+  /** 意圖解析 POST /ai/document/parse-intent */
+  PARSE_INTENT: '/ai/document/parse-intent',
+  /** 機關匹配 POST /ai/agency/match */
+  AGENCY_MATCH: '/ai/agency/match',
+  /** 健康檢查 POST /ai/health */
+  HEALTH: '/ai/health',
+  /** AI 配置 POST /ai/config */
+  CONFIG: '/ai/config',
+  /** AI 統計 POST /ai/stats */
+  STATS: '/ai/stats',
+  /** 重設統計 POST /ai/stats/reset */
+  STATS_RESET: '/ai/stats/reset',
+  /** 同義詞列表 POST /ai/synonyms/list */
+  SYNONYMS_LIST: '/ai/synonyms/list',
+  /** 新增同義詞 POST /ai/synonyms/create */
+  SYNONYMS_CREATE: '/ai/synonyms/create',
+  /** 更新同義詞 POST /ai/synonyms/update */
+  SYNONYMS_UPDATE: '/ai/synonyms/update',
+  /** 刪除同義詞 POST /ai/synonyms/delete */
+  SYNONYMS_DELETE: '/ai/synonyms/delete',
+  /** 重新載入同義詞 POST /ai/synonyms/reload */
+  SYNONYMS_RELOAD: '/ai/synonyms/reload',
+  /** Prompt 版本列表 POST /ai/prompts/list */
+  PROMPTS_LIST: '/ai/prompts/list',
+  /** 新增 Prompt 版本 POST /ai/prompts/create */
+  PROMPTS_CREATE: '/ai/prompts/create',
+  /** 啟用 Prompt 版本 POST /ai/prompts/activate */
+  PROMPTS_ACTIVATE: '/ai/prompts/activate',
+  /** Prompt 版本比較 POST /ai/prompts/compare */
+  PROMPTS_COMPARE: '/ai/prompts/compare',
+} as const;
+
+// ============================================================================
 // 部署管理端點
 // ============================================================================
 
@@ -624,6 +672,9 @@ export const API_ENDPOINTS = {
   SYSTEM: SYSTEM_ENDPOINTS,
   ADMIN_DATABASE: ADMIN_DATABASE_ENDPOINTS,
   BACKUP: BACKUP_ENDPOINTS,
+
+  // AI 服務
+  AI: AI_ENDPOINTS,
 
   // 部署管理
   DEPLOYMENT: DEPLOYMENT_ENDPOINTS,

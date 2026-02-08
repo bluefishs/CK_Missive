@@ -3,6 +3,7 @@
 乾坤測繪公文管理系統 - FastAPI 主程式 (已重構)
 """
 
+import asyncio
 import logging
 import sys
 import time
@@ -120,9 +121,44 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"⚠️ Redis 初始化失敗，將使用記憶體 fallback: {e}")
 
+    # 啟動 Embedding 背景回填（非阻塞）
+    backfill_task = None
+    try:
+        import os
+        if os.getenv("AI_ENABLED", "true").lower() == "true":
+            from app.scripts.backfill_embeddings import (
+                count_documents_without_embedding,
+                backfill_embeddings,
+            )
+            from app.db.database import async_session_factory
+
+            async with async_session_factory() as check_db:
+                pending_count = await count_documents_without_embedding(check_db)
+
+            if pending_count > 0:
+                logger.info(
+                    f"📊 發現 {pending_count} 筆公文缺少 embedding，啟動背景回填..."
+                )
+                backfill_task = asyncio.create_task(
+                    backfill_embeddings(dry_run=False, limit=200, batch_size=50)
+                )
+            else:
+                logger.info("✅ 所有公文已有 embedding，無需回填")
+    except Exception as e:
+        logger.warning(f"⚠️ Embedding 回填檢查失敗（不影響啟動）: {e}")
+
     logger.info("應用程式已啟動。")
     yield
     logger.info("應用程式關閉中...")
+
+    # 取消 Embedding 背景回填任務
+    if backfill_task and not backfill_task.done():
+        backfill_task.cancel()
+        try:
+            await backfill_task
+        except asyncio.CancelledError:
+            pass
+        logger.info("✅ Embedding 回填任務已取消")
 
     # 關閉 Redis 連線
     try:

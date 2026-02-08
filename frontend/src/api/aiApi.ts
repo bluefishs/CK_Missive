@@ -10,6 +10,7 @@
 
 import axios from 'axios';
 import { apiClient, API_BASE_URL } from './client';
+import { AI_ENDPOINTS } from './endpoints';
 import { logger } from '../services/logger';
 import type { AIStatsResponse } from '../types/api';
 
@@ -386,33 +387,10 @@ export function abortNaturalSearch(): void {
 }
 
 // ============================================================================
-// API 端點
+// API 端點 — 統一從 endpoints.ts 匯入 (SSOT)
 // ============================================================================
 
-const AI_ENDPOINTS = {
-  SUMMARY: '/ai/document/summary',
-  SUMMARY_STREAM: '/ai/document/summary/stream',
-  CLASSIFY: '/ai/document/classify',
-  KEYWORDS: '/ai/document/keywords',
-  NATURAL_SEARCH: '/ai/document/natural-search',
-  PARSE_INTENT: '/ai/document/parse-intent',
-  AGENCY_MATCH: '/ai/agency/match',
-  HEALTH: '/ai/health',
-  CONFIG: '/ai/config',
-  STATS: '/ai/stats',
-  STATS_RESET: '/ai/stats/reset',
-  // 同義詞管理
-  SYNONYMS_LIST: '/ai/synonyms/list',
-  SYNONYMS_CREATE: '/ai/synonyms/create',
-  SYNONYMS_UPDATE: '/ai/synonyms/update',
-  SYNONYMS_DELETE: '/ai/synonyms/delete',
-  SYNONYMS_RELOAD: '/ai/synonyms/reload',
-  // Prompt 版本管理
-  PROMPTS_LIST: '/ai/prompts/list',
-  PROMPTS_CREATE: '/ai/prompts/create',
-  PROMPTS_ACTIVATE: '/ai/prompts/activate',
-  PROMPTS_COMPARE: '/ai/prompts/compare',
-};
+// AI_ENDPOINTS 已從 './endpoints' 匯入
 
 // ============================================================================
 // API 方法

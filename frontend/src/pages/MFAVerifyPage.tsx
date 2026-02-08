@@ -28,13 +28,9 @@ import authService from '../services/authService';
 import { apiClient } from '../api/client';
 import { API_ENDPOINTS } from '../api/endpoints';
 import { useResponsive } from '../hooks';
+import type { MFALocationState } from '../types/api';
 
 const { Title, Text, Paragraph } = Typography;
-
-interface MFALocationState {
-  mfa_token: string;
-  returnUrl?: string;
-}
 
 const MFAVerifyPage: React.FC = () => {
   const { message } = App.useApp();

@@ -34,20 +34,9 @@ import {
 } from '@ant-design/icons';
 import { apiClient } from '../../api/client';
 import { API_ENDPOINTS } from '../../api/endpoints';
+import type { MFASetupData, MFAStatus } from '../../types/api';
 
 const { Title, Text, Paragraph } = Typography;
-
-interface MFASetupData {
-  secret: string;
-  qr_uri: string;
-  qr_code_base64: string;
-  backup_codes: string[];
-}
-
-interface MFAStatus {
-  mfa_enabled: boolean;
-  backup_codes_remaining: number;
-}
 
 export const MFASettingsTab: React.FC = () => {
   const { message, modal } = App.useApp();

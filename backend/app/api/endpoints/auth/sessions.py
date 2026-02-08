@@ -23,8 +23,10 @@ from datetime import datetime
 
 from app.db.database import get_async_db
 from app.core.auth_service import AuthService, security
+from app.core.rate_limiter import limiter
 from app.extended.models import User, UserSession
 from app.schemas.auth import SessionInfo, SessionListResponse, RevokeSessionRequest
+from starlette.responses import Response
 
 from .common import get_current_user
 
@@ -51,8 +53,10 @@ def _get_current_jti(request: Request, credentials: Optional[HTTPAuthorizationCr
 
 
 @router.post("/sessions", response_model=SessionListResponse, summary="列出活躍 Session")
+@limiter.limit("30/minute")
 async def list_sessions(
     request: Request,
+    response: Response,
     current_user: User = Depends(get_current_user),
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: AsyncSession = Depends(get_async_db),
@@ -96,8 +100,10 @@ async def list_sessions(
 
 
 @router.post("/sessions/revoke", summary="撤銷指定 Session")
+@limiter.limit("10/minute")
 async def revoke_session(
     request: Request,
+    response: Response,
     revoke_request: RevokeSessionRequest,
     current_user: User = Depends(get_current_user),
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
@@ -153,8 +159,10 @@ async def revoke_session(
 
 
 @router.post("/sessions/revoke-all", summary="撤銷所有其他 Session")
+@limiter.limit("5/minute")
 async def revoke_all_sessions(
     request: Request,
+    response: Response,
     current_user: User = Depends(get_current_user),
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: AsyncSession = Depends(get_async_db),
