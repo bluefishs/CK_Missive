@@ -2,8 +2,8 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.51.0
-> **最後更新**: 2026-02-08
+> **Claude Code 配置版本**: 1.52.0
+> **最後更新**: 2026-02-09
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers), [everything-claude-code](https://github.com/affaan-m/everything-claude-code)
 
 ---
@@ -753,6 +753,50 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 ---
 
 ## 📋 版本更新記錄
+
+### v1.52.0 (2026-02-09) - Phase 4 審查修復：SSOT 一致性 + 安全強化 + 自動回填
+
+**Phase 4 實作審查後修復 5 個次要問題** - 7 個檔案修改，+124 / -42 行
+
+**SSOT 一致性修復** 📐:
+| 項目 | 問題 | 修復 |
+|------|------|------|
+| AI 端點集中化 | 24 個 AI 端點路徑散落在 `aiApi.ts` 本地常數 | 移至 `endpoints.ts` 的 `AI_ENDPOINTS`，統一從 SSOT 匯入 |
+| MFA 型別集中化 | `MFASetupData`/`MFAStatus`/`MFALocationState` 分散在各元件 | 移至 `types/api.ts`，元件改用 import |
+
+**安全強化** 🔐:
+| 端點 | 限流 | 說明 |
+|------|------|------|
+| `POST /auth/sessions` | 30/min | Session 列表查詢 |
+| `POST /auth/sessions/revoke` | 10/min | 單一 Session 撤銷 |
+| `POST /auth/sessions/revoke-all` | 5/min | 全部 Session 撤銷 |
+
+**Embedding 自動回填** 🤖:
+- `main.py` lifespan 新增非阻塞背景任務
+- 啟動時自動檢查缺少 embedding 的公文數量
+- 有待回填時以 `asyncio.create_task()` 背景執行（限 200 筆/次）
+- 受 `AI_ENABLED` 環境變數控制
+- 應用關閉時自動取消未完成任務
+
+**修改檔案**:
+| 檔案 | 說明 |
+|------|------|
+| `frontend/src/api/endpoints.ts` | 新增 `AI_ENDPOINTS` (24 個端點) + 加入 `API_ENDPOINTS.AI` |
+| `frontend/src/api/aiApi.ts` | 移除本地 `AI_ENDPOINTS`，改從 endpoints.ts 匯入 |
+| `frontend/src/types/api.ts` | 新增 `MFASetupData`, `MFAStatus`, `MFALocationState` 介面 |
+| `frontend/src/components/auth/MFASettingsTab.tsx` | 移除本地介面，改從 types/api.ts 匯入 |
+| `frontend/src/pages/MFAVerifyPage.tsx` | 移除本地介面，改從 types/api.ts 匯入 |
+| `backend/app/api/endpoints/auth/sessions.py` | 新增 slowapi rate limiting (30/10/5 per min) |
+| `backend/main.py` | 新增 embedding 背景回填 + asyncio.create_task + 關閉清理 |
+
+**驗證結果**:
+- TypeScript 編譯：0 錯誤 ✅
+- Python 編譯：通過 ✅
+- AISummaryPanel 串流整合確認正常運作 ✅
+
+**系統健康度**: 10.0/10 (維持)
+
+---
 
 ### v1.51.0 (2026-02-08) - Phase 4 全面完成：RWD + AI 深度優化 + 帳號管控
 
@@ -2160,5 +2204,5 @@ POST /project/{project_id}/link-dispatch
 ---
 
 *配置維護: Claude Code Assistant*
-*版本: v1.51.0*
-*最後更新: 2026-02-08*
+*版本: v1.52.0*
+*最後更新: 2026-02-09*
