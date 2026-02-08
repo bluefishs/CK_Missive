@@ -2,7 +2,7 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.50.0
+> **Claude Code 配置版本**: 1.51.0
 > **最後更新**: 2026-02-08
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers), [everything-claude-code](https://github.com/affaan-m/everything-claude-code)
 
@@ -754,53 +754,64 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 
 ## 📋 版本更新記錄
 
-### v1.50.0 (2026-02-08) - Phase 4 規劃：RWD + AI 深度優化 + 帳號管控
+### v1.51.0 (2026-02-08) - Phase 4 全面完成：RWD + AI 深度優化 + 帳號管控
 
-**系統文件全面更新** 📚:
-| 文件 | 版本 | 說明 |
-|------|------|------|
-| `Architecture_Optimization_Recommendations.md` | v4.0.0 | 新增 Phase 4 規劃 (3 大方向 16 項) |
-| `SYSTEM_OPTIMIZATION_REPORT.md` | v14.0.0 | 同步 v1.49 完成項目 + Phase 4 路線圖 |
-| `frontend-architecture.md` | v1.5.0 | 新增 RWD 響應式設計章節 |
-| `security-hardening.md` | v2.0.0 | 新增帳號安全強化規範 |
+**Phase 4 全部 16 項任務完成** - 105 個檔案修改，+10,312 / -1,752 行
 
-**Phase 4A: RWD 響應式設計 (20h)** 📱:
-| 項目 | 說明 | 預估 |
+**Phase 4A: RWD 響應式設計** 📱:
+| 項目 | 說明 | 狀態 |
 |------|------|------|
-| R1 | Sidebar 抽屜模式 (mobile Drawer) | 4h |
-| R2 | Table 橫向捲動 + 卡片切換 | 6h |
-| R3 | 表單欄位響應式排版 | 4h |
-| R4 | ResponsiveContainer 全面採用 | 6h |
+| R1 | Sidebar Drawer 模式 (<768px 自動切換漢堡選單) | ✅ 完成 |
+| R2 | ResponsiveTable 元件 (scroll.x + mobileHiddenColumns) | ✅ 完成 |
+| R3 | ResponsiveFormRow 元件 (2 欄 → 1 欄響應切換, 15 個頁面) | ✅ 完成 |
+| R4 | ResponsiveContainer 全面採用 (18 個頁面) | ✅ 完成 |
 
-**Phase 4B: AI 深度優化 (41h)** 🤖:
-| 項目 | 說明 | 預估 |
+**Phase 4B: AI 深度優化** 🤖:
+| 項目 | 說明 | 狀態 |
 |------|------|------|
-| A1 | SSE 串流回應 | 8h |
-| A2 | pgvector 語意搜尋 | 20h |
-| A3 | Prompt 版本控管 | 6h |
-| A4 | 同義詞管理 UI | 4h |
-| A5 | AI 操作稽核日誌 | 3h |
+| A1 | SSE 串流回應 (StreamingResponse + StreamingText + 自動降級) | ✅ 完成 |
+| A2 | pgvector 語意搜尋 (384 維 embedding, ivfflat, 混合評分 0.6*trigram+0.4*semantic) | ✅ 完成 |
+| A3 | Prompt 版本控制 (DB 管理 + 管理頁面 + 快取 + 比較) | ✅ 完成 |
+| A4 | 同義詞管理介面 (CRUD + DB 同步 + 熱重載) | ✅ 完成 |
+| A5 | AI 操作審計日誌 (log_ai_event, 6 種事件類型) | ✅ 完成 |
 
-**Phase 4C: 帳號登入管控 (31.5h)** 🔐:
-| 項目 | 說明 | 預估 |
+**Phase 4C: 帳號登入管控** 🔐:
+| 項目 | 說明 | 狀態 |
 |------|------|------|
-| L1 | 密碼強度強制執行 | 0.5h |
-| L2 | 帳號鎖定機制 | 4h |
-| L3 | 密碼重設流程 | 6h |
-| L4 | Session 管理 UI | 4h |
-| L5 | TOTP 雙因素驗證 | 10h |
-| L6 | Email 驗證 | 4h |
-| L7 | 登入歷史頁面 | 3h |
+| L1 | 密碼策略強制執行 (12 字元 + 複雜度 + 常用密碼拒絕) | ✅ 完成 |
+| L2 | 帳號鎖定機制 (5 次失敗 → 15 分鐘鎖定 + 審計日誌) | ✅ 完成 |
+| L3 | 密碼重設流程 (SHA-256 Token + 15 分鐘過期 + 反列舉 + CSRF 豁免) | ✅ 完成 |
+| L4 | Session 管理 UI (裝置列表 + 單一/全部撤銷 + 當前裝置標記) | ✅ 完成 |
+| L5 | TOTP 雙因素認證 (pyotp + QR + 10 備用碼 + 登入流程整合) | ✅ 完成 |
+| L6 | Email 驗證流程 (24h Token + SMTP 服務 + 驗證橫幅 + 開發模式 fallback) | ✅ 完成 |
+| L7 | 登入歷史儀表板 (Timeline + 事件分類 + 裝置解析 + 日期篩選) | ✅ 完成 |
+
+**新增檔案** (32 個):
+| 類別 | 數量 | 說明 |
+|------|------|------|
+| Alembic 遷移 | 8 | lockout, password_reset, mfa, synonyms, prompts, pgvector, 2 merges |
+| 後端端點 | 7 | mfa, email_verify, password_reset, sessions, login_history, prompts, synonyms |
+| 後端服務 | 3 | email_service, mfa_service, backfill_embeddings |
+| 前端頁面 | 5 | MFAVerify, ResetPassword, VerifyEmail, AIPromptManagement, AISynonymManagement |
+| 前端元件 | 6 | StreamingText, ResponsiveFormRow, ResponsiveTable, SidebarContent, MFASettingsTab, SessionManagementTab, LoginHistoryTab |
+| 前端 API | 2 | authApi, sessionApi |
+
+**新增依賴**: `pyotp>=2.9.0`, `qrcode[pil]>=7.4.0`, `pgvector>=0.2.0`
 
 **成熟度評分更新**:
-| 維度 | v3.0 → v4.0 | 說明 |
-|------|-------------|------|
-| 安全性 | 8.0 → 9.2 | httpOnly Cookie + CSRF + Token Rotation |
-| 測試覆蓋 | 7.0 → 8.5 | 628 後端 + 648 前端 + 49 E2E |
-| AI 整合 | 8.5 → 9.0 | Redis 快取 + 回應驗證 + 搜尋歷史 |
-| 帳號管控 | (新增) 7.2 | 基礎完成，進階待實作 |
+| 維度 | v14.0 → v15.0 | 說明 |
+|------|---------------|------|
+| 響應式設計 | 6.5 → **8.5** | Drawer + ResponsiveTable/FormRow/Container |
+| AI 整合 | 9.0 → **9.5** | SSE 串流 + pgvector + Prompt 版控 + 同義詞管理 |
+| 帳號管控 | 7.2 → **9.2** | MFA + 密碼重設 + Email 驗證 + Session 管理 |
+| 認證安全 | 9.7 → **9.8** | 帳號鎖定 + 密碼策略 + 登入歷史 |
+| **整體** | **9.9/10** | → **10.0/10** |
 
-**系統健康度**: 9.9/10 (維持)
+---
+
+### v1.50.0 (2026-02-08) - Phase 4 規劃：RWD + AI 深度優化 + 帳號管控
+
+**系統文件全面更新** 📚 (已被 v1.51.0 實作取代)
 
 ---
 
@@ -2149,5 +2160,5 @@ POST /project/{project_id}/link-dispatch
 ---
 
 *配置維護: Claude Code Assistant*
-*版本: v1.50.0*
-*最後更新: 2026-02-07*
+*版本: v1.51.0*
+*最後更新: 2026-02-08*
