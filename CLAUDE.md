@@ -2,7 +2,7 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.52.0
+> **Claude Code 配置版本**: 1.53.0
 > **最後更新**: 2026-02-09
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers), [everything-claude-code](https://github.com/affaan-m/everything-claude-code)
 
@@ -331,6 +331,8 @@ const internalIPPatterns = [
 | 資料庫變更 | 清單 F - 資料庫變更 |
 | Bug 修復 | 清單 G - Bug 修復 |
 | **新增/修改型別定義** | **清單 H - 型別管理 (SSOT)** |
+| **Docker/PM2 環境配置** | **清單 W - Docker+PM2 混合環境** |
+| **可選功能開發** | **清單 X - Feature Flags** |
 
 ### 必須同步的三處位置
 
@@ -635,9 +637,16 @@ CK_Missive/
 ├── .claude/                    # Claude Code 配置
 ├── backend/                    # FastAPI 後端
 ├── frontend/                   # React 前端
+├── configs/                    # 外部配置 (PostgreSQL tuning, init.sql)
 ├── docs/                       # 文件目錄 (指南、報告歸檔)
 ├── scripts/                    # 腳本目錄 (啟動、維護、檢查)
+│   ├── dev-start.ps1           # 統一開發環境管理 (v2.0.0)
+│   ├── dev-stop.ps1            # 開發環境停止 (v1.0.0)
+│   ├── start-backend.ps1       # 後端啟動 wrapper (v2.0.0)
+│   └── ...                     # 備份、檢查、部署等腳本
 ├── .env                        # 環境設定 (唯一來源)
+├── docker-compose.infra.yml    # 基礎設施 Compose (PostgreSQL+Redis)
+├── docker-compose.dev.yml      # 全 Docker 開發 Compose
 ├── CLAUDE.md                   # 本文件
 ├── README.md                   # 專案說明
 └── ecosystem.config.js         # PM2 配置
@@ -708,14 +717,26 @@ frontend/src/components/document/operations/
 - 資料庫: PostgreSQL 16 (Docker)
 
 ### 常用命令
-```bash
-# 啟動後端（注意：main.py 在 backend/ 根目錄）
+```powershell
+# === 推薦：統一管理腳本 (v1.53.0) ===
+.\scripts\dev-start.ps1              # 混合模式啟動（推薦）
+.\scripts\dev-start.ps1 -Status      # 查看所有服務狀態
+.\scripts\dev-start.ps1 -Restart     # 重啟 PM2 服務
+.\scripts\dev-start.ps1 -FullDocker  # 全 Docker 模式
+.\scripts\dev-stop.ps1               # 停止所有服務
+.\scripts\dev-stop.ps1 -KeepInfra    # 僅停 PM2，保留 DB/Redis
+
+# === 手動啟動（進階用途）===
+# 基礎設施
+docker compose -f docker-compose.infra.yml up -d
+
+# 後端（注意：main.py 在 backend/ 根目錄）
 cd backend && uvicorn main:app --reload --host 0.0.0.0 --port 8001
 
-# 啟動前端
+# 前端
 cd frontend && npm run dev
 
-# 使用 PM2 一鍵啟動全部服務
+# PM2
 pm2 start ecosystem.config.js
 
 # 資料庫連線

@@ -1,8 +1,8 @@
 # CK_Missive 強制性開發規範檢查清單
 
-> **版本**: 1.12.0
+> **版本**: 1.13.0
 > **建立日期**: 2026-01-11
-> **最後更新**: 2026-02-07
+> **最後更新**: 2026-02-09
 > **狀態**: 強制執行 - 所有開發任務啟動前必須檢視
 
 ---
@@ -1428,10 +1428,95 @@ grep -r "password\|api_key\|secret" --include="*.py" --include="*.ts" .
 
 ---
 
+## 清單 W：Docker+PM2 混合開發環境 (v1.13.0 新增)
+
+> **適用場景**：修改 Docker Compose、PM2 配置、啟動腳本、端口配置
+
+### 架構理解
+
+**混合模式架構**：
+```
+Docker (基礎設施)          PM2 (應用服務)
+├── PostgreSQL :5434       ├── ck-backend :8001
+└── Redis :6380            └── ck-frontend :3000
+```
+
+**Compose 檔案用途**：
+| 檔案 | 用途 | 何時使用 |
+|------|------|---------|
+| `docker-compose.infra.yml` | 僅基礎設施 | 混合模式（推薦） |
+| `docker-compose.dev.yml` | 全 Docker | `-FullDocker` 模式 |
+
+### 開發前檢查
+- [ ] 確認修改的端口不與既有服務衝突（5434, 6380, 8001, 3000）
+- [ ] Docker 應用容器 restart 策略為 `"no"`（防止搶佔 PM2 端口）
+- [ ] 新增 Docker 服務時，`infra.yml` 與 `dev.yml` 保持一致的 volume/network 命名
+
+### 開發後檢查
+- [ ] `docker compose -f docker-compose.infra.yml config` 驗證語法
+- [ ] `.\scripts\dev-start.ps1 -Status` 確認所有服務正常
+- [ ] 無端口衝突（`netstat -ano | findstr "LISTEN" | findstr ":8001"`）
+
+### 相關檔案
+
+| 檔案 | 說明 |
+|------|------|
+| `docker-compose.infra.yml` | 基礎設施 Compose |
+| `docker-compose.dev.yml` | 全 Docker Compose |
+| `scripts/dev-start.ps1` | 統一管理腳本 v2.0.0 |
+| `scripts/dev-stop.ps1` | 停止腳本 |
+| `scripts/start-backend.ps1` | 後端啟動 wrapper v2.0.0 |
+| `ecosystem.config.js` | PM2 配置 |
+
+---
+
+## 清單 X：Feature Flags 功能開發 (v1.13.0 新增)
+
+> **適用場景**：新增可選功能（需要額外 DB 擴展或 Python 套件）
+
+### Feature Flags 機制
+
+| 旗標 | 控制範圍 | 啟用前提 |
+|------|---------|---------|
+| `PGVECTOR_ENABLED` | ORM embedding 欄位定義 | `pip install pgvector` + `CREATE EXTENSION vector` |
+| `MFA_ENABLED` | MFA 雙因素認證功能 | `pip install pyotp qrcode[pil]` |
+
+### 新增 Feature Flag 流程
+1. **`.env` + `.env.example`**：新增變數，預設 `false`
+2. **`config.py`**：Settings 類別新增 `bool` 欄位
+3. **ORM/Service**：用 `os.environ.get("FLAG_NAME")` 或 `settings.FLAG_NAME` 控制
+4. **文件**：更新 `.env.example` 的啟用前提說明
+
+### 開發前檢查
+- [ ] 確認功能是否依賴可選的 DB 擴展或 Python 套件
+- [ ] 若是，必須用 Feature Flag 控制，不得讓缺少擴展時系統崩潰
+- [ ] **禁止**用 `deferred()` 控制可選 DB 欄位（subquery 中無效）
+
+### 開發後檢查
+- [ ] `PGVECTOR_ENABLED=false` 時後端正常啟動
+- [ ] `MFA_ENABLED=false` 時 MFA 路由不報錯
+- [ ] `.env.example` 已同步更新
+
+### 反模式
+
+```python
+# ❌ 錯誤：deferred() 在 subquery 中無效
+embedding = deferred(Column(Vector(1536)))
+
+# ✅ 正確：環境變數控制 Column 是否定義
+if os.environ.get("PGVECTOR_ENABLED", "").lower() == "true":
+    embedding = Column(Vector(1536), nullable=True)
+```
+
+**相關事故**: 2026-02-09 deferred() embedding 導致所有查詢失敗
+
+---
+
 ## 版本記錄
 
 | 版本 | 日期 | 說明 |
 |------|------|------|
+| 1.13.0 | 2026-02-09 | **新增清單 W、X**（Docker+PM2 混合環境、Feature Flags）- v1.53.0 開發環境韌性強化 |
 | 1.12.0 | 2026-02-07 | **新增清單 T、U、V**（useEffect 無限迴圈防護、重構/刪除模組安全、認證與安全變更）- 連鎖崩潰事故後建立 + 認證安全規範 |
 | 1.11.0 | 2026-02-03 | **新增清單 R、S**（部署驗證、安全審查）- Everything Claude Code 整合 |
 | 1.10.0 | 2026-01-28 | **新增清單 P、Q**（Pydantic Schema 開發、非同步資料庫查詢）- Python 常見陷阱規範 |

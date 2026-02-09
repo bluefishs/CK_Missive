@@ -1,9 +1,9 @@
 # CK_Missive 架構優化建議
 
-> **版本**: 5.0.0
+> **版本**: 6.0.0
 > **建立日期**: 2026-02-06
-> **最後更新**: 2026-02-08 (Phase 4 全面完成 - RWD/AI/帳號管控 16 項)
-> **狀態**: Phase 1-4 全部完成
+> **最後更新**: 2026-02-09 (Phase 5 規劃 - 架構精煉與生產就緒)
+> **狀態**: Phase 1-4 全部完成 / Phase 5 規劃中
 
 ---
 
@@ -1132,6 +1132,121 @@ Singleton (deprecated)          Factory (推薦)
 
 ---
 
+## 12. Phase 5: 架構精煉與生產就緒 (2026-02-09 規劃)
+
+### 12.1 現況總評
+
+**系統全面盤點統計**：
+| 維度 | 數值 | 狀態 |
+|------|------|------|
+| 後端 Python 檔案 | 228 | 分層清晰 |
+| 前端 TS/TSX 檔案 | 323 | SSOT 遵守 |
+| API 端點檔案 | 79 | 7 個模組化系統 |
+| 服務層 | 48 | 責任分離 |
+| Repository | 19 + 3 QB | 資料存取標準化 |
+| ORM 直接查詢在端點 | 1 | 99% 遵守 |
+| 測試案例 | ~1,325 (後端 150+ / 前端 130+ / E2E 44+) | 覆蓋完善 |
+| 安全漏洞 | 0 | 已修復 |
+| any 型別 | 19 (0.05%) | 已精簡 |
+
+**綜合健康度: 9.2/10** — 企業級生產就緒
+
+### 12.2 Phase 5A: 端點層 Repository 遷移（中優先級）
+
+**目標**: 消除端點層直接 ORM 查詢，100% 經 Repository/Service 存取
+
+**現況**: 1 個端點仍直接查詢 (`reminder_management.py`)，62 處 `text()` raw SQL（多為統計/日誌）
+
+| 任務 | 估計工時 | 影響 |
+|------|---------|------|
+| `reminder_management.py` 遷移至 CalendarRepository | 2h | 消除唯一直接 ORM 端點 |
+| 統計查詢 raw SQL → ORM 轉換 (優先 health.py, dashboard.py) | 4h | 減少 ~20 處 text() |
+| audit_logs 靜態 text() 保留（無 ORM 模型，無安全風險） | 0 | 不處理 |
+
+**驗收標準**: `grep -r "text(" backend/app/api/endpoints/ --include="*.py"` 結果 < 10 處
+
+### 12.3 Phase 5B: 前端組件測試擴展（中優先級）
+
+**目標**: 補充 React 組件測試，達到 80% 覆蓋率
+
+**現況**: 前端 23 個測試檔案集中在 utils/store/api，0 個組件測試
+
+| 優先級 | 組件 | 測試類型 | 估計工時 |
+|--------|------|---------|---------|
+| P1 | `DocumentOperations` | 操作流程測試 | 4h |
+| P1 | `DispatchFormFields` | 表單驗證測試 | 3h |
+| P2 | `AIAssistantButton` | SSE 串流測試 | 2h |
+| P2 | `ResponsiveTable` | 響應式斷點測試 | 2h |
+| P3 | 各 Tab 組件 | 渲染 + 互動測試 | 8h |
+
+**驗收標準**: 前端組件測試 >= 15 個測試檔案
+
+### 12.4 Phase 5C: 資料庫完整性強化（低優先級）
+
+**目標**: 補充缺失的 ON DELETE CASCADE 與資料完整性約束
+
+| 任務 | 說明 | 風險 |
+|------|------|------|
+| `project_vendor_association` 加 ON DELETE CASCADE | 刪除專案時自動清理廠商關聯 | 低 |
+| `project_user_assignments` 加 ON DELETE CASCADE | 刪除專案時自動清理人員配置 | 低 |
+| 建立 audit_logs ORM 模型 | 統一至 Repository 模式 | 中 |
+| 關聯表 unique constraint 審查 | 防止重複關聯 | 低 |
+
+**驗收標準**: Alembic 遷移通過 + 既有 E2E 測試通過
+
+### 12.5 Phase 5D: 生產部署就緒（高優先級）
+
+**目標**: Self-hosted Runner + 備份自動化
+
+| 任務 | 說明 | 估計工時 |
+|------|------|---------|
+| NAS 安裝 GitHub Actions Self-hosted Runner | 參考 `docs/GITHUB_RUNNER_SETUP.md` | 2h |
+| CD workflow 實機測試 | Tag push → 自動部署驗證 | 4h |
+| 自動化備份排程 | Cron/Task Scheduler + db_backup.ps1 | 2h |
+| 異地備份方案 | 備份檔 rsync 到第二台 NAS 或雲端 | 4h |
+
+**驗收標準**: `git tag v3.2.0 && git push --tags` 觸發自動部署 + 每日備份運行
+
+### 12.6 Phase 5E: 效能監控與觀測性（低優先級）
+
+**目標**: 建立持續效能監控機制
+
+| 任務 | 說明 | 估計工時 |
+|------|------|---------|
+| API 響應時間 Middleware | 記錄每個端點的 P50/P95/P99 | 3h |
+| 慢查詢日誌 | statement_timeout 前的 warning（>5s） | 2h |
+| 前端 Web Vitals 收集 | LCP/FID/CLS 上報至後端 | 4h |
+| Grafana/Prometheus 整合（可選） | 視覺化監控面板 | 8h |
+
+### 12.7 實施路線圖
+
+```
+Phase 5D (高) ──→ Self-hosted Runner + 備份  [Week 1]
+      │
+Phase 5A (中) ──→ 端點層 Repository 遷移      [Week 2]
+      │
+Phase 5B (中) ──→ 前端組件測試擴展             [Week 2-3]
+      │
+Phase 5C (低) ──→ 資料庫完整性強化             [Week 3]
+      │
+Phase 5E (低) ──→ 效能監控（可選）             [Week 4]
+```
+
+**總估計工時**: ~50h（不含 Phase 5E 可選項目）
+
+### 12.8 架構演進總結
+
+| Phase | 版本 | 主題 | 健康度 |
+|-------|------|------|--------|
+| Phase 1 | v1.20-1.27 | 安全修復 + CI/CD | 7.8 → 9.5 |
+| Phase 2 | v1.36-1.43 | 效能優化 + Query Builder | 9.5 → 9.9 |
+| Phase 3 | v1.44-1.50 | httpOnly Cookie + Redis + 安全強化 | 9.9 → 10.0 |
+| Phase 4 | v1.51-1.52 | RWD + AI + 帳號管控 (16 項) | 10.0 |
+| **Phase 4.5** | **v1.53** | **Docker+PM2 混合環境韌性** | **10.0** |
+| Phase 5 | v1.54+ | 架構精煉 + 生產部署就緒 | 目標: 10.0 |
+
+---
+
 *文件維護: Claude Code Assistant*
-*版本: 3.0.0*
-*最後更新: 2026-02-07*
+*版本: 6.0.0*
+*最後更新: 2026-02-09*

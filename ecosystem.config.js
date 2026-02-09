@@ -2,13 +2,25 @@
  * PM2 Ecosystem Configuration
  * CK_Missive 公文管理系統
  *
- * 使用方式：
+ * 推薦使用統一管理腳本（v1.53.0）：
+ *   .\scripts\dev-start.ps1              # 混合模式啟動（推薦）
+ *   .\scripts\dev-start.ps1 -Status      # 查看狀態
+ *   .\scripts\dev-stop.ps1               # 停止所有服務
+ *
+ * PM2 直接操作：
  *   啟動全部服務: pm2 start ecosystem.config.js
  *   停止全部服務: pm2 stop all
  *   重啟全部服務: pm2 restart all
  *   查看狀態: pm2 list
  *   查看日誌: pm2 logs
  *   監控面板: pm2 monit
+ *
+ * 後端啟動流程 (start-backend.ps1 v2.0.0)：
+ *   Step 0:   端口 8001 衝突偵測
+ *   Step 0.5: 基礎設施依賴檢查 (PostgreSQL + Redis)
+ *   Step 1:   pip install -r requirements.txt
+ *   Step 2:   alembic upgrade head
+ *   Step 3:   uvicorn main:app --host 0.0.0.0 --port 8001
  */
 
 module.exports = {

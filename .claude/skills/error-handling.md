@@ -1,8 +1,8 @@
 # Error Handling Skill - 錯誤處理指南
 
-> **版本**: 1.1.0
-> **觸發關鍵字**: 錯誤處理, error, exception, 例外, try-catch, 紀錄消失, 列表清空
-> **更新日期**: 2026-02-04
+> **版本**: 1.2.0
+> **觸發關鍵字**: 錯誤處理, error, exception, 例外, try-catch, 紀錄消失, 列表清空, SATimeoutError, 連線池
+> **更新日期**: 2026-02-09
 
 ---
 
@@ -358,8 +358,78 @@ sequence = await DocumentNumberService.get_next_sequence(
 
 ---
 
+## 連線池與資料庫層錯誤處理 (v1.2.0 新增)
+
+### SATimeoutError — 連線池耗盡
+
+```python
+from sqlalchemy.exc import TimeoutError as SATimeoutError
+
+async def get_async_db() -> AsyncSession:
+    try:
+        session = AsyncSessionLocal()
+    except SATimeoutError:
+        # 連線池耗盡，所有連線都被佔用
+        logger.error(f"Database connection pool exhausted. pool_size={settings.POOL_SIZE}")
+        raise
+```
+
+**觸發條件**: 所有 `pool_size + max_overflow` 個連線都被佔用超過 pool timeout。
+
+**根因排查**:
+1. 慢查詢佔用連線 → 檢查 `statement_timeout` 設定
+2. 未關閉的 session → 檢查 `finally: await session.close()`
+3. 連線池太小 → 調整 `.env` 的 `POOL_SIZE` / `MAX_OVERFLOW`
+
+### statement_timeout — 查詢超時
+
+```python
+# database.py 中配置
+connect_args={
+    "server_settings": {
+        "statement_timeout": str(settings.STATEMENT_TIMEOUT),  # 30000ms
+    },
+    "command_timeout": 60,  # asyncpg 客戶端 60s
+}
+```
+
+**雙層防護**:
+| 層級 | 設定 | 超時值 | 作用 |
+|------|------|--------|------|
+| PostgreSQL 端 | `statement_timeout` | 30s | 單一 SQL 語句超時 |
+| asyncpg 客戶端 | `command_timeout` | 60s | 整個命令超時（含等待） |
+
+**錯誤識別**:
+```python
+error_msg = str(e).lower()
+if "statement_timeout" in error_msg or "canceling statement" in error_msg:
+    logger.warning(f"Query exceeded statement_timeout: {e}")
+```
+
+### connection_lost — 連線中斷
+
+```python
+if "connection_lost" in error_msg:
+    logger.warning(f"Database connection lost: {e}")
+    # SQLAlchemy pool 會自動 invalidate 並建立新連線
+```
+
+**常見原因**: Docker 重啟 PostgreSQL、網路中斷、idle 連線被 PG 回收。
+
+### Pool Event 監控
+
+```python
+@event.listens_for(engine.sync_engine, "invalidate")
+def receive_invalidate(dbapi_connection, connection_record, exception):
+    if exception:
+        logger.warning(f"Connection invalidated due to: {exception}")
+```
+
+---
+
 ## 參考資源
 
 - **系統化除錯**: `.claude/skills/_shared/shared/systematic-debugging.md`
 - **Bug 調查代理**: `.claude/agents/bug-investigator.md`
 - **交易污染詳解**: `.claude/DEVELOPMENT_GUIDELINES.md` (第 272-346 行)
+- **連線池配置**: `backend/app/db/database.py` v2.0.0

@@ -1,9 +1,9 @@
 # 資料庫結構領域知識 (Database Schema Domain)
 
-> **觸發關鍵字**: schema, 資料庫, PostgreSQL, model, 模型, table, 資料表
-> **適用範圍**: 資料庫設計、模型定義、遷移管理
-> **版本**: 1.1.0
-> **最後更新**: 2026-01-18
+> **觸發關鍵字**: schema, 資料庫, PostgreSQL, model, 模型, table, 資料表, pgvector, feature flag
+> **適用範圍**: 資料庫設計、模型定義、遷移管理、Feature Flags
+> **版本**: 1.2.0
+> **最後更新**: 2026-02-09
 
 ---
 
@@ -331,4 +331,78 @@ def clean_db_string(value) -> Optional[str]:
     if text.lower() in ('none', 'null', ''):
         return None
     return text
+```
+
+---
+
+## Feature Flags 與可選欄位 (v1.2.0 新增)
+
+### pgvector 嵌入欄位
+
+`OfficialDocument` 模型支援可選的 `embedding` 欄位，由 `PGVECTOR_ENABLED` 環境變數控制：
+
+```python
+# backend/app/extended/models.py
+import os
+
+try:
+    if os.environ.get("PGVECTOR_ENABLED", "").lower() == "true":
+        from pgvector.sqlalchemy import Vector
+    else:
+        Vector = None
+except ImportError:
+    Vector = None
+
+class OfficialDocument(Base):
+    __tablename__ = "documents"
+    # ... 標準欄位 ...
+
+    # 可選：pgvector 語意搜尋嵌入
+    if Vector is not None:
+        embedding = Column(Vector(1536), nullable=True)
+```
+
+### Feature Flag 規則
+
+| 旗標 | 控制範圍 | `.env` 預設 |
+|------|---------|------------|
+| `PGVECTOR_ENABLED` | ORM embedding Column 是否定義 | `false` |
+| `MFA_ENABLED` | MFA 路由與服務是否啟用 | `false` |
+
+**重要規則**:
+- **禁止**使用 `deferred()` 控制可選欄位 — subquery 中 deferred 會被展開
+- 必須用環境變數完全控制 Column 是否存在於 ORM 定義中
+- Feature Flag 為 `false` 時，系統必須正常運作
+
+### 連線池配置
+
+```python
+# backend/app/db/database.py v2.0.0
+engine = create_async_engine(
+    async_db_url,
+    pool_size=settings.POOL_SIZE,           # 預設 10
+    max_overflow=settings.MAX_OVERFLOW,     # 預設 20
+    pool_recycle=settings.POOL_RECYCLE,     # 預設 180s
+    connect_args={
+        "server_settings": {
+            "statement_timeout": str(settings.STATEMENT_TIMEOUT),  # 30000ms
+        },
+        "command_timeout": 60,
+    }
+)
+```
+
+### Alembic pgvector 遷移安全
+
+```python
+# 遷移中先檢查 extension 是否可用
+def upgrade():
+    conn = op.get_bind()
+    result = conn.execute(text(
+        "SELECT 1 FROM pg_available_extensions WHERE name = 'vector'"
+    ))
+    if not result.fetchone():
+        print("pgvector extension not available, skipping migration")
+        return
+    # 安全地建立 extension 和 column
 ```
