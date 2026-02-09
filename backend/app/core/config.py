@@ -116,6 +116,26 @@ class Settings(BaseSettings):
     )
 
     # =========================================================================
+    # Feature Flags (v1.44.0)
+    # =========================================================================
+    PGVECTOR_ENABLED: bool = Field(
+        default=False,
+        description="啟用 pgvector 語意搜尋（需要 PostgreSQL pgvector 擴展 + Python pgvector 套件）"
+    )
+    MFA_ENABLED: bool = Field(
+        default=False,
+        description="啟用 MFA 多因素認證（需要 pyotp + qrcode 套件）"
+    )
+
+    # =========================================================================
+    # 連線池設定
+    # =========================================================================
+    POOL_SIZE: int = Field(default=10, description="資料庫連線池大小")
+    MAX_OVERFLOW: int = Field(default=20, description="最大溢出連線數")
+    POOL_RECYCLE: int = Field(default=180, description="連線回收時間（秒）")
+    STATEMENT_TIMEOUT: int = Field(default=30000, description="SQL 查詢超時（毫秒）")
+
+    # =========================================================================
     # 日誌設定
     # =========================================================================
     LOG_LEVEL: str = "INFO"

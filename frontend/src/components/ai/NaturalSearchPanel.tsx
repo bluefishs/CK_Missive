@@ -14,26 +14,21 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import {
   AutoComplete,
   Button as AntButton,
-  List,
   Space,
   Tag,
   Button,
   Empty,
   Spin,
   Typography,
-  Collapse,
-  Tooltip,
   App,
 } from 'antd';
 import {
   SearchOutlined,
-  FileOutlined,
   PaperClipOutlined,
   DownloadOutlined,
   EyeOutlined,
   CalendarOutlined,
   UserOutlined,
-  InfoCircleOutlined,
   CloseOutlined,
   DeleteOutlined,
   ClockCircleOutlined,
@@ -42,7 +37,7 @@ import { useNavigate } from 'react-router-dom';
 import { aiApi, abortNaturalSearch, DocumentSearchResult, ParsedSearchIntent, AttachmentInfo } from '../../api/aiApi';
 import { filesApi } from '../../api/filesApi';
 
-const { Text, Paragraph } = Typography;
+const { Text } = Typography;
 
 // ============================================================================
 // 常數
@@ -188,6 +183,10 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fromCache, setFromCache] = useState(false);
+
+  // 壓縮結果 + 手風琴展開
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [showIntentDetails, setShowIntentDetails] = useState(false);
 
   // 搜尋歷史
   const [searchHistory, setSearchHistory] = useState<string[]>(() => loadSearchHistory());
@@ -358,36 +357,30 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({
 
     if (parsedIntent.keywords?.length) {
       tags.push(
-        <Tag key="keywords" color="blue">
+        <Tag key="keywords" color="blue" style={{ fontSize: 11, margin: 0 }}>
           關鍵字: {parsedIntent.keywords.join(', ')}
         </Tag>
       );
     }
     if (parsedIntent.category) {
-      tags.push(<Tag key="category" color="green">{parsedIntent.category}</Tag>);
+      tags.push(<Tag key="category" color="green" style={{ fontSize: 11, margin: 0 }}>{parsedIntent.category}</Tag>);
     }
     if (parsedIntent.sender) {
-      tags.push(<Tag key="sender" color="orange">發文: {parsedIntent.sender}</Tag>);
+      tags.push(<Tag key="sender" color="orange" style={{ fontSize: 11, margin: 0 }}>發文: {parsedIntent.sender}</Tag>);
     }
     if (parsedIntent.date_from || parsedIntent.date_to) {
       const dateRange = [parsedIntent.date_from, parsedIntent.date_to].filter(Boolean).join(' ~ ');
-      tags.push(<Tag key="date" color="purple">日期: {dateRange}</Tag>);
+      tags.push(<Tag key="date" color="purple" style={{ fontSize: 11, margin: 0 }}>日期: {dateRange}</Tag>);
     }
     if (parsedIntent.status) {
-      tags.push(<Tag key="status" color="cyan">{parsedIntent.status}</Tag>);
+      tags.push(<Tag key="status" color="cyan" style={{ fontSize: 11, margin: 0 }}>{parsedIntent.status}</Tag>);
     }
 
     if (tags.length === 0) return null;
 
     return (
-      <div style={{ marginBottom: 8 }}>
-        <Text type="secondary" style={{ fontSize: 11 }}>
-          <InfoCircleOutlined style={{ marginRight: 4 }} />
-          AI 解析結果 (信心度: {Math.round(parsedIntent.confidence * 100)}%):
-        </Text>
-        <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-          {tags}
-        </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, padding: '4px 0 6px' }}>
+        {tags}
       </div>
     );
   }, [parsedIntent]);
@@ -459,149 +452,125 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({
     handleSearch(value);
   }, [handleSearch]);
 
-  // 渲染附件列表
-  const renderAttachments = (attachments: AttachmentInfo[]) => {
-    if (!attachments.length) return null;
+  // 渲染壓縮結果項目（單行 36px + 手風琴展開）
+  const renderCompactItem = useCallback((item: DocumentSearchResult) => {
+    const isExpanded = expandedId === item.id;
 
     return (
-      <Collapse
-        size="small"
-        ghost
-        items={[
-          {
-            key: 'attachments',
-            label: (
-              <Space size="small">
-                <PaperClipOutlined />
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  附件 ({attachments.length})
-                </Text>
-              </Space>
-            ),
-            children: (
-              <List
-                size="small"
-                dataSource={attachments}
-                renderItem={(att) => (
-                  <List.Item
-                    actions={[
-                      <Tooltip key="preview" title="預覽">
-                        <Button
-                          type="text"
-                          size="small"
-                          icon={<EyeOutlined />}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handlePreviewAttachment(att);
-                          }}
-                        />
-                      </Tooltip>,
-                      <Tooltip key="download" title="下載">
-                        <Button
-                          type="text"
-                          size="small"
-                          icon={<DownloadOutlined />}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDownloadAttachment(att);
-                          }}
-                        />
-                      </Tooltip>,
-                    ]}
-                    style={{ padding: '4px 0' }}
-                  >
-                    <Space size="small">
-                      <FileOutlined style={{ color: '#1890ff' }} />
-                      <Text
-                        ellipsis
-                        style={{ fontSize: 12, maxWidth: 150 }}
-                        title={att.original_name || att.file_name}
-                      >
-                        {att.original_name || att.file_name}
-                      </Text>
-                    </Space>
-                  </List.Item>
-                )}
-              />
-            ),
-          },
-        ]}
-      />
-    );
-  };
-
-  // 渲染搜尋結果項目
-  const renderResultItem = (item: DocumentSearchResult) => (
-    <List.Item
-      key={item.id}
-      onClick={() => handleDocumentClick(item.id)}
-      style={{
-        cursor: 'pointer',
-        padding: '8px 12px',
-        borderRadius: 8,
-        marginBottom: 4,
-        background: '#fafafa',
-        border: '1px solid #f0f0f0',
-        transition: 'all 0.2s',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.background = '#e6f7ff';
-        e.currentTarget.style.borderColor = '#91d5ff';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.background = '#fafafa';
-        e.currentTarget.style.borderColor = '#f0f0f0';
-      }}
-    >
-      <div style={{ width: '100%' }}>
-        {/* 第一行: 公文字號 + 類型 + 附件數 */}
-        <Space size="small" style={{ marginBottom: 4 }}>
-          <Tag color={item.category === '收文' ? 'blue' : 'green'}>
-            {item.category || '公文'}
-          </Tag>
-          <Text strong style={{ fontSize: 13 }}>
+      <div
+        key={item.id}
+        onClick={() => setExpandedId(isExpanded ? null : item.id)}
+        style={{
+          cursor: 'pointer',
+          borderRadius: 6,
+          marginBottom: 2,
+          background: isExpanded ? '#e6f7ff' : '#fafafa',
+          border: `1px solid ${isExpanded ? '#91d5ff' : '#f0f0f0'}`,
+          transition: 'all 0.15s',
+          overflow: 'hidden',
+        }}
+        onMouseEnter={(e) => {
+          if (!isExpanded) {
+            e.currentTarget.style.background = '#f0f5ff';
+            e.currentTarget.style.borderColor = '#d6e4ff';
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!isExpanded) {
+            e.currentTarget.style.background = '#fafafa';
+            e.currentTarget.style.borderColor = '#f0f0f0';
+          }
+        }}
+      >
+        {/* 壓縮行: 色點 + 字號 + 主旨 + 附件數 + 展開指示 */}
+        <div style={{ display: 'flex', alignItems: 'center', height: 36, padding: '0 8px', gap: 6 }}>
+          <span
+            style={{
+              width: 6, height: 6, borderRadius: '50%',
+              background: item.category === '收文' ? '#1890ff' : '#52c41a',
+              flexShrink: 0,
+            }}
+          />
+          <Text strong style={{ fontSize: 11, maxWidth: 100, flexShrink: 0 }} ellipsis>
             {item.doc_number}
           </Text>
+          <Text style={{ fontSize: 11, flex: 1, color: '#555' }} ellipsis>
+            {item.subject}
+          </Text>
           {item.attachment_count > 0 && (
-            <Tag icon={<PaperClipOutlined />} style={{ fontSize: 11 }}>
+            <span style={{ fontSize: 10, color: '#999', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 2 }}>
+              <PaperClipOutlined style={{ fontSize: 10 }} />
               {item.attachment_count}
-            </Tag>
+            </span>
           )}
-        </Space>
+          <span style={{ fontSize: 10, color: '#bbb', flexShrink: 0, width: 12, textAlign: 'center' }}>
+            {isExpanded ? '▾' : '▸'}
+          </span>
+        </div>
 
-        {/* 第二行: 主旨 */}
-        <Paragraph
-          ellipsis={{ rows: 2 }}
-          style={{ fontSize: 12, margin: 0, color: '#333' }}
-        >
-          {item.subject}
-        </Paragraph>
+        {/* 展開詳情 */}
+        {isExpanded && (
+          <div style={{ padding: '6px 10px 8px 20px', borderTop: '1px solid #f0f0f0', background: '#fafafa' }}>
+            {/* 完整主旨 */}
+            <div style={{ fontSize: 12, color: '#333', marginBottom: 6, lineHeight: 1.6 }}>
+              {item.subject}
+            </div>
 
-        {/* 第三行: 日期 + 發文單位 */}
-        <Space size="middle" style={{ marginTop: 4 }}>
-          {item.doc_date && (
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              <CalendarOutlined style={{ marginRight: 4 }} />
-              {item.doc_date}
-            </Text>
-          )}
-          {item.sender && (
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              <UserOutlined style={{ marginRight: 4 }} />
-              {item.sender}
-            </Text>
-          )}
-        </Space>
+            {/* 日期 + 發文單位 */}
+            <div style={{ display: 'flex', gap: 12, fontSize: 11, color: '#888', marginBottom: 6 }}>
+              {item.doc_date && (
+                <span><CalendarOutlined style={{ marginRight: 3 }} />{item.doc_date}</span>
+              )}
+              {item.sender && (
+                <span><UserOutlined style={{ marginRight: 3 }} />{item.sender}</span>
+              )}
+            </div>
 
-        {/* 附件列表 (可展開) */}
-        {item.attachments.length > 0 && (
-          <div style={{ marginTop: 8 }} onClick={(e) => e.stopPropagation()}>
-            {renderAttachments(item.attachments)}
+            {/* 附件清單 */}
+            {item.attachments.length > 0 && (
+              <div style={{ marginBottom: 6 }}>
+                {item.attachments.map((att) => (
+                  <div
+                    key={att.id}
+                    style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, padding: '2px 0' }}
+                  >
+                    <PaperClipOutlined style={{ color: '#1890ff', fontSize: 10 }} />
+                    <Text ellipsis style={{ flex: 1, fontSize: 11 }} title={att.original_name || att.file_name}>
+                      {att.original_name || att.file_name}
+                    </Text>
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<EyeOutlined style={{ fontSize: 11 }} />}
+                      onClick={(e) => { e.stopPropagation(); handlePreviewAttachment(att); }}
+                      style={{ padding: '0 2px', height: 18, minWidth: 18 }}
+                    />
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<DownloadOutlined style={{ fontSize: 11 }} />}
+                      onClick={(e) => { e.stopPropagation(); handleDownloadAttachment(att); }}
+                      style={{ padding: '0 2px', height: 18, minWidth: 18 }}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 查看完整公文 */}
+            <Button
+              type="link"
+              size="small"
+              onClick={(e) => { e.stopPropagation(); handleDocumentClick(item.id); }}
+              style={{ padding: 0, fontSize: 11, height: 'auto' }}
+            >
+              查看完整公文 →
+            </Button>
           </div>
         )}
       </div>
-    </List.Item>
-  );
+    );
+  }, [expandedId, handleDocumentClick, handlePreviewAttachment, handleDownloadAttachment]);
 
   return (
     <div style={{ flex: 1, minHeight: 200, display: 'flex', flexDirection: 'column', ...(height != null ? { height } : {}) }}>
@@ -662,29 +631,19 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({
         </Button>
       </div>
 
-      {/* 快取命中提示 */}
-      {searched && fromCache && (
-        <div style={{ marginBottom: 8 }}>
-          <Tag color="blue">快取結果</Tag>
-        </div>
-      )}
-
-      {/* 搜尋意圖顯示 */}
-      {searched && intentTagsNode}
-
       {/* 搜尋結果區 */}
       <div style={{ flex: 1, overflow: 'auto' }}>
         {loading ? (
-          <div style={{ textAlign: 'center', padding: 40 }}>
+          <div style={{ textAlign: 'center', padding: 30 }}>
             <Spin tip="AI 正在搜尋中...">
-              <div style={{ padding: '30px 50px' }} />
+              <div style={{ padding: '20px 40px' }} />
             </Spin>
           </div>
         ) : error ? (
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
             description={
-              <Text type="danger">{error}</Text>
+              <Text type="danger" style={{ fontSize: 12 }}>{error}</Text>
             }
           />
         ) : !searched ? (
@@ -692,12 +651,12 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({
             image={Empty.PRESENTED_IMAGE_SIMPLE}
             description={
               <div>
-                <Text type="secondary">輸入自然語言搜尋公文</Text>
-                <div style={{ marginTop: 12 }}>
-                  <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 8 }}>
+                <Text type="secondary" style={{ fontSize: 12 }}>輸入自然語言搜尋公文</Text>
+                <div style={{ marginTop: 8 }}>
+                  <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 6 }}>
                     試試看：
                   </Text>
-                  <Space size={[4, 8]} wrap>
+                  <Space size={[4, 6]} wrap>
                     {[
                       '找桃園市政府上個月的公文',
                       '有截止日的待處理收文',
@@ -707,7 +666,7 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({
                       <Tag
                         key={suggestion}
                         color="blue"
-                        style={{ cursor: 'pointer', fontSize: 12 }}
+                        style={{ cursor: 'pointer', fontSize: 11 }}
                         onClick={() => {
                           setQuery(suggestion);
                           handleSearch(suggestion);
@@ -728,20 +687,40 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({
           />
         ) : (
           <>
-            <div style={{ marginBottom: 8 }}>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                找到 {total} 筆公文，已顯示 {results.length} 筆
+            {/* 統計 + 快取 + 意圖晶片 (合併) */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                {total} 筆結果，顯示 {results.length} 筆
               </Text>
+              <Space size={4}>
+                {fromCache && (
+                  <Tag color="blue" style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px', margin: 0 }}>快取</Tag>
+                )}
+                {parsedIntent && parsedIntent.confidence > 0 && (
+                  <Tag
+                    color="cyan"
+                    style={{ cursor: 'pointer', fontSize: 10, lineHeight: '16px', padding: '0 4px', margin: 0 }}
+                    onClick={() => setShowIntentDetails(!showIntentDetails)}
+                  >
+                    AI 解析 {Math.round(parsedIntent.confidence * 100)}% {showIntentDetails ? '▾' : '▸'}
+                  </Tag>
+                )}
+              </Space>
             </div>
-            <List
-              size="small"
-              dataSource={results}
-              renderItem={renderResultItem}
-            />
+
+            {/* 可收合的意圖詳情 */}
+            {showIntentDetails && intentTagsNode}
+
+            {/* 壓縮結果列表 */}
+            <div>
+              {results.map(renderCompactItem)}
+            </div>
+
             {results.length < total && (
-              <div style={{ textAlign: 'center', padding: '12px 0' }}>
+              <div style={{ textAlign: 'center', padding: '6px 0' }}>
                 <Button
                   type="link"
+                  size="small"
                   loading={loadingMore}
                   onClick={() => {
                     const newOffset = offset + 20;

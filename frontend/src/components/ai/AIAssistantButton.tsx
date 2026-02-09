@@ -316,7 +316,7 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
               background: 'linear-gradient(135deg, rgba(24, 144, 255, 0.02) 0%, rgba(114, 46, 209, 0.02) 100%)',
             },
             body: {
-              padding: 16,
+              padding: '8px 10px',
               display: isMinimized ? 'none' : 'flex',
               flexDirection: 'column' as const,
               flex: 1,

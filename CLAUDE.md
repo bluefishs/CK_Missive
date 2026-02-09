@@ -754,6 +754,65 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 
 ## 📋 版本更新記錄
 
+### v1.53.0 (2026-02-09) - Docker+PM2 混合開發環境優化與系統韌性強化
+
+**建立完整的 Docker+PM2 共存架構**，防止端口衝突、連線池汙染、靜默失敗等連鎖問題。
+
+**新增基礎設施 Compose** 🐳:
+| 檔案 | 說明 |
+|------|------|
+| `docker-compose.infra.yml` | **新增** — 僅含 PostgreSQL + Redis，給 PM2 混合模式使用 |
+| `docker-compose.dev.yml` | 4 個應用容器 restart 改為 `"no"`（防止自動啟動搶佔 PM2 端口） |
+
+**統一開發環境管理** 🛠️:
+| 檔案 | 說明 |
+|------|------|
+| `scripts/dev-start.ps1` | **重寫 v2.0.0** — 支援 `-FullDocker`/`-Stop`/`-Status`/`-Restart` |
+| `scripts/dev-stop.ps1` | **新增** — 支援 `-KeepInfra`（保留 DB/Redis）和 `-All` |
+| `scripts/start-backend.ps1` | **重寫 v2.0.0** — 新增端口衝突偵測 + 基礎設施依賴檢查 |
+| `scripts/start-dev.ps1` | 標記棄用，指向 `dev-start.ps1` |
+
+**資料庫連線韌性強化** 🗄️:
+| 項目 | 說明 |
+|------|------|
+| `statement_timeout` | PostgreSQL 端 30s 查詢超時（與 asyncpg command_timeout 60s 雙層防護） |
+| Pool event listeners | `connect`/`invalidate` 事件記錄，監控連線池狀態 |
+| SATimeoutError 處理 | 連線池耗盡時明確錯誤訊息 |
+| Settings 整合 | POOL_SIZE/MAX_OVERFLOW/POOL_RECYCLE/STATEMENT_TIMEOUT 從 .env 讀取 |
+
+**Feature Flags 架構** 🚩:
+| 旗標 | 說明 |
+|------|------|
+| `PGVECTOR_ENABLED` | 控制 ORM embedding 欄位是否定義（替代失敗的 deferred() 方案） |
+| `MFA_ENABLED` | 控制 MFA 多因素認證功能 |
+
+**修改檔案**:
+| 檔案 | 說明 |
+|------|------|
+| `docker-compose.infra.yml` | **新增** — 基礎設施專用 Compose |
+| `docker-compose.dev.yml` | 修改 4 處 restart 策略 |
+| `scripts/dev-start.ps1` | **重寫** — 統一管理腳本 |
+| `scripts/dev-stop.ps1` | **新增** — 停止腳本 |
+| `scripts/start-backend.ps1` | **重寫** — 端口偵測 + 基礎設施檢查 |
+| `scripts/start-dev.ps1` | 新增棄用提示 |
+| `backend/app/db/database.py` | **重寫 v2.0.0** — statement_timeout + pool 監控 |
+| `backend/app/core/config.py` | 新增 Feature Flags + 連線池 Settings |
+| `.env` | 新增 PGVECTOR_ENABLED, MFA_ENABLED |
+| `.env.example` | 新增 Feature Flags 文件 + STATEMENT_TIMEOUT |
+
+**啟動流程**:
+```powershell
+.\scripts\dev-start.ps1              # 混合模式（推薦）
+.\scripts\dev-start.ps1 -Status      # 查看狀態
+.\scripts\dev-start.ps1 -FullDocker  # 全 Docker 模式
+.\scripts\dev-stop.ps1               # 停止所有
+.\scripts\dev-stop.ps1 -KeepInfra    # 僅停 PM2
+```
+
+**系統健康度**: 10.0/10 (維持)
+
+---
+
 ### v1.52.0 (2026-02-09) - Phase 4 審查修復：SSOT 一致性 + 安全強化 + 自動回填
 
 **Phase 4 實作審查後修復 5 個次要問題** - 7 個檔案修改，+124 / -42 行

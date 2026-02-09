@@ -23,11 +23,24 @@ def upgrade() -> None:
     啟用 pgvector 擴展並新增 embedding 欄位
 
     步驟：
-    1. 啟用 vector 擴展 (CREATE EXTENSION IF NOT EXISTS)
+    1. 嘗試啟用 vector 擴展 (若不可用則跳過整個遷移)
     2. 新增 embedding 欄位 (vector(384))
     3. 建立 ivfflat 索引 (cosine distance)
     """
-    # 1. 啟用 pgvector 擴展
+    # 1. 檢查 pgvector 擴展是否可安裝（不觸發交易失敗）
+    conn = op.get_bind()
+    result = conn.execute(sa.text(
+        "SELECT 1 FROM pg_available_extensions WHERE name = 'vector'"
+    ))
+    if result.scalar() is None:
+        import logging
+        logging.getLogger("alembic").warning(
+            "⚠️ pgvector 擴展不可用，跳過 embedding 欄位建立。"
+            "如需語意搜尋功能，請使用 pgvector/pgvector:pg15 Docker 映像。"
+        )
+        return
+
+    # 啟用 pgvector 擴展
     op.execute("CREATE EXTENSION IF NOT EXISTS vector")
 
     # 2. 新增 embedding 欄位（冪等設計）

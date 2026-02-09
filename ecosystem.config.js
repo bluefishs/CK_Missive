@@ -14,11 +14,12 @@
 module.exports = {
   apps: [
     // ===== 後端 FastAPI 服務 =====
+    // 使用 wrapper script 自動安裝依賴 + 套用遷移
     {
       name: 'ck-backend',
-      cwd: './backend',
-      script: 'python',
-      args: '-m uvicorn main:app --host 0.0.0.0 --port 8001',
+      cwd: '.',
+      script: 'powershell.exe',
+      args: '-NoProfile -ExecutionPolicy Bypass -File scripts\\start-backend.ps1',
       interpreter: 'none',
 
       // 環境變數
@@ -34,9 +35,9 @@ module.exports = {
       max_memory_restart: '1G',
 
       // 日誌配置
-      error_file: './logs/backend-error.log',
-      out_file: './logs/backend-out.log',
-      log_date_format: 'YYYY-MM-DD HHmm:ss',
+      error_file: './backend/logs/backend-error.log',
+      out_file: './backend/logs/backend-out.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss',
       merge_logs: true,
 
       // 重啟策略

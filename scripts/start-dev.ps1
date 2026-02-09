@@ -1,21 +1,27 @@
 # -*- coding: utf-8 -*-
 <#
 .SYNOPSIS
-    CK_Missive 開發環境一鍵啟動腳本
+    [DEPRECATED] CK_Missive 開發環境一鍵啟動腳本
 
 .DESCRIPTION
-    此腳本用於一鍵啟動完整的開發環境，包括：
-    1. Docker PostgreSQL 容器
-    2. 後端 FastAPI 服務
-    3. 前端 React 開發伺服器
+    ⚠️ 此腳本已棄用，請改用：
+        .\scripts\dev-start.ps1          # 混合模式（推薦）
+        .\scripts\dev-start.ps1 -Status  # 查看狀態
+        .\scripts\dev-stop.ps1           # 停止所有
+
+    此腳本保留供向後相容，功能不再更新。
 
 .EXAMPLE
     .\start-dev.ps1
 
 .NOTES
-    版本: 1.0.0
+    版本: 1.0.0 (DEPRECATED - use dev-start.ps1 instead)
     日期: 2026-01-15
 #>
+
+Write-Host "⚠️  WARNING: start-dev.ps1 is deprecated. Use dev-start.ps1 instead." -ForegroundColor Yellow
+Write-Host "   Recommended: .\scripts\dev-start.ps1" -ForegroundColor Yellow
+Write-Host ""
 
 # 設置控制台編碼為 UTF-8
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8

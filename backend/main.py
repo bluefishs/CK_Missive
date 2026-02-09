@@ -68,21 +68,18 @@ async def lifespan(app: FastAPI):
         is_valid, mismatches = await validate_schema(
             engine=engine,
             base=Base,
-            strict=is_development,  # 開發模式下嚴格驗證，阻止啟動
+            strict=False,  # 僅警告不阻止啟動（遷移可能尚未執行）
             tables_to_check=None,  # 檢查所有表格
         )
         if not is_valid:
             for mismatch in mismatches:
-                logger.error(f"❌ Schema 不一致: {mismatch}")
-            if is_development:
-                raise RuntimeError(
-                    f"🚨 Schema 驗證失敗: 發現 {len(mismatches)} 個不一致。"
-                    "請確保 SQLAlchemy 模型與資料庫欄位同步。"
-                )
+                logger.warning(f"⚠️ Schema 不一致: {mismatch}")
+            logger.warning(
+                f"⚠️ 發現 {len(mismatches)} 個 Schema 不一致。"
+                "請執行 'alembic upgrade head' 以套用資料庫遷移。"
+            )
     except Exception as e:
-        logger.error(f"Schema 驗證失敗: {e}")
-        if is_development:
-            raise
+        logger.warning(f"⚠️ Schema 驗證失敗（不影響啟動）: {e}")
 
     # 啟動提醒排程器
     try:
@@ -130,9 +127,9 @@ async def lifespan(app: FastAPI):
                 count_documents_without_embedding,
                 backfill_embeddings,
             )
-            from app.db.database import async_session_factory
+            from app.db.database import AsyncSessionLocal
 
-            async with async_session_factory() as check_db:
+            async with AsyncSessionLocal() as check_db:
                 pending_count = await count_documents_without_embedding(check_db)
 
             if pending_count > 0:

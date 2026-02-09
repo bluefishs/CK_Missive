@@ -46,13 +46,20 @@ CK_Missive 資料庫模型定義
 """
 from sqlalchemy import Column, Integer, String, Float, Date, DateTime, ForeignKey, Text, Boolean, Table, func, UniqueConstraint, Index
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, deferred
 from datetime import datetime
 
 try:
     from pgvector.sqlalchemy import Vector
 except ImportError:
     Vector = None  # pgvector 未安裝時降級處理
+
+# pgvector 需要 Python 套件 AND PostgreSQL 擴展同時可用
+# 環境變數 PGVECTOR_ENABLED=true 表示 DB 已安裝 pgvector 擴展
+# 預設 false：避免 ORM 定義 embedding 欄位但 DB 沒有，導致所有查詢失敗
+import os
+if Vector is not None and os.environ.get("PGVECTOR_ENABLED", "false").lower() != "true":
+    Vector = None
 
 # 從共享的 database.py 匯入 Base，確保所有模型都使用同一個 metadata
 from app.db.database import Base
@@ -215,11 +222,14 @@ class OfficialDocument(Base):
     updated_at = Column(DateTime, server_default=func.now(), comment="更新時間")
 
     # 向量嵌入欄位 (pgvector 語意搜尋)
-    embedding = Column(
-        Vector(384) if Vector is not None else None,
-        nullable=True,
-        comment="文件向量嵌入 (nomic-embed-text, 384 維)",
-    )
+    # 使用 deferred() 延遲載入：不包含在預設 SELECT 中
+    # 避免 pgvector 未啟用時 (DB 無此欄位) 導致所有查詢失敗
+    if Vector is not None:
+        embedding = deferred(Column(
+            Vector(384),
+            nullable=True,
+            comment="文件向量嵌入 (nomic-embed-text, 384 維)",
+        ))
 
     # 建立關聯關係
     contract_project = relationship("ContractProject", back_populates="documents", lazy="select")

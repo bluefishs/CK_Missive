@@ -81,7 +81,7 @@ services:
         condition: service_healthy
       ollama:
         condition: service_started
-    restart: unless-stopped
+    restart: "no"  # PM2 混合模式：避免與 PM2 後端搶佔 port 8001
     # 🔥 開發模式啟動命令：支援熱重載
     command: uvicorn main:app --host 0.0.0.0 --port ${BACKEND_CONTAINER_PORT} --reload --reload-dir /app
     healthcheck:
@@ -120,7 +120,7 @@ services:
     depends_on:
       backend:
         condition: service_healthy
-    restart: unless-stopped
+    restart: "no"  # PM2 混合模式：避免與 PM2 前端搶佔 port 3000
     # 🔥 開發模式啟動命令：Vite 開發伺服器
     command: npm run dev -- --host 0.0.0.0 --port ${VITE_PORT}
 
@@ -134,7 +134,7 @@ services:
       - ollama_dev_data:/root/.ollama
     networks:
       - app_network
-    restart: unless-stopped
+    restart: "no"  # PM2 混合模式：按需手動啟動
     deploy:
       resources:
         limits:
@@ -159,7 +159,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    restart: unless-stopped
+    restart: "no"  # PM2 混合模式：按需手動啟動
 
 # --- 📦 持久化儲存 (開發環境專用) ---
 volumes:

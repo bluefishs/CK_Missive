@@ -126,7 +126,7 @@ async def backfill_embeddings(
         batch_size: 批次大小（每多少筆 commit 一次）
     """
     from app.core.ai_connector import get_ai_connector
-    from app.db.database import async_session_factory
+    from app.db.database import AsyncSessionLocal
 
     connector = get_ai_connector()
 
@@ -144,7 +144,7 @@ async def backfill_embeddings(
 
     logger.info(f"Ollama 可用: {ollama_status.get('message', '')}")
 
-    async with async_session_factory() as db:
+    async with AsyncSessionLocal() as db:
         # 統計資訊
         total_without = await count_documents_without_embedding(db)
         total_with = await count_documents_with_embedding(db)
