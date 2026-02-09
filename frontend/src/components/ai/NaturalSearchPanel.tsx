@@ -5,9 +5,9 @@
  * - 搜尋歷史 (localStorage 持久化，最多 10 筆)
  * - 結果快取 (記憶體，5 分鐘 TTL)
  *
- * @version 1.1.0
+ * @version 1.2.0
  * @created 2026-02-05
- * @updated 2026-02-07 - 新增搜尋歷史與結果快取
+ * @updated 2026-02-09 - 新增搜尋範圍說明 Tooltip
  */
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
@@ -19,6 +19,7 @@ import {
   Button,
   Empty,
   Spin,
+  Tooltip,
   Typography,
   App,
 } from 'antd';
@@ -32,9 +33,10 @@ import {
   CloseOutlined,
   DeleteOutlined,
   ClockCircleOutlined,
+  InfoCircleOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { aiApi, abortNaturalSearch, DocumentSearchResult, ParsedSearchIntent, AttachmentInfo } from '../../api/aiApi';
+import { aiApi, abortNaturalSearch, DocumentSearchResult, ParsedSearchIntent, AttachmentInfo, NaturalSearchResponse } from '../../api/aiApi';
 import { filesApi } from '../../api/filesApi';
 
 const { Text } = Typography;
@@ -60,6 +62,7 @@ interface CacheEntry {
   results: DocumentSearchResult[];
   parsedIntent: ParsedSearchIntent;
   total: number;
+  source: NaturalSearchResponse['source'];
   timestamp: number;
 }
 
@@ -97,12 +100,14 @@ function setCachedResult(
   results: DocumentSearchResult[],
   parsedIntent: ParsedSearchIntent,
   total: number,
+  source: NaturalSearchResponse['source'],
 ): void {
   const key = getCacheKey(query);
   searchCache.set(key, {
     results,
     parsedIntent,
     total,
+    source,
     timestamp: Date.now(),
   });
 }
@@ -183,6 +188,7 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fromCache, setFromCache] = useState(false);
+  const [searchSource, setSearchSource] = useState<NaturalSearchResponse['source'] | null>(null);
 
   // 壓縮結果 + 手風琴展開
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -249,6 +255,7 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({
         setResults(cached.results);
         setParsedIntent(cached.parsedIntent);
         setTotal(cached.total);
+        setSearchSource(cached.source);
         setSearched(true);
         setFromCache(true);
         setError(null);
@@ -285,9 +292,10 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({
         } else {
           // 新搜尋：替換結果
           setResults(response.results);
+          setSearchSource(response.source);
 
           // 快取結果（僅首次搜尋）
-          setCachedResult(searchQuery, response.results, response.parsed_intent, response.total);
+          setCachedResult(searchQuery, response.results, response.parsed_intent, response.total, response.source);
 
           // 記錄搜尋歷史
           const updatedHistory = addToHistory(searchHistory, searchQuery);
@@ -375,6 +383,24 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({
     if (parsedIntent.status) {
       tags.push(<Tag key="status" color="cyan" style={{ fontSize: 11, margin: 0 }}>{parsedIntent.status}</Tag>);
     }
+    if (parsedIntent.related_entity === 'dispatch_order') {
+      tags.push(<Tag key="entity" color="volcano" style={{ fontSize: 11, margin: 0 }}>派工單關聯</Tag>);
+    } else if (parsedIntent.related_entity === 'project') {
+      tags.push(<Tag key="entity" color="volcano" style={{ fontSize: 11, margin: 0 }}>專案關聯</Tag>);
+    }
+
+    // 搜尋來源標示
+    if (searchSource === 'rule_engine') {
+      tags.push(<Tag key="source" color="green" style={{ fontSize: 11, margin: 0 }}>規則引擎</Tag>);
+    } else if (searchSource === 'vector') {
+      tags.push(<Tag key="source" color="cyan" style={{ fontSize: 11, margin: 0 }}>向量匹配</Tag>);
+    } else if (searchSource === 'ai') {
+      tags.push(<Tag key="source" color="blue" style={{ fontSize: 11, margin: 0 }}>AI 解析</Tag>);
+    } else if (searchSource === 'merged') {
+      tags.push(<Tag key="source" color="purple" style={{ fontSize: 11, margin: 0 }}>混合解析</Tag>);
+    } else if (searchSource === 'fallback') {
+      tags.push(<Tag key="source" color="default" style={{ fontSize: 11, margin: 0 }}>降級搜尋</Tag>);
+    }
 
     if (tags.length === 0) return null;
 
@@ -383,7 +409,7 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({
         {tags}
       </div>
     );
-  }, [parsedIntent]);
+  }, [parsedIntent, searchSource]);
 
   // AutoComplete 選項：搜尋歷史下拉選單
   const autoCompleteOptions = useMemo(() => {
@@ -689,9 +715,14 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({
           <>
             {/* 統計 + 快取 + 意圖晶片 (合併) */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-              <Text type="secondary" style={{ fontSize: 11 }}>
-                {total} 筆結果，顯示 {results.length} 筆
-              </Text>
+              <Space size={4}>
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  {total} 筆結果，顯示 {results.length} 筆
+                </Text>
+                <Tooltip title="搜尋範圍為全系統公文（documents 表），結果包含主旨、內容含關鍵字的所有公文。若需查看特定派工單，請至「派工管理」頁面。">
+                  <InfoCircleOutlined style={{ fontSize: 11, color: '#999', cursor: 'help' }} />
+                </Tooltip>
+              </Space>
               <Space size={4}>
                 {fromCache && (
                   <Tag color="blue" style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px', margin: 0 }}>快取</Tag>

@@ -12,6 +12,7 @@ from .document_ai import router as document_ai_router
 from .ai_stats import router as ai_stats_router
 from .synonyms import router as synonyms_router
 from .prompts import router as prompts_router
+from .search_history import router as search_history_router
 
 router = APIRouter(prefix="/ai", tags=["AI"])
 
@@ -20,3 +21,4 @@ router.include_router(document_ai_router)
 router.include_router(ai_stats_router)
 router.include_router(synonyms_router)
 router.include_router(prompts_router)
+router.include_router(search_history_router)

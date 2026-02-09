@@ -618,12 +618,13 @@ async def list_documents(
 | `docs/specifications/SCHEMA_DB_MAPPING.md` | Schema-DB 欄位對照表 v1.0.0 |
 | `docs/specifications/LINK_ID_HANDLING_SPECIFICATION.md` | 關聯記錄處理規範 v1.0.0 |
 | `docs/specifications/UI_DESIGN_STANDARDS.md` | **UI 設計規範 v1.2.0** (導航模式、檔案上傳、returnTo) |
-| `docs/SYSTEM_OPTIMIZATION_REPORT.md` | 🆕 **系統優化報告 v7.0.0** (2026-02-02) |
+| `docs/SYSTEM_OPTIMIZATION_REPORT.md` | 🆕 **系統優化報告 v16.0.0** (2026-02-09) |
 | `docs/SECURITY_CICD_RECOMMENDATIONS.md` | 🆕 **資安與 CI/CD 優化建議 v1.0.0** |
 | `docs/ALEMBIC_MIGRATION_GUIDE.md` | 🆕 **Alembic 遷移管理指南** |
 | `docs/DEPLOYMENT_LESSONS_LEARNED.md` | 🆕 **NAS 部署經驗總結** |
 | `docs/specifications/TESTING_FRAMEWORK.md` | 測試框架規範 |
-| `docs/Architecture_Optimization_Recommendations.md` | 📐 **架構優化建議 v2.0.0** (RWD + AI UI + 服務架構) |
+| `docs/Architecture_Optimization_Recommendations.md` | 📐 **架構優化建議 v7.0.0** (Phase 5 詳細規劃) |
+| `scripts/verify_architecture.py` | 🆕 **架構驗證腳本 v1.0.0** (7 項自動化檢查) |
 | `@AGENT.md` | 開發代理指引 |
 
 ---
@@ -1172,6 +1173,47 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 - RequestThrottler 測試覆蓋
 
 **測試結果**: 24 個後端依賴注入測試全部通過
+
+**系統健康度**: 9.9/10 (維持)
+
+---
+
+### v1.45.0 (2026-02-09) - AI 管理統一 + 架構驗證自動化 + CSRF 修復
+
+**AI 管理頁面統一** 🤖:
+- 將 AI 同義詞管理、AI Prompt 管理整合至 `/admin/ai-assistant` Tab 分頁
+- 移除獨立頁面路由 (`AI_SYNONYM_MANAGEMENT`, `AI_PROMPT_MANAGEMENT`)
+- 清理 DB 殘留導覽項目（`init_navigation_data.py` 只新增不刪除的設計限制）
+- `SynonymManagementContent` 與 `PromptManagementContent` 提取為可嵌入元件
+
+**CSRF AUTH_DISABLED 修復** 🔒:
+- **根因**：`AUTH_DISABLED=true` 時 CSRF 中介軟體仍檢查 csrf_token cookie
+- 殘留 `access_token` cookie + 無 `csrf_token` → 403 CSRF 驗證失敗
+- **修復**：`CSRFMiddleware.dispatch()` 新增 `AUTH_DISABLED` 豁免邏輯
+- CSRF 防護在無真實認證 session 時無意義，跳過驗證
+
+**架構驗證腳本** 🔍:
+- 新增 `scripts/verify_architecture.py` - 7 項自動化架構檢查
+- 檢查項目：路由一致性、導覽同步、API 前綴、SSOT、Schema-ORM、頁面完整性、匯入規範
+- 結果：5 通過、26 警告、0 錯誤
+
+**Antd 警告修復**:
+- `Spin tip` 警告：改用巢狀模式包裹子元件
+- `Modal destroyOnClose` 棄用：改用 `destroyOnHidden`
+
+**文件更新**:
+| 文件 | 版本 | 說明 |
+|------|------|------|
+| `SYSTEM_OPTIMIZATION_REPORT.md` | v16.0.0 | AI 管理統一 + 架構驗證自動化 |
+| `Architecture_Optimization_Recommendations.md` | v7.0.0 | Phase 5 架構精煉計畫 |
+
+**修改檔案**:
+- `backend/app/core/csrf.py` - AUTH_DISABLED 豁免
+- `backend/app/scripts/init_navigation_data.py` - 移除獨立 AI 導覽項目
+- `frontend/src/router/types.ts` - 移除 AI_SYNONYM/PROMPT 路由常數
+- `frontend/src/pages/AIAssistantManagementPage.tsx` - Spin tip 修復
+- `frontend/src/pages/AISynonymManagementPage.tsx` - destroyOnHidden 修復
+- `scripts/verify_architecture.py` - 新增架構驗證腳本
 
 **系統健康度**: 9.9/10 (維持)
 

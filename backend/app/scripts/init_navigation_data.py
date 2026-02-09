@@ -394,31 +394,20 @@ DEFAULT_NAVIGATION_ITEMS = [
         "permission_required": "[\"admin:users\"]"
     },
 
-    # AI 同義詞管理 (對應 ROUTES.AI_SYNONYM_MANAGEMENT)
+    # AI 助理管理 (對應 ROUTES.AI_ASSISTANT_MANAGEMENT)
     {
-        "title": "AI 同義詞管理",
-        "key": "ai-synonym-management",
-        "path": "/admin/ai-synonyms",
-        "icon": "TagsOutlined",
+        "title": "AI 助理管理",
+        "key": "ai-assistant-management",
+        "path": "/admin/ai-assistant",
+        "icon": "DashboardOutlined",
         "sort_order": 8,
         "level": 2,
         "parent_key": "system-management",
-        "description": "AI,同義詞,搜尋",
+        "description": "AI,助理,管理,儀表板",
         "permission_required": "[\"admin:settings\"]"
     },
 
-    # AI Prompt 管理 (對應 ROUTES.AI_PROMPT_MANAGEMENT)
-    {
-        "title": "AI Prompt 管理",
-        "key": "ai-prompt-management",
-        "path": "/admin/ai-prompts",
-        "icon": "RobotOutlined",
-        "sort_order": 9,
-        "level": 2,
-        "parent_key": "system-management",
-        "description": "AI,Prompt,提示詞,版本",
-        "permission_required": "[\"admin:settings\"]"
-    },
+    # AI 同義詞管理、AI Prompt 管理已整合至 AI 助理管理 (/admin/ai-assistant) Tab 分頁
 
     # Google 認證診斷 (對應 ROUTES.GOOGLE_AUTH_DIAGNOSTIC)
     {
@@ -602,10 +591,17 @@ async def create_navigation_items(db: AsyncSession, force_update: bool = False):
                         update_count += 1
                 else:
                     logger.debug(f"導覽項目 '{item_data['title']}' 已存在，跳過...")
-                # 獲取已存在的項目用於建立關聯
+                # 獲取已存在的項目用於建立關聯（優先用 key，備用 title）
                 query = select(SiteNavigationItem).where(SiteNavigationItem.key == item_data["key"])
                 result = await db.execute(query)
-                parent_items[item_data["key"]] = result.scalar_one()
+                existing = result.scalar_one_or_none()
+                if existing is None:
+                    # key 不存在但 title 重複，用 title 查找
+                    query = select(SiteNavigationItem).where(SiteNavigationItem.title == item_data["title"])
+                    result = await db.execute(query)
+                    existing = result.scalar_one_or_none()
+                if existing:
+                    parent_items[item_data["key"]] = existing
                 continue
 
             navigation_item = SiteNavigationItem(
@@ -629,10 +625,21 @@ async def create_navigation_items(db: AsyncSession, force_update: bool = False):
     await db.commit()
 
     # 重新查詢所有父級項目以獲取正確的 ID
-    for key in parent_items.keys():
+    for key in list(parent_items.keys()):
         query = select(SiteNavigationItem).where(SiteNavigationItem.key == key)
         result = await db.execute(query)
-        parent_items[key] = result.scalar_one()
+        item = result.scalar_one_or_none()
+        if item:
+            parent_items[key] = item
+        else:
+            # key 不在 DB 中（可能以 title 匹配），查找已存在的項目
+            existing = parent_items.get(key)
+            if existing and hasattr(existing, 'id'):
+                # 已在第一階段取得，保留
+                pass
+            else:
+                logger.warning(f"父級項目 key='{key}' 在資料庫中不存在，跳過")
+                parent_items.pop(key, None)
 
     # 第二階段：創建或更新子級項目
     for item_data in DEFAULT_NAVIGATION_ITEMS:

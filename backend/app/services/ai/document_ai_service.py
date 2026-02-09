@@ -1,9 +1,9 @@
 """
 公文 AI 服務
 
-Version: 3.0.0
+Version: 4.0.0
 Created: 2026-02-04
-Updated: 2026-02-08 - 整合 pgvector 語意混合搜尋
+Updated: 2026-02-09 - 四組件意圖架構 (規則→向量→LLM→合併)
 
 功能:
 - 公文摘要生成 (帶快取)
@@ -16,10 +16,12 @@ Updated: 2026-02-08 - 整合 pgvector 語意混合搜尋
 - 統一回應驗證層 (v2.3.0 新增)
 - DB Prompt 版本控制整合 (v2.4.0 新增)
 - pgvector 語意混合搜尋 (v3.0.0 新增)
+- 四組件意圖架構: 規則→向量→LLM→合併 (v4.0.0 新增)
 """
 
 import asyncio
 import logging
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, AsyncGenerator, Dict, List, Optional
@@ -269,6 +271,13 @@ class DocumentAIService(BaseAIService):
         # 確保 Prompt 模板和同義詞已載入
         self._load_prompts()
         self._load_synonyms()
+
+        # 規則引擎 (Layer 1: 快速正則匹配)
+        from app.services.ai.rule_engine import get_rule_engine
+        self._rule_engine = get_rule_engine()
+
+        # _last_intent_source 已移除（v3.1.0）
+        # parse_search_intent 改為回傳 (intent, source) tuple，避免 singleton 競態條件
 
     def _build_summary_prompt(
         self,
@@ -766,13 +775,17 @@ class DocumentAIService(BaseAIService):
             return synonyms[0]
         return name
 
+    # 派工相關關鍵字 (用於後處理自動偵測)
+    _DISPATCH_KEYWORDS = {"派工單", "派工", "派工紀錄", "派工安排", "調派"}
+
     def _post_process_intent(self, intent: ParsedSearchIntent) -> ParsedSearchIntent:
         """
         對 AI 解析的搜尋意圖進行後處理
 
         1. 關鍵字同義詞擴展
         2. 機關名稱縮寫轉全稱
-        3. 低 confidence 時擴大搜尋策略
+        3. 實體類型自動偵測 (派工單、專案)
+        4. 低 confidence 時擴大搜尋策略
 
         Args:
             intent: AI 解析的原始意圖
@@ -797,43 +810,314 @@ class DocumentAIService(BaseAIService):
                 logger.info(f"受文單位擴展: {intent.receiver} -> {expanded}")
                 intent.receiver = expanded
 
-        # 3. 低 confidence 時的策略調整
+        # 3. 實體類型自動偵測：如果 AI 未設定 related_entity 但 keywords 包含派工相關詞
+        if not intent.related_entity and intent.keywords:
+            dispatch_hits = [kw for kw in intent.keywords if kw in self._DISPATCH_KEYWORDS]
+            if dispatch_hits:
+                intent.related_entity = "dispatch_order"
+                # 從 keywords 中移除派工相關詞（已透過 JOIN 過濾，避免全文搜尋干擾）
+                intent.keywords = [kw for kw in intent.keywords if kw not in self._DISPATCH_KEYWORDS]
+                if not intent.keywords:
+                    intent.keywords = None
+                logger.info(f"自動偵測派工單實體過濾 (命中: {dispatch_hits})")
+
+        # 4. 低 confidence 時的策略調整
         if intent.confidence < 0.5:
             # 確保至少有 keywords 作為備用搜尋條件
-            if not intent.keywords and not intent.sender and not intent.receiver:
-                # 從原始查詢中提取備用關鍵字（已在 parse_search_intent 中處理）
+            if not intent.keywords and not intent.sender and not intent.receiver and not intent.related_entity:
                 logger.info("低信心度且無搜尋條件，將保持原始查詢作為 keywords")
 
         return intent
 
     # ========================================================================
-    # 自然語言搜尋功能 (v1.2.0 新增)
+    # 自然語言搜尋功能 (v4.0.0 四組件意圖架構)
+    #
+    # Layer 1: 規則引擎（<5ms）-- 正則模式匹配
+    # Layer 2: 向量語意匹配（10-50ms）-- 相似查詢復用
+    # Layer 3: LLM 解析（~500ms）-- 複雜查詢 AI 理解
+    # Merge: 多層結果合併
     # ========================================================================
 
-    async def parse_search_intent(self, query: str) -> ParsedSearchIntent:
+    # 向量匹配閾值（cosine similarity，越高越相似）
+    VECTOR_SIMILARITY_THRESHOLD = 0.88
+
+    @staticmethod
+    def _merge_intents(
+        *intents: ParsedSearchIntent,
+        weights: Optional[List[float]] = None,
+    ) -> ParsedSearchIntent:
         """
-        使用 AI 解析自然語言查詢為結構化搜尋條件
+        合併多層意圖解析結果
+
+        優先順序（由高到低）：
+        - 確定性欄位（日期、狀態、實體）：規則引擎 > 向量 > LLM
+        - 語意性欄位（keywords、sender）：LLM > 向量 > 規則引擎
+        - confidence：加權平均
+
+        Args:
+            intents: 多個意圖結果（按優先順序排列）
+            weights: 各意圖的 confidence 權重（預設均等）
+
+        Returns:
+            合併後的意圖
+        """
+        if len(intents) == 0:
+            return ParsedSearchIntent(confidence=0.0)
+        if len(intents) == 1:
+            return intents[0]
+
+        merged_data: dict = {}
+
+        # 確定性欄位：按優先順序取第一個非 None 的值
+        deterministic_fields = [
+            "date_from", "date_to", "status", "related_entity",
+            "has_deadline", "category",
+        ]
+        for field in deterministic_fields:
+            for intent in intents:
+                val = getattr(intent, field, None)
+                if val is not None:
+                    merged_data[field] = val
+                    break
+
+        # 語意性欄位：反向優先（最後一個非 None 的值，即 LLM 優先）
+        semantic_fields = [
+            "keywords", "doc_type", "sender", "receiver",
+            "contract_case",
+        ]
+        for field in semantic_fields:
+            for intent in reversed(intents):
+                val = getattr(intent, field, None)
+                if val is not None:
+                    merged_data[field] = val
+                    break
+
+        # confidence：加權平均
+        if weights and len(weights) == len(intents):
+            total_weight = sum(weights)
+            if total_weight > 0:
+                merged_data["confidence"] = round(
+                    sum(i.confidence * w for i, w in zip(intents, weights)) / total_weight,
+                    4,
+                )
+            else:
+                # total_weight == 0 的邊界情況：取最大信心度
+                merged_data["confidence"] = max(
+                    (i.confidence for i in intents), default=0.0
+                )
+        else:
+            # 預設：均等加權
+            merged_data["confidence"] = round(
+                sum(i.confidence for i in intents) / len(intents),
+                4,
+            )
+
+        return ParsedSearchIntent(**merged_data)
+
+    async def _vector_match_intent(
+        self,
+        query: str,
+        db: Optional[AsyncSession] = None,
+    ) -> tuple[Optional[ParsedSearchIntent], Optional[List[float]]]:
+        """
+        Layer 2: 向量語意匹配
+
+        將查詢轉換為向量，在搜尋歷史中找語意最相似的已解析意圖。
+        若相似度超過閾值，直接復用已解析意圖（語意快取）。
+
+        同時返回查詢的 embedding，供後續存入 history 時使用。
+
+        Args:
+            query: 自然語言查詢
+            db: 資料庫 Session（需支援 pgvector）
+
+        Returns:
+            (ParsedSearchIntent 或 None, query_embedding 或 None)
+        """
+        # 前置檢查：pgvector 需啟用且有 DB session
+        from app.extended.models import AISearchHistory
+        if not hasattr(AISearchHistory, 'query_embedding') or db is None:
+            return None, None
+
+        # 生成查詢 embedding
+        try:
+            query_embedding = await self.connector.generate_embedding(query)
+        except Exception as e:
+            logger.debug(f"向量匹配: embedding 生成失敗: {e}")
+            return None, None
+
+        if not isinstance(query_embedding, list) or len(query_embedding) == 0:
+            return None, None
+
+        # 在搜尋歷史中查找語意相似的查詢（ORM 安全查詢，避免 raw SQL 注入風險）
+        try:
+            embedding_col = AISearchHistory.query_embedding
+            thirty_days_ago = datetime.now() - timedelta(days=30)
+
+            # pgvector ORM: cosine_distance() 方法生成 <=> 運算子
+            distance_expr = embedding_col.cosine_distance(query_embedding)
+            similarity_expr = (1 - distance_expr).label("similarity")
+
+            stmt = (
+                select(
+                    AISearchHistory.parsed_intent,
+                    AISearchHistory.confidence,
+                    AISearchHistory.source,
+                    AISearchHistory.query,
+                    similarity_expr,
+                )
+                .where(embedding_col.isnot(None))
+                .where(AISearchHistory.confidence >= 0.5)
+                .where(AISearchHistory.created_at >= thirty_days_ago)
+                .order_by(distance_expr)
+                .limit(1)
+            )
+
+            result = await db.execute(stmt)
+            row = result.first()
+
+            if row and row.similarity >= self.VECTOR_SIMILARITY_THRESHOLD:
+                # 高相似度：復用已解析意圖
+                intent_data = row.parsed_intent or {}
+                intent = ParsedSearchIntent(
+                    keywords=intent_data.get("keywords"),
+                    doc_type=intent_data.get("doc_type"),
+                    category=intent_data.get("category"),
+                    sender=intent_data.get("sender"),
+                    receiver=intent_data.get("receiver"),
+                    date_from=intent_data.get("date_from"),
+                    date_to=intent_data.get("date_to"),
+                    status=intent_data.get("status"),
+                    has_deadline=intent_data.get("has_deadline"),
+                    contract_case=intent_data.get("contract_case"),
+                    related_entity=intent_data.get("related_entity"),
+                    # 以原始信心度 × 相似度作為新信心度
+                    confidence=round(
+                        float(row.confidence or 0.5) * float(row.similarity),
+                        4,
+                    ),
+                )
+                logger.info(
+                    f"向量匹配命中: similarity={row.similarity:.3f}, "
+                    f"matched_query='{row.query[:50]}', "
+                    f"confidence={intent.confidence:.2f}"
+                )
+                return intent, query_embedding
+
+            logger.debug(
+                f"向量匹配未命中: "
+                f"best_similarity={row.similarity:.3f if row else 0.0}"
+            )
+        except Exception as e:
+            logger.warning(f"向量匹配查詢失敗: {e}")
+
+        return None, query_embedding
+
+    async def parse_search_intent(
+        self,
+        query: str,
+        db: Optional[AsyncSession] = None,
+    ) -> tuple[ParsedSearchIntent, str]:
+        """
+        解析自然語言搜尋意圖（四組件架構）
+
+        Layer 1: 規則引擎（<5ms）-- 高信心度 >=0.85 直接返回
+        Layer 2: 向量語意匹配（10-50ms）-- 相似查詢復用已解析意圖
+        Layer 3: LLM 解析（~500ms）-- 處理新穎/複雜查詢
+        Merge: 多層部分結果合併
 
         Args:
             query: 自然語言查詢字串
+            db: 資料庫 Session（供向量匹配使用）
 
         Returns:
-            ParsedSearchIntent: 解析後的搜尋意圖
+            tuple[ParsedSearchIntent, str]:
+                解析後的搜尋意圖, 來源 ("rule_engine"/"vector"/"ai"/"merged"/"fallback")
         """
+        # Layer 1: 規則引擎（快速正則匹配）
+        rule_result = self._rule_engine.match(query)
+        if rule_result and rule_result.confidence >= self._rule_engine.HIGH_CONFIDENCE_THRESHOLD:
+            logger.info(
+                f"規則引擎直接命中: confidence={rule_result.confidence:.2f}"
+            )
+            return self._post_process_intent(rule_result), "rule_engine"
+
+        # Layer 2: 向量語意匹配
+        vector_result, query_embedding = await self._vector_match_intent(query, db)
+        if vector_result and vector_result.confidence >= self.VECTOR_SIMILARITY_THRESHOLD:
+            logger.info(
+                f"向量匹配直接命中: confidence={vector_result.confidence:.2f}"
+            )
+            return self._post_process_intent(vector_result), "vector"
+
+        # AI 未啟用時的降級路徑
         if not self.is_enabled():
-            # AI 未啟用，使用關鍵字降級
+            # 嘗試從向量/規則取最佳結果
+            if vector_result:
+                return self._post_process_intent(vector_result), "vector"
+            if rule_result:
+                return self._post_process_intent(rule_result), "rule_engine"
             return ParsedSearchIntent(
                 keywords=[query],
                 confidence=0.0,
-            )
+            ), "fallback"
 
-        # 確保 DB Prompt 快取已載入
+        # Layer 3: LLM 解析
+        llm_result = await self._llm_parse_intent(query)
+
+        if llm_result is None:
+            # LLM 失敗：向量 > 規則 > 降級
+            if vector_result:
+                return self._post_process_intent(vector_result), "vector"
+            if rule_result:
+                return self._post_process_intent(rule_result), "rule_engine"
+            return ParsedSearchIntent(
+                keywords=[query],
+                confidence=0.0,
+            ), "fallback"
+
+        # Merge: 合併多層可用結果
+        available = []
+        weights = []
+
+        if rule_result:
+            available.append(rule_result)
+            weights.append(0.3)  # 規則引擎
+
+        if vector_result:
+            available.append(vector_result)
+            weights.append(0.3)  # 向量匹配
+
+        if len(available) > 0:
+            available.append(llm_result)
+            weights.append(0.4)  # LLM
+            merged = self._merge_intents(*available, weights=weights)
+            src_parts = []
+            if rule_result:
+                src_parts.append("rule")
+            if vector_result:
+                src_parts.append("vector")
+            src_parts.append("llm")
+            logger.info(
+                f"意圖合併({'+'.join(src_parts)}): "
+                f"merged_conf={merged.confidence:.2f}"
+            )
+            return self._post_process_intent(merged), "merged"
+
+        # 僅 LLM 結果
+        return self._post_process_intent(llm_result), "ai"
+
+    async def _llm_parse_intent(self, query: str) -> Optional[ParsedSearchIntent]:
+        """
+        Layer 3: LLM 意圖解析
+
+        獨立方法，供 parse_search_intent 呼叫。
+        失敗時返回 None（由呼叫方決定降級策略）。
+        """
         await self._ensure_db_prompts_loaded()
 
-        # 取得當前日期資訊供 AI 參考
         today = datetime.now()
         current_year = today.year
-        current_month = today.month
         last_month_start = (today.replace(day=1) - timedelta(days=1)).replace(day=1)
         last_month_end = today.replace(day=1) - timedelta(days=1)
 
@@ -845,7 +1129,7 @@ class DocumentAIService(BaseAIService):
             last_month_end=last_month_end.strftime('%Y-%m-%d'),
         )
 
-        # 防護提示注入：移除可能干擾 AI 的特殊字元，使用 XML 標籤隔離
+        # 防護提示注入
         sanitized = query.replace("{", "（").replace("}", "）").replace("```", "")
         user_content = (
             f"<user_query>{sanitized}</user_query>\n\n"
@@ -854,12 +1138,11 @@ class DocumentAIService(BaseAIService):
         )
 
         try:
-            # 生成快取鍵
             cache_key = self._generate_cache_key("search_intent", query)
 
             response = await self._call_ai_with_cache(
                 cache_key=cache_key,
-                ttl=1800,  # 30 分鐘快取
+                ttl=1800,
                 system_prompt=system_prompt,
                 user_content=user_content,
                 temperature=0.3,
@@ -868,7 +1151,7 @@ class DocumentAIService(BaseAIService):
 
             result = self._parse_json_response(response)
 
-            intent = ParsedSearchIntent(
+            return ParsedSearchIntent(
                 keywords=result.get("keywords"),
                 doc_type=result.get("doc_type"),
                 category=result.get("category"),
@@ -879,23 +1162,15 @@ class DocumentAIService(BaseAIService):
                 status=result.get("status"),
                 has_deadline=result.get("has_deadline"),
                 contract_case=result.get("contract_case"),
+                related_entity=result.get("related_entity"),
                 confidence=float(result.get("confidence", 0.5)),
             )
-
-            # 意圖後處理：同義詞擴展 + 縮寫轉換
-            return self._post_process_intent(intent)
         except RuntimeError as e:
-            logger.warning(f"解析搜尋意圖時速率限制: {e}")
-            return ParsedSearchIntent(
-                keywords=[query],
-                confidence=0.0,
-            )
+            logger.warning(f"LLM 意圖解析速率限制: {e}")
+            return None
         except Exception as e:
-            logger.error(f"解析搜尋意圖失敗: {e}")
-            return ParsedSearchIntent(
-                keywords=[query],
-                confidence=0.0,
-            )
+            logger.error(f"LLM 意圖解析失敗: {e}")
+            return None
 
     async def natural_search(
         self,
@@ -916,9 +1191,10 @@ class DocumentAIService(BaseAIService):
         from app.extended.models import DocumentAttachment, ContractProject
         from app.repositories.query_builders.document_query_builder import DocumentQueryBuilder
 
-        # 1. 解析搜尋意圖
-        parsed_intent = await self.parse_search_intent(request.query)
-        source = "ai" if parsed_intent.confidence > 0 else "fallback"
+        start_time = time.monotonic()
+
+        # 1. 解析搜尋意圖（四組件架構：規則 -> 向量 -> LLM -> 合併）
+        parsed_intent, source = await self.parse_search_intent(request.query, db=db)
 
         # 2. 使用 QueryBuilder 建構查詢（統一查詢邏輯，消除重複）
         qb = DocumentQueryBuilder(db)
@@ -958,6 +1234,11 @@ class DocumentAIService(BaseAIService):
 
         if parsed_intent.contract_case:
             qb = qb.with_contract_case(parsed_intent.contract_case)
+
+        # 實體關聯過濾 (v1.1.0)
+        if parsed_intent.related_entity == "dispatch_order":
+            qb = qb.with_dispatch_linked()
+            logger.info("AI 搜尋：啟用派工單關聯過濾")
 
         # 權限過濾 (RLS)
         if current_user:
@@ -1077,6 +1358,36 @@ class DocumentAIService(BaseAIService):
             and len(parsed_intent.keywords) > 0
             and self._synonym_lookup
         )
+
+        # 寫入搜尋歷史（不阻斷回應）
+        try:
+            from app.extended.models import AISearchHistory
+            latency_ms = int((time.monotonic() - start_time) * 1000)
+            history = AISearchHistory(
+                user_id=getattr(current_user, 'id', None) if current_user else None,
+                query=request.query,
+                parsed_intent=parsed_intent.model_dump(exclude_none=True),
+                results_count=total_count,
+                search_strategy=search_strategy,
+                source=source,
+                synonym_expanded=synonym_expanded,
+                related_entity=parsed_intent.related_entity,
+                latency_ms=latency_ms,
+                confidence=parsed_intent.confidence,
+            )
+            # 儲存 query embedding（型別驗證 + pgvector 啟用檢查）
+            if (isinstance(query_embedding, list)
+                    and len(query_embedding) > 0
+                    and hasattr(AISearchHistory, 'query_embedding')):
+                history.query_embedding = query_embedding
+            db.add(history)
+            await db.commit()
+        except Exception as e:
+            logger.warning(f"搜尋歷史寫入失敗: {e}")
+            try:
+                await db.rollback()
+            except Exception:
+                pass
 
         return NaturalSearchResponse(
             success=True,

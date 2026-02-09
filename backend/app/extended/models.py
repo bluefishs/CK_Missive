@@ -44,7 +44,7 @@ CK_Missive 資料庫模型定義
 最後更新: 2026-01-21
 ============================================================================
 """
-from sqlalchemy import Column, Integer, String, Float, Date, DateTime, ForeignKey, Text, Boolean, Table, func, UniqueConstraint, Index
+from sqlalchemy import Column, Integer, String, Float, Date, DateTime, ForeignKey, Text, Boolean, Table, func, UniqueConstraint, Index, JSON
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship, deferred
 from datetime import datetime
@@ -541,6 +541,38 @@ class AIPromptVersion(Base):
     __table_args__ = (
         Index('ix_prompt_feature_active', 'feature', 'is_active'),
         Index('ix_prompt_feature_version', 'feature', 'version'),
+    )
+
+
+class AISearchHistory(Base):
+    """AI 搜尋歷史記錄"""
+    __tablename__ = "ai_search_history"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, comment="使用者 ID")
+    query = Column(Text, nullable=False, comment="原始查詢文字")
+    parsed_intent = Column(JSON, nullable=True, comment="解析後的意圖 JSON")
+    results_count = Column(Integer, default=0, comment="搜尋結果數量")
+    search_strategy = Column(String(50), nullable=True, comment="搜尋策略 (keyword/similarity/hybrid)")
+    source = Column(String(50), nullable=True, comment="來源 (ai/rule_engine/fallback/merged)")
+    synonym_expanded = Column(Boolean, default=False, comment="是否同義詞擴展")
+    related_entity = Column(String(50), nullable=True, comment="關聯實體 (dispatch_order/project)")
+    latency_ms = Column(Integer, nullable=True, comment="回應時間 ms")
+    confidence = Column(Float, nullable=True, comment="意圖信心度")
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), comment="建立時間")
+
+    # 向量嵌入欄位（條件: PGVECTOR_ENABLED=true）
+    # 用於 Layer 2 向量語意意圖匹配：透過相似查詢快速復用已解析意圖
+    if Vector is not None:
+        query_embedding = deferred(Column(
+            Vector(384),
+            nullable=True,
+            comment="查詢向量嵌入 (nomic-embed-text, 384 維)",
+        ))
+
+    __table_args__ = (
+        Index("ix_search_history_user_date", "user_id", "created_at"),
+        Index("ix_search_history_created", "created_at"),
     )
 
 

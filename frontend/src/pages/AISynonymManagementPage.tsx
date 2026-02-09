@@ -65,7 +65,10 @@ const CATEGORY_COLORS: Record<string, string> = {
   business_synonyms: 'purple',
 };
 
-export const AISynonymManagementPage: React.FC = () => {
+/**
+ * 同義詞管理核心元件（可嵌入 Tab 或獨立使用）
+ */
+export const SynonymManagementContent: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [synonyms, setSynonyms] = useState<AISynonymItem[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
@@ -332,7 +335,7 @@ export const AISynonymManagementPage: React.FC = () => {
   }, [categories]);
 
   return (
-    <ResponsiveContent maxWidth="full" padding="medium">
+    <>
       <Card>
         <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
           <Col>
@@ -428,7 +431,7 @@ export const AISynonymManagementPage: React.FC = () => {
         }}
         okText="儲存"
         cancelText="取消"
-        destroyOnClose
+        destroyOnHidden
         forceRender
       >
         <Form
@@ -472,8 +475,15 @@ export const AISynonymManagementPage: React.FC = () => {
           </Form.Item>
         </Form>
       </Modal>
-    </ResponsiveContent>
+    </>
   );
 };
+
+/** 獨立頁面包裝（保留向後相容） */
+export const AISynonymManagementPage: React.FC = () => (
+  <ResponsiveContent maxWidth="full" padding="medium">
+    <SynonymManagementContent />
+  </ResponsiveContent>
+);
 
 export default AISynonymManagementPage;

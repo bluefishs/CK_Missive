@@ -1,9 +1,9 @@
 # CK_Missive 架構優化建議
 
-> **版本**: 6.0.0
+> **版本**: 7.0.0
 > **建立日期**: 2026-02-06
-> **最後更新**: 2026-02-09 (Phase 5 規劃 - 架構精煉與生產就緒)
-> **狀態**: Phase 1-4 全部完成 / Phase 5 規劃中
+> **最後更新**: 2026-02-09 (Phase 5 詳細規劃 - 架構精煉與品質自動化)
+> **狀態**: Phase 1-4 全部完成 / Phase 5 規劃確定
 
 ---
 
@@ -20,6 +20,125 @@
 9. [Phase 4A: RWD 響應式設計全面規劃](#9-phase-4a-rwd-響應式設計全面規劃)
 10. [Phase 4B: AI 助理深度優化規劃](#10-phase-4b-ai-助理深度優化規劃)
 11. [Phase 4C: 帳號登入管控強化規劃](#11-phase-4c-帳號登入管控強化規劃)
+12. [Phase 5: 架構精煉與品質自動化](#12-phase-5-架構精煉與品質自動化)
+
+---
+
+## 12. Phase 5: 架構精煉與品質自動化
+
+> **目標**: 從「功能完備」提升至「架構卓越」，消除技術債、強化自動化品質門檻
+> **預估時間**: 2-3 週
+> **前置**: Phase 1-4 全部完成，`verify_architecture.py` 已建立基線
+
+### 12.1 Phase 5A: 型別 SSOT 全面遷移 (優先級: HIGH)
+
+**現狀**: `verify_architecture.py` 偵測到 21 個 SSOT 違規（後端 6 + 前端 15）
+
+#### 後端 SSOT 遷移 (6 個端點)
+
+| 端點檔案 | 本地 BaseModel 數 | 遷移目標 |
+|---------|-------------------|---------|
+| `ai/document_ai.py` | 12 | → `schemas/ai.py` |
+| `ai/prompts.py` | 10 | → `schemas/ai.py` |
+| `deployment.py` | 10 | → `schemas/deployment.py` (新增) |
+| `auth/email_verify.py` | 1 | → `schemas/auth.py` |
+| `document_calendar/events.py` | 1 | → `schemas/calendar.py` |
+| `taoyuan_dispatch/dispatch_document_links.py` | 1 | → `schemas/taoyuan/dispatch.py` |
+
+**步驟**:
+1. 在 `schemas/` 建立對應 Schema 檔案
+2. 將端點中的 BaseModel 搬至 Schema
+3. 端點檔案改為 `from app.schemas.xxx import YYY`
+4. 執行 `verify_architecture.py --check ssot` 確認 0 違規
+
+#### 前端 SSOT 遷移 (15 個 API 檔案)
+
+| API 檔案 | 本地型別數 | 遷移目標 |
+|---------|-----------|---------|
+| `deploymentApi.ts` | 14 | → `types/api.ts` |
+| `filesApi.ts` | 8 | → `types/api.ts` |
+| `calendarApi.ts` | 5 | → `types/api.ts` |
+| `adminUsersApi.ts` | 5 | → `types/api.ts` |
+| `documentsApi.ts` | 4 | → `types/api.ts` |
+| 其他 10 個 | 1-3 | → `types/api.ts` |
+
+**步驟**:
+1. 將型別定義搬至 `types/api.ts`
+2. API 檔案改為 `import type { XXX } from '../types/api'`
+3. 確保 `re-export` 供外部使用
+4. 執行 `npx tsc --noEmit` + `verify_architecture.py --check ssot`
+
+### 12.2 Phase 5B: Schema-ORM 欄位對齊 (優先級: MEDIUM)
+
+**現狀**: 5 個 Schema-ORM 欄位差異
+
+| Schema | 多餘欄位 | 處置策略 |
+|--------|---------|---------|
+| `DocumentBase` | `contract_case`, `creator`, `doc_class`, `doc_word`, `priority_level`, `user_confirm` | 評估是否加入 ORM 或從 Schema 移除 |
+| `DocumentResponse` | `assigned_staff`, `attachment_count`, `contract_project_name`, `receiver_agency_name`, `sender_agency_name` | 合理（計算欄位），加入 verify 排除清單 |
+| `UserCreate/Update` | `password` | 合理（虛擬欄位），加入排除清單 |
+
+### 12.3 Phase 5C: 品質自動化門檻 (優先級: HIGH)
+
+#### CI 整合 verify_architecture.py
+
+```yaml
+# .github/workflows/ci.yml 新增 job
+architecture-check:
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with: { python-version: '3.11' }
+    - run: python scripts/verify_architecture.py
+      # 目標: 0 errors (warnings 允許但需追蹤)
+```
+
+#### Pre-commit Hook 整合
+
+```bash
+# .claude/hooks/ 新增
+architecture-check.ps1  # 提交前執行 verify_architecture.py --check routes,imports
+```
+
+### 12.4 Phase 5D: 測試覆蓋率提升 (優先級: MEDIUM)
+
+**目標**: 前端測試覆蓋率 80%+
+
+| 優先區域 | 現狀 | 目標 | 策略 |
+|---------|------|------|------|
+| API 服務 | 部分覆蓋 | 80%+ | Mock API，驗證請求格式 |
+| Hooks | 部分覆蓋 | 80%+ | renderHook + act |
+| 頁面元件 | 低覆蓋 | 60%+ | 快照測試 + 互動測試 |
+| E2E 關鍵路徑 | 5 個檔案 | 10+ | 新增公文 CRUD、認證完整流程 |
+
+### 12.5 Phase 5E: 效能監控基礎設施 (優先級: LOW)
+
+| 項目 | 說明 |
+|------|------|
+| 慢查詢日誌 | `statement_timeout` + 超時告警 |
+| API 回應時間追蹤 | 中間件記錄 P50/P95/P99 |
+| 前端 Web Vitals | LCP/FID/CLS 追蹤 |
+| 連線池監控 | pool_size 使用率告警 |
+
+### 12.6 Phase 5 實施路線圖
+
+```
+Week 1: Phase 5A (SSOT 遷移) + Phase 5C (CI 整合)
+Week 2: Phase 5B (Schema 對齊) + Phase 5D (測試覆蓋)
+Week 3: Phase 5E (效能監控) + 總體驗證
+```
+
+### 12.7 Phase 5 完成標準
+
+| 驗收項目 | 標準 |
+|---------|------|
+| SSOT 違規 | 0 個（verify_architecture.py 通過） |
+| Schema-ORM 差異 | 已全部歸類（修復或標記為合理） |
+| CI 架構檢查 | 整合至 GitHub Actions |
+| 前端測試覆蓋 | ≥ 80% 行覆蓋率 |
+| 後端測試覆蓋 | ≥ 80% 行覆蓋率 |
+| API P95 回應時間 | < 500ms |
 
 ---
 

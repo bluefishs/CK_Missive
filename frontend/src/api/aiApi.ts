@@ -168,6 +168,7 @@ export interface ParsedSearchIntent {
   status?: string | null;
   has_deadline?: boolean | null;
   contract_case?: string | null;
+  related_entity?: 'dispatch_order' | 'project' | null;
   confidence: number;
 }
 
@@ -230,7 +231,9 @@ export interface NaturalSearchResponse {
   parsed_intent: ParsedSearchIntent;
   results: DocumentSearchResult[];
   total: number;
-  source: 'ai' | 'fallback' | 'rate_limited' | 'error';
+  source: 'ai' | 'rule_engine' | 'merged' | 'vector' | 'fallback' | 'rate_limited' | 'error';
+  search_strategy?: 'keyword' | 'similarity' | 'hybrid' | 'semantic' | null;
+  synonym_expanded?: boolean;
   error?: string | null;
 }
 
@@ -365,6 +368,74 @@ export interface PromptCompareResponse {
   version_a: PromptVersionItem;
   version_b: PromptVersionItem;
   diffs: PromptDiff[];
+}
+
+// ============================================================================
+// 搜尋歷史相關型別
+// ============================================================================
+
+/** 搜尋歷史項目 */
+export interface SearchHistoryItem {
+  id: number;
+  user_id?: number | null;
+  user_name?: string | null;
+  query: string;
+  /** 後端存為 JSON Dict，非結構化的 ParsedSearchIntent */
+  parsed_intent?: Record<string, unknown> | null;
+  results_count: number;
+  search_strategy?: string | null;
+  source?: string | null;
+  synonym_expanded: boolean;
+  related_entity?: string | null;
+  latency_ms?: number | null;
+  confidence?: number | null;
+  created_at?: string | null;
+}
+
+/** 搜尋歷史列表請求 */
+export interface SearchHistoryListRequest {
+  page?: number;
+  page_size?: number;
+  date_from?: string;
+  date_to?: string;
+  search_strategy?: string;
+  source?: string;
+  keyword?: string;
+}
+
+/** 搜尋歷史列表回應 */
+export interface SearchHistoryListResponse {
+  items: SearchHistoryItem[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+/** 每日趨勢 */
+export interface DailyTrend {
+  date: string;
+  count: number;
+}
+
+/** 熱門查詢 */
+export interface TopQuery {
+  query: string;
+  count: number;
+  avg_results: number;
+}
+
+/** 搜尋統計回應 */
+export interface SearchStatsResponse {
+  total_searches: number;
+  today_searches: number;
+  rule_engine_hit_rate: number;
+  avg_latency_ms: number;
+  avg_confidence: number;
+  daily_trend: DailyTrend[];
+  top_queries: TopQuery[];
+  strategy_distribution: Record<string, number>;
+  source_distribution: Record<string, number>;
+  entity_distribution: Record<string, number>;
 }
 
 // ============================================================================
@@ -924,6 +995,59 @@ export const aiApi = {
     } catch (error) {
       logger.error('比較 Prompt 版本失敗:', error);
       throw error;
+    }
+  },
+
+  // ==========================================================================
+  // 搜尋歷史 API
+  // ==========================================================================
+
+  /**
+   * 搜尋歷史列表
+   */
+  async listSearchHistory(
+    params: SearchHistoryListRequest = {}
+  ): Promise<SearchHistoryListResponse | null> {
+    try {
+      logger.log('取得搜尋歷史列表');
+      return await apiClient.post<SearchHistoryListResponse>(
+        AI_ENDPOINTS.SEARCH_HISTORY_LIST,
+        params
+      );
+    } catch (error) {
+      logger.error('搜尋歷史列表失敗:', error);
+      return null;
+    }
+  },
+
+  /**
+   * 搜尋統計
+   */
+  async getSearchStats(): Promise<SearchStatsResponse | null> {
+    try {
+      logger.log('取得搜尋統計');
+      return await apiClient.post<SearchStatsResponse>(
+        AI_ENDPOINTS.SEARCH_HISTORY_STATS,
+        {}
+      );
+    } catch (error) {
+      logger.error('搜尋統計失敗:', error);
+      return null;
+    }
+  },
+
+  /**
+   * 清除搜尋歷史
+   */
+  async clearSearchHistory(beforeDate?: string): Promise<boolean> {
+    try {
+      logger.log('清除搜尋歷史');
+      const params = beforeDate ? { before_date: beforeDate } : {};
+      await apiClient.post(AI_ENDPOINTS.SEARCH_HISTORY_CLEAR, params);
+      return true;
+    } catch (error) {
+      logger.error('清除搜尋歷史失敗:', error);
+      return false;
     }
   },
 };

@@ -1,8 +1,8 @@
 # AI Prompt 模板
 #
-# Version: 1.1.0
+# Version: 1.2.0
 # Created: 2026-02-06
-# Updated: 2026-02-06 - 增強 search_intent 意圖解析能力
+# Updated: 2026-02-09 - 新增 related_entity 實體過濾支援（派工單、專案）
 #
 # 所有 AI 服務的 Prompt 模板集中管理。
 # 使用 {variable} 佔位符，由服務方法以 .format() 填充。
@@ -102,7 +102,15 @@ search_intent:
     - status: 處理狀態 ("待處理"、"處理中"、"已結案"、"已歸檔")
     - has_deadline: 是否有截止日期要求 (true/false)
     - contract_case: 承攬案件名稱
+    - related_entity: 關聯實體類型，用於限縮搜尋範圍（見下方說明）
     - confidence: 你對這次解析的信心度 (0.0-1.0)
+
+    related_entity 實體過濾：
+    當使用者的查詢明確涉及特定業務實體時，設定此欄位以限縮結果：
+    - "dispatch_order"：使用者要找「派工單」「派工紀錄」「派工安排」相關的公文（僅返回與派工單有關聯的公文）
+    - "project"：使用者要找特定「專案」「案件」「工程」相關的公文
+    - null：一般公文搜尋，不限縮範圍
+    注意：設定 related_entity 後，不要將「派工單」「派工」等詞放入 keywords，因為已透過實體過濾限縮範圍。
 
     常見機關縮寫對照（解析 sender/receiver 時請轉換為全稱）：
     - 市府/桃市府 → 桃園市政府
@@ -166,3 +174,12 @@ search_intent:
 
     輸入: "民國114年的結案公文"
     輸出: {{"status": "已結案", "date_from": "2025-01-01", "date_to": "2025-12-31", "confidence": 0.85}}
+
+    輸入: "115年度的派工單紀錄"
+    輸出: {{"related_entity": "dispatch_order", "date_from": "2026-01-01", "date_to": "2026-12-31", "confidence": 0.9}}
+
+    輸入: "桃園市政府的派工相關公文"
+    輸出: {{"related_entity": "dispatch_order", "sender": "桃園市政府", "confidence": 0.85}}
+
+    輸入: "今年專案相關的公文"
+    輸出: {{"related_entity": "project", "date_from": "{today_year}-01-01", "date_to": "{today}", "confidence": 0.8}}

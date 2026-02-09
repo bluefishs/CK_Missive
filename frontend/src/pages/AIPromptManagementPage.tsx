@@ -58,7 +58,10 @@ const FEATURE_LABELS: Record<string, string> = {
   match_agency: '機關匹配',
 };
 
-export const AIPromptManagementPage: React.FC = () => {
+/**
+ * Prompt 管理核心元件（可嵌入 Tab 或獨立使用）
+ */
+export const PromptManagementContent: React.FC = () => {
   // 狀態
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<PromptListResponse | null>(null);
@@ -189,7 +192,7 @@ export const AIPromptManagementPage: React.FC = () => {
   );
 
   return (
-    <ResponsiveContent maxWidth="full" padding="medium">
+    <>
       <Card>
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
           {/* 標題列 */}
@@ -602,8 +605,15 @@ export const AIPromptManagementPage: React.FC = () => {
           )}
         </Space>
       </Modal>
-    </ResponsiveContent>
+    </>
   );
 };
+
+/** 獨立頁面包裝（保留向後相容） */
+export const AIPromptManagementPage: React.FC = () => (
+  <ResponsiveContent maxWidth="full" padding="medium">
+    <PromptManagementContent />
+  </ResponsiveContent>
+);
 
 export default AIPromptManagementPage;

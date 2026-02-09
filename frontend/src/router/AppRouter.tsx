@@ -72,8 +72,7 @@ const RolePermissionDetailPage = lazy(() => import('../pages/RolePermissionDetai
 const UnifiedFormDemoPage = lazy(() => import('../pages/UnifiedFormDemoPage'));
 const AdminDashboardPage = lazy(() => import('../pages/AdminDashboardPage'));
 const DeploymentManagementPage = lazy(() => import('../pages/DeploymentManagementPage'));
-const AISynonymManagementPage = lazy(() => import('../pages/AISynonymManagementPage'));
-const AIPromptManagementPage = lazy(() => import('../pages/AIPromptManagementPage'));
+const AIAssistantManagementPage = lazy(() => import('../pages/AIAssistantManagementPage'));
 
 // 桃園查估專區
 const TaoyuanDispatchPage = lazy(() => import('../pages/TaoyuanDispatchPage'));
@@ -191,11 +190,8 @@ export const AppRouter: React.FC = () => {
           {/* 部署管理 */}
           <Route path={ROUTES.DEPLOYMENT_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><DeploymentManagementPage /></ProtectedRoute>} />
 
-          {/* AI 同義詞管理 */}
-          <Route path={ROUTES.AI_SYNONYM_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><AISynonymManagementPage /></ProtectedRoute>} />
-
-          {/* AI Prompt 管理 */}
-          <Route path={ROUTES.AI_PROMPT_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><AIPromptManagementPage /></ProtectedRoute>} />
+          {/* AI 助理管理（整合同義詞管理 + Prompt 管理） */}
+          <Route path={ROUTES.AI_ASSISTANT_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><AIAssistantManagementPage /></ProtectedRoute>} />
 
           {/* 需要認證的路由 */}
           {/* /settings 已統一至 /profile */}

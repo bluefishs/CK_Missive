@@ -15,9 +15,9 @@ DocumentQueryBuilder - 公文查詢建構器
         .execute()
     )
 
-版本: 2.0.0
+版本: 2.1.0
 建立日期: 2026-02-06
-更新: 2026-02-08 - 新增 pgvector 語意搜尋與混合排序支援
+更新: 2026-02-09 - 新增 with_dispatch_linked() 實體關聯過濾
 參見: docs/SERVICE_ARCHITECTURE_STANDARDS.md
 """
 
@@ -382,6 +382,26 @@ class DocumentQueryBuilder:
             project_id: 專案 ID
         """
         self._conditions.append(self.model.contract_project_id == project_id)
+        return self
+
+    def with_dispatch_linked(self) -> 'DocumentQueryBuilder':
+        """
+        僅返回與派工單有關聯的公文
+
+        透過 subquery 篩選 agency_doc_id 或 company_doc_id 有對應
+        派工單紀錄的公文。
+        """
+        from app.extended.models import TaoyuanDispatchOrder
+
+        dispatch_doc_ids = (
+            select(TaoyuanDispatchOrder.agency_doc_id)
+            .where(TaoyuanDispatchOrder.agency_doc_id.isnot(None))
+            .union(
+                select(TaoyuanDispatchOrder.company_doc_id)
+                .where(TaoyuanDispatchOrder.company_doc_id.isnot(None))
+            )
+        )
+        self._conditions.append(self.model.id.in_(dispatch_doc_ids))
         return self
 
     def with_has_attachment(

@@ -71,9 +71,8 @@ export const ROUTES = {
   ADMIN_DASHBOARD: '/admin/dashboard',
   BACKUP_MANAGEMENT: '/admin/backup',
   DEPLOYMENT_MANAGEMENT: '/admin/deployment',
-  // AI 管理
-  AI_SYNONYM_MANAGEMENT: '/admin/ai-synonyms',
-  AI_PROMPT_MANAGEMENT: '/admin/ai-prompts',
+  // AI 管理（同義詞與 Prompt 管理已整合至 AI 助理管理 Tab 分頁）
+  AI_ASSISTANT_MANAGEMENT: '/admin/ai-assistant',
   // 桃園查估專區
   TAOYUAN_DISPATCH: '/taoyuan/dispatch',
   TAOYUAN_DISPATCH_CREATE: '/taoyuan/dispatch/create',
@@ -248,17 +247,10 @@ export const ROUTE_META = {
     requireAuth: true,
     roles: ['admin', 'superuser'],
   },
-  [ROUTES.AI_SYNONYM_MANAGEMENT]: {
-    title: 'AI 同義詞管理',
-    description: 'AI 自然語言搜尋同義詞字典管理',
-    icon: 'TagsOutlined',
-    requireAuth: true,
-    roles: ['admin', 'superuser'],
-  },
-  [ROUTES.AI_PROMPT_MANAGEMENT]: {
-    title: 'AI Prompt 管理',
-    description: 'AI Prompt 版本控制與管理',
-    icon: 'RobotOutlined',
+  [ROUTES.AI_ASSISTANT_MANAGEMENT]: {
+    title: 'AI 助理管理',
+    description: 'AI 助理統一管理儀表板',
+    icon: 'DashboardOutlined',
     requireAuth: true,
     roles: ['admin', 'superuser'],
   },

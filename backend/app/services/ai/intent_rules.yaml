@@ -1,0 +1,136 @@
+# AI 意圖規則引擎配置
+#
+# Version: 1.0.0
+# Created: 2026-02-09
+#
+# 規則由上到下匹配，每個規則可同時匹配多個欄位。
+# 所有規則的 pattern 使用 Python re 正則語法。
+# extract 中的值支援：
+#   - 字面值: "dispatch_order"
+#   - 正則群組引用: "$1", "$2"
+#   - 特殊函數: "roc_year($1)", "current_year()", "last_30_days()", "this_month()"
+
+rules:
+  # === 實體類型規則 ===
+  - name: "dispatch_entity_with_year"
+    description: "民國N年度的派工單/派工紀錄（限 100-120 年）"
+    pattern: "(?:民國)?\\s*(1[0-2]\\d)\\s*年.*?(?:派工單|派工紀錄|派工安排|調派)"
+    extract:
+      related_entity: "dispatch_order"
+      date_from: "roc_year_start($1)"
+      date_to: "roc_year_end($1)"
+    confidence: 0.92
+
+  - name: "dispatch_entity_simple"
+    description: "派工單/派工紀錄（無年度限定）"
+    pattern: "(?:派工單|派工紀錄|派工安排|調派)"
+    extract:
+      related_entity: "dispatch_order"
+    confidence: 0.90
+
+  - name: "project_entity_with_year"
+    description: "民國N年度的專案/案件/工程（限 100-120 年）"
+    pattern: "(?:民國)?\\s*(1[0-2]\\d)\\s*年.*?(?:專案|案件|工程).*?公文"
+    extract:
+      related_entity: "project"
+      date_from: "roc_year_start($1)"
+      date_to: "roc_year_end($1)"
+    confidence: 0.88
+
+  # === 日期 + 狀態規則 ===
+  - name: "roc_year_status"
+    description: "民國N年 + 處理狀態（限 100-120 年）"
+    pattern: "(?:民國)?\\s*(1[0-2]\\d)\\s*年.*?(待處理|處理中|已結案|已歸檔)"
+    extract:
+      date_from: "roc_year_start($1)"
+      date_to: "roc_year_end($1)"
+      status: "$2"
+    confidence: 0.90
+
+  - name: "roc_year_only"
+    description: "民國N年度的公文（限 100-120 年，即 2011-2031）"
+    pattern: "(?:民國)?\\s*(1[0-2]\\d)\\s*年"
+    extract:
+      date_from: "roc_year_start($1)"
+      date_to: "roc_year_end($1)"
+    confidence: 0.85
+
+  - name: "status_only"
+    description: "僅狀態查詢"
+    pattern: "^(?:找|查|搜尋?)?\\s*(?:所有|全部)?\\s*(待處理|處理中|已結案|已歸檔|未處理|待辦|辦理中|進行中|完成|結案|辦畢|歸檔|存查)\\s*(?:的)?\\s*(?:公文|文件)?$"
+    extract:
+      status: "normalize_status($1)"
+    confidence: 0.88
+
+  # === 機關 + 收發文規則 ===
+  - name: "agency_sent_from"
+    description: "某機關發的/來的/寄來的 -> sender + 收文"
+    pattern: "([\\u4e00-\\u9fff]{2,10}?)(?=發的|來的|寄來的|發來的)"
+    extract:
+      sender: "expand_agency($1)"
+      category: "收文"
+    confidence: 0.88
+
+  - name: "sent_to_agency"
+    description: "發給/寄給某機關 -> receiver + 發文"
+    pattern: "(?:發給|寄給|送給)([\\u4e00-\\u9fff]{2,10}?)(?=的|公文|文$|函$|\\s|$)"
+    extract:
+      receiver: "expand_agency($1)"
+      category: "發文"
+    confidence: 0.88
+
+  # === 公文類型規則 ===
+  - name: "doc_type_meeting"
+    description: "開會通知/會議通知"
+    pattern: "(開會|會議)\\s*通知"
+    extract:
+      doc_type: "開會通知單"
+    confidence: 0.90
+
+  - name: "doc_type_inspection"
+    description: "會勘通知/現場會勘"
+    pattern: "(會勘|現場會勘)\\s*(?:通知)?"
+    extract:
+      doc_type: "會勘通知單"
+    confidence: 0.90
+
+  - name: "doc_type_letter"
+    description: "公函/來函"
+    pattern: "(?:公函|來函)"
+    extract:
+      doc_type: "函"
+      category: "收文"
+    confidence: 0.85
+
+  # === 截止日規則 ===
+  - name: "has_deadline"
+    description: "有限期/有截止/要到期"
+    pattern: "(?:有限期|有截止|要到期|快到期|即將到期|逾期)"
+    extract:
+      has_deadline: true
+    confidence: 0.90
+
+  # === 時間範圍規則 ===
+  - name: "recent_period"
+    description: "最近/近期/這幾天"
+    pattern: "(?:最近|近期|這幾天|近日)"
+    extract:
+      date_from: "last_30_days()"
+      date_to: "today()"
+    confidence: 0.85
+
+  - name: "this_month"
+    description: "本月/這個月"
+    pattern: "(?:本月|這個月|這月)"
+    extract:
+      date_from: "month_start()"
+      date_to: "today()"
+    confidence: 0.88
+
+  - name: "last_month"
+    description: "上個月/上月"
+    pattern: "(?:上個月|上月)"
+    extract:
+      date_from: "last_month_start()"
+      date_to: "last_month_end()"
+    confidence: 0.88

@@ -1,8 +1,8 @@
 # 系統優化報告
 
-> **版本**: 15.0.0
+> **版本**: 16.0.0
 > **建立日期**: 2026-01-28
-> **最後更新**: 2026-02-08 (v15.0.0 Phase 4 全面完成：RWD + AI 深度優化 + 帳號管控)
+> **最後更新**: 2026-02-09 (v16.0.0 AI 管理統一 + 架構驗證自動化 + Phase 5 規劃)
 > **分析範圍**: CK_Missive 專案配置、程式碼品質、系統架構、效能、響應式設計與部署流程
 
 ---
@@ -29,8 +29,79 @@
 - **v13.0.0 AI 系統強化 + 資料庫效能 + 資安 POST 全面完成** (v13.0.0 新增)
 - **v14.0.0 全面架構優化完成 + Phase 4 規劃 (RWD/AI/帳號管控)** (v14.0.0 新增)
 - **v15.0.0 Phase 4 全面完成 - RWD/AI/帳號管控 16 項全部實作** (v15.0.0 新增)
+- **v16.0.0 AI 管理統一 + 搜尋歷史持久化 + 規則引擎 + 架構驗證自動化** (v16.0.0 新增)
 
-**整體評估**: 10.0/10 - v15.0.0 完成 Phase 4 全部 16 項優化：RWD 響應式設計 (Drawer + ResponsiveTable/FormRow/Container)、AI 深度優化 (SSE 串流 + pgvector 語意搜尋 + Prompt 版控 + 同義詞管理)、帳號管控 (MFA + 密碼重設 + Email 驗證 + Session 管理 + 帳號鎖定 + 登入歷史)。105 個檔案修改，+10,312 行。
+**整體評估**: 10.0/10 - v16.0.0 完成 AI 管理統一入口（4 Tab 整合）、搜尋歷史 DB 持久化、四組件意圖解析架構（規則引擎 + 向量匹配 + LLM + 合併）、搜尋統計儀表板、架構驗證腳本 verify_architecture.py（7 項自動化檢查）。
+
+---
+
+## v16.0.0 AI 管理統一 + 架構驗證自動化 (2026-02-09)
+
+### 新增功能
+
+| # | 項目 | 說明 |
+|---|------|------|
+| 1 | AI 管理統一入口 | `/admin/ai-assistant` — 4 Tab 分頁整合搜尋總覽、歷史、同義詞、Prompt |
+| 2 | 搜尋歷史持久化 | `ai_search_history` 表 + Alembic 遷移 + 3 個 API 端點 |
+| 3 | 四組件意圖解析 | 規則引擎(正則) → 向量匹配(pgvector) → LLM(Groq) → 合併 |
+| 4 | 規則引擎前置層 | `rule_engine.py` + `intent_rules.yaml`，<5ms 回應 |
+| 5 | 搜尋統計儀表板 | 統計卡片 + 策略/來源/實體分佈 + 熱門查詢 + 趨勢 |
+| 6 | 架構驗證腳本 | `verify_architecture.py` — 7 項自動化檢查（路由/導覽/API/SSOT/Schema/頁面/匯入） |
+| 7 | pgvector ORM 安全查詢 | 移除 raw SQL，改用 `cosine_distance()` ORM 方法 |
+| 8 | 向量匹配意圖復用 | 歷史查詢 embedding 相似度 ≥ 0.88 直接復用解析結果 |
+
+### 架構驗證腳本偵測結果
+
+| 檢查項目 | 結果 |
+|---------|------|
+| 前後端路由一致性 | ✅ 通過 |
+| 導覽項目同步 | ✅ 通過 |
+| API 前綴一致性 | ✅ 通過 |
+| 型別 SSOT 違規 | ⚠️ 21 個（後端 6 + 前端 15）— 長期遷移目標 |
+| Schema-ORM 對齊 | ⚠️ 5 個差異 — 已知虛擬/計算欄位 |
+| 頁面元件使用率 | ✅ 通過 |
+| 模組匯入安全 | ✅ 通過 |
+
+### 系統規模統計 (v16.0.0)
+
+| 項目 | 數量 |
+|------|------|
+| API 端點檔案 | 78 |
+| 服務檔案 | 50 |
+| Repository | 19 |
+| Schema | 33 |
+| Alembic 遷移 | 40 |
+| 後端測試函數 | 765 |
+| 前端頁面元件 | 81 |
+| 前端元件 | 96 |
+| Hooks | 31 |
+| API 服務檔案 | 33 |
+| 前端測試檔案 | 35 |
+| E2E 測試 | 5 |
+| 文件 | 121 |
+| Skills | 70 |
+| Commands | 19 |
+| Agents | 13 |
+
+### 新增/修改檔案
+
+| 檔案 | 動作 |
+|------|------|
+| `backend/app/extended/models.py` | 修改 — AISearchHistory + 條件式 pgvector 欄位 |
+| `backend/app/services/ai/document_ai_service.py` | 修改 — v4.0.0 四組件意圖解析 |
+| `backend/app/services/ai/rule_engine.py` | **新增** — 規則引擎 |
+| `backend/app/services/ai/intent_rules.yaml` | **新增** — 規則配置 |
+| `backend/app/api/endpoints/ai/search_history.py` | **新增** — 搜尋歷史 API |
+| `backend/app/schemas/ai.py` | 修改 — 搜尋歷史 Schema |
+| `backend/alembic/versions/add_ai_search_history.py` | **新增** — DB 遷移 |
+| `backend/alembic/versions/add_query_embedding_history.py` | **新增** — 向量欄位遷移 |
+| `frontend/src/pages/AIAssistantManagementPage.tsx` | **新增** — 統一管理頁面 |
+| `frontend/src/pages/AISynonymManagementPage.tsx` | 修改 — 提取 Content 元件 |
+| `frontend/src/pages/AIPromptManagementPage.tsx` | 修改 — 提取 Content 元件 |
+| `frontend/src/router/AppRouter.tsx` | 修改 — 整合路由 |
+| `frontend/src/router/types.ts` | 修改 — 清理廢棄常數 |
+| `frontend/src/api/aiApi.ts` | 修改 — 搜尋歷史 API 方法 |
+| `scripts/verify_architecture.py` | **新增** — 架構驗證腳本 |
 
 ---
 

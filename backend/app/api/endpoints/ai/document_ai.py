@@ -420,11 +420,12 @@ async def natural_search_documents(
 async def parse_search_intent(
     request: ParseIntentRequest,
     service: DocumentAIService = Depends(get_document_ai_service),
+    db: AsyncSession = Depends(get_async_db),
 ) -> ParseIntentResponse:
     """
     解析搜尋意圖（僅解析，不執行搜尋）
 
-    使用 AI 將自然語言查詢解析為結構化搜尋條件，
+    使用三層架構（規則→向量→LLM）將自然語言查詢解析為結構化搜尋條件，
     供前端填充傳統篩選器使用。
 
     範例查詢:
@@ -434,12 +435,12 @@ async def parse_search_intent(
     logger.info(f"意圖解析: {request.query[:50]}...")
 
     try:
-        parsed_intent = await service.parse_search_intent(request.query)
+        parsed_intent, intent_source = await service.parse_search_intent(request.query, db=db)
         return ParseIntentResponse(
             success=True,
             query=request.query,
             parsed_intent=parsed_intent,
-            source="ai",
+            source=intent_source,
         )
     except RuntimeError as e:
         raise HTTPException(status_code=429, detail=str(e))
@@ -450,7 +451,7 @@ async def parse_search_intent(
             query=request.query,
             parsed_intent=ParsedSearchIntent(keywords=[request.query], confidence=0.0),
             source="error",
-            error=f"{type(e).__name__}: {e}",
+            error="意圖解析暫時無法使用，請稍後再試",
         )
 
 

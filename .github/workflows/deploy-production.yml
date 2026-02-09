@@ -19,10 +19,14 @@
 
 name: Deploy to Production
 
+# 自動觸發已停用以節省 GitHub Actions 費用 (2026-02-09)
+# 如需恢復，取消下方 push 註解
+# on:
+#   push:
+#     tags:
+#       - 'v*'
+
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
       skip_backup:

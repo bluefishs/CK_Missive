@@ -595,6 +595,12 @@ export const AI_ENDPOINTS = {
   PROMPTS_ACTIVATE: '/ai/prompts/activate',
   /** Prompt 版本比較 POST /ai/prompts/compare */
   PROMPTS_COMPARE: '/ai/prompts/compare',
+  /** 搜尋歷史列表 POST /ai/search-history/list */
+  SEARCH_HISTORY_LIST: '/ai/search-history/list',
+  /** 搜尋統計 POST /ai/search-history/stats */
+  SEARCH_HISTORY_STATS: '/ai/search-history/stats',
+  /** 清除搜尋歷史 POST /ai/search-history/clear */
+  SEARCH_HISTORY_CLEAR: '/ai/search-history/clear',
 } as const;
 
 // ============================================================================

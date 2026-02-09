@@ -9,18 +9,20 @@
 
 name: CD - Deploy
 
-on:
-  # main/develop 分支合併後自動部署
-  push:
-    branches:
-      - main
-      - develop
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - '.claude/**'
+# 自動觸發已停用以節省 GitHub Actions 費用 (2026-02-09)
+# 如需恢復，取消下方 push 註解
+# on:
+#   push:
+#     branches:
+#       - main
+#       - develop
+#     paths-ignore:
+#       - '**.md'
+#       - 'docs/**'
+#       - '.claude/**'
 
-  # 手動觸發部署
+on:
+  # 僅手動觸發部署
   workflow_dispatch:
     inputs:
       environment:

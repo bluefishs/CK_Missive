@@ -133,6 +133,11 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         if _is_path_exempt(request.url.path):
             return await call_next(request)
 
+        # AUTH_DISABLED 模式豁免 CSRF（無真實認證 session，CSRF 防護無意義）
+        from app.core.config import settings
+        if settings.AUTH_DISABLED:
+            return await call_next(request)
+
         # 檢查是否有 cookie 中的 CSRF token
         cookie_csrf = request.cookies.get("csrf_token")
         access_token_cookie = request.cookies.get("access_token")
