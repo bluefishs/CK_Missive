@@ -73,48 +73,8 @@ def get_service(service_class: Type[T]) -> Callable[[AsyncSession], T]:
     return _get_service
 
 
-# ============================================================================
-# 預設的 Service 依賴函數（無 session 注入的 Service）
-# ============================================================================
-
-# 這些 Service 不需要在建構函數接收 db，而是在方法中接收
-# 保持向後相容性
-
-from app.services.vendor_service import VendorService
-from app.services.project_service import ProjectService
-from app.services.agency_service import AgencyService
-from app.services.document_service import DocumentService
-
-
-# 所有服務已統一使用工廠模式
-# 使用 get_service_with_db(ServiceClass) 或對應的具名依賴函數
-
-
-def get_project_service(db: AsyncSession = Depends(get_async_db)) -> ProjectService:
-    """
-    取得 ProjectService 實例（工廠模式）
-
-    .. versionchanged:: 4.0.0
-       從 Singleton 模式改為工廠模式，每個請求建立新實例。
-    """
-    return ProjectService(db)
-
-
-def get_agency_service(db: AsyncSession = Depends(get_async_db)) -> AgencyService:
-    """
-    取得 AgencyService 實例（工廠模式）
-
-    .. versionchanged:: 3.0.0
-       從 Singleton 模式改為工廠模式，每個請求建立新實例。
-    """
-    return AgencyService(db)
-
-
-# 注意：DocumentService 需要 db 參數，使用 get_service_with_db 工廠模式
-# 在 documents/common.py 中定義: get_document_service = get_service_with_db(DocumentService)
-
-# 工廠模式：使用 get_service(ServiceClass) 或 get_service_with_db(ServiceClass)
-# 每個請求建立新實例，db session 在建構時注入
+# 所有服務統一使用 get_service(ServiceClass) 工廠模式
+# 例：Depends(get_service(DocumentService))
 
 
 # ============================================================================
@@ -306,34 +266,3 @@ def require_permission(permission: str):
 #     return cache_manager
 
 
-# ============================================================================
-# 服務層建構依賴（新模式示範）
-# ============================================================================
-
-def get_service_with_db(service_class: Type[T]) -> Callable[[AsyncSession], T]:
-    """
-    建立帶 db session 的 Service 依賴注入
-
-    這是推薦的新模式，Service 在建構時接收 db session。
-
-    使用前提：Service 類別的 __init__ 需要接受 db 參數：
-        class MyService:
-            def __init__(self, db: AsyncSession):
-                self.db = db
-
-    使用方式:
-        @router.get("/items")
-        async def list_items(
-            my_service: MyService = Depends(get_service_with_db(MyService))
-        ):
-            return await my_service.get_items()  # 無需傳遞 db
-
-    Args:
-        service_class: Service 類別（需在 __init__ 接受 db 參數）
-
-    Returns:
-        依賴注入函數
-    """
-    def _get_service(db: AsyncSession = Depends(get_async_db)) -> T:
-        return service_class(db)
-    return _get_service

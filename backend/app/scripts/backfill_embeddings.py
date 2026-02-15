@@ -28,15 +28,27 @@ Created: 2026-02-08
 import argparse
 import asyncio
 import logging
+import os
 import sys
 import time
 from typing import List, Optional
 
-from sqlalchemy import select, func
-from sqlalchemy.ext.asyncio import AsyncSession
-
 # 確保專案路徑可用
 sys.path.insert(0, ".")
+
+# 載入 .env（Feature Flags 如 PGVECTOR_ENABLED 需在模組匯入前可用）
+try:
+    from dotenv import load_dotenv
+    root_env = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", ".env")
+    if os.path.exists(root_env):
+        load_dotenv(os.path.abspath(root_env), override=True)
+    else:
+        load_dotenv()
+except ImportError:
+    pass
+
+from sqlalchemy import select, func
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logging.basicConfig(
     level=logging.INFO,

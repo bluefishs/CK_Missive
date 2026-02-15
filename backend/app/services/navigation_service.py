@@ -3,8 +3,13 @@
 
 提供導覽項目的 CRUD 操作與樹狀結構管理。
 
-@version 1.0.0
+@deprecated 已被 NavigationRepository 取代。
+    端點 secure_site_management/navigation.py 已使用 NavigationRepository。
+    此模組保留向後相容，預計 v2.0 移除。
+
+@version 1.1.0
 @date 2026-01-10
+@updated 2026-02-11 — 標記棄用
 """
 import logging
 from typing import Optional, List, Dict, Any

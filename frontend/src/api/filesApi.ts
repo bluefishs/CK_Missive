@@ -11,12 +11,17 @@
 import { apiClient, API_BASE_URL } from './client';
 import { API_ENDPOINTS } from './endpoints';
 
-// 從 types/api.ts 匯入統一的附件型別
-import { DocumentAttachment } from '../types/api';
-
-// ============================================================================
-// 型別定義 - 統一使用 types/api.ts 作為單一真實來源
-// ============================================================================
+// 型別從 types/ 匯入 (SSOT)
+import type {
+  DocumentAttachment,
+  UploadResult,
+  UploadProgressCallback,
+  StorageInfo,
+  NetworkCheckResult,
+  FileVerifyResult,
+  DeleteResult,
+  AttachmentListResponse,
+} from '../types/api';
 
 /**
  * FileAttachment 是 DocumentAttachment 的別名
@@ -24,97 +29,17 @@ import { DocumentAttachment } from '../types/api';
  */
 export type FileAttachment = DocumentAttachment;
 
-// 重新匯出供外部使用
-export type { DocumentAttachment };
-
-/** 上傳結果 */
-export interface UploadResult {
-  success: boolean;
-  message: string;
-  files: Array<{
-    id: number | null;
-    filename: string;
-    original_name: string;
-    size: number;
-    content_type: string;
-    checksum: string;
-    storage_path: string;
-    uploaded_by: string | null;
-  }>;
-  errors?: string[];
-}
-
-/** 上傳進度回調 */
-export interface UploadProgressCallback {
-  onProgress?: (percent: number, loaded: number, total: number) => void;
-  onSuccess?: (result: UploadResult) => void;
-  onError?: (error: Error) => void;
-}
-
-/** 儲存資訊 */
-export interface StorageInfo {
-  success: boolean;
-  storage_path: string;
-  storage_type: 'local' | 'network' | 'nas';
-  is_network_path: boolean;
-  network_ip?: string;
-  is_local_ip?: boolean;
-  total_files: number;
-  total_size_mb: number;
-  allowed_extensions: string[];
-  max_file_size_mb: number;
-  disk_info?: {
-    total_gb: number;
-    used_gb: number;
-    free_gb: number;
-    usage_percent: number;
-  };
-}
-
-/** 網路檢查結果 */
-export interface NetworkCheckResult {
-  success: boolean;
-  storage_path: string;
-  storage_type: string;
-  is_network_path: boolean;
-  network_ip?: string;
-  is_local_ip?: boolean;
-  healthy: boolean;
-  checks: {
-    path_exists: boolean;
-    writable: boolean;
-    write_error?: string;
-    network_reachable?: boolean;
-    connected_port?: number;
-    network_error?: string;
-  };
-}
-
-/** 檔案驗證結果 */
-export interface FileVerifyResult {
-  success: boolean;
-  file_id: number;
-  status: 'valid' | 'corrupted' | 'file_missing' | 'read_error' | 'no_checksum';
-  is_valid?: boolean;
-  stored_checksum?: string;
-  current_checksum?: string;
-  message: string;
-}
-
-/** 刪除結果 */
-export interface DeleteResult {
-  success: boolean;
-  message: string;
-  deleted_by?: string;
-}
-
-/** 附件列表回應 */
-export interface AttachmentListResponse {
-  success: boolean;
-  document_id: number;
-  total: number;
-  attachments: FileAttachment[];
-}
+// 向後相容 re-export
+export type {
+  DocumentAttachment,
+  UploadResult,
+  UploadProgressCallback,
+  StorageInfo,
+  NetworkCheckResult,
+  FileVerifyResult,
+  DeleteResult,
+  AttachmentListResponse,
+};
 
 // ============================================================================
 // 快取的儲存設定
@@ -289,11 +214,25 @@ export const filesApi = {
    * @returns Blob 資料
    */
   async getAttachmentBlob(attachmentId: number): Promise<Blob> {
+    // 取得 CSRF token (若存在)
+    const csrfToken = document.cookie
+      .split('; ')
+      .find(row => row.startsWith('csrf_token='))
+      ?.split('=')[1];
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken;
+    }
+
     const response = await fetch(
-      `${API_BASE_URL}/files/${attachmentId}/download`,
+      `${API_BASE_URL}${API_ENDPOINTS.FILES.DOWNLOAD(attachmentId)}`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
+        credentials: 'include',
       }
     );
 

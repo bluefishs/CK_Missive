@@ -10,7 +10,7 @@
  * @date 2026-01-23
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Typography,
@@ -20,7 +20,6 @@ import {
   App,
   Card,
   Tag,
-  Table,
   Input,
   Statistic,
   Row,
@@ -28,6 +27,7 @@ import {
   Upload,
   Badge,
   List,
+  Tooltip,
 } from 'antd';
 import {
   PlusOutlined,
@@ -41,6 +41,7 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import Highlighter from 'react-highlight-words';
 
+import { ResponsiveTable } from '../common';
 import { taoyuanProjectsApi } from '../../api/taoyuanDispatchApi';
 import type { TaoyuanProject, ProjectDispatchLinkItem, ProjectDocumentLinkItem } from '../../types/api';
 import { useTableColumnSearch } from '../../hooks/utility/useTableColumnSearch';
@@ -124,16 +125,22 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({ contractProjectId }) =
   };
 
   // 從資料中取得不重複的承辦人清單（用於篩選）
-  const caseHandlerFilters = [...new Set(projects.map((p) => p.case_handler).filter(Boolean))]
-    .map((h) => ({ text: h as string, value: h as string }));
+  const caseHandlerFilters = useMemo(
+    () => [...new Set(projects.map((p) => p.case_handler).filter(Boolean))]
+      .map((h) => ({ text: h as string, value: h as string })),
+    [projects]
+  );
 
   // 從資料中取得不重複的審議年度（用於篩選）
-  const reviewYearFilters = [...new Set(projects.map((p) => p.review_year).filter(Boolean))]
-    .sort((a, b) => (b ?? 0) - (a ?? 0))
-    .map((y) => ({ text: String(y), value: y as number }));
+  const reviewYearFilters = useMemo(
+    () => [...new Set(projects.map((p) => p.review_year).filter(Boolean))]
+      .sort((a, b) => (b ?? 0) - (a ?? 0))
+      .map((y) => ({ text: String(y), value: y as number })),
+    [projects]
+  );
 
   // 欄位設計依據用戶需求：項次、審議年度、案件類型、行政區、工程名稱、分案名稱、案件承辦、查估單位、派工關聯、公文關聯
-  const columns: ColumnsType<TaoyuanProject> = [
+  const columns: ColumnsType<TaoyuanProject> = useMemo(() => [
     {
       title: '項次',
       dataIndex: 'sequence_no',
@@ -198,11 +205,15 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({ contractProjectId }) =
     {
       title: '承辦',
       dataIndex: 'case_handler',
-      width: 60,
+      width: 80,
       align: 'center',
+      ellipsis: true,
       sorter: (a, b) => (a.case_handler ?? '').localeCompare(b.case_handler ?? ''),
       filters: caseHandlerFilters,
       onFilter: (value, record) => record.case_handler === value,
+      render: (val?: string) => val ? (
+        <Tooltip title={val}><span>{val}</span></Tooltip>
+      ) : '-',
     },
     {
       title: '查估單位',
@@ -212,6 +223,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({ contractProjectId }) =
       filters: [...new Set(projects.map((p) => p.survey_unit).filter(Boolean))]
         .map((s) => ({ text: s as string, value: s as string })),
       onFilter: (value, record) => record.survey_unit === value,
+      // survey_unit filters computed inline since it depends on projects
     },
     {
       title: '派工關聯',
@@ -265,29 +277,33 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({ contractProjectId }) =
         );
       },
     },
-  ];
+  ], [reviewYearFilters, caseHandlerFilters, projects, getColumnSearchProps, searchedColumn, columnSearchText]);
 
   // 統計資料 (基於關聯資料判斷)
-  // 已派工：有關聯派工單的工程
-  const dispatchedCount = projects.filter((p) => (p.linked_dispatches?.length ?? 0) > 0).length;
-  // 已完成：驗收狀態為「已驗收」的工程
-  const completedCount = projects.filter((p) => p.acceptance_status === '已驗收').length;
+  const dispatchedCount = useMemo(
+    () => projects.filter((p) => (p.linked_dispatches?.length ?? 0) > 0).length,
+    [projects]
+  );
+  const completedCount = useMemo(
+    () => projects.filter((p) => p.acceptance_status === '已驗收').length,
+    [projects]
+  );
 
-  // 手機版卡片清單
-  const MobileProjectList = () => (
+  // 手機版卡片清單（useMemo 避免每次渲染重建元件）
+  const mobileProjectList = useMemo(() => (
     <List
       dataSource={projects}
       loading={isLoading}
       pagination={{
         size: 'small',
         pageSize: 10,
-        showTotal: (total) => `共 ${total} 筆`,
+        showTotal: (total: number) => `共 ${total} 筆`,
       }}
-      renderItem={(project) => (
+      renderItem={(project: TaoyuanProject) => (
         <Card
           size="small"
           style={{ marginBottom: 8, cursor: 'pointer' }}
-          onClick={() => handleRowClick(project)}
+          onClick={() => navigate(`/taoyuan/project/${project.id}`)}
           hoverable
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -315,7 +331,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({ contractProjectId }) =
         </Card>
       )}
     />
-  );
+  ), [projects, isLoading, navigate]);
 
   return (
     <div>
@@ -418,9 +434,9 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({ contractProjectId }) =
 
       {/* 工程列表 - RWD: 手機用卡片清單，桌面用表格 */}
       {isMobile ? (
-        <MobileProjectList />
+        mobileProjectList
       ) : (
-        <Table
+        <ResponsiveTable
           columns={columns}
           dataSource={projects}
           rowKey="id"
@@ -430,9 +446,9 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({ contractProjectId }) =
           pagination={{
             showSizeChanger: true,
             showQuickJumper: true,
-            showTotal: (total) => `共 ${total} 筆`,
+            showTotal: (total: number) => `共 ${total} 筆`,
           }}
-          onRow={(record) => ({
+          onRow={(record: TaoyuanProject) => ({
             onClick: () => handleRowClick(record),
             style: { cursor: 'pointer' },
           })}

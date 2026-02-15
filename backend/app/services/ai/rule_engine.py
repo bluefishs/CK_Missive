@@ -1,8 +1,9 @@
 """
 AI 意圖解析規則引擎
 
-Version: 1.0.0
+Version: 2.0.0
 Created: 2026-02-09
+Updated: 2026-02-11 - 狀態/機關映射改從 synonyms.yaml 動態載入 (SSOT)
 
 Layer 1 規則引擎 -- 處理常見、明確的查詢模式。
 高信心度 (>=0.85) 才直接返回，否則返回部分匹配結果供 Layer 2 (LLM) 合併。
@@ -20,35 +21,64 @@ from app.schemas.ai import ParsedSearchIntent
 logger = logging.getLogger(__name__)
 
 
+def _build_mappings_from_synonyms(
+    synonym_path: Path,
+) -> tuple[Dict[str, str], Dict[str, str]]:
+    """
+    從 synonyms.yaml 建構狀態正規化表與機關縮寫表。
+
+    synonyms.yaml 為 SSOT，每組同義詞的第一項為正規名稱。
+
+    Returns:
+        (status_normalize, agency_abbreviations)
+    """
+    status_map: Dict[str, str] = {}
+    agency_map: Dict[str, str] = {}
+
+    try:
+        with open(synonym_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+    except Exception as e:
+        logger.warning(f"規則引擎無法載入 synonyms.yaml: {e}，使用空映射")
+        return status_map, agency_map
+
+    # 狀態正規化：第一項為正規名稱
+    for group in data.get("status_synonyms", []):
+        if isinstance(group, list) and len(group) >= 1:
+            canonical = group[0]
+            for variant in group:
+                status_map[variant] = canonical
+
+    # 機關縮寫：第一項為全稱，其餘為縮寫
+    for group in data.get("agency_synonyms", []):
+        if isinstance(group, list) and len(group) >= 2:
+            full_name = group[0]
+            for abbrev in group[1:]:
+                agency_map[abbrev] = full_name
+
+    logger.info(
+        f"規則引擎映射已從 synonyms.yaml 載入: "
+        f"{len(status_map)} 狀態, {len(agency_map)} 機關"
+    )
+    return status_map, agency_map
+
+
 class IntentRuleEngine:
     """意圖規則引擎 -- 正則/關鍵字匹配"""
 
     # 高信心度閾值（直接返回）
     HIGH_CONFIDENCE_THRESHOLD = 0.85
 
-    # 狀態正規化對照
-    STATUS_NORMALIZE: Dict[str, str] = {
-        "待處理": "待處理", "未處理": "待處理", "待辦": "待處理", "尚未處理": "待處理",
-        "處理中": "處理中", "辦理中": "處理中", "進行中": "處理中",
-        "已結案": "已結案", "完成": "已結案", "結案": "已結案", "辦畢": "已結案",
-        "已歸檔": "已歸檔", "歸檔": "已歸檔", "存查": "已歸檔",
-    }
-
-    # 機關縮寫對照（與 prompts.yaml 保持一致）
-    AGENCY_ABBREVIATIONS: Dict[str, str] = {
-        "市府": "桃園市政府", "桃市府": "桃園市政府",
-        "都發局": "都市發展局",
-        "環保局": "環境保護局",
-        "養工處": "養護工程處",
-        "新工處": "新建工程處",
-        "建管處": "建築管理處",
-        "公園處": "公園管理處",
-        "違建大隊": "違章建築處理大隊",
-    }
-
     def __init__(self) -> None:
         self._rules: List[Dict[str, Any]] = []
         self._compiled_rules: List[Tuple[re.Pattern[str], Dict[str, Any]]] = []
+
+        # 從 synonyms.yaml 動態載入映射 (SSOT)
+        synonyms_path = Path(__file__).parent / "synonyms.yaml"
+        self.STATUS_NORMALIZE, self.AGENCY_ABBREVIATIONS = (
+            _build_mappings_from_synonyms(synonyms_path)
+        )
+
         self._load_rules()
 
     def _load_rules(self) -> None:
@@ -125,6 +155,9 @@ class IntentRuleEngine:
         for field, value_spec in extract.items():
             resolved = self._resolve_value(value_spec, match)
             if resolved is not None:
+                # keywords 欄位需要是 List[str]
+                if field == "keywords" and isinstance(resolved, str):
+                    resolved = [resolved]
                 intent_data[field] = resolved
 
         # 至少有一個有效欄位才返回

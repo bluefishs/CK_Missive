@@ -14,6 +14,12 @@
 # ============================================================================
 
 $ErrorActionPreference = "Continue"
+
+# Force UTF-8 encoding to prevent cp950 decode errors on Windows
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+$env:PYTHONIOENCODING = "utf-8"
+
 $BackendDir = Join-Path $PSScriptRoot "..\backend"
 $ProjectRoot = Join-Path $PSScriptRoot ".."
 
@@ -102,12 +108,12 @@ Set-Location $BackendDir
 
 Write-Host "[Step 1] Checking Python dependencies..."
 try {
-    $pipOutput = pip install -r requirements.txt --quiet 2>&1
-    $installed = $pipOutput | Select-String "Successfully installed"
-    if ($installed) {
-        Write-Host "[Step 1] New packages installed: $installed"
+    # Avoid capturing output with 2>&1 to prevent cp950 encoding errors on Windows
+    pip install -r requirements.txt --quiet
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "[Step 1] Dependencies check completed."
     } else {
-        Write-Host "[Step 1] All dependencies up to date."
+        Write-Host "[Step 1] WARNING: pip install returned exit code $LASTEXITCODE" -ForegroundColor Yellow
     }
 } catch {
     Write-Host "[Step 1] WARNING: pip install failed: $_" -ForegroundColor Yellow
@@ -119,10 +125,12 @@ try {
 # ============================================================================
 Write-Host "[Step 2] Checking database migrations..."
 try {
-    $alembicOutput = python -m alembic upgrade head 2>&1
-    $lastLines = $alembicOutput | Select-Object -Last 3
-    foreach ($line in $lastLines) {
-        Write-Host "[Step 2] $line"
+    # Avoid capturing output with 2>&1 to prevent cp950 encoding errors on Windows
+    python -m alembic upgrade head
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "[Step 2] Database migrations applied."
+    } else {
+        Write-Host "[Step 2] WARNING: Alembic returned exit code $LASTEXITCODE" -ForegroundColor Yellow
     }
 } catch {
     Write-Host "[Step 2] WARNING: Alembic migration failed: $_" -ForegroundColor Yellow

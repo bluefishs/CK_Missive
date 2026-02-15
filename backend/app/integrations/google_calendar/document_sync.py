@@ -1,6 +1,11 @@
 """
 公文事件 Google Calendar 單向同步服務
-專門處理公文截止日期等重要事件推送到 Google Calendar
+
+專門處理公文截止日期等重要事件推送到 Google Calendar。
+使用 DocumentCalendarEvent (document_calendar_events 表) 作為唯一日曆模型。
+
+@version 2.0.0
+@date 2026-02-11
 """
 import os
 import logging
@@ -15,33 +20,42 @@ try:
 except ImportError:
     GOOGLE_AVAILABLE = False
 
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.config import settings
-from ...models.calendar_event import CalendarEvent, SyncStatus
+from ...extended.models import DocumentCalendarEvent
 
 logger = logging.getLogger(__name__)
 
 
+# Google Calendar 同步狀態常數
+SYNC_STATUS_PENDING = "pending"
+SYNC_STATUS_SYNCED = "synced"
+SYNC_STATUS_FAILED = "failed"
+
+
 class DocumentCalendarSync:
-    """公文事件 Google Calendar 同步器"""
-    
+    """公文事件 Google Calendar 同步器 (v2.0.0)
+
+    使用 DocumentCalendarEvent 模型（統一日曆模型），
+    取代 legacy CalendarEvent 模型。
+    """
+
     def __init__(self):
-        self.calendar_id = settings.GOOGLE_CALENDAR_ID  # cksurvey0605@gmail.com
+        self.calendar_id = settings.GOOGLE_CALENDAR_ID
         self.service = None
-        
+
         if not GOOGLE_AVAILABLE:
             logger.warning("Google API libraries not available")
             return
-        
-        # 使用服務帳戶認證（適合伺服器端單向推送）
+
         self._init_service()
-    
+
     def _init_service(self):
         """初始化 Google Calendar 服務"""
         try:
-            # 嘗試使用服務帳戶金鑰
             credentials_path = getattr(settings, 'GOOGLE_CREDENTIALS_PATH', './credentials.json')
-            
+
             if os.path.exists(credentials_path):
                 credentials = service_account.Credentials.from_service_account_file(
                     credentials_path,
@@ -50,42 +64,34 @@ class DocumentCalendarSync:
                 self.service = build('calendar', 'v3', credentials=credentials)
                 logger.info("Google Calendar service initialized with service account")
             else:
-                logger.warning(f"Google credentials file not found: {credentials_path}")
-                
+                logger.warning("Google credentials file not found: %s", credentials_path)
+
         except Exception as e:
-            logger.error(f"Failed to initialize Google Calendar service: {e}")
-    
+            logger.error("Failed to initialize Google Calendar service: %s", e)
+
     def is_available(self) -> bool:
         """檢查 Google Calendar 服務是否可用"""
         return GOOGLE_AVAILABLE and self.service is not None
-    
+
     def create_document_deadline_event(
-        self, 
+        self,
         document_title: str,
         deadline: datetime,
         document_id: int,
         description: Optional[str] = None
     ) -> Optional[str]:
-        """
-        為公文截止日期建立 Google Calendar 事件
-        
-        Args:
-            document_title: 公文標題
-            deadline: 截止日期
-            document_id: 公文ID
-            description: 額外描述
-            
+        """為公文截止日期建立 Google Calendar 事件
+
         Returns:
             Google Calendar 事件ID，失敗時返回 None
         """
         if not self.is_available():
             logger.error("Google Calendar service not available")
             return None
-        
+
         try:
-            # 建立事件資料
             event_data = {
-                'summary': f'📋 公文截止：{document_title}',
+                'summary': f'公文截止：{document_title}',
                 'description': self._build_event_description(document_title, document_id, description),
                 'start': {
                     'dateTime': deadline.isoformat(),
@@ -98,36 +104,26 @@ class DocumentCalendarSync:
                 'reminders': {
                     'useDefault': False,
                     'overrides': [
-                        {'method': 'email', 'minutes': 24 * 60},  # 1天前
-                        {'method': 'popup', 'minutes': 60},       # 1小時前
+                        {'method': 'email', 'minutes': 24 * 60},
+                        {'method': 'popup', 'minutes': 60},
                     ],
                 },
-                # 標記為公文相關事件
-                'colorId': '11',  # 紅色，表示重要
-                'source': {
-                    'title': '乾坤測繪公文管理系統',
-                    'url': f'http://localhost:3006/documents/{document_id}'
-                }
+                'colorId': '11',
             }
-            
-            # 推送到 Google Calendar
+
             event = self.service.events().insert(
                 calendarId=self.calendar_id,
                 body=event_data
             ).execute()
-            
+
             google_event_id = event.get('id')
-            logger.info(f"Created Google Calendar event for document {document_id}: {google_event_id}")
-            
+            logger.info("Created Google Calendar event for document %d: %s", document_id, google_event_id)
             return google_event_id
-            
-        except HttpError as error:
-            logger.error(f"Failed to create Google Calendar event: {error}")
-            return None
+
         except Exception as error:
-            logger.error(f"Unexpected error creating Google Calendar event: {error}")
+            logger.error("Failed to create Google Calendar event: %s", error)
             return None
-    
+
     def update_document_deadline_event(
         self,
         google_event_id: str,
@@ -139,11 +135,10 @@ class DocumentCalendarSync:
         """更新公文截止日期事件"""
         if not self.is_available():
             return False
-        
+
         try:
-            # 更新事件資料
             event_data = {
-                'summary': f'📋 公文截止：{document_title}',
+                'summary': f'公文截止：{document_title}',
                 'description': self._build_event_description(document_title, document_id, description),
                 'start': {
                     'dateTime': deadline.isoformat(),
@@ -154,51 +149,46 @@ class DocumentCalendarSync:
                     'timeZone': 'Asia/Taipei',
                 },
             }
-            
+
             self.service.events().update(
                 calendarId=self.calendar_id,
                 eventId=google_event_id,
                 body=event_data
             ).execute()
-            
-            logger.info(f"Updated Google Calendar event {google_event_id} for document {document_id}")
+
+            logger.info("Updated Google Calendar event %s for document %d", google_event_id, document_id)
             return True
-            
-        except HttpError as error:
-            logger.error(f"Failed to update Google Calendar event: {error}")
-            return False
+
         except Exception as error:
-            logger.error(f"Unexpected error updating Google Calendar event: {error}")
+            logger.error("Failed to update Google Calendar event: %s", error)
             return False
-    
+
     def delete_document_deadline_event(self, google_event_id: str) -> bool:
         """刪除公文截止日期事件"""
         if not self.is_available():
             return False
-        
+
         try:
             self.service.events().delete(
                 calendarId=self.calendar_id,
                 eventId=google_event_id
             ).execute()
-            
-            logger.info(f"Deleted Google Calendar event {google_event_id}")
+
+            logger.info("Deleted Google Calendar event %s", google_event_id)
             return True
-            
-        except HttpError as error:
-            if error.resp.status == 404:
-                logger.warning(f"Google Calendar event {google_event_id} not found")
-                return True  # 已經不存在，視為成功
-            logger.error(f"Failed to delete Google Calendar event: {error}")
-            return False
+
         except Exception as error:
-            logger.error(f"Unexpected error deleting Google Calendar event: {error}")
+            # HttpError 404 = 已不存在，視為成功
+            if hasattr(error, 'resp') and getattr(error.resp, 'status', None) == 404:
+                logger.warning("Google Calendar event %s not found", google_event_id)
+                return True
+            logger.error("Failed to delete Google Calendar event: %s", error)
             return False
-    
+
     def _build_event_description(
-        self, 
-        document_title: str, 
-        document_id: int, 
+        self,
+        document_title: str,
+        document_id: int,
         description: Optional[str] = None
     ) -> str:
         """建立事件描述"""
@@ -206,52 +196,45 @@ class DocumentCalendarSync:
             f"公文標題：{document_title}",
             f"公文編號：{document_id}",
             "",
-            "📋 此事件由乾坤測繪公文管理系統自動建立",
-            f"🔗 查看公文：http://localhost:3006/documents/{document_id}",
+            "此事件由乾坤測繪公文管理系統自動建立",
         ]
-        
+
         if description:
-            desc_parts.insert(-2, f"備註：{description}")
-        
+            desc_parts.insert(-1, f"備註：{description}")
+
         return "\n".join(desc_parts)
-    
-    def sync_document_deadline(
-        self, 
-        db: Session,
+
+    async def sync_document_deadline(
+        self,
+        db: AsyncSession,
         document_id: int,
         document_title: str,
         deadline: datetime,
         description: Optional[str] = None,
+        user_id: int = 1,
         force_update: bool = False
     ) -> bool:
-        """
-        同步公文截止日期到 Google Calendar
-        
-        Args:
-            db: 資料庫 session
-            document_id: 公文ID
-            document_title: 公文標題
-            deadline: 截止日期
-            description: 描述
-            force_update: 是否強制更新
-            
-        Returns:
-            是否成功同步
+        """同步公文截止日期到 Google Calendar
+
+        使用 DocumentCalendarEvent 模型追蹤同步狀態。
         """
         if not self.is_available():
             logger.warning("Google Calendar service not available for sync")
             return False
-        
+
         # 查找現有的行事曆事件記錄
-        existing_event = db.query(CalendarEvent).filter(
-            CalendarEvent.document_id == document_id,
-            CalendarEvent.google_event_id.isnot(None)
-        ).first()
-        
+        result = await db.execute(
+            select(DocumentCalendarEvent).where(
+                DocumentCalendarEvent.document_id == document_id,
+                DocumentCalendarEvent.google_event_id.isnot(None)
+            )
+        )
+        existing_event = result.scalar_one_or_none()
+
         try:
             if existing_event and existing_event.google_event_id:
                 # 更新現有事件
-                if force_update or existing_event.end_datetime != deadline:
+                if force_update or existing_event.end_date != deadline:
                     success = self.update_document_deadline_event(
                         existing_event.google_event_id,
                         document_title,
@@ -259,17 +242,16 @@ class DocumentCalendarSync:
                         document_id,
                         description
                     )
-                    
+
                     if success:
-                        # 更新本地記錄
                         existing_event.title = f"公文截止：{document_title}"
-                        existing_event.end_datetime = deadline
-                        existing_event.google_sync_status = SyncStatus.SYNCED
-                        existing_event.google_last_synced_at = datetime.utcnow()
-                        db.commit()
+                        existing_event.end_date = deadline
+                        existing_event.google_sync_status = SYNC_STATUS_SYNCED
+                        existing_event.updated_at = datetime.utcnow()
+                        await db.commit()
                         return True
                 else:
-                    logger.info(f"Document {document_id} deadline unchanged, skipping sync")
+                    logger.info("Document %d deadline unchanged, skipping sync", document_id)
                     return True
             else:
                 # 建立新事件
@@ -279,34 +261,35 @@ class DocumentCalendarSync:
                     document_id,
                     description
                 )
-                
+
                 if google_event_id:
-                    # 建立或更新本地記錄
                     if existing_event:
                         event = existing_event
                     else:
-                        event = CalendarEvent(
-                            user_id=1,  # 系統事件
-                            created_by_id=1,
-                            document_id=document_id
+                        event = DocumentCalendarEvent(
+                            document_id=document_id,
+                            created_by=user_id,
+                            assigned_user_id=user_id,
+                            event_type='deadline',
+                            priority='high',
+                            status='pending',
                         )
                         db.add(event)
-                    
+
                     event.title = f"公文截止：{document_title}"
                     event.description = description or f"公文 {document_title} 的截止日期提醒"
-                    event.start_datetime = deadline - timedelta(hours=1)
-                    event.end_datetime = deadline
+                    event.start_date = deadline - timedelta(hours=1)
+                    event.end_date = deadline
                     event.google_event_id = google_event_id
-                    event.google_sync_status = SyncStatus.SYNCED
-                    event.google_last_synced_at = datetime.utcnow()
-                    
-                    db.commit()
+                    event.google_sync_status = SYNC_STATUS_SYNCED
+
+                    await db.commit()
                     return True
-                    
+
         except Exception as e:
-            logger.error(f"Error syncing document {document_id} deadline: {e}")
-            db.rollback()
-        
+            logger.error("Error syncing document %d deadline: %s", document_id, e)
+            await db.rollback()
+
         return False
 
 

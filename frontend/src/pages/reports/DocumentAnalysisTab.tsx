@@ -2,9 +2,9 @@
  * 公文數量分析 Tab
  *
  * 純 UI 元件，所有資料與邏輯由 useDocumentAnalysis Hook 提供。
- * 功能：收發文統計卡片、來文機關排名、受文者排名。
+ * 功能：收發文統計卡片、公文趨勢圖、來文機關排名、受文者排名。
  *
- * @version 1.1.0 - 新增表格搜尋篩選功能
+ * @version 1.2.0 - 整合公文趨勢圖（從 Dashboard 遷移）
  */
 
 import React from 'react';
@@ -27,6 +27,7 @@ import {
 } from '@ant-design/icons';
 import { useDocumentAnalysis } from './hooks/useDocumentAnalysis';
 import { useTableSearch } from './hooks/useTableSearch';
+import { DocumentTrendsChart } from '../../components/dashboard';
 
 const { Text } = Typography;
 
@@ -179,6 +180,11 @@ const DocumentAnalysisTab: React.FC<DocumentAnalysisTabProps> = ({ isMobile }) =
           </Card>
         </Col>
       </Row>
+
+      {/* 公文趨勢圖（近 12 個月收發文量） */}
+      <div style={{ marginBottom: 16 }}>
+        <DocumentTrendsChart />
+      </div>
 
       {documents.length === 0 ? (
         <Card>

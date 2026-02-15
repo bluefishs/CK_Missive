@@ -33,6 +33,7 @@ import {
   LeftOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../../router/types';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
@@ -74,11 +75,15 @@ export const DashboardCalendarSection: React.FC<DashboardCalendarSectionProps> =
   } = useDashboardCalendarView();
 
   const handleViewDocument = (documentId: number) => {
-    navigate(`/documents/${documentId}`);
+    navigate(ROUTES.DOCUMENT_DETAIL.replace(':id', String(documentId)));
+  };
+
+  const handleViewEvent = (eventId: number) => {
+    navigate(ROUTES.CALENDAR_EVENT_EDIT.replace(':id', String(eventId)));
   };
 
   const handleViewMore = () => {
-    navigate('/calendar');
+    navigate(ROUTES.CALENDAR);
   };
 
   // 月曆日期渲染
@@ -127,6 +132,7 @@ export const DashboardCalendarSection: React.FC<DashboardCalendarSectionProps> =
             key={project.key}
             project={project}
             onViewDocument={handleViewDocument}
+            onViewEvent={handleViewEvent}
             compact={isMobile}
           />
         ))}

@@ -115,8 +115,14 @@ class TaoyuanProjectRepository(BaseRepository[TaoyuanProject]):
         count_query = select(func.count()).select_from(query.subquery())
         total = (await self.db.execute(count_query)).scalar() or 0
 
-        # 排序
-        sort_column = getattr(TaoyuanProject, sort_by, TaoyuanProject.id)
+        # 排序（白名單驗證）
+        allowed_sort_fields = {
+            'id', 'project_name', 'project_code', 'district',
+            'case_type', 'case_handler', 'review_year',
+            'sequence_no', 'created_at', 'updated_at',
+        }
+        safe_sort = sort_by if sort_by in allowed_sort_fields else 'id'
+        sort_column = getattr(TaoyuanProject, safe_sort, TaoyuanProject.id)
         if sort_order == "desc":
             query = query.order_by(sort_column.desc())
         else:

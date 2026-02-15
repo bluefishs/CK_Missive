@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Modal,
   Table,
   Button,
   Select,
   Form,
-  Input,
   DatePicker,
   InputNumber,
   message,
@@ -28,7 +27,8 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
-import { API_BASE_URL } from '../../api/client';
+import { apiClient } from '../../api/client';
+import { API_ENDPOINTS } from '../../api/endpoints';
 import { logger } from '../../services/logger';
 
 const { Option } = Select;
@@ -89,129 +89,98 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
   const [form] = Form.useForm();
 
   // 載入專案廠商關聯
-  const loadAssociations = async () => {
+  const loadAssociations = useCallback(async () => {
     if (!projectId) return;
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/project-vendors/list`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_id: projectId })
-      });
-      const data = await response.json();
-
-      if (response.ok) {
-        setAssociations(data.associations || []);
-      } else {
-        message.error('載入廠商關聯失敗');
-      }
+      const data = await apiClient.post<{ associations: ProjectVendorAssociation[]; total: number }>(
+        API_ENDPOINTS.PROJECT_VENDORS.PROJECT_LIST(projectId),
+        {}
+      );
+      setAssociations(data.associations || []);
     } catch (error) {
-      message.error('網路錯誤，請稍後再試');
+      logger.error('載入廠商關聯失敗:', error);
+      message.error('載入廠商關聯失敗');
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId]);
 
   // 載入可選廠商
-  const loadVendors = async () => {
+  const loadVendors = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/vendors/list`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ page: 1, limit: 100 })
-      });
-      const data = await response.json();
-
-      if (response.ok) {
-        setVendors(data.items || data.vendors || []);
-      }
+      const data = await apiClient.post<{ items: Vendor[] }>(
+        API_ENDPOINTS.VENDORS.LIST,
+        { page: 1, limit: 100 }
+      );
+      setVendors(data.items || []);
     } catch (error) {
       logger.error('載入廠商列表失敗:', error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (visible) {
       loadAssociations();
       loadVendors();
     }
-  }, [visible, projectId]);
+  }, [visible, projectId, loadAssociations, loadVendors]);
 
   // 新增或編輯關聯
   const handleSubmit = async (values: ProjectVendorFormData) => {
     try {
-      const formData = {
-        project_id: projectId,
-        vendor_id: values.vendor_id,
-        role: values.role,
-        contract_amount: values.contract_amount,
-        start_date: values.start_date ? dayjs(values.start_date).format('YYYY-MM-DD') : undefined,
-        end_date: values.end_date ? dayjs(values.end_date).format('YYYY-MM-DD') : undefined,
-        status: values.status || 'active',
-      };
-
-      let response;
       if (editingAssociation) {
-        // 更新關聯 (使用 POST 方法)
-        response = await fetch(`${API_BASE_URL}/project-vendors/update`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            project_id: projectId,
-            vendor_id: editingAssociation.vendor_id,
+        // 更新關聯
+        await apiClient.post(
+          API_ENDPOINTS.PROJECT_VENDORS.UPDATE(projectId, editingAssociation.vendor_id),
+          {
             role: values.role,
             contract_amount: values.contract_amount,
-            start_date: formData.start_date,
-            end_date: formData.end_date,
+            start_date: values.start_date ? dayjs(values.start_date).format('YYYY-MM-DD') : undefined,
+            end_date: values.end_date ? dayjs(values.end_date).format('YYYY-MM-DD') : undefined,
             status: values.status,
-          }),
-        });
+          }
+        );
       } else {
-        // 新增關聯 (使用 POST 方法)
-        response = await fetch(`${API_BASE_URL}/project-vendors/create`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
-        });
+        // 新增關聯
+        await apiClient.post(
+          API_ENDPOINTS.PROJECT_VENDORS.CREATE,
+          {
+            project_id: projectId,
+            vendor_id: values.vendor_id,
+            role: values.role,
+            contract_amount: values.contract_amount,
+            start_date: values.start_date ? dayjs(values.start_date).format('YYYY-MM-DD') : undefined,
+            end_date: values.end_date ? dayjs(values.end_date).format('YYYY-MM-DD') : undefined,
+            status: values.status || 'active',
+          }
+        );
       }
 
-      if (response.ok) {
-        message.success(editingAssociation ? '關聯更新成功' : '關聯建立成功');
-        setFormVisible(false);
-        form.resetFields();
-        setEditingAssociation(null);
-        loadAssociations();
-      } else {
-        const error = await response.json();
-        message.error(error.detail || '操作失敗');
-      }
+      message.success(editingAssociation ? '關聯更新成功' : '關聯建立成功');
+      setFormVisible(false);
+      form.resetFields();
+      setEditingAssociation(null);
+      loadAssociations();
     } catch (error) {
-      message.error('網路錯誤，請稍後再試');
+      logger.error('廠商關聯操作失敗:', error);
+      message.error('操作失敗，請稍後再試');
     }
   };
 
-  // 刪除關聯 (使用 POST 方法)
+  // 刪除關聯
   const handleDelete = async (vendorId: number) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/project-vendors/delete`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          project_id: projectId,
-          vendor_id: vendorId
-        })
-      });
-
-      if (response.ok) {
-        message.success('關聯刪除成功');
-        loadAssociations();
-      } else {
-        const error = await response.json();
-        message.error(error.detail || '刪除失敗');
-      }
+      await apiClient.post(
+        API_ENDPOINTS.PROJECT_VENDORS.DELETE(projectId, vendorId),
+        {}
+      );
+      message.success('關聯刪除成功');
+      loadAssociations();
     } catch (error) {
-      message.error('網路錯誤，請稍後再試');
+      logger.error('刪除廠商關聯失敗:', error);
+      message.error('刪除失敗，請稍後再試');
     }
   };
 

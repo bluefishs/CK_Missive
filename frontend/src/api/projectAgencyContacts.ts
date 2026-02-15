@@ -2,6 +2,7 @@
  * 專案機關承辦 API
  */
 import { apiClient } from './client';
+import { API_ENDPOINTS } from './endpoints';
 
 // 從 types/api.ts 匯入統一的型別定義
 import {
@@ -24,7 +25,7 @@ export const getProjectAgencyContacts = async (
   projectId: number
 ): Promise<ProjectAgencyContactListResponse> => {
   return apiClient.post<ProjectAgencyContactListResponse>(
-    '/project-agency-contacts/list',
+    API_ENDPOINTS.PROJECT_AGENCY_CONTACTS.LIST,
     { project_id: projectId }
   );
 };
@@ -34,7 +35,7 @@ export const getAgencyContact = async (
   contactId: number
 ): Promise<ProjectAgencyContact> => {
   return apiClient.post<ProjectAgencyContact>(
-    '/project-agency-contacts/detail',
+    API_ENDPOINTS.PROJECT_AGENCY_CONTACTS.DETAIL,
     { contact_id: contactId }
   );
 };
@@ -44,7 +45,7 @@ export const createAgencyContact = async (
   data: ProjectAgencyContactCreate
 ): Promise<ProjectAgencyContact> => {
   return apiClient.post<ProjectAgencyContact>(
-    '/project-agency-contacts/create',
+    API_ENDPOINTS.PROJECT_AGENCY_CONTACTS.CREATE,
     data
   );
 };
@@ -55,7 +56,7 @@ export const updateAgencyContact = async (
   data: ProjectAgencyContactUpdate
 ): Promise<ProjectAgencyContact> => {
   return apiClient.post<ProjectAgencyContact>(
-    '/project-agency-contacts/update',
+    API_ENDPOINTS.PROJECT_AGENCY_CONTACTS.UPDATE,
     { contact_id: contactId, ...data }
   );
 };
@@ -65,7 +66,7 @@ export const deleteAgencyContact = async (
   contactId: number
 ): Promise<{ success: boolean; message: string }> => {
   return apiClient.post<{ success: boolean; message: string }>(
-    '/project-agency-contacts/delete',
+    API_ENDPOINTS.PROJECT_AGENCY_CONTACTS.DELETE,
     { contact_id: contactId }
   );
 };

@@ -21,6 +21,7 @@ from app.extended.models import (
     TaoyuanDispatchProjectLink,
     TaoyuanDispatchDocumentLink,
     TaoyuanDispatchAttachment,
+    TaoyuanDispatchWorkType,
     OfficialDocument,
 )
 
@@ -63,6 +64,7 @@ class DispatchOrderRepository(BaseRepository[TaoyuanDispatchOrder]):
                     TaoyuanDispatchDocumentLink.document
                 ),
                 selectinload(TaoyuanDispatchOrder.attachments),
+                selectinload(TaoyuanDispatchOrder.work_type_links),
             )
             .where(TaoyuanDispatchOrder.id == dispatch_id)
         )
@@ -105,6 +107,7 @@ class DispatchOrderRepository(BaseRepository[TaoyuanDispatchOrder]):
             ),
             selectinload(TaoyuanDispatchOrder.attachments),
             selectinload(TaoyuanDispatchOrder.payment),  # 契金資料
+            selectinload(TaoyuanDispatchOrder.work_type_links),
         )
 
         conditions = []
@@ -128,8 +131,13 @@ class DispatchOrderRepository(BaseRepository[TaoyuanDispatchOrder]):
         count_query = select(func.count()).select_from(query.subquery())
         total = (await self.db.execute(count_query)).scalar() or 0
 
-        # 排序
-        sort_column = getattr(TaoyuanDispatchOrder, sort_by, TaoyuanDispatchOrder.id)
+        # 排序（白名單驗證）
+        allowed_sort_fields = {
+            'id', 'dispatch_no', 'project_name', 'work_type',
+            'dispatch_date', 'created_at', 'updated_at',
+        }
+        safe_sort = sort_by if sort_by in allowed_sort_fields else 'id'
+        sort_column = getattr(TaoyuanDispatchOrder, safe_sort, TaoyuanDispatchOrder.id)
         if sort_order == "desc":
             query = query.order_by(sort_column.desc())
         else:
@@ -178,66 +186,48 @@ class DispatchOrderRepository(BaseRepository[TaoyuanDispatchOrder]):
         """
         生成下一個派工單號
 
-        格式: D-YYYY-NNNN (如 D-2026-0001)
+        格式: {ROC_YEAR}年_派工單號{NNN} (如 115年_派工單號011)
 
         Args:
-            year: 年份（預設為當前年份）
+            year: 民國年份（預設為當前民國年）
 
         Returns:
             下一個派工單號
         """
         if year is None:
-            year = datetime.now().year
+            year = datetime.now().year - 1911  # 轉為民國年
 
-        prefix = f"D-{year}-"
-
-        # 查詢當年最大序號
-        query = (
-            select(TaoyuanDispatchOrder.dispatch_no)
-            .where(TaoyuanDispatchOrder.dispatch_no.like(f"{prefix}%"))
-            .order_by(TaoyuanDispatchOrder.dispatch_no.desc())
-            .limit(1)
-        )
-        result = await self.db.execute(query)
-        last_no = result.scalar_one_or_none()
-
-        if last_no:
-            # 提取序號部分
-            match = re.search(r"D-\d{4}-(\d+)", last_no)
-            if match:
-                next_seq = int(match.group(1)) + 1
-            else:
-                next_seq = 1
-        else:
-            next_seq = 1
-
-        return f"{prefix}{next_seq:04d}"
+        max_seq = await self.get_max_sequence(year)
+        next_seq = max_seq + 1
+        prefix = f"{year}年_派工單號"
+        return f"{prefix}{next_seq:03d}"
 
     async def get_max_sequence(self, year: int) -> int:
         """
-        取得指定年份的最大序號
+        取得指定民國年份的最大序號
 
         Args:
-            year: 年份
+            year: 民國年份
 
         Returns:
             最大序號，若無資料則返回 0
         """
-        prefix = f"D-{year}-"
+        prefix = f"{year}年_派工單號"
         query = (
             select(TaoyuanDispatchOrder.dispatch_no)
             .where(TaoyuanDispatchOrder.dispatch_no.like(f"{prefix}%"))
-            .order_by(TaoyuanDispatchOrder.dispatch_no.desc())
-            .limit(1)
         )
         result = await self.db.execute(query)
-        last_no = result.scalar_one_or_none()
+        all_nos = result.scalars().all()
 
-        if last_no:
-            match = re.search(r"D-\d{4}-(\d+)", last_no)
+        max_seq = 0
+        for no in all_nos:
+            match = re.search(r'(\d+)$', no)
             if match:
-                return int(match.group(1))
-        return 0
+                seq = int(match.group(1))
+                if seq > max_seq:
+                    max_seq = seq
+        return max_seq
 
     # =========================================================================
     # 文件關聯

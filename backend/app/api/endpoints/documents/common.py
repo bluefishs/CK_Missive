@@ -57,13 +57,13 @@ from app.core.exceptions import NotFoundException, ForbiddenException
 from app.core.rls_filter import RLSFilter
 from app.core.audit_logger import DocumentUpdateGuard
 from app.services.notification_service import NotificationService, CRITICAL_FIELDS
-from app.core.dependencies import require_auth, require_permission, get_service_with_db
+from app.core.dependencies import require_auth, require_permission, get_service
 from app.api.endpoints.auth import get_current_user
 
 # 依賴注入工廠函數
-get_document_service = get_service_with_db(DocumentService)
-get_statistics_service = get_service_with_db(DocumentStatisticsService)
-get_export_service = get_service_with_db(DocumentExportService)
+get_document_service = get_service(DocumentService)
+get_statistics_service = get_service(DocumentStatisticsService)
+get_export_service = get_service(DocumentExportService)
 
 logger = logging.getLogger(__name__)
 

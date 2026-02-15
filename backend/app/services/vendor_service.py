@@ -9,11 +9,11 @@
 
 使用方式:
     # 依賴注入（推薦）
-    from app.core.dependencies import get_service_with_db
+    from app.core.dependencies import get_service
 
     @router.get("/vendors")
     async def list_vendors(
-        service: VendorService = Depends(get_service_with_db(VendorService))
+        service: VendorService = Depends(get_service(VendorService))
     ):
         return await service.get_list()
 

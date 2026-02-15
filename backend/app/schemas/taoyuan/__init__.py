@@ -28,6 +28,7 @@ from app.schemas.taoyuan.dispatch import (
     DispatchOrder,
     DispatchOrderListQuery,
     DispatchOrderListResponse,
+    DispatchWorkTypeItem,
     DocumentHistoryItem,
     DocumentHistoryMatchRequest,
     DocumentHistoryResponse,
@@ -69,6 +70,20 @@ from app.schemas.taoyuan.payment import (
     MasterControlResponse,
 )
 
+# Workflow schemas (作業歷程)
+from app.schemas.taoyuan.workflow import (
+    MilestoneType,
+    WorkRecordStatus,
+    DocBrief,
+    WorkRecordBase,
+    WorkRecordCreate,
+    WorkRecordUpdate,
+    WorkRecordResponse,
+    WorkRecordListResponse,
+    ProjectWorkflowSummary,
+    WorkflowSummaryResponse,
+)
+
 # Statistics schemas
 from app.schemas.taoyuan.statistics import (
     ProjectStatistics,
@@ -101,6 +116,7 @@ __all__ = [
     "DispatchOrder",
     "DispatchOrderListQuery",
     "DispatchOrderListResponse",
+    "DispatchWorkTypeItem",
     "DocumentHistoryItem",
     "DocumentHistoryMatchRequest",
     "DocumentHistoryResponse",

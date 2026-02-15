@@ -116,16 +116,12 @@ class PaymentService:
         cumulative = item.cumulative_amount
         remaining = item.remaining_amount
 
-        # 如果累進金額為空，計算並更新
+        # 如果累進金額為空，僅計算（不寫入 DB，避免讀取路徑產生寫入副作用）
         if (cumulative is None or cumulative == 0) and item.dispatch_order:
             cumulative, remaining = await self.repository.calculate_cumulative_payment(
                 item.dispatch_order.contract_project_id,
                 item.dispatch_order_id,
             )
-            # 更新資料庫
-            item.cumulative_amount = cumulative
-            item.remaining_amount = remaining
-            await self.db.commit()
 
         return {
             'id': item.id,
@@ -172,17 +168,26 @@ class PaymentService:
         """
         create_data = data.model_dump(exclude_unset=True)
 
+        # 將 0 值金額轉為 None（避免儲存無意義的零值）
+        for i in range(1, 8):
+            field = f'work_{i:02d}_amount'
+            if field in create_data and (create_data[field] is None or create_data[field] == 0):
+                create_data[field] = None
+
         # 計算當前金額總和
         current_amount = sum([
             float(create_data.get(f'work_{i:02d}_amount') or 0)
             for i in range(1, 8)
         ])
-        create_data['current_amount'] = current_amount
+        create_data['current_amount'] = current_amount if current_amount > 0 else None
 
         payment = await self.repository.create(create_data)
 
+        # 重新以 eager loading 取得（避免 async lazy load → MissingGreenlet）
+        payment = await self.repository.get_with_dispatch(payment.id)
+
         # 計算並更新累進金額
-        if payment.dispatch_order:
+        if payment and payment.dispatch_order:
             await self.repository.update_cumulative_amounts(
                 payment.dispatch_order.contract_project_id
             )
@@ -209,6 +214,12 @@ class PaymentService:
         if not payment:
             return None
 
+        # 將 0 值金額轉為 None
+        for i in range(1, 8):
+            field = f'work_{i:02d}_amount'
+            if field in update_data and (update_data[field] is None or update_data[field] == 0):
+                update_data[field] = None
+
         current_amount = 0
         for i in range(1, 8):
             field_name = f'work_{i:02d}_amount'
@@ -216,9 +227,12 @@ class PaymentService:
                 current_amount += float(update_data[field_name] or 0)
             elif hasattr(payment, field_name):
                 current_amount += float(getattr(payment, field_name) or 0)
-        update_data['current_amount'] = current_amount
+        update_data['current_amount'] = current_amount if current_amount > 0 else None
 
-        updated = await self.repository.update(payment_id, update_data)
+        await self.repository.update(payment_id, update_data)
+
+        # 重新以 eager loading 取得（避免 async lazy load → MissingGreenlet）
+        updated = await self.repository.get_with_dispatch(payment_id)
 
         # 重新計算累進金額
         if updated and updated.dispatch_order:

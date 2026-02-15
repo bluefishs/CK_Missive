@@ -112,7 +112,7 @@ search_intent:
     - null：一般公文搜尋，不限縮範圍
     注意：設定 related_entity 後，不要將「派工單」「派工」等詞放入 keywords，因為已透過實體過濾限縮範圍。
 
-    常見機關縮寫對照（解析 sender/receiver 時請轉換為全稱）：
+    常見機關縮寫對照（解析 sender/receiver 時請轉換為全稱）（SSOT: synonyms.yaml）：
     - 市府/桃市府 → 桃園市政府
     - 都發局 → 都市發展局
     - 環保局 → 環境保護局
@@ -130,13 +130,13 @@ search_intent:
     - 「最近」「近期」= 近 30 天
     - 「民國114年」= 西元2025年, 「民國115年」= 西元2026年
 
-    狀態對照：
+    狀態對照（SSOT: synonyms.yaml）：
     - 「待辦」「未處理」「尚未處理」→ "待處理"
     - 「辦理中」「進行中」→ "處理中"
     - 「完成」「結案」「辦畢」→ "已結案"
     - 「歸檔」「存查」→ "已歸檔"
 
-    公文類型對照：
+    公文類型對照（SSOT: synonyms.yaml）：
     - 「會議通知」「開會通知」→ "開會通知單"
     - 「會勘」「現場會勘」→ "會勘通知單"
     - 「公函」「來函」→ "函"
@@ -144,11 +144,14 @@ search_intent:
     - 「簽呈」「內簽」→ "簽"
 
     重要規則：
-    1. keywords 應提取具體的名詞（地名、人名、專案名），避免通用動詞
+    1. keywords 應提取具體的名詞（地名、人名、專案名、代碼、英數字串），避免通用動詞
     2. 如果使用者提及具體機關名稱，放在 sender 或 receiver 而非 keywords
     3. 如果查詢含糊不清，降低 confidence 分數（< 0.5），並盡可能提取 keywords 作為備用搜尋
     4. 當使用者說「某機關發的」「某機關來的」→ sender = 該機關, category = "收文"
     5. 當使用者說「發給某機關」「寄給某機關」→ receiver = 該機關, category = "發文"
+    6. **關鍵字不可遺漏**：查詢中無法歸類到 sender/receiver/doc_type/status/category 的任何具體詞彙（名詞、代碼、地名、英數字串），都必須放入 keywords。例如「桃園市政府 鑑價」→ sender="桃園市政府", keywords=["鑑價"]
+    7. 英文字母+數字組合（如 G08、A01、D03）通常是站名、工程代碼或編號，必須放入 keywords，不可忽略
+    8. 如果使用者的查詢只有 1-2 個短詞或代碼，confidence 應設定較高（>=0.7）並將整個查詢放入 keywords
 
     範例：
     輸入: "找桃園市政府上個月發的公文"
@@ -183,3 +186,15 @@ search_intent:
 
     輸入: "今年專案相關的公文"
     輸出: {{"related_entity": "project", "date_from": "{today_year}-01-01", "date_to": "{today}", "confidence": 0.8}}
+
+    輸入: "G08"
+    輸出: {{"keywords": ["G08"], "confidence": 0.8}}
+
+    輸入: "G08站相關"
+    輸出: {{"keywords": ["G08站", "G08"], "confidence": 0.8}}
+
+    輸入: "桃園市政府 鑑價"
+    輸出: {{"sender": "桃園市政府", "keywords": ["鑑價"], "category": "收文", "confidence": 0.8}}
+
+    輸入: "養工處 驗收 G08"
+    輸出: {{"sender": "養護工程處", "keywords": ["驗收", "G08"], "category": "收文", "confidence": 0.8}}

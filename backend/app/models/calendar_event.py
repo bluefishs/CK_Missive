@@ -1,5 +1,14 @@
 """
-行事曆事件模型
+[DEPRECATED] Legacy 行事曆事件模型
+
+此模型已被 app.extended.models.DocumentCalendarEvent 取代。
+calendar_events 和 calendar_sync_logs 資料表從未在生產環境中建立。
+所有 Google Calendar 整合已遷移至使用 DocumentCalendarEvent。
+
+保留此檔案僅供參考，將在下一次大版本更新時移除。
+
+@deprecated 使用 DocumentCalendarEvent (app.extended.models) 替代
+@version 1.0.0 (deprecated since 2.0.0, 2026-02-11)
 """
 from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, JSON, ForeignKey, Enum as SQLEnum
 from sqlalchemy.orm import relationship

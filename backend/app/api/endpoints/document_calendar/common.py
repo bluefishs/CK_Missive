@@ -10,7 +10,7 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_, func, text, and_
+from sqlalchemy import select, or_, func, and_
 
 from app.db.database import get_async_db
 from app.api.endpoints.auth import get_current_user
@@ -54,20 +54,26 @@ def event_to_dict(
         doc_number: 關聯公文號
         contract_project_name: 關聯承攬案件名稱
     """
+    start_iso = event.start_date.isoformat()
+    end_iso = event.end_date.isoformat() if event.end_date else None
+
     return {
         "id": event.id,
         "title": event.title,
         "description": event.description,
-        "start_date": event.start_date.isoformat(),
-        "end_date": event.end_date.isoformat() if event.end_date else None,
+        "start_date": start_iso,
+        "end_date": end_iso,
+        # 前端 CalendarEventUI 使用 start_datetime/end_datetime 別名
+        "start_datetime": start_iso,
+        "end_datetime": end_iso,
         "all_day": event.all_day,
         "event_type": event.event_type,
         "priority": event.priority,
-        "status": getattr(event, 'status', 'pending'),  # 事件狀態
+        "status": getattr(event, 'status', 'pending'),
         "location": event.location,
         "document_id": event.document_id,
         "doc_number": doc_number,
-        "contract_project_name": contract_project_name,  # 新增：承攬案件名稱
+        "contract_project_name": contract_project_name,
         "assigned_user_id": event.assigned_user_id,
         "created_by": event.created_by,
         "google_event_id": getattr(event, 'google_event_id', None),
@@ -94,29 +100,30 @@ async def check_event_permission(
 
 
 async def get_user_project_doc_ids(db: AsyncSession, user_id: int) -> List[int]:
-    """取得使用者參與專案的公文 ID 列表"""
-    # 取得使用者參與的專案 ID 列表
+    """取得使用者參與專案的公文 ID 列表（ORM 安全查詢）"""
+    from app.extended.models import project_user_assignment
+
+    # Step 1: 取得使用者參與的專案 ID
     project_ids_result = await db.execute(
-        text("""
-            SELECT project_id FROM project_user_assignment
-            WHERE user_id = :user_id AND COALESCE(status, 'active') = 'active'
-        """),
-        {"user_id": user_id}
+        select(project_user_assignment.c.project_id)
+        .where(
+            and_(
+                project_user_assignment.c.user_id == user_id,
+                func.coalesce(project_user_assignment.c.status, 'active') == 'active'
+            )
+        )
     )
-    user_project_ids = [row.project_id for row in project_ids_result.fetchall()]
+    user_project_ids = [row[0] for row in project_ids_result.fetchall()]
 
     if not user_project_ids:
         return []
 
-    # 取得這些專案關聯的公文 ID
+    # Step 2: 取得這些專案關聯的公文 ID
     doc_ids_result = await db.execute(
-        text("""
-            SELECT id FROM documents
-            WHERE contract_project_id = ANY(:project_ids)
-        """),
-        {"project_ids": user_project_ids}
+        select(OfficialDocument.id)
+        .where(OfficialDocument.contract_project_id.in_(user_project_ids))
     )
-    return [row.id for row in doc_ids_result.fetchall()]
+    return [row[0] for row in doc_ids_result.fetchall()]
 
 
 # 重新匯出常用依賴
@@ -124,7 +131,7 @@ __all__ = [
     # FastAPI
     'Depends', 'HTTPException', 'status',
     # SQLAlchemy
-    'AsyncSession', 'select', 'or_', 'func', 'text', 'and_',
+    'AsyncSession', 'select', 'or_', 'func', 'and_',
     # 資料庫
     'get_async_db',
     # 認證

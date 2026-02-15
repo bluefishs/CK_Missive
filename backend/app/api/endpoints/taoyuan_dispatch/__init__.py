@@ -32,6 +32,7 @@ from .payments import router as payments_router
 from .master_control import router as master_control_router
 from .statistics import router as statistics_router
 from .attachments import router as attachments_router
+from .workflow import router as workflow_router
 
 # 建立主路由
 router = APIRouter(prefix="/taoyuan-dispatch", tags=["桃園派工管理"])
@@ -53,5 +54,8 @@ router.include_router(master_control_router)
 # 4. 統計與附件
 router.include_router(statistics_router)
 router.include_router(attachments_router)
+
+# 5. 作業歷程
+router.include_router(workflow_router)
 
 __all__ = ["router"]

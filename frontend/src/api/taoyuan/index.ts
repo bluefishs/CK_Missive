@@ -19,6 +19,7 @@ export { dispatchOrdersApi } from './dispatchOrders';
 export { contractPaymentsApi, masterControlApi, statisticsApi } from './payments';
 export { documentLinksApi, documentProjectLinksApi } from './documentLinks';
 export { projectLinksApi } from './projectLinks';
+export { workflowApi } from './workflow';
 export {
   dispatchAttachmentsApi,
   type DispatchAttachment,
@@ -43,6 +44,7 @@ import { contractPaymentsApi, masterControlApi, statisticsApi } from './payments
 import { documentLinksApi, documentProjectLinksApi } from './documentLinks';
 import { projectLinksApi } from './projectLinks';
 import { dispatchAttachmentsApi } from './attachments';
+import { workflowApi } from './workflow';
 
 /**
  * 桃園派工管理 API 統一入口
@@ -57,6 +59,7 @@ export const taoyuanDispatchApi = {
   documentProjectLinks: documentProjectLinksApi,
   projectLinks: projectLinksApi,
   attachments: dispatchAttachmentsApi,
+  workflow: workflowApi,
 };
 
 export default taoyuanDispatchApi;

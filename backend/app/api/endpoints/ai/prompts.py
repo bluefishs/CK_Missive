@@ -1,8 +1,9 @@
 """
 AI Prompt 版本管理 API 端點
 
-Version: 1.0.0
+Version: 2.0.0
 Created: 2026-02-08
+Updated: 2026-02-11 - 遷移至 Repository 層
 
 端點:
 - POST /ai/prompts/list - 列出所有 prompt 版本
@@ -12,98 +13,29 @@ Created: 2026-02-08
 """
 
 import logging
-from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
-from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_async_db, require_admin
 from app.extended.models import AIPromptVersion
+from app.repositories import AIPromptRepository
+from app.schemas.ai import (
+    PromptVersionItem,
+    PromptListRequest,
+    PromptListResponse,
+    PromptCreateRequest,
+    PromptCreateResponse,
+    PromptActivateRequest,
+    PromptActivateResponse,
+    PromptCompareRequest,
+    PromptDiff,
+    PromptCompareResponse,
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/prompts", tags=["AI Prompts"])
-
-
-# ============================================================================
-# Request / Response Models
-# ============================================================================
-
-
-class PromptVersionItem(BaseModel):
-    """Prompt 版本項目"""
-    id: int
-    feature: str
-    version: int
-    system_prompt: str
-    user_template: Optional[str] = None
-    is_active: bool
-    description: Optional[str] = None
-    created_by: Optional[str] = None
-    created_at: Optional[str] = None
-
-
-class PromptListRequest(BaseModel):
-    """列出 prompt 版本請求"""
-    feature: Optional[str] = Field(None, description="按功能名稱篩選")
-
-
-class PromptListResponse(BaseModel):
-    """列出 prompt 版本回應"""
-    items: List[PromptVersionItem]
-    total: int
-    features: List[str] = Field(description="所有可用的功能名稱")
-
-
-class PromptCreateRequest(BaseModel):
-    """新增 prompt 版本請求"""
-    feature: str = Field(..., description="功能名稱")
-    system_prompt: str = Field(..., min_length=1, description="系統提示詞")
-    user_template: Optional[str] = Field(None, description="使用者提示詞模板")
-    description: Optional[str] = Field(None, description="版本說明")
-    activate: bool = Field(False, description="是否立即啟用")
-
-
-class PromptCreateResponse(BaseModel):
-    """新增 prompt 版本回應"""
-    success: bool
-    item: PromptVersionItem
-    message: str
-
-
-class PromptActivateRequest(BaseModel):
-    """啟用 prompt 版本請求"""
-    id: int = Field(..., description="要啟用的版本 ID")
-
-
-class PromptActivateResponse(BaseModel):
-    """啟用 prompt 版本回應"""
-    success: bool
-    message: str
-    activated: PromptVersionItem
-
-
-class PromptCompareRequest(BaseModel):
-    """比較 prompt 版本請求"""
-    id_a: int = Field(..., description="版本 A 的 ID")
-    id_b: int = Field(..., description="版本 B 的 ID")
-
-
-class PromptDiff(BaseModel):
-    """版本差異"""
-    field: str
-    value_a: Optional[str] = None
-    value_b: Optional[str] = None
-    changed: bool
-
-
-class PromptCompareResponse(BaseModel):
-    """比較 prompt 版本回應"""
-    version_a: PromptVersionItem
-    version_b: PromptVersionItem
-    diffs: List[PromptDiff]
 
 
 # ============================================================================
@@ -145,17 +77,8 @@ async def list_prompt_versions(
 
     支援按 feature 篩選。需要管理員權限。
     """
-    query = select(AIPromptVersion).order_by(
-        AIPromptVersion.feature,
-        AIPromptVersion.version.desc(),
-    )
-
-    if request.feature:
-        query = query.where(AIPromptVersion.feature == request.feature)
-
-    result = await db.execute(query)
-    versions = result.scalars().all()
-
+    repo = AIPromptRepository(db)
+    versions = await repo.list_by_feature(feature=request.feature)
     items = [_model_to_item(v) for v in versions]
 
     return PromptListResponse(
@@ -185,39 +108,26 @@ async def create_prompt_version(
             detail=f"不支援的功能名稱: {request.feature}，支援: {', '.join(SUPPORTED_FEATURES)}"
         )
 
+    repo = AIPromptRepository(db)
+
     # 計算新版本號
-    max_version_query = (
-        select(AIPromptVersion.version)
-        .where(AIPromptVersion.feature == request.feature)
-        .order_by(AIPromptVersion.version.desc())
-        .limit(1)
-    )
-    max_version_result = await db.execute(max_version_query)
-    max_version = max_version_result.scalar()
-    new_version = (max_version or 0) + 1
+    new_version = await repo.get_next_version(request.feature)
 
     # 如果要啟用，先停用同 feature 的其他版本
     if request.activate:
-        await db.execute(
-            update(AIPromptVersion)
-            .where(AIPromptVersion.feature == request.feature)
-            .values(is_active=False)
-        )
+        await repo.deactivate_feature(request.feature)
 
     # 建立新版本
     created_by = getattr(current_user, 'email', None) or getattr(current_user, 'username', 'system')
-    new_prompt = AIPromptVersion(
-        feature=request.feature,
-        version=new_version,
-        system_prompt=request.system_prompt,
-        user_template=request.user_template,
-        is_active=request.activate,
-        description=request.description,
-        created_by=created_by,
-    )
-    db.add(new_prompt)
-    await db.commit()
-    await db.refresh(new_prompt)
+    new_prompt = await repo.create({
+        "feature": request.feature,
+        "version": new_version,
+        "system_prompt": request.system_prompt,
+        "user_template": request.user_template,
+        "is_active": request.activate,
+        "description": request.description,
+        "created_by": created_by,
+    })
 
     # 如果啟用了新版本，清除 DocumentAIService 的快取
     if request.activate:
@@ -247,22 +157,11 @@ async def activate_prompt_version(
 
     自動停用同 feature 的其他版本。需要管理員權限。
     """
-    # 查詢目標版本
-    target = await db.get(AIPromptVersion, request.id)
+    repo = AIPromptRepository(db)
+    target = await repo.activate_version(request.id)
+
     if not target:
         raise HTTPException(status_code=404, detail=f"找不到 Prompt 版本 ID={request.id}")
-
-    # 停用同 feature 的所有版本
-    await db.execute(
-        update(AIPromptVersion)
-        .where(AIPromptVersion.feature == target.feature)
-        .values(is_active=False)
-    )
-
-    # 啟用目標版本
-    target.is_active = True
-    await db.commit()
-    await db.refresh(target)
 
     # 清除快取
     _invalidate_prompt_cache()
@@ -290,8 +189,9 @@ async def compare_prompt_versions(
 
     需要管理員權限。
     """
-    version_a = await db.get(AIPromptVersion, request.id_a)
-    version_b = await db.get(AIPromptVersion, request.id_b)
+    repo = AIPromptRepository(db)
+    version_a = await repo.get_by_id(request.id_a)
+    version_b = await repo.get_by_id(request.id_b)
 
     if not version_a:
         raise HTTPException(status_code=404, detail=f"找不到 Prompt 版本 ID={request.id_a}")
@@ -301,7 +201,6 @@ async def compare_prompt_versions(
     # 計算差異
     diffs: List[PromptDiff] = []
 
-    # system_prompt 差異
     diffs.append(PromptDiff(
         field="system_prompt",
         value_a=version_a.system_prompt,
@@ -309,7 +208,6 @@ async def compare_prompt_versions(
         changed=version_a.system_prompt != version_b.system_prompt,
     ))
 
-    # user_template 差異
     diffs.append(PromptDiff(
         field="user_template",
         value_a=version_a.user_template,
@@ -317,7 +215,6 @@ async def compare_prompt_versions(
         changed=version_a.user_template != version_b.user_template,
     ))
 
-    # description 差異
     diffs.append(PromptDiff(
         field="description",
         value_a=version_a.description,
@@ -333,12 +230,9 @@ async def compare_prompt_versions(
 
 
 def _invalidate_prompt_cache() -> None:
-    """清除 DocumentAIService 的 prompt 快取，強制重新載入"""
+    """清除 AIPromptManager 的 prompt 快取，強制重新載入"""
     try:
-        from app.services.ai.document_ai_service import DocumentAIService
-        DocumentAIService._prompts = None
-        DocumentAIService._db_prompt_cache = None
-        DocumentAIService._db_prompts_loaded = False
-        logger.info("已清除 Prompt 快取")
+        from app.services.ai.ai_prompt_manager import AIPromptManager
+        AIPromptManager.invalidate_prompt_cache()
     except Exception as e:
         logger.warning(f"清除 Prompt 快取失敗: {e}")

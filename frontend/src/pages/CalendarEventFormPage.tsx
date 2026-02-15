@@ -1,15 +1,16 @@
 /**
  * 日曆事件表單頁面（導航模式）
  *
- * 用於編輯日曆事件，遵循系統 UI 規範採用導航模式而非 Modal。
- * 支援從不同頁面導航並正確返回。
+ * 支援新建與編輯模式：
+ * - 新建: /calendar/event/new (可帶 ?documentId=xxx query param)
+ * - 編輯: /calendar/event/:id/edit
  *
- * @version 1.0.0
- * @date 2026-01-28
+ * @version 2.0.0
+ * @date 2026-02-11
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { ResponsiveContent } from '../components/common';
 import {
   Card,
@@ -36,6 +37,7 @@ import {
   FileTextOutlined,
   SaveOutlined,
   ArrowLeftOutlined,
+  PlusOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import debounce from 'lodash/debounce';
@@ -43,6 +45,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { logger } from '../services/logger';
 
 import { apiClient } from '../api/client';
+import { API_ENDPOINTS } from '../api/endpoints';
 import type { CalendarEvent } from '../api/calendarApi';
 import { EVENT_TYPE_OPTIONS, PRIORITY_OPTIONS } from '../components/calendar/form/types';
 
@@ -67,12 +70,17 @@ const CalendarEventFormPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const [form] = Form.useForm();
   const { message, notification } = App.useApp();
   const queryClient = useQueryClient();
 
-  // 從 location.state 取得返回路徑
+  // 判斷模式：無 id 或路徑含 /new = 新建模式
+  const isNew = !id;
+
+  // 從 location.state 或 query param 取得關聯公文 ID
   const returnTo = (location.state as { returnTo?: string })?.returnTo;
+  const presetDocumentId = searchParams.get('documentId');
 
   // 本地狀態
   const [allDay, setAllDay] = useState(false);
@@ -80,24 +88,55 @@ const CalendarEventFormPage: React.FC = () => {
   const [documentSearching, setDocumentSearching] = useState(false);
   const [documentSearchError, setDocumentSearchError] = useState<string | null>(null);
 
-  // 查詢事件資料
+  // 查詢事件資料（僅編輯模式）
   const { data: event, isLoading } = useQuery({
     queryKey: ['calendar-event', id],
     queryFn: async () => {
       const response = await apiClient.post<{
         success: boolean;
-        event: CalendarEvent;
-      }>('/calendar/events/get', { event_id: parseInt(id || '0', 10) });
-      return response.event;
+        event: Record<string, unknown>;
+      }>(API_ENDPOINTS.CALENDAR.EVENTS_DETAIL, { event_id: parseInt(id || '0', 10) });
+      const raw = response.event;
+      return {
+        ...raw,
+        start_datetime: raw.start_date as string,
+        end_datetime: raw.end_date as string,
+      } as CalendarEvent;
     },
-    enabled: !!id,
+    enabled: !isNew && !!id,
+  });
+
+  // 建立事件 mutation
+  const createMutation = useMutation({
+    mutationFn: async (data: Record<string, unknown>) => {
+      const response = await apiClient.post<{ success: boolean; message: string; event_id?: number }>(
+        API_ENDPOINTS.CALENDAR.EVENTS_CREATE,
+        data
+      );
+      if (!response.success) {
+        throw new Error(response.message || '建立失敗');
+      }
+      return response;
+    },
+    onSuccess: () => {
+      message.success('事件建立成功');
+      queryClient.invalidateQueries({ queryKey: ['calendar', 'events'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardCalendar'] });
+      handleBack();
+    },
+    onError: (error: Error) => {
+      notification.error({
+        message: '建立事件失敗',
+        description: error.message || '請稍後再試',
+      });
+    },
   });
 
   // 更新事件 mutation
   const updateMutation = useMutation({
     mutationFn: async (data: Record<string, unknown>) => {
       const response = await apiClient.post<{ success: boolean; message: string }>(
-        '/calendar/events/update',
+        API_ENDPOINTS.CALENDAR.EVENTS_UPDATE,
         { event_id: parseInt(id || '0', 10), ...data }
       );
       if (!response.success) {
@@ -107,10 +146,8 @@ const CalendarEventFormPage: React.FC = () => {
     },
     onSuccess: () => {
       message.success('事件更新成功');
-      // 使快取失效
       queryClient.invalidateQueries({ queryKey: ['calendar', 'events'] });
       queryClient.invalidateQueries({ queryKey: ['dashboardCalendar'] });
-      // 導航返回
       handleBack();
     },
     onError: (error: Error) => {
@@ -121,9 +158,11 @@ const CalendarEventFormPage: React.FC = () => {
     },
   });
 
-  // 初始化表單
+  const saveMutation = isNew ? createMutation : updateMutation;
+
+  // 初始化表單（編輯模式）
   useEffect(() => {
-    if (event) {
+    if (event && !isNew) {
       form.setFieldsValue({
         title: event.title,
         description: event.description,
@@ -138,7 +177,6 @@ const CalendarEventFormPage: React.FC = () => {
         document_id: event.document_id,
       });
       setAllDay(event.all_day ?? false);
-      // 設定已關聯的公文選項
       if (event.document_id) {
         setDocumentOptions([{
           id: event.document_id,
@@ -147,7 +185,37 @@ const CalendarEventFormPage: React.FC = () => {
         }]);
       }
     }
-  }, [event, form]);
+  }, [event, form, isNew]);
+
+  // 新建模式：預設關聯公文（從 query param）
+  useEffect(() => {
+    if (isNew && presetDocumentId) {
+      const docId = parseInt(presetDocumentId, 10);
+      if (!isNaN(docId)) {
+        form.setFieldsValue({ document_id: docId });
+        // 查詢公文資訊顯示在選項中
+        apiClient.post<{
+          success: boolean;
+          items: Array<{ id: number; doc_number: string; subject?: string }>;
+        }>(API_ENDPOINTS.DOCUMENTS.LIST, { keyword: '', limit: 1, page: 1, id: docId })
+          .then(response => {
+            const firstItem = response.items?.[0];
+            if (response.success && firstItem) {
+              setDocumentOptions([{
+                id: firstItem.id,
+                doc_number: firstItem.doc_number,
+                subject: firstItem.subject || '',
+              }]);
+            } else {
+              setDocumentOptions([{ id: docId, doc_number: `公文 #${docId}`, subject: '' }]);
+            }
+          })
+          .catch(() => {
+            setDocumentOptions([{ id: docId, doc_number: `公文 #${docId}`, subject: '' }]);
+          });
+      }
+    }
+  }, [isNew, presetDocumentId, form]);
 
   // 公文搜尋
   const searchDocuments = useCallback(
@@ -168,7 +236,7 @@ const CalendarEventFormPage: React.FC = () => {
             doc_number: string;
             subject?: string;
           }>;
-        }>('/documents-enhanced/list', {
+        }>(API_ENDPOINTS.DOCUMENTS.LIST, {
           keyword,
           limit: 20,
           page: 1,
@@ -218,13 +286,13 @@ const CalendarEventFormPage: React.FC = () => {
         document_id: values.document_id || null,
       };
 
-      updateMutation.mutate(submitData);
-    } catch (error) {
+      saveMutation.mutate(submitData);
+    } catch {
       // form validation error - 不需額外處理
     }
   };
 
-  if (isLoading) {
+  if (!isNew && isLoading) {
     return (
       <ResponsiveContent maxWidth="full" padding="medium" style={{ textAlign: 'center' }}>
         <Spin size="large" />
@@ -247,8 +315,8 @@ const CalendarEventFormPage: React.FC = () => {
             </Button>
           </Space>
           <Title level={4} style={{ margin: 0 }}>
-            <CalendarOutlined style={{ marginRight: 8 }} />
-            編輯日曆事件
+            {isNew ? <PlusOutlined style={{ marginRight: 8 }} /> : <CalendarOutlined style={{ marginRight: 8 }} />}
+            {isNew ? '新增日曆事件' : '編輯日曆事件'}
           </Title>
         </div>
 
@@ -267,7 +335,12 @@ const CalendarEventFormPage: React.FC = () => {
             label="事件標題"
             rules={[{ required: true, message: '請輸入事件標題' }]}
           >
-            <Input placeholder="輸入事件標題" maxLength={200} showCount />
+            <TextArea
+              placeholder="輸入事件標題"
+              maxLength={200}
+              showCount
+              autoSize={{ minRows: 1, maxRows: 3 }}
+            />
           </Form.Item>
 
           <Form.Item name="description" label="事件描述">
@@ -335,7 +408,22 @@ const CalendarEventFormPage: React.FC = () => {
               </Form.Item>
             </Col>
             <Col xs={24} sm={12}>
-              <Form.Item name="end_date" label="結束時間">
+              <Form.Item
+                name="end_date"
+                label="結束時間"
+                rules={[
+                  {
+                    validator: (_, value) => {
+                      if (!value) return Promise.resolve();
+                      const startDate = form.getFieldValue('start_date');
+                      if (startDate && value.isBefore(startDate)) {
+                        return Promise.reject('結束時間不能早於開始時間');
+                      }
+                      return Promise.resolve();
+                    },
+                  },
+                ]}
+              >
                 <DatePicker
                   showTime={!allDay}
                   format={allDay ? 'YYYY-MM-DD' : 'YYYY-MM-DD HH:mm'}
@@ -408,12 +496,12 @@ const CalendarEventFormPage: React.FC = () => {
               <Button onClick={handleBack}>取消</Button>
               <Button
                 type="primary"
-                icon={<SaveOutlined />}
-                loading={updateMutation.isPending}
-                disabled={updateMutation.isPending}
+                icon={isNew ? <PlusOutlined /> : <SaveOutlined />}
+                loading={saveMutation.isPending}
+                disabled={saveMutation.isPending}
                 onClick={handleSave}
               >
-                儲存
+                {isNew ? '建立' : '儲存'}
               </Button>
             </Space>
           </Row>

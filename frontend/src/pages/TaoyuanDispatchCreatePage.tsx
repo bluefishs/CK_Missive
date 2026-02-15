@@ -128,7 +128,8 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
       const { paymentData, ...dispatchData } = data;
       const result = await dispatchOrdersApi.create(dispatchData);
 
-      // 如果有契金資料，一併建立契金記錄
+      // 如果有契金資料，一併建立契金記錄（獨立 try-catch，避免影響派工單建立）
+      let paymentError = false;
       if (paymentData && Object.values(paymentData).some((v) => v !== undefined && v !== 0)) {
         const currentAmount =
           (paymentData.work_01_amount || 0) +
@@ -140,18 +141,27 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
           (paymentData.work_07_amount || 0);
 
         if (currentAmount > 0) {
-          await contractPaymentsApi.create({
-            dispatch_order_id: result.id,
-            ...paymentData,
-            current_amount: currentAmount,
-          } as ContractPaymentCreate);
+          try {
+            await contractPaymentsApi.create({
+              dispatch_order_id: result.id,
+              ...paymentData,
+              current_amount: currentAmount,
+            } as ContractPaymentCreate);
+          } catch (err) {
+            paymentError = true;
+            logger.error('契金記錄建立失敗（派工單已建立）:', err);
+          }
         }
       }
 
-      return result;
+      return { ...result, paymentError };
     },
     onSuccess: (result) => {
-      message.success('派工單新增成功');
+      if (result.paymentError) {
+        message.warning('派工單已建立，但契金記錄儲存失敗，請至詳情頁重新編輯');
+      } else {
+        message.success('派工單新增成功');
+      }
       queryClient.invalidateQueries({ queryKey: ['taoyuan-dispatch-orders'] });
       navigate(`/taoyuan/dispatch/${result.id}`);
     },

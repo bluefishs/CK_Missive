@@ -9,6 +9,7 @@ import { Form, App, Grid } from 'antd';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import { apiClient } from '../../../api/client';
+import { API_ENDPOINTS } from '../../../api/endpoints';
 import type { ReminderConfig, DocumentInfo } from './types';
 import { REMINDER_TIME_OPTIONS } from './types';
 import { logger } from '../../../services/logger';
@@ -93,7 +94,7 @@ export function useIntegratedEvent(
         event_count: number;
         events: Array<{ id: number; title: string; start_date: string }>;
         message: string;
-      }>('/calendar/events/check-document', { document_id: documentId });
+      }>(API_ENDPOINTS.CALENDAR.EVENTS_CHECK_DOCUMENT, { document_id: documentId });
 
       if (response.has_events && response.event_count > 0) {
         setExistingEvents(response.events);
@@ -231,7 +232,7 @@ export function useIntegratedEvent(
         message: string;
         event_id?: number;
         google_event_id?: string;
-      }>('/calendar/events/create-with-reminders', submitData);
+      }>(API_ENDPOINTS.CALENDAR.EVENTS_CREATE_WITH_REMINDERS, submitData);
 
       if (response.success) {
         notification.success({

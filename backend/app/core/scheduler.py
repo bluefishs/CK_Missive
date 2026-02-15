@@ -38,8 +38,8 @@ async def process_pending_reminders_job():
 
     try:
         async with async_session_maker() as db:
-            service = ReminderService()
-            stats = await service.process_pending_reminders(db)
+            service = ReminderService(db)
+            stats = await service.process_pending_reminders()
             logger.info(f"提醒處理完成: 總數={stats['total']}, 成功={stats['sent']}, 失敗={stats['failed']}")
     except Exception as e:
         logger.error(f"提醒處理排程任務失敗: {e}", exc_info=True)

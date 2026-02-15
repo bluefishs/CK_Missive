@@ -25,6 +25,7 @@ import logging
 from typing import List, Optional, TYPE_CHECKING
 from datetime import date
 
+import sqlalchemy as sa
 from sqlalchemy import select, or_, and_, desc, asc, func, literal_column
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import Select
@@ -255,7 +256,7 @@ class DocumentQueryBuilder:
 
     def with_keyword(self, keyword: str) -> 'DocumentQueryBuilder':
         """
-        關鍵字搜尋（主旨、公文字號、發文單位、備註）
+        關鍵字搜尋（主旨、公文字號、發文單位、受文單位、備註、乾坤備註）
 
         Args:
             keyword: 搜尋關鍵字
@@ -267,6 +268,7 @@ class DocumentQueryBuilder:
                 self.model.doc_number.ilike(search_pattern),
                 self.model.sender.ilike(search_pattern),
                 self.model.receiver.ilike(search_pattern),
+                self.model.notes.ilike(search_pattern),
                 self.model.ck_note.ilike(search_pattern),
             )
         )
@@ -274,7 +276,7 @@ class DocumentQueryBuilder:
 
     def with_keyword_full(self, keyword: str) -> 'DocumentQueryBuilder':
         """
-        全欄位關鍵字搜尋（含 content 欄位，供 AI 搜尋使用）
+        全欄位關鍵字搜尋（含 content、notes 欄位，供 AI 搜尋使用）
 
         Args:
             keyword: 搜尋關鍵字
@@ -287,6 +289,7 @@ class DocumentQueryBuilder:
                 self.model.sender.ilike(search_pattern),
                 self.model.receiver.ilike(search_pattern),
                 self.model.content.ilike(search_pattern),
+                self.model.notes.ilike(search_pattern),
                 self.model.ck_note.ilike(search_pattern),
             )
         )
@@ -309,6 +312,7 @@ class DocumentQueryBuilder:
                     self.model.sender.ilike(pattern),
                     self.model.receiver.ilike(pattern),
                     self.model.content.ilike(pattern),
+                    self.model.notes.ilike(pattern),
                     self.model.ck_note.ilike(pattern),
                 )
             )
@@ -441,8 +445,8 @@ class DocumentQueryBuilder:
         self._semantic_embedding = embedding
         self._semantic_weight = weight
         self._trigram_weight = 1.0 - weight
-        # 過濾只有 embedding 的文件
-        self._conditions.append(self.model.embedding.isnot(None))
+        # 不過濾 embedding IS NOT NULL — 過渡期間未回填的文件仍應出現在結果中
+        # 排序時使用 CASE WHEN 安全處理 NULL embedding（semantic_score = 0）
         return self
 
     # =========================================================================
@@ -537,9 +541,11 @@ class DocumentQueryBuilder:
                 func.similarity(self.model.subject, self._similarity_text),
                 func.similarity(self.model.sender, self._similarity_text),
             )
-            # cosine_distance 返回 0~2 (0=完全相同)，轉為相似度 (1 - distance)
-            semantic_score = (
-                1.0 - self.model.embedding.cosine_distance(self._semantic_embedding)
+            # CASE WHEN 安全處理 NULL embedding（過渡期間未回填的文件 semantic_score = 0）
+            semantic_score = sa.case(
+                (self.model.embedding.isnot(None),
+                 1.0 - self.model.embedding.cosine_distance(self._semantic_embedding)),
+                else_=sa.literal(0.0),
             )
             hybrid_score = (
                 literal_column(str(self._trigram_weight)) * trigram_score
@@ -547,9 +553,13 @@ class DocumentQueryBuilder:
             )
             query = query.order_by(desc(hybrid_score), desc(self.model.updated_at))
         elif self._semantic_embedding and not self._order_columns:
-            # 純語意搜尋模式: 僅使用 pgvector cosine distance
+            # 純語意搜尋模式: 僅使用 pgvector cosine distance（僅限有 embedding 的文件）
             query = query.order_by(
-                self.model.embedding.cosine_distance(self._semantic_embedding),
+                sa.case(
+                    (self.model.embedding.isnot(None),
+                     self.model.embedding.cosine_distance(self._semantic_embedding)),
+                    else_=sa.literal(2.0),
+                ),
                 desc(self.model.updated_at),
             )
         elif self._similarity_text and not self._order_columns:

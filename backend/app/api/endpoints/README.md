@@ -21,7 +21,7 @@
 | 檔案 | 說明 | 路由前綴 |
 |------|------|----------|
 | `document_calendar.py` | 文件行事曆 | `/api/document-calendar` |
-| `reminder_management.py` | 提醒管理 | `/api/reminders` |
+| `reminders/` | 提醒管理 (模組化) | `/api/reminder-management` |
 | `system_notifications.py` | 系統通知 | `/api/notifications` |
 | `project_notifications.py` | 專案通知 | `/api/project-notifications` |
 

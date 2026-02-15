@@ -1,6 +1,9 @@
 """
 多層級提醒服務
 管理事件的多重提醒機制，支援不同時間點和通知方式
+
+Version: 2.0.0
+Updated: 2026-02-11 — 遷移至工廠模式 (db 在建構時注入)
 """
 import logging
 from datetime import datetime, timedelta
@@ -15,11 +18,17 @@ from app.services.notification_service import NotificationService
 logger = logging.getLogger(__name__)
 
 class ReminderService:
-    """多層級提醒服務"""
+    """多層級提醒服務（工廠模式 v2.0.0）"""
 
-    def __init__(self) -> None:
-        """初始化提醒服務"""
-        self.notification_service: NotificationService = NotificationService()
+    def __init__(self, db: AsyncSession) -> None:
+        """
+        初始化提醒服務
+
+        Args:
+            db: AsyncSession 資料庫連線
+        """
+        self.db = db
+        self.notification_service: NotificationService = NotificationService(db)
 
     # 預設提醒配置模板（統一一天前email提醒）
     DEFAULT_REMINDER_TEMPLATES = {
@@ -40,19 +49,20 @@ class ReminderService:
 
     async def create_multi_level_reminders(
         self,
-        db: AsyncSession,
         event: DocumentCalendarEvent,
         custom_template: Optional[List[Dict[str, Any]]] = None,
-        additional_recipients: Optional[List[int]] = None
+        additional_recipients: Optional[List[int]] = None,
+        # 向後相容：接受但忽略 db 參數
+        db: Optional[AsyncSession] = None,
     ) -> List[EventReminder]:
         """
         為事件創建多層級提醒
 
         Args:
-            db: 資料庫會話
             event: 行事曆事件
             custom_template: 自訂提醒模板
             additional_recipients: 額外收件人ID列表
+            db: (已棄用) 保留向後相容，傳入時忽略
 
         Returns:
             創建的提醒列表
@@ -100,21 +110,21 @@ class ReminderService:
                         status="pending"
                     )
 
-                    db.add(reminder)
+                    self.db.add(reminder)
                     created_reminders.append(reminder)
 
-            await db.commit()
+            await self.db.commit()
 
             # 刷新提醒以獲取生成的ID
             for reminder in created_reminders:
-                await db.refresh(reminder)
+                await self.db.refresh(reminder)
 
             logger.info(f"成功為事件 {event.id} 創建 {len(created_reminders)} 個多層級提醒")
             return created_reminders
 
         except Exception as e:
             logger.error(f"創建多層級提醒失敗: {e}", exc_info=True)
-            await db.rollback()
+            await self.db.rollback()
             raise
 
     def _build_reminder_message(
@@ -155,14 +165,14 @@ class ReminderService:
 
     async def get_pending_reminders(
         self,
-        db: AsyncSession,
-        check_time: Optional[datetime] = None
+        check_time: Optional[datetime] = None,
+        # 向後相容
+        db: Optional[AsyncSession] = None,
     ) -> List[EventReminder]:
         """
         獲取需要發送的待處理提醒
 
         Args:
-            db: 資料庫會話
             check_time: 檢查時間點，默認為當前時間
 
         Returns:
@@ -171,7 +181,7 @@ class ReminderService:
         if check_time is None:
             check_time = datetime.now()
 
-        result = await db.execute(
+        result = await self.db.execute(
             select(EventReminder)
             .options(selectinload(EventReminder.event), selectinload(EventReminder.recipient_user))
             .where(
@@ -191,14 +201,14 @@ class ReminderService:
 
     async def send_reminder(
         self,
-        db: AsyncSession,
-        reminder: EventReminder
+        reminder: EventReminder,
+        # 向後相容
+        db: Optional[AsyncSession] = None,
     ) -> bool:
         """
         發送單一提醒
 
         Args:
-            db: 資料庫會話
             reminder: 提醒對象
 
         Returns:
@@ -223,15 +233,15 @@ class ReminderService:
                 reminder.sent_at = datetime.now()
                 logger.info(f"提醒 {reminder.id} 發送成功")
             else:
-                await self._handle_failed_reminder(db, reminder)
+                await self._handle_failed_reminder(reminder)
 
-            await db.commit()
+            await self.db.commit()
             return success
 
         except Exception as e:
             logger.error(f"發送提醒 {reminder.id} 失敗: {e}", exc_info=True)
-            await self._handle_failed_reminder(db, reminder)
-            await db.commit()
+            await self._handle_failed_reminder(reminder)
+            await self.db.commit()
             return False
 
     async def _send_email_reminder(self, reminder: EventReminder) -> bool:
@@ -282,7 +292,7 @@ class ReminderService:
             logger.error(f"發送系統提醒失敗: {e}")
             return False
 
-    async def _handle_failed_reminder(self, db: AsyncSession, reminder: EventReminder) -> None:
+    async def _handle_failed_reminder(self, reminder: EventReminder) -> None:
         """處理發送失敗的提醒"""
         reminder.retry_count += 1
 
@@ -295,7 +305,11 @@ class ReminderService:
             reminder.next_retry_at = datetime.now() + timedelta(seconds=retry_delay)
             logger.info(f"提醒 {reminder.id} 將在 {retry_delay} 秒後重試")
 
-    async def process_pending_reminders(self, db: AsyncSession) -> Dict[str, int]:
+    async def process_pending_reminders(
+        self,
+        # 向後相容
+        db: Optional[AsyncSession] = None,
+    ) -> Dict[str, int]:
         """
         批量處理待發送的提醒
 
@@ -303,7 +317,7 @@ class ReminderService:
             處理結果統計
         """
         try:
-            pending_reminders = await self.get_pending_reminders(db)
+            pending_reminders = await self.get_pending_reminders()
 
             stats = {
                 "total": len(pending_reminders),
@@ -316,7 +330,7 @@ class ReminderService:
                 if reminder.retry_count > 0:
                     stats["retries"] += 1
 
-                success = await self.send_reminder(db, reminder)
+                success = await self.send_reminder(reminder)
                 if success:
                     stats["sent"] += 1
                 else:
@@ -331,15 +345,15 @@ class ReminderService:
 
     async def update_reminder_template(
         self,
-        db: AsyncSession,
         event_id: int,
-        new_template: List[Dict[str, Any]]
+        new_template: List[Dict[str, Any]],
+        # 向後相容
+        db: Optional[AsyncSession] = None,
     ) -> bool:
         """
         更新事件的提醒模板
 
         Args:
-            db: 資料庫會話
             event_id: 事件ID
             new_template: 新的提醒模板
 
@@ -348,7 +362,7 @@ class ReminderService:
         """
         try:
             # 刪除現有的未發送提醒
-            await db.execute(
+            await self.db.execute(
                 EventReminder.__table__.delete().where(
                     and_(
                         EventReminder.event_id == event_id,
@@ -358,7 +372,7 @@ class ReminderService:
             )
 
             # 獲取事件
-            result = await db.execute(
+            result = await self.db.execute(
                 select(DocumentCalendarEvent).where(DocumentCalendarEvent.id == event_id)
             )
             event = result.scalar_one_or_none()
@@ -367,22 +381,23 @@ class ReminderService:
                 return False
 
             # 重新創建提醒
-            await self.create_multi_level_reminders(db, event, new_template)
+            await self.create_multi_level_reminders(event, new_template)
             return True
 
         except Exception as e:
             logger.error(f"更新提醒模板失敗: {e}", exc_info=True)
-            await db.rollback()
+            await self.db.rollback()
             return False
 
     async def get_event_reminders_status(
         self,
-        db: AsyncSession,
-        event_id: int
+        event_id: int,
+        # 向後相容
+        db: Optional[AsyncSession] = None,
     ) -> Dict[str, Any]:
         """獲取事件的提醒狀態統計"""
         try:
-            result = await db.execute(
+            result = await self.db.execute(
                 select(EventReminder).where(EventReminder.event_id == event_id)
             )
             reminders = result.scalars().all()

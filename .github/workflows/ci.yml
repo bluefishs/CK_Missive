@@ -1,14 +1,15 @@
 name: CI
 
-# 自動觸發已停用以節省 GitHub Actions 費用 (2026-02-09)
-# 如需恢復，取消下方註解並移除 workflow_dispatch
-# on:
-#   push:
-#     branches: [main, develop]
-#   pull_request:
-#     branches: [main, develop]
+# CI 自動觸發已恢復 (2026-02-13)
+# - PR 觸發：確保合併前程式碼品質
+# - 每夜排程：台灣凌晨 2:00 (UTC 18:00) 全面檢查
+# - 手動觸發：保留 workflow_dispatch 供臨時使用
 
 on:
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    - cron: '0 18 * * *'
   workflow_dispatch:
     inputs:
       run_all:

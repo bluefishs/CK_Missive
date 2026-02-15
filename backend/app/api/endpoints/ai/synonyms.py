@@ -1,8 +1,9 @@
 """
 AI 同義詞管理 API 端點
 
-Version: 1.0.0
+Version: 2.0.0
 Created: 2026-02-08
+Updated: 2026-02-11 - 遷移至 Repository 層
 
 端點:
 - POST /ai/synonyms/list - 列出所有同義詞群組（支援分類篩選）
@@ -13,14 +14,13 @@ Created: 2026-02-08
 """
 
 import logging
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, distinct, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_async_db, require_admin
-from app.extended.models import AISynonym, User
+from app.extended.models import User
+from app.repositories import AISynonymRepository
 from app.schemas.ai import (
     AISynonymCreate,
     AISynonymUpdate,
@@ -47,23 +47,13 @@ async def list_synonyms(
 
     支援依分類與啟用狀態篩選。
     """
-    query = select(AISynonym)
+    repo = AISynonymRepository(db)
 
-    if request.category:
-        query = query.where(AISynonym.category == request.category)
-
-    if request.is_active is not None:
-        query = query.where(AISynonym.is_active == request.is_active)
-
-    query = query.order_by(AISynonym.category, AISynonym.id)
-
-    result = await db.execute(query)
-    synonyms = result.scalars().all()
-
-    # 取得所有分類
-    cat_query = select(distinct(AISynonym.category)).order_by(AISynonym.category)
-    cat_result = await db.execute(cat_query)
-    categories = [row[0] for row in cat_result.fetchall()]
+    synonyms = await repo.list_filtered(
+        category=request.category,
+        is_active=request.is_active,
+    )
+    categories = await repo.get_all_categories()
 
     items = [AISynonymResponse.model_validate(s) for s in synonyms]
 
@@ -92,14 +82,12 @@ async def create_synonym(
     if not cleaned_words:
         raise HTTPException(status_code=400, detail="同義詞列表不可為空")
 
-    synonym = AISynonym(
-        category=request.category.strip(),
-        words=cleaned_words,
-        is_active=request.is_active,
-    )
-    db.add(synonym)
-    await db.commit()
-    await db.refresh(synonym)
+    repo = AISynonymRepository(db)
+    synonym = await repo.create({
+        "category": request.category.strip(),
+        "words": cleaned_words,
+        "is_active": request.is_active,
+    })
 
     logger.info(
         f"管理員 {current_user.username} 新增同義詞群組: "
@@ -118,10 +106,8 @@ async def update_synonym(
     """
     更新同義詞群組
     """
-    result = await db.execute(
-        select(AISynonym).where(AISynonym.id == request.id)
-    )
-    synonym = result.scalar_one_or_none()
+    repo = AISynonymRepository(db)
+    synonym = await repo.get_by_id(request.id)
 
     if not synonym:
         raise HTTPException(status_code=404, detail=f"找不到 ID={request.id} 的同義詞群組")
@@ -160,18 +146,15 @@ async def delete_synonym(
     """
     刪除同義詞群組
     """
-    result = await db.execute(
-        select(AISynonym).where(AISynonym.id == request.id)
-    )
-    synonym = result.scalar_one_or_none()
+    repo = AISynonymRepository(db)
+    synonym = await repo.get_by_id(request.id)
 
     if not synonym:
         raise HTTPException(status_code=404, detail=f"找不到 ID={request.id} 的同義詞群組")
 
     category = synonym.category
     words = synonym.words
-    await db.delete(synonym)
-    await db.commit()
+    await repo.delete(request.id)
 
     logger.info(
         f"管理員 {current_user.username} 刪除同義詞群組 ID={request.id}: "
@@ -189,29 +172,16 @@ async def reload_synonyms(
     """
     重新載入同義詞到記憶體
 
-    從資料庫讀取所有啟用的同義詞群組，重建 DocumentAIService 的快取。
+    從資料庫讀取所有啟用的同義詞群組，重建 AIPromptManager 的快取。
     """
-    from app.services.ai.document_ai_service import DocumentAIService
+    from app.services.ai.ai_prompt_manager import AIPromptManager
 
     try:
-        # 從 DB 載入啟用的同義詞
-        result = await db.execute(
-            select(AISynonym).where(AISynonym.is_active == True).order_by(AISynonym.category)  # noqa: E712
-        )
-        db_synonyms = result.scalars().all()
+        repo = AISynonymRepository(db)
+        db_synonyms = await repo.get_active_synonyms()
 
-        # 建立查找索引
-        lookup = {}
-        total_words = 0
-        for synonym in db_synonyms:
-            words = [w.strip() for w in synonym.words.split(",") if w.strip()]
-            total_words += len(words)
-            for word in words:
-                lookup[word] = words
-
-        # 更新 class-level 快取
-        DocumentAIService._synonym_lookup = lookup
-        DocumentAIService._synonyms = None  # 清除 YAML 快取
+        # 使用 AIPromptManager 重建查找索引
+        total_words = AIPromptManager.reload_synonyms_from_db(db_synonyms)
 
         logger.info(
             f"管理員 {current_user.username} 重新載入同義詞: "

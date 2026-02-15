@@ -3,14 +3,13 @@
  *
  * 使用通用 DetailPageLayout 元件，採用 Tab 架構：
  * - 派工資訊：派工單號、工程名稱、作業類別、承辦人等
- * - 公文關聯：機關函文、乾坤函文關聯管理
+ * - 公文對照：公文關聯 + 作業歷程整合為公文對照矩陣
  * - 派工附件：附件上傳與管理
  * - 工程關聯：關聯的工程資訊
  * - 契金維護：契金紀錄管理
  *
- * @version 2.2.0
- * @date 2026-01-30
- * @description 統一編輯與儲存：頂部「儲存」按鈕同時保存派工單和契金資料
+ * @version 3.0.0 - 公文關聯 + 作業歷程整合為「公文對照」Tab
+ * @date 2026-02-13
  */
 
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
@@ -29,6 +28,7 @@ import {
   DollarOutlined,
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import dayjs from 'dayjs';
 
 import {
   DetailPageLayout,
@@ -45,7 +45,6 @@ import { getProjectAgencyContacts } from '../api/projectAgencyContacts';
 import { projectVendorsApi } from '../api/projectVendorsApi';
 import type {
   DispatchOrderUpdate,
-  LinkType,
   TaoyuanProject,
   DispatchDocumentLink,
   ContractPaymentCreate,
@@ -56,16 +55,16 @@ import { TAOYUAN_CONTRACT } from '../constants/taoyuanOptions';
 // 導入拆分的 Tab 元件
 import {
   DispatchInfoTab,
-  DispatchDocumentsTab,
   DispatchProjectsTab,
   DispatchAttachmentsTab,
   DispatchPaymentTab,
+  DispatchWorkflowTab,
   type LinkedProject,
 } from './taoyuanDispatch/tabs';
 import {
   parseWorkTypeCodes,
   validatePaymentConsistency,
-} from './taoyuanDispatch/tabs/DispatchPaymentTab';
+} from './taoyuanDispatch/tabs/paymentUtils';
 import { logger } from '../services/logger';
 
 export const TaoyuanDispatchDetailPage: React.FC = () => {
@@ -100,12 +99,6 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
     setSearchParams({ tab: tabKey }, { replace: true });
   }, [setSearchParams]);
 
-  // 公文關聯狀態
-  const [docSearchKeyword, setDocSearchKeyword] = useState('');
-  const [selectedDocId, setSelectedDocId] = useState<number>();
-  const [selectedLinkType, setSelectedLinkType] =
-    useState<LinkType>('agency_incoming');
-
   // 工程關聯狀態
   const [selectedProjectId, setSelectedProjectId] = useState<number>();
 
@@ -129,40 +122,6 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
     queryFn: () => dispatchOrdersApi.getDetail(parseInt(id || '0', 10)),
     enabled: !!id,
   });
-
-  // 已關聯的公文 ID 列表（提前計算，供搜尋 API 排除已關聯公文）
-  const linkedDocIds = useMemo(
-    () => (dispatch?.linked_documents || []).map(
-      (d: DispatchDocumentLink) => d.document_id
-    ),
-    [dispatch?.linked_documents]
-  );
-
-  // 搜尋可關聯的公文 (僅限桃園派工相關公文)
-  // 根據 selectedLinkType 過濾：
-  // - agency_incoming: 只顯示機關公文（排除「乾坤」開頭）
-  // - company_outgoing: 只顯示「乾坤」開頭的公文
-  const { data: searchedDocsResult, isLoading: searchingDocs } = useQuery({
-    queryKey: ['documents-for-dispatch-link', docSearchKeyword, linkedDocIds, selectedLinkType],
-    queryFn: async () => {
-      if (!docSearchKeyword.trim()) return { items: [] };
-      // 使用專用 API 搜尋桃園派工相關公文 (contract_project_id = 21)
-      // 後端已自動排除 exclude_document_ids 中的公文
-      // 傳遞 link_type 過濾公文字號前綴
-      return dispatchOrdersApi.searchLinkableDocuments(
-        docSearchKeyword,
-        20,
-        linkedDocIds.length > 0 ? linkedDocIds : undefined,
-        selectedLinkType
-      );
-    },
-    enabled: !!docSearchKeyword.trim(),
-  });
-  // 後端已排除已關聯公文，直接使用搜尋結果
-  const availableDocs = useMemo(
-    () => searchedDocsResult?.items || [],
-    [searchedDocsResult?.items]
-  );
 
   // 查詢機關承辦清單
   const { data: agencyContactsData } = useQuery({
@@ -287,7 +246,12 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
       // 同步更新契金管控列表（PaymentsTab）
       queryClient.invalidateQueries({ queryKey: ['payment-control'] });
     },
-    onError: () => message.error('契金儲存失敗'),
+    onError: (error: Error) => {
+      logger.error('[paymentMutation] 契金儲存失敗:', error);
+      message.error('契金儲存失敗，請重新編輯');
+      // 即使契金失敗也重新整理數據
+      refetchPayment();
+    },
   });
 
   // 更新 mutation
@@ -312,35 +276,6 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
       navigate('/taoyuan/dispatch');
     },
     onError: () => message.error('刪除失敗'),
-  });
-
-  // 關聯公文 mutation
-  const linkDocMutation = useMutation({
-    mutationFn: (data: { documentId: number; linkType: LinkType }) =>
-      dispatchOrdersApi.linkDocument(parseInt(id || '0', 10), {
-        document_id: data.documentId,
-        link_type: data.linkType,
-      }),
-    onSuccess: () => {
-      message.success('公文關聯成功');
-      setSelectedDocId(undefined);
-      setDocSearchKeyword('');
-      refetch();
-      queryClient.invalidateQueries({ queryKey: ['taoyuan-dispatch-orders'] });
-    },
-    onError: () => message.error('關聯失敗'),
-  });
-
-  // 移除公文關聯 mutation
-  const unlinkDocMutation = useMutation({
-    mutationFn: (linkId: number) =>
-      dispatchOrdersApi.unlinkDocument(parseInt(id || '0', 10), linkId),
-    onSuccess: () => {
-      message.success('已移除公文關聯');
-      refetch();
-      queryClient.invalidateQueries({ queryKey: ['taoyuan-dispatch-orders'] });
-    },
-    onError: () => message.error('移除關聯失敗'),
   });
 
   // 關聯工程 mutation
@@ -455,6 +390,21 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
   // Effects
   // =============================================================================
 
+  // 計算派工日期（機關第一筆來函日期），供契金日期欄位自動帶入
+  const dispatchDate = useMemo(() => {
+    const agencyDocs = (dispatch?.linked_documents || [])
+      .filter(
+        (link: DispatchDocumentLink) =>
+          link.link_type === 'agency_incoming' && link.doc_date
+      )
+      .sort((a: DispatchDocumentLink, b: DispatchDocumentLink) => {
+        const dateA = a.doc_date || '9999-12-31';
+        const dateB = b.doc_date || '9999-12-31';
+        return dateA.localeCompare(dateB);
+      });
+    return agencyDocs[0]?.doc_date || null;
+  }, [dispatch?.linked_documents]);
+
   // 設定表單初始值
   useEffect(() => {
     if (dispatch) {
@@ -464,6 +414,19 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
             .map((t: string) => t.trim())
             .filter(Boolean)
         : [];
+
+      // 解析作業類別代碼，用於自動帶入派工日期
+      const activeCodes = parseWorkTypeCodes(workTypeArray);
+
+      // 日期欄位：優先使用 paymentData，否則自動帶入派工日期
+      const toDateValue = (code: string): ReturnType<typeof dayjs> | undefined => {
+        const dateKey = `work_${code}_date` as keyof typeof paymentData;
+        const val = paymentData?.[dateKey] as string | undefined;
+        if (val) return dayjs(val);
+        // 作業類別對應時，自動帶入派工日期
+        if (activeCodes.includes(code) && dispatchDate) return dayjs(dispatchDate);
+        return undefined;
+      };
 
       form.setFieldsValue({
         dispatch_no: dispatch.dispatch_no,
@@ -476,16 +439,23 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
         contact_note: dispatch.contact_note,
         cloud_folder: dispatch.cloud_folder,
         project_folder: dispatch.project_folder,
+        work_01_date: toDateValue('01'),
         work_01_amount: paymentData?.work_01_amount,
+        work_02_date: toDateValue('02'),
         work_02_amount: paymentData?.work_02_amount,
+        work_03_date: toDateValue('03'),
         work_03_amount: paymentData?.work_03_amount,
+        work_04_date: toDateValue('04'),
         work_04_amount: paymentData?.work_04_amount,
+        work_05_date: toDateValue('05'),
         work_05_amount: paymentData?.work_05_amount,
+        work_06_date: toDateValue('06'),
         work_06_amount: paymentData?.work_06_amount,
+        work_07_date: toDateValue('07'),
         work_07_amount: paymentData?.work_07_amount,
       });
     }
-  }, [dispatch, paymentData, form]);
+  }, [dispatch, paymentData, form, dispatchDate]);
 
   // =============================================================================
   // Handlers
@@ -531,16 +501,17 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
       // 檢查契金與作業類別一致性
       const inconsistencies = validatePaymentConsistency(workTypeCodes, originalAmounts);
 
-      // 同步調整：只保留對應作業類別的金額
-      const syncedAmounts: Record<string, number | undefined> = {};
+      // 同步調整：只保留對應作業類別的金額，不對應的設為 null（非 undefined）以確實清除
+      const syncedAmounts: Record<string, number | null | undefined> = {};
       for (let i = 1; i <= 7; i++) {
         const code = i.toString().padStart(2, '0');
         const field = `work_${code}_amount`;
-        // 只有在作業類別中的金額才保留
         if (workTypeCodes.includes(code)) {
-          syncedAmounts[field] = originalAmounts[field];
+          // 保留對應金額（0 轉為 null，避免儲存無意義的零值）
+          const val = originalAmounts[field];
+          syncedAmounts[field] = (val && val > 0) ? val : null;
         } else {
-          syncedAmounts[field] = undefined; // 清除不對應的金額
+          syncedAmounts[field] = null; // 明確清除不對應的金額
         }
       }
 
@@ -552,11 +523,6 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
         message.warning(`以下金額因作業類別變更已自動清除：${clearedInfo}`);
       }
 
-      updateMutation.mutate({
-        ...dispatchValues,
-        work_type: workTypeString,
-      });
-
       // 使用同步後的金額計算總金額
       const calculatedCurrentAmount =
         (syncedAmounts.work_01_amount || 0) +
@@ -567,43 +533,51 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
         (syncedAmounts.work_06_amount || 0) +
         (syncedAmounts.work_07_amount || 0);
 
-      if (calculatedCurrentAmount > 0 || paymentData?.id) {
-        // 日期欄位需要從 dayjs 轉換為字串格式
-        const formatDateField = (dateValue: unknown): string | undefined => {
-          if (!dateValue) return undefined;
-          // dayjs 物件轉字串
-          if (typeof dateValue === 'object' && dateValue !== null && 'format' in dateValue) {
-            return (dateValue as { format: (fmt: string) => string }).format('YYYY-MM-DD');
-          }
-          // 已經是字串
-          if (typeof dateValue === 'string') return dateValue;
-          return undefined;
-        };
+      // 日期欄位從 dayjs 轉換為字串格式
+      const formatDateField = (dateValue: unknown): string | null => {
+        if (!dateValue) return null;
+        if (typeof dateValue === 'object' && dateValue !== null && 'format' in dateValue) {
+          return (dateValue as { format: (fmt: string) => string }).format('YYYY-MM-DD');
+        }
+        if (typeof dateValue === 'string') return dateValue;
+        return null;
+      };
 
+      // 串列執行：先更新派工單，成功後再更新契金（避免併發不一致）
+      try {
+        await updateMutation.mutateAsync({
+          ...dispatchValues,
+          work_type: workTypeString,
+        });
+      } catch {
+        // updateMutation.onError 已處理提示，直接返回
+        return;
+      }
+
+      // 派工單更新成功，接著更新契金
+      if (calculatedCurrentAmount > 0 || paymentData?.id) {
         const paymentValues: ContractPaymentCreate = {
           dispatch_order_id: parseInt(id || '0', 10),
-          // 日期欄位 - 只保留對應作業類別的日期
-          work_01_date: workTypeCodes.includes('01') ? formatDateField(values.work_01_date) : undefined,
-          work_02_date: workTypeCodes.includes('02') ? formatDateField(values.work_02_date) : undefined,
-          work_03_date: workTypeCodes.includes('03') ? formatDateField(values.work_03_date) : undefined,
-          work_04_date: workTypeCodes.includes('04') ? formatDateField(values.work_04_date) : undefined,
-          work_05_date: workTypeCodes.includes('05') ? formatDateField(values.work_05_date) : undefined,
-          work_06_date: workTypeCodes.includes('06') ? formatDateField(values.work_06_date) : undefined,
-          work_07_date: workTypeCodes.includes('07') ? formatDateField(values.work_07_date) : undefined,
-          // 金額欄位
-          work_01_amount: syncedAmounts.work_01_amount,
-          work_02_amount: syncedAmounts.work_02_amount,
-          work_03_amount: syncedAmounts.work_03_amount,
-          work_04_amount: syncedAmounts.work_04_amount,
-          work_05_amount: syncedAmounts.work_05_amount,
-          work_06_amount: syncedAmounts.work_06_amount,
-          work_07_amount: syncedAmounts.work_07_amount,
-          current_amount: calculatedCurrentAmount,
+          work_01_date: workTypeCodes.includes('01') ? formatDateField(values.work_01_date) : null,
+          work_02_date: workTypeCodes.includes('02') ? formatDateField(values.work_02_date) : null,
+          work_03_date: workTypeCodes.includes('03') ? formatDateField(values.work_03_date) : null,
+          work_04_date: workTypeCodes.includes('04') ? formatDateField(values.work_04_date) : null,
+          work_05_date: workTypeCodes.includes('05') ? formatDateField(values.work_05_date) : null,
+          work_06_date: workTypeCodes.includes('06') ? formatDateField(values.work_06_date) : null,
+          work_07_date: workTypeCodes.includes('07') ? formatDateField(values.work_07_date) : null,
+          work_01_amount: syncedAmounts.work_01_amount ?? null,
+          work_02_amount: syncedAmounts.work_02_amount ?? null,
+          work_03_amount: syncedAmounts.work_03_amount ?? null,
+          work_04_amount: syncedAmounts.work_04_amount ?? null,
+          work_05_amount: syncedAmounts.work_05_amount ?? null,
+          work_06_amount: syncedAmounts.work_06_amount ?? null,
+          work_07_amount: syncedAmounts.work_07_amount ?? null,
+          current_amount: calculatedCurrentAmount > 0 ? calculatedCurrentAmount : null,
         };
         paymentMutation.mutate(paymentValues);
       }
 
-      // 若有待上傳附件，一併上傳（與附件紀錄機制一致）
+      // 若有待上傳附件，一併上傳
       if (fileList.length > 0) {
         uploadAttachmentsMutation.mutate();
       }
@@ -623,6 +597,16 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
             .filter(Boolean)
         : [];
 
+      const activeCodes = parseWorkTypeCodes(workTypeArray);
+
+      const toDateValue = (code: string): ReturnType<typeof dayjs> | undefined => {
+        const dateKey = `work_${code}_date` as keyof typeof paymentData;
+        const val = paymentData?.[dateKey] as string | undefined;
+        if (val) return dayjs(val);
+        if (activeCodes.includes(code) && dispatchDate) return dayjs(dispatchDate);
+        return undefined;
+      };
+
       form.setFieldsValue({
         dispatch_no: dispatch.dispatch_no,
         project_name: dispatch.project_name,
@@ -634,28 +618,23 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
         contact_note: dispatch.contact_note,
         cloud_folder: dispatch.cloud_folder,
         project_folder: dispatch.project_folder,
+        work_01_date: toDateValue('01'),
         work_01_amount: paymentData?.work_01_amount,
+        work_02_date: toDateValue('02'),
         work_02_amount: paymentData?.work_02_amount,
+        work_03_date: toDateValue('03'),
         work_03_amount: paymentData?.work_03_amount,
+        work_04_date: toDateValue('04'),
         work_04_amount: paymentData?.work_04_amount,
+        work_05_date: toDateValue('05'),
         work_05_amount: paymentData?.work_05_amount,
+        work_06_date: toDateValue('06'),
         work_06_amount: paymentData?.work_06_amount,
+        work_07_date: toDateValue('07'),
         work_07_amount: paymentData?.work_07_amount,
       });
     }
   };
-
-  // 處理公文關聯
-  const handleLinkDocument = useCallback(() => {
-    if (!selectedDocId) {
-      message.warning('請先選擇要關聯的公文');
-      return;
-    }
-    linkDocMutation.mutate({
-      documentId: selectedDocId,
-      linkType: selectedLinkType,
-    });
-  }, [selectedDocId, selectedLinkType, linkDocMutation, message]);
 
   // 處理工程關聯
   const handleLinkProject = useCallback(() => {
@@ -706,34 +685,6 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
         watchedWorkAmounts={watchedWorkAmounts}
         availableProjects={availableProjects}
         onProjectSelect={handleProjectSelectFromInfo}
-      />
-    ),
-    createTabItem(
-      'documents',
-      {
-        icon: <FileTextOutlined />,
-        text: '公文關聯',
-        count: dispatch?.linked_documents?.length || 0,
-      },
-      <DispatchDocumentsTab
-        dispatch={dispatch}
-        canEdit={canEdit}
-        isLoading={isLoading}
-        docSearchKeyword={docSearchKeyword}
-        setDocSearchKeyword={setDocSearchKeyword}
-        availableDocs={availableDocs}
-        searchingDocs={searchingDocs}
-        selectedDocId={selectedDocId}
-        setSelectedDocId={setSelectedDocId}
-        selectedLinkType={selectedLinkType}
-        setSelectedLinkType={setSelectedLinkType}
-        onLinkDocument={handleLinkDocument}
-        linkDocMutationPending={linkDocMutation.isPending}
-        onUnlinkDocument={(linkId) => unlinkDocMutation.mutate(linkId)}
-        unlinkDocMutationPending={unlinkDocMutation.isPending}
-        refetch={refetch}
-        navigate={navigate}
-        returnPath={`/taoyuan/dispatch/${id}?tab=documents`}
       />
     ),
     createTabItem(
@@ -789,6 +740,24 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
         paymentData={paymentData}
         isEditing={isEditing}
         form={form}
+      />
+    ),
+    createTabItem(
+      'correspondence',
+      {
+        icon: <FileTextOutlined />,
+        text: '公文對照',
+        count: dispatch?.linked_documents?.length || 0,
+      },
+      <DispatchWorkflowTab
+        dispatchOrderId={parseInt(id || '0', 10)}
+        canEdit={canEdit}
+        linkedProjects={(dispatch?.linked_projects || []).map((p: LinkedProject) => ({
+          project_id: p.project_id,
+          project_name: p.project_name,
+        }))}
+        linkedDocuments={dispatch?.linked_documents || []}
+        onRefetchDispatch={refetch}
       />
     ),
   ];

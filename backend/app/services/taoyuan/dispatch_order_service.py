@@ -14,6 +14,7 @@ from datetime import datetime, date
 from typing import Optional, List, Dict, Any, Tuple
 import pandas as pd
 from sqlalchemy import select, delete
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.taoyuan import DispatchOrderRepository
@@ -21,6 +22,8 @@ from app.extended.models import (
     TaoyuanDispatchOrder,
     TaoyuanDispatchProjectLink,
     TaoyuanDispatchDocumentLink,
+    TaoyuanDispatchWorkType,
+    TaoyuanProject,
 )
 from app.schemas.taoyuan.dispatch import (
     DispatchOrderCreate,
@@ -142,7 +145,15 @@ class DispatchOrderService:
                     'created_at': link.created_at.isoformat() if link.created_at else None,
                 }
                 for link in item.document_links
-            ] if item.document_links else []
+            ] if item.document_links else [],
+            'work_type_items': [
+                {
+                    'id': wt.id,
+                    'work_type': wt.work_type,
+                    'sort_order': wt.sort_order,
+                }
+                for wt in sorted(item.work_type_links, key=lambda x: x.sort_order)
+            ] if item.work_type_links else []
         }
 
     # =========================================================================
@@ -173,12 +184,25 @@ class DispatchOrderService:
 
         logger.info(f"[create_dispatch_order] 收到請求: agency_doc_id={agency_doc_id}, company_doc_id={company_doc_id}")
 
-        if auto_generate_no and not create_data.get('dispatch_no'):
-            create_data['dispatch_no'] = await self.get_next_dispatch_no()
+        # 自動生成派工單號（含 retry-on-conflict 防併發競態）
+        MAX_RETRIES = 3
+        for attempt in range(MAX_RETRIES):
+            if auto_generate_no and not create_data.get('dispatch_no'):
+                create_data['dispatch_no'] = await self.get_next_dispatch_no()
 
-        # 建立派工單
-        dispatch_order = await self.repository.create(create_data)
-        logger.info(f"[create_dispatch_order] 派工單已建立: id={dispatch_order.id}, dispatch_no={dispatch_order.dispatch_no}")
+            try:
+                # 建立派工單（使用 flush 而非 commit，保持事務原子性）
+                dispatch_order = await self.repository.create(create_data, auto_commit=False)
+                logger.info(f"[create_dispatch_order] 派工單已 flush: id={dispatch_order.id}, dispatch_no={dispatch_order.dispatch_no}")
+                break  # 成功，跳出重試
+            except IntegrityError as e:
+                await self.db.rollback()
+                error_msg = str(e.orig) if hasattr(e, 'orig') else str(e)
+                if attempt < MAX_RETRIES - 1 and auto_generate_no and 'dispatch_no' in error_msg.lower():
+                    logger.warning(f"[create_dispatch_order] 派工單號衝突，重試 {attempt + 1}/{MAX_RETRIES}")
+                    create_data.pop('dispatch_no', None)  # 清除以重新生成
+                    continue
+                raise  # 非自動編號衝突或重試耗盡，向上拋出
 
         # 建立工程關聯記錄
         if linked_project_ids:
@@ -195,9 +219,26 @@ class DispatchOrderService:
             dispatch_order.id, agency_doc_id, company_doc_id
         )
 
+        # 同步 work_type 到正規化關聯表
+        work_type_str = create_data.get('work_type')
+        if work_type_str:
+            await self._sync_work_type_links(dispatch_order.id, work_type_str)
+
+        # 同步 case_handler / survey_unit 到關聯的 TaoyuanProject
+        sync_fields = {}
+        if create_data.get('case_handler'):
+            sync_fields['case_handler'] = create_data['case_handler']
+        if create_data.get('survey_unit'):
+            sync_fields['survey_unit'] = create_data['survey_unit']
+
+        if sync_fields and linked_project_ids:
+            await self._sync_fields_to_linked_projects(dispatch_order.id, sync_fields)
+
         await self.db.commit()
         logger.info(f"[create_dispatch_order] 已提交: dispatch_id={dispatch_order.id}")
 
+        # 重新查詢以取得完整關聯資料（避免回傳 stale 物件）
+        dispatch_order = await self.repository.get_with_relations(dispatch_order.id)
         return dispatch_order
 
     async def update_dispatch_order(
@@ -245,6 +286,10 @@ class DispatchOrderService:
                 )
                 self.db.add(link)
 
+        # 同步 work_type 到正規化關聯表
+        if 'work_type' in update_data:
+            await self._sync_work_type_links(dispatch_id, update_data.get('work_type'))
+
         # 同步公文關聯到 TaoyuanDispatchDocumentLink 表
         # 只有當 agency_doc_id 或 company_doc_id 有傳入時才同步
         if 'agency_doc_id' in update_data or 'company_doc_id' in update_data:
@@ -252,6 +297,16 @@ class DispatchOrderService:
             current_agency = agency_doc_id if 'agency_doc_id' in update_data else dispatch_order.agency_doc_id
             current_company = company_doc_id if 'company_doc_id' in update_data else dispatch_order.company_doc_id
             await self._sync_document_links(dispatch_id, current_agency, current_company)
+
+        # 同步 case_handler / survey_unit 到關聯的 TaoyuanProject
+        sync_fields = {}
+        if 'case_handler' in update_data and update_data['case_handler']:
+            sync_fields['case_handler'] = update_data['case_handler']
+        if 'survey_unit' in update_data and update_data['survey_unit']:
+            sync_fields['survey_unit'] = update_data['survey_unit']
+
+        if sync_fields:
+            await self._sync_fields_to_linked_projects(dispatch_id, sync_fields)
 
         await self.db.commit()
 
@@ -297,6 +352,88 @@ class DispatchOrderService:
         result = await self.repository.delete(dispatch_id)
 
         return result
+
+    async def _sync_fields_to_linked_projects(
+        self,
+        dispatch_id: int,
+        fields: Dict[str, Any]
+    ) -> None:
+        """同步派工單欄位到關聯的 TaoyuanProject
+
+        當派工單的 case_handler 或 survey_unit 更新時，
+        自動同步到所有關聯的工程記錄。
+        """
+        result = await self.db.execute(
+            select(TaoyuanDispatchProjectLink.taoyuan_project_id).where(
+                TaoyuanDispatchProjectLink.dispatch_order_id == dispatch_id
+            )
+        )
+        project_ids = [row[0] for row in result.all()]
+
+        if not project_ids:
+            return
+
+        result = await self.db.execute(
+            select(TaoyuanProject).where(TaoyuanProject.id.in_(project_ids))
+        )
+        projects = result.scalars().all()
+
+        updated_count = 0
+        for project in projects:
+            changed = False
+            for field, value in fields.items():
+                current = getattr(project, field, None)
+                if current != value:
+                    setattr(project, field, value)
+                    changed = True
+            if changed:
+                updated_count += 1
+
+        if updated_count > 0:
+            logger.info(
+                "[sync_fields] 派工單 %d 同步 %s 到 %d 個工程",
+                dispatch_id, list(fields.keys()), updated_count
+            )
+
+    async def _sync_work_type_links(
+        self,
+        dispatch_id: int,
+        work_type_str: Optional[str],
+    ) -> None:
+        """
+        同步 work_type 逗號分隔字串到 TaoyuanDispatchWorkType 正規化關聯表
+
+        保持向後相容：原 work_type 欄位不變，額外寫入關聯表。
+
+        Args:
+            dispatch_id: 派工單 ID
+            work_type_str: 逗號分隔的作業類別字串
+        """
+        # 刪除現有關聯
+        await self.db.execute(
+            delete(TaoyuanDispatchWorkType).where(
+                TaoyuanDispatchWorkType.dispatch_order_id == dispatch_id
+            )
+        )
+
+        if not work_type_str:
+            return
+
+        # 拆分並建立新關聯
+        types = [t.strip() for t in work_type_str.split(',') if t.strip()]
+        for idx, wt in enumerate(types):
+            link = TaoyuanDispatchWorkType(
+                dispatch_order_id=dispatch_id,
+                work_type=wt,
+                sort_order=idx,
+            )
+            self.db.add(link)
+
+        if types:
+            logger.info(
+                "[sync_work_type_links] 派工單 %d 同步 %d 個作業類別",
+                dispatch_id, len(types)
+            )
 
     async def _sync_document_links(
         self,
@@ -532,18 +669,20 @@ class DispatchOrderService:
             '乾坤函文號', '雲端資料夾', '專案資料夾', '聯絡備註'
         ]
 
+        from datetime import datetime
+        roc_year = datetime.now().year - 1911
         sample_data = [{
-            '派工單號': 'D-2026-001',
+            '派工單號': f'{roc_year}年_派工單號001',
             '機關函文號': '桃工養字第1140001234號',
             '工程名稱/派工事項': '○○路拓寬工程',
-            '作業類別': '土地查估',
+            '作業類別': '02.土地協議市價查估作業',
             '分案名稱/派工備註': '第一標段',
-            '履約期限': '2026-06-30',
+            '履約期限': f'{roc_year}年06月30日前檢送成果',
             '案件承辦': '王○○',
-            '查估單位': '第一組',
+            '查估單位': '○○不動產估價師事務所',
             '乾坤函文號': '乾字第1140000001號',
-            '雲端資料夾': 'https://drive.google.com/...',
-            '專案資料夾': 'D:/Projects/2026/001',
+            '雲端資料夾': 'https://reurl.cc/xxxxx',
+            '專案資料夾': 'Z:\\03.專案管控專區\\...',
             '聯絡備註': '範例資料，請刪除後填入實際資料'
         }]
 

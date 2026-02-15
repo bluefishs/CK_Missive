@@ -141,12 +141,12 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
     return 'agency_incoming';
   };
 
-  // 欄位順序：序、派工單號、工程名稱/派工事項、作業類別、履約期限、承辦、查估單位、雲端、關聯公文、關聯工程
+  // 欄位順序：序、派工單號、工程名稱、作業類別、履約期限、承辦、查估單位、雲端、關聯公文、關聯工程、附件
   const columns: ColumnsType<DispatchOrder> = [
     {
       title: '序',
       key: 'rowIndex',
-      width: 45,
+      width: 40,
       fixed: 'left',
       align: 'center',
       render: (_: unknown, __: DispatchOrder, index: number) => index + 1,
@@ -154,7 +154,7 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
     {
       title: '派工單號',
       dataIndex: 'dispatch_no',
-      width: 135,
+      width: 125,
       fixed: 'left',
       sorter: (a, b) => (a.dispatch_no ?? '').localeCompare(b.dispatch_no ?? ''),
       ...getColumnSearchProps('dispatch_no'),
@@ -173,7 +173,7 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
     {
       title: '工程名稱/派工事項',
       dataIndex: 'project_name',
-      width: 220,
+      width: 180,
       ellipsis: true,
       sorter: (a, b) => (a.project_name ?? '').localeCompare(b.project_name ?? ''),
       ...getColumnSearchProps('project_name'),
@@ -186,24 +186,22 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
             textToHighlight={val ? val.toString() : ''}
           />
         ) : (
-          val
+          <Tooltip title={val}><span>{val}</span></Tooltip>
         ),
     },
     {
       title: '作業類別',
       dataIndex: 'work_type',
-      width: 180,
+      width: 140,
       ellipsis: false,
       filters: WORK_TYPE_OPTIONS.map((opt) => ({ text: opt.label, value: opt.value })),
-      onFilter: (value, record) => record.work_type === value,
+      onFilter: (value, record) => (record.work_type || '').includes(value as string),
       render: (val?: string) => {
         if (!val) return '-';
-        // 支援逗號分隔的多個作業類別
         const types = val.split(',').map((t) => t.trim()).filter(Boolean);
         if (types.length === 1) {
           return <Tag color="blue">{types[0]}</Tag>;
         }
-        // 多個作業類別顯示為多個 Tag
         return (
           <Space direction="vertical" size={2}>
             {types.slice(0, 2).map((t, idx) => (
@@ -221,82 +219,43 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
     {
       title: '履約期限',
       dataIndex: 'deadline',
-      width: 140,
+      width: 105,
       ellipsis: true,
       sorter: (a, b) => (a.deadline ?? '').localeCompare(b.deadline ?? ''),
       render: (val?: string) => val ? (
         <Tooltip title={val}>
-          <span>{val}</span>
+          <span style={{ fontSize: 12 }}>{val}</span>
         </Tooltip>
       ) : '-',
     },
     {
       title: '承辦',
       dataIndex: 'case_handler',
-      width: 60,
+      width: 65,
       align: 'center',
+      ellipsis: true,
       sorter: (a, b) => (a.case_handler ?? '').localeCompare(b.case_handler ?? ''),
       filters: dispatchCaseHandlerFilters,
       onFilter: (value, record) => record.case_handler === value,
+      render: (val?: string) => val ? (
+        <Tooltip title={val}><span>{val}</span></Tooltip>
+      ) : '-',
     },
     {
       title: '查估單位',
       dataIndex: 'survey_unit',
-      width: 130,
+      width: 100,
       ellipsis: true,
       filters: dispatchSurveyUnitFilters,
       onFilter: (value, record) => record.survey_unit === value,
       render: (val?: string) => val ? (
-        <Tooltip title={val}>
-          <span>{val}</span>
-        </Tooltip>
-      ) : '-',
-    },
-    {
-      title: '分案名稱',
-      dataIndex: 'sub_case_name',
-      width: 150,
-      ellipsis: true,
-      ...getColumnSearchProps('sub_case_name'),
-      render: (val?: string) => val ? (
-        <Tooltip title={val}>
-          <span>{searchedColumn === 'sub_case_name' ? (
-            <Highlighter
-              highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
-              searchWords={[columnSearchText]}
-              autoEscape
-              textToHighlight={val}
-            />
-          ) : val}</span>
-        </Tooltip>
-      ) : '-',
-    },
-    {
-      title: '聯絡備註',
-      dataIndex: 'contact_note',
-      width: 150,
-      ellipsis: true,
-      render: (val?: string) => val ? (
-        <Tooltip title={val}>
-          <Text style={{ fontSize: 12 }}>{val}</Text>
-        </Tooltip>
-      ) : '-',
-    },
-    {
-      title: '專案資料夾',
-      dataIndex: 'project_folder',
-      width: 120,
-      ellipsis: true,
-      render: (val?: string) => val ? (
-        <Tooltip title={val}>
-          <Text style={{ fontSize: 12, color: '#666' }}>{val}</Text>
-        </Tooltip>
+        <Tooltip title={val}><span>{val}</span></Tooltip>
       ) : '-',
     },
     {
       title: '雲端',
       dataIndex: 'cloud_folder',
-      width: 55,
+      width: 50,
       align: 'center',
       render: (val?: string) => val ? (
         <Tooltip title={val}>
@@ -309,11 +268,10 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
     {
       title: '關聯公文',
       key: 'linked_documents',
-      width: 155,
+      width: 130,
       render: (_, record) => {
         const docs = record.linked_documents || [];
         if (docs.length === 0) return <Text type="secondary">-</Text>;
-        // 依日期排序（最新的在前）
         const sortedDocs = [...docs].sort((a, b) => {
           const dateA = a.doc_date || '';
           const dateB = b.doc_date || '';
@@ -344,7 +302,7 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
     {
       title: '關聯工程',
       key: 'linked_projects',
-      width: 145,
+      width: 120,
       render: (_, record) => {
         const projects = record.linked_projects || [];
         if (projects.length === 0) return <Text type="secondary">-</Text>;
@@ -353,7 +311,7 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
             {projects.slice(0, 2).map((proj) => (
               <Tooltip key={proj.id} title={proj.project_name}>
                 <Tag color="purple" style={{ marginBottom: 2, fontSize: 11 }}>
-                  {proj.project_name?.slice(0, 10) || `工程#${proj.id}`}
+                  {proj.project_name?.slice(0, 8) || `工程#${proj.id}`}
                 </Tag>
               </Tooltip>
             ))}
@@ -369,7 +327,7 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
     {
       title: '附件',
       key: 'attachment_count',
-      width: 60,
+      width: 50,
       align: 'center',
       render: (_, record) => {
         const count = record.attachment_count ?? 0;
@@ -382,7 +340,6 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
               icon={<PaperClipOutlined />}
               onClick={(e) => {
                 e.stopPropagation();
-                // 導航到派工單詳情頁的附件 Tab
                 navigate(`/taoyuan/dispatch/${record.id}?tab=attachments`);
               }}
             >
@@ -568,7 +525,7 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
           dataSource={orders}
           rowKey="id"
           loading={isLoading}
-          scroll={{ x: 1700 }}
+          scroll={{ x: 1450 }}
           size="small"
           mobileHiddenColumns={['sub_case_name', 'contact_note', 'project_folder', 'survey_unit']}
           pagination={{

@@ -112,14 +112,14 @@ async def get_next_dispatch_no(
     service: DispatchOrderService = Depends(get_dispatch_service),
     current_user = Depends(require_auth())
 ):
-    """根據現有派工單號自動生成下一個單號"""
+    """根據現有派工單號自動生成下一個單號（格式: {民國年}年_派工單號{NNN}）"""
+    import re
     from datetime import datetime
 
     current_year = datetime.now().year - 1911
-    next_dispatch_no = await service.get_next_dispatch_no()
+    next_dispatch_no = await service.get_next_dispatch_no(year=current_year)
 
     # 從派工單號解析序號
-    import re
     match = re.search(r'(\d+)$', next_dispatch_no)
     next_seq = int(match.group(1)) if match else 1
 
@@ -155,11 +155,11 @@ async def create_dispatch_order(
             )
         raise HTTPException(status_code=400, detail="資料驗證失敗，請檢查輸入資料")
     except Exception as e:
-        # 捕獲其他異常並記錄詳細錯誤
+        # 捕獲其他異常並記錄詳細錯誤（不向客戶端暴露內部細節）
         logger.error(f"[dispatch/create] 未預期錯誤: {type(e).__name__}: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"建立派工單失敗: {str(e)}"
+            detail="建立派工單失敗，請稍後再試或聯繫管理員"
         )
 
 

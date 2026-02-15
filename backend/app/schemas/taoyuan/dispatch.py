@@ -52,6 +52,15 @@ class DispatchOrderUpdate(BaseModel):
     linked_project_ids: Optional[List[int]] = None
 
 
+class DispatchWorkTypeItem(BaseModel):
+    """作業類別正規化項目"""
+    id: int
+    work_type: str = Field(..., description="作業類別名稱")
+    sort_order: int = Field(0, description="排序順序")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class DispatchOrder(DispatchOrderBase):
     """派工紀錄完整資訊"""
     id: int
@@ -67,6 +76,7 @@ class DispatchOrder(DispatchOrderBase):
     attachment_count: int = Field(0, description="附件數量")
     linked_projects: Optional[List[LinkedProjectItem]] = Field(None, description="關聯工程 (含 link_id, project_id)")
     linked_documents: Optional[List[DispatchDocumentLink]] = Field(None, description="關聯公文")
+    work_type_items: Optional[List[DispatchWorkTypeItem]] = Field(None, description="作業類別正規化項目")
 
 
 class DispatchOrderListQuery(BaseModel):

@@ -25,7 +25,8 @@ const EventItemInner: React.FC<{
   event: CalendarEvent;
   compact?: boolean;
   onViewDocument?: (id: number) => void;
-}> = ({ event, compact, onViewDocument }) => {
+  onViewEvent?: (id: number) => void;
+}> = ({ event, compact, onViewDocument, onViewEvent }) => {
   const eventType = event.event_type as keyof typeof EVENT_TYPE_CONFIG;
   const config = EVENT_TYPE_CONFIG[eventType] || EVENT_TYPE_CONFIG.reminder;
   const priority = typeof event.priority === 'number' ? event.priority : 3;
@@ -52,7 +53,12 @@ const EventItemInner: React.FC<{
               style={{
                 fontSize: compact ? 12 : 13,
                 textDecoration: isCompleted ? 'line-through' : 'none',
-                color: isCompleted ? '#999' : undefined,
+                color: isCompleted ? '#999' : onViewEvent ? '#1890ff' : undefined,
+                cursor: onViewEvent ? 'pointer' : 'default',
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewEvent?.(event.id);
               }}
             >
               {event.title}
@@ -74,7 +80,10 @@ const EventItemInner: React.FC<{
                     color="geekblue"
                     style={{ margin: 0, fontSize: 10, cursor: 'pointer' }}
                     icon={<FileTextOutlined />}
-                    onClick={() => onViewDocument?.(event.document_id!)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onViewDocument?.(event.document_id!);
+                    }}
                   >
                     {compact ? '公文' : event.doc_number}
                   </Tag>
@@ -93,8 +102,9 @@ const EventItem = React.memo(EventItemInner);
 const ProjectCardInner: React.FC<{
   project: ProjectGroup;
   onViewDocument: (id: number) => void;
+  onViewEvent?: (id: number) => void;
   compact?: boolean;
-}> = ({ project, onViewDocument, compact }) => {
+}> = ({ project, onViewDocument, onViewEvent, compact }) => {
   const [expanded, setExpanded] = useState(true);
 
   return (
@@ -162,6 +172,7 @@ const ProjectCardInner: React.FC<{
               event={event}
               compact={compact}
               onViewDocument={onViewDocument}
+              onViewEvent={onViewEvent}
             />
           ))}
         </div>

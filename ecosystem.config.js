@@ -26,12 +26,15 @@
 module.exports = {
   apps: [
     // ===== 後端 FastAPI 服務 =====
-    // 使用 wrapper script 自動安裝依賴 + 套用遷移
+    // 使用 Python 啟動包裝器（v1.54.0）：
+    //   自動執行端口偵測 → 基礎設施檢查 → pip install → alembic upgrade → uvicorn
+    //   使用 os.execvp 替換進程，PM2 可正確追蹤 PID
+    //   避免 PowerShell cp950 編碼問題
     {
       name: 'ck-backend',
-      cwd: '.',
-      script: 'powershell.exe',
-      args: '-NoProfile -ExecutionPolicy Bypass -File scripts\\start-backend.ps1',
+      cwd: './backend',
+      script: 'python',
+      args: 'startup.py',
       interpreter: 'none',
 
       // 環境變數
@@ -46,25 +49,28 @@ module.exports = {
       watch: false,  // 開發時可設為 true 啟用熱重載
       max_memory_restart: '1G',
 
-      // 日誌配置
-      error_file: './backend/logs/backend-error.log',
-      out_file: './backend/logs/backend-out.log',
+      // 日誌配置 (cwd 已是 ./backend，路徑相對於 backend/)
+      error_file: './logs/backend-error.log',
+      out_file: './logs/backend-out.log',
       log_date_format: 'YYYY-MM-DD HH:mm:ss',
       merge_logs: true,
 
       // 重啟策略
       restart_delay: 10000,  // 增加到 10 秒，讓端口有時間釋放
-      max_restarts: 5,
+      max_restarts: 10,
       min_uptime: '30s',
     },
 
     // ===== 前端 Vite 開發服務 =====
+    // 注意：前端啟動後，若後端尚未就緒，client.ts 會自動重試（指數退避 1s/2s/4s）
+    // fork 模式：Vite 開發伺服器為單進程，cluster 模式無益且影響 HMR 即時更新
     {
       name: 'ck-frontend',
       cwd: './frontend',
       script: 'node_modules/vite/bin/vite.js',
       args: '--host 0.0.0.0',
       interpreter: 'node',
+      exec_mode: 'fork',
 
       // 環境變數
       env: {

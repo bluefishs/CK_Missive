@@ -13,6 +13,7 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 
 from .common import (
     get_async_db, require_auth,
@@ -77,15 +78,32 @@ async def create_contract_payment(
     # 檢查是否已有記錄（防呆：避免重複建立）
     existing = await service.get_payment_by_dispatch_order(data.dispatch_order_id)
     if existing:
-        # 已有記錄，改為更新
-        payment = await service.update_payment(existing.id, data)
+        # 已有記錄，改為更新（轉換為 ContractPaymentUpdate 型別）
+        update_data = ContractPaymentUpdate(**data.model_dump(
+            exclude={'dispatch_order_id'}, exclude_unset=True
+        ))
+        payment = await service.update_payment(existing.id, update_data)
     else:
-        # 無記錄，新建
-        payment = await service.create_payment(data)
+        # 無記錄，新建（DB unique constraint 防止併發重複）
+        try:
+            payment = await service.create_payment(data)
+        except IntegrityError:
+            # 併發競態：另一請求已建立，改為更新
+            await service.db.rollback()
+            existing = await service.get_payment_by_dispatch_order(data.dispatch_order_id)
+            if existing:
+                update_data = ContractPaymentUpdate(**data.model_dump(
+                    exclude={'dispatch_order_id'}, exclude_unset=True
+                ))
+                payment = await service.update_payment(existing.id, update_data)
+            else:
+                raise HTTPException(status_code=409, detail="契金記錄建立衝突，請重試")
 
     if not payment:
         raise HTTPException(status_code=404, detail="派工紀錄不存在")
-    return ContractPaymentSchema.model_validate(payment)
+    # 使用 _to_response_dict 確保 dispatch_no/project_name 正確回傳
+    payment_dict = await service._to_response_dict(payment)
+    return ContractPaymentSchema(**payment_dict)
 
 
 @router.post("/payments/{payment_id}/update", response_model=ContractPaymentSchema, summary="更新契金管控")
@@ -99,7 +117,8 @@ async def update_contract_payment(
     payment = await service.update_payment(payment_id, data)
     if not payment:
         raise HTTPException(status_code=404, detail="契金管控記錄不存在")
-    return ContractPaymentSchema.model_validate(payment)
+    payment_dict = await service._to_response_dict(payment)
+    return ContractPaymentSchema(**payment_dict)
 
 
 @router.post("/payments/control", response_model=PaymentControlResponse, summary="契金管控展示")

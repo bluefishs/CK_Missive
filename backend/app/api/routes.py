@@ -6,9 +6,9 @@ API 路由設定 (最終修復版) - 包含調試工具
 """
 from fastapi import APIRouter
 from app.api.endpoints import (
-    document_numbers, auth, projects, agencies, vendors,
+    document_numbers, auth, agencies, vendors,
     document_calendar, users, user_management, admin, site_management,
-    system_monitoring, public, csv_import, reminder_management, files,
+    system_monitoring, public, csv_import, reminders, files,
     secure_site_management,
     dashboard, project_notifications, debug, project_vendors, project_staff,
     project_agency_contacts, system_notifications, backup, certifications,
@@ -18,6 +18,8 @@ from app.api.endpoints import (
 from app.api.endpoints.ai import router as ai_router
 # 模組化公文管理 API (v3.0.0 重構)
 from app.api.endpoints.documents import router as documents_router
+# 模組化承攬案件管理 API (v4.0.0 重構)
+from app.api.endpoints.projects import router as projects_router
 
 api_router = APIRouter()
 
@@ -27,7 +29,7 @@ api_router.include_router(dashboard.router, prefix="/dashboard", tags=["儀表�
 # --- 統計API模組 (使用dashboard模組) ---
 api_router.include_router(dashboard.router, prefix="/statistics", tags=["統計"])
 api_router.include_router(documents_router, prefix="/documents-enhanced", tags=["公文管理"])
-api_router.include_router(projects.router, prefix="/projects", tags=["承攬案件"])
+api_router.include_router(projects_router, prefix="/projects", tags=["承攬案件"])
 api_router.include_router(project_notifications.router, prefix="/project-notifications", tags=["專案通知"])
 api_router.include_router(system_notifications.router, prefix="/system-notifications", tags=["系統通知"])
 api_router.include_router(agencies.router, prefix="/agencies", tags=["機關單位"])
@@ -48,7 +50,7 @@ api_router.include_router(admin.router, prefix="/admin", tags=["管理後台"])
 api_router.include_router(site_management.router, prefix="/site-management", tags=["網站管理"])
 api_router.include_router(secure_site_management.router, prefix="/secure-site-management", tags=["安全網站管理"])
 api_router.include_router(system_monitoring.router, prefix="/system", tags=["系統監控"])
-api_router.include_router(reminder_management.router, prefix="/reminder-management", tags=["提醒管理"])
+api_router.include_router(reminders.router, prefix="/reminder-management", tags=["提醒管理"])
 
 # --- 其他輔助模組 ---
 api_router.include_router(document_numbers.router, prefix="/document-numbers", tags=["發文字號"])

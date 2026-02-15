@@ -44,12 +44,17 @@ from app.repositories.user_repository import UserRepository
 from app.repositories.configuration_repository import ConfigurationRepository
 from app.repositories.navigation_repository import NavigationRepository
 from app.repositories.project_vendor_repository import ProjectVendorRepository
+from app.repositories.session_repository import SessionRepository
+from app.repositories.ai_synonym_repository import AISynonymRepository
+from app.repositories.ai_prompt_repository import AIPromptRepository
+from app.repositories.ai_search_history_repository import AISearchHistoryRepository
 
 # Taoyuan 子模組
 from app.repositories.taoyuan import (
     DispatchOrderRepository,
     TaoyuanProjectRepository,
     PaymentRepository,
+    DispatchLinkRepository,
 )
 
 # Query Builders (v1.1.0 新增)
@@ -71,10 +76,16 @@ __all__ = [
     "ConfigurationRepository",
     "NavigationRepository",
     "ProjectVendorRepository",
+    "SessionRepository",
     # Taoyuan
     "DispatchOrderRepository",
     "TaoyuanProjectRepository",
     "PaymentRepository",
+    "DispatchLinkRepository",
+    # AI
+    "AISynonymRepository",
+    "AIPromptRepository",
+    "AISearchHistoryRepository",
     # Query Builders
     "DocumentQueryBuilder",
     "ProjectQueryBuilder",

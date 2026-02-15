@@ -8,58 +8,17 @@ import { apiClient } from './client';
 import { API_ENDPOINTS } from './endpoints';
 import { logger } from '../services/logger';
 
-// 從 types/api.ts 匯入統一的公文型別
-import { OfficialDocument, DocumentStats } from '../types/api';
+// 型別從 types/ 匯入 (SSOT)
+import type {
+  DashboardStats,
+  RecentDocument,
+  DashboardResponse,
+  FormattedDocument,
+  DocumentStats,
+} from '../types/api';
 
-// ============================================================================
-// 型別定義 - 儀表板專用
-// ============================================================================
-
-/** 儀表板統計資料 */
-export interface DashboardStats {
-  total: number;
-  approved: number;
-  pending: number;
-  rejected: number;
-}
-
-/**
- * 近期公文 - 基於 OfficialDocument 的簡化版本
- * 僅包含儀表板顯示所需的欄位
- */
-export interface RecentDocument extends Pick<OfficialDocument,
-  | 'id'
-  | 'doc_number'
-  | 'subject'
-  | 'doc_type'
-  | 'status'
-  | 'sender'
-  | 'creator'
-  | 'created_at'
-  | 'receive_date'
-> {}
-
-/** 儀表板完整回應 */
-export interface DashboardResponse {
-  stats: DashboardStats;
-  recent_documents: RecentDocument[];
-}
-
-/** 格式化後的近期公文 (用於表格顯示) */
-export interface FormattedDocument {
-  key: number;
-  id: string;
-  title: string;
-  type: string;
-  status: string;
-  agency: string;
-  creator: string;
-  createDate: string;
-  deadline: string;
-}
-
-// 重新匯出供外部使用
-export type { DocumentStats };
+// 向後相容 re-export
+export type { DashboardStats, RecentDocument, DashboardResponse, FormattedDocument, DocumentStats };
 
 // ============================================================================
 // API 方法

@@ -50,6 +50,7 @@ export const ROUTES = {
   CERTIFICATION_EDIT: '/staff/:userId/certifications/:certId/edit',
   PROJECTS: '/projects',
   CALENDAR: '/calendar',
+  CALENDAR_EVENT_CREATE: '/calendar/event/new',
   CALENDAR_EVENT_EDIT: '/calendar/event/:id/edit',
   PURE_CALENDAR: '/pure-calendar', // 重導向至 /calendar
   REPORTS: '/reports',
@@ -79,6 +80,9 @@ export const ROUTES = {
   TAOYUAN_DISPATCH_DETAIL: '/taoyuan/dispatch/:id',
   TAOYUAN_PROJECT_CREATE: '/taoyuan/project/create',
   TAOYUAN_PROJECT_DETAIL: '/taoyuan/project/:id',
+  // 作業歷程（導航模式）
+  TAOYUAN_WORKFLOW_CREATE: '/taoyuan/dispatch/:dispatchId/workflow/create',
+  TAOYUAN_WORKFLOW_EDIT: '/taoyuan/dispatch/:dispatchId/workflow/:recordId/edit',
 } as const;
 
 // 路由元數據
@@ -218,6 +222,11 @@ export const ROUTE_META = {
     description: '行事曆管理與排程',
     icon: 'CalendarOutlined',
   },
+  [ROUTES.CALENDAR_EVENT_CREATE]: {
+    title: '新增日曆事件',
+    description: '建立新的日曆事件',
+    breadcrumb: true,
+  },
   [ROUTES.CALENDAR_EVENT_EDIT]: {
     title: '編輯日曆事件',
     description: '編輯日曆事件詳情',
@@ -297,5 +306,15 @@ export const ROUTE_META = {
     description: '桃園查估專區 - 新增派工單',
     icon: 'PlusOutlined',
     hideInMenu: true,
+  },
+  [ROUTES.TAOYUAN_WORKFLOW_CREATE]: {
+    title: '新增作業紀錄',
+    description: '桃園查估專區 - 新增作業歷程紀錄',
+    breadcrumb: true,
+  },
+  [ROUTES.TAOYUAN_WORKFLOW_EDIT]: {
+    title: '編輯作業紀錄',
+    description: '桃園查估專區 - 編輯作業歷程紀錄',
+    breadcrumb: true,
   },
 } as const;

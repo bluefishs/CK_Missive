@@ -216,10 +216,13 @@ async def update_document(
                     raise ForbiddenException("您沒有權限編輯此公文")
 
         # 初始化審計保護器，記錄原始資料
+        # 排除 deferred 欄位（如 embedding）以避免 async lazy-load 觸發 MissingGreenlet
         guard = DocumentUpdateGuard(db, document_id)
+        _EXCLUDED_AUDIT_COLUMNS = {'embedding'}
         original_data = {
             col.name: getattr(document, col.name)
             for col in document.__table__.columns
+            if col.name not in _EXCLUDED_AUDIT_COLUMNS
         }
 
         update_data = data.model_dump(exclude_unset=True)

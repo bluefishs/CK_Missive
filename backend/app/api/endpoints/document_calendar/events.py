@@ -18,7 +18,7 @@ from fastapi import APIRouter
 
 from .common import (
     Depends, HTTPException, status,
-    AsyncSession, select, or_, func, text,
+    AsyncSession, select, or_, func,
     get_async_db, get_current_user,
     User, OfficialDocument, DocumentCalendarEvent, EventReminder,
     calendar_service,

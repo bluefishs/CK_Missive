@@ -23,7 +23,6 @@ class DocumentCalendarIntegrator:
         """初始化行事曆整合器"""
         self.calendar_service: DocumentCalendarService = DocumentCalendarService()
         self.notification_service: ProjectNotificationService = ProjectNotificationService()
-        self.reminder_service: ReminderService = ReminderService()
 
     def parse_document_dates(self, document: OfficialDocument) -> List[Tuple[str, datetime, str]]:
         """
@@ -108,7 +107,8 @@ class DocumentCalendarIntegrator:
             for event in created_events:
                 # 創建提醒
                 try:
-                    await self.reminder_service.create_multi_level_reminders(db=db, event=event)
+                    reminder_service = ReminderService(db)
+                    await reminder_service.create_multi_level_reminders(event=event)
                 except Exception as e:
                     logger.error(f"為事件 {event.id} 創建提醒失敗: {e}")
 
@@ -221,4 +221,52 @@ class DocumentCalendarIntegrator:
         )
         return result.scalars().all()
 
-    # ... (其他輔助函式保持不變) ...
+    async def get_reminder_status(
+        self,
+        db: AsyncSession,
+        document_id: int
+    ) -> Dict[str, Any]:
+        """獲取公文所有事件的提醒狀態"""
+        from app.extended.models import EventReminder
+
+        events = await self.get_document_events(db, document_id)
+        if not events:
+            return {"error": f"公文 {document_id} 沒有行事曆事件"}
+
+        all_reminders = []
+        for event in events:
+            result = await db.execute(
+                select(EventReminder).where(EventReminder.event_id == event.id)
+            )
+            reminders = result.scalars().all()
+            for r in reminders:
+                all_reminders.append({
+                    "id": r.id,
+                    "event_id": r.event_id,
+                    "event_title": event.title,
+                    "reminder_time": r.reminder_time.isoformat() if r.reminder_time else None,
+                    "notification_type": r.notification_type,
+                    "status": r.status or "pending",
+                })
+
+        by_status: Dict[str, int] = {}
+        for r in all_reminders:
+            s = r["status"]
+            by_status[s] = by_status.get(s, 0) + 1
+
+        return {
+            "document_id": document_id,
+            "event_count": len(events),
+            "total_reminders": len(all_reminders),
+            "by_status": by_status,
+            "reminders": all_reminders,
+        }
+
+    async def process_pending_reminders(
+        self,
+        db: AsyncSession,
+    ) -> Dict[str, Any]:
+        """批量處理待發送的提醒"""
+        reminder_service = ReminderService(db)
+        stats = await reminder_service.process_pending_reminders()
+        return stats

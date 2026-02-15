@@ -5,7 +5,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Form, App } from 'antd';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -60,6 +60,7 @@ function projectToFormValues(project: TaoyuanProject) {
 export function useTaoyuanProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { message } = App.useApp();
   const [form] = Form.useForm();
   const queryClient = useQueryClient();
@@ -68,7 +69,34 @@ export function useTaoyuanProjectDetail() {
   const canEdit = hasPermission('documents:edit');
   const canDelete = hasPermission('documents:delete');
 
-  const [activeTab, setActiveTab] = useState('basic');
+  // URL 參數驅動 Tab + highlight
+  const initialTab = searchParams.get('tab') || 'basic';
+  const [activeTab, setActiveTab] = useState(initialTab);
+  const highlightDispatchId = searchParams.get('highlight')
+    ? parseInt(searchParams.get('highlight')!, 10)
+    : undefined;
+
+  // 同步 URL 參數到 activeTab
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab') || 'basic';
+    if (tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Tab 變更時更新 URL
+  const handleTabChange = useCallback(
+    (tabKey: string) => {
+      setActiveTab(tabKey);
+      const params: Record<string, string> = { tab: tabKey };
+      // 切到 overview 時保留 highlight；切到其他 Tab 時清除
+      if (tabKey === 'overview' && highlightDispatchId) {
+        params.highlight = String(highlightDispatchId);
+      }
+      setSearchParams(params, { replace: true });
+    },
+    [setSearchParams, highlightDispatchId],
+  );
   const [isEditing, setIsEditing] = useState(false);
   const [selectedDispatchId, setSelectedDispatchId] = useState<number>();
 
@@ -218,7 +246,8 @@ export function useTaoyuanProjectDetail() {
     canDelete,
     form,
     activeTab,
-    setActiveTab,
+    setActiveTab: handleTabChange,
+    highlightDispatchId,
     isEditing,
     setIsEditing,
     project,

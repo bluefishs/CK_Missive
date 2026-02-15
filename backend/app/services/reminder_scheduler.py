@@ -18,7 +18,6 @@ class ReminderScheduler:
 
     def __init__(self, check_interval: int = 300):  # 預設每5分鐘檢查一次
         self.check_interval = check_interval
-        self.reminder_service = ReminderService()
         self.is_running = False
         self._task: Optional[asyncio.Task] = None
 
@@ -76,7 +75,8 @@ class ReminderScheduler:
         try:
             # 直接創建 session（不使用依賴注入生成器）
             db = AsyncSessionLocal()
-            stats = await self.reminder_service.process_pending_reminders(db)
+            service = ReminderService(db)
+            stats = await service.process_pending_reminders()
 
             if stats["total"] > 0:
                 logger.info(

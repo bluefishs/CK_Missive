@@ -8,30 +8,37 @@ import { apiClient, API_BASE_URL } from './client';
 import { authService } from '../services/authService';
 import dayjs from 'dayjs';
 import { API_ENDPOINTS } from './endpoints';
-import type { CalendarEvent as ApiCalendarEvent, CalendarEventUI } from '../types/api';
+import type {
+  CalendarEventUI,
+  GoogleCalendarStatus,
+  EventCategory,
+  CalendarStats,
+  CalendarDataResponse,
+} from '../types/api';
 import { logger } from '../utils/logger';
 
 // ============================================================================
-// 型別定義 - API 專用
+// 型別定義 - API 專用 (內部轉換用，不匯出)
 // ============================================================================
 
 /**
  * 行事曆事件原始 API 回應格式
  * 後端回傳的原始格式，欄位名稱為 start_date/end_date
+ * 僅在 calendarApi 內部用於轉換，不對外匯出
  */
 interface RawCalendarEventResponse {
   id: number;
   title: string;
   description?: string;
-  start_date: string;       // 後端原始欄位名稱
-  end_date: string;         // 後端原始欄位名稱
-  all_day?: boolean;        // 全天事件
+  start_date: string;
+  end_date: string;
+  all_day?: boolean;
   document_id?: number;
   doc_number?: string;
-  contract_project_name?: string;  // 承攬案件名稱
+  contract_project_name?: string;
   event_type?: string;
   priority?: number | string;
-  status?: 'pending' | 'completed' | 'cancelled';  // 事件狀態
+  status?: 'pending' | 'completed' | 'cancelled';
   location?: string;
   google_event_id?: string;
   google_sync_status?: 'pending' | 'synced' | 'failed';
@@ -39,57 +46,12 @@ interface RawCalendarEventResponse {
 
 /**
  * 行事曆事件 - 前端 UI 使用的型別
- *
- * 此型別別名指向 types/api.ts 中的 CalendarEventUI
- * 使用 start_datetime/end_datetime 欄位名稱
- *
- * @see CalendarEventUI - 完整型別定義
- * @see ApiCalendarEvent - 後端 API 格式（使用 start_date/end_date）
+ * 指向 types/api.ts 中的 CalendarEventUI
  */
 export type CalendarEvent = CalendarEventUI;
 
-/** Google Calendar 狀態 */
-export interface GoogleCalendarStatus {
-  google_calendar_available: boolean;
-  connection_status: {
-    status: string;
-    message: string;
-    calendars?: Array<{
-      id: string;
-      summary: string;
-      primary: boolean;
-    }>;
-  };
-  service_type: string;
-  supported_event_types: Array<{
-    type: string;
-    name: string;
-    color: string;
-  }>;
-  features: string[];
-}
-
-/** 事件分類 */
-export interface EventCategory {
-  value: string;
-  label: string;
-  color: string;
-}
-
-/** 行事曆統計 */
-export interface CalendarStats {
-  total_events: number;
-  today_events: number;
-  this_week_events: number;
-  this_month_events: number;
-  upcoming_events: number;
-}
-
-/** 行事曆完整回應 */
-export interface CalendarDataResponse {
-  events: CalendarEvent[];
-  googleStatus: GoogleCalendarStatus;
-}
+// 向後相容 re-export
+export type { GoogleCalendarStatus, EventCategory, CalendarStats, CalendarDataResponse };
 
 // 預設事件分類
 export const DEFAULT_CATEGORIES: EventCategory[] = [

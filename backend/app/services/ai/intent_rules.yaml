@@ -134,3 +134,25 @@ rules:
       date_from: "last_month_start()"
       date_to: "last_month_end()"
     confidence: 0.88
+
+  # === 公文字號/代碼規則 ===
+  - name: "doc_number_full"
+    description: "完整公文字號 (如 桃工用字第1140005057號)"
+    pattern: "([\\u4e00-\\u9fff]+字第\\d+號?)"
+    extract:
+      keywords: "$1"
+    confidence: 0.95
+
+  - name: "short_alphanumeric_code"
+    description: "短英數代碼 (如 G08, A01, D03) — 可能是站名、工程代碼等"
+    pattern: "^\\s*([A-Za-z]\\d{1,4}(?:-\\d+)?)\\s*$"
+    extract:
+      keywords: "$1"
+    confidence: 0.92
+
+  - name: "alphanumeric_keyword"
+    description: "含英文字母的關鍵字 (如 G08站, BRT, MRT) 出現在較長查詢中"
+    pattern: "([A-Za-z]\\d{1,4}(?:站|線|區|段)?)"
+    extract:
+      keywords: "$1"
+    confidence: 0.80

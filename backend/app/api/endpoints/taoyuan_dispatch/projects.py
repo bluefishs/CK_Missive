@@ -4,6 +4,7 @@
 @version 1.0.0
 @date 2026-01-22
 """
+import logging
 from .common import (
     APIRouter,
     Depends,
@@ -25,6 +26,8 @@ from .common import (
     require_auth,
     TaoyuanProject,
     TaoyuanDispatchProjectLink,
+    TaoyuanDispatchOrder,
+    TaoyuanDispatchDocumentLink,
     TaoyuanDocumentProjectLink,
     ContractProject,
     TaoyuanProjectCreate,
@@ -41,6 +44,8 @@ from .common import (
     _safe_float,
 )
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
 
@@ -52,7 +57,10 @@ async def list_taoyuan_projects(
 ):
     """查詢轄管工程清單（包含派工關聯和公文關聯）"""
     stmt = select(TaoyuanProject).options(
-        selectinload(TaoyuanProject.dispatch_links).selectinload(TaoyuanDispatchProjectLink.dispatch_order),
+        selectinload(TaoyuanProject.dispatch_links)
+            .selectinload(TaoyuanDispatchProjectLink.dispatch_order)
+            .selectinload(TaoyuanDispatchOrder.document_links)
+            .selectinload(TaoyuanDispatchDocumentLink.document),
         selectinload(TaoyuanProject.document_links).selectinload(TaoyuanDocumentProjectLink.document)
     )
 
@@ -106,6 +114,9 @@ async def list_taoyuan_projects(
                 ))
 
         linked_documents = []
+        seen_doc_ids: set[int] = set()
+
+        # 1) 直接關聯的公文 (taoyuan_document_project_link)
         for link in (item.document_links or []):
             if link.document:
                 linked_documents.append(ProjectDocumentLink(
@@ -114,6 +125,20 @@ async def list_taoyuan_projects(
                     doc_number=link.document.doc_number,
                     link_type=link.link_type or 'agency_incoming'
                 ))
+                seen_doc_ids.add(link.document_id)
+
+        # 2) 透過派工單間接關聯的公文 (taoyuan_dispatch_document_link)
+        for dlink in (item.dispatch_links or []):
+            if dlink.dispatch_order:
+                for doc_link in (dlink.dispatch_order.document_links or []):
+                    if doc_link.document and doc_link.document_id not in seen_doc_ids:
+                        linked_documents.append(ProjectDocumentLink(
+                            link_id=doc_link.id,
+                            document_id=doc_link.document_id,
+                            doc_number=doc_link.document.doc_number,
+                            link_type=doc_link.link_type or 'agency_incoming'
+                        ))
+                        seen_doc_ids.add(doc_link.document_id)
 
         project_data = TaoyuanProjectSchema.model_validate(item).model_dump()
         project_data['linked_dispatches'] = linked_dispatches
@@ -164,6 +189,40 @@ async def update_taoyuan_project(
     update_data = data.model_dump(exclude_unset=True, exclude_none=True)
     for key, value in update_data.items():
         setattr(project, key, value)
+
+    # 同步 case_handler / survey_unit 到關聯的派工單
+    sync_fields = {}
+    if 'case_handler' in update_data and update_data['case_handler']:
+        sync_fields['case_handler'] = update_data['case_handler']
+    if 'survey_unit' in update_data and update_data['survey_unit']:
+        sync_fields['survey_unit'] = update_data['survey_unit']
+
+    if sync_fields:
+        link_result = await db.execute(
+            select(TaoyuanDispatchProjectLink.dispatch_order_id).where(
+                TaoyuanDispatchProjectLink.taoyuan_project_id == project_id
+            )
+        )
+        dispatch_ids = [row[0] for row in link_result.all()]
+
+        if dispatch_ids:
+            order_result = await db.execute(
+                select(TaoyuanDispatchOrder).where(
+                    TaoyuanDispatchOrder.id.in_(dispatch_ids)
+                )
+            )
+            orders = order_result.scalars().all()
+            updated = 0
+            for order in orders:
+                for field, value in sync_fields.items():
+                    if getattr(order, field, None) != value:
+                        setattr(order, field, value)
+                        updated += 1
+            if updated > 0:
+                logger.info(
+                    "工程 %d 同步 %s 到 %d 個派工單",
+                    project_id, list(sync_fields.keys()), updated
+                )
 
     await db.commit()
     await db.refresh(project)

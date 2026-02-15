@@ -80,6 +80,7 @@ const TaoyuanDispatchCreatePage = lazy(() => import('../pages/TaoyuanDispatchCre
 const TaoyuanDispatchDetailPage = lazy(() => import('../pages/TaoyuanDispatchDetailPage'));
 const TaoyuanProjectCreatePage = lazy(() => import('../pages/TaoyuanProjectCreatePage'));
 const TaoyuanProjectDetailPage = lazy(() => import('../pages/TaoyuanProjectDetailPage'));
+const WorkRecordFormPage = lazy(() => import('../pages/WorkRecordFormPage'));
 
 // ProtectedRoute 已移至獨立模組：./ProtectedRoute.tsx
 
@@ -146,6 +147,7 @@ export const AppRouter: React.FC = () => {
 
           {/* 行事曆（需要認證） */}
           <Route path={ROUTES.CALENDAR} element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
+          <Route path={ROUTES.CALENDAR_EVENT_CREATE} element={<ProtectedRoute><CalendarEventFormPage /></ProtectedRoute>} />
           <Route path={ROUTES.CALENDAR_EVENT_EDIT} element={<ProtectedRoute><CalendarEventFormPage /></ProtectedRoute>} />
 
           {/* 純粹行事曆 - 重導向至 /calendar */}
@@ -163,6 +165,9 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.TAOYUAN_DISPATCH_DETAIL} element={<ProtectedRoute><TaoyuanDispatchDetailPage /></ProtectedRoute>} />
           <Route path={ROUTES.TAOYUAN_PROJECT_CREATE} element={<ProtectedRoute><TaoyuanProjectCreatePage /></ProtectedRoute>} />
           <Route path={ROUTES.TAOYUAN_PROJECT_DETAIL} element={<ProtectedRoute><TaoyuanProjectDetailPage /></ProtectedRoute>} />
+          {/* 作業歷程（導航模式） */}
+          <Route path={ROUTES.TAOYUAN_WORKFLOW_CREATE} element={<ProtectedRoute><WorkRecordFormPage /></ProtectedRoute>} />
+          <Route path={ROUTES.TAOYUAN_WORKFLOW_EDIT} element={<ProtectedRoute><WorkRecordFormPage /></ProtectedRoute>} />
 
           {/* 統一表單示例（需管理員） */}
           <Route path={ROUTES.UNIFIED_FORM_DEMO} element={<ProtectedRoute requireAuth={true} roles={['admin']}><UnifiedFormDemoPage /></ProtectedRoute>} />

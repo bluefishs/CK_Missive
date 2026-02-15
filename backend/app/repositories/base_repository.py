@@ -238,20 +238,24 @@ class BaseRepository(Generic[T]):
     # 建立與更新方法 (Create/Update)
     # =========================================================================
 
-    async def create(self, obj_in: Dict[str, Any]) -> T:
+    async def create(self, obj_in: Dict[str, Any], auto_commit: bool = True) -> T:
         """
         建立新實體
 
         Args:
             obj_in: 實體資料字典
+            auto_commit: 是否自動 commit（False 時僅 flush，由呼叫方控制事務）
 
         Returns:
             新建的實體物件
         """
         db_obj = self.model(**obj_in)
         self.db.add(db_obj)
-        await self.db.commit()
-        await self.db.refresh(db_obj)
+        if auto_commit:
+            await self.db.commit()
+            await self.db.refresh(db_obj)
+        else:
+            await self.db.flush()
 
         self.logger.info(f"建立 {self.model.__name__}: ID={db_obj.id}")
         return db_obj
@@ -277,13 +281,14 @@ class BaseRepository(Generic[T]):
         self.logger.info(f"批次建立 {self.model.__name__}: {len(db_objects)} 筆")
         return db_objects
 
-    async def update(self, id: int, obj_in: Dict[str, Any]) -> Optional[T]:
+    async def update(self, id: int, obj_in: Dict[str, Any], auto_commit: bool = True) -> Optional[T]:
         """
         更新實體
 
         Args:
             id: 實體 ID
             obj_in: 更新資料字典（只包含要更新的欄位）
+            auto_commit: 是否自動 commit（False 時僅 flush，由呼叫方控制事務）
 
         Returns:
             更新後的實體物件，若不存在則返回 None
@@ -299,8 +304,11 @@ class BaseRepository(Generic[T]):
             if hasattr(db_obj, key):
                 setattr(db_obj, key, value)
 
-        await self.db.commit()
-        await self.db.refresh(db_obj)
+        if auto_commit:
+            await self.db.commit()
+            await self.db.refresh(db_obj)
+        else:
+            await self.db.flush()
 
         self.logger.info(f"更新 {self.model.__name__}: ID={id}")
         return db_obj

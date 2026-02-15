@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 
 from app.db.database import get_async_db
-from app.core.dependencies import require_auth, require_admin, require_permission, get_agency_service
+from app.core.dependencies import require_auth, require_admin, require_permission, get_service
 from app.extended.models import User
 from app.schemas.agency import (
     Agency, AgencyCreate, AgencyUpdate, AgencyWithStats,
@@ -43,7 +43,7 @@ router = APIRouter()
 )
 async def list_agencies(
     query: AgencyListQuery = Body(default=AgencyListQuery()),
-    agency_service: AgencyService = Depends(get_agency_service),
+    agency_service: AgencyService = Depends(get_service(AgencyService)),
     current_user: User = Depends(require_auth())
 ):
     """
@@ -106,7 +106,7 @@ async def list_agencies(
 )
 async def get_agency_detail(
     agency_id: int,
-    agency_service: AgencyService = Depends(get_agency_service),
+    agency_service: AgencyService = Depends(get_service(AgencyService)),
     current_user: User = Depends(require_auth())
 ):
     """取得單一機關詳情"""
@@ -127,7 +127,7 @@ async def get_agency_detail(
 )
 async def create_agency(
     agency: AgencyCreate = Body(...),
-    agency_service: AgencyService = Depends(get_agency_service),
+    agency_service: AgencyService = Depends(get_service(AgencyService)),
     current_user: User = Depends(require_permission("agencies:create"))
 ):
     """
@@ -152,7 +152,7 @@ async def create_agency(
 async def update_agency(
     agency_id: int,
     agency: AgencyUpdate = Body(...),
-    agency_service: AgencyService = Depends(get_agency_service),
+    agency_service: AgencyService = Depends(get_service(AgencyService)),
     current_user: User = Depends(require_permission("agencies:edit"))
 ):
     """
@@ -175,7 +175,7 @@ async def update_agency(
 )
 async def delete_agency(
     agency_id: int,
-    agency_service: AgencyService = Depends(get_agency_service),
+    agency_service: AgencyService = Depends(get_service(AgencyService)),
     current_user: User = Depends(require_permission("agencies:delete"))
 ):
     """
@@ -208,7 +208,7 @@ async def delete_agency(
     summary="取得機關統計資料"
 )
 async def get_agency_statistics(
-    agency_service: AgencyService = Depends(get_agency_service),
+    agency_service: AgencyService = Depends(get_service(AgencyService)),
     current_user: User = Depends(require_auth())
 ):
     """取得機關統計資料"""
@@ -230,7 +230,7 @@ async def list_agencies_legacy(
     limit: int = 100,
     search: Optional[str] = None,
     include_stats: bool = True,
-    agency_service: AgencyService = Depends(get_agency_service),
+    agency_service: AgencyService = Depends(get_service(AgencyService)),
     current_user: User = Depends(require_auth())
 ):
     """
@@ -255,7 +255,7 @@ async def list_agencies_legacy(
     deprecated=True
 )
 async def get_statistics_legacy(
-    agency_service: AgencyService = Depends(get_agency_service),
+    agency_service: AgencyService = Depends(get_service(AgencyService)),
     current_user: User = Depends(require_auth())
 ):
     """
@@ -418,7 +418,7 @@ async def fix_agency_parsed_names(
     summary="取得機關關聯統計"
 )
 async def get_association_summary(
-    agency_service: AgencyService = Depends(get_agency_service),
+    agency_service: AgencyService = Depends(get_service(AgencyService)),
     current_user: User = Depends(require_auth())
 ):
     """
@@ -439,7 +439,7 @@ async def get_association_summary(
 )
 async def batch_associate_agencies(
     request: BatchAssociateRequest = Body(default=BatchAssociateRequest()),
-    agency_service: AgencyService = Depends(get_agency_service),
+    agency_service: AgencyService = Depends(get_service(AgencyService)),
     current_user: User = Depends(require_admin())
 ):
     """
@@ -497,7 +497,7 @@ async def batch_associate_agencies(
 )
 async def suggest_agencies(
     request: AgencySuggestRequest = Body(...),
-    agency_service: AgencyService = Depends(get_agency_service),
+    agency_service: AgencyService = Depends(get_service(AgencyService)),
     current_user: User = Depends(require_auth())
 ):
     """

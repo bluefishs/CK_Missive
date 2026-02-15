@@ -1,7 +1,12 @@
 /**
  * 統一 API Client
  *
- * 提供統一的 HTTP 請求處理、錯誤處理和型別支援
+ * 提供統一的 HTTP 請求處理、錯誤處理和型別支援。
+ *
+ * 模組拆分 (v2.0.0):
+ * - errors.ts    — ApiException 錯誤類
+ * - throttler.ts — RequestThrottler 熔斷器 + 重試配置
+ * - client.ts    — 本檔案：Axios 實例 + ApiClient 類
  */
 
 import axios, {
@@ -20,6 +25,14 @@ import {
   normalizePaginatedResponse,
   LegacyListResponse,
 } from './types';
+
+// 從拆分模組匯入
+import { ApiException } from './errors';
+import { RequestThrottler, THROTTLE_CONFIG, RETRY_CONFIG, isRetryableNetworkError } from './throttler';
+
+// 向後相容 re-export（現有 import { ApiException } from './client' 仍可運作）
+export { ApiException } from './errors';
+export { RequestThrottler, THROTTLE_CONFIG, RETRY_CONFIG, isRetryableNetworkError } from './throttler';
 
 // ============================================================================
 // 配置常量
@@ -98,230 +111,6 @@ const DEFAULT_TIMEOUT = 30000;
 
 /** 認證是否禁用（開發模式） */
 const AUTH_DISABLED = import.meta.env['VITE_AUTH_DISABLED'] === 'true';
-
-// ============================================================================
-// API 錯誤類
-// ============================================================================
-
-/**
- * API 錯誤類
- *
- * 統一封裝 API 錯誤，提供一致的錯誤處理介面
- */
-export class ApiException extends Error {
-  public readonly code: ErrorCode | string;
-  public readonly statusCode: number;
-  public readonly details: { field?: string; message: string; value?: unknown }[];
-  public readonly timestamp: Date;
-
-  constructor(
-    code: ErrorCode | string,
-    message: string,
-    statusCode = 500,
-    details?: { field?: string; message: string; value?: unknown }[]
-  ) {
-    super(message);
-    this.name = 'ApiException';
-    this.code = code;
-    this.statusCode = statusCode;
-    this.details = details || [];
-    this.timestamp = new Date();
-  }
-
-  /** 從錯誤回應建立 ApiException */
-  static fromResponse(response: ErrorResponse, statusCode = 500): ApiException {
-    return new ApiException(
-      response.error.code,
-      response.error.message,
-      statusCode,
-      response.error.details
-    );
-  }
-
-  /** 從 Axios 錯誤建立 ApiException */
-  static fromAxiosError(error: AxiosError<ErrorResponse>): ApiException {
-    // 網路錯誤
-    if (!error.response) {
-      if (error.code === 'ECONNABORTED') {
-        return new ApiException(
-          ErrorCode.TIMEOUT,
-          '請求超時，請檢查網路連線後重試',
-          0
-        );
-      }
-      return new ApiException(
-        ErrorCode.NETWORK_ERROR,
-        '網路連線失敗，請檢查網路狀態',
-        0
-      );
-    }
-
-    const { status, data } = error.response;
-
-    // 後端回傳統一格式的錯誤
-    if (data && typeof data === 'object' && 'error' in data) {
-      return ApiException.fromResponse(data as ErrorResponse, status);
-    }
-
-    // FastAPI HTTPException 格式 ({"detail": "..."})
-    if (data && typeof data === 'object' && 'detail' in data) {
-      const detail = (data as { detail: string }).detail;
-      return new ApiException(
-        status === 400 ? ErrorCode.BAD_REQUEST : ErrorCode.INTERNAL_ERROR,
-        detail,
-        status
-      );
-    }
-
-    // 根據 HTTP 狀態碼建立錯誤
-    const statusMessages: Record<number, [ErrorCode, string]> = {
-      400: [ErrorCode.BAD_REQUEST, '請求參數錯誤'],
-      401: [ErrorCode.UNAUTHORIZED, '請先登入'],
-      403: [ErrorCode.FORBIDDEN, '您沒有權限執行此操作'],
-      404: [ErrorCode.NOT_FOUND, '找不到請求的資源'],
-      409: [ErrorCode.CONFLICT, '資源衝突'],
-      422: [ErrorCode.VALIDATION_ERROR, '輸入資料驗證失敗'],
-      429: [ErrorCode.TOO_MANY_REQUESTS, '請求過於頻繁，請稍後再試'],
-      500: [ErrorCode.INTERNAL_ERROR, '伺服器內部錯誤'],
-      502: [ErrorCode.SERVICE_UNAVAILABLE, '服務暫時無法使用'],
-      503: [ErrorCode.SERVICE_UNAVAILABLE, '服務暫時無法使用'],
-    };
-
-    const [code, message] = statusMessages[status] || [
-      ErrorCode.INTERNAL_ERROR,
-      '發生未知錯誤',
-    ];
-
-    return new ApiException(code, message, status);
-  }
-
-  /** 取得使用者友善的錯誤訊息 */
-  getUserMessage(): string {
-    return this.message;
-  }
-
-  /** 取得欄位錯誤（用於表單驗證） */
-  getFieldErrors(): Record<string, string> {
-    if (!this.details) return {};
-
-    return this.details.reduce((acc, detail) => {
-      if (detail.field) {
-        acc[detail.field] = detail.message;
-      }
-      return acc;
-    }, {} as Record<string, string>);
-  }
-}
-
-// ============================================================================
-// Request Circuit Breaker（請求熔斷器）
-// ============================================================================
-
-/**
- * 請求節流配置
- *
- * 防止前端程式錯誤（如 useEffect 無限迴圈）造成請求風暴，
- * 導致後端 OOM 和全系統連鎖崩潰。
- *
- * @see DEVELOPMENT_GUIDELINES.md 常見錯誤 #10
- */
-/** @internal 導出供測試使用 */
-export const THROTTLE_CONFIG = {
-  /** 同 URL 最小請求間隔 (ms) */
-  MIN_INTERVAL_MS: 1000,
-  /** 單 URL 滑動窗口內最大請求數 */
-  MAX_PER_URL: 20,
-  /** 滑動窗口時長 (ms) */
-  WINDOW_MS: 10_000,
-  /** 全域熔斷器閾值（窗口內總請求數） */
-  GLOBAL_MAX: 50,
-  /** 熔斷器冷卻時間 (ms) */
-  COOLDOWN_MS: 5_000,
-};
-
-interface ThrottleRecord {
-  timestamps: number[];
-  lastData: unknown;
-  lastTime: number;
-}
-
-/** @internal 導出供測試使用 */
-export class RequestThrottler {
-  private records = new Map<string, ThrottleRecord>();
-  private globalTimestamps: number[] = [];
-  private circuitOpenUntil = 0;
-
-  private getKey(method: string | undefined, url: string | undefined): string {
-    return `${(method || 'get').toUpperCase()}:${url || ''}`;
-  }
-
-  private pruneOld(arr: number[], windowMs: number): number[] {
-    const cutoff = Date.now() - windowMs;
-    return arr.filter(t => t > cutoff);
-  }
-
-  /**
-   * 檢查請求是否應被節流
-   * @returns null 表示放行，否則返回快取資料或 'reject'
-   */
-  check(method: string | undefined, url: string | undefined): { action: 'allow' } | { action: 'cache'; data: unknown } | { action: 'reject'; reason: string } {
-    const now = Date.now();
-    const key = this.getKey(method, url);
-
-    // 全域熔斷器
-    if (now < this.circuitOpenUntil) {
-      const remaining = Math.ceil((this.circuitOpenUntil - now) / 1000);
-      logger.error(`[CircuitBreaker] 熔斷中，剩餘 ${remaining}s - 請檢查是否有 useEffect 無限迴圈`);
-      return { action: 'reject', reason: `全域熔斷中 (${remaining}s)` };
-    }
-
-    let record = this.records.get(key);
-    if (!record) {
-      record = { timestamps: [], lastData: null, lastTime: 0 };
-      this.records.set(key, record);
-    }
-
-    // 清理過期時間戳
-    record.timestamps = this.pruneOld(record.timestamps, THROTTLE_CONFIG.WINDOW_MS);
-    this.globalTimestamps = this.pruneOld(this.globalTimestamps, THROTTLE_CONFIG.WINDOW_MS);
-
-    // 檢查 1：同 URL 最小間隔
-    if (record.lastData && (now - record.lastTime) < THROTTLE_CONFIG.MIN_INTERVAL_MS) {
-      return { action: 'cache', data: record.lastData };
-    }
-
-    // 檢查 2：單 URL 頻率上限
-    if (record.timestamps.length >= THROTTLE_CONFIG.MAX_PER_URL) {
-      logger.error(`[Throttle] ${key} 超頻 (${record.timestamps.length}/${THROTTLE_CONFIG.WINDOW_MS}ms) - 疑似無限迴圈`);
-      if (record.lastData) {
-        return { action: 'cache', data: record.lastData };
-      }
-      return { action: 'reject', reason: '單 URL 請求過於頻繁' };
-    }
-
-    // 檢查 3：全域熔斷
-    if (this.globalTimestamps.length >= THROTTLE_CONFIG.GLOBAL_MAX) {
-      logger.error(`[CircuitBreaker] 全域請求超限 (${this.globalTimestamps.length}/${THROTTLE_CONFIG.WINDOW_MS}ms) - 啟動熔斷`);
-      this.circuitOpenUntil = now + THROTTLE_CONFIG.COOLDOWN_MS;
-      return { action: 'reject', reason: '全域熔斷器觸發' };
-    }
-
-    // 放行：記錄時間戳
-    record.timestamps.push(now);
-    this.globalTimestamps.push(now);
-    return { action: 'allow' };
-  }
-
-  /** 記錄成功回應（供快取使用） */
-  recordResponse(method: string | undefined, url: string | undefined, data: unknown): void {
-    const key = this.getKey(method, url);
-    const record = this.records.get(key);
-    if (record) {
-      record.lastData = data;
-      record.lastTime = Date.now();
-    }
-  }
-}
 
 const requestThrottler = new RequestThrottler();
 
@@ -432,7 +221,29 @@ function createAxiosInstance(): AxiosInstance {
       return response;
     },
     async (error: AxiosError<ErrorResponse>) => {
-      const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+      const originalRequest = error.config as InternalAxiosRequestConfig & {
+        _retry?: boolean;
+        _retryCount?: number;
+      };
+
+      // 網路錯誤自動重試（後端重啟期間的 ERR_CONNECTION_REFUSED）
+      if (isRetryableNetworkError(error) && originalRequest) {
+        const retryCount = originalRequest._retryCount || 0;
+        if (retryCount < RETRY_CONFIG.MAX_RETRIES) {
+          originalRequest._retryCount = retryCount + 1;
+          const delay = Math.min(
+            RETRY_CONFIG.BASE_DELAY_MS * Math.pow(RETRY_CONFIG.BACKOFF_MULTIPLIER, retryCount),
+            RETRY_CONFIG.MAX_DELAY_MS
+          );
+          logger.warn(
+            `[Retry] 網路錯誤，${delay}ms 後重試 (${retryCount + 1}/${RETRY_CONFIG.MAX_RETRIES}): ${originalRequest.url}`
+          );
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return instance(originalRequest);
+        }
+        // 重試耗盡，繼續走正常錯誤處理
+        logger.error(`[Retry] 重試耗盡 (${RETRY_CONFIG.MAX_RETRIES}次)，後端可能未啟動: ${originalRequest.url}`);
+      }
 
       // 處理 401 未授權
       if (error.response?.status === 401 && !AUTH_DISABLED) {

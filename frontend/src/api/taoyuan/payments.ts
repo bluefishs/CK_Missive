@@ -36,22 +36,20 @@ export const contractPaymentsApi = {
    * 建立契金紀錄
    */
   async create(data: ContractPaymentCreate): Promise<ContractPayment> {
-    const response = await apiClient.post<{ success: boolean; data: ContractPayment }>(
+    return apiClient.post<ContractPayment>(
       API_ENDPOINTS.TAOYUAN_DISPATCH.PAYMENTS_CREATE,
       data
     );
-    return response.data;
   },
 
   /**
    * 更新契金紀錄
    */
   async update(id: number, data: ContractPaymentUpdate): Promise<ContractPayment> {
-    const response = await apiClient.post<{ success: boolean; data: ContractPayment }>(
+    return apiClient.post<ContractPayment>(
       API_ENDPOINTS.TAOYUAN_DISPATCH.PAYMENTS_UPDATE(id),
       data
     );
-    return response.data;
   },
 
   /**

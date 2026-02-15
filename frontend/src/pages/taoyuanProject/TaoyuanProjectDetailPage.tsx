@@ -3,8 +3,8 @@
  *
  * 使用通用 DetailPageLayout 元件，採用 Tab 架構對應 Excel「1.轄管工程清單」。
  *
- * @version 3.0.0 - 模組化重構：Hook + 子元件提取
- * @date 2026-01-28
+ * @version 4.0.0 - 作業歷程 + 看板整合為「作業總覽」Tab
+ * @date 2026-02-13
  */
 
 import React from 'react';
@@ -20,6 +20,7 @@ import {
   HomeOutlined,
   DollarOutlined,
   FileTextOutlined,
+  AppstoreOutlined,
 } from '@ant-design/icons';
 
 import {
@@ -33,6 +34,7 @@ import {
   LandBuildingTab,
   BudgetEstimateTab,
   ReviewStatusTab,
+  ProjectWorkOverviewTab,
   DispatchLinksTab,
 } from './tabs';
 
@@ -46,6 +48,7 @@ export const TaoyuanProjectDetailPage: React.FC = () => {
     setIsEditing,
     activeTab,
     setActiveTab,
+    highlightDispatchId,
     canEdit,
     canDelete,
     form,
@@ -97,6 +100,17 @@ export const TaoyuanProjectDetailPage: React.FC = () => {
       'status',
       { icon: <FileTextOutlined />, text: '審議狀態' },
       <ReviewStatusTab form={form} isEditing={isEditing} project={project} />
+    ),
+    createTabItem(
+      'overview',
+      { icon: <AppstoreOutlined />, text: '作業總覽' },
+      <ProjectWorkOverviewTab
+        projectId={project?.id || 0}
+        contractProjectId={project?.contract_project_id}
+        linkedDispatches={linkedDispatches}
+        canEdit={canEdit}
+        initialHighlightDispatchId={highlightDispatchId}
+      />
     ),
     createTabItem(
       'dispatch-links',

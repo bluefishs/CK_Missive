@@ -11,30 +11,11 @@
 import { apiClient } from './client';
 import { API_ENDPOINTS } from './endpoints';
 
-/** Session 資訊 */
-export interface SessionInfo {
-  id: number;
-  ip_address: string | null;
-  user_agent: string | null;
-  device_info: string | null;
-  created_at: string;
-  last_activity: string | null;
-  is_active: boolean;
-  is_current: boolean;
-}
+// 型別從 types/admin-system.ts 匯入 (SSOT)
+import type { SessionInfo, SessionListResponse, RevokeSessionResponse } from '../types/api';
 
-/** Session 列表回應 */
-export interface SessionListResponse {
-  sessions: SessionInfo[];
-  total: number;
-}
-
-/** 撤銷 Session 回應 */
-export interface RevokeSessionResponse {
-  message: string;
-  session_id?: number;
-  revoked_count?: number;
-}
+// 向後相容 re-export
+export type { SessionInfo, SessionListResponse, RevokeSessionResponse };
 
 /**
  * 列出使用者所有活躍 Session

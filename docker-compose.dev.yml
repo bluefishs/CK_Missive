@@ -1,8 +1,12 @@
 # =============================================================================
-# 乾坤測繪公文管理系統 - 開發環境 Docker Compose
+# [DEPRECATED] 乾坤測繪公文管理系統 - 開發環境 Docker Compose
 # =============================================================================
-# 🎯 目標：開發環境專用，支援熱重載和即時同步
-# 🔧 使用：docker-compose -f docker-compose.dev.yml up
+# ⚠️  已棄用 (2026-02-13)：請改用 docker-compose.infra.yml + PM2 混合模式
+# ⚠️  啟動方式：.\scripts\dev-start.ps1
+# ⚠️  此檔案保留僅供全 Docker 模式參考，應用容器 restart: "no" 防止搶佔 PM2 端口
+# =============================================================================
+# 🎯 原始目標：開發環境專用，支援熱重載和即時同步
+# 🔧 原始使用：docker-compose -f docker-compose.dev.yml up
 # =============================================================================
 
 name: ${COMPOSE_PROJECT_NAME}_dev
@@ -10,7 +14,7 @@ name: ${COMPOSE_PROJECT_NAME}_dev
 services:
   # --- 🗄️ PostgreSQL 資料庫服務 ---
   postgres:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:0.8.0-pg15
     container_name: ${COMPOSE_PROJECT_NAME}_postgres_dev
     env_file: .env
     environment:
@@ -21,7 +25,36 @@ services:
       - postgres_dev_data:/var/lib/postgresql/data
       - ./configs/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
       - ./configs/postgresql-tuning.conf:/etc/postgresql/tuning.conf:ro
-    command: postgres -c 'include=/etc/postgresql/tuning.conf'
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=512MB"
+      - "-c"
+      - "work_mem=16MB"
+      - "-c"
+      - "maintenance_work_mem=128MB"
+      - "-c"
+      - "effective_cache_size=1536MB"
+      - "-c"
+      - "random_page_cost=1.1"
+      - "-c"
+      - "effective_io_concurrency=200"
+      - "-c"
+      - "wal_buffers=16MB"
+      - "-c"
+      - "checkpoint_completion_target=0.9"
+      - "-c"
+      - "max_connections=50"
+      - "-c"
+      - "log_min_duration_statement=500"
+      - "-c"
+      - "log_lock_waits=on"
+      - "-c"
+      - "log_temp_files=0"
+      - "-c"
+      - "default_statistics_target=200"
+      - "-c"
+      - "timezone=Asia/Taipei"
     networks:
       - app_network
     restart: unless-stopped

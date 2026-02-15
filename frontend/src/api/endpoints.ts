@@ -126,8 +126,8 @@ export const CALENDAR_ENDPOINTS = {
   EVENTS_LIST: '/calendar/events/list',
   /** 建立事件 POST /calendar/events */
   EVENTS_CREATE: '/calendar/events',
-  /** 事件詳情 POST /calendar/events/:id/detail */
-  EVENTS_DETAIL: (id: number) => `/calendar/events/${id}/detail`,
+  /** 事件詳情 POST /calendar/events/detail */
+  EVENTS_DETAIL: '/calendar/events/detail',
   /** 更新事件 POST /calendar/events/update */
   EVENTS_UPDATE: '/calendar/events/update',
   /** 刪除事件 POST /calendar/events/delete */
@@ -140,6 +140,10 @@ export const CALENDAR_ENDPOINTS = {
   DOCUMENT_EVENTS: (docId: number) => `/calendar/document/${docId}/events`,
   /** 從公文建立事件 POST /calendar/document/:docId/create-event */
   DOCUMENT_CREATE_EVENT: (docId: number) => `/calendar/document/${docId}/create-event`,
+  /** 檢查公文是否已有事件 POST /calendar/events/check-document */
+  EVENTS_CHECK_DOCUMENT: '/calendar/events/check-document',
+  /** 建立事件含提醒 POST /calendar/events/create-with-reminders */
+  EVENTS_CREATE_WITH_REMINDERS: '/calendar/events/create-with-reminders',
 } as const;
 
 // ============================================================================
@@ -302,12 +306,18 @@ export const ADMIN_USER_MANAGEMENT_ENDPOINTS = {
 
 /** 案件廠商關聯 API 端點 */
 export const PROJECT_VENDORS_ENDPOINTS = {
-  /** 關聯列表 POST /project-vendors/list */
+  /** 案件廠商列表 POST /project-vendors/project/:projectId/list */
+  PROJECT_LIST: (projectId: number) => `/project-vendors/project/${projectId}/list`,
+  /** 全部關聯列表 POST /project-vendors/list */
   LIST: '/project-vendors/list',
   /** 建立關聯 POST /project-vendors */
   CREATE: '/project-vendors',
-  /** 刪除關聯 POST /project-vendors/:id/delete */
-  DELETE: (id: number) => `/project-vendors/${id}/delete`,
+  /** 更新關聯 POST /project-vendors/project/:projectId/vendor/:vendorId/update */
+  UPDATE: (projectId: number, vendorId: number) =>
+    `/project-vendors/project/${projectId}/vendor/${vendorId}/update`,
+  /** 刪除關聯 POST /project-vendors/project/:projectId/vendor/:vendorId/delete */
+  DELETE: (projectId: number, vendorId: number) =>
+    `/project-vendors/project/${projectId}/vendor/${vendorId}/delete`,
 } as const;
 
 /** 案件承辦同仁 API 端點 */
@@ -324,10 +334,14 @@ export const PROJECT_STAFF_ENDPOINTS = {
 export const PROJECT_AGENCY_CONTACTS_ENDPOINTS = {
   /** 承辦列表 POST /project-agency-contacts/list */
   LIST: '/project-agency-contacts/list',
-  /** 建立承辦 POST /project-agency-contacts */
-  CREATE: '/project-agency-contacts',
-  /** 刪除承辦 POST /project-agency-contacts/:id/delete */
-  DELETE: (id: number) => `/project-agency-contacts/${id}/delete`,
+  /** 承辦詳情 POST /project-agency-contacts/detail */
+  DETAIL: '/project-agency-contacts/detail',
+  /** 建立承辦 POST /project-agency-contacts/create */
+  CREATE: '/project-agency-contacts/create',
+  /** 更新承辦 POST /project-agency-contacts/update */
+  UPDATE: '/project-agency-contacts/update',
+  /** 刪除承辦 POST /project-agency-contacts/delete */
+  DELETE: '/project-agency-contacts/delete',
 } as const;
 
 // ============================================================================
@@ -547,6 +561,24 @@ export const TAOYUAN_DISPATCH_ENDPOINTS = {
   DISPATCH_ATTACHMENT_DELETE: (id: number) => `/taoyuan-dispatch/dispatch/attachments/${id}/delete`,
   /** 驗證附件完整性 POST /taoyuan-dispatch/dispatch/attachments/:id/verify */
   DISPATCH_ATTACHMENT_VERIFY: (id: number) => `/taoyuan-dispatch/dispatch/attachments/${id}/verify`,
+
+  // 作業歷程
+  /** 作業歷程列表（依派工單）POST /taoyuan-dispatch/workflow/list */
+  WORKFLOW_LIST: '/taoyuan-dispatch/workflow/list',
+  /** 作業歷程列表（依工程）POST /taoyuan-dispatch/workflow/by-project */
+  WORKFLOW_BY_PROJECT: '/taoyuan-dispatch/workflow/by-project',
+  /** 建立作業紀錄 POST /taoyuan-dispatch/workflow/create */
+  WORKFLOW_CREATE: '/taoyuan-dispatch/workflow/create',
+  /** 取得作業紀錄 POST /taoyuan-dispatch/workflow/:id */
+  WORKFLOW_DETAIL: (id: number) => `/taoyuan-dispatch/workflow/${id}`,
+  /** 更新作業紀錄 POST /taoyuan-dispatch/workflow/:id/update */
+  WORKFLOW_UPDATE: (id: number) => `/taoyuan-dispatch/workflow/${id}/update`,
+  /** 刪除作業紀錄 POST /taoyuan-dispatch/workflow/:id/delete */
+  WORKFLOW_DELETE: (id: number) => `/taoyuan-dispatch/workflow/${id}/delete`,
+  /** 批量更新批次歸屬 POST /taoyuan-dispatch/workflow/batch-update */
+  WORKFLOW_BATCH_UPDATE: '/taoyuan-dispatch/workflow/batch-update',
+  /** 工程歷程總覽 POST /taoyuan-dispatch/workflow/summary/:projectId */
+  WORKFLOW_SUMMARY: (projectId: number) => `/taoyuan-dispatch/workflow/summary/${projectId}`,
 } as const;
 
 // ============================================================================

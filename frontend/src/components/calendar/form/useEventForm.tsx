@@ -8,6 +8,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Form, App, Grid } from 'antd';
 import dayjs from 'dayjs';
 import { apiClient } from '../../../api/client';
+import { API_ENDPOINTS } from '../../../api/endpoints';
 import debounce from 'lodash/debounce';
 import type { CalendarEventData, DocumentOption } from './types';
 import { logger } from '../../../services/logger';
@@ -45,7 +46,7 @@ export function useEventForm(
         event_count: number;
         events: Array<{ id: number; title: string; start_date: string; status?: string }>;
         message: string;
-      }>('/calendar/events/check-document', { document_id: documentId });
+      }>(API_ENDPOINTS.CALENDAR.EVENTS_CHECK_DOCUMENT, { document_id: documentId });
 
       if (response.has_events && response.event_count > 0) {
         setExistingEventsDetail(response.events);
@@ -130,7 +131,7 @@ export function useEventForm(
             doc_number: string;
             subject?: string;
           }>;
-        }>('/documents-enhanced/list', {
+        }>(API_ENDPOINTS.DOCUMENTS.LIST, {
           keyword,
           limit: 20,
           page: 1,
@@ -236,7 +237,7 @@ export function useEventForm(
 
       if (mode === 'create') {
         const response = await apiClient.post<{ success: boolean; message: string }>(
-          '/calendar/events',
+          API_ENDPOINTS.CALENDAR.EVENTS_CREATE,
           submitData
         );
         if (response.success) {
@@ -248,7 +249,7 @@ export function useEventForm(
         }
       } else if (mode === 'edit' && event) {
         const response = await apiClient.post<{ success: boolean; message: string; event?: CalendarEventData }>(
-          '/calendar/events/update',
+          API_ENDPOINTS.CALENDAR.EVENTS_UPDATE,
           { event_id: event.id, ...submitData }
         );
         if (response.success) {

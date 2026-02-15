@@ -200,7 +200,7 @@ export function useAutocompleteSuggestions() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/documents-enhanced/list`, {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.DOCUMENTS.LIST}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ keyword: query, limit: 50, page: 1 })
@@ -230,7 +230,7 @@ export function useAutocompleteSuggestions() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/documents-enhanced/list`, {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.DOCUMENTS.LIST}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ keyword: query, limit: 100, page: 1 })
