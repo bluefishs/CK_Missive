@@ -105,7 +105,7 @@ async def list_work_records_by_project(
 
 
 # =========================================================================
-# CUD 操作（create 必須在 {record_id} 之前，避免路由衝突）
+# 靜態路由（必須在 {record_id} 之前，避免路由衝突）
 # =========================================================================
 
 
@@ -124,8 +124,48 @@ async def create_work_record(
     return WorkRecordResponse.model_validate(record)
 
 
+@router.post("/workflow/batch-update", response_model=BatchUpdateResponse, summary="批量更新批次歸屬")
+async def batch_update_records(
+    data: BatchUpdateRequest,
+    service: WorkRecordService = Depends(get_work_record_service),
+    current_user=Depends(require_auth()),
+):
+    """批量更新作業紀錄的結案批次（batch_no + batch_label）"""
+    updated = await service.update_batch(
+        record_ids=data.record_ids,
+        batch_no=data.batch_no,
+        batch_label=data.batch_label,
+    )
+    await service.db.commit()
+
+    return BatchUpdateResponse(
+        updated_count=updated,
+        batch_no=data.batch_no,
+        batch_label=data.batch_label,
+    )
+
+
 # =========================================================================
-# 單筆查詢
+# 歷程總覽（靜態路由，必須在 {record_id} 之前）
+# =========================================================================
+
+
+@router.post("/workflow/summary/{project_id}", response_model=ProjectWorkflowSummary, summary="工程歷程總覽")
+async def get_workflow_summary(
+    project_id: int,
+    service: WorkRecordService = Depends(get_work_record_service),
+    current_user=Depends(require_auth()),
+):
+    """取得工程的歷程總覽（含里程碑進度、關聯公文統計）"""
+    summary = await service.get_workflow_summary(project_id)
+    if not summary:
+        raise HTTPException(status_code=404, detail="工程項次不存在")
+
+    return ProjectWorkflowSummary(**summary)
+
+
+# =========================================================================
+# 動態路由（{record_id} 在所有靜態路由之後）
 # =========================================================================
 
 
@@ -175,48 +215,3 @@ async def delete_work_record(
 
     await service.db.commit()
     return {"success": True, "message": "刪除成功", "deleted_id": record_id}
-
-
-# =========================================================================
-# 批次批量更新
-# =========================================================================
-
-
-@router.post("/workflow/batch-update", response_model=BatchUpdateResponse, summary="批量更新批次歸屬")
-async def batch_update_records(
-    data: BatchUpdateRequest,
-    service: WorkRecordService = Depends(get_work_record_service),
-    current_user=Depends(require_auth()),
-):
-    """批量更新作業紀錄的結案批次（batch_no + batch_label）"""
-    updated = await service.update_batch(
-        record_ids=data.record_ids,
-        batch_no=data.batch_no,
-        batch_label=data.batch_label,
-    )
-    await service.db.commit()
-
-    return BatchUpdateResponse(
-        updated_count=updated,
-        batch_no=data.batch_no,
-        batch_label=data.batch_label,
-    )
-
-
-# =========================================================================
-# 歷程總覽
-# =========================================================================
-
-
-@router.post("/workflow/summary/{project_id}", response_model=ProjectWorkflowSummary, summary="工程歷程總覽")
-async def get_workflow_summary(
-    project_id: int,
-    service: WorkRecordService = Depends(get_work_record_service),
-    current_user=Depends(require_auth()),
-):
-    """取得工程的歷程總覽（含里程碑進度、關聯公文統計）"""
-    summary = await service.get_workflow_summary(project_id)
-    if not summary:
-        raise HTTPException(status_code=404, detail="工程項次不存在")
-
-    return ProjectWorkflowSummary(**summary)
