@@ -10,13 +10,13 @@
 - /workflow/{record_id}/delete - 刪除作業紀錄
 - /workflow/summary/{project_id} - 工程歷程總覽
 
-@version 1.0.0
-@date 2026-02-13
+@version 1.1.0
+@date 2026-02-17
 """
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_async_db
@@ -53,8 +53,8 @@ def get_work_record_service(
 @router.post("/workflow/list", response_model=WorkRecordListResponse, summary="作業歷程列表（依派工單）")
 async def list_work_records(
     dispatch_order_id: int = Body(..., embed=True),
-    page: int = Body(1),
-    page_size: int = Body(50),
+    page: int = Body(1, ge=1),
+    page_size: int = Body(50, ge=1, le=200),
     service: WorkRecordService = Depends(get_work_record_service),
     current_user=Depends(require_auth()),
 ):
@@ -76,8 +76,8 @@ async def list_work_records(
 @router.post("/workflow/by-project", response_model=WorkRecordListResponse, summary="作業歷程列表（依工程）")
 async def list_work_records_by_project(
     project_id: int = Body(..., embed=True),
-    page: int = Body(1),
-    page_size: int = Body(50),
+    page: int = Body(1, ge=1),
+    page_size: int = Body(50, ge=1, le=200),
     service: WorkRecordService = Depends(get_work_record_service),
     current_user=Depends(require_auth()),
 ):
@@ -131,6 +131,12 @@ async def batch_update_records(
     current_user=Depends(require_auth()),
 ):
     """批量更新作業紀錄的結案批次（batch_no + batch_label）"""
+    # 安全檢查：驗證所有 record_ids 屬於同一派工單
+    try:
+        await service.verify_records_same_dispatch(data.record_ids)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
     updated = await service.update_batch(
         record_ids=data.record_ids,
         batch_no=data.batch_no,
@@ -208,10 +214,15 @@ async def delete_work_record(
     service: WorkRecordService = Depends(get_work_record_service),
     current_user=Depends(require_auth()),
 ):
-    """刪除作業紀錄"""
-    success = await service.delete_record(record_id)
-    if not success:
+    """刪除作業紀錄（自動清理子紀錄的 parent_record_id）"""
+    orphaned = await service.delete_record(record_id)
+    if orphaned is None:
         raise HTTPException(status_code=404, detail="作業紀錄不存在")
 
     await service.db.commit()
-    return {"success": True, "message": "刪除成功", "deleted_id": record_id}
+    return {
+        "success": True,
+        "message": "刪除成功",
+        "deleted_id": record_id,
+        "orphaned_children_cleared": orphaned,
+    }

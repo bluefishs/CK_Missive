@@ -2,8 +2,8 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.53.0
-> **最後更新**: 2026-02-09
+> **Claude Code 配置版本**: 1.54.0
+> **最後更新**: 2026-02-17
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers), [everything-claude-code](https://github.com/affaan-m/everything-claude-code)
 
 ---
@@ -76,6 +76,7 @@ CK_Missive 是一套企業級公文管理系統，具備以下核心功能：
 | `api-serialization.md` | 序列化, serialize, ORM, API 返回, 500 錯誤 | **API 序列化規範 (v1.0.0)** |
 | `python-common-pitfalls.md` | Pydantic, forward reference, async, MissingGreenlet, 預設參數 | **Python 常見陷阱規範 (v1.0.0)** |
 | `unicode-handling.md` | Unicode, 編碼, 中文, UTF-8, 亂碼 | **Unicode 處理規範 (v1.0.0)** |
+| `workflow-management.md` | workflow, 作業歷程, 時間軸, chain, timeline | **作業歷程管理規範 (v1.0.0)** |
 
 ### 🦸 Superpowers Skills (v4.0.3)
 
@@ -775,6 +776,45 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 ---
 
 ## 📋 版本更新記錄
+
+### v1.54.0 (2026-02-17) - 鏈式時間軸 + 架構審查修復 + 測試擴充
+
+**鏈式時間軸系統 (Chain Timeline v2)** ⛓️:
+| 項目 | 說明 |
+|------|------|
+| ORM 模型拆分 | `extended/models.py` → 7 個模組 (`_base`, `core`, `document`, `calendar`, `staff`, `system`, `taoyuan`) |
+| 新 DB 欄位 | `document_id`, `parent_record_id`, `work_category`, `batch_no`, `batch_label` |
+| ChainTimeline | 鏈式時間軸元件，支援 parent-child 連接線 |
+| InlineRecordCreator | Tab 內 Inline 新增表單，不離開頁面 |
+| chainUtils.ts | `buildChains`, `flattenChains`, `isOutgoingDocNumber` (SSOT) |
+| chainConstants.ts | 7 種作業類別 + OptGroup 分組 + 統一顯示函數 |
+| 3 種視圖 | chain（鏈式）+ correspondence（雙欄）+ table（表格）|
+
+**架構審查修復 (10 項)** 🔧:
+| 嚴重度 | 修復 | 說明 |
+|--------|------|------|
+| CRITICAL | batch-update 權限檢查 | 驗證 record_ids 屬於同一派工單 |
+| HIGH | 刪除清理孤兒子紀錄 | `parent_record_id` → NULL |
+| HIGH | 分頁上限驗證 | `page_size` 限制 ≤ 200 |
+| HIGH | 複合索引 | `(dispatch_order_id, sort_order, record_date)` |
+| MEDIUM | 歷程總覽上限 | `get_workflow_summary()` limit 500 |
+
+**測試擴充 (49 個新測試)** 🧪:
+| 測試 | 數量 | 說明 |
+|------|------|------|
+| `chainUtils.test.ts` | 31 | buildChains, flattenChains, isOutgoingDocNumber, buildDocPairs, getDocDirection |
+| `test_work_record_service.py` | 18 | CRUD + 孤兒清理 + 同派工單驗證 + 防環檢查 + 批次更新 |
+| `test_workflow_api.py` | 13 | API 整合測試 (列表 + CRUD + 批量 + 總覽) |
+
+**新增文件** 📚:
+| 檔案 | 說明 |
+|------|------|
+| `.claude/skills/workflow-management.md` | 作業歷程管理領域知識 Skill |
+| `backend/alembic/versions/add_work_record_composite_index.py` | 複合索引遷移 |
+
+**系統健康度**: 10.0/10 (維持)
+
+---
 
 ### v1.53.0 (2026-02-09) - Docker+PM2 混合開發環境優化與系統韌性強化
 
@@ -2326,5 +2366,5 @@ POST /project/{project_id}/link-dispatch
 ---
 
 *配置維護: Claude Code Assistant*
-*版本: v1.52.0*
-*最後更新: 2026-02-09*
+*版本: v1.54.0*
+*最後更新: 2026-02-17*

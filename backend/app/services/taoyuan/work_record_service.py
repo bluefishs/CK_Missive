@@ -218,21 +218,59 @@ class WorkRecordService:
 
         return record
 
-    async def delete_record(self, record_id: int) -> bool:
-        """刪除作業紀錄"""
+    async def delete_record(self, record_id: int) -> Optional[int]:
+        """
+        刪除作業紀錄（含子紀錄 parent_record_id 清理）
+
+        Returns:
+            被清理的子紀錄數量，若紀錄不存在返回 None
+        """
         record = await self.repository.get_by_id(record_id)
         if not record:
-            return False
+            return None
+
+        # 清理子紀錄的 parent_record_id（避免孤兒外鍵）
+        from sqlalchemy import update
+        stmt = (
+            update(TaoyuanWorkRecord)
+            .where(TaoyuanWorkRecord.parent_record_id == record_id)
+            .values(parent_record_id=None)
+        )
+        result = await self.db.execute(stmt)
+        orphaned = result.rowcount
+
+        if orphaned > 0:
+            logger.info(f"清理 {orphaned} 筆子紀錄的 parent_record_id (parent={record_id})")
 
         await self.db.delete(record)
         await self.db.flush()
 
         logger.info(f"刪除作業紀錄: id={record_id}")
-        return True
+        return orphaned
 
     # =========================================================================
     # 批次批量更新
     # =========================================================================
+
+    async def verify_records_same_dispatch(self, record_ids: List[int]) -> None:
+        """驗證所有 record_ids 屬於同一派工單（安全檢查）"""
+        if not record_ids:
+            return
+
+        query = (
+            select(TaoyuanWorkRecord.dispatch_order_id)
+            .where(TaoyuanWorkRecord.id.in_(record_ids))
+            .distinct()
+        )
+        result = await self.db.execute(query)
+        dispatch_ids = list(result.scalars().all())
+
+        if len(dispatch_ids) == 0:
+            raise ValueError("指定的作業紀錄不存在")
+        if len(dispatch_ids) > 1:
+            raise ValueError(
+                f"作業紀錄分屬不同派工單 ({dispatch_ids})，不可跨派工單批量操作"
+            )
 
     async def update_batch(
         self,

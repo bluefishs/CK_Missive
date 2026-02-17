@@ -121,10 +121,13 @@ class WorkRecordRepository(BaseRepository[TaoyuanWorkRecord]):
         return items, total
 
     async def get_workflow_summary(
-        self, project_id: int
+        self, project_id: int, max_records: int = 500
     ) -> dict:
         """
         取得工程的歷程總覽（里程碑完成數、當前階段等）
+
+        Args:
+            max_records: 最大回傳紀錄數（防止極端情況下記憶體爆炸）
         """
         records_query = (
             select(TaoyuanWorkRecord)
@@ -135,6 +138,7 @@ class WorkRecordRepository(BaseRepository[TaoyuanWorkRecord]):
             )
             .where(TaoyuanWorkRecord.taoyuan_project_id == project_id)
             .order_by(TaoyuanWorkRecord.sort_order, TaoyuanWorkRecord.record_date)
+            .limit(max_records)
         )
         result = await self.db.execute(records_query)
         records = list(result.scalars().all())
