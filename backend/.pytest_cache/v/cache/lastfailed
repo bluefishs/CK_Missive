@@ -1,4 +1,0 @@
-{
-  "tests/unit/test_repositories/test_base_repository.py::TestBaseRepository::test_get_by_id_found": true,
-  "tests/unit/test_repositories/test_base_repository.py::TestBaseRepository::test_get_by_id_not_found": true
-}
