@@ -132,6 +132,8 @@ class BackupService:
                 capture_output=True,
                 text=True,
                 timeout=10,
+                encoding="utf-8",
+                errors="replace",
             )
             return result.returncode == 0
         except Exception:
@@ -171,13 +173,21 @@ class BackupService:
     def _get_running_container(self) -> Optional[str]:
         """取得正在執行的 PostgreSQL 容器名稱"""
         try:
+            # 優先精確匹配目標容器名稱
             result = subprocess.run(
-                [self._docker_path, "ps", "--filter", "name=postgres", "--format", "{{.Names}}"],
+                [self._docker_path, "ps", "--filter", f"name={self.container_name}", "--format", "{{.Names}}"],
                 capture_output=True,
                 text=True,
                 timeout=10,
+                encoding="utf-8",
+                errors="replace",
             )
             if result.returncode == 0 and result.stdout.strip():
+                # 精確匹配：在結果中找完全符合的容器名
+                for name in result.stdout.strip().split("\n"):
+                    if name.strip() == self.container_name:
+                        return self.container_name
+                # 部分匹配：取第一個包含目標名稱的結果
                 return result.stdout.strip().split("\n")[0]
         except Exception:
             pass
@@ -229,8 +239,8 @@ class BackupService:
         result["success"] = len(result["errors"]) == 0
 
         # 記錄備份操作日誌
-        db_info = result.get("database_backup", {})
-        att_info = result.get("attachments_backup", {})
+        db_info = result.get("database_backup") or {}
+        att_info = result.get("attachments_backup") or {}
         details = []
         if db_info.get("success"):
             details.append(f"資料庫: {db_info.get('filename', 'N/A')} ({db_info.get('size_kb', 0)} KB)")
@@ -283,6 +293,8 @@ class BackupService:
                 text=True,
                 timeout=300,
                 env=env,
+                encoding="utf-8",
+                errors="replace",
             )
 
             if result.returncode == 0:
@@ -714,6 +726,8 @@ class BackupService:
                 text=True,
                 timeout=600,
                 env=env,
+                encoding="utf-8",
+                errors="replace",
             )
 
             if result.returncode == 0:
