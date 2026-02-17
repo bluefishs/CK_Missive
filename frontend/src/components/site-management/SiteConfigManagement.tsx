@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
   Table, Button, Space, Modal, Form, Input, Select, Card,
-  Popconfirm, Tag, Row, Col, Switch, InputNumber, App
+  Popconfirm, Tag, Row, Col, InputNumber, App
 } from 'antd';
 import {
-  PlusOutlined, EditOutlined, DeleteOutlined, SettingOutlined
+  PlusOutlined, EditOutlined, DeleteOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { secureApiService } from '../../services/secureApiService';
-import { API_BASE_URL } from '../../api/client';
 import { logger } from '../../services/logger';
 
 const { Option } = Select;
@@ -44,7 +43,6 @@ const SiteConfigManagement: React.FC = () => {
   const [form] = Form.useForm();
   const [searchText, setSearchText] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const [categories, setCategories] = useState<Array<{ id: string; name: string; description?: string } | string>>([]);
 
   // 配置類型選項
   const configTypes = [
@@ -112,42 +110,8 @@ const SiteConfigManagement: React.FC = () => {
     }
   };
 
-  // 載入分類列表
-  const loadCategories = async () => {
-    try {
-      // 使用共用的 API 基礎 URL
-      const apiUrl = `${API_BASE_URL}/site-management/config/categories`;
-      const response = await fetch(apiUrl);
-      if (response.ok) {
-        const data = await response.json();
-        setCategories(data.categories);
-      } else {
-        logger.warn('Categories endpoint not available, using fallback data');
-        // 提供預設分類
-        setCategories([
-          { id: 'general', name: '一般設定', description: '系統一般配置項目' },
-          { id: 'navigation', name: '導覽設定', description: '網站導覽相關設定' },
-          { id: 'ui', name: '界面設定', description: '使用者界面配置' },
-          { id: 'security', name: '安全設定', description: '系統安全相關配置' },
-          { id: 'api', name: 'API設定', description: 'API相關配置' }
-        ]);
-      }
-    } catch (error) {
-      logger.error('Error loading categories:', error);
-      // 提供預設分類作為 fallback
-      setCategories([
-        { id: 'general', name: '一般設定', description: '系統一般配置項目' },
-        { id: 'navigation', name: '導覽設定', description: '網站導覽相關設定' },
-        { id: 'ui', name: '界面設定', description: '使用者界面配置' },
-        { id: 'security', name: '安全設定', description: '系統安全相關配置' },
-        { id: 'api', name: 'API設定', description: 'API相關配置' }
-      ]);
-    }
-  };
-
   useEffect(() => {
     loadConfigData();
-    loadCategories();
   }, [searchText, selectedCategory]);
 
   // 顯示新增/編輯對話框
@@ -185,7 +149,6 @@ const SiteConfigManagement: React.FC = () => {
       setModalVisible(false);
       form.resetFields();
       loadConfigData();
-      loadCategories();
     } catch (error) {
       message.error('操作失敗');
       logger.error('Error submitting form:', error);
