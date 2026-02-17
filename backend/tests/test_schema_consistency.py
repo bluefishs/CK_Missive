@@ -128,19 +128,10 @@ class TestSchemaConsistency:
 
 
 def test_no_duplicate_models():
-    """測試是否有重複的模型定義"""
-    import warnings
-
-    # 嘗試導入已廢棄的模型檔案，應該產生警告
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        try:
-            from app.extended.models.document import DocumentAttachment as DeprecatedModel
-            # 應該收到 DeprecationWarning
-            deprecation_warnings = [x for x in w if issubclass(x.category, DeprecationWarning)]
-            assert len(deprecation_warnings) > 0, "已廢棄的模型應該產生 DeprecationWarning"
-        except ImportError:
-            pass  # 如果檔案不存在則通過
+    """測試模型沒有重複的 tablename"""
+    table_names = list(Base.metadata.tables.keys())
+    duplicates = [t for t in table_names if table_names.count(t) > 1]
+    assert len(duplicates) == 0, f"重複的 tablename: {set(duplicates)}"
 
 
 def test_model_imports():

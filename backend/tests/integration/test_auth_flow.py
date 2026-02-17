@@ -75,6 +75,9 @@ def mock_user(test_password_hash: str) -> User:
     user.email_verified = True
     user.department = None
     user.position = None
+    user.locked_until = None
+    user.failed_login_count = 0
+    user.failed_login_attempts = 0
     return user
 
 
@@ -108,6 +111,7 @@ def _make_rowcount_result(count: int):
 class TestLoginFlow:
     """帳密登入流程測試"""
 
+    @pytest.mark.asyncio
     async def test_login_success(
         self, mock_session_db: AsyncMock, mock_user: MagicMock, test_password: str
     ):
@@ -126,6 +130,7 @@ class TestLoginFlow:
         assert user.id == 42
         assert user.email == "testuser@example.com"
 
+    @pytest.mark.asyncio
     async def test_login_wrong_password(
         self, mock_session_db: AsyncMock, mock_user: MagicMock
     ):
@@ -141,6 +146,7 @@ class TestLoginFlow:
         # Assert
         assert user is None
 
+    @pytest.mark.asyncio
     async def test_login_nonexistent_user(self, mock_session_db: AsyncMock):
         """使用者不存在，返回 None"""
         # Arrange: 兩次查詢（email + username）都找不到
@@ -218,6 +224,7 @@ class TestTokenGeneration:
 class TestRefreshTokenRotation:
     """Refresh Token Rotation 機制測試"""
 
+    @pytest.mark.asyncio
     async def test_refresh_token_rotation(self, mock_session_db: AsyncMock, mock_user: MagicMock):
         """刷新後舊 token 失效、新 token 可用
 
@@ -270,6 +277,7 @@ class TestRefreshTokenRotation:
         # 驗證 revoke (commit) 被呼叫
         assert mock_session_db.commit.call_count >= 1
 
+    @pytest.mark.asyncio
     async def test_refresh_token_invalid(self, mock_session_db: AsyncMock):
         """無效的 refresh token（不存在於資料庫）"""
         # Arrange: 第 1 次查詢找不到 active session，第 2 次查詢找不到已撤銷 session
@@ -303,6 +311,7 @@ class TestRefreshTokenReplayDetection:
     系統應撤銷該使用者的所有 active session（防止被竊的 token 造成危害）。
     """
 
+    @pytest.mark.asyncio
     async def test_replay_detection_revokes_all_sessions(
         self, mock_session_db: AsyncMock, mock_user: MagicMock
     ):
@@ -360,6 +369,7 @@ class TestRefreshTokenReplayDetection:
 class TestRefreshTokenExpiry:
     """Refresh Token 過期測試"""
 
+    @pytest.mark.asyncio
     async def test_refresh_token_expired(self, mock_session_db: AsyncMock):
         """過期的 refresh token 返回 None
 
@@ -394,6 +404,7 @@ class TestRefreshTokenExpiry:
 class TestSessionManagement:
     """Session 管理測試"""
 
+    @pytest.mark.asyncio
     async def test_create_user_session(
         self, mock_session_db: AsyncMock, mock_user: MagicMock
     ):
@@ -426,6 +437,7 @@ class TestSessionManagement:
         assert added_session.ip_address == "127.0.0.1"
         assert added_session.user_agent == "TestAgent/1.0"
 
+    @pytest.mark.asyncio
     async def test_revoke_session(self, mock_session_db: AsyncMock):
         """撤銷 session（登出）"""
         # Arrange
@@ -439,6 +451,7 @@ class TestSessionManagement:
         assert result is True
         mock_session_db.commit.assert_called_once()
 
+    @pytest.mark.asyncio
     async def test_revoke_session_not_found(self, mock_session_db: AsyncMock):
         """撤銷不存在的 session"""
         # Arrange
@@ -459,6 +472,7 @@ class TestSessionManagement:
 class TestLogoutFlow:
     """登出流程測試"""
 
+    @pytest.mark.asyncio
     async def test_logout_revokes_session(self, mock_session_db: AsyncMock, mock_user: MagicMock):
         """登出後 session 被標記 is_active=False
 
@@ -590,6 +604,7 @@ class TestFullAuthLifecycle:
     模擬: 登入 → 取得 tokens → 刷新 → 登出
     """
 
+    @pytest.mark.asyncio
     async def test_login_refresh_logout_lifecycle(
         self, mock_session_db: AsyncMock, mock_user: MagicMock, test_password: str
     ):

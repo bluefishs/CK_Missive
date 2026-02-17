@@ -73,8 +73,20 @@ def get_service(service_class: Type[T]) -> Callable[[AsyncSession], T]:
     return _get_service
 
 
-# 所有服務統一使用 get_service(ServiceClass) 工廠模式
-# 例：Depends(get_service(DocumentService))
+# 別名：向後相容
+get_service_with_db = get_service
+
+
+def get_project_service(db: AsyncSession = Depends(get_async_db)):
+    """ProjectService 工廠函數"""
+    from app.services.project_service import ProjectService
+    return ProjectService(db)
+
+
+def get_agency_service(db: AsyncSession = Depends(get_async_db)):
+    """AgencyService 工廠函數"""
+    from app.services.agency_service import AgencyService
+    return AgencyService(db)
 
 
 # ============================================================================

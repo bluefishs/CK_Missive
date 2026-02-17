@@ -134,7 +134,7 @@ class TestWorkflowBatchUpdate:
 
     @pytest.mark.asyncio
     async def test_batch_update_empty_ids(self, client: AsyncClient):
-        """空 record_ids 應回傳 updated_count=0"""
+        """空 record_ids 應被 schema 驗證拒絕 (min_length=1)"""
         response = await client.post(
             "/api/taoyuan-dispatch/workflow/batch-update",
             json={
@@ -143,11 +143,8 @@ class TestWorkflowBatchUpdate:
                 "batch_label": "空批次",
             },
         )
-        assert response.status_code in (200, 401)
-
-        if response.status_code == 200:
-            data = response.json()
-            assert data["updated_count"] == 0
+        # BatchUpdateRequest.record_ids 有 min_length=1，空列表被拒絕
+        assert response.status_code in (422, 401)
 
 
 class TestWorkflowSummary:
