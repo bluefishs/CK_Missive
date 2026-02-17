@@ -7,7 +7,7 @@ v2: 新增 WorkCategory enum + 鏈式欄位 + on_hold 狀態
 @date 2026-02-13
 """
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional, List, Union
+from typing import Optional, List
 from datetime import date, datetime
 from enum import Enum
 
@@ -48,7 +48,7 @@ class WorkRecordStatus(str, Enum):
 class DocBrief(BaseModel):
     id: int
     doc_number: Optional[str] = None
-    doc_date: Optional[Union[str, date]] = None
+    doc_date: Optional[str] = None
     subject: Optional[str] = None
 
     model_config = {"from_attributes": True}
@@ -56,7 +56,7 @@ class DocBrief(BaseModel):
     @field_validator("doc_date", mode="before")
     @classmethod
     def coerce_doc_date(cls, v):
-        if isinstance(v, date):
+        if isinstance(v, (datetime, date)):
             return v.isoformat()
         return v
 
