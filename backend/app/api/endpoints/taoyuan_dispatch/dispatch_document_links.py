@@ -23,6 +23,7 @@ from .common import (
     TaoyuanDispatchOrder, TaoyuanDispatchDocumentLink, Document,
     DispatchDocumentLinkCreate
 )
+from app.utils.doc_helpers import OUTGOING_DOC_PREFIX
 
 # 桃園派工專案 ID (固定為桃園市府委外查估案)
 TAOYUAN_PROJECT_ID = 21
@@ -87,16 +88,16 @@ async def search_linkable_documents(
 
     # 根據 link_type 過濾公文字號前綴
     if request.link_type == 'agency_incoming':
-        # 機關來函：排除「乾坤」開頭的公文
+        # 機關來函：排除公司發文前綴的公文
         query = query.where(
             or_(
                 Document.doc_number.is_(None),
-                ~Document.doc_number.startswith('乾坤')
+                ~Document.doc_number.startswith(OUTGOING_DOC_PREFIX)
             )
         )
     elif request.link_type == 'company_outgoing':
-        # 乾坤發文：只顯示「乾坤」開頭的公文
-        query = query.where(Document.doc_number.startswith('乾坤'))
+        # 公司發文：只顯示公司發文前綴的公文
+        query = query.where(Document.doc_number.startswith(OUTGOING_DOC_PREFIX))
 
     # 排除已關聯的公文
     if request.exclude_document_ids:

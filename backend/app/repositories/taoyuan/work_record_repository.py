@@ -20,6 +20,7 @@ from app.extended.models import (
     TaoyuanProject,
     OfficialDocument,
 )
+from app.utils.doc_helpers import is_outgoing_doc_number
 
 logger = logging.getLogger(__name__)
 
@@ -164,7 +165,7 @@ class WorkRecordRepository(BaseRepository[TaoyuanWorkRecord]):
             if r.document_id is not None:
                 # 新格式：由 document.doc_number 判斷方向
                 doc = r.document
-                if doc and doc.doc_number and doc.doc_number.startswith('乾坤'):
+                if is_outgoing_doc_number(doc.doc_number if doc else None):
                     outgoing_ids.add(r.document_id)
                 else:
                     incoming_ids.add(r.document_id)

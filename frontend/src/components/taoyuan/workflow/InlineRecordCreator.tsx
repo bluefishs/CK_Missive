@@ -209,7 +209,7 @@ export const InlineRecordCreator: React.FC<InlineRecordCreatorProps> = ({
     } catch {
       // form validation failed
     }
-  }, [form, dispatchOrderId, createMutation]);
+  }, [form, dispatchOrderId, linkedProjects, createMutation]);
 
   const handleCancel = useCallback(() => {
     form.resetFields();

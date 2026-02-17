@@ -210,7 +210,7 @@ const RecordCardInner: React.FC<RecordCardProps> = ({
             width: 2,
             height: 8,
             background: token.colorBorderSecondary,
-            marginLeft: depth > 0 ? 12 : 12,
+            marginLeft: 12,
           }}
         />
       )}

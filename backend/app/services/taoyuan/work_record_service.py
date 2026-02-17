@@ -18,7 +18,7 @@ import logging
 from datetime import date as date_type
 from typing import Optional, List, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, literal_column, union_all
+from sqlalchemy import select, func, literal_column
 from sqlalchemy.orm import selectinload
 
 from app.repositories.taoyuan import WorkRecordRepository
@@ -32,6 +32,7 @@ from app.schemas.taoyuan.workflow import (
     WorkRecordCreate,
     WorkRecordUpdate,
 )
+from app.utils.doc_helpers import is_outgoing_doc_number
 
 logger = logging.getLogger(__name__)
 
@@ -135,10 +136,7 @@ class WorkRecordService:
         if record_data.get('document_id') and not record_data.get('record_date'):
             doc = await self.db.get(OfficialDocument, record_data['document_id'])
             if doc and doc.doc_date:
-                record_data['record_date'] = (
-                    doc.doc_date if isinstance(doc.doc_date, date_type)
-                    else doc.doc_date
-                )
+                record_data['record_date'] = doc.doc_date
 
         # 確保 record_date 有值（NOT NULL 約束）
         if not record_data.get('record_date'):
@@ -404,9 +402,7 @@ class WorkRecordService:
         if not doc:
             return
 
-        link_type = 'agency_incoming'  # 預設
-        if doc.doc_number and doc.doc_number.startswith('乾坤'):
-            link_type = 'company_outgoing'
+        link_type = 'company_outgoing' if is_outgoing_doc_number(doc.doc_number) else 'agency_incoming'
 
         link = TaoyuanDispatchDocumentLink(
             dispatch_order_id=dispatch_order_id,
