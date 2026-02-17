@@ -903,6 +903,7 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
           dispatchOrderId={dispatchOrderId}
           existingRecords={records}
           linkedDocuments={linkedDocuments}
+          linkedProjects={linkedProjects}
           onCreated={onRefetchDispatch}
         />
       )}

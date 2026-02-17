@@ -332,4 +332,4 @@ class TaoyuanWorkRecord(Base):
     outgoing_doc = relationship("OfficialDocument", foreign_keys=[outgoing_doc_id])
     document = relationship("OfficialDocument", foreign_keys=[document_id])
     parent_record = relationship("TaoyuanWorkRecord", remote_side=[id],
-        backref="child_records")
+        backref=backref("child_records", lazy="noload"))

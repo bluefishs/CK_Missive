@@ -18,7 +18,7 @@ import logging
 from datetime import date as date_type
 from typing import Optional, List, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, literal_column, union_all
 from sqlalchemy.orm import selectinload
 
 from app.repositories.taoyuan import WorkRecordRepository
@@ -310,35 +310,70 @@ class WorkRecordService:
         exclude_id: Optional[int] = None,
     ) -> None:
         """
-        沿 parent_record_id 回溯，確認無循環（最大深度 MAX_CHAIN_DEPTH）。
-        同時驗證 parent 屬於同一派工單。
+        使用 recursive CTE 單一查詢沿 parent_record_id 回溯，
+        確認無循環且所有祖先屬於同一派工單（最大深度 MAX_CHAIN_DEPTH）。
         """
+        wr = TaoyuanWorkRecord.__table__
+
+        # Anchor: 起點 parent_id
+        anchor = (
+            select(
+                wr.c.id,
+                wr.c.parent_record_id,
+                wr.c.dispatch_order_id,
+                literal_column("1").label("depth"),
+            )
+            .where(wr.c.id == parent_id)
+        )
+
+        # Recursive: 沿 parent_record_id 向上走
+        chain_cte = anchor.cte(name="chain", recursive=True)
+        recursive_part = (
+            select(
+                wr.c.id,
+                wr.c.parent_record_id,
+                wr.c.dispatch_order_id,
+                (chain_cte.c.depth + 1).label("depth"),
+            )
+            .where(wr.c.id == chain_cte.c.parent_record_id)
+            .where(chain_cte.c.depth < MAX_CHAIN_DEPTH)
+        )
+        chain_cte = chain_cte.union_all(recursive_part)
+
+        # 一次查回所有祖先
+        query = select(
+            chain_cte.c.id,
+            chain_cte.c.dispatch_order_id,
+            chain_cte.c.depth,
+        ).order_by(chain_cte.c.depth)
+
+        result = await self.db.execute(query)
+        ancestors = result.all()
+
+        if not ancestors:
+            raise ValueError(f"前序紀錄不存在: id={parent_id}")
+
         visited: set[int] = set()
         if exclude_id:
             visited.add(exclude_id)
 
-        current_id: Optional[int] = parent_id
-        depth = 0
+        for row in ancestors:
+            ancestor_id, ancestor_dispatch_id, depth = row
 
-        while current_id and depth < MAX_CHAIN_DEPTH:
-            if current_id in visited:
-                raise ValueError(f"鏈式紀錄存在循環: record_id={current_id}")
-            visited.add(current_id)
+            # 循環檢測
+            if ancestor_id in visited:
+                raise ValueError(f"鏈式紀錄存在循環: record_id={ancestor_id}")
+            visited.add(ancestor_id)
 
-            parent = await self.db.get(TaoyuanWorkRecord, current_id)
-            if not parent:
-                raise ValueError(f"前序紀錄不存在: id={current_id}")
-            if parent.dispatch_order_id != dispatch_order_id:
+            # 同派工單驗證
+            if ancestor_dispatch_id != dispatch_order_id:
                 raise ValueError(
-                    f"前序紀錄 {current_id} 不屬於同一派工單 "
-                    f"(expected={dispatch_order_id}, got={parent.dispatch_order_id})"
+                    f"前序紀錄 {ancestor_id} 不屬於同一派工單 "
+                    f"(expected={dispatch_order_id}, got={ancestor_dispatch_id})"
                 )
 
-            current_id = parent.parent_record_id
-            depth += 1
-
-        if depth >= MAX_CHAIN_DEPTH:
-            raise ValueError(f"鏈式紀錄超過最大深度 {MAX_CHAIN_DEPTH}")
+            if depth >= MAX_CHAIN_DEPTH:
+                raise ValueError(f"鏈式紀錄超過最大深度 {MAX_CHAIN_DEPTH}")
 
     # =========================================================================
     # 自動關聯公文到派工單

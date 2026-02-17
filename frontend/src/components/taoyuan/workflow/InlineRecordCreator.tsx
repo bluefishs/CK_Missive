@@ -55,6 +55,8 @@ export interface InlineRecordCreatorProps {
   existingRecords: WorkRecord[];
   /** 已關聯的公文列表 */
   linkedDocuments?: DispatchDocumentLink[];
+  /** 關聯的工程列表（單一工程時自動帶入） */
+  linkedProjects?: { project_id: number; project_name?: string }[];
   /** 建立成功後 callback */
   onCreated?: () => void;
 }
@@ -67,6 +69,7 @@ export const InlineRecordCreator: React.FC<InlineRecordCreatorProps> = ({
   dispatchOrderId,
   existingRecords,
   linkedDocuments = [],
+  linkedProjects = [],
   onCreated,
 }) => {
   const [expanded, setExpanded] = useState(false);
@@ -181,8 +184,14 @@ export const InlineRecordCreator: React.FC<InlineRecordCreatorProps> = ({
     try {
       const values = await form.validateFields();
 
+      // 工程 ID：單一工程自動帶入，多工程由使用者選
+      const projectId =
+        values.taoyuan_project_id ||
+        (linkedProjects.length === 1 ? linkedProjects[0]!.project_id : undefined);
+
       const payload: WorkRecordCreate = {
         dispatch_order_id: dispatchOrderId,
+        taoyuan_project_id: projectId,
         work_category: values.work_category,
         document_id: values.document_id || undefined,
         parent_record_id: values.parent_record_id || undefined,
@@ -304,6 +313,24 @@ export const InlineRecordCreator: React.FC<InlineRecordCreatorProps> = ({
             </Form.Item>
           </Col>
         </Row>
+
+        {/* Row 2.5: 關聯工程（多工程時顯示選擇器） */}
+        {linkedProjects.length > 1 && (
+          <Form.Item
+            name="taoyuan_project_id"
+            label="關聯工程"
+            style={{ marginBottom: 8 }}
+          >
+            <Select
+              placeholder="選擇關聯工程"
+              allowClear
+              options={linkedProjects.map((p) => ({
+                value: p.project_id,
+                label: p.project_name || `工程 #${p.project_id}`,
+              }))}
+            />
+          </Form.Item>
+        )}
 
         {/* Row 3: 前序紀錄 + 期限 */}
         <Row gutter={8}>

@@ -100,7 +100,6 @@ const RecordCardInner: React.FC<RecordCardProps> = ({
       {/* 卡片 */}
       <div
         style={{
-          borderLeft: `3px ${borderStyle} ${borderColor}`,
           borderRadius: 6,
           border: `1px ${borderStyle} ${token.colorBorderSecondary}`,
           borderLeftWidth: 3,

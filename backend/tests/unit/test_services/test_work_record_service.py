@@ -266,14 +266,18 @@ class TestVerifyRecordsSameDispatch:
 # ============================================================
 
 class TestCheckChainCycle:
+    """
+    _check_chain_cycle 使用 recursive CTE 單一查詢。
+    mock_db.execute 回傳 CTE 結果列 (id, dispatch_order_id, depth)。
+    """
+
     @pytest.mark.asyncio
     async def test_no_cycle_passes(self, service, mock_db):
         """無循環 → 通過"""
-        parent = MagicMock()
-        parent.dispatch_order_id = 1
-        parent.parent_record_id = None
-
-        mock_db.get = AsyncMock(return_value=parent)
+        # CTE 回傳 1 列：parent_id=10, dispatch_order_id=1, depth=1
+        mock_result = MagicMock()
+        mock_result.all.return_value = [(10, 1, 1)]
+        mock_db.execute = AsyncMock(return_value=mock_result)
 
         # 不應拋錯
         await service._check_chain_cycle(parent_id=10, dispatch_order_id=1)
@@ -281,7 +285,10 @@ class TestCheckChainCycle:
     @pytest.mark.asyncio
     async def test_parent_not_found_raises(self, service, mock_db):
         """parent 不存在 → ValueError"""
-        mock_db.get = AsyncMock(return_value=None)
+        # CTE 回傳空列表（parent_id 不存在於 DB）
+        mock_result = MagicMock()
+        mock_result.all.return_value = []
+        mock_db.execute = AsyncMock(return_value=mock_result)
 
         with pytest.raises(ValueError, match="前序紀錄不存在"):
             await service._check_chain_cycle(parent_id=999, dispatch_order_id=1)
@@ -289,14 +296,34 @@ class TestCheckChainCycle:
     @pytest.mark.asyncio
     async def test_different_dispatch_raises(self, service, mock_db):
         """parent 屬於不同派工單 → ValueError"""
-        parent = MagicMock()
-        parent.dispatch_order_id = 2  # 不同派工單
-        parent.parent_record_id = None
-
-        mock_db.get = AsyncMock(return_value=parent)
+        # CTE 回傳 1 列：parent 的 dispatch_order_id=2（不同）
+        mock_result = MagicMock()
+        mock_result.all.return_value = [(10, 2, 1)]
+        mock_db.execute = AsyncMock(return_value=mock_result)
 
         with pytest.raises(ValueError, match="不屬於同一派工單"):
             await service._check_chain_cycle(parent_id=10, dispatch_order_id=1)
+
+    @pytest.mark.asyncio
+    async def test_cycle_detected_raises(self, service, mock_db):
+        """CTE 回傳重複 ID → 循環偵測"""
+        # 模擬: 10 → 20 → 10 (循環)
+        mock_result = MagicMock()
+        mock_result.all.return_value = [(10, 1, 1), (20, 1, 2), (10, 1, 3)]
+        mock_db.execute = AsyncMock(return_value=mock_result)
+
+        with pytest.raises(ValueError, match="存在循環"):
+            await service._check_chain_cycle(parent_id=10, dispatch_order_id=1)
+
+    @pytest.mark.asyncio
+    async def test_multi_ancestor_chain_passes(self, service, mock_db):
+        """多層祖先鏈無循環 → 通過"""
+        # 10 → 20 → 30（3 層，同派工單）
+        mock_result = MagicMock()
+        mock_result.all.return_value = [(10, 1, 1), (20, 1, 2), (30, 1, 3)]
+        mock_db.execute = AsyncMock(return_value=mock_result)
+
+        await service._check_chain_cycle(parent_id=10, dispatch_order_id=1)
 
 
 # ============================================================

@@ -9,7 +9,7 @@ from sqlalchemy import (
     UniqueConstraint, Index, JSON,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import relationship, deferred
+from sqlalchemy.orm import relationship, deferred, backref
 from datetime import datetime
 
 try:
@@ -29,5 +29,5 @@ __all__ = [
     "Column", "Integer", "String", "Float", "Date", "DateTime",
     "ForeignKey", "Text", "Boolean", "Table", "func",
     "UniqueConstraint", "Index", "JSON", "JSONB",
-    "relationship", "deferred", "datetime",
+    "relationship", "deferred", "backref", "datetime",
 ]
