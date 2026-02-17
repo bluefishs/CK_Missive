@@ -55,6 +55,12 @@ test*.csv
 backend/.coverage
 .coverage
 htmlcov/
+frontend/coverage/
+frontend/coverage-summary.json
+
+# Pytest cache
+.pytest_cache/
+backend/.pytest_cache/
 
 # Screenshots
 *.png
@@ -122,3 +128,15 @@ openapi_temp*.json
 
 # Deployment packages
 *.tar.gz
+
+# Archive directories (deprecated files)
+/archive/
+configs/archive/
+scripts/archive/
+
+# Claude planning files
+claude_plant/
+
+# Temporary data files
+dispatch*.json
+!frontend/src/**/*.json
