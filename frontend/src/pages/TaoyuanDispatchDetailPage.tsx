@@ -28,6 +28,7 @@ import {
   DollarOutlined,
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../config/queryConfig';
 import dayjs from 'dayjs';
 
 import {
@@ -244,7 +245,7 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
       message.success('契金紀錄儲存成功');
       refetchPayment();
       // 同步更新契金管控列表（PaymentsTab）
-      queryClient.invalidateQueries({ queryKey: ['payment-control'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanPayments.all });
     },
     onError: (error: Error) => {
       logger.error('[paymentMutation] 契金儲存失敗:', error);
@@ -261,7 +262,7 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
     onSuccess: () => {
       message.success('派工單更新成功');
       refetch();
-      queryClient.invalidateQueries({ queryKey: ['taoyuan-dispatch-orders'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
       setIsEditing(false);
     },
     onError: () => message.error('更新失敗'),
@@ -272,7 +273,7 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
     mutationFn: () => dispatchOrdersApi.delete(parseInt(id || '0', 10)),
     onSuccess: () => {
       message.success('派工單刪除成功');
-      queryClient.invalidateQueries({ queryKey: ['taoyuan-dispatch-orders'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
       navigate('/taoyuan/dispatch');
     },
     onError: () => message.error('刪除失敗'),
@@ -293,8 +294,8 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
 
       setSelectedProjectId(undefined);
       refetch();
-      queryClient.invalidateQueries({ queryKey: ['taoyuan-dispatch-orders'] });
-      queryClient.invalidateQueries({ queryKey: ['taoyuan-projects'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanProjects.all });
       // 同步刷新公文關聯
       queryClient.invalidateQueries({ queryKey: ['document-project-links'] });
     },
@@ -327,8 +328,8 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
     onSuccess: () => {
       message.success('已移除工程關聯');
       refetch();
-      queryClient.invalidateQueries({ queryKey: ['taoyuan-dispatch-orders'] });
-      queryClient.invalidateQueries({ queryKey: ['taoyuan-projects'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanProjects.all });
     },
     onError: (error: Error) => {
       message.error(`移除關聯失敗: ${error.message}`);

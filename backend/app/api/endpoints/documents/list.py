@@ -175,19 +175,14 @@ async def list_documents(
             ).where(GovernmentAgency.id.in_(agency_ids))
             return (await db.execute(query)).all()
 
-        # 並行執行所有查詢（加入 10 秒超時保護）
+        # 循序執行關聯查詢（AsyncSession 不支援同 session gather 並行）
         try:
-            project_rows, staff_rows, attachment_rows, agency_rows = await asyncio.wait_for(
-                asyncio.gather(
-                    fetch_projects(),
-                    fetch_staff(),
-                    fetch_attachments(),
-                    fetch_agencies(),
-                ),
-                timeout=10.0
-            )
-        except asyncio.TimeoutError:
-            logger.warning("並行查詢超時 (10s)，回退至基本資料")
+            project_rows = await fetch_projects()
+            staff_rows = await fetch_staff()
+            attachment_rows = await fetch_attachments()
+            agency_rows = await fetch_agencies()
+        except Exception as e:
+            logger.warning(f"關聯查詢失敗，回退至基本資料: {e}")
             project_rows, staff_rows, attachment_rows, agency_rows = [], [], [], []
 
         # 處理查詢結果
@@ -480,11 +475,9 @@ async def get_documents_by_project(
                 result = await db.execute(sq)
                 return result.all()
 
-            # 並行執行
-            project_name, staff_rows = await asyncio.gather(
-                fetch_project_name(),
-                fetch_project_staff(),
-            )
+            # 循序執行（AsyncSession 不支援同 session gather 並行）
+            project_name = await fetch_project_name()
+            staff_rows = await fetch_project_staff()
 
             assigned_staff = [
                 StaffInfo(

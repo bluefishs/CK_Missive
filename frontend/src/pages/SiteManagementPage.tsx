@@ -24,30 +24,10 @@ import { message } from 'antd';
 import SiteConfigManagement from '../components/site-management/SiteConfigManagement';
 import './SiteManagementPage.css';
 import { logger } from '../utils/logger';
+import type { NavigationItem } from '../types/navigation';
 
 const { Option } = Select;
 const { TextArea } = Input;
-
-// Type definitions
-interface NavigationItem {
-  id: number;
-  title: string;
-  key: string;
-  path?: string;
-  icon?: string;
-  description?: string;
-  parent_id: number | null;
-  level: number;
-  sort_order: number;
-  is_visible: boolean;
-  is_enabled: boolean;
-  permission_required?: string;
-  target?: string;
-  children?: NavigationItem[];
-  // 後端回傳的時間戳記欄位（前端不應傳送回後端）
-  created_at?: string;
-  updated_at?: string;
-}
 
 interface TreeNodeData {
   title: React.ReactNode;

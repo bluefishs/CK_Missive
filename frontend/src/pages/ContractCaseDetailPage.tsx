@@ -214,7 +214,7 @@ export const ContractCaseDetailPage: React.FC = () => {
         }));
         setRelatedDocs(loadedDocs);
       } catch {
-        setRelatedDocs([]);
+        logger.warn('載入關聯公文失敗');
       }
 
       // 載入附件
@@ -277,8 +277,7 @@ export const ContractCaseDetailPage: React.FC = () => {
       setAttachments(allAttachments);
       setGroupedAttachments(grouped);
     } catch {
-      setAttachments([]);
-      setGroupedAttachments([]);
+      logger.warn('載入附件失敗');
     } finally {
       setAttachmentsLoading(false);
     }

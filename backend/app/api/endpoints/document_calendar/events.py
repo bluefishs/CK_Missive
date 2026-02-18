@@ -29,6 +29,8 @@ from .common import (
     logger, datetime, timedelta
 )
 from app.extended.models import ContractProject
+from app.repositories.calendar_repository import CalendarRepository
+from app.repositories.document_repository import DocumentRepository
 
 router = APIRouter()
 
@@ -145,13 +147,8 @@ async def check_document_events(
 ):
     """檢查指定公文是否已有行事曆事件，用於前端提示"""
     try:
-        query = (
-            select(DocumentCalendarEvent)
-            .where(DocumentCalendarEvent.document_id == request.document_id)
-            .order_by(DocumentCalendarEvent.start_date)
-        )
-        result = await db.execute(query)
-        existing_events = result.scalars().all()
+        cal_repo = CalendarRepository(db)
+        existing_events = await cal_repo.get_events_by_document_ordered(request.document_id)
 
         if existing_events:
             return {
@@ -193,11 +190,11 @@ async def create_calendar_event(
     注意：document_id 為必填，所有事件必須關聯公文
     """
     try:
+        doc_repo = DocumentRepository(db)
+        cal_repo = CalendarRepository(db)
+
         # 驗證公文存在
-        doc_check = await db.execute(
-            select(OfficialDocument.id).where(OfficialDocument.id == event_create.document_id)
-        )
-        if not doc_check.scalar_one_or_none():
+        if not await doc_repo.exists(event_create.document_id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"找不到公文 ID: {event_create.document_id}"
@@ -207,15 +204,10 @@ async def create_calendar_event(
         start_date_only = event_create.start_date.replace(hour=0, minute=0, second=0, microsecond=0)
         end_date_only = start_date_only + timedelta(days=1)
 
-        duplicate_check = await db.execute(
-            select(DocumentCalendarEvent).where(
-                DocumentCalendarEvent.document_id == event_create.document_id,
-                DocumentCalendarEvent.title == event_create.title,
-                DocumentCalendarEvent.start_date >= start_date_only,
-                DocumentCalendarEvent.start_date < end_date_only
-            )
+        existing_duplicate = await cal_repo.find_duplicate_event(
+            event_create.document_id, event_create.title,
+            start_date_only, end_date_only
         )
-        existing_duplicate = duplicate_check.scalar_one_or_none()
         if existing_duplicate:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -224,11 +216,7 @@ async def create_calendar_event(
 
         # 檢查公文是否已有事件（提供警告但不阻擋建立）
         existing_event_warning = None
-        query = select(func.count()).select_from(DocumentCalendarEvent).where(
-            DocumentCalendarEvent.document_id == event_create.document_id
-        )
-        result = await db.execute(query)
-        existing_count = result.scalar()
+        existing_count = await cal_repo.count_by_document(event_create.document_id)
         if existing_count > 0:
             existing_event_warning = f"注意：此公文已有 {existing_count} 筆行事曆事件"
             logger.info(f"公文 {event_create.document_id} 已有 {existing_count} 筆事件，仍建立新事件")
@@ -295,11 +283,11 @@ async def create_event_with_reminders(
     注意：document_id 為必填，所有事件必須關聯公文
     """
     try:
+        doc_repo = DocumentRepository(db)
+        cal_repo = CalendarRepository(db)
+
         # 0. 驗證公文存在
-        doc_check = await db.execute(
-            select(OfficialDocument.id).where(OfficialDocument.id == request.document_id)
-        )
-        if not doc_check.scalar_one_or_none():
+        if not await doc_repo.exists(request.document_id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"找不到公文 ID: {request.document_id}"
@@ -321,15 +309,10 @@ async def create_event_with_reminders(
         start_date_only = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
         end_date_only = start_date_only + timedelta(days=1)
 
-        duplicate_check = await db.execute(
-            select(DocumentCalendarEvent).where(
-                DocumentCalendarEvent.document_id == request.document_id,
-                DocumentCalendarEvent.title == request.title,
-                DocumentCalendarEvent.start_date >= start_date_only,
-                DocumentCalendarEvent.start_date < end_date_only
-            )
+        existing_duplicate = await cal_repo.find_duplicate_event(
+            request.document_id, request.title,
+            start_date_only, end_date_only
         )
-        existing_duplicate = duplicate_check.scalar_one_or_none()
         if existing_duplicate:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -453,10 +436,9 @@ async def get_calendar_event(
     # 取得關聯公文資訊
     doc_number = None
     if event.document_id:
-        doc_result = await db.execute(
-            select(OfficialDocument.doc_number).where(OfficialDocument.id == event.document_id)
-        )
-        doc_number = doc_result.scalar_one_or_none()
+        doc_repo = DocumentRepository(db)
+        doc_data = await doc_repo.get_projected(event.document_id, ['doc_number'])
+        doc_number = doc_data.get('doc_number') if doc_data else None
 
     return {"success": True, "event": event_to_dict(event, doc_number)}
 

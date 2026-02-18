@@ -52,6 +52,7 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../../../config/queryConfig';
 import dayjs from 'dayjs';
 
 import { workflowApi } from '../../../api/taoyuan';
@@ -218,7 +219,7 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
       setSelectedDocId(undefined);
       setDocSearchKeyword('');
       onRefetchDispatch?.();
-      queryClient.invalidateQueries({ queryKey: ['taoyuan-dispatch-orders'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
       queryClient.invalidateQueries({ queryKey: ['dispatch-work-records', dispatchOrderId] });
     },
     onError: () => message.error('關聯失敗'),
@@ -230,7 +231,7 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
     onSuccess: () => {
       message.success('已移除公文關聯');
       onRefetchDispatch?.();
-      queryClient.invalidateQueries({ queryKey: ['taoyuan-dispatch-orders'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
       queryClient.invalidateQueries({ queryKey: ['dispatch-work-records', dispatchOrderId] });
     },
     onError: () => message.error('移除關聯失敗'),

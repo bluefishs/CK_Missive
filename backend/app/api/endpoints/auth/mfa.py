@@ -19,7 +19,6 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import update
 from jose import jwt
 
 from app.db.database import get_async_db
@@ -28,6 +27,7 @@ from app.core.config import settings
 from app.core.mfa_service import MFAService, MFA_TOKEN_EXPIRE_SECONDS
 from app.core.rate_limiter import limiter
 from app.extended.models import User
+from app.repositories.user_repository import UserRepository
 from app.schemas.auth import (
     MFASetupResponse,
     MFAVerifyRequest,
@@ -72,13 +72,11 @@ async def mfa_setup(
     plain_codes, hashed_json = MFAService.generate_backup_codes()
 
     # 暫存 secret 和 backup codes（尚未啟用 MFA）
-    await db.execute(
-        update(User)
-        .where(User.id == current_user.id)
-        .values(
-            mfa_secret=secret,
-            mfa_backup_codes=hashed_json,
-        )
+    user_repo = UserRepository(db)
+    await user_repo.update_fields(
+        current_user.id,
+        mfa_secret=secret,
+        mfa_backup_codes=hashed_json,
     )
     await db.commit()
 
@@ -124,11 +122,8 @@ async def mfa_verify(
         )
 
     # 啟用 MFA
-    await db.execute(
-        update(User)
-        .where(User.id == current_user.id)
-        .values(mfa_enabled=True)
-    )
+    user_repo = UserRepository(db)
+    await user_repo.update_fields(current_user.id, mfa_enabled=True)
     await db.commit()
 
     logger.info(f"[MFA] 使用者 {current_user.id} 已啟用 MFA")
@@ -176,14 +171,12 @@ async def mfa_disable(
         )
 
     # 停用 MFA 並清除相關欄位
-    await db.execute(
-        update(User)
-        .where(User.id == current_user.id)
-        .values(
-            mfa_enabled=False,
-            mfa_secret=None,
-            mfa_backup_codes=None,
-        )
+    user_repo = UserRepository(db)
+    await user_repo.update_fields(
+        current_user.id,
+        mfa_enabled=False,
+        mfa_secret=None,
+        mfa_backup_codes=None,
     )
     await db.commit()
 
@@ -246,11 +239,8 @@ async def mfa_validate(
         )
 
     # 查找使用者
-    from sqlalchemy import select
-    result = await db.execute(
-        select(User).where(User.id == int(user_id), User.is_active == True)
-    )
-    user = result.scalar_one_or_none()
+    user_repo = UserRepository(db)
+    user = await user_repo.get_active_by_id(int(user_id))
 
     if not user or not user.mfa_enabled or not user.mfa_secret:
         raise HTTPException(
@@ -273,11 +263,7 @@ async def mfa_validate(
         if backup_verified:
             verified = True
             # 更新備用碼（移除已使用的）
-            await db.execute(
-                update(User)
-                .where(User.id == user.id)
-                .values(mfa_backup_codes=updated_codes)
-            )
+            await user_repo.update_fields(user.id, mfa_backup_codes=updated_codes)
             await db.commit()
             logger.info(f"[MFA] 使用者 {user.id} 使用備用碼登入")
 

@@ -225,6 +225,124 @@ class SessionRepository(BaseRepository[UserSession]):
             logger.info(f"Cleaned up {count} expired sessions")
         return count
 
+    async def get_user_active_sessions_ordered(self, user_id: int) -> List[UserSession]:
+        """
+        取得用戶所有 is_active=True 的 session（不檢查 expires_at）
+
+        按 last_activity 降序排列，用於 session 管理 UI 列表。
+
+        Args:
+            user_id: 使用者 ID
+
+        Returns:
+            活躍 session 列表
+        """
+        query = (
+            select(UserSession)
+            .where(
+                and_(
+                    UserSession.user_id == user_id,
+                    UserSession.is_active == True,
+                )
+            )
+            .order_by(UserSession.last_activity.desc().nullslast())
+        )
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def get_active_by_id_and_user(
+        self, session_id: int, user_id: int
+    ) -> Optional[UserSession]:
+        """
+        取得指定 ID 且屬於指定用戶的活躍 session
+
+        用於撤銷前驗證 session 擁有權。
+
+        Args:
+            session_id: Session ID
+            user_id: 使用者 ID
+
+        Returns:
+            UserSession 或 None
+        """
+        query = (
+            select(UserSession)
+            .where(
+                and_(
+                    UserSession.id == session_id,
+                    UserSession.user_id == user_id,
+                    UserSession.is_active == True,
+                )
+            )
+        )
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
+
+    async def revoke_all_by_user_excluding_jti(
+        self, user_id: int, exclude_jti: Optional[str] = None
+    ) -> int:
+        """
+        撤銷用戶所有 session，排除指定 token_jti
+
+        用於「撤銷所有其他 Session」功能，保留當前正在使用的 session。
+
+        Args:
+            user_id: 使用者 ID
+            exclude_jti: 排除的 JWT ID（當前 session 的 jti）
+
+        Returns:
+            撤銷的 session 數量
+        """
+        now = datetime.utcnow()
+        conditions = [
+            UserSession.user_id == user_id,
+            UserSession.is_active == True,
+        ]
+        if exclude_jti:
+            conditions.append(UserSession.token_jti != exclude_jti)
+
+        stmt = (
+            update(UserSession)
+            .where(and_(*conditions))
+            .values(is_active=False, revoked_at=now)
+        )
+        result = await self.db.execute(stmt)
+        await self.db.flush()
+        count = result.rowcount
+        if count > 0:
+            logger.info(f"Revoked {count} sessions for user {user_id} (excluding jti)")
+        return count
+
+    async def revoke_all_by_user(self, user_id: int) -> int:
+        """
+        撤銷用戶所有活躍 session（無排除）
+
+        用於密碼重設後強制登出所有裝置。
+
+        Args:
+            user_id: 使用者 ID
+
+        Returns:
+            撤銷的 session 數量
+        """
+        now = datetime.utcnow()
+        stmt = (
+            update(UserSession)
+            .where(
+                and_(
+                    UserSession.user_id == user_id,
+                    UserSession.is_active == True,
+                )
+            )
+            .values(is_active=False, revoked_at=now)
+        )
+        result = await self.db.execute(stmt)
+        await self.db.flush()
+        count = result.rowcount
+        if count > 0:
+            logger.info(f"Revoked all {count} sessions for user {user_id}")
+        return count
+
     async def get_active_count(self, user_id: int) -> int:
         """取得用戶活躍 session 數量"""
         query = select(func.count(UserSession.id)).where(

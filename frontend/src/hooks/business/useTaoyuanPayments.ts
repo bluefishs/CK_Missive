@@ -10,6 +10,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { contractPaymentsApi } from '../../api/taoyuanDispatchApi';
 import type { ContractPayment, PaymentControlItem } from '../../types/api';
+import { queryKeys } from '../../config/queryConfig';
 
 interface UseTaoyuanPaymentsResult {
   payments: ContractPayment[];
@@ -29,7 +30,7 @@ export const useTaoyuanPayments = (dispatchOrderId: number): UseTaoyuanPaymentsR
     error,
     refetch,
   } = useQuery({
-    queryKey: ['taoyuan-payments', dispatchOrderId],
+    queryKey: queryKeys.taoyuanPayments.byDispatch(dispatchOrderId),
     queryFn: () => contractPaymentsApi.getList(dispatchOrderId),
     staleTime: 30000,
     enabled: !!dispatchOrderId,
@@ -54,7 +55,7 @@ export const useTaoyuanPaymentControl = (contractProjectId: number) => {
     error,
     refetch,
   } = useQuery({
-    queryKey: ['payment-control', contractProjectId],
+    queryKey: queryKeys.taoyuanPayments.paymentControl(contractProjectId),
     queryFn: () => contractPaymentsApi.getControlList(contractProjectId),
     staleTime: 30000,
     enabled: !!contractProjectId,

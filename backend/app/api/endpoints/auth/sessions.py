@@ -17,14 +17,13 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import HTTPAuthorizationCredentials
-from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime
 
 from app.db.database import get_async_db
 from app.core.auth_service import AuthService, security
 from app.core.rate_limiter import limiter
-from app.extended.models import User, UserSession
+from app.extended.models import User
+from app.repositories.session_repository import SessionRepository
 from app.schemas.auth import SessionInfo, SessionListResponse, RevokeSessionRequest
 from starlette.responses import Response
 
@@ -69,15 +68,8 @@ async def list_sessions(
     """
     current_jti = _get_current_jti(request, credentials)
 
-    result = await db.execute(
-        select(UserSession)
-        .where(
-            UserSession.user_id == current_user.id,
-            UserSession.is_active == True,
-        )
-        .order_by(UserSession.last_activity.desc().nullslast())
-    )
-    sessions = result.scalars().all()
+    session_repo = SessionRepository(db)
+    sessions = await session_repo.get_user_active_sessions_ordered(current_user.id)
 
     session_list = []
     for s in sessions:
@@ -117,15 +109,12 @@ async def revoke_session(
     """
     current_jti = _get_current_jti(request, credentials)
 
+    session_repo = SessionRepository(db)
+
     # 查詢要撤銷的 session
-    result = await db.execute(
-        select(UserSession).where(
-            UserSession.id == revoke_request.session_id,
-            UserSession.user_id == current_user.id,
-            UserSession.is_active == True,
-        )
+    target_session = await session_repo.get_active_by_id_and_user(
+        revoke_request.session_id, current_user.id
     )
-    target_session = result.scalar_one_or_none()
 
     if not target_session:
         raise HTTPException(
@@ -141,14 +130,7 @@ async def revoke_session(
         )
 
     # 撤銷 session
-    await db.execute(
-        update(UserSession)
-        .where(UserSession.id == revoke_request.session_id)
-        .values(
-            is_active=False,
-            revoked_at=datetime.utcnow(),
-        )
-    )
+    await session_repo.revoke_session(revoke_request.session_id)
     await db.commit()
 
     logger.info(
@@ -175,27 +157,13 @@ async def revoke_all_sessions(
     """
     current_jti = _get_current_jti(request, credentials)
 
-    # 建立更新條件
-    conditions = [
-        UserSession.user_id == current_user.id,
-        UserSession.is_active == True,
-    ]
+    session_repo = SessionRepository(db)
 
-    # 排除當前 session
-    if current_jti:
-        conditions.append(UserSession.token_jti != current_jti)
-
-    result = await db.execute(
-        update(UserSession)
-        .where(*conditions)
-        .values(
-            is_active=False,
-            revoked_at=datetime.utcnow(),
-        )
+    # 撤銷所有其他 session（排除當前 jti）
+    revoked_count = await session_repo.revoke_all_by_user_excluding_jti(
+        current_user.id, exclude_jti=current_jti
     )
     await db.commit()
-
-    revoked_count = result.rowcount
 
     logger.info(
         f"[SESSION] 使用者 {current_user.email} 撤銷了 {revoked_count} 個其他 Session"

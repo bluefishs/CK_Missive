@@ -64,6 +64,55 @@ export const queryKeys = {
     dropdown: ['users', 'dropdown'] as const,
     current: ['users', 'current'] as const,
   },
+
+  // 行事曆相關
+  calendar: {
+    all: ['calendar'] as const,
+    events: () => [...queryKeys.calendar.all, 'events'] as const,
+    googleStatus: () => [...queryKeys.calendar.all, 'googleStatus'] as const,
+  },
+
+  // 儀表板行事曆
+  dashboardCalendar: {
+    all: ['dashboardCalendar'] as const,
+    events: () => [...queryKeys.dashboardCalendar.all, 'events'] as const,
+  },
+
+  // 通知
+  notifications: {
+    all: ['notifications'] as const,
+    unreadCount: ['notifications-unread-count'] as const,
+    list: ['notifications-list'] as const,
+  },
+
+  // 桃園派工
+  taoyuanDispatch: {
+    all: ['taoyuan-dispatch-orders'] as const,
+    orders: (params?: object) => ['taoyuan-dispatch-orders', ...(params ? [params] : [])] as const,
+    order: (orderId: number | undefined) => ['taoyuan-dispatch-order', orderId] as const,
+  },
+
+  // 桃園專案
+  taoyuanProjects: {
+    all: ['taoyuan-projects'] as const,
+    list: (params?: object) => ['taoyuan-projects', ...(params ? [params] : [])] as const,
+    detail: (projectId: number | undefined) => ['taoyuan-project', projectId] as const,
+  },
+
+  // 桃園契金
+  taoyuanPayments: {
+    all: ['payment-control'] as const,
+    byDispatch: (dispatchOrderId: number) => ['taoyuan-payments', dispatchOrderId] as const,
+    paymentControl: (projectId: number) => ['payment-control', projectId] as const,
+  },
+
+  // 公文關聯搜尋
+  documentRelations: {
+    allDispatches: ['dispatch-orders-for-link'] as const,
+    dispatchOrders: (keyword: string) => ['dispatch-orders-for-link', keyword] as const,
+    allProjects: ['projects-for-link'] as const,
+    projects: (keyword: string) => ['projects-for-link', keyword] as const,
+  },
 } as const;
 
 // ============================================================================

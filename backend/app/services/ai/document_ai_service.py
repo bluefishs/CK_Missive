@@ -477,9 +477,9 @@ class DocumentAIService(BaseAIService):
                 proj_map[proj.id] = proj.project_name
             return proj_map
 
-        attachment_map, project_map = await asyncio.gather(
-            fetch_attachments(), fetch_projects()
-        )
+        # 循序執行（AsyncSession 不支援同 session gather 並行）
+        attachment_map = await fetch_attachments()
+        project_map = await fetch_projects()
 
         # 5. 組裝結果
         search_results = []

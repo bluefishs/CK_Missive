@@ -30,17 +30,9 @@ import dayjs from 'dayjs';
 import { apiClient } from '../../api/client';
 import { API_ENDPOINTS } from '../../api/endpoints';
 import { logger } from '../../services/logger';
+import type { Vendor } from '../../types/api';
 
 const { Option } = Select;
-
-interface Vendor {
-  id: number;
-  vendor_name: string;
-  vendor_code?: string;
-  contact_person?: string;
-  phone?: string;
-  business_type?: string;
-}
 
 interface ProjectVendorAssociation {
   project_id: number;

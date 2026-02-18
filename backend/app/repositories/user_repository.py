@@ -48,6 +48,69 @@ class UserRepository(BaseRepository[User]):
         """根據 username 取得使用者"""
         return await self.find_one_by(username=username)
 
+    async def get_by_email_verification_token(self, token_hash: str) -> Optional[User]:
+        """根據 email 驗證 token hash 取得使用者"""
+        return await self.find_one_by(email_verification_token=token_hash)
+
+    async def get_by_password_reset_token(
+        self, token_hash: str, active_only: bool = True
+    ) -> Optional[User]:
+        """
+        根據密碼重設 token hash 取得使用者
+
+        Args:
+            token_hash: SHA-256 token hash
+            active_only: 是否僅查詢活躍使用者
+
+        Returns:
+            User 或 None
+        """
+        conditions = [User.password_reset_token == token_hash]
+        if active_only:
+            conditions.append(User.is_active == True)
+
+        query = select(User).where(*conditions)
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
+
+    async def get_active_by_id(self, user_id: int) -> Optional[User]:
+        """
+        根據 ID 取得活躍使用者
+
+        Args:
+            user_id: 使用者 ID
+
+        Returns:
+            活躍使用者或 None
+        """
+        query = select(User).where(User.id == user_id, User.is_active == True)
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
+
+    async def update_fields(self, user_id: int, **kwargs) -> bool:
+        """
+        更新使用者指定欄位（使用 bulk update，不載入完整物件）
+
+        適用於只需更新少量欄位且不需要回傳完整物件的場景。
+
+        Args:
+            user_id: 使用者 ID
+            **kwargs: 要更新的欄位與值
+
+        Returns:
+            是否成功更新（rowcount > 0）
+        """
+        if not kwargs:
+            return False
+        from sqlalchemy import update
+        stmt = (
+            update(User)
+            .where(User.id == user_id)
+            .values(**kwargs)
+        )
+        result = await self.db.execute(stmt)
+        return result.rowcount > 0
+
     async def get_active_users(
         self,
         skip: int = 0,

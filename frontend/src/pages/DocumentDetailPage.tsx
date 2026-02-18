@@ -538,7 +538,7 @@ export const DocumentDetailPage: React.FC = () => {
     logger.debug('[handleEventCreated] 新建事件 ID:', eventId);
     // 刷新行事曆相關的 React Query 緩存，確保新事件在行事曆頁面顯示
     queryClient.invalidateQueries({ queryKey: ['calendar', 'events'] });
-    queryClient.invalidateQueries({ queryKey: ['dashboardCalendar'] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.dashboardCalendar.all });
   };
 
   // 附件操作
@@ -626,9 +626,9 @@ export const DocumentDetailPage: React.FC = () => {
 
         // 失效所有相關快取，確保前端獲取最新資料
         queryClient.invalidateQueries({ queryKey: ['dispatch-orders'] });
-        queryClient.invalidateQueries({ queryKey: ['dispatch-orders-for-link'] });
+        queryClient.invalidateQueries({ queryKey: queryKeys.documentRelations.allDispatches });
         queryClient.invalidateQueries({ queryKey: ['document-dispatch-links'] });
-        queryClient.invalidateQueries({ queryKey: ['taoyuan-dispatch-orders'] });
+        queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
 
         // 重新載入關聯資料
         await loadDispatchLinks();
@@ -652,7 +652,7 @@ export const DocumentDetailPage: React.FC = () => {
     await documentLinksApi.linkDispatch(docId, dispatchId, linkType);
     message.success('關聯成功');
     await loadDispatchLinks();
-    queryClient.invalidateQueries({ queryKey: ['dispatch-orders-for-link'] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.documentRelations.allDispatches });
   };
 
   const handleUnlinkDispatch = async (linkId: number) => {
@@ -660,7 +660,7 @@ export const DocumentDetailPage: React.FC = () => {
     await documentLinksApi.unlinkDispatch(docId, linkId);
     message.success('已移除關聯');
     await loadDispatchLinks();
-    queryClient.invalidateQueries({ queryKey: ['dispatch-orders-for-link'] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.documentRelations.allDispatches });
   };
 
   // 工程關聯操作
@@ -671,7 +671,7 @@ export const DocumentDetailPage: React.FC = () => {
     await documentProjectLinksApi.linkProject(docId, projectId, linkType);
     message.success('關聯成功');
     await loadProjectLinks();
-    queryClient.invalidateQueries({ queryKey: ['projects-for-link'] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.documentRelations.allProjects });
   };
 
   const handleUnlinkProject = async (linkId: number) => {
@@ -679,7 +679,7 @@ export const DocumentDetailPage: React.FC = () => {
     await documentProjectLinksApi.unlinkProject(docId, linkId);
     message.success('已移除關聯');
     await loadProjectLinks();
-    queryClient.invalidateQueries({ queryKey: ['projects-for-link'] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.documentRelations.allProjects });
   };
 
   // =============================================================================

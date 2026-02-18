@@ -16,20 +16,10 @@ import {
   DEFAULT_CATEGORIES,
   EventCategory,
 } from '../../api/calendarApi';
-import { defaultQueryOptions } from '../../config/queryConfig';
+import { queryKeys, defaultQueryOptions } from '../../config/queryConfig';
 
 // 啟用 dayjs 週計算插件
 dayjs.extend(isoWeek);
-
-// ============================================================================
-// 查詢鍵
-// ============================================================================
-
-const calendarKeys = {
-  all: ['calendar'] as const,
-  events: () => [...calendarKeys.all, 'events'] as const,
-  googleStatus: () => [...calendarKeys.all, 'googleStatus'] as const,
-};
 
 // ============================================================================
 // 查詢 Hooks
@@ -40,7 +30,7 @@ const calendarKeys = {
  */
 export const useCalendarEvents = () => {
   return useQuery({
-    queryKey: calendarKeys.events(),
+    queryKey: queryKeys.calendar.events(),
     queryFn: () => calendarApi.getEvents(),
     ...defaultQueryOptions.list,
   });
@@ -51,7 +41,7 @@ export const useCalendarEvents = () => {
  */
 export const useGoogleCalendarStatus = () => {
   return useQuery({
-    queryKey: calendarKeys.googleStatus(),
+    queryKey: queryKeys.calendar.googleStatus(),
     queryFn: () => calendarApi.getGoogleStatus(),
     ...defaultQueryOptions.dropdown,
   });
@@ -72,8 +62,8 @@ export const useUpdateCalendarEvent = () => {
       calendarApi.updateEvent(eventId, updates),
     onSuccess: () => {
       // 同時 invalidate Calendar 和 Dashboard 的 queryKey
-      queryClient.invalidateQueries({ queryKey: calendarKeys.events() });
-      queryClient.invalidateQueries({ queryKey: ['dashboardCalendar'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.calendar.events() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardCalendar.all });
     },
   });
 };
@@ -88,8 +78,8 @@ export const useDeleteCalendarEvent = () => {
     mutationFn: (eventId: number) => calendarApi.deleteEvent(eventId),
     onSuccess: () => {
       // 同時 invalidate Calendar 和 Dashboard 的 queryKey
-      queryClient.invalidateQueries({ queryKey: calendarKeys.events() });
-      queryClient.invalidateQueries({ queryKey: ['dashboardCalendar'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.calendar.events() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardCalendar.all });
     },
   });
 };
@@ -103,7 +93,7 @@ export const useBulkSync = () => {
   return useMutation({
     mutationFn: () => calendarApi.bulkSync(),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: calendarKeys.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.calendar.all });
     },
   });
 };

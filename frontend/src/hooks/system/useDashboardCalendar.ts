@@ -14,7 +14,7 @@ import dayjs from 'dayjs';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import { calendarApi, CalendarEvent } from '../../api/calendarApi';
-import { defaultQueryOptions } from '../../config/queryConfig';
+import { queryKeys, defaultQueryOptions } from '../../config/queryConfig';
 
 // 擴展 dayjs
 dayjs.extend(isSameOrBefore);
@@ -55,15 +55,6 @@ export const PRIORITY_CONFIG: Record<number, { name: string; color: string }> = 
 };
 
 // ============================================================================
-// Query Keys
-// ============================================================================
-
-const dashboardCalendarKeys = {
-  all: ['dashboardCalendar'] as const,
-  events: () => [...dashboardCalendarKeys.all, 'events'] as const,
-};
-
-// ============================================================================
 // Hook 實作
 // ============================================================================
 
@@ -78,7 +69,7 @@ const dashboardCalendarKeys = {
 export const useDashboardCalendar = () => {
   // 查詢行事曆事件
   const eventsQuery = useQuery({
-    queryKey: dashboardCalendarKeys.events(),
+    queryKey: queryKeys.dashboardCalendar.events(),
     queryFn: () => calendarApi.getEvents(),
     ...defaultQueryOptions.list,
   });

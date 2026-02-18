@@ -26,7 +26,7 @@ import logging
 import re
 from typing import List, Optional, Dict, Any, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc, or_, update
+from sqlalchemy import select, func, desc, or_, update, case, literal
 
 from app.repositories import AgencyRepository
 from app.services.base import DeleteCheckHelper, StatisticsHelper
@@ -372,11 +372,8 @@ class AgencyService:
         )
         agencies = agencies_result.scalars().all()
 
-        # 計算各機關統計
-        agencies_with_stats = [
-            await self._calculate_agency_stats(agency)
-            for agency in agencies
-        ]
+        # 批次計算所有機關統計（避免 N+1：單一 GROUP BY 取代每機關 3 次查詢）
+        agencies_with_stats = await self._batch_calculate_agency_stats(agencies)
 
         return {
             "agencies": agencies_with_stats,
@@ -384,20 +381,88 @@ class AgencyService:
             "returned": len(agencies_with_stats)
         }
 
+    async def _batch_calculate_agency_stats(
+        self,
+        agencies: List[GovernmentAgency]
+    ) -> List[Dict[str, Any]]:
+        """
+        批次計算所有機關統計（單一 GROUP BY 查詢取代每機關 3 次查詢）
+
+        Args:
+            agencies: 機關列表
+
+        Returns:
+            含統計資料的機關字典列表
+        """
+        if not agencies:
+            return []
+
+        agency_ids = [a.id for a in agencies]
+
+        # 單一查詢取得所有機關的 sent_count, received_count, last_activity
+        stats_query = (
+            select(
+                GovernmentAgency.id.label("agency_id"),
+                func.count(
+                    case((OfficialDocument.sender_agency_id == GovernmentAgency.id, OfficialDocument.id))
+                ).label("sent_count"),
+                func.count(
+                    case((OfficialDocument.receiver_agency_id == GovernmentAgency.id, OfficialDocument.id))
+                ).label("received_count"),
+                func.max(OfficialDocument.doc_date).label("last_activity"),
+            )
+            .outerjoin(
+                OfficialDocument,
+                or_(
+                    OfficialDocument.sender_agency_id == GovernmentAgency.id,
+                    OfficialDocument.receiver_agency_id == GovernmentAgency.id,
+                ),
+            )
+            .where(GovernmentAgency.id.in_(agency_ids))
+            .group_by(GovernmentAgency.id)
+        )
+
+        result = await self.db.execute(stats_query)
+        stats_map = {}
+        for row in result.all():
+            stats_map[row.agency_id] = {
+                "sent_count": row.sent_count or 0,
+                "received_count": row.received_count or 0,
+                "last_activity": row.last_activity,
+            }
+
+        agencies_with_stats = []
+        for agency in agencies:
+            stats = stats_map.get(agency.id, {"sent_count": 0, "received_count": 0, "last_activity": None})
+            normalized_category = self._normalize_category(agency.agency_type)
+            agencies_with_stats.append({
+                "id": agency.id,
+                "agency_name": agency.agency_name,
+                "agency_short_name": agency.agency_short_name,
+                "agency_code": agency.agency_code,
+                "agency_type": agency.agency_type,
+                "category": normalized_category,
+                "contact_person": agency.contact_person,
+                "phone": agency.phone,
+                "email": agency.email,
+                "address": agency.address,
+                "document_count": stats["sent_count"] + stats["received_count"],
+                "sent_count": stats["sent_count"],
+                "received_count": stats["received_count"],
+                "last_activity": stats["last_activity"],
+                "created_at": agency.created_at,
+                "updated_at": agency.updated_at,
+            })
+
+        return agencies_with_stats
+
     async def _calculate_agency_stats(
         self,
         agency: GovernmentAgency
     ) -> Dict[str, Any]:
         """
-        計算單一機關的統計資料
-
-        Args:
-            agency: 機關實體
-
-        Returns:
-            含統計資料的機關字典
+        計算單一機關的統計資料（保留向後相容，建議使用 _batch_calculate_agency_stats）
         """
-        # 發送/接收公文數
         sent_count = (await self.db.execute(
             select(func.count()).where(OfficialDocument.sender_agency_id == agency.id)
         )).scalar() or 0
@@ -406,7 +471,6 @@ class AgencyService:
             select(func.count()).where(OfficialDocument.receiver_agency_id == agency.id)
         )).scalar() or 0
 
-        # 最後活動日期
         last_activity = (await self.db.execute(
             select(func.max(OfficialDocument.doc_date)).where(
                 or_(
@@ -416,7 +480,6 @@ class AgencyService:
             )
         )).scalar_one_or_none()
 
-        # 標準化分類
         normalized_category = self._normalize_category(agency.agency_type)
 
         return {
@@ -630,21 +693,23 @@ class AgencyService:
         if agency:
             return agency
 
-        # 4. 部分匹配 - 機關名稱包含在搜尋文字中
+        # 4. 部分匹配 - 機關名稱包含在搜尋文字中（DB 端比對，避免載入全表）
+        # 使用 PostgreSQL strpos() 在 DB 端判斷 text 是否包含 agency_name
+        # 優先匹配較長名稱（更精確）
         result = await self.db.execute(
             select(GovernmentAgency).where(
-                GovernmentAgency.agency_name.isnot(None)
+                GovernmentAgency.agency_name.isnot(None),
+                or_(
+                    func.strpos(literal(text), GovernmentAgency.agency_name) > 0,
+                    func.strpos(literal(text), GovernmentAgency.agency_short_name) > 0,
+                ),
             )
+            .order_by(func.length(GovernmentAgency.agency_name).desc())
+            .limit(1)
         )
-        agencies = result.scalars().all()
-
-        for agency in agencies:
-            # 檢查機關名稱是否完整出現在文字中
-            if agency.agency_name and agency.agency_name in text:
-                return agency
-            # 檢查簡稱是否出現
-            if agency.agency_short_name and agency.agency_short_name in text:
-                return agency
+        agency = result.scalar_one_or_none()
+        if agency:
+            return agency
 
         return None
 
@@ -705,55 +770,77 @@ class AgencyService:
         }
 
         try:
-            # 取得需要處理的公文
-            query = select(OfficialDocument)
+            # 取得需要處理的公文（分批處理，避免一次載入全表）
+            base_query = select(OfficialDocument)
             if not overwrite:
-                # 只處理尚未關聯的
-                query = query.where(
+                base_query = base_query.where(
                     or_(
                         OfficialDocument.sender_agency_id.is_(None),
                         OfficialDocument.receiver_agency_id.is_(None)
                     )
                 )
 
-            result = await self.db.execute(query)
-            documents = result.scalars().all()
-            stats["total_documents"] = len(documents)
+            # 先查總數
+            count_query = select(func.count(OfficialDocument.id))
+            if not overwrite:
+                count_query = count_query.where(
+                    or_(
+                        OfficialDocument.sender_agency_id.is_(None),
+                        OfficialDocument.receiver_agency_id.is_(None)
+                    )
+                )
+            stats["total_documents"] = (await self.db.execute(count_query)).scalar() or 0
 
-            for doc in documents:
-                try:
-                    updates = {}
+            # 分批處理
+            batch_size = 100
+            offset = 0
 
-                    # 處理發文機關
-                    if doc.sender and (overwrite or doc.sender_agency_id is None):
-                        agency = await self.match_agency(doc.sender)
-                        if agency:
-                            stats["sender_matched"] += 1
-                            if doc.sender_agency_id != agency.id:
-                                updates["sender_agency_id"] = agency.id
-                                stats["sender_updated"] += 1
+            while True:
+                result = await self.db.execute(
+                    base_query.order_by(OfficialDocument.id)
+                    .offset(offset).limit(batch_size)
+                )
+                documents = result.scalars().all()
+                if not documents:
+                    break
 
-                    # 處理受文機關
-                    if doc.receiver and (overwrite or doc.receiver_agency_id is None):
-                        agency = await self.match_agency(doc.receiver)
-                        if agency:
-                            stats["receiver_matched"] += 1
-                            if doc.receiver_agency_id != agency.id:
-                                updates["receiver_agency_id"] = agency.id
-                                stats["receiver_updated"] += 1
+                for doc in documents:
+                    try:
+                        updates = {}
 
-                    # 更新公文
-                    if updates:
-                        await self.db.execute(
-                            update(OfficialDocument)
-                            .where(OfficialDocument.id == doc.id)
-                            .values(**updates)
-                        )
+                        # 處理發文機關
+                        if doc.sender and (overwrite or doc.sender_agency_id is None):
+                            agency = await self.match_agency(doc.sender)
+                            if agency:
+                                stats["sender_matched"] += 1
+                                if doc.sender_agency_id != agency.id:
+                                    updates["sender_agency_id"] = agency.id
+                                    stats["sender_updated"] += 1
 
-                except Exception as e:
-                    stats["errors"].append(f"文件 {doc.id}: {str(e)}")
+                        # 處理受文機關
+                        if doc.receiver and (overwrite or doc.receiver_agency_id is None):
+                            agency = await self.match_agency(doc.receiver)
+                            if agency:
+                                stats["receiver_matched"] += 1
+                                if doc.receiver_agency_id != agency.id:
+                                    updates["receiver_agency_id"] = agency.id
+                                    stats["receiver_updated"] += 1
 
-            await self.db.commit()
+                        # 更新公文
+                        if updates:
+                            await self.db.execute(
+                                update(OfficialDocument)
+                                .where(OfficialDocument.id == doc.id)
+                                .values(**updates)
+                            )
+
+                    except Exception as e:
+                        stats["errors"].append(f"文件 {doc.id}: {str(e)}")
+
+                # 每批次 commit，避免長交易
+                await self.db.commit()
+                offset += batch_size
+
             logger.info(f"批次機關關聯完成: {stats}")
 
         except Exception as e:

@@ -7,19 +7,10 @@
 
 import { BaseRepository } from './BaseRepository';
 import { AGENCIES_ENDPOINTS } from '../api/endpoints';
-import type { Agency, AgencyCreate, AgencyUpdate } from '../types/api';
+import type { Agency, AgencyCreate, AgencyUpdate, AgencyStatistics } from '../types/api';
 
-/**
- * 機關統計資料
- */
-export interface AgencyStatistics {
-  total_agencies: number;
-  categories: Array<{
-    category: string;
-    count: number;
-    percentage: number;
-  }>;
-}
+// 重新匯出供外部使用
+export type { AgencyStatistics };
 
 /**
  * 機關 Repository

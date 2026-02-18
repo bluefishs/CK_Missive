@@ -127,8 +127,10 @@ class DispatchOrderRepository(BaseRepository[TaoyuanDispatchOrder]):
         if conditions:
             query = query.where(and_(*conditions))
 
-        # 計算總數
-        count_query = select(func.count()).select_from(query.subquery())
+        # 計算總數（獨立 count 查詢，不含 selectinload 避免低效子查詢）
+        count_query = select(func.count(TaoyuanDispatchOrder.id))
+        if conditions:
+            count_query = count_query.where(and_(*conditions))
         total = (await self.db.execute(count_query)).scalar() or 0
 
         # 排序（白名單驗證）

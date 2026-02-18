@@ -5,7 +5,7 @@
  * @date 2026-01-23
  */
 
-import { apiClient } from '../client';
+import { apiClient, API_BASE_URL } from '../client';
 import { API_ENDPOINTS } from '../endpoints';
 import type {
   TaoyuanProject,
@@ -99,8 +99,7 @@ export const taoyuanProjectsApi = {
    * 下載匯入範本 (POST + blob 下載，符合資安規範)
    */
   async downloadImportTemplate(): Promise<void> {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001';
-    const url = `${baseUrl}/api${API_ENDPOINTS.TAOYUAN_DISPATCH.PROJECTS_IMPORT_TEMPLATE}`;
+    const url = `${API_BASE_URL}${API_ENDPOINTS.TAOYUAN_DISPATCH.PROJECTS_IMPORT_TEMPLATE}`;
 
     const response = await fetch(url, {
       method: 'POST',

@@ -23,7 +23,6 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.email_service import EmailService
@@ -31,6 +30,7 @@ from app.core.config import settings
 from app.core.rate_limiter import limiter
 from app.db.database import get_async_db
 from app.extended.models import User
+from app.repositories.user_repository import UserRepository
 from app.services.audit_service import AuditService
 
 logger = logging.getLogger(__name__)
@@ -112,13 +112,11 @@ async def send_verification_email(
     )
 
     # 儲存 token hash 到資料庫
-    await db.execute(
-        update(User)
-        .where(User.id == current_user.id)
-        .values(
-            email_verification_token=token_hash,
-            email_verification_expires=expires_at,
-        )
+    user_repo = UserRepository(db)
+    await user_repo.update_fields(
+        current_user.id,
+        email_verification_token=token_hash,
+        email_verification_expires=expires_at,
     )
     await db.commit()
 
@@ -183,13 +181,10 @@ async def verify_email(
     token_hash = _hash_token(verify_data.token)
 
     try:
+        user_repo = UserRepository(db)
+
         # 查詢擁有此 token 的使用者
-        result = await db.execute(
-            select(User).where(
-                User.email_verification_token == token_hash,
-            )
-        )
-        user = result.scalar_one_or_none()
+        user = await user_repo.get_by_email_verification_token(token_hash)
 
         if not user:
             logger.warning("[EMAIL_VERIFY] 無效的驗證 token")
@@ -201,13 +196,10 @@ async def verify_email(
         # 檢查是否已驗證
         if user.email_verified:
             # 清除已使用的 token
-            await db.execute(
-                update(User)
-                .where(User.id == user.id)
-                .values(
-                    email_verification_token=None,
-                    email_verification_expires=None,
-                )
+            await user_repo.update_fields(
+                user.id,
+                email_verification_token=None,
+                email_verification_expires=None,
             )
             await db.commit()
             return {"message": "您的 Email 已經驗證完成", "already_verified": True}
@@ -230,13 +222,10 @@ async def verify_email(
                 f"expired_at={user.email_verification_expires}"
             )
             # 清除過期的 token
-            await db.execute(
-                update(User)
-                .where(User.id == user.id)
-                .values(
-                    email_verification_token=None,
-                    email_verification_expires=None,
-                )
+            await user_repo.update_fields(
+                user.id,
+                email_verification_token=None,
+                email_verification_expires=None,
             )
             await db.commit()
             raise HTTPException(
@@ -245,14 +234,11 @@ async def verify_email(
             )
 
         # 驗證成功：更新 email_verified 並清除 token
-        await db.execute(
-            update(User)
-            .where(User.id == user.id)
-            .values(
-                email_verified=True,
-                email_verification_token=None,
-                email_verification_expires=None,
-            )
+        await user_repo.update_fields(
+            user.id,
+            email_verified=True,
+            email_verification_token=None,
+            email_verification_expires=None,
         )
         await db.commit()
 

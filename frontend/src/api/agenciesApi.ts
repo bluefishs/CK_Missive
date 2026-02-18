@@ -22,10 +22,12 @@ import {
   AgencyCreate,
   AgencyUpdate,
   AgencyOption,
+  CategoryStat,
+  AgencyStatistics,
 } from '../types/api';
 
 // 重新匯出供外部使用
-export type { Agency, AgencyWithStats, AgencyCreate, AgencyUpdate, AgencyOption };
+export type { Agency, AgencyWithStats, AgencyCreate, AgencyUpdate, AgencyOption, CategoryStat, AgencyStatistics };
 
 /** 機關列表查詢參數 */
 export interface AgencyListParams extends PaginationParams, SortParams {
@@ -33,21 +35,6 @@ export interface AgencyListParams extends PaginationParams, SortParams {
   agency_type?: string;
   include_stats?: boolean;
 }
-
-/** 分類統計 */
-export interface CategoryStat {
-  category: string;
-  count: number;
-  percentage: number;
-}
-
-/** 機關統計資料 */
-export interface AgencyStatistics {
-  total_agencies: number;
-  categories: CategoryStat[];
-}
-
-// AgencyOption 已從 types/api.ts 匯入，不再重複定義
 
 // ============================================================================
 // API 方法

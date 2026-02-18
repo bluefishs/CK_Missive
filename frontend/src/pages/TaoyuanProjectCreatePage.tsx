@@ -35,6 +35,7 @@ import {
   FileTextOutlined,
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../config/queryConfig';
 
 import { taoyuanProjectsApi } from '../api/taoyuanDispatchApi';
 import { getProjectAgencyContacts, type ProjectAgencyContact } from '../api/projectAgencyContacts';
@@ -74,7 +75,7 @@ export const TaoyuanProjectCreatePage: React.FC = () => {
     mutationFn: (data: TaoyuanProjectCreate) => taoyuanProjectsApi.create(data),
     onSuccess: (result) => {
       message.success('工程新增成功');
-      queryClient.invalidateQueries({ queryKey: ['taoyuan-projects'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanProjects.all });
       // 導航到新建立的工程詳情頁
       navigate(`/taoyuan/project/${result.id}`);
     },

@@ -10,62 +10,26 @@
 
 import { apiClient } from './client';
 import { API_ENDPOINTS } from './endpoints';
-import type { User, Permission, UserPermissions, UserSession } from '../types/api';
+import type {
+  User,
+  UserPermissions,
+  UserSession,
+  AdminUserListParams,
+  AdminUserUpdate,
+  AdminPermissionUpdate,
+  AdminUserListResponse,
+  AvailablePermissionsResponse,
+} from '../types/api';
 
-// ============================================================================
-// 型別定義
-// ============================================================================
-
-/** 使用者列表查詢參數 */
-export interface AdminUserListParams {
-  page?: number;
-  per_page?: number;
-  limit?: number;
-  skip?: number;
-  q?: string;
-  search?: string;
-  role?: string;
-  auth_provider?: string;
-  status?: string;
-}
-
-/** 使用者建立/更新請求 */
-export interface AdminUserUpdate {
-  username?: string;
-  email?: string;
-  full_name?: string;
-  role?: string;
-  status?: string;
-  is_active?: boolean;
-  password?: string;
-}
-
-/** 使用者權限更新請求 */
-export interface AdminPermissionUpdate {
-  user_id: number;
-  permissions: string[];
-  role: string;
-}
-
-/** 使用者列表回應 */
-export interface AdminUserListResponse {
-  users: User[];
-  items?: User[];
-  total: number;
-  page?: number;
-  per_page?: number;
-  skip?: number;
-  limit?: number;
-}
-
-// UserSession 從 types/api.ts 匯入，重新匯出供外部使用
-export type { UserSession };
-
-/** 可用權限回應 */
-export interface AvailablePermissionsResponse {
-  roles: Permission[];
-  permissions?: string[];
-}
+// 重新匯出型別供外部使用
+export type {
+  AdminUserListParams,
+  AdminUserUpdate,
+  AdminPermissionUpdate,
+  AdminUserListResponse,
+  AvailablePermissionsResponse,
+  UserSession,
+};
 
 // ============================================================================
 // API 方法 (POST-only 安全模式)

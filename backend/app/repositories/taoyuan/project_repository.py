@@ -66,53 +66,78 @@ class TaoyuanProjectRepository(BaseRepository[TaoyuanProject]):
     async def filter_projects(
         self,
         contract_project_id: Optional[int] = None,
+        district: Optional[str] = None,
+        review_year: Optional[int] = None,
         search: Optional[str] = None,
         sort_by: str = "id",
         sort_order: str = "desc",
         page: int = 1,
         limit: int = 20,
+        deep_load: bool = False,
     ) -> Tuple[List[TaoyuanProject], int]:
         """
         篩選專案列表
 
         Args:
             contract_project_id: 承攬案件 ID
-            search: 搜尋關鍵字
+            district: 行政區篩選
+            review_year: 審議年度篩選
+            search: 搜尋關鍵字（工程名稱、分案名稱、承辦人）
             sort_by: 排序欄位
             sort_order: 排序方向 (asc/desc)
             page: 頁碼
             limit: 每頁筆數
+            deep_load: 是否深度載入派工的公文關聯
 
         Returns:
             (專案列表, 總筆數)
         """
-        query = select(TaoyuanProject).options(
-            selectinload(TaoyuanProject.dispatch_links).selectinload(
-                TaoyuanDispatchProjectLink.dispatch_order
-            ),
-            selectinload(TaoyuanProject.document_links).selectinload(
-                TaoyuanDocumentProjectLink.document
-            ),
-        )
+        if deep_load:
+            from app.extended.models import TaoyuanDispatchDocumentLink
+            query = select(TaoyuanProject).options(
+                selectinload(TaoyuanProject.dispatch_links)
+                    .selectinload(TaoyuanDispatchProjectLink.dispatch_order)
+                    .selectinload(TaoyuanDispatchOrder.document_links)
+                    .selectinload(TaoyuanDispatchDocumentLink.document),
+                selectinload(TaoyuanProject.document_links).selectinload(
+                    TaoyuanDocumentProjectLink.document
+                ),
+            )
+        else:
+            query = select(TaoyuanProject).options(
+                selectinload(TaoyuanProject.dispatch_links).selectinload(
+                    TaoyuanDispatchProjectLink.dispatch_order
+                ),
+                selectinload(TaoyuanProject.document_links).selectinload(
+                    TaoyuanDocumentProjectLink.document
+                ),
+            )
 
         conditions = []
         if contract_project_id:
             conditions.append(TaoyuanProject.contract_project_id == contract_project_id)
+        if district:
+            conditions.append(TaoyuanProject.district == district)
+        if review_year:
+            conditions.append(TaoyuanProject.review_year == review_year)
         if search:
             search_pattern = f"%{search}%"
             conditions.append(
                 or_(
-                    TaoyuanProject.project_code.ilike(search_pattern),
                     TaoyuanProject.project_name.ilike(search_pattern),
-                    TaoyuanProject.sub_project_name.ilike(search_pattern),
+                    TaoyuanProject.sub_case_name.ilike(search_pattern),
+                    TaoyuanProject.case_handler.ilike(search_pattern),
                 )
             )
 
         if conditions:
             query = query.where(and_(*conditions))
 
-        # 計算總數
-        count_query = select(func.count()).select_from(query.subquery())
+        # 計算總數（不含 selectinload 的簡化查詢）
+        count_conditions = list(conditions)
+        count_query = select(func.count(TaoyuanProject.id))
+        if count_conditions:
+            count_query = count_query.where(and_(*count_conditions))
         total = (await self.db.execute(count_query)).scalar() or 0
 
         # 排序（白名單驗證）
@@ -120,6 +145,7 @@ class TaoyuanProjectRepository(BaseRepository[TaoyuanProject]):
             'id', 'project_name', 'project_code', 'district',
             'case_type', 'case_handler', 'review_year',
             'sequence_no', 'created_at', 'updated_at',
+            'sub_case_name',
         }
         safe_sort = sort_by if sort_by in allowed_sort_fields else 'id'
         sort_column = getattr(TaoyuanProject, safe_sort, TaoyuanProject.id)

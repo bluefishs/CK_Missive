@@ -10,6 +10,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { dispatchOrdersApi } from '../../api/taoyuanDispatchApi';
 import type { DispatchOrder } from '../../types/api';
+import { queryKeys } from '../../config/queryConfig';
 
 interface UseTaoyuanDispatchParams {
   skip?: number;
@@ -41,7 +42,7 @@ export const useTaoyuanDispatchOrders = (params: UseTaoyuanDispatchParams): UseT
     error,
     refetch,
   } = useQuery({
-    queryKey: ['taoyuan-dispatch-orders', params],
+    queryKey: queryKeys.taoyuanDispatch.orders(params),
     queryFn: () => dispatchOrdersApi.getList(params),
     staleTime: 30000,
   });
@@ -65,7 +66,7 @@ export const useTaoyuanDispatchOrder = (orderId: number | undefined) => {
     error,
     refetch,
   } = useQuery({
-    queryKey: ['taoyuan-dispatch-order', orderId],
+    queryKey: queryKeys.taoyuanDispatch.order(orderId),
     queryFn: () => dispatchOrdersApi.getDetail(orderId!),
     enabled: !!orderId,
     staleTime: 30000,

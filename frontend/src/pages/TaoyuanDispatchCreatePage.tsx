@@ -25,6 +25,7 @@ import {
   ArrowLeftOutlined,
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../config/queryConfig';
 
 import { DispatchFormFields } from '../components/taoyuan/DispatchFormFields';
 import { dispatchOrdersApi, taoyuanProjectsApi, contractPaymentsApi } from '../api/taoyuanDispatchApi';
@@ -162,7 +163,7 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
       } else {
         message.success('派工單新增成功');
       }
-      queryClient.invalidateQueries({ queryKey: ['taoyuan-dispatch-orders'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
       navigate(`/taoyuan/dispatch/${result.id}`);
     },
     onError: (error: Error) => {

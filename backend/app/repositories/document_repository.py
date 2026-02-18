@@ -124,6 +124,24 @@ class DocumentRepository(BaseRepository[OfficialDocument]):
         """
         return await self.find_one_by(auto_serial=auto_serial)
 
+    async def get_recent(self, limit: int = 10) -> List[OfficialDocument]:
+        """
+        取得最近建立的公文
+
+        Args:
+            limit: 筆數上限
+
+        Returns:
+            按 created_at 降序排列的公文列表
+        """
+        query = (
+            select(OfficialDocument)
+            .order_by(OfficialDocument.created_at.desc())
+            .limit(limit)
+        )
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
     async def get_by_status(
         self,
         status: str,

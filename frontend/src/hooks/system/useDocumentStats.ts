@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { API_ENDPOINTS } from '../../api/endpoints';
+import { queryKeys, defaultQueryOptions } from '../../config/queryConfig';
 
 interface DocumentStats {
   total: number;
@@ -12,7 +13,7 @@ interface DocumentStats {
 
 export const useDocumentStats = () => {
   return useQuery({
-    queryKey: ['documentStats'],
+    queryKey: queryKeys.documents.statistics,
     queryFn: async (): Promise<DocumentStats> => {
       const response = await apiClient.post(API_ENDPOINTS.DOCUMENTS.STATISTICS);
       return response as unknown as DocumentStats;

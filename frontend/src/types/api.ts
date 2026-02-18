@@ -265,6 +265,19 @@ export interface AgencyWithStats extends Agency {
   original_names?: string[];
 }
 
+/** 機關分類統計 */
+export interface CategoryStat {
+  category: string;
+  count: number;
+  percentage: number;
+}
+
+/** 機關統計資料 */
+export interface AgencyStatistics {
+  total_agencies: number;
+  categories: CategoryStat[];
+}
+
 // ============================================================================
 // 專案廠商關聯 (ProjectVendor) 相關型別
 // ============================================================================
@@ -422,6 +435,58 @@ export interface UserPagination {
   current: number;
   pageSize: number;
   total: number;
+}
+
+// ============================================================================
+// 管理員使用者管理 (Admin User Management) 相關型別
+// ============================================================================
+
+/** 使用者列表查詢參數 */
+export interface AdminUserListParams {
+  page?: number;
+  per_page?: number;
+  limit?: number;
+  skip?: number;
+  q?: string;
+  search?: string;
+  role?: string;
+  auth_provider?: string;
+  status?: string;
+}
+
+/** 使用者建立/更新請求 */
+export interface AdminUserUpdate {
+  username?: string;
+  email?: string;
+  full_name?: string;
+  role?: string;
+  status?: string;
+  is_active?: boolean;
+  password?: string;
+}
+
+/** 使用者權限更新請求 */
+export interface AdminPermissionUpdate {
+  user_id: number;
+  permissions: string[];
+  role: string;
+}
+
+/** 使用者列表回應 */
+export interface AdminUserListResponse {
+  users: User[];
+  items?: User[];
+  total: number;
+  page?: number;
+  per_page?: number;
+  skip?: number;
+  limit?: number;
+}
+
+/** 可用權限回應 */
+export interface AvailablePermissionsResponse {
+  roles: Permission[];
+  permissions?: string[];
 }
 
 // ============================================================================

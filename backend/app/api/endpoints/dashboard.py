@@ -14,6 +14,8 @@ from sqlalchemy import select, func
 from app.db.database import get_async_db
 from app.core.dependencies import require_auth, require_admin
 from app.extended.models import OfficialDocument as Document, User
+from app.repositories.document_repository import DocumentRepository
+from app.repositories.user_repository import UserRepository
 from app.schemas.dashboard import (
     DashboardStatsResponse,
     DashboardStats,
@@ -35,22 +37,13 @@ async def get_dashboard_stats(
     需要認證。
     """
     try:
+        doc_repo = DocumentRepository(db)
+
         # 1. 高效計算各種狀態的公文數量
-        status_query = (
-            select(Document.status, func.count(Document.id))
-            .group_by(Document.status)
-        )
-        status_result = await db.execute(status_query)
-        status_counts = {status: count for status, count in status_result.all()}
+        status_counts = await doc_repo.get_status_statistics()
 
         # 2. 獲取最近的 10 筆公文
-        recent_docs_query = (
-            select(Document)
-            .order_by(Document.created_at.desc())
-            .limit(10)
-        )
-        recent_docs_result = await db.execute(recent_docs_query)
-        recent_documents_raw = recent_docs_result.scalars().all()
+        recent_documents_raw = await doc_repo.get_recent(limit=10)
 
         # 轉換為可序列化的字典列表
         recent_documents = [
@@ -91,29 +84,22 @@ async def get_statistics_overview(
     提供系統統計概覽。需要認證。
     """
     try:
+        doc_repo = DocumentRepository(db)
+        user_repo = UserRepository(db)
+
         # 公文統計
-        total_documents_result = await db.execute(select(func.count(Document.id)))
-        total_documents = total_documents_result.scalar() or 0
+        total_documents = await doc_repo.count()
 
         # 按類型分組的公文數量
-        type_query = (
-            select(Document.doc_type, func.count(Document.id))
-            .group_by(Document.doc_type)
-        )
-        type_result = await db.execute(type_query)
+        type_stats = await doc_repo.get_type_statistics()
         document_types = [
-            DocumentTypeCount(type=row[0] or "未分類", count=row[1])
-            for row in type_result.all()
+            DocumentTypeCount(type=doc_type or "未分類", count=count)
+            for doc_type, count in type_stats.items()
         ]
 
         # 使用者統計
-        total_users_result = await db.execute(select(func.count(User.id)))
-        total_users = total_users_result.scalar() or 0
-
-        active_users_result = await db.execute(
-            select(func.count(User.id)).where(User.is_active == True)
-        )
-        active_users = active_users_result.scalar() or 0
+        total_users = await user_repo.count()
+        active_users = await user_repo.get_active_count()
 
         return StatisticsOverviewResponse(
             total_documents=total_documents,
@@ -182,12 +168,14 @@ async def get_pure_calendar_stats_temp(
 ):
     """臨時備用：純行事曆統計資料。需要認證。"""
     try:
+        from app.repositories.calendar_repository import CalendarRepository
         from app.extended.models import DocumentCalendarEvent
         from datetime import datetime, timedelta
 
+        cal_repo = CalendarRepository(db)
+
         # 查詢總事件數
-        total_events_query = select(func.count(DocumentCalendarEvent.id))
-        total_events = (await db.execute(total_events_query)).scalar() or 0
+        total_events = await cal_repo.count()
 
         # 查詢本月事件數
         now = datetime.now()
@@ -231,12 +219,12 @@ async def get_pure_calendar_categories_temp(
 ):
     """臨時備用：純行事曆事件分類。需要認證。"""
     try:
-        from app.extended.models import DocumentCalendarEvent
+        from app.repositories.calendar_repository import CalendarRepository
+
+        cal_repo = CalendarRepository(db)
 
         # 查詢所有事件類型
-        event_types_query = select(DocumentCalendarEvent.event_type).distinct()
-        event_types_result = await db.execute(event_types_query)
-        event_types = event_types_result.scalars().all()
+        event_types = await cal_repo.get_distinct_values('event_type')
 
         categories = []
         for event_type in event_types:
@@ -276,19 +264,15 @@ async def get_users_temp(
 ):
     """臨時備用：使用者列表。需要管理員權限。"""
     try:
-        from app.extended.models import User
+        user_repo = UserRepository(db)
 
         # 查詢使用者
-        query = select(User).where(User.is_active == True)
-        offset = (page - 1) * per_page
-        query = query.offset(offset).limit(per_page)
-
-        result = await db.execute(query)
-        users = result.scalars().all()
+        users = await user_repo.get_active_users(
+            skip=(page - 1) * per_page, limit=per_page
+        )
 
         # 總數查詢
-        total_query = select(func.count(User.id)).where(User.is_active == True)
-        total = (await db.execute(total_query)).scalar() or 0
+        total = await user_repo.get_active_count()
 
         user_list = []
         for user in users:

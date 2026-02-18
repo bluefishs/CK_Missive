@@ -23,14 +23,15 @@ import secrets
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth_service import AuthService
 from app.core.password_policy import validate_password
 from app.core.rate_limiter import limiter
 from app.db.database import get_async_db
-from app.extended.models import User, UserSession
+from app.extended.models import User
+from app.repositories.user_repository import UserRepository
+from app.repositories.session_repository import SessionRepository
 from app.schemas.auth import PasswordReset, PasswordResetConfirm
 from app.services.audit_service import AuditService
 
@@ -71,11 +72,10 @@ async def request_password_reset(
     success_message = "如果此 email 已註冊，您將收到密碼重設信件"
 
     try:
+        user_repo = UserRepository(db)
+
         # 查詢使用者（包含停用的帳號也查詢，但只處理活躍帳號）
-        result = await db.execute(
-            select(User).where(User.email == email)
-        )
-        user = result.scalar_one_or_none()
+        user = await user_repo.get_by_email(email)
 
         if not user:
             # 使用者不存在，仍回傳成功訊息
@@ -98,13 +98,10 @@ async def request_password_reset(
         expires_at = datetime.utcnow() + timedelta(minutes=PASSWORD_RESET_TOKEN_EXPIRY_MINUTES)
 
         # 儲存 token hash 到資料庫
-        await db.execute(
-            update(User)
-            .where(User.id == user.id)
-            .values(
-                password_reset_token=token_hash,
-                password_reset_expires=expires_at,
-            )
+        await user_repo.update_fields(
+            user.id,
+            password_reset_token=token_hash,
+            password_reset_expires=expires_at,
         )
         await db.commit()
 
@@ -160,14 +157,11 @@ async def confirm_password_reset(
     token_hash = _hash_token(confirm_data.token)
 
     try:
+        user_repo = UserRepository(db)
+        session_repo = SessionRepository(db)
+
         # 查詢擁有此 token 的使用者
-        result = await db.execute(
-            select(User).where(
-                User.password_reset_token == token_hash,
-                User.is_active == True,
-            )
-        )
-        user = result.scalar_one_or_none()
+        user = await user_repo.get_by_password_reset_token(token_hash, active_only=True)
 
         if not user:
             logger.warning(f"[PASSWORD_RESET] 無效的重設 token")
@@ -194,13 +188,10 @@ async def confirm_password_reset(
                 f"expired_at={user.password_reset_expires}"
             )
             # 清除過期的 token
-            await db.execute(
-                update(User)
-                .where(User.id == user.id)
-                .values(
-                    password_reset_token=None,
-                    password_reset_expires=None,
-                )
+            await user_repo.update_fields(
+                user.id,
+                password_reset_token=None,
+                password_reset_expires=None,
             )
             await db.commit()
             raise HTTPException(
@@ -221,32 +212,18 @@ async def confirm_password_reset(
 
         # 更新密碼並清除 reset token
         new_password_hash = AuthService.get_password_hash(confirm_data.new_password)
-        await db.execute(
-            update(User)
-            .where(User.id == user.id)
-            .values(
-                password_hash=new_password_hash,
-                password_reset_token=None,
-                password_reset_expires=None,
-                # 重置鎖定狀態（密碼重設視為合法身份驗證）
-                failed_login_attempts=0,
-                locked_until=None,
-            )
+        await user_repo.update_fields(
+            user.id,
+            password_hash=new_password_hash,
+            password_reset_token=None,
+            password_reset_expires=None,
+            # 重置鎖定狀態（密碼重設視為合法身份驗證）
+            failed_login_attempts=0,
+            locked_until=None,
         )
 
         # 撤銷該用戶所有活躍的 session
-        revoke_result = await db.execute(
-            update(UserSession)
-            .where(
-                UserSession.user_id == user.id,
-                UserSession.is_active == True,
-            )
-            .values(
-                is_active=False,
-                revoked_at=datetime.utcnow(),
-            )
-        )
-        revoked_count = revoke_result.rowcount
+        revoked_count = await session_repo.revoke_all_by_user(user.id)
 
         await db.commit()
 

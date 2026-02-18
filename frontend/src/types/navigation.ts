@@ -12,13 +12,13 @@ export interface NavigationItem {
   key: string;
   path?: string;
   icon?: string;
-  parent_id?: number;
+  parent_id: number | null;
   sort_order: number;
   is_visible: boolean;
   is_enabled: boolean;
   level: number;
   description?: string;
-  target: string;
+  target?: string;
   permission_required?: string;
   created_at?: string;
   updated_at?: string;
@@ -32,13 +32,13 @@ export interface NavigationFormData {
   key: string;
   path?: string;
   icon?: string;
-  parent_id?: number;
+  parent_id: number | null;
   sort_order: number;
   is_visible: boolean;
   is_enabled: boolean;
   level: number;
   description?: string;
-  target: string;
+  target?: string;
   permission_required?: string;
   metadata?: Record<string, unknown>;
 }

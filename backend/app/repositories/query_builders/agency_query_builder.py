@@ -249,16 +249,12 @@ class AgencyQueryBuilder:
         return await self.count() > 0
 
     async def execute_with_count(self) -> tuple[List["GovernmentAgency"], int]:
-        """執行查詢並同時返回結果與總數"""
-        import asyncio
-
+        """執行查詢並返回結果與總數（循序，AsyncSession 不支援 gather 並行）"""
         count_builder = AgencyQueryBuilder(self.db)
         count_builder._conditions = self._conditions.copy()
 
-        results, total = await asyncio.gather(
-            self.execute(),
-            count_builder.count()
-        )
+        total = await count_builder.count()
+        results = await self.execute()
 
         return results, total
 

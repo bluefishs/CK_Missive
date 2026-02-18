@@ -333,6 +333,79 @@ class CalendarRepository(BaseRepository[DocumentCalendarEvent]):
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
+    async def get_events_by_document_ordered(
+        self, document_id: int
+    ) -> List[DocumentCalendarEvent]:
+        """
+        取得公文的所有事件（按 start_date 排序）
+
+        簡化版，不載入 reminders 關聯。用於「檢查公文是否已有事件」等 UI 場景。
+
+        Args:
+            document_id: 公文 ID
+
+        Returns:
+            事件列表
+        """
+        query = (
+            select(DocumentCalendarEvent)
+            .where(DocumentCalendarEvent.document_id == document_id)
+            .order_by(DocumentCalendarEvent.start_date)
+        )
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def count_by_document(self, document_id: int) -> int:
+        """
+        統計公文的事件數量
+
+        Args:
+            document_id: 公文 ID
+
+        Returns:
+            事件數量
+        """
+        query = (
+            select(func.count())
+            .select_from(DocumentCalendarEvent)
+            .where(DocumentCalendarEvent.document_id == document_id)
+        )
+        result = await self.db.execute(query)
+        return result.scalar() or 0
+
+    async def find_duplicate_event(
+        self,
+        document_id: int,
+        title: str,
+        start_date_only: datetime,
+        end_date_only: datetime,
+    ) -> Optional[DocumentCalendarEvent]:
+        """
+        檢查重複事件（相同公文 + 相同標題 + 相同日期範圍）
+
+        Args:
+            document_id: 公文 ID
+            title: 事件標題
+            start_date_only: 日期範圍開始（含）
+            end_date_only: 日期範圍結束（不含）
+
+        Returns:
+            重複的事件或 None
+        """
+        query = (
+            select(DocumentCalendarEvent)
+            .where(
+                and_(
+                    DocumentCalendarEvent.document_id == document_id,
+                    DocumentCalendarEvent.title == title,
+                    DocumentCalendarEvent.start_date >= start_date_only,
+                    DocumentCalendarEvent.start_date < end_date_only,
+                )
+            )
+        )
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
+
     async def check_document_has_events(self, document_id: int) -> bool:
         """
         檢查公文是否有事件

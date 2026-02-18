@@ -44,6 +44,8 @@ from .common import (
     _safe_float,
 )
 
+from app.repositories.taoyuan.project_repository import TaoyuanProjectRepository
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -56,48 +58,19 @@ async def list_taoyuan_projects(
     current_user = Depends(require_auth())
 ):
     """查詢轄管工程清單（包含派工關聯和公文關聯）"""
-    stmt = select(TaoyuanProject).options(
-        selectinload(TaoyuanProject.dispatch_links)
-            .selectinload(TaoyuanDispatchProjectLink.dispatch_order)
-            .selectinload(TaoyuanDispatchOrder.document_links)
-            .selectinload(TaoyuanDispatchDocumentLink.document),
-        selectinload(TaoyuanProject.document_links).selectinload(TaoyuanDocumentProjectLink.document)
+    repo = TaoyuanProjectRepository(db)
+
+    items, total = await repo.filter_projects(
+        contract_project_id=query.contract_project_id,
+        district=query.district,
+        review_year=query.review_year,
+        search=query.search,
+        sort_by=query.sort_by,
+        sort_order=query.sort_order,
+        page=query.page,
+        limit=query.limit,
+        deep_load=True,
     )
-
-    conditions = []
-    if query.contract_project_id:
-        conditions.append(TaoyuanProject.contract_project_id == query.contract_project_id)
-    if query.district:
-        conditions.append(TaoyuanProject.district == query.district)
-    if query.review_year:
-        conditions.append(TaoyuanProject.review_year == query.review_year)
-    if query.search:
-        search_pattern = f"%{query.search}%"
-        conditions.append(or_(
-            TaoyuanProject.project_name.ilike(search_pattern),
-            TaoyuanProject.sub_case_name.ilike(search_pattern),
-            TaoyuanProject.case_handler.ilike(search_pattern)
-        ))
-
-    if conditions:
-        stmt = stmt.where(and_(*conditions))
-
-    count_stmt = select(func.count(TaoyuanProject.id))
-    if conditions:
-        count_stmt = count_stmt.where(and_(*conditions))
-    total = (await db.execute(count_stmt)).scalar() or 0
-
-    sort_column = getattr(TaoyuanProject, query.sort_by, TaoyuanProject.id)
-    if query.sort_order == "desc":
-        stmt = stmt.order_by(sort_column.desc())
-    else:
-        stmt = stmt.order_by(sort_column.asc())
-
-    offset = (query.page - 1) * query.limit
-    stmt = stmt.offset(offset).limit(query.limit)
-
-    result = await db.execute(stmt)
-    items = result.scalars().all()
 
     total_pages = (total + query.limit - 1) // query.limit
 
@@ -166,10 +139,8 @@ async def create_taoyuan_project(
     current_user = Depends(require_auth())
 ):
     """建立轄管工程"""
-    project = TaoyuanProject(**data.model_dump(exclude_unset=True))
-    db.add(project)
-    await db.commit()
-    await db.refresh(project)
+    repo = TaoyuanProjectRepository(db)
+    project = await repo.create(data.model_dump(exclude_unset=True))
     return TaoyuanProjectSchema.model_validate(project)
 
 
@@ -181,8 +152,8 @@ async def update_taoyuan_project(
     current_user = Depends(require_auth())
 ):
     """更新轄管工程"""
-    result = await db.execute(select(TaoyuanProject).where(TaoyuanProject.id == project_id))
-    project = result.scalar_one_or_none()
+    repo = TaoyuanProjectRepository(db)
+    project = await repo.get_by_id(project_id)
     if not project:
         raise HTTPException(status_code=404, detail="工程不存在")
 
@@ -236,8 +207,8 @@ async def get_taoyuan_project_detail(
     current_user = Depends(require_auth())
 ):
     """取得轄管工程詳情"""
-    result = await db.execute(select(TaoyuanProject).where(TaoyuanProject.id == project_id))
-    project = result.scalar_one_or_none()
+    repo = TaoyuanProjectRepository(db)
+    project = await repo.get_by_id(project_id)
     if not project:
         raise HTTPException(status_code=404, detail="工程不存在")
     return TaoyuanProjectSchema.model_validate(project)
@@ -250,13 +221,10 @@ async def delete_taoyuan_project(
     current_user = Depends(require_auth())
 ):
     """刪除轄管工程"""
-    result = await db.execute(select(TaoyuanProject).where(TaoyuanProject.id == project_id))
-    project = result.scalar_one_or_none()
-    if not project:
+    repo = TaoyuanProjectRepository(db)
+    deleted = await repo.delete(project_id)
+    if not deleted:
         raise HTTPException(status_code=404, detail="工程不存在")
-
-    await db.delete(project)
-    await db.commit()
     return {"success": True, "message": "刪除成功"}
 
 
@@ -325,10 +293,9 @@ async def import_taoyuan_projects(
     current_user = Depends(require_auth())
 ):
     """從 Excel 匯入轄管工程清單"""
-    contract_project = await db.execute(
-        select(ContractProject).where(ContractProject.id == contract_project_id)
-    )
-    contract_project = contract_project.scalar_one_or_none()
+    from app.repositories.project_repository import ProjectRepository
+    project_repo = ProjectRepository(db)
+    contract_project = await project_repo.get_by_id(contract_project_id)
     if not contract_project:
         raise HTTPException(
             status_code=400,

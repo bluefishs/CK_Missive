@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { logger } from '../services/logger';
 import { ResponsiveContent } from '../components/common';
 import {
@@ -71,113 +72,118 @@ interface SystemAlert {
 const AdminDashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { message: messageApi, modal } = App.useApp();
+  const queryClient = useQueryClient();
 
-  const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
-  const [systemStats, setSystemStats] = useState({
-    totalUsers: 0,
-    activeUsers: 0,
-    pendingUsers: 0,
-    suspendedUsers: 0,
-    unverifiedUsers: 0
+  // React Query: fetch users data
+  const {
+    data: usersData,
+    isLoading: usersLoading,
+    refetch: refetchUsers,
+  } = useQuery({
+    queryKey: ['admin-dashboard', 'users'],
+    queryFn: () => apiClient.post<{ users: PendingUser[] }>(
+      API_ENDPOINTS.ADMIN_USER_MANAGEMENT.USERS_LIST,
+      { page: 1, per_page: 100 }
+    ),
+    staleTime: 5 * 60 * 1000,
   });
-  const [systemAlerts, setSystemAlerts] = useState<SystemAlert[]>([]);
-  const [efficiency, setEfficiency] = useState<DocumentEfficiencyResponse | null>(null);
-  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
+  // React Query: fetch document efficiency
+  const {
+    data: efficiency,
+    refetch: refetchEfficiency,
+  } = useQuery({
+    queryKey: ['admin-dashboard', 'efficiency'],
+    queryFn: () => documentsApi.getDocumentEfficiency(),
+    staleTime: 5 * 60 * 1000,
+  });
 
-  const loadDashboardData = async () => {
-    setLoading(true);
-    try {
-      // 載入真實數據 (POST-only 安全模式，使用集中式 API 端點)
-      const usersData = await apiClient.post<{ users: PendingUser[] }>(
-        API_ENDPOINTS.ADMIN_USER_MANAGEMENT.USERS_LIST,
-        { page: 1, per_page: 100 }
-      );
+  // Derived state from users data
+  const pendingUsers = useMemo(() => {
+    const allUsers = usersData?.users || [];
+    return allUsers.filter((user) =>
+      user.status === 'pending' || user.role === 'unverified'
+    );
+  }, [usersData]);
 
-      // 篩選待驗證使用者
-      const pendingUsersList = usersData.users?.filter((user) =>
-        user.status === 'pending' || user.role === 'unverified'
-      ) || [];
+  const systemStats = useMemo(() => {
+    const allUsers = usersData?.users || [];
+    return {
+      totalUsers: allUsers.length,
+      activeUsers: allUsers.filter((u) => u.status === 'active').length,
+      pendingUsers: allUsers.filter((u) => u.status === 'pending' || u.role === 'unverified').length,
+      suspendedUsers: allUsers.filter((u) => u.status === 'suspended').length,
+      unverifiedUsers: allUsers.filter((u) => u.role === 'unverified').length,
+    };
+  }, [usersData]);
 
-      // 計算統計數據
-      const allUsers = usersData.users || [];
-      const stats = {
-        totalUsers: allUsers.length,
-        activeUsers: allUsers.filter((u) => u.status === 'active').length,
-        pendingUsers: pendingUsersList.length,
-        suspendedUsers: allUsers.filter((u) => u.status === 'suspended').length,
-        unverifiedUsers: allUsers.filter((u) => u.role === 'unverified').length
-      };
-
-      // 系統警告
-      const alerts: SystemAlert[] = [];
-      if (stats.pendingUsers > 0) {
-        alerts.push({
-          id: '1',
-          type: 'warning',
-          title: '待驗證使用者',
-          description: `有 ${stats.pendingUsers} 個新使用者等待驗證`,
-          timestamp: dayjs().subtract(10, 'minutes').toISOString(),
-          action: () => navigate(ROUTES.USER_MANAGEMENT),
-          actionText: '立即處理'
-        });
-      }
-
+  const systemAlerts = useMemo(() => {
+    const alerts: SystemAlert[] = [];
+    if (systemStats.pendingUsers > 0) {
       alerts.push({
-        id: '2',
-        type: 'info',
-        title: '系統狀態',
-        description: '所有核心服務運行正常',
-        timestamp: dayjs().subtract(1, 'hour').toISOString()
+        id: '1',
+        type: 'warning',
+        title: '待驗證使用者',
+        description: `有 ${systemStats.pendingUsers} 個新使用者等待驗證`,
+        timestamp: dayjs().subtract(10, 'minutes').toISOString(),
+        action: () => navigate(ROUTES.USER_MANAGEMENT),
+        actionText: '立即處理'
       });
-
-      setPendingUsers(pendingUsersList);
-      setSystemStats(stats);
-      setSystemAlerts(alerts);
-
-      // 載入公文效率統計（獨立 try/catch 避免影響主要資料）
-      try {
-        const effData = await documentsApi.getDocumentEfficiency();
-        setEfficiency(effData);
-      } catch {
-        logger.warn('載入公文效率統計失敗');
-      }
-
-    } catch (error) {
-      logger.error('Failed to load dashboard data:', error);
-      messageApi.error('載入數據失敗');
-    } finally {
-      setLoading(false);
     }
+    alerts.push({
+      id: '2',
+      type: 'info',
+      title: '系統狀態',
+      description: '所有核心服務運行正常',
+      timestamp: dayjs().subtract(1, 'hour').toISOString()
+    });
+    return alerts;
+  }, [systemStats.pendingUsers, navigate]);
+
+  const loading = usersLoading;
+
+  const loadDashboardData = () => {
+    refetchUsers();
+    refetchEfficiency();
   };
+
+  // Mutation: approve user
+  const approveMutation = useMutation({
+    mutationFn: (userId: number) => apiClient.post(
+      API_ENDPOINTS.ADMIN_USER_MANAGEMENT.USERS_UPDATE(userId),
+      { role: 'user', status: 'active' }
+    ),
+    onSuccess: () => {
+      messageApi.success('使用者已成功驗證');
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard', 'users'] });
+    },
+    onError: (error) => {
+      logger.error('Approve user failed:', error);
+      messageApi.error('驗證使用者失敗');
+    },
+  });
+
+  // Mutation: reject user
+  const rejectMutation = useMutation({
+    mutationFn: (userId: number) => apiClient.post(
+      API_ENDPOINTS.ADMIN_USER_MANAGEMENT.USERS_DELETE(userId),
+      {}
+    ),
+    onSuccess: () => {
+      messageApi.success('已拒絕使用者申請');
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard', 'users'] });
+    },
+    onError: (error) => {
+      logger.error('Delete user failed:', error);
+      messageApi.error('拒絕使用者失敗');
+    },
+  });
 
   const handleApproveUser = async (userId: number) => {
     modal.confirm({
       title: '確認驗證使用者',
       content: '確定要將此使用者驗證為一般使用者嗎？',
-      onOk: async () => {
-        try {
-          // 使用集中式 API 端點 (POST-only 安全模式)
-          await apiClient.post(
-            API_ENDPOINTS.ADMIN_USER_MANAGEMENT.USERS_UPDATE(userId),
-            {
-              role: 'user',
-              status: 'active'
-            }
-          );
-
-          messageApi.success('使用者已成功驗證');
-
-          // 重新載入數據
-          loadDashboardData();
-        } catch (error) {
-          logger.error('Approve user failed:', error);
-          messageApi.error('驗證使用者失敗');
-        }
-      }
+      onOk: () => approveMutation.mutateAsync(userId),
     });
   };
 
@@ -188,23 +194,7 @@ const AdminDashboardPage: React.FC = () => {
       okText: '確認拒絕',
       cancelText: '取消',
       okButtonProps: { danger: true },
-      onOk: async () => {
-        try {
-          // 使用集中式 API 端點 (POST-only 安全模式)
-          await apiClient.post(
-            API_ENDPOINTS.ADMIN_USER_MANAGEMENT.USERS_DELETE(userId),
-            {}
-          );
-
-          messageApi.success('已拒絕使用者申請');
-
-          // 重新載入數據
-          loadDashboardData();
-        } catch (error) {
-          logger.error('Delete user failed:', error);
-          messageApi.error('拒絕使用者失敗');
-        }
-      }
+      onOk: () => rejectMutation.mutateAsync(userId),
     });
   };
 

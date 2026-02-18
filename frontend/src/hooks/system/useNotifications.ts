@@ -10,6 +10,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { API_ENDPOINTS } from '../../api/endpoints';
+import { queryKeys } from '../../config/queryConfig';
 
 // ============================================================================
 // 型別定義
@@ -61,7 +62,7 @@ export const useUnreadNotificationCount = (enabled: boolean = true) => {
     error,
     refetch,
   } = useQuery<UnreadCountResponse>({
-    queryKey: ['notifications-unread-count'],
+    queryKey: queryKeys.notifications.unreadCount,
     queryFn: async () => {
       return await apiClient.post<UnreadCountResponse>(API_ENDPOINTS.SYSTEM_NOTIFICATIONS.UNREAD_COUNT, {});
     },
@@ -90,7 +91,7 @@ export const useNotificationList = (enabled: boolean = true) => {
     error,
     refetch,
   } = useQuery<NotificationListResponse>({
-    queryKey: ['notifications-list'],
+    queryKey: queryKeys.notifications.list,
     queryFn: async () => {
       return await apiClient.post<NotificationListResponse>(API_ENDPOINTS.SYSTEM_NOTIFICATIONS.LIST, {
         limit: 20,
@@ -124,8 +125,8 @@ export const useNotificationMutations = () => {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
-      queryClient.invalidateQueries({ queryKey: ['notifications-list'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.unreadCount });
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.list });
     },
   });
 
@@ -135,8 +136,8 @@ export const useNotificationMutations = () => {
       return await apiClient.post<MarkReadResponse>(API_ENDPOINTS.SYSTEM_NOTIFICATIONS.MARK_ALL_READ, {});
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
-      queryClient.invalidateQueries({ queryKey: ['notifications-list'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.unreadCount });
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.list });
     },
   });
 

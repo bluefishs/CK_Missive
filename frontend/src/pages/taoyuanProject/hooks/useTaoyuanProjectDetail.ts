@@ -8,6 +8,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Form, App } from 'antd';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../../../config/queryConfig';
 import dayjs from 'dayjs';
 
 import { taoyuanProjectsApi, projectLinksApi, dispatchOrdersApi } from '../../../api/taoyuanDispatchApi';
@@ -151,7 +152,7 @@ export function useTaoyuanProjectDetail() {
     onSuccess: () => {
       message.success('工程更新成功');
       refetch();
-      queryClient.invalidateQueries({ queryKey: ['taoyuan-projects'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanProjects.all });
       setIsEditing(false);
     },
     onError: () => message.error('更新失敗'),
@@ -161,7 +162,7 @@ export function useTaoyuanProjectDetail() {
     mutationFn: () => taoyuanProjectsApi.delete(parseInt(id || '0', 10)),
     onSuccess: () => {
       message.success('工程刪除成功');
-      queryClient.invalidateQueries({ queryKey: ['taoyuan-projects'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanProjects.all });
       navigate('/taoyuan/dispatch');
     },
     onError: () => message.error('刪除失敗'),

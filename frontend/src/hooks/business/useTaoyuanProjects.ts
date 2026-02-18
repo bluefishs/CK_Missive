@@ -10,6 +10,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { taoyuanProjectsApi } from '../../api/taoyuanDispatchApi';
 import type { TaoyuanProject } from '../../types/api';
+import { queryKeys } from '../../config/queryConfig';
 
 interface UseTaoyuanProjectsParams {
   skip?: number;
@@ -41,7 +42,7 @@ export const useTaoyuanProjects = (params: UseTaoyuanProjectsParams): UseTaoyuan
     error,
     refetch,
   } = useQuery({
-    queryKey: ['taoyuan-projects', params],
+    queryKey: queryKeys.taoyuanProjects.list(params),
     queryFn: () => taoyuanProjectsApi.getList(params),
     staleTime: 30000,
   });
@@ -65,7 +66,7 @@ export const useTaoyuanProject = (projectId: number | undefined) => {
     error,
     refetch,
   } = useQuery({
-    queryKey: ['taoyuan-project', projectId],
+    queryKey: queryKeys.taoyuanProjects.detail(projectId),
     queryFn: () => taoyuanProjectsApi.getDetail(projectId!),
     enabled: !!projectId,
     staleTime: 30000,

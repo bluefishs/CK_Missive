@@ -42,6 +42,7 @@ import {
 import dayjs from 'dayjs';
 import debounce from 'lodash/debounce';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../config/queryConfig';
 import { logger } from '../services/logger';
 
 import { apiClient } from '../api/client';
@@ -121,7 +122,7 @@ const CalendarEventFormPage: React.FC = () => {
     onSuccess: () => {
       message.success('事件建立成功');
       queryClient.invalidateQueries({ queryKey: ['calendar', 'events'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboardCalendar'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardCalendar.all });
       handleBack();
     },
     onError: (error: Error) => {
@@ -147,7 +148,7 @@ const CalendarEventFormPage: React.FC = () => {
     onSuccess: () => {
       message.success('事件更新成功');
       queryClient.invalidateQueries({ queryKey: ['calendar', 'events'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboardCalendar'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardCalendar.all });
       handleBack();
     },
     onError: (error: Error) => {

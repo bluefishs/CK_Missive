@@ -201,13 +201,46 @@ export interface DocumentFilter {
   sort_order?: 'asc' | 'desc';
 }
 
-/** 公文統計 */
+/** 公文統計（簡易版） */
 export interface DocumentStats {
   total_documents: number;
   receive_count: number;
   send_count: number;
   current_year_count: number;
   last_auto_serial?: number;
+}
+
+/** 公文統計資料（完整版 - API 回應） */
+export interface DocumentStatistics {
+  total: number;
+  total_documents: number;
+  send: number;
+  send_count: number;
+  receive: number;
+  receive_count: number;
+  current_year_count: number;
+  current_year_send_count: number;
+  delivery_method_stats: {
+    electronic: number;
+    paper: number;
+    both: number;
+  };
+}
+
+/** 下一個發文字號回應 */
+export interface NextSendNumberResponse {
+  /** 完整文號 (如: 乾坤測字第1150000001號) */
+  full_number: string;
+  /** 西元年 */
+  year: number;
+  /** 民國年 */
+  roc_year: number;
+  /** 流水號 */
+  sequence_number: number;
+  /** 前一個最大序號 */
+  previous_max: number;
+  /** 文號前綴 */
+  prefix: string;
 }
 
 // ============================================================================

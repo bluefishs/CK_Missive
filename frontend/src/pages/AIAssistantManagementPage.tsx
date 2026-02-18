@@ -6,7 +6,7 @@
  *
  * 統一管理入口，整合搜尋統計、搜尋歷史、同義詞管理、Prompt 管理。
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Button,
   Card,
@@ -40,6 +40,7 @@ import {
   TagsOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import type { ColumnsType } from 'antd/es/table';
 
@@ -60,24 +61,15 @@ const { Title, Text } = Typography;
 // Tab 1: 搜尋總覽
 // ============================================================================
 const OverviewTab: React.FC = () => {
-  const [stats, setStats] = useState<SearchStatsResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const loadStats = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await aiApi.getSearchStats();
-      setStats(data);
-    } catch (error) {
-      message.error('載入失敗');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadStats();
-  }, [loadStats]);
+  const {
+    data: stats = null,
+    isLoading: loading,
+    refetch: loadStats,
+  } = useQuery({
+    queryKey: ['ai-management', 'search-stats'],
+    queryFn: () => aiApi.getSearchStats(),
+    staleTime: 5 * 60 * 1000,
+  });
 
   const topQueryColumns: ColumnsType<TopQuery> = useMemo(() => [
     { title: '查詢內容', dataIndex: 'query', key: 'query', ellipsis: true },
@@ -222,7 +214,7 @@ const OverviewTab: React.FC = () => {
           <Card
             title="近 30 天搜尋趨勢"
             size="small"
-            extra={<Button size="small" icon={<ReloadOutlined />} onClick={loadStats}>重新整理</Button>}
+            extra={<Button size="small" icon={<ReloadOutlined />} onClick={() => loadStats()}>重新整理</Button>}
           >
             <Table
               dataSource={stats.daily_trend}
@@ -243,42 +235,42 @@ const OverviewTab: React.FC = () => {
 // Tab 2: 搜尋歷史
 // ============================================================================
 const HistoryTab: React.FC = () => {
-  const [items, setItems] = useState<SearchHistoryItem[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
   const [params, setParams] = useState<SearchHistoryListRequest>({
     page: 1,
     page_size: 20,
   });
 
-  const loadHistory = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await aiApi.listSearchHistory(params);
-      if (data) {
-        setItems(data.items);
-        setTotal(data.total);
+  const {
+    data: historyData,
+    isLoading: loading,
+  } = useQuery({
+    queryKey: ['ai-management', 'search-history', params],
+    queryFn: () => aiApi.listSearchHistory(params),
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const items = historyData?.items || [];
+  const total = historyData?.total || 0;
+
+  const clearMutation = useMutation({
+    mutationFn: () => aiApi.clearSearchHistory(),
+    onSuccess: (ok) => {
+      if (ok) {
+        message.success('搜尋歷史已清除');
+        setParams(prev => ({ ...prev, page: 1 }));
+        queryClient.invalidateQueries({ queryKey: ['ai-management', 'search-history'] });
+        queryClient.invalidateQueries({ queryKey: ['ai-management', 'search-stats'] });
+      } else {
+        message.error('清除搜尋歷史失敗');
       }
-    } catch (error) {
-      message.error('載入失敗');
-    } finally {
-      setLoading(false);
-    }
-  }, [params]);
-
-  useEffect(() => {
-    loadHistory();
-  }, [loadHistory]);
-
-  const handleClear = useCallback(async () => {
-    const ok = await aiApi.clearSearchHistory();
-    if (ok) {
-      message.success('搜尋歷史已清除');
-      setParams(prev => ({ ...prev, page: 1 }));
-    } else {
+    },
+    onError: () => {
       message.error('清除搜尋歷史失敗');
-    }
-  }, []);
+    },
+  });
+
+  const handleClear = () => clearMutation.mutate();
 
   const columns: ColumnsType<SearchHistoryItem> = useMemo(() => [
     {

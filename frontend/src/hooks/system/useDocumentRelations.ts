@@ -25,6 +25,7 @@ import type {
   LinkType,
 } from '../../types/api';
 import { logger } from '../../services/logger';
+import { queryKeys } from '../../config/queryConfig';
 
 // =============================================================================
 // 派工關聯 Hook
@@ -88,7 +89,7 @@ export function useDispatchLinks({
 
   // 查詢可關聯的派工紀錄
   const { data: availableDispatchesData } = useQuery({
-    queryKey: ['dispatch-orders-for-link', searchKeyword],
+    queryKey: queryKeys.documentRelations.dispatchOrders(searchKeyword),
     queryFn: async () => {
       const result = await dispatchOrdersApi.getList({
         search: searchKeyword || undefined,
@@ -119,7 +120,7 @@ export function useDispatchLinks({
         message.success('關聯成功');
         setSelectedDispatchId(undefined);
         await loadLinks();
-        queryClient.invalidateQueries({ queryKey: ['dispatch-orders-for-link'] });
+        queryClient.invalidateQueries({ queryKey: queryKeys.documentRelations.allDispatches });
       } catch (error: unknown) {
         message.error(error instanceof Error ? error.message : '關聯失敗');
       } finally {
@@ -137,7 +138,7 @@ export function useDispatchLinks({
         await documentLinksApi.unlinkDispatch(documentId, linkId);
         message.success('已移除關聯');
         await loadLinks();
-        queryClient.invalidateQueries({ queryKey: ['dispatch-orders-for-link'] });
+        queryClient.invalidateQueries({ queryKey: queryKeys.documentRelations.allDispatches });
       } catch (error) {
         message.error('移除關聯失敗');
       }
@@ -223,7 +224,7 @@ export function useProjectLinks({
 
   // 查詢可關聯的工程
   const { data: availableProjectsData } = useQuery({
-    queryKey: ['projects-for-link', searchKeyword],
+    queryKey: queryKeys.documentRelations.projects(searchKeyword),
     queryFn: async () => {
       const result = await taoyuanProjectsApi.getList({
         search: searchKeyword || undefined,
@@ -254,7 +255,7 @@ export function useProjectLinks({
         message.success('關聯成功');
         setSelectedProjectId(undefined);
         await loadLinks();
-        queryClient.invalidateQueries({ queryKey: ['projects-for-link'] });
+        queryClient.invalidateQueries({ queryKey: queryKeys.documentRelations.allProjects });
       } catch (error: unknown) {
         message.error(error instanceof Error ? error.message : '關聯失敗');
       } finally {
@@ -272,7 +273,7 @@ export function useProjectLinks({
         await documentProjectLinksApi.unlinkProject(documentId, linkId);
         message.success('已移除關聯');
         await loadLinks();
-        queryClient.invalidateQueries({ queryKey: ['projects-for-link'] });
+        queryClient.invalidateQueries({ queryKey: queryKeys.documentRelations.allProjects });
       } catch (error) {
         message.error('移除關聯失敗');
       }

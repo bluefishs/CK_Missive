@@ -533,7 +533,7 @@ class TestMatchAgency:
 
     @pytest.mark.asyncio
     async def test_match_agency_fuzzy(self, service, mock_db, mock_agency):
-        """測試 match_agency - 部分匹配（機關名稱包含在文字中）"""
+        """測試 match_agency - 部分匹配（DB 端 strpos 比對）"""
         # 前三步都不匹配
         service.repository.find_one_by.return_value = None
 
@@ -541,13 +541,11 @@ class TestMatchAgency:
         mock_short_name_result = MagicMock()
         mock_short_name_result.scalar_one_or_none.return_value = None
 
-        # 第二次 execute (取得所有機關) 返回列表
-        mock_scalars = MagicMock()
-        mock_scalars.all.return_value = [mock_agency]
-        mock_all_result = MagicMock()
-        mock_all_result.scalars.return_value = mock_scalars
+        # 第二次 execute (DB 端 strpos 部分匹配) 返回匹配的機關
+        mock_fuzzy_result = MagicMock()
+        mock_fuzzy_result.scalar_one_or_none.return_value = mock_agency
 
-        mock_db.execute.side_effect = [mock_short_name_result, mock_all_result]
+        mock_db.execute.side_effect = [mock_short_name_result, mock_fuzzy_result]
 
         result = await service.match_agency("函覆桃園市政府有關案件")
 
@@ -571,13 +569,11 @@ class TestMatchAgency:
         mock_short_name_result = MagicMock()
         mock_short_name_result.scalar_one_or_none.return_value = None
 
-        # 部分匹配也失敗
-        mock_scalars = MagicMock()
-        mock_scalars.all.return_value = []
-        mock_all_result = MagicMock()
-        mock_all_result.scalars.return_value = mock_scalars
+        # DB 端 strpos 部分匹配也失敗
+        mock_fuzzy_result = MagicMock()
+        mock_fuzzy_result.scalar_one_or_none.return_value = None
 
-        mock_db.execute.side_effect = [mock_short_name_result, mock_all_result]
+        mock_db.execute.side_effect = [mock_short_name_result, mock_fuzzy_result]
 
         result = await service.match_agency("完全不存在的東西")
 

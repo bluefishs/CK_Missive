@@ -22,6 +22,8 @@ import {
   DocumentUpdate as ApiDocumentUpdate,
   DocumentTrendsResponse,
   DocumentEfficiencyResponse,
+  DocumentStatistics,
+  NextSendNumberResponse,
 } from '../types/api';
 import { logger } from '../services/logger';
 
@@ -53,8 +55,8 @@ export interface DocumentUpdate extends Partial<DocumentCreate> {
   auto_serial?: string;
 }
 
-// 重新匯出供外部使用
-export type { OfficialDocument };
+// 重新匯出型別供外部使用
+export type { OfficialDocument, DocumentStatistics, NextSendNumberResponse };
 
 /** 公文列表查詢參數 */
 export interface DocumentListParams extends PaginationParams, SortParams {
@@ -79,23 +81,6 @@ export interface DocumentListParams extends PaginationParams, SortParams {
   date_to?: string;          // 相容性別名
 }
 
-/** 公文統計資料 */
-export interface DocumentStatistics {
-  total: number;
-  total_documents: number;
-  send: number;
-  send_count: number;
-  receive: number;
-  receive_count: number;
-  current_year_count: number;
-  current_year_send_count: number;
-  delivery_method_stats: {
-    electronic: number;
-    paper: number;
-    both: number;
-  };
-}
-
 /** 下拉選項 */
 export interface DropdownOption {
   value: string;
@@ -103,22 +88,6 @@ export interface DropdownOption {
   id?: number;
   year?: number;
   category?: string;
-}
-
-/** 下一個發文字號回應 */
-export interface NextSendNumberResponse {
-  /** 完整文號 (如: 乾坤測字第1150000001號) */
-  full_number: string;
-  /** 西元年 */
-  year: number;
-  /** 民國年 */
-  roc_year: number;
-  /** 流水號 */
-  sequence_number: number;
-  /** 前一個最大序號 */
-  previous_max: number;
-  /** 文號前綴 */
-  prefix: string;
 }
 
 // 文件附件型別請直接從 filesApi 匯入
@@ -498,7 +467,7 @@ export const documentsApi = {
     formData.append('file', file);
 
     const response = await fetch(
-      `${API_BASE_URL}/csv-import/upload-and-import`,
+      `${API_BASE_URL}${API_ENDPOINTS.CSV_IMPORT.UPLOAD_AND_IMPORT}`,
       {
         method: 'POST',
         body: formData,

@@ -6,8 +6,8 @@
  * @date 2026-02-07
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { logger } from '../services/logger';
+import React, { useState, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ResponsiveContent } from '../components/common';
 import {
   Card, Tabs, Button, Space, Typography, Row, Col,
@@ -51,27 +51,15 @@ interface EnvironmentStatus {
 
 export const BackupManagementPage: React.FC = () => {
   const { message, modal } = App.useApp();
+  const queryClient = useQueryClient();
 
   // 狀態
-  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('list');
 
-  // 環境狀態
-  const [envStatus, setEnvStatus] = useState<EnvironmentStatus | null>(null);
-
-  // 備份列表狀態
-  const [backups, setBackups] = useState<BackupListResponse | null>(null);
-  const [statistics, setStatistics] = useState<BackupStatistics | null>(null);
-
-  // 異地備份設定狀態
-  const [remoteConfig, setRemoteConfig] = useState<RemoteBackupConfig | null>(null);
+  // 表單
   const [remoteConfigForm] = Form.useForm();
 
-  // 排程器狀態
-  const [schedulerStatus, setSchedulerStatus] = useState<SchedulerStatus | null>(null);
-
-  // 備份日誌狀態
-  const [logs, setLogs] = useState<BackupLogListResponse | null>(null);
+  // 備份日誌篩選
   const [logFilters, setLogFilters] = useState({
     page: 1,
     page_size: 20,
@@ -80,90 +68,117 @@ export const BackupManagementPage: React.FC = () => {
   });
 
   // =========================================================================
-  // 資料載入
+  // React Query: 資料載入
   // =========================================================================
 
-  const fetchEnvironmentStatus = useCallback(async () => {
-    try {
-      const data = await apiClient.post<EnvironmentStatus>(API_ENDPOINTS.BACKUP.ENVIRONMENT_STATUS, {});
-      setEnvStatus(data);
-    } catch (error) {
-      logger.error('載入環境狀態失敗:', error);
-    }
-  }, []);
+  const {
+    data: envStatus = null,
+    refetch: refetchEnvStatus,
+  } = useQuery({
+    queryKey: ['backup', 'environment-status'],
+    queryFn: () => apiClient.post<EnvironmentStatus>(API_ENDPOINTS.BACKUP.ENVIRONMENT_STATUS, {}),
+    staleTime: 5 * 60 * 1000,
+  });
 
-  const fetchBackups = useCallback(async () => {
-    try {
-      const data = await apiClient.post<BackupListResponse>(API_ENDPOINTS.BACKUP.LIST, {});
-      setBackups(data);
-      setStatistics(data.statistics);
-    } catch (error) {
-      logger.error('載入備份列表失敗:', error);
-      message.error('載入備份列表失敗');
-    }
-  }, [message]);
+  const {
+    data: backups = null,
+    isLoading: backupsLoading,
+  } = useQuery({
+    queryKey: ['backup', 'list'],
+    queryFn: () => apiClient.post<BackupListResponse>(API_ENDPOINTS.BACKUP.LIST, {}),
+    staleTime: 5 * 60 * 1000,
+  });
 
-  const fetchRemoteConfig = useCallback(async () => {
-    try {
+  const statistics = backups?.statistics || null;
+
+  const {
+    data: remoteConfig = null,
+  } = useQuery({
+    queryKey: ['backup', 'remote-config'],
+    queryFn: async () => {
       const data = await apiClient.post<RemoteBackupConfig>(API_ENDPOINTS.BACKUP.REMOTE_CONFIG, {});
-      setRemoteConfig(data);
       remoteConfigForm.setFieldsValue({
         remote_path: data.remote_path || '',
         sync_enabled: data.sync_enabled,
         sync_interval_hours: data.sync_interval_hours
       });
-    } catch (error) {
-      logger.error('載入異地備份設定失敗:', error);
-    }
-  }, [remoteConfigForm]);
+      return data;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
-  const fetchSchedulerStatus = useCallback(async () => {
-    try {
-      const data = await apiClient.post<SchedulerStatus>(API_ENDPOINTS.BACKUP.SCHEDULER_STATUS, {});
-      setSchedulerStatus(data);
-    } catch (error) {
-      logger.error('載入排程器狀態失敗:', error);
-    }
-  }, []);
+  const {
+    data: schedulerStatus = null,
+  } = useQuery({
+    queryKey: ['backup', 'scheduler-status'],
+    queryFn: () => apiClient.post<SchedulerStatus>(API_ENDPOINTS.BACKUP.SCHEDULER_STATUS, {}),
+    staleTime: 5 * 60 * 1000,
+  });
 
-  const fetchLogs = useCallback(async () => {
-    try {
-      const data = await apiClient.post<BackupLogListResponse>(API_ENDPOINTS.BACKUP.LOGS, logFilters);
-      setLogs(data);
-    } catch (error) {
-      logger.error('載入備份日誌失敗:', error);
-    }
-  }, [logFilters]);
+  const {
+    data: logs = null,
+    refetch: refetchLogs,
+  } = useQuery({
+    queryKey: ['backup', 'logs', logFilters],
+    queryFn: () => apiClient.post<BackupLogListResponse>(API_ENDPOINTS.BACKUP.LOGS, logFilters),
+    staleTime: 2 * 60 * 1000,
+    enabled: activeTab === 'logs',
+  });
+
+  const fetchLogs = refetchLogs;
 
   const refreshAll = useCallback(async () => {
-    setLoading(true);
-    try {
-      await Promise.all([
-        fetchEnvironmentStatus(),
-        fetchBackups(),
-        fetchRemoteConfig(),
-        fetchSchedulerStatus(),
-        fetchLogs()
-      ]);
-      message.success('資料已重新整理');
-    } finally {
-      setLoading(false);
-    }
-  }, [fetchEnvironmentStatus, fetchBackups, fetchRemoteConfig, fetchSchedulerStatus, fetchLogs, message]);
+    await queryClient.invalidateQueries({ queryKey: ['backup'] });
+    message.success('資料已重新整理');
+  }, [queryClient, message]);
 
-  useEffect(() => {
-    refreshAll();
-  }, []);
-
-  useEffect(() => {
-    if (activeTab === 'logs') {
-      fetchLogs();
-    }
-  }, [logFilters, activeTab, fetchLogs]);
+  const fetchEnvironmentStatus = refetchEnvStatus;
 
   // =========================================================================
   // 備份操作
   // =========================================================================
+
+  // Mutations
+  const createBackupMutation = useMutation({
+    mutationFn: () => apiClient.post(API_ENDPOINTS.BACKUP.CREATE, {
+      include_database: true,
+      include_attachments: true,
+      retention_days: 7
+    }),
+    onSuccess: () => {
+      message.success('備份建立成功');
+      queryClient.invalidateQueries({ queryKey: ['backup', 'list'] });
+      queryClient.invalidateQueries({ queryKey: ['backup', 'logs'] });
+    },
+    onError: () => {
+      message.error('備份建立失敗');
+    },
+  });
+
+  const deleteBackupMutation = useMutation({
+    mutationFn: (params: { backup_name: string; backup_type: string }) =>
+      apiClient.post(API_ENDPOINTS.BACKUP.DELETE, params),
+    onSuccess: () => {
+      message.success('備份已刪除');
+      queryClient.invalidateQueries({ queryKey: ['backup', 'list'] });
+      queryClient.invalidateQueries({ queryKey: ['backup', 'logs'] });
+    },
+    onError: () => {
+      message.error('刪除備份失敗');
+    },
+  });
+
+  const restoreBackupMutation = useMutation({
+    mutationFn: (backupName: string) =>
+      apiClient.post(API_ENDPOINTS.BACKUP.RESTORE, { backup_name: backupName }),
+    onSuccess: () => {
+      message.success('資料庫還原成功');
+      queryClient.invalidateQueries({ queryKey: ['backup', 'logs'] });
+    },
+    onError: () => {
+      message.error('還原失敗');
+    },
+  });
 
   const handleCreateBackup = async () => {
     modal.confirm({
@@ -172,22 +187,7 @@ export const BackupManagementPage: React.FC = () => {
       icon: <DatabaseOutlined />,
       okText: '確定',
       cancelText: '取消',
-      onOk: async () => {
-        setLoading(true);
-        try {
-          await apiClient.post(API_ENDPOINTS.BACKUP.CREATE, {
-            include_database: true,
-            include_attachments: true,
-            retention_days: 7
-          });
-          message.success('備份建立成功');
-          await fetchBackups();
-        } catch (error) {
-          message.error('備份建立失敗');
-        } finally {
-          setLoading(false);
-        }
-      }
+      onOk: () => createBackupMutation.mutateAsync(),
     });
   };
 
@@ -195,16 +195,10 @@ export const BackupManagementPage: React.FC = () => {
     const backupName = item.filename || item.dirname;
     if (!backupName) return;
 
-    try {
-      await apiClient.post(API_ENDPOINTS.BACKUP.DELETE, {
-        backup_name: backupName,
-        backup_type: item.type
-      });
-      message.success('備份已刪除');
-      await fetchBackups();
-    } catch (error) {
-      message.error('刪除備份失敗');
-    }
+    deleteBackupMutation.mutate({
+      backup_name: backupName,
+      backup_type: item.type
+    });
   };
 
   const handleRestoreBackup = async (item: BackupItem) => {
@@ -223,19 +217,7 @@ export const BackupManagementPage: React.FC = () => {
       okText: '確定還原',
       okType: 'danger',
       cancelText: '取消',
-      onOk: async () => {
-        setLoading(true);
-        try {
-          await apiClient.post(API_ENDPOINTS.BACKUP.RESTORE, {
-            backup_name: item.filename
-          });
-          message.success('資料庫還原成功');
-        } catch (error) {
-          message.error('還原失敗');
-        } finally {
-          setLoading(false);
-        }
-      }
+      onOk: () => restoreBackupMutation.mutateAsync(item.filename!),
     });
   };
 
@@ -243,80 +225,98 @@ export const BackupManagementPage: React.FC = () => {
   // 異地備份操作
   // =========================================================================
 
+  const updateRemoteConfigMutation = useMutation({
+    mutationFn: (values: { remote_path: string; sync_enabled: boolean; sync_interval_hours: number }) =>
+      apiClient.post(API_ENDPOINTS.BACKUP.REMOTE_CONFIG_UPDATE, values),
+    onSuccess: () => {
+      message.success('異地備份設定已更新');
+      queryClient.invalidateQueries({ queryKey: ['backup', 'remote-config'] });
+    },
+    onError: () => {
+      message.error('更新設定失敗');
+    },
+  });
+
+  const remoteSyncMutation = useMutation({
+    mutationFn: () => apiClient.post<{ synced_files: number; total_size_kb: number }>(
+      API_ENDPOINTS.BACKUP.REMOTE_SYNC, {}
+    ),
+    onSuccess: (result) => {
+      message.success(`同步完成: ${result.synced_files} 個檔案，共 ${result.total_size_kb} KB`);
+      queryClient.invalidateQueries({ queryKey: ['backup', 'remote-config'] });
+    },
+    onError: () => {
+      message.error('同步失敗');
+    },
+  });
+
+  const cleanupOrphansMutation = useMutation({
+    mutationFn: () => apiClient.post<{ cleaned_count: number; files: string[] }>(
+      API_ENDPOINTS.BACKUP.CLEANUP, {}
+    ),
+    onSuccess: (result) => {
+      if (result.cleaned_count > 0) {
+        message.success(`已清理 ${result.cleaned_count} 個孤立檔案`);
+        queryClient.invalidateQueries({ queryKey: ['backup', 'list'] });
+      } else {
+        message.info('沒有需要清理的孤立檔案');
+      }
+    },
+    onError: () => {
+      message.error('清理失敗');
+    },
+  });
+
   const handleUpdateRemoteConfig = async (values: {
     remote_path: string;
     sync_enabled: boolean;
     sync_interval_hours: number;
   }) => {
-    setLoading(true);
-    try {
-      await apiClient.post(API_ENDPOINTS.BACKUP.REMOTE_CONFIG_UPDATE, values);
-      message.success('異地備份設定已更新');
-      await fetchRemoteConfig();
-    } catch (error) {
-      message.error('更新設定失敗');
-    } finally {
-      setLoading(false);
-    }
+    updateRemoteConfigMutation.mutate(values);
   };
 
   const handleRemoteSync = async () => {
-    setLoading(true);
-    try {
-      const result = await apiClient.post<{ synced_files: number; total_size_kb: number }>(
-        API_ENDPOINTS.BACKUP.REMOTE_SYNC,
-        {}
-      );
-      message.success(`同步完成: ${result.synced_files} 個檔案，共 ${result.total_size_kb} KB`);
-      await fetchRemoteConfig();
-    } catch (error) {
-      message.error('同步失敗');
-    } finally {
-      setLoading(false);
-    }
+    remoteSyncMutation.mutate();
   };
 
   const handleCleanupOrphans = async () => {
-    setLoading(true);
-    try {
-      const result = await apiClient.post<{ cleaned_count: number; files: string[] }>(
-        API_ENDPOINTS.BACKUP.CLEANUP,
-        {}
-      );
-      if (result.cleaned_count > 0) {
-        message.success(`已清理 ${result.cleaned_count} 個孤立檔案`);
-        await fetchBackups();
-      } else {
-        message.info('沒有需要清理的孤立檔案');
-      }
-    } catch (error) {
-      message.error('清理失敗');
-    } finally {
-      setLoading(false);
-    }
+    cleanupOrphansMutation.mutate();
   };
 
   // =========================================================================
   // 排程器操作
   // =========================================================================
 
-  const handleSchedulerToggle = async () => {
-    setLoading(true);
-    try {
-      if (schedulerStatus?.running) {
-        await apiClient.post(API_ENDPOINTS.BACKUP.SCHEDULER_STOP, {});
-        message.success('排程器已停止');
+  const schedulerToggleMutation = useMutation({
+    mutationFn: (isRunning: boolean) => {
+      if (isRunning) {
+        return apiClient.post(API_ENDPOINTS.BACKUP.SCHEDULER_STOP, {});
       } else {
-        await apiClient.post(API_ENDPOINTS.BACKUP.SCHEDULER_START, {});
-        message.success('排程器已啟動');
+        return apiClient.post(API_ENDPOINTS.BACKUP.SCHEDULER_START, {});
       }
-      await fetchSchedulerStatus();
-    } catch (error) {
+    },
+    onSuccess: (_data, isRunning) => {
+      message.success(isRunning ? '排程器已停止' : '排程器已啟動');
+      queryClient.invalidateQueries({ queryKey: ['backup', 'scheduler-status'] });
+    },
+    onError: () => {
       message.error('操作失敗');
-    } finally {
-      setLoading(false);
-    }
+    },
+  });
+
+  const handleSchedulerToggle = async () => {
+    schedulerToggleMutation.mutate(!!schedulerStatus?.running);
   };
+
+  // Combined loading state for UI
+  const loading = backupsLoading
+    || createBackupMutation.isPending
+    || deleteBackupMutation.isPending
+    || restoreBackupMutation.isPending
+    || updateRemoteConfigMutation.isPending
+    || remoteSyncMutation.isPending
+    || cleanupOrphansMutation.isPending
+    || schedulerToggleMutation.isPending;
 
   // =========================================================================
   // 表格欄位定義
@@ -738,7 +738,7 @@ export const BackupManagementPage: React.FC = () => {
             />
           </Col>
           <Col span={6}>
-            <Button icon={<ReloadOutlined />} onClick={fetchLogs}>
+            <Button icon={<ReloadOutlined />} onClick={() => fetchLogs()}>
               重新整理
             </Button>
           </Col>
@@ -805,7 +805,7 @@ export const BackupManagementPage: React.FC = () => {
             icon={<WarningOutlined />}
             style={{ marginBottom: 16 }}
             action={
-              <Button size="small" onClick={fetchEnvironmentStatus}>
+              <Button size="small" onClick={() => fetchEnvironmentStatus()}>
                 重新檢測
               </Button>
             }
