@@ -1,8 +1,8 @@
 # CK_Missive 強制性開發規範檢查清單
 
-> **版本**: 1.13.0
+> **版本**: 1.14.0
 > **建立日期**: 2026-01-11
-> **最後更新**: 2026-02-09
+> **最後更新**: 2026-02-19
 > **狀態**: 強制執行 - 所有開發任務啟動前必須檢視
 
 ---
@@ -319,17 +319,30 @@ from app.schemas.xxx import MyRequest
    export type ApiNewEntity = components['schemas']['NewEntity'];
    ```
 
+### Schema-ORM 欄位對齊規則 (v17.2.0)
+
+- [ ] **Schema 欄位必須是 ORM 模型欄位的子集**（不可宣告 ORM 不存在的欄位）
+- [ ] 新增 ORM 欄位時，同步更新：`schemas/*.py` → `frontend/src/types/api.ts`
+- [ ] 移除 ORM 欄位時，同步清除 Schema 和前端型別定義
+- [ ] 參考對照表：`docs/specifications/SCHEMA_DB_MAPPING.md`
+
+### 前端型別 SSOT 規則
+
+- [ ] 業務實體型別定義在 `frontend/src/types/api.ts`（唯一來源）
+- [ ] API 檔案禁止定義業務 interface（API 擴展型別除外）
+- [ ] 頁面檔案禁止定義可重用 interface（page-local alias 除外）
+
 ### 開發後檢查
 - [ ] `endpoints/` 目錄無本地 BaseModel 定義
 - [ ] Python 語法檢查通過：`python -m py_compile app/schemas/*.py`
-- [ ] 執行 `npm run api:generate` 更新前端型別
 - [ ] TypeScript 編譯通過：`npx tsc --noEmit`
+- [ ] Schema-ORM 欄位名稱一致（無 AttributeError 風險）
 
 ### 快速驗證命令
 
 ```bash
 # 檢查 endpoints 本地定義數量 (應為 0)
-grep -r "class.*\(BaseModel\)" backend/app/api/endpoints/ --include="*.py" | wc -l
+grep -rn "^class.*BaseModel\|^class.*Enum" backend/app/api/endpoints/ --include="*.py" | grep -v __pycache__
 
 # 完整型別同步檢查
 /type-sync
@@ -1516,6 +1529,7 @@ if os.environ.get("PGVECTOR_ENABLED", "").lower() == "true":
 
 | 版本 | 日期 | 說明 |
 |------|------|------|
+| 1.14.0 | 2026-02-19 | **更新清單 H**（加入 Schema-ORM 對齊規則、前端 SSOT 規則）- v17.2.0 SSOT 全面強化 |
 | 1.13.0 | 2026-02-09 | **新增清單 W、X**（Docker+PM2 混合環境、Feature Flags）- v1.53.0 開發環境韌性強化 |
 | 1.12.0 | 2026-02-07 | **新增清單 T、U、V**（useEffect 無限迴圈防護、重構/刪除模組安全、認證與安全變更）- 連鎖崩潰事故後建立 + 認證安全規範 |
 | 1.11.0 | 2026-02-03 | **新增清單 R、S**（部署驗證、安全審查）- Everything Claude Code 整合 |

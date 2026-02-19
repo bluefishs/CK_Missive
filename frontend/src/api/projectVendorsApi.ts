@@ -7,7 +7,7 @@
 import { apiClient } from './client';
 
 // 從 types/api.ts 匯入統一的型別定義
-import { ProjectVendor as BaseProjectVendor, ProjectVendorCreate } from '../types/api';
+import { ProjectVendor as BaseProjectVendor, ProjectVendorCreate, VendorOperationResponse } from '../types/api';
 
 // ============================================================================
 // 型別定義 - API 專用擴展
@@ -52,13 +52,6 @@ export interface ProjectVendorUpdate {
   start_date?: string;
   end_date?: string;
   status?: string;
-}
-
-/** 操作回應 */
-interface VendorOperationResponse {
-  message: string;
-  project_id: number;
-  vendor_id: number;
 }
 
 // ============================================================================

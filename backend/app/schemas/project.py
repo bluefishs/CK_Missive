@@ -31,6 +31,22 @@ class ProjectBase(BaseModel):
     notes: Optional[str] = Field(None, description="備註")
     description: Optional[str] = Field(None, description="專案描述")
 
+    # ORM 對齊欄位 (v1.55.0)
+    contract_number: Optional[str] = Field(None, max_length=100, description="合約編號")
+    contract_type: Optional[str] = Field(None, max_length=50, description="合約類型")
+    location: Optional[str] = Field(None, max_length=200, description="專案地點")
+    procurement_method: Optional[str] = Field(None, max_length=100, description="採購方式")
+    completion_date: Optional[date] = Field(None, description="完工日期")
+    acceptance_date: Optional[date] = Field(None, description="驗收日期")
+    completion_percentage: Optional[int] = Field(None, ge=0, le=100, description="完成百分比")
+    warranty_end_date: Optional[date] = Field(None, description="保固結束日期")
+    contact_person: Optional[str] = Field(None, max_length=100, description="聯絡人")
+    contact_phone: Optional[str] = Field(None, max_length=50, description="聯絡電話")
+    client_agency_id: Optional[int] = Field(None, description="委託機關ID")
+    agency_contact_person: Optional[str] = Field(None, max_length=100, description="機關承辦人")
+    agency_contact_phone: Optional[str] = Field(None, max_length=50, description="機關承辦電話")
+    agency_contact_email: Optional[str] = Field(None, max_length=100, description="機關承辦Email")
+
     @field_validator('end_date') # 使用 field_validator
     @classmethod
     def validate_end_date(cls, v, info): # info 替代 values
@@ -68,6 +84,22 @@ class ProjectUpdate(BaseModel):
     project_path: Optional[str] = Field(None, max_length=500, description="專案路徑")
     notes: Optional[str] = Field(None, description="備註")
     description: Optional[str] = Field(None, description="專案描述")
+
+    # ORM 對齊欄位 (v1.55.0)
+    contract_number: Optional[str] = Field(None, max_length=100, description="合約編號")
+    contract_type: Optional[str] = Field(None, max_length=50, description="合約類型")
+    location: Optional[str] = Field(None, max_length=200, description="專案地點")
+    procurement_method: Optional[str] = Field(None, max_length=100, description="採購方式")
+    completion_date: Optional[date] = Field(None, description="完工日期")
+    acceptance_date: Optional[date] = Field(None, description="驗收日期")
+    completion_percentage: Optional[int] = Field(None, ge=0, le=100, description="完成百分比")
+    warranty_end_date: Optional[date] = Field(None, description="保固結束日期")
+    contact_person: Optional[str] = Field(None, max_length=100, description="聯絡人")
+    contact_phone: Optional[str] = Field(None, max_length=50, description="聯絡電話")
+    client_agency_id: Optional[int] = Field(None, description="委託機關ID")
+    agency_contact_person: Optional[str] = Field(None, max_length=100, description="機關承辦人")
+    agency_contact_phone: Optional[str] = Field(None, max_length=50, description="機關承辦電話")
+    agency_contact_email: Optional[str] = Field(None, max_length=100, description="機關承辦Email")
 
     @field_validator('end_date') # 使用 field_validator
     @classmethod

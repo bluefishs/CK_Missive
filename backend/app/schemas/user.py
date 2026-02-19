@@ -78,6 +78,7 @@ class UserResponse(BaseModel):
     created_at: Optional[datetime] = None
     department: Optional[str] = None
     position: Optional[str] = None
+    email_verified: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 

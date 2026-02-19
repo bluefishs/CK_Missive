@@ -211,3 +211,8 @@ class MFAStatusResponse(BaseModel):
     """MFA 狀態回應"""
     mfa_enabled: bool = Field(..., description="MFA 是否已啟用")
     backup_codes_remaining: int = Field(0, description="剩餘備用碼數量")
+
+
+class VerifyEmailRequest(BaseModel):
+    """驗證 Email 請求"""
+    token: str = Field(..., description="Email 驗證 token")

@@ -2,8 +2,8 @@
 
 > **觸發關鍵字**: schema, 資料庫, PostgreSQL, model, 模型, table, 資料表, pgvector, feature flag
 > **適用範圍**: 資料庫設計、模型定義、遷移管理、Feature Flags
-> **版本**: 1.2.0
-> **最後更新**: 2026-02-09
+> **版本**: 1.3.0
+> **最後更新**: 2026-02-19
 
 ---
 
@@ -357,9 +357,9 @@ class OfficialDocument(Base):
     __tablename__ = "documents"
     # ... 標準欄位 ...
 
-    # 可選：pgvector 語意搜尋嵌入
+    # 可選：pgvector 語意搜尋嵌入 (nomic-embed-text 輸出 768 維)
     if Vector is not None:
-        embedding = Column(Vector(1536), nullable=True)
+        embedding = Column(Vector(768), nullable=True)
 ```
 
 ### Feature Flag 規則

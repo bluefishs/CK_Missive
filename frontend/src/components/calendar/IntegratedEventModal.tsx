@@ -244,6 +244,7 @@ export const IntegratedEventModal: React.FC<IntegratedEventModalProps> = ({
                         icon={<PlusOutlined />}
                         onClick={handleAddReminder}
                         style={{ width: '100%' }}
+                        aria-label={isMobile ? '新增提醒' : undefined}
                       >
                         {!isMobile && '新增'}
                       </Button>
@@ -269,6 +270,7 @@ export const IntegratedEventModal: React.FC<IntegratedEventModalProps> = ({
                                 size="small"
                                 icon={<DeleteOutlined />}
                                 onClick={() => handleRemoveReminder(index)}
+                                aria-label="移除提醒"
                               />
                             </Tooltip>,
                           ]}

@@ -255,6 +255,7 @@ export const InlineRecordCreator: React.FC<InlineRecordCreatorProps> = ({
           size="small"
           icon={<CloseOutlined />}
           onClick={handleCancel}
+          aria-label="關閉"
         />
       }
     >

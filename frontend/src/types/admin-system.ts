@@ -458,3 +458,75 @@ export interface FormattedDocument {
   deadline: string;
 }
 
+// ============================================================================
+// 資料庫管理 (Database Management) 相關型別
+// ============================================================================
+
+/** 資料庫欄位資訊 */
+export interface ColumnInfo {
+  name: string;
+  type: string;
+  nullable: boolean;
+  primaryKey: boolean;
+}
+
+/** 資料庫表格資訊 */
+export interface TableInfo {
+  name: string;
+  recordCount: number;
+  columns: ColumnInfo[];
+  size: string;
+  lastModified: string;
+}
+
+/** 資料庫整體資訊 */
+export interface DatabaseInfo {
+  name: string;
+  size: string;
+  tables: TableInfo[];
+  totalRecords: number;
+  status: string;
+}
+
+/** 自訂查詢結果 */
+export interface QueryResult {
+  totalRows: number;
+  executionTime: number;
+  columns: string[];
+  rows: unknown[][];
+}
+
+/** 資料完整性檢查結果 */
+export interface IntegrityResult {
+  issues: Array<{ table: string; description: string }>;
+  status: string;
+  totalIssues: number;
+  checkTime: string;
+}
+
+// ============================================================================
+// 管理儀表板 (Admin Dashboard) 相關型別
+// ============================================================================
+
+/** 待審核使用者 */
+export interface PendingUser {
+  id: number;
+  email: string;
+  full_name: string;
+  auth_provider: string;
+  created_at: string;
+  role: string;
+  status: string;
+}
+
+/** 系統警告 */
+export interface SystemAlert {
+  id: string;
+  type: 'warning' | 'error' | 'info';
+  title: string;
+  description: string;
+  timestamp: string;
+  action?: () => void;
+  actionText?: string;
+}
+

@@ -77,9 +77,8 @@ const getCategoryTagText = (category?: string) => {
 };
 
 // ---[類型定義]---
-import type { Project, ProjectStatus } from '../types/api';
+import type { Project, ProjectStatus, ViewMode } from '../types/api';
 
-type ViewMode = 'list' | 'board';
 type DataIndex = keyof Project;
 
 // ---[主元件]---

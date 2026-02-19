@@ -47,7 +47,6 @@ export interface OfficialDocument {
   user_confirm?: boolean;
   auto_serial?: string;  // 流水序號 (R0001=收文, S0001=發文)
   creator?: string;
-  is_deleted?: boolean;
   notes?: string;
   ck_note?: string;  // 簡要說明(乾坤備註)
   priority_level?: string;

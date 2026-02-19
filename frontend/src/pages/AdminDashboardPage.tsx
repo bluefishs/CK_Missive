@@ -37,7 +37,7 @@ import { API_ENDPOINTS } from '../api/endpoints';
 import { documentsApi } from '../api/documentsApi';
 import { SystemHealthDashboard, AIStatsPanel, DocumentTrendsChart } from '../components/dashboard';
 import { ROUTES } from '../router/types';
-import type { DocumentEfficiencyResponse, StatusDistributionItem } from '../types/api';
+import type { DocumentEfficiencyResponse, StatusDistributionItem, PendingUser, SystemAlert } from '../types/api';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
 dayjs.extend(relativeTime);
@@ -48,26 +48,6 @@ import {
 } from '../constants/permissions';
 
 const { Title, Text } = Typography;
-
-interface PendingUser {
-  id: number;
-  email: string;
-  full_name: string;
-  auth_provider: string;
-  created_at: string;
-  role: string;
-  status: string;
-}
-
-interface SystemAlert {
-  id: string;
-  type: 'warning' | 'error' | 'info';
-  title: string;
-  description: string;
-  timestamp: string;
-  action?: () => void;
-  actionText?: string;
-}
 
 const AdminDashboardPage: React.FC = () => {
   const navigate = useNavigate();

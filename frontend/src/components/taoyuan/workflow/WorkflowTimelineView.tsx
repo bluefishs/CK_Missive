@@ -163,6 +163,7 @@ const WorkflowTimelineViewInner: React.FC<WorkflowTimelineViewProps> = ({
                       size="small"
                       icon={<EditOutlined />}
                       onClick={() => onEditRecord(r)}
+                      aria-label="編輯"
                     />
                   )}
                   {onDeleteRecord && (
@@ -177,6 +178,7 @@ const WorkflowTimelineViewInner: React.FC<WorkflowTimelineViewProps> = ({
                         size="small"
                         danger
                         icon={<DeleteOutlined />}
+                        aria-label="刪除"
                       />
                     </Popconfirm>
                   )}

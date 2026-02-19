@@ -16,25 +16,16 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
 from sqlalchemy.orm import selectinload
-from pydantic import BaseModel
-
 from .common import (
     get_async_db, require_auth,
     TaoyuanDispatchOrder, TaoyuanDispatchDocumentLink, Document,
     DispatchDocumentLinkCreate
 )
+from app.schemas.taoyuan.links import SearchLinkableDocumentsRequest
 from app.utils.doc_helpers import OUTGOING_DOC_PREFIX
 
 # 桃園派工專案 ID (固定為桃園市府委外查估案)
 TAOYUAN_PROJECT_ID = 21
-
-
-class SearchLinkableDocumentsRequest(BaseModel):
-    """搜尋可關聯公文請求"""
-    keyword: str
-    limit: int = 20
-    exclude_document_ids: Optional[List[int]] = None
-    link_type: Optional[str] = None  # 'agency_incoming' | 'company_outgoing'
 
 router = APIRouter()
 

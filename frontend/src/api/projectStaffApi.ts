@@ -7,7 +7,7 @@
 import { apiClient } from './client';
 
 // 從 types/api.ts 匯入統一的型別定義
-import { ProjectStaff as BaseProjectStaff, ProjectStaffCreate } from '../types/api';
+import { ProjectStaff as BaseProjectStaff, ProjectStaffCreate, StaffOperationResponse } from '../types/api';
 
 // ============================================================================
 // 型別定義 - API 專用擴展
@@ -54,13 +54,6 @@ export interface ProjectStaffUpdate {
   end_date?: string;
   status?: string;
   notes?: string;
-}
-
-/** 操作回應 */
-interface StaffOperationResponse {
-  message: string;
-  project_id: number;
-  user_id: number;
 }
 
 // ============================================================================

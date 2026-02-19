@@ -32,7 +32,7 @@ from .base_ai_service import BaseAIService
 from .search_intent_parser import SearchIntentParser
 from app.schemas.ai import (
     ClassificationResponse,
-    KeywordsResponse,
+    KeywordsValidationResponse,
     NaturalSearchRequest,
     AttachmentInfo,
     DocumentSearchResult,
@@ -267,7 +267,7 @@ class DocumentAIService(BaseAIService):
                 ttl=self.config.cache_ttl_keywords,
                 system_prompt=system_prompt,
                 user_content=user_content,
-                response_schema=KeywordsResponse,
+                response_schema=KeywordsValidationResponse,
                 temperature=0.3,
                 max_tokens=self.config.keywords_max_tokens,
             )

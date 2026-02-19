@@ -302,6 +302,7 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
                             icon={<DeleteOutlined />}
                             onClick={() => handleDeleteReminder(reminder.id)}
                             size="small"
+                            aria-label="刪除提醒"
                           />
                         </Tooltip>
                       ]}

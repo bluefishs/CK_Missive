@@ -198,6 +198,22 @@ from app.schemas.ai import (
     NaturalSearchResponse,
 )
 
+# 部署管理
+from app.schemas.deployment import (
+    ServiceStatus,
+    DeploymentStatus,
+    ServiceHealth,
+    SystemStatusResponse,
+    DeploymentRecord,
+    DeploymentHistoryResponse,
+    TriggerDeploymentRequest,
+    TriggerDeploymentResponse,
+    RollbackRequest,
+    RollbackResponse,
+    DeploymentLog,
+    DeploymentLogsResponse,
+)
+
 __all__ = [
     # Common
     "ErrorCode",
@@ -349,4 +365,17 @@ __all__ = [
     "AttachmentInfo",
     "DocumentSearchResult",
     "NaturalSearchResponse",
+    # Deployment
+    "ServiceStatus",
+    "DeploymentStatus",
+    "ServiceHealth",
+    "SystemStatusResponse",
+    "DeploymentRecord",
+    "DeploymentHistoryResponse",
+    "TriggerDeploymentRequest",
+    "TriggerDeploymentResponse",
+    "RollbackRequest",
+    "RollbackResponse",
+    "DeploymentLog",
+    "DeploymentLogsResponse",
 ]

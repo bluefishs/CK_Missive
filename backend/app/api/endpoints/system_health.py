@@ -11,8 +11,11 @@ import time
 
 from app.db.database import get_async_db
 from app.api.endpoints.auth import get_current_user
-from app.extended.models import User
-from sqlalchemy import text
+from app.extended.models import (
+    User, OfficialDocument, GovernmentAgency, PartnerVendor,
+    SiteNavigationItem, UserSession
+)
+from sqlalchemy import select, func, case
 
 router = APIRouter()
 
@@ -20,7 +23,7 @@ async def check_database_connection(db: AsyncSession) -> Dict[str, Any]:
     """檢查資料庫連接"""
     try:
         start_time = time.time()
-        result = await db.execute(text("SELECT 1"))
+        result = await db.execute(select(func.now()))
         response_time = time.time() - start_time
 
         return {
@@ -36,30 +39,35 @@ async def check_database_connection(db: AsyncSession) -> Dict[str, Any]:
         }
 
 async def check_critical_tables(db: AsyncSession) -> Dict[str, Any]:
-    """檢查關鍵資料表"""
-    critical_tables = [
-        "users", "user_sessions", "documents", "agencies",
-        "partner_vendors", "site_navigation_items"
-    ]
+    """檢查關鍵資料表（使用 ORM 查詢，避免 SQL 注入風險）"""
+    # ORM 模型白名單：表名 → Model 對應
+    critical_table_models = {
+        "users": User,
+        "user_sessions": UserSession,
+        "documents": OfficialDocument,
+        "agencies": GovernmentAgency,
+        "partner_vendors": PartnerVendor,
+        "site_navigation_items": SiteNavigationItem,
+    }
 
     table_status = {}
     overall_healthy = True
 
-    for table in critical_tables:
+    for table_name, model in critical_table_models.items():
         try:
             start_time = time.time()
-            result = await db.execute(text(f"SELECT COUNT(*) FROM {table}"))
+            result = await db.execute(select(func.count()).select_from(model))
             count = result.scalar()
             response_time = time.time() - start_time
 
-            table_status[table] = {
+            table_status[table_name] = {
                 "status": "healthy",
                 "count": count,
                 "response_time": round(response_time * 1000, 2)
             }
         except Exception as e:
             overall_healthy = False
-            table_status[table] = {
+            table_status[table_name] = {
                 "status": "unhealthy",
                 "error": str(e),
                 "response_time": None
@@ -135,15 +143,14 @@ async def navigation_health_check(
     try:
         start_time = time.time()
 
-        # 檢查導覽項目數量
-        result = await db.execute(text("""
-            SELECT
-                COUNT(*) as total_items,
-                COUNT(CASE WHEN parent_id IS NULL THEN 1 END) as root_items,
-                COUNT(CASE WHEN parent_id IS NOT NULL THEN 1 END) as child_items
-            FROM site_navigation_items
-            WHERE is_enabled = true
-        """))
+        # 檢查導覽項目數量（ORM 查詢）
+        result = await db.execute(
+            select(
+                func.count().label("total_items"),
+                func.count(case((SiteNavigationItem.parent_id.is_(None), 1))).label("root_items"),
+                func.count(case((SiteNavigationItem.parent_id.isnot(None), 1))).label("child_items"),
+            ).where(SiteNavigationItem.is_enabled == True)  # noqa: E712
+        )
         stats = result.fetchone()
 
         response_time = time.time() - start_time
@@ -180,20 +187,20 @@ async def system_metrics(
     獲取系統運行指標
     """
     try:
-        # 統計各種數據
-        metrics_queries = {
-            "total_users": "SELECT COUNT(*) FROM users WHERE is_active = true",
-            "total_documents": "SELECT COUNT(*) FROM documents",
-            "total_agencies": "SELECT COUNT(*) FROM agencies",
-            "total_vendors": "SELECT COUNT(*) FROM partner_vendors",
-            "active_sessions": "SELECT COUNT(*) FROM user_sessions WHERE is_active = true",
-            "navigation_items": "SELECT COUNT(*) FROM site_navigation_items WHERE is_enabled = true"
+        # 統計各種數據（ORM 查詢）
+        metrics_orm = {
+            "total_users": select(func.count()).select_from(User).where(User.is_active == True),  # noqa: E712
+            "total_documents": select(func.count()).select_from(OfficialDocument),
+            "total_agencies": select(func.count()).select_from(GovernmentAgency),
+            "total_vendors": select(func.count()).select_from(PartnerVendor),
+            "active_sessions": select(func.count()).select_from(UserSession).where(UserSession.is_active == True),  # noqa: E712
+            "navigation_items": select(func.count()).select_from(SiteNavigationItem).where(SiteNavigationItem.is_enabled == True),  # noqa: E712
         }
 
         metrics = {}
-        for metric_name, query in metrics_queries.items():
+        for metric_name, query in metrics_orm.items():
             try:
-                result = await db.execute(text(query))
+                result = await db.execute(query)
                 metrics[metric_name] = result.scalar() or 0
             except Exception:
                 metrics[metric_name] = -1  # 表示查詢失敗

@@ -142,6 +142,7 @@ const DocEntryInner: React.FC<DocEntryProps> = ({
             icon={<EditOutlined />}
             onClick={() => onEditRecord(record)}
             style={{ flexShrink: 0 }}
+            aria-label="編輯紀錄"
           />
         </Tooltip>
       )}

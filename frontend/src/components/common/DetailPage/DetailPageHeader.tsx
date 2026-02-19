@@ -71,6 +71,7 @@ const DetailPageHeaderInner: React.FC<DetailPageHeaderProps> = ({
             icon={<ArrowLeftOutlined />}
             onClick={handleBack}
             size={isMobile ? 'small' : 'middle'}
+            aria-label={isMobile ? '返回' : undefined}
           >
             {isMobile ? '' : backText}
           </Button>

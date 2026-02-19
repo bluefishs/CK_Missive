@@ -109,3 +109,11 @@ class DocumentProjectLinkResponse(ProjectLinkResponse):
     survey_unit: Optional[str] = Field(None, description="查估單位")
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class SearchLinkableDocumentsRequest(BaseModel):
+    """搜尋可關聯公文請求"""
+    keyword: str
+    limit: int = 20
+    exclude_document_ids: Optional[List[int]] = None
+    link_type: Optional[str] = None

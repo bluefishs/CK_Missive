@@ -189,6 +189,7 @@ export const SystemHealthDashboard: React.FC = () => {
           onClick={handleManualRefresh}
           disabled={loading}
           size="small"
+          aria-label={isMobile ? '重新整理' : undefined}
         >
           {!isMobile && '重新整理'}
         </Button>

@@ -172,7 +172,7 @@ export const DocumentActions: React.FC<DocumentActionsProps> = ({
   return (
     <div onClick={(e) => e.stopPropagation()}>
       <Dropdown menu={{ items: moreMenuItems }} trigger={['click']}>
-        <Button icon={<MoreOutlined />} size={size} />
+        <Button icon={<MoreOutlined />} size={size} aria-label="更多操作" />
       </Dropdown>
     </div>
   );

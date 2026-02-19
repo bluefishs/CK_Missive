@@ -187,6 +187,7 @@ export const createUserTableColumns = ({
               e.stopPropagation();
               onEditPermissions(record);
             }}
+            aria-label="管理權限"
           />
         </Tooltip>
         <Popconfirm
@@ -205,6 +206,7 @@ export const createUserTableColumns = ({
               danger
               icon={<DeleteOutlined />}
               onClick={(e) => e.stopPropagation()}
+              aria-label="刪除使用者"
             />
           </Tooltip>
         </Popconfirm>

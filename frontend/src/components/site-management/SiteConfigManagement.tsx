@@ -277,6 +277,7 @@ const SiteConfigManagement: React.FC = () => {
             size="small"
             icon={<EditOutlined />}
             onClick={() => showModal(record)}
+            aria-label="編輯"
           />
           {!record.is_system && (
             <Popconfirm
@@ -290,6 +291,7 @@ const SiteConfigManagement: React.FC = () => {
                 size="small"
                 danger
                 icon={<DeleteOutlined />}
+                aria-label="刪除"
               />
             </Popconfirm>
           )}

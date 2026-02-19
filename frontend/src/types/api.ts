@@ -107,6 +107,21 @@ export interface Project {
   notes?: string;
   project_path?: string;
   description?: string;
+  // ORM 對齊欄位 (v1.55.0)
+  contract_number?: string;
+  contract_type?: string;
+  location?: string;
+  procurement_method?: string;
+  completion_date?: string;
+  acceptance_date?: string;
+  completion_percentage?: number;
+  warranty_end_date?: string;
+  contact_person?: string;
+  contact_phone?: string;
+  client_agency_id?: number;
+  agency_contact_person?: string;
+  agency_contact_phone?: string;
+  agency_contact_email?: string;
   created_at: string;
   updated_at: string;
 }
@@ -129,6 +144,21 @@ export interface ProjectCreate {
   notes?: string;
   project_path?: string;
   description?: string;
+  // ORM 對齊欄位 (v1.55.0)
+  contract_number?: string;
+  contract_type?: string;
+  location?: string;
+  procurement_method?: string;
+  completion_date?: string;
+  acceptance_date?: string;
+  completion_percentage?: number;
+  warranty_end_date?: string;
+  contact_person?: string;
+  contact_phone?: string;
+  client_agency_id?: number;
+  agency_contact_person?: string;
+  agency_contact_phone?: string;
+  agency_contact_email?: string;
 }
 
 /** 專案更新請求 */
@@ -742,4 +772,45 @@ export interface PaginationMeta {
   total_pages: number;
   has_next: boolean;
   has_prev: boolean;
+}
+
+// ============================================================================
+// API 操作回應型別 (從 api/*.ts 遷移)
+// ============================================================================
+
+/** 協力廠商操作回應 */
+export interface VendorOperationResponse {
+  message: string;
+  project_id: number;
+  vendor_id: number;
+}
+
+/** 承辦同仁操作回應 */
+export interface StaffOperationResponse {
+  message: string;
+  project_id: number;
+  user_id: number;
+}
+
+/**
+ * 行事曆事件原始 API 回應格式
+ * 後端回傳的原始格式，欄位名稱為 start_date/end_date
+ * 用於 calendarApi 內部轉換為 CalendarEventUI
+ */
+export interface RawCalendarEventResponse {
+  id: number;
+  title: string;
+  description?: string;
+  start_date: string;
+  end_date: string;
+  all_day?: boolean;
+  document_id?: number;
+  doc_number?: string;
+  contract_project_name?: string;
+  event_type?: string;
+  priority?: number | string;
+  status?: 'pending' | 'completed' | 'cancelled';
+  location?: string;
+  google_event_id?: string;
+  google_sync_status?: 'pending' | 'synced' | 'failed';
 }

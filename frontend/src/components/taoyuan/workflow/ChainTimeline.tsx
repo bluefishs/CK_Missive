@@ -127,7 +127,7 @@ const RecordCardInner: React.FC<RecordCardProps> = ({
             <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
               {onEditRecord && (
                 <Tooltip title="編輯">
-                  <Button type="text" size="small" icon={<EditOutlined />} onClick={() => onEditRecord(record)} />
+                  <Button type="text" size="small" icon={<EditOutlined />} onClick={() => onEditRecord(record)} aria-label="編輯" />
                 </Tooltip>
               )}
               {onDeleteRecord && (
@@ -138,7 +138,7 @@ const RecordCardInner: React.FC<RecordCardProps> = ({
                   cancelText="取消"
                 >
                   <Tooltip title="刪除">
-                    <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+                    <Button type="text" size="small" danger icon={<DeleteOutlined />} aria-label="刪除" />
                   </Tooltip>
                 </Popconfirm>
               )}

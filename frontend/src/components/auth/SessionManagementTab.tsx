@@ -203,6 +203,7 @@ export const SessionManagementTab: React.FC<SessionManagementTabProps> = ({
               size="small"
               onClick={fetchSessions}
               loading={loading}
+              aria-label="重新整理"
             />
           </Tooltip>
         </Space>

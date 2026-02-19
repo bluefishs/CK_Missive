@@ -174,7 +174,7 @@ const RemarksField: React.FC<RemarksFieldProps> = ({
             <Space size={4}>
               {showHistory && history.length > 0 && (
                 <Popover content={historyContent} trigger="click" placement="bottomRight">
-                  <Button type="text" size="small" icon={<HistoryOutlined />} />
+                  <Button type="text" size="small" icon={<HistoryOutlined />} aria-label="查看歷史記錄" />
                 </Popover>
               )}
               <Text type="secondary" style={{ fontSize: 11 }}>
@@ -272,6 +272,7 @@ const RemarksField: React.FC<RemarksFieldProps> = ({
                   type="text"
                   size="small"
                   icon={<HistoryOutlined />}
+                  aria-label="查看歷史記錄"
                 />
               </Tooltip>
             </Popover>
@@ -282,6 +283,7 @@ const RemarksField: React.FC<RemarksFieldProps> = ({
               size="small"
               icon={expanded ? <CompressOutlined /> : <ExpandOutlined />}
               onClick={() => setExpanded(!expanded)}
+              aria-label={expanded ? '收起' : '展開'}
             />
           </Tooltip>
           {!isEditing && !disabled && (
@@ -291,6 +293,7 @@ const RemarksField: React.FC<RemarksFieldProps> = ({
                 size="small"
                 icon={<EditOutlined />}
                 onClick={handleEdit}
+                aria-label="編輯備註"
               />
             </Tooltip>
           )}

@@ -237,7 +237,7 @@ const CalendarPage: React.FC = () => {
             hoverable
             extra={
               <Dropdown menu={{ items: getEventActionMenu(event) }} trigger={['click']}>
-                <Button type="text" size="small" icon={<MoreOutlined />} />
+                <Button type="text" size="small" icon={<MoreOutlined />} aria-label="更多操作" />
               </Dropdown>
             }
           >

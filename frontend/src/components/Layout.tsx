@@ -120,6 +120,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             width={256}
             open={drawerVisible}
             onClose={() => setDrawerVisible(false)}
+            aria-label="導覽選單"
             styles={{
               body: { padding: 0, background: '#001529' },
               header: { display: 'none' },

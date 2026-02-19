@@ -140,7 +140,7 @@ export const StaffTab: React.FC<StaffTabProps> = ({
           onConfirm={() => onDelete(record.id)}
         >
           <Tooltip title="移除">
-            <Button size="small" danger icon={<DeleteOutlined />} />
+            <Button size="small" danger icon={<DeleteOutlined />} aria-label="移除" />
           </Tooltip>
         </Popconfirm>
       ),

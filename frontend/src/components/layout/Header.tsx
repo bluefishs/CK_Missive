@@ -100,6 +100,8 @@ const Header: React.FC<HeaderProps> = ({
           type="text"
           icon={isMobile ? <MenuOutlined /> : (collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />)}
           onClick={onToggleCollapse}
+          aria-label={isMobile ? '開啟選單' : (collapsed ? '展開側邊欄' : '收合側邊欄')}
+          aria-expanded={isMobile ? undefined : !collapsed}
           style={{
             fontSize: '16px',
             width: 40,

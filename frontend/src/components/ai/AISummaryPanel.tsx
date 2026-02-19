@@ -215,10 +215,10 @@ export const AISummaryPanel: React.FC<AISummaryPanelProps> = ({
         {hasContent && !isStreaming && (
           <>
             <Tooltip title="複製摘要">
-              <Button icon={<CopyOutlined />} onClick={handleCopy} />
+              <Button icon={<CopyOutlined />} onClick={handleCopy} aria-label="複製摘要" />
             </Tooltip>
             <Tooltip title="重新生成">
-              <Button icon={<ReloadOutlined />} onClick={handleGenerate} />
+              <Button icon={<ReloadOutlined />} onClick={handleGenerate} aria-label="重新生成" />
             </Tooltip>
           </>
         )}

@@ -2,8 +2,8 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.54.0
-> **最後更新**: 2026-02-17
+> **Claude Code 配置版本**: 1.56.0
+> **最後更新**: 2026-02-19
 > **參考**: [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase), [superpowers](https://github.com/obra/superpowers), [everything-claude-code](https://github.com/affaan-m/everything-claude-code)
 
 ---
@@ -77,6 +77,9 @@ CK_Missive 是一套企業級公文管理系統，具備以下核心功能：
 | `python-common-pitfalls.md` | Pydantic, forward reference, async, MissingGreenlet, 預設參數 | **Python 常見陷阱規範 (v1.0.0)** |
 | `unicode-handling.md` | Unicode, 編碼, 中文, UTF-8, 亂碼 | **Unicode 處理規範 (v1.0.0)** |
 | `workflow-management.md` | workflow, 作業歷程, 時間軸, chain, timeline | **作業歷程管理規範 (v1.0.0)** |
+| `ai-development.md` | AI, Groq, Ollama, 語意, 摘要, 分類, 同義詞 | **AI 功能開發規範 (v2.0.0)** |
+| `database-performance.md` | 慢查詢, N+1, 索引, 查詢優化, slow query | **資料庫效能優化指南 (v1.0.0)** |
+| `development-environment.md` | 環境, Docker, 依賴, 配置, env | **開發環境檢查指南 (v1.0.0)** |
 
 ### 🦸 Superpowers Skills (v4.0.3)
 
@@ -776,6 +779,70 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 ---
 
 ## 📋 版本更新記錄
+
+### v1.56.0 (2026-02-19) - SSOT 全面強化 + Schema-ORM 對齊 + 型別集中化
+
+**v17.2.0 SSOT 架構強化** — 基於 v17.0.0 分析識別的 SSOT 違規全面修復：
+
+**後端 Schema SSOT 遷移** (26 個本地定義 → `schemas/`):
+| 來源 | 數量 | 目標 |
+|------|------|------|
+| `ai/document_ai.py` | 12 | `schemas/ai.py` |
+| `deployment.py` | 12 | `schemas/deployment.py` (新建) |
+| `document_calendar/events.py` | 1 | `schemas/document_calendar.py` |
+| `dispatch_document_links.py` | 1 | `schemas/taoyuan/links.py` |
+
+**Schema-ORM 對齊**: `ContractProject` 14 欄位 + `UserResponse.email_verified` + 移除 `is_deleted` 遺留
+
+**前端型別集中化**: 8 個頁面本地型別 → `types/admin-system.ts` + `types/api.ts`
+
+**SSOT 合規率**: 後端 95%→**100%**, 前端 85%→**95%**, Schema-ORM 87%→**98%**
+
+**修改檔案**: 57 個 (+1,032 / -1,833 行，淨減少 801 行)
+**系統健康度**: 9.6 → **9.7/10**
+
+---
+
+### v1.55.0 (2026-02-19) - 全面健康檢查 + 修復執行 + Phase 6 規劃
+
+**v17.0.0 健康檢查 → v17.1.0 修復執行** (同日完成):
+
+**修復項目** (6/6 完成):
+| # | 項目 | 結果 |
+|---|------|------|
+| 1 | system_health.py SQL 注入修復 | 6 個 raw SQL → ORM 白名單 |
+| 2 | passlib 棄用路線 | 標註未來用 bcrypt 替代 |
+| 3 | psutil 版本放寬 | `==` → `>=5.9.8` |
+| 4 | DocumentDetailPage 拆分 | 897 → **204** 行 (-77%) |
+| 5 | NaturalSearchPanel Hook 提取 | 774 → **274** 行 (-64%) |
+| 6 | ARIA 可訪問性補強 | **24 個元件** 新增語意屬性 |
+
+**12 維度評分** (v17.1.0):
+| 維度 | v17.0→v17.1 | 說明 |
+|------|-------------|------|
+| Python 品質 | 8.8→**9.0** | SQL 注入歸零 |
+| 元件大小 | 7.0→**8.0** | 2 個大元件已拆分 |
+| 可訪問性 | 6.0→**7.5** | 24 元件 ARIA 補強 |
+| 依賴版本 | 8.5→**8.8** | psutil 放寬 |
+| **加權平均** | 9.5→**9.6** | +0.1 |
+
+**新增檔案** (2 個):
+- `frontend/src/pages/document/hooks/useDocumentDetail.ts` (769 行)
+- `frontend/src/components/ai/hooks/useNaturalSearch.ts` (430 行)
+
+**修改檔案**: 33 個 (+623 / -1,452 行)
+
+**Phase 6 規劃**:
+| Phase | 內容 | 優先級 |
+|-------|------|--------|
+| 6A | 可訪問性基線 (ARIA ✅ 已啟動 → 鍵盤 + axe-core) | HIGH |
+| 6B | 後端服務拆分 (backup_service → 4 模組) | MEDIUM |
+| 6C | 測試深度擴充 (85%+ 後端, 80%+ 前端) | MEDIUM |
+| 6D | Repository 層擴展 (18% → 60%+) | MEDIUM |
+
+**系統健康度**: 9.5/10 → **9.6/10**
+
+---
 
 ### v1.54.0 (2026-02-17) - 鏈式時間軸 + 架構審查修復 + 測試擴充
 

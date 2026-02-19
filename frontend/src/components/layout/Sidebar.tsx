@@ -58,6 +58,9 @@ const Sidebar: React.FC<SidebarProps> = ({
       collapsible
       collapsed={collapsed}
       theme="dark"
+      role="navigation"
+      aria-label="主選單"
+      aria-expanded={!collapsed}
       style={{
         overflow: 'auto',
         height: '100vh',

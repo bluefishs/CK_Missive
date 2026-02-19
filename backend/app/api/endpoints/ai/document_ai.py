@@ -19,10 +19,7 @@ Updated: 2026-02-08 - 新增串流摘要 SSE 端點
 import json
 import logging
 import time
-from typing import Any, Dict, List, Optional
-
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import StreamingResponse
 
@@ -39,120 +36,23 @@ from app.schemas.ai import (
     NaturalSearchRequest,
     NaturalSearchResponse,
     ParsedSearchIntent,
+    SummaryRequest,
+    SummaryResponse,
+    ClassifyRequest,
+    ClassifyResponse,
+    KeywordsRequest,
+    KeywordsExtractResponse,
+    AgencyCandidate,
+    AgencyMatchRequest,
+    AgencyMatchResult,
+    AgencyMatchResponse,
+    HealthResponse,
+    AIConfigResponse,
 )
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-# ============================================================================
-# Request/Response Models
-# ============================================================================
-
-
-class SummaryRequest(BaseModel):
-    """摘要生成請求"""
-
-    subject: str = Field(..., description="公文主旨")
-    content: Optional[str] = Field(None, description="公文內容")
-    sender: Optional[str] = Field(None, description="發文機關")
-    max_length: int = Field(100, ge=20, le=500, description="摘要最大長度")
-
-
-class SummaryResponse(BaseModel):
-    """摘要生成回應"""
-
-    summary: str
-    confidence: float
-    source: str
-
-
-class ClassifyRequest(BaseModel):
-    """分類建議請求"""
-
-    subject: str = Field(..., description="公文主旨")
-    content: Optional[str] = Field(None, description="公文內容")
-    sender: Optional[str] = Field(None, description="發文機關")
-
-
-class ClassifyResponse(BaseModel):
-    """分類建議回應"""
-
-    doc_type: str
-    category: str
-    doc_type_confidence: float
-    category_confidence: float
-    reasoning: Optional[str] = None
-    source: str
-
-
-class KeywordsRequest(BaseModel):
-    """關鍵字提取請求"""
-
-    subject: str = Field(..., description="公文主旨")
-    content: Optional[str] = Field(None, description="公文內容")
-    max_keywords: int = Field(5, ge=1, le=10, description="最大關鍵字數量")
-
-
-class KeywordsResponse(BaseModel):
-    """關鍵字提取回應"""
-
-    keywords: List[str]
-    confidence: float
-    source: str
-
-
-class AgencyCandidate(BaseModel):
-    """機關候選項"""
-
-    id: int
-    name: str
-    short_name: Optional[str] = None
-
-
-class AgencyMatchRequest(BaseModel):
-    """機關匹配請求"""
-
-    agency_name: str = Field(..., description="輸入的機關名稱")
-    candidates: Optional[List[AgencyCandidate]] = Field(
-        None, description="候選機關列表"
-    )
-
-
-class AgencyMatchResult(BaseModel):
-    """匹配結果"""
-
-    id: int
-    name: str
-    score: float
-
-
-class AgencyMatchResponse(BaseModel):
-    """機關匹配回應"""
-
-    best_match: Optional[AgencyMatchResult] = None
-    alternatives: List[AgencyMatchResult] = []
-    is_new: bool
-    reasoning: Optional[str] = None
-    source: str
-
-
-class HealthResponse(BaseModel):
-    """健康檢查回應"""
-
-    groq: Dict[str, Any]
-    ollama: Dict[str, Any]
-
-
-class AIConfigResponse(BaseModel):
-    """AI 配置回應"""
-
-    enabled: bool = Field(description="AI 功能是否啟用")
-    providers: Dict[str, Any] = Field(description="可用的 AI 提供者")
-    rate_limit: Dict[str, int] = Field(description="速率限制設定")
-    cache: Dict[str, Any] = Field(description="快取設定")
-    features: Dict[str, Dict[str, Any]] = Field(description="各功能的配置")
 
 
 # ============================================================================
@@ -311,12 +211,12 @@ async def suggest_classification(
     return ClassifyResponse(**result)
 
 
-@router.post("/document/keywords", response_model=KeywordsResponse)
+@router.post("/document/keywords", response_model=KeywordsExtractResponse)
 async def extract_keywords(
     request: KeywordsRequest,
     service: DocumentAIService = Depends(get_document_ai_service),
     current_user=Depends(optional_auth()),
-) -> KeywordsResponse:
+) -> KeywordsExtractResponse:
     """
     提取公文關鍵字
 
@@ -344,7 +244,7 @@ async def extract_keywords(
         latency_ms=latency_ms,
     )
 
-    return KeywordsResponse(**result)
+    return KeywordsExtractResponse(**result)
 
 
 @router.post("/document/natural-search", response_model=NaturalSearchResponse)

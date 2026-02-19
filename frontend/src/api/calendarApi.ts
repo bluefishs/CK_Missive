@@ -14,35 +14,9 @@ import type {
   EventCategory,
   CalendarStats,
   CalendarDataResponse,
+  RawCalendarEventResponse,
 } from '../types/api';
 import { logger } from '../utils/logger';
-
-// ============================================================================
-// 型別定義 - API 專用 (內部轉換用，不匯出)
-// ============================================================================
-
-/**
- * 行事曆事件原始 API 回應格式
- * 後端回傳的原始格式，欄位名稱為 start_date/end_date
- * 僅在 calendarApi 內部用於轉換，不對外匯出
- */
-interface RawCalendarEventResponse {
-  id: number;
-  title: string;
-  description?: string;
-  start_date: string;
-  end_date: string;
-  all_day?: boolean;
-  document_id?: number;
-  doc_number?: string;
-  contract_project_name?: string;
-  event_type?: string;
-  priority?: number | string;
-  status?: 'pending' | 'completed' | 'cancelled';
-  location?: string;
-  google_event_id?: string;
-  google_sync_status?: 'pending' | 'synced' | 'failed';
-}
 
 /**
  * 行事曆事件 - 前端 UI 使用的型別

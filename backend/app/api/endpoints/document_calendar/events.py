@@ -134,10 +134,7 @@ async def list_calendar_events(
         )
 
 
-from pydantic import BaseModel, Field
-
-class CheckDocumentRequest(BaseModel):
-    document_id: int = Field(..., description="公文 ID")
+from app.schemas.document_calendar import CheckDocumentRequest
 
 @router.post("/events/check-document", summary="檢查公文是否已有行事曆事件")
 async def check_document_events(

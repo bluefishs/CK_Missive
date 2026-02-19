@@ -1,11 +1,12 @@
 """
 AI 服務相關 Pydantic Schema
 
-Version: 1.1.0
+Version: 1.2.0
 Created: 2026-02-05
-Updated: 2026-02-09 - 新增 related_entity 實體過濾欄位
+Updated: 2026-02-19 - 遷移 AI 端點 Request/Response Schema (SSOT)
 
 功能:
+- AI 端點 Request/Response Schema (從 document_ai.py 遷移)
 - 自然語言公文搜尋請求/回應
 - 搜尋意圖解析結果
 - 公文搜尋結果 (含附件)
@@ -117,11 +118,120 @@ class ClassificationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class KeywordsResponse(BaseModel):
+class KeywordsValidationResponse(BaseModel):
     """AI 關鍵字提取回應 Schema（用於 _call_ai_with_validation 驗證）"""
     keywords: List[str] = Field(default=[], description="關鍵字列表")
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ============================================================================
+# AI 端點 Request/Response Schema
+# ============================================================================
+
+
+class SummaryRequest(BaseModel):
+    """摘要生成請求"""
+
+    subject: str = Field(..., description="公文主旨")
+    content: Optional[str] = Field(None, description="公文內容")
+    sender: Optional[str] = Field(None, description="發文機關")
+    max_length: int = Field(100, ge=20, le=500, description="摘要最大長度")
+
+
+class SummaryResponse(BaseModel):
+    """摘要生成回應"""
+
+    summary: str
+    confidence: float
+    source: str
+
+
+class ClassifyRequest(BaseModel):
+    """分類建議請求"""
+
+    subject: str = Field(..., description="公文主旨")
+    content: Optional[str] = Field(None, description="公文內容")
+    sender: Optional[str] = Field(None, description="發文機關")
+
+
+class ClassifyResponse(BaseModel):
+    """分類建議回應"""
+
+    doc_type: str
+    category: str
+    doc_type_confidence: float
+    category_confidence: float
+    reasoning: Optional[str] = None
+    source: str
+
+
+class KeywordsRequest(BaseModel):
+    """關鍵字提取請求"""
+
+    subject: str = Field(..., description="公文主旨")
+    content: Optional[str] = Field(None, description="公文內容")
+    max_keywords: int = Field(5, ge=1, le=10, description="最大關鍵字數量")
+
+
+class KeywordsExtractResponse(BaseModel):
+    """關鍵字提取回應"""
+
+    keywords: List[str]
+    confidence: float
+    source: str
+
+
+class AgencyCandidate(BaseModel):
+    """機關候選項"""
+
+    id: int
+    name: str
+    short_name: Optional[str] = None
+
+
+class AgencyMatchRequest(BaseModel):
+    """機關匹配請求"""
+
+    agency_name: str = Field(..., description="輸入的機關名稱")
+    candidates: Optional[List[AgencyCandidate]] = Field(
+        None, description="候選機關列表"
+    )
+
+
+class AgencyMatchResult(BaseModel):
+    """匹配結果"""
+
+    id: int
+    name: str
+    score: float
+
+
+class AgencyMatchResponse(BaseModel):
+    """機關匹配回應"""
+
+    best_match: Optional[AgencyMatchResult] = None
+    alternatives: List[AgencyMatchResult] = []
+    is_new: bool
+    reasoning: Optional[str] = None
+    source: str
+
+
+class HealthResponse(BaseModel):
+    """健康檢查回應"""
+
+    groq: Dict[str, Any]
+    ollama: Dict[str, Any]
+
+
+class AIConfigResponse(BaseModel):
+    """AI 配置回應"""
+
+    enabled: bool = Field(description="AI 功能是否啟用")
+    providers: Dict[str, Any] = Field(description="可用的 AI 提供者")
+    rate_limit: Dict[str, int] = Field(description="速率限制設定")
+    cache: Dict[str, Any] = Field(description="快取設定")
+    features: Dict[str, Dict[str, Any]] = Field(description="各功能的配置")
 
 
 # ============================================================================

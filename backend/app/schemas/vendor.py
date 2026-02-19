@@ -8,6 +8,8 @@ v1.1.0 - 2026-01-26: 新增名稱標準化驗證器，避免重複資料
 from typing import Optional
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 from datetime import datetime
+
+from app.schemas.common import PaginatedResponse
 import re
 
 # 營業項目選項 (與前端 BUSINESS_TYPE_OPTIONS 一致)
@@ -111,6 +113,11 @@ class VendorListQuery(BaseModel):
     rating: Optional[int] = Field(None, ge=1, le=5, description="評價篩選 (1-5)")
     sort_by: str = Field(default="id", description="排序欄位")
     sort_order: str = Field(default="desc", description="排序方向 (asc/desc)")
+
+
+class VendorListResponse(PaginatedResponse):
+    """廠商列表回應（使用統一分頁格式）"""
+    items: list[Vendor] = Field(default=[], description="廠商列表")
 
 
 class VendorStatisticsResponse(BaseModel):

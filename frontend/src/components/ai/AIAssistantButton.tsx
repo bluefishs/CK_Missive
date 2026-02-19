@@ -164,6 +164,7 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
             size="large"
             icon={isOpen ? <CloseOutlined /> : <RobotOutlined />}
             onClick={() => setIsOpen(!isOpen)}
+            aria-label={isOpen ? '關閉 AI 助理' : 'AI 助理'}
             style={{
               position: 'fixed',
               right: 24,
@@ -184,6 +185,8 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
       {/* AI 助手面板 (卡片式，可拖曳，可縮合) */}
       {isOpen && (
         <Card
+          role="dialog"
+          aria-label="AI 助理面板"
           title={
             <div
               onMouseDown={handleDragStart}
@@ -220,6 +223,7 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
                   icon={isMinimized ? <ExpandOutlined /> : <MinusOutlined />}
                   onClick={() => setIsMinimized(!isMinimized)}
                   size="small"
+                  aria-label={isMinimized ? '展開面板' : '縮小面板'}
                 />
               </Tooltip>
               <Button
@@ -227,6 +231,7 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
                 icon={<CloseOutlined />}
                 onClick={() => setIsOpen(false)}
                 size="small"
+                aria-label="關閉 AI 面板"
               />
             </Space>
           }

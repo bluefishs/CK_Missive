@@ -22,7 +22,6 @@ import secrets
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.email_service import EmailService
@@ -40,11 +39,7 @@ router = APIRouter()
 EMAIL_VERIFICATION_TOKEN_EXPIRY_HOURS = 24
 
 
-# === 請求模型 ===
-
-class VerifyEmailRequest(BaseModel):
-    """驗證 Email 請求"""
-    token: str = Field(..., description="Email 驗證 token")
+from app.schemas.auth import VerifyEmailRequest
 
 
 # === 工具函數 ===

@@ -97,9 +97,5 @@ class DocumentAttachment(Base):
         self.mime_type = value
 
     @property
-    def is_deleted(self):
-        return False
-
-    @property
     def uploaded_at(self):
         return self.created_at

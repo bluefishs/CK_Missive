@@ -17,46 +17,10 @@ import {
 import { apiClient } from '../api/client';
 import { API_ENDPOINTS } from '../api/endpoints';
 import { SimpleDatabaseViewer } from '../components/admin/SimpleDatabaseViewer';
+import type { DatabaseInfo, TableInfo, QueryResult, IntegrityResult } from '../types/api';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
-
-interface DatabaseInfo {
-  name: string;
-  size: string;
-  tables: TableInfo[];
-  totalRecords: number;
-  status: string;
-}
-
-interface TableInfo {
-  name: string;
-  recordCount: number;
-  columns: ColumnInfo[];
-  size: string;
-  lastModified: string;
-}
-
-interface ColumnInfo {
-  name: string;
-  type: string;
-  nullable: boolean;
-  primaryKey: boolean;
-}
-
-interface QueryResult {
-  totalRows: number;
-  executionTime: number;
-  columns: string[];
-  rows: unknown[][];
-}
-
-interface IntegrityResult {
-  issues: Array<{ table: string; description: string }>;
-  status: string;
-  totalIssues: number;
-  checkTime: string;
-}
 
 export const DatabaseManagementPage: React.FC = () => {
   const { message } = App.useApp();

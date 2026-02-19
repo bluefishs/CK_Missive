@@ -59,7 +59,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
   };
 
   return (
-    <div style={{ height: '100%', overflow: 'auto' }}>
+    <div style={{ height: '100%', overflow: 'auto' }} role="navigation" aria-label="主選單">
       {/* Logo 區域 */}
       <div style={{
         padding: '16px',

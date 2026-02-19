@@ -238,6 +238,7 @@ const SequenceNumberGenerator: React.FC<SequenceNumberGeneratorProps> = ({
                 icon={<CopyOutlined />}
                 onClick={copyToClipboard}
                 style={{ padding: 0 }}
+                aria-label="複製"
               />
             </Tooltip>
           )
@@ -249,12 +250,14 @@ const SequenceNumberGenerator: React.FC<SequenceNumberGeneratorProps> = ({
           icon={<ReloadOutlined />}
           onClick={generateSequenceNumber}
           disabled={disabled}
+          aria-label="生成新流水號"
         />
       </Tooltip>
 
       <Tooltip title="流水號配置">
         <Button
           icon={<SettingOutlined />}
+          aria-label="流水號配置"
           onClick={() => {
             form.setFieldsValue(currentConfig);
             setConfigModalVisible(true);

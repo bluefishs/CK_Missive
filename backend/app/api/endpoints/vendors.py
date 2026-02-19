@@ -5,37 +5,22 @@
 """
 from typing import Optional
 from fastapi import APIRouter, Depends, status, Body
-from pydantic import Field
 
 from app.extended.models import User
 from app.core.dependencies import require_auth, require_permission
 from app.schemas.vendor import (
     Vendor, VendorCreate, VendorUpdate,
-    VendorListQuery, VendorStatisticsResponse
+    VendorListQuery, VendorListResponse, VendorStatisticsResponse
 )
 from app.schemas.common import (
-    PaginatedResponse,
     PaginationMeta,
     DeleteResponse,
-    BaseQueryParams,
 )
 from app.services.vendor_service import VendorService
 from app.core.exceptions import NotFoundException, ConflictException, ResourceInUseException
 from app.core.dependencies import get_service
 
 router = APIRouter()
-
-
-# 注意：VendorListQuery, VendorStatisticsResponse 已統一定義於 app/schemas/vendor.py
-
-
-# ============================================================================
-# 回應格式 Schema (保留 VendorListResponse 作為統一分頁格式)
-# ============================================================================
-
-class VendorListResponse(PaginatedResponse):
-    """廠商列表回應（使用統一分頁格式）"""
-    items: list[Vendor] = Field(default=[], description="廠商列表")
 
 
 # ============================================================================

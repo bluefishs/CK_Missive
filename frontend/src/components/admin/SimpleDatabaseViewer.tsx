@@ -22,31 +22,9 @@ import {
   type TableMetadataItem
 } from '../../config/databaseMetadata';
 import { logger } from '../../utils/logger';
+import type { DatabaseInfo, TableInfo } from '../../types/api';
 
 const { Title, Text } = Typography;
-
-interface DatabaseInfo {
-  name: string;
-  size: string;
-  tables: TableInfo[];
-  totalRecords: number;
-  status: string;
-}
-
-interface TableInfo {
-  name: string;
-  recordCount: number;
-  columns: ColumnInfo[];
-  size: string;
-  lastModified: string;
-}
-
-interface ColumnInfo {
-  name: string;
-  type: string;
-  nullable: boolean;
-  primaryKey: boolean;
-}
 
 /** 增強的表格資訊介面（含中文名稱、分類等） */
 interface EnhancedTableInfo extends TableInfo {
@@ -254,6 +232,7 @@ export const SimpleDatabaseViewer: React.FC = () => {
               setSelectedTable(record.name);
               setShowDetails(true);
             }}
+            aria-label="檢視詳細資訊"
           />
         </Tooltip>
       ),

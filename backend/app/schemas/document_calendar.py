@@ -170,3 +170,8 @@ class ConflictCheckRequest(BaseModel):
 class SyncIntervalRequest(BaseModel):
     """同步間隔設定請求"""
     interval_seconds: int = Field(..., ge=60, description="同步間隔秒數（最小 60 秒）")
+
+
+class CheckDocumentRequest(BaseModel):
+    """檢查公文是否已有行事曆事件請求"""
+    document_id: int = Field(..., description="公文 ID")

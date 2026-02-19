@@ -467,6 +467,7 @@ export const ProjectWorkflowTab: React.FC<ProjectWorkflowTabProps> = ({
                     size="small"
                     icon={<EditOutlined />}
                     onClick={() => handleEdit(r)}
+                    aria-label="編輯"
                   />
                   <Popconfirm
                     title="確定要刪除此紀錄嗎？"
@@ -474,7 +475,7 @@ export const ProjectWorkflowTab: React.FC<ProjectWorkflowTabProps> = ({
                     okText="確定"
                     cancelText="取消"
                   >
-                    <Button type="link" size="small" danger icon={<DeleteOutlined />} />
+                    <Button type="link" size="small" danger icon={<DeleteOutlined />} aria-label="刪除" />
                   </Popconfirm>
                 </Space>
               )}

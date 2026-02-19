@@ -70,7 +70,7 @@ export const EventListView: React.FC<EventListViewProps> = ({
           <List.Item
             actions={[
               <Dropdown menu={{ items: getEventActionMenu(event) }} trigger={['click']}>
-                <Button icon={<SettingOutlined />} size="small" />
+                <Button icon={<SettingOutlined />} size="small" aria-label="事件操作" />
               </Dropdown>
             ]}
           >

@@ -1,7 +1,8 @@
 # Schema-DB 欄位對照表
 
-> **版本**: 1.0.0
+> **版本**: 1.1.0
 > **建立日期**: 2026-01-21
+> **最後更新**: 2026-02-19
 > **用途**: 記錄 Pydantic Schema 與資料庫欄位的對應關係，避免類型不一致導致的 500 錯誤
 
 ---
@@ -98,13 +99,38 @@
 | Schema 欄位 | Schema 類型 | DB 欄位 | DB 類型 | 注意事項 |
 |------------|------------|---------|---------|---------|
 | `id` | `int` | `id` | `INTEGER` | 主鍵 |
-| `project_name` | `str` | `project_name` | `VARCHAR(500)` | - |
-| `project_code` | `Optional[str]` | `project_code` | `VARCHAR(100)` | - |
-| `agency_id` | `Optional[int]` | `agency_id` | `INTEGER` | 外鍵 |
+| `project_name` | `str` | `project_name` | `VARCHAR(500)` | 必填 |
+| `project_code` | `Optional[str]` | `project_code` | `VARCHAR(100)` | 唯一 |
+| `year` | `Optional[int]` | `year` | `INTEGER` | 年度 |
+| `client_agency` | `Optional[str]` | `client_agency` | `VARCHAR(200)` | 委託單位名稱 |
+| `contract_doc_number` | `Optional[str]` | `contract_doc_number` | `VARCHAR(100)` | 契約文號 |
+| `category` | `Optional[str]` | `category` | `VARCHAR(50)` | 案件類別 |
+| `case_nature` | `Optional[str]` | `case_nature` | `VARCHAR(50)` | 案件性質 |
+| `status` | `Optional[str]` | `status` | `VARCHAR(50)` | 預設 "執行中" |
+| `contract_amount` | `Optional[float]` | `contract_amount` | `FLOAT` | 契約金額 |
+| `winning_amount` | `Optional[float]` | `winning_amount` | `FLOAT` | 得標金額 |
 | `start_date` | `Optional[date]` | `start_date` | `DATE` | - |
 | `end_date` | `Optional[date]` | `end_date` | `DATE` | - |
-| `status` | `Optional[str]` | `status` | `VARCHAR(50)` | - |
-| `budget` | `Optional[Decimal]` | `budget` | `DECIMAL(15,2)` | - |
+| `progress` | `Optional[int]` | `progress` | `INTEGER` | 0-100 |
+| `project_path` | `Optional[str]` | `project_path` | `VARCHAR(500)` | 專案路徑 |
+| `notes` | `Optional[str]` | `notes` | `TEXT` | - |
+| `description` | `Optional[str]` | `description` | `TEXT` | - |
+| `contract_number` | `Optional[str]` | `contract_number` | `VARCHAR(100)` | v17.2.0 新增 |
+| `contract_type` | `Optional[str]` | `contract_type` | `VARCHAR(50)` | v17.2.0 新增 |
+| `location` | `Optional[str]` | `location` | `VARCHAR(200)` | v17.2.0 新增 |
+| `procurement_method` | `Optional[str]` | `procurement_method` | `VARCHAR(100)` | v17.2.0 新增 |
+| `completion_date` | `Optional[date]` | `completion_date` | `DATE` | v17.2.0 新增 |
+| `acceptance_date` | `Optional[date]` | `acceptance_date` | `DATE` | v17.2.0 新增 |
+| `completion_percentage` | `Optional[int]` | `completion_percentage` | `INTEGER` | v17.2.0 新增, 0-100 |
+| `warranty_end_date` | `Optional[date]` | `warranty_end_date` | `DATE` | v17.2.0 新增 |
+| `contact_person` | `Optional[str]` | `contact_person` | `VARCHAR(100)` | v17.2.0 新增 |
+| `contact_phone` | `Optional[str]` | `contact_phone` | `VARCHAR(50)` | v17.2.0 新增 |
+| `client_agency_id` | `Optional[int]` | `client_agency_id` | `INTEGER` | v17.2.0 新增, FK→government_agencies |
+| `agency_contact_person` | `Optional[str]` | `agency_contact_person` | `VARCHAR(100)` | v17.2.0 新增 |
+| `agency_contact_phone` | `Optional[str]` | `agency_contact_phone` | `VARCHAR(50)` | v17.2.0 新增 |
+| `agency_contact_email` | `Optional[str]` | `agency_contact_email` | `VARCHAR(100)` | v17.2.0 新增 |
+| `created_at` | `datetime` | `created_at` | `TIMESTAMP` | 自動生成 |
+| `updated_at` | `datetime` | `updated_at` | `TIMESTAMP` | 自動生成 |
 
 ---
 

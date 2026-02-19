@@ -164,7 +164,7 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({
           onConfirm={() => onDelete(record.vendor_id)}
         >
           <Tooltip title="移除">
-            <Button size="small" danger icon={<DeleteOutlined />} />
+            <Button size="small" danger icon={<DeleteOutlined />} aria-label="移除" />
           </Tooltip>
         </Popconfirm>
       ),
