@@ -252,7 +252,7 @@ export function useDocumentDetail(): UseDocumentDetailReturn {
     } finally {
       setDispatchLinksLoading(false);
     }
-  }, [id]);
+  }, [id, message]);
 
   const loadProjectLinks = useCallback(async () => {
     if (!id) return;
@@ -296,6 +296,7 @@ export function useDocumentDetail(): UseDocumentDetailReturn {
   };
 
   // 待設置的表單值（延遲到 loading 結束後設置）
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Ant Design form values are Record<string, any>
   const [pendingFormValues, setPendingFormValues] = useState<Record<string, any> | null>(null);
 
   // 當 loading 結束且有待設置的值時，設置表單
@@ -315,7 +316,7 @@ export function useDocumentDetail(): UseDocumentDetailReturn {
       setDocument(doc);
 
       let assigneeArray: string[] = [];
-      const rawAssignee = (doc as any).assignee;
+      const rawAssignee = doc.assignee;
       if (rawAssignee) {
         if (Array.isArray(rawAssignee)) {
           assigneeArray = rawAssignee;
@@ -334,7 +335,7 @@ export function useDocumentDetail(): UseDocumentDetailReturn {
         assignee: assigneeArray,
       });
 
-      const projectId = (doc as any).contract_project_id;
+      const projectId = doc.contract_project_id;
       if (projectId) {
         setSelectedContractProjectId(projectId);
         const staffList = await fetchProjectStaff(projectId);
@@ -361,7 +362,8 @@ export function useDocumentDetail(): UseDocumentDetailReturn {
     } finally {
       setLoading(false);
     }
-  }, [id, message, form]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- form is stable from useForm but used in callback
+  }, [id, message]);
 
   const loadCases = async () => {
     setCasesLoading(true);
@@ -526,7 +528,7 @@ export function useDocumentDetail(): UseDocumentDetailReturn {
     setFileList([]);
     if (document) {
       let assigneeArray: string[] = [];
-      const rawAssignee = (document as any).assignee;
+      const rawAssignee = document.assignee;
       if (rawAssignee) {
         if (Array.isArray(rawAssignee)) {
           assigneeArray = rawAssignee;
@@ -634,7 +636,7 @@ export function useDocumentDetail(): UseDocumentDetailReturn {
         contact_note: formValues.contact_note as string | undefined,
         cloud_folder: formValues.cloud_folder as string | undefined,
         project_folder: formValues.project_folder as string | undefined,
-        contract_project_id: (document as any)?.contract_project_id || undefined,
+        contract_project_id: document?.contract_project_id || undefined,
         // 傳入公文 ID，後端 _sync_document_links 會自動建立關聯
         agency_doc_id: isReceiveDoc ? docId : undefined,
         company_doc_id: !isReceiveDoc ? docId : undefined,

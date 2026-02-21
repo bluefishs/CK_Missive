@@ -12,7 +12,7 @@
  * @updated 2026-02-19 - 提取 useNaturalSearch hook，元件僅保留渲染邏輯
  */
 
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo } from 'react';
 import {
   AutoComplete,
   Button as AntButton,

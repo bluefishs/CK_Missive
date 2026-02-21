@@ -30,7 +30,6 @@ import {
   EditOutlined,
   DeleteOutlined,
   FileTextOutlined,
-  SendOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';

@@ -344,7 +344,7 @@ export function useNaturalSearch(options: UseNaturalSearchOptions = {}): UseNatu
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [onSearchComplete, searchHistory, updateHistory]);
+  }, [message, onSearchComplete, searchHistory, updateHistory]);
 
   // 點擊公文查看詳情
   const handleDocumentClick = useCallback((docId: number) => {
@@ -362,7 +362,7 @@ export function useNaturalSearch(options: UseNaturalSearchOptions = {}): UseNatu
     } catch {
       message.error('下載失敗');
     }
-  }, []);
+  }, [message]);
 
   // 預覽附件 (取得 Blob 並開啟新視窗)
   const handlePreviewAttachment = useCallback(async (attachment: AttachmentInfo) => {
@@ -375,7 +375,7 @@ export function useNaturalSearch(options: UseNaturalSearchOptions = {}): UseNatu
     } catch {
       message.error('預覽失敗');
     }
-  }, []);
+  }, [message]);
 
   // AutoComplete 選擇事件
   const handleAutoCompleteSelect = useCallback((value: string) => {
