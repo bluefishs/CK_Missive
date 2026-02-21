@@ -195,6 +195,7 @@ export const CaseInfoTab: React.FC<CaseInfoTabProps> = ({
                     style={{ width: '100%' }}
                     placeholder="請輸入契約金額"
                     formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     parser={value => value?.replace(/\$\s?|(,*)/g, '') as any}
                     addonBefore="NT$"
                   />
@@ -206,6 +207,7 @@ export const CaseInfoTab: React.FC<CaseInfoTabProps> = ({
                     style={{ width: '100%' }}
                     placeholder="請輸入得標金額"
                     formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     parser={value => value?.replace(/\$\s?|(,*)/g, '') as any}
                     addonBefore="NT$"
                   />

@@ -15,6 +15,7 @@ type CacheStorage = 'memory' | 'localStorage' | 'sessionStorage';
 
 class CacheService {
   private static instance: CacheService;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private memoryCache = new Map<string, CacheItem<any>>();
 
   public static getInstance(): CacheService {
@@ -71,14 +72,16 @@ class CacheService {
         case 'memory':
           cacheItem = this.memoryCache.get(key) || null;
           break;
-        case 'localStorage':
+        case 'localStorage': {
           const localItem = localStorage.getItem(`cache_${key}`);
           cacheItem = localItem ? JSON.parse(localItem) : null;
           break;
-        case 'sessionStorage':
+        }
+        case 'sessionStorage': {
           const sessionItem = sessionStorage.getItem(`cache_${key}`);
           cacheItem = sessionItem ? JSON.parse(sessionItem) : null;
           break;
+        }
       }
 
       if (!cacheItem) return null;

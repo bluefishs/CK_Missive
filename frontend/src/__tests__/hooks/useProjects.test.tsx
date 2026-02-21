@@ -91,8 +91,6 @@ import {
   useProjectStatistics,
   useProjectOptions,
   useProjectYearOptions,
-  useProjectCategoryOptions,
-  useProjectStatusOptions,
   useCreateProject,
   useUpdateProject,
   useDeleteProject,

@@ -17,7 +17,8 @@ import { logger } from '../utils/logger';
 const { Title, Paragraph, Text } = Typography;
 
 const ApiDocumentationPage: React.FC = () => {
-  const [spec, setSpec] = useState<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [spec, setSpec] = useState<Record<string, any> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -86,11 +87,13 @@ const ApiDocumentationPage: React.FC = () => {
     showExtensions: true,
     showCommonExtensions: true,
     tryItOutEnabled: true, // 啟用 "Try it out" 功能
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     requestInterceptor: (request: any) => {
       // 可以在這裡添加認證 header 等
       logger.debug('API Request:', request);
       return request;
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     responseInterceptor: (response: any) => {
       logger.debug('API Response:', response);
       return response;
@@ -184,8 +187,8 @@ const ApiDocumentationPage: React.FC = () => {
               <div>
                 <Text strong>端點數量：</Text>
                 <Text code>
-                  {Object.values(spec.paths || {}).reduce((total: number, path: any) => 
-                    total + Object.keys(path).length, 0
+                  {Object.values(spec.paths || {}).reduce((total: number, path: unknown) =>
+                    total + Object.keys(path as Record<string, unknown>).length, 0
                   )}
                 </Text>
               </div>
@@ -227,7 +230,7 @@ const ApiDocumentationPage: React.FC = () => {
             </Paragraph>
             <Paragraph>
               <Text strong>🧪 測試功能：</Text>
-              點選任何端點的 "Try it out" 按鈕可以直接測試 API。
+              點選任何端點的 &quot;Try it out&quot; 按鈕可以直接測試 API。
             </Paragraph>
             <Paragraph>
               <Text strong>📋 參數說明：</Text>

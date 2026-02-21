@@ -4,10 +4,9 @@
  * 整合 queryConfig 統一快取策略
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { projectsApi, ProjectListParams, ProjectStatistics } from '../../api/projectsApi';
+import { projectsApi, ProjectListParams } from '../../api/projectsApi';
 import { queryKeys, defaultQueryOptions } from '../../config/queryConfig';
-import type { Project, ProjectCreate, ProjectUpdate } from '../../types/api';
-import type { PaginatedResponse } from '../../api/types';
+import type { ProjectCreate, ProjectUpdate } from '../../types/api';
 
 // ============================================================================
 // 查詢 Hooks

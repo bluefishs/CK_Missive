@@ -17,7 +17,6 @@ import {
   Typography,
   Empty,
   Spin,
-  App,
 } from 'antd';
 import {
   PlusOutlined,
@@ -77,13 +76,12 @@ const getCategoryTagText = (category?: string) => {
 };
 
 // ---[類型定義]---
-import type { Project, ProjectStatus, ViewMode } from '../types/api';
+import type { Project, ViewMode } from '../types/api';
 
 type DataIndex = keyof Project;
 
 // ---[主元件]---
 export const ContractCasePage: React.FC = () => {
-  const { message } = App.useApp();
   const navigate = useNavigate();
 
   // 📱 響應式設計
@@ -92,8 +90,6 @@ export const ContractCasePage: React.FC = () => {
   // 🔒 權限控制 Hook
   const { hasPermission } = useAuthGuard();
   const canCreate = hasPermission('projects:write');
-  const canEdit = hasPermission('projects:write');
-  const canDelete = hasPermission('projects:delete');
 
   // ---[UI 狀態管理]---
   const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -133,7 +129,6 @@ export const ContractCasePage: React.FC = () => {
     availableYears,
     availableStatuses,
     refetch,
-    deleteProject,
     isDeleting,
   } = useProjectsPage(queryParams);
 
@@ -223,24 +218,9 @@ export const ContractCasePage: React.FC = () => {
 
   // ---[事件處理]---
 
-  // 刪除專案
-  const handleDelete = async (id: number) => {
-    try {
-      await deleteProject(id);
-      message.success('專案刪除成功');
-    } catch (error: unknown) {
-      message.error(error instanceof Error ? error.message : '刪除失敗');
-    }
-  };
-
   // ---[事件處理函式]---
   const handleView = (project: Project) => {
     // 導航到詳情頁面（採用 TAB 分頁模式：案件資訊、承辦同仁、協力廠商）
-    navigate(ROUTES.CONTRACT_CASE_DETAIL.replace(':id', String(project.id)));
-  };
-
-  const handleEdit = (project: Project) => {
-    // 直接導航到詳情頁面，使用內嵌編輯模式（不使用彈跳視窗）
     navigate(ROUTES.CONTRACT_CASE_DETAIL.replace(':id', String(project.id)));
   };
 
@@ -319,7 +299,7 @@ export const ContractCasePage: React.FC = () => {
       ellipsis: true,
       sorter: (a, b) => a.project_name.localeCompare(b.project_name, 'zh-TW'),
       ...getColumnSearchProps('project_name'),
-      render: (text, record) => (
+      render: (text, _record) => (
         <strong>
           {searchedColumn === 'project_name' ? (
             <Highlighter

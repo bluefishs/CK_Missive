@@ -4,7 +4,7 @@
  * 管理表單狀態、公文搜尋、重複檢查、提交邏輯。
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Form, App, Grid } from 'antd';
 import dayjs from 'dayjs';
 import { apiClient } from '../../../api/client';
@@ -113,6 +113,7 @@ export function useEventForm(
     }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- debounce returns a new function; dependencies are managed internally
   const searchDocuments = useCallback(
     debounce(async (keyword: string) => {
       setDocumentSearchError(null);

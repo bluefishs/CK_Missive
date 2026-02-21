@@ -13,7 +13,7 @@ import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
-import { calendarApi, CalendarEvent } from '../../api/calendarApi';
+import { calendarApi } from '../../api/calendarApi';
 import { queryKeys, defaultQueryOptions } from '../../config/queryConfig';
 
 // 擴展 dayjs
@@ -74,7 +74,7 @@ export const useDashboardCalendar = () => {
     ...defaultQueryOptions.list,
   });
 
-  const events = eventsQuery.data ?? [];
+  const events = useMemo(() => eventsQuery.data ?? [], [eventsQuery.data]);
 
   // 快速篩選狀態
   const [quickFilter, setQuickFilter] = useState<DashboardQuickFilter>(null);

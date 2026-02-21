@@ -8,7 +8,7 @@
  */
 
 import React, { ComponentType, useState, useCallback } from 'react';
-import { Spin, Alert } from 'antd';
+import { Alert } from 'antd';
 import { PageLoading } from '../common';
 
 /** 載入狀態 */

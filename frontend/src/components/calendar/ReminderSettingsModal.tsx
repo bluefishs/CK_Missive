@@ -80,6 +80,7 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
     if (visible && event) {
       loadReminders();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadReminders changes on each render; only trigger on visible/event change
   }, [visible, event]);
 
   const loadReminders = async () => {
@@ -295,7 +296,7 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
                   renderItem={(reminder) => (
                     <List.Item
                       actions={[
-                        <Tooltip title="刪除提醒">
+                        <Tooltip title="刪除提醒" key="delete">
                           <Button
                             type="text"
                             danger

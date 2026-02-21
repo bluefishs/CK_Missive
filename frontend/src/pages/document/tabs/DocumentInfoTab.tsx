@@ -109,7 +109,7 @@ export const DocumentInfoTab: React.FC<DocumentInfoTabProps> = ({
               {document.updated_at ? dayjs(document.updated_at).format('YYYY-MM-DD HH:mm') : '-'}
             </Descriptions.Item>
             <Descriptions.Item label="建立者">
-              {(document as any).creator || '系統'}
+              {document.creator || '系統'}
             </Descriptions.Item>
           </Descriptions>
         </>

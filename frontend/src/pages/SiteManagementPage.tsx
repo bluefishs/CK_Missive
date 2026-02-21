@@ -282,7 +282,8 @@ const NavigationManagementImproved: FC = () => {
       // Drop into target node (成為子項目)
       try {
         // 排除不應傳送的欄位：children, id, created_at, updated_at
-        const { children: _children, id: _dragId, created_at: _ca, updated_at: _ua, ...itemData } = draggedItem;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { children: _children1, id: _dragId1, created_at: _ca1, updated_at: _ua1, ...itemData } = draggedItem;
         // 計算新的 sort_order（放到目標的子項目最後）
         const targetChildren = targetItem.children || [];
         const newSortOrder = targetChildren.length > 0
@@ -307,7 +308,8 @@ const NavigationManagementImproved: FC = () => {
       // Drop beside target (同層重新排序或移動到其他層級)
       try {
         // 排除不應傳送的欄位：children, id, created_at, updated_at
-        const { children: _children, id: _dragId2, created_at: _ca2, updated_at: _ua2, ...itemData } = draggedItem;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { children: _children2, id: _dragId2, created_at: _ca2, updated_at: _ua2, ...itemData } = draggedItem;
         // 計算新的 sort_order（放在目標項目的前後）
         const newSortOrder = dropPosition < 0
           ? targetItem.sort_order  // 放在前面，取相同排序（後端會調整）
@@ -476,6 +478,7 @@ const NavigationManagementImproved: FC = () => {
 
     const topLevelOption = { title: '📁 頂層（無父層）', value: 0, key: 0 };
     return [topLevelOption, ...buildOptions(navigationItems)];
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- findItemById is a local pure utility, not a dep
   }, [navigationItems, editingItem]);
 
   const treeData = useMemo(() => {
@@ -484,6 +487,7 @@ const NavigationManagementImproved: FC = () => {
       stableTreeDataRef.current = newTreeData;
     }
     return isDragging ? stableTreeDataRef.current : newTreeData;
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- convertToTreeData is a local pure utility, not a dep
   }, [navigationItems, isDragging]);
 
   return (

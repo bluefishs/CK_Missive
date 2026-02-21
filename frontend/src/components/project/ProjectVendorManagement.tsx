@@ -466,6 +466,7 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
               min={0}
               style={{ width: '100%' }}
               formatter={value => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Ant Design InputNumber parser expects string | undefined return
               parser={value => value?.replace(/\$\s?|(,*)/g, '') as any}
             />
           </Form.Item>

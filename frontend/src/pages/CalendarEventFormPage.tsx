@@ -9,7 +9,7 @@
  * @date 2026-02-11
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { ResponsiveContent } from '../components/common';
 import {
@@ -219,8 +219,9 @@ const CalendarEventFormPage: React.FC = () => {
   }, [isNew, presetDocumentId, form]);
 
   // 公文搜尋
-  const searchDocuments = useCallback(
-    debounce(async (keyword: string) => {
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- debounce returns a new function each render; stable reference via useMemo
+  const searchDocuments = useMemo(
+    () => debounce(async (keyword: string) => {
       setDocumentSearchError(null);
 
       if (!keyword || keyword.length < 2) {

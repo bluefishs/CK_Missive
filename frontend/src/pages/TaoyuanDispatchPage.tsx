@@ -51,6 +51,7 @@ export const TaoyuanDispatchPage: React.FC = () => {
     if (tabFromUrl && tabFromUrl !== activeTab) {
       setActiveTab(tabFromUrl);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- activeTab is intentionally excluded to avoid re-syncing on tab change
   }, [searchParams]);
 
   // Tab 切換時更新 URL

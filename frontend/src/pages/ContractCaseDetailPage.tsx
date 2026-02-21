@@ -11,7 +11,6 @@ import {
   Card,
   Tag,
   Button,
-  Space,
   Typography,
   Spin,
   Tabs,
@@ -143,6 +142,7 @@ export const ContractCaseDetailPage: React.FC = () => {
     if (id) {
       loadData();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadData depends on id, adding it would cause infinite loop
   }, [id]);
 
   // ============================================================================

@@ -3,7 +3,7 @@ declare module 'swagger-ui-react' {
 
   interface SwaggerUIProps {
     url?: string;
-    spec?: object;
+    spec?: object | null;
     docExpansion?: 'list' | 'full' | 'none';
     defaultModelsExpandDepth?: number;
     displayOperationId?: boolean;
@@ -11,9 +11,13 @@ declare module 'swagger-ui-react' {
     maxDisplayedTags?: number;
     showExtensions?: boolean;
     showCommonExtensions?: boolean;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     requestInterceptor?: (req: any) => any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     responseInterceptor?: (res: any) => any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onComplete?: (system: any) => void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     plugins?: any[];
     supportedSubmitMethods?: string[];
     tryItOutEnabled?: boolean;

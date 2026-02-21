@@ -72,6 +72,7 @@ export const DocumentNumbersPage: React.FC = () => {
   const [nextNumberLoading, setNextNumberLoading] = useState(false);
 
   // 公文操作狀態
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- state value reserved for modal visibility tracking, setter is used
   const [documentOperation, setDocumentOperation] = useState<{
     type: 'view' | 'edit' | 'create' | 'copy' | null;
     document: Document | null;

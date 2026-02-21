@@ -112,6 +112,7 @@ export const SimpleDatabaseViewer: React.FC = () => {
 
   useEffect(() => {
     fetchDatabaseInfo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only run on mount
   }, []);
 
   const enhancedTables = databaseInfo?.tables.map(table => {

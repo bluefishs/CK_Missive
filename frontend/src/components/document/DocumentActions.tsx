@@ -1,18 +1,15 @@
 import React, { useState } from 'react';
-import { Button, Space, Popconfirm, Dropdown, App } from 'antd';
+import { Button, Space, Dropdown, App } from 'antd';
 import {
   DeleteOutlined,
   FilePdfOutlined,
-  CopyOutlined,
   SendOutlined,
   FileZipOutlined,
   MoreOutlined,
   ExportOutlined,
-  CalendarOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { Document } from '../../types';
-import { useCalendarIntegration } from '../../hooks';
 
 type ActionHandler = (document: Document) => void | Promise<void>;
 
@@ -21,7 +18,7 @@ interface DocumentActionsProps {
   onView: ActionHandler;
   onEdit: ActionHandler;
   onDelete: ActionHandler;
-  onCopy?: ActionHandler | undefined;
+  onCopy?: ActionHandler;
   onExportPdf?: ActionHandler | undefined;
   onArchive?: ActionHandler | undefined;
   onSend?: ActionHandler | undefined;
@@ -39,16 +36,15 @@ export const DocumentActions: React.FC<DocumentActionsProps> = ({
   onView: _onView,
   onEdit: _onEdit,
   onDelete,
-  onCopy,
+  onCopy: _onCopy,
   onExportPdf,
   onArchive,
   onSend,
   size = 'small',
   mode = 'buttons',
-  loadingStates = {},
+  loadingStates: _loadingStates = {},
 }) => {
-  const [internalLoading, setInternalLoading] = useState<Record<string, boolean>>({});
-  const { loading: _calendarLoading, addToCalendar } = useCalendarIntegration();
+  const [, setInternalLoading] = useState<Record<string, boolean>>({});
   const { message } = App.useApp();
 
   const handleAction = async (key: string, handler: ActionHandler) => {
@@ -61,8 +57,6 @@ export const DocumentActions: React.FC<DocumentActionsProps> = ({
       setInternalLoading(prev => ({ ...prev, [key]: false }));
     }
   };
-
-  const _loading = { ...internalLoading, ...loadingStates };
 
   const actionConfig: {
     key: string;
@@ -182,9 +176,9 @@ export const DocumentActions: React.FC<DocumentActionsProps> = ({
 interface BatchActionsProps {
   selectedCount: number;
   onExportSelected: () => void;
-  onDeleteSelected: () => void;
-  onArchiveSelected: () => void;
-  onCopySelected: () => void;
+  onDeleteSelected?: () => void;
+  onArchiveSelected?: () => void;
+  onCopySelected?: () => void;
   onClearSelection: () => void;
   loading?: boolean;
 }
@@ -192,9 +186,9 @@ interface BatchActionsProps {
 export const BatchActions: React.FC<BatchActionsProps> = ({
   selectedCount,
   onExportSelected,
-  onDeleteSelected,
-  onArchiveSelected,
-  onCopySelected,
+  onDeleteSelected: _onDeleteSelected,
+  onArchiveSelected: _onArchiveSelected,
+  onCopySelected: _onCopySelected,
   onClearSelection,
   loading = false,
 }) => {

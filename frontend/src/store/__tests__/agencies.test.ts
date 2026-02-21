@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useAgenciesStore, useAgenciesStoreCompat } from '../agencies';
+import { useAgenciesStore } from '../agencies';
 import { createMockAgencyWithStats } from '../../test/testUtils';
 
 describe('useAgenciesStore', () => {

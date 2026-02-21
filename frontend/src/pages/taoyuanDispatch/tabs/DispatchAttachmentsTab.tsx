@@ -49,7 +49,7 @@ export const DispatchAttachmentsTab: React.FC<DispatchAttachmentsTabProps> = ({
   uploadProgress,
   uploadErrors,
   setUploadErrors,
-  uploadAttachmentsMutation,
+  uploadAttachmentsMutation: _uploadAttachmentsMutation,
   deleteAttachmentMutation,
 }) => {
   const { message } = App.useApp();

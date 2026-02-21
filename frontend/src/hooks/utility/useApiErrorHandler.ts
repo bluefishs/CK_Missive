@@ -42,7 +42,7 @@ export const useApiErrorHandler = (
   const [retryCount, setRetryCount] = useState(0);
   const [retryFunction, setRetryFunction] = useState<(() => Promise<void>) | null>(null);
 
-  const showErrorFeedback = (error: ApiError) => {
+  const showErrorFeedback = useCallback((error: ApiError) => {
     const { status, message: errorMessage, detail } = error;
 
     if (showMessage) {
@@ -68,7 +68,7 @@ export const useApiErrorHandler = (
         placement: 'topRight'
       });
     }
-  };
+  }, [showMessage, showNotification]);
 
   const handleError = useCallback((error: unknown) => {
     const parsedError = parseApiError(error);
@@ -85,7 +85,7 @@ export const useApiErrorHandler = (
       parsedError,
       timestamp: new Date().toISOString()
     });
-  }, [onError, showMessage, showNotification]);
+  }, [onError, showErrorFeedback]);
 
   const clearError = useCallback(() => {
     setError(null);

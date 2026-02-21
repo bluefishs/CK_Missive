@@ -10,7 +10,7 @@
  * @date 2026-01-29
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Typography,
@@ -96,7 +96,7 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ contractCode }) => {
     ...(sortOrder && { sortOrder: sortOrder === 'ascend' ? 'asc' : 'desc' }),
   });
 
-  const documents = documentsData?.items ?? [];
+  const documents = useMemo(() => documentsData?.items ?? [], [documentsData?.items]);
   const totalCount = documentsData?.pagination?.total ?? 0;
 
   const deleteMutation = useDeleteDocument();

@@ -154,6 +154,7 @@ export const useNavigationData = (): UseNavigationDataReturn => {
   useEffect(() => {
     loadNavigationData();
     loadUserInfo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only run on mount; loadNavigationData and loadUserInfo are stable functions
   }, []);
 
   // 權限載入後重新載入導覽

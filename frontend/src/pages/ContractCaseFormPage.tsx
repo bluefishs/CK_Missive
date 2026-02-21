@@ -45,7 +45,7 @@ import { projectsApi } from '../api/projectsApi';
 import { agenciesApi } from '../api/agenciesApi';
 import { vendorsApi } from '../api/vendorsApi';
 import { usersApi } from '../api/usersApi';
-import type { AgencyOption, VendorOption, UserOption, Project } from '../types/api';
+import type { AgencyOption, VendorOption, UserOption } from '../types/api';
 
 // 從 contractCase tabs 導入統一的常數
 import {
@@ -70,7 +70,9 @@ export const ContractCaseFormPage: React.FC = () => {
 
   // 下拉選單選項狀態
   const [agencyOptions, setAgencyOptions] = useState<AgencyOption[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- state value reserved for future use, setter is used in loadOptions
   const [vendorOptions, setVendorOptions] = useState<VendorOption[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- state value reserved for future use, setter is used in loadOptions
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
   const [optionsLoading, setOptionsLoading] = useState(false);
 
@@ -86,16 +88,16 @@ export const ContractCaseFormPage: React.FC = () => {
   const isEdit = Boolean(id);
   const title = isEdit ? '編輯承攬案件' : '新增承攬案件';
 
-  // 載入下拉選單選項
   useEffect(() => {
     loadOptions();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadOptions runs once on mount
   }, []);
 
-  // 編輯模式載入資料
   useEffect(() => {
     if (isEdit && id) {
       loadData();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadData depends on id, adding it would cause infinite loop
   }, [id, isEdit]);
 
   const loadOptions = async () => {
@@ -231,6 +233,7 @@ export const ContractCaseFormPage: React.FC = () => {
   };
 
   // 檢查機關名稱是否重複（防呆）
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- debounce wrapper; agencyOptions is stable enough
   const checkAgencyDuplicate = useCallback(
     debounce(async (name: string) => {
       if (!name || name.length < 2) {

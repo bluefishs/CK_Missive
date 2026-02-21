@@ -235,7 +235,8 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
   const paymentMutation = useMutation({
     mutationFn: async (values: ContractPaymentCreate) => {
       if (paymentData?.id) {
-        const { dispatch_order_id, ...updateData } = values;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { dispatch_order_id: _dispatch_order_id, ...updateData } = values;
         return contractPaymentsApi.update(paymentData.id, updateData);
       } else {
         return contractPaymentsApi.create(values);
@@ -474,6 +475,7 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
       // 解析作業類別代碼
       const workTypeCodes = parseWorkTypeCodes(values.work_type);
 
+      /* eslint-disable @typescript-eslint/no-unused-vars */
       const {
         work_01_amount,
         work_02_amount,
@@ -487,6 +489,7 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
         remaining_amount,
         ...dispatchValues
       } = values;
+      /* eslint-enable @typescript-eslint/no-unused-vars */
 
       // 原始金額物件
       const originalAmounts: Record<string, number | undefined> = {

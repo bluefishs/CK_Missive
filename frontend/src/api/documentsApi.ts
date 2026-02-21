@@ -19,7 +19,6 @@ import { API_ENDPOINTS } from './endpoints';
 import {
   OfficialDocument,
   DocumentCreate as ApiDocumentCreate,
-  DocumentUpdate as ApiDocumentUpdate,
   DocumentTrendsResponse,
   DocumentEfficiencyResponse,
   DocumentStatistics,

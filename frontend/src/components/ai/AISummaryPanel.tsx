@@ -111,7 +111,8 @@ export const AISummaryPanel: React.FC<AISummaryPanelProps> = ({
     );
 
     abortControllerRef.current = controller;
-  }, [subject, content, sender, maxLength]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleNonStreamGenerate is stable, adding it would cause unnecessary re-creation
+  }, [subject, content, sender, maxLength, message]);
 
   // 一般模式生成摘要（非串流）
   const handleNonStreamGenerate = useCallback(async () => {
@@ -143,7 +144,7 @@ export const AISummaryPanel: React.FC<AISummaryPanelProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [subject, content, sender, maxLength]);
+  }, [subject, content, sender, maxLength, message]);
 
   // 統一入口
   const handleGenerate = useCallback(() => {
@@ -161,7 +162,7 @@ export const AISummaryPanel: React.FC<AISummaryPanelProps> = ({
       navigator.clipboard.writeText(textToCopy);
       message.success('摘要已複製');
     }
-  }, [result, streamedText]);
+  }, [result, streamedText, message]);
 
   // 渲染信心度標籤
   const renderConfidenceTag = (confidence: number) => {

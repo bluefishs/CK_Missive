@@ -21,7 +21,6 @@ import {
   Row,
   Col,
   Tag,
-  Spin,
   App
 } from 'antd';
 import {
@@ -36,7 +35,6 @@ import {
 import PermissionManager from '../components/admin/PermissionManager';
 import {
   USER_ROLES,
-  getRoleDefaultPermissions
 } from '../constants/permissions';
 import { ROUTES } from '../router/types';
 

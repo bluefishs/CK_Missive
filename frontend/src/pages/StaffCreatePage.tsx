@@ -20,16 +20,6 @@ import { DEPARTMENT_OPTIONS } from '../constants';
 
 const { Option } = Select;
 
-interface StaffFormData {
-  username: string;
-  email: string;
-  full_name: string;
-  is_active: boolean;
-  password: string;
-  department?: string;
-  position?: string;
-}
-
 export const StaffCreatePage: React.FC = () => {
   const navigate = useNavigate();
   const { message } = App.useApp();

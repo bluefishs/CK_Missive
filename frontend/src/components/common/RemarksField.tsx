@@ -63,17 +63,18 @@ const RemarksField: React.FC<RemarksFieldProps> = ({
   disabled = false,
   maxLength = 1000,
   showHistory = true,
-  allowRichText = false,
+  allowRichText: _allowRichText = false,
   autoSize = { minRows: 3, maxRows: 8 },
   history = [],
   onSave,
-  currentUser = { id: '1', name: '當前使用者' },
+  currentUser: _currentUser = { id: '1', name: '當前使用者' },
   inline = false,
   compact = false
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [currentContent, setCurrentContent] = useState(value);
   const [expanded, setExpanded] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Ant Design TextArea ref type is not well-defined
   const textAreaRef = useRef<any>(null);
 
   useEffect(() => {

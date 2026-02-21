@@ -79,7 +79,7 @@ export const AIClassifyPanel: React.FC<AIClassifyPanelProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [subject, content, sender]);
+  }, [subject, content, sender, message]);
 
   // 套用建議
   const handleApply = useCallback(() => {
@@ -87,7 +87,7 @@ export const AIClassifyPanel: React.FC<AIClassifyPanelProps> = ({
       onSelect?.(result.doc_type, result.category);
       message.success('已套用 AI 建議的分類');
     }
-  }, [result, onSelect]);
+  }, [result, onSelect, message]);
 
   // 渲染信心度指示器 (使用集中配置閾值)
   const renderConfidence = (confidence: number, label: string) => {

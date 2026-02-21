@@ -11,7 +11,7 @@
  */
 
 import React from 'react';
-import { Drawer, Button, Space, Spin, Divider, Typography } from 'antd';
+import { Drawer, Button, Space, Spin, Typography } from 'antd';
 import {
   CloseOutlined,
   FullscreenOutlined,

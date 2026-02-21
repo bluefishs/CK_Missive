@@ -89,7 +89,8 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
       try {
         // 使用新的篩選統計 API
         // 移除 category 以便取得全部/收文/發文的分類統計
-        const { category: _, page: __, limit: ___, ...filterParams } = filters;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructuring to exclude category/page/limit from filterParams
+        const { category: _cat, page: _page, limit: _limit, ...filterParams } = filters;
 
         const stats = await documentsApi.getFilteredStatistics(filterParams);
         logger.debug('=== 篩選統計數據 ===', stats, '篩選條件:', filterParams);
@@ -111,6 +112,7 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
     };
 
     fetchFilteredStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- listing individual filter properties to avoid infinite loop when using filters object directly
   }, [
     filters.search,
     filters.keyword,
@@ -122,8 +124,6 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
     filters.doc_date_from,
     filters.doc_date_to,
     filters.contract_case,
-    // 移除 total 依賴：total 變化會觸發無限迴圈
-    // (fetchFilteredStats → setFilteredStats → re-render → total 變化 → 再次觸發)
   ]);
 
   // Handle tab changes by updating filters
@@ -132,11 +132,12 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
       let newFilters: DocumentFilter;
 
       switch (tabKey) {
-        case 'all':
+        case 'all': {
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const { category: _, ...restFilters } = filters;
           newFilters = restFilters;
           break;
+        }
         case 'received':
           newFilters = { ...filters, category: 'receive' };
           break;

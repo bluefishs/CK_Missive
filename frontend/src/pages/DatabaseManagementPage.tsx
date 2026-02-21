@@ -3,14 +3,14 @@ import { logger } from '../services/logger';
 import { ResponsiveContent } from '../components/common';
 import {
   Card, Table, Tabs, Button, Space, Typography, Row, Col,
-  Statistic, Alert, Modal, Input, Select, Tag, App,
-  Tooltip, Popconfirm, Divider, Progress, Badge,
+  Statistic, Alert, Modal, Input, Tag, App,
+  Tooltip, Badge,
   Switch, Drawer
 } from 'antd';
 import type { ColumnType } from 'antd/es/table';
 import {
   DatabaseOutlined, TableOutlined, SearchOutlined, ReloadOutlined,
-  ExportOutlined, InfoCircleOutlined, WarningOutlined, CodeOutlined,
+  InfoCircleOutlined, WarningOutlined, CodeOutlined,
   DownloadOutlined, CheckCircleOutlined, ExclamationCircleOutlined,
   PlayCircleOutlined, CopyOutlined, EyeOutlined, UpOutlined
 } from '@ant-design/icons';
@@ -19,7 +19,7 @@ import { API_ENDPOINTS } from '../api/endpoints';
 import { SimpleDatabaseViewer } from '../components/admin/SimpleDatabaseViewer';
 import type { DatabaseInfo, TableInfo, QueryResult, IntegrityResult } from '../types/api';
 
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 const { TextArea } = Input;
 
 export const DatabaseManagementPage: React.FC = () => {
@@ -27,7 +27,9 @@ export const DatabaseManagementPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [databaseInfo, setDatabaseInfo] = useState<DatabaseInfo | null>(null);
   const [selectedTable, setSelectedTable] = useState<string>('');
-  const [tableData, setTableData] = useState<any>({ columns: [], rows: [] });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [tableData, setTableData] = useState<{ columns: any[]; rows: any[]; total?: number; totalRows?: number; page?: number; pageSize?: number }>({ columns: [], rows: [] });
   const [customQuery, setCustomQuery] = useState<string>('SELECT * FROM documents LIMIT 10;');
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
   const [integrityResult, setIntegrityResult] = useState<IntegrityResult | null>(null);
@@ -54,7 +56,8 @@ export const DatabaseManagementPage: React.FC = () => {
   const fetchTableData = async (tableName: string, limit: number = 50, offset: number = 0) => {
     setLoading(true);
     try {
-      const data = await apiClient.post(API_ENDPOINTS.ADMIN_DATABASE.TABLE(tableName), { limit, offset });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = await apiClient.post<any>(API_ENDPOINTS.ADMIN_DATABASE.TABLE(tableName), { limit, offset });
       setTableData(data);
       setSelectedTable(tableName);
       message.success(`載入 ${tableName} 數據成功`);
@@ -129,6 +132,7 @@ export const DatabaseManagementPage: React.FC = () => {
 
   useEffect(() => {
     fetchDatabaseInfo();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchDatabaseInfo runs once on mount
   }, []);
 
   // 渲染表格列表

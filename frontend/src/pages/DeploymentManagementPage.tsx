@@ -24,7 +24,6 @@ import {
   message,
   Tooltip,
   Descriptions,
-  Timeline,
   Spin,
   Badge,
   Popconfirm,
@@ -73,7 +72,7 @@ import { logger } from '../utils/logger';
 dayjs.extend(relativeTime);
 dayjs.locale('zh-tw');
 
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 const { Panel } = Collapse;
 
 // =============================================================================

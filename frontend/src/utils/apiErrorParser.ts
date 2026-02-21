@@ -60,6 +60,7 @@ export function parseApiError(error: unknown): ParsedApiError {
     return { message: '發生未知錯誤', timestamp };
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const err = error as any;
 
   // Axios response error

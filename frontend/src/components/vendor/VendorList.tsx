@@ -4,7 +4,6 @@ import {
   Input,
   Space,
   Card,
-  App,
   Select,
   Typography,
   Tag,
@@ -40,7 +39,6 @@ const { Option } = Select;
 type Vendor = ApiVendor;
 
 const VendorList: React.FC = () => {
-  const { message } = App.useApp();
   const navigate = useNavigate();
   const { isMobile, responsiveValue } = useResponsive();
   const pagePadding = responsiveValue({ mobile: 12, tablet: 16, desktop: 24 });
@@ -66,7 +64,6 @@ const VendorList: React.FC = () => {
     vendors,
     pagination,
     isLoading,
-    isError,
   } = useVendorsPage(queryParams);
 
   const total = pagination?.total ?? 0;

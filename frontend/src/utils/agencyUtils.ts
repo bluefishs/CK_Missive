@@ -18,7 +18,7 @@ export const normalizeName = (name: string | null | undefined): string => {
   return name
     .trim()
     .replace(/\s+/g, '')  // 移除所有空白
-    .replace(/　/g, '')    // 移除全形空白
+    .replace(/\u3000/g, '')    // 移除全形空白
     .replace(/（/g, '(')   // 統一括號
     .replace(/）/g, ')');
 };

@@ -41,7 +41,6 @@ import dayjs from 'dayjs';
 import * as XLSX from 'xlsx';
 import { logger } from '../../services/logger';
 
-import { contractPaymentsApi } from '../../api/taoyuanDispatchApi';
 import type { PaymentControlItem } from '../../types/api';
 
 const { Text, Title } = Typography;

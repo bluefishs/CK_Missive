@@ -8,8 +8,8 @@
  * @date 2026-02-13
  */
 
-import React, { useCallback, useMemo } from 'react';
-import { Collapse, Badge, Button, Typography, Empty, Spin, theme } from 'antd';
+import React, { useMemo } from 'react';
+import { Collapse, Badge, Button, Typography, Empty, Spin } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 
 import { useResponsive } from '../../../hooks/utility/useResponsive';

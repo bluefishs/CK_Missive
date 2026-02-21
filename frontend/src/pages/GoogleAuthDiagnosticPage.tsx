@@ -14,7 +14,6 @@ import {
 } from 'antd';
 import {
   CheckCircleOutlined,
-  ExclamationCircleOutlined,
   CloseCircleOutlined,
   GoogleOutlined,
   SettingOutlined
@@ -26,7 +25,9 @@ const { Step } = Steps;
 const GoogleAuthDiagnosticPage: React.FC = () => {
   const [currentDomain, setCurrentDomain] = useState('');
   const [googleClientId, setGoogleClientId] = useState('');
-  const [diagnosticResult, setDiagnosticResult] = useState<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [diagnosticResult, setDiagnosticResult] = useState<Record<string, any> | null>(null);
 
   useEffect(() => {
     // 檢測當前運行環境
@@ -92,7 +93,7 @@ const GoogleAuthDiagnosticPage: React.FC = () => {
             Google OAuth 診斷工具
           </Title>
           <Paragraph>
-            此工具幫助您診斷和解決 Google OAuth 登入問題，特別是"origin not allowed"錯誤。
+            此工具幫助您診斷和解決 Google OAuth 登入問題，特別是&quot;origin not allowed&quot;錯誤。
           </Paragraph>
         </Card>
 
@@ -158,7 +159,7 @@ const GoogleAuthDiagnosticPage: React.FC = () => {
               style={{ marginBottom: 16 }}
             />
             <List
-              dataSource={diagnosticResult.issues}
+              dataSource={diagnosticResult?.issues}
               renderItem={(item: string) => (
                 <List.Item>
                   <CloseCircleOutlined style={{ color: '#ff4d4f', marginRight: 8 }} />
@@ -178,7 +179,7 @@ const GoogleAuthDiagnosticPage: React.FC = () => {
               style={{ marginBottom: 16 }}
             />
             <List
-              dataSource={diagnosticResult.recommendations}
+              dataSource={diagnosticResult?.recommendations}
               renderItem={(item: string) => (
                 <List.Item>
                   <CheckCircleOutlined style={{ color: '#52c41a', marginRight: 8 }} />

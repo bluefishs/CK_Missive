@@ -5,7 +5,7 @@
  * @date 2026-01-21
  * @description 整合完整錯誤追蹤功能，支援自訂 fallback 和錯誤回調
  */
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { Component, ErrorInfo, ReactNode } from 'react';
 import { Result, Button, Typography, Collapse, Card } from 'antd';
 import { ReloadOutlined, BugOutlined } from '@ant-design/icons';
 import { logger } from '../../services/logger';

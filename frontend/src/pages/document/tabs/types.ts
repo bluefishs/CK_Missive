@@ -29,10 +29,10 @@ export interface BaseTabProps {
 }
 
 /** 公文資訊 Tab Props */
-export interface DocumentInfoTabProps extends BaseTabProps {}
+export type DocumentInfoTabProps = BaseTabProps
 
 /** 日期狀態 Tab Props */
-export interface DocumentDateStatusTabProps extends BaseTabProps {}
+export type DocumentDateStatusTabProps = BaseTabProps
 
 /** 承案人資 Tab Props */
 export interface DocumentCaseStaffTabProps extends BaseTabProps {

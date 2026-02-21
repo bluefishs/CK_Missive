@@ -46,6 +46,7 @@ export interface UseTableColumnSearchReturn<T> {
  * ];
  * ```
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Record<string, any> required for Ant Design Table generic constraint
 export function useTableColumnSearch<T extends Record<string, any>>(): UseTableColumnSearchReturn<T> {
   const [searchText, setSearchText] = useState('');
   const [searchedColumn, setSearchedColumn] = useState('');

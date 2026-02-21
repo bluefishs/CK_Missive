@@ -187,11 +187,15 @@ export const DocumentDetailPage: React.FC = () => {
           receive_date: document.receive_date,
           sender: document.sender,
           receiver: document.receiver,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           assignee: (document as any).assignee,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           priority_level: String((document as any).priority || 3),
           doc_type: document.doc_type,
           content: document.content,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           notes: (document as any).notes,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           contract_case: (document as any).contract_project_name || undefined
         } : null}
         onClose={() => setShowIntegratedEventModal(false)}

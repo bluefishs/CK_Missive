@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 // DevTools 已停用 - 與 AI 助理浮動按鈕位置衝突

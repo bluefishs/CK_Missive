@@ -5,7 +5,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { dashboardApi, DashboardResponse, FormattedDocument } from '../../api/dashboardApi';
+import { dashboardApi, FormattedDocument } from '../../api/dashboardApi';
 import { defaultQueryOptions } from '../../config/queryConfig';
 
 // ============================================================================

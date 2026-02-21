@@ -5,7 +5,7 @@
  * @date 2026-01-07
  */
 
-import React, { type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import { Tag, Space } from 'antd';
 import type { TabLabelConfig, TabItemConfig, TagConfig } from './types';
 

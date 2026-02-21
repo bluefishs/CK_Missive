@@ -8,7 +8,6 @@ import React, { useState, useCallback } from 'react';
 import { Calendar, App } from 'antd';
 import type { CalendarProps } from 'antd';
 import type { Dayjs } from 'dayjs';
-import dayjs from 'dayjs';
 import type { CalendarEvent } from './types';
 import { EventCard } from './EventCard';
 import { logger } from '../../../services/logger';

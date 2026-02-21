@@ -39,7 +39,6 @@ import { ResponsiveTable } from '../components/common';
 import {
   PERMISSION_CATEGORIES,
   USER_ROLES,
-  ALL_PERMISSIONS,
   groupPermissionsByCategory,
   getPermissionDisplayName
 } from '../constants/permissions';
@@ -90,6 +89,7 @@ const PermissionManagementPage: React.FC = () => {
         color: roleConfig[key]?.color || 'default',
       };
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- roleConfig is a stable object literal
   }, []);
 
   // 取得權限摘要文字

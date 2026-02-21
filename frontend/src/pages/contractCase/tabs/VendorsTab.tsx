@@ -259,6 +259,7 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({
               style={{ width: '100%' }}
               placeholder="請輸入合約金額"
               formatter={value => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               parser={value => value?.replace(/\$\s?|(,*)/g, '') as any}
             />
           </Form.Item>

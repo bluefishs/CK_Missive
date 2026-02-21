@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useDocumentsStore, useDocumentsStoreCompat } from '../documents';
+import { useDocumentsStore } from '../documents';
 import { createMockDocument } from '../../test/testUtils';
 
 describe('useDocumentsStore', () => {

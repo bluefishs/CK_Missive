@@ -590,9 +590,7 @@ export interface DocumentProjectLink extends ProjectLinkBase {
 }
 
 /** 工程關聯的派工單資訊 (簡化版) */
-export interface ProjectDispatchLink extends DispatchLinkBase {
-  // 繼承 DispatchLinkBase 的所有欄位
-}
+export type ProjectDispatchLink = DispatchLinkBase
 
 // ============================================================================
 // 總控表相關型別

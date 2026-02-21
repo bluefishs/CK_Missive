@@ -64,6 +64,7 @@ export const DocumentEditPage: React.FC = () => {
     if (id) {
       loadDocument();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- message is stable from App.useApp()
   }, [id, form]);
 
   const onFinish = async (values: DocumentFormValues) => {

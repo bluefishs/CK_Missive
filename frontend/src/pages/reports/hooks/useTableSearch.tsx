@@ -8,7 +8,7 @@
  * @date 2026-02-02
  */
 
-import React, { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback } from 'react';
 import { Input, Button, Space } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import type { InputRef } from 'antd';

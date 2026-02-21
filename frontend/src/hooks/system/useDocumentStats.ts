@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { API_ENDPOINTS } from '../../api/endpoints';
-import { queryKeys, defaultQueryOptions } from '../../config/queryConfig';
+import { queryKeys } from '../../config/queryConfig';
 
 interface DocumentStats {
   total: number;

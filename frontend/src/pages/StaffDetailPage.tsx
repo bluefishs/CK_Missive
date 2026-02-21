@@ -110,6 +110,7 @@ export const StaffDetailPage: React.FC = () => {
     try {
       const user = await apiClient.post(API_ENDPOINTS.USERS.DETAIL(staffId));
       const response = { items: [user] };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const data = response as any;
       const items = data.items || data.users || [];
       const found = items.find((s: Staff) => s.id === staffId);
@@ -164,6 +165,7 @@ export const StaffDetailPage: React.FC = () => {
       const values = await form.validateFields();
       setSaving(true);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const updateData: Record<string, any> = {
         email: values.email,
         full_name: values.full_name,

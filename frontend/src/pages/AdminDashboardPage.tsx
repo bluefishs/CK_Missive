@@ -37,7 +37,7 @@ import { API_ENDPOINTS } from '../api/endpoints';
 import { documentsApi } from '../api/documentsApi';
 import { SystemHealthDashboard, AIStatsPanel, DocumentTrendsChart } from '../components/dashboard';
 import { ROUTES } from '../router/types';
-import type { DocumentEfficiencyResponse, StatusDistributionItem, PendingUser, SystemAlert } from '../types/api';
+import type { StatusDistributionItem, PendingUser, SystemAlert } from '../types/api';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
 dayjs.extend(relativeTime);
@@ -386,7 +386,7 @@ const AdminDashboardPage: React.FC = () => {
             <Card
               title="使用者管理"
               actions={[
-                <Button type="link" onClick={() => navigate(ROUTES.USER_MANAGEMENT)}>
+                <Button key="manage-users" type="link" onClick={() => navigate(ROUTES.USER_MANAGEMENT)}>
                   管理使用者
                 </Button>
               ]}
@@ -405,7 +405,7 @@ const AdminDashboardPage: React.FC = () => {
             <Card
               title="權限管理"
               actions={[
-                <Button type="link" onClick={() => navigate(ROUTES.PERMISSION_MANAGEMENT)}>
+                <Button key="permission-settings" type="link" onClick={() => navigate(ROUTES.PERMISSION_MANAGEMENT)}>
                   權限設定
                 </Button>
               ]}
@@ -424,7 +424,7 @@ const AdminDashboardPage: React.FC = () => {
             <Card
               title="備份與部署"
               actions={[
-                <Button type="link" onClick={() => navigate(ROUTES.BACKUP_MANAGEMENT)}>
+                <Button key="backup-management" type="link" onClick={() => navigate(ROUTES.BACKUP_MANAGEMENT)}>
                   備份管理
                 </Button>
               ]}
@@ -504,7 +504,7 @@ const AdminDashboardPage: React.FC = () => {
               <List
                 size="small"
                 dataSource={Object.entries(USER_ROLES)}
-                renderItem={([key, role]) => (
+                renderItem={([_key, role]) => (
                   <List.Item>
                     <List.Item.Meta
                       avatar={
@@ -533,7 +533,7 @@ const AdminDashboardPage: React.FC = () => {
               <List
                 size="small"
                 dataSource={Object.entries(USER_STATUSES)}
-                renderItem={([key, status]) => (
+                renderItem={([_key, status]) => (
                   <List.Item>
                     <List.Item.Meta
                       avatar={

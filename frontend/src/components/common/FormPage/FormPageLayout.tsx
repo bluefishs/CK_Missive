@@ -75,7 +75,7 @@ export const FormPageLayout: React.FC<FormPageLayoutProps> = ({
   saveText = '保存',
   deleteText = '刪除',
   showCancel = true,
-  maxWidth = 800,
+  maxWidth: _maxWidth = 800,
   children,
 }) => {
   const navigate = useNavigate();

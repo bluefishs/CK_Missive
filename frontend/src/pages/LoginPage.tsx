@@ -32,7 +32,7 @@ import {
   LoginOutlined
 } from '@ant-design/icons';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import authService, { LoginRequest, MFARequiredError } from '../services/authService';
+import authService, { MFARequiredError } from '../services/authService';
 import { useResponsive } from '../hooks';
 import { detectEnvironment, isAuthDisabled, GOOGLE_CLIENT_ID } from '../config/env';
 import { logger } from '../utils/logger';
@@ -120,6 +120,7 @@ const LoginPage: React.FC = () => {
     if (showGoogleLogin) {
       initializeGoogleSignIn();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- initializeGoogleSignIn is stable, adding it causes re-initialization
   }, [navigate, envType, showQuickEntry, showGoogleLogin]);
 
   const initializeGoogleSignIn = async () => {

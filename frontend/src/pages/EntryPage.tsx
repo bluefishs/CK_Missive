@@ -142,6 +142,7 @@ const EntryPage: React.FC = () => {
       SHOW_PASSWORD_LOGIN,
       SHOW_GOOGLE_LOGIN,
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- initializeGoogleSignIn is stable, adding it causes re-initialization
   }, [navigate]);
 
   const initializeGoogleSignIn = async () => {

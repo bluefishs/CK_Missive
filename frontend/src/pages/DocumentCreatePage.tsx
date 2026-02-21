@@ -24,7 +24,7 @@ export const DocumentCreatePage: React.FC = () => {
   const [form] = Form.useForm();
 
   // RWD 響應式
-  const { isMobile, isTablet } = useResponsive();
+  const { isMobile } = useResponsive();
 
   const onFinish = (values: DocumentFormValues) => {
     logger.debug('Form values:', values);

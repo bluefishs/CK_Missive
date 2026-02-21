@@ -12,9 +12,9 @@ import { queryKeys } from '../../../config/queryConfig';
 import dayjs from 'dayjs';
 
 import { taoyuanProjectsApi, projectLinksApi, dispatchOrdersApi } from '../../../api/taoyuanDispatchApi';
-import { getProjectAgencyContacts, type ProjectAgencyContact } from '../../../api/projectAgencyContacts';
-import { projectVendorsApi, type ProjectVendor } from '../../../api/projectVendorsApi';
-import type { TaoyuanProject, TaoyuanProjectUpdate, DispatchOrder, ProjectDispatchLink } from '../../../types/api';
+import { getProjectAgencyContacts } from '../../../api/projectAgencyContacts';
+import { projectVendorsApi } from '../../../api/projectVendorsApi';
+import type { TaoyuanProject, TaoyuanProjectUpdate, DispatchOrder } from '../../../types/api';
 import { useAuthGuard } from '../../../hooks';
 import { TAOYUAN_CONTRACT } from '../../../constants/taoyuanOptions';
 import { logger } from '../../../services/logger';

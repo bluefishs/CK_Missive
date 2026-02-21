@@ -248,7 +248,7 @@ class AuthService {
   /**
    * 檢查認證狀態 (POST-only 安全模式)
    */
-  async checkAuthStatus(): Promise<any> {
+  async checkAuthStatus(): Promise<{ authenticated: boolean; user?: UserInfo }> {
     const response = await this.axios.post('/auth/check', {});
     return response.data;
   }
@@ -516,8 +516,11 @@ class AuthService {
       logger.error('Google login failed:', error);
 
       // 根據錯誤類型顯示不同的提醒
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if (error instanceof Error || (error as any)?.response) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const errorResponse = (error as any)?.response;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const errorMessage = errorResponse?.data?.detail || (error as any).message;
 
         if (errorResponse?.status === 403) {

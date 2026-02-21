@@ -54,6 +54,7 @@ export const ReviewStatusTab: React.FC<ReviewStatusTabProps> = ({
         <Select allowClear>
           {PROGRESS_STATUS_OPTIONS.map((opt) => (
             <Option key={opt.value} value={opt.value}>
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               <Badge status={opt.color as any} text={opt.label} />
             </Option>
           ))}
@@ -63,6 +64,7 @@ export const ReviewStatusTab: React.FC<ReviewStatusTabProps> = ({
         <Select allowClear>
           {PROGRESS_STATUS_OPTIONS.map((opt) => (
             <Option key={opt.value} value={opt.value}>
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               <Badge status={opt.color as any} text={opt.label} />
             </Option>
           ))}
@@ -72,6 +74,7 @@ export const ReviewStatusTab: React.FC<ReviewStatusTabProps> = ({
         <Select allowClear>
           {PROGRESS_STATUS_OPTIONS.map((opt) => (
             <Option key={opt.value} value={opt.value}>
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               <Badge status={opt.color as any} text={opt.label} />
             </Option>
           ))}

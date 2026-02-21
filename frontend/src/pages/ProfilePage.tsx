@@ -8,7 +8,7 @@
  * @date 2026-02-08
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   Form,
@@ -78,9 +78,9 @@ export const ProfilePage = () => {
   const { isMobile, responsiveValue } = useResponsive();
   const pagePadding = responsiveValue({ mobile: 12, tablet: 16, desktop: 24 });
 
-  // 載入用戶資料
   useEffect(() => {
     loadUserProfile();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadUserProfile runs once on mount
   }, []);
 
   /**

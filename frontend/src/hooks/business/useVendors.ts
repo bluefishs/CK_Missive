@@ -4,9 +4,9 @@
  * 整合 queryConfig 統一快取策略
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { vendorsApi, VendorListParams, VendorStatistics } from '../../api/vendorsApi';
+import { vendorsApi, VendorListParams } from '../../api/vendorsApi';
 import { queryKeys, defaultQueryOptions } from '../../config/queryConfig';
-import type { Vendor, VendorCreate, VendorUpdate, VendorOption } from '../../types/api';
+import type { VendorCreate, VendorUpdate } from '../../types/api';
 
 // ============================================================================
 // 查詢 Hooks

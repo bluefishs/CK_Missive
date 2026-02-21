@@ -7,11 +7,11 @@
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 interface Logger {
-  debug: (...args: any[]) => void;
-  info: (...args: any[]) => void;
-  warn: (...args: any[]) => void;
-  error: (...args: any[]) => void;
-  log: (...args: any[]) => void;
+  debug: (...args: unknown[]) => void;
+  info: (...args: unknown[]) => void;
+  warn: (...args: unknown[]) => void;
+  error: (...args: unknown[]) => void;
+  log: (...args: unknown[]) => void;
 }
 
 const isDevelopment = import.meta.env.DEV;
@@ -23,23 +23,23 @@ const createLogger = (): Logger => {
   };
 
   return {
-    debug: (...args: any[]) => {
+    debug: (...args: unknown[]) => {
       if (isDevelopment) {
         console.debug(formatMessage('debug'), ...args);
       }
     },
-    info: (...args: any[]) => {
+    info: (...args: unknown[]) => {
       if (isDevelopment) {
         console.info(formatMessage('info'), ...args);
       }
     },
-    warn: (...args: any[]) => {
+    warn: (...args: unknown[]) => {
       console.warn(formatMessage('warn'), ...args);
     },
-    error: (...args: any[]) => {
+    error: (...args: unknown[]) => {
       console.error(formatMessage('error'), ...args);
     },
-    log: (...args: any[]) => {
+    log: (...args: unknown[]) => {
       if (isDevelopment) {
         console.log(...args);
       }

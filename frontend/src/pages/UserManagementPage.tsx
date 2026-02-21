@@ -16,7 +16,7 @@
  * @version 5.2.0 - 移除權限維護欄位（改由使用者編輯頁處理）
  * @date 2026-02-02
  */
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Card, Button, Space, Input, Select, Row, Col, Typography, AutoComplete, Tag
@@ -196,8 +196,9 @@ const UserManagementPage: React.FC = () => {
   // 外部搜尋處理（AutoComplete）
   // ============================================================================
 
-  const handleAutoCompleteSearch = useCallback(
-    debounce(async (searchValue: string) => {
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- debounce instance must be stable; users is captured in closure
+  const handleAutoCompleteSearch = useMemo(
+    () => debounce(async (searchValue: string) => {
       if (!searchValue || searchValue.length < 1) {
         setSearchOptions([]);
         return;
@@ -368,6 +369,7 @@ const UserManagementPage: React.FC = () => {
       },
       render: (date: string) => formatDateTime(date),
     },
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- authProviderFilters/roleFilters/statusFilters are stable inline arrays
   ], [isMobile, getColumnSearchProps, searchedColumn, tableSearchText]);
 
   // ============================================================================

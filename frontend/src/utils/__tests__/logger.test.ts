@@ -1,9 +1,10 @@
+/* eslint-disable no-console */
 /**
  * Logger 工具測試
  * Logger Utility Tests
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { logger, LogLevel } from '../logger';
+import { logger } from '../logger';
 
 describe('logger', () => {
   const originalConsole = { ...console };

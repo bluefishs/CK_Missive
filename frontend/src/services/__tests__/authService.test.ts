@@ -158,6 +158,7 @@ describe('authService', () => {
         email_verified: true,
       };
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       authService.setUserInfo(userInfo as any);
       expect(localStorageMock.setItem).toHaveBeenCalledWith(
         'user_info',

@@ -22,7 +22,6 @@ import {
   Badge,
 } from 'antd';
 import {
-  FileTextOutlined,
   CalendarOutlined,
   TeamOutlined,
   PaperClipOutlined,

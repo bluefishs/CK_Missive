@@ -11,7 +11,6 @@ import React, { ComponentType } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthGuard, Permission, AuthGuardOptions } from '../../hooks';
 import { ROUTES } from '../../router/types';
-import { PageLoading } from '../common';
 
 /** HOC 選項 */
 export interface WithAuthOptions extends AuthGuardOptions {
@@ -47,7 +46,6 @@ export function withAuth<P extends object>(
     roles = [],
     permissions = [],
     redirectTo = ROUTES.LOGIN,
-    loadingMessage = '檢查權限中...',
     UnauthorizedComponent,
   } = options;
 

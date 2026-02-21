@@ -11,8 +11,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ResponsiveContent } from '../components/common';
 import {
   Card, Tabs, Button, Space, Typography, Row, Col,
-  Statistic, Alert, Modal, Input, Form, Tag, App,
-  Tooltip, Popconfirm, Switch, Spin, DatePicker, Select, InputNumber
+  Statistic, Alert, Input, Form, Tag, App,
+  Tooltip, Popconfirm, Switch, Spin, Select, InputNumber
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -29,7 +29,6 @@ import { API_ENDPOINTS } from '../api/endpoints';
 import type {
   BackupItem,
   BackupListResponse,
-  BackupStatistics,
   RemoteBackupConfig,
   SchedulerStatus,
   BackupLogEntry,
@@ -37,7 +36,6 @@ import type {
 } from '../types/api';
 
 const { Title, Text } = Typography;
-const { RangePicker } = DatePicker;
 
 /** 備份環境狀態 */
 interface EnvironmentStatus {

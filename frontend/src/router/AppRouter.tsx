@@ -10,7 +10,7 @@
 import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ROUTES } from './types';
-import { ProtectedRoute, AdminRoute } from './ProtectedRoute';
+import { ProtectedRoute } from './ProtectedRoute';
 import { PageLoading } from '../components/common';
 import Layout from '../components/Layout';
 
@@ -21,7 +21,6 @@ import Layout from '../components/Layout';
 // 懶加載頁面組件
 const DocumentPage = lazy(() => import('../pages/DocumentPage').then(module => ({ default: module.DocumentPage })));
 const DocumentDetailPage = lazy(() => import('../pages/DocumentDetailPage').then(module => ({ default: module.DocumentDetailPage })));
-const DocumentCreatePage = lazy(() => import('../pages/DocumentCreatePage').then(module => ({ default: module.DocumentCreatePage })));
 const DocumentEditPage = lazy(() => import('../pages/DocumentEditPage').then(module => ({ default: module.DocumentEditPage })));
 const DashboardPage = lazy(() => import('../pages/DashboardPage').then(module => ({ default: module.DashboardPage })));
 const ProfilePage = lazy(() => import('../pages/ProfilePage').then(module => ({ default: module.ProfilePage })));

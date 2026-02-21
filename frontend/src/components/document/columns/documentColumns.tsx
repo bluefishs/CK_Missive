@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { Typography, Tag, Space, Button, Popover, List, Spin } from 'antd';
-import { SearchOutlined, PaperClipOutlined, DownloadOutlined, EyeOutlined, FileOutlined } from '@ant-design/icons';
+import { PaperClipOutlined, DownloadOutlined, EyeOutlined, FileOutlined } from '@ant-design/icons';
 import type { ColumnsType, ColumnType } from 'antd/es/table';
 import Highlighter from 'react-highlight-words';
 import { Document } from '../../../types';
@@ -284,6 +284,7 @@ export const getDesktopColumns = (options: GetColumnsOptions): ColumnsType<Docum
                     actions={[
                       isPreviewable(attachment.content_type) && (
                         <Button
+                          key="preview"
                           type="text"
                           size="small"
                           icon={<EyeOutlined />}
@@ -292,6 +293,7 @@ export const getDesktopColumns = (options: GetColumnsOptions): ColumnsType<Docum
                         />
                       ),
                       <Button
+                        key="download"
                         type="text"
                         size="small"
                         icon={<DownloadOutlined />}

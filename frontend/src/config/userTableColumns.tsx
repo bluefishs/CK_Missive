@@ -2,7 +2,6 @@
  * 使用者管理表格欄位配置
  * @description 從 UserManagementPage.tsx 提取
  */
-import React from 'react';
 import { Space, Tag, Avatar, Button, Tooltip, Popconfirm, Typography } from 'antd';
 import {
   UserOutlined,
@@ -31,7 +30,7 @@ interface UserTableColumnsConfig {
 }
 
 export const createUserTableColumns = ({
-  onEdit,
+  onEdit: _onEdit,
   onEditPermissions,
   onDelete,
 }: UserTableColumnsConfig): TableColumnType<User>[] => [

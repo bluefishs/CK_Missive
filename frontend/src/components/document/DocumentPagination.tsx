@@ -12,7 +12,6 @@ import {
 } from 'antd';
 import {
   FileTextOutlined,
-  BarChartOutlined,
 } from '@ant-design/icons';
 import type { OfficialDocument } from '../../types/api';
 

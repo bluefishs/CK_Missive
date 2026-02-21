@@ -53,9 +53,8 @@ export const PermissionManager: React.FC<PermissionManagerProps> = ({
   const { message } = App.useApp();
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>(userPermissions);
   const [language, setLanguage] = useState<'zh' | 'en'>('zh');
-  const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
-
-  const treeData = useMemo(() => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- reserved for future tree view rendering
+  const _treeData = useMemo(() => {
     return Object.entries(PERMISSION_CATEGORIES).map(([categoryKey, category]) => ({
       title: (
         <Space>
@@ -63,10 +62,10 @@ export const PermissionManager: React.FC<PermissionManagerProps> = ({
           <Text strong>
             {language === 'zh' ? category.name_zh : category.name_en}
           </Text>
-          <Badge 
-            count={category.permissions.length} 
-            size="small" 
-            color="blue" 
+          <Badge
+            count={category.permissions.length}
+            size="small"
+            color="blue"
           />
         </Space>
       ),

@@ -13,7 +13,7 @@ import type { MessageInstance } from 'antd/es/message/interface';
 import dayjs from 'dayjs';
 import { Document, ProjectStaff } from '../../../types';
 import { logger } from '../../../utils/logger';
-import type { OperationMode, CriticalChange, CriticalChangeModalState } from './types';
+import type { OperationMode, CriticalChangeModalState } from './types';
 import { parseAssignee, formatAssignee, detectCriticalChanges } from './documentOperationsUtils';
 
 // ============================================================================

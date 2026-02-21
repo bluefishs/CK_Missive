@@ -112,6 +112,7 @@ const SiteConfigManagement: React.FC = () => {
 
   useEffect(() => {
     loadConfigData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadConfigData is recreated on each render; searchText and selectedCategory are sufficient triggers
   }, [searchText, selectedCategory]);
 
   // 顯示新增/編輯對話框
@@ -134,6 +135,7 @@ const SiteConfigManagement: React.FC = () => {
     try {
       if (editingConfig) {
         // 更新配置
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructuring to exclude key from updateValues
         const { key: _key, ...updateValues } = values;
         await secureApiService.updateConfiguration({
           key: editingConfig.key,

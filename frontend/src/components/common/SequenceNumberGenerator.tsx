@@ -122,6 +122,7 @@ const SequenceNumberGenerator: React.FC<SequenceNumberGeneratorProps> = ({
     if (autoGenerate && !value) {
       generateSequenceNumber();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- generateSequenceNumber is a stable function; only trigger on autoGenerate/value change
   }, [autoGenerate, value]);
 
   useEffect(() => {

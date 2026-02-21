@@ -11,8 +11,7 @@ import {
   AdminUserUpdate,
   AdminPermissionUpdate,
 } from '../../api/adminUsersApi';
-import { queryKeys, defaultQueryOptions } from '../../config/queryConfig';
-import type { User, Permission, UserPermissions } from '../../types/api';
+import { defaultQueryOptions } from '../../config/queryConfig';
 
 // ============================================================================
 // 查詢鍵擴展

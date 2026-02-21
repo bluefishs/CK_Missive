@@ -12,9 +12,7 @@ import {
   calendarApi,
   CalendarEvent,
   CalendarStats,
-  GoogleCalendarStatus,
   DEFAULT_CATEGORIES,
-  EventCategory,
 } from '../../api/calendarApi';
 import { queryKeys, defaultQueryOptions } from '../../config/queryConfig';
 
@@ -114,7 +112,7 @@ export const useCalendarPage = () => {
   const deleteMutation = useDeleteCalendarEvent();
   const syncMutation = useBulkSync();
 
-  const events = eventsQuery.data ?? [];
+  const events = useMemo(() => eventsQuery.data ?? [], [eventsQuery.data]);
 
   // 計算統計資料
   const stats: CalendarStats = useMemo(() => {

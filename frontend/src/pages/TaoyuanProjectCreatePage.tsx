@@ -22,7 +22,6 @@ import {
   DatePicker,
   Typography,
   Space,
-  Divider,
 } from 'antd';
 import { ResponsiveFormRow } from '../components/common/ResponsiveFormRow';
 import {
@@ -38,7 +37,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../config/queryConfig';
 
 import { taoyuanProjectsApi } from '../api/taoyuanDispatchApi';
-import { getProjectAgencyContacts, type ProjectAgencyContact } from '../api/projectAgencyContacts';
+import { getProjectAgencyContacts } from '../api/projectAgencyContacts';
 import { projectVendorsApi, type ProjectVendor } from '../api/projectVendorsApi';
 import type { TaoyuanProjectCreate } from '../types/api';
 import {
@@ -47,7 +46,7 @@ import {
   TAOYUAN_CONTRACT,
 } from '../constants/taoyuanOptions';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 const { Option } = Select;
 
 export const TaoyuanProjectCreatePage: React.FC = () => {

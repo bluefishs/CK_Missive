@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useVendorsStore, useVendorsStoreCompat } from '../vendors';
+import { useVendorsStore } from '../vendors';
 import { createMockVendor } from '../../test/testUtils';
 
 describe('useVendorsStore', () => {

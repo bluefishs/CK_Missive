@@ -107,6 +107,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
 
   // 批次操作狀態
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- setter reserved for future batch operation loading
   const [batchLoading, _setBatchLoading] = useState(false);
 
   // 搜尋狀態
@@ -204,7 +205,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
 
   const getRowNumber = useCallback((index: number): number => {
     return (pagination.current - 1) * pagination.pageSize + index + 1;
-  }, [pagination.current, pagination.pageSize]);
+  }, [pagination]);
 
   // ============================================================================
   // 欄位定義

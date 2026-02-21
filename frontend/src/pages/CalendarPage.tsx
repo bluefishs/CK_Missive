@@ -39,7 +39,6 @@ import {
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
-import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { EnhancedCalendarView } from '../components/calendar/EnhancedCalendarView';
 import { useCalendarPage } from '../hooks';
@@ -60,7 +59,6 @@ const CalendarPage: React.FC = () => {
   // React Query: 唯一的伺服器資料來源
   // ============================================================================
 
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
 
   const {
@@ -136,7 +134,7 @@ const CalendarPage: React.FC = () => {
         message.warning(`部分同步：${result.synced_count} 成功，${result.failed_count} 失敗`);
       } else if (result.failed_count > 0) {
         // 有失敗的事件，顯示詳細錯誤
-        const errors = (result as any).errors;
+        const errors = (result as Record<string, unknown>).errors as string[] | undefined;
         if (errors && errors.length > 0) {
           message.error(`同步失敗 (${result.failed_count} 個)：${errors[0]}`);
           logger.error('Google Calendar 同步錯誤:', errors);

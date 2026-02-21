@@ -89,6 +89,7 @@ export const StaffPage: React.FC = () => {
   const loadStaffList = useCallback(async () => {
     setLoading(true);
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const requestBody: Record<string, any> = {
         page: current,
         limit: pageSize,
@@ -100,6 +101,7 @@ export const StaffPage: React.FC = () => {
 
       // POST-only: 使用 POST /users/list 端點
       const response = await apiClient.post(API_ENDPOINTS.USERS.LIST, requestBody);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const data = response as any;
 
       // API 回傳 items 欄位

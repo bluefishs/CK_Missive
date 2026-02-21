@@ -48,7 +48,6 @@ import { aiApi } from '../api/aiApi';
 import type {
   SearchHistoryItem,
   SearchHistoryListRequest,
-  SearchStatsResponse,
   DailyTrend,
   TopQuery,
 } from '../api/aiApi';

@@ -39,7 +39,7 @@ interface ListQueryData<T> {
 }
 
 /** 工廠配置 */
-interface EntityWithStoreConfig<T, C, U> {
+interface EntityWithStoreConfig<T, U> {
   /** 是否同步 loading 狀態到 store（Documents 不需要） */
   syncLoading?: boolean;
   /** 建構 update mutation payload (預設 { id, data }) */
@@ -92,11 +92,14 @@ export function useEntityWithStoreCore<T, C, U, F>(
   store: StoreInterface<T, F>,
   listQuery: UseQueryResult<ListQueryData<T>>,
   mutations: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generic factory requires flexible mutation types
     create: UseMutationResult<any, Error, C>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generic factory requires flexible mutation types
     update: UseMutationResult<any, Error, any>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generic factory requires flexible mutation types
     delete: UseMutationResult<any, Error, number>;
   },
-  config: EntityWithStoreConfig<T, C, U> = {},
+  config: EntityWithStoreConfig<T, U> = {},
 ): EntityWithStoreCore<T, C, U, F> {
   const {
     syncLoading = true,
@@ -119,6 +122,7 @@ export function useEntityWithStoreCore<T, C, U, F>(
         totalPages: listQuery.data.pagination.total_pages,
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- store and itemsTransform are stable references from caller
   }, [listQuery.data]);
 
   // 可選：同步 loading 狀態
@@ -126,6 +130,7 @@ export function useEntityWithStoreCore<T, C, U, F>(
     if (syncLoading) {
       store.setLoading(listQuery.isLoading);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- store is a stable Zustand store reference
   }, [listQuery.isLoading, syncLoading]);
 
   // CRUD handlers
@@ -222,6 +227,7 @@ export function useEntityDetailCore<TStore, TQuery = TStore>(
     if (detailQuery.data) {
       store.setSelectedItem(detailQuery.data as unknown as TStore);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- store is a stable Zustand store reference
   }, [detailQuery.data]);
 
   return {

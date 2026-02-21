@@ -278,7 +278,7 @@ export const AgencyNameParser = {
    */
   _parseSingle(part: string): ParsedAgency | null {
     // 模式1: "代碼 (機關名稱)" 或 "代碼\n(機關名稱)"
-    const pattern1 = /^([A-Z0-9]+)\s*[\n\(（](.+?)[\)）]?\s*$/i;
+    const pattern1 = /^([A-Z0-9]+)\s*[\n(（](.+?)[)）]?\s*$/i;
     const match1 = part.match(pattern1);
     if (match1 && match1[1] && match1[2]) {
       return { code: match1[1].toUpperCase(), name: match1[2].trim() };
@@ -490,7 +490,7 @@ export const FormRules = {
    * 電話號碼格式
    */
   phone: (message = '請輸入有效的電話號碼') => ({
-    pattern: /^[\d\-\(\)\+\s]{7,20}$/,
+    pattern: /^[\d\-()+\s]{7,20}$/,
     message,
   }),
 
@@ -585,7 +585,7 @@ export const ApiResponseValidators = {
    * @param value 要驗證的值
    * @param fieldName 欄位名稱（用於錯誤訊息）
    */
-  isValidId(value: unknown, fieldName = 'ID'): value is number {
+  isValidId(value: unknown, _fieldName = 'ID'): value is number {
     if (value === undefined || value === null) {
       return false;
     }

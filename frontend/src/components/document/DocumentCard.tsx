@@ -131,23 +131,23 @@ const DocumentCardInner: React.FC<DocumentCardProps> = ({
         </div>
 
         {/* 承攬案件 */}
-        {(document as any).contract_case && (
+        {document.contract_case && (
           <div className="info-row">
             <FolderOutlined className="info-icon" />
             <Text className="info-label">案件：</Text>
             <Text className="info-value" ellipsis type="secondary">
-              {(document as any).contract_case}
+              {document.contract_case}
             </Text>
           </div>
         )}
 
         {/* 附件數量 */}
-        {(document as any).attachment_count > 0 && (
+        {(document.attachment_count ?? 0) > 0 && (
           <div className="info-row">
             <PaperClipOutlined className="info-icon" />
             <Text className="info-label">附件：</Text>
             <Tag color="cyan" style={{ margin: 0 }}>
-              {(document as any).attachment_count} 個
+              {document.attachment_count} 個
             </Tag>
           </div>
         )}

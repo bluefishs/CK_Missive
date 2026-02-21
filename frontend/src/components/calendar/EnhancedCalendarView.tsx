@@ -61,7 +61,7 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
   loading = false,
   onEventUpdate,
   onEventDelete,
-  onReminderUpdate,
+  onReminderUpdate: _onReminderUpdate,
   onDateSelect,
   onRefresh
 }) => {
@@ -74,7 +74,7 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
 
   // 狀態管理
   const [viewMode, setViewMode] = useState<ViewMode>('month');
-  const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs());
+  const [, setSelectedDate] = useState<Dayjs>(dayjs());
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [selectedEventIds, setSelectedEventIds] = useState<number[]>([]);
   const [showEventModal, setShowEventModal] = useState(false);

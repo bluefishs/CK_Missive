@@ -9,7 +9,6 @@ import {
   Space,
   Row,
   Col,
-  App,
 } from 'antd';
 import {
   MailOutlined,
@@ -26,7 +25,6 @@ import type { ForgotPasswordFormValues } from '../types/forms';
 type ForgotPasswordForm = ForgotPasswordFormValues;
 
 const ForgotPasswordPage: React.FC = () => {
-  const { message } = App.useApp();
   const [form] = Form.useForm();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);

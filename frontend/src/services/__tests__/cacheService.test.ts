@@ -2,7 +2,7 @@
  * 快取服務測試
  * Cache Service Tests
  */
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // Mock localStorage
 const localStorageMock = (() => {

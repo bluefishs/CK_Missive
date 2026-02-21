@@ -44,6 +44,7 @@ export interface SortConfig {
   order: SortOrder;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- generic default type for flexible usage
 export interface UnifiedTableProps<T = any> extends Omit<TableProps<T>, 'columns' | 'title'> {
   columns: ColumnsType<T>;
   data: T[];
@@ -60,6 +61,7 @@ export interface UnifiedTableProps<T = any> extends Omit<TableProps<T>, 'columns
   sequenceNumberTitle?: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- generic constraint for flexible record types
 function UnifiedTable<T extends Record<string, any>>({
   columns,
   data,
@@ -77,6 +79,7 @@ function UnifiedTable<T extends Record<string, any>>({
   ...tableProps
 }: UnifiedTableProps<T>) {
   const { message } = App.useApp();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- filter values can be any type (string, number, date range, etc.)
   const [filters, setFilters] = useState<Record<string, any>>({});
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
   const [searchText, setSearchText] = useState('');

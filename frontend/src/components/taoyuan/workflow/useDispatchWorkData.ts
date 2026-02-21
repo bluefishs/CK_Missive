@@ -14,10 +14,6 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { workflowApi } from '../../../api/taoyuan';
-import type {
-  WorkRecord,
-  DocBrief,
-} from '../../../types/taoyuan';
 import type { DispatchDocumentLink, LinkType } from '../../../types/api';
 import type { CorrespondenceBodyData } from './CorrespondenceBody';
 import { getDocDirection, isOutgoingDocNumber, buildDocPairs } from './chainUtils';

@@ -39,6 +39,7 @@ const RegisterPage: React.FC = () => {
   const handleSubmit = async (values: RegisterForm) => {
     setLoading(true);
     try {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructuring to exclude confirmPassword and agreement from registerData
       const { confirmPassword, agreement, ...registerData } = values;
 
       // 呼叫註冊 API

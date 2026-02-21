@@ -27,7 +27,6 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { isReceiveDocument } from '../../../types/api';
 import type { TaoyuanProject, DocumentProjectLink, OfficialDocument } from '../../../types/api';
 import { logger } from '../../../utils/logger';
 
@@ -45,7 +44,7 @@ interface DocumentProjectLinkTabProps {
 }
 
 export const DocumentProjectLinkTab: React.FC<DocumentProjectLinkTabProps> = ({
-  document,
+  document: _document,
   isEditing,
   projectLinks,
   projectLinksLoading,

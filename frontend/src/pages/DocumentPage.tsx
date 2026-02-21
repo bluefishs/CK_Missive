@@ -4,16 +4,12 @@ import { Typography, Button, Space, Modal, App } from 'antd';
 import type { TablePaginationConfig, FilterValue, SorterResult, TableCurrentDataSource } from 'antd/es/table/interface';
 import { PlusOutlined, ReloadOutlined, UploadOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { DocumentList } from '../components/document/DocumentList';
 import { DocumentFilter } from '../components/document/DocumentFilter';
 import { DocumentTabs } from '../components/document/DocumentTabs';
-import { DocumentPagination } from '../components/document/DocumentPagination';
 import { DocumentImport } from '../components/document/DocumentImport';
 import { exportDocumentsToExcel } from '../utils/exportUtils';
 import {
   useDocuments,
-  useCreateDocument,
-  useUpdateDocument,
   useDeleteDocument,
   useAuthGuard,
   useResponsive,
@@ -88,13 +84,10 @@ export const DocumentPage: React.FC = () => {
   // 直接從 React Query 取得資料（不經過 Zustand）
   const documents = documentsData?.items ?? [];
   const totalCount = documentsData?.pagination?.total ?? 0;
-  const totalPages = documentsData?.pagination?.total_pages ?? 0;
 
   // ============================================================================
   // Mutation Hooks: 自動處理快取失效
   // ============================================================================
-  const createMutation = useCreateDocument();
-  const updateMutation = useUpdateDocument();
   const deleteMutation = useDeleteDocument();
 
   // 強制刷新（直接調用 refetch）
@@ -123,14 +116,6 @@ export const DocumentPage: React.FC = () => {
     setSortField('');
     setSortOrder(null);
     resetFilters();
-  };
-
-  const handlePageChange = (newPage: number) => {
-    setPagination({ page: newPage });
-  };
-
-  const handleLimitChange = (newLimit: number) => {
-    setPagination({ page: 1, limit: newLimit });
   };
 
   const handleTableChange = (
@@ -172,30 +157,8 @@ export const DocumentPage: React.FC = () => {
     navigate('/documents/create');
   };
 
-  const handleCopyDocument = (document: Document) => {
-    // 複製功能導航到新增頁面，帶上 copy 參數
-    navigate(`/documents/create?copyFrom=${document.id}`);
-  };
-
   const handleDeleteDocument = (document: Document) => {
     setDeleteModal({ open: true, document });
-  };
-
-  const handleArchiveDocument = async (document: Document) => {
-    try {
-      message.success(`公文 ${document.doc_number} 已歸檔`);
-      await forceRefresh();
-    } catch (error) {
-      message.error('歸檔失敗');
-    }
-  };
-
-  const handleExportPdf = async (document: Document) => {
-    try {
-      message.success(`正在匯出公文 ${document.doc_number} 的PDF...`);
-    } catch (error) {
-      message.error('PDF匯出失敗');
-    }
   };
 
   const handleAddToCalendar = async (document: Document) => {
@@ -212,41 +175,6 @@ export const DocumentPage: React.FC = () => {
   // ============================================================================
   // 批量操作
   // ============================================================================
-  const handleBatchExport = async (selectedDocuments: Document[]) => {
-    setIsExporting(true);
-    try {
-      await exportDocumentsToExcel(selectedDocuments, undefined, undefined, false);
-      message.success(`已成功匯出 ${selectedDocuments.length} 份文件`);
-    } catch (error) {
-      logger.error('批量匯出失敗:', error);
-      message.error('批量匯出失敗');
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const handleBatchDelete = async (selectedDocuments: Document[]) => {
-    try {
-      const ids = selectedDocuments.map(d => d.id);
-      logger.debug('批量刪除 IDs:', ids);
-      message.success(`已刪除 ${selectedDocuments.length} 個公文`);
-      await forceRefresh();
-    } catch (error) {
-      message.error('批量刪除失敗');
-    }
-  };
-
-  const handleBatchArchive = async (selectedDocuments: Document[]) => {
-    try {
-      const ids = selectedDocuments.map(d => d.id);
-      logger.debug('批量歸檔 IDs:', ids);
-      message.success(`已歸檔 ${selectedDocuments.length} 個公文`);
-      await forceRefresh();
-    } catch (error) {
-      message.error('批量歸檔失敗');
-    }
-  };
-
   // ============================================================================
   // 刪除操作（保留確認 Modal，符合 UI 規範）
   // ============================================================================

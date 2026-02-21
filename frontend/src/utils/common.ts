@@ -12,6 +12,7 @@ export function delay(ms: number): Promise<void> {
 }
 
 /** 防抖函數 */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function debounce<T extends (...args: any[]) => any>(
   func: T,
   wait: number
@@ -30,6 +31,7 @@ export function debounce<T extends (...args: any[]) => any>(
 }
 
 /** 節流函數 */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function throttle<T extends (...args: any[]) => any>(
   func: T,
   limit: number
@@ -58,7 +60,7 @@ export function deepClone<T>(obj: T): T {
   if (typeof obj === "object") {
     const cloned: Record<string, unknown> = {};
     for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
         cloned[key] = deepClone(obj[key]);
       }
     }

@@ -14,7 +14,7 @@ import {
 import {
   BellOutlined, CalendarOutlined, AlertOutlined, PlusOutlined,
   DeleteOutlined, MailOutlined, NotificationOutlined, GoogleOutlined,
-  ClockCircleOutlined, EnvironmentOutlined,
+  EnvironmentOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 

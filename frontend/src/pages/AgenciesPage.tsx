@@ -11,7 +11,6 @@ import {
   Row,
   Col,
   Tag,
-  App,
   Select,
   Pagination,
 } from 'antd';
@@ -39,11 +38,10 @@ const { Search } = Input;
 type DataIndex = keyof AgencyWithStats;
 
 export const AgenciesPage: React.FC = () => {
-  const { message } = App.useApp();
   const navigate = useNavigate();
 
   // 響應式設計
-  const { isMobile, isTablet, responsiveValue } = useResponsive();
+  const { isMobile, responsiveValue } = useResponsive();
   const pagePadding = responsiveValue({ mobile: 12, tablet: 16, desktop: 24 });
 
   // UI 狀態
@@ -192,26 +190,6 @@ export const AgenciesPage: React.FC = () => {
   };
 
   // 刪除功能已移至 AgencyFormPage (導航模式規範)
-
-  // 獲取類型標籤顏色
-  const getTypeTagColor = (type: string) => {
-    switch (type) {
-      case 'sender': return 'blue';
-      case 'receiver': return 'green';
-      case 'both': return 'purple';
-      default: return 'default';
-    }
-  };
-
-  // 獲取類型文字
-  const getTypeText = (type: string) => {
-    switch (type) {
-      case 'sender': return '發文機關';
-      case 'receiver': return '收文機關';
-      case 'both': return '收發文機關';
-      default: return '未知';
-    }
-  };
 
   // 獲取分類圖示（三大分類）
   const getCategoryIcon = (category: string) => {

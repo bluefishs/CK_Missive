@@ -8,8 +8,7 @@
  *   cd frontend && npm run test -- DocumentOperations
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
 import { ConfigProvider, App } from 'antd';
@@ -111,8 +110,9 @@ const createTestQueryClient = () =>
     },
   });
 
-// 建立 wrapper
-const createWrapper = () => {
+// 建立 wrapper (保留供未來整合測試使用)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _createWrapper = () => {
   const queryClient = createTestQueryClient();
   const Wrapper = ({ children }: { children: React.ReactNode }) => (
     <QueryClientProvider client={queryClient}>
@@ -126,8 +126,9 @@ const createWrapper = () => {
   return Wrapper;
 };
 
-// 範例公文資料
-const sampleDocument: Document = {
+// 範例公文資料 (保留供未來整合測試使用)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _sampleDocument: Document = {
   id: 1,
   doc_number: 'TEST-2026-001',
   subject: '測試公文主旨',

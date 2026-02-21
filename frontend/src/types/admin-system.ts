@@ -427,7 +427,7 @@ export interface DashboardStats {
  * 近期公文 - 基於 OfficialDocument 的簡化版本
  * 僅包含儀表板顯示所需的欄位
  */
-export interface RecentDocument extends Pick<OfficialDocument,
+export type RecentDocument = Pick<OfficialDocument,
   | 'id'
   | 'doc_number'
   | 'subject'
@@ -437,7 +437,7 @@ export interface RecentDocument extends Pick<OfficialDocument,
   | 'creator'
   | 'created_at'
   | 'receive_date'
-> {}
+>
 
 /** 儀表板完整回應 */
 export interface DashboardResponse {

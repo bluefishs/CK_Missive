@@ -7,12 +7,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   agenciesApi,
   AgencyListParams,
-  Agency,
   AgencyCreate,
   AgencyUpdate,
-  AgencyWithStats,
-  AgencyOption,
-  AgencyStatistics,
 } from '../../api/agenciesApi';
 import { queryKeys, defaultQueryOptions } from '../../config/queryConfig';
 

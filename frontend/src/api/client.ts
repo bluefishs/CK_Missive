@@ -28,7 +28,7 @@ import {
 
 // 從拆分模組匯入
 import { ApiException } from './errors';
-import { RequestThrottler, THROTTLE_CONFIG, RETRY_CONFIG, isRetryableNetworkError } from './throttler';
+import { RequestThrottler, RETRY_CONFIG, isRetryableNetworkError } from './throttler';
 
 // 向後相容 re-export（現有 import { ApiException } from './client' 仍可運作）
 export { ApiException } from './errors';
