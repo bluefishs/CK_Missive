@@ -1,4 +1,4 @@
-# TypeScript 編譯檢查 Hook (v2.0.0)
+﻿# TypeScript 編譯檢查 Hook (v2.0.0)
 # PostToolUse: 在修改 .ts/.tsx 檔案後執行
 # 協議: 從 stdin 讀取 JSON，根據 file_path 副檔名決定是否執行
 

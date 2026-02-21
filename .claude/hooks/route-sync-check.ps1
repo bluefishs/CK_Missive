@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     路徑同步檢查 Hook
 

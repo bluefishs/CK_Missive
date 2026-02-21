@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     API 序列化檢查 Hook
 .DESCRIPTION

@@ -1,4 +1,4 @@
-# Python 語法檢查 Hook (v2.0.0)
+﻿# Python 語法檢查 Hook (v2.0.0)
 # PostToolUse: 在修改 .py 檔案後執行
 # 協議: 從 stdin 讀取 JSON，根據 file_path 副檔名決定是否執行
 
@@ -35,10 +35,17 @@ if (-not (Test-Path $backendDir)) {
 Push-Location $backendDir
 
 try {
-    if ($filePath -and (Test-Path $filePath)) {
-        $result = & python -m py_compile $filePath 2>&1
+    # 調整路徑：去掉 backend/ 前綴（因為已 Push-Location 到 backend/）
+    $targetFile = $filePath
+    if ($targetFile) {
+        $targetFile = $targetFile -replace '^(\.[\\/])?backend[\\/]', ''
+        $targetFile = $targetFile -replace '\\', '/'
+    }
+
+    if ($targetFile -and (Test-Path $targetFile)) {
+        $result = & python -m py_compile $targetFile 2>&1
     } else {
-        $result = & python -m py_compile app/main.py 2>&1
+        $result = & python -m py_compile main.py 2>&1
     }
 
     $exitCode = $LASTEXITCODE

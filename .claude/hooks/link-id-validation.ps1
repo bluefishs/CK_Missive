@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Link ID 驗證 Hook - 檢查關聯端點是否正確返回 link_id
 

@@ -1,4 +1,4 @@
-# SessionStart Hook: 自動載入專案上下文 (v1.0.0)
+﻿# SessionStart Hook: 自動載入專案上下文 (v1.0.0)
 # 事件: SessionStart (matcher: startup)
 # 輸出: stdout 內容自動加入 Claude 上下文
 

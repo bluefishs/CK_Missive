@@ -1,4 +1,4 @@
-# 檔案位置驗證 Hook (v2.0.0)
+﻿# 檔案位置驗證 Hook (v2.0.0)
 # PreToolUse: 在建立/編輯檔案前驗證位置是否符合架構規範
 # 協議: 從 stdin 讀取 JSON，從 tool_input.file_path 取得路徑
 
