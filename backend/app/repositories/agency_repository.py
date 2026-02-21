@@ -23,6 +23,7 @@ from app.extended.models import (
     GovernmentAgency,
     OfficialDocument,
 )
+from sqlalchemy import update as sa_update
 
 logger = logging.getLogger(__name__)
 
@@ -903,4 +904,45 @@ class AgencyRepository(BaseRepository[GovernmentAgency]):
             limit=limit,
             order_by='agency_name',
             order_desc=False
+        )
+
+    # =========================================================================
+    # 資料修復方法 (v1.2.0)
+    # =========================================================================
+
+    async def get_all_agencies(self) -> List[GovernmentAgency]:
+        """
+        取得所有機關（不分頁，用於修復等維護操作）
+
+        Returns:
+            全部機關列表
+        """
+        result = await self.db.execute(select(GovernmentAgency))
+        return list(result.scalars().all())
+
+    async def reassign_document_agency(
+        self,
+        old_agency_id: int,
+        new_agency_id: int
+    ) -> None:
+        """
+        將公文的機關關聯從舊機關轉移到新機關
+
+        用於機關合併時，將所有關聯公文遷移。
+
+        Args:
+            old_agency_id: 要被替換的機關 ID
+            new_agency_id: 新的目標機關 ID
+        """
+        # 更新 sender_agency_id
+        await self.db.execute(
+            sa_update(OfficialDocument)
+            .where(OfficialDocument.sender_agency_id == old_agency_id)
+            .values(sender_agency_id=new_agency_id)
+        )
+        # 更新 receiver_agency_id
+        await self.db.execute(
+            sa_update(OfficialDocument)
+            .where(OfficialDocument.receiver_agency_id == old_agency_id)
+            .values(receiver_agency_id=new_agency_id)
         )

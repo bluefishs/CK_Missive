@@ -12,7 +12,7 @@
  * @updated 2026-02-19 - 提取 useNaturalSearch hook，元件僅保留渲染邏輯
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import {
   AutoComplete,
   Button as AntButton,
@@ -58,7 +58,12 @@ const CompactResultItem: React.FC<CompactResultItemProps> = React.memo(({
   item, isExpanded, onToggle, onDocumentClick, onPreview, onDownload,
 }) => (
   <div
+    role="button"
+    tabIndex={0}
+    aria-expanded={isExpanded}
+    aria-label={`${item.doc_number} ${item.subject}`}
     onClick={onToggle}
+    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); } }}
     style={{
       cursor: 'pointer', borderRadius: 6, marginBottom: 2, overflow: 'hidden',
       background: isExpanded ? '#e6f7ff' : '#fafafa',
@@ -178,7 +183,14 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({ height, 
     items.push({
       value: '__clear_history__',
       label: (
-        <div style={{ textAlign: 'center', borderTop: '1px solid #f0f0f0', paddingTop: 4 }} onClick={clearAllHistory}>
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label="清除所有搜尋歷史"
+          style={{ textAlign: 'center', borderTop: '1px solid #f0f0f0', paddingTop: 4, cursor: 'pointer' }}
+          onClick={clearAllHistory}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); clearAllHistory(e); } }}
+        >
           <AntButton type="text" size="small" icon={<DeleteOutlined style={{ fontSize: 11 }} />} style={{ color: '#999', fontSize: 12 }}>清除搜尋歷史</AntButton>
         </div>
       ),
@@ -223,7 +235,9 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({ height, 
                 <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 6 }}>試試看：</Text>
                 <Space size={[4, 6]} wrap>
                   {['找桃園市政府上個月的公文', '有截止日的待處理收文', '今年度的會勘通知', '乾坤測字 1140 開頭的公文'].map((s) => (
-                    <Tag key={s} color="blue" style={{ cursor: 'pointer', fontSize: 11 }} onClick={() => { setQuery(s); handleSearch(s); }}>{s}</Tag>
+                    <Tag key={s} color="blue" style={{ cursor: 'pointer', fontSize: 11 }}
+                      aria-label={`搜尋範例: ${s}`}
+                      onClick={() => { setQuery(s); handleSearch(s); }}>{s}</Tag>
                   ))}
                 </Space>
               </div>
@@ -245,6 +259,8 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({ height, 
                 {fromCache && <Tag color="blue" style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px', margin: 0 }}>快取</Tag>}
                 {parsedIntent && parsedIntent.confidence > 0 && (
                   <Tag color="cyan" style={{ cursor: 'pointer', fontSize: 10, lineHeight: '16px', padding: '0 4px', margin: 0 }}
+                    aria-expanded={showIntentDetails}
+                    aria-label={`AI 解析詳情 (${Math.round(parsedIntent.confidence * 100)}%)`}
                     onClick={() => setShowIntentDetails(!showIntentDetails)}>
                     AI 解析 {Math.round(parsedIntent.confidence * 100)}% {showIntentDetails ? '▾' : '▸'}
                   </Tag>

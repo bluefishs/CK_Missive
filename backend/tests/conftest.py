@@ -215,16 +215,12 @@ def mock_vendor_service():
     from app.services.vendor_service import VendorService
 
     service = MagicMock(spec=VendorService)
-    service.get_vendors = AsyncMock(return_value={
-        "items": [],
-        "total": 0,
-        "page": 1,
-        "limit": 20
-    })
-    service.get_vendor_by_id = AsyncMock(return_value=None)
-    service.create_vendor = AsyncMock(return_value=None)
-    service.update_vendor = AsyncMock(return_value=None)
-    service.delete_vendor = AsyncMock(return_value=True)
+    service.get_list = AsyncMock(return_value=[])
+    service.get_count = AsyncMock(return_value=0)
+    service.get_by_id = AsyncMock(return_value=None)
+    service.create = AsyncMock(return_value=None)
+    service.update = AsyncMock(return_value=None)
+    service.delete = AsyncMock(return_value=True)
 
     return service
 
@@ -242,9 +238,9 @@ def mock_project_service():
         "limit": 20
     })
     service.get_project_by_id = AsyncMock(return_value=None)
-    service.create_project = AsyncMock(return_value=None)
-    service.update_project = AsyncMock(return_value=None)
-    service.delete_project = AsyncMock(return_value=True)
+    service.create = AsyncMock(return_value=None)
+    service.update = AsyncMock(return_value=None)
+    service.delete = AsyncMock(return_value=True)
 
     return service
 
@@ -261,10 +257,10 @@ def mock_agency_service():
         "page": 1,
         "limit": 20
     })
-    service.get_agency_by_id = AsyncMock(return_value=None)
-    service.create_agency = AsyncMock(return_value=None)
-    service.update_agency = AsyncMock(return_value=None)
-    service.delete_agency = AsyncMock(return_value=True)
+    service.get_by_id = AsyncMock(return_value=None)
+    service.create = AsyncMock(return_value=None)
+    service.update = AsyncMock(return_value=None)
+    service.delete = AsyncMock(return_value=True)
 
     return service
 

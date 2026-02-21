@@ -48,14 +48,14 @@ async def list_vendors(
     """
     skip = (query.page - 1) * query.limit if query.page else 0
 
-    vendors = await vendor_service.get_vendors(
+    vendors = await vendor_service.get_list(
         skip=skip,
         limit=query.limit,
         search=query.search,
         business_type=query.business_type,
         rating=query.rating
     )
-    total = await vendor_service.get_total_vendors(
+    total = await vendor_service.get_count(
         search=query.search,
         business_type=query.business_type,
         rating=query.rating
@@ -89,7 +89,7 @@ async def create_vendor(
     若廠商代碼已存在會回傳 409 Conflict 錯誤。
     """
     try:
-        return await vendor_service.create_vendor(vendor)
+        return await vendor_service.create(vendor)
     except ValueError as e:
         raise ConflictException(
             message=str(e),
@@ -113,7 +113,7 @@ async def get_vendor_detail(
 
     🔒 需要認證。若找不到廠商會回傳 404 Not Found 錯誤。
     """
-    db_vendor = await vendor_service.get_vendor(vendor_id)
+    db_vendor = await vendor_service.get_by_id(vendor_id)
     if not db_vendor:
         raise NotFoundException(resource="廠商", resource_id=vendor_id)
     return db_vendor
@@ -136,7 +136,7 @@ async def update_vendor(
     🔒 權限要求：vendors:edit
     若找不到廠商會回傳 404 Not Found 錯誤。
     """
-    updated_vendor = await vendor_service.update_vendor(vendor_id, vendor)
+    updated_vendor = await vendor_service.update(vendor_id, vendor)
     if not updated_vendor:
         raise NotFoundException(resource="廠商", resource_id=vendor_id)
     return updated_vendor
@@ -160,7 +160,7 @@ async def delete_vendor(
     - 若廠商與專案有關聯會回傳 409 Conflict 錯誤
     """
     try:
-        success = await vendor_service.delete_vendor(vendor_id)
+        success = await vendor_service.delete(vendor_id)
         if not success:
             raise NotFoundException(resource="廠商", resource_id=vendor_id)
         return DeleteResponse(
@@ -193,7 +193,7 @@ async def get_vendor_statistics(
     - 按業務類型分組統計
     - 按評等分組統計
     """
-    stats = await vendor_service.get_vendor_statistics()
+    stats = await vendor_service.get_statistics()
     return VendorStatisticsResponse(success=True, data=stats)
 
 
@@ -221,6 +221,6 @@ async def list_vendors_legacy(
     此端點為向後相容保留，請改用 POST /vendors/list
     需要認證。
     """
-    vendors = await vendor_service.get_vendors(skip, limit, search)
-    total = await vendor_service.get_total_vendors(search)
+    vendors = await vendor_service.get_list(skip, limit, search)
+    total = await vendor_service.get_count(search)
     return {"vendors": vendors, "total": total}

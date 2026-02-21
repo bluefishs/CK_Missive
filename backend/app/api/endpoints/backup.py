@@ -7,10 +7,12 @@
 @date 2026-02-07
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from starlette.responses import Response
 
+from app.core.rate_limiter import limiter
 from app.api.endpoints.auth import get_current_user
-from app.services.backup_service import backup_service
+from app.services.backup import backup_service
 from app.services.backup_scheduler import (
     get_backup_scheduler_status,
     start_backup_scheduler,
@@ -48,7 +50,10 @@ def _is_superuser(user) -> bool:
 # ============================================================================
 
 @router.post("/create", summary="建立備份")
+@limiter.limit("5/minute")
 async def create_backup(
+    http_request: Request,
+    response: Response,
     request: CreateBackupRequest,
     current_user=Depends(get_current_user)
 ):
@@ -73,7 +78,8 @@ async def create_backup(
 
 
 @router.post("/list", summary="列出備份")
-async def list_backups(current_user=Depends(get_current_user)):
+@limiter.limit("5/minute")
+async def list_backups(request: Request, response: Response, current_user=Depends(get_current_user)):
     """
     列出所有可用備份
 
@@ -86,7 +92,10 @@ async def list_backups(current_user=Depends(get_current_user)):
 
 
 @router.post("/delete", summary="刪除備份")
+@limiter.limit("5/minute")
 async def delete_backup(
+    http_request: Request,
+    response: Response,
     request: DeleteBackupRequest,
     current_user=Depends(get_current_user)
 ):
@@ -111,7 +120,10 @@ async def delete_backup(
 
 
 @router.post("/restore", summary="還原資料庫")
+@limiter.limit("5/minute")
 async def restore_database(
+    http_request: Request,
+    response: Response,
     request: RestoreBackupRequest,
     current_user=Depends(get_current_user)
 ):
@@ -132,7 +144,8 @@ async def restore_database(
 
 
 @router.post("/config", summary="取得備份設定")
-async def get_backup_config(current_user=Depends(get_current_user)):
+@limiter.limit("5/minute")
+async def get_backup_config(request: Request, response: Response, current_user=Depends(get_current_user)):
     """
     取得目前備份設定資訊
 
@@ -145,7 +158,8 @@ async def get_backup_config(current_user=Depends(get_current_user)):
 
 
 @router.post("/environment-status", summary="取得備份環境狀態")
-async def get_environment_status(current_user=Depends(get_current_user)):
+@limiter.limit("5/minute")
+async def get_environment_status(request: Request, response: Response, current_user=Depends(get_current_user)):
     """
     取得備份環境狀態
 
@@ -158,7 +172,8 @@ async def get_environment_status(current_user=Depends(get_current_user)):
 
 
 @router.post("/cleanup", summary="清理孤立備份檔案")
-async def cleanup_orphan_files(current_user=Depends(get_current_user)):
+@limiter.limit("5/minute")
+async def cleanup_orphan_files(request: Request, response: Response, current_user=Depends(get_current_user)):
     """
     清理 0-byte 孤立備份檔案
 
@@ -171,7 +186,8 @@ async def cleanup_orphan_files(current_user=Depends(get_current_user)):
 
 
 @router.post("/status", summary="取得備份狀態")
-async def get_backup_status(current_user=Depends(get_current_user)):
+@limiter.limit("5/minute")
+async def get_backup_status(request: Request, response: Response, current_user=Depends(get_current_user)):
     """
     取得備份系統狀態
 
@@ -208,7 +224,8 @@ async def get_backup_status(current_user=Depends(get_current_user)):
 # ============================================================================
 
 @router.post("/remote-config", summary="取得異地備份設定")
-async def get_remote_backup_config(current_user=Depends(get_current_user)):
+@limiter.limit("5/minute")
+async def get_remote_backup_config(request: Request, response: Response, current_user=Depends(get_current_user)):
     """
     取得異地備份路徑設定
 
@@ -221,7 +238,10 @@ async def get_remote_backup_config(current_user=Depends(get_current_user)):
 
 
 @router.post("/remote-config/update", summary="更新異地備份設定")
+@limiter.limit("5/minute")
 async def update_remote_backup_config(
+    http_request: Request,
+    response: Response,
     request: RemoteBackupConfigRequest,
     current_user=Depends(get_current_user)
 ):
@@ -245,7 +265,8 @@ async def update_remote_backup_config(
 
 
 @router.post("/remote-sync", summary="手動觸發異地同步")
-async def trigger_remote_sync(current_user=Depends(get_current_user)):
+@limiter.limit("5/minute")
+async def trigger_remote_sync(request: Request, response: Response, current_user=Depends(get_current_user)):
     """
     手動觸發異地備份同步
 
@@ -267,7 +288,10 @@ async def trigger_remote_sync(current_user=Depends(get_current_user)):
 # ============================================================================
 
 @router.post("/logs", summary="查詢備份日誌")
+@limiter.limit("5/minute")
 async def get_backup_logs(
+    http_request: Request,
+    response: Response,
     request: BackupLogListRequest,
     current_user=Depends(get_current_user)
 ):
@@ -294,7 +318,8 @@ async def get_backup_logs(
 # ============================================================================
 
 @router.post("/scheduler/status", summary="取得排程器狀態")
-async def get_scheduler_status(current_user=Depends(get_current_user)):
+@limiter.limit("5/minute")
+async def get_scheduler_status(request: Request, response: Response, current_user=Depends(get_current_user)):
     """
     取得備份排程器狀態
 
@@ -307,7 +332,8 @@ async def get_scheduler_status(current_user=Depends(get_current_user)):
 
 
 @router.post("/scheduler/start", summary="啟動排程器")
-async def start_scheduler(current_user=Depends(get_current_user)):
+@limiter.limit("5/minute")
+async def start_scheduler(request: Request, response: Response, current_user=Depends(get_current_user)):
     """
     啟動備份排程器
 
@@ -321,7 +347,8 @@ async def start_scheduler(current_user=Depends(get_current_user)):
 
 
 @router.post("/scheduler/stop", summary="停止排程器")
-async def stop_scheduler(current_user=Depends(get_current_user)):
+@limiter.limit("5/minute")
+async def stop_scheduler(request: Request, response: Response, current_user=Depends(get_current_user)):
     """
     停止備份排程器
 

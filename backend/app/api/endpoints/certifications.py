@@ -6,6 +6,7 @@
 
 變更記錄：
 - 2026-01-26: 新增附件上傳端點 /{cert_id}/upload-attachment
+- 2026-02-21: 遷移至 StaffCertificationRepository + UserRepository (v1.59.0)
 """
 import os
 import uuid
@@ -17,12 +18,11 @@ logger = logging.getLogger(__name__)
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import func, or_, select
 from typing import Optional
 from datetime import datetime
 
 from app.db.database import get_async_db
-from app.extended.models import StaffCertification, User
+from app.repositories import StaffCertificationRepository, UserRepository
 from app.schemas.certification import (
     CertificationCreate,
     CertificationUpdate,
@@ -54,27 +54,24 @@ async def create_certification(
     """
     try:
         # 檢查使用者是否存在
-        result = await db.execute(select(User).filter(User.id == data.user_id))
-        user = result.scalar_one_or_none()
+        user_repo = UserRepository(db)
+        user = await user_repo.get_by_id(data.user_id)
         if not user:
             return error_response("找不到指定的使用者", code=404)
 
         # 建立證照紀錄
-        certification = StaffCertification(
-            user_id=data.user_id,
-            cert_type=data.cert_type,
-            cert_name=data.cert_name,
-            issuing_authority=data.issuing_authority,
-            cert_number=data.cert_number,
-            issue_date=data.issue_date,
-            expiry_date=data.expiry_date,
-            status=data.status,
-            notes=data.notes,
-        )
-
-        db.add(certification)
-        await db.commit()
-        await db.refresh(certification)
+        cert_repo = StaffCertificationRepository(db)
+        certification = await cert_repo.create({
+            "user_id": data.user_id,
+            "cert_type": data.cert_type,
+            "cert_name": data.cert_name,
+            "issuing_authority": data.issuing_authority,
+            "cert_number": data.cert_number,
+            "issue_date": data.issue_date,
+            "expiry_date": data.expiry_date,
+            "status": data.status,
+            "notes": data.notes,
+        })
 
         return success_response(
             data=CertificationResponse.model_validate(certification).model_dump(),
@@ -100,45 +97,21 @@ async def get_user_certifications(
             params = CertificationListParams()
 
         # 檢查使用者是否存在
-        result = await db.execute(select(User).filter(User.id == user_id))
-        user = result.scalar_one_or_none()
+        user_repo = UserRepository(db)
+        user = await user_repo.get_by_id(user_id)
         if not user:
             return error_response("找不到指定的使用者", code=404)
 
-        # 建立查詢
-        query = select(StaffCertification).filter(StaffCertification.user_id == user_id)
-
-        # 證照類型篩選
-        if params.cert_type:
-            query = query.filter(StaffCertification.cert_type == params.cert_type)
-
-        # 狀態篩選
-        if params.status:
-            query = query.filter(StaffCertification.status == params.status)
-
-        # 關鍵字搜尋
-        if params.keyword:
-            keyword = f"%{params.keyword}%"
-            query = query.filter(
-                or_(
-                    StaffCertification.cert_name.ilike(keyword),
-                    StaffCertification.issuing_authority.ilike(keyword),
-                    StaffCertification.cert_number.ilike(keyword),
-                )
-            )
-
-        # 計算總數
-        count_query = select(func.count()).select_from(query.subquery())
-        total_result = await db.execute(count_query)
-        total = total_result.scalar() or 0
-
-        # 分頁
-        offset = (params.page - 1) * params.page_size
-        query = query.order_by(StaffCertification.created_at.desc()) \
-            .offset(offset).limit(params.page_size)
-
-        result = await db.execute(query)
-        certifications = result.scalars().all()
+        # 使用 Repository 進行篩選查詢
+        cert_repo = StaffCertificationRepository(db)
+        certifications, total = await cert_repo.filter_certifications(
+            user_id=user_id,
+            cert_type=params.cert_type,
+            status=params.status,
+            keyword=params.keyword,
+            page=params.page,
+            page_size=params.page_size,
+        )
 
         # 轉換為回應格式
         items = [CertificationResponse.model_validate(c).model_dump() for c in certifications]
@@ -168,10 +141,8 @@ async def get_certification_detail(
     取得證照詳情
     """
     try:
-        result = await db.execute(
-            select(StaffCertification).filter(StaffCertification.id == cert_id)
-        )
-        certification = result.scalar_one_or_none()
+        cert_repo = StaffCertificationRepository(db)
+        certification = await cert_repo.get_by_id(cert_id)
 
         if not certification:
             return error_response("找不到指定的證照", code=404)
@@ -194,23 +165,17 @@ async def update_certification(
     更新證照紀錄
     """
     try:
-        result = await db.execute(
-            select(StaffCertification).filter(StaffCertification.id == cert_id)
-        )
-        certification = result.scalar_one_or_none()
+        cert_repo = StaffCertificationRepository(db)
+        certification = await cert_repo.get_by_id(cert_id)
 
         if not certification:
             return error_response("找不到指定的證照", code=404)
 
         # 更新非空欄位
         update_data = data.model_dump(exclude_unset=True, exclude_none=True)
-        for field, value in update_data.items():
-            setattr(certification, field, value)
+        update_data["updated_at"] = datetime.now()
 
-        certification.updated_at = datetime.now()
-
-        await db.commit()
-        await db.refresh(certification)
+        certification = await cert_repo.update(cert_id, update_data)
 
         return success_response(
             data=CertificationResponse.model_validate(certification).model_dump(),
@@ -231,16 +196,11 @@ async def delete_certification(
     刪除證照紀錄
     """
     try:
-        result = await db.execute(
-            select(StaffCertification).filter(StaffCertification.id == cert_id)
-        )
-        certification = result.scalar_one_or_none()
+        cert_repo = StaffCertificationRepository(db)
+        success = await cert_repo.delete(cert_id)
 
-        if not certification:
+        if not success:
             return error_response("找不到指定的證照", code=404)
-
-        await db.delete(certification)
-        await db.commit()
 
         return success_response(message="證照刪除成功")
 
@@ -259,38 +219,16 @@ async def get_certification_stats(
     """
     try:
         # 檢查使用者是否存在
-        result = await db.execute(select(User).filter(User.id == user_id))
-        user = result.scalar_one_or_none()
+        user_repo = UserRepository(db)
+        user = await user_repo.get_by_id(user_id)
         if not user:
             return error_response("找不到指定的使用者", code=404)
 
-        # 統計各類型證照數量
-        type_query = select(
-            StaffCertification.cert_type,
-            func.count(StaffCertification.id).label('count')
-        ).filter(
-            StaffCertification.user_id == user_id
-        ).group_by(StaffCertification.cert_type)
+        # 使用 Repository 取得統計
+        cert_repo = StaffCertificationRepository(db)
+        stats = await cert_repo.get_statistics(user_id)
 
-        type_result = await db.execute(type_query)
-        stats = type_result.all()
-
-        # 統計各狀態證照數量
-        status_query = select(
-            StaffCertification.status,
-            func.count(StaffCertification.id).label('count')
-        ).filter(
-            StaffCertification.user_id == user_id
-        ).group_by(StaffCertification.status)
-
-        status_result = await db.execute(status_query)
-        status_stats = status_result.all()
-
-        return success_response(data={
-            "by_type": {row.cert_type: row.count for row in stats},
-            "by_status": {row.status: row.count for row in status_stats},
-            "total": sum(row.count for row in stats),
-        })
+        return success_response(data=stats)
 
     except Exception as e:
         return error_response(f"取得證照統計失敗: {str(e)}")
@@ -353,10 +291,8 @@ async def upload_certification_attachment(
     """
     try:
         # 查詢證照
-        result = await db.execute(
-            select(StaffCertification).filter(StaffCertification.id == cert_id)
-        )
-        certification = result.scalar_one_or_none()
+        cert_repo = StaffCertificationRepository(db)
+        certification = await cert_repo.get_by_id(cert_id)
 
         if not certification:
             return error_response("找不到指定的證照", code=404)
@@ -429,10 +365,8 @@ async def download_certification_attachment(
     下載證照附件
     """
     try:
-        result = await db.execute(
-            select(StaffCertification).filter(StaffCertification.id == cert_id)
-        )
-        certification = result.scalar_one_or_none()
+        cert_repo = StaffCertificationRepository(db)
+        certification = await cert_repo.get_by_id(cert_id)
 
         if not certification:
             return error_response("找不到指定的證照", code=404)
@@ -470,10 +404,8 @@ async def delete_certification_attachment(
     刪除證照附件
     """
     try:
-        result = await db.execute(
-            select(StaffCertification).filter(StaffCertification.id == cert_id)
-        )
-        certification = result.scalar_one_or_none()
+        cert_repo = StaffCertificationRepository(db)
+        certification = await cert_repo.get_by_id(cert_id)
 
         if not certification:
             return error_response("找不到指定的證照", code=404)

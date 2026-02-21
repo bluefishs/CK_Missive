@@ -1,4 +1,7 @@
+> **此文件已整合至 [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) v2.0.0，本文件保留僅供歷史參考。**
+
 # CK_Missive NAS 部署經驗總結與優化建議
+> Version: 1.0.0 | Last Updated: 2026-02-21
 
 > **文件版本**: v1.0.0
 > **部署日期**: 2026-02-02

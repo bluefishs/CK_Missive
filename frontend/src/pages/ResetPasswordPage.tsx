@@ -32,10 +32,9 @@ import { AUTH_ENDPOINTS } from '../api/endpoints';
 
 const { Title, Text } = Typography;
 
-interface ResetPasswordForm {
-  new_password: string;
-  confirm_password: string;
-}
+import type { ResetPasswordFormValues } from '../types/forms';
+
+type ResetPasswordForm = ResetPasswordFormValues;
 
 /**
  * 計算密碼強度分數與標籤

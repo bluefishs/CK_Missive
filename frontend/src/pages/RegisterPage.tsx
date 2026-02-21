@@ -26,14 +26,9 @@ import { logger } from '../services/logger';
 
 const { Title, Text } = Typography;
 
-interface RegisterForm {
-  email: string;
-  username: string;
-  full_name: string;
-  password: string;
-  confirmPassword: string;
-  agreement: boolean;
-}
+import type { RegisterFormValues } from '../types/forms';
+
+type RegisterForm = RegisterFormValues;
 
 const RegisterPage: React.FC = () => {
   const [loading, setLoading] = useState(false);

@@ -293,16 +293,16 @@ async def fix_agency_parsed_names(
     Args:
         request: 請求參數，包含 dry_run 設定
     """
-    from sqlalchemy import select, update
-    from app.extended.models import GovernmentAgency, OfficialDocument
     from app.services.strategies.agency_matcher import parse_agency_string
+    from app.repositories import AgencyRepository
 
     dry_run = request.dry_run
 
     try:
+        agency_repo = AgencyRepository(db)
+
         # 查詢所有機關
-        result = await db.execute(select(GovernmentAgency))
-        agencies = result.scalars().all()
+        agencies = await agency_repo.get_all_agencies()
 
         # 建立名稱 -> ID 映射（用於檢查重複）
         name_to_id = {a.agency_name: a.id for a in agencies}
@@ -341,16 +341,7 @@ async def fix_agency_parsed_names(
 
                 if not dry_run:
                     # 更新關聯的公文（sender_agency_id, receiver_agency_id）
-                    await db.execute(
-                        update(OfficialDocument)
-                        .where(OfficialDocument.sender_agency_id == agency.id)
-                        .values(sender_agency_id=existing_id)
-                    )
-                    await db.execute(
-                        update(OfficialDocument)
-                        .where(OfficialDocument.receiver_agency_id == agency.id)
-                        .values(receiver_agency_id=existing_id)
-                    )
+                    await agency_repo.reassign_document_agency(agency.id, existing_id)
                     # 刪除重複的錯誤記錄
                     await db.delete(agency)
                     merged_count += 1

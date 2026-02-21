@@ -1,4 +1,5 @@
 # 型別一致性與整合開發規範 (Type Consistency & Integration)
+> Version: 1.0.0 | Last Updated: 2026-02-21
 
 > 版本：1.2.0
 > 建立日期：2026-01-06

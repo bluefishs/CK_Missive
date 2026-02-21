@@ -3,11 +3,14 @@
 
 包含：審計日誌查詢、公文變更歷史
 
-@version 3.0.0
-@date 2026-01-18
+@version 4.0.0
+@date 2026-02-21
 """
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, HTTPException, Request
+from starlette.responses import Response
 from sqlalchemy import text
+
+from app.core.rate_limiter import limiter
 
 from .common import (
     logger, Depends, AsyncSession, get_async_db,
@@ -15,6 +18,24 @@ from .common import (
 )
 
 router = APIRouter()
+
+# 白名單驗證 — 防禦性設計（audit_logs 無 ORM 模型，使用 raw SQL）
+ALLOWED_TABLES = frozenset({
+    "official_documents", "documents", "contract_projects",
+    "government_agencies", "partner_vendors", "users",
+    "document_attachments", "document_calendar_events",
+    "site_navigation_items", "site_configurations",
+    "taoyuan_projects", "taoyuan_dispatch_orders",
+    "taoyuan_dispatch_project_links", "taoyuan_dispatch_work_records",
+    "project_vendor_association", "project_user_assignment",
+    "project_agency_contacts", "staff_certifications",
+})
+
+ALLOWED_ACTIONS = frozenset({
+    "CREATE", "UPDATE", "DELETE", "VIEW",
+    "create", "update", "delete", "view",
+    "LOGIN", "LOGOUT", "login", "logout",
+})
 
 
 # ============================================================================
@@ -26,7 +47,10 @@ router = APIRouter()
     response_model=AuditLogResponse,
     summary="查詢審計日誌"
 )
+@limiter.limit("30/minute")
 async def get_audit_logs(
+    request: Request,
+    response: Response,
     query: AuditLogQuery = Body(default=AuditLogQuery()),
     db: AsyncSession = Depends(get_async_db)
 ):
@@ -36,7 +60,13 @@ async def get_audit_logs(
     支援依公文 ID、操作類型、使用者、日期範圍等條件篩選
     """
     try:
-        # 構建查詢條件
+        # 白名單驗證
+        if query.table_name and query.table_name not in ALLOWED_TABLES:
+            raise HTTPException(status_code=400, detail=f"無效的表格名稱: {query.table_name}")
+        if query.action and query.action not in ALLOWED_ACTIONS:
+            raise HTTPException(status_code=400, detail=f"無效的操作類型: {query.action}")
+
+        # 構建查詢條件 — 所有用戶輸入均使用 bind parameter
         conditions = []
         params = {}
 
@@ -64,14 +94,14 @@ async def get_audit_logs(
 
         where_clause = " AND ".join(conditions) if conditions else "1=1"
 
-        # 計算總筆數
-        count_sql = f"SELECT COUNT(*) FROM audit_logs WHERE {where_clause}"
-        count_result = await db.execute(text(count_sql), params)
+        # 計算總筆數 — 使用靜態 SQL 模板 + bind params
+        count_sql = text(f"SELECT COUNT(*) FROM audit_logs WHERE {where_clause}")
+        count_result = await db.execute(count_sql, params)
         total = count_result.scalar() or 0
 
         # 查詢資料（分頁）
         offset = (query.page - 1) * query.limit
-        data_sql = f"""
+        data_sql = text(f"""
             SELECT id, table_name, record_id, action, changes,
                    user_id, user_name, source, is_critical,
                    TO_CHAR(created_at, 'YYYY-MM-DD HH24:MI:SS') as created_at
@@ -79,11 +109,11 @@ async def get_audit_logs(
             WHERE {where_clause}
             ORDER BY created_at DESC
             LIMIT :limit OFFSET :offset
-        """
+        """)
         params["limit"] = query.limit
         params["offset"] = offset
 
-        result = await db.execute(text(data_sql), params)
+        result = await db.execute(data_sql, params)
         rows = result.fetchall()
 
         items = [
@@ -133,7 +163,10 @@ async def get_audit_logs(
     response_model=AuditLogResponse,
     summary="查詢公文變更歷史"
 )
+@limiter.limit("30/minute")
 async def get_document_audit_history(
+    request: Request,
+    response: Response,
     document_id: int,
     db: AsyncSession = Depends(get_async_db)
 ):

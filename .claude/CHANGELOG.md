@@ -4,6 +4,81 @@
 
 ---
 
+## [1.59.0] - 2026-02-21
+
+### 全面優化 v1.59.0 — 安全強化 + 架構精煉 + 測試擴充
+
+基於四維度審計結果（測試 4.5→7.0、前端 7.5→8.5、後端 8.7→9.2、文件 8.5→9.0），
+系統性修復 15 項識別問題，分 3 個 Sprint 執行完成。
+
+**Sprint 1: 安全 + 品質基線**:
+- SQL 注入防禦加深：`audit.py` 白名單驗證 + bind parameters + rate limiting
+- Rate Limiting 擴展：6 → **70** 個端點覆蓋 `@limiter.limit`（認證/寫入/AI/管理）
+- `useDocumentDetail.ts` 18 處 `any` 型別修復（全部替換為具體型別）
+- Form 型別 SSOT：8 個頁面本地定義集中至 `types/forms.ts`
+
+**Sprint 2: 架構重構 + 測試擴充**:
+- `DispatchWorkflowTab` 拆分：1,024 行 → **618 行** + 4 子元件
+- Repository 層新增：`StaffCertificationRepository` + `ContactRepository` + agencies 遷移
+- 後端測試新增：`test_auth_service.py`, `test_backup_service.py`, `test_notification_service.py`
+- 前端 Hook 測試新增 7+ 檔案：useProjects, useAgencies, useCalendarEvents, useAuthGuard, useIdleTimeout 等
+- Specification 文件版本標頭：13 個 docs 文件添加 `> Version: x.x.x | Last Updated`
+
+**Sprint 3: 精煉 + 清理**:
+- NaturalSearchPanel WCAG 2.1 AA 修復：role/tabIndex/aria-expanded/aria-label/onKeyDown
+- Deprecated 服務清理：agency(5) + project(3) + vendor(8) 方法移除 + navigation_service 刪除
+- `backup_service.py` 拆分：1,055 行 → 4 模組 (utils/db_backup/attachment_backup/scheduler)
+- 部署文件整合：3 個分散文件 → 統一 `DEPLOYMENT_GUIDE.md` v2.0.0
+- 覆蓋率門檻提升：60% → **70%**（pyproject.toml + CI）
+
+**數據摘要**:
+| 指標 | 修改前 | 修改後 |
+|------|--------|--------|
+| Rate Limiting 端點 | 6 | 70 |
+| Deprecated 方法 | 16 | 0 |
+| DispatchWorkflowTab | 1,024 行 | 618 行 |
+| backup_service.py | 1,055 行 | 4 模組 (~960 行) |
+| 覆蓋率門檻 | 60% | 70% |
+| Hook 測試檔案 | 3 | 12 |
+| 後端服務測試 | 2 | 7 |
+| Repository | 5 | 7 |
+
+---
+
+## [1.58.0] - 2026-02-21
+
+### 全面優化 — CI 覆蓋率門檻 + Hooks 自動化 + Skills 擴充
+
+**文件同步與清理 (Step 1)**:
+- CHANGELOG.md 回填 v1.34→v1.57 (24 版本, +269 行)
+- `pyproject.toml` 覆蓋率門檻 `fail_under=60`
+- Architecture 文件更新服務遷移/Repository 狀態
+- 10 個陳舊文件歸檔至 `docs/archive/`
+
+**CI 覆蓋率門檻強制化 (Step 2)**:
+- `test-coverage` job 移除 `continue-on-error`
+- pytest 加入 `--cov-fail-under=60`
+
+**Hooks 自動化擴展 (Step 3)**:
+- `api-serialization-check.ps1` 升級 v2.0.0 (stdin JSON 協議)
+- `performance-check.ps1` 升級 v2.0.0 (stdin JSON 協議)
+- 兩者加入 PostToolUse 自動觸發
+- 新增 `migration-check` prompt hook (ORM 修改提醒遷移)
+
+**新增 Skills (Step 4)**:
+- `accessibility.md` v1.0.0 — WCAG 2.1 AA + ARIA + axe-core
+- `alembic-migrations.md` v1.0.0 — 遷移流程 + pgvector 檢查
+- `caching-patterns.md` v1.0.0 — Redis fallback + React Query
+
+**配置更新 (Step 5)**:
+- CLAUDE.md 版本更新至 v1.58.0
+- `hooks-guide.md` 新增 3 個 PostToolUse hooks
+- `skills-inventory.md` 新增 3 個 Skills
+
+**檔案統計**: 23 個檔案, +1,087 / -256 行
+
+---
+
 ## [1.57.0] - 2026-02-21
 
 ### CLAUDE.md 模組化拆分 + Hooks 升級至官方格式

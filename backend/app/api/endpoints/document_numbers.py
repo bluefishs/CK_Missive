@@ -33,8 +33,11 @@
 
 from datetime import datetime, date
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from starlette.responses import Response
 from sqlalchemy import func, select, desc, extract, or_
+
+from app.core.rate_limiter import limiter
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -73,7 +76,10 @@ DEFAULT_DOC_PREFIX = getattr(settings, 'DOC_NUMBER_PREFIX', '乾坤測字第')
 # =============================================================================
 
 @router.post("/query", response_model=DocumentNumberListResponse)
+@limiter.limit("60/minute")
 async def query_document_numbers(
+    http_request: Request,
+    response: Response,
     request: DocumentNumberQueryRequest,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_auth())
@@ -185,7 +191,10 @@ async def query_document_numbers(
 
 
 @router.post("/stats", response_model=DocumentNumberStats)
+@limiter.limit("60/minute")
 async def get_document_numbers_stats(
+    request: Request,
+    response: Response,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_auth())
 ):
@@ -276,7 +285,10 @@ async def get_document_numbers_stats(
 
 
 @router.post("/next-number", response_model=NextNumberResponse)
+@limiter.limit("60/minute")
 async def get_next_document_number(
+    http_request: Request,
+    response: Response,
     request: NextNumberRequest = NextNumberRequest(),
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_auth())
@@ -358,7 +370,10 @@ async def get_next_document_number(
 
 
 @router.post("/create", response_model=DocumentNumberItem)
+@limiter.limit("30/minute")
 async def create_document_number(
+    http_request: Request,
+    response: Response,
     request: DocumentNumberCreateRequest,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_auth())
@@ -366,7 +381,7 @@ async def create_document_number(
     """建立新發文字號 (POST-only)"""
     try:
         # 取得下一個字號
-        next_num = await get_next_document_number(NextNumberRequest(), db)
+        next_num = await get_next_document_number(http_request, response, NextNumberRequest(), db)
 
         # 處理日期
         doc_date = None
@@ -427,8 +442,11 @@ async def create_document_number(
 
 
 @router.post("/update/{document_id}", response_model=DocumentNumberItem)
+@limiter.limit("30/minute")
 async def update_document_number(
     document_id: int,
+    http_request: Request,
+    response: Response,
     request: DocumentNumberUpdateRequest,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_auth())
@@ -503,8 +521,11 @@ async def update_document_number(
 
 
 @router.post("/delete/{document_id}")
+@limiter.limit("30/minute")
 async def delete_document_number(
     document_id: int,
+    request: Request,
+    response: Response,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_auth())
 ):
@@ -537,7 +558,10 @@ async def delete_document_number(
 
 @router.post("", response_model=DocumentNumberListResponse, deprecated=True,
               summary="[相容] 取得發文字號列表 (預計 2026-07 移除)")
+@limiter.limit("60/minute")
 async def get_document_numbers_legacy(
+    request: Request,
+    response: Response,
     page: int = 1,
     per_page: int = 20,
     year: Optional[int] = None,
@@ -552,19 +576,22 @@ async def get_document_numbers_legacy(
     ⚠️ **預計廢止日期**: 2026-07
     請改用 POST /document-numbers/query
     """
-    request = DocumentNumberQueryRequest(
+    query_request = DocumentNumberQueryRequest(
         page=page,
         limit=per_page,
         year=year,
         status=status,
         keyword=keyword
     )
-    return await query_document_numbers(request, db)
+    return await query_document_numbers(request, response, query_request, db)
 
 
 @router.post("/stats", response_model=DocumentNumberStats, deprecated=True,
               summary="[相容] 取得統計資料 (預計 2026-07 移除)")
+@limiter.limit("60/minute")
 async def get_stats_legacy(
+    request: Request,
+    response: Response,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_auth())
 ):
@@ -574,12 +601,15 @@ async def get_stats_legacy(
     ⚠️ **預計廢止日期**: 2026-07
     請改用 POST /document-numbers/stats
     """
-    return await get_document_numbers_stats(db)
+    return await get_document_numbers_stats(request, response, db)
 
 
 @router.post("/next-number", response_model=NextNumberResponse, deprecated=True,
               summary="[相容] 取得下一個字號 (預計 2026-07 移除)")
+@limiter.limit("60/minute")
 async def get_next_number_legacy(
+    request: Request,
+    response: Response,
     prefix: Optional[str] = None,
     year: Optional[int] = None,
     db: AsyncSession = Depends(get_async_db),
@@ -591,5 +621,5 @@ async def get_next_number_legacy(
     ⚠️ **預計廢止日期**: 2026-07
     請改用 POST /document-numbers/next-number
     """
-    request = NextNumberRequest(prefix=prefix, year=year)
-    return await get_next_document_number(request, db)
+    next_request = NextNumberRequest(prefix=prefix, year=year)
+    return await get_next_document_number(request, response, next_request, db)

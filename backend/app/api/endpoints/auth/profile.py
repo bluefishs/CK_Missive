@@ -11,8 +11,11 @@ import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
+from starlette.responses import Response
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.rate_limiter import limiter
 
 from app.db.database import get_async_db
 from app.core.auth_service import AuthService, security
@@ -34,8 +37,10 @@ def get_user_repository(db: AsyncSession = Depends(get_async_db)) -> UserReposit
 
 
 @router.post("/me", response_model=UserProfile, summary="取得當前使用者資訊")
+@limiter.limit("30/minute")
 async def get_current_user_info(
     request: Request,
+    response: Response,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -83,7 +88,10 @@ async def get_current_user_info(
 
 
 @router.post("/profile/update", response_model=UserProfile, summary="更新個人資料")
+@limiter.limit("10/minute")
 async def update_profile(
+    request: Request,
+    response: Response,
     profile_data: ProfileUpdate,
     current_user: User = Depends(get_current_user),
     user_repo: UserRepository = Depends(get_user_repository),
@@ -141,7 +149,10 @@ async def update_profile(
 
 
 @router.post("/password/change", summary="修改密碼")
+@limiter.limit("10/minute")
 async def change_password(
+    request: Request,
+    response: Response,
     password_data: PasswordChange,
     current_user: User = Depends(get_current_user),
     user_repo: UserRepository = Depends(get_user_repository),

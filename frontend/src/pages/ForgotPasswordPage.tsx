@@ -21,9 +21,9 @@ import { AUTH_ENDPOINTS } from '../api/endpoints';
 
 const { Title, Text } = Typography;
 
-interface ForgotPasswordForm {
-  email: string;
-}
+import type { ForgotPasswordFormValues } from '../types/forms';
+
+type ForgotPasswordForm = ForgotPasswordFormValues;
 
 const ForgotPasswordPage: React.FC = () => {
   const { message } = App.useApp();

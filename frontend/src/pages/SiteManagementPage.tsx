@@ -37,20 +37,9 @@ interface TreeNodeData {
   children: TreeNodeData[];
 }
 
-interface FormValues {
-  title: string;
-  key: string;
-  path?: string;
-  icon: string;
-  description?: string;
-  parent_id: number | null;
-  level: number;
-  sort_order?: number;
-  is_visible: boolean;
-  is_enabled: boolean;
-  permission_required?: string;
-  target?: string;
-}
+import type { NavigationFormValues } from '../types/forms';
+
+type FormValues = NavigationFormValues;
 
 interface ValidPath {
   path: string | null;

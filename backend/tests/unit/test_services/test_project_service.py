@@ -670,52 +670,6 @@ class TestProjectServiceGetProjects:
 # ============================================================
 
 
-class TestProjectServiceLegacy:
-    """向後相容方法測試（deprecated methods）"""
-
-    @pytest.mark.asyncio
-    async def test_create_project_legacy(self, service, mock_db):
-        """測試 create_project (deprecated) 正確委派至 create"""
-        create_data = ProjectCreate(
-            project_name="Legacy 建立",
-            year=2026,
-            project_code="CK2026_01_01_099",
-        )
-
-        # Mock get_by_field 返回 None
-        service.repository.get_by_field = AsyncMock(return_value=None)
-
-        async def mock_refresh(obj):
-            obj.id = 100
-            obj.project_code = "CK2026_01_01_099"
-
-        mock_db.refresh = AsyncMock(side_effect=mock_refresh)
-
-        # 注意：legacy 方法接受 db 參數但會忽略
-        result = await service.create_project(mock_db, create_data)
-
-        mock_db.add.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_update_project_legacy(self, service, mock_db, sample_project):
-        """測試 update_project (deprecated) 正確委派至 update"""
-        service.repository.get_by_id.return_value = sample_project
-        sample_project.contract_amount = 1000000.0
-
-        update_data = ProjectUpdate(project_name="Legacy 更新")
-
-        result = await service.update_project(mock_db, 1, update_data)
-
-        assert result is sample_project
-
-    @pytest.mark.asyncio
-    async def test_delete_project_legacy(self, service, mock_db, sample_project):
-        """測試 delete_project (deprecated) 正確委派至 delete"""
-        service.repository.get_by_id.return_value = sample_project
-
-        result = await service.delete_project(mock_db, 1)
-
-        assert result is True
 
 
 # ============================================================

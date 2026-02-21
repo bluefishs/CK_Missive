@@ -26,11 +26,20 @@ import {
 } from '../../../api/taoyuanDispatchApi';
 import { getProjectAgencyContacts } from '../../../api/projectAgencyContacts';
 import { projectVendorsApi } from '../../../api/projectVendorsApi';
+import type { ProjectVendor } from '../../../api/projectVendorsApi';
 
 // 類型
 import { Document } from '../../../types';
-import type { DispatchOrderCreate, LinkType, ProjectStaff, Project, User } from '../../../types/api';
+import type {
+  DispatchOrderCreate, LinkType, ProjectStaff, Project, User,
+} from '../../../types/api';
 import { isReceiveDocument } from '../../../types/api';
+import type { DocumentAttachment } from '../../../types/document';
+import type {
+  DispatchOrder, DocumentDispatchLink, DocumentProjectLink, TaoyuanProject,
+} from '../../../types/taoyuan';
+import type { ProjectAgencyContact } from '../../../types/admin-system';
+import type { UploadFile } from 'antd/es/upload';
 
 // 常數 & 工具
 import { DEFAULT_ALLOWED_EXTENSIONS, DEFAULT_MAX_FILE_SIZE_MB } from '../tabs';
@@ -48,37 +57,37 @@ export interface UseDocumentDetailReturn {
   isEditing: boolean;
   setIsEditing: (editing: boolean) => void;
   // Attachments
-  attachments: any[];
+  attachments: DocumentAttachment[];
   attachmentsLoading: boolean;
-  fileList: any[];
-  setFileList: (files: any[]) => void;
+  fileList: UploadFile[];
+  setFileList: (files: UploadFile[]) => void;
   uploading: boolean;
   uploadProgress: number;
   uploadErrors: string[];
   setUploadErrors: (errors: string[]) => void;
   fileSettings: { allowedExtensions: string[]; maxFileSizeMB: number };
   // Cases & Users
-  cases: any[];
+  cases: Project[];
   casesLoading: boolean;
-  users: any[];
+  users: User[];
   usersLoading: boolean;
-  projectStaffMap: Record<number, any[]>;
+  projectStaffMap: Record<number, ProjectStaff[]>;
   staffLoading: boolean;
   selectedContractProjectId: number | null;
   currentAssigneeValues: string[];
   // Dispatch & Project links
-  dispatchLinks: any[];
+  dispatchLinks: DocumentDispatchLink[];
   dispatchLinksLoading: boolean;
-  projectLinks: any[];
+  projectLinks: DocumentProjectLink[];
   projectLinksLoading: boolean;
   // Feature flags
   hasDispatchFeature: boolean;
   hasProjectLinkFeature: boolean;
   // Query data
-  agencyContacts: any[];
-  projectVendors: any[];
-  availableDispatches: any[];
-  availableProjects: any[];
+  agencyContacts: ProjectAgencyContact[];
+  projectVendors: ProjectVendor[];
+  availableDispatches: DispatchOrder[];
+  availableProjects: TaoyuanProject[];
   // Calendar modal
   showIntegratedEventModal: boolean;
   setShowIntegratedEventModal: (show: boolean) => void;
@@ -122,9 +131,9 @@ export function useDocumentDetail(): UseDocumentDetailReturn {
   const [isEditing, setIsEditing] = useState(false);
 
   // 附件相關狀態
-  const [attachments, setAttachments] = useState<any[]>([]);
+  const [attachments, setAttachments] = useState<DocumentAttachment[]>([]);
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
-  const [fileList, setFileList] = useState<any[]>([]);
+  const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadErrors, setUploadErrors] = useState<string[]>([]);
@@ -134,22 +143,22 @@ export function useDocumentDetail(): UseDocumentDetailReturn {
   });
 
   // 下拉選項資料
-  const [cases, setCases] = useState<any[]>([]);
+  const [cases, setCases] = useState<Project[]>([]);
   const [casesLoading, setCasesLoading] = useState(false);
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
-  const [projectStaffMap, setProjectStaffMap] = useState<Record<number, any[]>>({});
+  const [projectStaffMap, setProjectStaffMap] = useState<Record<number, ProjectStaff[]>>({});
   const [staffLoading, setStaffLoading] = useState(false);
   const [selectedContractProjectId, setSelectedContractProjectId] = useState<number | null>(null);
-  const projectStaffCacheRef = useRef<Record<number, any[]>>({});
+  const projectStaffCacheRef = useRef<Record<number, ProjectStaff[]>>({});
   const [currentAssigneeValues, setCurrentAssigneeValues] = useState<string[]>([]);
 
   // 派工安排相關狀態
-  const [dispatchLinks, setDispatchLinks] = useState<any[]>([]);
+  const [dispatchLinks, setDispatchLinks] = useState<DocumentDispatchLink[]>([]);
   const [dispatchLinksLoading, setDispatchLinksLoading] = useState(false);
 
   // 工程關聯相關狀態
-  const [projectLinks, setProjectLinks] = useState<any[]>([]);
+  const [projectLinks, setProjectLinks] = useState<DocumentProjectLink[]>([]);
   const [projectLinksLoading, setProjectLinksLoading] = useState(false);
 
   // 行事曆模態框
@@ -480,9 +489,9 @@ export function useDocumentDetail(): UseDocumentDetailReturn {
 
       // 上傳新附件
       if (fileList.length > 0) {
-        const fileObjects: File[] = fileList
+        const fileObjects = fileList
           .map(f => f.originFileObj)
-          .filter((f): f is File => f !== undefined);
+          .filter((f): f is NonNullable<typeof f> => f !== undefined) as File[];
         if (fileObjects.length > 0) {
           setUploading(true);
           try {

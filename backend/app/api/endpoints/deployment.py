@@ -13,8 +13,11 @@ import asyncio
 import subprocess
 from datetime import datetime
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from starlette.responses import Response
 import logging
+
+from app.core.rate_limiter import limiter
 
 from app.core.dependencies import require_admin
 from app.core.config import settings
@@ -64,7 +67,10 @@ def get_github_headers() -> dict:
 # =============================================================================
 
 @router.post("/status", response_model=SystemStatusResponse, summary="取得系統狀態")
+@limiter.limit("5/minute")
 async def get_system_status(
+    request: Request,
+    response: Response,
     _: dict = Depends(require_admin)
 ):
     """
@@ -165,7 +171,10 @@ async def get_system_status(
 
 
 @router.post("/history", response_model=DeploymentHistoryResponse, summary="取得部署歷史")
+@limiter.limit("5/minute")
 async def get_deployment_history(
+    request: Request,
+    response: Response,
     page: int = Query(1, ge=1, description="頁碼"),
     page_size: int = Query(10, ge=1, le=50, description="每頁數量"),
     status: Optional[str] = Query(None, description="篩選狀態"),
@@ -259,7 +268,10 @@ async def get_deployment_history(
 
 
 @router.post("/trigger", response_model=TriggerDeploymentResponse, summary="觸發部署")
+@limiter.limit("5/minute")
 async def trigger_deployment(
+    http_request: Request,
+    response: Response,
     request: TriggerDeploymentRequest,
     _: dict = Depends(require_admin)
 ):
@@ -332,7 +344,10 @@ async def trigger_deployment(
 
 
 @router.post("/rollback", response_model=RollbackResponse, summary="回滾部署")
+@limiter.limit("5/minute")
 async def rollback_deployment(
+    http_request: Request,
+    response: Response,
     request: RollbackRequest,
     _: dict = Depends(require_admin)
 ):
@@ -402,8 +417,11 @@ async def rollback_deployment(
 
 
 @router.post("/logs/{run_id}", response_model=DeploymentLogsResponse, summary="取得部署日誌")
+@limiter.limit("5/minute")
 async def get_deployment_logs(
     run_id: int,
+    request: Request,
+    response: Response,
     _: dict = Depends(require_admin)
 ):
     """
@@ -470,7 +488,10 @@ async def get_deployment_logs(
 
 
 @router.post("/config", summary="取得部署配置")
+@limiter.limit("5/minute")
 async def get_deployment_config(
+    request: Request,
+    response: Response,
     _: dict = Depends(require_admin)
 ):
     """

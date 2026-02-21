@@ -16,16 +16,7 @@ import { useResponsive } from '../hooks';
 const { TextArea } = Input;
 const { Option } = Select;
 
-interface DocumentFormValues {
-  title?: string;
-  type?: string;
-  agency?: string;
-  priority?: string;
-  contract_case?: string[];
-  content?: string;
-  notes?: string;
-  status?: string;
-}
+import type { DocumentFormValues } from '../types/forms';
 
 export const DocumentCreatePage: React.FC = () => {
   const { message } = App.useApp();

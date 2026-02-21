@@ -18,7 +18,7 @@ from datetime import datetime, time, timedelta
 from pathlib import Path
 from typing import Optional
 
-from app.services.backup_service import backup_service
+from app.services.backup import backup_service
 
 logger = logging.getLogger(__name__)
 

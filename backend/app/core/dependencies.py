@@ -59,7 +59,7 @@ def get_service(service_class: Type[T]) -> Callable[[AsyncSession], T]:
         async def list_vendors(
             vendor_service: VendorService = Depends(get_service(VendorService))
         ):
-            return await vendor_service.get_vendors()
+            return await vendor_service.get_list()
 
     Args:
         service_class: Service 類別

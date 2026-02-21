@@ -11,9 +11,12 @@
 - v3.0.0: 初始模組化版本
 """
 import os
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, Request
+from starlette.responses import Response
 from fastapi.responses import JSONResponse
 from sqlalchemy import select, func
+
+from app.core.rate_limiter import limiter
 
 from .common import (
     logger, Depends, AsyncSession, get_async_db,
@@ -38,8 +41,11 @@ router = APIRouter()
     response_model=DocumentResponse,
     summary="取得公文詳情"
 )
+@limiter.limit("30/minute")
 async def get_document_detail(
     document_id: int,
+    request: Request,
+    response: Response,
     service: DocumentService = Depends(get_document_service),
     current_user: User = Depends(require_auth())
 ):
@@ -98,7 +104,10 @@ async def get_document_detail(
     response_model=DocumentResponse,
     summary="建立公文"
 )
+@limiter.limit("30/minute")
 async def create_document(
+    request: Request,
+    response: Response,
     data: DocumentCreateRequest = Body(...),
     service: DocumentService = Depends(get_document_service),
     current_user: User = Depends(require_permission("documents:create"))
@@ -182,8 +191,11 @@ async def create_document(
     response_model=DocumentResponse,
     summary="更新公文"
 )
+@limiter.limit("30/minute")
 async def update_document(
     document_id: int,
+    request: Request,
+    response: Response,
     data: DocumentUpdateRequest = Body(...),
     service: DocumentService = Depends(get_document_service),
     current_user: User = Depends(require_permission("documents:edit"))
@@ -312,8 +324,11 @@ async def update_document(
     response_model=DeleteResponse,
     summary="刪除公文"
 )
+@limiter.limit("30/minute")
 async def delete_document(
     document_id: int,
+    request: Request,
+    response: Response,
     service: DocumentService = Depends(get_document_service),
     current_user: User = Depends(require_permission("documents:delete"))
 ):

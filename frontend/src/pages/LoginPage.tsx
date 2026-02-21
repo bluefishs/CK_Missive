@@ -39,10 +39,7 @@ import { logger } from '../utils/logger';
 
 const { Title, Text } = Typography;
 
-interface LoginFormValues {
-  username: string;
-  password: string;
-}
+import type { LoginFormValues } from '../types/forms';
 
 const LoginPage: React.FC = () => {
   const { message } = App.useApp();

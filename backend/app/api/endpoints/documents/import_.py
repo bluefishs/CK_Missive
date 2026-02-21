@@ -8,9 +8,11 @@
 """
 from io import BytesIO
 from urllib.parse import quote
-from fastapi import APIRouter, Query, UploadFile, File, HTTPException
+from fastapi import APIRouter, Query, UploadFile, File, HTTPException, Request
+from starlette.responses import Response
 from fastapi.responses import StreamingResponse
 
+from app.core.rate_limiter import limiter
 from .common import (
     logger, Depends, AsyncSession, get_async_db,
 )
@@ -23,7 +25,10 @@ router = APIRouter()
 # ============================================================================
 
 @router.post("/import/excel/preview", summary="Excel 匯入預覽")
+@limiter.limit("5/minute")
 async def preview_excel_import(
+    request: Request,
+    response: Response,
     file: UploadFile = File(..., description="要預覽的 Excel 檔案（.xlsx）"),
     preview_rows: int = Query(default=10, ge=1, le=50, description="預覽筆數"),
     check_duplicates: bool = Query(default=True, description="是否檢查資料庫重複"),
@@ -74,7 +79,10 @@ async def preview_excel_import(
 
 
 @router.post("/import/excel", summary="手動公文匯入（Excel）")
+@limiter.limit("5/minute")
 async def import_documents_excel(
+    request: Request,
+    response: Response,
     file: UploadFile = File(..., description="要匯入的 Excel 檔案（.xlsx）"),
     db: AsyncSession = Depends(get_async_db)
 ):
@@ -128,7 +136,8 @@ async def import_documents_excel(
 
 
 @router.post("/import/excel/template", summary="下載 Excel 匯入範本")
-async def download_excel_template():
+@limiter.limit("5/minute")
+async def download_excel_template(request: Request, response: Response):
     """
     下載 Excel 匯入範本（POST 方法，符合資安規範）
 

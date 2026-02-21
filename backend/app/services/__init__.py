@@ -60,8 +60,6 @@ from .document_statistics_service import DocumentStatisticsService
 from .csv_processor import DocumentCSVProcessor
 from .excel_import_service import ExcelImportService
 
-# 網站管理服務
-from .navigation_service import NavigationService, navigation_service
 
 __all__ = [
     # 基礎架構
@@ -109,7 +107,4 @@ __all__ = [
     "DocumentStatisticsService",
     "DocumentCSVProcessor",
     "ExcelImportService",
-    # 網站管理
-    "NavigationService",
-    "navigation_service",
 ]

@@ -48,6 +48,8 @@ from app.repositories.session_repository import SessionRepository
 from app.repositories.ai_synonym_repository import AISynonymRepository
 from app.repositories.ai_prompt_repository import AIPromptRepository
 from app.repositories.ai_search_history_repository import AISearchHistoryRepository
+from app.repositories.staff_certification_repository import StaffCertificationRepository
+from app.repositories.contact_repository import ContactRepository
 
 # Taoyuan 子模組
 from app.repositories.taoyuan import (
@@ -86,6 +88,9 @@ __all__ = [
     "AISynonymRepository",
     "AIPromptRepository",
     "AISearchHistoryRepository",
+    # Staff
+    "StaffCertificationRepository",
+    "ContactRepository",
     # Query Builders
     "DocumentQueryBuilder",
     "ProjectQueryBuilder",

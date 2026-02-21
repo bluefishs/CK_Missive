@@ -966,45 +966,4 @@ class AgencyService:
         """根據機關代碼取得機關"""
         return await self.repository.find_one_by(agency_code=agency_code)
 
-    # =========================================================================
-    # 向後相容方法 (保留至 v4.0)
-    #
-    # 這些方法保留舊的 db 參數簽名，但內部使用 self.db。
-    # 傳入的 db 參數會被忽略。
-    # =========================================================================
-
-    async def get_agency(self, db: AsyncSession, agency_id: int) -> Optional[GovernmentAgency]:
-        """
-        @deprecated v3.0 (2026-02-06) 使用 get_by_id 代替
-        移除計畫: v4.0 (2026-06-01)
-        """
-        return await self.get_by_id(agency_id)
-
-    async def get_agencies(self, db: AsyncSession, skip: int = 0, limit: int = 100) -> List[GovernmentAgency]:
-        """
-        @deprecated v3.0 (2026-02-06) 使用 get_list 代替
-        移除計畫: v4.0 (2026-06-01)
-        """
-        return await self.get_list(skip=skip, limit=limit)
-
-    async def create_agency(self, db: AsyncSession, agency: AgencyCreate) -> GovernmentAgency:
-        """
-        @deprecated v3.0 (2026-02-06) 使用 create 代替
-        移除計畫: v4.0 (2026-06-01)
-        """
-        return await self.create(agency)
-
-    async def update_agency(self, db: AsyncSession, agency_id: int, agency_update: AgencyUpdate) -> Optional[GovernmentAgency]:
-        """
-        @deprecated v3.0 (2026-02-06) 使用 update 代替
-        移除計畫: v4.0 (2026-06-01)
-        """
-        return await self.update(agency_id, agency_update)
-
-    async def delete_agency(self, db: AsyncSession, agency_id: int) -> bool:
-        """
-        @deprecated v3.0 (2026-02-06) 使用 delete 代替
-        移除計畫: v4.0 (2026-06-01)
-        """
-        return await self.delete(agency_id)
 

@@ -179,7 +179,7 @@ export interface UseNaturalSearchReturn {
   handleAutoCompleteSelect: (value: string) => void;
   handleLoadMore: () => void;
   removeHistoryItem: (item: string, e: React.MouseEvent) => void;
-  clearAllHistory: (e: React.MouseEvent) => void;
+  clearAllHistory: (e: React.SyntheticEvent) => void;
 }
 
 // ============================================================================
@@ -245,7 +245,7 @@ export function useNaturalSearch(options: UseNaturalSearchOptions = {}): UseNatu
   }, [searchHistory, updateHistory]);
 
   // 清除全部歷史
-  const clearAllHistory = useCallback((e: React.MouseEvent) => {
+  const clearAllHistory = useCallback((e: React.SyntheticEvent) => {
     e.stopPropagation();
     e.preventDefault();
     updateHistory([]);

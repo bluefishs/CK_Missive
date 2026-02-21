@@ -9,8 +9,8 @@
  * - 跨頁導航：前往工程總覽（高亮本派工單）
  * - CRUD：新增/編輯（導航）、刪除（行內）、關聯/解除公文
  *
- * @version 4.0.0 - 整合公文關聯與作業歷程
- * @date 2026-02-13
+ * @version 5.0.0 - 拆分子元件：StatsCards, WorkflowToolBar, InlineDocumentSearch, UnassignedDocumentsList
+ * @date 2026-02-21
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
@@ -24,31 +24,13 @@ import {
   Popconfirm,
   Tooltip,
   Typography,
-  Segmented,
-  Statistic,
-  Row,
-  Col,
-  Card,
   App,
-  Select,
-  Radio,
-  Badge,
-  theme,
-  Divider,
 } from 'antd';
 import {
-  PlusOutlined,
   EditOutlined,
   DeleteOutlined,
   FileTextOutlined,
   SendOutlined,
-  OrderedListOutlined,
-  CheckCircleOutlined,
-  ProjectOutlined,
-  LinkOutlined,
-  DisconnectOutlined,
-  ExclamationCircleOutlined,
-  SearchOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -62,7 +44,6 @@ import type {
   WorkRecordStatus,
 } from '../../../types/taoyuan';
 import type { DispatchDocumentLink, LinkType } from '../../../types/api';
-import { isReceiveDocument } from '../../../types/api';
 import { logger } from '../../../services/logger';
 
 import {
@@ -83,8 +64,12 @@ import {
   detectLinkType,
 } from '../../../components/taoyuan/workflow/useDispatchWorkData';
 
+import { StatsCards } from './workflow/StatsCards';
+import { WorkflowToolBar } from './workflow/WorkflowToolBar';
+import { InlineDocumentSearch } from './workflow/InlineDocumentSearch';
+import { UnassignedDocumentsList } from './workflow/UnassignedDocumentsList';
+
 const { Text } = Typography;
-const { Option } = Select;
 
 // =============================================================================
 // Types
@@ -130,7 +115,6 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { message } = App.useApp();
-  const { token } = theme.useToken();
 
   const [viewMode, setViewMode] = useState<ViewMode>('chain');
 
@@ -314,7 +298,7 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
     [availableDocs, selectedLinkType, message],
   );
 
-  // 從未指派公文快速建立作業紀錄（導航到新增頁面，帶入公文 ID — 統一用新格式）
+  // 從未指派公文快速建立作業紀錄
   const handleQuickCreateRecord = useCallback(
     (doc: DispatchDocumentLink) => {
       navigate(
@@ -323,6 +307,10 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
     },
     [navigate, dispatchOrderId],
   );
+
+  const handleViewModeChange = useCallback((mode: ViewMode) => {
+    setViewMode(mode);
+  }, []);
 
   // ===========================================================================
   // Table Columns
@@ -391,7 +379,6 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
         key: 'incoming_doc',
         width: 120,
         render: (_: unknown, record: WorkRecord) => {
-          // 舊格式
           if (record.incoming_doc?.doc_number) {
             return (
               <Tooltip title={record.incoming_doc.subject}>
@@ -406,7 +393,6 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
               </Tooltip>
             );
           }
-          // 新格式：document_id + direction = incoming
           const doc = getEffectiveDoc(record);
           const dir = getDocDirection(record);
           if (doc?.doc_number && dir === 'incoming') {
@@ -431,7 +417,6 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
         key: 'outgoing_doc',
         width: 120,
         render: (_: unknown, record: WorkRecord) => {
-          // 舊格式
           if (record.outgoing_doc?.doc_number) {
             return (
               <Tooltip title={record.outgoing_doc.subject}>
@@ -446,7 +431,6 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
               </Tooltip>
             );
           }
-          // 新格式：document_id + direction = outgoing
           const doc = getEffectiveDoc(record);
           const dir = getDocDirection(record);
           if (doc?.doc_number && dir === 'outgoing') {
@@ -508,98 +492,6 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
   );
 
   // ===========================================================================
-  // 未指派公文子元件
-  // ===========================================================================
-
-  const renderUnassignedDoc = useCallback(
-    (doc: DispatchDocumentLink, direction: 'incoming' | 'outgoing') => {
-      const isIncoming = direction === 'incoming';
-      return (
-        <div
-          key={`unassigned-${doc.document_id}`}
-          style={{
-            padding: '6px 8px',
-            borderBottom: `1px dashed ${token.colorBorderSecondary}`,
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: 4,
-            background: token.colorBgTextHover,
-          }}
-        >
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-              {isIncoming ? (
-                <FileTextOutlined style={{ color: token.colorPrimary, fontSize: 12 }} />
-              ) : (
-                <SendOutlined style={{ color: '#52c41a', fontSize: 12 }} />
-              )}
-              <Text
-                style={{
-                  fontSize: 12,
-                  cursor: 'pointer',
-                  color: token.colorPrimary,
-                }}
-                onClick={() => handleDocClick(doc.document_id)}
-              >
-                {doc.doc_number || `#${doc.document_id}`}
-              </Text>
-              {doc.doc_date && (
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  {dayjs(doc.doc_date).format('YYYY.MM.DD')}
-                </Text>
-              )}
-            </div>
-            {doc.subject && (
-              <Text
-                type="secondary"
-                ellipsis={{ tooltip: doc.subject }}
-                style={{ display: 'block', fontSize: 12, marginTop: 1 }}
-              >
-                {doc.subject}
-              </Text>
-            )}
-          </div>
-
-          {canEdit && (
-            <Space size={2}>
-              <Tooltip title="新增作業紀錄">
-                <Button
-                  type="link"
-                  size="small"
-                  icon={<PlusOutlined />}
-                  onClick={() => handleQuickCreateRecord(doc)}
-                  style={{ fontSize: 12 }}
-                />
-              </Tooltip>
-              {doc.link_id !== undefined && (
-                <Popconfirm
-                  title="確定移除此公文關聯？"
-                  onConfirm={() => handleUnlinkDocument(doc.link_id)}
-                  okText="確定"
-                  cancelText="取消"
-                >
-                  <Tooltip title="移除關聯">
-                    <Button
-                      type="link"
-                      size="small"
-                      danger
-                      icon={<DisconnectOutlined />}
-                      loading={unlinkDocMutation.isPending}
-                      style={{ fontSize: 12 }}
-                    />
-                  </Tooltip>
-                </Popconfirm>
-              )}
-            </Space>
-          )}
-        </div>
-      );
-    },
-    [token, canEdit, handleDocClick, handleQuickCreateRecord, handleUnlinkDocument, unlinkDocMutation.isPending],
-  );
-
-  // ===========================================================================
   // 公文對照視圖（含未指派區塊）
   // ===========================================================================
 
@@ -621,7 +513,6 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
 
     return (
       <>
-        {/* 已指派公文（對應作業紀錄的公文） */}
         {hasCorrespondence && (
           <CorrespondenceBody
             data={correspondenceData}
@@ -631,96 +522,15 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
           />
         )}
 
-        {/* 未指派公文區塊 */}
-        {hasUnassigned && (
-          <>
-            {hasCorrespondence && (
-              <Divider style={{ margin: '8px 0' }}>
-                <Space size={4}>
-                  <ExclamationCircleOutlined style={{ color: token.colorWarning }} />
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    未指派公文 ({unassignedDocs.incoming.length + unassignedDocs.outgoing.length})
-                  </Text>
-                </Space>
-              </Divider>
-            )}
-            <Row gutter={12}>
-              {/* 未指派來文 */}
-              <Col xs={24} md={12}>
-                {unassignedDocs.incoming.length > 0 && (
-                  <div
-                    style={{
-                      borderRadius: 6,
-                      border: `1px dashed ${token.colorWarning}`,
-                      overflow: 'hidden',
-                      marginBottom: 8,
-                    }}
-                  >
-                    <div
-                      style={{
-                        padding: '4px 10px',
-                        background: '#fffbe6',
-                        borderBottom: `1px dashed ${token.colorWarning}`,
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <Text style={{ fontSize: 12, color: token.colorWarning }}>
-                        <FileTextOutlined /> 待指派來文
-                      </Text>
-                      <Badge
-                        count={unassignedDocs.incoming.length}
-                        style={{ backgroundColor: token.colorWarning }}
-                        size="small"
-                      />
-                    </div>
-                    {unassignedDocs.incoming.map((doc) =>
-                      renderUnassignedDoc(doc, 'incoming'),
-                    )}
-                  </div>
-                )}
-              </Col>
-
-              {/* 未指派發文 */}
-              <Col xs={24} md={12}>
-                {unassignedDocs.outgoing.length > 0 && (
-                  <div
-                    style={{
-                      borderRadius: 6,
-                      border: `1px dashed ${token.colorWarning}`,
-                      overflow: 'hidden',
-                      marginBottom: 8,
-                    }}
-                  >
-                    <div
-                      style={{
-                        padding: '4px 10px',
-                        background: '#fffbe6',
-                        borderBottom: `1px dashed ${token.colorWarning}`,
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <Text style={{ fontSize: 12, color: token.colorWarning }}>
-                        <SendOutlined /> 待指派發文
-                      </Text>
-                      <Badge
-                        count={unassignedDocs.outgoing.length}
-                        style={{ backgroundColor: token.colorWarning }}
-                        size="small"
-                      />
-                    </div>
-                    {unassignedDocs.outgoing.map((doc) =>
-                      renderUnassignedDoc(doc, 'outgoing'),
-                    )}
-                  </div>
-                )}
-              </Col>
-            </Row>
-          </>
-        )}
+        <UnassignedDocumentsList
+          unassignedDocs={unassignedDocs}
+          hasCorrespondence={hasCorrespondence}
+          canEdit={canEdit}
+          unlinkPending={unlinkDocMutation.isPending}
+          onDocClick={handleDocClick}
+          onQuickCreateRecord={handleQuickCreateRecord}
+          onUnlinkDocument={handleUnlinkDocument}
+        />
       </>
     );
   };
@@ -732,140 +542,17 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
   return (
     <div>
       {/* 迷你統計 */}
-      <Card size="small" style={{ marginBottom: 12 }}>
-        <Row gutter={[16, 8]} align="middle">
-          <Col xs={12} sm={6} md={3}>
-            <Statistic
-              title="紀錄數"
-              value={stats.total}
-              prefix={<OrderedListOutlined />}
-              valueStyle={{ fontSize: 18 }}
-            />
-          </Col>
-          <Col xs={12} sm={6} md={3}>
-            <Statistic
-              title="已完成"
-              value={stats.completed}
-              prefix={<CheckCircleOutlined />}
-              valueStyle={{ fontSize: 18, color: '#52c41a' }}
-            />
-          </Col>
-          <Col xs={12} sm={6} md={3}>
-            <Statistic
-              title="已暫緩"
-              value={stats.onHold}
-              valueStyle={{ fontSize: 18, color: stats.onHold > 0 ? '#faad14' : undefined }}
-            />
-          </Col>
-          <Col xs={12} sm={6} md={3}>
-            <Statistic
-              title="關聯公文"
-              value={stats.linkedDocCount}
-              prefix={<LinkOutlined />}
-              valueStyle={{ fontSize: 18 }}
-            />
-          </Col>
-          <Col xs={12} sm={6} md={3}>
-            <Statistic
-              title="未指派"
-              value={stats.unassignedDocCount}
-              prefix={<ExclamationCircleOutlined />}
-              valueStyle={{
-                fontSize: 18,
-                color: stats.unassignedDocCount > 0 ? '#faad14' : undefined,
-              }}
-            />
-          </Col>
-          <Col xs={12} sm={6} md={3}>
-            <Statistic
-              title="來文"
-              value={stats.incomingDocs}
-              prefix={<FileTextOutlined />}
-              valueStyle={{ fontSize: 18 }}
-            />
-          </Col>
-          <Col xs={12} sm={6} md={3}>
-            <Statistic
-              title="發文"
-              value={stats.outgoingDocs}
-              prefix={<SendOutlined />}
-              valueStyle={{ fontSize: 18 }}
-            />
-          </Col>
-          <Col xs={24} sm={12} md={6}>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              當前階段
-            </Text>
-            <div>
-              <Tag
-                color={stats.currentStage === '全部完成' ? 'success' : 'processing'}
-                style={{ marginTop: 2 }}
-              >
-                {stats.currentStage}
-              </Tag>
-            </div>
-          </Col>
-        </Row>
-      </Card>
+      <StatsCards stats={stats} />
 
       {/* 工具列 */}
-      <div
-        style={{
-          marginBottom: 12,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: 8,
-        }}
-      >
-        <Space wrap>
-          {canEdit && (
-            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-              新增紀錄
-            </Button>
-          )}
-          {linkedProjects && linkedProjects.length > 0 && (
-            <>
-              {linkedProjects.map((proj) => (
-                <Tooltip
-                  key={proj.project_id}
-                  title={`前往「${proj.project_name || '工程'}」總覽，查看本派工在整體工程中的進度`}
-                >
-                  <Button
-                    icon={<ProjectOutlined />}
-                    onClick={() => handleGoToProjectOverview(proj.project_id)}
-                  >
-                    查看工程總覽
-                  </Button>
-                </Tooltip>
-              ))}
-            </>
-          )}
-        </Space>
-
-        <Segmented
-          value={viewMode}
-          onChange={(val) => setViewMode(val as ViewMode)}
-          options={[
-            {
-              value: 'chain',
-              label: '時間軸',
-              icon: <LinkOutlined />,
-            },
-            {
-              value: 'correspondence',
-              label: '公文對照',
-              icon: <FileTextOutlined />,
-            },
-            {
-              value: 'table',
-              label: '表格',
-              icon: <OrderedListOutlined />,
-            },
-          ]}
-        />
-      </div>
+      <WorkflowToolBar
+        viewMode={viewMode}
+        onViewModeChange={handleViewModeChange}
+        canEdit={canEdit}
+        onAdd={handleAdd}
+        linkedProjects={linkedProjects}
+        onGoToProjectOverview={handleGoToProjectOverview}
+      />
 
       {/* 視圖內容 */}
       {viewMode === 'chain' ? (
@@ -911,110 +598,18 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
 
       {/* 行內公文搜尋區（非時間軸模式才顯示） */}
       {canEdit && viewMode !== 'chain' && (
-        <Card
-          size="small"
-          style={{ marginTop: 12 }}
-          styles={{
-            header: { minHeight: 36, padding: '0 12px' },
-            body: { padding: '8px 12px' },
-          }}
-          title={
-            <Space size={4}>
-              <SearchOutlined />
-              <Text style={{ fontSize: 13 }}>新增公文關聯</Text>
-            </Space>
-          }
-        >
-          <Row gutter={[8, 8]} align="middle">
-            <Col xs={24} sm={24} md={12} lg={12}>
-              <Select
-                showSearch
-                allowClear
-                placeholder="搜尋公文字號或主旨..."
-                style={{ width: '100%' }}
-                value={selectedDocId}
-                onChange={handleDocumentChange}
-                onSearch={setDocSearchKeyword}
-                filterOption={false}
-                popupMatchSelectWidth={false}
-                styles={{ popup: { root: { minWidth: 500, maxWidth: 700 } } }}
-                notFoundContent={
-                  docSearchKeyword ? (
-                    <Empty description="無符合的公文" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                  ) : (
-                    <Text type="secondary">請輸入關鍵字搜尋</Text>
-                  )
-                }
-                loading={searchingDocs}
-                optionLabelProp="label"
-                size="small"
-              >
-                {availableDocs.map((doc) => {
-                  const docNumber = doc.doc_number || `#${doc.id}`;
-                  const subject = doc.subject || '(無主旨)';
-                  const docIsReceive = isReceiveDocument(doc.category);
-                  const dateStr = doc.doc_date ? doc.doc_date.substring(0, 10) : '';
-                  const tooltipContent = (
-                    <div style={{ maxWidth: 400 }}>
-                      <div><strong>字號：</strong>{docNumber}</div>
-                      <div><strong>主旨：</strong>{subject}</div>
-                      {dateStr && <div><strong>日期：</strong>{dateStr}</div>}
-                      {doc.sender && <div><strong>發文：</strong>{doc.sender}</div>}
-                      {doc.receiver && <div><strong>受文：</strong>{doc.receiver}</div>}
-                    </div>
-                  );
-
-                  return (
-                    <Option key={doc.id} value={doc.id} label={docNumber}>
-                      <Tooltip title={tooltipContent} placement="right" mouseEnterDelay={0.5}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <Tag
-                            color={docIsReceive ? 'blue' : 'green'}
-                            style={{ flexShrink: 0, margin: 0 }}
-                          >
-                            {docIsReceive ? '收' : '發'}
-                          </Tag>
-                          <Text strong style={{ flexShrink: 0, minWidth: 140 }}>
-                            {docNumber}
-                          </Text>
-                          <Text
-                            type="secondary"
-                            ellipsis
-                            style={{ flex: 1, maxWidth: 250 }}
-                          >
-                            {subject}
-                          </Text>
-                        </div>
-                      </Tooltip>
-                    </Option>
-                  );
-                })}
-              </Select>
-            </Col>
-            <Col xs={16} sm={14} md={7} lg={7}>
-              <Radio.Group
-                value={selectedLinkType}
-                onChange={(e) => setSelectedLinkType(e.target.value)}
-                size="small"
-              >
-                <Radio.Button value="agency_incoming">機關來函</Radio.Button>
-                <Radio.Button value="company_outgoing">乾坤發文</Radio.Button>
-              </Radio.Group>
-            </Col>
-            <Col xs={8} sm={10} md={5} lg={5}>
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={handleLinkDocument}
-                loading={linkDocMutation.isPending}
-                disabled={!selectedDocId}
-                size="small"
-              >
-                建立關聯
-              </Button>
-            </Col>
-          </Row>
-        </Card>
+        <InlineDocumentSearch
+          availableDocs={availableDocs}
+          selectedDocId={selectedDocId}
+          selectedLinkType={selectedLinkType}
+          docSearchKeyword={docSearchKeyword}
+          searchingDocs={searchingDocs}
+          linkingDoc={linkDocMutation.isPending}
+          onDocumentChange={handleDocumentChange}
+          onSearchKeywordChange={setDocSearchKeyword}
+          onLinkTypeChange={setSelectedLinkType}
+          onLinkDocument={handleLinkDocument}
+        />
       )}
     </div>
   );

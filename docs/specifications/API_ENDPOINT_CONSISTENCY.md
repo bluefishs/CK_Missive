@@ -1,4 +1,5 @@
 # API 端點一致性規範 (API Endpoint Consistency)
+> Version: 1.0.0 | Last Updated: 2026-02-21
 
 > 版本：2.1.0
 > 建立日期：2026-01-08

@@ -1,4 +1,5 @@
 # GitHub Self-hosted Runner 設置指南
+> Version: 1.0.0 | Last Updated: 2026-02-21
 
 > **版本**: 1.0.0
 > **建立日期**: 2026-02-02

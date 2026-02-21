@@ -11,9 +11,12 @@ import json
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
+from starlette.responses import Response
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.rate_limiter import limiter
 
 from app.db.database import get_async_db
 from app.extended.models import User
@@ -35,7 +38,10 @@ ALLOWED_AUTH_ACTIONS = (
 
 
 @router.post("/login-history", response_model=LoginHistoryResponse, summary="查詢登入歷史")
+@limiter.limit("30/minute")
 async def get_login_history(
+    request: Request,
+    response: Response,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
     page: int = Query(default=1, ge=1, description="頁碼"),

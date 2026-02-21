@@ -12,8 +12,11 @@
 """
 import logging
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request
+from starlette.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.rate_limiter import limiter
 
 from app.db.database import get_async_db
 from app.services.document_import_service import DocumentImportService
@@ -24,7 +27,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.post("/upload-and-import", summary="電子公文檔匯入（CSV）")
+@limiter.limit("5/minute")
 async def upload_and_import_csv(
+    request: Request,
+    response: Response,
     file: UploadFile = File(..., description="要上傳的CSV檔案（電子公文系統匯出）"),
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user)
@@ -67,7 +73,10 @@ async def upload_and_import_csv(
 
 
 @router.post("/upload-multiple", summary="批次上傳多個CSV檔案")
+@limiter.limit("5/minute")
 async def upload_multiple_csv(
+    request: Request,
+    response: Response,
     files: List[UploadFile] = File(..., description="要上傳的多個CSV檔案"),
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user)

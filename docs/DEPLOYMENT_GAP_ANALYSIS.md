@@ -1,3 +1,5 @@
+> **此文件已移至 [archive/DEPLOYMENT_GAP_ANALYSIS.md](archive/DEPLOYMENT_GAP_ANALYSIS.md)，不再維護。**
+
 # 部署管理功能缺漏分析與優化程序
 
 > **建立日期**: 2026-02-03

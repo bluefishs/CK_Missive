@@ -8,9 +8,11 @@
 """
 from datetime import datetime
 from urllib.parse import quote
-from fastapi import APIRouter, Body, HTTPException
+from fastapi import APIRouter, Body, HTTPException, Request
+from starlette.responses import Response
 from fastapi.responses import StreamingResponse
 
+from app.core.rate_limiter import limiter
 from .common import (
     logger, Depends,
     DocumentExportQuery, ExcelExportRequest,
@@ -25,7 +27,10 @@ router = APIRouter()
 # ============================================================================
 
 @router.post("/export", summary="匯出公文資料")
+@limiter.limit("10/minute")
 async def export_documents(
+    request: Request,
+    response: Response,
     query: DocumentExportQuery = Body(...),
     service: DocumentExportService = Depends(get_export_service)
 ):
@@ -64,7 +69,10 @@ async def export_documents(
 # ============================================================================
 
 @router.post("/export/excel", summary="匯出公文為 Excel")
+@limiter.limit("10/minute")
 async def export_documents_excel(
+    http_request: Request,
+    response: Response,
     request: ExcelExportRequest = Body(default=ExcelExportRequest()),
     service: DocumentExportService = Depends(get_export_service)
 ):

@@ -528,33 +528,3 @@ class ProjectService:
         """取得所有專案狀態選項（升序排列）"""
         return await self.get_distinct_options("status", sort_order="asc")
 
-    # =========================================================================
-    # 向後相容方法 (保留至 v5.0，標記棄用)
-    # =========================================================================
-
-    async def create_project(
-        self, db: AsyncSession, project: ProjectCreate
-    ) -> ContractProject:
-        """
-        @deprecated 使用 create(data) 代替。db 參數被忽略。
-        """
-        return await self.create(project)
-
-    async def update_project(
-        self,
-        db: AsyncSession,
-        project_id: int,
-        project_update: ProjectUpdate,
-    ) -> Optional[ContractProject]:
-        """
-        @deprecated 使用 update(entity_id, data) 代替。db 參數被忽略。
-        """
-        return await self.update(project_id, project_update)
-
-    async def delete_project(
-        self, db: AsyncSession, project_id: int
-    ) -> bool:
-        """
-        @deprecated 使用 delete(entity_id) 代替。db 參數被忽略。
-        """
-        return await self.delete(project_id)
