@@ -1,23 +1,43 @@
-# Python 語法檢查 Hook
+# Python 語法檢查 Hook (v2.0.0)
 # PostToolUse: 在修改 .py 檔案後執行
-
-param(
-    [string]$EditedFile = ""
-)
+# 協議: 從 stdin 讀取 JSON，根據 file_path 副檔名決定是否執行
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "Python Lint: 檢查後端語法..." -ForegroundColor Cyan
+# 從 stdin 讀取 hook 輸入 JSON
+$rawInput = ""
+try {
+    while ($line = [Console]::In.ReadLine()) {
+        $rawInput += $line
+    }
+} catch { }
 
-# 切換到後端目錄
-Push-Location "$PSScriptRoot/../../backend"
+# 解析 JSON 取得檔案路徑
+$filePath = ""
+if ($rawInput) {
+    try {
+        $hookInput = $rawInput | ConvertFrom-Json
+        $filePath = $hookInput.tool_input.file_path
+    } catch { }
+}
+
+# 只檢查 .py 檔案
+if ($filePath -and $filePath -notmatch '\.py$') {
+    exit 0
+}
+
+# 檢查後端目錄是否存在
+$backendDir = Join-Path $PSScriptRoot "../../backend"
+if (-not (Test-Path $backendDir)) {
+    exit 0
+}
+
+Push-Location $backendDir
 
 try {
-    if ($EditedFile -and (Test-Path $EditedFile)) {
-        # 檢查特定檔案
-        $result = & python -m py_compile $EditedFile 2>&1
+    if ($filePath -and (Test-Path $filePath)) {
+        $result = & python -m py_compile $filePath 2>&1
     } else {
-        # 檢查主程式
         $result = & python -m py_compile app/main.py 2>&1
     }
 

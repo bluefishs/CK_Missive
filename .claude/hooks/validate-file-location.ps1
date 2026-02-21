@@ -1,18 +1,36 @@
-# 檔案位置驗證 Hook
+# 檔案位置驗證 Hook (v2.0.0)
 # PreToolUse: 在建立/編輯檔案前驗證位置是否符合架構規範
-
-param(
-    [string]$FilePath = ""
-)
+# 協議: 從 stdin 讀取 JSON，從 tool_input.file_path 取得路徑
 
 $ErrorActionPreference = "Stop"
+
+# 從 stdin 讀取 hook 輸入 JSON
+$rawInput = ""
+try {
+    while ($line = [Console]::In.ReadLine()) {
+        $rawInput += $line
+    }
+} catch { }
+
+# 解析 JSON 取得檔案路徑
+$FilePath = ""
+if ($rawInput) {
+    try {
+        $hookInput = $rawInput | ConvertFrom-Json
+        $FilePath = $hookInput.tool_input.file_path
+    } catch { }
+}
+
+if (-not $FilePath) {
+    exit 0
+}
 
 # 定義禁止放置檔案的位置
 $ForbiddenPatterns = @(
     "backend/test_.*\.py$",           # 測試檔案不應在 backend 根目錄
     "backend/.*\.sql$",               # SQL 檔案應在指定位置
     "frontend/.*\.py$",               # Python 檔案不應在前端
-    "^[^/]+\.md$",                     # 根目錄不應隨意新增 md 檔案 (除特定允許的)
+    "^[^/]+\.md$",                     # 根目錄不應隨意新增 md 檔案
     "^temp_",                          # 暫存檔案
     "^test_"                           # 測試檔案不應在根目錄
 )
@@ -50,18 +68,10 @@ function Test-FilePath {
     return $true
 }
 
-if ($FilePath) {
-    Write-Host "File Location Check: 驗證檔案位置..." -ForegroundColor Cyan
-
-    if (Test-FilePath -Path $FilePath) {
-        Write-Host "File Location Check: 位置合規 - $FilePath" -ForegroundColor Green
-        exit 0
-    } else {
-        Write-Host "File Location Check: 位置違規 - $FilePath" -ForegroundColor Red
-        Write-Host "請參考 STRUCTURE.md 確認正確的檔案放置位置"
-        exit 1
-    }
-} else {
-    Write-Host "File Location Check: 未提供檔案路徑" -ForegroundColor Yellow
+if (Test-FilePath -Path $FilePath) {
     exit 0
+} else {
+    # exit 2 = 阻擋操作，stderr 傳給 Claude
+    [Console]::Error.WriteLine("檔案位置違規: $FilePath - 請參考 .claude/rules/architecture.md 確認正確的檔案放置位置")
+    exit 2
 }

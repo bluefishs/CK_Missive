@@ -19,32 +19,67 @@
     "quotes": "single"
   },
   "hooks": {
-    "PostToolUse": [
+    "SessionStart": [
       {
-        "matcher": "Edit|Write",
-        "filePattern": "**/*.ts",
-        "script": ".claude/hooks/typescript-check.ps1",
-        "description": "TypeScript 編譯檢查"
-      },
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -ExecutionPolicy Bypass -File .claude/hooks/session-start.ps1",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
       {
-        "matcher": "Edit|Write",
-        "filePattern": "**/*.tsx",
-        "script": ".claude/hooks/typescript-check.ps1",
-        "description": "React TypeScript 編譯檢查"
-      },
-      {
-        "matcher": "Edit|Write",
-        "filePattern": "**/*.py",
-        "script": ".claude/hooks/python-lint.ps1",
-        "description": "Python 語法檢查"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -ExecutionPolicy Bypass -File .claude/hooks/auto-approve.ps1",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PreToolUse": [
       {
         "matcher": "Write|Edit",
-        "filePattern": "**/*",
-        "script": ".claude/hooks/validate-file-location.ps1",
-        "description": "驗證檔案位置符合架構規範"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -ExecutionPolicy Bypass -File .claude/hooks/validate-file-location.ps1",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -ExecutionPolicy Bypass -File .claude/hooks/typescript-check.ps1",
+            "timeout": 60
+          },
+          {
+            "type": "command",
+            "command": "powershell -ExecutionPolicy Bypass -File .claude/hooks/python-lint.ps1",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "agent",
+            "prompt": "你是 CK_Missive 品質守門員。檢查此對話中是否有修改 .ts/.tsx/.py 檔案。若有修改：\n1. 在 frontend/ 目錄執行 `npx tsc --noEmit` 確認 TypeScript 編譯通過\n2. 對修改的 .py 檔案執行 `python -m py_compile` 確認語法正確\n3. 確認型別定義遵循 SSOT 原則 (後端 schemas/，前端 types/api.ts)\n\n若無程式碼修改或所有檢查通過，回傳 ok。若發現問題，描述問題並建議修復。",
+            "timeout": 120
+          }
+        ]
       }
     ]
   }
