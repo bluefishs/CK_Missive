@@ -4,6 +4,275 @@
 
 ---
 
+## [1.57.0] - 2026-02-21
+
+### CLAUDE.md 模組化拆分 + Hooks 升級至官方格式
+
+- CLAUDE.md 從 2,437 行縮減至 89 行 (96% 精簡)
+- 新增 7 個 `.claude/rules/` 自動載入規範檔案
+- 升級 3 個現有 hook scripts 至 stdin JSON 協議 (v2.0.0)
+- 新增 SessionStart / PermissionRequest / Stop 三種 hooks
+- settings.json 遷移至官方三層巢狀格式
+- 新增 `hooks-development.md` skill
+- 修復 PowerShell 5.1 UTF-8 BOM 編碼問題 (8 個 .ps1 檔案)
+- 修復 python-lint.ps1 Push-Location 路徑前綴問題
+
+---
+
+## [1.56.0] - 2026-02-19
+
+### SSOT 全面強化 + Schema-ORM 對齊 + 型別集中化
+
+- 後端 26 個本地 BaseModel 遷移至 `schemas/` (ai, deployment, calendar, links)
+- Schema-ORM 對齊：ContractProject 14 欄位 + UserResponse.email_verified
+- 前端 8 個頁面本地型別集中至 `types/admin-system.ts` + `types/api.ts`
+- SSOT 合規率：後端 95%→100%, 前端 85%→95%, Schema-ORM 87%→98%
+- 57 個檔案修改 (+1,032 / -1,833 行，淨減少 801 行)
+
+---
+
+## [1.55.0] - 2026-02-19
+
+### 全面健康檢查 + 修復執行 + Phase 6 規劃
+
+- system_health.py SQL 注入修復 (6 個 raw SQL → ORM 白名單)
+- DocumentDetailPage 拆分：897 → 204 行 (-77%)
+- NaturalSearchPanel Hook 提取：774 → 274 行 (-64%)
+- 24 個元件新增 ARIA 可訪問性語意屬性
+- Phase 6 規劃 (6A 可訪問性 / 6B 服務拆分 / 6C 測試擴充 / 6D Repository)
+- 系統健康度：9.5 → 9.6/10
+
+---
+
+## [1.54.0] - 2026-02-17
+
+### 鏈式時間軸 + 架構審查修復 + 測試擴充
+
+- ORM 模型拆分 `extended/models.py` → 7 個模組
+- ChainTimeline 鏈式時間軸元件 (chain + correspondence + table 三種視圖)
+- InlineRecordCreator Tab 內 Inline 新增表單
+- 架構審查修復 10 項 (CRITICAL 權限檢查、分頁上限、複合索引)
+- 49 個新測試 (chainUtils 31 + work_record_service 18)
+- 新增 `workflow-management.md` skill
+
+---
+
+## [1.53.0] - 2026-02-09
+
+### Docker+PM2 混合開發環境優化與系統韌性強化
+
+- 新增 `docker-compose.infra.yml` (僅 PostgreSQL + Redis)
+- 重寫 `dev-start.ps1` v2.0.0 支援 -FullDocker/-Stop/-Status/-Restart
+- 新增 `dev-stop.ps1` 支援 -KeepInfra/-All
+- 資料庫連線韌性：statement_timeout 30s + pool event listeners
+- Feature Flags 架構 (PGVECTOR_ENABLED, MFA_ENABLED)
+
+---
+
+## [1.52.0] - 2026-02-09
+
+### Phase 4 審查修復：SSOT 一致性 + 安全強化 + 自動回填
+
+- 24 個 AI 端點路徑集中至 `endpoints.ts` 的 `AI_ENDPOINTS`
+- MFA 型別集中至 `types/api.ts`
+- Session 端點限流 (30/10/5 per minute)
+- Embedding 自動回填背景任務 (main.py lifespan)
+
+---
+
+## [1.51.0] - 2026-02-08
+
+### Phase 4 全面完成：RWD + AI 深度優化 + 帳號管控
+
+- Phase 4A RWD：Sidebar Drawer + ResponsiveTable/FormRow/Container
+- Phase 4B AI：SSE 串流 + pgvector 語意搜尋 + Prompt 版控 + 同義詞管理
+- Phase 4C 帳號：密碼策略 + 帳號鎖定 + MFA + Email 驗證 + Session 管理
+- 32 個新增檔案、105 個修改檔案 (+10,312 / -1,752 行)
+- 系統健康度：9.9 → 10.0/10
+
+---
+
+## [1.50.0] - 2026-02-08
+
+### Phase 4 規劃文件
+
+- 系統文件全面更新 (已被 v1.51.0 實作取代)
+
+---
+
+## [1.49.0] - 2026-02-07
+
+### 全面架構優化：安全遷移 + Redis 快取 + 測試擴充
+
+- httpOnly Cookie 認證遷移 + CSRF 防護 (Double Submit Cookie)
+- Redis 非同步連線 + AI 結果快取 + 統計持久化
+- AI 回應驗證層 `_call_ai_with_validation()`
+- 搜尋歷史 localStorage + 結果快取 5 分鐘 TTL
+- Refresh Token 速率限制 10/minute
+- 測試擴充：認證整合 8 個 + Repository 24 個 + E2E 認證 5 個
+
+---
+
+## [1.48.0] - 2026-02-07
+
+### 認證安全全面強化 + 管理後台優化
+
+- CRITICAL: 移除明文密碼回退 + Refresh Token Rotation (SELECT FOR UPDATE)
+- 診斷路由保護 → admin-only
+- 強制 SECRET_KEY + 啟動 Token 驗證 + 閒置 30 分鐘超時
+- 跨分頁 token 同步 (storage event)
+- 系統健康度：9.9 → 10.0/10
+
+---
+
+## [1.47.0] - 2026-02-06
+
+### AI 助理公文搜尋全面優化
+
+- 提示注入防護：XML 標籤隔離 + 特殊字元清理
+- RLS 權限篩選 `with_assignee_access()`
+- asyncio.gather 並行取得附件與專案
+- 前端 AbortController 防競態 + 30 秒超時
+- AI 搜尋遷移至 DocumentQueryBuilder
+
+---
+
+## [1.46.0] - 2026-02-06
+
+### Repository 層全面採用
+
+- 5 個端點模組遷移至 Repository (users, user_management, profile, config, navigation)
+- 新增 NavigationRepository
+- UserRepository 新增 `get_users_filtered()`
+- Repository 採用率：44% → 65%
+
+---
+
+## [1.45.0] - 2026-02-06
+
+### 服務層工廠模式全面遷移 + AI 管理統一
+
+- AgencyService v3.0.0 + ProjectService v4.0.0 工廠模式遷移
+- UnitOfWork 移除 4 個 Adapter 類別
+- 新增 UserRepository + ConfigurationRepository
+- AI 管理頁面統一至 `/admin/ai-assistant` Tab 分頁
+- CSRF AUTH_DISABLED 修復
+- 架構驗證腳本 `verify_architecture.py` (7 項檢查)
+
+---
+
+## [1.44.0] - 2026-02-06
+
+### 連鎖崩潰防護機制
+
+- 事故：useEffect 無限迴圈 → 請求風暴 → 後端 OOM → PM2 重啟 421 次
+- 五層防護：編碼規範 + RequestThrottler + slowapi 限流 + CI 驗證 + 部署驗證
+- RequestThrottler：同 URL 1s 間隔、20/10s、全域 50/10s
+- 3 個高頻端點限流 (documents/list, statistics, unread-count)
+
+---
+
+## [1.43.0] - 2026-02-06
+
+### Phase 2 架構優化：Query Builder 擴展
+
+- 新增 ProjectQueryBuilder (RLS 權限控制、多條件篩選)
+- 新增 AgencyQueryBuilder (智慧模糊匹配)
+- VendorService 合併為工廠模式 v2.0.0
+
+---
+
+## [1.42.0] - 2026-02-06
+
+### 服務層架構優化與規範建立
+
+- 新增 DocumentQueryBuilder 流暢介面查詢
+- AI 自然語言搜尋 `/ai/document/natural-search`
+- NaturalSearchPanel + AIAssistantButton 搜尋整合
+- 前端 AI 元件配置集中化 `aiConfig.ts`
+
+---
+
+## [1.41.0] - 2026-02-05
+
+### 派工安排 work_type 欄位修復
+
+- 修復公文詳情頁 `work_type` 多選陣列 → 逗號分隔字串轉換
+
+---
+
+## [1.40.0] - 2026-02-05
+
+### AI 助手 Portal 架構重構
+
+- 移除 Drawer 抽屜模式，改用 Card 浮動面板
+- createPortal 渲染與主版面 CSS 隔離
+- 可拖曳面板 + 縮合/展開 + 漸層設計
+
+---
+
+## [1.39.0] - 2026-02-05
+
+### AI 助理 UI 優化與配置集中化
+
+- 新增 `aiConfig.ts` 集中 AI 配置
+- 修復 FloatButton z-index 顯示問題
+
+---
+
+## [1.38.0] - 2026-02-05
+
+### AI 服務優化與測試擴充
+
+- RateLimiter 速率限制 (30 req/min) + SimpleCache 記憶體快取 (TTL 1h)
+- E2E 測試擴充：documents 12 + dispatch 14 + projects 13
+- 新增 mypy.ini Python 型別檢查配置
+
+---
+
+## [1.37.0] - 2026-02-04
+
+### AI 語意精靈
+
+- 整合 Groq API (免費方案 30 req/min) + Ollama 離線備援
+- 公文摘要生成 + 分類建議 + 關鍵字提取 + 機關匹配
+- 後端 7 個新檔案 + 前端 4 個新檔案
+- 5 個 AI API 端點
+
+---
+
+## [1.36.0] - 2026-02-04
+
+### 系統效能全面優化
+
+- asyncio.gather 並行查詢 (API 響應 -40%)
+- 5 個投影查詢方法 (資料傳輸 -30%)
+- 4 個新索引 (複合 + 部分索引)
+- 前端 12 個 useMemo 記憶化
+
+---
+
+## [1.35.0] - 2026-02-04
+
+### 前端錯誤處理系統性修復
+
+- 修復 6 處 catch 區塊錯誤清空列表的問題
+- 7 個回歸測試 (useDocumentRelations)
+- 新增錯誤處理規範：catch 中保留現有資料
+
+---
+
+## [1.34.0] - 2026-02-04
+
+### E2E 測試框架與 Bug 修復
+
+- 安裝 Playwright + 10 個 E2E 煙霧測試
+- 修復派工安排存檔後紀錄消失 (重複 linkDispatch)
+- 新增 E2E CI 工作流 `ci-e2e.yml`
+- 前端覆蓋率門檻 50% → 80%
+
+---
+
 ## [1.33.0] - 2026-02-03
 
 ### 派工單多對多關聯一致性修復與 GitOps 評估

@@ -67,6 +67,26 @@
             "type": "command",
             "command": "powershell -ExecutionPolicy Bypass -File .claude/hooks/python-lint.ps1",
             "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "powershell -ExecutionPolicy Bypass -File .claude/hooks/api-serialization-check.ps1",
+            "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "powershell -ExecutionPolicy Bypass -File .claude/hooks/performance-check.ps1",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "檢查修改的檔案是否為 ORM 模型 (路徑包含 backend/app/extended/models)。若是，提醒使用者需要建立 Alembic 遷移：cd backend && alembic revision --autogenerate -m '描述變更'",
+            "timeout": 10
           }
         ]
       }

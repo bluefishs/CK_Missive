@@ -14,6 +14,9 @@
 |------|---------|------|------|
 | typescript-check | `Edit\|Write` | TypeScript 編譯檢查 (.ts/.tsx) | `.claude/hooks/typescript-check.ps1` |
 | python-lint | `Edit\|Write` | Python 語法檢查 (.py) | `.claude/hooks/python-lint.ps1` |
+| api-serialization-check | `Edit\|Write` | API 序列化問題檢測 (.py, 僅 endpoints/) | `.claude/hooks/api-serialization-check.ps1` |
+| performance-check | `Edit\|Write` | N+1 查詢與缺分頁檢測 (.py, 僅 services/endpoints/) | `.claude/hooks/performance-check.ps1` |
+| migration-check | `Edit\|Write` | ORM 模型修改提醒建立 Alembic 遷移 (prompt 類型) | settings.json 內嵌 |
 
 ### SessionStart (對話開始)
 
@@ -38,9 +41,7 @@
 | Hook | 說明 | 檔案 |
 |------|------|------|
 | route-sync-check | 檢查前後端路徑一致性 | `.claude/hooks/route-sync-check.ps1` |
-| api-serialization-check | 檢查 API 序列化問題 | `.claude/hooks/api-serialization-check.ps1` |
 | link-id-check | 檢查 link_id 使用模式 | `.claude/hooks/link-id-check.ps1` |
-| performance-check | 效能問題檢測 (N+1, 未分頁查詢) | `.claude/hooks/performance-check.ps1` |
 
 ## Hook 開發協議
 

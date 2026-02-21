@@ -124,7 +124,7 @@ test('應通過 WCAG 2.1 AA 基本檢查', async ({ page }) => {
 
 ### 13.4 Phase 6D: Repository 層擴展 (優先級: MEDIUM)
 
-**目標**: Repository 採用率從 18% 提升至 60%+
+**目標**: Repository 採用率從 65% (v1.46.0 現況) 提升至 80%+
 
 | 優先級 | Repository | 覆蓋端點 | 工時 |
 |--------|-----------|---------|------|
@@ -651,11 +651,11 @@ class DocumentAIService(BaseAIService):
 
 | 服務 | 模式 | 狀態 | 遷移目標 |
 |------|------|------|----------|
-| `VendorService` | Singleton (deprecated) | 待遷移 | 工廠模式 |
-| `AgencyService` | Singleton (deprecated) | 待遷移 | 工廠模式 |
-| `ProjectService` | Singleton (deprecated) | 待遷移 | 工廠模式 |
-| `DocumentService` | 工廠模式 | 完成 | - |
-| `DispatchOrderService` | 工廠模式 | 完成 | - |
+| `VendorService` | 工廠模式 | ✅ 完成 (v1.43.0) | - |
+| `AgencyService` | 工廠模式 | ✅ 完成 (v1.45.0) | - |
+| `ProjectService` | 工廠模式 | ✅ 完成 (v1.45.0) | - |
+| `DocumentService` | 工廠模式 | ✅ 完成 | - |
+| `DispatchOrderService` | 工廠模式 | ✅ 完成 | - |
 | `DocumentAIService` | 無狀態 Singleton | 合理 | 維持現狀 |
 
 ### 5.2 遷移步驟 (每個服務)
@@ -1368,16 +1368,12 @@ z-index: 9999, position: fixed
 ## 附錄 C: 服務層遷移進度
 
 ```
-Singleton (deprecated)          Factory (推薦)
-+-------------------+          +-------------------+
-| VendorService     | --待遷移-> | VendorService     |
-| AgencyService     | --待遷移-> | AgencyService     |
-| ProjectService    | --待遷移-> | ProjectService    |
-+-------------------+          +-------------------+
-
-                    已完成
-                    +--------------------------+
-                    | DocumentService          | OK
+全部已完成工廠模式遷移 (v1.45.0)
++--------------------------+
+| VendorService     v2.0.0 | ✅
+| AgencyService     v3.0.0 | ✅
+| ProjectService    v4.0.0 | ✅
+| DocumentService          | ✅
                     | DispatchOrderService     | OK
                     | CalendarIntegrationSvc   | OK
                     | DocumentAIService        | OK (無狀態)

@@ -55,6 +55,9 @@
 | `ai-development.md` | AI, Groq, Ollama, 語意, 摘要, 分類, 同義詞 | AI 功能開發規範 (v2.0.0) |
 | `database-performance.md` | 慢查詢, N+1, 索引, 查詢優化, slow query | 資料庫效能優化指南 |
 | `development-environment.md` | 環境, Docker, 依賴, 配置, env | 開發環境檢查指南 |
+| `accessibility.md` | 可訪問性, a11y, WCAG, ARIA, 鍵盤導航 | 可訪問性規範 (v1.0.0) |
+| `alembic-migrations.md` | Alembic, 遷移, migration, schema change | Alembic 遷移管理規範 (v1.0.0) |
+| `caching-patterns.md` | 快取, cache, Redis, TTL, React Query | 快取策略規範 (v1.0.0) |
 
 ### Superpowers Skills (v4.0.3)
 

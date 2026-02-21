@@ -2,7 +2,7 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.57.0
+> **Claude Code 配置版本**: 1.58.0
 > **最後更新**: 2026-02-21
 
 ---
@@ -86,4 +86,4 @@ cd backend && python -m py_compile app/main.py  # Python 語法檢查
 
 ---
 
-> 配置維護: Claude Code Assistant | 版本: v1.57.0
+> 配置維護: Claude Code Assistant | 版本: v1.58.0
