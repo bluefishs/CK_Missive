@@ -46,6 +46,7 @@ vi.mock('axios', () => ({
 
 vi.mock('../../api/client', () => ({
   API_BASE_URL: 'http://localhost:8001',
+  getCookie: vi.fn(() => null),
 }));
 
 // Mock localStorage
@@ -241,6 +242,9 @@ describe('authService', () => {
   describe('isAuthenticated', () => {
     it('當有有效 JWT token 時應該返回 true', () => {
       localStorageMock.setItem('access_token', 'valid-jwt-token');
+      localStorageMock.setItem('user_info', JSON.stringify({
+        id: 1, username: 'test', role: 'user', is_admin: false,
+      }));
 
       const result = authService.isAuthenticated();
       expect(result).toBe(true);
