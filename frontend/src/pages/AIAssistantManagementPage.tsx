@@ -1,13 +1,17 @@
 /**
  * AI 助理管理頁面
  *
- * Version: 1.0.0
+ * Version: 2.0.0
  * Created: 2026-02-09
+ * Updated: 2026-02-24 — 新增 Embedding 管理、知識圖譜、AI 服務監控 Tab
  *
- * 統一管理入口，整合搜尋統計、搜尋歷史、同義詞管理、Prompt 管理。
+ * 統一管理入口，整合搜尋統計、搜尋歷史、同義詞管理、Prompt 管理、
+ * Embedding 管線、知識圖譜、AI 服務監控。
  */
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
+  Alert,
+  Badge,
   Button,
   Card,
   Col,
@@ -15,8 +19,10 @@ import {
   Descriptions,
   Empty,
   Input,
+  InputNumber,
   message,
   Popconfirm,
+  Progress,
   Row,
   Select,
   Space,
@@ -28,17 +34,25 @@ import {
   Typography,
 } from 'antd';
 import {
+  ApartmentOutlined,
   BarChartOutlined,
+  CheckCircleOutlined,
   ClockCircleOutlined,
+  CloseCircleOutlined,
+  CloudServerOutlined,
   DashboardOutlined,
+  DatabaseOutlined,
   DeleteOutlined,
   ExperimentOutlined,
+  HeartOutlined,
   HistoryOutlined,
+  PlayCircleOutlined,
   ReloadOutlined,
   RobotOutlined,
   SearchOutlined,
   TagsOutlined,
   ThunderboltOutlined,
+  WarningOutlined,
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -50,9 +64,13 @@ import type {
   SearchHistoryListRequest,
   DailyTrend,
   TopQuery,
+  AIHealthStatus,
+  EmbeddingStatsResponse,
+  EmbeddingBatchResponse,
 } from '../api/aiApi';
 import { SynonymManagementContent } from './AISynonymManagementPage';
 import { PromptManagementContent } from './AIPromptManagementPage';
+import { KnowledgeGraph } from '../components/ai/KnowledgeGraph';
 
 const { Title, Text } = Typography;
 
@@ -425,6 +443,482 @@ const HistoryTab: React.FC = () => {
 };
 
 // ============================================================================
+// Tab 3+4: SynonymManagementContent / PromptManagementContent (外部匯入)
+// ============================================================================
+
+// ============================================================================
+// Tab 5: Embedding 管理
+// ============================================================================
+const EmbeddingTab: React.FC = () => {
+  const queryClient = useQueryClient();
+  const [batchLimit, setBatchLimit] = useState<number>(100);
+
+  const {
+    data: embStats = null,
+    isLoading: statsLoading,
+    refetch: refetchStats,
+  } = useQuery({
+    queryKey: ['ai-management', 'embedding-stats'],
+    queryFn: () => aiApi.getEmbeddingStats(),
+    staleTime: 60 * 1000,
+  });
+
+  const batchMutation = useMutation({
+    mutationFn: () => aiApi.runEmbeddingBatch({ limit: batchLimit }),
+    onSuccess: (result: EmbeddingBatchResponse | null) => {
+      if (result?.success) {
+        message.success(
+          `批次完成：成功 ${result.success_count} 筆、跳過 ${result.skip_count} 筆、` +
+          `失敗 ${result.error_count} 筆（耗時 ${result.elapsed_seconds.toFixed(1)}s）`
+        );
+        refetchStats();
+        queryClient.invalidateQueries({ queryKey: ['ai-management', 'embedding-stats'] });
+      } else {
+        message.error(result?.message || 'Embedding 批次執行失敗');
+      }
+    },
+    onError: () => {
+      message.error('Embedding 批次執行失敗');
+    },
+  });
+
+  if (statsLoading) {
+    return (
+      <Spin tip="載入 Embedding 統計...">
+        <div style={{ height: 200 }} />
+      </Spin>
+    );
+  }
+
+  const pgvectorEnabled = embStats?.pgvector_enabled ?? false;
+
+  return (
+    <div>
+      {!pgvectorEnabled && (
+        <Alert
+          type="warning"
+          showIcon
+          icon={<WarningOutlined />}
+          message="pgvector 未啟用"
+          description="Embedding 功能需要啟用 pgvector 擴展 (PGVECTOR_ENABLED=true) 及 Ollama 服務。"
+          style={{ marginBottom: 16 }}
+        />
+      )}
+
+      {/* 覆蓋率統計 */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        <Col xs={12} sm={6}>
+          <Card size="small">
+            <Statistic
+              title="公文總數"
+              value={embStats?.total_documents ?? 0}
+              prefix={<DatabaseOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col xs={12} sm={6}>
+          <Card size="small">
+            <Statistic
+              title="已生成 Embedding"
+              value={embStats?.with_embedding ?? 0}
+              valueStyle={{ color: '#3f8600' }}
+              prefix={<CheckCircleOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col xs={12} sm={6}>
+          <Card size="small">
+            <Statistic
+              title="未生成 Embedding"
+              value={embStats?.without_embedding ?? 0}
+              valueStyle={{ color: embStats?.without_embedding ? '#cf1322' : '#3f8600' }}
+              prefix={<CloseCircleOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col xs={12} sm={6}>
+          <Card size="small">
+            <Statistic
+              title="覆蓋率"
+              value={embStats?.coverage_percent ?? 0}
+              suffix="%"
+              precision={1}
+              prefix={<DashboardOutlined />}
+              valueStyle={{
+                color: (embStats?.coverage_percent ?? 0) >= 80 ? '#3f8600'
+                  : (embStats?.coverage_percent ?? 0) >= 50 ? '#d48806' : '#cf1322',
+              }}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      {/* 覆蓋率進度條 */}
+      <Card size="small" style={{ marginBottom: 24 }}>
+        <div style={{ marginBottom: 8 }}>
+          <Typography.Text strong>Embedding 覆蓋率</Typography.Text>
+        </div>
+        <Progress
+          percent={embStats?.coverage_percent ?? 0}
+          status={
+            (embStats?.coverage_percent ?? 0) >= 80 ? 'success'
+              : (embStats?.coverage_percent ?? 0) >= 50 ? 'normal' : 'exception'
+          }
+          format={(p) => `${(p ?? 0).toFixed(1)}%`}
+        />
+        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+          {embStats?.with_embedding ?? 0} / {embStats?.total_documents ?? 0} 筆公文已生成向量
+        </Typography.Text>
+      </Card>
+
+      {/* 批次處理 */}
+      <Card
+        title="手動批次生成 Embedding"
+        size="small"
+        extra={
+          <Button
+            size="small"
+            icon={<ReloadOutlined />}
+            onClick={() => refetchStats()}
+          >
+            重新整理
+          </Button>
+        }
+      >
+        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          <div>
+            <Typography.Text>每批處理筆數：</Typography.Text>
+            <InputNumber
+              min={10}
+              max={500}
+              step={10}
+              value={batchLimit}
+              onChange={(v) => setBatchLimit(v || 100)}
+              style={{ marginLeft: 8, width: 120 }}
+              disabled={!pgvectorEnabled}
+            />
+          </div>
+          <Popconfirm
+            title={`確定要執行 Embedding 批次處理？將處理最多 ${batchLimit} 筆公文。`}
+            onConfirm={() => batchMutation.mutate()}
+            disabled={!pgvectorEnabled}
+          >
+            <Button
+              type="primary"
+              icon={<PlayCircleOutlined />}
+              loading={batchMutation.isPending}
+              disabled={!pgvectorEnabled || (embStats?.without_embedding ?? 0) === 0}
+            >
+              {batchMutation.isPending ? '執行中...' : '開始批次處理'}
+            </Button>
+          </Popconfirm>
+          {(embStats?.without_embedding ?? 0) === 0 && pgvectorEnabled && (
+            <Alert type="success" message="所有公文皆已生成 Embedding" showIcon />
+          )}
+        </Space>
+      </Card>
+    </div>
+  );
+};
+
+// ============================================================================
+// Tab 6: 知識圖譜
+// ============================================================================
+const KnowledgeGraphTab: React.FC = () => {
+  const [inputIds, setInputIds] = useState<string>('');
+  const [documentIds, setDocumentIds] = useState<number[]>([]);
+
+  const handleLoadGraph = useCallback(() => {
+    const ids = inputIds
+      .split(/[,，\s]+/)
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => !isNaN(n) && n > 0);
+
+    if (ids.length === 0) {
+      message.warning('請輸入至少一個有效的公文 ID');
+      return;
+    }
+    setDocumentIds(ids);
+  }, [inputIds]);
+
+  return (
+    <div>
+      {/* 輸入區域 */}
+      <Card size="small" style={{ marginBottom: 16 }}>
+        <Space wrap>
+          <Typography.Text>公文 ID（多筆以逗號分隔）：</Typography.Text>
+          <Input
+            placeholder="例如：1, 2, 3"
+            value={inputIds}
+            onChange={(e) => setInputIds(e.target.value)}
+            onPressEnter={handleLoadGraph}
+            style={{ width: 300 }}
+          />
+          <Button
+            type="primary"
+            icon={<SearchOutlined />}
+            onClick={handleLoadGraph}
+            disabled={!inputIds.trim()}
+          >
+            載入圖譜
+          </Button>
+          {documentIds.length > 0 && (
+            <Button onClick={() => { setDocumentIds([]); setInputIds(''); }}>
+              清除
+            </Button>
+          )}
+        </Space>
+        {documentIds.length > 0 && (
+          <div style={{ marginTop: 8 }}>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              目前載入：{documentIds.map((id) => (
+                <Tag key={id} color="blue" style={{ marginRight: 4 }}>ID {id}</Tag>
+              ))}
+            </Typography.Text>
+          </div>
+        )}
+      </Card>
+
+      {/* 圖譜區域 */}
+      {documentIds.length === 0 ? (
+        <Card>
+          <Empty
+            description="輸入公文 ID 以檢視關聯圖譜"
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+          />
+        </Card>
+      ) : (
+        <Card size="small" bodyStyle={{ padding: 12 }}>
+          <KnowledgeGraph
+            documentIds={documentIds}
+            width={900}
+            height={500}
+          />
+        </Card>
+      )}
+    </div>
+  );
+};
+
+// ============================================================================
+// Tab 7: AI 服務監控
+// ============================================================================
+const ServiceMonitorTab: React.FC = () => {
+  const {
+    data: health = null,
+    isLoading: healthLoading,
+    refetch: refetchHealth,
+  } = useQuery({
+    queryKey: ['ai-management', 'health'],
+    queryFn: () => aiApi.checkHealth(),
+    staleTime: 30 * 1000,
+    refetchInterval: 60 * 1000,
+  });
+
+  const {
+    data: embStats = null,
+    isLoading: embLoading,
+  } = useQuery({
+    queryKey: ['ai-management', 'embedding-stats'],
+    queryFn: () => aiApi.getEmbeddingStats(),
+    staleTime: 60 * 1000,
+  });
+
+  const {
+    data: config = null,
+  } = useQuery({
+    queryKey: ['ai-management', 'config'],
+    queryFn: () => aiApi.getConfig(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const loading = healthLoading || embLoading;
+
+  if (loading) {
+    return (
+      <Spin tip="檢查 AI 服務狀態...">
+        <div style={{ height: 200 }} />
+      </Spin>
+    );
+  }
+
+  const groqOk = health?.groq?.available ?? false;
+  const ollamaOk = health?.ollama?.available ?? false;
+  const pgvectorOk = embStats?.pgvector_enabled ?? false;
+  const rateLimit = health?.rate_limit;
+
+  const StatusIcon: React.FC<{ ok: boolean }> = ({ ok }) =>
+    ok
+      ? <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 20 }} />
+      : <CloseCircleOutlined style={{ color: '#ff4d4f', fontSize: 20 }} />;
+
+  return (
+    <div>
+      {/* 服務健康卡片 */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        <Col xs={24} sm={8}>
+          <Card size="small">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <StatusIcon ok={groqOk} />
+              <div>
+                <Typography.Text strong>Groq API</Typography.Text>
+                <br />
+                <Badge
+                  status={groqOk ? 'success' : 'error'}
+                  text={groqOk ? '正常運作' : '無法連線'}
+                />
+                <br />
+                <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+                  {health?.groq?.message || '-'}
+                </Typography.Text>
+              </div>
+            </div>
+          </Card>
+        </Col>
+        <Col xs={24} sm={8}>
+          <Card size="small">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <StatusIcon ok={ollamaOk} />
+              <div>
+                <Typography.Text strong>Ollama</Typography.Text>
+                <br />
+                <Badge
+                  status={ollamaOk ? 'success' : 'error'}
+                  text={ollamaOk ? '正常運作' : '無法連線'}
+                />
+                <br />
+                <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+                  {health?.ollama?.message || '-'}
+                </Typography.Text>
+              </div>
+            </div>
+          </Card>
+        </Col>
+        <Col xs={24} sm={8}>
+          <Card size="small">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <StatusIcon ok={pgvectorOk} />
+              <div>
+                <Typography.Text strong>pgvector</Typography.Text>
+                <br />
+                <Badge
+                  status={pgvectorOk ? 'success' : 'warning'}
+                  text={pgvectorOk ? '已啟用' : '未啟用'}
+                />
+                <br />
+                <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+                  向量搜尋 {pgvectorOk ? '可用' : '不可用（語意搜尋降級為關鍵字模式）'}
+                </Typography.Text>
+              </div>
+            </div>
+          </Card>
+        </Col>
+      </Row>
+
+      {/* Rate Limit 監控 */}
+      <Card title="Rate Limit 監控" size="small" style={{ marginBottom: 24 }}
+        extra={<Button size="small" icon={<ReloadOutlined />} onClick={() => refetchHealth()}>重新整理</Button>}
+      >
+        {rateLimit ? (
+          <Row gutter={[16, 16]}>
+            <Col xs={12} sm={8}>
+              <Statistic
+                title="目前使用量"
+                value={rateLimit.current_requests}
+                suffix={`/ ${rateLimit.max_requests}`}
+                valueStyle={{
+                  color: rateLimit.current_requests / rateLimit.max_requests > 0.8
+                    ? '#cf1322' : '#3f8600',
+                }}
+              />
+            </Col>
+            <Col xs={12} sm={8}>
+              <Statistic
+                title="使用率"
+                value={(rateLimit.current_requests / rateLimit.max_requests * 100)}
+                suffix="%"
+                precision={1}
+              />
+            </Col>
+            <Col xs={24} sm={8}>
+              <Statistic
+                title="時間窗口"
+                value={rateLimit.window_seconds}
+                suffix="秒"
+              />
+            </Col>
+            <Col xs={24}>
+              <Progress
+                percent={Math.round(rateLimit.current_requests / rateLimit.max_requests * 100)}
+                status={
+                  rateLimit.current_requests / rateLimit.max_requests > 0.8 ? 'exception'
+                    : rateLimit.current_requests / rateLimit.max_requests > 0.5 ? 'normal' : 'success'
+                }
+              />
+            </Col>
+          </Row>
+        ) : (
+          <Empty description="無 Rate Limit 資訊" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        )}
+      </Card>
+
+      {/* Embedding 覆蓋率 */}
+      <Card title="Embedding 覆蓋率" size="small" style={{ marginBottom: 24 }}>
+        <Row gutter={[16, 16]}>
+          <Col xs={8}>
+            <Statistic title="已生成" value={embStats?.with_embedding ?? 0} suffix="筆" />
+          </Col>
+          <Col xs={8}>
+            <Statistic title="未生成" value={embStats?.without_embedding ?? 0} suffix="筆" />
+          </Col>
+          <Col xs={8}>
+            <Statistic
+              title="覆蓋率"
+              value={embStats?.coverage_percent ?? 0}
+              suffix="%"
+              precision={1}
+            />
+          </Col>
+          <Col xs={24}>
+            <Progress
+              percent={embStats?.coverage_percent ?? 0}
+              status={(embStats?.coverage_percent ?? 0) >= 80 ? 'success' : 'normal'}
+              format={(p) => `${(p ?? 0).toFixed(1)}%`}
+            />
+          </Col>
+        </Row>
+      </Card>
+
+      {/* 服務配置 */}
+      {config && (
+        <Card title="AI 服務配置" size="small">
+          <Descriptions column={{ xs: 1, sm: 2 }} size="small" bordered>
+            <Descriptions.Item label="AI 功能">
+              <Badge status={config.enabled ? 'success' : 'error'} text={config.enabled ? '已啟用' : '已停用'} />
+            </Descriptions.Item>
+            <Descriptions.Item label="Groq 模型">
+              {config.providers.groq.model}
+            </Descriptions.Item>
+            <Descriptions.Item label="Ollama 模型">
+              {config.providers.ollama.model}
+            </Descriptions.Item>
+            <Descriptions.Item label="Ollama URL">
+              {config.providers.ollama.url}
+            </Descriptions.Item>
+            <Descriptions.Item label="Rate Limit">
+              {config.rate_limit.max_requests} 次 / {config.rate_limit.window_seconds} 秒
+            </Descriptions.Item>
+            <Descriptions.Item label="快取">
+              {config.cache.enabled ? '已啟用' : '停用'} (摘要 {config.cache.ttl_summary}s / 分類 {config.cache.ttl_classify}s)
+            </Descriptions.Item>
+          </Descriptions>
+        </Card>
+      )}
+    </div>
+  );
+};
+
+// ============================================================================
 // 主頁面
 // ============================================================================
 const AIAssistantManagementPage: React.FC = () => {
@@ -457,6 +951,27 @@ const AIAssistantManagementPage: React.FC = () => {
       ),
       children: <PromptManagementContent />,
     },
+    {
+      key: 'embedding',
+      label: (
+        <span><DatabaseOutlined /> Embedding 管理</span>
+      ),
+      children: <EmbeddingTab />,
+    },
+    {
+      key: 'graph',
+      label: (
+        <span><ApartmentOutlined /> 知識圖譜</span>
+      ),
+      children: <KnowledgeGraphTab />,
+    },
+    {
+      key: 'monitor',
+      label: (
+        <span><HeartOutlined /> AI 服務監控</span>
+      ),
+      children: <ServiceMonitorTab />,
+    },
   ], []);
 
   return (
@@ -465,7 +980,9 @@ const AIAssistantManagementPage: React.FC = () => {
         <Title level={4} style={{ margin: 0 }}>
           <ExperimentOutlined /> AI 助理管理
         </Title>
-        <Text type="secondary">搜尋統計分析、歷史記錄查詢、同義詞與 Prompt 版本管理</Text>
+        <Text type="secondary">
+          搜尋統計分析、歷史記錄查詢、同義詞管理、Prompt 版本管理、Embedding 管線、知識圖譜、AI 服務監控
+        </Text>
       </div>
       <Tabs defaultActiveKey="overview" items={tabItems} />
     </div>
