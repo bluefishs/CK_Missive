@@ -12,7 +12,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.ai import ParsedSearchIntent
@@ -229,9 +229,9 @@ class SearchIntentParser:
         if not isinstance(query_embedding, list) or len(query_embedding) == 0:
             return None, None
 
-        if len(query_embedding) != 768:
+        if len(query_embedding) != 384:
             logger.warning(
-                f"向量匹配: 無效的 embedding 維度 {len(query_embedding)} (期望 768)"
+                f"向量匹配: 無效的 embedding 維度 {len(query_embedding)} (期望 384)"
             )
             return None, None
 
@@ -242,18 +242,30 @@ class SearchIntentParser:
             distance_expr = embedding_col.cosine_distance(query_embedding)
             similarity_expr = (1 - distance_expr).label("similarity")
 
+            # 優先使用正回饋歷史，其次無回饋，排除負回饋
             stmt = (
                 select(
                     AISearchHistory.parsed_intent,
                     AISearchHistory.confidence,
                     AISearchHistory.source,
                     AISearchHistory.query,
+                    AISearchHistory.feedback_score,
                     similarity_expr,
                 )
                 .where(embedding_col.isnot(None))
                 .where(AISearchHistory.confidence >= 0.5)
                 .where(AISearchHistory.created_at >= thirty_days_ago)
-                .order_by(distance_expr)
+                .where(
+                    or_(
+                        AISearchHistory.feedback_score.is_(None),
+                        AISearchHistory.feedback_score >= 0,
+                    )
+                )
+                .order_by(
+                    # 正回饋優先（feedback_score DESC NULLS LAST）
+                    AISearchHistory.feedback_score.desc().nulls_last(),
+                    distance_expr,
+                )
                 .limit(1)
             )
 

@@ -46,9 +46,9 @@ class OfficialDocument(Base):
     # 向量嵌入欄位 (pgvector)
     if Vector is not None:
         embedding = deferred(Column(
-            Vector(768),
+            Vector(384),
             nullable=True,
-            comment="文件向量嵌入 (nomic-embed-text, 768 維)",
+            comment="文件向量嵌入 (nomic-embed-text, 384 維)",
         ))
 
     # 關聯關係

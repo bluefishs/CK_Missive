@@ -369,17 +369,9 @@ class DocumentAIService(BaseAIService):
         qb = DocumentQueryBuilder(db)
 
         if parsed_intent.keywords:
-            # 去重關鍵字（保留順序，忽略大小寫）
-            seen = set()
-            unique_keywords = []
-            for kw in parsed_intent.keywords:
-                kw_lower = kw.lower()
-                if kw_lower not in seen:
-                    seen.add(kw_lower)
-                    unique_keywords.append(kw)
-            if unique_keywords:
-                qb = qb.with_keywords_full(unique_keywords)
-                logger.debug(f"AI 搜尋關鍵字: {unique_keywords}")
+            # 去重已在 _post_process_intent() 完成，直接使用
+            qb = qb.with_keywords_full(parsed_intent.keywords)
+            logger.debug(f"AI 搜尋關鍵字: {parsed_intent.keywords}")
         if parsed_intent.doc_type:
             qb = qb.with_doc_type(parsed_intent.doc_type)
         if parsed_intent.category:
@@ -528,8 +520,11 @@ class DocumentAIService(BaseAIService):
                 history.query_embedding = query_embedding
             db.add(history)
             await db.commit()
+            await db.refresh(history)
+            history_id = history.id
         except Exception as e:
             logger.warning(f"搜尋歷史寫入失敗: {e}")
+            history_id = None
             try:
                 await db.rollback()
             except Exception:
@@ -544,6 +539,7 @@ class DocumentAIService(BaseAIService):
             source=source,
             search_strategy=search_strategy,
             synonym_expanded=synonym_expanded,
+            history_id=history_id,
         )
 
 

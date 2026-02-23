@@ -20,6 +20,7 @@ from app.schemas.ai import (
     SearchHistoryItem,
     DailyTrend,
     TopQuery,
+    QuerySuggestionItem,
 )
 
 logger = logging.getLogger(__name__)
@@ -274,6 +275,119 @@ class AISearchHistoryRepository(BaseRepository[AISearchHistory]):
             "source_distribution": source_distribution,
             "entity_distribution": entity_distribution,
         }
+
+    async def get_suggestions(
+        self,
+        prefix: str = "",
+        limit: int = 8,
+        user_id: Optional[int] = None,
+    ) -> List[QuerySuggestionItem]:
+        """
+        取得搜尋建議
+
+        混合三種來源：使用者歷史 > 前綴匹配 > 熱門查詢。
+        去重後依優先順序回傳。
+
+        Args:
+            prefix: 查詢前綴，空字串表示只回傳熱門/歷史
+            limit: 建議數量上限
+            user_id: 當前使用者 ID（用於個人歷史）
+
+        Returns:
+            建議項目列表
+        """
+        suggestions: List[QuerySuggestionItem] = []
+        seen_queries: set = set()
+
+        # 1. 使用者個人歷史（前綴匹配 + 最近使用）
+        if user_id:
+            user_query = (
+                select(
+                    AISearchHistory.query,
+                    func.count(AISearchHistory.id).label("count"),
+                    func.avg(AISearchHistory.results_count).label("avg_results"),
+                )
+                .where(AISearchHistory.user_id == user_id)
+            )
+            if prefix:
+                safe_prefix = prefix.replace("%", r"\%").replace("_", r"\_")
+                user_query = user_query.where(
+                    AISearchHistory.query.ilike(f"%{safe_prefix}%")
+                )
+            user_query = (
+                user_query
+                .group_by(AISearchHistory.query)
+                .order_by(desc("count"))
+                .limit(limit)
+            )
+            result = await self.db.execute(user_query)
+            for row in result.all():
+                if row.query not in seen_queries:
+                    seen_queries.add(row.query)
+                    suggestions.append(QuerySuggestionItem(
+                        query=row.query,
+                        type="history",
+                        count=row.count,
+                        avg_results=round(float(row.avg_results or 0), 1),
+                    ))
+
+        # 2. 全域熱門查詢（前綴匹配 + 搜尋次數排序）
+        remaining = limit - len(suggestions)
+        if remaining > 0:
+            popular_query = (
+                select(
+                    AISearchHistory.query,
+                    func.count(AISearchHistory.id).label("count"),
+                    func.avg(AISearchHistory.results_count).label("avg_results"),
+                )
+            )
+            if prefix:
+                safe_prefix = prefix.replace("%", r"\%").replace("_", r"\_")
+                popular_query = popular_query.where(
+                    AISearchHistory.query.ilike(f"%{safe_prefix}%")
+                )
+            popular_query = (
+                popular_query
+                .group_by(AISearchHistory.query)
+                .having(func.count(AISearchHistory.id) >= 2)
+                .order_by(desc("count"))
+                .limit(remaining + len(seen_queries))  # 多取一些以補去重
+            )
+            result = await self.db.execute(popular_query)
+            for row in result.all():
+                if row.query not in seen_queries and len(suggestions) < limit:
+                    seen_queries.add(row.query)
+                    suggestions.append(QuerySuggestionItem(
+                        query=row.query,
+                        type="popular",
+                        count=row.count,
+                        avg_results=round(float(row.avg_results or 0), 1),
+                    ))
+
+        # 3. 若仍不足且無前綴，補最近的不重複查詢
+        remaining = limit - len(suggestions)
+        if remaining > 0 and not prefix:
+            recent_query = (
+                select(
+                    AISearchHistory.query,
+                    func.max(AISearchHistory.created_at).label("last_used"),
+                )
+                .group_by(AISearchHistory.query)
+                .order_by(desc("last_used"))
+                .limit(remaining + len(seen_queries))
+            )
+            result = await self.db.execute(recent_query)
+            for row in result.all():
+                if row.query not in seen_queries and len(suggestions) < limit:
+                    seen_queries.add(row.query)
+                    suggestions.append(QuerySuggestionItem(
+                        query=row.query,
+                        type="popular",
+                        count=1,
+                        avg_results=0.0,
+                    ))
+
+        return suggestions[:limit]
 
     async def clear_before_date(self, before_date: Optional[str] = None) -> int:
         """

@@ -25,6 +25,17 @@ import type {
   SearchHistoryListRequest,
   SearchHistoryListResponse,
   SearchStatsResponse,
+  SearchFeedbackRequest,
+  SearchFeedbackResponse,
+  QuerySuggestionRequest,
+  QuerySuggestionResponse,
+  RelationGraphRequest,
+  RelationGraphResponse,
+  SemanticSimilarRequest,
+  SemanticSimilarResponse,
+  EmbeddingStatsResponse,
+  EmbeddingBatchRequest,
+  EmbeddingBatchResponse,
 } from './types';
 
 // ============================================================================
@@ -159,5 +170,81 @@ export async function clearSearchHistory(beforeDate?: string): Promise<boolean> 
   } catch (error) {
     logger.error('清除搜尋歷史失敗:', error);
     return false;
+  }
+}
+
+export async function getQuerySuggestions(
+  request: QuerySuggestionRequest,
+): Promise<QuerySuggestionResponse | null> {
+  try {
+    return await apiClient.post<QuerySuggestionResponse>(
+      AI_ENDPOINTS.SEARCH_HISTORY_SUGGESTIONS,
+      request,
+    );
+  } catch (error) {
+    logger.error('取得搜尋建議失敗:', error);
+    return null;
+  }
+}
+
+export async function getRelationGraph(
+  request: RelationGraphRequest,
+): Promise<RelationGraphResponse | null> {
+  try {
+    return await apiClient.post<RelationGraphResponse>(
+      AI_ENDPOINTS.RELATION_GRAPH,
+      request,
+    );
+  } catch (error) {
+    logger.error('取得關聯圖譜失敗:', error);
+    return null;
+  }
+}
+
+export async function getSemanticSimilar(
+  request: SemanticSimilarRequest,
+): Promise<SemanticSimilarResponse | null> {
+  try {
+    return await apiClient.post<SemanticSimilarResponse>(
+      AI_ENDPOINTS.SEMANTIC_SIMILAR,
+      request,
+    );
+  } catch (error) {
+    logger.error('取得語意相似推薦失敗:', error);
+    return null;
+  }
+}
+
+export async function getEmbeddingStats(): Promise<EmbeddingStatsResponse | null> {
+  try {
+    return await apiClient.post<EmbeddingStatsResponse>(AI_ENDPOINTS.EMBEDDING_STATS, {});
+  } catch (error) {
+    logger.error('取得 Embedding 統計失敗:', error);
+    return null;
+  }
+}
+
+export async function runEmbeddingBatch(
+  request: EmbeddingBatchRequest = {},
+): Promise<EmbeddingBatchResponse | null> {
+  try {
+    return await apiClient.post<EmbeddingBatchResponse>(AI_ENDPOINTS.EMBEDDING_BATCH, request);
+  } catch (error) {
+    logger.error('Embedding 批次管線失敗:', error);
+    return null;
+  }
+}
+
+export async function submitSearchFeedback(
+  request: SearchFeedbackRequest,
+): Promise<SearchFeedbackResponse | null> {
+  try {
+    return await apiClient.post<SearchFeedbackResponse>(
+      AI_ENDPOINTS.SEARCH_HISTORY_FEEDBACK,
+      request,
+    );
+  } catch (error) {
+    logger.error('搜尋回饋提交失敗:', error);
+    return null;
   }
 }

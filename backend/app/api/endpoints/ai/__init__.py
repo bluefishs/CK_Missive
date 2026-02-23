@@ -13,6 +13,8 @@ from .ai_stats import router as ai_stats_router
 from .synonyms import router as synonyms_router
 from .prompts import router as prompts_router
 from .search_history import router as search_history_router
+from .relation_graph import router as relation_graph_router
+from .embedding_pipeline import router as embedding_pipeline_router
 
 router = APIRouter(prefix="/ai", tags=["AI"])
 
@@ -22,3 +24,5 @@ router.include_router(ai_stats_router)
 router.include_router(synonyms_router)
 router.include_router(prompts_router)
 router.include_router(search_history_router)
+router.include_router(relation_graph_router)
+router.include_router(embedding_pipeline_router)

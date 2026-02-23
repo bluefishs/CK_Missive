@@ -53,6 +53,21 @@ export type {
   TopQuery,
   SearchStatsResponse,
   AIStatsResponse,
+  SearchFeedbackRequest,
+  SearchFeedbackResponse,
+  QuerySuggestionRequest,
+  QuerySuggestionItem,
+  QuerySuggestionResponse,
+  GraphNode,
+  GraphEdge,
+  RelationGraphRequest,
+  RelationGraphResponse,
+  SemanticSimilarRequest,
+  SemanticSimilarItem,
+  SemanticSimilarResponse,
+  EmbeddingStatsResponse,
+  EmbeddingBatchRequest,
+  EmbeddingBatchResponse,
 } from './types';
 
 // Re-export abortNaturalSearch (standalone function)
@@ -88,6 +103,12 @@ import {
   listSearchHistory,
   getSearchStats,
   clearSearchHistory,
+  submitSearchFeedback,
+  getQuerySuggestions,
+  getRelationGraph,
+  getSemanticSimilar,
+  getEmbeddingStats,
+  runEmbeddingBatch,
 } from './adminManagement';
 
 // Compose the aiApi object (backward-compatible with original aiApi.ts)
@@ -121,10 +142,16 @@ export const aiApi = {
   activatePrompt,
   comparePrompts,
 
-  // Search history
+  // Search history & feedback
   listSearchHistory,
   getSearchStats,
   clearSearchHistory,
+  submitSearchFeedback,
+  getQuerySuggestions,
+  getRelationGraph,
+  getSemanticSimilar,
+  getEmbeddingStats,
+  runEmbeddingBatch,
 };
 
 export default aiApi;

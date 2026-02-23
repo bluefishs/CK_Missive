@@ -13,6 +13,7 @@ Updated: 2026-02-11 - 遷移至 Repository 層
 """
 
 import logging
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession

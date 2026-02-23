@@ -230,7 +230,119 @@ export interface NaturalSearchResponse {
   source: 'ai' | 'rule_engine' | 'merged' | 'vector' | 'fallback' | 'rate_limited' | 'error';
   search_strategy?: 'keyword' | 'similarity' | 'hybrid' | 'semantic' | null;
   synonym_expanded?: boolean;
+  history_id?: number | null;
   error?: string | null;
+}
+
+/** 搜尋回饋請求 */
+export interface SearchFeedbackRequest {
+  history_id: number;
+  score: 1 | -1;
+}
+
+/** 搜尋回饋回應 */
+export interface SearchFeedbackResponse {
+  success: boolean;
+  message: string;
+}
+
+// ============================================================================
+// 搜尋建議
+// ============================================================================
+
+export interface QuerySuggestionRequest {
+  prefix: string;
+  limit?: number;
+}
+
+export interface QuerySuggestionItem {
+  query: string;
+  type: 'popular' | 'history' | 'related';
+  count: number;
+  avg_results: number;
+}
+
+export interface QuerySuggestionResponse {
+  suggestions: QuerySuggestionItem[];
+}
+
+// ============================================================================
+// 知識圖譜
+// ============================================================================
+
+export interface GraphNode {
+  id: string;
+  type: 'document' | 'project' | 'dispatch' | 'agency';
+  label: string;
+  category?: string | null;
+  doc_number?: string | null;
+  status?: string | null;
+}
+
+export interface GraphEdge {
+  source: string;
+  target: string;
+  label: string;
+  type: string;
+}
+
+export interface RelationGraphRequest {
+  document_ids: number[];
+}
+
+export interface RelationGraphResponse {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
+// ============================================================================
+// 語意相似推薦
+// ============================================================================
+
+export interface SemanticSimilarRequest {
+  document_id: number;
+  limit?: number;
+}
+
+export interface SemanticSimilarItem {
+  id: number;
+  doc_number?: string | null;
+  subject?: string | null;
+  category?: string | null;
+  sender?: string | null;
+  doc_date?: string | null;
+  similarity: number;
+}
+
+export interface SemanticSimilarResponse {
+  source_id: number;
+  similar_documents: SemanticSimilarItem[];
+}
+
+// ============================================================================
+// Embedding 管線
+// ============================================================================
+
+export interface EmbeddingStatsResponse {
+  total_documents: number;
+  with_embedding: number;
+  without_embedding: number;
+  coverage_percent: number;
+  pgvector_enabled: boolean;
+}
+
+export interface EmbeddingBatchRequest {
+  limit?: number;
+  batch_size?: number;
+}
+
+export interface EmbeddingBatchResponse {
+  success: boolean;
+  message: string;
+  success_count: number;
+  error_count: number;
+  skip_count: number;
+  elapsed_seconds: number;
 }
 
 // ============================================================================

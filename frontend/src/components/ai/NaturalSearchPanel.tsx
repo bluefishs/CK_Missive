@@ -12,7 +12,7 @@
  * @updated 2026-02-19 - 提取 useNaturalSearch hook，元件僅保留渲染邏輯
  */
 
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   AutoComplete,
   Button as AntButton,
@@ -35,9 +35,16 @@ import {
   DeleteOutlined,
   ClockCircleOutlined,
   InfoCircleOutlined,
+  LikeOutlined,
+  DislikeOutlined,
+  LikeFilled,
+  DislikeFilled,
+  ApartmentOutlined,
 } from '@ant-design/icons';
-import type { DocumentSearchResult, AttachmentInfo } from '../../api/aiApi';
+import type { DocumentSearchResult, AttachmentInfo, SemanticSimilarItem } from '../../api/aiApi';
+import { aiApi } from '../../api/aiApi';
 import { useNaturalSearch } from './hooks/useNaturalSearch';
+import { KnowledgeGraph } from './KnowledgeGraph';
 
 const { Text } = Typography;
 
@@ -52,10 +59,15 @@ interface CompactResultItemProps {
   onDocumentClick: (docId: number) => void;
   onPreview: (att: AttachmentInfo) => void;
   onDownload: (att: AttachmentInfo) => void;
+  similarDocs: SemanticSimilarItem[];
+  similarLoading: boolean;
+  onLoadSimilar: (docId: number) => void;
+  showSimilar: boolean;
 }
 
 const CompactResultItem: React.FC<CompactResultItemProps> = React.memo(({
   item, isExpanded, onToggle, onDocumentClick, onPreview, onDownload,
+  similarDocs, similarLoading, onLoadSimilar, showSimilar,
 }) => (
   <div
     role="button"
@@ -108,8 +120,41 @@ const CompactResultItem: React.FC<CompactResultItemProps> = React.memo(({
             ))}
           </div>
         )}
-        <Button type="link" size="small" onClick={(e) => { e.stopPropagation(); onDocumentClick(item.id); }}
-          style={{ padding: 0, fontSize: 11, height: 'auto' }}>查看完整公文 →</Button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Button type="link" size="small" onClick={(e) => { e.stopPropagation(); onDocumentClick(item.id); }}
+            style={{ padding: 0, fontSize: 11, height: 'auto' }}>查看完整公文 →</Button>
+          <Button type="text" size="small"
+            onClick={(e) => { e.stopPropagation(); onLoadSimilar(item.id); }}
+            loading={similarLoading}
+            style={{ padding: '0 4px', fontSize: 11, height: 'auto', color: '#722ed1' }}>
+            {showSimilar ? '收合推薦' : '相似公文'}
+          </Button>
+        </div>
+        {showSimilar && similarDocs.length > 0 && (
+          <div style={{ marginTop: 6, padding: '6px 8px', background: '#f9f0ff', borderRadius: 4, border: '1px solid #d3adf7' }}>
+            <Text type="secondary" style={{ fontSize: 10, display: 'block', marginBottom: 4 }}>語意相似推薦</Text>
+            {similarDocs.map((sd) => (
+              <div key={sd.id}
+                role="button" tabIndex={0}
+                onClick={(e) => { e.stopPropagation(); onDocumentClick(sd.id); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); onDocumentClick(sd.id); } }}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0', cursor: 'pointer', fontSize: 11 }}
+              >
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#722ed1', flexShrink: 0 }} />
+                <Text strong style={{ fontSize: 10, maxWidth: 80, flexShrink: 0 }} ellipsis>{sd.doc_number || '-'}</Text>
+                <Text style={{ fontSize: 10, flex: 1, color: '#555' }} ellipsis>{sd.subject || '(無主旨)'}</Text>
+                <Tag color="purple" style={{ fontSize: 9, lineHeight: '14px', padding: '0 3px', margin: 0 }}>
+                  {Math.round(sd.similarity * 100)}%
+                </Tag>
+              </div>
+            ))}
+          </div>
+        )}
+        {showSimilar && !similarLoading && similarDocs.length === 0 && (
+          <div style={{ marginTop: 4 }}>
+            <Text type="secondary" style={{ fontSize: 10 }}>此公文尚無 embedding 或無相似公文</Text>
+          </div>
+        )}
       </div>
     )}
   </div>
@@ -126,11 +171,37 @@ interface NaturalSearchPanelProps {
 }
 
 export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({ height, onSearchComplete }) => {
+  const [showGraph, setShowGraph] = useState(false);
+  // 語意相似推薦狀態
+  const [similarMap, setSimilarMap] = useState<Record<number, SemanticSimilarItem[]>>({});
+  const [similarLoadingId, setSimilarLoadingId] = useState<number | null>(null);
+  const [similarVisibleId, setSimilarVisibleId] = useState<number | null>(null);
+
+  const handleLoadSimilar = useCallback(async (docId: number) => {
+    // 切換顯示/隱藏
+    if (similarVisibleId === docId) {
+      setSimilarVisibleId(null);
+      return;
+    }
+    setSimilarVisibleId(docId);
+    // 已有快取則不重新載入
+    if (similarMap[docId]) return;
+    setSimilarLoadingId(docId);
+    try {
+      const resp = await aiApi.getSemanticSimilar({ document_id: docId, limit: 5 });
+      setSimilarMap((prev) => ({ ...prev, [docId]: resp?.similar_documents || [] }));
+    } finally {
+      setSimilarLoadingId(null);
+    }
+  }, [similarVisibleId, similarMap]);
+
   const {
     query, setQuery, loading, loadingMore, results, parsedIntent, total,
     searched, error, fromCache, searchSource,
     expandedId, setExpandedId, showIntentDetails, setShowIntentDetails,
     searchHistory, autoCompleteOpen, setAutoCompleteOpen,
+    serverSuggestions, fetchSuggestions,
+    historyId, feedbackScore, handleFeedback,
     handleSearch, handleDocumentClick, handleDownloadAttachment, handlePreviewAttachment,
     handleAutoCompleteSelect, handleLoadMore, removeHistoryItem, clearAllHistory,
   } = useNaturalSearch({ onSearchComplete });
@@ -164,39 +235,68 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({ height, 
     return <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, padding: '4px 0 6px' }}>{tags}</div>;
   }, [parsedIntent, searchSource]);
 
-  // AutoComplete 歷史選項
+  // AutoComplete 選項：無輸入時顯示本地歷史，有輸入時顯示伺服器建議
   const autoCompleteOptions = useMemo(() => {
-    if (query.trim() || searchHistory.length === 0) return [];
-    const items = searchHistory.map((item) => ({
-      value: item,
-      label: (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Space size="small" style={{ flex: 1, overflow: 'hidden' }}>
-            <ClockCircleOutlined style={{ color: '#999', fontSize: 12 }} />
-            <Text ellipsis style={{ fontSize: 13, maxWidth: 200 }}>{item}</Text>
-          </Space>
-          <AntButton type="text" size="small" icon={<CloseOutlined style={{ fontSize: 10, color: '#999' }} />}
-            onClick={(e) => removeHistoryItem(item, e)} style={{ minWidth: 20, padding: '0 4px' }} aria-label="移除此搜尋歷史" />
-        </div>
-      ),
-    }));
-    items.push({
-      value: '__clear_history__',
-      label: (
-        <div
-          role="button"
-          tabIndex={0}
-          aria-label="清除所有搜尋歷史"
-          style={{ textAlign: 'center', borderTop: '1px solid #f0f0f0', paddingTop: 4, cursor: 'pointer' }}
-          onClick={clearAllHistory}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); clearAllHistory(e); } }}
-        >
-          <AntButton type="text" size="small" icon={<DeleteOutlined style={{ fontSize: 11 }} />} style={{ color: '#999', fontSize: 12 }}>清除搜尋歷史</AntButton>
-        </div>
-      ),
-    });
+    const items: { value: string; label: React.ReactNode }[] = [];
+
+    if (!query.trim()) {
+      // 無輸入 → 顯示本地歷史
+      if (searchHistory.length === 0) return [];
+      searchHistory.forEach((item) => {
+        items.push({
+          value: item,
+          label: (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Space size="small" style={{ flex: 1, overflow: 'hidden' }}>
+                <ClockCircleOutlined style={{ color: '#999', fontSize: 12 }} />
+                <Text ellipsis style={{ fontSize: 13, maxWidth: 200 }}>{item}</Text>
+              </Space>
+              <AntButton type="text" size="small" icon={<CloseOutlined style={{ fontSize: 10, color: '#999' }} />}
+                onClick={(e) => removeHistoryItem(item, e)} style={{ minWidth: 20, padding: '0 4px' }} aria-label="移除此搜尋歷史" />
+            </div>
+          ),
+        });
+      });
+      items.push({
+        value: '__clear_history__',
+        label: (
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="清除所有搜尋歷史"
+            style={{ textAlign: 'center', borderTop: '1px solid #f0f0f0', paddingTop: 4, cursor: 'pointer' }}
+            onClick={clearAllHistory}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); clearAllHistory(e); } }}
+          >
+            <AntButton type="text" size="small" icon={<DeleteOutlined style={{ fontSize: 11 }} />} style={{ color: '#999', fontSize: 12 }}>清除搜尋歷史</AntButton>
+          </div>
+        ),
+      });
+    } else if (serverSuggestions.length > 0) {
+      // 有輸入 + 有伺服器建議 → 顯示建議
+      const iconMap: Record<string, React.ReactNode> = {
+        history: <ClockCircleOutlined style={{ color: '#1890ff', fontSize: 12 }} />,
+        popular: <SearchOutlined style={{ color: '#52c41a', fontSize: 12 }} />,
+        related: <InfoCircleOutlined style={{ color: '#722ed1', fontSize: 12 }} />,
+      };
+      serverSuggestions.forEach((s) => {
+        items.push({
+          value: s.query,
+          label: (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {iconMap[s.type] || <SearchOutlined style={{ fontSize: 12 }} />}
+              <Text ellipsis style={{ fontSize: 13, flex: 1 }}>{s.query}</Text>
+              {s.count > 1 && (
+                <Text type="secondary" style={{ fontSize: 11 }}>{s.count} 次</Text>
+              )}
+            </div>
+          ),
+        });
+      });
+    }
+
     return items;
-  }, [query, searchHistory, removeHistoryItem, clearAllHistory]);
+  }, [query, searchHistory, serverSuggestions, removeHistoryItem, clearAllHistory]);
 
   return (
     <div style={{ flex: 1, minHeight: 200, display: 'flex', flexDirection: 'column', ...(height != null ? { height } : {}) }}>
@@ -208,7 +308,16 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({ height, 
           open={autoCompleteOpen}
           onFocus={() => { if (!query.trim() && searchHistory.length > 0) setAutoCompleteOpen(true); }}
           onBlur={() => setTimeout(() => setAutoCompleteOpen(false), 200)}
-          onSearch={(value) => { if (value.trim()) setAutoCompleteOpen(false); else if (searchHistory.length > 0) setAutoCompleteOpen(true); }}
+          onSearch={(value) => {
+            if (value.trim()) {
+              fetchSuggestions(value.trim());
+              setAutoCompleteOpen(true);
+            } else if (searchHistory.length > 0) {
+              setAutoCompleteOpen(true);
+            } else {
+              setAutoCompleteOpen(false);
+            }
+          }}
           placeholder="輸入自然語言搜尋，例如：找桃園市政府上個月的公文"
         >
           <input
@@ -272,9 +381,58 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({ height, 
               {results.map((item) => (
                 <CompactResultItem key={item.id} item={item} isExpanded={expandedId === item.id}
                   onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
-                  onDocumentClick={handleDocumentClick} onPreview={handlePreviewAttachment} onDownload={handleDownloadAttachment} />
+                  onDocumentClick={handleDocumentClick} onPreview={handlePreviewAttachment} onDownload={handleDownloadAttachment}
+                  similarDocs={similarMap[item.id] || []}
+                  similarLoading={similarLoadingId === item.id}
+                  onLoadSimilar={handleLoadSimilar}
+                  showSimilar={similarVisibleId === item.id} />
               ))}
             </div>
+            {/* 搜尋結果回饋 */}
+            {historyId && (
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, padding: '8px 0 4px', borderTop: '1px solid #f0f0f0' }}>
+                <Text type="secondary" style={{ fontSize: 11 }}>搜尋結果是否有幫助？</Text>
+                <Tooltip title="有用">
+                  <Button
+                    type="text" size="small"
+                    icon={feedbackScore === 1 ? <LikeFilled style={{ color: '#52c41a' }} /> : <LikeOutlined />}
+                    onClick={() => handleFeedback(1)}
+                    disabled={feedbackScore !== null}
+                    style={{ padding: '0 4px', height: 22 }}
+                  />
+                </Tooltip>
+                <Tooltip title="無用">
+                  <Button
+                    type="text" size="small"
+                    icon={feedbackScore === -1 ? <DislikeFilled style={{ color: '#ff4d4f' }} /> : <DislikeOutlined />}
+                    onClick={() => handleFeedback(-1)}
+                    disabled={feedbackScore !== null}
+                    style={{ padding: '0 4px', height: 22 }}
+                  />
+                </Tooltip>
+                {feedbackScore !== null && (
+                  <Text type="secondary" style={{ fontSize: 10 }}>已回饋</Text>
+                )}
+              </div>
+            )}
+            {/* 知識圖譜切換 */}
+            {results.length > 0 && (
+              <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 6 }}>
+                <Button
+                  type="text" size="small"
+                  icon={<ApartmentOutlined />}
+                  onClick={() => setShowGraph(!showGraph)}
+                  style={{ fontSize: 12, color: '#722ed1' }}
+                >
+                  {showGraph ? '收合關聯圖譜' : '顯示關聯圖譜'}
+                </Button>
+                {showGraph && (
+                  <div style={{ marginTop: 8 }}>
+                    <KnowledgeGraph documentIds={results.map((r) => r.id)} />
+                  </div>
+                )}
+              </div>
+            )}
             {results.length < total && (
               <div style={{ textAlign: 'center', padding: '6px 0' }}>
                 <Button type="link" size="small" loading={loadingMore} onClick={handleLoadMore}>載入更多</Button>

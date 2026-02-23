@@ -116,13 +116,14 @@ class AISearchHistory(Base):
     related_entity = Column(String(50), nullable=True, comment="關聯實體")
     latency_ms = Column(Integer, nullable=True, comment="回應時間 ms")
     confidence = Column(Float, nullable=True, comment="意圖信心度")
+    feedback_score = Column(Integer, nullable=True, comment="使用者回饋 (1=有用, -1=無用, NULL=未評)")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), comment="建立時間")
 
     if Vector is not None:
         query_embedding = deferred(Column(
-            Vector(768),
+            Vector(384),
             nullable=True,
-            comment="查詢向量嵌入 (nomic-embed-text, 768 維)",
+            comment="查詢向量嵌入 (nomic-embed-text, 384 維)",
         ))
 
     __table_args__ = (

@@ -633,6 +633,18 @@ export const AI_ENDPOINTS = {
   SEARCH_HISTORY_STATS: '/ai/search-history/stats',
   /** 清除搜尋歷史 POST /ai/search-history/clear */
   SEARCH_HISTORY_CLEAR: '/ai/search-history/clear',
+  /** 搜尋回饋 POST /ai/search-history/feedback */
+  SEARCH_HISTORY_FEEDBACK: '/ai/search-history/feedback',
+  /** 搜尋建議 POST /ai/search-history/suggestions */
+  SEARCH_HISTORY_SUGGESTIONS: '/ai/search-history/suggestions',
+  /** 關聯圖譜 POST /ai/document/relation-graph */
+  RELATION_GRAPH: '/ai/document/relation-graph',
+  /** Embedding 統計 POST /ai/embedding/stats */
+  EMBEDDING_STATS: '/ai/embedding/stats',
+  /** Embedding 批次 POST /ai/embedding/batch */
+  EMBEDDING_BATCH: '/ai/embedding/batch',
+  /** 語意相似推薦 POST /ai/document/semantic-similar */
+  SEMANTIC_SIMILAR: '/ai/document/semantic-similar',
 } as const;
 
 // ============================================================================

@@ -18,6 +18,7 @@ import {
   ParsedSearchIntent,
   AttachmentInfo,
   NaturalSearchResponse,
+  QuerySuggestionItem,
 } from '../../../api/aiApi';
 import { filesApi } from '../../../api/filesApi';
 
@@ -166,10 +167,17 @@ export interface UseNaturalSearchReturn {
   showIntentDetails: boolean;
   setShowIntentDetails: (show: boolean) => void;
 
-  // 搜尋歷史
+  // 搜尋歷史 & 建議
   searchHistory: string[];
   autoCompleteOpen: boolean;
   setAutoCompleteOpen: (open: boolean) => void;
+  serverSuggestions: QuerySuggestionItem[];
+  fetchSuggestions: (prefix: string) => void;
+
+  // 搜尋回饋
+  historyId: number | null;
+  feedbackScore: number | null;
+  handleFeedback: (score: 1 | -1) => Promise<void>;
 
   // 操作
   handleSearch: (searchQuery: string, searchOffset?: number) => Promise<void>;
@@ -209,13 +217,19 @@ export function useNaturalSearch(options: UseNaturalSearchOptions = {}): UseNatu
   const [fromCache, setFromCache] = useState(false);
   const [searchSource, setSearchSource] = useState<NaturalSearchResponse['source'] | null>(null);
 
+  // 搜尋回饋
+  const [historyId, setHistoryId] = useState<number | null>(null);
+  const [feedbackScore, setFeedbackScore] = useState<number | null>(null);
+
   // 壓縮結果 + 手風琴展開
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [showIntentDetails, setShowIntentDetails] = useState(false);
 
-  // 搜尋歷史
+  // 搜尋歷史 & 伺服器建議
   const [searchHistory, setSearchHistory] = useState<string[]>(() => loadSearchHistory());
   const [autoCompleteOpen, setAutoCompleteOpen] = useState(false);
+  const [serverSuggestions, setServerSuggestions] = useState<QuerySuggestionItem[]>([]);
+  const suggestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ref 用於追蹤最新的 loading 狀態 (避免 useCallback 閉包問題)
   const loadingRef = useRef(false);
@@ -251,6 +265,28 @@ export function useNaturalSearch(options: UseNaturalSearchOptions = {}): UseNatu
     updateHistory([]);
     setAutoCompleteOpen(false);
   }, [updateHistory]);
+
+  // 取得伺服器端搜尋建議（debounce 300ms）
+  const fetchSuggestions = useCallback((prefix: string) => {
+    if (suggestTimerRef.current) {
+      clearTimeout(suggestTimerRef.current);
+    }
+    suggestTimerRef.current = setTimeout(async () => {
+      const result = await aiApi.getQuerySuggestions({ prefix, limit: 8 });
+      if (result?.suggestions) {
+        setServerSuggestions(result.suggestions);
+      }
+    }, 300);
+  }, []);
+
+  // 元件卸載時清除 debounce timer
+  useEffect(() => {
+    return () => {
+      if (suggestTimerRef.current) {
+        clearTimeout(suggestTimerRef.current);
+      }
+    };
+  }, []);
 
   // 執行搜尋（防止重複提交，支援分頁載入更多）
   const handleSearch = useCallback(async (searchQuery: string, searchOffset: number = 0) => {
@@ -313,6 +349,8 @@ export function useNaturalSearch(options: UseNaturalSearchOptions = {}): UseNatu
           // 新搜尋：替換結果
           setResults(response.results);
           setSearchSource(response.source);
+          setHistoryId(response.history_id ?? null);
+          setFeedbackScore(null);
 
           // 快取結果（僅首次搜尋）
           setCachedResult(searchQuery, response.results, response.parsed_intent, response.total, response.source);
@@ -385,6 +423,18 @@ export function useNaturalSearch(options: UseNaturalSearchOptions = {}): UseNatu
     handleSearch(value);
   }, [handleSearch]);
 
+  // 搜尋回饋
+  const handleFeedback = useCallback(async (score: 1 | -1) => {
+    if (!historyId) return;
+    const result = await aiApi.submitSearchFeedback({ history_id: historyId, score });
+    if (result?.success) {
+      setFeedbackScore(score);
+      message.success(result.message);
+    } else {
+      message.error('回饋提交失敗');
+    }
+  }, [historyId, message]);
+
   // 載入更多結果
   const handleLoadMore = useCallback(() => {
     const newOffset = offset + 20;
@@ -412,10 +462,17 @@ export function useNaturalSearch(options: UseNaturalSearchOptions = {}): UseNatu
     showIntentDetails,
     setShowIntentDetails,
 
-    // 搜尋歷史
+    // 搜尋歷史 & 建議
     searchHistory,
     autoCompleteOpen,
     setAutoCompleteOpen,
+    serverSuggestions,
+    fetchSuggestions,
+
+    // 搜尋回饋
+    historyId,
+    feedbackScore,
+    handleFeedback,
 
     // 操作
     handleSearch,

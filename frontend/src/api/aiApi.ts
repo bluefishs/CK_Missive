@@ -64,6 +64,21 @@ export type {
   TopQuery,
   SearchStatsResponse,
   AIStatsResponse,
+  SearchFeedbackRequest,
+  SearchFeedbackResponse,
+  QuerySuggestionRequest,
+  QuerySuggestionItem,
+  QuerySuggestionResponse,
+  GraphNode,
+  GraphEdge,
+  RelationGraphRequest,
+  RelationGraphResponse,
+  SemanticSimilarRequest,
+  SemanticSimilarItem,
+  SemanticSimilarResponse,
+  EmbeddingStatsResponse,
+  EmbeddingBatchRequest,
+  EmbeddingBatchResponse,
 } from './ai';
 
 export { aiApi as default } from './ai';

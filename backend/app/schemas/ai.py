@@ -310,6 +310,7 @@ class NaturalSearchResponse(BaseModel):
         default=False,
         description="是否經過同義詞擴展"
     )
+    history_id: Optional[int] = Field(None, description="搜尋歷史 ID（用於回饋）")
     error: Optional[str] = Field(None, description="錯誤訊息")
 
     model_config = ConfigDict(from_attributes=True)
@@ -337,6 +338,18 @@ class SearchHistoryItem(BaseModel):
     created_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class SearchFeedbackRequest(BaseModel):
+    """搜尋回饋請求"""
+    history_id: int = Field(..., description="搜尋歷史 ID")
+    score: int = Field(..., ge=-1, le=1, description="回饋分數 (1=有用, -1=無用)")
+
+
+class SearchFeedbackResponse(BaseModel):
+    """搜尋回饋回應"""
+    success: bool = Field(default=True, description="是否成功")
+    message: str = Field(default="", description="訊息")
 
 
 class SearchHistoryListRequest(BaseModel):
@@ -397,6 +410,110 @@ class SearchStatsResponse(BaseModel):
     strategy_distribution: Dict[str, int] = {}
     source_distribution: Dict[str, int] = {}
     entity_distribution: Dict[str, int] = {}
+
+
+# ============================================================================
+# 搜尋建議 Schema
+# ============================================================================
+
+class QuerySuggestionRequest(BaseModel):
+    """搜尋建議請求"""
+    prefix: str = Field("", max_length=200, description="查詢前綴 (空字串=僅回傳熱門)")
+    limit: int = Field(default=8, ge=1, le=20, description="建議數量上限")
+
+
+class QuerySuggestionItem(BaseModel):
+    """單筆搜尋建議"""
+    query: str = Field(..., description="建議的查詢文字")
+    type: str = Field(..., description="建議類型: popular / history / related")
+    count: int = Field(default=0, description="歷史搜尋次數")
+    avg_results: float = Field(default=0.0, description="平均結果數")
+
+
+class QuerySuggestionResponse(BaseModel):
+    """搜尋建議回應"""
+    suggestions: List[QuerySuggestionItem] = []
+
+
+# ============================================================================
+# 知識圖譜 Schema
+# ============================================================================
+
+class GraphNode(BaseModel):
+    """圖譜節點"""
+    id: str = Field(..., description="節點 ID (如 doc_1, project_2)")
+    type: str = Field(..., description="節點類型: document/project/dispatch/agency")
+    label: str = Field(..., description="顯示文字")
+    category: Optional[str] = Field(None, description="收文/發文 等分類")
+    doc_number: Optional[str] = Field(None, description="公文字號")
+    status: Optional[str] = Field(None, description="狀態")
+
+
+class GraphEdge(BaseModel):
+    """圖譜邊"""
+    source: str = Field(..., description="起點節點 ID")
+    target: str = Field(..., description="終點節點 ID")
+    label: str = Field(default="", description="邊標籤")
+    type: str = Field(default="relation", description="邊類型")
+
+
+class SemanticSimilarRequest(BaseModel):
+    """語意相似公文請求"""
+    document_id: int = Field(..., description="來源公文 ID")
+    limit: int = Field(default=5, ge=1, le=20, description="推薦筆數")
+
+
+class SemanticSimilarItem(BaseModel):
+    """語意相似公文項目"""
+    id: int
+    doc_number: Optional[str] = None
+    subject: Optional[str] = None
+    category: Optional[str] = None
+    sender: Optional[str] = None
+    doc_date: Optional[str] = None
+    similarity: float = 0.0
+
+
+class SemanticSimilarResponse(BaseModel):
+    """語意相似公文回應"""
+    source_id: int
+    similar_documents: List[SemanticSimilarItem] = []
+
+
+class EmbeddingStatsResponse(BaseModel):
+    """Embedding 覆蓋率統計"""
+    total_documents: int = 0
+    with_embedding: int = 0
+    without_embedding: int = 0
+    coverage_percent: float = 0.0
+    pgvector_enabled: bool = False
+
+
+class EmbeddingBatchRequest(BaseModel):
+    """Embedding 批次管線請求"""
+    limit: int = Field(default=100, ge=1, le=5000, description="批次處理筆數上限")
+    batch_size: int = Field(default=50, ge=10, le=200, description="每批 commit 大小")
+
+
+class EmbeddingBatchResponse(BaseModel):
+    """Embedding 批次管線回應"""
+    success: bool = True
+    message: str = ""
+    success_count: int = 0
+    error_count: int = 0
+    skip_count: int = 0
+    elapsed_seconds: float = 0.0
+
+
+class RelationGraphRequest(BaseModel):
+    """關聯圖譜請求"""
+    document_ids: List[int] = Field(..., min_length=1, max_length=50, description="公文 ID 列表")
+
+
+class RelationGraphResponse(BaseModel):
+    """關聯圖譜回應"""
+    nodes: List[GraphNode] = []
+    edges: List[GraphEdge] = []
 
 
 # ============================================================================
