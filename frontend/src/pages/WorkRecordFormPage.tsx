@@ -11,7 +11,7 @@
  * @date 2026-02-15
  */
 
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Card,
@@ -29,6 +29,8 @@ import {
   Radio,
   Tag,
   Collapse,
+  Empty,
+  Tooltip,
 } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -40,8 +42,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { ResponsiveContent } from '../components/common';
 import { workflowApi } from '../api/taoyuan';
+import { dispatchOrdersApi } from '../api/taoyuanDispatchApi';
 import { apiClient } from '../api/client';
 import { API_ENDPOINTS } from '../api/endpoints';
+import { isReceiveDocument } from '../types/api';
 import type {
   WorkRecordCreate,
   WorkRecordUpdate,
@@ -76,6 +80,9 @@ const WorkRecordFormPage: React.FC = () => {
   const returnTo = searchParams.get('returnTo');
   const returnPath = returnTo || `/taoyuan/dispatch/${dispatchId}?tab=correspondence`;
 
+  // 公文搜尋狀態
+  const [docSearchKeyword, setDocSearchKeyword] = useState('');
+
   // URL 參數預填（新格式優先，舊格式自動轉換）
   const urlDocumentId = searchParams.get('document_id')
     || searchParams.get('incoming_doc_id')
@@ -104,6 +111,19 @@ const WorkRecordFormPage: React.FC = () => {
     enabled: dispatchOrderId > 0,
   });
 
+  // 搜尋可關聯的公文（伺服器端搜尋）
+  const { data: searchedDocsResult, isLoading: searchingDocs } = useQuery({
+    queryKey: ['documents-for-work-record', docSearchKeyword],
+    queryFn: async () => {
+      if (!docSearchKeyword.trim()) return { items: [] };
+      return dispatchOrdersApi.searchLinkableDocuments(
+        docSearchKeyword,
+        20,
+      );
+    },
+    enabled: !!docSearchKeyword.trim(),
+  });
+
   const { data: existingRecordsData } = useQuery({
     queryKey: ['dispatch-work-records', dispatchOrderId],
     queryFn: () => workflowApi.listByDispatchOrder(dispatchOrderId),
@@ -115,26 +135,79 @@ const WorkRecordFormPage: React.FC = () => {
     [existingRecordsData?.items],
   );
 
-  // 公文選項
+  // 公文選項：合併已關聯公文 + 搜尋結果
   const docOptions = useMemo(() => {
-    if (!linkedDocs) return [];
-    return linkedDocs.map((d) => {
-      const isOutgoing = d.doc_number?.startsWith('乾坤');
-      const tag = isOutgoing ? '發' : '收';
-      const color = isOutgoing ? 'green' : 'blue';
-      return {
-        value: d.document_id,
+    const seenIds = new Set<number>();
+    const options: Array<{
+      value: number;
+      label: React.ReactNode;
+      searchText: string;
+    }> = [];
+
+    // 已關聯公文（優先顯示）
+    if (linkedDocs) {
+      for (const d of linkedDocs) {
+        if (seenIds.has(d.document_id)) continue;
+        seenIds.add(d.document_id);
+        const isOutgoing = d.doc_number?.startsWith('乾坤');
+        const tag = isOutgoing ? '發' : '收';
+        const color = isOutgoing ? 'green' : 'blue';
+        const docNumber = d.doc_number || `ID:${d.document_id}`;
+        const subject = d.subject || '';
+        options.push({
+          value: d.document_id,
+          label: (
+            <Tooltip
+              title={subject}
+              placement="right"
+              mouseEnterDelay={0.5}
+            >
+              <span>
+                <Tag color={color} style={{ marginRight: 4 }}>{tag}</Tag>
+                {docNumber}
+                {d.doc_date ? ` (${d.doc_date.substring(0, 10)})` : ''}
+              </span>
+            </Tooltip>
+          ),
+          searchText: `${d.doc_number || ''} ${subject}`,
+        });
+      }
+    }
+
+    // 搜尋結果
+    const searchedDocs = searchedDocsResult?.items ?? [];
+    for (const d of searchedDocs) {
+      if (seenIds.has(d.id)) continue;
+      seenIds.add(d.id);
+      const docIsReceive = isReceiveDocument(d.category);
+      const tag = docIsReceive ? '收' : '發';
+      const color = docIsReceive ? 'blue' : 'green';
+      const docNumber = d.doc_number || `#${d.id}`;
+      const subject = d.subject || '(無主旨)';
+      options.push({
+        value: d.id,
         label: (
-          <span>
-            <Tag color={color} style={{ marginRight: 4 }}>{tag}</Tag>
-            {d.doc_number || `ID:${d.document_id}`}
-            {d.doc_date ? ` (${d.doc_date.substring(0, 10)})` : ''}
-          </span>
+          <Tooltip
+            title={<div><div>{docNumber}</div><div>{subject}</div></div>}
+            placement="right"
+            mouseEnterDelay={0.5}
+          >
+            <span>
+              <Tag color={color} style={{ marginRight: 4 }}>{tag}</Tag>
+              {docNumber}
+              {d.doc_date ? ` (${d.doc_date.substring(0, 10)})` : ''}
+              <span style={{ color: '#999', marginLeft: 8, fontSize: 12 }}>
+                {subject.length > 20 ? subject.substring(0, 20) + '...' : subject}
+              </span>
+            </span>
+          </Tooltip>
         ),
-        searchText: `${d.doc_number || ''} ${d.subject || ''}`,
-      };
-    });
-  }, [linkedDocs]);
+        searchText: `${d.doc_number || ''} ${subject}`,
+      });
+    }
+
+    return options;
+  }, [linkedDocs, searchedDocsResult?.items]);
 
   // 前序紀錄選項
   const parentRecordOptions = useMemo(() => {
@@ -156,17 +229,20 @@ const WorkRecordFormPage: React.FC = () => {
 
   const handleDocumentChange = useCallback(
     (docId: number | undefined) => {
-      if (!docId || !linkedDocs) return;
-      const doc = linkedDocs.find((d) => d.document_id === docId);
-      if (doc?.subject) {
+      if (!docId) return;
+      // 先從已關聯公文找
+      const linkedDoc = linkedDocs?.find((d) => d.document_id === docId);
+      const searchedDoc = searchedDocsResult?.items?.find((d) => d.id === docId);
+      const subject = linkedDoc?.subject || searchedDoc?.subject;
+      if (subject) {
         const currentDesc = form.getFieldValue('description');
         // 僅在描述為空時自動帶入公文主旨
         if (!currentDesc) {
-          form.setFieldsValue({ description: doc.subject });
+          form.setFieldsValue({ description: subject });
         }
       }
     },
-    [linkedDocs, form],
+    [linkedDocs, searchedDocsResult?.items, form],
   );
 
   // ===========================================================================
@@ -342,14 +418,20 @@ const WorkRecordFormPage: React.FC = () => {
             {/* 1. 關聯公文 — 最重要的欄位 */}
             <Form.Item name="document_id" label="關聯公文">
               <Select
-                placeholder="選擇關聯公文（可選，主旨自動帶入）"
+                placeholder="輸入公文字號或主旨搜尋..."
                 options={docOptions}
                 allowClear
                 showSearch
-                optionFilterProp="searchText"
+                filterOption={false}
+                onSearch={setDocSearchKeyword}
                 onChange={handleDocumentChange}
+                loading={searchingDocs}
                 notFoundContent={
-                  <Text type="secondary">此派工單尚無關聯公文</Text>
+                  docSearchKeyword ? (
+                    <Empty description="無符合的公文" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                  ) : (
+                    <Text type="secondary">輸入關鍵字搜尋公文</Text>
+                  )
                 }
               />
             </Form.Item>
