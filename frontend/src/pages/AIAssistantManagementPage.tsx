@@ -701,7 +701,6 @@ const KnowledgeGraphTab: React.FC = () => {
       <Card size="small" bodyStyle={{ padding: 12 }}>
         <KnowledgeGraph
           documentIds={documentIds}
-          width={900}
           height={500}
         />
       </Card>
