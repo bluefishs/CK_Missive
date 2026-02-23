@@ -142,6 +142,10 @@ export interface DispatchInfoTabProps {
   availableProjects?: TaoyuanProject[];
   /** 選擇工程時的回調（傳入工程 ID 和名稱） */
   onProjectSelect?: (projectId: number, projectName: string) => void;
+  /** 新增工程的回調 */
+  onCreateProject?: (projectName: string) => void;
+  /** 是否正在建立工程中 */
+  creatingProject?: boolean;
 }
 
 // =============================================================================
@@ -304,6 +308,8 @@ export const DispatchInfoTab: React.FC<DispatchInfoTabProps> = ({
   watchedWorkAmounts,
   availableProjects = [],
   onProjectSelect,
+  onCreateProject,
+  creatingProject,
 }) => {
   // 唯讀模式下的文字顯示元件（支援長文字換行）
   const ReadOnlyField: React.FC<{ value?: string; placeholder?: string }> = ({ value, placeholder }) => (
@@ -484,6 +490,8 @@ export const DispatchInfoTab: React.FC<DispatchInfoTabProps> = ({
         agencyContacts={agencyContacts}
         projectVendors={projectVendors}
         onProjectSelect={onProjectSelect}
+        onCreateProject={onCreateProject}
+        creatingProject={creatingProject}
         showPaymentFields={true}
         watchedWorkTypes={watchedWorkTypes}
         showDocLinkFields={false}

@@ -303,6 +303,28 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
     onError: () => message.error('關聯失敗'),
   });
 
+  // 新增工程 mutation（從派工資訊 Tab 的 AutoComplete 快速新增）
+  const createProjectMutation = useMutation({
+    mutationFn: (projectName: string) =>
+      taoyuanProjectsApi.create({
+        project_name: projectName,
+        contract_project_id: dispatch?.contract_project_id || TAOYUAN_CONTRACT.PROJECT_ID,
+      }),
+    onSuccess: (newProject) => {
+      message.success(`工程「${newProject.project_name}」建立成功`);
+      // 刷新工程列表
+      queryClient.invalidateQueries({ queryKey: ['taoyuan-projects-for-dispatch-link'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanProjects.all });
+      // 自動填入工程名稱到表單
+      form.setFieldsValue({ project_name: newProject.project_name });
+      // 自動建立工程關聯
+      linkProjectMutation.mutate(newProject.id);
+    },
+    onError: (error: Error) => {
+      message.error(`建立工程失敗: ${error.message}`);
+    },
+  });
+
   // 移除工程關聯 mutation
   const unlinkProjectMutation = useMutation({
     mutationFn: (linkId: number) => {
@@ -670,6 +692,11 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
     });
   }, [linkedProjectIds, message, linkProjectMutation]);
 
+  // 從派工資訊 Tab 快速建立工程
+  const handleCreateProjectFromInfo = useCallback((projectName: string) => {
+    createProjectMutation.mutate(projectName);
+  }, [createProjectMutation]);
+
   // =============================================================================
   // Tab 配置
   // =============================================================================
@@ -689,6 +716,8 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
         watchedWorkAmounts={watchedWorkAmounts}
         availableProjects={availableProjects}
         onProjectSelect={handleProjectSelectFromInfo}
+        onCreateProject={handleCreateProjectFromInfo}
+        creatingProject={createProjectMutation.isPending}
       />
     ),
     createTabItem(

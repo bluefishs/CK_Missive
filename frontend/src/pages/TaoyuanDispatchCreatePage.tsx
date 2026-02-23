@@ -196,6 +196,34 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
   // Handlers
   // =============================================================================
 
+  // 快速新增工程
+  const createProjectMutation = useMutation({
+    mutationFn: (projectName: string) =>
+      taoyuanProjectsApi.create({
+        project_name: projectName,
+        contract_project_id: TAOYUAN_CONTRACT.PROJECT_ID,
+      }),
+    onSuccess: (newProject) => {
+      message.success(`工程「${newProject.project_name}」建立成功`);
+      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanProjects.all });
+      // 自動填入工程名稱
+      form.setFieldsValue({ project_name: newProject.project_name });
+      // 自動加入工程關聯
+      const currentLinked = form.getFieldValue('linked_project_ids') || [];
+      form.setFieldsValue({
+        linked_project_ids: [...currentLinked, newProject.id],
+      });
+      message.info('已自動加入工程關聯');
+    },
+    onError: (error: Error) => {
+      message.error(`建立工程失敗: ${error.message}`);
+    },
+  });
+
+  const handleCreateProject = (projectName: string) => {
+    createProjectMutation.mutate(projectName);
+  };
+
   // 選擇工程時自動加入關聯
   const handleProjectSelect = (projectId: number) => {
     const currentLinked = form.getFieldValue('linked_project_ids') || [];
@@ -297,6 +325,8 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
             agencyContacts={agencyContacts}
             projectVendors={projectVendors}
             onProjectSelect={handleProjectSelect}
+            onCreateProject={handleCreateProject}
+            creatingProject={createProjectMutation.isPending}
             showPaymentFields={true}
             showDocLinkFields={true}
             agencyDocOptions={agencyDocOptions}

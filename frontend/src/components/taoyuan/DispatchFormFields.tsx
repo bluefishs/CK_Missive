@@ -11,7 +11,7 @@
  * @date 2026-01-29
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Form,
   Input,
@@ -24,10 +24,11 @@ import {
   Space,
   Typography,
   Alert,
+  Button,
 } from 'antd';
 import { ResponsiveFormRow } from '../common/ResponsiveFormRow';
 import type { FormInstance } from 'antd';
-import { FileTextOutlined } from '@ant-design/icons';
+import { FileTextOutlined, PlusOutlined } from '@ant-design/icons';
 
 import type { TaoyuanProject, OfficialDocument } from '../../types/api';
 import { TAOYUAN_WORK_TYPES } from '../../types/api';
@@ -83,6 +84,12 @@ export interface DispatchFormFieldsProps {
   /** 選擇工程時的回調（用於混合模式自動關聯） */
   onProjectSelect?: (projectId: number, projectName: string) => void;
 
+  /** 新增工程的回調（輸入的工程名稱不在清單中時，提供快速新增） */
+  onCreateProject?: (projectName: string) => void;
+
+  /** 是否正在建立工程中 */
+  creatingProject?: boolean;
+
   // === 契金相關（edit 模式專用） ===
 
   /** 是否顯示契金欄位（預設 create/edit 顯示，quick 不顯示） */
@@ -134,6 +141,8 @@ export const DispatchFormFields: React.FC<DispatchFormFieldsProps> = ({
   agencyContacts = [],
   projectVendors = [],
   onProjectSelect,
+  onCreateProject,
+  creatingProject = false,
   showPaymentFields,
   watchedWorkTypes = [],
   showDocLinkFields,
@@ -150,6 +159,17 @@ export const DispatchFormFields: React.FC<DispatchFormFieldsProps> = ({
   const shouldShowPayment = showPaymentFields ?? (mode !== 'quick');
   const shouldShowDocLink = showDocLinkFields ?? (mode === 'create' || mode === 'quick');
   const shouldShowProjectLink = showProjectLinkFields ?? (mode === 'create');
+
+  // 追蹤使用者輸入的工程名稱（用於判斷是否顯示「新增工程」按鈕）
+  const [projectInputText, setProjectInputText] = useState('');
+
+  // 判斷輸入的名稱是否已存在於工程清單中
+  const isNewProjectName = useMemo(() => {
+    if (!projectInputText.trim()) return false;
+    return !availableProjects.some(
+      (p) => p.project_name.toLowerCase() === projectInputText.trim().toLowerCase()
+    );
+  }, [projectInputText, availableProjects]);
 
   // 建立 AutoComplete 選項（工程列表）
   const projectOptions = useMemo(() => {
@@ -202,11 +222,34 @@ export const DispatchFormFields: React.FC<DispatchFormFieldsProps> = ({
           <AutoComplete
             options={projectOptions}
             onSelect={handleProjectSelect}
+            onSearch={setProjectInputText}
+            onChange={(value) => {
+              if (!value) setProjectInputText('');
+            }}
             placeholder="輸入或選擇工程名稱/派工事項"
             allowClear
             filterOption={(inputValue, option) =>
               option?.value?.toLowerCase().includes(inputValue.toLowerCase()) ?? false
             }
+            dropdownRender={(menu) => (
+              <>
+                {menu}
+                {onCreateProject && isNewProjectName && (
+                  <>
+                    <Divider style={{ margin: '4px 0' }} />
+                    <Button
+                      type="link"
+                      icon={<PlusOutlined />}
+                      onClick={() => onCreateProject(projectInputText.trim())}
+                      loading={creatingProject}
+                      style={{ width: '100%', textAlign: 'left' }}
+                    >
+                      新增工程「{projectInputText.trim()}」
+                    </Button>
+                  </>
+                )}
+              </>
+            )}
           />
         </Form.Item>
       </ResponsiveFormRow>
