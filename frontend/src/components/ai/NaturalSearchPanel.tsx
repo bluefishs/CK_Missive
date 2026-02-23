@@ -152,7 +152,7 @@ const CompactResultItem: React.FC<CompactResultItemProps> = React.memo(({
         )}
         {showSimilar && !similarLoading && similarDocs.length === 0 && (
           <div style={{ marginTop: 4 }}>
-            <Text type="secondary" style={{ fontSize: 10 }}>此公文尚無 embedding 或無相似公文</Text>
+            <Text type="secondary" style={{ fontSize: 10 }}>無相似公文（可能原因：pgvector 未啟用、公文尚無 embedding、或無相似結果）</Text>
           </div>
         )}
       </div>

@@ -119,6 +119,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
   const [nodes, setNodes] = useState<GraphNode[]>([]);
   const [edges, setEdges] = useState<GraphEdge[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
   // 載入圖譜資料
@@ -127,13 +128,21 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
 
     let cancelled = false;
     setLoading(true);
+    setError(null);
 
     aiApi.getRelationGraph({ document_ids: documentIds }).then((result) => {
       if (cancelled) return;
       if (result) {
         setNodes(result.nodes);
         setEdges(result.edges);
+      } else {
+        setNodes([]);
+        setEdges([]);
       }
+      setLoading(false);
+    }).catch((err) => {
+      if (cancelled) return;
+      setError(err instanceof Error ? err.message : '載入關聯圖譜失敗');
       setLoading(false);
     });
 
@@ -175,6 +184,10 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
         <Spin tip="載入關聯圖譜..." />
       </div>
     );
+  }
+
+  if (error) {
+    return <Empty description={`載入失敗：${error}`} style={{ padding: 20 }} />;
   }
 
   if (nodes.length === 0) {

@@ -13,7 +13,7 @@
  * @updated 2026-02-24 - 新增搜尋統計 Dashboard 區塊
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import {
   Card,
   Statistic,
@@ -48,11 +48,10 @@ import {
   CloseCircleOutlined,
   ExclamationCircleOutlined,
 } from '@ant-design/icons';
+import { useQuery } from '@tanstack/react-query';
 import { aiApi } from '../../api/aiApi';
-import type { AIHealthStatus, SearchStatsResponse, EmbeddingStatsResponse } from '../../api/aiApi';
 import { useResponsive } from '../../hooks';
 import { getAIFeatureName, type AIFeatureType } from '../../config/aiConfig';
-import { logger } from '../../services/logger';
 import type { AIStatsResponse } from '../../types/api';
 
 const { Text } = Typography;
@@ -73,46 +72,33 @@ interface FeatureDataItem {
  */
 export const AIStatsPanel: React.FC = () => {
   const { isMobile } = useResponsive();
-  const [stats, setStats] = useState<AIStatsResponse | null>(null);
-  const [searchStats, setSearchStats] = useState<SearchStatsResponse | null>(null);
-  const [health, setHealth] = useState<AIHealthStatus | null>(null);
-  const [embeddingStats, setEmbeddingStats] = useState<EmbeddingStatsResponse | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
 
-  // 載入統計資料
-  useEffect(() => {
-    let cancelled = false;
+  // 與 AIAssistantManagementPage 共享 queryKey，避免重複請求
+  const { data: stats = null, isLoading: statsLoading } = useQuery({
+    queryKey: ['ai-management', 'ai-stats'],
+    queryFn: () => aiApi.getStats(),
+    staleTime: 2 * 60 * 1000,
+  });
 
-    const fetchStats = async () => {
-      setLoading(true);
-      try {
-        const [aiData, searchData, healthData, embedData] = await Promise.all([
-          aiApi.getStats(),
-          aiApi.getSearchStats(),
-          aiApi.checkHealth(),
-          aiApi.getEmbeddingStats(),
-        ]);
-        if (!cancelled) {
-          setStats(aiData);
-          setSearchStats(searchData);
-          setHealth(healthData);
-          setEmbeddingStats(embedData);
-        }
-      } catch (error) {
-        logger.error('載入 AI 使用統計失敗:', error);
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
+  const { data: searchStats = null, isLoading: searchLoading } = useQuery({
+    queryKey: ['ai-management', 'search-stats'],
+    queryFn: () => aiApi.getSearchStats(),
+    staleTime: 2 * 60 * 1000,
+  });
 
-    fetchStats();
+  const { data: health = null } = useQuery({
+    queryKey: ['ai-management', 'health'],
+    queryFn: () => aiApi.checkHealth(),
+    staleTime: 30 * 1000,
+  });
 
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { data: embeddingStats = null } = useQuery({
+    queryKey: ['ai-management', 'embedding-stats'],
+    queryFn: () => aiApi.getEmbeddingStats(),
+    staleTime: 60 * 1000,
+  });
+
+  const loading = statsLoading || searchLoading;
 
   // 計算統計摘要
   const summary = useMemo(() => {
