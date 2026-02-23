@@ -79,6 +79,11 @@ export type {
   EmbeddingStatsResponse,
   EmbeddingBatchRequest,
   EmbeddingBatchResponse,
+  EntityExtractRequest,
+  EntityExtractResponse,
+  EntityBatchRequest,
+  EntityBatchResponse,
+  EntityStatsResponse,
 } from './ai';
 
 export { aiApi as default } from './ai';

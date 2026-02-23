@@ -645,6 +645,12 @@ export const AI_ENDPOINTS = {
   EMBEDDING_BATCH: '/ai/embedding/batch',
   /** 語意相似推薦 POST /ai/document/semantic-similar */
   SEMANTIC_SIMILAR: '/ai/document/semantic-similar',
+  /** 實體提取 POST /ai/entity/extract */
+  ENTITY_EXTRACT: '/ai/entity/extract',
+  /** 實體批次提取 POST /ai/entity/batch */
+  ENTITY_BATCH: '/ai/entity/batch',
+  /** 實體提取統計 POST /ai/entity/stats */
+  ENTITY_STATS: '/ai/entity/stats',
 } as const;
 
 // ============================================================================

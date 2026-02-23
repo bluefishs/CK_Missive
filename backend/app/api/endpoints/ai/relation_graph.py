@@ -22,6 +22,8 @@ from app.extended.models import (
     User,
     OfficialDocument,
     ContractProject,
+    DocumentEntity,
+    EntityRelation,
 )
 from app.schemas.ai import (
     RelationGraphRequest,
@@ -191,8 +193,61 @@ async def get_relation_graph(
                             type="reply",
                         ))
 
+    # 5. 加入 NER 提取的實體和關係
+    all_doc_ids = list(doc_ids)  # 包含原始查詢的公文 ID
+
+    # 5a. 查詢提取的實體
+    entity_result = await db.execute(
+        select(DocumentEntity)
+        .where(DocumentEntity.document_id.in_(all_doc_ids))
+        .where(DocumentEntity.confidence >= 0.7)
+    )
+    extracted_entities = entity_result.scalars().all()
+
+    # 建立實體名稱到節點 ID 的映射（同名同類型的實體合併為一個節點）
+    entity_node_map: Dict[str, str] = {}  # "type:name" -> node_id
+    for ent in extracted_entities:
+        entity_key = f"{ent.entity_type}:{ent.entity_name}"
+        if entity_key not in entity_node_map:
+            ent_node_id = f"ent_{hash(entity_key) % 1000000}"
+            entity_node_map[entity_key] = ent_node_id
+            add_node(GraphNode(
+                id=ent_node_id,
+                type=ent.entity_type,
+                label=ent.entity_name[:30],
+            ))
+        # 連接實體到來源公文
+        add_edge(GraphEdge(
+            source=f"doc_{ent.document_id}",
+            target=entity_node_map[entity_key],
+            label="提及",
+            type="mentions",
+        ))
+
+    # 5b. 查詢提取的關係
+    relation_result = await db.execute(
+        select(EntityRelation)
+        .where(EntityRelation.document_id.in_(all_doc_ids))
+        .where(EntityRelation.confidence >= 0.7)
+    )
+    extracted_relations = relation_result.scalars().all()
+
+    for rel in extracted_relations:
+        src_key = f"{rel.source_entity_type}:{rel.source_entity_name}"
+        tgt_key = f"{rel.target_entity_type}:{rel.target_entity_name}"
+        src_id = entity_node_map.get(src_key)
+        tgt_id = entity_node_map.get(tgt_key)
+        if src_id and tgt_id:
+            add_edge(GraphEdge(
+                source=src_id,
+                target=tgt_id,
+                label=rel.relation_label or rel.relation_type,
+                type=rel.relation_type,
+            ))
+
     logger.info(
         f"關聯圖譜: {len(doc_ids)} 筆公文 → {len(nodes)} 節點, {len(edges)} 邊"
+        f" (含 {len(extracted_entities)} 提取實體, {len(extracted_relations)} 提取關係)"
     )
 
     return RelationGraphResponse(nodes=nodes, edges=edges)

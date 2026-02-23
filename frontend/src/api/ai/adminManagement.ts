@@ -36,6 +36,11 @@ import type {
   EmbeddingStatsResponse,
   EmbeddingBatchRequest,
   EmbeddingBatchResponse,
+  EntityExtractRequest,
+  EntityExtractResponse,
+  EntityBatchRequest,
+  EntityBatchResponse,
+  EntityStatsResponse,
 } from './types';
 
 // ============================================================================
@@ -245,6 +250,41 @@ export async function submitSearchFeedback(
     );
   } catch (error) {
     logger.error('搜尋回饋提交失敗:', error);
+    return null;
+  }
+}
+
+// ============================================================================
+// 實體提取管理
+// ============================================================================
+
+export async function extractEntities(
+  request: EntityExtractRequest,
+): Promise<EntityExtractResponse | null> {
+  try {
+    return await apiClient.post<EntityExtractResponse>(AI_ENDPOINTS.ENTITY_EXTRACT, request);
+  } catch (error) {
+    logger.error('實體提取失敗:', error);
+    return null;
+  }
+}
+
+export async function runEntityBatch(
+  request: EntityBatchRequest = {},
+): Promise<EntityBatchResponse | null> {
+  try {
+    return await apiClient.post<EntityBatchResponse>(AI_ENDPOINTS.ENTITY_BATCH, request);
+  } catch (error) {
+    logger.error('實體批次提取失敗:', error);
+    return null;
+  }
+}
+
+export async function getEntityStats(): Promise<EntityStatsResponse | null> {
+  try {
+    return await apiClient.post<EntityStatsResponse>(AI_ENDPOINTS.ENTITY_STATS, {});
+  } catch (error) {
+    logger.error('取得實體統計失敗:', error);
     return null;
   }
 }

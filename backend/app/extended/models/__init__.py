@@ -70,6 +70,12 @@ from .taoyuan import (
     TaoyuanWorkRecord,
 )
 
+# 8. AI 實體提取模組
+from .entity import (
+    DocumentEntity,
+    EntityRelation,
+)
+
 # 匯出 Base 供 Alembic 等工具使用
 from ._base import Base
 
@@ -111,4 +117,7 @@ __all__ = [
     "TaoyuanDispatchAttachment",
     "TaoyuanDispatchWorkType",
     "TaoyuanWorkRecord",
+    # AI 實體提取
+    "DocumentEntity",
+    "EntityRelation",
 ]

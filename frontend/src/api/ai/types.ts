@@ -521,3 +521,47 @@ export interface SearchStatsResponse {
   source_distribution: Record<string, number>;
   entity_distribution: Record<string, number>;
 }
+
+
+// ============================================================================
+// 實體提取 (Entity Extraction)
+// ============================================================================
+
+export interface EntityExtractRequest {
+  document_id: number;
+  force?: boolean;
+}
+
+export interface EntityExtractResponse {
+  success: boolean;
+  document_id: number;
+  entities_count: number;
+  relations_count: number;
+  skipped: boolean;
+  reason?: string | null;
+  error?: string | null;
+}
+
+export interface EntityBatchRequest {
+  limit?: number;
+  force?: boolean;
+}
+
+export interface EntityBatchResponse {
+  success: boolean;
+  message: string;
+  total_processed: number;
+  success_count: number;
+  skip_count: number;
+  error_count: number;
+}
+
+export interface EntityStatsResponse {
+  total_documents: number;
+  extracted_documents: number;
+  without_extraction: number;
+  coverage_percent: number;
+  total_entities: number;
+  total_relations: number;
+  entity_type_stats: Record<string, number>;
+}

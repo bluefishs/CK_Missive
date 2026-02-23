@@ -68,6 +68,11 @@ export type {
   EmbeddingStatsResponse,
   EmbeddingBatchRequest,
   EmbeddingBatchResponse,
+  EntityExtractRequest,
+  EntityExtractResponse,
+  EntityBatchRequest,
+  EntityBatchResponse,
+  EntityStatsResponse,
 } from './types';
 
 // Re-export abortNaturalSearch (standalone function)
@@ -109,6 +114,9 @@ import {
   getSemanticSimilar,
   getEmbeddingStats,
   runEmbeddingBatch,
+  extractEntities,
+  runEntityBatch,
+  getEntityStats,
 } from './adminManagement';
 
 // Compose the aiApi object (backward-compatible with original aiApi.ts)
@@ -152,6 +160,11 @@ export const aiApi = {
   getSemanticSimilar,
   getEmbeddingStats,
   runEmbeddingBatch,
+
+  // Entity extraction
+  extractEntities,
+  runEntityBatch,
+  getEntityStats,
 };
 
 export default aiApi;

@@ -34,6 +34,12 @@ const NODE_COLORS: Record<string, string> = {
   project: '#52c41a',
   agency: '#fa8c16',
   dispatch: '#722ed1',
+  // NER 提取實體類型
+  org: '#fa8c16',      // 與 agency 同色系（機關/組織）
+  person: '#f5222d',   // 紅
+  location: '#faad14', // 黃
+  date: '#13c2c2',     // 青
+  topic: '#eb2f96',    // 粉紅
 };
 
 const NODE_RADIUS: Record<string, number> = {
@@ -41,6 +47,11 @@ const NODE_RADIUS: Record<string, number> = {
   project: 9,
   agency: 5,
   dispatch: 7,
+  org: 5,
+  person: 5,
+  location: 4,
+  date: 4,
+  topic: 5,
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -48,6 +59,11 @@ const TYPE_LABELS: Record<string, string> = {
   project: '專案',
   agency: '機關',
   dispatch: '派工',
+  org: '組織',
+  person: '人物',
+  location: '地點',
+  date: '日期',
+  topic: '主題',
 };
 
 // ============================================================================
@@ -124,7 +140,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [searchText, setSearchText] = useState('');
   const [visibleTypes, setVisibleTypes] = useState<Set<string>>(
-    new Set(['document', 'project', 'agency', 'dispatch'])
+    new Set(['document', 'project', 'agency', 'dispatch', 'org', 'person', 'location', 'date', 'topic'])
   );
 
   // 容器寬度偵測
@@ -387,9 +403,9 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
           style={{ width: 180 }}
         />
 
-        {/* 類型過濾 */}
+        {/* 類型過濾（只顯示圖譜中實際存在的類型） */}
         <Space size={4}>
-          {Object.entries(TYPE_LABELS).map(([type, label]) => (
+          {Object.entries(TYPE_LABELS).filter(([type]) => rawNodes.some((n) => n.type === type)).map(([type, label]) => (
             <Checkbox
               key={type}
               checked={visibleTypes.has(type)}

@@ -15,6 +15,7 @@ from .prompts import router as prompts_router
 from .search_history import router as search_history_router
 from .relation_graph import router as relation_graph_router
 from .embedding_pipeline import router as embedding_pipeline_router
+from .entity_extraction import router as entity_extraction_router
 
 router = APIRouter(prefix="/ai", tags=["AI"])
 
@@ -26,3 +27,4 @@ router.include_router(prompts_router)
 router.include_router(search_history_router)
 router.include_router(relation_graph_router)
 router.include_router(embedding_pipeline_router)
+router.include_router(entity_extraction_router)
