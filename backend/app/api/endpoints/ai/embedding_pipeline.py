@@ -27,7 +27,10 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-PGVECTOR_ENABLED = os.getenv("PGVECTOR_ENABLED", "false").lower() == "true"
+
+def _pgvector_enabled() -> bool:
+    """Runtime 判斷 pgvector 是否啟用（避免模組層級常數在 .env 載入前被評估）"""
+    return os.getenv("PGVECTOR_ENABLED", "false").lower() == "true"
 
 
 @router.post("/embedding/stats", response_model=EmbeddingStatsResponse)
@@ -36,7 +39,7 @@ async def get_embedding_stats(
     db: AsyncSession = Depends(get_async_db),
 ):
     """取得 Embedding 覆蓋率統計"""
-    if not PGVECTOR_ENABLED:
+    if not _pgvector_enabled():
         return EmbeddingStatsResponse(pgvector_enabled=False)
 
     total_result = await db.execute(
@@ -75,7 +78,7 @@ async def run_embedding_batch(
     在背景執行，立即回傳啟動狀態。
     使用管理員權限。
     """
-    if not PGVECTOR_ENABLED:
+    if not _pgvector_enabled():
         return EmbeddingBatchResponse(
             success=False,
             message="pgvector 未啟用 (PGVECTOR_ENABLED=false)",

@@ -3,6 +3,21 @@
 乾坤測繪公文管理系統 - FastAPI 主程式 (已重構)
 """
 
+# 必須最先執行：載入 .env 到 os.environ
+# Pydantic BaseSettings 只讀 .env 到 settings 物件，不設定 os.environ，
+# 但 _base.py / embedding_pipeline.py 等模組用 os.environ 判斷 PGVECTOR_ENABLED。
+import os as _os
+from pathlib import Path as _Path
+try:
+    from dotenv import load_dotenv as _load_dotenv
+    _root_env = _Path(__file__).resolve().parent.parent / ".env"
+    if _root_env.exists():
+        _load_dotenv(_root_env, override=True)
+    else:
+        _load_dotenv()
+except ImportError:
+    pass
+
 import asyncio
 import logging
 import sys
