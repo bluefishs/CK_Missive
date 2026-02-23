@@ -24,7 +24,6 @@ import {
   Space,
   Typography,
   Alert,
-  Button,
 } from 'antd';
 import { ResponsiveFormRow } from '../common/ResponsiveFormRow';
 import type { FormInstance } from 'antd';
@@ -87,9 +86,6 @@ export interface DispatchFormFieldsProps {
   /** 新增工程的回調（輸入的工程名稱不在清單中時，提供快速新增） */
   onCreateProject?: (projectName: string) => void;
 
-  /** 是否正在建立工程中 */
-  creatingProject?: boolean;
-
   // === 契金相關（edit 模式專用） ===
 
   /** 是否顯示契金欄位（預設 create/edit 顯示，quick 不顯示） */
@@ -135,14 +131,13 @@ export interface DispatchFormFieldsProps {
 // =============================================================================
 
 export const DispatchFormFields: React.FC<DispatchFormFieldsProps> = ({
-  form: _form,
+  form,
   mode,
   availableProjects = [],
   agencyContacts = [],
   projectVendors = [],
   onProjectSelect,
   onCreateProject,
-  creatingProject = false,
   showPaymentFields,
   watchedWorkTypes = [],
   showDocLinkFields,
@@ -171,9 +166,12 @@ export const DispatchFormFields: React.FC<DispatchFormFieldsProps> = ({
     );
   }, [projectInputText, availableProjects]);
 
-  // 建立 AutoComplete 選項（工程列表）
+  // 「新增工程」特殊選項的 sentinel 前綴
+  const CREATE_PREFIX = '__CREATE__';
+
+  // 建立 AutoComplete 選項（工程列表 + 新增工程選項）
   const projectOptions = useMemo(() => {
-    return availableProjects.map((proj) => ({
+    const opts = availableProjects.map((proj) => ({
       value: proj.project_name,
       label: (
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -187,10 +185,35 @@ export const DispatchFormFields: React.FC<DispatchFormFieldsProps> = ({
       ),
       projectId: proj.id,
     }));
-  }, [availableProjects]);
+
+    // 當輸入的名稱不在清單中，加入「新增工程」選項
+    if (onCreateProject && isNewProjectName) {
+      opts.push({
+        value: `${CREATE_PREFIX}${projectInputText.trim()}`,
+        label: (
+          <div style={{ color: '#1890ff', fontWeight: 500 }}>
+            <PlusOutlined style={{ marginRight: 4 }} />
+            新增工程「{projectInputText.trim()}」
+          </div>
+        ),
+        projectId: 0,
+      });
+    }
+
+    return opts;
+  }, [availableProjects, onCreateProject, isNewProjectName, projectInputText]);
 
   // 處理 AutoComplete 選擇
   const handleProjectSelect = (value: string, option: { projectId?: number }) => {
+    // 點擊「新增工程」選項
+    if (value.startsWith(CREATE_PREFIX) && onCreateProject) {
+      const projectName = value.slice(CREATE_PREFIX.length);
+      // 還原表單值為工程名稱（不是 sentinel）
+      form.setFieldsValue({ project_name: projectName });
+      setProjectInputText(projectName);
+      onCreateProject(projectName);
+      return;
+    }
     if (option.projectId && onProjectSelect) {
       onProjectSelect(option.projectId, value);
     }
@@ -228,28 +251,11 @@ export const DispatchFormFields: React.FC<DispatchFormFieldsProps> = ({
             }}
             placeholder="輸入或選擇工程名稱/派工事項"
             allowClear
-            filterOption={(inputValue, option) =>
-              option?.value?.toLowerCase().includes(inputValue.toLowerCase()) ?? false
-            }
-            dropdownRender={(menu) => (
-              <>
-                {menu}
-                {onCreateProject && isNewProjectName && (
-                  <>
-                    <Divider style={{ margin: '4px 0' }} />
-                    <Button
-                      type="link"
-                      icon={<PlusOutlined />}
-                      onClick={() => onCreateProject(projectInputText.trim())}
-                      loading={creatingProject}
-                      style={{ width: '100%', textAlign: 'left' }}
-                    >
-                      新增工程「{projectInputText.trim()}」
-                    </Button>
-                  </>
-                )}
-              </>
-            )}
+            filterOption={(inputValue, option) => {
+              // 「新增工程」選項永遠顯示
+              if (option?.value?.startsWith(CREATE_PREFIX)) return true;
+              return option?.value?.toLowerCase().includes(inputValue.toLowerCase()) ?? false;
+            }}
           />
         </Form.Item>
       </ResponsiveFormRow>

@@ -692,9 +692,25 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
     });
   }, [linkedProjectIds, message, linkProjectMutation]);
 
-  // 從派工資訊 Tab 快速建立工程
+  // 從派工資訊 Tab 快速建立工程（含確認 Modal）
   const handleCreateProjectFromInfo = useCallback((projectName: string) => {
-    createProjectMutation.mutate(projectName);
+    Modal.confirm({
+      title: '新增工程',
+      content: (
+        <div>
+          <p>確定要建立以下工程嗎？</p>
+          <p style={{ fontWeight: 'bold', color: '#1890ff' }}>{projectName}</p>
+          <p style={{ color: '#999', fontSize: 12 }}>
+            建立後將自動關聯至此派工單。如需修改名稱，請先取消並重新輸入完整名稱。
+          </p>
+        </div>
+      ),
+      okText: '確定建立',
+      cancelText: '取消',
+      onOk: () => {
+        createProjectMutation.mutate(projectName);
+      },
+    });
   }, [createProjectMutation]);
 
   // =============================================================================
@@ -717,7 +733,6 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
         availableProjects={availableProjects}
         onProjectSelect={handleProjectSelectFromInfo}
         onCreateProject={handleCreateProjectFromInfo}
-        creatingProject={createProjectMutation.isPending}
       />
     ),
     createTabItem(

@@ -8,7 +8,7 @@
  * @date 2026-01-29
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ResponsiveContent } from '../components/common';
 import {
@@ -16,6 +16,7 @@ import {
   Button,
   App,
   Card,
+  Modal,
   Typography,
   Space,
 } from 'antd';
@@ -220,9 +221,25 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
     },
   });
 
-  const handleCreateProject = (projectName: string) => {
-    createProjectMutation.mutate(projectName);
-  };
+  const handleCreateProject = useCallback((projectName: string) => {
+    Modal.confirm({
+      title: '新增工程',
+      content: (
+        <div>
+          <p>確定要建立以下工程嗎？</p>
+          <p style={{ fontWeight: 'bold', color: '#1890ff' }}>{projectName}</p>
+          <p style={{ color: '#999', fontSize: 12 }}>
+            如需修改名稱，請先取消並重新輸入完整名稱。
+          </p>
+        </div>
+      ),
+      okText: '確定建立',
+      cancelText: '取消',
+      onOk: () => {
+        createProjectMutation.mutate(projectName);
+      },
+    });
+  }, [createProjectMutation]);
 
   // 選擇工程時自動加入關聯
   const handleProjectSelect = (projectId: number) => {
@@ -326,7 +343,6 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
             projectVendors={projectVendors}
             onProjectSelect={handleProjectSelect}
             onCreateProject={handleCreateProject}
-            creatingProject={createProjectMutation.isPending}
             showPaymentFields={true}
             showDocLinkFields={true}
             agencyDocOptions={agencyDocOptions}
