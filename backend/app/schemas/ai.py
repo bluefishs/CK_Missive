@@ -507,7 +507,7 @@ class EmbeddingBatchResponse(BaseModel):
 
 class RelationGraphRequest(BaseModel):
     """關聯圖譜請求"""
-    document_ids: List[int] = Field(..., min_length=1, max_length=50, description="公文 ID 列表")
+    document_ids: List[int] = Field(default_factory=list, max_length=50, description="公文 ID 列表（空值=自動載入最近公文）")
 
 
 class RelationGraphResponse(BaseModel):

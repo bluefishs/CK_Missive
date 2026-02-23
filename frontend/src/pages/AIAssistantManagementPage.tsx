@@ -626,7 +626,9 @@ const EmbeddingTab: React.FC = () => {
 // ============================================================================
 const KnowledgeGraphTab: React.FC = () => {
   const [inputIds, setInputIds] = useState<string>('');
+  // 初始空陣列觸發「最近公文」自動載入（後端 document_ids=[] 回傳最近 10 筆）
   const [documentIds, setDocumentIds] = useState<number[]>([]);
+  const [autoMode, setAutoMode] = useState(true);
 
   const handleLoadGraph = useCallback(() => {
     const ids = inputIds
@@ -639,63 +641,70 @@ const KnowledgeGraphTab: React.FC = () => {
       return;
     }
     setDocumentIds(ids);
+    setAutoMode(false);
   }, [inputIds]);
+
+  const handleLoadRecent = useCallback(() => {
+    setDocumentIds([]);
+    setInputIds('');
+    setAutoMode(true);
+  }, []);
 
   return (
     <div>
-      {/* 輸入區域 */}
+      {/* 工具列 */}
       <Card size="small" style={{ marginBottom: 16 }}>
-        <Space wrap>
-          <Typography.Text>公文 ID（多筆以逗號分隔）：</Typography.Text>
+        <Space wrap style={{ marginBottom: autoMode ? 0 : 8 }}>
+          <Button
+            type={autoMode ? 'primary' : 'default'}
+            icon={<ClockCircleOutlined />}
+            onClick={handleLoadRecent}
+          >
+            最近公文
+          </Button>
+          <Typography.Text type="secondary">|</Typography.Text>
           <Input
-            placeholder="例如：1, 2, 3"
+            placeholder="輸入公文 ID（多筆以逗號分隔）"
             value={inputIds}
             onChange={(e) => setInputIds(e.target.value)}
             onPressEnter={handleLoadGraph}
-            style={{ width: 300 }}
+            style={{ width: 280 }}
           />
           <Button
-            type="primary"
+            type={!autoMode ? 'primary' : 'default'}
             icon={<SearchOutlined />}
             onClick={handleLoadGraph}
             disabled={!inputIds.trim()}
           >
-            載入圖譜
+            指定查詢
           </Button>
-          {documentIds.length > 0 && (
-            <Button onClick={() => { setDocumentIds([]); setInputIds(''); }}>
-              清除
-            </Button>
-          )}
         </Space>
-        {documentIds.length > 0 && (
+        {!autoMode && documentIds.length > 0 && (
           <div style={{ marginTop: 8 }}>
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              目前載入：{documentIds.map((id) => (
+              查詢：{documentIds.map((id) => (
                 <Tag key={id} color="blue" style={{ marginRight: 4 }}>ID {id}</Tag>
               ))}
             </Typography.Text>
           </div>
         )}
+        {autoMode && (
+          <div style={{ marginTop: 8 }}>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              <ApartmentOutlined /> 自動顯示最近 10 筆公文的關聯圖譜
+            </Typography.Text>
+          </div>
+        )}
       </Card>
 
-      {/* 圖譜區域 */}
-      {documentIds.length === 0 ? (
-        <Card>
-          <Empty
-            description="輸入公文 ID 以檢視關聯圖譜"
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-          />
-        </Card>
-      ) : (
-        <Card size="small" bodyStyle={{ padding: 12 }}>
-          <KnowledgeGraph
-            documentIds={documentIds}
-            width={900}
-            height={500}
-          />
-        </Card>
-      )}
+      {/* 圖譜區域 — 永遠顯示 */}
+      <Card size="small" bodyStyle={{ padding: 12 }}>
+        <KnowledgeGraph
+          documentIds={documentIds}
+          width={900}
+          height={500}
+        />
+      </Card>
     </div>
   );
 };

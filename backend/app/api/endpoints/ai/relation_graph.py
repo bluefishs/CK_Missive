@@ -70,6 +70,17 @@ async def get_relation_graph(
             seen_edges.add(key)
             edges.append(edge)
 
+    # 空 ID 列表時自動載入最近 10 筆公文
+    if not doc_ids:
+        recent_result = await db.execute(
+            select(OfficialDocument.id)
+            .order_by(OfficialDocument.created_at.desc().nullslast())
+            .limit(10)
+        )
+        doc_ids = [row[0] for row in recent_result.all()]
+        if not doc_ids:
+            return RelationGraphResponse(nodes=[], edges=[])
+
     # 1. 查詢指定公文
     result = await db.execute(
         select(OfficialDocument).where(OfficialDocument.id.in_(doc_ids))

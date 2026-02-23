@@ -122,10 +122,8 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
-  // 載入圖譜資料
+  // 載入圖譜資料（空陣列 = 後端自動載入最近公文）
   useEffect(() => {
-    if (documentIds.length === 0) return;
-
     let cancelled = false;
     setLoading(true);
     setError(null);
