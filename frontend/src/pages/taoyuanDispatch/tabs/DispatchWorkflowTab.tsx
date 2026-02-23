@@ -9,8 +9,8 @@
  * - 跨頁導航：前往工程總覽（高亮本派工單）
  * - CRUD：新增/編輯（導航）、刪除（行內）、關聯/解除公文
  *
- * @version 5.0.0 - 拆分子元件：StatsCards, WorkflowToolBar, InlineDocumentSearch, UnassignedDocumentsList
- * @date 2026-02-21
+ * @version 5.1.0 - 新增自動匹配公文功能（AutoMatchModal）
+ * @date 2026-02-23
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
@@ -30,6 +30,7 @@ import {
   EditOutlined,
   DeleteOutlined,
   FileTextOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -41,6 +42,7 @@ import { dispatchOrdersApi } from '../../../api/taoyuanDispatchApi';
 import type {
   WorkRecord,
   WorkRecordStatus,
+  DocumentHistoryItem,
 } from '../../../types/taoyuan';
 import type { DispatchDocumentLink, LinkType } from '../../../types/api';
 import { logger } from '../../../services/logger';
@@ -67,6 +69,7 @@ import { StatsCards } from './workflow/StatsCards';
 import { WorkflowToolBar } from './workflow/WorkflowToolBar';
 import { InlineDocumentSearch } from './workflow/InlineDocumentSearch';
 import { UnassignedDocumentsList } from './workflow/UnassignedDocumentsList';
+import { AutoMatchModal } from './workflow/AutoMatchModal';
 
 const { Text } = Typography;
 
@@ -98,6 +101,8 @@ export interface DispatchWorkflowTabProps {
   linkedDocuments?: DispatchDocumentLink[];
   /** 重新取得派工單資料的 callback */
   onRefetchDispatch?: () => void;
+  /** 工程名稱（用於自動匹配公文） */
+  projectName?: string;
 }
 
 // =============================================================================
@@ -110,6 +115,7 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
   linkedProjects,
   linkedDocuments = [],
   onRefetchDispatch,
+  projectName,
 }) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -219,6 +225,90 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
     },
     onError: () => message.error('移除關聯失敗'),
   });
+
+  // ===========================================================================
+  // 自動匹配公文
+  // ===========================================================================
+
+  const [autoMatchModalOpen, setAutoMatchModalOpen] = useState(false);
+  const [autoMatchResults, setAutoMatchResults] = useState<{
+    agency: DocumentHistoryItem[];
+    company: DocumentHistoryItem[];
+  }>({ agency: [], company: [] });
+  const [selectedAutoMatchIds, setSelectedAutoMatchIds] = useState<Set<number>>(new Set());
+
+  const autoMatchMutation = useMutation({
+    mutationFn: () => dispatchOrdersApi.matchDocuments(projectName || '', dispatchOrderId),
+    onSuccess: (result) => {
+      if (!result.success) {
+        message.warning('匹配失敗');
+        return;
+      }
+      // 過濾掉已關聯的公文
+      const agency = result.agency_documents.filter((d) => !linkedDocIds.includes(d.id));
+      const company = result.company_documents.filter((d) => !linkedDocIds.includes(d.id));
+      if (agency.length === 0 && company.length === 0) {
+        message.info('所有匹配公文皆已關聯，無需再新增');
+        return;
+      }
+      setAutoMatchResults({ agency, company });
+      setSelectedAutoMatchIds(new Set([...agency, ...company].map((d) => d.id)));
+      setAutoMatchModalOpen(true);
+    },
+    onError: () => message.error('自動匹配失敗'),
+  });
+
+  const batchLinkMutation = useMutation({
+    mutationFn: async (items: { documentId: number; linkType: LinkType }[]) => {
+      let successCount = 0;
+      let failCount = 0;
+      for (const item of items) {
+        try {
+          await dispatchOrdersApi.linkDocument(dispatchOrderId, {
+            document_id: item.documentId,
+            link_type: item.linkType,
+          });
+          successCount++;
+        } catch {
+          failCount++;
+        }
+      }
+      return { successCount, failCount };
+    },
+    onSuccess: ({ successCount, failCount }) => {
+      if (failCount === 0) {
+        message.success(`批次關聯完成，共 ${successCount} 筆`);
+      } else {
+        message.warning(`${successCount} 筆關聯成功，${failCount} 筆失敗`);
+      }
+      setAutoMatchModalOpen(false);
+      setAutoMatchResults({ agency: [], company: [] });
+      setSelectedAutoMatchIds(new Set());
+      onRefetchDispatch?.();
+      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
+      queryClient.invalidateQueries({ queryKey: ['dispatch-work-records', dispatchOrderId] });
+    },
+    onError: () => message.error('批次關聯失敗'),
+  });
+
+  const handleAutoMatchConfirm = useCallback(() => {
+    const items: { documentId: number; linkType: LinkType }[] = [];
+    for (const doc of autoMatchResults.agency) {
+      if (selectedAutoMatchIds.has(doc.id)) {
+        items.push({ documentId: doc.id, linkType: 'agency_incoming' });
+      }
+    }
+    for (const doc of autoMatchResults.company) {
+      if (selectedAutoMatchIds.has(doc.id)) {
+        items.push({ documentId: doc.id, linkType: 'company_outgoing' });
+      }
+    }
+    if (items.length === 0) {
+      message.warning('請至少勾選一筆公文');
+      return;
+    }
+    batchLinkMutation.mutate(items);
+  }, [autoMatchResults, selectedAutoMatchIds, batchLinkMutation, message]);
 
   // ===========================================================================
   // Handlers
@@ -584,6 +674,19 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
         />
       )}
 
+      {/* 未指派公文列表（所有視圖通用） */}
+      {viewMode !== 'correspondence' && hasUnassigned && (
+        <UnassignedDocumentsList
+          unassignedDocs={unassignedDocs}
+          hasCorrespondence={hasCorrespondence}
+          canEdit={canEdit}
+          unlinkPending={unlinkDocMutation.isPending}
+          onDocClick={handleDocClick}
+          onQuickCreateRecord={handleQuickCreateRecord}
+          onUnlinkDocument={handleUnlinkDocument}
+        />
+      )}
+
       {/* 行內新增作業紀錄（時間軸模式） */}
       {canEdit && viewMode === 'chain' && (
         <InlineRecordCreator
@@ -595,8 +698,8 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
         />
       )}
 
-      {/* 行內公文搜尋區（非時間軸模式才顯示） */}
-      {canEdit && viewMode !== 'chain' && (
+      {/* 行內公文搜尋區（所有視圖通用） */}
+      {canEdit && (
         <InlineDocumentSearch
           availableDocs={availableDocs}
           selectedDocId={selectedDocId}
@@ -610,6 +713,32 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
           onLinkDocument={handleLinkDocument}
         />
       )}
+
+      {/* 自動匹配公文按鈕 */}
+      {canEdit && projectName && (
+        <div style={{ marginTop: 12, textAlign: 'right' }}>
+          <Button
+            icon={<ThunderboltOutlined />}
+            onClick={() => autoMatchMutation.mutate()}
+            loading={autoMatchMutation.isPending}
+          >
+            自動匹配公文
+          </Button>
+        </div>
+      )}
+
+      {/* 自動匹配結果 Modal */}
+      <AutoMatchModal
+        open={autoMatchModalOpen}
+        projectName={projectName || ''}
+        agencyDocs={autoMatchResults.agency}
+        companyDocs={autoMatchResults.company}
+        selectedIds={selectedAutoMatchIds}
+        onSelectedIdsChange={setSelectedAutoMatchIds}
+        onConfirm={handleAutoMatchConfirm}
+        onCancel={() => setAutoMatchModalOpen(false)}
+        loading={batchLinkMutation.isPending}
+      />
     </div>
   );
 };

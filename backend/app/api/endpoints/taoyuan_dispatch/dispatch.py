@@ -17,7 +17,8 @@
 @date 2026-01-28
 """
 import io
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Body
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
@@ -28,6 +29,7 @@ from .common import (
     DispatchOrderListQuery, DispatchOrderListResponse,
     ExcelImportResult, PaginationMeta
 )
+from app.utils.doc_helpers import is_outgoing_doc_number
 from app.services.taoyuan import DispatchOrderService
 
 router = APIRouter()
@@ -206,12 +208,12 @@ async def delete_dispatch_order(
 
 @router.post("/dispatch/match-documents", summary="匹配公文歷程")
 async def match_document_history(
-    project_name: str,
-    include_subject: bool = False,
+    project_name: str = Body(..., embed=True),
+    dispatch_id: Optional[int] = Body(None, embed=True),
     service: DispatchOrderService = Depends(get_dispatch_service),
     current_user = Depends(require_auth())
 ):
-    """根據工程名稱自動匹配公文歷程"""
+    """根據工程名稱自動匹配公文歷程（含多策略關鍵字搜尋）"""
     if not project_name or not project_name.strip():
         return {
             "success": False,
@@ -220,11 +222,14 @@ async def match_document_history(
             "company_documents": []
         }
 
-    documents = await service.match_documents(project_name=project_name)
+    documents = await service.match_documents(
+        project_name=project_name,
+        dispatch_id=dispatch_id,
+    )
 
-    # 分類收發文
-    agency_docs = [d for d in documents if d.get('doc_type') == '收文']
-    company_docs = [d for d in documents if d.get('doc_type') == '發文']
+    # 分類收發文（用 doc_number 前綴判斷，與 searchLinkableDocuments 一致）
+    agency_docs = [d for d in documents if not is_outgoing_doc_number(d.get('doc_number'))]
+    company_docs = [d for d in documents if is_outgoing_doc_number(d.get('doc_number'))]
 
     return {
         "success": True,

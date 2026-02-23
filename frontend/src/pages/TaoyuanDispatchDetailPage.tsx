@@ -806,6 +806,7 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
         }))}
         linkedDocuments={dispatch?.linked_documents || []}
         onRefetchDispatch={refetch}
+        projectName={dispatch?.project_name}
       />
     ),
   ];

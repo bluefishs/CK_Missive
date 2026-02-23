@@ -532,11 +532,13 @@ class DispatchOrderService:
 
         result = self._to_response_dict(dispatch)
 
-        # 取得公文歷程
+        # 取得公文歷程（使用多策略搜尋，與 match-documents 一致）
         agency_doc_number = dispatch.agency_doc.doc_number if dispatch.agency_doc else None
         result['document_history'] = await self.repository.get_document_history(
             agency_doc_number=agency_doc_number,
             project_name=dispatch.project_name,
+            contract_project_id=dispatch.contract_project_id,
+            work_type=dispatch.work_type,
         )
 
         return result
@@ -545,20 +547,36 @@ class DispatchOrderService:
         self,
         agency_doc_number: Optional[str] = None,
         project_name: Optional[str] = None,
+        dispatch_id: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         """
-        匹配公文
+        匹配公文（多策略搜尋）
+
+        若提供 dispatch_id，會自動取得 contract_project_id 和 work_type
+        以進行更精準的關鍵字搜尋。
 
         Args:
             agency_doc_number: 機關函文號
             project_name: 專案名稱
+            dispatch_id: 派工單 ID（可選，用於取得上下文資訊）
 
         Returns:
             匹配的公文列表
         """
+        contract_project_id = None
+        work_type = None
+
+        if dispatch_id:
+            order = await self.repository.get_by_id(dispatch_id)
+            if order:
+                contract_project_id = order.contract_project_id
+                work_type = order.work_type
+
         return await self.repository.get_document_history(
             agency_doc_number=agency_doc_number,
             project_name=project_name,
+            contract_project_id=contract_project_id,
+            work_type=work_type,
         )
 
     # =========================================================================

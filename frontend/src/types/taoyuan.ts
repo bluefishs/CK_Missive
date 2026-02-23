@@ -821,6 +821,7 @@ export interface DocumentHistoryItem {
   subject?: string;
   sender?: string;
   receiver?: string;
+  category?: string;
   doc_type?: '收文' | '發文';
   match_type?: 'project_name' | 'subject';
 }

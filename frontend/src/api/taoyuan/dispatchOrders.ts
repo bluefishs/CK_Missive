@@ -158,13 +158,17 @@ export const dispatchOrdersApi = {
   /**
    * 匹配公文歷程
    */
-  async matchDocuments(projectName: string, includeSubject?: boolean): Promise<DocumentHistoryMatchResponse> {
+  async matchDocuments(
+    projectName: string,
+    dispatchId?: number,
+  ): Promise<DocumentHistoryMatchResponse> {
+    const body: Record<string, unknown> = { project_name: projectName };
+    if (dispatchId != null) {
+      body.dispatch_id = dispatchId;
+    }
     return apiClient.post<DocumentHistoryMatchResponse>(
       API_ENDPOINTS.TAOYUAN_DISPATCH.MATCH_DOCUMENTS,
-      {
-        project_name: projectName,
-        include_subject: includeSubject ?? false,
-      }
+      body,
     );
   },
 

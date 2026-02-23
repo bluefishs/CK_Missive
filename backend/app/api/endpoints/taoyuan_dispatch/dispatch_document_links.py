@@ -23,9 +23,7 @@ from .common import (
 )
 from app.schemas.taoyuan.links import SearchLinkableDocumentsRequest
 from app.utils.doc_helpers import OUTGOING_DOC_PREFIX
-
-# 桃園派工專案 ID (固定為桃園市府委外查估案)
-TAOYUAN_PROJECT_ID = 21
+from app.core.constants import TAOYUAN_PROJECT_ID
 
 router = APIRouter()
 
@@ -140,6 +138,16 @@ async def link_document_to_dispatch(
     doc = await db.execute(select(Document).where(Document.id == data.document_id))
     if not doc.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="公文不存在")
+
+    # 檢查是否已存在關聯（防止重複關聯）
+    existing = await db.execute(
+        select(TaoyuanDispatchDocumentLink).where(
+            TaoyuanDispatchDocumentLink.dispatch_order_id == dispatch_id,
+            TaoyuanDispatchDocumentLink.document_id == data.document_id,
+        )
+    )
+    if existing.scalar_one_or_none():
+        return {"success": True, "message": "此關聯已存在，已跳過"}
 
     link = TaoyuanDispatchDocumentLink(
         dispatch_order_id=dispatch_id,

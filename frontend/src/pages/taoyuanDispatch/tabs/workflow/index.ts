@@ -16,3 +16,6 @@ export type { InlineDocumentSearchProps } from './InlineDocumentSearch';
 
 export { UnassignedDocumentsList } from './UnassignedDocumentsList';
 export type { UnassignedDocumentsListProps } from './UnassignedDocumentsList';
+
+export { AutoMatchModal } from './AutoMatchModal';
+export type { AutoMatchModalProps } from './AutoMatchModal';

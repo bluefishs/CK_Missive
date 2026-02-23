@@ -24,6 +24,7 @@ from app.extended.models import (
     TaoyuanDispatchWorkType,
     OfficialDocument,
 )
+from app.core.constants import TAOYUAN_PROJECT_ID
 
 logger = logging.getLogger(__name__)
 
@@ -259,36 +260,131 @@ class DispatchOrderRepository(BaseRepository[TaoyuanDispatchOrder]):
         self,
         agency_doc_number: Optional[str] = None,
         project_name: Optional[str] = None,
+        contract_project_id: Optional[int] = None,
+        work_type: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
-        取得公文歷程（根據機關函文號或專案名稱匹配）
+        取得公文歷程（多策略匹配）
+
+        搜尋策略（OR 組合）：
+        1. 機關函文號模糊匹配
+        2. 完整工程名稱匹配主旨
+        3. 從工程名稱/作業類別提取關鍵字匹配主旨
+        4. 若以上皆無結果，回傳同一專案的所有公文（fallback）
 
         Args:
             agency_doc_number: 機關函文號
             project_name: 專案名稱
+            contract_project_id: 承攬案件 ID（優先使用）
+            work_type: 作業類別（如 "02.土地協議市價查估作業"）
 
         Returns:
             公文歷程列表
         """
-        if not agency_doc_number and not project_name:
+        if not agency_doc_number and not project_name and not contract_project_id:
             return []
 
-        conditions = []
-        if agency_doc_number:
-            conditions.append(OfficialDocument.doc_number.ilike(f"%{agency_doc_number}%"))
-        if project_name:
-            conditions.append(OfficialDocument.subject.ilike(f"%{project_name}%"))
+        # 決定專案過濾條件（TAOYUAN_PROJECT_ID 從 constants 匯入）
+        effective_project_id = contract_project_id or TAOYUAN_PROJECT_ID
+        base_condition = OfficialDocument.contract_project_id == effective_project_id
 
+        # === 建立多策略搜尋條件（OR 組合） ===
+        search_conditions = []
+
+        # 策略 1: 機關函文號模糊匹配
+        if agency_doc_number:
+            search_conditions.append(
+                OfficialDocument.doc_number.ilike(f"%{agency_doc_number}%")
+            )
+
+        # 策略 2: 完整工程名稱匹配主旨
+        if project_name:
+            search_conditions.append(
+                OfficialDocument.subject.ilike(f"%{project_name}%")
+            )
+
+        # 策略 3: 關鍵字拆解匹配（從工程名稱 + 作業類別提取）
+        keywords = self._extract_search_keywords(
+            project_name=project_name or '',
+            work_type=work_type or '',
+        )
+        for kw in keywords:
+            search_conditions.append(
+                OfficialDocument.subject.ilike(f"%{kw}%")
+            )
+
+        # 執行搜尋
+        if search_conditions:
+            query = (
+                select(OfficialDocument)
+                .where(base_condition)
+                .where(or_(*search_conditions))
+                .order_by(OfficialDocument.doc_date.desc())
+                .limit(50)
+            )
+            result = await self.db.execute(query)
+            documents = list(result.scalars().all())
+
+            # 若有結果，直接回傳
+            if documents:
+                return self._docs_to_dicts(documents)
+
+        # 策略 4 (fallback): 回傳同一專案的所有近期公文
+        logger.info(
+            "[get_document_history] 關鍵字搜尋無結果，回傳專案 %s 全部公文",
+            effective_project_id,
+        )
         query = (
             select(OfficialDocument)
-            .where(or_(*conditions))
+            .where(base_condition)
             .order_by(OfficialDocument.doc_date.desc())
             .limit(50)
         )
-
         result = await self.db.execute(query)
-        documents = result.scalars().all()
+        documents = list(result.scalars().all())
+        return self._docs_to_dicts(documents)
 
+    @staticmethod
+    def _extract_search_keywords(
+        project_name: str = '', work_type: str = ''
+    ) -> List[str]:
+        """
+        從工程名稱與作業類別提取搜尋關鍵字
+
+        策略：
+        - 從 work_type 提取 2 字元中文 bigram（如 "土地", "市價", "查估"）
+        - 從 project_name 提取行政區名與路名
+
+        Returns:
+            搜尋關鍵字列表（最多 8 個）
+        """
+        keywords: List[str] = []
+
+        # 從 work_type 提取 bigram
+        if work_type:
+            wt = re.sub(r'^[\d.\s]+', '', work_type)   # 移除編號前綴
+            wt = re.sub(r'作業$', '', wt)               # 移除「作業」後綴
+            for i in range(len(wt) - 1):
+                seg = wt[i:i + 2]
+                if all('\u4e00' <= c <= '\u9fff' for c in seg) and seg not in keywords:
+                    keywords.append(seg)
+
+        # 從 project_name 提取行政區
+        if project_name:
+            m = re.search(r'([\u4e00-\u9fff]{1,3}[區鄉鎮市])', project_name)
+            if m and m.group(1) not in keywords:
+                keywords.append(m.group(1))
+
+            # 提取路名
+            m = re.search(r'([\u4e00-\u9fff]{2,5}[路街])', project_name)
+            if m and m.group(1) not in keywords:
+                keywords.append(m.group(1))
+
+        return keywords[:8]
+
+    @staticmethod
+    def _docs_to_dicts(documents: list) -> List[Dict[str, Any]]:
+        """將 ORM 文件物件轉為字典列表"""
         return [
             {
                 "id": doc.id,
