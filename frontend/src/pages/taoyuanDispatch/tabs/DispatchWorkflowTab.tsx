@@ -411,13 +411,13 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
         title: '序號',
         dataIndex: 'sort_order',
         key: 'sort_order',
-        width: 60,
+        width: 50,
         align: 'center' as const,
       },
       {
         title: '類別',
         key: 'category',
-        width: 110,
+        width: 90,
         render: (_: unknown, record: WorkRecord) =>
           record.work_category ? (
             <Tag color={getCategoryColor(record)}>{getCategoryLabel(record)}</Tag>
@@ -435,7 +435,7 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
           if (!text) return '-';
           return (
             <Tooltip title={text}>
-              <Text ellipsis style={{ maxWidth: 250 }}>{text}</Text>
+              <Text ellipsis style={{ maxWidth: 200 }}>{text}</Text>
             </Tooltip>
           );
         },
@@ -444,21 +444,21 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
         title: '紀錄日期',
         dataIndex: 'record_date',
         key: 'record_date',
-        width: 110,
+        width: 100,
         render: (val: string) => (val ? dayjs(val).format('YYYY-MM-DD') : '-'),
       },
       {
         title: '期限',
         dataIndex: 'deadline_date',
         key: 'deadline_date',
-        width: 110,
+        width: 95,
         render: (val: string) => (val ? dayjs(val).format('YYYY-MM-DD') : '-'),
       },
       {
         title: '狀態',
         dataIndex: 'status',
         key: 'status',
-        width: 90,
+        width: 80,
         render: (status: WorkRecordStatus) => (
           <Tag color={statusColor(status)}>{statusLabel(status)}</Tag>
         ),
@@ -466,14 +466,14 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
       {
         title: '來文',
         key: 'incoming_doc',
-        width: 120,
+        width: 155,
         render: (_: unknown, record: WorkRecord) => {
           if (record.incoming_doc?.doc_number) {
             return (
               <Tooltip title={record.incoming_doc.subject}>
                 <Text
                   ellipsis
-                  style={{ maxWidth: 100, cursor: 'pointer', color: '#1677ff' }}
+                  style={{ maxWidth: 135, cursor: 'pointer', color: '#1677ff' }}
                   onClick={() => record.incoming_doc?.id && handleDocClick(record.incoming_doc.id)}
                 >
                   <FileTextOutlined style={{ marginRight: 4 }} />
@@ -489,7 +489,7 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
               <Tooltip title={doc.subject}>
                 <Text
                   ellipsis
-                  style={{ maxWidth: 100, cursor: 'pointer', color: '#1677ff' }}
+                  style={{ maxWidth: 135, cursor: 'pointer', color: '#1677ff' }}
                   onClick={() => doc.id && handleDocClick(doc.id)}
                 >
                   <FileTextOutlined style={{ marginRight: 4 }} />
@@ -504,14 +504,14 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
       {
         title: '覆文',
         key: 'outgoing_doc',
-        width: 120,
+        width: 155,
         render: (_: unknown, record: WorkRecord) => {
           if (record.outgoing_doc?.doc_number) {
             return (
               <Tooltip title={record.outgoing_doc.subject}>
                 <Text
                   ellipsis
-                  style={{ maxWidth: 100, cursor: 'pointer', color: '#1677ff' }}
+                  style={{ maxWidth: 135, cursor: 'pointer', color: '#1677ff' }}
                   onClick={() => record.outgoing_doc?.id && handleDocClick(record.outgoing_doc.id)}
                 >
                   <FileTextOutlined style={{ marginRight: 4 }} />
@@ -527,7 +527,7 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
               <Tooltip title={doc.subject}>
                 <Text
                   ellipsis
-                  style={{ maxWidth: 100, cursor: 'pointer', color: '#1677ff' }}
+                  style={{ maxWidth: 135, cursor: 'pointer', color: '#1677ff' }}
                   onClick={() => doc.id && handleDocClick(doc.id)}
                 >
                   <FileTextOutlined style={{ marginRight: 4 }} />
@@ -544,7 +544,7 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
             {
               title: '操作',
               key: 'action',
-              width: 100,
+              width: 80,
               fixed: 'right' as const,
               render: (_: unknown, record: WorkRecord) => (
                 <Space size="small">
