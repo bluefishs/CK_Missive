@@ -40,11 +40,12 @@ export const GRAPH_NODE_CONFIG: Record<string, GraphNodeTypeConfig> = {
   dispatch:  { color: '#722ed1', radius: 7, label: '派工',     detailable: false, description: '桃園市政府的派工通知單' },
   typroject: { color: '#2f54eb', radius: 7, label: '桃園工程', detailable: false, description: '桃園市政府的工程案件' },
   // --- NER 提取實體 ---
-  org:       { color: '#d48806', radius: 5, label: '組織',     detailable: true,  description: 'AI 從公文內容提取的組織/單位名稱' },
-  person:    { color: '#f5222d', radius: 5, label: '人物',     detailable: true,  description: 'AI 從公文內容提取的人名' },
-  location:  { color: '#faad14', radius: 4, label: '地點',     detailable: true,  description: 'AI 從公文內容提取的地點/地址' },
-  date:      { color: '#13c2c2', radius: 4, label: '日期',     detailable: true,  description: 'AI 從公文內容提取的重要日期' },
-  topic:     { color: '#eb2f96', radius: 5, label: '主題',     detailable: true,  description: 'AI 從公文內容提取的主題/關鍵字' },
+  org:         { color: '#d48806', radius: 5, label: '組織',     detailable: true,  description: 'AI 從公文內容提取的組織/單位名稱' },
+  person:      { color: '#f5222d', radius: 5, label: '人物',     detailable: true,  description: 'AI 從公文內容提取的人名' },
+  ner_project: { color: '#a0d911', radius: 5, label: '工程名稱', detailable: true,  description: 'AI 從公文內容提取的專案/工程名稱' },
+  location:    { color: '#faad14', radius: 4, label: '地點',     detailable: true,  description: 'AI 從公文內容提取的地點/地址' },
+  date:        { color: '#13c2c2', radius: 4, label: '日期',     detailable: true,  description: 'AI 從公文內容提取的重要日期' },
+  topic:       { color: '#eb2f96', radius: 5, label: '主題',     detailable: true,  description: 'AI 從公文內容提取的主題/關鍵字' },
 };
 
 // ============================================================================

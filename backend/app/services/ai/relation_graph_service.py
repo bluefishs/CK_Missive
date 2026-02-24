@@ -342,9 +342,11 @@ class RelationGraphService:
             if entity_key not in entity_node_map:
                 ent_node_id = f"ent_{hashlib.md5(entity_key.encode()).hexdigest()[:8]}"
                 entity_node_map[entity_key] = ent_node_id
+                # NER "project" 映射為 "ner_project"，避免與業務 project 類型衝突
+                graph_type = "ner_project" if ent.entity_type == "project" else ent.entity_type
                 add_node(GraphNode(
                     id=ent_node_id,
-                    type=ent.entity_type,
+                    type=graph_type,
                     label=ent.entity_name[:30],
                     mention_count=entity_mention_counts.get(entity_key, 1),
                 ))
@@ -456,7 +458,7 @@ class RelationGraphService:
                 tp_node_id = f"typroject_{tp.id}"
                 add_node(GraphNode(
                     id=tp_node_id,
-                    type="project",
+                    type="typroject",
                     label=tp.project_name[:25] if tp.project_name else f"工程#{tp.id}",
                     category=tp.district,
                 ))

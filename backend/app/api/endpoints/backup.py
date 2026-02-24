@@ -52,9 +52,9 @@ def _is_superuser(user) -> bool:
 @router.post("/create", summary="建立備份")
 @limiter.limit("5/minute")
 async def create_backup(
-    http_request: Request,
+    request: Request,
     response: Response,
-    request: CreateBackupRequest,
+    body: CreateBackupRequest,
     current_user=Depends(get_current_user)
 ):
     """
@@ -69,9 +69,9 @@ async def create_backup(
         raise HTTPException(status_code=403, detail="僅管理員可執行備份操作")
 
     result = await backup_service.create_backup(
-        include_database=request.include_database,
-        include_attachments=request.include_attachments,
-        retention_days=request.retention_days
+        include_database=body.include_database,
+        include_attachments=body.include_attachments,
+        retention_days=body.retention_days
     )
 
     return result
@@ -94,9 +94,9 @@ async def list_backups(request: Request, response: Response, current_user=Depend
 @router.post("/delete", summary="刪除備份")
 @limiter.limit("5/minute")
 async def delete_backup(
-    http_request: Request,
+    request: Request,
     response: Response,
-    request: DeleteBackupRequest,
+    body: DeleteBackupRequest,
     current_user=Depends(get_current_user)
 ):
     """
@@ -109,8 +109,8 @@ async def delete_backup(
         raise HTTPException(status_code=403, detail="僅管理員可刪除備份")
 
     result = await backup_service.delete_backup(
-        backup_name=request.backup_name,
-        backup_type=request.backup_type
+        backup_name=body.backup_name,
+        backup_type=body.backup_type
     )
 
     if not result.get("success"):
@@ -122,9 +122,9 @@ async def delete_backup(
 @router.post("/restore", summary="還原資料庫")
 @limiter.limit("5/minute")
 async def restore_database(
-    http_request: Request,
+    request: Request,
     response: Response,
-    request: RestoreBackupRequest,
+    body: RestoreBackupRequest,
     current_user=Depends(get_current_user)
 ):
     """
@@ -135,7 +135,7 @@ async def restore_database(
     if not _is_superuser(current_user):
         raise HTTPException(status_code=403, detail="僅超級管理員可執行還原操作")
 
-    result = await backup_service.restore_database(request.backup_name)
+    result = await backup_service.restore_database(body.backup_name)
 
     if not result.get("success"):
         raise HTTPException(status_code=500, detail=result.get("error", "還原失敗"))
@@ -240,9 +240,9 @@ async def get_remote_backup_config(request: Request, response: Response, current
 @router.post("/remote-config/update", summary="更新異地備份設定")
 @limiter.limit("5/minute")
 async def update_remote_backup_config(
-    http_request: Request,
+    request: Request,
     response: Response,
-    request: RemoteBackupConfigRequest,
+    body: RemoteBackupConfigRequest,
     current_user=Depends(get_current_user)
 ):
     """
@@ -256,9 +256,9 @@ async def update_remote_backup_config(
         raise HTTPException(status_code=403, detail="僅超級管理員可修改異地備份設定")
 
     result = await backup_service.update_remote_config(
-        remote_path=request.remote_path,
-        sync_enabled=request.sync_enabled,
-        sync_interval_hours=request.sync_interval_hours
+        remote_path=body.remote_path,
+        sync_enabled=body.sync_enabled,
+        sync_interval_hours=body.sync_interval_hours
     )
 
     return result
@@ -290,9 +290,9 @@ async def trigger_remote_sync(request: Request, response: Response, current_user
 @router.post("/logs", summary="查詢備份日誌")
 @limiter.limit("5/minute")
 async def get_backup_logs(
-    http_request: Request,
+    request: Request,
     response: Response,
-    request: BackupLogListRequest,
+    body: BackupLogListRequest,
     current_user=Depends(get_current_user)
 ):
     """
@@ -304,12 +304,12 @@ async def get_backup_logs(
         raise HTTPException(status_code=403, detail="僅管理員可查看備份日誌")
 
     return await backup_service.get_backup_logs(
-        page=request.page,
-        page_size=request.page_size,
-        action_filter=request.action_filter,
-        status_filter=request.status_filter,
-        date_from=request.date_from,
-        date_to=request.date_to
+        page=body.page,
+        page_size=body.page_size,
+        action_filter=body.action_filter,
+        status_filter=body.status_filter,
+        date_from=body.date_from,
+        date_to=body.date_to
     )
 
 

@@ -218,6 +218,19 @@ async def audit_service_status(
     return result
 
 
+@router.get("/health/backup", summary="備份系統狀態")
+@limiter.limit("60/minute")
+async def backup_health_check(
+    request: Request,
+    response: Response,
+    current_user: User = Depends(require_admin()),
+):
+    """取得備份系統健康狀態（排程器、最近備份、異地同步）"""
+    result = SystemHealthService.check_backup_status()
+    result["timestamp"] = datetime.now().isoformat()
+    return result
+
+
 @router.get("/health/summary", summary="系統健康摘要")
 @limiter.limit("60/minute")
 async def health_summary(

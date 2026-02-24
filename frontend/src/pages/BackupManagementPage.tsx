@@ -6,7 +6,7 @@
  * @date 2026-02-07
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ResponsiveContent } from '../components/common';
 import {
@@ -93,17 +93,20 @@ export const BackupManagementPage: React.FC = () => {
     data: remoteConfig = null,
   } = useQuery({
     queryKey: ['backup', 'remote-config'],
-    queryFn: async () => {
-      const data = await apiClient.post<RemoteBackupConfig>(API_ENDPOINTS.BACKUP.REMOTE_CONFIG, {});
-      remoteConfigForm.setFieldsValue({
-        remote_path: data.remote_path || '',
-        sync_enabled: data.sync_enabled,
-        sync_interval_hours: data.sync_interval_hours
-      });
-      return data;
-    },
+    queryFn: () => apiClient.post<RemoteBackupConfig>(API_ENDPOINTS.BACKUP.REMOTE_CONFIG, {}),
     staleTime: 5 * 60 * 1000,
   });
+
+  // 遠端設定載入後同步到表單（避免在 queryFn 中呼叫 setFieldsValue 觸發 useForm 警告）
+  useEffect(() => {
+    if (remoteConfig) {
+      remoteConfigForm.setFieldsValue({
+        remote_path: remoteConfig.remote_path || '',
+        sync_enabled: remoteConfig.sync_enabled,
+        sync_interval_hours: remoteConfig.sync_interval_hours,
+      });
+    }
+  }, [remoteConfig, remoteConfigForm]);
 
   const {
     data: schedulerStatus = null,

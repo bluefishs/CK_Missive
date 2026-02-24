@@ -69,8 +69,10 @@ export const EntityDetailSidebar: React.FC<EntityDetailSidebarProps> = ({
 
     (async () => {
       try {
+        // 圖譜顯示層用 "ner_project" 區分，但 DB 存的是 "project"
+        const dbEntityType = entityType === 'ner_project' ? 'project' : entityType;
         const searchResult = await aiApi.searchGraphEntities({
-          query: entityName, entity_type: entityType, limit: 1,
+          query: entityName, entity_type: dbEntityType, limit: 1,
         });
         if (cancelled) return;
         const firstMatch = searchResult.results?.[0];
@@ -111,6 +113,7 @@ export const EntityDetailSidebar: React.FC<EntityDetailSidebarProps> = ({
       width={380}
       open={visible}
       onClose={onClose}
+      mask={false}
       closeIcon={<CloseOutlined />}
       styles={{ body: { padding: '12px 16px' } }}
     >

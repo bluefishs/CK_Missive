@@ -262,6 +262,70 @@ class SystemHealthService:
             return {"status": "error", "error": str(e)}
 
     # ------------------------------------------------------------------
+    # 備份狀態檢查
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def check_backup_status() -> Dict[str, Any]:
+        """檢查備份系統狀態（排程器 + 最近備份 + 異地同步）"""
+        try:
+            from app.services.backup_scheduler import get_backup_scheduler_status
+
+            scheduler = get_backup_scheduler_status()
+            status = "healthy"
+            warnings: List[str] = []
+
+            # 檢查排程器運行狀態
+            if not scheduler.get("running"):
+                warnings.append("備份排程器未運行")
+                status = "warning"
+
+            # 檢查連續失敗次數
+            consecutive_failures = scheduler.get("consecutive_failures", 0)
+            if consecutive_failures >= 3:
+                status = "unhealthy"
+                warnings.append(f"備份連續失敗 {consecutive_failures} 次")
+            elif consecutive_failures >= 1:
+                status = "warning"
+                warnings.append(f"最近備份失敗 {consecutive_failures} 次")
+
+            # 檢查最後備份時間（超過 48 小時視為異常）
+            stats = scheduler.get("stats", {})
+            last_result = stats.get("last_backup_result")
+            last_backup_time = scheduler.get("last_backup")
+            if last_backup_time:
+                try:
+                    last_dt = datetime.fromisoformat(last_backup_time)
+                    hours_ago = (datetime.now() - last_dt).total_seconds() / 3600
+                    if hours_ago > 48:
+                        warnings.append(f"距上次備份已超過 {hours_ago:.0f} 小時")
+                        if status == "healthy":
+                            status = "warning"
+                except (ValueError, TypeError):
+                    pass
+
+            # 異地同步狀態
+            remote_sync = scheduler.get("remote_sync", {})
+
+            result: Dict[str, Any] = {
+                "status": status,
+                "scheduler_running": scheduler.get("running", False),
+                "next_backup": scheduler.get("next_backup"),
+                "last_backup": last_backup_time,
+                "consecutive_failures": consecutive_failures,
+                "total_backups": stats.get("total_backups", 0),
+                "successful_backups": stats.get("successful_backups", 0),
+                "remote_sync": remote_sync,
+            }
+            if warnings:
+                result["warnings"] = warnings
+
+            return result
+
+        except Exception as e:
+            return {"status": "unknown", "error": str(e)}
+
+    # ------------------------------------------------------------------
     # 就緒檢查
     # ------------------------------------------------------------------
 
@@ -332,6 +396,19 @@ class SystemHealthService:
         }
         if res["status"] == "warning":
             issues.append("memory")
+
+        # 5. 備份狀態
+        backup_check = self.check_backup_status()
+        summary["components"]["backup"] = {
+            "status": backup_check["status"],
+            "scheduler_running": backup_check.get("scheduler_running"),
+            "last_backup": backup_check.get("last_backup"),
+            "consecutive_failures": backup_check.get("consecutive_failures", 0),
+        }
+        if backup_check["status"] == "unhealthy":
+            issues.append("backup")
+        elif backup_check["status"] == "warning":
+            issues.append("backup_warning")
 
         # 整體狀態
         if issues:

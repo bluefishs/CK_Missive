@@ -118,13 +118,29 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [searchText, setSearchText] = useState('');
-  const [visibleTypes, setVisibleTypes] = useState<Set<string>>(
-    new Set(Object.keys(GRAPH_NODE_CONFIG))
-  );
+  const [visibleTypes, setVisibleTypes] = useState<Set<string>>(() => {
+    const configs = getAllMergedConfigs();
+    return new Set(
+      Object.entries(configs)
+        .filter(([, cfg]) => cfg.visible)
+        .map(([type]) => type)
+    );
+  });
 
   // 節點設定面板
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [configVersion, setConfigVersion] = useState(0);
+
+  // 設定面板儲存後，同步工具列勾選狀態
+  useEffect(() => {
+    if (configVersion === 0) return;
+    const configs = getAllMergedConfigs();
+    setVisibleTypes(new Set(
+      Object.entries(configs)
+        .filter(([, cfg]) => cfg.visible)
+        .map(([type]) => type)
+    ));
+  }, [configVersion]);
 
   // Entity Detail Sidebar 狀態
   const [sidebarVisible, setSidebarVisible] = useState(false);

@@ -36,7 +36,7 @@ class BackupUtilsMixin:
         # 備份目錄
         self.backup_dir = self.project_root / "backups" / "database"
         self.attachment_backup_dir = self.project_root / "backups" / "attachments"
-        self.uploads_dir = self.project_root / "backend" / "uploads"
+        self.uploads_dir = self.project_root / "uploads"
         self.log_dir = self.project_root / "logs" / "backup"
 
         logger.info(f"備份服務初始化 - 專案根目錄: {self.project_root}")
@@ -83,7 +83,8 @@ class BackupUtilsMixin:
 
     def _load_env_config(self) -> None:
         """從環境變數載入設定"""
-        env_file = self.project_root / ".env"
+        # project_root 為 backend/，.env 位於上層專案根目錄
+        env_file = self.project_root.parent / ".env"
         if env_file.exists():
             with open(env_file, "r", encoding="utf-8") as f:
                 for line in f:
