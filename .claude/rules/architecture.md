@@ -43,7 +43,14 @@ backend/app/services/
 │   ├── relation_graph_service.py     # 知識圖譜建構 (v1.0.0)
 │   └── natural_search_service.py     # 自然語言搜尋
 ├── taoyuan/                    # 桃園派工服務
-├── system_health_service.py    # 系統健康檢查 (v1.0.0)
+├── backup/                     # 備份服務套件 (v3.0.0)
+│   ├── __init__.py             # BackupService (組合 4 個 Mixin)
+│   ├── utils.py                # Docker 偵測、路徑、環境、日誌
+│   ├── db_backup.py            # PostgreSQL pg_dump/restore
+│   ├── attachment_backup.py    # 附件增量備份
+│   └── scheduler.py            # 備份建立/列表/刪除、異地同步
+├── backup_scheduler.py         # 備份排程器 + 異地自動同步 (v2.0.0)
+├── system_health_service.py    # 系統健康檢查 (含備份狀態)
 ├── agency_service.py           # 機關服務
 ├── document_service.py         # 公文服務
 ├── project_service.py          # 專案服務

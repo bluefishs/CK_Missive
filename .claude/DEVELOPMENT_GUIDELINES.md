@@ -285,6 +285,28 @@ const MyModal = ({ visible }) => {
 - `SiteConfigManagement.tsx`
 - `NavigationItemForm.tsx`
 
+**⚠️ 另一種觸發方式 — React Query queryFn 中呼叫 setFieldsValue (v1.61.0 新增)**:
+
+```tsx
+// ❌ 錯誤：queryFn 可能在 Form DOM 掛載前執行
+const { data } = useQuery({
+  queryKey: ['config'],
+  queryFn: async () => {
+    const result = await api.getConfig();
+    form.setFieldsValue(result);  // Form 尚未 mount → 警告
+    return result;
+  },
+});
+
+// ✅ 正確：用 useEffect 等 data 就緒後才 setFieldsValue
+const { data } = useQuery({ queryKey: ['config'], queryFn: api.getConfig });
+useEffect(() => {
+  if (data) form.setFieldsValue(data);
+}, [data, form]);
+```
+
+**已修復**: `BackupManagementPage.tsx` (v1.61.0)
+
 ### 7. 導覽路徑不一致 (2026-01-12 新增)
 **錯誤**: 導覽選單點擊後顯示 404 或空白頁面
 **原因**: 資料庫中的導覽路徑與前端 ROUTES 定義不一致
@@ -522,7 +544,40 @@ grep -r "get_vendor_service" backend/
 
 **相關事故**: 2026-02-06 vendors.py ImportError 導致後端啟動失敗
 
-### 12. 🟡 服務層遷移檢查清單 (v1.60.0 新增)
+### 12. 🔴 slowapi @limiter.limit 參數命名衝突 (v1.61.0 新增)
+
+**錯誤訊息**: `parameter 'request' must be an instance of starlette.requests.Request`
+
+**原因**: slowapi 的 `@limiter.limit` 裝飾器會在端點參數中搜尋名為 `request` 且型別為 `Request` 的參數。若 Pydantic body 參數也命名為 `request`，slowapi 會找到錯誤的參數。
+
+**❌ 錯誤做法**:
+```python
+@limiter.limit("5/minute")
+async def create_backup(
+    http_request: Request,           # ← slowapi 找不到（名字不是 request）
+    response: Response,
+    request: CreateBackupRequest,    # ← slowapi 找到了但型別錯誤 → 500
+):
+```
+
+**✅ 正確做法**:
+```python
+@limiter.limit("5/minute")
+async def create_backup(
+    request: Request,               # ← slowapi 正確找到
+    response: Response,
+    body: CreateBackupRequest,      # ← body 參數不命名為 request
+):
+```
+
+**強制規則**:
+- 所有 `@limiter.limit` 裝飾的端點必須有 `request: Request` 參數
+- 所有 `@limiter.limit` 裝飾的端點必須有 `response: Response` 參數
+- Pydantic body 參數命名為 `body`，**不可**命名為 `request`
+
+**相關事故**: 2026-02-24 備份管理頁面 5 個端點全部 500
+
+### 13. 🟡 服務層遷移檢查清單 (v1.60.0)
 
 將端點業務邏輯遷移至 Service 層時，必須按以下順序執行：
 
@@ -542,7 +597,7 @@ grep -r "get_vendor_service" backend/
 - [ ] 前端 API 型別是否只做 re-export（無本地 interface）？
 - [ ] deprecated 路由是否已清除？
 
-### 13. 🟡 前端型別遷移注意事項 (v1.60.0 新增)
+### 14. 🟡 前端型別遷移注意事項 (v1.60.0)
 
 將 `api/*.ts` 中的本地型別遷移至 `types/*.ts` 時：
 
@@ -618,6 +673,8 @@ grep -r "get_vendor_service" backend/
 | `app/services/audit_service.py` | 統一審計服務（獨立 session） |
 | `app/services/system_health_service.py` | 系統健康檢查服務 (v1.0.0, 2026-02-24) |
 | `app/services/ai/relation_graph_service.py` | 知識圖譜建構服務 (v1.0.0, 2026-02-24) |
+| `app/services/backup_scheduler.py` | 備份排程器 + 異地自動同步 (v2.0.0, 2026-02-24) |
+| `app/services/backup/` | 備份服務套件 (utils/db/attachment/scheduler Mixin) |
 | `app/core/decorators.py` | 通用裝飾器 (@non_critical, @retry_on_failure) |
 | `app/core/background_tasks.py` | 背景任務管理器 |
 | `app/core/db_monitor.py` | 連接池監控器 |
@@ -632,7 +689,8 @@ grep -r "get_vendor_service" backend/
 | `GET /health/pool` | 連接池狀態 |
 | `GET /health/tasks` | 背景任務狀態 |
 | `GET /health/audit` | 審計服務狀態 |
-| `GET /health/summary` | 系統健康摘要 |
+| `GET /health/backup` | 備份系統狀態 (排程器/連續失敗/異地同步) |
+| `GET /health/summary` | 系統健康摘要 (含備份狀態) |
 
 ### 使用範例
 

@@ -1,5 +1,5 @@
 # CK_Missive 統一開發規範總綱
-> Version: 1.2.0 | Last Updated: 2026-02-24
+> Version: 1.3.0 | Last Updated: 2026-02-24
 
 > 版本: 1.2.0
 > 建立日期: 2026-01-08
@@ -94,6 +94,8 @@ async def list_agencies(db: AsyncSession = Depends(get_async_db)):
 | `AuditService` | `services/audit_service.py` | 獨立 session |
 | `SystemHealthService` | `services/system_health_service.py` | `get_service()` |
 | `RelationGraphService` | `services/ai/relation_graph_service.py` | `get_service()` |
+| `BackupService` | `services/backup/` | 單例 (`backup_service`) |
+| `BackupScheduler` | `services/backup_scheduler.py` | 全域實例 (`_backup_scheduler`) |
 
 ### 2.5 Repository 與 Service 職責邊界 (v1.60.0)
 

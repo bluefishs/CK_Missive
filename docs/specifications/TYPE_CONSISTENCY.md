@@ -1,7 +1,7 @@
 # 型別一致性與整合開發規範 (Type Consistency & Integration)
-> Version: 1.3.0 | Last Updated: 2026-02-24
+> Version: 1.4.0 | Last Updated: 2026-02-24
 
-> 版本：1.3.0
+> 版本：1.4.0
 > 建立日期：2026-01-06
 > 最後更新：2026-02-24
 > 用途：確保前後端欄位對應、UI 風格一致、降低整合錯誤

@@ -4,6 +4,46 @@
 
 ---
 
+## [1.61.0] - 2026-02-24
+
+### 備份系統核心強化 + 知識圖譜修復 + CVE 漏洞修補
+
+**備份系統 — 500 錯誤修復**:
+- 修復 5 個 backup 端點 slowapi 參數命名衝突（`http_request` → `request`，body `request` → `body`）
+- 修復 `uploads_dir` 雙重 backend 路徑（`project_root / "backend" / "uploads"` → `project_root / "uploads"`）
+- 修復 `.env` 讀取路徑（`project_root / ".env"` → `project_root.parent / ".env"`）
+- 修復 BackupManagementPage `useForm` 警告（`setFieldsValue` 從 queryFn 移至 useEffect）
+
+**備份系統 — 核心強化 (v2.0.0)**:
+- 備份失敗通知機制：首次失敗 warning、連續 ≥2 次 critical，透過 `SystemNotification` 廣播
+- 自動異地同步排程：根據 `sync_interval_hours` 自動觸發 `sync_to_remote()`
+- 健康檢查整合：新增 `GET /health/backup` 端點 + `build_summary()` 包含備份狀態
+- `_consecutive_failures` 計數器從日誌載入，服務重啟不歸零
+
+**知識圖譜修復**:
+- NER `project` 映射為 `ner_project` 避免與業務 project 類型衝突
+- `EntityDetailSidebar` 查詢時反向映射 `ner_project` → `project`
+- `visibleTypes` 工具列勾選與 `GraphNodeSettings` 面板設定同步（`configVersion` 觸發）
+- Drawer `mask={false}` 防止圖譜互動阻擋
+- `graphNodeConfig.ts` 新增 `ner_project` 配置
+
+**CVE 漏洞修補**:
+- lodash 升級至 4.17.23 (CVE-2021-23337, High)
+- requests 升級至 >=2.32.4 (CVE-2023-32681)
+- `npm audit fix` 減少漏洞 35 → 24
+
+**數據摘要**:
+| 指標 | 修改前 | 修改後 |
+|------|--------|--------|
+| Backup 500 錯誤 | 5 端點 | 0 |
+| 備份失敗通知 | 無 | warning/critical |
+| 異地自動同步 | 手動 | 自動排程 |
+| 健康檢查含備份 | 否 | `/health/backup` |
+| npm 漏洞 | 35 | 24 |
+| CVE (High) | 2 | 0 |
+
+---
+
 ## [1.60.0] - 2026-02-24
 
 ### SSOT 全面強化 + 架構優化 + 安全修復
