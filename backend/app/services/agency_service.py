@@ -966,4 +966,82 @@ class AgencyService:
         """根據機關代碼取得機關"""
         return await self.repository.find_one_by(agency_code=agency_code)
 
+    async def fix_parsed_names(self, dry_run: bool = True) -> Dict[str, Any]:
+        """
+        修復機關名稱/代碼解析錯誤
+
+        解析格式如：
+        - "A01020100G (內政部國土管理署城鄉發展分署)" → 代碼 + 名稱
+        - "EB50819619 乾坤測繪科技有限公司" → 代碼 + 名稱
+
+        重複名稱會合併記錄（刪除錯誤記錄、更新關聯）。
+
+        Args:
+            dry_run: True=僅預覽, False=實際執行
+
+        Returns:
+            {"fixed_count": int, "merged": int, "updated": int, "details": list}
+        """
+        from app.services.strategies.agency_matcher import parse_agency_string
+
+        agencies = await self.repository.get_all_agencies()
+        name_to_id = {a.agency_name: a.id for a in agencies}
+
+        fixed_details = []
+        merged_count = 0
+        updated_count = 0
+
+        for agency in agencies:
+            original_name = agency.agency_name
+            original_code = agency.agency_code
+
+            parsed_code, parsed_name = parse_agency_string(original_name)
+
+            if not (parsed_code and parsed_name != original_name and not original_code):
+                continue
+
+            existing_id = name_to_id.get(parsed_name)
+
+            if existing_id and existing_id != agency.id:
+                detail = {
+                    "id": agency.id,
+                    "action": "merge",
+                    "original_name": original_name,
+                    "original_code": original_code,
+                    "new_name": parsed_name,
+                    "new_code": parsed_code,
+                    "merge_to_id": existing_id,
+                    "message": f"合併至已存在的機關 ID={existing_id}",
+                }
+                fixed_details.append(detail)
+                if not dry_run:
+                    await self.repository.reassign_document_agency(agency.id, existing_id)
+                    await self.db.delete(agency)
+                    merged_count += 1
+            else:
+                detail = {
+                    "id": agency.id,
+                    "action": "update",
+                    "original_name": original_name,
+                    "original_code": original_code,
+                    "new_name": parsed_name,
+                    "new_code": parsed_code,
+                }
+                fixed_details.append(detail)
+                if not dry_run:
+                    agency.agency_name = parsed_name
+                    agency.agency_code = parsed_code
+                    updated_count += 1
+
+        if not dry_run and fixed_details:
+            await self.db.commit()
+
+        return {
+            "fixed_count": len(fixed_details),
+            "merged": merged_count,
+            "updated": updated_count,
+            "details": fixed_details,
+            "dry_run": dry_run,
+        }
+
 

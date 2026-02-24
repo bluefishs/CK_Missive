@@ -9,6 +9,7 @@
 
 import React, { useState, useCallback } from 'react';
 import {
+  App,
   Badge,
   Button,
   Dropdown,
@@ -19,7 +20,6 @@ import {
   Empty,
   Spin,
   Divider,
-  message,
 } from 'antd';
 import { logger } from '../../utils/logger';
 import {
@@ -67,6 +67,7 @@ const typeLabels: Record<string, string> = {
 };
 
 export const NotificationCenter: React.FC = () => {
+  const { message } = App.useApp();
   const [open, setOpen] = useState(false);
 
   // 使用集中的 Hooks

@@ -7,7 +7,7 @@ import {
   Form,
   DatePicker,
   InputNumber,
-  message,
+  App,
   Space,
   Tag,
   Popconfirm,
@@ -73,6 +73,7 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
   visible,
   onClose,
 }) => {
+  const { message } = App.useApp();
   const [associations, setAssociations] = useState<ProjectVendorAssociation[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(false);

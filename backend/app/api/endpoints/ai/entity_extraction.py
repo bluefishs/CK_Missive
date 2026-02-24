@@ -25,6 +25,7 @@ from app.schemas.ai import (
 from app.services.ai.entity_extraction_service import (
     extract_entities_for_document,
     get_entity_stats,
+    get_pending_extraction_count,
 )
 
 logger = logging.getLogger(__name__)
@@ -43,8 +44,8 @@ async def extract_document_entities(
         db=db,
         doc_id=request.document_id,
         force=request.force,
+        commit=True,
     )
-    await db.commit()
 
     return EntityExtractResponse(
         success=not result.get("error"),
@@ -69,23 +70,8 @@ async def run_entity_batch(
 
     在背景逐筆處理尚未提取實體的公文。
     """
-    # 計算待處理數量
-    if request.force:
-        count_result = await db.execute(
-            select(func.count(OfficialDocument.id))
-        )
-    else:
-        # 找出尚未提取實體的公文
-        extracted_subq = (
-            select(func.distinct(DocumentEntity.document_id))
-            .scalar_subquery()
-        )
-        count_result = await db.execute(
-            select(func.count(OfficialDocument.id))
-            .where(OfficialDocument.id.notin_(extracted_subq))
-        )
-
-    pending_count = count_result.scalar() or 0
+    # 計算待處理數量（委託 service 層）
+    pending_count = await get_pending_extraction_count(db, force=request.force)
 
     if pending_count == 0:
         return EntityBatchResponse(
@@ -124,14 +110,16 @@ async def get_entity_extraction_stats(
 
 
 async def _run_batch_extraction(limit: int, force: bool):
-    """背景批次實體提取"""
+    """背景批次實體提取（含 API 限速保護）"""
     import time
+    import asyncio
     from app.db.database import AsyncSessionLocal
 
     start_time = time.time()
     success_count = 0
     error_count = 0
     skip_count = 0
+    consecutive_failures = 0
 
     try:
         async with AsyncSessionLocal() as db:
@@ -155,6 +143,7 @@ async def _run_batch_extraction(limit: int, force: bool):
                 )
 
             doc_ids = [row[0] for row in result.all()]
+            total = len(doc_ids)
 
             for i, doc_id in enumerate(doc_ids, 1):
                 try:
@@ -163,18 +152,41 @@ async def _run_batch_extraction(limit: int, force: bool):
                         skip_count += 1
                     elif res.get("error"):
                         error_count += 1
+                        consecutive_failures += 1
                     else:
-                        success_count += 1
+                        entities_count = res.get("entities_count", 0)
+                        if entities_count > 0:
+                            success_count += 1
+                            consecutive_failures = 0
+                        else:
+                            # AI 回傳空結果（服務不可用），不計為成功
+                            skip_count += 1
+                            consecutive_failures += 1
                 except Exception as e:
                     logger.error(f"公文 #{doc_id} 實體提取異常: {e}")
                     error_count += 1
+                    consecutive_failures += 1
 
                 # 每 10 筆 commit 一次
                 if i % 10 == 0:
                     await db.commit()
+                    logger.info(
+                        f"實體提取進度: {i}/{total} "
+                        f"(成功={success_count}, 跳過={skip_count}, 失敗={error_count})"
+                    )
 
-            if success_count > 0:
-                await db.commit()
+                # AI 服務限速保護：每筆間隔 2.5 秒（Groq 免費額度 30 req/min）
+                await asyncio.sleep(2.5)
+
+                # 連續失敗 20 筆則中止，避免浪費 API 額度
+                if consecutive_failures >= 20:
+                    logger.warning(
+                        f"連續 {consecutive_failures} 筆提取失敗，中止批次。"
+                        f"已處理 {i}/{total}，請檢查 AI 服務狀態。"
+                    )
+                    break
+
+            await db.commit()
 
         elapsed = time.time() - start_time
         logger.info(

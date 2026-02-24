@@ -27,11 +27,11 @@ import {
 } from './types';
 
 // 從拆分模組匯入
-import { ApiException } from './errors';
+import { ApiException, apiErrorBus } from './errors';
 import { RequestThrottler, RETRY_CONFIG, isRetryableNetworkError } from './throttler';
 
 // 向後相容 re-export（現有 import { ApiException } from './client' 仍可運作）
-export { ApiException } from './errors';
+export { ApiException, apiErrorBus } from './errors';
 export { RequestThrottler, THROTTLE_CONFIG, RETRY_CONFIG, isRetryableNetworkError } from './throttler';
 
 // ============================================================================
@@ -324,8 +324,12 @@ function createAxiosInstance(): AxiosInstance {
         }
       }
 
-      // 轉換為 ApiException
-      throw ApiException.fromAxiosError(error);
+      // 轉換為 ApiException 並發出全域錯誤事件
+      const apiError = ApiException.fromAxiosError(error);
+      if (apiError.isGlobalError()) {
+        apiErrorBus.emit(apiError);
+      }
+      throw apiError;
     }
   );
 

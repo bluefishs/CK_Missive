@@ -661,7 +661,7 @@ class EntityExtractResponse(BaseModel):
 
 class EntityBatchRequest(BaseModel):
     """批次實體提取請求"""
-    limit: int = Field(default=50, ge=1, le=500, description="批次處理筆數上限")
+    limit: int = Field(default=200, ge=1, le=1000, description="批次處理筆數上限")
     force: bool = Field(False, description="是否強制重新提取已有結果的公文")
 
 

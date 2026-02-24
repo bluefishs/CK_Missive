@@ -522,6 +522,42 @@ grep -r "get_vendor_service" backend/
 
 **相關事故**: 2026-02-06 vendors.py ImportError 導致後端啟動失敗
 
+### 12. 🟡 服務層遷移檢查清單 (v1.60.0 新增)
+
+將端點業務邏輯遷移至 Service 層時，必須按以下順序執行：
+
+**遷移步驟**:
+1. 建立/擴充 Service 類別方法（業務邏輯）
+2. 建立/擴充 Repository 方法（DB 操作）
+3. 更新端點：呼叫 Service 取代直接 db 操作
+4. 移除端點中的 `db: AsyncSession = Depends(get_async_db)` 依賴
+5. 清理 unused imports（`AsyncSession`, `select`, `func` 等）
+6. 執行 `grep -r "舊函數名" backend/` 確認無遺漏引用
+
+**檢查清單**:
+- [ ] Service 方法是否封裝了完整業務邏輯？
+- [ ] 端點是否改用 `Depends(get_service(ServiceClass))`？
+- [ ] 端點是否已移除直接 `db.execute()` 呼叫？
+- [ ] Repository 方法是否處理 `db.commit()` 和 `db.refresh()`？
+- [ ] 前端 API 型別是否只做 re-export（無本地 interface）？
+- [ ] deprecated 路由是否已清除？
+
+### 13. 🟡 前端型別遷移注意事項 (v1.60.0 新增)
+
+將 `api/*.ts` 中的本地型別遷移至 `types/*.ts` 時：
+
+**注意事項**:
+- `export *` 的 re-export **不會**在同檔案內建立可引用的名稱
+- 同檔案引用其他 types 模組的型別時，使用 inline import：
+  ```typescript
+  // types/api.ts 內需引用 types/admin-system.ts 的型別
+  export interface ContactListResponse {
+    items: import('./admin-system').ProjectAgencyContact[];  // ✅
+  }
+  ```
+- 確保消費端可從原路徑（`api/*.ts`）或新路徑（`types/*.ts`）匯入
+- 元件應直接從 `types/` 匯入型別，從 `api/` 匯入 API 函數
+
 ---
 
 ## 📁 相關文件
@@ -580,6 +616,8 @@ grep -r "get_vendor_service" backend/
 | 檔案 | 說明 |
 |------|------|
 | `app/services/audit_service.py` | 統一審計服務（獨立 session） |
+| `app/services/system_health_service.py` | 系統健康檢查服務 (v1.0.0, 2026-02-24) |
+| `app/services/ai/relation_graph_service.py` | 知識圖譜建構服務 (v1.0.0, 2026-02-24) |
 | `app/core/decorators.py` | 通用裝飾器 (@non_critical, @retry_on_failure) |
 | `app/core/background_tasks.py` | 背景任務管理器 |
 | `app/core/db_monitor.py` | 連接池監控器 |

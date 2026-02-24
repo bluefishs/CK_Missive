@@ -163,6 +163,7 @@ async def extract_entities_for_document(
     db: AsyncSession,
     doc_id: int,
     force: bool = False,
+    commit: bool = False,
 ) -> Dict:
     """
     對單筆公文執行實體提取
@@ -171,6 +172,7 @@ async def extract_entities_for_document(
         db: 資料庫 session
         doc_id: 公文 ID
         force: 是否強制重新提取（覆蓋既有結果）
+        commit: 是否在完成後自動 commit（端點呼叫時為 True）
 
     Returns:
         {"entities_count": int, "relations_count": int, "skipped": bool}
@@ -250,6 +252,8 @@ async def extract_entities_for_document(
         ))
 
     await db.flush()
+    if commit:
+        await db.commit()
 
     logger.info(
         f"公文 #{doc_id} 實體提取完成: {len(entities)} 實體, {len(relations)} 關係"
@@ -260,6 +264,24 @@ async def extract_entities_for_document(
         "relations_count": len(relations),
         "skipped": False,
     }
+
+
+async def get_pending_extraction_count(db: AsyncSession, force: bool = False) -> int:
+    """取得待實體提取的公文數量"""
+    if force:
+        count_result = await db.execute(
+            select(func.count(OfficialDocument.id))
+        )
+    else:
+        extracted_subq = (
+            select(func.distinct(DocumentEntity.document_id))
+            .scalar_subquery()
+        )
+        count_result = await db.execute(
+            select(func.count(OfficialDocument.id))
+            .where(OfficialDocument.id.notin_(extracted_subq))
+        )
+    return count_result.scalar() or 0
 
 
 async def get_entity_stats(db: AsyncSession) -> Dict:

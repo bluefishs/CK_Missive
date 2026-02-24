@@ -6,55 +6,21 @@
 
 import { apiClient } from './client';
 
-// 從 types/api.ts 匯入統一的型別定義
-import { ProjectStaff as BaseProjectStaff, ProjectStaffCreate, StaffOperationResponse } from '../types/api';
-
-// ============================================================================
-// 型別定義 - API 專用擴展
-// ============================================================================
-
-/**
- * 承辦同仁資料 - 擴展基礎型別，包含 API 回應專用欄位
- * 基礎型別定義於 types/api.ts
- */
-export interface ProjectStaff extends BaseProjectStaff {
-  user_email?: string;
-  department?: string;
-  phone?: string;
-}
+// 從 types/api.ts 匯入統一的型別定義 (SSOT)
+import type {
+  ProjectStaff,
+  ProjectStaffCreate,
+  StaffOperationResponse,
+  ProjectStaffListResponse,
+  ProjectStaffRequest,
+  ProjectStaffUpdate,
+} from '../types/api';
 
 // 重新匯出供外部使用
-export type { ProjectStaffCreate };
-
-/** 承辦同仁列表回應 */
-export interface ProjectStaffListResponse {
-  project_id: number;
-  project_name: string;
-  staff: ProjectStaff[];
-  total: number;
-}
-
-/** 新增/更新承辦同仁請求 */
-export interface ProjectStaffRequest {
-  project_id: number;
-  user_id: number;
-  role?: string;
-  is_primary?: boolean;
-  start_date?: string;
-  end_date?: string;
-  status?: string;
-  notes?: string;
-}
-
-/** 承辦同仁更新請求 */
-export interface ProjectStaffUpdate {
-  role?: string;
-  is_primary?: boolean;
-  start_date?: string;
-  end_date?: string;
-  status?: string;
-  notes?: string;
-}
+export type {
+  ProjectStaff, ProjectStaffCreate,
+  ProjectStaffListResponse, ProjectStaffRequest, ProjectStaffUpdate,
+};
 
 // ============================================================================
 // API 方法

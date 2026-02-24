@@ -8,9 +8,10 @@
  * @created 2026-02-08
  */
 
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ResponsiveContent } from '../components/common';
 import {
+  App,
   Card,
   Table,
   Button,
@@ -21,7 +22,6 @@ import {
   Input,
   Select,
   Switch,
-  message,
   Popconfirm,
   Typography,
   Row,
@@ -31,20 +31,28 @@ import {
   Divider,
 } from 'antd';
 import {
+  CheckCircleOutlined,
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
   ReloadOutlined,
   TagsOutlined,
   SearchOutlined,
+  SyncOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import { aiApi } from '../api/aiApi';
+import {
+  useAISynonyms,
+  useCreateSynonym,
+  useUpdateSynonym,
+  useDeleteSynonym,
+  useReloadSynonyms,
+} from '../hooks';
 import type {
   AISynonymItem,
   AISynonymCreateRequest,
   AISynonymUpdateRequest,
-} from '../api/aiApi';
+} from '../types/ai';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -69,35 +77,43 @@ const CATEGORY_COLORS: Record<string, string> = {
  * 同義詞管理核心元件（可嵌入 Tab 或獨立使用）
  */
 export const SynonymManagementContent: React.FC = () => {
-  const [loading, setLoading] = useState(false);
-  const [synonyms, setSynonyms] = useState<AISynonymItem[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
+  const { message } = App.useApp();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<AISynonymItem | null>(null);
   const [form] = Form.useForm();
-  const [reloading, setReloading] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
 
-  // 載入同義詞列表
-  const loadSynonyms = useCallback(async () => {
-    setLoading(true);
+  // React Query hooks
+  const synonymsQuery = useAISynonyms({ category: selectedCategory || undefined });
+  const createMutation = useCreateSynonym();
+  const updateMutation = useUpdateSynonym();
+  const deleteMutation = useDeleteSynonym();
+  const reloadMutation = useReloadSynonyms();
+
+  const synonyms = synonymsQuery.data?.items ?? [];
+  const categories = synonymsQuery.data?.categories ?? [];
+
+  /** CRUD 成功後自動同步後端記憶體 */
+  const afterCrudSync = async () => {
+    setSyncStatus('syncing');
     try {
-      const response = await aiApi.listSynonyms({
-        category: selectedCategory || undefined,
-      });
-      setSynonyms(response.items);
-      setCategories(response.categories);
+      const result = await reloadMutation.mutateAsync();
+      if (result.success) {
+        setSyncStatus('success');
+        setLastSyncTime(new Date().toLocaleTimeString('zh-TW', { hour12: false }));
+        message.info(`同義詞已同步（${result.total_groups} 組 / ${result.total_words} 詞）`, 2);
+      } else {
+        setSyncStatus('error');
+        message.warning('同義詞已儲存，但同步失敗，請手動點擊重新載入', 4);
+      }
     } catch {
-      message.error('載入同義詞列表失敗');
-    } finally {
-      setLoading(false);
+      setSyncStatus('error');
+      message.warning('同義詞已儲存，但自動同步失敗，請手動點擊重新載入', 4);
     }
-  }, [selectedCategory]);
-
-  useEffect(() => {
-    loadSynonyms();
-  }, [loadSynonyms]);
+  };
 
   // 篩選後的資料
   const filteredSynonyms = useMemo(() => {
@@ -144,32 +160,29 @@ export const SynonymManagementContent: React.FC = () => {
       const values = await form.validateFields();
 
       if (editingItem) {
-        // 更新
         const request: AISynonymUpdateRequest = {
           id: editingItem.id,
           category: values.category,
           words: values.words,
           is_active: values.is_active,
         };
-        await aiApi.updateSynonym(request);
+        await updateMutation.mutateAsync(request);
         message.success('更新成功');
       } else {
-        // 新增
         const request: AISynonymCreateRequest = {
           category: values.category,
           words: values.words,
           is_active: values.is_active ?? true,
         };
-        await aiApi.createSynonym(request);
+        await createMutation.mutateAsync(request);
         message.success('新增成功');
       }
 
       setModalOpen(false);
       form.resetFields();
-      loadSynonyms();
+      void afterCrudSync();
     } catch (error) {
       if (error && typeof error === 'object' && 'errorFields' in error) {
-        // Form validation error
         return;
       }
       message.error('操作失敗');
@@ -179,9 +192,9 @@ export const SynonymManagementContent: React.FC = () => {
   // 刪除
   const handleDelete = async (id: number) => {
     try {
-      await aiApi.deleteSynonym(id);
+      await deleteMutation.mutateAsync(id);
       message.success('刪除成功');
-      loadSynonyms();
+      void afterCrudSync();
     } catch {
       message.error('刪除失敗');
     }
@@ -190,31 +203,33 @@ export const SynonymManagementContent: React.FC = () => {
   // 切換啟用狀態
   const handleToggleActive = async (item: AISynonymItem) => {
     try {
-      await aiApi.updateSynonym({
+      await updateMutation.mutateAsync({
         id: item.id,
         is_active: !item.is_active,
       });
       message.success(item.is_active ? '已停用' : '已啟用');
-      loadSynonyms();
+      void afterCrudSync();
     } catch {
       message.error('操作失敗');
     }
   };
 
-  // 重新載入
+  // 手動重新載入（備用）
   const handleReload = async () => {
-    setReloading(true);
+    setSyncStatus('syncing');
     try {
-      const result = await aiApi.reloadSynonyms();
+      const result = await reloadMutation.mutateAsync();
       if (result.success) {
         message.success(result.message);
+        setSyncStatus('success');
+        setLastSyncTime(new Date().toLocaleTimeString('zh-TW', { hour12: false }));
       } else {
         message.error(result.message);
+        setSyncStatus('error');
       }
     } catch {
       message.error('重新載入失敗');
-    } finally {
-      setReloading(false);
+      setSyncStatus('error');
     }
   };
 
@@ -347,15 +362,30 @@ export const SynonymManagementContent: React.FC = () => {
             </Space>
             <div style={{ marginTop: 4 }}>
               <Text type="secondary">
-                管理 AI 自然語言搜尋使用的同義詞字典，新增或修改後需點擊「重新載入」生效
+                管理 AI 自然語言搜尋使用的同義詞字典，異動後自動同步至 AI 服務
               </Text>
             </div>
           </Col>
           <Col>
-            <Space>
+            <Space size={8}>
               <Text type="secondary">
                 共 {stats.total} 組 / {stats.active} 啟用 / {stats.totalWords} 詞
               </Text>
+              {syncStatus === 'syncing' && (
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  <SyncOutlined spin /> 同步中...
+                </Text>
+              )}
+              {syncStatus === 'success' && lastSyncTime && (
+                <Text type="success" style={{ fontSize: 12 }}>
+                  <CheckCircleOutlined /> 已同步 {lastSyncTime}
+                </Text>
+              )}
+              {syncStatus === 'error' && (
+                <Text type="danger" style={{ fontSize: 12 }}>
+                  同步失敗
+                </Text>
+              )}
             </Space>
           </Col>
         </Row>
@@ -392,13 +422,13 @@ export const SynonymManagementContent: React.FC = () => {
               >
                 新增群組
               </Button>
-              <Tooltip title="將資料庫中的同義詞重新載入到 AI 服務記憶體">
+              <Tooltip title="手動同步同義詞到 AI 服務記憶體（系統已自動同步）">
                 <Button
                   icon={<ReloadOutlined />}
-                  loading={reloading}
+                  loading={reloadMutation.isPending}
                   onClick={handleReload}
                 >
-                  重新載入
+                  手動同步
                 </Button>
               </Tooltip>
             </Space>
@@ -409,7 +439,7 @@ export const SynonymManagementContent: React.FC = () => {
           columns={columns}
           dataSource={filteredSynonyms}
           rowKey="id"
-          loading={loading}
+          loading={synonymsQuery.isLoading}
           pagination={{
             showSizeChanger: true,
             showTotal: (total) => `共 ${total} 筆`,

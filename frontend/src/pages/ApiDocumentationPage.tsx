@@ -4,10 +4,12 @@
  * @version 1.1.0
  * @date 2026-01-11
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Card, Typography, Alert, Spin, Space, Button, Divider } from 'antd';
 import { ApiOutlined, ReloadOutlined, ExportOutlined } from '@ant-design/icons';
-import SwaggerUI from 'swagger-ui-react';
+
+// swagger-ui-react 延遲載入（~500KB，僅管理員使用）
+const SwaggerUI = lazy(() => import('swagger-ui-react'));
 import 'swagger-ui-react/swagger-ui.css';
 import { ResponsiveContent } from '../components/common';
 import { SERVER_BASE_URL } from '../api/client';
@@ -210,7 +212,9 @@ const ApiDocumentationPage: React.FC = () => {
         >
           <div style={{ padding: '16px' }} className="swagger-container">
             {spec ? (
-              <SwaggerUI {...swaggerConfig} />
+              <Suspense fallback={<Spin tip="載入 Swagger UI..." style={{ display: 'block', margin: '40px auto' }} />}>
+                <SwaggerUI {...swaggerConfig} />
+              </Suspense>
             ) : (
               <Alert
                 message="無法載入 API 規範"

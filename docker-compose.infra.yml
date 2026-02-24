@@ -90,7 +90,9 @@ services:
       timeout: 5s
       retries: 3
 
-  # --- 🤖 Ollama Embedding 服務 ---
+  # --- 🤖 Ollama AI 服務 (Embedding + Chat) ---
+  # GPU 加速：需要 NVIDIA GPU + nvidia-container-toolkit
+  # 無 GPU 環境：使用 docker-compose.infra.cpu.yml override 或移除 deploy.resources.reservations.devices
   ollama:
     image: ollama/ollama:latest
     container_name: ${COMPOSE_PROJECT_NAME}_ollama_dev
@@ -103,8 +105,13 @@ services:
     restart: unless-stopped
     deploy:
       resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
         limits:
-          memory: 4G
+          memory: 8G
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
       interval: 30s

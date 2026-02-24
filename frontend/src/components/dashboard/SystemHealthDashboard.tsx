@@ -167,7 +167,7 @@ export const SystemHealthDashboard: React.FC = () => {
     return (
       <Card>
         <div style={{ textAlign: 'center', padding: '40px 0' }}>
-          <Spin tip="載入系統健康狀態..." />
+          <Spin tip="載入系統健康狀態..."><div /></Spin>
         </div>
       </Card>
     );

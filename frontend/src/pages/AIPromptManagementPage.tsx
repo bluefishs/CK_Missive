@@ -7,9 +7,10 @@
  * @created 2026-02-08
  */
 
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { ResponsiveContent } from '../components/common';
 import {
+  App,
   Card,
   List,
   Tag,
@@ -21,7 +22,6 @@ import {
   Select,
   Space,
   Typography,
-  message,
   Descriptions,
   Spin,
   Empty,
@@ -38,13 +38,17 @@ import {
   RobotOutlined,
   FileTextOutlined,
 } from '@ant-design/icons';
-import { aiApi } from '../api/aiApi';
+import {
+  useAIPrompts,
+  useCreatePrompt,
+  useActivatePrompt,
+  useComparePrompts,
+} from '../hooks';
 import type {
   PromptVersionItem,
-  PromptListResponse,
   PromptCreateRequest,
   PromptCompareResponse,
-} from '../api/aiApi';
+} from '../types/ai';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -62,38 +66,27 @@ const FEATURE_LABELS: Record<string, string> = {
  * Prompt 管理核心元件（可嵌入 Tab 或獨立使用）
  */
 export const PromptManagementContent: React.FC = () => {
-  // 狀態
-  const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<PromptListResponse | null>(null);
+  const { message } = App.useApp();
+
+  // UI 狀態
   const [selectedFeature, setSelectedFeature] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [compareModalVisible, setCompareModalVisible] = useState(false);
   const [compareResult, setCompareResult] = useState<PromptCompareResponse | null>(null);
-  const [compareLoading, setCompareLoading] = useState(false);
   const [compareIds, setCompareIds] = useState<{ a: number | null; b: number | null }>({
     a: null,
     b: null,
   });
   const [createForm] = Form.useForm();
-  const [submitting, setSubmitting] = useState(false);
 
-  // 載入資料
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const result = await aiApi.listPrompts(selectedFeature || undefined);
-      setData(result);
-    } catch (error) {
-      message.error('載入 Prompt 版本失敗');
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedFeature]);
+  // React Query hooks
+  const promptsQuery = useAIPrompts(selectedFeature);
+  const createMutation = useCreatePrompt();
+  const activateMutation = useActivatePrompt();
+  const compareMutation = useComparePrompts();
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const data = promptsQuery.data ?? null;
 
   // 篩選後的項目
   const filteredItems = useMemo(() => {
@@ -125,21 +118,19 @@ export const PromptManagementContent: React.FC = () => {
   const handleActivate = useCallback(
     async (id: number) => {
       try {
-        const result = await aiApi.activatePrompt(id);
+        const result = await activateMutation.mutateAsync(id);
         message.success(result.message);
-        await fetchData();
-      } catch (error) {
+      } catch {
         message.error('啟用失敗');
       }
     },
-    [fetchData]
+    [activateMutation, message]
   );
 
   // 新增版本
   const handleCreate = useCallback(async () => {
     try {
       const values = await createForm.validateFields();
-      setSubmitting(true);
       const request: PromptCreateRequest = {
         feature: values.feature,
         system_prompt: values.system_prompt,
@@ -147,20 +138,17 @@ export const PromptManagementContent: React.FC = () => {
         description: values.description || null,
         activate: values.activate || false,
       };
-      const result = await aiApi.createPrompt(request);
+      const result = await createMutation.mutateAsync(request);
       message.success(result.message);
       setCreateModalVisible(false);
       createForm.resetFields();
-      await fetchData();
     } catch (error) {
       if (error && typeof error === 'object' && 'errorFields' in error) {
-        return; // 表單驗證失敗
+        return;
       }
       message.error('新增 Prompt 版本失敗');
-    } finally {
-      setSubmitting(false);
     }
-  }, [createForm, fetchData]);
+  }, [createForm, createMutation, message]);
 
   // 比較版本
   const handleCompare = useCallback(async () => {
@@ -168,16 +156,13 @@ export const PromptManagementContent: React.FC = () => {
       message.warning('請選擇兩個版本進行比較');
       return;
     }
-    setCompareLoading(true);
     try {
-      const result = await aiApi.comparePrompts(compareIds.a, compareIds.b);
+      const result = await compareMutation.mutateAsync({ idA: compareIds.a, idB: compareIds.b });
       setCompareResult(result);
-    } catch (error) {
+    } catch {
       message.error('比較版本失敗');
-    } finally {
-      setCompareLoading(false);
     }
-  }, [compareIds]);
+  }, [compareIds, compareMutation, message]);
 
   // 開啟新增 Modal 時預填功能
   const openCreateModal = useCallback(
@@ -247,8 +232,8 @@ export const PromptManagementContent: React.FC = () => {
           </Space>
 
           {/* 版本列表 */}
-          <Spin spinning={loading}>
-            {filteredItems.length === 0 && !loading ? (
+          <Spin spinning={promptsQuery.isLoading}>
+            {filteredItems.length === 0 && !promptsQuery.isLoading ? (
               <Empty description="尚無 Prompt 版本，請點擊「新增版本」開始建立" />
             ) : (
               Object.entries(groupedByFeature).map(([feature, items]) => (
@@ -415,7 +400,7 @@ export const PromptManagementContent: React.FC = () => {
           setCreateModalVisible(false);
           createForm.resetFields();
         }}
-        confirmLoading={submitting}
+        confirmLoading={createMutation.isPending}
         width={720}
         okText="新增"
         cancelText="取消"
@@ -518,7 +503,7 @@ export const PromptManagementContent: React.FC = () => {
           <Button
             type="primary"
             onClick={handleCompare}
-            loading={compareLoading}
+            loading={compareMutation.isPending}
             disabled={!compareIds.a || !compareIds.b}
             block
           >

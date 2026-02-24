@@ -16,7 +16,8 @@ import {
   ExclamationCircleOutlined,
   InfoCircleOutlined,
 } from '@ant-design/icons';
-import { aiApi, ClassifyResponse } from '../../api/aiApi';
+import { aiApi } from '../../api/aiApi';
+import type { ClassifyResponse } from '../../types/ai';
 import { AI_CONFIG, getAISourceColor, getAISourceLabel, AISource } from '../../config/aiConfig';
 
 const { Text } = Typography;

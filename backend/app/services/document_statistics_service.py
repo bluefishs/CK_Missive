@@ -11,7 +11,7 @@ import logging
 from typing import Optional, Dict, Any, List
 from datetime import date, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, text, or_, and_, extract
+from sqlalchemy import Integer, select, func, text, or_, and_, extract
 
 from app.repositories import DocumentRepository
 from app.extended.models import OfficialDocument, ContractProject, GovernmentAgency
@@ -348,20 +348,30 @@ class DocumentStatisticsService:
 
         prefix_len = len(prefix)
         year_len = len(str(roc_year))
+        substr_start = prefix_len + year_len + 1
 
-        raw_query = text(f"""
-            SELECT MAX(
-                CAST(
-                    SUBSTRING(doc_number, {prefix_len + year_len + 1}, 7)
-                    AS INTEGER
+        # ORM 安全查詢（避免 text() f-string 模式）
+        max_seq_query = (
+            select(
+                func.max(
+                    func.cast(
+                        func.substring(
+                            OfficialDocument.doc_number, substr_start, 7
+                        ),
+                        Integer,
+                    )
+                ).label("max_seq")
+            )
+            .where(OfficialDocument.doc_number.ilike(year_pattern))
+            .where(
+                or_(
+                    OfficialDocument.category == '發文',
+                    OfficialDocument.doc_type == '發文',
                 )
-            ) as max_seq
-            FROM documents
-            WHERE doc_number LIKE :pattern
-            AND (category = '發文' OR doc_type = '發文')
-        """)
+            )
+        )
 
-        max_seq_result = await self.db.execute(raw_query, {"pattern": year_pattern})
+        max_seq_result = await self.db.execute(max_seq_query)
         row = max_seq_result.fetchone()
         max_sequence = row[0] if row and row[0] else 0
 

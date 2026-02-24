@@ -127,10 +127,17 @@ export interface DocumentCreate {
   // 發文形式與附件欄位
   delivery_method?: string;   // 發文形式
   has_attachment?: boolean;   // 是否含附件
+  doc_word?: string;          // 公文文別
+  doc_class?: string;         // 公文分類
 }
 
-/** 公文更新請求 */
-export type DocumentUpdate = Partial<DocumentCreate>;
+/** 公文更新請求 — 包含 DocumentCreate 所有欄位(可選) + 更新專用欄位 */
+export interface DocumentUpdate extends Partial<DocumentCreate> {
+  title?: string;
+  cloud_file_link?: string;
+  dispatch_format?: string;
+  auto_serial?: string;
+}
 
 /** 公文附件 - 與後端 DocumentAttachment 對應 */
 export interface DocumentAttachment {

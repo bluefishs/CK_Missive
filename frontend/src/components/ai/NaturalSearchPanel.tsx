@@ -41,7 +41,7 @@ import {
   DislikeFilled,
   ApartmentOutlined,
 } from '@ant-design/icons';
-import type { DocumentSearchResult, AttachmentInfo, SemanticSimilarItem } from '../../api/aiApi';
+import type { DocumentSearchResult, AttachmentInfo, SemanticSimilarItem } from '../../types/ai';
 import { aiApi } from '../../api/aiApi';
 import { useNaturalSearch } from './hooks/useNaturalSearch';
 import { KnowledgeGraph } from './KnowledgeGraph';

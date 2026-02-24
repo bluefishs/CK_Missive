@@ -4,21 +4,19 @@
 import { apiClient } from './client';
 import { API_ENDPOINTS } from './endpoints';
 
-// 從 types/api.ts 匯入統一的型別定義
-import {
+// 從 types/api.ts 匯入統一的型別定義 (SSOT)
+import type {
   ProjectAgencyContact,
   ProjectAgencyContactCreate,
   ProjectAgencyContactUpdate,
+  ProjectAgencyContactListResponse,
 } from '../types/api';
 
 // 重新匯出供外部使用
-export type { ProjectAgencyContact, ProjectAgencyContactCreate, ProjectAgencyContactUpdate };
-
-/** 專案機關承辦列表回應 */
-export interface ProjectAgencyContactListResponse {
-  items: ProjectAgencyContact[];
-  total: number;
-}
+export type {
+  ProjectAgencyContact, ProjectAgencyContactCreate,
+  ProjectAgencyContactUpdate, ProjectAgencyContactListResponse,
+};
 
 // 取得專案的機關承辦列表
 export const getProjectAgencyContacts = async (

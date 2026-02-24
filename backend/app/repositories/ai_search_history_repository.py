@@ -12,7 +12,7 @@ from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc, cast, Date, delete
+from sqlalchemy import select, func, desc, cast, Date, delete, update
 
 from app.repositories.base_repository import BaseRepository
 from app.extended.models import AISearchHistory, User
@@ -388,6 +388,25 @@ class AISearchHistoryRepository(BaseRepository[AISearchHistory]):
                     ))
 
         return suggestions[:limit]
+
+    async def submit_feedback(self, history_id: int, score: int) -> bool:
+        """
+        提交搜尋回饋評分
+
+        Args:
+            history_id: 搜尋歷史記錄 ID
+            score: 回饋分數 (正值=有用, 負值=無用)
+
+        Returns:
+            是否成功更新（False 表示找不到記錄）
+        """
+        result = await self.db.execute(
+            update(AISearchHistory)
+            .where(AISearchHistory.id == history_id)
+            .values(feedback_score=score)
+        )
+        await self.db.commit()
+        return result.rowcount > 0
 
     async def clear_before_date(self, before_date: Optional[str] = None) -> int:
         """

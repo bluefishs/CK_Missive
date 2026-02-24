@@ -312,28 +312,33 @@ async def get_next_document_number(
         # 使用精確匹配：乾坤測字第115% (民國115年)
         year_pattern = f"{prefix}{roc_year}%"
 
-        # 使用原生 SQL 查詢，提取流水號
-        # 從文號中提取民國年後的7位數字作為流水號
-        from sqlalchemy import text
+        # ORM 安全查詢（替代 text() f-string 模式）
+        from sqlalchemy import Integer, func, or_
         prefix_len = len(prefix)  # 乾坤測字第 = 5個字
         year_len = len(str(roc_year))  # 115 = 3位
+        substr_start = prefix_len + year_len + 1
 
-        raw_query = text(f"""
-            SELECT MAX(
-                CAST(
-                    SUBSTRING(doc_number, {prefix_len + year_len + 1}, 7)
-                    AS INTEGER
+        max_seq_query = (
+            select(
+                func.max(
+                    func.cast(
+                        func.substring(
+                            OfficialDocument.doc_number, substr_start, 7
+                        ),
+                        Integer,
+                    )
+                ).label("max_seq")
+            )
+            .where(OfficialDocument.doc_number.ilike(year_pattern))
+            .where(
+                or_(
+                    OfficialDocument.category == '發文',
+                    OfficialDocument.doc_type == '發文',
                 )
-            ) as max_seq
-            FROM documents
-            WHERE doc_number LIKE :pattern
-            AND (category = '發文' OR doc_type = '發文')
-        """)
-
-        max_seq_result = await db.execute(
-            raw_query,
-            {"pattern": year_pattern}
+            )
         )
+
+        max_seq_result = await db.execute(max_seq_query)
         row = max_seq_result.fetchone()
         max_sequence = row[0] if row and row[0] else 0
 
@@ -550,76 +555,3 @@ async def delete_document_number(
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"刪除發文字號失敗: {str(e)}")
-
-
-# =============================================================================
-# 向後相容的 GET 端點 (將逐步棄用)
-# =============================================================================
-
-@router.post("", response_model=DocumentNumberListResponse, deprecated=True,
-              summary="[相容] 取得發文字號列表 (預計 2026-07 移除)")
-@limiter.limit("60/minute")
-async def get_document_numbers_legacy(
-    request: Request,
-    response: Response,
-    page: int = 1,
-    per_page: int = 20,
-    year: Optional[int] = None,
-    status: Optional[str] = None,
-    keyword: Optional[str] = None,
-    db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(require_auth())
-):
-    """
-    [已棄用] 取得發文字號列表
-
-    ⚠️ **預計廢止日期**: 2026-07
-    請改用 POST /document-numbers/query
-    """
-    query_request = DocumentNumberQueryRequest(
-        page=page,
-        limit=per_page,
-        year=year,
-        status=status,
-        keyword=keyword
-    )
-    return await query_document_numbers(request, response, query_request, db)
-
-
-@router.post("/stats", response_model=DocumentNumberStats, deprecated=True,
-              summary="[相容] 取得統計資料 (預計 2026-07 移除)")
-@limiter.limit("60/minute")
-async def get_stats_legacy(
-    request: Request,
-    response: Response,
-    db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(require_auth())
-):
-    """
-    [已棄用] 取得統計資料
-
-    ⚠️ **預計廢止日期**: 2026-07
-    請改用 POST /document-numbers/stats
-    """
-    return await get_document_numbers_stats(request, response, db)
-
-
-@router.post("/next-number", response_model=NextNumberResponse, deprecated=True,
-              summary="[相容] 取得下一個字號 (預計 2026-07 移除)")
-@limiter.limit("60/minute")
-async def get_next_number_legacy(
-    request: Request,
-    response: Response,
-    prefix: Optional[str] = None,
-    year: Optional[int] = None,
-    db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(require_auth())
-):
-    """
-    [已棄用] 取得下一個字號
-
-    ⚠️ **預計廢止日期**: 2026-07
-    請改用 POST /document-numbers/next-number
-    """
-    next_request = NextNumberRequest(prefix=prefix, year=year)
-    return await get_next_document_number(request, response, next_request, db)

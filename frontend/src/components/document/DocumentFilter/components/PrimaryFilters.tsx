@@ -8,7 +8,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { Input, Select, Row, Col, Tooltip, Button, message } from 'antd';
+import { Input, Select, Row, Col, Tooltip, Button, App } from 'antd';
 import { SearchOutlined, InfoCircleOutlined, RobotOutlined } from '@ant-design/icons';
 import FilterFieldWrapper from './FilterFieldWrapper';
 import { DOC_TYPE_OPTIONS, DELIVERY_METHOD_OPTIONS } from '../constants';
@@ -25,6 +25,7 @@ const PrimaryFilters: React.FC<PrimaryFiltersProps> = ({
   onMultipleFilterChange,
   onApplyFilters,
 }) => {
+  const { message } = App.useApp();
   const [aiLoading, setAiLoading] = useState(false);
 
   const handleAIParseIntent = useCallback(async () => {

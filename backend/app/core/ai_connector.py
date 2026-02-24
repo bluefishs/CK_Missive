@@ -47,7 +47,7 @@ class AIConnector:
         groq_api_key: Optional[str] = None,
         ollama_base_url: Optional[str] = None,
         cloud_timeout: int = 30,
-        local_timeout: int = 60,
+        local_timeout: int = 120,
     ):
         self.groq_api_key = groq_api_key or os.getenv("GROQ_API_KEY", "")
         self.ollama_base_url = ollama_base_url or os.getenv(

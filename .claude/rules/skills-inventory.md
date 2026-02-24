@@ -45,14 +45,14 @@
 | `database-schema.md` | schema, 資料庫, PostgreSQL | 資料庫結構說明 |
 | `testing-guide.md` | test, 測試, pytest | 測試框架指南 |
 | `frontend-architecture.md` | 前端, React, 認證, auth, 架構 | 前端架構規範 (v1.4.0) |
-| `error-handling.md` | 錯誤處理, error, exception, 例外 | 錯誤處理指南 |
+| `error-handling.md` | 錯誤處理, error, exception, 例外, ApiErrorBus | 錯誤處理指南 (含 GlobalApiErrorNotifier) |
 | `security-hardening.md` | 安全, security, 漏洞, XSS | 安全加固指南 |
 | `type-management.md` | 型別, type, Pydantic, TypeScript, BaseModel | 型別管理規範 (SSOT) |
 | `api-serialization.md` | 序列化, serialize, ORM, API 返回, 500 錯誤 | API 序列化規範 |
 | `python-common-pitfalls.md` | Pydantic, forward reference, async, MissingGreenlet | Python 常見陷阱 |
 | `unicode-handling.md` | Unicode, 編碼, 中文, UTF-8, 亂碼 | Unicode 處理規範 |
 | `workflow-management.md` | workflow, 作業歷程, 時間軸, chain, timeline | 作業歷程管理規範 |
-| `ai-development.md` | AI, Groq, Ollama, 語意, 摘要, 分類, 同義詞 | AI 功能開發規範 (v2.0.0) |
+| `ai-development.md` | AI, Groq, Ollama, 語意, 摘要, 分類, 同義詞, 知識圖譜 | AI 功能開發規範 (v2.1.0) |
 | `database-performance.md` | 慢查詢, N+1, 索引, 查詢優化, slow query | 資料庫效能優化指南 |
 | `development-environment.md` | 環境, Docker, 依賴, 配置, env | 開發環境檢查指南 |
 | `accessibility.md` | 可訪問性, a11y, WCAG, ARIA, 鍵盤導航 | 可訪問性規範 (v1.0.0) |
@@ -92,6 +92,18 @@
 | AI 模式 | `ai-workflow-patterns` | AI, workflow, 工作流 | AI 工作流程模式 |
 
 > 位置: `.claude/skills/_shared/`
+
+---
+
+## v1.60.0 新增前端元件與 Hooks
+
+| 元件/Hook | 位置 | 說明 |
+|-----------|------|------|
+| `GlobalApiErrorNotifier` | `components/common/` | 全域 API 錯誤通知（403/5xx/網路），3 秒去重 |
+| `GraphNodeSettings` | `components/ai/` | 知識圖譜節點自訂設定（顏色/標籤/可見度），localStorage 持久化 |
+| `useAIPrompts` | `hooks/system/` | AI Prompt 管理 React Query hooks |
+| `useAISynonyms` | `hooks/system/` | AI 同義詞管理 React Query hooks |
+| `ApiErrorBus` | `api/errors.ts` | 全域錯誤事件匯流排（Axios 攔截器 → 通知元件） |
 
 ---
 

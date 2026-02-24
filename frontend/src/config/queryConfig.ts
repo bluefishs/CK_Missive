@@ -113,6 +113,20 @@ export const queryKeys = {
     allProjects: ['projects-for-link'] as const,
     projects: (keyword: string) => ['projects-for-link', keyword] as const,
   },
+
+  // AI 同義詞管理
+  aiSynonyms: {
+    all: ['ai', 'synonyms'] as const,
+    lists: () => [...queryKeys.aiSynonyms.all, 'list'] as const,
+    list: (filters: object) => [...queryKeys.aiSynonyms.lists(), filters] as const,
+  },
+
+  // AI Prompt 版本管理
+  aiPrompts: {
+    all: ['ai', 'prompts'] as const,
+    lists: () => [...queryKeys.aiPrompts.all, 'list'] as const,
+    list: (feature?: string | null) => [...queryKeys.aiPrompts.lists(), feature] as const,
+  },
 } as const;
 
 // ============================================================================

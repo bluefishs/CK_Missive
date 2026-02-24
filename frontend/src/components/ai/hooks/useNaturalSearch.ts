@@ -11,16 +11,15 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { App } from 'antd';
-import {
-  aiApi,
-  abortNaturalSearch,
+import { aiApi, abortNaturalSearch } from '../../../api/aiApi';
+import type {
   DocumentSearchResult,
   ParsedSearchIntent,
   AttachmentInfo,
   NaturalSearchResponse,
   QuerySuggestionItem,
-} from '../../../api/aiApi';
-import type { MatchedEntity } from '../../../api/ai/types';
+  MatchedEntity,
+} from '../../../types/ai';
 import { filesApi } from '../../../api/filesApi';
 
 // ============================================================================

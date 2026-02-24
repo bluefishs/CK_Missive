@@ -14,17 +14,17 @@ import {
   LegacyListResponse,
   SuccessResponse,
 } from './types';
-import {
+import type {
   Project,
   ProjectCreate,
   ProjectUpdate,
   ProjectOption,
+  ProjectStatistics,
 } from '../types/api';
 import { API_ENDPOINTS } from './endpoints';
 
-// ============================================================================
-// 查詢參數型別
-// ============================================================================
+// 重新匯出型別供外部使用
+export type { ProjectStatistics };
 
 /** 專案列表查詢參數 */
 export interface ProjectListParams extends PaginationParams, SortParams {
@@ -32,20 +32,6 @@ export interface ProjectListParams extends PaginationParams, SortParams {
   year?: number;
   category?: string;
   status?: string;
-}
-
-/** 專案統計資料 */
-export interface ProjectStatistics {
-  total_projects: number;
-  status_breakdown: Array<{
-    status: string;
-    count: number;
-  }>;
-  year_breakdown: Array<{
-    year: number;
-    count: number;
-  }>;
-  average_contract_amount: number;
 }
 
 // ============================================================================

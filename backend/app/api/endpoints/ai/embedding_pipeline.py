@@ -12,16 +12,16 @@ import os
 import time
 
 from fastapi import APIRouter, Depends, BackgroundTasks
-from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_admin, get_async_db
-from app.extended.models import User, OfficialDocument
+from app.extended.models import User
 from app.schemas.ai import (
     EmbeddingStatsResponse,
     EmbeddingBatchRequest,
     EmbeddingBatchResponse,
 )
+from app.services.ai.embedding_manager import EmbeddingManager
 
 logger = logging.getLogger(__name__)
 
@@ -42,25 +42,13 @@ async def get_embedding_stats(
     if not _pgvector_enabled():
         return EmbeddingStatsResponse(pgvector_enabled=False)
 
-    total_result = await db.execute(
-        select(func.count(OfficialDocument.id))
-    )
-    total = total_result.scalar() or 0
-
-    with_result = await db.execute(
-        select(func.count(OfficialDocument.id))
-        .where(OfficialDocument.embedding.isnot(None))
-    )
-    with_emb = with_result.scalar() or 0
-
-    without_emb = total - with_emb
-    coverage = (with_emb / total * 100) if total > 0 else 0.0
+    stats = await EmbeddingManager.get_coverage_stats(db)
 
     return EmbeddingStatsResponse(
-        total_documents=total,
-        with_embedding=with_emb,
-        without_embedding=without_emb,
-        coverage_percent=round(coverage, 2),
+        total_documents=stats["total"],
+        with_embedding=stats["with_embedding"],
+        without_embedding=stats["without_embedding"],
+        coverage_percent=stats["coverage"],
         pgvector_enabled=True,
     )
 
@@ -84,12 +72,9 @@ async def run_embedding_batch(
             message="pgvector 未啟用 (PGVECTOR_ENABLED=false)",
         )
 
-    # 先計算待處理數量
-    without_result = await db.execute(
-        select(func.count(OfficialDocument.id))
-        .where(OfficialDocument.embedding.is_(None))
-    )
-    without_count = without_result.scalar() or 0
+    # 先計算待處理數量（委託 service 層）
+    stats = await EmbeddingManager.get_coverage_stats(db)
+    without_count = stats["without_embedding"]
 
     if without_count == 0:
         return EmbeddingBatchResponse(

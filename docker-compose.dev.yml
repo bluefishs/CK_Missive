@@ -157,7 +157,7 @@ services:
     # 🔥 開發模式啟動命令：Vite 開發伺服器
     command: npm run dev -- --host 0.0.0.0 --port ${VITE_PORT}
 
-  # --- 🤖 Ollama 本地 AI 備援服務 ---
+  # --- 🤖 Ollama AI 服務 (Embedding + Chat) ---
   ollama:
     image: ollama/ollama:latest
     container_name: ${COMPOSE_PROJECT_NAME}_ollama_dev
@@ -170,8 +170,13 @@ services:
     restart: "no"  # PM2 混合模式：按需手動啟動
     deploy:
       resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
         limits:
-          memory: 4G
+          memory: 8G
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
       interval: 30s

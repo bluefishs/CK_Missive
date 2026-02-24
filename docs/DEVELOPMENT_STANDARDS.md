@@ -1,9 +1,9 @@
 # CK_Missive 統一開發規範總綱
-> Version: 1.0.0 | Last Updated: 2026-02-21
+> Version: 1.2.0 | Last Updated: 2026-02-24
 
-> 版本: 1.1.0
+> 版本: 1.2.0
 > 建立日期: 2026-01-08
-> 最後更新: 2026-01-11
+> 最後更新: 2026-02-24
 > 狀態: 強制遵守
 
 ---
@@ -61,6 +61,64 @@ return ServiceResponse.fail(message="驗證失敗", code="VALIDATION_ERROR")
 
 # 部分成功
 return ServiceResponse.partial(data=result, warnings=warnings_list)
+```
+
+### 2.4 服務工廠模式與依賴注入 (v1.60.0)
+
+除匯入服務外，所有業務服務應使用工廠模式自動注入 db session：
+
+```python
+# ✅ 正確 — 使用工廠模式
+from app.core.dependencies import get_service
+
+@router.post("/agencies/list")
+async def list_agencies(
+    service: AgencyService = Depends(get_service(AgencyService))
+):
+    return await service.get_list()
+
+# ❌ 禁止 — 端點中直接操作 db
+@router.post("/agencies/list")
+async def list_agencies(db: AsyncSession = Depends(get_async_db)):
+    result = await db.execute(select(GovernmentAgency))  # 不允許！
+```
+
+**已遷移的服務清單**：
+
+| 服務 | 位置 | 使用工廠 |
+|------|------|---------|
+| `DocumentService` | `services/document_service.py` | `get_service()` |
+| `ProjectService` | `services/project_service.py` | `get_service()` |
+| `AgencyService` | `services/agency_service.py` | `get_service()` |
+| `VendorService` | `services/vendor_service.py` | `get_service()` |
+| `AuditService` | `services/audit_service.py` | 獨立 session |
+| `SystemHealthService` | `services/system_health_service.py` | `get_service()` |
+| `RelationGraphService` | `services/ai/relation_graph_service.py` | `get_service()` |
+
+### 2.5 Repository 與 Service 職責邊界 (v1.60.0)
+
+| 職責 | Repository | Service |
+|------|-----------|---------|
+| 單一實體 CRUD | ✅ | ❌ (委託 repo) |
+| 複雜篩選與分頁 | ✅ | ❌ |
+| 業務邏輯決策 | ❌ | ✅ |
+| 交易管理 (commit) | ✅ (簡單) | ✅ (跨實體) |
+| 審計與通知 | ❌ | ✅ |
+| 直接 `db.execute()` | ✅ | ❌ |
+
+```python
+# ✅ Service 呼叫 Repository
+class AgencyService:
+    async def fix_parsed_names(self, dry_run=True):
+        agencies = await self.repo.get_all()
+        # 業務邏輯：解析、比對、合併
+        if not dry_run:
+            await self.repo.bulk_update(updates)
+
+# ❌ 端點直接操作 db
+@router.post("/fix-parsed-names")
+async def fix(db = Depends(get_async_db)):
+    agencies = await db.execute(select(Agency))  # 不允許！
 ```
 
 ---
@@ -426,6 +484,7 @@ const result = await apiClient.post(API_ENDPOINTS.DOCUMENTS.LIST, params);
 |------|------|------|
 | 1.0.0 | 2026-01-08 | 初版建立 |
 | 1.1.0 | 2026-01-11 | 新增前端開發規範、認證環境檢測規範 |
+| 1.2.0 | 2026-02-24 | 新增服務工廠模式 (§2.4)、Repository 職責邊界 (§2.5) |
 
 ---
 

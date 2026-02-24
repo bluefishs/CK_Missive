@@ -67,7 +67,7 @@ import type {
   AIHealthStatus,
   EmbeddingStatsResponse,
   EmbeddingBatchResponse,
-} from '../api/aiApi';
+} from '../types/ai';
 import { SynonymManagementContent } from './AISynonymManagementPage';
 import { PromptManagementContent } from './AIPromptManagementPage';
 import { KnowledgeGraph } from '../components/ai/KnowledgeGraph';
@@ -687,6 +687,7 @@ const KnowledgeGraphTab: React.FC = () => {
   const [documentIds, setDocumentIds] = useState<number[]>([]);
   const [autoMode, setAutoMode] = useState(true);
   const [batchLoading, setBatchLoading] = useState(false);
+  const [batchLimit, setBatchLimit] = useState(200);
 
   // 實體提取覆蓋統計
   const {
@@ -721,7 +722,7 @@ const KnowledgeGraphTab: React.FC = () => {
   const handleEntityBatch = useCallback(async () => {
     setBatchLoading(true);
     try {
-      const result = await aiApi.runEntityBatch({ limit: 50 });
+      const result = await aiApi.runEntityBatch({ limit: batchLimit });
       if (result?.success) {
         message.success(result.message);
       } else {
@@ -733,7 +734,7 @@ const KnowledgeGraphTab: React.FC = () => {
       setBatchLoading(false);
       refetchEntityStats();
     }
-  }, [refetchEntityStats]);
+  }, [refetchEntityStats, batchLimit]);
 
   return (
     <div>
@@ -771,7 +772,16 @@ const KnowledgeGraphTab: React.FC = () => {
                 )}
               </div>
             </Col>
-            <Col span={4} style={{ display: 'flex', alignItems: 'center' }}>
+            <Col span={4} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <InputNumber
+                size="small"
+                min={10}
+                max={500}
+                value={batchLimit}
+                onChange={(v) => setBatchLimit(v ?? 200)}
+                style={{ width: 70 }}
+                addonAfter="筆"
+              />
               <Button
                 type="primary"
                 size="small"
@@ -779,7 +789,7 @@ const KnowledgeGraphTab: React.FC = () => {
                 onClick={handleEntityBatch}
                 disabled={entityStats.without_extraction === 0}
               >
-                批次提取 (50 筆)
+                批次提取
               </Button>
             </Col>
           </Row>
@@ -832,10 +842,10 @@ const KnowledgeGraphTab: React.FC = () => {
       </Card>
 
       {/* 圖譜區域 */}
-      <Card size="small" bodyStyle={{ padding: 12 }}>
+      <Card size="small" styles={{ body: { padding: 12 } }}>
         <KnowledgeGraph
           documentIds={documentIds}
-          height={500}
+          height={700}
         />
       </Card>
     </div>

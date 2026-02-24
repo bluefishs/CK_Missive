@@ -19,6 +19,7 @@ import { documentsApi, NextSendNumberResponse } from '../../api/documentsApi';
 import { agenciesApi, AgencyOption } from '../../api/agenciesApi';
 import { filesApi } from '../../api/filesApi';
 import { apiClient } from '../../api/client';
+import { API_ENDPOINTS } from '../../api/endpoints';
 import type { UploadFile } from 'antd/es/upload/interface';
 import type { Project, User, ProjectStaff, DocumentCreate } from '../../types/api';
 import { logger } from '../../utils/logger';
@@ -236,7 +237,7 @@ export function useDocumentCreateForm(
     setCasesLoading(true);
     try {
       const data = await apiClient.post<{ projects?: Project[]; items?: Project[] }>(
-        '/projects/list',
+        API_ENDPOINTS.PROJECTS.LIST,
         { page: 1, limit: 100 }
       );
       const projectsData = data.projects || data.items || [];
@@ -254,7 +255,7 @@ export function useDocumentCreateForm(
     setUsersLoading(true);
     try {
       const data = await apiClient.post<{ users?: User[]; items?: User[] }>(
-        '/users/list',
+        API_ENDPOINTS.USERS.LIST,
         { page: 1, limit: 100 }
       );
       const usersData = data.users || data.items || [];

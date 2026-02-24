@@ -24,3 +24,7 @@ export * from './useDocumentRelations';
 
 // 通知中心
 export * from './useNotifications';
+
+// AI 管理
+export * from './useAISynonyms';
+export * from './useAIPrompts';

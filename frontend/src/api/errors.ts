@@ -119,4 +119,46 @@ export class ApiException extends Error {
       return acc;
     }, {} as Record<string, string>);
   }
+
+  /** 是否為業務邏輯錯誤（元件應自行處理） */
+  isBusinessError(): boolean {
+    return [400, 409, 422].includes(this.statusCode);
+  }
+
+  /** 是否為全域錯誤（由 GlobalApiErrorNotifier 自動處理） */
+  isGlobalError(): boolean {
+    return [403, 500, 502, 503].includes(this.statusCode)
+      || this.statusCode === 0;  // 網路錯誤
+  }
 }
+
+// ============================================================================
+// 全域 API 錯誤事件
+// ============================================================================
+
+type ApiErrorListener = (error: ApiException) => void;
+
+/**
+ * 全域 API 錯誤事件匯流排
+ *
+ * 攔截器發出 → GlobalApiErrorNotifier 接收並顯示。
+ * 業務錯誤 (400/409/422) 不會被發出，由元件自行處理。
+ */
+class ApiErrorBus {
+  private listeners: ApiErrorListener[] = [];
+
+  /** 訂閱全域 API 錯誤（在 GlobalApiErrorNotifier 中呼叫） */
+  subscribe(listener: ApiErrorListener): () => void {
+    this.listeners.push(listener);
+    return () => {
+      this.listeners = this.listeners.filter(l => l !== listener);
+    };
+  }
+
+  /** 發出全域 API 錯誤（在攔截器中呼叫） */
+  emit(error: ApiException): void {
+    this.listeners.forEach(l => l(error));
+  }
+}
+
+export const apiErrorBus = new ApiErrorBus();

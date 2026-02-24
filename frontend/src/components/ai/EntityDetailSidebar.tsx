@@ -12,25 +12,24 @@
  * @extracted-from KnowledgeGraph.tsx
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Spin, Empty, Tag, List, Descriptions,
-  Drawer, Typography, Divider, Space,
+  Drawer, Typography, Divider, Space, Tooltip,
 } from 'antd';
 import {
   CloseOutlined,
   TagsOutlined,
   FileTextOutlined,
   ShareAltOutlined,
-  LinkOutlined,
 } from '@ant-design/icons';
 import { aiApi } from '../../api/aiApi';
 import type {
   KGEntityDetailResponse,
   KGEntityRelationship,
   KGEntityDocument,
-} from '../../api/ai/types';
-import { getNodeConfig } from '../../config/graphNodeConfig';
+} from '../../types/ai';
+import { getMergedNodeConfig } from '../../config/graphNodeConfig';
 
 const { Text } = Typography;
 
@@ -54,6 +53,8 @@ export const EntityDetailSidebar: React.FC<EntityDetailSidebarProps> = ({
   const [loading, setLoading] = useState(false);
   const [detail, setDetail] = useState<KGEntityDetailResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const entityConfig = useMemo(() => getMergedNodeConfig(entityType), [entityType]);
 
   useEffect(() => {
     if (!visible || !entityName) {
@@ -98,10 +99,12 @@ export const EntityDetailSidebar: React.FC<EntityDetailSidebarProps> = ({
         <Space>
           <span style={{
             width: 10, height: 10, borderRadius: '50%', display: 'inline-block',
-            background: getNodeConfig(entityType).color,
+            background: entityConfig.color,
           }} />
           <span>{entityName}</span>
-          <Tag color={getNodeConfig(entityType).color}>{getNodeConfig(entityType).label}</Tag>
+          <Tooltip title={entityConfig.description}>
+            <Tag color={entityConfig.color}>{entityConfig.label}</Tag>
+          </Tooltip>
         </Space>
       }
       placement="right"
@@ -113,7 +116,7 @@ export const EntityDetailSidebar: React.FC<EntityDetailSidebarProps> = ({
     >
       {loading && (
         <div style={{ textAlign: 'center', padding: 40 }}>
-          <Spin tip="查詢正規化實體..." />
+          <Spin tip="查詢正規化實體..."><div /></Spin>
         </div>
       )}
 
@@ -212,7 +215,7 @@ export const EntityDetailSidebar: React.FC<EntityDetailSidebarProps> = ({
                         <Text strong>{otherName}</Text>
                         {otherType && (
                           <Tag style={{ marginLeft: 4, fontSize: 10 }}>
-                            {getNodeConfig(otherType).label}
+                            {getMergedNodeConfig(otherType).label}
                           </Tag>
                         )}
                         <div style={{ fontSize: 10, color: '#999' }}>

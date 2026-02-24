@@ -20,22 +20,26 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   Spin, Empty, Input, Checkbox, Button, Space,
-  Tooltip as AntTooltip, Typography, message,
+  Tooltip as AntTooltip, Typography, App,
 } from 'antd';
 import {
   AimOutlined,
   ReloadOutlined,
   SearchOutlined,
+  SettingOutlined,
   LinkOutlined,
 } from '@ant-design/icons';
 import ForceGraph2D, { type ForceGraphMethods } from 'react-force-graph-2d';
-import { aiApi, type GraphNode, type GraphEdge } from '../../api/aiApi';
+import { aiApi } from '../../api/aiApi';
+import type { GraphNode, GraphEdge } from '../../types/ai';
 import {
   GRAPH_NODE_CONFIG,
   CANONICAL_ENTITY_TYPES,
   getNodeConfig,
+  getAllMergedConfigs,
 } from '../../config/graphNodeConfig';
 import { EntityDetailSidebar } from './EntityDetailSidebar';
+import { GraphNodeSettings } from './GraphNodeSettings';
 
 const { Text } = Typography;
 
@@ -96,11 +100,13 @@ function getNodeId(node: string | ForceNode): string {
 
 export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
   documentIds,
-  height = 500,
+  height = 700,
 }) => {
+  const { message } = App.useApp();
   const fgRef = useRef<ForceGraphMethods | undefined>();
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(800);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // API 狀態
   const [rawNodes, setRawNodes] = useState<GraphNode[]>([]);
@@ -115,6 +121,10 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
   const [visibleTypes, setVisibleTypes] = useState<Set<string>>(
     new Set(Object.keys(GRAPH_NODE_CONFIG))
   );
+
+  // 節點設定面板
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [configVersion, setConfigVersion] = useState(0);
 
   // Entity Detail Sidebar 狀態
   const [sidebarVisible, setSidebarVisible] = useState(false);
@@ -228,16 +238,25 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
   // 合併搜尋結果：API 結果優先，無 API 結果時用本地
   const searchMatchIds = apiSearchMatchIds ?? localSearchMatchIds;
 
+  // 使用者合併配置快取（隨 configVersion 更新）
+  const mergedConfigs = useMemo(() => getAllMergedConfigs(), [configVersion]);
+
   // 轉換為 force-graph 格式
   const graphData = useMemo((): GraphData => {
-    const filteredNodes = rawNodes.filter((n) => visibleTypes.has(n.type));
+    const filteredNodes = rawNodes.filter((n) => {
+      // 同時考慮使用者手動的 visibleTypes 和設定面板的 visible
+      if (!visibleTypes.has(n.type)) return false;
+      const cfg = mergedConfigs[n.type];
+      if (cfg && !cfg.visible) return false;
+      return true;
+    });
     const nodeIdSet = new Set(filteredNodes.map((n) => n.id));
 
     const nodes: ForceNode[] = filteredNodes.map((n) => ({
       id: n.id,
       label: n.label,
       type: n.type,
-      color: getNodeConfig(n.type).color,
+      color: mergedConfigs[n.type]?.color ?? getNodeConfig(n.type).color,
       category: n.category,
       doc_number: n.doc_number,
       status: n.status,
@@ -255,7 +274,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
       }));
 
     return { nodes, links };
-  }, [rawNodes, rawEdges, visibleTypes]);
+  }, [rawNodes, rawEdges, visibleTypes, mergedConfigs]);
 
   // 高亮判斷
   const isHighlighted = useCallback((nodeId: string): boolean => {
@@ -282,7 +301,8 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
   const paintNode = useCallback((node: ForceNode, ctx: CanvasRenderingContext2D, globalScale: number) => {
     const x = node.x ?? 0;
     const y = node.y ?? 0;
-    const baseR = getNodeConfig(node.type).radius;
+    const cfg = mergedConfigs[node.type] ?? getNodeConfig(node.type);
+    const baseR = cfg.radius;
     // 實體節點大小可隨 mention_count 調整
     const mentionBonus = node.mention_count ? Math.min(Math.log2(node.mention_count + 1) * 1.5, 6) : 0;
     const r = baseR + mentionBonus;
@@ -316,7 +336,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
       ctx.fillStyle = highlighted ? '#333' : 'rgba(180,180,180,0.5)';
       ctx.fillText(truncate(node.label, 14), x, y + r + 2 / globalScale);
     }
-  }, [isHighlighted, selectedNodeId, searchMatchIds]);
+  }, [isHighlighted, selectedNodeId, searchMatchIds, mergedConfigs]);
 
   // 點擊節點
   const handleNodeClick = useCallback((node: ForceNode) => {
@@ -333,9 +353,19 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
     }
   }, [selectedNodeId]);
 
-  // Hover 節點
+  // Hover 節點（僅用於高亮 + 游標樣式，不顯示互動面板）
   const handleNodeHover = useCallback((node: ForceNode | null) => {
-    setHoveredNodeId(node?.id ?? null);
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    if (node) {
+      setHoveredNodeId(node.id);
+    } else {
+      hoverTimerRef.current = setTimeout(() => {
+        setHoveredNodeId(null);
+      }, 150);
+    }
     if (containerRef.current) {
       containerRef.current.style.cursor = node ? 'pointer' : 'default';
     }
@@ -352,6 +382,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
     setSearchText('');
     setApiSearchMatchIds(null);
     setSidebarVisible(false);
+    setError(null);
     setRawNodes([]);
     setRawEdges([]);
     setLoading(true);
@@ -363,13 +394,12 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
         setRawEdges(result.edges);
       }
       setLoading(false);
-      setTimeout(() => fgRef.current?.zoomToFit(400, 40), 500);
+      setTimeout(() => fgRef.current?.zoomToFit(400, 60), 500);
     }).catch((err) => {
       if (cancelled) return;
       setError(err instanceof Error ? err.message : '重新載入失敗');
       setLoading(false);
     });
-    return () => { cancelled = true; };
   }, [documentIds]);
 
   // 搜尋後聚焦
@@ -387,7 +417,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
   // Initial zoom
   useEffect(() => {
     if (!loading && rawNodes.length > 0) {
-      setTimeout(() => fgRef.current?.zoomToFit(600, 50), 300);
+      setTimeout(() => fgRef.current?.zoomToFit(600, 60), 500);
     }
   }, [loading, rawNodes.length]);
 
@@ -407,9 +437,9 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height }}>
-        <Spin tip="載入關聯圖譜..." />
-      </div>
+      <Spin tip="載入關聯圖譜...">
+        <div style={{ height, display: 'flex', justifyContent: 'center', alignItems: 'center' }} />
+      </Spin>
     );
   }
 
@@ -443,25 +473,32 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
         <Space size={4}>
           {Object.entries(GRAPH_NODE_CONFIG)
             .filter(([type]) => rawNodes.some((n) => n.type === type))
-            .map(([type, cfg]) => (
-              <Checkbox
-                key={type}
-                checked={visibleTypes.has(type)}
-                onChange={(e) => handleTypeToggle(type, e.target.checked)}
-                style={{ fontSize: 12 }}
-              >
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                  <span style={{
-                    width: 8, height: 8, borderRadius: '50%',
-                    background: cfg.color, display: 'inline-block',
-                  }} />
-                  {cfg.label}
-                </span>
-              </Checkbox>
-            ))}
+            .map(([type]) => {
+              const merged = mergedConfigs[type] ?? getNodeConfig(type);
+              return (
+                <AntTooltip key={type} title={merged.description} mouseEnterDelay={0.4}>
+                  <Checkbox
+                    checked={visibleTypes.has(type)}
+                    onChange={(e) => handleTypeToggle(type, e.target.checked)}
+                    style={{ fontSize: 12 }}
+                  >
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                      <span style={{
+                        width: 8, height: 8, borderRadius: '50%',
+                        background: merged.color, display: 'inline-block',
+                      }} />
+                      {merged.label}
+                    </span>
+                  </Checkbox>
+                </AntTooltip>
+              );
+            })}
         </Space>
 
         <Space size={4} style={{ marginLeft: 'auto' }}>
+          <AntTooltip title="節點設定">
+            <Button size="small" icon={<SettingOutlined />} onClick={() => setSettingsOpen(true)} />
+          </AntTooltip>
           <AntTooltip title="自動適配畫面">
             <Button size="small" icon={<AimOutlined />} onClick={handleZoomToFit} />
           </AntTooltip>
@@ -477,7 +514,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
         {selectedNodeId && (
           <span style={{ marginLeft: 8, color: '#1890ff' }}>
             已選取：{graphData.nodes.find((n) => n.id === selectedNodeId)?.label || selectedNodeId}
-            （{neighborMap.get(selectedNodeId)?.size || 0} 個鄰居）
+            （{neighborMap.get(selectedNodeId)?.size || 0} 個關聯節點）
           </span>
         )}
       </div>
@@ -496,7 +533,9 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
           d3VelocityDecay={0.3}
           nodeCanvasObject={paintNode as any}
           nodePointerAreaPaint={(node: any, color: string, ctx: CanvasRenderingContext2D) => {
-            const r = getNodeConfig(node.type).radius + 2;
+            const baseR = mergedConfigs[node.type]?.radius ?? getNodeConfig(node.type).radius;
+            // 確保點擊區域至少 12px，方便滑鼠操作
+            const r = Math.max(baseR + 4, 12);
             ctx.beginPath();
             ctx.arc(node.x ?? 0, node.y ?? 0, r, 0, 2 * Math.PI);
             ctx.fillStyle = color;
@@ -532,32 +571,67 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
             setSelectedNodeId(null);
             setSidebarVisible(false);
           }}
+          onEngineStop={() => {
+            // 力模擬結束後自動適配，確保所有節點在可視範圍內
+            fgRef.current?.zoomToFit(400, 60);
+          }}
           warmupTicks={50}
           cooldownTicks={100}
         />
       </div>
 
-      {/* Hover 節點浮動面板 */}
-      {hoveredNodeId && !sidebarVisible && (() => {
-        const node = graphData.nodes.find((n) => n.id === hoveredNodeId);
+      {/* 選取節點資訊面板（點擊節點後顯示，不會消失） */}
+      {selectedNodeId && !sidebarVisible && (() => {
+        const node = graphData.nodes.find((n) => n.id === selectedNodeId);
         if (!node) return null;
+        const nodeCfg = mergedConfigs[node.type] ?? getNodeConfig(node.type);
+        const neighborCount = neighborMap.get(selectedNodeId)?.size || 0;
         return (
-          <div style={{
-            position: 'absolute', top: 45, right: 8,
-            background: 'white', border: '1px solid #d9d9d9', borderRadius: 6,
-            padding: '8px 12px', fontSize: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-            minWidth: 160, zIndex: 10, pointerEvents: 'none',
-          }}>
-            <div style={{ fontWeight: 'bold', marginBottom: 4, color: node.color }}>
-              {getNodeConfig(node.type).label}
+          <div
+            style={{
+              position: 'absolute', top: 45, right: 8,
+              background: 'white', border: '1px solid #d9d9d9', borderRadius: 6,
+              padding: '10px 14px', fontSize: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+              minWidth: 200, maxWidth: 280, zIndex: 10,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <div style={{ fontWeight: 'bold', color: node.color, fontSize: 13 }}>
+                <span style={{
+                  width: 10, height: 10, borderRadius: '50%',
+                  background: node.color, display: 'inline-block', marginRight: 6,
+                }} />
+                {nodeCfg.label}
+              </div>
+              <span
+                style={{ color: '#999', cursor: 'pointer', fontSize: 14 }}
+                onClick={() => { setSelectedNodeId(null); }}
+              >
+                ✕
+              </span>
             </div>
-            <div>{node.label}</div>
+            <div style={{ fontWeight: 500, marginBottom: 4 }}>{node.label}</div>
+            {nodeCfg.description && (
+              <div style={{ color: '#999', fontSize: 11, marginBottom: 4 }}>{nodeCfg.description}</div>
+            )}
             {node.doc_number && <div style={{ color: '#666' }}>文號：{node.doc_number}</div>}
             {node.category && <div style={{ color: '#666' }}>分類：{node.category}</div>}
             {node.status && <div style={{ color: '#666' }}>狀態：{node.status}</div>}
-            {getNodeConfig(node.type).detailable && (
-              <div style={{ color: '#1890ff', marginTop: 4, fontSize: 11 }}>
-                <LinkOutlined /> 點擊查看正規化實體詳情
+            <div style={{ color: '#666', marginTop: 2 }}>關聯節點：{neighborCount} 個</div>
+            {nodeCfg.detailable && (
+              <div
+                style={{
+                  color: '#1890ff', marginTop: 8, fontSize: 12, cursor: 'pointer',
+                  padding: '4px 8px', background: '#f0f5ff', borderRadius: 4,
+                  textAlign: 'center', border: '1px solid #d6e4ff',
+                }}
+                onClick={() => {
+                  setSidebarEntityName(node.label);
+                  setSidebarEntityType(node.type);
+                  setSidebarVisible(true);
+                }}
+              >
+                <LinkOutlined /> 檢視正規化實體詳情
               </div>
             )}
           </div>
@@ -570,6 +644,13 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
         entityName={sidebarEntityName}
         entityType={sidebarEntityType}
         onClose={() => setSidebarVisible(false)}
+      />
+
+      {/* 節點設定面板 */}
+      <GraphNodeSettings
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onSaved={() => setConfigVersion((v) => v + 1)}
       />
     </div>
   );

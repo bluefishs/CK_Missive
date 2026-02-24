@@ -4,6 +4,70 @@
 
 ---
 
+## [1.60.0] - 2026-02-24
+
+### SSOT 全面強化 + 架構優化 + 安全修復
+
+基於系統全面架構審查，分 4 階段執行 9 項優化任務。
+
+**P0 — 安全緊急修復**:
+- SQL Injection 修復：`document_statistics_service.py` + `document_numbers.py` 的 `text(f"...")` 替換為 ORM `func.cast(func.substring(...), Integer)` 查詢
+- asyncio.gather 注釋修正：`documents/list.py` 的誤導性 "asyncio.gather 並行" 註解更正
+- 硬編碼 API 路徑修復：`useDocumentCreateForm.ts` 的 `/projects/list`, `/users/list` 遷移至 `API_ENDPOINTS` 常數
+
+**P1 — 型別 SSOT 遷移**:
+- AI 型別集中化：新增 `types/ai.ts` (SSOT, 757 行)，`api/ai/types.ts` 改為 re-export 相容層
+- 9 個元件檔案 import 路徑更新至 `types/ai`
+- 7 個 API 檔案型別清理：15 個本地 interface 定義遷移至 `types/api.ts`
+- `types/document.ts` 合併 `doc_word`, `doc_class`, update-only 欄位
+- `ProjectVendor`, `ProjectStaff` 基礎型別合併 API 擴展欄位
+
+**P1 — Service 層遷移**:
+- `search_history.py` 直接 `db.execute(update(...))` → `AISearchHistoryRepository.submit_feedback()`
+- `synonyms.py` 直接 ORM mutation → `AISynonymRepository.update_synonym()`
+- `entity_extraction.py` 計數查詢 → `get_pending_extraction_count()` service 函數
+- `embedding_pipeline.py` 統計查詢 → `EmbeddingManager.get_coverage_stats()` class method
+
+**P2 — 端點重構**:
+- `agencies.py` fix_parsed_names 業務邏輯遷移至 `AgencyService.fix_parsed_names()`
+- 移除 5 個 deprecated 重複路由 (agencies 2 + document_numbers 3)
+- `document_numbers.py` 630→557 行, `agencies.py` 507→375 行
+
+**P3 — 架構規範化 (二次優化)**:
+- `health.py`, `relation_graph.py` 的本地 `_get_service()` 統一改用 `get_service()` 工廠模式
+- `SystemHealthService._startup_time` 從模組級全域變數改為 class variable（保留向後相容函數）
+- `AISynonymRepository.update_synonym()` 的 `commit()` 改為 `flush()`，commit 交由端點統一管理
+- Docker Compose Ollama GPU 配置文件化（無 GPU 環境 fallback 說明）
+
+**新增前端元件**:
+- `GlobalApiErrorNotifier` — 全域 API 錯誤自動通知 (403/5xx/網路)，`ApiErrorBus` 事件匯流排
+- `GraphNodeSettings` — 知識圖譜節點設定面板 (顏色/標籤/可見度，localStorage 持久化)
+- `useAIPrompts` / `useAISynonyms` — AI 管理 React Query hooks
+
+**文件同步更新**:
+- `CLAUDE.md` 版本號 1.59.0 → 1.60.0
+- `architecture.md` 補充 Service 層目錄結構、前端型別 SSOT 結構、全域錯誤處理架構
+- `DEVELOPMENT_STANDARDS.md` §2.4 補充 `SystemHealthService` 和 `RelationGraphService`
+- `DEVELOPMENT_GUIDELINES.md` 核心服務表格補充 2 項
+- `TYPE_CONSISTENCY.md` §2.3 補充 `ProjectVendor` / `ProjectStaff` 擴展欄位
+- `skills-inventory.md` 更新 AI 開發 skill 版本、新增 v1.60.0 元件清單
+
+**BREAKING CHANGES**:
+- `health.py` 部分端點權限從 `require_auth` 提升為 `require_admin`（detailed, metrics, pool, tasks, audit, summary）
+- 移除 5 個 deprecated 路由 (agencies 2 + document_numbers 3)
+
+**數據摘要**:
+| 指標 | 修改前 | 修改後 |
+|------|--------|--------|
+| SQL Injection 漏洞 | 2 | 0 |
+| API 層本地型別定義 | 15+ | 0 (全部 re-export) |
+| AI 端點直接 DB 操作 | 8 | 0 (Phase 1+2) |
+| Deprecated 重複路由 | 5 | 0 |
+| agencies.py 行數 | 507 | 375 |
+| 本地 `_get_service()` | 2 | 0 (統一 `get_service()`) |
+
+---
+
 ## [1.59.0] - 2026-02-21
 
 ### 全面優化 v1.59.0 — 安全強化 + 架構精煉 + 測試擴充

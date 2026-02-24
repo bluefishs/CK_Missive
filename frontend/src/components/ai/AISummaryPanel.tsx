@@ -18,7 +18,8 @@ import {
   ExclamationCircleOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
-import { aiApi, SummaryResponse } from '../../api/aiApi';
+import { aiApi } from '../../api/aiApi';
+import type { SummaryResponse } from '../../types/ai';
 import { AI_CONFIG, getAISourceColor, getAISourceLabel } from '../../config/aiConfig';
 import { StreamingText } from './StreamingText';
 

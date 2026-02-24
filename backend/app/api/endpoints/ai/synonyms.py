@@ -106,28 +106,27 @@ async def update_synonym(
     """
     更新同義詞群組
     """
-    repo = AISynonymRepository(db)
-    synonym = await repo.get_by_id(request.id)
-
-    if not synonym:
-        raise HTTPException(status_code=404, detail=f"找不到 ID={request.id} 的同義詞群組")
-
-    if request.category is not None:
-        synonym.category = request.category.strip()
-
+    # 驗證 words 非空
+    cleaned_words = None
     if request.words is not None:
         cleaned_words = ", ".join(
             w.strip() for w in request.words.split(",") if w.strip()
         )
         if not cleaned_words:
             raise HTTPException(status_code=400, detail="同義詞列表不可為空")
-        synonym.words = cleaned_words
 
-    if request.is_active is not None:
-        synonym.is_active = request.is_active
+    repo = AISynonymRepository(db)
+    synonym = await repo.update_synonym(
+        request.id,
+        category=request.category.strip() if request.category is not None else None,
+        words=cleaned_words,
+        is_active=request.is_active,
+    )
+
+    if not synonym:
+        raise HTTPException(status_code=404, detail=f"找不到 ID={request.id} 的同義詞群組")
 
     await db.commit()
-    await db.refresh(synonym)
 
     logger.info(
         f"管理員 {current_user.username} 更新同義詞群組 ID={synonym.id}: "

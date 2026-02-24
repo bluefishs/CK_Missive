@@ -4,43 +4,24 @@ AI 關聯圖譜 & 語意相似推薦 API 端點
 - 關聯圖譜：根據公文 ID 列表，查詢相關的專案、機關，回傳節點與邊
 - 語意相似：根據單筆公文的 embedding，用 pgvector cosine_distance 推薦相似公文
 
-Version: 1.1.0
+Version: 2.0.0
 Created: 2026-02-24
-Updated: 2026-02-24 - 新增語意相似推薦 API
+Updated: 2026-02-24 - 業務邏輯遷移至 RelationGraphService
 """
 
-import hashlib
 import logging
-import os
-from typing import Dict, List, Optional, Set
 
 from fastapi import APIRouter, Depends, HTTPException
-from collections import Counter
 
-from sqlalchemy import or_, select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.core.dependencies import require_auth, get_async_db
-from app.extended.models import (
-    User,
-    OfficialDocument,
-    ContractProject,
-    DocumentEntity,
-    EntityRelation,
-    TaoyuanDispatchOrder,
-    TaoyuanDispatchDocumentLink,
-    TaoyuanDispatchProjectLink,
-    TaoyuanProject,
-)
+from app.core.dependencies import require_auth, get_service
+from app.extended.models import User
 from app.schemas.ai import (
     RelationGraphRequest,
     RelationGraphResponse,
-    GraphNode,
-    GraphEdge,
     SemanticSimilarRequest,
-    SemanticSimilarItem,
     SemanticSimilarResponse,
 )
+from app.services.ai.relation_graph_service import RelationGraphService
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +32,7 @@ router = APIRouter()
 async def get_relation_graph(
     request: RelationGraphRequest,
     current_user: User = Depends(require_auth()),
-    db: AsyncSession = Depends(get_async_db),
+    service: RelationGraphService = Depends(get_service(RelationGraphService)),
 ):
     """
     取得公文關聯圖譜
@@ -62,338 +43,7 @@ async def get_relation_graph(
     3. 所屬承攬案件（節點 + 邊）
     4. 發文/受文機關（節點 + 邊）
     """
-    doc_ids = request.document_ids
-    nodes: List[GraphNode] = []
-    edges: List[GraphEdge] = []
-    seen_nodes: Set[str] = set()
-    seen_edges: Set[str] = set()
-
-    def add_node(node: GraphNode):
-        if node.id not in seen_nodes:
-            seen_nodes.add(node.id)
-            nodes.append(node)
-
-    def add_edge(edge: GraphEdge):
-        key = f"{edge.source}->{edge.target}:{edge.type}"
-        if key not in seen_edges:
-            seen_edges.add(key)
-            edges.append(edge)
-
-    # 空 ID 列表時自動載入：最近公文 + 有派工連結的公文
-    if not doc_ids:
-        # 最近 10 筆公文
-        recent_result = await db.execute(
-            select(OfficialDocument.id)
-            .order_by(OfficialDocument.created_at.desc().nullslast())
-            .limit(10)
-        )
-        recent_ids = [row[0] for row in recent_result.all()]
-
-        # 最近 5 筆有派工連結的公文（確保自動模式能看到派工節點）
-        # 路徑 1: dispatch_document_link 表
-        dispatch_doc_result = await db.execute(
-            select(TaoyuanDispatchDocumentLink.document_id)
-            .distinct()
-            .order_by(TaoyuanDispatchDocumentLink.document_id.desc())
-            .limit(5)
-        )
-        dispatch_doc_ids = [row[0] for row in dispatch_doc_result.all()]
-
-        # 路徑 2: 派工單的 agency_doc_id / company_doc_id FK
-        fk_agency_result = await db.execute(
-            select(TaoyuanDispatchOrder.agency_doc_id)
-            .where(TaoyuanDispatchOrder.agency_doc_id.isnot(None))
-            .order_by(TaoyuanDispatchOrder.id.desc())
-            .limit(5)
-        )
-        fk_company_result = await db.execute(
-            select(TaoyuanDispatchOrder.company_doc_id)
-            .where(TaoyuanDispatchOrder.company_doc_id.isnot(None))
-            .order_by(TaoyuanDispatchOrder.id.desc())
-            .limit(5)
-        )
-        fk_doc_ids = (
-            [row[0] for row in fk_agency_result.all()]
-            + [row[0] for row in fk_company_result.all()]
-        )
-        dispatch_doc_ids = list(dict.fromkeys(dispatch_doc_ids + fk_doc_ids))
-
-        # 合併去重
-        doc_ids = list(dict.fromkeys(recent_ids + dispatch_doc_ids))
-        if not doc_ids:
-            return RelationGraphResponse(nodes=[], edges=[])
-
-    # 1. 查詢指定公文
-    result = await db.execute(
-        select(OfficialDocument).where(OfficialDocument.id.in_(doc_ids))
-    )
-    documents = result.scalars().all()
-
-    if not documents:
-        return RelationGraphResponse(nodes=[], edges=[])
-
-    # 收集關聯 ID
-    project_ids: Set[int] = set()
-    agency_names: Dict[str, str] = {}  # name -> node_id
-
-    for doc in documents:
-        node_id = f"doc_{doc.id}"
-        add_node(GraphNode(
-            id=node_id,
-            type="document",
-            label=doc.subject[:30] if doc.subject else doc.doc_number or f"公文#{doc.id}",
-            category=doc.doc_type or doc.category,
-            doc_number=doc.doc_number,
-            status=doc.status,
-        ))
-
-        if doc.contract_project_id:
-            project_ids.add(doc.contract_project_id)
-
-        # 機關節點
-        if doc.sender:
-            sender_key = doc.sender.strip()
-            if sender_key:
-                ag_id = f"agency_{hashlib.md5(sender_key.encode()).hexdigest()[:8]}"
-                agency_names[sender_key] = ag_id
-                add_node(GraphNode(id=ag_id, type="agency", label=sender_key))
-                add_edge(GraphEdge(source=ag_id, target=node_id, label="發文", type="sends"))
-
-        if doc.receiver:
-            receiver_key = doc.receiver.strip()
-            if receiver_key:
-                ag_id = f"agency_{hashlib.md5(receiver_key.encode()).hexdigest()[:8]}"
-                agency_names[receiver_key] = ag_id
-                add_node(GraphNode(id=ag_id, type="agency", label=receiver_key))
-                add_edge(GraphEdge(source=node_id, target=ag_id, label="受文", type="receives"))
-
-    # 2. 查詢承攬案件
-    if project_ids:
-        proj_result = await db.execute(
-            select(ContractProject).where(ContractProject.id.in_(list(project_ids)))
-        )
-        projects = proj_result.scalars().all()
-        for proj in projects:
-            proj_node_id = f"project_{proj.id}"
-            add_node(GraphNode(
-                id=proj_node_id,
-                type="project",
-                label=proj.project_name[:25] if proj.project_name else f"專案#{proj.id}",
-            ))
-            # 連接公文到專案
-            for doc in documents:
-                if doc.contract_project_id == proj.id:
-                    add_edge(GraphEdge(
-                        source=f"doc_{doc.id}",
-                        target=proj_node_id,
-                        label="所屬專案",
-                        type="belongs_to",
-                    ))
-
-    # 3. 查詢同專案的其他公文（擴展關聯，限 20 筆）
-    if project_ids:
-        related_result = await db.execute(
-            select(OfficialDocument)
-            .where(OfficialDocument.contract_project_id.in_(list(project_ids)))
-            .where(OfficialDocument.id.notin_(doc_ids))
-            .order_by(OfficialDocument.doc_date.desc().nullslast())
-            .limit(20)
-        )
-        related_docs = related_result.scalars().all()
-        for rdoc in related_docs:
-            rdoc_node_id = f"doc_{rdoc.id}"
-            add_node(GraphNode(
-                id=rdoc_node_id,
-                type="document",
-                label=rdoc.subject[:30] if rdoc.subject else rdoc.doc_number or f"公文#{rdoc.id}",
-                category=rdoc.doc_type or rdoc.category,
-                doc_number=rdoc.doc_number,
-                status=rdoc.status,
-            ))
-            if rdoc.contract_project_id:
-                add_edge(GraphEdge(
-                    source=rdoc_node_id,
-                    target=f"project_{rdoc.contract_project_id}",
-                    label="同專案",
-                    type="belongs_to",
-                ))
-
-    # 4. 查詢公文間的收發關聯（同文號前綴配對）
-    doc_numbers = [d.doc_number for d in documents if d.doc_number]
-    if doc_numbers:
-        for i, d1 in enumerate(documents):
-            for d2 in documents[i + 1:]:
-                if d1.doc_number and d2.doc_number:
-                    # 同發文單位收發配對
-                    if d1.sender and d2.receiver and d1.sender.strip() == d2.receiver.strip():
-                        add_edge(GraphEdge(
-                            source=f"doc_{d1.id}",
-                            target=f"doc_{d2.id}",
-                            label="收發配對",
-                            type="reply",
-                        ))
-
-    # 5. 加入 NER 提取的實體和關係
-    all_doc_ids = list(doc_ids)  # 包含原始查詢的公文 ID
-
-    # 5a. 查詢提取的實體
-    entity_result = await db.execute(
-        select(DocumentEntity)
-        .where(DocumentEntity.document_id.in_(all_doc_ids))
-        .where(DocumentEntity.confidence >= 0.7)
-    )
-    extracted_entities = entity_result.scalars().all()
-
-    # 計算每個實體的提及次數
-    entity_mention_counts: Counter = Counter()
-    for ent in extracted_entities:
-        entity_mention_counts[f"{ent.entity_type}:{ent.entity_name}"] += 1
-
-    # 建立實體名稱到節點 ID 的映射（同名同類型的實體合併為一個節點）
-    entity_node_map: Dict[str, str] = {}  # "type:name" -> node_id
-    for ent in extracted_entities:
-        entity_key = f"{ent.entity_type}:{ent.entity_name}"
-        if entity_key not in entity_node_map:
-            ent_node_id = f"ent_{hashlib.md5(entity_key.encode()).hexdigest()[:8]}"
-            entity_node_map[entity_key] = ent_node_id
-            add_node(GraphNode(
-                id=ent_node_id,
-                type=ent.entity_type,
-                label=ent.entity_name[:30],
-                mention_count=entity_mention_counts.get(entity_key, 1),
-            ))
-        # 連接實體到來源公文
-        add_edge(GraphEdge(
-            source=f"doc_{ent.document_id}",
-            target=entity_node_map[entity_key],
-            label="提及",
-            type="mentions",
-        ))
-
-    # 5b. 查詢提取的關係
-    relation_result = await db.execute(
-        select(EntityRelation)
-        .where(EntityRelation.document_id.in_(all_doc_ids))
-        .where(EntityRelation.confidence >= 0.7)
-    )
-    extracted_relations = relation_result.scalars().all()
-
-    for rel in extracted_relations:
-        src_key = f"{rel.source_entity_type}:{rel.source_entity_name}"
-        tgt_key = f"{rel.target_entity_type}:{rel.target_entity_name}"
-        src_id = entity_node_map.get(src_key)
-        tgt_id = entity_node_map.get(tgt_key)
-        if src_id and tgt_id:
-            add_edge(GraphEdge(
-                source=src_id,
-                target=tgt_id,
-                label=rel.relation_label or rel.relation_type,
-                type=rel.relation_type,
-                weight=rel.confidence,
-            ))
-
-    # 6. 查詢公文關聯的派工單（兩條路徑）
-    # 6a. 透過 dispatch_document_link 表
-    dispatch_link_result = await db.execute(
-        select(TaoyuanDispatchDocumentLink)
-        .where(TaoyuanDispatchDocumentLink.document_id.in_(all_doc_ids))
-    )
-    dispatch_links = dispatch_link_result.scalars().all()
-
-    dispatch_ids: Set[int] = set(dl.dispatch_order_id for dl in dispatch_links)
-
-    # 6b. 透過派工單的 agency_doc_id / company_doc_id FK 反向查詢
-    fk_dispatch_result = await db.execute(
-        select(TaoyuanDispatchOrder)
-        .where(
-            or_(
-                TaoyuanDispatchOrder.agency_doc_id.in_(all_doc_ids),
-                TaoyuanDispatchOrder.company_doc_id.in_(all_doc_ids),
-            )
-        )
-    )
-    for fk_disp in fk_dispatch_result.scalars().all():
-        dispatch_ids.add(fk_disp.id)
-
-    if dispatch_ids:
-        dispatch_result = await db.execute(
-            select(TaoyuanDispatchOrder)
-            .where(TaoyuanDispatchOrder.id.in_(list(dispatch_ids)))
-        )
-        dispatches = dispatch_result.scalars().all()
-
-        for disp in dispatches:
-            disp_node_id = f"dispatch_{disp.id}"
-            add_node(GraphNode(
-                id=disp_node_id,
-                type="dispatch",
-                label=f"派工 {disp.dispatch_no or disp.id}",
-                status=disp.project_name[:20] if disp.project_name else None,
-            ))
-            # 派工單自身的 agency_doc_id / company_doc_id 反向關聯
-            if disp.agency_doc_id and f"doc_{disp.agency_doc_id}" in seen_nodes:
-                add_edge(GraphEdge(
-                    source=disp_node_id,
-                    target=f"doc_{disp.agency_doc_id}",
-                    label="機關公文",
-                    type="agency_doc",
-                ))
-            if disp.company_doc_id and f"doc_{disp.company_doc_id}" in seen_nodes:
-                add_edge(GraphEdge(
-                    source=disp_node_id,
-                    target=f"doc_{disp.company_doc_id}",
-                    label="乾坤公文",
-                    type="company_doc",
-                ))
-
-        # 連接公文 → 派工單
-        for dl in dispatch_links:
-            add_edge(GraphEdge(
-                source=f"doc_{dl.document_id}",
-                target=f"dispatch_{dl.dispatch_order_id}",
-                label=dl.link_type or "派工關聯",
-                type="dispatch_link",
-            ))
-
-    # 7. 查詢派工單關聯的桃園工程
-    if dispatch_ids:
-        dispatch_proj_result = await db.execute(
-            select(TaoyuanDispatchProjectLink)
-            .where(TaoyuanDispatchProjectLink.dispatch_order_id.in_(list(dispatch_ids)))
-        )
-        ty_project_ids: Set[int] = set()
-        dispatch_proj_links = dispatch_proj_result.scalars().all()
-        for dpl in dispatch_proj_links:
-            ty_project_ids.add(dpl.taoyuan_project_id)
-
-        if ty_project_ids:
-            ty_proj_result = await db.execute(
-                select(TaoyuanProject)
-                .where(TaoyuanProject.id.in_(list(ty_project_ids)))
-            )
-            for tp in ty_proj_result.scalars().all():
-                tp_node_id = f"typroject_{tp.id}"
-                add_node(GraphNode(
-                    id=tp_node_id,
-                    type="project",
-                    label=tp.project_name[:25] if tp.project_name else f"工程#{tp.id}",
-                    category=tp.district,
-                ))
-
-            for dpl in dispatch_proj_links:
-                add_edge(GraphEdge(
-                    source=f"dispatch_{dpl.dispatch_order_id}",
-                    target=f"typroject_{dpl.taoyuan_project_id}",
-                    label="關聯工程",
-                    type="dispatch_project",
-                ))
-
-    logger.info(
-        f"關聯圖譜: {len(doc_ids)} 筆公文 → {len(nodes)} 節點, {len(edges)} 邊"
-        f" (含 {len(extracted_entities)} 提取實體, {len(extracted_relations)} 提取關係,"
-        f" {len(dispatch_links)} 派工關聯)"
-    )
-
+    nodes, edges = await service.build_relation_graph(request.document_ids)
     return RelationGraphResponse(nodes=nodes, edges=edges)
 
 
@@ -401,7 +51,7 @@ async def get_relation_graph(
 async def get_semantic_similar(
     request: SemanticSimilarRequest,
     current_user: User = Depends(require_auth()),
-    db: AsyncSession = Depends(get_async_db),
+    service: RelationGraphService = Depends(get_service(RelationGraphService)),
 ):
     """
     取得語意相似公文推薦
@@ -409,83 +59,26 @@ async def get_semantic_similar(
     根據指定公文的 embedding 向量，使用 pgvector cosine_distance
     找出語意最相近的其他公文。需要 PGVECTOR_ENABLED=true。
     """
-    doc_id = request.document_id
-    limit = request.limit
+    result = await service.get_semantic_similar(request.document_id, request.limit)
 
-    # 檢查 pgvector 是否啟用
-    pgvector_enabled = os.environ.get("PGVECTOR_ENABLED", "false").lower() == "true"
-    if not pgvector_enabled:
-        logger.info("語意相似推薦: pgvector 未啟用，回傳空結果")
-        return SemanticSimilarResponse(source_id=doc_id, similar_documents=[])
-
-    try:
-        # 取得來源公文的 embedding
-        source_result = await db.execute(
-            select(
-                OfficialDocument.id,
-                OfficialDocument.embedding,
-            ).where(OfficialDocument.id == doc_id)
+    if result is None:
+        # pgvector 未啟用或公文不存在
+        # 檢查是否公文不存在
+        from sqlalchemy import select
+        from app.extended.models import OfficialDocument
+        doc_check = await service.db.execute(
+            select(OfficialDocument.id).where(OfficialDocument.id == request.document_id)
         )
-        source_row = source_result.first()
-
-        if not source_row:
+        if not doc_check.first():
             raise HTTPException(status_code=404, detail="公文不存在")
+        # pgvector 未啟用
+        logger.info("語意相似推薦: pgvector 未啟用，回傳空結果")
+        return SemanticSimilarResponse(source_id=request.document_id, similar_documents=[])
 
-        source_embedding = source_row.embedding
-        if source_embedding is None:
-            logger.info(f"語意相似推薦: 公文 #{doc_id} 無 embedding，回傳空結果")
-            return SemanticSimilarResponse(source_id=doc_id, similar_documents=[])
-
-        # 轉為 list (pgvector ORM 方法需要)
-        if not isinstance(source_embedding, list):
-            source_embedding = list(source_embedding)
-
-        # 使用 cosine_distance 查詢相似公文
-        distance_expr = OfficialDocument.embedding.cosine_distance(source_embedding)
-        similarity_expr = (1 - distance_expr).label("similarity")
-
-        similar_result = await db.execute(
-            select(
-                OfficialDocument.id,
-                OfficialDocument.doc_number,
-                OfficialDocument.subject,
-                OfficialDocument.category,
-                OfficialDocument.sender,
-                OfficialDocument.doc_date,
-                similarity_expr,
-            )
-            .where(OfficialDocument.id != doc_id)
-            .where(OfficialDocument.embedding.isnot(None))
-            .order_by(distance_expr)
-            .limit(limit)
-        )
-        rows = similar_result.all()
-
-        similar_documents = [
-            SemanticSimilarItem(
-                id=row.id,
-                doc_number=row.doc_number,
-                subject=row.subject,
-                category=row.category,
-                sender=row.sender,
-                doc_date=str(row.doc_date) if row.doc_date else None,
-                similarity=round(float(row.similarity), 4),
-            )
-            for row in rows
-            if row.similarity >= 0.3  # 過濾低相似度
-        ]
-
-        logger.info(
-            f"語意相似推薦: 公文 #{doc_id} → {len(similar_documents)} 筆相似公文"
-        )
-
-        return SemanticSimilarResponse(
-            source_id=doc_id,
-            similar_documents=similar_documents,
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"語意相似推薦查詢失敗: {e}", exc_info=True)
-        return SemanticSimilarResponse(source_id=doc_id, similar_documents=[])
+    logger.info(
+        f"語意相似推薦: 公文 #{request.document_id} → {len(result)} 筆相似公文"
+    )
+    return SemanticSimilarResponse(
+        source_id=request.document_id,
+        similar_documents=result,
+    )

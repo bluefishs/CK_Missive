@@ -176,6 +176,9 @@ class WorkRecordService:
         # 自動同步審議進度
         await self._sync_review_status(record)
 
+        # 後序紀錄完成時，自動同步前序紀錄狀態
+        await self._sync_parent_status(record)
+
         return record
 
     async def update_record(
@@ -213,6 +216,9 @@ class WorkRecordService:
 
         # 自動同步審議進度
         await self._sync_review_status(record)
+
+        # 後序紀錄完成時，自動同步前序紀錄狀態
+        await self._sync_parent_status(record)
 
         return record
 
@@ -415,6 +421,42 @@ class WorkRecordService:
             f"自動關聯公文: dispatch_order={dispatch_order_id}, "
             f"document={document_id}, link_type={link_type}"
         )
+
+    # =========================================================================
+    # 前序紀錄狀態自動同步
+    # =========================================================================
+
+    async def _sync_parent_status(self, record: TaoyuanWorkRecord) -> None:
+        """
+        後序紀錄完成時，自動將前序紀錄狀態同步為已完成。
+
+        邏輯：若子紀錄被標記為 completed，其 parent_record
+        在邏輯上已完成（後續步驟已經在進行了），應同步更新。
+        """
+        if record.status != 'completed':
+            return
+        if not record.parent_record_id:
+            return
+
+        parent = await self.db.get(TaoyuanWorkRecord, record.parent_record_id)
+        if not parent:
+            return
+
+        # 前序紀錄已經是 completed，不需要重複更新
+        if parent.status == 'completed':
+            return
+
+        parent.status = 'completed'
+        await self.db.flush()
+
+        logger.info(
+            f"前序紀錄狀態自動同步: "
+            f"parent#{parent.id} ({parent.status} → completed) "
+            f"← 觸發者: child#{record.id}"
+        )
+
+        # 遞迴向上同步（若前序也有前序）
+        await self._sync_parent_status(parent)
 
     # =========================================================================
     # 審議進度自動同步

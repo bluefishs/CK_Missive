@@ -78,6 +78,42 @@ class AISynonymRepository(BaseRepository[AISynonym]):
         result = await self.db.execute(query)
         return [row[0] for row in result.fetchall()]
 
+    async def update_synonym(
+        self,
+        synonym_id: int,
+        *,
+        category: Optional[str] = None,
+        words: Optional[str] = None,
+        is_active: Optional[bool] = None,
+    ) -> Optional[AISynonym]:
+        """
+        更新同義詞群組
+
+        Args:
+            synonym_id: 同義詞群組 ID
+            category: 新分類（None 表示不更新）
+            words: 新同義詞列表（已清理的逗號分隔字串）
+            is_active: 新啟用狀態
+
+        Returns:
+            更新後的 AISynonym 實例，找不到則 None
+        """
+        synonym = await self.get_by_id(synonym_id)
+        if not synonym:
+            return None
+
+        if category is not None:
+            synonym.category = category
+        if words is not None:
+            synonym.words = words
+        if is_active is not None:
+            synonym.is_active = is_active
+
+        # 注意：不在 Repository 層做 commit，由呼叫端（端點或 Service）統一管理交易
+        await self.db.flush()
+        await self.db.refresh(synonym)
+        return synonym
+
     async def get_active_synonyms(self) -> List[AISynonym]:
         """
         取得所有啟用的同義詞群組

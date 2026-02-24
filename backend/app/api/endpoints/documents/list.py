@@ -133,7 +133,7 @@ async def list_documents(
         attachment_count_map = {}
         agency_map = {}
 
-        # 建立並行查詢任務 (v3.1.0 優化：asyncio.gather 並行執行)
+        # 批次查詢關聯資料（循序執行，AsyncSession 不支援 gather 並行）
         async def fetch_projects():
             if not project_ids:
                 return []

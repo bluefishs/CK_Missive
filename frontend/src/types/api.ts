@@ -331,6 +331,10 @@ export interface ProjectVendor {
   // 關聯資料（從 join 取得）
   vendor?: Vendor;
   vendor_name?: string;
+  // API 回應擴展欄位
+  vendor_contact_person?: string;
+  vendor_phone?: string;
+  vendor_business_type?: string;
 }
 
 /** 專案廠商建立請求 */
@@ -371,6 +375,10 @@ export interface ProjectStaff {
   user_name?: string;
   username?: string;
   full_name?: string;
+  // API 回應擴展欄位
+  user_email?: string;
+  department?: string;
+  phone?: string;
 }
 
 /** 專案人員建立請求 */
@@ -813,4 +821,153 @@ export interface RawCalendarEventResponse {
   location?: string;
   google_event_id?: string;
   google_sync_status?: 'pending' | 'synced' | 'failed';
+}
+
+// ============================================================================
+// 使用者 CRUD 請求型別
+// ============================================================================
+
+/** 使用者建立請求 */
+export interface UserCreate {
+  username: string;
+  email: string;
+  full_name?: string;
+  role?: string;
+  is_active?: boolean;
+  password: string;
+  department?: string;
+  position?: string;
+}
+
+/** 使用者更新請求 */
+export interface UserUpdate {
+  email?: string;
+  full_name?: string;
+  role?: string;
+  is_active?: boolean;
+  password?: string;
+  department?: string;
+  position?: string;
+}
+
+/** 使用者狀態更新請求 */
+export interface UserStatusUpdate {
+  is_active: boolean;
+}
+
+// ============================================================================
+// 公文相關輔助型別
+// ============================================================================
+
+/** 下拉選項 */
+export interface DropdownOption {
+  value: string;
+  label: string;
+  id?: number;
+  year?: number;
+  category?: string;
+}
+
+// ============================================================================
+// 專案廠商 CRUD 請求/回應型別
+// ============================================================================
+
+/** 協力廠商列表回應 */
+export interface ProjectVendorListResponse {
+  project_id: number;
+  project_name: string;
+  associations: ProjectVendor[];
+  total: number;
+}
+
+/** 新增協力廠商請求 */
+export interface ProjectVendorRequest {
+  project_id: number;
+  vendor_id: number;
+  role?: string;
+  contract_amount?: number;
+  start_date?: string;
+  end_date?: string;
+  status?: string;
+}
+
+/** 更新協力廠商請求 */
+export interface ProjectVendorUpdate {
+  role?: string;
+  contract_amount?: number;
+  start_date?: string;
+  end_date?: string;
+  status?: string;
+}
+
+// ============================================================================
+// 專案人員 CRUD 請求/回應型別
+// ============================================================================
+
+/** 承辦同仁列表回應 */
+export interface ProjectStaffListResponse {
+  project_id: number;
+  project_name: string;
+  staff: ProjectStaff[];
+  total: number;
+}
+
+/** 新增/更新承辦同仁請求 */
+export interface ProjectStaffRequest {
+  project_id: number;
+  user_id: number;
+  role?: string;
+  is_primary?: boolean;
+  start_date?: string;
+  end_date?: string;
+  status?: string;
+  notes?: string;
+}
+
+/** 承辦同仁更新請求 */
+export interface ProjectStaffUpdate {
+  role?: string;
+  is_primary?: boolean;
+  start_date?: string;
+  end_date?: string;
+  status?: string;
+  notes?: string;
+}
+
+// ============================================================================
+// 專案機關承辦型別
+// ============================================================================
+
+/** 專案機關承辦列表回應 */
+export interface ProjectAgencyContactListResponse {
+  items: import('./admin-system').ProjectAgencyContact[];
+  total: number;
+}
+
+// ============================================================================
+// 統計型別
+// ============================================================================
+
+/** 專案統計資料 */
+export interface ProjectStatistics {
+  total_projects: number;
+  status_breakdown: Array<{
+    status: string;
+    count: number;
+  }>;
+  year_breakdown: Array<{
+    year: number;
+    count: number;
+  }>;
+  average_contract_amount: number;
+}
+
+/** 廠商統計資料 */
+export interface VendorStatistics {
+  total_vendors: number;
+  business_types: Array<{
+    business_type: string;
+    count: number;
+  }>;
+  average_rating: number;
 }

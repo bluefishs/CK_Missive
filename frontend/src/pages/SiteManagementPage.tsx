@@ -8,7 +8,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import type { FC, Key } from 'react';
 import {
   Tree, TreeSelect, Button, Space, Modal, Form, Input, Select, Switch,
-  Card, Popconfirm, Tag, Tooltip, Alert, Tabs
+  Card, Popconfirm, Tag, Tooltip, Alert, Tabs, App
 } from 'antd';
 import type { TreeProps } from 'antd';
 import {
@@ -20,7 +20,6 @@ import {
 import { secureApiService } from '../services/secureApiService';
 import { navigationService } from '../services/navigationService';
 import { usePermissions } from '../hooks';
-import { message } from 'antd';
 import SiteConfigManagement from '../components/site-management/SiteConfigManagement';
 import './SiteManagementPage.css';
 import { logger } from '../utils/logger';
@@ -48,6 +47,7 @@ interface ValidPath {
 
 // 導覽管理組件
 const NavigationManagementImproved: FC = () => {
+  const { message } = App.useApp();
   const [navigationItems, setNavigationItems] = useState<NavigationItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);

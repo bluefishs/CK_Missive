@@ -4,7 +4,7 @@
  * 錯誤解析邏輯已提取至 utils/apiErrorParser.ts 共用。
  */
 import { useCallback, useState } from 'react';
-import { message, notification } from 'antd';
+import { App, notification } from 'antd';
 import { logger } from '../../utils/logger';
 import { parseApiError, type ParsedApiError } from '../../utils/apiErrorParser';
 
@@ -30,6 +30,7 @@ interface UseApiErrorHandlerReturn {
 export const useApiErrorHandler = (
   options: UseApiErrorHandlerOptions = {}
 ): UseApiErrorHandlerReturn => {
+  const { message, notification: appNotification } = App.useApp();
   const {
     showNotification = true,
     showMessage = false,
@@ -61,14 +62,14 @@ export const useApiErrorHandler = (
         description = `${errorMessage}\n\n技術詳情：\n${detail}`;
       }
 
-      notification[notificationType]({
+      appNotification[notificationType]({
         message: '操作失敗',
         description,
         duration: 5,
         placement: 'topRight'
       });
     }
-  }, [showMessage, showNotification]);
+  }, [message, appNotification, showMessage, showNotification]);
 
   const handleError = useCallback((error: unknown) => {
     const parsedError = parseApiError(error);

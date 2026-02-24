@@ -3,20 +3,20 @@ UserRepository - 使用者資料存取層
 
 提供 User 模型的 CRUD 操作和常用查詢方法。
 
-版本: 2.0.0
+版本: 3.0.0
 建立日期: 2026-02-06
-更新日期: 2026-02-06
-更新內容: 新增 get_users_filtered() 方法，支援篩選、搜尋、排序、分頁
+更新日期: 2026-02-24
+更新內容: 新增 create_user(), soft_delete(), get_sessions(), revoke_session()
 """
 
 import logging
 from typing import Optional, List, Tuple
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, update
 
 from app.repositories.base_repository import BaseRepository
-from app.extended.models import User
+from app.extended.models import User, UserSession
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +102,6 @@ class UserRepository(BaseRepository[User]):
         """
         if not kwargs:
             return False
-        from sqlalchemy import update
         stmt = (
             update(User)
             .where(User.id == user_id)
@@ -110,6 +109,58 @@ class UserRepository(BaseRepository[User]):
         )
         result = await self.db.execute(stmt)
         return result.rowcount > 0
+
+    async def update_and_refresh(self, user_id: int, **kwargs) -> Optional[User]:
+        """
+        更新使用者欄位並回傳更新後的完整物件。
+
+        Args:
+            user_id: 使用者 ID
+            **kwargs: 要更新的欄位與值
+
+        Returns:
+            更新後的 User，或 None（使用者不存在）
+        """
+        if not kwargs:
+            return await self.get_by_id(user_id)
+        stmt = update(User).where(User.id == user_id).values(**kwargs)
+        result = await self.db.execute(stmt)
+        if result.rowcount == 0:
+            return None
+        await self.db.commit()
+        user = await self.get_by_id(user_id)
+        if user:
+            await self.db.refresh(user)
+        return user
+
+    async def create_user(self, user: User) -> User:
+        """建立新使用者並回傳"""
+        self.db.add(user)
+        await self.db.commit()
+        await self.db.refresh(user)
+        return user
+
+    async def soft_delete(self, user_id: int) -> bool:
+        """軟刪除使用者（設為 is_active=False）"""
+        return await self.update_fields(user_id, is_active=False)
+
+    async def get_user_sessions(
+        self, user_id: int
+    ) -> List[UserSession]:
+        """取得使用者的所有會話"""
+        result = await self.db.execute(
+            select(UserSession)
+            .where(UserSession.user_id == user_id)
+            .order_by(UserSession.created_at.desc())
+        )
+        return list(result.scalars().all())
+
+    async def get_session_by_id(self, session_id: int) -> Optional[UserSession]:
+        """根據 ID 取得會話"""
+        result = await self.db.execute(
+            select(UserSession).where(UserSession.id == session_id)
+        )
+        return result.scalar_one_or_none()
 
     async def get_active_users(
         self,

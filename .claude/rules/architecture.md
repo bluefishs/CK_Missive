@@ -32,6 +32,26 @@ ORM 模型統一位於 `backend/app/extended/models.py`，按 7 個模組分區�
 | 6. 專案人員模組 | ProjectAgencyContact, StaffCertification |
 | 7. 桃園派工模組 | TaoyuanProject, TaoyuanDispatchOrder, TaoyuanDispatchProjectLink, etc. |
 
+## 後端 Service 層結構
+
+```
+backend/app/services/
+├── base/                       # 基礎服務 (ImportBaseService, ServiceResponse)
+├── ai/                         # AI 服務
+│   ├── embedding_manager.py    # Embedding 管理與覆蓋率統計
+│   ├── entity_extraction_service.py  # NER 實體提取
+│   ├── relation_graph_service.py     # 知識圖譜建構 (v1.0.0)
+│   └── natural_search_service.py     # 自然語言搜尋
+├── taoyuan/                    # 桃園派工服務
+├── system_health_service.py    # 系統健康檢查 (v1.0.0)
+├── agency_service.py           # 機關服務
+├── document_service.py         # 公文服務
+├── project_service.py          # 專案服務
+├── vendor_service.py           # 廠商服務
+├── audit_service.py            # 審計服務 (獨立 session)
+└── *_service.py                # 其他業務服務
+```
+
 ## 後端 API 結構
 
 ```
@@ -40,7 +60,7 @@ backend/app/api/endpoints/
 │   ├── list.py, crud.py, stats.py, export.py, import_.py, audit.py
 ├── document_calendar/      # 行事曆 API (模組化)
 ├── taoyuan_dispatch/       # 桃園派工 API (模組化)
-├── ai/                     # AI API
+├── ai/                     # AI API (薄端點層，邏輯在 services/ai/)
 └── *.py                    # 其他 API 端點
 ```
 
@@ -60,3 +80,28 @@ frontend/src/components/document/operations/
 ├── FileUploadSection.tsx
 └── index.ts                    # 統一匯出
 ```
+
+## 前端型別 SSOT (v1.60.0)
+
+```
+frontend/src/types/
+├── api.ts              # 業務實體型別 (User, Agency, Document, Project 等)
+├── ai.ts               # AI 功能型別 (GraphNode, IntentParsedResult 等)
+├── document.ts         # 公文專用型別 (DocumentCreate, DocumentUpdate)
+├── forms.ts            # 表單共用型別
+└── admin-system.ts     # 系統管理型別
+```
+
+## 前端全域錯誤處理 (v1.60.0)
+
+```
+frontend/src/api/errors.ts          # ApiException + ApiErrorBus 事件匯流排
+frontend/src/api/client.ts          # Axios 攔截器 → apiErrorBus.emit()
+frontend/src/components/common/
+├── GlobalApiErrorNotifier.tsx       # 訂閱 ApiErrorBus，自動顯示 403/5xx/網路錯誤
+└── ...
+```
+
+錯誤分流規則：
+- **業務錯誤** (400/409/422): 元件自行 catch 處理
+- **全域錯誤** (403/5xx/網路): `GlobalApiErrorNotifier` 自動通知，3 秒去重

@@ -18,6 +18,9 @@ import time
 from collections import OrderedDict
 from typing import Dict, List, Optional, Tuple
 
+from sqlalchemy import select, func
+from sqlalchemy.ext.asyncio import AsyncSession
+
 logger = logging.getLogger(__name__)
 
 
@@ -134,3 +137,31 @@ class EmbeddingManager:
     def is_available(cls) -> bool:
         """檢查 pgvector 功能是否啟用"""
         return os.environ.get("PGVECTOR_ENABLED", "false").lower() == "true"
+
+    @classmethod
+    async def get_coverage_stats(cls, db: AsyncSession) -> Dict:
+        """
+        取得 Embedding 覆蓋率統計
+
+        Returns:
+            {"total": int, "with_embedding": int, "without_embedding": int, "coverage": float}
+        """
+        from app.extended.models import OfficialDocument
+
+        total_result = await db.execute(
+            select(func.count(OfficialDocument.id))
+        )
+        total = total_result.scalar() or 0
+
+        with_result = await db.execute(
+            select(func.count(OfficialDocument.id))
+            .where(OfficialDocument.embedding.isnot(None))
+        )
+        with_emb = with_result.scalar() or 0
+
+        return {
+            "total": total,
+            "with_embedding": with_emb,
+            "without_embedding": total - with_emb,
+            "coverage": round((with_emb / total * 100) if total > 0 else 0.0, 2),
+        }

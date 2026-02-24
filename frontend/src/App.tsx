@@ -4,6 +4,7 @@ import { ConfigProvider, App as AntdApp } from 'antd';
 import { QueryProvider } from './providers';
 import { ErrorBoundary } from './components/common';
 import { AppRouter } from './router';
+import GlobalApiErrorNotifier from './components/common/GlobalApiErrorNotifier';
 import zhTW from 'antd/locale/zh_TW';
 import dayjs from 'dayjs';
 import 'dayjs/locale/zh-tw';
@@ -50,6 +51,7 @@ function App() {
           componentSize="middle"
         >
           <AntdApp>
+            <GlobalApiErrorNotifier />
             <BrowserRouter
               future={{
                 v7_startTransition: true,

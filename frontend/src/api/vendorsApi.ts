@@ -13,32 +13,22 @@ import {
   normalizePaginatedResponse,
   LegacyListResponse,
 } from './types';
-import {
+import type {
   Vendor,
   VendorCreate,
   VendorUpdate,
   VendorOption,
+  VendorStatistics,
 } from '../types/api';
 import { API_ENDPOINTS } from './endpoints';
 
-// ============================================================================
-// 查詢參數型別
-// ============================================================================
+// 重新匯出型別供外部使用
+export type { VendorStatistics };
 
 /** 廠商列表查詢參數 */
 export interface VendorListParams extends PaginationParams, SortParams {
   search?: string;
   business_type?: string;
-}
-
-/** 廠商統計資料 */
-export interface VendorStatistics {
-  total_vendors: number;
-  business_types: Array<{
-    business_type: string;
-    count: number;
-  }>;
-  average_rating: number;
 }
 
 // ============================================================================

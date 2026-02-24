@@ -38,7 +38,7 @@ import { useResponsive, useTaoyuanPaymentControl } from '../../hooks';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnGroupType, ColumnType } from 'antd/es/table';
 import dayjs from 'dayjs';
-import * as XLSX from 'xlsx';
+// xlsx 延遲載入 — 僅匯出時動態 import，減少初始 bundle 大小
 import { logger } from '../../services/logger';
 
 import type { PaymentControlItem } from '../../types/api';
@@ -320,6 +320,9 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) =
       const wsData = [headers1, headers2, ...rows];
 
       // 建立工作表
+      // 動態載入 xlsx（減少初始 bundle ~50KB）
+      const XLSX = await import('xlsx');
+
       const ws = XLSX.utils.aoa_to_sheet(wsData);
 
       // 設定欄寬

@@ -10,7 +10,7 @@ import {
   Card,
   List,
   Avatar,
-  message
+  App,
 } from 'antd';
 import {
   EditOutlined,
@@ -71,6 +71,7 @@ const RemarksField: React.FC<RemarksFieldProps> = ({
   inline = false,
   compact = false
 }) => {
+  const { message } = App.useApp();
   const [isEditing, setIsEditing] = useState(false);
   const [currentContent, setCurrentContent] = useState(value);
   const [expanded, setExpanded] = useState(false);

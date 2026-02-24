@@ -4,10 +4,11 @@
  * @version 1.1.0
  * @date 2026-01-11
  */
-import React from 'react';
-import SwaggerUI from 'swagger-ui-react';
+import React, { lazy, Suspense } from 'react';
+import { Card, Typography, Spin } from 'antd';
 import 'swagger-ui-react/swagger-ui.css';
-import { Card, Typography } from 'antd';
+
+const SwaggerUI = lazy(() => import('swagger-ui-react'));
 import { ResponsiveContent } from '../components/common';
 import { SERVER_BASE_URL } from '../api/client';
 
@@ -26,7 +27,9 @@ export const ApiDocumentationPage: React.FC = () => {
       </Paragraph>
 
       <Card style={{ minHeight: '600px' }}>
-        <SwaggerUI url={swaggerUrl} />
+        <Suspense fallback={<Spin tip="載入 Swagger UI..." style={{ display: 'block', margin: '40px auto' }} />}>
+          <SwaggerUI url={swaggerUrl} />
+        </Suspense>
       </Card>
     </ResponsiveContent>
   );

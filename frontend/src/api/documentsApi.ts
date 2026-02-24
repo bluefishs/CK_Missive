@@ -15,78 +15,49 @@ import {
 } from './types';
 import { API_ENDPOINTS } from './endpoints';
 
-// 從 types/api.ts 匯入統一的公文型別
-import {
+// 從 types/ 匯入統一的公文型別 (SSOT)
+import type {
   OfficialDocument,
-  DocumentCreate as ApiDocumentCreate,
+  DocumentCreate,
+  DocumentUpdate,
   DocumentTrendsResponse,
   DocumentEfficiencyResponse,
   DocumentStatistics,
   NextSendNumberResponse,
+  DropdownOption,
 } from '../types/api';
 import { logger } from '../services/logger';
 
 // ============================================================================
-// 型別定義 - 統一使用 types/api.ts 作為單一真實來源
+// 型別 re-export — 向後相容，定義位於 types/api.ts (SSOT)
 // ============================================================================
 
-/**
- * 公文基礎介面 - Document 是 OfficialDocument 的別名
- * 保持相容性，現有程式碼可繼續使用 Document
- */
+/** Document 是 OfficialDocument 的別名 */
 export type Document = OfficialDocument;
 
-/**
- * 公文建立請求 - 擴展 API 型別，添加額外欄位
- */
-export interface DocumentCreate extends ApiDocumentCreate {
-  doc_word?: string;
-  doc_class?: string;
-}
-
-/**
- * 公文更新請求 - 擴展 API 型別，添加額外欄位
- */
-export interface DocumentUpdate extends Partial<DocumentCreate> {
-  title?: string;
-  cloud_file_link?: string;
-  dispatch_format?: string;
-  auto_serial?: string;
-}
-
 // 重新匯出型別供外部使用
-export type { OfficialDocument, DocumentStatistics, NextSendNumberResponse };
+export type {
+  OfficialDocument, DocumentCreate, DocumentUpdate,
+  DocumentStatistics, NextSendNumberResponse, DropdownOption,
+};
 
 /** 公文列表查詢參數 */
 export interface DocumentListParams extends PaginationParams, SortParams {
-  // 關鍵字搜尋（前端可用 search 或 keyword）
   search?: string;
   keyword?: string;
-  doc_number?: string;       // 公文字號搜尋
-  // 類型篩選
+  doc_number?: string;
   doc_type?: string;
-  year?: number | string;    // 支援數字或字串
+  year?: number | string;
   status?: string;
-  category?: string;         // 收發文分類 (receive=收文, send=發文)
-  // 進階篩選
+  category?: string;
   contract_case?: string;
   sender?: string;
   receiver?: string;
-  delivery_method?: string;  // 發文形式 (電子交換/紙本郵寄)
-  // 日期篩選（支援兩種命名格式）
+  delivery_method?: string;
   doc_date_from?: string;
   doc_date_to?: string;
-  date_from?: string;        // 相容性別名
-  date_to?: string;          // 相容性別名
-}
-
-/** 下拉選項 */
-export interface DropdownOption {
-  value: string;
-  label: string;
-  id?: number;
-  year?: number;
-  category?: string;
+  date_from?: string;
+  date_to?: string;
 }
 
 // 文件附件型別請直接從 filesApi 匯入

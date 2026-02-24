@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_admin, require_auth, get_async_db
-from app.extended.models import User, AISearchHistory
+from app.extended.models import User
 from app.repositories import AISearchHistoryRepository
 from app.schemas.ai import (
     SearchHistoryListRequest,
@@ -147,16 +147,10 @@ async def submit_search_feedback(
     使用者對搜尋結果進行「有用/無用」評分，
     用於提升向量匹配品質（優先復用正回饋的歷史意圖）。
     """
-    from sqlalchemy import update
+    repo = AISearchHistoryRepository(db)
+    success = await repo.submit_feedback(request.history_id, request.score)
 
-    result = await db.execute(
-        update(AISearchHistory)
-        .where(AISearchHistory.id == request.history_id)
-        .values(feedback_score=request.score)
-    )
-    await db.commit()
-
-    if result.rowcount == 0:
+    if not success:
         return SearchFeedbackResponse(success=False, message="找不到該搜尋記錄")
 
     logger.info(

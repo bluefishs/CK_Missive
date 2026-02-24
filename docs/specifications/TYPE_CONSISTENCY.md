@@ -1,9 +1,9 @@
 # 型別一致性與整合開發規範 (Type Consistency & Integration)
-> Version: 1.0.0 | Last Updated: 2026-02-21
+> Version: 1.3.0 | Last Updated: 2026-02-24
 
-> 版本：1.2.0
+> 版本：1.3.0
 > 建立日期：2026-01-06
-> 最後更新：2026-01-08
+> 最後更新：2026-02-24
 > 用途：確保前後端欄位對應、UI 風格一致、降低整合錯誤
 > 原始檔案：`@TYPE_CONSISTENCY_SKILL_SPEC.md` (已遷移)
 
@@ -66,19 +66,18 @@ class DocumentBase(BaseModel):
 class DocumentResponse(DocumentBase):
     # 自動繼承 delivery_method
 
-步驟 4: Frontend API Types
+步驟 4: Frontend Types (SSOT)
 ────────────────────────────────────────────────────
-# frontend/src/api/documentsApi.ts
+# frontend/src/types/api.ts (或對應的 types/*.ts)
 export interface Document {
     delivery_method?: string;  // 發文形式
 }
 
-步驟 5: Frontend Business Types (如需要)
+步驟 5: Frontend API Layer (re-export only)
 ────────────────────────────────────────────────────
-# frontend/src/types/index.ts
-export interface Document {
-    readonly delivery_method?: string;
-}
+# frontend/src/api/documentsApi.ts
+// ✅ 只做 re-export，不定義新型別
+export type { Document, DocumentCreate, DocumentUpdate } from '../types/api';
 ```
 
 ### 2.2 欄位對應檢查清單
@@ -88,8 +87,8 @@ export interface Document {
 - [ ] Database Schema 已更新 (migration)
 - [ ] `models.py` ORM Model 已更新
 - [ ] `schemas/*.py` Pydantic Schema 已更新
-- [ ] `api/*Api.ts` TypeScript Interface 已更新
-- [ ] `types/index.ts` 全域型別已同步 (如有)
+- [ ] `types/*.ts` TypeScript Interface 已更新 (SSOT)
+- [ ] `api/*Api.ts` 確認只做 re-export，無本地型別定義
 - [ ] API 端點正確回傳新欄位
 - [ ] 前端正確接收並顯示
 
@@ -104,6 +103,49 @@ export interface Document {
 | `assigned_staff` | - (關聯) | `List[StaffInfo]` | `Array<{...}>` | 負責同仁 |
 | `category` | VARCHAR(100) | `str` | `string` | 收文/發文 |
 | `auto_serial` | VARCHAR(50) | `str` | `string` | 流水序號 |
+
+#### ProjectVendor 擴展欄位 (v1.60.0)
+
+| 欄位 | Database | Backend Schema | Frontend API | 用途 |
+|------|----------|----------------|--------------|------|
+| `vendor_contact_person` | - (JOIN) | `str` | `string` | 廠商聯絡人 |
+| `vendor_phone` | - (JOIN) | `str` | `string` | 廠商電話 |
+| `vendor_business_type` | - (JOIN) | `str` | `string` | 廠商業務類型 |
+
+#### ProjectStaff 擴展欄位 (v1.60.0)
+
+| 欄位 | Database | Backend Schema | Frontend API | 用途 |
+|------|----------|----------------|--------------|------|
+| `user_email` | - (JOIN) | `str` | `string` | 人員信箱 |
+| `department` | - (JOIN) | `str` | `string` | 所屬部門 |
+| `phone` | - (JOIN) | `str` | `string` | 聯絡電話 |
+
+### 2.4 前端型別 SSOT 位置規範 (v1.60.0)
+
+所有前端型別定義必須位於 `frontend/src/types/` 目錄，API 層檔案 (`api/*.ts`) **禁止定義本地 interface/type**，只允許 re-export。
+
+| 型別類別 | SSOT 位置 | 說明 |
+|---------|-----------|------|
+| 業務實體型別 | `types/api.ts` | User, Agency, Document, Project 等 |
+| 公文專用型別 | `types/document.ts` | DocumentCreate, DocumentUpdate 等 |
+| AI 功能型別 | `types/ai.ts` | AISearchResult, IntentParsedResult, GraphNode 等 |
+| 表單型別 | `types/forms.ts` | 各頁面表單共用型別 |
+| 管理系統型別 | `types/admin-system.ts` | 系統管理相關型別 |
+
+```typescript
+// ✅ 正確 — API 層只做 re-export
+// frontend/src/api/usersApi.ts
+export type { User, UserCreate, UserUpdate } from '../types/api';
+
+// ❌ 禁止 — API 層定義本地型別
+// frontend/src/api/usersApi.ts
+export interface UserCreate { ... }  // 不允許！
+```
+
+**AI 型別特別規範**：
+- 所有 AI 相關型別（查詢、回應、意圖解析、圖譜）集中於 `types/ai.ts`
+- `api/ai/types.ts` 僅作為相容層 re-export `types/ai.ts`
+- 元件直接從 `types/ai` 匯入型別，從 `api/aiApi` 匯入 API 函數
 
 ---
 
@@ -245,6 +287,7 @@ cd backend && pytest tests/test_schema_consistency.py -v
 
 | 版本 | 日期 | 變更內容 |
 |------|------|----------|
+| 1.3.0 | 2026-02-24 | 新增前端 SSOT 位置規範 (§2.4)、更新新增欄位流程步驟 4-5 |
 | 1.2.0 | 2026-01-08 | 遷移至 docs/specifications/ 目錄，更新引用路徑 |
 | 1.1.0 | 2026-01-06 | 新增 TypeScript 嚴格模式最佳實踐 |
 | 1.0.0 | 2026-01-06 | 初版 |
