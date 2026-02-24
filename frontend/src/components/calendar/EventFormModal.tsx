@@ -167,7 +167,7 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
             name="document_id"
             label="關聯公文"
             tooltip="輸入公文字號或主旨關鍵字搜尋（至少2個字元）"
-            rules={[{ required: mode === 'create', message: '請選擇關聯公文' }]}
+            rules={[]}
             help={
               existingEventsWarning ? (
                 <span style={{ color: '#fa8c16' }}>{existingEventsWarning}</span>

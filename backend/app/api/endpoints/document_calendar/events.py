@@ -184,39 +184,41 @@ async def create_calendar_event(
 ):
     """新增一個日曆事件
 
-    注意：document_id 為必填，所有事件必須關聯公文
+    document_id 為選填，不提供時建立獨立事件
     """
     try:
         doc_repo = DocumentRepository(db)
         cal_repo = CalendarRepository(db)
 
-        # 驗證公文存在
-        if not await doc_repo.exists(event_create.document_id):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"找不到公文 ID: {event_create.document_id}"
-            )
-
-        # 檢查重複事件（相同公文+相同標題+相同日期）
-        start_date_only = event_create.start_date.replace(hour=0, minute=0, second=0, microsecond=0)
-        end_date_only = start_date_only + timedelta(days=1)
-
-        existing_duplicate = await cal_repo.find_duplicate_event(
-            event_create.document_id, event_create.title,
-            start_date_only, end_date_only
-        )
-        if existing_duplicate:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"此公文在同一天已有相同標題的事件 (ID: {existing_duplicate.id})"
-            )
-
-        # 檢查公文是否已有事件（提供警告但不阻擋建立）
         existing_event_warning = None
-        existing_count = await cal_repo.count_by_document(event_create.document_id)
-        if existing_count > 0:
-            existing_event_warning = f"注意：此公文已有 {existing_count} 筆行事曆事件"
-            logger.info(f"公文 {event_create.document_id} 已有 {existing_count} 筆事件，仍建立新事件")
+
+        # 僅在提供 document_id 時驗證公文存在與重複事件
+        if event_create.document_id is not None:
+            if not await doc_repo.exists(event_create.document_id):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"找不到公文 ID: {event_create.document_id}"
+                )
+
+            # 檢查重複事件（相同公文+相同標題+相同日期）
+            start_date_only = event_create.start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_date_only = start_date_only + timedelta(days=1)
+
+            existing_duplicate = await cal_repo.find_duplicate_event(
+                event_create.document_id, event_create.title,
+                start_date_only, end_date_only
+            )
+            if existing_duplicate:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"此公文在同一天已有相同標題的事件 (ID: {existing_duplicate.id})"
+                )
+
+            # 檢查公文是否已有事件（提供警告但不阻擋建立）
+            existing_count = await cal_repo.count_by_document(event_create.document_id)
+            if existing_count > 0:
+                existing_event_warning = f"注意：此公文已有 {existing_count} 筆行事曆事件"
+                logger.info(f"公文 {event_create.document_id} 已有 {existing_count} 筆事件，仍建立新事件")
 
         # 處理時區問題
         start_date = event_create.start_date
@@ -277,18 +279,19 @@ async def create_event_with_reminders(
 ):
     """整合式事件建立 - 一站完成事件建立、提醒設定、Google 同步
 
-    注意：document_id 為必填，所有事件必須關聯公文
+    document_id 為選填，不提供時建立獨立事件
     """
     try:
         doc_repo = DocumentRepository(db)
         cal_repo = CalendarRepository(db)
 
-        # 0. 驗證公文存在
-        if not await doc_repo.exists(request.document_id):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"找不到公文 ID: {request.document_id}"
-            )
+        # 0. 僅在提供 document_id 時驗證公文存在
+        if request.document_id is not None:
+            if not await doc_repo.exists(request.document_id):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"找不到公文 ID: {request.document_id}"
+                )
 
         # 1. 處理時區
         start_date = request.start_date
@@ -302,19 +305,20 @@ async def create_event_with_reminders(
         else:
             end_date = start_date + timedelta(hours=1)
 
-        # 1.5. 檢查重複事件（相同公文+相同標題+相同日期）
-        start_date_only = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
-        end_date_only = start_date_only + timedelta(days=1)
+        # 1.5. 檢查重複事件（僅關聯公文時檢查：相同公文+相同標題+相同日期）
+        if request.document_id is not None:
+            start_date_only = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_date_only = start_date_only + timedelta(days=1)
 
-        existing_duplicate = await cal_repo.find_duplicate_event(
-            request.document_id, request.title,
-            start_date_only, end_date_only
-        )
-        if existing_duplicate:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"此公文在同一天已有相同標題的事件 (ID: {existing_duplicate.id})"
+            existing_duplicate = await cal_repo.find_duplicate_event(
+                request.document_id, request.title,
+                start_date_only, end_date_only
             )
+            if existing_duplicate:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"此公文在同一天已有相同標題的事件 (ID: {existing_duplicate.id})"
+                )
 
         # 2. 建立事件
         priority_str = str(request.priority) if request.priority else '3'

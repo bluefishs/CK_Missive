@@ -18,7 +18,7 @@ import logging
 from datetime import date as date_type
 from typing import Optional, List, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, literal_column
+from sqlalchemy import select, func, literal_column, delete
 from sqlalchemy.orm import selectinload
 
 from app.repositories.taoyuan import WorkRecordRepository
@@ -199,6 +199,14 @@ class WorkRecordService:
                 exclude_id=record_id,
             )
 
+        # 記錄舊的 parent_record_id，用於級聯清理
+        old_parent_id = record.parent_record_id
+        clearing_parent = (
+            'parent_record_id' in update_data
+            and not update_data['parent_record_id']
+            and old_parent_id is not None
+        )
+
         for key, value in update_data.items():
             setattr(record, key, value)
 
@@ -206,6 +214,12 @@ class WorkRecordService:
         await self.db.refresh(record)
 
         logger.info(f"更新作業紀錄: id={record_id}, fields={list(update_data.keys())}")
+
+        # 級聯清理：清除 parent_record_id 時，移除孤兒 DispatchDocumentLink
+        if clearing_parent:
+            await self._cleanup_orphaned_document_links(
+                record.dispatch_order_id, old_parent_id
+            )
 
         # 自動關聯公文到派工單
         if 'document_id' in update_data and update_data['document_id']:
@@ -421,6 +435,51 @@ class WorkRecordService:
             f"自動關聯公文: dispatch_order={dispatch_order_id}, "
             f"document={document_id}, link_type={link_type}"
         )
+
+    # =========================================================================
+    # 級聯清理：孤兒 DispatchDocumentLink
+    # =========================================================================
+
+    async def _cleanup_orphaned_document_links(
+        self,
+        dispatch_order_id: int,
+        old_parent_id: int,
+    ) -> None:
+        """
+        清除 parent_record_id 時，檢查舊 parent 的公文是否仍被
+        該派工單的其他作業紀錄引用。若無引用則移除 DispatchDocumentLink。
+        """
+        old_parent = await self.db.get(TaoyuanWorkRecord, old_parent_id)
+        if not old_parent or not old_parent.document_id:
+            return
+
+        doc_id = old_parent.document_id
+
+        # 檢查該派工單是否仍有其他紀錄引用此公文
+        ref_count_query = (
+            select(func.count())
+            .select_from(TaoyuanWorkRecord)
+            .where(
+                TaoyuanWorkRecord.dispatch_order_id == dispatch_order_id,
+                TaoyuanWorkRecord.document_id == doc_id,
+            )
+        )
+        result = await self.db.execute(ref_count_query)
+        count = result.scalar() or 0
+
+        if count == 0:
+            stmt = delete(TaoyuanDispatchDocumentLink).where(
+                TaoyuanDispatchDocumentLink.dispatch_order_id == dispatch_order_id,
+                TaoyuanDispatchDocumentLink.document_id == doc_id,
+            )
+            result = await self.db.execute(stmt)
+            if result.rowcount > 0:
+                logger.info(
+                    f"級聯清理 DispatchDocumentLink: "
+                    f"dispatch_order={dispatch_order_id}, "
+                    f"document={doc_id} (舊 parent #{old_parent_id})"
+                )
+            await self.db.flush()
 
     # =========================================================================
     # 前序紀錄狀態自動同步

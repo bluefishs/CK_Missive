@@ -362,8 +362,8 @@ const WorkRecordFormPage: React.FC = () => {
 
       const payload: Record<string, unknown> = {
         work_category: values.work_category,
-        document_id: values.document_id || undefined,
-        parent_record_id: values.parent_record_id || undefined,
+        document_id: values.document_id ?? null,
+        parent_record_id: values.parent_record_id ?? null,
         deadline_date: formatDate(values.deadline_date),
         status: values.status,
         description: values.description || undefined,
