@@ -221,7 +221,10 @@ class SearchIntentParser:
             return None, None
 
         try:
-            query_embedding = await self._ai.connector.generate_embedding(query)
+            from app.services.ai.embedding_manager import EmbeddingManager
+            query_embedding = await EmbeddingManager.get_embedding(
+                query, self._ai.connector,
+            )
         except Exception as e:
             logger.debug(f"向量匹配: embedding 生成失敗: {e}")
             return None, None
@@ -243,6 +246,8 @@ class SearchIntentParser:
             similarity_expr = (1 - distance_expr).label("similarity")
 
             # 優先使用正回饋歷史，其次無回饋，排除負回饋
+            # 先按距離篩選（只考慮相似度 >= 閾值的記錄），再按回饋排序
+            max_distance = 1 - self.VECTOR_SIMILARITY_THRESHOLD
             stmt = (
                 select(
                     AISearchHistory.parsed_intent,
@@ -255,6 +260,7 @@ class SearchIntentParser:
                 .where(embedding_col.isnot(None))
                 .where(AISearchHistory.confidence >= 0.5)
                 .where(AISearchHistory.created_at >= thirty_days_ago)
+                .where(distance_expr <= max_distance)
                 .where(
                     or_(
                         AISearchHistory.feedback_score.is_(None),
@@ -262,7 +268,7 @@ class SearchIntentParser:
                     )
                 )
                 .order_by(
-                    # 正回饋優先（feedback_score DESC NULLS LAST）
+                    # 正回饋優先，同回饋等級按距離排序
                     AISearchHistory.feedback_score.desc().nulls_last(),
                     distance_expr,
                 )

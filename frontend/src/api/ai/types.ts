@@ -221,6 +221,15 @@ export interface DocumentSearchResult {
   updated_at?: string | null;
 }
 
+/** 搜尋結果中匹配到的正規化實體（橋接圖譜） */
+export interface MatchedEntity {
+  entity_id: number;
+  canonical_name: string;
+  entity_type: string;
+  mention_count: number;
+  match_source: 'sender' | 'receiver' | 'keyword';
+}
+
 export interface NaturalSearchResponse {
   success: boolean;
   query: string;
@@ -231,6 +240,7 @@ export interface NaturalSearchResponse {
   search_strategy?: 'keyword' | 'similarity' | 'hybrid' | 'semantic' | null;
   synonym_expanded?: boolean;
   history_id?: number | null;
+  matched_entities?: MatchedEntity[];
   error?: string | null;
 }
 
@@ -272,11 +282,12 @@ export interface QuerySuggestionResponse {
 
 export interface GraphNode {
   id: string;
-  type: 'document' | 'project' | 'dispatch' | 'agency';
+  type: 'document' | 'project' | 'dispatch' | 'agency' | string;
   label: string;
   category?: string | null;
   doc_number?: string | null;
   status?: string | null;
+  mention_count?: number | null;
 }
 
 export interface GraphEdge {
@@ -284,6 +295,7 @@ export interface GraphEdge {
   target: string;
   label: string;
   type: string;
+  weight?: number | null;
 }
 
 export interface RelationGraphRequest {
@@ -564,4 +576,182 @@ export interface EntityStatsResponse {
   total_entities: number;
   total_relations: number;
   entity_type_stats: Record<string, number>;
+}
+
+// ============================================================================
+// 知識圖譜 Phase 2: 正規化實體查詢
+// ============================================================================
+
+export interface KGEntitySearchRequest {
+  query: string;
+  entity_type?: string | null;
+  limit?: number;
+}
+
+export interface KGEntityItem {
+  id: number;
+  canonical_name: string;
+  entity_type: string;
+  mention_count: number;
+  alias_count: number;
+  description?: string | null;
+  first_seen_at?: string | null;
+  last_seen_at?: string | null;
+}
+
+export interface KGEntitySearchResponse {
+  success: boolean;
+  results: KGEntityItem[];
+  total: number;
+}
+
+export interface KGNeighborsRequest {
+  entity_id: number;
+  max_hops?: number;
+  limit?: number;
+}
+
+export interface KGGraphNode {
+  id: number;
+  name: string;
+  type: string;
+  mention_count: number;
+  hop: number;
+}
+
+export interface KGGraphEdge {
+  source_id: number;
+  target_id: number;
+  relation_type: string;
+  relation_label?: string | null;
+  weight: number;
+}
+
+export interface KGNeighborsResponse {
+  success: boolean;
+  nodes: KGGraphNode[];
+  edges: KGGraphEdge[];
+}
+
+export interface KGEntityDetailRequest {
+  entity_id: number;
+}
+
+export interface KGEntityDocument {
+  document_id: number;
+  mention_text: string;
+  confidence: number;
+  subject?: string | null;
+  doc_number?: string | null;
+  doc_date?: string | null;
+}
+
+export interface KGEntityRelationship {
+  id: number;
+  direction: 'outgoing' | 'incoming';
+  relation_type: string;
+  relation_label?: string | null;
+  target_name?: string;
+  target_type?: string;
+  target_id?: number;
+  source_name?: string;
+  source_type?: string;
+  source_id?: number;
+  weight: number;
+  valid_from?: string | null;
+  valid_to?: string | null;
+  document_count: number;
+}
+
+export interface KGEntityDetailResponse {
+  success: boolean;
+  id: number;
+  canonical_name: string;
+  entity_type: string;
+  description?: string | null;
+  alias_count: number;
+  mention_count: number;
+  first_seen_at?: string | null;
+  last_seen_at?: string | null;
+  aliases: string[];
+  documents: KGEntityDocument[];
+  relationships: KGEntityRelationship[];
+}
+
+export interface KGTimelineRequest {
+  entity_id: number;
+}
+
+export interface KGTimelineItem {
+  id: number;
+  direction: 'outgoing' | 'incoming';
+  relation_type: string;
+  relation_label?: string | null;
+  other_name: string;
+  other_type: string;
+  weight: number;
+  valid_from?: string | null;
+  valid_to?: string | null;
+  invalidated_at?: string | null;
+  document_count: number;
+}
+
+export interface KGTimelineResponse {
+  success: boolean;
+  entity_id: number;
+  timeline: KGTimelineItem[];
+}
+
+export interface KGTopEntitiesRequest {
+  entity_type?: string | null;
+  sort_by?: 'mention_count' | 'alias_count';
+  limit?: number;
+}
+
+export interface KGTopEntitiesResponse {
+  success: boolean;
+  entities: KGEntityItem[];
+}
+
+export interface KGGraphStatsResponse {
+  success: boolean;
+  total_entities: number;
+  total_aliases: number;
+  total_mentions: number;
+  total_relationships: number;
+  total_ingestion_events: number;
+  entity_type_distribution: Record<string, number>;
+}
+
+export interface KGIngestRequest {
+  document_id?: number | null;
+  limit?: number;
+  force?: boolean;
+}
+
+export interface KGIngestResponse {
+  success: boolean;
+  status: string;
+  document_id?: number;
+  entities_found?: number;
+  entities_new?: number;
+  entities_merged?: number;
+  relations_found?: number;
+  processing_ms?: number;
+  total_processed?: number;
+  success_count?: number;
+  skip_count?: number;
+  error_count?: number;
+  message?: string;
+}
+
+export interface KGMergeEntitiesRequest {
+  keep_id: number;
+  merge_id: number;
+}
+
+export interface KGMergeEntitiesResponse {
+  success: boolean;
+  message: string;
+  entity_id: number;
 }

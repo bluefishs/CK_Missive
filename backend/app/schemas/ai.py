@@ -294,6 +294,18 @@ class AISynonymReloadResponse(BaseModel):
     message: str = Field(default="", description="訊息")
 
 
+class MatchedEntity(BaseModel):
+    """搜尋結果中匹配到的正規化實體（圖譜橋接）"""
+    entity_id: int = Field(..., description="正規化實體 ID")
+    canonical_name: str = Field(..., description="正規名稱")
+    entity_type: str = Field(..., description="實體類型")
+    mention_count: int = Field(default=0, description="提及次數")
+    match_source: str = Field(
+        default="sender",
+        description="匹配來源 (sender/receiver/keyword)"
+    )
+
+
 class NaturalSearchResponse(BaseModel):
     """自然語言搜尋回應"""
     success: bool = Field(default=True, description="是否成功")
@@ -311,6 +323,10 @@ class NaturalSearchResponse(BaseModel):
         description="是否經過同義詞擴展"
     )
     history_id: Optional[int] = Field(None, description="搜尋歷史 ID（用於回饋）")
+    matched_entities: List[MatchedEntity] = Field(
+        default=[],
+        description="搜尋中匹配到的正規化實體（橋接圖譜）"
+    )
     error: Optional[str] = Field(None, description="錯誤訊息")
 
     model_config = ConfigDict(from_attributes=True)
@@ -447,6 +463,7 @@ class GraphNode(BaseModel):
     category: Optional[str] = Field(None, description="收文/發文 等分類")
     doc_number: Optional[str] = Field(None, description="公文字號")
     status: Optional[str] = Field(None, description="狀態")
+    mention_count: Optional[int] = Field(None, description="提及次數（實體節點）")
 
 
 class GraphEdge(BaseModel):
@@ -455,6 +472,7 @@ class GraphEdge(BaseModel):
     target: str = Field(..., description="終點節點 ID")
     label: str = Field(default="", description="邊標籤")
     type: str = Field(default="relation", description="邊類型")
+    weight: Optional[float] = Field(None, description="關係權重")
 
 
 class SemanticSimilarRequest(BaseModel):

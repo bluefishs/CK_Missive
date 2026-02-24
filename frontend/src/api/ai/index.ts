@@ -73,6 +73,28 @@ export type {
   EntityBatchRequest,
   EntityBatchResponse,
   EntityStatsResponse,
+  // Knowledge Graph Phase 2
+  KGEntitySearchRequest,
+  KGEntitySearchResponse,
+  KGEntityItem,
+  KGNeighborsRequest,
+  KGNeighborsResponse,
+  KGGraphNode,
+  KGGraphEdge,
+  KGEntityDetailRequest,
+  KGEntityDetailResponse,
+  KGEntityDocument,
+  KGEntityRelationship,
+  KGTimelineRequest,
+  KGTimelineResponse,
+  KGTimelineItem,
+  KGTopEntitiesRequest,
+  KGTopEntitiesResponse,
+  KGGraphStatsResponse,
+  KGIngestRequest,
+  KGIngestResponse,
+  KGMergeEntitiesRequest,
+  KGMergeEntitiesResponse,
 } from './types';
 
 // Re-export abortNaturalSearch (standalone function)
@@ -118,6 +140,17 @@ import {
   runEntityBatch,
   getEntityStats,
 } from './adminManagement';
+
+import {
+  searchGraphEntities,
+  getEntityNeighbors,
+  getEntityDetail,
+  getEntityTimeline,
+  getTopEntities,
+  getGraphStats,
+  triggerGraphIngest,
+  mergeGraphEntities,
+} from './knowledgeGraph';
 
 // Compose the aiApi object (backward-compatible with original aiApi.ts)
 export const aiApi = {
@@ -165,6 +198,16 @@ export const aiApi = {
   extractEntities,
   runEntityBatch,
   getEntityStats,
+
+  // Knowledge Graph Phase 2
+  searchGraphEntities,
+  getEntityNeighbors,
+  getEntityDetail,
+  getEntityTimeline,
+  getTopEntities,
+  getGraphStats,
+  triggerGraphIngest,
+  mergeGraphEntities,
 };
 
 export default aiApi;

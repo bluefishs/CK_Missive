@@ -197,7 +197,7 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({ height, 
 
   const {
     query, setQuery, loading, loadingMore, results, parsedIntent, total,
-    searched, error, fromCache, searchSource,
+    searched, error, fromCache, searchSource, matchedEntities,
     expandedId, setExpandedId, showIntentDetails, setShowIntentDetails,
     searchHistory, autoCompleteOpen, setAutoCompleteOpen,
     serverSuggestions, fetchSuggestions,
@@ -205,6 +205,12 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({ height, 
     handleSearch, handleDocumentClick, handleDownloadAttachment, handlePreviewAttachment,
     handleAutoCompleteSelect, handleLoadMore, removeHistoryItem, clearAllHistory,
   } = useNaturalSearch({ onSearchComplete });
+
+  // 穩定的 documentIds 引用（避免每次 render 建新陣列觸發 KnowledgeGraph 重載）
+  const graphDocumentIds = useMemo(
+    () => results.map((r) => r.id),
+    [results],
+  );
 
   // 搜尋意圖標籤
   const intentTagsNode = useMemo(() => {
@@ -377,6 +383,16 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({ height, 
               </Space>
             </div>
             {showIntentDetails && intentTagsNode}
+            {matchedEntities.length > 0 && (
+              <div style={{ marginBottom: 4, display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
+                <Text type="secondary" style={{ fontSize: 10 }}>匹配實體：</Text>
+                {matchedEntities.map((me) => (
+                  <Tag key={me.entity_id} color="purple" style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px', margin: 0 }}>
+                    {me.canonical_name} ({me.entity_type})
+                  </Tag>
+                ))}
+              </div>
+            )}
             <div>
               {results.map((item) => (
                 <CompactResultItem key={item.id} item={item} isExpanded={expandedId === item.id}
@@ -428,7 +444,7 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({ height, 
                 </Button>
                 {showGraph && (
                   <div style={{ marginTop: 8 }}>
-                    <KnowledgeGraph documentIds={results.map((r) => r.id)} />
+                    <KnowledgeGraph documentIds={graphDocumentIds} />
                   </div>
                 )}
               </div>

@@ -84,6 +84,28 @@ export type {
   EntityBatchRequest,
   EntityBatchResponse,
   EntityStatsResponse,
+  // Knowledge Graph Phase 2
+  KGEntitySearchRequest,
+  KGEntitySearchResponse,
+  KGEntityItem,
+  KGNeighborsRequest,
+  KGNeighborsResponse,
+  KGGraphNode,
+  KGGraphEdge,
+  KGEntityDetailRequest,
+  KGEntityDetailResponse,
+  KGEntityDocument,
+  KGEntityRelationship,
+  KGTimelineRequest,
+  KGTimelineResponse,
+  KGTimelineItem,
+  KGTopEntitiesRequest,
+  KGTopEntitiesResponse,
+  KGGraphStatsResponse,
+  KGIngestRequest,
+  KGIngestResponse,
+  KGMergeEntitiesRequest,
+  KGMergeEntitiesResponse,
 } from './ai';
 
 export { aiApi as default } from './ai';

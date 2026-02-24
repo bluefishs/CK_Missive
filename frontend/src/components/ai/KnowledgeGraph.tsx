@@ -1,70 +1,43 @@
 /**
- * KnowledgeGraph - 公文關聯網絡互動式視覺化元件
+ * KnowledgeGraph - 公文關聯網絡互動式視覺化元件 v3.0
  *
  * 使用 react-force-graph-2d 實現力導向佈局：
  * - 物理模擬自動排列節點
  * - 縮放/平移/拖曳節點
- * - 點擊節點高亮鄰居
+ * - 點擊節點高亮鄰居 + 右側詳情面板
  * - 搜尋過濾、類型過濾
  * - 方向箭頭 + 邊標籤
+ * - Phase 2 正規化實體詳情側邊欄
  *
  * 節點按類型分色：公文=藍, 專案=綠, 機關=橙, 派工=紫
+ * 實體節點大小 ∝ mention_count，邊粗細 ∝ weight
  *
- * @version 2.0.0
+ * @version 3.0.0
  * @created 2026-02-24
- * @updated 2026-02-24 — 從靜態 SVG 遷移至 react-force-graph-2d
+ * @updated 2026-02-24 — 新增 EntityDetailSidebar + 正規化實體查詢
  */
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { Spin, Empty, Input, Checkbox, Button, Space, Tooltip as AntTooltip } from 'antd';
+import {
+  Spin, Empty, Input, Checkbox, Button, Space,
+  Tooltip as AntTooltip, Typography, message,
+} from 'antd';
 import {
   AimOutlined,
   ReloadOutlined,
   SearchOutlined,
+  LinkOutlined,
 } from '@ant-design/icons';
 import ForceGraph2D, { type ForceGraphMethods } from 'react-force-graph-2d';
 import { aiApi, type GraphNode, type GraphEdge } from '../../api/aiApi';
+import {
+  GRAPH_NODE_CONFIG,
+  CANONICAL_ENTITY_TYPES,
+  getNodeConfig,
+} from '../../config/graphNodeConfig';
+import { EntityDetailSidebar } from './EntityDetailSidebar';
 
-// ============================================================================
-// 常數
-// ============================================================================
-
-const NODE_COLORS: Record<string, string> = {
-  document: '#1890ff',
-  project: '#52c41a',
-  agency: '#fa8c16',
-  dispatch: '#722ed1',
-  // NER 提取實體類型
-  org: '#fa8c16',      // 與 agency 同色系（機關/組織）
-  person: '#f5222d',   // 紅
-  location: '#faad14', // 黃
-  date: '#13c2c2',     // 青
-  topic: '#eb2f96',    // 粉紅
-};
-
-const NODE_RADIUS: Record<string, number> = {
-  document: 6,
-  project: 9,
-  agency: 5,
-  dispatch: 7,
-  org: 5,
-  person: 5,
-  location: 4,
-  date: 4,
-  topic: 5,
-};
-
-const TYPE_LABELS: Record<string, string> = {
-  document: '公文',
-  project: '專案',
-  agency: '機關',
-  dispatch: '派工',
-  org: '組織',
-  person: '人物',
-  location: '地點',
-  date: '日期',
-  topic: '主題',
-};
+const { Text } = Typography;
 
 // ============================================================================
 // 內部型別
@@ -78,6 +51,7 @@ interface ForceNode {
   category?: string | null;
   doc_number?: string | null;
   status?: string | null;
+  mention_count?: number;
   x?: number;
   y?: number;
 }
@@ -87,6 +61,7 @@ interface ForceLink {
   target: string | ForceNode;
   label: string;
   type: string;
+  weight?: number;
 }
 
 interface GraphData {
@@ -99,9 +74,7 @@ interface GraphData {
 // ============================================================================
 
 export interface KnowledgeGraphProps {
-  /** 要顯示關聯的公文 ID 列表（空=自動載入最近公文） */
   documentIds: number[];
-  /** 容器高度 */
   height?: number;
 }
 
@@ -118,7 +91,7 @@ function getNodeId(node: string | ForceNode): string {
 }
 
 // ============================================================================
-// 元件
+// 主元件
 // ============================================================================
 
 export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
@@ -140,8 +113,13 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [searchText, setSearchText] = useState('');
   const [visibleTypes, setVisibleTypes] = useState<Set<string>>(
-    new Set(['document', 'project', 'agency', 'dispatch', 'org', 'person', 'location', 'date', 'topic'])
+    new Set(Object.keys(GRAPH_NODE_CONFIG))
   );
+
+  // Entity Detail Sidebar 狀態
+  const [sidebarVisible, setSidebarVisible] = useState(false);
+  const [sidebarEntityName, setSidebarEntityName] = useState('');
+  const [sidebarEntityType, setSidebarEntityType] = useState('');
 
   // 容器寬度偵測
   useEffect(() => {
@@ -181,7 +159,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
     return () => { cancelled = true; };
   }, [documentIds]);
 
-  // 鄰居 lookup（用於點擊高亮）
+  // 鄰居 lookup
   const neighborMap = useMemo(() => {
     const map = new Map<string, Set<string>>();
     for (const edge of rawEdges) {
@@ -193,8 +171,8 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
     return map;
   }, [rawEdges]);
 
-  // 搜尋匹配的節點 ID
-  const searchMatchIds = useMemo(() => {
+  // 本地搜尋匹配（打字即時回應）
+  const localSearchMatchIds = useMemo(() => {
     if (!searchText.trim()) return null;
     const lower = searchText.toLowerCase();
     const ids = new Set<string>();
@@ -209,7 +187,48 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
     return ids;
   }, [searchText, rawNodes]);
 
-  // 轉換為 force-graph 格式（含過濾）
+  // API 搜尋結果（Enter 觸發，含同義詞擴展）
+  const [apiSearchMatchIds, setApiSearchMatchIds] = useState<Set<string> | null>(null);
+  const [apiSearching, setApiSearching] = useState(false);
+
+  const handleSearchSubmit = useCallback(async () => {
+    const q = searchText.trim();
+    if (!q) {
+      setApiSearchMatchIds(null);
+      return;
+    }
+    setApiSearching(true);
+    try {
+      const result = await aiApi.searchGraphEntities({ query: q, limit: 30 });
+      if (result?.results?.length > 0) {
+        // 將 API 搜尋到的實體名稱映射到圖譜中已有的節點
+        const matchedNames = new Set(result.results.map((r: { canonical_name: string }) => r.canonical_name.toLowerCase()));
+        const ids = new Set<string>();
+        for (const node of rawNodes) {
+          if (matchedNames.has(node.label.toLowerCase())) {
+            ids.add(node.id);
+          }
+        }
+        setApiSearchMatchIds(ids.size > 0 ? ids : null);
+        if (ids.size === 0) {
+          message.info(`找到 ${result.results.length} 個正規化實體，但不在目前圖譜中`);
+        }
+      } else {
+        setApiSearchMatchIds(null);
+        message.info('未找到匹配的正規化實體');
+      }
+    } catch {
+      // API 搜尋失敗時靜默降級到本地搜尋
+      setApiSearchMatchIds(null);
+    } finally {
+      setApiSearching(false);
+    }
+  }, [searchText, rawNodes]);
+
+  // 合併搜尋結果：API 結果優先，無 API 結果時用本地
+  const searchMatchIds = apiSearchMatchIds ?? localSearchMatchIds;
+
+  // 轉換為 force-graph 格式
   const graphData = useMemo((): GraphData => {
     const filteredNodes = rawNodes.filter((n) => visibleTypes.has(n.type));
     const nodeIdSet = new Set(filteredNodes.map((n) => n.id));
@@ -218,10 +237,11 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
       id: n.id,
       label: n.label,
       type: n.type,
-      color: NODE_COLORS[n.type] || '#999',
+      color: getNodeConfig(n.type).color,
       category: n.category,
       doc_number: n.doc_number,
       status: n.status,
+      mention_count: n.mention_count ?? undefined,
     }));
 
     const links: ForceLink[] = rawEdges
@@ -231,27 +251,24 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
         target: e.target,
         label: e.label,
         type: e.type,
+        weight: e.weight ?? undefined,
       }));
 
     return { nodes, links };
   }, [rawNodes, rawEdges, visibleTypes]);
 
-  // 判斷節點是否應高亮
+  // 高亮判斷
   const isHighlighted = useCallback((nodeId: string): boolean => {
-    // 搜尋模式
     if (searchMatchIds) return searchMatchIds.has(nodeId);
-    // 點擊高亮模式
     if (selectedNodeId) {
       return nodeId === selectedNodeId || (neighborMap.get(selectedNodeId)?.has(nodeId) ?? false);
     }
-    // Hover 高亮
     if (hoveredNodeId) {
       return nodeId === hoveredNodeId || (neighborMap.get(hoveredNodeId)?.has(nodeId) ?? false);
     }
     return true;
   }, [searchMatchIds, selectedNodeId, hoveredNodeId, neighborMap]);
 
-  // 判斷邊是否應高亮
   const isLinkHighlighted = useCallback((link: ForceLink): boolean => {
     const srcId = getNodeId(link.source);
     const tgtId = getNodeId(link.target);
@@ -261,22 +278,23 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
     return true;
   }, [searchMatchIds, selectedNodeId, hoveredNodeId]);
 
-  // Canvas 自訂繪製節點
+  // Canvas 繪製節點
   const paintNode = useCallback((node: ForceNode, ctx: CanvasRenderingContext2D, globalScale: number) => {
     const x = node.x ?? 0;
     const y = node.y ?? 0;
-    const r = NODE_RADIUS[node.type] || 6;
+    const baseR = getNodeConfig(node.type).radius;
+    // 實體節點大小可隨 mention_count 調整
+    const mentionBonus = node.mention_count ? Math.min(Math.log2(node.mention_count + 1) * 1.5, 6) : 0;
+    const r = baseR + mentionBonus;
     const highlighted = isHighlighted(node.id);
     const isSelected = selectedNodeId === node.id;
     const isSearchMatch = searchMatchIds?.has(node.id);
 
-    // 圓形節點
     ctx.beginPath();
     ctx.arc(x, y, r, 0, 2 * Math.PI);
     ctx.fillStyle = highlighted ? node.color : 'rgba(200,200,200,0.3)';
     ctx.fill();
 
-    // 邊框
     if (isSelected) {
       ctx.strokeStyle = '#333';
       ctx.lineWidth = 2.5 / globalScale;
@@ -289,7 +307,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
     }
     ctx.stroke();
 
-    // 標籤（全域縮放 > 1.0 或被選中時顯示）
+    // 標籤
     if (globalScale > 1.0 || isSelected || isSearchMatch) {
       const fontSize = Math.max(10 / globalScale, 2);
       ctx.font = `${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
@@ -302,8 +320,18 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
 
   // 點擊節點
   const handleNodeClick = useCallback((node: ForceNode) => {
-    setSelectedNodeId((prev) => (prev === node.id ? null : node.id));
-  }, []);
+    const newSelected = selectedNodeId === node.id ? null : node.id;
+    setSelectedNodeId(newSelected);
+
+    // 如果是 canonical entity 類型，打開詳情側邊欄
+    if (newSelected && CANONICAL_ENTITY_TYPES.has(node.type)) {
+      setSidebarEntityName(node.label);
+      setSidebarEntityType(node.type);
+      setSidebarVisible(true);
+    } else {
+      setSidebarVisible(false);
+    }
+  }, [selectedNodeId]);
 
   // Hover 節點
   const handleNodeHover = useCallback((node: ForceNode | null) => {
@@ -322,18 +350,26 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
   const handleRefresh = useCallback(() => {
     setSelectedNodeId(null);
     setSearchText('');
-    // 觸發 useEffect 重新載入
+    setApiSearchMatchIds(null);
+    setSidebarVisible(false);
     setRawNodes([]);
     setRawEdges([]);
     setLoading(true);
+    let cancelled = false;
     aiApi.getRelationGraph({ document_ids: documentIds }).then((result) => {
+      if (cancelled) return;
       if (result) {
         setRawNodes(result.nodes);
         setRawEdges(result.edges);
       }
       setLoading(false);
       setTimeout(() => fgRef.current?.zoomToFit(400, 40), 500);
+    }).catch((err) => {
+      if (cancelled) return;
+      setError(err instanceof Error ? err.message : '重新載入失敗');
+      setLoading(false);
     });
+    return () => { cancelled = true; };
   }, [documentIds]);
 
   // 搜尋後聚焦
@@ -348,7 +384,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
     }
   }, [searchMatchIds, graphData.nodes]);
 
-  // Zoom to fit on initial load
+  // Initial zoom
   useEffect(() => {
     if (!loading && rawNodes.length > 0) {
       setTimeout(() => fgRef.current?.zoomToFit(600, 50), 300);
@@ -392,38 +428,39 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
         display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8,
         marginBottom: 8, padding: '6px 0',
       }}>
-        {/* 搜尋 */}
         <Input
           prefix={<SearchOutlined />}
-          placeholder="搜尋節點..."
+          suffix={apiSearching ? <Spin size="small" /> : undefined}
+          placeholder="搜尋節點（Enter 擴展搜尋）"
           value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
+          onChange={(e) => { setSearchText(e.target.value); setApiSearchMatchIds(null); }}
+          onPressEnter={handleSearchSubmit}
           allowClear
           size="small"
-          style={{ width: 180 }}
+          style={{ width: 220 }}
         />
 
-        {/* 類型過濾（只顯示圖譜中實際存在的類型） */}
         <Space size={4}>
-          {Object.entries(TYPE_LABELS).filter(([type]) => rawNodes.some((n) => n.type === type)).map(([type, label]) => (
-            <Checkbox
-              key={type}
-              checked={visibleTypes.has(type)}
-              onChange={(e) => handleTypeToggle(type, e.target.checked)}
-              style={{ fontSize: 12 }}
-            >
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                <span style={{
-                  width: 8, height: 8, borderRadius: '50%',
-                  background: NODE_COLORS[type], display: 'inline-block',
-                }} />
-                {label}
-              </span>
-            </Checkbox>
-          ))}
+          {Object.entries(GRAPH_NODE_CONFIG)
+            .filter(([type]) => rawNodes.some((n) => n.type === type))
+            .map(([type, cfg]) => (
+              <Checkbox
+                key={type}
+                checked={visibleTypes.has(type)}
+                onChange={(e) => handleTypeToggle(type, e.target.checked)}
+                style={{ fontSize: 12 }}
+              >
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                  <span style={{
+                    width: 8, height: 8, borderRadius: '50%',
+                    background: cfg.color, display: 'inline-block',
+                  }} />
+                  {cfg.label}
+                </span>
+              </Checkbox>
+            ))}
         </Space>
 
-        {/* 按鈕 */}
         <Space size={4} style={{ marginLeft: 'auto' }}>
           <AntTooltip title="自動適配畫面">
             <Button size="small" icon={<AimOutlined />} onClick={handleZoomToFit} />
@@ -455,29 +492,29 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
           graphData={graphData}
           width={containerWidth}
           height={height}
-          // 力學參數
           d3AlphaDecay={0.02}
           d3VelocityDecay={0.3}
-          // 節點
           nodeCanvasObject={paintNode as any}
           nodePointerAreaPaint={(node: any, color: string, ctx: CanvasRenderingContext2D) => {
-            const r = NODE_RADIUS[node.type] || 6;
+            const r = getNodeConfig(node.type).radius + 2;
             ctx.beginPath();
-            ctx.arc(node.x ?? 0, node.y ?? 0, r + 2, 0, 2 * Math.PI);
+            ctx.arc(node.x ?? 0, node.y ?? 0, r, 0, 2 * Math.PI);
             ctx.fillStyle = color;
             ctx.fill();
           }}
           onNodeClick={handleNodeClick as any}
           onNodeHover={handleNodeHover as any}
-          // 邊
           linkColor={(link: any) => isLinkHighlighted(link) ? 'rgba(150,150,150,0.6)' : 'rgba(220,220,220,0.2)'}
-          linkWidth={(link: any) => isLinkHighlighted(link) ? 1.5 : 0.5}
+          linkWidth={(link: any) => {
+            const base = isLinkHighlighted(link) ? 1.5 : 0.5;
+            const w = link.weight ?? 1;
+            return base * Math.min(w, 5);
+          }}
           linkDirectionalArrowLength={4}
           linkDirectionalArrowRelPos={0.85}
           linkDirectionalArrowColor={(link: any) => isLinkHighlighted(link) ? 'rgba(120,120,120,0.5)' : 'rgba(220,220,220,0.2)'}
           linkCanvasObjectMode={() => 'after'}
           linkCanvasObject={(link: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
-            // 邊標籤（只在縮放 > 1.5 且高亮時顯示）
             if (globalScale < 1.5 || !isLinkHighlighted(link)) return;
             const src = link.source;
             const tgt = link.target;
@@ -491,16 +528,17 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
             ctx.fillStyle = 'rgba(100,100,100,0.7)';
             ctx.fillText(link.label || '', midX, midY - 3 / globalScale);
           }}
-          // 背景
-          onBackgroundClick={() => setSelectedNodeId(null)}
-          // 效能
+          onBackgroundClick={() => {
+            setSelectedNodeId(null);
+            setSidebarVisible(false);
+          }}
           warmupTicks={50}
           cooldownTicks={100}
         />
       </div>
 
-      {/* Hover 節點詳情浮動面板 */}
-      {hoveredNodeId && (() => {
+      {/* Hover 節點浮動面板 */}
+      {hoveredNodeId && !sidebarVisible && (() => {
         const node = graphData.nodes.find((n) => n.id === hoveredNodeId);
         if (!node) return null;
         return (
@@ -511,15 +549,28 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
             minWidth: 160, zIndex: 10, pointerEvents: 'none',
           }}>
             <div style={{ fontWeight: 'bold', marginBottom: 4, color: node.color }}>
-              {TYPE_LABELS[node.type] || node.type}
+              {getNodeConfig(node.type).label}
             </div>
             <div>{node.label}</div>
             {node.doc_number && <div style={{ color: '#666' }}>文號：{node.doc_number}</div>}
             {node.category && <div style={{ color: '#666' }}>分類：{node.category}</div>}
             {node.status && <div style={{ color: '#666' }}>狀態：{node.status}</div>}
+            {getNodeConfig(node.type).detailable && (
+              <div style={{ color: '#1890ff', marginTop: 4, fontSize: 11 }}>
+                <LinkOutlined /> 點擊查看正規化實體詳情
+              </div>
+            )}
           </div>
         );
       })()}
+
+      {/* Entity Detail Sidebar (Phase 2) */}
+      <EntityDetailSidebar
+        visible={sidebarVisible}
+        entityName={sidebarEntityName}
+        entityType={sidebarEntityType}
+        onClose={() => setSidebarVisible(false)}
+      />
     </div>
   );
 };

@@ -165,6 +165,64 @@ const OverviewTab: React.FC = () => {
         </Col>
       </Row>
 
+      {/* AI 信心度與搜尋品質 */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        <Col xs={12} sm={6}>
+          <Card size="small">
+            <Statistic
+              title="平均信心度"
+              value={(stats.avg_confidence ?? 0) * 100}
+              suffix="%"
+              precision={1}
+              prefix={<CheckCircleOutlined />}
+              valueStyle={{ color: (stats.avg_confidence ?? 0) >= 0.6 ? '#3f8600' : '#faad14' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={12} sm={6}>
+          <Card size="small">
+            <Statistic
+              title="錯誤源比例"
+              value={
+                stats.source_distribution?.error
+                  ? ((stats.source_distribution.error / Math.max(stats.total_searches, 1)) * 100)
+                  : 0
+              }
+              suffix="%"
+              precision={1}
+              prefix={<WarningOutlined />}
+              valueStyle={{
+                color: (stats.source_distribution?.error ?? 0) > 0 ? '#cf1322' : '#3f8600',
+              }}
+            />
+          </Card>
+        </Col>
+        <Col xs={12} sm={6}>
+          <Card size="small">
+            <Statistic
+              title="同義詞擴展使用"
+              value={
+                stats.strategy_distribution?.hybrid
+                  ? stats.strategy_distribution.hybrid
+                  : 0
+              }
+              suffix="次"
+              prefix={<TagsOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col xs={12} sm={6}>
+          <Card size="small">
+            <Statistic
+              title="派工搜尋次數"
+              value={stats.entity_distribution?.dispatch_order ?? 0}
+              suffix="次"
+              prefix={<CloudServerOutlined />}
+            />
+          </Card>
+        </Col>
+      </Row>
+
       {/* 分佈統計 */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={24} sm={8}>

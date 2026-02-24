@@ -20,6 +20,7 @@ import {
   NaturalSearchResponse,
   QuerySuggestionItem,
 } from '../../../api/aiApi';
+import type { MatchedEntity } from '../../../api/ai/types';
 import { filesApi } from '../../../api/filesApi';
 
 // ============================================================================
@@ -160,6 +161,7 @@ export interface UseNaturalSearchReturn {
   error: string | null;
   fromCache: boolean;
   searchSource: NaturalSearchResponse['source'] | null;
+  matchedEntities: MatchedEntity[];
 
   // 展開/收合
   expandedId: number | null;
@@ -216,6 +218,7 @@ export function useNaturalSearch(options: UseNaturalSearchOptions = {}): UseNatu
   const [error, setError] = useState<string | null>(null);
   const [fromCache, setFromCache] = useState(false);
   const [searchSource, setSearchSource] = useState<NaturalSearchResponse['source'] | null>(null);
+  const [matchedEntities, setMatchedEntities] = useState<MatchedEntity[]>([]);
 
   // 搜尋回饋
   const [historyId, setHistoryId] = useState<number | null>(null);
@@ -349,6 +352,7 @@ export function useNaturalSearch(options: UseNaturalSearchOptions = {}): UseNatu
           // 新搜尋：替換結果
           setResults(response.results);
           setSearchSource(response.source);
+          setMatchedEntities(response.matched_entities ?? []);
           setHistoryId(response.history_id ?? null);
           setFeedbackScore(null);
 
@@ -371,13 +375,37 @@ export function useNaturalSearch(options: UseNaturalSearchOptions = {}): UseNatu
         // 區分錯誤類型提供更有用的訊息
         const errorMsg = response.error || '搜尋失敗';
         const isAiUnavailable = errorMsg.includes('AI 服務') || errorMsg.includes('ConnectError');
-        setError(isAiUnavailable ? '目前 AI 服務暫時無法使用，請稍後再試' : errorMsg);
-        message.error(isAiUnavailable ? 'AI 服務暫時無法使用' : errorMsg);
+        const isTimeout = errorMsg.includes('超時') || errorMsg.includes('timeout');
+        const isRateLimit = errorMsg.includes('速率') || errorMsg.includes('rate');
+
+        let userMessage: string;
+        if (isTimeout) {
+          userMessage = '搜尋查詢超時，請縮小搜尋範圍或使用更具體的關鍵字';
+        } else if (isAiUnavailable) {
+          userMessage = '目前 AI 服務暫時無法使用，系統已自動使用關鍵字搜尋';
+        } else if (isRateLimit) {
+          userMessage = 'AI 服務請求過於頻繁，請稍後再試';
+        } else {
+          userMessage = errorMsg;
+        }
+
+        setError(userMessage);
+        // 超時和 AI 不可用用 warning（非嚴重錯誤），其餘用 error
+        if (isTimeout || isAiUnavailable) {
+          message.warning(userMessage);
+        } else {
+          message.error(userMessage);
+        }
       }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : '搜尋發生錯誤';
-      setError(errorMsg);
-      message.error(errorMsg);
+      const rawMsg = err instanceof Error ? err.message : '搜尋發生錯誤';
+      const isCancelled = rawMsg.includes('取消') || rawMsg.includes('abort') || rawMsg.includes('cancel');
+      if (isCancelled) {
+        setError('搜尋已取消');
+      } else {
+        setError(rawMsg);
+        message.error(rawMsg);
+      }
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -455,6 +483,7 @@ export function useNaturalSearch(options: UseNaturalSearchOptions = {}): UseNatu
     error,
     fromCache,
     searchSource,
+    matchedEntities,
 
     // 展開/收合
     expandedId,

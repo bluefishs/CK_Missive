@@ -651,6 +651,23 @@ export const AI_ENDPOINTS = {
   ENTITY_BATCH: '/ai/entity/batch',
   /** 實體提取統計 POST /ai/entity/stats */
   ENTITY_STATS: '/ai/entity/stats',
+  // --- 知識圖譜 Phase 2: 正規化實體查詢 ---
+  /** 正規化實體搜尋 POST /ai/graph/entity/search */
+  GRAPH_ENTITY_SEARCH: '/ai/graph/entity/search',
+  /** 實體鄰居查詢 POST /ai/graph/entity/neighbors */
+  GRAPH_ENTITY_NEIGHBORS: '/ai/graph/entity/neighbors',
+  /** 實體詳情 POST /ai/graph/entity/detail */
+  GRAPH_ENTITY_DETAIL: '/ai/graph/entity/detail',
+  /** 實體時間軸 POST /ai/graph/entity/timeline */
+  GRAPH_ENTITY_TIMELINE: '/ai/graph/entity/timeline',
+  /** 高頻實體排名 POST /ai/graph/entity/top */
+  GRAPH_ENTITY_TOP: '/ai/graph/entity/top',
+  /** 圖譜統計 POST /ai/graph/stats */
+  GRAPH_STATS: '/ai/graph/stats',
+  /** 圖譜入圖管線 POST /ai/graph/ingest */
+  GRAPH_INGEST: '/ai/graph/ingest',
+  /** 實體合併 POST /ai/graph/admin/merge-entities */
+  GRAPH_MERGE_ENTITIES: '/ai/graph/admin/merge-entities',
 } as const;
 
 // ============================================================================

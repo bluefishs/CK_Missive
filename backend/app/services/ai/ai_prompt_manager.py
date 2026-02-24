@@ -70,7 +70,7 @@ class AIPromptManager:
         },
     }
 
-    # 同義詞快取
+    # 同義詞：委託給 SynonymExpander（保留屬性供向後相容讀取）
     _synonyms: Optional[Dict[str, List[List[str]]]] = None
     _synonym_lookup: Optional[Dict[str, List[str]]] = None
 
@@ -154,62 +154,19 @@ class AIPromptManager:
 
     @classmethod
     def load_synonyms(cls) -> Dict[str, List[str]]:
-        """載入同義詞字典並建立快速查找索引"""
-        if cls._synonym_lookup is not None:
-            return cls._synonym_lookup
-
-        synonyms_path = Path(__file__).parent / "synonyms.yaml"
-        try:
-            with open(synonyms_path, "r", encoding="utf-8") as f:
-                cls._synonyms = yaml.safe_load(f)
-            logger.info(f"已載入同義詞字典 (YAML fallback): {synonyms_path}")
-        except FileNotFoundError:
-            logger.warning(f"同義詞字典檔案不存在: {synonyms_path}")
-            cls._synonyms = {}
-        except Exception as e:
-            logger.error(f"載入同義詞字典失敗: {e}")
-            cls._synonyms = {}
-
-        # 建立快速查找索引: {任一詞 -> [同組所有詞]}
-        lookup: Dict[str, List[str]] = {}
-        for group_key in (cls._synonyms or {}):
-            groups = cls._synonyms.get(group_key, [])
-            if not isinstance(groups, list):
-                continue
-            for group in groups:
-                if not isinstance(group, list):
-                    continue
-                for word in group:
-                    lookup[word] = group
-
-        cls._synonym_lookup = lookup
-        logger.info(f"同義詞查找索引已建立: {len(lookup)} 個詞彙")
-        return cls._synonym_lookup
+        """載入同義詞字典並建立快速查找索引（委託 SynonymExpander）"""
+        from app.services.ai.synonym_expander import SynonymExpander
+        lookup = SynonymExpander.get_lookup()
+        cls._synonym_lookup = lookup  # 同步向後相容屬性
+        return lookup
 
     @classmethod
     def reload_synonyms_from_db(cls, synonym_records: list) -> int:
-        """
-        從 DB 記錄重建同義詞查找索引
-
-        Args:
-            synonym_records: DB 查詢結果列表，每筆有 words 屬性
-
-        Returns:
-            載入的詞彙數
-        """
-        lookup: Dict[str, List[str]] = {}
-        total_words = 0
-
-        for record in synonym_records:
-            words = [w.strip() for w in record.words.split(",") if w.strip()]
-            total_words += len(words)
-            for word in words:
-                lookup[word] = words
-
-        cls._synonym_lookup = lookup
-        cls._synonyms = None  # 清除 YAML 快取
-        logger.info(f"同義詞查找索引已從 DB 重建: {total_words} 個詞彙")
-        return total_words
+        """從 DB 記錄重建同義詞查找索引（委託 SynonymExpander）"""
+        from app.services.ai.synonym_expander import SynonymExpander
+        total = SynonymExpander.reload_from_db(synonym_records)
+        cls._synonym_lookup = SynonymExpander.get_lookup()  # 同步
+        return total
 
     @classmethod
     def invalidate_prompt_cache(cls) -> None:
@@ -224,21 +181,12 @@ class AIPromptManager:
         keywords: List[str],
         lookup: Dict[str, List[str]],
     ) -> List[str]:
-        """擴展關鍵字列表：加入同義詞"""
-        expanded = set(keywords)
-        for kw in keywords:
-            synonyms = lookup.get(kw, [])
-            for syn in synonyms:
-                expanded.add(syn)
-        result = list(expanded)
-        if len(result) > len(keywords):
-            logger.info(f"關鍵字擴展: {keywords} -> {result}")
-        return result
+        """擴展關鍵字列表：加入同義詞（委託 SynonymExpander）"""
+        from app.services.ai.synonym_expander import SynonymExpander
+        return SynonymExpander.expand_keywords(keywords)
 
     @staticmethod
     def expand_agency_name(name: str, lookup: Dict[str, List[str]]) -> str:
-        """擴展機關名稱：縮寫 -> 全稱"""
-        synonyms = lookup.get(name, [])
-        if synonyms:
-            return synonyms[0]
-        return name
+        """擴展機關名稱：縮寫 -> 全稱（委託 SynonymExpander）"""
+        from app.services.ai.synonym_expander import SynonymExpander
+        return SynonymExpander.expand_agency(name)

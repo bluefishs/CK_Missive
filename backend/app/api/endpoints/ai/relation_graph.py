@@ -9,12 +9,15 @@ Created: 2026-02-24
 Updated: 2026-02-24 - 新增語意相似推薦 API
 """
 
+import hashlib
 import logging
 import os
 from typing import Dict, List, Optional, Set
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from collections import Counter
+
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_auth, get_async_db
@@ -24,6 +27,10 @@ from app.extended.models import (
     ContractProject,
     DocumentEntity,
     EntityRelation,
+    TaoyuanDispatchOrder,
+    TaoyuanDispatchDocumentLink,
+    TaoyuanDispatchProjectLink,
+    TaoyuanProject,
 )
 from app.schemas.ai import (
     RelationGraphRequest,
@@ -72,14 +79,47 @@ async def get_relation_graph(
             seen_edges.add(key)
             edges.append(edge)
 
-    # 空 ID 列表時自動載入最近 10 筆公文
+    # 空 ID 列表時自動載入：最近公文 + 有派工連結的公文
     if not doc_ids:
+        # 最近 10 筆公文
         recent_result = await db.execute(
             select(OfficialDocument.id)
             .order_by(OfficialDocument.created_at.desc().nullslast())
             .limit(10)
         )
-        doc_ids = [row[0] for row in recent_result.all()]
+        recent_ids = [row[0] for row in recent_result.all()]
+
+        # 最近 5 筆有派工連結的公文（確保自動模式能看到派工節點）
+        # 路徑 1: dispatch_document_link 表
+        dispatch_doc_result = await db.execute(
+            select(TaoyuanDispatchDocumentLink.document_id)
+            .distinct()
+            .order_by(TaoyuanDispatchDocumentLink.document_id.desc())
+            .limit(5)
+        )
+        dispatch_doc_ids = [row[0] for row in dispatch_doc_result.all()]
+
+        # 路徑 2: 派工單的 agency_doc_id / company_doc_id FK
+        fk_agency_result = await db.execute(
+            select(TaoyuanDispatchOrder.agency_doc_id)
+            .where(TaoyuanDispatchOrder.agency_doc_id.isnot(None))
+            .order_by(TaoyuanDispatchOrder.id.desc())
+            .limit(5)
+        )
+        fk_company_result = await db.execute(
+            select(TaoyuanDispatchOrder.company_doc_id)
+            .where(TaoyuanDispatchOrder.company_doc_id.isnot(None))
+            .order_by(TaoyuanDispatchOrder.id.desc())
+            .limit(5)
+        )
+        fk_doc_ids = (
+            [row[0] for row in fk_agency_result.all()]
+            + [row[0] for row in fk_company_result.all()]
+        )
+        dispatch_doc_ids = list(dict.fromkeys(dispatch_doc_ids + fk_doc_ids))
+
+        # 合併去重
+        doc_ids = list(dict.fromkeys(recent_ids + dispatch_doc_ids))
         if not doc_ids:
             return RelationGraphResponse(nodes=[], edges=[])
 
@@ -114,7 +154,7 @@ async def get_relation_graph(
         if doc.sender:
             sender_key = doc.sender.strip()
             if sender_key:
-                ag_id = f"agency_{hash(sender_key) % 100000}"
+                ag_id = f"agency_{hashlib.md5(sender_key.encode()).hexdigest()[:8]}"
                 agency_names[sender_key] = ag_id
                 add_node(GraphNode(id=ag_id, type="agency", label=sender_key))
                 add_edge(GraphEdge(source=ag_id, target=node_id, label="發文", type="sends"))
@@ -122,7 +162,7 @@ async def get_relation_graph(
         if doc.receiver:
             receiver_key = doc.receiver.strip()
             if receiver_key:
-                ag_id = f"agency_{hash(receiver_key) % 100000}"
+                ag_id = f"agency_{hashlib.md5(receiver_key.encode()).hexdigest()[:8]}"
                 agency_names[receiver_key] = ag_id
                 add_node(GraphNode(id=ag_id, type="agency", label=receiver_key))
                 add_edge(GraphEdge(source=node_id, target=ag_id, label="受文", type="receives"))
@@ -204,17 +244,23 @@ async def get_relation_graph(
     )
     extracted_entities = entity_result.scalars().all()
 
+    # 計算每個實體的提及次數
+    entity_mention_counts: Counter = Counter()
+    for ent in extracted_entities:
+        entity_mention_counts[f"{ent.entity_type}:{ent.entity_name}"] += 1
+
     # 建立實體名稱到節點 ID 的映射（同名同類型的實體合併為一個節點）
     entity_node_map: Dict[str, str] = {}  # "type:name" -> node_id
     for ent in extracted_entities:
         entity_key = f"{ent.entity_type}:{ent.entity_name}"
         if entity_key not in entity_node_map:
-            ent_node_id = f"ent_{hash(entity_key) % 1000000}"
+            ent_node_id = f"ent_{hashlib.md5(entity_key.encode()).hexdigest()[:8]}"
             entity_node_map[entity_key] = ent_node_id
             add_node(GraphNode(
                 id=ent_node_id,
                 type=ent.entity_type,
                 label=ent.entity_name[:30],
+                mention_count=entity_mention_counts.get(entity_key, 1),
             ))
         # 連接實體到來源公文
         add_edge(GraphEdge(
@@ -243,11 +289,109 @@ async def get_relation_graph(
                 target=tgt_id,
                 label=rel.relation_label or rel.relation_type,
                 type=rel.relation_type,
+                weight=rel.confidence,
             ))
+
+    # 6. 查詢公文關聯的派工單（兩條路徑）
+    # 6a. 透過 dispatch_document_link 表
+    dispatch_link_result = await db.execute(
+        select(TaoyuanDispatchDocumentLink)
+        .where(TaoyuanDispatchDocumentLink.document_id.in_(all_doc_ids))
+    )
+    dispatch_links = dispatch_link_result.scalars().all()
+
+    dispatch_ids: Set[int] = set(dl.dispatch_order_id for dl in dispatch_links)
+
+    # 6b. 透過派工單的 agency_doc_id / company_doc_id FK 反向查詢
+    fk_dispatch_result = await db.execute(
+        select(TaoyuanDispatchOrder)
+        .where(
+            or_(
+                TaoyuanDispatchOrder.agency_doc_id.in_(all_doc_ids),
+                TaoyuanDispatchOrder.company_doc_id.in_(all_doc_ids),
+            )
+        )
+    )
+    for fk_disp in fk_dispatch_result.scalars().all():
+        dispatch_ids.add(fk_disp.id)
+
+    if dispatch_ids:
+        dispatch_result = await db.execute(
+            select(TaoyuanDispatchOrder)
+            .where(TaoyuanDispatchOrder.id.in_(list(dispatch_ids)))
+        )
+        dispatches = dispatch_result.scalars().all()
+
+        for disp in dispatches:
+            disp_node_id = f"dispatch_{disp.id}"
+            add_node(GraphNode(
+                id=disp_node_id,
+                type="dispatch",
+                label=f"派工 {disp.dispatch_no or disp.id}",
+                status=disp.project_name[:20] if disp.project_name else None,
+            ))
+            # 派工單自身的 agency_doc_id / company_doc_id 反向關聯
+            if disp.agency_doc_id and f"doc_{disp.agency_doc_id}" in seen_nodes:
+                add_edge(GraphEdge(
+                    source=disp_node_id,
+                    target=f"doc_{disp.agency_doc_id}",
+                    label="機關公文",
+                    type="agency_doc",
+                ))
+            if disp.company_doc_id and f"doc_{disp.company_doc_id}" in seen_nodes:
+                add_edge(GraphEdge(
+                    source=disp_node_id,
+                    target=f"doc_{disp.company_doc_id}",
+                    label="乾坤公文",
+                    type="company_doc",
+                ))
+
+        # 連接公文 → 派工單
+        for dl in dispatch_links:
+            add_edge(GraphEdge(
+                source=f"doc_{dl.document_id}",
+                target=f"dispatch_{dl.dispatch_order_id}",
+                label=dl.link_type or "派工關聯",
+                type="dispatch_link",
+            ))
+
+    # 7. 查詢派工單關聯的桃園工程
+    if dispatch_ids:
+        dispatch_proj_result = await db.execute(
+            select(TaoyuanDispatchProjectLink)
+            .where(TaoyuanDispatchProjectLink.dispatch_order_id.in_(list(dispatch_ids)))
+        )
+        ty_project_ids: Set[int] = set()
+        dispatch_proj_links = dispatch_proj_result.scalars().all()
+        for dpl in dispatch_proj_links:
+            ty_project_ids.add(dpl.taoyuan_project_id)
+
+        if ty_project_ids:
+            ty_proj_result = await db.execute(
+                select(TaoyuanProject)
+                .where(TaoyuanProject.id.in_(list(ty_project_ids)))
+            )
+            for tp in ty_proj_result.scalars().all():
+                tp_node_id = f"typroject_{tp.id}"
+                add_node(GraphNode(
+                    id=tp_node_id,
+                    type="project",
+                    label=tp.project_name[:25] if tp.project_name else f"工程#{tp.id}",
+                    category=tp.district,
+                ))
+
+            for dpl in dispatch_proj_links:
+                add_edge(GraphEdge(
+                    source=f"dispatch_{dpl.dispatch_order_id}",
+                    target=f"typroject_{dpl.taoyuan_project_id}",
+                    label="關聯工程",
+                    type="dispatch_project",
+                ))
 
     logger.info(
         f"關聯圖譜: {len(doc_ids)} 筆公文 → {len(nodes)} 節點, {len(edges)} 邊"
-        f" (含 {len(extracted_entities)} 提取實體, {len(extracted_relations)} 提取關係)"
+        f" (含 {len(extracted_entities)} 提取實體, {len(extracted_relations)} 提取關係,"
+        f" {len(dispatch_links)} 派工關聯)"
     )
 
     return RelationGraphResponse(nodes=nodes, edges=edges)

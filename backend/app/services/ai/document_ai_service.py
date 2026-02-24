@@ -37,6 +37,7 @@ from app.schemas.ai import (
     AttachmentInfo,
     DocumentSearchResult,
     NaturalSearchResponse,
+    MatchedEntity,
 )
 
 logger = logging.getLogger(__name__)
@@ -356,14 +357,28 @@ class DocumentAIService(BaseAIService):
         request: NaturalSearchRequest,
         current_user: Optional[Any] = None,
     ) -> NaturalSearchResponse:
-        """執行自然語言公文搜尋"""
+        """執行自然語言公文搜尋（含韌性降級）"""
         from app.extended.models import DocumentAttachment, ContractProject
         from app.repositories.query_builders.document_query_builder import DocumentQueryBuilder
 
         start_time = time.monotonic()
 
-        # 1. 解析搜尋意圖
-        parsed_intent, source = await self.parse_search_intent(request.query, db=db)
+        # 1. 解析搜尋意圖（含超時保護和降級）
+        try:
+            parsed_intent, source = await asyncio.wait_for(
+                self.parse_search_intent(request.query, db=db),
+                timeout=10.0,  # 意圖解析最多 10 秒
+            )
+        except asyncio.TimeoutError:
+            logger.warning(f"意圖解析超時 (>10s)，降級為關鍵字搜尋: {request.query}")
+            from app.schemas.ai import ParsedSearchIntent as PSI
+            parsed_intent = PSI(keywords=[request.query], confidence=0.3)
+            source = "rule_engine"
+        except Exception as e:
+            logger.warning(f"意圖解析失敗，降級為關鍵字搜尋: {e}")
+            from app.schemas.ai import ParsedSearchIntent as PSI
+            parsed_intent = PSI(keywords=[request.query], confidence=0.3)
+            source = "rule_engine"
 
         # 2. QueryBuilder 建構查詢
         qb = DocumentQueryBuilder(db)
@@ -417,7 +432,10 @@ class DocumentAIService(BaseAIService):
         if parsed_intent.keywords:
             relevance_text = " ".join(parsed_intent.keywords)
             try:
-                query_embedding = await self.connector.generate_embedding(request.query)
+                from app.services.ai.embedding_manager import EmbeddingManager
+                query_embedding = await EmbeddingManager.get_embedding(
+                    request.query, self.connector,
+                )
             except Exception as e:
                 logger.warning(f"查詢 embedding 生成失敗，降級為 trigram 搜尋: {e}")
 
@@ -433,8 +451,25 @@ class DocumentAIService(BaseAIService):
             qb = qb.offset(request.offset)
         qb = qb.limit(request.max_results)
 
-        # 3. 執行查詢
-        documents, total_count = await qb.execute_with_count()
+        # 3. 執行查詢（超時保護：最多 20 秒）
+        try:
+            documents, total_count = await asyncio.wait_for(
+                qb.execute_with_count(),
+                timeout=20.0,
+            )
+        except asyncio.TimeoutError:
+            logger.error(f"搜尋查詢超時 (>20s): {request.query}")
+            return NaturalSearchResponse(
+                success=False,
+                query=request.query,
+                parsed_intent=parsed_intent,
+                results=[],
+                total=0,
+                source=source,
+                search_strategy="keyword",
+                synonym_expanded=False,
+                error="搜尋查詢超時，請縮小搜尋範圍或使用更具體的關鍵字",
+            )
 
         # 4. 並行取得附件與專案
         doc_ids = [doc.id for doc in documents]
@@ -498,7 +533,17 @@ class DocumentAIService(BaseAIService):
             parsed_intent.keywords and len(parsed_intent.keywords) > 0 and synonym_lookup
         )
 
-        # 寫入搜尋歷史
+        # 6. 解析搜尋中涉及的正規化實體（橋接圖譜）
+        matched_entities: List[MatchedEntity] = []
+        try:
+            matched_entities = await self._resolve_search_entities(
+                db, parsed_intent, search_results,
+            )
+        except Exception as e:
+            logger.debug(f"正規化實體解析跳過: {e}")
+
+        # 寫入搜尋歷史（非阻塞，失敗不影響搜尋結果）
+        history_id = None
         try:
             from app.extended.models import AISearchHistory
             latency_ms = int((time.monotonic() - start_time) * 1000)
@@ -519,12 +564,17 @@ class DocumentAIService(BaseAIService):
                     and hasattr(AISearchHistory, 'query_embedding')):
                 history.query_embedding = query_embedding
             db.add(history)
-            await db.commit()
+            await asyncio.wait_for(db.commit(), timeout=5.0)
             await db.refresh(history)
             history_id = history.id
+        except asyncio.TimeoutError:
+            logger.warning("搜尋歷史寫入超時 (>5s)，跳過")
+            try:
+                await db.rollback()
+            except Exception:
+                pass
         except Exception as e:
             logger.warning(f"搜尋歷史寫入失敗: {e}")
-            history_id = None
             try:
                 await db.rollback()
             except Exception:
@@ -540,7 +590,76 @@ class DocumentAIService(BaseAIService):
             search_strategy=search_strategy,
             synonym_expanded=synonym_expanded,
             history_id=history_id,
+            matched_entities=matched_entities,
         )
+
+    @staticmethod
+    async def _resolve_search_entities(
+        db: AsyncSession,
+        parsed_intent: Any,
+        search_results: List[DocumentSearchResult],
+    ) -> List[MatchedEntity]:
+        """
+        從搜尋意圖和結果中解析正規化實體（橋接圖譜）
+
+        嘗試將 sender/receiver 映射到 canonical_entities 表。
+        僅做快速精確匹配 + 別名匹配，不涉及 LLM。
+        """
+        from app.extended.models import CanonicalEntity, EntityAlias
+
+        names_to_resolve: List[tuple] = []  # (name, source)
+
+        # 從意圖解析中取得 sender/receiver
+        if getattr(parsed_intent, 'sender', None):
+            names_to_resolve.append((parsed_intent.sender, "sender"))
+        if getattr(parsed_intent, 'receiver', None):
+            names_to_resolve.append((parsed_intent.receiver, "receiver"))
+
+        # 從搜尋結果中取得高頻 sender/receiver
+        sender_counts: Dict[str, int] = {}
+        for r in search_results[:20]:
+            if r.sender:
+                sender_counts[r.sender] = sender_counts.get(r.sender, 0) + 1
+        for name, count in sorted(sender_counts.items(), key=lambda x: -x[1])[:3]:
+            if not any(n == name for n, _ in names_to_resolve):
+                names_to_resolve.append((name, "sender"))
+
+        if not names_to_resolve:
+            return []
+
+        matched: List[MatchedEntity] = []
+        seen_ids: set = set()
+
+        for name, source in names_to_resolve:
+            # 精確匹配 canonical_name
+            result = await db.execute(
+                select(CanonicalEntity)
+                .where(CanonicalEntity.canonical_name == name)
+                .limit(1)
+            )
+            entity = result.scalar_one_or_none()
+
+            # 別名匹配
+            if not entity:
+                alias_result = await db.execute(
+                    select(CanonicalEntity)
+                    .join(EntityAlias, EntityAlias.canonical_entity_id == CanonicalEntity.id)
+                    .where(EntityAlias.alias_name == name)
+                    .limit(1)
+                )
+                entity = alias_result.scalar_one_or_none()
+
+            if entity and entity.id not in seen_ids:
+                seen_ids.add(entity.id)
+                matched.append(MatchedEntity(
+                    entity_id=entity.id,
+                    canonical_name=entity.canonical_name,
+                    entity_type=entity.entity_type,
+                    mention_count=entity.mention_count or 0,
+                    match_source=source,
+                ))
+
+        return matched
 
 
 # 全域服務實例

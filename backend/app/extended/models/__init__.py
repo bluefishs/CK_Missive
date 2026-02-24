@@ -76,6 +76,15 @@ from .entity import (
     EntityRelation,
 )
 
+# 9. 知識圖譜正規化模組
+from .knowledge_graph import (
+    CanonicalEntity,
+    EntityAlias,
+    DocumentEntityMention,
+    EntityRelationship,
+    GraphIngestionEvent,
+)
+
 # 匯出 Base 供 Alembic 等工具使用
 from ._base import Base
 
@@ -120,4 +129,10 @@ __all__ = [
     # AI 實體提取
     "DocumentEntity",
     "EntityRelation",
+    # 知識圖譜正規化
+    "CanonicalEntity",
+    "EntityAlias",
+    "DocumentEntityMention",
+    "EntityRelationship",
+    "GraphIngestionEvent",
 ]
