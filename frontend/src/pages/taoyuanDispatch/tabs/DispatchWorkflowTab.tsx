@@ -58,7 +58,6 @@ import {
   getDocDirection,
   getCategoryLabel,
   getCategoryColor,
-  InlineRecordCreator,
 } from '../../../components/taoyuan/workflow';
 import {
   useDispatchWorkData,
@@ -684,17 +683,6 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
           onDocClick={handleDocClick}
           onQuickCreateRecord={handleQuickCreateRecord}
           onUnlinkDocument={handleUnlinkDocument}
-        />
-      )}
-
-      {/* 行內新增作業紀錄（時間軸模式） */}
-      {canEdit && viewMode === 'chain' && (
-        <InlineRecordCreator
-          dispatchOrderId={dispatchOrderId}
-          existingRecords={records}
-          linkedDocuments={linkedDocuments}
-          linkedProjects={linkedProjects}
-          onCreated={onRefetchDispatch}
         />
       )}
 
