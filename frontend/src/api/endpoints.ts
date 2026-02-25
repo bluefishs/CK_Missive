@@ -494,6 +494,10 @@ export const TAOYUAN_DISPATCH_ENDPOINTS = {
   /** 搜尋可關聯的桃園派工公文 POST /taoyuan-dispatch/dispatch/search-linkable-documents */
   DISPATCH_SEARCH_LINKABLE_DOCUMENTS: '/taoyuan-dispatch/dispatch/search-linkable-documents',
 
+  // 匯出
+  /** 派工總表 Excel 匯出 POST /taoyuan-dispatch/dispatch/export/excel */
+  DISPATCH_EXPORT_EXCEL: '/taoyuan-dispatch/dispatch/export/excel',
+
   // 公文歷程匹配 (對應原始需求欄位 14-17)
   /** 匹配公文歷程 POST /taoyuan-dispatch/dispatch/match-documents */
   MATCH_DOCUMENTS: '/taoyuan-dispatch/dispatch/match-documents',

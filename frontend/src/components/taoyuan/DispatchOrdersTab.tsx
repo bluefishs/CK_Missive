@@ -64,6 +64,7 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
   const { message } = App.useApp();
   const [searchText, setSearchText] = useState('');
   const [importModalVisible, setImportModalVisible] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // RWD 響應式
   const { isMobile } = useResponsive();
@@ -115,6 +116,21 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
       message.error('下載範本失敗');
     }
   }, [message]);
+
+  const handleExportMasterExcel = useCallback(async () => {
+    setExporting(true);
+    try {
+      await dispatchOrdersApi.exportMasterExcel({
+        contract_project_id: contractProjectId,
+        search: searchText || undefined,
+      });
+      message.success('匯出成功');
+    } catch (error) {
+      message.error('匯出失敗');
+    } finally {
+      setExporting(false);
+    }
+  }, [contractProjectId, searchText, message]);
 
   const dispatchCaseHandlerFilters = useMemo(() =>
     [...new Set(orders.map((o) => o.case_handler).filter(Boolean))]
@@ -489,6 +505,14 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
               size={isMobile ? 'small' : 'middle'}
             >
               {isMobile ? '' : '重新整理'}
+            </Button>
+            <Button
+              icon={<DownloadOutlined />}
+              onClick={handleExportMasterExcel}
+              loading={exporting}
+              size={isMobile ? 'small' : 'middle'}
+            >
+              {isMobile ? '' : '匯出總表'}
             </Button>
             <Button
               icon={<UploadOutlined />}

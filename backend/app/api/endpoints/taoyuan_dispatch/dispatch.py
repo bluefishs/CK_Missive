@@ -30,7 +30,7 @@ from .common import (
     ExcelImportResult, PaginationMeta
 )
 from app.utils.doc_helpers import is_outgoing_doc_number
-from app.services.taoyuan import DispatchOrderService
+from app.services.taoyuan import DispatchOrderService, DispatchExportService
 
 router = APIRouter()
 
@@ -204,6 +204,54 @@ async def delete_dispatch_order(
     if not success:
         raise HTTPException(status_code=404, detail="派工紀錄不存在")
     return {"success": True, "message": "刪除成功"}
+
+
+@router.post(
+    "/dispatch/export/excel",
+    summary="匯出派工總表 Excel",
+    response_class=StreamingResponse,
+)
+async def export_dispatch_master_excel(
+    contract_project_id: Optional[int] = Body(None, embed=True),
+    work_type: Optional[str] = Body(None, embed=True),
+    search: Optional[str] = Body(None, embed=True),
+    db: AsyncSession = Depends(get_async_db),
+    current_user=Depends(require_auth()),
+) -> StreamingResponse:
+    """
+    匯出所有派工單的 5 工作表 Excel 總表
+
+    - 派工總表: 每張派工單一列摘要
+    - 作業紀錄明細: 跨派工單所有作業歷程
+    - 公文對照矩陣: 來文/覆文配對
+    - 契金摘要: 各派工單 7 項作業金額
+    - 統計摘要: 匯出範圍統計
+    """
+    import logging as _logging
+    _logger = _logging.getLogger(__name__)
+
+    try:
+        export_service = DispatchExportService(db)
+        excel_output = await export_service.export_master_matrix(
+            contract_project_id=contract_project_id,
+            work_type=work_type,
+            search=search,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        _logger.exception("派工總表 Excel 匯出失敗")
+        raise HTTPException(status_code=500, detail="匯出失敗，請稍後再試")
+
+    from datetime import datetime
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M')
+    filename = f'dispatch_master_{timestamp}.xlsx'
+
+    return StreamingResponse(
+        excel_output,
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post("/dispatch/match-documents", summary="匹配公文歷程")

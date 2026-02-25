@@ -5,7 +5,7 @@
  * @date 2026-01-23
  */
 
-import { apiClient, API_BASE_URL } from '../client';
+import { apiClient } from '../client';
 import { API_ENDPOINTS } from '../endpoints';
 import type {
   TaoyuanProject,
@@ -99,28 +99,10 @@ export const taoyuanProjectsApi = {
    * 下載匯入範本 (POST + blob 下載，符合資安規範)
    */
   async downloadImportTemplate(): Promise<void> {
-    const url = `${API_BASE_URL}${API_ENDPOINTS.TAOYUAN_DISPATCH.PROJECTS_IMPORT_TEMPLATE}`;
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      throw new Error('下載範本失敗');
-    }
-
-    const blob = await response.blob();
-    const downloadUrl = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.download = 'taoyuan_projects_import_template.xlsx';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(downloadUrl);
+    await apiClient.downloadPost(
+      API_ENDPOINTS.TAOYUAN_DISPATCH.PROJECTS_IMPORT_TEMPLATE,
+      {},
+      'taoyuan_projects_import_template.xlsx',
+    );
   },
 };

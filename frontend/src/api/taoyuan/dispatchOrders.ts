@@ -5,7 +5,7 @@
  * @date 2026-01-23
  */
 
-import { apiClient, API_BASE_URL } from '../client';
+import { apiClient } from '../client';
 import { API_ENDPOINTS } from '../endpoints';
 import type {
   DispatchOrder,
@@ -173,6 +173,23 @@ export const dispatchOrdersApi = {
   },
 
   /**
+   * 匯出派工總表 Excel (5 工作表: 派工總表/作業紀錄/公文矩陣/契金/統計)
+   *
+   * 使用 apiClient.downloadPost 確保 auth/CSRF/token refresh 正確處理。
+   */
+  async exportMasterExcel(params?: {
+    contract_project_id?: number;
+    work_type?: string;
+    search?: string;
+  }): Promise<void> {
+    await apiClient.downloadPost(
+      API_ENDPOINTS.TAOYUAN_DISPATCH.DISPATCH_EXPORT_EXCEL,
+      params ?? {},
+      'dispatch_master.xlsx',
+    );
+  },
+
+  /**
    * Excel 匯入派工紀錄
    */
   async importExcel(
@@ -198,28 +215,10 @@ export const dispatchOrdersApi = {
    * 下載匯入範本 (POST + blob 下載，符合資安規範)
    */
   async downloadImportTemplate(): Promise<void> {
-    const url = `${API_BASE_URL}${API_ENDPOINTS.TAOYUAN_DISPATCH.DISPATCH_IMPORT_TEMPLATE}`;
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      throw new Error('下載範本失敗');
-    }
-
-    const blob = await response.blob();
-    const downloadUrl = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.download = 'dispatch_orders_import_template.xlsx';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(downloadUrl);
+    await apiClient.downloadPost(
+      API_ENDPOINTS.TAOYUAN_DISPATCH.DISPATCH_IMPORT_TEMPLATE,
+      {},
+      'dispatch_orders_import_template.xlsx',
+    );
   },
 };
