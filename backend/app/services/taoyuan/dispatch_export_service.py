@@ -147,7 +147,7 @@ class DispatchExportService:
         # --- Step 4: build DataFrames ---
         df_summary = self._build_sheet1(dispatches, wr_by_dispatch)
         df_records = self._build_sheet2(dispatches, work_records)
-        df_doc_matrix = self._build_sheet3(dispatches)
+        df_doc_matrix = self._build_sheet3(dispatches, wr_by_dispatch)
         df_payment = self._build_sheet4(dispatches)
         df_stats = self._build_sheet5(dispatches, work_records, filter_desc)
 
@@ -211,19 +211,29 @@ class DispatchExportService:
     async def _query_work_records(
         self, dispatch_ids: List[int]
     ) -> List[TaoyuanWorkRecord]:
-        """Query all work records for the given dispatch IDs."""
-        query = (
-            select(TaoyuanWorkRecord)
-            .options(
-                selectinload(TaoyuanWorkRecord.document),
-                selectinload(TaoyuanWorkRecord.incoming_doc),
-                selectinload(TaoyuanWorkRecord.outgoing_doc),
+        """Query all work records for the given dispatch IDs (chunked to avoid SQL IN overflow)."""
+        if not dispatch_ids:
+            return []
+
+        chunk_size = 500
+        all_records: List[TaoyuanWorkRecord] = []
+
+        for i in range(0, len(dispatch_ids), chunk_size):
+            chunk = dispatch_ids[i:i + chunk_size]
+            query = (
+                select(TaoyuanWorkRecord)
+                .options(
+                    selectinload(TaoyuanWorkRecord.document),
+                    selectinload(TaoyuanWorkRecord.incoming_doc),
+                    selectinload(TaoyuanWorkRecord.outgoing_doc),
+                )
+                .where(TaoyuanWorkRecord.dispatch_order_id.in_(chunk))
+                .order_by(TaoyuanWorkRecord.dispatch_order_id, TaoyuanWorkRecord.sort_order)
             )
-            .where(TaoyuanWorkRecord.dispatch_order_id.in_(dispatch_ids))
-            .order_by(TaoyuanWorkRecord.dispatch_order_id, TaoyuanWorkRecord.sort_order)
-        )
-        result = await self.db.execute(query)
-        return list(result.scalars().unique().all())
+            result = await self.db.execute(query)
+            all_records.extend(result.scalars().unique().all())
+
+        return all_records
 
     # =========================================================================
     # Sheet builders
@@ -310,38 +320,177 @@ class DispatchExportService:
     def _build_sheet3(
         self,
         dispatches: List[TaoyuanDispatchOrder],
+        wr_by_dispatch: Dict[int, List[TaoyuanWorkRecord]],
     ) -> pd.DataFrame:
-        """Sheet 3: 公文對照矩陣 - simple index-based pairing of incoming/outgoing docs."""
+        """Sheet 3: 公文對照矩陣 - 3 階段配對演算法 (chain → date proximity → standalone)."""
         rows: List[Dict[str, Any]] = []
+
         for d in dispatches:
+            records = wr_by_dispatch.get(d.id, [])
             doc_links = d.document_links or []
-            incoming = [lk for lk in doc_links if lk.link_type == 'agency_incoming']
-            outgoing = [lk for lk in doc_links if lk.link_type == 'company_outgoing']
 
-            pair_count = max(len(incoming), len(outgoing))
-            if pair_count == 0:
-                continue
-
-            for i in range(pair_count):
-                inc = incoming[i] if i < len(incoming) else None
-                out = outgoing[i] if i < len(outgoing) else None
-
-                inc_doc = inc.document if inc else None
-                out_doc = out.document if out else None
-
+            paired_rows = self._pair_documents_for_dispatch(records, doc_links)
+            for inc, out in paired_rows:
                 rows.append({
                     '派工單號': d.dispatch_no or '',
                     '工程名稱': d.project_name or '',
-                    '來文字號': inc_doc.doc_number if inc_doc else '',
-                    '來文日期': self._fmt_date(inc_doc.doc_date) if inc_doc else '',
-                    '來文主旨': inc_doc.subject if inc_doc else '',
+                    '來文字號': inc.get('doc_number', '') if inc else '',
+                    '來文日期': inc.get('doc_date', '') if inc else '',
+                    '來文主旨': inc.get('subject', '') if inc else '',
                     '\u2192': '\u2192',
-                    '覆文字號': out_doc.doc_number if out_doc else '',
-                    '覆文日期': self._fmt_date(out_doc.doc_date) if out_doc else '',
-                    '覆文主旨': out_doc.subject if out_doc else '',
+                    '覆文字號': out.get('doc_number', '') if out else '',
+                    '覆文日期': out.get('doc_date', '') if out else '',
+                    '覆文主旨': out.get('subject', '') if out else '',
                 })
 
         return pd.DataFrame(rows)
+
+    def _pair_documents_for_dispatch(
+        self,
+        records: List[TaoyuanWorkRecord],
+        doc_links: list,
+    ) -> List[tuple]:
+        """3 階段公文配對演算法 (與前端 buildCorrespondenceMatrix 一致)
+
+        Phase 1: parent_record_id chain pairing
+        Phase 2: date proximity greedy pairing (assigned + unassigned)
+        Phase 3: remaining standalone rows
+
+        Returns:
+            List of (incoming_dict | None, outgoing_dict | None) tuples
+        """
+        # --- 分離作業紀錄中的來文/覆文 ---
+        assigned_in: List[Dict[str, Any]] = []
+        assigned_out: List[Dict[str, Any]] = []
+        record_doc_ids: set = set()  # 已出現在 work records 的 document IDs
+
+        for r in records:
+            # Old format: incoming_doc / outgoing_doc
+            if r.incoming_doc:
+                doc = r.incoming_doc
+                assigned_in.append({
+                    'record_id': r.id,
+                    'parent_record_id': getattr(r, 'parent_record_id', None),
+                    'doc_number': doc.doc_number or '',
+                    'doc_date': self._fmt_date(doc.doc_date),
+                    'subject': r.description or (doc.subject or ''),
+                })
+                if doc.id:
+                    record_doc_ids.add(doc.id)
+            if r.outgoing_doc:
+                doc = r.outgoing_doc
+                assigned_out.append({
+                    'record_id': r.id,
+                    'parent_record_id': getattr(r, 'parent_record_id', None),
+                    'doc_number': doc.doc_number or '',
+                    'doc_date': self._fmt_date(doc.doc_date),
+                    'subject': r.description or (doc.subject or ''),
+                })
+                if doc.id:
+                    record_doc_ids.add(doc.id)
+            # New format: document (判斷方向)
+            if r.document and not r.incoming_doc and not r.outgoing_doc:
+                doc = r.document
+                doc_number = doc.doc_number or ''
+                item = {
+                    'record_id': r.id,
+                    'parent_record_id': getattr(r, 'parent_record_id', None),
+                    'doc_number': doc_number,
+                    'doc_date': self._fmt_date(doc.doc_date),
+                    'subject': r.description or (doc.subject or ''),
+                }
+                if self._is_outgoing(doc_number):
+                    assigned_out.append(item)
+                else:
+                    assigned_in.append(item)
+                if doc.id:
+                    record_doc_ids.add(doc.id)
+
+        # --- 收集未指派到 work record 的公文 (unassigned) ---
+        unassigned_in: List[Dict[str, Any]] = []
+        unassigned_out: List[Dict[str, Any]] = []
+        for lk in doc_links:
+            doc = lk.document
+            if not doc or doc.id in record_doc_ids:
+                continue
+            item = {
+                'doc_number': doc.doc_number or '',
+                'doc_date': self._fmt_date(doc.doc_date),
+                'subject': doc.subject or '',
+            }
+            if lk.link_type == 'company_outgoing':
+                unassigned_out.append(item)
+            else:
+                unassigned_in.append(item)
+
+        # --- Phase 1: parent_record_id chain pairing ---
+        result: List[tuple] = []
+        used_in_ids: set = set()
+        used_out_ids: set = set()
+
+        for out_item in assigned_out:
+            pid = out_item.get('parent_record_id')
+            if not pid:
+                continue
+            for in_item in assigned_in:
+                if in_item['record_id'] == pid and in_item['record_id'] not in used_in_ids:
+                    result.append((in_item, out_item))
+                    used_in_ids.add(in_item['record_id'])
+                    used_out_ids.add(out_item['record_id'])
+                    break
+
+        # --- Phase 2: date proximity greedy pairing ---
+        remain_in = [
+            x for x in assigned_in if x.get('record_id') not in used_in_ids
+        ]
+        remain_out = [
+            x for x in assigned_out if x.get('record_id') not in used_out_ids
+        ]
+
+        all_in = sorted(remain_in + unassigned_in, key=lambda x: x.get('doc_date', ''))
+        all_out = sorted(remain_out + unassigned_out, key=lambda x: x.get('doc_date', ''))
+
+        used_out_idx: set = set()
+        date_matched: List[tuple] = []
+
+        for in_item in all_in:
+            best_idx = -1
+            best_date = ''
+            in_date = in_item.get('doc_date', '')
+
+            for j, out_item in enumerate(all_out):
+                if j in used_out_idx:
+                    continue
+                out_date = out_item.get('doc_date', '')
+                if out_date >= in_date:
+                    if best_idx == -1 or out_date < best_date:
+                        best_idx = j
+                        best_date = out_date
+
+            if best_idx >= 0:
+                date_matched.append((in_item, all_out[best_idx]))
+                used_out_idx.add(best_idx)
+            else:
+                date_matched.append((in_item, None))
+
+        # --- Phase 3: remaining outgoing standalone ---
+        for j, out_item in enumerate(all_out):
+            if j not in used_out_idx:
+                date_matched.append((None, out_item))
+
+        result.extend(date_matched)
+
+        # --- 按最早日期排序 ---
+        result.sort(key=lambda pair: (
+            pair[0].get('doc_date', '') if pair[0] else (pair[1].get('doc_date', '') if pair[1] else '')
+        ))
+
+        return result
+
+    @staticmethod
+    def _is_outgoing(doc_number: str) -> bool:
+        """判斷公文字號是否為覆文 (與前端 isOutgoingDocNumber 一致)"""
+        return doc_number.startswith('乾坤')
 
     def _build_sheet4(
         self,

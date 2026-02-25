@@ -373,18 +373,19 @@ class TestBuildSheet2:
 
 
 class TestBuildSheet3:
-    """Sheet 3: 公文對照矩陣"""
+    """Sheet 3: 公文對照矩陣 (3 階段配對)"""
 
     def test_empty(self, service):
-        df = service._build_sheet3([])
+        df = service._build_sheet3([], {})
         assert len(df) == 0
 
-    def test_dispatch_with_no_links(self, service):
+    def test_dispatch_with_no_links_no_records(self, service):
         dispatch = make_dispatch(document_links=[])
-        df = service._build_sheet3([dispatch])
+        df = service._build_sheet3([dispatch], {})
         assert len(df) == 0
 
-    def test_paired_incoming_outgoing(self, service):
+    def test_unassigned_date_proximity_pairing(self, service):
+        """未指派公文透過日期接近度配對"""
         incoming = make_doc_link(
             link_type='agency_incoming',
             doc_number='桃工養字第001號',
@@ -393,34 +394,202 @@ class TestBuildSheet3:
         )
         outgoing = make_doc_link(
             link_type='company_outgoing',
-            doc_number='乾字第001號',
+            doc_number='乾坤字第001號',
             subject='覆文主旨A',
             doc_date=date(2026, 1, 20),
         )
         dispatch = make_dispatch(dispatch_no='D001', document_links=[incoming, outgoing])
-        df = service._build_sheet3([dispatch])
+        df = service._build_sheet3([dispatch], {})
 
         assert len(df) == 1
         row = df.iloc[0]
         assert row['派工單號'] == 'D001'
         assert row['來文字號'] == '桃工養字第001號'
-        assert row['覆文字號'] == '乾字第001號'
-        assert row['來文主旨'] == '來文主旨A'
-        assert row['覆文主旨'] == '覆文主旨A'
+        assert row['覆文字號'] == '乾坤字第001號'
 
     def test_unbalanced_more_incoming(self, service):
-        incoming1 = make_doc_link(link_type='agency_incoming', doc_number='IN-001')
-        incoming2 = make_doc_link(link_type='agency_incoming', doc_number='IN-002')
-        outgoing1 = make_doc_link(link_type='company_outgoing', doc_number='OUT-001')
+        """來文多於覆文時有 standalone 列"""
+        incoming1 = make_doc_link(
+            link_type='agency_incoming', doc_number='IN-001', doc_date=date(2026, 1, 1)
+        )
+        incoming2 = make_doc_link(
+            link_type='agency_incoming', doc_number='IN-002', doc_date=date(2026, 2, 1)
+        )
+        outgoing1 = make_doc_link(
+            link_type='company_outgoing', doc_number='乾坤字OUT-001', doc_date=date(2026, 1, 15)
+        )
 
         dispatch = make_dispatch(document_links=[incoming1, incoming2, outgoing1])
-        df = service._build_sheet3([dispatch])
+        df = service._build_sheet3([dispatch], {})
 
         assert len(df) == 2
+        # IN-001 配對 OUT-001 (date proximity: 1/1 -> 1/15)
         assert df.iloc[0]['來文字號'] == 'IN-001'
-        assert df.iloc[0]['覆文字號'] == 'OUT-001'
+        assert df.iloc[0]['覆文字號'] == '乾坤字OUT-001'
+        # IN-002 standalone
         assert df.iloc[1]['來文字號'] == 'IN-002'
-        assert df.iloc[1]['覆文字號'] == ''  # 無配對
+        assert df.iloc[1]['覆文字號'] == ''
+
+
+class TestPairDocumentsPhase1:
+    """Phase 1: parent_record_id chain pairing"""
+
+    def test_chain_pairing(self, service):
+        """透過 parent_record_id 配對"""
+        in_doc = MagicMock()
+        in_doc.id = 100
+        in_doc.doc_number = 'IN-001'
+        in_doc.doc_date = date(2026, 1, 10)
+        in_doc.subject = '來文'
+
+        out_doc = MagicMock()
+        out_doc.id = 200
+        out_doc.doc_number = '乾坤字OUT-001'
+        out_doc.doc_date = date(2026, 1, 20)
+        out_doc.subject = '覆文'
+
+        r_in = make_work_record(
+            dispatch_order_id=1, sort_order=1,
+            incoming_doc=in_doc, outgoing_doc=None, document=None,
+        )
+        r_in.id = 10
+
+        r_out = make_work_record(
+            dispatch_order_id=1, sort_order=2,
+            incoming_doc=None, outgoing_doc=out_doc, document=None,
+        )
+        r_out.id = 20
+        r_out.parent_record_id = 10  # chain → r_in
+
+        pairs = service._pair_documents_for_dispatch([r_in, r_out], [])
+
+        assert len(pairs) == 1
+        inc, out = pairs[0]
+        assert inc['doc_number'] == 'IN-001'
+        assert out['doc_number'] == '乾坤字OUT-001'
+
+
+class TestPairDocumentsPhase2:
+    """Phase 2: date proximity greedy pairing"""
+
+    def test_date_proximity_selects_closest(self, service):
+        """選擇日期最接近的覆文"""
+        in_doc = MagicMock()
+        in_doc.id = 100
+        in_doc.doc_number = 'IN-001'
+        in_doc.doc_date = date(2026, 1, 10)
+        in_doc.subject = '來文'
+
+        out_doc1 = MagicMock()
+        out_doc1.id = 201
+        out_doc1.doc_number = '乾坤字A'
+        out_doc1.doc_date = date(2026, 3, 1)  # 遠
+        out_doc1.subject = '遠覆文'
+
+        out_doc2 = MagicMock()
+        out_doc2.id = 202
+        out_doc2.doc_number = '乾坤字B'
+        out_doc2.doc_date = date(2026, 1, 15)  # 近
+        out_doc2.subject = '近覆文'
+
+        r_in = make_work_record(incoming_doc=in_doc, outgoing_doc=None, document=None)
+        r_in.id = 10
+        r_out1 = make_work_record(incoming_doc=None, outgoing_doc=out_doc1, document=None)
+        r_out1.id = 20
+        r_out2 = make_work_record(incoming_doc=None, outgoing_doc=out_doc2, document=None)
+        r_out2.id = 21
+
+        pairs = service._pair_documents_for_dispatch([r_in, r_out1, r_out2], [])
+
+        # IN-001 應配對 乾坤字B (1/15，最接近 1/10)
+        paired_in, paired_out = pairs[0]
+        assert paired_in['doc_number'] == 'IN-001'
+        assert paired_out['doc_number'] == '乾坤字B'
+
+    def test_outgoing_before_incoming_becomes_standalone(self, service):
+        """覆文日期早於所有來文時成為 standalone"""
+        in_doc = MagicMock()
+        in_doc.id = 100
+        in_doc.doc_number = 'IN-001'
+        in_doc.doc_date = date(2026, 3, 1)
+        in_doc.subject = '來文'
+
+        out_doc = MagicMock()
+        out_doc.id = 200
+        out_doc.doc_number = '乾坤字OUT'
+        out_doc.doc_date = date(2026, 1, 1)  # 早於來文
+        out_doc.subject = '覆文'
+
+        r_in = make_work_record(incoming_doc=in_doc, outgoing_doc=None, document=None)
+        r_in.id = 10
+        r_out = make_work_record(incoming_doc=None, outgoing_doc=out_doc, document=None)
+        r_out.id = 20
+
+        pairs = service._pair_documents_for_dispatch([r_in, r_out], [])
+
+        assert len(pairs) == 2
+        # 應各自 standalone (因覆文日期 < 來文日期)
+        doc_numbers = [
+            (p[0]['doc_number'] if p[0] else None, p[1]['doc_number'] if p[1] else None)
+            for p in pairs
+        ]
+        assert (None, '乾坤字OUT') in doc_numbers
+        assert ('IN-001', None) in doc_numbers
+
+
+class TestPairDocumentsNewFormat:
+    """新格式 document 欄位的方向判斷"""
+
+    def test_new_format_outgoing_detection(self, service):
+        """乾坤開頭的 doc_number 判定為覆文"""
+        doc = MagicMock()
+        doc.id = 300
+        doc.doc_number = '乾坤測字第001號'
+        doc.doc_date = date(2026, 2, 1)
+        doc.subject = '覆文測試'
+
+        r = make_work_record(incoming_doc=None, outgoing_doc=None, document=doc)
+        r.id = 30
+        r.incoming_doc_id = None
+        r.outgoing_doc_id = None
+
+        pairs = service._pair_documents_for_dispatch([r], [])
+
+        assert len(pairs) == 1
+        assert pairs[0][0] is None  # 無來文
+        assert pairs[0][1]['doc_number'] == '乾坤測字第001號'
+
+    def test_new_format_incoming_detection(self, service):
+        """非乾坤開頭判定為來文"""
+        doc = MagicMock()
+        doc.id = 301
+        doc.doc_number = '桃工養字第999號'
+        doc.doc_date = date(2026, 2, 1)
+        doc.subject = '來文測試'
+
+        r = make_work_record(incoming_doc=None, outgoing_doc=None, document=doc)
+        r.id = 31
+        r.incoming_doc_id = None
+        r.outgoing_doc_id = None
+
+        pairs = service._pair_documents_for_dispatch([r], [])
+
+        assert len(pairs) == 1
+        assert pairs[0][0]['doc_number'] == '桃工養字第999號'
+        assert pairs[0][1] is None  # 無覆文
+
+
+class TestIsOutgoing:
+    """_is_outgoing 方向判斷"""
+
+    def test_outgoing(self):
+        assert DispatchExportService._is_outgoing('乾坤測字第001號') is True
+
+    def test_incoming(self):
+        assert DispatchExportService._is_outgoing('桃工養字第001號') is False
+
+    def test_empty(self):
+        assert DispatchExportService._is_outgoing('') is False
 
 
 class TestBuildSheet4:
