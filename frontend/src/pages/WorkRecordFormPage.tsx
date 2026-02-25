@@ -135,7 +135,7 @@ const WorkRecordFormPage: React.FC = () => {
     [existingRecordsData?.items],
   );
 
-  // 公文選項：合併已關聯公文 + 搜尋結果
+  // 公文選項：合併 [當前紀錄公文] + [已關聯公文] + [搜尋結果]
   const docOptions = useMemo(() => {
     const seenIds = new Set<number>();
     const options: Array<{
@@ -143,6 +143,30 @@ const WorkRecordFormPage: React.FC = () => {
       label: React.ReactNode;
       searchText: string;
     }> = [];
+
+    // 當前紀錄已選的公文（確保編輯模式下顯示文號而非數字 ID）
+    if (record?.document_id && record.document) {
+      seenIds.add(record.document_id);
+      const doc = record.document;
+      const isOutgoing = doc.doc_number?.startsWith('乾坤');
+      const tag = isOutgoing ? '發' : '收';
+      const color = isOutgoing ? 'green' : 'blue';
+      const docNumber = doc.doc_number || `#${record.document_id}`;
+      const subject = doc.subject || '';
+      options.push({
+        value: record.document_id,
+        label: (
+          <Tooltip title={subject} placement="right" mouseEnterDelay={0.5}>
+            <span>
+              <Tag color={color} style={{ marginRight: 4 }}>{tag}</Tag>
+              {docNumber}
+              {doc.doc_date ? ` (${doc.doc_date.substring(0, 10)})` : ''}
+            </span>
+          </Tooltip>
+        ),
+        searchText: `${doc.doc_number || ''} ${subject}`,
+      });
+    }
 
     // 已關聯公文（優先顯示）
     if (linkedDocs) {
@@ -207,18 +231,29 @@ const WorkRecordFormPage: React.FC = () => {
     }
 
     return options;
-  }, [linkedDocs, searchedDocsResult?.items]);
+  }, [record, linkedDocs, searchedDocsResult?.items]);
 
-  // 前序紀錄選項
+  // 前序紀錄選項（顯示時間軸序號，非 DB ID）
   const parentRecordOptions = useMemo(() => {
-    return existingRecords
+    // 排序方式與時間軸一致：sort_order → record_date
+    const sorted = [...existingRecords].sort((a, b) => {
+      if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+      return (a.record_date || '').localeCompare(b.record_date || '');
+    });
+
+    // 建立 id → 時間軸序號映射
+    const seqMap = new Map<number, number>();
+    sorted.forEach((r, i) => seqMap.set(r.id, i + 1));
+
+    return sorted
       .filter((r) => r.id !== workRecordId)
       .map((r) => {
+        const seq = seqMap.get(r.id) ?? r.sort_order;
         const catLabel = getCategoryLabel(r);
         const docNum = r.document?.doc_number || r.incoming_doc?.doc_number || r.outgoing_doc?.doc_number || '';
         return {
           value: r.id,
-          label: `#${r.id} ${catLabel}${docNum ? ` — ${docNum}` : ''}${r.record_date ? ` (${r.record_date})` : ''}`,
+          label: `#${seq} ${catLabel}${docNum ? ` — ${docNum}` : ''}${r.record_date ? ` (${r.record_date})` : ''}`,
         };
       });
   }, [existingRecords, workRecordId]);

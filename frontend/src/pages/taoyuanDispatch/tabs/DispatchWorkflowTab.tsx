@@ -135,6 +135,7 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
     records,
     stats,
     correspondenceData,
+    matrixRows,
     unassignedDocs,
     isLoading,
   } = useDispatchWorkData({
@@ -589,7 +590,7 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
     correspondenceData.outgoingDocs.length > 0;
 
   const renderCorrespondenceView = () => {
-    if (!hasCorrespondence && !hasUnassigned && linkedDocuments.length === 0) {
+    if (matrixRows.length === 0 && linkedDocuments.length === 0) {
       return (
         <Empty
           description="尚無公文關聯與作業紀錄"
@@ -600,26 +601,14 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
     }
 
     return (
-      <>
-        {hasCorrespondence && (
-          <CorrespondenceBody
-            data={correspondenceData}
-            onDocClick={handleDocClick}
-            onEditRecord={canEdit ? handleEdit : undefined}
-            canEdit={canEdit}
-          />
-        )}
-
-        <UnassignedDocumentsList
-          unassignedDocs={unassignedDocs}
-          hasCorrespondence={hasCorrespondence}
-          canEdit={canEdit}
-          unlinkPending={unlinkDocMutation.isPending}
-          onDocClick={handleDocClick}
-          onQuickCreateRecord={handleQuickCreateRecord}
-          onUnlinkDocument={handleUnlinkDocument}
-        />
-      </>
+      <CorrespondenceBody
+        data={correspondenceData}
+        matrixRows={matrixRows}
+        onDocClick={handleDocClick}
+        onEditRecord={canEdit ? handleEdit : undefined}
+        onQuickCreateRecord={canEdit ? handleQuickCreateRecord : undefined}
+        canEdit={canEdit}
+      />
     );
   };
 

@@ -16,7 +16,8 @@ import { useQuery } from '@tanstack/react-query';
 import { workflowApi } from '../../../api/taoyuan';
 import type { DispatchDocumentLink, LinkType } from '../../../types/api';
 import type { CorrespondenceBodyData } from './CorrespondenceBody';
-import { getDocDirection, isOutgoingDocNumber, buildDocPairs } from './chainUtils';
+import { getDocDirection, isOutgoingDocNumber, buildDocPairs, buildCorrespondenceMatrix } from './chainUtils';
+import type { CorrespondenceMatrixRow } from './chainUtils';
 import { getCategoryLabel } from './chainConstants';
 
 // ============================================================================
@@ -189,10 +190,22 @@ export function useDispatchWorkData({
     return buildDocPairs(sortedRecords);
   }, [records]);
 
+  // 公文對照矩陣（合併已指派 + 未指派，配對行式）
+  const matrixRows = useMemo<CorrespondenceMatrixRow[]>(
+    () =>
+      buildCorrespondenceMatrix(
+        correspondenceData,
+        unassignedDocs.incoming,
+        unassignedDocs.outgoing,
+      ),
+    [correspondenceData, unassignedDocs],
+  );
+
   return {
     records,
     stats,
     correspondenceData,
+    matrixRows,
     unassignedDocs,
     assignedDocIds,
     isLoading,

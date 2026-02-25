@@ -26,8 +26,8 @@ export type { InlineRecordCreatorProps } from './InlineRecordCreator';
 // Chain-based timeline (v2.0.0)
 export { ChainTimeline } from './ChainTimeline';
 export type { ChainTimelineProps } from './ChainTimeline';
-export { buildChains, flattenChains, getEffectiveDoc, getEffectiveDocId, getDocDirection, isOutgoingDocNumber, buildDocPairs } from './chainUtils';
-export type { DocPair, DocPairs } from './chainUtils';
+export { buildChains, flattenChains, getEffectiveDoc, getEffectiveDocId, getDocDirection, isOutgoingDocNumber, buildDocPairs, buildCorrespondenceMatrix } from './chainUtils';
+export type { DocPair, DocPairs, MatrixDocItem, CorrespondenceMatrixRow } from './chainUtils';
 export type { ChainNode } from './chainUtils';
 export {
   WORK_CATEGORY_GROUPS,

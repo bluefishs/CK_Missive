@@ -10,6 +10,7 @@
  */
 
 import type { WorkRecord, DocBrief } from '../../../types/taoyuan';
+import type { DispatchDocumentLink } from '../../../types/api';
 
 // ============================================================================
 // Types
@@ -162,6 +163,161 @@ export function buildDocPairs(records: WorkRecord[]): DocPairs {
   }
 
   return { incomingDocs, outgoingDocs };
+}
+
+// ============================================================================
+// 公文對照矩陣（配對行式 SSOT）
+// ============================================================================
+
+/** 矩陣中的單筆公文項目 */
+export interface MatrixDocItem {
+  docId: number;
+  docNumber?: string;
+  docDate?: string;
+  subject?: string;
+  /** 來自作業紀錄（已指派） */
+  record?: WorkRecord;
+  /** 來自關聯公文（未指派） */
+  linkedDoc?: DispatchDocumentLink;
+  /** 是否為未指派公文 */
+  isUnassigned: boolean;
+}
+
+/** 矩陣中的配對行 */
+export interface CorrespondenceMatrixRow {
+  incoming?: MatrixDocItem;
+  outgoing?: MatrixDocItem;
+}
+
+/** 將 DocPair 轉為 MatrixDocItem */
+function toMatrixItem(pair: DocPair): MatrixDocItem {
+  return {
+    docId: pair.doc.id,
+    docNumber: pair.doc.doc_number,
+    docDate: pair.doc.doc_date,
+    subject: pair.record.description || pair.doc.subject,
+    record: pair.record,
+    isUnassigned: false,
+  };
+}
+
+/** 將 DispatchDocumentLink 轉為 MatrixDocItem */
+function linkToMatrixItem(d: DispatchDocumentLink): MatrixDocItem {
+  return {
+    docId: d.document_id,
+    docNumber: d.doc_number,
+    docDate: d.doc_date,
+    subject: d.subject,
+    linkedDoc: d,
+    isUnassigned: true,
+  };
+}
+
+/**
+ * 將來文/發文建構為公文對照矩陣（配對行式）
+ *
+ * 配對規則（優先順序）：
+ * 1. parent_record_id 鏈式配對（發文紀錄的 parent 為來文紀錄）
+ * 2. 日期鄰近配對（來文日期 ≤ 發文日期，最近者優先）
+ * 3. 剩餘未配對的單獨成行
+ *
+ * 全部結果依日期排序（舊→新）。
+ */
+export function buildCorrespondenceMatrix(
+  assignedPairs: DocPairs,
+  unassignedIncoming: DispatchDocumentLink[],
+  unassignedOutgoing: DispatchDocumentLink[],
+): CorrespondenceMatrixRow[] {
+  const rows: CorrespondenceMatrixRow[] = [];
+  const usedInRecordIds = new Set<number>();
+  const usedOutRecordIds = new Set<number>();
+
+  // --- Phase 1: parent_record_id 鏈式配對 ---
+  for (const outPair of assignedPairs.outgoingDocs) {
+    if (!outPair.record.parent_record_id) continue;
+    const matchIn = assignedPairs.incomingDocs.find(
+      (ip) =>
+        ip.record.id === outPair.record.parent_record_id &&
+        !usedInRecordIds.has(ip.record.id),
+    );
+    if (matchIn) {
+      rows.push({
+        incoming: toMatrixItem(matchIn),
+        outgoing: toMatrixItem(outPair),
+      });
+      usedInRecordIds.add(matchIn.record.id);
+      usedOutRecordIds.add(outPair.record.id);
+    }
+  }
+
+  // --- Phase 2: 剩餘已指派 → 日期鄰近配對 ---
+  const remainIn = assignedPairs.incomingDocs
+    .filter((p) => !usedInRecordIds.has(p.record.id))
+    .map(toMatrixItem)
+    .sort((a, b) => (a.docDate || '').localeCompare(b.docDate || ''));
+
+  const remainOut = assignedPairs.outgoingDocs
+    .filter((p) => !usedOutRecordIds.has(p.record.id))
+    .map(toMatrixItem)
+    .sort((a, b) => (a.docDate || '').localeCompare(b.docDate || ''));
+
+  // 合併未指派公文
+  const allUnpairedIn = [
+    ...remainIn,
+    ...unassignedIncoming.map(linkToMatrixItem),
+  ].sort((a, b) => (a.docDate || '').localeCompare(b.docDate || ''));
+
+  const allUnpairedOut = [
+    ...remainOut,
+    ...unassignedOutgoing.map(linkToMatrixItem),
+  ].sort((a, b) => (a.docDate || '').localeCompare(b.docDate || ''));
+
+  // 日期鄰近配對：每筆來文配最近的未配對發文（發文日期 ≥ 來文日期）
+  // 注意：此為 greedy 演算法，按來文日期順序逐一配對，
+  // 可能非全域最佳（但對政府公文往返情境已足夠準確）。
+  const usedOutIdx = new Set<number>();
+  const dateMatchedRows: CorrespondenceMatrixRow[] = [];
+
+  for (const inItem of allUnpairedIn) {
+    let bestIdx = -1;
+    let bestDate = '';
+    for (let j = 0; j < allUnpairedOut.length; j++) {
+      if (usedOutIdx.has(j)) continue;
+      const outDate = allUnpairedOut[j]!.docDate || '';
+      const inDate = inItem.docDate || '';
+      // 發文日期 ≥ 來文日期（覆文在來文之後）
+      if (outDate >= inDate) {
+        if (bestIdx === -1 || outDate < bestDate) {
+          bestIdx = j;
+          bestDate = outDate;
+        }
+      }
+    }
+    if (bestIdx >= 0) {
+      dateMatchedRows.push({ incoming: inItem, outgoing: allUnpairedOut[bestIdx] });
+      usedOutIdx.add(bestIdx);
+    } else {
+      dateMatchedRows.push({ incoming: inItem, outgoing: undefined });
+    }
+  }
+
+  // 剩餘未配對的發文
+  for (let j = 0; j < allUnpairedOut.length; j++) {
+    if (!usedOutIdx.has(j)) {
+      dateMatchedRows.push({ incoming: undefined, outgoing: allUnpairedOut[j] });
+    }
+  }
+
+  rows.push(...dateMatchedRows);
+
+  // --- 依行首日期排序（取來文或發文日期中較早者） ---
+  rows.sort((a, b) => {
+    const dateA = a.incoming?.docDate || a.outgoing?.docDate || '';
+    const dateB = b.incoming?.docDate || b.outgoing?.docDate || '';
+    return dateA.localeCompare(dateB);
+  });
+
+  return rows;
 }
 
 /** 判斷公文方向：來文或發文 */
