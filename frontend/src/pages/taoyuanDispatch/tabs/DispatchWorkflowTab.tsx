@@ -8,9 +8,10 @@
  * - 迷你統計：紀錄數 / 關聯公文 / 未指派 / 來文 / 發文
  * - 跨頁導航：前往工程總覽（高亮本派工單）
  * - CRUD：新增/編輯（導航）、刪除（行內）、關聯/解除公文
+ * - 匯出：公文對照矩陣 Excel 匯出
  *
- * @version 5.1.0 - 新增自動匹配公文功能（AutoMatchModal）
- * @date 2026-02-23
+ * @version 6.0.0 - 矩陣匯出 + hooks 拆分（useAutoMatch, useWorkflowColumns）
+ * @date 2026-02-25
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
@@ -18,47 +19,21 @@ import { useNavigate } from 'react-router-dom';
 import {
   Table,
   Button,
-  Tag,
-  Space,
   Empty,
-  Popconfirm,
-  Tooltip,
-  Typography,
   App,
 } from 'antd';
-import {
-  EditOutlined,
-  DeleteOutlined,
-  FileTextOutlined,
-  ThunderboltOutlined,
-} from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
+import { ThunderboltOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../../config/queryConfig';
-import dayjs from 'dayjs';
 
 import { workflowApi } from '../../../api/taoyuan';
 import { dispatchOrdersApi } from '../../../api/taoyuanDispatchApi';
-import type {
-  WorkRecord,
-  WorkRecordStatus,
-  DocumentHistoryItem,
-} from '../../../types/taoyuan';
+import type { WorkRecord } from '../../../types/taoyuan';
 import type { DispatchDocumentLink, LinkType } from '../../../types/api';
 import { logger } from '../../../services/logger';
+import { exportCorrespondenceMatrix } from '../../../utils/dispatchExportUtils';
 
-import {
-  CorrespondenceBody,
-  milestoneLabel,
-  milestoneColor,
-  statusLabel,
-  statusColor,
-  ChainTimeline,
-  getEffectiveDoc,
-  getDocDirection,
-  getCategoryLabel,
-  getCategoryColor,
-} from '../../../components/taoyuan/workflow';
+import { CorrespondenceBody, ChainTimeline } from '../../../components/taoyuan/workflow';
 import {
   useDispatchWorkData,
   detectLinkType,
@@ -69,8 +44,8 @@ import { WorkflowToolBar } from './workflow/WorkflowToolBar';
 import { InlineDocumentSearch } from './workflow/InlineDocumentSearch';
 import { UnassignedDocumentsList } from './workflow/UnassignedDocumentsList';
 import { AutoMatchModal } from './workflow/AutoMatchModal';
-
-const { Text } = Typography;
+import { useWorkflowColumns } from './workflow/useWorkflowColumns';
+import { useAutoMatch } from './workflow/useAutoMatch';
 
 // =============================================================================
 // Types
@@ -102,6 +77,8 @@ export interface DispatchWorkflowTabProps {
   onRefetchDispatch?: () => void;
   /** 工程名稱（用於自動匹配公文） */
   projectName?: string;
+  /** 派工單號（用於匯出檔名） */
+  dispatchNo?: string;
 }
 
 // =============================================================================
@@ -115,6 +92,7 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
   linkedDocuments = [],
   onRefetchDispatch,
   projectName,
+  dispatchNo,
 }) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -227,88 +205,15 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
   });
 
   // ===========================================================================
-  // 自動匹配公文
+  // 自動匹配公文（拆分至 useAutoMatch）
   // ===========================================================================
 
-  const [autoMatchModalOpen, setAutoMatchModalOpen] = useState(false);
-  const [autoMatchResults, setAutoMatchResults] = useState<{
-    agency: DocumentHistoryItem[];
-    company: DocumentHistoryItem[];
-  }>({ agency: [], company: [] });
-  const [selectedAutoMatchIds, setSelectedAutoMatchIds] = useState<Set<number>>(new Set());
-
-  const autoMatchMutation = useMutation({
-    mutationFn: () => dispatchOrdersApi.matchDocuments(projectName || '', dispatchOrderId),
-    onSuccess: (result) => {
-      if (!result.success) {
-        message.warning('匹配失敗');
-        return;
-      }
-      // 過濾掉已關聯的公文
-      const agency = result.agency_documents.filter((d) => !linkedDocIds.includes(d.id));
-      const company = result.company_documents.filter((d) => !linkedDocIds.includes(d.id));
-      if (agency.length === 0 && company.length === 0) {
-        message.info('所有匹配公文皆已關聯，無需再新增');
-        return;
-      }
-      setAutoMatchResults({ agency, company });
-      setSelectedAutoMatchIds(new Set([...agency, ...company].map((d) => d.id)));
-      setAutoMatchModalOpen(true);
-    },
-    onError: () => message.error('自動匹配失敗'),
+  const autoMatch = useAutoMatch({
+    dispatchOrderId,
+    projectName,
+    linkedDocIds,
+    onRefetchDispatch,
   });
-
-  const batchLinkMutation = useMutation({
-    mutationFn: async (items: { documentId: number; linkType: LinkType }[]) => {
-      let successCount = 0;
-      let failCount = 0;
-      for (const item of items) {
-        try {
-          await dispatchOrdersApi.linkDocument(dispatchOrderId, {
-            document_id: item.documentId,
-            link_type: item.linkType,
-          });
-          successCount++;
-        } catch {
-          failCount++;
-        }
-      }
-      return { successCount, failCount };
-    },
-    onSuccess: ({ successCount, failCount }) => {
-      if (failCount === 0) {
-        message.success(`批次關聯完成，共 ${successCount} 筆`);
-      } else {
-        message.warning(`${successCount} 筆關聯成功，${failCount} 筆失敗`);
-      }
-      setAutoMatchModalOpen(false);
-      setAutoMatchResults({ agency: [], company: [] });
-      setSelectedAutoMatchIds(new Set());
-      onRefetchDispatch?.();
-      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
-      queryClient.invalidateQueries({ queryKey: ['dispatch-work-records', dispatchOrderId] });
-    },
-    onError: () => message.error('批次關聯失敗'),
-  });
-
-  const handleAutoMatchConfirm = useCallback(() => {
-    const items: { documentId: number; linkType: LinkType }[] = [];
-    for (const doc of autoMatchResults.agency) {
-      if (selectedAutoMatchIds.has(doc.id)) {
-        items.push({ documentId: doc.id, linkType: 'agency_incoming' });
-      }
-    }
-    for (const doc of autoMatchResults.company) {
-      if (selectedAutoMatchIds.has(doc.id)) {
-        items.push({ documentId: doc.id, linkType: 'company_outgoing' });
-      }
-    }
-    if (items.length === 0) {
-      message.warning('請至少勾選一筆公文');
-      return;
-    }
-    batchLinkMutation.mutate(items);
-  }, [autoMatchResults, selectedAutoMatchIds, batchLinkMutation, message]);
 
   // ===========================================================================
   // Handlers
@@ -343,7 +248,6 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
     [navigate, dispatchOrderId],
   );
 
-  // 關聯公文
   const handleLinkDocument = useCallback(() => {
     if (!selectedDocId) {
       message.warning('請先選擇要關聯的公文');
@@ -355,7 +259,6 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
     });
   }, [selectedDocId, selectedLinkType, linkDocMutation, message]);
 
-  // 解除公文關聯（含 link_id 防禦性檢查）
   const handleUnlinkDocument = useCallback(
     (linkId: number | undefined) => {
       if (linkId === undefined || linkId === null) {
@@ -368,7 +271,6 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
     [unlinkDocMutation, message, onRefetchDispatch],
   );
 
-  // 公文選取時建議關聯類型（不覆蓋用戶手動選擇）
   const handleDocumentChange = useCallback(
     (docId: number | undefined) => {
       setSelectedDocId(docId);
@@ -387,7 +289,6 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
     [availableDocs, selectedLinkType, message],
   );
 
-  // 從未指派公文快速建立作業紀錄
   const handleQuickCreateRecord = useCallback(
     (doc: DispatchDocumentLink) => {
       navigate(
@@ -401,187 +302,35 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
     setViewMode(mode);
   }, []);
 
-  // ===========================================================================
-  // Table Columns
-  // ===========================================================================
-
-  const columns: ColumnsType<WorkRecord> = useMemo(
-    () => [
-      {
-        title: '序號',
-        dataIndex: 'sort_order',
-        key: 'sort_order',
-        width: 50,
-        align: 'center' as const,
-      },
-      {
-        title: '類別',
-        key: 'category',
-        width: 90,
-        render: (_: unknown, record: WorkRecord) =>
-          record.work_category ? (
-            <Tag color={getCategoryColor(record)}>{getCategoryLabel(record)}</Tag>
-          ) : (
-            <Tag color={milestoneColor(record.milestone_type)}>{milestoneLabel(record.milestone_type)}</Tag>
-          ),
-      },
-      {
-        title: '說明',
-        key: 'description',
-        ellipsis: true,
-        render: (_: unknown, record: WorkRecord) => {
-          const doc = getEffectiveDoc(record);
-          const text = record.description || doc?.subject;
-          if (!text) return '-';
-          return (
-            <Tooltip title={text}>
-              <Text ellipsis style={{ maxWidth: 200 }}>{text}</Text>
-            </Tooltip>
-          );
-        },
-      },
-      {
-        title: '紀錄日期',
-        dataIndex: 'record_date',
-        key: 'record_date',
-        width: 100,
-        render: (val: string) => (val ? dayjs(val).format('YYYY-MM-DD') : '-'),
-      },
-      {
-        title: '期限',
-        dataIndex: 'deadline_date',
-        key: 'deadline_date',
-        width: 95,
-        render: (val: string) => (val ? dayjs(val).format('YYYY-MM-DD') : '-'),
-      },
-      {
-        title: '狀態',
-        dataIndex: 'status',
-        key: 'status',
-        width: 80,
-        render: (status: WorkRecordStatus) => (
-          <Tag color={statusColor(status)}>{statusLabel(status)}</Tag>
-        ),
-      },
-      {
-        title: '來文',
-        key: 'incoming_doc',
-        width: 155,
-        render: (_: unknown, record: WorkRecord) => {
-          if (record.incoming_doc?.doc_number) {
-            return (
-              <Tooltip title={record.incoming_doc.subject}>
-                <Text
-                  ellipsis
-                  style={{ maxWidth: 135, cursor: 'pointer', color: '#1677ff' }}
-                  onClick={() => record.incoming_doc?.id && handleDocClick(record.incoming_doc.id)}
-                >
-                  <FileTextOutlined style={{ marginRight: 4 }} />
-                  {record.incoming_doc.doc_number}
-                </Text>
-              </Tooltip>
-            );
-          }
-          const doc = getEffectiveDoc(record);
-          const dir = getDocDirection(record);
-          if (doc?.doc_number && dir === 'incoming') {
-            return (
-              <Tooltip title={doc.subject}>
-                <Text
-                  ellipsis
-                  style={{ maxWidth: 135, cursor: 'pointer', color: '#1677ff' }}
-                  onClick={() => doc.id && handleDocClick(doc.id)}
-                >
-                  <FileTextOutlined style={{ marginRight: 4 }} />
-                  {doc.doc_number}
-                </Text>
-              </Tooltip>
-            );
-          }
-          return '-';
-        },
-      },
-      {
-        title: '覆文',
-        key: 'outgoing_doc',
-        width: 155,
-        render: (_: unknown, record: WorkRecord) => {
-          if (record.outgoing_doc?.doc_number) {
-            return (
-              <Tooltip title={record.outgoing_doc.subject}>
-                <Text
-                  ellipsis
-                  style={{ maxWidth: 135, cursor: 'pointer', color: '#1677ff' }}
-                  onClick={() => record.outgoing_doc?.id && handleDocClick(record.outgoing_doc.id)}
-                >
-                  <FileTextOutlined style={{ marginRight: 4 }} />
-                  {record.outgoing_doc.doc_number}
-                </Text>
-              </Tooltip>
-            );
-          }
-          const doc = getEffectiveDoc(record);
-          const dir = getDocDirection(record);
-          if (doc?.doc_number && dir === 'outgoing') {
-            return (
-              <Tooltip title={doc.subject}>
-                <Text
-                  ellipsis
-                  style={{ maxWidth: 135, cursor: 'pointer', color: '#1677ff' }}
-                  onClick={() => doc.id && handleDocClick(doc.id)}
-                >
-                  <FileTextOutlined style={{ marginRight: 4 }} />
-                  {doc.doc_number}
-                </Text>
-              </Tooltip>
-            );
-          }
-          return '-';
-        },
-      },
-      ...(canEdit
-        ? [
-            {
-              title: '操作',
-              key: 'action',
-              width: 80,
-              fixed: 'right' as const,
-              render: (_: unknown, record: WorkRecord) => (
-                <Space size="small">
-                  <Tooltip title="編輯">
-                    <Button
-                      type="link"
-                      size="small"
-                      icon={<EditOutlined />}
-                      onClick={() => handleEdit(record)}
-                    />
-                  </Tooltip>
-                  <Popconfirm
-                    title="確定要刪除此紀錄嗎？"
-                    onConfirm={() => deleteMutation.mutate(record.id)}
-                    okText="確定"
-                    cancelText="取消"
-                  >
-                    <Tooltip title="刪除">
-                      <Button
-                        type="link"
-                        size="small"
-                        danger
-                        icon={<DeleteOutlined />}
-                      />
-                    </Tooltip>
-                  </Popconfirm>
-                </Space>
-              ),
-            },
-          ]
-        : []),
-    ],
-    [canEdit, handleEdit, handleDocClick, deleteMutation],
-  );
+  const handleExport = useCallback(() => {
+    try {
+      exportCorrespondenceMatrix({
+        matrixRows,
+        records,
+        stats,
+        dispatchNo,
+        projectName,
+      });
+      message.success('矩陣匯出成功');
+    } catch (err) {
+      logger.error('[WorkflowTab] 匯出矩陣失敗:', err);
+      message.error('匯出失敗，請稍後再試');
+    }
+  }, [matrixRows, records, stats, dispatchNo, projectName, message]);
 
   // ===========================================================================
-  // 公文對照視圖（含未指派區塊）
+  // Table Columns（拆分至 useWorkflowColumns）
+  // ===========================================================================
+
+  const columns = useWorkflowColumns({
+    canEdit,
+    onEdit: handleEdit,
+    onDocClick: handleDocClick,
+    onDelete: (id) => deleteMutation.mutate(id),
+  });
+
+  // ===========================================================================
+  // 公文對照視圖
   // ===========================================================================
 
   const hasUnassigned = unassignedDocs.incoming.length > 0 || unassignedDocs.outgoing.length > 0;
@@ -629,6 +378,7 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
         onAdd={handleAdd}
         linkedProjects={linkedProjects}
         onGoToProjectOverview={handleGoToProjectOverview}
+        onExport={matrixRows.length > 0 ? handleExport : undefined}
       />
 
       {/* 視圖內容 */}
@@ -696,8 +446,8 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
         <div style={{ marginTop: 12, textAlign: 'right' }}>
           <Button
             icon={<ThunderboltOutlined />}
-            onClick={() => autoMatchMutation.mutate()}
-            loading={autoMatchMutation.isPending}
+            onClick={autoMatch.trigger}
+            loading={autoMatch.isPending}
           >
             自動匹配公文
           </Button>
@@ -706,15 +456,15 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
 
       {/* 自動匹配結果 Modal */}
       <AutoMatchModal
-        open={autoMatchModalOpen}
+        open={autoMatch.modalOpen}
         projectName={projectName || ''}
-        agencyDocs={autoMatchResults.agency}
-        companyDocs={autoMatchResults.company}
-        selectedIds={selectedAutoMatchIds}
-        onSelectedIdsChange={setSelectedAutoMatchIds}
-        onConfirm={handleAutoMatchConfirm}
-        onCancel={() => setAutoMatchModalOpen(false)}
-        loading={batchLinkMutation.isPending}
+        agencyDocs={autoMatch.results.agency}
+        companyDocs={autoMatch.results.company}
+        selectedIds={autoMatch.selectedIds}
+        onSelectedIdsChange={autoMatch.setSelectedIds}
+        onConfirm={autoMatch.handleConfirm}
+        onCancel={autoMatch.closeModal}
+        loading={autoMatch.batchLinkPending}
       />
     </div>
   );

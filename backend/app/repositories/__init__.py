@@ -57,6 +57,8 @@ from app.repositories.taoyuan import (
     TaoyuanProjectRepository,
     PaymentRepository,
     DispatchLinkRepository,
+    DispatchDocLinkRepository,
+    DispatchProjectLinkRepository,
 )
 
 # Query Builders (v1.1.0 新增)
@@ -84,6 +86,8 @@ __all__ = [
     "TaoyuanProjectRepository",
     "PaymentRepository",
     "DispatchLinkRepository",
+    "DispatchDocLinkRepository",
+    "DispatchProjectLinkRepository",
     # AI
     "AISynonymRepository",
     "AIPromptRepository",

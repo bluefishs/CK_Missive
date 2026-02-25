@@ -23,6 +23,7 @@ import {
   LinkOutlined,
   FileTextOutlined,
   OrderedListOutlined,
+  DownloadOutlined,
 } from '@ant-design/icons';
 
 type ViewMode = 'chain' | 'correspondence' | 'table';
@@ -40,6 +41,10 @@ export interface WorkflowToolBarProps {
   linkedProjects?: { project_id: number; project_name?: string }[];
   /** 前往工程總覽回調 */
   onGoToProjectOverview: (projectId: number) => void;
+  /** 匯出矩陣回調 */
+  onExport?: () => void;
+  /** 匯出中 */
+  exporting?: boolean;
 }
 
 const WorkflowToolBarInner: React.FC<WorkflowToolBarProps> = ({
@@ -49,6 +54,8 @@ const WorkflowToolBarInner: React.FC<WorkflowToolBarProps> = ({
   onAdd,
   linkedProjects,
   onGoToProjectOverview,
+  onExport,
+  exporting,
 }) => {
   return (
     <div
@@ -83,6 +90,17 @@ const WorkflowToolBarInner: React.FC<WorkflowToolBarProps> = ({
               </Tooltip>
             ))}
           </>
+        )}
+        {onExport && (
+          <Tooltip title="匯出公文對照矩陣為 Excel">
+            <Button
+              icon={<DownloadOutlined />}
+              onClick={onExport}
+              loading={exporting}
+            >
+              匯出矩陣
+            </Button>
+          </Tooltip>
         )}
       </Space>
 
