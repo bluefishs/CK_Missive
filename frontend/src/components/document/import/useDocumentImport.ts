@@ -2,12 +2,15 @@
  * 公文匯入邏輯 Hook
  *
  * 管理 step state machine、預覽、匯入、範本下載。
+ *
+ * @version 1.1.0 - 統一使用 apiClient 取代 raw fetch
+ * @date 2026-02-25
  */
 
 import { useState } from 'react';
-import { API_BASE_URL } from '../../../api/client';
+import { apiClient } from '../../../api/client';
+import { API_ENDPOINTS } from '../../../api/endpoints';
 import type { PreviewResult, ImportResult, ImportStep } from './types';
-import { logger } from '../../../services/logger';
 
 export interface UseDocumentImportReturn {
   activeTab: string;
@@ -59,15 +62,11 @@ export function useDocumentImport(
     setUploading(true);
     setCurrentFile(file);
 
-    const formData = new FormData();
-    formData.append('file', file);
-
     try {
-      const response = await fetch(`${API_BASE_URL}/documents-enhanced/import/excel/preview`, {
-        method: 'POST',
-        body: formData,
-      });
-      const result = await response.json();
+      const result = await apiClient.postForm<PreviewResult>(
+        API_ENDPOINTS.DOCUMENTS.IMPORT_EXCEL_PREVIEW,
+        (() => { const fd = new FormData(); fd.append('file', file); return fd; })()
+      );
       setPreviewResult(result);
       setStep('preview');
     } catch (error) {
@@ -101,15 +100,11 @@ export function useDocumentImport(
 
     setImporting(true);
 
-    const formData = new FormData();
-    formData.append('file', currentFile);
-
     try {
-      const response = await fetch(`${API_BASE_URL}/documents-enhanced/import/excel`, {
-        method: 'POST',
-        body: formData,
-      });
-      const result = await response.json();
+      const result = await apiClient.postForm<ImportResult>(
+        API_ENDPOINTS.DOCUMENTS.IMPORT_EXCEL,
+        (() => { const fd = new FormData(); fd.append('file', currentFile); return fd; })()
+      );
       setImportResult(result);
       setStep('result');
 
@@ -136,15 +131,11 @@ export function useDocumentImport(
     setUploading(true);
     setCurrentFile(file);
 
-    const formData = new FormData();
-    formData.append('file', file);
-
     try {
-      const response = await fetch(`${API_BASE_URL}/csv-import/upload-and-import`, {
-        method: 'POST',
-        body: formData,
-      });
-      const result = await response.json();
+      const result = await apiClient.postForm<ImportResult>(
+        API_ENDPOINTS.CSV_IMPORT.UPLOAD_AND_IMPORT,
+        (() => { const fd = new FormData(); fd.append('file', file); return fd; })()
+      );
       setImportResult(result);
       setStep('result');
 
@@ -170,31 +161,11 @@ export function useDocumentImport(
   };
 
   const handleDownloadTemplate = async () => {
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/documents-enhanced/import/excel/template`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('下載範本失敗');
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = '公文匯入範本.xlsx';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      logger.error('下載範本失敗:', error);
-    }
+    await apiClient.downloadPost(
+      API_ENDPOINTS.DOCUMENTS.IMPORT_EXCEL_TEMPLATE,
+      {},
+      '公文匯入範本.xlsx'
+    );
   };
 
   return {

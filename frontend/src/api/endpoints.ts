@@ -46,6 +46,14 @@ export const DOCUMENTS_ENDPOINTS = {
   BY_PROJECT: '/documents-enhanced/by-project',
   /** 匯出公文 POST /documents-enhanced/export */
   EXPORT: '/documents-enhanced/export',
+  /** 匯出公文 Excel POST /documents-enhanced/export/excel */
+  EXPORT_EXCEL: '/documents-enhanced/export/excel',
+  /** 匯入 Excel 預覽 POST /documents-enhanced/import/excel/preview */
+  IMPORT_EXCEL_PREVIEW: '/documents-enhanced/import/excel/preview',
+  /** 匯入 Excel POST /documents-enhanced/import/excel */
+  IMPORT_EXCEL: '/documents-enhanced/import/excel',
+  /** 匯入 Excel 範本 POST /documents-enhanced/import/excel/template */
+  IMPORT_EXCEL_TEMPLATE: '/documents-enhanced/import/excel/template',
   /** 審計日誌列表 POST /documents-enhanced/audit-logs */
   AUDIT_LOGS: '/documents-enhanced/audit-logs',
   /** 公文審計歷史 POST /documents-enhanced/:id/audit-history */
@@ -497,6 +505,12 @@ export const TAOYUAN_DISPATCH_ENDPOINTS = {
   // 匯出
   /** 派工總表 Excel 匯出 POST /taoyuan-dispatch/dispatch/export/excel */
   DISPATCH_EXPORT_EXCEL: '/taoyuan-dispatch/dispatch/export/excel',
+  /** 非同步匯出 POST /taoyuan-dispatch/dispatch/export/excel/async */
+  DISPATCH_EXPORT_ASYNC: '/taoyuan-dispatch/dispatch/export/excel/async',
+  /** 匯出進度 POST /taoyuan-dispatch/dispatch/export/excel/progress */
+  DISPATCH_EXPORT_PROGRESS: '/taoyuan-dispatch/dispatch/export/excel/progress',
+  /** 下載匯出結果 POST /taoyuan-dispatch/dispatch/export/excel/download */
+  DISPATCH_EXPORT_DOWNLOAD: '/taoyuan-dispatch/dispatch/export/excel/download',
 
   // 公文歷程匹配 (對應原始需求欄位 14-17)
   /** 匹配公文歷程 POST /taoyuan-dispatch/dispatch/match-documents */

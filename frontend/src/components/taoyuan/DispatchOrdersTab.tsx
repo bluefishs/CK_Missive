@@ -9,7 +9,7 @@
  * @date 2026-01-29
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Typography,
@@ -65,6 +65,8 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
   const [searchText, setSearchText] = useState('');
   const [importModalVisible, setImportModalVisible] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState<{ progress: number; message: string } | null>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // RWD 響應式
   const { isMobile } = useResponsive();
@@ -118,19 +120,67 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
   }, [message]);
 
   const handleExportMasterExcel = useCallback(async () => {
+    const ASYNC_THRESHOLD = 200;
+
+    // 小量資料直接同步匯出
+    if (orders.length <= ASYNC_THRESHOLD) {
+      setExporting(true);
+      try {
+        await dispatchOrdersApi.exportMasterExcel({
+          contract_project_id: contractProjectId,
+          search: searchText || undefined,
+        });
+        message.success('匯出成功');
+      } catch {
+        message.error('匯出失敗');
+      } finally {
+        setExporting(false);
+      }
+      return;
+    }
+
+    // 大量資料使用非同步匯出 + 進度追蹤
     setExporting(true);
+    setExportProgress({ progress: 0, message: '提交匯出任務...' });
+
     try {
-      await dispatchOrdersApi.exportMasterExcel({
+      const { task_id } = await dispatchOrdersApi.submitAsyncExport({
         contract_project_id: contractProjectId,
         search: searchText || undefined,
       });
-      message.success('匯出成功');
-    } catch (error) {
-      message.error('匯出失敗');
-    } finally {
+
+      // 開始輪詢進度
+      pollTimerRef.current = setInterval(async () => {
+        try {
+          const status = await dispatchOrdersApi.getExportProgress(task_id);
+          setExportProgress({ progress: status.progress, message: status.message });
+
+          if (status.status === 'completed') {
+            if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+            pollTimerRef.current = null;
+            setExportProgress(null);
+            setExporting(false);
+
+            // 自動下載
+            await dispatchOrdersApi.downloadAsyncExport(task_id, status.filename);
+            message.success('匯出完成');
+          } else if (status.status === 'failed') {
+            if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+            pollTimerRef.current = null;
+            setExportProgress(null);
+            setExporting(false);
+            message.error(status.message || '匯出失敗');
+          }
+        } catch {
+          // 輪詢失敗時不中斷，等待下次
+        }
+      }, 2000);
+    } catch {
+      setExportProgress(null);
       setExporting(false);
+      message.error('提交匯出任務失敗');
     }
-  }, [contractProjectId, searchText, message]);
+  }, [contractProjectId, searchText, message, orders.length]);
 
   const dispatchCaseHandlerFilters = useMemo(() =>
     [...new Set(orders.map((o) => o.case_handler).filter(Boolean))]
@@ -506,14 +556,16 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
             >
               {isMobile ? '' : '重新整理'}
             </Button>
-            <Button
-              icon={<DownloadOutlined />}
-              onClick={handleExportMasterExcel}
-              loading={exporting}
-              size={isMobile ? 'small' : 'middle'}
-            >
-              {isMobile ? '' : '匯出總表'}
-            </Button>
+            <Tooltip title={exportProgress ? `${exportProgress.progress}% — ${exportProgress.message}` : undefined}>
+              <Button
+                icon={<DownloadOutlined />}
+                onClick={handleExportMasterExcel}
+                loading={exporting}
+                size={isMobile ? 'small' : 'middle'}
+              >
+                {isMobile ? '' : (exportProgress ? `${exportProgress.progress}%` : '匯出總表')}
+              </Button>
+            </Tooltip>
             <Button
               icon={<UploadOutlined />}
               onClick={() => setImportModalVisible(true)}

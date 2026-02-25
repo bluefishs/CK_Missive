@@ -1,5 +1,6 @@
 import { Document, DocumentFilter } from '../types';
-import { API_BASE_URL } from '../api/client';
+import { apiClient } from '../api/client';
+import { API_ENDPOINTS } from '../api/endpoints';
 import { logger } from './logger';
 
 /**
@@ -60,59 +61,17 @@ export const exportDocumentsToExcel = async (
     requestBody.receiver = filters.receiver;
   }
 
+  const finalFilename = (filename || generateFilename(filters)).replace(/\.xlsx$/i, '') + '.xlsx';
+
   try {
-    const response = await fetch(`${API_BASE_URL}/documents-enhanced/export/excel`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ detail: '無法解析錯誤回應' }));
-      throw new Error(`API 請求失敗: ${response.status} - ${errorData.detail || '未知錯誤'}`);
-    }
-
-    const blob = await response.blob();
-
-    // 從 Content-Disposition 標頭獲取檔名 (支援 RFC 5987 UTF-8 編碼)
-    const disposition = response.headers.get('Content-Disposition');
-    // 確保移除傳入 filename 可能已包含的 .xlsx 擴展名，避免重複
-    let finalFilename = (filename || generateFilename(filters)).replace(/\.xlsx$/i, '');
-    if (disposition && disposition.indexOf('attachment') !== -1) {
-      // 優先解析 filename*=UTF-8''... 格式 (RFC 5987)
-      const utf8Regex = /filename\*=UTF-8''([^;\s]+)/i;
-      const utf8Matches = utf8Regex.exec(disposition);
-      if (utf8Matches != null && utf8Matches[1]) {
-        // URL 解碼並移除 .xlsx 副檔名（後面會加回）
-        finalFilename = decodeURIComponent(utf8Matches[1]).replace(/\.xlsx$/i, '');
-      } else {
-        // Fallback: 解析一般 filename=... 格式
-        const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
-        const matches = filenameRegex.exec(disposition);
-        if (matches != null && matches[1]) {
-          finalFilename = matches[1].replace(/['"]/g, '').replace(/\.xlsx$/i, '');
-        }
-      }
-    }
-
-    // 建立 URL 並觸發下載
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${finalFilename}.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-
-    // 清理
-    a.remove();
-    window.URL.revokeObjectURL(url);
-
-    logger.debug(`已成功請求匯出 ${documents.length} 筆文件到 ${finalFilename}.xlsx`);
+    await apiClient.downloadPost(
+      API_ENDPOINTS.DOCUMENTS.EXPORT_EXCEL,
+      requestBody,
+      finalFilename
+    );
+    logger.debug(`已成功請求匯出 ${documents.length} 筆文件到 ${finalFilename}`);
   } catch (error) {
     logger.error('匯出 Excel 失敗:', error);
-    // 將錯誤向上拋出，以便 UI 層可以捕獲並顯示訊息
     throw error;
   }
 };

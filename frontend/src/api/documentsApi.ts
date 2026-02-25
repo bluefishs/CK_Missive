@@ -4,7 +4,7 @@
  * 使用統一的 API Client 和型別定義
  */
 
-import { apiClient, ApiException, API_BASE_URL } from './client';
+import { apiClient, ApiException } from './client';
 import {
   PaginatedResponse,
   PaginationParams,
@@ -436,20 +436,10 @@ export const documentsApi = {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(
-      `${API_BASE_URL}${API_ENDPOINTS.CSV_IMPORT.UPLOAD_AND_IMPORT}`,
-      {
-        method: 'POST',
-        body: formData,
-      }
+    return apiClient.postForm(
+      API_ENDPOINTS.CSV_IMPORT.UPLOAD_AND_IMPORT,
+      formData
     );
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || `匯入失敗: HTTP ${response.status}`);
-    }
-
-    return await response.json();
   },
 
   // ==========================================================================

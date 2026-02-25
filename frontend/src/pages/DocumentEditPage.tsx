@@ -12,6 +12,8 @@ import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useResponsive } from '../hooks';
 import { logger } from '../services/logger';
+import { apiClient } from '../api/client';
+import { API_ENDPOINTS } from '../api/endpoints';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -34,12 +36,10 @@ export const DocumentEditPage: React.FC = () => {
     const loadDocument = async () => {
       setLoadingDocument(true);
       try {
-        const response = await fetch(`/api/documents/${id}`);
-        if (!response.ok) {
-          throw new Error('Failed to load document');
-        }
-
-        const documentData = await response.json();
+        const documentData = await apiClient.post<Record<string, unknown>>(
+          API_ENDPOINTS.DOCUMENTS.DETAIL(Number(id)),
+          {}
+        );
 
         // 格式化資料以符合表單格式
         const formData = {
@@ -70,25 +70,18 @@ export const DocumentEditPage: React.FC = () => {
   const onFinish = async (values: DocumentFormValues) => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/documents/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      await apiClient.post(
+        API_ENDPOINTS.DOCUMENTS.UPDATE(Number(id)),
+        {
           title: values.title,
           document_type: values.type,
           agency: values.agency,
           priority: values.priority,
           contract_cases: values.contract_case,
           content: values.content,
-          notes: values.notes
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update document');
-      }
+          notes: values.notes,
+        }
+      );
 
       message.success('公文更新成功！');
       navigate('/documents');

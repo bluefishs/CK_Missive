@@ -3,12 +3,12 @@
  *
  * 負責從 API 獲取篩選選項資料
  *
- * @version 1.0.0
- * @date 2026-01-26
+ * @version 1.1.0 - 統一使用 apiClient 取代 raw fetch
+ * @date 2026-02-25
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { API_BASE_URL } from '../../../../api/client';
+import { apiClient } from '../../../../api/client';
 import { API_ENDPOINTS } from '../../../../api/endpoints';
 import { logger } from '../../../../utils/logger';
 import type {
@@ -39,19 +39,15 @@ export function useFilterOptions(): FilterOptionsData {
   // 獲取年度選項
   const fetchYearOptions = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/documents-enhanced/years`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
-      });
-      if (response.ok) {
-        const data: YearsResponse = await response.json();
-        const options = (data.years || []).map((year) => ({
-          value: String(year),
-          label: `${year}年`
-        }));
-        setYearOptions(options);
-      }
+      const data = await apiClient.post<YearsResponse>(
+        API_ENDPOINTS.DOCUMENTS.YEARS,
+        {}
+      );
+      const options = (data.years || []).map((year) => ({
+        value: String(year),
+        label: `${year}年`
+      }));
+      setYearOptions(options);
     } catch (error) {
       logger.error('獲取年度選項失敗:', error);
     }
@@ -60,33 +56,25 @@ export function useFilterOptions(): FilterOptionsData {
   // 獲取承攬案件下拉選項
   const fetchContractCaseOptions = useCallback(async () => {
     try {
-      // 先嘗試新的增強版 API (使用 POST 方法)
-      let response = await fetch(`${API_BASE_URL}/documents-enhanced/contract-projects-dropdown`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ limit: 100 })
-      });
-
-      if (response.ok) {
-        const data: ContractProjectsDropdownResponse = await response.json();
-        const options = (data.options || []).map((option) => ({
-          value: option.value,
-          label: option.label
-        }));
-        setContractCaseOptions(options);
-        logger.debug('成功從 contract_projects 表載入承攬案件選項:', options.length);
-        return;
-      }
-
+      // 先嘗試新的增強版 API
+      const data = await apiClient.post<ContractProjectsDropdownResponse>(
+        API_ENDPOINTS.DOCUMENTS.CONTRACT_PROJECTS_DROPDOWN,
+        { limit: 100 }
+      );
+      const options = (data.options || []).map((option) => ({
+        value: option.value,
+        label: option.label
+      }));
+      setContractCaseOptions(options);
+      logger.debug('成功從 contract_projects 表載入承攬案件選項:', options.length);
+    } catch {
       // 降級方案
-      logger.warn('增強版 API 不可用，使用降級方案');
-      response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.DOCUMENTS.INTEGRATED_SEARCH}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ limit: 100 })
-      });
-      if (response.ok) {
-        const data: DocumentListResponse = await response.json();
+      try {
+        logger.warn('增強版 API 不可用，使用降級方案');
+        const data = await apiClient.post<DocumentListResponse>(
+          API_ENDPOINTS.DOCUMENTS.INTEGRATED_SEARCH,
+          { limit: 100 }
+        );
         const documents = data.documents || [];
         const contractCases = documents
           .map((doc) => doc.contract_case || '')
@@ -100,9 +88,9 @@ export function useFilterOptions(): FilterOptionsData {
           }));
         setContractCaseOptions(contractCases);
         logger.debug('從公文表載入承攬案件選項:', contractCases.length);
+      } catch (fallbackError) {
+        logger.error('獲取承攬案件選項失敗:', fallbackError);
       }
-    } catch (error) {
-      logger.error('獲取承攬案件選項失敗:', error);
     }
   }, []);
 
@@ -112,34 +100,27 @@ export function useFilterOptions(): FilterOptionsData {
     label: string
   ) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/documents-enhanced/agencies-dropdown`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ limit: 500 })
-      });
-      if (response.ok) {
-        const data: AgenciesDropdownResponse = await response.json();
-        const agencies = data.options || [];
-        const options = agencies
-          .filter((agency) => agency.value !== '相關機關')
-          .map((agency) => ({
-            value: agency.value,
-            label: agency.label
-          }));
-        setter(options);
-        logger.debug(`成功載入標準化${label}選項:`, options.length);
-        return;
-      }
-
+      const data = await apiClient.post<AgenciesDropdownResponse>(
+        API_ENDPOINTS.DOCUMENTS.AGENCIES_DROPDOWN,
+        { limit: 500 }
+      );
+      const agencies = data.options || [];
+      const options = agencies
+        .filter((agency) => agency.value !== '相關機關')
+        .map((agency) => ({
+          value: agency.value,
+          label: agency.label
+        }));
+      setter(options);
+      logger.debug(`成功載入標準化${label}選項:`, options.length);
+    } catch {
       // 降級方案
-      logger.warn('增強版 API 不可用，使用降級方案');
-      const fallbackResponse = await fetch(`${API_BASE_URL}${API_ENDPOINTS.DOCUMENTS.INTEGRATED_SEARCH}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ limit: 500 })
-      });
-      if (fallbackResponse.ok) {
-        const data: DocumentListResponse = await fallbackResponse.json();
+      try {
+        logger.warn('增強版 API 不可用，使用降級方案');
+        const data = await apiClient.post<DocumentListResponse>(
+          API_ENDPOINTS.DOCUMENTS.INTEGRATED_SEARCH,
+          { limit: 500 }
+        );
         const documents = data.documents || [];
         const field = label === '發文單位' ? 'sender' : 'receiver';
         const options = documents
@@ -154,9 +135,9 @@ export function useFilterOptions(): FilterOptionsData {
           }));
         setter(options);
         logger.debug(`從公文表載入${label}選項:`, options.length);
+      } catch (fallbackError) {
+        logger.error(`獲取${label}選項失敗:`, fallbackError);
       }
-    } catch (error) {
-      logger.error(`獲取${label}選項失敗:`, error);
     }
   }, []);
 
@@ -200,23 +181,19 @@ export function useAutocompleteSuggestions() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.DOCUMENTS.LIST}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ keyword: query, limit: 50, page: 1 })
-      });
-      if (response.ok) {
-        const data: DocumentListResponse = await response.json();
-        const documents = data.items || [];
-        const suggestions = documents
-          .map((doc) => doc.subject || '')
-          .filter((subject, index, arr) =>
-            subject && arr.indexOf(subject) === index
-          )
-          .slice(0, 10)
-          .map((subject) => ({ value: subject }));
-        setSearchOptions(suggestions);
-      }
+      const data = await apiClient.post<DocumentListResponse>(
+        API_ENDPOINTS.DOCUMENTS.LIST,
+        { keyword: query, limit: 50, page: 1 }
+      );
+      const documents = data.items || [];
+      const suggestions = documents
+        .map((doc) => doc.subject || '')
+        .filter((subject, index, arr) =>
+          subject && arr.indexOf(subject) === index
+        )
+        .slice(0, 10)
+        .map((subject) => ({ value: subject }));
+      setSearchOptions(suggestions);
     } catch (error) {
       logger.error('獲取搜尋建議失敗:', error);
     }
@@ -230,27 +207,23 @@ export function useAutocompleteSuggestions() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.DOCUMENTS.LIST}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ keyword: query, limit: 100, page: 1 })
-      });
-      if (response.ok) {
-        const responseData: DocumentListResponse = await response.json();
-        const documents = responseData.items || [];
+      const data = await apiClient.post<DocumentListResponse>(
+        API_ENDPOINTS.DOCUMENTS.LIST,
+        { keyword: query, limit: 100, page: 1 }
+      );
+      const documents = data.items || [];
 
-        if (Array.isArray(documents)) {
-          const docNumbers = documents
-            .map((doc) => doc.doc_number || '')
-            .filter((docNumber, index, arr) =>
-              docNumber && docNumber?.toString().toLowerCase().includes(query?.toString().toLowerCase()) && arr.indexOf(docNumber) === index
-            )
-            .map((docNumber) => ({ value: docNumber }));
-          setDocNumberOptions(docNumbers.slice(0, 10));
-        } else {
-          logger.warn('API 回應不包含有效的文件陣列:', responseData);
-          setDocNumberOptions([]);
-        }
+      if (Array.isArray(documents)) {
+        const docNumbers = documents
+          .map((doc) => doc.doc_number || '')
+          .filter((docNumber, index, arr) =>
+            docNumber && docNumber?.toString().toLowerCase().includes(query?.toString().toLowerCase()) && arr.indexOf(docNumber) === index
+          )
+          .map((docNumber) => ({ value: docNumber }));
+        setDocNumberOptions(docNumbers.slice(0, 10));
+      } else {
+        logger.warn('API 回應不包含有效的文件陣列:', data);
+        setDocNumberOptions([]);
       }
     } catch (error) {
       logger.error('獲取公文字號建議失敗:', error);

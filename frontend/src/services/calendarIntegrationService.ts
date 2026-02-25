@@ -5,7 +5,8 @@
 
 import { logger } from '../utils/logger';
 import { Document } from '../types';
-import { API_BASE_URL } from '../api/client';
+import { apiClient } from '../api/client';
+import { API_ENDPOINTS } from '../api/endpoints';
 
 export interface CalendarEventData {
   title: string;
@@ -189,65 +190,34 @@ class CalendarIntegrationService {
   }
 
   /**
-   * 獲取認證標頭
-   */
-  private getAuthHeaders(): Record<string, string> {
-    const token = localStorage.getItem('auth_token');
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-
-    return headers;
-  }
-
-  /**
    * 將公文添加到行事曆
    */
   async addDocumentToCalendar(document: Document): Promise<CalendarIntegrationResult> {
     try {
       const eventData = this.convertDocumentToEventData(document);
 
-      // 發送到正確的端點，並加入 document_id
-      const response = await fetch(
-        `${API_BASE_URL}/calendar/events`,
-        {
-          method: 'POST',
-          headers: this.getAuthHeaders(),
-          body: JSON.stringify({
-            ...eventData,
-            document_id: document.id
-          })
-        }
+      const result = await apiClient.post<{
+        message?: string;
+        event_id?: number;
+        id?: number;
+        google_event_id?: string;
+      }>(
+        API_ENDPOINTS.CALENDAR.EVENTS_CREATE,
+        { ...eventData, document_id: document.id }
       );
 
-      // 處理響應
-      if (response.ok) {
-        const result = await response.json();
+      const successMessage = result.message || `公文 ${document.doc_number || document.id} 已成功添加到行事曆`;
 
-        // 不在這裡顯示 message，讓調用者決定是否顯示
-        const successMessage = result.message || `公文 ${document.doc_number || document.id} 已成功添加到行事曆`;
-
-        return {
-          success: true,
-          message: successMessage,
-          local_event_id: result.event_id || result.id,
-          google_event_id: result.google_event_id || null
-        };
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage = errorData.detail || `新增日曆事件失敗 (HTTP ${response.status})`;
-        throw new Error(errorMessage);
-      }
-
+      return {
+        success: true,
+        message: successMessage,
+        local_event_id: result.event_id || result.id,
+        google_event_id: result.google_event_id || undefined
+      };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '新增至日曆失敗';
       logger.error('新增至日曆失敗:', error);
 
-      // 不在這裡顯示 message，讓調用者決定是否顯示
       return {
         success: false,
         message: errorMessage
@@ -305,26 +275,14 @@ class CalendarIntegrationService {
    */
   async isDocumentInCalendar(documentId: number): Promise<boolean> {
     try {
-      // 使用 events/list 端點查詢與此公文相關的事件
-      const response = await fetch(
-        `${API_BASE_URL}/calendar/events/list`,
-        {
-          method: 'POST',
-          headers: this.getAuthHeaders(),
-          body: JSON.stringify({
-            document_id: documentId,
-            page: 1,
-            page_size: 1
-          })
-        }
+      const result = await apiClient.post<{
+        success: boolean;
+        total: number;
+      }>(
+        API_ENDPOINTS.CALENDAR.EVENTS_LIST,
+        { document_id: documentId, page: 1, page_size: 1 }
       );
-
-      if (response.ok) {
-        const result = await response.json();
-        return result.success && result.total > 0;
-      }
-
-      return false;
+      return result.success && result.total > 0;
     } catch (error) {
       logger.error('檢查公文日曆狀態失敗:', error);
       return false;
@@ -340,27 +298,13 @@ class CalendarIntegrationService {
   }> {
     try {
       // 先取得與此公文相關的所有事件
-      const listResponse = await fetch(
-        `${API_BASE_URL}/calendar/events/list`,
-        {
-          method: 'POST',
-          headers: this.getAuthHeaders(),
-          body: JSON.stringify({
-            document_id: documentId,
-            page: 1,
-            page_size: 100
-          })
-        }
+      const listResult = await apiClient.post<{
+        events?: Array<{ id: number }>;
+      }>(
+        API_ENDPOINTS.CALENDAR.EVENTS_LIST,
+        { document_id: documentId, page: 1, page_size: 100 }
       );
 
-      if (!listResponse.ok) {
-        return {
-          success: false,
-          message: '無法取得公文相關事件'
-        };
-      }
-
-      const listResult = await listResponse.json();
       const events = listResult.events || [];
 
       if (events.length === 0) {
@@ -373,20 +317,14 @@ class CalendarIntegrationService {
       // 刪除所有相關事件
       let deletedCount = 0;
       for (const event of events) {
-        const deleteResponse = await fetch(
-          `${API_BASE_URL}/calendar/events/delete`,
-          {
-            method: 'POST',
-            headers: this.getAuthHeaders(),
-            body: JSON.stringify({
-              event_id: event.id,
-              confirm: true
-            })
-          }
-        );
-
-        if (deleteResponse.ok) {
+        try {
+          await apiClient.post(
+            API_ENDPOINTS.CALENDAR.EVENTS_DELETE,
+            { event_id: event.id, confirm: true }
+          );
           deletedCount++;
+        } catch {
+          // 單一刪除失敗不中斷整批
         }
       }
 

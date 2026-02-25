@@ -8,7 +8,7 @@
  * @date 2026-01-06
  */
 
-import { apiClient, API_BASE_URL } from './client';
+import { apiClient } from './client';
 import { API_ENDPOINTS } from './endpoints';
 
 // 型別從 types/ 匯入 (SSOT)
@@ -214,33 +214,7 @@ export const filesApi = {
    * @returns Blob 資料
    */
   async getAttachmentBlob(attachmentId: number): Promise<Blob> {
-    // 取得 CSRF token (若存在)
-    const csrfToken = document.cookie
-      .split('; ')
-      .find(row => row.startsWith('csrf_token='))
-      ?.split('=')[1];
-
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    if (csrfToken) {
-      headers['X-CSRF-Token'] = csrfToken;
-    }
-
-    const response = await fetch(
-      `${API_BASE_URL}${API_ENDPOINTS.FILES.DOWNLOAD(attachmentId)}`,
-      {
-        method: 'POST',
-        headers,
-        credentials: 'include',
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error('取得附件失敗');
-    }
-
-    return await response.blob();
+    return apiClient.postBlob(API_ENDPOINTS.FILES.DOWNLOAD(attachmentId));
   },
 
   /**

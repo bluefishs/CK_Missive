@@ -173,9 +173,7 @@ export const dispatchOrdersApi = {
   },
 
   /**
-   * 匯出派工總表 Excel (5 工作表: 派工總表/作業紀錄/公文矩陣/契金/統計)
-   *
-   * 使用 apiClient.downloadPost 確保 auth/CSRF/token refresh 正確處理。
+   * 匯出派工總表 Excel (同步模式，適合小量資料)
    */
   async exportMasterExcel(params?: {
     contract_project_id?: number;
@@ -186,6 +184,49 @@ export const dispatchOrdersApi = {
       API_ENDPOINTS.TAOYUAN_DISPATCH.DISPATCH_EXPORT_EXCEL,
       params ?? {},
       'dispatch_master.xlsx',
+    );
+  },
+
+  /**
+   * 提交非同步匯出任務 (適合大量資料，支援進度追蹤)
+   */
+  async submitAsyncExport(params?: {
+    contract_project_id?: number;
+    work_type?: string;
+    search?: string;
+  }): Promise<{ success: boolean; task_id: string }> {
+    return apiClient.post(
+      API_ENDPOINTS.TAOYUAN_DISPATCH.DISPATCH_EXPORT_ASYNC,
+      params ?? {},
+    );
+  },
+
+  /**
+   * 查詢非同步匯出進度
+   */
+  async getExportProgress(taskId: string): Promise<{
+    success: boolean;
+    task_id: string;
+    status: 'pending' | 'running' | 'completed' | 'failed';
+    progress: number;
+    total: number;
+    message: string;
+    filename?: string;
+  }> {
+    return apiClient.post(
+      API_ENDPOINTS.TAOYUAN_DISPATCH.DISPATCH_EXPORT_PROGRESS,
+      { task_id: taskId },
+    );
+  },
+
+  /**
+   * 下載非同步匯出結果
+   */
+  async downloadAsyncExport(taskId: string, filename?: string): Promise<void> {
+    await apiClient.downloadPost(
+      API_ENDPOINTS.TAOYUAN_DISPATCH.DISPATCH_EXPORT_DOWNLOAD,
+      { task_id: taskId },
+      filename || 'dispatch_master.xlsx',
     );
   },
 

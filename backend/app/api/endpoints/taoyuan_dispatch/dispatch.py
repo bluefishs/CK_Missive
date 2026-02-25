@@ -30,7 +30,7 @@ from .common import (
     ExcelImportResult, PaginationMeta
 )
 from app.utils.doc_helpers import is_outgoing_doc_number
-from app.services.taoyuan import DispatchOrderService, DispatchExportService
+from app.services.taoyuan import DispatchOrderService, DispatchExportService, ExportTaskManager
 
 router = APIRouter()
 
@@ -249,6 +249,66 @@ async def export_dispatch_master_excel(
 
     return StreamingResponse(
         excel_output,
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/dispatch/export/excel/async", summary="提交非同步匯出任務")
+async def submit_async_export(
+    contract_project_id: Optional[int] = Body(None, embed=True),
+    work_type: Optional[str] = Body(None, embed=True),
+    search: Optional[str] = Body(None, embed=True),
+    db: AsyncSession = Depends(get_async_db),
+    current_user=Depends(require_auth()),
+):
+    """提交非同步匯出任務，回傳 task_id 供前端輪詢進度"""
+    task_id = await ExportTaskManager.submit_export(
+        db=db,
+        contract_project_id=contract_project_id,
+        work_type=work_type,
+        search=search,
+    )
+    return {"success": True, "task_id": task_id}
+
+
+@router.post("/dispatch/export/excel/progress", summary="查詢匯出進度")
+async def get_export_progress(
+    task_id: str = Body(..., embed=True),
+    current_user=Depends(require_auth()),
+):
+    """輪詢匯出任務進度 (status/progress/total/message)"""
+    progress = await ExportTaskManager.get_progress(task_id)
+    if not progress:
+        raise HTTPException(status_code=404, detail="任務不存在或已過期")
+    return {"success": True, **progress}
+
+
+@router.post(
+    "/dispatch/export/excel/download",
+    summary="下載非同步匯出結果",
+    response_class=StreamingResponse,
+)
+async def download_async_export(
+    task_id: str = Body(..., embed=True),
+    current_user=Depends(require_auth()),
+) -> StreamingResponse:
+    """下載已完成的非同步匯出結果 (取後即刪)"""
+    # 先檢查任務狀態
+    progress = await ExportTaskManager.get_progress(task_id)
+    if not progress:
+        raise HTTPException(status_code=404, detail="任務不存在或已過期")
+    if progress["status"] != "completed":
+        raise HTTPException(status_code=400, detail=f"任務尚未完成: {progress['status']}")
+
+    result = await ExportTaskManager.get_result(task_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="匯出結果已過期，請重新匯出")
+
+    filename = progress.get("filename", "dispatch_master.xlsx")
+
+    return StreamingResponse(
+        result,
         media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         headers={'Content-Disposition': f'attachment; filename="{filename}"'},
     )

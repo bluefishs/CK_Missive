@@ -4,7 +4,7 @@
  * 提供行事曆事件與 Google Calendar 整合功能
  */
 
-import { apiClient, API_BASE_URL } from './client';
+import { apiClient } from './client';
 import { authService } from '../services/authService';
 import dayjs from 'dayjs';
 import { API_ENDPOINTS } from './endpoints';
@@ -94,51 +94,37 @@ export const calendarApi = {
    */
   async getGoogleStatus(): Promise<GoogleCalendarStatus> {
     try {
-      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.PUBLIC.CALENDAR_STATUS}`);
-      if (response.ok) {
-        const data = await response.json();
-        return {
-          google_calendar_available: data.google_calendar_integration || false,
-          connection_status: {
-            status: data.google_status?.configured ? 'connected' : 'disconnected',
-            message: data.message || '狀態未知',
-            calendars: data.google_status?.calendar_id
-              ? [
-                  {
-                    id: data.google_status.calendar_id,
-                    summary: 'Primary Calendar',
-                    primary: true,
-                  },
-                ]
-              : [],
-          },
-          service_type: data.endpoint_type || 'basic',
-          supported_event_types: DEFAULT_CATEGORIES.map((c) => ({
-            type: c.value,
-            name: c.label,
-            color: c.color,
-          })),
-          features: data.features || ['本地行事曆', '事件提醒'],
-        };
-      } else {
-        return {
-          google_calendar_available: false,
-          connection_status: {
-            status: response.status === 403 ? 'auth_required' : 'service_unavailable',
-            message:
-              response.status === 403
-                ? '需要登入才能存取行事曆功能'
-                : '行事曆服務暫時無法使用',
-          },
-          service_type: '行事曆管理系統',
-          supported_event_types: DEFAULT_CATEGORIES.map((c) => ({
-            type: c.value,
-            name: c.label,
-            color: c.color,
-          })),
-          features: ['基本行事曆檢視', '事件提醒功能', '本地事件儲存'],
-        };
-      }
+      const data = await apiClient.get<{
+        google_calendar_integration?: boolean;
+        google_status?: { configured?: boolean; calendar_id?: string };
+        message?: string;
+        endpoint_type?: string;
+        features?: string[];
+      }>(API_ENDPOINTS.PUBLIC.CALENDAR_STATUS);
+
+      return {
+        google_calendar_available: data.google_calendar_integration || false,
+        connection_status: {
+          status: data.google_status?.configured ? 'connected' : 'disconnected',
+          message: data.message || '狀態未知',
+          calendars: data.google_status?.calendar_id
+            ? [
+                {
+                  id: data.google_status.calendar_id,
+                  summary: 'Primary Calendar',
+                  primary: true,
+                },
+              ]
+            : [],
+        },
+        service_type: data.endpoint_type || 'basic',
+        supported_event_types: DEFAULT_CATEGORIES.map((c) => ({
+          type: c.value,
+          name: c.label,
+          color: c.color,
+        })),
+        features: data.features || ['本地行事曆', '事件提醒'],
+      };
     } catch (error) {
       logger.error('獲取 Google Calendar 狀態失敗:', error);
       return {

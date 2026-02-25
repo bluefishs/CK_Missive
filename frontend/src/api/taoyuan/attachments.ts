@@ -5,7 +5,7 @@
  * @date 2026-01-23
  */
 
-import { apiClient, API_BASE_URL } from '../client';
+import { apiClient } from '../client';
 import { API_ENDPOINTS } from '../endpoints';
 import type {
   DispatchAttachment,
@@ -64,19 +64,9 @@ export const dispatchAttachmentsApi = {
    * @returns Blob 資料
    */
   async getAttachmentBlob(attachmentId: number): Promise<Blob> {
-    const response = await fetch(
-      `${API_BASE_URL}${API_ENDPOINTS.TAOYUAN_DISPATCH.DISPATCH_ATTACHMENT_DOWNLOAD(attachmentId)}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      }
+    return apiClient.postBlob(
+      API_ENDPOINTS.TAOYUAN_DISPATCH.DISPATCH_ATTACHMENT_DOWNLOAD(attachmentId)
     );
-
-    if (!response.ok) {
-      throw new Error('取得附件失敗');
-    }
-
-    return await response.blob();
   },
 
   /**
