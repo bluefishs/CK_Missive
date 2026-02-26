@@ -1,9 +1,9 @@
 """
 AI API 端點模組
 
-Version: 1.3.0
+Version: 1.6.0
 Created: 2026-02-04
-Updated: 2026-02-08 - 新增 AI Prompt 版本管理端點
+Updated: 2026-02-26 - 新增 Agentic 問答端點
 """
 
 from fastapi import APIRouter
@@ -17,6 +17,9 @@ from .relation_graph import router as relation_graph_router
 from .embedding_pipeline import router as embedding_pipeline_router
 from .entity_extraction import router as entity_extraction_router
 from .graph_query import router as graph_query_router
+from .ollama_management import router as ollama_management_router
+from .rag_query import router as rag_query_router
+from .agent_query import router as agent_query_router
 
 router = APIRouter(prefix="/ai", tags=["AI"])
 
@@ -30,3 +33,6 @@ router.include_router(relation_graph_router)
 router.include_router(embedding_pipeline_router)
 router.include_router(entity_extraction_router)
 router.include_router(graph_query_router)
+router.include_router(ollama_management_router)
+router.include_router(rag_query_router)
+router.include_router(agent_query_router)

@@ -68,6 +68,7 @@ async def list_dispatch_orders(
 @router.post("/dispatch/import-template", summary="下載派工紀錄匯入範本")
 async def download_dispatch_import_template(
     service: DispatchOrderService = Depends(get_dispatch_service),
+    current_user=Depends(require_auth()),
 ):
     """下載派工紀錄 Excel 匯入範本"""
     template_bytes = service.generate_import_template()

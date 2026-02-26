@@ -64,7 +64,13 @@ const NavigationManagementImproved: FC = () => {
     'DashboardOutlined', 'FileTextOutlined', 'FolderOutlined',
     'CalendarOutlined', 'BarChartOutlined', 'SettingOutlined',
     'TeamOutlined', 'UserOutlined', 'GlobalOutlined',
-    'DatabaseOutlined', 'SafetyOutlined', 'BankOutlined'
+    'DatabaseOutlined', 'SafetyOutlined', 'BankOutlined',
+    'ExperimentOutlined', 'ApartmentOutlined', 'RocketOutlined',
+    'CloudServerOutlined', 'EnvironmentOutlined', 'ShopOutlined',
+    'ProjectOutlined', 'NumberOutlined', 'ScheduleOutlined',
+    'ApiOutlined', 'LinkOutlined', 'MonitorOutlined',
+    'SecurityScanOutlined', 'EyeOutlined', 'LineChartOutlined',
+    'GoogleOutlined', 'SendOutlined', 'PlusOutlined', 'FormOutlined',
   ];
 
   // Load navigation data
@@ -119,17 +125,21 @@ const NavigationManagementImproved: FC = () => {
         { path: '/pure-calendar', description: '專案行事曆' },
         { path: '/reports', description: '統計報表' },
         { path: '/profile', description: '個人資料' },
-        { path: '/settings', description: '系統設定' },
         { path: '/admin/database', description: '資料庫管理' },
         { path: '/admin/user-management', description: '使用者管理' },
         { path: '/admin/site-management', description: '網站管理' },
         { path: '/admin/permissions', description: '權限管理' },
         { path: '/admin/dashboard', description: '管理員面板' },
+        { path: '/admin/backup', description: '備份管理' },
+        { path: '/admin/deployment', description: '部署管理' },
+        { path: '/admin/ai-assistant', description: 'AI 助理管理' },
+        { path: '/ai/knowledge-graph', description: '知識圖譜探索' },
         { path: '/system', description: '系統監控' },
         { path: '/google-auth-diagnostic', description: 'Google認證診斷' },
         { path: '/unified-form-demo', description: '統一表單示例' },
         { path: '/api-mapping', description: 'API對應表' },
         { path: '/api/docs', description: 'API文件' },
+        { path: '/taoyuan/dispatch', description: '派工管理' },
       ]);
     }
   };

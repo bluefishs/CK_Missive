@@ -69,6 +69,7 @@ export const ReceiveDocumentCreatePage: React.FC = () => {
     // 工具
     buildAssigneeOptions,
     buildAgencyOptions,
+    agencyCandidates,
   } = formState;
 
   // =============================================================================
@@ -85,6 +86,7 @@ export const ReceiveDocumentCreatePage: React.FC = () => {
         agenciesLoading={agenciesLoading}
         buildAgencyOptions={buildAgencyOptions}
         handleCategoryChange={handleCategoryChange}
+        agencyCandidates={agencyCandidates}
       />
     ),
     createTabItem(

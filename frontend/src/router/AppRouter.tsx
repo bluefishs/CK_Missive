@@ -72,6 +72,7 @@ const UnifiedFormDemoPage = lazy(() => import('../pages/UnifiedFormDemoPage'));
 const AdminDashboardPage = lazy(() => import('../pages/AdminDashboardPage'));
 const DeploymentManagementPage = lazy(() => import('../pages/DeploymentManagementPage'));
 const AIAssistantManagementPage = lazy(() => import('../pages/AIAssistantManagementPage'));
+const KnowledgeGraphPage = lazy(() => import('../pages/KnowledgeGraphPage'));
 
 // 桃園查估專區
 const TaoyuanDispatchPage = lazy(() => import('../pages/TaoyuanDispatchPage'));
@@ -196,6 +197,9 @@ export const AppRouter: React.FC = () => {
 
           {/* AI 助理管理（整合同義詞管理 + Prompt 管理） */}
           <Route path={ROUTES.AI_ASSISTANT_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><AIAssistantManagementPage /></ProtectedRoute>} />
+
+          {/* 知識圖譜探索（獨立全螢幕頁面） */}
+          <Route path={ROUTES.KNOWLEDGE_GRAPH} element={<ProtectedRoute><KnowledgeGraphPage /></ProtectedRoute>} />
 
           {/* 需要認證的路由 */}
           {/* /settings 已統一至 /profile */}

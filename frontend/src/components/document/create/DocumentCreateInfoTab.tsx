@@ -12,6 +12,9 @@ import { Form, Input, Select, DatePicker, Row, Col, Card, Space, Skeleton } from
 import type { FormInstance } from 'antd';
 import type { NextSendNumberResponse } from '../../../api/documentsApi';
 import type { DocumentCreateMode } from '../../../hooks/business/useDocumentCreateForm';
+import { AIClassifyPanel } from '../../ai/AIClassifyPanel';
+import { AgencyMatchInput } from '../../common/AgencyMatchInput';
+import type { AgencyCandidate } from '../../../types/ai';
 
 import {
   DELIVERY_METHOD_OPTIONS,
@@ -42,6 +45,8 @@ export interface DocumentCreateInfoTabProps {
   // 發文模式專用
   nextNumber?: NextSendNumberResponse | null;
   nextNumberLoading?: boolean;
+  /** AI 機關匹配候選列表 (從 agencies 列表轉換) */
+  agencyCandidates?: AgencyCandidate[];
 }
 
 export const DocumentCreateInfoTab: React.FC<DocumentCreateInfoTabProps> = ({
@@ -52,6 +57,7 @@ export const DocumentCreateInfoTab: React.FC<DocumentCreateInfoTabProps> = ({
   handleCategoryChange,
   nextNumber,
   nextNumberLoading,
+  agencyCandidates,
 }) => {
   if (mode === 'receive') {
     return <ReceiveInfoTab
@@ -59,6 +65,7 @@ export const DocumentCreateInfoTab: React.FC<DocumentCreateInfoTabProps> = ({
       agenciesLoading={agenciesLoading}
       buildAgencyOptions={buildAgencyOptions}
       handleCategoryChange={handleCategoryChange}
+      agencyCandidates={agencyCandidates}
     />;
   }
 
@@ -68,6 +75,7 @@ export const DocumentCreateInfoTab: React.FC<DocumentCreateInfoTabProps> = ({
     buildAgencyOptions={buildAgencyOptions}
     nextNumber={nextNumber}
     nextNumberLoading={nextNumberLoading}
+    agencyCandidates={agencyCandidates}
   />;
 };
 
@@ -80,6 +88,7 @@ interface ReceiveInfoTabProps {
   agenciesLoading: boolean;
   buildAgencyOptions: (includeCompany?: boolean) => Array<{ value: string; label: string }>;
   handleCategoryChange?: (value: string) => void;
+  agencyCandidates?: AgencyCandidate[];
 }
 
 const ReceiveInfoTab: React.FC<ReceiveInfoTabProps> = ({
@@ -87,7 +96,9 @@ const ReceiveInfoTab: React.FC<ReceiveInfoTabProps> = ({
   agenciesLoading,
   buildAgencyOptions,
   handleCategoryChange,
+  agencyCandidates,
 }) => {
+  const watchedSubject = Form.useWatch('subject', form) as string | undefined;
   return (
     <Form form={form} layout="vertical">
       <Row gutter={16}>
@@ -148,15 +159,11 @@ const ReceiveInfoTab: React.FC<ReceiveInfoTabProps> = ({
             name="sender"
             rules={[{ required: true, message: '請選擇發文單位' }]}
           >
-            <Select
-              placeholder="請選擇發文單位"
+            <AgencyMatchInput
+              placeholder="請選擇或輸入發文單位"
               loading={agenciesLoading}
-              showSearch
-              allowClear
-              filterOption={(input, option) =>
-                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-              }
               options={buildAgencyOptions(true)}
+              candidates={agencyCandidates}
             />
           </Form.Item>
         </Col>
@@ -207,6 +214,18 @@ const ReceiveInfoTab: React.FC<ReceiveInfoTabProps> = ({
         <TextArea rows={2} placeholder="請輸入公文主旨" maxLength={200} showCount />
       </Form.Item>
 
+      {/* AI 分類建議 — 主旨填寫後可觸發 */}
+      {watchedSubject && watchedSubject.length >= 5 && (
+        <AIClassifyPanel
+          subject={watchedSubject}
+          showCard={false}
+          onSelect={(docType, category) => {
+            form.setFieldsValue({ doc_type: docType, category });
+          }}
+          style={{ marginBottom: 16 }}
+        />
+      )}
+
       <Form.Item label="說明" name="content">
         <TextArea rows={4} placeholder="請輸入公文內容說明" maxLength={1000} showCount />
       </Form.Item>
@@ -228,6 +247,7 @@ interface SendInfoTabProps {
   buildAgencyOptions: (includeCompany?: boolean) => Array<{ value: string; label: string }>;
   nextNumber?: NextSendNumberResponse | null;
   nextNumberLoading?: boolean;
+  agencyCandidates?: AgencyCandidate[];
 }
 
 const SendInfoTab: React.FC<SendInfoTabProps> = ({
@@ -236,7 +256,9 @@ const SendInfoTab: React.FC<SendInfoTabProps> = ({
   buildAgencyOptions,
   nextNumber,
   nextNumberLoading,
+  agencyCandidates,
 }) => {
+  const watchedSubject = Form.useWatch('subject', form) as string | undefined;
   return (
     <Form form={form} layout="vertical">
       {/* 公文字號區塊 */}
@@ -320,15 +342,11 @@ const SendInfoTab: React.FC<SendInfoTabProps> = ({
             name="receiver"
             rules={[{ required: true, message: '請選擇受文單位' }]}
           >
-            <Select
-              placeholder="請選擇受文單位"
+            <AgencyMatchInput
+              placeholder="請選擇或輸入受文單位"
               loading={agenciesLoading}
-              showSearch
-              allowClear
-              filterOption={(input, option) =>
-                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-              }
               options={buildAgencyOptions(false)}
+              candidates={agencyCandidates}
             />
           </Form.Item>
         </Col>
@@ -341,6 +359,18 @@ const SendInfoTab: React.FC<SendInfoTabProps> = ({
       >
         <TextArea rows={2} placeholder="請輸入公文主旨" maxLength={200} showCount />
       </Form.Item>
+
+      {/* AI 分類建議 — 主旨填寫後可觸發 */}
+      {watchedSubject && watchedSubject.length >= 5 && (
+        <AIClassifyPanel
+          subject={watchedSubject}
+          showCard={false}
+          onSelect={(docType) => {
+            form.setFieldsValue({ doc_type: docType });
+          }}
+          style={{ marginBottom: 16 }}
+        />
+      )}
 
       <Form.Item label="說明" name="content">
         <TextArea rows={4} placeholder="請輸入公文內容說明" maxLength={1000} showCount />

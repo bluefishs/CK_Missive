@@ -466,14 +466,14 @@ async def get_ai_config_endpoint() -> AIConfigResponse:
             },
             "classify": {
                 "max_tokens": config.classify_max_tokens,
-                "confidence_threshold": 0.7,
+                "confidence_threshold": config.agency_match_threshold,
             },
             "keywords": {
                 "max_tokens": config.keywords_max_tokens,
                 "default_max_keywords": 5,
             },
             "agency_match": {
-                "score_threshold": 0.7,
+                "score_threshold": config.agency_match_threshold,
                 "max_alternatives": 3,
             },
         },

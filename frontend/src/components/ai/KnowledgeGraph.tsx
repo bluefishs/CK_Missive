@@ -94,6 +94,23 @@ function getNodeId(node: string | ForceNode): string {
   return typeof node === 'string' ? node : node.id;
 }
 
+/** 邊類型色彩映射 — 結構化=冷色, NER=暖色, 派工=輔助色 */
+const EDGE_COLORS: Record<string, string> = {
+  sends: '#1890ff',           // 發文 — 藍
+  receives: '#52c41a',        // 受文 — 綠
+  belongs_to: '#722ed1',      // 所屬專案 — 紫
+  reply: '#fa8c16',           // 收發配對 — 橙
+  mentions: '#eb2f96',        // NER 提及 — 洋紅
+  dispatch_link: '#13c2c2',   // 派工關聯 — 青
+  agency_doc: '#2f54eb',      // 機關公文 — 深藍
+  company_doc: '#f5222d',     // 乾坤公文 — 紅
+  dispatch_project: '#a0d911', // 關聯工程 — 萊姆
+  manages: '#d48806',         // 管理 — 暗金
+  located_in: '#faad14',      // 位於 — 金
+  related_to: '#8c8c8c',      // 相關 — 灰
+};
+const DEFAULT_EDGE_COLOR = 'rgba(150,150,150,0.6)';
+
 // ============================================================================
 // 主元件
 // ============================================================================
@@ -545,8 +562,8 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
           graphData={graphData}
           width={containerWidth}
           height={height}
-          d3AlphaDecay={0.02}
-          d3VelocityDecay={0.3}
+          d3AlphaDecay={0.05}
+          d3VelocityDecay={0.4}
           nodeCanvasObject={paintNode as any}
           nodePointerAreaPaint={(node: any, color: string, ctx: CanvasRenderingContext2D) => {
             const baseR = mergedConfigs[node.type]?.radius ?? getNodeConfig(node.type).radius;
@@ -559,7 +576,10 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
           }}
           onNodeClick={handleNodeClick as any}
           onNodeHover={handleNodeHover as any}
-          linkColor={(link: any) => isLinkHighlighted(link) ? 'rgba(150,150,150,0.6)' : 'rgba(220,220,220,0.2)'}
+          linkColor={(link: any) => {
+            if (!isLinkHighlighted(link)) return 'rgba(220,220,220,0.2)';
+            return EDGE_COLORS[link.type] || DEFAULT_EDGE_COLOR;
+          }}
           linkWidth={(link: any) => {
             const base = isLinkHighlighted(link) ? 1.5 : 0.5;
             const w = link.weight ?? 1;
@@ -567,7 +587,11 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
           }}
           linkDirectionalArrowLength={4}
           linkDirectionalArrowRelPos={0.85}
-          linkDirectionalArrowColor={(link: any) => isLinkHighlighted(link) ? 'rgba(120,120,120,0.5)' : 'rgba(220,220,220,0.2)'}
+          linkDirectionalArrowColor={(link: any) => {
+            if (!isLinkHighlighted(link)) return 'rgba(220,220,220,0.2)';
+            const c = EDGE_COLORS[link.type];
+            return c ? c + 'AA' : 'rgba(120,120,120,0.5)';
+          }}
           linkCanvasObjectMode={() => 'after'}
           linkCanvasObject={(link: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
             if (globalScale < 1.5 || !isLinkHighlighted(link)) return;
@@ -580,7 +604,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
             ctx.font = `${fontSize}px sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillStyle = 'rgba(100,100,100,0.7)';
+            ctx.fillStyle = EDGE_COLORS[link.type] || 'rgba(100,100,100,0.7)';
             ctx.fillText(link.label || '', midX, midY - 3 / globalScale);
           }}
           onBackgroundClick={() => {
@@ -591,8 +615,8 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
             // 力模擬結束後自動適配，確保所有節點在可視範圍內
             fgRef.current?.zoomToFit(400, 60);
           }}
-          warmupTicks={50}
-          cooldownTicks={100}
+          warmupTicks={30}
+          cooldownTicks={200}
         />
       </div>
 

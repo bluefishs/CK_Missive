@@ -15,11 +15,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_auth, require_admin, get_async_db
 from app.extended.models import User
+from app.services.ai.graph_query_service import GraphQueryService
+from app.services.ai.graph_ingestion_pipeline import GraphIngestionPipeline
+from app.services.ai.canonical_entity_service import CanonicalEntityService
 from app.schemas.knowledge_graph import (
     KGEntitySearchRequest,
     KGEntitySearchResponse,
     KGNeighborsRequest,
     KGNeighborsResponse,
+    KGShortestPathRequest,
+    KGShortestPathResponse,
     KGEntityDetailRequest,
     KGEntityDetailResponse,
     KGTimelineRequest,
@@ -49,7 +54,6 @@ async def search_entities(
     db: AsyncSession = Depends(get_async_db),
 ):
     """搜尋正規化實體"""
-    from app.services.ai.graph_query_service import GraphQueryService
     svc = GraphQueryService(db)
     results = await svc.search_entities(
         query=request.query,
@@ -66,13 +70,30 @@ async def get_entity_neighbors(
     db: AsyncSession = Depends(get_async_db),
 ):
     """取得實體的 K 跳鄰居"""
-    from app.services.ai.graph_query_service import GraphQueryService
     svc = GraphQueryService(db)
     result = await svc.get_neighbors(
         entity_id=request.entity_id,
         max_hops=request.max_hops,
         limit=request.limit,
     )
+    return {"success": True, **result}
+
+
+@router.post("/graph/entity/shortest-path", response_model=KGShortestPathResponse)
+async def find_shortest_path(
+    request: KGShortestPathRequest,
+    current_user: User = Depends(require_auth()),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """查詢兩實體間的最短路徑"""
+    svc = GraphQueryService(db)
+    result = await svc.find_shortest_path(
+        source_id=request.source_id,
+        target_id=request.target_id,
+        max_hops=request.max_hops,
+    )
+    if not result:
+        return {"success": True, "found": False, "depth": 0, "path": [], "relations": []}
     return {"success": True, **result}
 
 
@@ -83,7 +104,6 @@ async def get_entity_detail(
     db: AsyncSession = Depends(get_async_db),
 ):
     """取得實體詳情（含別名、公文、關係）"""
-    from app.services.ai.graph_query_service import GraphQueryService
     svc = GraphQueryService(db)
     detail = await svc.get_entity_detail(request.entity_id)
     if not detail:
@@ -98,7 +118,6 @@ async def get_entity_timeline(
     db: AsyncSession = Depends(get_async_db),
 ):
     """取得實體的關係時間軸"""
-    from app.services.ai.graph_query_service import GraphQueryService
     svc = GraphQueryService(db)
     timeline = await svc.get_entity_timeline(request.entity_id)
     return {"success": True, "entity_id": request.entity_id, "timeline": timeline}
@@ -111,7 +130,6 @@ async def get_top_entities(
     db: AsyncSession = Depends(get_async_db),
 ):
     """高頻實體排名"""
-    from app.services.ai.graph_query_service import GraphQueryService
     svc = GraphQueryService(db)
     results = await svc.get_top_entities(
         entity_type=request.entity_type,
@@ -127,7 +145,6 @@ async def get_graph_stats(
     db: AsyncSession = Depends(get_async_db),
 ):
     """圖譜統計"""
-    from app.services.ai.graph_query_service import GraphQueryService
     svc = GraphQueryService(db)
     stats = await svc.get_graph_stats()
     return {"success": True, **stats}
@@ -144,7 +161,6 @@ async def ingest_documents(
     - document_id 指定時：入圖單篇公文
     - document_id 為空時：批次入圖（背景任務）
     """
-    from app.services.ai.graph_ingestion_pipeline import GraphIngestionPipeline
     pipeline = GraphIngestionPipeline(db)
 
     if request.document_id:
@@ -167,7 +183,6 @@ async def merge_entities(
     db: AsyncSession = Depends(get_async_db),
 ):
     """手動合併兩個正規化實體"""
-    from app.services.ai.canonical_entity_service import CanonicalEntityService
     svc = CanonicalEntityService(db)
     try:
         result = await svc.merge_entities(

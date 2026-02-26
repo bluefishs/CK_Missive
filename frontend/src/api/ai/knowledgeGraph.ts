@@ -15,6 +15,8 @@ import type {
   KGEntitySearchResponse,
   KGNeighborsRequest,
   KGNeighborsResponse,
+  KGShortestPathRequest,
+  KGShortestPathResponse,
   KGEntityDetailRequest,
   KGEntityDetailResponse,
   KGTimelineRequest,
@@ -44,6 +46,16 @@ export async function getEntityNeighbors(
 ): Promise<KGNeighborsResponse> {
   return await apiClient.post<KGNeighborsResponse>(
     AI_ENDPOINTS.GRAPH_ENTITY_NEIGHBORS,
+    request,
+  );
+}
+
+/** 查詢兩實體間最短路徑 */
+export async function findShortestPath(
+  request: KGShortestPathRequest,
+): Promise<KGShortestPathResponse> {
+  return await apiClient.post<KGShortestPathResponse>(
+    AI_ENDPOINTS.GRAPH_SHORTEST_PATH,
     request,
   );
 }

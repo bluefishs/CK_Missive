@@ -7,10 +7,11 @@
 所有需要 embedding 的服務（搜尋、圖譜入圖、批次回填）
 均應透過此管理器取得 embedding。
 
-Version: 1.0.0
+Version: 1.2.0 - 重新命名 _lock → _write_lock，新增 _embed_semaphore 限制並發 Ollama 呼叫
 Created: 2026-02-24
 """
 
+import asyncio
 import hashlib
 import logging
 import os
@@ -20,6 +21,8 @@ from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from .ai_config import get_ai_config
 
 logger = logging.getLogger(__name__)
 
@@ -32,12 +35,16 @@ class EmbeddingManager:
     - LRU 快取（預設 500 筆，TTL 30 分鐘）
     - 快取 key = SHA256(text[:200])（避免超長 key）
     - 快取 value = (embedding, timestamp)
+    - _write_lock (asyncio.Lock) 保護快取寫入/驅逐
+    - _embed_semaphore (asyncio.Semaphore) 限制並發 Ollama 呼叫，防止資源耗盡
     """
 
     _instance: Optional["EmbeddingManager"] = None
     _cache: OrderedDict[str, Tuple[List[float], float]] = OrderedDict()
-    _max_cache_size: int = 500
-    _cache_ttl: float = 1800.0  # 30 分鐘
+    _max_cache_size: int = get_ai_config().embedding_cache_max_size
+    _cache_ttl: float = float(get_ai_config().embedding_cache_ttl)
+    _write_lock: asyncio.Lock = asyncio.Lock()
+    _embed_semaphore: asyncio.Semaphore = asyncio.Semaphore(5)
 
     # 統計
     _hits: int = 0
@@ -55,7 +62,7 @@ class EmbeddingManager:
 
     @classmethod
     def _evict_expired(cls) -> None:
-        """清除過期項目"""
+        """清除過期項目（需在 _write_lock 內呼叫）"""
         now = time.monotonic()
         expired = [
             k for k, (_, ts) in cls._cache.items()
@@ -71,44 +78,48 @@ class EmbeddingManager:
         connector: object,
     ) -> Optional[List[float]]:
         """
-        取得文字的 embedding（快取優先）
+        取得文字的 embedding（快取優先，async-safe）
 
         Args:
             text: 要生成 embedding 的文字
             connector: AIConnector 實例（具有 generate_embedding 方法）
 
         Returns:
-            384 維 embedding 向量，或 None
+            768 維 embedding 向量，或 None
         """
         if not text or not text.strip():
             return None
 
         key = cls._cache_key(text)
 
-        # 快取命中
-        if key in cls._cache:
-            embedding, ts = cls._cache[key]
-            if time.monotonic() - ts < cls._cache_ttl:
-                cls._hits += 1
-                cls._cache.move_to_end(key)
-                return embedding
-            else:
-                del cls._cache[key]
+        # 快取命中 (_write_lock 保護讀取 + move_to_end 突變)
+        async with cls._write_lock:
+            if key in cls._cache:
+                embedding, ts = cls._cache[key]
+                if time.monotonic() - ts < cls._cache_ttl:
+                    cls._hits += 1
+                    cls._cache.move_to_end(key)
+                    return embedding
+                else:
+                    del cls._cache[key]
 
         # 快取未命中 → 呼叫 Ollama
+        # _embed_semaphore 限制並發數，防止同時大量請求壓垮 Ollama
         cls._misses += 1
         try:
-            embedding = await connector.generate_embedding(text)  # type: ignore[attr-defined]
+            async with cls._embed_semaphore:
+                embedding = await connector.generate_embedding(text)  # type: ignore[attr-defined]
         except Exception as e:
-            logger.warning(f"Embedding 生成失敗: {e}")
+            logger.warning("Embedding 生成失敗: %s", e)
             return None
 
         if embedding and isinstance(embedding, list) and len(embedding) > 0:
-            # 存入快取
-            cls._evict_expired()
-            if len(cls._cache) >= cls._max_cache_size:
-                cls._cache.popitem(last=False)  # 移除最舊
-            cls._cache[key] = (embedding, time.monotonic())
+            # 存入快取 (_write_lock 保護寫入 + 驅逐)
+            async with cls._write_lock:
+                cls._evict_expired()
+                if len(cls._cache) >= cls._max_cache_size:
+                    cls._cache.popitem(last=False)  # 移除最舊
+                cls._cache[key] = (embedding, time.monotonic())
 
         return embedding
 

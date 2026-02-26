@@ -13,7 +13,7 @@ import { Button, Space, Popconfirm } from 'antd';
 import {
   FileTextOutlined, CalendarOutlined, TeamOutlined, PaperClipOutlined,
   EditOutlined, SaveOutlined, CloseOutlined, DeleteOutlined,
-  SendOutlined, EnvironmentOutlined,
+  SendOutlined, EnvironmentOutlined, ExperimentOutlined,
 } from '@ant-design/icons';
 
 import { DetailPageLayout, createTabItem, getTagColor } from '../components/common/DetailPage';
@@ -23,6 +23,7 @@ import {
   DocumentAttachmentsTab, DocumentDispatchTab, DocumentProjectLinkTab,
   DOC_TYPE_OPTIONS, STATUS_OPTIONS,
 } from './document/tabs';
+import { DocumentAITab } from './document/tabs/DocumentAITab';
 import { useDocumentDetail } from './document/hooks/useDocumentDetail';
 
 export const DocumentDetailPage: React.FC = () => {
@@ -82,6 +83,11 @@ export const DocumentDetailPage: React.FC = () => {
         fileSettings={fileSettings}
         onDownload={handleDownload} onPreview={handlePreview} onDelete={handleDeleteAttachment}
       />
+    ),
+    createTabItem(
+      'ai-insights',
+      { icon: <ExperimentOutlined />, text: 'AI 分析' },
+      <DocumentAITab document={document} />
     ),
   ];
 

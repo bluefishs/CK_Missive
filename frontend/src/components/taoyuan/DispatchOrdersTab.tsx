@@ -9,7 +9,7 @@
  * @date 2026-01-29
  */
 
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Typography,
@@ -67,6 +67,18 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState<{ progress: number; message: string } | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollFailCountRef = useRef(0);
+  const MAX_POLL_FAILURES = 10;
+
+  // 元件卸載時清理 polling interval
+  useEffect(() => {
+    return () => {
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+    };
+  }, []);
 
   // RWD 響應式
   const { isMobile } = useResponsive();
@@ -150,9 +162,12 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
       });
 
       // 開始輪詢進度
+      pollFailCountRef.current = 0;
       pollTimerRef.current = setInterval(async () => {
         try {
           const status = await dispatchOrdersApi.getExportProgress(task_id);
+          pollFailCountRef.current = 0; // 成功時重置
+
           setExportProgress({ progress: status.progress, message: status.message });
 
           if (status.status === 'completed') {
@@ -172,7 +187,14 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
             message.error(status.message || '匯出失敗');
           }
         } catch {
-          // 輪詢失敗時不中斷，等待下次
+          pollFailCountRef.current += 1;
+          if (pollFailCountRef.current >= MAX_POLL_FAILURES) {
+            if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+            pollTimerRef.current = null;
+            setExportProgress(null);
+            setExporting(false);
+            message.error('匯出進度查詢失敗，請稍後重試');
+          }
         }
       }, 2000);
     } catch {

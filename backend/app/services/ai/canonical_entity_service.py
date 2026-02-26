@@ -7,13 +7,13 @@
 3. 語意匹配 — pgvector cosine_distance <= 0.15 (若啟用)
 4. 新建實體 — 建立 canonical_entity + 自身別名
 
-Version: 1.0.0
+Version: 1.1.0
 Created: 2026-02-24
 """
 
 import logging
 import os
-from typing import Optional
+from typing import Dict, List, Optional, Set, Tuple
 
 from sqlalchemy import select, func as sa_func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,8 +28,9 @@ logger = logging.getLogger(__name__)
 
 PGVECTOR_ENABLED = os.environ.get("PGVECTOR_ENABLED", "false").lower() == "true"
 
-# pg_trgm 模糊匹配閾值
-FUZZY_SIMILARITY_THRESHOLD = 0.75
+# 閾值由 AIConfig 統一管理
+from app.services.ai.ai_config import get_ai_config
+FUZZY_SIMILARITY_THRESHOLD = get_ai_config().kg_fuzzy_threshold
 
 
 class CanonicalEntityService:
@@ -75,6 +76,134 @@ class CanonicalEntityService:
         await self._add_alias(canonical, name, source=source)
         logger.info(f"新建正規實體: {name} ({entity_type})")
         return canonical
+
+    async def resolve_entities_batch(
+        self,
+        entities: List[Tuple[str, str]],
+        source: str = "auto",
+    ) -> Dict[str, "CanonicalEntity"]:
+        """
+        批次解析實體名稱，最小化 DB round-trips。
+
+        將 N 次 per-entity 查詢壓縮為：
+        - 1 次批次精確匹配
+        - M 次模糊匹配（僅未匹配者）
+        - 2 次 flush（建實體 + 建別名）
+
+        Args:
+            entities: [(entity_name, entity_type), ...]
+            source: 來源標記
+
+        Returns:
+            {"entity_type:entity_name": CanonicalEntity} 映射
+        """
+        result: Dict[str, CanonicalEntity] = {}
+
+        # 去重（保留順序）
+        deduped: List[Tuple[str, str]] = []
+        seen: Set[str] = set()
+        for name_raw, etype in entities:
+            name = name_raw.strip()
+            key = f"{etype}:{name}"
+            if key not in seen and name:
+                seen.add(key)
+                deduped.append((name, etype))
+
+        if not deduped:
+            return result
+
+        # ── Stage 1: 批次精確匹配（1 次查詢取代 N 次）──────────
+        all_names = [n for n, _ in deduped]
+        exact_result = await self.db.execute(
+            select(EntityAlias.alias_name, CanonicalEntity)
+            .join(CanonicalEntity, EntityAlias.canonical_entity_id == CanonicalEntity.id)
+            .where(EntityAlias.alias_name.in_(all_names))
+        )
+        # 建立 (alias_name, entity_type) → CanonicalEntity 映射
+        exact_lookup: Dict[Tuple[str, str], CanonicalEntity] = {}
+        for row in exact_result.all():
+            alias_name = row[0]
+            canonical = row[1]
+            exact_lookup[(alias_name, canonical.entity_type)] = canonical
+
+        unmatched: List[Tuple[str, str]] = []
+        for name, etype in deduped:
+            key = f"{etype}:{name}"
+            canonical = exact_lookup.get((name, etype))
+            if canonical:
+                result[key] = canonical
+                logger.debug(f"批次精確匹配: {name} → {canonical.canonical_name}")
+            else:
+                unmatched.append((name, etype))
+
+        if not unmatched:
+            return result
+
+        # ── Stage 2: 逐筆模糊匹配（pg_trgm 不支援 IN 批次）────
+        fuzzy_aliases_to_add: List[Tuple[CanonicalEntity, str]] = []
+        still_unmatched: List[Tuple[str, str]] = []
+
+        for name, etype in unmatched:
+            canonical = await self._fuzzy_match(name, etype)
+            if canonical:
+                key = f"{etype}:{name}"
+                result[key] = canonical
+                fuzzy_aliases_to_add.append((canonical, name))
+                logger.info(f"批次模糊匹配: {name} → {canonical.canonical_name}")
+            else:
+                still_unmatched.append((name, etype))
+
+        # 批次新增模糊匹配的別名（1 次去重查詢）
+        if fuzzy_aliases_to_add:
+            fuzzy_names = [n for _, n in fuzzy_aliases_to_add]
+            existing_aliases_result = await self.db.execute(
+                select(EntityAlias.alias_name, EntityAlias.canonical_entity_id)
+                .where(EntityAlias.alias_name.in_(fuzzy_names))
+            )
+            existing_alias_set: Set[Tuple[str, int]] = {
+                (row[0], row[1]) for row in existing_aliases_result.all()
+            }
+            for canonical, name in fuzzy_aliases_to_add:
+                if (name, canonical.id) not in existing_alias_set:
+                    self.db.add(EntityAlias(
+                        alias_name=name,
+                        canonical_entity_id=canonical.id,
+                        source="auto",
+                        confidence=0.8,
+                    ))
+                    canonical.alias_count = (canonical.alias_count or 0) + 1
+
+        # ── Stage 3: 批次建立新實體（2 次 flush：建實體 + 建別名）──
+        if still_unmatched:
+            new_entities: List[Tuple[str, str, CanonicalEntity]] = []
+            for name, etype in still_unmatched:
+                entity = CanonicalEntity(
+                    canonical_name=name,
+                    entity_type=etype,
+                    alias_count=1,
+                    mention_count=0,
+                )
+                self.db.add(entity)
+                new_entities.append((name, etype, entity))
+
+            # 單次 flush 取得所有新 entity 的 ID
+            await self.db.flush()
+
+            # 批次建立自身別名
+            for name, etype, entity in new_entities:
+                self.db.add(EntityAlias(
+                    alias_name=name,
+                    canonical_entity_id=entity.id,
+                    source=source,
+                    confidence=1.0,
+                ))
+                key = f"{etype}:{name}"
+                result[key] = entity
+                logger.info(f"批次新建實體: {name} ({etype})")
+
+            await self.db.flush()
+
+        return result
 
     async def add_mention(
         self,

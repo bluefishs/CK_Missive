@@ -30,6 +30,7 @@ from app.extended.models import (
     TaoyuanContractPayment,
     TaoyuanWorkRecord,
 )
+from app.utils.doc_helpers import is_outgoing_doc_number
 
 logger = logging.getLogger(__name__)
 
@@ -399,7 +400,7 @@ class DispatchExportService:
                     'doc_date': self._fmt_date(doc.doc_date),
                     'subject': r.description or (doc.subject or ''),
                 }
-                if self._is_outgoing(doc_number):
+                if is_outgoing_doc_number(doc_number):
                     assigned_out.append(item)
                 else:
                     assigned_in.append(item)
@@ -486,11 +487,6 @@ class DispatchExportService:
         ))
 
         return result
-
-    @staticmethod
-    def _is_outgoing(doc_number: str) -> bool:
-        """判斷公文字號是否為覆文 (與前端 isOutgoingDocNumber 一致)"""
-        return doc_number.startswith('乾坤')
 
     def _build_sheet4(
         self,

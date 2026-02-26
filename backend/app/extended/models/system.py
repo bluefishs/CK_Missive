@@ -121,9 +121,9 @@ class AISearchHistory(Base):
 
     if Vector is not None:
         query_embedding = deferred(Column(
-            Vector(384),
+            Vector(768),
             nullable=True,
-            comment="查詢向量嵌入 (nomic-embed-text, 384 維)",
+            comment="查詢向量嵌入 (nomic-embed-text, 768 維)",
         ))
 
     __table_args__ = (

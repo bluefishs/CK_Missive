@@ -375,7 +375,9 @@ async def rollback_deployment(
                 cmd.split(),
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=30,
+                encoding="utf-8",
+                errors="replace",
             )
             if result.returncode != 0:
                 logger.warning(f"回滾命令警告: {cmd} - {result.stderr}")
@@ -387,7 +389,9 @@ async def rollback_deployment(
             capture_output=True,
             text=True,
             timeout=120,
-            cwd=os.getenv("DEPLOY_PATH", "/share/CACHEDEV1_DATA/Container/ck-missive")
+            encoding="utf-8",
+            errors="replace",
+            cwd=os.getenv("DEPLOY_PATH", "/share/CACHEDEV1_DATA/Container/ck-missive"),
         )
 
         if result.returncode == 0:

@@ -7,16 +7,18 @@
 - 高頻實體排名
 - 圖譜統計
 
-Version: 1.0.0
+Version: 1.1.0
 Created: 2026-02-24
+Updated: 2026-02-26 - v1.1.0 Redis 快取層（detail/neighbors/search/stats）
 """
 
+import json
 import logging
-from typing import List, Optional
+from typing import Optional
 
 import re
 
-from sqlalchemy import select, func as sa_func, literal_column, union_all, and_, or_
+from sqlalchemy import select, func as sa_func, union_all, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.extended.models import (
@@ -24,10 +26,14 @@ from app.extended.models import (
     EntityAlias,
     EntityRelationship,
     DocumentEntityMention,
-    GraphIngestionEvent,
 )
+from .ai_config import get_ai_config
+from .base_ai_service import RedisCache
 
 logger = logging.getLogger(__name__)
+
+# 模組級快取實例（所有 GraphQueryService 共用）
+_graph_cache = RedisCache(prefix="graph:query")
 
 
 class GraphQueryService:
@@ -35,9 +41,25 @@ class GraphQueryService:
 
     def __init__(self, db: AsyncSession):
         self.db = db
+        self._config = get_ai_config()
 
     async def get_entity_detail(self, entity_id: int) -> Optional[dict]:
-        """取得實體詳情（含別名、提及公文、關係）"""
+        """取得實體詳情（含別名、提及公文、關係），帶 Redis 快取"""
+        cache_key = f"detail:{entity_id}"
+        cached = await _graph_cache.get(cache_key)
+        if cached:
+            return json.loads(cached)
+
+        result = await self._get_entity_detail_uncached(entity_id)
+        if result:
+            await _graph_cache.set(
+                cache_key, json.dumps(result, ensure_ascii=False),
+                self._config.graph_cache_ttl_detail,
+            )
+        return result
+
+    async def _get_entity_detail_uncached(self, entity_id: int) -> Optional[dict]:
+        """取得實體詳情（無快取）"""
         entity = await self.db.get(CanonicalEntity, entity_id)
         if not entity:
             return None
@@ -143,87 +165,204 @@ class GraphQueryService:
         max_hops: int = 2,
         limit: int = 50,
     ) -> dict:
-        """K 跳鄰居查詢"""
-        visited = {entity_id}
-        current_level = {entity_id}
-        all_nodes = []
-        all_edges = []
+        """K 跳鄰居查詢 — Recursive CTE，帶 Redis 快取"""
+        max_hops = min(max_hops, 4)
+        cache_key = f"neighbors:{entity_id}:{max_hops}:{limit}"
+        cached = await _graph_cache.get(cache_key)
+        if cached:
+            return json.loads(cached)
 
-        # 取得根實體
-        root = await self.db.get(CanonicalEntity, entity_id)
-        if not root:
+        result = await self._get_neighbors_uncached(entity_id, max_hops, limit)
+        await _graph_cache.set(
+            cache_key, json.dumps(result, ensure_ascii=False),
+            self._config.graph_cache_ttl_neighbors,
+        )
+        return result
+
+    async def _get_neighbors_uncached(
+        self,
+        entity_id: int,
+        max_hops: int,
+        limit: int,
+    ) -> dict:
+        """K 跳鄰居查詢（無快取）"""
+        from sqlalchemy import text
+
+        # Recursive CTE: 一次查詢找到所有 K 跳內的節點和邊
+        result = await self.db.execute(text("""
+            WITH RECURSIVE traversal AS (
+                -- 起始節點 (hop 0)
+                SELECT
+                    :root_id AS entity_id,
+                    0 AS hop,
+                    ARRAY[:root_id] AS path,
+                    NULL::int AS edge_source,
+                    NULL::int AS edge_target,
+                    NULL::text AS rel_type,
+                    NULL::text AS rel_label,
+                    NULL::int AS rel_weight
+            UNION ALL
+                -- 遞迴展開鄰居
+                SELECT
+                    CASE
+                        WHEN r.source_entity_id = t.entity_id THEN r.target_entity_id
+                        ELSE r.source_entity_id
+                    END AS entity_id,
+                    t.hop + 1 AS hop,
+                    t.path || CASE
+                        WHEN r.source_entity_id = t.entity_id THEN r.target_entity_id
+                        ELSE r.source_entity_id
+                    END,
+                    r.source_entity_id AS edge_source,
+                    r.target_entity_id AS edge_target,
+                    r.relation_type AS rel_type,
+                    r.relation_label AS rel_label,
+                    r.weight AS rel_weight
+                FROM traversal t
+                JOIN entity_relationships r ON (
+                    r.source_entity_id = t.entity_id
+                    OR r.target_entity_id = t.entity_id
+                )
+                WHERE t.hop < :max_hops
+                    AND r.invalidated_at IS NULL
+                    AND NOT (
+                        CASE
+                            WHEN r.source_entity_id = t.entity_id THEN r.target_entity_id
+                            ELSE r.source_entity_id
+                        END = ANY(t.path)
+                    )
+            )
+            SELECT DISTINCT ON (entity_id)
+                entity_id, hop
+            FROM traversal
+            ORDER BY entity_id, hop
+            LIMIT :limit
+        """), {"root_id": entity_id, "max_hops": max_hops, "limit": limit})
+
+        node_rows = result.all()
+        node_ids = {row[0] for row in node_rows}
+        hop_map = {row[0]: row[1] for row in node_rows}
+
+        if not node_ids:
             return {"nodes": [], "edges": []}
-        all_nodes.append({
-            "id": root.id,
-            "name": root.canonical_name,
-            "type": root.entity_type,
-            "mention_count": root.mention_count,
-            "hop": 0,
-        })
 
-        for hop in range(1, max_hops + 1):
-            if not current_level:
-                break
+        # 批次取得所有節點資訊
+        entities_result = await self.db.execute(
+            select(CanonicalEntity)
+            .where(CanonicalEntity.id.in_(node_ids))
+        )
+        all_nodes = [
+            {
+                "id": e.id,
+                "name": e.canonical_name,
+                "type": e.entity_type,
+                "mention_count": e.mention_count,
+                "hop": hop_map.get(e.id, 0),
+            }
+            for e in entities_result.scalars().all()
+        ]
 
-            next_level = set()
-            for eid in current_level:
-                # 出邊
-                out_result = await self.db.execute(
-                    select(EntityRelationship, CanonicalEntity)
-                    .join(CanonicalEntity, CanonicalEntity.id == EntityRelationship.target_entity_id)
-                    .where(EntityRelationship.source_entity_id == eid)
-                    .where(EntityRelationship.invalidated_at.is_(None))
-                    .limit(limit)
-                )
-                for rel, target in out_result.all():
-                    all_edges.append({
-                        "source_id": eid,
-                        "target_id": target.id,
-                        "relation_type": rel.relation_type,
-                        "relation_label": rel.relation_label,
-                        "weight": rel.weight,
-                    })
-                    if target.id not in visited:
-                        visited.add(target.id)
-                        next_level.add(target.id)
-                        all_nodes.append({
-                            "id": target.id,
-                            "name": target.canonical_name,
-                            "type": target.entity_type,
-                            "mention_count": target.mention_count,
-                            "hop": hop,
-                        })
-
-                # 入邊
-                in_result = await self.db.execute(
-                    select(EntityRelationship, CanonicalEntity)
-                    .join(CanonicalEntity, CanonicalEntity.id == EntityRelationship.source_entity_id)
-                    .where(EntityRelationship.target_entity_id == eid)
-                    .where(EntityRelationship.invalidated_at.is_(None))
-                    .limit(limit)
-                )
-                for rel, source in in_result.all():
-                    all_edges.append({
-                        "source_id": source.id,
-                        "target_id": eid,
-                        "relation_type": rel.relation_type,
-                        "relation_label": rel.relation_label,
-                        "weight": rel.weight,
-                    })
-                    if source.id not in visited:
-                        visited.add(source.id)
-                        next_level.add(source.id)
-                        all_nodes.append({
-                            "id": source.id,
-                            "name": source.canonical_name,
-                            "type": source.entity_type,
-                            "mention_count": source.mention_count,
-                            "hop": hop,
-                        })
-
-            current_level = next_level
+        # 批次取得節點間所有邊
+        edges_result = await self.db.execute(
+            select(EntityRelationship)
+            .where(
+                EntityRelationship.source_entity_id.in_(node_ids),
+                EntityRelationship.target_entity_id.in_(node_ids),
+                EntityRelationship.invalidated_at.is_(None),
+            )
+        )
+        all_edges = [
+            {
+                "source_id": rel.source_entity_id,
+                "target_id": rel.target_entity_id,
+                "relation_type": rel.relation_type,
+                "relation_label": rel.relation_label,
+                "weight": rel.weight,
+            }
+            for rel in edges_result.scalars().all()
+        ]
 
         return {"nodes": all_nodes, "edges": all_edges}
+
+    async def find_shortest_path(
+        self,
+        source_id: int,
+        target_id: int,
+        max_hops: int = 5,
+    ) -> Optional[dict]:
+        """兩實體間最短路徑查詢 — Recursive CTE BFS"""
+        from sqlalchemy import text
+
+        max_hops = min(max_hops, 6)
+
+        result = await self.db.execute(text("""
+            WITH RECURSIVE pathfinder AS (
+                SELECT
+                    :source_id AS current_id,
+                    ARRAY[:source_id] AS path,
+                    ARRAY[]::text[] AS relations,
+                    0 AS depth
+            UNION ALL
+                SELECT
+                    CASE
+                        WHEN r.source_entity_id = p.current_id THEN r.target_entity_id
+                        ELSE r.source_entity_id
+                    END,
+                    p.path || CASE
+                        WHEN r.source_entity_id = p.current_id THEN r.target_entity_id
+                        ELSE r.source_entity_id
+                    END,
+                    p.relations || r.relation_label,
+                    p.depth + 1
+                FROM pathfinder p
+                JOIN entity_relationships r ON (
+                    r.source_entity_id = p.current_id
+                    OR r.target_entity_id = p.current_id
+                )
+                WHERE p.depth < :max_hops
+                    AND r.invalidated_at IS NULL
+                    AND NOT (
+                        CASE
+                            WHEN r.source_entity_id = p.current_id THEN r.target_entity_id
+                            ELSE r.source_entity_id
+                        END = ANY(p.path)
+                    )
+            )
+            SELECT path, relations, depth
+            FROM pathfinder
+            WHERE current_id = :target_id
+            ORDER BY depth
+            LIMIT 1
+        """), {"source_id": source_id, "target_id": target_id, "max_hops": max_hops})
+
+        row = result.first()
+        if not row:
+            return None
+
+        path_ids, relations, depth = row
+
+        # 取得路徑上所有實體名稱
+        entities_result = await self.db.execute(
+            select(CanonicalEntity)
+            .where(CanonicalEntity.id.in_(path_ids))
+        )
+        entity_map = {e.id: e for e in entities_result.scalars().all()}
+
+        path_detail = [
+            {
+                "id": eid,
+                "name": entity_map[eid].canonical_name if eid in entity_map else str(eid),
+                "type": entity_map[eid].entity_type if eid in entity_map else "unknown",
+            }
+            for eid in path_ids
+        ]
+
+        return {
+            "found": True,
+            "depth": depth,
+            "path": path_detail,
+            "relations": list(relations),
+        }
 
     async def get_entity_timeline(self, entity_id: int) -> list:
         """取得實體的關係時間軸"""
@@ -307,12 +446,26 @@ class GraphQueryService:
         entity_type: Optional[str] = None,
         limit: int = 20,
     ) -> list:
-        """
-        搜尋實體（名稱模糊匹配 + 同義詞擴展）
+        """搜尋實體（名稱模糊匹配 + 同義詞擴展），帶 Redis 快取"""
+        cache_key = f"search:{query}:{entity_type or ''}:{limit}"
+        cached = await _graph_cache.get(cache_key)
+        if cached:
+            return json.loads(cached)
 
-        同義詞擴展：輸入「工務局」會同時搜尋「桃園市政府工務局」等同義詞。
-        也搜尋別名表 (entity_alias)，確保縮寫能匹配到正規實體。
-        """
+        result = await self._search_entities_uncached(query, entity_type, limit)
+        await _graph_cache.set(
+            cache_key, json.dumps(result, ensure_ascii=False),
+            self._config.graph_cache_ttl_search,
+        )
+        return result
+
+    async def _search_entities_uncached(
+        self,
+        query: str,
+        entity_type: Optional[str] = None,
+        limit: int = 20,
+    ) -> list:
+        """搜尋實體（無快取）"""
         from app.services.ai.synonym_expander import SynonymExpander
 
         # 擴展搜尋詞（原始 + 同義詞）
@@ -375,7 +528,17 @@ class GraphQueryService:
         ]
 
     async def get_graph_stats(self) -> dict:
-        """圖譜統計"""
+        """圖譜統計，帶 Redis 快取（TTL 30 分鐘）"""
+        cache_key = "stats:global"
+        cached = await _graph_cache.get(cache_key)
+        if cached:
+            return json.loads(cached)
+
         from .canonical_entity_service import CanonicalEntityService
         svc = CanonicalEntityService(self.db)
-        return await svc.get_stats()
+        result = await svc.get_stats()
+        await _graph_cache.set(
+            cache_key, json.dumps(result, ensure_ascii=False),
+            self._config.graph_cache_ttl_stats,
+        )
+        return result

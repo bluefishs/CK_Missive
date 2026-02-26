@@ -75,6 +75,8 @@ export const ROUTES = {
   DEPLOYMENT_MANAGEMENT: '/admin/deployment',
   // AI 管理（同義詞與 Prompt 管理已整合至 AI 助理管理 Tab 分頁）
   AI_ASSISTANT_MANAGEMENT: '/admin/ai-assistant',
+  // 知識圖譜探索（獨立全螢幕頁面）
+  KNOWLEDGE_GRAPH: '/ai/knowledge-graph',
   // 桃園查估專區
   TAOYUAN_DISPATCH: '/taoyuan/dispatch',
   TAOYUAN_DISPATCH_CREATE: '/taoyuan/dispatch/create',
@@ -263,6 +265,12 @@ export const ROUTE_META = {
     icon: 'DashboardOutlined',
     requireAuth: true,
     roles: ['admin', 'superuser'],
+  },
+  [ROUTES.KNOWLEDGE_GRAPH]: {
+    title: '知識圖譜探索',
+    description: '視覺化公文關聯網絡與正規化實體',
+    icon: 'ApartmentOutlined',
+    requireAuth: true,
   },
   [ROUTES.TAOYUAN_DISPATCH]: {
     title: '派工管理',

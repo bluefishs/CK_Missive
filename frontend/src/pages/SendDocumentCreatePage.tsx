@@ -71,6 +71,7 @@ export const SendDocumentCreatePage: React.FC = () => {
     // 工具
     buildAssigneeOptions,
     buildAgencyOptions,
+    agencyCandidates,
   } = formState;
 
   // =============================================================================
@@ -88,6 +89,7 @@ export const SendDocumentCreatePage: React.FC = () => {
         buildAgencyOptions={buildAgencyOptions}
         nextNumber={nextNumber}
         nextNumberLoading={nextNumberLoading}
+        agencyCandidates={agencyCandidates}
       />
     ),
     createTabItem(

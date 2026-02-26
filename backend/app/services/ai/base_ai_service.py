@@ -1,17 +1,18 @@
 """
 AI 服務基類
 
-Version: 3.0.0
+Version: 3.1.0
 Created: 2026-02-04
-Updated: 2026-02-07 - Redis 快取與統計持久化
+Updated: 2026-02-26 - RateLimiter asyncio.Lock 並發安全
 
 功能:
-- 速率限制 (滑動窗口)
+- 速率限制 (滑動窗口 + asyncio.Lock)
 - Redis 快取 (主要) + 記憶體快取 (fallback)
 - AI 使用統計 Redis 持久化 (v3.0.0 新增)
 - 統一回應驗證層 (v2.2.0)
 """
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -30,29 +31,55 @@ logger = logging.getLogger(__name__)
 
 
 class RateLimiter:
-    """簡單的滑動窗口速率限制器"""
+    """滑動窗口速率限制器（asyncio-safe）"""
 
     def __init__(self, max_requests: int, window_seconds: int):
         self.max_requests = max_requests
         self.window_seconds = window_seconds
         self.requests: Deque[float] = deque()
+        self._lock: Optional[asyncio.Lock] = None
 
-    def can_proceed(self) -> bool:
-        """檢查是否可以繼續請求"""
+    def _get_lock(self) -> asyncio.Lock:
+        """Lazy-init lock within the running event loop"""
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
+
+    def _cleanup(self) -> None:
+        """清除過期的請求記錄（需在 lock 內呼叫）"""
         now = time.time()
-        # 清除過期的請求記錄
         while self.requests and self.requests[0] < now - self.window_seconds:
             self.requests.popleft()
 
+    def can_proceed(self) -> bool:
+        """檢查是否可以繼續請求（同步，向下相容）"""
+        self._cleanup()
         return len(self.requests) < self.max_requests
 
     def record_request(self) -> None:
-        """記錄請求"""
+        """記錄請求（同步，向下相容）"""
         self.requests.append(time.time())
+
+    async def acquire(self) -> tuple:
+        """
+        原子性檢查並記錄請求（async-safe）
+
+        Returns:
+            (allowed: bool, wait_seconds: float)
+        """
+        async with self._get_lock():
+            self._cleanup()
+            if len(self.requests) < self.max_requests:
+                self.requests.append(time.time())
+                return True, 0.0
+            oldest = self.requests[0]
+            wait = max(0.0, oldest + self.window_seconds - time.time())
+            return False, wait
 
     def get_wait_time(self) -> float:
         """取得需要等待的時間（秒）"""
-        if self.can_proceed():
+        self._cleanup()
+        if len(self.requests) < self.max_requests:
             return 0.0
         oldest = self.requests[0]
         return max(0.0, oldest + self.window_seconds - time.time())
@@ -535,7 +562,7 @@ class BaseAIService:
     def _generate_cache_key(self, prefix: str, *args: str) -> str:
         """生成快取鍵"""
         content = "|".join(str(a) for a in args)
-        hash_val = hashlib.md5(content.encode()).hexdigest()[:16]
+        hash_val = hashlib.md5(content.encode(), usedforsecurity=False).hexdigest()[:16]
         return f"{prefix}:{hash_val}"
 
     async def _call_ai_with_cache(
@@ -546,6 +573,8 @@ class BaseAIService:
         user_content: str,
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
+        prefer_local: bool = False,
+        task_type: Optional[str] = None,
     ) -> str:
         """
         呼叫 AI 服務（帶快取）
@@ -560,6 +589,8 @@ class BaseAIService:
             user_content: 使用者輸入
             temperature: 生成溫度
             max_tokens: 最大回應長度
+            prefer_local: True 時 Ollama 優先（適用於批次/背景任務）
+            task_type: 任務類型（summary/classify/ner 等），用於選擇對應模型
 
         Returns:
             AI 生成的回應
@@ -585,10 +616,10 @@ class BaseAIService:
                 await self._redis_cache.set(cache_key, memory_cached, ttl)
                 return memory_cached
 
-        # 檢查速率限制
-        if not self._rate_limiter.can_proceed():
-            wait_time = self._rate_limiter.get_wait_time()
-            logger.warning(f"速率限制，需等待 {wait_time:.1f} 秒")
+        # 檢查速率限制（原子操作，async-safe）
+        allowed, wait_time = await self._rate_limiter.acquire()
+        if not allowed:
+            logger.warning("速率限制，需等待 %.1f 秒", wait_time)
             await self._stats_manager.record_rate_limit_hit()
             raise RuntimeError(f"AI 服務請求過於頻繁，請等待 {int(wait_time)} 秒後重試")
 
@@ -600,15 +631,14 @@ class BaseAIService:
                 user_content=user_content,
                 temperature=temperature,
                 max_tokens=max_tokens,
+                prefer_local=prefer_local,
+                task_type=task_type,
             )
         except Exception:
             await self._record_stat(feature, cache_miss=True, error=True)
             raise
 
         elapsed_ms = (time.time() - start_time) * 1000
-
-        # 記錄請求
-        self._rate_limiter.record_request()
 
         # 統計: 記錄 provider 使用
         provider = getattr(self.connector, '_last_provider', None)
@@ -693,7 +723,7 @@ class BaseAIService:
             user_content: 使用者輸入
             response_schema: Pydantic model 用於驗證回應結構（可選）
             **kwargs: 傳遞給 _call_ai_with_cache 的額外參數
-                      (temperature, max_tokens)
+                      (temperature, max_tokens, prefer_local, task_type)
 
         Returns:
             - 若 response_schema 為 None: 返回原始字串
@@ -741,6 +771,8 @@ class BaseAIService:
         user_content: str,
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
+        prefer_local: bool = False,
+        task_type: Optional[str] = None,
     ) -> str:
         """
         呼叫 AI 服務
@@ -750,6 +782,8 @@ class BaseAIService:
             user_content: 使用者輸入
             temperature: 生成溫度（可選）
             max_tokens: 最大回應長度（可選）
+            prefer_local: True 時 Ollama 優先（適用於批次/背景任務）
+            task_type: 任務類型（summary/classify/ner 等），用於選擇對應模型
 
         Returns:
             AI 生成的回應
@@ -766,6 +800,8 @@ class BaseAIService:
             messages=messages,
             temperature=temperature or self.config.default_temperature,
             max_tokens=max_tokens or 1024,
+            prefer_local=prefer_local,
+            task_type=task_type,
         )
 
     async def check_health(self) -> Dict[str, Any]:

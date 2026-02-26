@@ -27,6 +27,7 @@ from typing import Any, AsyncGenerator, Dict, List, Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .ai_config import get_ai_config
 from .ai_prompt_manager import AIPromptManager
 from .base_ai_service import BaseAIService
 from .search_intent_parser import SearchIntentParser
@@ -323,7 +324,7 @@ class DocumentAIService(BaseAIService):
             best_id = result.get("best_match_id")
             confidence = float(result.get("confidence", 0))
 
-            if best_id and confidence >= 0.7:
+            if best_id and confidence >= get_ai_config().agency_match_threshold:
                 matched = next((c for c in candidates if c.get("id") == best_id), None)
                 if matched:
                     return {
@@ -380,13 +381,36 @@ class DocumentAIService(BaseAIService):
             parsed_intent = PSI(keywords=[request.query], confidence=0.3)
             source = "rule_engine"
 
+        # 1.5 知識圖譜實體擴展（非阻塞：失敗時降級為原始關鍵字）
+        entity_expanded = False
+        expanded_keywords_list: Optional[List[str]] = None
+        search_keywords = parsed_intent.keywords  # 預設使用原始關鍵字
+
+        if parsed_intent.keywords:
+            try:
+                from app.services.ai.search_entity_expander import (
+                    expand_search_terms,
+                    flatten_expansions,
+                )
+                expansions = await expand_search_terms(db, parsed_intent.keywords)
+                flattened = flatten_expansions(expansions)
+                if len(flattened) > len(parsed_intent.keywords):
+                    entity_expanded = True
+                    expanded_keywords_list = flattened
+                    search_keywords = flattened
+                    logger.info(
+                        f"實體擴展: {parsed_intent.keywords} → {flattened}"
+                    )
+            except Exception as e:
+                logger.debug(f"實體擴展跳過: {e}")
+
         # 2. QueryBuilder 建構查詢
         qb = DocumentQueryBuilder(db)
 
-        if parsed_intent.keywords:
-            # 去重已在 _post_process_intent() 完成，直接使用
-            qb = qb.with_keywords_full(parsed_intent.keywords)
-            logger.debug(f"AI 搜尋關鍵字: {parsed_intent.keywords}")
+        if search_keywords:
+            # 使用擴展後的關鍵字（或原始關鍵字）
+            qb = qb.with_keywords_full(search_keywords)
+            logger.debug(f"AI 搜尋關鍵字: {search_keywords}")
         if parsed_intent.doc_type:
             qb = qb.with_doc_type(parsed_intent.doc_type)
         if parsed_intent.category:
@@ -441,7 +465,7 @@ class DocumentAIService(BaseAIService):
 
             if query_embedding:
                 qb = qb.with_relevance_order(relevance_text)
-                qb = qb.with_semantic_search(query_embedding, weight=0.4)
+                qb = qb.with_semantic_search(query_embedding, weight=get_ai_config().hybrid_semantic_weight)
             else:
                 qb = qb.with_relevance_order(relevance_text)
         else:
@@ -455,7 +479,7 @@ class DocumentAIService(BaseAIService):
         try:
             documents, total_count = await asyncio.wait_for(
                 qb.execute_with_count(),
-                timeout=20.0,
+                timeout=get_ai_config().search_query_timeout,
             )
         except asyncio.TimeoutError:
             logger.error(f"搜尋查詢超時 (>20s): {request.query}")
@@ -589,6 +613,8 @@ class DocumentAIService(BaseAIService):
             source=source,
             search_strategy=search_strategy,
             synonym_expanded=synonym_expanded,
+            entity_expanded=entity_expanded,
+            expanded_keywords=expanded_keywords_list,
             history_id=history_id,
             matched_entities=matched_entities,
         )

@@ -4,6 +4,413 @@
 
 ---
 
+## [1.73.0] - 2026-02-26
+
+### 系統優化 — SSE 強化 + 串流防護 + 文件規範
+
+**前端 Agent 步驟排序 (B3)**:
+- `AgentStepInfo` 新增 `step_index` 欄位，對應後端 SSE `step_index`
+- `onThinking` / `onToolCall` / `onToolResult` 回調接收並存儲 `stepIndex`
+- `AgentStepsDisplay` 按 `step_index` 排序步驟顯示
+
+**工具圖示差異化 (B4)**:
+- `find_similar`: `FileTextOutlined` → `CopyOutlined`（相似公文）
+- `get_statistics`: `DatabaseOutlined` → `BarChartOutlined`（統計資訊）
+
+**開發規範文件更新 (C1/C2)**:
+- `DEVELOPMENT_STANDARDS.md` v1.4.0 — 新增 §8 Agent 服務開發規範
+  - SSE 事件協議表（7 種事件 + 4 種錯誤碼）
+  - 工具註冊規範（後端 TOOLS + 前端 ICONS/LABELS 同步）
+  - 合成品質控制（thinking 過濾 + 閒聊路由 + 迭代上限）
+  - 前端串流防護（timeout + buffer + abort）
+- `DEVELOPMENT_GUIDELINES.md` — 新增 Agent 開發前置檢查清單
+  - 新增工具 5 項 + SSE 事件 4 項 + 合成品質 4 項
+
+---
+
+## [1.72.0] - 2026-02-26
+
+### Agent 智慧對話模式 + 合成品質強化
+
+**Agent Orchestrator v1.8.0 — 閒聊模式 + 合成答案提取**:
+
+**閒聊路由（反向偵測策略）**:
+- 新增 `_is_chitchat()` — 反向偵測法：檢查 `_BUSINESS_KEYWORDS` (55+ 關鍵字)
+  - 有業務關鍵字 → Agent 工具流程（完整 4 層意圖解析 + LLM 規劃）
+  - 無業務關鍵字 + 短句 ≤40 字 → 閒聊模式（僅 1 次 LLM 呼叫）
+  - 精確匹配 `_CHITCHAT_EXACT` (25 個問候詞) + 前綴匹配 `_CHITCHAT_PREFIXES`
+- 新增 `_stream_chitchat()` — 非串流 LLM 呼叫 + 後處理
+  - `_CHAT_SYSTEM_PROMPT` 明確定義能力邊界（僅公文相關功能）
+  - 超範圍請求回覆「這個我幫不上忙」+ 引導可用功能
+  - `_clean_chitchat_response()` 3 策略提取：引號回覆 → 回覆開頭行 → 智慧預設
+  - `_get_smart_fallback()` 10 組問題類型預設回覆（Ollama 回退時使用）
+- 效果：問候/閒聊 13 步驟 → 3 步驟 (thinking + token + done)，延遲 <1s (Groq)
+
+**合成答案提取（v1.8.0 核心改進）**:
+- `_strip_thinking_from_synthesis()` 完全重寫 — 從「逐行過濾（黑名單）」改為「答案提取（白名單）」
+  - Phase 1: `<think>` 標記移除
+  - Phase 2: 短回答快速通過（<300 字元 + 無引用 + 無推理特徵）
+  - Phase 3: **答案邊界偵測** — 從末尾向前找「如下：」「可能的回應：」等標記
+  - Phase 3.5: **結尾「：」+ 下行結構化引用** — 通用 intro + 列表模式
+  - Phase 4: **最後區塊提取** — 多段 `[公文N]`/`[派工單N]` 區塊時取最末段
+  - Phase 5: 逐行過濾（最後手段，無引用的純文字回答）
+- 合成 system prompt 強化：禁止推理 + 輸出格式範例
+- 修正 `AgentQueryRequest.question` min_length 2→1（支援「嗨」單字輸入）
+
+**前端工具標籤**:
+- `RAGChatPanel.tsx` 新增 `search_dispatch_orders` 圖示 (`FileTextOutlined`) + 標籤（搜尋派工單）
+
+---
+
+## [1.71.0] - 2026-02-26
+
+### Agent 派工單整合 + 編碼全域防護
+
+**Agent Orchestrator v1.5.0 — 派工單工具 + 空計劃修復**:
+- 新增 `search_dispatch_orders` 工具：支援 dispatch_no / search / work_type 三種搜尋策略
+- 自動查詢關聯公文：透過 `taoyuan_dispatch_document_link` 帶出派工單關聯的公文
+- 空計劃 hints 強制注入：qwen3:4b 回傳無效 JSON 時，用 SearchIntentParser hints 建構 tool_calls
+  - 正則提取派工單號 `r"派工單[號]?\s*(\d{2,4})"` → 精確填入 dispatch_no 參數
+  - 無 keywords 時使用原始問題文字作為 search 條件
+- 自動修正策略 2.5：search_documents 0 結果 → 自動嘗試 search_dispatch_orders
+- Few-shot 規劃範例新增 2 個派工單場景
+- Planning prompt 規則強化：涉及「派工單」時必須使用 search_dispatch_orders
+- `_build_synthesis_context` 派工單區塊含關聯公文資訊
+- `_summarize_tool_result` 摘要含關聯公文數量
+
+**Windows 編碼全域防護**:
+- `.env` 新增 `PYTHONUTF8=1` + `PYTHONIOENCODING=utf-8`
+- `ecosystem.config.js` PM2 env 新增 `PYTHONUTF8: '1'`
+- `startup.py` 新增 `PYTHONUTF8=1` 環境變數
+- `deployment.py` 2 處 subprocess.run 加 `encoding="utf-8", errors="replace"`
+- 全面審計：18+ open() + 20+ json.dumps 均已使用 UTF-8 ✓
+
+---
+
+## [1.70.0] - 2026-02-26
+
+### 智能體品質強化 — 自我修正 + Hybrid Reranking + AI 機關匹配
+
+**Phase C3: Agent 自我修正 (agent_orchestrator.py v1.2.0)**:
+- `_auto_correct()` 規則式自我修正引擎 (4 策略, 不需 LLM):
+  - 策略 1: 文件搜尋空結果 → 放寬條件 (移除篩選器) + 觸發實體搜尋
+  - 策略 2: 實體搜尋空結果 → 改用公文全文搜尋
+  - 策略 3: 所有工具均無結果 → 取得系統統計概覽
+  - 策略 4: find_similar 失敗 → 降級為關鍵字文件搜尋
+- `_evaluate_and_replan()` 整合: 先跑規則修正，再走 LLM 評估
+
+**Hybrid Reranking 整合至 RAG 服務 (rag_query_service.py v2.2.0)**:
+- `_retrieve_documents()` 增加 `query_terms` 參數
+- 多取 2x 候選文件 → 向量+關鍵字混合重排 → 截取 top_k
+- `_extract_query_terms()` 從問題提取有效查詢詞 (過濾停用詞)
+- `query()` 和 `stream_query()` 自動傳遞 query_terms
+
+**安全與品質修復 (Code Review 後)**:
+- C1: 錯誤訊息不再洩漏內部異常詳情，改為通用使用者提示
+- C2: Agent 端點整合服務層速率限制器 (BaseAIService.RateLimiter)
+- I1: 自我修正防重複觸發：同一工具 0 結果超過 2 次不再重試
+- I3: find_similar 來源補齊 category/receiver 欄位
+- I4: AgencyMatchInput unmount 時清理 debounce 計時器
+- I6: AgentQueryRequest 搬至 schemas/ai.py (SSOT)
+- S1: done 事件 iterations 改為真實迴圈迭代次數
+
+**Phase 4: AgencyMatchInput 智慧機關匹配元件 (v1.0.0)**:
+- 新增 `AgencyMatchInput.tsx` — Ant Design Select + AI 匹配
+  - 基本行為同 Select showSearch (向下相容)
+  - 搜尋文字無精確匹配時，自動 debounce (600ms) 呼叫 `aiApi.matchAgency()`
+  - AI 建議插入下拉頂部，帶紫色 AI 標籤 + 匹配信心度
+  - 匹配結果提示欄: 高信心 (>=80%) 綠色勾、中信心黃色問號
+- 整合至 `DocumentCreateInfoTab`:
+  - 收文模式: 發文單位 Select → AgencyMatchInput
+  - 發文模式: 受文單位 Select → AgencyMatchInput
+- `useDocumentCreateForm`: 新增 `agencyCandidates` 計算欄位
+- 收/發文建立頁面: 傳遞 `agencyCandidates` prop
+
+---
+
+## [1.69.0] - 2026-02-26
+
+### Agentic 文件檢索引擎 — 借鑑 OpenClaw 智能體模式
+
+**Phase A: Tool Registry + Agent Loop 核心引擎**:
+- 新增 `agent_orchestrator.py` (AgentOrchestrator) — 多步工具呼叫引擎
+  - 5 個工具: search_documents, search_entities, get_entity_detail, find_similar, get_statistics
+  - LLM 規劃 → 工具執行 → 評估 → 最多 3 輪迭代 → 合成回答
+  - 複用現有服務 (DocumentQueryBuilder, GraphQueryService, EmbeddingManager)
+  - JSON 容錯解析 (直接/code-block/braces 三策略)
+  - 單工具 15 秒超時保護，整體韌性降級至基本 RAG
+- 新增 `agent_query.py` — `POST /ai/agent/query/stream` SSE 端點
+- 路由註冊: AI `__init__.py` v1.6.0
+
+**Phase B: 前端 Agentic Chat UI**:
+- `RAGChatPanel.tsx` v3.0.0: 雙模式 (RAG / Agent)
+  - 新增 `agentMode` prop (預設 true)
+  - 推理步驟即時視覺化 (Steps 元件, thinking/tool_call/tool_result)
+  - 工具呼叫圖示 + 標籤 (搜尋公文/搜尋實體/實體詳情/相似公文/統計)
+  - Metadata 顯示: 延遲、模型、引用數、工具數
+  - 串流中自動展開推理過程，完成後可摺疊
+- `adminManagement.ts`: 新增 `streamAgentQuery()` + `AgentStreamCallbacks` 介面
+- `endpoints.ts`: 新增 `AGENT_QUERY_STREAM` 端點常數
+- `aiApi` index: 註冊 `streamAgentQuery`
+
+**SSE 事件協議 (向下相容)**:
+- 新增事件: `thinking`, `tool_call`, `tool_result`
+- 保留事件: `sources`, `token`, `done`, `error`
+- `done` 擴展: 新增 `tools_used[]`, `iterations` 欄位
+
+---
+
+## [1.68.0] - 2026-02-26
+
+### 智能化語言查詢服務 — AI 助理統一整合
+
+**Phase 1: 浮動面板搜尋/問答模式切換**:
+- `AIAssistantButton.tsx` v3.0.0: 加入 `Segmented` 切換（搜尋 / 問答）
+- RAG 問答從管理員專屬提升為全站使用者可用
+- `RAGChatPanel.tsx` v2.1.0: 新增 `embedded` prop（省略 Card 外框，flex 填充父容器）
+- Lazy load `RAGChatPanel`（僅切換至問答模式時載入，減少初始 bundle）
+- 浮動按鈕 Tooltip 更新為「AI 智慧助理」
+
+**Phase 2: 公文詳情頁 AI 分析 Tab**:
+- 新增 `DocumentAITab` 元件（`pages/document/tabs/DocumentAITab.tsx`）
+- 整合三項零掛載 AI 功能：
+  - `AISummaryPanel` — AI 摘要生成（SSE 串流）
+  - 語意相似公文推薦（`getSemanticSimilar`，顯示 8 筆，可點擊跳轉）
+  - 單篇實體提取（`extractEntities`，顯示實體/關係數量）
+- 註冊為 DocumentDetailPage 第 5 個 Tab「AI 分析」
+
+**Phase 3: 公文建立表單 AI 分類建議**:
+- 收文/發文建立表單在主旨欄下方嵌入 `AIClassifyPanel`
+- 主旨輸入 >= 5 字後自動顯示分類建議面板
+- 收文: `onSelect` 自動填入 `doc_type` + `category`
+- 發文: `onSelect` 自動填入 `doc_type`（category 固定為發文）
+- 使用 `Form.useWatch('subject', form)` 監聽主旨即時變化
+
+**前端 AI 服務覆蓋率提升**: 61% → 87%（46 個 API 中 40 個有 UI）
+
+---
+
+## [1.67.0] - 2026-02-26
+
+### 圖譜服務前端整合 — 5 個後端 API 納入 UI
+
+**前端整合審計結果**: 9 個圖譜 API 中 5 個缺少前端 UI 使用，本次全數補齊。
+
+**已整合服務**:
+1. `getTopEntities` → KnowledgeGraphPage 左側面板「高頻實體排行」（Top 10，含類型色點 + 提及次數）
+2. `findShortestPath` → KnowledgeGraphPage 左側面板「最短路徑」搜尋（兩個 Select + 路徑視覺化）
+3. `mergeGraphEntities` → KnowledgeGraphPage 管理動作「合併實體」按鈕 + Modal
+4. `getEntityTimeline` → EntityDetailSidebar v1.1.0 時間軸（Promise.all 平行載入，顯示 15 筆）
+5. `findShortestPath` API 層: types/ai.ts + api/ai/types.ts + api/ai/knowledgeGraph.ts + endpoints.ts
+
+**保留不整合**: `getEntityNeighbors` — 圖譜視覺化已透過 `getRelationGraph` 顯示鄰居，獨立 UI 冗餘。
+
+**技術細節**:
+- 實體搜尋共用 300ms debounced `handleEntitySearch`（Select `onSearch`）
+- 合併 Modal 含方向說明（保留 vs 被合併），合併後自動重載統計
+- Top Entities 與覆蓋率統計合併至 `Promise.allSettled` 平行載入
+- TypeScript 0 錯誤
+
+---
+
+## [1.66.0] - 2026-02-26
+
+### Phase C 閾值集中化 + 圖譜查詢 Redis 快取
+
+**C1: 殘餘硬編碼閾值遷移**:
+- `ai_config.py` v2.1.0: 新增 6 個可配置欄位
+  - `agency_match_threshold` (0.7) — 機關名稱匹配最低信心度
+  - `hybrid_semantic_weight` (0.4) — 混合搜尋語意權重
+  - `graph_cache_ttl_detail/neighbors/search/stats` — 圖譜快取 TTL
+- `document_ai_service.py`: 3 處硬編碼遷移
+  - `confidence >= 0.7` → `get_ai_config().agency_match_threshold`
+  - `weight=0.4` → `get_ai_config().hybrid_semantic_weight`
+  - `timeout=20.0` → `get_ai_config().search_query_timeout`
+- `relation_graph_service.py`: 2 處 `confidence >= 0.6` → `get_ai_config().ner_min_confidence`
+- 所有閾值均支援環境變數覆寫
+
+**C2: 圖譜查詢 Redis 快取 (graph_query_service.py v1.1.0)**:
+- 共用 `RedisCache(prefix="graph:query")` 實例（模組級單例）
+- 4 個高頻查詢方法加入快取層:
+  - `get_entity_detail()` — TTL 300s (可配置)
+  - `get_neighbors()` — TTL 300s (含 max_hops/limit 作為快取 key)
+  - `search_entities()` — TTL 120s (含 query/entity_type/limit 作為快取 key)
+  - `get_graph_stats()` — TTL 1800s (全域統計)
+- Redis 不可用時靜默降級（RedisCache 內建 fallback）
+- 預估: 重複查詢場景減少 ~90% DB 壓力
+
+**架構複查修正**:
+- `embedding_manager.py`: `_max_cache_size`, `_cache_ttl` 改從 AIConfig 讀取（原硬編碼 500/1800）
+- `graph_query_service.py`: 清除未使用 imports (`literal_column`, `GraphIngestionEvent`, `List`, `and_`)
+- `document_ai.py` (端點): 配置資訊回報中的 `0.7` → `config.agency_match_threshold`
+- `graph_query.py` (端點): 7 處函數內 lazy import → 頂層 import（消除重複）
+- `types/ai.ts`: `RAGStreamRequest` 從 `api/ai/adminManagement.ts` 遷移至 SSOT（含 re-export 鏈更新）
+- AIConfig 集中化覆蓋率: 11/17 AI 服務模組使用 `get_ai_config()`（其餘 6 個無閾值需求）
+- SSOT 驗證: API 層無業務型別定義違規（查詢參數型別 `*ListParams` 屬 API 關注點，合理留在 API 層）
+- 驗證通過: 15/15 服務 + 10/10 端點 py_compile OK, TypeScript 0 錯誤
+
+---
+
+## [1.65.0] - 2026-02-26
+
+### Phase B 效能優化 — NER 批次寫入 + 入圖管線 N+1 消除 + 元件拆分
+
+**NER 批次寫入優化 (canonical_entity_service.py v1.1.0)**:
+- 新增 `resolve_entities_batch()` 方法：批次精確匹配 + 延遲 flush + 批次建立
+- Stage 1: 1 次 IN 查詢取代 N 次 per-entity 精確匹配
+- Stage 2: 模糊匹配後批次去重別名（1 次查詢 vs N 次）
+- Stage 3: 新實體批次 `db.add()` → 2 次 flush（建實體 + 建別名）取代 2N 次
+- 預估效能提升: 10 實體文件 ~20 次 DB round-trip → ~5 次（50-75% 減少）
+
+**入圖管線 N+1 消除 (graph_ingestion_pipeline.py v1.1.0)**:
+- 使用 `resolve_entities_batch()` 取代 per-entity `resolve_entity()` 迴圈
+- 關係預載: 1 次 IN 查詢取代 N 次 per-relation EXISTS 查詢
+- 公文預載: 1 次 `db.get()` 取代 per-new-relation 重複查詢
+- 同批次關係去重: `rel_lookup` 字典避免 INSERT 重複
+- 預估批次入圖效能提升: 50 文件 batch ~50-100x 加速
+
+**元件拆分 (AIAssistantManagementPage.tsx)**:
+- 1522 行 → ~120 行（主頁面）+ 6 個獨立 Tab 元件
+- 新增 `components/ai/management/` 目錄：
+  - `OverviewTab.tsx` — 搜尋總覽統計
+  - `HistoryTab.tsx` — 搜尋歷史與篩選
+  - `EmbeddingTab.tsx` — Embedding 管理
+  - `KnowledgeGraphTab.tsx` — 知識圖譜與實體提取
+  - `ServiceMonitorTab.tsx` — AI 服務健康監控
+  - `OllamaManagementTab.tsx` — Ollama 模型管理
+  - `index.ts` — Barrel export
+
+**Deprecated 清理**:
+- 移除 `backend/app/models/calendar_event.py`（已 deprecated since v2.0.0, 零引用）
+
+---
+
+## [1.64.0] - 2026-02-26
+
+### AI 閾值集中管理 + RAG Prompt DB 可配置 + 搜尋信心度色彩分級
+
+**AIConfig v2.0.0 (ai_config.py)**:
+- 新增 24 個可配置閾值，涵蓋 RAG / NER / Embedding / 知識圖譜 / 語意搜尋
+- 所有閾值支援環境變數覆寫（`RAG_TOP_K`, `NER_MIN_CONFIDENCE`, `KG_FUZZY_THRESHOLD` 等）
+- 移除 4 個服務中的硬編碼常數，統一讀取 AIConfig singleton
+
+**RAG Prompt 可配置化 (rag_query_service.py v2.1.0)**:
+- system prompt 改由 `AIPromptManager.get_system_prompt("rag_system")` 管理
+- 優先順序: DB active 版本 > YAML (prompts.yaml) > 內建 fallback
+- 新增 `rag_system` prompt 至 prompts.yaml v1.3.0（含 7 條回答規則）
+- 所有生成參數（temperature, max_tokens, top_k, context_chars）讀取自 AIConfig
+- 新增 embedding 向量維度執行時驗證（768D check）
+
+**閾值統一遷移**:
+- `entity_extraction_service.py`: MIN_CONFIDENCE → `AIConfig.ner_min_confidence`
+- `canonical_entity_service.py`: FUZZY_SIMILARITY_THRESHOLD → `AIConfig.kg_fuzzy_threshold`
+- `search_intent_parser.py`: VECTOR_SIMILARITY_THRESHOLD → `AIConfig.search_vector_threshold`
+
+**搜尋信心度 UI 色彩分級 (NaturalSearchPanel.tsx)**:
+- AI 解析信心度標籤改為三級色彩：Green (≥80%) / Orange (60-80%) / Red (<60%)
+
+---
+
+## [1.63.0] - 2026-02-25~26
+
+### RAG 問答服務 v2.0 — SSE 串流 + 多輪對話 + 前端 Chat UI
+
+**RAG Query Service (rag_query_service.py v2.0.0)**:
+- 新增 `RAGQueryService`：基於現有 pgvector (728 篇 768D) + Ollama LLM 的輕量 RAG 管線
+- 流程: 查詢 embedding → cosine_distance 向量檢索 → 上下文建構 → Ollama LLM 回答生成
+- `query()` 同步問答 + `stream_query()` SSE 串流回答
+- SSE 事件協議: `sources` → `token`* → `done`（前端先收來源再逐字回答）
+- 多輪對話: history 陣列傳遞，`_build_messages()` 限制最近 4 輪 (MAX_HISTORY_TURNS)
+- 來源引用追蹤（[公文N] 格式），上下文截斷 6000 字
+
+**API 端點 (rag_query.py v2.0.0)**:
+- `POST /api/ai/rag/query` — RAG 同步問答端點（需認證）
+- `POST /api/ai/rag/query/stream` — RAG SSE 串流問答（含多輪對話歷史）
+- StreamingResponse: `text/event-stream` + no-cache + keep-alive
+
+**Schema (ai.py)**:
+- `RAGQueryRequest`, `RAGSourceItem`, `RAGQueryResponse`
+
+**前端 RAG Chat UI (RAGChatPanel.tsx v2.0.0)**:
+- SSE 逐字串流顯示: `aiApi.streamRAGQuery()` + ReadableStream 解析
+- 多輪對話記憶: 自動建構 history 陣列傳遞後端
+- AbortController: 元件卸載/清除對話時自動取消串流
+- 來源引用展開面板（Collapse）：doc_number / subject / sender / similarity
+- 串流指示器 (LoadingOutlined)、快捷問題按鈕、回答元資料
+- 整合至 AI 助理管理頁面首個 Tab（defaultActiveKey="rag-chat"）
+
+**前端 API 整合**:
+- `api/endpoints.ts`: `RAG_QUERY` + `RAG_QUERY_STREAM` 端點
+- `api/ai/adminManagement.ts`: `ragQuery()` + `streamRAGQuery()` (SSE fetch + callback)
+- `api/ai/index.ts`: aiApi 物件新增 ragQuery + streamRAGQuery
+- `api/ai/types.ts` + `api/aiApi.ts`: re-export RAG 型別
+
+**LlamaIndex 基礎建設**:
+- 安裝 `llama-index-core`, `llama-index-vector-stores-postgres`, `llama-index-embeddings-ollama`, `llama-index-llms-ollama`
+- pydantic 2.9.2 → 2.12.5（LlamaIndex 依賴升級，相容性已驗證）
+
+**AI API 端點現況 (46 個)**:
+- 公文 AI: 8 個（摘要/分類/關鍵字/搜尋/圖譜/匹配/語意相似）
+- 知識圖譜: 8 個（搜尋/鄰居/最短路徑/詳情/時間軸/排名/統計/入圖）
+- RAG 問答: 2 個（query + stream）
+- Embedding: 2 個（stats/batch）
+- NER: 3 個（extract/batch/stats）
+- 搜尋歷史: 5 個
+- 同義詞: 5 個
+- Prompt: 4 個
+- Ollama: 3 個
+- 統計: 2 個
+- 管理: 2 個（health/config）
+- 圖譜管理: 2 個（merge-entities/ingest）
+
+---
+
+## [1.62.0] - 2026-02-25
+
+### NER Ollama-First 修復 + 向量維度修正 + HNSW 索引 + 圖譜多跳查詢
+
+**NER 實體提取修復 (entity_extraction_service.py)**:
+- 重寫 `EXTRACTION_SYSTEM_PROMPT`：改用英文指令 + 嚴格 JSON-only 要求，提高 Ollama llama3.1:8b JSON 輸出率
+- User prompt 改為英文（`Extract entities and relations...`）避免 Ollama 語境切換
+- 新增 `_extract_json_from_text()` 四策略 JSON 解析器：
+  1. 直接 json.loads() — 純 JSON
+  2. Markdown code block 提取 — ```json 包裹
+  3. 最大 JSON 物件搜尋 — bracket 計數找完整 `{...}`
+  4. Regex 散落物件收集 — 從敘述文字收集個別 entity/relation JSON
+- 拆分 `_validate_entities()` 和 `_validate_relations()` 獨立驗證函數
+- **成效**: NER 成功率從 0% 提升至 100%，已批次處理 300+ 筆公文
+
+**Ollama 狀態修復 (前端)**:
+- `adminManagement.ts`: 移除 `getOllamaStatus()` 等 3 個函數的 try/catch null 回傳，改為錯誤傳播
+- `AIAssistantManagementPage.tsx`: 新增 `isError` 狀態處理 + 重試按鈕
+
+**導覽系統修復 (init_navigation_data.py)**:
+- 修復 sort_order 衝突（system-management 子項、backup-management）
+- AI 助理管理移至 AI 智慧功能分組
+- 新增「統一表單示例」導覽項目
+- 導覽覆蓋率：26/26 頁面（100%）
+
+**向量維度修正 + HNSW 索引升級**:
+- ORM 模型 `Vector(384)` → `Vector(768)` 匹配 nomic-embed-text 實際輸出（document.py, system.py, knowledge_graph.py）
+- Alembic migration: `canonical_entities.embedding` 從 vector(384) → vector(768)
+- 全部 3 張向量表索引從 IVFFlat 升級為 HNSW（m=16, ef_construction=64）
+- Embedding 覆蓋率 97.66% → **100%**（修正維度後 17 筆卡住的公文成功入庫）
+- `embedding_manager.py` docstring 修正 384 → 768
+
+**知識圖譜多跳查詢強化 (graph_query_service.py)**:
+- `get_neighbors()` 重寫為 Recursive CTE（單次 SQL 取代 N+1 Python BFS）
+- 新增 `find_shortest_path()` — 兩實體間最短路徑查詢（Recursive CTE BFS）
+- 新增 API 端點 `POST /ai/graph/entity/shortest-path`
+- 新增 Schema: `KGShortestPathRequest`, `KGShortestPathResponse`, `KGPathNode`
+
+**系統文件全面更新**:
+- `skills/ai-development.md` v2.0.0 → **v3.0.0**：補充 NER/知識圖譜/CanonicalEntity/Ollama-First/4策略解析
+- `rules/architecture.md`：ORM 模型新增 AI 模組（8 個新模型），Service 層 AI 目錄從 4 → 17 個模組
+- `rules/skills-inventory.md`：ai-development 觸發關鍵字擴充 + 版本更新
+- `ai_connector.py` docstring：修正 embedding 維度 384 → 768
+
+---
+
 ## [1.61.0] - 2026-02-24
 
 ### 備份系統核心強化 + 知識圖譜修復 + CVE 漏洞修補

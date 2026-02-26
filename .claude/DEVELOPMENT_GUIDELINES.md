@@ -629,6 +629,30 @@ async def create_backup(
 
 ---
 
+## 🤖 Agent 開發前置檢查清單 (2026-02-26 新增)
+
+新增或修改 Agent 工具、SSE 事件、合成邏輯前，須逐項確認：
+
+### 新增工具
+- [ ] 後端 `agent_orchestrator.py` 的 `TOOLS` 字典已註冊新工具
+- [ ] 工具函數命名為 `_tool_{name}`，回傳 `dict` 包含 `summary` 和 `results`
+- [ ] 前端 `RAGChatPanel.tsx` 的 `TOOL_ICONS` 已加入工具圖示
+- [ ] 前端 `RAGChatPanel.tsx` 的 `TOOL_LABELS` 已加入中文標籤
+- [ ] 工具描述足夠讓 LLM 正確選擇（含使用時機說明）
+
+### 修改 SSE 事件
+- [ ] 所有推理事件（thinking/tool_call/tool_result）包含 `step_index`
+- [ ] error 事件包含 `code` 分類碼（RATE_LIMITED/SERVICE_ERROR/TIMEOUT/VALIDATION_ERROR）
+- [ ] 前端 `adminManagement.ts` 的 callback 簽章與後端事件欄位一致
+- [ ] 前端 `RAGChatPanel.tsx` 的 `AgentStepInfo` 型別同步更新
+
+### 合成品質
+- [ ] `_strip_thinking_from_synthesis()` 能正確處理新工具的輸出格式
+- [ ] 閒聊偵測邏輯不會攔截新工具對應的業務查詢
+- [ ] 測試至少包含：正常回答、含 [公文N] 引用、含 [派工單N] 引用、大量思考鏈
+
+---
+
 ## ✅ Code Review Checklist (2026-02-04 更新)
 
 ### 🆕 前端錯誤處理檢查 (2026-02-04 新增)
@@ -682,15 +706,17 @@ async def create_backup(
 
 ### 健康檢查端點
 
-| 端點 | 說明 |
-|------|------|
-| `GET /health` | 基本健康檢查 |
-| `GET /health/detailed` | 詳細健康報告 |
-| `GET /health/pool` | 連接池狀態 |
-| `GET /health/tasks` | 背景任務狀態 |
-| `GET /health/audit` | 審計服務狀態 |
-| `GET /health/backup` | 備份系統狀態 (排程器/連續失敗/異地同步) |
-| `GET /health/summary` | 系統健康摘要 (含備份狀態) |
+> **BREAKING CHANGE (v1.60.0)**: `/health/detailed`, `/health/pool`, `/health/tasks`, `/health/audit`, `/health/backup`, `/health/summary` 已從 `require_auth` 提升為 `require_admin` 權限。僅 `/health` 基本端點維持公開。
+
+| 端點 | 說明 | 權限 |
+|------|------|------|
+| `GET /health` | 基本健康檢查 | 公開 |
+| `GET /health/detailed` | 詳細健康報告 | **admin** |
+| `GET /health/pool` | 連接池狀態 | **admin** |
+| `GET /health/tasks` | 背景任務狀態 | **admin** |
+| `GET /health/audit` | 審計服務狀態 | **admin** |
+| `GET /health/backup` | 備份系統狀態 (排程器/連續失敗/異地同步) | **admin** |
+| `GET /health/summary` | 系統健康摘要 (含備份狀態) | **admin** |
 
 ### 使用範例
 

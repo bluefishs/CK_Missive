@@ -81,6 +81,34 @@ class KGNeighborsResponse(BaseModel):
 
 
 # ============================================================================
+# 最短路徑
+# ============================================================================
+
+
+class KGShortestPathRequest(BaseModel):
+    """最短路徑查詢"""
+    source_id: int = Field(..., description="起始實體 ID")
+    target_id: int = Field(..., description="目標實體 ID")
+    max_hops: int = Field(default=5, ge=1, le=6, description="最大跳數")
+
+
+class KGPathNode(BaseModel):
+    """路徑上的節點"""
+    id: int
+    name: str
+    type: str
+
+
+class KGShortestPathResponse(BaseModel):
+    """最短路徑回應"""
+    success: bool = True
+    found: bool = False
+    depth: int = 0
+    path: List[KGPathNode] = []
+    relations: List[str] = []
+
+
+# ============================================================================
 # 實體詳情
 # ============================================================================
 

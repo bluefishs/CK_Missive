@@ -6,12 +6,13 @@
 
 流程: 提取 → 正規化解析 → 關係連結 → 事件紀錄
 
-Version: 1.0.0
+Version: 1.1.0
 Created: 2026-02-24
 """
 
 import logging
 import time
+from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import select, func as sa_func
@@ -24,6 +25,7 @@ from app.extended.models import (
     EntityRelationship,
     GraphIngestionEvent,
 )
+from .ai_config import get_ai_config
 from .canonical_entity_service import CanonicalEntityService
 
 logger = logging.getLogger(__name__)
@@ -35,6 +37,7 @@ class GraphIngestionPipeline:
     def __init__(self, db: AsyncSession):
         self.db = db
         self._entity_service = CanonicalEntityService(db)
+        self._min_confidence = get_ai_config().ner_min_confidence
 
     async def ingest_document(
         self,
@@ -72,7 +75,7 @@ class GraphIngestionPipeline:
         entity_result = await self.db.execute(
             select(DocumentEntity)
             .where(DocumentEntity.document_id == document_id)
-            .where(DocumentEntity.confidence >= 0.6)
+            .where(DocumentEntity.confidence >= self._min_confidence)
         )
         raw_entities = entity_result.scalars().all()
 
@@ -93,44 +96,86 @@ class GraphIngestionPipeline:
                 "document_id": document_id,
             }
 
-        # 正規化解析每個實體
+        # ── 批次正規化解析所有實體（v1.1.0: 取代 per-entity loop）──
+        seen_keys: set[str] = set()
+        entity_inputs: list[tuple[str, str]] = []
+        for ent in raw_entities:
+            key = f"{ent.entity_type}:{ent.entity_name}"
+            if key not in seen_keys:
+                seen_keys.add(key)
+                entity_inputs.append((ent.entity_name, ent.entity_type))
+
+        canonical_map = await self._entity_service.resolve_entities_batch(
+            entity_inputs,
+        )
+
+        # 統計新建 vs 合併（mention_count == 0 表示剛建立）
         entities_new = 0
         entities_merged = 0
-        canonical_map = {}  # entity_key → CanonicalEntity
-
-        for ent in raw_entities:
-            entity_key = f"{ent.entity_type}:{ent.entity_name}"
-            if entity_key in canonical_map:
-                continue
-
-            canonical = await self._entity_service.resolve_entity(
-                entity_name=ent.entity_name,
-                entity_type=ent.entity_type,
-            )
-            canonical_map[entity_key] = canonical
-
-            # 判斷是新建還是合併
-            if canonical.mention_count <= 1:
+        for canonical in canonical_map.values():
+            if (canonical.mention_count or 0) == 0:
                 entities_new += 1
             else:
                 entities_merged += 1
 
-            # 記錄提及
-            await self._entity_service.add_mention(
-                document_id=document_id,
-                canonical_entity=canonical,
-                mention_text=ent.entity_name,
-                confidence=ent.confidence,
-                context=ent.context,
+        # 記錄提及（每個 unique entity 僅一筆，與原邏輯一致）
+        for ent_name, ent_type in entity_inputs:
+            key = f"{ent_type}:{ent_name}"
+            canonical = canonical_map.get(key)
+            if not canonical:
+                continue
+            # 取第一筆原始實體的 confidence/context
+            raw_ent = next(
+                (e for e in raw_entities
+                 if e.entity_name == ent_name and e.entity_type == ent_type),
+                None,
             )
+            if raw_ent:
+                await self._entity_service.add_mention(
+                    document_id=document_id,
+                    canonical_entity=canonical,
+                    mention_text=ent_name,
+                    confidence=raw_ent.confidence,
+                    context=raw_ent.context,
+                )
 
-        # 正規化關係
+        # ── 正規化關係（v1.1.0: 預載 + 批次查詢）──────────────
         relation_result = await self.db.execute(
             select(EntityRelation)
             .where(EntityRelation.document_id == document_id)
-            .where(EntityRelation.confidence >= 0.6)
+            .where(EntityRelation.confidence >= self._min_confidence)
         )
         raw_relations = relation_result.scalars().all()
+
+        # Pre-load existing relationships（1 次查詢取代 N 次）
+        canonical_ids = {c.id for c in canonical_map.values()}
+        rel_lookup: dict[tuple[int, int, str], EntityRelationship] = {}
+        if canonical_ids:
+            existing_rels_result = await self.db.execute(
+                select(EntityRelationship)
+                .where(EntityRelationship.source_entity_id.in_(canonical_ids))
+                .where(EntityRelationship.target_entity_id.in_(canonical_ids))
+                .where(EntityRelationship.invalidated_at.is_(None))
+            )
+            for rel_obj in existing_rels_result.scalars().all():
+                rel_lookup[
+                    (rel_obj.source_entity_id, rel_obj.target_entity_id, rel_obj.relation_type)
+                ] = rel_obj
+
+        # Pre-compute valid_from（1 次查詢取代 per-relation 查詢）
+        doc = await self.db.get(OfficialDocument, document_id)
+        valid_from = None
+        if doc and doc.doc_date:
+            if isinstance(doc.doc_date, str):
+                try:
+                    valid_from = datetime.strptime(doc.doc_date, "%Y-%m-%d")
+                except ValueError:
+                    pass
+            else:
+                valid_from = (
+                    datetime.combine(doc.doc_date, datetime.min.time())
+                    if doc.doc_date else None
+                )
 
         relations_found = 0
         for rel in raw_relations:
@@ -142,36 +187,14 @@ class GraphIngestionPipeline:
             if not src_canonical or not tgt_canonical:
                 continue
 
-            # 查找已存在的同類型關係
-            existing_rel = await self.db.execute(
-                select(EntityRelationship)
-                .where(EntityRelationship.source_entity_id == src_canonical.id)
-                .where(EntityRelationship.target_entity_id == tgt_canonical.id)
-                .where(EntityRelationship.relation_type == rel.relation_type)
-                .where(EntityRelationship.invalidated_at.is_(None))
-                .limit(1)
-            )
-            existing = existing_rel.scalar_one_or_none()
+            lookup_key = (src_canonical.id, tgt_canonical.id, rel.relation_type)
+            existing = rel_lookup.get(lookup_key)
 
             if existing:
                 # 已存在：增加權重和佐證公文數
                 existing.weight = (existing.weight or 1.0) + 1.0
                 existing.document_count = (existing.document_count or 1) + 1
             else:
-                # 新建關係
-                # 嘗試從公文取得日期作為 valid_from
-                doc = await self.db.get(OfficialDocument, document_id)
-                valid_from = None
-                if doc and doc.doc_date:
-                    from datetime import datetime
-                    if isinstance(doc.doc_date, str):
-                        try:
-                            valid_from = datetime.strptime(doc.doc_date, "%Y-%m-%d")
-                        except ValueError:
-                            pass
-                    else:
-                        valid_from = datetime.combine(doc.doc_date, datetime.min.time()) if doc.doc_date else None
-
                 new_rel = EntityRelationship(
                     source_entity_id=src_canonical.id,
                     target_entity_id=tgt_canonical.id,
@@ -183,6 +206,8 @@ class GraphIngestionPipeline:
                     document_count=1,
                 )
                 self.db.add(new_rel)
+                # 加入 lookup 處理同批次重複關係
+                rel_lookup[lookup_key] = new_rel
 
             relations_found += 1
 

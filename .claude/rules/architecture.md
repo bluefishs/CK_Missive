@@ -20,7 +20,7 @@ CK_Missive/
 
 ## 後端模型結構
 
-ORM 模型統一位於 `backend/app/extended/models.py`，按 7 個模組分區：
+ORM 模型統一位於 `backend/app/extended/models.py`，按 8 個模組分區：
 
 | 模組 | 包含模型 |
 |------|----------|
@@ -31,17 +31,33 @@ ORM 模型統一位於 `backend/app/extended/models.py`，按 7 個模組分區�
 | 5. 系統模組 | SystemNotification, UserSession, SiteNavigationItem, SiteConfiguration |
 | 6. 專案人員模組 | ProjectAgencyContact, StaffCertification |
 | 7. 桃園派工模組 | TaoyuanProject, TaoyuanDispatchOrder, TaoyuanDispatchProjectLink, etc. |
+| 8. AI 模組 | DocumentEntity, EntityRelation, CanonicalEntity, EntityAlias, DocumentEntityMention, AIPromptTemplate, AISynonym, SearchHistory |
 
 ## 後端 Service 層結構
 
 ```
 backend/app/services/
 ├── base/                       # 基礎服務 (ImportBaseService, ServiceResponse)
-├── ai/                         # AI 服務
-│   ├── embedding_manager.py    # Embedding 管理與覆蓋率統計
-│   ├── entity_extraction_service.py  # NER 實體提取
-│   ├── relation_graph_service.py     # 知識圖譜建構 (v1.0.0)
-│   └── natural_search_service.py     # 自然語言搜尋
+├── ai/                         # AI 服務 (19 個模組)
+│   ├── ai_config.py            # AI 配置管理 Singleton (v1.1.0)
+│   ├── base_ai_service.py      # 基類：滑動窗口限流+Redis快取+統計 (v3.0.0)
+│   ├── document_ai_service.py  # 公文摘要/分類/關鍵字/意圖 (v5.0.0)
+│   ├── embedding_manager.py    # Embedding LRU快取+覆蓋率統計 (v1.1.0)
+│   ├── entity_extraction_service.py  # NER 實體提取+4策略JSON解析 (v1.0.0)
+│   ├── rag_query_service.py          # RAG 問答服務 (v2.3.0)
+│   ├── agent_orchestrator.py        # Agentic 文件檢索引擎 6工具+自動修正 (v1.5.0)
+│   ├── relation_graph_service.py     # 知識圖譜7-Phase建構 (v1.0.0)
+│   ├── canonical_entity_service.py   # 正規化實體4階段策略 (v1.0.0)
+│   ├── graph_ingestion_pipeline.py   # 圖譜資料入圖管線 (v1.0.0)
+│   ├── graph_query_service.py        # 圖譜查詢服務 (v1.0.0)
+│   ├── search_intent_parser.py       # 搜尋意圖解析 (v1.0.0)
+│   ├── search_entity_expander.py     # 搜尋實體擴展 (v1.0.0)
+│   ├── synonym_expander.py           # 同義詞擴展 (v1.0.0)
+│   ├── rule_engine.py                # 規則引擎 (v2.0.0)
+│   ├── extraction_scheduler.py       # NER提取排程器 (v1.0.0)
+│   ├── ai_prompt_manager.py          # Prompt模板管理(DB熱重載)
+│   ├── prompts.yaml                  # 5組Prompt模板 (v1.1.0)
+│   └── synonyms.yaml                # 53組同義詞字典 (v1.0.0)
 ├── taoyuan/                    # 桃園派工服務
 ├── backup/                     # 備份服務套件 (v3.0.0)
 │   ├── __init__.py             # BackupService (組合 4 個 Mixin)
@@ -68,6 +84,7 @@ backend/app/api/endpoints/
 ├── document_calendar/      # 行事曆 API (模組化)
 ├── taoyuan_dispatch/       # 桃園派工 API (模組化)
 ├── ai/                     # AI API (薄端點層，邏輯在 services/ai/)
+│   ├── agent_query.py            # Agentic 問答 SSE 端點
 └── *.py                    # 其他 API 端點
 ```
 

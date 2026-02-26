@@ -278,7 +278,7 @@ export function useNaturalSearch(options: UseNaturalSearchOptions = {}): UseNatu
       if (result?.suggestions) {
         setServerSuggestions(result.suggestions);
       }
-    }, 300);
+    }, 500);
   }, []);
 
   // 元件卸載時清除 debounce timer

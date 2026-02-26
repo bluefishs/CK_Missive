@@ -106,6 +106,16 @@ export type {
   KGIngestResponse,
   KGMergeEntitiesRequest,
   KGMergeEntitiesResponse,
+  // Ollama 管理
+  OllamaGpuLoadedModel,
+  OllamaGpuInfo,
+  OllamaStatusResponse,
+  OllamaEnsureModelsResponse,
+  OllamaWarmupResponse,
+  // RAG 問答
+  RAGQueryRequest,
+  RAGSourceItem,
+  RAGQueryResponse,
 } from './ai';
 
 export { aiApi as default } from './ai';

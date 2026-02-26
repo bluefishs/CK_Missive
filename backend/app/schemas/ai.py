@@ -322,6 +322,14 @@ class NaturalSearchResponse(BaseModel):
         default=False,
         description="是否經過同義詞擴展"
     )
+    entity_expanded: bool = Field(
+        default=False,
+        description="是否經過知識圖譜實體擴展"
+    )
+    expanded_keywords: Optional[List[str]] = Field(
+        None,
+        description="實體擴展後的關鍵字列表（僅在 entity_expanded=True 時有值）"
+    )
     history_id: Optional[int] = Field(None, description="搜尋歷史 ID（用於回饋）")
     matched_entities: List[MatchedEntity] = Field(
         default=[],
@@ -684,3 +692,127 @@ class EntityStatsResponse(BaseModel):
     total_entities: int = 0
     total_relations: int = 0
     entity_type_stats: Dict[str, int] = Field(default_factory=dict)
+
+
+# ============================================================================
+# Ollama 管理 Schema (v1.0.0)
+# ============================================================================
+
+
+class OllamaGpuLoadedModel(BaseModel):
+    """GPU 已載入模型資訊"""
+    name: str = Field(..., description="模型名稱")
+    size: int = Field(default=0, description="模型大小 (bytes)")
+    size_vram: int = Field(default=0, description="VRAM 使用量 (bytes)")
+
+
+class OllamaGpuInfo(BaseModel):
+    """Ollama GPU 資訊"""
+    loaded_models: List[OllamaGpuLoadedModel] = Field(
+        default=[], description="已載入至 GPU 的模型列表"
+    )
+
+
+class OllamaStatusResponse(BaseModel):
+    """Ollama 詳細狀態回應"""
+    available: bool = Field(default=False, description="Ollama 服務是否可用")
+    message: str = Field(default="", description="狀態訊息")
+    models: List[str] = Field(default=[], description="已安裝的模型列表")
+    required_models: List[str] = Field(default=[], description="系統必要模型列表")
+    required_models_ready: bool = Field(
+        default=False, description="所有必要模型是否就緒"
+    )
+    missing_models: List[str] = Field(
+        default=[], description="缺少的必要模型列表"
+    )
+    gpu_info: Optional[OllamaGpuInfo] = Field(
+        None, description="GPU 使用資訊"
+    )
+    groq_available: bool = Field(
+        default=False, description="Groq API 是否可用"
+    )
+    groq_message: str = Field(default="", description="Groq 狀態訊息")
+
+
+class OllamaEnsureModelsResponse(BaseModel):
+    """Ollama 模型檢查與拉取回應"""
+    ollama_available: bool = Field(
+        default=False, description="Ollama 服務是否可用"
+    )
+    installed: List[str] = Field(
+        default=[], description="已安裝的模型列表"
+    )
+    pulled: List[str] = Field(
+        default=[], description="本次新拉取成功的模型列表"
+    )
+    failed: List[str] = Field(
+        default=[], description="拉取失敗的模型列表"
+    )
+
+
+class OllamaWarmupResponse(BaseModel):
+    """Ollama 模型預熱回應"""
+    results: Dict[str, bool] = Field(
+        default_factory=dict,
+        description="每個模型的預熱結果 {model_name: success}"
+    )
+    all_success: bool = Field(
+        default=False, description="是否全部模型預熱成功"
+    )
+
+
+# ============================================================================
+# RAG 問答 Schema (v1.0.0)
+# ============================================================================
+
+
+class AgentQueryRequest(BaseModel):
+    """Agentic 問答請求"""
+    question: str = Field(..., min_length=1, max_length=500, description="自然語言問題")
+    history: Optional[List[Dict[str, str]]] = Field(
+        None, description="對話歷史 [{role, content}, ...]"
+    )
+
+
+class RAGQueryRequest(BaseModel):
+    """RAG 問答請求"""
+    question: str = Field(..., min_length=2, max_length=500, description="自然語言問題")
+    top_k: int = Field(default=5, ge=1, le=20, description="檢索文件數")
+    similarity_threshold: float = Field(
+        default=0.3, ge=0.0, le=1.0, description="最低相似度門檻"
+    )
+
+
+class RAGStreamRequest(BaseModel):
+    """RAG 串流問答請求（含對話歷史）"""
+    question: str = Field(..., min_length=2, max_length=500, description="自然語言問題")
+    top_k: int = Field(default=5, ge=1, le=20, description="檢索文件數")
+    similarity_threshold: float = Field(
+        default=0.3, ge=0.0, le=1.0, description="最低相似度門檻"
+    )
+    history: Optional[List[Dict[str, str]]] = Field(
+        None, description="對話歷史 [{role, content}, ...]"
+    )
+
+
+class RAGSourceItem(BaseModel):
+    """RAG 來源文件"""
+    document_id: int = Field(..., description="公文 ID")
+    doc_number: str = Field(default="", description="公文字號")
+    subject: str = Field(default="", description="主旨")
+    doc_type: str = Field(default="", description="公文類型")
+    category: str = Field(default="", description="收發類別")
+    sender: str = Field(default="", description="發文單位")
+    receiver: str = Field(default="", description="受文單位")
+    doc_date: str = Field(default="", description="公文日期")
+    similarity: float = Field(default=0.0, description="相似度分數")
+
+
+class RAGQueryResponse(BaseModel):
+    """RAG 問答回應"""
+    success: bool = Field(default=True, description="是否成功")
+    answer: str = Field(default="", description="AI 生成的回答")
+    sources: List[RAGSourceItem] = Field(default=[], description="來源文件列表")
+    retrieval_count: int = Field(default=0, description="檢索到的文件數")
+    latency_ms: int = Field(default=0, description="總處理時間 (毫秒)")
+    model: str = Field(default="", description="使用的模型")

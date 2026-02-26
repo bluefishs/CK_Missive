@@ -45,6 +45,10 @@ from app.services.google_sync_scheduler import (
     stop_google_sync_scheduler,
 )
 from app.services.backup_scheduler import start_backup_scheduler, stop_backup_scheduler
+from app.services.ai.extraction_scheduler import (
+    start_extraction_scheduler,
+    stop_extraction_scheduler,
+)
 from app.core.exceptions import register_exception_handlers
 from app.core.schema_validator import validate_schema
 from app.extended.models import Base
@@ -117,6 +121,47 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"⚠️ 資料庫備份排程器啟動失敗: {e}")
 
+    # Ollama 模型檢查 + Warm-up（P1-2, P1-3）
+    try:
+        if _os.getenv("AI_ENABLED", "true").lower() == "true":
+            from app.core.ai_connector import get_ai_connector
+            connector = get_ai_connector()
+
+            # P1-3: 自動檢查並拉取缺少的必要模型
+            model_result = await connector.ensure_models()
+            if model_result.get("ollama_available"):
+                installed = len(model_result.get("installed", []))
+                pulled = model_result.get("pulled", [])
+                failed = model_result.get("failed", [])
+                if pulled:
+                    logger.info(f"✅ Ollama 自動拉取模型: {', '.join(pulled)}")
+                if failed:
+                    logger.warning(f"⚠️ Ollama 模型拉取失敗: {', '.join(failed)}")
+                logger.info(f"✅ Ollama 模型就緒 ({installed} 個已安裝)")
+
+                # P1-2: 模型 Warm-up（預載入 GPU 記憶體）
+                warmup_result = await connector.warmup_models()
+                warmed = sum(1 for v in warmup_result.values() if v)
+                total_models = len(warmup_result)
+                if warmed == total_models:
+                    logger.info(f"✅ Ollama 模型 warm-up 完成 ({warmed}/{total_models})")
+                else:
+                    logger.warning(
+                        f"⚠️ Ollama 模型 warm-up 部分失敗 ({warmed}/{total_models})"
+                    )
+            else:
+                logger.warning("⚠️ Ollama 不可用，跳過模型檢查和 warm-up")
+    except Exception as e:
+        logger.warning(f"⚠️ Ollama 模型檢查/warm-up 失敗（不影響啟動）: {e}")
+
+    # 啟動 NER 實體提取排程器
+    try:
+        if _os.getenv("AI_ENABLED", "true").lower() == "true":
+            await start_extraction_scheduler()
+            logger.info("✅ NER 實體提取排程器已啟動")
+    except Exception as e:
+        logger.warning(f"⚠️ NER 實體提取排程器啟動失敗: {e}")
+
     # 測試 Redis 連線（AI 快取與統計持久化）
     try:
         from app.core.redis_client import check_redis_health
@@ -179,6 +224,13 @@ async def lifespan(app: FastAPI):
         logger.info("✅ Redis 連線已關閉")
     except Exception as e:
         logger.warning(f"⚠️ Redis 關閉失敗: {e}")
+
+    # 停止 NER 實體提取排程器
+    try:
+        await stop_extraction_scheduler()
+        logger.info("✅ NER 實體提取排程器已停止")
+    except Exception as e:
+        logger.warning(f"⚠️ NER 實體提取排程器停止失敗: {e}")
 
     # 停止資料庫備份排程器
     try:

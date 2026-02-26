@@ -7,7 +7,7 @@
  * @created 2026-02-11
  */
 
-import { apiClient } from '../client';
+import { apiClient, API_BASE_URL } from '../client';
 import { AI_ENDPOINTS } from '../endpoints';
 import { logger } from '../../services/logger';
 import type {
@@ -41,6 +41,12 @@ import type {
   EntityBatchRequest,
   EntityBatchResponse,
   EntityStatsResponse,
+  OllamaStatusResponse,
+  OllamaEnsureModelsResponse,
+  OllamaWarmupResponse,
+  RAGQueryRequest,
+  RAGQueryResponse,
+  RAGStreamRequest,
 } from './types';
 
 // ============================================================================
@@ -287,4 +293,345 @@ export async function getEntityStats(): Promise<EntityStatsResponse | null> {
     logger.error('取得實體統計失敗:', error);
     return null;
   }
+}
+
+// ============================================================================
+// Ollama 管理
+// ============================================================================
+
+export async function getOllamaStatus(): Promise<OllamaStatusResponse> {
+  logger.log('取得 Ollama 狀態');
+  return await apiClient.post<OllamaStatusResponse>(AI_ENDPOINTS.OLLAMA_STATUS, {});
+}
+
+export async function ensureOllamaModels(): Promise<OllamaEnsureModelsResponse> {
+  logger.log('檢查並拉取 Ollama 模型');
+  return await apiClient.post<OllamaEnsureModelsResponse>(AI_ENDPOINTS.OLLAMA_ENSURE_MODELS, {});
+}
+
+export async function warmupOllamaModels(): Promise<OllamaWarmupResponse> {
+  logger.log('預熱 Ollama 模型');
+  return await apiClient.post<OllamaWarmupResponse>(AI_ENDPOINTS.OLLAMA_WARMUP, {});
+}
+
+// ============================================================================
+// RAG 問答
+// ============================================================================
+
+export async function ragQuery(request: RAGQueryRequest): Promise<RAGQueryResponse> {
+  logger.log('RAG 問答:', request.question.substring(0, 50));
+  return await apiClient.post<RAGQueryResponse>(AI_ENDPOINTS.RAG_QUERY, request);
+}
+
+/** RAG SSE 事件回調 */
+export interface RAGStreamCallbacks {
+  onSources: (sources: RAGQueryResponse['sources'], count: number) => void;
+  onToken: (token: string) => void;
+  onDone: (latencyMs: number, model: string) => void;
+  onError?: (error: string) => void;
+}
+
+/**
+ * RAG 串流問答（SSE）
+ *
+ * 傳回 AbortController 供取消使用。
+ */
+export function streamRAGQuery(
+  params: RAGStreamRequest,
+  callbacks: RAGStreamCallbacks,
+): AbortController {
+  const controller = new AbortController();
+  const RAG_TIMEOUT_MS = 30000; // 30s for RAG mode
+  const timeoutId = setTimeout(() => controller.abort(), RAG_TIMEOUT_MS);
+  const url = `${API_BASE_URL}${AI_ENDPOINTS.RAG_QUERY_STREAM}`;
+  const accessToken = localStorage.getItem('access_token');
+
+  (async () => {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify(params),
+        signal: controller.signal,
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        clearTimeout(timeoutId);
+        const text = await response.text();
+        callbacks.onError?.(text || `HTTP ${response.status}`);
+        callbacks.onDone(0, 'error');
+        return;
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        clearTimeout(timeoutId);
+        callbacks.onError?.('ReadableStream not supported');
+        callbacks.onDone(0, 'error');
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop() || '';
+
+        for (const part of parts) {
+          const line = part.trim();
+          if (!line.startsWith('data: ')) continue;
+
+          try {
+            const data = JSON.parse(line.slice(6));
+            switch (data.type) {
+              case 'sources':
+                callbacks.onSources(data.sources || [], data.retrieval_count || 0);
+                break;
+              case 'token':
+                if (data.token) callbacks.onToken(data.token);
+                break;
+              case 'done':
+                clearTimeout(timeoutId);
+                callbacks.onDone(data.latency_ms || 0, data.model || '');
+                return;
+              case 'error':
+                callbacks.onError?.(data.error || 'Unknown error');
+                break;
+            }
+          } catch {
+            logger.warn('RAG SSE parse error:', line);
+          }
+        }
+      }
+
+      // Process remaining buffer after stream ends
+      if (buffer.trim()) {
+        const line = buffer.trim();
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            switch (data.type) {
+              case 'sources':
+                callbacks.onSources(data.sources || [], data.retrieval_count || 0);
+                break;
+              case 'token':
+                if (data.token) callbacks.onToken(data.token);
+                break;
+              case 'done':
+                clearTimeout(timeoutId);
+                callbacks.onDone(data.latency_ms || 0, data.model || '');
+                return;
+              case 'error':
+                callbacks.onError?.(data.error || 'Unknown error');
+                break;
+            }
+          } catch {
+            logger.warn('RAG SSE parse error (remaining buffer):', line);
+          }
+        }
+      }
+
+      clearTimeout(timeoutId);
+      callbacks.onDone(0, 'unknown');
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      const msg = err instanceof Error ? err.message : 'RAG 串流連線失敗';
+      logger.error('RAG SSE error:', msg);
+      callbacks.onError?.(msg);
+      callbacks.onDone(0, 'error');
+    }
+  })();
+
+  return controller;
+}
+
+// ============================================================================
+// Agentic 問答
+// ============================================================================
+
+/** Agent 推理步驟 */
+export interface AgentStep {
+  type: 'thinking' | 'tool_call' | 'tool_result';
+  step_index: number;
+  // thinking
+  step?: string;
+  // tool_call
+  tool?: string;
+  params?: Record<string, unknown>;
+  // tool_result
+  summary?: string;
+  count?: number;
+}
+
+/** Agent SSE 事件回調 */
+export interface AgentStreamCallbacks {
+  onThinking: (step: string, stepIndex: number) => void;
+  onToolCall: (tool: string, params: Record<string, unknown>, stepIndex: number) => void;
+  onToolResult: (tool: string, summary: string, count: number, stepIndex: number) => void;
+  onSources: (sources: RAGQueryResponse['sources'], count: number) => void;
+  onToken: (token: string) => void;
+  onDone: (latencyMs: number, model: string, toolsUsed: string[], iterations: number) => void;
+  onError?: (error: string) => void;
+}
+
+/**
+ * Agentic 串流問答（SSE）
+ *
+ * 傳回 AbortController 供取消使用。
+ */
+export function streamAgentQuery(
+  params: { question: string; history?: Array<{ role: string; content: string }> },
+  callbacks: AgentStreamCallbacks,
+): AbortController {
+  const controller = new AbortController();
+  const AGENT_TIMEOUT_MS = 60000; // 60s for agent mode
+  const timeoutId = setTimeout(() => controller.abort(), AGENT_TIMEOUT_MS);
+  const url = `${API_BASE_URL}${AI_ENDPOINTS.AGENT_QUERY_STREAM}`;
+  const accessToken = localStorage.getItem('access_token');
+
+  (async () => {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify(params),
+        signal: controller.signal,
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        clearTimeout(timeoutId);
+        const text = await response.text();
+        callbacks.onError?.(text || `HTTP ${response.status}`);
+        callbacks.onDone(0, 'error', [], 0);
+        return;
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        clearTimeout(timeoutId);
+        callbacks.onError?.('ReadableStream not supported');
+        callbacks.onDone(0, 'error', [], 0);
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop() || '';
+
+        for (const part of parts) {
+          const line = part.trim();
+          if (!line.startsWith('data: ')) continue;
+
+          try {
+            const data = JSON.parse(line.slice(6));
+            switch (data.type) {
+              case 'thinking':
+                callbacks.onThinking(data.step || '', data.step_index || 0);
+                break;
+              case 'tool_call':
+                callbacks.onToolCall(data.tool || '', data.params || {}, data.step_index || 0);
+                break;
+              case 'tool_result':
+                callbacks.onToolResult(data.tool || '', data.summary || '', data.count || 0, data.step_index || 0);
+                break;
+              case 'sources':
+                callbacks.onSources(data.sources || [], data.retrieval_count || 0);
+                break;
+              case 'token':
+                if (data.token) callbacks.onToken(data.token);
+                break;
+              case 'done':
+                clearTimeout(timeoutId);
+                callbacks.onDone(
+                  data.latency_ms || 0,
+                  data.model || '',
+                  data.tools_used || [],
+                  data.iterations || 0,
+                );
+                return;
+              case 'error':
+                callbacks.onError?.(data.error || 'Unknown error');
+                break;
+            }
+          } catch {
+            logger.warn('Agent SSE parse error:', line);
+          }
+        }
+      }
+
+      // Process remaining buffer after stream ends
+      if (buffer.trim()) {
+        const line = buffer.trim();
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            switch (data.type) {
+              case 'thinking':
+                callbacks.onThinking(data.step || '', data.step_index || 0);
+                break;
+              case 'tool_call':
+                callbacks.onToolCall(data.tool || '', data.params || {}, data.step_index || 0);
+                break;
+              case 'tool_result':
+                callbacks.onToolResult(data.tool || '', data.summary || '', data.count || 0, data.step_index || 0);
+                break;
+              case 'sources':
+                callbacks.onSources(data.sources || [], data.retrieval_count || 0);
+                break;
+              case 'token':
+                if (data.token) callbacks.onToken(data.token);
+                break;
+              case 'done':
+                clearTimeout(timeoutId);
+                callbacks.onDone(
+                  data.latency_ms || 0,
+                  data.model || '',
+                  data.tools_used || [],
+                  data.iterations || 0,
+                );
+                return;
+              case 'error':
+                callbacks.onError?.(data.error || 'Unknown error');
+                break;
+            }
+          } catch {
+            logger.warn('Agent SSE parse error (remaining buffer):', line);
+          }
+        }
+      }
+
+      clearTimeout(timeoutId);
+      callbacks.onDone(0, 'unknown', [], 0);
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      const msg = err instanceof Error ? err.message : 'Agent 串流連線失敗';
+      logger.error('Agent SSE error:', msg);
+      callbacks.onError?.(msg);
+      callbacks.onDone(0, 'error', [], 0);
+    }
+  })();
+
+  return controller;
 }

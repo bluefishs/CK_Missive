@@ -38,9 +38,10 @@ try:
 except ImportError:
     pass  # python-dotenv 不可用時跳過
 
-# 強制 UTF-8
+# 強制 UTF-8（多層防護：PYTHONUTF8 為 Python 3.7+ 全域 UTF-8 模式）
 os.environ["PYTHONIOENCODING"] = "utf-8"
 os.environ["PYTHONUNBUFFERED"] = "1"
+os.environ["PYTHONUTF8"] = "1"
 
 
 def log(step: str, msg: str, level: str = "INFO"):

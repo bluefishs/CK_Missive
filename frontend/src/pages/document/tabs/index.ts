@@ -12,6 +12,7 @@ export { DocumentCaseStaffTab } from './DocumentCaseStaffTab';
 export { DocumentAttachmentsTab } from './DocumentAttachmentsTab';
 export { DocumentDispatchTab } from './DocumentDispatchTab';
 export { DocumentProjectLinkTab } from './DocumentProjectLinkTab';
+export { DocumentAITab } from './DocumentAITab';
 
 // 常數
 export * from './constants';

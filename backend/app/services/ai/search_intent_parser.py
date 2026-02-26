@@ -16,6 +16,7 @@ from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.ai import ParsedSearchIntent
+from .ai_config import get_ai_config
 from .ai_prompt_manager import AIPromptManager
 from .base_ai_service import BaseAIService
 
@@ -32,8 +33,8 @@ class SearchIntentParser:
     Merge: 多層結果合併
     """
 
-    # 向量匹配閾值
-    VECTOR_SIMILARITY_THRESHOLD = 0.88
+    # 向量匹配閾值（由 AIConfig 統一管理）
+    VECTOR_SIMILARITY_THRESHOLD = get_ai_config().search_vector_threshold
 
     # 派工相關關鍵字
     _DISPATCH_KEYWORDS = {"派工單", "派工", "派工紀錄", "派工安排", "調派"}
@@ -232,9 +233,12 @@ class SearchIntentParser:
         if not isinstance(query_embedding, list) or len(query_embedding) == 0:
             return None, None
 
-        if len(query_embedding) != 384:
+        # 動態檢查維度：支援 768 (nomic-embed-text) 或 384 (all-MiniLM)
+        expected_dims = {384, 768}
+        if len(query_embedding) not in expected_dims:
             logger.warning(
-                f"向量匹配: 無效的 embedding 維度 {len(query_embedding)} (期望 384)"
+                "向量匹配: 無效的 embedding 維度 %d (期望 %s)",
+                len(query_embedding), expected_dims,
             )
             return None, None
 
@@ -305,8 +309,8 @@ class SearchIntentParser:
                 return intent, query_embedding
 
             logger.debug(
-                f"向量匹配未命中: "
-                f"best_similarity={row.similarity:.3f if row else 0.0}"
+                "向量匹配未命中: best_similarity=%.3f",
+                row.similarity if row else 0.0,
             )
         except Exception as e:
             logger.warning(f"向量匹配查詢失敗: {e}")

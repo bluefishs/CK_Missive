@@ -34,7 +34,10 @@ import {
   FolderOutlined,
   LinkOutlined,
   RocketOutlined,
-  CloudServerOutlined
+  CloudServerOutlined,
+  ExperimentOutlined,
+  EnvironmentOutlined,
+  SendOutlined,
 } from '@ant-design/icons';
 import { ROUTES } from '../../../router/types';
 import type { NavigationItem } from './useNavigationData';
@@ -92,7 +95,11 @@ const iconMap: { [key: string]: React.ReactNode } = {
   'GoogleOutlined': <GoogleOutlined />,
   'ScheduleOutlined': <ScheduleOutlined />,
   'RocketOutlined': <RocketOutlined />,
-  'CloudServerOutlined': <CloudServerOutlined />
+  'CloudServerOutlined': <CloudServerOutlined />,
+  'ExperimentOutlined': <ExperimentOutlined />,
+  'EnvironmentOutlined': <EnvironmentOutlined />,
+  'SendOutlined': <SendOutlined />,
+  'NumberOutlined': <NumberOutlined />,
 };
 
 /**

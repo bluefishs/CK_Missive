@@ -8,7 +8,7 @@
  * @date 2026-01-28
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { FormInstance } from 'antd';
 import { App } from 'antd';
 import dayjs from 'dayjs';
@@ -22,6 +22,7 @@ import { apiClient } from '../../api/client';
 import { API_ENDPOINTS } from '../../api/endpoints';
 import type { UploadFile } from 'antd/es/upload/interface';
 import type { Project, User, ProjectStaff, DocumentCreate } from '../../types/api';
+import type { AgencyCandidate } from '../../types/ai';
 import { logger } from '../../utils/logger';
 
 // =============================================================================
@@ -142,6 +143,8 @@ export interface UseDocumentCreateFormResult {
   buildAssigneeOptions: () => Array<{ value: string; label: string; key: string }>;
   /** 建立機關選項（含本公司置頂） */
   buildAgencyOptions: (includeCompany?: boolean) => Array<{ value: string; label: string }>;
+  /** AI 機關匹配候選列表 */
+  agencyCandidates: AgencyCandidate[];
 }
 
 // =============================================================================
@@ -607,6 +610,18 @@ export function useDocumentCreateForm(
   }, [agencies]);
 
   // =============================================================================
+  // AI 機關匹配候選列表
+  // =============================================================================
+
+  const agencyCandidates = useMemo<AgencyCandidate[]>(() => {
+    return agencies.map((a) => ({
+      id: a.id,
+      name: a.agency_name,
+      short_name: a.agency_short_name,
+    }));
+  }, [agencies]);
+
+  // =============================================================================
   // 返回結果
   // =============================================================================
 
@@ -651,6 +666,7 @@ export function useDocumentCreateForm(
     // 工具方法
     buildAssigneeOptions,
     buildAgencyOptions,
+    agencyCandidates,
   };
 }
 

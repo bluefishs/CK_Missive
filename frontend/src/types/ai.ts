@@ -241,6 +241,8 @@ export interface NaturalSearchResponse {
   source: 'ai' | 'rule_engine' | 'merged' | 'vector' | 'fallback' | 'rate_limited' | 'error';
   search_strategy?: 'keyword' | 'similarity' | 'hybrid' | 'semantic' | null;
   synonym_expanded?: boolean;
+  entity_expanded?: boolean;
+  expanded_keywords?: string[] | null;
   history_id?: number | null;
   matched_entities?: MatchedEntity[];
   error?: string | null;
@@ -634,6 +636,26 @@ export interface KGNeighborsResponse {
   edges: KGGraphEdge[];
 }
 
+export interface KGShortestPathRequest {
+  source_id: number;
+  target_id: number;
+  max_hops?: number;
+}
+
+export interface KGPathNode {
+  id: number;
+  name: string;
+  type: string;
+}
+
+export interface KGShortestPathResponse {
+  success: boolean;
+  found: boolean;
+  depth: number;
+  path: KGPathNode[];
+  relations: string[];
+}
+
 export interface KGEntityDetailRequest {
   entity_id: number;
 }
@@ -755,4 +777,85 @@ export interface KGMergeEntitiesResponse {
   success: boolean;
   message: string;
   entity_id: number;
+}
+
+// ============================================================================
+// Ollama 管理
+// ============================================================================
+
+/** GPU 已載入模型資訊 */
+export interface OllamaGpuLoadedModel {
+  name: string;
+  size: number;
+  size_vram: number;
+}
+
+/** Ollama GPU 資訊 */
+export interface OllamaGpuInfo {
+  loaded_models: OllamaGpuLoadedModel[];
+}
+
+/** Ollama 詳細狀態回應 */
+export interface OllamaStatusResponse {
+  available: boolean;
+  message: string;
+  models: string[];
+  required_models: string[];
+  required_models_ready: boolean;
+  missing_models: string[];
+  gpu_info: OllamaGpuInfo | null;
+  groq_available: boolean;
+  groq_message: string;
+}
+
+/** Ollama 模型檢查與拉取回應 */
+export interface OllamaEnsureModelsResponse {
+  ollama_available: boolean;
+  installed: string[];
+  pulled: string[];
+  failed: string[];
+}
+
+/** Ollama 模型預熱回應 */
+export interface OllamaWarmupResponse {
+  results: Record<string, boolean>;
+  all_success: boolean;
+}
+
+// ============================================================================
+// RAG 問答
+// ============================================================================
+
+export interface RAGQueryRequest {
+  question: string;
+  top_k?: number;
+  similarity_threshold?: number;
+}
+
+export interface RAGSourceItem {
+  document_id: number;
+  doc_number: string;
+  subject: string;
+  doc_type: string;
+  category: string;
+  sender: string;
+  receiver: string;
+  doc_date: string;
+  similarity: number;
+}
+
+export interface RAGQueryResponse {
+  success: boolean;
+  answer: string;
+  sources: RAGSourceItem[];
+  retrieval_count: number;
+  latency_ms: number;
+  model: string;
+}
+
+export interface RAGStreamRequest {
+  question: string;
+  top_k?: number;
+  similarity_threshold?: number;
+  history?: Array<{ role: string; content: string }>;
 }

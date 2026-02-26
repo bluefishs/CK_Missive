@@ -1,0 +1,47 @@
+# CI/CD 流程
+
+## 本地 Claude Code 自動化
+
+| 功能          | 實作方式                                    | 費用 |
+|---------------|---------------------------------------------|------|
+| Lint 自動修復 | `PostToolUse` hook (Write/Edit 後自動 lint) | 零   |
+| 程式碼審查    | `/code-review` skill 手動觸發               | 零   |
+| 專案上下文    | `SessionStart` hook 自動注入                | 零   |
+
+## Claude Code Hooks
+
+**配置**: `.claude/settings.json`
+
+- `SessionStart`: 自動注入專案上下文 (git status, recent commits)
+- `PostToolUse[Write|Edit]`: 自動 lint 檢查修改的檔案
+
+## Pre-commit Hooks
+
+**配置**: `.husky/pre-commit` (如適用)
+
+- lint-staged (前端格式化)
+- Backend flake8 (僅 staged Python 檔案)
+- Skills 驗證 (若 skills 目錄有變更)
+
+## Conventional Commits
+
+格式: `type(scope): description`
+
+| Type     | 說明     |
+|----------|----------|
+| feat     | 新功能   |
+| fix      | Bug 修復 |
+| refactor | 重構     |
+| docs     | 文件     |
+| test     | 測試     |
+| chore    | 維護     |
+
+## 關鍵命令
+
+```bash
+# 開發環境
+{{DEV_COMMANDS}}
+
+# Skills 驗證
+node .claude/scripts/validate-all.cjs  # 驗證所有 Skills (如有配置)
+```

@@ -81,6 +81,9 @@ export type {
   KGNeighborsResponse,
   KGGraphNode,
   KGGraphEdge,
+  KGShortestPathRequest,
+  KGPathNode,
+  KGShortestPathResponse,
   KGEntityDetailRequest,
   KGEntityDetailResponse,
   KGEntityDocument,
@@ -95,6 +98,17 @@ export type {
   KGIngestResponse,
   KGMergeEntitiesRequest,
   KGMergeEntitiesResponse,
+  // Ollama 管理
+  OllamaGpuLoadedModel,
+  OllamaGpuInfo,
+  OllamaStatusResponse,
+  OllamaEnsureModelsResponse,
+  OllamaWarmupResponse,
+  // RAG 問答
+  RAGQueryRequest,
+  RAGSourceItem,
+  RAGQueryResponse,
+  RAGStreamRequest,
 } from './types';
 
 // Re-export abortNaturalSearch (standalone function)
@@ -139,11 +153,18 @@ import {
   extractEntities,
   runEntityBatch,
   getEntityStats,
+  getOllamaStatus,
+  ensureOllamaModels,
+  warmupOllamaModels,
+  ragQuery,
+  streamRAGQuery,
+  streamAgentQuery,
 } from './adminManagement';
 
 import {
   searchGraphEntities,
   getEntityNeighbors,
+  findShortestPath,
   getEntityDetail,
   getEntityTimeline,
   getTopEntities,
@@ -202,12 +223,25 @@ export const aiApi = {
   // Knowledge Graph Phase 2
   searchGraphEntities,
   getEntityNeighbors,
+  findShortestPath,
   getEntityDetail,
   getEntityTimeline,
   getTopEntities,
   getGraphStats,
   triggerGraphIngest,
   mergeGraphEntities,
+
+  // Ollama management
+  getOllamaStatus,
+  ensureOllamaModels,
+  warmupOllamaModels,
+
+  // RAG 問答
+  ragQuery,
+  streamRAGQuery,
+
+  // Agentic 問答
+  streamAgentQuery,
 };
 
 export default aiApi;

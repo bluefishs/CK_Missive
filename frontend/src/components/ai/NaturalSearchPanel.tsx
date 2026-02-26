@@ -12,7 +12,7 @@
  * @updated 2026-02-19 - 提取 useNaturalSearch hook，元件僅保留渲染邏輯
  */
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AutoComplete,
   Button as AntButton,
@@ -44,7 +44,7 @@ import {
 import type { DocumentSearchResult, AttachmentInfo, SemanticSimilarItem } from '../../types/ai';
 import { aiApi } from '../../api/aiApi';
 import { useNaturalSearch } from './hooks/useNaturalSearch';
-import { KnowledgeGraph } from './KnowledgeGraph';
+const KnowledgeGraph = React.lazy(() => import('./KnowledgeGraph'));
 
 const { Text } = Typography;
 
@@ -205,6 +205,13 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({ height, 
     handleSearch, handleDocumentClick, handleDownloadAttachment, handlePreviewAttachment,
     handleAutoCompleteSelect, handleLoadMore, removeHistoryItem, clearAllHistory,
   } = useNaturalSearch({ onSearchComplete });
+
+  // 搜尋結果改變時清除 similarMap 避免記憶體洩漏
+  const resultIdsKey = results.map((r) => r.id).join(',');
+  useEffect(() => {
+    setSimilarMap({});
+    setSimilarVisibleId(null);
+  }, [resultIdsKey]);
 
   // 穩定的 documentIds 引用（避免每次 render 建新陣列觸發 KnowledgeGraph 重載）
   const graphDocumentIds = useMemo(
@@ -373,7 +380,9 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({ height, 
               <Space size={4}>
                 {fromCache && <Tag color="blue" style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px', margin: 0 }}>快取</Tag>}
                 {parsedIntent && parsedIntent.confidence > 0 && (
-                  <Tag color="cyan" style={{ cursor: 'pointer', fontSize: 10, lineHeight: '16px', padding: '0 4px', margin: 0 }}
+                  <Tag
+                    color={parsedIntent.confidence >= 0.8 ? 'green' : parsedIntent.confidence >= 0.6 ? 'orange' : 'red'}
+                    style={{ cursor: 'pointer', fontSize: 10, lineHeight: '16px', padding: '0 4px', margin: 0 }}
                     aria-expanded={showIntentDetails}
                     aria-label={`AI 解析詳情 (${Math.round(parsedIntent.confidence * 100)}%)`}
                     onClick={() => setShowIntentDetails(!showIntentDetails)}>
@@ -443,9 +452,11 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({ height, 
                   {showGraph ? '收合關聯圖譜' : '顯示關聯圖譜'}
                 </Button>
                 {showGraph && (
-                  <div style={{ marginTop: 8 }}>
-                    <KnowledgeGraph documentIds={graphDocumentIds} />
-                  </div>
+                  <Suspense fallback={<Spin tip="載入圖譜元件..." />}>
+                    <div style={{ marginTop: 8 }}>
+                      <KnowledgeGraph documentIds={graphDocumentIds} />
+                    </div>
+                  </Suspense>
                 )}
               </div>
             )}

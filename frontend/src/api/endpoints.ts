@@ -676,6 +676,8 @@ export const AI_ENDPOINTS = {
   GRAPH_ENTITY_NEIGHBORS: '/ai/graph/entity/neighbors',
   /** 實體詳情 POST /ai/graph/entity/detail */
   GRAPH_ENTITY_DETAIL: '/ai/graph/entity/detail',
+  /** 最短路徑 POST /ai/graph/entity/shortest-path */
+  GRAPH_SHORTEST_PATH: '/ai/graph/entity/shortest-path',
   /** 實體時間軸 POST /ai/graph/entity/timeline */
   GRAPH_ENTITY_TIMELINE: '/ai/graph/entity/timeline',
   /** 高頻實體排名 POST /ai/graph/entity/top */
@@ -686,6 +688,21 @@ export const AI_ENDPOINTS = {
   GRAPH_INGEST: '/ai/graph/ingest',
   /** 實體合併 POST /ai/graph/admin/merge-entities */
   GRAPH_MERGE_ENTITIES: '/ai/graph/admin/merge-entities',
+  // --- RAG 問答 ---
+  /** RAG 問答 POST /ai/rag/query */
+  RAG_QUERY: '/ai/rag/query',
+  /** RAG 串流問答 POST /ai/rag/query/stream */
+  RAG_QUERY_STREAM: '/ai/rag/query/stream',
+  // --- Agentic 問答 ---
+  /** Agentic 串流問答 POST /ai/agent/query/stream */
+  AGENT_QUERY_STREAM: '/ai/agent/query/stream',
+  // --- Ollama 管理 ---
+  /** Ollama 詳細狀態 POST /ai/ollama/status */
+  OLLAMA_STATUS: '/ai/ollama/status',
+  /** Ollama 模型檢查與拉取 POST /ai/ollama/ensure-models */
+  OLLAMA_ENSURE_MODELS: '/ai/ollama/ensure-models',
+  /** Ollama 模型預熱 POST /ai/ollama/warmup */
+  OLLAMA_WARMUP: '/ai/ollama/warmup',
 } as const;
 
 // ============================================================================

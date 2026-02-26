@@ -52,7 +52,7 @@
 | `python-common-pitfalls.md` | Pydantic, forward reference, async, MissingGreenlet | Python 常見陷阱 |
 | `unicode-handling.md` | Unicode, 編碼, 中文, UTF-8, 亂碼 | Unicode 處理規範 |
 | `workflow-management.md` | workflow, 作業歷程, 時間軸, chain, timeline | 作業歷程管理規範 |
-| `ai-development.md` | AI, Groq, Ollama, 語意, 摘要, 分類, 同義詞, 知識圖譜 | AI 功能開發規範 (v2.1.0) |
+| `ai-development.md` | AI, Groq, Ollama, 語意, 摘要, 分類, 同義詞, 知識圖譜, NER, 實體提取, CanonicalEntity, embedding, Agent, 派工單, dispatch, 閒聊, chitchat | AI 功能開發規範 (v3.2.0) |
 | `database-performance.md` | 慢查詢, N+1, 索引, 查詢優化, slow query | 資料庫效能優化指南 |
 | `development-environment.md` | 環境, Docker, 依賴, 配置, env | 開發環境檢查指南 |
 | `accessibility.md` | 可訪問性, a11y, WCAG, ARIA, 鍵盤導航 | 可訪問性規範 (v1.0.0) |

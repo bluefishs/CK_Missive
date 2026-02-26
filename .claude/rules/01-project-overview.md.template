@@ -1,0 +1,52 @@
+# {{PROJECT_NAME}} 專案概述
+
+## 專案定位
+
+{{PROJECT_DESCRIPTION}}
+
+## 技術棧
+
+{{TECH_STACK}}
+
+## 關鍵頁面 / 端點
+
+| 路徑 | 說明 |
+|------|------|
+{{ROUTES_TABLE}}
+
+## 環境配置
+
+- 開發端口: {{DEV_PORT}}
+- 資料庫: {{DATABASE}}
+
+## 目錄結構
+
+```
+{{PROJECT_NAME}}/
+├── .claude/                 # Claude Code 配置
+│   ├── hooks/              # Hook 腳本
+│   ├── skills/             # Skills 目錄
+│   │   └── _shared/        # 同步的共用 Skills
+│   └── rules/              # 規則檔案
+├── src/                    # 前端原始碼 (如適用)
+├── backend/                # 後端原始碼 (如適用)
+└── ...
+```
+
+## Skills 架構
+
+本專案遵循乾坤測繪 Skills 三層架構：
+
+| 層級   | 路徑                             | 說明               |
+|--------|----------------------------------|--------------------|
+| 專案層 | `.claude/skills/*.md`            | 本專案特定規範     |
+| 領域層 | `.claude/skills/_shared/{domain}/` | 領域共用規範     |
+| 共用層 | `.claude/skills/_shared/shared/` | 全專案通用         |
+
+同步領域: {{SKILL_DOMAINS}}
+
+## 維護須知
+
+1. **不要直接修改 `_shared/` 目錄** - 該目錄由同步腳本管理
+2. **定期同步** - 執行 `..\.claude\sync-skills.ps1` 取得最新共用 Skills
+3. **驗證架構** - 執行 `node .claude/scripts/validate-all.cjs` (如有配置)

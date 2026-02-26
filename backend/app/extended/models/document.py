@@ -26,9 +26,9 @@ class OfficialDocument(Base):
     delivery_method = Column(String(20), index=True, default="電子交換", comment="發文形式")
     has_attachment = Column(Boolean, default=False, comment="是否含附件")
 
-    contract_project_id = Column(Integer, ForeignKey('contract_projects.id'), nullable=True, comment="關聯的承攬案件ID")
-    sender_agency_id = Column(Integer, ForeignKey('government_agencies.id'), nullable=True, comment="發文機關ID")
-    receiver_agency_id = Column(Integer, ForeignKey('government_agencies.id'), nullable=True, comment="受文機關ID")
+    contract_project_id = Column(Integer, ForeignKey('contract_projects.id'), nullable=True, index=True, comment="關聯的承攬案件ID")
+    sender_agency_id = Column(Integer, ForeignKey('government_agencies.id'), nullable=True, index=True, comment="發文機關ID")
+    receiver_agency_id = Column(Integer, ForeignKey('government_agencies.id'), nullable=True, index=True, comment="受文機關ID")
 
     send_date = Column(Date, comment="發文日期")
     title = Column(Text, comment="標題")
@@ -46,9 +46,9 @@ class OfficialDocument(Base):
     # 向量嵌入欄位 (pgvector)
     if Vector is not None:
         embedding = deferred(Column(
-            Vector(384),
+            Vector(768),
             nullable=True,
-            comment="文件向量嵌入 (nomic-embed-text, 384 維)",
+            comment="文件向量嵌入 (nomic-embed-text, 768 維)",
         ))
 
     # 關聯關係
@@ -63,7 +63,7 @@ class DocumentAttachment(Base):
     """公文附件模型 - 與資料庫實際 schema 對齊"""
     __tablename__ = 'document_attachments'
     id = Column(Integer, primary_key=True, autoincrement=True, comment="附件唯一識別ID")
-    document_id = Column(Integer, ForeignKey('documents.id', ondelete="CASCADE"), nullable=False, comment="關聯的公文ID")
+    document_id = Column(Integer, ForeignKey('documents.id', ondelete="CASCADE"), nullable=False, index=True, comment="關聯的公文ID")
 
     file_name = Column(String(255), comment="檔案名稱")
     file_path = Column(String(500), comment="檔案路徑")

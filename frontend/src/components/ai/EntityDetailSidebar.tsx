@@ -6,28 +6,31 @@
  * - 別名列表
  * - 關聯公文（前 10 筆）
  * - 關係列表（含方向、權重、時效）
+ * - 關係時間軸
  *
- * @version 1.0.0
+ * @version 1.1.0
  * @created 2026-02-24
- * @extracted-from KnowledgeGraph.tsx
+ * @updated 2026-02-26 - v1.1.0 整合時間軸 API
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Spin, Empty, Tag, List, Descriptions,
-  Drawer, Typography, Divider, Space, Tooltip,
+  Drawer, Typography, Divider, Space, Tooltip, Timeline,
 } from 'antd';
 import {
   CloseOutlined,
   TagsOutlined,
   FileTextOutlined,
   ShareAltOutlined,
+  FieldTimeOutlined,
 } from '@ant-design/icons';
 import { aiApi } from '../../api/aiApi';
 import type {
   KGEntityDetailResponse,
   KGEntityRelationship,
   KGEntityDocument,
+  KGTimelineItem,
 } from '../../types/ai';
 import { getMergedNodeConfig } from '../../config/graphNodeConfig';
 
@@ -52,6 +55,7 @@ export const EntityDetailSidebar: React.FC<EntityDetailSidebarProps> = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const [detail, setDetail] = useState<KGEntityDetailResponse | null>(null);
+  const [timeline, setTimeline] = useState<KGTimelineItem[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const entityConfig = useMemo(() => getMergedNodeConfig(entityType), [entityType]);
@@ -59,6 +63,7 @@ export const EntityDetailSidebar: React.FC<EntityDetailSidebarProps> = ({
   useEffect(() => {
     if (!visible || !entityName) {
       setDetail(null);
+      setTimeline([]);
       setError(null);
       return;
     }
@@ -81,9 +86,13 @@ export const EntityDetailSidebar: React.FC<EntityDetailSidebarProps> = ({
           setLoading(false);
           return;
         }
-        const detailResult = await aiApi.getEntityDetail({ entity_id: firstMatch.id });
+        const [detailResult, timelineResult] = await Promise.all([
+          aiApi.getEntityDetail({ entity_id: firstMatch.id }),
+          aiApi.getEntityTimeline({ entity_id: firstMatch.id }),
+        ]);
         if (cancelled) return;
         setDetail(detailResult);
+        setTimeline(timelineResult.timeline || []);
         setLoading(false);
       } catch (err) {
         if (cancelled) return;
@@ -230,6 +239,39 @@ export const EntityDetailSidebar: React.FC<EntityDetailSidebarProps> = ({
                   );
                 }}
               />
+            </>
+          )}
+
+          {/* 時間軸 */}
+          {timeline.length > 0 && (
+            <>
+              <Divider orientation="left" style={{ fontSize: 13 }}>
+                <FieldTimeOutlined /> 關係時間軸 ({timeline.length})
+              </Divider>
+              <Timeline
+                items={timeline.slice(0, 15).map((item) => ({
+                  color: item.direction === 'outgoing' ? 'blue' : 'green',
+                  children: (
+                    <div style={{ fontSize: 12 }}>
+                      <Tag color="geekblue" style={{ fontSize: 11 }}>
+                        {item.relation_label || item.relation_type}
+                      </Tag>
+                      <Text>{item.direction === 'outgoing' ? ' → ' : ' ← '}</Text>
+                      <Text strong>{item.other_name}</Text>
+                      <div style={{ fontSize: 10, color: '#999' }}>
+                        {item.valid_from && `自 ${item.valid_from.split('T')[0]}`}
+                        {item.valid_to && ` 至 ${item.valid_to.split('T')[0]}`}
+                        {` | 權重 ${item.weight} | ${item.document_count} 篇公文`}
+                      </div>
+                    </div>
+                  ),
+                }))}
+              />
+              {timeline.length > 15 && (
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  ...還有 {timeline.length - 15} 筆
+                </Text>
+              )}
             </>
           )}
         </>

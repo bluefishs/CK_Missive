@@ -37,10 +37,11 @@ module.exports = {
       args: 'startup.py',
       interpreter: 'none',
 
-      // 環境變數
+      // 環境變數 (UTF-8 強制：避免 Windows cp950 編碼錯誤)
       env: {
         PYTHONUNBUFFERED: '1',
         PYTHONIOENCODING: 'utf-8',
+        PYTHONUTF8: '1',
       },
 
       // 進程管理

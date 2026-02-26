@@ -1,6 +1,8 @@
 export { ErrorBoundary } from './ErrorBoundary';
 export { PageLoading } from './PageLoading';
 export { NotificationCenter } from './NotificationCenter';
+export { AgencyMatchInput } from './AgencyMatchInput';
+export type { AgencyMatchInputProps } from './AgencyMatchInput';
 
 // 通用詳情頁元件
 export * from './DetailPage';

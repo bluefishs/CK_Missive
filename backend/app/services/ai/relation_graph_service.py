@@ -26,6 +26,7 @@ from app.extended.models import (
     TaoyuanDispatchProjectLink,
     TaoyuanProject,
 )
+from app.services.ai.ai_config import get_ai_config
 from app.schemas.ai import (
     GraphNode,
     GraphEdge,
@@ -203,40 +204,39 @@ class RelationGraphService:
     # ==================================================================
 
     async def _load_default_doc_ids(self) -> List[int]:
-        """載入預設公文 ID（最近公文 + 有派工關聯的公文）"""
-        recent_result = await self.db.execute(
-            select(OfficialDocument.id)
+        """載入預設公文 ID（最近公文 + 有派工關聯的公文）— 單次 UNION 查詢"""
+        from sqlalchemy import union_all, literal_column
+
+        # 合併 4 個子查詢為 1 次 DB round-trip
+        q_recent = (
+            select(OfficialDocument.id.label("doc_id"))
             .order_by(OfficialDocument.created_at.desc().nullslast())
             .limit(10)
         )
-        recent_ids = [row[0] for row in recent_result.all()]
-
-        dispatch_doc_result = await self.db.execute(
-            select(TaoyuanDispatchDocumentLink.document_id)
+        q_dispatch_link = (
+            select(TaoyuanDispatchDocumentLink.document_id.label("doc_id"))
             .distinct()
             .order_by(TaoyuanDispatchDocumentLink.document_id.desc())
             .limit(5)
         )
-        dispatch_doc_ids = [row[0] for row in dispatch_doc_result.all()]
-
-        fk_agency_result = await self.db.execute(
-            select(TaoyuanDispatchOrder.agency_doc_id)
+        q_fk_agency = (
+            select(TaoyuanDispatchOrder.agency_doc_id.label("doc_id"))
             .where(TaoyuanDispatchOrder.agency_doc_id.isnot(None))
             .order_by(TaoyuanDispatchOrder.id.desc())
             .limit(5)
         )
-        fk_company_result = await self.db.execute(
-            select(TaoyuanDispatchOrder.company_doc_id)
+        q_fk_company = (
+            select(TaoyuanDispatchOrder.company_doc_id.label("doc_id"))
             .where(TaoyuanDispatchOrder.company_doc_id.isnot(None))
             .order_by(TaoyuanDispatchOrder.id.desc())
             .limit(5)
         )
-        fk_doc_ids = (
-            [row[0] for row in fk_agency_result.all()]
-            + [row[0] for row in fk_company_result.all()]
+
+        combined = union_all(q_recent, q_dispatch_link, q_fk_agency, q_fk_company)
+        result = await self.db.execute(
+            select(literal_column("doc_id")).select_from(combined.subquery())
         )
-        dispatch_doc_ids = list(dict.fromkeys(dispatch_doc_ids + fk_doc_ids))
-        return list(dict.fromkeys(recent_ids + dispatch_doc_ids))
+        return list(dict.fromkeys(row[0] for row in result.all()))
 
     async def _fetch_documents(self, doc_ids: List[int]) -> list:
         result = await self.db.execute(
@@ -268,6 +268,12 @@ class RelationGraphService:
         proj_result = await self.db.execute(
             select(ContractProject).where(ContractProject.id.in_(list(project_ids)))
         )
+        # 預建 lookup dict 避免 O(projects × documents) 巢狀迴圈
+        docs_by_project: Dict[int, List] = {}
+        for doc in documents:
+            if doc.contract_project_id:
+                docs_by_project.setdefault(doc.contract_project_id, []).append(doc)
+
         for proj in proj_result.scalars().all():
             proj_node_id = f"project_{proj.id}"
             add_node(GraphNode(
@@ -275,14 +281,13 @@ class RelationGraphService:
                 type="project",
                 label=proj.project_name[:25] if proj.project_name else f"專案#{proj.id}",
             ))
-            for doc in documents:
-                if doc.contract_project_id == proj.id:
-                    add_edge(GraphEdge(
-                        source=f"doc_{doc.id}",
-                        target=proj_node_id,
-                        label="所屬專案",
-                        type="belongs_to",
-                    ))
+            for doc in docs_by_project.get(proj.id, []):
+                add_edge(GraphEdge(
+                    source=f"doc_{doc.id}",
+                    target=proj_node_id,
+                    label="所屬專案",
+                    type="belongs_to",
+                ))
 
     async def _add_related_docs(self, project_ids, doc_ids, add_node, add_edge):
         related_result = await self.db.execute(
@@ -328,7 +333,7 @@ class RelationGraphService:
         entity_result = await self.db.execute(
             select(DocumentEntity)
             .where(DocumentEntity.document_id.in_(doc_ids))
-            .where(DocumentEntity.confidence >= 0.7)
+            .where(DocumentEntity.confidence >= get_ai_config().ner_min_confidence)
         )
         extracted_entities = entity_result.scalars().all()
 
@@ -360,7 +365,7 @@ class RelationGraphService:
         relation_result = await self.db.execute(
             select(EntityRelation)
             .where(EntityRelation.document_id.in_(doc_ids))
-            .where(EntityRelation.confidence >= 0.7)
+            .where(EntityRelation.confidence >= get_ai_config().ner_min_confidence)
         )
         extracted_relations = relation_result.scalars().all()
 
@@ -390,25 +395,22 @@ class RelationGraphService:
         dispatch_links = dispatch_link_result.scalars().all()
         dispatch_ids: Set[int] = set(dl.dispatch_order_id for dl in dispatch_links)
 
-        # 路徑 2: FK 反向查詢
+        # 路徑 2: FK 反向查詢 — 直接合併為單次查詢取得完整 dispatch orders
         fk_dispatch_result = await self.db.execute(
             select(TaoyuanDispatchOrder)
             .where(or_(
+                TaoyuanDispatchOrder.id.in_(list(dispatch_ids)) if dispatch_ids else False,
                 TaoyuanDispatchOrder.agency_doc_id.in_(doc_ids),
                 TaoyuanDispatchOrder.company_doc_id.in_(doc_ids),
             ))
         )
-        for fk_disp in fk_dispatch_result.scalars().all():
-            dispatch_ids.add(fk_disp.id)
+        all_dispatches = fk_dispatch_result.scalars().all()
+        dispatch_ids = set(d.id for d in all_dispatches)
 
         if not dispatch_ids:
             return len(dispatch_links)
 
-        dispatch_result = await self.db.execute(
-            select(TaoyuanDispatchOrder)
-            .where(TaoyuanDispatchOrder.id.in_(list(dispatch_ids)))
-        )
-        for disp in dispatch_result.scalars().all():
+        for disp in all_dispatches:
             disp_node_id = f"dispatch_{disp.id}"
             add_node(GraphNode(
                 id=disp_node_id,

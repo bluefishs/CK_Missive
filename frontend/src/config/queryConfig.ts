@@ -177,6 +177,7 @@ export const defaultQueryOptions = {
   detail: {
     staleTime: staleTimeConfig.detail,
     gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
   },
 
   /** 統計查詢選項 */

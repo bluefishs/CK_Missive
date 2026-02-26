@@ -1,9 +1,9 @@
 # CK_Missive 統一開發規範總綱
-> Version: 1.3.0 | Last Updated: 2026-02-24
+> Version: 1.4.0 | Last Updated: 2026-02-26
 
-> 版本: 1.2.0
+> 版本: 1.4.0
 > 建立日期: 2026-01-08
-> 最後更新: 2026-02-24
+> 最後更新: 2026-02-26
 > 狀態: 強制遵守
 
 ---
@@ -17,6 +17,7 @@
 3. **錯誤處理規範**
 4. **程式碼品質規範**
 5. **安全性規範**
+6. **Agent 服務開發規範**
 
 ---
 
@@ -371,9 +372,82 @@ class NewImportService(ImportBaseService):
 
 ---
 
-## 八、常見問題與解決方案
+## 八、Agent 服務開發規範 (v1.3.0)
 
-### 8.1 批次匯入流水號重複
+### 8.1 Agent 架構概述
+
+Agent 模式採用多步工具呼叫 + LLM 合成回答，核心元件：
+
+| 元件 | 位置 | 職責 |
+|------|------|------|
+| `AgentOrchestrator` | `services/ai/agent_orchestrator.py` | 工具路由、迭代控制、合成回答 |
+| `agent_query.py` | `api/endpoints/ai/agent_query.py` | SSE 端點、串流事件發送 |
+| `RAGChatPanel.tsx` | `components/ai/RAGChatPanel.tsx` | 前端推理步驟可視化 + 串流渲染 |
+
+### 8.2 SSE 事件協議
+
+所有 Agent SSE 事件必須包含 `type` 和 `step_index` 欄位：
+
+| 事件類型 | 必要欄位 | 說明 |
+|----------|----------|------|
+| `thinking` | `step`, `step_index` | 推理思考步驟 |
+| `tool_call` | `tool`, `params`, `step_index` | 工具呼叫 |
+| `tool_result` | `tool`, `summary`, `count`, `step_index` | 工具回傳結果 |
+| `sources` | `sources`, `retrieval_count` | 引用來源 |
+| `token` | `token` | 合成回答串流 token |
+| `done` | `latency_ms`, `model`, `tools_used`, `iterations` | 完成 |
+| `error` | `error`, `code` | 錯誤（含分類碼） |
+
+錯誤分類碼：
+
+| Code | 說明 | 前端處理 |
+|------|------|----------|
+| `RATE_LIMITED` | Groq/Ollama 速率限制 | 提示使用者稍後重試 |
+| `SERVICE_ERROR` | 服務內部錯誤 | 顯示通用錯誤訊息 |
+| `TIMEOUT` | 請求逾時 | 提示使用者精簡問題 |
+| `VALIDATION_ERROR` | 輸入驗證失敗 | 顯示驗證錯誤 |
+
+### 8.3 工具註冊規範
+
+新增 Agent 工具時須同步更新：
+
+```python
+# 1. 後端：agent_orchestrator.py — TOOLS 字典
+TOOLS = {
+    "search_documents": {"func": self._tool_search_documents, ...},
+    "new_tool_name": {"func": self._tool_new, "description": "...", "params": {...}},
+}
+```
+
+```typescript
+// 2. 前端：RAGChatPanel.tsx — TOOL_ICONS + TOOL_LABELS
+const TOOL_ICONS: Record<string, React.ReactNode> = {
+  new_tool_name: <IconOutlined />,
+};
+const TOOL_LABELS: Record<string, string> = {
+  new_tool_name: '中文標籤',
+};
+```
+
+### 8.4 合成答案品質控制
+
+- 合成回答須經 `_strip_thinking_from_synthesis()` 過濾 LLM 思考鏈
+- 閒聊路由：反向偵測策略（無業務關鍵字 → 閒聊模式，跳過工具呼叫）
+- 迭代上限：預設 `MAX_ITERATIONS = 3`，防止工具呼叫無限循環
+
+### 8.5 前端串流防護
+
+| 防護 | RAG 模式 | Agent 模式 |
+|------|---------|-----------|
+| 逾時 | 30 秒 | 60 秒 |
+| 殘留 buffer | 串流結束後處理 | 串流結束後處理 |
+| AbortController | 元件卸載自動取消 | 元件卸載自動取消 |
+
+---
+
+## 九、常見問題與解決方案
+
+### 9.1 批次匯入流水號重複
 
 **錯誤訊息**：
 ```
@@ -384,7 +458,7 @@ duplicate key value violates unique constraint "documents_auto_serial_key"
 - 使用 `ImportBaseService` 的記憶體計數器
 - 在匯入開始前呼叫 `reset_serial_counters()`
 
-### 8.2 字串欄位出現 "None"
+### 9.2 字串欄位出現 "None"
 
 **原因**：直接使用 `str(None)` 產生 "None" 字串
 
@@ -394,7 +468,7 @@ duplicate key value violates unique constraint "documents_auto_serial_key"
 value = StringCleaners.clean_string(input_value)
 ```
 
-### 8.3 機關/案件關聯遺失
+### 9.3 機關/案件關聯遺失
 
 **原因**：匯入時未使用智慧匹配
 
@@ -407,9 +481,9 @@ project_id = await self.match_project(project_name)
 
 ---
 
-## 九、前端開發規範
+## 十、前端開發規範
 
-### 9.1 認證與環境檢測
+### 10.1 認證與環境檢測
 
 **唯一來源**: `frontend/src/config/env.ts`
 
@@ -424,7 +498,7 @@ const authDisabled = isAuthDisabled();
 const authDisabled = import.meta.env.VITE_AUTH_DISABLED === 'true';
 ```
 
-### 9.2 環境類型
+### 10.2 環境類型
 
 | 類型 | 判斷條件 | 認證要求 |
 |------|----------|----------|
@@ -433,7 +507,7 @@ const authDisabled = import.meta.env.VITE_AUTH_DISABLED === 'true';
 | `ngrok` | *.ngrok.io / *.ngrok-free.app | Google OAuth |
 | `public` | 其他 | Google OAuth |
 
-### 9.3 API 呼叫規範
+### 10.3 API 呼叫規範
 
 ```typescript
 // 必須使用 apiClient 和 API_ENDPOINTS
@@ -443,7 +517,7 @@ import { API_ENDPOINTS } from '../api/endpoints';
 const result = await apiClient.post(API_ENDPOINTS.DOCUMENTS.LIST, params);
 ```
 
-### 9.4 路由保護
+### 10.4 路由保護
 
 ```tsx
 // 需要認證的頁面
@@ -459,7 +533,7 @@ const result = await apiClient.post(API_ENDPOINTS.DOCUMENTS.LIST, params);
 
 ---
 
-## 十、相關文件
+## 十一、相關文件
 
 | 文件 | 說明 |
 |------|------|
@@ -472,7 +546,7 @@ const result = await apiClient.post(API_ENDPOINTS.DOCUMENTS.LIST, params);
 
 ---
 
-## 十一、規範遵守聲明
+## 十二、規範遵守聲明
 
 **本規範為強制遵守文件，違反規範將導致：**
 
@@ -487,6 +561,8 @@ const result = await apiClient.post(API_ENDPOINTS.DOCUMENTS.LIST, params);
 | 1.0.0 | 2026-01-08 | 初版建立 |
 | 1.1.0 | 2026-01-11 | 新增前端開發規範、認證環境檢測規範 |
 | 1.2.0 | 2026-02-24 | 新增服務工廠模式 (§2.4)、Repository 職責邊界 (§2.5) |
+| 1.3.0 | 2026-02-24 | 版本號同步修正 |
+| 1.4.0 | 2026-02-26 | 新增 Agent 服務開發規範 (§8)：SSE 協議、工具註冊、合成品質控制、串流防護 |
 
 ---
 

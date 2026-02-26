@@ -580,16 +580,19 @@ class TestPairDocumentsNewFormat:
 
 
 class TestIsOutgoing:
-    """_is_outgoing 方向判斷"""
+    """is_outgoing_doc_number 方向判斷 (SSOT: app.utils.doc_helpers)"""
 
     def test_outgoing(self):
-        assert DispatchExportService._is_outgoing('乾坤測字第001號') is True
+        from app.utils.doc_helpers import is_outgoing_doc_number
+        assert is_outgoing_doc_number('乾坤測字第001號') is True
 
     def test_incoming(self):
-        assert DispatchExportService._is_outgoing('桃工養字第001號') is False
+        from app.utils.doc_helpers import is_outgoing_doc_number
+        assert is_outgoing_doc_number('桃工養字第001號') is False
 
     def test_empty(self):
-        assert DispatchExportService._is_outgoing('') is False
+        from app.utils.doc_helpers import is_outgoing_doc_number
+        assert is_outgoing_doc_number('') is False
 
 
 class TestBuildSheet4:

@@ -10,7 +10,7 @@
  * @reference CK_lvrland_Webmap FloatingAssistant 架構
  */
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Button,
@@ -18,6 +18,8 @@ import {
   Space,
   Tooltip,
   Badge,
+  Segmented,
+  Spin,
 } from 'antd';
 import {
   RobotOutlined,
@@ -26,10 +28,13 @@ import {
   MinusOutlined,
   ExpandOutlined,
   SearchOutlined,
+  MessageOutlined,
 } from '@ant-design/icons';
 import { useResponsive } from '../../hooks';
 import { syncAIConfigFromServer } from '../../config/aiConfig';
 import { NaturalSearchPanel } from './NaturalSearchPanel';
+
+const RAGChatPanel = React.lazy(() => import('./RAGChatPanel'));
 
 interface AIAssistantButtonProps {
   /** 是否顯示 */
@@ -50,6 +55,7 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [searchResultCount, setSearchResultCount] = useState<number | null>(null);
+  const [mode, setMode] = useState<'search' | 'chat'>('search');
 
   // 拖曳功能狀態
   const [position, setPosition] = useState({ right: 80, bottom: 100 });
@@ -156,7 +162,7 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
   const assistantContent = (
     <>
       {/* 浮動按鈕 */}
-      <Tooltip title="AI 公文搜尋" placement="left">
+      <Tooltip title="AI 智慧助理" placement="left">
         <Badge count={0} offset={[-5, 5]}>
           <Button
             type="primary"
@@ -164,7 +170,7 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
             size="large"
             icon={isOpen ? <CloseOutlined /> : <RobotOutlined />}
             onClick={() => setIsOpen(!isOpen)}
-            aria-label={isOpen ? '關閉 AI 助理' : 'AI 助理'}
+            aria-label={isOpen ? '關閉 AI 智慧助理' : 'AI 智慧助理'}
             style={{
               position: 'fixed',
               right: 24,
@@ -198,19 +204,17 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
               }}
             >
               {!isMobile && <DragOutlined style={{ color: '#bfbfbf', fontSize: 12 }} />}
-              <SearchOutlined style={{ color: '#1890ff' }} />
-              <span
-                style={{
-                  fontSize: 14,
-                  background: 'linear-gradient(135deg, #1890ff 0%, #722ed1 100%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  fontWeight: 500,
-                }}
-              >
-                AI 公文搜尋
-              </span>
-              {searchResultCount !== null && searchResultCount > 0 && (
+              <Segmented
+                size="small"
+                value={mode}
+                onChange={(val) => setMode(val as 'search' | 'chat')}
+                options={[
+                  { label: '搜尋', value: 'search', icon: <SearchOutlined /> },
+                  { label: '問答', value: 'chat', icon: <MessageOutlined /> },
+                ]}
+                style={{ fontSize: 12 }}
+              />
+              {mode === 'search' && searchResultCount !== null && searchResultCount > 0 && (
                 <Badge count={searchResultCount} size="small" overflowCount={999} />
               )}
             </div>
@@ -272,9 +276,19 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
             },
           }}
         >
-          <NaturalSearchPanel
-            onSearchComplete={(count) => setSearchResultCount(count)}
-          />
+          {mode === 'search' ? (
+            <NaturalSearchPanel
+              onSearchComplete={(count) => setSearchResultCount(count)}
+            />
+          ) : (
+            <Suspense fallback={
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, padding: 40 }}>
+                <Spin tip="載入問答模組..." />
+              </div>
+            }>
+              <RAGChatPanel embedded />
+            </Suspense>
+          )}
         </Card>
       )}
     </>

@@ -85,7 +85,7 @@ export function useDocumentImport(
           will_insert: 0,
           will_update: 0,
         },
-        errors: [`預覽失敗: ${error}`],
+        errors: [`預覽失敗: ${error instanceof Error ? error.message : String(error)}`],
       });
       setStep('preview');
     } finally {
@@ -119,7 +119,7 @@ export function useDocumentImport(
         inserted: 0,
         updated: 0,
         skipped: 0,
-        errors: [`匯入失敗: ${error}`],
+        errors: [`匯入失敗: ${error instanceof Error ? error.message : String(error)}`],
       });
       setStep('result');
     } finally {
@@ -150,7 +150,7 @@ export function useDocumentImport(
         inserted: 0,
         updated: 0,
         skipped: 0,
-        errors: [`匯入失敗: ${error}`],
+        errors: [`匯入失敗: ${error instanceof Error ? error.message : String(error)}`],
       });
       setStep('result');
     } finally {
@@ -161,11 +161,15 @@ export function useDocumentImport(
   };
 
   const handleDownloadTemplate = async () => {
-    await apiClient.downloadPost(
-      API_ENDPOINTS.DOCUMENTS.IMPORT_EXCEL_TEMPLATE,
-      {},
-      '公文匯入範本.xlsx'
-    );
+    try {
+      await apiClient.downloadPost(
+        API_ENDPOINTS.DOCUMENTS.IMPORT_EXCEL_TEMPLATE,
+        {},
+        '公文匯入範本.xlsx'
+      );
+    } catch {
+      // 下載失敗由 GlobalApiErrorNotifier 統一處理
+    }
   };
 
   return {

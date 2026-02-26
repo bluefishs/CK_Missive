@@ -96,6 +96,9 @@ export type {
   KGGraphNode,
   KGGraphEdge,
   KGNeighborsResponse,
+  KGShortestPathRequest,
+  KGPathNode,
+  KGShortestPathResponse,
   KGEntityDetailRequest,
   KGEntityDocument,
   KGEntityRelationship,
@@ -110,6 +113,17 @@ export type {
   KGIngestResponse,
   KGMergeEntitiesRequest,
   KGMergeEntitiesResponse,
+  // Ollama 管理
+  OllamaGpuLoadedModel,
+  OllamaGpuInfo,
+  OllamaStatusResponse,
+  OllamaEnsureModelsResponse,
+  OllamaWarmupResponse,
+  // RAG 問答
+  RAGQueryRequest,
+  RAGSourceItem,
+  RAGQueryResponse,
+  RAGStreamRequest,
   // re-export from types/api
   AIStatsResponse,
 } from '../../types/ai';

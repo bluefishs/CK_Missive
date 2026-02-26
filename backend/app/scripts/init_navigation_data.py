@@ -128,13 +128,25 @@ DEFAULT_NAVIGATION_ITEMS = [
         "permission_required": "[]"
     },
 
+    # AI 智慧功能 (群組)
+    {
+        "title": "AI 智慧功能",
+        "key": "ai-features",
+        "path": None,
+        "icon": "ExperimentOutlined",
+        "sort_order": 8,
+        "level": 1,
+        "description": "AI,智慧,知識圖譜,助理",
+        "permission_required": "[]"
+    },
+
     # 桃園查估專區 (群組)
     {
         "title": "桃園查估專區",
         "key": "taoyuan-zone",
         "path": None,
         "icon": "EnvironmentOutlined",
-        "sort_order": 8,
+        "sort_order": 9,
         "level": 1,
         "description": "桃園,查估,專區",
         "permission_required": "[]"
@@ -286,6 +298,19 @@ DEFAULT_NAVIGATION_ITEMS = [
         "permission_required": "[]"
     },
 
+    # 統一表單示例 (對應 ROUTES.UNIFIED_FORM_DEMO)
+    {
+        "title": "統一表單示例",
+        "key": "unified-form-demo",
+        "path": "/unified-form-demo",
+        "icon": "FormOutlined",
+        "sort_order": 4,
+        "level": 2,
+        "parent_key": "reports",
+        "description": "統一表單,示例,Demo",
+        "permission_required": "[\"admin:settings\"]"
+    },
+
     # =========================================================================
     # 系統管理 子項目
     # =========================================================================
@@ -355,32 +380,6 @@ DEFAULT_NAVIGATION_ITEMS = [
         "permission_required": "[\"admin:settings\"]"
     },
 
-    # 系統監控 (對應 ROUTES.SYSTEM)
-    {
-        "title": "系統監控",
-        "key": "system-monitoring",
-        "path": "/system",
-        "icon": "MonitorOutlined",
-        "sort_order": 6,
-        "level": 2,
-        "parent_key": "system-management",
-        "description": "監控,狀態",
-        "permission_required": "[\"admin:settings\"]"
-    },
-
-    # 部署管理 (對應 ROUTES.DEPLOYMENT_MANAGEMENT) - 位於系統監控之後
-    {
-        "title": "部署管理",
-        "key": "deployment-management",
-        "path": "/admin/deployment",
-        "icon": "RocketOutlined",
-        "sort_order": 7,
-        "level": 2,
-        "parent_key": "system-management",
-        "description": "部署,CI/CD,版本",
-        "permission_required": "[\"admin:settings\"]"
-    },
-
     # 管理員面板 (對應 ROUTES.ADMIN_DASHBOARD)
     {
         "title": "管理員面板",
@@ -394,20 +393,31 @@ DEFAULT_NAVIGATION_ITEMS = [
         "permission_required": "[\"admin:users\"]"
     },
 
-    # AI 助理管理 (對應 ROUTES.AI_ASSISTANT_MANAGEMENT)
+    # 系統監控 (對應 ROUTES.SYSTEM)
     {
-        "title": "AI 助理管理",
-        "key": "ai-assistant-management",
-        "path": "/admin/ai-assistant",
-        "icon": "DashboardOutlined",
-        "sort_order": 8,
+        "title": "系統監控",
+        "key": "system-monitoring",
+        "path": "/system",
+        "icon": "MonitorOutlined",
+        "sort_order": 7,
         "level": 2,
         "parent_key": "system-management",
-        "description": "AI,助理,管理,儀表板",
+        "description": "監控,狀態",
         "permission_required": "[\"admin:settings\"]"
     },
 
-    # AI 同義詞管理、AI Prompt 管理已整合至 AI 助理管理 (/admin/ai-assistant) Tab 分頁
+    # 部署管理 (對應 ROUTES.DEPLOYMENT_MANAGEMENT)
+    {
+        "title": "部署管理",
+        "key": "deployment-management",
+        "path": "/admin/deployment",
+        "icon": "RocketOutlined",
+        "sort_order": 8,
+        "level": 2,
+        "parent_key": "system-management",
+        "description": "部署,CI/CD,版本",
+        "permission_required": "[\"admin:settings\"]"
+    },
 
     # Google 認證診斷 (對應 ROUTES.GOOGLE_AUTH_DIAGNOSTIC)
     {
@@ -415,10 +425,42 @@ DEFAULT_NAVIGATION_ITEMS = [
         "key": "google-auth-diagnostic",
         "path": "/google-auth-diagnostic",
         "icon": "GoogleOutlined",
-        "sort_order": 7,
+        "sort_order": 9,
         "level": 2,
         "parent_key": "system-management",
         "description": "Google,認證",
+        "permission_required": "[\"admin:settings\"]"
+    },
+
+    # AI 同義詞管理、AI Prompt 管理已整合至 AI 助理管理 (/admin/ai-assistant) Tab 分頁
+
+    # =========================================================================
+    # AI 智慧功能 子項目
+    # =========================================================================
+
+    # 知識圖譜探索 (對應 ROUTES.KNOWLEDGE_GRAPH)
+    {
+        "title": "知識圖譜探索",
+        "key": "knowledge-graph",
+        "path": "/ai/knowledge-graph",
+        "icon": "ApartmentOutlined",
+        "sort_order": 1,
+        "level": 2,
+        "parent_key": "ai-features",
+        "description": "知識圖譜,實體,關聯,視覺化",
+        "permission_required": "[]"
+    },
+
+    # AI 助理管理 (對應 ROUTES.AI_ASSISTANT_MANAGEMENT)
+    {
+        "title": "AI 助理管理",
+        "key": "ai-assistant-management",
+        "path": "/admin/ai-assistant",
+        "icon": "ExperimentOutlined",
+        "sort_order": 2,
+        "level": 2,
+        "parent_key": "ai-features",
+        "description": "AI,助理,管理,儀表板",
         "permission_required": "[\"admin:settings\"]"
     },
 

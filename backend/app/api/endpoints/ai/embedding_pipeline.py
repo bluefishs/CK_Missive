@@ -103,7 +103,13 @@ async def run_embedding_batch(
 
 
 async def _run_batch_pipeline(limit: int, batch_size: int):
-    """背景執行的批次 embedding 管線"""
+    """
+    背景執行的批次 embedding 管線
+
+    使用 Ollama /api/embed 的陣列模式，每次送出 batch_size 筆文字
+    一次取得所有 embedding，大幅減少 HTTP 往返次數。
+    若整批失敗，自動回退為逐筆處理該批次。
+    """
     from app.core.ai_connector import get_ai_connector
     from app.db.database import AsyncSessionLocal
     from app.scripts.backfill_embeddings import (
@@ -126,39 +132,72 @@ async def _run_batch_pipeline(limit: int, batch_size: int):
         async with AsyncSessionLocal() as db:
             documents = await get_documents_without_embedding(db, limit)
             total = len(documents)
-            logger.info(f"Embedding 批次管線: 開始處理 {total} 筆公文")
+            logger.info("Embedding 批次管線: 開始處理 %s 筆公文", total)
 
-            for i, doc in enumerate(documents, 1):
-                text = build_embedding_text(doc)
-                if not text.strip():
-                    skip_count += 1
+            # 依 batch_size 分批處理
+            for batch_start in range(0, total, batch_size):
+                batch_docs = documents[batch_start:batch_start + batch_size]
+
+                # 準備文字，記錄有效文件與跳過的文件
+                texts = []
+                valid_docs = []
+                for doc in batch_docs:
+                    text = build_embedding_text(doc)
+                    if not text.strip():
+                        skip_count += 1
+                        continue
+                    texts.append(text)
+                    valid_docs.append(doc)
+
+                if not texts:
                     continue
 
-                try:
-                    embedding = await connector.generate_embedding(text)
-                    if embedding is None:
-                        error_count += 1
-                        continue
+                # 嘗試批次 embedding
+                embeddings = await connector.generate_embeddings_batch(texts)
 
-                    doc.embedding = embedding
-                    success_count += 1
+                # 檢查是否整批失敗（全部為 None）
+                all_failed = all(e is None for e in embeddings)
 
-                except Exception as e:
-                    logger.error(f"公文 #{doc.id} embedding 失敗: {e}")
-                    error_count += 1
+                if all_failed and len(texts) > 0:
+                    # 回退：逐筆處理本批次
+                    logger.warning(
+                        "批次 embedding 全部失敗，回退逐筆處理 (batch %s~%s)",
+                        batch_start, batch_start + len(batch_docs),
+                    )
+                    for doc, text in zip(valid_docs, texts):
+                        try:
+                            emb = await connector.generate_embedding(text)
+                            if emb is None:
+                                error_count += 1
+                                continue
+                            doc.embedding = emb
+                            success_count += 1
+                        except Exception as e:
+                            logger.error("公文 #%s embedding 失敗: %s", doc.id, e)
+                            error_count += 1
+                else:
+                    # 正常批次結果
+                    for doc, emb in zip(valid_docs, embeddings):
+                        if emb is not None:
+                            doc.embedding = emb
+                            success_count += 1
+                        else:
+                            error_count += 1
 
-                if i % batch_size == 0:
-                    await db.commit()
-
-            if success_count > 0:
+                # 每批 commit 一次
                 await db.commit()
+
+                logger.info(
+                    "Embedding 批次進度: %s/%s (成功=%s, 失敗=%s, 跳過=%s)",
+                    min(batch_start + batch_size, total), total,
+                    success_count, error_count, skip_count,
+                )
 
         elapsed = time.time() - start_time
         logger.info(
-            f"Embedding 批次管線完成: "
-            f"成功={success_count}, 失敗={error_count}, 跳過={skip_count}, "
-            f"耗時={elapsed:.1f}s"
+            "Embedding 批次管線完成: 成功=%s, 失敗=%s, 跳過=%s, 耗時=%.1fs",
+            success_count, error_count, skip_count, elapsed,
         )
 
     except Exception as e:
-        logger.error(f"Embedding 批次管線異常: {e}")
+        logger.error("Embedding 批次管線異常: %s", e)

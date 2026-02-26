@@ -29,7 +29,7 @@ class CanonicalEntity(Base):
 
     # pgvector embedding（僅 PGVECTOR_ENABLED=true 時定義）
     if Vector is not None:
-        embedding = deferred(Column(Vector(384), nullable=True, comment="實體名稱 embedding"))
+        embedding = deferred(Column(Vector(768), nullable=True, comment="實體名稱 embedding (nomic-embed-text, 768 維)"))
 
     alias_count = Column(Integer, default=1, comment="別名數量")
     mention_count = Column(Integer, default=0, comment="總被提及次數")
