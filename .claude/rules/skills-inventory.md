@@ -14,6 +14,7 @@
 | `/csv-import-validate` | CSV 匯入驗證 | `.claude/commands/csv-import-validate.md` |
 | `/security-audit` | 🔒 **資安審計檢查** | `.claude/commands/security-audit.md` |
 | `/performance-check` | ⚡ **效能診斷檢查** | `.claude/commands/performance-check.md` |
+| `/adr` | 📋 **架構決策記錄 (ADR)** 管理 | `.claude/commands/adr.md` |
 
 ### Everything Claude Code 指令
 
@@ -58,6 +59,7 @@
 | `accessibility.md` | 可訪問性, a11y, WCAG, ARIA, 鍵盤導航 | 可訪問性規範 (v1.0.0) |
 | `alembic-migrations.md` | Alembic, 遷移, migration, schema change | Alembic 遷移管理規範 (v1.0.0) |
 | `caching-patterns.md` | 快取, cache, Redis, TTL, React Query | 快取策略規範 (v1.0.0) |
+| `knowledge-management.md` | ADR, 決策, 架構圖, 知識管理, 功能生命週期 | 知識管理規範 (v1.0.0) |
 
 ### Superpowers Skills (v4.0.3)
 
