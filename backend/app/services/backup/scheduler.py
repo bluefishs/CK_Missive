@@ -280,12 +280,23 @@ class BackupSchedulerMixin:
         sync_interval_hours: int = 24,
     ) -> Dict[str, Any]:
         """更新異地備份設定"""
-        # 更新設定
+        # 驗證路徑可存取
+        if sync_enabled and remote_path:
+            p = Path(remote_path)
+            root = p.anchor or (p.parts[0] if p.parts else "")
+            if root and not Path(root).exists():
+                return {
+                    "success": False,
+                    "error": f"路徑 {root} 不可存取（磁碟未掛載），請確認後再啟用同步",
+                }
+
+        # 更新設定（啟用時重置錯誤狀態）
         self._remote_config.update(
             {
                 "remote_path": str(remote_path),
                 "sync_enabled": sync_enabled,
                 "sync_interval_hours": sync_interval_hours,
+                "sync_status": "idle" if sync_enabled else self._remote_config.get("sync_status", "idle"),
             }
         )
         self._save_remote_config()
@@ -307,6 +318,25 @@ class BackupSchedulerMixin:
 
         remote_path = Path(self._remote_config["remote_path"])
         start_time = datetime.now()
+
+        # 驗證遠端路徑可存取（磁碟掛載、權限等）
+        try:
+            # Windows 網路磁碟：先檢查根路徑（如 Z:\）是否存在
+            root = remote_path.anchor or remote_path.parts[0] if remote_path.parts else ""
+            if root and not Path(root).exists():
+                error_msg = f"遠端磁碟 {root} 不可存取（磁碟未掛載或路徑無效）"
+                self._remote_config["sync_status"] = "error"
+                self._save_remote_config()
+                await self._log_backup_operation(
+                    action="sync", status="failed",
+                    details=error_msg, error_message=error_msg, operator="system",
+                )
+                return {"success": False, "error": error_msg}
+        except Exception as e:
+            error_msg = f"路徑驗證失敗: {e}"
+            self._remote_config["sync_status"] = "error"
+            self._save_remote_config()
+            return {"success": False, "error": error_msg}
 
         try:
             # 更新同步狀態

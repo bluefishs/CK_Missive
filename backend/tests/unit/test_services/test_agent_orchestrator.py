@@ -41,6 +41,9 @@ def make_orchestrator(mock_db):
         mock_config.rag_max_tokens = 512
         mock_config.rag_max_context_chars = 5000
         mock_config.hybrid_semantic_weight = 0.3
+        mock_config.agent_max_iterations = 3
+        mock_config.agent_tool_timeout = 15
+        mock_config.agent_stream_timeout = 60
         mock_config_fn.return_value = mock_config
 
         mock_rl = AsyncMock()
@@ -142,12 +145,11 @@ class TestExecuteTool:
 
         orchestrator._tools = MagicMock()
         orchestrator._tools.execute = slow_tool
+        orchestrator.config.agent_tool_timeout = 0.01
 
-        # Patch TOOL_TIMEOUT to a very short value
-        with patch("app.services.ai.agent_orchestrator.TOOL_TIMEOUT", 0.01):
-            result = await orchestrator._execute_tool("search_documents", {})
-            assert "error" in result
-            assert "超時" in result["error"]
+        result = await orchestrator._execute_tool("search_documents", {})
+        assert "error" in result
+        assert "超時" in result["error"]
 
     @pytest.mark.asyncio
     async def test_exception_handling(self, mock_db):

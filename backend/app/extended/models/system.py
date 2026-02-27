@@ -132,6 +132,30 @@ class AISearchHistory(Base):
     )
 
 
+class AIConversationFeedback(Base):
+    """AI 對話回饋記錄（Agent / RAG 回答品質追蹤）"""
+    __tablename__ = "ai_conversation_feedback"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, comment="使用者 ID")
+    conversation_id = Column(String(64), nullable=False, comment="對話 ID (前端生成)")
+    message_index = Column(Integer, nullable=False, default=0, comment="訊息序號")
+    feature_type = Column(String(20), nullable=False, comment="功能類型 (agent/rag)")
+    score = Column(Integer, nullable=False, comment="評分 (1=有用, -1=無用)")
+    question = Column(Text, nullable=True, comment="使用者問題")
+    answer_preview = Column(String(200), nullable=True, comment="回答前 200 字")
+    feedback_text = Column(String(500), nullable=True, comment="文字回饋 (可選)")
+    latency_ms = Column(Integer, nullable=True, comment="回答延遲 ms")
+    model = Column(String(50), nullable=True, comment="使用的模型")
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), comment="建立時間")
+
+    __table_args__ = (
+        Index("ix_conv_feedback_user", "user_id", "created_at"),
+        Index("ix_conv_feedback_feature", "feature_type", "created_at"),
+        Index("ix_conv_feedback_conv", "conversation_id"),
+    )
+
+
 class AISynonym(Base):
     """AI 同義詞群組"""
     __tablename__ = "ai_synonyms"

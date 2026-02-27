@@ -4,11 +4,11 @@ Agentic 文件檢索 API 端點
 基於 Agent Orchestrator 的智能體問答服務。
 支援 SSE 串流，包含推理步驟、工具呼叫視覺化。
 
-Version: 1.0.0
+Version: 1.1.0
 Created: 2026-02-26
+Updated: 2026-02-27 - v1.1.0 使用 sse_utils 統一串流錯誤處理
 """
 
-import json
 import logging
 
 from fastapi import APIRouter, Depends
@@ -18,6 +18,7 @@ from starlette.responses import StreamingResponse
 from app.core.dependencies import require_auth, get_async_db
 from app.extended.models import User
 from app.schemas.ai import AgentQueryRequest
+from app.api.sse_utils import create_sse_response
 
 logger = logging.getLogger(__name__)
 
@@ -46,24 +47,11 @@ async def agent_query_stream(
 
     orchestrator = AgentOrchestrator(db)
 
-    async def event_generator():
-        try:
-            async for chunk in orchestrator.stream_agent_query(
-                question=request.question,
-                history=request.history,
-            ):
-                yield chunk
-        except Exception as e:
-            logger.error("Agent stream endpoint error: %s", e, exc_info=True)
-            yield f"data: {json.dumps({'type': 'error', 'error': 'AI 服務暫時無法處理您的請求，請稍後再試。', 'code': 'SERVICE_ERROR'}, ensure_ascii=False)}\n\n"
-            yield f"data: {json.dumps({'type': 'done', 'latency_ms': 0, 'model': 'error', 'tools_used': [], 'iterations': 0})}\n\n"
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-            "Connection": "keep-alive",
-        },
+    return create_sse_response(
+        stream_fn=lambda: orchestrator.stream_agent_query(
+            question=request.question,
+            history=request.history,
+        ),
+        endpoint_name="Agent",
+        done_extra={"tools_used": [], "iterations": 0},
     )

@@ -25,7 +25,6 @@ import {
 import {
   CheckCircleOutlined,
   CloudServerOutlined,
-  CloseCircleOutlined,
   DatabaseOutlined,
   PlayCircleOutlined,
   ReloadOutlined,
@@ -36,6 +35,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 
 import { aiApi } from '../../../api/aiApi';
 import type { OllamaEnsureModelsResponse, OllamaWarmupResponse } from '../../../types/ai';
+import { StatusIcon } from './statusUtils';
 
 /** 格式化位元組為人類可讀格式 */
 const formatBytes = (bytes: number): string => {
@@ -133,11 +133,6 @@ export const OllamaManagementTab: React.FC = () => {
   const groqOk = status.groq_available;
   const modelsReady = status.required_models_ready;
   const gpuModels = status.gpu_info?.loaded_models ?? [];
-
-  const StatusIcon: React.FC<{ ok: boolean }> = ({ ok }) =>
-    ok
-      ? <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 20 }} />
-      : <CloseCircleOutlined style={{ color: '#ff4d4f', fontSize: 20 }} />;
 
   return (
     <div>

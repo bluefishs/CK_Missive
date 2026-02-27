@@ -48,6 +48,7 @@ from app.repositories.session_repository import SessionRepository
 from app.repositories.ai_synonym_repository import AISynonymRepository
 from app.repositories.ai_prompt_repository import AIPromptRepository
 from app.repositories.ai_search_history_repository import AISearchHistoryRepository
+from app.repositories.ai_feedback_repository import AIFeedbackRepository
 from app.repositories.staff_certification_repository import StaffCertificationRepository
 from app.repositories.contact_repository import ContactRepository
 
@@ -92,6 +93,7 @@ __all__ = [
     "AISynonymRepository",
     "AIPromptRepository",
     "AISearchHistoryRepository",
+    "AIFeedbackRepository",
     # Staff
     "StaffCertificationRepository",
     "ContactRepository",

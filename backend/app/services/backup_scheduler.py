@@ -259,6 +259,9 @@ class BackupScheduler:
         # 啟動後等待 5 分鐘再開始（讓備份服務完全初始化）
         await asyncio.sleep(300)
 
+        consecutive_sync_failures = 0
+        MAX_SYNC_FAILURES = 3  # 連續失敗 N 次後自動停用
+
         while self.is_running:
             try:
                 config = backup_service._remote_config
@@ -268,6 +271,7 @@ class BackupScheduler:
 
                 if not sync_enabled or not remote_path:
                     # 未啟用或未設定路徑，每 10 分鐘重新檢查
+                    consecutive_sync_failures = 0  # 手動重新啟用時重置
                     await asyncio.sleep(600)
                     continue
 
@@ -294,19 +298,44 @@ class BackupScheduler:
                     logger.info("開始自動異地備份同步...")
                     result = await backup_service.sync_to_remote()
                     if result.get("success"):
+                        consecutive_sync_failures = 0
                         logger.info(
                             f"✅ 異地同步完成: {result.get('synced_files', 0)} 檔案, "
                             f"{result.get('total_size_kb', 0)} KB"
                         )
                     else:
+                        consecutive_sync_failures += 1
                         error = result.get("error", "未知錯誤")
-                        logger.error(f"❌ 異地同步失敗: {error}")
-                        await _notify_backup_event(
-                            title="異地備份同步失敗",
-                            message=f"自動同步到 {remote_path} 失敗: {error[:200]}",
-                            severity="warning",
-                            data={"remote_path": str(remote_path)},
+                        logger.error(
+                            f"❌ 異地同步失敗 ({consecutive_sync_failures}/{MAX_SYNC_FAILURES}): {error}"
                         )
+
+                        if consecutive_sync_failures >= MAX_SYNC_FAILURES:
+                            # 連續失敗過多，自動停用同步避免無限重試
+                            backup_service._remote_config["sync_enabled"] = False
+                            backup_service._remote_config["sync_status"] = "error"
+                            backup_service._save_remote_config()
+                            await _notify_backup_event(
+                                title=f"異地同步連續失敗 {consecutive_sync_failures} 次 — 已自動停用",
+                                message=(
+                                    f"自動同步到 {remote_path} 連續失敗 {consecutive_sync_failures} 次，"
+                                    f"最近錯誤: {error[:200]}。同步已自動停用，"
+                                    f"請修正路徑後至備份管理頁面手動重新啟用。"
+                                ),
+                                severity="critical",
+                                data={
+                                    "remote_path": str(remote_path),
+                                    "consecutive_failures": consecutive_sync_failures,
+                                },
+                            )
+                            logger.warning("⛔ 異地同步已自動停用，需管理員手動重新啟用")
+                        else:
+                            await _notify_backup_event(
+                                title="異地備份同步失敗",
+                                message=f"自動同步到 {remote_path} 失敗: {error[:200]}",
+                                severity="warning",
+                                data={"remote_path": str(remote_path)},
+                            )
 
                     # 同步完成後等待至少 1 小時再檢查
                     await asyncio.sleep(3600)

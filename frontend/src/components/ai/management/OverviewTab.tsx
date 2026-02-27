@@ -1,7 +1,11 @@
 /**
- * OverviewTab - Search statistics overview
+ * OverviewTab - 搜尋統計總覽
  *
- * Extracted from AIAssistantManagementPage.tsx
+ * 條件渲染：無搜尋紀錄時顯示簡潔空狀態，
+ * 分佈統計區塊僅在有資料時顯示。
+ *
+ * @version 2.1.0
+ * @updated 2026-02-27 — 條件渲染優化，避免顯示大量「無數據」空殼
  */
 import React, { useMemo } from 'react';
 import {
@@ -73,6 +77,26 @@ export const OverviewTab: React.FC = () => {
   if (!stats) {
     return <Empty description="無法載入統計資料" />;
   }
+
+  // 無任何搜尋紀錄 → 簡潔空狀態
+  if (stats.total_searches === 0) {
+    return (
+      <Empty
+        description="尚無搜尋紀錄，使用 AI 搜尋後將自動產生統計資料"
+        image={Empty.PRESENTED_IMAGE_SIMPLE}
+      >
+        <Button size="small" icon={<ReloadOutlined />} onClick={() => loadStats()}>
+          重新整理
+        </Button>
+      </Empty>
+    );
+  }
+
+  // 判斷分佈區塊是否有資料
+  const hasDistributions =
+    Object.keys(stats.strategy_distribution).length > 0 ||
+    Object.keys(stats.source_distribution).length > 0 ||
+    Object.keys(stats.entity_distribution).length > 0;
 
   return (
     <div>
@@ -180,54 +204,56 @@ export const OverviewTab: React.FC = () => {
         </Col>
       </Row>
 
-      {/* 分佈統計 */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={24} sm={8}>
-          <Card title="搜尋策略分佈" size="small">
-            {Object.entries(stats.strategy_distribution).length > 0 ? (
-              <Descriptions column={1} size="small">
-                {Object.entries(stats.strategy_distribution).map(([key, val]) => (
-                  <Descriptions.Item key={key} label={
-                    <Tag color={key === 'hybrid' ? 'purple' : key === 'similarity' ? 'blue' : 'default'}>{key}</Tag>
-                  }>
-                    {val} 次
-                  </Descriptions.Item>
-                ))}
-              </Descriptions>
-            ) : <Empty description="無數據" image={Empty.PRESENTED_IMAGE_SIMPLE} />}
-          </Card>
-        </Col>
-        <Col xs={24} sm={8}>
-          <Card title="解析來源分佈" size="small">
-            {Object.entries(stats.source_distribution).length > 0 ? (
-              <Descriptions column={1} size="small">
-                {Object.entries(stats.source_distribution).map(([key, val]) => (
-                  <Descriptions.Item key={key} label={
-                    <Tag color={key === 'rule_engine' ? 'green' : key === 'vector' ? 'cyan' : key === 'ai' ? 'blue' : key === 'merged' ? 'purple' : 'default'}>{key}</Tag>
-                  }>
-                    {val} 次
-                  </Descriptions.Item>
-                ))}
-              </Descriptions>
-            ) : <Empty description="無數據" image={Empty.PRESENTED_IMAGE_SIMPLE} />}
-          </Card>
-        </Col>
-        <Col xs={24} sm={8}>
-          <Card title="實體類型分佈" size="small">
-            {Object.entries(stats.entity_distribution).length > 0 ? (
-              <Descriptions column={1} size="small">
-                {Object.entries(stats.entity_distribution).map(([key, val]) => (
-                  <Descriptions.Item key={key} label={
-                    <Tag color="volcano">{key === 'dispatch_order' ? '派工單' : key === 'project' ? '專案' : key}</Tag>
-                  }>
-                    {val} 次
-                  </Descriptions.Item>
-                ))}
-              </Descriptions>
-            ) : <Empty description="無數據" image={Empty.PRESENTED_IMAGE_SIMPLE} />}
-          </Card>
-        </Col>
-      </Row>
+      {/* 分佈統計（僅在有資料時顯示） */}
+      {hasDistributions && (
+        <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+          {Object.keys(stats.strategy_distribution).length > 0 && (
+            <Col xs={24} sm={8}>
+              <Card title="搜尋策略分佈" size="small">
+                <Descriptions column={1} size="small">
+                  {Object.entries(stats.strategy_distribution).map(([key, val]) => (
+                    <Descriptions.Item key={key} label={
+                      <Tag color={key === 'hybrid' ? 'purple' : key === 'similarity' ? 'blue' : 'default'}>{key}</Tag>
+                    }>
+                      {val} 次
+                    </Descriptions.Item>
+                  ))}
+                </Descriptions>
+              </Card>
+            </Col>
+          )}
+          {Object.keys(stats.source_distribution).length > 0 && (
+            <Col xs={24} sm={8}>
+              <Card title="解析來源分佈" size="small">
+                <Descriptions column={1} size="small">
+                  {Object.entries(stats.source_distribution).map(([key, val]) => (
+                    <Descriptions.Item key={key} label={
+                      <Tag color={key === 'rule_engine' ? 'green' : key === 'vector' ? 'cyan' : key === 'ai' ? 'blue' : key === 'merged' ? 'purple' : 'default'}>{key}</Tag>
+                    }>
+                      {val} 次
+                    </Descriptions.Item>
+                  ))}
+                </Descriptions>
+              </Card>
+            </Col>
+          )}
+          {Object.keys(stats.entity_distribution).length > 0 && (
+            <Col xs={24} sm={8}>
+              <Card title="實體類型分佈" size="small">
+                <Descriptions column={1} size="small">
+                  {Object.entries(stats.entity_distribution).map(([key, val]) => (
+                    <Descriptions.Item key={key} label={
+                      <Tag color="volcano">{key === 'dispatch_order' ? '派工單' : key === 'project' ? '專案' : key}</Tag>
+                    }>
+                      {val} 次
+                    </Descriptions.Item>
+                  ))}
+                </Descriptions>
+              </Card>
+            </Col>
+          )}
+        </Row>
+      )}
 
       {/* 熱門查詢與趨勢 */}
       <Row gutter={[16, 16]}>
@@ -239,6 +265,7 @@ export const OverviewTab: React.FC = () => {
               rowKey="query"
               size="small"
               pagination={false}
+              locale={{ emptyText: '尚無搜尋紀錄' }}
             />
           </Card>
         </Col>
@@ -255,6 +282,7 @@ export const OverviewTab: React.FC = () => {
               size="small"
               pagination={false}
               scroll={{ y: 300 }}
+              locale={{ emptyText: '尚無趨勢資料' }}
             />
           </Card>
         </Col>

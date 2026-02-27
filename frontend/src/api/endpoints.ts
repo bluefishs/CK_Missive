@@ -703,6 +703,13 @@ export const AI_ENDPOINTS = {
   OLLAMA_ENSURE_MODELS: '/ai/ollama/ensure-models',
   /** Ollama 模型預熱 POST /ai/ollama/warmup */
   OLLAMA_WARMUP: '/ai/ollama/warmup',
+  // --- AI 回饋 + 分析 ---
+  /** 提交 AI 回答回饋 POST /ai/feedback */
+  FEEDBACK: '/ai/feedback',
+  /** AI 回饋統計 POST /ai/feedback/stats */
+  FEEDBACK_STATS: '/ai/feedback/stats',
+  /** 系統使用分析總覽 POST /ai/analytics/overview */
+  ANALYTICS_OVERVIEW: '/ai/analytics/overview',
 } as const;
 
 // ============================================================================

@@ -3,5 +3,5 @@
   "sync_enabled": true,
   "sync_interval_hours": 24,
   "last_sync_time": "2026-02-25T18:27:03.122733",
-  "sync_status": "idle"
+  "sync_status": "error"
 }

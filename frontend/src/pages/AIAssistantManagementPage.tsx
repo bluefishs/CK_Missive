@@ -1,37 +1,31 @@
 /**
  * AI 助理管理頁面
  *
- * Version: 2.2.0
+ * Version: 3.1.0
  * Created: 2026-02-09
- * Updated: 2026-02-26 — 將 6 個 Tab 元件拆分至 components/ai/management/
+ * Updated: 2026-02-27 — 移除空殼「AI 配置」Tab（DB 層無資料，YAML 為實際來源）
  *
- * 統一管理入口，整合搜尋統計、搜尋歷史、同義詞管理、Prompt 管理、
- * Embedding 管線、知識圖譜、AI 服務監控、Ollama 管理。
+ * Tab 結構：
+ * 1. AI 問答 — RAG/Agent 問答面板
+ * 2. 數據分析 — 搜尋總覽 + 搜尋歷史
+ * 3. 資料管線 — Embedding 管理 + 知識圖譜
+ * 4. 服務狀態 — Ollama 管理 + 系統監控
  */
 import React, { useMemo } from 'react';
 import { Tabs, Typography } from 'antd';
 import {
-  ApartmentOutlined,
   BarChartOutlined,
-  CloudServerOutlined,
   DatabaseOutlined,
   ExperimentOutlined,
   HeartOutlined,
-  HistoryOutlined,
   RobotOutlined,
-  TagsOutlined,
 } from '@ant-design/icons';
 
-import { SynonymManagementContent } from './AISynonymManagementPage';
-import { PromptManagementContent } from './AIPromptManagementPage';
 import { RAGChatPanel } from '../components/ai/RAGChatPanel';
 import {
-  OverviewTab,
-  HistoryTab,
-  EmbeddingTab,
-  KnowledgeGraphTab,
-  ServiceMonitorTab,
-  OllamaManagementTab,
+  DataAnalyticsTab,
+  DataPipelineTab,
+  ServiceStatusTab,
 } from '../components/ai/management';
 
 const { Title, Text } = Typography;
@@ -39,67 +33,32 @@ const { Title, Text } = Typography;
 const AIAssistantManagementPage: React.FC = () => {
   const tabItems = useMemo(() => [
     {
-      key: 'rag-chat',
+      key: 'ai-chat',
       label: (
-        <span><RobotOutlined /> RAG 問答</span>
+        <span><RobotOutlined /> AI 問答</span>
       ),
       children: <RAGChatPanel />,
     },
     {
-      key: 'overview',
+      key: 'analytics',
       label: (
-        <span><BarChartOutlined /> 搜尋總覽</span>
+        <span><BarChartOutlined /> 數據分析</span>
       ),
-      children: <OverviewTab />,
+      children: <DataAnalyticsTab />,
     },
     {
-      key: 'history',
+      key: 'pipeline',
       label: (
-        <span><HistoryOutlined /> 搜尋歷史</span>
+        <span><DatabaseOutlined /> 資料管線</span>
       ),
-      children: <HistoryTab />,
+      children: <DataPipelineTab />,
     },
     {
-      key: 'synonyms',
+      key: 'status',
       label: (
-        <span><TagsOutlined /> 同義詞管理</span>
+        <span><HeartOutlined /> 服務狀態</span>
       ),
-      children: <SynonymManagementContent />,
-    },
-    {
-      key: 'prompts',
-      label: (
-        <span><RobotOutlined /> Prompt 管理</span>
-      ),
-      children: <PromptManagementContent />,
-    },
-    {
-      key: 'embedding',
-      label: (
-        <span><DatabaseOutlined /> Embedding 管理</span>
-      ),
-      children: <EmbeddingTab />,
-    },
-    {
-      key: 'graph',
-      label: (
-        <span><ApartmentOutlined /> 知識圖譜</span>
-      ),
-      children: <KnowledgeGraphTab />,
-    },
-    {
-      key: 'monitor',
-      label: (
-        <span><HeartOutlined /> AI 服務監控</span>
-      ),
-      children: <ServiceMonitorTab />,
-    },
-    {
-      key: 'ollama',
-      label: (
-        <span><CloudServerOutlined /> Ollama 管理</span>
-      ),
-      children: <OllamaManagementTab />,
+      children: <ServiceStatusTab />,
     },
   ], []);
 
@@ -110,10 +69,10 @@ const AIAssistantManagementPage: React.FC = () => {
           <ExperimentOutlined /> AI 助理管理
         </Title>
         <Text type="secondary">
-          RAG 公文問答、搜尋統計分析、歷史記錄查詢、同義詞管理、Prompt 版本管理、Embedding 管線、知識圖譜、AI 服務監控、Ollama 管理
+          AI 問答、數據分析、資料管線、服務狀態
         </Text>
       </div>
-      <Tabs defaultActiveKey="rag-chat" items={tabItems} />
+      <Tabs defaultActiveKey="ai-chat" items={tabItems} />
     </div>
   );
 };

@@ -15,6 +15,8 @@ import {
   Tag,
   List,
   Collapse,
+  Button,
+  Tooltip,
 } from 'antd';
 import {
   RobotOutlined,
@@ -24,6 +26,10 @@ import {
   LoadingOutlined,
   ThunderboltOutlined,
   ToolOutlined,
+  LikeOutlined,
+  LikeFilled,
+  DislikeOutlined,
+  DislikeFilled,
 } from '@ant-design/icons';
 import { AgentStepsDisplay } from './AgentStepsDisplay';
 import type { AgentStepInfo } from './AgentStepsDisplay';
@@ -44,11 +50,21 @@ export interface ChatMessage {
   agentSteps?: AgentStepInfo[];
   toolsUsed?: string[];
   iterations?: number;
+  // 回饋
+  feedbackScore?: 1 | -1 | null;
 }
 
-export const MessageBubble: React.FC<{ message: ChatMessage; embedded?: boolean }> = ({
+interface MessageBubbleProps {
+  message: ChatMessage;
+  embedded?: boolean;
+  /** 回饋回呼 (messageIndex, score) */
+  onFeedback?: (score: 1 | -1) => void;
+}
+
+export const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
   embedded = false,
+  onFeedback,
 }) => {
   const isUser = message.role === 'user';
 
@@ -136,6 +152,34 @@ export const MessageBubble: React.FC<{ message: ChatMessage; embedded?: boolean 
               <Tag icon={<ToolOutlined />} color="purple" style={{ fontSize: 11 }}>
                 {message.toolsUsed.length} 工具
               </Tag>
+            )}
+          </Space>
+        )}
+
+        {/* Feedback buttons */}
+        {!isUser && !message.streaming && message.content && onFeedback && (
+          <Space size={4} style={{ marginTop: 6 }}>
+            <Text type="secondary" style={{ fontSize: 11 }}>回答有幫助嗎？</Text>
+            <Tooltip title="有幫助">
+              <Button
+                type="text"
+                size="small"
+                icon={message.feedbackScore === 1 ? <LikeFilled style={{ color: '#52c41a' }} /> : <LikeOutlined />}
+                onClick={() => onFeedback(1)}
+                disabled={message.feedbackScore != null}
+              />
+            </Tooltip>
+            <Tooltip title="沒有幫助">
+              <Button
+                type="text"
+                size="small"
+                icon={message.feedbackScore === -1 ? <DislikeFilled style={{ color: '#ff4d4f' }} /> : <DislikeOutlined />}
+                onClick={() => onFeedback(-1)}
+                disabled={message.feedbackScore != null}
+              />
+            </Tooltip>
+            {message.feedbackScore != null && (
+              <Text type="secondary" style={{ fontSize: 11 }}>已回饋</Text>
             )}
           </Space>
         )}

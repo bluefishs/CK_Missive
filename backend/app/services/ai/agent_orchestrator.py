@@ -57,14 +57,6 @@ from app.services.ai.agent_utils import sse
 
 logger = logging.getLogger(__name__)
 
-MAX_ITERATIONS = 3
-TOOL_TIMEOUT = 15  # 單個工具執行超時 (秒)
-STREAM_TIMEOUT = 60  # 整體串流超時 (秒)
-
-# 向後相容：讓 from agent_orchestrator import TOOL_DEFINITIONS 仍可用
-from app.services.ai.agent_tools import TOOL_DEFINITIONS, TOOL_DEFINITIONS_STR  # noqa: F401
-
-
 class AgentOrchestrator:
     """
     Agentic 文件檢索引擎
@@ -168,19 +160,20 @@ class AgentOrchestrator:
                         question, plan, tool_results, tools_used,
                         all_sources, step_index,
                     ),
-                    timeout=STREAM_TIMEOUT,
+                    timeout=self.config.agent_stream_timeout,
                 )
                 actual_iterations = tool_loop_result["iterations"]
                 step_index = tool_loop_result["step_index"]
                 for event in tool_loop_result["events"]:
                     yield event
             except asyncio.TimeoutError:
+                st = self.config.agent_stream_timeout
                 logger.warning(
-                    "Agent stream timed out after %ds", STREAM_TIMEOUT,
+                    "Agent stream timed out after %ds", st,
                 )
                 yield sse(
                     type="error",
-                    error=f"查詢處理超時（{STREAM_TIMEOUT}s），已取得部分結果。",
+                    error=f"查詢處理超時（{st}s），已取得部分結果。",
                     code="STREAM_TIMEOUT",
                 )
 
@@ -269,7 +262,7 @@ class AgentOrchestrator:
         events: List[str] = []
         iterations = 0
 
-        for iteration in range(MAX_ITERATIONS):
+        for iteration in range(self.config.agent_max_iterations):
             iterations = iteration + 1
             calls = plan.get("tool_calls", [])
 
@@ -339,14 +332,16 @@ class AgentOrchestrator:
     ) -> Dict[str, Any]:
         """執行單個工具，回傳結果 dict"""
         try:
+            tt = self.config.agent_tool_timeout
             result = await asyncio.wait_for(
                 self._tools.execute(tool_name, params),
-                timeout=TOOL_TIMEOUT,
+                timeout=tt,
             )
             return result
         except asyncio.TimeoutError:
-            logger.warning("Tool %s timed out (%ds)", tool_name, TOOL_TIMEOUT)
-            return {"error": f"工具執行超時 ({TOOL_TIMEOUT}s)", "count": 0}
+            tt = self.config.agent_tool_timeout
+            logger.warning("Tool %s timed out (%ds)", tool_name, tt)
+            return {"error": f"工具執行超時 ({tt}s)", "count": 0}
         except Exception as e:
             logger.error("Tool %s failed: %s", tool_name, e)
             return {"error": str(e), "count": 0}

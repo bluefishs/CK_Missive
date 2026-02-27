@@ -48,6 +48,7 @@ from .system import (
     SiteConfiguration,
     AIPromptVersion,
     AISearchHistory,
+    AIConversationFeedback,
     AISynonym,
 )
 
@@ -112,6 +113,7 @@ __all__ = [
     "SiteConfiguration",
     "AIPromptVersion",
     "AISearchHistory",
+    "AIConversationFeedback",
     "AISynonym",
     # 專案人員
     "ProjectAgencyContact",

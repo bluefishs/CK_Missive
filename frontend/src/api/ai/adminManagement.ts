@@ -49,6 +49,13 @@ import type {
   RAGStreamRequest,
 } from './types';
 
+import type {
+  AIFeedbackSubmitRequest,
+  AIFeedbackSubmitResponse,
+  AIFeedbackStatsResponse,
+  AIAnalyticsOverviewResponse,
+} from '../../types/ai';
+
 // ============================================================================
 // 同義詞管理
 // ============================================================================
@@ -637,4 +644,40 @@ export function streamAgentQuery(
   })();
 
   return controller;
+}
+
+// ============================================================================
+// AI 回饋 + 使用分析
+// ============================================================================
+
+export async function submitAIFeedback(
+  request: AIFeedbackSubmitRequest,
+): Promise<AIFeedbackSubmitResponse | null> {
+  try {
+    return await apiClient.post<AIFeedbackSubmitResponse>(
+      AI_ENDPOINTS.FEEDBACK,
+      request,
+    );
+  } catch (error) {
+    logger.error('AI 回饋提交失敗:', error);
+    return null;
+  }
+}
+
+export async function getAIFeedbackStats(): Promise<AIFeedbackStatsResponse | null> {
+  try {
+    return await apiClient.post<AIFeedbackStatsResponse>(AI_ENDPOINTS.FEEDBACK_STATS, {});
+  } catch (error) {
+    logger.error('取得回饋統計失敗:', error);
+    return null;
+  }
+}
+
+export async function getAnalyticsOverview(): Promise<AIAnalyticsOverviewResponse | null> {
+  try {
+    return await apiClient.post<AIAnalyticsOverviewResponse>(AI_ENDPOINTS.ANALYTICS_OVERVIEW, {});
+  } catch (error) {
+    logger.error('取得使用分析失敗:', error);
+    return null;
+  }
 }

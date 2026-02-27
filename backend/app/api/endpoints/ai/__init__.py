@@ -20,12 +20,14 @@ from .graph_query import router as graph_query_router
 from .ollama_management import router as ollama_management_router
 from .rag_query import router as rag_query_router
 from .agent_query import router as agent_query_router
+from .ai_feedback import router as ai_feedback_router
 
 router = APIRouter(prefix="/ai", tags=["AI"])
 
 # 註冊子路由
 router.include_router(document_ai_router)
 router.include_router(ai_stats_router)
+router.include_router(ai_feedback_router)
 router.include_router(synonyms_router)
 router.include_router(prompts_router)
 router.include_router(search_history_router)

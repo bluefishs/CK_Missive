@@ -26,6 +26,7 @@ from app.core.ai_connector import get_ai_connector
 from app.services.ai.ai_config import get_ai_config
 from app.services.ai.ai_prompt_manager import AIPromptManager
 from app.services.ai.embedding_manager import EmbeddingManager
+from app.services.ai.reranker import STOPWORDS
 
 logger = logging.getLogger(__name__)
 
@@ -342,16 +343,6 @@ class RAGQueryService:
 
         return "\n".join(context_parts)
 
-    # 停用詞集合（共用）
-    _STOPWORDS = {
-        "的", "了", "在", "是", "我", "有", "和", "就", "不", "人", "都",
-        "一", "這", "中", "大", "為", "上", "個", "到", "說", "們", "以",
-        "要", "會", "與", "及", "等", "或", "被", "由", "其", "所", "之",
-        "嗎", "呢", "吧", "啊", "哪", "什麼", "怎麼", "請問", "想",
-        "知道", "找", "查", "看", "有沒有", "是否", "能否", "可以",
-        "上個", "哪些", "那些", "關於", "有關", "最近",
-    }
-
     # jieba 初始化旗標
     _jieba_initialized = False
 
@@ -399,7 +390,7 @@ class RAGQueryService:
         result: List[str] = []
         for t in tokens:
             t = t.strip()
-            if len(t) >= 2 and t not in cls._STOPWORDS and t not in seen:
+            if len(t) >= 2 and t not in STOPWORDS and t not in seen:
                 seen.add(t)
                 result.append(t)
         return result

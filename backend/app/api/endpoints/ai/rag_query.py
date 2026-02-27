@@ -4,12 +4,11 @@ RAG 問答 API 端點
 基於 pgvector 向量檢索 + Ollama LLM 的 RAG 問答服務。
 支援同步回應與 SSE 串流。
 
-Version: 2.0.0
+Version: 2.1.0
 Created: 2026-02-25
-Updated: 2026-02-26 - 新增串流端點 + 多輪對話
+Updated: 2026-02-27 - v2.1.0 使用 sse_utils 統一串流錯誤處理
 """
 
-import json
 import logging
 
 from fastapi import APIRouter, Depends
@@ -19,6 +18,7 @@ from starlette.responses import StreamingResponse
 from app.core.dependencies import require_auth, get_async_db
 from app.extended.models import User
 from app.schemas.ai import RAGQueryRequest, RAGQueryResponse, RAGStreamRequest
+from app.api.sse_utils import create_sse_response
 
 logger = logging.getLogger(__name__)
 
@@ -66,26 +66,12 @@ async def rag_query_stream(
 
     svc = RAGQueryService(db)
 
-    async def event_generator():
-        try:
-            async for chunk in svc.stream_query(
-                question=request.question,
-                top_k=request.top_k,
-                similarity_threshold=request.similarity_threshold,
-                history=request.history,
-            ):
-                yield chunk
-        except Exception as e:
-            logger.error("RAG stream endpoint error: %s", e, exc_info=True)
-            yield f"data: {json.dumps({'type': 'error', 'error': 'AI 服務暫時無法處理您的請求，請稍後再試。'}, ensure_ascii=False)}\n\n"
-            yield f"data: {json.dumps({'type': 'done', 'latency_ms': 0, 'model': 'error'})}\n\n"
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-            "Connection": "keep-alive",
-        },
+    return create_sse_response(
+        stream_fn=lambda: svc.stream_query(
+            question=request.question,
+            top_k=request.top_k,
+            similarity_threshold=request.similarity_threshold,
+            history=request.history,
+        ),
+        endpoint_name="RAG",
     )

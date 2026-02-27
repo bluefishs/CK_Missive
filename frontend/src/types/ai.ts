@@ -859,3 +859,64 @@ export interface RAGStreamRequest {
   similarity_threshold?: number;
   history?: Array<{ role: string; content: string }>;
 }
+
+// ============================================================================
+// AI 回饋
+// ============================================================================
+
+export interface AIFeedbackSubmitRequest {
+  conversation_id: string;
+  message_index: number;
+  feature_type: 'agent' | 'rag';
+  score: 1 | -1;
+  question?: string;
+  answer_preview?: string;
+  feedback_text?: string;
+  latency_ms?: number;
+  model?: string;
+}
+
+export interface AIFeedbackSubmitResponse {
+  success: boolean;
+  message: string;
+}
+
+export interface AIFeedbackStatsResponse {
+  success: boolean;
+  total_feedback: number;
+  positive_count: number;
+  negative_count: number;
+  positive_rate: number;
+  by_feature: Record<string, {
+    total: number;
+    positive: number;
+    negative: number;
+    positive_rate: number;
+  }>;
+  recent_negative: Array<{
+    id: number;
+    question?: string;
+    answer_preview?: string;
+    feature_type: string;
+    created_at?: string;
+  }>;
+}
+
+export interface AIAnalyticsOverviewResponse {
+  success: boolean;
+  ai_feature_usage: Record<string, {
+    count: number;
+    cache_hits: number;
+    errors: number;
+    avg_latency_ms: number;
+  }>;
+  feedback_summary: {
+    total_feedback: number;
+    positive_count: number;
+    negative_count: number;
+    positive_rate: number;
+    by_feature: Record<string, unknown>;
+  };
+  search_stats: Record<string, unknown>;
+  unused_features: string[];
+}

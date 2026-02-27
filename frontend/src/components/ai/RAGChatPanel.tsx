@@ -12,7 +12,7 @@
  * @updated 2026-02-26 - Agentic 模式 + 推理步驟視覺化
  */
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   Card,
   Input,
@@ -31,6 +31,7 @@ import {
   ThunderboltOutlined,
 } from '@ant-design/icons';
 import { aiApi } from '../../api/aiApi';
+import { submitAIFeedback } from '../../api/ai/adminManagement';
 import { MessageBubble } from './MessageBubble';
 import type { ChatMessage } from './MessageBubble';
 import type { AgentStepInfo } from './AgentStepsDisplay';
@@ -55,6 +56,14 @@ export const RAGChatPanel: React.FC<RAGChatPanelProps> = ({
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  // 對話 ID (每次清除後重新生成)
+  const conversationId = useMemo(
+    () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+  const conversationIdRef = useRef(conversationId);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -262,11 +271,38 @@ export const RAGChatPanel: React.FC<RAGChatPanelProps> = ({
     [handleSend],
   );
 
+  const handleFeedback = useCallback(async (msgIndex: number, score: 1 | -1) => {
+    const msg = messages[msgIndex];
+    if (!msg || msg.feedbackScore != null) return;
+
+    // 先更新 UI
+    setMessages(prev => {
+      const updated = [...prev];
+      updated[msgIndex] = { ...updated[msgIndex]!, feedbackScore: score };
+      return updated;
+    });
+
+    // 找到對應的使用者問題（上一則訊息）
+    const userMsg = msgIndex > 0 ? messages[msgIndex - 1] : undefined;
+
+    await submitAIFeedback({
+      conversation_id: conversationIdRef.current,
+      message_index: msgIndex,
+      feature_type: agentMode ? 'agent' : 'rag',
+      score,
+      question: userMsg?.content?.slice(0, 500),
+      answer_preview: msg.content?.slice(0, 200),
+      latency_ms: msg.latency_ms,
+      model: msg.model,
+    });
+  }, [messages, agentMode]);
+
   const handleClear = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
     setMessages([]);
     setLoading(false);
+    conversationIdRef.current = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   }, []);
 
   const chatContent = (
@@ -299,7 +335,14 @@ export const RAGChatPanel: React.FC<RAGChatPanelProps> = ({
           </Empty>
         ) : (
           messages.map((msg, idx) => (
-            <MessageBubble key={idx} message={msg} embedded={embedded} />
+            <MessageBubble
+              key={idx}
+              message={msg}
+              embedded={embedded}
+              onFeedback={msg.role === 'assistant' && !msg.streaming
+                ? (score) => handleFeedback(idx, score)
+                : undefined}
+            />
           ))
         )}
         <div ref={messagesEndRef} />

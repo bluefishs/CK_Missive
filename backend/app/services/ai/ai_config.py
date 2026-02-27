@@ -1,9 +1,9 @@
 """
 AI 配置管理
 
-Version: 2.1.0
+Version: 2.2.0
 Created: 2026-02-04
-Updated: 2026-02-26 - v2.1.0 新增 agency_match / hybrid_semantic / graph_cache 閾值
+Updated: 2026-02-27 - v2.2.0 新增 Agent 編排引擎配置 (max_iterations, timeouts, find_similar_threshold)
 """
 
 import os
@@ -85,6 +85,12 @@ class AIConfig:
     graph_cache_ttl_search: int = 120          # 搜尋快取 TTL (秒)
     graph_cache_ttl_stats: int = 1800          # 統計快取 TTL (秒)
 
+    # Agent 編排引擎 (v2.2.0 新增)
+    agent_max_iterations: int = 3              # 工具迴圈最大輪次
+    agent_tool_timeout: int = 15               # 單個工具執行超時 (秒)
+    agent_stream_timeout: int = 60             # 整體串流超時 (秒)
+    agent_find_similar_threshold: float = 0.7  # find_similar 向量距離閾值
+
     @classmethod
     def from_env(cls) -> "AIConfig":
         """從環境變數建立配置"""
@@ -134,6 +140,11 @@ class AIConfig:
             graph_cache_ttl_neighbors=int(os.getenv("GRAPH_CACHE_TTL_NEIGHBORS", "300")),
             graph_cache_ttl_search=int(os.getenv("GRAPH_CACHE_TTL_SEARCH", "120")),
             graph_cache_ttl_stats=int(os.getenv("GRAPH_CACHE_TTL_STATS", "1800")),
+            # Agent 編排引擎
+            agent_max_iterations=int(os.getenv("AGENT_MAX_ITERATIONS", "3")),
+            agent_tool_timeout=int(os.getenv("AGENT_TOOL_TIMEOUT", "15")),
+            agent_stream_timeout=int(os.getenv("AGENT_STREAM_TIMEOUT", "60")),
+            agent_find_similar_threshold=float(os.getenv("AGENT_FIND_SIMILAR_THRESHOLD", "0.7")),
         )
 
 

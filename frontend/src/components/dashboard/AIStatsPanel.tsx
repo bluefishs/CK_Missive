@@ -83,7 +83,7 @@ export const AIStatsPanel: React.FC = () => {
   const { data: searchStats = null, isLoading: searchLoading } = useQuery({
     queryKey: ['ai-management', 'search-stats'],
     queryFn: () => aiApi.getSearchStats(),
-    staleTime: 2 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: health = null } = useQuery({

@@ -379,7 +379,7 @@ class AgentToolExecutor:
             )
             .where(embedding_col.isnot(None))
             .where(OfficialDocument.id != int(doc_id))
-            .where(distance_expr <= 0.7)
+            .where(distance_expr <= self.config.agent_find_similar_threshold)
             .order_by(distance_expr)
             .limit(limit)
         )

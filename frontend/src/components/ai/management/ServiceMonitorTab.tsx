@@ -1,7 +1,12 @@
 /**
  * ServiceMonitorTab - AI service health monitoring
  *
- * Extracted from AIAssistantManagementPage.tsx
+ * 顯示 pgvector 狀態、Rate Limit 監控、AI 服務配置。
+ * Groq/Ollama 連線狀態已移至 OllamaManagementTab（更詳細），
+ * Embedding 覆蓋率已移至 EmbeddingTab（含批次操作）。
+ *
+ * @version 2.0.0
+ * @updated 2026-02-27 — 移除與 OllamaManagementTab / EmbeddingTab 重複區塊
  */
 import React from 'react';
 import {
@@ -18,13 +23,12 @@ import {
   Typography,
 } from 'antd';
 import {
-  CheckCircleOutlined,
-  CloseCircleOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 
 import { aiApi } from '../../../api/aiApi';
+import { StatusIcon } from './statusUtils';
 
 export const ServiceMonitorTab: React.FC = () => {
   const {
@@ -65,78 +69,29 @@ export const ServiceMonitorTab: React.FC = () => {
     );
   }
 
-  const groqOk = health?.groq?.available ?? false;
-  const ollamaOk = health?.ollama?.available ?? false;
   const pgvectorOk = embStats?.pgvector_enabled ?? false;
   const rateLimit = health?.rate_limit;
 
-  const StatusIcon: React.FC<{ ok: boolean }> = ({ ok }) =>
-    ok
-      ? <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 20 }} />
-      : <CloseCircleOutlined style={{ color: '#ff4d4f', fontSize: 20 }} />;
-
   return (
     <div>
-      {/* 服務健康卡片 */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={24} sm={8}>
-          <Card size="small">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <StatusIcon ok={groqOk} />
-              <div>
-                <Typography.Text strong>Groq API</Typography.Text>
-                <br />
-                <Badge
-                  status={groqOk ? 'success' : 'error'}
-                  text={groqOk ? '正常運作' : '無法連線'}
-                />
-                <br />
-                <Typography.Text type="secondary" style={{ fontSize: 11 }}>
-                  {health?.groq?.message || '-'}
-                </Typography.Text>
-              </div>
-            </div>
-          </Card>
-        </Col>
-        <Col xs={24} sm={8}>
-          <Card size="small">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <StatusIcon ok={ollamaOk} />
-              <div>
-                <Typography.Text strong>Ollama</Typography.Text>
-                <br />
-                <Badge
-                  status={ollamaOk ? 'success' : 'error'}
-                  text={ollamaOk ? '正常運作' : '無法連線'}
-                />
-                <br />
-                <Typography.Text type="secondary" style={{ fontSize: 11 }}>
-                  {health?.ollama?.message || '-'}
-                </Typography.Text>
-              </div>
-            </div>
-          </Card>
-        </Col>
-        <Col xs={24} sm={8}>
-          <Card size="small">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <StatusIcon ok={pgvectorOk} />
-              <div>
-                <Typography.Text strong>pgvector</Typography.Text>
-                <br />
-                <Badge
-                  status={pgvectorOk ? 'success' : 'warning'}
-                  text={pgvectorOk ? '已啟用' : '未啟用'}
-                />
-                <br />
-                <Typography.Text type="secondary" style={{ fontSize: 11 }}>
-                  向量搜尋 {pgvectorOk ? '可用' : '不可用（語意搜尋降級為關鍵字模式）'}
-                </Typography.Text>
-              </div>
-            </div>
-          </Card>
-        </Col>
-      </Row>
+      {/* pgvector 狀態 */}
+      <Card size="small" style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <StatusIcon ok={pgvectorOk} />
+          <div>
+            <Typography.Text strong>pgvector</Typography.Text>
+            <br />
+            <Badge
+              status={pgvectorOk ? 'success' : 'warning'}
+              text={pgvectorOk ? '已啟用' : '未啟用'}
+            />
+            <br />
+            <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+              向量搜尋 {pgvectorOk ? '可用' : '不可用（語意搜尋降級為關鍵字模式）'}
+            </Typography.Text>
+          </div>
+        </div>
+      </Card>
 
       {/* Rate Limit 監控 */}
       <Card title="Rate Limit 監控" size="small" style={{ marginBottom: 24 }}
@@ -183,33 +138,6 @@ export const ServiceMonitorTab: React.FC = () => {
         ) : (
           <Empty description="無 Rate Limit 資訊" image={Empty.PRESENTED_IMAGE_SIMPLE} />
         )}
-      </Card>
-
-      {/* Embedding 覆蓋率 */}
-      <Card title="Embedding 覆蓋率" size="small" style={{ marginBottom: 24 }}>
-        <Row gutter={[16, 16]}>
-          <Col xs={8}>
-            <Statistic title="已生成" value={embStats?.with_embedding ?? 0} suffix="筆" />
-          </Col>
-          <Col xs={8}>
-            <Statistic title="未生成" value={embStats?.without_embedding ?? 0} suffix="筆" />
-          </Col>
-          <Col xs={8}>
-            <Statistic
-              title="覆蓋率"
-              value={embStats?.coverage_percent ?? 0}
-              suffix="%"
-              precision={1}
-            />
-          </Col>
-          <Col xs={24}>
-            <Progress
-              percent={embStats?.coverage_percent ?? 0}
-              status={(embStats?.coverage_percent ?? 0) >= 80 ? 'success' : 'normal'}
-              format={(p) => `${(p ?? 0).toFixed(1)}%`}
-            />
-          </Col>
-        </Row>
       </Card>
 
       {/* 服務配置 */}
