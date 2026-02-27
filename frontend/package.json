@@ -28,6 +28,7 @@
     "api:generate:changelog": "node scripts/type-changelog.js generate",
     "api:check": "node ../scripts/api-endpoints-check.js",
     "changelog": "node ../scripts/changelog-gen.js",
+    "schema:diagram": "node ../scripts/schema-diagram-gen.js",
     "routes:check": "node ../scripts/route-sync-check.js",
     "type:sync": "node scripts/type-sync-check.js",
     "type:sync:full": "npm run api:generate && node scripts/type-sync-check.js"
