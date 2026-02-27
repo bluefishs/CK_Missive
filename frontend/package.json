@@ -22,7 +22,7 @@
     "test:e2e:headed": "playwright test --headed",
     "port:check": "powershell -ExecutionPolicy Bypass -File ../scripts/port-manager.ps1 -Action check",
     "port:kill": "powershell -ExecutionPolicy Bypass -File ../scripts/port-manager.ps1 -Action kill -Service frontend",
-    "prepare": "husky",
+    "prepare": "cd .. && husky frontend/.husky",
     "api:generate": "openapi-typescript http://localhost:8001/openapi.json -o src/types/generated/api.d.ts",
     "api:generate:file": "openapi-typescript ../docs/openapi.json -o src/types/generated/api.d.ts",
     "api:generate:changelog": "node scripts/type-changelog.js generate",
@@ -51,6 +51,11 @@
     "swagger-ui-react": "^5.29.0",
     "xlsx": "^0.18.5",
     "zustand": "^4.5.7"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --max-warnings 0"
+    ]
   },
   "devDependencies": {
     "@commitlint/cli": "^19.8.1",

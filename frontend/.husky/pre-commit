@@ -1,49 +1,88 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
+#!/bin/sh
+# ============================================================
+# Pre-commit Gate — 品質關卡（husky v9）
+# ============================================================
+# 整合：Skills 架構驗證 + 前端 ESLint + TypeScript 編譯檢查
+# 注意：husky 以 sh -e 執行，所有 grep 需加 || true 防止非零退出
+# ============================================================
 
-echo "🔍 檢查環境變數配置..."
+PROJECT_ROOT=$(git rev-parse --show-toplevel)
+PROJECT_NAME=$(basename "$PROJECT_ROOT")
 
-# 檢查是否有8002硬編碼
-if grep -r "localhost:8002" . --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist --exclude=pre-commit; then
-  echo "❌ 發現硬編碼的8002端口，請修復後再提交"
+echo "[Pre-commit] 驗證 $PROJECT_NAME..."
+
+# ============================================================
+# 1. Skills 架構驗證（遷移自 .git/hooks/pre-commit）
+# ============================================================
+
+# 1a. 禁止直接修改 _shared/ 目錄
+SHARED_FILES=$(git diff --cached --name-only | grep "_shared/" || true)
+if [ -n "$SHARED_FILES" ]; then
+  echo "[Pre-commit] 錯誤：偵測到 _shared/ 目錄修改"
+  echo "$SHARED_FILES"
+  echo ""
+  echo "_shared/ 目錄由同步腳本管理，請勿直接修改。"
+  echo "如確定要提交，請使用: git commit --no-verify"
   exit 1
 fi
 
-# 檢查環境變數檔案
-if [ -f "scripts/env-manager.js" ]; then
-  node scripts/env-manager.js validate
-  if [ $? -ne 0 ]; then
-    echo "❌ 環境變數驗證失敗，請修復後再提交"
-    exit 1
+# 1b. Skills 架構驗證（僅在有 .claude/skills/ 變更時）
+SKILLS_CHANGES=$(git diff --cached --name-only | grep "\.claude/skills/" || true)
+if [ -n "$SKILLS_CHANGES" ]; then
+  echo "[Pre-commit] 偵測到 Skills 變更，執行架構驗證..."
+  ROOT_DIR="$(dirname "$PROJECT_ROOT")"
+  VALIDATE_SCRIPT="$ROOT_DIR/.claude/scripts/validate-skills.sh"
+
+  if [ -f "$VALIDATE_SCRIPT" ]; then
+    RESULT=$(bash "$VALIDATE_SCRIPT" "$PROJECT_NAME" 2>&1)
+    VALIDATE_EXIT=$?
+    if [ $VALIDATE_EXIT -ne 0 ]; then
+      echo "[Pre-commit] Skills 架構驗證失敗"
+      echo "$RESULT"
+      exit 1
+    fi
+    echo "[Pre-commit] Skills 架構驗證通過"
   fi
 fi
 
-echo "✅ 環境變數檢查通過"
-
-# =============================================================================
-# 型別同步檢查 (Type Sync Check)
-# =============================================================================
-
-echo "🔍 檢查型別定義..."
-
-# 1. TypeScript 編譯檢查
-echo "  ⏳ 執行 TypeScript 編譯檢查..."
-npx tsc --noEmit > /dev/null 2>&1
-if [ $? -ne 0 ]; then
-  echo "  ❌ TypeScript 編譯失敗，請修復型別錯誤後再提交"
-  npx tsc --noEmit
-  exit 1
-fi
-echo "  ✅ TypeScript 編譯通過"
-
-# 2. 後端 Schema 變更檢測
-SCHEMA_CHANGED=$(git diff --cached --name-only | grep -E "backend/app/schemas/.*\.py$" || true)
-if [ -n "$SCHEMA_CHANGED" ]; then
-  echo "  ⚠️  偵測到後端 Schema 變更:"
-  echo "$SCHEMA_CHANGED" | while read file; do
-    echo "      - $file"
-  done
-  echo "  💡 提示: 如果後端正在運行，請執行 'npm run api:generate' 更新前端型別"
+# 1c. 警告新增專案層 Skills
+NEW_PROJECT_SKILLS=$(git diff --cached --name-only | grep "^\.claude/skills/[^_].*\.md$" || true)
+if [ -n "$NEW_PROJECT_SKILLS" ]; then
+  echo "[Pre-commit] 提示：新增了專案層 Skills，請評估是否適合提取到共用層"
 fi
 
-echo "✅ 型別檢查完成"
+# ============================================================
+# 2. 前端品質檢查（僅有前端 .ts/.tsx 變更時執行）
+# ============================================================
+FRONTEND_CHANGES=$(git diff --cached --name-only | grep "^frontend/.*\.\(ts\|tsx\)$" || true)
+
+if [ -n "$FRONTEND_CHANGES" ]; then
+  echo "[Pre-commit] 偵測到前端變更，執行品質檢查..."
+  cd "$PROJECT_ROOT/frontend" || exit 1
+
+  # 2a. lint-staged（ESLint on staged files）
+  echo "[Pre-commit] 執行 ESLint..."
+  npx lint-staged --quiet
+  LINT_EXIT=$?
+  if [ $LINT_EXIT -ne 0 ]; then
+    echo "[Pre-commit] ESLint 檢查失敗"
+    exit 1
+  fi
+  echo "[Pre-commit] ESLint 通過"
+
+  # 2b. TypeScript 全專案編譯檢查
+  echo "[Pre-commit] 執行 TypeScript 編譯檢查..."
+  npx tsc --noEmit > /dev/null 2>&1
+  TSC_EXIT=$?
+  if [ $TSC_EXIT -ne 0 ]; then
+    echo "[Pre-commit] TypeScript 編譯失敗："
+    npx tsc --noEmit
+    exit 1
+  fi
+  echo "[Pre-commit] TypeScript 編譯通過"
+
+  cd "$PROJECT_ROOT" || exit 1
+fi
+
+echo "[Pre-commit] 全部檢查通過"
+exit 0

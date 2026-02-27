@@ -1,0 +1,19 @@
+#!/bin/sh
+# ============================================================
+# Post-Merge — git pull/merge 後自動同步 Claude Skills
+# ============================================================
+# 遷移自 .git/hooks/post-merge
+# ============================================================
+
+echo ""
+echo "[Git Hook] 同步 Claude Skills..."
+
+PROJECT_ROOT=$(git rev-parse --show-toplevel)
+ROOT_DIR="$(dirname "$PROJECT_ROOT")"
+SYNC_SCRIPT="$ROOT_DIR/.claude/sync-skills.sh"
+
+if [ -f "$SYNC_SCRIPT" ]; then
+  bash "$SYNC_SCRIPT"
+else
+  echo "[Git Hook] 同步腳本不存在: $SYNC_SCRIPT"
+fi

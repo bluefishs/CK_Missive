@@ -1,0 +1,22 @@
+#!/bin/sh
+# ============================================================
+# Post-Checkout — 分支切換時自動同步 Claude Skills
+# ============================================================
+# 遷移自 .git/hooks/post-checkout
+# ============================================================
+
+# 只在切換分支時執行（$3 = 1），非檔案 checkout
+if [ "$3" != "1" ]; then
+  exit 0
+fi
+
+echo ""
+echo "[Git Hook] 分支切換，同步 Claude Skills..."
+
+PROJECT_ROOT=$(git rev-parse --show-toplevel)
+ROOT_DIR="$(dirname "$PROJECT_ROOT")"
+SYNC_SCRIPT="$ROOT_DIR/.claude/sync-skills.sh"
+
+if [ -f "$SYNC_SCRIPT" ]; then
+  bash "$SYNC_SCRIPT"
+fi
