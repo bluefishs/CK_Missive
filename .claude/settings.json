@@ -92,6 +92,11 @@
             "type": "prompt",
             "prompt": "檢查修改的檔案是否為架構性變更（路徑包含 backend/app/extended/models、backend/app/core/dependencies.py、backend/app/services/ai/ 新檔案、frontend/src/router/、docker-compose、或 .env 新增變數）。若是，提醒：「這是架構性變更，建議使用 /adr new \"描述\" 建立架構決策記錄。」",
             "timeout": 10
+          },
+          {
+            "type": "prompt",
+            "prompt": "檢查修改的檔案是否為後端 Schema (路徑包含 backend/app/schemas/)。若是，提醒使用者執行 `cd frontend && npm run type:sync:full` 檢查前後端型別同步。",
+            "timeout": 10
           }
         ]
       }

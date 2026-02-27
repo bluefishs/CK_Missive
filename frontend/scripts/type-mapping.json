@@ -1,0 +1,101 @@
+{
+  "version": "1.0.0",
+  "description": "後端 OpenAPI Schema ↔ 前端手寫 Interface 映射配置",
+  "mappings": [
+    {
+      "generated": "DocumentResponse",
+      "handwritten": "OfficialDocument",
+      "file": "document.ts",
+      "virtualFields": [
+        "contract_project_name",
+        "assigned_staff",
+        "sender_agency_name",
+        "receiver_agency_name",
+        "attachment_count"
+      ],
+      "ignoredFields": {
+        "handwritten": ["doc_zi", "doc_wen_hao", "contract_case", "doc_word", "doc_class", "user_confirm", "creator", "priority_level"]
+      }
+    },
+    {
+      "generated": "DocumentCreateRequest",
+      "handwritten": "DocumentCreate",
+      "file": "document.ts",
+      "ignoredFields": {
+        "handwritten": ["sender_agency_id", "receiver_agency_id"]
+      }
+    },
+    {
+      "generated": "Agency",
+      "handwritten": "Agency",
+      "file": "api.ts",
+      "ignoredFields": {
+        "handwritten": ["notes"]
+      }
+    },
+    {
+      "generated": "AgencyCreate",
+      "handwritten": "AgencyCreate",
+      "file": "api.ts",
+      "ignoredFields": {
+        "handwritten": ["notes"]
+      }
+    },
+    {
+      "generated": "AgencyWithStats",
+      "handwritten": "AgencyWithStats",
+      "file": "api.ts",
+      "ignoredFields": {
+        "handwritten": ["notes"]
+      }
+    },
+    {
+      "generated": "ProjectResponse",
+      "handwritten": "Project",
+      "file": "api.ts",
+      "ignoredFields": {
+        "handwritten": ["contract_number", "contract_type", "location", "procurement_method", "completion_date", "acceptance_date", "completion_percentage", "warranty_end_date", "contact_person", "contact_phone", "client_agency_id", "agency_contact_person", "agency_contact_phone", "agency_contact_email"]
+      }
+    },
+    {
+      "generated": "ProjectCreate",
+      "handwritten": "ProjectCreate",
+      "file": "api.ts",
+      "ignoredFields": {
+        "handwritten": ["contract_number", "contract_type", "location", "procurement_method", "completion_date", "acceptance_date", "completion_percentage", "warranty_end_date", "contact_person", "contact_phone", "client_agency_id", "agency_contact_person", "agency_contact_phone", "agency_contact_email"]
+      }
+    },
+    {
+      "generated": "UserResponse",
+      "handwritten": "User",
+      "file": "api.ts",
+      "ignoredFields": {
+        "handwritten": ["is_superuser", "permissions", "status", "verification_status", "suspended_reason", "can_login", "department", "position", "mfa_enabled", "updated_at"]
+      }
+    },
+    {
+      "generated": "Vendor",
+      "handwritten": "Vendor",
+      "file": "api.ts",
+      "ignoredFields": {
+        "handwritten": ["notes"]
+      }
+    },
+    {
+      "generated": "VendorCreate",
+      "handwritten": "VendorCreate",
+      "file": "api.ts",
+      "ignoredFields": {
+        "handwritten": ["notes"]
+      }
+    },
+    {
+      "generated": "ProjectStaffResponse",
+      "handwritten": "ProjectStaff",
+      "file": "api.ts",
+      "ignoredFields": {
+        "handwritten": ["assignment_date", "user", "username", "full_name"]
+      }
+    }
+  ]
+}

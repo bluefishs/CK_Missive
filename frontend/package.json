@@ -25,7 +25,9 @@
     "prepare": "husky",
     "api:generate": "openapi-typescript http://localhost:8001/openapi.json -o src/types/generated/api.d.ts",
     "api:generate:file": "openapi-typescript ../docs/openapi.json -o src/types/generated/api.d.ts",
-    "api:generate:changelog": "node scripts/type-changelog.js generate"
+    "api:generate:changelog": "node scripts/type-changelog.js generate",
+    "type:sync": "node scripts/type-sync-check.js",
+    "type:sync:full": "npm run api:generate && node scripts/type-sync-check.js"
   },
   "dependencies": {
     "@ant-design/icons": "^6.0.1",
