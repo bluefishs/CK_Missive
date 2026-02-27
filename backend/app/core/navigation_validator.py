@@ -44,6 +44,11 @@ VALID_NAVIGATION_PATHS: Set[str] = {
     "/admin/permissions",
     "/admin/dashboard",
     "/admin/backup",
+    "/admin/deployment",
+    "/admin/ai-assistant",
+
+    # AI 功能
+    "/ai/knowledge-graph",
 
     # 系統頁面
     "/system",
@@ -79,6 +84,9 @@ PATH_DESCRIPTIONS = {
     "/admin/permissions": "權限管理",
     "/admin/dashboard": "管理員面板",
     "/admin/backup": "備份管理",
+    "/admin/deployment": "部署管理",
+    "/admin/ai-assistant": "AI 助理管理",
+    "/ai/knowledge-graph": "知識圖譜",
     "/system": "系統監控",
     "/google-auth-diagnostic": "Google認證診斷",
     "/unified-form-demo": "統一表單示例",
