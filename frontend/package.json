@@ -27,6 +27,7 @@
     "api:generate:file": "openapi-typescript ../docs/openapi.json -o src/types/generated/api.d.ts",
     "api:generate:changelog": "node scripts/type-changelog.js generate",
     "api:check": "node ../scripts/api-endpoints-check.js",
+    "changelog": "node ../scripts/changelog-gen.js",
     "routes:check": "node ../scripts/route-sync-check.js",
     "type:sync": "node scripts/type-sync-check.js",
     "type:sync:full": "npm run api:generate && node scripts/type-sync-check.js"
