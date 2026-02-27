@@ -33,7 +33,7 @@ class TestAIConfig:
         config = AIConfig()
         assert config.enabled is True
         assert config.groq_model == "llama-3.3-70b-versatile"
-        assert config.ollama_model == "llama3.1:8b"
+        assert config.ollama_model == "qwen3:4b"
         assert config.cloud_timeout == 30
         assert config.local_timeout == 60
 

@@ -8,12 +8,12 @@ Notification Service
 2. 支援多種通知管道（系統內、Email、Webhook）
 3. 提供通知查詢與管理功能
 
-重構版本 v3.0.0 (2026-01-28)：
-- 整合 NotificationRepository
-- 保留 ORM 模型支援
-- 減少重複程式碼
-- 添加正確型別提示
+重構版本 v3.1.0 (2026-02-27)：
+- 移除 4 個重複 ORM 靜態查詢方法（已由 Repository 取代）
+- API 端點統一使用 Repository-based 實例方法
+- 清理未使用 imports
 - 保留 safe_* 系列方法的交易隔離特性
+- 保留 send_email/system_notification stubs（reminder_service 依賴）
 
 使用方式（推薦）：
     from app.services.notification_service import NotificationService
@@ -32,14 +32,11 @@ Notification Service
     notifications, total = await service.list_notifications(user_id=1)
 """
 import logging
-from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, func
 
 from app.extended.models import SystemNotification
-from app.schemas.notification import NotificationItem
 from app.repositories.notification_repository import NotificationRepository
 
 logger = logging.getLogger(__name__)
@@ -87,8 +84,8 @@ class NotificationService:
     統一通知服務
 
     支援兩種使用模式：
-    1. 實例模式 - 使用 Repository（推薦用於需要複雜查詢的場景）
-    2. 靜態方法模式 - 直接操作 ORM（向後相容）
+    1. 實例模式 - 使用 Repository（查詢、標記已讀等）
+    2. 靜態方法模式 - 直接操作 ORM（建立通知、safe_* 安全版本）
     """
 
     def __init__(self, db: Optional[AsyncSession] = None) -> None:
@@ -371,243 +368,6 @@ class NotificationService:
             },
             user_name=user_name
         )
-
-    # =========================================================================
-    # 查詢方法 (ORM 版本)
-    # =========================================================================
-
-    @staticmethod
-    async def get_notifications(
-        db: AsyncSession,
-        user_id: Optional[int] = None,
-        is_read: Optional[bool] = None,
-        severity: Optional[str] = None,
-        notification_type: Optional[str] = None,
-        limit: int = 50,
-        offset: int = 0
-    ) -> Dict[str, Any]:
-        """
-        查詢通知列表（使用 ORM）
-
-        Args:
-            db: 資料庫連線
-            user_id: 使用者 ID（過濾只顯示該使用者的通知，或 user_id=None 的系統通知）
-            is_read: 是否已讀
-            severity: 嚴重程度
-            notification_type: 通知類型
-            limit: 每頁數量
-            offset: 偏移量
-
-        Returns:
-            {items: [...], total: int, unread_count: int}
-        """
-        try:
-            from sqlalchemy import or_
-
-            # 建立基礎查詢
-            query = select(SystemNotification)
-
-            # 使用者過濾：只顯示屬於該使用者的通知，或沒有指定使用者的系統通知
-            if user_id is not None:
-                query = query.where(
-                    or_(
-                        SystemNotification.user_id == user_id,
-                        SystemNotification.user_id.is_(None)
-                    )
-                )
-
-            # 篩選條件
-            if is_read is not None:
-                query = query.where(SystemNotification.is_read == is_read)
-            if severity:
-                query = query.where(SystemNotification.data['severity'].astext == severity)
-            if notification_type:
-                query = query.where(SystemNotification.notification_type == notification_type)
-
-            # 取得總數
-            count_query = select(func.count(SystemNotification.id))
-            if user_id is not None:
-                count_query = count_query.where(
-                    or_(
-                        SystemNotification.user_id == user_id,
-                        SystemNotification.user_id.is_(None)
-                    )
-                )
-            if is_read is not None:
-                count_query = count_query.where(SystemNotification.is_read == is_read)
-            if severity:
-                count_query = count_query.where(SystemNotification.data['severity'].astext == severity)
-            if notification_type:
-                count_query = count_query.where(SystemNotification.notification_type == notification_type)
-
-            total_result = await db.execute(count_query)
-            total = total_result.scalar() or 0
-
-            # 取得未讀數（也要過濾使用者）
-            unread_query = select(func.count(SystemNotification.id)).where(
-                SystemNotification.is_read == False
-            )
-            if user_id is not None:
-                unread_query = unread_query.where(
-                    or_(
-                        SystemNotification.user_id == user_id,
-                        SystemNotification.user_id.is_(None)
-                    )
-                )
-            unread_result = await db.execute(unread_query)
-            unread_count = unread_result.scalar() or 0
-
-            # 查詢資料
-            query = query.order_by(SystemNotification.created_at.desc())
-            query = query.offset(offset).limit(limit)
-
-            result = await db.execute(query)
-            rows = result.scalars().all()
-
-            # 轉換為 dict
-            items = []
-            for row in rows:
-                data = row.data or {}
-                items.append({
-                    "id": row.id,
-                    "type": row.notification_type,
-                    "severity": data.get("severity", "info"),
-                    "title": row.title,
-                    "message": row.message,
-                    "source_table": data.get("source_table"),
-                    "source_id": data.get("source_id"),
-                    "changes": data.get("changes"),
-                    "user_id": row.user_id,
-                    "user_name": data.get("user_name"),
-                    "is_read": row.is_read,
-                    "read_at": row.read_at.isoformat() if row.read_at else None,
-                    "created_at": row.created_at.isoformat() if row.created_at else None
-                })
-
-            return {
-                "items": items,
-                "total": total,
-                "unread_count": unread_count
-            }
-
-        except Exception as e:
-            logger.error(f"查詢通知失敗: {e}")
-            return {"items": [], "total": 0, "unread_count": 0}
-
-    @staticmethod
-    async def mark_as_read(
-        db: AsyncSession,
-        notification_ids: List[int],
-        user_id: Optional[int] = None
-    ) -> int:
-        """
-        標記通知為已讀（使用 ORM）
-
-        Args:
-            db: 資料庫連線
-            notification_ids: 要標記的通知 ID 列表
-            user_id: 使用者 ID（確保只能標記自己的通知）
-        """
-        try:
-            from sqlalchemy import or_
-
-            if not notification_ids:
-                return 0
-
-            stmt = (
-                update(SystemNotification)
-                .where(SystemNotification.id.in_(notification_ids))
-                .where(SystemNotification.is_read == False)
-            )
-
-            # 安全過濾：只能標記自己的通知或系統通知
-            if user_id is not None:
-                stmt = stmt.where(
-                    or_(
-                        SystemNotification.user_id == user_id,
-                        SystemNotification.user_id.is_(None)
-                    )
-                )
-
-            stmt = stmt.values(is_read=True, read_at=datetime.now())
-            result = await db.execute(stmt)
-            await db.commit()
-            return result.rowcount
-
-        except Exception as e:
-            logger.error(f"標記通知已讀失敗: {e}")
-            await db.rollback()
-            return 0
-
-    @staticmethod
-    async def mark_all_as_read(
-        db: AsyncSession,
-        user_id: Optional[int] = None
-    ) -> int:
-        """
-        標記所有通知為已讀（使用 ORM）
-
-        Args:
-            db: 資料庫連線
-            user_id: 使用者 ID（確保只能標記自己的通知）
-        """
-        try:
-            from sqlalchemy import or_
-
-            stmt = (
-                update(SystemNotification)
-                .where(SystemNotification.is_read == False)
-            )
-
-            # 安全過濾：只能標記自己的通知或系統通知
-            if user_id is not None:
-                stmt = stmt.where(
-                    or_(
-                        SystemNotification.user_id == user_id,
-                        SystemNotification.user_id.is_(None)
-                    )
-                )
-
-            stmt = stmt.values(is_read=True, read_at=datetime.now())
-            result = await db.execute(stmt)
-            await db.commit()
-            return result.rowcount
-
-        except Exception as e:
-            logger.error(f"標記所有通知已讀失敗: {e}")
-            await db.rollback()
-            return 0
-
-    @staticmethod
-    async def get_unread_count(db: AsyncSession, user_id: Optional[int] = None) -> int:
-        """
-        取得未讀通知數量
-
-        Args:
-            db: 資料庫連線
-            user_id: 使用者 ID（過濾只計算該使用者的通知）
-        """
-        try:
-            from sqlalchemy import or_
-
-            query = select(func.count(SystemNotification.id)).where(
-                SystemNotification.is_read == False
-            )
-
-            # 使用者過濾
-            if user_id is not None:
-                query = query.where(
-                    or_(
-                        SystemNotification.user_id == user_id,
-                        SystemNotification.user_id.is_(None)
-                    )
-                )
-
-            result = await db.execute(query)
-            return result.scalar() or 0
-        except Exception as e:
-            logger.error(f"取得未讀數量失敗: {e}")
-            return 0
 
     # =========================================================================
     # 安全版本 API (使用獨立 Session，避免交易污染)

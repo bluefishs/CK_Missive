@@ -634,8 +634,8 @@ async def create_backup(
 新增或修改 Agent 工具、SSE 事件、合成邏輯前，須逐項確認：
 
 ### 新增工具
-- [ ] 後端 `agent_orchestrator.py` 的 `TOOLS` 字典已註冊新工具
-- [ ] 工具函數命名為 `_tool_{name}`，回傳 `dict` 包含 `summary` 和 `results`
+- [ ] 後端 `agent_tools.py` 的 `TOOL_DEFINITIONS` 已新增工具描述
+- [ ] 後端 `agent_tools.py` 的 `AgentToolExecutor` 已新增實作方法 `_tool_name`
 - [ ] 前端 `RAGChatPanel.tsx` 的 `TOOL_ICONS` 已加入工具圖示
 - [ ] 前端 `RAGChatPanel.tsx` 的 `TOOL_LABELS` 已加入中文標籤
 - [ ] 工具描述足夠讓 LLM 正確選擇（含使用時機說明）

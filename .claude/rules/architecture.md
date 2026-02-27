@@ -38,14 +38,19 @@ ORM 模型統一位於 `backend/app/extended/models.py`，按 8 個模組分區�
 ```
 backend/app/services/
 ├── base/                       # 基礎服務 (ImportBaseService, ServiceResponse)
-├── ai/                         # AI 服務 (19 個模組)
+├── ai/                         # AI 服務 (24 個模組)
 │   ├── ai_config.py            # AI 配置管理 Singleton (v1.1.0)
 │   ├── base_ai_service.py      # 基類：滑動窗口限流+Redis快取+統計 (v3.0.0)
 │   ├── document_ai_service.py  # 公文摘要/分類/關鍵字/意圖 (v5.0.0)
 │   ├── embedding_manager.py    # Embedding LRU快取+覆蓋率統計 (v1.1.0)
 │   ├── entity_extraction_service.py  # NER 實體提取+4策略JSON解析 (v1.0.0)
 │   ├── rag_query_service.py          # RAG 問答服務 (v2.3.0)
-│   ├── agent_orchestrator.py        # Agentic 文件檢索引擎 6工具+自動修正 (v1.5.0)
+│   ├── agent_orchestrator.py        # Agentic 主編排 (v2.0.0 模組化)
+│   ├── agent_chitchat.py            # 閒聊偵測+LLM對話+回應清理
+│   ├── agent_tools.py               # 6工具定義+實作 (AgentToolExecutor)
+│   ├── agent_planner.py             # 意圖前處理+LLM規劃+自動修正
+│   ├── agent_synthesis.py           # 答案合成+thinking過濾+context建構
+│   ├── agent_utils.py               # parse_json_safe, sse 共用工具
 │   ├── relation_graph_service.py     # 知識圖譜7-Phase建構 (v1.0.0)
 │   ├── canonical_entity_service.py   # 正規化實體4階段策略 (v1.0.0)
 │   ├── graph_ingestion_pipeline.py   # 圖譜資料入圖管線 (v1.0.0)

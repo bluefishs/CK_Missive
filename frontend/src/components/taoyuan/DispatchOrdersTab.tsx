@@ -5,11 +5,11 @@
  * - 新增派工單導航到獨立的新增頁面
  * - 點擊列表項目導航至派工單詳情頁進行編輯
  *
- * @version 1.3.0 - 新增文字欄位 (分案名稱、聯絡備註、專案資料夾)
- * @date 2026-01-29
+ * @version 1.4.0 - 提取欄位定義 (useDispatchOrderColumns) 和匯出邏輯 (useDispatchOrderExport)
+ * @date 2026-02-27
  */
 
-import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Typography,
@@ -35,18 +35,16 @@ import {
   FileExcelOutlined,
   SendOutlined,
   LinkOutlined,
-  PaperClipOutlined,
   RightOutlined,
 } from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
-import Highlighter from 'react-highlight-words';
 
 import { ResponsiveTable } from '../common';
 import { dispatchOrdersApi } from '../../api/taoyuanDispatchApi';
 import type { DispatchOrder } from '../../types/api';
 import { useTableColumnSearch } from '../../hooks/utility/useTableColumnSearch';
 import { useResponsive, useTaoyuanDispatchOrders } from '../../hooks';
-import { WORK_TYPE_OPTIONS } from '../../constants/taoyuanOptions';
+import { useDispatchOrderColumns } from './dispatchOrders/useDispatchOrderColumns';
+import { useDispatchOrderExport } from './dispatchOrders/useDispatchOrderExport';
 
 const { Text } = Typography;
 const { Search } = Input;
@@ -64,21 +62,6 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
   const { message } = App.useApp();
   const [searchText, setSearchText] = useState('');
   const [importModalVisible, setImportModalVisible] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const [exportProgress, setExportProgress] = useState<{ progress: number; message: string } | null>(null);
-  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const pollFailCountRef = useRef(0);
-  const MAX_POLL_FAILURES = 10;
-
-  // 元件卸載時清理 polling interval
-  useEffect(() => {
-    return () => {
-      if (pollTimerRef.current) {
-        clearInterval(pollTimerRef.current);
-        pollTimerRef.current = null;
-      }
-    };
-  }, []);
 
   // RWD 響應式
   const { isMobile } = useResponsive();
@@ -99,6 +82,37 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
     contract_project_id: contractProjectId,
     search: searchText || undefined,
     limit: 100,
+  });
+
+  // 動態篩選器
+  const dispatchCaseHandlerFilters = useMemo(() =>
+    [...new Set(orders.map((o) => o.case_handler).filter(Boolean))]
+      .map((h) => ({ text: h as string, value: h as string })),
+    [orders]
+  );
+
+  const dispatchSurveyUnitFilters = useMemo(() =>
+    [...new Set(orders.map((o) => o.survey_unit).filter(Boolean))]
+      .map((s) => ({ text: s as string, value: s as string })),
+    [orders]
+  );
+
+  // 欄位定義 Hook
+  const columns = useDispatchOrderColumns({
+    columnSearchText,
+    searchedColumn,
+    getColumnSearchProps,
+    navigate,
+    dispatchCaseHandlerFilters,
+    dispatchSurveyUnitFilters,
+  });
+
+  // 匯出邏輯 Hook
+  const { exporting, exportProgress, handleExportMasterExcel } = useDispatchOrderExport({
+    contractProjectId,
+    searchText,
+    orderCount: orders.length,
+    message,
   });
 
   const handleCreate = useCallback(() => {
@@ -130,314 +144,6 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
       message.error('下載範本失敗');
     }
   }, [message]);
-
-  const handleExportMasterExcel = useCallback(async () => {
-    const ASYNC_THRESHOLD = 200;
-
-    // 小量資料直接同步匯出
-    if (orders.length <= ASYNC_THRESHOLD) {
-      setExporting(true);
-      try {
-        await dispatchOrdersApi.exportMasterExcel({
-          contract_project_id: contractProjectId,
-          search: searchText || undefined,
-        });
-        message.success('匯出成功');
-      } catch {
-        message.error('匯出失敗');
-      } finally {
-        setExporting(false);
-      }
-      return;
-    }
-
-    // 大量資料使用非同步匯出 + 進度追蹤
-    setExporting(true);
-    setExportProgress({ progress: 0, message: '提交匯出任務...' });
-
-    try {
-      const { task_id } = await dispatchOrdersApi.submitAsyncExport({
-        contract_project_id: contractProjectId,
-        search: searchText || undefined,
-      });
-
-      // 開始輪詢進度
-      pollFailCountRef.current = 0;
-      pollTimerRef.current = setInterval(async () => {
-        try {
-          const status = await dispatchOrdersApi.getExportProgress(task_id);
-          pollFailCountRef.current = 0; // 成功時重置
-
-          setExportProgress({ progress: status.progress, message: status.message });
-
-          if (status.status === 'completed') {
-            if (pollTimerRef.current) clearInterval(pollTimerRef.current);
-            pollTimerRef.current = null;
-            setExportProgress(null);
-            setExporting(false);
-
-            // 自動下載
-            await dispatchOrdersApi.downloadAsyncExport(task_id, status.filename);
-            message.success('匯出完成');
-          } else if (status.status === 'failed') {
-            if (pollTimerRef.current) clearInterval(pollTimerRef.current);
-            pollTimerRef.current = null;
-            setExportProgress(null);
-            setExporting(false);
-            message.error(status.message || '匯出失敗');
-          }
-        } catch {
-          pollFailCountRef.current += 1;
-          if (pollFailCountRef.current >= MAX_POLL_FAILURES) {
-            if (pollTimerRef.current) clearInterval(pollTimerRef.current);
-            pollTimerRef.current = null;
-            setExportProgress(null);
-            setExporting(false);
-            message.error('匯出進度查詢失敗，請稍後重試');
-          }
-        }
-      }, 2000);
-    } catch {
-      setExportProgress(null);
-      setExporting(false);
-      message.error('提交匯出任務失敗');
-    }
-  }, [contractProjectId, searchText, message, orders.length]);
-
-  const dispatchCaseHandlerFilters = useMemo(() =>
-    [...new Set(orders.map((o) => o.case_handler).filter(Boolean))]
-      .map((h) => ({ text: h as string, value: h as string })),
-    [orders]
-  );
-
-  const dispatchSurveyUnitFilters = useMemo(() =>
-    [...new Set(orders.map((o) => o.survey_unit).filter(Boolean))]
-      .map((s) => ({ text: s as string, value: s as string })),
-    [orders]
-  );
-
-  /**
-   * 根據公文字號自動判斷關聯類型
-   * - 以「乾坤」開頭的公文 → 乾坤發文 (company_outgoing)
-   * - 其他 → 機關來函 (agency_incoming)
-   */
-  const detectLinkType = (docNumber?: string): 'agency_incoming' | 'company_outgoing' => {
-    if (!docNumber) return 'agency_incoming';
-    if (docNumber.startsWith('乾坤')) {
-      return 'company_outgoing';
-    }
-    return 'agency_incoming';
-  };
-
-  // 欄位順序：序、派工單號、工程名稱、作業類別、履約期限、承辦、查估單位、雲端、關聯公文、關聯工程、附件
-  const columns: ColumnsType<DispatchOrder> = [
-    {
-      title: '序',
-      key: 'rowIndex',
-      width: 40,
-      fixed: 'left',
-      align: 'center',
-      render: (_: unknown, __: DispatchOrder, index: number) => index + 1,
-    },
-    {
-      title: '派工單號',
-      dataIndex: 'dispatch_no',
-      width: 125,
-      fixed: 'left',
-      sorter: (a, b) => (a.dispatch_no ?? '').localeCompare(b.dispatch_no ?? ''),
-      ...getColumnSearchProps('dispatch_no'),
-      render: (val: string) =>
-        searchedColumn === 'dispatch_no' ? (
-          <Highlighter
-            highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
-            searchWords={[columnSearchText]}
-            autoEscape
-            textToHighlight={val ? val.toString() : ''}
-          />
-        ) : (
-          <Text style={{ color: '#1890ff', cursor: 'pointer' }}>{val}</Text>
-        ),
-    },
-    {
-      title: '工程名稱/派工事項',
-      dataIndex: 'project_name',
-      width: 180,
-      ellipsis: true,
-      sorter: (a, b) => (a.project_name ?? '').localeCompare(b.project_name ?? ''),
-      ...getColumnSearchProps('project_name'),
-      render: (val: string) =>
-        searchedColumn === 'project_name' ? (
-          <Highlighter
-            highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
-            searchWords={[columnSearchText]}
-            autoEscape
-            textToHighlight={val ? val.toString() : ''}
-          />
-        ) : (
-          <Tooltip title={val}><span>{val}</span></Tooltip>
-        ),
-    },
-    {
-      title: '作業類別',
-      dataIndex: 'work_type',
-      width: 140,
-      ellipsis: false,
-      filters: WORK_TYPE_OPTIONS.map((opt) => ({ text: opt.label, value: opt.value })),
-      onFilter: (value, record) => (record.work_type || '').includes(value as string),
-      render: (val?: string) => {
-        if (!val) return '-';
-        const types = val.split(',').map((t) => t.trim()).filter(Boolean);
-        if (types.length === 1) {
-          return <Tag color="blue">{types[0]}</Tag>;
-        }
-        return (
-          <Space direction="vertical" size={2}>
-            {types.slice(0, 2).map((t, idx) => (
-              <Tag key={idx} color="blue" style={{ fontSize: 11 }}>{t}</Tag>
-            ))}
-            {types.length > 2 && (
-              <Tooltip title={types.slice(2).join(', ')}>
-                <Text type="secondary" style={{ fontSize: 11 }}>+{types.length - 2} 項</Text>
-              </Tooltip>
-            )}
-          </Space>
-        );
-      },
-    },
-    {
-      title: '履約期限',
-      dataIndex: 'deadline',
-      width: 105,
-      ellipsis: true,
-      sorter: (a, b) => (a.deadline ?? '').localeCompare(b.deadline ?? ''),
-      render: (val?: string) => val ? (
-        <Tooltip title={val}>
-          <span style={{ fontSize: 12 }}>{val}</span>
-        </Tooltip>
-      ) : '-',
-    },
-    {
-      title: '承辦',
-      dataIndex: 'case_handler',
-      width: 65,
-      align: 'center',
-      ellipsis: true,
-      sorter: (a, b) => (a.case_handler ?? '').localeCompare(b.case_handler ?? ''),
-      filters: dispatchCaseHandlerFilters,
-      onFilter: (value, record) => record.case_handler === value,
-      render: (val?: string) => val ? (
-        <Tooltip title={val}><span>{val}</span></Tooltip>
-      ) : '-',
-    },
-    {
-      title: '查估單位',
-      dataIndex: 'survey_unit',
-      width: 100,
-      ellipsis: true,
-      filters: dispatchSurveyUnitFilters,
-      onFilter: (value, record) => record.survey_unit === value,
-      render: (val?: string) => val ? (
-        <Tooltip title={val}><span>{val}</span></Tooltip>
-      ) : '-',
-    },
-    {
-      title: '雲端',
-      dataIndex: 'cloud_folder',
-      width: 50,
-      align: 'center',
-      render: (val?: string) => val ? (
-        <Tooltip title={val}>
-          <a href={val} target="_blank" rel="noopener noreferrer">
-            <LinkOutlined />
-          </a>
-        </Tooltip>
-      ) : '-',
-    },
-    {
-      title: '關聯公文',
-      key: 'linked_documents',
-      width: 130,
-      render: (_, record) => {
-        const docs = record.linked_documents || [];
-        if (docs.length === 0) return <Text type="secondary">-</Text>;
-        const sortedDocs = [...docs].sort((a, b) => {
-          const dateA = a.doc_date || '';
-          const dateB = b.doc_date || '';
-          return dateB.localeCompare(dateA);
-        });
-        return (
-          <Space direction="vertical" size={0}>
-            {sortedDocs.slice(0, 2).map((doc) => {
-              const correctedType = detectLinkType(doc.doc_number);
-              const isAgency = correctedType === 'agency_incoming';
-              return (
-                <Tooltip key={doc.link_id} title={doc.subject || ''}>
-                  <Tag color={isAgency ? 'cyan' : 'orange'} style={{ marginBottom: 2, fontSize: 11 }}>
-                    {doc.doc_number || `#${doc.document_id}`}
-                  </Tag>
-                </Tooltip>
-              );
-            })}
-            {sortedDocs.length > 2 && (
-              <Text type="secondary" style={{ fontSize: 11 }}>
-                +{sortedDocs.length - 2} 筆
-              </Text>
-            )}
-          </Space>
-        );
-      },
-    },
-    {
-      title: '關聯工程',
-      key: 'linked_projects',
-      width: 120,
-      render: (_, record) => {
-        const projects = record.linked_projects || [];
-        if (projects.length === 0) return <Text type="secondary">-</Text>;
-        return (
-          <Space direction="vertical" size={0}>
-            {projects.slice(0, 2).map((proj) => (
-              <Tooltip key={proj.id} title={proj.project_name}>
-                <Tag color="purple" style={{ marginBottom: 2, fontSize: 11 }}>
-                  {proj.project_name?.slice(0, 8) || `工程#${proj.id}`}
-                </Tag>
-              </Tooltip>
-            ))}
-            {projects.length > 2 && (
-              <Text type="secondary" style={{ fontSize: 11 }}>
-                +{projects.length - 2} 筆
-              </Text>
-            )}
-          </Space>
-        );
-      },
-    },
-    {
-      title: '附件',
-      key: 'attachment_count',
-      width: 50,
-      align: 'center',
-      render: (_, record) => {
-        const count = record.attachment_count ?? 0;
-        if (count === 0) return <Text type="secondary">-</Text>;
-        return (
-          <Tooltip title={`${count} 個附件`}>
-            <Button
-              type="link"
-              size="small"
-              icon={<PaperClipOutlined />}
-              onClick={(e) => {
-                e.stopPropagation();
-                navigate(`/taoyuan/dispatch/${record.id}?tab=attachments`);
-              }}
-            >
-              {count}
-            </Button>
-          </Tooltip>
-        );
-      },
-    },
-  ];
 
   const handleRowClick = useCallback((record: DispatchOrder) => {
     navigate(`/taoyuan/dispatch/${record.id}`);

@@ -53,6 +53,7 @@ class TestPromptInjection:
         svc._rate_limiter = MagicMock(
             can_proceed=MagicMock(return_value=True),
             record_request=MagicMock(),
+            acquire=AsyncMock(return_value=(True, 0)),
         )
         svc._stats_manager = AsyncMock()
         svc._stats_manager.record = AsyncMock()

@@ -63,18 +63,18 @@ async def get_notifications(
     回傳包含總數和未讀數量
     """
     try:
-        result = await NotificationService.get_notifications(
-            db=db,
+        service = NotificationService(db)
+        notification_items, total = await service.list_notifications(
             user_id=current_user.id,
             is_read=query.is_read,
-            severity=query.severity,
             notification_type=query.type,
             limit=query.limit,
-            offset=(query.page - 1) * query.limit
+            offset=(query.page - 1) * query.limit,
         )
+        unread_count = await service.get_unread_count_for_user(current_user.id)
 
         items = []
-        for item in result.get("items", []):
+        for item in notification_items:
             items.append(NotificationItem(
                 id=item["id"],
                 type=item["type"],
@@ -94,8 +94,8 @@ async def get_notifications(
         return NotificationListResponse(
             success=True,
             items=items,
-            total=result.get("total", 0),
-            unread_count=result.get("unread_count", 0),
+            total=total,
+            unread_count=unread_count,
             page=query.page,
             limit=query.limit
         )
@@ -128,17 +128,12 @@ async def get_unread_count(
     用於前端通知圖示的 badge 顯示
     """
     try:
-        result = await NotificationService.get_notifications(
-            db=db,
-            user_id=current_user.id,
-            is_read=False,
-            limit=1,
-            offset=0
-        )
+        service = NotificationService(db)
+        unread_count = await service.get_unread_count_for_user(current_user.id)
 
         return UnreadCountResponse(
             success=True,
-            unread_count=result.get("unread_count", 0)
+            unread_count=unread_count
         )
 
     except Exception as e:
@@ -162,10 +157,9 @@ async def mark_notifications_read(
     傳入通知 ID 列表，批次標記為已讀
     """
     try:
-        updated_count = await NotificationService.mark_as_read(
-            db=db,
-            notification_ids=request.notification_ids,
-            user_id=current_user.id
+        service = NotificationService(db)
+        updated_count = await service.mark_notifications_read(
+            notification_ids=request.notification_ids
         )
 
         return MarkReadResponse(
@@ -198,8 +192,8 @@ async def mark_all_notifications_read(
     一鍵清除所有未讀通知
     """
     try:
-        updated_count = await NotificationService.mark_all_as_read(
-            db=db,
+        service = NotificationService(db)
+        updated_count = await service.mark_all_read_for_user(
             user_id=current_user.id
         )
 

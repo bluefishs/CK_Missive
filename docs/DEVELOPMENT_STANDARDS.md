@@ -380,7 +380,7 @@ Agent 模式採用多步工具呼叫 + LLM 合成回答，核心元件：
 
 | 元件 | 位置 | 職責 |
 |------|------|------|
-| `AgentOrchestrator` | `services/ai/agent_orchestrator.py` | 工具路由、迭代控制、合成回答 |
+| `AgentOrchestrator` | `services/ai/agent_orchestrator.py` | 主編排 (v2.0.0 模組化：tools/planner/synthesis/chitchat/utils) |
 | `agent_query.py` | `api/endpoints/ai/agent_query.py` | SSE 端點、串流事件發送 |
 | `RAGChatPanel.tsx` | `components/ai/RAGChatPanel.tsx` | 前端推理步驟可視化 + 串流渲染 |
 
@@ -412,11 +412,9 @@ Agent 模式採用多步工具呼叫 + LLM 合成回答，核心元件：
 新增 Agent 工具時須同步更新：
 
 ```python
-# 1. 後端：agent_orchestrator.py — TOOLS 字典
-TOOLS = {
-    "search_documents": {"func": self._tool_search_documents, ...},
-    "new_tool_name": {"func": self._tool_new, "description": "...", "params": {...}},
-}
+# 1. 後端：agent_tools.py — TOOL_DEFINITIONS + AgentToolExecutor
+# 在 TOOL_DEFINITIONS 新增工具描述，在 AgentToolExecutor 新增實作方法
+from app.services.ai.agent_tools import TOOL_DEFINITIONS, AgentToolExecutor
 ```
 
 ```typescript

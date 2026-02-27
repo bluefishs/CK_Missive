@@ -323,12 +323,15 @@ export async function ragQuery(request: RAGQueryRequest): Promise<RAGQueryRespon
   return await apiClient.post<RAGQueryResponse>(AI_ENDPOINTS.RAG_QUERY, request);
 }
 
+/** SSE 錯誤代碼 */
+export type SSEErrorCode = 'RATE_LIMITED' | 'SERVICE_ERROR' | 'STREAM_TIMEOUT' | 'EMBEDDING_ERROR' | 'LLM_ERROR' | 'VALIDATION_ERROR';
+
 /** RAG SSE 事件回調 */
 export interface RAGStreamCallbacks {
   onSources: (sources: RAGQueryResponse['sources'], count: number) => void;
   onToken: (token: string) => void;
   onDone: (latencyMs: number, model: string) => void;
-  onError?: (error: string) => void;
+  onError?: (error: string, code?: SSEErrorCode) => void;
 }
 
 /**
@@ -404,7 +407,7 @@ export function streamRAGQuery(
                 callbacks.onDone(data.latency_ms || 0, data.model || '');
                 return;
               case 'error':
-                callbacks.onError?.(data.error || 'Unknown error');
+                callbacks.onError?.(data.error || 'Unknown error', data.code);
                 break;
             }
           } catch {
@@ -431,7 +434,7 @@ export function streamRAGQuery(
                 callbacks.onDone(data.latency_ms || 0, data.model || '');
                 return;
               case 'error':
-                callbacks.onError?.(data.error || 'Unknown error');
+                callbacks.onError?.(data.error || 'Unknown error', data.code);
                 break;
             }
           } catch {
@@ -481,7 +484,7 @@ export interface AgentStreamCallbacks {
   onSources: (sources: RAGQueryResponse['sources'], count: number) => void;
   onToken: (token: string) => void;
   onDone: (latencyMs: number, model: string, toolsUsed: string[], iterations: number) => void;
-  onError?: (error: string) => void;
+  onError?: (error: string, code?: SSEErrorCode) => void;
 }
 
 /**
@@ -571,7 +574,7 @@ export function streamAgentQuery(
                 );
                 return;
               case 'error':
-                callbacks.onError?.(data.error || 'Unknown error');
+                callbacks.onError?.(data.error || 'Unknown error', data.code);
                 break;
             }
           } catch {
@@ -612,7 +615,7 @@ export function streamAgentQuery(
                 );
                 return;
               case 'error':
-                callbacks.onError?.(data.error || 'Unknown error');
+                callbacks.onError?.(data.error || 'Unknown error', data.code);
                 break;
             }
           } catch {

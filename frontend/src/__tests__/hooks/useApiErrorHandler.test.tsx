@@ -5,17 +5,28 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 
-// Mock Antd message and notification
-vi.mock('antd', () => ({
-  message: {
-    error: vi.fn(),
-    warning: vi.fn(),
-  },
-  notification: {
-    error: vi.fn(),
-    warning: vi.fn(),
-  },
+// Mock Antd message, notification, and App.useApp
+// vi.hoisted 確保變數在 vi.mock 提升時可用
+const { mockMessage, mockNotification } = vi.hoisted(() => ({
+  mockMessage: { error: vi.fn(), warning: vi.fn(), success: vi.fn(), info: vi.fn() },
+  mockNotification: { error: vi.fn(), warning: vi.fn(), success: vi.fn(), info: vi.fn(), open: vi.fn() },
 }));
+vi.mock('antd', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('antd')>();
+  return {
+    ...actual,
+    App: {
+      ...actual.App,
+      useApp: () => ({
+        message: mockMessage,
+        notification: mockNotification,
+        modal: { confirm: vi.fn(), info: vi.fn(), error: vi.fn(), warning: vi.fn() },
+      }),
+    },
+    notification: mockNotification,
+    message: mockMessage,
+  };
+});
 
 // Mock apiErrorParser
 vi.mock('../../utils/apiErrorParser', () => ({
@@ -38,7 +49,6 @@ vi.mock('../../utils/logger', () => ({
 }));
 
 import { useApiErrorHandler } from '../../hooks/utility/useApiErrorHandler';
-import { notification, message } from 'antd';
 
 describe('useApiErrorHandler', () => {
   beforeEach(() => {
@@ -76,7 +86,7 @@ describe('useApiErrorHandler', () => {
         result.current.handleError(new Error('通知錯誤'));
       });
 
-      expect(notification.warning).toHaveBeenCalled();
+      expect(mockNotification.warning).toHaveBeenCalled();
     });
 
     it('應該顯示訊息當 showMessage 為 true', () => {
@@ -88,7 +98,7 @@ describe('useApiErrorHandler', () => {
         result.current.handleError({ message: '訊息錯誤', response: { status: 400 } });
       });
 
-      expect(message.warning).toHaveBeenCalled();
+      expect(mockMessage.warning).toHaveBeenCalled();
     });
 
     it('應該呼叫 onError 回調', () => {

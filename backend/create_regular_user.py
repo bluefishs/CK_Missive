@@ -4,12 +4,9 @@ Create regular user script
 """
 import asyncio
 import asyncpg
-from passlib.context import CryptContext
+import bcrypt
 import json
 from datetime import datetime
-
-# Use same password context as AuthService
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 async def create_regular_user():
     """Create regular user with correct password hash"""
@@ -25,10 +22,10 @@ async def create_regular_user():
         
         print("Database connected successfully")
         
-        # Generate user password hash using passlib
+        # Generate user password hash using bcrypt
         user_email = "user@ck-missive.com"
         user_password = "user123"
-        password_hash = pwd_context.hash(user_password)
+        password_hash = bcrypt.hashpw(user_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
         
         # Regular user permissions list
         user_permissions = [
@@ -83,7 +80,7 @@ async def create_regular_user():
             print(f"Created new regular user: {user_email}")
         
         # Test password verification
-        test_verify = pwd_context.verify(user_password, password_hash)
+        test_verify = bcrypt.checkpw(user_password.encode("utf-8"), password_hash.encode("utf-8"))
         print(f"Password verification test: {test_verify}")
         
         await conn.close()

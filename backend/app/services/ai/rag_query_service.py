@@ -166,6 +166,7 @@ class RAGQueryService:
             yield self._sse(
                 type="error",
                 error="無法生成查詢向量，請確認 Ollama embedding 服務是否正常運行。",
+                code="EMBEDDING_ERROR",
             )
             yield self._sse(type="done", latency_ms=int((time.time() - t0) * 1000), model="none")
             return
@@ -206,7 +207,11 @@ class RAGQueryService:
                 yield self._sse(type="token", token=chunk)
         except Exception as e:
             logger.error("RAG stream failed: %s", e)
-            yield self._sse(type="token", token="AI 回答生成失敗，請參考下方來源文件。")
+            yield self._sse(
+                type="error",
+                error="AI 回答生成失敗，請參考下方來源文件。",
+                code="LLM_ERROR",
+            )
             model_used = "fallback"
 
         latency_ms = int((time.time() - t0) * 1000)

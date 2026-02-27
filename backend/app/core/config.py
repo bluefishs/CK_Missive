@@ -140,6 +140,8 @@ class Settings(BaseSettings):
     # =========================================================================
     LOG_LEVEL: str = "INFO"
     LOG_FILE: str = "./logs/app.log"
+    LOG_MAX_SIZE_MB: int = 10       # 單檔最大 MB（超過自動輪替）
+    LOG_BACKUP_COUNT: int = 5       # 保留的備份檔案數量
 
     # =========================================================================
     # API 速率限制設定

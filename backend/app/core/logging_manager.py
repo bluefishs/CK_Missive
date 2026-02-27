@@ -5,6 +5,7 @@
 """
 
 import logging
+import logging.handlers
 import json
 import time
 from datetime import datetime
@@ -77,10 +78,16 @@ class LogEntry:
 class SystemLogManager:
     """系統日誌管理器"""
     
-    def __init__(self, log_dir: str = "logs", max_file_size: int = 10 * 1024 * 1024):
+    def __init__(
+        self,
+        log_dir: str = "logs",
+        max_file_size: int = 10 * 1024 * 1024,  # 10 MB
+        backup_count: int = 5,
+    ):
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(exist_ok=True)
         self.max_file_size = max_file_size
+        self.backup_count = backup_count
         
         # 初始化不同類型的日誌記錄器
         self._setup_loggers()
@@ -108,16 +115,18 @@ class SystemLogManager:
         self.db_logger = self._create_logger("database", "database.log")
     
     def _create_logger(self, name: str, filename: str) -> logging.Logger:
-        """創建日誌記錄器"""
+        """創建日誌記錄器（含自動輪替）"""
         logger = logging.getLogger(f"ck_missive.{name}")
         logger.setLevel(logging.DEBUG)
-        
+
         # 避免重複添加handler
         if not logger.handlers:
-            # 文件處理器
-            file_handler = logging.FileHandler(
-                self.log_dir / filename, 
-                encoding='utf-8'
+            # 文件處理器 — RotatingFileHandler 自動輪替
+            file_handler = logging.handlers.RotatingFileHandler(
+                self.log_dir / filename,
+                maxBytes=self.max_file_size,
+                backupCount=self.backup_count,
+                encoding='utf-8',
             )
             file_handler.setLevel(logging.DEBUG)
             
@@ -320,8 +329,20 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             raise
 
 
-# 全局日誌管理器實例
-log_manager = SystemLogManager()
+# 全局日誌管理器實例 — 讀取環境變數配置
+def _create_log_manager() -> SystemLogManager:
+    """從 config 讀取輪替設定"""
+    try:
+        from app.core.config import settings
+        max_size = settings.LOG_MAX_SIZE_MB * 1024 * 1024
+        backup_count = settings.LOG_BACKUP_COUNT
+    except Exception:
+        max_size = 10 * 1024 * 1024  # 10 MB fallback
+        backup_count = 5
+    return SystemLogManager(max_file_size=max_size, backup_count=backup_count)
+
+
+log_manager = _create_log_manager()
 
 
 # 便捷函數

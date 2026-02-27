@@ -40,7 +40,7 @@ async def agent_query_stream(
       data: {"type":"sources","sources":[...],"retrieval_count":N}
       data: {"type":"token","token":"字"}
       data: {"type":"done","latency_ms":N,"model":"...","tools_used":[...],"iterations":N}
-      data: {"type":"error","error":"...","code":"RATE_LIMITED|SERVICE_ERROR|TIMEOUT|VALIDATION_ERROR"}
+      data: {"type":"error","error":"...","code":"RATE_LIMITED|SERVICE_ERROR|STREAM_TIMEOUT"}
     """
     from app.services.ai.agent_orchestrator import AgentOrchestrator
 

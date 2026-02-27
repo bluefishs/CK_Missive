@@ -7,7 +7,7 @@
 所有需要 embedding 的服務（搜尋、圖譜入圖、批次回填）
 均應透過此管理器取得 embedding。
 
-Version: 1.2.0 - 重新命名 _lock → _write_lock，新增 _embed_semaphore 限制並發 Ollama 呼叫
+Version: 1.3.0 - 新增 get_embeddings_batch 批次快取 + 並發產生
 Created: 2026-02-24
 """
 
@@ -122,6 +122,82 @@ class EmbeddingManager:
                 cls._cache[key] = (embedding, time.monotonic())
 
         return embedding
+
+    @classmethod
+    async def get_embeddings_batch(
+        cls,
+        texts: List[str],
+        connector: object,
+    ) -> List[Optional[List[float]]]:
+        """
+        批次取得 embeddings（快取優先，未命中部分並發產生）
+
+        相比逐一呼叫 get_embedding，此方法：
+        1. 一次性查詢快取，分離命中/未命中
+        2. 未命中部分透過 Semaphore 並發產生
+        3. 批次寫入快取
+
+        Args:
+            texts: 文字清單
+            connector: AIConnector 實例
+
+        Returns:
+            與 texts 等長的 embedding 清單（失敗者為 None）
+        """
+        if not texts:
+            return []
+
+        results: List[Optional[List[float]]] = [None] * len(texts)
+        to_generate: List[Tuple[int, str, str]] = []  # (index, text, cache_key)
+
+        # Phase 1: 批次快取查詢
+        async with cls._write_lock:
+            now = time.monotonic()
+            for i, text in enumerate(texts):
+                if not text or not text.strip():
+                    continue
+                key = cls._cache_key(text)
+                if key in cls._cache:
+                    embedding, ts = cls._cache[key]
+                    if now - ts < cls._cache_ttl:
+                        cls._hits += 1
+                        cls._cache.move_to_end(key)
+                        results[i] = embedding
+                        continue
+                    else:
+                        del cls._cache[key]
+                to_generate.append((i, text, key))
+
+        if not to_generate:
+            return results
+
+        # Phase 2: 並發產生（受 Semaphore 限制）
+        cls._misses += len(to_generate)
+
+        async def _generate_one(idx: int, text: str, key: str) -> Tuple[int, str, Optional[List[float]]]:
+            try:
+                async with cls._embed_semaphore:
+                    emb = await connector.generate_embedding(text)  # type: ignore[attr-defined]
+                if emb and isinstance(emb, list) and len(emb) > 0:
+                    return (idx, key, emb)
+            except Exception as e:
+                logger.warning("Batch embedding failed for text[%d]: %s", idx, e)
+            return (idx, key, None)
+
+        tasks = [_generate_one(idx, text, key) for idx, text, key in to_generate]
+        generated = await asyncio.gather(*tasks)
+
+        # Phase 3: 批次寫入快取
+        async with cls._write_lock:
+            cls._evict_expired()
+            for idx, key, emb in generated:
+                results[idx] = emb
+                if emb is not None:
+                    if len(cls._cache) >= cls._max_cache_size:
+                        cls._cache.popitem(last=False)
+                    cls._cache[key] = (emb, time.monotonic())
+
+        return results
 
     @classmethod
     def get_stats(cls) -> Dict[str, int]:

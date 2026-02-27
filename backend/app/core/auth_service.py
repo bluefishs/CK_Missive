@@ -17,7 +17,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt
 from google.oauth2 import id_token
 from google.auth.transport import requests
 import uuid
@@ -35,8 +35,7 @@ from app.services.audit_service import AuditService
 
 logger = logging.getLogger(__name__)
 
-# 密碼加密設定
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# 密碼加密設定 — 直接使用 bcrypt（取代已停維護的 passlib）
 
 # JWT 設定
 ALGORITHM = "HS256"
@@ -118,17 +117,23 @@ class AuthService:
 
     @staticmethod
     def verify_password(plain_password: str, hashed_password: str) -> bool:
-        """驗證密碼 - 僅支援 bcrypt 雜湊比較"""
+        """驗證密碼 - 直接使用 bcrypt"""
         try:
-            return pwd_context.verify(plain_password, hashed_password)
+            return bcrypt.checkpw(
+                plain_password.encode("utf-8"),
+                hashed_password.encode("utf-8"),
+            )
         except Exception as e:
             logger.error(f"bcrypt 驗證異常（可能是非法 hash 格式）: {type(e).__name__}")
             return False
-    
+
     @staticmethod
     def get_password_hash(password: str) -> str:
-        """生成密碼雜湊"""
-        return pwd_context.hash(password)
+        """生成密碼雜湊 - 直接使用 bcrypt"""
+        return bcrypt.hashpw(
+            password.encode("utf-8"),
+            bcrypt.gensalt(),
+        ).decode("utf-8")
 
     @staticmethod
     def validate_password_strength(

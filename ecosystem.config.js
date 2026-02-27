@@ -55,6 +55,7 @@ module.exports = {
       out_file: './logs/backend-out.log',
       log_date_format: 'YYYY-MM-DD HH:mm:ss',
       merge_logs: true,
+      max_size: '10M',  // 超過 10MB 自動輪替（需 pm2-logrotate 或 PM2 >= 5.x）
 
       // 重啟策略
       restart_delay: 10000,  // 增加到 10 秒，讓端口有時間釋放
@@ -89,6 +90,7 @@ module.exports = {
       out_file: './logs/frontend-out.log',
       log_date_format: 'YYYY-MM-DD HH:mm:ss',
       merge_logs: true,
+      max_size: '10M',  // 超過 10MB 自動輪替
 
       // 重啟策略
       restart_delay: 3000,

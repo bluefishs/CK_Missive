@@ -20,62 +20,23 @@ import {
   Typography,
   Space,
   Tag,
-  List,
-  Collapse,
   Empty,
   Tooltip,
   App,
-  Steps,
 } from 'antd';
 import {
   SendOutlined,
   RobotOutlined,
-  UserOutlined,
-  FileTextOutlined,
-  ClockCircleOutlined,
   DeleteOutlined,
-  DatabaseOutlined,
-  LoadingOutlined,
-  SearchOutlined,
-  NodeIndexOutlined,
   ThunderboltOutlined,
-  BulbOutlined,
-  ToolOutlined,
-  CheckCircleOutlined,
-  CopyOutlined,
-  BarChartOutlined,
 } from '@ant-design/icons';
 import { aiApi } from '../../api/aiApi';
-import type { RAGSourceItem } from '../../types/ai';
+import { MessageBubble } from './MessageBubble';
+import type { ChatMessage } from './MessageBubble';
+import type { AgentStepInfo } from './AgentStepsDisplay';
 
-const { Text, Paragraph } = Typography;
+const { Text } = Typography;
 const { TextArea } = Input;
-
-/** 推理步驟 */
-interface AgentStepInfo {
-  type: 'thinking' | 'tool_call' | 'tool_result';
-  step_index: number;
-  step?: string;
-  tool?: string;
-  params?: Record<string, unknown>;
-  summary?: string;
-  count?: number;
-}
-
-interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-  sources?: RAGSourceItem[];
-  latency_ms?: number;
-  model?: string;
-  retrieval_count?: number;
-  streaming?: boolean;
-  // Agentic 模式
-  agentSteps?: AgentStepInfo[];
-  toolsUsed?: string[];
-  iterations?: number;
-}
 
 export interface RAGChatPanelProps {
   /** 嵌入模式：省略外層 Card 框架，改用 flex 填充父容器 */
@@ -219,8 +180,14 @@ export const RAGChatPanel: React.FC<RAGChatPanelProps> = ({
             setLoading(false);
             abortRef.current = null;
           },
-          onError: (error) => {
-            messageApi.error(`Agent 錯誤: ${error}`);
+          onError: (error, code) => {
+            if (code === 'RATE_LIMITED') {
+              messageApi.warning(error);
+            } else if (code === 'STREAM_TIMEOUT') {
+              messageApi.warning(error);
+            } else {
+              messageApi.error(`Agent 錯誤: ${error}`);
+            }
           },
         },
       );
@@ -271,8 +238,14 @@ export const RAGChatPanel: React.FC<RAGChatPanelProps> = ({
             setLoading(false);
             abortRef.current = null;
           },
-          onError: (error) => {
-            messageApi.error(`RAG 錯誤: ${error}`);
+          onError: (error, code) => {
+            if (code === 'RATE_LIMITED') {
+              messageApi.warning(error);
+            } else if (code === 'EMBEDDING_ERROR') {
+              messageApi.error('向量服務異常，請確認 Ollama 是否正常運行。');
+            } else {
+              messageApi.error(`RAG 錯誤: ${error}`);
+            }
           },
         },
       );
@@ -400,247 +373,6 @@ export const RAGChatPanel: React.FC<RAGChatPanelProps> = ({
     >
       {chatContent}
     </Card>
-  );
-};
-
-// ============================================================================
-// Agent 推理步驟
-// ============================================================================
-
-const TOOL_ICONS: Record<string, React.ReactNode> = {
-  search_documents: <SearchOutlined />,
-  search_dispatch_orders: <FileTextOutlined />,
-  search_entities: <NodeIndexOutlined />,
-  get_entity_detail: <DatabaseOutlined />,
-  find_similar: <CopyOutlined />,
-  get_statistics: <BarChartOutlined />,
-};
-
-const TOOL_LABELS: Record<string, string> = {
-  search_documents: '搜尋公文',
-  search_dispatch_orders: '搜尋派工單',
-  search_entities: '搜尋實體',
-  get_entity_detail: '實體詳情',
-  find_similar: '相似公文',
-  get_statistics: '統計資訊',
-};
-
-const AgentStepsDisplay: React.FC<{ steps: AgentStepInfo[]; streaming: boolean }> = ({
-  steps,
-  streaming,
-}) => {
-  if (!steps || steps.length === 0) return null;
-
-  // Sort by step_index for correct ordering
-  const sorted = [...steps].sort((a, b) => a.step_index - b.step_index);
-
-  const stepsItems = sorted.map((s, idx) => {
-    if (s.type === 'thinking') {
-      return {
-        title: <Text style={{ fontSize: 11 }}><BulbOutlined /> {s.step}</Text>,
-        status: 'finish' as const,
-      };
-    }
-    if (s.type === 'tool_call') {
-      const icon = TOOL_ICONS[s.tool || ''] || <ToolOutlined />;
-      const label = TOOL_LABELS[s.tool || ''] || s.tool;
-      // Check if there's a matching tool_result after this
-      const hasResult = sorted.slice(idx + 1).some(
-        next => next.type === 'tool_result' && next.tool === s.tool
-      );
-      return {
-        title: (
-          <Text style={{ fontSize: 11 }}>
-            {icon} 呼叫 {label}
-          </Text>
-        ),
-        status: hasResult ? ('finish' as const) : ('process' as const),
-      };
-    }
-    if (s.type === 'tool_result') {
-      return {
-        title: (
-          <Text style={{ fontSize: 11 }}>
-            <CheckCircleOutlined style={{ color: '#52c41a' }} />{' '}
-            {s.summary}
-          </Text>
-        ),
-        status: 'finish' as const,
-      };
-    }
-    return { title: '', status: 'wait' as const };
-  });
-
-  // If still streaming, add a loading step
-  if (streaming) {
-    stepsItems.push({
-      title: <Text style={{ fontSize: 11 }}><LoadingOutlined /> 處理中...</Text>,
-      status: 'process' as const,
-    });
-  }
-
-  return (
-    <div style={{ marginBottom: 8, padding: '4px 0' }}>
-      <Steps
-        size="small"
-        direction="vertical"
-        current={stepsItems.length - 1}
-        items={stepsItems}
-        style={{ fontSize: 11 }}
-      />
-    </div>
-  );
-};
-
-// ============================================================================
-// 訊息氣泡
-// ============================================================================
-
-const MessageBubble: React.FC<{ message: ChatMessage; embedded?: boolean }> = ({
-  message,
-  embedded = false,
-}) => {
-  const isUser = message.role === 'user';
-
-  return (
-    <div
-      style={{
-        display: 'flex',
-        justifyContent: isUser ? 'flex-end' : 'flex-start',
-        marginBottom: 12,
-      }}
-    >
-      <div style={{ maxWidth: embedded ? '95%' : '85%' }}>
-        <Space size={4} style={{ marginBottom: 4 }}>
-          {!isUser && <RobotOutlined style={{ color: '#722ed1' }} />}
-          <Text type="secondary" style={{ fontSize: 11 }}>
-            {isUser ? '您' : 'AI 助理'}
-            {' '}
-            {message.timestamp.toLocaleTimeString('zh-TW', {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          </Text>
-          {isUser && <UserOutlined style={{ color: '#52c41a' }} />}
-        </Space>
-
-        <div
-          style={{
-            background: isUser ? '#e6f7ff' : '#fff',
-            border: `1px solid ${isUser ? '#91d5ff' : '#f0f0f0'}`,
-            borderRadius: 8,
-            padding: '10px 14px',
-          }}
-        >
-          {/* Agent 推理步驟 (在回答前顯示) */}
-          {!isUser && message.agentSteps && message.agentSteps.length > 0 && (
-            <Collapse
-              ghost
-              size="small"
-              defaultActiveKey={message.streaming ? ['steps'] : []}
-              style={{ marginBottom: message.content ? 8 : 0 }}
-              items={[
-                {
-                  key: 'steps',
-                  label: (
-                    <Text type="secondary" style={{ fontSize: 11 }}>
-                      <ThunderboltOutlined /> 推理過程 ({message.agentSteps.length} 步)
-                    </Text>
-                  ),
-                  children: (
-                    <AgentStepsDisplay
-                      steps={message.agentSteps}
-                      streaming={!!message.streaming && !message.content}
-                    />
-                  ),
-                },
-              ]}
-            />
-          )}
-
-          <Paragraph style={{ marginBottom: 0, whiteSpace: 'pre-wrap' }}>
-            {message.content}
-            {message.streaming && (
-              <LoadingOutlined style={{ marginLeft: 4, color: '#722ed1' }} />
-            )}
-          </Paragraph>
-        </div>
-
-        {/* Metadata tags */}
-        {!isUser && !message.streaming && message.latency_ms != null && (
-          <Space size={8} style={{ marginTop: 4 }} wrap>
-            <Tag icon={<ClockCircleOutlined />} color="default" style={{ fontSize: 11 }}>
-              {(message.latency_ms / 1000).toFixed(1)}s
-            </Tag>
-            {message.model && message.model !== 'none' && message.model !== 'error' && (
-              <Tag color="blue" style={{ fontSize: 11 }}>
-                {message.model}
-              </Tag>
-            )}
-            {message.retrieval_count != null && message.retrieval_count > 0 && (
-              <Tag icon={<FileTextOutlined />} color="green" style={{ fontSize: 11 }}>
-                {message.retrieval_count} 篇引用
-              </Tag>
-            )}
-            {message.toolsUsed && message.toolsUsed.length > 0 && (
-              <Tag icon={<ToolOutlined />} color="purple" style={{ fontSize: 11 }}>
-                {message.toolsUsed.length} 工具
-              </Tag>
-            )}
-          </Space>
-        )}
-
-        {/* Sources collapse */}
-        {!isUser && message.sources && message.sources.length > 0 && (
-          <Collapse
-            ghost
-            size="small"
-            style={{ marginTop: 8 }}
-            items={[
-              {
-                key: 'sources',
-                label: (
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    <FileTextOutlined /> 查看 {message.sources.length} 篇來源公文
-                  </Text>
-                ),
-                children: (
-                  <List
-                    size="small"
-                    dataSource={message.sources}
-                    renderItem={(src: RAGSourceItem) => (
-                      <List.Item style={{ padding: '4px 0' }}>
-                        <Space direction="vertical" size={0} style={{ width: '100%' }}>
-                          <Space>
-                            <Tag color="blue" style={{ fontSize: 11 }}>
-                              {src.doc_type || '函'}
-                            </Tag>
-                            <Text strong style={{ fontSize: 12 }}>
-                              {src.doc_number}
-                            </Text>
-                            {src.similarity > 0 && (
-                              <Tag style={{ fontSize: 11 }}>
-                                {(src.similarity * 100).toFixed(0)}%
-                              </Tag>
-                            )}
-                          </Space>
-                          <Text style={{ fontSize: 12 }} ellipsis>
-                            {src.subject}
-                          </Text>
-                          <Text type="secondary" style={{ fontSize: 11 }}>
-                            {src.sender} {src.doc_date ? `| ${src.doc_date}` : ''}
-                          </Text>
-                        </Space>
-                      </List.Item>
-                    )}
-                  />
-                ),
-              },
-            ]}
-          />
-        )}
-      </div>
-    </div>
   );
 };
 

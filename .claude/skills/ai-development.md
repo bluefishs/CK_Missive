@@ -160,7 +160,7 @@ Agent 工具模式（N 事件）:
 | `SynonymExpander` | `services/ai/synonym_expander.py` | 1.0.0 | 同義詞擴展 |
 | `RuleEngine` | `services/ai/rule_engine.py` | 2.0.0 | 規則引擎 |
 | `ExtractionScheduler` | `services/ai/extraction_scheduler.py` | 1.0.0 | NER 提取排程器 |
-| `AgentOrchestrator` | `services/ai/agent_orchestrator.py` | 1.8.0 | Agentic 文件檢索引擎 (6工具+閒聊模式+合成答案提取) |
+| `AgentOrchestrator` | `services/ai/agent_orchestrator.py` | 2.0.0 | Agentic 主編排 — 模組化 (tools/planner/synthesis/chitchat/utils) |
 | `RAGQueryService` | `services/ai/rag_query_service.py` | 2.3.0 | RAG 問答服務 (向量+關鍵字+串流) |
 | `AIPromptManager` | `services/ai/ai_prompt_manager.py` | - | Prompt 模板管理 (DB 熱重載) |
 | `prompts.yaml` | `services/ai/prompts.yaml` | 1.1.0 | 5 組 Prompt 模板 |
