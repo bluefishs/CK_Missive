@@ -232,6 +232,13 @@ function formatReport(results, counts, options) {
   lines.push(`  Matched:  ${results.matched.length} (after normalization)`);
   lines.push('');
 
+  // 快照過期警告
+  if (counts.staleWarning) {
+    lines.push(`  [STALE] OpenAPI snapshot is ${counts.staleWarning} days old (threshold: 7 days)`);
+    lines.push(`          Run: npm run api:check:update to refresh the snapshot`);
+    lines.push('');
+  }
+
   // FE-only (warnings)
   if (results.feOnly.length > 0) {
     lines.push(`  [WARN] Frontend-only — no backend match (${results.feOnly.length}):`);
@@ -376,6 +383,16 @@ async function main() {
 
   // --- 比對 ---
   const results = compareEndpoints(feEntries, bePaths);
+
+  // --- 快照過期警告 ---
+  const STALE_THRESHOLD_DAYS = 7;
+  if (snapshotStat && !useLive) {
+    const snapshotDate = new Date(snapshotStat);
+    const daysSinceSnapshot = Math.floor((Date.now() - snapshotDate.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysSinceSnapshot > STALE_THRESHOLD_DAYS) {
+      counts.staleWarning = daysSinceSnapshot;
+    }
+  }
 
   // --- 報告 ---
   const report = formatReport(results, counts, { verbose });

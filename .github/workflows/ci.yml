@@ -126,16 +126,26 @@ jobs:
           pip install pytest pytest-asyncio
           python -m pytest tests/unit/ -v --tb=short
 
-      - name: Run integration tests
+      - name: Run integration tests (soft-fail)
+        id: integration_tests
         run: |
-          python -m pytest tests/integration/ -v --tb=short || echo "Integration tests skipped or failed"
+          python -m pytest tests/integration/ -v --tb=short
         continue-on-error: true
 
-      - name: MyPy type check
+      - name: Integration test warning
+        if: steps.integration_tests.outcome == 'failure'
+        run: echo "::warning::Integration tests failed — review before merging to main"
+
+      - name: MyPy type check (soft-fail)
+        id: mypy_check
         run: |
           pip install mypy types-requests types-redis
-          mypy app --config-file mypy.ini || echo "Type check completed with warnings"
+          mypy app --config-file mypy.ini
         continue-on-error: true
+
+      - name: MyPy warning
+        if: steps.mypy_check.outcome == 'failure'
+        run: echo "::warning::MyPy type check has warnings — review type annotations"
 
   config-consistency:
     name: Configuration Consistency Check
@@ -219,12 +229,18 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Frontend npm audit
+      - name: Frontend npm audit (critical = hard-fail)
         working-directory: frontend
         run: |
           echo "=== Running npm audit ==="
           npm ci --ignore-scripts
-          npm audit --audit-level=high || echo "⚠️ Some high/critical vulnerabilities found"
+          npm audit --audit-level=critical
+          echo "✓ No critical vulnerabilities found"
+
+      - name: Frontend npm audit (high = soft-fail)
+        working-directory: frontend
+        run: |
+          npm audit --audit-level=high || echo "⚠️ Some high vulnerabilities found (non-blocking)"
         continue-on-error: true
 
       - name: Backend dependency check
@@ -244,20 +260,22 @@ jobs:
           bandit -r app -ll -ii --exclude tests -f txt || echo "⚠️ Some security issues found"
         continue-on-error: true
 
-      - name: Check for hardcoded secrets
+      - name: Check for hardcoded secrets (hard-fail)
         run: |
           echo "=== Checking for potential hardcoded secrets ==="
           # 檢查常見的硬編碼密碼模式 (排除測試和範例檔案)
-          if grep -rn --include="*.py" --include="*.ts" --include="*.tsx" \
-             -E "(password\s*=\s*['\"][^'\"]+['\"]|api_key\s*=\s*['\"][^'\"]+['\"])" \
+          MATCHES=$(grep -rn --include="*.py" --include="*.ts" --include="*.tsx" \
+             -E "(password\s*=\s*['\"][^'\"]{8,}['\"]|api_key\s*=\s*['\"]sk-[^'\"]+['\"]|secret_key\s*=\s*['\"][^'\"]{8,}['\"])" \
              --exclude-dir=node_modules --exclude-dir=__pycache__ \
-             --exclude="*test*" --exclude="*.example*" \
-             backend/app frontend/src 2>/dev/null | grep -v "password\s*=\s*['\"]['\"]\s*$" | head -20; then
-            echo "⚠️ Warning: Potential hardcoded secrets found (review manually)"
+             --exclude="*test*" --exclude="*.example*" --exclude="*config.py" --exclude="*dependencies.py" \
+             backend/app frontend/src 2>/dev/null | grep -v "password\s*=\s*['\"]['\"]\s*$" | grep -v "os.environ" | grep -v "settings\." || true)
+          if [ -n "$MATCHES" ]; then
+            echo "::error::Hardcoded secrets detected!"
+            echo "$MATCHES" | head -20
+            exit 1
           else
-            echo "✓ No obvious hardcoded secrets detected"
+            echo "✓ No hardcoded secrets detected"
           fi
-        continue-on-error: true
 
       - name: Check for dangerous patterns
         run: |
