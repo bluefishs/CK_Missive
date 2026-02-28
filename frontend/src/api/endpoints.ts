@@ -710,6 +710,15 @@ export const AI_ENDPOINTS = {
   FEEDBACK_STATS: '/ai/feedback/stats',
   /** 系統使用分析總覽 POST /ai/analytics/overview */
   ANALYTICS_OVERVIEW: '/ai/analytics/overview',
+  // --- AI 分析持久化 ---
+  /** 取得公文 AI 分析結果 POST /ai/analysis/{document_id} */
+  ANALYSIS_GET: '/ai/analysis',
+  /** 觸發公文 AI 分析 POST /ai/analysis/{document_id}/analyze */
+  ANALYSIS_TRIGGER: '/ai/analysis',
+  /** 批次 AI 分析 POST /ai/analysis/batch */
+  ANALYSIS_BATCH: '/ai/analysis/batch',
+  /** AI 分析覆蓋率統計 POST /ai/analysis/stats */
+  ANALYSIS_STATS: '/ai/analysis/stats',
 } as const;
 
 // ============================================================================

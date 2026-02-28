@@ -86,6 +86,11 @@ from .knowledge_graph import (
     GraphIngestionEvent,
 )
 
+# 10. AI 分析持久化模組
+from .ai_analysis import (
+    DocumentAIAnalysis,
+)
+
 # 匯出 Base 供 Alembic 等工具使用
 from ._base import Base
 
@@ -137,4 +142,6 @@ __all__ = [
     "DocumentEntityMention",
     "EntityRelationship",
     "GraphIngestionEvent",
+    # AI 分析持久化
+    "DocumentAIAnalysis",
 ]

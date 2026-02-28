@@ -920,3 +920,50 @@ export interface AIAnalyticsOverviewResponse {
   search_stats: Record<string, unknown>;
   unused_features: string[];
 }
+
+// ============================================================================
+// AI 分析持久化 (v1.0.0)
+// ============================================================================
+
+/** 公文 AI 分析完整結果 */
+export interface DocumentAIAnalysisResponse {
+  id: number;
+  document_id: number;
+  summary?: string | null;
+  summary_confidence?: number | null;
+  suggested_doc_type?: string | null;
+  doc_type_confidence?: number | null;
+  suggested_category?: string | null;
+  category_confidence?: number | null;
+  classification_reasoning?: string | null;
+  keywords?: string[] | null;
+  keywords_confidence?: number | null;
+  entities_count: number;
+  relations_count: number;
+  llm_provider?: string | null;
+  llm_model?: string | null;
+  processing_ms: number;
+  status: string;
+  is_stale: boolean;
+  analyzed_at?: string | null;
+}
+
+/** AI 分析覆蓋率統計 */
+export interface DocumentAIAnalysisStatsResponse {
+  total_documents: number;
+  analyzed_documents: number;
+  stale_documents: number;
+  without_analysis: number;
+  coverage_percent: number;
+  avg_processing_ms: number;
+}
+
+/** 批次分析回應 */
+export interface DocumentAIAnalysisBatchResponse {
+  success: boolean;
+  processed: number;
+  success_count: number;
+  error_count: number;
+  skip_count: number;
+  message: string;
+}

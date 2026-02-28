@@ -388,6 +388,7 @@ export function streamRAGQuery(
       const decoder = new TextDecoder();
       let buffer = '';
 
+      // eslint-disable-next-line no-constant-condition
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -541,6 +542,7 @@ export function streamAgentQuery(
       const decoder = new TextDecoder();
       let buffer = '';
 
+      // eslint-disable-next-line no-constant-condition
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -678,6 +680,64 @@ export async function getAnalyticsOverview(): Promise<AIAnalyticsOverviewRespons
     return await apiClient.post<AIAnalyticsOverviewResponse>(AI_ENDPOINTS.ANALYTICS_OVERVIEW, {});
   } catch (error) {
     logger.error('取得使用分析失敗:', error);
+    return null;
+  }
+}
+
+// ============================================================================
+// AI 分析持久化
+// ============================================================================
+
+import type {
+  DocumentAIAnalysisResponse,
+  DocumentAIAnalysisStatsResponse,
+  DocumentAIAnalysisBatchResponse,
+} from '../../types/ai';
+
+/** 取得公文 AI 分析結果 */
+export async function getDocumentAnalysis(
+  documentId: number
+): Promise<DocumentAIAnalysisResponse | null> {
+  try {
+    return await apiClient.post<DocumentAIAnalysisResponse>(
+      `${AI_ENDPOINTS.ANALYSIS_GET}/${documentId}`,
+      {}
+    );
+  } catch {
+    return null;
+  }
+}
+
+/** 觸發公文 AI 分析（或重新分析） */
+export async function triggerDocumentAnalysis(
+  documentId: number,
+  force: boolean = false
+): Promise<DocumentAIAnalysisResponse> {
+  return apiClient.post<DocumentAIAnalysisResponse>(
+    `${AI_ENDPOINTS.ANALYSIS_TRIGGER}/${documentId}/analyze`,
+    { force }
+  );
+}
+
+/** 批次 AI 分析 */
+export async function batchAnalyze(
+  limit: number = 50,
+  force: boolean = false
+): Promise<DocumentAIAnalysisBatchResponse> {
+  return apiClient.post<DocumentAIAnalysisBatchResponse>(
+    AI_ENDPOINTS.ANALYSIS_BATCH,
+    { limit, force }
+  );
+}
+
+/** AI 分析覆蓋率統計 */
+export async function getAnalysisStats(): Promise<DocumentAIAnalysisStatsResponse | null> {
+  try {
+    return await apiClient.post<DocumentAIAnalysisStatsResponse>(
+      AI_ENDPOINTS.ANALYSIS_STATS,
+      {}
+    );
+  } catch {
     return null;
   }
 }

@@ -127,6 +127,13 @@ export const queryKeys = {
     lists: () => [...queryKeys.aiPrompts.all, 'list'] as const,
     list: (feature?: string | null) => [...queryKeys.aiPrompts.lists(), feature] as const,
   },
+
+  // AI 分析持久化
+  aiAnalysis: {
+    all: ['ai', 'analysis'] as const,
+    detail: (documentId: number) => ['ai', 'analysis', documentId] as const,
+    stats: ['ai', 'analysis', 'stats'] as const,
+  },
 } as const;
 
 // ============================================================================

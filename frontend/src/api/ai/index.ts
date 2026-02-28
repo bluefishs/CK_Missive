@@ -109,6 +109,10 @@ export type {
   RAGSourceItem,
   RAGQueryResponse,
   RAGStreamRequest,
+  // AI 分析持久化
+  DocumentAIAnalysisResponse,
+  DocumentAIAnalysisStatsResponse,
+  DocumentAIAnalysisBatchResponse,
 } from './types';
 
 // Re-export abortNaturalSearch (standalone function)
@@ -159,6 +163,10 @@ import {
   ragQuery,
   streamRAGQuery,
   streamAgentQuery,
+  getDocumentAnalysis,
+  triggerDocumentAnalysis,
+  batchAnalyze,
+  getAnalysisStats,
 } from './adminManagement';
 
 import {
@@ -242,6 +250,12 @@ export const aiApi = {
 
   // Agentic 問答
   streamAgentQuery,
+
+  // AI 分析持久化
+  getDocumentAnalysis,
+  triggerDocumentAnalysis,
+  batchAnalyze,
+  getAnalysisStats,
 };
 
 export default aiApi;

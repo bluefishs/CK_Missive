@@ -279,6 +279,17 @@ async def update_document(
         await db.commit()
         await db.refresh(document)
 
+        # AI 分析過期標記（輕量 UPDATE，僅影響內容相關欄位變更時）
+        content_fields = {'subject', 'content', 'sender'}
+        if changes and content_fields & set(changes.keys()):
+            try:
+                from app.repositories.ai_analysis_repository import AIAnalysisRepository
+                ai_repo = AIAnalysisRepository(db)
+                await ai_repo.mark_stale(document_id)
+                logger.debug(f"已標記公文 {document_id} 的 AI 分析為過期")
+            except Exception as e:
+                logger.warning(f"標記 AI 分析過期失敗: {e}")
+
         # 審計日誌和通知（使用統一服務，自動管理獨立 session）
         if changes:
             user_id = current_user.id if current_user else None

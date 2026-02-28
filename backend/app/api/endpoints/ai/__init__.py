@@ -21,6 +21,7 @@ from .ollama_management import router as ollama_management_router
 from .rag_query import router as rag_query_router
 from .agent_query import router as agent_query_router
 from .ai_feedback import router as ai_feedback_router
+from .document_analysis import router as document_analysis_router
 
 router = APIRouter(prefix="/ai", tags=["AI"])
 
@@ -38,3 +39,4 @@ router.include_router(graph_query_router)
 router.include_router(ollama_management_router)
 router.include_router(rag_query_router)
 router.include_router(agent_query_router)
+router.include_router(document_analysis_router)

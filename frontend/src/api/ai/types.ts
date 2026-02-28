@@ -126,4 +126,8 @@ export type {
   RAGStreamRequest,
   // re-export from types/api
   AIStatsResponse,
+  // AI 分析持久化
+  DocumentAIAnalysisResponse,
+  DocumentAIAnalysisStatsResponse,
+  DocumentAIAnalysisBatchResponse,
 } from '../../types/ai';

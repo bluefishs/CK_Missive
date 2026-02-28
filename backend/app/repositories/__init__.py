@@ -53,6 +53,7 @@ from app.repositories.staff_certification_repository import StaffCertificationRe
 from app.repositories.contact_repository import ContactRepository
 from app.repositories.project_staff_repository import ProjectStaffRepository
 from app.repositories.attachment_repository import AttachmentRepository
+from app.repositories.ai_analysis_repository import AIAnalysisRepository
 
 # Taoyuan 子模組
 from app.repositories.taoyuan import (
@@ -101,6 +102,7 @@ __all__ = [
     "ContactRepository",
     "ProjectStaffRepository",
     "AttachmentRepository",
+    "AIAnalysisRepository",
     # Query Builders
     "DocumentQueryBuilder",
     "ProjectQueryBuilder",

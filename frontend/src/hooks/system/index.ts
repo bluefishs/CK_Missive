@@ -28,3 +28,4 @@ export * from './useNotifications';
 // AI 管理
 export * from './useAISynonyms';
 export * from './useAIPrompts';
+export * from './useDocumentAnalysis';
