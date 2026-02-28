@@ -265,6 +265,127 @@ class TestGetStatistics:
             assert len(result["top_entities"]) == 1
 
 
+class TestExecuteParallel:
+    """execute_parallel 並行執行測試（OPT-2）"""
+
+    @pytest.mark.asyncio
+    async def test_parallel_two_tools_success(self, executor):
+        """兩個工具並行執行成功"""
+        calls = [
+            {"name": "search_entities", "params": {"query": "test", "limit": 5}},
+            {"name": "get_statistics", "params": {}},
+        ]
+
+        mock_svc = MagicMock()
+        mock_svc.search_entities = AsyncMock(return_value=[{"id": 1}])
+        mock_svc.get_graph_stats = AsyncMock(return_value={"total": 10})
+        mock_svc.get_top_entities = AsyncMock(return_value=[])
+
+        with patch(
+            "app.services.ai.graph_query_service.GraphQueryService",
+            return_value=mock_svc,
+        ), patch(
+            "app.db.database.AsyncSessionLocal",
+        ) as mock_session_cls:
+            # Mock AsyncSessionLocal 的 async context manager
+            mock_session = AsyncMock()
+            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session.__aexit__ = AsyncMock(return_value=False)
+            mock_session_cls.return_value = mock_session
+
+            # 因為 execute_parallel 內部建立新 executor，
+            # 需要 patch 整個 AgentToolExecutor 類的內部方法
+            # 改用更直接的方式：mock execute 方法
+            with patch.object(
+                AgentToolExecutor, "execute",
+                new_callable=AsyncMock,
+                side_effect=[
+                    {"entities": [{"id": 1}], "count": 1},
+                    {"stats": {"total": 10}, "top_entities": [], "count": 1},
+                ],
+            ):
+                results = await executor.execute_parallel(calls, tool_timeout=15)
+
+            assert len(results) == 2
+            assert results[0]["count"] == 1
+            assert results[1]["count"] == 1
+
+    @pytest.mark.asyncio
+    async def test_parallel_one_tool_fails(self, executor):
+        """一個工具失敗不影響其他工具"""
+        calls = [
+            {"name": "search_documents", "params": {"keywords": ["test"]}},
+            {"name": "search_entities", "params": {"query": "test"}},
+        ]
+
+        with patch(
+            "app.db.database.AsyncSessionLocal",
+        ) as mock_session_cls:
+            mock_session = AsyncMock()
+            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session.__aexit__ = AsyncMock(return_value=False)
+            mock_session_cls.return_value = mock_session
+
+            call_count = 0
+            async def side_effect_fn(tool_name, params):
+                nonlocal call_count
+                call_count += 1
+                if tool_name == "search_documents":
+                    raise ValueError("DB error")
+                return {"entities": [], "count": 0}
+
+            with patch.object(
+                AgentToolExecutor, "execute",
+                new_callable=AsyncMock,
+                side_effect=side_effect_fn,
+            ):
+                results = await executor.execute_parallel(calls, tool_timeout=15)
+
+            assert len(results) == 2
+            # 第一個失敗，應有 error
+            assert "error" in results[0]
+            assert "DB error" in results[0]["error"]
+            # 第二個成功
+            assert results[1]["count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_parallel_timeout(self, executor):
+        """工具超時處理"""
+        import asyncio
+
+        calls = [
+            {"name": "search_documents", "params": {"keywords": ["test"]}},
+        ]
+
+        with patch(
+            "app.db.database.AsyncSessionLocal",
+        ) as mock_session_cls:
+            mock_session = AsyncMock()
+            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session.__aexit__ = AsyncMock(return_value=False)
+            mock_session_cls.return_value = mock_session
+
+            async def slow_execute(tool_name, params):
+                await asyncio.sleep(100)
+
+            with patch.object(
+                AgentToolExecutor, "execute",
+                new_callable=AsyncMock,
+                side_effect=slow_execute,
+            ):
+                results = await executor.execute_parallel(calls, tool_timeout=0.01)
+
+            assert len(results) == 1
+            assert "error" in results[0]
+            assert "超時" in results[0]["error"]
+
+    @pytest.mark.asyncio
+    async def test_parallel_empty_calls(self, executor):
+        """空呼叫列表"""
+        results = await executor.execute_parallel([], tool_timeout=15)
+        assert results == []
+
+
 class TestSearchDispatchOrders:
     """search_dispatch_orders 工具測試"""
 

@@ -37,9 +37,36 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# 共用服務實例
-calendar_service = DocumentCalendarService()
-calendar_integrator = DocumentCalendarIntegrator()
+# 共用服務實例 — 延遲初始化（避免模組載入時執行 file I/O）
+_calendar_service: Optional[DocumentCalendarService] = None
+_calendar_integrator: Optional[DocumentCalendarIntegrator] = None
+
+
+def _get_calendar_service() -> DocumentCalendarService:
+    global _calendar_service
+    if _calendar_service is None:
+        _calendar_service = DocumentCalendarService()
+    return _calendar_service
+
+
+def _get_calendar_integrator() -> DocumentCalendarIntegrator:
+    global _calendar_integrator
+    if _calendar_integrator is None:
+        _calendar_integrator = DocumentCalendarIntegrator()
+    return _calendar_integrator
+
+
+class _LazyProxy:
+    """延遲代理：保持 calendar_service.xxx 的使用方式不變"""
+    def __init__(self, factory):
+        object.__setattr__(self, '_factory', factory)
+
+    def __getattr__(self, name):
+        return getattr(self._factory(), name)
+
+
+calendar_service = _LazyProxy(_get_calendar_service)   # type: ignore[assignment]
+calendar_integrator = _LazyProxy(_get_calendar_integrator)  # type: ignore[assignment]
 
 
 def event_to_dict(

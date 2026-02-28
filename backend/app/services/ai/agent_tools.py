@@ -12,6 +12,7 @@ Agent 工具模組 — 6 個工具定義與實作
 Extracted from agent_orchestrator.py v1.8.0
 """
 
+import asyncio
 import json
 import logging
 from datetime import datetime
@@ -103,6 +104,39 @@ class AgentToolExecutor:
         self.ai = ai_connector
         self.embedding_mgr = embedding_mgr
         self.config = config
+
+    async def execute_parallel(
+        self, calls: List[Dict[str, Any]], tool_timeout: float,
+    ) -> List[Dict[str, Any]]:
+        """
+        並行執行多個工具（每個工具獨立 db session + 超時保護）。
+
+        用於 LLM 規劃回傳 2+ 個無相依工具呼叫時，省去串行等待。
+        每個工具建立獨立 AsyncSession，避免 SQLAlchemy 並發存取限制。
+        """
+        from app.db.database import AsyncSessionLocal
+
+        async def _run_one(call: Dict[str, Any]) -> Dict[str, Any]:
+            tool_name = call.get("name", "")
+            params = call.get("params", {})
+            try:
+                async with AsyncSessionLocal() as session:
+                    executor = AgentToolExecutor(
+                        session, self.ai, self.embedding_mgr, self.config,
+                    )
+                    return await asyncio.wait_for(
+                        executor.execute(tool_name, params),
+                        timeout=tool_timeout,
+                    )
+            except asyncio.TimeoutError:
+                logger.warning("Tool %s timed out (%ds) in parallel", tool_name, tool_timeout)
+                return {"error": f"工具執行超時 ({tool_timeout}s)", "count": 0}
+            except Exception as e:
+                logger.error("Tool %s failed in parallel: %s", tool_name, e)
+                return {"error": str(e), "count": 0}
+
+        results = await asyncio.gather(*[_run_one(c) for c in calls])
+        return list(results)
 
     async def execute(self, tool_name: str, params: Dict[str, Any]) -> Dict[str, Any]:
         """路由工具呼叫至對應實作"""

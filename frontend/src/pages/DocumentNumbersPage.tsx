@@ -227,7 +227,6 @@ export const DocumentNumbersPage: React.FC = () => {
         await documentsApi.deleteDocument(deleteModal.document.id);
         queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
         message.success(`已刪除公文: ${deleteModal.document.doc_number}`);
-        refetch();
         loadStats();
         loadNextNumber();
         setDeleteModal({ open: false, document: null });

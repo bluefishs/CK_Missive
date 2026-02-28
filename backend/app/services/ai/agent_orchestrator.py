@@ -25,9 +25,9 @@ Architecture (v2.0.0 — 模組化重構):
 - agent_utils.py:     parse_json_safe, sse
 - agent_orchestrator.py: 本檔 — 主編排流程 (AgentOrchestrator)
 
-Version: 2.1.0
+Version: 2.3.0 - SSE 即時串流 + asyncio.Queue 事件管道
 Created: 2026-02-26
-Updated: 2026-02-27 - v2.1.0 SSE error codes + STREAM_TIMEOUT 保護 + _execute_tool_loop 提取
+Updated: 2026-02-28 - v2.2.0 並行化：intent+planning gather + 工具並行執行
 """
 
 import asyncio
@@ -137,8 +137,18 @@ class AgentOrchestrator:
             )
             step_index += 1
 
-            hints = await self._planner.preprocess_question(question, self.db)
-            plan = await self._planner.plan_tools(question, history, hints)
+            # 並行：意圖前處理（需 db）+ LLM 工具規劃（不需 db）
+            hints, plan = await asyncio.gather(
+                self._planner.preprocess_question(question, self.db),
+                self._planner.plan_tools(question, history, {}),
+            )
+
+            # 後合併：將前處理 hints 注入 LLM 生成的 plan
+            if hints and plan:
+                sanitized_q = question.replace("{", "（").replace("}", "）")
+                sanitized_q = sanitized_q.replace("```", "").replace("<", "（").replace(">", "）")
+                sanitized_q = sanitized_q[:500]
+                plan = self._planner._merge_hints_into_plan(plan, hints, sanitized_q)
 
             if not plan or not plan.get("tool_calls"):
                 yield sse(
@@ -152,30 +162,49 @@ class AgentOrchestrator:
                     yield event
                 return
 
-            # Step 2-3: Tool Loop（整體超時保護）
+            # Step 2-3: Tool Loop（即時串流 + 整體超時保護）
             actual_iterations = 0
+            event_queue: asyncio.Queue = asyncio.Queue()
+
+            async def _run_tool_loop():
+                nonlocal actual_iterations, step_index
+                result = await self._execute_tool_loop(
+                    question, plan, tool_results, tools_used,
+                    all_sources, step_index, event_queue,
+                )
+                actual_iterations = result["iterations"]
+                step_index = result["step_index"]
+
+            loop_task = asyncio.create_task(_run_tool_loop())
+            deadline = time.time() + self.config.agent_stream_timeout
             try:
-                tool_loop_result = await asyncio.wait_for(
-                    self._execute_tool_loop(
-                        question, plan, tool_results, tools_used,
-                        all_sources, step_index,
-                    ),
-                    timeout=self.config.agent_stream_timeout,
-                )
-                actual_iterations = tool_loop_result["iterations"]
-                step_index = tool_loop_result["step_index"]
-                for event in tool_loop_result["events"]:
-                    yield event
-            except asyncio.TimeoutError:
-                st = self.config.agent_stream_timeout
-                logger.warning(
-                    "Agent stream timed out after %ds", st,
-                )
-                yield sse(
-                    type="error",
-                    error=f"查詢處理超時（{st}s），已取得部分結果。",
-                    code="STREAM_TIMEOUT",
-                )
+                while True:
+                    if loop_task.done():
+                        while not event_queue.empty():
+                            yield event_queue.get_nowait()
+                        if not loop_task.cancelled() and loop_task.exception():
+                            raise loop_task.exception()
+                        break
+                    remaining = deadline - time.time()
+                    if remaining <= 0:
+                        loop_task.cancel()
+                        st = self.config.agent_stream_timeout
+                        logger.warning("Agent stream timed out after %ds", st)
+                        yield sse(
+                            type="error",
+                            error=f"查詢處理超時（{st}s），已取得部分結果。",
+                            code="STREAM_TIMEOUT",
+                        )
+                        break
+                    try:
+                        event = await asyncio.wait_for(
+                            event_queue.get(), timeout=min(remaining, 0.5),
+                        )
+                        yield event
+                    except asyncio.TimeoutError:
+                        continue
+            except asyncio.CancelledError:
+                pass
 
             # Step 4: 發送所有來源
             yield sse(
@@ -249,32 +278,36 @@ class AgentOrchestrator:
         tools_used: List[str],
         all_sources: List[Dict[str, Any]],
         step_index: int,
+        event_queue: asyncio.Queue,
     ) -> Dict[str, Any]:
         """
         執行工具迴圈（最多 MAX_ITERATIONS 輪）。
 
-        此方法為非生成器，收集 SSE 事件於 list 後一次回傳，
-        供 stream_agent_query 在 asyncio.wait_for 超時保護中呼叫。
+        SSE 事件即時推送至 event_queue，供 stream_agent_query 即時 yield。
 
         Returns:
-            {"iterations": int, "step_index": int, "events": List[str]}
+            {"iterations": int, "step_index": int}
         """
-        events: List[str] = []
         iterations = 0
 
         for iteration in range(self.config.agent_max_iterations):
             iterations = iteration + 1
             calls = plan.get("tool_calls", [])
 
-            for call in calls:
+            # 過濾有效工具
+            valid_calls = [
+                c for c in calls if c.get("name", "") in VALID_TOOL_NAMES
+            ]
+            if not valid_calls:
+                break
+
+            if len(valid_calls) == 1:
+                # 單一工具 — 使用既有 session（省 session 開銷）
+                call = valid_calls[0]
                 tool_name = call.get("name", "")
                 params = call.get("params", {})
 
-                if tool_name not in VALID_TOOL_NAMES:
-                    logger.warning("Invalid tool name: %s", tool_name)
-                    continue
-
-                events.append(sse(
+                await event_queue.put(sse(
                     type="tool_call",
                     tool=tool_name,
                     params=params,
@@ -285,7 +318,7 @@ class AgentOrchestrator:
                 result = await self._execute_tool(tool_name, params)
 
                 summary = summarize_tool_result(tool_name, result)
-                events.append(sse(
+                await event_queue.put(sse(
                     type="tool_result",
                     tool=tool_name,
                     summary=summary,
@@ -301,11 +334,49 @@ class AgentOrchestrator:
                 })
                 tools_used.append(tool_name)
                 self._collect_sources(tool_name, result, all_sources)
+            else:
+                # 多工具 — 並行執行（每工具獨立 db session）
+                # 先發送所有 tool_call 事件
+                for call in valid_calls:
+                    await event_queue.put(sse(
+                        type="tool_call",
+                        tool=call.get("name", ""),
+                        params=call.get("params", {}),
+                        step_index=step_index,
+                    ))
+                    step_index += 1
+
+                # 並行執行
+                results = await self._tools.execute_parallel(
+                    valid_calls, self.config.agent_tool_timeout,
+                )
+
+                # 批次發送 tool_result 事件
+                for call, result in zip(valid_calls, results):
+                    tool_name = call.get("name", "")
+                    params = call.get("params", {})
+                    summary = summarize_tool_result(tool_name, result)
+                    await event_queue.put(sse(
+                        type="tool_result",
+                        tool=tool_name,
+                        summary=summary,
+                        count=result.get("count", 0),
+                        step_index=step_index,
+                    ))
+                    step_index += 1
+
+                    tool_results.append({
+                        "tool": tool_name,
+                        "params": params,
+                        "result": result,
+                    })
+                    tools_used.append(tool_name)
+                    self._collect_sources(tool_name, result, all_sources)
 
             # 評估是否需要更多工具呼叫
             replan = self._planner.evaluate_and_replan(question, tool_results)
             if replan and replan.get("tool_calls"):
-                events.append(sse(
+                await event_queue.put(sse(
                     type="thinking",
                     step=replan.get("reasoning", "自動修正中..."),
                     step_index=step_index,
@@ -318,7 +389,6 @@ class AgentOrchestrator:
         return {
             "iterations": iterations,
             "step_index": step_index,
-            "events": events,
         }
 
     # ========================================================================

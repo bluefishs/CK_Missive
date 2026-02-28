@@ -61,8 +61,8 @@ class AIConfig:
 
     # Embedding (v2.0.0 新增)
     embedding_dimension: int = 768             # 向量維度 (nomic-embed-text)
-    embedding_cache_max_size: int = 500        # LRU 快取大小
-    embedding_cache_ttl: int = 1800            # 快取 TTL (秒)
+    embedding_cache_max_size: int = 2000       # LRU 快取大小（覆蓋 728 文件 + 查詢快取）
+    embedding_cache_ttl: int = 3600            # 快取 TTL (秒)，Embedding 穩定可延長
     embedding_max_text_chars: int = 8000       # 文字截斷長度
 
     # 知識圖譜 (v2.0.0 新增)
@@ -121,8 +121,8 @@ class AIConfig:
             ner_batch_size=int(os.getenv("NER_BATCH_SIZE", "10")),
             # Embedding
             embedding_dimension=int(os.getenv("EMBEDDING_DIMENSION", "768")),
-            embedding_cache_max_size=int(os.getenv("EMBEDDING_CACHE_MAX_SIZE", "500")),
-            embedding_cache_ttl=int(os.getenv("EMBEDDING_CACHE_TTL", "1800")),
+            embedding_cache_max_size=int(os.getenv("EMBEDDING_CACHE_MAX_SIZE", "2000")),
+            embedding_cache_ttl=int(os.getenv("EMBEDDING_CACHE_TTL", "3600")),
             embedding_max_text_chars=int(os.getenv("EMBEDDING_MAX_TEXT_CHARS", "8000")),
             # 知識圖譜
             kg_fuzzy_threshold=float(os.getenv("KG_FUZZY_THRESHOLD", "0.75")),

@@ -252,7 +252,8 @@ async def list_documents(
 )
 async def optimized_search(
     request: OptimizedSearchRequest,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth()),
 ):
     """
     優化全文搜尋
@@ -339,7 +340,8 @@ async def optimized_search(
 )
 async def get_search_suggestions(
     request: SearchSuggestionRequest,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth()),
 ):
     """
     取得搜尋建議（自動完成）
@@ -379,7 +381,8 @@ async def get_search_suggestions(
 )
 async def get_popular_searches(
     limit: int = Query(default=10, ge=1, le=20, description="數量上限"),
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth()),
 ):
     """取得熱門搜尋詞"""
     from app.services.search_optimizer import SearchOptimizer

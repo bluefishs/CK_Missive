@@ -41,10 +41,10 @@ class EmbeddingManager:
 
     _instance: Optional["EmbeddingManager"] = None
     _cache: OrderedDict[str, Tuple[List[float], float]] = OrderedDict()
-    _max_cache_size: int = get_ai_config().embedding_cache_max_size
-    _cache_ttl: float = float(get_ai_config().embedding_cache_ttl)
-    _write_lock: asyncio.Lock = asyncio.Lock()
-    _embed_semaphore: asyncio.Semaphore = asyncio.Semaphore(5)
+    _max_cache_size: int = 0       # 延遲初始化（首次使用時讀取 AIConfig）
+    _cache_ttl: float = 0.0       # 延遲初始化
+    _write_lock: Optional[asyncio.Lock] = None          # 延遲初始化（避免跨 event-loop）
+    _embed_semaphore: Optional[asyncio.Semaphore] = None  # 延遲初始化
 
     # 統計
     _hits: int = 0
@@ -54,6 +54,18 @@ class EmbeddingManager:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
+
+    @classmethod
+    def _ensure_initialized(cls) -> None:
+        """延遲初始化 Lock / Semaphore / AIConfig 參數（首次使用時觸發）"""
+        if cls._write_lock is None:
+            cls._write_lock = asyncio.Lock()
+        if cls._embed_semaphore is None:
+            cls._embed_semaphore = asyncio.Semaphore(5)
+        if cls._max_cache_size == 0:
+            cfg = get_ai_config()
+            cls._max_cache_size = cfg.embedding_cache_max_size
+            cls._cache_ttl = float(cfg.embedding_cache_ttl)
 
     @classmethod
     def _cache_key(cls, text: str) -> str:
@@ -90,10 +102,11 @@ class EmbeddingManager:
         if not text or not text.strip():
             return None
 
+        cls._ensure_initialized()
         key = cls._cache_key(text)
 
         # 快取命中 (_write_lock 保護讀取 + move_to_end 突變)
-        async with cls._write_lock:
+        async with cls._write_lock:  # type: ignore[union-attr]
             if key in cls._cache:
                 embedding, ts = cls._cache[key]
                 if time.monotonic() - ts < cls._cache_ttl:
@@ -107,7 +120,7 @@ class EmbeddingManager:
         # _embed_semaphore 限制並發數，防止同時大量請求壓垮 Ollama
         cls._misses += 1
         try:
-            async with cls._embed_semaphore:
+            async with cls._embed_semaphore:  # type: ignore[union-attr]
                 embedding = await connector.generate_embedding(text)  # type: ignore[attr-defined]
         except Exception as e:
             logger.warning("Embedding 生成失敗: %s", e)
@@ -115,7 +128,7 @@ class EmbeddingManager:
 
         if embedding and isinstance(embedding, list) and len(embedding) > 0:
             # 存入快取 (_write_lock 保護寫入 + 驅逐)
-            async with cls._write_lock:
+            async with cls._write_lock:  # type: ignore[union-attr]
                 cls._evict_expired()
                 if len(cls._cache) >= cls._max_cache_size:
                     cls._cache.popitem(last=False)  # 移除最舊
@@ -147,11 +160,12 @@ class EmbeddingManager:
         if not texts:
             return []
 
+        cls._ensure_initialized()
         results: List[Optional[List[float]]] = [None] * len(texts)
         to_generate: List[Tuple[int, str, str]] = []  # (index, text, cache_key)
 
         # Phase 1: 批次快取查詢
-        async with cls._write_lock:
+        async with cls._write_lock:  # type: ignore[union-attr]
             now = time.monotonic()
             for i, text in enumerate(texts):
                 if not text or not text.strip():
@@ -176,7 +190,7 @@ class EmbeddingManager:
 
         async def _generate_one(idx: int, text: str, key: str) -> Tuple[int, str, Optional[List[float]]]:
             try:
-                async with cls._embed_semaphore:
+                async with cls._embed_semaphore:  # type: ignore[union-attr]
                     emb = await connector.generate_embedding(text)  # type: ignore[attr-defined]
                 if emb and isinstance(emb, list) and len(emb) > 0:
                     return (idx, key, emb)
@@ -188,7 +202,7 @@ class EmbeddingManager:
         generated = await asyncio.gather(*tasks)
 
         # Phase 3: 批次寫入快取
-        async with cls._write_lock:
+        async with cls._write_lock:  # type: ignore[union-attr]
             cls._evict_expired()
             for idx, key, emb in generated:
                 results[idx] = emb

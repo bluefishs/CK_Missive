@@ -87,7 +87,6 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ contractCode }) => {
     data: documentsData,
     isLoading,
     error: queryError,
-    refetch,
   } = useDocuments({
     ...filters,
     page: pagination.page,
@@ -103,8 +102,7 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ contractCode }) => {
 
   const forceRefresh = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
-    await refetch();
-  }, [queryClient, refetch]);
+  }, [queryClient]);
 
   useEffect(() => {
     if (queryError) {

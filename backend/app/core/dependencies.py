@@ -162,7 +162,8 @@ def optional_auth() -> Callable:
     """
     可選認證的依賴
 
-    若有 token 則驗證並返回用戶，無 token 則返回 None
+    若有 token 則驗證並返回用戶，無 token 則返回 None。
+    使用 Depends(get_async_db) 共享端點的 DB session（避免重複建立連線）。
 
     使用方式:
         @router.get("/public-or-private")
@@ -174,42 +175,35 @@ def optional_auth() -> Callable:
             return {"message": "Anonymous access"}
     """
     from typing import Optional
-    from fastapi import Header
-    from fastapi.security import OAuth2PasswordBearer
+    from fastapi import Request
 
     async def _get_current_user_optional(
-        authorization: Optional[str] = Header(None)
+        request: Request,
+        db: AsyncSession = Depends(get_async_db),
     ) -> Optional[User]:
-        """
-        可選的用戶認證 - 有 token 時驗證，無 token 時返回 None
-        """
-        if not authorization:
+        """可選的用戶認證 — 支援 Bearer header + httpOnly cookie"""
+        from app.core.config import settings
+        if settings.AUTH_DISABLED:
             return None
 
-        # 嘗試解析 Bearer token
-        if not authorization.startswith("Bearer "):
-            return None
+        # 1. Authorization header (Bearer token)
+        token = None
+        auth_header = request.headers.get("authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:]
 
-        token = authorization.replace("Bearer ", "")
+        # 2. httpOnly cookie fallback
+        if not token:
+            token = request.cookies.get("access_token")
+
         if not token:
             return None
 
         try:
-            # 使用現有的 get_current_user 進行驗證
-            from app.api.endpoints.auth import verify_token_and_get_user
-            from app.db.database import get_async_db
-
-            # 注意：這裡需要手動取得 db session
-            async for db in get_async_db():
-                try:
-                    user = await verify_token_and_get_user(token, db)
-                    return user
-                except Exception:
-                    return None
+            from app.core.auth_service import AuthService
+            return await AuthService.get_current_user_from_token(db, token)
         except Exception:
             return None
-
-        return None
 
     return _get_current_user_optional
 

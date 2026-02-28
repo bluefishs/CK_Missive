@@ -228,6 +228,160 @@ class TestStreamAgentQuery:
         assert "RAG回答" in all_text
 
     @pytest.mark.asyncio
+    async def test_parallel_preprocess_and_plan(self, mock_db):
+        """OPT-1: preprocess_question 與 plan_tools 並行呼叫"""
+        orchestrator = make_orchestrator(mock_db)
+
+        call_order = []
+
+        async def mock_preprocess(q, db):
+            call_order.append("preprocess_start")
+            return {"sender": "工務局"}
+
+        async def mock_plan(q, h, hints):
+            call_order.append("plan_start")
+            # hints 應為空 dict（並行時不傳 hints 給 LLM）
+            assert hints == {}
+            return {
+                "reasoning": "搜尋",
+                "tool_calls": [{"name": "search_documents", "params": {"keywords": ["test"]}}],
+            }
+
+        orchestrator._planner = MagicMock()
+        orchestrator._planner.preprocess_question = mock_preprocess
+        orchestrator._planner.plan_tools = mock_plan
+        orchestrator._planner._merge_hints_into_plan = MagicMock(
+            return_value={
+                "reasoning": "搜尋",
+                "tool_calls": [{"name": "search_documents", "params": {"keywords": ["test"], "sender": "工務局"}}],
+            }
+        )
+        orchestrator._planner.evaluate_and_replan = MagicMock(return_value=None)
+
+        orchestrator._tools = MagicMock()
+        orchestrator._tools.execute = AsyncMock(return_value={"count": 1, "documents": []})
+
+        async def mock_synth(*args, **kwargs):
+            yield "回答"
+
+        orchestrator._synthesizer = MagicMock()
+        orchestrator._synthesizer.synthesize_answer = mock_synth
+
+        events = []
+        async for event in orchestrator.stream_agent_query("工務局的公文"):
+            events.append(event)
+
+        # 驗證 merge 被呼叫（hints 被後合併）
+        orchestrator._planner._merge_hints_into_plan.assert_called_once()
+        merge_call = orchestrator._planner._merge_hints_into_plan.call_args
+        assert merge_call[0][1] == {"sender": "工務局"}  # hints 參數
+
+    @pytest.mark.asyncio
+    async def test_parallel_merge_skipped_when_no_hints(self, mock_db):
+        """OPT-1: hints 為空時不呼叫 merge"""
+        orchestrator = make_orchestrator(mock_db)
+
+        orchestrator._planner = MagicMock()
+        orchestrator._planner.preprocess_question = AsyncMock(return_value={})
+        orchestrator._planner.plan_tools = AsyncMock(return_value={
+            "reasoning": "搜尋",
+            "tool_calls": [{"name": "search_documents", "params": {"keywords": ["test"]}}],
+        })
+        orchestrator._planner.evaluate_and_replan = MagicMock(return_value=None)
+
+        orchestrator._tools = MagicMock()
+        orchestrator._tools.execute = AsyncMock(return_value={"count": 1, "documents": []})
+
+        async def mock_synth(*args, **kwargs):
+            yield "回答"
+
+        orchestrator._synthesizer = MagicMock()
+        orchestrator._synthesizer.synthesize_answer = mock_synth
+
+        events = []
+        async for event in orchestrator.stream_agent_query("工務局的公文"):
+            events.append(event)
+
+        # hints 為空 → merge 不應被呼叫
+        orchestrator._planner._merge_hints_into_plan.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_multi_tool_parallel_execution(self, mock_db):
+        """OPT-2: 多工具並行執行分支"""
+        orchestrator = make_orchestrator(mock_db)
+
+        orchestrator._planner = MagicMock()
+        orchestrator._planner.preprocess_question = AsyncMock(return_value={})
+        orchestrator._planner.plan_tools = AsyncMock(return_value={
+            "reasoning": "同時搜尋公文和派工單",
+            "tool_calls": [
+                {"name": "search_documents", "params": {"keywords": ["道路"]}},
+                {"name": "search_dispatch_orders", "params": {"search": "道路"}},
+            ],
+        })
+        orchestrator._planner.evaluate_and_replan = MagicMock(return_value=None)
+
+        # 多工具走 execute_parallel
+        orchestrator._tools = MagicMock()
+        orchestrator._tools.execute_parallel = AsyncMock(return_value=[
+            {"count": 2, "documents": [{"id": 1, "doc_number": "D1", "subject": "S1",
+             "doc_type": "函", "category": "", "sender": "", "receiver": "",
+             "doc_date": "", "similarity": 0}]},
+            {"count": 1, "dispatch_orders": [], "linked_documents": []},
+        ])
+
+        async def mock_synth(*args, **kwargs):
+            yield "結果"
+
+        orchestrator._synthesizer = MagicMock()
+        orchestrator._synthesizer.synthesize_answer = mock_synth
+
+        events = []
+        async for event in orchestrator.stream_agent_query("道路工程相關公文和派工"):
+            events.append(event)
+
+        parsed = [json.loads(e.replace("data: ", "").strip()) for e in events if e.strip()]
+        types = [p["type"] for p in parsed]
+
+        # 應有 2 個 tool_call + 2 個 tool_result
+        assert types.count("tool_call") == 2
+        assert types.count("tool_result") == 2
+
+        # 驗證使用了 execute_parallel 而非逐一 execute
+        orchestrator._tools.execute_parallel.assert_called_once()
+        orchestrator._tools.execute.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_single_tool_uses_existing_session(self, mock_db):
+        """OPT-2: 單一工具走既有 session（不建立新 session）"""
+        orchestrator = make_orchestrator(mock_db)
+
+        orchestrator._planner = MagicMock()
+        orchestrator._planner.preprocess_question = AsyncMock(return_value={})
+        orchestrator._planner.plan_tools = AsyncMock(return_value={
+            "reasoning": "搜尋",
+            "tool_calls": [{"name": "search_documents", "params": {"keywords": ["test"]}}],
+        })
+        orchestrator._planner.evaluate_and_replan = MagicMock(return_value=None)
+
+        orchestrator._tools = MagicMock()
+        orchestrator._tools.execute = AsyncMock(return_value={"count": 1, "documents": []})
+
+        async def mock_synth(*args, **kwargs):
+            yield "回答"
+
+        orchestrator._synthesizer = MagicMock()
+        orchestrator._synthesizer.synthesize_answer = mock_synth
+
+        events = []
+        async for event in orchestrator.stream_agent_query("查詢公文資料"):
+            events.append(event)
+
+        # 單一工具用 _execute_tool（走 self._tools.execute），不用 execute_parallel
+        orchestrator._tools.execute.assert_called_once()
+        orchestrator._tools.execute_parallel.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_full_tool_flow(self, mock_db):
         """完整工具流程：規劃 → 執行 → 合成"""
         orchestrator = make_orchestrator(mock_db)

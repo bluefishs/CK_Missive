@@ -72,7 +72,6 @@ export const DocumentPage: React.FC = () => {
     data: documentsData,
     isLoading,
     error: queryError,
-    refetch,
   } = useDocuments({
     ...filters,
     page: pagination.page,
@@ -90,11 +89,10 @@ export const DocumentPage: React.FC = () => {
   // ============================================================================
   const deleteMutation = useDeleteDocument();
 
-  // 強制刷新（直接調用 refetch）
+  // 強制刷新（invalidateQueries 會自動觸發 refetch，無需重複呼叫）
   const forceRefresh = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
-    await refetch();
-  }, [queryClient, refetch]);
+  }, [queryClient]);
 
   // 顯示錯誤訊息
   React.useEffect(() => {

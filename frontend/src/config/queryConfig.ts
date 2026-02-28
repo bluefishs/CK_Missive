@@ -134,6 +134,52 @@ export const queryKeys = {
     detail: (documentId: number) => ['ai', 'analysis', documentId] as const,
     stats: ['ai', 'analysis', 'stats'] as const,
   },
+
+  // AI 管理面板（6 個 Tab）
+  aiManagement: {
+    all: ['ai-management'] as const,
+    overview: ['ai-management', 'overview'] as const,
+    embedding: ['ai-management', 'embedding'] as const,
+    embeddingCoverage: ['ai-management', 'embedding-coverage'] as const,
+    history: ['ai-management', 'history'] as const,
+    historyDetail: (id: number) => ['ai-management', 'history', id] as const,
+    graph: ['ai-management', 'graph'] as const,
+    ollama: ['ai-management', 'ollama'] as const,
+    monitor: ['ai-management', 'monitor'] as const,
+    monitorHealth: ['ai-management', 'monitor', 'health'] as const,
+    monitorMetrics: ['ai-management', 'monitor', 'metrics'] as const,
+  },
+
+  // 管理後台
+  admin: {
+    all: ['admin'] as const,
+    users: ['admin', 'users'] as const,
+    dashboard: ['admin-dashboard'] as const,
+    dashboardUsers: ['admin-dashboard', 'users'] as const,
+    dashboardEfficiency: ['admin-dashboard', 'efficiency'] as const,
+  },
+
+  // 備份管理
+  backup: {
+    all: ['backup'] as const,
+    environment: ['backup', 'environment-status'] as const,
+    list: ['backup', 'list'] as const,
+    remoteConfig: ['backup', 'remote-config'] as const,
+  },
+
+  // 作業紀錄
+  workRecords: {
+    dispatchAll: ['dispatch-work-records'] as const,
+    dispatch: (dispatchId: number) => ['dispatch-work-records', dispatchId] as const,
+    projectAll: ['project-work-records'] as const,
+    project: (projectId: number) => ['project-work-records', projectId] as const,
+  },
+
+  // 證照管理
+  certifications: {
+    all: ['certifications'] as const,
+    detail: (id: number) => ['certifications', id] as const,
+  },
 } as const;
 
 // ============================================================================

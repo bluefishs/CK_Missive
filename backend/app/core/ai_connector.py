@@ -41,7 +41,7 @@ OLLAMA_DEFAULT_MODEL = os.getenv("OLLAMA_MODEL", "qwen3:4b")
 
 # Retry 配置
 MAX_RETRIES = 2
-RETRY_BASE_DELAY = 1.0  # 秒
+RETRY_BASE_DELAY = 0.5  # 秒（首次重試加速）
 RETRYABLE_STATUS_CODES = {429, 500, 502, 503}
 
 # 任務→模型映射 — 不同任務可配置不同模型（未來可替換為更適合的模型）

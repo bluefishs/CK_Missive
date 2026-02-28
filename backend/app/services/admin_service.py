@@ -2,8 +2,9 @@
 """
 管理後台服務層 - 業務邏輯處理 (非同步化)
 
-@version 2.0.0 - 安全性強化 (2026-02-02)
-- 修復 SQL 注入漏洞 (CVE-2021-XXXX)
+@version 2.1.0 - SQL 注入多層防禦 (2026-02-28)
+- 修復 CTE 注入繞過 (WITH ... AS (INSERT) SELECT)
+- 多層防禦：去註解 → 去字串 → 單語句 → 首關鍵字 → DML/DDL 黑名單
 - 新增表格名稱白名單驗證
 - 新增表格名稱格式驗證
 """
@@ -17,6 +18,46 @@ from sqlalchemy import text
 from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
+
+# ── SQL 注入多層防禦 ──────────────────────────────────────────────────
+_SQL_COMMENT_RE = re.compile(r'--[^\n]*|/\*[\s\S]*?\*/', re.MULTILINE)
+_SQL_STRING_RE = re.compile(r"'(?:''|[^'])*'", re.DOTALL)
+_FORBIDDEN_SQL_RE = re.compile(
+    r'\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|'
+    r'GRANT|REVOKE|COPY|CALL|LOCK|VACUUM)\b',
+    re.IGNORECASE,
+)
+
+
+def _validate_read_only_sql(query: str) -> None:
+    """多層驗證 SQL 查詢為唯讀。防止 CTE 注入等繞過手法。"""
+    # 1. 去除 SQL 註解（防止在註解中藏 DML）
+    no_comments = _SQL_COMMENT_RE.sub(' ', query)
+
+    # 2. 去除字串文字（防止誤判字串內的關鍵字 e.g. LIKE '%INSERT%'）
+    no_strings = _SQL_STRING_RE.sub("''", no_comments)
+
+    # 3. 禁止多重語句（去除尾部分號後不應再有分號）
+    stripped = no_strings.strip().rstrip(';')
+    if ';' in stripped:
+        raise HTTPException(
+            status_code=403, detail="不允許執行多重 SQL 語句"
+        )
+
+    # 4. 首關鍵字必須為 SELECT / WITH / EXPLAIN
+    tokens = stripped.split()
+    if not tokens:
+        raise HTTPException(status_code=400, detail="查詢語句不能為空")
+    first_kw = tokens[0].upper()
+    if first_kw not in ("SELECT", "WITH", "EXPLAIN"):
+        raise HTTPException(status_code=403, detail="只允許執行 SELECT 查詢")
+
+    # 5. 禁止危險 DML/DDL 關鍵字（防 CTE 注入: WITH x AS (INSERT ...) SELECT ...）
+    if _FORBIDDEN_SQL_RE.search(no_strings):
+        raise HTTPException(
+            status_code=403, detail="查詢包含禁止的 SQL 操作"
+        )
+
 
 # 安全性：允許查詢的表格白名單
 ALLOWED_TABLES: Set[str] = {
@@ -188,9 +229,8 @@ class AdminService:
         if not query:
             raise HTTPException(status_code=400, detail="查詢語句不能為空")
 
-        # 安全檢查 - 只允許 SELECT 查詢
-        if not query.upper().startswith("SELECT"):
-            raise HTTPException(status_code=403, detail="只允許執行 SELECT 查詢")
+        # 多層安全驗證 — 防 CTE 注入 / 多重語句 / DML/DDL
+        _validate_read_only_sql(query)
 
         try:
             start_time = datetime.now()

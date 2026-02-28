@@ -285,7 +285,13 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             details={
                 "method": request.method,
                 "url": str(request.url),
-                "headers": dict(request.headers)
+                "headers": {
+                    k: v for k, v in request.headers.items()
+                    if k.lower() not in (
+                        "authorization", "cookie", "x-csrf-token",
+                        "set-cookie", "proxy-authorization",
+                    )
+                },
             }
         )
         self.log_manager.log(entry)
