@@ -151,32 +151,58 @@ class AttachmentBackupMixin:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
+    @staticmethod
+    def _safe_mtime(f: Path) -> float:
+        """安全取得檔案修改時間（無法讀取時回傳 0，視為最舊）"""
+        try:
+            return f.stat().st_mtime
+        except OSError:
+            return 0.0
+
     async def _cleanup_old_backups(self, retention_days: int) -> None:
         """
         清理過期備份
 
         策略：
-        - 資料庫：刪除超過 retention_days 的 .sql 檔案
+        - 資料庫：刪除超過 retention_days 的 .sql 檔案，至少保留 1 個
         - 附件：保留 attachments_latest（增量備份），清理舊的 manifest
-        - 舊版附件目錄：清理遺留的 attachments_backup_* 目錄
+        - 舊版附件目錄：清理遺留的 attachments_backup_* 目錄，至少保留 1 個
         """
         cutoff = datetime.now() - timedelta(days=retention_days)
 
-        # 清理資料庫備份
-        for backup_file in self.backup_dir.glob("ck_missive_backup_*.sql"):
-            if datetime.fromtimestamp(backup_file.stat().st_mtime) < cutoff:
-                backup_file.unlink()
-                logger.info(f"已清理過期資料庫備份: {backup_file.name}")
+        # 清理資料庫備份 — 至少保留 1 個（防止備份失敗期間全部清空）
+        db_backups = sorted(
+            self.backup_dir.glob("ck_missive_backup_*.sql"),
+            key=self._safe_mtime,
+            reverse=True,
+        )
+        for backup_file in db_backups[1:]:  # 跳過最新的 1 個
+            try:
+                if datetime.fromtimestamp(backup_file.stat().st_mtime) < cutoff:
+                    backup_file.unlink()
+                    logger.info(f"已清理過期資料庫備份: {backup_file.name}")
+            except OSError as e:
+                logger.warning(f"清理資料庫備份失敗: {backup_file.name}: {e}")
 
-        # 清理舊版附件備份目錄（遺留的 attachments_backup_* 目錄）
-        for backup_dir in self.attachment_backup_dir.glob("attachments_backup_*"):
-            if backup_dir.is_dir():
+        # 清理舊版附件備份目錄（遺留的 attachments_backup_* 目錄）— 至少保留 1 個
+        att_dirs = sorted(
+            (d for d in self.attachment_backup_dir.glob("attachments_backup_*") if d.is_dir()),
+            key=self._safe_mtime,
+            reverse=True,
+        )
+        for backup_dir in att_dirs[1:]:  # 跳過最新的 1 個
+            try:
                 if datetime.fromtimestamp(backup_dir.stat().st_mtime) < cutoff:
                     shutil.rmtree(backup_dir)
                     logger.info(f"已清理舊版附件備份目錄: {backup_dir.name}")
+            except (PermissionError, OSError) as e:
+                logger.warning(f"清理附件備份目錄失敗: {backup_dir.name}: {e}")
 
         # 清理過期的 manifest 檔案（保留 retention_days 天內的）
         for manifest_file in self.attachment_backup_dir.glob("manifest_*.json"):
-            if datetime.fromtimestamp(manifest_file.stat().st_mtime) < cutoff:
-                manifest_file.unlink()
-                logger.debug(f"已清理過期 manifest: {manifest_file.name}")
+            try:
+                if datetime.fromtimestamp(manifest_file.stat().st_mtime) < cutoff:
+                    manifest_file.unlink()
+                    logger.debug(f"已清理過期 manifest: {manifest_file.name}")
+            except OSError:
+                pass

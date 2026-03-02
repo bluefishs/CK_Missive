@@ -137,6 +137,10 @@ scripts/archive/
 # Claude planning files
 claude_plant/
 
+# Knowledge map (generated, import to Heptabase)
+docs/knowledge-map/
+docs/knowledge-map.zip
+
 # Temporary data files
 dispatch*.json
 !frontend/src/**/*.json

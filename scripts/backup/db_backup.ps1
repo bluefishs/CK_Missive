@@ -52,7 +52,10 @@ if (-not $DbUser -or -not $DbPassword -or -not $DbName) {
     exit 1
 }
 
-$runningContainer = docker ps --filter "name=postgres" --format "{{.Names}}" 2>$null | Select-Object -First 1
+# 使用精確容器名稱查詢（避免跨專案汙染，Docker --filter "name=" 是子字串匹配）
+$runningContainer = docker ps --filter "name=$ContainerName" --format "{{.Names}}" 2>$null |
+    Where-Object { $_ -eq $ContainerName -or $_ -eq "${ContainerName}_dev" -or $_ -eq "${ContainerName}_1" } |
+    Select-Object -First 1
 if ($runningContainer) { $ContainerName = $runningContainer }
 
 function Ensure-Dir($path) {
@@ -108,17 +111,25 @@ function Clean-OldBackups {
     $cutoff = (Get-Date).AddDays(-$RetentionDays)
     $count = 0
 
-    # Clean database backups
-    Get-ChildItem -Path $BackupDir -Filter "ck_missive_backup_*" -ErrorAction SilentlyContinue |
-        Where-Object { $_.LastWriteTime -lt $cutoff } |
-        ForEach-Object { Remove-Item $_.FullName -Force; Log "Deleted DB: $($_.Name)"; $count++ }
+    # Clean database backups — 至少保留 1 個（防止備份失敗期間全部清空）
+    $dbFiles = Get-ChildItem -Path $BackupDir -Filter "ck_missive_backup_*" -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending
+    if ($dbFiles.Count -gt 1) {
+        $dbFiles | Select-Object -Skip 1 |
+            Where-Object { $_.LastWriteTime -lt $cutoff } |
+            ForEach-Object { Remove-Item $_.FullName -Force; Log "Deleted DB: $($_.Name)"; $count++ }
+    }
 
-    # Clean attachment backups
-    Get-ChildItem -Path $AttachmentBackupDir -Filter "attachments_backup_*" -ErrorAction SilentlyContinue |
-        Where-Object { $_.LastWriteTime -lt $cutoff } |
-        ForEach-Object { Remove-Item $_.FullName -Recurse -Force; Log "Deleted Attachments: $($_.Name)"; $count++ }
+    # Clean attachment backups — 至少保留 1 個
+    $attDirs = Get-ChildItem -Path $AttachmentBackupDir -Directory -Filter "attachments_backup_*" -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending
+    if ($attDirs.Count -gt 1) {
+        $attDirs | Select-Object -Skip 1 |
+            Where-Object { $_.LastWriteTime -lt $cutoff } |
+            ForEach-Object { Remove-Item $_.FullName -Recurse -Force; Log "Deleted Attachments: $($_.Name)"; $count++ }
+    }
 
-    Log "Cleanup done, deleted $count items"
+    Log "Cleanup done, deleted $count items (kept newest 1 of each type)"
 }
 
 function Do-AttachmentBackup {
@@ -202,8 +213,12 @@ if (!$DatabaseOnly) {
     }
 }
 
-# Cleanup old backups
-Clean-OldBackups
+# Cleanup old backups (only if at least one backup succeeded)
+if ($dbSuccess -or $attSuccess) {
+    Clean-OldBackups
+} else {
+    Log "Skipping cleanup due to backup failures" "WARN"
+}
 
 # Show stats
 $stats = Get-BackupStats

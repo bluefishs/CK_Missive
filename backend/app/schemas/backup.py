@@ -6,7 +6,7 @@ Pydantic schemas for Backup Management
 @date 2026-01-29
 """
 from typing import Optional, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # =============================================================================
@@ -20,15 +20,32 @@ class CreateBackupRequest(BaseModel):
     retention_days: int = Field(7, ge=1, le=365, description="備份保留天數")
 
 
+def _validate_backup_name(v: str) -> str:
+    """驗證備份名稱不含路徑穿越字元"""
+    if ".." in v or "/" in v or "\\" in v:
+        raise ValueError("備份名稱不可包含路徑分隔符或 '..'")
+    return v
+
+
 class DeleteBackupRequest(BaseModel):
     """刪除備份請求"""
     backup_name: str = Field(..., description="備份名稱")
     backup_type: str = Field("database", description="備份類型 (database/attachments)")
 
+    @field_validator("backup_name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        return _validate_backup_name(v)
+
 
 class RestoreBackupRequest(BaseModel):
     """還原備份請求"""
     backup_name: str = Field(..., description="備份檔案名稱")
+
+    @field_validator("backup_name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        return _validate_backup_name(v)
 
 
 # =============================================================================

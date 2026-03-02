@@ -146,7 +146,7 @@ class BackupUtilsMixin:
             return False
 
     def _get_running_container(self) -> Optional[str]:
-        """取得正在執行的 PostgreSQL 容器名稱"""
+        """取得正在執行的 PostgreSQL 容器名稱（精確比對，防跨專案汙染）"""
         try:
             result = subprocess.run(
                 [
@@ -164,10 +164,15 @@ class BackupUtilsMixin:
                 errors="replace",
             )
             if result.returncode == 0 and result.stdout.strip():
+                # Docker --filter "name=" 是子字串匹配，需精確比對
+                allowed_suffixes = ["", "_dev", "_1"]
                 for name in result.stdout.strip().split("\n"):
-                    if name.strip() == self.container_name:
-                        return self.container_name
-                return result.stdout.strip().split("\n")[0]
+                    clean_name = name.strip()
+                    if any(
+                        clean_name == self.container_name + suffix
+                        for suffix in allowed_suffixes
+                    ):
+                        return clean_name
         except Exception:
             pass
         return self.container_name
