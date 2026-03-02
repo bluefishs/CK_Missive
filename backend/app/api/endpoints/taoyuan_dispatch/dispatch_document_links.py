@@ -41,7 +41,7 @@ async def search_linkable_documents(
     搜尋可關聯的桃園派工公文
 
     此 API 專門用於派工單公文關聯，只回傳：
-    - contract_project_id = 21 (桃園查估派工專案) 的公文
+    - 指定 contract_project_id 的公文（預設 TAOYUAN_PROJECT_ID）
     - 根據 link_type 過濾公文字號前綴：
       - agency_incoming: 桃工用字第、桃工、府工、府養 等政府機關字號
       - company_outgoing: 乾坤 開頭的公司發文
@@ -63,10 +63,11 @@ async def search_linkable_documents(
     if not keyword:
         return {"success": True, "items": [], "total": 0}
 
-    # 構建查詢：限定 contract_project_id
+    # 構建查詢：限定 contract_project_id（支援動態專案切換）
+    effective_project_id = request.contract_project_id or TAOYUAN_PROJECT_ID
     query = (
         select(Document)
-        .where(Document.contract_project_id == TAOYUAN_PROJECT_ID)
+        .where(Document.contract_project_id == effective_project_id)
         .where(
             or_(
                 Document.doc_number.ilike(f"%{keyword}%"),

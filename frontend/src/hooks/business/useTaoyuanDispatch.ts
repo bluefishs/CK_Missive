@@ -10,7 +10,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { dispatchOrdersApi } from '../../api/taoyuanDispatchApi';
 import type { DispatchOrder } from '../../types/api';
-import { queryKeys } from '../../config/queryConfig';
+import { queryKeys, defaultQueryOptions } from '../../config/queryConfig';
 
 interface UseTaoyuanDispatchParams {
   skip?: number;
@@ -54,6 +54,17 @@ export const useTaoyuanDispatchOrders = (params: UseTaoyuanDispatchParams): UseT
     error: error as Error | null,
     refetch,
   };
+};
+
+/**
+ * 桃園派工承攬案件列表 Hook（專案切換下拉選單用）
+ */
+export const useTaoyuanContractProjects = () => {
+  return useQuery({
+    queryKey: [...queryKeys.taoyuanDispatch.all, 'contract-projects'],
+    queryFn: () => dispatchOrdersApi.getContractProjects(),
+    ...defaultQueryOptions.dropdown,
+  });
 };
 
 /**

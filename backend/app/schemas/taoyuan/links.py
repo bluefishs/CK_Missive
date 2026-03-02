@@ -117,3 +117,4 @@ class SearchLinkableDocumentsRequest(BaseModel):
     limit: int = 20
     exclude_document_ids: Optional[List[int]] = None
     link_type: Optional[str] = None
+    contract_project_id: Optional[int] = None

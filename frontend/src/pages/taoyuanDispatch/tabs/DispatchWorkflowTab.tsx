@@ -75,6 +75,8 @@ export interface DispatchWorkflowTabProps {
   linkedDocuments?: DispatchDocumentLink[];
   /** 重新取得派工單資料的 callback */
   onRefetchDispatch?: () => void;
+  /** 承攬案件 ID（用於搜尋可關聯公文時篩選對應專案） */
+  contractProjectId?: number;
   /** 工程名稱（用於自動匹配公文） */
   projectName?: string;
   /** 派工單號（用於匯出檔名） */
@@ -91,6 +93,7 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
   linkedProjects,
   linkedDocuments = [],
   onRefetchDispatch,
+  contractProjectId,
   projectName,
   dispatchNo,
 }) => {
@@ -136,6 +139,7 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
       docSearchKeyword,
       linkedDocIds,
       selectedLinkType,
+      contractProjectId,
     ],
     queryFn: async () => {
       if (!docSearchKeyword.trim()) return { items: [] };
@@ -144,6 +148,7 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
         20,
         linkedDocIds.length > 0 ? linkedDocIds : undefined,
         selectedLinkType,
+        contractProjectId,
       );
     },
     enabled: !!docSearchKeyword.trim(),

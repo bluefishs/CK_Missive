@@ -474,6 +474,10 @@ export const TAOYUAN_DISPATCH_ENDPOINTS = {
   /** 下載匯入範本 POST /taoyuan-dispatch/projects/import-template */
   PROJECTS_IMPORT_TEMPLATE: '/taoyuan-dispatch/projects/import-template',
 
+  // 承攬案件切換
+  /** 桃園派工承攬案件列表 POST /taoyuan-dispatch/dispatch/contract-projects */
+  DISPATCH_CONTRACT_PROJECTS: '/taoyuan-dispatch/dispatch/contract-projects',
+
   // 派工紀錄
   /** 派工單列表 POST /taoyuan-dispatch/dispatch/list */
   DISPATCH_ORDERS_LIST: '/taoyuan-dispatch/dispatch/list',

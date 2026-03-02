@@ -90,16 +90,17 @@ class DispatchImportService:
                         if pd.notna(value):
                             record[db_col] = str(value).strip() if isinstance(value, str) else value
 
-                # 處理日期
+                # 處理履約期限（DB 為 String(200)，保留原始文字）
                 if 'deadline' in record:
                     deadline_val = record['deadline']
                     if isinstance(deadline_val, (datetime, date)):
-                        record['deadline'] = deadline_val.date() if isinstance(deadline_val, datetime) else deadline_val
-                    elif isinstance(deadline_val, str):
-                        try:
-                            record['deadline'] = datetime.strptime(deadline_val, '%Y-%m-%d').date()
-                        except ValueError:
-                            record.pop('deadline', None)
+                        # Excel 日期格式 → 轉為民國年字串
+                        d = deadline_val.date() if isinstance(deadline_val, datetime) else deadline_val
+                        roc_year = d.year - 1911
+                        record['deadline'] = f"{roc_year}年{d.month:02d}月{d.day:02d}日"
+                    else:
+                        # 字串直接保留（如 "115年03月20日前函送成果"）
+                        record['deadline'] = str(deadline_val).strip()
 
                 # 生成派工單號（如果沒有）
                 if not record.get('dispatch_no'):

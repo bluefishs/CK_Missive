@@ -23,11 +23,14 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
+from sqlalchemy import select
+
 from .common import (
     get_async_db, require_auth,
     DispatchOrderCreate, DispatchOrderUpdate, DispatchOrderSchema,
     DispatchOrderListQuery, DispatchOrderListResponse,
-    ExcelImportResult, PaginationMeta
+    ExcelImportResult, PaginationMeta,
+    ContractProject,
 )
 from app.utils.doc_helpers import is_outgoing_doc_number
 from app.services.taoyuan import DispatchOrderService, DispatchExportService, ExportTaskManager
@@ -38,6 +41,37 @@ router = APIRouter()
 def get_dispatch_service(db: AsyncSession = Depends(get_async_db)) -> DispatchOrderService:
     """依賴注入：取得 DispatchOrderService"""
     return DispatchOrderService(db)
+
+
+@router.post("/dispatch/contract-projects", summary="桃園派工承攬案件列表")
+async def list_contract_projects(
+    db: AsyncSession = Depends(get_async_db),
+    current_user=Depends(require_auth()),
+):
+    """取得與桃園派工相關的承攬案件列表（用於專案切換下拉選單）"""
+    result = await db.execute(
+        select(
+            ContractProject.id,
+            ContractProject.project_name,
+            ContractProject.project_code,
+            ContractProject.year,
+        )
+        .where(
+            ContractProject.project_name.ilike("%桃園%"),
+            ContractProject.project_name.ilike("%查估%"),
+        )
+        .order_by(ContractProject.year.desc(), ContractProject.id.desc())
+    )
+    items = [
+        {
+            "id": row.id,
+            "project_name": row.project_name,
+            "project_code": row.project_code,
+            "year": row.year,
+        }
+        for row in result.all()
+    ]
+    return {"success": True, "items": items}
 
 
 @router.post("/dispatch/list", response_model=DispatchOrderListResponse, summary="派工紀錄列表")

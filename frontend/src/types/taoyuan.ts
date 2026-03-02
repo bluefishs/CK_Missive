@@ -31,6 +31,14 @@ export const TAOYUAN_WORK_TYPES = [
 
 export type TaoyuanWorkType = (typeof TAOYUAN_WORK_TYPES)[number];
 
+/** 桃園派工承攬案件（用於專案切換下拉選單） */
+export interface TaoyuanContractProject {
+  id: number;
+  project_name: string;
+  project_code: string;
+  year: number | null;
+}
+
 // ============================================================================
 // 關聯類型定義 (公文-派工-工程三角關係)
 // ============================================================================

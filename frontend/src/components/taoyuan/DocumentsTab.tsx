@@ -69,6 +69,15 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ contractCode }) => {
   });
   const [pagination, setPagination] = useState({ page: 1, limit: 20 });
 
+  // 專案切換時同步 filters（useState 只取初始值，prop 變化需手動同步）
+  useEffect(() => {
+    setFilters(prev => {
+      if (prev.contract_case === contractCode) return prev;
+      return { ...prev, contract_case: contractCode };
+    });
+    setPagination(prev => prev.page === 1 ? prev : { ...prev, page: 1 });
+  }, [contractCode]);
+
   // 排序狀態
   const [sortField, setSortField] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<'ascend' | 'descend' | null>(null);

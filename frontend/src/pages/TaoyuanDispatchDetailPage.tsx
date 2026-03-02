@@ -806,6 +806,7 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
         }))}
         linkedDocuments={dispatch?.linked_documents || []}
         onRefetchDispatch={refetch}
+        contractProjectId={dispatch?.contract_project_id}
         projectName={dispatch?.project_name}
         dispatchNo={dispatch?.dispatch_no}
       />

@@ -18,11 +18,23 @@ import type {
   DocumentHistoryMatchResponse,
   DispatchOrderWithHistoryResponse,
 } from '../../types/api';
+import type { TaoyuanContractProject } from '../../types/taoyuan';
 
 /**
  * 派工單 API 服務
  */
 export const dispatchOrdersApi = {
+  /**
+   * 取得桃園派工承攬案件列表（用於專案切換下拉選單）
+   */
+  async getContractProjects(): Promise<TaoyuanContractProject[]> {
+    const response = await apiClient.post<{ items: TaoyuanContractProject[] }>(
+      API_ENDPOINTS.TAOYUAN_DISPATCH.DISPATCH_CONTRACT_PROJECTS,
+      {}
+    );
+    return response.items ?? [];
+  },
+
   /**
    * 取得派工單列表
    */
@@ -120,7 +132,8 @@ export const dispatchOrdersApi = {
     keyword: string,
     limit = 20,
     excludeDocumentIds?: number[],
-    linkType?: 'agency_incoming' | 'company_outgoing'
+    linkType?: 'agency_incoming' | 'company_outgoing',
+    contractProjectId?: number,
   ): Promise<{
     success: boolean;
     items: Array<{
@@ -141,6 +154,7 @@ export const dispatchOrdersApi = {
         limit,
         exclude_document_ids: excludeDocumentIds,
         link_type: linkType,
+        contract_project_id: contractProjectId,
       }
     );
   },
