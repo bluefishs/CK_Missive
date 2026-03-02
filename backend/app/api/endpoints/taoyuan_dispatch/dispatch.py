@@ -157,7 +157,8 @@ async def get_next_dispatch_no(
 
     roc_year = datetime.now().year - 1911  # 預設當前民國年
 
-    # 若指定承攬案件，從專案名稱解析民國年（如 "115年度..." → 115）
+    # 若指定承攬案件，從專案名稱解析民國年
+    # 支援 "115年度..." → 115 以及 "112至113年度..." → 112（取起始年）
     if contract_project_id:
         result = await db.execute(
             select(ContractProject.project_name)
@@ -165,7 +166,7 @@ async def get_next_dispatch_no(
         )
         project_name = result.scalar_one_or_none()
         if project_name:
-            year_match = re_mod.search(r'(\d{2,3})年', project_name)
+            year_match = re_mod.search(r'(\d{2,3})(?:[-~～至]\d{2,3})?年', project_name)
             if year_match:
                 roc_year = int(year_match.group(1))
 

@@ -134,14 +134,20 @@ class DispatchImportService:
         }
 
     async def _resolve_roc_year(self, contract_project_id: int) -> int:
-        """從承攬案件名稱解析民國年（如 '112-113年度...' → 112）"""
+        """
+        從承攬案件名稱解析民國年（取起始年）
+
+        支援格式：
+        - "115年度..." → 115
+        - "112至113年度..." → 112
+        """
         result = await self.db.execute(
             select(ContractProject.project_name)
             .where(ContractProject.id == contract_project_id)
         )
         project_name = result.scalar_one_or_none()
         if project_name:
-            year_match = re.search(r'(\d{2,3})年', project_name)
+            year_match = re.search(r'(\d{2,3})(?:[-~～至]\d{2,3})?年', project_name)
             if year_match:
                 return int(year_match.group(1))
         return datetime.now().year - 1911
