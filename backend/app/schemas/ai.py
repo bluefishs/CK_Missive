@@ -774,6 +774,16 @@ class AgentQueryRequest(BaseModel):
     )
 
 
+class AgentSyncResponse(BaseModel):
+    """Agent 同步問答回應（非串流）"""
+    success: bool = True
+    answer: str = ""
+    sources: List[Dict[str, Any]] = []
+    tools_used: List[str] = []
+    latency_ms: int = 0
+    error: Optional[str] = None
+
+
 class RAGQueryRequest(BaseModel):
     """RAG 問答請求"""
     question: str = Field(..., min_length=2, max_length=500, description="自然語言問題")

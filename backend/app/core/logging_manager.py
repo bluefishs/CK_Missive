@@ -290,6 +290,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
                     if k.lower() not in (
                         "authorization", "cookie", "x-csrf-token",
                         "set-cookie", "proxy-authorization",
+                        "x-service-token",
                     )
                 },
             }

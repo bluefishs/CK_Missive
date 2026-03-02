@@ -4,6 +4,72 @@
 
 ---
 
+## [1.75.0] - 2026-03-02
+
+### MCP Server + OpenClaw LINE 整合
+
+**Phase 1: CK_Missive MCP Server (backend/mcp_server.py)**:
+- 建立 MCP Server，包裝 7 個工具（6 個 Agent 工具 + ask_question 問答）
+- 使用 FastMCP SDK，standalone 獨立程序連接同一 PostgreSQL
+- 支援 Claude Desktop 直接配置使用
+- 新增 `ck-missive://system/info` MCP Resource
+- 新增 `mcp>=1.0.0` Python 依賴
+
+**Phase 1b: Agent 同步問答 API (agent_query_sync.py)**:
+- 新增 `POST /api/ai/agent/query` 非串流端點
+- 收集完整 SSE 事件後回傳 JSON（供 OpenClaw、LINE Bot、MCP 呼叫）
+- X-Service-Token header 認證（MCP_SERVICE_TOKEN 環境變數）
+- 未設定 token 時為開放存取（開發模式）
+
+**Phase 2: OpenClaw ck-missive-bridge 技能**:
+- 新增 `~/.openclaw/workspace/skills/ck-missive-bridge/` 技能
+- SKILL.md 定義公文查詢、派工單搜尋、期限提醒、週報等使用情境
+- `references/api-guide.md` — CK_Missive API 完整參考
+- `references/line-templates.md` — 5 種 LINE 訊息模板（期限提醒、逾期警報、搜尋結果、週報、系統狀態）
+- 複用 OpenClaw 既有 LINE 頻道（小花貓Aroan @349lcsbb）
+
+**Phase 3: OpenClaw cron 排程整合**:
+- `ck-missive-deadline-check` — 平日 8:30 公文期限 → LINE 推送
+- `ck-missive-overdue-alert` — 平日 12:00 派工單逾期 → LINE 推送
+- `ck-missive-weekly-summary` — 週五 16:30 公文週報 → LINE 推送
+
+**異動檔案**: `backend/mcp_server.py`(新增), `backend/app/api/endpoints/ai/agent_query_sync.py`(新增),
+`backend/app/api/endpoints/ai/__init__.py`, `backend/requirements.txt`,
+`~/.openclaw/workspace/skills/ck-missive-bridge/`(新增), `~/.openclaw/cron/jobs.json`
+
+---
+
+## [1.74.0] - 2026-03-02
+
+### 備份系統修復 — Docker 容器汙染 + 清理安全閥 + SMB 長路徑
+
+**Bug Fix #1: Docker 容器名稱汙染 (db_backup.ps1 + utils.py)**:
+- PS 腳本 `--filter "name=postgres"` 子字串匹配 → 選到 `ck-tunnel-postgres-1`
+- 修正為精確比對，白名單 `_dev`、`_1` 後綴變體
+- Python `_get_running_container()` 移除 fallback 到第一筆結果，統一白名單邏輯
+
+**Bug Fix #2: 備份清理安全閥 (scheduler.py + attachment_backup.py + db_backup.ps1)**:
+- 清理邏輯新增「至少保留 1 個」安全下限，防止備份失敗期間全部清空
+- PS: `Select-Object -Skip 1`；Python: `db_backups[1:]`
+- 備份失敗時完全跳過清理（Python + PS 雙系統一致）
+- `_safe_mtime()` 靜態方法防止 `stat()` OSError 中斷排序
+
+**Bug Fix #3: SMB/NAS WinError 123 長中文路徑 (scheduler.py)**:
+- `shutil.copy2()` 在 SMB 網路磁碟對 UTF-8 中文長檔名（>180 字元路徑）拋出 WinError 123
+- 新增 `_safe_copy2()` 靜態方法：自動截斷檔名 + MD5 hash 前 6 碼防碰撞
+- `sync_to_remote()` 改為逐檔 try/except，單檔失敗不中斷整體同步
+- 回傳 `failed_files` / `failed_count` 供前端顯示
+
+**Security Fix: Path Traversal 防護 (schemas/backup.py)**:
+- `DeleteBackupRequest` / `RestoreBackupRequest` 新增 `field_validator`
+- 禁止 `..`、`/`、`\` 路徑穿越字元
+
+**異動檔案**: `scripts/backup/db_backup.ps1`, `backend/app/services/backup/scheduler.py`,
+`backend/app/services/backup/attachment_backup.py`, `backend/app/services/backup/utils.py`,
+`backend/app/schemas/backup.py`, `backend/config/remote_backup.json`
+
+---
+
 ## [1.73.0] - 2026-02-26
 
 ### 系統優化 — SSE 強化 + 串流防護 + 文件規範
