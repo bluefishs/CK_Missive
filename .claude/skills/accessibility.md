@@ -1,7 +1,18 @@
 ---
-trigger_keywords: [可訪問性, accessibility, a11y, WCAG, ARIA, 鍵盤導航, keyboard, screen reader]
-version: "1.0.0"
-date: "2026-02-21"
+name: accessibility
+description: 可訪問性 (Accessibility) 規範
+version: 1.0.0
+category: react
+triggers:
+  - 可訪問性
+  - accessibility
+  - a11y
+  - WCAG
+  - ARIA
+  - 鍵盤導航
+  - keyboard
+  - screen reader
+updated: '2026-02-21'
 ---
 
 # 可訪問性 (Accessibility) 規範

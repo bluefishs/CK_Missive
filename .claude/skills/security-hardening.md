@@ -1,10 +1,23 @@
+---
+name: security-hardening
+description: Security Hardening Skill - 安全加固指南
+version: 2.0.0
+category: shared
+triggers:
+  - 安全
+  - security
+  - 防護
+  - 漏洞
+  - vulnerability
+  - XSS
+  - SQL injection
+  - refresh token
+  - idle timeout
+updated: '2026-02-07'
+---
+
 # Security Hardening Skill - 安全加固指南
 
-> **版本**: 2.0.0
-> **觸發關鍵字**: 安全, security, 防護, 漏洞, vulnerability, XSS, SQL injection, refresh token, idle timeout
-> **更新日期**: 2026-02-07
-
----
 
 ## 概述
 

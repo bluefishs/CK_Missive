@@ -1,11 +1,23 @@
+---
+name: database-schema
+description: 資料庫設計、模型定義、遷移管理、Feature Flags
+version: 1.3.0
+category: backend
+triggers:
+  - schema
+  - 資料庫
+  - PostgreSQL
+  - model
+  - 模型
+  - table
+  - 資料表
+  - pgvector
+  - feature flag
+updated: '2026-01-15'
+---
+
 # 資料庫結構領域知識 (Database Schema Domain)
 
-> **觸發關鍵字**: schema, 資料庫, PostgreSQL, model, 模型, table, 資料表, pgvector, feature flag
-> **適用範圍**: 資料庫設計、模型定義、遷移管理、Feature Flags
-> **版本**: 1.3.0
-> **最後更新**: 2026-02-19
-
----
 
 ## 資料庫配置
 

@@ -1,12 +1,21 @@
+---
+name: type-management
+description: 後端 Schema 定義、前端型別定義、型別同步
+version: 1.1.0
+category: backend
+triggers:
+  - 型別
+  - type
+  - schema
+  - Pydantic
+  - TypeScript
+  - BaseModel
+  - interface
+updated: '2026-01-21'
+---
+
 # 型別管理規範 (Type Management Guide)
 
-> **觸發關鍵字**: 型別, type, schema, Pydantic, TypeScript, BaseModel, interface
-> **適用範圍**: 後端 Schema 定義、前端型別定義、型別同步
-> **版本**: 1.1.0
-> **建立日期**: 2026-01-18
-> **最後更新**: 2026-01-21
-
----
 
 ## 核心原則：單一真實來源 (SSOT)
 

@@ -1,10 +1,17 @@
+---
+name: skills-inventory
+description: 追蹤所有 Skills 的版本與狀態
+version: 1.0.0
+category: project
+triggers:
+  - skills
+  - inventory
+  - 清單
+updated: '2026-02-05'
+---
+
 # Skills 清單與版本管理
 
-> **版本**: 1.0.0
-> **建立日期**: 2026-02-05
-> **用途**: 追蹤所有 Skills 的版本與狀態
-
----
 
 ## 專案特定 Skills (頂層)
 

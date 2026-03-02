@@ -1,8 +1,19 @@
-# Unicode 字元處理指南
+---
+name: unicode-handling
+description: Unicode 字元處理指南
+version: 1.0.0
+category: backend
+triggers:
+  - Unicode
+  - 編碼
+  - 字元
+  - 康熙部首
+  - 正規化
+  - normalize
+updated: '2026-01-16'
+---
 
-> **觸發關鍵字**: Unicode, 編碼, 字元, 康熙部首, 正規化, normalize
-> **版本**: 1.0.0
-> **更新日期**: 2026-01-16
+# Unicode 字元處理指南
 
 ## 概述
 

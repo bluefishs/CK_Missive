@@ -1,0 +1,202 @@
+{
+  "generated": "2026-03-02T15:30:42.645Z",
+  "total": 13,
+  "categories": [
+    "backend",
+    "shared",
+    "react"
+  ],
+  "items": [
+    {
+      "id": "api-design",
+      "path": "api-design.md",
+      "title": "api-design",
+      "description": "API 設計代理",
+      "version": "1.0.0",
+      "category": "backend",
+      "updated": "2026-01-15",
+      "triggers": [
+        "當需要設計或審查 API 端點時"
+      ],
+      "lastModified": "2026-03-02T14:48:14.403Z"
+    },
+    {
+      "id": "bug-investigator",
+      "path": "bug-investigator.md",
+      "title": "bug-investigator",
+      "description": "Bug 調查代理",
+      "version": "1.1.0",
+      "category": "shared",
+      "updated": "2026-01-15",
+      "triggers": [
+        "當需要調查和修復 Bug 時"
+      ],
+      "lastModified": "2026-03-02T14:48:14.403Z"
+    },
+    {
+      "id": "build-error-resolver",
+      "path": "build-error-resolver.md",
+      "title": "build-error-resolver",
+      "description": "Build and TypeScript error resolution specialist. Use PROACTIVELY when build fails or type errors occur. Fixes build/type errors only with minimal diffs, no architectural edits. Focuses on getting the build green quickly.",
+      "version": "1.0.0",
+      "category": "shared",
+      "updated": "2026-02-26",
+      "triggers": [
+        "/build-fix",
+        "build error",
+        "TypeScript error"
+      ],
+      "lastModified": "2026-03-02T14:49:15.942Z"
+    },
+    {
+      "id": "code-review",
+      "path": "code-review.md",
+      "title": "code-review",
+      "description": "程式碼審查代理",
+      "version": "1.0.0",
+      "category": "shared",
+      "updated": "2026-01-15",
+      "triggers": [
+        "當需要審查程式碼變更時"
+      ],
+      "lastModified": "2026-03-02T14:48:14.405Z"
+    },
+    {
+      "id": "e2e-runner",
+      "path": "e2e-runner.md",
+      "title": "e2e-runner",
+      "description": "End-to-end testing specialist using Vercel Agent Browser (preferred) with Playwright fallback. Use PROACTIVELY for generating, maintaining, and running E2E tests. Manages test journeys, quarantines flaky tests, uploads artifacts (screenshots, videos, traces), and ensures critical user flows work.",
+      "version": "1.0.0",
+      "category": "shared",
+      "updated": "2026-02-26",
+      "triggers": [
+        "e2e",
+        "end-to-end",
+        "Playwright",
+        "browser test"
+      ],
+      "lastModified": "2026-03-02T14:49:20.086Z"
+    },
+    {
+      "id": "_shared-react-component-generator",
+      "path": "_shared/react/component-generator.md",
+      "title": "Component Generator Agent",
+      "version": "1.0.0",
+      "category": "react",
+      "updated": "2026-02-02",
+      "triggers": [
+        "/generate-component",
+        "生成組件",
+        "React組件",
+        "component"
+      ],
+      "lastModified": "2026-02-02T05:52:21.289Z"
+    },
+    {
+      "id": "_shared-react-test-generator",
+      "path": "_shared/react/test-generator.md",
+      "title": "Test Generator Agent",
+      "version": "1.0.0",
+      "category": "react",
+      "updated": "2026-02-02",
+      "triggers": [
+        "/generate-tests",
+        "生成測試",
+        "測試用例",
+        "test"
+      ],
+      "lastModified": "2026-02-02T05:52:23.647Z"
+    },
+    {
+      "id": "_shared-shared-build-resolver",
+      "path": "_shared/shared/build-resolver.md",
+      "title": "建構錯誤修復代理",
+      "description": "專門修復 TypeScript、編譯和建構錯誤的專家，以最小變更快速解決問題",
+      "version": "1.0.0",
+      "category": "shared",
+      "updated": "2026-02-03",
+      "triggers": [
+        "/build-fix",
+        "建構修復",
+        "編譯錯誤",
+        "TypeScript 錯誤"
+      ],
+      "lastModified": "2026-02-02T21:59:18.164Z"
+    },
+    {
+      "id": "_shared-shared-code-reviewer",
+      "path": "_shared/shared/code-reviewer.md",
+      "title": "Code Reviewer Agent",
+      "version": "1.0.0",
+      "category": "shared",
+      "updated": "2026-02-02",
+      "triggers": [
+        "/code-review",
+        "程式碼審查",
+        "code review",
+        "CR"
+      ],
+      "lastModified": "2026-02-02T05:52:13.684Z"
+    },
+    {
+      "id": "_shared-shared-github-workflow",
+      "path": "_shared/shared/github-workflow.md",
+      "title": "GitHub Workflow Agent",
+      "version": "1.0.0",
+      "category": "shared",
+      "updated": "2026-02-02",
+      "triggers": [
+        "/git-workflow",
+        "Git工作流",
+        "GitHub",
+        "版本控制"
+      ],
+      "lastModified": "2026-02-02T05:52:16.059Z"
+    },
+    {
+      "id": "_shared-shared-planner",
+      "path": "_shared/shared/planner.md",
+      "title": "規劃專家代理",
+      "description": "專注於建立完整、可執行的實作計畫，在撰寫程式碼前進行需求分析、架構審查和風險評估",
+      "version": "1.0.0",
+      "category": "shared",
+      "updated": "2026-02-03",
+      "triggers": [
+        "/planner",
+        "規劃專家",
+        "建立計畫"
+      ],
+      "lastModified": "2026-02-02T21:59:18.193Z"
+    },
+    {
+      "id": "_shared-shared-security-auditor",
+      "path": "_shared/shared/security-auditor.md",
+      "title": "Security Auditor Agent",
+      "version": "1.0.0",
+      "category": "shared",
+      "updated": "2026-02-02",
+      "triggers": [
+        "/security-audit",
+        "安全審計",
+        "security audit",
+        "漏洞掃描"
+      ],
+      "lastModified": "2026-02-02T05:52:18.283Z"
+    },
+    {
+      "id": "_shared-shared-tdd-guide",
+      "path": "_shared/shared/tdd-guide.md",
+      "title": "TDD 引導代理",
+      "description": "測試驅動開發專家，強制執行先寫測試的方法論，確保 80%+ 測試覆蓋率",
+      "version": "1.0.0",
+      "category": "shared",
+      "updated": "2026-02-03",
+      "triggers": [
+        "/tdd-guide",
+        "TDD 專家",
+        "測試驅動開發"
+      ],
+      "lastModified": "2026-02-02T21:59:18.227Z"
+    }
+  ]
+}

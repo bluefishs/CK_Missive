@@ -1,11 +1,21 @@
+---
+name: database-performance
+description: 後端資料庫操作、ORM 查詢優化
+version: 1.0.0
+category: backend
+triggers:
+  - 慢查詢
+  - N+1
+  - 索引
+  - index
+  - 資料庫效能
+  - 查詢優化
+  - slow query
+updated: '2026-01-15'
+---
+
 # 資料庫效能優化指南 (Database Performance Guide)
 
-> **觸發關鍵字**: 慢查詢, N+1, 索引, index, 資料庫效能, 查詢優化, slow query
-> **適用範圍**: 後端資料庫操作、ORM 查詢優化
-> **版本**: 1.0.0
-> **最後更新**: 2026-01-22
-
----
 
 ## 架構概述
 

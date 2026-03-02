@@ -1,7 +1,16 @@
 ---
-trigger_keywords: [Alembic, 遷移, migration, schema change, DB 變更, autogenerate]
-version: "1.0.0"
-date: "2026-02-21"
+name: alembic-migrations
+description: Alembic 遷移管理規範
+version: 1.0.0
+category: backend
+triggers:
+  - Alembic
+  - 遷移
+  - migration
+  - schema change
+  - DB 變更
+  - autogenerate
+updated: '2026-02-19'
 ---
 
 # Alembic 遷移管理規範

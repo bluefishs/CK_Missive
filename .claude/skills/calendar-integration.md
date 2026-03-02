@@ -1,11 +1,20 @@
+---
+name: calendar-integration
+description: 行事曆事件管理、Google Calendar 同步、公文到期追蹤
+version: 1.2.0
+category: project
+triggers:
+  - 行事曆
+  - calendar
+  - Google Calendar
+  - 事件
+  - 截止日
+  - event
+updated: '2026-01-15'
+---
+
 # 行事曆整合領域知識 (Calendar Integration Domain)
 
-> **觸發關鍵字**: 行事曆, calendar, Google Calendar, 事件, 截止日, event
-> **適用範圍**: 行事曆事件管理、Google Calendar 同步、公文到期追蹤
-> **版本**: 1.2.0
-> **最後更新**: 2026-01-29
-
----
 
 ## 核心架構
 

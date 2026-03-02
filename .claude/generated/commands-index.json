@@ -1,0 +1,142 @@
+{
+  "generated": "2026-03-02T15:30:42.648Z",
+  "total": 20,
+  "items": [
+    {
+      "id": "adr",
+      "path": "adr.md",
+      "title": "/adr - Architecture Decision Record 管理",
+      "lastModified": "2026-02-27T15:33:44.730Z"
+    },
+    {
+      "id": "api-check",
+      "path": "api-check.md",
+      "title": "API 端點一致性檢查 (API Endpoint Consistency Check)",
+      "lastModified": "2026-01-10T14:39:43.008Z"
+    },
+    {
+      "id": "build-fix",
+      "path": "build-fix.md",
+      "title": "Build and Fix",
+      "lastModified": "2026-02-02T21:49:35.936Z"
+    },
+    {
+      "id": "checkpoint",
+      "path": "checkpoint.md",
+      "title": "Checkpoint Command",
+      "lastModified": "2026-02-02T21:49:29.898Z"
+    },
+    {
+      "id": "code-review",
+      "path": "code-review.md",
+      "title": "Code Review",
+      "lastModified": "2026-02-02T21:49:32.709Z"
+    },
+    {
+      "id": "csv-import-validate",
+      "path": "csv-import-validate.md",
+      "title": "CSV 匯入驗證 (CSV Import Validation)",
+      "lastModified": "2026-01-06T02:28:07.328Z"
+    },
+    {
+      "id": "data-quality-check",
+      "path": "data-quality-check.md",
+      "title": "資料品質檢查 (Data Quality Check)",
+      "lastModified": "2026-01-06T02:26:09.585Z"
+    },
+    {
+      "id": "db-backup",
+      "path": "db-backup.md",
+      "title": "資料庫備份管理 (Database Backup Management)",
+      "lastModified": "2026-01-29T07:03:45.015Z"
+    },
+    {
+      "id": "dev-check",
+      "path": "dev-check.md",
+      "title": "開發環境檢查 (Development Environment Check)",
+      "lastModified": "2026-01-21T09:00:07.832Z"
+    },
+    {
+      "id": "knowledge-map",
+      "path": "knowledge-map.md",
+      "title": "knowledge-map",
+      "description": "知識地圖一鍵重建與差異報告",
+      "version": "1.0.0",
+      "category": "project",
+      "updated": "2026-03-02",
+      "triggers": [
+        "/knowledge-map",
+        "知識地圖"
+      ],
+      "lastModified": "2026-03-02T15:27:07.392Z"
+    },
+    {
+      "id": "performance-check",
+      "path": "performance-check.md",
+      "title": "/performance-check - 效能檢查",
+      "version": "1.0.0",
+      "updated": "2026-01-15",
+      "用途": "系統效能診斷與優化建議",
+      "lastModified": "2026-01-15T09:53:35.769Z"
+    },
+    {
+      "id": "pre-dev-check",
+      "path": "pre-dev-check.md",
+      "title": "/pre-dev-check - 開發前強制檢查",
+      "lastModified": "2026-01-11T06:24:33.762Z"
+    },
+    {
+      "id": "route-sync-check",
+      "path": "route-sync-check.md",
+      "title": "/route-sync-check - 前後端路由一致性檢查",
+      "lastModified": "2026-01-12T03:44:28.358Z"
+    },
+    {
+      "id": "security-audit",
+      "path": "security-audit.md",
+      "title": "/security-audit - 資安審計檢查",
+      "version": "1.0.0",
+      "updated": "2026-01-15",
+      "用途": "自動化資安合規檢查",
+      "lastModified": "2026-01-15T09:53:32.237Z"
+    },
+    {
+      "id": "superpowers-brainstorm",
+      "path": "superpowers/brainstorm.md",
+      "description": "You MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores requirements and design before implementation.",
+      "lastModified": "2026-03-02T14:48:14.409Z"
+    },
+    {
+      "id": "superpowers-execute-plan",
+      "path": "superpowers/execute-plan.md",
+      "description": "Execute plan in batches with review checkpoints",
+      "lastModified": "2026-03-02T14:48:14.409Z"
+    },
+    {
+      "id": "superpowers-write-plan",
+      "path": "superpowers/write-plan.md",
+      "description": "Create detailed implementation plan with bite-sized tasks",
+      "lastModified": "2026-03-02T14:48:14.410Z"
+    },
+    {
+      "id": "tdd",
+      "path": "tdd.md",
+      "description": "Enforce test-driven development workflow. Scaffold interfaces, generate tests FIRST, then implement minimal code to pass. Ensure 80%+ coverage.",
+      "lastModified": "2026-02-02T21:49:06.165Z"
+    },
+    {
+      "id": "type-sync",
+      "path": "type-sync.md",
+      "title": "型別同步檢查 (Type Synchronization Check)",
+      "version": "2.0.0",
+      "updated": "2026-01-18",
+      "lastModified": "2026-01-18T03:03:55.300Z"
+    },
+    {
+      "id": "verify",
+      "path": "verify.md",
+      "title": "Verification Command",
+      "lastModified": "2026-02-02T21:49:02.762Z"
+    }
+  ]
+}

@@ -70,6 +70,14 @@ pm2 start ecosystem.config.js
 # === 驗證 ===
 cd frontend && npx tsc --noEmit          # TypeScript 檢查
 cd backend && python -m py_compile app/main.py  # Python 語法檢查
+
+# === Skills/知識地圖 ===
+node .claude/scripts/validate-all.cjs            # Skills/Agents 格式驗證
+node .claude/scripts/generate-index.cjs          # 索引重建
+node .claude/scripts/generate-knowledge-map.cjs  # 知識地圖生成（全量重建）
+node .claude/scripts/generate-knowledge-map.cjs --diff      # 差異報告（Heptabase 增量更新）
+node .claude/scripts/generate-knowledge-map.cjs --if-stale  # 僅在源檔案更新時重建
+node .claude/scripts/promote-learned-patterns.cjs # 學習模式升級
 ```
 
 ---

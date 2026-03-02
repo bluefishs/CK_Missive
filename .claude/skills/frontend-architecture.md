@@ -1,10 +1,19 @@
+---
+name: frontend-architecture
+description: 前端架構規範
+version: 1.5.0
+category: react
+triggers:
+  - 前端
+  - frontend
+  - React
+  - component
+  - 架構
+updated: '2026-01-15'
+---
+
 # 前端架構規範 (Frontend Architecture)
 
-> **版本**: 1.5.0
-> **更新日期**: 2026-02-08
-> **適用範圍**: frontend/src/**
-
----
 
 ## 一、目錄結構
 

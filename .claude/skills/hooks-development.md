@@ -1,7 +1,42 @@
 ---
 name: hooks-development
 description: Claude Code Hooks 開發指南
-keywords: hook, hooks, 鉤子, automation, 自動化
+version: 1.0.0
+category: project
+triggers:
+  - h
+  - o
+  - o
+  - k
+  - ,
+  -  
+  - h
+  - o
+  - o
+  - k
+  - s
+  - ,
+  -  
+  - 鉤
+  - 子
+  - ,
+  -  
+  - a
+  - u
+  - t
+  - o
+  - m
+  - a
+  - t
+  - i
+  - o
+  - n
+  - ,
+  -  
+  - 自
+  - 動
+  - 化
+updated: '2026-02-26'
 ---
 
 # Claude Code Hooks 開發指南

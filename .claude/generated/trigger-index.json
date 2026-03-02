@@ -1,0 +1,1409 @@
+{
+  "generated": "2026-03-02T15:30:42.648Z",
+  "skills": {
+    "可訪問性": {
+      "id": "accessibility",
+      "name": "accessibility",
+      "path": "accessibility.md"
+    },
+    "accessibility": {
+      "id": "accessibility",
+      "name": "accessibility",
+      "path": "accessibility.md"
+    },
+    "a11y": {
+      "id": "accessibility",
+      "name": "accessibility",
+      "path": "accessibility.md"
+    },
+    "WCAG": {
+      "id": "accessibility",
+      "name": "accessibility",
+      "path": "accessibility.md"
+    },
+    "ARIA": {
+      "id": "accessibility",
+      "name": "accessibility",
+      "path": "accessibility.md"
+    },
+    "鍵盤導航": {
+      "id": "accessibility",
+      "name": "accessibility",
+      "path": "accessibility.md"
+    },
+    "keyboard": {
+      "id": "accessibility",
+      "name": "accessibility",
+      "path": "accessibility.md"
+    },
+    "screen reader": {
+      "id": "accessibility",
+      "name": "accessibility",
+      "path": "accessibility.md"
+    },
+    "AI": {
+      "id": "ai-development",
+      "name": "ai-development",
+      "path": "ai-development.md"
+    },
+    "Groq": {
+      "id": "ai-development",
+      "name": "ai-development",
+      "path": "ai-development.md"
+    },
+    "Ollama": {
+      "id": "ai-development",
+      "name": "ai-development",
+      "path": "ai-development.md"
+    },
+    "語意": {
+      "id": "ai-development",
+      "name": "ai-development",
+      "path": "ai-development.md"
+    },
+    "摘要": {
+      "id": "ai-development",
+      "name": "ai-development",
+      "path": "ai-development.md"
+    },
+    "分類": {
+      "id": "ai-development",
+      "name": "ai-development",
+      "path": "ai-development.md"
+    },
+    "同義詞": {
+      "id": "ai-development",
+      "name": "ai-development",
+      "path": "ai-development.md"
+    },
+    "知識圖譜": {
+      "id": "ai-development",
+      "name": "ai-development",
+      "path": "ai-development.md"
+    },
+    "NER": {
+      "id": "ai-development",
+      "name": "ai-development",
+      "path": "ai-development.md"
+    },
+    "實體提取": {
+      "id": "ai-development",
+      "name": "ai-development",
+      "path": "ai-development.md"
+    },
+    "CanonicalEntity": {
+      "id": "ai-development",
+      "name": "ai-development",
+      "path": "ai-development.md"
+    },
+    "embedding": {
+      "id": "ai-development",
+      "name": "ai-development",
+      "path": "ai-development.md"
+    },
+    "Agent": {
+      "id": "ai-development",
+      "name": "ai-development",
+      "path": "ai-development.md"
+    },
+    "派工單": {
+      "id": "ai-development",
+      "name": "ai-development",
+      "path": "ai-development.md"
+    },
+    "dispatch": {
+      "id": "ai-development",
+      "name": "ai-development",
+      "path": "ai-development.md"
+    },
+    "閒聊": {
+      "id": "ai-development",
+      "name": "ai-development",
+      "path": "ai-development.md"
+    },
+    "chitchat": {
+      "id": "ai-development",
+      "name": "ai-development",
+      "path": "ai-development.md"
+    },
+    "Alembic": {
+      "id": "alembic-migrations",
+      "name": "alembic-migrations",
+      "path": "alembic-migrations.md"
+    },
+    "遷移": {
+      "id": "alembic-migrations",
+      "name": "alembic-migrations",
+      "path": "alembic-migrations.md"
+    },
+    "migration": {
+      "id": "_shared-shared-refactoring-migration-procedures",
+      "name": "重構與遷移作業規範",
+      "path": "_shared/shared/refactoring-migration-procedures.md"
+    },
+    "schema change": {
+      "id": "alembic-migrations",
+      "name": "alembic-migrations",
+      "path": "alembic-migrations.md"
+    },
+    "DB 變更": {
+      "id": "alembic-migrations",
+      "name": "alembic-migrations",
+      "path": "alembic-migrations.md"
+    },
+    "autogenerate": {
+      "id": "alembic-migrations",
+      "name": "alembic-migrations",
+      "path": "alembic-migrations.md"
+    },
+    "API": {
+      "id": "api-development",
+      "name": "api-development",
+      "path": "api-development.md"
+    },
+    "endpoint": {
+      "id": "api-development",
+      "name": "api-development",
+      "path": "api-development.md"
+    },
+    "端點": {
+      "id": "api-development",
+      "name": "api-development",
+      "path": "api-development.md"
+    },
+    "route": {
+      "id": "api-development",
+      "name": "api-development",
+      "path": "api-development.md"
+    },
+    "路由": {
+      "id": "api-development",
+      "name": "api-development",
+      "path": "api-development.md"
+    },
+    "FastAPI": {
+      "id": "api-development",
+      "name": "api-development",
+      "path": "api-development.md"
+    },
+    "序列化": {
+      "id": "api-serialization",
+      "name": "api-serialization",
+      "path": "api-serialization.md"
+    },
+    "serialize": {
+      "id": "api-serialization",
+      "name": "api-serialization",
+      "path": "api-serialization.md"
+    },
+    "API 返回": {
+      "id": "api-serialization",
+      "name": "api-serialization",
+      "path": "api-serialization.md"
+    },
+    "ORM": {
+      "id": "api-serialization",
+      "name": "api-serialization",
+      "path": "api-serialization.md"
+    },
+    "500 錯誤": {
+      "id": "api-serialization",
+      "name": "api-serialization",
+      "path": "api-serialization.md"
+    },
+    "資料轉換": {
+      "id": "api-serialization",
+      "name": "api-serialization",
+      "path": "api-serialization.md"
+    },
+    "批次處理": {
+      "id": "api-serialization",
+      "name": "api-serialization",
+      "path": "api-serialization.md"
+    },
+    "效能": {
+      "id": "api-serialization",
+      "name": "api-serialization",
+      "path": "api-serialization.md"
+    },
+    "快取": {
+      "id": "caching-patterns",
+      "name": "caching-patterns",
+      "path": "caching-patterns.md"
+    },
+    "cache": {
+      "id": "caching-patterns",
+      "name": "caching-patterns",
+      "path": "caching-patterns.md"
+    },
+    "Redis": {
+      "id": "caching-patterns",
+      "name": "caching-patterns",
+      "path": "caching-patterns.md"
+    },
+    "TTL": {
+      "id": "caching-patterns",
+      "name": "caching-patterns",
+      "path": "caching-patterns.md"
+    },
+    "stale-while-revalidate": {
+      "id": "caching-patterns",
+      "name": "caching-patterns",
+      "path": "caching-patterns.md"
+    },
+    "React Query": {
+      "id": "caching-patterns",
+      "name": "caching-patterns",
+      "path": "caching-patterns.md"
+    },
+    "SimpleCache": {
+      "id": "caching-patterns",
+      "name": "caching-patterns",
+      "path": "caching-patterns.md"
+    },
+    "快取策略": {
+      "id": "caching-patterns",
+      "name": "caching-patterns",
+      "path": "caching-patterns.md"
+    },
+    "行事曆": {
+      "id": "calendar-integration",
+      "name": "calendar-integration",
+      "path": "calendar-integration.md"
+    },
+    "calendar": {
+      "id": "calendar-integration",
+      "name": "calendar-integration",
+      "path": "calendar-integration.md"
+    },
+    "Google Calendar": {
+      "id": "calendar-integration",
+      "name": "calendar-integration",
+      "path": "calendar-integration.md"
+    },
+    "事件": {
+      "id": "calendar-integration",
+      "name": "calendar-integration",
+      "path": "calendar-integration.md"
+    },
+    "截止日": {
+      "id": "calendar-integration",
+      "name": "calendar-integration",
+      "path": "calendar-integration.md"
+    },
+    "event": {
+      "id": "calendar-integration",
+      "name": "calendar-integration",
+      "path": "calendar-integration.md"
+    },
+    "慢查詢": {
+      "id": "database-performance",
+      "name": "database-performance",
+      "path": "database-performance.md"
+    },
+    "N+1": {
+      "id": "database-performance",
+      "name": "database-performance",
+      "path": "database-performance.md"
+    },
+    "索引": {
+      "id": "database-performance",
+      "name": "database-performance",
+      "path": "database-performance.md"
+    },
+    "index": {
+      "id": "database-performance",
+      "name": "database-performance",
+      "path": "database-performance.md"
+    },
+    "資料庫效能": {
+      "id": "database-performance",
+      "name": "database-performance",
+      "path": "database-performance.md"
+    },
+    "查詢優化": {
+      "id": "database-performance",
+      "name": "database-performance",
+      "path": "database-performance.md"
+    },
+    "slow query": {
+      "id": "database-performance",
+      "name": "database-performance",
+      "path": "database-performance.md"
+    },
+    "schema": {
+      "id": "type-management",
+      "name": "type-management",
+      "path": "type-management.md"
+    },
+    "資料庫": {
+      "id": "database-schema",
+      "name": "database-schema",
+      "path": "database-schema.md"
+    },
+    "PostgreSQL": {
+      "id": "database-schema",
+      "name": "database-schema",
+      "path": "database-schema.md"
+    },
+    "model": {
+      "id": "database-schema",
+      "name": "database-schema",
+      "path": "database-schema.md"
+    },
+    "模型": {
+      "id": "database-schema",
+      "name": "database-schema",
+      "path": "database-schema.md"
+    },
+    "table": {
+      "id": "database-schema",
+      "name": "database-schema",
+      "path": "database-schema.md"
+    },
+    "資料表": {
+      "id": "database-schema",
+      "name": "database-schema",
+      "path": "database-schema.md"
+    },
+    "pgvector": {
+      "id": "database-schema",
+      "name": "database-schema",
+      "path": "database-schema.md"
+    },
+    "feature flag": {
+      "id": "database-schema",
+      "name": "database-schema",
+      "path": "database-schema.md"
+    },
+    "環境": {
+      "id": "development-environment",
+      "name": "development-environment",
+      "path": "development-environment.md"
+    },
+    "開發環境": {
+      "id": "development-environment",
+      "name": "development-environment",
+      "path": "development-environment.md"
+    },
+    "Docker": {
+      "id": "development-environment",
+      "name": "development-environment",
+      "path": "development-environment.md"
+    },
+    "依賴": {
+      "id": "development-environment",
+      "name": "development-environment",
+      "path": "development-environment.md"
+    },
+    "配置": {
+      "id": "development-environment",
+      "name": "development-environment",
+      "path": "development-environment.md"
+    },
+    "env": {
+      "id": "development-environment",
+      "name": "development-environment",
+      "path": "development-environment.md"
+    },
+    "環境變數": {
+      "id": "development-environment",
+      "name": "development-environment",
+      "path": "development-environment.md"
+    },
+    "公文": {
+      "id": "document-management",
+      "name": "document-management",
+      "path": "document-management.md"
+    },
+    "document": {
+      "id": "document-management",
+      "name": "document-management",
+      "path": "document-management.md"
+    },
+    "收文": {
+      "id": "document-management",
+      "name": "document-management",
+      "path": "document-management.md"
+    },
+    "發文": {
+      "id": "document-management",
+      "name": "document-management",
+      "path": "document-management.md"
+    },
+    "doc_number": {
+      "id": "document-management",
+      "name": "document-management",
+      "path": "document-management.md"
+    },
+    "字號": {
+      "id": "document-management",
+      "name": "document-management",
+      "path": "document-management.md"
+    },
+    "錯誤處理": {
+      "id": "error-handling",
+      "name": "error-handling",
+      "path": "error-handling.md"
+    },
+    "error": {
+      "id": "error-handling",
+      "name": "error-handling",
+      "path": "error-handling.md"
+    },
+    "exception": {
+      "id": "error-handling",
+      "name": "error-handling",
+      "path": "error-handling.md"
+    },
+    "例外": {
+      "id": "error-handling",
+      "name": "error-handling",
+      "path": "error-handling.md"
+    },
+    "try-catch": {
+      "id": "error-handling",
+      "name": "error-handling",
+      "path": "error-handling.md"
+    },
+    "紀錄消失": {
+      "id": "error-handling",
+      "name": "error-handling",
+      "path": "error-handling.md"
+    },
+    "列表清空": {
+      "id": "error-handling",
+      "name": "error-handling",
+      "path": "error-handling.md"
+    },
+    "SATimeoutError": {
+      "id": "error-handling",
+      "name": "error-handling",
+      "path": "error-handling.md"
+    },
+    "連線池": {
+      "id": "error-handling",
+      "name": "error-handling",
+      "path": "error-handling.md"
+    },
+    "前端": {
+      "id": "frontend-architecture",
+      "name": "frontend-architecture",
+      "path": "frontend-architecture.md"
+    },
+    "frontend": {
+      "id": "frontend-architecture",
+      "name": "frontend-architecture",
+      "path": "frontend-architecture.md"
+    },
+    "React": {
+      "id": "frontend-architecture",
+      "name": "frontend-architecture",
+      "path": "frontend-architecture.md"
+    },
+    "component": {
+      "id": "frontend-architecture",
+      "name": "frontend-architecture",
+      "path": "frontend-architecture.md"
+    },
+    "架構": {
+      "id": "frontend-architecture",
+      "name": "frontend-architecture",
+      "path": "frontend-architecture.md"
+    },
+    "h": {
+      "id": "hooks-development",
+      "name": "hooks-development",
+      "path": "hooks-development.md"
+    },
+    "o": {
+      "id": "hooks-development",
+      "name": "hooks-development",
+      "path": "hooks-development.md"
+    },
+    "k": {
+      "id": "hooks-development",
+      "name": "hooks-development",
+      "path": "hooks-development.md"
+    },
+    ",": {
+      "id": "hooks-development",
+      "name": "hooks-development",
+      "path": "hooks-development.md"
+    },
+    "": {
+      "id": "hooks-development",
+      "name": "hooks-development",
+      "path": "hooks-development.md"
+    },
+    "s": {
+      "id": "hooks-development",
+      "name": "hooks-development",
+      "path": "hooks-development.md"
+    },
+    "鉤": {
+      "id": "hooks-development",
+      "name": "hooks-development",
+      "path": "hooks-development.md"
+    },
+    "子": {
+      "id": "hooks-development",
+      "name": "hooks-development",
+      "path": "hooks-development.md"
+    },
+    "a": {
+      "id": "hooks-development",
+      "name": "hooks-development",
+      "path": "hooks-development.md"
+    },
+    "u": {
+      "id": "hooks-development",
+      "name": "hooks-development",
+      "path": "hooks-development.md"
+    },
+    "t": {
+      "id": "hooks-development",
+      "name": "hooks-development",
+      "path": "hooks-development.md"
+    },
+    "m": {
+      "id": "hooks-development",
+      "name": "hooks-development",
+      "path": "hooks-development.md"
+    },
+    "i": {
+      "id": "hooks-development",
+      "name": "hooks-development",
+      "path": "hooks-development.md"
+    },
+    "n": {
+      "id": "hooks-development",
+      "name": "hooks-development",
+      "path": "hooks-development.md"
+    },
+    "自": {
+      "id": "hooks-development",
+      "name": "hooks-development",
+      "path": "hooks-development.md"
+    },
+    "動": {
+      "id": "hooks-development",
+      "name": "hooks-development",
+      "path": "hooks-development.md"
+    },
+    "化": {
+      "id": "hooks-development",
+      "name": "hooks-development",
+      "path": "hooks-development.md"
+    },
+    "ADR": {
+      "id": "knowledge-management",
+      "name": "knowledge-management",
+      "path": "knowledge-management.md"
+    },
+    "決策": {
+      "id": "knowledge-management",
+      "name": "knowledge-management",
+      "path": "knowledge-management.md"
+    },
+    "架構圖": {
+      "id": "knowledge-management",
+      "name": "knowledge-management",
+      "path": "knowledge-management.md"
+    },
+    "知識管理": {
+      "id": "knowledge-management",
+      "name": "knowledge-management",
+      "path": "knowledge-management.md"
+    },
+    "decision": {
+      "id": "knowledge-management",
+      "name": "knowledge-management",
+      "path": "knowledge-management.md"
+    },
+    "Pydantic": {
+      "id": "type-management",
+      "name": "type-management",
+      "path": "type-management.md"
+    },
+    "forward reference": {
+      "id": "python-common-pitfalls",
+      "name": "python-common-pitfalls",
+      "path": "python-common-pitfalls.md"
+    },
+    "async": {
+      "id": "python-common-pitfalls",
+      "name": "python-common-pitfalls",
+      "path": "python-common-pitfalls.md"
+    },
+    "MissingGreenlet": {
+      "id": "python-common-pitfalls",
+      "name": "python-common-pitfalls",
+      "path": "python-common-pitfalls.md"
+    },
+    "預設參數": {
+      "id": "python-common-pitfalls",
+      "name": "python-common-pitfalls",
+      "path": "python-common-pitfalls.md"
+    },
+    "selectinload": {
+      "id": "python-common-pitfalls",
+      "name": "python-common-pitfalls",
+      "path": "python-common-pitfalls.md"
+    },
+    "keyword1": {
+      "id": "README",
+      "name": "skills-readme",
+      "path": "README.md"
+    },
+    "keyword2": {
+      "id": "README",
+      "name": "skills-readme",
+      "path": "README.md"
+    },
+    "安全": {
+      "id": "security-hardening",
+      "name": "security-hardening",
+      "path": "security-hardening.md"
+    },
+    "security": {
+      "id": "_shared-shared-security-audit",
+      "name": "安全性審計",
+      "path": "_shared/shared/security-audit.md"
+    },
+    "防護": {
+      "id": "security-hardening",
+      "name": "security-hardening",
+      "path": "security-hardening.md"
+    },
+    "漏洞": {
+      "id": "security-hardening",
+      "name": "security-hardening",
+      "path": "security-hardening.md"
+    },
+    "vulnerability": {
+      "id": "security-hardening",
+      "name": "security-hardening",
+      "path": "security-hardening.md"
+    },
+    "XSS": {
+      "id": "security-hardening",
+      "name": "security-hardening",
+      "path": "security-hardening.md"
+    },
+    "SQL injection": {
+      "id": "security-hardening",
+      "name": "security-hardening",
+      "path": "security-hardening.md"
+    },
+    "refresh token": {
+      "id": "security-hardening",
+      "name": "security-hardening",
+      "path": "security-hardening.md"
+    },
+    "idle timeout": {
+      "id": "security-hardening",
+      "name": "security-hardening",
+      "path": "security-hardening.md"
+    },
+    "skills": {
+      "id": "SKILLS_INVENTORY",
+      "name": "skills-inventory",
+      "path": "SKILLS_INVENTORY.md"
+    },
+    "inventory": {
+      "id": "SKILLS_INVENTORY",
+      "name": "skills-inventory",
+      "path": "SKILLS_INVENTORY.md"
+    },
+    "清單": {
+      "id": "SKILLS_INVENTORY",
+      "name": "skills-inventory",
+      "path": "SKILLS_INVENTORY.md"
+    },
+    "test": {
+      "id": "testing-guide",
+      "name": "testing-guide",
+      "path": "testing-guide.md"
+    },
+    "測試": {
+      "id": "testing-guide",
+      "name": "testing-guide",
+      "path": "testing-guide.md"
+    },
+    "pytest": {
+      "id": "_shared-shared-test-generator",
+      "name": "test-generator",
+      "path": "_shared/shared/test-generator.md"
+    },
+    "jest": {
+      "id": "testing-guide",
+      "name": "testing-guide",
+      "path": "testing-guide.md"
+    },
+    "unit test": {
+      "id": "_shared-shared-test-generator",
+      "name": "test-generator",
+      "path": "_shared/shared/test-generator.md"
+    },
+    "單元測試": {
+      "id": "_shared-shared-test-generator",
+      "name": "test-generator",
+      "path": "_shared/shared/test-generator.md"
+    },
+    "型別": {
+      "id": "type-management",
+      "name": "type-management",
+      "path": "type-management.md"
+    },
+    "type": {
+      "id": "type-management",
+      "name": "type-management",
+      "path": "type-management.md"
+    },
+    "TypeScript": {
+      "id": "type-management",
+      "name": "type-management",
+      "path": "type-management.md"
+    },
+    "BaseModel": {
+      "id": "type-management",
+      "name": "type-management",
+      "path": "type-management.md"
+    },
+    "interface": {
+      "id": "type-management",
+      "name": "type-management",
+      "path": "type-management.md"
+    },
+    "Unicode": {
+      "id": "unicode-handling",
+      "name": "unicode-handling",
+      "path": "unicode-handling.md"
+    },
+    "編碼": {
+      "id": "unicode-handling",
+      "name": "unicode-handling",
+      "path": "unicode-handling.md"
+    },
+    "字元": {
+      "id": "unicode-handling",
+      "name": "unicode-handling",
+      "path": "unicode-handling.md"
+    },
+    "康熙部首": {
+      "id": "unicode-handling",
+      "name": "unicode-handling",
+      "path": "unicode-handling.md"
+    },
+    "正規化": {
+      "id": "unicode-handling",
+      "name": "unicode-handling",
+      "path": "unicode-handling.md"
+    },
+    "normalize": {
+      "id": "unicode-handling",
+      "name": "unicode-handling",
+      "path": "unicode-handling.md"
+    },
+    "workflow": {
+      "id": "workflow-management",
+      "name": "workflow-management",
+      "path": "workflow-management.md"
+    },
+    "作業歷程": {
+      "id": "workflow-management",
+      "name": "workflow-management",
+      "path": "workflow-management.md"
+    },
+    "時間軸": {
+      "id": "workflow-management",
+      "name": "workflow-management",
+      "path": "workflow-management.md"
+    },
+    "chain": {
+      "id": "workflow-management",
+      "name": "workflow-management",
+      "path": "workflow-management.md"
+    },
+    "timeline": {
+      "id": "workflow-management",
+      "name": "workflow-management",
+      "path": "workflow-management.md"
+    },
+    "鏈式": {
+      "id": "workflow-management",
+      "name": "workflow-management",
+      "path": "workflow-management.md"
+    },
+    "InlineRecordCreator": {
+      "id": "workflow-management",
+      "name": "workflow-management",
+      "path": "workflow-management.md"
+    },
+    "work_category": {
+      "id": "workflow-management",
+      "name": "workflow-management",
+      "path": "workflow-management.md"
+    },
+    "/react-ui-patterns": {
+      "id": "_shared-react-react-ui-patterns-SKILL",
+      "name": "React UI 模式技能",
+      "path": "_shared/react/react-ui-patterns/SKILL.md"
+    },
+    "React 模式": {
+      "id": "_shared-react-react-ui-patterns-SKILL",
+      "name": "React UI 模式技能",
+      "path": "_shared/react/react-ui-patterns/SKILL.md"
+    },
+    "UI 組件": {
+      "id": "_shared-react-react-ui-patterns-SKILL",
+      "name": "React UI 模式技能",
+      "path": "_shared/react/react-ui-patterns/SKILL.md"
+    },
+    "/showcase": {
+      "id": "_shared-react-showcase-components",
+      "name": "Showcase Components Skill",
+      "path": "_shared/react/showcase-components.md"
+    },
+    "組件展示": {
+      "id": "_shared-react-showcase-components",
+      "name": "Showcase Components Skill",
+      "path": "_shared/react/showcase-components.md"
+    },
+    "Demo": {
+      "id": "_shared-react-showcase-components",
+      "name": "Showcase Components Skill",
+      "path": "_shared/react/showcase-components.md"
+    },
+    "文檔": {
+      "id": "_shared-react-showcase-components",
+      "name": "Showcase Components Skill",
+      "path": "_shared/react/showcase-components.md"
+    },
+    "預覽": {
+      "id": "_shared-react-showcase-components",
+      "name": "Showcase Components Skill",
+      "path": "_shared/react/showcase-components.md"
+    },
+    "程式碼規範": {
+      "id": "_shared-shared-code-standards",
+      "name": "code-standards",
+      "path": "_shared/shared/code-standards.md"
+    },
+    "coding style": {
+      "id": "_shared-shared-code-standards",
+      "name": "code-standards",
+      "path": "_shared/shared/code-standards.md"
+    },
+    "ESLint": {
+      "id": "_shared-shared-code-standards",
+      "name": "code-standards",
+      "path": "_shared/shared/code-standards.md"
+    },
+    "code review": {
+      "id": "_shared-shared-code-standards",
+      "name": "code-standards",
+      "path": "_shared/shared/code-standards.md"
+    },
+    "程式碼品質": {
+      "id": "_shared-shared-code-standards",
+      "name": "code-standards",
+      "path": "_shared/shared/code-standards.md"
+    },
+    "CRUD 遷移": {
+      "id": "_shared-shared-crud-migration",
+      "name": "crud-migration",
+      "path": "_shared/shared/crud-migration.md"
+    },
+    "crud migration": {
+      "id": "_shared-shared-crud-migration",
+      "name": "crud-migration",
+      "path": "_shared/shared/crud-migration.md"
+    },
+    "API 遷移": {
+      "id": "_shared-shared-crud-migration",
+      "name": "crud-migration",
+      "path": "_shared/shared/crud-migration.md"
+    },
+    "棄用警告": {
+      "id": "_shared-shared-crud-migration",
+      "name": "crud-migration",
+      "path": "_shared/shared/crud-migration.md"
+    },
+    "deprecation": {
+      "id": "_shared-shared-crud-migration",
+      "name": "crud-migration",
+      "path": "_shared/shared/crud-migration.md"
+    },
+    "危險操作": {
+      "id": "_shared-shared-dangerous-operations-policy",
+      "name": "dangerous-operations-policy",
+      "path": "_shared/shared/dangerous-operations-policy.md"
+    },
+    "禁止": {
+      "id": "_shared-shared-dangerous-operations-policy",
+      "name": "dangerous-operations-policy",
+      "path": "_shared/shared/dangerous-operations-policy.md"
+    },
+    "DROP": {
+      "id": "_shared-shared-dangerous-operations-policy",
+      "name": "dangerous-operations-policy",
+      "path": "_shared/shared/dangerous-operations-policy.md"
+    },
+    "DELETE": {
+      "id": "_shared-shared-dangerous-operations-policy",
+      "name": "dangerous-operations-policy",
+      "path": "_shared/shared/dangerous-operations-policy.md"
+    },
+    "TRUNCATE": {
+      "id": "_shared-shared-dangerous-operations-policy",
+      "name": "dangerous-operations-policy",
+      "path": "_shared/shared/dangerous-operations-policy.md"
+    },
+    "資料安全": {
+      "id": "_shared-shared-dangerous-operations-policy",
+      "name": "dangerous-operations-policy",
+      "path": "_shared/shared/dangerous-operations-policy.md"
+    },
+    "/data-governance": {
+      "id": "_shared-shared-data-governance-framework",
+      "name": "資料治理框架",
+      "path": "_shared/shared/data-governance-framework.md"
+    },
+    "資料治理": {
+      "id": "_shared-shared-data-governance-framework",
+      "name": "資料治理框架",
+      "path": "_shared/shared/data-governance-framework.md"
+    },
+    "SSOT": {
+      "id": "_shared-shared-data-governance-framework",
+      "name": "資料治理框架",
+      "path": "_shared/shared/data-governance-framework.md"
+    },
+    "資料品質": {
+      "id": "_shared-shared-data-governance-framework",
+      "name": "資料治理框架",
+      "path": "_shared/shared/data-governance-framework.md"
+    },
+    "/mandatory-checklist": {
+      "id": "_shared-shared-mandatory-checklist",
+      "name": "跨專案強制性開發規範檢查清單",
+      "path": "_shared/shared/mandatory-checklist.md"
+    },
+    "開發規範": {
+      "id": "_shared-shared-mandatory-checklist",
+      "name": "跨專案強制性開發規範檢查清單",
+      "path": "_shared/shared/mandatory-checklist.md"
+    },
+    "checklist": {
+      "id": "_shared-shared-mandatory-checklist",
+      "name": "跨專案強制性開發規範檢查清單",
+      "path": "_shared/shared/mandatory-checklist.md"
+    },
+    "強制檢查": {
+      "id": "_shared-shared-mandatory-checklist",
+      "name": "跨專案強制性開發規範檢查清單",
+      "path": "_shared/shared/mandatory-checklist.md"
+    },
+    "/plan": {
+      "id": "_shared-shared-plan-workflow",
+      "name": "規劃工作流程",
+      "path": "_shared/shared/plan-workflow.md"
+    },
+    "規劃": {
+      "id": "_shared-shared-plan-workflow",
+      "name": "規劃工作流程",
+      "path": "_shared/shared/plan-workflow.md"
+    },
+    "建立計畫": {
+      "id": "_shared-shared-plan-workflow",
+      "name": "規劃工作流程",
+      "path": "_shared/shared/plan-workflow.md"
+    },
+    "實作計畫": {
+      "id": "_shared-shared-plan-workflow",
+      "name": "規劃工作流程",
+      "path": "_shared/shared/plan-workflow.md"
+    },
+    "快速修復": {
+      "id": "_shared-shared-quick-fix",
+      "name": "quick-fix",
+      "path": "_shared/shared/quick-fix.md"
+    },
+    "quick fix": {
+      "id": "_shared-shared-quick-fix",
+      "name": "quick-fix",
+      "path": "_shared/shared/quick-fix.md"
+    },
+    "hotfix": {
+      "id": "_shared-shared-quick-fix",
+      "name": "quick-fix",
+      "path": "_shared/shared/quick-fix.md"
+    },
+    "緊急修復": {
+      "id": "_shared-shared-quick-fix",
+      "name": "quick-fix",
+      "path": "_shared/shared/quick-fix.md"
+    },
+    "常見問題": {
+      "id": "_shared-shared-quick-fix",
+      "name": "quick-fix",
+      "path": "_shared/shared/quick-fix.md"
+    },
+    "/refactoring": {
+      "id": "_shared-shared-refactoring-migration-procedures",
+      "name": "重構與遷移作業規範",
+      "path": "_shared/shared/refactoring-migration-procedures.md"
+    },
+    "重構規範": {
+      "id": "_shared-shared-refactoring-migration-procedures",
+      "name": "重構與遷移作業規範",
+      "path": "_shared/shared/refactoring-migration-procedures.md"
+    },
+    "遷移作業": {
+      "id": "_shared-shared-refactoring-migration-procedures",
+      "name": "重構與遷移作業規範",
+      "path": "_shared/shared/refactoring-migration-procedures.md"
+    },
+    "/security-audit": {
+      "id": "_shared-shared-security-audit",
+      "name": "安全性審計",
+      "path": "_shared/shared/security-audit.md"
+    },
+    "安全掃描": {
+      "id": "_shared-shared-security-audit",
+      "name": "安全性審計",
+      "path": "_shared/shared/security-audit.md"
+    },
+    "漏洞檢查": {
+      "id": "_shared-shared-security-audit",
+      "name": "安全性審計",
+      "path": "_shared/shared/security-audit.md"
+    },
+    "/security-patterns": {
+      "id": "_shared-shared-security-patterns-SKILL",
+      "name": "OWASP 資安模式庫",
+      "path": "_shared/shared/security-patterns/SKILL.md"
+    },
+    "資安模式": {
+      "id": "_shared-shared-security-patterns-SKILL",
+      "name": "OWASP 資安模式庫",
+      "path": "_shared/shared/security-patterns/SKILL.md"
+    },
+    "OWASP patterns": {
+      "id": "_shared-shared-security-patterns-SKILL",
+      "name": "OWASP 資安模式庫",
+      "path": "_shared/shared/security-patterns/SKILL.md"
+    },
+    "安全模式": {
+      "id": "_shared-shared-security-patterns-SKILL",
+      "name": "OWASP 資安模式庫",
+      "path": "_shared/shared/security-patterns/SKILL.md"
+    },
+    "服務重構": {
+      "id": "_shared-shared-service-refactoring",
+      "name": "service-refactoring",
+      "path": "_shared/shared/service-refactoring.md"
+    },
+    "service refactoring": {
+      "id": "_shared-shared-service-refactoring",
+      "name": "service-refactoring",
+      "path": "_shared/shared/service-refactoring.md"
+    },
+    "拆分服務": {
+      "id": "_shared-shared-service-refactoring",
+      "name": "service-refactoring",
+      "path": "_shared/shared/service-refactoring.md"
+    },
+    "模組化": {
+      "id": "_shared-shared-service-refactoring",
+      "name": "service-refactoring",
+      "path": "_shared/shared/service-refactoring.md"
+    },
+    "monolith": {
+      "id": "_shared-shared-service-refactoring",
+      "name": "service-refactoring",
+      "path": "_shared/shared/service-refactoring.md"
+    },
+    "/skill": {
+      "id": "_shared-shared-systematic-debugging-SKILL",
+      "name": "系統化除錯技能",
+      "path": "_shared/shared/systematic-debugging/SKILL.md"
+    },
+    "/tdd": {
+      "id": "_shared-shared-tdd-workflow",
+      "name": "TDD 測試驅動開發工作流程",
+      "path": "_shared/shared/tdd-workflow.md"
+    },
+    "測試驅動": {
+      "id": "_shared-shared-tdd-workflow",
+      "name": "TDD 測試驅動開發工作流程",
+      "path": "_shared/shared/tdd-workflow.md"
+    },
+    "TDD": {
+      "id": "_shared-shared-tdd-workflow",
+      "name": "TDD 測試驅動開發工作流程",
+      "path": "_shared/shared/tdd-workflow.md"
+    },
+    "先寫測試": {
+      "id": "_shared-shared-tdd-workflow",
+      "name": "TDD 測試驅動開發工作流程",
+      "path": "_shared/shared/tdd-workflow.md"
+    },
+    "測試生成": {
+      "id": "_shared-shared-test-generator",
+      "name": "test-generator",
+      "path": "_shared/shared/test-generator.md"
+    },
+    "generate test": {
+      "id": "_shared-shared-test-generator",
+      "name": "test-generator",
+      "path": "_shared/shared/test-generator.md"
+    },
+    "vitest": {
+      "id": "_shared-shared-test-generator",
+      "name": "test-generator",
+      "path": "_shared/shared/test-generator.md"
+    },
+    "測試模式": {
+      "id": "_shared-shared-testing-patterns-SKILL",
+      "name": "測試模式技能",
+      "path": "_shared/shared/testing-patterns/SKILL.md"
+    },
+    "testing patterns": {
+      "id": "_shared-shared-testing-patterns-SKILL",
+      "name": "測試模式技能",
+      "path": "_shared/shared/testing-patterns/SKILL.md"
+    },
+    "Vitest": {
+      "id": "_shared-shared-testing-patterns-SKILL",
+      "name": "測試模式技能",
+      "path": "_shared/shared/testing-patterns/SKILL.md"
+    },
+    "Pytest": {
+      "id": "_shared-shared-testing-patterns-SKILL",
+      "name": "測試模式技能",
+      "path": "_shared/shared/testing-patterns/SKILL.md"
+    },
+    "MSW": {
+      "id": "_shared-shared-testing-patterns-SKILL",
+      "name": "測試模式技能",
+      "path": "_shared/shared/testing-patterns/SKILL.md"
+    },
+    "測試策略": {
+      "id": "_shared-shared-testing-patterns-SKILL",
+      "name": "測試模式技能",
+      "path": "_shared/shared/testing-patterns/SKILL.md"
+    }
+  },
+  "agents": {
+    "當需要設計或審查 API 端點時": {
+      "id": "api-design",
+      "name": "api-design",
+      "path": "api-design.md"
+    },
+    "當需要調查和修復 Bug 時": {
+      "id": "bug-investigator",
+      "name": "bug-investigator",
+      "path": "bug-investigator.md"
+    },
+    "/build-fix": {
+      "id": "_shared-shared-build-resolver",
+      "name": "建構錯誤修復代理",
+      "path": "_shared/shared/build-resolver.md"
+    },
+    "build error": {
+      "id": "build-error-resolver",
+      "name": "build-error-resolver",
+      "path": "build-error-resolver.md"
+    },
+    "TypeScript error": {
+      "id": "build-error-resolver",
+      "name": "build-error-resolver",
+      "path": "build-error-resolver.md"
+    },
+    "當需要審查程式碼變更時": {
+      "id": "code-review",
+      "name": "code-review",
+      "path": "code-review.md"
+    },
+    "e2e": {
+      "id": "e2e-runner",
+      "name": "e2e-runner",
+      "path": "e2e-runner.md"
+    },
+    "end-to-end": {
+      "id": "e2e-runner",
+      "name": "e2e-runner",
+      "path": "e2e-runner.md"
+    },
+    "Playwright": {
+      "id": "e2e-runner",
+      "name": "e2e-runner",
+      "path": "e2e-runner.md"
+    },
+    "browser test": {
+      "id": "e2e-runner",
+      "name": "e2e-runner",
+      "path": "e2e-runner.md"
+    },
+    "/generate-component": {
+      "id": "_shared-react-component-generator",
+      "name": "Component Generator Agent",
+      "path": "_shared/react/component-generator.md"
+    },
+    "生成組件": {
+      "id": "_shared-react-component-generator",
+      "name": "Component Generator Agent",
+      "path": "_shared/react/component-generator.md"
+    },
+    "React組件": {
+      "id": "_shared-react-component-generator",
+      "name": "Component Generator Agent",
+      "path": "_shared/react/component-generator.md"
+    },
+    "component": {
+      "id": "_shared-react-component-generator",
+      "name": "Component Generator Agent",
+      "path": "_shared/react/component-generator.md"
+    },
+    "/generate-tests": {
+      "id": "_shared-react-test-generator",
+      "name": "Test Generator Agent",
+      "path": "_shared/react/test-generator.md"
+    },
+    "生成測試": {
+      "id": "_shared-react-test-generator",
+      "name": "Test Generator Agent",
+      "path": "_shared/react/test-generator.md"
+    },
+    "測試用例": {
+      "id": "_shared-react-test-generator",
+      "name": "Test Generator Agent",
+      "path": "_shared/react/test-generator.md"
+    },
+    "test": {
+      "id": "_shared-react-test-generator",
+      "name": "Test Generator Agent",
+      "path": "_shared/react/test-generator.md"
+    },
+    "建構修復": {
+      "id": "_shared-shared-build-resolver",
+      "name": "建構錯誤修復代理",
+      "path": "_shared/shared/build-resolver.md"
+    },
+    "編譯錯誤": {
+      "id": "_shared-shared-build-resolver",
+      "name": "建構錯誤修復代理",
+      "path": "_shared/shared/build-resolver.md"
+    },
+    "TypeScript 錯誤": {
+      "id": "_shared-shared-build-resolver",
+      "name": "建構錯誤修復代理",
+      "path": "_shared/shared/build-resolver.md"
+    },
+    "/code-review": {
+      "id": "_shared-shared-code-reviewer",
+      "name": "Code Reviewer Agent",
+      "path": "_shared/shared/code-reviewer.md"
+    },
+    "程式碼審查": {
+      "id": "_shared-shared-code-reviewer",
+      "name": "Code Reviewer Agent",
+      "path": "_shared/shared/code-reviewer.md"
+    },
+    "code review": {
+      "id": "_shared-shared-code-reviewer",
+      "name": "Code Reviewer Agent",
+      "path": "_shared/shared/code-reviewer.md"
+    },
+    "CR": {
+      "id": "_shared-shared-code-reviewer",
+      "name": "Code Reviewer Agent",
+      "path": "_shared/shared/code-reviewer.md"
+    },
+    "/git-workflow": {
+      "id": "_shared-shared-github-workflow",
+      "name": "GitHub Workflow Agent",
+      "path": "_shared/shared/github-workflow.md"
+    },
+    "Git工作流": {
+      "id": "_shared-shared-github-workflow",
+      "name": "GitHub Workflow Agent",
+      "path": "_shared/shared/github-workflow.md"
+    },
+    "GitHub": {
+      "id": "_shared-shared-github-workflow",
+      "name": "GitHub Workflow Agent",
+      "path": "_shared/shared/github-workflow.md"
+    },
+    "版本控制": {
+      "id": "_shared-shared-github-workflow",
+      "name": "GitHub Workflow Agent",
+      "path": "_shared/shared/github-workflow.md"
+    },
+    "/planner": {
+      "id": "_shared-shared-planner",
+      "name": "規劃專家代理",
+      "path": "_shared/shared/planner.md"
+    },
+    "規劃專家": {
+      "id": "_shared-shared-planner",
+      "name": "規劃專家代理",
+      "path": "_shared/shared/planner.md"
+    },
+    "建立計畫": {
+      "id": "_shared-shared-planner",
+      "name": "規劃專家代理",
+      "path": "_shared/shared/planner.md"
+    },
+    "/security-audit": {
+      "id": "_shared-shared-security-auditor",
+      "name": "Security Auditor Agent",
+      "path": "_shared/shared/security-auditor.md"
+    },
+    "安全審計": {
+      "id": "_shared-shared-security-auditor",
+      "name": "Security Auditor Agent",
+      "path": "_shared/shared/security-auditor.md"
+    },
+    "security audit": {
+      "id": "_shared-shared-security-auditor",
+      "name": "Security Auditor Agent",
+      "path": "_shared/shared/security-auditor.md"
+    },
+    "漏洞掃描": {
+      "id": "_shared-shared-security-auditor",
+      "name": "Security Auditor Agent",
+      "path": "_shared/shared/security-auditor.md"
+    },
+    "/tdd-guide": {
+      "id": "_shared-shared-tdd-guide",
+      "name": "TDD 引導代理",
+      "path": "_shared/shared/tdd-guide.md"
+    },
+    "TDD 專家": {
+      "id": "_shared-shared-tdd-guide",
+      "name": "TDD 引導代理",
+      "path": "_shared/shared/tdd-guide.md"
+    },
+    "測試驅動開發": {
+      "id": "_shared-shared-tdd-guide",
+      "name": "TDD 引導代理",
+      "path": "_shared/shared/tdd-guide.md"
+    }
+  },
+  "commands": {
+    "/knowledge-map": {
+      "id": "knowledge-map",
+      "name": "knowledge-map",
+      "path": "knowledge-map.md"
+    },
+    "知識地圖": {
+      "id": "knowledge-map",
+      "name": "knowledge-map",
+      "path": "knowledge-map.md"
+    }
+  }
+}

@@ -1,10 +1,16 @@
+---
+name: skills-readme
+description: 說明
+version: 1.0.0
+category: project
+triggers:
+  - keyword1
+  - keyword2
+updated: '2026-01-28'
+---
+
 # Claude Code Skills 架構說明
 
-> **版本**: 1.0.0
-> **建立日期**: 2026-01-28
-> **用途**: 說明 Skills 分層設計理念與使用方式
-
----
 
 ## 分層架構概述
 
@@ -103,7 +109,6 @@
 Skills 會根據關鍵字自動載入：
 
 ```markdown
-> **觸發關鍵字**: 公文, document, 收文, 發文
 ```
 
 當對話中出現觸發關鍵字時，對應的 Skill 會自動載入上下文。

@@ -1,3 +1,17 @@
+---
+name: knowledge-management
+description: 知識管理規範
+version: 1.0.0
+category: project
+triggers:
+  - ADR
+  - 決策
+  - 架構圖
+  - 知識管理
+  - decision
+updated: '2026-02-05'
+---
+
 # 知識管理規範
 
 > 觸發關鍵字：ADR, 決策, 架構圖, 知識管理, 功能生命週期, decision, architecture diagram

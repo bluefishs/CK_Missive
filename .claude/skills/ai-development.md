@@ -1,12 +1,31 @@
+---
+name: ai-development
+description: AI 相關功能開發與維護
+version: 3.2.0
+category: ai
+triggers:
+  - AI
+  - Groq
+  - Ollama
+  - 語意
+  - 摘要
+  - 分類
+  - 同義詞
+  - 知識圖譜
+  - NER
+  - 實體提取
+  - CanonicalEntity
+  - embedding
+  - Agent
+  - 派工單
+  - dispatch
+  - 閒聊
+  - chitchat
+updated: '2026-02-26'
+---
+
 # AI 功能開發規範
 
-> **版本**: 3.2.0
-> **建立日期**: 2026-02-05
-> **最後更新**: 2026-02-26 (v1.72.0 Agent v1.8.0 閒聊模式/合成答案提取/能力邊界)
-> **觸發關鍵字**: AI, Groq, Ollama, 語意, 摘要, 分類, 同義詞, 知識圖譜, NER, 實體提取, CanonicalEntity, embedding, Agent, 派工單, dispatch, 閒聊, chitchat
-> **適用範圍**: AI 相關功能開發與維護
-
----
 
 ## 架構概述
 

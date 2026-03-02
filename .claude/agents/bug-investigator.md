@@ -1,11 +1,15 @@
+---
+name: bug-investigator
+description: Bug 調查代理
+version: 1.1.0
+category: shared
+triggers:
+  - 當需要調查和修復 Bug 時
+updated: '2026-01-15'
+---
+
 # Bug Investigator Agent
 
-> **用途**: Bug 調查代理
-> **觸發**: 當需要調查和修復 Bug 時
-> **版本**: 1.1.0
-> **更新日期**: 2026-01-15
-
----
 
 ## Agent 指引
 

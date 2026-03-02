@@ -1,10 +1,20 @@
+---
+name: python-common-pitfalls
+description: Python 常見陷阱規範
+version: 1.0.0
+category: backend
+triggers:
+  - Pydantic
+  - forward reference
+  - async
+  - MissingGreenlet
+  - 預設參數
+  - selectinload
+updated: '2026-01-15'
+---
+
 # Python 常見陷阱規範
 
-> **版本**: 1.0.0
-> **建立日期**: 2026-01-28
-> **觸發關鍵字**: Pydantic, forward reference, async, MissingGreenlet, 預設參數, selectinload
-
----
 
 ## 1. Pydantic 前向引用 (Forward Reference)
 

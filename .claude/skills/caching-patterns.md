@@ -1,7 +1,18 @@
 ---
-trigger_keywords: [快取, cache, Redis, TTL, stale-while-revalidate, React Query, SimpleCache, 快取策略]
-version: "1.0.0"
-date: "2026-02-21"
+name: caching-patterns
+description: 快取策略規範
+version: 1.0.0
+category: backend
+triggers:
+  - 快取
+  - cache
+  - Redis
+  - TTL
+  - stale-while-revalidate
+  - React Query
+  - SimpleCache
+  - 快取策略
+updated: '2026-02-10'
 ---
 
 # 快取策略規範

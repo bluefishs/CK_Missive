@@ -1,9 +1,15 @@
+---
+name: api-design
+description: API 設計代理
+version: 1.0.0
+category: backend
+triggers:
+  - 當需要設計或審查 API 端點時
+updated: '2026-01-15'
+---
+
 # API Design Agent
 
-> **用途**: API 設計代理
-> **觸發**: 當需要設計或審查 API 端點時
-
----
 
 ## Agent 指引
 

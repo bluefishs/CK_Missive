@@ -1,11 +1,20 @@
+---
+name: api-development
+description: API 設計、端點定義、前後端整合
+version: 1.1.0
+category: backend
+triggers:
+  - API
+  - endpoint
+  - 端點
+  - route
+  - 路由
+  - FastAPI
+updated: '2026-01-15'
+---
+
 # API 開發規範 (API Development Guide)
 
-> **觸發關鍵字**: API, endpoint, 端點, route, 路由, FastAPI
-> **適用範圍**: API 設計、端點定義、前後端整合
-> **版本**: 1.1.0
-> **最後更新**: 2026-01-22
-
----
 
 ## 架構概述
 

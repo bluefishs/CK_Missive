@@ -1,12 +1,22 @@
+---
+name: api-serialization
+description: 後端 API 端點、資料返回格式、ORM 模型處理、效能優化
+version: 1.1.0
+category: backend
+triggers:
+  - 序列化
+  - serialize
+  - API 返回
+  - ORM
+  - 500 錯誤
+  - 資料轉換
+  - 批次處理
+  - 效能
+updated: '2026-01-18'
+---
+
 # API 序列化與資料返回規範
 
-> **觸發關鍵字**: 序列化, serialize, API 返回, ORM, 500 錯誤, 資料轉換, 批次處理, 效能
-> **適用範圍**: 後端 API 端點、資料返回格式、ORM 模型處理、效能優化
-> **版本**: 1.1.0
-> **建立日期**: 2026-01-21
-> **最後更新**: 2026-01-22
-
----
 
 ## 問題背景
 

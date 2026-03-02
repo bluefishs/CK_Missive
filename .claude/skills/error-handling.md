@@ -1,10 +1,23 @@
+---
+name: error-handling
+description: Error Handling Skill - 錯誤處理指南
+version: 1.2.0
+category: shared
+triggers:
+  - 錯誤處理
+  - error
+  - exception
+  - 例外
+  - try-catch
+  - 紀錄消失
+  - 列表清空
+  - SATimeoutError
+  - 連線池
+updated: '2026-02-05'
+---
+
 # Error Handling Skill - 錯誤處理指南
 
-> **版本**: 1.2.0
-> **觸發關鍵字**: 錯誤處理, error, exception, 例外, try-catch, 紀錄消失, 列表清空, SATimeoutError, 連線池
-> **更新日期**: 2026-02-09
-
----
 
 ## 概述
 

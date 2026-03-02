@@ -1,7 +1,15 @@
 ---
 name: e2e-runner
 description: End-to-end testing specialist using Vercel Agent Browser (preferred) with Playwright fallback. Use PROACTIVELY for generating, maintaining, and running E2E tests. Manages test journeys, quarantines flaky tests, uploads artifacts (screenshots, videos, traces), and ensures critical user flows work.
-tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
+version: 1.0.0
+category: shared
+triggers:
+  - e2e
+  - end-to-end
+  - Playwright
+  - browser test
+updated: '2026-02-26'
+tools: ["Read","Write","Edit","Bash","Grep","Glob"]
 model: opus
 ---
 

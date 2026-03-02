@@ -1,10 +1,22 @@
+---
+name: workflow-management
+description: 作業歷程管理 (Workflow Management)
+version: 1.0.0
+category: project
+triggers:
+  - workflow
+  - 作業歷程
+  - 時間軸
+  - chain
+  - timeline
+  - 鏈式
+  - InlineRecordCreator
+  - work_category
+updated: '2026-02-17'
+---
+
 # 作業歷程管理 (Workflow Management)
 
-> **觸發關鍵字**: workflow, 作業歷程, 時間軸, chain, timeline, 鏈式, InlineRecordCreator, work_category
-> **版本**: 1.0.0
-> **日期**: 2026-02-17
-
----
 
 ## 概述
 

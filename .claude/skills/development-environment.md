@@ -1,11 +1,21 @@
+---
+name: development-environment
+description: 本地開發環境設定與驗證
+version: 1.0.0
+category: project
+triggers:
+  - 環境
+  - 開發環境
+  - Docker
+  - 依賴
+  - 配置
+  - env
+  - 環境變數
+updated: '2026-01-15'
+---
+
 # 開發環境檢查指南 (Development Environment Guide)
 
-> **觸發關鍵字**: 環境, 開發環境, Docker, 依賴, 配置, env, 環境變數
-> **適用範圍**: 本地開發環境設定與驗證
-> **版本**: 1.0.0
-> **最後更新**: 2026-01-22
-
----
 
 ## 架構概述
 

@@ -1,9 +1,15 @@
+---
+name: code-review
+description: 程式碼審查代理
+version: 1.0.0
+category: shared
+triggers:
+  - 當需要審查程式碼變更時
+updated: '2026-01-15'
+---
+
 # Code Review Agent
 
-> **用途**: 程式碼審查代理
-> **觸發**: 當需要審查程式碼變更時
-
----
 
 ## Agent 指引
 
