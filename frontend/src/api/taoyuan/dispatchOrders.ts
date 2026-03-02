@@ -47,15 +47,18 @@ export const dispatchOrdersApi = {
 
   /**
    * 取得下一個派工單號（自動生成）
-   * 格式: 115年_派工單號001, 115年_派工單號002, ...
+   * 格式: {民國年}年_派工單號001, ...
+   * @param contractProjectId 承攬案件 ID（用於從專案名稱解析民國年）
    */
-  async getNextDispatchNo(): Promise<{
+  async getNextDispatchNo(contractProjectId?: number): Promise<{
     success: boolean;
     next_dispatch_no: string;
     current_year: number;
     next_sequence: number;
   }> {
-    return apiClient.post(API_ENDPOINTS.TAOYUAN_DISPATCH.DISPATCH_NEXT_NO, {});
+    return apiClient.post(API_ENDPOINTS.TAOYUAN_DISPATCH.DISPATCH_NEXT_NO, {
+      contract_project_id: contractProjectId ?? null,
+    });
   },
 
   /**

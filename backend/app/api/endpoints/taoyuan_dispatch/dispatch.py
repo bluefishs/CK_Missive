@@ -146,24 +146,39 @@ async def import_dispatch_orders(
 
 @router.post("/dispatch/next-dispatch-no", summary="取得下一個派工單號")
 async def get_next_dispatch_no(
+    contract_project_id: Optional[int] = Body(None, embed=True),
     service: DispatchOrderService = Depends(get_dispatch_service),
-    current_user = Depends(require_auth())
+    db: AsyncSession = Depends(get_async_db),
+    current_user = Depends(require_auth()),
 ):
-    """根據現有派工單號自動生成下一個單號（格式: {民國年}年_派工單號{NNN}）"""
-    import re
+    """根據承攬案件年度自動生成下一個單號（格式: {民國年}年_派工單號{NNN}）"""
+    import re as re_mod
     from datetime import datetime
 
-    current_year = datetime.now().year - 1911
-    next_dispatch_no = await service.get_next_dispatch_no(year=current_year)
+    roc_year = datetime.now().year - 1911  # 預設當前民國年
+
+    # 若指定承攬案件，從專案名稱解析民國年（如 "115年度..." → 115）
+    if contract_project_id:
+        result = await db.execute(
+            select(ContractProject.project_name)
+            .where(ContractProject.id == contract_project_id)
+        )
+        project_name = result.scalar_one_or_none()
+        if project_name:
+            year_match = re_mod.search(r'(\d{2,3})年', project_name)
+            if year_match:
+                roc_year = int(year_match.group(1))
+
+    next_dispatch_no = await service.get_next_dispatch_no(year=roc_year)
 
     # 從派工單號解析序號
-    match = re.search(r'(\d+)$', next_dispatch_no)
+    match = re_mod.search(r'(\d+)$', next_dispatch_no)
     next_seq = int(match.group(1)) if match else 1
 
     return {
         "success": True,
         "next_dispatch_no": next_dispatch_no,
-        "current_year": current_year,
+        "current_year": roc_year,
         "next_sequence": next_seq
     }
 

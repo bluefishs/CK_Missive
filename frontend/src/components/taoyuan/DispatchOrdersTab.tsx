@@ -116,8 +116,8 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
   });
 
   const handleCreate = useCallback(() => {
-    navigate('/taoyuan/dispatch/create');
-  }, [navigate]);
+    navigate(`/taoyuan/dispatch/create?project=${contractProjectId}`);
+  }, [navigate, contractProjectId]);
 
   const handleImport = useCallback(async (file: File) => {
     try {

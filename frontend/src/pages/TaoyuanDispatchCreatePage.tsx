@@ -8,8 +8,8 @@
  * @date 2026-01-29
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ResponsiveContent } from '../components/common';
 import {
   Form,
@@ -35,15 +35,27 @@ import { getProjectAgencyContacts } from '../api/projectAgencyContacts';
 import { projectVendorsApi } from '../api/projectVendorsApi';
 import type { DispatchOrderCreate, ContractPaymentCreate } from '../types/api';
 import { TAOYUAN_CONTRACT } from '../constants/taoyuanOptions';
+import { useTaoyuanContractProjects } from '../hooks';
 import { logger } from '../services/logger';
 
 const { Title } = Typography;
 
 export const TaoyuanDispatchCreatePage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { message } = App.useApp();
   const [form] = Form.useForm();
   const queryClient = useQueryClient();
+
+  // 從 URL 取得承攬案件 ID（由 DispatchOrdersTab navigate 傳入）
+  const contractProjectId = Number(searchParams.get('project')) || TAOYUAN_CONTRACT.PROJECT_ID;
+
+  // 查詢承攬案件列表，取得對應的 contractCode
+  const { data: contractProjects = [] } = useTaoyuanContractProjects();
+  const contractCode = useMemo(() => {
+    const found = contractProjects.find(p => p.id === contractProjectId);
+    return found?.project_code ?? TAOYUAN_CONTRACT.CODE;
+  }, [contractProjects, contractProjectId]);
 
   // 公文搜尋狀態
   const [agencyDocSearch, setAgencyDocSearch] = useState('');
@@ -55,10 +67,10 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
 
   // 查詢可關聯的工程
   const { data: projectsData } = useQuery({
-    queryKey: ['taoyuan-projects-for-dispatch', TAOYUAN_CONTRACT.PROJECT_ID],
+    queryKey: ['taoyuan-projects-for-dispatch', contractProjectId],
     queryFn: () =>
       taoyuanProjectsApi.getList({
-        contract_project_id: TAOYUAN_CONTRACT.PROJECT_ID,
+        contract_project_id: contractProjectId,
         limit: 500,
       }),
   });
@@ -66,24 +78,24 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
 
   // 查詢機關承辦清單
   const { data: agencyContactsData } = useQuery({
-    queryKey: ['agency-contacts', TAOYUAN_CONTRACT.PROJECT_ID],
-    queryFn: () => getProjectAgencyContacts(TAOYUAN_CONTRACT.PROJECT_ID),
+    queryKey: ['agency-contacts', contractProjectId],
+    queryFn: () => getProjectAgencyContacts(contractProjectId),
   });
   const agencyContacts = agencyContactsData?.items ?? [];
 
   // 查詢協力廠商清單
   const { data: vendorsData } = useQuery({
-    queryKey: ['project-vendors', TAOYUAN_CONTRACT.PROJECT_ID],
-    queryFn: () => projectVendorsApi.getProjectVendors(TAOYUAN_CONTRACT.PROJECT_ID),
+    queryKey: ['project-vendors', contractProjectId],
+    queryFn: () => projectVendorsApi.getProjectVendors(contractProjectId),
   });
   const projectVendors = vendorsData?.associations ?? [];
 
   // 查詢機關函文（收文）
   const { data: agencyDocsData } = useQuery({
-    queryKey: ['agency-docs-for-dispatch-create', agencyDocSearch, TAOYUAN_CONTRACT.CODE],
+    queryKey: ['agency-docs-for-dispatch-create', agencyDocSearch, contractCode],
     queryFn: () =>
       documentsApi.getDocuments({
-        contract_case: TAOYUAN_CONTRACT.CODE,
+        contract_case: contractCode,
         category: 'receive',
         search: agencyDocSearch || undefined,
         limit: 50,
@@ -92,10 +104,10 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
 
   // 查詢乾坤函文（發文）
   const { data: companyDocsData } = useQuery({
-    queryKey: ['company-docs-for-dispatch-create', companyDocSearch, TAOYUAN_CONTRACT.CODE],
+    queryKey: ['company-docs-for-dispatch-create', companyDocSearch, contractCode],
     queryFn: () =>
       documentsApi.getDocuments({
-        contract_case: TAOYUAN_CONTRACT.CODE,
+        contract_case: contractCode,
         category: 'send',
         search: companyDocSearch || undefined,
         limit: 50,
@@ -176,11 +188,11 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
   // Effects
   // =============================================================================
 
-  // 頁面載入時自動獲取下一個派工單號
+  // 頁面載入時自動獲取下一個派工單號（依所選承攬案件年度）
   useEffect(() => {
     const loadNextDispatchNo = async () => {
       try {
-        const result = await dispatchOrdersApi.getNextDispatchNo();
+        const result = await dispatchOrdersApi.getNextDispatchNo(contractProjectId);
         if (result.success && result.next_dispatch_no) {
           form.setFieldsValue({
             dispatch_no: result.next_dispatch_no,
@@ -191,7 +203,7 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
       }
     };
     loadNextDispatchNo();
-  }, [form]);
+  }, [form, contractProjectId]);
 
   // =============================================================================
   // Handlers
@@ -202,7 +214,7 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
     mutationFn: (projectName: string) =>
       taoyuanProjectsApi.create({
         project_name: projectName,
-        contract_project_id: TAOYUAN_CONTRACT.PROJECT_ID,
+        contract_project_id: contractProjectId,
       }),
     onSuccess: (newProject) => {
       message.success(`工程「${newProject.project_name}」建立成功`);
@@ -275,7 +287,7 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
 
       const data = {
         dispatch_no: values.dispatch_no,
-        contract_project_id: TAOYUAN_CONTRACT.PROJECT_ID,
+        contract_project_id: contractProjectId,
         project_name: values.project_name,
         work_type: workTypeString,
         sub_case_name: values.sub_case_name,

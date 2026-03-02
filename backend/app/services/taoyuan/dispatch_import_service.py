@@ -10,13 +10,16 @@ DispatchImportService - 派工單 Excel 匯入/匯出服務
 """
 
 import io
+import re
 import logging
 from datetime import datetime, date
 from typing import Dict, Any, Optional
 
 import pandas as pd
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.extended.models import ContractProject
 from app.repositories.taoyuan import DispatchOrderRepository
 
 logger = logging.getLogger(__name__)
@@ -77,6 +80,9 @@ class DispatchImportService:
             '聯絡備註': 'contact_note',
         }
 
+        # 從承攬案件名稱解析民國年（用於自動生成派工單號）
+        dispatch_year = await self._resolve_roc_year(contract_project_id)
+
         success_count = 0
         errors = []
         total = len(df)
@@ -102,9 +108,9 @@ class DispatchImportService:
                         # 字串直接保留（如 "115年03月20日前函送成果"）
                         record['deadline'] = str(deadline_val).strip()
 
-                # 生成派工單號（如果沒有）
+                # 生成派工單號（如果沒有）— 使用承攬案件的民國年
                 if not record.get('dispatch_no'):
-                    record['dispatch_no'] = await self.repository.get_next_dispatch_no()
+                    record['dispatch_no'] = await self.repository.get_next_dispatch_no(year=dispatch_year)
 
                 # 設定承攬案件 ID
                 record['contract_project_id'] = contract_project_id
@@ -126,6 +132,19 @@ class DispatchImportService:
             'error_count': len(errors),
             'errors': errors,
         }
+
+    async def _resolve_roc_year(self, contract_project_id: int) -> int:
+        """從承攬案件名稱解析民國年（如 '112-113年度...' → 112）"""
+        result = await self.db.execute(
+            select(ContractProject.project_name)
+            .where(ContractProject.id == contract_project_id)
+        )
+        project_name = result.scalar_one_or_none()
+        if project_name:
+            year_match = re.search(r'(\d{2,3})年', project_name)
+            if year_match:
+                return int(year_match.group(1))
+        return datetime.now().year - 1911
 
     def generate_import_template(self) -> bytes:
         """

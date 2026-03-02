@@ -91,12 +91,14 @@ export const DocumentDispatchTab: React.FC<DocumentDispatchTabProps> = ({
   const [selectedDispatchId, setSelectedDispatchId] = useState<number | undefined>();
   const [linkingDispatch, setLinkingDispatch] = useState(false);
 
-  // 編輯模式時自動載入下一個派工單號
+  // 編輯模式時自動載入下一個派工單號（依公文所屬承攬案件年度）
   useEffect(() => {
     if (isEditing) {
       const loadNextDispatchNo = async () => {
         try {
-          const result = await dispatchOrdersApi.getNextDispatchNo();
+          const result = await dispatchOrdersApi.getNextDispatchNo(
+            document?.contract_project_id ?? undefined,
+          );
           if (result.success && result.next_dispatch_no) {
             dispatchForm.setFieldsValue({ dispatch_no: result.next_dispatch_no });
           }
@@ -106,7 +108,7 @@ export const DocumentDispatchTab: React.FC<DocumentDispatchTabProps> = ({
       };
       loadNextDispatchNo();
     }
-  }, [isEditing, dispatchForm]);
+  }, [isEditing, dispatchForm, document?.contract_project_id]);
 
   // 判斷當前公文類型 (收文/發文)
   const isReceiveDoc = isReceiveDocument(document?.category);
