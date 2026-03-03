@@ -34,7 +34,7 @@ async def get_database_info(
         raise # HTTPException 會自動傳播
     except Exception as e:
         logger.error(f"獲取資料庫信息失敗: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"獲取資料庫信息失敗: {str(e)}")
+        raise HTTPException(status_code=500, detail="獲取資料庫信息失敗，請稍後再試")
 
 
 @router.post("/database/table/{table_name}", summary="獲取表格數據 (PostgreSQL)")
@@ -57,7 +57,7 @@ async def get_table_data(
         raise
     except Exception as e:
         logger.error(f"獲取表格 {table_name} 數據失敗: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"獲取表格數據失敗: {str(e)}")
+        raise HTTPException(status_code=500, detail="獲取表格數據失敗，請稍後再試")
 
 
 @router.post("/database/query", summary="執行唯讀 SQL 查詢 (PostgreSQL)")
@@ -78,7 +78,7 @@ async def execute_query(
         raise
     except Exception as e:
         logger.error(f"SQL 查詢執行失敗: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"查詢執行失敗: {str(e)}")
+        raise HTTPException(status_code=500, detail="查詢執行失敗，請稍後再試")
 
 @router.post("/database/health", summary="檢查資料庫健康狀況 (PostgreSQL)")
 async def check_database_health(
@@ -97,7 +97,7 @@ async def check_database_health(
         raise
     except Exception as e:
         logger.error(f"資料庫健康檢查失敗: {e}", exc_info=True)
-        raise HTTPException(status_code=503, detail=f"無法連線到資料庫: {str(e)}")
+        raise HTTPException(status_code=503, detail="無法連線到資料庫，請稍後再試")
 
 @router.post("/database/integrity", summary="檢查資料庫完整性")
 async def check_database_integrity(
@@ -120,4 +120,4 @@ async def check_database_integrity(
         return result
     except Exception as e:
         logger.error(f"資料庫完整性檢查失敗: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"完整性檢查失敗: {str(e)}")
+        raise HTTPException(status_code=500, detail="完整性檢查失敗，請稍後再試")

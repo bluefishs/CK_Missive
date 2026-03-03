@@ -78,7 +78,6 @@ from app.schemas.document import (
     DocumentImportData,
     DocumentImportResult,
     DocumentListResponse,
-    DocumentListResponseLegacy,
     DocumentStats,
     ExportRequest,
     DocumentCreateRequest,
@@ -93,7 +92,6 @@ from app.schemas.project import (
     ProjectUpdate,
     ProjectResponse,
     ProjectListResponse,
-    ProjectListResponseLegacy,
     ProjectOption,
     ProjectListQuery,
 )
@@ -271,7 +269,6 @@ __all__ = [
     "DocumentImportData",
     "DocumentImportResult",
     "DocumentListResponse",
-    "DocumentListResponseLegacy",
     "DocumentStats",
     "ExportRequest",
     "DocumentCreateRequest",
@@ -283,7 +280,6 @@ __all__ = [
     "ProjectUpdate",
     "ProjectResponse",
     "ProjectListResponse",
-    "ProjectListResponseLegacy",
     "ProjectOption",
     "ProjectListQuery",
     # Vendor

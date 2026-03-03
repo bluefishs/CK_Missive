@@ -97,16 +97,6 @@ class UserListResponse(PaginatedResponse):
     items: List[UserResponse] = Field(default=[], description="使用者列表")
 
 
-# 保留舊版格式供向後相容（已棄用）
-class UserListResponseLegacy(BaseModel):
-    """使用者列表回應 Schema（舊版格式，已棄用）"""
-    items: List[UserResponse]
-    total: int
-    page: int
-    page_size: int
-    total_pages: int
-
-
 # ============================================================================
 # 查詢參數 Schema
 # ============================================================================

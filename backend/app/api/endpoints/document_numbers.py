@@ -31,6 +31,7 @@
 @date 2026-01-19
 """
 
+import logging
 from datetime import datetime, date
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -60,6 +61,7 @@ from app.schemas.document_number import (
     DocumentNumberUpdateRequest,
 )
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -187,7 +189,8 @@ async def query_document_numbers(
         )
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"查詢發文字號失敗: {str(e)}")
+        logger.error(f"查詢發文字號失敗: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="查詢發文字號失敗，請稍後再試")
 
 
 @router.post("/stats", response_model=DocumentNumberStats)
@@ -281,7 +284,8 @@ async def get_document_numbers_stats(
         )
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"取得統計資料失敗: {str(e)}")
+        logger.error(f"取得統計資料失敗: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="取得統計資料失敗，請稍後再試")
 
 
 @router.post("/next-number", response_model=NextNumberResponse)
@@ -358,8 +362,7 @@ async def get_next_document_number(
 
     except Exception as e:
         # 查詢失敗時返回預設值 (新年度第1號)
-        import logging
-        logging.error(f"取得下一個字號失敗: {e}")
+        logger.error(f"取得下一個字號失敗: {e}", exc_info=True)
         fallback_year = request.year or datetime.now().year
         roc_year = fallback_year - 1911
         prefix = request.prefix or DEFAULT_DOC_PREFIX
@@ -443,7 +446,8 @@ async def create_document_number(
 
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"建立發文字號失敗: {str(e)}")
+        logger.error(f"建立發文字號失敗: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="建立發文字號失敗，請稍後再試")
 
 
 @router.post("/update/{document_id}", response_model=DocumentNumberItem)
@@ -522,7 +526,8 @@ async def update_document_number(
         raise
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"更新發文字號失敗: {str(e)}")
+        logger.error(f"更新發文字號失敗: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="更新發文字號失敗，請稍後再試")
 
 
 @router.post("/delete/{document_id}")
@@ -554,4 +559,5 @@ async def delete_document_number(
         raise
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"刪除發文字號失敗: {str(e)}")
+        logger.error(f"刪除發文字號失敗: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="刪除發文字號失敗，請稍後再試")

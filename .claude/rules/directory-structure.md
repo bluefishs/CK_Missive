@@ -18,12 +18,14 @@
 │   ├── checkpoint.md           # 長對話進度保存
 │   ├── code-review.md          # 程式碼審查
 │   ├── build-fix.md            # 構建修復
+│   ├── adr.md                  # 架構決策記錄 (ADR)
+│   ├── knowledge-map.md        # 知識地圖重建與差異報告
 │   └── superpowers/            # Superpowers 指令
 │       ├── brainstorm.md
 │       ├── write-plan.md
 │       └── execute-plan.md
 ├── skills/                      # 領域知識 Skills
-│   ├── [16 個專案特定 skills]
+│   ├── [22 個專案特定 skills]
 │   └── _shared/                # 共享 Skills 庫
 │       ├── shared/             # 通用 skills + superpowers
 │       └── react/              # React 專用 skills
@@ -42,6 +44,7 @@
 │   ├── route-sync-check.ps1    # 手動: 路徑同步檢查
 │   ├── api-serialization-check.ps1 # 手動: API 序列化
 │   ├── link-id-check.ps1       # 手動: Link ID 檢查
+│   ├── link-id-validation.ps1  # 手動: 後端 link_id 傳遞檢查
 │   └── performance-check.ps1   # 手動: 效能檢查
 ├── rules/                       # 自動載入規範 (與 CLAUDE.md 同級)
 │   ├── security.md             # 安全規範

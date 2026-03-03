@@ -138,19 +138,6 @@ class ProjectListResponse(PaginatedResponse):
     items: List[ProjectResponse] = Field(default=[], description="專案列表")
 
 
-# 保留舊版格式供向後相容（已棄用）
-class ProjectListResponseLegacy(BaseModel):
-    """
-    承攬案件列表回應Schema（舊版格式，已棄用）
-
-    請使用 ProjectListResponse 統一格式
-    """
-    projects: List[ProjectResponse]
-    total: int = Field(..., description="總筆數")
-    skip: int = Field(..., description="跳過筆數")
-    limit: int = Field(..., description="限制筆數")
-
-
 class ProjectOption(BaseModel):
     """承攬案件選項Schema (用於下拉選單)"""
     id: int

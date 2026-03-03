@@ -472,8 +472,8 @@ async def update_document(db: AsyncSession, ...):
 | 錯誤邊界清晰 | 每個 session 有自己的 try-except-rollback |
 
 **相關檔案**:
-- `backend/app/api/endpoints/documents_enhanced.py` - update_document, delete_document
-- `backend/app/core/audit_logger.py` - log_document_change
+- `backend/app/api/endpoints/documents/crud.py` - update_document, delete_document
+- `backend/app/services/audit_service.py` - AuditService.log_document_change
 - `backend/app/services/notification_service.py` - notify_critical_change
 
 詳細說明請參考: `docs/ERROR_HANDLING_GUIDE.md`

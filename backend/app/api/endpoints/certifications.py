@@ -22,6 +22,8 @@ from typing import Optional
 from datetime import datetime
 
 from app.db.database import get_async_db
+from app.core.dependencies import require_auth
+from app.extended.models import User
 from app.repositories import StaffCertificationRepository, UserRepository
 from app.schemas.certification import (
     CertificationCreate,
@@ -47,7 +49,8 @@ router = APIRouter()
 @router.post("/create", response_model=CertificationApiResponse)
 async def create_certification(
     data: CertificationCreate,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """
     新增證照紀錄
@@ -80,14 +83,16 @@ async def create_certification(
 
     except Exception as e:
         await db.rollback()
-        return error_response(f"新增證照失敗: {str(e)}")
+        logger.error(f"新增證照失敗: {e}", exc_info=True)
+        return error_response("新增證照失敗，請稍後再試")
 
 
 @router.post("/user/{user_id}/list", response_model=CertificationListApiResponse)
 async def get_user_certifications(
     user_id: int,
     params: Optional[CertificationListParams] = None,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """
     取得指定使用者的證照列表
@@ -129,13 +134,15 @@ async def get_user_certifications(
         )
 
     except Exception as e:
-        return error_response(f"取得證照列表失敗: {str(e)}")
+        logger.error(f"取得證照列表失敗: {e}", exc_info=True)
+        return error_response("取得證照列表失敗，請稍後再試")
 
 
 @router.post("/{cert_id}/detail", response_model=CertificationApiResponse)
 async def get_certification_detail(
     cert_id: int,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """
     取得證照詳情
@@ -152,14 +159,16 @@ async def get_certification_detail(
         )
 
     except Exception as e:
-        return error_response(f"取得證照詳情失敗: {str(e)}")
+        logger.error(f"取得證照詳情失敗: {e}", exc_info=True)
+        return error_response("取得證照詳情失敗，請稍後再試")
 
 
 @router.post("/{cert_id}/update", response_model=CertificationApiResponse)
 async def update_certification(
     cert_id: int,
     data: CertificationUpdate,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """
     更新證照紀錄
@@ -184,13 +193,15 @@ async def update_certification(
 
     except Exception as e:
         await db.rollback()
-        return error_response(f"更新證照失敗: {str(e)}")
+        logger.error(f"更新證照失敗: {e}", exc_info=True)
+        return error_response("更新證照失敗，請稍後再試")
 
 
 @router.post("/{cert_id}/delete", response_model=CertificationDeleteApiResponse)
 async def delete_certification(
     cert_id: int,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """
     刪除證照紀錄
@@ -206,13 +217,15 @@ async def delete_certification(
 
     except Exception as e:
         await db.rollback()
-        return error_response(f"刪除證照失敗: {str(e)}")
+        logger.error(f"刪除證照失敗: {e}", exc_info=True)
+        return error_response("刪除證照失敗，請稍後再試")
 
 
 @router.post("/stats/{user_id}", response_model=CertificationStatsApiResponse)
 async def get_certification_stats(
     user_id: int,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """
     取得使用者證照統計
@@ -231,7 +244,8 @@ async def get_certification_stats(
         return success_response(data=stats)
 
     except Exception as e:
-        return error_response(f"取得證照統計失敗: {str(e)}")
+        logger.error(f"取得證照統計失敗: {e}", exc_info=True)
+        return error_response("取得證照統計失敗，請稍後再試")
 
 
 # ============================================================================
@@ -280,7 +294,8 @@ def get_cert_upload_path(user_id: int, cert_id: int, filename: str) -> tuple[str
 async def upload_certification_attachment(
     cert_id: int,
     file: UploadFile = File(...),
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """
     上傳證照掃描檔附件
@@ -353,13 +368,15 @@ async def upload_certification_attachment(
 
     except Exception as e:
         await db.rollback()
-        return error_response(f"上傳附件失敗: {str(e)}")
+        logger.error(f"上傳附件失敗: {e}", exc_info=True)
+        return error_response("上傳附件失敗，請稍後再試")
 
 
 @router.post("/{cert_id}/download-attachment")
 async def download_certification_attachment(
     cert_id: int,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """
     下載證照附件
@@ -392,13 +409,15 @@ async def download_certification_attachment(
         )
 
     except Exception as e:
-        return error_response(f"下載附件失敗: {str(e)}")
+        logger.error(f"下載附件失敗: {e}", exc_info=True)
+        return error_response("下載附件失敗，請稍後再試")
 
 
 @router.post("/{cert_id}/delete-attachment")
 async def delete_certification_attachment(
     cert_id: int,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth())
 ):
     """
     刪除證照附件
@@ -430,4 +449,5 @@ async def delete_certification_attachment(
 
     except Exception as e:
         await db.rollback()
-        return error_response(f"刪除附件失敗: {str(e)}")
+        logger.error(f"刪除附件失敗: {e}", exc_info=True)
+        return error_response("刪除附件失敗，請稍後再試")

@@ -282,15 +282,6 @@ class DocumentListResponse(PaginatedResponse):
     items: List[DocumentResponse] = Field(default=[], description="公文列表")
 
 
-# 保留舊版格式供向後相容（已棄用）
-class DocumentListResponseLegacy(BaseModel):
-    """公文列表回應（舊版格式，已棄用）"""
-    documents: List[DocumentResponse]
-    total: int
-    page: int
-    per_page: int
-    pages: int
-    
 class DocumentStats(BaseModel):
     """公文統計"""
     total_documents: int

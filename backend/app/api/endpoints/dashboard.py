@@ -7,6 +7,8 @@
 @version 2.0.0
 @date 2026-01-20
 """
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -25,6 +27,7 @@ from app.schemas.dashboard import (
     CalendarCategoryItem,
 )
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.post("/stats", response_model=DashboardStatsResponse)
@@ -73,7 +76,8 @@ async def get_dashboard_stats(
         )
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"無法獲取儀表板數據: {str(e)}")
+        logger.error(f"無法獲取儀表板數據: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="無法獲取儀表板數據，請稍後再試")
 
 @router.post("/statistics/overview", response_model=StatisticsOverviewResponse)
 async def get_statistics_overview(
@@ -109,7 +113,8 @@ async def get_statistics_overview(
         )
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"無法獲取統計概覽: {str(e)}")
+        logger.error(f"無法獲取統計概覽: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="無法獲取統計概覽，請稍後再試")
 
 @router.post("/dev-mapping", summary="獲取 API 對應關係 (調試用)")
 async def get_api_mapping(

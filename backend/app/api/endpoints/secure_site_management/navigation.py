@@ -11,9 +11,10 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_async_db
-from app.extended.models import SiteNavigationItem
+from app.extended.models import SiteNavigationItem, User
 from app.schemas.site_management import NavigationItemCreate
 from app.core.navigation_validator import validate_navigation_path, get_all_valid_paths
+from app.core.dependencies import require_auth
 from app.repositories.navigation_repository import NavigationRepository
 
 from .common import validate_csrf_token, generate_csrf_token
@@ -230,15 +231,16 @@ async def navigation_action(
         raise
     except Exception as e:
         raise HTTPException(
-            status_code=500, detail=f"Internal server error: {str(e)}"
+            status_code=500, detail="Internal server error"
         )
 
 
 @router.post("/test-navigation")
 async def test_navigation_endpoint(
     session: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth()),
 ):
-    """測試導覽端點 - 不需 CSRF"""
+    """測試導覽端點"""
     try:
         nav_repo = NavigationRepository(session)
         root_items = await nav_repo.get_root_items()

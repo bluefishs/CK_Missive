@@ -15,6 +15,7 @@
 | `/security-audit` | 🔒 **資安審計檢查** | `.claude/commands/security-audit.md` |
 | `/performance-check` | ⚡ **效能診斷檢查** | `.claude/commands/performance-check.md` |
 | `/adr` | 📋 **架構決策記錄 (ADR)** 管理 | `.claude/commands/adr.md` |
+| `/knowledge-map` | 🗺️ **知識地圖重建與差異報告** | `.claude/commands/knowledge-map.md` |
 
 ### Everything Claude Code 指令
 
@@ -60,6 +61,7 @@
 | `alembic-migrations.md` | Alembic, 遷移, migration, schema change | Alembic 遷移管理規範 (v1.0.0) |
 | `caching-patterns.md` | 快取, cache, Redis, TTL, React Query | 快取策略規範 (v1.0.0) |
 | `knowledge-management.md` | ADR, 決策, 架構圖, 知識管理, 功能生命週期 | 知識管理規範 (v1.0.0) |
+| `hooks-development.md` | hooks, 鉤子, 自動化, PreToolUse, PostToolUse | Hooks 開發規範 |
 
 ### Superpowers Skills (v4.0.3)
 
@@ -81,19 +83,23 @@
 
 | 類別 | Skill | 觸發關鍵字 | 說明 |
 |------|-------|-----------|------|
-| 後端模式 | `postgres-patterns` | PostgreSQL, query, index | PostgreSQL 最佳實踐 |
-| 後端模式 | `websocket-patterns` | WebSocket, 即時, real-time | WebSocket 整合指南 |
 | 共享實踐 | `security-patterns` | 安全, security, 防護 | 安全性最佳實踐 |
 | 共享實踐 | `testing-patterns` | 測試, test, coverage | 測試模式指南 |
 | 共享實踐 | `systematic-debugging` | 除錯, debug, 調試 | 系統化除錯方法 |
 | 共享實踐 | `dangerous-operations-policy` | 危險操作, 刪除, 重置 | 危險操作政策 |
 | 共享實踐 | `code-standards` | 程式碼規範, coding style | 程式碼標準 |
-| AI 模式 | `ai-architecture-patterns` | AI, 架構, pattern | AI 架構模式 |
-| AI 模式 | `ai-model-integration` | AI, 模型, integration | AI 模型整合 |
-| AI 模式 | `ai-prompt-patterns` | AI, prompt, 提示詞 | AI 提示詞模式 |
-| AI 模式 | `ai-workflow-patterns` | AI, workflow, 工作流 | AI 工作流程模式 |
+| 共享實踐 | `security-audit` | 資安, 審計, audit | 安全審計檢查 |
+| 共享實踐 | `data-governance-framework` | 資料治理, governance | 資料治理框架 |
+| 共享實踐 | `mandatory-checklist` | 檢查清單, checklist | 強制性檢查清單 |
+| 工具 | `quick-fix` | 快修, fix, 修復 | 快速修復工具 |
+| 工具 | `crud-migration` | CRUD, 遷移 | CRUD 遷移工具 |
+| 工具 | `service-refactoring` | 重構, refactor, service | 服務重構工具 |
+| 工具 | `test-generator` | 測試生成, test gen | 測試生成器 |
+| 工具 | `plan-workflow` | 計畫, workflow | 計畫工作流 |
+| 工具 | `tdd-workflow` | TDD, 測試驅動 | TDD 工作流 |
+| 工具 | `refactoring-migration-procedures` | 重構遷移, migration | 重構遷移程序 |
 
-> 位置: `.claude/skills/_shared/`
+> 位置: `.claude/skills/_shared/shared/`
 
 ---
 

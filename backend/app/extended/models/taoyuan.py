@@ -75,8 +75,8 @@ class TaoyuanDispatchOrder(Base):
     contract_project_id = Column(Integer, ForeignKey('contract_projects.id'), nullable=True, index=True, comment="關聯承攬案件")
 
     dispatch_no = Column(String(50), unique=True, nullable=False, index=True, comment="派工單號")
-    agency_doc_id = Column(Integer, ForeignKey('documents.id'), nullable=True, comment="關聯機關公文")
-    company_doc_id = Column(Integer, ForeignKey('documents.id'), nullable=True, comment="關聯乾坤公文")
+    agency_doc_id = Column(Integer, ForeignKey('documents.id', ondelete='SET NULL'), nullable=True, comment="關聯機關公文")
+    company_doc_id = Column(Integer, ForeignKey('documents.id', ondelete='SET NULL'), nullable=True, comment="關聯乾坤公文")
 
     project_name = Column(String(500), comment="工程名稱/派工事項")
     work_type = Column(String(200), index=True, comment="作業類別(可多選,逗號分隔)")

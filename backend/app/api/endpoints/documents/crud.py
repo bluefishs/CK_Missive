@@ -476,5 +476,19 @@ async def delete_document(
         raise
     except Exception as e:
         await db.rollback()
+        # 檢查是否為外鍵約束違反（公文被其他資料引用）
+        error_msg = str(e).lower()
+        if "foreign key" in error_msg or "integrity" in error_msg or "violates" in error_msg:
+            logger.warning(f"刪除公文 {document_id} 失敗 (關聯約束): {e}")
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "success": False,
+                    "error": {
+                        "code": "ERR_CONSTRAINT_VIOLATION",
+                        "message": "此公文被其他資料引用（如派工單），無法直接刪除。請先解除關聯後再試。"
+                    }
+                }
+            )
         logger.error(f"刪除公文失敗: {e}", exc_info=True)
         raise
