@@ -61,7 +61,7 @@ async def export_documents(
 
     except Exception as e:
         logger.error(f"匯出公文失敗: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"匯出公文失敗: {str(e)}")
+        raise HTTPException(status_code=500, detail="匯出公文失敗，請稍後再試")
 
 
 # ============================================================================
@@ -119,7 +119,8 @@ async def export_documents_excel(
 
     except ValueError as e:
         # Service 層拋出的業務錯誤
-        raise HTTPException(status_code=404, detail=str(e))
+        logger.warning(f"匯出 Excel 驗證失敗: {e}")
+        raise HTTPException(status_code=404, detail="匯出條件不符，請檢查篩選參數")
     except Exception as e:
         logger.error(f"匯出 Excel 失敗: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"匯出 Excel 失敗: {str(e)}")
+        raise HTTPException(status_code=500, detail="匯出 Excel 失敗，請稍後再試")

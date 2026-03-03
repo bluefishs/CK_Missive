@@ -93,7 +93,7 @@ async def get_document_detail(
                 "success": False,
                 "error": {
                     "code": "ERR_INTERNAL",
-                    "message": f"取得公文詳情失敗: {str(e)}"
+                    "message": "取得公文詳情失敗，請稍後再試"
                 }
             }
         )

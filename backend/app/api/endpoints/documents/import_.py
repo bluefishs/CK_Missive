@@ -75,7 +75,7 @@ async def preview_excel_import(
         raise
     except Exception as e:
         logger.error(f"Excel 預覽失敗: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"預覽失敗: {str(e)}")
+        raise HTTPException(status_code=500, detail="預覽失敗，請稍後再試")
 
 
 @router.post("/import/excel", summary="手動公文匯入（Excel）")
@@ -132,7 +132,7 @@ async def import_documents_excel(
         raise
     except Exception as e:
         logger.error(f"Excel 匯入失敗: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Excel 匯入失敗: {str(e)}")
+        raise HTTPException(status_code=500, detail="Excel 匯入失敗，請稍後再試")
 
 
 @router.post("/import/excel/template", summary="下載 Excel 匯入範本")
@@ -203,4 +203,4 @@ async def download_excel_template(request: Request, response: Response):
 
     except Exception as e:
         logger.error(f"下載範本失敗: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"下載範本失敗: {str(e)}")
+        raise HTTPException(status_code=500, detail="下載範本失敗，請稍後再試")

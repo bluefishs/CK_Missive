@@ -94,7 +94,7 @@ async def get_calendar_stats(
         logger.error(f"Error getting calendar stats: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"獲取統計資料失敗: {str(e)}"
+            detail="獲取統計資料失敗，請稍後再試"
         )
 
 
@@ -134,7 +134,7 @@ async def get_calendar_categories(
         logger.error(f"Error getting calendar categories: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"獲取分類失敗: {str(e)}"
+            detail="獲取分類失敗，請稍後再試"
         )
 
 

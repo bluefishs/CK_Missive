@@ -289,7 +289,8 @@ async def export_dispatch_master_excel(
             search=search,
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        _logger.error(f"派工總表 Excel 匯出驗證失敗: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="匯出條件驗證失敗，請檢查篩選條件")
     except Exception:
         _logger.exception("派工總表 Excel 匯出失敗")
         raise HTTPException(status_code=500, detail="匯出失敗，請稍後再試")

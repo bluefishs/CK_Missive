@@ -144,7 +144,7 @@ async def update_profile(
         logger.error(f"[AUTH] 更新個人資料失敗: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"更新個人資料失敗: {str(e)}"
+            detail="更新個人資料失敗，請稍後再試"
         )
 
 
@@ -217,5 +217,5 @@ async def change_password(
         logger.error(f"[AUTH] 修改密碼失敗: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"修改密碼失敗: {str(e)}"
+            detail="修改密碼失敗，請稍後再試"
         )

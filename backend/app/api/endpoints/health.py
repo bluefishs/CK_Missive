@@ -105,8 +105,9 @@ async def get_performance_metrics(
             "recommendations": service.get_performance_recommendations(metrics),
         }
     except Exception as e:
+        logger.error(f"無法獲取效能指標: {e}", exc_info=True)
         raise HTTPException(
-            status_code=500, detail=f"無法獲取效能指標: {str(e)}"
+            status_code=500, detail="無法獲取效能指標，請稍後再試"
         )
 
 
@@ -167,10 +168,10 @@ async def connection_pool_status(
             "recent_events": events,
         }
     except Exception as e:
+        logger.error(f"無法獲取連接池狀態: {e}", exc_info=True)
         return {
             "timestamp": datetime.now().isoformat(),
             "status": "monitor_not_available",
-            "error": str(e),
             "message": "連接池監控未啟用或發生錯誤",
         }
 
@@ -197,10 +198,11 @@ async def background_tasks_status(
             "success_rate": round(success_rate * 100, 2),
         }
     except Exception as e:
+        logger.error(f"無法獲取背景任務狀態: {e}", exc_info=True)
         return {
             "timestamp": datetime.now().isoformat(),
             "status": "unknown",
-            "error": str(e),
+            "message": "無法獲取背景任務狀態",
         }
 
 

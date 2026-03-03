@@ -70,7 +70,10 @@ async def get_navigation_tree(
 
         return NavigationTreeResponse(items=tree_items, total=len(tree_items))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"無法獲取導覽列資料: {str(e)}")
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"無法獲取導覽列資料: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="無法獲取導覽列資料，請稍後再試")
 
 async def build_tree(item: SiteNavigationItem, db: AsyncSession, include_disabled: bool, current_user: User) -> NavigationItemResponse:
     """

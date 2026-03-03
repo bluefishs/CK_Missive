@@ -155,7 +155,7 @@ async def verify_file_integrity(
             "success": False,
             "file_id": file_id,
             "status": "read_error",
-            "message": f"讀取檔案失敗: {str(e)}",
+            "message": "讀取檔案失敗",
         }
 
     stored_checksum = getattr(attachment, 'checksum', None)

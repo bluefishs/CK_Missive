@@ -44,7 +44,7 @@ async def get_public_calendar_status():
         return {
             "calendar_available": False,
             "google_calendar_integration": False,
-            "message": f"行事曆服務發生錯誤: {str(e)}",
+            "message": "行事曆服務發生錯誤",
             "error": True,
             "endpoint_type": "public"
         }

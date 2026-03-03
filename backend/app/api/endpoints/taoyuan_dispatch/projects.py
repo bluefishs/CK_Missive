@@ -309,7 +309,8 @@ async def import_taoyuan_projects(
     try:
         df = pd.read_excel(io.BytesIO(content), sheet_name=0, header=0)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"讀取 Excel 失敗: {str(e)}")
+        logger.error(f"讀取 Excel 檔案失敗: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="檔案格式不正確或無法讀取，請確認上傳的 Excel 檔案")
 
     column_mapping = {
         '項次': 'sequence_no',
@@ -369,7 +370,8 @@ async def import_taoyuan_projects(
             imported_count += 1
 
         except Exception as e:
-            errors.append({'row': idx + 2, 'error': str(e)})
+            logger.warning(f"轄管工程匯入第 {idx + 2} 列失敗: {e}", exc_info=False)
+            errors.append({'row': idx + 2, 'error': '資料驗證或寫入失敗'})
 
     await db.commit()
 

@@ -196,4 +196,5 @@ async def merge_entities(
             "entity_id": result.id,
         }
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.error(f"實體合併失敗: {e}")
+        raise HTTPException(status_code=400, detail="操作失敗，請稍後再試")

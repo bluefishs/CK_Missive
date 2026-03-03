@@ -331,10 +331,10 @@ export const getCurrentMenuKey = (pathname: string): string => {
  */
 export const getDefaultOpenKeys = (pathname: string): string[] => {
   if (pathname.startsWith('/documents')) return ['/documents', 'documents'];
-  if (pathname.startsWith('/cases')) return ['/cases', 'cases'];
-  if (pathname.startsWith('/projects')) return ['/cases', 'cases'];
-  if (pathname.startsWith('/agencies')) return ['/cases', 'cases'];
-  if (pathname.startsWith('/vendors')) return ['/cases', 'cases'];
+  if (pathname.startsWith('/contract-cases')) return ['project-management'];
+  if (pathname.startsWith('/projects')) return ['project-management'];
+  if (pathname.startsWith('/agencies')) return ['project-management'];
+  if (pathname.startsWith('/vendors')) return ['project-management'];
   if (pathname.startsWith('/calendar')) return ['/calendar', 'calendar'];
   if (pathname.startsWith('/reports')) return ['/reports', 'reports'];
   if (pathname.startsWith('/api-docs')) return ['/reports', 'reports'];

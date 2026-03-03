@@ -69,7 +69,7 @@ async def upload_and_import_csv(
         raise
     except Exception as e:
         logger.error(f"CSV匯入失敗: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"CSV匯入失敗: {str(e)}")
+        raise HTTPException(status_code=500, detail="CSV匯入失敗，請稍後再試")
 
 
 @router.post("/upload-multiple", summary="批次上傳多個CSV檔案")
@@ -136,7 +136,7 @@ async def upload_multiple_csv(
             total_errors += 1
         except Exception as e:
             logger.error(f"批次匯入 - 檔案 {file.filename} 處理失敗: {e}", exc_info=True)
-            file_result["message"] = f"處理失敗: {str(e)}"
+            file_result["message"] = "處理失敗，請稍後再試"
             file_result["error_count"] = 1
             total_errors += 1
 

@@ -254,16 +254,16 @@ async def get_deployment_history(
         )
 
     except httpx.HTTPStatusError as e:
-        logger.error(f"GitHub API 錯誤: {e}")
+        logger.error(f"GitHub API 錯誤: {e.response.status_code} - {e.response.text}")
         raise HTTPException(
             status_code=e.response.status_code,
-            detail=f"GitHub API 錯誤: {e.response.text}"
+            detail="無法取得部署歷史，請稍後再試"
         )
     except Exception as e:
         logger.error(f"取得部署歷史失敗: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"取得部署歷史失敗: {str(e)}"
+            detail="取得部署歷史失敗，請稍後再試"
         )
 
 
@@ -332,14 +332,14 @@ async def trigger_deployment(
                 logger.error(f"觸發部署失敗: {response.status_code} - {error_detail}")
                 return TriggerDeploymentResponse(
                     success=False,
-                    message=f"觸發部署失敗: {error_detail}"
+                    message="觸發部署失敗，請稍後再試"
                 )
 
     except Exception as e:
         logger.error(f"觸發部署異常: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"觸發部署失敗: {str(e)}"
+            detail="觸發部署失敗，請稍後再試"
         )
 
 
@@ -402,9 +402,10 @@ async def rollback_deployment(
                 current_version="latest"
             )
         else:
+            logger.error(f"回滾命令失敗: {result.stderr}")
             return RollbackResponse(
                 success=False,
-                message=f"回滾失敗: {result.stderr}"
+                message="回滾失敗，請稍後再試"
             )
 
     except subprocess.TimeoutExpired:
@@ -416,7 +417,7 @@ async def rollback_deployment(
         logger.error(f"回滾異常: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"回滾失敗: {str(e)}"
+            detail="回滾失敗，請稍後再試"
         )
 
 
@@ -478,16 +479,16 @@ async def get_deployment_logs(
             )
 
     except httpx.HTTPStatusError as e:
-        logger.error(f"GitHub API 錯誤: {e}")
+        logger.error(f"GitHub API 錯誤: {e.response.status_code} - {e.response.text}")
         raise HTTPException(
             status_code=e.response.status_code,
-            detail=f"取得日誌失敗: {e.response.text}"
+            detail="取得日誌失敗，請稍後再試"
         )
     except Exception as e:
         logger.error(f"取得部署日誌失敗: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"取得部署日誌失敗: {str(e)}"
+            detail="取得部署日誌失敗，請稍後再試"
         )
 
 

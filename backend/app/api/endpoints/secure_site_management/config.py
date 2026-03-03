@@ -5,7 +5,7 @@
 
 使用 ConfigurationRepository 進行資料存取，遵循 Repository Pattern。
 """
-
+import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -17,6 +17,8 @@ from app.schemas.site_management import SiteConfigCreate, SiteConfigResponse
 from app.schemas.secure import SecureRequest, SecureResponse
 
 from .common import validate_csrf_token, generate_csrf_token
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -158,6 +160,7 @@ async def config_action(
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"設定操作失敗: {e}", exc_info=True)
         raise HTTPException(
-            status_code=500, detail=f"Internal server error: {str(e)}"
+            status_code=500, detail="操作失敗，請稍後再試"
         )

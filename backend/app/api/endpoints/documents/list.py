@@ -328,8 +328,7 @@ async def optimized_search(
         return {
             "success": False,
             "items": [],
-            "pagination": {"total": 0, "page": 1, "limit": request.limit},
-            "error": str(e)
+            "pagination": {"total": 0, "page": 1, "limit": request.limit}
         }
 
 
@@ -369,8 +368,7 @@ async def get_search_suggestions(
         logger.error(f"取得搜尋建議失敗: {e}", exc_info=True)
         return {
             "success": False,
-            "suggestions": [],
-            "error": str(e)
+            "suggestions": []
         }
 
 
@@ -401,8 +399,7 @@ async def get_popular_searches(
         logger.error(f"取得熱門搜尋失敗: {e}", exc_info=True)
         return {
             "success": False,
-            "popular_searches": [],
-            "error": str(e)
+            "popular_searches": []
         }
 
 

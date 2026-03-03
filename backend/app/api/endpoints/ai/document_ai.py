@@ -151,15 +151,16 @@ async def stream_summary(
             )
         except RuntimeError as e:
             # 速率限制
+            logger.warning(f"速率限制: {e}")
             error_data = json.dumps(
-                {"token": "", "done": True, "error": str(e)},
+                {"token": "", "done": True, "error": "處理失敗"},
                 ensure_ascii=False,
             )
             yield f"data: {error_data}\n\n"
         except Exception as e:
             logger.error(f"串流摘要失敗: {e}")
             error_data = json.dumps(
-                {"token": "", "done": True, "error": str(e)},
+                {"token": "", "done": True, "error": "處理失敗"},
                 ensure_ascii=False,
             )
             yield f"data: {error_data}\n\n"
@@ -290,7 +291,8 @@ async def natural_search_documents(
         return result
     except RuntimeError as e:
         # 速率限制錯誤 → 429
-        raise HTTPException(status_code=429, detail=str(e))
+        logger.warning(f"速率限制: {e}")
+        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍候再試")
     except Exception as e:
         logger.error(f"自然語言搜尋失敗: {type(e).__name__}: {e}", exc_info=True)
         latency_ms = (time.time() - start_time) * 1000
@@ -343,7 +345,8 @@ async def parse_search_intent(
             source=intent_source,
         )
     except RuntimeError as e:
-        raise HTTPException(status_code=429, detail=str(e))
+        logger.warning(f"速率限制: {e}")
+        raise HTTPException(status_code=429, detail="請求過於頻繁，請稍候再試")
     except Exception as e:
         logger.error(f"意圖解析失敗: {type(e).__name__}: {e}", exc_info=True)
         return ParseIntentResponse(

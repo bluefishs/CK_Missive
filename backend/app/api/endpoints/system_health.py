@@ -8,6 +8,7 @@ from typing import Dict, List, Any
 from datetime import datetime
 import json
 import time
+import logging
 
 from app.db.database import get_async_db
 from app.api.endpoints.auth import get_current_user
@@ -17,6 +18,7 @@ from app.extended.models import (
 )
 from sqlalchemy import select, func, case
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 async def check_database_connection(db: AsyncSession) -> Dict[str, Any]:
@@ -32,10 +34,11 @@ async def check_database_connection(db: AsyncSession) -> Dict[str, Any]:
             "message": "資料庫連接正常"
         }
     except Exception as e:
+        logger.error("Database connection check failed", exc_info=True)
         return {
             "status": "unhealthy",
             "response_time": None,
-            "message": f"資料庫連接失敗: {str(e)}"
+            "message": "資料庫連接失敗，請稍後再試"
         }
 
 async def check_critical_tables(db: AsyncSession) -> Dict[str, Any]:
@@ -66,10 +69,10 @@ async def check_critical_tables(db: AsyncSession) -> Dict[str, Any]:
                 "response_time": round(response_time * 1000, 2)
             }
         except Exception as e:
+            logger.error(f"Critical table check failed for {table_name}", exc_info=True)
             overall_healthy = False
             table_status[table_name] = {
                 "status": "unhealthy",
-                "error": str(e),
                 "response_time": None
             }
 
@@ -128,9 +131,10 @@ async def detailed_health_check(
         }
 
     except Exception as e:
+        logger.error("Detailed health check failed", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"健康檢查失敗: {str(e)}"
+            detail="健康檢查失敗，請稍後再試"
         )
 
 @router.get("/health/navigation", summary="導覽系統健康檢查")
@@ -171,11 +175,11 @@ async def navigation_health_check(
         }
 
     except Exception as e:
+        logger.error("Navigation health check failed", exc_info=True)
         return {
             "status": "unhealthy",
             "timestamp": datetime.utcnow().isoformat(),
-            "error": str(e),
-            "message": "導覽系統檢查失敗"
+            "message": "導覽系統檢查失敗，請稍後再試"
         }
 
 @router.get("/metrics", summary="系統指標")
@@ -212,7 +216,8 @@ async def system_metrics(
         }
 
     except Exception as e:
+        logger.error("System metrics retrieval failed", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"獲取系統指標失敗: {str(e)}"
+            detail="獲取系統指標失敗，請稍後再試"
         )

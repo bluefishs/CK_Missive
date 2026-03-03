@@ -135,7 +135,8 @@ async def batch_update_records(
     try:
         await service.verify_records_same_dispatch(data.record_ids)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.warning(f"批量更新作業紀錄驗證失敗: {e}", exc_info=False)
+        raise HTTPException(status_code=400, detail="所選作業紀錄無法批量更新，請確認皆屬於同一派工單")
 
     updated = await service.update_batch(
         record_ids=data.record_ids,

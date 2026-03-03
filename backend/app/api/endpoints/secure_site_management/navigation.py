@@ -4,6 +4,7 @@
 包含: /navigation/action, /test-navigation, /navigation/valid-paths
 """
 
+import logging
 from datetime import datetime
 from typing import Optional
 
@@ -18,6 +19,8 @@ from app.core.dependencies import require_auth
 from app.repositories.navigation_repository import NavigationRepository
 
 from .common import validate_csrf_token, generate_csrf_token
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -76,6 +79,7 @@ async def navigation_action(
     csrf_token: str = Body(None, embed=True),
     data: dict = Body(None, embed=True),
     session: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth()),
 ):
     """統一的導覽列操作接口"""
 
@@ -257,15 +261,17 @@ async def test_navigation_endpoint(
             },
         }
     except Exception as e:
+        logger.error(f"Navigation test failed: {e}", exc_info=True)
         return {
             "success": False,
-            "error": str(e),
             "message": "Navigation test failed",
         }
 
 
 @router.post("/navigation/valid-paths")
-async def get_valid_navigation_paths():
+async def get_valid_navigation_paths(
+    current_user: User = Depends(require_auth()),
+):
     """獲取所有有效的導覽路徑列表"""
     try:
         paths = get_all_valid_paths()
@@ -275,8 +281,8 @@ async def get_valid_navigation_paths():
             "data": {"paths": paths, "total": len(paths)},
         }
     except Exception as e:
+        logger.error(f"Failed to retrieve valid paths: {e}", exc_info=True)
         return {
             "success": False,
-            "error": str(e),
             "message": "Failed to retrieve valid paths",
         }

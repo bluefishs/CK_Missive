@@ -40,7 +40,7 @@ async def get_project_agency_contacts(
         return result
     except Exception as e:
         logger.error(f"取得機關承辦列表失敗: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"取得機關承辦列表失敗: {str(e)}")
+        raise HTTPException(status_code=500, detail="取得機關承辦列表失敗，請稍後再試")
 
 
 @router.post("/detail", response_model=ProjectAgencyContactResponse)
@@ -68,7 +68,7 @@ async def create_agency_contact(
         return result
     except Exception as e:
         logger.error(f"建立機關承辦失敗: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"建立機關承辦失敗: {str(e)}")
+        raise HTTPException(status_code=500, detail="建立機關承辦失敗，請稍後再試")
 
 
 # 注意：UpdateContactRequest 已統一定義於 app/schemas/project_agency_contact.py
@@ -101,7 +101,7 @@ async def update_agency_contact(
         raise
     except Exception as e:
         logger.error(f"更新機關承辦失敗: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"更新機關承辦失敗: {str(e)}")
+        raise HTTPException(status_code=500, detail="更新機關承辦失敗，請稍後再試")
 
 
 @router.post("/delete")
@@ -120,4 +120,4 @@ async def delete_agency_contact(
         raise
     except Exception as e:
         logger.error(f"刪除機關承辦失敗: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"刪除機關承辦失敗: {str(e)}")
+        raise HTTPException(status_code=500, detail="刪除機關承辦失敗，請稍後再試")

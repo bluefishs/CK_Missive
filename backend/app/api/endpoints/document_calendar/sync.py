@@ -61,7 +61,7 @@ async def sync_event_to_google(
         logger.error(f"Error syncing event to Google: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"同步失敗: {str(e)}"
+            detail="同步失敗，請稍後再試"
         )
 
 
@@ -96,7 +96,7 @@ async def bulk_sync_events_to_google(
         logger.error(f"批次同步失敗: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"批次同步失敗: {str(e)}"
+            detail="批次同步失敗，請稍後再試"
         )
 
 
@@ -138,7 +138,7 @@ async def list_google_events():
         logger.error(f"讀取 Google Calendar 事件失敗: {e}", exc_info=True)
         return {
             "success": False,
-            "message": str(e),
+            "message": "讀取 Google Calendar 事件失敗，請稍後再試",
             "calendar_id": calendar_service.calendar_id,
             "events": []
         }

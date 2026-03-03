@@ -130,7 +130,7 @@ async def list_calendar_events(
         logger.error(f"Error listing calendar events: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"列出事件失敗: {str(e)}"
+            detail="列出事件失敗，請稍後再試"
         )
 
 
@@ -172,7 +172,7 @@ async def check_document_events(
         logger.error(f"Error checking document events: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"檢查公文事件失敗: {str(e)}"
+            detail="檢查公文事件失敗，請稍後再試"
         )
 
 
@@ -267,7 +267,7 @@ async def create_calendar_event(
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"建立事件失敗: {str(e)}"
+            detail="建立事件失敗，請稍後再試"
         )
 
 
@@ -417,7 +417,7 @@ async def create_event_with_reminders(
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"建立事件失敗: {str(e)}"
+            detail="建立事件失敗，請稍後再試"
         )
 
 
@@ -497,7 +497,7 @@ async def update_calendar_event(
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"更新事件失敗: {str(e)}"
+            detail="更新事件失敗，請稍後再試"
         )
 
 
@@ -537,7 +537,7 @@ async def delete_calendar_event(
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"刪除事件失敗: {str(e)}"
+            detail="刪除事件失敗，請稍後再試"
         )
 
 
@@ -602,7 +602,7 @@ async def get_user_calendar_events(
         logger.error(f"Error getting user calendar events: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"獲取使用者日曆事件失敗: {str(e)}"
+            detail="獲取使用者日曆事件失敗，請稍後再試"
         )
 
 
@@ -635,5 +635,5 @@ async def check_event_conflicts(
         logger.error(f"衝突檢查失敗: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"衝突檢查失敗: {str(e)}"
+            detail="衝突檢查失敗，請稍後再試"
         )

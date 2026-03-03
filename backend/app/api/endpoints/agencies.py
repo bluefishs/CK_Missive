@@ -135,9 +135,10 @@ async def create_agency(
     try:
         return await agency_service.create(agency)
     except ValueError as e:
+        logger.error(f"建立機關失敗（驗證錯誤）: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=str(e)
+            detail="輸入資料驗證失敗"
         )
 
 
@@ -193,9 +194,10 @@ async def delete_agency(
             "deleted_id": agency_id
         }
     except ValueError as e:
+        logger.error(f"刪除機關失敗（驗證錯誤）: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=str(e)
+            detail="輸入資料驗證失敗"
         )
 
 
@@ -258,7 +260,7 @@ async def fix_agency_parsed_names(
         logger.error(f"修復機關資料失敗: {e}", exc_info=True)
         return FixAgenciesResponse(
             success=False,
-            message=f"修復失敗: {str(e)}",
+            message="修復失敗，請查看系統日誌了解詳情",
             fixed_count=0,
             details=[],
         )
@@ -345,8 +347,8 @@ async def batch_associate_agencies(
         logger.error(f"批次關聯機關失敗: {e}", exc_info=True)
         return BatchAssociateResponse(
             success=False,
-            message=f"關聯失敗: {str(e)}",
-            errors=[str(e)]
+            message="關聯失敗，請查看系統日誌了解詳情",
+            errors=[]
         )
 
 

@@ -3,7 +3,7 @@
 系統監控和錯誤LOG管理API端點
 所有端點需要管理員認證。
 """
-
+import logging
 from typing import Optional
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -14,6 +14,7 @@ from app.core.dependencies import require_admin
 from app.extended.models import User
 from app.db.database import get_async_db
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -61,7 +62,8 @@ async def get_detailed_health_check(
     except Exception as e:
         from app.core.logging_manager import log_error
         log_error(f"Health check failed: {str(e)}", ErrorCategory.SYSTEM)
-        raise HTTPException(status_code=503, detail="Health check failed")
+        logger.error(f"詳細健康檢查失敗: {e}", exc_info=True)
+        raise HTTPException(status_code=503, detail="健康檢查失敗，請稍後再試")
 
 
 @router.get("/error-summary", summary="錯誤統計摘要")
@@ -159,8 +161,9 @@ async def get_log_files_status(current_user: User = Depends(require_admin())):
                     "path": path
                 }
         except Exception as e:
+            logger.error(f"無法獲取日誌檔案狀態 {name}: {e}", exc_info=True)
             file_stats[name] = {
-                "error": str(e),
+                "error": "無法存取檔案",
                 "path": path
             }
     
@@ -198,9 +201,11 @@ async def test_logging(
         }
         
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid level or category: {e}")
+        logger.error(f"日誌測試 - 無效的級別或分類: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="日誌級別或分類無效")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Logging test failed: {e}")
+        logger.error(f"日誌測試失敗: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="日誌測試失敗，請稍後再試")
 
 
 @router.get("/error-logs", summary="取得錯誤日誌")
@@ -286,4 +291,5 @@ async def get_system_metrics(current_user: User = Depends(require_admin())):
         }
     except Exception as e:
         log_error(f"Failed to get system metrics: {str(e)}", ErrorCategory.SYSTEM)
-        raise HTTPException(status_code=500, detail="Failed to retrieve system metrics")
+        logger.error(f"獲取系統指標失敗: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="獲取系統指標失敗，請稍後再試")

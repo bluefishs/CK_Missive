@@ -1,6 +1,7 @@
 """
 調試端點 - 測試資料庫連接問題 (優化後)
 """
+import logging
 from fastapi import APIRouter, Depends, Request # Import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -9,6 +10,8 @@ from app.db.database import get_async_db
 # 修正: 從 app.extended.models 匯入正確的模型，並使用別名以減少程式碼修改
 from app.extended.models import OfficialDocument as Document, User
 from app.core.dependencies import require_admin
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -95,10 +98,10 @@ async def get_dynamic_api_mapping(
                     group_name = "檔案管理 (Files)"
                     related_backend_files.append("services/file_service.py") # Assuming file_service.py exists
                     feature_description = "檔案上傳與管理"
-                elif base_name == "cases":
-                    group_name = "案件管理 (Cases)"
-                    related_backend_files.append("services/case_service.py") # Assuming case_service.py exists
-                    feature_description = "案件的建立與管理"
+                elif base_name == "contract_cases":
+                    group_name = "承攬計畫 (Contract Cases)"
+                    related_backend_files.append("services/project_service.py")
+                    feature_description = "承攬計畫管理"
                 elif base_name == "calendar":
                     group_name = "行事曆 (Calendar)"
                     related_backend_files.append("services/calendar_service.py") # Assuming calendar_service.py exists
@@ -248,7 +251,8 @@ async def debug_document_count(
             ]
         }
     except Exception as e:
-        return {"error": str(e)}
+        logger.error(f"Debug endpoint error: {e}", exc_info=True)
+        return {"error": "Internal error"}
 
 @router.get("/documents/raw")
 async def debug_raw_documents(
@@ -275,4 +279,5 @@ async def debug_raw_documents(
             ]
         }
     except Exception as e:
-        return {"error": str(e)}
+        logger.error(f"Debug endpoint error: {e}", exc_info=True)
+        return {"error": "Internal error"}

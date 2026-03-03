@@ -17,7 +17,8 @@ from .common import (
     Depends, HTTPException, status,
     get_current_user,
     User,
-    SyncIntervalRequest
+    SyncIntervalRequest,
+    logger
 )
 from app.services.google_sync_scheduler import GoogleSyncSchedulerController
 
@@ -80,7 +81,8 @@ async def set_sync_interval(
     try:
         return await GoogleSyncSchedulerController.update_sync_interval(request.interval_seconds)
     except ValueError as e:
+        logger.error(f"設定同步間隔失敗: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+            detail="設定同步間隔失敗，請檢查輸入值"
         )

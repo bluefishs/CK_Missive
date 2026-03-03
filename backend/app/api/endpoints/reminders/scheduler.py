@@ -105,9 +105,10 @@ async def update_check_interval(
         result = await ReminderSchedulerController.update_check_interval(interval)
         return result
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.error(f"更新檢查間隔驗證失敗: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="檢查間隔設定無效，請重新檢查")
     except Exception as e:
-        logger.error("更新檢查間隔失敗: %s", e)
+        logger.error("更新檢查間隔失敗: %s", e, exc_info=True)
         raise HTTPException(
-            status_code=500, detail="更新檢查間隔失敗"
+            status_code=500, detail="更新檢查間隔失敗，請稍後再試"
         )

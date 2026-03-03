@@ -55,7 +55,7 @@ async def get_contract_projects_dropdown(
         }
     except Exception as e:
         logger.error(f"取得承攬案件選項失敗: {e}", exc_info=True)
-        return {"success": False, "options": [], "total": 0, "error": str(e)}
+        return {"success": False, "options": [], "total": 0}
 
 
 @router.post(
@@ -84,7 +84,7 @@ async def get_agencies_dropdown(
         }
     except Exception as e:
         logger.error(f"取得政府機關選項失敗: {e}", exc_info=True)
-        return {"success": False, "options": [], "total": 0, "error": str(e)}
+        return {"success": False, "options": [], "total": 0}
 
 
 @router.post(
@@ -182,8 +182,7 @@ async def get_filtered_statistics(
             "total": 0,
             "send_count": 0,
             "receive_count": 0,
-            "filters_applied": False,
-            "error": str(e)
+            "filters_applied": False
         }
 
 
@@ -284,8 +283,7 @@ async def get_document_trends(
         logger.error(f"取得公文趨勢失敗: {e}", exc_info=True)
         return {
             "success": False,
-            "trends": [],
-            "error": str(e),
+            "trends": []
         }
 
 
@@ -375,8 +373,7 @@ async def get_document_efficiency(
             "status_distribution": [],
             "overdue_count": 0,
             "overdue_rate": 0.0,
-            "total": 0,
-            "error": str(e),
+            "total": 0
         }
 
 
