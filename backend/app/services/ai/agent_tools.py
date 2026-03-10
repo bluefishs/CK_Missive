@@ -2,13 +2,14 @@
 Agent 工具模組 — 6 個工具定義與實作
 
 工具清單：
-- search_documents: 向量+SQL 混合公文搜尋 + Hybrid Reranking
+- search_documents: 向量+SQL 混合公文搜尋 + Hybrid Reranking + 圖增強鄰域擴展
 - search_dispatch_orders: 派工單搜尋 (桃園工務局)
 - search_entities: 知識圖譜實體搜尋
 - get_entity_detail: 實體詳情 (關係+關聯公文)
 - find_similar: 語意相似公文
 - get_statistics: 圖譜 / 公文統計
 
+Version: 1.1.0 - GraphRAG Phase 1: 圖增強鄰域擴展
 Extracted from agent_orchestrator.py v1.8.0
 """
 
@@ -23,67 +24,31 @@ from sqlalchemy.ext.asyncio import AsyncSession
 logger = logging.getLogger(__name__)
 
 # ============================================================================
-# Tool 定義 — LLM 看到的工具描述
+# Tool 定義 — 由 ToolRegistry 統一管理（SSOT）
+# tool_registry.py 不匯入本模組，無循環匯入風險
 # ============================================================================
 
-TOOL_DEFINITIONS = [
-    {
-        "name": "search_documents",
-        "description": "搜尋公文資料庫，支援關鍵字、發文單位、受文單位、日期範圍、公文類型等條件。回傳匹配的公文列表。",
-        "parameters": {
-            "keywords": {"type": "array", "description": "搜尋關鍵字列表"},
-            "sender": {"type": "string", "description": "發文單位 (模糊匹配)"},
-            "receiver": {"type": "string", "description": "受文單位 (模糊匹配)"},
-            "doc_type": {"type": "string", "description": "公文類型 (函/令/公告/書函/開會通知單/簽等)"},
-            "date_from": {"type": "string", "description": "起始日期 YYYY-MM-DD"},
-            "date_to": {"type": "string", "description": "結束日期 YYYY-MM-DD"},
-            "limit": {"type": "integer", "description": "最大結果數 (預設5, 最大10)"},
-        },
-    },
-    {
-        "name": "search_entities",
-        "description": "在知識圖譜中搜尋實體（機關、人員、專案、地點等）。回傳匹配的正規化實體列表。",
-        "parameters": {
-            "query": {"type": "string", "description": "搜尋文字"},
-            "entity_type": {"type": "string", "description": "篩選實體類型: org/person/project/location/topic/date"},
-            "limit": {"type": "integer", "description": "最大結果數 (預設5)"},
-        },
-    },
-    {
-        "name": "get_entity_detail",
-        "description": "取得知識圖譜中某個實體的詳細資訊，包含別名、關係、關聯公文。適合深入了解特定機關、人員或專案。",
-        "parameters": {
-            "entity_id": {"type": "integer", "description": "實體 ID (從 search_entities 取得)"},
-        },
-    },
-    {
-        "name": "find_similar",
-        "description": "根據指定公文 ID 查找語意相似的公文。適合找出相關或類似主題的公文。",
-        "parameters": {
-            "document_id": {"type": "integer", "description": "公文 ID (從 search_documents 取得)"},
-            "limit": {"type": "integer", "description": "最大結果數 (預設5)"},
-        },
-    },
-    {
-        "name": "search_dispatch_orders",
-        "description": "搜尋派工單紀錄（桃園市政府工務局委託案件）。支援派工單號、工程名稱、作業類別等條件。適合查詢「派工單號XXX」「道路工程派工」「測量作業」等問題。",
-        "parameters": {
-            "dispatch_no": {"type": "string", "description": "派工單號 (模糊匹配，如 '014' 會匹配 '115年_派工單號014')"},
-            "search": {"type": "string", "description": "關鍵字搜尋 (同時搜尋派工單號 + 工程名稱)"},
-            "work_type": {"type": "string", "description": "作業類別 (如 地形測量/控制測量/協議價購/用地取得 等)"},
-            "limit": {"type": "integer", "description": "最大結果數 (預設5, 最大20)"},
-        },
-    },
-    {
-        "name": "get_statistics",
-        "description": "取得系統統計資訊：知識圖譜實體/關係數量、高頻實體排行等。適合回答「系統有多少」「最常見的」之類的問題。",
-        "parameters": {},
-    },
-]
+from app.services.ai.tool_registry import get_tool_registry as _get_tool_registry
 
-TOOL_DEFINITIONS_STR = json.dumps(TOOL_DEFINITIONS, ensure_ascii=False, indent=2)
+_registry = _get_tool_registry()
 
-VALID_TOOL_NAMES = {t["name"] for t in TOOL_DEFINITIONS}
+TOOL_DEFINITIONS = _registry.get_definitions()
+TOOL_DEFINITIONS_STR = _registry.get_definitions_json()
+VALID_TOOL_NAMES = _registry.valid_tool_names
+
+# dispatch_map 鍵集合（模組載入時一次性定義，供一致性檢查）
+_DISPATCH_KEYS = {
+    "search_documents",
+    "search_dispatch_orders",
+    "search_entities",
+    "get_entity_detail",
+    "find_similar",
+    "get_statistics",
+}
+if _DISPATCH_KEYS != VALID_TOOL_NAMES:
+    raise RuntimeError(
+        f"dispatch_map keys {_DISPATCH_KEYS} != registry tools {VALID_TOOL_NAMES}"
+    )
 
 # LLM 自然語言 entity_type → DB 欄位值對照
 ENTITY_TYPE_MAP = {
@@ -93,6 +58,11 @@ ENTITY_TYPE_MAP = {
     "地點": "location", "地址": "location",
     "主題": "topic", "議題": "topic",
     "日期": "date", "時間": "date",
+    # Code Graph (v1.80.0)
+    "模組": "py_module", "module": "py_module",
+    "類別": "py_class", "class": "py_class",
+    "函數": "py_function", "function": "py_function", "方法": "py_function",
+    "資料表": "db_table", "table": "db_table",
 }
 
 
@@ -133,7 +103,7 @@ class AgentToolExecutor:
                 return {"error": f"工具執行超時 ({tool_timeout}s)", "count": 0}
             except Exception as e:
                 logger.error("Tool %s failed in parallel: %s", tool_name, e)
-                return {"error": str(e), "count": 0}
+                return {"error": "工具執行失敗", "count": 0}
 
         results = await asyncio.gather(*[_run_one(c) for c in calls])
         return list(results)
@@ -166,22 +136,26 @@ class AgentToolExecutor:
             keywords = [keywords]
         original_keywords = list(keywords)
 
-        # 同義詞/實體擴展 (強化查詢召回率)
+        # 統一詞彙擴展管道（SynonymExpander + 知識圖譜）
         if keywords:
             try:
                 expansions = await expand_search_terms(self.db, keywords)
                 keywords = flatten_expansions(expansions)
             except Exception as e:
-                logger.debug("Synonym expansion failed, using original keywords: %s", e)
+                logger.debug("Search term expansion failed, using original keywords: %s", e)
 
         qb = DocumentQueryBuilder(self.db)
 
         if keywords:
             qb = qb.with_keywords_full(keywords)
         if params.get("sender"):
-            qb = qb.with_sender_like(params["sender"])
+            from app.services.ai.synonym_expander import SynonymExpander
+            sender = SynonymExpander.expand_agency(params["sender"])
+            qb = qb.with_sender_like(sender)
         if params.get("receiver"):
-            qb = qb.with_receiver_like(params["receiver"])
+            from app.services.ai.synonym_expander import SynonymExpander
+            receiver = SynonymExpander.expand_agency(params["receiver"])
+            qb = qb.with_receiver_like(receiver)
         if params.get("doc_type"):
             qb = qb.with_doc_type(params["doc_type"])
 
@@ -245,6 +219,25 @@ class AgentToolExecutor:
             docs = docs[:limit]
         else:
             docs = docs[:limit]
+
+        # GraphRAG Phase 1: 圖增強鄰域擴展
+        # 從搜尋結果的文件 → 知識圖譜實體 → 1-hop 鄰域文件 → 合併擴展
+        if docs and len(docs) < limit:
+            try:
+                expanded = await self._expand_via_knowledge_graph(
+                    [d["id"] for d in docs],
+                    max_extra=limit - len(docs),
+                )
+                if expanded:
+                    existing_ids = {d["id"] for d in docs}
+                    for doc in expanded:
+                        if doc["id"] not in existing_ids:
+                            docs.append(doc)
+                            existing_ids.add(doc["id"])
+                        if len(docs) >= limit:
+                            break
+            except Exception as e:
+                logger.debug("Graph expansion skipped: %s", e)
 
         return {"documents": docs, "total": total, "count": len(docs)}
 
@@ -447,3 +440,112 @@ class AgentToolExecutor:
             "top_entities": top_entities,
             "count": 1,
         }
+
+    # ========================================================================
+    # GraphRAG Phase 1: 圖增強鄰域擴展
+    # ========================================================================
+
+    async def _expand_via_knowledge_graph(
+        self, doc_ids: List[int], max_extra: int = 3,
+    ) -> List[Dict[str, Any]]:
+        """
+        從已知文件出發，透過知識圖譜鄰域擴展找出相關文件。
+
+        流程：
+        1. doc_ids → document_entity_mentions → canonical_entity_ids
+        2. canonical_entity_ids → 1-hop 鄰居實體
+        3. 鄰居實體 → document_entity_mentions → 新文件
+        4. 回傳未在原始結果中的文件
+        """
+        from sqlalchemy import select, and_, func as sa_func
+        from app.extended.models import (
+            OfficialDocument,
+            DocumentEntityMention,
+            EntityRelationship,
+        )
+
+        if not doc_ids:
+            return []
+
+        # Step 1: 找出原始文件中提及的正規化實體 (取平均信心度最高的前 10 個)
+        mention_stmt = (
+            select(DocumentEntityMention.canonical_entity_id)
+            .where(DocumentEntityMention.document_id.in_(doc_ids))
+            .group_by(DocumentEntityMention.canonical_entity_id)
+            .order_by(
+                sa_func.avg(DocumentEntityMention.confidence).desc()
+            )
+            .limit(10)
+        )
+        mention_result = await self.db.execute(mention_stmt)
+        entity_ids = [row[0] for row in mention_result.all()]
+
+        if not entity_ids:
+            return []
+
+        # Step 2: 1-hop 鄰居實體 (透過 entity_relationships, 雙向)
+        neighbor_stmt = (
+            select(EntityRelationship.target_entity_id)
+            .where(
+                EntityRelationship.source_entity_id.in_(entity_ids),
+                EntityRelationship.invalidated_at.is_(None),
+            )
+            .union_all(
+                select(EntityRelationship.source_entity_id)
+                .where(
+                    EntityRelationship.target_entity_id.in_(entity_ids),
+                    EntityRelationship.invalidated_at.is_(None),
+                )
+            )
+            .limit(20)
+        )
+        neighbor_result = await self.db.execute(neighbor_stmt)
+        all_entity_ids = set(entity_ids)
+        for row in neighbor_result.all():
+            all_entity_ids.add(row[0])
+
+        # Step 3: 鄰居實體 → 關聯文件 (排除原始文件)
+        expanded_doc_stmt = (
+            select(
+                OfficialDocument.id,
+                OfficialDocument.doc_number,
+                OfficialDocument.subject,
+                OfficialDocument.doc_type,
+                OfficialDocument.category,
+                OfficialDocument.sender,
+                OfficialDocument.receiver,
+                OfficialDocument.doc_date,
+                OfficialDocument.status,
+            )
+            .join(
+                DocumentEntityMention,
+                DocumentEntityMention.document_id == OfficialDocument.id,
+            )
+            .where(
+                and_(
+                    DocumentEntityMention.canonical_entity_id.in_(all_entity_ids),
+                    OfficialDocument.id.notin_(doc_ids),
+                )
+            )
+            .group_by(OfficialDocument.id)
+            .order_by(OfficialDocument.doc_date.desc().nullslast())
+            .limit(max_extra)
+        )
+        expanded_result = await self.db.execute(expanded_doc_stmt)
+
+        return [
+            {
+                "id": row.id,
+                "doc_number": row.doc_number or "",
+                "subject": row.subject or "",
+                "doc_type": row.doc_type or "",
+                "category": row.category or "",
+                "sender": row.sender or "",
+                "receiver": row.receiver or "",
+                "doc_date": str(row.doc_date) if row.doc_date else "",
+                "status": row.status or "",
+                "similarity": 0,
+                "_source": "graph_expansion",
+            }
+            for row in expanded_result.all()
+        ]

@@ -13,7 +13,11 @@
 - v3.0.0: ProjectService 升級為工廠模式
 - v2.0.0: 新增認證依賴與行級別權限過濾
 """
+import logging
+
 from fastapi import APIRouter, Depends, status, Body
+
+logger = logging.getLogger(__name__)
 
 from app.schemas.project import (
     ProjectCreate,
@@ -139,8 +143,9 @@ async def create_project(
         project = await project_service.create(project_data)
         return ProjectResponse.model_validate(project)
     except ValueError as e:
+        logger.warning("建立專案衝突: %s", e)
         raise ConflictException(
-            message=str(e),
+            message="專案編號已存在",
             field="project_code",
             value=project_data.project_code
         )
@@ -239,4 +244,5 @@ async def delete_project(
             deleted_id=project_id
         )
     except ValueError as e:
-        raise ConflictException(message=str(e))
+        logger.warning("刪除專案衝突: %s", e)
+        raise ConflictException(message="專案刪除失敗，可能仍有關聯資料")

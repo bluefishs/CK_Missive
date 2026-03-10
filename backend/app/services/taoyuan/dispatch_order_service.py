@@ -11,7 +11,7 @@ Excel 匯入/匯出邏輯已拆分至 dispatch_import_service.py。
 """
 
 import logging
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional, List, Dict, Any, Tuple
 
 from sqlalchemy import select, delete
@@ -24,8 +24,12 @@ from app.extended.models import (
     TaoyuanDispatchProjectLink,
     TaoyuanDispatchDocumentLink,
     TaoyuanDispatchWorkType,
+    TaoyuanDocumentProjectLink,
     TaoyuanProject,
+    ContractProject,
+    OfficialDocument,
 )
+from app.utils.doc_helpers import is_outgoing_doc_number
 from app.schemas.taoyuan.dispatch import (
     DispatchOrderCreate,
     DispatchOrderUpdate,
@@ -33,6 +37,11 @@ from app.schemas.taoyuan.dispatch import (
     DispatchOrderListQuery,
 )
 from app.schemas.taoyuan.project import TaoyuanProject as TaoyuanProjectSchema, LinkedProjectItem
+from app.services.taoyuan.dispatch_response_formatter import (
+    dispatch_to_response_dict,
+    compute_work_progress,
+    STAGE_LABELS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +65,52 @@ class DispatchOrderService:
     # =========================================================================
     # 查詢方法
     # =========================================================================
+
+    async def get_contract_projects(self) -> List[Dict[str, Any]]:
+        """取得已啟用派工管理的承攬案件列表（用於專案切換下拉選單）"""
+        return await self.repository.get_contract_projects_with_dispatch()
+
+    async def sync_fields_to_dispatch_orders(
+        self, project_id: int, sync_fields: Dict[str, Any]
+    ) -> int:
+        """
+        同步工程欄位到關聯的派工單
+
+        Args:
+            project_id: 工程 ID
+            sync_fields: 要同步的欄位與值
+
+        Returns:
+            更新的欄位數
+        """
+        if not sync_fields:
+            return 0
+
+        dispatch_ids = await self.repository.get_dispatch_ids_by_project(project_id)
+
+        if not dispatch_ids:
+            return 0
+
+        order_result = await self.db.execute(
+            select(TaoyuanDispatchOrder).where(
+                TaoyuanDispatchOrder.id.in_(dispatch_ids)
+            )
+        )
+        orders = order_result.scalars().all()
+        updated = 0
+        for order in orders:
+            for field, value in sync_fields.items():
+                if getattr(order, field, None) != value:
+                    setattr(order, field, value)
+                    updated += 1
+
+        if updated > 0:
+            logger.info(
+                "工程 %d 同步 %s 到 %d 個派工單",
+                project_id, list(sync_fields.keys()), updated
+            )
+
+        return updated
 
     async def get_dispatch_order(
         self, dispatch_id: int, with_relations: bool = True
@@ -104,57 +159,15 @@ class DispatchOrderService:
         return response_items, total
 
     def _to_response_dict(self, item: TaoyuanDispatchOrder) -> Dict[str, Any]:
-        """將派工單轉換為回應字典"""
-        return {
-            'id': item.id,
-            'dispatch_no': item.dispatch_no,
-            'contract_project_id': item.contract_project_id,
-            'agency_doc_id': item.agency_doc_id,
-            'company_doc_id': item.company_doc_id,
-            'project_name': item.project_name,
-            'work_type': item.work_type,
-            'sub_case_name': item.sub_case_name,
-            'deadline': item.deadline,
-            'case_handler': item.case_handler,
-            'survey_unit': item.survey_unit,
-            'cloud_folder': item.cloud_folder,
-            'project_folder': item.project_folder,
-            'contact_note': item.contact_note,
-            'created_at': item.created_at,
-            'updated_at': item.updated_at,
-            'agency_doc_number': item.agency_doc.doc_number if item.agency_doc else None,
-            'company_doc_number': item.company_doc.doc_number if item.company_doc else None,
-            'attachment_count': len(item.attachments) if item.attachments else 0,
-            'linked_projects': [
-                {
-                    **TaoyuanProjectSchema.model_validate(link.project).model_dump(),
-                    'link_id': link.id,
-                    'project_id': link.taoyuan_project_id,
-                }
-                for link in item.project_links if link.project
-            ] if item.project_links else [],
-            'linked_documents': [
-                {
-                    'link_id': link.id,
-                    'link_type': link.link_type,
-                    'dispatch_order_id': link.dispatch_order_id,
-                    'document_id': link.document_id,
-                    'doc_number': link.document.doc_number if link.document else None,
-                    'subject': link.document.subject if link.document else None,
-                    'doc_date': link.document.doc_date.isoformat() if link.document and link.document.doc_date else None,
-                    'created_at': link.created_at.isoformat() if link.created_at else None,
-                }
-                for link in item.document_links
-            ] if item.document_links else [],
-            'work_type_items': [
-                {
-                    'id': wt.id,
-                    'work_type': wt.work_type,
-                    'sort_order': wt.sort_order,
-                }
-                for wt in sorted(item.work_type_links, key=lambda x: x.sort_order)
-            ] if item.work_type_links else []
-        }
+        """將派工單轉換為回應字典（委派至共用模組）"""
+        return dispatch_to_response_dict(item)
+
+    # 保留向後相容的類別屬性
+    _STAGE_LABELS = STAGE_LABELS
+
+    def _compute_work_progress(self, work_records) -> Optional[Dict[str, Any]]:
+        """從作業紀錄計算進度摘要（委派至共用模組）"""
+        return compute_work_progress(work_records)
 
     # =========================================================================
     # CRUD 方法
@@ -218,6 +231,15 @@ class DispatchOrderService:
         await self._sync_document_links(
             dispatch_order.id, agency_doc_id, company_doc_id
         )
+
+        # 自動匹配公文（根據工程名稱/文號搜尋並關聯）
+        project_name = create_data.get('project_name')
+        if project_name:
+            await self._auto_match_documents(
+                dispatch_order.id, project_name,
+                create_data.get('contract_project_id'),
+                create_data.get('work_type'),
+            )
 
         # 同步 work_type 到正規化關聯表
         work_type_str = create_data.get('work_type')
@@ -297,6 +319,14 @@ class DispatchOrderService:
             current_agency = agency_doc_id if 'agency_doc_id' in update_data else dispatch_order.agency_doc_id
             current_company = company_doc_id if 'company_doc_id' in update_data else dispatch_order.company_doc_id
             await self._sync_document_links(dispatch_id, current_agency, current_company)
+
+        # 工程名稱變更時重新自動匹配公文
+        if 'project_name' in update_data and update_data['project_name']:
+            await self._auto_match_documents(
+                dispatch_id, update_data['project_name'],
+                dispatch_order.contract_project_id,
+                dispatch_order.work_type,
+            )
 
         # 同步 case_handler / survey_unit 到關聯的 TaoyuanProject
         sync_fields = {}
@@ -458,15 +488,10 @@ class DispatchOrderService:
         """
         # 同步機關公文關聯
         if agency_doc_id:
-            # 檢查是否已存在
-            existing = await self.db.execute(
-                select(TaoyuanDispatchDocumentLink).where(
-                    TaoyuanDispatchDocumentLink.dispatch_order_id == dispatch_id,
-                    TaoyuanDispatchDocumentLink.document_id == agency_doc_id,
-                    TaoyuanDispatchDocumentLink.link_type == 'agency_incoming'
-                )
+            exists = await self.repository.doc_link_exists(
+                dispatch_id, agency_doc_id, link_type='agency_incoming'
             )
-            if not existing.scalar_one_or_none():
+            if not exists:
                 link = TaoyuanDispatchDocumentLink(
                     dispatch_order_id=dispatch_id,
                     document_id=agency_doc_id,
@@ -478,15 +503,10 @@ class DispatchOrderService:
 
         # 同步公司公文關聯
         if company_doc_id:
-            # 檢查是否已存在
-            existing = await self.db.execute(
-                select(TaoyuanDispatchDocumentLink).where(
-                    TaoyuanDispatchDocumentLink.dispatch_order_id == dispatch_id,
-                    TaoyuanDispatchDocumentLink.document_id == company_doc_id,
-                    TaoyuanDispatchDocumentLink.link_type == 'company_outgoing'
-                )
+            exists = await self.repository.doc_link_exists(
+                dispatch_id, company_doc_id, link_type='company_outgoing'
             )
-            if not existing.scalar_one_or_none():
+            if not exists:
                 link = TaoyuanDispatchDocumentLink(
                     dispatch_order_id=dispatch_id,
                     document_id=company_doc_id,
@@ -495,6 +515,128 @@ class DispatchOrderService:
                 )
                 self.db.add(link)
                 logger.info(f"同步派工單 {dispatch_id} -> 公司公文 {company_doc_id}")
+
+        # 自動傳遞工程關聯
+        await self._sync_document_project_links(dispatch_id)
+
+    async def _auto_match_documents(
+        self,
+        dispatch_id: int,
+        project_name: str,
+        contract_project_id: Optional[int] = None,
+        work_type: Optional[str] = None,
+    ) -> int:
+        """
+        派工單建立/更新時自動匹配公文
+
+        利用現有的 get_document_history 4 策略搜尋，
+        自動建立 DispatchDocumentLink（跳過已存在的關聯）。
+
+        Returns:
+            新增的關聯數量
+        """
+        matched_docs = await self.repository.get_document_history(
+            project_name=project_name,
+            contract_project_id=contract_project_id,
+            work_type=work_type,
+        )
+
+        if not matched_docs:
+            return 0
+
+        linked_count = 0
+        for doc in matched_docs:
+            doc_id = doc.get('id')
+            doc_number = doc.get('doc_number', '')
+            if not doc_id:
+                continue
+
+            link_type = 'company_outgoing' if is_outgoing_doc_number(doc_number) else 'agency_incoming'
+
+            exists = await self.repository.doc_link_exists(dispatch_id, doc_id, link_type=link_type)
+            if not exists:
+                link = TaoyuanDispatchDocumentLink(
+                    dispatch_order_id=dispatch_id,
+                    document_id=doc_id,
+                    link_type=link_type,
+                    created_at=datetime.utcnow()
+                )
+                self.db.add(link)
+                linked_count += 1
+
+        if linked_count > 0:
+            logger.info(f"[auto_match] 派工單 {dispatch_id} 自動匹配 {linked_count} 筆公文")
+
+        return linked_count
+
+    async def _sync_document_project_links(self, dispatch_id: int) -> int:
+        """
+        工程關聯自動傳遞
+
+        當公文關聯到派工單時，自動將公文也關聯到派工單所屬的工程。
+        使用 notes 標記來源，刪除派工單時可清理。
+
+        Returns:
+            新增的關聯數量
+        """
+        # 1. 取得派工單的 dispatch_no（用於 notes 標記）
+        dispatch = await self.repository.get_by_id(dispatch_id)
+        if not dispatch or not dispatch.dispatch_no:
+            return 0
+
+        # 2. 取得派工單所屬的工程 ID 列表
+        project_result = await self.db.execute(
+            select(TaoyuanDispatchProjectLink.taoyuan_project_id).where(
+                TaoyuanDispatchProjectLink.dispatch_order_id == dispatch_id
+            )
+        )
+        project_ids = [row[0] for row in project_result.all()]
+        if not project_ids:
+            return 0
+
+        # 3. 取得派工單關聯的公文 ID 和 link_type
+        doc_result = await self.db.execute(
+            select(
+                TaoyuanDispatchDocumentLink.document_id,
+                TaoyuanDispatchDocumentLink.link_type
+            ).where(
+                TaoyuanDispatchDocumentLink.dispatch_order_id == dispatch_id
+            )
+        )
+        doc_links = doc_result.all()
+        if not doc_links:
+            return 0
+
+        # 4. 為每個 公文×工程 組合建立 DocumentProjectLink（跳過已存在的）
+        linked_count = 0
+        notes_tag = f"自動同步自派工單 {dispatch.dispatch_no}"
+        for doc_id, link_type in doc_links:
+            for project_id in project_ids:
+                existing = await self.db.execute(
+                    select(TaoyuanDocumentProjectLink.id).where(
+                        TaoyuanDocumentProjectLink.document_id == doc_id,
+                        TaoyuanDocumentProjectLink.taoyuan_project_id == project_id,
+                    )
+                )
+                if existing.scalar_one_or_none():
+                    continue
+
+                dp_link = TaoyuanDocumentProjectLink(
+                    document_id=doc_id,
+                    taoyuan_project_id=project_id,
+                    link_type=link_type,
+                    notes=notes_tag,
+                )
+                self.db.add(dp_link)
+                linked_count += 1
+
+        if linked_count > 0:
+            logger.info(
+                f"[sync_doc_project] 派工單 {dispatch.dispatch_no} "
+                f"自動傳遞 {linked_count} 筆公文-工程關聯"
+            )
+
+        return linked_count
 
     # =========================================================================
     # 序號生成

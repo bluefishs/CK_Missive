@@ -3,8 +3,11 @@
 
 使用統一回應格式與異常處理機制
 """
+import logging
 from typing import Optional
 from fastapi import APIRouter, Depends, status, Body
+
+logger = logging.getLogger(__name__)
 
 from app.extended.models import User
 from app.core.dependencies import require_auth, require_permission
@@ -91,8 +94,9 @@ async def create_vendor(
     try:
         return await vendor_service.create(vendor)
     except ValueError as e:
+        logger.warning("建立廠商衝突: %s", e)
         raise ConflictException(
-            message=str(e),
+            message="廠商代碼已存在",
             field="vendor_code",
             value=vendor.vendor_code
         )
@@ -169,9 +173,10 @@ async def delete_vendor(
             deleted_id=vendor_id
         )
     except ValueError as e:
+        logger.warning("刪除廠商失敗: %s", e)
         raise ResourceInUseException(
             resource="廠商",
-            reason=str(e)
+            reason="廠商仍有關聯資料，無法刪除"
         )
 
 

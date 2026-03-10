@@ -172,9 +172,11 @@ class PaymentControlResponse(BaseModel):
     """契金管控展示回應"""
     success: bool = True
     items: List[PaymentControlItem] = []
+    contract_name: Optional[str] = Field(None, description="承攬案件名稱")
     total_budget: Optional[Decimal] = Field(None, description="總預算金額")
     total_dispatched: Optional[Decimal] = Field(None, description="累計派工金額")
     total_remaining: Optional[Decimal] = Field(None, description="剩餘金額")
+    total_claimed: Optional[Decimal] = Field(None, description="已請款金額（結案批次加總）")
     pagination: PaginationMeta
 
     model_config = ConfigDict(from_attributes=True)

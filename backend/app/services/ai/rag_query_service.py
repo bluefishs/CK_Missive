@@ -27,6 +27,7 @@ from app.services.ai.ai_config import get_ai_config
 from app.services.ai.ai_prompt_manager import AIPromptManager
 from app.services.ai.embedding_manager import EmbeddingManager
 from app.services.ai.reranker import STOPWORDS
+from app.services.ai.agent_utils import sse as _sse, sanitize_history
 
 logger = logging.getLogger(__name__)
 
@@ -164,12 +165,12 @@ class RAGQueryService:
         # 1. Embedding
         query_embedding = await self.embedding_mgr.get_embedding(question, self.ai)
         if query_embedding is None:
-            yield self._sse(
+            yield _sse(
                 type="error",
                 error="無法生成查詢向量，請確認 Ollama embedding 服務是否正常運行。",
                 code="EMBEDDING_ERROR",
             )
-            yield self._sse(type="done", latency_ms=int((time.time() - t0) * 1000), model="none")
+            yield _sse(type="done", latency_ms=int((time.time() - t0) * 1000), model="none")
             return
 
         # 2. 向量檢索 + Hybrid Reranking
@@ -180,18 +181,18 @@ class RAGQueryService:
         )
 
         # 先發送 sources（讓前端立即顯示引用）
-        yield self._sse(
+        yield _sse(
             type="sources",
             sources=sources,
             retrieval_count=len(sources),
         )
 
         if not sources:
-            yield self._sse(
+            yield _sse(
                 type="token",
                 token="在知識庫中找不到與您問題相關的公文資料。請嘗試換個說法或更具體的問題。",
             )
-            yield self._sse(type="done", latency_ms=int((time.time() - t0) * 1000), model="none")
+            yield _sse(type="done", latency_ms=int((time.time() - t0) * 1000), model="none")
             return
 
         # 3. 串流 LLM 回答
@@ -205,10 +206,10 @@ class RAGQueryService:
                 temperature=self.config.rag_temperature,
                 max_tokens=self.config.rag_max_tokens,
             ):
-                yield self._sse(type="token", token=chunk)
+                yield _sse(type="token", token=chunk)
         except Exception as e:
             logger.error("RAG stream failed: %s", e)
-            yield self._sse(
+            yield _sse(
                 type="error",
                 error="AI 回答生成失敗，請參考下方來源文件。",
                 code="LLM_ERROR",
@@ -216,7 +217,7 @@ class RAGQueryService:
             model_used = "fallback"
 
         latency_ms = int((time.time() - t0) * 1000)
-        yield self._sse(type="done", latency_ms=latency_ms, model=model_used)
+        yield _sse(type="done", latency_ms=latency_ms, model=model_used)
 
         logger.info(
             "RAG stream completed: %d sources, %dms, model=%s",
@@ -239,14 +240,8 @@ class RAGQueryService:
             {"role": "system", "content": system_prompt},
         ]
 
-        # 加入多輪對話歷史（最近 N 輪）
-        max_turns = self.config.rag_max_history_turns
-        if history:
-            for turn in history[-max_turns * 2:]:
-                role = turn.get("role", "user")
-                content = turn.get("content", "")
-                if role in ("user", "assistant") and content:
-                    messages.append({"role": role, "content": content})
+        # 加入多輪對話歷史（最近 N 輪，內容截斷防注入）
+        messages.extend(sanitize_history(history, self.config.rag_max_history_turns))
 
         # 當前問題 + 檢索上下文
         user_prompt = (
@@ -395,7 +390,3 @@ class RAGQueryService:
                 result.append(t)
         return result
 
-    @staticmethod
-    def _sse(**kwargs: Any) -> str:
-        """格式化 SSE data line"""
-        return f"data: {json.dumps(kwargs, ensure_ascii=False)}\n\n"

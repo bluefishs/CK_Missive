@@ -4,6 +4,7 @@
 @version 1.0.0
 @date 2026-01-22
 """
+import logging
 from typing import List
 from .common import (
     APIRouter,
@@ -162,7 +163,8 @@ async def upload_dispatch_attachments(
             })
 
         except Exception as e:
-            errors.append(f"上傳 {file.filename} 失敗: {str(e)}")
+            logging.getLogger(__name__).error(f"上傳附件失敗: {file.filename}: {e}")
+            errors.append(f"上傳 {file.filename} 失敗")
 
     await db.commit()
 

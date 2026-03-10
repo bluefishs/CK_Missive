@@ -61,23 +61,21 @@ class SearchIntentParser:
         5. 低 confidence 回退：無有效條件時用原始查詢作為 keywords
         6. 低 confidence 補充：有部分結構化欄位但 confidence 低時，補充原始查詢詞
         """
-        lookup = AIPromptManager.load_synonyms()
+        from app.services.ai.synonym_expander import SynonymExpander
 
         # 1. 關鍵字同義詞擴展
         if intent.keywords:
-            intent.keywords = AIPromptManager.expand_keywords_with_synonyms(
-                intent.keywords, lookup
-            )
+            intent.keywords = SynonymExpander.expand_keywords(intent.keywords)
 
         # 2. 機關名稱縮寫轉全稱
         if intent.sender:
-            expanded = AIPromptManager.expand_agency_name(intent.sender, lookup)
+            expanded = SynonymExpander.expand_agency(intent.sender)
             if expanded != intent.sender:
                 logger.info(f"發文單位擴展: {intent.sender} -> {expanded}")
                 intent.sender = expanded
 
         if intent.receiver:
-            expanded = AIPromptManager.expand_agency_name(intent.receiver, lookup)
+            expanded = SynonymExpander.expand_agency(intent.receiver)
             if expanded != intent.receiver:
                 logger.info(f"受文單位擴展: {intent.receiver} -> {expanded}")
                 intent.receiver = expanded
@@ -87,9 +85,9 @@ class SearchIntentParser:
             dispatch_hits = [kw for kw in intent.keywords if kw in self._DISPATCH_KEYWORDS]
             if dispatch_hits:
                 intent.related_entity = "dispatch_order"
-                intent.keywords = [kw for kw in intent.keywords if kw not in self._DISPATCH_KEYWORDS]
-                if not intent.keywords:
-                    intent.keywords = None
+                remaining = [kw for kw in intent.keywords if kw not in self._DISPATCH_KEYWORDS]
+                # 保留非派工關鍵字；若全為派工關鍵字則保留原始 keywords 供前端搜尋欄使用
+                intent.keywords = remaining if remaining else intent.keywords
                 logger.info(f"自動偵測派工單實體過濾 (命中: {dispatch_hits})")
 
         # 4. 關鍵字去重（保留順序）

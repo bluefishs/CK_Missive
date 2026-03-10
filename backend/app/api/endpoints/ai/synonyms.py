@@ -29,6 +29,7 @@ from app.schemas.ai import (
     AISynonymListResponse,
     AISynonymDeleteRequest,
     AISynonymReloadResponse,
+    SuccessResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -136,12 +137,12 @@ async def update_synonym(
     return AISynonymResponse.model_validate(synonym)
 
 
-@router.post("/delete")
+@router.post("/delete", response_model=SuccessResponse)
 async def delete_synonym(
     request: AISynonymDeleteRequest,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_admin()),
-) -> dict:
+) -> SuccessResponse:
     """
     刪除同義詞群組
     """
@@ -160,7 +161,7 @@ async def delete_synonym(
         f"category={category}, words={words}"
     )
 
-    return {"success": True, "message": f"已刪除同義詞群組 (ID={request.id})"}
+    return SuccessResponse(success=True, message=f"已刪除同義詞群組 (ID={request.id})")
 
 
 @router.post("/reload", response_model=AISynonymReloadResponse)
@@ -194,10 +195,10 @@ async def reload_synonyms(
             message=f"已重新載入 {len(db_synonyms)} 個同義詞群組，共 {total_words} 個詞彙",
         )
     except Exception as e:
-        logger.error(f"重新載入同義詞失敗: {e}")
+        logger.error("重新載入同義詞失敗: %s", e, exc_info=True)
         return AISynonymReloadResponse(
             success=False,
             total_groups=0,
             total_words=0,
-            message=f"重新載入失敗: {str(e)}",
+            message="重新載入失敗，請稍後再試",
         )

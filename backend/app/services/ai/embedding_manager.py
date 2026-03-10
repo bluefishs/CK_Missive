@@ -237,7 +237,8 @@ class EmbeddingManager:
     @classmethod
     def is_available(cls) -> bool:
         """檢查 pgvector 功能是否啟用"""
-        return os.environ.get("PGVECTOR_ENABLED", "false").lower() == "true"
+        from app.core.config import settings
+        return settings.PGVECTOR_ENABLED
 
     @classmethod
     async def get_coverage_stats(cls, db: AsyncSession) -> Dict:

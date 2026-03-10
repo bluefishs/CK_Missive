@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from jose import jwt
+import jwt
 
 from app.db.database import get_async_db
 from app.core.auth_service import AuthService, ALGORITHM

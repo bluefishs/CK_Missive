@@ -175,7 +175,7 @@ class ExcelImportService(ImportBaseService):
         except Exception as e:
             logger.error(f"Excel 預覽失敗: {e}", exc_info=True)
             result["success"] = False
-            result["errors"].append(f"預覽失敗: {str(e)}")
+            result["errors"].append("預覽失敗，請檢查檔案格式")
 
         return result
 
@@ -329,7 +329,7 @@ class ExcelImportService(ImportBaseService):
             logger.error(f"[ExcelImport] 匯入失敗: {e}", exc_info=True)
             result.success = False
             result.errors.append(ImportRowResult(
-                row=0, status="error", message=f"匯入失敗: {str(e)}"
+                row=0, status="error", message="匯入失敗，請檢查檔案內容"
             ))
 
         return result
@@ -438,7 +438,7 @@ class ExcelImportService(ImportBaseService):
 
         except Exception as e:
             logger.error(f"[ExcelImport] 處理第 {row_num} 列時發生錯誤: {e}")
-            result.message = str(e)
+            result.message = f"第 {row_num} 列處理失敗"
 
         return result
 

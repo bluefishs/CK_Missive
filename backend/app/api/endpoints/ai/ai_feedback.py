@@ -64,7 +64,7 @@ async def submit_feedback(
     except Exception as e:
         await db.rollback()
         logger.error(f"提交回饋失敗: {e}", exc_info=True)
-        return AIFeedbackSubmitResponse(success=False, message=str(e))
+        return AIFeedbackSubmitResponse(success=False, message="提交回饋失敗，請稍後再試")
 
 
 @router.post(

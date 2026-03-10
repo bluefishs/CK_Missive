@@ -49,6 +49,7 @@ VALID_NAVIGATION_PATHS: Set[str] = {
 
     # AI 功能
     "/ai/knowledge-graph",
+    "/ai/code-wiki",
 
     # 系統頁面
     "/system",
@@ -87,6 +88,7 @@ PATH_DESCRIPTIONS = {
     "/admin/deployment": "部署管理",
     "/admin/ai-assistant": "AI 助理管理",
     "/ai/knowledge-graph": "知識圖譜",
+    "/ai/code-wiki": "代碼圖譜",
     "/system": "系統監控",
     "/google-auth-diagnostic": "Google認證診斷",
     "/unified-form-demo": "統一表單示例",

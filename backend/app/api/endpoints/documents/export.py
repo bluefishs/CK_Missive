@@ -71,9 +71,9 @@ async def export_documents(
 @router.post("/export/excel", summary="匯出公文為 Excel")
 @limiter.limit("10/minute")
 async def export_documents_excel(
-    http_request: Request,
+    request: Request,
     response: Response,
-    request: ExcelExportRequest = Body(default=ExcelExportRequest()),
+    body: ExcelExportRequest = Body(default=ExcelExportRequest()),
     service: DocumentExportService = Depends(get_export_service)
 ):
     """
@@ -92,14 +92,14 @@ async def export_documents_excel(
     """
     try:
         excel_bytes = await service.export_to_excel(
-            document_ids=request.document_ids,
-            category=request.category,
-            year=request.year,
-            status=request.status,
-            keyword=request.keyword,
-            contract_case=request.contract_case,
-            sender=request.sender,
-            receiver=request.receiver,
+            document_ids=body.document_ids,
+            category=body.category,
+            year=body.year,
+            status=body.status,
+            keyword=body.keyword,
+            contract_case=body.contract_case,
+            sender=body.sender,
+            receiver=body.receiver,
         )
 
         # 產生檔名: 乾坤測繪公文總表YYYYMMDD.xlsx

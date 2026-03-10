@@ -42,11 +42,30 @@ class SynonymExpander:
 
     @classmethod
     def get_lookup(cls) -> Dict[str, List[str]]:
-        """取得同義詞查找索引，未載入則自動從 YAML 載入"""
+        """取得同義詞查找索引，未載入則自動初始化（DB 優先 → YAML fallback）"""
         if cls._lookup is not None:
             return cls._lookup
-        cls._load_from_yaml()
+        cls._auto_load()
         return cls._lookup or {}
+
+    @classmethod
+    def _auto_load(cls) -> None:
+        """自動載入：嘗試同步從 DB 載入，失敗則 fallback YAML"""
+        try:
+            from sqlalchemy.orm import Session
+            from app.db.database import sync_engine
+            from app.extended.models import AISynonym
+            with Session(sync_engine) as session:
+                records = session.query(AISynonym).filter(
+                    AISynonym.is_active.is_(True)
+                ).all()
+                if records:
+                    cls.reload_from_db(records)
+                    logger.info("同義詞已從 DB 自動載入 (%d 組)", len(records))
+                    return
+        except Exception as e:
+            logger.debug("同義詞 DB 自動載入失敗（降級 YAML）: %s", e)
+        cls._load_from_yaml()
 
     @classmethod
     def _load_from_yaml(cls) -> None:
@@ -122,6 +141,12 @@ class SynonymExpander:
         """
         擴展關鍵字列表：每個詞加入同組同義詞
 
+        兩階段匹配：
+        1. 精確匹配：直接查找 lookup[keyword]
+        2. 模糊匹配（精確無結果時）：搜尋 lookup 中包含/被包含的詞
+           例：「桃園市工務局」精確無匹配 → 發現 lookup 有「桃園市政府工務局」
+           → 回傳同組所有詞
+
         Args:
             keywords: 原始關鍵字列表
 
@@ -138,14 +163,47 @@ class SynonymExpander:
             if kw not in seen:
                 seen.add(kw)
                 result.append(kw)
-            for syn in lookup.get(kw, []):
-                if syn not in seen:
-                    seen.add(syn)
-                    result.append(syn)
+
+            # 階段 1: 精確匹配
+            synonyms = lookup.get(kw)
+
+            # 階段 2: 模糊匹配（含/被含子字串）
+            if not synonyms and len(kw) >= 3:
+                synonyms = cls._fuzzy_lookup(kw, lookup)
+
+            if synonyms:
+                for syn in synonyms:
+                    if syn not in seen:
+                        seen.add(syn)
+                        result.append(syn)
 
         if len(result) > len(keywords):
             logger.info(f"關鍵字擴展: {keywords} -> {result}")
         return result
+
+    @classmethod
+    def _fuzzy_lookup(cls, keyword: str, lookup: Dict[str, List[str]]) -> Optional[List[str]]:
+        """
+        模糊匹配：在 lookup 中搜尋包含/被包含的詞。
+
+        規則：
+        - keyword 包含 lookup 中某個詞 → 回傳該詞同組
+        - lookup 中某個詞包含 keyword → 回傳該詞同組
+        - 優先選擇最長匹配
+
+        例：keyword=「桃園市工務局」, lookup 有「工務局」→ 回傳 [「工務局」,「工務處」]
+        例：keyword=「桃園市工務局」, lookup 有「桃園市政府工務局」→ 回傳同組
+        """
+        best_match: Optional[List[str]] = None
+        best_len = 0
+        for term, group in lookup.items():
+            if term in keyword or keyword in term:
+                if len(term) > best_len:
+                    best_match = group
+                    best_len = len(term)
+        if best_match:
+            logger.info(f"同義詞模糊匹配: '{keyword}' → 最佳匹配長度 {best_len}")
+        return best_match
 
     @classmethod
     def expand_agency(cls, name: str) -> str:
@@ -182,6 +240,38 @@ class SynonymExpander:
         lookup = cls.get_lookup()
         group = lookup.get(word, [])
         return [w for w in group if w != word]
+
+    @classmethod
+    def get_status_normalize(cls) -> Dict[str, str]:
+        """
+        取得狀態正規化表: {變體 -> 正規名稱}
+
+        從 lookup 中提取 status_synonyms 分類的映射。
+        同義詞組第一項為正規名稱，其餘為變體。
+
+        用途：規則引擎的 normalize_status() 函數
+        """
+        lookup = cls.get_lookup()
+        status_map: Dict[str, str] = {}
+
+        # 狀態相關關鍵字特徵：包含「處理」「結案」「完成」「歸檔」「辦理」「逾期」等
+        # 從 lookup 反推：找出包含狀態詞的同義詞組
+        _STATUS_MARKERS = {"待處理", "處理中", "已結案", "已歸檔", "待辦",
+                           "未處理", "進行中", "已完成", "結案", "完成",
+                           "辦畢", "歸檔", "存查", "尚未處理", "已辦畢"}
+
+        seen_groups: set = set()
+        for marker in _STATUS_MARKERS:
+            group = lookup.get(marker)
+            if group:
+                group_key = id(group)
+                if group_key not in seen_groups:
+                    seen_groups.add(group_key)
+                    canonical = group[0]
+                    for variant in group:
+                        status_map[variant] = canonical
+
+        return status_map
 
     @classmethod
     def expand_search_terms(cls, query: str) -> List[str]:

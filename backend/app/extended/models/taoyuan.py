@@ -88,6 +88,18 @@ class TaoyuanDispatchOrder(Base):
     project_folder = Column(String(500), comment="專案資料夾")
     contact_note = Column(String(500), comment="聯絡備註")
 
+    # 匯入時的原始文號（供批次重新關聯用）
+    agency_doc_number_raw = Column(String(500), nullable=True,
+        comment="匯入時的機關函文號原始值")
+    company_doc_number_raw = Column(String(500), nullable=True,
+        comment="匯入時的乾坤函文號原始值")
+
+    # 結案批次（從 WorkRecord 遷移至此）
+    batch_no = Column(Integer, nullable=True, index=True,
+        comment="批次序號 (第幾批結案，如 1,2,3...)")
+    batch_label = Column(String(50), nullable=True,
+        comment="批次標籤 (如：第1批結案、補充結案)")
+
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now())
 

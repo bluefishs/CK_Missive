@@ -180,8 +180,8 @@ async def update_certification(
         if not certification:
             return error_response("找不到指定的證照", code=404)
 
-        # 更新非空欄位
-        update_data = data.model_dump(exclude_unset=True, exclude_none=True)
+        # 更新欄位（含 None 清除）
+        update_data = data.model_dump(exclude_unset=True)
         update_data["updated_at"] = datetime.now()
 
         certification = await cert_repo.update(cert_id, update_data)
@@ -438,7 +438,7 @@ async def delete_certification_attachment(
             try:
                 os.remove(full_path)
             except Exception as e:
-                logger.warning(f"刪除實體檔案失敗: {str(e)}")
+                logger.warning(f"刪除實體檔案失敗: {e}")
 
         # 更新資料庫
         certification.attachment_path = None

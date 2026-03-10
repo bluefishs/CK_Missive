@@ -159,7 +159,7 @@ class TestExecuteTool:
 
         result = await orchestrator._execute_tool("search_documents", {})
         assert "error" in result
-        assert "test error" in result["error"]
+        assert "工具執行失敗" in result["error"]
 
 
 # ============================================================================
@@ -238,10 +238,8 @@ class TestStreamAgentQuery:
             call_order.append("preprocess_start")
             return {"sender": "工務局"}
 
-        async def mock_plan(q, h, hints):
+        async def mock_plan(q, h):
             call_order.append("plan_start")
-            # hints 應為空 dict（並行時不傳 hints 給 LLM）
-            assert hints == {}
             return {
                 "reasoning": "搜尋",
                 "tool_calls": [{"name": "search_documents", "params": {"keywords": ["test"]}}],

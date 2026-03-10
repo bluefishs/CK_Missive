@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
-from jose import jwt
+import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import Response, JSONResponse
 

@@ -15,6 +15,7 @@ from typing import Optional, List, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.taoyuan import DispatchOrderRepository
+from app.services.taoyuan.dispatch_response_formatter import dispatch_to_response_dict
 
 logger = logging.getLogger(__name__)
 
@@ -48,10 +49,8 @@ class DispatchMatchService:
         if not dispatch:
             return None
 
-        # 使用與 DispatchOrderService 相同的 _to_response_dict 邏輯
-        from app.services.taoyuan.dispatch_order_service import DispatchOrderService
-        service = DispatchOrderService.__new__(DispatchOrderService)
-        result = service._to_response_dict(dispatch)
+        # 使用共用轉換函數（消除對 DispatchOrderService 的循環依賴）
+        result = dispatch_to_response_dict(dispatch)
 
         # 取得公文歷程（使用多策略搜尋，與 match-documents 一致）
         agency_doc_number = dispatch.agency_doc.doc_number if dispatch.agency_doc else None

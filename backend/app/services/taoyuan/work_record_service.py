@@ -18,7 +18,7 @@ import logging
 from datetime import date as date_type
 from typing import Optional, List, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, literal_column, delete
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from app.repositories.taoyuan import WorkRecordRepository
@@ -248,14 +248,7 @@ class WorkRecordService:
             return None
 
         # 清理子紀錄的 parent_record_id（避免孤兒外鍵）
-        from sqlalchemy import update
-        stmt = (
-            update(TaoyuanWorkRecord)
-            .where(TaoyuanWorkRecord.parent_record_id == record_id)
-            .values(parent_record_id=None)
-        )
-        result = await self.db.execute(stmt)
-        orphaned = result.rowcount
+        orphaned = await self.repository.clear_parent_for_child(record_id)
 
         if orphaned > 0:
             logger.info(f"清理 {orphaned} 筆子紀錄的 parent_record_id (parent={record_id})")
@@ -274,21 +267,7 @@ class WorkRecordService:
         """驗證所有 record_ids 屬於同一派工單（安全檢查）"""
         if not record_ids:
             return
-
-        query = (
-            select(TaoyuanWorkRecord.dispatch_order_id)
-            .where(TaoyuanWorkRecord.id.in_(record_ids))
-            .distinct()
-        )
-        result = await self.db.execute(query)
-        dispatch_ids = list(result.scalars().all())
-
-        if len(dispatch_ids) == 0:
-            raise ValueError("指定的作業紀錄不存在")
-        if len(dispatch_ids) > 1:
-            raise ValueError(
-                f"作業紀錄分屬不同派工單 ({dispatch_ids})，不可跨派工單批量操作"
-            )
+        await self.repository.verify_same_dispatch(record_ids)
 
     async def update_batch(
         self,
@@ -300,17 +279,7 @@ class WorkRecordService:
         if not record_ids:
             return 0
 
-        from sqlalchemy import update
-
-        stmt = (
-            update(TaoyuanWorkRecord)
-            .where(TaoyuanWorkRecord.id.in_(record_ids))
-            .values(batch_no=batch_no, batch_label=batch_label)
-        )
-        result = await self.db.execute(stmt)
-        await self.db.flush()
-
-        updated = result.rowcount
+        updated = await self.repository.update_batch(record_ids, batch_no, batch_label)
         logger.info(
             f"批量更新批次: ids={record_ids}, batch_no={batch_no}, "
             f"batch_label={batch_label}, updated={updated}"
@@ -328,70 +297,15 @@ class WorkRecordService:
         exclude_id: Optional[int] = None,
     ) -> None:
         """
-        使用 recursive CTE 單一查詢沿 parent_record_id 回溯，
-        確認無循環且所有祖先屬於同一派工單（最大深度 MAX_CHAIN_DEPTH）。
+        Recursive CTE 沿 parent_record_id 回溯，確認無循環且同派工單。
+        委派給 Repository 層執行實際查詢。
         """
-        wr = TaoyuanWorkRecord.__table__
-
-        # Anchor: 起點 parent_id
-        anchor = (
-            select(
-                wr.c.id,
-                wr.c.parent_record_id,
-                wr.c.dispatch_order_id,
-                literal_column("1").label("depth"),
-            )
-            .where(wr.c.id == parent_id)
+        await self.repository.check_chain_cycle(
+            parent_id=parent_id,
+            dispatch_order_id=dispatch_order_id,
+            max_depth=MAX_CHAIN_DEPTH,
+            exclude_id=exclude_id,
         )
-
-        # Recursive: 沿 parent_record_id 向上走
-        chain_cte = anchor.cte(name="chain", recursive=True)
-        recursive_part = (
-            select(
-                wr.c.id,
-                wr.c.parent_record_id,
-                wr.c.dispatch_order_id,
-                (chain_cte.c.depth + 1).label("depth"),
-            )
-            .where(wr.c.id == chain_cte.c.parent_record_id)
-            .where(chain_cte.c.depth < MAX_CHAIN_DEPTH)
-        )
-        chain_cte = chain_cte.union_all(recursive_part)
-
-        # 一次查回所有祖先
-        query = select(
-            chain_cte.c.id,
-            chain_cte.c.dispatch_order_id,
-            chain_cte.c.depth,
-        ).order_by(chain_cte.c.depth)
-
-        result = await self.db.execute(query)
-        ancestors = result.all()
-
-        if not ancestors:
-            raise ValueError(f"前序紀錄不存在: id={parent_id}")
-
-        visited: set[int] = set()
-        if exclude_id:
-            visited.add(exclude_id)
-
-        for row in ancestors:
-            ancestor_id, ancestor_dispatch_id, depth = row
-
-            # 循環檢測
-            if ancestor_id in visited:
-                raise ValueError(f"鏈式紀錄存在循環: record_id={ancestor_id}")
-            visited.add(ancestor_id)
-
-            # 同派工單驗證
-            if ancestor_dispatch_id != dispatch_order_id:
-                raise ValueError(
-                    f"前序紀錄 {ancestor_id} 不屬於同一派工單 "
-                    f"(expected={dispatch_order_id}, got={ancestor_dispatch_id})"
-                )
-
-            if depth >= MAX_CHAIN_DEPTH:
-                raise ValueError(f"鏈式紀錄超過最大深度 {MAX_CHAIN_DEPTH}")
 
     # =========================================================================
     # 自動關聯公文到派工單
@@ -406,18 +320,9 @@ class WorkRecordService:
         若 document_id 的公文尚未關聯到該派工單，自動建立 DispatchDocumentLink。
         link_type 根據公文字號自動偵測。
         """
-        # 檢查是否已關聯
-        exists_query = select(func.count()).select_from(
-            TaoyuanDispatchDocumentLink
-        ).where(
-            TaoyuanDispatchDocumentLink.dispatch_order_id == dispatch_order_id,
-            TaoyuanDispatchDocumentLink.document_id == document_id,
-        )
-        result = await self.db.execute(exists_query)
-        if (result.scalar() or 0) > 0:
+        if await self.repository.check_doc_linked(dispatch_order_id, document_id):
             return  # 已存在
 
-        # 取得公文字號判斷 link_type
         doc = await self.db.get(OfficialDocument, document_id)
         if not doc:
             return

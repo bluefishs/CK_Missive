@@ -417,7 +417,7 @@ class DocumentCalendarService:
             logger.error(f"同步事件到 Google Calendar 失敗: {e}", exc_info=True)
             return {
                 'success': False,
-                'message': f'同步錯誤: {str(e)}',
+                'message': '同步至 Google Calendar 失敗，請稍後再試',
                 'google_event_id': None
             }
 
@@ -500,7 +500,7 @@ class DocumentCalendarService:
             logger.error(f"批次同步失敗: {e}", exc_info=True)
             return {
                 'success': False,
-                'message': f'批次同步錯誤: {str(e)}',
+                'message': '批次同步失敗，請稍後再試',
                 'synced_count': synced_count,
                 'failed_count': failed_count
             }

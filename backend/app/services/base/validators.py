@@ -302,14 +302,23 @@ class DateParsers:
         """
         解析日期值
 
-        支援多種格式：西元日期、民國日期。
+        支援多種格式：西元日期、民國日期、pandas Timestamp/NaT。
 
         Args:
-            value: 日期值（字串、date、datetime）
+            value: 日期值（字串、date、datetime、pandas Timestamp）
 
         Returns:
             解析後的 date 物件或 None
         """
+        if value is None:
+            return None
+        # pandas NaT 檢查（NaT is falsy 但做明確檢查更安全）
+        try:
+            import pandas as pd
+            if pd.isna(value):
+                return None
+        except (ImportError, TypeError, ValueError):
+            pass
         if not value:
             return None
 

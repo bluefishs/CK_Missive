@@ -9,7 +9,7 @@ Created: 2026-02-24
 """
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # ============================================================================
@@ -273,3 +273,104 @@ class KGMergeEntitiesResponse(BaseModel):
     success: bool = True
     message: str = ""
     entity_id: int = 0
+
+
+# ============================================================================
+# Code Wiki 代碼圖譜
+# ============================================================================
+
+
+VALID_CODE_ENTITY_TYPES = {"py_module", "py_class", "py_function", "db_table"}
+
+
+class KGCodeWikiRequest(BaseModel):
+    """Code Wiki 圖譜請求"""
+    entity_types: List[str] = Field(
+        default=["py_module"],
+        description="要顯示的代碼實體類型: py_module/py_class/py_function/db_table",
+    )
+    module_prefix: Optional[str] = Field(
+        None,
+        description="模組路徑前綴篩選 (如 'app.services')",
+    )
+    limit: int = Field(default=500, ge=1, le=2000, description="最大節點數")
+
+    @field_validator("entity_types")
+    @classmethod
+    def validate_entity_types(cls, v: List[str]) -> List[str]:
+        invalid = [t for t in v if t not in VALID_CODE_ENTITY_TYPES]
+        if invalid:
+            raise ValueError(
+                f"無效的實體類型: {invalid}。允許值: {sorted(VALID_CODE_ENTITY_TYPES)}"
+            )
+        return v
+
+
+class KGCodeWikiResponse(BaseModel):
+    """Code Wiki 圖譜回應"""
+    success: bool = True
+    nodes: List[Dict] = Field(default_factory=list)
+    edges: List[Dict] = Field(default_factory=list)
+
+
+class KGCodeGraphIngestRequest(BaseModel):
+    """Code Graph 入圖觸發請求"""
+    clean: bool = Field(default=False, description="是否先清除舊資料再重建")
+    include_schema: bool = Field(default=True, description="是否包含 DB Schema 反射")
+    include_frontend: bool = Field(default=True, description="是否包含前端 TypeScript/React 分析")
+    incremental: bool = Field(default=True, description="增量模式：跳過未變更的檔案")
+
+
+class KGCodeGraphIngestResponse(BaseModel):
+    """Code Graph 入圖觸發回應"""
+    success: bool = True
+    message: str = ""
+    modules: int = 0
+    classes: int = 0
+    functions: int = 0
+    tables: int = 0
+    ts_modules: int = 0
+    ts_components: int = 0
+    ts_hooks: int = 0
+    relations: int = 0
+    errors: int = 0
+    skipped: int = 0
+    elapsed_seconds: float = 0.0
+
+
+class KGCycleDetectionResponse(BaseModel):
+    """循環依賴偵測回應"""
+    success: bool = True
+    total_modules: int = 0
+    total_import_edges: int = 0
+    cycles_found: int = 0
+    cycles: List[List[str]] = Field(default_factory=list)
+
+
+class KGArchitectureAnalysisResponse(BaseModel):
+    """架構分析回應"""
+    success: bool = True
+    complexity_hotspots: List[Dict] = Field(default_factory=list, description="高耦合模組（出向依賴最多）")
+    hub_modules: List[Dict] = Field(default_factory=list, description="樞紐模組（被匯入最多）")
+    large_modules: List[Dict] = Field(default_factory=list, description="大型模組（行數最多）")
+    orphan_modules: List[str] = Field(default_factory=list, description="孤立模組（無入向匯入）")
+    god_classes: List[Dict] = Field(default_factory=list, description="巨型類別（方法數最多）")
+    summary: Dict = Field(default_factory=dict, description="概要統計")
+
+
+class KGJsonImportRequest(BaseModel):
+    """JSON 圖譜匯入請求 — 讀取本地 GitNexus 產生的 knowledge_graph.json"""
+    file_path: str = Field(
+        default="knowledge_graph.json",
+        description="相對於專案根目錄的 JSON 檔案路徑",
+    )
+    clean: bool = Field(default=True, description="匯入前是否先清除既有 code_graph 資料")
+
+
+class KGJsonImportResponse(BaseModel):
+    """JSON 圖譜匯入回應"""
+    success: bool = True
+    message: str = ""
+    nodes_imported: int = 0
+    edges_imported: int = 0
+    elapsed_seconds: float = 0.0

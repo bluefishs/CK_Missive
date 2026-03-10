@@ -169,11 +169,11 @@ async def mark_notifications_read(
         )
 
     except Exception as e:
-        logger.error(f"標記通知已讀失敗: {e}", exc_info=True)
+        logger.error("標記通知已讀失敗: %s", e, exc_info=True)
         return MarkReadResponse(
             success=False,
             updated_count=0,
-            message=f"標記失敗: {str(e)}"
+            message="標記失敗，請稍後再試"
         )
 
 
@@ -204,11 +204,11 @@ async def mark_all_notifications_read(
         )
 
     except Exception as e:
-        logger.error(f"標記所有通知已讀失敗: {e}", exc_info=True)
+        logger.error("標記所有通知已讀失敗: %s", e, exc_info=True)
         return MarkReadResponse(
             success=False,
             updated_count=0,
-            message=f"標記失敗: {str(e)}"
+            message="標記失敗，請稍後再試"
         )
 
 

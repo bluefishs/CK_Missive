@@ -143,8 +143,8 @@ class RelationGraphService:
         回傳 None 表示 pgvector 未啟用；回傳空列表表示無 embedding。
         HTTPException (404) 由呼叫方處理。
         """
-        pgvector_enabled = os.environ.get("PGVECTOR_ENABLED", "false").lower() == "true"
-        if not pgvector_enabled:
+        from app.core.config import settings
+        if not settings.PGVECTOR_ENABLED:
             return None
 
         # 取得來源 embedding

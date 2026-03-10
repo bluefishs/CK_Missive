@@ -8,12 +8,12 @@ Created: 2026-02-24
 """
 
 import logging
-import os
 import time
 
 from fastapi import APIRouter, Depends, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.dependencies import require_admin, get_async_db
 from app.extended.models import User
 from app.schemas.ai import (
@@ -29,8 +29,8 @@ router = APIRouter()
 
 
 def _pgvector_enabled() -> bool:
-    """Runtime 判斷 pgvector 是否啟用（避免模組層級常數在 .env 載入前被評估）"""
-    return os.getenv("PGVECTOR_ENABLED", "false").lower() == "true"
+    """Runtime 判斷 pgvector 是否啟用"""
+    return settings.PGVECTOR_ENABLED
 
 
 @router.post("/embedding/stats", response_model=EmbeddingStatsResponse)

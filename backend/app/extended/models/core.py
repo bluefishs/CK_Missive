@@ -63,6 +63,7 @@ class ContractProject(Base):
     agency_contact_person = Column(String(100), comment="機關承辦人")
     agency_contact_phone = Column(String(50), comment="機關承辦電話")
     agency_contact_email = Column(String(100), comment="機關承辦Email")
+    has_dispatch_management = Column(Boolean, default=False, server_default="false", comment="啟用派工管理功能")
 
     # 關聯關係
     documents = relationship("OfficialDocument", back_populates="contract_project")

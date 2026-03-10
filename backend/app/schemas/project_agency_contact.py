@@ -16,7 +16,7 @@ class ProjectAgencyContactBase(BaseModel):
     department: Optional[str] = Field(None, max_length=200, description="單位/科室")
     phone: Optional[str] = Field(None, max_length=50, description="電話")
     mobile: Optional[str] = Field(None, max_length=50, description="手機")
-    email: Optional[str] = Field(None, max_length=100, description="電子郵件")
+    email: Optional[EmailStr] = Field(None, max_length=100, description="電子郵件")
     is_primary: Optional[bool] = Field(False, description="是否為主要承辦人")
     notes: Optional[str] = Field(None, description="備註")
 
@@ -33,7 +33,7 @@ class ProjectAgencyContactUpdate(BaseModel):
     department: Optional[str] = Field(None, max_length=200, description="單位/科室")
     phone: Optional[str] = Field(None, max_length=50, description="電話")
     mobile: Optional[str] = Field(None, max_length=50, description="手機")
-    email: Optional[str] = Field(None, max_length=100, description="電子郵件")
+    email: Optional[EmailStr] = Field(None, max_length=100, description="電子郵件")
     is_primary: Optional[bool] = Field(None, description="是否為主要承辦人")
     notes: Optional[str] = Field(None, description="備註")
 
@@ -66,6 +66,6 @@ class UpdateContactRequest(BaseModel):
     department: Optional[str] = Field(None, max_length=200, description="單位/科室")
     phone: Optional[str] = Field(None, max_length=50, description="電話")
     mobile: Optional[str] = Field(None, max_length=50, description="手機")
-    email: Optional[str] = Field(None, max_length=100, description="電子郵件")
+    email: Optional[EmailStr] = Field(None, max_length=100, description="電子郵件")
     is_primary: Optional[bool] = Field(None, description="是否為主要承辦人")
     notes: Optional[str] = Field(None, description="備註")

@@ -126,6 +126,24 @@ async def get_users(
 
 
 # ============================================================================
+# 部門選項 API
+# ============================================================================
+
+@router.post(
+    "/departments",
+    response_model=list[str],
+    summary="取得部門選項列表",
+    description="從使用者資料中動態取得所有不重複的部門名稱"
+)
+async def get_departments(
+    user_repo: UserRepository = Depends(get_user_repository),
+    current_user: User = Depends(require_admin())
+):
+    """取得所有已使用的部門名稱（DB 驅動，無硬編碼）"""
+    return await user_repo.get_distinct_departments()
+
+
+# ============================================================================
 # CRUD API
 # ============================================================================
 

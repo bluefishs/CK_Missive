@@ -23,12 +23,11 @@ from starlette.responses import Response
 from app.core.dependencies import get_async_db
 from app.core.rate_limiter import limiter
 from app.schemas.ai import AgentQueryRequest, AgentSyncResponse
+from app.services.ai.ai_config import get_ai_config
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-_QUERY_TIMEOUT_SECONDS = 90
 
 
 def _verify_service_token(
@@ -88,6 +87,7 @@ async def agent_query_sync(
         async for event_str in orchestrator.stream_agent_query(
             question=body.question,
             history=body.history,
+            session_id=body.session_id,
         ):
             if not event_str.startswith("data: "):
                 continue
@@ -117,7 +117,7 @@ async def agent_query_sync(
 
     try:
         error_response = await asyncio.wait_for(
-            _collect_response(), timeout=_QUERY_TIMEOUT_SECONDS
+            _collect_response(), timeout=get_ai_config().agent_sync_query_timeout
         )
         if error_response:
             return error_response
@@ -131,10 +131,10 @@ async def agent_query_sync(
         )
 
     except asyncio.TimeoutError:
-        logger.warning("Agent sync query timed out after %ds", _QUERY_TIMEOUT_SECONDS)
+        logger.warning("Agent sync query timed out after %ds", get_ai_config().agent_sync_query_timeout)
         return AgentSyncResponse(
             success=False,
-            error=f"查詢逾時（{_QUERY_TIMEOUT_SECONDS} 秒）",
+            error=f"查詢逾時（{get_ai_config().agent_sync_query_timeout} 秒）",
         )
     except Exception as e:
         logger.error("Agent sync query failed: %s", e, exc_info=True)

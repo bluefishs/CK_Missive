@@ -23,6 +23,7 @@ from app.extended.models import (
     TaoyuanDispatchAttachment,
     TaoyuanDispatchWorkType,
     OfficialDocument,
+    ContractProject,
 )
 from app.core.constants import TAOYUAN_PROJECT_ID
 
@@ -66,6 +67,7 @@ class DispatchOrderRepository(BaseRepository[TaoyuanDispatchOrder]):
                 ),
                 selectinload(TaoyuanDispatchOrder.attachments),
                 selectinload(TaoyuanDispatchOrder.work_type_links),
+                selectinload(TaoyuanDispatchOrder.work_records),
             )
             .where(TaoyuanDispatchOrder.id == dispatch_id)
         )
@@ -109,6 +111,7 @@ class DispatchOrderRepository(BaseRepository[TaoyuanDispatchOrder]):
             selectinload(TaoyuanDispatchOrder.attachments),
             selectinload(TaoyuanDispatchOrder.payment),  # 契金資料
             selectinload(TaoyuanDispatchOrder.work_type_links),
+            selectinload(TaoyuanDispatchOrder.work_records),  # 作業進度摘要
         )
 
         conditions = []
@@ -444,3 +447,71 @@ class DispatchOrderRepository(BaseRepository[TaoyuanDispatchOrder]):
             "total": total,
             "by_work_type": by_work_type,
         }
+
+    # =========================================================================
+    # 承攬案件查詢
+    # =========================================================================
+
+    async def get_contract_projects_with_dispatch(self) -> List[Dict[str, Any]]:
+        """取得已啟用派工管理的承攬案件列表"""
+        result = await self.db.execute(
+            select(
+                ContractProject.id,
+                ContractProject.project_name,
+                ContractProject.project_code,
+                ContractProject.year,
+            )
+            .where(ContractProject.has_dispatch_management == True)  # noqa: E712
+            .order_by(ContractProject.year.desc(), ContractProject.id.desc())
+        )
+        return [
+            {
+                "id": row.id,
+                "project_name": row.project_name,
+                "project_code": row.project_code,
+                "year": row.year,
+            }
+            for row in result.all()
+        ]
+
+    # =========================================================================
+    # 關聯表操作
+    # =========================================================================
+
+    async def get_dispatch_ids_by_project(self, project_id: int) -> List[int]:
+        """取得工程關聯的所有 dispatch_order_id"""
+        result = await self.db.execute(
+            select(TaoyuanDispatchProjectLink.dispatch_order_id).where(
+                TaoyuanDispatchProjectLink.taoyuan_project_id == project_id
+            )
+        )
+        return [row[0] for row in result.all()]
+
+    async def delete_project_links(self, dispatch_order_id: int) -> int:
+        """刪除派工單的所有工程關聯"""
+        from sqlalchemy import delete
+        stmt = delete(TaoyuanDispatchProjectLink).where(
+            TaoyuanDispatchProjectLink.dispatch_order_id == dispatch_order_id
+        )
+        result = await self.db.execute(stmt)
+        return result.rowcount
+
+    async def doc_link_exists(
+        self,
+        dispatch_order_id: int,
+        document_id: int,
+        link_type: Optional[str] = None,
+    ) -> bool:
+        """檢查派工單-公文關聯是否已存在"""
+        conditions = [
+            TaoyuanDispatchDocumentLink.dispatch_order_id == dispatch_order_id,
+            TaoyuanDispatchDocumentLink.document_id == document_id,
+        ]
+        if link_type:
+            conditions.append(TaoyuanDispatchDocumentLink.link_type == link_type)
+
+        query = select(func.count()).select_from(
+            TaoyuanDispatchDocumentLink
+        ).where(and_(*conditions))
+        result = await self.db.execute(query)
+        return (result.scalar() or 0) > 0

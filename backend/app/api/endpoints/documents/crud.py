@@ -120,6 +120,7 @@ async def create_document(
     try:
         db = service.db
         create_data = data.model_dump(exclude_unset=True)
+        logger.debug(f"[CREATE] create_data date fields: doc_date={create_data.get('doc_date')!r}, receive_date={create_data.get('receive_date')!r}, send_date={create_data.get('send_date')!r}")
 
         # OfficialDocument 模型的有效欄位（與資料庫 schema 對齊）
         valid_model_fields = {
@@ -158,6 +159,8 @@ async def create_document(
         for field in date_fields:
             if field in filtered_data and isinstance(filtered_data[field], str):
                 filtered_data[field] = parse_date_string(filtered_data[field])
+
+        logger.debug(f"[CREATE] filtered_data date fields: doc_date={filtered_data.get('doc_date')!r}, receive_date={filtered_data.get('receive_date')!r}, send_date={filtered_data.get('send_date')!r}")
 
         document = OfficialDocument(**filtered_data)
         db.add(document)
@@ -258,15 +261,20 @@ async def update_document(
         processed_data = {}
 
         for key, value in update_data.items():
-            if value is not None:
-                # 處理日期欄位
-                if key in date_fields:
+            # 處理日期欄位（需解析字串 → date 物件）
+            if key in date_fields:
+                if value is not None:
                     parsed_date = parse_date_string(value) if isinstance(value, str) else value
                     setattr(document, key, parsed_date)
                     processed_data[key] = parsed_date
                 else:
-                    setattr(document, key, value)
-                    processed_data[key] = value
+                    # 允許清除日期欄位（設為 None）
+                    setattr(document, key, None)
+                    processed_data[key] = None
+            else:
+                # 非日期欄位：直接設值（包含 None 清除）
+                setattr(document, key, value)
+                processed_data[key] = value
 
         # 記錄審計日誌（變更前後比對）
         changes = {}
@@ -442,7 +450,8 @@ async def delete_document(
                     deleted_files += 1
                     logger.info(f"已刪除附件檔案: {file_path}")
             except Exception as e:
-                file_errors.append(f"{file_path}: {str(e)}")
+                logger.error(f"刪除附件檔案失敗: {file_path}: {e}")
+                file_errors.append(f"{file_path}: 刪除失敗")
                 logger.warning(f"刪除附件檔案失敗: {file_path}, 錯誤: {e}")
 
         # 8. 嘗試刪除空的公文資料夾（doc_{id}）

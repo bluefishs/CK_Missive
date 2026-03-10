@@ -89,6 +89,7 @@ class AIConfig:
     agent_max_iterations: int = 3              # 工具迴圈最大輪次
     agent_tool_timeout: int = 15               # 單個工具執行超時 (秒)
     agent_stream_timeout: int = 60             # 整體串流超時 (秒)
+    agent_sync_query_timeout: int = 90         # 同步問答超時 (秒, MCP/LINE)
     agent_find_similar_threshold: float = 0.7  # find_similar 向量距離閾值
 
     @classmethod
@@ -144,6 +145,7 @@ class AIConfig:
             agent_max_iterations=int(os.getenv("AGENT_MAX_ITERATIONS", "3")),
             agent_tool_timeout=int(os.getenv("AGENT_TOOL_TIMEOUT", "15")),
             agent_stream_timeout=int(os.getenv("AGENT_STREAM_TIMEOUT", "60")),
+            agent_sync_query_timeout=int(os.getenv("AGENT_SYNC_QUERY_TIMEOUT", "90")),
             agent_find_similar_threshold=float(os.getenv("AGENT_FIND_SIMILAR_THRESHOLD", "0.7")),
         )
 

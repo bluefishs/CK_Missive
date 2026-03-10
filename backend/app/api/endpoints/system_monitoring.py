@@ -61,7 +61,7 @@ async def get_detailed_health_check(
         
     except Exception as e:
         from app.core.logging_manager import log_error
-        log_error(f"Health check failed: {str(e)}", ErrorCategory.SYSTEM)
+        log_error(f"Health check failed: {e}", ErrorCategory.SYSTEM)
         logger.error(f"詳細健康檢查失敗: {e}", exc_info=True)
         raise HTTPException(status_code=503, detail="健康檢查失敗，請稍後再試")
 
@@ -290,6 +290,6 @@ async def get_system_metrics(current_user: User = Depends(require_admin())):
             "message": "Install psutil for detailed system metrics"
         }
     except Exception as e:
-        log_error(f"Failed to get system metrics: {str(e)}", ErrorCategory.SYSTEM)
+        log_error(f"Failed to get system metrics: {e}", ErrorCategory.SYSTEM)
         logger.error(f"獲取系統指標失敗: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="獲取系統指標失敗，請稍後再試")

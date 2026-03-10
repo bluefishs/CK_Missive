@@ -3,8 +3,9 @@ Pydantic schemas for Government Agencies
 
 v1.1.0 - 2026-01-26: 新增名稱標準化驗證器，避免重複資料
 """
+from enum import Enum
 from typing import Optional, List
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
 from datetime import datetime
 import re
 
@@ -39,7 +40,7 @@ class AgencyBase(BaseModel):
     contact_person: Optional[str] = Field(None, max_length=100)
     phone: Optional[str] = Field(None, max_length=50)
     address: Optional[str] = Field(None, max_length=300)
-    email: Optional[str] = Field(None, max_length=100)
+    email: Optional[EmailStr] = Field(None, max_length=100)
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -62,7 +63,7 @@ class AgencyUpdate(BaseModel):
     contact_person: Optional[str] = Field(None, max_length=100)
     phone: Optional[str] = Field(None, max_length=50)
     address: Optional[str] = Field(None, max_length=300)
-    email: Optional[str] = Field(None, max_length=100)
+    email: Optional[EmailStr] = Field(None, max_length=100)
 
     # 名稱欄位自動標準化
     @field_validator('agency_name', 'agency_short_name', mode='before')
@@ -112,7 +113,7 @@ class AgenciesResponse(BaseModel):
 # 查詢與回應 Schema（統一定義，供 endpoints 匯入）
 # =============================================================================
 
-class SortOrder(str):
+class SortOrder(str, Enum):
     """排序方向"""
     ASC = "asc"
     DESC = "desc"

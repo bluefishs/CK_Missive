@@ -13,7 +13,7 @@ from datetime import date, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import Integer, select, func, text, or_, and_, extract
 
-from app.repositories import DocumentRepository
+from app.repositories.document_stats_repository import DocumentStatsRepository
 from app.extended.models import OfficialDocument, ContractProject, GovernmentAgency
 
 logger = logging.getLogger(__name__)
@@ -31,7 +31,7 @@ class DocumentStatisticsService:
 
     def __init__(self, db: AsyncSession):
         self.db = db
-        self.repository = DocumentRepository(db)
+        self.repository = DocumentStatsRepository(db)
 
     # =========================================================================
     # 統計方法

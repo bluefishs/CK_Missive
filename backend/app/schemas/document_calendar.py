@@ -9,7 +9,7 @@ Pydantic schemas for Document Calendar Integration
   - v1.1.0: 修正 priority 欄位類型為 str 以與資料庫 VARCHAR 一致
 """
 from typing import Optional, List, Dict, Any, Annotated
-from pydantic import BaseModel, Field, BeforeValidator
+from pydantic import BaseModel, Field, BeforeValidator, ConfigDict
 from datetime import datetime
 
 
@@ -152,8 +152,7 @@ class DocumentCalendarEventResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ============================================================================

@@ -148,4 +148,6 @@ class ExcelImportResult(BaseModel):
     imported_count: int = 0
     skipped_count: int = 0
     error_count: int = 0
-    errors: List[dict] = []
+    errors: List[str] = []
+    doc_link_stats: Optional[dict] = Field(None, description="公文關聯統計")
+    warnings: List[str] = Field(default_factory=list, description="非致命警告")

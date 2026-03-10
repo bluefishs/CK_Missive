@@ -31,6 +31,7 @@ from .ai_config import get_ai_config
 from .ai_prompt_manager import AIPromptManager
 from .base_ai_service import BaseAIService
 from .search_intent_parser import SearchIntentParser
+from .synonym_expander import SynonymExpander
 from app.schemas.ai import (
     ClassificationResponse,
     KeywordsValidationResponse,
@@ -56,7 +57,7 @@ class DocumentAIService(BaseAIService):
     def __init__(self, **kwargs: Any):
         super().__init__(**kwargs)
         AIPromptManager.load_prompts()
-        AIPromptManager.load_synonyms()
+        # SynonymExpander 自動 lazy load（DB 優先 → YAML fallback），無需手動初始化
         self._intent_parser = SearchIntentParser(self)
 
     # ========================================================================
@@ -552,9 +553,9 @@ class DocumentAIService(BaseAIService):
         if parsed_intent.keywords and parsed_intent.confidence > 0:
             search_strategy = "hybrid" if query_embedding else "similarity"
 
-        synonym_lookup = AIPromptManager._synonym_lookup
         synonym_expanded = bool(
-            parsed_intent.keywords and len(parsed_intent.keywords) > 0 and synonym_lookup
+            parsed_intent.keywords and len(parsed_intent.keywords) > 0
+            and SynonymExpander.get_lookup()
         )
 
         # 6. 解析搜尋中涉及的正規化實體（橋接圖譜）

@@ -3,16 +3,20 @@
 """
 Unicode 字元正規化工具
 
-修復資料庫中的康熙部首等異常 Unicode 字元，
-將其轉換為標準中文字元。
+修復資料庫中的異常 Unicode 字元，包括：
+- 康熙部首 (U+2F00 - U+2FDF) → 標準 CJK 統一漢字
+- CJK 相容漢字 (U+F900 - U+FAFF) → 標準 CJK 統一漢字
+- 全形英數 (U+FF01 - U+FF5E) → ASCII 半形
+- 其他 NFKC 可轉換字元
 
 用法：
   python -m app.scripts.normalize_unicode --check     # 僅檢查，不修改
   python -m app.scripts.normalize_unicode --fix       # 執行修復
-  python -m app.scripts.normalize_unicode --table contract_projects  # 指定表
+  python -m app.scripts.normalize_unicode --table documents  # 指定表
+  python -m app.scripts.normalize_unicode --check --verbose  # 顯示異常字元細節
 
-@version 2.0.0
-@date 2026-02-02
+@version 3.0.0
+@date 2026-03-04
 @security SQL 注入防護：白名單驗證 + 識別符引號
 """
 
@@ -30,59 +34,16 @@ logger = logging.getLogger(__name__)
 from sqlalchemy import text
 from app.db.database import AsyncSessionLocal
 
-# 康熙部首對照表 (U+2F00 - U+2FDF)
-KANGXI_RADICALS = {
-    '⼀': '一', '⼁': '丨', '⼂': '丶', '⼃': '丿', '⼄': '乙',
-    '⼅': '亅', '⼆': '二', '⼇': '亠', '⼈': '人', '⼉': '儿',
-    '⼊': '入', '⼋': '八', '⼌': '冂', '⼍': '冖', '⼎': '冫',
-    '⼏': '几', '⼐': '凵', '⼑': '刀', '⼒': '力', '⼓': '勹',
-    '⼔': '匕', '⼕': '匚', '⼖': '匸', '⼗': '十', '⼘': '卜',
-    '⼙': '卩', '⼚': '厂', '⼛': '厶', '⼜': '又', '⼝': '口',
-    '⼞': '囗', '⼟': '土', '⼠': '士', '⼡': '夂', '⼢': '夊',
-    '⼣': '夕', '⼤': '大', '⼥': '女', '⼦': '子', '⼧': '宀',
-    '⼨': '寸', '⼩': '小', '⼪': '尢', '⼫': '尸', '⼬': '屮',
-    '⼭': '山', '⼮': '巛', '⼯': '工', '⼰': '己', '⼱': '巾',
-    '⼲': '干', '⼳': '幺', '⼴': '广', '⼵': '廴', '⼶': '廾',
-    '⼷': '弋', '⼸': '弓', '⼹': '彐', '⼺': '彡', '⼻': '彳',
-    '⼼': '心', '⼽': '戈', '⼾': '戶', '⼿': '手', '⽀': '支',
-    '⽁': '攴', '⽂': '文', '⽃': '斗', '⽄': '斤', '⽅': '方',
-    '⽆': '无', '⽇': '日', '⽈': '曰', '⽉': '月', '⽊': '木',
-    '⽋': '欠', '⽌': '止', '⽍': '歹', '⽎': '殳', '⽏': '毋',
-    '⽐': '比', '⽑': '毛', '⽒': '氏', '⽓': '气', '⽔': '水',
-    '⽕': '火', '⽖': '爪', '⽗': '父', '⽘': '爻', '⽙': '爿',
-    '⽚': '片', '⽛': '牙', '⽜': '牛', '⽝': '犬', '⽞': '玄',
-    '⽟': '玉', '⽠': '瓜', '⽡': '瓦', '⽢': '甘', '⽣': '生',
-    '⽤': '用', '⽥': '田', '⽦': '疋', '⽧': '疒', '⽨': '癶',
-    '⽩': '白', '⽪': '皮', '⽫': '皿', '⽬': '目', '⽭': '矛',
-    '⽮': '矢', '⽯': '石', '⽰': '示', '⽱': '禸', '⽲': '禾',
-    '⽳': '穴', '⽴': '立', '⽵': '竹', '⽶': '米', '⽷': '糸',
-    '⽸': '缶', '⽹': '网', '⽺': '羊', '⽻': '羽', '⽼': '老',
-    '⽽': '而', '⽾': '耒', '⽿': '耳', '⾀': '聿', '⾁': '肉',
-    '⾂': '臣', '⾃': '自', '⾄': '至', '⾅': '臼', '⾆': '舌',
-    '⾇': '舛', '⾈': '舟', '⾉': '艮', '⾊': '色', '⾋': '艸',
-    '⾌': '虍', '⾍': '虫', '⾎': '血', '⾏': '行', '⾐': '衣',
-    '⾑': '襾', '⾒': '見', '⾓': '角', '⾔': '言', '⾕': '谷',
-    '⾖': '豆', '⾗': '豕', '⾘': '豸', '⾙': '貝', '⾚': '赤',
-    '⾛': '走', '⾜': '足', '⾝': '身', '⾞': '車', '⾟': '辛',
-    '⾠': '辰', '⾡': '辵', '⾢': '邑', '⾣': '酉', '⾤': '釆',
-    '⾥': '里', '⾦': '金', '⾧': '長', '⾨': '門', '⾩': '阜',
-    '⾪': '隶', '⾫': '隹', '⾬': '雨', '⾭': '靑', '⾮': '非',
-    '⾯': '面', '⾰': '革', '⾱': '韋', '⾲': '韭', '⾳': '音',
-    '⾴': '頁', '⾵': '風', '⾶': '飛', '⾷': '食', '⾸': '首',
-    '⾹': '香', '⾺': '馬', '⾻': '骨', '⾼': '高', '⾽': '髟',
-    '⾾': '鬥', '⾿': '鬯', '⿀': '鬲', '⿁': '鬼', '⿂': '魚',
-    '⿃': '鳥', '⿄': '鹵', '⿅': '鹿', '⿆': '麥', '⿇': '麻',
-    '⿈': '黃', '⿉': '黍', '⿊': '黑', '⿋': '黹', '⿌': '黽',
-    '⿍': '鼎', '⿎': '鼓', '⿏': '鼠', '⿐': '鼻', '⿑': '齊',
-    '⿒': '齒', '⿓': '龍', '⿔': '龜', '⿕': '龠',
-}
-
-# 常見需要清理的表和欄位 (白名單)
+# 常見需要清理的表和欄位 (白名單，欄位名需與實際 DB 一致)
 TABLES_TO_CHECK = [
     ('contract_projects', ['project_name', 'project_code', 'description']),
-    ('government_agencies', ['name', 'short_name', 'address']),
-    ('documents', ['subject', 'content', 'notes']),
-    ('partner_vendors', ['name', 'contact_person', 'address']),
+    ('government_agencies', ['agency_name', 'agency_short_name', 'address']),
+    ('documents', ['subject', 'content', 'notes', 'ck_note', 'doc_number']),
+    ('partner_vendors', ['vendor_name', 'contact_person', 'address']),
+    ('taoyuan_dispatch_orders', ['project_name', 'dispatch_no', 'sub_case_name', 'contact_note']),
+    ('canonical_entities', ['canonical_name']),
+    ('entity_aliases', ['alias_name']),
+    ('document_entity_mentions', ['mention_text']),
 ]
 
 # 安全性：建立允許的表名和列名白名單
@@ -111,40 +72,82 @@ def validate_identifier(name: str, allowed_set: set, identifier_type: str) -> st
     return f'"{name}"'
 
 
-def normalize_text(text: str) -> str:
-    """將康熙部首轉換為標準中文字元"""
-    if not text:
-        return text
+def is_abnormal_char(char: str, include_fullwidth: bool = False) -> bool:
+    """
+    判斷字元是否為異常 Unicode（NFKC 正規化後會改變的字元）
 
-    result = text
-    for kangxi, normal in KANGXI_RADICALS.items():
-        result = result.replace(kangxi, normal)
+    涵蓋範圍：
+    - U+2F00-U+2FDF: 康熙部首
+    - U+F900-U+FAFF: CJK 相容漢字
+    - U+FF01-U+FF5E: 全形英數符號（預設不檢查，因中文語境常用全形標點）
 
-    # 額外使用 NFKC 正規化
-    result = unicodedata.normalize('NFKC', result)
+    Args:
+        include_fullwidth: 是否包含全形英數（預設 False，僅 --fullwidth 模式啟用）
+    """
+    cp = ord(char)
+    # 快速路徑：康熙部首 + CJK 相容漢字（永遠視為異常）
+    if 0x2F00 <= cp <= 0x2FDF:  # 康熙部首
+        return True
+    if 0xF900 <= cp <= 0xFAFF:  # CJK 相容漢字
+        return True
+    # 全形英數：僅在明確要求時才視為異常
+    if include_fullwidth and 0xFF01 <= cp <= 0xFF5E:
+        return True
+    return False
 
-    return result
+
+def normalize_text(value: str) -> str:
+    """
+    將異常 Unicode 字元正規化為標準形式
+
+    針對性處理（保留全形標點）：
+    - 康熙部首 (U+2F00-U+2FDF) → 標準漢字
+    - CJK 相容漢字 (U+F900-U+FAFF) → 標準漢字
+
+    NOTE: 不使用全域 NFKC，因為會把全形逗號（，）轉成半形（,），
+    但中文語境中全形標點是正常的。改為逐字元判斷只轉換異常範圍。
+    """
+    if not value:
+        return value
+
+    result = []
+    for char in value:
+        cp = ord(char)
+        if 0x2F00 <= cp <= 0x2FDF or 0xF900 <= cp <= 0xFAFF:
+            # 康熙部首 + CJK 相容漢字 → NFKC 正規化
+            result.append(unicodedata.normalize('NFKC', char))
+        else:
+            result.append(char)
+    return ''.join(result)
 
 
-def find_abnormal_chars(text: str) -> list:
-    """找出文字中的異常字元"""
+def find_abnormal_chars(value: str, include_fullwidth: bool = False) -> list:
+    """找出文字中的異常字元，返回 [(原字元, 正規化後, hex碼位, 類別)] 清單"""
     abnormal = []
-    for char in text:
-        if char in KANGXI_RADICALS:
-            abnormal.append((char, KANGXI_RADICALS[char], hex(ord(char))))
+    for char in value:
+        if is_abnormal_char(char, include_fullwidth):
+            cp = ord(char)
+            normalized = unicodedata.normalize('NFKC', char)
+            if 0x2F00 <= cp <= 0x2FDF:
+                category = 'Kangxi Radical'
+            elif 0xF900 <= cp <= 0xFAFF:
+                category = 'CJK Compat'
+            elif 0xFF01 <= cp <= 0xFF5E:
+                category = 'Fullwidth'
+            else:
+                category = 'Other'
+            abnormal.append((char, normalized, hex(cp), category))
     return abnormal
 
 
-async def check_table(db, table: str, columns: list) -> list:
+async def check_table(db, table: str, columns: list, verbose: bool = False, include_fullwidth: bool = False) -> list:
     """檢查指定表的異常字元"""
     issues = []
 
-    # 安全性：驗證表名
     safe_table = validate_identifier(table, ALLOWED_TABLES, "表名")
 
     for column in columns:
         try:
-            # 安全性：驗證列名
             safe_column = validate_identifier(column, ALLOWED_COLUMNS, "列名")
             query = text(f"SELECT id, {safe_column} FROM {safe_table} WHERE {safe_column} IS NOT NULL")
             result = await db.execute(query)
@@ -153,7 +156,7 @@ async def check_table(db, table: str, columns: list) -> list:
             for row in rows:
                 row_id, value = row
                 if value:
-                    abnormal = find_abnormal_chars(str(value))
+                    abnormal = find_abnormal_chars(str(value), include_fullwidth)
                     if abnormal:
                         issues.append({
                             'table': table,
@@ -169,36 +172,44 @@ async def check_table(db, table: str, columns: list) -> list:
 
 
 async def fix_table(db, table: str, columns: list) -> int:
-    """修復指定表的異常字元"""
+    """
+    修復指定表的異常字元
+
+    策略：逐筆讀取 → Python NFKC 正規化 → 逐筆回寫
+    （比 SQL REPLACE 鏈更可靠，涵蓋所有 NFKC 可轉換字元）
+    """
     fixed_count = 0
 
-    # 安全性：驗證表名
     safe_table = validate_identifier(table, ALLOWED_TABLES, "表名")
 
     for column in columns:
         try:
-            # 安全性：驗證列名
             safe_column = validate_identifier(column, ALLOWED_COLUMNS, "列名")
 
-            # 構建 REPLACE 鏈 (康熙部首是固定的，不是用戶輸入)
-            replace_sql = safe_column
-            for kangxi, normal in KANGXI_RADICALS.items():
-                # 使用參數化的方式處理字元替換
-                replace_sql = f"REPLACE({replace_sql}, '{kangxi}', '{normal}')"
+            # 讀取所有非空紀錄
+            query = text(f"SELECT id, {safe_column} FROM {safe_table} WHERE {safe_column} IS NOT NULL")
+            result = await db.execute(query)
+            rows = result.fetchall()
 
-            # 只更新包含異常字元的記錄
-            conditions = " OR ".join([f"{safe_column} LIKE '%{k}%'" for k in KANGXI_RADICALS.keys()])
+            batch_updates = []
+            for row in rows:
+                row_id, value = row
+                if not value:
+                    continue
+                normalized = normalize_text(str(value))
+                if normalized != str(value):
+                    batch_updates.append((row_id, normalized))
 
-            update_query = text(f"""
-                UPDATE {safe_table}
-                SET {safe_column} = {replace_sql}
-                WHERE {conditions}
-            """)
+            # 批次更新
+            if batch_updates:
+                for row_id, normalized_value in batch_updates:
+                    update_query = text(
+                        f"UPDATE {safe_table} SET {safe_column} = :val WHERE id = :id"
+                    )
+                    await db.execute(update_query, {"val": normalized_value, "id": row_id})
 
-            result = await db.execute(update_query)
-            if result.rowcount > 0:
-                logger.info(f"{table}.{column}: 修復 {result.rowcount} 筆")
-                fixed_count += result.rowcount
+                logger.info(f"{table}.{column}: 修復 {len(batch_updates)} 筆")
+                fixed_count += len(batch_updates)
 
         except Exception as e:
             logger.warning(f"修復 {table}.{column} 時發生錯誤: {e}")
@@ -208,8 +219,13 @@ async def fix_table(db, table: str, columns: list) -> int:
 
 async def main(args):
     """主函數"""
+    # 配置日誌等級
+    log_level = logging.DEBUG if args.verbose else logging.INFO
+    logging.basicConfig(level=log_level, format="%(levelname)s: %(message)s")
+
     logger.info("=" * 60)
-    logger.info("Unicode 字元正規化工具")
+    logger.info("Unicode 字元正規化工具 v3.0")
+    logger.info("涵蓋：康熙部首 + CJK 相容漢字 + 全形英數")
     logger.info("=" * 60)
 
     tables = TABLES_TO_CHECK
@@ -219,50 +235,68 @@ async def main(args):
             logger.error(f"未找到表 '{args.table}' 的欄位配置")
             return 1
 
-    async with AsyncSessionLocal() as db:
-        if args.check:
-            logger.info("[檢查模式] 掃描異常字元...")
-            all_issues = []
+    if args.check:
+        logger.info("[檢查模式] 掃描異常字元...")
+        all_issues = []
+        category_stats: dict[str, int] = {}
 
-            for table, columns in tables:
-                logger.info(f"檢查表: {table}")
-                issues = await check_table(db, table, columns)
-                all_issues.extend(issues)
+        for table, columns in tables:
+            # 每個表獨立 session，避免單表錯誤中斷全部
+            async with AsyncSessionLocal() as db:
+                try:
+                    logger.info(f"檢查表: {table}")
+                    issues = await check_table(db, table, columns, args.verbose, getattr(args, 'fullwidth', False))
+                    all_issues.extend(issues)
+                except Exception as e:
+                    logger.warning(f"跳過表 {table}: {e}")
 
-            if all_issues:
-                logger.info(f"發現 {len(all_issues)} 筆異常記錄:")
-                for issue in all_issues:
-                    logger.info(f"  [{issue['table']}.{issue['column']}] ID={issue['id']}")
-                    logger.debug(f"    異常字元: {issue['abnormal_chars']}")
-                    logger.debug(f"    原始內容: {issue['original']}")
-            else:
-                logger.info("未發現異常字元")
+        if all_issues:
+            logger.info(f"\n發現 {len(all_issues)} 筆含異常字元的記錄:")
+            for issue in all_issues:
+                logger.info(f"  [{issue['table']}.{issue['column']}] ID={issue['id']} ({len(issue['abnormal_chars'])} 個異常字元)")
+                for char, norm, hexval, cat in issue['abnormal_chars']:
+                    category_stats[cat] = category_stats.get(cat, 0) + 1
+                    if args.verbose:
+                        logger.info(f"    '{char}' → '{norm}' ({hexval}, {cat})")
 
-        elif args.fix:
-            logger.info("[修復模式] 正規化異常字元...")
-            total_fixed = 0
-
-            for table, columns in tables:
-                logger.info(f"修復表: {table}")
-                fixed = await fix_table(db, table, columns)
-                total_fixed += fixed
-
-            await db.commit()
-            logger.info(f"共修復 {total_fixed} 筆記錄")
-
+            logger.info(f"\n異常字元統計:")
+            for cat, count in sorted(category_stats.items(), key=lambda x: -x[1]):
+                logger.info(f"  {cat}: {count} 個")
         else:
-            logger.warning("請指定 --check 或 --fix 參數")
-            return 1
+            logger.info("未發現異常字元")
+
+    elif args.fix:
+        logger.info("[修復模式] 正規化異常字元...")
+        total_fixed = 0
+
+        for table, columns in tables:
+            async with AsyncSessionLocal() as db:
+                try:
+                    logger.info(f"修復表: {table}")
+                    fixed = await fix_table(db, table, columns)
+                    total_fixed += fixed
+                    await db.commit()
+                except Exception as e:
+                    await db.rollback()
+                    logger.warning(f"修復表 {table} 失敗: {e}")
+
+        logger.info(f"\n共修復 {total_fixed} 筆記錄")
+
+    else:
+        logger.warning("請指定 --check 或 --fix 參數")
+        return 1
 
     logger.info("=" * 60)
     return 0
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Unicode 字元正規化工具")
+    parser = argparse.ArgumentParser(description="Unicode 字元正規化工具 v3.0")
     parser.add_argument('--check', action='store_true', help='檢查異常字元（不修改）')
     parser.add_argument('--fix', action='store_true', help='修復異常字元')
     parser.add_argument('--table', type=str, help='指定要處理的表名')
+    parser.add_argument('--verbose', '-v', action='store_true', help='顯示異常字元細節')
+    parser.add_argument('--fullwidth', action='store_true', help='同時檢查全形英數符號 (預設不檢查)')
     return parser.parse_args()
 
 

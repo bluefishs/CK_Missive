@@ -53,7 +53,8 @@ async def upload_files(
         try:
             content = await file.read()
         except Exception as e:
-            errors.append(f"讀取檔案 {file.filename} 失敗: {str(e)}")
+            logger.error(f"讀取檔案失敗: {file.filename}: {e}")
+            errors.append(f"讀取檔案 {file.filename} 失敗")
             continue
 
         file_size = len(content)
@@ -68,7 +69,8 @@ async def upload_files(
             async with aiofiles.open(file_path, 'wb') as f:
                 await f.write(content)
         except Exception as e:
-            errors.append(f"儲存檔案 {file.filename} 失敗: {str(e)}")
+            logger.error(f"儲存檔案失敗: {file.filename}: {e}")
+            errors.append(f"儲存檔案 {file.filename} 失敗")
             continue
 
         attachment_id = None
@@ -94,7 +96,8 @@ async def upload_files(
                     os.remove(file_path)
                 except Exception as remove_err:
                     logger.warning(f"清理失敗的上傳檔案時發生錯誤: {remove_err}")
-                errors.append(f"建立附件記錄失敗: {str(e)}")
+                logger.error(f"建立附件記錄失敗: {e}")
+                errors.append("建立附件記錄失敗")
                 continue
 
         uploaded_files.append({

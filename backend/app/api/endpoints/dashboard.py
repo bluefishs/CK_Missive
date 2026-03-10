@@ -17,6 +17,7 @@ from app.db.database import get_async_db
 from app.core.dependencies import require_auth, require_admin
 from app.extended.models import OfficialDocument as Document, User
 from app.repositories.document_repository import DocumentRepository
+from app.repositories.document_stats_repository import DocumentStatsRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.dashboard import (
     DashboardStatsResponse,
@@ -41,9 +42,10 @@ async def get_dashboard_stats(
     """
     try:
         doc_repo = DocumentRepository(db)
+        stats_repo = DocumentStatsRepository(db)
 
         # 1. 高效計算各種狀態的公文數量
-        status_counts = await doc_repo.get_status_statistics()
+        status_counts = await stats_repo.get_status_statistics()
 
         # 2. 獲取最近的 10 筆公文
         recent_documents_raw = await doc_repo.get_recent(limit=10)
@@ -95,7 +97,8 @@ async def get_statistics_overview(
         total_documents = await doc_repo.count()
 
         # 按類型分組的公文數量
-        type_stats = await doc_repo.get_type_statistics()
+        stats_repo = DocumentStatsRepository(db)
+        type_stats = await stats_repo.get_type_statistics()
         document_types = [
             DocumentTypeCount(type=doc_type or "未分類", count=count)
             for doc_type, count in type_stats.items()

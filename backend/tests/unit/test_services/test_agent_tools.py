@@ -344,7 +344,7 @@ class TestExecuteParallel:
             assert len(results) == 2
             # 第一個失敗，應有 error
             assert "error" in results[0]
-            assert "DB error" in results[0]["error"]
+            assert "工具執行失敗" in results[0]["error"]
             # 第二個成功
             assert results[1]["count"] == 0
 

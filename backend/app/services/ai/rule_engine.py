@@ -1,9 +1,9 @@
 """
 AI 意圖解析規則引擎
 
-Version: 2.0.0
+Version: 2.1.0
 Created: 2026-02-09
-Updated: 2026-02-11 - 狀態/機關映射改從 synonyms.yaml 動態載入 (SSOT)
+Updated: 2026-03-06 - 狀態/機關映射改委託 SynonymExpander (DB SSOT)
 
 Layer 1 規則引擎 -- 處理常見、明確的查詢模式。
 高信心度 (>=0.85) 才直接返回，否則返回部分匹配結果供 Layer 2 (LLM) 合併。
@@ -21,48 +21,6 @@ from app.schemas.ai import ParsedSearchIntent
 logger = logging.getLogger(__name__)
 
 
-def _build_mappings_from_synonyms(
-    synonym_path: Path,
-) -> tuple[Dict[str, str], Dict[str, str]]:
-    """
-    從 synonyms.yaml 建構狀態正規化表與機關縮寫表。
-
-    synonyms.yaml 為 SSOT，每組同義詞的第一項為正規名稱。
-
-    Returns:
-        (status_normalize, agency_abbreviations)
-    """
-    status_map: Dict[str, str] = {}
-    agency_map: Dict[str, str] = {}
-
-    try:
-        with open(synonym_path, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
-    except Exception as e:
-        logger.warning(f"規則引擎無法載入 synonyms.yaml: {e}，使用空映射")
-        return status_map, agency_map
-
-    # 狀態正規化：第一項為正規名稱
-    for group in data.get("status_synonyms", []):
-        if isinstance(group, list) and len(group) >= 1:
-            canonical = group[0]
-            for variant in group:
-                status_map[variant] = canonical
-
-    # 機關縮寫：第一項為全稱，其餘為縮寫
-    for group in data.get("agency_synonyms", []):
-        if isinstance(group, list) and len(group) >= 2:
-            full_name = group[0]
-            for abbrev in group[1:]:
-                agency_map[abbrev] = full_name
-
-    logger.info(
-        f"規則引擎映射已從 synonyms.yaml 載入: "
-        f"{len(status_map)} 狀態, {len(agency_map)} 機關"
-    )
-    return status_map, agency_map
-
-
 class IntentRuleEngine:
     """意圖規則引擎 -- 正則/關鍵字匹配"""
 
@@ -72,13 +30,6 @@ class IntentRuleEngine:
     def __init__(self) -> None:
         self._rules: List[Dict[str, Any]] = []
         self._compiled_rules: List[Tuple[re.Pattern[str], Dict[str, Any]]] = []
-
-        # 從 synonyms.yaml 動態載入映射 (SSOT)
-        synonyms_path = Path(__file__).parent / "synonyms.yaml"
-        self.STATUS_NORMALIZE, self.AGENCY_ABBREVIATIONS = (
-            _build_mappings_from_synonyms(synonyms_path)
-        )
-
         self._load_rules()
 
     def _load_rules(self) -> None:
@@ -215,7 +166,11 @@ class IntentRuleEngine:
 
         if spec.startswith("normalize_status("):
             raw = self._resolve_value(spec[17:-1], match)
-            return self.STATUS_NORMALIZE.get(raw, raw) if raw else None
+            if not raw:
+                return None
+            from app.services.ai.synonym_expander import SynonymExpander
+            status_map = SynonymExpander.get_status_normalize()
+            return status_map.get(raw, raw)
 
         if spec.startswith("expand_agency("):
             raw = self._resolve_value(spec[14:-1], match)
@@ -247,8 +202,9 @@ class IntentRuleEngine:
             return None
 
     def _expand_agency(self, name: str) -> str:
-        """機關縮寫轉全稱"""
-        return self.AGENCY_ABBREVIATIONS.get(name, name)
+        """機關縮寫轉全稱（委託 SynonymExpander，走 DB 統一資料源）"""
+        from app.services.ai.synonym_expander import SynonymExpander
+        return SynonymExpander.expand_agency(name)
 
 
 # 全域規則引擎實例 (Singleton)

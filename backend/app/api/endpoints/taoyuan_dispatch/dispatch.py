@@ -5,6 +5,9 @@
 - /dispatch/list - 派工紀錄列表
 - /dispatch/import-template - 下載匯入範本
 - /dispatch/import - 匯入派工紀錄
+- /dispatch/batch-relink-documents - 批次重新關聯公文
+- /dispatch/enrich-from-excel - 從主表 Excel 增強匯入（價金+公文）
+- /dispatch/create-document-stubs - 從原始文號反建公文 Stub + 自動關聯
 - /dispatch/next-dispatch-no - 取得下一個派工單號
 - /dispatch/create - 建立派工紀錄
 - /dispatch/{dispatch_id}/update - 更新派工紀錄
@@ -32,6 +35,13 @@ from .common import (
     ExcelImportResult, PaginationMeta,
     ContractProject,
 )
+from app.schemas.taoyuan.dispatch import (
+    BatchSetRequest, BatchSetResponse, BatchRelinkRequest, BatchRelinkResult,
+    ContractProjectListResponse, NextDispatchNoResponse,
+    EnrichFromExcelResponse, DocumentStubsResponse,
+    DispatchSuccessResponse, AsyncExportResponse, ExportProgressResponse,
+    DocumentHistoryResponse, DispatchDetailWithHistoryResponse,
+)
 from app.utils.doc_helpers import is_outgoing_doc_number
 from app.services.taoyuan import DispatchOrderService, DispatchExportService, ExportTaskManager
 
@@ -43,35 +53,14 @@ def get_dispatch_service(db: AsyncSession = Depends(get_async_db)) -> DispatchOr
     return DispatchOrderService(db)
 
 
-@router.post("/dispatch/contract-projects", summary="桃園派工承攬案件列表")
+@router.post("/dispatch/contract-projects", response_model=ContractProjectListResponse, summary="桃園派工承攬案件列表")
 async def list_contract_projects(
-    db: AsyncSession = Depends(get_async_db),
+    service: DispatchOrderService = Depends(get_dispatch_service),
     current_user=Depends(require_auth()),
-):
+) -> ContractProjectListResponse:
     """取得與桃園派工相關的承攬案件列表（用於專案切換下拉選單）"""
-    result = await db.execute(
-        select(
-            ContractProject.id,
-            ContractProject.project_name,
-            ContractProject.project_code,
-            ContractProject.year,
-        )
-        .where(
-            ContractProject.project_name.ilike("%桃園%"),
-            ContractProject.project_name.ilike("%查估%"),
-        )
-        .order_by(ContractProject.year.desc(), ContractProject.id.desc())
-    )
-    items = [
-        {
-            "id": row.id,
-            "project_name": row.project_name,
-            "project_code": row.project_code,
-            "year": row.year,
-        }
-        for row in result.all()
-    ]
-    return {"success": True, "items": items}
+    items = await service.get_contract_projects()
+    return ContractProjectListResponse(success=True, items=items)
 
 
 @router.post("/dispatch/list", response_model=DispatchOrderListResponse, summary="派工紀錄列表")
@@ -131,26 +120,117 @@ async def import_dispatch_orders(
     if not result['success']:
         raise HTTPException(status_code=400, detail=result['errors'][0] if result['errors'] else '匯入失敗')
 
-    linked_info = ""  # 匯入功能已移至服務層
+    # 組合公文關聯統計訊息
+    link_stats = result.get('doc_link_stats') or {}
+    linked_count = link_stats.get('linked', 0)
+    not_found_count = len(link_stats.get('not_found', []))
+    link_info = ""
+    if linked_count or not_found_count:
+        link_info = f"，關聯 {linked_count} 筆公文"
+        if not_found_count:
+            link_info += f"（{not_found_count} 筆文號未找到）"
 
     return ExcelImportResult(
         success=True,
-        message=f"匯入完成：成功 {result['success_count']} 筆，跳過 {result['error_count']} 筆",
+        message=f"匯入完成：成功 {result['success_count']} 筆，跳過 {result['error_count']} 筆{link_info}",
         total_rows=result['total'],
         imported_count=result['success_count'],
         skipped_count=result['error_count'],
         error_count=len(result['errors']),
-        errors=result['errors'][:20]
+        errors=result['errors'][:20],
+        doc_link_stats=link_stats if link_stats else None,
+        warnings=result.get('warnings', []),
     )
 
 
-@router.post("/dispatch/next-dispatch-no", summary="取得下一個派工單號")
+@router.post("/dispatch/batch-relink-documents", summary="批次重新關聯公文")
+async def batch_relink_documents(
+    request: BatchRelinkRequest = Body(...),
+    db: AsyncSession = Depends(get_async_db),
+    current_user=Depends(require_auth()),
+):
+    """
+    批次重新關聯：掃描指定案件所有有原始文號的派工單，嘗試匹配公文。
+
+    適用場景：派工單先匯入（文號已存），公文後建檔，需補建關聯。
+    """
+    from app.services.taoyuan.dispatch_import_service import DispatchImportService
+    import_service = DispatchImportService(db)
+    result = await import_service.batch_relink_by_project(request.contract_project_id)
+
+    not_found_count = len(result.get('not_found', []))
+    msg_parts = [f"掃描 {result['total_scanned']} 筆派工單"]
+    if result['newly_linked']:
+        msg_parts.append(f"新建 {result['newly_linked']} 筆關聯")
+    if not_found_count:
+        msg_parts.append(f"{not_found_count} 筆文號未找到")
+    if not result['newly_linked'] and not not_found_count:
+        msg_parts.append("無需更新")
+
+    return BatchRelinkResult(
+        success=True,
+        total_scanned=result['total_scanned'],
+        newly_linked=result['newly_linked'],
+        already_linked=result.get('already_linked', 0),
+        doc_map_size=result.get('doc_map_size', 0),
+        not_found=result.get('not_found', [])[:100],
+        message="，".join(msg_parts),
+    )
+
+
+@router.post("/dispatch/enrich-from-excel", response_model=EnrichFromExcelResponse, summary="從主表 Excel 增強匯入（價金+公文）")
+async def enrich_from_excel(
+    file: UploadFile = File(..., description="分派案件紀錄表 Excel"),
+    dispatch_no_prefix: str = Form(default="112年_派工單號", description="派工單號前綴"),
+    data_start_row: int = Form(default=4, description="資料起始行 (1-based)"),
+    sheet_name: str = Form(default="派工單", description="Sheet 名稱"),
+    db: AsyncSession = Depends(get_async_db),
+    current_user=Depends(require_auth()),
+):
+    """
+    從「分派案件紀錄表」主表 Excel 增強匯入：
+
+    - 以項次 (A 欄) 為索引對應現有派工單
+    - 價金匯入：7 種作業類別的派工日期/金額 (C-P) + 彙總 (S/T/U) + 驗收日期 (R)
+    - 公文原始值：機關來文 (Z 欄) + 公司發文 (AB 欄)，不過度解析
+    """
+    from app.services.taoyuan.dispatch_enrichment_service import DispatchEnrichmentService
+    content = await file.read()
+    service = DispatchEnrichmentService(db)
+    result = await service.enrich_from_master_excel(
+        file_content=content,
+        dispatch_no_prefix=dispatch_no_prefix,
+        data_start_row=data_start_row,
+        sheet_name=sheet_name,
+    )
+    return EnrichFromExcelResponse(success=True, **result)
+
+
+@router.post("/dispatch/create-document-stubs", response_model=DocumentStubsResponse, summary="從原始文號反建公文 Stub + 自動關聯")
+async def create_document_stubs(
+    request: BatchRelinkRequest = Body(...),
+    db: AsyncSession = Depends(get_async_db),
+    current_user=Depends(require_auth()),
+):
+    """
+    從派工單已存的原始文號 (agency_doc_number_raw / company_doc_number_raw)
+    反向建立 OfficialDocument Stub 記錄，並自動建立 DispatchDocumentLink 關聯。
+
+    **不需要額外匯入公文 Excel**，直接從 DB 現有資料產生公文矩陣。
+    """
+    from app.services.taoyuan.dispatch_enrichment_service import DispatchEnrichmentService
+    service = DispatchEnrichmentService(db)
+    result = await service.create_document_stubs(request.contract_project_id)
+    return DocumentStubsResponse(success=True, **result)
+
+
+@router.post("/dispatch/next-dispatch-no", response_model=NextDispatchNoResponse, summary="取得下一個派工單號")
 async def get_next_dispatch_no(
     contract_project_id: Optional[int] = Body(None, embed=True),
     service: DispatchOrderService = Depends(get_dispatch_service),
     db: AsyncSession = Depends(get_async_db),
     current_user = Depends(require_auth()),
-):
+) -> NextDispatchNoResponse:
     """根據承攬案件年度自動生成下一個單號（格式: {民國年}年_派工單號{NNN}）"""
     import re as re_mod
     from datetime import datetime
@@ -176,12 +256,12 @@ async def get_next_dispatch_no(
     match = re_mod.search(r'(\d+)$', next_dispatch_no)
     next_seq = int(match.group(1)) if match else 1
 
-    return {
-        "success": True,
-        "next_dispatch_no": next_dispatch_no,
-        "current_year": roc_year,
-        "next_sequence": next_seq
-    }
+    return NextDispatchNoResponse(
+        success=True,
+        next_dispatch_no=next_dispatch_no,
+        current_year=roc_year,
+        next_sequence=next_seq,
+    )
 
 
 @router.post("/dispatch/create", response_model=DispatchOrderSchema, summary="建立派工紀錄")
@@ -209,7 +289,7 @@ async def create_dispatch_order(
         raise HTTPException(status_code=400, detail="資料驗證失敗，請檢查輸入資料")
     except Exception as e:
         # 捕獲其他異常並記錄詳細錯誤（不向客戶端暴露內部細節）
-        logger.error(f"[dispatch/create] 未預期錯誤: {type(e).__name__}: {str(e)}")
+        logger.error(f"[dispatch/create] 未預期錯誤: {type(e).__name__}: {e}")
         raise HTTPException(
             status_code=500,
             detail="建立派工單失敗，請稍後再試或聯繫管理員"
@@ -244,17 +324,40 @@ async def get_dispatch_order_detail(
     return service._to_response_dict(order)
 
 
-@router.post("/dispatch/{dispatch_id}/delete", summary="刪除派工紀錄")
+@router.post("/dispatch/batch-set-batch", response_model=BatchSetResponse, summary="批量設定結案批次")
+async def batch_set_batch(
+    data: BatchSetRequest,
+    service: DispatchOrderService = Depends(get_dispatch_service),
+    current_user = Depends(require_auth())
+):
+    """批量設定多筆派工單的結案批次"""
+    updated = 0
+    for did in data.dispatch_ids:
+        update_data = DispatchOrderUpdate(
+            batch_no=data.batch_no,
+            batch_label=data.batch_label,
+        )
+        result = await service.update_dispatch_order(did, update_data)
+        if result:
+            updated += 1
+    return BatchSetResponse(
+        success=True,
+        updated_count=updated,
+        message=f"已更新 {updated} 筆派工單的結案批次",
+    )
+
+
+@router.post("/dispatch/{dispatch_id}/delete", response_model=DispatchSuccessResponse, summary="刪除派工紀錄")
 async def delete_dispatch_order(
     dispatch_id: int,
     service: DispatchOrderService = Depends(get_dispatch_service),
     current_user = Depends(require_auth())
-):
+) -> DispatchSuccessResponse:
     """刪除派工紀錄"""
     success = await service.delete_dispatch_order(dispatch_id)
     if not success:
         raise HTTPException(status_code=404, detail="派工紀錄不存在")
-    return {"success": True, "message": "刪除成功"}
+    return DispatchSuccessResponse(success=True, message="刪除成功")
 
 
 @router.post(
@@ -306,14 +409,14 @@ async def export_dispatch_master_excel(
     )
 
 
-@router.post("/dispatch/export/excel/async", summary="提交非同步匯出任務")
+@router.post("/dispatch/export/excel/async", response_model=AsyncExportResponse, summary="提交非同步匯出任務")
 async def submit_async_export(
     contract_project_id: Optional[int] = Body(None, embed=True),
     work_type: Optional[str] = Body(None, embed=True),
     search: Optional[str] = Body(None, embed=True),
     db: AsyncSession = Depends(get_async_db),
     current_user=Depends(require_auth()),
-):
+) -> AsyncExportResponse:
     """提交非同步匯出任務，回傳 task_id 供前端輪詢進度"""
     task_id = await ExportTaskManager.submit_export(
         db=db,
@@ -321,19 +424,19 @@ async def submit_async_export(
         work_type=work_type,
         search=search,
     )
-    return {"success": True, "task_id": task_id}
+    return AsyncExportResponse(success=True, task_id=task_id)
 
 
-@router.post("/dispatch/export/excel/progress", summary="查詢匯出進度")
+@router.post("/dispatch/export/excel/progress", response_model=ExportProgressResponse, summary="查詢匯出進度")
 async def get_export_progress(
     task_id: str = Body(..., embed=True),
     current_user=Depends(require_auth()),
-):
+) -> ExportProgressResponse:
     """輪詢匯出任務進度 (status/progress/total/message)"""
     progress = await ExportTaskManager.get_progress(task_id)
     if not progress:
         raise HTTPException(status_code=404, detail="任務不存在或已過期")
-    return {"success": True, **progress}
+    return ExportProgressResponse(success=True, **progress)
 
 
 @router.post(
@@ -366,21 +469,16 @@ async def download_async_export(
     )
 
 
-@router.post("/dispatch/match-documents", summary="匹配公文歷程")
+@router.post("/dispatch/match-documents", response_model=DocumentHistoryResponse, summary="匹配公文歷程")
 async def match_document_history(
     project_name: str = Body(..., embed=True),
     dispatch_id: Optional[int] = Body(None, embed=True),
     service: DispatchOrderService = Depends(get_dispatch_service),
     current_user = Depends(require_auth())
-):
+) -> DocumentHistoryResponse:
     """根據工程名稱自動匹配公文歷程（含多策略關鍵字搜尋）"""
     if not project_name or not project_name.strip():
-        return {
-            "success": False,
-            "message": "工程名稱不可為空",
-            "agency_documents": [],
-            "company_documents": []
-        }
+        raise HTTPException(status_code=400, detail="工程名稱不可為空")
 
     documents = await service.match_documents(
         project_name=project_name,
@@ -391,28 +489,25 @@ async def match_document_history(
     agency_docs = [d for d in documents if not is_outgoing_doc_number(d.get('doc_number'))]
     company_docs = [d for d in documents if is_outgoing_doc_number(d.get('doc_number'))]
 
-    return {
-        "success": True,
-        "project_name": project_name,
-        "agency_documents": agency_docs,
-        "company_documents": company_docs,
-        "total_agency_docs": len(agency_docs),
-        "total_company_docs": len(company_docs)
-    }
+    return DocumentHistoryResponse(
+        success=True,
+        project_name=project_name,
+        agency_documents=agency_docs,
+        company_documents=company_docs,
+        total_agency_docs=len(agency_docs),
+        total_company_docs=len(company_docs),
+    )
 
 
-@router.post("/dispatch/{dispatch_id}/detail-with-history", summary="取得派工紀錄詳情 (含公文歷程)")
+@router.post("/dispatch/{dispatch_id}/detail-with-history", response_model=DispatchDetailWithHistoryResponse, summary="取得派工紀錄詳情 (含公文歷程)")
 async def get_dispatch_order_detail_with_history(
     dispatch_id: int,
     service: DispatchOrderService = Depends(get_dispatch_service),
     current_user = Depends(require_auth())
-):
+) -> DispatchDetailWithHistoryResponse:
     """取得派工紀錄詳情，並自動匹配公文歷程"""
     result = await service.get_dispatch_with_history(dispatch_id)
     if not result:
         raise HTTPException(status_code=404, detail="派工紀錄不存在")
 
-    return {
-        "success": True,
-        "data": result
-    }
+    return DispatchDetailWithHistoryResponse(success=True, data=result)

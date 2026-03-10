@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.database import get_async_db
 from app.core.dependencies import require_admin
 from app.extended.models import User
+from app.schemas.admin import AdminQueryRequest
 import logging
 
 # 匯入服務層
@@ -62,7 +63,7 @@ async def get_table_data(
 
 @router.post("/database/query", summary="執行唯讀 SQL 查詢 (PostgreSQL)")
 async def execute_query(
-    query_data: dict,
+    query_data: AdminQueryRequest,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_admin())
 ):
@@ -73,7 +74,7 @@ async def execute_query(
     """
     try:
         service = AdminService(db)
-        return await service.execute_read_only_query(query_data)
+        return await service.execute_read_only_query(query_data.model_dump())
     except HTTPException:
         raise
     except Exception as e:

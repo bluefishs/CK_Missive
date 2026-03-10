@@ -18,7 +18,7 @@ from typing import Optional
 
 import re
 
-from sqlalchemy import select, func as sa_func, union_all, or_
+from sqlalchemy import select, func as sa_func, union_all, or_, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.extended.models import (
@@ -374,7 +374,7 @@ class GraphQueryService:
             )
             .join(
                 CanonicalEntity,
-                CanonicalEntity.id == sa_func.case(
+                CanonicalEntity.id == case(
                     (EntityRelationship.source_entity_id == entity_id,
                      EntityRelationship.target_entity_id),
                     else_=EntityRelationship.source_entity_id,
@@ -542,3 +542,87 @@ class GraphQueryService:
             self._config.graph_cache_ttl_stats,
         )
         return result
+
+    async def get_code_wiki_graph(
+        self,
+        entity_types: Optional[list] = None,
+        module_prefix: Optional[str] = None,
+        limit: int = 500,
+    ) -> dict:
+        """取得 Code Wiki 代碼圖譜（nodes + edges），帶 Redis 快取"""
+        types_key = ",".join(sorted(entity_types or ["py_module"]))
+        cache_key = f"code_wiki:{types_key}:{module_prefix or ''}:{limit}"
+        cached = await _graph_cache.get(cache_key)
+        if cached:
+            return json.loads(cached)
+
+        result = await self._get_code_wiki_graph_uncached(entity_types, module_prefix, limit)
+        await _graph_cache.set(cache_key, json.dumps(result, ensure_ascii=False), 600)
+        return result
+
+    async def _get_code_wiki_graph_uncached(
+        self,
+        entity_types: Optional[list],
+        module_prefix: Optional[str],
+        limit: int,
+    ) -> dict:
+        """取得 Code Wiki 代碼圖譜（無快取）"""
+        from app.services.ai.code_graph_service import CODE_ENTITY_TYPES, CODE_GRAPH_LABEL
+
+        types = entity_types or ["py_module"]
+        valid_types = [t for t in types if t in CODE_ENTITY_TYPES]
+        if not valid_types:
+            return {"nodes": [], "edges": []}
+
+        # 查詢 code entities
+        query = (
+            select(CanonicalEntity)
+            .where(CanonicalEntity.entity_type.in_(valid_types))
+        )
+        if module_prefix:
+            import re
+            safe_prefix = re.sub(r'([%_\\])', r'\\\1', module_prefix)
+            query = query.where(CanonicalEntity.canonical_name.like(f"{safe_prefix}%"))
+        query = query.order_by(CanonicalEntity.canonical_name).limit(limit)
+
+        entities_result = await self.db.execute(query)
+        entities = entities_result.scalars().all()
+        node_ids = {e.id for e in entities}
+
+        if not node_ids:
+            return {"nodes": [], "edges": []}
+
+        # 查詢 code graph 關聯（source 和 target 都在 node_ids 中）
+        edges_result = await self.db.execute(
+            select(EntityRelationship)
+            .where(
+                EntityRelationship.relation_label == CODE_GRAPH_LABEL,
+                EntityRelationship.source_entity_id.in_(node_ids),
+                EntityRelationship.target_entity_id.in_(node_ids),
+                EntityRelationship.invalidated_at.is_(None),
+            )
+        )
+
+        nodes = [
+            {
+                "id": str(e.id),
+                "type": e.entity_type,
+                "label": e.canonical_name.split("::")[-1] if "::" in e.canonical_name else e.canonical_name.split(".")[-1],
+                "category": e.canonical_name,
+                "mention_count": e.mention_count,
+            }
+            for e in entities
+        ]
+
+        edges = [
+            {
+                "source": str(rel.source_entity_id),
+                "target": str(rel.target_entity_id),
+                "label": rel.relation_type,
+                "type": rel.relation_type,
+                "weight": rel.weight,
+            }
+            for rel in edges_result.scalars().all()
+        ]
+
+        return {"nodes": nodes, "edges": edges}

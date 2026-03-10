@@ -322,6 +322,7 @@ class TaoyuanProjectRepository(BaseRepository[TaoyuanProject]):
                 success_count += 1
 
             except Exception as e:
-                errors.append(f"第 {idx} 行：{str(e)}")
+                logger.error(f"第 {idx} 行匯入失敗: {e}")
+                errors.append(f"第 {idx} 行：匯入失敗")
 
         return success_count, errors

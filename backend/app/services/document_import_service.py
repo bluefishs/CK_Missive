@@ -88,7 +88,7 @@ class DocumentImportService(ImportBaseService):
                 errors=[ImportRowResult(
                     row=0,
                     status='error',
-                    message=f"CSV 檔案處理失敗: {str(e)}"
+                    message="CSV 檔案處理失敗，請檢查檔案格式"
                 )]
             )
 
@@ -143,7 +143,7 @@ class DocumentImportService(ImportBaseService):
                 errors=[ImportRowResult(
                     row=0,
                     status='error',
-                    message=f"資料庫匯入失敗: {str(e)}"
+                    message="資料庫匯入失敗，請稍後再試"
                 )]
             )
 
@@ -197,7 +197,7 @@ class DocumentImportService(ImportBaseService):
             return ImportRowResult(
                 row=row_num,
                 status='error',
-                message=str(e)
+                message="處理失敗，請檢查資料格式"
             )
 
     # ========== 相容性方法 ==========

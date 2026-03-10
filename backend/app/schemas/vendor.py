@@ -6,7 +6,7 @@ Pydantic schemas for Partner Vendors
 v1.1.0 - 2026-01-26: 新增名稱標準化驗證器，避免重複資料
 """
 from typing import Optional
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, Field, ConfigDict, EmailStr, field_validator
 from datetime import datetime
 
 from app.schemas.common import PaginatedResponse
@@ -49,7 +49,7 @@ class VendorBase(BaseModel):
     contact_person: Optional[str] = Field(None, max_length=100, description="聯絡人")
     phone: Optional[str] = Field(None, max_length=50, description="電話")
     address: Optional[str] = Field(None, max_length=300, description="地址")
-    email: Optional[str] = Field(None, max_length=100, description="電子郵件")
+    email: Optional[EmailStr] = Field(None, max_length=100, description="電子郵件")
     business_type: Optional[str] = Field(None, max_length=100, description="營業項目")
     rating: Optional[int] = Field(None, ge=1, le=5, description="合作評價 (1-5)")
 
@@ -70,7 +70,7 @@ class VendorUpdate(BaseModel):
     contact_person: Optional[str] = Field(None, max_length=100)
     phone: Optional[str] = Field(None, max_length=50)
     address: Optional[str] = Field(None, max_length=300)
-    email: Optional[str] = Field(None, max_length=100)
+    email: Optional[EmailStr] = Field(None, max_length=100)
     business_type: Optional[str] = Field(None, max_length=100, description="營業項目")
     rating: Optional[int] = Field(None, ge=1, le=5, description="合作評價 (1-5)")
 

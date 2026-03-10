@@ -451,13 +451,39 @@ DEFAULT_NAVIGATION_ITEMS = [
         "permission_required": "[]"
     },
 
+    # 代碼圖譜 Code Wiki (對應 ROUTES.CODE_WIKI)
+    {
+        "title": "代碼圖譜",
+        "key": "code-wiki",
+        "path": "/ai/code-wiki",
+        "icon": "CodeOutlined",
+        "sort_order": 2,
+        "level": 2,
+        "parent_key": "ai-features",
+        "description": "代碼,程式碼,模組,Code Wiki,圖譜",
+        "permission_required": "[]"
+    },
+
+    # 代碼圖譜管理 (對應 ROUTES.CODE_GRAPH_MANAGEMENT)
+    {
+        "title": "代碼圖譜管理",
+        "key": "code-graph-management",
+        "path": "/admin/code-graph",
+        "icon": "CodeOutlined",
+        "sort_order": 3,
+        "level": 2,
+        "parent_key": "ai-features",
+        "description": "代碼,程式碼,入圖,匯入,循環依賴,架構分析",
+        "permission_required": '["admin"]'
+    },
+
     # AI 助理管理 (對應 ROUTES.AI_ASSISTANT_MANAGEMENT)
     {
         "title": "AI 助理管理",
         "key": "ai-assistant-management",
         "path": "/admin/ai-assistant",
         "icon": "ExperimentOutlined",
-        "sort_order": 2,
+        "sort_order": 3,
         "level": 2,
         "parent_key": "ai-features",
         "description": "AI,助理,管理,儀表板",

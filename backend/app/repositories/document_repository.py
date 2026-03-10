@@ -4,9 +4,10 @@ DocumentRepository - 公文資料存取層
 提供公文相關的資料庫查詢操作，包含：
 - 公文特定查詢方法
 - 附件關聯查詢
-- 統計方法
 - 進階篩選
 - 投影查詢最佳化 (v1.1.0)
+
+統計方法已提取至 DocumentStatsRepository (v1.2.0)
 
 版本: 1.1.0
 建立日期: 2026-01-26
@@ -55,7 +56,7 @@ class DocumentRepository(BaseRepository[OfficialDocument]):
     """
 
     # 搜尋欄位設定
-    SEARCH_FIELDS = ['subject', 'doc_number', 'sender', 'receiver', 'ck_note']
+    SEARCH_FIELDS = ['subject', 'doc_number', 'sender', 'receiver', 'content', 'notes', 'ck_note']
 
     # 列表頁面投影欄位（僅載入必要欄位，減少約 30% 資料傳輸）
     LIST_PROJECTION_FIELDS = [
@@ -499,198 +500,6 @@ class DocumentRepository(BaseRepository[OfficialDocument]):
         )
         result = await self.db.execute(query)
         return list(result.scalars().all())
-
-    # =========================================================================
-    # 統計方法
-    # =========================================================================
-
-    async def get_statistics(self) -> Dict[str, Any]:
-        """
-        取得公文統計資料
-
-        Returns:
-            統計資料字典，包含：
-            - total: 總數
-            - by_type: 依類型統計
-            - by_status: 依狀態統計
-            - by_month: 依月份統計（當年度）
-        """
-        # 總數
-        total = await self.count()
-
-        # 依類型統計
-        type_stats = await self._get_grouped_count('doc_type')
-
-        # 依狀態統計
-        status_stats = await self._get_grouped_count('status')
-
-        # 當年度月份統計
-        current_year = date.today().year
-        month_stats = await self._get_monthly_count(current_year)
-
-        return {
-            "total": total,
-            "by_type": type_stats,
-            "by_status": status_stats,
-            "by_month": month_stats,
-            "year": current_year,
-        }
-
-    async def get_type_statistics(self) -> Dict[str, int]:
-        """
-        取得依類型統計
-
-        Returns:
-            {類型: 數量} 字典
-        """
-        return await self._get_grouped_count('doc_type')
-
-    async def get_status_statistics(self) -> Dict[str, int]:
-        """
-        取得依狀態統計
-
-        Returns:
-            {狀態: 數量} 字典
-        """
-        return await self._get_grouped_count('status')
-
-    async def get_yearly_statistics(self, year: int) -> Dict[str, Any]:
-        """
-        取得年度統計
-
-        Args:
-            year: 年度
-
-        Returns:
-            年度統計資料
-        """
-        # 該年度總數
-        query = select(func.count(OfficialDocument.id)).where(
-            or_(
-                extract('year', OfficialDocument.doc_date) == year,
-                extract('year', OfficialDocument.receive_date) == year
-            )
-        )
-        total = (await self.db.execute(query)).scalar() or 0
-
-        # 月份統計
-        month_stats = await self._get_monthly_count(year)
-
-        # 類型統計（該年度）
-        type_stats = await self._get_grouped_count_with_year('doc_type', year)
-
-        return {
-            "year": year,
-            "total": total,
-            "by_month": month_stats,
-            "by_type": type_stats,
-        }
-
-    async def get_pending_count(self) -> int:
-        """
-        取得待處理公文數量
-
-        Returns:
-            待處理公文數量
-        """
-        return await self.count_by(status='待處理')
-
-    async def get_unlinked_count(self) -> int:
-        """
-        取得未關聯專案的公文數量
-
-        Returns:
-            未關聯專案的公文數量
-        """
-        query = select(func.count(OfficialDocument.id)).where(
-            OfficialDocument.contract_project_id.is_(None)
-        )
-        result = await self.db.execute(query)
-        return result.scalar() or 0
-
-    async def _get_grouped_count(self, field_name: str) -> Dict[str, int]:
-        """
-        取得依欄位分組的計數
-
-        Args:
-            field_name: 欄位名稱
-
-        Returns:
-            {欄位值: 數量} 字典
-        """
-        field = getattr(OfficialDocument, field_name)
-        query = (
-            select(field, func.count(OfficialDocument.id))
-            .group_by(field)
-        )
-        result = await self.db.execute(query)
-
-        stats = {}
-        for value, count in result.fetchall():
-            key = value if value else '(未設定)'
-            stats[key] = count
-        return stats
-
-    async def _get_grouped_count_with_year(
-        self,
-        field_name: str,
-        year: int
-    ) -> Dict[str, int]:
-        """
-        取得指定年度依欄位分組的計數
-
-        Args:
-            field_name: 欄位名稱
-            year: 年度
-
-        Returns:
-            {欄位值: 數量} 字典
-        """
-        field = getattr(OfficialDocument, field_name)
-        query = (
-            select(field, func.count(OfficialDocument.id))
-            .where(
-                or_(
-                    extract('year', OfficialDocument.doc_date) == year,
-                    extract('year', OfficialDocument.receive_date) == year
-                )
-            )
-            .group_by(field)
-        )
-        result = await self.db.execute(query)
-
-        stats = {}
-        for value, count in result.fetchall():
-            key = value if value else '(未設定)'
-            stats[key] = count
-        return stats
-
-    async def _get_monthly_count(self, year: int) -> Dict[int, int]:
-        """
-        取得指定年度的月份統計
-
-        Args:
-            year: 年度
-
-        Returns:
-            {月份: 數量} 字典
-        """
-        query = (
-            select(
-                extract('month', OfficialDocument.doc_date).label('month'),
-                func.count(OfficialDocument.id)
-            )
-            .where(extract('year', OfficialDocument.doc_date) == year)
-            .group_by(extract('month', OfficialDocument.doc_date))
-        )
-        result = await self.db.execute(query)
-
-        # 初始化所有月份為 0
-        stats = {i: 0 for i in range(1, 13)}
-        for month, count in result.fetchall():
-            if month:
-                stats[int(month)] = count
-        return stats
 
     # =========================================================================
     # 流水序號相關

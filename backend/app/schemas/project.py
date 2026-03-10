@@ -8,7 +8,7 @@
 
 from typing import List, Optional
 from datetime import datetime, date
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, Field, ConfigDict, EmailStr, field_validator
 
 from app.schemas.common import PaginatedResponse, PaginationMeta, SortOrder
 
@@ -45,7 +45,8 @@ class ProjectBase(BaseModel):
     client_agency_id: Optional[int] = Field(None, description="委託機關ID")
     agency_contact_person: Optional[str] = Field(None, max_length=100, description="機關承辦人")
     agency_contact_phone: Optional[str] = Field(None, max_length=50, description="機關承辦電話")
-    agency_contact_email: Optional[str] = Field(None, max_length=100, description="機關承辦Email")
+    agency_contact_email: Optional[EmailStr] = Field(None, max_length=100, description="機關承辦Email")
+    has_dispatch_management: Optional[bool] = Field(None, description="啟用派工管理功能")
 
     @field_validator('end_date') # 使用 field_validator
     @classmethod
@@ -99,7 +100,8 @@ class ProjectUpdate(BaseModel):
     client_agency_id: Optional[int] = Field(None, description="委託機關ID")
     agency_contact_person: Optional[str] = Field(None, max_length=100, description="機關承辦人")
     agency_contact_phone: Optional[str] = Field(None, max_length=50, description="機關承辦電話")
-    agency_contact_email: Optional[str] = Field(None, max_length=100, description="機關承辦Email")
+    agency_contact_email: Optional[EmailStr] = Field(None, max_length=100, description="機關承辦Email")
+    has_dispatch_management: Optional[bool] = Field(None, description="啟用派工管理功能")
 
     @field_validator('end_date') # 使用 field_validator
     @classmethod

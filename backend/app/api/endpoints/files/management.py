@@ -65,7 +65,7 @@ async def delete_file(
         try:
             os.remove(attachment.file_path)
         except Exception as e:
-            logger.warning(f"刪除實體檔案失敗: {str(e)}")
+            logger.warning(f"刪除實體檔案失敗: {e}")
 
     await repo.delete(file_id)
     await db.commit()

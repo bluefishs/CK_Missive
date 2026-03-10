@@ -7,7 +7,7 @@
 @date 2026-01-20
 """
 from typing import List, Optional, Any, Dict
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 # ============================================================================
@@ -37,7 +37,7 @@ class DashboardStatsResponse(BaseModel):
     stats: DashboardStats
     recent_documents: List[Any] = Field(default_factory=list, description="最近公文列表")
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class StatisticsOverviewResponse(BaseModel):
@@ -47,7 +47,7 @@ class StatisticsOverviewResponse(BaseModel):
     total_users: int = Field(0, description="使用者總數")
     active_users: int = Field(0, description="活躍使用者數")
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ============================================================================
@@ -67,7 +67,7 @@ class CalendarStatsResponse(BaseModel):
     by_type: List[CalendarStatsItem] = Field(default_factory=list, description="按類型統計")
     upcoming_count: int = Field(0, description="即將到來的事件數")
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CalendarCategoryItem(BaseModel):
@@ -81,7 +81,7 @@ class CalendarCategoriesResponse(BaseModel):
     """行事曆分類回應 - /dashboard/pure-calendar-categories"""
     categories: List[CalendarCategoryItem] = Field(default_factory=list, description="分類列表")
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ============================================================================
@@ -103,7 +103,7 @@ class UserManagementUsersResponse(BaseModel):
     users: List[UserManagementUserItem] = Field(default_factory=list)
     total: int = Field(0)
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PermissionItem(BaseModel):
@@ -117,7 +117,7 @@ class UserManagementPermissionsResponse(BaseModel):
     """權限列表回應 - /dashboard/user-management-permissions"""
     permissions: List[PermissionItem] = Field(default_factory=list)
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ============================================================================
@@ -136,4 +136,4 @@ class DevMappingResponse(BaseModel):
     api_mappings: List[ApiMappingItem] = Field(default_factory=list)
     total_endpoints: int = Field(0)
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)

@@ -45,6 +45,8 @@ from .common import (
 )
 
 from app.repositories.taoyuan.project_repository import TaoyuanProjectRepository
+from app.schemas.taoyuan.dispatch import DispatchSuccessResponse
+from app.services.taoyuan import DispatchOrderService
 
 logger = logging.getLogger(__name__)
 
@@ -157,43 +159,29 @@ async def update_taoyuan_project(
     if not project:
         raise HTTPException(status_code=404, detail="工程不存在")
 
-    update_data = data.model_dump(exclude_unset=True, exclude_none=True)
+    update_data = data.model_dump(exclude_unset=True)
+    # 日期欄位：字串 → date 物件
+    from datetime import date as date_type, datetime as datetime_type
+    date_fields = {'completion_date'}
     for key, value in update_data.items():
+        if key in date_fields and isinstance(value, str):
+            try:
+                parts = value.split('-')
+                value = date_type(int(parts[0]), int(parts[1]), int(parts[2]))
+            except (ValueError, IndexError):
+                value = None
         setattr(project, key, value)
 
     # 同步 case_handler / survey_unit 到關聯的派工單
     sync_fields = {}
-    if 'case_handler' in update_data and update_data['case_handler']:
+    if 'case_handler' in update_data and update_data.get('case_handler'):
         sync_fields['case_handler'] = update_data['case_handler']
-    if 'survey_unit' in update_data and update_data['survey_unit']:
+    if 'survey_unit' in update_data and update_data.get('survey_unit'):
         sync_fields['survey_unit'] = update_data['survey_unit']
 
     if sync_fields:
-        link_result = await db.execute(
-            select(TaoyuanDispatchProjectLink.dispatch_order_id).where(
-                TaoyuanDispatchProjectLink.taoyuan_project_id == project_id
-            )
-        )
-        dispatch_ids = [row[0] for row in link_result.all()]
-
-        if dispatch_ids:
-            order_result = await db.execute(
-                select(TaoyuanDispatchOrder).where(
-                    TaoyuanDispatchOrder.id.in_(dispatch_ids)
-                )
-            )
-            orders = order_result.scalars().all()
-            updated = 0
-            for order in orders:
-                for field, value in sync_fields.items():
-                    if getattr(order, field, None) != value:
-                        setattr(order, field, value)
-                        updated += 1
-            if updated > 0:
-                logger.info(
-                    "工程 %d 同步 %s 到 %d 個派工單",
-                    project_id, list(sync_fields.keys()), updated
-                )
+        dispatch_service = DispatchOrderService(db)
+        await dispatch_service.sync_fields_to_dispatch_orders(project_id, sync_fields)
 
     await db.commit()
     await db.refresh(project)
@@ -214,22 +202,24 @@ async def get_taoyuan_project_detail(
     return TaoyuanProjectSchema.model_validate(project)
 
 
-@router.post("/projects/{project_id}/delete", summary="刪除轄管工程")
+@router.post("/projects/{project_id}/delete", response_model=DispatchSuccessResponse, summary="刪除轄管工程")
 async def delete_taoyuan_project(
     project_id: int,
     db: AsyncSession = Depends(get_async_db),
     current_user = Depends(require_auth())
-):
+) -> DispatchSuccessResponse:
     """刪除轄管工程"""
     repo = TaoyuanProjectRepository(db)
     deleted = await repo.delete(project_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="工程不存在")
-    return {"success": True, "message": "刪除成功"}
+    return DispatchSuccessResponse(success=True, message="刪除成功")
 
 
 @router.post("/projects/import-template", summary="下載轄管工程匯入範本")
-async def download_import_template():
+async def download_import_template(
+    current_user=Depends(require_auth()),
+):
     """下載 Excel 匯入範本"""
     template_columns = [
         '項次', '審議年度', '案件類型', '行政區', '工程名稱',

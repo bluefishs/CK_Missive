@@ -1,7 +1,7 @@
 """
 桃園查估派工 - 派工紀錄 Schemas
 """
-from typing import Optional, List
+from typing import Any, Dict, Optional, List
 from pydantic import BaseModel, Field, ConfigDict
 from datetime import date, datetime
 
@@ -22,12 +22,15 @@ class DispatchOrderBase(BaseModel):
     cloud_folder: Optional[str] = Field(None, max_length=500, description="雲端資料夾")
     project_folder: Optional[str] = Field(None, max_length=500, description="專案資料夾")
     contact_note: Optional[str] = Field(None, max_length=500, description="聯絡備註")
+    batch_no: Optional[int] = Field(None, description="結案批次序號")
+    batch_label: Optional[str] = Field(None, max_length=50, description="結案批次標籤")
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class DispatchOrderCreate(DispatchOrderBase):
     """建立派工紀錄"""
+    batch_no: Optional[int] = Field(None, ge=1, le=10, description="結案批次序號")
     contract_project_id: Optional[int] = Field(None, description="關聯承攬案件ID")
     agency_doc_id: Optional[int] = Field(None, description="關聯機關公文ID")
     company_doc_id: Optional[int] = Field(None, description="關聯乾坤公文ID")
@@ -49,6 +52,8 @@ class DispatchOrderUpdate(BaseModel):
     cloud_folder: Optional[str] = None
     project_folder: Optional[str] = None
     contact_note: Optional[str] = None
+    batch_no: Optional[int] = Field(None, ge=1, le=10)
+    batch_label: Optional[str] = Field(None, max_length=50)
     linked_project_ids: Optional[List[int]] = None
 
 
@@ -57,6 +62,18 @@ class DispatchWorkTypeItem(BaseModel):
     id: int
     work_type: str = Field(..., description="作業類別名稱")
     sort_order: int = Field(0, description="排序順序")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WorkProgressSummary(BaseModel):
+    """作業進度摘要（列表顯示用）"""
+    total: int = Field(0, description="作業紀錄總數")
+    completed: int = Field(0, description="已完成數")
+    in_progress: int = Field(0, description="進行中數")
+    overdue: int = Field(0, description="逾期數")
+    current_stage: Optional[str] = Field(None, description="最新作業類別")
+    status: Optional[str] = Field(None, description="整體狀態: pending/in_progress/completed/overdue")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -77,6 +94,37 @@ class DispatchOrder(DispatchOrderBase):
     linked_projects: Optional[List[LinkedProjectItem]] = Field(None, description="關聯工程 (含 link_id, project_id)")
     linked_documents: Optional[List[DispatchDocumentLink]] = Field(None, description="關聯公文")
     work_type_items: Optional[List[DispatchWorkTypeItem]] = Field(None, description="作業類別正規化項目")
+    work_progress: Optional[WorkProgressSummary] = Field(None, description="作業進度摘要")
+
+
+class BatchSetRequest(BaseModel):
+    """批次批量設定請求"""
+    dispatch_ids: List[int] = Field(..., min_length=1, description="派工單ID列表")
+    batch_no: Optional[int] = Field(None, ge=1, le=10, description="結案批次序號 (null=清除)")
+    batch_label: Optional[str] = Field(None, max_length=50, description="結案批次標籤")
+
+
+class BatchSetResponse(BaseModel):
+    """批次批量設定回應"""
+    success: bool = True
+    updated_count: int = Field(0, description="更新筆數")
+    message: str = Field("", description="訊息")
+
+
+class BatchRelinkRequest(BaseModel):
+    """批次重新關聯公文請求"""
+    contract_project_id: int = Field(..., description="承攬案件ID")
+
+
+class BatchRelinkResult(BaseModel):
+    """批次重新關聯公文結果"""
+    success: bool = True
+    total_scanned: int = Field(0, description="掃描的派工單數")
+    newly_linked: int = Field(0, description="新建關聯數")
+    already_linked: int = Field(0, description="已存在關聯數")
+    doc_map_size: int = Field(0, description="公文庫大小")
+    not_found: List[dict] = Field(default_factory=list, description="未找到的文號")
+    message: str = Field("", description="摘要訊息")
 
 
 class DispatchOrderListQuery(BaseModel):
@@ -182,6 +230,64 @@ class DispatchAttachment(DispatchAttachmentBase):
     @property
     def content_type(self) -> Optional[str]:
         return self.mime_type
+
+
+# ============================================================================
+# 通用端點回應 Schema
+# ============================================================================
+
+
+class DispatchSuccessResponse(BaseModel):
+    """派工通用成功回應"""
+    success: bool = True
+    message: str = Field("", description="訊息")
+
+
+class ContractProjectListResponse(BaseModel):
+    """承攬案件列表回應"""
+    success: bool = True
+    items: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class NextDispatchNoResponse(BaseModel):
+    """下一個派工單號回應"""
+    success: bool = True
+    next_dispatch_no: str = Field(..., description="下一個派工單號")
+    current_year: int = Field(..., description="目前民國年度")
+    next_sequence: int = Field(..., description="下一個序號")
+
+
+class EnrichFromExcelResponse(BaseModel):
+    """Excel 增強匯入回應"""
+    success: bool = True
+
+    model_config = ConfigDict(extra="allow")
+
+
+class DocumentStubsResponse(BaseModel):
+    """公文 Stub 建立回應"""
+    success: bool = True
+
+    model_config = ConfigDict(extra="allow")
+
+
+class AsyncExportResponse(BaseModel):
+    """非同步匯出任務回應"""
+    success: bool = True
+    task_id: str = Field(..., description="任務 ID")
+
+
+class ExportProgressResponse(BaseModel):
+    """匯出進度回應"""
+    success: bool = True
+
+    model_config = ConfigDict(extra="allow")
+
+
+class DispatchDetailWithHistoryResponse(BaseModel):
+    """派工詳情含公文歷程回應"""
+    success: bool = True
+    data: Dict[str, Any] = Field(default_factory=dict, description="派工詳情資料")
 
 
 class DispatchAttachmentListResponse(BaseModel):

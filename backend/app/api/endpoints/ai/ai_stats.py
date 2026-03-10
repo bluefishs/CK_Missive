@@ -11,11 +11,11 @@ Updated: 2026-02-07 - 改用 AIStatsManager (Redis 持久化)
 """
 
 import logging
-from typing import Any, Dict
 
 from fastapi import APIRouter, Depends
 
 from app.core.dependencies import optional_auth
+from app.schemas.ai import AIStatsResponse, SuccessResponse
 from app.services.ai.base_ai_service import BaseAIService
 
 logger = logging.getLogger(__name__)
@@ -23,10 +23,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.post("/stats")
+@router.post("/stats", response_model=AIStatsResponse)
 async def get_ai_stats(
     current_user=Depends(optional_auth()),
-) -> Dict[str, Any]:
+) -> AIStatsResponse:
     """
     取得 AI 使用統計
 
@@ -39,13 +39,14 @@ async def get_ai_stats(
     - source: "redis" 或 "memory" (資料來源)
     """
     logger.info("取得 AI 使用統計")
-    return await BaseAIService.get_stats()
+    data = await BaseAIService.get_stats()
+    return AIStatsResponse(**data)
 
 
-@router.post("/stats/reset")
+@router.post("/stats/reset", response_model=SuccessResponse)
 async def reset_ai_stats(
     current_user=Depends(optional_auth()),
-) -> Dict[str, str]:
+) -> SuccessResponse:
     """
     重設 AI 使用統計
 
@@ -53,4 +54,4 @@ async def reset_ai_stats(
     """
     logger.info("重設 AI 統計資料")
     await BaseAIService.reset_stats()
-    return {"message": "AI 統計資料已重設"}
+    return SuccessResponse(success=True, message="AI 統計資料已重設")

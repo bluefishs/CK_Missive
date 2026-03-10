@@ -53,10 +53,10 @@ class DocumentCSVProcessor:
             '收發類型': 'doc_type'
         }
         
-        # 標準17欄位輸出順序
+        # 標準欄位輸出順序（18 欄位）
         self.final_columns = [
             'auto_serial',         # 1. 流水號
-            'doc_type',           # 2. 文件類型  
+            'doc_type',           # 2. 文件類型
             'doc_number',         # 3. 公文字號
             'doc_date',           # 4. 日期
             'roc_date',           # 5. 公文日期
@@ -68,10 +68,11 @@ class DocumentCSVProcessor:
             'receiver',           # 11. 受文單位
             'status',             # 12. 收發狀態
             'receive_date',       # 13. 收文日期
-            'dispatch_type',      # 14. 發文形式
-            'notes',              # 15. 備註
-            'contract_case',      # 16. 承攬案件
-            'system_output_date'  # 17. 系統輸出日期
+            'send_date',          # 14. 發文日期
+            'dispatch_type',      # 15. 發文形式
+            'notes',              # 16. 備註
+            'contract_case',      # 17. 承攬案件
+            'system_output_date'  # 18. 系統輸出日期
         ]
         
         self.supported_encodings = ['utf-8', 'utf-8-sig', 'big5', 'cp950']

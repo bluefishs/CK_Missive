@@ -35,6 +35,7 @@ Repository Layer - 資料存取層
 
 from app.repositories.base_repository import BaseRepository
 from app.repositories.document_repository import DocumentRepository
+from app.repositories.document_stats_repository import DocumentStatsRepository
 from app.repositories.project_repository import ProjectRepository
 from app.repositories.agency_repository import AgencyRepository
 from app.repositories.vendor_repository import VendorRepository
@@ -75,6 +76,7 @@ from app.repositories.query_builders import (
 __all__ = [
     "BaseRepository",
     "DocumentRepository",
+    "DocumentStatsRepository",
     "ProjectRepository",
     "AgencyRepository",
     "VendorRepository",

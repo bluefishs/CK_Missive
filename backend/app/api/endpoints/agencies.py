@@ -20,6 +20,8 @@ from app.schemas.agency import (
 )
 from app.schemas.common import PaginationMeta, SortOrder
 from app.services.agency_service import AgencyService
+from app.services.agency_statistics_service import AgencyStatisticsService
+from app.services.agency_matching_service import AgencyMatchingService
 
 logger = logging.getLogger(__name__)
 
@@ -66,9 +68,10 @@ async def list_agencies(
         skip = (query.page - 1) * query.limit
 
         if query.include_stats:
-            result = await agency_service.get_agencies_with_stats(
+            stats_service = AgencyStatisticsService(agency_service.db)
+            result = await stats_service.get_agencies_with_stats(
                 skip=skip, limit=query.limit, search=query.search,
-                category=query.category
+                category=query.category,
             )
             items = result["agencies"]
             total = result["total"]
@@ -207,11 +210,11 @@ async def delete_agency(
     summary="取得機關統計資料"
 )
 async def get_agency_statistics(
-    agency_service: AgencyService = Depends(get_service(AgencyService)),
+    stats_service: AgencyStatisticsService = Depends(get_service(AgencyStatisticsService)),
     current_user: User = Depends(require_auth())
 ):
     """取得機關統計資料"""
-    return await agency_service.get_agency_statistics()
+    return await stats_service.get_agency_statistics()
 
 
 # ============================================================================
@@ -226,14 +229,14 @@ async def get_agency_statistics(
 )
 async def fix_agency_parsed_names(
     request: FixAgenciesRequest = Body(default=FixAgenciesRequest()),
-    agency_service: AgencyService = Depends(get_service(AgencyService)),
+    matching_service: AgencyMatchingService = Depends(get_service(AgencyMatchingService)),
     current_user: User = Depends(require_admin())
 ):
     """
-    修復機關名稱/代碼解析錯誤（委託 AgencyService 處理）
+    修復機關名稱/代碼解析錯誤（委託 AgencyMatchingService 處理）
     """
     try:
-        result = await agency_service.fix_parsed_names(dry_run=request.dry_run)
+        result = await matching_service.fix_parsed_names(dry_run=request.dry_run)
 
         message_parts = []
         if result["dry_run"]:
@@ -280,7 +283,7 @@ async def fix_agency_parsed_names(
     summary="取得機關關聯統計"
 )
 async def get_association_summary(
-    agency_service: AgencyService = Depends(get_service(AgencyService)),
+    matching_service: AgencyMatchingService = Depends(get_service(AgencyMatchingService)),
     current_user: User = Depends(require_auth())
 ):
     """
@@ -291,7 +294,7 @@ async def get_association_summary(
     - 已關聯/未關聯受文機關數量
     - 關聯率百分比
     """
-    return await agency_service.get_unassociated_summary()
+    return await matching_service.get_unassociated_summary()
 
 
 @router.post(
@@ -301,7 +304,7 @@ async def get_association_summary(
 )
 async def batch_associate_agencies(
     request: BatchAssociateRequest = Body(default=BatchAssociateRequest()),
-    agency_service: AgencyService = Depends(get_service(AgencyService)),
+    matching_service: AgencyMatchingService = Depends(get_service(AgencyMatchingService)),
     current_user: User = Depends(require_admin())
 ):
     """
@@ -317,7 +320,7 @@ async def batch_associate_agencies(
         request: 包含 overwrite 參數（是否覆蓋現有關聯）
     """
     try:
-        stats = await agency_service.batch_associate_agencies(
+        stats = await matching_service.batch_associate_agencies(
             overwrite=request.overwrite
         )
 
@@ -359,7 +362,7 @@ async def batch_associate_agencies(
 )
 async def suggest_agencies(
     request: AgencySuggestRequest = Body(...),
-    agency_service: AgencyService = Depends(get_service(AgencyService)),
+    matching_service: AgencyMatchingService = Depends(get_service(AgencyMatchingService)),
     current_user: User = Depends(require_auth())
 ):
     """
@@ -368,7 +371,7 @@ async def suggest_agencies(
     用於表單自動完成，支援模糊搜尋機關名稱、簡稱、代碼
     """
     try:
-        suggestions = await agency_service.suggest_agency(
+        suggestions = await matching_service.suggest_agency(
             text=request.text, limit=request.limit
         )
         return AgencySuggestResponse(success=True, suggestions=suggestions)

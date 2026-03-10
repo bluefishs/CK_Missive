@@ -3,15 +3,13 @@
 AgencyService 單元測試
 
 測試範圍:
-- 基礎 CRUD 方法 (get_by_id, create, update, delete)
-- 業務特定功能 (get_agency_by_name, get_agencies_with_search, get_total_with_search)
-- 統計功能 (get_agency_statistics)
-- 智慧匹配功能 (match_agency, _parse_agency_text)
-- 工具方法 (exists, get_by_code)
+- AgencyService: CRUD + 搜尋 (get_by_id, create, update, delete, exists, get_by_code)
+- AgencyStatisticsService: 統計功能 (get_agency_statistics, _normalize_category)
+- AgencyMatchingService: 智慧匹配功能 (match_agency, _parse_agency_text)
 
-測試策略: Mock AgencyRepository，不使用真實資料庫。
+測試策略: Mock Repository，不使用真實資料庫。
 
-v1.0.0 - 2026-02-06
+v2.0.0 - 2026-03-10 (3-way split)
 """
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
@@ -19,6 +17,8 @@ from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 import pytest
 
 from app.services.agency_service import AgencyService
+from app.services.agency_statistics_service import AgencyStatisticsService
+from app.services.agency_matching_service import AgencyMatchingService
 from app.schemas.agency import AgencyCreate, AgencyUpdate
 
 
@@ -86,6 +86,31 @@ def service(mock_db):
         MockRepo.return_value = mock_repo
 
         svc = AgencyService(mock_db)
+        svc.repository = mock_repo
+        yield svc
+
+
+@pytest.fixture
+def stats_service(mock_db):
+    """建立 AgencyStatisticsService，內部 repository 使用 mock"""
+    with patch("app.services.agency_statistics_service.AgencyRepository") as MockRepo:
+        mock_repo = MagicMock()
+        MockRepo.return_value = mock_repo
+        svc = AgencyStatisticsService(mock_db)
+        svc.repository = mock_repo
+        yield svc
+
+
+@pytest.fixture
+def matching_service(mock_db):
+    """建立 AgencyMatchingService，內部 repository 使用 mock"""
+    with patch("app.services.agency_matching_service.AgencyRepository") as MockRepo:
+        mock_repo = MagicMock()
+        mock_repo.find_one_by = AsyncMock()
+        mock_repo.get_all_agencies = AsyncMock()
+        mock_repo.reassign_document_agency = AsyncMock()
+        MockRepo.return_value = mock_repo
+        svc = AgencyMatchingService(mock_db)
         svc.repository = mock_repo
         yield svc
 
@@ -448,42 +473,40 @@ class TestGetAgencyStatistics:
     """get_agency_statistics 方法測試"""
 
     @pytest.mark.asyncio
-    async def test_get_agency_statistics(self, service, mock_db):
+    async def test_get_agency_statistics(self, stats_service, mock_db):
         """測試 get_agency_statistics - 返回統計字典"""
         with patch(
-            "app.services.agency_service.StatisticsHelper.get_basic_stats",
+            "app.services.agency_statistics_service.StatisticsHelper.get_basic_stats",
             new_callable=AsyncMock,
             return_value={"total": 50},
         ), patch(
-            "app.services.agency_service.StatisticsHelper.get_grouped_stats",
+            "app.services.agency_statistics_service.StatisticsHelper.get_grouped_stats",
             new_callable=AsyncMock,
             return_value={"政府機關": 30, "民間企業": 15, "null": 5},
         ):
-            result = await service.get_agency_statistics()
+            result = await stats_service.get_agency_statistics()
 
             assert result["total_agencies"] == 50
             assert len(result["categories"]) == 3
 
-            # 驗證分類正確
             category_names = [c["category"] for c in result["categories"]]
             assert "政府機關" in category_names
             assert "民間企業" in category_names
             assert "其他單位" in category_names
 
-            # 驗證百分比計算
             gov = next(c for c in result["categories"] if c["category"] == "政府機關")
             assert gov["count"] == 30
-            assert gov["percentage"] == 60.0  # 30/50*100
+            assert gov["percentage"] == 60.0
 
     @pytest.mark.asyncio
-    async def test_get_agency_statistics_error(self, service, mock_db):
+    async def test_get_agency_statistics_error(self, stats_service, mock_db):
         """測試 get_agency_statistics - 異常時返回空結構"""
         with patch(
-            "app.services.agency_service.StatisticsHelper.get_basic_stats",
+            "app.services.agency_statistics_service.StatisticsHelper.get_basic_stats",
             new_callable=AsyncMock,
             side_effect=Exception("資料庫連線失敗"),
         ):
-            result = await service.get_agency_statistics()
+            result = await stats_service.get_agency_statistics()
 
             assert result["total_agencies"] == 0
             assert result["categories"] == []
@@ -497,85 +520,77 @@ class TestMatchAgency:
     """match_agency 方法測試"""
 
     @pytest.mark.asyncio
-    async def test_match_agency_exact_by_code(self, service, mock_agency):
+    async def test_match_agency_exact_by_code(self, matching_service, mock_agency):
         """測試 match_agency - 透過機關代碼精確匹配"""
-        service.repository.find_one_by.return_value = mock_agency
+        matching_service.repository.find_one_by.return_value = mock_agency
 
-        result = await service.match_agency("A376000I (桃園市政府)")
+        result = await matching_service.match_agency("A376000I (桃園市政府)")
 
         assert result is mock_agency
 
     @pytest.mark.asyncio
-    async def test_match_agency_exact_by_name(self, service, mock_db, mock_agency):
+    async def test_match_agency_exact_by_name(self, matching_service, mock_db, mock_agency):
         """測試 match_agency - 透過機關名稱精確匹配（無代碼時直接匹配名稱）"""
-        # 純名稱文字解析後 code=None，直接進入名稱匹配步驟
-        service.repository.find_one_by.return_value = mock_agency
+        matching_service.repository.find_one_by.return_value = mock_agency
 
-        result = await service.match_agency("桃園市政府")
+        result = await matching_service.match_agency("桃園市政府")
 
         assert result is mock_agency
-        # 確認呼叫了 find_one_by(agency_name="桃園市政府")
-        service.repository.find_one_by.assert_awaited_with(agency_name="桃園市政府")
+        matching_service.repository.find_one_by.assert_awaited_with(agency_name="桃園市政府")
 
     @pytest.mark.asyncio
-    async def test_match_agency_by_short_name(self, service, mock_db, mock_agency):
+    async def test_match_agency_by_short_name(self, matching_service, mock_db, mock_agency):
         """測試 match_agency - 透過簡稱匹配"""
-        # 代碼不匹配，名稱不匹配，簡稱匹配
-        service.repository.find_one_by.return_value = None
+        matching_service.repository.find_one_by.return_value = None
 
         mock_scalar_result = MagicMock()
         mock_scalar_result.scalar_one_or_none.return_value = mock_agency
         mock_db.execute.return_value = mock_scalar_result
 
-        result = await service.match_agency("桃市府")
+        result = await matching_service.match_agency("桃市府")
 
         assert result is mock_agency
 
     @pytest.mark.asyncio
-    async def test_match_agency_fuzzy(self, service, mock_db, mock_agency):
+    async def test_match_agency_fuzzy(self, matching_service, mock_db, mock_agency):
         """測試 match_agency - 部分匹配（DB 端 strpos 比對）"""
-        # 前三步都不匹配
-        service.repository.find_one_by.return_value = None
+        matching_service.repository.find_one_by.return_value = None
 
-        # 第一次 execute (簡稱匹配) 返回 None
         mock_short_name_result = MagicMock()
         mock_short_name_result.scalar_one_or_none.return_value = None
 
-        # 第二次 execute (DB 端 strpos 部分匹配) 返回匹配的機關
         mock_fuzzy_result = MagicMock()
         mock_fuzzy_result.scalar_one_or_none.return_value = mock_agency
 
         mock_db.execute.side_effect = [mock_short_name_result, mock_fuzzy_result]
 
-        result = await service.match_agency("函覆桃園市政府有關案件")
+        result = await matching_service.match_agency("函覆桃園市政府有關案件")
 
         assert result is mock_agency
 
     @pytest.mark.asyncio
-    async def test_match_agency_empty_text(self, service):
+    async def test_match_agency_empty_text(self, matching_service):
         """測試 match_agency - 空文字返回 None"""
-        result = await service.match_agency("")
+        result = await matching_service.match_agency("")
         assert result is None
 
-        result = await service.match_agency("   ")
+        result = await matching_service.match_agency("   ")
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_match_agency_no_match(self, service, mock_db):
+    async def test_match_agency_no_match(self, matching_service, mock_db):
         """測試 match_agency - 完全無匹配返回 None"""
-        service.repository.find_one_by.return_value = None
+        matching_service.repository.find_one_by.return_value = None
 
-        # 簡稱匹配失敗
         mock_short_name_result = MagicMock()
         mock_short_name_result.scalar_one_or_none.return_value = None
 
-        # DB 端 strpos 部分匹配也失敗
         mock_fuzzy_result = MagicMock()
         mock_fuzzy_result.scalar_one_or_none.return_value = None
 
         mock_db.execute.side_effect = [mock_short_name_result, mock_fuzzy_result]
 
-        result = await service.match_agency("完全不存在的東西")
+        result = await matching_service.match_agency("完全不存在的東西")
 
         assert result is None
 
@@ -583,30 +598,30 @@ class TestMatchAgency:
 class TestParseAgencyText:
     """_parse_agency_text 方法測試"""
 
-    def test_parse_simple_name(self, service):
+    def test_parse_simple_name(self, matching_service):
         """測試解析純機關名稱"""
-        result = service._parse_agency_text("桃園市政府")
+        result = matching_service._parse_agency_text("桃園市政府")
         assert len(result) == 1
         assert result[0] == (None, "桃園市政府")
 
-    def test_parse_code_and_name(self, service):
+    def test_parse_code_and_name(self, matching_service):
         """測試解析含代碼的機關文字"""
-        result = service._parse_agency_text("A376000I (桃園市政府)")
+        result = matching_service._parse_agency_text("A376000I (桃園市政府)")
         assert len(result) == 1
         code, name = result[0]
         assert code == "A376000I"
         assert name == "桃園市政府"
 
-    def test_parse_multiple_agencies(self, service):
+    def test_parse_multiple_agencies(self, matching_service):
         """測試解析多個受文者（以 | 分隔）"""
-        result = service._parse_agency_text("A376000I (桃園市政府) | F376000I (新北市政府)")
+        result = matching_service._parse_agency_text("A376000I (桃園市政府) | F376000I (新北市政府)")
         assert len(result) == 2
 
-    def test_parse_empty_text(self, service):
+    def test_parse_empty_text(self, matching_service):
         """測試解析空文字"""
-        assert service._parse_agency_text("") == []
-        assert service._parse_agency_text("   ") == []
-        assert service._parse_agency_text(None) == []
+        assert matching_service._parse_agency_text("") == []
+        assert matching_service._parse_agency_text("   ") == []
+        assert matching_service._parse_agency_text(None) == []
 
 
 # ============================================================
@@ -665,46 +680,26 @@ class TestGetByCode:
 # ============================================================
 
 class TestNormalizeCategory:
-    """_normalize_category 方法測試"""
+    """_normalize_category 靜態方法測試（已移至 AgencyStatisticsService）"""
 
-    def test_normalize_government(self, service):
+    def test_normalize_government(self):
         """測試政府機關類型標準化"""
-        assert service._normalize_category("政府機關") == "政府機關"
+        assert AgencyStatisticsService._normalize_category("政府機關") == "政府機關"
 
-    def test_normalize_private(self, service):
+    def test_normalize_private(self):
         """測試民間企業類型標準化"""
-        assert service._normalize_category("民間企業") == "民間企業"
+        assert AgencyStatisticsService._normalize_category("民間企業") == "民間企業"
 
-    def test_normalize_other(self, service):
+    def test_normalize_other(self):
         """測試其他類型標準化為「其他單位」"""
-        assert service._normalize_category("社會團體") == "其他單位"
-        assert service._normalize_category("教育機構") == "其他單位"
-        assert service._normalize_category("其他機關") == "其他單位"
+        assert AgencyStatisticsService._normalize_category("社會團體") == "其他單位"
+        assert AgencyStatisticsService._normalize_category("教育機構") == "其他單位"
+        assert AgencyStatisticsService._normalize_category("其他機關") == "其他單位"
 
-    def test_normalize_none(self, service):
+    def test_normalize_none(self):
         """測試空值標準化為「其他單位」"""
-        assert service._normalize_category(None) == "其他單位"
-        assert service._normalize_category("") == "其他單位"
-
-
-class TestCategorizeAgency:
-    """_categorize_agency 方法測試"""
-
-    def test_categorize_government(self, service):
-        """測試根據名稱推斷政府機關"""
-        assert service._categorize_agency("桃園市政府") == "政府機關"
-        assert service._categorize_agency("內政部") == "政府機關"
-        assert service._categorize_agency("環保局") == "政府機關"
-
-    def test_categorize_private(self, service):
-        """測試根據名稱推斷民間企業"""
-        assert service._categorize_agency("台積電公司") == "民間企業"
-        assert service._categorize_agency("鴻海集團") == "民間企業"
-
-    def test_categorize_other(self, service):
-        """測試無法辨識時歸為其他"""
-        assert service._categorize_agency("某協會") == "其他單位"
-        assert service._categorize_agency("") == "其他單位"
+        assert AgencyStatisticsService._normalize_category(None) == "其他單位"
+        assert AgencyStatisticsService._normalize_category("") == "其他單位"
 
 
 # ============================================================

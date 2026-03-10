@@ -73,7 +73,7 @@ class GoogleCalendarIntegration:
             logger.error(f"Google Calendar connection test failed: {e}")
             return {
                 "status": "error",
-                "message": str(e)
+                "message": "Google Calendar 連線失敗，請檢查設定"
             }
 
     async def create_event(

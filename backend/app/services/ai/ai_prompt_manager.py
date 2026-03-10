@@ -70,10 +70,6 @@ class AIPromptManager:
         },
     }
 
-    # 同義詞：委託給 SynonymExpander（保留屬性供向後相容讀取）
-    _synonyms: Optional[Dict[str, List[List[str]]]] = None
-    _synonym_lookup: Optional[Dict[str, List[str]]] = None
-
     # DB Prompt 版本快取
     _db_prompt_cache: Optional[Dict[str, Dict[str, Any]]] = None
     _db_prompts_loaded: bool = False
@@ -153,19 +149,10 @@ class AIPromptManager:
         return cls._prompts
 
     @classmethod
-    def load_synonyms(cls) -> Dict[str, List[str]]:
-        """載入同義詞字典並建立快速查找索引（委託 SynonymExpander）"""
-        from app.services.ai.synonym_expander import SynonymExpander
-        lookup = SynonymExpander.get_lookup()
-        cls._synonym_lookup = lookup  # 同步向後相容屬性
-        return lookup
-
-    @classmethod
     def reload_synonyms_from_db(cls, synonym_records: list) -> int:
         """從 DB 記錄重建同義詞查找索引（委託 SynonymExpander）"""
         from app.services.ai.synonym_expander import SynonymExpander
         total = SynonymExpander.reload_from_db(synonym_records)
-        cls._synonym_lookup = SynonymExpander.get_lookup()  # 同步
         return total
 
     @classmethod
@@ -175,18 +162,3 @@ class AIPromptManager:
         cls._db_prompt_cache = None
         cls._db_prompts_loaded = False
         logger.info("Prompt 快取已清除")
-
-    @staticmethod
-    def expand_keywords_with_synonyms(
-        keywords: List[str],
-        lookup: Dict[str, List[str]],
-    ) -> List[str]:
-        """擴展關鍵字列表：加入同義詞（委託 SynonymExpander）"""
-        from app.services.ai.synonym_expander import SynonymExpander
-        return SynonymExpander.expand_keywords(keywords)
-
-    @staticmethod
-    def expand_agency_name(name: str, lookup: Dict[str, List[str]]) -> str:
-        """擴展機關名稱：縮寫 -> 全稱（委託 SynonymExpander）"""
-        from app.services.ai.synonym_expander import SynonymExpander
-        return SynonymExpander.expand_agency(name)

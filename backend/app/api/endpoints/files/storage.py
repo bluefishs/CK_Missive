@@ -5,9 +5,11 @@
 """
 
 import os
+import asyncio
 import logging
 from pathlib import Path
 
+import aiofiles
 from fastapi import APIRouter, Depends
 
 from app.extended.models import User
@@ -32,17 +34,19 @@ async def get_storage_info(
 
     storage_path = Path(UPLOAD_BASE_DIR)
 
-    total_size = 0
-    file_count = 0
+    def _scan_files():
+        size, count = 0, 0
+        if storage_path.exists():
+            for f in storage_path.rglob('*'):
+                if f.is_file():
+                    size += f.stat().st_size
+                    count += 1
+        return size, count
 
-    if storage_path.exists():
-        for f in storage_path.rglob('*'):
-            if f.is_file():
-                total_size += f.stat().st_size
-                file_count += 1
+    total_size, file_count = await asyncio.to_thread(_scan_files)
 
     try:
-        disk_usage = shutil.disk_usage(UPLOAD_BASE_DIR)
+        disk_usage = await asyncio.to_thread(shutil.disk_usage, UPLOAD_BASE_DIR)
         disk_info = {
             "total_gb": round(disk_usage.total / (1024**3), 2),
             "used_gb": round(disk_usage.used / (1024**3), 2),
@@ -95,13 +99,14 @@ async def check_network_storage(
     if path_exists:
         try:
             test_file = os.path.join(UPLOAD_BASE_DIR, '.write_test')
-            with open(test_file, 'w') as f:
-                f.write('test')
-            os.remove(test_file)
+            async with aiofiles.open(test_file, 'w') as f:
+                await f.write('test')
+            await asyncio.to_thread(os.remove, test_file)
             result["checks"]["writable"] = True
         except Exception as e:
             result["checks"]["writable"] = False
-            result["checks"]["write_error"] = str(e)
+            logger.error(f"儲存路徑寫入測試失敗: {e}")
+            result["checks"]["write_error"] = "寫入測試失敗"
     else:
         result["checks"]["writable"] = False
 
@@ -110,23 +115,30 @@ async def check_network_storage(
         result["network_ip"] = network_ip
         result["is_local_ip"] = is_local_ip(network_ip)
 
-        try:
+        def _check_network_ports(ip: str):
+            """同步 socket 連線檢測（在背景執行緒執行）"""
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(3)
-            for port in [445, 139, 80]:
-                try:
-                    sock.connect((network_ip, port))
-                    result["checks"]["network_reachable"] = True
-                    result["checks"]["connected_port"] = port
-                    break
-                except Exception:
-                    continue
-            else:
-                result["checks"]["network_reachable"] = False
-            sock.close()
+            try:
+                for port in [445, 139, 80]:
+                    try:
+                        sock.connect((ip, port))
+                        return True, port
+                    except Exception:
+                        continue
+                return False, None
+            finally:
+                sock.close()
+
+        try:
+            reachable, port = await asyncio.to_thread(_check_network_ports, network_ip)
+            result["checks"]["network_reachable"] = reachable
+            if port is not None:
+                result["checks"]["connected_port"] = port
         except Exception as e:
             result["checks"]["network_reachable"] = False
-            result["checks"]["network_error"] = str(e)
+            logger.error(f"網路可達性檢查失敗: {e}")
+            result["checks"]["network_error"] = "網路連線失敗"
 
     result["healthy"] = (
         result["checks"].get("path_exists", False) and

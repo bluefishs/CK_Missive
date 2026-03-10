@@ -10,7 +10,7 @@ Extracted from agent_orchestrator.py v1.8.0
 import json
 import logging
 import re
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -50,3 +50,26 @@ def parse_json_safe(text: str) -> Optional[Dict[str, Any]]:
 def sse(**kwargs: Any) -> str:
     """格式化 SSE data line"""
     return f"data: {json.dumps(kwargs, ensure_ascii=False)}\n\n"
+
+
+_HISTORY_CONTENT_MAX_LEN = 1000
+
+
+def sanitize_history(
+    history: Optional[List[Dict[str, str]]],
+    max_turns: int,
+) -> List[Dict[str, str]]:
+    """
+    清理對話歷史 — 截斷輪數與單則內容長度
+
+    防止 Prompt Injection 透過超長歷史訊息耗盡 token 或注入指令。
+    """
+    if not history:
+        return []
+    result: List[Dict[str, str]] = []
+    for turn in history[-(max_turns * 2):]:
+        role = turn.get("role", "user")
+        content = turn.get("content", "")
+        if role in ("user", "assistant") and content:
+            result.append({"role": role, "content": content[:_HISTORY_CONTENT_MAX_LEN]})
+    return result

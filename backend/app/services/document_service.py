@@ -34,8 +34,13 @@ from app.extended.models import (
     OfficialDocument as Document,
     ContractProject,
     GovernmentAgency,
-    project_user_assignment
+    project_user_assignment,
+    TaoyuanDispatchOrder,
+    TaoyuanDispatchDocumentLink,
+    TaoyuanDocumentProjectLink,
+    TaoyuanDispatchProjectLink,
 )
+from app.utils import is_outgoing_doc_number
 
 if TYPE_CHECKING:
     from app.extended.models import User
@@ -50,36 +55,8 @@ from app.core.rls_filter import RLSFilter
 logger = logging.getLogger(__name__)
 
 
-# 康熙部首對照表 (常見問題字元)
-KANGXI_RADICALS = {
-    '⽤': '用', '⼟': '土', '⼝': '口', '⽇': '日', '⽉': '月',
-    '⽔': '水', '⽕': '火', '⽊': '木', '⾦': '金', '⼈': '人',
-    '⼤': '大', '⼩': '小', '⼭': '山', '⽥': '田', '⽬': '目',
-    '⼿': '手', '⾜': '足', '⾞': '車', '⾨': '門', '⾺': '馬',
-}
-
-
-def normalize_text(text: str) -> str:
-    """
-    將康熙部首等異常 Unicode 字元轉換為標準中文字元
-
-    Args:
-        text: 輸入文字
-
-    Returns:
-        正規化後的文字
-    """
-    if not text or not isinstance(text, str):
-        return text
-
-    result = text
-    for kangxi, normal in KANGXI_RADICALS.items():
-        result = result.replace(kangxi, normal)
-
-    # 使用 NFKC 正規化處理其他相容字元
-    result = unicodedata.normalize('NFKC', result)
-
-    return result
+# Unicode 正規化：統一使用 scripts/normalize_unicode.py 的完整版本
+from app.scripts.normalize_unicode import normalize_text
 
 
 class DocumentService:
@@ -207,6 +184,26 @@ class DocumentService:
 
         return names
 
+    def _expand_agency_filter(self, agency_value: str) -> List[str]:
+        """
+        機關篩選值擴展：名稱提取 + 同義詞擴展
+
+        1. 先用 _extract_agency_names 提取純名稱
+        2. 再用 SynonymExpander 擴展同義詞（DB SSOT）
+
+        例：輸入「桃園市工務局」→ 擴展出 [「桃園市工務局」,「桃園市政府工務局」,「工務局」,「工務處」]
+        """
+        from app.services.ai.synonym_expander import SynonymExpander
+
+        extracted = self._extract_agency_names(agency_value)
+        if not extracted:
+            return []
+
+        expanded = SynonymExpander.expand_keywords(extracted)
+        if len(expanded) > len(extracted):
+            logger.info(f"[篩選] 機關同義詞擴展: {extracted} -> {expanded}")
+        return expanded
+
     def _apply_filters(self, query: Any, filters: DocumentFilter) -> Any:
         """
         套用篩選條件到查詢
@@ -251,14 +248,17 @@ class DocumentService:
             logger.debug(f"[篩選] 套用 doc_number 專用篩選: {doc_number_filter}")
             query = query.where(Document.doc_number.ilike(doc_num_kw))
 
-        # 關鍵字搜尋（主旨、說明、備註、簡要說明 - 不包含 doc_number）
+        # 關鍵字搜尋（公文字號、主旨、說明、備註、簡要說明、發文/受文單位）
         if effective_keyword:
             kw = f"%{effective_keyword}%"
             query = query.where(or_(
+                Document.doc_number.ilike(kw),
                 Document.subject.ilike(kw),
                 Document.content.ilike(kw),
                 Document.notes.ilike(kw),
-                Document.ck_note.ilike(kw)  # 簡要說明(乾坤備註)
+                Document.ck_note.ilike(kw),
+                Document.sender.ilike(kw),
+                Document.receiver.ilike(kw),
             ))
 
         # 收發文分類篩選
@@ -275,21 +275,19 @@ class DocumentService:
             else:
                 logger.warning(f"[篩選] 無效的 delivery_method: {filters.delivery_method}")
 
-        # 發文單位篩選 (智能名稱提取 + 模糊匹配)
+        # 發文單位篩選 (名稱提取 + 同義詞擴展 + 模糊匹配)
         if filters.sender:
-            sender_names = self._extract_agency_names(filters.sender)
-            logger.debug(f"[篩選] 套用 sender: {filters.sender} -> 提取名稱: {sender_names}")
+            sender_names = self._expand_agency_filter(filters.sender)
+            logger.debug(f"[篩選] 套用 sender: {filters.sender} -> 擴展: {sender_names}")
             if sender_names:
-                # 使用 OR 邏輯匹配任一名稱
                 sender_conditions = [Document.sender.ilike(f"%{name}%") for name in sender_names]
                 query = query.where(or_(*sender_conditions))
 
-        # 受文單位篩選 (智能名稱提取 + 模糊匹配)
+        # 受文單位篩選 (名稱提取 + 同義詞擴展 + 模糊匹配)
         if filters.receiver:
-            receiver_names = self._extract_agency_names(filters.receiver)
-            logger.debug(f"[篩選] 套用 receiver: {filters.receiver} -> 提取名稱: {receiver_names}")
+            receiver_names = self._expand_agency_filter(filters.receiver)
+            logger.debug(f"[篩選] 套用 receiver: {filters.receiver} -> 擴展: {receiver_names}")
             if receiver_names:
-                # 使用 OR 邏輯匹配任一名稱
                 receiver_conditions = [Document.receiver.ilike(f"%{name}%") for name in receiver_names]
                 query = query.where(or_(*receiver_conditions))
 
@@ -410,6 +408,11 @@ class DocumentService:
             新建的公文物件，失敗時返回 None
         """
         try:
+            # Unicode 正規化：防止 CJK 相容漢字/康熙部首寫入
+            for key in ('doc_number', 'subject', 'sender', 'receiver', 'notes', 'content', 'ck_note'):
+                if key in doc_data and doc_data[key] and isinstance(doc_data[key], str):
+                    doc_data[key] = normalize_text(doc_data[key])
+
             sender_agency_id = await self._get_or_create_agency_id(doc_data.get('sender'))
             receiver_agency_id = await self._get_or_create_agency_id(doc_data.get('receiver'))
             project_id = await self._get_or_create_project_id(doc_data.get('contract_case'))
@@ -425,6 +428,8 @@ class DocumentService:
             await self.db.refresh(new_document)
             if new_document.receive_date:
                 await self.calendar_integrator.convert_document_to_events(db=self.db, document=new_document, creator_id=current_user_id)
+            # 自動匹配派工單（反向關聯）
+            await self._auto_link_to_dispatch_orders(new_document)
             return new_document
         except Exception as e:
             await self.db.rollback()
@@ -522,6 +527,106 @@ class DocumentService:
 
         return doc_dict
 
+    async def _auto_link_to_dispatch_orders(self, document: Document) -> None:
+        """新公文建立後，自動搜尋匹配的派工單並建立雙向關聯。
+
+        匹配策略：
+        1. 精確文號比對 — 派工單的 agency_doc_number_raw / company_doc_number_raw
+        2. 主旨關鍵字比對 — 公文主旨包含派工單的工程名稱
+        """
+        try:
+            doc_number = document.doc_number or ""
+            subject = document.subject or ""
+            if not doc_number and not subject:
+                return
+
+            link_type = "company_outgoing" if is_outgoing_doc_number(doc_number) else "agency_incoming"
+            matched_dispatch_ids: set[int] = set()
+
+            # 策略 1: 精確文號比對
+            if doc_number:
+                if link_type == "agency_incoming":
+                    result = await self.db.execute(
+                        select(TaoyuanDispatchOrder.id).where(
+                            TaoyuanDispatchOrder.agency_doc_number_raw.ilike(f"%{doc_number}%")
+                        )
+                    )
+                else:
+                    result = await self.db.execute(
+                        select(TaoyuanDispatchOrder.id).where(
+                            TaoyuanDispatchOrder.company_doc_number_raw.ilike(f"%{doc_number}%")
+                        )
+                    )
+                matched_dispatch_ids.update(row[0] for row in result.fetchall())
+
+            # 策略 2: 主旨 ↔ 工程名稱交叉比對（僅當文號無匹配時）
+            if not matched_dispatch_ids and subject and len(subject) >= 4:
+                result = await self.db.execute(
+                    select(TaoyuanDispatchOrder.id).where(
+                        and_(
+                            TaoyuanDispatchOrder.project_name.isnot(None),
+                            or_(
+                                TaoyuanDispatchOrder.project_name.ilike(f"%{subject[:20]}%"),
+                                func.position(func.lower(TaoyuanDispatchOrder.project_name), func.lower(subject[:20])).op(">")(0),
+                            )
+                        )
+                    ).limit(5)
+                )
+                matched_dispatch_ids.update(row[0] for row in result.fetchall())
+
+            if not matched_dispatch_ids:
+                return
+
+            # 建立 dispatch ↔ document 關聯
+            for dispatch_id in matched_dispatch_ids:
+                existing = await self.db.execute(
+                    select(TaoyuanDispatchDocumentLink.id).where(
+                        and_(
+                            TaoyuanDispatchDocumentLink.dispatch_order_id == dispatch_id,
+                            TaoyuanDispatchDocumentLink.document_id == document.id,
+                        )
+                    )
+                )
+                if existing.scalar_one_or_none():
+                    continue
+                self.db.add(TaoyuanDispatchDocumentLink(
+                    dispatch_order_id=dispatch_id,
+                    document_id=document.id,
+                    link_type=link_type,
+                ))
+
+            # 傳遞 project 關聯：從派工單的工程關聯同步到公文
+            for dispatch_id in matched_dispatch_ids:
+                proj_result = await self.db.execute(
+                    select(TaoyuanDispatchProjectLink.taoyuan_project_id).where(
+                        TaoyuanDispatchProjectLink.dispatch_order_id == dispatch_id
+                    )
+                )
+                for (proj_id,) in proj_result.fetchall():
+                    existing_dp = await self.db.execute(
+                        select(TaoyuanDocumentProjectLink.id).where(
+                            and_(
+                                TaoyuanDocumentProjectLink.document_id == document.id,
+                                TaoyuanDocumentProjectLink.taoyuan_project_id == proj_id,
+                            )
+                        )
+                    )
+                    if existing_dp.scalar_one_or_none():
+                        continue
+                    self.db.add(TaoyuanDocumentProjectLink(
+                        document_id=document.id,
+                        taoyuan_project_id=proj_id,
+                        link_type=link_type,
+                        notes=f"自動同步自派工單關聯 (公文建立時)",
+                    ))
+
+            await self.db.flush()
+            logger.info(
+                f"公文 {document.id} 自動關聯 {len(matched_dispatch_ids)} 個派工單"
+            )
+        except Exception as e:
+            logger.warning(f"公文自動關聯派工單失敗（不影響主流程）: {e}")
+
     async def _get_next_auto_serial(self, doc_type: str) -> str:
         """
         產生下一個流水號 (R0001=收文, S0001=發文)
@@ -582,10 +687,45 @@ class DocumentService:
         skipped_count = 0
         errors: List[str] = []
 
+        # 日期解析函數（迴圈外定義，避免重複建立）
+        _date_formats = ['%Y-%m-%d', '%Y-%m-%d %H:%M:%S', '%Y/%m/%d', '%Y/%m/%d %H:%M:%S']
+
+        def _parse_import_date(value) -> Optional[date]:
+            if value is None:
+                return None
+            # pandas NaT (Not a Time)
+            try:
+                import pandas as pd
+                if pd.isna(value):
+                    return None
+            except (ImportError, TypeError, ValueError):
+                pass
+            # Already a date/datetime object (pandas Timestamp inherits datetime)
+            if isinstance(value, datetime):
+                return value.date()
+            if isinstance(value, date):
+                return value
+            # String parsing fallback
+            str_value = str(value).strip()
+            if not str_value:
+                return None
+            for fmt in _date_formats:
+                try:
+                    return datetime.strptime(str_value, fmt).date()
+                except (ValueError, TypeError):
+                    continue
+            return None
+
+        # 需要 Unicode 正規化的欄位
+        _normalize_keys = [
+            'doc_number', 'subject', 'sender', 'receiver',
+            'contract_case', 'notes', 'content', 'ck_note', 'assignee',
+        ]
+
         for idx, doc_data in enumerate(processed_documents):
             try:
                 # Unicode 正規化：清理康熙部首等異常字元
-                for key in ['doc_number', 'subject', 'sender', 'receiver', 'contract_case', 'notes']:
+                for key in _normalize_keys:
                     if key in doc_data and doc_data[key]:
                         doc_data[key] = normalize_text(str(doc_data[key]))
 
@@ -610,12 +750,12 @@ class DocumentService:
                 doc_type = doc_data.get('doc_type', '收文')
                 auto_serial = await self._get_next_auto_serial(doc_type)
 
-                # 映射欄位到資料庫模型 (注意：OfficialDocument 模型沒有 notes 欄位)
+                # 映射欄位到資料庫模型
                 doc_payload = {
                     'auto_serial': auto_serial,
                     'doc_number': doc_number,
                     'doc_type': doc_type,
-                    'category': doc_type,  # category 與 doc_type 相同
+                    'category': doc_data.get('category') or doc_type,
                     'subject': doc_data.get('subject', ''),
                     'sender': doc_data.get('sender', ''),
                     'receiver': doc_data.get('receiver', ''),
@@ -623,29 +763,33 @@ class DocumentService:
                     'receiver_agency_id': receiver_agency_id,
                     'contract_project_id': project_id,
                     'status': doc_data.get('status', '待處理'),
+                    'delivery_method': doc_data.get('delivery_method') or doc_data.get('dispatch_type'),
+                    'notes': doc_data.get('notes'),
+                    'content': doc_data.get('content'),
+                    'ck_note': doc_data.get('ck_note'),
+                    'assignee': doc_data.get('assignee'),
                 }
 
-                # 處理日期欄位
-                if doc_data.get('doc_date'):
-                    try:
-                        doc_payload['doc_date'] = datetime.strptime(doc_data['doc_date'], '%Y-%m-%d').date()
-                    except (ValueError, TypeError):
-                        doc_payload['doc_date'] = None
+                # 處理日期欄位（統一多格式解析）
+                if doc_data.get('doc_date') is not None:
+                    doc_payload['doc_date'] = _parse_import_date(doc_data['doc_date'])
 
-                if doc_data.get('receive_date'):
-                    try:
-                        # 嘗試多種日期格式
-                        receive_str = doc_data['receive_date']
-                        for fmt in ['%Y-%m-%d', '%Y-%m-%d %H:%M:%S', '%Y/%m/%d', '%Y/%m/%d %H:%M:%S']:
-                            try:
-                                doc_payload['receive_date'] = datetime.strptime(receive_str, fmt).date()
-                                break
-                            except ValueError:
-                                continue
-                        else:
-                            doc_payload['receive_date'] = None
-                    except (ValueError, TypeError):
-                        doc_payload['receive_date'] = None
+                if doc_data.get('receive_date') is not None:
+                    doc_payload['receive_date'] = _parse_import_date(doc_data['receive_date'])
+
+                if doc_data.get('send_date') is not None:
+                    doc_payload['send_date'] = _parse_import_date(doc_data['send_date'])
+
+                # 自動補齊：發文類缺 send_date 時用 doc_date；收文類缺 receive_date 時用 doc_date
+                parsed_doc_date = doc_payload.get('doc_date')
+                if parsed_doc_date:
+                    if doc_type == '發文' and not doc_payload.get('send_date'):
+                        doc_payload['send_date'] = parsed_doc_date
+                    elif doc_type == '收文' and not doc_payload.get('receive_date'):
+                        doc_payload['receive_date'] = parsed_doc_date
+
+                # 清除 None 值（避免覆蓋模型預設值）
+                doc_payload = {k: v for k, v in doc_payload.items() if v is not None}
 
                 # 建立文件
                 new_document = Document(**doc_payload)
@@ -662,14 +806,12 @@ class DocumentService:
             except IntegrityError as e:
                 await self.db.rollback()
                 skipped_count += 1
-                error_msg = f"公文違反約束 (IntegrityError): doc_number='{doc_data.get('doc_number')}', error={str(e)}"
-                errors.append(error_msg)
-                logger.warning(error_msg)
+                logger.warning(f"公文違反約束 (IntegrityError): doc_number='{doc_data.get('doc_number')}': {e}")
+                errors.append(f"公文 '{doc_data.get('doc_number')}' 違反唯一性約束，已跳過")
             except Exception as e:
                 error_count += 1
-                error_msg = f"第 {idx + 1} 筆匯入失敗: {str(e)}"
-                errors.append(error_msg)
-                logger.error(error_msg, exc_info=True)
+                logger.error(f"第 {idx + 1} 筆匯入失敗: {e}", exc_info=True)
+                errors.append(f"第 {idx + 1} 筆匯入失敗")
 
         # 提交所有變更
         try:

@@ -15,6 +15,8 @@ import re
 import logging
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
+from app.services.ai.agent_utils import sanitize_history
+
 logger = logging.getLogger(__name__)
 
 
@@ -63,12 +65,7 @@ class AgentSynthesizer:
             {"role": "system", "content": system_prompt},
         ]
 
-        if history:
-            for turn in history[-(self.config.rag_max_history_turns * 2):]:
-                role = turn.get("role", "user")
-                content = turn.get("content", "")
-                if role in ("user", "assistant") and content:
-                    messages.append({"role": role, "content": content})
+        messages.extend(sanitize_history(history, self.config.rag_max_history_turns))
 
         user_prompt = f"查詢結果：\n\n{context}\n\n問題：{question}\n\n請根據上述資料回答問題。"
         messages.append({"role": "user", "content": user_prompt})

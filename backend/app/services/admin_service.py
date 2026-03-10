@@ -159,7 +159,7 @@ class AdminService:
 
         except Exception as e:
             logger.error(f"獲取資料庫信息失敗: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail=f"獲取資料庫信息失敗: {str(e)}")
+            raise HTTPException(status_code=500, detail="獲取資料庫信息失敗，請稍後再試")
 
     async def get_table_data(self, table_name: str, limit: int = 50, offset: int = 0) -> Dict[str, Any]:
         """
@@ -219,7 +219,7 @@ class AdminService:
 
         except Exception as e:
             logger.error(f"獲取表格 {table_name} 數據失敗: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail=f"獲取表格數據失敗: {str(e)}")
+            raise HTTPException(status_code=500, detail="獲取表格數據失敗，請稍後再試")
 
     async def execute_read_only_query(self, query_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -251,9 +251,7 @@ class AdminService:
 
         except Exception as e:
             logger.error(f"SQL 查詢執行失敗: {e}", exc_info=True)
-            # 提供更友好的錯誤信息
-            error_detail = str(e).split('DETAIL:  ')[-1] if 'DETAIL' in str(e) else str(e)
-            raise HTTPException(status_code=500, detail=f"查詢執行失敗: {error_detail}")
+            raise HTTPException(status_code=500, detail="查詢執行失敗，請檢查 SQL 語法")
 
     async def check_database_health(self) -> Dict[str, Any]:
         """
@@ -271,4 +269,4 @@ class AdminService:
                 raise HTTPException(status_code=503, detail="資料庫健康檢查失敗，收到了意外的回應")
         except Exception as e:
             logger.error(f"資料庫健康檢查失敗: {e}", exc_info=True)
-            raise HTTPException(status_code=503, detail=f"無法連線到資料庫: {str(e)}")
+            raise HTTPException(status_code=503, detail="無法連線到資料庫，請稍後再試")

@@ -4,12 +4,14 @@ RAG 問答 API 端點
 基於 pgvector 向量檢索 + Ollama LLM 的 RAG 問答服務。
 支援同步回應與 SSE 串流。
 
-Version: 2.1.0
+Version: 2.2.0
 Created: 2026-02-25
-Updated: 2026-02-27 - v2.1.0 使用 sse_utils 統一串流錯誤處理
+Updated: 2026-03-08 - v2.2.0 新增 session_id 對話記憶
 """
 
+import json
 import logging
+from typing import AsyncGenerator
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -56,6 +58,8 @@ async def rag_query_stream(
     """
     RAG 串流問答 — SSE 逐字回答 + 多輪對話
 
+    支援 session_id 伺服器端記憶（與 Agent 模式共用 ConversationMemory）。
+
     SSE 事件格式:
       data: {"type":"sources","sources":[...],"retrieval_count":N}
       data: {"type":"token","token":"字"}
@@ -65,13 +69,56 @@ async def rag_query_stream(
     from app.services.ai.rag_query_service import RAGQueryService
 
     svc = RAGQueryService(db)
+    history = request.history
+    session_id = request.session_id
+
+    # session_id → 從 Redis 載入對話歷史
+    conv_memory = None
+    if session_id:
+        from app.services.ai.agent_orchestrator import get_conversation_memory
+        conv_memory = get_conversation_memory()
+        loaded = await conv_memory.load(session_id)
+        if loaded:
+            history = loaded
+
+    async def _stream_with_memory() -> AsyncGenerator[str, None]:
+        """包裝原始串流，結束後自動儲存對話至 Redis"""
+        answer_tokens = []
+        async for event_str in svc.stream_query(
+            question=request.question,
+            top_k=request.top_k,
+            similarity_threshold=request.similarity_threshold,
+            history=history,
+        ):
+            # 攔截 token 事件收集回答文字
+            if session_id and conv_memory and event_str.startswith("data: "):
+                try:
+                    evt = json.loads(event_str[6:])
+                    if evt.get("type") == "token":
+                        answer_tokens.append(evt.get("token", ""))
+                except (json.JSONDecodeError, IndexError):
+                    pass
+            yield event_str
+
+        # 串流結束後儲存本輪對話
+        if session_id and conv_memory and answer_tokens:
+            answer_text = "".join(answer_tokens)
+            await conv_memory.save(
+                session_id, request.question, answer_text, history or [],
+            )
+
+    if session_id:
+        return create_sse_response(
+            stream_fn=_stream_with_memory,
+            endpoint_name="RAG",
+        )
 
     return create_sse_response(
         stream_fn=lambda: svc.stream_query(
             question=request.question,
             top_k=request.top_k,
             similarity_threshold=request.similarity_threshold,
-            history=request.history,
+            history=history,
         ),
         endpoint_name="RAG",
     )

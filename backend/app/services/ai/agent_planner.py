@@ -17,7 +17,8 @@ import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from app.services.ai.agent_tools import TOOL_DEFINITIONS_STR
+from app.services.ai.tool_registry import get_tool_registry
+from app.services.ai.agent_utils import sanitize_history
 
 logger = logging.getLogger(__name__)
 
@@ -88,27 +89,42 @@ class AgentPlanner:
         self,
         question: str,
         history: Optional[List[Dict[str, str]]],
-        hints: Dict[str, Any],
     ) -> Optional[Dict[str, Any]]:
-        """LLM 分析問題，決定要呼叫哪些工具（含意圖預處理 + Few-shot 引導）"""
+        """
+        LLM 分析問題，決定要呼叫哪些工具。
+
+        注意：此方法只做 LLM 規劃。hints 合併由 orchestrator 在
+        preprocess_question 完成後統一呼叫 merge_hints_into_plan 處理。
+        """
         today = datetime.now().strftime("%Y-%m-%d")
 
         hints_str = ""
-        if hints:
-            hints_str = (
-                "\n\n系統已預解析的結構化線索（供參考，可在 params 中使用）：\n"
-                + json.dumps(hints, ensure_ascii=False)
-            )
 
         # Prompt Injection 防護
         sanitized_q = question.replace("{", "（").replace("}", "）")
         sanitized_q = sanitized_q.replace("```", "").replace("<", "（").replace(">", "）")
         sanitized_q = sanitized_q[:500]
 
+        registry = get_tool_registry()
+        tool_defs_str = registry.get_definitions_json()
+        few_shot_str_block = registry.get_few_shot_prompt()
+
+        # 組合額外的硬編碼範例（涉及多工具協作，不易放入單一工具的 few_shot）
+        extra_example = (
+            '使用者：「道路工程相關的派工和公文」\n'
+            '回應：{"reasoning": "同時搜尋道路工程的派工單和公文", '
+            '"tool_calls": [{"name": "search_dispatch_orders", "params": {"search": "道路工程", "limit": 5}}, '
+            '{"name": "search_documents", "params": {"keywords": ["道路工程"], "limit": 5}}]}'
+        )
+        if few_shot_str_block:
+            few_shot_str_block += "\n\n" + extra_example
+        else:
+            few_shot_str_block = extra_example
+
         system_prompt = f"""你是公文管理系統的 AI 智能體。根據使用者問題，決定需要呼叫哪些工具來回答。
 
 可用工具：
-{TOOL_DEFINITIONS_STR}
+{tool_defs_str}
 
 規則：
 - 每次最多選擇 3 個工具
@@ -122,20 +138,7 @@ class AgentPlanner:
 
 以下是幾個規劃範例：
 
-使用者：「工務局上個月發的函有哪些？」
-回應：{{"reasoning": "查詢特定機關的近期公文，使用日期和發文單位篩選", "tool_calls": [{{"name": "search_documents", "params": {{"sender": "桃園市政府工務局", "doc_type": "函", "date_from": "2026-01-01", "date_to": "2026-01-31", "limit": 8}}}}]}}
-
-使用者：「桃園市政府工務局相關的專案有哪些？」
-回應：{{"reasoning": "查詢機關相關的實體關係，使用知識圖譜搜尋", "tool_calls": [{{"name": "search_entities", "params": {{"query": "桃園市政府工務局", "entity_type": "organization", "limit": 5}}}}, {{"name": "search_documents", "params": {{"keywords": ["桃園市政府工務局", "專案"], "limit": 5}}}}]}}
-
-使用者：「查詢派工單號014紀錄」
-回應：{{"reasoning": "查詢特定派工單號，使用派工單搜尋", "tool_calls": [{{"name": "search_dispatch_orders", "params": {{"dispatch_no": "014", "limit": 5}}}}]}}
-
-使用者：「道路工程相關的派工和公文」
-回應：{{"reasoning": "同時搜尋道路工程的派工單和公文", "tool_calls": [{{"name": "search_dispatch_orders", "params": {{"search": "道路工程", "limit": 5}}}}, {{"name": "search_documents", "params": {{"keywords": ["道路工程"], "limit": 5}}}}]}}
-
-使用者：「系統裡有多少公文和實體？」
-回應：{{"reasoning": "查詢系統統計資訊", "tool_calls": [{{"name": "get_statistics", "params": {{}}}}]}}
+{few_shot_str_block}
 
 你只能回傳 JSON，格式如下：
 {{"reasoning": "簡短中文分析", "tool_calls": [{{"name": "工具名稱", "params": {{...}}}}]}}"""
@@ -144,12 +147,7 @@ class AgentPlanner:
             {"role": "system", "content": system_prompt},
         ]
 
-        if history:
-            for turn in history[-(self.config.rag_max_history_turns * 2):]:
-                role = turn.get("role", "user")
-                content = turn.get("content", "")
-                if role in ("user", "assistant") and content:
-                    messages.append({"role": role, "content": content})
+        messages.extend(sanitize_history(history, self.config.rag_max_history_turns))
 
         messages.append({
             "role": "user",
@@ -175,15 +173,12 @@ class AgentPlanner:
 
             # 解析失敗時初始化空計劃
             if not plan:
-                plan = {"reasoning": "LLM 回應格式錯誤，使用預處理線索", "tool_calls": []}
-
-            # 合併預處理 hints 到 plan
-            plan = self._merge_hints_into_plan(plan, hints, sanitized_q)
+                plan = {"reasoning": "LLM 回應格式錯誤", "tool_calls": []}
 
             return plan
         except Exception as e:
             logger.warning("Agent planning failed: %s", e)
-            return self._build_fallback_plan(question, hints)
+            return self._build_fallback_plan(question, {})
 
     def _merge_hints_into_plan(
         self,

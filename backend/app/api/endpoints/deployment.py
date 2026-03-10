@@ -86,9 +86,9 @@ async def get_system_status(
     backend_version = None
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get("http://localhost:8001/health")
-            if response.status_code == 200:
-                health_data = response.json()
+            http_resp = await client.get("http://localhost:8001/health")
+            if http_resp.status_code == 200:
+                health_data = http_resp.json()
                 backend_version = health_data.get("version", "unknown")
             else:
                 backend_status = ServiceStatus.ERROR
@@ -108,8 +108,8 @@ async def get_system_status(
     frontend_status = ServiceStatus.RUNNING
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get("http://localhost:3000")
-            if response.status_code != 200:
+            http_resp = await client.get("http://localhost:3000")
+            if http_resp.status_code != 200:
                 frontend_status = ServiceStatus.ERROR
     except Exception as e:
         logger.warning(f"前端健康檢查失敗: {e}")
@@ -146,13 +146,13 @@ async def get_system_status(
     last_deployment = None
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(
+            http_resp = await client.get(
                 f"{GITHUB_API_BASE}/repos/{GITHUB_REPO}/actions/workflows/{WORKFLOW_FILE}/runs",
                 headers=get_github_headers(),
                 params={"per_page": 1, "status": "completed"}
             )
-            if response.status_code == 200:
-                data = response.json()
+            if http_resp.status_code == 200:
+                data = http_resp.json()
                 if data.get("workflow_runs"):
                     last_run = data["workflow_runs"][0]
                     last_deployment = datetime.fromisoformat(
@@ -200,17 +200,17 @@ async def get_deployment_history(
             params["status"] = status
 
         async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.get(
+            http_resp = await client.get(
                 f"{GITHUB_API_BASE}/repos/{GITHUB_REPO}/actions/workflows/{WORKFLOW_FILE}/runs",
                 headers=get_github_headers(),
                 params=params
             )
 
-            if response.status_code == 404:
+            if http_resp.status_code == 404:
                 return DeploymentHistoryResponse(total=0, records=[])
 
-            response.raise_for_status()
-            data = response.json()
+            http_resp.raise_for_status()
+            data = http_resp.json()
 
         records = []
         for run in data.get("workflow_runs", []):
@@ -270,9 +270,9 @@ async def get_deployment_history(
 @router.post("/trigger", response_model=TriggerDeploymentResponse, summary="觸發部署")
 @limiter.limit("5/minute")
 async def trigger_deployment(
-    http_request: Request,
+    request: Request,
     response: Response,
-    request: TriggerDeploymentRequest,
+    body: TriggerDeploymentRequest,
     _: dict = Depends(require_admin)
 ):
     """
@@ -289,19 +289,19 @@ async def trigger_deployment(
     try:
         # 觸發 workflow_dispatch 事件
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
+            http_resp = await client.post(
                 f"{GITHUB_API_BASE}/repos/{GITHUB_REPO}/actions/workflows/{WORKFLOW_FILE}/dispatches",
                 headers=get_github_headers(),
                 json={
-                    "ref": request.ref,
+                    "ref": body.ref,
                     "inputs": {
-                        "force_rebuild": str(request.force_rebuild).lower(),
-                        "skip_backup": str(request.skip_backup).lower()
+                        "force_rebuild": str(body.force_rebuild).lower(),
+                        "skip_backup": str(body.skip_backup).lower()
                     }
                 }
             )
 
-            if response.status_code == 204:
+            if http_resp.status_code == 204:
                 # 等待一下讓 workflow 開始
                 await asyncio.sleep(2)
 
@@ -323,13 +323,13 @@ async def trigger_deployment(
 
                 return TriggerDeploymentResponse(
                     success=True,
-                    message=f"已觸發部署工作流 (ref: {request.ref})",
+                    message=f"已觸發部署工作流 (ref: {body.ref})",
                     workflow_run_id=workflow_run_id,
                     url=url
                 )
             else:
-                error_detail = response.text
-                logger.error(f"觸發部署失敗: {response.status_code} - {error_detail}")
+                error_detail = http_resp.text
+                logger.error(f"觸發部署失敗: {http_resp.status_code} - {error_detail}")
                 return TriggerDeploymentResponse(
                     success=False,
                     message="觸發部署失敗，請稍後再試"
@@ -346,9 +346,9 @@ async def trigger_deployment(
 @router.post("/rollback", response_model=RollbackResponse, summary="回滾部署")
 @limiter.limit("5/minute")
 async def rollback_deployment(
-    http_request: Request,
+    request: Request,
     response: Response,
-    request: RollbackRequest,
+    body: RollbackRequest,
     _: dict = Depends(require_admin)
 ):
     """
@@ -356,7 +356,7 @@ async def rollback_deployment(
 
     需要管理員權限，且必須確認操作。
     """
-    if not request.confirm:
+    if not body.confirm:
         raise HTTPException(
             status_code=400,
             detail="請確認回滾操作 (confirm: true)"
@@ -366,35 +366,39 @@ async def rollback_deployment(
         # 執行 Docker 回滾命令
         # 注意：這需要在有 Docker 權限的環境中執行
         rollback_commands = [
-            "docker tag ck-missive-backend:rollback ck-missive-backend:latest",
-            "docker tag ck-missive-frontend:rollback ck-missive-frontend:latest",
+            ["docker", "tag", "ck-missive-backend:rollback", "ck-missive-backend:latest"],
+            ["docker", "tag", "ck-missive-frontend:rollback", "ck-missive-frontend:latest"],
         ]
 
         for cmd in rollback_commands:
-            result = subprocess.run(
-                cmd.split(),
-                capture_output=True,
-                text=True,
-                timeout=30,
-                encoding="utf-8",
-                errors="replace",
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
             )
-            if result.returncode != 0:
-                logger.warning(f"回滾命令警告: {cmd} - {result.stderr}")
+            try:
+                stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
+            except asyncio.TimeoutError:
+                proc.kill()
+                raise HTTPException(status_code=504, detail="回滾操作超時")
+            if proc.returncode != 0:
+                logger.warning(f"回滾命令警告: {' '.join(cmd)} - {stderr.decode('utf-8', errors='replace')}")
 
         # 重啟服務
-        restart_cmd = "docker compose -f docker-compose.production.yml up -d"
-        result = subprocess.run(
-            restart_cmd.split(),
-            capture_output=True,
-            text=True,
-            timeout=120,
-            encoding="utf-8",
-            errors="replace",
+        restart_cmd = ["docker", "compose", "-f", "docker-compose.production.yml", "up", "-d"]
+        proc = await asyncio.create_subprocess_exec(
+            *restart_cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             cwd=os.getenv("DEPLOY_PATH", "/share/CACHEDEV1_DATA/Container/ck-missive"),
         )
+        try:
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=120)
+        except asyncio.TimeoutError:
+            proc.kill()
+            raise HTTPException(status_code=504, detail="回滾操作超時")
 
-        if result.returncode == 0:
+        if proc.returncode == 0:
             return RollbackResponse(
                 success=True,
                 message="回滾成功，服務已重啟",
@@ -402,17 +406,14 @@ async def rollback_deployment(
                 current_version="latest"
             )
         else:
-            logger.error(f"回滾命令失敗: {result.stderr}")
+            logger.error(f"回滾命令失敗: {stderr.decode('utf-8', errors='replace')}")
             return RollbackResponse(
                 success=False,
                 message="回滾失敗，請稍後再試"
             )
 
-    except subprocess.TimeoutExpired:
-        raise HTTPException(
-            status_code=504,
-            detail="回滾操作超時"
-        )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"回滾異常: {e}")
         raise HTTPException(

@@ -18,8 +18,8 @@ except ImportError:
     Vector = None
 
 # pgvector 需要 Python 套件 AND PostgreSQL 擴展同時可用
-import os
-if Vector is not None and os.environ.get("PGVECTOR_ENABLED", "false").lower() != "true":
+from app.core.config import settings as _settings
+if Vector is not None and not _settings.PGVECTOR_ENABLED:
     Vector = None
 
 from app.db.database import Base

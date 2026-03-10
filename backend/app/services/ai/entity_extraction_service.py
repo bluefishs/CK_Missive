@@ -11,6 +11,7 @@ Created: 2026-02-24
 import json
 import logging
 import re
+import unicodedata
 from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy import select, func, delete
@@ -26,7 +27,12 @@ logger = logging.getLogger(__name__)
 # 常數
 # ============================================================================
 
-VALID_ENTITY_TYPES = {"org", "person", "project", "location", "date", "topic"}
+# NER 提取支援的實體類型（僅限公文 NER 流程）
+# 注意：Code Graph 實體 (py_module, py_class, py_function, db_table) 有獨立入庫路徑
+#       (code_graph_service.py)，不經過 NER 驗證，因此不列入此處
+VALID_ENTITY_TYPES = {
+    "org", "person", "project", "location", "date", "topic",
+}
 # MIN_CONFIDENCE 改由 AIConfig 統一管理，此處保留 fallback
 MIN_CONFIDENCE = get_ai_config().ner_min_confidence
 
@@ -169,16 +175,97 @@ def _extract_json_from_text(text: str) -> Optional[Dict]:
     return None
 
 
+def _normalize_text_nfkc(text: str) -> str:
+    """NFKC 正規化：康熙部首→標準 CJK、全形→半形、相容字→標準字"""
+    return unicodedata.normalize('NFKC', text).strip()
+
+
+# 簡體字常見字集（繁體系統不應出現）
+_SIMPLIFIED_CHARS = set(
+    '义组个体与专业严丰临为举么义乐习书买乱争于产亲亿从仅仓付价份众优伤传伦'
+    '估体余佣侠侣侦侧侨俩俭债倾偶偿储儿兑党兰关兴养兹冈冲决况冻净凉减凤'
+    '几凭击创刘则刚剂剑剧劝办务劳势勋勤区医华协单卖卢卫却厂厅历厉压厌县叁'
+    '叶号叹吕吨呐员呜咏咙响哑哟唤啬啸喷嘘嘤嚣团园围坏坚坛坝垄垒垦垫堕塑'
+    '壮声壳处备复够头夺奋奖奥妆妇妈姗姜娄娱婴学宁宝实宠审宪宫宽宾寝对寻导'
+    '层岁岂岗岛岭岳峡峰崭巩币帅师帐帜帧帮带帻幂广庆庐庄库应废开异弃张弥弹'
+    '归录彦彻径徕志忆忧惊惧惩惫惬惭惮惯愤愿慑慨懒戏户执扩扫扬扰抚抢护报担'
+    '拟拥择挡挣挤挥损捞据掷搁搜摄摆摇撑撰擞攒敌斋断无旧时旷昼显晓晖暂暴术'
+)
+
+
+def _is_garbled_text(text: str) -> bool:
+    """偵測亂碼文字：簡體字混入繁體系統、罕用字元過多、隱私遮蔽符號"""
+    if not text:
+        return True
+    # 含隱私遮蔽符號（○、〇等）→ 不應作為正規化實體
+    if '○' in text or '〇' in text:
+        return True
+    simplified_count = sum(1 for c in text if c in _SIMPLIFIED_CHARS)
+    cjk_count = sum(1 for c in text if '\u4e00' <= c <= '\u9fff')
+    # 超過 30% 的 CJK 字元是簡體 → 判定為亂碼
+    if cjk_count > 0 and simplified_count / cjk_count > 0.3:
+        return True
+    return False
+
+
+# 代名詞/泛稱黑名單 — 這些不是有效的命名實體
+_PRONOUN_ENTITY_BLACKLIST = {
+    '貴公司', '本公司', '該公司', '貴所', '本所', '該所',
+    '貴局', '本局', '該局', '貴府', '本府', '該府',
+    '貴會', '本會', '該會', '貴處', '本處', '該處',
+    '貴署', '本署', '該署', '貴部', '本部', '該部',
+    '貴院', '本院', '該院', '貴市', '本市', '該市',
+    '貴機關', '本機關', '該機關', '貴單位', '本單位', '該單位',
+    '台端', '臺端',
+}
+
+# 公文號正則 — 符合此模式的是公文編號，不應列為 date/topic
+_DOC_NUMBER_RE = re.compile(
+    r'^(?:[A-Z0-9]*[字函令書]第?\d{5,}號?$|^\d{7,}號$)'
+)
+
+# 統一編號前綴正則（8-10 碼英數 + 空格 + 名稱）
+_TAX_ID_PREFIX_RE = re.compile(r'^[A-Z0-9]{8,10}\s+')
+
+
 def _validate_entities(entities: List) -> List[Dict]:
     """驗證並過濾實體列表"""
     valid = []
     for e in entities:
         if not isinstance(e, dict):
             continue
-        name = e.get("name", "").strip()
+        name = _normalize_text_nfkc(e.get("name", ""))
         etype = e.get("type", "").strip()
         if not name or etype not in VALID_ENTITY_TYPES:
             continue
+        if _is_garbled_text(name):
+            logger.warning(f"實體名稱疑似亂碼，已過濾: '{name}'")
+            continue
+
+        # 代名詞黑名單過濾
+        if name in _PRONOUN_ENTITY_BLACKLIST:
+            logger.debug(f"代名詞實體已過濾: '{name}'")
+            continue
+
+        # 過短實體過濾（<=1 字元，人名除外）
+        if len(name) <= 1 and etype != 'person':
+            continue
+
+        # 統一編號前綴剝離（EB50819619 乾坤測繪 → 乾坤測繪）
+        stripped = _TAX_ID_PREFIX_RE.sub('', name)
+        if stripped and stripped != name:
+            logger.debug(f"統一編號前綴剝離: '{name}' → '{stripped}'")
+            name = stripped
+
+        # 公文號識別：date/topic 但符合公文號模式 → 跳過（公文號不應為圖譜實體）
+        if etype in ('date', 'topic') and _DOC_NUMBER_RE.match(name):
+            logger.debug(f"公文號誤分類為 {etype}，已跳過: '{name}'")
+            continue
+
+        # 金額實體過濾（297萬元整、99萬元整等）
+        if re.match(r'^[\d,]+萬?元', name):
+            continue
+
         conf = float(e.get("confidence", 0.8))
         if conf < MIN_CONFIDENCE:
             continue
@@ -197,10 +284,13 @@ def _validate_relations(relations: List) -> List[Dict]:
     for r in relations:
         if not isinstance(r, dict):
             continue
-        src = r.get("source", "").strip()
-        tgt = r.get("target", "").strip()
+        src = _normalize_text_nfkc(r.get("source", ""))
+        tgt = _normalize_text_nfkc(r.get("target", ""))
         rel = r.get("relation", "").strip()
         if not src or not tgt or not rel:
+            continue
+        if _is_garbled_text(src) or _is_garbled_text(tgt):
+            logger.warning(f"關係實體疑似亂碼，已過濾: '{src}' → '{tgt}'")
             continue
         conf = float(r.get("confidence", 0.8))
         if conf < MIN_CONFIDENCE:

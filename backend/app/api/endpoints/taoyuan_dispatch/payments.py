@@ -141,9 +141,11 @@ async def get_payment_control(
     return PaymentControlResponse(
         success=True,
         items=result['items'],
+        contract_name=result.get('contract_name'),
         total_budget=result['total_budget'],
         total_dispatched=result['total_dispatched'],
         total_remaining=result['total_remaining'],
+        total_claimed=result.get('total_claimed', 0),
         pagination=PaginationMeta(
             total=result['total'],
             page=page,

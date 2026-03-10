@@ -400,14 +400,17 @@ class PaymentService:
             limit=limit,
         )
 
-        # 取得總預算
+        # 取得總預算與合約名稱
         total_budget = 0
+        contract_name = None
         if contract_project_id:
             summary = await self.repository.get_project_summary(contract_project_id)
             total_budget = summary.get('total_budget', 0)
+            contract_name = summary.get('project_name')
 
         result_items = []
         running_total = 0
+        claimed_total = 0
 
         for order in items:
             dispatch_date = None
@@ -495,6 +498,8 @@ class PaymentService:
                         payment_data[f'work_{code}_date'] = dispatch_date
 
             running_total += current_amount
+            if order.batch_no is not None:
+                claimed_total += current_amount
             cumulative_amount = running_total
             remaining_amount = total_budget - running_total
 
@@ -521,9 +526,11 @@ class PaymentService:
         return {
             'items': result_items,
             'total': total,
+            'contract_name': contract_name,
             'total_budget': total_budget,
             'total_dispatched': running_total,
             'total_remaining': total_budget - running_total,
+            'total_claimed': claimed_total,
         }
 
     # =========================================================================

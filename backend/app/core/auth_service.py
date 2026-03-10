@@ -16,7 +16,8 @@ import secrets
 import logging
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import PyJWTError as JWTError
 import bcrypt
 from google.oauth2 import id_token
 from google.auth.transport import requests
@@ -29,6 +30,13 @@ from starlette.responses import Response
 
 from app.core.config import settings
 from app.core.csrf import generate_csrf_token, set_csrf_cookie
+from app.core.domain_whitelist import (
+    get_allowed_domains as _get_allowed_domains,
+    check_email_domain as _check_email_domain,
+    should_auto_activate as _should_auto_activate,
+    get_default_user_role as _get_default_user_role,
+    get_default_permissions as _get_default_permissions,
+)
 from app.extended.models import User, UserSession
 from app.schemas.auth import UserResponse, GoogleUserInfo, TokenResponse
 from app.services.audit_service import AuditService
@@ -57,61 +65,27 @@ class AuthService:
     MAX_FAILED_ATTEMPTS = 5
     LOCKOUT_DURATION_MINUTES = 15
 
-    # ============ 網域白名單檢查 ============
+    # ============ 網域白名單檢查 (委派至 domain_whitelist 模組) ============
 
     @staticmethod
     def get_allowed_domains() -> List[str]:
-        """取得允許的 Google 網域清單"""
-        domains_str = settings.GOOGLE_ALLOWED_DOMAINS or ""
-        if not domains_str.strip():
-            return []  # 空白表示允許所有
-        return [d.strip().lower() for d in domains_str.split(",") if d.strip()]
+        return _get_allowed_domains()
 
     @staticmethod
     def check_email_domain(email: str) -> bool:
-        """
-        檢查 email 是否在允許的網域內
-
-        Args:
-            email: 使用者 email
-
-        Returns:
-            True 表示允許，False 表示拒絕
-        """
-        allowed_domains = AuthService.get_allowed_domains()
-        if not allowed_domains:
-            return True  # 未設定白名單，允許所有
-
-        email_domain = email.split("@")[-1].lower()
-        is_allowed = email_domain in allowed_domains
-
-        if not is_allowed:
-            logger.warning(f"[AUTH] 網域被拒: {email_domain} 不在允許清單 {allowed_domains}")
-
-        return is_allowed
+        return _check_email_domain(email)
 
     @staticmethod
     def should_auto_activate() -> bool:
-        """檢查新帳號是否應自動啟用"""
-        return settings.AUTO_ACTIVATE_NEW_USER
+        return _should_auto_activate()
 
     @staticmethod
     def get_default_user_role() -> str:
-        """取得新帳號預設角色"""
-        return settings.DEFAULT_USER_ROLE or "user"
+        return _get_default_user_role()
 
     @staticmethod
     def get_default_permissions() -> str:
-        """取得新帳號預設權限"""
-        default_permissions = [
-            "documents:read",
-            "projects:read",
-            "agencies:read",
-            "vendors:read",
-            "calendar:read",
-            "reports:view"
-        ]
-        return json.dumps(default_permissions)
+        return _get_default_permissions()
 
     # ============ 密碼相關 (保留但標記棄用) ============
 
@@ -228,14 +202,16 @@ class AuthService:
             )
             
         except ValueError as e:
+            logger.warning(f"Invalid Google token: {e}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid Google token: {str(e)}"
+                detail="Google 驗證令牌無效，請重新登入"
             )
         except Exception as e:
+            logger.error(f"Google authentication error: {e}", exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Google authentication error: {str(e)}"
+                detail="Google 驗證失敗，請稍後再試"
             )
     
     @staticmethod

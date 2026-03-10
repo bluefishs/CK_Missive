@@ -13,6 +13,8 @@ Created: 2026-02-24
 
 import logging
 import os
+import re
+import unicodedata
 from typing import Dict, List, Optional, Set, Tuple
 
 from sqlalchemy import select, func as sa_func
@@ -26,11 +28,33 @@ from app.extended.models import (
 
 logger = logging.getLogger(__name__)
 
-PGVECTOR_ENABLED = os.environ.get("PGVECTOR_ENABLED", "false").lower() == "true"
+from app.core.config import settings as _settings
+PGVECTOR_ENABLED = _settings.PGVECTOR_ENABLED
 
 # 閾值由 AIConfig 統一管理
 from app.services.ai.ai_config import get_ai_config
 FUZZY_SIMILARITY_THRESHOLD = get_ai_config().kg_fuzzy_threshold
+
+
+# 統一編號前綴正則（8-10 碼英數 + 空格 + 名稱）
+_TAX_ID_PREFIX_RE = re.compile(r'^[A-Z0-9]{8,10}\s+')
+
+# 從 entity_extraction_service 匯入共用黑名單
+from app.services.ai.entity_extraction_service import _PRONOUN_ENTITY_BLACKLIST
+
+
+def _preprocess_entity_name(name: str) -> Optional[str]:
+    """前處理實體名稱：NFKC 正規化、統一編號前綴剝離、代名詞過濾"""
+    name = unicodedata.normalize('NFKC', name).strip()
+    if not name:
+        return None
+    if name in _PRONOUN_ENTITY_BLACKLIST:
+        return None
+    # 統一編號前綴剝離
+    stripped = _TAX_ID_PREFIX_RE.sub('', name)
+    if stripped:
+        name = stripped
+    return name
 
 
 class CanonicalEntityService:
@@ -53,9 +77,9 @@ class CanonicalEntityService:
         2. 模糊匹配 (pg_trgm)
         3. 新建實體
         """
-        name = entity_name.strip()
+        name = _preprocess_entity_name(entity_name)
         if not name:
-            raise ValueError("entity_name 不可為空")
+            raise ValueError("entity_name 不可為空或為代名詞")
 
         # Stage 1: 精確匹配
         canonical = await self._exact_match(name, entity_type)
@@ -99,13 +123,15 @@ class CanonicalEntityService:
         """
         result: Dict[str, CanonicalEntity] = {}
 
-        # 去重（保留順序）
+        # 去重（保留順序）+ 前處理（代名詞過濾、統一編號前綴剝離）
         deduped: List[Tuple[str, str]] = []
         seen: Set[str] = set()
         for name_raw, etype in entities:
-            name = name_raw.strip()
+            name = _preprocess_entity_name(name_raw)
+            if not name:
+                continue
             key = f"{etype}:{name}"
-            if key not in seen and name:
+            if key not in seen:
                 seen.add(key)
                 deduped.append((name, etype))
 

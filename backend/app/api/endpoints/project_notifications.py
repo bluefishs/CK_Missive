@@ -18,7 +18,9 @@ from app.schemas.notification import (
     TeamNotificationRequest,
     ProjectUpdateRequest,
     SingleMarkReadRequest,
-    NotificationResponse
+    NotificationResponse,
+    UserNotificationsQuery,
+    BroadcastRequest,
 )
 
 logger = logging.getLogger(__name__)
@@ -32,7 +34,6 @@ calendar_integrator = DocumentCalendarIntegrator()
 @router.post("/team-members/{project_id}")
 async def get_project_team_members(
     project_id: int,
-    request: dict,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -182,16 +183,14 @@ async def send_project_update_notifications(
 
 @router.post("/user-notifications")
 async def get_user_notifications(
-    request: dict,
+    request: UserNotificationsQuery = UserNotificationsQuery(),
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user)
 ):
     """獲取使用者通知清單"""
     try:
-        # 從 request 中獲取參數
-        data = request.get('data', {})
-        unread_only = data.get('unread_only', False)
-        limit = data.get('limit', 50)
+        unread_only = request.unread_only
+        limit = request.limit
 
         notifications = await notification_service.get_user_notifications(
             db=db,
@@ -236,25 +235,15 @@ async def get_user_notifications(
 
 @router.post("/mark-read")
 async def mark_notification_as_read(
-    request: dict,
+    request: SingleMarkReadRequest,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user)
 ):
     """標記通知為已讀"""
     try:
-        # 從 request 中獲取參數
-        data = request.get('data', {})
-        notification_id = data.get('notification_id')
-
-        if not notification_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="notification_id 為必填欄位"
-            )
-
         success = await notification_service.mark_notification_as_read(
             db=db,
-            notification_id=notification_id,
+            notification_id=request.notification_id,
             user_id=current_user.id
         )
 
@@ -280,7 +269,6 @@ async def mark_notification_as_read(
 
 @router.post("/unread-count")
 async def get_unread_notification_count(
-    request: dict,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -309,14 +297,16 @@ async def get_unread_notification_count(
 @router.post("/broadcast/{project_id}")
 async def broadcast_to_project_team(
     project_id: int,
-    title: str,
-    message: str,
-    priority: int = 3,
+    request: BroadcastRequest,
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user)
 ):
     """向專案團隊廣播訊息"""
     try:
+        title = request.title
+        message = request.message
+        priority = request.priority
+
         # 獲取專案團隊成員
         team_members = await notification_service.get_project_team_members(
             db, project_id

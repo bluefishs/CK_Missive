@@ -102,8 +102,9 @@ async def clear_search_history(
     try:
         deleted_count = await repo.clear_before_date(request.before_date)
     except ValueError as e:
+        logger.warning("清除搜尋歷史參數錯誤: %s", e)
         return ClearSearchHistoryResponse(
-            success=False, deleted_count=0, error=str(e)
+            success=False, deleted_count=0, error="日期參數無效"
         )
 
     logger.info(

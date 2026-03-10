@@ -1,16 +1,18 @@
 """
-搜尋實體擴展器
+搜尋詞彙統一擴展器
 
-利用知識圖譜的正規化實體和別名系統，
-擴展搜尋詞彙以提升搜尋召回率。
+整合兩層擴展來源為單一管道：
+  Layer 1: SynonymExpander — ai_synonyms 表（DB 管理，前端可維護）
+  Layer 2: 知識圖譜 — canonical_entities + entity_aliases
 
 使用場景:
-  使用者搜尋「王主任」→ 在 canonical_entities/entity_aliases 中
-  發現「王主任」是「王○明」的別名 → 自動擴展搜尋為
-  「王主任 OR 王○明」，提升召回率。
+  - 「桃園市工務局」→ SynonymExpander 模糊匹配 → 「桃園市政府工務局」
+  - 「王主任」→ entity_aliases → 「王○明」
+  - 「工務局」→ SynonymExpander → 「工務處」
 
-Version: 1.0.0
+Version: 2.0.0
 Created: 2026-02-25
+Updated: 2026-03-06 - 整合 SynonymExpander + entity_aliases 統一管道
 """
 
 import logging
@@ -35,10 +37,10 @@ async def expand_search_terms(
     terms: List[str],
 ) -> Dict[str, Set[str]]:
     """
-    擴展搜尋詞彙，返回每個原始詞的擴展集合。
+    統一搜尋詞彙擴展 — 兩層管道串聯。
 
-    利用 canonical_entities 和 entity_aliases 表，
-    將搜尋詞映射到正規化實體的所有別名，從而擴展搜尋範圍。
+    Layer 1: SynonymExpander（ai_synonyms 表，含模糊匹配）
+    Layer 2: 知識圖譜（canonical_entities + entity_aliases）
 
     Args:
         db: 資料庫 session
@@ -53,8 +55,29 @@ async def expand_search_terms(
 
     expansions: Dict[str, Set[str]] = {}
     for term in terms:
-        expansions[term] = {term}  # always include original
+        expansions[term] = {term}
 
+    # ── Layer 1: SynonymExpander（ai_synonyms DB 表） ──
+    try:
+        from app.services.ai.synonym_expander import SynonymExpander
+        expanded_keywords = SynonymExpander.expand_keywords(list(terms))
+        # 將擴展結果歸入對應的原始詞
+        original_set = set(terms)
+        for kw in expanded_keywords:
+            if kw not in original_set:
+                # 找出是哪個原始詞的擴展
+                for term in terms:
+                    synonyms = SynonymExpander.find_synonyms(term)
+                    if kw in synonyms or kw == term:
+                        expansions[term].add(kw)
+                        break
+                else:
+                    # 無法對應到原始詞，歸入第一個詞的擴展
+                    expansions[terms[0]].add(kw)
+    except Exception as e:
+        logger.debug("SynonymExpander layer failed: %s", e)
+
+    # ── Layer 2: 知識圖譜（canonical_entities + entity_aliases） ──
     try:
         for term in terms:
             clean = term.strip()
@@ -63,14 +86,14 @@ async def expand_search_terms(
 
             canonical_ids: List[int] = []
 
-            # Step 1: 查找別名匹配（例如「王主任」是某正規實體的別名）
+            # Step 1: 別名精確匹配
             alias_result = await db.execute(
                 select(EntityAlias.canonical_entity_id)
                 .where(EntityAlias.alias_name == clean)
             )
             canonical_ids.extend(row[0] for row in alias_result.all())
 
-            # Step 2: 查找正規名稱匹配（例如直接搜尋「王○明」）
+            # Step 2: 正規名稱精確匹配
             canon_result = await db.execute(
                 select(CanonicalEntity.id)
                 .where(CanonicalEntity.canonical_name == clean)
@@ -80,10 +103,9 @@ async def expand_search_terms(
             if not canonical_ids:
                 continue
 
-            # 去重 canonical_ids
             unique_ids = list(set(canonical_ids))
 
-            # Step 3: 取得所有匹配正規實體的別名
+            # Step 3: 取得所有別名
             all_aliases_result = await db.execute(
                 select(EntityAlias.alias_name)
                 .where(EntityAlias.canonical_entity_id.in_(unique_ids))
@@ -92,7 +114,7 @@ async def expand_search_terms(
             for row in all_aliases_result.all():
                 expansions[term].add(row[0])
 
-            # Step 4: 取得正規名稱本身
+            # Step 4: 取得正規名稱
             canon_names_result = await db.execute(
                 select(CanonicalEntity.canonical_name)
                 .where(CanonicalEntity.id.in_(unique_ids))
@@ -100,16 +122,15 @@ async def expand_search_terms(
             for row in canon_names_result.all():
                 expansions[term].add(row[0])
 
-        # 記錄有效擴展（僅記錄確實有擴展的詞彙）
+        # 記錄有效擴展
         for term, expanded in expansions.items():
             if len(expanded) > 1:
                 logger.info(
-                    f"搜尋實體擴展: '{term}' → {expanded}"
+                    f"搜尋詞彙擴展: '{term}' → {expanded}"
                 )
 
     except Exception as e:
-        logger.warning(f"搜尋實體擴展失敗（降級為原始詞彙）: {e}")
-        # Fallback: return original terms only (already set above)
+        logger.warning(f"知識圖譜擴展失敗（降級為同義詞結果）: {e}")
 
     return expansions
 

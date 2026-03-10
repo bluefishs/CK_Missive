@@ -126,3 +126,20 @@ class NotificationSuccessResponse(BaseModel):
     success: bool = True
     message: str = ""
     data: Optional[Dict[str, Any]] = None
+
+
+# =============================================================================
+# 專案通知查詢 Schema (替代 dict 參數)
+# =============================================================================
+
+class BroadcastRequest(BaseModel):
+    """專案團隊廣播請求"""
+    title: str = Field(..., min_length=1, max_length=200, description="廣播標題")
+    message: str = Field(..., min_length=1, max_length=2000, description="廣播內容")
+    priority: int = Field(default=3, ge=1, le=5, description="優先級 (1-5)")
+
+
+class UserNotificationsQuery(BaseModel):
+    """使用者通知查詢請求"""
+    unread_only: bool = Field(default=False, description="僅顯示未讀通知")
+    limit: int = Field(default=50, ge=1, le=1000, description="回傳數量上限")

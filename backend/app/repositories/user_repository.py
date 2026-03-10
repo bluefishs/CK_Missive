@@ -244,6 +244,18 @@ class UserRepository(BaseRepository[User]):
         result = await self.db.execute(query)
         return (result.scalar() or 0) > 0
 
+    async def get_distinct_departments(self) -> List[str]:
+        """取得所有不重複的部門名稱（排除 NULL 和空字串）"""
+        query = (
+            select(User.department)
+            .where(User.department.isnot(None))
+            .where(User.department != "")
+            .distinct()
+            .order_by(User.department)
+        )
+        result = await self.db.execute(query)
+        return [row[0] for row in result.all()]
+
     async def get_users_filtered(
         self,
         *,

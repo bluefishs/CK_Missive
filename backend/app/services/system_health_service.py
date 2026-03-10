@@ -77,23 +77,28 @@ class SystemHealthService:
             }
 
     async def check_core_tables(self) -> Dict[str, Any]:
-        """檢查核心資料表"""
+        """檢查核心資料表（使用 pg_class 預估值，避免全表掃描）"""
         result = {}
-        for table_name, model in self.CORE_TABLES:
+        for display_name, model in self.CORE_TABLES:
             try:
+                real_table = model.__tablename__
                 start = time.time()
                 count_result = await self.db.execute(
-                    select(func.count()).select_from(model)
+                    text(
+                        "SELECT reltuples::bigint FROM pg_class WHERE relname = :tbl"
+                    ),
+                    {"tbl": real_table},
                 )
-                count = count_result.scalar()
+                count = count_result.scalar() or 0
                 response_ms = (time.time() - start) * 1000
-                result[table_name] = {
+                result[display_name] = {
                     "status": "healthy",
-                    "record_count": count,
+                    "record_count": max(count, 0),
                     "response_time_ms": round(response_ms, 2),
+                    "count_method": "pg_class_estimate",
                 }
             except Exception as e:
-                result[table_name] = {"status": "unhealthy", "error": str(e)}
+                result[display_name] = {"status": "unhealthy", "error": str(e)}
         return result
 
     # ------------------------------------------------------------------
