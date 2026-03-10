@@ -124,7 +124,7 @@ backend/sheet*.txt
 openapi_temp*.json
 
 # Bug tracking files (Excel)
-"#BUG/"
+\#BUG/
 
 # Deployment packages
 *.tar.gz
@@ -161,3 +161,6 @@ knowledge_graph.json
 # Temporary data files
 dispatch*.json
 !frontend/src/**/*.json
+
+# Bug test data (Excel files)
+\#BUG/
