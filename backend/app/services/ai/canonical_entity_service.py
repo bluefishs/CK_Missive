@@ -330,12 +330,27 @@ class CanonicalEntityService:
         logger.info(f"實體合併: {merge_entity.canonical_name} → {keep_entity.canonical_name}")
         return keep_entity
 
+    # 程式碼圖譜實體類型（統計時需分離）
+    _CODE_ENTITY_TYPES = frozenset({
+        "py_module", "py_class", "py_function",
+        "db_table",
+        "ts_module", "ts_component", "ts_hook",
+    })
+
     async def get_stats(self) -> dict:
-        """取得知識圖譜統計"""
+        """取得知識圖譜統計（公文圖譜 + 程式碼圖譜分離）"""
         from app.extended.models import EntityRelationship, GraphIngestionEvent
 
-        total_entities = await self.db.scalar(
+        # 公文圖譜實體數
+        doc_entities = await self.db.scalar(
             select(sa_func.count()).select_from(CanonicalEntity)
+            .where(CanonicalEntity.entity_type.notin_(self._CODE_ENTITY_TYPES))
+        ) or 0
+
+        # 程式碼圖譜實體數
+        code_entities = await self.db.scalar(
+            select(sa_func.count()).select_from(CanonicalEntity)
+            .where(CanonicalEntity.entity_type.in_(self._CODE_ENTITY_TYPES))
         ) or 0
 
         total_aliases = await self.db.scalar(
@@ -355,18 +370,20 @@ class CanonicalEntityService:
             select(sa_func.count()).select_from(GraphIngestionEvent)
         ) or 0
 
-        # 實體類型分佈
+        # 實體類型分佈（僅公文圖譜）
         type_dist_result = await self.db.execute(
             select(
                 CanonicalEntity.entity_type,
                 sa_func.count().label("count"),
             )
+            .where(CanonicalEntity.entity_type.notin_(self._CODE_ENTITY_TYPES))
             .group_by(CanonicalEntity.entity_type)
         )
         type_distribution = {row.entity_type: row.count for row in type_dist_result.all()}
 
         return {
-            "total_entities": total_entities,
+            "total_entities": doc_entities,
+            "total_code_entities": code_entities,
             "total_aliases": total_aliases,
             "total_mentions": total_mentions,
             "total_relationships": total_relationships,

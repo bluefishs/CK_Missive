@@ -32,6 +32,13 @@ from .base_ai_service import RedisCache
 
 logger = logging.getLogger(__name__)
 
+# 程式碼圖譜實體類型 — 公文圖譜查詢需排除這些類型
+_CODE_ENTITY_TYPES = frozenset({
+    "py_module", "py_class", "py_function",
+    "db_table",
+    "ts_module", "ts_component", "ts_hook",
+})
+
 # 模組級快取實例（所有 GraphQueryService 共用）
 _graph_cache = RedisCache(prefix="graph:query")
 
@@ -99,18 +106,20 @@ class GraphQueryService:
             for row in mention_result.all()
         ]
 
-        # 關係（出邊 + 入邊）
+        # 關係（出邊 + 入邊），排除程式碼圖譜實體
         out_result = await self.db.execute(
             select(EntityRelationship, CanonicalEntity.canonical_name, CanonicalEntity.entity_type)
             .join(CanonicalEntity, CanonicalEntity.id == EntityRelationship.target_entity_id)
             .where(EntityRelationship.source_entity_id == entity_id)
             .where(EntityRelationship.invalidated_at.is_(None))
+            .where(CanonicalEntity.entity_type.notin_(_CODE_ENTITY_TYPES))
         )
         in_result = await self.db.execute(
             select(EntityRelationship, CanonicalEntity.canonical_name, CanonicalEntity.entity_type)
             .join(CanonicalEntity, CanonicalEntity.id == EntityRelationship.source_entity_id)
             .where(EntityRelationship.target_entity_id == entity_id)
             .where(EntityRelationship.invalidated_at.is_(None))
+            .where(CanonicalEntity.entity_type.notin_(_CODE_ENTITY_TYPES))
         )
 
         relationships = []
@@ -225,6 +234,7 @@ class GraphQueryService:
                 )
                 WHERE t.hop < :max_hops
                     AND r.invalidated_at IS NULL
+                    AND r.relation_label IS DISTINCT FROM 'code_graph'
                     AND NOT (
                         CASE
                             WHEN r.source_entity_id = t.entity_id THEN r.target_entity_id
@@ -246,11 +256,14 @@ class GraphQueryService:
         if not node_ids:
             return {"nodes": [], "edges": []}
 
-        # 批次取得所有節點資訊
+        # 批次取得所有節點資訊（排除程式碼圖譜實體）
         entities_result = await self.db.execute(
             select(CanonicalEntity)
             .where(CanonicalEntity.id.in_(node_ids))
+            .where(CanonicalEntity.entity_type.notin_(_CODE_ENTITY_TYPES))
         )
+        entities = entities_result.scalars().all()
+        filtered_ids = {e.id for e in entities}
         all_nodes = [
             {
                 "id": e.id,
@@ -259,15 +272,15 @@ class GraphQueryService:
                 "mention_count": e.mention_count,
                 "hop": hop_map.get(e.id, 0),
             }
-            for e in entities_result.scalars().all()
+            for e in entities
         ]
 
-        # 批次取得節點間所有邊
+        # 批次取得節點間所有邊（僅已過濾的節點）
         edges_result = await self.db.execute(
             select(EntityRelationship)
             .where(
-                EntityRelationship.source_entity_id.in_(node_ids),
-                EntityRelationship.target_entity_id.in_(node_ids),
+                EntityRelationship.source_entity_id.in_(filtered_ids),
+                EntityRelationship.target_entity_id.in_(filtered_ids),
                 EntityRelationship.invalidated_at.is_(None),
             )
         )
@@ -321,6 +334,7 @@ class GraphQueryService:
                 )
                 WHERE p.depth < :max_hops
                     AND r.invalidated_at IS NULL
+                    AND r.relation_label IS DISTINCT FROM 'code_graph'
                     AND NOT (
                         CASE
                             WHEN r.source_entity_id = p.current_id THEN r.target_entity_id
@@ -384,6 +398,7 @@ class GraphQueryService:
                 (EntityRelationship.source_entity_id == entity_id)
                 | (EntityRelationship.target_entity_id == entity_id)
             )
+            .where(CanonicalEntity.entity_type.notin_(_CODE_ENTITY_TYPES))
             .order_by(EntityRelationship.valid_from.asc().nullslast())
         )
 
@@ -412,12 +427,15 @@ class GraphQueryService:
         entity_type: Optional[str] = None,
         sort_by: str = "mention_count",
         limit: int = 20,
+        include_code: bool = False,
     ) -> list:
-        """高頻實體排名"""
+        """高頻實體排名（預設排除程式碼圖譜實體）"""
         query = select(CanonicalEntity)
 
         if entity_type:
             query = query.where(CanonicalEntity.entity_type == entity_type)
+        elif not include_code:
+            query = query.where(CanonicalEntity.entity_type.notin_(_CODE_ENTITY_TYPES))
 
         if sort_by == "alias_count":
             query = query.order_by(CanonicalEntity.alias_count.desc().nullslast())
@@ -491,6 +509,8 @@ class GraphQueryService:
         main_id_query = select(CanonicalEntity.id).where(or_(*ilike_conditions))
         if entity_type:
             main_id_query = main_id_query.where(CanonicalEntity.entity_type == entity_type)
+        else:
+            main_id_query = main_id_query.where(CanonicalEntity.entity_type.notin_(_CODE_ENTITY_TYPES))
 
         # 別名查詢：alias_name 匹配（獨立 ID 子查詢，JOIN 保留在完整語句中）
         alias_id_query = (
@@ -500,6 +520,8 @@ class GraphQueryService:
         )
         if entity_type:
             alias_id_query = alias_id_query.where(CanonicalEntity.entity_type == entity_type)
+        else:
+            alias_id_query = alias_id_query.where(CanonicalEntity.entity_type.notin_(_CODE_ENTITY_TYPES))
 
         # 合併去重（兩個子查詢都直接 select ID，無需 with_only_columns）
         combined = union_all(main_id_query, alias_id_query).subquery()
