@@ -4,7 +4,8 @@
  * 從 Layout.tsx 拆分出來以提高可維護性
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import authService, { UserInfo } from '../../../services/authService';
 import { usePermissions } from '../../../hooks';
 import { isAuthDisabled, isInternalIP } from '../../../config/env';
@@ -24,10 +25,11 @@ interface UseNavigationDataReturn {
   hasPermission: (permission: string) => boolean;
 }
 
+const NAVIGATION_QUERY_KEY = ['navigation', 'items'] as const;
+
 export const useNavigationData = (): UseNavigationDataReturn => {
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [navigationLoading, setNavigationLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<UserInfo | null>(null);
+  const queryClient = useQueryClient();
 
   const {
     userPermissions,
@@ -45,7 +47,7 @@ export const useNavigationData = (): UseNavigationDataReturn => {
 
     if (userInfo) {
       setCurrentUser(userInfo);
-      logger.debug('✅ 使用 localStorage 中的使用者資訊:', userInfo.full_name || userInfo.username);
+      logger.debug('Uses localStorage user info:', userInfo.full_name || userInfo.username);
       return;
     }
 
@@ -63,7 +65,7 @@ export const useNavigationData = (): UseNavigationDataReturn => {
         login_count: 0,
         email_verified: true
       });
-      logger.debug('⚠️ 使用預設開發者資訊 (AUTH_DISABLED=true)');
+      logger.debug('Using default developer info (AUTH_DISABLED=true)');
       return;
     }
 
@@ -87,99 +89,105 @@ export const useNavigationData = (): UseNavigationDataReturn => {
     });
   }, [hasPermission, isAdmin]);
 
-  // 載入導覽資料
-  const loadNavigationData = useCallback(async () => {
-    try {
-      setNavigationLoading(true);
-      const authDisabled = isAuthDisabled();
-
-      logger.debug('🔧 Environment variables:', {
+  // 使用 React Query 載入導覽資料
+  const {
+    data: navigationItems,
+    isLoading: navigationQueryLoading,
+    isError: navigationError,
+  } = useQuery({
+    queryKey: [...NAVIGATION_QUERY_KEY, userPermissions?.role],
+    queryFn: async () => {
+      logger.debug('Environment variables:', {
         VITE_AUTH_DISABLED: import.meta.env.VITE_AUTH_DISABLED,
         isInternalIP: isInternalIP(),
-        authDisabled
+        authDisabled: isAuthDisabled()
       });
 
-      // 清除快取
+      // 清除舊版快取
       navigationService.clearNavigationCache();
       localStorage.removeItem('cache_navigation_items');
       sessionStorage.removeItem('cache_navigation_items');
 
       const result = await secureApiService.getNavigationItems() as { items?: NavigationItem[] };
-      const navigationItems = result.items || [];
-      logger.debug('📥 Raw navigation items received:', navigationItems.length, 'items');
+      const items = result.items || [];
+      logger.debug('Raw navigation items received:', items.length, 'items');
+      return items;
+    },
+    enabled: !permissionsLoading,
+    staleTime: 5 * 60 * 1000, // 5 分鐘內不重新請求
+    gcTime: 10 * 60 * 1000,   // 10 分鐘後回收
+  });
 
-      let filteredItems: NavigationItem[];
-
-      if (authDisabled) {
-        logger.debug('🛠️ Development mode: Showing all navigation items');
-        filteredItems = navigationItems;
-      } else {
-        filteredItems = userPermissions
-          ? filterNavigationByRole(navigationItems)
-          : [];
-
-        if (filteredItems.length === 0 && navigationItems.length > 0) {
-          filteredItems = navigationItems.filter(item => {
-            const permRequired = item.permission_required;
-            return !permRequired || !Array.isArray(permRequired) || permRequired.length === 0;
-          });
-        }
-      }
-
-      const convertedItems = convertToMenuItems(filteredItems);
-      logger.debug('🌲 Dynamic menu items loaded:', convertedItems.length, 'items');
-      setMenuItems(convertedItems);
-
-    } catch (error) {
-      logger.error('Failed to load navigation:', error);
+  // 從 query 結果計算 menuItems (取代 setState)
+  const menuItems = useMemo(() => {
+    if (navigationError) {
       const staticItems = getStaticMenuItems();
       const authDisabled = isAuthDisabled();
-      const filteredStaticItems = authDisabled
+      return authDisabled
         ? staticItems
         : filterMenuItemsByPermissionLegacy(staticItems);
-      setMenuItems(filteredStaticItems);
-    } finally {
-      setNavigationLoading(false);
     }
-  }, [userPermissions, filterNavigationByRole, filterMenuItemsByPermissionLegacy]);
+
+    if (!navigationItems) {
+      return [];
+    }
+
+    const authDisabled = isAuthDisabled();
+    let filteredItems: NavigationItem[];
+
+    if (authDisabled) {
+      logger.debug('Development mode: Showing all navigation items');
+      filteredItems = navigationItems;
+    } else {
+      filteredItems = userPermissions
+        ? filterNavigationByRole(navigationItems)
+        : [];
+
+      if (filteredItems.length === 0 && navigationItems.length > 0) {
+        filteredItems = navigationItems.filter(item => {
+          const permRequired = item.permission_required;
+          return !permRequired || !Array.isArray(permRequired) || permRequired.length === 0;
+        });
+      }
+    }
+
+    const convertedItems = convertToMenuItems(filteredItems);
+    logger.debug('Dynamic menu items loaded:', convertedItems.length, 'items');
+    return convertedItems;
+  }, [navigationItems, navigationError, userPermissions, filterNavigationByRole, filterMenuItemsByPermissionLegacy]);
+
+  const navigationLoading = navigationQueryLoading || permissionsLoading;
 
   // 初始載入用戶資訊
   useEffect(() => {
     loadUserInfo();
   }, [loadUserInfo]);
 
-  // 權限載入後載入導覽（含初始載入 — userPermissions 由 null 變為有值時觸發）
-  useEffect(() => {
-    if (!permissionsLoading) {
-      loadNavigationData();
-    }
-  }, [userPermissions, permissionsLoading, loadNavigationData]);
-
-  // 監聽導覽更新事件
+  // 監聽導覽更新事件 — 透過 invalidateQueries 觸發 React Query 重新請求
   useEffect(() => {
     const handleNavigationUpdate = () => {
-      logger.debug('🔄 Navigation update event received');
-      loadNavigationData();
+      logger.debug('Navigation update event received');
+      queryClient.invalidateQueries({ queryKey: NAVIGATION_QUERY_KEY });
     };
     window.addEventListener('navigation-updated', handleNavigationUpdate);
     return () => {
       window.removeEventListener('navigation-updated', handleNavigationUpdate);
     };
-  }, [loadNavigationData]);
+  }, [queryClient]);
 
   // 監聽登入事件
   useEffect(() => {
     const handleUserLogin = async () => {
-      logger.debug('🔐 User login event received');
+      logger.debug('User login event received');
       loadUserInfo();
       await reloadPermissions();
-      loadNavigationData();
+      queryClient.invalidateQueries({ queryKey: NAVIGATION_QUERY_KEY });
     };
     window.addEventListener('user-logged-in', handleUserLogin);
     return () => {
       window.removeEventListener('user-logged-in', handleUserLogin);
     };
-  }, [loadUserInfo, reloadPermissions, loadNavigationData]);
+  }, [loadUserInfo, reloadPermissions, queryClient]);
 
   return {
     menuItems,

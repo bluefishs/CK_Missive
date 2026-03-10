@@ -32,7 +32,7 @@ import {
   BankOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ResponsiveTable } from '../components/common';
 import { apiClient } from '../api/client';
 import { API_ENDPOINTS } from '../api/endpoints';
@@ -120,16 +120,22 @@ export const StaffPage: React.FC = () => {
 
   // 刪除功能已移至 StaffDetailPage (導航模式規範)
 
-  // 切換啟用狀態 (POST 機制)
-  const handleToggleActive = async (id: number, isActive: boolean) => {
-    try {
-      await apiClient.post(API_ENDPOINTS.USERS.STATUS(id), { is_active: isActive });
-      message.success(isActive ? '已啟用' : '已停用');
+  // 切換啟用狀態 (useMutation)
+  const toggleActiveMutation = useMutation({
+    mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) =>
+      apiClient.post(API_ENDPOINTS.USERS.STATUS(id), { is_active: isActive }),
+    onSuccess: (_data, variables) => {
+      message.success(variables.isActive ? '已啟用' : '已停用');
       loadStaffList();
-    } catch (error: unknown) {
+    },
+    onError: (error: unknown) => {
       logger.error('狀態更新失敗:', error);
       message.error('狀態更新失敗');
-    }
+    },
+  });
+
+  const handleToggleActive = (id: number, isActive: boolean) => {
+    toggleActiveMutation.mutate({ id, isActive });
   };
 
   // 導航至詳情頁
