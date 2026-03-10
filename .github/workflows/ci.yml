@@ -1,19 +1,27 @@
 name: CI
 
-# CI 自動觸發已恢復 (2026-02-13)
-# - PR 觸發：確保合併前程式碼品質
-# - 每夜排程：台灣凌晨 2:00 (UTC 18:00) 全面檢查
-# - 手動觸發：保留 workflow_dispatch 供臨時使用
+# CI 自動觸發已停用 (2026-03-09) — GitHub Actions 收費問題
+# 原觸發條件：PR to main/develop + 每夜排程 + 手動觸發
+# 如需恢復，取消以下註解並移除 workflow_dispatch-only 區塊
+
+# on:
+#   pull_request:
+#     branches: [main, develop]
+#   schedule:
+#     - cron: '0 18 * * *'
+#   workflow_dispatch:
+#     inputs:
+#       run_all:
+#         description: '執行全部檢查'
+#         required: false
+#         default: true
+#         type: boolean
 
 on:
-  pull_request:
-    branches: [main, develop]
-  schedule:
-    - cron: '0 18 * * *'
   workflow_dispatch:
     inputs:
       run_all:
-        description: '執行全部檢查'
+        description: '執行全部檢查 (手動觸發)'
         required: false
         default: true
         type: boolean
