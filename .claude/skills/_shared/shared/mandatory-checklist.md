@@ -255,7 +255,7 @@ Frontend Types
 
 ### 同步流程
 
-1. [ ] 更新中央 Skills 庫（`GeminiCli/.claude/skills/`）
+1. [ ] 更新中央 Skills 庫（`CKProject/.claude/skills/`）
 2. [ ] 執行同步腳本（`sync-skills.ps1`）
 3. [ ] 驗證各專案同步狀態
 4. [ ] 更新 `skills-index.json`

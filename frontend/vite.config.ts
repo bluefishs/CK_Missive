@@ -53,16 +53,12 @@ export default defineConfig(({ mode }) => {
       // 'all' 允許所有主機（開發環境適用）
       // 生產環境應限制為特定域名
       allowedHosts: 'all',
-      // HMR 配置：支援 IP 地址訪問
-      // 使用環境變數或預設 IP，支援區網存取
+      // HMR 配置：使用 clientPort 讓瀏覽器自動用目前 hostname 連線
+      // 不指定 host，Vite 會使用瀏覽器位址列的 hostname，支援區網 IP 存取
       hmr: {
-        host: env.VITE_DEV_HOST || '192.168.50.210',
         port: 3000,
         protocol: 'ws',
       },
-      // 解決 IP 地址訪問時動態模組載入問題
-      // 使用環境變數或預設 IP，確保模組 URL 正確解析
-      origin: env.VITE_DEV_ORIGIN || 'http://192.168.50.210:3000',
       proxy: {
         // Proxy API requests to the backend server
         '/api': {
@@ -73,7 +69,7 @@ export default defineConfig(({ mode }) => {
         },
         // Proxy OpenAPI specification for API documentation
         '/openapi.json': {
-          target: env.VITE_API_URL || 'http://localhost:8002',
+          target: env.VITE_API_URL || 'http://localhost:8001',
           changeOrigin: true,
           secure: false,
           rewrite: path => path,
@@ -99,14 +95,17 @@ export default defineConfig(({ mode }) => {
           manualChunks: {
             // React 核心庫
             'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-            // UI 框架
-            'antd': ['antd', '@ant-design/icons'],
+            // UI 框架（拆分 core / icons 降低單一 chunk 體積）
+            'antd-core': ['antd'],
+            'antd-icons': ['@ant-design/icons'],
             // 圖表庫
             'recharts': ['recharts'],
             // 日期處理
             'dayjs': ['dayjs'],
             // 狀態管理與資料請求
             'state': ['zustand', '@tanstack/react-query'],
+            // Excel 處理
+            'xlsx': ['xlsx'],
           }
         }
       },
