@@ -12,16 +12,16 @@ import os
 # 添加專案根目錄到 Python 路徑
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
+
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from collections import defaultdict
 
-# 資料庫連線
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+asyncpg://ck_user:ck_password@localhost:5434/ck_documents"
-)
+# 資料庫連線（從 .env 讀取，asyncpg 需替換 driver）
+DATABASE_URL = os.environ["DATABASE_URL"].replace("postgresql://", "postgresql+asyncpg://")
 
 # 類別正規化映射
 CATEGORY_NORMALIZE = {

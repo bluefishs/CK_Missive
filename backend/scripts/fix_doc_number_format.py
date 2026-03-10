@@ -10,11 +10,14 @@ import re
 # 添加 backend 路徑
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
+
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
-# 資料庫連接
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://ck_user:ck_password@localhost:5434/ck_documents")
+# 資料庫連接（從 .env 讀取）
+DATABASE_URL = os.environ["DATABASE_URL"]
 
 
 def fix_doc_number_format():

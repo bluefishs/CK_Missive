@@ -8,7 +8,8 @@ import os
 if sys.platform == 'win32':
     sys.stdout.reconfigure(encoding='utf-8')
 
-sys.path.insert(0, r"C:\GeminiCli\CK_Missive\backend")
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "backend"))
 
 def check_models():
     """檢查 ORM 模型載入"""

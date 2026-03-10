@@ -133,6 +133,19 @@ openapi_temp*.json
 /archive/
 configs/archive/
 scripts/archive/
+docs/archive/sql/
+docs/archive/data/
+docs/archive/assets/
+
+# Backend scattered scripts (moved to backend/scripts/)
+backend/scripts/archive/
+
+# Ruff cache
+.ruff_cache/
+backend/.ruff_cache/
+
+# Pip install artifacts
+backend/=*
 
 # Claude planning files
 claude_plant/
@@ -140,6 +153,10 @@ claude_plant/
 # Knowledge map (generated, import to Heptabase)
 docs/knowledge-map/
 docs/knowledge-map.zip
+
+# GitNexus generated artifacts
+knowledge_graph.json
+.claude/code_graph_mtime.json
 
 # Temporary data files
 dispatch*.json
