@@ -119,6 +119,7 @@ export const KanbanBoardTab: React.FC<KanbanBoardTabProps> = ({
         overflowX: 'auto',
         paddingBottom: 8,
         alignItems: 'flex-start',
+        maxHeight: 'calc(100vh - 300px)',
       }}
     >
       {columns

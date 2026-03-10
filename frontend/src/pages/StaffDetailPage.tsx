@@ -13,7 +13,7 @@ import {
   Tabs,
   Form,
   Input,
-  Select,
+  AutoComplete,
   Switch,
   Row,
   Col,
@@ -48,11 +48,10 @@ import { API_ENDPOINTS } from '../api/endpoints';
 import { ROUTES } from '../router/types';
 import { certificationsApi, Certification } from '../api/certificationsApi';
 import type { User } from '../types/api';
-import { DEPARTMENT_OPTIONS } from '../constants';
+import { useDepartments } from '../hooks/system';
 import { logger } from '../services/logger';
 
 const { Title, Text } = Typography;
-const { Option } = Select;
 
 type Staff = User;
 
@@ -91,6 +90,8 @@ export const StaffDetailPage: React.FC = () => {
   // RWD 響應式
   const { isMobile, responsiveValue } = useResponsive();
   const pagePadding = responsiveValue({ mobile: 12, tablet: 16, desktop: 24 });
+
+  const { data: departmentOptions = [] } = useDepartments();
 
   // 狀態
   const [staff, setStaff] = useState<Staff | null>(null);
@@ -389,11 +390,14 @@ export const StaffDetailPage: React.FC = () => {
                   <Row gutter={16}>
                     <Col xs={24} sm={12}>
                       <Form.Item name="department" label="部門">
-                        <Select placeholder="請選擇部門" allowClear>
-                          {DEPARTMENT_OPTIONS.map(dept => (
-                            <Option key={dept} value={dept}>{dept}</Option>
-                          ))}
-                        </Select>
+                        <AutoComplete
+                          placeholder="請選擇或輸入部門"
+                          allowClear
+                          options={departmentOptions.map(d => ({ label: d, value: d }))}
+                          filterOption={(input, option) =>
+                            (option?.value as string)?.includes(input) ?? false
+                          }
+                        />
                       </Form.Item>
                     </Col>
                     <Col xs={24} sm={12}>
@@ -539,6 +543,7 @@ export const StaffDetailPage: React.FC = () => {
                           title: '證照名稱',
                           dataIndex: 'cert_name',
                           key: 'cert_name',
+                          width: 160,
                           ellipsis: true,
                         },
                         {

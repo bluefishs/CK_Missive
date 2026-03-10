@@ -38,7 +38,7 @@ export const DocumentDateStatusTab: React.FC<DocumentDateStatusTabProps> = ({
 
       <ResponsiveFormRow>
         <Form.Item label="優先等級" name="priority">
-          <Select placeholder="請選擇優先等級">
+          <Select placeholder="請選擇優先等級" allowClear>
             {PRIORITY_OPTIONS.map(opt => (
               <Option key={opt.value} value={opt.value}>
                 <Tag color={opt.color}>{opt.label}</Tag>
@@ -47,7 +47,7 @@ export const DocumentDateStatusTab: React.FC<DocumentDateStatusTabProps> = ({
           </Select>
         </Form.Item>
         <Form.Item label="處理狀態" name="status">
-          <Select placeholder="請選擇處理狀態">
+          <Select placeholder="請選擇處理狀態" allowClear>
             {STATUS_OPTIONS.map(opt => (
               <Option key={opt.value} value={opt.value}>{opt.label}</Option>
             ))}

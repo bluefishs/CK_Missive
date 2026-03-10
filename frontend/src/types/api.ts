@@ -122,6 +122,7 @@ export interface Project {
   agency_contact_person?: string;
   agency_contact_phone?: string;
   agency_contact_email?: string;
+  has_dispatch_management?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -159,6 +160,7 @@ export interface ProjectCreate {
   agency_contact_person?: string;
   agency_contact_phone?: string;
   agency_contact_email?: string;
+  has_dispatch_management?: boolean;
 }
 
 /** 專案更新請求 */

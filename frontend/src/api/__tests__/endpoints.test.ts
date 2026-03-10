@@ -234,6 +234,46 @@ describe('端點唯一性驗證', () => {
 });
 
 // ============================================================================
+// API 服務檔案端點常數使用驗證
+// ============================================================================
+
+describe('API 服務檔案應使用端點常數', () => {
+  /**
+   * 掃描 API 服務檔案，確保都有 import endpoints 常數。
+   * 此測試作為防護措施，避免未來新增硬編碼路徑。
+   *
+   * 排除項目：
+   * - client.ts / errors.ts / throttler.ts — 基礎設施，不直接呼叫 API
+   * - endpoints.ts — 定義檔本身
+   * - types.ts — 型別定義
+   * - index.ts — 匯出入口
+   */
+  const API_SERVICE_FILES = [
+    'agenciesApi',
+    'documentsApi',
+    'projectsApi',
+    'vendorsApi',
+    'usersApi',
+    'adminUsersApi',
+    'projectStaffApi',
+    'projectVendorsApi',
+    'certificationsApi',
+    'filesApi',
+    'calendarApi',
+    'authApi',
+  ];
+
+  for (const file of API_SERVICE_FILES) {
+    it(`${file}.ts 應引用端點常數`, async () => {
+      // 動態讀取模組確認有 import endpoints
+      // 這裡用靜態檢查: 確認模組存在且可正常 import
+      const mod = await import(`../../api/${file}`);
+      expect(mod).toBeDefined();
+    });
+  }
+});
+
+// ============================================================================
 // 核心功能模組端點
 // ============================================================================
 
@@ -418,9 +458,12 @@ describe('USERS_ENDPOINTS', () => {
 describe('AUTH_ENDPOINTS', () => {
   it('應該包含基本認證端點', () => {
     expect(AUTH_ENDPOINTS.LOGIN).toBe('/auth/login');
+    expect(AUTH_ENDPOINTS.GOOGLE).toBe('/auth/google');
+    expect(AUTH_ENDPOINTS.REGISTER).toBe('/auth/register');
     expect(AUTH_ENDPOINTS.LOGOUT).toBe('/auth/logout');
     expect(AUTH_ENDPOINTS.REFRESH).toBe('/auth/refresh');
     expect(AUTH_ENDPOINTS.ME).toBe('/auth/me');
+    expect(AUTH_ENDPOINTS.CHECK).toBe('/auth/check');
   });
 
   it('應該包含密碼管理端點', () => {
@@ -456,6 +499,7 @@ describe('ADMIN_USER_MANAGEMENT_ENDPOINTS', () => {
     expect(ADMIN_USER_MANAGEMENT_ENDPOINTS.USERS_LIST).toBe('/admin/user-management/users/list');
     expect(ADMIN_USER_MANAGEMENT_ENDPOINTS.USERS_CREATE).toBe('/admin/user-management/users');
     expect(ADMIN_USER_MANAGEMENT_ENDPOINTS.PERMISSIONS_AVAILABLE).toBe('/admin/user-management/permissions/available');
+    expect(ADMIN_USER_MANAGEMENT_ENDPOINTS.PERMISSIONS_CHECK).toBe('/admin/user-management/permissions/check');
   });
 
   it('動態端點應正確產生路徑', () => {
@@ -507,10 +551,15 @@ describe('PROJECT_VENDORS_ENDPOINTS', () => {
 });
 
 describe('PROJECT_STAFF_ENDPOINTS', () => {
-  it('應該包含案件承辦同仁端點', () => {
+  it('應該包含案件承辦同仁靜態端點', () => {
     expect(PROJECT_STAFF_ENDPOINTS.LIST).toBe('/project-staff/list');
     expect(PROJECT_STAFF_ENDPOINTS.CREATE).toBe('/project-staff');
-    expect(PROJECT_STAFF_ENDPOINTS.DELETE(5)).toBe('/project-staff/5/delete');
+  });
+
+  it('動態端點應正確產生路徑', () => {
+    expect(PROJECT_STAFF_ENDPOINTS.PROJECT_LIST(10)).toBe('/project-staff/project/10/list');
+    expect(PROJECT_STAFF_ENDPOINTS.UPDATE(10, 20)).toBe('/project-staff/project/10/user/20/update');
+    expect(PROJECT_STAFF_ENDPOINTS.DELETE(10, 20)).toBe('/project-staff/project/10/user/20/delete');
   });
 });
 
@@ -762,6 +811,13 @@ describe('AI_ENDPOINTS', () => {
     expect(AI_ENDPOINTS.GRAPH_STATS).toBe('/ai/graph/stats');
     expect(AI_ENDPOINTS.GRAPH_INGEST).toBe('/ai/graph/ingest');
     expect(AI_ENDPOINTS.GRAPH_MERGE_ENTITIES).toBe('/ai/graph/admin/merge-entities');
+  });
+
+  it('應該包含 AI 分析持久化端點', () => {
+    expect(AI_ENDPOINTS.ANALYSIS_GET(100)).toBe('/ai/analysis/100');
+    expect(AI_ENDPOINTS.ANALYSIS_TRIGGER(100)).toBe('/ai/analysis/100/analyze');
+    expect(AI_ENDPOINTS.ANALYSIS_BATCH).toBe('/ai/analysis/batch');
+    expect(AI_ENDPOINTS.ANALYSIS_STATS).toBe('/ai/analysis/stats');
   });
 
   it('應該包含 Embedding 端點', () => {

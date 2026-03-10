@@ -24,6 +24,7 @@ import {
   FileTextOutlined,
   ShareAltOutlined,
   FieldTimeOutlined,
+  CodeOutlined,
 } from '@ant-design/icons';
 import { aiApi } from '../../api/aiApi';
 import type {
@@ -32,9 +33,20 @@ import type {
   KGEntityDocument,
   KGTimelineItem,
 } from '../../types/ai';
-import { getMergedNodeConfig } from '../../config/graphNodeConfig';
+import { getMergedNodeConfig, CODE_ENTITY_TYPES } from '../../config/graphNodeConfig';
 
 const { Text } = Typography;
+
+/** 安全解析 JSON description（code entity 用） */
+function parseCodeMeta(description: string | null | undefined): Record<string, unknown> | null {
+  if (!description) return null;
+  try {
+    const parsed = JSON.parse(description);
+    return typeof parsed === 'object' && parsed !== null ? parsed : null;
+  } catch {
+    return null;
+  }
+}
 
 function truncate(str: string, max: number): string {
   return str.length > max ? str.slice(0, max) + '...' : str;
@@ -123,6 +135,7 @@ export const EntityDetailSidebar: React.FC<EntityDetailSidebarProps> = ({
       open={visible}
       onClose={onClose}
       mask={false}
+      push={false}
       closeIcon={<CloseOutlined />}
       styles={{ body: { padding: '12px 16px' } }}
     >
@@ -150,6 +163,79 @@ export const EntityDetailSidebar: React.FC<EntityDetailSidebarProps> = ({
               <Descriptions.Item label="最近出現">{detail.last_seen_at.split('T')[0]}</Descriptions.Item>
             )}
           </Descriptions>
+
+          {/* Code Wiki 元數據 */}
+          {CODE_ENTITY_TYPES.has(entityType) && (() => {
+            const meta = parseCodeMeta(detail.description);
+            if (!meta) return null;
+            return (
+              <>
+                <Divider orientation="left" style={{ fontSize: 13 }}>
+                  <CodeOutlined /> 程式碼資訊
+                </Divider>
+                <Descriptions column={1} size="small" bordered>
+                  {!!meta.file_path && (
+                    <Descriptions.Item label="檔案路徑">
+                      <Text code style={{ fontSize: 11, wordBreak: 'break-all' }}>
+                        {String(meta.file_path)}
+                      </Text>
+                    </Descriptions.Item>
+                  )}
+                  {meta.lines != null && (
+                    <Descriptions.Item label="行數">{String(meta.lines)}</Descriptions.Item>
+                  )}
+                  {meta.line_start != null && (
+                    <Descriptions.Item label="位置">
+                      L{String(meta.line_start)}
+                      {meta.line_end ? `–L${String(meta.line_end)}` : ''}
+                    </Descriptions.Item>
+                  )}
+                  {meta.is_async != null && (
+                    <Descriptions.Item label="非同步">
+                      <Tag color={meta.is_async ? 'green' : 'default'}>
+                        {meta.is_async ? 'async' : 'sync'}
+                      </Tag>
+                    </Descriptions.Item>
+                  )}
+                  {meta.is_private != null && meta.is_private && (
+                    <Descriptions.Item label="可見性">
+                      <Tag color="orange">private</Tag>
+                    </Descriptions.Item>
+                  )}
+                  {Array.isArray(meta.args) && meta.args.length > 0 && (
+                    <Descriptions.Item label="參數">
+                      {(meta.args as string[]).map((arg) => (
+                        <Tag key={arg} style={{ fontSize: 11 }}>{arg}</Tag>
+                      ))}
+                    </Descriptions.Item>
+                  )}
+                  {Array.isArray(meta.bases) && meta.bases.length > 0 && (
+                    <Descriptions.Item label="繼承">
+                      {(meta.bases as string[]).map((base) => (
+                        <Tag key={base} color="purple" style={{ fontSize: 11 }}>{base}</Tag>
+                      ))}
+                    </Descriptions.Item>
+                  )}
+                  {!!meta.table_name && (
+                    <Descriptions.Item label="表名">
+                      <Text code>{String(meta.table_name)}</Text>
+                    </Descriptions.Item>
+                  )}
+                  {meta.column_count != null && (
+                    <Descriptions.Item label="欄位數">{String(meta.column_count)}</Descriptions.Item>
+                  )}
+                </Descriptions>
+                {meta.docstring && (
+                  <div style={{ marginTop: 8, padding: '6px 8px', background: '#f6f8fa', borderRadius: 4, fontSize: 12 }}>
+                    <Text type="secondary" style={{ fontSize: 11 }}>docstring:</Text>
+                    <div style={{ whiteSpace: 'pre-wrap', marginTop: 2 }}>
+                      {truncate(String(meta.docstring), 200)}
+                    </div>
+                  </div>
+                )}
+              </>
+            );
+          })()}
 
           {/* 別名 */}
           {detail.aliases.length > 0 && (

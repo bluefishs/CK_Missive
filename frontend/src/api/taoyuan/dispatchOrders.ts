@@ -99,6 +99,20 @@ export const dispatchOrdersApi = {
   },
 
   /**
+   * 批量設定結案批次
+   */
+  async batchSetBatch(params: {
+    dispatch_ids: number[];
+    batch_no: number | null;
+    batch_label?: string;
+  }): Promise<{ success: boolean; updated_count: number; message: string }> {
+    return apiClient.post(
+      API_ENDPOINTS.TAOYUAN_DISPATCH.DISPATCH_BATCH_SET_BATCH,
+      params,
+    );
+  },
+
+  /**
    * 新增公文關聯
    */
   async linkDocument(dispatchOrderId: number, data: DispatchDocumentLinkCreate): Promise<void> {

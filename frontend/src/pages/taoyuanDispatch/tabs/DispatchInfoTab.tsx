@@ -22,6 +22,7 @@ import {
   Divider,
   Typography,
   InputNumber,
+  Tag,
 } from 'antd';
 import { ResponsiveFormRow } from '../../../components/common/ResponsiveFormRow';
 import type { FormInstance } from 'antd';
@@ -165,13 +166,13 @@ const PaymentReadOnlySection: React.FC<PaymentReadOnlySectionProps> = ({
 
   // 計算本次派工金額
   const currentAmount =
-    (paymentData?.work_01_amount || 0) +
-    (paymentData?.work_02_amount || 0) +
-    (paymentData?.work_03_amount || 0) +
-    (paymentData?.work_04_amount || 0) +
-    (paymentData?.work_05_amount || 0) +
-    (paymentData?.work_06_amount || 0) +
-    (paymentData?.work_07_amount || 0);
+    (paymentData?.work_01_amount ?? 0) +
+    (paymentData?.work_02_amount ?? 0) +
+    (paymentData?.work_03_amount ?? 0) +
+    (paymentData?.work_04_amount ?? 0) +
+    (paymentData?.work_05_amount ?? 0) +
+    (paymentData?.work_06_amount ?? 0) +
+    (paymentData?.work_07_amount ?? 0);
 
   const cumulativeAmount = paymentData?.cumulative_amount ?? 0;
   const remainingAmount = paymentData?.remaining_amount ?? 0;
@@ -238,13 +239,13 @@ const PaymentEditSummary: React.FC<PaymentEditSummaryProps> = ({
   paymentData,
 }) => {
   const editCurrentAmount =
-    (watchedWorkAmounts.work_01_amount || 0) +
-    (watchedWorkAmounts.work_02_amount || 0) +
-    (watchedWorkAmounts.work_03_amount || 0) +
-    (watchedWorkAmounts.work_04_amount || 0) +
-    (watchedWorkAmounts.work_05_amount || 0) +
-    (watchedWorkAmounts.work_06_amount || 0) +
-    (watchedWorkAmounts.work_07_amount || 0);
+    (watchedWorkAmounts.work_01_amount ?? 0) +
+    (watchedWorkAmounts.work_02_amount ?? 0) +
+    (watchedWorkAmounts.work_03_amount ?? 0) +
+    (watchedWorkAmounts.work_04_amount ?? 0) +
+    (watchedWorkAmounts.work_05_amount ?? 0) +
+    (watchedWorkAmounts.work_06_amount ?? 0) +
+    (watchedWorkAmounts.work_07_amount ?? 0);
 
   const cumulativeAmount = paymentData?.cumulative_amount ?? 0;
   const remainingAmount = paymentData?.remaining_amount ?? 0;
@@ -473,6 +474,18 @@ export const DispatchInfoTab: React.FC<DispatchInfoTabProps> = ({
               : '-'}
           </Descriptions.Item>
         </Descriptions>
+
+        {/* 結案批次（頁面底部，唯讀模式可見） */}
+        <Divider orientation="left">結案批次</Divider>
+        <div>
+          {dispatch.batch_no ? (
+            <Tag color="blue" style={{ fontSize: 14, padding: '4px 12px' }}>
+              第{dispatch.batch_no}批結案
+            </Tag>
+          ) : (
+            <Text type="secondary">未設定</Text>
+          )}
+        </div>
       </div>
     );
   }

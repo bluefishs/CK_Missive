@@ -32,7 +32,8 @@ import dayjs from 'dayjs';
 import type { WorkRecord } from '../../../types/taoyuan';
 import { buildChains, flattenChains, getEffectiveDoc, getDocDirection } from './chainUtils';
 import type { ChainNode } from './chainUtils';
-import { getCategoryLabel, getCategoryColor, getStatusLabel, getStatusColor } from './chainConstants';
+import { getCategoryLabel, getCategoryColor } from './workCategoryConstants';
+import { getStatusLabel, getStatusColor } from './chainConstants';
 
 const { Text } = Typography;
 

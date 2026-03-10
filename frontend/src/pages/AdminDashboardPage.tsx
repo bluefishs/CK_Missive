@@ -376,6 +376,7 @@ const AdminDashboardPage: React.FC = () => {
               size="small"
               loading={loading}
               pagination={{ pageSize: 5 }}
+              scroll={{ x: 600 }}
             />
           </Card>
         )}

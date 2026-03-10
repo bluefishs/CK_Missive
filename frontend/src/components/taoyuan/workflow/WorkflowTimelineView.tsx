@@ -32,11 +32,9 @@ import type { BatchGroup } from './useProjectWorkData';
 import {
   statusLabel,
   statusColor,
-} from './useProjectWorkData';
-import {
   getCategoryLabel,
   getCategoryColor,
-} from './chainConstants';
+} from './workCategoryConstants';
 import { isOutgoingDocNumber } from './chainUtils';
 
 const { Text, Title } = Typography;

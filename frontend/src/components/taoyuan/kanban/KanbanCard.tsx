@@ -26,7 +26,7 @@ const KanbanCardInner: React.FC<KanbanCardProps> = ({ data, onClick }) => {
   const statusCfg = STATUS_CONFIG[computedStatus] || STATUS_CONFIG.pending;
 
   // linked_documents 已包含 agency_doc + company_doc（_sync_document_links 同步）
-  const docCount = dispatch.linked_documents?.length || 0;
+  const docCount = dispatch.linked_documents?.length ?? 0;
 
   // 卡片主標題：分案名稱 > 派工單號（project_name 在同工程下重複）
   const title = dispatch.sub_case_name || dispatch.dispatch_no;

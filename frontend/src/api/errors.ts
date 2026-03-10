@@ -127,7 +127,7 @@ export class ApiException extends Error {
 
   /** 是否為全域錯誤（由 GlobalApiErrorNotifier 自動處理） */
   isGlobalError(): boolean {
-    return [403, 500, 502, 503].includes(this.statusCode)
+    return [403, 429, 500, 502, 503].includes(this.statusCode)
       || this.statusCode === 0;  // 網路錯誤
   }
 }

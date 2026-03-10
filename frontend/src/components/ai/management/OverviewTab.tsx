@@ -19,7 +19,6 @@ import {
   Statistic,
   Table,
   Tag,
-  Typography,
 } from 'antd';
 import {
   CheckCircleOutlined,
@@ -50,7 +49,7 @@ export const OverviewTab: React.FC = () => {
   });
 
   const topQueryColumns: ColumnsType<TopQuery> = useMemo(() => [
-    { title: '查詢內容', dataIndex: 'query', key: 'query', ellipsis: true },
+    { title: '查詢內容', dataIndex: 'query', key: 'query', ellipsis: true, width: 200 },
     { title: '次數', dataIndex: 'count', key: 'count', width: 80, sorter: (a, b) => a.count - b.count },
     {
       title: '平均結果',

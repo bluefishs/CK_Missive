@@ -24,14 +24,8 @@ export const CASE_TYPE_OPTIONS = [
   { value: '水圳', label: '水圳' },
 ] as const;
 
-/**
- * 查估單位選項
- * 來源: Excel「1.轄管工程清單」實際資料
- */
-export const SURVEY_UNIT_OPTIONS = [
-  { value: '昇揚估價', label: '昇揚估價' },
-  { value: '全國估價', label: '全國估價' },
-] as const;
+// 查估單位選項：已改為動態查詢 project_vendor_association（不再硬編碼）
+// 下拉選單由 DispatchFormFields 的 projectVendors prop 驅動
 
 /**
  * 行政區選項 (桃園市 13 區)

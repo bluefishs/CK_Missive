@@ -87,7 +87,7 @@ export function useAutoMatch({
       setSelectedIds(new Set());
       onRefetchDispatch?.();
       queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
-      queryClient.invalidateQueries({ queryKey: ['dispatch-work-records', dispatchOrderId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.dispatch(dispatchOrderId) });
     },
     onError: () => message.error('批次關聯失敗'),
   });

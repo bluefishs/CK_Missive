@@ -28,16 +28,14 @@ import { PlusOutlined, CloseOutlined, SaveOutlined } from '@ant-design/icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { workflowApi } from '../../../api/taoyuan';
+import { queryKeys } from '../../../config/queryConfig';
 import type {
   WorkRecord,
   WorkRecordCreate,
   DispatchDocumentLink,
 } from '../../../types/taoyuan';
-import {
-  WORK_CATEGORY_GROUPS,
-  CHAIN_STATUS_OPTIONS,
-  getCategoryLabel,
-} from './chainConstants';
+import { WORK_CATEGORY_GROUPS, getCategoryLabel } from './workCategoryConstants';
+import { CHAIN_STATUS_OPTIONS } from './chainConstants';
 import { isOutgoingDocNumber } from './chainUtils';
 import { logger } from '../../../services/logger';
 
@@ -165,9 +163,9 @@ export const InlineRecordCreator: React.FC<InlineRecordCreatorProps> = ({
       form.resetFields();
       setExpanded(false);
       queryClient.invalidateQueries({
-        queryKey: ['dispatch-work-records', dispatchOrderId],
+        queryKey: queryKeys.workRecords.dispatch(dispatchOrderId),
       });
-      queryClient.invalidateQueries({ queryKey: ['project-work-records'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.projectAll });
       onCreated?.();
     },
     onError: (error: Error) => {

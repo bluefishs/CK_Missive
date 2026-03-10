@@ -170,6 +170,7 @@ export const StaffTab: React.FC<StaffTabProps> = ({
             rowKey="id"
             pagination={false}
             size="middle"
+            scroll={{ x: 800 }}
           />
         ) : (
           <Empty description="尚無承辦同仁" />

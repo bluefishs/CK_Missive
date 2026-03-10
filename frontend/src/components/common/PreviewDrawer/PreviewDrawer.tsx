@@ -99,6 +99,7 @@ export const PreviewDrawer: React.FC<PreviewDrawerProps> = ({
     <Drawer
       open={open}
       onClose={onClose}
+      destroyOnClose
       afterOpenChange={(visible) => {
         if (!visible && afterClose) {
           afterClose();

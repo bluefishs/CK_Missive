@@ -18,15 +18,16 @@ import {
   buildDocPairs,
   buildCorrespondenceMatrix,
   getDocDirection,
+  filterBlankRecords,
+  computeDocStats,
+  computeCurrentStage,
 } from '../chainUtils';
-import type { ChainNode, DocPairs, CorrespondenceMatrixRow } from '../chainUtils';
+import type { DocPairs } from '../chainUtils';
 import type { WorkRecord, DocBrief, DispatchDocumentLink } from '../../../../types/taoyuan';
 
 // ============================================================================
 // Factory Helpers
 // ============================================================================
-
-let _recordIdSeq = 0;
 
 function makeRecord(overrides: Partial<WorkRecord> & { id: number }): WorkRecord {
   return {
@@ -1180,5 +1181,180 @@ describe('buildCorrespondenceMatrix', () => {
         expect(prevDate <= currDate).toBe(true);
       }
     });
+  });
+});
+
+// ============================================================================
+// filterBlankRecords
+// ============================================================================
+
+describe('filterBlankRecords', () => {
+  it('empty array → empty result', () => {
+    expect(filterBlankRecords([])).toEqual([]);
+  });
+
+  it('keeps records with document_id', () => {
+    const records = [
+      makeRecord({ id: 1, document_id: 100 }),
+      makeRecord({ id: 2 }),
+    ];
+    const result = filterBlankRecords(records);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.id).toBe(1);
+  });
+
+  it('keeps records with incoming_doc_id or outgoing_doc_id', () => {
+    const records = [
+      makeRecord({ id: 1, incoming_doc_id: 100 }),
+      makeRecord({ id: 2, outgoing_doc_id: 200 }),
+      makeRecord({ id: 3 }),
+    ];
+    const result = filterBlankRecords(records);
+    expect(result).toHaveLength(2);
+    expect(result.map((r) => r.id)).toEqual([1, 2]);
+  });
+
+  it('keeps records with description', () => {
+    const records = [
+      makeRecord({ id: 1, description: '處理說明' }),
+      makeRecord({ id: 2 }),
+    ];
+    const result = filterBlankRecords(records);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.id).toBe(1);
+  });
+
+  it('keeps blank records referenced as parent by other records', () => {
+    const records = [
+      makeRecord({ id: 1 }),  // blank but referenced as parent
+      makeRecord({ id: 2, parent_record_id: 1, document_id: 100 }),
+      makeRecord({ id: 3 }),  // blank and not referenced
+    ];
+    const result = filterBlankRecords(records);
+    expect(result).toHaveLength(2);
+    expect(result.map((r) => r.id)).toEqual([1, 2]);
+  });
+
+  it('filters out fully blank records', () => {
+    const records = [
+      makeRecord({ id: 1 }),
+      makeRecord({ id: 2 }),
+    ];
+    const result = filterBlankRecords(records);
+    expect(result).toHaveLength(0);
+  });
+});
+
+// ============================================================================
+// computeDocStats
+// ============================================================================
+
+describe('computeDocStats', () => {
+  it('empty array → zero counts', () => {
+    expect(computeDocStats([])).toEqual({ incomingDocs: 0, outgoingDocs: 0 });
+  });
+
+  it('counts distinct incoming_doc_id', () => {
+    const records = [
+      makeRecord({ id: 1, incoming_doc_id: 100 }),
+      makeRecord({ id: 2, incoming_doc_id: 100 }),  // duplicate
+      makeRecord({ id: 3, incoming_doc_id: 200 }),
+    ];
+    const stats = computeDocStats(records);
+    expect(stats.incomingDocs).toBe(2);
+    expect(stats.outgoingDocs).toBe(0);
+  });
+
+  it('counts distinct outgoing_doc_id', () => {
+    const records = [
+      makeRecord({ id: 1, outgoing_doc_id: 300 }),
+      makeRecord({ id: 2, outgoing_doc_id: 400 }),
+    ];
+    const stats = computeDocStats(records);
+    expect(stats.incomingDocs).toBe(0);
+    expect(stats.outgoingDocs).toBe(2);
+  });
+
+  it('new format: classifies by doc_number (乾坤 = outgoing)', () => {
+    const records = [
+      makeRecord({
+        id: 1,
+        document_id: 500,
+        document: makeDocBrief({ id: 500, doc_number: '桃工用字第1150002362號' }),
+      }),
+      makeRecord({
+        id: 2,
+        document_id: 600,
+        document: makeDocBrief({ id: 600, doc_number: '乾坤字第1150001234號' }),
+      }),
+    ];
+    const stats = computeDocStats(records);
+    expect(stats.incomingDocs).toBe(1);  // 桃工用字 = incoming
+    expect(stats.outgoingDocs).toBe(1);  // 乾坤 = outgoing
+  });
+
+  it('mixed old + new formats deduplicates correctly', () => {
+    const records = [
+      makeRecord({ id: 1, incoming_doc_id: 100 }),
+      makeRecord({ id: 2, outgoing_doc_id: 200 }),
+      makeRecord({
+        id: 3,
+        document_id: 300,
+        document: makeDocBrief({ id: 300, doc_number: '桃工養字第1140001111號' }),
+      }),
+    ];
+    const stats = computeDocStats(records);
+    expect(stats.incomingDocs).toBe(2);  // 100 + 300
+    expect(stats.outgoingDocs).toBe(1);  // 200
+  });
+});
+
+// ============================================================================
+// computeCurrentStage
+// ============================================================================
+
+describe('computeCurrentStage', () => {
+  it('empty records → 尚未開始', () => {
+    expect(computeCurrentStage([])).toBe('尚未開始');
+  });
+
+  it('all completed → 全部完成', () => {
+    const records = [
+      makeRecord({ id: 1, status: 'completed' }),
+      makeRecord({ id: 2, status: 'completed' }),
+    ];
+    expect(computeCurrentStage(records)).toBe('全部完成');
+  });
+
+  it('returns category label of last non-completed record', () => {
+    const records = [
+      makeRecord({ id: 1, status: 'completed', work_category: 'dispatch_notice' }),
+      makeRecord({ id: 2, status: 'in_progress', work_category: 'work_result' }),
+    ];
+    expect(computeCurrentStage(records)).toBe('作業成果');
+  });
+
+  it('skips completed records from the end', () => {
+    const records = [
+      makeRecord({ id: 1, status: 'in_progress', work_category: 'meeting_notice' }),
+      makeRecord({ id: 2, status: 'completed', work_category: 'meeting_record' }),
+      makeRecord({ id: 3, status: 'completed', work_category: 'dispatch_notice' }),
+    ];
+    // Last non-completed is id:1 → 會議通知
+    expect(computeCurrentStage(records)).toBe('會議通知');
+  });
+
+  it('falls back to milestone_type when work_category is absent', () => {
+    const records = [
+      makeRecord({ id: 1, status: 'pending', milestone_type: 'survey' }),
+    ];
+    expect(computeCurrentStage(records)).toBe('會勘');
+  });
+
+  it('single pending record → returns its category label', () => {
+    const records = [
+      makeRecord({ id: 1, status: 'pending', work_category: 'survey_notice' }),
+    ];
+    expect(computeCurrentStage(records)).toBe('會勘通知');
   });
 });

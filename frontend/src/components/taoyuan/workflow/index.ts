@@ -1,18 +1,42 @@
+// === Data hooks ===
 export { useProjectWorkData } from './useProjectWorkData';
 export type {
   DispatchCorrespondenceGroup,
   BatchGroup,
   WorkOverviewStats,
+  WorkTypeStageInfo,
 } from './useProjectWorkData';
 export {
   getBatchColor,
   BATCH_COLORS,
+} from './useProjectWorkData';
+
+// === 常數（統一來源：workCategoryConstants.ts） ===
+export {
   milestoneLabel,
   milestoneColor,
   statusLabel,
   statusColor,
-} from './useProjectWorkData';
+  getCategoryLabel,
+  getCategoryColor,
+  MILESTONE_LABELS,
+  MILESTONE_COLORS,
+  STATUS_LABELS,
+  STATUS_COLORS,
+  WORK_CATEGORY_GROUPS,
+  WORK_CATEGORY_LABELS,
+  WORK_CATEGORY_COLORS,
+} from './workCategoryConstants';
+export type { WorkCategoryItem, WorkCategoryGroup } from './workCategoryConstants';
 
+// === chainConstants (鏈式視圖專用) ===
+export {
+  CHAIN_STATUS_OPTIONS,
+  getStatusLabel,
+  getStatusColor,
+} from './chainConstants';
+
+// === View components ===
 export { CorrespondenceMatrix } from './CorrespondenceMatrix';
 export { CorrespondenceBody, DocEntry } from './CorrespondenceBody';
 export type { CorrespondenceBodyData, CorrespondenceBodyProps } from './CorrespondenceBody';
@@ -26,16 +50,26 @@ export type { InlineRecordCreatorProps } from './InlineRecordCreator';
 // Chain-based timeline (v2.0.0)
 export { ChainTimeline } from './ChainTimeline';
 export type { ChainTimelineProps } from './ChainTimeline';
-export { buildChains, flattenChains, getEffectiveDoc, getEffectiveDocId, getDocDirection, isOutgoingDocNumber, buildDocPairs, buildCorrespondenceMatrix } from './chainUtils';
-export type { DocPair, DocPairs, MatrixDocItem, CorrespondenceMatrixRow } from './chainUtils';
-export type { ChainNode } from './chainUtils';
+
+// === chainUtils ===
 export {
-  WORK_CATEGORY_GROUPS,
-  WORK_CATEGORY_LABELS,
-  WORK_CATEGORY_COLORS,
-  CHAIN_STATUS_OPTIONS,
-  getCategoryLabel,
-  getCategoryColor,
-  getStatusLabel,
-  getStatusColor,
-} from './chainConstants';
+  buildChains,
+  flattenChains,
+  getEffectiveDoc,
+  getEffectiveDocId,
+  getDocDirection,
+  isOutgoingDocNumber,
+  buildDocPairs,
+  buildCorrespondenceMatrix,
+  filterBlankRecords,
+  computeDocStats,
+  computeCurrentStage,
+} from './chainUtils';
+export type { DocPair, DocPairs, MatrixDocItem, CorrespondenceMatrixRow, ChainNode } from './chainUtils';
+
+// === 共用元件 (v2.0.0 模組化) ===
+export { WorkRecordStatsCard } from './WorkRecordStatsCard';
+export type { WorkRecordStatsCardProps } from './WorkRecordStatsCard';
+export { useWorkRecordColumns } from './useWorkRecordColumns';
+export type { UseWorkRecordColumnsOptions } from './useWorkRecordColumns';
+export { useDeleteWorkRecord } from './useDeleteWorkRecord';

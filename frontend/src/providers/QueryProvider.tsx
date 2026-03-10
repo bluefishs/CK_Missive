@@ -38,8 +38,8 @@ const queryClient = new QueryClient({
       retryDelay: (attemptIndex: number) => Math.min(1000 * 2 ** attemptIndex, 30000),
       // 聚焦視窗時不重新獲取（避免頻繁請求）
       refetchOnWindowFocus: false,
-      // 重新連接時重新獲取
-      refetchOnReconnect: 'always' as const,
+      // 重新連接時僅重新獲取過期資料（避免網路不穩時造成請求風暴）
+      refetchOnReconnect: true,
     },
     mutations: {
       retry: 1,

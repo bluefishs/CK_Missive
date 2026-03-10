@@ -1,8 +1,8 @@
 /**
  * 工程關聯 Tab
  *
- * @version 1.0.0
- * @date 2026-01-23
+ * @version 1.1.0 - 新增「快速新增工程」功能
+ * @date 2026-03-05
  */
 
 import React, { useState } from 'react';
@@ -20,17 +20,28 @@ import {
   Descriptions,
   Typography,
   App,
+  Modal,
+  Form,
+  Input,
+  InputNumber,
 } from 'antd';
 import {
   EnvironmentOutlined,
   LinkOutlined,
+  PlusOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import type { TaoyuanProject, DocumentProjectLink, OfficialDocument } from '../../../types/api';
+import type { TaoyuanProjectCreate } from '../../../types/taoyuan';
 import { logger } from '../../../utils/logger';
+import {
+  CASE_TYPE_OPTIONS,
+  DISTRICT_OPTIONS,
+} from '../../../constants/taoyuanOptions';
 
 const { Text } = Typography;
+const { Option } = Select;
 
 interface DocumentProjectLinkTabProps {
   documentId: number | null;
@@ -41,6 +52,7 @@ interface DocumentProjectLinkTabProps {
   availableProjects: TaoyuanProject[];
   onLinkProject: (projectId: number) => Promise<void>;
   onUnlinkProject: (linkId: number) => Promise<void>;
+  onCreateAndLinkProject?: (data: TaoyuanProjectCreate) => Promise<void>;
 }
 
 export const DocumentProjectLinkTab: React.FC<DocumentProjectLinkTabProps> = ({
@@ -51,12 +63,18 @@ export const DocumentProjectLinkTab: React.FC<DocumentProjectLinkTabProps> = ({
   availableProjects,
   onLinkProject,
   onUnlinkProject,
+  onCreateAndLinkProject,
 }) => {
   const navigate = useNavigate();
   const { message } = App.useApp();
 
   const [selectedProjectId, setSelectedProjectId] = useState<number | undefined>();
   const [linkingProject, setLinkingProject] = useState(false);
+
+  // 快速新增工程 Modal
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createForm] = Form.useForm<TaoyuanProjectCreate>();
 
   // 已關聯的工程 ID 列表，用於過濾
   const linkedProjectIds = projectLinks.map(link => link.project_id);
@@ -92,6 +110,28 @@ export const DocumentProjectLinkTab: React.FC<DocumentProjectLinkTabProps> = ({
       return;
     }
     await onUnlinkProject(linkId);
+  };
+
+  // 快速新增工程並關聯
+  const handleCreateProject = async () => {
+    if (!onCreateAndLinkProject) return;
+    try {
+      const values = await createForm.validateFields();
+      setCreating(true);
+      await onCreateAndLinkProject({
+        ...values,
+        contract_project_id: _document?.contract_project_id || undefined,
+      });
+      message.success('工程新增並關聯成功');
+      createForm.resetFields();
+      setCreateModalOpen(false);
+    } catch (error: unknown) {
+      if (error && typeof error === 'object' && 'errorFields' in error) return; // 表單驗證失敗
+      const errorMessage = error instanceof Error ? error.message : '新增工程失敗';
+      message.error(errorMessage);
+    } finally {
+      setCreating(false);
+    }
   };
 
   return (
@@ -177,14 +217,14 @@ export const DocumentProjectLinkTab: React.FC<DocumentProjectLinkTabProps> = ({
         </Card>
       )}
 
-      {/* 關聯已有工程 - 編輯模式才顯示 */}
+      {/* 關聯已有工程 / 新增工程 - 編輯模式才顯示 */}
       {isEditing && (
         <Card
           size="small"
           title={
             <Space>
               <LinkOutlined />
-              <span>關聯已有工程</span>
+              <span>關聯工程</span>
             </Space>
           }
         >
@@ -218,9 +258,19 @@ export const DocumentProjectLinkTab: React.FC<DocumentProjectLinkTabProps> = ({
                 關聯
               </Button>
             </Col>
+            {onCreateAndLinkProject && (
+              <Col>
+                <Button
+                  icon={<PlusOutlined />}
+                  onClick={() => setCreateModalOpen(true)}
+                >
+                  新增工程
+                </Button>
+              </Col>
+            )}
           </Row>
           <div style={{ marginTop: 8, fontSize: 12, color: '#999' }}>
-            提示：選擇已存在的工程進行關聯，建立公文與工程的直接對應關係
+            提示：選擇已存在的工程進行關聯；若無對應工程，可點擊「新增工程」快速建立並自動關聯
           </div>
         </Card>
       )}
@@ -234,6 +284,83 @@ export const DocumentProjectLinkTab: React.FC<DocumentProjectLinkTabProps> = ({
           <Text type="secondary">點擊右上方「編輯」按鈕可新增工程關聯</Text>
         </Empty>
       )}
+
+      {/* 快速新增工程 Modal */}
+      <Modal
+        title="快速新增工程"
+        open={createModalOpen}
+        onOk={handleCreateProject}
+        onCancel={() => { setCreateModalOpen(false); createForm.resetFields(); }}
+        confirmLoading={creating}
+        okText="新增並關聯"
+        cancelText="取消"
+        width={600}
+        destroyOnClose
+      >
+        <Form form={createForm} layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item
+            name="project_name"
+            label="工程名稱"
+            rules={[{ required: true, message: '請輸入工程名稱' }]}
+          >
+            <Input placeholder="請輸入工程名稱" />
+          </Form.Item>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="review_year" label="審議年度">
+                <InputNumber style={{ width: '100%' }} min={100} max={200} placeholder="如 115" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="case_type" label="案件類型">
+                <Select placeholder="選擇類型" allowClear>
+                  {CASE_TYPE_OPTIONS.map(opt => (
+                    <Option key={opt.value} value={opt.value}>{opt.label}</Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="district" label="行政區">
+                <Select placeholder="選擇行政區" allowClear showSearch>
+                  {DISTRICT_OPTIONS.map(opt => (
+                    <Option key={opt.value} value={opt.value}>{opt.label}</Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="start_point" label="工程起點">
+                <Input placeholder="請輸入起點" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="end_point" label="工程迄點">
+                <Input placeholder="請輸入迄點" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="case_handler" label="案件承辦">
+                <Input placeholder="承辦人" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="survey_unit" label="查估單位">
+                <Input placeholder="查估單位" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="sub_case_name" label="分案名稱">
+                <Input placeholder="分案名稱" />
+              </Form.Item>
+            </Col>
+          </Row>
+        </Form>
+      </Modal>
     </Spin>
   );
 };

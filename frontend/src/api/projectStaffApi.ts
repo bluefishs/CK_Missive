@@ -5,6 +5,7 @@
  */
 
 import { apiClient } from './client';
+import { PROJECT_STAFF_ENDPOINTS } from './endpoints';
 
 // 從 types/api.ts 匯入統一的型別定義 (SSOT)
 import type {
@@ -38,7 +39,7 @@ export const projectStaffApi = {
    */
   async getProjectStaff(projectId: number): Promise<ProjectStaffListResponse> {
     return await apiClient.post<ProjectStaffListResponse>(
-      `/project-staff/project/${projectId}/list`
+      PROJECT_STAFF_ENDPOINTS.PROJECT_LIST(projectId)
     );
   },
 
@@ -49,7 +50,7 @@ export const projectStaffApi = {
    * @returns 操作結果
    */
   async addStaff(data: ProjectStaffRequest): Promise<StaffOperationResponse> {
-    return await apiClient.post<StaffOperationResponse>('/project-staff', data);
+    return await apiClient.post<StaffOperationResponse>(PROJECT_STAFF_ENDPOINTS.CREATE, data);
   },
 
   /**
@@ -66,7 +67,7 @@ export const projectStaffApi = {
     data: ProjectStaffUpdate
   ): Promise<StaffOperationResponse> {
     return await apiClient.post<StaffOperationResponse>(
-      `/project-staff/project/${projectId}/user/${userId}/update`,
+      PROJECT_STAFF_ENDPOINTS.UPDATE(projectId, userId),
       data
     );
   },
@@ -80,7 +81,7 @@ export const projectStaffApi = {
    */
   async deleteStaff(projectId: number, userId: number): Promise<{ message: string }> {
     return await apiClient.post<{ message: string }>(
-      `/project-staff/project/${projectId}/user/${userId}/delete`
+      PROJECT_STAFF_ENDPOINTS.DELETE(projectId, userId)
     );
   },
 
@@ -102,7 +103,7 @@ export const projectStaffApi = {
       total: number;
       skip: number;
       limit: number;
-    }>('/project-staff/list', params || {});
+    }>(PROJECT_STAFF_ENDPOINTS.LIST, params || {});
   },
 };
 

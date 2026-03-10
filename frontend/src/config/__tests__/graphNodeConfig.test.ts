@@ -24,6 +24,7 @@ describe('GRAPH_NODE_CONFIG', () => {
   const expectedTypes = [
     'document', 'project', 'agency', 'dispatch', 'typroject',
     'org', 'person', 'ner_project', 'location', 'date', 'topic',
+    'py_module', 'py_class', 'py_function', 'db_table',
   ];
 
   it('應該包含所有預期的節點類型', () => {
@@ -33,7 +34,7 @@ describe('GRAPH_NODE_CONFIG', () => {
   });
 
   it('每個節點配置應包含完整欄位', () => {
-    for (const [type, config] of Object.entries(GRAPH_NODE_CONFIG)) {
+    for (const [, config] of Object.entries(GRAPH_NODE_CONFIG)) {
       expect(config).toHaveProperty('color');
       expect(config).toHaveProperty('radius');
       expect(config).toHaveProperty('label');
@@ -124,7 +125,11 @@ describe('CANONICAL_ENTITY_TYPES', () => {
   });
 
   it('應只包含 detailable 為 true 的類型', () => {
-    const expected = ['org', 'person', 'ner_project', 'location', 'date', 'topic'];
+    const expected = [
+      'org', 'person', 'ner_project', 'location', 'date', 'topic',
+      'py_module', 'py_class', 'py_function', 'db_table',
+      'ts_module', 'ts_component', 'ts_hook',
+    ];
     expect(CANONICAL_ENTITY_TYPES.size).toBe(expected.length);
     for (const type of expected) {
       expect(CANONICAL_ENTITY_TYPES.has(type)).toBe(true);

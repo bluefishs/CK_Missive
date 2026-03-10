@@ -7,11 +7,10 @@
 import { apiClient, ApiException } from './client';
 import {
   PaginatedResponse,
-  PaginationParams,
-  SortParams,
   DeleteResponse,
   normalizePaginatedResponse,
   LegacyListResponse,
+  type DocumentListParams,
 } from './types';
 import { API_ENDPOINTS } from './endpoints';
 
@@ -41,24 +40,8 @@ export type {
   DocumentStatistics, NextSendNumberResponse, DropdownOption,
 };
 
-/** 公文列表查詢參數 */
-export interface DocumentListParams extends PaginationParams, SortParams {
-  search?: string;
-  keyword?: string;
-  doc_number?: string;
-  doc_type?: string;
-  year?: number | string;
-  status?: string;
-  category?: string;
-  contract_case?: string;
-  sender?: string;
-  receiver?: string;
-  delivery_method?: string;
-  doc_date_from?: string;
-  doc_date_to?: string;
-  date_from?: string;
-  date_to?: string;
-}
+// DocumentListParams 定義於 api/types.ts (SSOT)
+export type { DocumentListParams } from './types';
 
 // 文件附件型別請直接從 filesApi 匯入
 // import type { FileAttachment, DocumentAttachment } from './filesApi';

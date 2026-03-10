@@ -7,11 +7,10 @@
 import { apiClient, ApiException } from './client';
 import {
   PaginatedResponse,
-  PaginationParams,
-  SortParams,
   DeleteResponse,
   normalizePaginatedResponse,
   LegacyListResponse,
+  type AgencyListParams,
 } from './types';
 import { API_ENDPOINTS } from './endpoints';
 
@@ -29,12 +28,8 @@ import {
 // 重新匯出供外部使用
 export type { Agency, AgencyWithStats, AgencyCreate, AgencyUpdate, AgencyOption, CategoryStat, AgencyStatistics };
 
-/** 機關列表查詢參數 */
-export interface AgencyListParams extends PaginationParams, SortParams {
-  search?: string;
-  agency_type?: string;
-  include_stats?: boolean;
-}
+// AgencyListParams 定義於 api/types.ts (SSOT)
+export type { AgencyListParams } from './types';
 
 // ============================================================================
 // API 方法

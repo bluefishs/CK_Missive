@@ -32,7 +32,7 @@ export const THROTTLE_CONFIG = {
   /** 滑動窗口時長 (ms) */
   WINDOW_MS: 10_000,
   /** 全域熔斷器閾值（窗口內總請求數） */
-  GLOBAL_MAX: 100,
+  GLOBAL_MAX: 200,
   /** 熔斷器冷卻時間 (ms) */
   COOLDOWN_MS: 5_000,
 };

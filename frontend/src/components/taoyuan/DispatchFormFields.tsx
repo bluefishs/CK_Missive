@@ -386,6 +386,26 @@ export const DispatchFormFields: React.FC<DispatchFormFieldsProps> = ({
       </ResponsiveFormRow>
 
       {/* ================================================================= */}
+      {/* 第五行：結案批次 */}
+      {/* ================================================================= */}
+      <ResponsiveFormRow>
+        <Form.Item name="batch_no" label="結案批次">
+          <Select
+            placeholder="選擇結案批次"
+            allowClear
+            options={[
+              { value: 1, label: '第1批結案' },
+              { value: 2, label: '第2批結案' },
+              { value: 3, label: '第3批結案' },
+              { value: 4, label: '第4批結案' },
+              { value: 5, label: '第5批結案' },
+            ]}
+          />
+        </Form.Item>
+        <div />
+      </ResponsiveFormRow>
+
+      {/* ================================================================= */}
       {/* 公文關聯區塊 */}
       {/* ================================================================= */}
       {shouldShowDocLink && (
@@ -438,6 +458,8 @@ export const DispatchFormFields: React.FC<DispatchFormFieldsProps> = ({
                   placeholder="搜尋並選擇機關函文"
                   filterOption={false}
                   onSearch={onAgencyDocSearch}
+                  popupMatchSelectWidth={false}
+                  style={{ width: '100%' }}
                   notFoundContent={
                     agencyDocOptions.length === 0 ? '無符合資料' : '輸入關鍵字搜尋'
                   }
@@ -455,6 +477,8 @@ export const DispatchFormFields: React.FC<DispatchFormFieldsProps> = ({
                   placeholder="搜尋並選擇乾坤函文"
                   filterOption={false}
                   onSearch={onCompanyDocSearch}
+                  popupMatchSelectWidth={false}
+                  style={{ width: '100%' }}
                   notFoundContent={
                     companyDocOptions.length === 0 ? '無符合資料' : '輸入關鍵字搜尋'
                   }

@@ -215,9 +215,12 @@ export function useTaoyuanProjectDetail() {
   const handleSave = async () => {
     try {
       const values = await form.validateFields();
+      // getFieldsValue(true) 取得所有 Tab 欄位（含未渲染的），避免資料遺失
+      const allValues = form.getFieldsValue(true);
+      const merged = { ...allValues, ...values };
       const data: TaoyuanProjectUpdate = {
-        ...values,
-        completion_date: values.completion_date?.format('YYYY-MM-DD') || null,
+        ...merged,
+        completion_date: merged.completion_date?.format?.('YYYY-MM-DD') || null,
       };
       updateMutation.mutate(data);
     } catch {

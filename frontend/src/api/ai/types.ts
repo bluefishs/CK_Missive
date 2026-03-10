@@ -130,4 +130,7 @@ export type {
   DocumentAIAnalysisResponse,
   DocumentAIAnalysisStatsResponse,
   DocumentAIAnalysisBatchResponse,
+  // Code Wiki 代碼圖譜
+  CodeWikiRequest,
+  CodeWikiResponse,
 } from '../../types/ai';

@@ -147,6 +147,7 @@ export const AgencyContactTab: React.FC<AgencyContactTabProps> = ({
           rowKey="id"
           pagination={false}
           size="middle"
+          scroll={{ x: 700 }}
         />
       ) : (
         <Empty description="尚無機關承辦資料" />

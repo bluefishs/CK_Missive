@@ -6,21 +6,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import authService, { UserInfo } from '../../../services/authService';
-import { usePermissions, NavigationItem as PermissionNavigationItem } from '../../../hooks';
+import { usePermissions } from '../../../hooks';
 import { isAuthDisabled, isInternalIP } from '../../../config/env';
 import { navigationService } from '../../../services/navigationService';
 import { secureApiService } from '../../../services/secureApiService';
 import { logger } from '../../../utils/logger';
 import { convertToMenuItems, getStaticMenuItems, MenuItem } from './useMenuItems';
-
-// 擴展導覽項目介面
-export interface NavigationItem extends PermissionNavigationItem {
-  id?: number;
-  parent_id?: number;
-  level?: number;
-  description?: string;
-  target?: string;
-}
+import type { NavigationItem } from './types';
+export type { NavigationItem } from './types';
 
 interface UseNavigationDataReturn {
   menuItems: MenuItem[];
@@ -150,16 +143,14 @@ export const useNavigationData = (): UseNavigationDataReturn => {
     }
   }, [userPermissions, filterNavigationByRole, filterMenuItemsByPermissionLegacy]);
 
-  // 初始載入
+  // 初始載入用戶資訊
   useEffect(() => {
-    loadNavigationData();
     loadUserInfo();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only run on mount; loadNavigationData and loadUserInfo are stable functions
-  }, []);
+  }, [loadUserInfo]);
 
-  // 權限載入後重新載入導覽
+  // 權限載入後載入導覽（含初始載入 — userPermissions 由 null 變為有值時觸發）
   useEffect(() => {
-    if (userPermissions && !permissionsLoading) {
+    if (!permissionsLoading) {
       loadNavigationData();
     }
   }, [userPermissions, permissionsLoading, loadNavigationData]);

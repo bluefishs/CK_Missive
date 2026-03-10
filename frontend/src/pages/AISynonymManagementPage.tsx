@@ -93,8 +93,10 @@ export const SynonymManagementContent: React.FC = () => {
   const deleteMutation = useDeleteSynonym();
   const reloadMutation = useReloadSynonyms();
 
-  const synonyms = synonymsQuery.data?.items ?? [];
-  const categories = synonymsQuery.data?.categories ?? [];
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  const synonyms = useMemo(() => synonymsQuery.data?.items ?? [], [synonymsQuery.data?.items]);
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  const categories = useMemo(() => synonymsQuery.data?.categories ?? [], [synonymsQuery.data?.categories]);
 
   /** CRUD 成功後自動同步後端記憶體 */
   const afterCrudSync = async () => {
@@ -440,6 +442,7 @@ export const SynonymManagementContent: React.FC = () => {
           dataSource={filteredSynonyms}
           rowKey="id"
           loading={synonymsQuery.isLoading}
+          scroll={{ x: 700 }}
           pagination={{
             showSizeChanger: true,
             showTotal: (total) => `共 ${total} 筆`,

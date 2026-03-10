@@ -6,21 +6,24 @@
  * 2. 作業紀錄 (全部紀錄依 sort_order 排序)
  * 3. 統計摘要 (鍵值對)
  *
- * @version 1.0.0
- * @date 2026-02-25
+ * 使用動態 import('xlsx') 延遲載入，減少初始 bundle 大小。
+ *
+ * @version 1.1.0
+ * @date 2026-03-05
  */
-
-import * as XLSX from 'xlsx';
 
 import type { WorkRecord } from '../types/taoyuan';
 import type { CorrespondenceMatrixRow, MatrixDocItem } from '../components/taoyuan/workflow/chainUtils';
 import { getEffectiveDoc } from '../components/taoyuan/workflow/chainUtils';
-import { getCategoryLabel } from '../components/taoyuan/workflow/chainConstants';
+import { getCategoryLabel, statusLabel } from '../components/taoyuan/workflow';
 import type { DispatchWorkStats } from '../components/taoyuan/workflow/useDispatchWorkData';
 
 // ============================================================================
 // Types
 // ============================================================================
+
+type XLSXModule = typeof import('xlsx');
+type WorkSheet = import('xlsx').WorkSheet;
 
 export interface CorrespondenceExportOptions {
   matrixRows: CorrespondenceMatrixRow[];
@@ -72,14 +75,6 @@ interface XlsxCellStyle {
 // ============================================================================
 // Constants
 // ============================================================================
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: '待處理',
-  in_progress: '進行中',
-  completed: '已完成',
-  overdue: '逾期',
-  on_hold: '暫緩',
-};
 
 /** Light blue fill for incoming doc columns */
 const FILL_INCOMING: XlsxFill = {
@@ -164,7 +159,8 @@ function getRecordDocNumber(record: WorkRecord): string {
 
 /** Apply style to a range of cells in a worksheet */
 function applyStyleToRange(
-  ws: XLSX.WorkSheet,
+  xlsx: XLSXModule,
+  ws: WorkSheet,
   startRow: number,
   startCol: number,
   endRow: number,
@@ -173,7 +169,7 @@ function applyStyleToRange(
 ): void {
   for (let r = startRow; r <= endRow; r++) {
     for (let c = startCol; c <= endCol; c++) {
-      const addr = XLSX.utils.encode_cell({ r, c });
+      const addr = xlsx.utils.encode_cell({ r, c });
       if (!ws[addr]) {
         ws[addr] = { t: 's', v: '' };
       }
@@ -184,14 +180,15 @@ function applyStyleToRange(
 
 /** Apply header style with specific fill to a range of columns on a given row */
 function applyHeaderStyle(
-  ws: XLSX.WorkSheet,
+  xlsx: XLSXModule,
+  ws: WorkSheet,
   row: number,
   colStart: number,
   colEnd: number,
   fill: XlsxFill,
 ): void {
   for (let c = colStart; c <= colEnd; c++) {
-    const addr = XLSX.utils.encode_cell({ r: row, c });
+    const addr = xlsx.utils.encode_cell({ r: row, c });
     if (!ws[addr]) {
       ws[addr] = { t: 's', v: '' };
     }
@@ -209,7 +206,7 @@ function applyHeaderStyle(
 /**
  * Build Sheet 1: Correspondence Matrix
  */
-function buildMatrixSheet(matrixRows: CorrespondenceMatrixRow[]): XLSX.WorkSheet {
+function buildMatrixSheet(xlsx: XLSXModule, matrixRows: CorrespondenceMatrixRow[]): WorkSheet {
   const headers = [
     '序號',
     '來文字號', '來文日期', '來文主旨', '來文狀態',
@@ -238,7 +235,7 @@ function buildMatrixSheet(matrixRows: CorrespondenceMatrixRow[]): XLSX.WorkSheet
     ]);
   });
 
-  const ws = XLSX.utils.aoa_to_sheet(data);
+  const ws = xlsx.utils.aoa_to_sheet(data);
 
   // Column widths
   ws['!cols'] = [
@@ -261,14 +258,14 @@ function buildMatrixSheet(matrixRows: CorrespondenceMatrixRow[]): XLSX.WorkSheet
   const totalRows = data.length;
 
   // Header row: 序號 (gray), 來文 cols 1-4 (blue), arrow (gray), 覆文 cols 6-9 (green)
-  applyHeaderStyle(ws, 0, 0, 0, FILL_GRAY);      // 序號
-  applyHeaderStyle(ws, 0, 1, 4, FILL_INCOMING);   // 來文 columns
-  applyHeaderStyle(ws, 0, 5, 5, FILL_GRAY);       // Arrow
-  applyHeaderStyle(ws, 0, 6, 9, FILL_OUTGOING);   // 覆文 columns
+  applyHeaderStyle(xlsx, ws, 0, 0, 0, FILL_GRAY);      // 序號
+  applyHeaderStyle(xlsx, ws, 0, 1, 4, FILL_INCOMING);   // 來文 columns
+  applyHeaderStyle(xlsx, ws, 0, 5, 5, FILL_GRAY);       // Arrow
+  applyHeaderStyle(xlsx, ws, 0, 6, 9, FILL_OUTGOING);   // 覆文 columns
 
   // Data rows: thin borders + wrap text
   if (totalRows > 1) {
-    applyStyleToRange(ws, 1, 0, totalRows - 1, 9, CELL_BASE);
+    applyStyleToRange(xlsx, ws, 1, 0, totalRows - 1, 9, CELL_BASE);
   }
 
   return ws;
@@ -277,7 +274,7 @@ function buildMatrixSheet(matrixRows: CorrespondenceMatrixRow[]): XLSX.WorkSheet
 /**
  * Build Sheet 2: Work Records
  */
-function buildRecordsSheet(records: WorkRecord[]): XLSX.WorkSheet {
+function buildRecordsSheet(xlsx: XLSXModule, records: WorkRecord[]): WorkSheet {
   const headers = ['序號', '分類', '說明', '紀錄日期', '期限日期', '狀態', '關聯公文字號'];
 
   const sorted = [...records].sort((a, b) => a.sort_order - b.sort_order);
@@ -291,12 +288,12 @@ function buildRecordsSheet(records: WorkRecord[]): XLSX.WorkSheet {
       record.description || '',
       formatDate(record.record_date),
       formatDate(record.deadline_date),
-      STATUS_LABELS[record.status] || record.status,
+      statusLabel(record.status),
       getRecordDocNumber(record),
     ]);
   });
 
-  const ws = XLSX.utils.aoa_to_sheet(data);
+  const ws = xlsx.utils.aoa_to_sheet(data);
 
   // Column widths
   ws['!cols'] = [
@@ -313,12 +310,12 @@ function buildRecordsSheet(records: WorkRecord[]): XLSX.WorkSheet {
   ws['!freeze'] = { xSplit: 0, ySplit: 1 };
 
   // Header style: all gray
-  applyHeaderStyle(ws, 0, 0, 6, FILL_GRAY);
+  applyHeaderStyle(xlsx, ws, 0, 0, 6, FILL_GRAY);
 
   // Data rows: thin borders
   const totalRows = data.length;
   if (totalRows > 1) {
-    applyStyleToRange(ws, 1, 0, totalRows - 1, 6, CELL_BASE);
+    applyStyleToRange(xlsx, ws, 1, 0, totalRows - 1, 6, CELL_BASE);
   }
 
   return ws;
@@ -328,10 +325,11 @@ function buildRecordsSheet(records: WorkRecord[]): XLSX.WorkSheet {
  * Build Sheet 3: Statistics Summary
  */
 function buildStatsSheet(
+  xlsx: XLSXModule,
   stats: DispatchWorkStats,
   dispatchNo?: string,
   projectName?: string,
-): XLSX.WorkSheet {
+): WorkSheet {
   const kvPairs: [string, string | number][] = [
     ['派工單號', dispatchNo || ''],
     ['工程名稱', projectName || ''],
@@ -339,7 +337,7 @@ function buildStatsSheet(
     ['作業紀錄總數', stats.total],
     ['已完成', stats.completed],
     ['進行中', stats.inProgress],
-    ['逾期', stats.overdue],
+    // ['逾期', stats.overdue],  // 暫隱藏：目前無逾期檢測邏輯
     ['來文數', stats.incomingDocs],
     ['覆文數', stats.outgoingDocs],
     ['關聯公文總數', stats.linkedDocCount],
@@ -350,7 +348,7 @@ function buildStatsSheet(
   const headers = ['項目', '值'];
   const data: (string | number)[][] = [headers, ...kvPairs];
 
-  const ws = XLSX.utils.aoa_to_sheet(data);
+  const ws = xlsx.utils.aoa_to_sheet(data);
 
   // Column widths
   ws['!cols'] = [
@@ -362,17 +360,17 @@ function buildStatsSheet(
   ws['!freeze'] = { xSplit: 0, ySplit: 1 };
 
   // Header style
-  applyHeaderStyle(ws, 0, 0, 1, FILL_GRAY);
+  applyHeaderStyle(xlsx, ws, 0, 0, 1, FILL_GRAY);
 
   // Data rows
   const totalRows = data.length;
   if (totalRows > 1) {
-    applyStyleToRange(ws, 1, 0, totalRows - 1, 1, CELL_BASE);
+    applyStyleToRange(xlsx, ws, 1, 0, totalRows - 1, 1, CELL_BASE);
   }
 
   // Bold the key column (column 0)
   for (let r = 1; r < totalRows; r++) {
-    const addr = XLSX.utils.encode_cell({ r, c: 0 });
+    const addr = xlsx.utils.encode_cell({ r, c: 0 });
     if (ws[addr]) {
       ws[addr].s = {
         ...(ws[addr].s || {}),
@@ -392,20 +390,23 @@ function buildStatsSheet(
  * Export correspondence matrix, work records, and statistics to an Excel file.
  *
  * Generates a 3-sheet workbook and triggers a browser download.
+ * Uses dynamic import('xlsx') to reduce initial bundle size.
  */
-export function exportCorrespondenceMatrix(options: CorrespondenceExportOptions): void {
+export async function exportCorrespondenceMatrix(options: CorrespondenceExportOptions): Promise<void> {
   const { matrixRows, records, stats, dispatchNo, projectName } = options;
+
+  const XLSX = await import('xlsx');
 
   // Build workbook with 3 sheets
   const wb = XLSX.utils.book_new();
 
-  const wsMatrix = buildMatrixSheet(matrixRows);
+  const wsMatrix = buildMatrixSheet(XLSX, matrixRows);
   XLSX.utils.book_append_sheet(wb, wsMatrix, '公文對照矩陣');
 
-  const wsRecords = buildRecordsSheet(records);
+  const wsRecords = buildRecordsSheet(XLSX, records);
   XLSX.utils.book_append_sheet(wb, wsRecords, '作業紀錄');
 
-  const wsStats = buildStatsSheet(stats, dispatchNo, projectName);
+  const wsStats = buildStatsSheet(XLSX, stats, dispatchNo, projectName);
   XLSX.utils.book_append_sheet(wb, wsStats, '統計摘要');
 
   // Generate filename

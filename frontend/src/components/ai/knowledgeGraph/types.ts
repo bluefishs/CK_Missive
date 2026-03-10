@@ -53,6 +53,17 @@ export const EDGE_COLORS: Record<string, string> = {
   manages: '#d48806',         // 管理 — 暗金
   located_in: '#faad14',      // 位於 — 金
   related_to: '#8c8c8c',      // 相關 — 灰
+  // Code Graph 代碼關聯
+  defines_class: '#7b68ee',   // 定義類別 — 紫
+  defines_function: '#6495ed', // 定義函數 — 藍
+  has_method: '#1e90ff',      // 方法 — 道奇藍
+  imports: '#00bfff',         // 匯入 — 淺藍
+  uses_table: '#20b2aa',     // 使用表 — 青
+  inherits: '#ff6347',       // 繼承 — 番茄紅
+  references_table: '#3cb371', // FK 引用 — 中綠
+  calls: '#ff8c00',           // 呼叫 — 暗橙
+  defines_component: '#9370db', // 定義元件 — 中紫
+  defines_hook: '#da70d6',     // 定義 Hook — 蘭花紫
 };
 
 export const DEFAULT_EDGE_COLOR = 'rgba(150,150,150,0.6)';

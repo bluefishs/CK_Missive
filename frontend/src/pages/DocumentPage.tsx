@@ -105,12 +105,13 @@ export const DocumentPage: React.FC = () => {
   // 篩選與分頁處理
   // ============================================================================
   const handleFiltersChange = (newFilters: IDocumentFilter) => {
-    setPagination({ page: 1 });
+    // Note: setFilters already resets pagination.page to 1 internally
+    // (see createEntityStore.ts), so no need for separate setPagination call
     setFilters(newFilters);
   };
 
   const handleResetFilters = () => {
-    setPagination({ page: 1 });
+    // Note: resetFilters already resets pagination.page to 1 internally
     setSortField('');
     setSortOrder(null);
     resetFilters();

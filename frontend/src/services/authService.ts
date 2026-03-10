@@ -17,6 +17,7 @@
 import axios, { AxiosResponse } from 'axios';
 import { isAuthDisabled } from '../config/env';
 import { API_BASE_URL, getCookie } from '../api/client';
+import { AUTH_ENDPOINTS, ADMIN_USER_MANAGEMENT_ENDPOINTS } from '../api/endpoints';
 import { logger } from '../utils/logger';
 import { User } from '../types/api';
 
@@ -174,7 +175,7 @@ class AuthService {
     formData.append('username', credentials.username);
     formData.append('password', credentials.password);
 
-    const response: AxiosResponse<TokenResponse> = await this.axios.post('/auth/login', formData, {
+    const response: AxiosResponse<TokenResponse> = await this.axios.post(AUTH_ENDPOINTS.LOGIN, formData, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
@@ -195,7 +196,7 @@ class AuthService {
    * v2.1.0: 支援 MFA 流程
    */
   async googleLogin(credential: string): Promise<TokenResponse> {
-    const response: AxiosResponse<TokenResponse> = await this.axios.post('/auth/google', {
+    const response: AxiosResponse<TokenResponse> = await this.axios.post(AUTH_ENDPOINTS.GOOGLE, {
       credential,
     });
 
@@ -212,7 +213,7 @@ class AuthService {
    * 使用者註冊
    */
   async register(userData: RegisterRequest): Promise<UserInfo> {
-    const response: AxiosResponse<UserInfo> = await this.axios.post('/auth/register', userData);
+    const response: AxiosResponse<UserInfo> = await this.axios.post(AUTH_ENDPOINTS.REGISTER, userData);
 
     return response.data;
   }
@@ -225,7 +226,7 @@ class AuthService {
     const authDisabled = isAuthDisabled();
 
     try {
-      await this.axios.post('/auth/logout');
+      await this.axios.post(AUTH_ENDPOINTS.LOGOUT);
     } catch (error) {
       if (authDisabled) {
         logger.debug('🔒 Auth disabled - ignoring logout API error');
@@ -241,7 +242,7 @@ class AuthService {
    * 取得當前使用者資訊 (POST-only 安全模式)
    */
   async getCurrentUser(): Promise<UserInfo> {
-    const response: AxiosResponse<UserInfo> = await this.axios.post('/auth/me', {});
+    const response: AxiosResponse<UserInfo> = await this.axios.post(AUTH_ENDPOINTS.ME, {});
     return response.data;
   }
 
@@ -249,7 +250,7 @@ class AuthService {
    * 檢查認證狀態 (POST-only 安全模式)
    */
   async checkAuthStatus(): Promise<{ authenticated: boolean; user?: UserInfo }> {
-    const response = await this.axios.post('/auth/check', {});
+    const response = await this.axios.post(AUTH_ENDPOINTS.CHECK, {});
     return response.data;
   }
 
@@ -258,7 +259,7 @@ class AuthService {
    */
   async checkPermission(permission: string, resource?: string): Promise<boolean> {
     try {
-      const response = await this.axios.post('/admin/user-management/permissions/check', {
+      const response = await this.axios.post(ADMIN_USER_MANAGEMENT_ENDPOINTS.PERMISSIONS_CHECK, {
         permission,
         resource,
       });

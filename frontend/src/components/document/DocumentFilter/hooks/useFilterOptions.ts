@@ -2,17 +2,19 @@
  * useFilterOptions Hook
  *
  * 負責從 API 獲取篩選選項資料
+ * 使用 React Query 管理快取，避免重複請求
  *
- * @version 1.1.0 - 統一使用 apiClient 取代 raw fetch
- * @date 2026-02-25
+ * @version 2.0.0 - 重構為 React Query（修復 useEffect + 直接 API 造成的輪刷問題）
+ * @date 2026-03-10
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../../../api/client';
 import { API_ENDPOINTS } from '../../../../api/endpoints';
+import { defaultQueryOptions } from '../../../../config/queryConfig';
 import { logger } from '../../../../utils/logger';
 import type {
-  DropdownOption,
   FilterOptionsData,
   AgenciesDropdownResponse,
   ContractProjectsDropdownResponse,
@@ -27,49 +29,45 @@ interface DocumentListResponse {
 }
 
 /**
- * 獲取篩選選項的 Hook
+ * 獲取篩選選項的 Hook（React Query 版）
+ *
+ * 使用 dropdown 快取策略：staleTime 10 分鐘，refetchOnMount: false
+ * 避免每次元件渲染都重新請求
  */
 export function useFilterOptions(): FilterOptionsData {
-  const [yearOptions, setYearOptions] = useState<DropdownOption[]>([]);
-  const [contractCaseOptions, setContractCaseOptions] = useState<DropdownOption[]>([]);
-  const [senderOptions, setSenderOptions] = useState<DropdownOption[]>([]);
-  const [receiverOptions, setReceiverOptions] = useState<DropdownOption[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // 獲取年度選項
-  const fetchYearOptions = useCallback(async () => {
-    try {
+  // 年度選項
+  const { data: yearOptions = [], isLoading: yearLoading } = useQuery({
+    queryKey: ['documents', 'filter-options', 'years'],
+    queryFn: async () => {
       const data = await apiClient.post<YearsResponse>(
         API_ENDPOINTS.DOCUMENTS.YEARS,
         {}
       );
-      const options = (data.years || []).map((year) => ({
+      return (data.years || []).map((year) => ({
         value: String(year),
-        label: `${year}年`
+        label: `${year}年`,
       }));
-      setYearOptions(options);
-    } catch (error) {
-      logger.error('獲取年度選項失敗:', error);
-    }
-  }, []);
+    },
+    ...defaultQueryOptions.dropdown,
+  });
 
-  // 獲取承攬案件下拉選項
-  const fetchContractCaseOptions = useCallback(async () => {
-    try {
-      // 先嘗試新的增強版 API
-      const data = await apiClient.post<ContractProjectsDropdownResponse>(
-        API_ENDPOINTS.DOCUMENTS.CONTRACT_PROJECTS_DROPDOWN,
-        { limit: 100 }
-      );
-      const options = (data.options || []).map((option) => ({
-        value: option.value,
-        label: option.label
-      }));
-      setContractCaseOptions(options);
-      logger.debug('成功從 contract_projects 表載入承攬案件選項:', options.length);
-    } catch {
-      // 降級方案
+  // 承攬案件下拉選項
+  const { data: contractCaseOptions = [], isLoading: contractLoading } = useQuery({
+    queryKey: ['documents', 'filter-options', 'contract-projects'],
+    queryFn: async () => {
       try {
+        const data = await apiClient.post<ContractProjectsDropdownResponse>(
+          API_ENDPOINTS.DOCUMENTS.CONTRACT_PROJECTS_DROPDOWN,
+          { limit: 100 }
+        );
+        const options = (data.options || []).map((option) => ({
+          value: option.value,
+          label: option.label,
+        }));
+        logger.debug('成功從 contract_projects 表載入承攬案件選項:', options.length);
+        return options;
+      } catch {
+        // 降級方案
         logger.warn('增強版 API 不可用，使用降級方案');
         const data = await apiClient.post<DocumentListResponse>(
           API_ENDPOINTS.DOCUMENTS.INTEGRATED_SEARCH,
@@ -84,84 +82,66 @@ export function useFilterOptions(): FilterOptionsData {
           .sort()
           .map((contractCase) => ({
             value: contractCase,
-            label: contractCase
+            label: contractCase,
           }));
-        setContractCaseOptions(contractCases);
         logger.debug('從公文表載入承攬案件選項:', contractCases.length);
-      } catch (fallbackError) {
-        logger.error('獲取承攬案件選項失敗:', fallbackError);
+        return contractCases;
       }
-    }
-  }, []);
+    },
+    ...defaultQueryOptions.dropdown,
+  });
 
-  // 獲取機關下拉選項 (共用邏輯)
-  const fetchAgencyOptions = useCallback(async (
-    setter: React.Dispatch<React.SetStateAction<DropdownOption[]>>,
-    label: string
-  ) => {
-    try {
-      const data = await apiClient.post<AgenciesDropdownResponse>(
-        API_ENDPOINTS.DOCUMENTS.AGENCIES_DROPDOWN,
-        { limit: 500 }
-      );
-      const agencies = data.options || [];
-      const options = agencies
-        .filter((agency) => agency.value !== '相關機關')
-        .map((agency) => ({
-          value: agency.value,
-          label: agency.label
-        }));
-      setter(options);
-      logger.debug(`成功載入標準化${label}選項:`, options.length);
-    } catch {
-      // 降級方案
+  // 機關下拉選項（sender + receiver 共用同一查詢，避免重複請求）
+  const { data: agencyOptions = [], isLoading: agencyLoading } = useQuery({
+    queryKey: ['documents', 'filter-options', 'agencies'],
+    queryFn: async () => {
       try {
+        const data = await apiClient.post<AgenciesDropdownResponse>(
+          API_ENDPOINTS.DOCUMENTS.AGENCIES_DROPDOWN,
+          { limit: 500 }
+        );
+        const agencies = data.options || [];
+        const options = agencies
+          .filter((agency) => agency.value !== '相關機關')
+          .map((agency) => ({
+            value: agency.value,
+            label: agency.label,
+          }));
+        logger.debug('成功載入標準化機關選項:', options.length);
+        return options;
+      } catch {
+        // 降級方案
         logger.warn('增強版 API 不可用，使用降級方案');
         const data = await apiClient.post<DocumentListResponse>(
           API_ENDPOINTS.DOCUMENTS.INTEGRATED_SEARCH,
           { limit: 500 }
         );
         const documents = data.documents || [];
-        const field = label === '發文單位' ? 'sender' : 'receiver';
         const options = documents
-          .map((doc) => (doc as Record<string, string>)[field] || '')
+          .map((doc) => doc.sender || '')
+          .concat(documents.map((doc) => doc.receiver || ''))
           .filter((value, index, arr) =>
             value && value !== '相關機關' && arr.indexOf(value) === index
           )
           .sort()
           .map((value) => ({
             value,
-            label: value
+            label: value,
           }));
-        setter(options);
-        logger.debug(`從公文表載入${label}選項:`, options.length);
-      } catch (fallbackError) {
-        logger.error(`獲取${label}選項失敗:`, fallbackError);
+        logger.debug('從公文表載入機關選項:', options.length);
+        return options;
       }
-    }
-  }, []);
+    },
+    ...defaultQueryOptions.dropdown,
+  });
 
-  // 組件載入時獲取所有選項
-  useEffect(() => {
-    const loadAllOptions = async () => {
-      setIsLoading(true);
-      await Promise.all([
-        fetchYearOptions(),
-        fetchContractCaseOptions(),
-        fetchAgencyOptions(setSenderOptions, '發文單位'),
-        fetchAgencyOptions(setReceiverOptions, '受文單位'),
-      ]);
-      setIsLoading(false);
-    };
-
-    loadAllOptions();
-  }, [fetchYearOptions, fetchContractCaseOptions, fetchAgencyOptions]);
+  const isLoading = yearLoading || contractLoading || agencyLoading;
 
   return {
     yearOptions,
     contractCaseOptions,
-    senderOptions,
-    receiverOptions,
+    senderOptions: agencyOptions,
+    receiverOptions: agencyOptions,
     isLoading,
   };
 }

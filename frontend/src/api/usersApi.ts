@@ -7,11 +7,10 @@
 import { apiClient, ApiException } from './client';
 import {
   PaginatedResponse,
-  PaginationParams,
-  SortParams,
   DeleteResponse,
   normalizePaginatedResponse,
   LegacyListResponse,
+  type UserListParams,
 } from './types';
 import { API_ENDPOINTS } from './endpoints';
 
@@ -23,12 +22,8 @@ import type {
 // 重新匯出供外部使用
 export type { User, UserOption, UserCreate, UserUpdate, UserStatusUpdate };
 
-/** 使用者列表查詢參數 */
-export interface UserListParams extends PaginationParams, SortParams {
-  search?: string;
-  role?: string;
-  is_active?: boolean;
-}
+// UserListParams 定義於 api/types.ts (SSOT)
+export type { UserListParams } from './types';
 
 // ============================================================================
 // API 方法
@@ -173,6 +168,13 @@ export const usersApi = {
       }
       return option;
     });
+  },
+
+  /**
+   * 取得部門選項列表（DB 驅動）
+   */
+  async getDepartments(): Promise<string[]> {
+    return await apiClient.post<string[]>(API_ENDPOINTS.USERS.DEPARTMENTS);
   },
 
   /**

@@ -14,7 +14,7 @@
 
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Form, Button, App, Space, Popconfirm, Modal } from 'antd';
+import { Form, Button, App, Space, Popconfirm } from 'antd';
 import type { UploadFile } from 'antd/es/upload';
 import {
   SendOutlined,
@@ -72,7 +72,7 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const [form] = Form.useForm();
   const queryClient = useQueryClient();
 
@@ -124,21 +124,22 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
     enabled: !!id,
   });
 
-  // 查詢機關承辦清單
+  // 查詢機關承辦清單（使用派工單所屬專案，而非硬編碼）
+  const vendorProjectId = dispatch?.contract_project_id || TAOYUAN_CONTRACT.PROJECT_ID;
   const { data: agencyContactsData } = useQuery({
-    queryKey: ['agency-contacts', TAOYUAN_CONTRACT.PROJECT_ID],
-    queryFn: () => getProjectAgencyContacts(TAOYUAN_CONTRACT.PROJECT_ID),
+    queryKey: ['agency-contacts', vendorProjectId],
+    queryFn: () => getProjectAgencyContacts(vendorProjectId),
   });
   const agencyContacts = useMemo(
     () => agencyContactsData?.items ?? [],
     [agencyContactsData?.items]
   );
 
-  // 查詢協力廠商清單
+  // 查詢協力廠商清單（使用派工單所屬專案）
   const { data: vendorsData } = useQuery({
-    queryKey: ['project-vendors', TAOYUAN_CONTRACT.PROJECT_ID],
+    queryKey: ['project-vendors', vendorProjectId],
     queryFn: () =>
-      projectVendorsApi.getProjectVendors(TAOYUAN_CONTRACT.PROJECT_ID),
+      projectVendorsApi.getProjectVendors(vendorProjectId),
   });
   const projectVendors = useMemo(
     () => vendorsData?.associations ?? [],
@@ -463,6 +464,7 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
         contact_note: dispatch.contact_note,
         cloud_folder: dispatch.cloud_folder,
         project_folder: dispatch.project_folder,
+        batch_no: dispatch.batch_no,
         work_01_date: toDateValue('01'),
         work_01_amount: paymentData?.work_01_amount,
         work_02_date: toDateValue('02'),
@@ -488,7 +490,10 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
   // 儲存派工單
   const handleSave = async () => {
     try {
-      const values = await form.validateFields();
+      const validated = await form.validateFields();
+      // getFieldsValue(true) 取得所有欄位（含未渲染 Tab），避免資料遺失
+      const allValues = form.getFieldsValue(true);
+      const values = { ...allValues, ...validated };
 
       const workTypeString = Array.isArray(values.work_type)
         ? values.work_type.join(', ')
@@ -570,11 +575,18 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
       };
 
       // 串列執行：先更新派工單，成功後再更新契金（避免併發不一致）
-      try {
-        await updateMutation.mutateAsync({
+      // 確保清除的欄位送出 null（非 undefined），避免後端 exclude_unset 跳過
+      const sanitizedDispatch = Object.fromEntries(
+        Object.entries({
           ...dispatchValues,
           work_type: workTypeString,
-        });
+          batch_label: dispatchValues.batch_no
+            ? `第${dispatchValues.batch_no}批結案`
+            : null,
+        }).map(([k, v]) => [k, v === undefined ? null : v]),
+      );
+      try {
+        await updateMutation.mutateAsync(sanitizedDispatch);
       } catch {
         // updateMutation.onError 已處理提示，直接返回
         return;
@@ -644,6 +656,7 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
         contact_note: dispatch.contact_note,
         cloud_folder: dispatch.cloud_folder,
         project_folder: dispatch.project_folder,
+        batch_no: dispatch.batch_no,
         work_01_date: toDateValue('01'),
         work_01_amount: paymentData?.work_01_amount,
         work_02_date: toDateValue('02'),
@@ -681,7 +694,7 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
     }
 
     // 詢問是否同時建立工程關聯
-    Modal.confirm({
+    modal.confirm({
       title: '建立工程關聯',
       content: `您選擇了工程「${projectName}」，是否同時建立工程關聯？`,
       okText: '是，建立關聯',
@@ -690,11 +703,12 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
         linkProjectMutation.mutate(projectId);
       },
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linkedProjectIds, message, linkProjectMutation]);
 
   // 從派工資訊 Tab 快速建立工程（含確認 Modal）
   const handleCreateProjectFromInfo = useCallback((projectName: string) => {
-    Modal.confirm({
+    modal.confirm({
       title: '新增工程',
       content: (
         <div>
@@ -711,6 +725,7 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
         createProjectMutation.mutate(projectName);
       },
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [createProjectMutation]);
 
   // =============================================================================
@@ -809,6 +824,7 @@ export const TaoyuanDispatchDetailPage: React.FC = () => {
         contractProjectId={dispatch?.contract_project_id}
         projectName={dispatch?.project_name}
         dispatchNo={dispatch?.dispatch_no}
+        workType={dispatch?.work_type}
       />
     ),
   ];

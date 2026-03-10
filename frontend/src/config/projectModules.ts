@@ -1,21 +1,12 @@
 /**
  * 案件功能模組配置
  *
- * 定義各承攬案件的專屬功能模組，支援：
- * - 條件式 Tab 顯示
- * - 專屬功能開關
- * - 未來擴展新案件
+ * v2.0.0: 改為資料庫驅動 — 承攬案件管理頁勾選「啟用派工管理」即可。
+ * 前端透過 useDispatchProjectIds() hook 取得已啟用的案件 ID 列表。
  *
- * 擴展方式：
- * 1. 在 PROJECT_MODULE_REGISTRY 新增案件配置
- * 2. 設定該案件需要的 documentTabs 和 features
- * 3. DocumentDetailPage 會自動根據配置顯示對應 Tab
- *
- * @version 1.0.0
- * @date 2026-01-26
+ * @version 2.0.0
+ * @date 2026-03-05
  */
-
-import { TAOYUAN_CONTRACT } from '../constants/taoyuanOptions';
 
 // ============================================================================
 // 型別定義
@@ -37,22 +28,6 @@ export type FeatureKey =
   | 'taoyuan-projects'       // 桃園工程清單
   | 'document-preview';      // 公文預覽抽屜
 
-/** 案件模組配置 */
-export interface ProjectModuleConfig {
-  /** 案件 ID (對應 contract_projects.id) */
-  projectId: number;
-  /** 案件代碼 */
-  projectCode: string;
-  /** 案件名稱 */
-  projectName: string;
-  /** 公文詳情頁額外顯示的 Tab */
-  documentTabs: DocumentTabKey[];
-  /** 啟用的功能特性 */
-  features: FeatureKey[];
-  /** 說明 */
-  description?: string;
-}
-
 // ============================================================================
 // 通用 Tab 配置 (所有公文都顯示)
 // ============================================================================
@@ -64,136 +39,96 @@ export const COMMON_DOCUMENT_TABS: DocumentTabKey[] = [
   'attachments',
 ];
 
+/** 派工案件額外啟用的 Tab */
+const DISPATCH_DOCUMENT_TABS: DocumentTabKey[] = ['dispatch', 'project-link'];
+
+/** 派工案件的完整功能列表 */
+const DISPATCH_FEATURES: FeatureKey[] = [
+  'dispatch-management',
+  'project-linking',
+  'taoyuan-projects',
+  'document-preview',
+];
+
 // ============================================================================
-// 案件模組註冊表
+// 派工案件 ID 快取（由 useDispatchProjectIds hook 填充）
 // ============================================================================
+
+/** 已啟用派工管理的案件 ID Set（從 API 載入後快取） */
+let _dispatchProjectIds: Set<number> = new Set();
 
 /**
- * 案件功能模組註冊表
- *
- * 以 contract_project_id 為 key，配置該案件的專屬功能
- *
- * 擴展範例：
- * ```typescript
- * // 新增苗栗案件
- * [MIAOLI_CONTRACT.PROJECT_ID]: {
- *   projectId: MIAOLI_CONTRACT.PROJECT_ID,
- *   projectCode: 'CK2025_01_03_002',
- *   projectName: '115年度苗栗縣...',
- *   documentTabs: ['dispatch'],  // 只需要派工，不需工程關聯
- *   features: ['dispatch-management'],
- * },
- * ```
+ * 設定已啟用派工管理的案件 ID 列表
+ * 由 useDispatchProjectIds hook 在初始化時呼叫
  */
-export const PROJECT_MODULE_REGISTRY: Record<number, ProjectModuleConfig> = {
-  // -------------------------------------------------------------------------
-  // 115 年度桃園查估派工
-  // -------------------------------------------------------------------------
-  [TAOYUAN_CONTRACT.PROJECT_ID]: {
-    projectId: TAOYUAN_CONTRACT.PROJECT_ID,
-    projectCode: TAOYUAN_CONTRACT.CODE,
-    projectName: TAOYUAN_CONTRACT.NAME,
-    documentTabs: ['dispatch', 'project-link'],
-    features: [
-      'dispatch-management',
-      'project-linking',
-      'taoyuan-projects',
-      'document-preview',
-    ],
-    description: '桃園市政府工務局委託案件，包含派工管理與工程關聯功能',
-  },
+export const setDispatchProjectIds = (ids: number[]): void => {
+  _dispatchProjectIds = new Set(ids);
+};
 
-  // -------------------------------------------------------------------------
-  // 未來案件擴展區 (範例)
-  // -------------------------------------------------------------------------
-  // [MIAOLI_CONTRACT.PROJECT_ID]: {
-  //   projectId: MIAOLI_CONTRACT.PROJECT_ID,
-  //   projectCode: 'CK2025_01_03_002',
-  //   projectName: '115年度苗栗縣...',
-  //   documentTabs: ['dispatch'],
-  //   features: ['dispatch-management'],
-  // },
+/**
+ * 取得已啟用派工管理的案件 ID 列表
+ */
+export const getDispatchProjectIds = (): number[] => {
+  return Array.from(_dispatchProjectIds);
 };
 
 // ============================================================================
-// 工具函數
+// 工具函數（API 驅動版）
 // ============================================================================
-
-/**
- * 取得案件的模組配置
- *
- * @param projectId - 承攬案件 ID (contract_project_id)
- * @returns 模組配置，若無則返回 null
- */
-export const getProjectModuleConfig = (
-  projectId: number | null | undefined
-): ProjectModuleConfig | null => {
-  if (!projectId) return null;
-  return PROJECT_MODULE_REGISTRY[projectId] ?? null;
-};
 
 /**
  * 檢查案件是否有特定功能
  *
- * @param projectId - 承攬案件 ID
- * @param feature - 功能特性
+ * 依據 API 回傳的已啟用派工管理案件列表判斷。
+ * 需先由 useDispatchProjectIds hook 初始化快取。
  */
 export const hasProjectFeature = (
   projectId: number | null | undefined,
   feature: FeatureKey
 ): boolean => {
-  const config = getProjectModuleConfig(projectId);
-  return config?.features.includes(feature) ?? false;
+  if (!projectId) return false;
+  if (!_dispatchProjectIds.has(projectId)) return false;
+  return DISPATCH_FEATURES.includes(feature);
 };
 
 /**
  * 取得案件的公文詳情頁 Tab 列表
- *
- * @param projectId - 承攬案件 ID
- * @returns 完整的 Tab 列表 (通用 + 專屬)
  */
 export const getDocumentTabs = (
   projectId: number | null | undefined
 ): DocumentTabKey[] => {
-  const config = getProjectModuleConfig(projectId);
-  if (!config) {
+  if (!projectId || !_dispatchProjectIds.has(projectId)) {
     return [...COMMON_DOCUMENT_TABS];
   }
-  return [...COMMON_DOCUMENT_TABS, ...config.documentTabs];
+  return [...COMMON_DOCUMENT_TABS, ...DISPATCH_DOCUMENT_TABS];
 };
 
 /**
  * 檢查 Tab 是否應該顯示
- *
- * @param projectId - 承攬案件 ID
- * @param tabKey - Tab 鍵值
  */
 export const shouldShowTab = (
   projectId: number | null | undefined,
   tabKey: DocumentTabKey
 ): boolean => {
-  // 通用 Tab 永遠顯示
-  if (COMMON_DOCUMENT_TABS.includes(tabKey)) {
-    return true;
-  }
-  // 專屬 Tab 需要檢查案件配置
-  const config = getProjectModuleConfig(projectId);
-  return config?.documentTabs.includes(tabKey) ?? false;
+  if (COMMON_DOCUMENT_TABS.includes(tabKey)) return true;
+  if (!projectId || !_dispatchProjectIds.has(projectId)) return false;
+  return DISPATCH_DOCUMENT_TABS.includes(tabKey);
 };
 
 /**
  * 取得所有已註冊的案件 ID 列表
  */
 export const getRegisteredProjectIds = (): number[] => {
-  return Object.keys(PROJECT_MODULE_REGISTRY).map(Number);
+  return Array.from(_dispatchProjectIds);
 };
 
 /**
- * 檢查是否為已註冊的專案案件
+ * 檢查是否為已啟用派工管理的案件
  */
 export const isRegisteredProject = (
   projectId: number | null | undefined
 ): boolean => {
   if (!projectId) return false;
-  return projectId in PROJECT_MODULE_REGISTRY;
+  return _dispatchProjectIds.has(projectId);
 };
+

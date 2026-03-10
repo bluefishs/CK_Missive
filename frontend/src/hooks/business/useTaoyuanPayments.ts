@@ -38,7 +38,7 @@ export const useTaoyuanPayments = (dispatchOrderId: number): UseTaoyuanPaymentsR
 
   return {
     payments: data?.items || [],
-    total: data?.pagination?.total || 0,
+    total: data?.pagination?.total ?? 0,
     isLoading,
     error: error as Error | null,
     refetch,
@@ -63,8 +63,10 @@ export const useTaoyuanPaymentControl = (contractProjectId: number) => {
 
   return {
     items: data?.items || [] as PaymentControlItem[],
-    totalBudget: data?.total_budget || 0,
-    totalDispatched: data?.total_dispatched || 0,
+    contractName: data?.contract_name || '',
+    totalBudget: data?.total_budget ?? 0,
+    totalDispatched: data?.total_dispatched ?? 0,
+    totalClaimed: data?.total_claimed ?? 0,
     isLoading,
     error: error as Error | null,
     refetch,

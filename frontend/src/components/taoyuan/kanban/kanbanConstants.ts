@@ -41,7 +41,7 @@ export const STATUS_CONFIG: Record<WorkRecordStatus, { label: string; color: str
   in_progress: { label: '進行中', color: '#1677ff' },
   completed: { label: '已完成', color: '#52c41a' },
   overdue: { label: '已逾期', color: '#ff4d4f' },
-  on_hold: { label: '已暫緩', color: '#faad14' },
+  on_hold: { label: '暫緩', color: '#faad14' },
 };
 
 // ============================================================================
@@ -78,8 +78,9 @@ export function getWorkTypes(dispatch: DispatchOrder): string[] {
 export function computeDispatchStatus(records: WorkRecord[]): WorkRecordStatus {
   if (records.length === 0) return 'pending';
 
-  const hasOverdue = records.some((r) => r.status === 'overdue');
-  if (hasOverdue) return 'overdue';
+  // 逾期判斷暫停：目前無逾期檢測邏輯
+  // const hasOverdue = records.some((r) => r.status === 'overdue');
+  // if (hasOverdue) return 'overdue';
 
   const hasInProgress = records.some((r) => r.status === 'in_progress');
   if (hasInProgress) return 'in_progress';

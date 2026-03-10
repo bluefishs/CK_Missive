@@ -122,3 +122,109 @@ export async function mergeGraphEntities(
     throw error;
   }
 }
+
+import type { CodeWikiRequest, CodeWikiResponse } from '../../types/ai';
+
+/** 取得 Code Wiki 代碼圖譜 */
+export async function getCodeWikiGraph(
+  request: CodeWikiRequest = {},
+): Promise<CodeWikiResponse> {
+  return await apiClient.post<CodeWikiResponse>(
+    AI_ENDPOINTS.GRAPH_CODE_WIKI,
+    request,
+  );
+}
+
+/** 觸發 Code Graph 入圖 (Admin) */
+export interface CodeGraphIngestRequest {
+  clean?: boolean;
+  include_schema?: boolean;
+  include_frontend?: boolean;
+  incremental?: boolean;
+}
+
+export interface CodeGraphIngestResponse {
+  success: boolean;
+  message: string;
+  modules: number;
+  classes: number;
+  functions: number;
+  tables: number;
+  ts_modules: number;
+  ts_components: number;
+  ts_hooks: number;
+  relations: number;
+  errors: number;
+  skipped: number;
+  elapsed_seconds: number;
+}
+
+export async function triggerCodeGraphIngest(
+  request: CodeGraphIngestRequest = {},
+): Promise<CodeGraphIngestResponse> {
+  return await apiClient.post<CodeGraphIngestResponse>(
+    AI_ENDPOINTS.GRAPH_CODE_INGEST,
+    request,
+  );
+}
+
+/** 循環依賴偵測結果 */
+export interface CycleDetectionResponse {
+  success: boolean;
+  total_modules: number;
+  total_import_edges: number;
+  cycles_found: number;
+  cycles: string[][];
+}
+
+/** 偵測模組循環匯入依賴 (Admin) */
+export async function detectImportCycles(): Promise<CycleDetectionResponse> {
+  return await apiClient.post<CycleDetectionResponse>(
+    AI_ENDPOINTS.GRAPH_CYCLE_DETECTION,
+    {},
+  );
+}
+
+/** 架構分析結果 */
+export interface ArchitectureAnalysisResponse {
+  success: boolean;
+  complexity_hotspots: Array<{ module: string; outgoing_deps: number }>;
+  hub_modules: Array<{ module: string; imported_by: number }>;
+  large_modules: Array<{ module: string; lines: number; type: string }>;
+  orphan_modules: string[];
+  god_classes: Array<{ class: string; method_count: number }>;
+  summary: Record<string, number>;
+}
+
+/** 分析代碼架構 */
+export async function analyzeArchitecture(): Promise<ArchitectureAnalysisResponse> {
+  return await apiClient.post<ArchitectureAnalysisResponse>(
+    AI_ENDPOINTS.GRAPH_ARCHITECTURE_ANALYSIS,
+    {},
+  );
+}
+
+/** JSON 圖譜匯入請求 */
+export interface JsonImportRequest {
+  file_path?: string;
+  clean?: boolean;
+}
+
+/** JSON 圖譜匯入回應 */
+export interface JsonImportResponse {
+  success: boolean;
+  message: string;
+  nodes_imported: number;
+  edges_imported: number;
+  elapsed_seconds: number;
+}
+
+/** 匯入本地 GitNexus 產生的 knowledge_graph.json (Admin) */
+export async function importJsonGraph(
+  request: JsonImportRequest = {},
+): Promise<JsonImportResponse> {
+  return await apiClient.post<JsonImportResponse>(
+    AI_ENDPOINTS.GRAPH_JSON_IMPORT,
+    request,
+  );
+}

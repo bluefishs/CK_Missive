@@ -109,7 +109,7 @@ export const queryKeys = {
   // 公文關聯搜尋
   documentRelations: {
     allDispatches: ['dispatch-orders-for-link'] as const,
-    dispatchOrders: (keyword: string) => ['dispatch-orders-for-link', keyword] as const,
+    dispatchOrders: (keyword: string, contractProjectId?: number | null) => ['dispatch-orders-for-link', keyword, contractProjectId] as const,
     allProjects: ['projects-for-link'] as const,
     projects: (keyword: string) => ['projects-for-link', keyword] as const,
   },

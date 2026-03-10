@@ -7,11 +7,10 @@
 import { apiClient, ApiException } from './client';
 import {
   PaginatedResponse,
-  PaginationParams,
-  SortParams,
   DeleteResponse,
   normalizePaginatedResponse,
   LegacyListResponse,
+  type VendorListParams,
 } from './types';
 import type {
   Vendor,
@@ -25,11 +24,8 @@ import { API_ENDPOINTS } from './endpoints';
 // 重新匯出型別供外部使用
 export type { VendorStatistics };
 
-/** 廠商列表查詢參數 */
-export interface VendorListParams extends PaginationParams, SortParams {
-  search?: string;
-  business_type?: string;
-}
+// VendorListParams 定義於 api/types.ts (SSOT)
+export type { VendorListParams } from './types';
 
 // ============================================================================
 // API 方法

@@ -5,7 +5,7 @@
  * @version 1.1.0
  * @date 2026-01-11
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { authService } from '../../services/authService';
 import { cacheService, CACHE_KEYS, CACHE_TTL } from '../../services/cacheService';
 import { USER_ROLES } from '../../constants/permissions';
@@ -34,9 +34,13 @@ export const usePermissions = () => {
   const [userPermissions, setUserPermissions] = useState<UserPermissions | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const loadedRef = useRef(false);
 
   // 載入使用者權限資訊
   const loadUserPermissions = useCallback(async () => {
+    // 防止 StrictMode 雙重呼叫
+    if (loadedRef.current) return;
+    loadedRef.current = true;
     try {
       setLoading(true);
       setError(null);
@@ -287,6 +291,7 @@ export const usePermissions = () => {
 
   // 重新載入權限並清除快取
   const reloadPermissions = useCallback(async () => {
+    loadedRef.current = false; // 允許重新載入
     clearPermissionsCache();
     await loadUserPermissions();
   }, [clearPermissionsCache, loadUserPermissions]);

@@ -27,7 +27,13 @@ const GlobalApiErrorNotifier: React.FC = () => {
 
       const { statusCode, message } = error;
 
-      if (statusCode === 403) {
+      if (statusCode === 429) {
+        notification.warning({
+          message: '請求過於頻繁',
+          description: '系統偵測到短時間內大量請求，已暫時限制。請稍候再試。',
+          duration: 5,
+        });
+      } else if (statusCode === 403) {
         notification.warning({
           message: '權限不足',
           description: message || '您沒有權限執行此操作',

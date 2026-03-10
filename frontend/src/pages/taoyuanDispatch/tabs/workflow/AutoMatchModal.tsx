@@ -22,7 +22,7 @@ import {
 import { FileTextOutlined } from '@ant-design/icons';
 import type { DocumentHistoryItem } from '../../../../types/taoyuan';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 export interface AutoMatchModalProps {
   open: boolean;
@@ -134,7 +134,7 @@ const DocSection: React.FC<{
 
 const AutoMatchModalInner: React.FC<AutoMatchModalProps> = ({
   open,
-  projectName,
+  projectName: _projectName,
   agencyDocs,
   companyDocs,
   selectedIds,

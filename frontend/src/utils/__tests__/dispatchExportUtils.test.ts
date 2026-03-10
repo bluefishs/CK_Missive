@@ -110,15 +110,15 @@ describe('exportCorrespondenceMatrix', () => {
     aoa_to_sheet_spy.mockReturnValue({});
   });
 
-  it('應建立包含 3 個工作表的 workbook', () => {
-    exportCorrespondenceMatrix(createMinimalOptions());
+  it('應建立包含 3 個工作表的 workbook', async () => {
+    await exportCorrespondenceMatrix(createMinimalOptions());
 
     expect(book_new_spy).toHaveBeenCalledOnce();
     expect(book_append_sheet_spy).toHaveBeenCalledTimes(3);
   });
 
-  it('工作表名稱應為公文對照矩陣、作業紀錄、統計摘要', () => {
-    exportCorrespondenceMatrix(createMinimalOptions());
+  it('工作表名稱應為公文對照矩陣、作業紀錄、統計摘要', async () => {
+    await exportCorrespondenceMatrix(createMinimalOptions());
 
     const sheetNames = book_append_sheet_spy.mock.calls.map(
       (call: unknown[]) => call[2],
@@ -126,8 +126,8 @@ describe('exportCorrespondenceMatrix', () => {
     expect(sheetNames).toEqual(['公文對照矩陣', '作業紀錄', '統計摘要']);
   });
 
-  it('應呼叫 XLSX.write 產生 xlsx 格式', () => {
-    exportCorrespondenceMatrix(createMinimalOptions());
+  it('應呼叫 XLSX.write 產生 xlsx 格式', async () => {
+    await exportCorrespondenceMatrix(createMinimalOptions());
 
     expect(write_spy).toHaveBeenCalledWith(
       expect.anything(),
@@ -135,8 +135,8 @@ describe('exportCorrespondenceMatrix', () => {
     );
   });
 
-  it('應建立 Blob 並觸發下載', () => {
-    exportCorrespondenceMatrix(createMinimalOptions());
+  it('應建立 Blob 並觸發下載', async () => {
+    await exportCorrespondenceMatrix(createMinimalOptions());
 
     expect(Blob).toHaveBeenCalledOnce();
     expect(URL.createObjectURL).toHaveBeenCalledOnce();
@@ -156,32 +156,32 @@ describe('exportCorrespondenceMatrix - 檔名產生', () => {
     aoa_to_sheet_spy.mockReturnValue({});
   });
 
-  it('無派工單號和工程名稱時，檔名應包含日期標籤', () => {
-    exportCorrespondenceMatrix(createMinimalOptions());
+  it('無派工單號和工程名稱時，檔名應包含日期標籤', async () => {
+    await exportCorrespondenceMatrix(createMinimalOptions());
 
     const filename = mockAnchor.download;
     // 格式: 公文對照_YYYYMMDD.xlsx
     expect(filename).toMatch(/^公文對照_\d{8}\.xlsx$/);
   });
 
-  it('有派工單號時，檔名應包含派工單號', () => {
-    exportCorrespondenceMatrix(
+  it('有派工單號時，檔名應包含派工單號', async () => {
+    await exportCorrespondenceMatrix(
       createMinimalOptions({ dispatchNo: '001' }),
     );
 
     expect(mockAnchor.download).toContain('_001');
   });
 
-  it('有工程名稱時，檔名應包含工程名稱', () => {
-    exportCorrespondenceMatrix(
+  it('有工程名稱時，檔名應包含工程名稱', async () => {
+    await exportCorrespondenceMatrix(
       createMinimalOptions({ projectName: '測試工程' }),
     );
 
     expect(mockAnchor.download).toContain('_測試工程');
   });
 
-  it('同時有派工單號和工程名稱時，檔名應包含兩者', () => {
-    exportCorrespondenceMatrix(
+  it('同時有派工單號和工程名稱時，檔名應包含兩者', async () => {
+    await exportCorrespondenceMatrix(
       createMinimalOptions({ dispatchNo: '002', projectName: '範例' }),
     );
 
@@ -202,8 +202,8 @@ describe('exportCorrespondenceMatrix - 矩陣工作表資料', () => {
     aoa_to_sheet_spy.mockReturnValue({});
   });
 
-  it('矩陣表頭應包含 10 欄', () => {
-    exportCorrespondenceMatrix(createMinimalOptions());
+  it('矩陣表頭應包含 10 欄', async () => {
+    await exportCorrespondenceMatrix(createMinimalOptions());
 
     // First call to aoa_to_sheet is for the matrix sheet
     const matrixData = aoa_to_sheet_spy.mock.calls[0][0] as string[][];
@@ -215,14 +215,14 @@ describe('exportCorrespondenceMatrix - 矩陣工作表資料', () => {
     expect(headers[6]).toBe('覆文字號');
   });
 
-  it('空矩陣應只有表頭列', () => {
-    exportCorrespondenceMatrix(createMinimalOptions({ matrixRows: [] }));
+  it('空矩陣應只有表頭列', async () => {
+    await exportCorrespondenceMatrix(createMinimalOptions({ matrixRows: [] }));
 
     const matrixData = aoa_to_sheet_spy.mock.calls[0][0] as unknown[][];
     expect(matrixData).toHaveLength(1);
   });
 
-  it('有配對資料時應產生正確的序號', () => {
+  it('有配對資料時應產生正確的序號', async () => {
     const matrixRows = [
       {
         incoming: {
@@ -252,7 +252,7 @@ describe('exportCorrespondenceMatrix - 矩陣工作表資料', () => {
       },
     ];
 
-    exportCorrespondenceMatrix(createMinimalOptions({ matrixRows }));
+    await exportCorrespondenceMatrix(createMinimalOptions({ matrixRows }));
 
     const matrixData = aoa_to_sheet_spy.mock.calls[0][0] as unknown[][];
     // Header + 2 data rows
@@ -262,7 +262,7 @@ describe('exportCorrespondenceMatrix - 矩陣工作表資料', () => {
     expect(matrixData[2]![0]).toBe(2);
   });
 
-  it('來文日期應截取前 10 字元 (formatDate)', () => {
+  it('來文日期應截取前 10 字元 (formatDate)', async () => {
     const matrixRows = [
       {
         incoming: {
@@ -276,14 +276,14 @@ describe('exportCorrespondenceMatrix - 矩陣工作表資料', () => {
       },
     ];
 
-    exportCorrespondenceMatrix(createMinimalOptions({ matrixRows }));
+    await exportCorrespondenceMatrix(createMinimalOptions({ matrixRows }));
 
     const matrixData = aoa_to_sheet_spy.mock.calls[0][0] as unknown[][];
     // Column 2 = 來文日期
     expect(matrixData[1]![2]).toBe('2026-03-15');
   });
 
-  it('已指派紀錄的狀態應顯示「已指派」(getItemStatus)', () => {
+  it('已指派紀錄的狀態應顯示「已指派」(getItemStatus)', async () => {
     const matrixRows = [
       {
         incoming: {
@@ -297,14 +297,14 @@ describe('exportCorrespondenceMatrix - 矩陣工作表資料', () => {
       },
     ];
 
-    exportCorrespondenceMatrix(createMinimalOptions({ matrixRows }));
+    await exportCorrespondenceMatrix(createMinimalOptions({ matrixRows }));
 
     const matrixData = aoa_to_sheet_spy.mock.calls[0][0] as unknown[][];
     // Column 4 = 來文狀態
     expect(matrixData[1]![4]).toBe('已指派');
   });
 
-  it('未指派公文的狀態應顯示「未指派」(getItemStatus)', () => {
+  it('未指派公文的狀態應顯示「未指派」(getItemStatus)', async () => {
     const matrixRows = [
       {
         incoming: {
@@ -317,13 +317,13 @@ describe('exportCorrespondenceMatrix - 矩陣工作表資料', () => {
       },
     ];
 
-    exportCorrespondenceMatrix(createMinimalOptions({ matrixRows }));
+    await exportCorrespondenceMatrix(createMinimalOptions({ matrixRows }));
 
     const matrixData = aoa_to_sheet_spy.mock.calls[0][0] as unknown[][];
     expect(matrixData[1]![4]).toBe('未指派');
   });
 
-  it('有來文和覆文配對時，箭頭欄應為 unicode 箭頭', () => {
+  it('有來文和覆文配對時，箭頭欄應為 unicode 箭頭', async () => {
     const matrixRows = [
       {
         incoming: { docId: 1, docNumber: 'IN', isUnassigned: false },
@@ -331,13 +331,13 @@ describe('exportCorrespondenceMatrix - 矩陣工作表資料', () => {
       },
     ];
 
-    exportCorrespondenceMatrix(createMinimalOptions({ matrixRows }));
+    await exportCorrespondenceMatrix(createMinimalOptions({ matrixRows }));
 
     const matrixData = aoa_to_sheet_spy.mock.calls[0][0] as unknown[][];
     expect(matrixData[1]![5]).toBe('\u2192');
   });
 
-  it('只有來文無覆文時，箭頭欄應為空', () => {
+  it('只有來文無覆文時，箭頭欄應為空', async () => {
     const matrixRows = [
       {
         incoming: { docId: 1, docNumber: 'IN', isUnassigned: false },
@@ -345,7 +345,7 @@ describe('exportCorrespondenceMatrix - 矩陣工作表資料', () => {
       },
     ];
 
-    exportCorrespondenceMatrix(createMinimalOptions({ matrixRows }));
+    await exportCorrespondenceMatrix(createMinimalOptions({ matrixRows }));
 
     const matrixData = aoa_to_sheet_spy.mock.calls[0][0] as unknown[][];
     expect(matrixData[1]![5]).toBe('');
@@ -362,8 +362,8 @@ describe('exportCorrespondenceMatrix - 作業紀錄工作表', () => {
     aoa_to_sheet_spy.mockReturnValue({});
   });
 
-  it('紀錄表頭應包含 7 欄', () => {
-    exportCorrespondenceMatrix(createMinimalOptions());
+  it('紀錄表頭應包含 7 欄', async () => {
+    await exportCorrespondenceMatrix(createMinimalOptions());
 
     // Second call to aoa_to_sheet is for the records sheet
     const recordsData = aoa_to_sheet_spy.mock.calls[1][0] as string[][];
@@ -373,14 +373,14 @@ describe('exportCorrespondenceMatrix - 作業紀錄工作表', () => {
     expect(recordsData[0]![6]).toBe('關聯公文字號');
   });
 
-  it('紀錄應按 sort_order 排序', () => {
+  it('紀錄應按 sort_order 排序', async () => {
     const records = [
       { id: 1, sort_order: 3, status: 'pending', record_date: '2026-01-03', description: 'C', milestone_type: 'general', dispatch_order_id: 1 },
       { id: 2, sort_order: 1, status: 'completed', record_date: '2026-01-01', description: 'A', milestone_type: 'general', dispatch_order_id: 1 },
       { id: 3, sort_order: 2, status: 'in_progress', record_date: '2026-01-02', description: 'B', milestone_type: 'general', dispatch_order_id: 1 },
     ] as never[];
 
-    exportCorrespondenceMatrix(createMinimalOptions({ records }));
+    await exportCorrespondenceMatrix(createMinimalOptions({ records }));
 
     const recordsData = aoa_to_sheet_spy.mock.calls[1][0] as unknown[][];
     // 排序後序號: 1=sort_order 1, 2=sort_order 2, 3=sort_order 3
@@ -389,23 +389,23 @@ describe('exportCorrespondenceMatrix - 作業紀錄工作表', () => {
     expect(recordsData[3]![0]).toBe(3); // sort_order 3
   });
 
-  it('狀態應翻譯為中文', () => {
+  it('狀態應翻譯為中文', async () => {
     const records = [
       { id: 1, sort_order: 1, status: 'completed', record_date: '2026-01-01', description: '完成項目', milestone_type: 'general', dispatch_order_id: 1 },
     ] as never[];
 
-    exportCorrespondenceMatrix(createMinimalOptions({ records }));
+    await exportCorrespondenceMatrix(createMinimalOptions({ records }));
 
     const recordsData = aoa_to_sheet_spy.mock.calls[1][0] as unknown[][];
     expect(recordsData[1]![5]).toBe('已完成');
   });
 
-  it('未知狀態應保留原始值', () => {
+  it('未知狀態應保留原始值', async () => {
     const records = [
       { id: 1, sort_order: 1, status: 'unknown_status', record_date: '2026-01-01', description: '', milestone_type: 'general', dispatch_order_id: 1 },
     ] as never[];
 
-    exportCorrespondenceMatrix(createMinimalOptions({ records }));
+    await exportCorrespondenceMatrix(createMinimalOptions({ records }));
 
     const recordsData = aoa_to_sheet_spy.mock.calls[1][0] as unknown[][];
     expect(recordsData[1]![5]).toBe('unknown_status');
@@ -422,24 +422,24 @@ describe('exportCorrespondenceMatrix - 統計摘要工作表', () => {
     aoa_to_sheet_spy.mockReturnValue({});
   });
 
-  it('統計表頭應為「項目」和「值」', () => {
-    exportCorrespondenceMatrix(createMinimalOptions());
+  it('統計表頭應為「項目」和「值」', async () => {
+    await exportCorrespondenceMatrix(createMinimalOptions());
 
     // Third call to aoa_to_sheet is for the stats sheet
     const statsData = aoa_to_sheet_spy.mock.calls[2][0] as string[][];
     expect(statsData[0]).toEqual(['項目', '值']);
   });
 
-  it('應包含 12 個統計項目', () => {
-    exportCorrespondenceMatrix(createMinimalOptions());
+  it('應包含 12 個統計項目', async () => {
+    await exportCorrespondenceMatrix(createMinimalOptions());
 
     const statsData = aoa_to_sheet_spy.mock.calls[2][0] as unknown[][];
-    // Header + 12 data rows
-    expect(statsData).toHaveLength(13);
+    // Header + 11 data rows (逾期已隱藏)
+    expect(statsData).toHaveLength(12);
   });
 
-  it('派工單號應出現在統計項目中', () => {
-    exportCorrespondenceMatrix(
+  it('派工單號應出現在統計項目中', async () => {
+    await exportCorrespondenceMatrix(
       createMinimalOptions({ dispatchNo: 'D-100' }),
     );
 
@@ -449,8 +449,8 @@ describe('exportCorrespondenceMatrix - 統計摘要工作表', () => {
     expect(dispatchRow![1]).toBe('D-100');
   });
 
-  it('工程名稱應出現在統計項目中', () => {
-    exportCorrespondenceMatrix(
+  it('工程名稱應出現在統計項目中', async () => {
+    await exportCorrespondenceMatrix(
       createMinimalOptions({ projectName: '測試工程ABC' }),
     );
 
@@ -460,15 +460,14 @@ describe('exportCorrespondenceMatrix - 統計摘要工作表', () => {
     expect(projectRow![1]).toBe('測試工程ABC');
   });
 
-  it('統計數值應正確對應', () => {
+  it('統計數值應正確對應', async () => {
     const stats = createMockStats({
       total: 20,
       completed: 8,
       inProgress: 7,
-      overdue: 3,
     });
 
-    exportCorrespondenceMatrix(createMinimalOptions({ stats }));
+    await exportCorrespondenceMatrix(createMinimalOptions({ stats }));
 
     const statsData = aoa_to_sheet_spy.mock.calls[2][0] as unknown[][];
     const findValue = (key: string) =>
@@ -477,11 +476,10 @@ describe('exportCorrespondenceMatrix - 統計摘要工作表', () => {
     expect(findValue('作業紀錄總數')).toBe(20);
     expect(findValue('已完成')).toBe(8);
     expect(findValue('進行中')).toBe(7);
-    expect(findValue('逾期')).toBe(3);
   });
 
-  it('匯出時間應為 YYYY-MM-DD HH:mm:ss 格式 (formatNow)', () => {
-    exportCorrespondenceMatrix(createMinimalOptions());
+  it('匯出時間應為 YYYY-MM-DD HH:mm:ss 格式 (formatNow)', async () => {
+    await exportCorrespondenceMatrix(createMinimalOptions());
 
     const statsData = aoa_to_sheet_spy.mock.calls[2][0] as unknown[][];
     const exportTimeRow = statsData.find((row) => row[0] === '匯出時間');
@@ -491,9 +489,9 @@ describe('exportCorrespondenceMatrix - 統計摘要工作表', () => {
     expect(exportTime).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
   });
 
-  it('當前階段應正確顯示', () => {
+  it('當前階段應正確顯示', async () => {
     const stats = createMockStats({ currentStage: '查估階段' });
-    exportCorrespondenceMatrix(createMinimalOptions({ stats }));
+    await exportCorrespondenceMatrix(createMinimalOptions({ stats }));
 
     const statsData = aoa_to_sheet_spy.mock.calls[2][0] as unknown[][];
     const stageRow = statsData.find((row) => row[0] === '當前階段');

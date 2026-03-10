@@ -6,7 +6,7 @@
  * @date 2026-01-23
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Card,
   Tag,
@@ -138,8 +138,12 @@ export const ContractCaseDetailPage: React.FC = () => {
   const [userOptions, setUserOptions] = useState<{ id: number; name: string; email: string }[]>([]);
   const [vendorOptions, setVendorOptions] = useState<{ id: number; name: string; code: string }[]>([]);
 
+  // StrictMode 雙重載入防護
+  const loadedIdRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (id) {
+    if (id && loadedIdRef.current !== id) {
+      loadedIdRef.current = id;
       loadData();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- loadData depends on id, adding it would cause infinite loop
@@ -229,49 +233,65 @@ export const ContractCaseDetailPage: React.FC = () => {
   };
 
   const loadAttachments = async (docs: RelatedDocument[]) => {
+    if (docs.length === 0) return;
     setAttachmentsLoading(true);
     try {
+      // 並行載入所有文件附件（限制並行數為 5，避免觸發熔斷器）
+      const BATCH_SIZE = 5;
+      const results: { doc: RelatedDocument; attachments: FileAttachment[] }[] = [];
+
+      for (let i = 0; i < docs.length; i += BATCH_SIZE) {
+        const batch = docs.slice(i, i + BATCH_SIZE);
+        const batchResults = await Promise.all(
+          batch.map(async (doc) => {
+            try {
+              const atts = await filesApi.getDocumentAttachments(doc.id);
+              return { doc, attachments: atts };
+            } catch {
+              logger.warn(`載入公文 ${doc.doc_number} 的附件失敗`);
+              return { doc, attachments: [] as FileAttachment[] };
+            }
+          })
+        );
+        results.push(...batchResults);
+      }
+
       const allAttachments: Attachment[] = [];
       const grouped: LocalGroupedAttachment[] = [];
 
-      for (const doc of docs) {
-        try {
-          const docAttachments = await filesApi.getDocumentAttachments(doc.id);
-          const mappedAttachments = docAttachments.map((att: FileAttachment) => ({
-            id: att.id,
-            filename: att.original_filename || att.filename,
-            original_filename: att.original_filename,
-            file_size: att.file_size,
-            file_type: att.content_type || '',
-            content_type: att.content_type,
-            uploaded_at: att.created_at || '',
-            uploaded_by: att.uploaded_by?.toString() || '系統',
+      for (const { doc, attachments: docAttachments } of results) {
+        const mappedAttachments = docAttachments.map((att: FileAttachment) => ({
+          id: att.id,
+          filename: att.original_filename || att.filename,
+          original_filename: att.original_filename,
+          file_size: att.file_size,
+          file_type: att.content_type || '',
+          content_type: att.content_type,
+          uploaded_at: att.created_at || '',
+          uploaded_by: att.uploaded_by?.toString() || '系統',
+          document_id: doc.id,
+          document_number: doc.doc_number,
+          document_subject: doc.subject,
+        }));
+        allAttachments.push(...mappedAttachments);
+
+        if (mappedAttachments.length > 0) {
+          const totalSize = mappedAttachments.reduce((sum, att) => sum + att.file_size, 0);
+          const lastUpdated = mappedAttachments
+            .map(att => att.uploaded_at)
+            .filter(Boolean)
+            .sort()
+            .pop() || '';
+
+          grouped.push({
             document_id: doc.id,
             document_number: doc.doc_number,
             document_subject: doc.subject,
-          }));
-          allAttachments.push(...mappedAttachments);
-
-          if (mappedAttachments.length > 0) {
-            const totalSize = mappedAttachments.reduce((sum, att) => sum + att.file_size, 0);
-            const lastUpdated = mappedAttachments
-              .map(att => att.uploaded_at)
-              .filter(Boolean)
-              .sort()
-              .pop() || '';
-
-            grouped.push({
-              document_id: doc.id,
-              document_number: doc.doc_number,
-              document_subject: doc.subject,
-              file_count: mappedAttachments.length,
-              total_size: totalSize,
-              last_updated: lastUpdated,
-              attachments: mappedAttachments,
-            });
-          }
-        } catch (attError) {
-          logger.warn(`載入公文 ${doc.doc_number} 的附件失敗:`, attError);
+            file_count: mappedAttachments.length,
+            total_size: totalSize,
+            last_updated: lastUpdated,
+            attachments: mappedAttachments,
+          });
         }
       }
       setAttachments(allAttachments);
@@ -355,10 +375,13 @@ export const ContractCaseDetailPage: React.FC = () => {
         progress: autoProgress ?? undefined,
         project_path: values.project_path || undefined,
         notes: values.notes || undefined,
+        has_dispatch_management: values.has_dispatch_management,
       };
 
       await projectsApi.updateProject(projectId, updateData as Parameters<typeof projectsApi.updateProject>[1]);
       queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
+      // 派工管理狀態變更時，刷新派工案件 ID 快取
+      queryClient.invalidateQueries({ queryKey: ['taoyuan-dispatch-orders', 'contract-projects'] });
 
       setData({ ...data, ...updateData });
       setIsEditingCaseInfo(false);

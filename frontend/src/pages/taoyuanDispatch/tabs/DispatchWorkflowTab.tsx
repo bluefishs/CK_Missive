@@ -10,7 +10,7 @@
  * - CRUD：新增/編輯（導航）、刪除（行內）、關聯/解除公文
  * - 匯出：公文對照矩陣 Excel 匯出
  *
- * @version 6.0.0 - 矩陣匯出 + hooks 拆分（useAutoMatch, useWorkflowColumns）
+ * @version 7.0.0 - 共用模組化（WorkRecordStatsCard, useWorkRecordColumns, useDeleteWorkRecord）
  * @date 2026-02-25
  */
 
@@ -26,25 +26,28 @@ import { ThunderboltOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../../config/queryConfig';
 
-import { workflowApi } from '../../../api/taoyuan';
 import { dispatchOrdersApi } from '../../../api/taoyuanDispatchApi';
 import type { WorkRecord } from '../../../types/taoyuan';
 import type { DispatchDocumentLink, LinkType } from '../../../types/api';
 import { logger } from '../../../services/logger';
 import { exportCorrespondenceMatrix } from '../../../utils/dispatchExportUtils';
 
-import { CorrespondenceBody, ChainTimeline } from '../../../components/taoyuan/workflow';
+import {
+  CorrespondenceBody,
+  ChainTimeline,
+  WorkRecordStatsCard,
+  useWorkRecordColumns,
+  useDeleteWorkRecord,
+} from '../../../components/taoyuan/workflow';
 import {
   useDispatchWorkData,
   detectLinkType,
 } from '../../../components/taoyuan/workflow/useDispatchWorkData';
 
-import { StatsCards } from './workflow/StatsCards';
 import { WorkflowToolBar } from './workflow/WorkflowToolBar';
 import { InlineDocumentSearch } from './workflow/InlineDocumentSearch';
 import { UnassignedDocumentsList } from './workflow/UnassignedDocumentsList';
 import { AutoMatchModal } from './workflow/AutoMatchModal';
-import { useWorkflowColumns } from './workflow/useWorkflowColumns';
 import { useAutoMatch } from './workflow/useAutoMatch';
 
 // =============================================================================
@@ -81,6 +84,8 @@ export interface DispatchWorkflowTabProps {
   projectName?: string;
   /** 派工單號（用於匯出檔名） */
   dispatchNo?: string;
+  /** 作業類別（用於統計卡片顯示） */
+  workType?: string;
 }
 
 // =============================================================================
@@ -96,6 +101,7 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
   contractProjectId,
   projectName,
   dispatchNo,
+  workType,
 }) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -163,21 +169,12 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
   // Mutations
   // ===========================================================================
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => workflowApi.delete(id),
-    onSuccess: () => {
-      message.success('作業紀錄已刪除');
-      queryClient.invalidateQueries({
-        queryKey: ['dispatch-work-records', dispatchOrderId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ['project-work-records'],
-      });
-    },
-    onError: (error: Error) => {
-      logger.error('[WorkflowTab] 刪除失敗:', error);
-      message.error('刪除失敗，請稍後再試');
-    },
+  const deleteMutation = useDeleteWorkRecord({
+    invalidateKeys: [
+      queryKeys.workRecords.dispatch(dispatchOrderId),
+      queryKeys.workRecords.projectAll,
+    ],
+    logPrefix: 'WorkflowTab',
   });
 
   const linkDocMutation = useMutation({
@@ -192,7 +189,7 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
       setDocSearchKeyword('');
       onRefetchDispatch?.();
       queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
-      queryClient.invalidateQueries({ queryKey: ['dispatch-work-records', dispatchOrderId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.dispatch(dispatchOrderId) });
     },
     onError: () => message.error('關聯失敗'),
   });
@@ -204,7 +201,7 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
       message.success('已移除公文關聯');
       onRefetchDispatch?.();
       queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
-      queryClient.invalidateQueries({ queryKey: ['dispatch-work-records', dispatchOrderId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.dispatch(dispatchOrderId) });
     },
     onError: () => message.error('移除關聯失敗'),
   });
@@ -303,13 +300,21 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
     [navigate, dispatchOrderId],
   );
 
+  const handleDelete = useCallback(
+    (id: number) => {
+      deleteMutation.mutate(id);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [deleteMutation.mutate],
+  );
+
   const handleViewModeChange = useCallback((mode: ViewMode) => {
     setViewMode(mode);
   }, []);
 
-  const handleExport = useCallback(() => {
+  const handleExport = useCallback(async () => {
     try {
-      exportCorrespondenceMatrix({
+      await exportCorrespondenceMatrix({
         matrixRows,
         records,
         stats,
@@ -324,14 +329,16 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
   }, [matrixRows, records, stats, dispatchNo, projectName, message]);
 
   // ===========================================================================
-  // Table Columns（拆分至 useWorkflowColumns）
+  // Table Columns（共用 useWorkRecordColumns）
   // ===========================================================================
 
-  const columns = useWorkflowColumns({
+  const columns = useWorkRecordColumns({
     canEdit,
     onEdit: handleEdit,
+    onDelete: handleDelete,
     onDocClick: handleDocClick,
-    onDelete: (id) => deleteMutation.mutate(id),
+    showDeadlineColumn: true,
+    showOutgoingDocColumn: true,
   });
 
   // ===========================================================================
@@ -372,8 +379,15 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
 
   return (
     <div>
-      {/* 迷你統計 */}
-      <StatsCards stats={stats} />
+      {/* 迷你統計（共用元件） */}
+      <WorkRecordStatsCard
+        mode="dispatch"
+        stats={stats}
+        onHold={stats.onHold}
+        linkedDocCount={stats.linkedDocCount}
+        unassignedDocCount={stats.unassignedDocCount}
+        workType={workType}
+      />
 
       {/* 工具列 */}
       <WorkflowToolBar
@@ -392,7 +406,7 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
           records={records}
           onDocClick={handleDocClick}
           onEditRecord={canEdit ? handleEdit : undefined}
-          onDeleteRecord={canEdit ? (id) => deleteMutation.mutate(id) : undefined}
+          onDeleteRecord={canEdit ? handleDelete : undefined}
           canEdit={canEdit}
         />
       ) : viewMode === 'correspondence' ? (

@@ -49,7 +49,7 @@ export const useTaoyuanProjects = (params: UseTaoyuanProjectsParams): UseTaoyuan
 
   return {
     projects: data?.items || [],
-    total: data?.pagination?.total || 0,
+    total: data?.pagination?.total ?? 0,
     isLoading,
     error: error as Error | null,
     refetch,

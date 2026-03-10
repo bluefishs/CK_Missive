@@ -218,6 +218,8 @@ export const USERS_ENDPOINTS = {
   DELETE: (id: number) => `/users/${id}/delete`,
   /** 更新狀態 POST /users/:id/status */
   STATUS: (id: number) => `/users/${id}/status`,
+  /** 部門選項 POST /users/departments */
+  DEPARTMENTS: '/users/departments',
 } as const;
 
 /** 證照管理 API 端點 */
@@ -246,12 +248,18 @@ export const CERTIFICATIONS_ENDPOINTS = {
 export const AUTH_ENDPOINTS = {
   /** 登入 POST /auth/login */
   LOGIN: '/auth/login',
+  /** Google OAuth 登入 POST /auth/google */
+  GOOGLE: '/auth/google',
+  /** 使用者註冊 POST /auth/register */
+  REGISTER: '/auth/register',
   /** 登出 POST /auth/logout */
   LOGOUT: '/auth/logout',
   /** 刷新 Token POST /auth/refresh */
   REFRESH: '/auth/refresh',
   /** 當前使用者 POST /auth/me */
   ME: '/auth/me',
+  /** 認證狀態檢查 POST /auth/check */
+  CHECK: '/auth/check',
   /** 更新個人資料 POST /auth/profile/update */
   PROFILE_UPDATE: '/auth/profile/update',
   /** 修改密碼 POST /auth/password/change */
@@ -306,6 +314,8 @@ export const ADMIN_USER_MANAGEMENT_ENDPOINTS = {
   SESSIONS_REVOKE: (id: number) => `/admin/user-management/sessions/${id}/revoke`,
   /** 可用權限 POST /admin/user-management/permissions/available */
   PERMISSIONS_AVAILABLE: '/admin/user-management/permissions/available',
+  /** 檢查權限 POST /admin/user-management/permissions/check */
+  PERMISSIONS_CHECK: '/admin/user-management/permissions/check',
 } as const;
 
 // ============================================================================
@@ -330,12 +340,16 @@ export const PROJECT_VENDORS_ENDPOINTS = {
 
 /** 案件承辦同仁 API 端點 */
 export const PROJECT_STAFF_ENDPOINTS = {
-  /** 同仁列表 POST /project-staff/list */
+  /** 全部關聯列表 POST /project-staff/list */
   LIST: '/project-staff/list',
   /** 建立關聯 POST /project-staff */
   CREATE: '/project-staff',
-  /** 刪除關聯 POST /project-staff/:id/delete */
-  DELETE: (id: number) => `/project-staff/${id}/delete`,
+  /** 案件承辦同仁列表 POST /project-staff/project/:projectId/list */
+  PROJECT_LIST: (projectId: number) => `/project-staff/project/${projectId}/list` as const,
+  /** 更新關聯 POST /project-staff/project/:projectId/user/:userId/update */
+  UPDATE: (projectId: number, userId: number) => `/project-staff/project/${projectId}/user/${userId}/update` as const,
+  /** 刪除關聯 POST /project-staff/project/:projectId/user/:userId/delete */
+  DELETE: (projectId: number, userId: number) => `/project-staff/project/${projectId}/user/${userId}/delete` as const,
 } as const;
 
 /** 專案機關承辦 API 端點 */
@@ -495,6 +509,8 @@ export const TAOYUAN_DISPATCH_ENDPOINTS = {
   DISPATCH_ORDERS_UPDATE: (id: number) => `/taoyuan-dispatch/dispatch/${id}/update`,
   /** 刪除派工單 POST /taoyuan-dispatch/dispatch/:id/delete */
   DISPATCH_ORDERS_DELETE: (id: number) => `/taoyuan-dispatch/dispatch/${id}/delete`,
+  /** 批量設定結案批次 POST /taoyuan-dispatch/dispatch/batch-set-batch */
+  DISPATCH_BATCH_SET_BATCH: '/taoyuan-dispatch/dispatch/batch-set-batch',
 
   // 派工單公文關聯
   /** 新增公文關聯 POST /taoyuan-dispatch/dispatch/:id/link-document */
@@ -690,6 +706,16 @@ export const AI_ENDPOINTS = {
   GRAPH_STATS: '/ai/graph/stats',
   /** 圖譜入圖管線 POST /ai/graph/ingest */
   GRAPH_INGEST: '/ai/graph/ingest',
+  /** Code Wiki 代碼圖譜 POST /ai/graph/code-wiki */
+  GRAPH_CODE_WIKI: '/ai/graph/code-wiki',
+  /** Code Graph 入圖觸發 POST /ai/graph/admin/code-ingest */
+  GRAPH_CODE_INGEST: '/ai/graph/admin/code-ingest',
+  /** 循環依賴偵測 POST /ai/graph/admin/cycle-detection */
+  GRAPH_CYCLE_DETECTION: '/ai/graph/admin/cycle-detection',
+  /** 架構分析 POST /ai/graph/admin/architecture-analysis */
+  GRAPH_ARCHITECTURE_ANALYSIS: '/ai/graph/admin/architecture-analysis',
+  /** JSON 圖譜匯入 POST /ai/graph/admin/json-import */
+  GRAPH_JSON_IMPORT: '/ai/graph/admin/json-import',
   /** 實體合併 POST /ai/graph/admin/merge-entities */
   GRAPH_MERGE_ENTITIES: '/ai/graph/admin/merge-entities',
   // --- RAG 問答 ---
@@ -700,6 +726,8 @@ export const AI_ENDPOINTS = {
   // --- Agentic 問答 ---
   /** Agentic 串流問答 POST /ai/agent/query/stream */
   AGENT_QUERY_STREAM: '/ai/agent/query/stream',
+  /** 清除 Agent 對話記憶 DELETE /ai/agent/conversation/{session_id} */
+  AGENT_CONVERSATION_CLEAR: (sessionId: string) => `/ai/agent/conversation/${sessionId}` as const,
   // --- Ollama 管理 ---
   /** Ollama 詳細狀態 POST /ai/ollama/status */
   OLLAMA_STATUS: '/ai/ollama/status',
@@ -716,9 +744,9 @@ export const AI_ENDPOINTS = {
   ANALYTICS_OVERVIEW: '/ai/analytics/overview',
   // --- AI 分析持久化 ---
   /** 取得公文 AI 分析結果 POST /ai/analysis/{document_id} */
-  ANALYSIS_GET: '/ai/analysis',
+  ANALYSIS_GET: (documentId: number) => `/ai/analysis/${documentId}` as const,
   /** 觸發公文 AI 分析 POST /ai/analysis/{document_id}/analyze */
-  ANALYSIS_TRIGGER: '/ai/analysis',
+  ANALYSIS_TRIGGER: (documentId: number) => `/ai/analysis/${documentId}/analyze` as const,
   /** 批次 AI 分析 POST /ai/analysis/batch */
   ANALYSIS_BATCH: '/ai/analysis/batch',
   /** AI 分析覆蓋率統計 POST /ai/analysis/stats */

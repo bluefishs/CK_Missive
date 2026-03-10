@@ -27,14 +27,14 @@ import type {
 export async function generateSummary(request: SummaryRequest): Promise<SummaryResponse> {
   try {
     logger.log('AI 生成摘要:', request.subject.substring(0, 50));
-    return await apiClient.post<SummaryResponse>(AI_ENDPOINTS.SUMMARY, request);
+    return await apiClient.silentPost<SummaryResponse>(AI_ENDPOINTS.SUMMARY, request);
   } catch (error) {
     logger.error('AI 摘要生成失敗:', error);
     return {
       summary: request.subject.substring(0, request.max_length || 100),
       confidence: 0,
       source: 'fallback',
-      error: error instanceof Error ? error.message : '未知錯誤',
+      error: '摘要生成服務暫時不可用',
     };
   }
 }
@@ -46,9 +46,10 @@ export function streamSummary(
   onError?: (error: string) => void,
 ): AbortController {
   const controller = new AbortController();
+  const SUMMARY_TIMEOUT_MS = 15000; // 15s for summary stream
+  const timeoutId = setTimeout(() => controller.abort(), SUMMARY_TIMEOUT_MS);
   const baseUrl = API_BASE_URL;
   const url = `${baseUrl}${AI_ENDPOINTS.SUMMARY_STREAM}`;
-  const accessToken = localStorage.getItem('access_token');
 
   (async () => {
     try {
@@ -56,7 +57,6 @@ export function streamSummary(
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify(params),
         signal: controller.signal,
@@ -64,14 +64,15 @@ export function streamSummary(
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        onError?.(errorText || `HTTP ${response.status}`);
+        clearTimeout(timeoutId);
+        onError?.(`AI 摘要服務異常 (HTTP ${response.status})`);
         onDone();
         return;
       }
 
       const reader = response.body?.getReader();
       if (!reader) {
+        clearTimeout(timeoutId);
         onError?.('ReadableStream not supported');
         onDone();
         return;
@@ -103,18 +104,19 @@ export function streamSummary(
 
             if (data.error) onError?.(data.error);
             if (data.token) onToken(data.token);
-            if (data.done) { onDone(); return; }
+            if (data.done) { clearTimeout(timeoutId); onDone(); return; }
           } catch {
             logger.warn('SSE 解析失敗:', dataStr);
           }
         }
       }
+      clearTimeout(timeoutId);
       onDone();
     } catch (err) {
+      clearTimeout(timeoutId);
       if (err instanceof DOMException && err.name === 'AbortError') return;
-      const message = err instanceof Error ? err.message : '串流連線失敗';
-      logger.error('SSE 串流錯誤:', message);
-      onError?.(message);
+      logger.error('SSE 串流錯誤:', err);
+      onError?.('串流連線失敗');
       onDone();
     }
   })();
@@ -125,7 +127,7 @@ export function streamSummary(
 export async function suggestClassification(request: ClassifyRequest): Promise<ClassifyResponse> {
   try {
     logger.log('AI 分類建議:', request.subject.substring(0, 50));
-    return await apiClient.post<ClassifyResponse>(AI_ENDPOINTS.CLASSIFY, request);
+    return await apiClient.silentPost<ClassifyResponse>(AI_ENDPOINTS.CLASSIFY, request);
   } catch (error) {
     logger.error('AI 分類建議失敗:', error);
     return {
@@ -134,7 +136,7 @@ export async function suggestClassification(request: ClassifyRequest): Promise<C
       doc_type_confidence: 0,
       category_confidence: 0,
       source: 'fallback',
-      error: error instanceof Error ? error.message : '未知錯誤',
+      error: '分類建議服務暫時不可用',
     };
   }
 }
@@ -142,27 +144,27 @@ export async function suggestClassification(request: ClassifyRequest): Promise<C
 export async function extractKeywords(request: KeywordsRequest): Promise<KeywordsResponse> {
   try {
     logger.log('AI 提取關鍵字:', request.subject.substring(0, 50));
-    return await apiClient.post<KeywordsResponse>(AI_ENDPOINTS.KEYWORDS, request);
+    return await apiClient.silentPost<KeywordsResponse>(AI_ENDPOINTS.KEYWORDS, request);
   } catch (error) {
     logger.error('AI 關鍵字提取失敗:', error);
-    return { keywords: [], confidence: 0, source: 'fallback', error: error instanceof Error ? error.message : '未知錯誤' };
+    return { keywords: [], confidence: 0, source: 'fallback', error: '關鍵字提取服務暫時不可用' };
   }
 }
 
 export async function matchAgency(request: AgencyMatchRequest): Promise<AgencyMatchResponse> {
   try {
     logger.log('AI 機關匹配:', request.agency_name);
-    return await apiClient.post<AgencyMatchResponse>(AI_ENDPOINTS.AGENCY_MATCH, request);
+    return await apiClient.silentPost<AgencyMatchResponse>(AI_ENDPOINTS.AGENCY_MATCH, request);
   } catch (error) {
     logger.error('AI 機關匹配失敗:', error);
-    return { best_match: null, alternatives: [], is_new: true, source: 'fallback', error: error instanceof Error ? error.message : '未知錯誤' };
+    return { best_match: null, alternatives: [], is_new: true, source: 'fallback', error: '機關匹配服務暫時不可用' };
   }
 }
 
 export async function checkHealth(): Promise<AIHealthStatus> {
   try {
     logger.log('檢查 AI 服務健康狀態');
-    return await apiClient.post<AIHealthStatus>(AI_ENDPOINTS.HEALTH, {});
+    return await apiClient.silentPost<AIHealthStatus>(AI_ENDPOINTS.HEALTH, {});
   } catch (error) {
     logger.error('AI 健康檢查失敗:', error);
     return { groq: { available: false, message: '無法連接' }, ollama: { available: false, message: '無法連接' } };
@@ -172,7 +174,7 @@ export async function checkHealth(): Promise<AIHealthStatus> {
 export async function getConfig(): Promise<AIConfigResponse | null> {
   try {
     logger.log('取得 AI 服務配置');
-    return await apiClient.post<AIConfigResponse>(AI_ENDPOINTS.CONFIG, {});
+    return await apiClient.silentPost<AIConfigResponse>(AI_ENDPOINTS.CONFIG, {});
   } catch (error) {
     logger.error('取得 AI 配置失敗:', error);
     return null;
@@ -194,7 +196,7 @@ export async function analyzeDocument(
 export async function getStats(): Promise<AIStatsResponse | null> {
   try {
     logger.log('取得 AI 使用統計');
-    return await apiClient.post<AIStatsResponse>(AI_ENDPOINTS.STATS, {});
+    return await apiClient.silentPost<AIStatsResponse>(AI_ENDPOINTS.STATS, {});
   } catch (error) {
     logger.error('取得 AI 統計失敗:', error);
     return null;
@@ -215,9 +217,9 @@ export async function resetStats(): Promise<boolean> {
 export async function parseSearchIntent(query: string): Promise<import('./types').ParseIntentResponse> {
   try {
     logger.log('AI 意圖解析:', query.substring(0, 50));
-    return await apiClient.post(AI_ENDPOINTS.PARSE_INTENT, { query });
+    return await apiClient.silentPost(AI_ENDPOINTS.PARSE_INTENT, { query });
   } catch (error) {
     logger.error('AI 意圖解析失敗:', error);
-    return { success: false, query, parsed_intent: { keywords: [query], confidence: 0 }, source: 'error', error: error instanceof Error ? error.message : '未知錯誤' };
+    return { success: false, query, parsed_intent: { keywords: [query], confidence: 0 }, source: 'error', error: '意圖解析服務暫時不可用' };
   }
 }

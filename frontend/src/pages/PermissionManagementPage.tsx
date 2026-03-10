@@ -116,6 +116,7 @@ const PermissionManagementPage: React.FC = () => {
       title: '說明',
       dataIndex: 'description_zh',
       key: 'description',
+      width: 200,
       ellipsis: true,
       render: (text: string) => (
         <Text type="secondary">{text}</Text>

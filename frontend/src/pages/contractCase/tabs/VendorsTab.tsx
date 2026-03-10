@@ -217,6 +217,7 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({
             rowKey="id"
             pagination={false}
             size="middle"
+            scroll={{ x: 900 }}
           />
         ) : (
           <Empty description="尚無協力廠商" />

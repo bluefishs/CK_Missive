@@ -41,7 +41,7 @@ export const DocumentDetailPage: React.FC = () => {
     handleAddToCalendar, handleEventCreated,
     handleDownload, handlePreview, handleDeleteAttachment,
     handleCreateDispatch, handleLinkDispatch, handleUnlinkDispatch,
-    handleLinkProject, handleUnlinkProject,
+    handleLinkProject, handleUnlinkProject, handleCreateAndLinkProject,
     form, returnTo,
   } = useDocumentDetail();
 
@@ -115,6 +115,7 @@ export const DocumentDetailPage: React.FC = () => {
           projectLinks={projectLinks} projectLinksLoading={projectLinksLoading}
           availableProjects={availableProjects}
           onLinkProject={handleLinkProject} onUnlinkProject={handleUnlinkProject}
+          onCreateAndLinkProject={handleCreateAndLinkProject}
         />
       ),
     ] : []),

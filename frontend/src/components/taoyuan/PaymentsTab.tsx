@@ -39,7 +39,7 @@ import { logger } from '../../services/logger';
 
 import type { PaymentControlItem } from '../../types/api';
 
-import { WORK_TYPE_COLUMNS, formatDate, formatAmount, usePaymentColumns } from './payments/usePaymentColumns';
+import { WORK_TYPE_COLUMNS, formatAmount, usePaymentColumns } from './payments/usePaymentColumns';
 import { exportPaymentExcel } from './payments/paymentExport';
 
 const { Text, Title } = Typography;
@@ -58,13 +58,15 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) =
   // 使用集中的 Hook 查詢契金管控資料
   const {
     items,
+    contractName,
     totalBudget,
     totalDispatched,
+    totalClaimed,
     isLoading,
     refetch,
   } = useTaoyuanPaymentControl(contractProjectId);
 
-  const totalRemaining = (totalBudget || 9630000) - totalDispatched;
+  const totalRemaining = totalBudget - totalDispatched;
 
   // 建立表格欄位（已提取至 usePaymentColumns）
   const columns = usePaymentColumns(navigate);
@@ -181,9 +183,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) =
         <Row justify="space-between" align={isMobile ? 'top' : 'middle'} gutter={[0, 8]}>
           <Col xs={24} md={18}>
             <Title level={5} style={{ margin: 0, fontSize: isMobile ? 13 : 16 }}>
-              {isMobile
-                ? '112-113年桃園查估測量委託專業服務'
-                : '112至113年度桃園市轄內興辦公共設施工程用地取得所需土地市價及地上物查估、測量作業暨相關計畫書製作委託專業服務(開口契約)'}
+              {contractName || '承攬案件契金管控'}
             </Title>
           </Col>
           <Col xs={24} md={6} style={{ textAlign: isMobile ? 'left' : 'right' }}>
@@ -199,7 +199,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) =
 
       {/* 統計卡片 - RWD 響應式 */}
       <Row gutter={[isMobile ? 8 : 16, isMobile ? 8 : 16]} style={{ marginBottom: isMobile ? 12 : 16 }}>
-        <Col xs={12} sm={8} md={5}>
+        <Col xs={12} sm={8} md={4}>
           <Card size="small">
             <Statistic
               title={isMobile ? '總預算' : '總預算金額'}
@@ -210,7 +210,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) =
             />
           </Card>
         </Col>
-        <Col xs={12} sm={8} md={5}>
+        <Col xs={12} sm={8} md={4}>
           <Card size="small">
             <Statistic
               title={isMobile ? '累計派工' : '累計派工金額'}
@@ -220,7 +220,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) =
             />
           </Card>
         </Col>
-        <Col xs={12} sm={8} md={5}>
+        <Col xs={12} sm={8} md={4}>
           <Card size="small">
             <Statistic
               title={isMobile ? '剩餘' : '剩餘金額'}
@@ -230,7 +230,17 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) =
             />
           </Card>
         </Col>
-        <Col xs={12} sm={12} md={5}>
+        <Col xs={12} sm={8} md={4}>
+          <Card size="small">
+            <Statistic
+              title={isMobile ? '已請款' : '已請款金額'}
+              value={totalClaimed}
+              precision={0}
+              valueStyle={{ color: '#fa541c', fontSize: isMobile ? 16 : 24 }}
+            />
+          </Card>
+        </Col>
+        <Col xs={12} sm={8} md={4}>
           <Card size="small">
             <Statistic
               title="派工單數"
@@ -240,11 +250,11 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) =
             />
           </Card>
         </Col>
-        <Col xs={24} sm={12} md={4}>
+        <Col xs={12} sm={8} md={4}>
           <Card size="small">
             <Statistic
-              title="執行率"
-              value={totalBudget > 0 ? ((totalDispatched / totalBudget) * 100).toFixed(1) : 0}
+              title="請款率"
+              value={totalBudget > 0 ? ((totalClaimed / totalBudget) * 100).toFixed(1) : 0}
               suffix="%"
               valueStyle={{ color: '#722ed1', fontSize: isMobile ? 16 : 24 }}
             />

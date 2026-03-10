@@ -103,8 +103,10 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
     const panelW = panelEl?.offsetWidth ?? 320;
     const panelH = panelEl?.offsetHeight ?? 400;
 
-    const newRight = Math.max(0, Math.min(window.innerWidth - panelW, dragStartPos.current.right + deltaX));
-    const newBottom = Math.max(0, Math.min(window.innerHeight - panelH, dragStartPos.current.bottom + deltaY));
+    const viewportW = document.documentElement.clientWidth;
+    const viewportH = document.documentElement.clientHeight;
+    const newRight = Math.max(0, Math.min(viewportW - panelW, dragStartPos.current.right + deltaX));
+    const newBottom = Math.max(0, Math.min(viewportH - panelH, dragStartPos.current.bottom + deltaY));
 
     setPosition({ right: newRight, bottom: newBottom });
   }, [isDragging]);

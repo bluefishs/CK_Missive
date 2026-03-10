@@ -39,6 +39,15 @@ export const GRAPH_NODE_CONFIG: Record<string, GraphNodeTypeConfig> = {
   agency:    { color: '#fa8c16', radius: 5, label: '機關',     detailable: false, description: '公文往來的政府機關' },
   dispatch:  { color: '#722ed1', radius: 7, label: '派工',     detailable: false, description: '桃園市政府的派工通知單' },
   typroject: { color: '#2f54eb', radius: 7, label: '桃園工程', detailable: false, description: '桃園市政府的工程案件' },
+  // --- Code Graph 代碼實體 ---
+  py_module:   { color: '#7b68ee', radius: 5, label: 'Python 模組', detailable: true, description: '程式碼模組（.py 檔案）' },
+  py_class:    { color: '#6495ed', radius: 5, label: 'Python 類別', detailable: true, description: '程式碼中的類別定義' },
+  py_function: { color: '#1e90ff', radius: 4, label: 'Python 函數', detailable: true, description: '程式碼中的函數/方法定義' },
+  db_table:    { color: '#00bfff', radius: 5, label: '資料表',      detailable: true, description: 'PostgreSQL 資料庫表格' },
+  // --- TypeScript/React 代碼實體 ---
+  ts_module:     { color: '#9370db', radius: 5, label: 'TS 模組',     detailable: true, description: 'TypeScript/React 模組（.ts/.tsx 檔案）' },
+  ts_component:  { color: '#da70d6', radius: 5, label: 'React 元件',  detailable: true, description: 'React 元件定義' },
+  ts_hook:       { color: '#ba55d3', radius: 4, label: 'React Hook',  detailable: true, description: 'React 自訂 Hook（useXxx）' },
   // --- NER 提取實體 ---
   org:         { color: '#d48806', radius: 5, label: '組織',     detailable: true,  description: 'AI 從公文內容提取的組織/單位名稱' },
   person:      { color: '#f5222d', radius: 5, label: '人物',     detailable: true,  description: 'AI 從公文內容提取的人名' },
@@ -68,6 +77,12 @@ export function getNodeConfig(type: string): GraphNodeTypeConfig {
 
 /** 所有已知節點類型 */
 export const KNOWN_NODE_TYPES = Object.keys(GRAPH_NODE_CONFIG);
+
+/** Code Graph 代碼實體類型（用於 EntityDetailSidebar 等判斷） */
+export const CODE_ENTITY_TYPES = new Set([
+  'py_module', 'py_class', 'py_function', 'db_table',
+  'ts_module', 'ts_component', 'ts_hook',
+]);
 
 /** 可查詢正規化實體詳情的類型集合 */
 export const CANONICAL_ENTITY_TYPES = new Set(

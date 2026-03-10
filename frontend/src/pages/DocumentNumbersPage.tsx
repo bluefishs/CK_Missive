@@ -9,7 +9,7 @@
  * @date 2026-01-07
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { logger } from '../services/logger';
 import { ResponsiveContent } from '../components/common';
@@ -35,16 +35,14 @@ import {
   CalendarOutlined,
 } from '@ant-design/icons';
 
-import { useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '../config/queryConfig';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys, defaultQueryOptions } from '../config/queryConfig';
 import { DocumentList } from '../components/document/DocumentList';
 // 複製功能已停用 (2026-01-12)
 // import { DocumentOperations } from '../components/document/DocumentOperations';
-import { useDocuments } from '../hooks';
+import { useDocuments, useDocumentStatistics } from '../hooks';
 import {
   documentsApi,
-  DocumentStatistics,
-  NextSendNumberResponse,
 } from '../api/documentsApi';
 import { Document } from '../types';
 
@@ -63,13 +61,15 @@ export const DocumentNumbersPage: React.FC = () => {
     totalPages: 0,
   });
 
-  // 統計資料
-  const [stats, setStats] = useState<DocumentStatistics | null>(null);
-  const [statsLoading, setStatsLoading] = useState(false);
+  // 統計資料 (React Query)
+  const { data: stats, isLoading: statsLoading } = useDocumentStatistics();
 
-  // 下一個可用字號
-  const [nextNumber, setNextNumber] = useState<NextSendNumberResponse | null>(null);
-  const [nextNumberLoading, setNextNumberLoading] = useState(false);
+  // 下一個可用字號 (React Query)
+  const { data: nextNumber, isLoading: nextNumberLoading } = useQuery({
+    queryKey: ['documents', 'next-send-number'],
+    queryFn: () => documentsApi.getNextSendNumber(),
+    ...defaultQueryOptions.statistics,
+  });
 
   // 公文操作狀態
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- state value reserved for modal visibility tracking, setter is used
@@ -106,37 +106,6 @@ export const DocumentNumbersPage: React.FC = () => {
     ...(sortOrder && { sortOrder: sortOrder === 'ascend' ? 'asc' : 'desc' }),
   });
 
-  // 載入統計資料
-  const loadStats = useCallback(async () => {
-    setStatsLoading(true);
-    try {
-      const result = await documentsApi.getStatistics();
-      setStats(result);
-    } catch (error) {
-      logger.error('載入統計失敗:', error);
-    } finally {
-      setStatsLoading(false);
-    }
-  }, []);
-
-  // 載入下一個可用字號 (使用新的 documentsApi)
-  const loadNextNumber = useCallback(async () => {
-    setNextNumberLoading(true);
-    try {
-      const result = await documentsApi.getNextSendNumber();
-      setNextNumber(result);
-    } catch (error) {
-      logger.error('載入下一個字號失敗:', error);
-    } finally {
-      setNextNumberLoading(false);
-    }
-  }, []);
-
-  // 初始載入
-  useEffect(() => {
-    loadStats();
-    loadNextNumber();
-  }, [loadStats, loadNextNumber]);
 
   // 更新分頁資料
   useEffect(() => {
@@ -193,8 +162,8 @@ export const DocumentNumbersPage: React.FC = () => {
 
   const handleRefresh = () => {
     refetch();
-    loadStats();
-    loadNextNumber();
+    queryClient.invalidateQueries({ queryKey: queryKeys.documents.statistics });
+    queryClient.invalidateQueries({ queryKey: ['documents', 'next-send-number'] });
   };
 
   // 公文操作
@@ -226,9 +195,8 @@ export const DocumentNumbersPage: React.FC = () => {
       try {
         await documentsApi.deleteDocument(deleteModal.document.id);
         queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
+        queryClient.invalidateQueries({ queryKey: ['documents', 'next-send-number'] });
         message.success(`已刪除公文: ${deleteModal.document.doc_number}`);
-        loadStats();
-        loadNextNumber();
         setDeleteModal({ open: false, document: null });
       } catch (error) {
         logger.error('刪除公文失敗:', error);

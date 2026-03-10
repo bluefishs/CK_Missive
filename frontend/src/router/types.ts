@@ -77,6 +77,10 @@ export const ROUTES = {
   AI_ASSISTANT_MANAGEMENT: '/admin/ai-assistant',
   // 知識圖譜探索（獨立全螢幕頁面）
   KNOWLEDGE_GRAPH: '/ai/knowledge-graph',
+  // 代碼圖譜（Code Wiki）
+  CODE_WIKI: '/ai/code-wiki',
+  // 代碼圖譜管理（獨立管理頁面）
+  CODE_GRAPH_MANAGEMENT: '/admin/code-graph',
   // 桃園查估專區
   TAOYUAN_DISPATCH: '/taoyuan/dispatch',
   TAOYUAN_DISPATCH_CREATE: '/taoyuan/dispatch/create',
@@ -271,6 +275,19 @@ export const ROUTE_META = {
     description: '視覺化公文關聯網絡與正規化實體',
     icon: 'ApartmentOutlined',
     requireAuth: true,
+  },
+  [ROUTES.CODE_WIKI]: {
+    title: '代碼圖譜',
+    description: '視覺化程式碼結構與模組關聯',
+    icon: 'CodeOutlined',
+    requireAuth: true,
+  },
+  [ROUTES.CODE_GRAPH_MANAGEMENT]: {
+    title: '代碼圖譜管理',
+    description: '程式碼結構分析、入圖、匯入與品質檢測',
+    icon: 'CodeOutlined',
+    requireAuth: true,
+    roles: ['admin', 'superuser'],
   },
   [ROUTES.TAOYUAN_DISPATCH]: {
     title: '派工管理',

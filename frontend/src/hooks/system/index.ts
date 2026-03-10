@@ -18,12 +18,14 @@ export * from './useDashboardCalendar';
 // 管理員
 export * from './useAdminUsers';
 
-// 文件統計與關聯
+// 文件統計
 export * from './useDocumentStats';
-export * from './useDocumentRelations';
 
 // 通知中心
 export * from './useNotifications';
+
+// 部門選項
+export * from './useDepartments';
 
 // AI 管理
 export * from './useAISynonyms';

@@ -23,6 +23,7 @@ export const useDocumentAnalysis = (documentId: number | undefined) => {
     queryFn: () => aiApi.getDocumentAnalysis(documentId!),
     enabled: !!documentId,
     ...defaultQueryOptions.detail,
+    retry: false, // 404（尚未分析）不需重試
   });
 };
 

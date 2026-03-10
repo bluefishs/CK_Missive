@@ -52,8 +52,6 @@ import { useQuery } from '@tanstack/react-query';
 import { aiApi } from '../../api/aiApi';
 import { useResponsive } from '../../hooks';
 import { getAIFeatureName, type AIFeatureType } from '../../config/aiConfig';
-import type { AIStatsResponse } from '../../types/api';
-
 const { Text } = Typography;
 
 /** PieChart 色彩配置 */
@@ -78,24 +76,28 @@ export const AIStatsPanel: React.FC = () => {
     queryKey: ['ai-management', 'ai-stats'],
     queryFn: () => aiApi.getStats(),
     staleTime: 2 * 60 * 1000,
+    retry: false,
   });
 
   const { data: searchStats = null, isLoading: searchLoading } = useQuery({
     queryKey: ['ai-management', 'search-stats'],
     queryFn: () => aiApi.getSearchStats(),
     staleTime: 5 * 60 * 1000,
+    retry: false,
   });
 
   const { data: health = null } = useQuery({
     queryKey: ['ai-management', 'health'],
     queryFn: () => aiApi.checkHealth(),
-    staleTime: 30 * 1000,
+    staleTime: 2 * 60 * 1000,
+    retry: false,
   });
 
   const { data: embeddingStats = null } = useQuery({
     queryKey: ['ai-management', 'embedding-stats'],
     queryFn: () => aiApi.getEmbeddingStats(),
-    staleTime: 60 * 1000,
+    staleTime: 2 * 60 * 1000,
+    retry: false,
   });
 
   const loading = statsLoading || searchLoading;
@@ -144,7 +146,7 @@ export const AIStatsPanel: React.FC = () => {
 
   // Top 查詢列表欄位
   const topQueryColumns = useMemo(() => [
-    { title: '查詢', dataIndex: 'query', key: 'query', ellipsis: true },
+    { title: '查詢', dataIndex: 'query', key: 'query', ellipsis: true, width: 200 },
     { title: '次數', dataIndex: 'count', key: 'count', width: 60 },
     { title: '平均筆數', dataIndex: 'avg_results', key: 'avg_results', width: 80,
       render: (v: number) => v.toFixed(1) },

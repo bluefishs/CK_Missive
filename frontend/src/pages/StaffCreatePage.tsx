@@ -4,7 +4,7 @@
  * @date 2026-01-22
  */
 import React, { useState } from 'react';
-import { Form, Input, Select, Switch, Row, Col, App } from 'antd';
+import { Form, Input, AutoComplete, Switch, Row, Col, App } from 'antd';
 import {
   UserOutlined,
   MailOutlined,
@@ -16,15 +16,14 @@ import { FormPageLayout } from '../components/common/FormPage';
 import { apiClient } from '../api/client';
 import { API_ENDPOINTS } from '../api/endpoints';
 import { ROUTES } from '../router/types';
-import { DEPARTMENT_OPTIONS } from '../constants';
-
-const { Option } = Select;
+import { useDepartments } from '../hooks/system';
 
 export const StaffCreatePage: React.FC = () => {
   const navigate = useNavigate();
   const { message } = App.useApp();
   const [form] = Form.useForm();
   const [saving, setSaving] = useState(false);
+  const { data: departmentOptions = [] } = useDepartments();
 
   // 提交表單
   const handleSave = async () => {
@@ -111,11 +110,14 @@ export const StaffCreatePage: React.FC = () => {
         <Row gutter={16}>
           <Col xs={24} sm={12}>
             <Form.Item name="department" label="部門">
-              <Select placeholder="請選擇部門" allowClear>
-                {DEPARTMENT_OPTIONS.map(dept => (
-                  <Option key={dept} value={dept}>{dept}</Option>
-                ))}
-              </Select>
+              <AutoComplete
+                placeholder="請選擇或輸入部門"
+                allowClear
+                options={departmentOptions.map(d => ({ label: d, value: d }))}
+                filterOption={(input, option) =>
+                  (option?.value as string)?.includes(input) ?? false
+                }
+              />
             </Form.Item>
           </Col>
           <Col xs={24} sm={12}>

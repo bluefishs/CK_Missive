@@ -133,7 +133,7 @@ export function useDocumentCreateForm() {
 |------|----------|------|
 | 層 1 Queries | `use{Entity}Query`, `use{Entity}s` | `useDocumentQuery`, `useDocuments` |
 | 層 2 State | `use{Entity}WithStore`, `use{Entity}State` | `useDocumentsWithStore` |
-| 層 3 Business | `use{Entity}{Action}` | `useDocumentCreateForm`, `useDocumentRelations` |
+| 層 3 Business | `use{Entity}{Action}` | `useDocumentCreateForm` |
 
 ---
 
@@ -166,7 +166,6 @@ export function useDocumentCreateForm() {
 | `useDashboard.ts` | 儀表板資料 |
 | `useDashboardCalendar.ts` | 儀表板行事曆 |
 | `useDocumentStats.ts` | 公文統計 |
-| `useDocumentRelations.ts` | 公文關聯管理 |
 | `useNotifications.ts` | 系統通知 |
 | `useAdminUsers.ts` | 管理者用戶管理 |
 
@@ -199,8 +198,7 @@ hooks/
 │   ├── useDocumentsState.ts
 │   └── useProjectsState.ts
 ├── business/         # 層 3: 業務邏輯
-│   ├── useDocumentForm.ts
-│   └── useDocumentRelations.ts
+│   └── useDocumentForm.ts
 ├── system/           # 系統功能 (不變)
 ├── utility/          # 工具類 (不變)
 └── index.ts

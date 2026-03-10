@@ -14,11 +14,18 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { workflowApi } from '../../../api/taoyuan';
+import { queryKeys } from '../../../config/queryConfig';
 import type { DispatchDocumentLink, LinkType } from '../../../types/api';
 import type { CorrespondenceBodyData } from './CorrespondenceBody';
-import { getDocDirection, isOutgoingDocNumber, buildDocPairs, buildCorrespondenceMatrix } from './chainUtils';
+import {
+  isOutgoingDocNumber,
+  buildDocPairs,
+  buildCorrespondenceMatrix,
+  filterBlankRecords,
+  computeDocStats,
+  computeCurrentStage,
+} from './chainUtils';
 import type { CorrespondenceMatrixRow } from './chainUtils';
-import { getCategoryLabel } from './chainConstants';
 
 // ============================================================================
 // detectLinkType - 根據公文字號自動判斷關聯類型
@@ -82,14 +89,20 @@ export function useDispatchWorkData({
     data: workRecordData,
     isLoading,
   } = useQuery({
-    queryKey: ['dispatch-work-records', dispatchOrderId],
+    queryKey: queryKeys.workRecords.dispatch(dispatchOrderId),
     queryFn: () => workflowApi.listByDispatchOrder(dispatchOrderId),
     enabled: dispatchOrderId > 0,
   });
 
-  const records = useMemo(
+  const allRecords = useMemo(
     () => workRecordData?.items ?? [],
     [workRecordData?.items],
+  );
+
+  // 過濾空白紀錄（共用邏輯）
+  const records = useMemo(
+    () => filterBlankRecords(allRecords),
+    [allRecords],
   );
 
   // 已被作業紀錄引用的 document_id 集合（新舊格式都支援）
@@ -140,35 +153,10 @@ export function useDispatchWorkData({
     const inProgress = records.filter((r) => r.status === 'in_progress').length;
     const overdue = records.filter((r) => r.status === 'overdue').length;
     const onHold = records.filter((r) => r.status === 'on_hold').length;
-    // 統計來文/發文數（新舊格式兼容）
-    const incomingIds = new Set<number>();
-    const outgoingIds = new Set<number>();
-    for (const r of records) {
-      if (r.incoming_doc_id) incomingIds.add(r.incoming_doc_id);
-      if (r.outgoing_doc_id) outgoingIds.add(r.outgoing_doc_id);
-      if (r.document_id) {
-        const dir = getDocDirection(r);
-        if (dir === 'outgoing') outgoingIds.add(r.document_id);
-        else if (dir === 'incoming') incomingIds.add(r.document_id);
-      }
-    }
-    const incomingDocs = incomingIds.size;
-    const outgoingDocs = outgoingIds.size;
-
+    const { incomingDocs, outgoingDocs } = computeDocStats(records);
     const linkedDocCount = linkedDocuments.length;
     const unassignedDocCount = unassignedDocs.incoming.length + unassignedDocs.outgoing.length;
-
-    let currentStage = '尚未開始';
-    for (let i = records.length - 1; i >= 0; i--) {
-      const rec = records[i];
-      if (rec && rec.status !== 'completed') {
-        currentStage = getCategoryLabel(rec);
-        break;
-      }
-    }
-    if (total > 0 && completed === total) {
-      currentStage = '全部完成';
-    }
+    const currentStage = computeCurrentStage(records);
 
     return {
       total, completed, inProgress, overdue, onHold,

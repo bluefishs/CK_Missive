@@ -101,7 +101,11 @@ export const RelatedDocumentsTab: React.FC<RelatedDocumentsTabProps> = ({
       title: '主旨',
       dataIndex: 'subject',
       key: 'subject',
-      ellipsis: true,
+      width: 250,
+      ellipsis: { showTitle: false },
+      render: (text: string) => text ? (
+        <Tooltip title={text} placement="topLeft"><span>{text}</span></Tooltip>
+      ) : '-',
     },
   ];
 
@@ -134,6 +138,7 @@ export const RelatedDocumentsTab: React.FC<RelatedDocumentsTabProps> = ({
           rowKey="id"
           pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `共 ${t} 筆公文` }}
           size="middle"
+          scroll={{ x: 800 }}
         />
       ) : (
         <Empty

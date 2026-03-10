@@ -116,6 +116,52 @@ export interface BaseQueryParams extends PaginationParams, SortParams {
 }
 
 // ============================================================================
+// 業務查詢參數（SSOT — 各 API 模組 re-export）
+// ============================================================================
+
+export interface AgencyListParams extends PaginationParams, SortParams {
+  search?: string;
+  agency_type?: string;
+  include_stats?: boolean;
+}
+
+export interface DocumentListParams extends PaginationParams, SortParams {
+  search?: string;
+  keyword?: string;
+  doc_number?: string;
+  doc_type?: string;
+  year?: number | string;
+  status?: string;
+  category?: string;
+  contract_case?: string;
+  sender?: string;
+  receiver?: string;
+  delivery_method?: string;
+  doc_date_from?: string;
+  doc_date_to?: string;
+  date_from?: string;
+  date_to?: string;
+}
+
+export interface ProjectListParams extends PaginationParams, SortParams {
+  search?: string;
+  year?: number;
+  category?: string;
+  status?: string;
+}
+
+export interface UserListParams extends PaginationParams, SortParams {
+  search?: string;
+  role?: string;
+  is_active?: boolean;
+}
+
+export interface VendorListParams extends PaginationParams, SortParams {
+  search?: string;
+  business_type?: string;
+}
+
+// ============================================================================
 // 通用回應
 // ============================================================================
 

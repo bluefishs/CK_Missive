@@ -7,12 +7,11 @@
 import { apiClient, ApiException } from './client';
 import {
   PaginatedResponse,
-  PaginationParams,
-  SortParams,
   DeleteResponse,
   normalizePaginatedResponse,
   LegacyListResponse,
   SuccessResponse,
+  type ProjectListParams,
 } from './types';
 import type {
   Project,
@@ -26,13 +25,8 @@ import { API_ENDPOINTS } from './endpoints';
 // 重新匯出型別供外部使用
 export type { ProjectStatistics };
 
-/** 專案列表查詢參數 */
-export interface ProjectListParams extends PaginationParams, SortParams {
-  search?: string;
-  year?: number;
-  category?: string;
-  status?: string;
-}
+// ProjectListParams 定義於 api/types.ts (SSOT)
+export type { ProjectListParams } from './types';
 
 // ============================================================================
 // API 方法

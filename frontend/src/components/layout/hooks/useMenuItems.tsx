@@ -40,7 +40,7 @@ import {
   SendOutlined,
 } from '@ant-design/icons';
 import { ROUTES } from '../../../router/types';
-import type { NavigationItem } from './useNavigationData';
+import type { NavigationItem } from './types';
 
 // 圖標映射表
 const iconMap: { [key: string]: React.ReactNode } = {

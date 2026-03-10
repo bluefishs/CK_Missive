@@ -254,6 +254,8 @@ export interface DispatchOrder {
   cloud_folder?: string;
   project_folder?: string;
   contact_note?: string; // 聯絡備註 (原始需求欄位 #13)
+  batch_no?: number;     // 結案批次序號
+  batch_label?: string;  // 結案批次標籤
   created_at?: string;
   updated_at?: string;
 
@@ -268,6 +270,18 @@ export interface DispatchOrder {
   linked_documents?: DispatchDocumentLink[];
   /** 作業類別正規化項目 */
   work_type_items?: DispatchWorkTypeItem[];
+  /** 作業進度摘要 */
+  work_progress?: WorkProgressSummary;
+}
+
+/** 作業進度摘要 */
+export interface WorkProgressSummary {
+  total: number;
+  completed: number;
+  in_progress: number;
+  overdue: number;
+  current_stage?: string;
+  status?: 'pending' | 'in_progress' | 'completed' | 'overdue';
 }
 
 /** 派工單建立請求 */
@@ -285,6 +299,8 @@ export interface DispatchOrderCreate {
   cloud_folder?: string;
   project_folder?: string;
   contact_note?: string; // 聯絡備註
+  batch_no?: number;
+  batch_label?: string;
   linked_project_ids?: number[];
 }
 
@@ -303,6 +319,8 @@ export interface DispatchOrderUpdate {
   cloud_folder?: string;
   project_folder?: string;
   contact_note?: string; // 聯絡備註
+  batch_no?: number;
+  batch_label?: string;
   linked_project_ids?: number[];
 }
 
@@ -556,9 +574,11 @@ export interface PaymentControlItem {
 export interface PaymentControlResponse {
   success: boolean;
   items: PaymentControlItem[];
+  contract_name?: string;
   total_budget?: number;
   total_dispatched?: number;
   total_remaining?: number;
+  total_claimed?: number;
   pagination: PaginationMeta;
 }
 

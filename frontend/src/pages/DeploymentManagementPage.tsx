@@ -314,12 +314,11 @@ const DeploymentManagementPage: React.FC = () => {
       title: '訊息',
       dataIndex: 'commit_message',
       key: 'commit_message',
-      ellipsis: true,
+      width: 250,
+      ellipsis: { showTitle: false },
       render: (msg: string) => (
-        <Tooltip title={msg}>
-          <Text ellipsis style={{ maxWidth: 200 }}>
-            {msg || '-'}
-          </Text>
+        <Tooltip title={msg} placement="topLeft">
+          <span>{msg || '-'}</span>
         </Tooltip>
       ),
     },

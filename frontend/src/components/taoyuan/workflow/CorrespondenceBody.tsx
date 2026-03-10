@@ -37,11 +37,9 @@ import type { CorrespondenceMatrixRow, MatrixDocItem } from './chainUtils';
 import {
   statusLabel,
   statusColor,
-} from './useProjectWorkData';
-import {
   getCategoryLabel,
   getCategoryColor,
-} from './chainConstants';
+} from './workCategoryConstants';
 
 const { Text } = Typography;
 
@@ -459,6 +457,28 @@ const CorrespondenceBodyInner: React.FC<CorrespondenceBodyProps> = ({
   canEdit,
   defaultVisibleCount = DEFAULT_VISIBLE_COUNT,
 }) => {
+  // 傳統分組轉矩陣行（index 配對，工程總覽用） — must be before early returns
+  const incomingDocs = useMemo(() => matrixRows ? [] : (data?.incomingDocs ?? []), [matrixRows, data?.incomingDocs]);
+  const outgoingDocs = useMemo(() => matrixRows ? [] : (data?.outgoingDocs ?? []), [matrixRows, data?.outgoingDocs]);
+  const legacyRows: CorrespondenceMatrixRow[] = useMemo(() => {
+    if (matrixRows) return [];
+    const maxLen = Math.max(incomingDocs.length, outgoingDocs.length);
+    const result: CorrespondenceMatrixRow[] = [];
+    for (let i = 0; i < maxLen; i++) {
+      const inDoc = incomingDocs[i];
+      const outDoc = outgoingDocs[i];
+      result.push({
+        incoming: inDoc
+          ? { docId: inDoc.doc.id, docNumber: inDoc.doc.doc_number, docDate: inDoc.doc.doc_date, subject: inDoc.record.description || inDoc.doc.subject, record: inDoc.record, isUnassigned: false }
+          : undefined,
+        outgoing: outDoc
+          ? { docId: outDoc.doc.id, docNumber: outDoc.doc.doc_number, docDate: outDoc.doc.doc_date, subject: outDoc.record.description || outDoc.doc.subject, record: outDoc.record, isUnassigned: false }
+          : undefined,
+      });
+    }
+    return result;
+  }, [matrixRows, incomingDocs, outgoingDocs]);
+
   // ---- 矩陣模式（優先） ----
   if (matrixRows) {
     if (matrixRows.length === 0) {
@@ -488,8 +508,6 @@ const CorrespondenceBodyInner: React.FC<CorrespondenceBodyProps> = ({
   }
 
   // ---- 傳統模式（向下相容 CorrespondenceMatrix 工程總覽） ----
-  const { incomingDocs, outgoingDocs } = data;
-
   if (incomingDocs.length === 0 && outgoingDocs.length === 0) {
     return (
       <Empty
@@ -499,25 +517,6 @@ const CorrespondenceBodyInner: React.FC<CorrespondenceBodyProps> = ({
       />
     );
   }
-
-  // 傳統分組轉矩陣行（index 配對，工程總覽用）
-  const legacyRows: CorrespondenceMatrixRow[] = useMemo(() => {
-    const maxLen = Math.max(incomingDocs.length, outgoingDocs.length);
-    const result: CorrespondenceMatrixRow[] = [];
-    for (let i = 0; i < maxLen; i++) {
-      const inDoc = incomingDocs[i];
-      const outDoc = outgoingDocs[i];
-      result.push({
-        incoming: inDoc
-          ? { docId: inDoc.doc.id, docNumber: inDoc.doc.doc_number, docDate: inDoc.doc.doc_date, subject: inDoc.record.description || inDoc.doc.subject, record: inDoc.record, isUnassigned: false }
-          : undefined,
-        outgoing: outDoc
-          ? { docId: outDoc.doc.id, docNumber: outDoc.doc.doc_number, docDate: outDoc.doc.doc_date, subject: outDoc.record.description || outDoc.doc.subject, record: outDoc.record, isUnassigned: false }
-          : undefined,
-      });
-    }
-    return result;
-  }, [incomingDocs, outgoingDocs]);
 
   return (
     <MatrixTable

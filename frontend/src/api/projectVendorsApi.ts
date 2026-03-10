@@ -5,6 +5,7 @@
  */
 
 import { apiClient } from './client';
+import { PROJECT_VENDORS_ENDPOINTS } from './endpoints';
 
 // 從 types/api.ts 匯入統一的型別定義 (SSOT)
 import type {
@@ -38,7 +39,7 @@ export const projectVendorsApi = {
    */
   async getProjectVendors(projectId: number): Promise<ProjectVendorListResponse> {
     return await apiClient.post<ProjectVendorListResponse>(
-      `/project-vendors/project/${projectId}/list`
+      PROJECT_VENDORS_ENDPOINTS.PROJECT_LIST(projectId)
     );
   },
 
@@ -49,7 +50,7 @@ export const projectVendorsApi = {
    * @returns 操作結果
    */
   async addVendor(data: ProjectVendorRequest): Promise<VendorOperationResponse> {
-    return await apiClient.post<VendorOperationResponse>('/project-vendors', data);
+    return await apiClient.post<VendorOperationResponse>(PROJECT_VENDORS_ENDPOINTS.CREATE, data);
   },
 
   /**
@@ -66,7 +67,7 @@ export const projectVendorsApi = {
     data: ProjectVendorUpdate
   ): Promise<VendorOperationResponse> {
     return await apiClient.post<VendorOperationResponse>(
-      `/project-vendors/project/${projectId}/vendor/${vendorId}/update`,
+      PROJECT_VENDORS_ENDPOINTS.UPDATE(projectId, vendorId),
       data
     );
   },
@@ -80,7 +81,7 @@ export const projectVendorsApi = {
    */
   async deleteVendor(projectId: number, vendorId: number): Promise<{ message: string }> {
     return await apiClient.post<{ message: string }>(
-      `/project-vendors/project/${projectId}/vendor/${vendorId}/delete`
+      PROJECT_VENDORS_ENDPOINTS.DELETE(projectId, vendorId)
     );
   },
 
@@ -102,7 +103,7 @@ export const projectVendorsApi = {
       total: number;
       skip: number;
       limit: number;
-    }>('/project-vendors/list', params || {});
+    }>(PROJECT_VENDORS_ENDPOINTS.LIST, params || {});
   },
 };
 

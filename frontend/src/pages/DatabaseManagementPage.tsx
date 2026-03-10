@@ -17,7 +17,7 @@ import {
 import { apiClient } from '../api/client';
 import { API_ENDPOINTS } from '../api/endpoints';
 import { SimpleDatabaseViewer } from '../components/admin/SimpleDatabaseViewer';
-import type { DatabaseInfo, TableInfo, QueryResult, IntegrityResult } from '../types/api';
+import type { DatabaseInfo, TableInfo, QueryResult, IntegrityResult, TableDataResponse } from '../types/api';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -27,9 +27,7 @@ export const DatabaseManagementPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [databaseInfo, setDatabaseInfo] = useState<DatabaseInfo | null>(null);
   const [selectedTable, setSelectedTable] = useState<string>('');
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [tableData, setTableData] = useState<{ columns: any[]; rows: any[]; total?: number; totalRows?: number; page?: number; pageSize?: number }>({ columns: [], rows: [] });
+  const [tableData, setTableData] = useState<TableDataResponse>({ columns: [], rows: [] });
   const [customQuery, setCustomQuery] = useState<string>('SELECT * FROM documents LIMIT 10;');
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
   const [integrityResult, setIntegrityResult] = useState<IntegrityResult | null>(null);
@@ -56,8 +54,7 @@ export const DatabaseManagementPage: React.FC = () => {
   const fetchTableData = async (tableName: string, limit: number = 50, offset: number = 0) => {
     setLoading(true);
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const data = await apiClient.post<any>(API_ENDPOINTS.ADMIN_DATABASE.TABLE(tableName), { limit, offset });
+      const data = await apiClient.post<TableDataResponse>(API_ENDPOINTS.ADMIN_DATABASE.TABLE(tableName), { limit, offset });
       setTableData(data);
       setSelectedTable(tableName);
       message.success(`載入 ${tableName} 數據成功`);
@@ -468,6 +465,7 @@ export const DatabaseManagementPage: React.FC = () => {
               title: col,
               dataIndex: col,
               key: col,
+              width: 150,
               ellipsis: true
             }))}
             dataSource={queryResult.rows.map((row: unknown[], index: number) => {
@@ -701,6 +699,7 @@ export const DatabaseManagementPage: React.FC = () => {
           width="90%"
           onClose={() => setEnhancedDrawerVisible(false)}
           open={enhancedDrawerVisible}
+          destroyOnClose
           styles={{ body: { padding: 0 } }}
         >
           <SimpleDatabaseViewer />

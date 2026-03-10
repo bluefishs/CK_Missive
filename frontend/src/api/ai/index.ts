@@ -113,6 +113,9 @@ export type {
   DocumentAIAnalysisResponse,
   DocumentAIAnalysisStatsResponse,
   DocumentAIAnalysisBatchResponse,
+  // Code Wiki 代碼圖譜
+  CodeWikiRequest,
+  CodeWikiResponse,
 } from './types';
 
 // Re-export abortNaturalSearch (standalone function)
@@ -179,6 +182,11 @@ import {
   getGraphStats,
   triggerGraphIngest,
   mergeGraphEntities,
+  getCodeWikiGraph,
+  triggerCodeGraphIngest,
+  detectImportCycles,
+  analyzeArchitecture,
+  importJsonGraph,
 } from './knowledgeGraph';
 
 // Compose the aiApi object (backward-compatible with original aiApi.ts)
@@ -238,6 +246,13 @@ export const aiApi = {
   getGraphStats,
   triggerGraphIngest,
   mergeGraphEntities,
+
+  // Code Wiki 代碼圖譜
+  getCodeWikiGraph,
+  triggerCodeGraphIngest,
+  detectImportCycles,
+  analyzeArchitecture,
+  importJsonGraph,
 
   // Ollama management
   getOllamaStatus,

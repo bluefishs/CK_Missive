@@ -25,6 +25,7 @@ import Sidebar from './layout/Sidebar';
 import LayoutHeader from './layout/Header';
 import { useNavigationData } from './layout/hooks/useNavigationData';
 import { useIdleTimeout, useResponsive } from '../hooks';
+import { useDispatchProjectIds } from '../hooks/business/useTaoyuanDispatch';
 import { AIAssistantButton } from './ai';
 import { sendVerificationEmail } from '../api/authApi';
 import SidebarContent from './layout/SidebarContent';
@@ -53,6 +54,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     permissionsLoading,
     currentUser,
   } = useNavigationData();
+
+  // 初始化派工案件 ID 快取（全域一次性載入）
+  useDispatchProjectIds();
 
   // 路由變更時自動關閉 Drawer
   useEffect(() => {
@@ -120,6 +124,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             width={256}
             open={drawerVisible}
             onClose={() => setDrawerVisible(false)}
+            destroyOnClose
             aria-label="導覽選單"
             styles={{
               body: { padding: 0, background: '#001529' },

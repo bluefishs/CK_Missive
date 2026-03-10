@@ -21,6 +21,7 @@ import {
   Select,
   DatePicker,
   InputNumber,
+  Checkbox,
 } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -100,6 +101,7 @@ export const CaseInfoTab: React.FC<CaseInfoTabProps> = ({
       progress: data.progress,
       project_path: data.project_path,
       notes: data.notes,
+      has_dispatch_management: data.has_dispatch_management ?? false,
     });
     setIsEditing(true);
   };
@@ -245,6 +247,11 @@ export const CaseInfoTab: React.FC<CaseInfoTabProps> = ({
                   <Input.TextArea rows={3} placeholder="請輸入備註說明" />
                 </Form.Item>
               </Col>
+              <Col span={24}>
+                <Form.Item name="has_dispatch_management" valuePropName="checked">
+                  <Checkbox>啟用派工管理功能（勾選後此案件可使用派工安排、工程關聯等功能）</Checkbox>
+                </Form.Item>
+              </Col>
             </Row>
           </Form>
         ) : (
@@ -293,6 +300,11 @@ export const CaseInfoTab: React.FC<CaseInfoTabProps> = ({
             </Descriptions.Item>
             <Descriptions.Item label="備註" span={2}>
               {data.notes || '-'}
+            </Descriptions.Item>
+            <Descriptions.Item label="派工管理" span={2}>
+              <Tag color={data.has_dispatch_management ? 'green' : 'default'}>
+                {data.has_dispatch_management ? '已啟用' : '未啟用'}
+              </Tag>
             </Descriptions.Item>
           </Descriptions>
         )}

@@ -9,7 +9,7 @@
  * @date 2026-01-26
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, Typography, Tag, Button, Divider } from 'antd';
 import dayjs from 'dayjs';
 import {
@@ -43,6 +43,14 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
   const [expanded, setExpanded] = useState(false);
   const [localFilters, setLocalFilters] = useState<DocumentFilterType>(filters);
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null] | null>(null);
+
+  // 外部 filters 變更時同步 localFilters（如專案切換）
+  useEffect(() => {
+    setLocalFilters(prev => {
+      if (prev.contract_case === filters.contract_case) return prev;
+      return { ...prev, contract_case: filters.contract_case };
+    });
+  }, [filters.contract_case]);
 
   // 從 API 獲取篩選選項
   const {

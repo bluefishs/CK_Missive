@@ -496,6 +496,16 @@ export interface QueryResult {
   rows: unknown[][];
 }
 
+/** 表格資料回應 */
+export interface TableDataResponse {
+  columns: string[];
+  rows: unknown[][];
+  total?: number;
+  totalRows?: number;
+  page?: number;
+  pageSize?: number;
+}
+
 /** 資料完整性檢查結果 */
 export interface IntegrityResult {
   issues: Array<{ table: string; description: string }>;

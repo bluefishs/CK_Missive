@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Tabs, Badge, Typography, Space } from 'antd';
 import {
   InboxOutlined,
   SendOutlined,
   UnorderedListOutlined,
 } from '@ant-design/icons';
+import { useQuery } from '@tanstack/react-query';
 import { DocumentList } from './DocumentList';
 import { Document, DocumentFilter } from '../../types';
 import { documentsApi } from '../../api/documentsApi';
@@ -17,6 +18,7 @@ import type {
 } from 'antd/es/table/interface';
 import { logger } from '../../utils/logger';
 import { useResponsive } from '../../hooks';
+import { defaultQueryOptions } from '../../config/queryConfig';
 
 const { Title } = Typography;
 
@@ -72,8 +74,6 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
   });
   const [sortField, setSortField] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<SortOrder>(null);
-  const [filteredStats, setFilteredStats] = useState<{total: number; receive: number; send: number} | null>(null);
-  const [isLoadingStats, setIsLoadingStats] = useState(false);
 
   // Update active tab when filters change
   React.useEffect(() => {
@@ -82,37 +82,13 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
     setActiveTab(newTab);
   }, [filters.category]);
 
-  // 當篩選條件變更時，重新取得統計數據
-  useEffect(() => {
-    const fetchFilteredStats = async () => {
-      setIsLoadingStats(true);
-      try {
-        // 使用新的篩選統計 API
-        // 移除 category 以便取得全部/收文/發文的分類統計
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructuring to exclude category/page/limit from filterParams
-        const { category: _cat, page: _page, limit: _limit, ...filterParams } = filters;
-
-        const stats = await documentsApi.getFilteredStatistics(filterParams);
-        logger.debug('=== 篩選統計數據 ===', stats, '篩選條件:', filterParams);
-
-        if (stats.success) {
-          setFilteredStats({
-            total: stats.total,
-            receive: stats.receive_count,
-            send: stats.send_count,
-          });
-        }
-      } catch (error) {
-        logger.error('取得篩選統計失敗:', error);
-        // 降級：保留現有統計資料，不清空也不用 total 覆蓋
-        // 避免觸發不必要的 re-render
-      } finally {
-        setIsLoadingStats(false);
-      }
-    };
-
-    fetchFilteredStats();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- listing individual filter properties to avoid infinite loop when using filters object directly
+  // Stable filter params for stats query (exclude category/page/limit)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const statsFilterParams = useMemo(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { category: _cat, page: _page, limit: _limit, ...filterParams } = filters;
+    return filterParams;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     filters.search,
     filters.keyword,
@@ -126,26 +102,48 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
     filters.contract_case,
   ]);
 
+  // 使用 React Query 取得篩選統計數據（取代 useEffect + 直接 API 呼叫）
+  const { data: filteredStatsData, isLoading: isLoadingStats } = useQuery({
+    queryKey: ['documents', 'filtered-statistics', statsFilterParams],
+    queryFn: async () => {
+      const stats = await documentsApi.getFilteredStatistics(statsFilterParams);
+      logger.debug('=== 篩選統計數據 ===', stats, '篩選條件:', statsFilterParams);
+      if (stats.success) {
+        return {
+          total: stats.total,
+          receive: stats.receive_count,
+          send: stats.send_count,
+        };
+      }
+      return null;
+    },
+    ...defaultQueryOptions.statistics,
+  });
+
+  const filteredStats = filteredStatsData ?? null;
+
   // Handle tab changes by updating filters
   const handleTabChange = (tabKey: string) => {
     if (onFiltersChange) {
+      // Strip page/limit from filters prop to avoid contaminating Zustand filter state
+      // (page and limit are managed by pagination state, not filters)
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { page: _p, limit: _l, category: _cat, ...baseFilters } = filters;
       let newFilters: DocumentFilter;
 
       switch (tabKey) {
         case 'all': {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { category: _, ...restFilters } = filters;
-          newFilters = restFilters;
+          newFilters = baseFilters;
           break;
         }
         case 'received':
-          newFilters = { ...filters, category: 'receive' };
+          newFilters = { ...baseFilters, category: 'receive' };
           break;
         case 'sent':
-          newFilters = { ...filters, category: 'send' };
+          newFilters = { ...baseFilters, category: 'send' };
           break;
         default:
-          newFilters = { ...filters };
+          newFilters = { ...baseFilters };
       }
 
       onFiltersChange(newFilters);

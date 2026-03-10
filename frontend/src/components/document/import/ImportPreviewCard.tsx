@@ -60,6 +60,7 @@ const previewColumns = [
   {
     title: '主旨',
     key: 'subject',
+    width: 200,
     ellipsis: true,
     render: (_: unknown, record: PreviewRow) => record.data['主旨'] || '-',
   },

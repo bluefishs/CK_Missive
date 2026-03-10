@@ -138,6 +138,7 @@ export const GraphNodeSettings: React.FC<GraphNodeSettingsProps> = ({
       open={open}
       onClose={onClose}
       mask={false}
+      push={false}
       extra={
         <Popconfirm
           title="確定要恢復所有預設設定？"

@@ -354,6 +354,7 @@ export function useDocumentCreateForm(
         delivery_method: '電子交換',
         sender: DEFAULT_COMPANY_NAME,
         doc_date: dayjs(),
+        send_date: dayjs(),
         doc_type: '函',
       });
     }
@@ -506,6 +507,8 @@ export function useDocumentCreateForm(
         send_date: values.send_date?.format('YYYY-MM-DD'),
         content: values.content,
         notes: values.notes,
+        ck_note: values.ck_note,
+        delivery_method: values.delivery_method || '電子交換',
         contract_project_id: values.contract_project_id,
         assignee: assigneeStr,
         category: mode === 'receive' ? values.category : '發文',

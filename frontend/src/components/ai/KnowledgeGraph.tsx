@@ -41,9 +41,18 @@ import type { ForceNode, GraphData } from './knowledgeGraph/types';
 // Props
 // ============================================================================
 
+export interface ExternalGraphData {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
 export interface KnowledgeGraphProps {
   documentIds: number[];
   height?: number;
+  /** 外部注入的圖譜資料（Code Wiki 等），提供時跳過內部 API 請求 */
+  externalGraphData?: ExternalGraphData | null;
+  /** 外部重新載入回調（搭配 externalGraphData 使用） */
+  onExternalRefresh?: () => void;
 }
 
 // ============================================================================
@@ -53,6 +62,8 @@ export interface KnowledgeGraphProps {
 export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
   documentIds,
   height = 700,
+  externalGraphData,
+  onExternalRefresh,
 }) => {
   const fgRef = useRef<ForceGraphMethods | undefined>();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -119,8 +130,31 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
     return () => observer.disconnect();
   }, []);
 
-  // 載入圖譜資料
+  // 容器寬度變化時重新適配（Drawer 開闔、視窗調整）
+  const prevWidthRef = useRef(containerWidth);
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    if (Math.abs(containerWidth - prevWidthRef.current) > 10 && rawNodes.length > 0) {
+      timer = setTimeout(() => fgRef.current?.zoomToFit(400, 60), 300);
+    }
+    prevWidthRef.current = containerWidth;
+    return () => { if (timer) clearTimeout(timer); };
+  }, [containerWidth, rawNodes.length]);
+
+  // 外部資料注入模式
+  useEffect(() => {
+    if (!externalGraphData) return;
+    setRawNodes(externalGraphData.nodes);
+    setRawEdges(externalGraphData.edges);
+    setLoading(false);
+    setError(null);
+    setSelectedNodeId(null);
+  }, [externalGraphData]);
+
+  // 內部 API 載入模式（無外部資料時）
+  // 注意：documentIds 為空時後端會自動載入預設公文（_load_default_doc_ids）
+  useEffect(() => {
+    if (externalGraphData) return;
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -143,7 +177,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
     });
 
     return () => { cancelled = true; };
-  }, [documentIds]);
+  }, [documentIds, externalGraphData]);
 
   // 鄰居 lookup
   const neighborMap = useMemo(() => {
@@ -158,9 +192,10 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
   }, [rawEdges]);
 
   // 使用者合併配置快取（隨 configVersion 更新）
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const mergedConfigs = useMemo(() => getAllMergedConfigs(), [configVersion]);
 
-  // 轉換為 force-graph 格式
+  // 轉換為 force-graph 格式（過濾孤立節點避免飄散）
   const graphData = useMemo((): GraphData => {
     const filteredNodes = rawNodes.filter((n) => {
       if (!visibleTypes.has(n.type)) return false;
@@ -170,17 +205,6 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
     });
     const nodeIdSet = new Set(filteredNodes.map((n) => n.id));
 
-    const nodes: ForceNode[] = filteredNodes.map((n) => ({
-      id: n.id,
-      label: n.label,
-      type: n.type,
-      color: mergedConfigs[n.type]?.color ?? getNodeConfig(n.type).color,
-      category: n.category,
-      doc_number: n.doc_number,
-      status: n.status,
-      mention_count: n.mention_count ?? undefined,
-    }));
-
     const links = rawEdges
       .filter((e) => nodeIdSet.has(e.source) && nodeIdSet.has(e.target))
       .map((e) => ({
@@ -189,6 +213,26 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
         label: e.label,
         type: e.type,
         weight: e.weight ?? undefined,
+      }));
+
+    // 收集有邊連接的節點 ID，過濾孤立節點（無邊的節點會飄散）
+    const connectedIds = new Set<string>();
+    for (const link of links) {
+      connectedIds.add(link.source);
+      connectedIds.add(link.target);
+    }
+
+    const nodes: ForceNode[] = filteredNodes
+      .filter((n) => connectedIds.has(n.id))
+      .map((n) => ({
+        id: n.id,
+        label: n.label,
+        type: n.type,
+        color: mergedConfigs[n.type]?.color ?? getNodeConfig(n.type).color,
+        category: n.category,
+        doc_number: n.doc_number,
+        status: n.status,
+        mention_count: n.mention_count ?? undefined,
       }));
 
     return { nodes, links };
@@ -242,6 +286,21 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
     }
   }, []);
 
+  // 配置 d3 力導向參數：加強向心力、調整排斥力
+  useEffect(() => {
+    const fg = fgRef.current;
+    if (!fg) return;
+    // 向心力：將節點拉向中心，避免分散（強度 0.05）
+    fg.d3Force('center')?.strength?.(0.05);
+    // 連結距離：根據節點數量動態調整
+    const nodeCount = graphData.nodes.length;
+    const linkDist = nodeCount > 200 ? 30 : nodeCount > 50 ? 50 : 80;
+    fg.d3Force('link')?.distance?.(linkDist);
+    // 排斥力：節點數量多時降低排斥強度避免過度擴散
+    const chargeStrength = nodeCount > 200 ? -30 : nodeCount > 50 ? -60 : -100;
+    fg.d3Force('charge')?.strength?.(chargeStrength);
+  }, [graphData]);
+
   // Zoom to Fit
   const handleZoomToFit = useCallback(() => {
     fgRef.current?.zoomToFit(400, 40);
@@ -254,10 +313,17 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
     setApiSearchMatchIds(null);
     setSidebarVisible(false);
     setError(null);
+
+    // 外部資料模式：委託父層重新載入
+    if (externalGraphData && onExternalRefresh) {
+      onExternalRefresh();
+      return;
+    }
+
     setRawNodes([]);
     setRawEdges([]);
     setLoading(true);
-    let cancelled = false;
+    const cancelled = false;
     aiApi.getRelationGraph({ document_ids: documentIds }).then((result) => {
       if (cancelled) return;
       if (result) {
@@ -271,7 +337,8 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
       setError(err instanceof Error ? err.message : '重新載入失敗');
       setLoading(false);
     });
-  }, [documentIds, setSearchText, setApiSearchMatchIds]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [documentIds, externalGraphData, onExternalRefresh]);
 
   // 搜尋後聚焦
   useEffect(() => {
@@ -306,7 +373,8 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
   const handleSearchChange = useCallback((value: string) => {
     setSearchText(value);
     setApiSearchMatchIds(null);
-  }, [setSearchText, setApiSearchMatchIds]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ============================================================================
   // Render
@@ -314,9 +382,10 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
 
   if (loading) {
     return (
-      <Spin tip="載入關聯圖譜...">
-        <div style={{ height, display: 'flex', justifyContent: 'center', alignItems: 'center' }} />
-      </Spin>
+      <div style={{ height, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+        <Spin size="large" />
+        <div style={{ marginTop: 12, color: '#888' }}>載入關聯圖譜...</div>
+      </div>
     );
   }
 
@@ -340,7 +409,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
     : 0;
 
   return (
-    <div ref={containerRef} style={{ position: 'relative' }}>
+    <div ref={containerRef} style={{ position: 'relative', overflow: 'hidden', width: '100%' }}>
       {/* 工具列 */}
       <GraphToolbar
         searchText={searchText}
@@ -375,13 +444,16 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
         <ForceGraph2D
           ref={fgRef}
           graphData={graphData}
-          width={containerWidth}
+          width={Math.max(containerWidth - 2, 300)}
           height={height}
-          d3AlphaDecay={0.05}
-          d3VelocityDecay={0.4}
+          d3AlphaDecay={0.04}
+          d3VelocityDecay={0.3}
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           nodeCanvasObject={paintNode as any}
           nodePointerAreaPaint={nodePointerAreaPaint}
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           onNodeClick={handleNodeClick as any}
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           onNodeHover={handleNodeHover as any}
           linkColor={linkColor}
           linkWidth={linkWidth}

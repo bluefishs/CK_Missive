@@ -31,10 +31,9 @@ import {
   ThunderboltOutlined,
 } from '@ant-design/icons';
 import { aiApi } from '../../api/aiApi';
-import { submitAIFeedback } from '../../api/ai/adminManagement';
+import { submitAIFeedback, clearAgentConversation } from '../../api/ai/adminManagement';
 import { MessageBubble } from './MessageBubble';
 import type { ChatMessage } from './MessageBubble';
-import type { AgentStepInfo } from './AgentStepsDisplay';
 
 const { Text } = Typography;
 const { TextArea } = Input;
@@ -102,16 +101,12 @@ export const RAGChatPanel: React.FC<RAGChatPanelProps> = ({
     setMessages(prev => [...prev, userMsg, assistantMsg]);
     setLoading(true);
 
-    const history = messages
-      .filter(m => !m.streaming)
-      .map(m => ({ role: m.role, content: m.content }));
-
     if (agentMode) {
       // Agentic 模式
       abortRef.current = aiApi.streamAgentQuery(
         {
           question,
-          history: history.length > 0 ? history : undefined,
+          session_id: conversationIdRef.current,
         },
         {
           onThinking: (step, stepIndex) => {
@@ -197,6 +192,17 @@ export const RAGChatPanel: React.FC<RAGChatPanelProps> = ({
             } else {
               messageApi.error(`Agent 錯誤: ${error}`);
             }
+            // 防禦性狀態清理（避免 onDone 未觸發時 UI 卡住）
+            setMessages(prev => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (last?.role === 'assistant' && last.streaming) {
+                updated[updated.length - 1] = { ...last, streaming: false };
+              }
+              return updated;
+            });
+            setLoading(false);
+            abortRef.current = null;
           },
         },
       );
@@ -207,7 +213,7 @@ export const RAGChatPanel: React.FC<RAGChatPanelProps> = ({
           question,
           top_k: 5,
           similarity_threshold: 0.3,
-          history: history.length > 0 ? history : undefined,
+          session_id: conversationIdRef.current,
         },
         {
           onSources: (sources, count) => {
@@ -255,11 +261,22 @@ export const RAGChatPanel: React.FC<RAGChatPanelProps> = ({
             } else {
               messageApi.error(`RAG 錯誤: ${error}`);
             }
+            // 防禦性狀態清理
+            setMessages(prev => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (last?.role === 'assistant' && last.streaming) {
+                updated[updated.length - 1] = { ...last, streaming: false };
+              }
+              return updated;
+            });
+            setLoading(false);
+            abortRef.current = null;
           },
         },
       );
     }
-  }, [input, loading, messages, messageApi, agentMode]);
+  }, [input, loading, messageApi, agentMode]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -300,14 +317,18 @@ export const RAGChatPanel: React.FC<RAGChatPanelProps> = ({
   const handleClear = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
+    // 清除伺服器端對話記憶（fire-and-forget）
+    if (agentMode && conversationIdRef.current) {
+      clearAgentConversation(conversationIdRef.current).catch(() => {});
+    }
     setMessages([]);
     setLoading(false);
     conversationIdRef.current = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-  }, []);
+  }, [agentMode]);
 
   const chatContent = (
     <>
-      <div style={{ flex: 1, overflowY: 'auto', padding: embedded ? '8px' : '16px' }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: embedded ? '8px' : '16px' }}>
         {messages.length === 0 ? (
           <Empty
             image={<ThunderboltOutlined style={{ fontSize: embedded ? 36 : 48, color: '#bfbfbf' }} />}

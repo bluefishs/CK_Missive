@@ -345,6 +345,7 @@ export const SimpleDatabaseViewer: React.FC = () => {
                     pagination={{ pageSize: 20 }}
                     rowKey="name"
                     loading={loading}
+                    scroll={{ x: 900 }}
                     expandable={{
                       expandedRowRender: (record) => (
                         <div style={{ padding: '16px', background: '#fafafa' }}>

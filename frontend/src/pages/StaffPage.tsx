@@ -4,7 +4,7 @@
  * @version 2.1.0 - 移除列表刪除按鈕，整合至詳情頁 (導航模式規範)
  * @date 2026-01-22
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import type { TableColumnType } from 'antd';
 import {
   Button,
@@ -32,12 +32,14 @@ import {
   BankOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ResponsiveTable } from '../components/common';
 import { apiClient } from '../api/client';
 import { API_ENDPOINTS } from '../api/endpoints';
 import { useTableColumnSearch, useResponsive } from '../hooks';
+import { defaultQueryOptions } from '../config/queryConfig';
 import { ROUTES } from '../router/types';
-import { DEPARTMENT_OPTIONS } from '../constants';
+import { useDepartments } from '../hooks/system';
 import { logger } from '../services/logger';
 
 const { Title } = Typography;
@@ -65,11 +67,10 @@ export const StaffPage: React.FC = () => {
   const { getColumnSearchProps } = useStaffTableSearch();
   const { isMobile, responsiveValue } = useResponsive();
   const pagePadding = responsiveValue({ mobile: 12, tablet: 16, desktop: 24 });
+  const queryClient = useQueryClient();
+  const { data: departmentOptions = [] } = useDepartments();
 
-  // 列表狀態
-  const [staffList, setStaffList] = useState<Staff[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [total, setTotal] = useState(0);
+  // 分頁狀態
   const [current, setCurrent] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -78,17 +79,10 @@ export const StaffPage: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState<boolean | undefined>();
   const [departmentFilter, setDepartmentFilter] = useState<string>('');
 
-  // 統計資料
-  const [stats, setStats] = useState({
-    total: 0,
-    active: 0,
-    inactive: 0,
-  });
-
-  // 載入承辦同仁列表 (POST-only 資安機制)
-  const loadStaffList = useCallback(async () => {
-    setLoading(true);
-    try {
+  // 使用 React Query 載入承辦同仁列表
+  const { data: staffData, isLoading: loading } = useQuery({
+    queryKey: ['users', 'list', { page: current, limit: pageSize, search: searchText, is_active: activeFilter, department: departmentFilter }],
+    queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const requestBody: Record<string, any> = {
         page: current,
@@ -99,34 +93,30 @@ export const StaffPage: React.FC = () => {
       if (activeFilter !== undefined) requestBody.is_active = activeFilter;
       if (departmentFilter) requestBody.department = departmentFilter;
 
-      // POST-only: 使用 POST /users/list 端點
       const response = await apiClient.post(API_ENDPOINTS.USERS.LIST, requestBody);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const data = response as any;
+      return response as { items?: Staff[]; users?: Staff[]; total?: number };
+    },
+    ...defaultQueryOptions.list,
+  });
 
-      // API 回傳 items 欄位
-      const items = data.items || data.users || [];
-      setStaffList(Array.isArray(items) ? items : []);
-      setTotal(data.total || 0);
+  // 從 React Query 資料推導列表與統計
+  const staffList = useMemo(() => {
+    const items = staffData?.items || staffData?.users || [];
+    return Array.isArray(items) ? items : [];
+  }, [staffData]);
+  const total = staffData?.total || 0;
+  const stats = useMemo(() => {
+    const activeCount = staffList.filter((s) => s.is_active).length;
+    return {
+      total,
+      active: activeCount,
+      inactive: total - activeCount,
+    };
+  }, [staffList, total]);
 
-      // 更新統計
-      const activeCount = items.filter((s: Staff) => s.is_active).length;
-      setStats({
-        total: data.total || items.length,
-        active: activeCount,
-        inactive: (data.total || items.length) - activeCount,
-      });
-    } catch (error) {
-      logger.error('載入承辦同仁列表失敗:', error);
-      message.error('載入資料失敗，請稍後再試');
-    } finally {
-      setLoading(false);
-    }
-  }, [current, pageSize, searchText, activeFilter, departmentFilter, message]);
-
-  useEffect(() => {
-    loadStaffList();
-  }, [loadStaffList]);
+  const loadStaffList = () => {
+    queryClient.invalidateQueries({ queryKey: ['users', 'list'] });
+  };
 
   // 刪除功能已移至 StaffDetailPage (導航模式規範)
 
@@ -228,7 +218,7 @@ export const StaffPage: React.FC = () => {
           key: 'department',
           width: 110,
           sorter: (a, b) => (a.department || '').localeCompare(b.department || '', 'zh-TW'),
-          filters: DEPARTMENT_OPTIONS.map(d => ({ text: d, value: d })),
+          filters: departmentOptions.map(d => ({ text: d, value: d })),
           onFilter: (value, record) => record.department === value,
           render: (dept: string) => dept ? (
             <Tag icon={<BankOutlined />} color="blue">{dept}</Tag>
@@ -341,15 +331,12 @@ export const StaffPage: React.FC = () => {
                     value={departmentFilter || undefined}
                     onChange={(v) => {
                       setDepartmentFilter(v || '');
-                      setCurrent(1);  // 切換篩選時重置頁碼
+                      setCurrent(1);
                     }}
-                    style={{ width: 130 }}
+                    style={{ width: 150 }}
                     allowClear
-                  >
-                    {DEPARTMENT_OPTIONS.map(d => (
-                      <Option key={d} value={d}>{d}</Option>
-                    ))}
-                  </Select>
+                    options={departmentOptions.map(d => ({ label: d, value: d }))}
+                  />
                   <Select
                     placeholder="狀態篩選"
                     value={activeFilter}

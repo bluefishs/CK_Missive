@@ -325,8 +325,13 @@ function createAxiosInstance(): AxiosInstance {
       }
 
       // 轉換為 ApiException 並發出全域錯誤事件
-      const apiError = ApiException.fromAxiosError(error);
-      if (apiError.isGlobalError()) {
+      const apiError = error instanceof ApiException
+        ? error
+        : ApiException.fromAxiosError(error);
+      // 靜默判斷：_silent 標記 或 AI 端點路徑（AI API 內部 catch 處理，不需全域通知）
+      const isSilent = !!(originalRequest as unknown as Record<string, unknown>)?._silent
+        || originalRequest?.url?.startsWith('/api/ai/') === true;
+      if (!isSilent && apiError.isGlobalError()) {
         apiErrorBus.emit(apiError);
       }
       throw apiError;
@@ -373,6 +378,18 @@ class ApiClient {
   ): Promise<T> {
     const response = await this.axios.post<T>(url, data, config);
     return response.data;
+  }
+
+  /**
+   * 靜默 POST 請求 — 錯誤不觸發 GlobalApiErrorNotifier
+   * 適用於內部 catch 處理錯誤並返回 fallback 的 AI API 函式
+   */
+  async silentPost<T>(
+    url: string,
+    data?: unknown,
+    config?: AxiosRequestConfig
+  ): Promise<T> {
+    return this.post<T>(url, data, { ...config, _silent: true } as AxiosRequestConfig);
   }
 
   /**

@@ -154,7 +154,7 @@ describe('generateSummary - AI 摘要生成', () => {
 
     expect(result.source).toBe('fallback');
     expect(result.confidence).toBe(0);
-    expect(result.error).toBe('Service Unavailable');
+    expect(result.error).toBe('摘要生成服務暫時不可用');
     // fallback summary should be a substring of the subject
     expect(result.summary).toBe('桃園市政府工程查估報告');
   });
@@ -862,6 +862,7 @@ describe('getOllamaStatus - Ollama 狀態', () => {
     const result = await getOllamaStatus();
 
     expect(apiClient.post).toHaveBeenCalledWith('/ai/ollama/status', {});
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect((result as any).running).toBe(true);
   });
 

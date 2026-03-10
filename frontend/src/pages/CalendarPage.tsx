@@ -225,7 +225,7 @@ const CalendarPage: React.FC = () => {
   // 側邊欄內容（共用於桌面版和行動版抽屜）
   // ============================================================================
   const renderSidebarContent = () => (
-    <div style={{ maxHeight: isMobile ? 'calc(100vh - 120px)' : '600px', overflowY: 'auto' }}>
+    <div style={{ maxHeight: isMobile ? 'calc(100vh - 120px)' : 'calc(100vh - 280px)', overflowY: 'auto' }}>
       {selectedDateEvents.length > 0 ? (
         selectedDateEvents.map((event) => (
           <Card
@@ -407,6 +407,7 @@ const CalendarPage: React.FC = () => {
         placement="right"
         onClose={() => setSidebarVisible(false)}
         open={sidebarVisible}
+        destroyOnClose
         width={isMobile ? '85%' : 350}
         styles={{
           body: { padding: '12px' }

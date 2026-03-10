@@ -131,6 +131,7 @@ export const AttachmentsTab: React.FC<AttachmentsTabProps> = ({
       title: '檔案名稱',
       dataIndex: 'filename',
       key: 'filename',
+      width: 180,
       ellipsis: true,
       render: (text) => (
         <Space>

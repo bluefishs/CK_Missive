@@ -858,6 +858,7 @@ export interface RAGStreamRequest {
   top_k?: number;
   similarity_threshold?: number;
   history?: Array<{ role: string; content: string }>;
+  session_id?: string;
 }
 
 // ============================================================================
@@ -966,4 +967,22 @@ export interface DocumentAIAnalysisBatchResponse {
   error_count: number;
   skip_count: number;
   message: string;
+}
+
+// ============================================================================
+// Code Wiki 代碼圖譜
+// ============================================================================
+
+/** Code Wiki 代碼圖譜請求 */
+export interface CodeWikiRequest {
+  entity_types?: string[];
+  module_prefix?: string | null;
+  limit?: number;
+}
+
+/** Code Wiki 代碼圖譜回應 */
+export interface CodeWikiResponse {
+  success: boolean;
+  nodes: GraphNode[];
+  edges: GraphEdge[];
 }

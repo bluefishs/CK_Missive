@@ -20,12 +20,14 @@ import {
   Card,
   Tag,
   Input,
+  Select,
   Statistic,
   Row,
   Col,
   Upload,
   Tooltip,
   List,
+  Form,
 } from 'antd';
 import {
   PlusOutlined,
@@ -36,7 +38,9 @@ import {
   SendOutlined,
   LinkOutlined,
   RightOutlined,
+  PartitionOutlined,
 } from '@ant-design/icons';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { ResponsiveTable } from '../common';
 import { dispatchOrdersApi } from '../../api/taoyuanDispatchApi';
@@ -60,8 +64,12 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
 }) => {
   const navigate = useNavigate();
   const { message } = App.useApp();
+  const queryClient = useQueryClient();
   const [searchText, setSearchText] = useState('');
   const [importModalVisible, setImportModalVisible] = useState(false);
+  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+  const [batchModalVisible, setBatchModalVisible] = useState(false);
+  const [batchForm] = Form.useForm();
 
   // RWD 響應式
   const { isMobile } = useResponsive();
@@ -114,6 +122,33 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
     orderCount: orders.length,
     message,
   });
+
+  // 批量設定結案批次
+  const batchSetMutation = useMutation({
+    mutationFn: (params: { dispatch_ids: number[]; batch_no: number | null; batch_label?: string }) =>
+      dispatchOrdersApi.batchSetBatch(params),
+    onSuccess: (data) => {
+      message.success(data.message);
+      setSelectedRowKeys([]);
+      setBatchModalVisible(false);
+      batchForm.resetFields();
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ['kanban-dispatches'] });
+    },
+    onError: () => {
+      message.error('批次設定失敗');
+    },
+  });
+
+  const handleBatchSet = useCallback(async () => {
+    const values = await batchForm.validateFields();
+    const batchNo = values.batch_no ?? null;
+    batchSetMutation.mutate({
+      dispatch_ids: selectedRowKeys.map(Number),
+      batch_no: batchNo,
+      batch_label: batchNo ? `第${batchNo}批結案` : undefined,
+    });
+  }, [batchForm, batchSetMutation, selectedRowKeys]);
 
   const handleCreate = useCallback(() => {
     navigate(`/taoyuan/dispatch/create?project=${contractProjectId}`);
@@ -193,9 +228,9 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
                 </div>
               )}
               <div style={{ marginTop: 6, fontSize: 11, color: '#999' }}>
-                公文: {order.linked_documents?.length || 0} |
-                工程: {order.linked_projects?.length || 0} |
-                附件: {order.attachment_count || 0}
+                公文: {order.linked_documents?.length ?? 0} |
+                工程: {order.linked_projects?.length ?? 0} |
+                附件: {order.attachment_count ?? 0}
               </div>
             </div>
             <RightOutlined style={{ color: '#ccc', marginTop: 4 }} />
@@ -302,6 +337,14 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
               {isMobile ? '' : 'Excel 匯入'}
             </Button>
             <Button
+              icon={<PartitionOutlined />}
+              onClick={() => setBatchModalVisible(true)}
+              disabled={selectedRowKeys.length === 0}
+              size={isMobile ? 'small' : 'middle'}
+            >
+              {isMobile ? '' : `批次設定${selectedRowKeys.length > 0 ? ` (${selectedRowKeys.length})` : ''}`}
+            </Button>
+            <Button
               type="primary"
               icon={<PlusOutlined />}
               onClick={handleCreate}
@@ -329,9 +372,14 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
           dataSource={orders}
           rowKey="id"
           loading={isLoading}
-          scroll={{ x: 1450 }}
+          scroll={{ x: 1530 }}
           size="small"
           mobileHiddenColumns={['sub_case_name', 'contact_note', 'project_folder', 'survey_unit']}
+          rowSelection={{
+            selectedRowKeys,
+            onChange: setSelectedRowKeys,
+            columnWidth: 40,
+          }}
           pagination={{
             showSizeChanger: true,
             showQuickJumper: true,
@@ -343,6 +391,37 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
           })}
         />
       )}
+
+      {/* 批次設定 Modal */}
+      <Modal
+        title={`批量設定結案批次 (${selectedRowKeys.length} 筆)`}
+        open={batchModalVisible}
+        onOk={handleBatchSet}
+        onCancel={() => { setBatchModalVisible(false); batchForm.resetFields(); }}
+        confirmLoading={batchSetMutation.isPending}
+        okText="確定設定"
+        cancelText="取消"
+        width={400}
+      >
+        <Form form={batchForm} layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item name="batch_no" label="結案批次">
+            <Select
+              placeholder="選擇結案批次（留空=清除）"
+              allowClear
+              options={[
+                { value: 1, label: '第1批結案' },
+                { value: 2, label: '第2批結案' },
+                { value: 3, label: '第3批結案' },
+                { value: 4, label: '第4批結案' },
+                { value: 5, label: '第5批結案' },
+              ]}
+            />
+          </Form.Item>
+          <div style={{ color: '#666', fontSize: 12 }}>
+            將為選中的 {selectedRowKeys.length} 筆派工單統一設定結案批次。留空可清除已有設定。
+          </div>
+        </Form>
+      </Modal>
 
       {/* Excel 匯入 Modal - RWD 響應式 */}
       <Modal

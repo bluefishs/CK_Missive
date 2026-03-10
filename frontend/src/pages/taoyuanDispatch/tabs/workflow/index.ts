@@ -5,9 +5,6 @@
  * @date 2026-02-21
  */
 
-export { StatsCards } from './StatsCards';
-export type { StatsCardsProps } from './StatsCards';
-
 export { WorkflowToolBar } from './WorkflowToolBar';
 export type { WorkflowToolBarProps } from './WorkflowToolBar';
 

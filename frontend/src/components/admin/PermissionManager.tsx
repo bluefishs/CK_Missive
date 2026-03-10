@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Card,
   Badge,
@@ -53,6 +53,11 @@ export const PermissionManager: React.FC<PermissionManagerProps> = ({
   const { message } = App.useApp();
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>(userPermissions);
   const [language, setLanguage] = useState<'zh' | 'en'>('zh');
+
+  // 外部 userPermissions 變更時同步（如切換使用者編輯）
+  useEffect(() => {
+    setSelectedPermissions(userPermissions);
+  }, [userPermissions]);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- reserved for future tree view rendering
   const _treeData = useMemo(() => {
     return Object.entries(PERMISSION_CATEGORIES).map(([categoryKey, category]) => ({

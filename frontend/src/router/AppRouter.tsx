@@ -73,6 +73,7 @@ const AdminDashboardPage = lazy(() => import('../pages/AdminDashboardPage'));
 const DeploymentManagementPage = lazy(() => import('../pages/DeploymentManagementPage'));
 const AIAssistantManagementPage = lazy(() => import('../pages/AIAssistantManagementPage'));
 const KnowledgeGraphPage = lazy(() => import('../pages/KnowledgeGraphPage'));
+const CodeGraphManagementPage = lazy(() => import('../pages/CodeGraphManagementPage'));
 
 // 桃園查估專區
 const TaoyuanDispatchPage = lazy(() => import('../pages/TaoyuanDispatchPage'));
@@ -200,6 +201,10 @@ export const AppRouter: React.FC = () => {
 
           {/* 知識圖譜探索（獨立全螢幕頁面） */}
           <Route path={ROUTES.KNOWLEDGE_GRAPH} element={<ProtectedRoute><KnowledgeGraphPage /></ProtectedRoute>} />
+          {/* 代碼圖譜 Code Wiki */}
+          <Route path={ROUTES.CODE_WIKI} element={<ProtectedRoute><KnowledgeGraphPage defaultMode="codeWiki" /></ProtectedRoute>} />
+          {/* 代碼圖譜管理（獨立管理頁面） */}
+          <Route path={ROUTES.CODE_GRAPH_MANAGEMENT} element={<ProtectedRoute><CodeGraphManagementPage /></ProtectedRoute>} />
 
           {/* 需要認證的路由 */}
           {/* /settings 已統一至 /profile */}

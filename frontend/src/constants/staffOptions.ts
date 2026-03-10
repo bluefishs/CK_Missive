@@ -3,18 +3,10 @@
  *
  * 集中管理承辦同仁相關的選項常數
  *
- * @version 1.0.0
- * @date 2026-01-26
+ * @version 2.0.0
+ * @date 2026-03-06
+ * @changes 部門選項改為 DB 驅動（useDepartments hook），移除硬編碼
  */
-
-// 部門選項
-export const DEPARTMENT_OPTIONS = [
-  '空間資訊部',
-  '測量部',
-  '管理部',
-] as const;
-
-export type Department = (typeof DEPARTMENT_OPTIONS)[number];
 
 // 同仁角色選項
 export const STAFF_ROLE_OPTIONS = [

@@ -322,8 +322,8 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({ contractProjectId }) =
                 {project.case_handler && <Tag color="blue" style={{ fontSize: 11 }}>{project.case_handler}</Tag>}
               </Space>
               <div style={{ marginTop: 6, fontSize: 11, color: '#999' }}>
-                派工: {project.linked_dispatches?.length || 0} 筆 |
-                公文: {project.linked_documents?.length || 0} 筆
+                派工: {project.linked_dispatches?.length ?? 0} 筆 |
+                公文: {project.linked_documents?.length ?? 0} 筆
               </div>
             </div>
             <RightOutlined style={{ color: '#ccc', marginTop: 4 }} />

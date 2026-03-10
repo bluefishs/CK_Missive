@@ -94,6 +94,7 @@ const WorkflowKanbanViewInner: React.FC<WorkflowKanbanViewProps> = ({
         overflowX: 'auto',
         paddingBottom: 8,
         alignItems: 'flex-start',
+        maxHeight: 'calc(100vh - 300px)',
       }}
     >
       {populatedColumns.map((col) => (

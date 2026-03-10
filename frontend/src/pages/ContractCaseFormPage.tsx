@@ -9,6 +9,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Card,
+  Checkbox,
   Form,
   Input,
   Select,
@@ -143,6 +144,7 @@ export const ContractCaseFormPage: React.FC = () => {
         project_path: data.project_path,
         notes: data.notes,
         description: data.description,
+        has_dispatch_management: data.has_dispatch_management ?? false,
       });
     } catch (error) {
       logger.error('載入數據失敗:', error);
@@ -167,6 +169,7 @@ export const ContractCaseFormPage: React.FC = () => {
     project_path?: string;
     notes?: string;
     description?: string;
+    has_dispatch_management?: boolean;
   }
 
   const handleSubmit = async (values: FormValues) => {
@@ -192,6 +195,7 @@ export const ContractCaseFormPage: React.FC = () => {
         project_path: values.project_path,
         notes: values.notes,
         description: values.description,
+        has_dispatch_management: values.has_dispatch_management,
       };
 
       logger.debug('Submitting data:', submitData);
@@ -199,10 +203,12 @@ export const ContractCaseFormPage: React.FC = () => {
       if (isEdit && id) {
         await projectsApi.updateProject(parseInt(id, 10), submitData);
         queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
+        queryClient.invalidateQueries({ queryKey: ['taoyuan-dispatch-orders', 'contract-projects'] });
         message.success('更新成功');
       } else {
         const result = await projectsApi.createProject(submitData);
         queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
+        queryClient.invalidateQueries({ queryKey: ['taoyuan-dispatch-orders', 'contract-projects'] });
         message.success('新增成功');
         // 新增成功後導航到詳情頁
         navigate(`${ROUTES.CONTRACT_CASES}/${result.id}`);
@@ -569,6 +575,16 @@ export const ContractCaseFormPage: React.FC = () => {
                   rows={isMobile ? 3 : 4}
                   placeholder="請輸入專案說明"
                 />
+              </Form.Item>
+            </Col>
+
+            {/* 派工管理功能開關 */}
+            <Col span={24}>
+              <Form.Item
+                name="has_dispatch_management"
+                valuePropName="checked"
+              >
+                <Checkbox>啟用派工管理功能（勾選後此案件可使用派工安排、工程關聯等功能）</Checkbox>
               </Form.Item>
             </Col>
 

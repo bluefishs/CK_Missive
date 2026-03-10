@@ -14,11 +14,11 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { dispatchOrdersApi, workflowApi } from '../../../api/taoyuan';
+import { queryKeys } from '../../../config/queryConfig';
 import type {
   DispatchOrder,
   WorkRecord,
   WorkRecordStatus,
-  MilestoneType,
   ProjectDispatchLinkItem,
   DocBrief,
 } from '../../../types/taoyuan';
@@ -30,7 +30,17 @@ import {
   type KanbanColumnData,
   type KanbanCardData,
 } from '../kanban/kanbanConstants';
-import { isOutgoingDocNumber, buildDocPairs } from './chainUtils';
+import {
+  buildDocPairs,
+  buildCorrespondenceMatrix,
+  filterBlankRecords,
+  computeDocStats,
+  computeCurrentStage,
+} from './chainUtils';
+import type { CorrespondenceMatrixRow } from './chainUtils';
+import {
+  getCategoryLabel,
+} from './workCategoryConstants';
 
 // ============================================================================
 // Types
@@ -44,6 +54,8 @@ export interface DispatchCorrespondenceGroup {
   keyDates: { date: string; label: string }[];
   incomingDocs: { record: WorkRecord; doc: DocBrief }[];
   outgoingDocs: { record: WorkRecord; doc: DocBrief }[];
+  /** 矩陣配對行（3 階段匹配：parent_record_id → 日期鄰近 → 剩餘） */
+  matrixRows: CorrespondenceMatrixRow[];
   allRecords: WorkRecord[];
   computedStatus: WorkRecordStatus;
   stats: { total: number; completed: number };
@@ -52,9 +64,20 @@ export interface DispatchCorrespondenceGroup {
 export interface BatchGroup {
   batchNo: number | null;
   label: string;
+  dispatchNo?: string;
+  dispatchId?: number;
   records: WorkRecord[];
   completedCount: number;
   totalCount: number;
+}
+
+/** 單一作業類別的階段進度 */
+export interface WorkTypeStageInfo {
+  workType: string;           // e.g., "01.地上物查估作業"
+  stage: string;              // e.g., "作業成果"
+  status: WorkRecordStatus;   // e.g., "in_progress"
+  total: number;
+  completed: number;
 }
 
 export interface WorkOverviewStats {
@@ -65,6 +88,7 @@ export interface WorkOverviewStats {
   incomingDocs: number;
   outgoingDocs: number;
   currentStage: string;
+  workTypeStages: WorkTypeStageInfo[];
   dispatchCount: number;
 }
 
@@ -85,118 +109,66 @@ export function getBatchColor(batchNo: number | null) {
   return BATCH_COLORS[batchNo] || { bg: '#fafafa', border: '#d9d9d9', tag: 'default' as const };
 }
 
-// ============================================================================
-// 里程碑 helpers
-// ============================================================================
-
-const MILESTONE_LABELS: Record<string, string> = {
-  dispatch: '派工',
-  survey: '會勘',
-  site_inspection: '查估檢視',
-  submit_result: '送件',
-  revision: '修正',
-  review_meeting: '審查',
-  negotiation: '協議',
-  final_approval: '定稿',
-  boundary_survey: '土地鑑界',
-  closed: '結案',
-  other: '其他',
-};
-
-const MILESTONE_COLORS: Record<string, string> = {
-  dispatch: 'blue',
-  survey: 'cyan',
-  site_inspection: 'geekblue',
-  submit_result: 'purple',
-  revision: 'orange',
-  review_meeting: 'magenta',
-  negotiation: 'volcano',
-  final_approval: 'gold',
-  boundary_survey: 'lime',
-  closed: 'green',
-  other: 'default',
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: '待處理',
-  in_progress: '進行中',
-  completed: '已完成',
-  overdue: '逾期',
-  on_hold: '已暫緩',
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  pending: 'default',
-  in_progress: 'processing',
-  completed: 'success',
-  overdue: 'error',
-  on_hold: 'warning',
-};
-
-// 新格式作業類別標籤
-// NOTE: 此處刻意重複 chainConstants.WORK_CATEGORY_LABELS，因為
-// chainConstants.ts 已 import { milestoneLabel } from './useProjectWorkData'，
-// 若本檔反向 import chainConstants 會產生循環引用。
-const WORK_CATEGORY_LABELS_INLINE: Record<string, string> = {
-  dispatch_notice: '派工通知',
-  work_result: '作業成果',
-  meeting_notice: '會議通知',
-  meeting_record: '會議紀錄',
-  survey_notice: '會勘通知',
-  survey_record: '會勘紀錄',
-  other: '其他',
-};
-
-export function milestoneLabel(type: MilestoneType | string): string {
-  return MILESTONE_LABELS[type] || type;
-}
-
-export function milestoneColor(type: MilestoneType | string): string {
-  return MILESTONE_COLORS[type] || 'default';
-}
-
-export function statusLabel(status: WorkRecordStatus | string): string {
-  return STATUS_LABELS[status] || status;
-}
-
-export function statusColor(status: WorkRecordStatus | string): string {
-  return STATUS_COLORS[status] || 'default';
-}
+// 里程碑/狀態/作業類別 helpers 已統一移至 workCategoryConstants.ts
+// 此處 re-export 維持向下相容
 
 // ============================================================================
 // 批次分組（時間軸視圖用）
 // ============================================================================
 
-function groupByBatch(records: WorkRecord[]): BatchGroup[] {
-  const groups = new Map<number | null, WorkRecord[]>();
-
-  for (const r of records) {
-    const key = r.batch_no ?? null;
-    const arr = groups.get(key) ?? [];
-    arr.push(r);
-    groups.set(key, arr);
+function groupByBatch(
+  records: WorkRecord[],
+  dispatches: DispatchOrder[],
+): BatchGroup[] {
+  // 建立 dispatch 查詢表
+  const dispatchMap = new Map<number, DispatchOrder>();
+  for (const d of dispatches) {
+    dispatchMap.set(d.id, d);
   }
 
-  const sortedKeys = Array.from(groups.keys()).sort((a, b) => {
-    if (a === null) return 1;
-    if (b === null) return -1;
-    return a - b;
-  });
+  // 按派工單分組
+  const groupsByDispatch = new Map<number, WorkRecord[]>();
+  for (const r of records) {
+    const list = groupsByDispatch.get(r.dispatch_order_id) ?? [];
+    list.push(r);
+    groupsByDispatch.set(r.dispatch_order_id, list);
+  }
 
-  return sortedKeys.map((key) => {
-    const recs = groups.get(key) ?? [];
+  // 轉換為 BatchGroup，按 batch_no 排序（null 在最後），同批次按 dispatch_no 排序
+  const groups: BatchGroup[] = [];
+  for (const [dispatchId, recs] of groupsByDispatch) {
+    const dispatch = dispatchMap.get(dispatchId);
+    const batchNo = dispatch?.batch_no ?? null;
     const completed = recs.filter((r) => r.status === 'completed').length;
-    return {
-      batchNo: key,
-      label:
-        key !== null
-          ? recs[0]?.batch_label || `第${key}批結案`
-          : '未分批',
+
+    let batchPrefix = '未分批';
+    if (batchNo !== null) {
+      batchPrefix = dispatch?.batch_label || `第${batchNo}批結案`;
+    }
+    const dispatchNo = dispatch?.dispatch_no || `派工單#${dispatchId}`;
+    const label = `${batchPrefix} — ${dispatchNo}`;
+
+    groups.push({
+      batchNo,
+      label,
+      dispatchNo,
+      dispatchId,
       records: recs.sort((a, b) => a.sort_order - b.sort_order),
       completedCount: completed,
       totalCount: recs.length,
-    };
+    });
+  }
+
+  // 排序：batch_no ASC (null 在最後)，同批次按 dispatchNo 排序
+  groups.sort((a, b) => {
+    if (a.batchNo === null && b.batchNo === null) return (a.dispatchNo ?? '').localeCompare(b.dispatchNo ?? '');
+    if (a.batchNo === null) return 1;
+    if (b.batchNo === null) return -1;
+    if (a.batchNo !== b.batchNo) return a.batchNo - b.batchNo;
+    return (a.dispatchNo ?? '').localeCompare(b.dispatchNo ?? '');
   });
+
+  return groups;
 }
 
 // ============================================================================
@@ -228,19 +200,20 @@ function buildCorrespondenceGroups(
       },
     );
 
-    // 從 WorkRecords 推算批次
-    const batchNos = dispatchRecords
-      .map((r) => r.batch_no)
-      .filter((b): b is number => b !== undefined && b !== null);
-    const batchNo = batchNos.length > 0 ? Math.max(...batchNos) : null;
+    // 批次直接從派工單讀取
+    const batchNo = dispatch.batch_no ?? null;
     const batchLabel =
       batchNo !== null
-        ? dispatchRecords.find((r) => r.batch_no === batchNo)?.batch_label ||
-          `第${batchNo}批結案`
+        ? dispatch.batch_label || `第${batchNo}批結案`
         : '未分批';
 
     // 提取有關聯公文的紀錄（新舊格式兼容，使用共用 buildDocPairs）
-    const { incomingDocs, outgoingDocs } = buildDocPairs(dispatchRecords);
+    const docPairs = buildDocPairs(dispatchRecords);
+    const { incomingDocs, outgoingDocs } = docPairs;
+
+    // 使用 3 階段匹配建構矩陣（與派工單層級一致）
+    // 未指派公文暫傳空陣列（列表 API 不含 linked_documents）
+    const matrixRows = buildCorrespondenceMatrix(docPairs, [], []);
 
     // 關鍵日期（送件/修正里程碑 + 新格式作業成果）
     const keyDates = dispatchRecords
@@ -252,9 +225,7 @@ function buildCorrespondenceGroups(
       )
       .map((r) => ({
         date: r.record_date,
-        label: r.work_category
-          ? (WORK_CATEGORY_LABELS_INLINE[r.work_category] || milestoneLabel(r.milestone_type))
-          : milestoneLabel(r.milestone_type),
+        label: getCategoryLabel(r),
       }));
 
     const completed = dispatchRecords.filter(
@@ -269,6 +240,7 @@ function buildCorrespondenceGroups(
       keyDates,
       incomingDocs,
       outgoingDocs,
+      matrixRows,
       allRecords: dispatchRecords,
       computedStatus: computeDispatchStatus(dispatchRecords),
       stats: { total: dispatchRecords.length, completed },
@@ -298,8 +270,8 @@ export function useProjectWorkData({
 
   // Query 1: 全部 WorkRecords
   const { data: workflowData, isLoading: isLoadingWorkflow } = useQuery({
-    queryKey: ['project-work-records', projectId],
-    queryFn: () => workflowApi.listByProject(projectId, 1, 500),
+    queryKey: queryKeys.workRecords.project(projectId),
+    queryFn: () => workflowApi.listByProject(projectId, 1, 200),
     enabled: projectId > 0,
   });
 
@@ -314,8 +286,9 @@ export function useProjectWorkData({
     enabled: !!contractProjectId && linkedDispatches.length > 0,
   });
 
+  // 過濾空白紀錄（共用邏輯）
   const records = useMemo(
-    () => workflowData?.items ?? [],
+    () => filterBlankRecords(workflowData?.items ?? []),
     [workflowData?.items],
   );
 
@@ -330,37 +303,68 @@ export function useProjectWorkData({
     const completed = records.filter((r) => r.status === 'completed').length;
     const inProgress = records.filter((r) => r.status === 'in_progress').length;
     const overdue = records.filter((r) => r.status === 'overdue').length;
-    // 統計來文/發文數（新舊格式兼容）
-    const incomingIds = new Set<number>();
-    const outgoingIds = new Set<number>();
-    for (const r of records) {
-      if (r.incoming_doc_id) incomingIds.add(r.incoming_doc_id);
-      if (r.outgoing_doc_id) outgoingIds.add(r.outgoing_doc_id);
-      if (r.document_id) {
-        if (isOutgoingDocNumber(r.document?.doc_number)) {
-          outgoingIds.add(r.document_id);
-        } else {
-          incomingIds.add(r.document_id);
+    const { incomingDocs, outgoingDocs } = computeDocStats(records);
+    const currentStage = computeCurrentStage(records);
+
+    // 按作業類別分組，以派工單為單位計算各自的階段進度
+    const workTypeStages: WorkTypeStageInfo[] = (() => {
+      // 建立 dispatch → records 映射
+      const recordsByDispatch = new Map<number, WorkRecord[]>();
+      for (const r of records) {
+        const list = recordsByDispatch.get(r.dispatch_order_id) ?? [];
+        list.push(r);
+        recordsByDispatch.set(r.dispatch_order_id, list);
+      }
+
+      // 建立 dispatch 查詢表
+      const dispatchMap = new Map<number, DispatchOrder>();
+      for (const d of allDispatches) {
+        dispatchMap.set(d.id, d);
+      }
+
+      // 聚合：workType → dispatches[] (以派工單為計算單位)
+      const wtDispatches = new Map<string, { dispatch: DispatchOrder; records: WorkRecord[] }[]>();
+      for (const dispatchId of linkedDispatchIds) {
+        const dispatch = dispatchMap.get(dispatchId);
+        if (!dispatch) continue;
+        const workTypes = getWorkTypes(dispatch);
+        const dRecords = recordsByDispatch.get(dispatchId) ?? [];
+        if (workTypes.length === 0) continue;
+        for (const wt of workTypes) {
+          const list = wtDispatches.get(wt) ?? [];
+          list.push({ dispatch, records: dRecords });
+          wtDispatches.set(wt, list);
         }
       }
-    }
-    const incomingDocs = incomingIds.size;
-    const outgoingDocs = outgoingIds.size;
 
-    let currentStage = '尚未開始';
-    for (let i = records.length - 1; i >= 0; i--) {
-      const rec = records[i];
-      if (rec && rec.status !== 'completed') {
-        // 新格式 work_category 優先，fallback milestone_type
-        currentStage = rec.work_category
-          ? (WORK_CATEGORY_LABELS_INLINE[rec.work_category] || milestoneLabel(rec.milestone_type))
-          : milestoneLabel(rec.milestone_type);
-        break;
+      // 轉換為 WorkTypeStageInfo[]
+      const stages: WorkTypeStageInfo[] = [];
+      for (const [wt, entries] of wtDispatches) {
+        const wtTotal = entries.length; // 派工單數
+        const wtCompleted = entries.filter((e) => {
+          // 派工單「已完成」= 有紀錄且全部 completed
+          return e.records.length > 0 && e.records.every((r) => r.status === 'completed');
+        }).length;
+        const allRecords = entries.flatMap((e) => e.records);
+        const wtStatus = computeDispatchStatus(allRecords);
+
+        // 找出此作業類別下最新的進行中階段（共用函數）
+        const stage = computeCurrentStage(allRecords);
+
+        stages.push({
+          workType: wt,
+          stage,
+          status: wtStatus,
+          total: wtTotal,
+          completed: wtCompleted,
+        });
       }
-    }
-    if (total > 0 && completed === total) {
-      currentStage = '全部完成';
-    }
+
+      // 依 ALL_WORK_TYPES 順序排序
+      const orderMap = new Map(ALL_WORK_TYPES.map((wt, i) => [wt, i]));
+      stages.sort((a, b) => (orderMap.get(a.workType) ?? 99) - (orderMap.get(b.workType) ?? 99));
+      return stages;
+    })();
 
     return {
       total,
@@ -370,12 +374,16 @@ export function useProjectWorkData({
       incomingDocs,
       outgoingDocs,
       currentStage,
+      workTypeStages,
       dispatchCount: linkedDispatches.length,
     };
-  }, [records, linkedDispatches.length]);
+  }, [records, linkedDispatches.length, allDispatches, linkedDispatchIds]);
 
-  // 批次分組
-  const batchGroups = useMemo(() => groupByBatch(records), [records]);
+  // 批次分組（從派工單讀取批次）
+  const batchGroups = useMemo(
+    () => groupByBatch(records, allDispatches),
+    [records, allDispatches],
+  );
 
   // 看板欄位
   const kanbanColumns = useMemo<KanbanColumnData[]>(() => {

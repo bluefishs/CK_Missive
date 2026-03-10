@@ -29,11 +29,8 @@ import dayjs from 'dayjs';
 
 import type { WorkRecord } from '../../../types/taoyuan';
 import type { DispatchCorrespondenceGroup } from './useProjectWorkData';
-import {
-  getBatchColor,
-  statusLabel,
-  statusColor,
-} from './useProjectWorkData';
+import { getBatchColor } from './useProjectWorkData';
+import { statusLabel, statusColor } from './workCategoryConstants';
 import { CorrespondenceBody } from './CorrespondenceBody';
 
 const { Text } = Typography;
@@ -96,8 +93,9 @@ const CorrespondenceMatrixInner: React.FC<CorrespondenceMatrixProps> = ({
   const items = groups.map((group) => {
     const batchStyle = getBatchColor(group.batchNo);
     const isHighlighted = highlightDispatchId === group.dispatch.id;
-    const title =
-      group.dispatch.sub_case_name || group.dispatch.dispatch_no || `派工 #${group.dispatch.id}`;
+    const dispatchNo = group.dispatch.dispatch_no || `派工 #${group.dispatch.id}`;
+    const workType = group.dispatch.work_type;
+    const title = workType ? `${dispatchNo}_${workType}` : dispatchNo;
 
     return {
       key: String(group.dispatch.id),
@@ -122,11 +120,11 @@ const CorrespondenceMatrixInner: React.FC<CorrespondenceMatrixProps> = ({
             }}
           />
 
-          {/* 分案名稱 */}
+          {/* 派工單號 + 作業類別 */}
           <Text
             strong
             style={{ fontSize: 13, maxWidth: 300 }}
-            ellipsis={{ tooltip: title }}
+            ellipsis={{ tooltip: group.dispatch.sub_case_name || title }}
           >
             {title}
           </Text>
@@ -187,6 +185,7 @@ const CorrespondenceMatrixInner: React.FC<CorrespondenceMatrixProps> = ({
       children: (
         <CorrespondenceBody
           data={group}
+          matrixRows={group.matrixRows}
           onDocClick={onDocClick}
           onEditRecord={onEditRecord}
           canEdit={canEdit}

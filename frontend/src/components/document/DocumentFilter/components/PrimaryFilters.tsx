@@ -67,6 +67,7 @@ const PrimaryFilters: React.FC<PrimaryFiltersProps> = ({
     } finally {
       setAiLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [localFilters.search, onMultipleFilterChange]);
 
   return (
@@ -75,7 +76,7 @@ const PrimaryFilters: React.FC<PrimaryFiltersProps> = ({
       <Col span={24} md={8}>
         <FilterFieldWrapper
           label="關鍵字搜尋"
-          tooltip="搜尋範圍包含：公文字號、主旨、說明、備註。支援模糊搜尋。點擊 AI 按鈕可智慧解析自然語言並自動填充篩選條件。"
+          tooltip="搜尋範圍包含：公文字號、主旨、說明、備註、簡要說明、發文單位、受文單位。支援模糊搜尋。點擊 AI 按鈕可智慧解析自然語言並自動填充篩選條件。"
           isMobile={isMobile}
         >
           <Input.Search

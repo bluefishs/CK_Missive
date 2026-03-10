@@ -7,10 +7,12 @@
  * @date 2026-01-23
  */
 
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { dispatchOrdersApi } from '../../api/taoyuanDispatchApi';
 import type { DispatchOrder } from '../../types/api';
 import { queryKeys, defaultQueryOptions } from '../../config/queryConfig';
+import { setDispatchProjectIds } from '../../config/projectModules';
 
 interface UseTaoyuanDispatchParams {
   skip?: number;
@@ -49,7 +51,7 @@ export const useTaoyuanDispatchOrders = (params: UseTaoyuanDispatchParams): UseT
 
   return {
     dispatchOrders: data?.items || [],
-    total: data?.pagination?.total || 0,
+    total: data?.pagination?.total ?? 0,
     isLoading,
     error: error as Error | null,
     refetch,
@@ -65,6 +67,23 @@ export const useTaoyuanContractProjects = () => {
     queryFn: () => dispatchOrdersApi.getContractProjects(),
     ...defaultQueryOptions.dropdown,
   });
+};
+
+/**
+ * 初始化派工案件 ID 快取
+ *
+ * 從 API 載入已啟用派工管理的承攬案件列表，
+ * 並同步至 projectModules 的全域快取。
+ * 應在 App 頂層或 Layout 中呼叫一次。
+ */
+export const useDispatchProjectIds = () => {
+  const { data: projects } = useTaoyuanContractProjects();
+
+  useEffect(() => {
+    if (projects && projects.length > 0) {
+      setDispatchProjectIds(projects.map(p => p.id));
+    }
+  }, [projects]);
 };
 
 /**

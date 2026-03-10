@@ -42,7 +42,6 @@ import {
   ApartmentOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
-  ExclamationCircleOutlined,
   RocketOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
@@ -50,6 +49,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 
 import { workflowApi } from '../../../api/taoyuan';
+import { queryKeys } from '../../../config/queryConfig';
 import type {
   WorkRecord,
   WorkRecordStatus,
@@ -61,8 +61,8 @@ import {
   getCategoryColor,
   getStatusLabel,
   getStatusColor,
-} from '../../../components/taoyuan/workflow/chainConstants';
-import { isOutgoingDocNumber } from '../../../components/taoyuan/workflow/chainUtils';
+  isOutgoingDocNumber,
+} from '../../../components/taoyuan/workflow';
 import { logger } from '../../../services/logger';
 
 const { Text, Title } = Typography;
@@ -90,39 +90,16 @@ interface BatchGroup {
 }
 
 function groupByBatch(records: WorkRecord[]): BatchGroup[] {
-  const groups = new Map<number | null, WorkRecord[]>();
-
-  for (const r of records) {
-    const key = r.batch_no ?? null;
-    const arr = groups.get(key) ?? [];
-    arr.push(r);
-    groups.set(key, arr);
-  }
-
-  const result: BatchGroup[] = [];
-
-  // 有批次的先排序
-  const sortedKeys = Array.from(groups.keys()).sort((a, b) => {
-    if (a === null) return 1;
-    if (b === null) return -1;
-    return a - b;
-  });
-
-  for (const key of sortedKeys) {
-    const recs = groups.get(key) ?? [];
-    const completed = recs.filter((r) => r.status === 'completed').length;
-    result.push({
-      batchNo: key,
-      label: key !== null
-        ? (recs[0]?.batch_label || `第${key}批結案`)
-        : '未分批',
-      records: recs.sort((a, b) => a.sort_order - b.sort_order),
-      completedCount: completed,
-      totalCount: recs.length,
-    });
-  }
-
-  return result;
+  // NOTE: 批次已遷移至 DispatchOrder 層級，此孤立元件無 dispatch 資料
+  // 故全部歸為「未分批」。實際使用的是 ProjectWorkOverviewTab。
+  const completed = records.filter((r) => r.status === 'completed').length;
+  return [{
+    batchNo: null,
+    label: '未分批',
+    records: [...records].sort((a, b) => a.sort_order - b.sort_order),
+    completedCount: completed,
+    totalCount: records.length,
+  }];
 }
 
 // =============================================================================
@@ -161,7 +138,7 @@ export const ProjectWorkflowTab: React.FC<ProjectWorkflowTabProps> = ({
     data: workRecordData,
     isLoading,
   } = useQuery({
-    queryKey: ['project-work-records', projectId],
+    queryKey: queryKeys.workRecords.project(projectId),
     queryFn: () => workflowApi.listByProject(projectId),
     enabled: projectId > 0,
   });
@@ -225,8 +202,8 @@ export const ProjectWorkflowTab: React.FC<ProjectWorkflowTabProps> = ({
     mutationFn: (id: number) => workflowApi.delete(id),
     onSuccess: () => {
       message.success('作業紀錄已刪除');
-      queryClient.invalidateQueries({ queryKey: ['project-work-records', projectId] });
-      queryClient.invalidateQueries({ queryKey: ['dispatch-work-records'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.project(projectId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.dispatchAll });
     },
     onError: (error: Error) => {
       logger.error('[ProjectWorkflowTab] 刪除失敗:', error);
@@ -271,10 +248,7 @@ export const ProjectWorkflowTab: React.FC<ProjectWorkflowTabProps> = ({
         title: '批次',
         key: 'batch',
         width: 90,
-        render: (_: unknown, record: WorkRecord) =>
-          record.batch_no ? (
-            <Tag color="blue">{record.batch_label || `第${record.batch_no}批`}</Tag>
-          ) : (
+        render: () => (
             <Text type="secondary">-</Text>
           ),
       },
@@ -304,13 +278,14 @@ export const ProjectWorkflowTab: React.FC<ProjectWorkflowTabProps> = ({
       {
         title: '說明',
         key: 'description',
-        ellipsis: true,
+        width: 220,
+        ellipsis: { showTitle: false },
         render: (_: unknown, record: WorkRecord) => {
           const doc = record.document || record.incoming_doc || record.outgoing_doc;
           const text = record.description || doc?.subject;
           return text ? (
-            <Tooltip title={text}>
-              <Text ellipsis style={{ maxWidth: 200 }}>{text}</Text>
+            <Tooltip title={text} placement="topLeft">
+              <span>{text}</span>
             </Tooltip>
           ) : '-';
         },
@@ -519,6 +494,7 @@ export const ProjectWorkflowTab: React.FC<ProjectWorkflowTabProps> = ({
               prefix={<ClockCircleOutlined />}
             />
           </Col>
+          {/* 逾期統計暫隱藏：目前無逾期檢測邏輯
           <Col xs={12} sm={8} md={4}>
             <Statistic
               title="逾期"
@@ -527,6 +503,7 @@ export const ProjectWorkflowTab: React.FC<ProjectWorkflowTabProps> = ({
               prefix={<ExclamationCircleOutlined />}
             />
           </Col>
+          */}
           <Col xs={12} sm={8} md={4}>
             <Statistic title="關聯來文" value={stats.incomingDocs} prefix={<FileTextOutlined />} />
           </Col>

@@ -255,6 +255,7 @@ const SiteConfigManagement: React.FC = () => {
       title: '說明',
       dataIndex: 'description',
       key: 'description',
+      width: 200,
       ellipsis: true,
     },
     {
@@ -345,6 +346,7 @@ const SiteConfigManagement: React.FC = () => {
           dataSource={configs}
           loading={loading}
           rowKey="id"
+          scroll={{ x: 900 }}
           pagination={{
             pageSize: 20,
             showSizeChanger: true,

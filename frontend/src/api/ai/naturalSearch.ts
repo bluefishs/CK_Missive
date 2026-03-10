@@ -47,7 +47,7 @@ export async function naturalSearch(
 
   try {
     logger.log('AI 自然語言搜尋:', query.substring(0, 50));
-    const response = await apiClient.post<NaturalSearchResponse>(
+    const response = await apiClient.silentPost<NaturalSearchResponse>(
       AI_ENDPOINTS.NATURAL_SEARCH,
       { query, max_results: maxResults, include_attachments: includeAttachments, offset },
       { signal: _naturalSearchController.signal },

@@ -17,7 +17,6 @@ import {
   Card,
   Form,
   Input,
-  InputNumber,
   Select,
   DatePicker,
   Button,
@@ -28,7 +27,6 @@ import {
   Col,
   Radio,
   Tag,
-  Collapse,
   Empty,
   Tooltip,
 } from 'antd';
@@ -42,6 +40,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { ResponsiveContent } from '../components/common';
 import { workflowApi } from '../api/taoyuan';
+import { queryKeys } from '../config/queryConfig';
 import { dispatchOrdersApi } from '../api/taoyuanDispatchApi';
 import { apiClient } from '../api/client';
 import { API_ENDPOINTS } from '../api/endpoints';
@@ -56,7 +55,7 @@ import {
   WORK_CATEGORY_GROUPS,
   CHAIN_STATUS_OPTIONS,
   getCategoryLabel,
-} from '../components/taoyuan/workflow/chainConstants';
+} from '../components/taoyuan/workflow';
 import { logger } from '../services/logger';
 
 const { TextArea } = Input;
@@ -125,7 +124,7 @@ const WorkRecordFormPage: React.FC = () => {
   });
 
   const { data: existingRecordsData } = useQuery({
-    queryKey: ['dispatch-work-records', dispatchOrderId],
+    queryKey: queryKeys.workRecords.dispatch(dispatchOrderId),
     queryFn: () => workflowApi.listByDispatchOrder(dispatchOrderId),
     enabled: dispatchOrderId > 0,
   });
@@ -299,8 +298,6 @@ const WorkRecordFormPage: React.FC = () => {
         deadline_date: record.deadline_date ? dayjs(record.deadline_date) : undefined,
         status: record.status,
         description: desc,
-        batch_no: record.batch_no,
-        batch_label: record.batch_label,
         // 保留舊格式供後端向後相容
         incoming_doc_id: record.incoming_doc_id,
         outgoing_doc_id: record.outgoing_doc_id,
@@ -353,8 +350,8 @@ const WorkRecordFormPage: React.FC = () => {
     mutationFn: (data: WorkRecordCreate) => workflowApi.create(data),
     onSuccess: () => {
       message.success('作業紀錄建立成功');
-      queryClient.invalidateQueries({ queryKey: ['dispatch-work-records', dispatchOrderId] });
-      queryClient.invalidateQueries({ queryKey: ['project-work-records'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.dispatch(dispatchOrderId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.projectAll });
       navigate(returnPath);
     },
     onError: (error: Error) => {
@@ -368,8 +365,8 @@ const WorkRecordFormPage: React.FC = () => {
       workflowApi.update(id, data),
     onSuccess: () => {
       message.success('作業紀錄更新成功');
-      queryClient.invalidateQueries({ queryKey: ['dispatch-work-records', dispatchOrderId] });
-      queryClient.invalidateQueries({ queryKey: ['project-work-records'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.dispatch(dispatchOrderId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.projectAll });
       navigate(returnPath);
     },
     onError: (error: Error) => {
@@ -399,12 +396,10 @@ const WorkRecordFormPage: React.FC = () => {
         work_category: values.work_category,
         document_id: values.document_id ?? null,
         parent_record_id: values.parent_record_id ?? null,
-        deadline_date: formatDate(values.deadline_date),
+        deadline_date: formatDate(values.deadline_date) ?? null,
         status: values.status,
-        description: values.description || undefined,
+        description: values.description || null,
         milestone_type: values.milestone_type || 'other',
-        batch_no: values.batch_no ?? undefined,
-        batch_label: values.batch_label || undefined,
       };
 
       if (isNew) {
@@ -534,36 +529,6 @@ const WorkRecordFormPage: React.FC = () => {
             <Form.Item name="description" label="事項描述">
               <TextArea rows={3} placeholder="選擇公文後自動帶入主旨，可自行修改補充" />
             </Form.Item>
-
-            {/* 5. 進階選項（折疊） */}
-            <Collapse
-              ghost
-              size="small"
-              items={[{
-                key: 'advanced',
-                label: '進階選項',
-                children: (
-                  <Row gutter={12}>
-                    <Col span={8}>
-                      <Form.Item name="batch_no" label="結案批次">
-                        <InputNumber
-                          min={1}
-                          max={10}
-                          placeholder="批次序號"
-                          style={{ width: '100%' }}
-                        />
-                      </Form.Item>
-                    </Col>
-                    <Col span={16}>
-                      <Form.Item name="batch_label" label="批次標籤">
-                        <Input placeholder="例：第1批結案" maxLength={50} />
-                      </Form.Item>
-                    </Col>
-                  </Row>
-                ),
-              }]}
-              style={{ marginBottom: 16 }}
-            />
 
             {/* 隱藏欄位：舊格式向後相容 */}
             <Form.Item name="milestone_type" hidden>

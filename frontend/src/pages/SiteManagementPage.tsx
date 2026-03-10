@@ -134,6 +134,7 @@ const NavigationManagementImproved: FC = () => {
         { path: '/admin/deployment', description: '部署管理' },
         { path: '/admin/ai-assistant', description: 'AI 助理管理' },
         { path: '/ai/knowledge-graph', description: '知識圖譜探索' },
+        { path: '/ai/code-wiki', description: '代碼圖譜' },
         { path: '/system', description: '系統監控' },
         { path: '/google-auth-diagnostic', description: 'Google認證診斷' },
         { path: '/unified-form-demo', description: '統一表單示例' },
@@ -147,7 +148,7 @@ const NavigationManagementImproved: FC = () => {
   useEffect(() => {
     loadNavigation();
     loadValidPaths();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Helper to find item by id
   const findItemById = (items: NavigationItem[], id: number): NavigationItem | null => {

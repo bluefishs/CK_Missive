@@ -11,6 +11,7 @@
 
 import type { WorkRecord, DocBrief } from '../../../types/taoyuan';
 import type { DispatchDocumentLink } from '../../../types/api';
+import { getCategoryLabel } from './workCategoryConstants';
 
 // ============================================================================
 // Types
@@ -318,6 +319,77 @@ export function buildCorrespondenceMatrix(
   });
 
   return rows;
+}
+
+// ============================================================================
+// 共用篩選/統計函數（Rec-1, Rec-3: useDispatchWorkData + useProjectWorkData 統一使用）
+// ============================================================================
+
+/**
+ * 過濾空白紀錄（無公文 + 無描述），但保留被引用為 parent 的紀錄
+ *
+ * 從 useDispatchWorkData / useProjectWorkData 提取的共用邏輯
+ */
+export function filterBlankRecords(allRecords: WorkRecord[]): WorkRecord[] {
+  const parentIds = new Set(
+    allRecords
+      .map((r) => r.parent_record_id)
+      .filter((id): id is number => !!id),
+  );
+  return allRecords.filter(
+    (r) =>
+      r.document_id ||
+      r.incoming_doc_id ||
+      r.outgoing_doc_id ||
+      r.description ||
+      parentIds.has(r.id),
+  );
+}
+
+/**
+ * 計算來文/發文不重複數
+ *
+ * 統一新舊格式相容邏輯，避免兩個 hook 各自實作
+ */
+export function computeDocStats(records: WorkRecord[]): {
+  incomingDocs: number;
+  outgoingDocs: number;
+} {
+  const incomingIds = new Set<number>();
+  const outgoingIds = new Set<number>();
+  for (const r of records) {
+    if (r.incoming_doc_id) incomingIds.add(r.incoming_doc_id);
+    if (r.outgoing_doc_id) outgoingIds.add(r.outgoing_doc_id);
+    if (r.document_id) {
+      if (isOutgoingDocNumber(r.document?.doc_number)) {
+        outgoingIds.add(r.document_id);
+      } else {
+        incomingIds.add(r.document_id);
+      }
+    }
+  }
+  return { incomingDocs: incomingIds.size, outgoingDocs: outgoingIds.size };
+}
+
+/**
+ * 計算當前作業階段
+ *
+ * 從最後一筆非完成紀錄取得類別標籤，全部完成則回傳 '全部完成'
+ */
+export function computeCurrentStage(records: WorkRecord[]): string {
+  const total = records.length;
+  const completed = records.filter((r) => r.status === 'completed').length;
+
+  if (total > 0 && completed === total) return '全部完成';
+
+  for (let i = records.length - 1; i >= 0; i--) {
+    const rec = records[i];
+    if (rec && rec.status !== 'completed') {
+      return getCategoryLabel(rec);
+    }
+  }
+
+  return '尚未開始';
 }
 
 /** 判斷公文方向：來文或發文 */

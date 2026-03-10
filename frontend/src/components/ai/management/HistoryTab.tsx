@@ -84,6 +84,7 @@ export const HistoryTab: React.FC = () => {
       title: '查詢內容',
       dataIndex: 'query',
       key: 'query',
+      width: 250,
       ellipsis: true,
     },
     {
@@ -183,6 +184,7 @@ export const HistoryTab: React.FC = () => {
         rowKey="id"
         size="small"
         loading={loading}
+        scroll={{ x: 900 }}
         pagination={{
           current: params.page,
           pageSize: params.page_size,

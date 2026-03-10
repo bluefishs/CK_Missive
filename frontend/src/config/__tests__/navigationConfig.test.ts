@@ -11,7 +11,7 @@ import {
   PERMISSION_GROUPS,
   formatPermissionLabel,
 } from '../navigationConfig';
-import type { PermissionGroup } from '../navigationConfig';
+
 
 // ============================================================================
 // ICON_OPTIONS

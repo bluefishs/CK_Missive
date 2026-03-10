@@ -107,7 +107,7 @@ export async function reloadSynonyms(): Promise<AISynonymReloadResponse> {
     return await apiClient.post<AISynonymReloadResponse>(AI_ENDPOINTS.SYNONYMS_RELOAD, {});
   } catch (error) {
     logger.error('重新載入同義詞失敗:', error);
-    return { success: false, total_groups: 0, total_words: 0, message: error instanceof Error ? error.message : '重新載入失敗' };
+    return { success: false, total_groups: 0, total_words: 0, message: '同義詞重新載入失敗' };
   }
 }
 
@@ -172,7 +172,7 @@ export async function listSearchHistory(params: SearchHistoryListRequest = {}): 
 export async function getSearchStats(): Promise<SearchStatsResponse | null> {
   try {
     logger.log('取得搜尋統計');
-    return await apiClient.post<SearchStatsResponse>(AI_ENDPOINTS.SEARCH_HISTORY_STATS, {});
+    return await apiClient.silentPost<SearchStatsResponse>(AI_ENDPOINTS.SEARCH_HISTORY_STATS, {});
   } catch (error) {
     logger.error('搜尋統計失敗:', error);
     return null;
@@ -235,7 +235,7 @@ export async function getSemanticSimilar(
 
 export async function getEmbeddingStats(): Promise<EmbeddingStatsResponse | null> {
   try {
-    return await apiClient.post<EmbeddingStatsResponse>(AI_ENDPOINTS.EMBEDDING_STATS, {});
+    return await apiClient.silentPost<EmbeddingStatsResponse>(AI_ENDPOINTS.EMBEDDING_STATS, {});
   } catch (error) {
     logger.error('取得 Embedding 統計失敗:', error);
     return null;
@@ -354,7 +354,6 @@ export function streamRAGQuery(
   const RAG_TIMEOUT_MS = 30000; // 30s for RAG mode
   const timeoutId = setTimeout(() => controller.abort(), RAG_TIMEOUT_MS);
   const url = `${API_BASE_URL}${AI_ENDPOINTS.RAG_QUERY_STREAM}`;
-  const accessToken = localStorage.getItem('access_token');
 
   (async () => {
     try {
@@ -362,7 +361,6 @@ export function streamRAGQuery(
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify(params),
         signal: controller.signal,
@@ -371,8 +369,7 @@ export function streamRAGQuery(
 
       if (!response.ok) {
         clearTimeout(timeoutId);
-        const text = await response.text();
-        callbacks.onError?.(text || `HTTP ${response.status}`);
+        callbacks.onError?.(`RAG 服務異常 (HTTP ${response.status})`);
         callbacks.onDone(0, 'error');
         return;
       }
@@ -456,9 +453,8 @@ export function streamRAGQuery(
     } catch (err) {
       clearTimeout(timeoutId);
       if (err instanceof DOMException && err.name === 'AbortError') return;
-      const msg = err instanceof Error ? err.message : 'RAG 串流連線失敗';
-      logger.error('RAG SSE error:', msg);
-      callbacks.onError?.(msg);
+      logger.error('RAG SSE error:', err);
+      callbacks.onError?.('RAG 串流連線失敗');
       callbacks.onDone(0, 'error');
     }
   })();
@@ -469,20 +465,6 @@ export function streamRAGQuery(
 // ============================================================================
 // Agentic 問答
 // ============================================================================
-
-/** Agent 推理步驟 */
-export interface AgentStep {
-  type: 'thinking' | 'tool_call' | 'tool_result';
-  step_index: number;
-  // thinking
-  step?: string;
-  // tool_call
-  tool?: string;
-  params?: Record<string, unknown>;
-  // tool_result
-  summary?: string;
-  count?: number;
-}
 
 /** Agent SSE 事件回調 */
 export interface AgentStreamCallbacks {
@@ -496,19 +478,25 @@ export interface AgentStreamCallbacks {
 }
 
 /**
+ * 清除 Agent 對話記憶（伺服器端 Redis）
+ */
+export async function clearAgentConversation(sessionId: string): Promise<void> {
+  await apiClient.delete(AI_ENDPOINTS.AGENT_CONVERSATION_CLEAR(sessionId));
+}
+
+/**
  * Agentic 串流問答（SSE）
  *
  * 傳回 AbortController 供取消使用。
  */
 export function streamAgentQuery(
-  params: { question: string; history?: Array<{ role: string; content: string }> },
+  params: { question: string; history?: Array<{ role: string; content: string }>; session_id?: string },
   callbacks: AgentStreamCallbacks,
 ): AbortController {
   const controller = new AbortController();
   const AGENT_TIMEOUT_MS = 60000; // 60s for agent mode
   const timeoutId = setTimeout(() => controller.abort(), AGENT_TIMEOUT_MS);
   const url = `${API_BASE_URL}${AI_ENDPOINTS.AGENT_QUERY_STREAM}`;
-  const accessToken = localStorage.getItem('access_token');
 
   (async () => {
     try {
@@ -516,7 +504,6 @@ export function streamAgentQuery(
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify(params),
         signal: controller.signal,
@@ -525,8 +512,7 @@ export function streamAgentQuery(
 
       if (!response.ok) {
         clearTimeout(timeoutId);
-        const text = await response.text();
-        callbacks.onError?.(text || `HTTP ${response.status}`);
+        callbacks.onError?.(`Agent 服務異常 (HTTP ${response.status})`);
         callbacks.onDone(0, 'error', [], 0);
         return;
       }
@@ -638,9 +624,8 @@ export function streamAgentQuery(
     } catch (err) {
       clearTimeout(timeoutId);
       if (err instanceof DOMException && err.name === 'AbortError') return;
-      const msg = err instanceof Error ? err.message : 'Agent 串流連線失敗';
-      logger.error('Agent SSE error:', msg);
-      callbacks.onError?.(msg);
+      logger.error('Agent SSE error:', err);
+      callbacks.onError?.('Agent 串流連線失敗');
       callbacks.onDone(0, 'error', [], 0);
     }
   })();
@@ -668,7 +653,7 @@ export async function submitAIFeedback(
 
 export async function getAIFeedbackStats(): Promise<AIFeedbackStatsResponse | null> {
   try {
-    return await apiClient.post<AIFeedbackStatsResponse>(AI_ENDPOINTS.FEEDBACK_STATS, {});
+    return await apiClient.silentPost<AIFeedbackStatsResponse>(AI_ENDPOINTS.FEEDBACK_STATS, {});
   } catch (error) {
     logger.error('取得回饋統計失敗:', error);
     return null;
@@ -677,7 +662,7 @@ export async function getAIFeedbackStats(): Promise<AIFeedbackStatsResponse | nu
 
 export async function getAnalyticsOverview(): Promise<AIAnalyticsOverviewResponse | null> {
   try {
-    return await apiClient.post<AIAnalyticsOverviewResponse>(AI_ENDPOINTS.ANALYTICS_OVERVIEW, {});
+    return await apiClient.silentPost<AIAnalyticsOverviewResponse>(AI_ENDPOINTS.ANALYTICS_OVERVIEW, {});
   } catch (error) {
     logger.error('取得使用分析失敗:', error);
     return null;
@@ -699,8 +684,8 @@ export async function getDocumentAnalysis(
   documentId: number
 ): Promise<DocumentAIAnalysisResponse | null> {
   try {
-    return await apiClient.post<DocumentAIAnalysisResponse>(
-      `${AI_ENDPOINTS.ANALYSIS_GET}/${documentId}`,
+    return await apiClient.silentPost<DocumentAIAnalysisResponse>(
+      AI_ENDPOINTS.ANALYSIS_GET(documentId),
       {}
     );
   } catch {
@@ -714,7 +699,7 @@ export async function triggerDocumentAnalysis(
   force: boolean = false
 ): Promise<DocumentAIAnalysisResponse> {
   return apiClient.post<DocumentAIAnalysisResponse>(
-    `${AI_ENDPOINTS.ANALYSIS_TRIGGER}/${documentId}/analyze`,
+    AI_ENDPOINTS.ANALYSIS_TRIGGER(documentId),
     { force }
   );
 }
@@ -733,7 +718,7 @@ export async function batchAnalyze(
 /** AI 分析覆蓋率統計 */
 export async function getAnalysisStats(): Promise<DocumentAIAnalysisStatsResponse | null> {
   try {
-    return await apiClient.post<DocumentAIAnalysisStatsResponse>(
+    return await apiClient.silentPost<DocumentAIAnalysisStatsResponse>(
       AI_ENDPOINTS.ANALYSIS_STATS,
       {}
     );

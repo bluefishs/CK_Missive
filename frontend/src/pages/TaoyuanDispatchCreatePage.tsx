@@ -16,7 +16,6 @@ import {
   Button,
   App,
   Card,
-  Modal,
   Typography,
   Space,
 } from 'antd';
@@ -43,7 +42,7 @@ const { Title } = Typography;
 export const TaoyuanDispatchCreatePage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const [form] = Form.useForm();
   const queryClient = useQueryClient();
 
@@ -234,7 +233,7 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
   });
 
   const handleCreateProject = useCallback((projectName: string) => {
-    Modal.confirm({
+    modal.confirm({
       title: '新增工程',
       content: (
         <div>
@@ -251,6 +250,7 @@ export const TaoyuanDispatchCreatePage: React.FC = () => {
         createProjectMutation.mutate(projectName);
       },
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [createProjectMutation]);
 
   // 選擇工程時自動加入關聯

@@ -458,7 +458,11 @@ export const BackupManagementPage: React.FC = () => {
     {
       title: '詳細資訊',
       dataIndex: 'details',
-      ellipsis: true
+      width: 250,
+      ellipsis: { showTitle: false },
+      render: (text: string) => text ? (
+        <Tooltip title={text} placement="topLeft"><span>{text}</span></Tooltip>
+      ) : '-'
     },
     {
       title: '操作者',

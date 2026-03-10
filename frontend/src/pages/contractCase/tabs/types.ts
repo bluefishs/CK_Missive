@@ -108,6 +108,7 @@ export interface CaseInfoFormValues {
   progress?: number;
   project_path?: string;
   notes?: string;
+  has_dispatch_management?: boolean;
 }
 
 /** 機關承辦表單值 */
