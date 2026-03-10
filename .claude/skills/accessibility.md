@@ -1,6 +1,10 @@
 ---
 name: accessibility
-description: 可訪問性 (Accessibility) 規範
+description: >
+  可訪問性 (Accessibility) 規範。處理 WCAG 2.1 AA 合規、ARIA 屬性、
+  鍵盤導航、螢幕閱讀器支援。當建立或修改前端元件、表單、Modal、
+  Table 時使用。即使使用者沒有明確提到 a11y，只要涉及 UI 互動
+  元件的新增或重構，都應參考此 skill。
 version: 1.0.0
 category: react
 triggers:

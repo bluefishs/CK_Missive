@@ -1,8 +1,8 @@
 # CK_Missive 強制性開發規範檢查清單
 
-> **版本**: 1.14.0
+> **版本**: 1.18.0
 > **建立日期**: 2026-01-11
-> **最後更新**: 2026-02-19
+> **最後更新**: 2026-03-10
 > **狀態**: 強制執行 - 所有開發任務啟動前必須檢視
 
 ---
@@ -44,7 +44,7 @@
 | **非同步資料庫查詢** | **Python 常見陷阱** | [清單 Q](#清單-q非同步資料庫查詢) |
 | **新功能部署上線** | **部署驗證規範** | [清單 R](#清單-r部署驗證-v1300-新增) |
 | **敏感功能開發** | **安全審查規範** | [清單 S](#清單-s安全審查-v1300-新增) |
-| **useEffect 中呼叫 API** | **無限迴圈防護** | [清單 T](#清單-tuseeffect-無限迴圈防護-v1120-新增) |
+| **前端資料取得 / useEffect** | **React Query 強制 + 無限迴圈防護** | [清單 T](#清單-tuseeffect-無限迴圈防護--資料取得規範-v1180-更新) |
 | **重構/刪除模組** | **跨檔案引用安全** | [清單 U](#清單-u重構刪除模組安全-v1120-新增) |
 | **認證與安全變更** | **認證安全規範** | [清單 V](#清單-v認證與安全變更-v1120-新增) |
 
@@ -85,6 +85,8 @@
 - [ ] Python 語法檢查通過
 - [ ] 同步更新前端 `API_ENDPOINTS` 定義
 - [ ] API 端點文件更新（若需要）
+- [ ] **錯誤訊息不洩漏內部資訊**（禁止 `str(e)` 出現在 HTTPException detail 或 JSON response 中）
+- [ ] 所有端點均有適當認證（`require_auth()` 或 `require_admin()`）
 
 ---
 
@@ -708,56 +710,64 @@ pm2 logs ck-backend --lines 50 | grep -i "serialize\|serialization"
 
 ### ⚠️ 核心規範：禁止硬編碼 API 路徑
 
-**所有 API 呼叫必須使用 `API_ENDPOINTS` 常數**
+**所有 API 呼叫必須使用 `*_ENDPOINTS` 常數**（包含 `authService.ts` 等使用獨立 axios 的服務）
 
 ```typescript
 // ❌ 禁止：硬編碼路徑
 apiClient.post('/documents-enhanced/list', params);
-apiClient.get('/taoyuan-dispatch/projects/123');
+this.axios.post('/auth/login', formData);
 
 // ✅ 正確：使用集中管理的端點常數
-import { API_ENDPOINTS } from '../api/endpoints';
-apiClient.post(API_ENDPOINTS.DOCUMENTS.LIST, params);
-apiClient.get(`${API_ENDPOINTS.TAOYUAN_DISPATCH.PROJECTS.BASE}/${id}`);
+import { DOCUMENTS_ENDPOINTS } from '../api/endpoints';
+apiClient.post(DOCUMENTS_ENDPOINTS.LIST, params);
+
+import { AUTH_ENDPOINTS } from '../api/endpoints';
+this.axios.post(AUTH_ENDPOINTS.LOGIN, formData);
 ```
 
-### 端點命名規範
+### 端點類型規範 (v1.79.0 更新)
 
-| 類型 | 命名格式 | 範例 |
-|------|---------|------|
-| 列表查詢 | `{ENTITY}.LIST` | `API_ENDPOINTS.DOCUMENTS.LIST` |
-| 單筆查詢 | `{ENTITY}.GET` | `API_ENDPOINTS.DOCUMENTS.GET` |
-| 新增 | `{ENTITY}.CREATE` | `API_ENDPOINTS.PROJECTS.CREATE` |
-| 更新 | `{ENTITY}.UPDATE` | `API_ENDPOINTS.VENDORS.UPDATE` |
-| 刪除 | `{ENTITY}.DELETE` | `API_ENDPOINTS.AGENCIES.DELETE` |
-| 基礎路徑 | `{ENTITY}.BASE` | `API_ENDPOINTS.TAOYUAN_DISPATCH.BASE` |
+| 類型 | 定義方式 | 消費方式 | 適用場景 |
+|------|---------|---------|---------|
+| 靜態端點 | `LIST: '/path'` | `ENDPOINTS.LIST` | 固定路徑 |
+| 函數型端點（單參數） | `DETAIL: (id: number) => \`/path/${id}\`` | `ENDPOINTS.DETAIL(id)` | 含 1 個動態 ID |
+| 函數型端點（雙參數） | `DELETE: (pid: number, uid: number) => \`/path/${pid}/user/${uid}\`` | `ENDPOINTS.DELETE(pid, uid)` | 含 2 個動態 ID |
+
+**禁止字串拼接**：
+```typescript
+// ❌ 禁止：手動拼接路徑 → 應改為函數型端點
+apiClient.post(`${ENDPOINTS.ANALYSIS}/${documentId}`);
+
+// ✅ 正確：使用函數型端點
+apiClient.post(ENDPOINTS.ANALYSIS_GET(documentId));
+```
 
 ### 新增端點流程
 
-1. **後端建立 API 端點**
-2. **更新前端 `endpoints.ts`**
-   ```typescript
-   export const API_ENDPOINTS = {
-     NEW_MODULE: {
-       BASE: '/new-module',
-       LIST: '/new-module/list',
-       CREATE: '/new-module/create',
-     }
-   };
-   ```
-3. **在呼叫處使用常數**
+1. **後端建立 API 路由**
+2. **更新前端 `endpoints.ts`**（靜態或函數型）
+3. **新增端點測試**（`endpoints.test.ts`）
+4. **在 API 服務檔案中使用常數**
+
+### ⚠️ 特別注意：authService.ts
+
+`authService.ts` 使用獨立的 `this.axios` 實例（非 apiClient），但仍**必須**使用端點常數：
+```typescript
+import { AUTH_ENDPOINTS, ADMIN_USER_MANAGEMENT_ENDPOINTS } from '../api/endpoints';
+this.axios.post(AUTH_ENDPOINTS.LOGIN, formData);
+this.axios.post(ADMIN_USER_MANAGEMENT_ENDPOINTS.PERMISSIONS_CHECK, { permission });
+```
 
 ### 開發前檢查
 - [ ] 確認需要呼叫的 API 是否已在 `endpoints.ts` 定義
-- [ ] 若無，先更新 `endpoints.ts`
+- [ ] 若無，先新增端點定義（含動態路由需用函數型）
+- [ ] 同時在 `endpoints.test.ts` 新增對應測試
 
 ### 開發後檢查
-- [ ] 搜尋硬編碼路徑：
-```bash
-grep -rn "apiClient\.\(get\|post\|put\|delete\).*'/\|\"/" frontend/src/ --include="*.ts" --include="*.tsx" | grep -v "endpoints"
-```
-- [ ] 確認新端點已加入 `API_ENDPOINTS`
+- [ ] 執行端點測試：`cd frontend && npx vitest run src/api/__tests__/endpoints.test.ts`
+- [ ] 確認新端點已加入 `*_ENDPOINTS` 常數
 - [ ] TypeScript 編譯通過
+- [ ] 無硬編碼路徑殘留（端點唯一性測試 + 服務匯入測試自動防護）
 
 ---
 
@@ -1364,17 +1374,66 @@ grep -r "password\|api_key\|secret" --include="*.py" --include="*.ts" .
 
 ---
 
-## 清單 T：useEffect 無限迴圈防護 (v1.12.0 新增)
+## 清單 T：useEffect 無限迴圈防護 + 資料取得規範 (v1.18.0 更新)
+
+### ⚠️ 核心規範：資料取得必須使用 React Query
+
+**所有 API 資料取得必須使用 `useQuery` / `useMutation`，禁止 useEffect + 直接 API 呼叫**
+
+```typescript
+// ❌ 禁止：useEffect + apiClient（繞過快取、去重、StrictMode 保護）
+const [data, setData] = useState(null);
+useEffect(() => {
+  apiClient.post('/api/endpoint', {}).then(setData);
+}, []);
+
+// ❌ 禁止：useCallback + useEffect 組合（同樣問題）
+const loadData = useCallback(async () => {
+  const result = await apiClient.post('/api/endpoint', params);
+  setData(result);
+}, [params]);
+useEffect(() => { loadData(); }, [loadData]);
+
+// ✅ 正確：使用 React Query
+const { data } = useQuery({
+  queryKey: ['entity', 'list', params],
+  queryFn: () => apiClient.post('/api/endpoint', params),
+  ...defaultQueryOptions.list,  // 30s staleTime
+});
+```
+
+**為什麼這很重要**：
+- React 18 StrictMode 會雙重呼叫 useEffect，直接 API 呼叫會發出 2 倍請求
+- 多個元件使用相同 API 時，React Query 自動去重；useEffect 則各自獨立請求
+- 頁面功能累積後，請求總數可輕易超過 RequestThrottler 閾值（GLOBAL_MAX=200/10s），觸發 429 熔斷
+
+**快取策略選擇**（`config/queryConfig.ts`）：
+
+| 資料類型 | 預設選項 | staleTime |
+|---------|---------|-----------|
+| 下拉選單 | `defaultQueryOptions.dropdown` | 10 分鐘 |
+| 列表資料 | `defaultQueryOptions.list` | 30 秒 |
+| 詳情資料 | `defaultQueryOptions.detail` | 1 分鐘 |
+| 統計資料 | `defaultQueryOptions.statistics` | 5 分鐘 |
+
+**useEffect 僅限以下用途**：
+- DOM 副作用（scroll, focus, resize 監聽）
+- 事件訂閱（WebSocket, CustomEvent）
+- 表單初始值同步（`form.setFieldsValue`）
+- 非 API 的 side-effect
 
 ### 事前檢查
+- [ ] **資料取得使用 `useQuery`（非 useEffect + apiClient）**
 - [ ] useEffect 依賴陣列中**不包含**任何 API 回應值 (total, count, data.length, unreadCount)
 - [ ] useEffect 中的 API 呼叫**不會**透過 setState 間接改變自身依賴
 - [ ] 若需要 API 回應的派生狀態，使用 `useMemo` 而非 useEffect
+- [ ] **統計/計數值從 query data 以 `useMemo` 推導，不另存 state**
 
 ### Code Review 必查項目
 - [ ] 確認無「state → useEffect → API → setState → re-render → useEffect」循環
 - [ ] catch 區塊中**不要**用 API 回應值覆蓋 state（避免二次觸發）
-- [ ] 優先使用 React Query 的 `useQuery` 而非 useEffect + 手動 fetch
+- [ ] **禁止 useEffect + apiClient/documentsApi/usersApi 等直接呼叫**
+- [ ] 已使用 `useQuery` 的頁面刷新改用 `queryClient.invalidateQueries()`
 
 ### 判斷規則
 
@@ -1385,7 +1444,20 @@ grep -r "password\|api_key\|secret" --include="*.py" --include="*.ts" .
 | 使用者選擇的 tab | data.length / isLoading |
 | 元件外部 props (非 API 回應) | refetch 回傳值 |
 
-**相關事故**: 2026-02-06 DocumentTabs.tsx 無限迴圈 → 後端 OOM → 全系統崩潰
+### 已知反模式修復案例
+
+| 檔案 | 原問題 | 修復方式 |
+|------|--------|---------|
+| `useFilterOptions.ts` | 4 個 useEffect + apiClient → StrictMode 8 次請求 | 3 個 useQuery + dropdown 快取 |
+| `DocumentTabs.tsx` | useEffect 依賴 total → 無限迴圈 | useQuery + useMemo |
+| `StaffPage.tsx` | useCallback + useEffect + apiClient | useQuery + useMemo 推導 stats |
+| `DocumentNumbersPage.tsx` | useCallback + useEffect 載入統計 | useDocumentStatistics() + useQuery |
+| `usePermissions.ts` | StrictMode 雙重呼叫 getCurrentUser() | loadedRef guard |
+| `useNavigationData.tsx` | 重複 mount effect + 權限 effect | 合併為單一 effect |
+
+**相關事故**:
+- 2026-02-06 DocumentTabs.tsx 無限迴圈 → 後端 OOM → 全系統崩潰
+- 2026-03-10 useFilterOptions 等累積請求超過 Throttler → 持續 429 熔斷
 
 ---
 
@@ -1419,12 +1491,14 @@ grep -r "password\|api_key\|secret" --include="*.py" --include="*.ts" .
 - [ ] Refresh token 刷新後舊 token 已撤銷（Token Rotation）
 - [ ] 並發敏感的 DB 操作使用 `SELECT FOR UPDATE` 防競態
 - [ ] 公開端點不暴露 `auth_disabled`、`debug`、檔案路徑等內部資訊
+- [ ] **所有 except 區塊的錯誤訊息不含 `str(e)`**（禁止洩漏至 HTTPException detail 或 JSON response）
 - [ ] 診斷/開發頁面包裹 `ProtectedRoute roles={['admin']}`
 - [ ] SECRET_KEY 在 .env 中已設定固定值（非 `dev_only_` 開頭）
 - [ ] 前端 `useIdleTimeout` 已啟用於認證頁面
 - [ ] 跨分頁 `storage` 事件同步已整合於 authService
 - [ ] 啟動時 token 驗證（`validateTokenOnStartup`）已整合於 useAuthGuard
 - [ ] 日誌中不包含密碼 hash、token 值或其他敏感資料
+- [ ] 所有端點均有適當認證 (`require_auth()` / `require_admin()`)，CSRF 不等於認證
 
 ### 相關檔案
 
@@ -1476,9 +1550,9 @@ Docker (基礎設施)          PM2 (應用服務)
 |------|------|
 | `docker-compose.infra.yml` | 基礎設施 Compose |
 | `docker-compose.dev.yml` | 全 Docker Compose |
-| `scripts/dev-start.ps1` | 統一管理腳本 v2.0.0 |
-| `scripts/dev-stop.ps1` | 停止腳本 |
-| `scripts/start-backend.ps1` | 後端啟動 wrapper v2.0.0 |
+| `scripts/dev/dev-start.ps1` | 統一管理腳本 v2.0.0 |
+| `scripts/dev/dev-stop.ps1` | 停止腳本 |
+| `scripts/dev/start-backend.ps1` | 後端啟動 wrapper v2.0.0 |
 | `ecosystem.config.js` | PM2 配置 |
 
 ---
@@ -1529,6 +1603,7 @@ if os.environ.get("PGVECTOR_ENABLED", "").lower() == "true":
 
 | 版本 | 日期 | 說明 |
 |------|------|------|
+| 1.18.0 | 2026-03-10 | **強化清單 T**（資料取得必須使用 React Query、禁止 useEffect+apiClient、快取策略表、反模式修復案例）- 429 熔斷事故根因修復 |
 | 1.14.0 | 2026-02-19 | **更新清單 H**（加入 Schema-ORM 對齊規則、前端 SSOT 規則）- v17.2.0 SSOT 全面強化 |
 | 1.13.0 | 2026-02-09 | **新增清單 W、X**（Docker+PM2 混合環境、Feature Flags）- v1.53.0 開發環境韌性強化 |
 | 1.12.0 | 2026-02-07 | **新增清單 T、U、V**（useEffect 無限迴圈防護、重構/刪除模組安全、認證與安全變更）- 連鎖崩潰事故後建立 + 認證安全規範 |

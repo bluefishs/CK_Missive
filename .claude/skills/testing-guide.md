@@ -1,6 +1,10 @@
 ---
 name: testing-guide
-description: 測試編寫、測試執行、覆蓋率
+description: >
+  測試框架指南：pytest 後端測試、Jest/Vitest 前端測試、覆蓋率追蹤。
+  當需要撰寫單元測試、整合測試、mock 設定、fixture 建立時使用。
+  即使使用者只是說「幫我加測試」或「這個函數需要測試」，
+  也應觸發此 skill 確保遵循專案測試慣例。
 version: 1.0.0
 category: shared
 triggers:

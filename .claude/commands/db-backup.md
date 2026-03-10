@@ -40,47 +40,47 @@ curl -X POST http://localhost:8001/api/backup/list \
 
 ### 執行完整備份（資料庫 + 附件）
 ```powershell
-powershell -ExecutionPolicy Bypass -File "C:\GeminiCli\CK_Missive\scripts\backup\db_backup.ps1" -Verbose
+powershell -ExecutionPolicy Bypass -File "D:\CKProject\CK_Missive\scripts\backup\db_backup.ps1" -Verbose
 ```
 
 ### 僅備份資料庫
 ```powershell
-powershell -ExecutionPolicy Bypass -File "C:\GeminiCli\CK_Missive\scripts\backup\db_backup.ps1" -DatabaseOnly -Verbose
+powershell -ExecutionPolicy Bypass -File "D:\CKProject\CK_Missive\scripts\backup\db_backup.ps1" -DatabaseOnly -Verbose
 ```
 
 ### 僅備份附件
 ```powershell
-powershell -ExecutionPolicy Bypass -File "C:\GeminiCli\CK_Missive\scripts\backup\db_backup.ps1" -AttachmentsOnly -Verbose
+powershell -ExecutionPolicy Bypass -File "D:\CKProject\CK_Missive\scripts\backup\db_backup.ps1" -AttachmentsOnly -Verbose
 ```
 
 ### 備份到指定路徑（NAS/外接硬碟）
 ```powershell
-powershell -ExecutionPolicy Bypass -File "C:\GeminiCli\CK_Missive\scripts\backup\db_backup.ps1" -TargetPath "D:\Backup\CK_Missive" -Verbose
+powershell -ExecutionPolicy Bypass -File "D:\CKProject\CK_Missive\scripts\backup\db_backup.ps1" -TargetPath "D:\Backup\CK_Missive" -Verbose
 ```
 
 ### 查看可用備份
 ```powershell
-powershell -ExecutionPolicy Bypass -File "C:\GeminiCli\CK_Missive\scripts\backup\db_restore.ps1" -List
+powershell -ExecutionPolicy Bypass -File "D:\CKProject\CK_Missive\scripts\backup\db_restore.ps1" -List
 ```
 
 ### 還原最新備份
 ```powershell
-powershell -ExecutionPolicy Bypass -File "C:\GeminiCli\CK_Missive\scripts\backup\db_restore.ps1" -Latest
+powershell -ExecutionPolicy Bypass -File "D:\CKProject\CK_Missive\scripts\backup\db_restore.ps1" -Latest
 ```
 
 ### 設定每日自動備份
 需要以管理員身分執行：
 ```powershell
-powershell -ExecutionPolicy Bypass -File "C:\GeminiCli\CK_Missive\scripts\backup\setup_scheduled_task.ps1"
+powershell -ExecutionPolicy Bypass -File "D:\CKProject\CK_Missive\scripts\backup\setup_scheduled_task.ps1"
 ```
 
 ## 備份位置
 
 | 類型 | 預設路徑 |
 |------|---------|
-| 資料庫備份 | `C:\GeminiCli\CK_Missive\backups\database\` |
-| 附件備份 | `C:\GeminiCli\CK_Missive\backups\attachments\` |
-| 備份日誌 | `C:\GeminiCli\CK_Missive\logs\backup\` |
+| 資料庫備份 | `D:\CKProject\CK_Missive\backups\database\` |
+| 附件備份 | `D:\CKProject\CK_Missive\backups\attachments\` |
+| 備份日誌 | `D:\CKProject\CK_Missive\logs\backup\` |
 
 ## 備份策略
 
@@ -140,7 +140,7 @@ manifest_20260129_120000.json  # 變更記錄
 增量備份支援同步到異地備份路徑（如 NAS）：
 
 ```
-本地: C:\GeminiCli\CK_Missive\backups\attachments\attachments_latest\
+本地: D:\CKProject\CK_Missive\backups\attachments\attachments_latest\
 異地: Z:\backup\attachments_latest\
 ```
 
@@ -168,20 +168,20 @@ docker exec ck_missive_postgres_dev pg_dump -U ck_user -d ck_documents > backup.
 cat backup.sql | docker exec -i ck_missive_postgres_dev psql -U ck_user -d ck_documents
 
 # 附件備份 (手動複製)
-xcopy /E /I "C:\GeminiCli\CK_Missive\backend\uploads" "D:\Backup\attachments"
+xcopy /E /I "D:\CKProject\CK_Missive\backend\uploads" "D:\Backup\attachments"
 ```
 
 ## 驗證備份完整性
 
 ```powershell
 # 檢查資料庫備份
-dir "C:\GeminiCli\CK_Missive\backups\database"
+dir "D:\CKProject\CK_Missive\backups\database"
 
 # 檢查附件備份
-dir "C:\GeminiCli\CK_Missive\backups\attachments"
+dir "D:\CKProject\CK_Missive\backups\attachments"
 
 # 檢視備份日誌
-Get-Content "C:\GeminiCli\CK_Missive\logs\backup\backup_*.log" -Tail 50
+Get-Content "D:\CKProject\CK_Missive\logs\backup\backup_*.log" -Tail 50
 ```
 
 ## 故障排除
@@ -193,7 +193,7 @@ Get-Content "C:\GeminiCli\CK_Missive\logs\backup\backup_*.log" -Tail 50
    ```
 2. 檢查日誌：
    ```powershell
-   Get-Content "C:\GeminiCli\CK_Missive\logs\backup\backup_*.log" -Tail 50
+   Get-Content "D:\CKProject\CK_Missive\logs\backup\backup_*.log" -Tail 50
    ```
 
 ### 磁碟空間不足

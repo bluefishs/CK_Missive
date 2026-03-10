@@ -1,7 +1,7 @@
 ---
 name: type-management
 description: 後端 Schema 定義、前端型別定義、型別同步
-version: 1.1.0
+version: 1.2.0
 category: backend
 triggers:
   - 型別
@@ -11,7 +11,10 @@ triggers:
   - TypeScript
   - BaseModel
   - interface
-updated: '2026-01-21'
+  - Schema 繼承
+  - ge
+  - le
+updated: '2026-03-04'
 ---
 
 # 型別管理規範 (Type Management Guide)
@@ -72,7 +75,12 @@ backend/app/schemas/
 ├── backup.py              # 備份
 ├── case.py                # 案件
 ├── secure.py              # 安全請求/回應
-└── site_management.py     # 網站管理
+├── site_management.py     # 網站管理
+└── taoyuan/               # 桃園派工 (子目錄)
+    ├── __init__.py
+    ├── dispatch.py         # 派工單 Schema
+    ├── project.py          # 工程 Schema
+    └── work_record.py      # 作業紀錄 Schema
 ```
 
 ### 命名慣例
@@ -97,6 +105,27 @@ class MyRequest(BaseModel):  # 禁止！
 # ✅ 正確：從 schemas 匯入
 from app.schemas.xxx import MyRequest
 ```
+
+---
+
+## Schema 繼承原則 (v1.2.0 新增)
+
+### Base Schema（回應用）禁止輸入驗證約束
+
+```python
+# ❌ 危險：Base Schema 加 ge/le 會導致歷史資料序列化 500
+class DispatchOrderBase(BaseModel):
+    batch_no: Optional[int] = Field(None, ge=1, le=5)  # DB 有 batch_no=0 → 500!
+
+# ✅ 正確：Base 只放型別，驗證放 Create/Update
+class DispatchOrderBase(BaseModel):
+    batch_no: Optional[int] = None  # 回應用，不加約束
+
+class DispatchOrderUpdate(BaseModel):
+    batch_no: Optional[int] = Field(None, ge=1, le=5)  # 輸入用，可加約束
+```
+
+**規則**: `ge=`, `le=`, `min_length=`, `max_length=` 等驗證約束**只放** Create/Update Schema，Base Schema（回應用）只放型別定義。DB 中可能存在不符合新約束的歷史資料。
 
 ---
 
@@ -402,6 +431,7 @@ field?: number;  // 或 field: number | null;
 
 | 版本 | 日期 | 說明 |
 |------|------|------|
+| 1.2.0 | 2026-03-04 | **新增 Schema 繼承原則**（回應 Schema 禁 ge/le）+ `schemas/taoyuan/` 子目錄 |
 | 1.1.0 | 2026-01-21 | **新增 Schema-DB 類型一致性章節**（類型不一致案例、解決方案、檢查清單） |
 | 1.0.0 | 2026-01-18 | 初版建立，包含 SSOT 架構、OpenAPI 自動生成、命名規範 |
 

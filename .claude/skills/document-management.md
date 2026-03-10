@@ -1,6 +1,10 @@
 ---
 name: document-management
-description: 公文 CRUD、流水序號、附件管理
+description: >
+  公文管理領域知識：收發文 CRUD、流水序號自動編排、附件上傳與管理、
+  文號格式解析。當涉及公文建立/編輯/查詢/匯出、字號規則、
+  附件處理時使用。即使使用者只是提到「發文」「來文」或具體文號，
+  也應觸發此 skill。
 version: 1.0.0
 category: project
 triggers:

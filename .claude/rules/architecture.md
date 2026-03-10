@@ -9,7 +9,14 @@ CK_Missive/
 ├── frontend/                   # React 前端
 ├── configs/                    # 外部配置 (PostgreSQL tuning, init.sql)
 ├── docs/                       # 文件目錄
-├── scripts/                    # 腳本目錄 (啟動、維護、檢查)
+├── scripts/                    # 腳本目錄 (分類組織)
+│   ├── dev/                    #   開發工具 (dev-start, dev-stop, start-backend)
+│   ├── checks/                 #   驗證檢查 (architecture, api, route, skills-sync)
+│   ├── health/                 #   系統健康 (health_check, monitor)
+│   ├── deploy/                 #   部署腳本 (deploy-nas)
+│   ├── init/                   #   初始化/配置 (database-init, config-manager)
+│   ├── backup/                 #   備份腳本
+│   └── archive/                #   過時腳本存檔
 ├── .env                        # 環境設定 (唯一來源)
 ├── docker-compose.infra.yml    # 基礎設施 Compose (PostgreSQL+Redis)
 ├── docker-compose.dev.yml      # 全 Docker 開發 Compose
@@ -20,18 +27,23 @@ CK_Missive/
 
 ## 後端模型結構
 
-ORM 模型統一位於 `backend/app/extended/models.py`，按 8 個模組分區：
+ORM 模型位於 `backend/app/extended/models/` 目錄，拆分為多個子模組：
 
-| 模組 | 包含模型 |
-|------|----------|
-| 1. 關聯表 | project_vendor_association, project_user_assignment |
-| 2. 基礎實體 | PartnerVendor, ContractProject, GovernmentAgency, User |
-| 3. 公文模組 | OfficialDocument, DocumentAttachment |
-| 4. 行事曆模組 | DocumentCalendarEvent, EventReminder |
-| 5. 系統模組 | SystemNotification, UserSession, SiteNavigationItem, SiteConfiguration |
-| 6. 專案人員模組 | ProjectAgencyContact, StaffCertification |
-| 7. 桃園派工模組 | TaoyuanProject, TaoyuanDispatchOrder, TaoyuanDispatchProjectLink, etc. |
-| 8. AI 模組 | DocumentEntity, EntityRelation, CanonicalEntity, EntityAlias, DocumentEntityMention, AIPromptTemplate, AISynonym, SearchHistory |
+```
+backend/app/extended/models/
+├── __init__.py          # 統一匯出所有模型
+├── _base.py             # Base, pgvector 條件載入
+├── associations.py      # 關聯表 (project_vendor, project_user)
+├── core.py              # 基礎實體 (Vendor, ContractProject, Agency, User)
+├── document.py          # 公文模組 (OfficialDocument, Attachment)
+├── calendar.py          # 行事曆 (CalendarEvent, Reminder)
+├── system.py            # 系統 (Notification, Session, Navigation, Config)
+├── staff.py             # 專案人員 (AgencyContact, Certification)
+├── taoyuan.py           # 桃園派工 (Project, DispatchOrder, WorkRecord, etc.)
+├── entity.py            # 實體識別 (DocumentEntity, EntityRelation)
+├── knowledge_graph.py   # 知識圖譜 (CanonicalEntity, Alias, Mention)
+└── ai_analysis.py       # AI 分析 (PromptTemplate, Synonym, SearchHistory)
+```
 
 ## 後端 Service 層結構
 
@@ -71,7 +83,7 @@ backend/app/services/
 │   └── batch_create_events.py  # 批次建立事件
 ├── strategies/                 # 策略模式
 │   └── agency_matcher.py       # 機關智慧匹配
-├── taoyuan/                    # 桃園派工服務
+├── taoyuan/                    # 桃園派工服務 (dispatch_import/order/payment + enrichment)
 ├── backup/                     # 備份服務套件 (v3.0.0)
 │   ├── __init__.py             # BackupService (組合 4 個 Mixin)
 │   ├── utils.py                # Docker 偵測、路徑、環境、日誌
@@ -85,11 +97,6 @@ backend/app/services/
 ├── project_service.py          # 專案服務
 ├── vendor_service.py           # 廠商服務
 ├── audit_service.py            # 審計服務 (獨立 session)
-├── calendar/                   # 行事曆服務
-│   ├── event_auto_builder.py   # 事件自動建立
-│   └── batch_create_events.py  # 批次建立事件
-├── strategies/                 # 策略模式
-│   └── agency_matcher.py       # 機關智慧匹配
 └── *_service.py                # 其他業務服務
 ```
 
@@ -122,7 +129,30 @@ backend/app/api/endpoints/
 
 ## 前端元件結構
 
-DocumentOperations 相關模組 (v1.13.0)：
+### 作業歷程模組 (v2.0.0)
+
+```
+frontend/src/components/taoyuan/workflow/
+├── workCategoryConstants.ts    # 里程碑/狀態/作業類別 統一常數 (SSOT 葉節點)
+├── chainConstants.ts           # 鏈式視圖專用常數
+├── chainUtils.ts               # buildChains + 公文配對 + 篩選/統計
+├── ChainTimeline.tsx           # 鏈式時間軸主元件
+├── InlineRecordCreator.tsx     # Tab 內 Inline 新增表單
+├── WorkflowTimelineView.tsx    # 批次分組時間軸
+├── WorkflowKanbanView.tsx      # Kanban 看板視圖
+├── CorrespondenceMatrix.tsx    # 雙欄公文對照
+├── CorrespondenceBody.tsx      # 對照內容
+├── useProjectWorkData.ts       # 工程作業資料 Hook
+├── useDispatchWorkData.ts      # 派工單作業資料 Hook
+├── useDeleteWorkRecord.ts      # 共用刪除 mutation
+├── useWorkRecordColumns.tsx    # 共用表格欄位定義
+├── WorkRecordStatsCard.tsx     # 共用統計卡片 (dispatch/project 雙模式)
+├── index.ts                    # 統一匯出
+└── __tests__/
+    └── chainUtils.test.ts      # 核心算法單元測試
+```
+
+### DocumentOperations 模組 (v1.13.0)
 
 ```
 frontend/src/components/document/operations/
@@ -153,16 +183,18 @@ frontend/src/types/
 └── index.ts            # 統一匯出 (含相容別名)
 ```
 
-## 前端全域錯誤處理 (v1.60.0)
+## 前端全域錯誤處理 (v1.79.0)
 
 ```
 frontend/src/api/errors.ts          # ApiException + ApiErrorBus 事件匯流排
 frontend/src/api/client.ts          # Axios 攔截器 → apiErrorBus.emit()
+frontend/src/api/throttler.ts       # RequestThrottler (GLOBAL_MAX=200) → 429 熔斷
 frontend/src/components/common/
-├── GlobalApiErrorNotifier.tsx       # 訂閱 ApiErrorBus，自動顯示 403/5xx/網路錯誤
+├── GlobalApiErrorNotifier.tsx       # 訂閱 ApiErrorBus，自動顯示 429/403/5xx/網路錯誤
 └── ...
 ```
 
 錯誤分流規則：
 - **業務錯誤** (400/409/422): 元件自行 catch 處理
-- **全域錯誤** (403/5xx/網路): `GlobalApiErrorNotifier` 自動通知，3 秒去重
+- **全域錯誤** (403/429/5xx/網路): `GlobalApiErrorNotifier` 自動通知，3 秒去重
+- **429 熔斷**: `RequestThrottler` 超過上限 → `ApiException(429)` → 用戶通知

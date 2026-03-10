@@ -97,19 +97,19 @@ GET http://localhost:3000/admin/dashboard → 200 OK ✓
 
 ### **開發環境配置調整**:
 
-1. **後端認證設定** (`C:\GeminiCli\CK_Missive\.env`):
+1. **後端認證設定** (`D:\CKProject\CK_Missive\.env`):
    ```env
    AUTH_DISABLED=true  # 開發模式下停用認證檢查
    ```
 
-2. **前端 OAuth 設定** (`C:\GeminiCli\CK_Missive\frontend\.env.development`):
+2. **前端 OAuth 設定** (`D:\CKProject\CK_Missive\frontend\.env.development`):
    ```env
    VITE_GOOGLE_CLIENT_ID=  # 暫時停用 Google OAuth
    ```
 
 ### **服務重新啟動**:
 ```bash
-cd /c/GeminiCli/CK_Missive/configs
+cd /d/CKProject/CK_Missive/configs
 cp ../.env .env
 docker-compose restart backend frontend
 ```

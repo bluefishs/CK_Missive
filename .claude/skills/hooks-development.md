@@ -1,41 +1,23 @@
 ---
 name: hooks-development
-description: Claude Code Hooks 開發指南
+description: >
+  Claude Code Hooks 開發指南：PreToolUse/PostToolUse/SessionStart 等
+  事件的 hook 建立與維護、settings.json 三層巢狀配置、stdin JSON 協議。
+  當需要新增自動化檢查鉤子、修改現有 hook 行為、或排查 hook 觸發
+  問題時使用。即使使用者只是提到「自動檢查」或「寫完自動跑」，
+  也應觸發此 skill。
 version: 1.0.0
 category: project
 triggers:
-  - h
-  - o
-  - o
-  - k
-  - ,
-  -  
-  - h
-  - o
-  - o
-  - k
-  - s
-  - ,
-  -  
-  - 鉤
-  - 子
-  - ,
-  -  
-  - a
-  - u
-  - t
-  - o
-  - m
-  - a
-  - t
-  - i
-  - o
-  - n
-  - ,
-  -  
-  - 自
-  - 動
-  - 化
+  - hook
+  - hooks
+  - 鉤子
+  - automation
+  - 自動化
+  - PreToolUse
+  - PostToolUse
+  - SessionStart
+  - settings.json
 updated: '2026-02-26'
 ---
 

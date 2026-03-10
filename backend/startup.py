@@ -173,14 +173,14 @@ def main():
         # 導致 PM2 看到進程退出而觸發重啟迴圈。
         # 改用 subprocess.run 保持阻塞，PM2 追蹤此 Python 進程。
         result = subprocess.run(
-            [sys.executable, "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"],
+            [sys.executable, "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"],
         )
         sys.exit(result.returncode)
     else:
         # Linux/macOS: os.execvp 正確替換進程
         os.execvp(
             sys.executable,
-            [sys.executable, "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"],
+            [sys.executable, "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"],
         )
 
 

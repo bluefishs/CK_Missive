@@ -2,7 +2,10 @@
 
 ## GitHub Actions CI 整合
 
-位於 `.github/workflows/ci.yml`，觸發條件：PR to main/develop、每夜排程、手動觸發。
+> **⚠️ 所有 GitHub Actions 自動觸發已停用 (2026-03-09) — 收費問題**
+> 所有 workflow 僅保留 `workflow_dispatch` 手動觸發。
+
+位於 `.github/workflows/ci.yml`，觸發條件：僅手動觸發 (workflow_dispatch)。
 
 | Job | 說明 |
 |-----|------|
@@ -22,9 +25,9 @@
 
 | 流程 | 觸發條件 |
 |------|---------|
-| `develop` → Staging | Push to develop |
-| `main` → Production | Push to main |
-| 手動觸發 | workflow_dispatch |
+| ~~`develop` → Staging~~ | ~~Push to develop~~ (已停用) |
+| ~~`main` → Production~~ | ~~Push to main~~ (已停用) |
+| 手動觸發 | workflow_dispatch (唯一有效方式) |
 
 **部署步驟**: prepare → test → build (Docker) → deploy → notify
 
@@ -34,8 +37,8 @@
 
 ```powershell
 # Skills 同步檢查 (42 項)
-powershell -File scripts/skills-sync-check.ps1
+powershell -File scripts/checks/skills-sync-check.ps1
 
 # 架構驗證 (7 項)
-cd backend && python ../scripts/verify_architecture.py
+cd backend && python ../scripts/checks/verify_architecture.py
 ```

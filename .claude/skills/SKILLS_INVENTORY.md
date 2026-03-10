@@ -13,24 +13,33 @@ updated: '2026-02-05'
 # Skills 清單與版本管理
 
 
-## 專案特定 Skills (頂層)
+## 專案特定 Skills (頂層) — 25 個
 
 | Skills 檔案 | 版本 | 狀態 | 最後更新 | 說明 |
 |-------------|------|------|----------|------|
-| `document-management.md` | 1.0.0 | ✅ 維護中 | 2026-01 | 公文管理領域知識 |
+| `accessibility.md` | 1.0.0 | ✅ 維護中 | 2026-02 | 可訪問性 (WCAG 2.1 AA) |
+| `ai-development.md` | 3.2.0 | ✅ 維護中 | 2026-02 | AI 功能開發規範 (Agent/NER/圖譜) |
+| `alembic-migrations.md` | 1.0.0 | ✅ 維護中 | 2026-02 | Alembic 遷移管理 |
+| `api-development.md` | 1.1.0 | ✅ 維護中 | 2026-01 | API 開發規範 |
+| `api-serialization.md` | 1.1.0 | ✅ 維護中 | 2026-01 | API 序列化規範 |
+| `caching-patterns.md` | 1.0.0 | ✅ 維護中 | 2026-02 | 快取策略 (Redis/React Query) |
 | `calendar-integration.md` | 1.2.0 | ✅ 維護中 | 2026-01 | 行事曆整合規範 |
-| `api-development.md` | 1.0.0 | ✅ 維護中 | 2026-01 | API 開發規範 |
-| `database-schema.md` | 1.0.0 | ✅ 維護中 | 2026-01 | 資料庫結構說明 |
-| `testing-guide.md` | 1.0.0 | ✅ 維護中 | 2026-01 | 測試框架指南 |
-| `frontend-architecture.md` | 1.4.0 | ✅ 維護中 | 2026-01 | 前端架構規範 |
-| `error-handling.md` | 1.1.0 | ✅ 維護中 | 2026-02 | 錯誤處理指南 |
-| `security-hardening.md` | 1.0.0 | ✅ 維護中 | 2026-01 | 安全加固指南 |
-| `type-management.md` | 1.1.0 | ✅ 維護中 | 2026-01 | 型別管理規範 (SSOT) |
-| `api-serialization.md` | 1.0.0 | ✅ 維護中 | 2026-01 | API 序列化規範 |
-| `python-common-pitfalls.md` | 1.0.0 | ✅ 維護中 | 2026-01 | Python 常見陷阱 |
-| `unicode-handling.md` | 1.0.0 | ✅ 維護中 | 2026-01 | Unicode 處理規範 |
 | `database-performance.md` | 1.0.0 | ✅ 維護中 | 2026-01 | 資料庫效能優化 |
+| `database-schema.md` | 1.3.0 | ✅ 維護中 | 2026-01 | 資料庫結構說明 |
 | `development-environment.md` | 1.0.0 | ✅ 維護中 | 2026-01 | 開發環境配置 |
+| `dispatch-import.md` | 1.0.0 | ✅ 維護中 | 2026-03 | 派工單匯入與公文關聯 |
+| `document-management.md` | 1.0.0 | ✅ 維護中 | 2026-01 | 公文管理領域知識 |
+| `error-handling.md` | 1.2.0 | ✅ 維護中 | 2026-02 | 錯誤處理指南 |
+| `frontend-architecture.md` | 1.5.0 | ✅ 維護中 | 2026-01 | 前端架構規範 |
+| `hooks-development.md` | 1.0.0 | ✅ 維護中 | 2026-02 | Hooks 開發指南 |
+| `knowledge-management.md` | 1.0.0 | ✅ 維護中 | 2026-02 | 知識管理 (ADR/架構圖) |
+| `python-common-pitfalls.md` | 1.0.0 | ✅ 維護中 | 2026-01 | Python 常見陷阱 |
+| `security-hardening.md` | 2.0.0 | ✅ 維護中 | 2026-02 | 安全加固指南 |
+| `skill-creator.md` | 1.0.0 | ✅ 維護中 | 2026-03 | Skill 建立/優化工作流 |
+| `testing-guide.md` | 1.0.0 | ✅ 維護中 | 2026-01 | 測試框架指南 |
+| `type-management.md` | 1.2.0 | ✅ 維護中 | 2026-03 | 型別管理規範 (SSOT) |
+| `unicode-handling.md` | 2.0.0 | ✅ 維護中 | 2026-03 | Unicode 處理 (CJK/康熙) |
+| `workflow-management.md` | 2.0.0 | ✅ 維護中 | 2026-03 | 作業歷程管理 |
 
 ---
 
@@ -106,15 +115,20 @@ PATCH: Bug 修復或小幅改善
 
 ## 清理記錄
 
+### 2026-03-10
+- 專案遷移至 `D:\CKProject\CK_Missive`，所有腳本路徑同步
+- 頂層 Skills 增至 25 個（新增 dispatch-import, skill-creator）
+- 更新 SKILLS_INVENTORY 計數與路徑引用
+
 ### 2026-02-05
 - 建立 Skills 清單與版本管理文件
-- 確認所有頂層 Skills 狀態：14 個維護中
+- 確認所有頂層 Skills 狀態：14 個維護中 → 23 個
 - 確認 Superpowers Skills 版本：v4.0.3
 
 ### 待處理項目
 - [ ] 評估 `_shared/shared/` 下較舊的 Skills 是否需要更新
-- [ ] 整合重複的除錯相關 Skills
-- [ ] 建立 Skills 自動化檢查腳本
+- [x] 整合重複的除錯相關 Skills（superpowers vs shared — 保留兩者，各有用途）
+- [x] 建立 Skills 自動化檢查腳本（`scripts/checks/skills-sync-check.ps1`）
 
 ---
 
@@ -124,4 +138,4 @@ PATCH: Bug 修復或小幅改善
 |------|------|
 | `README.md` | Skills 架構說明 |
 | `CLAUDE.md` | 專案配置與 Skills 觸發 |
-| `scripts/skills-sync-check.ps1` | Skills 同步檢查腳本 |
+| `scripts/checks/skills-sync-check.ps1` | Skills 同步檢查腳本 |

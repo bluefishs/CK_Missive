@@ -73,7 +73,7 @@
 
 ```powershell
 # 1. 開啟 PowerShell，進入專案目錄
-cd C:\GeminiCli\CK_Missive
+cd D:\CKProject\CK_Missive
 
 # 2. 執行部署腳本
 .\scripts\deploy-nas.ps1

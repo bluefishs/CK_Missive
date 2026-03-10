@@ -13,7 +13,7 @@ Claude Desktop 配置 (claude_desktop_config.json):
         "mcpServers": {
             "ck-missive": {
                 "command": "python",
-                "args": ["C:/GeminiCli/CK_Missive/backend/mcp_server.py"],
+                "args": ["<YOUR_PROJECT_ROOT>/backend/mcp_server.py"],
                 "env": {
                     "DATABASE_URL": "postgresql://...",
                     "MCP_SERVICE_TOKEN": "your-token-here"
@@ -22,8 +22,8 @@ Claude Desktop 配置 (claude_desktop_config.json):
         }
     }
 
-@version 1.2.0
-@date 2026-03-02
+@version 1.3.0
+@date 2026-03-07
 """
 
 import asyncio
@@ -49,6 +49,7 @@ load_dotenv(_project_root / ".env", override=True)
 os.environ.setdefault("PYTHONUTF8", "1")
 
 from mcp.server.fastmcp import FastMCP
+from app.services.ai.ai_config import get_ai_config
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger("mcp_server")
@@ -59,7 +60,6 @@ logger = logging.getLogger("mcp_server")
 
 _MAX_QUESTION_LENGTH = 500
 _MAX_QUERY_LENGTH = 200
-_QUERY_TIMEOUT_SECONDS = 90
 
 # ============================================================================
 # MCP Server 初始化
@@ -127,7 +127,7 @@ async def _execute_tool(tool_name: str, params: dict[str, Any]) -> str:
     async with _async_session() as db:
         from app.services.ai.agent_tools import AgentToolExecutor
         from app.services.ai.ai_config import get_ai_config
-        from app.services.ai.ai_connector import get_ai_connector
+        from app.core.ai_connector import get_ai_connector
         from app.services.ai.embedding_manager import EmbeddingManager
 
         executor = AgentToolExecutor(db, get_ai_connector(), EmbeddingManager(), get_ai_config())
@@ -360,16 +360,18 @@ async def ask_question(
             return json.dumps(result, ensure_ascii=False, indent=2, default=str)
 
     try:
-        return await asyncio.wait_for(_run_query(), timeout=_QUERY_TIMEOUT_SECONDS)
+        _timeout = get_ai_config().agent_sync_query_timeout
+        return await asyncio.wait_for(_run_query(), timeout=_timeout)
     except asyncio.TimeoutError:
+        _timeout = get_ai_config().agent_sync_query_timeout
         return json.dumps(
-            {"error": f"查詢逾時（{_QUERY_TIMEOUT_SECONDS} 秒）", "code": "TIMEOUT"},
+            {"error": f"查詢逾時（{_timeout} 秒）", "code": "TIMEOUT"},
             ensure_ascii=False,
         )
 
 
 # ============================================================================
-# MCP Resources — 系統資訊
+# MCP Resources — 系統資訊 + 知識圖譜瀏覽 + 公文瀏覽
 # ============================================================================
 
 
@@ -381,6 +383,8 @@ async def get_system_info() -> str:
         "version": os.getenv("PROJECT_VERSION", "3.1"),
         "description": "企業級公文管理系統，具備公文管理、派工追蹤、知識圖譜、AI 問答功能",
         "tools_count": 7,
+        "resources_count": 6,
+        "prompts_count": 3,
         "tools": [
             "search_documents — 公文搜尋（向量+關鍵字混合）",
             "search_dispatch_orders — 派工單搜尋",
@@ -393,6 +397,100 @@ async def get_system_info() -> str:
     }, ensure_ascii=False, indent=2)
 
 
+@mcp.resource("ck-missive://stats/overview")
+async def get_stats_overview() -> str:
+    """系統統計概覽：知識圖譜實體/關係數量、公文總數、高頻實體排行"""
+    return await _execute_tool("get_statistics", {})
+
+
+@mcp.resource("ck-missive://entities/top")
+async def get_top_entities_resource() -> str:
+    """知識圖譜中提及次數最多的前 20 個實體"""
+    async with _async_session() as db:
+        from app.services.ai.graph_query_service import GraphQueryService
+        svc = GraphQueryService(db)
+        entities = await svc.get_top_entities(limit=20)
+        return json.dumps(
+            {"entities": entities, "count": len(entities)},
+            ensure_ascii=False, indent=2, default=str,
+        )
+
+
+@mcp.resource("ck-missive://entities/{entity_id}")
+async def get_entity_resource(entity_id: int) -> str:
+    """取得特定知識圖譜實體的完整資料（別名、關係、關聯公文）"""
+    return await _execute_tool("get_entity_detail", {"entity_id": entity_id})
+
+
+@mcp.resource("ck-missive://entities/{entity_id}/neighbors")
+async def get_entity_neighbors_resource(entity_id: int) -> str:
+    """取得實體的 2-hop 鄰居圖（節點 + 邊）"""
+    async with _async_session() as db:
+        from app.services.ai.graph_query_service import GraphQueryService
+        svc = GraphQueryService(db)
+        result = await svc.get_neighbors(entity_id, max_hops=2, limit=50)
+        return json.dumps(result, ensure_ascii=False, indent=2, default=str)
+
+
+@mcp.resource("ck-missive://documents/{doc_id}/similar")
+async def get_similar_documents_resource(doc_id: int) -> str:
+    """取得與指定公文語意最相似的 5 篇公文"""
+    return await _execute_tool("find_similar", {"document_id": doc_id, "limit": 5})
+
+
+# ============================================================================
+# MCP Prompts — 預設查詢模板
+# ============================================================================
+
+
+@mcp.prompt()
+def document_search(topic: str) -> str:
+    """搜尋特定主題的公文並分析關鍵時程與相關機關
+
+    Args:
+        topic: 搜尋主題，例如「道路工程」「土地測量」「都市計畫」
+    """
+    return (
+        f"請搜尋與「{topic}」相關的公文，列出：\n"
+        f"1. 公文清單（含文號、主旨、日期）\n"
+        f"2. 關鍵時程與截止日\n"
+        f"3. 涉及的主要機關\n"
+        f"4. 若有派工單關聯，請一併列出"
+    )
+
+
+@mcp.prompt()
+def entity_exploration(entity_name: str) -> str:
+    """深入分析知識圖譜中某個實體的完整關聯網路
+
+    Args:
+        entity_name: 實體名稱，例如「桃園市政府工務局」「道路養護工程處」
+    """
+    return (
+        f"請分析「{entity_name}」的完整關聯網路：\n"
+        f"1. 先在知識圖譜中搜尋此實體\n"
+        f"2. 取得其詳細資料（別名、關係）\n"
+        f"3. 列出所有關聯的機關、專案和公文\n"
+        f"4. 整理為時間軸呈現互動歷程"
+    )
+
+
+@mcp.prompt()
+def dispatch_overview(project_name: str) -> str:
+    """查詢特定工程的派工單與公文關聯全貌
+
+    Args:
+        project_name: 工程名稱，例如「中壢區道路工程」「龜山區測量」
+    """
+    return (
+        f"請查詢「{project_name}」相關的完整資訊：\n"
+        f"1. 搜尋相關派工單紀錄\n"
+        f"2. 搜尋相關公文\n"
+        f"3. 整理派工單與公文的對應關係\n"
+        f"4. 列出作業進度與待辦事項"
+    )
+
+
 # ============================================================================
 # 入口點
 # ============================================================================
@@ -403,5 +501,5 @@ if __name__ == "__main__":
             "MCP_SERVICE_TOKEN 未設定。"
             "MCP Server 透過 stdio 通訊，存取控制由父 process 負責。"
         )
-    logger.info("Starting CK_Missive MCP Server (7 tools, 1 resource)...")
+    logger.info("Starting CK_Missive MCP Server (7 tools, 6 resources, 3 prompts)...")
     mcp.run()

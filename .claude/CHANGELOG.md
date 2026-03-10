@@ -4,6 +4,222 @@
 
 ---
 
+## [1.80.0] - 2026-03-10
+
+### 專案遷移 + 架構清理 + GitHub Actions 停用
+
+#### 路徑遷移 (C:\GeminiCli → D:\CKProject)
+- 全專案路徑替換：mcp_server.py、scripts、settings.local.json、docs 等
+- 修復 `.env` 中 `POSTGRES_HOST_PORT=5434` 被註解導致 DB 連線失敗
+
+#### 硬編碼消除
+- `scripts/check_consistency.py` → `Path(__file__)` 相對路徑
+- `backend/scripts/enrich_dispatch_from_master.py` → 相對路徑
+- `backend/execute_missing_tables.py` → `dotenv` + `os.getenv`
+- `backend/scripts/fix_doc_number_format.py` → `os.environ["DATABASE_URL"]`
+- `backend/scripts/regenerate_project_codes.py` → `os.environ["DATABASE_URL"]`
+- `backend/mcp_server.py` → `<YOUR_PROJECT_ROOT>` 佔位符
+
+#### GitHub Actions 停用（收費問題）
+- `ci.yml`：PR/排程觸發 → 僅 `workflow_dispatch` 手動觸發
+- `cd.yml`、`ci-e2e.yml`、`deploy-production.yml`：確認均已停用自動觸發
+
+#### 根目錄清理（18 個散落檔案）
+- SQL 備份 → `docs/archive/sql/`
+- 圖片資產 → `docs/archive/assets/`
+- 過時工具/文件 → `docs/archive/`
+- 臨時檔案 → 刪除 (openapi_temp.json, monitoring_config.json 等)
+
+#### Backend 腳本整理（27 個散落腳本）
+- 管理腳本 → `backend/scripts/admin/`
+- 修復腳本 → `backend/scripts/fixes/`
+- 過時腳本 → `backend/scripts/archive/`
+- 重複腳本 → 刪除 (setup_admin_fixed.py, setup_admin_simple.py)
+
+#### Scripts 目錄重組（31 個扁平腳本 → 6 個子目錄）
+- `scripts/dev/` — 開發工具 (dev-start, dev-stop, start-backend)
+- `scripts/checks/` — 驗證檢查 (verify_architecture, api-endpoints, skills-sync)
+- `scripts/health/` — 系統健康 (health_check, system_monitor)
+- `scripts/deploy/` — 部署腳本 (deploy-nas)
+- `scripts/init/` — 初始化/配置 (database-init, config-manager, port-manager)
+- `scripts/archive/` — 過時腳本存檔
+
+#### 垃圾清理
+- 刪除工件：`backend/=2.8.0`、`=2.0.32`、`nul`×3
+- 刪除異常目錄：`backend/C:/`、`backend/backend/`
+- 日誌清理：343MB → 10MB（釋放 333MB）
+
+#### 配置修復
+- `vite.config.ts`：OpenAPI 代理 8002 → 8001
+- `package.json`：npm scripts 路徑同步至新目錄結構
+- `.env`：移除 UTF-8 BOM 編碼
+- `.gitignore`：新增 archive 目錄、ruff cache、pip 工件規則
+
+#### 文件更新
+- `CLAUDE.md`：scripts 路徑更新
+- `.claude/rules/architecture.md`：scripts 目錄結構描述
+- `.claude/rules/ci-cd.md`：GitHub Actions 停用說明
+- `.claude/rules/skills-inventory.md`：verify_architecture 路徑
+- `.claude/MANDATORY_CHECKLIST.md`：腳本路徑同步
+- `.claude/DEVELOPMENT_GUIDELINES.md`：腳本路徑同步
+- `.claude/commands/db-backup.md`：備份路徑更新
+
+---
+
+## [1.79.0] - 2026-03-06
+
+### API 端點 SSOT 強化 — 零硬編碼 + 自動防護測試
+
+**Fix: AI 端點重複值導致測試失敗 (P0)**:
+- `AI_ENDPOINTS.ANALYSIS_GET` / `ANALYSIS_TRIGGER` 從靜態字串改為函數型端點
+- `adminManagement.ts` 消費者改用函數呼叫（消除字串拼接）
+
+**Fix: PROJECT_STAFF_ENDPOINTS 定義與後端不符 (P1)**:
+- `DELETE` 從單參數改為雙參數 `(projectId, userId)`
+- 新增 `PROJECT_LIST(projectId)` 和 `UPDATE(projectId, userId)`
+
+**Fix: 端點定義缺失 (P1)**:
+- `AUTH_ENDPOINTS` 新增 `GOOGLE`、`REGISTER`、`CHECK` 三個端點
+- `ADMIN_USER_MANAGEMENT_ENDPOINTS` 新增 `PERMISSIONS_CHECK`
+
+**Refactor: 消除全部硬編碼 API 路徑 (21 處 → 0 處)**:
+- `authService.ts` 7 處 → 改用 `AUTH_ENDPOINTS` / `ADMIN_USER_MANAGEMENT_ENDPOINTS`
+- `projectStaffApi.ts` 5 處 → 改用 `PROJECT_STAFF_ENDPOINTS`
+- `projectVendorsApi.ts` 5 處 → 改用 `PROJECT_VENDORS_ENDPOINTS`
+- `useDropdownData.ts` 2 處 → 改用 `PROJECTS_ENDPOINTS` / `USERS_ENDPOINTS`
+- `adminManagement.ts` 2 處 → 改用函數型端點
+
+**Test: 端點自動防護測試**:
+- 新增 AI 分析持久化端點動態路徑測試
+- 更新 `PROJECT_STAFF_ENDPOINTS` 測試（雙參數驗證）
+- 新增 `AUTH_ENDPOINTS` GOOGLE/REGISTER/CHECK 測試
+- 新增 `ADMIN_USER_MANAGEMENT_ENDPOINTS.PERMISSIONS_CHECK` 測試
+- 新增 12 個 API 服務檔案匯入驗證測試
+
+**Doc: 系統文件同步**:
+- `CHANGELOG.md` 新增 v1.79.0 記錄
+- `MANDATORY_CHECKLIST.md` 清單 L 新增函數型端點規範 + authService 注意事項
+- `DEVELOPMENT_GUIDELINES.md` 新增常見錯誤 #15（硬編碼 API 路徑）
+- `architecture.md` 更新全域錯誤處理區塊（新增 429 + CircuitBreaker）
+- `skills-inventory.md` 新增 v1.79.0 元件清單
+- `memory/MEMORY.md` 同步更新版本里程碑
+
+**異動檔案**: 13 個檔案 (1 endpoints + 5 api/service + 1 hooks + 6 docs)
+
+**驗證結果**: 端點測試 99 passed (↑13), TypeScript 0 errors, 生產碼零硬編碼
+
+---
+
+## [1.78.0] - 2026-03-05
+
+### 系統規範更新 + 文件同步 + 架構盤點
+
+**Doc: 系統規範文件同步**:
+- `skills-inventory.md` 新增 v1.77.0 作業歷程共用模組區塊（WorkRecordStatsCard, useWorkRecordColumns, useDeleteWorkRecord, workCategoryConstants）
+- `architecture.md` 新增 workflow/ 前端元件結構（16 檔完整清單）
+- `code-review.md` agent 新增 str(e) 洩漏審查項目、架構規範引用更新
+- `MANDATORY_CHECKLIST.md` v1.16.0、`DEVELOPMENT_GUIDELINES.md` 新增安全快速檢查步驟
+
+**Security Fix #1: str(e) 殘留洩漏 (7 處使用者可見)**:
+- `files/upload.py` 3 處：讀取/儲存/附件記錄失敗 → 通用訊息 + logger.error
+- `files/storage.py` 2 處：write_error/network_error → 通用訊息 + logger.error
+- `documents/crud.py` 1 處：附件刪除錯誤 → 通用訊息 + logger.error
+- `taoyuan_dispatch/attachments.py` 1 處：上傳失敗 → 通用訊息 + logger
+
+**Security Fix #2: SSE 認證統一 (XSS 風險降低)**:
+- `coreFeatures.ts` streamSummary() — 移除 localStorage.getItem('access_token')
+- `adminManagement.ts` streamRAGQuery() + streamAgentQuery() — 同上
+- 統一使用 `credentials: 'include'` 自動傳送 httpOnly cookie
+
+**Security Fix #3: python-jose CVE 遷移**:
+- `requirements.txt` python-jose[cryptography]==3.3.0 → PyJWT>=2.8.0
+- `auth_service.py` from jose import → import jwt + PyJWTError
+- `oauth.py` + `mfa.py` from jose import jwt → import jwt
+- 51 個認證測試全部通過
+
+**Test: 新增單元測試 (59 tests)**:
+- `test_doc_number_parser.py` — 21 tests (clean_doc_number + parse_doc_numbers)
+- `test_dispatch_enrichment.py` — 38 tests (parse_roc_date + parse_sequence_no + parse_amount + safe_cell + parse_doc_line)
+
+**異動檔案**: 17 個檔案 (7 backend endpoints + 3 auth + 2 frontend SSE + 2 test + 3 docs)
+
+---
+
+## [1.77.0] - 2026-03-04
+
+### 作業進度多類型顯示 + 公文對照矩陣統一 + 統計卡片重構
+
+**Feature: 作業進度按作業類別分組顯示**:
+- 新增 `WorkTypeStageInfo` 型別（workType + stage + status + total + completed）
+- `useProjectWorkData.ts` 改為派工單維度統計（非紀錄維度），避免多類別共用紀錄計數重複
+- 工程總覽 `ProjectWorkOverviewTab` 統計區重構為三區塊：作業紀錄 / 關聯公文 / 作業進度
+- 派工詳情 `StatsCards` 同步重構，顯示每個作業類別的進度與狀態
+
+**Feature: 公文對照矩陣統一**:
+- `CorrespondenceMatrix.tsx` 標題改用 `dispatch_no + work_type`（取代 `sub_case_name`）
+- 工程總覽的公文對照改用 `buildCorrespondenceMatrix()` 三階段匹配（與派工詳情一致）
+- `DispatchCorrespondenceGroup` 新增 `matrixRows` 屬性，傳遞至 `CorrespondenceBody`
+
+**Refactor: 統計卡片分區佈局**:
+- 作業紀錄：合併總數 + 完成/進行中/暫緩/逾期 Tag
+- 關聯公文：來文/發文計數 + 未指派警示（含 Tooltip 說明）
+- 作業進度：逐類別顯示 `作業類別 → 當前階段 → 狀態`
+
+**異動檔案**: `useProjectWorkData.ts`, `ProjectWorkOverviewTab.tsx`, `CorrespondenceMatrix.tsx`,
+`StatsCards.tsx`, `DispatchWorkflowTab.tsx`, `TaoyuanDispatchDetailPage.tsx`, `workflow/index.ts`
+
+---
+
+## [1.76.1] - 2026-03-03
+
+### 全端點錯誤訊息洩漏修復 + 導覽認證強化
+
+**Security Fix #1: str(e) 錯誤訊息洩漏 (30 檔 57+ 處)**:
+- 全面掃描後端 API 端點，移除所有 `str(e)` 暴露至客戶端的模式
+- 統一替換為通用錯誤訊息 + `logger.error(f"...: {e}", exc_info=True)` 伺服器端記錄
+- 涵蓋：HTTPException detail、JSON response message、StreamingResponse 錯誤回傳
+- 受影響模組：documents/, document_calendar/, taoyuan_dispatch/, ai/, files/, auth/, agencies/, deployment, system_health, navigation, debug 等
+
+**Security Fix #2: 導覽端點認證缺口 (navigation.py)**:
+- `POST /navigation/action` 原僅有 CSRF 驗證無認證 → 新增 `require_auth()`
+- `POST /navigation/valid-paths` 原無任何保護 → 新增 `require_auth()`
+- 兩端點同時移除 `"error": str(e)` 洩漏
+
+**Bug Fix #1: debug.py 殘留引用**:
+- `get_dynamic_api_mapping()` 中 `elif base_name == "cases"` → `"contract_cases"` 修正
+- 對應 service 參考從 `case_service.py` 更新為 `project_service.py`
+
+**Bug Fix #2: useMenuItems 選單群組鍵同步**:
+- 前端 `useMenuItems.tsx` 的 `/cases` 群組鍵 → `project-management`，與後端導覽資料一致
+
+**異動檔案**: 30 個後端 endpoint 檔案 + `useMenuItems.tsx`
+143 insertions(+), 104 deletions(-)
+
+---
+
+## [1.76.0] - 2026-03-03
+
+### ForeignKey ondelete 修復 + 安全審計 + 死碼清理
+
+**Bug Fix: FK ondelete 約束 (公文刪除 500 錯誤)**:
+- `TaoyuanDispatchOrder.agency_doc_id/company_doc_id` 缺少 `ondelete='SET NULL'`
+- PostgreSQL 預設 RESTRICT → 刪除被引用公文時 IntegrityError 500
+- ORM 模型 + Alembic migration `20260303a001` 同步修正
+
+**Security Fix: CircuitBreaker 閾值**:
+- 前端 `RequestThrottler` GLOBAL_MAX 從 50 調至 100（防正常操作誤觸熔斷）
+
+**Dead Code Cleanup**:
+- 移除 `cases.py`（全部回傳 mock 資料的永未實作存根）
+- 移除 3 個 `*ListResponseLegacy` schema（零引用）
+- 移除 `backup_service.py`（已被 `backup/` 套件取代）
+- 更新 `.env.example`：新增 `MCP_SERVICE_TOKEN`、`PYTHONUTF8`
+
+**異動檔案**: `models.py`, `alembic/versions/20260303a001_*.py`, `cases.py`(刪除),
+`schemas/`(清理), `backup_service.py`(刪除), `.env.example`, `RequestThrottler.ts`
+
+---
+
 ## [1.75.0] - 2026-03-02
 
 ### MCP Server + OpenClaw LINE 整合

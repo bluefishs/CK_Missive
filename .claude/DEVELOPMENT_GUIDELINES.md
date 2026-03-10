@@ -12,7 +12,7 @@
 **Skills 同步檢查腳本**:
 ```powershell
 # Windows (PowerShell) - 檢查 42 項配置
-powershell -File scripts/skills-sync-check.ps1
+powershell -File scripts/checks/skills-sync-check.ps1
 ```
 ```bash
 # Linux/macOS (Bash)
@@ -70,12 +70,16 @@ powershell -File .claude/hooks/api-serialization-check.ps1
    cd backend && python -m py_compile app/main.py
    ```
 
-3. **檢測無誤後才提出複查**
+3. **安全快速檢查** (後端 API)
+   - 確認無 `str(e)` 出現在 HTTPException detail 或 JSON response 中
+   - 所有端點有 `require_auth()` 或 `require_admin()`
+
+4. **檢測無誤後才提出複查**
    - 編譯通過 → 告知使用者可測試
    - 編譯失敗 → 自行修復後重新檢測
 
 ### 提交代碼前：
-- [ ] 執行 `scripts/skills-sync-check.ps1` 驗證配置同步
+- [ ] 執行 `scripts/checks/skills-sync-check.ps1` 驗證配置同步
 - [ ] 確保沒有在禁止位置添加文件
 - [ ] 確認 backend/ 目錄保持純淨
 - [ ] 檢查是否有臨時或測試文件留在不當位置
@@ -110,14 +114,14 @@ powershell -File .claude/hooks/api-serialization-check.ps1
 
 1. **強制檢查清單**: `.claude/MANDATORY_CHECKLIST.md` - 開發前必讀
 2. **開發規範**: `docs/DEVELOPMENT_STANDARDS.md` - 統一開發規範
-3. **Skills 同步驗證**: `scripts/skills-sync-check.ps1` - 自動化檢查
+3. **Skills 同步驗證**: `scripts/checks/skills-sync-check.ps1` - 自動化檢查
 4. **本指引**: 開發流程和最佳實踐
 
 ## ⚡ 快速命令
 
 ```bash
 # Skills 同步檢查
-powershell -File scripts/skills-sync-check.ps1
+powershell -File scripts/checks/skills-sync-check.ps1
 
 # 前端 TypeScript 檢查
 cd frontend && npx tsc --noEmit
@@ -577,7 +581,40 @@ async def create_backup(
 
 **相關事故**: 2026-02-24 備份管理頁面 5 個端點全部 500
 
-### 13. 🟡 服務層遷移檢查清單 (v1.60.0)
+### 13. 🟡 硬編碼 API 路徑 (v1.79.0 新增)
+
+**錯誤**: API 端點定義存在但呼叫處直接寫死字串路徑，或用字串拼接構建動態路徑。
+
+**原因**: 新增 API 呼叫時未查閱 `endpoints.ts`，直接硬編碼路徑。
+
+**❌ 錯誤做法**:
+```typescript
+// 硬編碼靜態路徑
+apiClient.post('/projects/list', params);
+this.axios.post('/auth/login', formData);
+
+// 字串拼接動態路徑（端點定義為靜態字串）
+apiClient.post(`${AI_ENDPOINTS.ANALYSIS}/${documentId}`);
+```
+
+**✅ 正確做法**:
+```typescript
+// 使用端點常數
+apiClient.post(PROJECTS_ENDPOINTS.LIST, params);
+this.axios.post(AUTH_ENDPOINTS.LOGIN, formData);
+
+// 使用函數型端點
+apiClient.post(AI_ENDPOINTS.ANALYSIS_GET(documentId));
+```
+
+**防護機制**:
+- `endpoints.test.ts` 端點唯一性測試：自動偵測重複靜態值
+- `endpoints.test.ts` 服務匯入測試：驗證 12 個 API 服務檔案正確匯入
+- 清單 L (`MANDATORY_CHECKLIST.md`)：開發前必須確認端點已定義
+
+**相關事故**: 2026-03-06 發現 21 處硬編碼路徑，v1.79.0 全部消除
+
+### 13.5. 🟡 服務層遷移檢查清單 (v1.60.0)
 
 將端點業務邏輯遷移至 Service 層時，必須按以下順序執行：
 
@@ -626,6 +663,51 @@ async def create_backup(
 | `docs/DATABASE_SCHEMA.md` | 資料庫結構 |
 
 ---
+
+---
+
+## 🔒 錯誤訊息安全規範 (v1.76.1 新增)
+
+### 核心規則：禁止 `str(e)` 暴露至客戶端
+
+所有後端 API 端點的錯誤處理，**禁止**將例外訊息 `str(e)` 傳遞給客戶端。
+
+**❌ 禁止做法**:
+```python
+except Exception as e:
+    raise HTTPException(status_code=500, detail=f"操作失敗: {str(e)}")
+
+except Exception as e:
+    return {"success": False, "message": f"失敗: {str(e)}"}
+```
+
+**✅ 正確做法**:
+```python
+except Exception as e:
+    logger.error(f"操作失敗: {e}", exc_info=True)
+    raise HTTPException(status_code=500, detail="操作失敗，請稍後再試")
+
+except Exception as e:
+    logger.error(f"操作失敗: {e}", exc_info=True)
+    return {"success": False, "message": "操作失敗，請稍後再試"}
+```
+
+**規則摘要**:
+
+| 項目 | 規範 |
+|------|------|
+| `HTTPException(detail=...)` | 使用通用中文錯誤訊息，不含 `str(e)` |
+| JSON response error | 使用 `"message": "通用描述"` |
+| 伺服器端記錄 | `logger.error(f"描述: {e}", exc_info=True)` |
+| ValueError 等業務錯誤 | 可使用預定義的業務錯誤訊息，不暴露堆疊 |
+
+**自動化檢查**:
+```bash
+# 掃描殘留的 str(e) 洩漏
+grep -rn "str(e)" backend/app/api/endpoints/ --include="*.py" | grep -v __pycache__ | grep -v "logger"
+```
+
+**相關事故**: 2026-03-03 安全審計發現 54+ 處 str(e) 洩漏，v1.76.1 全面修復
 
 ---
 

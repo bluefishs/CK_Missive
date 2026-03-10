@@ -1,6 +1,10 @@
 ---
 name: database-performance
-description: 後端資料庫操作、ORM 查詢優化
+description: >
+  資料庫效能優化：N+1 查詢偵測、索引策略、SQLAlchemy ORM 查詢優化、
+  連線池調校。當遇到 API 回應緩慢、查詢耗時過長、PostgreSQL 效能
+  問題時使用。即使使用者只是提到「頁面很慢」或「列表載入太久」，
+  也應觸發此 skill 排查資料庫層。
 version: 1.0.0
 category: backend
 triggers:

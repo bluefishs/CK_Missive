@@ -30,13 +30,22 @@
 ## 1. API 端點一致性
 
 ```typescript
-// ✅ 正確 - 使用 API_ENDPOINTS
-import { API_ENDPOINTS } from './endpoints';
-apiClient.post(API_ENDPOINTS.DOCUMENTS.LIST, params);
+// ✅ 正確 - 使用端點常數（靜態端點）
+import { DOCUMENTS_ENDPOINTS } from './endpoints';
+apiClient.post(DOCUMENTS_ENDPOINTS.LIST, params);
+
+// ✅ 正確 - 使用函數型端點（動態路徑）
+import { AI_ENDPOINTS } from './endpoints';
+apiClient.post(AI_ENDPOINTS.ANALYSIS_GET(documentId));
 
 // ❌ 禁止 - 硬編碼路徑
 apiClient.post('/documents-enhanced/list', params);
+
+// ❌ 禁止 - 字串拼接（應改為函數型端點）
+apiClient.post(`${AI_ENDPOINTS.ANALYSIS}/${documentId}`);
 ```
+
+**注意**: `authService.ts` 使用獨立 axios 實例，同樣必須使用端點常數。
 
 ## 2. 環境設定管理 (SSOT)
 
@@ -135,6 +144,8 @@ docs, total = await doc_repo.filter_documents(doc_type='收文', skip=0, limit=2
 import { useProjectsWithStore } from '../hooks';
 const { projects, filters, setFilters } = useProjectsWithStore();
 ```
+
+**⚠️ 資料取得強制規範**：所有 API 資料取得**必須**使用 `useQuery` / `useMutation`，**禁止** useEffect + 直接 apiClient 呼叫。詳見 `MANDATORY_CHECKLIST.md` 清單 T。
 
 ## 7. 關聯記錄處理 (link_id)
 

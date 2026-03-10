@@ -1,6 +1,10 @@
 ---
 name: development-environment
-description: 本地開發環境設定與驗證
+description: >
+  開發環境設定與驗證：Docker Compose 基礎設施、PM2 程序管理、
+  環境變數(.env)配置、依賴安裝。當專案啟動失敗、服務無法連線、
+  或需要設定新開發環境時使用。即使使用者只是說「跑不起來」或
+  「連不到資料庫」，也應觸發此 skill。
 version: 1.0.0
 category: project
 triggers:

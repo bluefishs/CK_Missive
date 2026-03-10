@@ -33,7 +33,7 @@
 
 5. **重新啟動後端服務**
    ```bash
-   cd C:/GeminiCli/CK_Missive/backend
+   cd D:/CKProject/CK_Missive/backend
    python main.py
    ```
 

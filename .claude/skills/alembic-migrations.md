@@ -201,8 +201,38 @@ op.execute("UPDATE large_table SET new_col = 'default' WHERE new_col IS NULL")
 op.alter_column('large_table', 'new_col', nullable=False)
 ```
 
+### 4. 資料遷移邊界值清理
+
+```python
+# ❌ 危險：直接搬移可能包含無效值 (如 batch_no=0)
+op.execute("""
+    UPDATE dispatch_orders d
+    SET batch_no = (SELECT MAX(w.batch_no) FROM work_records w WHERE w.dispatch_id = d.id)
+""")
+
+# ✅ 安全：過濾無效值 + 清理
+op.execute("""
+    UPDATE dispatch_orders d
+    SET batch_no = sub.max_batch
+    FROM (
+        SELECT dispatch_id, MAX(batch_no) AS max_batch
+        FROM work_records
+        WHERE batch_no > 0  -- 排除無效值
+        GROUP BY dispatch_id
+    ) sub
+    WHERE d.id = sub.dispatch_id
+""")
+# 清理殘留無效值
+op.execute("UPDATE dispatch_orders SET batch_no = NULL WHERE batch_no = 0")
+```
+
+### 5. 回應 Schema 不可加輸入驗證
+
+遷移後若 Schema 對應欄位有 `ge=`/`le=` 約束，DB 中的舊資料（如 `batch_no=0`）
+會導致回應序列化 500。**Base Schema（回應用）只放型別定義，驗證約束只放 Create/Update。**
+
 ## 參考資源
 
 - 詳細操作指南：`docs/ALEMBIC_MIGRATION_GUIDE.md`
-- ORM 模型位置：`backend/app/extended/models.py` (7 模組分區)
+- ORM 模型位置：`backend/app/extended/models/` (多子模組)
 - Schema 對照表：`docs/specifications/SCHEMA_DB_MAPPING.md`

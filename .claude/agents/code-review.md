@@ -1,11 +1,11 @@
 ---
 name: code-review
 description: 程式碼審查代理
-version: 1.0.0
+version: 1.1.0
 category: shared
 triggers:
   - 當需要審查程式碼變更時
-updated: '2026-01-15'
+updated: '2026-03-05'
 ---
 
 # Code Review Agent
@@ -20,9 +20,10 @@ updated: '2026-01-15'
 ## 審查清單
 
 ### 1. 架構合規性
-- [ ] 檔案放置位置符合 `STRUCTURE.md` 規範
+- [ ] 檔案放置位置符合架構規範 (`.claude/rules/architecture.md`)
 - [ ] API 端點使用集中式管理 (`endpoints.ts`)
 - [ ] 服務層邏輯封裝完整
+- [ ] 錯誤訊息不洩漏內部資訊 (禁止 `str(e)` 於 HTTPException/JSON response)
 
 ### 2. TypeScript 最佳實踐 (前端)
 - [ ] 使用明確型別定義，避免 `any`
@@ -46,6 +47,14 @@ updated: '2026-01-15'
 - [ ] 避免 N+1 查詢問題
 - [ ] 適當使用快取
 - [ ] 無不必要的重新渲染
+
+### 6. 模組化與 React 穩定性
+- [ ] re-export 層級 ≤ 2（避免 A→B→C→D 多層轉發）
+- [ ] 葉節點常數檔無循環依賴（如 `workCategoryConstants.ts` 應零內部 import）
+- [ ] React.memo 元件的 props 為穩定引用（勿用 inline `{{...}}` 物件字面量）
+- [ ] `useMemo` / `useCallback` 依賴項為穩定值（用 `mutation.mutate` 而非 `mutation`）
+- [ ] 無冗餘型別斷言 (`as SomeType`)——優先使用 discriminated union + 早期 narrowing
+- [ ] 狀態標籤全域一致（如 `on_hold` 統一為「暫緩」）
 
 ---
 

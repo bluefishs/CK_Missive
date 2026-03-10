@@ -1,6 +1,10 @@
 ---
 name: knowledge-management
-description: 知識管理規範
+description: >
+  知識管理規範：ADR 架構決策記錄、架構圖維護、功能生命週期追蹤、
+  知識地圖生成。當需要記錄重大技術決策、建立/更新架構圖、
+  或管理功能的新增/廢棄歷程時使用。即使使用者只是問「為什麼
+  當初這樣設計」或「這個功能的歷史」，也應觸發此 skill。
 version: 1.0.0
 category: project
 triggers:

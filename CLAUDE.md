@@ -2,8 +2,8 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.61.0
-> **最後更新**: 2026-02-24
+> **Claude Code 配置版本**: 1.80.0
+> **最後更新**: 2026-03-10
 
 ---
 
@@ -54,12 +54,12 @@ CK_Missive 是一套企業級公文管理系統，具備以下核心功能：
 ### 常用命令
 ```powershell
 # === 推薦：統一管理腳本 ===
-.\scripts\dev-start.ps1              # 混合模式啟動（推薦）
-.\scripts\dev-start.ps1 -Status      # 查看所有服務狀態
-.\scripts\dev-start.ps1 -Restart     # 重啟 PM2 服務
-.\scripts\dev-start.ps1 -FullDocker  # 全 Docker 模式
-.\scripts\dev-stop.ps1               # 停止所有服務
-.\scripts\dev-stop.ps1 -KeepInfra    # 僅停 PM2，保留 DB/Redis
+.\scripts\dev\dev-start.ps1              # 混合模式啟動（推薦）
+.\scripts\dev\dev-start.ps1 -Status      # 查看所有服務狀態
+.\scripts\dev\dev-start.ps1 -Restart     # 重啟 PM2 服務
+.\scripts\dev\dev-start.ps1 -FullDocker  # 全 Docker 模式
+.\scripts\dev\dev-stop.ps1               # 停止所有服務
+.\scripts\dev\dev-stop.ps1 -KeepInfra    # 僅停 PM2，保留 DB/Redis
 
 # === 手動啟動 ===
 docker compose -f docker-compose.infra.yml up -d      # 基礎設施
@@ -94,4 +94,4 @@ node .claude/scripts/promote-learned-patterns.cjs # 學習模式升級
 
 ---
 
-> 配置維護: Claude Code Assistant | 版本: v1.61.0
+> 配置維護: Claude Code Assistant | 版本: v1.79.0

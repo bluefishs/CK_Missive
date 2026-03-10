@@ -115,7 +115,7 @@ Error: Port 3000 is already in use
 ```
 步驟 1: 確認可用端口
 ────────────────────────────────────────────────────
-參考 C:\GeminiCli\PORT_ALLOCATION.md 選擇未使用端口
+參考 D:\CKProject\PORT_ALLOCATION.md 選擇未使用端口
 
 步驟 2: 配置 vite.config.ts
 ────────────────────────────────────────────────────
@@ -133,7 +133,7 @@ VITE_API_BASE_URL=http://localhost:YYYY
 
 步驟 4: 更新端口分配表
 ────────────────────────────────────────────────────
-更新 C:\GeminiCli\PORT_ALLOCATION.md
+更新 D:\CKProject\PORT_ALLOCATION.md
 ```
 
 ---
@@ -252,7 +252,7 @@ taskkill /IM node.exe /F
 
 | 文件 | 說明 |
 |------|------|
-| `C:\GeminiCli\PORT_ALLOCATION.md` | 全域端口分配表 |
+| `D:\CKProject\PORT_ALLOCATION.md` | 全域端口分配表 |
 | `docs/DEVELOPMENT_STANDARDS.md` | 統一開發規範總綱 |
 | `frontend/vite.config.ts` | Vite 配置 |
 | `backend/main.py` | 後端 CORS 配置 |

@@ -39,11 +39,25 @@ docker exec -it ck_missive_postgres_dev psql -U ck_user -d ck_documents
 
 ## 模型定義位置
 
-**重要**: 所有 SQLAlchemy 模型定義在單一檔案中：
+**重要**: SQLAlchemy 模型拆分為多個子模組：
 
 ```
-backend/app/extended/models.py    ← 所有模型的唯一來源
+backend/app/extended/models/
+├── __init__.py          # 統一匯出所有模型
+├── _base.py             # Base, pgvector 條件載入
+├── associations.py      # 關聯表 (project_vendor, project_user)
+├── core.py              # 基礎實體 (Vendor, ContractProject, Agency, User)
+├── document.py          # 公文模組 (OfficialDocument, Attachment)
+├── calendar.py          # 行事曆 (CalendarEvent, Reminder)
+├── system.py            # 系統 (Notification, Session, Navigation, Config)
+├── staff.py             # 專案人員 (AgencyContact, Certification)
+├── taoyuan.py           # 桃園派工 (Project, DispatchOrder, WorkRecord, etc.)
+├── entity.py            # 實體識別 (DocumentEntity, EntityRelation)
+├── knowledge_graph.py   # 知識圖譜 (CanonicalEntity, Alias, Mention)
+└── ai_analysis.py       # AI 分析 (PromptTemplate, Synonym, SearchHistory)
 ```
+
+匯入方式：`from app.extended.models import OfficialDocument, ContractProject`
 
 ### 模型清單
 
@@ -188,7 +202,7 @@ CREATE TABLE document_calendar_events (
 
 ### 模型位置
 ```
-backend/app/extended/models.py    ← 所有模型的唯一來源 (單一檔案)
+backend/app/extended/models/      ← 多子模組結構 (見上方目錄樹)
 ```
 
 ### 關聯表定義

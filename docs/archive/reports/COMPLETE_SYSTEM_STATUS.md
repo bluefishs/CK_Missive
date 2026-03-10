@@ -109,7 +109,7 @@ GET http://localhost:8000/api/site-management/navigation → 200 OK ✓
 
 1. **啟動系統**:
    ```bash
-   cd /c/GeminiCli/CK_Missive/configs
+   cd /d/CKProject/CK_Missive/configs
    docker-compose up -d
    ```
 
