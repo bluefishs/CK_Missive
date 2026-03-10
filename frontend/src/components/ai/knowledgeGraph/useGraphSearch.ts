@@ -85,6 +85,7 @@ export function useGraphSearch({ rawNodes }: UseGraphSearchOptions): UseGraphSea
     } finally {
       setApiSearching(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchText, rawNodes]);
 
   // Merged: API results take priority; fall back to local

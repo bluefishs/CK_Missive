@@ -98,6 +98,7 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
     } finally {
       setLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
   // 載入可選廠商

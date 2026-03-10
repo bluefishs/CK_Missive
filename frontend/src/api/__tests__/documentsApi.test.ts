@@ -417,6 +417,7 @@ describe('documentsApi.getNextSendNumber', () => {
       '/documents-enhanced/next-send-number',
       { prefix: '乾坤測字第', year: 2026 }
     );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect((result as any).next_number).toBe('乾坤測字第1150000002號');
   });
 

@@ -36,6 +36,7 @@ export interface AgentStepInfo {
   count?: number;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const TOOL_ICONS: Record<string, React.ReactNode> = {
   search_documents: <SearchOutlined />,
   search_dispatch_orders: <FileTextOutlined />,
@@ -45,6 +46,7 @@ export const TOOL_ICONS: Record<string, React.ReactNode> = {
   get_statistics: <BarChartOutlined />,
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const TOOL_LABELS: Record<string, string> = {
   search_documents: '搜尋公文',
   search_dispatch_orders: '搜尋派工單',

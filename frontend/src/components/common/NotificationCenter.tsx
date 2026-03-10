@@ -93,6 +93,7 @@ export const NotificationCenter: React.FC = () => {
     e.stopPropagation();
     markAllRead();
     message.success('已將所有通知標記為已讀');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [markAllRead]);
 
   // 格式化時間

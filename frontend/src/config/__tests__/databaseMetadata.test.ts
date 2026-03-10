@@ -110,7 +110,7 @@ describe('databaseMetadata', () => {
     });
 
     it('每個資料表應有必要的基本欄位', () => {
-      for (const [tableName, meta] of Object.entries(databaseMetadata.table_metadata)) {
+      for (const meta of Object.values(databaseMetadata.table_metadata)) {
         expect(meta).toHaveProperty('chinese_name');
         expect(meta).toHaveProperty('description');
         expect(meta).toHaveProperty('category');
@@ -146,7 +146,7 @@ describe('databaseMetadata', () => {
     it('有 columns 的表每個 column 應有 chinese_name, type, description', () => {
       for (const meta of Object.values(databaseMetadata.table_metadata)) {
         if (meta.columns) {
-          for (const [colName, col] of Object.entries(meta.columns)) {
+          for (const col of Object.values(meta.columns)) {
             expect(typeof col.chinese_name).toBe('string');
             expect(typeof col.type).toBe('string');
             expect(typeof col.description).toBe('string');
@@ -179,7 +179,7 @@ describe('databaseMetadata', () => {
     });
 
     it('每個分類應有 chinese_name, description, color, icon', () => {
-      for (const [catName, info] of Object.entries(databaseMetadata.categories)) {
+      for (const info of Object.values(databaseMetadata.categories)) {
         expect(typeof info.chinese_name).toBe('string');
         expect(typeof info.description).toBe('string');
         expect(typeof info.color).toBe('string');
@@ -196,7 +196,7 @@ describe('databaseMetadata', () => {
 
     it('每個資料表的 category 應在 categories 中存在', () => {
       const validCategories = new Set(Object.keys(databaseMetadata.categories));
-      for (const [tableName, meta] of Object.entries(databaseMetadata.table_metadata)) {
+      for (const meta of Object.values(databaseMetadata.table_metadata)) {
         expect(validCategories.has(meta.category)).toBe(true);
       }
     });

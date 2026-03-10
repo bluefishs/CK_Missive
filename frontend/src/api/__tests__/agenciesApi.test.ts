@@ -267,6 +267,7 @@ describe('agenciesApi.createAgency', () => {
 
     vi.mocked(apiClient.post).mockResolvedValue({ ...mockAgency, ...createData, id: 10 });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await agenciesApi.createAgency(createData as any);
 
     expect(apiClient.post).toHaveBeenCalledWith('/agencies', createData);
@@ -288,6 +289,7 @@ describe('agenciesApi.updateAgency', () => {
 
     vi.mocked(apiClient.post).mockResolvedValue({ ...mockAgency, ...updateData });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await agenciesApi.updateAgency(1, updateData as any);
 
     expect(apiClient.post).toHaveBeenCalledWith('/agencies/1/update', updateData);
@@ -341,6 +343,7 @@ describe('agenciesApi.getStatistics', () => {
 
     expect(apiClient.post).toHaveBeenCalledWith('/agencies/statistics');
     expect(result.total_agencies).toBe(30);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect((result as any).category_stats).toHaveLength(3);
   });
 });

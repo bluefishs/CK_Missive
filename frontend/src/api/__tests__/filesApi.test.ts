@@ -411,7 +411,9 @@ describe('filesApi.verifyAttachment', () => {
     const result = await filesApi.verifyAttachment(8);
 
     expect(apiClient.post).toHaveBeenCalledWith('/files/verify/8', {});
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect((result as any).valid).toBe(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect((result as any).checksum_match).toBe(true);
   });
 });
@@ -437,7 +439,9 @@ describe('filesApi.checkNetworkStorage', () => {
     const result = await filesApi.checkNetworkStorage();
 
     expect(apiClient.post).toHaveBeenCalledWith('/files/check-network', {});
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect((result as any).accessible).toBe(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect((result as any).latency_ms).toBe(15);
   });
 });

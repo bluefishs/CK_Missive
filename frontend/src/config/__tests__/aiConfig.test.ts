@@ -2,7 +2,7 @@
  * AI 服務配置測試
  * AI Config Tests
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   AI_CONFIG,
   AI_FEATURE_NAMES,

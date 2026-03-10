@@ -275,6 +275,7 @@ describe('projectsApi.createProject', () => {
 
     vi.mocked(apiClient.post).mockResolvedValue({ ...mockProject, ...createData, id: 10 });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await projectsApi.createProject(createData as any);
 
     expect(apiClient.post).toHaveBeenCalledWith('/projects', createData);
@@ -296,6 +297,7 @@ describe('projectsApi.updateProject', () => {
 
     vi.mocked(apiClient.post).mockResolvedValue({ ...mockProject, ...updateData });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await projectsApi.updateProject(1, updateData as any);
 
     expect(apiClient.post).toHaveBeenCalledWith('/projects/1/update', updateData);
