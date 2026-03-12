@@ -12,10 +12,10 @@
 
 import React, { useMemo, useState } from 'react';
 import {
+  Badge,
   Tag,
   Typography,
   Empty,
-  Badge,
   Tooltip,
   Button,
   theme,
@@ -33,7 +33,7 @@ import dayjs from 'dayjs';
 
 import type { WorkRecord, DocBrief } from '../../../types/taoyuan';
 import type { DispatchDocumentLink } from '../../../types/api';
-import type { CorrespondenceMatrixRow, MatrixDocItem } from './chainUtils';
+import type { CorrespondenceMatrixRow, MatrixDocItem, MatchConfidence } from './chainUtils';
 import {
   statusLabel,
   statusColor,
@@ -103,11 +103,19 @@ const MatrixDocCellInner: React.FC<MatrixDocCellProps> = ({
         {dateStr && (
           <Text type="secondary" style={{ fontSize: 11 }}>{dateStr}</Text>
         )}
-        {item.isUnassigned && (
+        {item.isUnassigned && item.linkedDoc?.linked_dispatch_count && item.linkedDoc.linked_dispatch_count > 1 ? (
+          <Tooltip title={`已關聯 ${item.linkedDoc.linked_dispatch_count} 個派工單（含本單）`}>
+            <Badge
+              count={item.linkedDoc.linked_dispatch_count}
+              size="small"
+              style={{ backgroundColor: token.colorTextQuaternary, fontSize: 10 }}
+            />
+          </Tooltip>
+        ) : item.isUnassigned ? (
           <Tooltip title="未指派到作業紀錄">
             <ExclamationCircleOutlined style={{ color: token.colorWarning, fontSize: 11 }} />
           </Tooltip>
-        )}
+        ) : null}
         <span style={{ flex: 1 }} />
         {canEdit && item.record && onEditRecord && (
           <Tooltip title="編輯紀錄">
@@ -203,6 +211,36 @@ const DocEntryInner: React.FC<DocEntryProps> = (props) => {
 };
 
 export const DocEntry = React.memo(DocEntryInner);
+
+// ============================================================================
+// 信心度工具
+// ============================================================================
+
+function confidenceTooltip(c?: MatchConfidence, sharedEntities?: string[]): string {
+  let base: string;
+  switch (c) {
+    case 'confirmed': base = '已確認配對（作業紀錄鏈式關聯）'; break;
+    case 'high': base = '高信心度（主旨關鍵字匹配）'; break;
+    case 'medium': base = '中信心度（日期鄰近 30 天內）'; break;
+    case 'low': base = '低信心度（未配對）'; break;
+    default: base = '配對';
+  }
+  if (sharedEntities && sharedEntities.length > 0) {
+    base += `\n共享實體: ${sharedEntities.slice(0, 5).join('、')}`;
+    if (sharedEntities.length > 5) base += `...等 ${sharedEntities.length} 個`;
+  }
+  return base;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function confidenceColor(c: MatchConfidence | undefined, token: any): string {
+  switch (c) {
+    case 'confirmed': return token.colorSuccess;
+    case 'high': return token.colorPrimary;
+    case 'medium': return token.colorWarning;
+    default: return token.colorTextSecondary;
+  }
+}
 
 // ============================================================================
 // MatrixTable - table 排版核心
@@ -383,7 +421,13 @@ const MatrixTableInner: React.FC<MatrixTableProps> = ({
                     fontSize: 10,
                   }}
                 >
-                  {hasBoth ? <ArrowRightOutlined /> : '—'}
+                  {hasBoth ? (
+                    <Tooltip title={confidenceTooltip(row.confidence, row.sharedEntities)}>
+                      <span style={{ color: confidenceColor(row.confidence, token) }}>
+                        <ArrowRightOutlined />
+                      </span>
+                    </Tooltip>
+                  ) : '—'}
                 </td>
 
                 {/* 覆文 */}

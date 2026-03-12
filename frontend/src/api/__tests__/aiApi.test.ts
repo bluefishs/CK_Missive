@@ -14,6 +14,8 @@ vi.mock('../client', () => ({
   apiClient: {
     post: vi.fn(),
     get: vi.fn(),
+    silentPost: vi.fn(),
+    delete: vi.fn(),
   },
   API_BASE_URL: 'http://localhost:8001',
 }));
@@ -130,14 +132,14 @@ describe('generateSummary - AI 摘要生成', () => {
       confidence: 0.92,
       source: 'groq',
     };
-    vi.mocked(apiClient.post).mockResolvedValue(mockResponse);
+    vi.mocked(apiClient.silentPost).mockResolvedValue(mockResponse);
 
     const result = await generateSummary({
       subject: '桃園市政府工程查估報告',
       content: '有關 114 年度工程查估案...',
     });
 
-    expect(apiClient.post).toHaveBeenCalledWith(
+    expect(apiClient.silentPost).toHaveBeenCalledWith(
       '/ai/document/summary',
       expect.objectContaining({ subject: '桃園市政府工程查估報告' })
     );
@@ -146,7 +148,7 @@ describe('generateSummary - AI 摘要生成', () => {
   });
 
   it('API 錯誤時應回傳 fallback 摘要', async () => {
-    vi.mocked(apiClient.post).mockRejectedValue(new Error('Service Unavailable'));
+    vi.mocked(apiClient.silentPost).mockRejectedValue(new Error('Service Unavailable'));
 
     const result = await generateSummary({
       subject: '桃園市政府工程查估報告',
@@ -177,14 +179,14 @@ describe('suggestClassification - AI 分類建議', () => {
       category_confidence: 0.88,
       source: 'groq',
     };
-    vi.mocked(apiClient.post).mockResolvedValue(mockResponse);
+    vi.mocked(apiClient.silentPost).mockResolvedValue(mockResponse);
 
     const result = await suggestClassification({
       subject: '有關工程查估案',
       content: '依據...',
     });
 
-    expect(apiClient.post).toHaveBeenCalledWith(
+    expect(apiClient.silentPost).toHaveBeenCalledWith(
       '/ai/document/classify',
       expect.objectContaining({ subject: '有關工程查估案' })
     );
@@ -193,7 +195,7 @@ describe('suggestClassification - AI 分類建議', () => {
   });
 
   it('API 錯誤時應回傳 fallback 分類', async () => {
-    vi.mocked(apiClient.post).mockRejectedValue(new Error('timeout'));
+    vi.mocked(apiClient.silentPost).mockRejectedValue(new Error('timeout'));
 
     const result = await suggestClassification({ subject: '測試' });
 
@@ -219,11 +221,11 @@ describe('extractKeywords - AI 關鍵字提取', () => {
       confidence: 0.85,
       source: 'groq',
     };
-    vi.mocked(apiClient.post).mockResolvedValue(mockResponse);
+    vi.mocked(apiClient.silentPost).mockResolvedValue(mockResponse);
 
     const result = await extractKeywords({ subject: '桃園市橋梁工程查估報告' });
 
-    expect(apiClient.post).toHaveBeenCalledWith(
+    expect(apiClient.silentPost).toHaveBeenCalledWith(
       '/ai/document/keywords',
       expect.objectContaining({ subject: '桃園市橋梁工程查估報告' })
     );
@@ -232,7 +234,7 @@ describe('extractKeywords - AI 關鍵字提取', () => {
   });
 
   it('API 錯誤時應回傳空關鍵字陣列', async () => {
-    vi.mocked(apiClient.post).mockRejectedValue(new Error('error'));
+    vi.mocked(apiClient.silentPost).mockRejectedValue(new Error('error'));
 
     const result = await extractKeywords({ subject: '測試' });
 
@@ -257,11 +259,11 @@ describe('matchAgency - AI 機關匹配', () => {
       is_new: false,
       source: 'groq',
     };
-    vi.mocked(apiClient.post).mockResolvedValue(mockResponse);
+    vi.mocked(apiClient.silentPost).mockResolvedValue(mockResponse);
 
     const result = await matchAgency({ agency_name: '桃園市政府' });
 
-    expect(apiClient.post).toHaveBeenCalledWith(
+    expect(apiClient.silentPost).toHaveBeenCalledWith(
       '/ai/agency/match',
       { agency_name: '桃園市政府' }
     );
@@ -270,7 +272,7 @@ describe('matchAgency - AI 機關匹配', () => {
   });
 
   it('API 錯誤時應回傳 is_new: true 的 fallback', async () => {
-    vi.mocked(apiClient.post).mockRejectedValue(new Error('error'));
+    vi.mocked(apiClient.silentPost).mockRejectedValue(new Error('error'));
 
     const result = await matchAgency({ agency_name: '未知機關' });
 
@@ -294,17 +296,17 @@ describe('checkHealth - AI 健康檢查', () => {
       groq: { available: true, message: '正常' },
       ollama: { available: true, message: '正常' },
     };
-    vi.mocked(apiClient.post).mockResolvedValue(mockResponse);
+    vi.mocked(apiClient.silentPost).mockResolvedValue(mockResponse);
 
     const result = await checkHealth();
 
-    expect(apiClient.post).toHaveBeenCalledWith('/ai/health', {});
+    expect(apiClient.silentPost).toHaveBeenCalledWith('/ai/health', {});
     expect(result.groq.available).toBe(true);
     expect(result.ollama.available).toBe(true);
   });
 
   it('API 錯誤時應回傳全部不可用', async () => {
-    vi.mocked(apiClient.post).mockRejectedValue(new Error('error'));
+    vi.mocked(apiClient.silentPost).mockRejectedValue(new Error('error'));
 
     const result = await checkHealth();
 
@@ -324,16 +326,16 @@ describe('getConfig - AI 配置取得', () => {
 
   it('成功回傳配置', async () => {
     const mockConfig = { groq_model: 'llama3-70b', ollama_model: 'qwen3:4b' };
-    vi.mocked(apiClient.post).mockResolvedValue(mockConfig);
+    vi.mocked(apiClient.silentPost).mockResolvedValue(mockConfig);
 
     const result = await getConfig();
 
-    expect(apiClient.post).toHaveBeenCalledWith('/ai/config', {});
+    expect(apiClient.silentPost).toHaveBeenCalledWith('/ai/config', {});
     expect(result).toEqual(mockConfig);
   });
 
   it('API 錯誤時應回傳 null', async () => {
-    vi.mocked(apiClient.post).mockRejectedValue(new Error('error'));
+    vi.mocked(apiClient.silentPost).mockRejectedValue(new Error('error'));
 
     const result = await getConfig();
 
@@ -354,13 +356,13 @@ describe('analyzeDocument - 公文綜合分析', () => {
     const mockSummary = { summary: '摘要', confidence: 0.9, source: 'groq' };
     const mockClassify = { doc_type: '函', category: '收文', doc_type_confidence: 0.9, category_confidence: 0.9, source: 'groq' };
 
-    vi.mocked(apiClient.post)
+    vi.mocked(apiClient.silentPost)
       .mockResolvedValueOnce(mockSummary)
       .mockResolvedValueOnce(mockClassify);
 
     const result = await analyzeDocument('測試主旨', '內容', '來文機關');
 
-    expect(apiClient.post).toHaveBeenCalledTimes(2);
+    expect(apiClient.silentPost).toHaveBeenCalledTimes(2);
     expect(result.summary).toEqual(mockSummary);
     expect(result.classification).toEqual(mockClassify);
   });
@@ -377,16 +379,16 @@ describe('getStats - AI 統計', () => {
 
   it('成功取得統計', async () => {
     const mockStats = { total_requests: 100, success_rate: 0.95 };
-    vi.mocked(apiClient.post).mockResolvedValue(mockStats);
+    vi.mocked(apiClient.silentPost).mockResolvedValue(mockStats);
 
     const result = await getStats();
 
-    expect(apiClient.post).toHaveBeenCalledWith('/ai/stats', {});
+    expect(apiClient.silentPost).toHaveBeenCalledWith('/ai/stats', {});
     expect(result).toEqual(mockStats);
   });
 
   it('API 錯誤時應回傳 null', async () => {
-    vi.mocked(apiClient.post).mockRejectedValue(new Error('error'));
+    vi.mocked(apiClient.silentPost).mockRejectedValue(new Error('error'));
 
     const result = await getStats();
 
@@ -433,11 +435,11 @@ describe('parseSearchIntent - 意圖解析', () => {
       parsed_intent: { keywords: ['橋梁', '公文'], confidence: 0.88 },
       source: 'groq',
     };
-    vi.mocked(apiClient.post).mockResolvedValue(mockResponse);
+    vi.mocked(apiClient.silentPost).mockResolvedValue(mockResponse);
 
     const result = await parseSearchIntent('找橋梁公文');
 
-    expect(apiClient.post).toHaveBeenCalledWith(
+    expect(apiClient.silentPost).toHaveBeenCalledWith(
       '/ai/document/parse-intent',
       { query: '找橋梁公文' }
     );
@@ -445,7 +447,7 @@ describe('parseSearchIntent - 意圖解析', () => {
   });
 
   it('API 錯誤時應回傳 fallback 意圖', async () => {
-    vi.mocked(apiClient.post).mockRejectedValue(new Error('error'));
+    vi.mocked(apiClient.silentPost).mockRejectedValue(new Error('error'));
 
     const result = await parseSearchIntent('測試查詢');
 
@@ -473,11 +475,11 @@ describe('naturalSearch - 自然語言搜尋', () => {
       total: 1,
       source: 'groq',
     };
-    vi.mocked(apiClient.post).mockResolvedValue(mockResponse);
+    vi.mocked(apiClient.silentPost).mockResolvedValue(mockResponse);
 
     const result = await naturalSearch('橋梁查估', 20, true, 0);
 
-    expect(apiClient.post).toHaveBeenCalledWith(
+    expect(apiClient.silentPost).toHaveBeenCalledWith(
       '/ai/document/natural-search',
       { query: '橋梁查估', max_results: 20, include_attachments: true, offset: 0 },
       expect.objectContaining({ signal: expect.any(AbortSignal) })
@@ -487,7 +489,7 @@ describe('naturalSearch - 自然語言搜尋', () => {
   });
 
   it('API 錯誤時應回傳空結果', async () => {
-    vi.mocked(apiClient.post).mockRejectedValue(new Error('Network Error'));
+    vi.mocked(apiClient.silentPost).mockRejectedValue(new Error('Network Error'));
 
     const result = await naturalSearch('測試');
 
@@ -703,7 +705,7 @@ describe('getSearchStats - 搜尋統計', () => {
   });
 
   it('API 錯誤時應回傳 null', async () => {
-    vi.mocked(apiClient.post).mockRejectedValue(new Error('error'));
+    vi.mocked(apiClient.silentPost).mockRejectedValue(new Error('error'));
 
     const result = await getSearchStats();
 
@@ -796,7 +798,7 @@ describe('getEmbeddingStats - Embedding 統計', () => {
   });
 
   it('API 錯誤時應回傳 null', async () => {
-    vi.mocked(apiClient.post).mockRejectedValue(new Error('error'));
+    vi.mocked(apiClient.silentPost).mockRejectedValue(new Error('error'));
 
     const result = await getEmbeddingStats();
 

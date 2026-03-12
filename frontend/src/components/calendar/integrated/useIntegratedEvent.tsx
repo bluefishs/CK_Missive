@@ -4,8 +4,9 @@
  * 管理表單狀態、提醒設定、重複檢查、提交邏輯。
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Form, App, Grid } from 'antd';
+import { useQuery } from '@tanstack/react-query';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import { apiClient } from '../../../api/client';
@@ -83,60 +84,64 @@ export function useIntegratedEvent(
   ]);
   const [newReminderMinutes, setNewReminderMinutes] = useState<number>(60);
   const [newReminderType, setNewReminderType] = useState<'email' | 'system'>('system');
-  const [existingEvents, setExistingEvents] = useState<Array<{ id: number; title: string; start_date: string }>>([]);
+  // === 重複檢查（React Query） ===
 
-  // === 重複檢查 ===
-
-  const checkDocumentEvents = useCallback(async (documentId: number) => {
-    try {
+  const { data: existingEventsData } = useQuery({
+    queryKey: ['document-events-check', document?.id],
+    queryFn: async () => {
+      if (!document) return { has_events: false, event_count: 0, events: [] as Array<{ id: number; title: string; start_date: string }>, message: '' };
       const response = await apiClient.post<{
         has_events: boolean;
         event_count: number;
         events: Array<{ id: number; title: string; start_date: string }>;
         message: string;
-      }>(API_ENDPOINTS.CALENDAR.EVENTS_CHECK_DOCUMENT, { document_id: documentId });
+      }>(API_ENDPOINTS.CALENDAR.EVENTS_CHECK_DOCUMENT, { document_id: document.id });
+      return response;
+    },
+    enabled: visible && !!document,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
 
-      if (response.has_events && response.event_count > 0) {
-        setExistingEvents(response.events);
-        modal.warning({
-          title: '公文已有行事曆事件',
-          content: (
-            <div>
-              <p>此公文已有 <strong>{response.event_count}</strong> 筆行事曆事件：</p>
-              <div style={{
-                background: '#fffbe6',
-                padding: 12,
-                borderRadius: 4,
-                marginBottom: 12,
-                maxHeight: 150,
-                overflowY: 'auto',
-              }}>
-                {response.events.map(e => (
-                  <div key={e.id} style={{ marginBottom: 8 }}>
-                    <div style={{ fontWeight: 500 }}>
-                      {dayjs(e.start_date).format('YYYY-MM-DD HH:mm')}
-                    </div>
-                    <div style={{ fontSize: 12, color: '#666' }}>
-                      {e.title.length > 50 ? e.title.slice(0, 50) + '...' : e.title}
-                    </div>
+  const existingEvents = existingEventsData?.events ?? [];
+
+  // 顯示重複事件警告
+  useEffect(() => {
+    if (existingEventsData?.has_events && existingEventsData.event_count > 0) {
+      modal.warning({
+        title: '公文已有行事曆事件',
+        content: (
+          <div>
+            <p>此公文已有 <strong>{existingEventsData.event_count}</strong> 筆行事曆事件：</p>
+            <div style={{
+              background: '#fffbe6',
+              padding: 12,
+              borderRadius: 4,
+              marginBottom: 12,
+              maxHeight: 150,
+              overflowY: 'auto',
+            }}>
+              {existingEventsData.events.map(e => (
+                <div key={e.id} style={{ marginBottom: 8 }}>
+                  <div style={{ fontWeight: 500 }}>
+                    {dayjs(e.start_date).format('YYYY-MM-DD HH:mm')}
                   </div>
-                ))}
-              </div>
-              <p style={{ color: '#fa8c16' }}>
-                如果日期輸入錯誤，建議先編輯現有事件，而非建立新事件。
-              </p>
+                  <div style={{ fontSize: 12, color: '#666' }}>
+                    {e.title.length > 50 ? e.title.slice(0, 50) + '...' : e.title}
+                  </div>
+                </div>
+              ))}
             </div>
-          ),
-          okText: '我了解，繼續新增',
-          width: 480,
-        });
-      } else {
-        setExistingEvents([]);
-      }
-    } catch (error) {
-      logger.error('檢查公文事件失敗:', error);
+            <p style={{ color: '#fa8c16' }}>
+              如果日期輸入錯誤，建議先編輯現有事件，而非建立新事件。
+            </p>
+          </div>
+        ),
+        okText: '我了解，繼續新增',
+        width: 480,
+      });
     }
-  }, [modal]);
+  }, [existingEventsData, modal]);
 
   // === 初始化表單 ===
 
@@ -163,9 +168,6 @@ export function useIntegratedEvent(
                             eventType === 'meeting' ? 60 :
                             eventType === 'review' ? 480 : 1440;
       setReminders([{ minutes_before: defaultMinutes, notification_type: 'system' }]);
-
-      setExistingEvents([]);
-      checkDocumentEvents(document.id);
     } else if (visible && !document) {
       form.resetFields();
       form.setFieldsValue({
@@ -176,9 +178,8 @@ export function useIntegratedEvent(
       });
       setAllDay(true);
       setReminders([{ minutes_before: 60, notification_type: 'system' }]);
-      setExistingEvents([]);
     }
-  }, [visible, document, form, checkDocumentEvents]);
+  }, [visible, document, form]);
 
   // === 提醒管理 ===
 

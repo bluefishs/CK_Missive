@@ -38,6 +38,7 @@ import {
   SafetyOutlined,
   LaptopOutlined,
 } from '@ant-design/icons';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { LoginHistoryTab } from '../components/auth/LoginHistoryTab';
 import { SessionManagementTab } from '../components/auth/SessionManagementTab';
 import { MFASettingsTab } from '../components/auth/MFASettingsTab';
@@ -66,8 +67,7 @@ interface PasswordChangeForm {
 export const ProfilePage = () => {
   const { message } = App.useApp();
   const navigate = useNavigate();
-  const [profile, setProfile] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
   const [passwordModalVisible, setPasswordModalVisible] = useState(false);
@@ -78,50 +78,42 @@ export const ProfilePage = () => {
   const { isMobile, responsiveValue } = useResponsive();
   const pagePadding = responsiveValue({ mobile: 12, tablet: 16, desktop: 24 });
 
-  useEffect(() => {
-    loadUserProfile();
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadUserProfile runs once on mount
-  }, []);
-
   /**
    * 載入使用者資料
-   * 1. 先從 localStorage 取得快取資料（快速顯示）
-   * 2. 再從 /auth/me API 取得完整最新資料
+   * 1. 先從 localStorage 取得快取資料作為 placeholderData
+   * 2. 從 /auth/me API 取得完整最新資料
    * 3. 比對差異並同步 localStorage（解決管理員變更不即時問題）
    */
-  const loadUserProfile = async () => {
-    try {
-      setLoading(true);
+  const {
+    data: profile = null,
+    isLoading: loading,
+  } = useQuery<User | null>({
+    queryKey: ['profile'],
+    queryFn: async () => {
       const userInfo = authService.getUserInfo();
       if (!userInfo) {
         navigate('/login');
-        return;
+        return null;
       }
 
-      // 先顯示 localStorage 快取
-      setProfile(userInfo as User);
-
-      // 從後端 API 取得最新完整資料
       try {
         const fullProfile = await apiClient.post<User>(API_ENDPOINTS.AUTH.ME, {});
-        setProfile(fullProfile);
-        setFormValues(fullProfile);
-
         // 同步 localStorage：管理員可能已變更 role/permissions 等欄位
         syncLocalStorage(userInfo, fullProfile);
+        return fullProfile;
       } catch {
         // API 不可用時使用 localStorage 資料
         logger.debug('使用本地用戶資訊');
-        setFormValues(userInfo as User);
+        return userInfo as User;
       }
-    } catch (error) {
-      logger.error('載入用戶資料失敗:', error);
-      message.error('載入用戶資料失敗');
-      navigate('/login');
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+    placeholderData: () => {
+      const userInfo = authService.getUserInfo();
+      return userInfo ? (userInfo as User) : null;
+    },
+  });
 
   /** 設定表單欄位值 */
   const setFormValues = (data: User) => {
@@ -133,6 +125,14 @@ export const ProfilePage = () => {
       position: data.position,
     });
   };
+
+  // 當 profile 資料載入完成後同步表單欄位
+  useEffect(() => {
+    if (profile) {
+      setFormValues(profile);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only sync form when profile changes
+  }, [profile]);
 
   /**
    * 同步 localStorage
@@ -191,7 +191,7 @@ export const ProfilePage = () => {
         }
       );
 
-      setProfile(updatedProfile);
+      queryClient.setQueryData<User | null>(['profile'], updatedProfile);
       setEditing(false);
       message.success('個人資料更新成功');
 

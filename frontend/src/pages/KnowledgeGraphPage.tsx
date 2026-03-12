@@ -26,7 +26,7 @@ import {
   Select,
   Modal,
   Tag,
-  Input,
+  Tooltip,
 } from 'antd';
 import {
   ApartmentOutlined,
@@ -38,7 +38,9 @@ import {
   CrownOutlined,
   SwapOutlined,
   ForkOutlined,
-  CodeOutlined,
+  RobotOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
 } from '@ant-design/icons';
 
 import { aiApi } from '../api/aiApi';
@@ -51,35 +53,11 @@ import type {
 } from '../types/ai';
 import { KnowledgeGraph } from '../components/ai/KnowledgeGraph';
 import type { ExternalGraphData } from '../components/ai/KnowledgeGraph';
+import { RAGChatPanel } from '../components/ai/RAGChatPanel';
+import { GraphAgentBridgeProvider } from '../components/ai/knowledgeGraph/GraphAgentBridge';
 import { getAllMergedConfigs, getMergedNodeConfig } from '../config/graphNodeConfig';
 import { useAuthGuard } from '../hooks/utility/useAuthGuard';
 import { KGAdminPanel } from './knowledgeGraph/KGAdminPanel';
-
-/** Code Wiki 模式的實體類型選項 */
-const CODE_WIKI_TYPE_OPTIONS = [
-  { label: 'Python 模組', value: 'py_module' },
-  { label: 'Python 類別', value: 'py_class' },
-  { label: 'Python 函數', value: 'py_function' },
-  { label: '資料表', value: 'db_table' },
-  { label: 'TS 模組', value: 'ts_module' },
-  { label: 'React 元件', value: 'ts_component' },
-  { label: 'React Hook', value: 'ts_hook' },
-] as const;
-
-/** Code Wiki 模式的關聯類型篩選選項 */
-const CODE_RELATION_OPTIONS = [
-  { label: '定義類別', value: 'defines_class' },
-  { label: '定義函數', value: 'defines_function' },
-  { label: '方法', value: 'has_method' },
-  { label: '匯入', value: 'imports' },
-  { label: '繼承', value: 'inherits' },
-  { label: 'FK 引用', value: 'references_table' },
-  { label: '呼叫', value: 'calls' },
-  { label: '定義元件', value: 'defines_component' },
-  { label: '定義 Hook', value: 'defines_hook' },
-] as const;
-
-type GraphMode = 'document' | 'codeWiki';
 
 const { Title, Text } = Typography;
 
@@ -197,27 +175,16 @@ const CoveragePanel: React.FC<{
 // 主頁面
 // ============================================================================
 
-export interface KnowledgeGraphPageProps {
-  /** 預設圖譜模式，由路由決定 */
-  defaultMode?: GraphMode;
-}
-
-const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({ defaultMode = 'document' }) => {
+const KnowledgeGraphPage: React.FC = () => {
   const { message } = App.useApp();
   const { isAdmin } = useAuthGuard();
 
-  // Graph mode
-  const [graphMode, setGraphMode] = useState<GraphMode>(defaultMode);
-
-  // 穩定引用：公文模式傳給 KnowledgeGraph 的空 documentIds（避免每次渲染產生新引用）
+  // 穩定引用：傳給 KnowledgeGraph 的空 documentIds（避免每次渲染產生新引用）
   const emptyDocumentIds = useMemo<number[]>(() => [], []);
 
-  // Code Wiki state
-  const [codeWikiData, setCodeWikiData] = useState<ExternalGraphData | null>(null);
-  const [codeWikiLoading, setCodeWikiLoading] = useState(false);
-  const [codeWikiTypes, setCodeWikiTypes] = useState<string[]>(['py_module']);
-  const [codeWikiPrefix, setCodeWikiPrefix] = useState<string>('');
-  const [codeWikiRelTypes, setCodeWikiRelTypes] = useState<string[]>([]);
+  // Entity graph state
+  const [entityGraphData, setEntityGraphData] = useState<ExternalGraphData | null>(null);
+  const [, setEntityGraphLoading] = useState(false);
 
   // Coverage stats
   const [coverageStats, setCoverageStats] = useState<CoverageStats>({
@@ -235,6 +202,9 @@ const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({ defaultMode = '
   const [pathTargetId, setPathTargetId] = useState<number | null>(null);
   const [pathResult, setPathResult] = useState<KGShortestPathResponse | null>(null);
   const [pathLoading, setPathLoading] = useState(false);
+
+  // AI Chat 面板
+  const [chatPanelOpen, setChatPanelOpen] = useState(true);
 
   // Merge entities (admin)
   const [mergeModalOpen, setMergeModalOpen] = useState(false);
@@ -276,53 +246,27 @@ const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({ defaultMode = '
     loadStats();
   }, [loadStats]);
 
-  // Load Code Wiki graph
-  const loadCodeWiki = useCallback(async () => {
-    setCodeWikiLoading(true);
+  // Load entity graph — 以實體為中心的公文知識圖譜
+  const loadEntityGraph = useCallback(async () => {
+    setEntityGraphLoading(true);
     try {
-      const result = await aiApi.getCodeWikiGraph({
-        entity_types: codeWikiTypes,
-        module_prefix: codeWikiPrefix.trim() || null,
-        limit: 500,
-      });
-      if (result?.success) {
-        setCodeWikiData({ nodes: result.nodes, edges: result.edges });
+      const result = await aiApi.getEntityGraph({ min_mentions: 2, limit: 200 });
+      if (result?.success && result.nodes.length > 0) {
+        setEntityGraphData({ nodes: result.nodes, edges: result.edges });
       } else {
-        setCodeWikiData({ nodes: [], edges: [] });
+        setEntityGraphData(null);
       }
     } catch {
-      message.error('載入代碼圖譜失敗');
-      setCodeWikiData({ nodes: [], edges: [] });
+      setEntityGraphData(null);
     } finally {
-      setCodeWikiLoading(false);
+      setEntityGraphLoading(false);
     }
-  }, [codeWikiTypes, codeWikiPrefix, message]);
+  }, []);
 
-  // Apply client-side edge type filter
-  const filteredCodeWikiData = useMemo<ExternalGraphData | null>(() => {
-    if (!codeWikiData) return null;
-    if (codeWikiRelTypes.length === 0) return codeWikiData;
-    const allowedTypes = new Set(codeWikiRelTypes);
-    const filteredEdges = codeWikiData.edges.filter((e) => allowedTypes.has(e.type));
-    // Keep only nodes that participate in filtered edges
-    const nodeIds = new Set<string>();
-    for (const e of filteredEdges) {
-      nodeIds.add(e.source);
-      nodeIds.add(e.target);
-    }
-    const filteredNodes = codeWikiData.nodes.filter((n) => nodeIds.has(n.id));
-    return { nodes: filteredNodes, edges: filteredEdges };
-  }, [codeWikiData, codeWikiRelTypes]);
-
-  // Auto-load Code Wiki ONLY when switching to code wiki mode（篩選條件變更不自動重載，靠按鈕觸發）
-  const loadCodeWikiRef = useRef(loadCodeWiki);
-  loadCodeWikiRef.current = loadCodeWiki;
+  // Auto-load entity graph on mount
   useEffect(() => {
-    if (graphMode === 'codeWiki') {
-      loadCodeWikiRef.current();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [graphMode]);
+    loadEntityGraph();
+  }, [loadEntityGraph]);
 
   // Admin actions
   // Entity search for Select (debounced)
@@ -395,7 +339,8 @@ const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({ defaultMode = '
   const graphTypeDistribution = coverageStats.graph?.entity_type_distribution;
 
   return (
-    <div style={{ display: 'flex', gap: 0, height: 'calc(100vh - 120px)', overflow: 'hidden' }}>
+    <GraphAgentBridgeProvider>
+    <div style={{ display: 'flex', gap: 0, height: 'calc(100vh - 120px)', overflow: 'hidden', position: 'relative' }}>
       {/* Left Panel */}
       <div
         style={{
@@ -410,41 +355,16 @@ const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({ defaultMode = '
           gap: 12,
         }}
       >
-        {/* Title + Mode Switch */}
+        {/* Title */}
         <div style={{ marginBottom: 4 }}>
           <Title level={5} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-            {graphMode === 'document' ? <ApartmentOutlined /> : <CodeOutlined />}
-            <span>{graphMode === 'document' ? '知識圖譜探索' : '代碼圖譜'}</span>
+            <ApartmentOutlined />
+            <span>公文圖譜</span>
           </Title>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            {graphMode === 'document'
-              ? '視覺化公文關聯網絡與正規化實體'
-              : '視覺化程式碼結構與模組關聯'}
+            視覺化公文關聯網絡與正規化實體
           </Text>
         </div>
-
-        {/* Mode Toggle */}
-        <Space size={4}>
-          <Button
-            size="small"
-            type={graphMode === 'document' ? 'primary' : 'default'}
-            icon={<ApartmentOutlined />}
-            onClick={() => {
-              setCodeWikiData(null); // 清除代碼圖譜殘留資料
-              setGraphMode('document');
-            }}
-          >
-            公文圖譜
-          </Button>
-          <Button
-            size="small"
-            type={graphMode === 'codeWiki' ? 'primary' : 'default'}
-            icon={<CodeOutlined />}
-            onClick={() => setGraphMode('codeWiki')}
-          >
-            代碼圖譜
-          </Button>
-        </Space>
 
         <Divider style={{ margin: '4px 0' }} />
 
@@ -468,74 +388,6 @@ const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({ defaultMode = '
         >
           <CoveragePanel stats={coverageStats} loading={statsLoading} />
         </Card>
-
-        {/* Code Wiki Controls */}
-        {graphMode === 'codeWiki' && (
-          <Card
-            size="small"
-            title={
-              <span style={{ fontSize: 13 }}>
-                <CodeOutlined /> 代碼圖譜篩選
-              </span>
-            }
-            styles={{ body: { padding: '8px 12px' } }}
-          >
-            <Space direction="vertical" style={{ width: '100%' }} size={8}>
-              <div>
-                <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>實體類型</Text>
-                <Select
-                  mode="multiple"
-                  size="small"
-                  style={{ width: '100%' }}
-                  value={codeWikiTypes}
-                  onChange={setCodeWikiTypes}
-                  options={CODE_WIKI_TYPE_OPTIONS.map((o) => ({ label: o.label, value: o.value }))}
-                  placeholder="選擇要顯示的實體類型"
-                />
-              </div>
-              <div>
-                <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>模組前綴</Text>
-                <Input
-                  size="small"
-                  placeholder="如 app.services.ai"
-                  value={codeWikiPrefix}
-                  onChange={(e) => setCodeWikiPrefix(e.target.value)}
-                  allowClear
-                />
-              </div>
-              <div>
-                <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>關聯類型篩選</Text>
-                <Select
-                  mode="multiple"
-                  size="small"
-                  style={{ width: '100%' }}
-                  value={codeWikiRelTypes}
-                  onChange={setCodeWikiRelTypes}
-                  options={CODE_RELATION_OPTIONS.map((o) => ({ label: o.label, value: o.value }))}
-                  placeholder="全部（不篩選）"
-                  allowClear
-                />
-              </div>
-              <Button
-                block
-                size="small"
-                type="primary"
-                icon={<SyncOutlined spin={codeWikiLoading} />}
-                loading={codeWikiLoading}
-                onClick={loadCodeWiki}
-                disabled={codeWikiTypes.length === 0}
-              >
-                載入代碼圖譜
-              </Button>
-              {codeWikiData && (
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  {(filteredCodeWikiData ?? codeWikiData).nodes.length} 個節點 · {(filteredCodeWikiData ?? codeWikiData).edges.length} 條關聯
-                  {codeWikiRelTypes.length > 0 && ` (已篩選)`}
-                </Text>
-              )}
-            </Space>
-          </Card>
-        )}
 
         {/* Admin Actions */}
         {isAdmin && (
@@ -712,20 +564,69 @@ const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({ defaultMode = '
 
       {/* Center: Knowledge Graph */}
       <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', background: '#fafafa' }}>
-        {graphMode === 'codeWiki' && (codeWikiLoading || !codeWikiData) ? (
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-            <Spin size="large" />
-            <div style={{ marginTop: 12, color: '#888' }}>載入代碼圖譜...</div>
-          </div>
-        ) : (
-          <KnowledgeGraph
-            documentIds={emptyDocumentIds}
-            height={typeof window !== 'undefined' ? window.innerHeight - 120 : 700}
-            externalGraphData={graphMode === 'codeWiki' ? filteredCodeWikiData : undefined}
-            onExternalRefresh={graphMode === 'codeWiki' ? loadCodeWiki : undefined}
-          />
-        )}
+        <KnowledgeGraph
+          documentIds={emptyDocumentIds}
+          height={typeof window !== 'undefined' ? window.innerHeight - 120 : 700}
+          externalGraphData={entityGraphData ?? undefined}
+          onExternalRefresh={entityGraphData ? loadEntityGraph : undefined}
+        />
       </div>
+
+      {/* Right Panel: AI Agent Chat */}
+      {chatPanelOpen && (
+        <div
+          style={{
+            width: 360,
+            minWidth: 360,
+            background: '#fff',
+            borderLeft: '1px solid #f0f0f0',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '8px 12px',
+              borderBottom: '1px solid #f0f0f0',
+              flexShrink: 0,
+            }}
+          >
+            <Space size={6}>
+              <RobotOutlined style={{ color: '#722ed1' }} />
+              <Text strong style={{ fontSize: 13 }}>AI 智能助理</Text>
+              <Tag color="purple" style={{ fontSize: 10, lineHeight: '16px', margin: 0 }}>Agent</Tag>
+            </Space>
+            <Button
+              type="text"
+              size="small"
+              icon={<MenuFoldOutlined />}
+              onClick={() => setChatPanelOpen(false)}
+            />
+          </div>
+          <RAGChatPanel embedded agentMode />
+        </div>
+      )}
+
+      {/* AI Panel Toggle (when closed) — 固定在右上角確保不被裁掉 */}
+      {!chatPanelOpen && (
+        <Tooltip title="開啟 AI 助理">
+          <Button
+            type="primary"
+            shape="circle"
+            icon={<MenuUnfoldOutlined />}
+            onClick={() => setChatPanelOpen(true)}
+            style={{
+              position: 'absolute', right: 12, bottom: 56, zIndex: 100,
+              background: '#722ed1', borderColor: '#722ed1',
+              boxShadow: '0 2px 8px rgba(114, 46, 209, 0.4)',
+            }}
+          />
+        </Tooltip>
+      )}
 
       {/* Merge Entities Modal */}
       <Modal
@@ -773,6 +674,7 @@ const KnowledgeGraphPage: React.FC<KnowledgeGraphPageProps> = ({ defaultMode = '
         </Space>
       </Modal>
     </div>
+    </GraphAgentBridgeProvider>
   );
 };
 

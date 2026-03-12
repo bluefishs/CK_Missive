@@ -229,6 +229,8 @@ export interface DispatchDocumentLink extends BaseLink {
   doc_number?: string;
   subject?: string;
   doc_date?: string;
+  /** 此公文被幾個派工單引用（跨派工單重疊偵測） */
+  linked_dispatch_count?: number;
 }
 
 /** 作業類別正規化項目 */

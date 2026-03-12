@@ -9,7 +9,7 @@
  * @date 2026-02-11
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { ResponsiveContent } from '../components/common';
 import {
@@ -189,34 +189,36 @@ const CalendarEventFormPage: React.FC = () => {
   }, [event, form, isNew]);
 
   // 新建模式：預設關聯公文（從 query param）
-  useEffect(() => {
-    if (isNew && presetDocumentId) {
-      const docId = parseInt(presetDocumentId, 10);
-      if (!isNaN(docId)) {
-        form.setFieldsValue({ document_id: docId });
-        // 查詢公文資訊顯示在選項中
-        apiClient.post<{
-          success: boolean;
-          items: Array<{ id: number; doc_number: string; subject?: string }>;
-        }>(API_ENDPOINTS.DOCUMENTS.LIST, { keyword: '', limit: 1, page: 1, id: docId })
-          .then(response => {
-            const firstItem = response.items?.[0];
-            if (response.success && firstItem) {
-              setDocumentOptions([{
-                id: firstItem.id,
-                doc_number: firstItem.doc_number,
-                subject: firstItem.subject || '',
-              }]);
-            } else {
-              setDocumentOptions([{ id: docId, doc_number: `公文 #${docId}`, subject: '' }]);
-            }
-          })
-          .catch(() => {
-            setDocumentOptions([{ id: docId, doc_number: `公文 #${docId}`, subject: '' }]);
-          });
+  const presetDocId = isNew && presetDocumentId ? parseInt(presetDocumentId, 10) : NaN;
+  const { data: presetDocument } = useQuery({
+    queryKey: ['preset-document', presetDocId],
+    queryFn: async () => {
+      const response = await apiClient.post<{
+        success: boolean;
+        items: Array<{ id: number; doc_number: string; subject?: string }>;
+      }>(API_ENDPOINTS.DOCUMENTS.LIST, { keyword: '', limit: 1, page: 1, id: presetDocId });
+      const firstItem = response.items?.[0];
+      if (response.success && firstItem) {
+        return {
+          id: firstItem.id,
+          doc_number: firstItem.doc_number,
+          subject: firstItem.subject || '',
+        };
       }
+      return { id: presetDocId, doc_number: `公文 #${presetDocId}`, subject: '' };
+    },
+    enabled: isNew && !isNaN(presetDocId),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
+  // 預設公文載入後設定表單與選項
+  useEffect(() => {
+    if (presetDocument && isNew) {
+      form.setFieldsValue({ document_id: presetDocument.id });
+      setDocumentOptions([presetDocument]);
     }
-  }, [isNew, presetDocumentId, form]);
+  }, [presetDocument, isNew, form]);
 
   // 公文搜尋
   // eslint-disable-next-line react-hooks/exhaustive-deps -- debounce returns a new function each render; stable reference via useMemo

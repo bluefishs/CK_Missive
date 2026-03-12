@@ -6,7 +6,7 @@
  * @date 2026-01-23
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   Card,
   Tag,
@@ -27,7 +27,7 @@ import {
   FileTextOutlined,
 } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { ROUTES } from '../router/types';
 import { queryKeys } from '../config/queryConfig';
@@ -103,19 +103,7 @@ export const ContractCaseDetailPage: React.FC = () => {
   const queryClient = useQueryClient();
   const { message } = App.useApp();
 
-  // 主要狀態
-  const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<ProjectData | null>(null);
   const [activeTab, setActiveTab] = useState('info');
-
-  // 資料狀態
-  const [staffList, setStaffList] = useState<Staff[]>([]);
-  const [vendorList, setVendorList] = useState<VendorAssociation[]>([]);
-  const [relatedDocs, setRelatedDocs] = useState<RelatedDocument[]>([]);
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const [groupedAttachments, setGroupedAttachments] = useState<LocalGroupedAttachment[]>([]);
-  const [attachmentsLoading, setAttachmentsLoading] = useState(false);
-  const [agencyContacts, setAgencyContacts] = useState<ProjectAgencyContact[]>([]);
 
   // 編輯模式狀態
   const [isEditingCaseInfo, setIsEditingCaseInfo] = useState(false);
@@ -134,41 +122,24 @@ export const ContractCaseDetailPage: React.FC = () => {
   const [caseInfoForm] = Form.useForm<CaseInfoFormValues>();
   const [agencyContactForm] = Form.useForm<AgencyContactFormValues>();
 
-  // 選項狀態
-  const [userOptions, setUserOptions] = useState<{ id: number; name: string; email: string }[]>([]);
-  const [vendorOptions, setVendorOptions] = useState<{ id: number; name: string; code: string }[]>([]);
-
-  // StrictMode 雙重載入防護
-  const loadedIdRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (id && loadedIdRef.current !== id) {
-      loadedIdRef.current = id;
-      loadData();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadData depends on id, adding it would cause infinite loop
-  }, [id]);
-
   // ============================================================================
-  // 資料載入函數
+  // React Query 資料載入
   // ============================================================================
 
-  const loadData = async () => {
-    if (!id) return;
-    const projectId = parseInt(id, 10);
+  const projectId = id ? parseInt(id, 10) : undefined;
 
-    setLoading(true);
-    try {
+  // 主要資料查詢：專案 + 同仁 + 廠商 + 機關承辦
+  const { data: coreData, isLoading: coreLoading } = useQuery({
+    queryKey: ['contract-case-detail', projectId],
+    queryFn: async () => {
+      const pid = projectId!;
       const [projectResponse, staffResponse, vendorsResponse, agencyContactsResponse] = await Promise.all([
-        projectsApi.getProject(projectId),
-        projectStaffApi.getProjectStaff(projectId).catch(() => ({ staff: [], total: 0, project_id: projectId, project_name: '' })),
-        projectVendorsApi.getProjectVendors(projectId).catch(() => ({ associations: [], total: 0, project_id: projectId, project_name: '' })),
-        getProjectAgencyContacts(projectId).catch(() => ({ items: [], total: 0 })),
+        projectsApi.getProject(pid),
+        projectStaffApi.getProjectStaff(pid).catch(() => ({ staff: [], total: 0, project_id: pid, project_name: '' })),
+        projectVendorsApi.getProjectVendors(pid).catch(() => ({ associations: [], total: 0, project_id: pid, project_name: '' })),
+        getProjectAgencyContacts(pid).catch(() => ({ items: [], total: 0 })),
       ]);
 
-      setData(projectResponse);
-
-      // 轉換承辦同仁資料
       const transformedStaff: Staff[] = staffResponse.staff.map((s: ProjectStaff) => ({
         id: s.id,
         user_id: s.user_id,
@@ -180,9 +151,7 @@ export const ContractCaseDetailPage: React.FC = () => {
         join_date: s.start_date,
         status: s.status || 'active',
       }));
-      setStaffList(transformedStaff);
 
-      // 轉換協力廠商資料
       const transformedVendors: VendorAssociation[] = vendorsResponse.associations.map((v: ProjectVendor) => ({
         id: v.vendor_id,
         vendor_id: v.vendor_id,
@@ -196,47 +165,47 @@ export const ContractCaseDetailPage: React.FC = () => {
         end_date: v.end_date,
         status: v.status || 'active',
       }));
-      setVendorList(transformedVendors);
 
-      setAgencyContacts(agencyContactsResponse.items || []);
+      return {
+        project: projectResponse as ProjectData,
+        staffList: transformedStaff,
+        vendorList: transformedVendors,
+        agencyContacts: (agencyContactsResponse.items || []) as ProjectAgencyContact[],
+      };
+    },
+    enabled: !!projectId,
+  });
 
-      // 載入關聯公文
-      let loadedDocs: RelatedDocument[] = [];
-      try {
-        const docsResponse = await documentsApi.getDocumentsByProject(projectId);
-        loadedDocs = docsResponse.items.map(doc => ({
-          id: doc.id,
-          doc_number: doc.doc_number,
-          doc_type: doc.doc_type || '函',
-          subject: doc.subject,
-          doc_date: doc.doc_date || '',
-          sender: doc.sender || '',
-          receiver: doc.receiver || '',
-          category: doc.category || '收文',
-          delivery_method: doc.delivery_method || '電子交換',
-          has_attachment: doc.has_attachment || false,
-        }));
-        setRelatedDocs(loadedDocs);
-      } catch {
-        logger.warn('載入關聯公文失敗');
-      }
+  // 關聯公文查詢
+  const { data: relatedDocsData } = useQuery({
+    queryKey: ['contract-case-docs', projectId],
+    queryFn: async () => {
+      const docsResponse = await documentsApi.getDocumentsByProject(projectId!);
+      return docsResponse.items.map(doc => ({
+        id: doc.id,
+        doc_number: doc.doc_number,
+        doc_type: doc.doc_type || '函',
+        subject: doc.subject,
+        doc_date: doc.doc_date || '',
+        sender: doc.sender || '',
+        receiver: doc.receiver || '',
+        category: doc.category || '收文',
+        delivery_method: doc.delivery_method || '電子交換',
+        has_attachment: doc.has_attachment || false,
+      })) as RelatedDocument[];
+    },
+    enabled: !!projectId,
+  });
 
-      // 載入附件
-      await loadAttachments(loadedDocs);
+  const relatedDocs = relatedDocsData ?? [];
 
-    } catch (error) {
-      logger.error('載入數據失敗:', error);
-      message.error('載入數據失敗');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // 附件查詢 (依賴關聯公文)
+  const { data: attachmentData, isLoading: attachmentsLoading } = useQuery({
+    queryKey: ['contract-case-attachments', projectId, relatedDocs.map(d => d.id)],
+    queryFn: async () => {
+      const docs = relatedDocs;
+      if (docs.length === 0) return { attachments: [] as Attachment[], grouped: [] as LocalGroupedAttachment[] };
 
-  const loadAttachments = async (docs: RelatedDocument[]) => {
-    if (docs.length === 0) return;
-    setAttachmentsLoading(true);
-    try {
-      // 並行載入所有文件附件（限制並行數為 5，避免觸發熔斷器）
       const BATCH_SIZE = 5;
       const results: { doc: RelatedDocument; attachments: FileAttachment[] }[] = [];
 
@@ -294,42 +263,63 @@ export const ContractCaseDetailPage: React.FC = () => {
           });
         }
       }
-      setAttachments(allAttachments);
-      setGroupedAttachments(grouped);
-    } catch {
-      logger.warn('載入附件失敗');
-    } finally {
-      setAttachmentsLoading(false);
-    }
-  };
+      return { attachments: allAttachments, grouped };
+    },
+    enabled: !!projectId && relatedDocs.length > 0,
+  });
 
-  const loadUserOptions = async () => {
-    try {
+  const attachments = attachmentData?.attachments ?? [];
+  const groupedAttachments = attachmentData?.grouped ?? [];
+
+  // 使用者選項查詢
+  const { data: userOptions = [] } = useQuery({
+    queryKey: ['contract-case-user-options'],
+    queryFn: async () => {
       const response = await usersApi.getUsers({ limit: 100 }) as PaginatedResponse<User>;
       const users = response.items || [];
-      setUserOptions(users.map((u) => ({
+      return users.map((u) => ({
         id: u.id,
         name: u.full_name || u.username,
         email: u.email,
-      })));
-    } catch (error) {
-      logger.error('載入使用者列表失敗:', error);
-    }
-  };
+      }));
+    },
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
 
-  const loadVendorOptions = async () => {
-    try {
+  // 廠商選項查詢
+  const { data: vendorOptions = [] } = useQuery({
+    queryKey: ['contract-case-vendor-options'],
+    queryFn: async () => {
       const response = await vendorsApi.getVendors({ limit: 100 }) as PaginatedResponse<Vendor>;
       const vendors = response.items || [];
-      setVendorOptions(vendors.map((v) => ({
+      return vendors.map((v) => ({
         id: v.id,
         name: v.vendor_name,
         code: v.vendor_code || '',
-      })));
-    } catch (error) {
-      logger.error('載入廠商列表失敗:', error);
-    }
+      }));
+    },
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  // 從 React Query 資料中提取
+  const data = coreData?.project ?? null;
+  const staffList = coreData?.staffList ?? [];
+  const vendorList = coreData?.vendorList ?? [];
+  const agencyContacts = coreData?.agencyContacts ?? [];
+  const loading = coreLoading;
+
+  /** 重新載入所有資料 */
+  const reloadData = () => {
+    queryClient.invalidateQueries({ queryKey: ['contract-case-detail', projectId] });
+    queryClient.invalidateQueries({ queryKey: ['contract-case-docs', projectId] });
+    queryClient.invalidateQueries({ queryKey: ['contract-case-attachments', projectId] });
   };
+
+  /** no-op: userOptions/vendorOptions are now loaded via useQuery */
+  const loadUserOptions = async () => { /* managed by useQuery */ };
+  const loadVendorOptions = async () => { /* managed by useQuery */ };
 
   // ============================================================================
   // 事件處理函數
@@ -383,7 +373,7 @@ export const ContractCaseDetailPage: React.FC = () => {
       // 派工管理狀態變更時，刷新派工案件 ID 快取
       queryClient.invalidateQueries({ queryKey: ['taoyuan-dispatch-orders', 'contract-projects'] });
 
-      setData({ ...data, ...updateData });
+      queryClient.invalidateQueries({ queryKey: ['contract-case-detail', projectId] });
       setIsEditingCaseInfo(false);
       message.success('案件資訊已更新');
     } catch (error) {
@@ -409,7 +399,7 @@ export const ContractCaseDetailPage: React.FC = () => {
       setAgencyContactModalVisible(false);
       setEditingAgencyContactId(null);
       agencyContactForm.resetFields();
-      loadData();
+      reloadData();
     } catch {
       message.error('儲存失敗');
     }
@@ -419,7 +409,7 @@ export const ContractCaseDetailPage: React.FC = () => {
     try {
       await deleteAgencyContact(contactId);
       message.success('刪除成功');
-      loadData();
+      reloadData();
     } catch {
       message.error('刪除失敗');
     }
@@ -443,7 +433,7 @@ export const ContractCaseDetailPage: React.FC = () => {
       staffForm.resetFields();
       setStaffModalVisible(false);
       message.success('新增承辦同仁成功');
-      loadData();
+      reloadData();
     } catch (error) {
       const axiosError = error as { response?: { data?: ApiErrorResponse } };
       const detail = axiosError.response?.data?.detail;
@@ -468,7 +458,7 @@ export const ContractCaseDetailPage: React.FC = () => {
         role: newRole,
         is_primary: newRole === '計畫主持',
       });
-      setStaffList(staffList.map(s => s.id === staffId ? { ...s, role: newRole } : s));
+      queryClient.invalidateQueries({ queryKey: ['contract-case-detail', projectId] });
       setEditingStaffId(null);
       message.success('角色已更新');
     } catch {
@@ -485,7 +475,7 @@ export const ContractCaseDetailPage: React.FC = () => {
 
     try {
       await projectStaffApi.deleteStaff(projectId, staff.user_id);
-      setStaffList(staffList.filter(s => s.id !== staffId));
+      queryClient.invalidateQueries({ queryKey: ['contract-case-detail', projectId] });
       message.success('已移除同仁');
     } catch {
       message.error('移除同仁失敗');
@@ -522,7 +512,7 @@ export const ContractCaseDetailPage: React.FC = () => {
       vendorForm.resetFields();
       setVendorModalVisible(false);
       message.success('新增協力廠商成功');
-      loadData();
+      reloadData();
     } catch {
       message.error('新增協力廠商失敗');
     }
@@ -534,7 +524,7 @@ export const ContractCaseDetailPage: React.FC = () => {
 
     try {
       await projectVendorsApi.updateVendor(projectId, vendorId, { role: newRole });
-      setVendorList(vendorList.map(v => v.vendor_id === vendorId ? { ...v, role: newRole } : v));
+      queryClient.invalidateQueries({ queryKey: ['contract-case-detail', projectId] });
       setEditingVendorId(null);
       message.success('角色已更新');
     } catch {
@@ -549,7 +539,7 @@ export const ContractCaseDetailPage: React.FC = () => {
 
     try {
       await projectVendorsApi.deleteVendor(projectId, vendorId);
-      setVendorList(vendorList.filter(v => v.vendor_id !== vendorId));
+      queryClient.invalidateQueries({ queryKey: ['contract-case-detail', projectId] });
       message.success('已移除廠商');
     } catch {
       message.error('移除廠商失敗');
@@ -688,7 +678,7 @@ export const ContractCaseDetailPage: React.FC = () => {
           attachments={attachments}
           groupedAttachments={groupedAttachments}
           loading={attachmentsLoading}
-          onRefresh={loadData}
+          onRefresh={reloadData}
           onDownload={handleDownloadAttachment}
           onPreview={handlePreviewAttachment}
           onDownloadAll={handleDownloadAllAttachments}
@@ -702,7 +692,7 @@ export const ContractCaseDetailPage: React.FC = () => {
       children: (
         <RelatedDocumentsTab
           relatedDocs={relatedDocs}
-          onRefresh={loadData}
+          onRefresh={reloadData}
         />
       ),
     },

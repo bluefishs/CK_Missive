@@ -2,7 +2,8 @@
  * 簡易資料庫檢視器
  * @description 提供資料庫表格概覽、關聯圖和 API 對應表功能
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Card, Table, Tabs, Button, Space, Typography, Row, Col,
   Statistic, Alert, Tag, App, Tooltip, Badge, Switch, Modal, Descriptions, Divider
@@ -40,80 +41,81 @@ interface EnhancedTableInfo extends TableInfo {
 // 使用共享的表格元數據
 const tableMetadata = databaseMetadata.table_metadata;
 
+/** Fallback data when API is unreachable */
+const FALLBACK_DATABASE_INFO: DatabaseInfo = {
+  name: "ck_documents",
+  size: "8597 kB",
+  status: "healthy",
+  totalRecords: 15,
+  tables: [
+    {
+      name: "users",
+      recordCount: 2,
+      columns: [
+        { name: "id", type: "integer", nullable: false, primaryKey: true },
+        { name: "email", type: "character varying", nullable: false, primaryKey: false },
+        { name: "username", type: "character varying", nullable: false, primaryKey: false }
+      ],
+      size: "80 kB",
+      lastModified: "2024-01-01"
+    },
+    {
+      name: "documents",
+      recordCount: 0,
+      columns: [
+        { name: "id", type: "integer", nullable: false, primaryKey: true },
+        { name: "doc_number", type: "character varying", nullable: false, primaryKey: false },
+        { name: "subject", type: "character varying", nullable: false, primaryKey: false }
+      ],
+      size: "72 kB",
+      lastModified: "2024-01-01"
+    },
+    {
+      name: "contract_projects",
+      recordCount: 0,
+      columns: [
+        { name: "id", type: "integer", nullable: false, primaryKey: true },
+        { name: "project_name", type: "character varying", nullable: false, primaryKey: false }
+      ],
+      size: "32 kB",
+      lastModified: "2024-01-01"
+    }
+  ]
+};
+
 export const SimpleDatabaseViewer: React.FC = () => {
   const { message } = App.useApp();
-  const [loading, setLoading] = useState(false);
-  const [databaseInfo, setDatabaseInfo] = useState<DatabaseInfo | null>(null);
   const [showChineseNames, setShowChineseNames] = useState(true);
   const [selectedTable, setSelectedTable] = useState<string>('');
   const [showDetails, setShowDetails] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
 
-  const fetchDatabaseInfo = async () => {
-    setLoading(true);
-    try {
-      logger.debug('🔍 Fetching database info via apiClient');
-      const data = await apiClient.post<DatabaseInfo>(API_ENDPOINTS.ADMIN_DATABASE.INFO, {});
-      logger.debug('✅ Database info loaded:', data);
-      setDatabaseInfo(data);
-      message.success('資料庫信息載入成功');
-    } catch (error) {
-      logger.error('獲取資料庫信息失敗:', error);
+  const {
+    data: databaseInfo = null,
+    isLoading: loading,
+    refetch: refetchDatabaseInfo,
+  } = useQuery({
+    queryKey: ['database-info-enhanced'],
+    queryFn: async () => {
+      logger.debug('Fetching database info via apiClient');
+      try {
+        const data = await apiClient.post<DatabaseInfo>(API_ENDPOINTS.ADMIN_DATABASE.INFO, {});
+        logger.debug('Database info loaded:', data);
+        return data;
+      } catch (error) {
+        logger.error('獲取資料庫信息失敗:', error);
+        logger.debug('Using fallback data for development mode');
+        message.warning('使用離線資料模式（API連接失敗）');
+        return FALLBACK_DATABASE_INFO;
+      }
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
 
-      // 使用 fallback 資料以確保頁面可以正常顯示
-      const fallbackData = {
-        name: "ck_documents",
-        size: "8597 kB",
-        status: "healthy",
-        totalRecords: 15,
-        tables: [
-          {
-            name: "users",
-            recordCount: 2,
-            columns: [
-              { name: "id", type: "integer", nullable: false, primaryKey: true },
-              { name: "email", type: "character varying", nullable: false, primaryKey: false },
-              { name: "username", type: "character varying", nullable: false, primaryKey: false }
-            ],
-            size: "80 kB",
-            lastModified: "2024-01-01"
-          },
-          {
-            name: "documents",
-            recordCount: 0,
-            columns: [
-              { name: "id", type: "integer", nullable: false, primaryKey: true },
-              { name: "doc_number", type: "character varying", nullable: false, primaryKey: false },
-              { name: "subject", type: "character varying", nullable: false, primaryKey: false }
-            ],
-            size: "72 kB",
-            lastModified: "2024-01-01"
-          },
-          {
-            name: "contract_projects",
-            recordCount: 0,
-            columns: [
-              { name: "id", type: "integer", nullable: false, primaryKey: true },
-              { name: "project_name", type: "character varying", nullable: false, primaryKey: false }
-            ],
-            size: "32 kB",
-            lastModified: "2024-01-01"
-          }
-        ]
-      };
-
-      logger.debug('🔄 Using fallback data for development mode');
-      setDatabaseInfo(fallbackData);
-      message.warning('使用離線資料模式（API連接失敗）');
-    } finally {
-      setLoading(false);
-    }
+  const fetchDatabaseInfo = () => {
+    refetchDatabaseInfo();
   };
-
-  useEffect(() => {
-    fetchDatabaseInfo();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only run on mount
-  }, []);
 
   const enhancedTables = databaseInfo?.tables.map(table => {
     const metadata = tableMetadata[table.name] as TableMetadataItem | undefined;

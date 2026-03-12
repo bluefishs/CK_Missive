@@ -13,7 +13,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import { workflowApi } from '../../../api/taoyuan';
+import { workflowApi, dispatchOrdersApi } from '../../../api/taoyuan';
 import { queryKeys } from '../../../config/queryConfig';
 import type { DispatchDocumentLink, LinkType } from '../../../types/api';
 import type { CorrespondenceBodyData } from './CorrespondenceBody';
@@ -25,7 +25,7 @@ import {
   computeDocStats,
   computeCurrentStage,
 } from './chainUtils';
-import type { CorrespondenceMatrixRow } from './chainUtils';
+import type { CorrespondenceMatrixRow, EntityPairScore } from './chainUtils';
 
 // ============================================================================
 // detectLinkType - 根據公文字號自動判斷關聯類型
@@ -94,6 +94,27 @@ export function useDispatchWorkData({
     enabled: dispatchOrderId > 0,
   });
 
+  // NER 驅動公文對照建議（靜默失敗，非阻擋性功能）
+  const { data: correspondenceSuggestionsData } = useQuery({
+    queryKey: ['correspondence-suggestions', dispatchOrderId],
+    queryFn: () => dispatchOrdersApi.getCorrespondenceSuggestions(dispatchOrderId),
+    enabled: dispatchOrderId > 0 && linkedDocuments.length > 0,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+
+  // 轉換為 EntityPairScore 格式（向後相容 buildCorrespondenceMatrix）
+  const entityScores = useMemo<EntityPairScore[] | undefined>(() => {
+    if (!correspondenceSuggestionsData?.success) return undefined;
+    return correspondenceSuggestionsData.suggestions.map((s) => ({
+      incoming_doc_id: s.incoming_doc_id,
+      outgoing_doc_id: s.outgoing_doc_id,
+      shared_entity_count: s.shared_entity_count,
+      jaccard: s.score,
+      shared_entities: s.shared_entities,
+    }));
+  }, [correspondenceSuggestionsData]);
+
   const allRecords = useMemo(
     () => workRecordData?.items ?? [],
     [workRecordData?.items],
@@ -123,13 +144,14 @@ export function useDispatchWorkData({
 
     for (const doc of linkedDocuments) {
       if (!doc.document_id) continue;
-      if (!assignedDocIds.has(doc.document_id)) {
-        const type = doc.link_type || detectLinkType(doc.doc_number);
-        if (type === 'company_outgoing') {
-          outgoing.push(doc);
-        } else {
-          incoming.push(doc);
-        }
+      // 已被作業紀錄引用 → 跳過
+      if (assignedDocIds.has(doc.document_id)) continue;
+
+      const type = doc.link_type || detectLinkType(doc.doc_number);
+      if (type === 'company_outgoing') {
+        outgoing.push(doc);
+      } else {
+        incoming.push(doc);
       }
     }
 
@@ -178,15 +200,16 @@ export function useDispatchWorkData({
     return buildDocPairs(sortedRecords);
   }, [records]);
 
-  // 公文對照矩陣（合併已指派 + 未指派，配對行式）
+  // 公文對照矩陣（合併已指派 + 未指派，配對行式 + 知識圖譜加權）
   const matrixRows = useMemo<CorrespondenceMatrixRow[]>(
     () =>
       buildCorrespondenceMatrix(
         correspondenceData,
         unassignedDocs.incoming,
         unassignedDocs.outgoing,
+        entityScores,
       ),
-    [correspondenceData, unassignedDocs],
+    [correspondenceData, unassignedDocs, entityScores],
   );
 
   return {

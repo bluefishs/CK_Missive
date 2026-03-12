@@ -8,7 +8,7 @@
  * @date 2026-02-08
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   Timeline,
   Tag,
@@ -33,10 +33,10 @@ import {
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/zh-tw';
+import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { API_ENDPOINTS } from '../../api/endpoints';
-import { logger } from '../../utils/logger';
-import type { LoginHistoryItem, LoginHistoryResponse } from '../../types/api';
+import type { LoginHistoryResponse } from '../../types/api';
 
 dayjs.extend(relativeTime);
 dayjs.locale('zh-tw');
@@ -124,37 +124,30 @@ interface LoginHistoryTabProps {
 }
 
 export const LoginHistoryTab: React.FC<LoginHistoryTabProps> = ({ isMobile = false }) => {
-  const [items, setItems] = useState<LoginHistoryItem[]>([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(20);
-  const [loading, setLoading] = useState(false);
+  const pageSize = 20;
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(() => [
     dayjs().subtract(30, 'day'),
     dayjs(),
   ]);
 
-  const fetchLoginHistory = useCallback(async (currentPage: number) => {
-    setLoading(true);
-    try {
-      const response = await apiClient.post<LoginHistoryResponse>(
+  const {
+    data: historyData,
+    isLoading: loading,
+  } = useQuery<LoginHistoryResponse>({
+    queryKey: ['login-history', page, pageSize],
+    queryFn: () =>
+      apiClient.post<LoginHistoryResponse>(
         API_ENDPOINTS.AUTH.LOGIN_HISTORY,
         {},
-        { params: { page: currentPage, page_size: pageSize } }
-      );
-      setItems(response.items);
-      setTotal(response.total);
-    } catch (error) {
-      logger.error('載入登入歷史失敗:', error);
-      // 保留現有資料，不清空
-    } finally {
-      setLoading(false);
-    }
-  }, [pageSize]);
+        { params: { page, page_size: pageSize } }
+      ),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
 
-  useEffect(() => {
-    fetchLoginHistory(page);
-  }, [page, fetchLoginHistory]);
+  const items = useMemo(() => historyData?.items ?? [], [historyData?.items]);
+  const total = historyData?.total ?? 0;
 
   const handlePageChange = useCallback((newPage: number) => {
     setPage(newPage);

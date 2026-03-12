@@ -2,7 +2,8 @@
  * 提醒設定模態框
  * 用於設定和管理日曆事件的提醒功能
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { logger } from '../../services/logger';
 import {
   Modal, Select, Button, Space,
@@ -66,53 +67,51 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
   onSuccess
 }) => {
   // 注意：此元件不使用 Form，移除未使用的 useForm 避免 Antd 警告
-  const [loading, setLoading] = useState(false);
-  const [reminders, setReminders] = useState<EventReminder[]>([]);
+  const [actionLoading, setActionLoading] = useState(false);
   const [newReminderMinutes, setNewReminderMinutes] = useState<number>(60);
   const [newReminderType, setNewReminderType] = useState<string>('email');
+  const queryClient = useQueryClient();
 
   // 響應式斷點
   const screens = useBreakpoint();
   const isMobile = !screens.md;
 
-  // 載入現有提醒設定
-  useEffect(() => {
-    if (visible && event) {
-      loadReminders();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadReminders changes on each render; only trigger on visible/event change
-  }, [visible, event]);
-
-  const loadReminders = async () => {
-    if (!event) return;
-
-    setLoading(true);
-    try {
+  // 載入現有提醒設定（React Query）
+  const {
+    data: reminders = [],
+    isLoading: remindersLoading,
+  } = useQuery({
+    queryKey: ['event-reminders', event?.id],
+    queryFn: async () => {
+      if (!event) return [];
       const response = await apiClient.post<{ success: boolean; reminders?: EventReminder[] }>(
         `/reminder-management/events/${event.id}/reminders`,
         {}
       );
       if (response.success && response.reminders) {
-        setReminders(response.reminders);
+        return response.reminders;
       }
-    } catch (error) {
-      logger.error('Failed to load reminders:', error);
-      // 重要：錯誤時不清空現有列表，避免「紀錄消失」問題
-      // setReminders([]);
-      notification.error({
-        message: '載入提醒設定失敗',
-        description: '請稍後重試',
-      });
-    } finally {
-      setLoading(false);
-    }
+      return [];
+    },
+    enabled: visible && !!event,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+    meta: {
+      errorMessage: '載入提醒設定失敗',
+    },
+  });
+
+  const loading = actionLoading || remindersLoading;
+
+  const invalidateReminders = () => {
+    queryClient.invalidateQueries({ queryKey: ['event-reminders', event?.id] });
   };
 
   // 新增提醒
   const handleAddReminder = async () => {
     if (!event) return;
 
-    setLoading(true);
+    setActionLoading(true);
     try {
       const eventTime = dayjs(event.start_date);
       const reminderTime = eventTime.subtract(newReminderMinutes, 'minute');
@@ -129,7 +128,7 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
 
       if (response.success) {
         notification.success({ message: '提醒已新增' });
-        await loadReminders();
+        invalidateReminders();
         onSuccess?.();
       }
     } catch (error: unknown) {
@@ -139,7 +138,7 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
         description: error instanceof Error ? error.message : '請稍後再試'
       });
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
 
@@ -147,7 +146,7 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
   const handleDeleteReminder = async (reminderId: number) => {
     if (!event) return;
 
-    setLoading(true);
+    setActionLoading(true);
     try {
       const response = await apiClient.post<{ success: boolean }>(
         `/reminder-management/events/${event.id}/reminders/update-template`,
@@ -159,7 +158,7 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
 
       if (response.success) {
         notification.success({ message: '提醒已刪除' });
-        await loadReminders();
+        invalidateReminders();
         onSuccess?.();
       }
     } catch (error: unknown) {
@@ -169,7 +168,7 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
         description: error instanceof Error ? error.message : '請稍後再試'
       });
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
 
@@ -177,7 +176,7 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
   const handleSendTestReminder = async () => {
     if (!event) return;
 
-    setLoading(true);
+    setActionLoading(true);
     try {
       const response = await apiClient.post<{ success: boolean }>(
         '/reminder-management/send-test-reminder',
@@ -197,7 +196,7 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
         description: error instanceof Error ? error.message : '請稍後再試'
       });
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
 

@@ -74,6 +74,8 @@ const DeploymentManagementPage = lazy(() => import('../pages/DeploymentManagemen
 const AIAssistantManagementPage = lazy(() => import('../pages/AIAssistantManagementPage'));
 const KnowledgeGraphPage = lazy(() => import('../pages/KnowledgeGraphPage'));
 const CodeGraphManagementPage = lazy(() => import('../pages/CodeGraphManagementPage'));
+const DatabaseGraphPage = lazy(() => import('../pages/DatabaseGraphPage'));
+const KnowledgeBasePage = lazy(() => import('../pages/KnowledgeBasePage'));
 
 // 桃園查估專區
 const TaoyuanDispatchPage = lazy(() => import('../pages/TaoyuanDispatchPage'));
@@ -199,12 +201,18 @@ export const AppRouter: React.FC = () => {
           {/* AI 助理管理（整合同義詞管理 + Prompt 管理） */}
           <Route path={ROUTES.AI_ASSISTANT_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><AIAssistantManagementPage /></ProtectedRoute>} />
 
-          {/* 知識圖譜探索（獨立全螢幕頁面） */}
+          {/* 公文圖譜 */}
           <Route path={ROUTES.KNOWLEDGE_GRAPH} element={<ProtectedRoute><KnowledgeGraphPage /></ProtectedRoute>} />
-          {/* 代碼圖譜 Code Wiki */}
-          <Route path={ROUTES.CODE_WIKI} element={<ProtectedRoute><KnowledgeGraphPage defaultMode="codeWiki" /></ProtectedRoute>} />
-          {/* 代碼圖譜管理（獨立管理頁面） */}
-          <Route path={ROUTES.CODE_GRAPH_MANAGEMENT} element={<ProtectedRoute><CodeGraphManagementPage /></ProtectedRoute>} />
+          {/* 代碼圖譜 */}
+          <Route path={ROUTES.CODE_GRAPH} element={<ProtectedRoute><CodeGraphManagementPage /></ProtectedRoute>} />
+          {/* 代碼圖譜（舊路由相容重導向） */}
+          <Route path={ROUTES.CODE_WIKI} element={<Navigate to={ROUTES.CODE_GRAPH} replace />} />
+          {/* 代碼圖譜管理（舊路由相容重導向） */}
+          <Route path={ROUTES.CODE_GRAPH_MANAGEMENT} element={<Navigate to={ROUTES.CODE_GRAPH} replace />} />
+          {/* 資料庫圖譜 */}
+          <Route path={ROUTES.DB_GRAPH} element={<ProtectedRoute><DatabaseGraphPage /></ProtectedRoute>} />
+          {/* 知識庫瀏覽器 */}
+          <Route path={ROUTES.KNOWLEDGE_BASE} element={<ProtectedRoute requireAuth={true} roles={['admin']}><KnowledgeBasePage /></ProtectedRoute>} />
 
           {/* 需要認證的路由 */}
           {/* /settings 已統一至 /profile */}

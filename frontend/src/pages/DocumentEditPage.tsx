@@ -10,6 +10,7 @@ import React, { useState, useEffect } from 'react';
 import { Form, Input, Select, Button, Card, Row, Col, Spin, App, Space } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useResponsive } from '../hooks';
 import { logger } from '../services/logger';
 import { apiClient } from '../api/client';
@@ -26,15 +27,14 @@ export const DocumentEditPage: React.FC = () => {
   const { id } = useParams();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
-  const [loadingDocument, setLoadingDocument] = useState(true);
 
   // RWD 響應式
   const { isMobile } = useResponsive();
 
   // 載入公文資料
-  useEffect(() => {
-    const loadDocument = async () => {
-      setLoadingDocument(true);
+  const { data: documentFormData, isLoading: loadingDocument } = useQuery({
+    queryKey: ['document-edit', id],
+    queryFn: async () => {
       try {
         const documentData = await apiClient.post<Record<string, unknown>>(
           API_ENDPOINTS.DOCUMENTS.DETAIL(Number(id)),
@@ -42,7 +42,7 @@ export const DocumentEditPage: React.FC = () => {
         );
 
         // 格式化資料以符合表單格式
-        const formData = {
+        return {
           title: documentData.title || '',
           type: documentData.document_type || 'official',
           agency: documentData.agency || '',
@@ -51,21 +51,21 @@ export const DocumentEditPage: React.FC = () => {
           content: documentData.content || '',
           notes: documentData.notes || ''
         };
-
-        form.setFieldsValue(formData);
       } catch (error) {
         logger.error('Load document failed:', error);
         message.error('載入公文資料失敗');
-      } finally {
-        setLoadingDocument(false);
+        throw error;
       }
-    };
+    },
+    enabled: !!id,
+  });
 
-    if (id) {
-      loadDocument();
+  // 當查詢資料就緒時設定表單值
+  useEffect(() => {
+    if (documentFormData) {
+      form.setFieldsValue(documentFormData);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- form is stable from Form.useForm(), message from App.useApp()
-  }, [id]);
+  }, [documentFormData, form]);
 
   const onFinish = async (values: DocumentFormValues) => {
     setLoading(true);

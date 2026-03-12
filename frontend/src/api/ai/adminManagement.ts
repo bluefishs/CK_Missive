@@ -490,7 +490,7 @@ export async function clearAgentConversation(sessionId: string): Promise<void> {
  * 傳回 AbortController 供取消使用。
  */
 export function streamAgentQuery(
-  params: { question: string; history?: Array<{ role: string; content: string }>; session_id?: string },
+  params: { question: string; history?: Array<{ role: string; content: string }>; session_id?: string; context?: string },
   callbacks: AgentStreamCallbacks,
 ): AbortController {
   const controller = new AbortController();

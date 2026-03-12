@@ -1,97 +1,76 @@
 /**
  * ApiDocumentationPage.tsx - API 文件頁面
  *
- * @version 1.1.0
- * @date 2026-01-11
+ * @version 2.0.0
+ * @date 2026-03-11
  */
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { lazy, Suspense, useMemo } from 'react';
 import { Card, Typography, Alert, Spin, Space, Button, Divider } from 'antd';
 import { ApiOutlined, ReloadOutlined, ExportOutlined } from '@ant-design/icons';
+import { useQuery } from '@tanstack/react-query';
 
 // swagger-ui-react 延遲載入（~500KB，僅管理員使用）
-const SwaggerUI = lazy(() => import('swagger-ui-react'));
-import 'swagger-ui-react/swagger-ui.css';
+const SwaggerUI = lazy(() =>
+  import('swagger-ui-react').then(m => {
+    // CSS 隨元件一起延遲載入
+    import('swagger-ui-react/swagger-ui.css');
+    return m;
+  })
+);
 import { ResponsiveContent } from '../components/common';
 import { SERVER_BASE_URL } from '../api/client';
-import './ApiDocumentationPage.css';
 import { logger } from '../utils/logger';
 
 const { Title, Paragraph, Text } = Typography;
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchOpenApiSpec(): Promise<Record<string, any>> {
+  const baseUrl = SERVER_BASE_URL;
+  const response = await fetch(`${baseUrl}/openapi.json`, {
+    cache: 'no-cache',
+    headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  const contentType = response.headers.get('content-type');
+  if (!contentType || !contentType.includes('application/json')) {
+    const text = await response.text();
+    logger.error('Received non-JSON response:', text.substring(0, 200));
+    throw new Error(`Expected JSON but got ${contentType}`);
+  }
+
+  const apiSpec = await response.json();
+  if (!apiSpec.openapi && !apiSpec.swagger) {
+    throw new Error('Invalid OpenAPI specification');
+  }
+
+  return apiSpec;
+}
+
 const ApiDocumentationPage: React.FC = () => {
+  const { data: spec, isLoading, error, refetch } = useQuery({
+    queryKey: ['openapi-spec'],
+    queryFn: fetchOpenApiSpec,
+    staleTime: 5 * 60 * 1000, // 5 分鐘
+    retry: 1,
+  });
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [spec, setSpec] = useState<Record<string, any> | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // 從後端獲取 OpenAPI 規範
-  const fetchApiSpec = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // 使用動態計算的 Server base URL
-      const baseUrl = SERVER_BASE_URL;
-      const timestamp = new Date().getTime();
-      const response = await fetch(`${baseUrl}/openapi.json?t=${timestamp}`, {
-        cache: 'no-cache',
-        headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
-        }
-      });
-
-      logger.debug('OpenAPI response status:', response.status);
-      logger.debug('OpenAPI response headers:', response.headers);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const contentType = response.headers.get('content-type');
-      logger.debug('Content-Type:', contentType);
-
-      if (!contentType || !contentType.includes('application/json')) {
-        const text = await response.text();
-        logger.error('Received non-JSON response:', text.substring(0, 200));
-        throw new Error(`Expected JSON but got ${contentType}. Response: ${text.substring(0, 100)}...`);
-      }
-
-      const apiSpec = await response.json();
-      logger.debug('OpenAPI spec loaded:', apiSpec);
-
-      // 驗證 OpenAPI 規範格式
-      if (!apiSpec.openapi && !apiSpec.swagger) {
-        throw new Error('Invalid OpenAPI specification: missing openapi or swagger version field');
-      }
-
-      setSpec(apiSpec);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '載入 API 文件失敗');
-      logger.error('Error fetching API spec:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchApiSpec();
-  }, []);
-
-  // 自定義 Swagger UI 設定
-  const swaggerConfig = {
+  const swaggerConfig = useMemo(() => ({
     spec,
-    docExpansion: 'list' as const, // 預設展開方式
+    docExpansion: 'list' as const,
     defaultModelsExpandDepth: 1,
     defaultModelExpandDepth: 1,
     displayOperationId: false,
-    filter: true, // 啟用搜尋功能
+    filter: true,
     showExtensions: true,
     showCommonExtensions: true,
-    tryItOutEnabled: true, // 啟用 "Try it out" 功能
+    tryItOutEnabled: true,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     requestInterceptor: (request: any) => {
-      // 可以在這裡添加認證 header 等
       logger.debug('API Request:', request);
       return request;
     },
@@ -107,13 +86,13 @@ const ApiDocumentationPage: React.FC = () => {
     deepLinking: true,
     displayRequestDuration: true,
     supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch'],
-  };
+  }), [spec]);
 
   const handleOpenInNewTab = () => {
     window.open('/api/docs', '_blank');
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <ResponsiveContent maxWidth="full" padding="medium" style={{ textAlign: 'center' }}>
         <Spin size="large" />
@@ -129,11 +108,11 @@ const ApiDocumentationPage: React.FC = () => {
       <ResponsiveContent maxWidth="full" padding="medium">
         <Alert
           message="載入失敗"
-          description={`無法載入 API 文件：${error}`}
+          description={`無法載入 API 文件：${error instanceof Error ? error.message : '未知錯誤'}`}
           type="error"
           showIcon
           action={
-            <Button size="small" danger onClick={fetchApiSpec}>
+            <Button size="small" danger onClick={() => refetch()}>
               重新載入
             </Button>
           }
@@ -145,7 +124,7 @@ const ApiDocumentationPage: React.FC = () => {
   return (
     <ResponsiveContent maxWidth="full" padding="medium">
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
-        
+
         {/* 頁面標題 */}
         <Card>
           <Space direction="vertical" style={{ width: '100%' }}>
@@ -153,22 +132,22 @@ const ApiDocumentationPage: React.FC = () => {
               <ApiOutlined style={{ fontSize: '32px', color: '#1890ff' }} />
               <Title level={2} style={{ margin: 0 }}>API 文件</Title>
             </Space>
-            
+
             <Paragraph>
               乾坤測繪公文管理系統的完整 API 文件。您可以在這裡查看所有可用的 API 端點、
               請求參數、回應格式，並直接測試 API 功能。
             </Paragraph>
 
             <Space>
-              <Button 
-                icon={<ReloadOutlined />} 
-                onClick={fetchApiSpec}
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={() => refetch()}
                 type="default"
               >
                 重新載入
               </Button>
-              <Button 
-                icon={<ExportOutlined />} 
+              <Button
+                icon={<ExportOutlined />}
                 onClick={handleOpenInNewTab}
                 type="primary"
               >
@@ -205,14 +184,14 @@ const ApiDocumentationPage: React.FC = () => {
         <Divider />
 
         {/* Swagger UI 主體 */}
-        <Card 
-          title="API 端點文件" 
+        <Card
+          title="API 端點文件"
           style={{ minHeight: '800px' }}
           styles={{ body: { padding: 0 } }}
         >
           <div style={{ padding: '16px' }} className="swagger-container">
             {spec ? (
-              <Suspense fallback={<Spin tip="載入 Swagger UI..." style={{ display: 'block', margin: '40px auto' }} />}>
+              <Suspense fallback={<Spin tip="載入 Swagger UI..." style={{ display: 'block', margin: '40px auto' }}><div style={{ padding: 40 }} /></Spin>}>
                 <SwaggerUI {...swaggerConfig} />
               </Suspense>
             ) : (
@@ -229,19 +208,19 @@ const ApiDocumentationPage: React.FC = () => {
         <Card title="使用說明" size="small">
           <Space direction="vertical">
             <Paragraph>
-              <Text strong>🔍 搜尋功能：</Text>
+              <Text strong>搜尋功能：</Text>
               使用上方的搜尋框可以快速找到特定的 API 端點。
             </Paragraph>
             <Paragraph>
-              <Text strong>🧪 測試功能：</Text>
+              <Text strong>測試功能：</Text>
               點選任何端點的 &quot;Try it out&quot; 按鈕可以直接測試 API。
             </Paragraph>
             <Paragraph>
-              <Text strong>📋 參數說明：</Text>
+              <Text strong>參數說明：</Text>
               每個端點都包含詳細的參數說明、範例和可能的回應格式。
             </Paragraph>
             <Paragraph>
-              <Text strong>🔐 認證：</Text>
+              <Text strong>認證：</Text>
               某些 API 需要認證。請確保您已登入系統或提供有效的 API 金鑰。
             </Paragraph>
           </Space>

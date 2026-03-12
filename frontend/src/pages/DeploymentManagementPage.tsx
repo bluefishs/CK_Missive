@@ -7,7 +7,7 @@
  * @date 2026-02-02
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { ResponsiveContent } from '../components/common';
 import {
   Card,
@@ -57,16 +57,14 @@ import 'dayjs/locale/zh-tw';
 import type { ColumnsType } from 'antd/es/table';
 
 import deploymentApi, {
-  SystemStatusResponse,
   DeploymentRecord,
-  DeploymentHistoryResponse,
   TriggerDeploymentResponse,
   RollbackResponse,
   DeploymentLogsResponse,
-  DeploymentConfig,
   ServiceStatus,
   DeploymentStatus,
 } from '../api/deploymentApi';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { logger } from '../utils/logger';
 
 dayjs.extend(relativeTime);
@@ -122,14 +120,10 @@ const DeploymentStatusTag: React.FC<{ status: DeploymentStatus; conclusion?: str
 // =============================================================================
 
 const DeploymentManagementPage: React.FC = () => {
-  // 狀態
-  const [systemStatus, setSystemStatus] = useState<SystemStatusResponse | null>(null);
-  const [deployHistory, setDeployHistory] = useState<DeploymentHistoryResponse | null>(null);
-  const [deployConfig, setDeployConfig] = useState<DeploymentConfig | null>(null);
-  const [selectedLogs, setSelectedLogs] = useState<DeploymentLogsResponse | null>(null);
+  const queryClient = useQueryClient();
 
-  const [loading, setLoading] = useState(false);
-  const [historyLoading, setHistoryLoading] = useState(false);
+  // 狀態（僅保留 mutation / UI 狀態）
+  const [selectedLogs, setSelectedLogs] = useState<DeploymentLogsResponse | null>(null);
   const [triggerLoading, setTriggerLoading] = useState(false);
   const [rollbackLoading, setRollbackLoading] = useState(false);
   const [logsLoading, setLogsLoading] = useState(false);
@@ -148,60 +142,33 @@ const DeploymentManagementPage: React.FC = () => {
   const [pageSize, setPageSize] = useState(10);
 
   // =============================================================================
-  // 資料載入
+  // 資料載入（React Query）
   // =============================================================================
 
-  const loadSystemStatus = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await deploymentApi.getSystemStatus();
-      setSystemStatus(data);
-    } catch (error) {
-      logger.error('載入系統狀態失敗:', error);
-      message.error('載入系統狀態失敗');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data: systemStatus = null, isLoading: loading } = useQuery({
+    queryKey: ['deployment-system-status'],
+    queryFn: () => deploymentApi.getSystemStatus(),
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+    retry: 1,
+  });
 
-  const loadDeployHistory = useCallback(async () => {
-    setHistoryLoading(true);
-    try {
-      const data = await deploymentApi.getDeploymentHistory({
-        page: currentPage,
-        page_size: pageSize,
-      });
-      setDeployHistory(data);
-    } catch (error) {
-      logger.error('載入部署歷史失敗:', error);
-      // 不顯示錯誤訊息，可能是未配置 GitHub Token
-    } finally {
-      setHistoryLoading(false);
-    }
-  }, [currentPage, pageSize]);
+  const { data: deployHistory = null, isLoading: historyLoading } = useQuery({
+    queryKey: ['deployment-history', currentPage, pageSize],
+    queryFn: () => deploymentApi.getDeploymentHistory({ page: currentPage, page_size: pageSize }),
+    staleTime: 5 * 60 * 1000,
+    retry: false, // 503 = GitHub Token 未配置，無需重試
+  });
 
-  const loadDeployConfig = useCallback(async () => {
-    try {
-      const data = await deploymentApi.getDeploymentConfig();
-      setDeployConfig(data);
-    } catch (error) {
-      logger.error('載入部署配置失敗:', error);
-    }
-  }, []);
+  const { data: deployConfig = null } = useQuery({
+    queryKey: ['deployment-config'],
+    queryFn: () => deploymentApi.getDeploymentConfig(),
+    staleTime: 10 * 60 * 1000,
+    retry: 1,
+  });
 
-  useEffect(() => {
-    loadSystemStatus();
-    loadDeployHistory();
-    loadDeployConfig();
-  }, [loadSystemStatus, loadDeployHistory, loadDeployConfig]);
-
-  // 自動刷新 (每 30 秒)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      loadSystemStatus();
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [loadSystemStatus]);
+  const loadSystemStatus = () => queryClient.invalidateQueries({ queryKey: ['deployment-system-status'] });
+  const loadDeployHistory = () => queryClient.invalidateQueries({ queryKey: ['deployment-history'] });
 
   // =============================================================================
   // 操作函數

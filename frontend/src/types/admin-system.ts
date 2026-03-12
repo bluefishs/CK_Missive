@@ -504,6 +504,7 @@ export interface TableDataResponse {
   totalRows?: number;
   page?: number;
   pageSize?: number;
+  totalPages?: number;
 }
 
 /** 資料完整性檢查結果 */
@@ -539,4 +540,5 @@ export interface SystemAlert {
   action?: () => void;
   actionText?: string;
 }
+
 

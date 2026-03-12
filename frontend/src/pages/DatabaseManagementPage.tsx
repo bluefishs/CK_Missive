@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { logger } from '../services/logger';
 import { ResponsiveContent } from '../components/common';
 import {
@@ -24,8 +25,6 @@ const { TextArea } = Input;
 
 export const DatabaseManagementPage: React.FC = () => {
   const { message } = App.useApp();
-  const [loading, setLoading] = useState(false);
-  const [databaseInfo, setDatabaseInfo] = useState<DatabaseInfo | null>(null);
   const [selectedTable, setSelectedTable] = useState<string>('');
   const [tableData, setTableData] = useState<TableDataResponse>({ columns: [], rows: [] });
   const [customQuery, setCustomQuery] = useState<string>('SELECT * FROM documents LIMIT 10;');
@@ -34,25 +33,29 @@ export const DatabaseManagementPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [useEnhancedView, setUseEnhancedView] = useState(false);
   const [enhancedDrawerVisible, setEnhancedDrawerVisible] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
-  // 獲取資料庫信息
-  const fetchDatabaseInfo = async () => {
-    setLoading(true);
-    try {
-      const data = await apiClient.post<DatabaseInfo>(API_ENDPOINTS.ADMIN_DATABASE.INFO, {});
-      setDatabaseInfo(data);
-      message.success('資料庫信息載入成功');
-    } catch (error) {
-      logger.error('獲取資料庫信息失敗:', error);
-      message.error('獲取資料庫信息失敗');
-    } finally {
-      setLoading(false);
-    }
+  // 獲取資料庫信息 (React Query)
+  const {
+    data: databaseInfo = null,
+    isLoading: dbInfoLoading,
+    refetch: refetchDatabaseInfo,
+  } = useQuery({
+    queryKey: ['database-info'],
+    queryFn: () => apiClient.post<DatabaseInfo>(API_ENDPOINTS.ADMIN_DATABASE.INFO, {}),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
+  const loading = dbInfoLoading || actionLoading;
+
+  const fetchDatabaseInfo = () => {
+    refetchDatabaseInfo();
   };
 
   // 獲取表格數據
   const fetchTableData = async (tableName: string, limit: number = 50, offset: number = 0) => {
-    setLoading(true);
+    setActionLoading(true);
     try {
       const data = await apiClient.post<TableDataResponse>(API_ENDPOINTS.ADMIN_DATABASE.TABLE(tableName), { limit, offset });
       setTableData(data);
@@ -62,7 +65,7 @@ export const DatabaseManagementPage: React.FC = () => {
       logger.error('獲取表格數據失敗:', error);
       message.error('獲取表格數據失敗');
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
 
@@ -73,7 +76,7 @@ export const DatabaseManagementPage: React.FC = () => {
       return;
     }
 
-    setLoading(true);
+    setActionLoading(true);
     try {
       const result = await apiClient.post<QueryResult>(API_ENDPOINTS.ADMIN_DATABASE.QUERY, { query: customQuery });
       setQueryResult(result);
@@ -82,17 +85,17 @@ export const DatabaseManagementPage: React.FC = () => {
       logger.error('查詢執行失敗:', error);
       message.error(`查詢執行失敗: ${error instanceof Error ? error.message : '未知錯誤'}`);
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
 
   // 檢查數據完整性
   const checkIntegrity = async () => {
-    setLoading(true);
+    setActionLoading(true);
     try {
       const result = await apiClient.post<IntegrityResult>(API_ENDPOINTS.ADMIN_DATABASE.INTEGRITY, {});
       setIntegrityResult(result);
-      
+
       if (result.issues.length === 0) {
         message.success('數據完整性檢查通過');
       } else {
@@ -113,7 +116,7 @@ export const DatabaseManagementPage: React.FC = () => {
       logger.error('完整性檢查失敗:', error);
       message.error('完整性檢查失敗');
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
 
@@ -126,11 +129,6 @@ export const DatabaseManagementPage: React.FC = () => {
       message.error('匯出失敗');
     }
   };
-
-  useEffect(() => {
-    fetchDatabaseInfo();
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchDatabaseInfo runs once on mount
-  }, []);
 
   // 渲染表格列表
   const renderTableList = () => {

@@ -4,7 +4,7 @@
  * @version 2.0.0 - 2026-01-10 升級為新版介面
  */
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import type { FC, Key } from 'react';
 import {
   Tree, TreeSelect, Button, Space, Modal, Form, Input, Select, Switch,
@@ -21,6 +21,7 @@ import { secureApiService } from '../services/secureApiService';
 import { navigationService } from '../services/navigationService';
 import { usePermissions } from '../hooks';
 import SiteConfigManagement from '../components/site-management/SiteConfigManagement';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import './SiteManagementPage.css';
 import { logger } from '../utils/logger';
 import type { NavigationItem } from '../types/navigation';
@@ -48,16 +49,13 @@ interface ValidPath {
 // 導覽管理組件
 const NavigationManagementImproved: FC = () => {
   const { message } = App.useApp();
-  const [navigationItems, setNavigationItems] = useState<NavigationItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const queryClient = useQueryClient();
   const [modalVisible, setModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<NavigationItem | null>(null);
   const [form] = Form.useForm<FormValues>();
   const [expandedKeys, setExpandedKeys] = useState<Key[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const stableTreeDataRef = useRef<TreeNodeData[]>([]);
-  const [validPaths, setValidPaths] = useState<ValidPath[]>([]);
 
   // Icon options
   const iconOptions = [
@@ -73,46 +71,48 @@ const NavigationManagementImproved: FC = () => {
     'GoogleOutlined', 'SendOutlined', 'PlusOutlined', 'FormOutlined',
   ];
 
-  // Load navigation data
-  const loadNavigation = async () => {
-    setLoading(true);
-    try {
+  // Helper: 取得所有展開 key
+  const getAllKeys = useCallback((items: NavigationItem[]): Key[] => {
+    let keys: Key[] = [];
+    items.forEach(item => {
+      keys.push(item.id);
+      if (item.children && item.children.length > 0) {
+        keys = keys.concat(getAllKeys(item.children));
+      }
+    });
+    return keys;
+  }, []);
+
+  // 載入導覽資料（React Query）
+  const { data: navData, isLoading: loading } = useQuery({
+    queryKey: ['site-navigation'],
+    queryFn: async () => {
       const result = await secureApiService.getNavigationItems() as { items?: NavigationItem[] };
       const items = result.items || [];
-      setNavigationItems(items);
-      setLastUpdated(new Date());
-
-      // Auto expand all nodes
-      const getAllKeys = (items: NavigationItem[]): Key[] => {
-        let keys: Key[] = [];
-        items.forEach(item => {
-          keys.push(item.id);
-          if (item.children && item.children.length > 0) {
-            keys = keys.concat(getAllKeys(item.children));
-          }
-        });
-        return keys;
-      };
       setExpandedKeys(getAllKeys(items));
-    } catch (error) {
-      logger.error('Failed to load navigation:', error);
-      message.error('載入導覽資料失敗');
-    } finally {
-      setLoading(false);
-    }
-  };
+      return { items, lastUpdated: new Date() };
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
 
-// Load valid paths for dropdown
-  const loadValidPaths = async () => {
-    try {
-      const result = await secureApiService.getValidPaths() as { success?: boolean; data?: { paths?: ValidPath[] } };
-      if (result.success && result.data?.paths) {
-        setValidPaths(result.data.paths);
+  const navigationItems = navData?.items ?? [];
+  const lastUpdated = navData?.lastUpdated ?? null;
+
+  // 載入合法路徑（React Query）
+  const { data: validPaths = [] } = useQuery({
+    queryKey: ['site-valid-paths'],
+    queryFn: async () => {
+      try {
+        const result = await secureApiService.getValidPaths() as { success?: boolean; data?: { paths?: ValidPath[] } };
+        if (result.success && result.data?.paths) {
+          return result.data.paths;
+        }
+      } catch (error) {
+        logger.error('Failed to load valid paths:', error);
       }
-    } catch (error) {
-      logger.error('Failed to load valid paths:', error);
-      // 如果 API 失敗，使用內建的路徑列表作為後備
-      setValidPaths([
+      // 後備路徑列表
+      return [
         { path: null, description: '（無 - 群組項目）' },
         { path: '/dashboard', description: '儀表板' },
         { path: '/documents', description: '公文管理' },
@@ -133,22 +133,24 @@ const NavigationManagementImproved: FC = () => {
         { path: '/admin/backup', description: '備份管理' },
         { path: '/admin/deployment', description: '部署管理' },
         { path: '/admin/ai-assistant', description: 'AI 助理管理' },
-        { path: '/ai/knowledge-graph', description: '知識圖譜探索' },
-        { path: '/ai/code-wiki', description: '代碼圖譜' },
+        { path: '/ai/knowledge-graph', description: '公文圖譜' },
+        { path: '/ai/code-graph', description: '代碼圖譜' },
+        { path: '/ai/db-graph', description: '資料庫圖譜' },
         { path: '/system', description: '系統監控' },
         { path: '/google-auth-diagnostic', description: 'Google認證診斷' },
         { path: '/unified-form-demo', description: '統一表單示例' },
         { path: '/api-mapping', description: 'API對應表' },
         { path: '/api/docs', description: 'API文件' },
         { path: '/taoyuan/dispatch', description: '派工管理' },
-      ]);
-    }
-  };
+      ] as ValidPath[];
+    },
+    staleTime: 10 * 60 * 1000,
+    retry: 1,
+  });
 
-  useEffect(() => {
-    loadNavigation();
-    loadValidPaths();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const loadNavigation = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['site-navigation'] });
+  }, [queryClient]);
 
   // Helper to find item by id
   const findItemById = (items: NavigationItem[], id: number): NavigationItem | null => {

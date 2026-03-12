@@ -6,7 +6,7 @@
  * @date 2026-01-26
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Card,
   Checkbox,
@@ -35,7 +35,7 @@ import {
 } from '@ant-design/icons';
 import debounce from 'lodash/debounce';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { ROUTES } from '../router/types';
 import { useResponsive } from '../hooks';
@@ -46,7 +46,6 @@ import { projectsApi } from '../api/projectsApi';
 import { agenciesApi } from '../api/agenciesApi';
 import { vendorsApi } from '../api/vendorsApi';
 import { usersApi } from '../api/usersApi';
-import type { AgencyOption, VendorOption, UserOption } from '../types/api';
 
 // 從 contractCase tabs 導入統一的常數
 import {
@@ -66,16 +65,7 @@ export const ContractCaseFormPage: React.FC = () => {
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const [form] = Form.useForm();
-  const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-
-  // 下拉選單選項狀態
-  const [agencyOptions, setAgencyOptions] = useState<AgencyOption[]>([]);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- state value reserved for future use, setter is used in loadOptions
-  const [vendorOptions, setVendorOptions] = useState<VendorOption[]>([]);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- state value reserved for future use, setter is used in loadOptions
-  const [userOptions, setUserOptions] = useState<UserOption[]>([]);
-  const [optionsLoading, setOptionsLoading] = useState(false);
 
   // 新增機關 Modal 狀態
   const [addAgencyModalVisible, setAddAgencyModalVisible] = useState(false);
@@ -89,44 +79,33 @@ export const ContractCaseFormPage: React.FC = () => {
   const isEdit = Boolean(id);
   const title = isEdit ? '編輯承攬案件' : '新增承攬案件';
 
-  useEffect(() => {
-    loadOptions();
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadOptions runs once on mount
-  }, []);
-
-  useEffect(() => {
-    if (isEdit && id) {
-      loadData();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadData depends on id, adding it would cause infinite loop
-  }, [id, isEdit]);
-
-  const loadOptions = async () => {
-    setOptionsLoading(true);
-    try {
+  // 下拉選單選項 (React Query)
+  const { data: optionsData, isLoading: optionsLoading } = useQuery({
+    queryKey: ['contract-case-form-options'],
+    queryFn: async () => {
       const [agencies, vendors, users] = await Promise.all([
         agenciesApi.getAgencyOptions(),
         vendorsApi.getVendorOptions(),
-        usersApi.getUserOptions(true), // 只取啟用的用戶
+        usersApi.getUserOptions(true),
       ]);
-      setAgencyOptions(agencies);
-      setVendorOptions(vendors);
-      setUserOptions(users);
-    } catch (error) {
-      logger.error('載入選項失敗:', error);
-      message.error('載入選項失敗，部分下拉選單可能無法使用');
-    } finally {
-      setOptionsLoading(false);
-    }
-  };
+      return { agencies, vendors, users };
+    },
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
 
-  const loadData = async () => {
-    if (!id) return;
-    setLoading(true);
-    try {
-      const data = await projectsApi.getProject(parseInt(id, 10));
+  const agencyOptions = optionsData?.agencies ?? [];
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- reserved for future use
+  const vendorOptions = optionsData?.vendors ?? [];
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- reserved for future use
+  const userOptions = optionsData?.users ?? [];
 
-      // 設置表單值
+  // 編輯模式：載入現有資料
+  const { isLoading: loading } = useQuery({
+    queryKey: ['contract-case-form-data', id],
+    queryFn: async () => {
+      const data = await projectsApi.getProject(parseInt(id!, 10));
+
       form.setFieldsValue({
         project_name: data.project_name,
         year: data.year,
@@ -146,13 +125,12 @@ export const ContractCaseFormPage: React.FC = () => {
         description: data.description,
         has_dispatch_management: data.has_dispatch_management ?? false,
       });
-    } catch (error) {
-      logger.error('載入數據失敗:', error);
-      message.error('載入數據失敗');
-    } finally {
-      setLoading(false);
-    }
-  };
+
+      return data;
+    },
+    enabled: isEdit && !!id,
+    refetchOnWindowFocus: false,
+  });
 
   interface FormValues {
     project_name: string;
@@ -298,8 +276,7 @@ export const ContractCaseFormPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.agencies.all });
 
       // 刷新選項列表
-      const updatedAgencies = await agenciesApi.getAgencyOptions();
-      setAgencyOptions(updatedAgencies);
+      queryClient.invalidateQueries({ queryKey: ['contract-case-form-options'] });
 
       // 自動選中新建的機關
       form.setFieldValue('client_agency', newAgency.agency_name);

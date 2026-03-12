@@ -38,6 +38,7 @@ import {
   ExperimentOutlined,
   EnvironmentOutlined,
   SendOutlined,
+  CodeOutlined,
 } from '@ant-design/icons';
 import { ROUTES } from '../../../router/types';
 import type { NavigationItem } from './types';
@@ -100,6 +101,7 @@ const iconMap: { [key: string]: React.ReactNode } = {
   'EnvironmentOutlined': <EnvironmentOutlined />,
   'SendOutlined': <SendOutlined />,
   'NumberOutlined': <NumberOutlined />,
+  'CodeOutlined': <CodeOutlined />,
 };
 
 /**

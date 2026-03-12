@@ -189,8 +189,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         </AntLayout>
       </AntLayout>
 
-      {/* AI 公文搜尋浮動按鈕 */}
-      <AIAssistantButton />
+      {/* AI 助理浮動按鈕（公文圖譜頁有內嵌面板，不顯示浮動按鈕） */}
+      <AIAssistantButton visible={!location.pathname.startsWith('/ai/knowledge-graph')} />
     </>
   );
 };

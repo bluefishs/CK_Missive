@@ -155,9 +155,9 @@ describe('API_ENDPOINTS 結構完整性', () => {
     expect(API_ENDPOINTS.TAOYUAN_DISPATCH).toBe(TAOYUAN_DISPATCH_ENDPOINTS);
   });
 
-  it('頂層群組數量應為 25 個', () => {
+  it('頂層群組數量應為 26 個', () => {
     const groupCount = Object.keys(API_ENDPOINTS).length;
-    expect(groupCount).toBe(25);
+    expect(groupCount).toBe(26);
   });
 });
 

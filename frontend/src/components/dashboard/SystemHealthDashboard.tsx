@@ -9,7 +9,8 @@
  * @date 2026-02-07
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Card,
   Row,
@@ -104,46 +105,35 @@ function getMemoryStrokeColor(percent: number): string {
 
 export const SystemHealthDashboard: React.FC = () => {
   const { isMobile } = useResponsive();
-  const [healthData, setHealthData] = useState<HealthSummaryResponse | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchHealthSummary = useCallback(async (showLoading = false) => {
-    if (showLoading) {
-      setLoading(true);
-    }
-    try {
-      const data = await apiClient.get<HealthSummaryResponse>(
-        SYSTEM_ENDPOINTS.HEALTH_SUMMARY
-      );
-      setHealthData(data);
-      setError(null);
-    } catch (err) {
-      logger.error('Failed to fetch health summary:', err);
-      // 規範: catch 中不清空已有資料，只記錄錯誤
-      setError('無法取得系統健康狀態，請確認您有管理員權限。');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchHealthSummary(true);
-
-    intervalRef.current = setInterval(() => {
-      fetchHealthSummary(false);
-    }, REFRESH_INTERVAL_MS);
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
+  const {
+    data: healthData = null,
+    isLoading: loading,
+    error: queryError,
+    refetch,
+  } = useQuery({
+    queryKey: ['system-health'],
+    queryFn: async () => {
+      try {
+        return await apiClient.get<HealthSummaryResponse>(
+          SYSTEM_ENDPOINTS.HEALTH_SUMMARY
+        );
+      } catch (err) {
+        logger.error('Failed to fetch health summary:', err);
+        throw err;
       }
-    };
-  }, [fetchHealthSummary]);
+    },
+    staleTime: 15_000,
+    refetchInterval: REFRESH_INTERVAL_MS,
+    retry: 1,
+  });
+
+  const error = queryError
+    ? '無法取得系統健康狀態，請確認您有管理員權限。'
+    : null;
 
   const handleManualRefresh = () => {
-    fetchHealthSummary(true);
+    refetch();
   };
 
   // --- 衍生數據 ---

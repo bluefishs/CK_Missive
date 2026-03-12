@@ -521,6 +521,10 @@ export const TAOYUAN_DISPATCH_ENDPOINTS = {
   DISPATCH_DOCUMENTS: (id: number) => `/taoyuan-dispatch/dispatch/${id}/documents`,
   /** 搜尋可關聯的桃園派工公文 POST /taoyuan-dispatch/dispatch/search-linkable-documents */
   DISPATCH_SEARCH_LINKABLE_DOCUMENTS: '/taoyuan-dispatch/dispatch/search-linkable-documents',
+  /** 知識圖譜實體配對建議 POST /taoyuan-dispatch/dispatch/:id/entity-similarity */
+  DISPATCH_ENTITY_SIMILARITY: (id: number) => `/taoyuan-dispatch/dispatch/${id}/entity-similarity`,
+  /** NER 驅動公文對照建議 POST /taoyuan-dispatch/dispatch/:id/correspondence-suggestions */
+  DISPATCH_CORRESPONDENCE_SUGGESTIONS: (id: number) => `/taoyuan-dispatch/dispatch/${id}/correspondence-suggestions`,
 
   // 匯出
   /** 派工總表 Excel 匯出 POST /taoyuan-dispatch/dispatch/export/excel */
@@ -702,6 +706,8 @@ export const AI_ENDPOINTS = {
   GRAPH_ENTITY_TIMELINE: '/ai/graph/entity/timeline',
   /** 高頻實體排名 POST /ai/graph/entity/top */
   GRAPH_ENTITY_TOP: '/ai/graph/entity/top',
+  /** 實體中心圖譜 POST /ai/graph/entity/graph */
+  GRAPH_ENTITY_GRAPH: '/ai/graph/entity/graph',
   /** 圖譜統計 POST /ai/graph/stats */
   GRAPH_STATS: '/ai/graph/stats',
   /** 圖譜入圖管線 POST /ai/graph/ingest */
@@ -718,6 +724,14 @@ export const AI_ENDPOINTS = {
   GRAPH_JSON_IMPORT: '/ai/graph/admin/json-import',
   /** 實體合併 POST /ai/graph/admin/merge-entities */
   GRAPH_MERGE_ENTITIES: '/ai/graph/admin/merge-entities',
+  /** 模組架構概覽 POST /ai/graph/module-overview */
+  GRAPH_MODULE_OVERVIEW: '/ai/graph/module-overview',
+  /** 動態模組映射 GET /ai/graph/module-mappings */
+  GRAPH_MODULE_MAPPINGS: '/ai/graph/module-mappings',
+  /** 資料庫 Schema 反射 POST /ai/graph/db-schema */
+  GRAPH_DB_SCHEMA: '/ai/graph/db-schema',
+  /** 資料庫 ER 圖譜 POST /ai/graph/db-graph */
+  GRAPH_DB_GRAPH: '/ai/graph/db-graph',
   // --- RAG 問答 ---
   /** RAG 問答 POST /ai/rag/query */
   RAG_QUERY: '/ai/rag/query',
@@ -771,6 +785,18 @@ export const DEPLOYMENT_ENDPOINTS = {
   LOGS: (runId: number) => `/deploy/logs/${runId}`,
   /** 部署配置 POST /deploy/config */
   CONFIG: '/deploy/config',
+} as const;
+
+// ============================================================================
+// 知識庫瀏覽器端點
+// ============================================================================
+
+/** 知識庫瀏覽器 API 端點 */
+export const KNOWLEDGE_BASE_ENDPOINTS = {
+  TREE: '/knowledge-base/tree',
+  FILE: '/knowledge-base/file',
+  ADR_LIST: '/knowledge-base/adr/list',
+  DIAGRAMS_LIST: '/knowledge-base/diagrams/list',
 } as const;
 
 // ============================================================================
@@ -837,6 +863,9 @@ export const API_ENDPOINTS = {
 
   // 桃園派工管理
   TAOYUAN_DISPATCH: TAOYUAN_DISPATCH_ENDPOINTS,
+
+  // 知識庫瀏覽器
+  KNOWLEDGE_BASE: KNOWLEDGE_BASE_ENDPOINTS,
 } as const;
 
 // 預設匯出

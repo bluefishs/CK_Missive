@@ -31,3 +31,6 @@ export * from './useDepartments';
 export * from './useAISynonyms';
 export * from './useAIPrompts';
 export * from './useDocumentAnalysis';
+
+// AI SSE 串流
+export * from './useAgentSSE';

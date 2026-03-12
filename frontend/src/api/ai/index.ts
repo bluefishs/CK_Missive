@@ -183,11 +183,18 @@ import {
   triggerGraphIngest,
   mergeGraphEntities,
   getCodeWikiGraph,
+  getEntityGraph,
   triggerCodeGraphIngest,
   detectImportCycles,
   analyzeArchitecture,
   importJsonGraph,
+  getModuleOverview,
+  getDbSchemaGraph,
+  getDbSchema,
+  getModuleMappings,
 } from './knowledgeGraph';
+
+export type { DbSchemaGraphResponse, DbSchemaResponse, DbTableInfo, DbColumnInfo, ModuleMappingsResponse } from './knowledgeGraph';
 
 // Compose the aiApi object (backward-compatible with original aiApi.ts)
 export const aiApi = {
@@ -253,6 +260,17 @@ export const aiApi = {
   detectImportCycles,
   analyzeArchitecture,
   importJsonGraph,
+  getModuleOverview,
+
+  // DB Schema 圖譜
+  getDbSchemaGraph,
+  getDbSchema,
+
+  // 動態模組映射
+  getModuleMappings,
+
+  // Entity-centric graph
+  getEntityGraph,
 
   // Ollama management
   getOllamaStatus,

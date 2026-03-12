@@ -7,13 +7,15 @@
  * @date 2026-01-26
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import type { UploadFile } from 'antd/es/upload';
 import type { MessageInstance } from 'antd/es/message/interface';
 import { Document, DocumentAttachment, Project, User, ProjectStaff } from '../../../types';
 import { apiClient } from '../../../api/client';
+import { PROJECT_STAFF_ENDPOINTS } from '../../../api/endpoints';
 import { filesApi, type UploadResult } from '../../../api/filesApi';
 import { logger } from '../../../utils/logger';
+import { useProjectsDropdown, useUsersDropdown, useFileSettings } from '../../../hooks/business/useDropdownData';
 import type {
   OperationMode,
   CriticalChange,
@@ -23,8 +25,6 @@ import type {
   FileValidationResult,
 } from './types';
 import {
-  DEFAULT_ALLOWED_EXTENSIONS,
-  DEFAULT_MAX_FILE_SIZE_MB,
   MIN_PROGRESS_DISPLAY_MS,
   detectCriticalChanges,
 } from './documentOperationsUtils';
@@ -112,7 +112,7 @@ export interface UseDocumentOperationsProps {
 export const useDocumentOperations = ({
   document,
   operation,
-  visible,
+  visible: _visible,
   message,
 }: UseDocumentOperationsProps): UseDocumentOperationsReturn => {
   // 基本載入狀態
@@ -122,11 +122,9 @@ export const useDocumentOperations = ({
   // 檔案列表
   const [fileList, setFileList] = useState<UploadFile[]>([]);
 
-  // 選項資料
-  const [cases, setCases] = useState<Project[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [casesLoading, setCasesLoading] = useState(false);
-  const [usersLoading, setUsersLoading] = useState(false);
+  // 選項資料（共用 React Query hooks，跨頁面快取）
+  const { projects: cases, isLoading: casesLoading } = useProjectsDropdown();
+  const { users, isLoading: usersLoading } = useUsersDropdown();
 
   // 附件相關狀態
   const [existingAttachments, setExistingAttachments] = useState<DocumentAttachment[]>([]);
@@ -151,11 +149,8 @@ export const useDocumentOperations = ({
     pendingData: null,
   });
 
-  // 檔案驗證設定
-  const [fileSettings, setFileSettings] = useState<FileSettings>({
-    allowedExtensions: DEFAULT_ALLOWED_EXTENSIONS,
-    maxFileSizeMB: DEFAULT_MAX_FILE_SIZE_MB,
-  });
+  // 檔案驗證設定（共用 React Query hook，30 分鐘快取）
+  const fileSettings: FileSettings = useFileSettings();
 
   // 專案同仁資料
   const [projectStaffMap, setProjectStaffMap] = useState<Record<number, ProjectStaff[]>>({});
@@ -169,70 +164,6 @@ export const useDocumentOperations = ({
   const isReadOnly = operation === 'view';
   const isCreate = operation === 'create';
   const isCopy = operation === 'copy';
-
-  // ============================================================================
-  // 初始化
-  // ============================================================================
-
-  // 載入檔案驗證設定
-  useEffect(() => {
-    const loadFileSettings = async () => {
-      try {
-        const info = await filesApi.getStorageInfo();
-        setFileSettings({
-          allowedExtensions: info.allowed_extensions,
-          maxFileSizeMB: info.max_file_size_mb,
-        });
-      } catch (error) {
-        logger.warn('Failed to load file settings, using defaults:', error);
-      }
-    };
-    loadFileSettings();
-  }, []);
-
-  // 載入承攬案件與使用者資料
-  useEffect(() => {
-    const fetchCases = async () => {
-      setCasesLoading(true);
-      try {
-        const data = await apiClient.post<{
-          projects?: Project[];
-          items?: Project[];
-          total?: number;
-        }>('/projects/list', { page: 1, limit: 100 });
-        const projectsData = data.projects || data.items || [];
-        setCases(Array.isArray(projectsData) ? projectsData : []);
-      } catch (error) {
-        logger.error('Failed to fetch projects:', error);
-        setCases([]);
-      } finally {
-        setCasesLoading(false);
-      }
-    };
-
-    const fetchUsers = async () => {
-      setUsersLoading(true);
-      try {
-        const data = await apiClient.post<{
-          users?: User[];
-          items?: User[];
-          total?: number;
-        }>('/users/list', { page: 1, limit: 100 });
-        const usersData = data.users || data.items || [];
-        setUsers(Array.isArray(usersData) ? usersData : []);
-      } catch (error) {
-        logger.error('Failed to fetch users:', error);
-        setUsers([]);
-      } finally {
-        setUsersLoading(false);
-      }
-    };
-
-    if (visible) {
-      fetchCases();
-      fetchUsers();
-    }
-  }, [visible]);
 
   // ============================================================================
   // 附件操作
@@ -400,7 +331,7 @@ export const useDocumentOperations = ({
       const data = await apiClient.post<{
         staff?: ProjectStaff[];
         total?: number;
-      }>(`/project-staff/project/${projectId}/list`, {});
+      }>(PROJECT_STAFF_ENDPOINTS.PROJECT_LIST(projectId), {});
       const staffData = data.staff || [];
       projectStaffCacheRef.current[projectId] = staffData;
       setProjectStaffMap(prev => ({ ...prev, [projectId]: staffData }));

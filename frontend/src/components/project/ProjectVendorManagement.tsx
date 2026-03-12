@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Modal,
   Table,
@@ -27,6 +27,7 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { API_ENDPOINTS } from '../../api/endpoints';
 import { logger } from '../../services/logger';
@@ -74,52 +75,44 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
   onClose,
 }) => {
   const { message } = App.useApp();
-  const [associations, setAssociations] = useState<ProjectVendorAssociation[]>([]);
-  const [vendors, setVendors] = useState<Vendor[]>([]);
-  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
   const [formVisible, setFormVisible] = useState(false);
   const [editingAssociation, setEditingAssociation] = useState<ProjectVendorAssociation | null>(null);
   const [form] = Form.useForm();
 
   // 載入專案廠商關聯
-  const loadAssociations = useCallback(async () => {
-    if (!projectId) return;
-
-    setLoading(true);
-    try {
+  const { data: associations = [], isLoading: loading } = useQuery({
+    queryKey: ['project-vendor-associations', projectId],
+    queryFn: async () => {
       const data = await apiClient.post<{ associations: ProjectVendorAssociation[]; total: number }>(
         API_ENDPOINTS.PROJECT_VENDORS.PROJECT_LIST(projectId),
         {}
       );
-      setAssociations(data.associations || []);
-    } catch (error) {
-      logger.error('載入廠商關聯失敗:', error);
-      message.error('載入廠商關聯失敗');
-    } finally {
-      setLoading(false);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
+      return data.associations || [];
+    },
+    enabled: visible && !!projectId,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
 
   // 載入可選廠商
-  const loadVendors = useCallback(async () => {
-    try {
+  const { data: vendors = [] } = useQuery({
+    queryKey: ['vendor-list-for-project'],
+    queryFn: async () => {
       const data = await apiClient.post<{ items: Vendor[] }>(
         API_ENDPOINTS.VENDORS.LIST,
         { page: 1, limit: 100 }
       );
-      setVendors(data.items || []);
-    } catch (error) {
-      logger.error('載入廠商列表失敗:', error);
-    }
-  }, []);
+      return data.items || [];
+    },
+    enabled: visible,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
 
-  useEffect(() => {
-    if (visible) {
-      loadAssociations();
-      loadVendors();
-    }
-  }, [visible, projectId, loadAssociations, loadVendors]);
+  const loadAssociations = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['project-vendor-associations', projectId] });
+  }, [queryClient, projectId]);
 
   // 新增或編輯關聯
   const handleSubmit = async (values: ProjectVendorFormData) => {

@@ -142,7 +142,7 @@ export const KGAdminPanel: React.FC<KGAdminPanelProps> = ({
           size="small"
           type="dashed"
           icon={<CodeOutlined />}
-          onClick={() => navigate(ROUTES.CODE_GRAPH_MANAGEMENT)}
+          onClick={() => navigate(ROUTES.CODE_GRAPH)}
         >
           <Text style={{ fontSize: 12 }}>代碼圖譜管理</Text>
         </Button>

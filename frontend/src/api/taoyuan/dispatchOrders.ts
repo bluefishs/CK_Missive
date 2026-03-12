@@ -293,4 +293,88 @@ export const dispatchOrdersApi = {
       'dispatch_orders_import_template.xlsx',
     );
   },
+
+  /**
+   * 知識圖譜實體配對建議
+   * 回傳公文間共享實體的相似度分數
+   */
+  async getEntitySimilarity(dispatchId: number): Promise<EntitySimilarityResponse> {
+    return apiClient.post<EntitySimilarityResponse>(
+      API_ENDPOINTS.TAOYUAN_DISPATCH.DISPATCH_ENTITY_SIMILARITY(dispatchId),
+      {},
+    );
+  },
+
+  /**
+   * NER 驅動公文對照建議
+   * 利用派工單實體連結做來文/發文配對建議
+   */
+  async getCorrespondenceSuggestions(dispatchId: number): Promise<CorrespondenceSuggestionsResponse> {
+    return apiClient.post<CorrespondenceSuggestionsResponse>(
+      API_ENDPOINTS.TAOYUAN_DISPATCH.DISPATCH_CORRESPONDENCE_SUGGESTIONS(dispatchId),
+      {},
+    );
+  },
 };
+
+/** 實體配對 API 回應型別 */
+export interface EntitySimilarityPair {
+  incoming_doc_id: number;
+  outgoing_doc_id: number;
+  shared_entity_count: number;
+  jaccard: number;
+  shared_entities: string[];
+}
+
+export interface EntitySimilarityResponse {
+  success: boolean;
+  pairs: EntitySimilarityPair[];
+  total_entities: number;
+  incoming_count?: number;
+  outgoing_count?: number;
+}
+
+/** NER 公文對照建議型別 */
+export interface CorrespondenceSuggestion {
+  incoming_doc_id: number;
+  outgoing_doc_id: number;
+  confidence: 'confirmed' | 'high' | 'medium' | 'low';
+  score: number;
+  shared_entity_count: number;
+  shared_entities: string[];
+  incoming_doc?: {
+    doc_id: number;
+    link_type: string;
+    doc_number: string | null;
+    subject: string | null;
+    doc_date: string | null;
+  };
+  outgoing_doc?: {
+    doc_id: number;
+    link_type: string;
+    doc_number: string | null;
+    subject: string | null;
+    doc_date: string | null;
+  };
+}
+
+export interface DispatchEntityInfo {
+  id: number;
+  name: string;
+  type: string;
+}
+
+export interface CorrespondenceSuggestionsResponse {
+  success: boolean;
+  suggestions: CorrespondenceSuggestion[];
+  dispatch_entities: DispatchEntityInfo[];
+  stats?: {
+    incoming_count: number;
+    outgoing_count: number;
+    total_suggestions: number;
+    confirmed: number;
+    high: number;
+    medium: number;
+  };
+  message?: string;
+}

@@ -4,7 +4,7 @@
  * @version 2.1.0 - 導航模式設計，整合編輯/新增按鈕
  * @date 2026-01-26
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Card,
   Button,
@@ -42,6 +42,7 @@ import {
   EyeOutlined,
 } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useResponsive } from '../hooks';
 import { apiClient, SERVER_BASE_URL } from '../api/client';
 import { API_ENDPOINTS } from '../api/endpoints';
@@ -49,7 +50,7 @@ import { ROUTES } from '../router/types';
 import { certificationsApi, Certification } from '../api/certificationsApi';
 import type { User } from '../types/api';
 import { useDepartments } from '../hooks/system';
-import { logger } from '../services/logger';
+
 
 const { Title, Text } = Typography;
 
@@ -93,30 +94,24 @@ export const StaffDetailPage: React.FC = () => {
 
   const { data: departmentOptions = [] } = useDepartments();
 
+  const queryClient = useQueryClient();
+
   // 狀態
-  const [staff, setStaff] = useState<Staff | null>(null);
-  const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showPasswordChange, setShowPasswordChange] = useState(false);
 
-  // 證照狀態
-  const [certifications, setCertifications] = useState<Certification[]>([]);
-  const [certLoading, setCertLoading] = useState(false);
-
   // 載入同仁資料
-  const loadStaff = useCallback(async () => {
-    if (!staffId) return;
-    setLoading(true);
-    try {
-      const user = await apiClient.post(API_ENDPOINTS.USERS.DETAIL(staffId));
+  const { data: staff = null, isLoading: loading } = useQuery({
+    queryKey: ['staff-detail', staffId],
+    queryFn: async () => {
+      const user = await apiClient.post(API_ENDPOINTS.USERS.DETAIL(staffId!));
       const response = { items: [user] };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const data = response as any;
       const items = data.items || data.users || [];
       const found = items.find((s: Staff) => s.id === staffId);
       if (found) {
-        setStaff(found);
         form.setFieldsValue({
           username: found.username,
           email: found.email,
@@ -125,39 +120,36 @@ export const StaffDetailPage: React.FC = () => {
           department: found.department,
           position: found.position,
         });
-      } else {
-        message.error('找不到此承辦同仁');
-        navigate(ROUTES.STAFF);
+        return found as Staff;
       }
-    } catch (error) {
-      logger.error('載入同仁資料失敗:', error);
-      message.error('載入資料失敗');
-    } finally {
-      setLoading(false);
-    }
-  }, [staffId, form, message, navigate]);
+      message.error('找不到此承辦同仁');
+      navigate(ROUTES.STAFF);
+      return null;
+    },
+    enabled: !!staffId,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
 
   // 載入證照
-  const loadCertifications = useCallback(async () => {
-    if (!staffId) return;
-    setCertLoading(true);
-    try {
-      const response = await certificationsApi.getUserCertifications(staffId);
-      setCertifications(response.items);
-    } catch (error) {
-      logger.error('載入證照列表失敗:', error);
-      // 重要：錯誤時不清空現有列表，避免「紀錄消失」問題
-      // setCertifications([]);
-      message.error('載入證照列表失敗');
-    } finally {
-      setCertLoading(false);
-    }
-  }, [staffId, message]);
+  const { data: certifications = [], isLoading: certLoading } = useQuery({
+    queryKey: ['staff-certifications', staffId],
+    queryFn: async () => {
+      const response = await certificationsApi.getUserCertifications(staffId!);
+      return response.items;
+    },
+    enabled: !!staffId,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
 
-  useEffect(() => {
-    loadStaff();
-    loadCertifications();
-  }, [loadStaff, loadCertifications]);
+  const loadStaff = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['staff-detail', staffId] });
+  }, [queryClient, staffId]);
+
+  const loadCertifications = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['staff-certifications', staffId] });
+  }, [queryClient, staffId]);
 
   // 儲存基本資料
   const handleSave = async () => {

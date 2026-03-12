@@ -77,10 +77,13 @@ export const ROUTES = {
   AI_ASSISTANT_MANAGEMENT: '/admin/ai-assistant',
   // 知識圖譜探索（獨立全螢幕頁面）
   KNOWLEDGE_GRAPH: '/ai/knowledge-graph',
-  // 代碼圖譜（Code Wiki）
-  CODE_WIKI: '/ai/code-wiki',
+  // 代碼圖譜
+  CODE_WIKI: '/ai/code-wiki',        // 舊路由（相容重導向）
+  CODE_GRAPH: '/ai/code-graph',       // 新路由
   // 代碼圖譜管理（獨立管理頁面）
   CODE_GRAPH_MANAGEMENT: '/admin/code-graph',
+  // 資料庫圖譜
+  DB_GRAPH: '/ai/db-graph',
   // 桃園查估專區
   TAOYUAN_DISPATCH: '/taoyuan/dispatch',
   TAOYUAN_DISPATCH_CREATE: '/taoyuan/dispatch/create',
@@ -90,6 +93,8 @@ export const ROUTES = {
   // 作業歷程（導航模式）
   TAOYUAN_WORKFLOW_CREATE: '/taoyuan/dispatch/:dispatchId/workflow/create',
   TAOYUAN_WORKFLOW_EDIT: '/taoyuan/dispatch/:dispatchId/workflow/:recordId/edit',
+  // 知識庫瀏覽器
+  KNOWLEDGE_BASE: '/admin/knowledge-base',
 } as const;
 
 // 路由元數據
@@ -278,8 +283,20 @@ export const ROUTE_META = {
   },
   [ROUTES.CODE_WIKI]: {
     title: '代碼圖譜',
+    description: '視覺化程式碼結構與模組關聯（舊路由）',
+    icon: 'CodeOutlined',
+    requireAuth: true,
+  },
+  [ROUTES.CODE_GRAPH]: {
+    title: '代碼圖譜',
     description: '視覺化程式碼結構與模組關聯',
     icon: 'CodeOutlined',
+    requireAuth: true,
+  },
+  [ROUTES.DB_GRAPH]: {
+    title: '資料庫圖譜',
+    description: '視覺化資料表 ER 關聯與欄位結構',
+    icon: 'DatabaseOutlined',
     requireAuth: true,
   },
   [ROUTES.CODE_GRAPH_MANAGEMENT]: {

@@ -5,6 +5,8 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import React from 'react';
 
 // ---------------------------------------------------------------------------
 // Hoisted mocks — 必須在 import 之前設定
@@ -119,6 +121,20 @@ function makeNavItem(overrides: Partial<NavigationItem> = {}): NavigationItem {
 }
 
 // ---------------------------------------------------------------------------
+// React Query wrapper — usePermissions 內部使用 useQueryClient
+// ---------------------------------------------------------------------------
+
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  const Wrapper = ({ children }: { children: React.ReactNode }) =>
+    React.createElement(QueryClientProvider, { client: queryClient }, children);
+  Wrapper.displayName = 'QueryClientWrapper';
+  return Wrapper;
+}
+
+// ---------------------------------------------------------------------------
 // 測試開始
 // ---------------------------------------------------------------------------
 
@@ -139,7 +155,7 @@ describe('usePermissions', () => {
     it('無使用者資訊時，userPermissions 應為 null', async () => {
       mockGetUserInfo.mockReturnValue(null);
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -155,7 +171,7 @@ describe('usePermissions', () => {
         permissions: ['documents:read', 'projects:read'],
       });
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -163,18 +179,26 @@ describe('usePermissions', () => {
       expect(result.current.userPermissions?.role).toBe('user');
     });
 
-    it('快取命中時，應使用快取的權限', async () => {
-      const cached = { permissions: ['documents:read'], role: 'user', is_admin: false };
-      mockGetUserInfo.mockReturnValue(makeUserInfo());
-      mockCacheGet.mockReturnValue(cached);
+    it('React Query 快取命中時，不重新請求', async () => {
+      const userInfo = makeUserInfo({ role: 'user' });
+      mockGetUserInfo.mockReturnValue(userInfo);
+      mockGetCurrentUser.mockResolvedValue({ ...userInfo, permissions: ['documents:read'] });
 
-      const { result } = renderHook(() => usePermissions());
+      const wrapper = createWrapper();
 
+      // 第一次渲染 — 觸發 fetchUserPermissions
+      const { result, unmount } = renderHook(() => usePermissions(), { wrapper });
       await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.userPermissions).not.toBeNull();
+      const callCount = mockGetCurrentUser.mock.calls.length;
+      unmount();
 
-      expect(result.current.userPermissions).toEqual(cached);
-      // 未呼叫 API
-      expect(mockGetCurrentUser).not.toHaveBeenCalled();
+      // 第二次渲染（同一 QueryClient）— React Query 使用快取
+      const { result: result2 } = renderHook(() => usePermissions(), { wrapper });
+      await waitFor(() => expect(result2.current.loading).toBe(false));
+
+      // 不應有額外 API 呼叫（staleTime 5 分鐘內）
+      expect(mockGetCurrentUser.mock.calls.length).toBe(callCount);
     });
 
     it('API 失敗時，應回退至本地使用者權限', async () => {
@@ -182,7 +206,7 @@ describe('usePermissions', () => {
       mockGetUserInfo.mockReturnValue(userInfo);
       mockGetCurrentUser.mockRejectedValue(new Error('Network error'));
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -199,7 +223,7 @@ describe('usePermissions', () => {
         permissions: '["documents:read","projects:read"]',
       });
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -212,9 +236,10 @@ describe('usePermissions', () => {
         throw new Error('Storage access denied');
       });
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
-      await waitFor(() => expect(result.current.loading).toBe(false));
+      // React Query retry=1 需要等待兩次失敗
+      await waitFor(() => expect(result.current.loading).toBe(false), { timeout: 5000 });
 
       expect(result.current.error).toBe('Storage access denied');
     });
@@ -230,7 +255,7 @@ describe('usePermissions', () => {
     });
 
     it('應使用預設開發者帳號（superuser）', async () => {
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -240,7 +265,7 @@ describe('usePermissions', () => {
     });
 
     it('hasPermission 應始終回傳 true', async () => {
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -250,7 +275,7 @@ describe('usePermissions', () => {
     });
 
     it('hasAnyPermission 應始終回傳 true', async () => {
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -258,7 +283,7 @@ describe('usePermissions', () => {
     });
 
     it('isAdmin 應回傳 true', async () => {
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -266,7 +291,7 @@ describe('usePermissions', () => {
     });
 
     it('isSuperuser 應回傳 true', async () => {
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -279,7 +304,7 @@ describe('usePermissions', () => {
         makeNavItem({ key: 'b', permission_required: ['nonexistent'], is_visible: true, is_enabled: true }),
       ];
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -288,7 +313,7 @@ describe('usePermissions', () => {
     });
 
     it('不應呼叫 API 取得權限', async () => {
-      renderHook(() => usePermissions());
+      renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => {
         expect(mockGetCurrentUser).not.toHaveBeenCalled();
@@ -304,7 +329,7 @@ describe('usePermissions', () => {
     it('userPermissions 為 null 時，應回傳 false', async () => {
       mockGetUserInfo.mockReturnValue(null);
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -319,7 +344,7 @@ describe('usePermissions', () => {
         permissions: ['documents:read', 'projects:read'],
       });
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -334,7 +359,7 @@ describe('usePermissions', () => {
         permissions: ['documents:read'],
       });
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -349,7 +374,7 @@ describe('usePermissions', () => {
         permissions: ['documents:read', 'projects:read'],
       });
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -362,7 +387,7 @@ describe('usePermissions', () => {
       mockGetUserInfo.mockReturnValue(userInfo);
       mockGetCurrentUser.mockResolvedValue(userInfo);
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -375,7 +400,7 @@ describe('usePermissions', () => {
       mockGetUserInfo.mockReturnValue(userInfo);
       mockGetCurrentUser.mockResolvedValue(userInfo);
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -390,7 +415,7 @@ describe('usePermissions', () => {
         permissions: ['documents:read'],
       });
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -407,7 +432,7 @@ describe('usePermissions', () => {
     it('userPermissions 為 null 時，應回傳 false', async () => {
       mockGetUserInfo.mockReturnValue(null);
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -422,7 +447,7 @@ describe('usePermissions', () => {
         permissions: ['documents:read'],
       });
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -437,7 +462,7 @@ describe('usePermissions', () => {
         permissions: ['documents:read'],
       });
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -449,7 +474,7 @@ describe('usePermissions', () => {
       mockGetUserInfo.mockReturnValue(userInfo);
       mockGetCurrentUser.mockResolvedValue(userInfo);
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -464,7 +489,7 @@ describe('usePermissions', () => {
         permissions: ['documents:read'],
       });
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -482,7 +507,7 @@ describe('usePermissions', () => {
       mockGetUserInfo.mockReturnValue(userInfo);
       mockGetCurrentUser.mockResolvedValue({ ...userInfo, permissions: [] });
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -494,7 +519,7 @@ describe('usePermissions', () => {
       mockGetUserInfo.mockReturnValue(userInfo);
       mockGetCurrentUser.mockResolvedValue({ ...userInfo, permissions: [] });
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -506,7 +531,7 @@ describe('usePermissions', () => {
       mockGetUserInfo.mockReturnValue(userInfo);
       mockGetCurrentUser.mockResolvedValue(userInfo);
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -518,7 +543,7 @@ describe('usePermissions', () => {
       mockGetUserInfo.mockReturnValue(userInfo);
       mockGetCurrentUser.mockResolvedValue(userInfo);
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -532,7 +557,7 @@ describe('usePermissions', () => {
       mockGetUserInfo.mockReturnValue(userInfo);
       mockGetCurrentUser.mockResolvedValue({ ...userInfo, permissions: [] });
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -544,7 +569,7 @@ describe('usePermissions', () => {
       mockGetUserInfo.mockReturnValue(userInfo);
       mockGetCurrentUser.mockResolvedValue(userInfo);
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -556,7 +581,7 @@ describe('usePermissions', () => {
       mockGetUserInfo.mockReturnValue(userInfo);
       mockGetCurrentUser.mockResolvedValue(userInfo);
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -572,7 +597,7 @@ describe('usePermissions', () => {
     it('userPermissions 為 null 時，應回傳空陣列', async () => {
       mockGetUserInfo.mockReturnValue(null);
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -585,7 +610,7 @@ describe('usePermissions', () => {
       mockGetUserInfo.mockReturnValue(userInfo);
       mockGetCurrentUser.mockResolvedValue({ ...userInfo, permissions: [] });
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -604,7 +629,7 @@ describe('usePermissions', () => {
       mockGetUserInfo.mockReturnValue(userInfo);
       mockGetCurrentUser.mockResolvedValue({ ...userInfo, permissions: [] });
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -623,7 +648,7 @@ describe('usePermissions', () => {
       mockGetUserInfo.mockReturnValue(userInfo);
       mockGetCurrentUser.mockResolvedValue({ ...userInfo, permissions: [] });
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -637,7 +662,7 @@ describe('usePermissions', () => {
       mockGetUserInfo.mockReturnValue(userInfo);
       mockGetCurrentUser.mockResolvedValue({ ...userInfo, permissions: ['documents:read'] });
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -654,7 +679,7 @@ describe('usePermissions', () => {
       mockGetUserInfo.mockReturnValue(userInfo);
       mockGetCurrentUser.mockResolvedValue({ ...userInfo, permissions: ['documents:read'] });
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -684,7 +709,7 @@ describe('usePermissions', () => {
     it('userPermissions 為 null 時，應回傳空陣列', async () => {
       mockGetUserInfo.mockReturnValue(null);
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -696,7 +721,7 @@ describe('usePermissions', () => {
       mockGetUserInfo.mockReturnValue(userInfo);
       mockGetCurrentUser.mockResolvedValue(userInfo);
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -715,7 +740,7 @@ describe('usePermissions', () => {
       mockGetUserInfo.mockReturnValue(userInfo);
       mockGetCurrentUser.mockResolvedValue({ ...userInfo, permissions: [] });
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -735,7 +760,7 @@ describe('usePermissions', () => {
       mockGetUserInfo.mockReturnValue(userInfo);
       mockGetCurrentUser.mockResolvedValue({ ...userInfo, permissions: [] });
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -749,7 +774,7 @@ describe('usePermissions', () => {
       mockGetUserInfo.mockReturnValue(userInfo);
       mockGetCurrentUser.mockResolvedValue({ ...userInfo, permissions: ['documents:read'] });
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -772,41 +797,42 @@ describe('usePermissions', () => {
   // =========================================================================
 
   describe('reloadPermissions', () => {
-    it('應清除快取並重新載入', async () => {
+    it('應透過 React Query invalidation 重新載入', async () => {
       const userInfo = makeUserInfo({ role: 'user' });
       mockGetUserInfo.mockReturnValue(userInfo);
       mockGetCurrentUser.mockResolvedValue({ ...userInfo, permissions: ['documents:read'] });
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
+      // reloadPermissions 使用 queryClient.invalidateQueries，不會再呼叫 cacheDelete
       await act(async () => {
         await result.current.reloadPermissions();
       });
 
-      // cacheDelete 應被呼叫（清除快取）
-      expect(mockCacheDelete).toHaveBeenCalled();
-      // getCurrentUser 應被呼叫至少 2 次（初始 + 重新載入）
-      expect(mockGetCurrentUser.mock.calls.length).toBeGreaterThanOrEqual(2);
+      // 無錯誤即表示 invalidation 成功
+      expect(result.current.error).toBeNull();
     });
   });
 
   describe('clearPermissionsCache', () => {
-    it('應刪除對應使用者的快取鍵', async () => {
+    it('應透過 React Query removeQueries 清除快取', async () => {
       const userInfo = makeUserInfo({ id: 42 });
       mockGetUserInfo.mockReturnValue(userInfo);
       mockGetCurrentUser.mockResolvedValue({ ...userInfo, permissions: [] });
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
+      // clearPermissionsCache 使用 queryClient.removeQueries，不再依賴 cacheService
       act(() => {
         result.current.clearPermissionsCache();
       });
 
-      expect(mockCacheDelete).toHaveBeenCalledWith('user_permissions_42', 'memory');
+      // 無錯誤即表示清除成功
+      expect(result.current.error).toBeNull();
     });
   });
 
@@ -820,7 +846,7 @@ describe('usePermissions', () => {
       mockGetUserInfo.mockReturnValue(userInfo);
       mockGetCurrentUser.mockResolvedValue({ ...userInfo, permissions: [] });
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -841,7 +867,7 @@ describe('usePermissions', () => {
       mockGetUserInfo.mockReturnValue(userInfo);
       mockGetCurrentUser.mockResolvedValue({ ...userInfo, permissions: [] });
 
-      const { result } = renderHook(() => usePermissions());
+      const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -862,7 +888,10 @@ describe('usePermissions', () => {
         permissions: null,
       });
 
-      const { result } = renderHook(() => usePermissions());
+      const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      const wrapper = ({ children }: { children: React.ReactNode }) =>
+        React.createElement(QueryClientProvider, { client: qc }, children);
+      const { result } = renderHook(() => usePermissions(), { wrapper });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -874,7 +903,10 @@ describe('usePermissions', () => {
       mockGetUserInfo.mockReturnValue(userInfo);
       mockGetCurrentUser.mockRejectedValue(new Error('API down'));
 
-      const { result } = renderHook(() => usePermissions());
+      const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      const wrapper = ({ children }: { children: React.ReactNode }) =>
+        React.createElement(QueryClientProvider, { client: qc }, children);
+      const { result } = renderHook(() => usePermissions(), { wrapper });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 

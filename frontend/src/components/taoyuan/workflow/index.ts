@@ -65,7 +65,7 @@ export {
   computeDocStats,
   computeCurrentStage,
 } from './chainUtils';
-export type { DocPair, DocPairs, MatrixDocItem, CorrespondenceMatrixRow, ChainNode } from './chainUtils';
+export type { DocPair, DocPairs, MatrixDocItem, CorrespondenceMatrixRow, EntityPairScore, ChainNode } from './chainUtils';
 
 // === 共用元件 (v2.0.0 模組化) ===
 export { WorkRecordStatsCard } from './WorkRecordStatsCard';

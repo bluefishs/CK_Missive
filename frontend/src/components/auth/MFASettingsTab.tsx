@@ -9,7 +9,7 @@
  * @version 1.0.0
  * @date 2026-02-08
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   Card,
   Button,
@@ -32,6 +32,7 @@ import {
   ExclamationCircleOutlined,
   LockOutlined,
 } from '@ant-design/icons';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { API_ENDPOINTS } from '../../api/endpoints';
 import type { MFASetupData, MFAStatus } from '../../types/api';
@@ -40,9 +41,25 @@ const { Title, Text, Paragraph } = Typography;
 
 export const MFASettingsTab: React.FC = () => {
   const { message, modal } = App.useApp();
+  const queryClient = useQueryClient();
 
-  const [mfaStatus, setMfaStatus] = useState<MFAStatus | null>(null);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: mfaStatus = null,
+    isLoading: loading,
+  } = useQuery<MFAStatus>({
+    queryKey: ['mfa-status'],
+    queryFn: async () => {
+      try {
+        return await apiClient.post<MFAStatus>(API_ENDPOINTS.AUTH.MFA_STATUS, {});
+      } catch {
+        // MFA 狀態查詢失敗時，假設未啟用
+        return { mfa_enabled: false, backup_codes_remaining: 0 };
+      }
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
   const [setupData, setSetupData] = useState<MFASetupData | null>(null);
   const [setupStep, setSetupStep] = useState<'idle' | 'qrcode' | 'verify' | 'done'>('idle');
   const [verifyCode, setVerifyCode] = useState('');
@@ -50,23 +67,6 @@ export const MFASettingsTab: React.FC = () => {
   const [disableModalVisible, setDisableModalVisible] = useState(false);
   const [disablePassword, setDisablePassword] = useState('');
   const [disableLoading, setDisableLoading] = useState(false);
-
-  const loadMFAStatus = useCallback(async () => {
-    try {
-      setLoading(true);
-      const status = await apiClient.post<MFAStatus>(API_ENDPOINTS.AUTH.MFA_STATUS, {});
-      setMfaStatus(status);
-    } catch {
-      // MFA 狀態查詢失敗時，假設未啟用
-      setMfaStatus({ mfa_enabled: false, backup_codes_remaining: 0 });
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadMFAStatus();
-  }, [loadMFAStatus]);
 
   // 開始設定 MFA
   const handleSetup = async () => {
@@ -92,7 +92,7 @@ export const MFASettingsTab: React.FC = () => {
       await apiClient.post(API_ENDPOINTS.AUTH.MFA_VERIFY, { code: verifyCode });
       message.success('MFA 已成功啟用!');
       setSetupStep('done');
-      await loadMFAStatus();
+      await queryClient.invalidateQueries({ queryKey: ['mfa-status'] });
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : '驗證碼不正確';
       message.error(errorMessage);
@@ -116,7 +116,7 @@ export const MFASettingsTab: React.FC = () => {
       setDisablePassword('');
       setSetupData(null);
       setSetupStep('idle');
-      await loadMFAStatus();
+      await queryClient.invalidateQueries({ queryKey: ['mfa-status'] });
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : '停用失敗';
       message.error(errorMessage);
