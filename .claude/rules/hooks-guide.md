@@ -36,6 +36,23 @@
 |------|------|------|
 | quality-gate | agent | 自動驗證程式碼修改的品質 |
 
+## Git Hooks (本地 CI)
+
+| Hook | 說明 | 位置 |
+|------|------|------|
+| pre-commit | Skills 架構驗證 + TypeScript 編譯 + Python 語法 + 敏感檔案偵測 | `.git/hooks/pre-commit` |
+| post-commit | 知識地圖增量更新 (`--if-stale`，背景執行) | `.git/hooks/post-commit` |
+| post-checkout | 分支切換時自動同步 Skills | `.git/hooks/post-checkout` |
+| post-merge | Pull/Merge 後自動同步 Skills | `.git/hooks/post-merge` |
+
+**pre-commit 檢查項目**:
+1. 禁止直接修改 `_shared/` 目錄
+2. Skills 架構驗證（有 `.claude/skills/` 變更時）
+3. 新專案層 Skills 警告
+4. TypeScript 編譯 (`npx tsc --noEmit`，有 `.ts/.tsx` 變更時)
+5. Python 語法 (`py_compile`，有 `.py` 變更時)
+6. 敏感檔案偵測 (`.env`, `credentials.json`, `.pem`, `.key`)
+
 ## 手動執行 Hooks
 
 | Hook | 說明 | 檔案 |

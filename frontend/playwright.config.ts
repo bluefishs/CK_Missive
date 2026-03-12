@@ -3,8 +3,8 @@
  *
  * 用於關鍵用戶流程的端到端測試
  *
- * @version 1.0.0
- * @date 2026-02-04
+ * @version 2.0.0
+ * @date 2026-03-11
  */
 
 import { defineConfig, devices } from '@playwright/test';
@@ -16,8 +16,9 @@ export default defineConfig({
   // 測試執行設定
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  retries: 1,
   workers: process.env.CI ? 1 : undefined,
+  timeout: 30000,
 
   // 報告配置
   reporter: [
@@ -40,27 +41,19 @@ export default defineConfig({
     video: 'on-first-retry',
   },
 
-  // 瀏覽器配置
+  // 瀏覽器配置 — chromium only for speed
   projects: [
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
-    // 可選：Firefox 和 Safari
-    // {
-    //   name: 'firefox',
-    //   use: { ...devices['Desktop Firefox'] },
-    // },
-    // {
-    //   name: 'webkit',
-    //   use: { ...devices['Desktop Safari'] },
-    // },
   ],
 
-  // 開發伺服器設定（可選）
-  // webServer: {
-  //   command: 'npm run dev',
-  //   url: 'http://localhost:3000',
-  //   reuseExistingServer: !process.env.CI,
-  // },
+  // 開發伺服器設定
+  webServer: {
+    command: 'npm run dev',
+    url: 'http://localhost:3000',
+    reuseExistingServer: !process.env.CI,
+    timeout: 120000,
+  },
 });

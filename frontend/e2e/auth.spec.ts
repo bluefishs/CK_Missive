@@ -281,6 +281,9 @@ test.describe('認證流程 - 登入頁面', () => {
 });
 
 test.describe('認證流程 - 路由保護', () => {
+  // 內網環境免認證，路由保護測試僅在外部環境有意義
+  test.skip(({ }, testInfo) => !process.env.E2E_FORCE_AUTH, '內網環境跳過認證路由保護測試');
+
   test('test_protected_route_redirects_to_login - 未登入時訪問受保護路由被重導到 /login', async ({ page }) => {
     // 設定 mock：未認證狀態
     await setupAuthMocks(page, { meSuccess: false });

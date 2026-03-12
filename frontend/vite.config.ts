@@ -106,6 +106,17 @@ export default defineConfig(({ mode }) => {
             'state': ['zustand', '@tanstack/react-query'],
             // Excel 處理
             'xlsx': ['xlsx'],
+            // 3D 圖譜引擎（lazy-loaded，各自獨立 chunk）
+            'three': ['three', 'three-spritetext'],
+            'react-force-graph-3d': ['react-force-graph-3d'],
+            // 2D 圖譜引擎（知識圖譜頁面載入）
+            'react-force-graph-2d': ['react-force-graph-2d'],
+            // 圖譜引擎
+            'cytoscape': ['cytoscape'],
+            // Mermaid 圖表（lazy-loaded）
+            'mermaid': ['mermaid'],
+            // Markdown 渲染
+            'markdown': ['react-markdown', 'remark-gfm'],
           }
         }
       },

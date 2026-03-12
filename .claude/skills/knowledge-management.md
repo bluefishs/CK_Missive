@@ -80,6 +80,20 @@ proposed → accepted → implemented
 | 高層規劃 | Heptabase | 功能規劃白板、里程碑 |
 | 專案管理 | Notion | 路線圖、待辦事項 |
 
+## 知識庫瀏覽器 (v1.81.0)
+
+瀏覽知識地圖、ADR、架構圖的統一介面：
+
+| Tab | 後端 API | 資料來源 |
+|-----|---------|---------|
+| 知識地圖 | `POST /knowledge-base/tree` + `/file` | `docs/knowledge-map/` |
+| ADR | `POST /knowledge-base/adr/list` + `/file` | `docs/adr/` |
+| 架構圖 | `POST /knowledge-base/diagrams/list` + `/file` | `docs/diagrams/` |
+
+路由：`/admin/knowledge-base`（需管理員權限）
+元件：`KnowledgeBasePage` → `KnowledgeMapTab` / `AdrTab` / `DiagramsTab`
+渲染：`MarkdownRenderer`（GFM + Mermaid 委派至 `MermaidBlock`）
+
 ## 與 CHANGELOG 的關係
 
 - CHANGELOG 記錄「做了什麼」（what changed）

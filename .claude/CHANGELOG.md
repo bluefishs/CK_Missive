@@ -4,6 +4,45 @@
 
 ---
 
+## [1.81.0] - 2026-03-11
+
+### 知識庫瀏覽器 + Bundle 優化 + 程式碼品質強化
+
+#### 知識庫瀏覽器 (Knowledge Base Viewer)
+- 新增 `/admin/knowledge-base` 路由 — 三分頁：知識地圖、ADR、架構圖
+- 後端 4 個 POST API: tree/file/adr-list/diagrams-list (3 層路徑穿越防護)
+- 前端 `KnowledgeBasePage` + `KnowledgeMapTab` (樹狀 + Markdown) + `AdrTab` (表格 + 狀態標籤) + `DiagramsTab` (Segmented + Mermaid)
+- `MarkdownRenderer` 通用元件：react-markdown + remark-gfm + Mermaid 委派
+
+#### 知識圖譜實體配對 API
+- `POST /dispatch/{id}/entity-similarity` — Jaccard 相似度計算
+- 公文對照矩陣 Phase 2: 複合評分 (關鍵字 60% + 實體 40%)
+- `useDispatchWorkData` 整合實體配對數據 (靜默失敗, retry:false)
+
+#### Bundle 優化
+- `KnowledgeGraph` chunk: **741KB → 34KB** (-95%)
+- 新增 6 個 manualChunks: three, react-force-graph-2d/3d, cytoscape, mermaid, markdown
+- `NaturalSearchPanel` lazy-load 化 (AIAssistantButton)
+
+#### ESLint 修復
+- 13 errors → **0 errors, 3 warnings** (不可消除的 fast-refresh 限制)
+- 移除死檔案 `frontend/src/index.js`
+- 修復: 未使用 import, Hook 依賴, displayName, useMemo 穩定性
+
+#### 後端清理
+- `app/schemas/ai/__init__.py` re-export 移除 (v3.0.0) — 20 個消費者已改用子模組路徑
+- 22 個 endpoint 檔案 unused imports 清除
+- 知識圖譜垃圾實體清理 (1 筆重複合併)
+- MCP server shutdown logging error 修復
+- `module-mappings` endpoint GET → POST (資安合規)
+
+#### 端點 SSOT 更新
+- `KNOWLEDGE_BASE_ENDPOINTS` (4 個端點) 加入 API_ENDPOINTS
+- 端點群組測試: 25 → 26
+- 導航項目新增: 知識庫瀏覽器 (AI 智慧功能子項)
+
+---
+
 ## [1.80.0] - 2026-03-10
 
 ### 專案遷移 + 架構清理 + GitHub Actions 停用

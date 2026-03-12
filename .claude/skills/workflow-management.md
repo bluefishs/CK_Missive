@@ -137,7 +137,7 @@ frontend/src/components/taoyuan/workflow/
 | `getEffectiveDocId(record)` | 新/舊格式公文 ID |
 | `getEffectiveDoc(record)` | 新/舊格式公文摘要 |
 | `buildDocPairs(records)` | 分組為來文/發文配對 |
-| `buildCorrespondenceMatrix(...)` | 三階段匹配：parent_record_id → 日期鄰近 → 未指派 |
+| `buildCorrespondenceMatrix(...)` | 三階段匹配 + 實體配對：parent_record_id → 複合評分 → 未指派 |
 | `filterBlankRecords(records)` | 過濾空白紀錄（保留被引用的 parent） |
 | `computeDocStats(records)` | 計算不重複來文/發文數 |
 | `computeCurrentStage(records)` | 計算當前作業階段標籤 |
@@ -167,6 +167,13 @@ Tab 內嵌的快速建立表單，不離開頁面：
 | `POST /workflow/{id}` | 單筆查詢 | — |
 | `POST /workflow/{id}/update` | 更新 | — |
 | `POST /workflow/{id}/delete` | 刪除 | **清理孤兒子紀錄** |
+
+| `POST /dispatch/{id}/entity-similarity` | 知識圖譜實體配對建議 | Jaccard 相似度 |
+
+**公文對照矩陣 Phase 2 複合評分** (v1.81.0):
+- 關鍵字相似度 60% + 實體 Jaccard 40%
+- `EntityPairScore` 型別定義在 `chainUtils.ts`
+- `useDispatchWorkData` 整合 entity similarity query (staleTime 5min, retry: false)
 
 **路由順序**: 靜態路由 (list, create, batch-update, summary) **必須** 在動態路由 ({record_id}) 之前。
 

@@ -124,10 +124,31 @@ backend/app/api/endpoints/
 │   ├── prompts.py                # Prompt 模板端點
 │   ├── search_history.py         # 搜尋歷史端點
 │   └── synonyms.py               # 同義詞管理端點
+├── knowledge_base.py      # 知識庫瀏覽器 API (tree/file/adr/diagrams)
 └── *.py                    # 其他 API 端點
 ```
 
 ## 前端元件結構
+
+### 知識庫瀏覽器 (v1.0.0)
+
+```
+frontend/src/pages/knowledgeBase/
+├── KnowledgeMapTab.tsx        # 樹狀目錄 + Markdown 渲染
+├── AdrTab.tsx                 # ADR 表格 + 狀態標籤 + 詳情
+└── DiagramsTab.tsx            # Segmented 切換 + Mermaid 架構圖
+```
+
+### 通用元件
+
+```
+frontend/src/components/common/
+├── GlobalApiErrorNotifier.tsx  # 全域 API 錯誤通知 (429/403/5xx)
+├── MarkdownRenderer.tsx        # 通用 Markdown 渲染器 (GFM + Mermaid 委派)
+├── PreviewDrawer/              # 預覽抽屜
+├── PageLoading.tsx             # 頁面載入指示器
+└── ...
+```
 
 ### 作業歷程模組 (v2.0.0)
 

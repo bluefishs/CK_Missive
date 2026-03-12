@@ -78,6 +78,8 @@
 | `requesting-code-review` | 程式碼審查, code review | 審查前檢查清單 |
 | `using-git-worktrees` | worktree, 分支 | 平行開發分支管理 |
 | `verification-before-completion` | 驗證, 完成 | 確保修復真正完成 |
+| `using-superpowers` | superpowers, 能力 | Superpowers 入口（自動發現與載入） |
+| `writing-skills` | 建立 skill, skill 開發 | Skill 撰寫與驗證 meta-skill |
 
 > 位置: `.claude/skills/_shared/shared/superpowers/` (透過 inherit 載入)
 
@@ -102,6 +104,41 @@
 | 工具 | `refactoring-migration-procedures` | 重構遷移, migration | 重構遷移程序 |
 
 > 位置: `.claude/skills/_shared/shared/`
+
+---
+
+## v1.81.0 知識庫瀏覽器 + 實體配對 API
+
+### 新增端點
+
+| 端點常數 | 說明 |
+|---------|------|
+| `KNOWLEDGE_BASE_ENDPOINTS.TREE` | `/knowledge-base/tree` |
+| `KNOWLEDGE_BASE_ENDPOINTS.FILE` | `/knowledge-base/file` |
+| `KNOWLEDGE_BASE_ENDPOINTS.ADR_LIST` | `/knowledge-base/adr/list` |
+| `KNOWLEDGE_BASE_ENDPOINTS.DIAGRAMS_LIST` | `/knowledge-base/diagrams/list` |
+| `TAOYUAN_DISPATCH.DISPATCH_ENTITY_SIMILARITY` | `(id) => /taoyuan-dispatch/dispatch/${id}/entity-similarity` |
+
+### 新增前端元件
+
+| 元件/Hook | 位置 | 說明 |
+|-----------|------|------|
+| `KnowledgeBasePage` | `pages/KnowledgeBasePage.tsx` | 知識庫主頁面 (3 Tab) |
+| `KnowledgeMapTab` | `pages/knowledgeBase/` | 樹狀目錄 + Markdown 渲染 |
+| `AdrTab` | `pages/knowledgeBase/` | ADR 表格 + 狀態標籤 + 詳情 |
+| `DiagramsTab` | `pages/knowledgeBase/` | Segmented 切換 + Mermaid 渲染 |
+| `MarkdownRenderer` | `components/common/` | 通用 Markdown 渲染器 (GFM + Mermaid) |
+
+### Bundle 優化 (manualChunks)
+
+| Chunk | 內容 | 載入時機 |
+|-------|------|---------|
+| `three` | three + three-spritetext | 3D 圖譜頁面 |
+| `react-force-graph-2d` | 2D 圖譜引擎 | 知識圖譜頁面 |
+| `react-force-graph-3d` | 3D 圖譜引擎 | 3D 切換時 |
+| `cytoscape` | 圖譜佈局引擎 | 知識圖譜頁面 |
+| `mermaid` | Mermaid 圖表 | 架構圖/知識庫 |
+| `markdown` | react-markdown + remark-gfm | Markdown 渲染 |
 
 ---
 
@@ -164,6 +201,8 @@
 
 ## Agents 代理
 
+### 專案代理
+
 | Agent | 用途 | 檔案 |
 |-------|------|------|
 | Code Review | 程式碼審查 | `.claude/agents/code-review.md` |
@@ -171,6 +210,19 @@
 | Bug Investigator | Bug 調查 | `.claude/agents/bug-investigator.md` |
 | E2E Runner | E2E 測試執行與管理 | `.claude/agents/e2e-runner.md` |
 | Build Error Resolver | 構建/TypeScript 錯誤快速修復 | `.claude/agents/build-error-resolver.md` |
+
+### 共享代理 (_shared)
+
+| Agent | 用途 | 檔案 |
+|-------|------|------|
+| Build Resolver | 通用構建錯誤修復 | `.claude/agents/_shared/shared/build-resolver.md` |
+| Code Reviewer | 通用程式碼審查 | `.claude/agents/_shared/shared/code-reviewer.md` |
+| GitHub Workflow | GitHub 工作流管理 | `.claude/agents/_shared/shared/github-workflow.md` |
+| Planner | 實作計畫規劃 | `.claude/agents/_shared/shared/planner.md` |
+| Security Auditor | 資安審計 | `.claude/agents/_shared/shared/security-auditor.md` |
+| TDD Guide | TDD 工作流引導 | `.claude/agents/_shared/shared/tdd-guide.md` |
+| Component Generator | React 元件生成 | `.claude/agents/_shared/react/component-generator.md` |
+| Test Generator | React 測試生成 | `.claude/agents/_shared/react/test-generator.md` |
 
 ---
 
