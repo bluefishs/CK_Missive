@@ -48,6 +48,9 @@ export const GRAPH_NODE_CONFIG: Record<string, GraphNodeTypeConfig> = {
   ts_module:     { color: '#9370db', radius: 5, label: 'TS 模組',     detailable: true, description: 'TypeScript/React 模組（.ts/.tsx 檔案）' },
   ts_component:  { color: '#da70d6', radius: 5, label: 'React 元件',  detailable: true, description: 'React 元件定義' },
   ts_hook:       { color: '#ba55d3', radius: 4, label: 'React Hook',  detailable: true, description: 'React 自訂 Hook（useXxx）' },
+  // --- 模組總覽實體 ---
+  menu_module: { color: '#f5222d', radius: 10, label: '功能模組',  detailable: false, description: '網站選單對應的功能模組' },
+  api_group:   { color: '#52c41a', radius: 5,  label: 'API 群組',  detailable: false, description: 'API 端點群組' },
   // --- NER 提取實體 ---
   org:         { color: '#d48806', radius: 5, label: '組織',     detailable: true,  description: 'AI 從公文內容提取的組織/單位名稱' },
   person:      { color: '#f5222d', radius: 5, label: '人物',     detailable: true,  description: 'AI 從公文內容提取的人名' },
@@ -103,6 +106,7 @@ export interface NodeConfigOverride {
   label?: string;
   description?: string;
   visible?: boolean;
+  radius?: number;
 }
 
 export type NodeConfigOverrides = Record<string, NodeConfigOverride>;
@@ -163,7 +167,7 @@ export function getMergedNodeConfig(type: string): MergedNodeConfig {
 
   return {
     color: ov.color ?? base.color,
-    radius: base.radius,
+    radius: ov.radius ?? base.radius,
     label: ov.label ?? base.label,
     detailable: base.detailable,
     description: ov.description ?? base.description,
@@ -172,15 +176,17 @@ export function getMergedNodeConfig(type: string): MergedNodeConfig {
 }
 
 /** 取得所有類型的合併配置（只讀一次 localStorage） */
-export function getAllMergedConfigs(): Record<string, MergedNodeConfig> {
+export function getAllMergedConfigs(
+  baseConfig: Record<string, GraphNodeTypeConfig> = GRAPH_NODE_CONFIG,
+): Record<string, MergedNodeConfig> {
   const overrides = getUserOverrides();
   const result: Record<string, MergedNodeConfig> = {};
-  for (const [type, base] of Object.entries(GRAPH_NODE_CONFIG)) {
+  for (const [type, base] of Object.entries(baseConfig)) {
     const ov = overrides[type];
     result[type] = ov
       ? {
           color: ov.color ?? base.color,
-          radius: base.radius,
+          radius: ov.radius ?? base.radius,
           label: ov.label ?? base.label,
           detailable: base.detailable,
           description: ov.description ?? base.description,
@@ -189,4 +195,37 @@ export function getAllMergedConfigs(): Record<string, MergedNodeConfig> {
       : { ...base, visible: true };
   }
   return result;
+}
+
+// ============================================================================
+// 工廠函數（模組化移植用）
+// ============================================================================
+
+/**
+ * 建立一組節點配置工具函數。
+ * 移植到其他專案時，只需傳入該專案的節點類型定義即可。
+ *
+ * @example
+ * const myConfig = createNodeConfigSet({
+ *   table: { color: '#1890ff', radius: 6, label: '資料表', detailable: true, description: '...' },
+ * });
+ * <KnowledgeGraph nodeConfig={myConfig.config} ... />
+ */
+export function createNodeConfigSet(types: Record<string, GraphNodeTypeConfig>) {
+  const config = types;
+
+  const get = (type: string): GraphNodeTypeConfig =>
+    config[type] ?? DEFAULT_NODE_CONFIG;
+
+  const knownTypes = Object.keys(config);
+
+  const detailableTypes = new Set(
+    Object.entries(config)
+      .filter(([, cfg]) => cfg.detailable)
+      .map(([t]) => t),
+  );
+
+  const getMerged = () => getAllMergedConfigs(config);
+
+  return { config, getNodeConfig: get, knownTypes, detailableTypes, getAllMergedConfigs: getMerged };
 }

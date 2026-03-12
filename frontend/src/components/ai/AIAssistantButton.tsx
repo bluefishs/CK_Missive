@@ -30,10 +30,10 @@ import {
   SearchOutlined,
   MessageOutlined,
 } from '@ant-design/icons';
+import { useLocation } from 'react-router-dom';
 import { useResponsive } from '../../hooks';
 import { syncAIConfigFromServer } from '../../config/aiConfig';
-import { NaturalSearchPanel } from './NaturalSearchPanel';
-
+const NaturalSearchPanel = React.lazy(() => import('./NaturalSearchPanel').then(m => ({ default: m.NaturalSearchPanel })));
 const RAGChatPanel = React.lazy(() => import('./RAGChatPanel'));
 
 interface AIAssistantButtonProps {
@@ -50,6 +50,13 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
   visible = true,
 }) => {
   const { isMobile, responsiveValue } = useResponsive();
+  const location = useLocation();
+
+  // 路由感知：不同頁面使用不同助理上下文
+  const isGraphPage = location.pathname.startsWith('/ai/code-graph')
+    || location.pathname.startsWith('/ai/db-graph');
+  // assistantContext 作為 key 驅動 RAGChatPanel 重新掛載 → 分離對話歷史
+  const assistantContext = isGraphPage ? 'dev' : 'doc';
 
   // 面板狀態
   const [isOpen, setIsOpen] = useState(false);
@@ -279,16 +286,22 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
           }}
         >
           {mode === 'search' ? (
-            <NaturalSearchPanel
-              onSearchComplete={(count) => setSearchResultCount(count)}
-            />
+            <Suspense fallback={
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, padding: 40 }}>
+                <Spin tip="載入搜尋模組..."><div /></Spin>
+              </div>
+            }>
+              <NaturalSearchPanel
+                onSearchComplete={(count) => setSearchResultCount(count)}
+              />
+            </Suspense>
           ) : (
             <Suspense fallback={
               <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, padding: 40 }}>
-                <Spin tip="載入問答模組..." />
+                <Spin tip="載入問答模組..."><div /></Spin>
               </div>
             }>
-              <RAGChatPanel embedded />
+              <RAGChatPanel key={assistantContext} embedded agentMode={isGraphPage} />
             </Suspense>
           )}
         </Card>

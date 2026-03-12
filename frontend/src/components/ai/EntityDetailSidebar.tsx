@@ -57,13 +57,96 @@ export interface EntityDetailSidebarProps {
   entityName: string;
   entityType: string;
   onClose: () => void;
+  /**
+   * 自訂區塊渲染（移植時用於注入專案特定的詳情欄位）。
+   * 預設顯示 Code Wiki 元數據區塊。設為 null 可隱藏。
+   */
+  renderExtraSections?: ((detail: KGEntityDetailResponse, entityType: string) => React.ReactNode) | null;
+  /** inline 模式：不使用 Drawer overlay，改為內嵌面板（避免遮蔽圖譜） */
+  inline?: boolean;
 }
+
+/** 內建的 Code Wiki 元數據渲染（CK_Missive 預設行為） */
+const defaultExtraSections = (detail: KGEntityDetailResponse, type: string): React.ReactNode => {
+  if (!CODE_ENTITY_TYPES.has(type)) return null;
+  const meta = parseCodeMeta(detail.description);
+  if (!meta) return null;
+  return (
+    <>
+      <Divider orientation="left" style={{ fontSize: 13 }}>
+        <CodeOutlined /> 程式碼資訊
+      </Divider>
+      <Descriptions column={1} size="small" bordered>
+        {!!meta.file_path && (
+          <Descriptions.Item label="檔案路徑">
+            <Text code style={{ fontSize: 11, wordBreak: 'break-all' }}>
+              {String(meta.file_path)}
+            </Text>
+          </Descriptions.Item>
+        )}
+        {meta.lines != null && (
+          <Descriptions.Item label="行數">{String(meta.lines)}</Descriptions.Item>
+        )}
+        {meta.line_start != null && (
+          <Descriptions.Item label="位置">
+            L{String(meta.line_start)}
+            {meta.line_end ? `–L${String(meta.line_end)}` : ''}
+          </Descriptions.Item>
+        )}
+        {meta.is_async != null && (
+          <Descriptions.Item label="非同步">
+            <Tag color={meta.is_async ? 'green' : 'default'}>
+              {meta.is_async ? 'async' : 'sync'}
+            </Tag>
+          </Descriptions.Item>
+        )}
+        {meta.is_private != null && meta.is_private && (
+          <Descriptions.Item label="可見性">
+            <Tag color="orange">private</Tag>
+          </Descriptions.Item>
+        )}
+        {Array.isArray(meta.args) && meta.args.length > 0 && (
+          <Descriptions.Item label="參數">
+            {(meta.args as string[]).map((arg) => (
+              <Tag key={arg} style={{ fontSize: 11 }}>{arg}</Tag>
+            ))}
+          </Descriptions.Item>
+        )}
+        {Array.isArray(meta.bases) && meta.bases.length > 0 && (
+          <Descriptions.Item label="繼承">
+            {(meta.bases as string[]).map((base) => (
+              <Tag key={base} color="purple" style={{ fontSize: 11 }}>{base}</Tag>
+            ))}
+          </Descriptions.Item>
+        )}
+        {!!meta.table_name && (
+          <Descriptions.Item label="表名">
+            <Text code>{String(meta.table_name)}</Text>
+          </Descriptions.Item>
+        )}
+        {meta.column_count != null && (
+          <Descriptions.Item label="欄位數">{String(meta.column_count)}</Descriptions.Item>
+        )}
+      </Descriptions>
+      {meta.docstring && (
+        <div style={{ marginTop: 8, padding: '6px 8px', background: '#f6f8fa', borderRadius: 4, fontSize: 12 }}>
+          <Text type="secondary" style={{ fontSize: 11 }}>docstring:</Text>
+          <div style={{ whiteSpace: 'pre-wrap', marginTop: 2 }}>
+            {truncate(String(meta.docstring), 200)}
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
 
 export const EntityDetailSidebar: React.FC<EntityDetailSidebarProps> = ({
   visible,
   entityName,
   entityType,
   onClose,
+  renderExtraSections = defaultExtraSections,
+  inline = false,
 }) => {
   const [loading, setLoading] = useState(false);
   const [detail, setDetail] = useState<KGEntityDetailResponse | null>(null);
@@ -116,29 +199,21 @@ export const EntityDetailSidebar: React.FC<EntityDetailSidebarProps> = ({
     return () => { cancelled = true; };
   }, [visible, entityName, entityType]);
 
-  return (
-    <Drawer
-      title={
-        <Space>
-          <span style={{
-            width: 10, height: 10, borderRadius: '50%', display: 'inline-block',
-            background: entityConfig.color,
-          }} />
-          <span>{entityName}</span>
-          <Tooltip title={entityConfig.description}>
-            <Tag color={entityConfig.color}>{entityConfig.label}</Tag>
-          </Tooltip>
-        </Space>
-      }
-      placement="right"
-      width={380}
-      open={visible}
-      onClose={onClose}
-      mask={false}
-      push={false}
-      closeIcon={<CloseOutlined />}
-      styles={{ body: { padding: '12px 16px' } }}
-    >
+  const titleContent = (
+    <Space>
+      <span style={{
+        width: 10, height: 10, borderRadius: '50%', display: 'inline-block',
+        background: entityConfig.color,
+      }} />
+      <span>{entityName}</span>
+      <Tooltip title={entityConfig.description}>
+        <Tag color={entityConfig.color}>{entityConfig.label}</Tag>
+      </Tooltip>
+    </Space>
+  );
+
+  const bodyContent = (
+    <>
       {loading && (
         <div style={{ textAlign: 'center', padding: 40 }}>
           <Spin tip="查詢正規化實體..."><div /></Spin>
@@ -164,78 +239,8 @@ export const EntityDetailSidebar: React.FC<EntityDetailSidebarProps> = ({
             )}
           </Descriptions>
 
-          {/* Code Wiki 元數據 */}
-          {CODE_ENTITY_TYPES.has(entityType) && (() => {
-            const meta = parseCodeMeta(detail.description);
-            if (!meta) return null;
-            return (
-              <>
-                <Divider orientation="left" style={{ fontSize: 13 }}>
-                  <CodeOutlined /> 程式碼資訊
-                </Divider>
-                <Descriptions column={1} size="small" bordered>
-                  {!!meta.file_path && (
-                    <Descriptions.Item label="檔案路徑">
-                      <Text code style={{ fontSize: 11, wordBreak: 'break-all' }}>
-                        {String(meta.file_path)}
-                      </Text>
-                    </Descriptions.Item>
-                  )}
-                  {meta.lines != null && (
-                    <Descriptions.Item label="行數">{String(meta.lines)}</Descriptions.Item>
-                  )}
-                  {meta.line_start != null && (
-                    <Descriptions.Item label="位置">
-                      L{String(meta.line_start)}
-                      {meta.line_end ? `–L${String(meta.line_end)}` : ''}
-                    </Descriptions.Item>
-                  )}
-                  {meta.is_async != null && (
-                    <Descriptions.Item label="非同步">
-                      <Tag color={meta.is_async ? 'green' : 'default'}>
-                        {meta.is_async ? 'async' : 'sync'}
-                      </Tag>
-                    </Descriptions.Item>
-                  )}
-                  {meta.is_private != null && meta.is_private && (
-                    <Descriptions.Item label="可見性">
-                      <Tag color="orange">private</Tag>
-                    </Descriptions.Item>
-                  )}
-                  {Array.isArray(meta.args) && meta.args.length > 0 && (
-                    <Descriptions.Item label="參數">
-                      {(meta.args as string[]).map((arg) => (
-                        <Tag key={arg} style={{ fontSize: 11 }}>{arg}</Tag>
-                      ))}
-                    </Descriptions.Item>
-                  )}
-                  {Array.isArray(meta.bases) && meta.bases.length > 0 && (
-                    <Descriptions.Item label="繼承">
-                      {(meta.bases as string[]).map((base) => (
-                        <Tag key={base} color="purple" style={{ fontSize: 11 }}>{base}</Tag>
-                      ))}
-                    </Descriptions.Item>
-                  )}
-                  {!!meta.table_name && (
-                    <Descriptions.Item label="表名">
-                      <Text code>{String(meta.table_name)}</Text>
-                    </Descriptions.Item>
-                  )}
-                  {meta.column_count != null && (
-                    <Descriptions.Item label="欄位數">{String(meta.column_count)}</Descriptions.Item>
-                  )}
-                </Descriptions>
-                {meta.docstring && (
-                  <div style={{ marginTop: 8, padding: '6px 8px', background: '#f6f8fa', borderRadius: 4, fontSize: 12 }}>
-                    <Text type="secondary" style={{ fontSize: 11 }}>docstring:</Text>
-                    <div style={{ whiteSpace: 'pre-wrap', marginTop: 2 }}>
-                      {truncate(String(meta.docstring), 200)}
-                    </div>
-                  </div>
-                )}
-              </>
-            );
-          })()}
+          {/* 自訂區塊（預設：Code Wiki 元數據） */}
+          {renderExtraSections?.(detail, entityType)}
 
           {/* 別名 */}
           {detail.aliases.length > 0 && (
@@ -362,6 +367,39 @@ export const EntityDetailSidebar: React.FC<EntityDetailSidebarProps> = ({
           )}
         </>
       )}
+    </>
+  );
+
+  if (inline) {
+    return (
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#fff' }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '12px 16px', borderBottom: '1px solid #f0f0f0', flexShrink: 0,
+        }}>
+          <div style={{ fontSize: 14, fontWeight: 500 }}>{titleContent}</div>
+          <CloseOutlined onClick={onClose} style={{ cursor: 'pointer', color: '#999' }} />
+        </div>
+        <div style={{ flex: 1, overflow: 'auto', padding: '12px 16px' }}>
+          {bodyContent}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Drawer
+      title={titleContent}
+      placement="right"
+      width={380}
+      open={visible}
+      onClose={onClose}
+      mask={false}
+      push={false}
+      closeIcon={<CloseOutlined />}
+      styles={{ body: { padding: '12px 16px' } }}
+    >
+      {bodyContent}
     </Drawer>
   );
 };

@@ -20,6 +20,7 @@ export interface ForceNode {
   mention_count?: number;
   x?: number;
   y?: number;
+  z?: number;
 }
 
 export interface ForceLink {

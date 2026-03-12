@@ -6,13 +6,14 @@
  * - Agent 模式：多步工具呼叫 + 推理過程可視化 + LLM 合成回答
  *
  * 共用 SSE 串流逐字顯示、多輪對話記憶、來源引用展開。
+ * v4.0: SSE 邏輯提取至 useAgentSSE hook，消除 ~200 行重複代碼。
  *
- * @version 3.0.0
+ * @version 4.0.0
  * @created 2026-02-25
- * @updated 2026-02-26 - Agentic 模式 + 推理步驟視覺化
+ * @updated 2026-03-11 - v4.0.0 使用 useAgentSSE hook
  */
 
-import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   Card,
   Input,
@@ -30,10 +31,11 @@ import {
   DeleteOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
-import { aiApi } from '../../api/aiApi';
-import { submitAIFeedback, clearAgentConversation } from '../../api/ai/adminManagement';
+import { submitAIFeedback } from '../../api/ai/adminManagement';
 import { MessageBubble } from './MessageBubble';
-import type { ChatMessage } from './MessageBubble';
+import { useGraphAgentBridgeOptional } from './knowledgeGraph/GraphAgentBridge';
+import type { RequestSummaryEvent, RequestNavigateEvent } from './knowledgeGraph/GraphAgentBridge';
+import { useAgentSSE, type DrawDiagramPayload } from '../../hooks/system/useAgentSSE';
 
 const { Text } = Typography;
 const { TextArea } = Input;
@@ -50,233 +52,113 @@ export const RAGChatPanel: React.FC<RAGChatPanelProps> = ({
   agentMode = true,
 }) => {
   const { message: messageApi } = App.useApp();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const abortRef = useRef<AbortController | null>(null);
 
-  // 對話 ID (每次清除後重新生成)
-  const conversationId = useMemo(
-    () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
-  );
+  // 三位一體：GraphAgentBridge 連接（可選）
+  const bridge = useGraphAgentBridgeOptional();
+
+  // SSE 串流邏輯（從 useAgentSSE hook 取得）
+  const {
+    messages,
+    loading,
+    conversationId,
+    sendQuestion,
+    clearConversation,
+    setMessages,
+  } = useAgentSSE({
+    agentMode,
+    onError: useCallback((msg: string, severity: 'warning' | 'error') => {
+      if (severity === 'warning') messageApi.warning(msg);
+      else messageApi.error(msg);
+    }, [messageApi]),
+    onToolResultPost: useCallback((tool: string, summary: string) => {
+      if (!bridge) return;
+      // navigate_graph → 圖譜 fly-to
+      if (tool === 'navigate_graph') {
+        try {
+          const parsed = JSON.parse(summary);
+          if (parsed.action === 'navigate' && parsed.highlight_ids) {
+            bridge.navigateToCluster({
+              highlightIds: parsed.highlight_ids,
+              centerEntityName: parsed.center_entity?.name,
+              clusterNodes: parsed.cluster_nodes,
+            });
+          }
+        } catch { /* ignore */ }
+      }
+      // summarize_entity → 圖譜高亮上下游
+      if (tool === 'summarize_entity') {
+        try {
+          const parsed = JSON.parse(summary);
+          if (parsed.entity) {
+            bridge.sendSummaryResult({
+              entityId: parsed.entity.id,
+              entityName: parsed.entity.name,
+              entityType: parsed.entity.type,
+              upstreamNames: parsed.upstream?.map((u: { entity_name: string }) => u.entity_name),
+              downstreamNames: parsed.downstream?.map((d: { entity_name: string }) => d.entity_name),
+            });
+          }
+        } catch { /* ignore */ }
+      }
+    }, [bridge]),
+    onDrawDiagram: useCallback((parsed: DrawDiagramPayload) => {
+      if (bridge && parsed.mermaid) {
+        bridge.sendDrawResult({
+          mermaidCode: parsed.mermaid,
+          diagramType: (parsed.diagram_type as 'er' | 'flowchart' | 'classDiagram' | 'dependency') || 'er',
+          relatedEntities: parsed.related_entities || [],
+        });
+      }
+    }, [bridge]),
+  });
+
   const conversationIdRef = useRef(conversationId);
+  conversationIdRef.current = conversationId;
 
+  // 滾動到底部
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
+  useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
 
+  // cleanup abort on unmount
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
-
-  useEffect(() => {
-    return () => {
-      abortRef.current?.abort();
-    };
+    return () => { /* useAgentSSE handles cleanup internally */ };
   }, []);
 
-  const handleSend = useCallback(async () => {
+  // 送出
+  const handleSend = useCallback(() => {
     const question = input.trim();
     if (!question || loading) return;
-
     setInput('');
+    sendQuestion(question);
+  }, [input, loading, sendQuestion]);
 
-    const userMsg: ChatMessage = {
-      role: 'user',
-      content: question,
-      timestamp: new Date(),
+  // 三位一體：programmatic 發送（供 Bridge 事件觸發）
+  const sendQuestionRef = useRef(sendQuestion);
+  sendQuestionRef.current = sendQuestion;
+
+  // 三位一體：監聽圖譜事件 → 自動發問
+  useEffect(() => {
+    if (!bridge || !agentMode) return;
+
+    const unsubSummary = bridge.bus.on<RequestSummaryEvent>('request_summary', (event) => {
+      const question = `請簡報「${event.entityName}」（${event.entityType}）的來龍去脈、上下游關係和關鍵事件`;
+      sendQuestionRef.current?.(question);
+    });
+
+    const unsubNavigate = bridge.bus.on<RequestNavigateEvent>('request_navigate', (event) => {
+      const question = `帶我到「${event.query}」相關的公文叢集`;
+      sendQuestionRef.current?.(question);
+    });
+
+    return () => {
+      unsubSummary();
+      unsubNavigate();
     };
-
-    const assistantMsg: ChatMessage = {
-      role: 'assistant',
-      content: '',
-      timestamp: new Date(),
-      streaming: true,
-      agentSteps: agentMode ? [] : undefined,
-    };
-
-    setMessages(prev => [...prev, userMsg, assistantMsg]);
-    setLoading(true);
-
-    if (agentMode) {
-      // Agentic 模式
-      abortRef.current = aiApi.streamAgentQuery(
-        {
-          question,
-          session_id: conversationIdRef.current,
-        },
-        {
-          onThinking: (step, stepIndex) => {
-            setMessages(prev => {
-              const updated = [...prev];
-              const last = updated[updated.length - 1];
-              if (last?.role === 'assistant') {
-                const steps = [...(last.agentSteps || [])];
-                steps.push({ type: 'thinking', step_index: stepIndex, step });
-                updated[updated.length - 1] = { ...last, agentSteps: steps };
-              }
-              return updated;
-            });
-          },
-          onToolCall: (tool, params, stepIndex) => {
-            setMessages(prev => {
-              const updated = [...prev];
-              const last = updated[updated.length - 1];
-              if (last?.role === 'assistant') {
-                const steps = [...(last.agentSteps || [])];
-                steps.push({ type: 'tool_call', step_index: stepIndex, tool, params });
-                updated[updated.length - 1] = { ...last, agentSteps: steps };
-              }
-              return updated;
-            });
-          },
-          onToolResult: (tool, summary, count, stepIndex) => {
-            setMessages(prev => {
-              const updated = [...prev];
-              const last = updated[updated.length - 1];
-              if (last?.role === 'assistant') {
-                const steps = [...(last.agentSteps || [])];
-                steps.push({ type: 'tool_result', step_index: stepIndex, tool, summary, count });
-                updated[updated.length - 1] = { ...last, agentSteps: steps };
-              }
-              return updated;
-            });
-          },
-          onSources: (sources, count) => {
-            setMessages(prev => {
-              const updated = [...prev];
-              const last = updated[updated.length - 1];
-              if (last?.role === 'assistant') {
-                updated[updated.length - 1] = { ...last, sources, retrieval_count: count };
-              }
-              return updated;
-            });
-          },
-          onToken: (token) => {
-            setMessages(prev => {
-              const updated = [...prev];
-              const last = updated[updated.length - 1];
-              if (last?.role === 'assistant') {
-                updated[updated.length - 1] = { ...last, content: last.content + token };
-              }
-              return updated;
-            });
-          },
-          onDone: (latencyMs, model, toolsUsed, iterations) => {
-            setMessages(prev => {
-              const updated = [...prev];
-              const last = updated[updated.length - 1];
-              if (last?.role === 'assistant') {
-                updated[updated.length - 1] = {
-                  ...last,
-                  streaming: false,
-                  latency_ms: latencyMs,
-                  model,
-                  toolsUsed,
-                  iterations,
-                };
-              }
-              return updated;
-            });
-            setLoading(false);
-            abortRef.current = null;
-          },
-          onError: (error, code) => {
-            if (code === 'RATE_LIMITED') {
-              messageApi.warning(error);
-            } else if (code === 'STREAM_TIMEOUT') {
-              messageApi.warning(error);
-            } else {
-              messageApi.error(`Agent 錯誤: ${error}`);
-            }
-            // 防禦性狀態清理（避免 onDone 未觸發時 UI 卡住）
-            setMessages(prev => {
-              const updated = [...prev];
-              const last = updated[updated.length - 1];
-              if (last?.role === 'assistant' && last.streaming) {
-                updated[updated.length - 1] = { ...last, streaming: false };
-              }
-              return updated;
-            });
-            setLoading(false);
-            abortRef.current = null;
-          },
-        },
-      );
-    } else {
-      // 傳統 RAG 模式
-      abortRef.current = aiApi.streamRAGQuery(
-        {
-          question,
-          top_k: 5,
-          similarity_threshold: 0.3,
-          session_id: conversationIdRef.current,
-        },
-        {
-          onSources: (sources, count) => {
-            setMessages(prev => {
-              const updated = [...prev];
-              const last = updated[updated.length - 1];
-              if (last?.role === 'assistant') {
-                updated[updated.length - 1] = { ...last, sources, retrieval_count: count };
-              }
-              return updated;
-            });
-          },
-          onToken: (token) => {
-            setMessages(prev => {
-              const updated = [...prev];
-              const last = updated[updated.length - 1];
-              if (last?.role === 'assistant') {
-                updated[updated.length - 1] = { ...last, content: last.content + token };
-              }
-              return updated;
-            });
-          },
-          onDone: (latencyMs, model) => {
-            setMessages(prev => {
-              const updated = [...prev];
-              const last = updated[updated.length - 1];
-              if (last?.role === 'assistant') {
-                updated[updated.length - 1] = {
-                  ...last,
-                  streaming: false,
-                  latency_ms: latencyMs,
-                  model,
-                };
-              }
-              return updated;
-            });
-            setLoading(false);
-            abortRef.current = null;
-          },
-          onError: (error, code) => {
-            if (code === 'RATE_LIMITED') {
-              messageApi.warning(error);
-            } else if (code === 'EMBEDDING_ERROR') {
-              messageApi.error('向量服務異常，請確認 Ollama 是否正常運行。');
-            } else {
-              messageApi.error(`RAG 錯誤: ${error}`);
-            }
-            // 防禦性狀態清理
-            setMessages(prev => {
-              const updated = [...prev];
-              const last = updated[updated.length - 1];
-              if (last?.role === 'assistant' && last.streaming) {
-                updated[updated.length - 1] = { ...last, streaming: false };
-              }
-              return updated;
-            });
-            setLoading(false);
-            abortRef.current = null;
-          },
-        },
-      );
-    }
-  }, [input, loading, messageApi, agentMode]);
+  }, [bridge, agentMode]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -292,14 +174,12 @@ export const RAGChatPanel: React.FC<RAGChatPanelProps> = ({
     const msg = messages[msgIndex];
     if (!msg || msg.feedbackScore != null) return;
 
-    // 先更新 UI
     setMessages(prev => {
       const updated = [...prev];
       updated[msgIndex] = { ...updated[msgIndex]!, feedbackScore: score };
       return updated;
     });
 
-    // 找到對應的使用者問題（上一則訊息）
     const userMsg = msgIndex > 0 ? messages[msgIndex - 1] : undefined;
 
     await submitAIFeedback({
@@ -312,19 +192,7 @@ export const RAGChatPanel: React.FC<RAGChatPanelProps> = ({
       latency_ms: msg.latency_ms,
       model: msg.model,
     });
-  }, [messages, agentMode]);
-
-  const handleClear = useCallback(() => {
-    abortRef.current?.abort();
-    abortRef.current = null;
-    // 清除伺服器端對話記憶（fire-and-forget）
-    if (agentMode && conversationIdRef.current) {
-      clearAgentConversation(conversationIdRef.current).catch(() => {});
-    }
-    setMessages([]);
-    setLoading(false);
-    conversationIdRef.current = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-  }, [agentMode]);
+  }, [messages, agentMode, setMessages]);
 
   const chatContent = (
     <>
@@ -408,7 +276,7 @@ export const RAGChatPanel: React.FC<RAGChatPanelProps> = ({
         {messages.length > 0 && (
           <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 8px 0', flexShrink: 0 }}>
             <Tooltip title="清除對話">
-              <Button type="text" icon={<DeleteOutlined />} onClick={handleClear} size="small" />
+              <Button type="text" icon={<DeleteOutlined />} onClick={clearConversation} size="small" />
             </Tooltip>
           </div>
         )}
@@ -429,7 +297,7 @@ export const RAGChatPanel: React.FC<RAGChatPanelProps> = ({
       extra={
         messages.length > 0 && (
           <Tooltip title="清除對話">
-            <Button type="text" icon={<DeleteOutlined />} onClick={handleClear} size="small" />
+            <Button type="text" icon={<DeleteOutlined />} onClick={clearConversation} size="small" />
           </Tooltip>
         )
       }

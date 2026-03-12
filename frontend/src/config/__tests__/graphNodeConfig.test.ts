@@ -23,14 +23,18 @@ import {
 describe('GRAPH_NODE_CONFIG', () => {
   const expectedTypes = [
     'document', 'project', 'agency', 'dispatch', 'typroject',
-    'org', 'person', 'ner_project', 'location', 'date', 'topic',
+    'menu_module', 'api_group',
     'py_module', 'py_class', 'py_function', 'db_table',
+    'ts_module', 'ts_component', 'ts_hook',
+    'org', 'person', 'ner_project', 'location', 'date', 'topic',
   ];
 
   it('應該包含所有預期的節點類型', () => {
     for (const type of expectedTypes) {
       expect(GRAPH_NODE_CONFIG).toHaveProperty(type);
     }
+    // 反向斷言：確保沒有遺漏的類型
+    expect(Object.keys(GRAPH_NODE_CONFIG).length).toBe(expectedTypes.length);
   });
 
   it('每個節點配置應包含完整欄位', () => {
@@ -57,7 +61,7 @@ describe('GRAPH_NODE_CONFIG', () => {
   });
 
   it('業務實體類型 detailable 應為 false', () => {
-    const businessTypes = ['document', 'project', 'agency', 'dispatch', 'typroject'];
+    const businessTypes = ['document', 'project', 'agency', 'dispatch', 'typroject', 'menu_module', 'api_group'];
     for (const type of businessTypes) {
       expect(GRAPH_NODE_CONFIG[type]!.detailable).toBe(false);
     }

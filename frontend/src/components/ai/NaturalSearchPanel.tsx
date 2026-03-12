@@ -452,7 +452,7 @@ export const NaturalSearchPanel: React.FC<NaturalSearchPanelProps> = ({ height, 
                   {showGraph ? '收合關聯圖譜' : '顯示關聯圖譜'}
                 </Button>
                 {showGraph && (
-                  <Suspense fallback={<Spin tip="載入圖譜元件..." />}>
+                  <Suspense fallback={<Spin tip="載入圖譜元件..."><div style={{ padding: 40 }} /></Spin>}>
                     <div style={{ marginTop: 8 }}>
                       <KnowledgeGraph documentIds={graphDocumentIds} />
                     </div>

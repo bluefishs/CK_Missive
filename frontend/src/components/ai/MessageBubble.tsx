@@ -8,7 +8,7 @@
  * @created 2026-02-27
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Typography,
   Space,
@@ -35,7 +35,37 @@ import { AgentStepsDisplay } from './AgentStepsDisplay';
 import type { AgentStepInfo } from './AgentStepsDisplay';
 import type { RAGSourceItem } from '../../types/ai';
 
+const MermaidBlock = React.lazy(() => import('./MermaidBlock'));
+
 const { Text, Paragraph } = Typography;
+
+/**
+ * 解析訊息內容中的 ```mermaid 區塊，拆分為文字與圖表片段。
+ * 若無 mermaid 區塊則回傳 null，使用預設渲染。
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function parseMermaidBlocks(content: string): Array<{ type: 'text' | 'mermaid'; content: string }> | null {
+  const mermaidRegex = /```mermaid\n([\s\S]*?)```/g;
+  const parts: Array<{ type: 'text' | 'mermaid'; content: string }> = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = mermaidRegex.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({ type: 'text', content: content.slice(lastIndex, match.index) });
+    }
+    parts.push({ type: 'mermaid', content: (match[1] ?? '').trim() });
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < content.length) {
+    parts.push({ type: 'text', content: content.slice(lastIndex) });
+  }
+
+  if (parts.length === 1 && parts[0]?.type === 'text') {
+    return null;
+  }
+  return parts.length > 0 ? parts : null;
+}
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -67,6 +97,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onFeedback,
 }) => {
   const isUser = message.role === 'user';
+
+  // 解析 mermaid 區塊（僅 assistant 訊息）
+  const mermaidParts = useMemo(
+    () => (!isUser ? parseMermaidBlocks(message.content) : null),
+    [isUser, message.content],
+  );
 
   return (
     <div
@@ -124,12 +160,29 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             />
           )}
 
-          <Paragraph style={{ marginBottom: 0, whiteSpace: 'pre-wrap' }}>
-            {message.content}
-            {message.streaming && (
-              <LoadingOutlined style={{ marginLeft: 4, color: '#722ed1' }} />
-            )}
-          </Paragraph>
+          {mermaidParts ? (
+            <div style={{ marginBottom: 0 }}>
+              {mermaidParts.map((part, i) =>
+                part.type === 'mermaid' ? (
+                  <React.Suspense key={i} fallback={<div style={{ padding: 8, color: '#999' }}>Loading diagram...</div>}>
+                    <MermaidBlock chart={part.content} />
+                  </React.Suspense>
+                ) : (
+                  <span key={i} style={{ whiteSpace: 'pre-wrap' }}>{part.content}</span>
+                ),
+              )}
+              {message.streaming && (
+                <LoadingOutlined style={{ marginLeft: 4, color: '#722ed1' }} />
+              )}
+            </div>
+          ) : (
+            <Paragraph style={{ marginBottom: 0, whiteSpace: 'pre-wrap' }}>
+              {message.content}
+              {message.streaming && (
+                <LoadingOutlined style={{ marginLeft: 4, color: '#722ed1' }} />
+              )}
+            </Paragraph>
+          )}
         </div>
 
         {/* Metadata tags */}

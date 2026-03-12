@@ -10,8 +10,8 @@ import React, { useState } from 'react';
 import { Segmented } from 'antd';
 import { TagsOutlined, RobotOutlined } from '@ant-design/icons';
 
-import { SynonymManagementContent } from '../../../pages/AISynonymManagementPage';
-import { PromptManagementContent } from '../../../pages/AIPromptManagementPage';
+import { SynonymManagementContent } from './SynonymManagementPanel';
+import { PromptManagementContent } from './PromptManagementPanel';
 
 type SubView = 'synonyms' | 'prompts';
 

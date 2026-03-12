@@ -19,23 +19,31 @@
  * @updated 2026-02-27 — 拆分 types / render callbacks / toolbar / search hook
  */
 
-import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspense } from 'react';
 import { Spin, Empty } from 'antd';
 import ForceGraph2D, { type ForceGraphMethods } from 'react-force-graph-2d';
 import { aiApi } from '../../api/aiApi';
 import type { GraphNode, GraphEdge } from '../../types/ai';
 import {
   CANONICAL_ENTITY_TYPES,
+  GRAPH_NODE_CONFIG,
   getNodeConfig,
   getAllMergedConfigs,
 } from '../../config/graphNodeConfig';
+import type { GraphNodeTypeConfig } from '../../config/graphNodeConfig';
 import { EntityDetailSidebar } from './EntityDetailSidebar';
 import { GraphNodeSettings } from './GraphNodeSettings';
 import { GraphToolbar } from './knowledgeGraph/GraphToolbar';
 import { SelectedNodeInfoCard } from './knowledgeGraph/SelectedNodeInfoCard';
 import { useGraphSearch } from './knowledgeGraph/useGraphSearch';
 import { useForceGraphCallbacks } from './knowledgeGraph/useForceGraphCallbacks';
+import { useForceGraph3DCallbacks } from './knowledgeGraph/useForceGraph3DCallbacks';
+import { useGraphAgentBridgeOptional } from './knowledgeGraph/GraphAgentBridge';
+import type { NavigateEvent, SummaryResultEvent, DrawResultEvent } from './knowledgeGraph/GraphAgentBridge';
 import type { ForceNode, GraphData } from './knowledgeGraph/types';
+
+// Lazy load 3D graph（three.js 較大，按需載入）
+const ForceGraph3D = lazy(() => import('react-force-graph-3d'));
 
 // ============================================================================
 // Props
@@ -46,6 +54,15 @@ export interface ExternalGraphData {
   edges: GraphEdge[];
 }
 
+/**
+ * 圖譜資料提供者介面 — 用於解耦 API 呼叫，實現模組化移植。
+ * 不提供時使用內建的 aiApi.getRelationGraph。
+ */
+export interface GraphDataProvider {
+  /** 載入圖譜資料 */
+  loadGraph: (params: { document_ids: number[] }) => Promise<ExternalGraphData | null>;
+}
+
 export interface KnowledgeGraphProps {
   documentIds: number[];
   height?: number;
@@ -53,22 +70,67 @@ export interface KnowledgeGraphProps {
   externalGraphData?: ExternalGraphData | null;
   /** 外部重新載入回調（搭配 externalGraphData 使用） */
   onExternalRefresh?: () => void;
+  /** 預設維度（2D 或 3D） */
+  defaultDimension?: '2d' | '3d';
+  /** 節點點擊外部回調（供父元件處理交叉導航等） */
+  onNodeClickExternal?: (node: { id: string; label: string; type: string }) => void;
+  /** 自訂資料提供者（移植時替換 API 來源） */
+  dataProvider?: GraphDataProvider;
+  /** 自訂節點類型配置（移植時覆蓋預設的 GRAPH_NODE_CONFIG） */
+  nodeConfig?: Record<string, GraphNodeTypeConfig>;
 }
 
 // ============================================================================
 // 主元件
 // ============================================================================
 
+/** 預設 dataProvider：使用內建 aiApi */
+const defaultProvider: GraphDataProvider = {
+  loadGraph: async (params) => {
+    const result = await aiApi.getRelationGraph({ document_ids: params.document_ids });
+    return result ? { nodes: result.nodes, edges: result.edges } : null;
+  },
+};
+
 export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
   documentIds,
   height = 700,
   externalGraphData,
   onExternalRefresh,
+  defaultDimension = '2d',
+  onNodeClickExternal,
+  dataProvider = defaultProvider,
+  nodeConfig,
 }) => {
+  // 衍生配置函數（支援自訂 nodeConfig 覆蓋）
+  const effectiveConfig = nodeConfig ?? GRAPH_NODE_CONFIG;
+  const effectiveGetNode = useCallback(
+    (type: string) => getNodeConfig(type),
+    // getNodeConfig uses GRAPH_NODE_CONFIG internally — if nodeConfig is provided, override
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+  const effectiveGetNodeConfig = nodeConfig
+    ? (type: string) => effectiveConfig[type] ?? { color: '#999999', radius: 5, label: '未知', detailable: false, description: '未知類型的節點' }
+    : effectiveGetNode;
+  const effectiveDetailable = useMemo(
+    () =>
+      nodeConfig
+        ? new Set(Object.entries(nodeConfig).filter(([, c]) => c.detailable).map(([t]) => t))
+        : CANONICAL_ENTITY_TYPES,
+    [nodeConfig],
+  );
+
   const fgRef = useRef<ForceGraphMethods | undefined>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const fg3dRef = useRef<any>(undefined);
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(800);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [dimension, setDimension] = useState<'2d' | '3d'>(defaultDimension);
+
+  // GraphAgentBridge（可選 — 在 Provider 外使用時為 null）
+  const bridge = useGraphAgentBridgeOptional();
 
   // API 狀態
   const [rawNodes, setRawNodes] = useState<GraphNode[]>([]);
@@ -91,6 +153,9 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
   // 節點設定面板
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [configVersion, setConfigVersion] = useState(0);
+
+  // 當前圖譜中實際出現的節點類型（供 GraphNodeSettings 過濾用）
+  const activeNodeTypes = useMemo(() => new Set(rawNodes.map((n) => n.type)), [rawNodes]);
 
   // 設定面板儲存後，同步工具列勾選狀態
   useEffect(() => {
@@ -116,6 +181,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
     apiSearching,
     handleSearchSubmit,
     searchMatchIds,
+    aliasHint,
   } = useGraphSearch({ rawNodes });
 
   // 容器寬度偵測
@@ -130,16 +196,30 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
     return () => observer.disconnect();
   }, []);
 
-  // 容器寬度變化時重新適配（Drawer 開闔、視窗調整）
+  // 側邊欄開啟時，圖譜 canvas 有效寬度需扣除 Drawer 寬度
+  const SIDEBAR_WIDTH = 380;
+  const effectiveWidth = Math.max(
+    (containerWidth - (sidebarVisible ? SIDEBAR_WIDTH : 0)) - 2,
+    300,
+  );
+
+  // 容器寬度或側邊欄狀態變化時重新適配
   const prevWidthRef = useRef(containerWidth);
+  const prevSidebarRef = useRef(sidebarVisible);
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
-    if (Math.abs(containerWidth - prevWidthRef.current) > 10 && rawNodes.length > 0) {
-      timer = setTimeout(() => fgRef.current?.zoomToFit(400, 60), 300);
+    const widthChanged = Math.abs(containerWidth - prevWidthRef.current) > 10;
+    const sidebarChanged = sidebarVisible !== prevSidebarRef.current;
+    if ((widthChanged || sidebarChanged) && rawNodes.length > 0) {
+      timer = setTimeout(() => {
+        fgRef.current?.zoomToFit(400, 60);
+        if (dimension === '3d') fg3dRef.current?.zoomToFit(400, 60);
+      }, 300);
     }
     prevWidthRef.current = containerWidth;
+    prevSidebarRef.current = sidebarVisible;
     return () => { if (timer) clearTimeout(timer); };
-  }, [containerWidth, rawNodes.length]);
+  }, [containerWidth, rawNodes.length, sidebarVisible, dimension]);
 
   // 外部資料注入模式
   useEffect(() => {
@@ -160,7 +240,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
     setError(null);
     setSelectedNodeId(null);
 
-    aiApi.getRelationGraph({ document_ids: documentIds }).then((result) => {
+    dataProvider.loadGraph({ document_ids: documentIds }).then((result) => {
       if (cancelled) return;
       if (result) {
         setRawNodes(result.nodes);
@@ -177,7 +257,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
     });
 
     return () => { cancelled = true; };
-  }, [documentIds, externalGraphData]);
+  }, [documentIds, externalGraphData, dataProvider]);
 
   // 鄰居 lookup
   const neighborMap = useMemo(() => {
@@ -193,7 +273,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
 
   // 使用者合併配置快取（隨 configVersion 更新）
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const mergedConfigs = useMemo(() => getAllMergedConfigs(), [configVersion]);
+  const mergedConfigs = useMemo(() => getAllMergedConfigs(effectiveConfig), [configVersion, effectiveConfig]);
 
   // 轉換為 force-graph 格式（過濾孤立節點避免飄散）
   const graphData = useMemo((): GraphData => {
@@ -228,7 +308,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
         id: n.id,
         label: n.label,
         type: n.type,
-        color: mergedConfigs[n.type]?.color ?? getNodeConfig(n.type).color,
+        color: mergedConfigs[n.type]?.color ?? effectiveGetNodeConfig(n.type).color,
         category: n.category,
         doc_number: n.doc_number,
         status: n.status,
@@ -236,9 +316,19 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
       }));
 
     return { nodes, links };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawNodes, rawEdges, visibleTypes, mergedConfigs]);
 
-  // Force-graph 渲染回調
+  // D3: O(1) 節點查找索引（避免 500+ 節點時 O(n) find）
+  const nodeByLabel = useMemo(() => {
+    const map = new Map<string, ForceNode>();
+    for (const n of graphData.nodes) {
+      map.set(n.label, n);
+    }
+    return map;
+  }, [graphData.nodes]);
+
+  // Force-graph 渲染回調 (2D)
   const {
     paintNode,
     nodePointerAreaPaint,
@@ -254,19 +344,51 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
     neighborMap,
   });
 
-  // 點擊節點
+  // Force-graph 渲染回調 (3D)
+  const graph3dCallbacks = useForceGraph3DCallbacks({
+    mergedConfigs,
+    selectedNodeId,
+    hoveredNodeId,
+    searchMatchIds,
+    neighborMap,
+  });
+
+  // 點擊節點（2D/3D 共用）
   const handleNodeClick = useCallback((node: ForceNode) => {
     const newSelected = selectedNodeId === node.id ? null : node.id;
     setSelectedNodeId(newSelected);
 
-    if (newSelected && CANONICAL_ENTITY_TYPES.has(node.type)) {
+    if (newSelected && effectiveDetailable.has(node.type)) {
       setSidebarEntityName(node.label);
       setSidebarEntityType(node.type);
       setSidebarVisible(true);
+
+      // 三位一體：通知 Agent 生成摘要（如果 Bridge 存在）
+      const entityIdNum = parseInt(node.id.replace(/^entity_/, ''), 10);
+      if (bridge && !isNaN(entityIdNum)) {
+        bridge.requestSummary(entityIdNum, node.label, node.type);
+      }
     } else {
       setSidebarVisible(false);
     }
-  }, [selectedNodeId]);
+
+    // B6: 外部節點點擊回調（交叉導航）
+    if (newSelected && onNodeClickExternal) {
+      onNodeClickExternal({ id: node.id, label: node.label, type: node.type });
+    }
+
+    // 3D fly-to 動畫：鏡頭飛向被選取的節點
+    if (newSelected && dimension === '3d' && fg3dRef.current && node.x != null && node.y != null) {
+      const distance = 120;
+      const distRatio = 1 + distance / Math.hypot(node.x, node.y, node.z ?? 0);
+      fg3dRef.current.cameraPosition(
+        { x: node.x * distRatio, y: node.y * distRatio, z: (node.z ?? 0) * distRatio },
+        { x: node.x, y: node.y, z: node.z ?? 0 },
+        1000,
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedNodeId, dimension, bridge, onNodeClickExternal]);
 
   // Hover 節點
   const handleNodeHover = useCallback((node: ForceNode | null) => {
@@ -323,9 +445,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
     setRawNodes([]);
     setRawEdges([]);
     setLoading(true);
-    const cancelled = false;
-    aiApi.getRelationGraph({ document_ids: documentIds }).then((result) => {
-      if (cancelled) return;
+    dataProvider.loadGraph({ document_ids: documentIds }).then((result) => {
       if (result) {
         setRawNodes(result.nodes);
         setRawEdges(result.edges);
@@ -333,24 +453,32 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
       setLoading(false);
       setTimeout(() => fgRef.current?.zoomToFit(400, 60), 500);
     }).catch((err) => {
-      if (cancelled) return;
       setError(err instanceof Error ? err.message : '重新載入失敗');
       setLoading(false);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documentIds, externalGraphData, onExternalRefresh]);
 
-  // 搜尋後聚焦
+  // 搜尋後聚焦（2D/3D）
   useEffect(() => {
-    if (searchMatchIds && searchMatchIds.size > 0 && fgRef.current) {
-      const firstId = Array.from(searchMatchIds)[0];
-      const node = graphData.nodes.find((n) => n.id === firstId);
-      if (node?.x != null && node?.y != null) {
-        fgRef.current.centerAt(node.x, node.y, 300);
-        fgRef.current.zoom(2, 300);
-      }
+    if (!searchMatchIds || searchMatchIds.size === 0) return;
+    const firstId = Array.from(searchMatchIds)[0];
+    const node = graphData.nodes.find((n) => n.id === firstId);
+    if (!node || node.x == null || node.y == null) return;
+
+    if (dimension === '3d' && fg3dRef.current) {
+      const distance = 150;
+      const distRatio = 1 + distance / Math.hypot(node.x, node.y, node.z ?? 0);
+      fg3dRef.current.cameraPosition(
+        { x: node.x * distRatio, y: node.y * distRatio, z: (node.z ?? 0) * distRatio },
+        { x: node.x, y: node.y, z: node.z ?? 0 },
+        800,
+      );
+    } else if (fgRef.current) {
+      fgRef.current.centerAt(node.x, node.y, 300);
+      fgRef.current.zoom(2, 300);
     }
-  }, [searchMatchIds, graphData.nodes]);
+  }, [searchMatchIds, graphData.nodes, dimension]);
 
   // Initial zoom
   useEffect(() => {
@@ -358,6 +486,107 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
       setTimeout(() => fgRef.current?.zoomToFit(600, 60), 500);
     }
   }, [loading, rawNodes.length]);
+
+  // 三位一體：監聽 Agent navigate 事件 → 圖譜 fly-to + 高亮
+  useEffect(() => {
+    if (!bridge) return;
+    const unsub = bridge.bus.on<NavigateEvent>('navigate', (event) => {
+      // 設定高亮 IDs
+      const ids = new Set(event.highlightIds.map((id) => `entity_${id}`));
+      setApiSearchMatchIds(ids);
+
+      // fly-to 中心實體 (D3: 使用 nodeByLabel 索引)
+      if (event.centerEntityName) {
+        const targetNode = nodeByLabel.get(event.centerEntityName)
+          ?? graphData.nodes.find((n) => ids.has(n.id));
+        if (targetNode?.x != null && targetNode?.y != null) {
+          if (dimension === '3d' && fg3dRef.current) {
+            const d = 120;
+            const r = 1 + d / Math.hypot(targetNode.x, targetNode.y, targetNode.z ?? 0);
+            fg3dRef.current.cameraPosition(
+              { x: targetNode.x * r, y: targetNode.y * r, z: (targetNode.z ?? 0) * r },
+              { x: targetNode.x, y: targetNode.y, z: targetNode.z ?? 0 },
+              1000,
+            );
+          } else if (fgRef.current) {
+            fgRef.current.centerAt(targetNode.x, targetNode.y, 500);
+            fgRef.current.zoom(2, 500);
+          }
+        }
+      }
+    });
+    return unsub;
+  }, [bridge, graphData.nodes, nodeByLabel, dimension, setApiSearchMatchIds]);
+
+  // 三位一體：監聽 Agent summary_result 事件 → 高亮上下游 + fly-to
+  useEffect(() => {
+    if (!bridge) return;
+    const unsub = bridge.bus.on<SummaryResultEvent>('summary_result', (event) => {
+      // D3: 使用 nodeByLabel 索引
+      const targetNode = nodeByLabel.get(event.entityName);
+
+      // 收集高亮 IDs：主實體 + 上游 + 下游
+      const highlightIds = new Set<string>();
+      if (targetNode) {
+        highlightIds.add(targetNode.id);
+      }
+
+      const upstreamNames = event.upstreamNames ?? [];
+      const downstreamNames = event.downstreamNames ?? [];
+      const relatedNames = [...upstreamNames, ...downstreamNames];
+
+      for (const name of relatedNames) {
+        const relNode = nodeByLabel.get(name);
+        if (relNode) {
+          highlightIds.add(relNode.id);
+        }
+      }
+
+      // 設定高亮
+      if (highlightIds.size > 0) {
+        setApiSearchMatchIds(highlightIds);
+      }
+
+      // 選取主實體節點
+      if (targetNode) {
+        setSelectedNodeId(targetNode.id);
+
+        // fly-to 主實體
+        if (targetNode.x != null && targetNode.y != null) {
+          if (dimension === '3d' && fg3dRef.current) {
+            const d = 120;
+            const r = 1 + d / Math.hypot(targetNode.x, targetNode.y, targetNode.z ?? 0);
+            fg3dRef.current.cameraPosition(
+              { x: targetNode.x * r, y: targetNode.y * r, z: (targetNode.z ?? 0) * r },
+              { x: targetNode.x, y: targetNode.y, z: targetNode.z ?? 0 },
+              1000,
+            );
+          } else if (fgRef.current) {
+            fgRef.current.centerAt(targetNode.x, targetNode.y, 500);
+            fgRef.current.zoom(2, 500);
+          }
+        }
+      }
+    });
+    return unsub;
+  }, [bridge, nodeByLabel, dimension, setApiSearchMatchIds]);
+
+  // B8: 監聽 Agent draw_result 事件 → 高亮圖中涉及的實體
+  useEffect(() => {
+    if (!bridge) return;
+    const unsub = bridge.bus.on<DrawResultEvent>('draw_result', (event) => {
+      if (!event.relatedEntities?.length) return;
+      const highlightIds = new Set<string>();
+      for (const name of event.relatedEntities) {
+        const node = nodeByLabel.get(name);
+        if (node) highlightIds.add(node.id);
+      }
+      if (highlightIds.size > 0) {
+        setApiSearchMatchIds(highlightIds);
+      }
+    });
+    return unsub;
+  }, [bridge, nodeByLabel, setApiSearchMatchIds]);
 
   // 類型過濾切換
   const handleTypeToggle = useCallback((type: string, checked: boolean) => {
@@ -402,7 +631,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
     ? graphData.nodes.find((n) => n.id === selectedNodeId)
     : null;
   const selectedNodeConfig = selectedNode
-    ? (mergedConfigs[selectedNode.type] ?? { ...getNodeConfig(selectedNode.type), visible: true as const })
+    ? (mergedConfigs[selectedNode.type] ?? { ...effectiveGetNodeConfig(selectedNode.type), visible: true as const })
     : null;
   const selectedNeighborCount = selectedNodeId
     ? (neighborMap.get(selectedNodeId)?.size || 0)
@@ -425,6 +654,13 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
         mergedConfigs={mergedConfigs}
       />
 
+      {/* 別名命中提示 */}
+      {aliasHint && (
+        <div style={{ fontSize: 11, color: '#1890ff', marginBottom: 2 }}>
+          {aliasHint}
+        </div>
+      )}
+
       {/* 統計資訊 */}
       <div style={{ fontSize: 11, color: '#999', marginBottom: 4 }}>
         {graphData.nodes.length} 個節點 · {graphData.links.length} 條關聯
@@ -436,72 +672,164 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
         )}
       </div>
 
-      {/* 力導向圖 */}
-      <div style={{
-        border: '1px solid #f0f0f0', borderRadius: 8,
-        overflow: 'hidden', background: '#fafafa',
-      }}>
-        <ForceGraph2D
-          ref={fgRef}
-          graphData={graphData}
-          width={Math.max(containerWidth - 2, 300)}
-          height={height}
-          d3AlphaDecay={0.04}
-          d3VelocityDecay={0.3}
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          nodeCanvasObject={paintNode as any}
-          nodePointerAreaPaint={nodePointerAreaPaint}
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          onNodeClick={handleNodeClick as any}
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          onNodeHover={handleNodeHover as any}
-          linkColor={linkColor}
-          linkWidth={linkWidth}
-          linkDirectionalArrowLength={4}
-          linkDirectionalArrowRelPos={0.85}
-          linkDirectionalArrowColor={linkDirectionalArrowColor}
-          linkCanvasObjectMode={() => 'after'}
-          linkCanvasObject={linkCanvasObject}
-          onBackgroundClick={() => {
-            setSelectedNodeId(null);
-            setSidebarVisible(false);
-          }}
-          onEngineStop={() => {
-            fgRef.current?.zoomToFit(400, 60);
-          }}
-          warmupTicks={30}
-          cooldownTicks={200}
-        />
+      {/* 力導向圖 + 側邊欄 inline flex 佈局（避免 Drawer overlay 遮蔽） */}
+      <div style={{ display: 'flex', gap: 0 }}>
+        {/* 圖譜區域 */}
+        <div style={{
+          flex: 1, minWidth: 0, position: 'relative',
+          border: '1px solid #f0f0f0', borderRadius: sidebarVisible ? '8px 0 0 8px' : 8,
+          overflow: 'hidden', background: dimension === '3d' ? '#1a1a2e' : '#fafafa',
+        }}>
+          {dimension === '2d' ? (
+            <ForceGraph2D
+              ref={fgRef}
+              graphData={graphData}
+              width={effectiveWidth}
+              height={height}
+              d3AlphaDecay={0.04}
+              d3VelocityDecay={0.3}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              nodeCanvasObject={paintNode as any}
+              nodePointerAreaPaint={nodePointerAreaPaint}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              onNodeClick={handleNodeClick as any}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              onNodeHover={handleNodeHover as any}
+              linkColor={linkColor}
+              linkWidth={linkWidth}
+              linkDirectionalArrowLength={4}
+              linkDirectionalArrowRelPos={0.85}
+              linkDirectionalArrowColor={linkDirectionalArrowColor}
+              linkCanvasObjectMode={() => 'after'}
+              linkCanvasObject={linkCanvasObject}
+              onBackgroundClick={() => {
+                setSelectedNodeId(null);
+                setSidebarVisible(false);
+              }}
+              onEngineStop={() => {
+                fgRef.current?.zoomToFit(400, 60);
+              }}
+              warmupTicks={30}
+              cooldownTicks={200}
+            />
+          ) : (
+            <Suspense fallback={<div style={{ height, display: 'flex', justifyContent: 'center', alignItems: 'center' }}><Spin tip="載入 3D 引擎..."><div /></Spin></div>}>
+              <ForceGraph3D
+                ref={fg3dRef}
+                graphData={graphData}
+                width={effectiveWidth}
+                height={height}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                nodeThreeObject={graph3dCallbacks.nodeThreeObject as any}
+                nodeThreeObjectExtend={false}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                onNodeClick={handleNodeClick as any}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                onNodeHover={handleNodeHover as any}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                linkColor={graph3dCallbacks.linkColor as any}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                linkWidth={graph3dCallbacks.linkWidth as any}
+                linkDirectionalArrowLength={4}
+                linkDirectionalArrowRelPos={0.85}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                linkDirectionalArrowColor={graph3dCallbacks.linkDirectionalArrowColor as any}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                linkThreeObject={graph3dCallbacks.linkThreeObject as any}
+                linkThreeObjectExtend={false}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                linkPositionUpdate={graph3dCallbacks.linkPositionUpdate as any}
+                onBackgroundClick={() => {
+                  setSelectedNodeId(null);
+                  setSidebarVisible(false);
+                }}
+                onEngineStop={() => {
+                  fg3dRef.current?.zoomToFit(400, 60);
+                }}
+                warmupTicks={30}
+                cooldownTicks={200}
+                backgroundColor="#1a1a2e"
+              />
+            </Suspense>
+          )}
+
+          {/* 2D/3D 切換按鈕 — 浮動右下角 */}
+          <div style={{
+            position: 'absolute', right: 12, bottom: 12, zIndex: 20,
+            display: 'inline-flex', borderRadius: 6, overflow: 'hidden',
+            border: '1px solid rgba(0,0,0,0.15)', fontSize: 12,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+          }}>
+            <button
+              onClick={() => setDimension('2d')}
+              style={{
+                padding: '6px 14px', border: 'none', cursor: 'pointer',
+                background: dimension === '2d' ? '#1890ff' : '#fff',
+                color: dimension === '2d' ? '#fff' : '#333',
+                fontWeight: dimension === '2d' ? 600 : 400,
+              }}
+            >
+              2D
+            </button>
+            <button
+              onClick={() => setDimension('3d')}
+              style={{
+                padding: '6px 14px', border: 'none', cursor: 'pointer',
+                borderLeft: '1px solid #d9d9d9',
+                background: dimension === '3d' ? '#1890ff' : '#fff',
+                color: dimension === '3d' ? '#fff' : '#333',
+                fontWeight: dimension === '3d' ? 600 : 400,
+              }}
+            >
+              3D
+            </button>
+          </div>
+
+          {/* 選取節點資訊面板（浮動在圖譜內） */}
+          {selectedNode && selectedNodeConfig && !sidebarVisible && (
+            <SelectedNodeInfoCard
+              node={selectedNode}
+              nodeConfig={selectedNodeConfig}
+              neighborCount={selectedNeighborCount}
+              onClose={() => setSelectedNodeId(null)}
+              onViewDetail={(label, type) => {
+                setSidebarEntityName(label);
+                setSidebarEntityType(type);
+                setSidebarVisible(true);
+              }}
+            />
+          )}
+        </div>
+
+        {/* Entity Detail Sidebar — inline 面板，非 Drawer overlay */}
+        {sidebarVisible && (
+          <div style={{
+            width: SIDEBAR_WIDTH,
+            minWidth: SIDEBAR_WIDTH,
+            height: height + 2,
+            borderTop: '1px solid #f0f0f0',
+            borderRight: '1px solid #f0f0f0',
+            borderBottom: '1px solid #f0f0f0',
+            borderRadius: '0 8px 8px 0',
+            overflow: 'hidden',
+          }}>
+            <EntityDetailSidebar
+              visible={sidebarVisible}
+              entityName={sidebarEntityName}
+              entityType={sidebarEntityType}
+              onClose={() => setSidebarVisible(false)}
+              inline
+            />
+          </div>
+        )}
       </div>
 
-      {/* 選取節點資訊面板 */}
-      {selectedNode && selectedNodeConfig && !sidebarVisible && (
-        <SelectedNodeInfoCard
-          node={selectedNode}
-          nodeConfig={selectedNodeConfig}
-          neighborCount={selectedNeighborCount}
-          onClose={() => setSelectedNodeId(null)}
-          onViewDetail={(label, type) => {
-            setSidebarEntityName(label);
-            setSidebarEntityType(type);
-            setSidebarVisible(true);
-          }}
-        />
-      )}
-
-      {/* Entity Detail Sidebar */}
-      <EntityDetailSidebar
-        visible={sidebarVisible}
-        entityName={sidebarEntityName}
-        entityType={sidebarEntityType}
-        onClose={() => setSidebarVisible(false)}
-      />
-
-      {/* 節點設定面板 */}
+      {/* 節點設定面板 — 僅顯示當前圖譜中實際出現的節點類型 */}
       <GraphNodeSettings
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         onSaved={() => setConfigVersion((v) => v + 1)}
+        activeTypes={activeNodeTypes}
       />
     </div>
   );
