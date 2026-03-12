@@ -19,10 +19,10 @@ from sqlalchemy import select, func
 from app.core.rate_limiter import limiter
 
 from .common import (
-    logger, Depends, AsyncSession, get_async_db,
-    OfficialDocument, ContractProject, GovernmentAgency, DocumentAttachment, User,
+    logger, Depends,
+    OfficialDocument, DocumentAttachment, User,
     DocumentResponse, DocumentCreateRequest, DocumentUpdateRequest,
-    DeleteResponse, PaginationMeta,
+    DeleteResponse,
     NotFoundException, ForbiddenException,
     RLSFilter, DocumentUpdateGuard, NotificationService, CRITICAL_FIELDS,
     require_auth, require_permission, parse_date_string,

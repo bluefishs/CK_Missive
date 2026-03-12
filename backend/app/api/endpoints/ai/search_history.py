@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import require_admin, require_auth, get_async_db
 from app.extended.models import User
 from app.repositories import AISearchHistoryRepository
-from app.schemas.ai import (
+from app.schemas.ai.search_history import (
     SearchHistoryListRequest,
     SearchHistoryListResponse,
     SearchStatsResponse,

@@ -64,6 +64,7 @@ from .taoyuan import (
     TaoyuanDispatchOrder,
     TaoyuanDispatchProjectLink,
     TaoyuanDispatchDocumentLink,
+    TaoyuanDispatchEntityLink,
     TaoyuanDocumentProjectLink,
     TaoyuanContractPayment,
     TaoyuanDispatchAttachment,

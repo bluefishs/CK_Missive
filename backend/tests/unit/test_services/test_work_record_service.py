@@ -14,10 +14,11 @@ WorkRecordService 單元測試
 - Mock WorkRecordRepository + AsyncSession
 - 使用 AsyncMock 模擬非同步方法
 
+v1.1.0 - 2026-03-11 修復 repository 委派後的 mock 對齊
 v1.0.0 - 2026-02-17
 """
 from datetime import date
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -57,6 +58,11 @@ def mock_repository():
         "total_outgoing_docs": 0,
         "work_records": [],
     })
+    repo.clear_parent_for_child = AsyncMock(return_value=0)
+    repo.verify_same_dispatch = AsyncMock()
+    repo.check_chain_cycle = AsyncMock()
+    repo.update_batch = AsyncMock(return_value=0)
+    repo.check_doc_linked = AsyncMock(return_value=True)
     return repo
 
 
@@ -143,7 +149,7 @@ class TestCreateRecord:
 
         mock_db.get = AsyncMock(return_value=mock_doc)
 
-        # 建立 mock execute result for _auto_link_document
+        # mock execute result for _auto_link_document
         mock_result = MagicMock()
         mock_result.scalar.return_value = 1  # 已關聯
         mock_db.execute = AsyncMock(return_value=mock_result)
@@ -197,25 +203,19 @@ class TestDeleteRecord:
         """刪除紀錄時清理子紀錄的 parent_record_id"""
         mock_record = MagicMock(id=5)
         mock_repository.get_by_id.return_value = mock_record
-
-        # mock update result (2 orphaned children)
-        mock_result = MagicMock()
-        mock_result.rowcount = 2
-        mock_db.execute = AsyncMock(return_value=mock_result)
+        mock_repository.clear_parent_for_child.return_value = 2
 
         result = await service.delete_record(5)
 
         assert result == 2
+        mock_repository.clear_parent_for_child.assert_called_once_with(5)
         mock_db.delete.assert_called_once_with(mock_record)
 
     @pytest.mark.asyncio
     async def test_returns_zero_when_no_children(self, service, mock_db, mock_repository):
         mock_record = MagicMock(id=3)
         mock_repository.get_by_id.return_value = mock_record
-
-        mock_result = MagicMock()
-        mock_result.rowcount = 0
-        mock_db.execute = AsyncMock(return_value=mock_result)
+        mock_repository.clear_parent_for_child.return_value = 0
 
         result = await service.delete_record(3)
         assert result == 0
@@ -232,31 +232,23 @@ class TestVerifyRecordsSameDispatch:
         await service.verify_records_same_dispatch([])
 
     @pytest.mark.asyncio
-    async def test_same_dispatch_passes(self, service, mock_db):
+    async def test_same_dispatch_passes(self, service, mock_repository):
         """所有紀錄屬於同一派工單 → 通過"""
-        mock_result = MagicMock()
-        mock_result.scalars.return_value.all.return_value = [1]
-        mock_db.execute = AsyncMock(return_value=mock_result)
-
+        mock_repository.verify_same_dispatch.return_value = None
         await service.verify_records_same_dispatch([10, 20, 30])
+        mock_repository.verify_same_dispatch.assert_called_once_with([10, 20, 30])
 
     @pytest.mark.asyncio
-    async def test_different_dispatch_raises(self, service, mock_db):
+    async def test_different_dispatch_raises(self, service, mock_repository):
         """紀錄分屬不同派工單 → ValueError"""
-        mock_result = MagicMock()
-        mock_result.scalars.return_value.all.return_value = [1, 2]
-        mock_db.execute = AsyncMock(return_value=mock_result)
-
+        mock_repository.verify_same_dispatch.side_effect = ValueError("不可跨派工單")
         with pytest.raises(ValueError, match="不可跨派工單"):
             await service.verify_records_same_dispatch([10, 20])
 
     @pytest.mark.asyncio
-    async def test_nonexistent_records_raises(self, service, mock_db):
+    async def test_nonexistent_records_raises(self, service, mock_repository):
         """指定的紀錄不存在 → ValueError"""
-        mock_result = MagicMock()
-        mock_result.scalars.return_value.all.return_value = []
-        mock_db.execute = AsyncMock(return_value=mock_result)
-
+        mock_repository.verify_same_dispatch.side_effect = ValueError("不存在")
         with pytest.raises(ValueError, match="不存在"):
             await service.verify_records_same_dispatch([999])
 
@@ -267,62 +259,41 @@ class TestVerifyRecordsSameDispatch:
 
 class TestCheckChainCycle:
     """
-    _check_chain_cycle 使用 recursive CTE 單一查詢。
-    mock_db.execute 回傳 CTE 結果列 (id, dispatch_order_id, depth)。
+    _check_chain_cycle 委派給 repository.check_chain_cycle。
     """
 
     @pytest.mark.asyncio
-    async def test_no_cycle_passes(self, service, mock_db):
+    async def test_no_cycle_passes(self, service, mock_repository):
         """無循環 → 通過"""
-        # CTE 回傳 1 列：parent_id=10, dispatch_order_id=1, depth=1
-        mock_result = MagicMock()
-        mock_result.all.return_value = [(10, 1, 1)]
-        mock_db.execute = AsyncMock(return_value=mock_result)
-
-        # 不應拋錯
+        mock_repository.check_chain_cycle.return_value = None
         await service._check_chain_cycle(parent_id=10, dispatch_order_id=1)
+        mock_repository.check_chain_cycle.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_parent_not_found_raises(self, service, mock_db):
+    async def test_parent_not_found_raises(self, service, mock_repository):
         """parent 不存在 → ValueError"""
-        # CTE 回傳空列表（parent_id 不存在於 DB）
-        mock_result = MagicMock()
-        mock_result.all.return_value = []
-        mock_db.execute = AsyncMock(return_value=mock_result)
-
+        mock_repository.check_chain_cycle.side_effect = ValueError("前序紀錄不存在")
         with pytest.raises(ValueError, match="前序紀錄不存在"):
             await service._check_chain_cycle(parent_id=999, dispatch_order_id=1)
 
     @pytest.mark.asyncio
-    async def test_different_dispatch_raises(self, service, mock_db):
+    async def test_different_dispatch_raises(self, service, mock_repository):
         """parent 屬於不同派工單 → ValueError"""
-        # CTE 回傳 1 列：parent 的 dispatch_order_id=2（不同）
-        mock_result = MagicMock()
-        mock_result.all.return_value = [(10, 2, 1)]
-        mock_db.execute = AsyncMock(return_value=mock_result)
-
+        mock_repository.check_chain_cycle.side_effect = ValueError("不屬於同一派工單")
         with pytest.raises(ValueError, match="不屬於同一派工單"):
             await service._check_chain_cycle(parent_id=10, dispatch_order_id=1)
 
     @pytest.mark.asyncio
-    async def test_cycle_detected_raises(self, service, mock_db):
-        """CTE 回傳重複 ID → 循環偵測"""
-        # 模擬: 10 → 20 → 10 (循環)
-        mock_result = MagicMock()
-        mock_result.all.return_value = [(10, 1, 1), (20, 1, 2), (10, 1, 3)]
-        mock_db.execute = AsyncMock(return_value=mock_result)
-
+    async def test_cycle_detected_raises(self, service, mock_repository):
+        """循環偵測 → ValueError"""
+        mock_repository.check_chain_cycle.side_effect = ValueError("存在循環")
         with pytest.raises(ValueError, match="存在循環"):
             await service._check_chain_cycle(parent_id=10, dispatch_order_id=1)
 
     @pytest.mark.asyncio
-    async def test_multi_ancestor_chain_passes(self, service, mock_db):
+    async def test_multi_ancestor_chain_passes(self, service, mock_repository):
         """多層祖先鏈無循環 → 通過"""
-        # 10 → 20 → 30（3 層，同派工單）
-        mock_result = MagicMock()
-        mock_result.all.return_value = [(10, 1, 1), (20, 1, 2), (30, 1, 3)]
-        mock_db.execute = AsyncMock(return_value=mock_result)
-
+        mock_repository.check_chain_cycle.return_value = None
         await service._check_chain_cycle(parent_id=10, dispatch_order_id=1)
 
 
@@ -337,12 +308,11 @@ class TestUpdateBatch:
         assert result == 0
 
     @pytest.mark.asyncio
-    async def test_updates_records(self, service, mock_db):
-        mock_result = MagicMock()
-        mock_result.rowcount = 3
-        mock_db.execute = AsyncMock(return_value=mock_result)
+    async def test_updates_records(self, service, mock_repository):
+        mock_repository.update_batch.return_value = 3
 
         result = await service.update_batch(
             [1, 2, 3], batch_no=1, batch_label="第1批結案"
         )
         assert result == 3
+        mock_repository.update_batch.assert_called_once_with([1, 2, 3], 1, "第1批結案")

@@ -15,7 +15,7 @@ import logging
 from fastapi import APIRouter, Depends
 
 from app.core.dependencies import optional_auth
-from app.schemas.ai import AIStatsResponse, SuccessResponse
+from app.schemas.ai.common import AIStatsResponse, SuccessResponse
 from app.services.ai.base_ai_service import BaseAIService
 
 logger = logging.getLogger(__name__)

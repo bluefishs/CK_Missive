@@ -9,7 +9,6 @@
 
 import json
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, Request
 from starlette.responses import Response

@@ -31,6 +31,8 @@ from app.schemas.knowledge_graph import (
     KGTimelineResponse,
     KGTopEntitiesRequest,
     KGTopEntitiesResponse,
+    KGEntityGraphRequest,
+    KGEntityGraphResponse,
     KGGraphStatsResponse,
     KGIngestRequest,
     KGIngestResponse,
@@ -44,6 +46,9 @@ from app.schemas.knowledge_graph import (
     KGArchitectureAnalysisResponse,
     KGJsonImportRequest,
     KGJsonImportResponse,
+    KGModuleOverviewResponse,
+    KGDbSchemaResponse,
+    KGDbGraphResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -147,6 +152,22 @@ async def get_top_entities(
     return {"success": True, "entities": results}
 
 
+@router.post("/graph/entity/graph", response_model=KGEntityGraphResponse)
+async def get_entity_graph(
+    request: KGEntityGraphRequest,
+    current_user: User = Depends(require_auth()),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """以實體為中心的公文知識圖譜（排除 code entities）"""
+    svc = GraphQueryService(db)
+    result = await svc.get_entity_graph(
+        entity_types=request.entity_types,
+        min_mentions=request.min_mentions,
+        limit=request.limit,
+    )
+    return {"success": True, **result}
+
+
 @router.post("/graph/stats", response_model=KGGraphStatsResponse)
 async def get_graph_stats(
     current_user: User = Depends(require_auth()),
@@ -200,6 +221,26 @@ async def get_code_wiki_graph(
     return {"success": True, **result}
 
 
+@router.post("/graph/module-overview", response_model=KGModuleOverviewResponse)
+async def get_module_overview(
+    current_user: User = Depends(require_auth()),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    取得模組架構概覽。
+
+    按架構層（core/api/services/repository 等）分組模組統計，
+    以及所有資料表的 ERD 摘要資訊。
+    """
+    svc = GraphQueryService(db)
+    try:
+        result = await svc.get_module_overview()
+        return {"success": True, **result}
+    except Exception as e:
+        logger.error("模組架構概覽查詢失敗: %s", e, exc_info=True)
+        return KGModuleOverviewResponse(success=False)
+
+
 @router.post("/graph/admin/code-ingest", response_model=KGCodeGraphIngestResponse)
 async def ingest_code_graph(
     request: KGCodeGraphIngestRequest,
@@ -218,10 +259,24 @@ async def ingest_code_graph(
     from pathlib import Path
     from app.services.ai.code_graph_service import CodeGraphIngestionService
 
-    project_root = Path(__file__).resolve().parents[4]
+    # graph_query.py 位於 backend/app/api/endpoints/ai/ → parents[4] = backend/
+    project_root = Path(__file__).resolve().parents[5]
     backend_app_dir = project_root / "backend" / "app"
     frontend_src_dir = project_root / "frontend" / "src" if request.include_frontend else None
-    db_url = os.environ.get("DATABASE_URL") if request.include_schema else None
+
+    # 建構同步 DB URL（schema reflection 用）
+    db_url = None
+    if request.include_schema:
+        async_url = os.environ.get("DATABASE_URL", "")
+        if async_url:
+            db_url = async_url.replace("+asyncpg", "").replace("postgresql+asyncpg", "postgresql")
+        if not db_url:
+            db_host = os.environ.get("POSTGRES_HOST", "localhost")
+            db_port = os.environ.get("POSTGRES_HOST_PORT", os.environ.get("POSTGRES_PORT", "5434"))
+            db_user = os.environ.get("POSTGRES_USER", "ck_user")
+            db_pass = os.environ.get("POSTGRES_PASSWORD", "")
+            db_name = os.environ.get("POSTGRES_DB", "ck_documents")
+            db_url = f"postgresql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
 
     svc = CodeGraphIngestionService(db)
     try:
@@ -263,7 +318,7 @@ async def ingest_code_graph(
             elapsed_seconds=result.get("elapsed_s", 0.0),
         )
     except Exception as e:
-        logger.error(f"代碼圖譜入圖失敗: {e}", exc_info=True)
+        logger.error("代碼圖譜入圖失敗: %s", e, exc_info=True)
         return KGCodeGraphIngestResponse(
             success=False,
             message="入圖失敗，請查看系統日誌了解詳情",
@@ -289,7 +344,7 @@ async def detect_import_cycles(
         result = await svc.detect_import_cycles()
         return KGCycleDetectionResponse(success=True, **result)
     except Exception as e:
-        logger.error(f"循環依賴偵測失敗: {e}", exc_info=True)
+        logger.error("循環依賴偵測失敗: %s", e, exc_info=True)
         return KGCycleDetectionResponse(
             success=False,
             total_modules=0,
@@ -300,7 +355,7 @@ async def detect_import_cycles(
 
 @router.post("/graph/admin/architecture-analysis", response_model=KGArchitectureAnalysisResponse)
 async def analyze_architecture(
-    current_user: User = Depends(require_auth()),
+    current_user: User = Depends(require_admin()),
     db: AsyncSession = Depends(get_async_db),
 ):
     """
@@ -319,7 +374,7 @@ async def analyze_architecture(
         result = await svc.analyze_architecture()
         return KGArchitectureAnalysisResponse(success=True, **result)
     except Exception as e:
-        logger.error(f"架構分析失敗: {e}", exc_info=True)
+        logger.error("架構分析失敗: %s", e, exc_info=True)
         return KGArchitectureAnalysisResponse(success=False)
 
 
@@ -340,8 +395,18 @@ async def import_json_graph(
     from pathlib import Path
     from app.services.ai.code_graph_service import CodeGraphIngestionService
 
-    project_root = Path(__file__).resolve().parents[4]
-    json_path = project_root / request.file_path
+    project_root = Path(__file__).resolve().parents[5]
+    json_path = (project_root / request.file_path).resolve()
+
+    # 路徑穿越防護：確保 resolved 路徑在專案根目錄內
+    if not json_path.is_relative_to(project_root):
+        return KGJsonImportResponse(
+            success=False,
+            message="無效的檔案路徑",
+            nodes_imported=0,
+            edges_imported=0,
+            elapsed_seconds=0.0,
+        )
 
     svc = CodeGraphIngestionService(db)
     try:
@@ -357,11 +422,55 @@ async def import_json_graph(
             elapsed_seconds=result.get("elapsed_seconds", 0.0),
         )
     except Exception as e:
-        logger.error(f"JSON 圖譜匯入失敗: {e}", exc_info=True)
+        logger.error("JSON 圖譜匯入失敗: %s", e, exc_info=True)
         return KGJsonImportResponse(
             success=False,
             message="匯入失敗，請查看系統日誌了解詳情",
         )
+
+
+@router.post("/graph/db-schema", response_model=KGDbSchemaResponse)
+async def get_db_schema(
+    current_user: User = Depends(require_auth()),
+):
+    """
+    取得完整資料庫 Schema 反射結果。
+
+    回傳所有資料表的欄位、型別、主鍵、外鍵、索引、唯一約束。
+    結果會快取 10 分鐘。
+    """
+    from app.services.ai.schema_reflector import SchemaReflectorService
+
+    try:
+        schema = await SchemaReflectorService.get_full_schema_async()
+        return KGDbSchemaResponse(success=True, tables=schema.get("tables", []))
+    except Exception as e:
+        logger.error("資料庫 Schema 反射失敗: %s", e, exc_info=True)
+        return KGDbSchemaResponse(success=False, error="Schema 反射失敗，請稍後再試")
+
+
+@router.post("/graph/db-graph", response_model=KGDbGraphResponse)
+async def get_db_graph(
+    current_user: User = Depends(require_auth()),
+):
+    """
+    取得資料庫 ER 圖譜資料（nodes + edges 格式）。
+
+    nodes = 資料表, edges = 外鍵關聯。
+    相容前端 ExternalGraphData 格式。
+    """
+    from app.services.ai.schema_reflector import SchemaReflectorService
+
+    try:
+        graph = await SchemaReflectorService.get_graph_data_async()
+        return KGDbGraphResponse(
+            success=True,
+            nodes=graph.get("nodes", []),
+            edges=graph.get("edges", []),
+        )
+    except Exception as e:
+        logger.error("資料庫 ER 圖譜產生失敗: %s", e, exc_info=True)
+        return KGDbGraphResponse(success=False, error="ER 圖譜產生失敗，請稍後再試")
 
 
 @router.post("/graph/admin/merge-entities", response_model=KGMergeEntitiesResponse)
@@ -384,5 +493,49 @@ async def merge_entities(
             "entity_id": result.id,
         }
     except ValueError as e:
-        logger.error(f"實體合併失敗: {e}")
+        logger.error("實體合併失敗: %s", e)
         raise HTTPException(status_code=400, detail="操作失敗，請稍後再試")
+
+
+@router.post("/graph/module-mappings")
+async def get_module_mappings(
+    current_user: User = Depends(require_auth()),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    取得動態模組映射 — 基於 site_navigation_items 已啟用的導覽項目
+
+    前端代碼圖譜的模組視圖會根據此 API 判斷哪些模組應顯示。
+    回傳 { enabled_keys: [...], disabled_keys: [...] }
+    """
+    from app.repositories.navigation_repository import NavigationRepository
+
+    repo = NavigationRepository(db)
+    try:
+        root_items = await repo.get_root_items()
+
+        enabled_keys: list[str] = []
+        disabled_keys: list[str] = []
+
+        async def collect_keys(items: list) -> None:
+            for item in items:
+                key = item.key
+                if item.is_visible and item.is_enabled:
+                    enabled_keys.append(key)
+                else:
+                    disabled_keys.append(key)
+                children = await repo.get_children(item.id)
+                if children:
+                    await collect_keys(children)
+
+        await collect_keys(root_items)
+
+        return {
+            "success": True,
+            "enabled_keys": enabled_keys,
+            "disabled_keys": disabled_keys,
+            "total": len(enabled_keys) + len(disabled_keys),
+        }
+    except Exception as e:
+        logger.error("模組映射查詢失敗: %s", e)
+        return {"success": False, "enabled_keys": [], "disabled_keys": []}

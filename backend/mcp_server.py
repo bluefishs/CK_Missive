@@ -114,9 +114,8 @@ def _dispose_engine():
         loop = asyncio.new_event_loop()
         loop.run_until_complete(_engine.dispose())
         loop.close()
-        logger.info("MCP DB engine disposed")
-    except Exception as e:
-        logger.warning("Engine disposal error (safe to ignore at shutdown): %s", e)
+    except Exception:
+        pass  # Safe to ignore at shutdown
 
 
 atexit.register(_dispose_engine)

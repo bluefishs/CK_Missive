@@ -14,6 +14,8 @@ from .common import (
     DispatchStatistics,
     PaymentStatistics,
 )
+from app.core.dependencies import require_auth
+from app.extended.models import User
 from app.services.taoyuan import TaoyuanStatisticsService
 
 router = APIRouter()
@@ -28,6 +30,7 @@ def get_statistics_service(db: AsyncSession = Depends(get_async_db)) -> TaoyuanS
 async def get_statistics(
     contract_project_id: int,
     service: TaoyuanStatisticsService = Depends(get_statistics_service),
+    current_user: User = Depends(require_auth()),
 ):
     """
     取得桃園查估派工統計資料

@@ -29,7 +29,6 @@ from app.core.auth_service import AuthService
 from app.core.password_policy import validate_password
 from app.core.rate_limiter import limiter
 from app.db.database import get_async_db
-from app.extended.models import User
 from app.repositories.user_repository import UserRepository
 from app.repositories.session_repository import SessionRepository
 from app.schemas.auth import PasswordReset, PasswordResetConfirm

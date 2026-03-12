@@ -24,7 +24,9 @@ _SQL_COMMENT_RE = re.compile(r'--[^\n]*|/\*[\s\S]*?\*/', re.MULTILINE)
 _SQL_STRING_RE = re.compile(r"'(?:''|[^'])*'", re.DOTALL)
 _FORBIDDEN_SQL_RE = re.compile(
     r'\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|'
-    r'GRANT|REVOKE|COPY|CALL|LOCK|VACUUM)\b',
+    r'GRANT|REVOKE|COPY|CALL|LOCK|VACUUM|'
+    r'lo_import|lo_export|pg_read_file|pg_read_binary_file|'
+    r'pg_write_file|dblink|dblink_exec)\b',
     re.IGNORECASE,
 )
 
@@ -59,15 +61,34 @@ def _validate_read_only_sql(query: str) -> None:
         )
 
 
-# 安全性：允許查詢的表格白名單
+# 安全性：允許查詢的表格白名單（與 ORM models 同步）
 ALLOWED_TABLES: Set[str] = {
-    'documents', 'contract_projects', 'partner_vendors', 'government_agencies',
-    'users', 'document_attachments', 'document_calendar_events', 'event_reminders',
+    # core.py
+    'users', 'contract_projects', 'partner_vendors', 'government_agencies',
+    # document.py
+    'documents', 'document_attachments',
+    # calendar.py
+    'document_calendar_events', 'event_reminders',
+    # system.py
     'system_notifications', 'user_sessions', 'site_navigation_items', 'site_configurations',
-    'project_agency_contacts', 'staff_certifications', 'audit_logs',
-    'taoyuan_projects', 'taoyuan_dispatch_orders', 'taoyuan_dispatch_project_links',
-    'taoyuan_dispatch_document_links', 'taoyuan_document_project_links', 'taoyuan_contract_payments',
-    'project_vendor_association', 'project_user_assignment', 'alembic_version'
+    'ai_prompt_versions', 'ai_search_history', 'ai_conversation_feedback', 'ai_synonyms',
+    # staff.py
+    'project_agency_contacts', 'staff_certifications',
+    # taoyuan.py
+    'taoyuan_projects', 'taoyuan_dispatch_orders', 'taoyuan_dispatch_project_link',
+    'taoyuan_dispatch_document_link', 'taoyuan_document_project_link', 'taoyuan_contract_payments',
+    'taoyuan_dispatch_work_types', 'taoyuan_dispatch_attachments', 'taoyuan_work_records',
+    # entity.py
+    'document_entities', 'entity_relations',
+    # knowledge_graph.py
+    'canonical_entities', 'entity_aliases', 'document_entity_mentions',
+    'entity_relationships', 'graph_ingestion_events',
+    # ai_analysis.py
+    'document_ai_analyses',
+    # associations.py
+    'project_vendor_association', 'project_user_assignments',
+    # system
+    'alembic_version',
 }
 
 def validate_table_name(table_name: str) -> bool:
@@ -168,22 +189,20 @@ class AdminService:
         安全性強化 (v2.0.0):
         - 使用白名單驗證表格名稱
         - 使用格式驗證防止 SQL 注入
+        - limit 上界 500 防止資源耗盡
         """
+        # 安全性：限制分頁大小上界
+        limit = min(max(limit, 1), 500)
+        offset = max(offset, 0)
+
         # 安全性第一層：格式驗證
         if not validate_table_name(table_name):
             raise HTTPException(status_code=400, detail=f"無效的表格名稱格式: {table_name}")
 
-        # 安全性第二層：白名單驗證
+        # 安全性第二層：白名單嚴格驗證（不在白名單中直接拒絕）
         if table_name not in ALLOWED_TABLES:
-            # 如果不在白名單，檢查資料庫中是否存在
-            tables_query = text("""
-                SELECT table_name FROM information_schema.tables
-                WHERE table_schema = 'public' AND table_name = :table_name
-            """)
-            if not (await self.db.execute(tables_query, {"table_name": table_name})).scalar_one_or_none():
-                raise HTTPException(status_code=404, detail=f"表格 {table_name} 不存在")
-            # 記錄警告：存在未在白名單中的表格被存取
-            logger.warning(f"存取未在白名單中的表格: {table_name}")
+            logger.warning("拒絕存取未在白名單中的表格: %s", table_name)
+            raise HTTPException(status_code=403, detail=f"表格 {table_name} 不允許存取")
 
         try:
             # 獲取欄位
@@ -270,3 +289,55 @@ class AdminService:
         except Exception as e:
             logger.error(f"資料庫健康檢查失敗: {e}", exc_info=True)
             raise HTTPException(status_code=503, detail="無法連線到資料庫，請稍後再試")
+
+    async def check_database_integrity(self) -> Dict[str, Any]:
+        """
+        檢查資料庫完整性：外鍵約束、孤立記錄等。
+        """
+        issues = []
+
+        # 1. 檢查外鍵約束違規
+        fk_query = text("""
+            SELECT tc.table_name, kcu.column_name,
+                   ccu.table_name AS foreign_table_name
+            FROM information_schema.table_constraints tc
+            JOIN information_schema.key_column_usage kcu
+              ON tc.constraint_name = kcu.constraint_name
+            JOIN information_schema.constraint_column_usage ccu
+              ON ccu.constraint_name = tc.constraint_name
+            WHERE tc.constraint_type = 'FOREIGN KEY'
+              AND tc.table_schema = 'public'
+        """)
+        fk_result = await self.db.execute(fk_query)
+        fk_rows = fk_result.fetchall()
+
+        for row in fk_rows:
+            table, column, ref_table = row[0], row[1], row[2]
+            # 檢查是否有 orphan 記錄
+            orphan_query = text(f"""
+                SELECT COUNT(*) FROM "{table}" t
+                LEFT JOIN "{ref_table}" r ON t."{column}" = r.id
+                WHERE t."{column}" IS NOT NULL AND r.id IS NULL
+            """)
+            try:
+                orphan_count = (await self.db.execute(orphan_query)).scalar()
+                if orphan_count and orphan_count > 0:
+                    issues.append({
+                        "type": "orphan_record",
+                        "table": table,
+                        "column": column,
+                        "ref_table": ref_table,
+                        "count": orphan_count,
+                        "severity": "warning",
+                    })
+            except Exception:
+                # 跳過無法檢查的 FK（可能是非 id 欄位）
+                pass
+
+        return {
+            "checkTime": datetime.now().isoformat(),
+            "totalIssues": len(issues),
+            "issues": issues,
+            "status": "healthy" if len(issues) == 0 else "warning",
+            "fk_count": len(fk_rows),
+        }

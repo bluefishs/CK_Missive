@@ -66,11 +66,15 @@ def compute_work_progress(work_records) -> Optional[Dict[str, Any]]:
     }
 
 
-def dispatch_to_response_dict(item) -> Dict[str, Any]:
+def dispatch_to_response_dict(
+    item,
+    doc_dispatch_counts: Optional[Dict[int, int]] = None,
+) -> Dict[str, Any]:
     """將派工單 ORM 物件轉換為回應字典
 
     Args:
         item: TaoyuanDispatchOrder ORM 實例（需預載關聯）
+        doc_dispatch_counts: {document_id: 被幾個派工單引用}，可選
 
     Returns:
         標準化的派工單回應字典
@@ -115,6 +119,10 @@ def dispatch_to_response_dict(item) -> Dict[str, Any]:
                 'subject': link.document.subject if link.document else None,
                 'doc_date': link.document.doc_date.isoformat() if link.document and link.document.doc_date else None,
                 'created_at': link.created_at.isoformat() if link.created_at else None,
+                'linked_dispatch_count': (
+                    doc_dispatch_counts.get(link.document_id, 1)
+                    if doc_dispatch_counts else None
+                ),
             }
             for link in item.document_links
         ] if item.document_links else [],

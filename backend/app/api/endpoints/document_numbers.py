@@ -33,7 +33,6 @@
 
 import logging
 from datetime import datetime, date
-from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request
 from starlette.responses import Response
 from sqlalchemy import func, select, desc, extract, or_

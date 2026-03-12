@@ -10,7 +10,6 @@
 """
 
 from fastapi import APIRouter, Depends, Body
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_auth, get_service
 from app.extended.models import User

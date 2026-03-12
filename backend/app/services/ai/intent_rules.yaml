@@ -22,8 +22,8 @@ rules:
     confidence: 0.92
 
   - name: "dispatch_entity_simple"
-    description: "派工單/派工紀錄（無年度限定）"
-    pattern: "(?:派工單|派工紀錄|派工安排|調派)"
+    description: "派工單/派工紀錄/查估派工（無年度限定）"
+    pattern: "(?:派工單|派工紀錄|派工安排|調派|查估派工|派工案件)"
     extract:
       related_entity: "dispatch_order"
     confidence: 0.90

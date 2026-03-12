@@ -276,7 +276,7 @@ class TestNaturalSearchRLS:
     @pytest.mark.asyncio
     async def test_admin_no_filter(self, mock_db, service):
         """admin 用戶 → 不加 RLS 篩選"""
-        from app.schemas.ai import NaturalSearchRequest
+        from app.schemas.ai.search import NaturalSearchRequest
 
         admin_user = MagicMock()
         admin_user.role = "admin"
@@ -299,7 +299,7 @@ class TestNaturalSearchRLS:
     @pytest.mark.asyncio
     async def test_regular_user_filter(self, mock_db, service):
         """一般用戶 → 加 RLS 篩選"""
-        from app.schemas.ai import NaturalSearchRequest
+        from app.schemas.ai.search import NaturalSearchRequest
 
         regular_user = MagicMock()
         regular_user.role = "user"
@@ -323,7 +323,7 @@ class TestNaturalSearchRLS:
     @pytest.mark.asyncio
     async def test_no_user_no_filter(self, mock_db, service):
         """未認證 → 不加 RLS 篩選"""
-        from app.schemas.ai import NaturalSearchRequest
+        from app.schemas.ai.search import NaturalSearchRequest
 
         request = NaturalSearchRequest(query="找公文")
 
@@ -342,7 +342,7 @@ class TestNaturalSearchRLS:
     @pytest.mark.asyncio
     async def test_user_without_name_no_filter(self, mock_db, service):
         """用戶無名稱 → 不加 RLS 篩選"""
-        from app.schemas.ai import NaturalSearchRequest
+        from app.schemas.ai.search import NaturalSearchRequest
 
         user_no_name = MagicMock()
         user_no_name.role = "user"

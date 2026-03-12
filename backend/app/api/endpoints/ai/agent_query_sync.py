@@ -22,7 +22,7 @@ from starlette.responses import Response
 
 from app.core.dependencies import get_async_db
 from app.core.rate_limiter import limiter
-from app.schemas.ai import AgentQueryRequest, AgentSyncResponse
+from app.schemas.ai.rag import AgentQueryRequest, AgentSyncResponse
 from app.services.ai.ai_config import get_ai_config
 
 logger = logging.getLogger(__name__)

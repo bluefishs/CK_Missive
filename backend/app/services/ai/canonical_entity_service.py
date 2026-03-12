@@ -3,7 +3,7 @@
 
 4 階段解析策略（逐步嘗試，命中即停）：
 1. 精確匹配 — entity_aliases WHERE alias_name = :name
-2. 模糊匹配 — pg_trgm similarity >= 0.75
+2. 模糊匹配 — pg_trgm similarity >= 0.85
 3. 語意匹配 — pgvector cosine_distance <= 0.15 (若啟用)
 4. 新建實體 — 建立 canonical_entity + 自身別名
 
@@ -330,12 +330,8 @@ class CanonicalEntityService:
         logger.info(f"實體合併: {merge_entity.canonical_name} → {keep_entity.canonical_name}")
         return keep_entity
 
-    # 程式碼圖譜實體類型（統計時需分離）
-    _CODE_ENTITY_TYPES = frozenset({
-        "py_module", "py_class", "py_function",
-        "db_table",
-        "ts_module", "ts_component", "ts_hook",
-    })
+    # 程式碼圖譜實體類型 (SSOT: constants.py)
+    from app.core.constants import CODE_ENTITY_TYPES as _CODE_ENTITY_TYPES
 
     async def get_stats(self) -> dict:
         """取得知識圖譜統計（公文圖譜 + 程式碼圖譜分離）"""
@@ -361,9 +357,12 @@ class CanonicalEntityService:
             select(sa_func.count()).select_from(DocumentEntityMention)
         ) or 0
 
+        # 公文圖譜關係數（排除 code entity 的關係）
         total_relationships = await self.db.scalar(
             select(sa_func.count()).select_from(EntityRelationship)
+            .join(CanonicalEntity, CanonicalEntity.id == EntityRelationship.source_entity_id)
             .where(EntityRelationship.invalidated_at.is_(None))
+            .where(CanonicalEntity.entity_type.notin_(self._CODE_ENTITY_TYPES))
         ) or 0
 
         total_events = await self.db.scalar(
@@ -408,10 +407,58 @@ class CanonicalEntityService:
         )
         return result.scalar_one_or_none()
 
+    @staticmethod
+    def _is_false_fuzzy_match(name: str, candidate_name: str) -> bool:
+        """檢查模糊匹配是否為虛假匹配（共同前綴 + 不同內容）
+
+        常見誤匹配：
+        - 「115年度苗栗縣...」vs「115年度桃園市...」(年度前綴相同)
+        - 「114年度南投縣...」vs「114年度和美鎮...」(年度前綴相同)
+        - 「彰化縣...TWD67」vs「和美鎮...TWD67」(後綴相同)
+        """
+        min_len = min(len(name), len(candidate_name))
+        if min_len < 8:
+            return False  # 短名稱不檢查
+
+        # 計算共同前綴
+        common_prefix = 0
+        for i in range(min_len):
+            if name[i] == candidate_name[i]:
+                common_prefix += 1
+            else:
+                break
+
+        # 計算前綴之後的差異核心
+        name_rest = name[common_prefix:]
+        cand_rest = candidate_name[common_prefix:]
+
+        # 若共同前綴 ≤ 6 字元（如「115年度」）且剩餘部分差異大 → 拒絕
+        if common_prefix <= 6 and len(name_rest) > 5 and len(cand_rest) > 5:
+            # 比較差異部分的前 8 字元
+            diff_head_n = name_rest[:8]
+            diff_head_c = cand_rest[:8]
+            shared_chars = sum(1 for a, b in zip(diff_head_n, diff_head_c) if a == b)
+            if shared_chars <= 2:
+                return True  # 前綴後的內容完全不同 → 虛假匹配
+
+        # 長名稱額外檢查：兩者長度都 > 15 但差異核心無交集
+        if len(name) > 15 and len(candidate_name) > 15:
+            # 取去掉年度前綴的核心部分
+            import re
+            year_re = re.compile(r'^\d{2,4}年度')
+            core_n = year_re.sub('', name)
+            core_c = year_re.sub('', candidate_name)
+            # 取核心的前 10 字元比較
+            if len(core_n) > 10 and len(core_c) > 10:
+                if core_n[:10] not in candidate_name and core_c[:10] not in name:
+                    return True  # 核心內容不同 → 虛假匹配
+
+        return False
+
     async def _fuzzy_match(
         self, name: str, entity_type: str,
     ) -> Optional[CanonicalEntity]:
-        """Stage 2: pg_trgm 模糊匹配"""
+        """Stage 2: pg_trgm 模糊匹配（含虛假匹配防護）"""
         try:
             from sqlalchemy import text
 
@@ -426,9 +473,20 @@ class CanonicalEntityService:
                 .order_by(
                     sa_func.similarity(CanonicalEntity.canonical_name, name).desc()
                 )
-                .limit(1)
+                .limit(5)  # 取前 5 個候選，逐一驗證
             )
-            return result.scalar_one_or_none()
+            candidates = result.scalars().all()
+
+            for candidate in candidates:
+                if self._is_false_fuzzy_match(name, candidate.canonical_name):
+                    logger.info(
+                        f"模糊匹配被虛假匹配防護拒絕: "
+                        f"'{name[:40]}' ≠ '{candidate.canonical_name[:40]}'"
+                    )
+                    continue  # 嘗試下一個候選
+                return candidate
+
+            return None
         except Exception as e:
             # pg_trgm 擴展未安裝時降級
             logger.debug(f"pg_trgm 模糊匹配失敗 (擴展可能未安裝): {e}")

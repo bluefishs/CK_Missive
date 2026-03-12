@@ -265,6 +265,7 @@ class DispatchOrderRepository(BaseRepository[TaoyuanDispatchOrder]):
         project_name: Optional[str] = None,
         contract_project_id: Optional[int] = None,
         work_type: Optional[str] = None,
+        allow_fallback: bool = True,
     ) -> List[Dict[str, Any]]:
         """
         取得公文歷程（多策略匹配）
@@ -273,13 +274,14 @@ class DispatchOrderRepository(BaseRepository[TaoyuanDispatchOrder]):
         1. 機關函文號模糊匹配
         2. 完整工程名稱匹配主旨
         3. 從工程名稱/作業類別提取關鍵字匹配主旨
-        4. 若以上皆無結果，回傳同一專案的所有公文（fallback）
+        4. 若以上皆無結果，回傳同一專案的所有公文（fallback，可停用）
 
         Args:
             agency_doc_number: 機關函文號
             project_name: 專案名稱
             contract_project_id: 承攬案件 ID（優先使用）
             work_type: 作業類別（如 "02.土地協議市價查估作業"）
+            allow_fallback: 是否啟用策略 4 全專案 fallback（自動匹配時應停用）
 
         Returns:
             公文歷程列表
@@ -333,6 +335,13 @@ class DispatchOrderRepository(BaseRepository[TaoyuanDispatchOrder]):
                 return self._docs_to_dicts(documents)
 
         # 策略 4 (fallback): 回傳同一專案的所有近期公文
+        if not allow_fallback:
+            logger.info(
+                "[get_document_history] 關鍵字搜尋無結果，fallback 已停用，回傳空列表 (project=%s)",
+                effective_project_id,
+            )
+            return []
+
         logger.info(
             "[get_document_history] 關鍵字搜尋無結果，回傳專案 %s 全部公文",
             effective_project_id,
@@ -515,3 +524,27 @@ class DispatchOrderRepository(BaseRepository[TaoyuanDispatchOrder]):
         ).where(and_(*conditions))
         result = await self.db.execute(query)
         return (result.scalar() or 0) > 0
+
+    async def get_doc_dispatch_counts(
+        self, document_ids: List[int]
+    ) -> Dict[int, int]:
+        """
+        批次查詢每筆公文被幾個派工單引用。
+
+        Returns:
+            {document_id: dispatch_count}
+        """
+        if not document_ids:
+            return {}
+        query = (
+            select(
+                TaoyuanDispatchDocumentLink.document_id,
+                func.count(func.distinct(
+                    TaoyuanDispatchDocumentLink.dispatch_order_id
+                )),
+            )
+            .where(TaoyuanDispatchDocumentLink.document_id.in_(document_ids))
+            .group_by(TaoyuanDispatchDocumentLink.document_id)
+        )
+        result = await self.db.execute(query)
+        return {row[0]: row[1] for row in result.all()}

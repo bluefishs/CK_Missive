@@ -188,7 +188,7 @@ from app.schemas.site_management import (
 )
 
 # AI 相關
-from app.schemas.ai import (
+from app.schemas.ai.search import (
     ParsedSearchIntent,
     NaturalSearchRequest,
     AttachmentInfo,

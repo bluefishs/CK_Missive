@@ -12,7 +12,7 @@ from app.api.endpoints import (
     secure_site_management,
     dashboard, project_notifications, debug, project_vendors, project_staff,
     project_agency_contacts, system_notifications, backup, certifications,
-    taoyuan_dispatch, deployment, health
+    taoyuan_dispatch, deployment, health, knowledge_base
 )
 # AI 服務模組 (v1.37.0)
 from app.api.endpoints.ai import router as ai_router
@@ -69,3 +69,6 @@ api_router.include_router(health.router, tags=["健康監控"])
 
 # --- AI 服務模組 (v1.37.0) ---
 api_router.include_router(ai_router, tags=["AI服務"])
+
+# --- 知識庫瀏覽模組 ---
+api_router.include_router(knowledge_base.router, prefix="/knowledge-base", tags=["知識庫"])

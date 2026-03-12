@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
 
-from app.schemas.ai import ParsedSearchIntent
+from app.schemas.ai.search import ParsedSearchIntent
 
 logger = logging.getLogger(__name__)
 

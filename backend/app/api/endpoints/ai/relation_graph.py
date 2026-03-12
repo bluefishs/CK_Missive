@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.dependencies import require_auth, get_service
 from app.extended.models import User
-from app.schemas.ai import (
+from app.schemas.ai.graph import (
     RelationGraphRequest,
     RelationGraphResponse,
     SemanticSimilarRequest,

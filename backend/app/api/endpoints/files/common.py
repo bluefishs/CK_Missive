@@ -15,7 +15,7 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.extended.models import DocumentAttachment, User, OfficialDocument
+from app.extended.models import User, OfficialDocument
 from app.core.config import settings
 from app.core.rls_filter import RLSFilter
 

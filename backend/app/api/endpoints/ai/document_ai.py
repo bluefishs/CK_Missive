@@ -30,19 +30,20 @@ from app.services.ai.document_ai_service import (
 )
 from app.services.ai.ai_config import get_ai_config
 from app.services.audit_service import AuditService
-from app.schemas.ai import (
+from app.schemas.ai.search import (
     ParseIntentRequest,
     ParseIntentResponse,
     NaturalSearchRequest,
     NaturalSearchResponse,
     ParsedSearchIntent,
+)
+from app.schemas.ai.endpoints import (
     SummaryRequest,
     SummaryResponse,
     ClassifyRequest,
     ClassifyResponse,
     KeywordsRequest,
     KeywordsExtractResponse,
-    AgencyCandidate,
     AgencyMatchRequest,
     AgencyMatchResult,
     AgencyMatchResponse,

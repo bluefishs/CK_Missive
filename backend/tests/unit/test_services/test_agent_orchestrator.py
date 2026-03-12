@@ -238,7 +238,7 @@ class TestStreamAgentQuery:
             call_order.append("preprocess_start")
             return {"sender": "工務局"}
 
-        async def mock_plan(q, h):
+        async def mock_plan(q, h, context=None):
             call_order.append("plan_start")
             return {
                 "reasoning": "搜尋",

@@ -111,13 +111,7 @@ async def check_database_integrity(
     """
     try:
         service = AdminService(db)
-        # 簡單的完整性檢查
-        result = {
-            "checkTime": "2025-09-14T00:00:00",
-            "totalIssues": 0,
-            "issues": [],
-            "status": "healthy"
-        }
+        result = await service.check_database_integrity()
         return result
     except Exception as e:
         logger.error(f"資料庫完整性檢查失敗: {e}", exc_info=True)

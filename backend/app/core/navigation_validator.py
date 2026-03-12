@@ -46,10 +46,14 @@ VALID_NAVIGATION_PATHS: Set[str] = {
     "/admin/backup",
     "/admin/deployment",
     "/admin/ai-assistant",
+    "/admin/knowledge-base",
 
     # AI 功能
     "/ai/knowledge-graph",
     "/ai/code-wiki",
+    "/ai/code-graph",
+    "/ai/db-graph",
+    "/admin/code-graph",
 
     # 系統頁面
     "/system",
@@ -87,8 +91,12 @@ PATH_DESCRIPTIONS = {
     "/admin/backup": "備份管理",
     "/admin/deployment": "部署管理",
     "/admin/ai-assistant": "AI 助理管理",
-    "/ai/knowledge-graph": "知識圖譜",
-    "/ai/code-wiki": "代碼圖譜",
+    "/admin/knowledge-base": "知識庫瀏覽器",
+    "/ai/knowledge-graph": "公文圖譜",
+    "/ai/code-wiki": "代碼圖譜（舊路由）",
+    "/ai/code-graph": "代碼圖譜",
+    "/ai/db-graph": "資料庫圖譜",
+    "/admin/code-graph": "代碼圖譜管理（已重導至 /ai/code-graph）",
     "/system": "系統監控",
     "/google-auth-diagnostic": "Google認證診斷",
     "/unified-form-demo": "統一表單示例",
@@ -185,6 +193,6 @@ def sync_check_with_frontend() -> dict:
     return {
         "total_paths": len(VALID_NAVIGATION_PATHS),
         "paths": sorted(VALID_NAVIGATION_PATHS),
-        "last_updated": "2026-01-12",
+        "last_updated": "2026-03-12",
         "frontend_reference": "frontend/src/router/types.ts"
     }

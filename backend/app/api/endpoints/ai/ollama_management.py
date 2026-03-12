@@ -20,7 +20,7 @@ from fastapi import APIRouter, Depends
 from app.core.dependencies import require_admin
 from app.core.ai_connector import get_ai_connector, AIConnector, REQUIRED_MODELS
 from app.extended.models import User
-from app.schemas.ai import (
+from app.schemas.ai.ollama import (
     OllamaStatusResponse,
     OllamaGpuInfo,
     OllamaGpuLoadedModel,

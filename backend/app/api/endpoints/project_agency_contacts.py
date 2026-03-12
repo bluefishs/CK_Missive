@@ -4,10 +4,8 @@
 專案機關承辦 API 端點
 """
 import logging
-from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel
 
 from app.db.database import get_async_db
 from app.services.project_agency_contact_service import ProjectAgencyContactService

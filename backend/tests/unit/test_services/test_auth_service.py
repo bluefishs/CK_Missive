@@ -423,7 +423,7 @@ class TestCheckEmailDomain:
         """測試允許的網域"""
         from app.core.auth_service import AuthService
 
-        with patch("app.core.auth_service.settings") as mock_settings:
+        with patch("app.core.domain_whitelist.settings") as mock_settings:
             mock_settings.GOOGLE_ALLOWED_DOMAINS = "example.com,corp.com"
 
             result = AuthService.check_email_domain("user@example.com")
@@ -433,7 +433,7 @@ class TestCheckEmailDomain:
         """測試不允許的網域"""
         from app.core.auth_service import AuthService
 
-        with patch("app.core.auth_service.settings") as mock_settings:
+        with patch("app.core.domain_whitelist.settings") as mock_settings:
             mock_settings.GOOGLE_ALLOWED_DOMAINS = "example.com,corp.com"
 
             result = AuthService.check_email_domain("user@unknown.com")
@@ -443,7 +443,7 @@ class TestCheckEmailDomain:
         """測試未設定白名單時允許所有"""
         from app.core.auth_service import AuthService
 
-        with patch("app.core.auth_service.settings") as mock_settings:
+        with patch("app.core.domain_whitelist.settings") as mock_settings:
             mock_settings.GOOGLE_ALLOWED_DOMAINS = ""
 
             result = AuthService.check_email_domain("user@anything.com")

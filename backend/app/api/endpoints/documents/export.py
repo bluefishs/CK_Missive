@@ -13,8 +13,9 @@ from starlette.responses import Response
 from fastapi.responses import StreamingResponse
 
 from app.core.rate_limiter import limiter
+from app.core.dependencies import require_auth
 from .common import (
-    logger, Depends,
+    logger, Depends, User,
     DocumentExportQuery, ExcelExportRequest,
     DocumentExportService, get_export_service,
 )
@@ -32,7 +33,8 @@ async def export_documents(
     request: Request,
     response: Response,
     query: DocumentExportQuery = Body(...),
-    service: DocumentExportService = Depends(get_export_service)
+    service: DocumentExportService = Depends(get_export_service),
+    current_user: User = Depends(require_auth()),
 ):
     """
     匯出公文資料為 CSV 格式
@@ -74,7 +76,8 @@ async def export_documents_excel(
     request: Request,
     response: Response,
     body: ExcelExportRequest = Body(default=ExcelExportRequest()),
-    service: DocumentExportService = Depends(get_export_service)
+    service: DocumentExportService = Depends(get_export_service),
+    current_user: User = Depends(require_auth()),
 ):
     """
     匯出公文資料為 Excel 格式 (.xlsx)

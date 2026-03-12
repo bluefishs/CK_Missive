@@ -46,7 +46,7 @@ from app.services.ai.agent_chitchat import (
     is_chitchat,
     get_smart_fallback,
     clean_chitchat_response,
-    CHAT_SYSTEM_PROMPT,
+    get_chat_system_prompt,
 )
 from app.services.ai.agent_tools import AgentToolExecutor, VALID_TOOL_NAMES
 from app.services.ai.agent_planner import AgentPlanner
@@ -196,6 +196,7 @@ class AgentOrchestrator:
         question: str,
         history: Optional[List[Dict[str, str]]] = None,
         session_id: Optional[str] = None,
+        context: Optional[str] = None,
     ) -> AsyncGenerator[str, None]:
         """
         Agentic 串流問答 — SSE event generator
@@ -226,7 +227,7 @@ class AgentOrchestrator:
             # ── 閒聊短路：跳過工具規劃 + RAG 向量檢索，僅用 LLM 自然對話 ──
             if is_chitchat(question):
                 chitchat_tokens: List[str] = []
-                async for event in self._stream_chitchat(question, history, t0):
+                async for event in self._stream_chitchat(question, history, t0, context):
                     # 攔截 token 收集回答文字（供對話記憶儲存）
                     if session_id and conv_memory and event.startswith("data: "):
                         try:
@@ -270,7 +271,7 @@ class AgentOrchestrator:
             # 並行：意圖前處理（需 db）+ LLM 工具規劃（不需 db）
             hints, plan = await asyncio.gather(
                 self._planner.preprocess_question(question, self.db),
-                self._planner.plan_tools(question, history),
+                self._planner.plan_tools(question, history, context=context),
             )
 
             # 後合併：將前處理 hints 注入 LLM 生成的 plan
@@ -355,7 +356,7 @@ class AgentOrchestrator:
             answer_tokens: List[str] = []
             try:
                 async for token in self._synthesizer.synthesize_answer(
-                    question, tool_results, history
+                    question, tool_results, history, context=context
                 ):
                     answer_tokens.append(token)
                     yield sse(type="token", token=token)
@@ -589,12 +590,13 @@ class AgentOrchestrator:
         question: str,
         history: Optional[List[Dict[str, str]]],
         t0: float,
+        context: Optional[str] = None,
     ) -> AsyncGenerator[str, None]:
         """閒聊模式 — 僅 1 次 LLM 呼叫，自然語言回應"""
         yield sse(type="thinking", step="正在回覆您...", step_index=0)
 
         messages: List[Dict[str, str]] = [
-            {"role": "system", "content": CHAT_SYSTEM_PROMPT},
+            {"role": "system", "content": get_chat_system_prompt(context)},
         ]
         messages.extend(sanitize_history(history, self.config.rag_max_history_turns))
         messages.append({"role": "user", "content": question})

@@ -19,7 +19,7 @@ from starlette.responses import StreamingResponse
 
 from app.core.dependencies import require_auth, get_async_db
 from app.extended.models import User
-from app.schemas.ai import RAGQueryRequest, RAGQueryResponse, RAGStreamRequest
+from app.schemas.ai.rag import RAGQueryRequest, RAGQueryResponse, RAGStreamRequest
 from app.api.sse_utils import create_sse_response
 
 logger = logging.getLogger(__name__)

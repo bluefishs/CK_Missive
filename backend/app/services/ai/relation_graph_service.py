@@ -27,7 +27,7 @@ from app.extended.models import (
     TaoyuanProject,
 )
 from app.services.ai.ai_config import get_ai_config
-from app.schemas.ai import (
+from app.schemas.ai.graph import (
     GraphNode,
     GraphEdge,
     SemanticSimilarItem,

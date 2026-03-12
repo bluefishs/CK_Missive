@@ -15,7 +15,7 @@ import logging
 import aiofiles
 
 logger = logging.getLogger(__name__)
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, UploadFile, File
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
@@ -29,14 +29,12 @@ from app.schemas.certification import (
     CertificationCreate,
     CertificationUpdate,
     CertificationResponse,
-    CertificationListResponse,
     CertificationListParams,
     CertificationApiResponse,
     CertificationListApiResponse,
     CertificationStatsApiResponse,
     CertificationDeleteApiResponse,
 )
-from app.schemas.common import PaginationMeta
 from app.api.response_helper import (
     success_response,
     error_response,

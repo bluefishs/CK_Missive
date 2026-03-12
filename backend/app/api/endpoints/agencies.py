@@ -11,14 +11,14 @@ from fastapi import APIRouter, Depends, HTTPException, status, Body
 from app.core.dependencies import require_auth, require_admin, require_permission, get_service
 from app.extended.models import User
 from app.schemas.agency import (
-    Agency, AgencyCreate, AgencyUpdate, AgencyWithStats,
+    Agency, AgencyCreate, AgencyUpdate,
     AgencyStatistics,
     AgencyListQuery, AgencyListResponse,
     AgencySuggestRequest, AgencySuggestResponse,
     AssociationSummary, BatchAssociateRequest, BatchAssociateResponse,
     FixAgenciesRequest, FixAgenciesResponse
 )
-from app.schemas.common import PaginationMeta, SortOrder
+from app.schemas.common import PaginationMeta
 from app.services.agency_service import AgencyService
 from app.services.agency_statistics_service import AgencyStatisticsService
 from app.services.agency_matching_service import AgencyMatchingService

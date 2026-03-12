@@ -40,6 +40,12 @@ def _get_backend_app_dir() -> Path:
     return Path(__file__).parent.parent  # -> backend/app/
 
 
+def _get_frontend_src_dir() -> Path:
+    """Resolve frontend/src/ directory."""
+    project_root = Path(__file__).parent.parent.parent.parent
+    return project_root / "frontend" / "src"
+
+
 def _get_sync_db_url() -> str:
     """Build synchronous DB URL from env."""
     from dotenv import load_dotenv
@@ -64,10 +70,11 @@ async def cmd_check(args: argparse.Namespace) -> None:
 
     db_url = None if args.skip_schema else _get_sync_db_url()
     backend_app = _get_backend_app_dir()
+    frontend_src = _get_frontend_src_dir() if args.frontend else None
 
     async with AsyncSessionLocal() as db:
         svc = CodeGraphIngestionService(db)
-        result = await svc.check(backend_app, db_url=db_url)
+        result = await svc.check(backend_app, db_url=db_url, frontend_src_dir=frontend_src)
 
     print("\n=== Code Graph Dry Run ===")
     print(f"Files scanned: {result['files_scanned']}")
@@ -90,6 +97,7 @@ async def cmd_ingest(args: argparse.Namespace) -> None:
 
     db_url = None if args.skip_schema else _get_sync_db_url()
     backend_app = _get_backend_app_dir()
+    frontend_src = _get_frontend_src_dir() if args.frontend else None
 
     async with AsyncSessionLocal() as db:
         svc = CodeGraphIngestionService(db)
@@ -97,16 +105,20 @@ async def cmd_ingest(args: argparse.Namespace) -> None:
             backend_app,
             db_url=db_url,
             clean=args.clean,
+            frontend_src_dir=frontend_src,
         )
 
     print("\n=== Code Graph Ingestion Complete ===")
-    print(f"  Modules:   {stats['modules']}")
-    print(f"  Classes:   {stats['classes']}")
-    print(f"  Functions: {stats['functions']}")
-    print(f"  Tables:    {stats['tables']}")
-    print(f"  Relations: {stats['relations']}")
-    print(f"  Errors:    {stats['errors']}")
-    print(f"  Elapsed:   {stats['elapsed_s']}s")
+    print(f"  Modules:      {stats['modules']}")
+    print(f"  Classes:      {stats['classes']}")
+    print(f"  Functions:    {stats['functions']}")
+    print(f"  Tables:       {stats['tables']}")
+    print(f"  TS Modules:   {stats['ts_modules']}")
+    print(f"  TS Components:{stats['ts_components']}")
+    print(f"  TS Hooks:     {stats['ts_hooks']}")
+    print(f"  Relations:    {stats['relations']}")
+    print(f"  Errors:       {stats['errors']}")
+    print(f"  Elapsed:      {stats['elapsed_s']}s")
 
 
 async def cmd_stats(args: argparse.Namespace) -> None:
@@ -138,6 +150,8 @@ def main() -> None:
 
     parser.add_argument("--clean", action="store_true", help="入圖前先清除既有 code graph 資料")
     parser.add_argument("--skip-schema", action="store_true", help="跳過 DB schema reflection")
+    parser.add_argument("--frontend", action="store_true", default=True, help="包含前端 TypeScript/React 提取（預設啟用）")
+    parser.add_argument("--no-frontend", action="store_false", dest="frontend", help="跳過前端 TypeScript/React 提取")
     parser.add_argument("-v", "--verbose", action="store_true", help="詳細輸出")
 
     args = parser.parse_args()

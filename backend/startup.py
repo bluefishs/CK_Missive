@@ -152,6 +152,21 @@ def main():
         )
         if result.returncode == 0:
             log("Step 2", "Database migrations applied.")
+            # E4: Migration 後自動執行 ER Schema Diff（非阻塞）
+            try:
+                er_script = os.path.join(
+                    os.path.dirname(BACKEND_DIR), "backend", "scripts", "extract_er_model.py"
+                )
+                if os.path.exists(er_script):
+                    er_result = subprocess.run(
+                        [sys.executable, er_script, "--diff"],
+                        capture_output=True, text=True, timeout=30,
+                        encoding="utf-8", errors="replace",
+                    )
+                    if er_result.returncode == 0 and "無變更" not in er_result.stdout:
+                        log("Step 2", "ER Schema 有變更，建議執行: python scripts/extract_er_model.py", "WARN")
+            except Exception:
+                pass  # ER diff 失敗不阻斷啟動
         else:
             log("Step 2", f"Alembic returned code {result.returncode}", "WARN")
             if result.stderr:

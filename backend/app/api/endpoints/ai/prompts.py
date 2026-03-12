@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_async_db, require_admin
 from app.extended.models import AIPromptVersion
 from app.repositories import AIPromptRepository
-from app.schemas.ai import (
+from app.schemas.ai.prompts import (
     PromptVersionItem,
     PromptListRequest,
     PromptListResponse,

@@ -107,7 +107,7 @@ def normalize_text(value: str) -> str:
     NOTE: 不使用全域 NFKC，因為會把全形逗號（，）轉成半形（,），
     但中文語境中全形標點是正常的。改為逐字元判斷只轉換異常範圍。
     """
-    if not value:
+    if not value or not isinstance(value, str):
         return value
 
     result = []

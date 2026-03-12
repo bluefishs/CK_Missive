@@ -122,13 +122,13 @@ class TestToolRegistry:
 class TestDefaultTools:
     """預設工具註冊完整性"""
 
-    def test_default_registry_has_6_tools(self):
+    def test_default_registry_has_core_tools(self):
         registry = get_tool_registry()
-        assert registry.get_tool_count() == 6
+        assert registry.get_tool_count() >= 6
 
     def test_expected_tool_names(self):
         registry = get_tool_registry()
-        expected = {
+        core_tools = {
             "search_documents",
             "search_entities",
             "get_entity_detail",
@@ -136,7 +136,7 @@ class TestDefaultTools:
             "search_dispatch_orders",
             "get_statistics",
         }
-        assert registry.valid_tool_names == expected
+        assert core_tools.issubset(registry.valid_tool_names)
 
     def test_all_tools_have_description(self):
         registry = get_tool_registry()

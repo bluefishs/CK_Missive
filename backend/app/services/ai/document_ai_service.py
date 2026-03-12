@@ -32,7 +32,7 @@ from .ai_prompt_manager import AIPromptManager
 from .base_ai_service import BaseAIService
 from .search_intent_parser import SearchIntentParser
 from .synonym_expander import SynonymExpander
-from app.schemas.ai import (
+from app.schemas.ai.search import (
     ClassificationResponse,
     KeywordsValidationResponse,
     NaturalSearchRequest,
@@ -373,12 +373,12 @@ class DocumentAIService(BaseAIService):
             )
         except asyncio.TimeoutError:
             logger.warning(f"意圖解析超時 (>10s)，降級為關鍵字搜尋: {request.query}")
-            from app.schemas.ai import ParsedSearchIntent as PSI
+            from app.schemas.ai.search import ParsedSearchIntent as PSI
             parsed_intent = PSI(keywords=[request.query], confidence=0.3)
             source = "rule_engine"
         except Exception as e:
             logger.warning(f"意圖解析失敗，降級為關鍵字搜尋: {e}")
-            from app.schemas.ai import ParsedSearchIntent as PSI
+            from app.schemas.ai.search import ParsedSearchIntent as PSI
             parsed_intent = PSI(keywords=[request.query], confidence=0.3)
             source = "rule_engine"
 

@@ -14,9 +14,8 @@
 @date 2026-02-17
 """
 import logging
-from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Body, Query
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_async_db
@@ -27,7 +26,6 @@ from app.schemas.taoyuan.workflow import (
     WorkRecordResponse,
     WorkRecordListResponse,
     ProjectWorkflowSummary,
-    WorkflowSummaryResponse,
     BatchUpdateRequest,
     BatchUpdateResponse,
 )

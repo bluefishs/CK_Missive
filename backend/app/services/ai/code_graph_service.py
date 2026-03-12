@@ -33,10 +33,7 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-CODE_ENTITY_TYPES = {
-    "py_module", "py_class", "py_function", "db_table",
-    "ts_module", "ts_component", "ts_hook",
-}
+from app.core.constants import CODE_ENTITY_TYPES
 CODE_RELATION_TYPES = {
     "defines_class",
     "defines_function",
@@ -109,12 +106,32 @@ class PythonASTExtractor:
         entities: List[CodeEntity] = []
         relations: List[CodeRelation] = []
 
-        # Module entity
+        # 預先統計模組層級指標
         mod_doc = ast.get_docstring(tree) or ""
         try:
             file_mtime = file_path.stat().st_mtime
         except OSError:
             file_mtime = 0.0
+
+        class_count = 0
+        function_count = 0
+        method_count = 0
+        has_async = False
+
+        for node in ast.iter_child_nodes(tree):
+            if isinstance(node, ast.ClassDef):
+                class_count += 1
+                for item in node.body:
+                    if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        method_count += 1
+                        if isinstance(item, ast.AsyncFunctionDef):
+                            has_async = True
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                function_count += 1
+                if isinstance(node, ast.AsyncFunctionDef):
+                    has_async = True
+
+        # Module entity（含豐富元數據）
         entities.append(CodeEntity(
             canonical_name=module_name,
             entity_type="py_module",
@@ -123,6 +140,10 @@ class PythonASTExtractor:
                 "lines": line_count,
                 "docstring": mod_doc[:500] if mod_doc else "",
                 "mtime": file_mtime,
+                "class_count": class_count,
+                "function_count": function_count,
+                "method_count": method_count,
+                "is_async_module": has_async,
             },
         ))
 
@@ -362,13 +383,29 @@ class SchemaReflector:
                 fks = inspector.get_foreign_keys(table_name)
                 indexes = inspector.get_indexes(table_name)
 
+                # 計算唯一約束數量
+                try:
+                    unique_constraints = inspector.get_unique_constraints(table_name)
+                    unique_constraints_count = len(unique_constraints)
+                except Exception:
+                    unique_constraints_count = 0
+
+                # 外鍵目標表列表
+                fk_targets = list({
+                    fk["referred_table"] for fk in fks
+                    if fk.get("referred_table")
+                })
+
+                pk_cols = pk.get("constrained_columns", [])
+
                 entities.append(CodeEntity(
                     canonical_name=table_name,
                     entity_type="db_table",
                     description={
                         "columns": [c["name"] for c in columns],
                         "column_types": {c["name"]: str(c["type"]) for c in columns},
-                        "primary_key": pk.get("constrained_columns", []),
+                        "primary_key": pk_cols,
+                        "has_primary_key": len(pk_cols) > 0,
                         "foreign_keys": [
                             {
                                 "columns": fk["constrained_columns"],
@@ -376,7 +413,10 @@ class SchemaReflector:
                             }
                             for fk in fks
                         ],
+                        "foreign_key_targets": sorted(fk_targets),
                         "index_count": len(indexes),
+                        "unique_constraints_count": unique_constraints_count,
+                        "row_count_estimate": "unknown",
                     },
                 ))
 
@@ -550,6 +590,9 @@ class CodeGraphIngestionService:
         )
         stats["relations"] = rel_count
 
+        # 6. 計算依賴指標並回寫模組 description
+        await self._compute_dependency_metrics(CanonicalEntity, EntityRelationship)
+
         await self.db.commit()
 
         elapsed = time.monotonic() - start
@@ -562,14 +605,21 @@ class CodeGraphIngestionService:
         )
         return stats
 
-    async def check(self, backend_app_dir: Path, db_url: Optional[str] = None) -> Dict[str, Any]:
+    async def check(
+        self,
+        backend_app_dir: Path,
+        db_url: Optional[str] = None,
+        frontend_src_dir: Optional[Path] = None,
+    ) -> Dict[str, Any]:
         """Dry run: extract and count without writing to DB."""
         extractor = PythonASTExtractor(project_prefix="app")
         all_entities: List[CodeEntity] = []
         all_relations: List[CodeRelation] = []
         errors = 0
+        total_files = 0
 
         files = extractor.discover_files(backend_app_dir)
+        total_files += len(files)
         for fpath, mod_name in files:
             try:
                 ents, rels = extractor.extract_file(fpath, mod_name)
@@ -587,6 +637,22 @@ class CodeGraphIngestionService:
             except Exception:
                 errors += 1
 
+        # 前端 TypeScript/React 提取
+        if frontend_src_dir and frontend_src_dir.is_dir():
+            try:
+                ts_extractor = TypeScriptExtractor(project_prefix="src")
+                ts_files = ts_extractor.discover_files(frontend_src_dir)
+                total_files += len(ts_files)
+                for fpath, mod_path in ts_files:
+                    try:
+                        ents, rels = ts_extractor.extract_file(fpath, mod_path)
+                        all_entities.extend(ents)
+                        all_relations.extend(rels)
+                    except Exception:
+                        errors += 1
+            except Exception:
+                errors += 1
+
         by_type: Dict[str, int] = {}
         for ent in all_entities:
             by_type[ent.entity_type] = by_type.get(ent.entity_type, 0) + 1
@@ -596,7 +662,7 @@ class CodeGraphIngestionService:
             by_rel[rel.relation_type] = by_rel.get(rel.relation_type, 0) + 1
 
         return {
-            "files_scanned": len(files),
+            "files_scanned": total_files,
             "entities_by_type": by_type,
             "relations_by_type": by_rel,
             "total_entities": len(all_entities),
@@ -839,6 +905,104 @@ class CodeGraphIngestionService:
         }
 
     # -- private --
+
+    async def _compute_dependency_metrics(
+        self, CanonicalEntity, EntityRelationship
+    ) -> None:
+        """為每個模組計算依賴指標（outgoing_deps / incoming_deps / layer）並回寫 description。"""
+
+        # 架構層分類規則
+        _LAYER_RULES: List[Tuple[str, str]] = [
+            # Python 後端
+            ("app.core.", "core"),
+            ("app.api.", "api"),
+            ("app.services.", "services"),
+            ("app.repositories.", "repository"),
+            ("app.extended.", "model"),
+            ("app.schemas.", "schema"),
+            ("app.scripts.", "scripts"),
+            # TypeScript 前端 (canonical_name 無 src/ 前綴)
+            ("components/", "component"),
+            ("hooks/", "hook"),
+            ("api/", "api_client"),
+            ("pages/", "page"),
+            ("config/", "config"),
+            ("services/", "services"),
+            ("utils/", "utils"),
+            ("types/", "schema"),
+            ("constants/", "config"),
+            ("providers/", "core"),
+            ("router/", "core"),
+            ("store/", "core"),
+        ]
+
+        def _classify_layer(name: str) -> str:
+            for prefix, layer in _LAYER_RULES:
+                if name.startswith(prefix):
+                    return layer
+            return "other"
+
+        # 載入所有模組實體（py_module + ts_module）
+        mod_rows = (await self.db.execute(
+            select(
+                CanonicalEntity.id,
+                CanonicalEntity.canonical_name,
+                CanonicalEntity.entity_type,
+                CanonicalEntity.description,
+            ).where(CanonicalEntity.entity_type.in_(["py_module", "ts_module"]))
+        )).all()
+
+        if not mod_rows:
+            return
+
+        id_to_name = {r[0]: r[1] for r in mod_rows}
+        mod_ids = set(id_to_name.keys())
+
+        # 載入 imports 關聯
+        import_rows = (await self.db.execute(
+            select(
+                EntityRelationship.source_entity_id,
+                EntityRelationship.target_entity_id,
+            )
+            .where(EntityRelationship.relation_label == CODE_GRAPH_LABEL)
+            .where(EntityRelationship.relation_type == "imports")
+        )).all()
+
+        outgoing: Dict[int, int] = {}
+        incoming: Dict[int, int] = {}
+        for src_id, tgt_id in import_rows:
+            if src_id in mod_ids:
+                outgoing[src_id] = outgoing.get(src_id, 0) + 1
+            if tgt_id in mod_ids:
+                incoming[tgt_id] = incoming.get(tgt_id, 0) + 1
+
+        # 逐筆更新 description JSON（加入 outgoing_deps, incoming_deps, layer）
+        from sqlalchemy import update
+        updated = 0
+        for row in mod_rows:
+            eid, ename, etype, desc_raw = row
+            desc = desc_raw
+            if isinstance(desc, str):
+                try:
+                    desc = json.loads(desc)
+                except (json.JSONDecodeError, TypeError):
+                    desc = {}
+            if not isinstance(desc, dict):
+                desc = {}
+
+            desc["outgoing_deps"] = outgoing.get(eid, 0)
+            desc["incoming_deps"] = incoming.get(eid, 0)
+            desc["layer"] = _classify_layer(ename)
+
+            await self.db.execute(
+                update(CanonicalEntity)
+                .where(CanonicalEntity.id == eid)
+                .values(description=json.dumps(desc, ensure_ascii=False))
+            )
+            updated += 1
+
+        await self.db.flush()
+        logger.info("依賴指標已回寫 %d 個模組", updated)
 
     async def _load_mtime_map(self, CanonicalEntity) -> Dict[str, float]:
         """Load {module_name: mtime} from existing py_module entities."""

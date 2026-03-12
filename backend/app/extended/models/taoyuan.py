@@ -112,6 +112,7 @@ class TaoyuanDispatchOrder(Base):
     payment = relationship("TaoyuanContractPayment", back_populates="dispatch_order", uselist=False, cascade="all, delete-orphan")
     attachments = relationship("TaoyuanDispatchAttachment", back_populates="dispatch_order", cascade="all, delete-orphan", passive_deletes=True)
     work_type_links = relationship("TaoyuanDispatchWorkType", back_populates="dispatch_order", cascade="all, delete-orphan", passive_deletes=True)
+    entity_links = relationship("TaoyuanDispatchEntityLink", back_populates="dispatch_order", cascade="all, delete-orphan", passive_deletes=True)
 
 
 class TaoyuanDispatchProjectLink(Base):
@@ -147,6 +148,38 @@ class TaoyuanDispatchDocumentLink(Base):
     # 關聯關係
     dispatch_order = relationship("TaoyuanDispatchOrder", back_populates="document_links")
     document = relationship("OfficialDocument")
+
+
+class TaoyuanDispatchEntityLink(Base):
+    """派工單-正規化實體關聯
+
+    連結派工單與知識圖譜正規化實體，用於：
+    - NER 驅動的公文對照建議
+    - 派工單語意搜尋
+    - 跨派工單實體共現分析
+    """
+    __tablename__ = "taoyuan_dispatch_entity_link"
+    __table_args__ = (
+        UniqueConstraint('dispatch_order_id', 'canonical_entity_id',
+                         name='uq_dispatch_entity'),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    dispatch_order_id = Column(Integer,
+        ForeignKey('taoyuan_dispatch_orders.id', ondelete='CASCADE'),
+        nullable=False, index=True)
+    canonical_entity_id = Column(Integer,
+        ForeignKey('canonical_entities.id', ondelete='CASCADE'),
+        nullable=False, index=True)
+    source = Column(String(20), nullable=False, default='auto',
+        comment="來源: auto(自動提取)/manual(人工)/llm(LLM推薦)")
+    confidence = Column(Float, nullable=False, default=1.0,
+        comment="信心分數 0-1")
+    created_at = Column(DateTime, server_default=func.now())
+
+    # 關聯關係
+    dispatch_order = relationship("TaoyuanDispatchOrder", back_populates="entity_links")
+    canonical_entity = relationship("CanonicalEntity")
 
 
 class TaoyuanDocumentProjectLink(Base):

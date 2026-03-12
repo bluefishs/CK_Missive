@@ -1,194 +1,23 @@
 """
 AI 服務相關 Pydantic Schema
 
-拆分為功能子模組，此 __init__.py 統一匯出確保向後相容。
+拆分為功能子模組，各消費者直接從子模組匯入。
+此 __init__.py 僅保留 __all__ 宣告供文件化參考。
 
-Version: 2.0.0
+子模組：
+  - search: 搜尋意圖、自然語言搜尋
+  - endpoints: AI 端點 (摘要/分類/關鍵字/機關匹配)
+  - synonyms: 同義詞管理
+  - common: 通用回應型別 (SuccessResponse, OkResponse)
+  - search_history: 搜尋歷史與統計
+  - graph: 知識圖譜 (GraphNode, GraphEdge, Embedding)
+  - prompts: Prompt 模板管理
+  - entity: 實體提取
+  - ollama: Ollama 模型管理
+  - rag: RAG 問答與 Agent 查詢
+  - analysis: 文件 AI 分析
+
+Version: 3.0.0
 Created: 2026-02-05
-Updated: 2026-03-10 - 拆分為 10 個子模組
+Updated: 2026-03-11 - 移除 re-export，各消費者已改用子模組路徑
 """
-
-# === 搜尋 ===
-from app.schemas.ai.search import (
-    ParsedSearchIntent,
-    ParseIntentRequest,
-    ParseIntentResponse,
-    NaturalSearchRequest,
-    AttachmentInfo,
-    DocumentSearchResult,
-    ClassificationResponse,
-    KeywordsValidationResponse,
-    MatchedEntity,
-    NaturalSearchResponse,
-)
-
-# === AI 端點 ===
-from app.schemas.ai.endpoints import (
-    SummaryRequest,
-    SummaryResponse,
-    ClassifyRequest,
-    ClassifyResponse,
-    KeywordsRequest,
-    KeywordsExtractResponse,
-    AgencyCandidate,
-    AgencyMatchRequest,
-    AgencyMatchResult,
-    AgencyMatchResponse,
-    RateLimitStatus,
-    HealthResponse,
-    AIConfigResponse,
-)
-
-# === 同義詞 ===
-from app.schemas.ai.synonyms import (
-    AISynonymBase,
-    AISynonymCreate,
-    AISynonymUpdate,
-    AISynonymResponse,
-    AISynonymListRequest,
-    AISynonymListResponse,
-    AISynonymDeleteRequest,
-    AISynonymReloadResponse,
-)
-
-# === 通用 ===
-from app.schemas.ai.common import (
-    SuccessResponse,
-    OkResponse,
-    AIFeatureStatsDetail,
-    AIStatsResponse,
-)
-
-# === 搜尋歷史 ===
-from app.schemas.ai.search_history import (
-    SearchHistoryItem,
-    SearchFeedbackRequest,
-    SearchFeedbackResponse,
-    SearchHistoryListRequest,
-    SearchHistoryListResponse,
-    DailyTrend,
-    TopQuery,
-    ClearSearchHistoryRequest,
-    ClearSearchHistoryResponse,
-    SearchStatsResponse,
-    QuerySuggestionRequest,
-    QuerySuggestionItem,
-    QuerySuggestionResponse,
-)
-
-# === 知識圖譜 ===
-from app.schemas.ai.graph import (
-    GraphNode,
-    GraphEdge,
-    SemanticSimilarRequest,
-    SemanticSimilarItem,
-    SemanticSimilarResponse,
-    EmbeddingStatsResponse,
-    EmbeddingBatchRequest,
-    EmbeddingBatchResponse,
-    RelationGraphRequest,
-    RelationGraphResponse,
-)
-
-# === Prompt ===
-from app.schemas.ai.prompts import (
-    PromptVersionItem,
-    PromptListRequest,
-    PromptListResponse,
-    PromptCreateRequest,
-    PromptCreateResponse,
-    PromptActivateRequest,
-    PromptActivateResponse,
-    PromptCompareRequest,
-    PromptDiff,
-    PromptCompareResponse,
-)
-
-# === 實體提取 ===
-from app.schemas.ai.entity import (
-    EntityItem,
-    EntityRelationItem,
-    EntityExtractRequest,
-    EntityExtractResponse,
-    EntityBatchRequest,
-    EntityBatchResponse,
-    EntityStatsResponse,
-)
-
-# === Ollama ===
-from app.schemas.ai.ollama import (
-    OllamaGpuLoadedModel,
-    OllamaGpuInfo,
-    OllamaStatusResponse,
-    OllamaEnsureModelsResponse,
-    OllamaWarmupResponse,
-)
-
-# === RAG ===
-from app.schemas.ai.rag import (
-    AgentQueryRequest,
-    AgentSyncResponse,
-    RAGQueryRequest,
-    RAGStreamRequest,
-    RAGSourceItem,
-    RAGQueryResponse,
-)
-
-# === 分析 ===
-from app.schemas.ai.analysis import (
-    DocumentAIAnalysisResponse,
-    DocumentAIBriefResponse,
-    DocumentAIAnalysisBatchRequest,
-    DocumentAIAnalysisBatchResponse,
-    DocumentAIAnalysisStatsResponse,
-)
-
-__all__ = [
-    # search
-    "ParsedSearchIntent", "ParseIntentRequest", "ParseIntentResponse",
-    "NaturalSearchRequest", "AttachmentInfo", "DocumentSearchResult",
-    "ClassificationResponse", "KeywordsValidationResponse",
-    "MatchedEntity", "NaturalSearchResponse",
-    # endpoints
-    "SummaryRequest", "SummaryResponse", "ClassifyRequest", "ClassifyResponse",
-    "KeywordsRequest", "KeywordsExtractResponse",
-    "AgencyCandidate", "AgencyMatchRequest", "AgencyMatchResult", "AgencyMatchResponse",
-    "RateLimitStatus", "HealthResponse", "AIConfigResponse",
-    # synonyms
-    "AISynonymBase", "AISynonymCreate", "AISynonymUpdate", "AISynonymResponse",
-    "AISynonymListRequest", "AISynonymListResponse",
-    "AISynonymDeleteRequest", "AISynonymReloadResponse",
-    # common
-    "SuccessResponse", "OkResponse", "AIFeatureStatsDetail", "AIStatsResponse",
-    # search_history
-    "SearchHistoryItem", "SearchFeedbackRequest", "SearchFeedbackResponse",
-    "SearchHistoryListRequest", "SearchHistoryListResponse",
-    "DailyTrend", "TopQuery",
-    "ClearSearchHistoryRequest", "ClearSearchHistoryResponse",
-    "SearchStatsResponse",
-    "QuerySuggestionRequest", "QuerySuggestionItem", "QuerySuggestionResponse",
-    # graph
-    "GraphNode", "GraphEdge",
-    "SemanticSimilarRequest", "SemanticSimilarItem", "SemanticSimilarResponse",
-    "EmbeddingStatsResponse", "EmbeddingBatchRequest", "EmbeddingBatchResponse",
-    "RelationGraphRequest", "RelationGraphResponse",
-    # prompts
-    "PromptVersionItem", "PromptListRequest", "PromptListResponse",
-    "PromptCreateRequest", "PromptCreateResponse",
-    "PromptActivateRequest", "PromptActivateResponse",
-    "PromptCompareRequest", "PromptDiff", "PromptCompareResponse",
-    # entity
-    "EntityItem", "EntityRelationItem",
-    "EntityExtractRequest", "EntityExtractResponse",
-    "EntityBatchRequest", "EntityBatchResponse", "EntityStatsResponse",
-    # ollama
-    "OllamaGpuLoadedModel", "OllamaGpuInfo",
-    "OllamaStatusResponse", "OllamaEnsureModelsResponse", "OllamaWarmupResponse",
-    # rag
-    "AgentQueryRequest", "AgentSyncResponse",
-    "RAGQueryRequest", "RAGStreamRequest", "RAGSourceItem", "RAGQueryResponse",
-    # analysis
-    "DocumentAIAnalysisResponse", "DocumentAIBriefResponse",
-    "DocumentAIAnalysisBatchRequest", "DocumentAIAnalysisBatchResponse",
-    "DocumentAIAnalysisStatsResponse",
-]

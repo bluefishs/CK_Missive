@@ -28,7 +28,6 @@ from app.core.email_service import EmailService
 from app.core.config import settings
 from app.core.rate_limiter import limiter
 from app.db.database import get_async_db
-from app.extended.models import User
 from app.repositories.user_repository import UserRepository
 from app.services.audit_service import AuditService
 

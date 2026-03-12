@@ -66,7 +66,7 @@ class AIConfig:
     embedding_max_text_chars: int = 8000       # 文字截斷長度
 
     # 知識圖譜 (v2.0.0 新增)
-    kg_fuzzy_threshold: float = 0.75           # 模糊匹配相似度閾值
+    kg_fuzzy_threshold: float = 0.85           # 模糊匹配相似度閾值
     kg_semantic_distance: float = 0.15         # 語意匹配距離閾值
     kg_max_neighbors_depth: int = 3            # 鄰居查詢最大深度
 
@@ -126,7 +126,7 @@ class AIConfig:
             embedding_cache_ttl=int(os.getenv("EMBEDDING_CACHE_TTL", "3600")),
             embedding_max_text_chars=int(os.getenv("EMBEDDING_MAX_TEXT_CHARS", "8000")),
             # 知識圖譜
-            kg_fuzzy_threshold=float(os.getenv("KG_FUZZY_THRESHOLD", "0.75")),
+            kg_fuzzy_threshold=float(os.getenv("KG_FUZZY_THRESHOLD", "0.85")),
             kg_semantic_distance=float(os.getenv("KG_SEMANTIC_DISTANCE", "0.15")),
             kg_max_neighbors_depth=int(os.getenv("KG_MAX_NEIGHBORS_DEPTH", "3")),
             # 語意搜尋

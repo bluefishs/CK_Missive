@@ -15,7 +15,7 @@ from sqlalchemy import select, func
 
 from app.db.database import get_async_db
 from app.core.dependencies import require_auth, require_admin
-from app.extended.models import OfficialDocument as Document, User
+from app.extended.models import User
 from app.repositories.document_repository import DocumentRepository
 from app.repositories.document_stats_repository import DocumentStatsRepository
 from app.repositories.user_repository import UserRepository
@@ -24,8 +24,6 @@ from app.schemas.dashboard import (
     DashboardStats,
     StatisticsOverviewResponse,
     DocumentTypeCount,
-    CalendarCategoriesResponse,
-    CalendarCategoryItem,
 )
 
 logger = logging.getLogger(__name__)

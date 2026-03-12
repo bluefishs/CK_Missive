@@ -25,7 +25,7 @@ from app.schemas.auth import UserProfile, ProfileUpdate, PasswordChange
 from app.extended.models import User
 from app.repositories.user_repository import UserRepository
 
-from .common import get_client_info, get_current_user, get_superuser_mock, is_internal_ip
+from .common import get_current_user, get_superuser_mock
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

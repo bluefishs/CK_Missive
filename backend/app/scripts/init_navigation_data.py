@@ -438,43 +438,43 @@ DEFAULT_NAVIGATION_ITEMS = [
     # AI 智慧功能 子項目
     # =========================================================================
 
-    # 知識圖譜探索 (對應 ROUTES.KNOWLEDGE_GRAPH)
+    # 公文圖譜 (對應 ROUTES.KNOWLEDGE_GRAPH)
     {
-        "title": "知識圖譜探索",
+        "title": "公文圖譜",
         "key": "knowledge-graph",
         "path": "/ai/knowledge-graph",
         "icon": "ApartmentOutlined",
         "sort_order": 1,
         "level": 2,
         "parent_key": "ai-features",
-        "description": "知識圖譜,實體,關聯,視覺化",
+        "description": "公文圖譜,知識圖譜,實體,關聯,視覺化",
         "permission_required": "[]"
     },
 
-    # 代碼圖譜 Code Wiki (對應 ROUTES.CODE_WIKI)
+    # 代碼圖譜 (對應 ROUTES.CODE_GRAPH)
     {
         "title": "代碼圖譜",
-        "key": "code-wiki",
-        "path": "/ai/code-wiki",
+        "key": "code-graph",
+        "path": "/ai/code-graph",
         "icon": "CodeOutlined",
         "sort_order": 2,
         "level": 2,
         "parent_key": "ai-features",
-        "description": "代碼,程式碼,模組,Code Wiki,圖譜",
+        "description": "代碼,程式碼,模組,Code Wiki,圖譜,入圖,匯入,循環依賴,架構分析",
         "permission_required": "[]"
     },
 
-    # 代碼圖譜管理 (對應 ROUTES.CODE_GRAPH_MANAGEMENT)
+    # 資料庫圖譜 (對應 ROUTES.DB_GRAPH)
     {
-        "title": "代碼圖譜管理",
-        "key": "code-graph-management",
-        "path": "/admin/code-graph",
-        "icon": "CodeOutlined",
+        "title": "資料庫圖譜",
+        "key": "db-graph",
+        "path": "/ai/db-graph",
+        "icon": "DatabaseOutlined",
         "sort_order": 3,
         "level": 2,
         "parent_key": "ai-features",
-        "description": "代碼,程式碼,入圖,匯入,循環依賴,架構分析",
-        "permission_required": '["admin"]'
+        "description": "資料庫,ER,資料表,關聯,欄位,FK",
+        "permission_required": "[]"
     },
 
     # AI 助理管理 (對應 ROUTES.AI_ASSISTANT_MANAGEMENT)
@@ -483,10 +483,23 @@ DEFAULT_NAVIGATION_ITEMS = [
         "key": "ai-assistant-management",
         "path": "/admin/ai-assistant",
         "icon": "ExperimentOutlined",
-        "sort_order": 3,
+        "sort_order": 4,
         "level": 2,
         "parent_key": "ai-features",
         "description": "AI,助理,管理,儀表板",
+        "permission_required": "[\"admin:settings\"]"
+    },
+
+    # 知識庫瀏覽器 (對應 ROUTES.KNOWLEDGE_BASE)
+    {
+        "title": "知識庫瀏覽器",
+        "key": "knowledge-base",
+        "path": "/admin/knowledge-base",
+        "icon": "BookOutlined",
+        "sort_order": 5,
+        "level": 2,
+        "parent_key": "ai-features",
+        "description": "知識庫,瀏覽器,ADR,架構圖,知識地圖",
         "permission_required": "[\"admin:settings\"]"
     },
 

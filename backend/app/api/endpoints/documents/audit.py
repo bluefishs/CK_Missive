@@ -11,9 +11,10 @@ from starlette.responses import Response
 from sqlalchemy import text
 
 from app.core.rate_limiter import limiter
+from app.core.dependencies import require_admin
 
 from .common import (
-    logger, Depends, AsyncSession, get_async_db,
+    logger, Depends, AsyncSession, get_async_db, User,
     AuditLogQuery, AuditLogItem, AuditLogResponse, PaginationMeta,
 )
 
@@ -52,7 +53,8 @@ async def get_audit_logs(
     request: Request,
     response: Response,
     query: AuditLogQuery = Body(default=AuditLogQuery()),
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_admin()),
 ):
     """
     查詢審計日誌
@@ -168,8 +170,12 @@ async def get_document_audit_history(
     request: Request,
     response: Response,
     document_id: int,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_admin()),
 ):
     """查詢特定公文的變更歷史記錄"""
     query = AuditLogQuery(document_id=document_id, table_name="documents", limit=50)
-    return await get_audit_logs(query, db)
+    return await get_audit_logs(
+        request=request, response=response, query=query,
+        db=db, current_user=current_user,
+    )

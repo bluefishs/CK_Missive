@@ -51,6 +51,9 @@ class DispatchDocumentLink(BaseModel):
     doc_date: Optional[date] = None
     subject: Optional[str] = None
 
+    # 跨派工單計數（被幾個派工單引用，用於前端判斷是否為「未指派」）
+    linked_dispatch_count: Optional[int] = None
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -114,7 +117,8 @@ class DocumentProjectLinkResponse(ProjectLinkResponse):
 class SearchLinkableDocumentsRequest(BaseModel):
     """搜尋可關聯公文請求"""
     keyword: str
-    limit: int = 20
+    limit: int = Field(default=20, le=100, description="每頁筆數上限")
+    offset: int = Field(default=0, ge=0, description="分頁偏移量")
     exclude_document_ids: Optional[List[int]] = None
     link_type: Optional[str] = None
     contract_project_id: Optional[int] = None

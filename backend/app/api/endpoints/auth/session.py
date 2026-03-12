@@ -15,7 +15,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.responses import Response, JSONResponse
+from starlette.responses import JSONResponse
 
 from app.db.database import get_async_db
 from app.core.auth_service import AuthService, security

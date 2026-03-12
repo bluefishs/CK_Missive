@@ -16,6 +16,12 @@ class AgentQueryRequest(BaseModel):
         pattern=r"^[a-zA-Z0-9_-]+$",
         description="對話 session ID（伺服器端記憶），與 history 二擇一",
     )
+    context: Optional[str] = Field(
+        None,
+        max_length=32,
+        pattern=r"^[a-z_]+$",
+        description="助理上下文 (doc/dev)，影響 system prompt 選擇",
+    )
 
 
 class AgentSyncResponse(BaseModel):

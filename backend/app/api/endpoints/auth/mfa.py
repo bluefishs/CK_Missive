@@ -15,7 +15,6 @@ MFA (Multi-Factor Authentication) API 端點
 """
 
 import logging
-from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,7 +23,7 @@ import jwt
 from app.db.database import get_async_db
 from app.core.auth_service import AuthService, ALGORITHM
 from app.core.config import settings
-from app.core.mfa_service import MFAService, MFA_TOKEN_EXPIRE_SECONDS
+from app.core.mfa_service import MFAService
 from app.core.rate_limiter import limiter
 from app.extended.models import User
 from app.repositories.user_repository import UserRepository
@@ -34,7 +33,6 @@ from app.schemas.auth import (
     MFADisableRequest,
     MFAValidateRequest,
     MFAStatusResponse,
-    TokenResponse,
 )
 from app.services.audit_service import AuditService
 

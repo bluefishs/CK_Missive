@@ -89,9 +89,13 @@ class AgentPlanner:
         self,
         question: str,
         history: Optional[List[Dict[str, str]]],
+        context: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         LLM 分析問題，決定要呼叫哪些工具。
+
+        Args:
+            context: 助理上下文 ('doc'/'dev')，用於篩選可用工具集。
 
         注意：此方法只做 LLM 規劃。hints 合併由 orchestrator 在
         preprocess_question 完成後統一呼叫 merge_hints_into_plan 處理。
@@ -106,20 +110,49 @@ class AgentPlanner:
         sanitized_q = sanitized_q[:500]
 
         registry = get_tool_registry()
-        tool_defs_str = registry.get_definitions_json()
-        few_shot_str_block = registry.get_few_shot_prompt()
+        tool_defs_str = registry.get_definitions_json(context)
+        few_shot_str_block = registry.get_few_shot_prompt(context)
 
         # 組合額外的硬編碼範例（涉及多工具協作，不易放入單一工具的 few_shot）
-        extra_example = (
-            '使用者：「道路工程相關的派工和公文」\n'
-            '回應：{"reasoning": "同時搜尋道路工程的派工單和公文", '
-            '"tool_calls": [{"name": "search_dispatch_orders", "params": {"search": "道路工程", "limit": 5}}, '
-            '{"name": "search_documents", "params": {"keywords": ["道路工程"], "limit": 5}}]}'
-        )
+        extra_examples = [
+            (
+                '使用者：「最近的查估派工案件」\n'
+                '回應：{"reasoning": "查詢最近的派工單，使用 search_dispatch_orders 取得最新資料", '
+                '"tool_calls": [{"name": "search_dispatch_orders", "params": {"limit": 10}}]}'
+            ),
+            (
+                '使用者：「派工單007的詳情」\n'
+                '回應：{"reasoning": "搜尋特定派工單號", '
+                '"tool_calls": [{"name": "search_dispatch_orders", "params": {"dispatch_no": "007", "limit": 10}}]}'
+            ),
+            (
+                '使用者：「道路工程相關的派工和公文」\n'
+                '回應：{"reasoning": "同時搜尋道路工程的派工單和公文", '
+                '"tool_calls": [{"name": "search_dispatch_orders", "params": {"search": "道路工程", "limit": 10}}, '
+                '{"name": "search_documents", "params": {"keywords": ["道路工程"], "limit": 10}}]}'
+            ),
+            (
+                '使用者：「資料庫有哪些表？畫給我看」\n'
+                '回應：{"reasoning": "使用者要求視覺化資料庫結構，使用 draw_diagram 生成 ER 圖", '
+                '"tool_calls": [{"name": "draw_diagram", "params": {"diagram_type": "erDiagram", "detail_level": "brief"}}]}'
+            ),
+            (
+                '使用者：「AI 服務的模組依賴關係」\n'
+                '回應：{"reasoning": "查詢 AI 模組的依賴圖，使用 draw_diagram 生成依賴圖", '
+                '"tool_calls": [{"name": "draw_diagram", "params": {"diagram_type": "graph", "scope": "ai"}}]}'
+            ),
+            (
+                '使用者：「派工單跟哪些資料表有關？顯示結構」\n'
+                '回應：{"reasoning": "先搜尋派工單再畫出相關 ER 結構", '
+                '"tool_calls": [{"name": "search_entities", "params": {"query": "派工單", "entity_type": "db_table", "limit": 10}}, '
+                '{"name": "draw_diagram", "params": {"diagram_type": "erDiagram", "scope": "taoyuan"}}]}'
+            ),
+        ]
+        extra_block = "\n\n".join(extra_examples)
         if few_shot_str_block:
-            few_shot_str_block += "\n\n" + extra_example
+            few_shot_str_block += "\n\n" + extra_block
         else:
-            few_shot_str_block = extra_example
+            few_shot_str_block = extra_block
 
         system_prompt = f"""你是公文管理系統的 AI 智能體。根據使用者問題，決定需要呼叫哪些工具來回答。
 
@@ -130,9 +163,14 @@ class AgentPlanner:
 - 每次最多選擇 3 個工具
 - 如果問題簡單且你有足夠資訊可直接回答，回傳空的 tool_calls
 - 優先使用 search_documents；涉及機關/人員/專案關係時使用 search_entities
-- 涉及「派工單」「派工」「派工單號」時，必須使用 search_dispatch_orders
+- ⚠️ 涉及「派工單」「派工」「派工單號」「查估」「派工案件」時，**必須**使用 search_dispatch_orders（不要用 search_documents 替代）
 - 涉及特定工程名稱（如「道路工程」「測量」等）時，同時搜尋公文和派工單
+- 查詢「最近的派工」「最新派工」時，使用 search_dispatch_orders 不帶 search 參數（預設返回最新）
 - keywords 應包含 2-4 個有意義的關鍵字，不要只用單字
+- 當使用者要求「畫」「圖」「顯示結構」「架構圖」「ER圖」「依賴關係圖」「流程圖」「類別圖」等視覺化需求時，使用 draw_diagram
+- draw_diagram 可與其他搜尋工具組合使用，先查資料再畫圖
+- 當問題涉及「公文流程」「派工流程」「收發文流程」等流程性問題時，即使使用者未明確要求畫圖，也應附帶 draw_diagram(diagram_type=flowchart) 以增強回答
+- 當問題涉及「資料表結構」「欄位」「schema」等資料庫問題時，附帶 draw_diagram(diagram_type=erDiagram)
 - 今天日期：{today}
 {hints_str}
 
@@ -208,16 +246,22 @@ class AgentPlanner:
                                 params["keywords"].append(kw)
                     tc["params"] = params
 
-            # 意圖偵測到 dispatch_order 但 LLM 未規劃派工單工具 → 自動補充
+            # 意圖偵測到 dispatch_order → 確保有 search_dispatch_orders 工具
             has_dispatch_tool = any(
                 tc.get("name") == "search_dispatch_orders"
                 for tc in plan["tool_calls"]
             )
             if hints.get("related_entity") == "dispatch_order" and not has_dispatch_tool:
-                dispatch_params: Dict[str, Any] = {"limit": 5}
-                if hints.get("keywords"):
+                dispatch_params: Dict[str, Any] = {"limit": 10}
+                # 提取派工單號
+                dispatch_no_match = re.search(
+                    r"派工單[號]?\s*(\d{2,4})", sanitized_q
+                )
+                if dispatch_no_match:
+                    dispatch_params["dispatch_no"] = dispatch_no_match.group(1)
+                elif hints.get("keywords"):
                     dispatch_params["search"] = " ".join(hints["keywords"])
-                plan["tool_calls"].append({
+                plan["tool_calls"].insert(0, {
                     "name": "search_dispatch_orders",
                     "params": dispatch_params,
                 })
@@ -246,7 +290,7 @@ class AgentPlanner:
 
         # hints 指示 dispatch_order → 強制搜尋派工單
         if hints.get("related_entity") == "dispatch_order":
-            dp: Dict[str, Any] = {"limit": 5}
+            dp: Dict[str, Any] = {"limit": 10}
             dispatch_no_match = re.search(
                 r"派工單[號]?\s*(\d{2,4})", sanitized_q
             )
@@ -265,7 +309,7 @@ class AgentPlanner:
         if hints.get("keywords") or any(
             hints.get(k) for k in ("sender", "receiver", "doc_type", "date_from", "date_to")
         ):
-            doc_params: Dict[str, Any] = {"limit": 5}
+            doc_params: Dict[str, Any] = {"limit": 10}
             if hints.get("keywords"):
                 doc_params["keywords"] = hints["keywords"]
             for key in ("sender", "receiver", "doc_type", "date_from", "date_to"):
@@ -284,7 +328,7 @@ class AgentPlanner:
         hints: Dict[str, Any],
     ) -> Dict[str, Any]:
         """規劃失敗時的回退計劃"""
-        fallback_params: Dict[str, Any] = {"limit": 5}
+        fallback_params: Dict[str, Any] = {"limit": 10}
         if hints.get("keywords"):
             fallback_params["keywords"] = hints["keywords"]
         else:
@@ -371,7 +415,7 @@ class AgentPlanner:
             ]
             if "search_entities" not in used_tools:
                 extra_tools.append(
-                    {"name": "search_entities", "params": {"query": question, "limit": 5}}
+                    {"name": "search_entities", "params": {"query": question, "limit": 10}}
                 )
 
             return {
@@ -385,7 +429,7 @@ class AgentPlanner:
                 return {
                     "reasoning": "實體搜尋無結果，改用公文全文搜尋",
                     "tool_calls": [
-                        {"name": "search_documents", "params": {"keywords": [question], "limit": 5}},
+                        {"name": "search_documents", "params": {"keywords": [question], "limit": 10}},
                     ],
                 }
 
@@ -398,7 +442,7 @@ class AgentPlanner:
             return {
                 "reasoning": "公文搜尋無結果，嘗試搜尋派工單紀錄",
                 "tool_calls": [
-                    {"name": "search_dispatch_orders", "params": {"search": question, "limit": 5}},
+                    {"name": "search_dispatch_orders", "params": {"search": question, "limit": 10}},
                 ],
             }
 
@@ -420,7 +464,7 @@ class AgentPlanner:
             return {
                 "reasoning": f"相似公文查詢失敗（{last_error}），改用關鍵字搜尋",
                 "tool_calls": [
-                    {"name": "search_documents", "params": {"keywords": [question], "limit": 5}},
+                    {"name": "search_documents", "params": {"keywords": [question], "limit": 10}},
                 ],
             }
 

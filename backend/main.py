@@ -23,7 +23,7 @@ import logging
 import sys
 import time
 from datetime import datetime
-from fastapi import FastAPI, Depends, Response, Request
+from fastapi import FastAPI, Depends, Request
 
 # from fastapi.middleware.cors import CORSMiddleware  # 禁用原始 CORS 中介軟體
 from fastapi.middleware.gzip import GZipMiddleware
@@ -33,6 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from contextlib import asynccontextmanager
 
 from app.core.config import settings
+from app.core.dependencies import require_admin
 from app.api.routes import api_router
 from app.db.database import get_async_db, engine
 from app.core.logging_manager import log_manager, LoggingMiddleware, log_info
@@ -330,7 +331,10 @@ except RuntimeError as e:
 
 # --- 健康檢查端點 ---
 @app.get("/health/detailed", tags=["System Monitoring"])
-async def detailed_health_check(db: AsyncSession = Depends(get_async_db)):
+async def detailed_health_check(
+    db: AsyncSession = Depends(get_async_db),
+    _current_user=Depends(require_admin()),
+):
     """
     詳細系統健康檢查
 
@@ -366,7 +370,8 @@ async def detailed_health_check(db: AsyncSession = Depends(get_async_db)):
             "response_time_ms": round(db_response_time, 2),
         }
     except Exception as e:
-        health_data["checks"]["database"] = {"status": "unhealthy", "error": str(e)}
+        logger.error(f"Health check database error: {e}")
+        health_data["checks"]["database"] = {"status": "unhealthy", "error": "Database connection failed"}
         health_data["status"] = "unhealthy"
 
     # 資料表檢查
@@ -384,7 +389,8 @@ async def detailed_health_check(db: AsyncSession = Depends(get_async_db)):
             count = result.scalar()
             tables_check[table] = {"status": "healthy", "record_count": count}
         except Exception as e:
-            tables_check[table] = {"status": "error", "error": str(e)}
+            logger.error(f"Health check table {table} error: {e}")
+            tables_check[table] = {"status": "error", "error": "Table check failed"}
             health_data["status"] = "unhealthy"
 
     health_data["checks"]["tables"] = tables_check
@@ -409,7 +415,8 @@ async def detailed_health_check(db: AsyncSession = Depends(get_async_db)):
             "used_gb": round(memory.used / (1024**3), 2),
         }
     except Exception as e:
-        health_data["checks"]["memory"] = {"status": "unknown", "error": str(e)}
+        logger.error(f"Health check memory error: {e}")
+        health_data["checks"]["memory"] = {"status": "unknown", "error": "Memory check failed"}
 
     # 系統資源 - 磁碟
     try:
@@ -432,7 +439,8 @@ async def detailed_health_check(db: AsyncSession = Depends(get_async_db)):
             "used_gb": round(disk.used / (1024**3), 2),
         }
     except Exception as e:
-        health_data["checks"]["disk"] = {"status": "unknown", "error": str(e)}
+        logger.error(f"Health check disk error: {e}")
+        health_data["checks"]["disk"] = {"status": "unknown", "error": "Disk check failed"}
 
     # 系統資源 - CPU
     try:
@@ -447,7 +455,8 @@ async def detailed_health_check(db: AsyncSession = Depends(get_async_db)):
             "cores": psutil.cpu_count(),
         }
     except Exception as e:
-        health_data["checks"]["cpu"] = {"status": "unknown", "error": str(e)}
+        logger.error(f"Health check CPU error: {e}")
+        health_data["checks"]["cpu"] = {"status": "unknown", "error": "CPU check failed"}
 
     # 排程器狀態
     from app.services.reminder_scheduler import get_reminder_scheduler
@@ -474,7 +483,8 @@ async def detailed_health_check(db: AsyncSession = Depends(get_async_db)):
             },
         }
     except Exception as e:
-        health_data["checks"]["schedulers"] = {"status": "error", "error": str(e)}
+        logger.error(f"Health check scheduler error: {e}")
+        health_data["checks"]["schedulers"] = {"status": "error", "error": "Scheduler check failed"}
 
     # CORS 設定
     health_data["checks"]["cors"] = {
@@ -526,7 +536,8 @@ async def health_check(db: AsyncSession = Depends(get_async_db)):
         if result.scalar() == 1:
             db_status = "connected"
     except Exception as e:
-        db_status = f"error: {str(e)}"
+        logger.error(f"Health check DB error: {e}")
+        db_status = "error"
 
     is_healthy = db_status == "connected"
 

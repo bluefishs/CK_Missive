@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_admin, require_auth, get_async_db
 from app.extended.models import User, OfficialDocument, DocumentEntity
-from app.schemas.ai import (
+from app.schemas.ai.entity import (
     EntityExtractRequest,
     EntityExtractResponse,
     EntityBatchRequest,

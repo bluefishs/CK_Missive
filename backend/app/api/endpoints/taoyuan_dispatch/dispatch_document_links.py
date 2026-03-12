@@ -5,13 +5,17 @@
 - /dispatch/{dispatch_id}/link-document - 關聯公文到派工單
 - /dispatch/{dispatch_id}/unlink-document/{link_id} - 移除公文關聯
 - /dispatch/{dispatch_id}/documents - 取得派工單關聯公文
+- /dispatch/{dispatch_id}/entity-similarity - 知識圖譜實體配對建議
+- /dispatch/{dispatch_id}/correspondence-suggestions - NER 驅動公文對照建議
 - /dispatch/search-linkable-documents - 搜尋可關聯的桃園派工公文
 - /document/{document_id}/dispatch-links - 查詢公文關聯的派工單
 - /document/{document_id}/link-dispatch - 將公文關聯到派工單
 - /document/{document_id}/unlink-dispatch/{link_id} - 移除公文與派工的關聯
 - /documents/batch-dispatch-links - 批次查詢多筆公文的派工關聯
 """
-from typing import List, Optional
+import logging
+from collections import defaultdict
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
@@ -93,8 +97,11 @@ async def search_linkable_documents(
     if request.exclude_document_ids:
         query = query.where(Document.id.notin_(request.exclude_document_ids))
 
-    # 排序並限制筆數
-    query = query.order_by(Document.doc_date.desc()).limit(request.limit)
+    # 排序並分頁
+    query = query.order_by(Document.doc_date.desc())
+    if request.offset > 0:
+        query = query.offset(request.offset)
+    query = query.limit(request.limit)
 
     result = await db.execute(query)
     documents = result.scalars().all()
@@ -116,7 +123,8 @@ async def search_linkable_documents(
     return {
         "success": True,
         "items": items,
-        "total": len(items)
+        "total": len(items),
+        "has_more": len(items) == request.limit,
     }
 
 
@@ -209,7 +217,7 @@ async def get_dispatch_documents(
     db: AsyncSession = Depends(get_async_db),
     current_user = Depends(require_auth())
 ):
-    """取得派工單關聯的公文歷程"""
+    """取得派工單關聯的公文歷程（按日期排序）"""
     result = await db.execute(
         select(TaoyuanDispatchDocumentLink)
         .options(selectinload(TaoyuanDispatchDocumentLink.document))
@@ -221,6 +229,8 @@ async def get_dispatch_documents(
     company_docs = []
 
     for link in links:
+        if not link.document:
+            continue
         doc_info = {
             'id': link.document.id,
             'doc_number': link.document.doc_number,
@@ -234,11 +244,310 @@ async def get_dispatch_documents(
         else:
             company_docs.append(doc_info)
 
+    # 按日期排序（最新在前）
+    def sort_key(d):
+        return d.get('doc_date') or ''
+    agency_docs.sort(key=sort_key, reverse=True)
+    company_docs.sort(key=sort_key, reverse=True)
+
     return {
         "success": True,
         "agency_documents": agency_docs,
-        "company_documents": company_docs
+        "company_documents": company_docs,
+        "total": len(agency_docs) + len(company_docs),
     }
+
+
+@router.post(
+    "/dispatch/{dispatch_id}/entity-similarity",
+    summary="知識圖譜實體配對建議",
+)
+async def get_entity_similarity(
+    dispatch_id: int,
+    db: AsyncSession = Depends(get_async_db),
+    current_user=Depends(require_auth()),
+):
+    """
+    利用知識圖譜實體共現分析，計算派工單關聯公文間的語意相似度。
+
+    回傳來文/發文兩兩間共享的 canonical entity 數量及詳情，
+    供前端 buildCorrespondenceMatrix Phase 2 加權使用。
+    """
+    logger = logging.getLogger(__name__)
+
+    try:
+        from app.extended.models import DocumentEntityMention
+
+        # 1. 取得該派工單所有關聯的公文
+        result = await db.execute(
+            select(TaoyuanDispatchDocumentLink)
+            .options(selectinload(TaoyuanDispatchDocumentLink.document))
+            .where(TaoyuanDispatchDocumentLink.dispatch_order_id == dispatch_id)
+        )
+        links = result.scalars().all()
+
+        if not links:
+            return {"success": True, "pairs": [], "total_entities": 0}
+
+        # 分類來文/發文 document IDs
+        incoming_ids: list[int] = []
+        outgoing_ids: list[int] = []
+        for link in links:
+            if link.link_type == "company_outgoing":
+                outgoing_ids.append(link.document_id)
+            else:
+                incoming_ids.append(link.document_id)
+
+        all_doc_ids = incoming_ids + outgoing_ids
+        if not all_doc_ids:
+            return {"success": True, "pairs": [], "total_entities": 0}
+
+        # 2. 查詢所有相關公文的實體提及
+        mentions_result = await db.execute(
+            select(DocumentEntityMention).where(
+                DocumentEntityMention.document_id.in_(all_doc_ids)
+            )
+        )
+        mentions = mentions_result.scalars().all()
+
+        # 建立 document_id → set[canonical_entity_id] 映射
+        doc_entities: dict[int, set] = defaultdict(set)
+        entity_names: dict[int, str] = {}
+        for m in mentions:
+            doc_entities[m.document_id].add(m.canonical_entity_id)
+            entity_names[m.canonical_entity_id] = m.mention_text
+
+        # 3. 計算來文/發文間的實體交集
+        pairs = []
+        for in_id in incoming_ids:
+            in_ents = doc_entities.get(in_id, set())
+            if not in_ents:
+                continue
+            for out_id in outgoing_ids:
+                out_ents = doc_entities.get(out_id, set())
+                if not out_ents:
+                    continue
+                shared = in_ents & out_ents
+                if shared:
+                    union_size = len(in_ents | out_ents)
+                    pairs.append({
+                        "incoming_doc_id": in_id,
+                        "outgoing_doc_id": out_id,
+                        "shared_entity_count": len(shared),
+                        "jaccard": round(len(shared) / union_size, 3) if union_size else 0,
+                        "shared_entities": [
+                            entity_names.get(eid, f"entity#{eid}")
+                            for eid in list(shared)[:10]
+                        ],
+                    })
+
+        # 按 shared_entity_count 降序
+        pairs.sort(key=lambda p: p["shared_entity_count"], reverse=True)
+
+        total_entities = len({eid for ents in doc_entities.values() for eid in ents})
+
+        return {
+            "success": True,
+            "pairs": pairs,
+            "total_entities": total_entities,
+            "incoming_count": len(incoming_ids),
+            "outgoing_count": len(outgoing_ids),
+        }
+
+    except Exception as e:
+        logger.error("實體相似度計算失敗: %s", e)
+        return {"success": False, "pairs": [], "total_entities": 0}
+
+
+@router.post(
+    "/dispatch/{dispatch_id}/correspondence-suggestions",
+    summary="NER 驅動公文對照建議",
+)
+async def get_correspondence_suggestions(
+    dispatch_id: int,
+    db: AsyncSession = Depends(get_async_db),
+    current_user=Depends(require_auth()),
+):
+    """
+    利用派工單實體連結 (taoyuan_dispatch_entity_link) 和
+    公文實體提及 (document_entity_mentions) 做 NER 驅動的來文/發文配對建議。
+
+    相比 entity-similarity 端點，本端點：
+    1. 使用預計算的派工單實體（非即時 Jaccard）
+    2. 回傳分級信心度 (confirmed/high/medium/low)
+    3. 包含具體實體名稱作為匹配理由
+    """
+    logger = logging.getLogger(__name__)
+
+    try:
+        from app.extended.models import (
+            TaoyuanDispatchEntityLink, DocumentEntityMention,
+            CanonicalEntity, TaoyuanWorkRecord,
+        )
+
+        # 1. 取得派工單的正規化實體集合
+        dispatch_entities_result = await db.execute(
+            select(
+                TaoyuanDispatchEntityLink.canonical_entity_id,
+                CanonicalEntity.canonical_name,
+                CanonicalEntity.entity_type,
+            )
+            .join(CanonicalEntity,
+                  CanonicalEntity.id == TaoyuanDispatchEntityLink.canonical_entity_id)
+            .where(TaoyuanDispatchEntityLink.dispatch_order_id == dispatch_id)
+        )
+        dispatch_entity_rows = dispatch_entities_result.all()
+        dispatch_entity_ids = {r[0] for r in dispatch_entity_rows}
+        dispatch_entity_names = {r[0]: (r[1], r[2]) for r in dispatch_entity_rows}
+
+        if not dispatch_entity_ids:
+            return {
+                "success": True,
+                "suggestions": [],
+                "dispatch_entities": [],
+                "message": "此派工單尚未建立實體連結",
+            }
+
+        # 2. 取得關聯公文及其分類
+        links_result = await db.execute(
+            select(TaoyuanDispatchDocumentLink)
+            .options(selectinload(TaoyuanDispatchDocumentLink.document))
+            .where(TaoyuanDispatchDocumentLink.dispatch_order_id == dispatch_id)
+        )
+        links = links_result.scalars().all()
+
+        incoming_ids: list[int] = []
+        outgoing_ids: list[int] = []
+        doc_info: dict[int, dict] = {}
+        for link in links:
+            doc = link.document
+            info = {
+                "doc_id": link.document_id,
+                "link_type": link.link_type,
+                "doc_number": doc.doc_number if doc else None,
+                "subject": doc.subject if doc else None,
+                "doc_date": str(doc.doc_date) if doc and doc.doc_date else None,
+            }
+            doc_info[link.document_id] = info
+            if link.link_type == "company_outgoing":
+                outgoing_ids.append(link.document_id)
+            else:
+                incoming_ids.append(link.document_id)
+
+        all_doc_ids = incoming_ids + outgoing_ids
+        if not all_doc_ids:
+            return {
+                "success": True,
+                "suggestions": [],
+                "dispatch_entities": [
+                    {"id": eid, "name": name, "type": etype}
+                    for eid, (name, etype) in dispatch_entity_names.items()
+                ],
+            }
+
+        # 3. 查詢關聯公文的實體提及（只看派工單有的實體）
+        mentions_result = await db.execute(
+            select(DocumentEntityMention).where(
+                DocumentEntityMention.document_id.in_(all_doc_ids),
+                DocumentEntityMention.canonical_entity_id.in_(dispatch_entity_ids),
+            )
+        )
+        mentions = mentions_result.scalars().all()
+
+        doc_entities: dict[int, set[int]] = defaultdict(set)
+        for m in mentions:
+            doc_entities[m.document_id].add(m.canonical_entity_id)
+
+        # 4. 查詢已有 parent_record_id 鏈的配對（Phase 1 confirmed）
+        work_records_result = await db.execute(
+            select(TaoyuanWorkRecord).where(
+                TaoyuanWorkRecord.dispatch_order_id == dispatch_id,
+                TaoyuanWorkRecord.parent_record_id.isnot(None),
+            )
+        )
+        confirmed_chains = work_records_result.scalars().all()
+        confirmed_pairs: set[tuple[int, int]] = set()
+        for wr in confirmed_chains:
+            if wr.document_id and wr.parent_record_id:
+                # 查詢 parent 的 document_id
+                parent_result = await db.execute(
+                    select(TaoyuanWorkRecord.document_id).where(
+                        TaoyuanWorkRecord.id == wr.parent_record_id
+                    )
+                )
+                parent_doc_id = parent_result.scalar()
+                if parent_doc_id:
+                    confirmed_pairs.add((parent_doc_id, wr.document_id))
+                    confirmed_pairs.add((wr.document_id, parent_doc_id))
+
+        # 5. 建立配對建議
+        suggestions = []
+        for in_id in incoming_ids:
+            in_ents = doc_entities.get(in_id, set())
+            for out_id in outgoing_ids:
+                out_ents = doc_entities.get(out_id, set())
+                shared = in_ents & out_ents
+
+                # 判斷信心度
+                if (in_id, out_id) in confirmed_pairs:
+                    confidence = "confirmed"
+                    score = 1.0
+                elif shared:
+                    # 考慮實體類型權重: location 權重最高
+                    location_count = sum(
+                        1 for eid in shared
+                        if dispatch_entity_names.get(eid, ('', ''))[1] == 'location'
+                    )
+                    base_score = len(shared) / max(len(in_ents | out_ents), 1)
+                    score = min(base_score + location_count * 0.1, 1.0)
+                    confidence = "high" if score >= 0.3 else "medium"
+                else:
+                    # 無共享實體 → 低信心
+                    score = 0.0
+                    confidence = "low"
+
+                if confidence == "low" and not shared:
+                    continue  # 跳過無任何實體交集的配對
+
+                shared_names = [
+                    dispatch_entity_names.get(eid, (f"entity#{eid}", ''))[0]
+                    for eid in list(shared)[:10]
+                ]
+
+                suggestions.append({
+                    "incoming_doc_id": in_id,
+                    "outgoing_doc_id": out_id,
+                    "confidence": confidence,
+                    "score": round(score, 3),
+                    "shared_entity_count": len(shared),
+                    "shared_entities": shared_names,
+                    "incoming_doc": doc_info.get(in_id),
+                    "outgoing_doc": doc_info.get(out_id),
+                })
+
+        # 按 score 降序排列
+        suggestions.sort(key=lambda s: s["score"], reverse=True)
+
+        return {
+            "success": True,
+            "suggestions": suggestions,
+            "dispatch_entities": [
+                {"id": eid, "name": name, "type": etype}
+                for eid, (name, etype) in dispatch_entity_names.items()
+            ],
+            "stats": {
+                "incoming_count": len(incoming_ids),
+                "outgoing_count": len(outgoing_ids),
+                "total_suggestions": len(suggestions),
+                "confirmed": sum(1 for s in suggestions if s["confidence"] == "confirmed"),
+                "high": sum(1 for s in suggestions if s["confidence"] == "high"),
+                "medium": sum(1 for s in suggestions if s["confidence"] == "medium"),
+            },
+        }
+
+    except Exception as e:
+        logger.error("公文對照建議計算失敗: %s", e)
+        return {"success": False, "suggestions": [], "dispatch_entities": []}
 
 
 @router.post("/document/{document_id}/dispatch-links", summary="查詢公文關聯的派工單")
@@ -258,33 +567,33 @@ async def get_document_dispatch_links(
     )
     links = result.scalars().all()
 
+    # 批次預載所有相關派工單的公文關聯（避免 N+1 查詢）
+    order_ids = [link.dispatch_order.id for link in links if link.dispatch_order]
+    order_doc_map: dict[int, dict[str, str | None]] = {}
+    if order_ids:
+        all_doc_links_result = await db.execute(
+            select(TaoyuanDispatchDocumentLink)
+            .options(selectinload(TaoyuanDispatchDocumentLink.document))
+            .where(TaoyuanDispatchDocumentLink.dispatch_order_id.in_(order_ids))
+        )
+        all_doc_links = all_doc_links_result.scalars().all()
+
+        for doc_link in all_doc_links:
+            if not doc_link.document:
+                continue
+            oid = doc_link.dispatch_order_id
+            if oid not in order_doc_map:
+                order_doc_map[oid] = {'agency': None, 'company': None}
+            if doc_link.link_type == 'agency_incoming' and not order_doc_map[oid]['agency']:
+                order_doc_map[oid]['agency'] = doc_link.document.doc_number
+            elif doc_link.link_type == 'company_outgoing' and not order_doc_map[oid]['company']:
+                order_doc_map[oid]['company'] = doc_link.document.doc_number
+
     dispatch_orders = []
     for link in links:
         if link.dispatch_order:
             order = link.dispatch_order
-
-            # 從關聯表取得機關/乾坤函文文號（而非舊的 agency_doc_id/company_doc_id）
-            agency_doc_number = None
-            company_doc_number = None
-
-            # 查詢該派工單的所有公文關聯
-            doc_links_result = await db.execute(
-                select(TaoyuanDispatchDocumentLink)
-                .options(selectinload(TaoyuanDispatchDocumentLink.document))
-                .where(TaoyuanDispatchDocumentLink.dispatch_order_id == order.id)
-            )
-            doc_links = doc_links_result.scalars().all()
-
-            for doc_link in doc_links:
-                if doc_link.document:
-                    if doc_link.link_type == 'agency_incoming':
-                        # 機關來函：取最新一筆（或所有，這裡簡化取第一筆找到的）
-                        if not agency_doc_number:
-                            agency_doc_number = doc_link.document.doc_number
-                    elif doc_link.link_type == 'company_outgoing':
-                        # 乾坤發文：取最新一筆
-                        if not company_doc_number:
-                            company_doc_number = doc_link.document.doc_number
+            doc_nums = order_doc_map.get(order.id, {})
 
             dispatch_orders.append({
                 'link_id': link.id,
@@ -300,8 +609,8 @@ async def get_document_dispatch_links(
                 'contact_note': order.contact_note,
                 'cloud_folder': order.cloud_folder,
                 'project_folder': order.project_folder,
-                'agency_doc_number': agency_doc_number,
-                'company_doc_number': company_doc_number,
+                'agency_doc_number': doc_nums.get('agency'),
+                'company_doc_number': doc_nums.get('company'),
                 'created_at': order.created_at.isoformat() if order.created_at else None,
             })
 

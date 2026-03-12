@@ -7,7 +7,7 @@ Phase 2 正規化實體查詢/管理的 Request/Response Schema。
 Version: 1.0.0
 Created: 2026-02-24
 """
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -246,10 +246,25 @@ class KGIngestResponse(BaseModel):
 # ============================================================================
 
 
+class KGEntityGraphRequest(BaseModel):
+    """實體圖譜請求"""
+    entity_types: Optional[List[str]] = Field(default=None, description="篩選實體類型")
+    min_mentions: int = Field(default=2, ge=1, description="最低提及次數")
+    limit: int = Field(default=200, ge=1, le=500, description="最大實體數量")
+
+
+class KGEntityGraphResponse(BaseModel):
+    """實體圖譜回應"""
+    success: bool = True
+    nodes: List[Dict[str, Any]] = Field(default_factory=list)
+    edges: List[Dict[str, Any]] = Field(default_factory=list)
+
+
 class KGGraphStatsResponse(BaseModel):
     """圖譜統計回應"""
     success: bool = True
     total_entities: int = 0
+    total_code_entities: int = 0
     total_aliases: int = 0
     total_mentions: int = 0
     total_relationships: int = 0
@@ -358,6 +373,14 @@ class KGArchitectureAnalysisResponse(BaseModel):
     summary: Dict = Field(default_factory=dict, description="概要統計")
 
 
+class KGModuleOverviewResponse(BaseModel):
+    """模組架構概覽回應"""
+    success: bool = True
+    layers: Dict[str, Any] = Field(default_factory=dict, description="各架構層模組統計")
+    db_tables: List[Dict[str, Any]] = Field(default_factory=list, description="資料表 ERD 摘要")
+    summary: Dict[str, Any] = Field(default_factory=dict, description="總計數")
+
+
 class KGJsonImportRequest(BaseModel):
     """JSON 圖譜匯入請求 — 讀取本地 GitNexus 產生的 knowledge_graph.json"""
     file_path: str = Field(
@@ -374,3 +397,74 @@ class KGJsonImportResponse(BaseModel):
     nodes_imported: int = 0
     edges_imported: int = 0
     elapsed_seconds: float = 0.0
+
+
+# ============================================================================
+# 資料庫 Schema 反射
+# ============================================================================
+
+
+class KGDbColumnInfo(BaseModel):
+    """資料表欄位資訊"""
+    name: str
+    type: str
+    nullable: bool = True
+    primary_key: bool = False
+
+
+class KGDbForeignKey(BaseModel):
+    """外鍵資訊"""
+    constrained_columns: List[str] = []
+    referred_table: str = ""
+    referred_columns: List[str] = []
+
+
+class KGDbIndex(BaseModel):
+    """索引資訊"""
+    name: str = ""
+    columns: List[str] = []
+    unique: bool = False
+
+
+class KGDbTableInfo(BaseModel):
+    """資料表完整資訊"""
+    name: str
+    columns: List[KGDbColumnInfo] = []
+    primary_key_columns: List[str] = []
+    foreign_keys: List[KGDbForeignKey] = []
+    indexes: List[KGDbIndex] = []
+    unique_constraints: List[KGDbIndex] = []
+
+
+class KGDbSchemaResponse(BaseModel):
+    """資料庫 Schema 反射回應"""
+    success: bool = True
+    tables: List[KGDbTableInfo] = []
+    error: Optional[str] = None
+
+
+class KGDbGraphNode(BaseModel):
+    """DB ER 圖譜節點"""
+    id: str
+    label: str
+    type: str = "db_table"
+    category: str = "database"
+    status: Optional[str] = None
+    mention_count: int = 0
+
+
+class KGDbGraphEdge(BaseModel):
+    """DB ER 圖譜邊"""
+    source: str
+    target: str
+    label: str = ""
+    type: str = "foreign_key"
+    weight: int = 1
+
+
+class KGDbGraphResponse(BaseModel):
+    """資料庫 ER 圖譜回應"""
+    success: bool = True
+    nodes: List[KGDbGraphNode] = []
+    edges: List[KGDbGraphEdge] = []
+    error: Optional[str] = None

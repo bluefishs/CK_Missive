@@ -44,7 +44,20 @@ Relation types: issues, receives, manages, located_in, belongs_to, related_to, a
 Output this exact JSON structure:
 {"entities":[{"name":"實體名","type":"org","confidence":0.9,"context":"出處句"}],"relations":[{"source":"來源","source_type":"org","target":"目標","target_type":"project","relation":"manages","label":"承辦","confidence":0.9}]}
 
+CRITICAL extraction priorities:
+1. **project** (工程/案件名稱): Extract FULL official project names (e.g. "桃園區○○路段道路改善工程"). This is the MOST important entity type.
+2. **location** (地點): Extract specific addresses, road names, districts, landmarks (e.g. "桃園區中山路", "龍潭區"). NOT generic terms like "工地" or "現場".
+3. **org** (機關/公司): Extract full official names (e.g. "桃園市政府工務局"). NOT pronouns like "本府", "貴局".
+4. **person** (人名): Only extract real person names, not titles or roles.
+
+DO NOT extract:
+- Pronouns/generic terms: 本府, 貴局, 本公司, 承辦人
+- Boilerplate phrases: 檢送..., 函送..., 敬請查照
+- Document numbers as entities
+- Monetary amounts
+
 Rules: extract only explicitly mentioned entities, use full official names, confidence 0.0-1.0.
+- 同一個名稱只能有一個最適合的類型（例如「桃園市」應為 location 而非 org）
 IMPORTANT: Your entire response must be parseable by json.loads(). No other text."""
 
 
@@ -208,8 +221,83 @@ def _is_garbled_text(text: str) -> bool:
     return False
 
 
+def _has_corruption_signs(text: str) -> bool:
+    """偵測 mojibake / 控制字元 / 亂碼模式
+
+    - U+FFFD 替換字元
+    - 不可見控制字元 (U+0000-U+001F, U+007F-U+009F，排除 \\t\\n\\r)
+    - 連續 3+ 非 CJK/ASCII 罕用 Unicode 區段字元（Mojibake 典型特徵）
+    - 同一字元重複 4+ 次（LLM 幻覺產物）
+    """
+    # U+FFFD 替換字元
+    if '\ufffd' in text:
+        return True
+    # 控制字元（排除 tab/newline/carriage return）
+    for ch in text:
+        cp = ord(ch)
+        if (0x00 <= cp <= 0x08) or (0x0B <= cp <= 0x0C) or (0x0E <= cp <= 0x1F) or (0x7F <= cp <= 0x9F):
+            return True
+    # 同一字元重複 4+ 次（如「哈哈哈哈」「aaaa」）
+    if re.search(r'(.)\1{3,}', text):
+        return True
+    # 連續 3+ 個罕用 Unicode 字元（非 CJK、非 ASCII、非常用標點）
+    # 常見 mojibake 會產生 Latin Extended / CJK Compatibility 混合序列
+    unusual_count = 0
+    for ch in text:
+        cp = ord(ch)
+        is_common = (
+            (0x20 <= cp <= 0x7E)        # ASCII printable
+            or (0x4E00 <= cp <= 0x9FFF)  # CJK Unified
+            or (0x3400 <= cp <= 0x4DBF)  # CJK Extension A
+            or (0x3000 <= cp <= 0x303F)  # CJK Symbols
+            or (0xFF00 <= cp <= 0xFFEF)  # Fullwidth Forms
+            or (0x2000 <= cp <= 0x206F)  # General Punctuation
+            or cp in (0x3001, 0x3002, 0xFF0C, 0xFF0E, 0x300A, 0x300B)  # 常用中文標點
+        )
+        if not is_common:
+            unusual_count += 1
+            if unusual_count >= 3:
+                return True
+        else:
+            unusual_count = 0
+    return False
+
+
+def _normalize_entity_spacing(name: str) -> str:
+    """正規化實體名稱中的空白與標點
+
+    - 全形標點 → 移除（括號、引號除外）
+    - 連續空白 → 單一空白
+    - 首尾空白 → 移除
+    """
+    # 移除無意義全形標點（保留括號 ()（）、引號 「」 等配對符號）
+    name = re.sub(r'[，。、；：！？～…‧]', '', name)
+    # 連續空白歸一
+    name = re.sub(r'\s+', ' ', name)
+    return name.strip()
+
+
+# 公文套語前綴 — 以這些詞開頭的實體名稱通常是公文格式用語，非實質實體
+_BOILERPLATE_PREFIXES = (
+    '檢送', '函送', '檢附', '檢陳', '函復', '函覆', '函請',
+    '敬請', '請查照', '查照', '請照辦', '惠請',
+    '敬陳', '敬會', '敬悉', '奉核', '奉悉',
+    '依據', '依照', '茲有', '茲將', '茲因', '茲檢',
+    '有關', '關於', '為辦理', '為利', '為配合',
+    '復貴', '復請',
+)
+
+
+def _is_boilerplate_phrase(name: str) -> bool:
+    """檢測公文套語：以常見公文格式用語開頭且長度較長的實體名稱"""
+    if len(name) <= 4:
+        return False  # 短名稱不判定（避免誤殺「依據」作為 topic 等）
+    return any(name.startswith(prefix) for prefix in _BOILERPLATE_PREFIXES)
+
+
 # 代名詞/泛稱黑名單 — 這些不是有效的命名實體
 _PRONOUN_ENTITY_BLACKLIST = {
+    # 代名詞（貴/本/該 + 機關稱謂）
     '貴公司', '本公司', '該公司', '貴所', '本所', '該所',
     '貴局', '本局', '該局', '貴府', '本府', '該府',
     '貴會', '本會', '該會', '貴處', '本處', '該處',
@@ -217,6 +305,18 @@ _PRONOUN_ENTITY_BLACKLIST = {
     '貴院', '本院', '該院', '貴市', '本市', '該市',
     '貴機關', '本機關', '該機關', '貴單位', '本單位', '該單位',
     '台端', '臺端',
+    # 公文套語/例行用語 — 非實質關鍵字
+    '檢送', '函送', '檢附', '檢陳', '函復', '函覆', '函請',
+    '敬請', '請查照', '查照', '請照辦', '照辦', '惠請', '鑒核',
+    '敬陳', '敬會', '敬悉', '如說明', '如主旨', '復如說明',
+    '奉核', '奉悉', '如擬', '准予備查', '准予核備',
+    '核定', '備查', '鑒察', '鑒查', '轉陳', '轉請',
+    '諒達', '敬請鑒核', '敬請查照', '敬請備查',
+    '檢送本公司', '函送本公司', '檢附本公司',
+    '承辦人', '主管', '機關', '單位',
+    # 佔位符 / 簡體 / 無意義亂碼
+    '實體名', '服务器',
+    '司练南大家八室', '布八室', '服加八室',
 }
 
 # 公文號正則 — 符合此模式的是公文編號，不應列為 date/topic
@@ -238,17 +338,38 @@ def _validate_entities(entities: List) -> List[Dict]:
         etype = e.get("type", "").strip()
         if not name or etype not in VALID_ENTITY_TYPES:
             continue
+
+        # 空白/標點正規化
+        name = _normalize_entity_spacing(name)
+        if not name:
+            continue
+
         if _is_garbled_text(name):
             logger.warning(f"實體名稱疑似亂碼，已過濾: '{name}'")
             continue
 
-        # 代名詞黑名單過濾
+        # Mojibake / 控制字元偵測
+        if _has_corruption_signs(name):
+            logger.warning(f"實體名稱含損壞字元，已過濾: '{name}'")
+            continue
+
+        # 代名詞黑名單過濾（精確匹配）
         if name in _PRONOUN_ENTITY_BLACKLIST:
-            logger.debug(f"代名詞實體已過濾: '{name}'")
+            logger.debug(f"代名詞/套語實體已過濾: '{name}'")
+            continue
+
+        # 公文套語前綴過濾（「檢送…」「函復…」等開頭的實體名稱）
+        if _is_boilerplate_phrase(name):
+            logger.debug(f"公文套語實體已過濾: '{name}'")
             continue
 
         # 過短實體過濾（<=1 字元，人名除外）
         if len(name) <= 1 and etype != 'person':
+            continue
+
+        # 純代碼字串（機關代碼等，非實體名稱）
+        if re.match(r'^[A-Z0-9]{6,}$', name, re.IGNORECASE):
+            logger.debug(f"純代碼字串已過濾: '{name}'")
             continue
 
         # 統一編號前綴剝離（EB50819619 乾坤測繪 → 乾坤測繪）
@@ -265,6 +386,12 @@ def _validate_entities(entities: List) -> List[Dict]:
         # 金額實體過濾（297萬元整、99萬元整等）
         if re.match(r'^[\d,]+萬?元', name):
             continue
+
+        # date 類型降級：日期實體對圖譜關聯性低，僅保留高信心度的
+        if etype == 'date':
+            conf = float(e.get("confidence", 0.8))
+            if conf < 0.9:  # date 需 >= 0.9 才入圖
+                continue
 
         conf = float(e.get("confidence", 0.8))
         if conf < MIN_CONFIDENCE:

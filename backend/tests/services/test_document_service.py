@@ -31,7 +31,7 @@ from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 # 將 backend 目錄加入 Python 路徑
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from app.services.document_service import DocumentService, normalize_text, KANGXI_RADICALS
+from app.services.document_service import DocumentService, normalize_text
 
 
 # ============================================================================
@@ -167,18 +167,17 @@ class TestNormalizeText:
         assert "Test123" in result
         assert "測試" in result
 
-    def test_normalize_nfkc_normalization(self):
-        """測試 NFKC 正規化（全形轉半形等）"""
-        # 全形數字轉半形
+    def test_normalize_preserves_fullwidth(self):
+        """normalize_text 僅處理康熙/CJK相容字元，不轉換全形數字"""
+        # 全形數字不在正規化範圍內，應保持原樣
         result = normalize_text("１２３")
-        assert result == "123"
+        assert result == "１２３"
 
-    def test_kangxi_radicals_mapping_complete(self):
-        """驗證康熙部首對照表的完整性"""
-        # 確認對照表中的所有映射都能正常工作
-        for kangxi, normal in KANGXI_RADICALS.items():
-            result = normalize_text(kangxi)
-            assert result == normal, f"康熙部首 {kangxi} 應轉換為 {normal}"
+    def test_kangxi_radicals_normalization(self):
+        """驗證康熙部首透過 NFKC 正規化"""
+        # 康熙部首 ⼈ (U+2F08) 應正規化為標準漢字 人 (U+4EBA)
+        result = normalize_text("\u2F08")
+        assert result == "\u4EBA"
 
 
 # ============================================================================

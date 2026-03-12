@@ -16,7 +16,7 @@ from sqlalchemy import select, func, desc, cast, Date, delete, update
 
 from app.repositories.base_repository import BaseRepository
 from app.extended.models import AISearchHistory, User
-from app.schemas.ai import (
+from app.schemas.ai.search_history import (
     SearchHistoryItem,
     DailyTrend,
     TopQuery,

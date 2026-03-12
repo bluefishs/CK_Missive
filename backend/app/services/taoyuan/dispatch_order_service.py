@@ -11,10 +11,11 @@ Excel 匯入/匯出邏輯已拆分至 dispatch_import_service.py。
 """
 
 import logging
+import re
 from datetime import date, datetime
 from typing import Optional, List, Dict, Any, Tuple
 
-from sqlalchemy import select, delete
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -240,6 +241,8 @@ class DispatchOrderService:
                 create_data.get('contract_project_id'),
                 create_data.get('work_type'),
             )
+            # 同步知識圖譜實體連結
+            await self._sync_dispatch_entity_links(dispatch_order.id, project_name)
 
         # 同步 work_type 到正規化關聯表
         work_type_str = create_data.get('work_type')
@@ -320,12 +323,15 @@ class DispatchOrderService:
             current_company = company_doc_id if 'company_doc_id' in update_data else dispatch_order.company_doc_id
             await self._sync_document_links(dispatch_id, current_agency, current_company)
 
-        # 工程名稱變更時重新自動匹配公文
+        # 工程名稱變更時重新自動匹配公文 + 實體連結
         if 'project_name' in update_data and update_data['project_name']:
             await self._auto_match_documents(
                 dispatch_id, update_data['project_name'],
                 dispatch_order.contract_project_id,
                 dispatch_order.work_type,
+            )
+            await self._sync_dispatch_entity_links(
+                dispatch_id, update_data['project_name']
             )
 
         # 同步 case_handler / survey_unit 到關聯的 TaoyuanProject
@@ -519,6 +525,23 @@ class DispatchOrderService:
         # 自動傳遞工程關聯
         await self._sync_document_project_links(dispatch_id)
 
+    # 通用合約級公文關鍵字（不屬於特定子工程，所有派工單都應關聯）
+    GENERIC_DOC_PATTERNS = [
+        r'契約書', r'教育訓練', r'系統建置', r'開口契約',
+        r'履約保證', r'保險', r'印鑑', r'投標', r'決標',
+        r'簽約', r'工作計畫書', r'採購案',
+    ]
+
+    # 剝離通用合約名稱前綴的正則（移除後剩餘的文字用來判斷地名歸屬）
+    _CONTRACT_PREFIX_RE = re.compile(
+        r'(?:檢送|請領|有關|為)?(?:本公司|貴公司|本局)?'
+        r'(?:辦理|承攬|所提|提送|檢送)?'
+        r'[「『]?'
+        r'115年度桃園市[^\u3000-\u303F」』）)]*?(?:開口契約)[」』）)]*'
+        r'[」』）)]*'
+        r'[案之的一]*[，,\-\s]*'
+    )
+
     async def _auto_match_documents(
         self,
         dispatch_id: int,
@@ -529,8 +552,11 @@ class DispatchOrderService:
         """
         派工單建立/更新時自動匹配公文
 
-        利用現有的 get_document_history 4 策略搜尋，
-        自動建立 DispatchDocumentLink（跳過已存在的關聯）。
+        流程：
+        1. get_document_history 初篩（停用 fallback）
+        2. 提取核心辨識詞（地名/派工單號）做二次相關性過濾
+        3. 收集同合約其他派工單的辨識詞做反向排除
+        4. 建立 DispatchDocumentLink（跳過已存在的關聯）
 
         Returns:
             新增的關聯數量
@@ -539,10 +565,36 @@ class DispatchOrderService:
             project_name=project_name,
             contract_project_id=contract_project_id,
             work_type=work_type,
+            allow_fallback=False,  # 停用全專案 fallback
         )
 
         if not matched_docs:
             return 0
+
+        # 二次相關性過濾：提取核心辨識詞
+        core_ids = self._extract_core_identifiers(project_name, work_type)
+
+        # 收集同合約下其他派工單的辨識詞（用於反向排除）
+        other_ids: List[str] = []
+        if contract_project_id and core_ids:
+            other_ids = await self._collect_sibling_identifiers(
+                contract_project_id, exclude_dispatch_id=dispatch_id
+            )
+
+        if core_ids:
+            before = len(matched_docs)
+            matched_docs = [
+                doc for doc in matched_docs
+                if self._score_document_relevance(
+                    doc, core_ids, other_ids=other_ids
+                ) >= 0.15
+            ]
+            after = len(matched_docs)
+            if before != after:
+                logger.info(
+                    "[auto_match] 派工單 %s 相關性過濾: %d -> %d 筆",
+                    dispatch_id, before, after,
+                )
 
         linked_count = 0
         for doc in matched_docs:
@@ -568,6 +620,216 @@ class DispatchOrderService:
             logger.info(f"[auto_match] 派工單 {dispatch_id} 自動匹配 {linked_count} 筆公文")
 
         return linked_count
+
+    @staticmethod
+    def _extract_core_identifiers(
+        project_name: str, work_type: Optional[str] = None
+    ) -> List[str]:
+        """
+        從派工單 project_name 提取核心辨識詞。
+
+        提取順序：
+        1. 派工單號 (派工單013)
+        2. 地名/路名 (龍岡路、霄裡公園)
+        3. 行政區 (中壢區)
+        4. 工程名稱片段
+        """
+        ids: List[str] = []
+
+        if not project_name:
+            return ids
+
+        # 派工單號
+        m = re.search(r'派工單[號]?\s*(\d{2,4})', project_name)
+        if m:
+            ids.append(f"派工單{m.group(1)}")
+
+        # 路名/街名（最強辨識信號）
+        for m in re.finditer(r'([\u4e00-\u9fff]{2,6}(?:路|街))', project_name):
+            name = m.group(1)
+            if name not in ids and len(name) >= 3:
+                ids.append(name)
+
+        # 公園/廣場/用地
+        for m in re.finditer(r'([\u4e00-\u9fff]{2,6}(?:公園|廣場|用地))', project_name):
+            if m.group(1) not in ids:
+                ids.append(m.group(1))
+
+        # 行政區
+        m = re.search(r'([\u4e00-\u9fff]{1,3}[區鄉鎮市])', project_name)
+        if m and m.group(1) not in ids:
+            ids.append(m.group(1))
+
+        return ids
+
+    async def _collect_sibling_identifiers(
+        self,
+        contract_project_id: int,
+        exclude_dispatch_id: int,
+    ) -> List[str]:
+        """收集同合約下其他派工單的地名辨識詞（路名/公園/派工單號）"""
+        siblings = await self.db.execute(
+            select(TaoyuanDispatchOrder.id, TaoyuanDispatchOrder.project_name)
+            .where(
+                TaoyuanDispatchOrder.contract_project_id == contract_project_id,
+                TaoyuanDispatchOrder.id != exclude_dispatch_id,
+            )
+        )
+        ids: List[str] = []
+        for row in siblings.all():
+            for ident in self._extract_core_identifiers(row.project_name):
+                # 只取路名/公園/派工單號，跳過行政區（太泛）
+                if any(ident.endswith(s) for s in ('路', '街', '公園', '廣場', '用地')):
+                    if ident not in ids:
+                        ids.append(ident)
+                elif ident.startswith('派工單'):
+                    if ident not in ids:
+                        ids.append(ident)
+        return ids
+
+    @classmethod
+    def _score_document_relevance(
+        cls,
+        doc: Dict[str, Any],
+        core_ids: List[str],
+        other_ids: Optional[List[str]] = None,
+    ) -> float:
+        """
+        計算公文與核心辨識詞的相關性分數 (0~1)。
+
+        評分邏輯：
+        1. 含本派工單號 → 1.0
+        2. 純通用合約文件（剝離合約前綴後無其他地名）→ 0.5
+        3. 含其他派工單的專屬地名 → 0.0（排除）
+        4. 命中核心辨識詞比率 → matched / total
+        """
+        subject = doc.get('subject', '') or ''
+
+        # 1. 派工單號完全匹配：最高信心
+        for cid in core_ids:
+            if cid.startswith('派工單') and cid in subject:
+                return 1.0
+
+        # 2. 剝離通用合約前綴，檢查剩餘文字
+        stripped = cls._CONTRACT_PREFIX_RE.sub('', subject).strip()
+
+        # 3. 含其他派工單的專屬地名/派工單號 → 排除
+        if other_ids:
+            for oid in other_ids:
+                if oid in subject:
+                    # 但如果同時命中本派工單的核心辨識詞，仍保留
+                    if any(cid in subject for cid in core_ids
+                           if not cid.endswith('區')):
+                        break
+                    return 0.0
+
+        # 4. 通用合約文件判定：剝離後無具體地名
+        is_generic = any(re.search(p, subject) for p in cls.GENERIC_DOC_PATTERNS)
+        if is_generic:
+            # 檢查剝離後是否還有其他具體地名（路/街/公園）
+            remaining_locations = re.findall(
+                r'[\u4e00-\u9fff]{2,6}(?:路|街|公園|廣場)', stripped
+            )
+            if not remaining_locations:
+                # 純通用合約公文（契約書、教育訓練、保險等）
+                return 0.5
+            # 有具體地名但沒命中本派工單 → 屬於其他派工單
+            if not any(cid in subject for cid in core_ids if not cid.endswith('區')):
+                return 0.0
+            return 0.5
+
+        # 5. 計算核心辨識詞命中比率
+        if not core_ids:
+            return 0.0
+
+        matched = sum(1 for cid in core_ids if cid in subject)
+        return matched / len(core_ids)
+
+    async def _sync_dispatch_entity_links(
+        self, dispatch_id: int, project_name: str
+    ) -> int:
+        """
+        從 project_name 提取地名/機關等關鍵詞，比對知識圖譜正規化實體，
+        建立 taoyuan_dispatch_entity_link 關聯。
+
+        Returns:
+            新增的實體連結數量
+        """
+        from app.extended.models import (
+            CanonicalEntity, EntityAlias, TaoyuanDispatchEntityLink,
+        )
+
+        if not project_name:
+            return 0
+
+        # 1. 提取核心辨識詞
+        core_ids = self._extract_core_identifiers(project_name)
+        if not core_ids:
+            return 0
+
+        # 2. 查詢知識圖譜中匹配的正規化實體
+        # 同時搜尋 canonical_name 和 alias_name
+        matched_entity_ids: set[int] = set()
+
+        for keyword in core_ids:
+            # 精確匹配 canonical_name
+            result = await self.db.execute(
+                select(CanonicalEntity.id).where(
+                    CanonicalEntity.canonical_name == keyword
+                )
+            )
+            for row in result.all():
+                matched_entity_ids.add(row[0])
+
+            # 精確匹配 alias_name
+            result = await self.db.execute(
+                select(EntityAlias.canonical_entity_id).where(
+                    EntityAlias.alias_name == keyword
+                )
+            )
+            for row in result.all():
+                matched_entity_ids.add(row[0])
+
+            # LIKE 匹配（支援部分地名，如 '豐田' 匹配 '豐田路'）
+            if len(keyword) >= 2:
+                result = await self.db.execute(
+                    select(CanonicalEntity.id).where(
+                        CanonicalEntity.canonical_name.ilike(f"%{keyword}%"),
+                        CanonicalEntity.entity_type.in_(['location', 'project']),
+                    )
+                )
+                for row in result.all():
+                    matched_entity_ids.add(row[0])
+
+        if not matched_entity_ids:
+            return 0
+
+        # 3. 清除舊的 auto 連結，保留 manual/llm
+        await self.db.execute(
+            delete(TaoyuanDispatchEntityLink).where(
+                TaoyuanDispatchEntityLink.dispatch_order_id == dispatch_id,
+                TaoyuanDispatchEntityLink.source == 'auto',
+            )
+        )
+
+        # 4. 建立新連結
+        linked = 0
+        for entity_id in matched_entity_ids:
+            link = TaoyuanDispatchEntityLink(
+                dispatch_order_id=dispatch_id,
+                canonical_entity_id=entity_id,
+                source='auto',
+                confidence=1.0,
+            )
+            self.db.add(link)
+            linked += 1
+
+        if linked:
+            logger.info(
+                "[entity_link] 派工單 %d 自動關聯 %d 個正規化實體 (關鍵詞: %s)",
+                dispatch_id, linked, core_ids,
+            )
+        return linked
 
     async def _sync_document_project_links(self, dispatch_id: int) -> int:
         """

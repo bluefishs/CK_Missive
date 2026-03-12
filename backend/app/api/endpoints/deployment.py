@@ -20,7 +20,6 @@ import logging
 from app.core.rate_limiter import limiter
 
 from app.core.dependencies import require_admin
-from app.core.config import settings
 from app.schemas.deployment import (
     ServiceStatus,
     DeploymentStatus,

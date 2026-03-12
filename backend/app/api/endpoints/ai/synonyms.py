@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_async_db, require_admin
 from app.extended.models import User
 from app.repositories import AISynonymRepository
-from app.schemas.ai import (
+from app.schemas.ai.synonyms import (
     AISynonymCreate,
     AISynonymUpdate,
     AISynonymResponse,
@@ -29,8 +29,8 @@ from app.schemas.ai import (
     AISynonymListResponse,
     AISynonymDeleteRequest,
     AISynonymReloadResponse,
-    SuccessResponse,
 )
+from app.schemas.ai.common import SuccessResponse
 
 logger = logging.getLogger(__name__)
 

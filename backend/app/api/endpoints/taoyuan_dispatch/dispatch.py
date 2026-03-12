@@ -44,6 +44,7 @@ from app.schemas.taoyuan.dispatch import (
 )
 from app.utils.doc_helpers import is_outgoing_doc_number
 from app.services.taoyuan import DispatchOrderService, DispatchExportService, ExportTaskManager
+from app.services.taoyuan.dispatch_response_formatter import dispatch_to_response_dict
 
 router = APIRouter()
 
@@ -321,7 +322,11 @@ async def get_dispatch_order_detail(
     if not order:
         raise HTTPException(status_code=404, detail="派工紀錄不存在")
 
-    return service._to_response_dict(order)
+    # 批次查詢每筆公文被幾個派工單引用（供前端顯示跨派工單重疊）
+    doc_ids = [link.document_id for link in (order.document_links or []) if link.document_id]
+    doc_dispatch_counts = await service.repository.get_doc_dispatch_counts(doc_ids) if doc_ids else None
+
+    return dispatch_to_response_dict(order, doc_dispatch_counts=doc_dispatch_counts)
 
 
 @router.post("/dispatch/batch-set-batch", response_model=BatchSetResponse, summary="批量設定結案批次")

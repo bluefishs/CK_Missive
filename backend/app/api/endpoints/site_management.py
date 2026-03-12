@@ -4,7 +4,6 @@
 網站管理API端點 (已修復模型屬性錯誤)
 """
 import json
-from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession

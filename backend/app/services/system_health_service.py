@@ -70,9 +70,10 @@ class SystemHealthService:
                 "message": "Database connection successful",
             }
         except Exception as e:
+            logger.error(f"Database health check failed: {e}")
             return {
                 "status": "unhealthy",
-                "error": str(e),
+                "error": "Database connection failed",
                 "message": "Database connection failed",
             }
 
@@ -98,7 +99,8 @@ class SystemHealthService:
                     "count_method": "pg_class_estimate",
                 }
             except Exception as e:
-                result[display_name] = {"status": "unhealthy", "error": str(e)}
+                logger.error(f"Core table check failed for {display_name}: {e}")
+                result[display_name] = {"status": "unhealthy", "error": "Table check failed"}
         return result
 
     # ------------------------------------------------------------------
@@ -126,7 +128,8 @@ class SystemHealthService:
                 "utilization_percent": utilization,
             }
         except Exception as e:
-            return {"status": "unknown", "error": str(e)}
+            logger.error(f"Connection pool check failed: {e}")
+            return {"status": "unknown", "error": "Connection pool check failed"}
 
     # ------------------------------------------------------------------
     # 系統資源檢查
@@ -164,7 +167,8 @@ class SystemHealthService:
 
             return result
         except Exception as e:
-            return {"status": "unknown", "error": str(e)}
+            logger.error(f"System resources check failed: {e}")
+            return {"status": "unknown", "error": "System resources check failed"}
 
     # ------------------------------------------------------------------
     # 效能基準
@@ -208,10 +212,11 @@ class SystemHealthService:
                     "status": "success",
                 }
             except Exception as e:
+                logger.error(f"Performance benchmark {query_name} failed: {e}")
                 metrics[query_name] = {
                     "execution_time_ms": None,
                     "status": "error",
-                    "error": str(e),
+                    "error": "Benchmark query failed",
                 }
         return metrics
 
@@ -264,7 +269,8 @@ class SystemHealthService:
                 "last_24h": {"total": recent_logs, "by_action": action_stats},
             }
         except Exception as e:
-            return {"status": "error", "error": str(e)}
+            logger.error(f"Audit service check failed: {e}")
+            return {"status": "error", "error": "Audit service check failed"}
 
     # ------------------------------------------------------------------
     # 備份狀態檢查
@@ -328,7 +334,8 @@ class SystemHealthService:
             return result
 
         except Exception as e:
-            return {"status": "unknown", "error": str(e)}
+            logger.error(f"Backup status check failed: {e}")
+            return {"status": "unknown", "error": "Backup status check failed"}
 
     # ------------------------------------------------------------------
     # 就緒檢查

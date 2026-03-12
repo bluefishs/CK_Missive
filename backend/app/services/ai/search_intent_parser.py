@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.schemas.ai import ParsedSearchIntent
+from app.schemas.ai.search import ParsedSearchIntent
 from .ai_config import get_ai_config
 from .ai_prompt_manager import AIPromptManager
 from .base_ai_service import BaseAIService

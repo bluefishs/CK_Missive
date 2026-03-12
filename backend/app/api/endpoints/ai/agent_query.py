@@ -18,7 +18,8 @@ from starlette.responses import StreamingResponse
 
 from app.core.dependencies import require_auth, get_async_db
 from app.extended.models import User
-from app.schemas.ai import AgentQueryRequest, OkResponse
+from app.schemas.ai.rag import AgentQueryRequest
+from app.schemas.ai.common import OkResponse
 from app.api.sse_utils import create_sse_response
 
 logger = logging.getLogger(__name__)
@@ -53,6 +54,7 @@ async def agent_query_stream(
             question=request.question,
             history=request.history,
             session_id=request.session_id,
+            context=request.context,
         ),
         endpoint_name="Agent",
         done_extra={"tools_used": [], "iterations": 0},

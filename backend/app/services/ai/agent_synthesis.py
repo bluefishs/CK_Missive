@@ -11,6 +11,7 @@ Agent 合成模組 — 答案合成、thinking 過濾、context 建構
 Extracted from agent_orchestrator.py v1.8.0
 """
 
+import json
 import re
 import logging
 from typing import Any, AsyncGenerator, Dict, List, Optional
@@ -32,19 +33,27 @@ class AgentSynthesizer:
         question: str,
         tool_results: List[Dict[str, Any]],
         history: Optional[List[Dict[str, str]]] = None,
+        context: Optional[str] = None,
     ) -> AsyncGenerator[str, None]:
         """根據所有工具結果，串流生成最終回答"""
         from app.services.ai.ai_prompt_manager import AIPromptManager
 
-        context = self.build_synthesis_context(tool_results)
+        synthesis_context = self.build_synthesis_context(tool_results)
 
         await AIPromptManager.ensure_db_prompts_loaded()
-        base_prompt = AIPromptManager.get_system_prompt("rag_system")
-        if not base_prompt:
+
+        if context == "dev":
             base_prompt = (
-                "你是公文管理系統的 AI 助理。根據檢索到的資料回答使用者問題。"
-                "引用來源時使用 [公文N] 格式。使用繁體中文回答。"
+                "你是 CK_Missive 系統的開發者 AI 助理。根據檢索到的代碼結構與資料庫 Schema 回答開發者問題。"
+                "引用來源時使用 [模組N] 或 [表N] 格式。使用繁體中文回答。"
             )
+        else:
+            base_prompt = AIPromptManager.get_system_prompt("rag_system")
+            if not base_prompt:
+                base_prompt = (
+                    "你是公文管理系統的 AI 助理。根據檢索到的資料回答使用者問題。"
+                    "引用來源時使用 [公文N] 格式。使用繁體中文回答。"
+                )
 
         system_prompt = (
             f"{base_prompt}\n\n"
@@ -67,7 +76,7 @@ class AgentSynthesizer:
 
         messages.extend(sanitize_history(history, self.config.rag_max_history_turns))
 
-        user_prompt = f"查詢結果：\n\n{context}\n\n問題：{question}\n\n請根據上述資料回答問題。"
+        user_prompt = f"查詢結果：\n\n{synthesis_context}\n\n問題：{question}\n\n請根據上述資料回答問題。"
         messages.append({"role": "user", "content": user_prompt})
 
         # 非串流呼叫 + 後處理：qwen3:4b 會在回覆中大量穿插推理段落
@@ -199,6 +208,44 @@ class AgentSynthesizer:
                     parts.append(part)
                     total_chars += len(part)
 
+            elif tool == "navigate_graph":
+                center = result.get("center_entity", {})
+                cluster = result.get("cluster_nodes", [])
+                part = (
+                    f"[導航] 已定位至「{center.get('name', '')}」叢集\n"
+                    f"  相關節點 {len(cluster)} 個:\n"
+                )
+                for node in cluster[:8]:
+                    part += f"    - {node.get('name', '')} ({node.get('type', '')})\n"
+                if total_chars + len(part) <= max_chars:
+                    parts.append(part)
+                    total_chars += len(part)
+
+            elif tool == "summarize_entity":
+                entity = result.get("entity", {})
+                summary_text = result.get("summary", "")
+                part = (
+                    f"[實體摘要] {entity.get('name', '')} ({entity.get('type', '')})\n"
+                    f"  {summary_text[:200]}\n"
+                )
+                for u in result.get("upstream", [])[:3]:
+                    part += f"  上游: {u.get('entity_name', '')} ({u.get('relation', '')})\n"
+                for d in result.get("downstream", [])[:3]:
+                    part += f"  下游: {d.get('entity_name', '')} ({d.get('relation', '')})\n"
+                timeline = result.get("timeline", [])
+                if timeline:
+                    part += f"  時間軸: {len(timeline)} 個事件\n"
+                    for evt in timeline[:3]:
+                        part += f"    - {evt.get('date', '')} {evt.get('subject', '')[:40]}\n"
+                docs = result.get("documents", [])
+                if docs:
+                    part += f"  關聯公文 {len(docs)} 篇:\n"
+                    for doc in docs[:3]:
+                        part += f"    - {doc.get('doc_number', '')} {doc.get('subject', '')[:40]}\n"
+                if total_chars + len(part) <= max_chars:
+                    parts.append(part)
+                    total_chars += len(part)
+
         return "\n".join(parts) if parts else "(查詢未取得有效資料)"
 
     @staticmethod
@@ -268,6 +315,41 @@ def summarize_tool_result(tool_name: str, result: Dict[str, Any]) -> str:
             f"實體 {stats.get('total_entities', 0)} 個, "
             f"關係 {stats.get('total_relationships', 0)} 條"
         )
+
+    if tool_name == "navigate_graph":
+        count = result.get("count", 0)
+        center = result.get("center_entity", {})
+        center_name = center.get("name", "") if center else ""
+        # 回傳 JSON 格式讓前端 Bridge 可以直接解析
+        return json.dumps({
+            "action": "navigate",
+            "center_entity": center,
+            "highlight_ids": result.get("highlight_ids", []),
+            "cluster_nodes": result.get("cluster_nodes", [])[:20],
+            "count": count,
+            "summary": f"已導航至「{center_name}」叢集，共 {count} 個相關節點",
+        }, ensure_ascii=False)
+
+    if tool_name == "summarize_entity":
+        entity = result.get("entity", {})
+        name = entity.get("name", "")
+        summary_text = result.get("summary", "")
+        upstream_count = len(result.get("upstream", []))
+        downstream_count = len(result.get("downstream", []))
+        doc_count = len(result.get("documents", []))
+        # 回傳 JSON 格式讓前端 Bridge 可以解析上下游
+        return json.dumps({
+            "entity": entity,
+            "upstream": result.get("upstream", [])[:10],
+            "downstream": result.get("downstream", [])[:10],
+            "doc_count": doc_count,
+            "summary": (
+                f"「{name}」摘要: {summary_text[:100]}... "
+                f"(上游 {upstream_count}, 下游 {downstream_count}, 關聯公文 {doc_count})"
+                if summary_text else
+                f"「{name}」: 上游 {upstream_count}, 下游 {downstream_count}, 關聯公文 {doc_count}"
+            ),
+        }, ensure_ascii=False)
 
     return f"完成 (count={result.get('count', 0)})"
 
