@@ -996,7 +996,7 @@ export interface CodeWikiResponse {
 
 /** Agent 推理步驟 */
 export interface AgentStepInfo {
-  type: 'thinking' | 'tool_call' | 'tool_result' | 'react';
+  type: 'thinking' | 'tool_call' | 'tool_result' | 'react' | 'self_awareness' | 'proactive_alert';
   step_index: number;
   step?: string;
   tool?: string;
@@ -1007,6 +1007,16 @@ export interface AgentStepInfo {
   confidence?: number;
   /** ReAct 推理專屬：決策動作 */
   action?: 'answer' | 'continue' | 'refine';
+  /** NemoClaw: 代理人自覺身份 */
+  identity?: string;
+  /** NemoClaw: 代理人人格描述 */
+  personality?: string;
+  /** NemoClaw: 主動提醒訊息 */
+  message?: string;
+  /** NemoClaw: 代理人強項 */
+  strengths?: string[];
+  /** NemoClaw: 工具選擇推理說明 */
+  reasoning?: string;
 }
 
 /** 聊天訊息 */
