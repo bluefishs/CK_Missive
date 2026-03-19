@@ -177,6 +177,7 @@ class GraphQueryService:
         ]
 
         # 關係（出邊 + 入邊），排除程式碼圖譜實體
+        # 使用 2 查詢（JOIN target 不同，UNION 需 subquery 反而更慢）
         out_result = await self.db.execute(
             select(EntityRelationship, CanonicalEntity.canonical_name, CanonicalEntity.entity_type)
             .join(CanonicalEntity, CanonicalEntity.id == EntityRelationship.target_entity_id)

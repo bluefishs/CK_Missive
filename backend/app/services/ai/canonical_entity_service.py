@@ -165,19 +165,26 @@ class CanonicalEntityService:
         if not unmatched:
             return result
 
-        # ── Stage 2: 逐筆模糊匹配（pg_trgm 不支援 IN 批次）────
+        # ── Stage 2: 批次模糊匹配（按 entity_type 分組，每組 1 查詢）────
         fuzzy_aliases_to_add: List[Tuple[CanonicalEntity, str]] = []
         still_unmatched: List[Tuple[str, str]] = []
 
+        # 按 entity_type 分組以減少查詢數
+        by_type: Dict[str, List[str]] = {}
         for name, etype in unmatched:
-            canonical = await self._fuzzy_match(name, etype)
-            if canonical:
-                key = f"{etype}:{name}"
-                result[key] = canonical
-                fuzzy_aliases_to_add.append((canonical, name))
-                logger.info(f"批次模糊匹配: {name} → {canonical.canonical_name}")
-            else:
-                still_unmatched.append((name, etype))
+            by_type.setdefault(etype, []).append(name)
+
+        for etype, names in by_type.items():
+            matched_names = await self._fuzzy_match_batch(names, etype)
+            for name in names:
+                canonical = matched_names.get(name)
+                if canonical:
+                    key = f"{etype}:{name}"
+                    result[key] = canonical
+                    fuzzy_aliases_to_add.append((canonical, name))
+                    logger.info(f"批次模糊匹配: {name} → {canonical.canonical_name}")
+                else:
+                    still_unmatched.append((name, etype))
 
         # 批次新增模糊匹配的別名（1 次去重查詢）
         if fuzzy_aliases_to_add:
@@ -461,14 +468,54 @@ class CanonicalEntityService:
 
         return False
 
+    async def _fuzzy_match_batch(
+        self, names: List[str], entity_type: str,
+    ) -> Dict[str, CanonicalEntity]:
+        """Stage 2: 批次 pg_trgm 模糊匹配（每個 entity_type 1 次查詢）"""
+        matched: Dict[str, CanonicalEntity] = {}
+        if not names:
+            return matched
+
+        try:
+            # 取得該 entity_type 所有 canonical entities（通常 <500 筆）
+            all_candidates_result = await self.db.execute(
+                select(CanonicalEntity)
+                .where(CanonicalEntity.entity_type == entity_type)
+            )
+            all_candidates = all_candidates_result.scalars().all()
+
+            if not all_candidates:
+                return matched
+
+            # 逐名字在記憶體中匹配（避免 N 次 DB 查詢）
+            for name in names:
+                best_match: Optional[CanonicalEntity] = None
+                best_score = 0.0
+                for candidate in all_candidates:
+                    # 簡化的相似度計算（trigram-like）
+                    score = self._compute_similarity(name, candidate.canonical_name)
+                    if score >= FUZZY_SIMILARITY_THRESHOLD and score > best_score:
+                        if not self._is_false_fuzzy_match(name, candidate.canonical_name):
+                            best_match = candidate
+                            best_score = score
+                if best_match:
+                    matched[name] = best_match
+
+            return matched
+        except Exception as e:
+            logger.debug(f"批次模糊匹配失敗: {e}")
+            # 降級為逐筆匹配
+            for name in names:
+                result = await self._fuzzy_match(name, entity_type)
+                if result:
+                    matched[name] = result
+            return matched
+
     async def _fuzzy_match(
         self, name: str, entity_type: str,
     ) -> Optional[CanonicalEntity]:
-        """Stage 2: pg_trgm 模糊匹配（含虛假匹配防護）"""
+        """單筆 pg_trgm 模糊匹配（批次匹配的降級路徑）"""
         try:
-            from sqlalchemy import text
-
-            # 使用 pg_trgm similarity 函數
             result = await self.db.execute(
                 select(CanonicalEntity)
                 .where(CanonicalEntity.entity_type == entity_type)
@@ -479,24 +526,35 @@ class CanonicalEntityService:
                 .order_by(
                     sa_func.similarity(CanonicalEntity.canonical_name, name).desc()
                 )
-                .limit(5)  # 取前 5 個候選，逐一驗證
+                .limit(5)
             )
             candidates = result.scalars().all()
 
             for candidate in candidates:
                 if self._is_false_fuzzy_match(name, candidate.canonical_name):
-                    logger.info(
-                        f"模糊匹配被虛假匹配防護拒絕: "
-                        f"'{name[:40]}' ≠ '{candidate.canonical_name[:40]}'"
-                    )
-                    continue  # 嘗試下一個候選
+                    continue
                 return candidate
-
             return None
         except Exception as e:
-            # pg_trgm 擴展未安裝時降級
             logger.debug(f"pg_trgm 模糊匹配失敗 (擴展可能未安裝): {e}")
             return None
+
+    @staticmethod
+    def _compute_similarity(a: str, b: str) -> float:
+        """計算兩個字串的 trigram 相似度（Python 端，替代 pg_trgm）"""
+        if not a or not b:
+            return 0.0
+        a_lower, b_lower = a.lower(), b.lower()
+        if a_lower == b_lower:
+            return 1.0
+        # Trigram set similarity
+        a_trigrams = {a_lower[i:i+3] for i in range(max(len(a_lower) - 2, 1))}
+        b_trigrams = {b_lower[i:i+3] for i in range(max(len(b_lower) - 2, 1))}
+        if not a_trigrams or not b_trigrams:
+            return 0.0
+        intersection = len(a_trigrams & b_trigrams)
+        union = len(a_trigrams | b_trigrams)
+        return intersection / union if union > 0 else 0.0
 
     async def _create_entity(
         self, name: str, entity_type: str,
@@ -525,21 +583,14 @@ class CanonicalEntityService:
         return entity
 
     async def _find_agency_id(self, name: str) -> int | None:
-        """嘗試以精確名稱或簡稱匹配 government_agencies"""
+        """嘗試以精確名稱或簡稱匹配 government_agencies（單一查詢）"""
         from app.extended.models import GovernmentAgency
-        # 精確匹配
         result = await self.db.execute(
             select(GovernmentAgency.id)
-            .where(GovernmentAgency.agency_name == name)
-            .limit(1)
-        )
-        row = result.scalar_one_or_none()
-        if row:
-            return row
-        # 簡稱匹配
-        result = await self.db.execute(
-            select(GovernmentAgency.id)
-            .where(GovernmentAgency.agency_short_name == name)
+            .where(
+                (GovernmentAgency.agency_name == name)
+                | (GovernmentAgency.agency_short_name == name)
+            )
             .limit(1)
         )
         return result.scalar_one_or_none()
