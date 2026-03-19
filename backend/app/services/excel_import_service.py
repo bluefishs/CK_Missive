@@ -28,6 +28,10 @@ from app.extended.models import OfficialDocument
 from app.services.base.import_base import ImportBaseService
 from app.services.base.response import ImportResult, ImportRowResult
 from app.services.calendar.event_auto_builder import CalendarEventAutoBuilder
+from app.services.import_validators import (
+    validate_preview_row as _validate_preview_row_impl,
+    prepare_document_data as _prepare_document_data_impl,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -207,58 +211,16 @@ class ExcelImportService(ImportBaseService):
         existing_doc_numbers: set,
         result: Dict
     ) -> Dict:
-        """驗證預覽列"""
-        validation_status = {
-            "row": row_num,
-            "data": row_data,
-            "status": "valid",
-            "issues": [],
-            "action": "insert"
-        }
-
-        # 檢查公文ID判斷新增/更新
-        doc_id = row_data.get('公文ID')
-        if doc_id and str(doc_id).strip():
-            validation_status["action"] = "update"
-            result["validation"]["will_update"] += 1
-        else:
-            result["validation"]["will_insert"] += 1
-
-        # 檢查類別
-        category = str(row_data.get('類別', '')).strip()
-        if category and category not in self.validators.VALID_CATEGORIES:
-            validation_status["issues"].append(f"無效類別: {category}")
-            result["validation"]["invalid_categories"].append(row_num)
-
-        # 檢查公文類型
-        doc_type = str(row_data.get('公文類型', '')).strip()
-        if doc_type and doc_type not in self.validators.VALID_DOC_TYPES:
-            validation_status["issues"].append(f"無效公文類型: {doc_type}")
-            result["validation"]["invalid_doc_types"].append(row_num)
-
-        # 檢查重複公文字號
-        doc_number = str(row_data.get('公文字號', '')).strip()
-        if doc_number:
-            if doc_number in doc_numbers_seen:
-                validation_status["issues"].append("檔案內重複公文字號")
-                result["validation"]["duplicate_doc_numbers"].append(row_num)
-            doc_numbers_seen.add(doc_number)
-
-            if doc_number in existing_doc_numbers and validation_status["action"] == "insert":
-                validation_status["issues"].append("資料庫已存在此公文字號")
-                result["validation"]["existing_in_db"].append(row_num)
-
-        # 缺少必填欄位
-        for field in self.REQUIRED_FIELDS:
-            value = row_data.get(field)
-            if not value or (isinstance(value, str) and not value.strip()):
-                validation_status["issues"].append(f"缺少必填欄位: {field}")
-                validation_status["status"] = "warning"
-
-        if validation_status["issues"]:
-            validation_status["status"] = "warning"
-
-        return validation_status
+        """驗證預覽列（委派至 import_validators）"""
+        return _validate_preview_row_impl(
+            row_num=row_num,
+            row_data=row_data,
+            doc_numbers_seen=doc_numbers_seen,
+            existing_doc_numbers=existing_doc_numbers,
+            result=result,
+            validators=self.validators,
+            required_fields=self.REQUIRED_FIELDS,
+        )
 
     async def import_from_file(
         self,
@@ -476,55 +438,13 @@ class ExcelImportService(ImportBaseService):
         category: str,
         doc_type: str
     ) -> Dict[str, Any]:
-        """準備公文資料"""
-        sender_name = self.clean_string(row_data.get('發文單位'))
-        receiver_name = self.clean_string(row_data.get('受文單位'))
-        contract_name = self.clean_string(row_data.get('承攬案件'))
-
-        # 智慧關聯匹配
-        sender_agency_id = await self.match_agency(sender_name) if sender_name else None
-        receiver_agency_id = await self.match_agency(receiver_name) if receiver_name else None
-        contract_project_id = await self.match_project(contract_name) if contract_name else None
-
-        # 正規化收發文單位
-        from app.services.receiver_normalizer import (
-            normalize_unit, cc_list_to_json, infer_agency_from_doc_number,
+        """準備公文資料（委派至 import_validators）"""
+        return await _prepare_document_data_impl(
+            row_data=row_data,
+            category=category,
+            doc_type=doc_type,
+            clean_string=self.clean_string,
+            match_agency=self.match_agency,
+            match_project=self.match_project,
+            parse_date=self.parse_date,
         )
-        s_norm = normalize_unit(sender_name)
-        r_norm = normalize_unit(receiver_name)
-
-        # 根據公文字號前綴修正發文機關（如「府工用字第」→桃園市政府工務局）
-        doc_number = self.clean_string(row_data.get('公文字號')) or ''
-        inferred_agency = infer_agency_from_doc_number(doc_number)
-        if inferred_agency and s_norm.primary != inferred_agency:
-            s_norm = normalize_unit(inferred_agency)  # 重新正規化
-            corrected_id = await self.match_agency(inferred_agency)
-            if corrected_id:
-                sender_agency_id = corrected_id
-
-        data = {
-            'category': category,
-            'doc_type': doc_type or '函',
-            'doc_number': doc_number,
-            'subject': self.clean_string(row_data.get('主旨')) or '',
-            'content': self.clean_string(row_data.get('說明')),
-            'sender': sender_name,
-            'receiver': receiver_name,
-            'normalized_sender': s_norm.primary or None,
-            'normalized_receiver': r_norm.primary or None,
-            'cc_receivers': cc_list_to_json(r_norm.cc_list),
-            'sender_agency_id': sender_agency_id,
-            'receiver_agency_id': receiver_agency_id,
-            'contract_project_id': contract_project_id,
-            'delivery_method': self.clean_string(row_data.get('發文形式')) or '紙本郵寄',
-            'notes': self.clean_string(row_data.get('備註')),
-            'ck_note': self.clean_string(row_data.get('簡要說明(乾坤備註)')),
-            'status': self.clean_string(row_data.get('狀態')) or 'active',
-        }
-
-        # 處理日期欄位
-        data['doc_date'] = self.parse_date(row_data.get('公文日期'))
-        data['receive_date'] = self.parse_date(row_data.get('收文日期'))
-        data['send_date'] = self.parse_date(row_data.get('發文日期'))
-
-        return data

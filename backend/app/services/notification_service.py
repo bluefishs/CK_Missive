@@ -370,70 +370,8 @@ class NotificationService:
         )
 
     # =========================================================================
-    # 安全版本 API (使用獨立 Session，避免交易污染)
+    # 安全版本 API (委派至 notification_helpers.py)
     # =========================================================================
-
-    @staticmethod
-    async def _safe_create_notification(
-        notification_type: str,
-        severity: str,
-        title: str,
-        message: str,
-        source_table: Optional[str] = None,
-        source_id: Optional[int] = None,
-        changes: Optional[Dict[str, Any]] = None,
-        user_id: Optional[int] = None,
-        user_name: Optional[str] = None
-    ) -> bool:
-        """
-        內部方法：使用獨立 session 建立通知
-
-        確保：
-        1. 不影響主交易
-        2. 失敗時自動回滾
-        3. 不會污染連接池
-        """
-        try:
-            from app.db.database import AsyncSessionLocal
-
-            async with AsyncSessionLocal() as db:
-                try:
-                    data_payload = {
-                        "severity": severity,
-                        "source_table": source_table,
-                        "source_id": source_id,
-                        "changes": changes,
-                        "user_name": user_name
-                    }
-
-                    notification = SystemNotification(
-                        user_id=user_id,
-                        title=title,
-                        message=message,
-                        notification_type=notification_type,
-                        is_read=False,
-                        data=data_payload
-                    )
-
-                    db.add(notification)
-                    await db.commit()
-
-                    log_level = logging.WARNING if severity in [
-                        NotificationSeverity.WARNING,
-                        NotificationSeverity.ERROR,
-                        NotificationSeverity.CRITICAL
-                    ] else logging.INFO
-                    logger.log(log_level, f"[NOTIFICATION] {severity.upper()}: {title}")
-                    return True
-
-                except Exception as db_error:
-                    await db.rollback()
-                    logger.warning(f"[NOTIFICATION] 通知建立失敗: {db_error}")
-                    return False
-
-        except Exception as session_error:
-            logger.error(f"[NOTIFICATION] Session 建立失敗: {session_error}")
-            return False
 
     @staticmethod
     async def safe_notify_critical_change(
@@ -445,30 +383,16 @@ class NotificationService:
         user_name: Optional[str] = None,
         table_name: str = "documents"
     ) -> bool:
-        """安全版本：通知關鍵欄位變更"""
-        field_label = CRITICAL_FIELDS.get(table_name, {}).get(field, field)
-        operator = user_name or f"User#{user_id}" if user_id else "System"
-
-        title = f"關鍵欄位變更: {field_label}"
-        old_display = str(old_value)[:50]
-        new_display = str(new_value)[:50]
-        message = f"公文 ID {document_id} 的「{field_label}」已被 {operator} 修改。原值: {old_display} → 新值: {new_display}"
-
-        return await NotificationService._safe_create_notification(
-            notification_type=NotificationType.CRITICAL_CHANGE,
-            severity=NotificationSeverity.WARNING,
-            title=title,
-            message=message,
-            source_table=table_name,
-            source_id=document_id,
-            changes={
-                "field": field,
-                "field_label": field_label,
-                "old_value": str(old_value),
-                "new_value": str(new_value)
-            },
+        """安全版本：通知關鍵欄位變更（委派至 notification_helpers）"""
+        from app.services.notification_helpers import safe_notify_critical_change
+        return await safe_notify_critical_change(
+            document_id=document_id,
+            field=field,
+            old_value=old_value,
+            new_value=new_value,
             user_id=user_id,
-            user_name=user_name
+            user_name=user_name,
+            table_name=table_name,
         )
 
     @staticmethod
@@ -479,26 +403,14 @@ class NotificationService:
         user_id: Optional[int] = None,
         user_name: Optional[str] = None
     ) -> bool:
-        """安全版本：通知公文刪除"""
-        operator = user_name or f"User#{user_id}" if user_id else "System"
-        title = f"公文刪除: {doc_number}"
-        subject_display = subject[:80]
-        message = f"公文「{doc_number}」已被 {operator} 刪除。主旨: {subject_display}"
-
-        return await NotificationService._safe_create_notification(
-            notification_type=NotificationType.CRITICAL_CHANGE,
-            severity=NotificationSeverity.WARNING,
-            title=title,
-            message=message,
-            source_table="documents",
-            source_id=document_id,
-            changes={
-                "action": "DELETE",
-                "doc_number": doc_number,
-                "subject": subject
-            },
+        """安全版本：通知公文刪除（委派至 notification_helpers）"""
+        from app.services.notification_helpers import safe_notify_document_deleted
+        return await safe_notify_document_deleted(
+            document_id=document_id,
+            doc_number=doc_number,
+            subject=subject,
             user_id=user_id,
-            user_name=user_name
+            user_name=user_name,
         )
 
     # =========================================================================

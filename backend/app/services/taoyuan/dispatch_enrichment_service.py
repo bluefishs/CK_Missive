@@ -1,11 +1,13 @@
 """
-派工紀錄 Excel 增強匯入服務 (v1.0)
+派工紀錄 Excel 增強匯入服務 (v1.1)
 
 從「分派案件紀錄表」主表 Excel 讀取：
 1. 價金資料 (7 種作業類別的派工日期/金額 + 彙總)
 2. 公文原始文號 (機關來文 Z 欄 + 公司發文 AB 欄，不過度解析)
 
 以「項次」為索引對應現有派工單 (項次 N → 112年_派工單號{N:03d})。
+
+v1.1: 解析工具函數提取至 dispatch_document_parser.py
 """
 import re
 import logging
@@ -24,122 +26,18 @@ from app.extended.models.taoyuan import (
 )
 from app.extended.models.document import OfficialDocument
 
+# 從解析器模組匯入（向後相容：外部可繼續從本模組 import）
+from app.services.taoyuan.dispatch_document_parser import (  # noqa: F401
+    AGENCY_MAP,
+    COMPANY_NAME,
+    parse_roc_date,
+    parse_sequence_no,
+    parse_amount,
+    safe_cell,
+    parse_doc_line,
+)
+
 logger = logging.getLogger(__name__)
-
-# 文號前綴 → 發文單位映射
-AGENCY_MAP = {
-    '桃工用字': '桃園市政府工務局',
-    '桃工字': '桃園市政府工務局',
-    '府工用字': '桃園市政府工務局',
-    '府工字': '桃園市政府工務局',
-    '乾坤測字': '乾坤測繪科技有限公司',
-    '乾坤測繪字': '乾坤測繪科技有限公司',
-}
-COMPANY_NAME = '乾坤測繪科技有限公司'
-
-
-# ── 工具函數 ──────────────────────────────────────────────────
-
-def parse_roc_date(raw: Any) -> Optional[date]:
-    """解析民國日期字串 → 西元 date
-
-    支援格式：112.7.14 / 112.07.14 / 113.5.2
-    排除非日期值：未訂、不派工、派工暫緩
-    """
-    if not raw:
-        return None
-    text = str(raw).strip()
-    if text in ('未訂', '不派工', '派工暫緩', ''):
-        return None
-    m = re.match(r'^(\d{2,3})\.(\d{1,2})\.(\d{1,2})', text)
-    if not m:
-        return None
-    try:
-        year = int(m.group(1)) + 1911
-        month = int(m.group(2))
-        day = int(m.group(3))
-        return date(year, month, day)
-    except (ValueError, OverflowError):
-        return None
-
-
-def parse_sequence_no(raw: Any) -> Optional[int]:
-    """解析項次 (容許 '43\\n暫緩' 等含備註格式)"""
-    if raw is None:
-        return None
-    text = str(raw).strip()
-    first_line = text.split('\n')[0].strip()
-    m = re.match(r'^(\d+)$', first_line)
-    return int(m.group(1)) if m else None
-
-
-def parse_amount(raw: Any) -> Optional[float]:
-    """解析金額（int/float/str 皆可），None/空值回傳 None"""
-    if raw is None:
-        return None
-    try:
-        val = float(raw)
-        return val
-    except (ValueError, TypeError):
-        return None
-
-
-def safe_cell(row: tuple, col: int) -> Any:
-    """安全取得 row[col]，超出範圍回傳 None"""
-    return row[col] if len(row) > col else None
-
-
-def parse_doc_line(line: str) -> Optional[Dict[str, Any]]:
-    """解析單行公文文號：'112.5.26桃工用字第1120021701號' → {date, doc_number, sender}
-
-    回傳 None 表示不可解析（空行、括號備註、非標準格式）。
-    """
-    line = line.strip()
-    if not line or line.startswith('('):
-        return None
-
-    # 嘗試匹配：日期 + 文號
-    m = re.match(
-        r'^(\d{2,3})\.(\d{1,2})\.(\d{1,2})\s*'  # ROC date
-        r'([\u4e00-\u9fff]+字第\d+號)',            # doc number
-        line,
-    )
-    if not m:
-        # 兩文號黏在一行的 fallback（取第一筆）— 用 findall 允許文號前有其他文字
-        found = re.findall(
-            r'(\d{2,3})\.(\d{1,2})\.(\d{1,2})\s*'
-            r'([\u4e00-\u9fff]+字第\d+號)',
-            line,
-        )
-        if not found:
-            return None
-        m = re.match(
-            r'.*?(\d{2,3})\.(\d{1,2})\.(\d{1,2})\s*'
-            r'([\u4e00-\u9fff]+字第\d+號)',
-            line,
-        )
-        if not m:
-            return None
-
-    try:
-        doc_date = date(int(m.group(1)) + 1911, int(m.group(2)), int(m.group(3)))
-    except (ValueError, OverflowError):
-        return None
-
-    doc_number = m.group(4)
-
-    # 從文號前綴推斷發文單位
-    sender = None
-    for prefix, agency in AGENCY_MAP.items():
-        if doc_number.startswith(prefix):
-            sender = agency
-            break
-
-    return {
-        'doc_date': doc_date,
-        'doc_number': doc_number,
-        'sender': sender,
-    }
 
 
 # ── 主服務 ────────────────────────────────────────────────────
