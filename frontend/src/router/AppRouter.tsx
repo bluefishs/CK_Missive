@@ -75,6 +75,7 @@ const SkillsCapabilityMapPage = lazy(() => import('../pages/SkillsCapabilityMapP
 const CodeGraphManagementPage = lazy(() => import('../pages/CodeGraphManagementPage'));
 const DatabaseGraphPage = lazy(() => import('../pages/DatabaseGraphPage'));
 const KnowledgeBasePage = lazy(() => import('../pages/KnowledgeBasePage'));
+const SkillEvolutionPage = lazy(() => import('../pages/SkillEvolutionPage'));
 
 // 桃園查估專區
 const TaoyuanDispatchPage = lazy(() => import('../pages/TaoyuanDispatchPage'));
@@ -214,6 +215,8 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.KNOWLEDGE_GRAPH} element={<ProtectedRoute><KnowledgeGraphPage /></ProtectedRoute>} />
           {/* Skills 能力圖譜 */}
           <Route path={ROUTES.SKILLS_MAP} element={<ProtectedRoute><SkillsCapabilityMapPage /></ProtectedRoute>} />
+          {/* 技能演化樹 */}
+          <Route path={ROUTES.SKILL_EVOLUTION} element={<ProtectedRoute><SkillEvolutionPage /></ProtectedRoute>} />
           {/* 代碼圖譜 */}
           <Route path={ROUTES.CODE_GRAPH} element={<ProtectedRoute><CodeGraphManagementPage /></ProtectedRoute>} />
           {/* 代碼圖譜（舊路由相容重導向） */}

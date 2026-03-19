@@ -228,6 +228,20 @@ async def ingest_documents(
     return {"success": True, **result}
 
 
+@router.post("/graph/skill-evolution")
+async def get_skill_evolution_tree(
+    current_user: User = Depends(require_auth()),
+):
+    """
+    取得技能演化樹資料
+
+    返回系統所有技能節點、演化路徑、融合關係，
+    供前端渲染互動式技能演化視覺化。
+    """
+    from app.services.skill_evolution_service import build_skill_tree
+    return build_skill_tree()
+
+
 @router.post("/graph/code-wiki", response_model=KGCodeWikiResponse)
 async def get_code_wiki_graph(
     request: KGCodeWikiRequest,

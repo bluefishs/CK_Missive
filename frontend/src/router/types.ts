@@ -102,6 +102,8 @@ export const ROUTES = {
   PM_CASE_DETAIL: '/pm/cases/:id',
   PM_CASE_CREATE: '/pm/cases/create',
   PM_CASE_EDIT: '/pm/cases/:id/edit',
+  // 技能演化樹
+  SKILL_EVOLUTION: '/ai/skill-evolution',
   // 財務管理 (ERP)
   ERP_QUOTATIONS: '/erp/quotations',
   ERP_QUOTATION_DETAIL: '/erp/quotations/:id',
@@ -323,6 +325,12 @@ export const ROUTE_META = {
     icon: 'CodeOutlined',
     requireAuth: true,
     roles: ['admin', 'superuser'],
+  },
+  [ROUTES.SKILL_EVOLUTION]: {
+    title: '技能演化樹',
+    description: '視覺化技能演化路徑與融合關係',
+    icon: 'RiseOutlined',
+    requireAuth: true,
   },
   [ROUTES.TAOYUAN_DISPATCH]: {
     title: '派工管理',

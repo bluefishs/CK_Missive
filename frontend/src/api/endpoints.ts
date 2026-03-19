@@ -788,6 +788,8 @@ export const AI_ENDPOINTS = {
   STATS_TOOL_REGISTRY: '/ai/stats/tool-registry',
   /** Skills 能力圖譜 POST /ai/graph/skills-map */
   GRAPH_SKILLS_MAP: '/ai/graph/skills-map',
+  /** 技能演化樹 POST /ai/graph/skill-evolution */
+  GRAPH_SKILL_EVOLUTION: '/ai/graph/skill-evolution',
 } as const;
 
 // ============================================================================
