@@ -1,0 +1,93 @@
+/**
+ * ReceiveDocumentCreatePage Smoke Test
+ */
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, waitFor } from '@testing-library/react';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
+import { App as AntApp, ConfigProvider } from 'antd';
+import zhTW from 'antd/locale/zh_TW';
+import React from 'react';
+import { createTestQueryClient } from '../../test/testUtils';
+
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return { ...actual, useNavigate: () => mockNavigate, useParams: () => ({ id: '1' }) };
+});
+
+vi.mock('../../utils/logger', () => ({
+  logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), log: vi.fn() },
+}));
+
+vi.mock('../../services/logger', () => ({
+  logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), log: vi.fn() },
+}));
+
+vi.mock('../../api/documentsApi', () => ({
+  documentsApi: {
+    list: vi.fn().mockResolvedValue({ data: [] }),
+    create: vi.fn().mockResolvedValue({ data: { id: 1 } }),
+    getById: vi.fn().mockResolvedValue({ data: {} }),
+  },
+}));
+
+vi.mock('../../api/index', () => ({
+  documentsApi: {
+    list: vi.fn().mockResolvedValue({ data: [] }),
+    create: vi.fn().mockResolvedValue({ data: { id: 1 } }),
+  },
+}));
+
+vi.mock('../../hooks', () => ({
+  useResponsive: () => ({
+    isMobile: false,
+    isTablet: false,
+    isDesktop: true,
+    responsiveValue: (v: Record<string, unknown>) => v.desktop ?? v.tablet ?? v.mobile,
+  }),
+  useDocumentCreateForm: vi.fn(() => ({
+    loading: false,
+    saving: false,
+    activeTab: 'info',
+    setActiveTab: vi.fn(),
+    cases: [],
+    agencies: [],
+    agenciesLoading: false,
+    agencyCandidates: [],
+    buildAgencyOptions: vi.fn(() => []),
+    handleSubmit: vi.fn(),
+    handleCancel: vi.fn(),
+    fileList: [],
+    setFileList: vi.fn(),
+    staffList: [],
+    setStaffList: vi.fn(),
+    form: { getFieldValue: vi.fn(), setFieldsValue: vi.fn(), resetFields: vi.fn(), validateFields: vi.fn().mockResolvedValue({}) },
+  })),
+}));
+
+function renderWithProviders(ui: React.ReactElement) {
+  const queryClient = createTestQueryClient();
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <ConfigProvider locale={zhTW}>
+        <AntApp>
+          <MemoryRouter>{ui}</MemoryRouter>
+        </AntApp>
+      </ConfigProvider>
+    </QueryClientProvider>,
+  );
+}
+
+describe('ReceiveDocumentCreatePage', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('renders without crashing', async () => {
+    const mod = await import('../../pages/ReceiveDocumentCreatePage');
+    const Component = mod.ReceiveDocumentCreatePage || mod.default;
+    renderWithProviders(<Component />);
+    await waitFor(() => {
+      expect(document.body).toBeTruthy();
+    });
+  });
+});

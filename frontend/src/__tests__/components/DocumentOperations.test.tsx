@@ -9,11 +9,6 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter } from 'react-router-dom';
-import { ConfigProvider, App } from 'antd';
-import zhTW from 'antd/locale/zh_TW';
-import React from 'react';
 import dayjs from 'dayjs';
 
 // Mock 服務
@@ -83,62 +78,60 @@ vi.mock('../../components/document/operations', () => ({
   })),
 }));
 
-// 型別定義
-interface Document {
-  id: number;
-  doc_number: string;
-  subject: string;
-  doc_type: string;
-  sender: string;
-  receiver: string;
-  doc_date?: string;
-  category: string;
-  status: string;
-}
+// 型別定義 (保留供未來整合測試使用)
+// interface Document {
+//   id: number;
+//   doc_number: string;
+//   subject: string;
+//   doc_type: string;
+//   sender: string;
+//   receiver: string;
+//   doc_date?: string;
+//   category: string;
+//   status: string;
+// }
 
-// 建立測試用 QueryClient
-const createTestQueryClient = () =>
-  new QueryClient({
-    defaultOptions: {
-      queries: {
-        retry: false,
-        gcTime: 0,
-      },
-      mutations: {
-        retry: false,
-      },
-    },
-  });
+// 建立測試用 QueryClient (保留供未來整合測試使用)
+// const createTestQueryClient = () =>
+//   new QueryClient({
+//     defaultOptions: {
+//       queries: {
+//         retry: false,
+//         gcTime: 0,
+//       },
+//       mutations: {
+//         retry: false,
+//       },
+//     },
+//   });
 
 // 建立 wrapper (保留供未來整合測試使用)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const _createWrapper = () => {
-  const queryClient = createTestQueryClient();
-  const Wrapper = ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <ConfigProvider locale={zhTW}>
-          <App>{children}</App>
-        </ConfigProvider>
-      </BrowserRouter>
-    </QueryClientProvider>
-  );
-  return Wrapper;
-};
+// const _createWrapper = () => {
+//   const queryClient = createTestQueryClient();
+//   const Wrapper = ({ children }: { children: React.ReactNode }) => (
+//     <QueryClientProvider client={queryClient}>
+//       <BrowserRouter>
+//         <ConfigProvider locale={zhTW}>
+//           <App>{children}</App>
+//         </ConfigProvider>
+//       </BrowserRouter>
+//     </QueryClientProvider>
+//   );
+//   return Wrapper;
+// };
 
 // 範例公文資料 (保留供未來整合測試使用)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const _sampleDocument: Document = {
-  id: 1,
-  doc_number: 'TEST-2026-001',
-  subject: '測試公文主旨',
-  doc_type: '函',
-  sender: '桃園市政府',
-  receiver: '乾坤測繪有限公司',
-  doc_date: '2026-01-08',
-  category: '收文',
-  status: '待處理',
-};
+// const _sampleDocument: Document = {
+//   id: 1,
+//   doc_number: 'TEST-2026-001',
+//   subject: '測試公文主旨',
+//   doc_type: '函',
+//   sender: '桃園市政府',
+//   receiver: '乾坤測繪有限公司',
+//   doc_date: '2026-01-08',
+//   category: '收文',
+//   status: '待處理',
+// };
 
 // 由於 DocumentOperations 元件較複雜，這裡提供簡化版測試範本
 // 實際專案中可能需要更多 mock 和整合測試
