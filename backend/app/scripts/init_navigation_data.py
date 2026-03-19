@@ -516,13 +516,26 @@ DEFAULT_NAVIGATION_ITEMS = [
         "permission_required": "[]"
     },
 
+    # 技能演化樹 (對應 ROUTES.SKILL_EVOLUTION)
+    {
+        "title": "技能演化樹",
+        "key": "skill-evolution",
+        "path": "/ai/skill-evolution",
+        "icon": "RiseOutlined",
+        "sort_order": 5,
+        "level": 2,
+        "parent_key": "ai-features",
+        "description": "技能,演化,演化樹,版本,融合,發展,藍圖",
+        "permission_required": "[]"
+    },
+
     # AI 助理管理 (對應 ROUTES.AI_ASSISTANT_MANAGEMENT)
     {
         "title": "AI 助理管理",
         "key": "ai-assistant-management",
         "path": "/admin/ai-assistant",
         "icon": "ExperimentOutlined",
-        "sort_order": 5,
+        "sort_order": 6,
         "level": 2,
         "parent_key": "ai-features",
         "description": "AI,助理,管理,儀表板",

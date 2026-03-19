@@ -1,13 +1,17 @@
 /**
- * Evolution Graph - Force-directed graph with custom node/link rendering
+ * Evolution Graph - 結構化技能演化樹視覺化
  *
- * @version 1.0.0
+ * 使用 force-directed + 徑向分層佈局：
+ * - 主幹（乾坤智能體）在中心
+ * - 六大層級環繞主幹
+ * - 子技能分布在外圈
+ * - 標籤只在大節點或 hover 時顯示
+ *
+ * @version 2.0.0
  */
 
 import React, { useRef, useCallback, useMemo, useState, useEffect } from 'react';
 import ForceGraph2D, { type ForceGraphMethods } from 'react-force-graph-2d';
-import { Tooltip } from 'antd';
-import { StarFilled } from '@ant-design/icons';
 import type { GraphNode, GraphLink, ForceGraphData, CategoryInfo } from './types';
 
 interface EvolutionGraphProps {
@@ -15,8 +19,6 @@ interface EvolutionGraphProps {
   categories: Record<string, CategoryInfo>;
   highlightNodeId?: number | null;
 }
-
-const NODE_BASE_SIZE = 6;
 
 export const EvolutionGraph: React.FC<EvolutionGraphProps> = ({
   graphData,
@@ -26,8 +28,7 @@ export const EvolutionGraph: React.FC<EvolutionGraphProps> = ({
   const fgRef = useRef<ForceGraphMethods | undefined>(undefined);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
-  const [hoveredNode, setHoveredNode] = useState<GraphNode | null>(null);
-  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+  const [hoveredNodeId, setHoveredNodeId] = useState<number | null>(null);
 
   // Responsive sizing
   useEffect(() => {
@@ -37,11 +38,30 @@ export const EvolutionGraph: React.FC<EvolutionGraphProps> = ({
       const entry = entries[0];
       if (!entry) return;
       const { width, height } = entry.contentRect;
-      setDimensions({ width: Math.max(width, 200), height: Math.max(height, 200) });
+      setDimensions({ width: Math.max(width, 300), height: Math.max(height, 300) });
     });
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
+
+  // Configure forces for structured layout
+  useEffect(() => {
+    const fg = fgRef.current;
+    if (!fg) return;
+    // Increase repulsion to spread nodes out
+    fg.d3Force('charge')?.strength(-300);
+    // Increase link distance based on hierarchy
+    fg.d3Force('link')?.distance((link: { source: GraphNode; target: GraphNode }) => {
+      const src = (typeof link.source === 'object') ? link.source : null;
+      const tgt = (typeof link.target === 'object') ? link.target : null;
+      const srcSize = src?.size ?? 10;
+      const tgtSize = tgt?.size ?? 10;
+      // Larger nodes = farther apart
+      return 40 + (srcSize + tgtSize) * 1.5;
+    });
+    // Center force
+    fg.d3Force('center')?.strength(0.05);
+  }, [graphData]);
 
   // Zoom to highlighted node
   useEffect(() => {
@@ -49,52 +69,68 @@ export const EvolutionGraph: React.FC<EvolutionGraphProps> = ({
       const node = graphData.nodes.find(n => n.id === highlightNodeId);
       if (node?.x != null && node?.y != null) {
         fgRef.current.centerAt(node.x, node.y, 600);
-        fgRef.current.zoom(3, 600);
+        fgRef.current.zoom(2.5, 600);
       }
     }
   }, [highlightNodeId, graphData.nodes]);
 
-  const getNodeColor = useCallback((node: GraphNode) => {
-    return categories[node.category]?.color || '#888';
-  }, [categories]);
+  // Connected nodes for highlight tracing
+  const connectedSet = useMemo(() => {
+    const active = highlightNodeId ?? hoveredNodeId;
+    if (active == null) return null;
+    const set = new Set<number>([active]);
+    for (const link of graphData.links) {
+      const s = typeof link.source === 'object' ? link.source.id : link.source;
+      const t = typeof link.target === 'object' ? link.target.id : link.target;
+      if (s === active) set.add(t as number);
+      if (t === active) set.add(s as number);
+    }
+    return set;
+  }, [highlightNodeId, hoveredNodeId, graphData.links]);
 
-  const getNodeRadius = useCallback((node: GraphNode) => {
-    const base = NODE_BASE_SIZE + node.maturity * 2;
-    return node.source === 'planned' ? base * 0.7 : base;
-  }, []);
+  const getColor = useCallback((cat: string) => categories[cat]?.color || '#666', [categories]);
 
   const paintNode = useCallback((node: GraphNode, ctx: CanvasRenderingContext2D) => {
-    const r = getNodeRadius(node);
-    const color = getNodeColor(node);
     const x = node.x ?? 0;
     const y = node.y ?? 0;
-    const isHighlighted = highlightNodeId === node.id;
     const isPlanned = node.source === 'planned';
     const isMerged = node.source === 'merged';
+    const isHovered = hoveredNodeId === node.id || highlightNodeId === node.id;
+    const isConnected = connectedSet ? connectedSet.has(node.id) : true;
+    const dimmed = connectedSet != null && !isConnected;
+
+    // Size: maturity-based with minimum
+    const r = 4 + node.maturity * 2 + (node.size > 15 ? (node.size - 15) * 0.5 : 0);
+    const color = getColor(node.category);
+    const alpha = dimmed ? 0.15 : 1;
 
     ctx.save();
+    ctx.globalAlpha = alpha;
 
-    // Glow effect for active nodes
-    if (!isPlanned) {
-      ctx.shadowColor = isHighlighted ? '#fff' : color;
-      ctx.shadowBlur = isHighlighted ? 20 : 8;
+    // Glow for hovered/highlighted
+    if (isHovered && !isPlanned) {
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 20;
     }
 
-    // Draw circle
+    // Circle
     ctx.beginPath();
     ctx.arc(x, y, r, 0, 2 * Math.PI);
 
-    if (isMerged) {
-      ctx.fillStyle = '#f5c842';
-      ctx.fill();
-    } else if (isPlanned) {
-      ctx.fillStyle = 'rgba(128, 128, 128, 0.3)';
+    if (isPlanned) {
+      ctx.fillStyle = 'rgba(80, 80, 100, 0.4)';
       ctx.fill();
       ctx.setLineDash([2, 2]);
-      ctx.strokeStyle = '#888';
+      ctx.strokeStyle = dimmed ? 'rgba(100,100,100,0.2)' : 'rgba(150,150,150,0.6)';
       ctx.lineWidth = 1;
       ctx.stroke();
       ctx.setLineDash([]);
+    } else if (isMerged) {
+      ctx.fillStyle = '#f5c842';
+      ctx.fill();
+      ctx.strokeStyle = '#e6b800';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
     } else {
       ctx.fillStyle = color;
       ctx.fill();
@@ -102,48 +138,79 @@ export const EvolutionGraph: React.FC<EvolutionGraphProps> = ({
 
     ctx.shadowBlur = 0;
 
-    // Category border ring
-    ctx.beginPath();
-    ctx.arc(x, y, r + 1.5, 0, 2 * Math.PI);
-    ctx.strokeStyle = isHighlighted ? '#fff' : color;
-    ctx.lineWidth = isHighlighted ? 2 : 0.8;
-    if (isPlanned) {
-      ctx.setLineDash([2, 2]);
+    // Version badge for larger nodes
+    if (node.size >= 14 && !dimmed) {
+      const vText = node.version;
+      ctx.font = 'bold 5px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.fillText(vText, x, y);
     }
-    ctx.stroke();
-    ctx.setLineDash([]);
 
-    // Label
-    const fontSize = Math.max(3, r * 0.55);
-    ctx.font = `${fontSize}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillStyle = isPlanned ? '#888' : '#e0e0e0';
-    ctx.fillText(node.name, x, y + r + 3);
+    // Label: only show for large nodes (>12), hovered, or highlighted
+    const showLabel = node.size >= 12 || isHovered || isConnected;
+    if (showLabel && !dimmed) {
+      const fontSize = isHovered ? 7 : Math.max(4, Math.min(6, r * 0.5));
+      ctx.font = `${isHovered ? 'bold ' : ''}${fontSize}px "Microsoft JhengHei", sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+
+      const labelY = y + r + 3;
+      const text = node.name;
+      const tw = ctx.measureText(text).width;
+
+      // Background for readability
+      if (isHovered || node.size >= 18) {
+        ctx.fillStyle = 'rgba(10, 10, 30, 0.75)';
+        ctx.fillRect(x - tw / 2 - 2, labelY - 1, tw + 4, fontSize + 3);
+      }
+
+      ctx.fillStyle = isPlanned ? '#888' : (isHovered ? '#fff' : '#ccc');
+      ctx.fillText(text, x, labelY);
+
+      // Description on hover
+      if (isHovered && node.description) {
+        ctx.font = `${fontSize - 1}px "Microsoft JhengHei", sans-serif`;
+        ctx.fillStyle = '#999';
+        const desc = node.description.length > 30 ? node.description.slice(0, 30) + '...' : node.description;
+        ctx.fillText(desc, x, labelY + fontSize + 3);
+
+        // Maturity stars
+        const stars = '★'.repeat(node.maturity) + '☆'.repeat(5 - node.maturity);
+        ctx.fillStyle = '#fadb14';
+        ctx.fillText(stars, x, labelY + fontSize * 2 + 4);
+      }
+    }
 
     ctx.restore();
-  }, [getNodeRadius, getNodeColor, highlightNodeId]);
+  }, [hoveredNodeId, highlightNodeId, connectedSet, getColor]);
 
   const paintLink = useCallback((link: GraphLink, ctx: CanvasRenderingContext2D) => {
     const src = link.source as GraphNode;
     const tgt = link.target as GraphNode;
     if (src.x == null || tgt.x == null || src.y == null || tgt.y == null) return;
 
+    const isConnectedLink = connectedSet != null && (
+      connectedSet.has(src.id) && connectedSet.has(tgt.id)
+    );
+    const dimmed = connectedSet != null && !isConnectedLink;
+
     ctx.save();
+    ctx.globalAlpha = dimmed ? 0.08 : 1;
     ctx.beginPath();
 
     if (link.type === 'merge') {
-      ctx.setLineDash([4, 3]);
-      ctx.strokeStyle = 'rgba(255, 80, 80, 0.6)';
-      ctx.lineWidth = 1.2;
+      ctx.setLineDash([5, 3]);
+      ctx.strokeStyle = dimmed ? 'rgba(255,80,80,0.1)' : 'rgba(255, 80, 80, 0.6)';
+      ctx.lineWidth = 1.5;
     } else if (link.type === 'planned') {
-      ctx.setLineDash([3, 4]);
-      ctx.strokeStyle = 'rgba(150, 150, 150, 0.4)';
+      ctx.setLineDash([3, 5]);
+      ctx.strokeStyle = 'rgba(150, 150, 150, 0.3)';
       ctx.lineWidth = 0.8;
     } else {
-      // evolution
-      ctx.strokeStyle = 'rgba(80, 200, 120, 0.7)';
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = dimmed ? 'rgba(80,200,120,0.1)' : 'rgba(80, 200, 120, 0.6)';
+      ctx.lineWidth = 1.8;
     }
 
     ctx.moveTo(src.x, src.y);
@@ -151,130 +218,59 @@ export const EvolutionGraph: React.FC<EvolutionGraphProps> = ({
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // Arrow head
-    const angle = Math.atan2(tgt.y - src.y, tgt.x - src.x);
-    const arrowLen = 5;
-    const tgtR = getNodeRadius(tgt as GraphNode);
-    const ax = tgt.x - Math.cos(angle) * (tgtR + 3);
-    const ay = tgt.y - Math.sin(angle) * (tgtR + 3);
+    // Arrow
+    if (!dimmed) {
+      const angle = Math.atan2(tgt.y - src.y, tgt.x - src.x);
+      const tgtR = 4 + (tgt as GraphNode).maturity * 2;
+      const ax = tgt.x - Math.cos(angle) * (tgtR + 4);
+      const ay = tgt.y - Math.sin(angle) * (tgtR + 4);
+      const al = 6;
 
-    ctx.beginPath();
-    ctx.moveTo(ax, ay);
-    ctx.lineTo(
-      ax - arrowLen * Math.cos(angle - Math.PI / 6),
-      ay - arrowLen * Math.sin(angle - Math.PI / 6),
-    );
-    ctx.lineTo(
-      ax - arrowLen * Math.cos(angle + Math.PI / 6),
-      ay - arrowLen * Math.sin(angle + Math.PI / 6),
-    );
-    ctx.closePath();
-    ctx.fillStyle = link.type === 'merge'
-      ? 'rgba(255, 80, 80, 0.7)'
-      : link.type === 'planned'
-        ? 'rgba(150, 150, 150, 0.5)'
-        : 'rgba(80, 200, 120, 0.8)';
-    ctx.fill();
-
-    // Edge label
-    if (link.label) {
-      const mx = (src.x + tgt.x) / 2;
-      const my = (src.y + tgt.y) / 2;
-      ctx.font = '3px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = 'rgba(200, 200, 200, 0.6)';
-      ctx.fillText(link.label, mx, my - 3);
+      ctx.beginPath();
+      ctx.moveTo(ax, ay);
+      ctx.lineTo(ax - al * Math.cos(angle - 0.4), ay - al * Math.sin(angle - 0.4));
+      ctx.lineTo(ax - al * Math.cos(angle + 0.4), ay - al * Math.sin(angle + 0.4));
+      ctx.closePath();
+      ctx.fillStyle = link.type === 'merge' ? 'rgba(255,80,80,0.7)' :
+        link.type === 'planned' ? 'rgba(150,150,150,0.4)' : 'rgba(80,200,120,0.7)';
+      ctx.fill();
     }
 
     ctx.restore();
-  }, [getNodeRadius]);
+  }, [connectedSet]);
 
-  const handleNodeHover = useCallback((node: GraphNode | null, prevNode: GraphNode | null) => {
-    setHoveredNode(node);
-    if (node && containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      // Approximate screen position from graph coords
-      if (fgRef.current && node.x != null && node.y != null) {
-        const screenCoords = fgRef.current.graph2ScreenCoords(node.x, node.y);
-        setTooltipPos({ x: screenCoords.x + rect.left, y: screenCoords.y + rect.top });
-      }
-    }
-    // Suppress unused var warning
-    void prevNode;
+  const handleNodeHover = useCallback((node: GraphNode | null) => {
+    setHoveredNodeId(node?.id ?? null);
   }, []);
 
-  // Memoized node pointer area
-  const nodePointerAreaPaint = useCallback((node: GraphNode, color: string, ctx: CanvasRenderingContext2D) => {
-    const r = getNodeRadius(node) + 4;
+  const nodePointerArea = useCallback((node: GraphNode, color: string, ctx: CanvasRenderingContext2D) => {
+    const r = 6 + node.maturity * 2 + 4;
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.arc(node.x ?? 0, node.y ?? 0, r, 0, 2 * Math.PI);
     ctx.fill();
-  }, [getNodeRadius]);
-
-  // Tooltip content
-  const tooltipContent = useMemo(() => {
-    if (!hoveredNode) return null;
-    const cat = categories[hoveredNode.category];
-    return (
-      <div style={{ maxWidth: 220 }}>
-        <div style={{ fontWeight: 600, marginBottom: 4 }}>{hoveredNode.name}</div>
-        <div style={{ fontSize: 12, color: '#aaa', marginBottom: 4 }}>{hoveredNode.description}</div>
-        <div style={{ fontSize: 11 }}>
-          <span style={{ color: cat?.color || '#888' }}>{cat?.label || hoveredNode.category}</span>
-          {' | '}
-          <span>{hoveredNode.version}</span>
-          {' | '}
-          {Array.from({ length: hoveredNode.maturity }, (_, i) => (
-            <StarFilled key={i} style={{ color: '#fadb14', fontSize: 10 }} />
-          ))}
-        </div>
-      </div>
-    );
-  }, [hoveredNode, categories]);
+  }, []);
 
   return (
-    <div ref={containerRef} style={{ flex: 1, position: 'relative', background: '#1a1a2e', minWidth: 0 }}>
+    <div ref={containerRef} style={{ flex: 1, position: 'relative', background: '#0d0d1f', minWidth: 0 }}>
       <ForceGraph2D
         ref={fgRef as never}
         graphData={graphData as never}
         width={dimensions.width}
         height={dimensions.height}
         nodeCanvasObject={paintNode as never}
-        nodePointerAreaPaint={nodePointerAreaPaint as never}
+        nodePointerAreaPaint={nodePointerArea as never}
         linkCanvasObject={paintLink as never}
         linkCanvasObjectMode={() => 'replace'}
         onNodeHover={handleNodeHover as never}
-        d3AlphaDecay={0.04}
-        d3VelocityDecay={0.3}
-        warmupTicks={30}
-        cooldownTicks={200}
-        onEngineStop={() => fgRef.current?.zoomToFit(400, 80)}
-        backgroundColor="#1a1a2e"
+        d3AlphaDecay={0.02}
+        d3VelocityDecay={0.25}
+        warmupTicks={80}
+        cooldownTicks={300}
+        onEngineStop={() => fgRef.current?.zoomToFit(500, 60)}
+        backgroundColor="#0d0d1f"
+        enableNodeDrag={true}
       />
-      {hoveredNode && tooltipContent && (
-        <Tooltip
-          open
-          title={tooltipContent}
-          placement="right"
-          overlayStyle={{
-            position: 'fixed',
-            left: tooltipPos.x,
-            top: tooltipPos.y,
-            pointerEvents: 'none',
-          }}
-        >
-          <span style={{
-            position: 'fixed',
-            left: tooltipPos.x,
-            top: tooltipPos.y,
-            width: 1,
-            height: 1,
-            pointerEvents: 'none',
-          }} />
-        </Tooltip>
-      )}
     </div>
   );
 };

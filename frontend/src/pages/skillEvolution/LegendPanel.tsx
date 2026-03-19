@@ -35,7 +35,7 @@ export const LegendPanel: React.FC<LegendPanelProps> = ({ categories, nodes }) =
       backdropFilter: 'blur(8px)',
     }}>
       <Text strong style={{ color: '#ccc', fontSize: 12, display: 'block', marginBottom: 8 }}>
-        Legend
+        圖例
       </Text>
       <Flex vertical gap={4}>
         {Object.entries(categories).map(([key, info]) => {
@@ -59,15 +59,15 @@ export const LegendPanel: React.FC<LegendPanelProps> = ({ categories, nodes }) =
         <Flex vertical gap={3}>
           <Flex align="center" gap={6}>
             <svg width={20} height={8}><line x1={0} y1={4} x2={20} y2={4} stroke="#50c878" strokeWidth={2} /></svg>
-            <Text style={{ color: '#aaa', fontSize: 10 }}>Evolution</Text>
+            <Text style={{ color: '#aaa', fontSize: 10 }}>演化</Text>
           </Flex>
           <Flex align="center" gap={6}>
             <svg width={20} height={8}><line x1={0} y1={4} x2={20} y2={4} stroke="#ff5050" strokeWidth={1.5} strokeDasharray="4 3" /></svg>
-            <Text style={{ color: '#aaa', fontSize: 10 }}>Merge / Fusion</Text>
+            <Text style={{ color: '#aaa', fontSize: 10 }}>融合</Text>
           </Flex>
           <Flex align="center" gap={6}>
             <svg width={20} height={8}><line x1={0} y1={4} x2={20} y2={4} stroke="#999" strokeWidth={1} strokeDasharray="3 4" /></svg>
-            <Text style={{ color: '#aaa', fontSize: 10 }}>Planned</Text>
+            <Text style={{ color: '#aaa', fontSize: 10 }}>規劃中</Text>
           </Flex>
         </Flex>
       </div>

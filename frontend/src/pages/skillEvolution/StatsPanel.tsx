@@ -51,15 +51,15 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ stats }) => {
       backdropFilter: 'blur(8px)',
     }}>
       <Text strong style={{ color: '#ccc', fontSize: 12, display: 'block', marginBottom: 8 }}>
-        Statistics
+        統計
       </Text>
       <Flex vertical gap={6}>
-        <StatItem icon={<ThunderboltOutlined />} label="Total" value={stats.total} color="#50c878" />
-        <StatItem icon={<CheckCircleOutlined />} label="Active" value={stats.active} color="#52c41a" />
-        <StatItem icon={<ClockCircleOutlined />} label="Planned" value={stats.planned} color="#888" />
-        <StatItem icon={<MergeCellsOutlined />} label="Merged" value={stats.merged} color="#f5c842" />
-        <StatItem icon={<BranchesOutlined />} label="Evolutions" value={stats.evolution_count} color="#50c878" />
-        <StatItem icon={<NodeIndexOutlined />} label="Fusions" value={stats.merge_count} color="#ff5050" />
+        <StatItem icon={<ThunderboltOutlined />} label="技能總數" value={stats.total} color="#50c878" />
+        <StatItem icon={<CheckCircleOutlined />} label="啟用" value={stats.active} color="#52c41a" />
+        <StatItem icon={<ClockCircleOutlined />} label="規劃中" value={stats.planned} color="#888" />
+        <StatItem icon={<MergeCellsOutlined />} label="已融合" value={stats.merged} color="#f5c842" />
+        <StatItem icon={<BranchesOutlined />} label="演化次數" value={stats.evolution_count} color="#50c878" />
+        <StatItem icon={<NodeIndexOutlined />} label="融合次數" value={stats.merge_count} color="#ff5050" />
       </Flex>
     </div>
   );

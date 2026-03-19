@@ -116,7 +116,7 @@ export const SkillListPanel: React.FC<SkillListPanelProps> = ({
       background: '#12122a', padding: '8px 0',
     }}>
       <Text strong style={{ color: '#ccc', fontSize: 13, padding: '4px 12px', display: 'block' }}>
-        Skills
+        技能列表
       </Text>
       <Collapse
         items={collapseItems}
