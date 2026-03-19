@@ -20,7 +20,7 @@ from app.services.ai.ai_config import get_ai_config
 
 logger = logging.getLogger(__name__)
 
-_CONV_TTL = 3600  # 1 小時
+_CONV_TTL = 86400  # 24 小時（延長以保持對話連貫性）
 
 
 class ConversationMemory:

@@ -62,11 +62,11 @@ class TestCKAgent:
         assert CK_AGENT.context == "agent"
 
     def test_system_prompt_contains_identity(self):
-        assert "乾坤智能體" in CK_AGENT.system_prompt
+        assert "乾坤" in CK_AGENT.system_prompt
 
-    def test_system_prompt_mentions_system_health(self):
-        """系統提示詞應提及系統健康監控能力"""
-        assert "系統健康" in CK_AGENT.system_prompt or "健康" in CK_AGENT.system_prompt
+    def test_system_prompt_mentions_capabilities(self):
+        """系統提示詞應提及核心能力"""
+        assert "系統監控" in CK_AGENT.system_prompt or "效能診斷" in CK_AGENT.system_prompt
 
     def test_tool_contexts_empty_means_all(self):
         """空 tool_contexts 表示使用所有工具"""

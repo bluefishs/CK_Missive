@@ -53,8 +53,8 @@ async def stream_chitchat(
     try:
         raw = await ai.chat_completion(
             messages=messages,
-            temperature=0.8,
-            max_tokens=150,
+            temperature=0.7,
+            max_tokens=300,
             task_type="chat",
         )
         answer = clean_chitchat_response(raw, question)
