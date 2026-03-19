@@ -4,12 +4,10 @@
  * 使用統一的 API Client 和型別定義
  */
 
-import { apiClient, ApiException } from './client';
+import { apiClient } from './client';
 import {
   PaginatedResponse,
   DeleteResponse,
-  normalizePaginatedResponse,
-  LegacyListResponse,
   type DocumentListParams,
 } from './types';
 import { API_ENDPOINTS } from './endpoints';
@@ -95,49 +93,7 @@ export const documentsApi = {
       sort_order: params?.sort_order ?? 'desc',
     };
 
-    try {
-      // 使用新版 POST API
-      return await apiClient.postList<Document>(API_ENDPOINTS.DOCUMENTS.LIST, queryParams);
-    } catch (error) {
-      // 若新 API 失敗，嘗試舊版格式（相容性）
-      if (error instanceof ApiException && error.statusCode === 404) {
-        const response = await apiClient.get<{
-          items: Document[];
-          total: number;
-          page: number;
-          limit: number;
-          total_pages: number;
-        }>(API_ENDPOINTS.DOCUMENTS.INTEGRATED_SEARCH, {
-          params: {
-            skip: ((params?.page ?? 1) - 1) * (params?.limit ?? 20),
-            limit: params?.limit ?? 100,
-            keyword: keywordValue,
-            doc_type: params?.doc_type || undefined,
-            year: yearValue,
-            status: params?.status || undefined,
-            category: params?.category || undefined,
-            contract_case: params?.contract_case || undefined,
-            sender: params?.sender || undefined,
-            receiver: params?.receiver || undefined,
-            delivery_method: params?.delivery_method || undefined,
-            doc_date_from: params?.doc_date_from || params?.date_from || undefined,
-            doc_date_to: params?.doc_date_to || params?.date_to || undefined,
-            sort_by: params?.sort_by ?? 'updated_at',
-            sort_order: params?.sort_order ?? 'desc',
-          }
-        });
-        // 轉換舊版格式
-        return normalizePaginatedResponse(
-          {
-            items: response.items,
-            total: response.total,
-          } as LegacyListResponse<Document>,
-          params?.page,
-          params?.limit
-        );
-      }
-      throw error;
-    }
+    return await apiClient.postList<Document>(API_ENDPOINTS.DOCUMENTS.LIST, queryParams);
   },
 
   /**

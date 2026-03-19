@@ -288,10 +288,13 @@ export interface GraphNode {
   id: string;
   type: 'document' | 'project' | 'dispatch' | 'agency' | string;
   label: string;
+  fullLabel?: string | null;
   category?: string | null;
   doc_number?: string | null;
   status?: string | null;
   mention_count?: number | null;
+  /** 工程節點聚合的派工單號列表（供搜尋用） */
+  dispatch_nos?: string[] | null;
 }
 
 export interface GraphEdge {
@@ -985,4 +988,329 @@ export interface CodeWikiResponse {
   success: boolean;
   nodes: GraphNode[];
   edges: GraphEdge[];
+}
+
+// ============================================================================
+// Chat / Agent 共用型別 (Template Kit SSOT)
+// ============================================================================
+
+/** Agent 推理步驟 */
+export interface AgentStepInfo {
+  type: 'thinking' | 'tool_call' | 'tool_result' | 'react';
+  step_index: number;
+  step?: string;
+  tool?: string;
+  params?: Record<string, unknown>;
+  summary?: string;
+  count?: number;
+  /** ReAct 推理專屬：信心分數 0~1 */
+  confidence?: number;
+  /** ReAct 推理專屬：決策動作 */
+  action?: 'answer' | 'continue' | 'refine';
+}
+
+/** 聊天訊息 */
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  sources?: RAGSourceItem[];
+  latency_ms?: number;
+  model?: string;
+  retrieval_count?: number;
+  streaming?: boolean;
+  agentSteps?: AgentStepInfo[];
+  toolsUsed?: string[];
+  iterations?: number;
+  feedbackScore?: 1 | -1 | null;
+  /** 智能體角色身份（由後端 SSE role 事件設定） */
+  agentIdentity?: string;
+}
+
+// ============================================================================
+// Knowledge Graph API
+// ============================================================================
+
+/** 觸發 Code Graph 入圖請求 */
+export interface CodeGraphIngestRequest {
+  clean?: boolean;
+  include_schema?: boolean;
+  include_frontend?: boolean;
+  incremental?: boolean;
+}
+
+/** Code Graph 入圖回應 */
+export interface CodeGraphIngestResponse {
+  success: boolean;
+  message: string;
+  modules: number;
+  classes: number;
+  functions: number;
+  tables: number;
+  ts_modules: number;
+  ts_components: number;
+  ts_hooks: number;
+  relations: number;
+  errors: number;
+  skipped: number;
+  elapsed_seconds: number;
+}
+
+/** 循環依賴偵測結果 */
+export interface CycleDetectionResponse {
+  success: boolean;
+  total_modules: number;
+  total_import_edges: number;
+  cycles_found: number;
+  cycles: string[][];
+}
+
+/** 架構分析結果 */
+export interface ArchitectureAnalysisResponse {
+  success: boolean;
+  complexity_hotspots: Array<{ module: string; outgoing_deps: number }>;
+  hub_modules: Array<{ module: string; imported_by: number }>;
+  large_modules: Array<{ module: string; lines: number; type: string }>;
+  orphan_modules: string[];
+  god_classes: Array<{ class: string; method_count: number }>;
+  summary: Record<string, number>;
+}
+
+/** JSON 圖譜匯入請求 */
+export interface JsonImportRequest {
+  file_path?: string;
+  clean?: boolean;
+}
+
+/** JSON 圖譜匯入回應 */
+export interface JsonImportResponse {
+  success: boolean;
+  message: string;
+  nodes_imported: number;
+  edges_imported: number;
+  elapsed_seconds: number;
+}
+
+/** 模組架構概覽 */
+export interface ModuleOverviewResponse {
+  layers: Record<string, {
+    modules: Array<{
+      name: string;
+      type: string;
+      lines: number;
+      functions: number;
+      outgoing_deps: number;
+      incoming_deps: number;
+    }>;
+    total_lines: number;
+    total_functions: number;
+  }>;
+  db_tables: Array<{
+    name: string;
+    columns: number;
+    foreign_keys: string[];
+    indexes: number;
+    has_primary_key: boolean;
+    unique_constraints: number;
+  }>;
+  summary: {
+    total_modules: number;
+    total_tables: number;
+    total_relations: number;
+  };
+}
+
+/** DB Schema 圖譜回應 */
+export interface DbSchemaGraphResponse {
+  success: boolean;
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  error?: string;
+}
+
+/** DB Schema 欄位資訊 */
+export interface DbColumnInfo {
+  name: string;
+  type: string;
+  nullable: boolean;
+  primary_key: boolean;
+}
+
+/** DB 外鍵資訊 */
+export interface DbForeignKey {
+  constrained_columns: string[];
+  referred_table: string;
+  referred_columns: string[];
+}
+
+/** DB 索引資訊 */
+export interface DbIndex {
+  name: string;
+  columns: string[];
+  unique: boolean;
+}
+
+/** DB 資料表資訊 */
+export interface DbTableInfo {
+  name: string;
+  columns: DbColumnInfo[];
+  primary_key_columns: string[];
+  foreign_keys: DbForeignKey[];
+  indexes: DbIndex[];
+  unique_constraints: DbIndex[];
+}
+
+/** DB Schema 完整反射回應 */
+export interface DbSchemaResponse {
+  success: boolean;
+  tables: DbTableInfo[];
+  error?: string;
+}
+
+/** 動態模組映射回應 */
+export interface ModuleMappingsResponse {
+  success: boolean;
+  enabled_keys: string[];
+  disabled_keys: string[];
+  total: number;
+}
+
+// ============================================================================
+// SSE Callbacks
+// ============================================================================
+
+/** SSE 錯誤代碼 */
+export type SSEErrorCode = 'RATE_LIMITED' | 'SERVICE_ERROR' | 'STREAM_TIMEOUT' | 'EMBEDDING_ERROR' | 'LLM_ERROR' | 'VALIDATION_ERROR';
+
+/** RAG SSE 事件回調 */
+export interface RAGStreamCallbacks {
+  onSources: (sources: RAGQueryResponse['sources'], count: number) => void;
+  onToken: (token: string) => void;
+  onDone: (latencyMs: number, model: string) => void;
+  onError?: (error: string, code?: SSEErrorCode) => void;
+}
+
+// ============================================================================
+// Phase 3A 統計型別
+// ============================================================================
+
+/** 工具成功率項目 */
+export interface ToolSuccessRateItem {
+  tool_name: string;
+  total_calls: number;
+  success_count: number;
+  success_rate: number;
+  avg_latency_ms: number;
+  avg_result_count: number;
+}
+
+/** 工具成功率回應 */
+export interface ToolSuccessRatesResponse {
+  tools: ToolSuccessRateItem[];
+  degraded_tools: string[];
+  source: string;
+}
+
+/** Agent 追蹤查詢參數 */
+export interface AgentTraceQuery {
+  context?: string;
+  feedback_only?: boolean;
+  limit?: number;
+}
+
+/** Agent 追蹤記錄回應 */
+export interface AgentTracesResponse {
+  traces: Record<string, unknown>[];
+  total_count: number;
+  route_distribution: Record<string, number>;
+}
+
+/** 學習模式項目 */
+export interface PatternItem {
+  pattern_key: string;
+  template: string;
+  tool_sequence: string[];
+  hit_count: number;
+  success_rate: number;
+  avg_latency_ms: number;
+  score: number;
+}
+
+/** 學習模式回應 */
+export interface PatternsResponse {
+  patterns: PatternItem[];
+  total_count: number;
+}
+
+/** 持久化學習回應 */
+export interface LearningsResponse {
+  learnings: Record<string, unknown>[];
+  stats: Record<string, unknown>;
+}
+
+/** 主動觸發警報項目 */
+export interface ProactiveAlertItem {
+  alert_type: string;
+  severity: 'critical' | 'warning' | 'info';
+  title: string;
+  message: string;
+  entity_type: string;
+  entity_id?: number;
+  metadata?: Record<string, unknown>;
+}
+
+/** 主動觸發警報回應 */
+export interface ProactiveAlertsResponse {
+  total_alerts: number;
+  by_severity: Record<string, number>;
+  by_type: Record<string, number>;
+  alerts: ProactiveAlertItem[];
+}
+
+/** 每日趨勢資料點 */
+export interface DailyTrendItem {
+  date: string;
+  query_count: number;
+  avg_latency_ms: number;
+  avg_results: number;
+  avg_feedback: number | null;
+}
+
+/** 每日趨勢回應 */
+export interface DailyTrendResponse {
+  trend: DailyTrendItem[];
+  days: number;
+}
+
+/** 工具註冊清單項目 */
+export interface ToolRegistryItem {
+  name: string;
+  description: string;
+  category: string;
+  priority: number;
+  contexts: string[];
+  is_degraded: boolean;
+  total_calls: number;
+  success_rate: number;
+  avg_latency_ms: number;
+}
+
+/** 工具註冊清單回應 */
+export interface ToolRegistryResponse {
+  tools: ToolRegistryItem[];
+  total_count: number;
+  degraded_count: number;
+}
+
+/** Agent SSE 事件回調 */
+export interface AgentStreamCallbacks {
+  onThinking: (step: string, stepIndex: number) => void;
+  onRole?: (identity: string, context: string) => void;
+  onToolCall: (tool: string, params: Record<string, unknown>, stepIndex: number) => void;
+  onToolResult: (tool: string, summary: string, count: number, stepIndex: number) => void;
+  onReact?: (step: string, stepIndex: number, confidence: number, action: string) => void;
+  onSources: (sources: RAGQueryResponse['sources'], count: number) => void;
+  onToken: (token: string) => void;
+  onDone: (latencyMs: number, model: string, toolsUsed: string[], iterations: number) => void;
+  onError?: (error: string, code?: SSEErrorCode) => void;
 }

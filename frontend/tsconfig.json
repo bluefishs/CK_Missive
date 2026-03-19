@@ -20,8 +20,8 @@
     "strict": true,
     "noImplicitAny": true,
     "noImplicitReturns": true,
-    "noUnusedLocals": false,        // 暫時關閉：大量遺留代碼，需逐步清理
-    "noUnusedParameters": false,    // 暫時關閉：與 noUnusedLocals 配合
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "exactOptionalPropertyTypes": false,  // 關閉: 與 Ant Design 型別不相容
     "noImplicitOverride": true,
     "noPropertyAccessFromIndexSignature": false,  // 關閉: 與 Vite import.meta.env 不相容
@@ -37,11 +37,20 @@
       "@/hooks/*": ["src/hooks/*"],
       "@/api/*": ["src/api/*"],
       "@/config/*": ["src/config/*"],
-      "@/store/*": ["src/store/*"]
+      "@/store/*": ["src/store/*"],
+      "@ck-shared/ui-components": ["../../shared-modules/ui-components/index.ts"],
+      "@ck-shared/ui-components/*": ["../../shared-modules/ui-components/*"]
     }
   },
   "include": [
-    "src"
+    "src",
+    "../../shared-modules/ui-components/index.ts",
+    "../../shared-modules/ui-components/hooks",
+    "../../shared-modules/ui-components/components/index.ts",
+    "../../shared-modules/ui-components/components/responsive",
+    "../../shared-modules/ui-components/components/MarkdownRenderer.tsx",
+    "../../shared-modules/ui-components/components/MermaidBlock.tsx",
+    "../../shared-modules/ui-components/components/MermaidDiagram.tsx"
   ],
   "references": [
     {

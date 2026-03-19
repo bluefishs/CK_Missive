@@ -123,6 +123,7 @@ export interface Project {
   agency_contact_phone?: string;
   agency_contact_email?: string;
   has_dispatch_management?: boolean;
+  client_type?: 'agency' | 'vendor' | 'other';
   created_at: string;
   updated_at: string;
 }
@@ -161,6 +162,7 @@ export interface ProjectCreate {
   agency_contact_phone?: string;
   agency_contact_email?: string;
   has_dispatch_management?: boolean;
+  client_type?: 'agency' | 'vendor' | 'other';
 }
 
 /** 專案更新請求 */
@@ -972,4 +974,353 @@ export interface VendorStatistics {
     count: number;
   }>;
   average_rating: number;
+}
+
+// ============================================================================
+// 知識庫瀏覽器 (Knowledge Base)
+// ============================================================================
+
+export interface FileInfo {
+  name: string;
+  path: string;
+}
+
+export interface SectionInfo {
+  name: string;
+  path: string;
+  files: FileInfo[];
+}
+
+export interface TreeResponse {
+  success: boolean;
+  sections: SectionInfo[];
+}
+
+export interface FileContentResponse {
+  success: boolean;
+  content: string;
+  filename: string;
+}
+
+export interface AdrInfo {
+  number: string;
+  title: string;
+  status: string;
+  date: string;
+  path: string;
+}
+
+export interface AdrListResponse {
+  success: boolean;
+  items: AdrInfo[];
+}
+
+export interface DiagramInfo {
+  name: string;
+  path: string;
+  title: string;
+}
+
+export interface DiagramListResponse {
+  success: boolean;
+  items: DiagramInfo[];
+}
+
+export interface KBSearchResult {
+  file_path: string;
+  filename: string;
+  excerpt: string;
+  line_number: number;
+  relevance_score: number;
+}
+
+export interface KBSearchResponse {
+  success: boolean;
+  results: KBSearchResult[];
+  total: number;
+}
+
+// ============================================================================
+// Dispatch Entity Matching
+// ============================================================================
+
+/** 實體配對 API 回應型別 */
+export interface EntitySimilarityPair {
+  incoming_doc_id: number;
+  outgoing_doc_id: number;
+  shared_entity_count: number;
+  jaccard: number;
+  shared_entities: string[];
+}
+
+export interface EntitySimilarityResponse {
+  success: boolean;
+  pairs: EntitySimilarityPair[];
+  total_entities: number;
+  incoming_count?: number;
+  outgoing_count?: number;
+}
+
+/** NER 公文對照建議型別 */
+export interface CorrespondenceSuggestion {
+  incoming_doc_id: number;
+  outgoing_doc_id: number;
+  confidence: 'confirmed' | 'high' | 'medium' | 'low';
+  score: number;
+  shared_entity_count: number;
+  shared_entities: string[];
+  incoming_doc?: {
+    doc_id: number;
+    link_type: string;
+    doc_number: string | null;
+    subject: string | null;
+    doc_date: string | null;
+  };
+  outgoing_doc?: {
+    doc_id: number;
+    link_type: string;
+    doc_number: string | null;
+    subject: string | null;
+    doc_date: string | null;
+  };
+}
+
+export interface DispatchEntityInfo {
+  id: number;
+  name: string;
+  type: string;
+}
+
+export interface CorrespondenceSuggestionsResponse {
+  success: boolean;
+  suggestions: CorrespondenceSuggestion[];
+  dispatch_entities: DispatchEntityInfo[];
+  stats?: {
+    incoming_count: number;
+    outgoing_count: number;
+    total_suggestions: number;
+    confirmed: number;
+    high: number;
+    medium: number;
+  };
+  message?: string;
+}
+
+// ============================================================================
+// PM 專案管理 (v1.85.0)
+// ============================================================================
+
+/** PM 案件狀態 */
+export type PMCaseStatus = 'planning' | 'in_progress' | 'completed' | 'closed';
+
+/** PM 案件狀態標籤 */
+export const PM_CASE_STATUS_LABELS: Record<PMCaseStatus, string> = {
+  planning: '規劃中',
+  in_progress: '執行中',
+  completed: '已完成',
+  closed: '已結案',
+};
+
+/** PM 案件狀態顏色 */
+export const PM_CASE_STATUS_COLORS: Record<PMCaseStatus, string> = {
+  planning: 'default',
+  in_progress: 'processing',
+  completed: 'success',
+  closed: 'warning',
+};
+
+/** PM 案件類別 */
+export const PM_CATEGORY_LABELS: Record<string, string> = {
+  '01': '透地雷達',
+  '02': 'UAV空拍',
+  '03': '測量',
+  '04': '堆料驗證',
+  '05': '3D掃描',
+  '06': '徵收/協議',
+  '07': '檢測評估',
+  '99': '其他',
+};
+
+/** PM 案件 */
+export interface PMCase {
+  id: number;
+  case_code: string;
+  case_name: string;
+  year?: number;
+  category?: string;
+  client_name?: string;
+  client_contact?: string;
+  client_phone?: string;
+  contract_amount?: number;
+  status: PMCaseStatus;
+  progress: number;
+  start_date?: string;
+  end_date?: string;
+  actual_end_date?: string;
+  location?: string;
+  description?: string;
+  notes?: string;
+  created_by?: number;
+  created_at?: string;
+  updated_at?: string;
+  milestone_count: number;
+  staff_count: number;
+}
+
+/** PM 案件建立 */
+export interface PMCaseCreate {
+  case_code?: string;
+  case_name: string;
+  year?: number;
+  category?: string;
+  client_name?: string;
+  client_contact?: string;
+  client_phone?: string;
+  contract_amount?: number;
+  status?: string;
+  start_date?: string;
+  end_date?: string;
+  location?: string;
+  description?: string;
+  notes?: string;
+}
+
+/** PM 案件更新 */
+export type PMCaseUpdate = Partial<PMCaseCreate> & {
+  progress?: number;
+  actual_end_date?: string;
+};
+
+/** PM 案件統計摘要 */
+export interface PMCaseSummary {
+  total_cases: number;
+  by_status: Record<string, number>;
+  by_year: Record<string, number>;
+  total_contract_amount?: number;
+}
+
+/** PM 多年度趨勢 */
+export interface PMYearlyTrendItem {
+  year: number;
+  case_count: number;
+  total_contract: number;
+  completed_count: number;
+  in_progress_count: number;
+  avg_progress: number;
+}
+
+/** PM 跨模組查詢結果 */
+export interface PMCrossLookup {
+  pm_case?: PMCase;
+  erp_quotation?: ERPQuotation;
+  case_code: string;
+}
+
+// ============================================================================
+// ERP 財務管理 (v1.85.0)
+// ============================================================================
+
+/** ERP 報價狀態 */
+export type ERPQuotationStatus = 'draft' | 'confirmed' | 'revised' | 'closed';
+
+/** ERP 報價狀態標籤 */
+export const ERP_QUOTATION_STATUS_LABELS: Record<ERPQuotationStatus, string> = {
+  draft: '草稿',
+  confirmed: '已確認',
+  revised: '已修訂',
+  closed: '已結案',
+};
+
+/** ERP 報價狀態顏色 */
+export const ERP_QUOTATION_STATUS_COLORS: Record<ERPQuotationStatus, string> = {
+  draft: 'default',
+  confirmed: 'processing',
+  revised: 'warning',
+  closed: 'success',
+};
+
+/** ERP 報價/成本主檔 */
+export interface ERPQuotation {
+  id: number;
+  case_code: string;
+  case_name?: string;
+  year?: number;
+  total_price?: number;
+  tax_amount: number;
+  outsourcing_fee: number;
+  personnel_fee: number;
+  overhead_fee: number;
+  other_cost: number;
+  status: ERPQuotationStatus;
+  notes?: string;
+  created_by?: number;
+  created_at?: string;
+  updated_at?: string;
+  budget_limit?: number;
+  budget_usage_pct?: number;
+  is_over_budget: boolean;
+  total_cost: number;
+  gross_profit: number;
+  gross_margin?: number;
+  net_profit: number;
+  invoice_count: number;
+  billing_count: number;
+  total_billed: number;
+  total_received: number;
+  total_payable: number;
+  total_paid: number;
+}
+
+/** ERP 報價建立 */
+export interface ERPQuotationCreate {
+  case_code?: string;
+  case_name?: string;
+  year?: number;
+  total_price?: number | string;
+  tax_amount?: number | string;
+  outsourcing_fee?: number | string;
+  personnel_fee?: number | string;
+  overhead_fee?: number | string;
+  other_cost?: number | string;
+  budget_limit?: number | string;
+  status?: string;
+  notes?: string;
+}
+
+/** ERP 報價更新 */
+export type ERPQuotationUpdate = Partial<ERPQuotationCreate>;
+
+/** ERP 損益摘要 */
+export interface ERPProfitSummary {
+  total_revenue: number;
+  total_cost: number;
+  total_gross_profit: number;
+  avg_gross_margin?: number;
+  total_billed: number;
+  total_received: number;
+  total_outstanding: number;
+  case_count: number;
+  by_year: Record<string, unknown>;
+}
+
+/** ERP 損益趨勢項目 */
+export interface ERPProfitTrendItem {
+  year: number;
+  revenue: number;
+  cost: number;
+  gross_profit: number;
+  gross_margin?: number;
+  case_count: number;
+}
+
+/** ERP 廠商應付帳款 */
+export interface ERPVendorPayable {
+  id: number;
+  erp_quotation_id: number;
+  vendor_name: string;
+  payable_amount: number;
+  description?: string;
+  payment_status: string;
+  paid_date?: string;
+  paid_amount: number;
 }

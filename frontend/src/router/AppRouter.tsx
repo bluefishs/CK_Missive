@@ -66,13 +66,12 @@ const GoogleAuthDiagnosticPage = lazy(() => import('../pages/GoogleAuthDiagnosti
 // SystemPage 已移除，功能整合至其他管理頁面
 const PermissionManagementPage = lazy(() => import('../pages/PermissionManagementPage'));
 const RolePermissionDetailPage = lazy(() => import('../pages/RolePermissionDetailPage'));
-// PureCalendarPage 已整合至 CalendarPage，保留重導向以維持相容性
-// const PureCalendarPage = lazy(() => import('../pages/PureCalendarPage'));
 const UnifiedFormDemoPage = lazy(() => import('../pages/UnifiedFormDemoPage'));
 const AdminDashboardPage = lazy(() => import('../pages/AdminDashboardPage'));
 const DeploymentManagementPage = lazy(() => import('../pages/DeploymentManagementPage'));
 const AIAssistantManagementPage = lazy(() => import('../pages/AIAssistantManagementPage'));
 const KnowledgeGraphPage = lazy(() => import('../pages/KnowledgeGraphPage'));
+const SkillsCapabilityMapPage = lazy(() => import('../pages/SkillsCapabilityMapPage'));
 const CodeGraphManagementPage = lazy(() => import('../pages/CodeGraphManagementPage'));
 const DatabaseGraphPage = lazy(() => import('../pages/DatabaseGraphPage'));
 const KnowledgeBasePage = lazy(() => import('../pages/KnowledgeBasePage'));
@@ -84,6 +83,16 @@ const TaoyuanDispatchDetailPage = lazy(() => import('../pages/TaoyuanDispatchDet
 const TaoyuanProjectCreatePage = lazy(() => import('../pages/TaoyuanProjectCreatePage'));
 const TaoyuanProjectDetailPage = lazy(() => import('../pages/TaoyuanProjectDetailPage'));
 const WorkRecordFormPage = lazy(() => import('../pages/WorkRecordFormPage'));
+
+// 專案管理 (PM)
+const PMCaseListPage = lazy(() => import('../pages/PMCaseListPage'));
+const PMCaseDetailPage = lazy(() => import('../pages/PMCaseDetailPage'));
+const PMCaseFormPage = lazy(() => import('../pages/PMCaseFormPage'));
+
+// 財務管理 (ERP)
+const ERPQuotationListPage = lazy(() => import('../pages/ERPQuotationListPage'));
+const ERPQuotationDetailPage = lazy(() => import('../pages/ERPQuotationDetailPage'));
+const ERPQuotationFormPage = lazy(() => import('../pages/ERPQuotationFormPage'));
 
 // ProtectedRoute 已移至獨立模組：./ProtectedRoute.tsx
 
@@ -203,6 +212,8 @@ export const AppRouter: React.FC = () => {
 
           {/* 公文圖譜 */}
           <Route path={ROUTES.KNOWLEDGE_GRAPH} element={<ProtectedRoute><KnowledgeGraphPage /></ProtectedRoute>} />
+          {/* Skills 能力圖譜 */}
+          <Route path={ROUTES.SKILLS_MAP} element={<ProtectedRoute><SkillsCapabilityMapPage /></ProtectedRoute>} />
           {/* 代碼圖譜 */}
           <Route path={ROUTES.CODE_GRAPH} element={<ProtectedRoute><CodeGraphManagementPage /></ProtectedRoute>} />
           {/* 代碼圖譜（舊路由相容重導向） */}
@@ -213,6 +224,18 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.DB_GRAPH} element={<ProtectedRoute><DatabaseGraphPage /></ProtectedRoute>} />
           {/* 知識庫瀏覽器 */}
           <Route path={ROUTES.KNOWLEDGE_BASE} element={<ProtectedRoute requireAuth={true} roles={['admin']}><KnowledgeBasePage /></ProtectedRoute>} />
+
+          {/* 專案管理 (PM) — 與 contract-cases 功能對齊 */}
+          <Route path={ROUTES.PM_CASES} element={<ProtectedRoute><PMCaseListPage /></ProtectedRoute>} />
+          <Route path={ROUTES.PM_CASE_CREATE} element={<ProtectedRoute><PMCaseFormPage /></ProtectedRoute>} />
+          <Route path={ROUTES.PM_CASE_EDIT} element={<ProtectedRoute><PMCaseFormPage /></ProtectedRoute>} />
+          <Route path={ROUTES.PM_CASE_DETAIL} element={<ProtectedRoute><PMCaseDetailPage /></ProtectedRoute>} />
+
+          {/* 財務管理 (ERP) */}
+          <Route path={ROUTES.ERP_QUOTATIONS} element={<ProtectedRoute><ERPQuotationListPage /></ProtectedRoute>} />
+          <Route path={ROUTES.ERP_QUOTATION_CREATE} element={<ProtectedRoute><ERPQuotationFormPage /></ProtectedRoute>} />
+          <Route path={ROUTES.ERP_QUOTATION_EDIT} element={<ProtectedRoute><ERPQuotationFormPage /></ProtectedRoute>} />
+          <Route path={ROUTES.ERP_QUOTATION_DETAIL} element={<ProtectedRoute><ERPQuotationDetailPage /></ProtectedRoute>} />
 
           {/* 需要認證的路由 */}
           {/* /settings 已統一至 /profile */}

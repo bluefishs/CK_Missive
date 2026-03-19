@@ -30,6 +30,7 @@ export default defineConfig(({ mode }) => {
         '@/api': resolve(__dirname, './src/api'),
         '@/config': resolve(__dirname, './src/config'),
         '@/store': resolve(__dirname, './src/store'),
+        '@ck-shared/ui-components': resolve(__dirname, '../../shared-modules/ui-components'),
       },
       // 確保本地模組使用主專案的依賴（解決 peerDependencies）
       dedupe: ['react', 'react-dom', 'antd', '@ant-design/icons'],
@@ -69,7 +70,7 @@ export default defineConfig(({ mode }) => {
         },
         // Proxy OpenAPI specification for API documentation
         '/openapi.json': {
-          target: env.VITE_API_URL || 'http://localhost:8001',
+          target: env.VITE_API_BASE_URL || 'http://localhost:8001',
           changeOrigin: true,
           secure: false,
           rewrite: path => path,
@@ -95,7 +96,7 @@ export default defineConfig(({ mode }) => {
           manualChunks: {
             // React 核心庫
             'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-            // UI 框架（拆分 core / icons 降低單一 chunk 體積）
+            // UI 框架
             'antd-core': ['antd'],
             'antd-icons': ['@ant-design/icons'],
             // 圖表庫
@@ -106,17 +107,19 @@ export default defineConfig(({ mode }) => {
             'state': ['zustand', '@tanstack/react-query'],
             // Excel 處理
             'xlsx': ['xlsx'],
-            // 3D 圖譜引擎（lazy-loaded，各自獨立 chunk）
+            // 3D 圖譜引擎（lazy-loaded）
             'three': ['three', 'three-spritetext'],
             'react-force-graph-3d': ['react-force-graph-3d'],
-            // 2D 圖譜引擎（知識圖譜頁面載入）
+            // 2D 圖譜引擎
             'react-force-graph-2d': ['react-force-graph-2d'],
-            // 圖譜引擎
-            'cytoscape': ['cytoscape'],
             // Mermaid 圖表（lazy-loaded）
             'mermaid': ['mermaid'],
             // Markdown 渲染
             'markdown': ['react-markdown', 'remark-gfm'],
+            // HTTP 客戶端
+            'axios': ['axios'],
+            // Swagger API 文件
+            'swagger-ui': ['swagger-ui-react'],
           }
         }
       },

@@ -132,7 +132,7 @@ export const setupGlobalErrorHandler = () => {
     event.preventDefault();
 
     notification.error({
-      message: '系統錯誤',
+      title: '系統錯誤',
       description: '發生未處理的錯誤，請重新整理頁面或聯繫技術支援',
       duration: 0,
       placement: 'topRight'
@@ -143,7 +143,7 @@ export const setupGlobalErrorHandler = () => {
     logger.error('Global error:', event.error);
 
     notification.error({
-      message: '頁面錯誤',
+      title: '頁面錯誤',
       description: '頁面執行時發生錯誤，建議重新整理頁面',
       duration: 5,
       placement: 'topRight'

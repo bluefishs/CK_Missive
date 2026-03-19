@@ -41,6 +41,11 @@ window.ResizeObserver = ResizeObserverMock;
 // Mock scrollTo
 window.scrollTo = vi.fn() as unknown as typeof window.scrollTo;
 
+// Note: antd Table's getScrollBarSize uses getComputedStyle with pseudoElt
+// which jsdom doesn't fully support. Some table-heavy tests may show
+// "Not implemented" warnings in full-suite runs but pass individually.
+// This is a known jsdom limitation, not a code issue.
+
 // Mock localStorage
 const localStorageMock = {
   getItem: vi.fn(),

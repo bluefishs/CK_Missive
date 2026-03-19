@@ -180,6 +180,30 @@ export const queryKeys = {
     all: ['certifications'] as const,
     detail: (id: number) => ['certifications', id] as const,
   },
+
+  // PM 專案管理
+  pmCases: {
+    all: ['pm-cases'] as const,
+    lists: () => [...queryKeys.pmCases.all, 'list'] as const,
+    list: (filters: object) => [...queryKeys.pmCases.lists(), filters] as const,
+    details: () => [...queryKeys.pmCases.all, 'detail'] as const,
+    detail: (id: number) => [...queryKeys.pmCases.details(), id] as const,
+    summary: ['pm-cases', 'summary'] as const,
+    yearlyTrend: ['pm-cases', 'yearly-trend'] as const,
+    crossLookup: (caseCode: string) => ['pm-cases', 'cross-lookup', caseCode] as const,
+  },
+
+  // ERP 財務管理
+  erpQuotations: {
+    all: ['erp-quotations'] as const,
+    lists: () => [...queryKeys.erpQuotations.all, 'list'] as const,
+    list: (filters: object) => [...queryKeys.erpQuotations.lists(), filters] as const,
+    details: () => [...queryKeys.erpQuotations.all, 'detail'] as const,
+    detail: (id: number) => [...queryKeys.erpQuotations.details(), id] as const,
+    profitSummary: ['erp-quotations', 'profit-summary'] as const,
+    profitTrend: ['erp-quotations', 'profit-trend'] as const,
+    vendorPayables: (quotationId: number) => ['erp-quotations', quotationId, 'vendor-payables'] as const,
+  },
 } as const;
 
 // ============================================================================

@@ -17,6 +17,8 @@ import type {
   ExcelImportResult,
   DocumentHistoryMatchResponse,
   DispatchOrderWithHistoryResponse,
+  EntitySimilarityResponse,
+  CorrespondenceSuggestionsResponse,
 } from '../../types/api';
 import type { TaoyuanContractProject } from '../../types/taoyuan';
 
@@ -315,66 +317,26 @@ export const dispatchOrdersApi = {
       {},
     );
   },
+
+  /**
+   * 確認公文對照配對（回饋知識圖譜）
+   */
+  async confirmCorrespondence(
+    dispatchId: number,
+    pairs: { incoming_doc_id: number; outgoing_doc_id: number }[],
+  ): Promise<{ success: boolean; confirmed_count: number; relationships_created: number; relationships_updated: number }> {
+    return apiClient.post(
+      API_ENDPOINTS.TAOYUAN_DISPATCH.DISPATCH_CONFIRM_CORRESPONDENCE(dispatchId),
+      { pairs },
+    );
+  },
 };
 
-/** 實體配對 API 回應型別 */
-export interface EntitySimilarityPair {
-  incoming_doc_id: number;
-  outgoing_doc_id: number;
-  shared_entity_count: number;
-  jaccard: number;
-  shared_entities: string[];
-}
-
-export interface EntitySimilarityResponse {
-  success: boolean;
-  pairs: EntitySimilarityPair[];
-  total_entities: number;
-  incoming_count?: number;
-  outgoing_count?: number;
-}
-
-/** NER 公文對照建議型別 */
-export interface CorrespondenceSuggestion {
-  incoming_doc_id: number;
-  outgoing_doc_id: number;
-  confidence: 'confirmed' | 'high' | 'medium' | 'low';
-  score: number;
-  shared_entity_count: number;
-  shared_entities: string[];
-  incoming_doc?: {
-    doc_id: number;
-    link_type: string;
-    doc_number: string | null;
-    subject: string | null;
-    doc_date: string | null;
-  };
-  outgoing_doc?: {
-    doc_id: number;
-    link_type: string;
-    doc_number: string | null;
-    subject: string | null;
-    doc_date: string | null;
-  };
-}
-
-export interface DispatchEntityInfo {
-  id: number;
-  name: string;
-  type: string;
-}
-
-export interface CorrespondenceSuggestionsResponse {
-  success: boolean;
-  suggestions: CorrespondenceSuggestion[];
-  dispatch_entities: DispatchEntityInfo[];
-  stats?: {
-    incoming_count: number;
-    outgoing_count: number;
-    total_suggestions: number;
-    confirmed: number;
-    high: number;
-    medium: number;
-  };
-  message?: string;
-}
+// Re-export types for backward compatibility
+export type {
+  EntitySimilarityPair,
+  EntitySimilarityResponse,
+  CorrespondenceSuggestion,
+  DispatchEntityInfo,
+  CorrespondenceSuggestionsResponse,
+} from '../../types/api';

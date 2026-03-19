@@ -14,7 +14,7 @@
  * - v1.3.0: 統一使用 types/api.ts 的 User 型別 (SSOT 架構)
  * - v1.2.0: 初版
  */
-import axios, { AxiosResponse } from 'axios';
+import axios, { AxiosError, AxiosResponse } from 'axios';
 import { isAuthDisabled } from '../config/env';
 import { API_BASE_URL, getCookie } from '../api/client';
 import { AUTH_ENDPOINTS, ADMIN_USER_MANAGEMENT_ENDPOINTS } from '../api/endpoints';
@@ -517,12 +517,9 @@ class AuthService {
       logger.error('Google login failed:', error);
 
       // 根據錯誤類型顯示不同的提醒
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if (error instanceof Error || (error as any)?.response) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const errorResponse = (error as any)?.response;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const errorMessage = errorResponse?.data?.detail || (error as any).message;
+      if (axios.isAxiosError(error)) {
+        const errorResponse = (error as AxiosError<{ detail?: string }>).response;
+        const errorMessage = errorResponse?.data?.detail || error.message;
 
         if (errorResponse?.status === 403) {
           // 權限相關錯誤

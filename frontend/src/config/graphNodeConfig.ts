@@ -33,12 +33,12 @@ export interface GraphNodeTypeConfig {
 // ============================================================================
 
 export const GRAPH_NODE_CONFIG: Record<string, GraphNodeTypeConfig> = {
-  // --- 業務實體 ---
-  document:  { color: '#1890ff', radius: 6, label: '公文',     detailable: false, description: '系統中的收發文公文記錄' },
-  project:   { color: '#52c41a', radius: 9, label: '專案',     detailable: false, description: '承攬的合約工程專案' },
-  agency:    { color: '#fa8c16', radius: 5, label: '機關',     detailable: false, description: '公文往來的政府機關' },
-  dispatch:  { color: '#722ed1', radius: 7, label: '派工',     detailable: false, description: '桃園市政府的派工通知單' },
-  typroject: { color: '#2f54eb', radius: 7, label: '桃園工程', detailable: false, description: '桃園市政府的工程案件' },
+  // --- 業務實體（來自系統資料庫的結構化記錄） ---
+  document:  { color: '#1890ff', radius: 6, label: '公文',       detailable: false, description: '系統中的收發文公文記錄（DB）' },
+  project:   { color: '#52c41a', radius: 9, label: '承攬案件',   detailable: false, description: '承攬的合約工程專案（DB）' },
+  agency:    { color: '#fa8c16', radius: 5, label: '機關',       detailable: false, description: '公文往來的政府機關（含 AI 提取）' },
+  dispatch:  { color: '#722ed1', radius: 7, label: '派工單',     detailable: false, description: '桃園市政府的派工通知單（DB）' },
+  typroject: { color: '#2f54eb', radius: 7, label: '查估工程',   detailable: false, description: '桃園派工系統的工程案件（含 AI 提取）' },
   // --- Code Graph 代碼實體 ---
   py_module:   { color: '#7b68ee', radius: 5, label: 'Python 模組', detailable: true, description: '程式碼模組（.py 檔案）' },
   py_class:    { color: '#6495ed', radius: 5, label: 'Python 類別', detailable: true, description: '程式碼中的類別定義' },
@@ -51,13 +51,22 @@ export const GRAPH_NODE_CONFIG: Record<string, GraphNodeTypeConfig> = {
   // --- 模組總覽實體 ---
   menu_module: { color: '#f5222d', radius: 10, label: '功能模組',  detailable: false, description: '網站選單對應的功能模組' },
   api_group:   { color: '#52c41a', radius: 5,  label: 'API 群組',  detailable: false, description: 'API 端點群組' },
-  // --- NER 提取實體 ---
-  org:         { color: '#d48806', radius: 5, label: '組織',     detailable: true,  description: 'AI 從公文內容提取的組織/單位名稱' },
-  person:      { color: '#f5222d', radius: 5, label: '人物',     detailable: true,  description: 'AI 從公文內容提取的人名' },
-  ner_project: { color: '#a0d911', radius: 5, label: '工程名稱', detailable: true,  description: 'AI 從公文內容提取的專案/工程名稱' },
-  location:    { color: '#faad14', radius: 4, label: '地點',     detailable: true,  description: 'AI 從公文內容提取的地點/地址' },
-  date:        { color: '#13c2c2', radius: 4, label: '日期',     detailable: true,  description: 'AI 從公文內容提取的重要日期' },
-  topic:       { color: '#eb2f96', radius: 5, label: '主題',     detailable: true,  description: 'AI 從公文內容提取的主題/關鍵字' },
+  // --- Skills Capability Map 節點 (v2.0 — 3 層階層式) ---
+  layer:      { color: '#434343', radius: 14, label: '能力分層', detailable: false, description: '能力圖譜的架構分層 (感知/認知/知識/行動/學習)' },
+  capability: { color: '#1890ff', radius: 10, label: '核心能力', detailable: false, description: '核心能力節點，大小反映成熟度 (★1-5)' },
+  future:     { color: '#ff85c0', radius: 7,  label: '演進方向', detailable: false, description: '未來發展方向與目標能力' },
+  // Legacy skill map types (backward compat)
+  domain:    { color: '#f5222d', radius: 12, label: '領域',     detailable: false, description: 'Skills 能力圖譜中的領域分類' },
+  skill:     { color: '#52c41a', radius: 7,  label: '技能',     detailable: false, description: '具體實現的技能模組' },
+  agent:     { color: '#52c41a', radius: 6,  label: 'Agent',    detailable: false, description: 'Claude Code 專業代理' },
+  tool:      { color: '#faad14', radius: 5,  label: '工具',     detailable: false, description: 'Agent 可呼叫的工具函數' },
+  service:   { color: '#722ed1', radius: 6,  label: '服務',     detailable: false, description: '後端 AI 服務模組' },
+  command:   { color: '#13c2c2', radius: 5,  label: '指令',     detailable: false, description: 'Claude Code Slash Command' },
+  // --- NER 提取實體（AI 從公文文字自動識別） ---
+  person:      { color: '#f5222d', radius: 5, label: '人物',       detailable: true,  description: 'AI 從公文內容提取的人名' },
+  location:    { color: '#faad14', radius: 4, label: '行政區',     detailable: true,  description: '聚合後的行政區域（區/鄉/鎮）' },
+  date:        { color: '#13c2c2', radius: 4, label: '日期',       detailable: true,  description: 'AI 從公文內容提取的重要日期（預設隱藏）' },
+  topic:       { color: '#eb2f96', radius: 5, label: '主題',       detailable: true,  description: 'AI 從公文內容提取的主題/關鍵字（預設隱藏）' },
 };
 
 // ============================================================================
@@ -80,6 +89,12 @@ export function getNodeConfig(type: string): GraphNodeTypeConfig {
 
 /** 所有已知節點類型 */
 export const KNOWN_NODE_TYPES = Object.keys(GRAPH_NODE_CONFIG);
+
+/** 預設隱藏的節點類型（使用者可在設定面板開啟） */
+export const DEFAULT_HIDDEN_TYPES = new Set(['date', 'topic']);
+
+/** 公文/派工等文件類型（實體關係模式下隱藏） */
+export const DOCUMENT_NODE_TYPES = new Set(['document', 'dispatch']);
 
 /** Code Graph 代碼實體類型（用於 EntityDetailSidebar 等判斷） */
 export const CODE_ENTITY_TYPES = new Set([
@@ -161,8 +176,10 @@ export function getMergedNodeConfig(type: string): MergedNodeConfig {
   const overrides = getUserOverrides();
   const ov = overrides[type];
 
+  const defaultVisible = !DEFAULT_HIDDEN_TYPES.has(type);
+
   if (!ov) {
-    return { ...base, visible: true };
+    return { ...base, visible: defaultVisible };
   }
 
   return {
@@ -171,7 +188,7 @@ export function getMergedNodeConfig(type: string): MergedNodeConfig {
     label: ov.label ?? base.label,
     detailable: base.detailable,
     description: ov.description ?? base.description,
-    visible: ov.visible ?? true,
+    visible: ov.visible ?? defaultVisible,
   };
 }
 
@@ -183,6 +200,7 @@ export function getAllMergedConfigs(
   const result: Record<string, MergedNodeConfig> = {};
   for (const [type, base] of Object.entries(baseConfig)) {
     const ov = overrides[type];
+    const defaultVisible = !DEFAULT_HIDDEN_TYPES.has(type);
     result[type] = ov
       ? {
           color: ov.color ?? base.color,
@@ -190,9 +208,9 @@ export function getAllMergedConfigs(
           label: ov.label ?? base.label,
           detailable: base.detailable,
           description: ov.description ?? base.description,
-          visible: ov.visible ?? true,
+          visible: ov.visible ?? defaultVisible,
         }
-      : { ...base, visible: true };
+      : { ...base, visible: defaultVisible };
   }
   return result;
 }

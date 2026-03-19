@@ -4,12 +4,10 @@
  * 使用統一的 API Client 和型別定義
  */
 
-import { apiClient, ApiException } from './client';
+import { apiClient } from './client';
 import {
   PaginatedResponse,
   DeleteResponse,
-  normalizePaginatedResponse,
-  LegacyListResponse,
   type VendorListParams,
 } from './types';
 import type {
@@ -56,26 +54,7 @@ export const vendorsApi = {
     if (params?.search) queryParams.search = params.search;
     if (params?.business_type) queryParams.business_type = params.business_type;
 
-    try {
-      // 嘗試使用新版 POST API
-      return await apiClient.postList<Vendor>(API_ENDPOINTS.VENDORS.LIST, queryParams);
-    } catch (error) {
-      // 若新 API 失敗，嘗試舊版 GET API（相容性）
-      if (error instanceof ApiException && error.statusCode === 404) {
-        const response = await apiClient.get<LegacyListResponse<Vendor>>(
-          API_ENDPOINTS.VENDORS.CREATE,
-          {
-            params: {
-              skip: ((params?.page ?? 1) - 1) * (params?.limit ?? 20),
-              limit: params?.limit ?? 100,
-              search: params?.search,
-            },
-          }
-        );
-        return normalizePaginatedResponse(response, params?.page, params?.limit);
-      }
-      throw error;
-    }
+    return await apiClient.postList<Vendor>(API_ENDPOINTS.VENDORS.LIST, queryParams);
   },
 
   /**

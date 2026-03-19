@@ -4,53 +4,32 @@
  */
 import { apiClient } from './client';
 import { API_ENDPOINTS } from './endpoints';
+import type {
+  FileInfo,
+  SectionInfo,
+  TreeResponse,
+  FileContentResponse,
+  AdrInfo,
+  AdrListResponse,
+  DiagramInfo,
+  DiagramListResponse,
+  KBSearchResult,
+  KBSearchResponse,
+} from '../types/api';
 
-// Types
-export interface FileInfo {
-  name: string;
-  path: string;
-}
-
-export interface SectionInfo {
-  name: string;
-  path: string;
-  files: FileInfo[];
-}
-
-export interface TreeResponse {
-  success: boolean;
-  sections: SectionInfo[];
-}
-
-export interface FileContentResponse {
-  success: boolean;
-  content: string;
-  filename: string;
-}
-
-export interface AdrInfo {
-  number: string;
-  title: string;
-  status: string;
-  date: string;
-  path: string;
-}
-
-export interface AdrListResponse {
-  success: boolean;
-  items: AdrInfo[];
-}
-
-export interface DiagramInfo {
-  name: string;
-  path: string;
-  title: string;
-}
-
-export interface DiagramListResponse {
-  success: boolean;
-  items: DiagramInfo[];
-}
+// Re-export types for backward compatibility
+export type {
+  FileInfo,
+  SectionInfo,
+  TreeResponse,
+  FileContentResponse,
+  AdrInfo,
+  AdrListResponse,
+  DiagramInfo,
+  DiagramListResponse,
+  KBSearchResult,
+  KBSearchResponse,
+};
 
 // API functions
 export const knowledgeBaseApi = {
@@ -65,4 +44,10 @@ export const knowledgeBaseApi = {
 
   fetchDiagramsList: () =>
     apiClient.post<DiagramListResponse>(API_ENDPOINTS.KNOWLEDGE_BASE.DIAGRAMS_LIST, {}),
+
+  searchContent: (query: string, limit?: number) =>
+    apiClient.post<KBSearchResponse>(API_ENDPOINTS.KNOWLEDGE_BASE.SEARCH, {
+      query,
+      ...(limit !== undefined && { limit }),
+    }),
 };

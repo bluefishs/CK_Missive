@@ -8,6 +8,15 @@
  * @date 2026-01-21
  */
 
+import type { PresetStatusColorType } from 'antd/es/_util/colors';
+
+/** 帶有 Badge 狀態色的選項 */
+export interface BadgeStatusOption {
+  readonly value: string;
+  readonly label: string;
+  readonly color: PresetStatusColorType;
+}
+
 /**
  * 案件類型選項
  * 來源: Excel「1.轄管工程清單」實際資料
@@ -66,20 +75,20 @@ export const WORK_TYPE_OPTIONS = [
 /**
  * 進度狀態選項
  */
-export const PROGRESS_STATUS_OPTIONS = [
+export const PROGRESS_STATUS_OPTIONS: readonly BadgeStatusOption[] = [
   { value: '未開始', label: '未開始', color: 'default' },
   { value: '進行中', label: '進行中', color: 'processing' },
   { value: '待審核', label: '待審核', color: 'warning' },
   { value: '已完成', label: '已完成', color: 'success' },
-] as const;
+];
 
 /**
  * 驗收狀態選項
  */
-export const ACCEPTANCE_STATUS_OPTIONS = [
+export const ACCEPTANCE_STATUS_OPTIONS: readonly BadgeStatusOption[] = [
   { value: '未驗收', label: '未驗收', color: 'default' },
   { value: '已驗收', label: '已驗收', color: 'success' },
-] as const;
+];
 
 // 固定的承攬案件 (115 年度桃園查估派工)
 export const TAOYUAN_CONTRACT = {

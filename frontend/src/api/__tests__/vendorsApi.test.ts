@@ -13,7 +13,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('../client', () => ({
   apiClient: {
     post: vi.fn(),
-    get: vi.fn(),
     postList: vi.fn(),
   },
   ApiException: class ApiException extends Error {
@@ -123,34 +122,6 @@ describe('vendorsApi.getVendors', () => {
         sort_order: 'asc',
       })
     );
-  });
-
-  it('當 postList 返回 404 時應該回退到 GET API', async () => {
-    const apiError = new ApiException('NOT_FOUND', 'Not Found', 404);
-    vi.mocked(apiClient.postList).mockRejectedValue(apiError);
-
-    const legacyResponse = {
-      items: [mockVendor],
-      total: 1,
-      page: 1,
-      limit: 100,
-    };
-    vi.mocked(apiClient.get).mockResolvedValue(legacyResponse);
-
-    const result = await vendorsApi.getVendors();
-
-    expect(apiClient.get).toHaveBeenCalledWith(
-      '/vendors',
-      expect.objectContaining({
-        params: expect.objectContaining({
-          skip: 0,
-          limit: 100,
-        }),
-      })
-    );
-    // 應回傳正規化後的分頁回應
-    expect(result).toHaveProperty('items');
-    expect(result).toHaveProperty('pagination');
   });
 
   it('當非 404 錯誤時應該拋出錯誤', async () => {

@@ -525,6 +525,8 @@ export const TAOYUAN_DISPATCH_ENDPOINTS = {
   DISPATCH_ENTITY_SIMILARITY: (id: number) => `/taoyuan-dispatch/dispatch/${id}/entity-similarity`,
   /** NER 驅動公文對照建議 POST /taoyuan-dispatch/dispatch/:id/correspondence-suggestions */
   DISPATCH_CORRESPONDENCE_SUGGESTIONS: (id: number) => `/taoyuan-dispatch/dispatch/${id}/correspondence-suggestions`,
+  /** 確認公文對照配對（回饋圖譜） POST /taoyuan-dispatch/dispatch/:id/confirm-correspondence */
+  DISPATCH_CONFIRM_CORRESPONDENCE: (id: number) => `/taoyuan-dispatch/dispatch/${id}/confirm-correspondence`,
 
   // 匯出
   /** 派工總表 Excel 匯出 POST /taoyuan-dispatch/dispatch/export/excel */
@@ -710,6 +712,8 @@ export const AI_ENDPOINTS = {
   GRAPH_ENTITY_GRAPH: '/ai/graph/entity/graph',
   /** 圖譜統計 POST /ai/graph/stats */
   GRAPH_STATS: '/ai/graph/stats',
+  /** 時序聚合 POST /ai/graph/timeline/aggregate */
+  GRAPH_TIMELINE_AGGREGATE: '/ai/graph/timeline/aggregate',
   /** 圖譜入圖管線 POST /ai/graph/ingest */
   GRAPH_INGEST: '/ai/graph/ingest',
   /** Code Wiki 代碼圖譜 POST /ai/graph/code-wiki */
@@ -732,6 +736,8 @@ export const AI_ENDPOINTS = {
   GRAPH_DB_SCHEMA: '/ai/graph/db-schema',
   /** 資料庫 ER 圖譜 POST /ai/graph/db-graph */
   GRAPH_DB_GRAPH: '/ai/graph/db-graph',
+  /** 跨圖譜統一搜尋 POST /ai/graph/unified-search */
+  GRAPH_UNIFIED_SEARCH: '/ai/graph/unified-search',
   // --- RAG 問答 ---
   /** RAG 問答 POST /ai/rag/query */
   RAG_QUERY: '/ai/rag/query',
@@ -740,8 +746,8 @@ export const AI_ENDPOINTS = {
   // --- Agentic 問答 ---
   /** Agentic 串流問答 POST /ai/agent/query/stream */
   AGENT_QUERY_STREAM: '/ai/agent/query/stream',
-  /** 清除 Agent 對話記憶 DELETE /ai/agent/conversation/{session_id} */
-  AGENT_CONVERSATION_CLEAR: (sessionId: string) => `/ai/agent/conversation/${sessionId}` as const,
+  /** 清除 Agent 對話記憶 POST /ai/agent/conversation/{session_id}/delete */
+  AGENT_CONVERSATION_CLEAR: (sessionId: string) => `/ai/agent/conversation/${sessionId}/delete` as const,
   // --- Ollama 管理 ---
   /** Ollama 詳細狀態 POST /ai/ollama/status */
   OLLAMA_STATUS: '/ai/ollama/status',
@@ -765,6 +771,23 @@ export const AI_ENDPOINTS = {
   ANALYSIS_BATCH: '/ai/analysis/batch',
   /** AI 分析覆蓋率統計 POST /ai/analysis/stats */
   ANALYSIS_STATS: '/ai/analysis/stats',
+  // --- Phase 3A 統計端點 ---
+  /** 工具成功率統計 POST /ai/stats/tool-success-rates */
+  STATS_TOOL_SUCCESS_RATES: '/ai/stats/tool-success-rates',
+  /** Agent 追蹤記錄 POST /ai/stats/agent-traces */
+  STATS_AGENT_TRACES: '/ai/stats/agent-traces',
+  /** 學習模式統計 POST /ai/stats/patterns */
+  STATS_PATTERNS: '/ai/stats/patterns',
+  /** 持久化學習統計 POST /ai/stats/learnings */
+  STATS_LEARNINGS: '/ai/stats/learnings',
+  /** 每日趨勢統計 POST /ai/stats/daily-trend */
+  STATS_DAILY_TREND: '/ai/stats/daily-trend',
+  /** 主動觸發警報 POST /ai/proactive/alerts */
+  PROACTIVE_ALERTS: '/ai/proactive/alerts',
+  /** 工具註冊清單 POST /ai/stats/tool-registry */
+  STATS_TOOL_REGISTRY: '/ai/stats/tool-registry',
+  /** Skills 能力圖譜 POST /ai/graph/skills-map */
+  GRAPH_SKILLS_MAP: '/ai/graph/skills-map',
 } as const;
 
 // ============================================================================
@@ -788,6 +811,16 @@ export const DEPLOYMENT_ENDPOINTS = {
 } as const;
 
 // ============================================================================
+// LINE Bot 端點
+// ============================================================================
+
+/** LINE Bot API 端點 */
+export const LINE_ENDPOINTS = {
+  /** LINE Push 通知 POST /line/push */
+  PUSH: '/line/push',
+} as const;
+
+// ============================================================================
 // 知識庫瀏覽器端點
 // ============================================================================
 
@@ -797,6 +830,107 @@ export const KNOWLEDGE_BASE_ENDPOINTS = {
   FILE: '/knowledge-base/file',
   ADR_LIST: '/knowledge-base/adr/list',
   DIAGRAMS_LIST: '/knowledge-base/diagrams/list',
+  SEARCH: '/knowledge-base/search',
+} as const;
+
+// ============================================================================
+// 專案管理 (PM) 端點
+// ============================================================================
+
+/** PM 專案管理 API 端點 */
+export const PM_ENDPOINTS = {
+  /** 案件列表 POST /pm/cases/list */
+  CASES_LIST: '/pm/cases/list',
+  /** 建立案件 POST /pm/cases/create */
+  CASES_CREATE: '/pm/cases/create',
+  /** 案件詳情 POST /pm/cases/detail */
+  CASES_DETAIL: '/pm/cases/detail',
+  /** 更新案件 POST /pm/cases/update-by-id */
+  CASES_UPDATE: '/pm/cases/update-by-id',
+  /** 刪除案件 POST /pm/cases/delete */
+  CASES_DELETE: '/pm/cases/delete',
+  /** 案件統計摘要 POST /pm/cases/summary */
+  CASES_SUMMARY: '/pm/cases/summary',
+  /** 里程碑列表 POST /pm/milestones/list */
+  MILESTONES_LIST: '/pm/milestones/list',
+  /** 建立里程碑 POST /pm/milestones/create */
+  MILESTONES_CREATE: '/pm/milestones/create',
+  /** 更新里程碑 POST /pm/milestones/update */
+  MILESTONES_UPDATE: '/pm/milestones/update',
+  /** 刪除里程碑 POST /pm/milestones/delete */
+  MILESTONES_DELETE: '/pm/milestones/delete',
+  /** 人員列表 POST /pm/staff/list */
+  STAFF_LIST: '/pm/staff/list',
+  /** 建立人員 POST /pm/staff/create */
+  STAFF_CREATE: '/pm/staff/create',
+  /** 更新人員 POST /pm/staff/update */
+  STAFF_UPDATE: '/pm/staff/update',
+  /** 刪除人員 POST /pm/staff/delete */
+  STAFF_DELETE: '/pm/staff/delete',
+  /** 產生案號 POST /pm/cases/generate-code */
+  GENERATE_CODE: '/pm/cases/generate-code',
+  /** 重新計算進度 POST /pm/cases/recalculate-progress */
+  RECALCULATE_PROGRESS: '/pm/cases/recalculate-progress',
+  /** 跨模組案號查詢 POST /pm/cases/cross-lookup */
+  CROSS_LOOKUP: '/pm/cases/cross-lookup',
+  /** 甘特圖 POST /pm/cases/gantt */
+  GANTT: '/pm/cases/gantt',
+  /** 案號關聯公文 POST /pm/cases/linked-documents */
+  LINKED_DOCUMENTS: '/pm/cases/linked-documents',
+  /** 匯出 CSV POST /pm/cases/export */
+  EXPORT: '/pm/cases/export',
+  /** 多年度趨勢 POST /pm/cases/yearly-trend */
+  YEARLY_TREND: '/pm/cases/yearly-trend',
+} as const;
+
+// ============================================================================
+// 財務管理 (ERP) 端點
+// ============================================================================
+
+/** ERP 財務管理 API 端點 */
+export const ERP_ENDPOINTS = {
+  /** 報價列表 POST /erp/quotations/list */
+  QUOTATIONS_LIST: '/erp/quotations/list',
+  /** 建立報價 POST /erp/quotations/create */
+  QUOTATIONS_CREATE: '/erp/quotations/create',
+  /** 報價詳情 POST /erp/quotations/detail */
+  QUOTATIONS_DETAIL: '/erp/quotations/detail',
+  /** 更新報價 POST /erp/quotations/update */
+  QUOTATIONS_UPDATE: '/erp/quotations/update',
+  /** 刪除報價 POST /erp/quotations/delete */
+  QUOTATIONS_DELETE: '/erp/quotations/delete',
+  /** 損益摘要 POST /erp/quotations/profit-summary */
+  PROFIT_SUMMARY: '/erp/quotations/profit-summary',
+  /** 發票列表 POST /erp/invoices/list */
+  INVOICES_LIST: '/erp/invoices/list',
+  /** 建立發票 POST /erp/invoices/create */
+  INVOICES_CREATE: '/erp/invoices/create',
+  /** 更新發票 POST /erp/invoices/update */
+  INVOICES_UPDATE: '/erp/invoices/update',
+  /** 刪除發票 POST /erp/invoices/delete */
+  INVOICES_DELETE: '/erp/invoices/delete',
+  /** 請款列表 POST /erp/billings/list */
+  BILLINGS_LIST: '/erp/billings/list',
+  /** 建立請款 POST /erp/billings/create */
+  BILLINGS_CREATE: '/erp/billings/create',
+  /** 更新請款 POST /erp/billings/update */
+  BILLINGS_UPDATE: '/erp/billings/update',
+  /** 刪除請款 POST /erp/billings/delete */
+  BILLINGS_DELETE: '/erp/billings/delete',
+  /** 廠商應付列表 POST /erp/vendor-payables/list */
+  VENDOR_PAYABLES_LIST: '/erp/vendor-payables/list',
+  /** 建立廠商應付 POST /erp/vendor-payables/create */
+  VENDOR_PAYABLES_CREATE: '/erp/vendor-payables/create',
+  /** 更新廠商應付 POST /erp/vendor-payables/update */
+  VENDOR_PAYABLES_UPDATE: '/erp/vendor-payables/update',
+  /** 刪除廠商應付 POST /erp/vendor-payables/delete */
+  VENDOR_PAYABLES_DELETE: '/erp/vendor-payables/delete',
+  /** 產生案號 POST /erp/quotations/generate-code */
+  GENERATE_CODE: '/erp/quotations/generate-code',
+  /** 損益趨勢 POST /erp/quotations/profit-trend */
+  PROFIT_TREND: '/erp/quotations/profit-trend',
+  /** 匯出 CSV POST /erp/quotations/export */
+  EXPORT: '/erp/quotations/export',
 } as const;
 
 // ============================================================================
@@ -866,6 +1000,15 @@ export const API_ENDPOINTS = {
 
   // 知識庫瀏覽器
   KNOWLEDGE_BASE: KNOWLEDGE_BASE_ENDPOINTS,
+
+  // LINE Bot
+  LINE: LINE_ENDPOINTS,
+
+  // 專案管理 (PM)
+  PM: PM_ENDPOINTS,
+
+  // 財務管理 (ERP)
+  ERP: ERP_ENDPOINTS,
 } as const;
 
 // 預設匯出

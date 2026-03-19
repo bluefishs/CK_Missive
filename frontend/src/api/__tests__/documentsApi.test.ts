@@ -24,7 +24,6 @@ vi.mock('../../services/logger', () => ({
 vi.mock('../client', () => ({
   apiClient: {
     post: vi.fn(),
-    get: vi.fn(),
     postList: vi.fn(),
     postForm: vi.fn(),
     downloadPost: vi.fn(),
@@ -235,34 +234,6 @@ describe('documentsApi.getDocuments', () => {
         doc_date_to: '2026-06-30',
       })
     );
-  });
-
-  it('當 postList 返回 404 時應該回退到 GET API', async () => {
-    const apiError = new ApiException('NOT_FOUND', 'Not Found', 404);
-    vi.mocked(apiClient.postList).mockRejectedValue(apiError);
-
-    const legacyResponse = {
-      items: [mockDocument],
-      total: 1,
-      page: 1,
-      limit: 100,
-      total_pages: 1,
-    };
-    vi.mocked(apiClient.get).mockResolvedValue(legacyResponse);
-
-    const result = await documentsApi.getDocuments();
-
-    expect(apiClient.get).toHaveBeenCalledWith(
-      '/documents-enhanced/integrated-search',
-      expect.objectContaining({
-        params: expect.objectContaining({
-          skip: 0,
-          limit: 100,
-        }),
-      })
-    );
-    expect(result).toHaveProperty('items');
-    expect(result).toHaveProperty('pagination');
   });
 
   it('當非 404 錯誤時應該拋出錯誤', async () => {

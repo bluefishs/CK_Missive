@@ -206,7 +206,7 @@ describe('calendarApi.getGoogleStatus - Google Calendar 狀態', () => {
   });
 
   it('已配置 Google Calendar 應回傳 connected 狀態', async () => {
-    vi.mocked(apiClient.get).mockResolvedValue({
+    vi.mocked(apiClient.post).mockResolvedValue({
       google_calendar_integration: true,
       google_status: { configured: true, calendar_id: 'primary' },
       message: '已連接',
@@ -216,7 +216,7 @@ describe('calendarApi.getGoogleStatus - Google Calendar 狀態', () => {
 
     const result = await calendarApi.getGoogleStatus();
 
-    expect(apiClient.get).toHaveBeenCalledWith('/public/calendar-status');
+    expect(apiClient.post).toHaveBeenCalledWith('/public/calendar-status');
     expect(result.google_calendar_available).toBe(true);
     expect(result.connection_status.status).toBe('connected');
     expect(result.connection_status.calendars).toHaveLength(1);
@@ -225,7 +225,7 @@ describe('calendarApi.getGoogleStatus - Google Calendar 狀態', () => {
   });
 
   it('未配置 Google Calendar 應回傳 disconnected', async () => {
-    vi.mocked(apiClient.get).mockResolvedValue({
+    vi.mocked(apiClient.post).mockResolvedValue({
       google_calendar_integration: false,
       google_status: { configured: false },
       message: '未連接',
@@ -239,7 +239,7 @@ describe('calendarApi.getGoogleStatus - Google Calendar 狀態', () => {
   });
 
   it('API 錯誤時應回傳 error 狀態的 fallback', async () => {
-    vi.mocked(apiClient.get).mockRejectedValue(new Error('Connection failed'));
+    vi.mocked(apiClient.post).mockRejectedValue(new Error('Connection failed'));
 
     const result = await calendarApi.getGoogleStatus();
 
@@ -251,7 +251,7 @@ describe('calendarApi.getGoogleStatus - Google Calendar 狀態', () => {
   });
 
   it('回應缺少可選欄位時應使用預設值', async () => {
-    vi.mocked(apiClient.get).mockResolvedValue({});
+    vi.mocked(apiClient.post).mockResolvedValue({});
 
     const result = await calendarApi.getGoogleStatus();
 

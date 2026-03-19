@@ -121,11 +121,13 @@ describe('parseApiError', () => {
       const networkError = {
         message: 'Network Error',
         code: 'ERR_NETWORK',
+        request: {},  // network error has request but no response
       };
 
       const result = parseApiError(networkError);
 
-      expect(result.message).toContain('Network Error');
+      expect(result.message).toContain('網路連線失敗');
+      expect(result.detail).toBe('Network Error');
       expect(result.status).toBeUndefined();
     });
   });

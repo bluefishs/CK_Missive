@@ -97,3 +97,15 @@ export function getPriorityLabel(priority: string): string {
   };
   return priorityMap[priority] || priority;
 }
+
+/**
+ * 解析貨幣輸入字串為數值
+ *
+ * 移除貨幣符號 ($) 和千分位逗號，回傳數值。
+ * 用於 Ant Design InputNumber 的 parser prop，避免 `as any` 型別斷言。
+ */
+export function parseCurrencyInput(value: string | undefined): number {
+  const cleaned = value?.replace(/\$\s?|(,*)/g, '') ?? '';
+  const num = Number(cleaned);
+  return isNaN(num) ? 0 : num;
+}

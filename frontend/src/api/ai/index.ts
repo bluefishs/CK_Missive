@@ -116,6 +116,24 @@ export type {
   // Code Wiki 代碼圖譜
   CodeWikiRequest,
   CodeWikiResponse,
+  // Knowledge Graph API
+  CodeGraphIngestRequest,
+  CodeGraphIngestResponse,
+  CycleDetectionResponse,
+  ArchitectureAnalysisResponse,
+  JsonImportRequest,
+  JsonImportResponse,
+  ModuleOverviewResponse,
+  // SSE Callbacks
+  SSEErrorCode,
+  RAGStreamCallbacks,
+  AgentStreamCallbacks,
+  // Proactive Alerts
+  ProactiveAlertItem,
+  ProactiveAlertsResponse,
+  // Tool Registry
+  ToolRegistryItem,
+  ToolRegistryResponse,
 } from './types';
 
 // Re-export abortNaturalSearch (standalone function)
@@ -170,6 +188,17 @@ import {
   triggerDocumentAnalysis,
   batchAnalyze,
   getAnalysisStats,
+  // Phase 3A stats
+  getToolSuccessRates,
+  getAgentTraces,
+  getLearnedPatterns,
+  getPersistentLearnings,
+  // Proactive alerts
+  getProactiveAlerts,
+  // Daily trend
+  getDailyTrend,
+  // Tool registry
+  getToolRegistry,
 } from './adminManagement';
 
 import {
@@ -192,6 +221,7 @@ import {
   getDbSchemaGraph,
   getDbSchema,
   getModuleMappings,
+  getSkillsMap,
 } from './knowledgeGraph';
 
 export type { DbSchemaGraphResponse, DbSchemaResponse, DbTableInfo, DbColumnInfo, ModuleMappingsResponse } from './knowledgeGraph';
@@ -272,6 +302,9 @@ export const aiApi = {
   // Entity-centric graph
   getEntityGraph,
 
+  // Skills capability map
+  getSkillsMap,
+
   // Ollama management
   getOllamaStatus,
   ensureOllamaModels,
@@ -289,6 +322,21 @@ export const aiApi = {
   triggerDocumentAnalysis,
   batchAnalyze,
   getAnalysisStats,
+
+  // Phase 3A Agent 統計
+  getToolSuccessRates,
+  getAgentTraces,
+  getLearnedPatterns,
+  getPersistentLearnings,
+
+  // Proactive Alerts
+  getProactiveAlerts,
+
+  // Daily Trend
+  getDailyTrend,
+
+  // Tool Registry
+  getToolRegistry,
 };
 
 export default aiApi;

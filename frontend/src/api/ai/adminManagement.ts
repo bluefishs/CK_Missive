@@ -54,6 +54,14 @@ import type {
   AIFeedbackSubmitResponse,
   AIFeedbackStatsResponse,
   AIAnalyticsOverviewResponse,
+  ToolSuccessRatesResponse,
+  ToolRegistryResponse,
+  AgentTraceQuery,
+  AgentTracesResponse,
+  PatternsResponse,
+  LearningsResponse,
+  ProactiveAlertsResponse,
+  DailyTrendResponse,
 } from '../../types/ai';
 
 // ============================================================================
@@ -330,16 +338,10 @@ export async function ragQuery(request: RAGQueryRequest): Promise<RAGQueryRespon
   return await apiClient.post<RAGQueryResponse>(AI_ENDPOINTS.RAG_QUERY, request);
 }
 
-/** SSE 錯誤代碼 */
-export type SSEErrorCode = 'RATE_LIMITED' | 'SERVICE_ERROR' | 'STREAM_TIMEOUT' | 'EMBEDDING_ERROR' | 'LLM_ERROR' | 'VALIDATION_ERROR';
+import type { SSEErrorCode, RAGStreamCallbacks, AgentStreamCallbacks } from '../../types/ai';
 
-/** RAG SSE 事件回調 */
-export interface RAGStreamCallbacks {
-  onSources: (sources: RAGQueryResponse['sources'], count: number) => void;
-  onToken: (token: string) => void;
-  onDone: (latencyMs: number, model: string) => void;
-  onError?: (error: string, code?: SSEErrorCode) => void;
-}
+// Re-export types for backward compatibility
+export type { SSEErrorCode, RAGStreamCallbacks, AgentStreamCallbacks };
 
 /**
  * RAG 串流問答（SSE）
@@ -466,22 +468,11 @@ export function streamRAGQuery(
 // Agentic 問答
 // ============================================================================
 
-/** Agent SSE 事件回調 */
-export interface AgentStreamCallbacks {
-  onThinking: (step: string, stepIndex: number) => void;
-  onToolCall: (tool: string, params: Record<string, unknown>, stepIndex: number) => void;
-  onToolResult: (tool: string, summary: string, count: number, stepIndex: number) => void;
-  onSources: (sources: RAGQueryResponse['sources'], count: number) => void;
-  onToken: (token: string) => void;
-  onDone: (latencyMs: number, model: string, toolsUsed: string[], iterations: number) => void;
-  onError?: (error: string, code?: SSEErrorCode) => void;
-}
-
 /**
  * 清除 Agent 對話記憶（伺服器端 Redis）
  */
 export async function clearAgentConversation(sessionId: string): Promise<void> {
-  await apiClient.delete(AI_ENDPOINTS.AGENT_CONVERSATION_CLEAR(sessionId));
+  await apiClient.post(AI_ENDPOINTS.AGENT_CONVERSATION_CLEAR(sessionId));
 }
 
 /**
@@ -544,8 +535,14 @@ export function streamAgentQuery(
           try {
             const data = JSON.parse(line.slice(6));
             switch (data.type) {
+              case 'role':
+                callbacks.onRole?.(data.identity || '', data.context || '');
+                break;
               case 'thinking':
                 callbacks.onThinking(data.step || '', data.step_index || 0);
+                break;
+              case 'react':
+                callbacks.onReact?.(data.step || '', data.step_index || 0, data.confidence || 0, data.action || 'continue');
                 break;
               case 'tool_call':
                 callbacks.onToolCall(data.tool || '', data.params || {}, data.step_index || 0);
@@ -585,8 +582,14 @@ export function streamAgentQuery(
           try {
             const data = JSON.parse(line.slice(6));
             switch (data.type) {
+              case 'role':
+                callbacks.onRole?.(data.identity || '', data.context || '');
+                break;
               case 'thinking':
                 callbacks.onThinking(data.step || '', data.step_index || 0);
+                break;
+              case 'react':
+                callbacks.onReact?.(data.step || '', data.step_index || 0, data.confidence || 0, data.action || 'continue');
                 break;
               case 'tool_call':
                 callbacks.onToolCall(data.tool || '', data.params || {}, data.step_index || 0);
@@ -720,6 +723,96 @@ export async function getAnalysisStats(): Promise<DocumentAIAnalysisStatsRespons
   try {
     return await apiClient.silentPost<DocumentAIAnalysisStatsResponse>(
       AI_ENDPOINTS.ANALYSIS_STATS,
+      {}
+    );
+  } catch {
+    return null;
+  }
+}
+
+// ============================================================================
+// Phase 3A 統計端點
+// ============================================================================
+
+/** 工具成功率統計 */
+export async function getToolSuccessRates(): Promise<ToolSuccessRatesResponse | null> {
+  try {
+    return await apiClient.silentPost<ToolSuccessRatesResponse>(
+      AI_ENDPOINTS.STATS_TOOL_SUCCESS_RATES,
+      {}
+    );
+  } catch {
+    return null;
+  }
+}
+
+/** Agent 追蹤記錄查詢 */
+export async function getAgentTraces(
+  query?: AgentTraceQuery
+): Promise<AgentTracesResponse | null> {
+  try {
+    return await apiClient.silentPost<AgentTracesResponse>(
+      AI_ENDPOINTS.STATS_AGENT_TRACES,
+      query ?? {}
+    );
+  } catch {
+    return null;
+  }
+}
+
+/** 學習模式統計 */
+export async function getLearnedPatterns(): Promise<PatternsResponse | null> {
+  try {
+    return await apiClient.silentPost<PatternsResponse>(
+      AI_ENDPOINTS.STATS_PATTERNS,
+      {}
+    );
+  } catch {
+    return null;
+  }
+}
+
+/** 持久化學習記錄 */
+export async function getPersistentLearnings(): Promise<LearningsResponse | null> {
+  try {
+    return await apiClient.silentPost<LearningsResponse>(
+      AI_ENDPOINTS.STATS_LEARNINGS,
+      {}
+    );
+  } catch {
+    return null;
+  }
+}
+
+/** 主動觸發警報掃描 */
+export async function getProactiveAlerts(): Promise<ProactiveAlertsResponse | null> {
+  try {
+    return await apiClient.silentPost<ProactiveAlertsResponse>(
+      AI_ENDPOINTS.PROACTIVE_ALERTS,
+      {}
+    );
+  } catch {
+    return null;
+  }
+}
+
+/** Agent 每日趨勢統計 */
+export async function getDailyTrend(): Promise<DailyTrendResponse | null> {
+  try {
+    return await apiClient.silentPost<DailyTrendResponse>(
+      AI_ENDPOINTS.STATS_DAILY_TREND,
+      {}
+    );
+  } catch {
+    return null;
+  }
+}
+
+/** 工具註冊清單 */
+export async function getToolRegistry(): Promise<ToolRegistryResponse | null> {
+  try {
+    return await apiClient.silentPost<ToolRegistryResponse>(
+      AI_ENDPOINTS.STATS_TOOL_REGISTRY,
       {}
     );
   } catch {

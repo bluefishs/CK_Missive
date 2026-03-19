@@ -94,7 +94,7 @@ export const calendarApi = {
    */
   async getGoogleStatus(): Promise<GoogleCalendarStatus> {
     try {
-      const data = await apiClient.get<{
+      const data = await apiClient.post<{
         google_calendar_integration?: boolean;
         google_status?: { configured?: boolean; calendar_id?: string };
         message?: string;

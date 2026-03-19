@@ -12,9 +12,9 @@ export const theme: ThemeConfig = {
   },
   components: {
     Layout: {
-      colorBgHeader: '#001529',
-      colorBgBody: '#f5f5f5',
-      colorBgTrigger: '#002140',
+      headerBg: '#001529',
+      bodyBg: '#f5f5f5',
+      triggerBg: '#002140',
     },
     Menu: {
       colorItemBg: '#001529',

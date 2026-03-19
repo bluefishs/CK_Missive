@@ -13,7 +13,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('../client', () => ({
   apiClient: {
     post: vi.fn(),
-    get: vi.fn(),
     postList: vi.fn(),
   },
   ApiException: class ApiException extends Error {
@@ -153,65 +152,6 @@ describe('agenciesApi.getAgencies', () => {
     const calledParams = vi.mocked(apiClient.postList).mock.calls[0]![1] as Record<string, unknown>;
     expect(calledParams).not.toHaveProperty('search');
     expect(calledParams).not.toHaveProperty('agency_type');
-  });
-
-  it('當 postList 返回 404 時應該回退到 GET API（舊版格式）', async () => {
-    const apiError = new ApiException('NOT_FOUND', 'Not Found', 404);
-    vi.mocked(apiClient.postList).mockRejectedValue(apiError);
-
-    const legacyResponse = {
-      agencies: [mockAgency],
-      total: 1,
-      returned: 1,
-    };
-    vi.mocked(apiClient.get).mockResolvedValue(legacyResponse);
-
-    const result = await agenciesApi.getAgencies();
-
-    expect(apiClient.get).toHaveBeenCalledWith(
-      '/agencies',
-      expect.objectContaining({
-        params: expect.objectContaining({
-          skip: 0,
-          limit: 100,
-          include_stats: true,
-        }),
-      })
-    );
-    // 應回傳正規化後的分頁回應
-    expect(result).toHaveProperty('items');
-    expect(result).toHaveProperty('pagination');
-  });
-
-  it('當 postList 返回 404 且帶有搜尋參數時回退應傳遞搜尋參數', async () => {
-    const apiError = new ApiException('NOT_FOUND', 'Not Found', 404);
-    vi.mocked(apiClient.postList).mockRejectedValue(apiError);
-
-    const legacyResponse = {
-      agencies: [mockAgency],
-      total: 1,
-      returned: 1,
-    };
-    vi.mocked(apiClient.get).mockResolvedValue(legacyResponse);
-
-    await agenciesApi.getAgencies({
-      page: 3,
-      limit: 10,
-      search: '台北',
-      include_stats: false,
-    });
-
-    expect(apiClient.get).toHaveBeenCalledWith(
-      '/agencies',
-      expect.objectContaining({
-        params: expect.objectContaining({
-          skip: 20,
-          limit: 10,
-          include_stats: false,
-          search: '台北',
-        }),
-      })
-    );
   });
 
   it('當非 404 錯誤時應該拋出錯誤', async () => {

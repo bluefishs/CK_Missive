@@ -77,6 +77,8 @@ export const ROUTES = {
   AI_ASSISTANT_MANAGEMENT: '/admin/ai-assistant',
   // 知識圖譜探索（獨立全螢幕頁面）
   KNOWLEDGE_GRAPH: '/ai/knowledge-graph',
+  // Skills 能力圖譜（獨立頁面）
+  SKILLS_MAP: '/ai/skills-map',
   // 代碼圖譜
   CODE_WIKI: '/ai/code-wiki',        // 舊路由（相容重導向）
   CODE_GRAPH: '/ai/code-graph',       // 新路由
@@ -95,6 +97,16 @@ export const ROUTES = {
   TAOYUAN_WORKFLOW_EDIT: '/taoyuan/dispatch/:dispatchId/workflow/:recordId/edit',
   // 知識庫瀏覽器
   KNOWLEDGE_BASE: '/admin/knowledge-base',
+  // 專案管理 (PM)
+  PM_CASES: '/pm/cases',
+  PM_CASE_DETAIL: '/pm/cases/:id',
+  PM_CASE_CREATE: '/pm/cases/create',
+  PM_CASE_EDIT: '/pm/cases/:id/edit',
+  // 財務管理 (ERP)
+  ERP_QUOTATIONS: '/erp/quotations',
+  ERP_QUOTATION_DETAIL: '/erp/quotations/:id',
+  ERP_QUOTATION_CREATE: '/erp/quotations/create',
+  ERP_QUOTATION_EDIT: '/erp/quotations/:id/edit',
 } as const;
 
 // 路由元數據
@@ -279,6 +291,12 @@ export const ROUTE_META = {
     title: '知識圖譜探索',
     description: '視覺化公文關聯網絡與正規化實體',
     icon: 'ApartmentOutlined',
+    requireAuth: true,
+  },
+  [ROUTES.SKILLS_MAP]: {
+    title: 'Skills 能力圖譜',
+    description: '視覺化 Skills/Agents/Tools 能力關聯圖譜',
+    icon: 'NodeIndexOutlined',
     requireAuth: true,
   },
   [ROUTES.CODE_WIKI]: {

@@ -32,11 +32,16 @@ export interface ModuleMapping {
   dbTables: string[];
 }
 
-/** 預設模組映射（可由管理員覆蓋） */
+/**
+ * 預設模組映射（對齊站點管理導覽結構 site_navigation_items）
+ *
+ * key/title 必須與 site_navigation_items 的 key/title 一致，
+ * 方便在站點管理頁面與此處交叉檢視維護。
+ */
 export const DEFAULT_MODULE_MAPPINGS: ModuleMapping[] = [
   {
     key: 'dashboard',
-    title: '儀表板',
+    title: '個人儀表板',
     icon: 'DashboardOutlined',
     color: '#1890ff',
     pages: ['DashboardPage'],
@@ -55,48 +60,8 @@ export const DEFAULT_MODULE_MAPPINGS: ModuleMapping[] = [
     dbTables: ['documents', 'attachments', 'doc_number_sequences'],
   },
   {
-    key: 'contract-cases',
-    title: '承攬案件',
-    icon: 'ProjectOutlined',
-    color: '#52c41a',
-    pages: ['ContractCasePage', 'ContractCaseDetailPage', 'ContractCaseFormPage'],
-    apiGroups: ['PROJECTS', 'PROJECT_STAFF', 'PROJECT_VENDORS'],
-    backendServices: ['ProjectService'],
-    dbTables: ['contract_projects', 'project_vendor_association', 'project_user_association'],
-  },
-  {
-    key: 'agencies',
-    title: '機關管理',
-    icon: 'BankOutlined',
-    color: '#13c2c2',
-    pages: ['AgenciesPage'],
-    apiGroups: ['AGENCIES'],
-    backendServices: ['AgencyService', 'AgencyMatchingService'],
-    dbTables: ['government_agencies', 'agency_contacts'],
-  },
-  {
-    key: 'vendors',
-    title: '廠商管理',
-    icon: 'ShopOutlined',
-    color: '#eb2f96',
-    pages: ['VendorPage'],
-    apiGroups: ['VENDORS'],
-    backendServices: ['VendorService'],
-    dbTables: ['partner_vendors', 'project_vendor_association'],
-  },
-  {
-    key: 'staff',
-    title: '人員管理',
-    icon: 'TeamOutlined',
-    color: '#722ed1',
-    pages: ['StaffPage', 'StaffDetailPage', 'StaffCreatePage'],
-    apiGroups: ['PROJECT_STAFF', 'CERTIFICATIONS'],
-    backendServices: [],
-    dbTables: ['project_user_association', 'certifications'],
-  },
-  {
     key: 'calendar',
-    title: '行事曆',
+    title: '日曆管理',
     icon: 'CalendarOutlined',
     color: '#fa8c16',
     pages: ['CalendarPage'],
@@ -105,18 +70,18 @@ export const DEFAULT_MODULE_MAPPINGS: ModuleMapping[] = [
     dbTables: ['calendar_events', 'calendar_reminders', 'calendar_sync_logs'],
   },
   {
-    key: 'taoyuan-dispatch',
-    title: '桃園派工',
-    icon: 'EnvironmentOutlined',
-    color: '#f5222d',
-    pages: ['TaoyuanDispatchPage', 'TaoyuanDispatchCreatePage', 'TaoyuanDispatchDetailPage', 'TaoyuanProjectDetailPage', 'WorkRecordFormPage'],
-    apiGroups: ['TAOYUAN_DISPATCH'],
-    backendServices: ['DispatchOrderService', 'DispatchImportService', 'PaymentService', 'WorkRecordService'],
-    dbTables: ['taoyuan_projects', 'taoyuan_dispatch_orders', 'taoyuan_work_records', 'taoyuan_payments'],
+    key: 'project-management',
+    title: '專案管理',
+    icon: 'ProjectOutlined',
+    color: '#52c41a',
+    pages: ['ContractCasePage', 'ContractCaseDetailPage', 'ContractCaseFormPage', 'AgenciesPage', 'VendorPage', 'StaffPage', 'StaffDetailPage', 'StaffCreatePage'],
+    apiGroups: ['PROJECTS', 'PROJECT_STAFF', 'PROJECT_VENDORS', 'AGENCIES', 'VENDORS', 'CERTIFICATIONS'],
+    backendServices: ['ProjectService', 'AgencyService', 'AgencyMatchingService', 'VendorService'],
+    dbTables: ['contract_projects', 'project_vendor_association', 'project_user_association', 'government_agencies', 'agency_contacts', 'partner_vendors', 'certifications'],
   },
   {
     key: 'reports',
-    title: '統計報表',
+    title: '報表分析',
     icon: 'BarChartOutlined',
     color: '#faad14',
     pages: ['ReportsPage'],
@@ -125,17 +90,27 @@ export const DEFAULT_MODULE_MAPPINGS: ModuleMapping[] = [
     dbTables: ['documents', 'contract_projects', 'taoyuan_dispatch_orders'],
   },
   {
-    key: 'ai-features',
-    title: 'AI 智慧功能',
+    key: 'taoyuan-zone',
+    title: '桃園查估',
+    icon: 'EnvironmentOutlined',
+    color: '#f5222d',
+    pages: ['TaoyuanDispatchPage', 'TaoyuanDispatchCreatePage', 'TaoyuanDispatchDetailPage', 'TaoyuanProjectDetailPage', 'WorkRecordFormPage'],
+    apiGroups: ['TAOYUAN_DISPATCH'],
+    backendServices: ['DispatchOrderService', 'DispatchImportService', 'PaymentService', 'WorkRecordService'],
+    dbTables: ['taoyuan_projects', 'taoyuan_dispatch_orders', 'taoyuan_work_records', 'taoyuan_payments'],
+  },
+  {
+    key: 'Knowledge Map',
+    title: '知識地圖',
     icon: 'ExperimentOutlined',
     color: '#2f54eb',
-    pages: ['KnowledgeGraphPage', 'CodeGraphManagementPage', 'DatabaseGraphPage', 'AISynonymManagementPage', 'AIAssistantManagementPage'],
+    pages: ['KnowledgeGraphPage', 'CodeGraphManagementPage', 'DatabaseGraphPage', 'KnowledgeBasePage', 'AISynonymManagementPage', 'AIAssistantManagementPage'],
     apiGroups: ['AI'],
     backendServices: ['DocumentAIService', 'RAGQueryService', 'AgentOrchestrator', 'GraphQueryService', 'EmbeddingManager', 'SynonymExpander'],
     dbTables: ['canonical_entities', 'entity_aliases', 'entity_mentions', 'entity_relations', 'prompt_templates', 'search_history'],
   },
   {
-    key: 'system-management',
+    key: 'system',
     title: '系統管理',
     icon: 'SettingOutlined',
     color: '#595959',

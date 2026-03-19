@@ -49,6 +49,30 @@ export function getStatusMessage(status: number, fallback: string): string {
  * - Error 物件
  * - ApiException (client.ts)
  */
+/** Type guard: check if error has an Axios-like response property */
+function isAxiosLikeError(error: unknown): error is {
+  response: { status: number; data: unknown; config?: { url?: string } };
+  message?: string;
+} {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'response' in error &&
+    typeof (error as Record<string, unknown>).response === 'object' &&
+    (error as Record<string, unknown>).response !== null
+  );
+}
+
+/** Type guard: check if error has a request property (network error) */
+function isNetworkError(error: unknown): error is { request: unknown } {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'request' in error &&
+    !('response' in error)
+  );
+}
+
 export function parseApiError(error: unknown): ParsedApiError {
   const timestamp = new Date().toISOString();
 
@@ -60,13 +84,10 @@ export function parseApiError(error: unknown): ParsedApiError {
     return { message: '發生未知錯誤', timestamp };
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const err = error as any;
-
   // Axios response error
-  if (err.response) {
-    const status: number = err.response.status;
-    const data = err.response.data;
+  if (isAxiosLikeError(error)) {
+    const status: number = error.response.status;
+    const data = error.response.data;
 
     let messageText = '發生未知錯誤';
     let detail = '';
@@ -74,8 +95,9 @@ export function parseApiError(error: unknown): ParsedApiError {
     if (typeof data === 'string') {
       messageText = data;
     } else if (data && typeof data === 'object') {
-      messageText = data.message || data.detail || data.error || messageText;
-      detail = data.detail || '';
+      const d = data as Record<string, string>;
+      messageText = d.message || d.detail || d.error || messageText;
+      detail = d.detail || '';
     }
 
     return {
@@ -83,12 +105,12 @@ export function parseApiError(error: unknown): ParsedApiError {
       message: getStatusMessage(status, messageText),
       detail,
       timestamp,
-      path: err.response.config?.url || '',
+      path: error.response.config?.url || '',
     };
   }
 
   // Network error (request sent but no response)
-  if (err.request) {
+  if (isNetworkError(error)) {
     return {
       message: '網路連線失敗，請檢查網路狀態',
       detail: 'Network Error',
@@ -97,9 +119,16 @@ export function parseApiError(error: unknown): ParsedApiError {
   }
 
   // Error instance or plain object
+  if (error instanceof Error) {
+    return {
+      message: error.message || '發生未預期的錯誤',
+      detail: error.stack || '',
+      timestamp,
+    };
+  }
+
   return {
-    message: err.message || '發生未預期的錯誤',
-    detail: err.stack || '',
+    message: '發生未預期的錯誤',
     timestamp,
   };
 }

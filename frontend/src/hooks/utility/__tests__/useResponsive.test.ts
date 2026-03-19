@@ -30,13 +30,14 @@ import {
 
 describe('useResponsive', () => {
   describe('BREAKPOINTS 常數', () => {
-    it('應包含所有 6 個斷點', () => {
+    it('應包含所有 7 個斷點', () => {
       expect(BREAKPOINTS).toHaveProperty('xs');
       expect(BREAKPOINTS).toHaveProperty('sm');
       expect(BREAKPOINTS).toHaveProperty('md');
       expect(BREAKPOINTS).toHaveProperty('lg');
       expect(BREAKPOINTS).toHaveProperty('xl');
       expect(BREAKPOINTS).toHaveProperty('xxl');
+      expect(BREAKPOINTS).toHaveProperty('xxxl');
     });
 
     it('斷點值應遞增', () => {
@@ -45,6 +46,7 @@ describe('useResponsive', () => {
       expect(BREAKPOINTS.md).toBeLessThan(BREAKPOINTS.lg);
       expect(BREAKPOINTS.lg).toBeLessThan(BREAKPOINTS.xl);
       expect(BREAKPOINTS.xl).toBeLessThan(BREAKPOINTS.xxl);
+      expect(BREAKPOINTS.xxl).toBeLessThan(BREAKPOINTS.xxxl);
     });
   });
 

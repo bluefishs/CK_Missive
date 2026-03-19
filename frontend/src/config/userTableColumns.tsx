@@ -133,7 +133,7 @@ export const createUserTableColumns = ({
                       (roleConfig?.can_login ?? true);
 
       return (
-        <Space direction="vertical" size={0}>
+        <Space vertical size={0}>
           <Tag color={color}>
             {getStatusDisplayName(status)}
           </Tag>

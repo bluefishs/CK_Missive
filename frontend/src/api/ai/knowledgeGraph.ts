@@ -82,6 +82,21 @@ export async function getEntityTimeline(
   );
 }
 
+/** 時序聚合：按月/季/年統計關係趨勢 */
+export async function getTimelineAggregate(
+  request: { relation_type?: string; entity_type?: string; granularity?: string },
+): Promise<{
+  success: boolean;
+  granularity: string;
+  buckets: { period: string; count: number; total_weight: number; entity_count: number }[];
+  total_relationships: number;
+}> {
+  return await apiClient.post(
+    AI_ENDPOINTS.GRAPH_TIMELINE_AGGREGATE,
+    request,
+  );
+}
+
 /** 高頻實體排名 */
 export async function getTopEntities(
   request: KGTopEntitiesRequest,
@@ -127,7 +142,7 @@ export async function mergeGraphEntities(
 
 /** 取得實體中心公文知識圖譜 */
 export async function getEntityGraph(
-  params: { entity_types?: string[]; min_mentions?: number; limit?: number } = {},
+  params: { entity_types?: string[]; min_mentions?: number; limit?: number; year?: number; collapse_agency?: boolean } = {},
 ): Promise<{ success: boolean; nodes: GraphNode[]; edges: GraphEdge[] } | null> {
   try {
     return await apiClient.post(
@@ -140,7 +155,42 @@ export async function getEntityGraph(
   }
 }
 
-import type { CodeWikiRequest, CodeWikiResponse } from '../../types/ai';
+import type {
+  CodeWikiRequest,
+  CodeWikiResponse,
+  CodeGraphIngestRequest,
+  CodeGraphIngestResponse,
+  CycleDetectionResponse,
+  ArchitectureAnalysisResponse,
+  JsonImportRequest,
+  JsonImportResponse,
+  ModuleOverviewResponse,
+  DbSchemaGraphResponse,
+  DbColumnInfo,
+  DbForeignKey,
+  DbIndex,
+  DbTableInfo,
+  DbSchemaResponse,
+  ModuleMappingsResponse,
+} from '../../types/ai';
+
+// Re-export types for backward compatibility
+export type {
+  CodeGraphIngestRequest,
+  CodeGraphIngestResponse,
+  CycleDetectionResponse,
+  ArchitectureAnalysisResponse,
+  JsonImportRequest,
+  JsonImportResponse,
+  ModuleOverviewResponse,
+  DbSchemaGraphResponse,
+  DbColumnInfo,
+  DbForeignKey,
+  DbIndex,
+  DbTableInfo,
+  DbSchemaResponse,
+  ModuleMappingsResponse,
+};
 
 /** 取得 Code Wiki 代碼圖譜 */
 export async function getCodeWikiGraph(
@@ -153,29 +203,6 @@ export async function getCodeWikiGraph(
 }
 
 /** 觸發 Code Graph 入圖 (Admin) */
-export interface CodeGraphIngestRequest {
-  clean?: boolean;
-  include_schema?: boolean;
-  include_frontend?: boolean;
-  incremental?: boolean;
-}
-
-export interface CodeGraphIngestResponse {
-  success: boolean;
-  message: string;
-  modules: number;
-  classes: number;
-  functions: number;
-  tables: number;
-  ts_modules: number;
-  ts_components: number;
-  ts_hooks: number;
-  relations: number;
-  errors: number;
-  skipped: number;
-  elapsed_seconds: number;
-}
-
 export async function triggerCodeGraphIngest(
   request: CodeGraphIngestRequest = {},
 ): Promise<CodeGraphIngestResponse> {
@@ -183,15 +210,6 @@ export async function triggerCodeGraphIngest(
     AI_ENDPOINTS.GRAPH_CODE_INGEST,
     request,
   );
-}
-
-/** 循環依賴偵測結果 */
-export interface CycleDetectionResponse {
-  success: boolean;
-  total_modules: number;
-  total_import_edges: number;
-  cycles_found: number;
-  cycles: string[][];
 }
 
 /** 偵測模組循環匯入依賴 (Admin) */
@@ -202,17 +220,6 @@ export async function detectImportCycles(): Promise<CycleDetectionResponse> {
   );
 }
 
-/** 架構分析結果 */
-export interface ArchitectureAnalysisResponse {
-  success: boolean;
-  complexity_hotspots: Array<{ module: string; outgoing_deps: number }>;
-  hub_modules: Array<{ module: string; imported_by: number }>;
-  large_modules: Array<{ module: string; lines: number; type: string }>;
-  orphan_modules: string[];
-  god_classes: Array<{ class: string; method_count: number }>;
-  summary: Record<string, number>;
-}
-
 /** 分析代碼架構 */
 export async function analyzeArchitecture(): Promise<ArchitectureAnalysisResponse> {
   return await apiClient.post<ArchitectureAnalysisResponse>(
@@ -221,63 +228,11 @@ export async function analyzeArchitecture(): Promise<ArchitectureAnalysisRespons
   );
 }
 
-/** JSON 圖譜匯入請求 */
-export interface JsonImportRequest {
-  file_path?: string;
-  clean?: boolean;
-}
-
-/** JSON 圖譜匯入回應 */
-export interface JsonImportResponse {
-  success: boolean;
-  message: string;
-  nodes_imported: number;
-  edges_imported: number;
-  elapsed_seconds: number;
-}
-
-/** 模組架構概覽 — 按架構層分組 + DB ERD 摘要 */
-export interface ModuleOverviewResponse {
-  layers: Record<string, {
-    modules: Array<{
-      name: string;
-      type: string;
-      lines: number;
-      functions: number;
-      outgoing_deps: number;
-      incoming_deps: number;
-    }>;
-    total_lines: number;
-    total_functions: number;
-  }>;
-  db_tables: Array<{
-    name: string;
-    columns: number;
-    foreign_keys: string[];
-    indexes: number;
-    has_primary_key: boolean;
-    unique_constraints: number;
-  }>;
-  summary: {
-    total_modules: number;
-    total_tables: number;
-    total_relations: number;
-  };
-}
-
 export async function getModuleOverview(): Promise<ModuleOverviewResponse> {
   return await apiClient.post<ModuleOverviewResponse>(
     AI_ENDPOINTS.GRAPH_MODULE_OVERVIEW,
     {},
   );
-}
-
-/** DB Schema 圖譜回應 */
-export interface DbSchemaGraphResponse {
-  success: boolean;
-  nodes: GraphNode[];
-  edges: GraphEdge[];
-  error?: string;
 }
 
 /** 取得資料庫 ER 圖譜（nodes + edges 格式） */
@@ -288,55 +243,12 @@ export async function getDbSchemaGraph(): Promise<DbSchemaGraphResponse> {
   );
 }
 
-/** DB Schema 完整反射回應（含欄位、索引、約束） */
-export interface DbColumnInfo {
-  name: string;
-  type: string;
-  nullable: boolean;
-  primary_key: boolean;
-}
-
-export interface DbForeignKey {
-  constrained_columns: string[];
-  referred_table: string;
-  referred_columns: string[];
-}
-
-export interface DbIndex {
-  name: string;
-  columns: string[];
-  unique: boolean;
-}
-
-export interface DbTableInfo {
-  name: string;
-  columns: DbColumnInfo[];
-  primary_key_columns: string[];
-  foreign_keys: DbForeignKey[];
-  indexes: DbIndex[];
-  unique_constraints: DbIndex[];
-}
-
-export interface DbSchemaResponse {
-  success: boolean;
-  tables: DbTableInfo[];
-  error?: string;
-}
-
 /** 取得完整資料庫 Schema（含欄位詳情） */
 export async function getDbSchema(): Promise<DbSchemaResponse> {
   return await apiClient.post<DbSchemaResponse>(
     AI_ENDPOINTS.GRAPH_DB_SCHEMA,
     {},
   );
-}
-
-/** 動態模組映射回應 */
-export interface ModuleMappingsResponse {
-  success: boolean;
-  enabled_keys: string[];
-  disabled_keys: string[];
-  total: number;
 }
 
 /** 取得動態模組映射（基於 site_navigation_items） */
@@ -355,4 +267,21 @@ export async function importJsonGraph(
     AI_ENDPOINTS.GRAPH_JSON_IMPORT,
     request,
   );
+}
+
+/** 取得 Skills 能力圖譜（靜態資料） */
+export async function getSkillsMap(): Promise<{
+  success: boolean;
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+} | null> {
+  try {
+    return await apiClient.post(
+      AI_ENDPOINTS.GRAPH_SKILLS_MAP,
+      {},
+    );
+  } catch (error) {
+    logger.error('取得 Skills 能力圖譜失敗:', error);
+    return null;
+  }
 }

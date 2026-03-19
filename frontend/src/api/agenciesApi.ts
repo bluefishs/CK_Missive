@@ -4,12 +4,10 @@
  * 使用統一的 API Client 和型別定義
  */
 
-import { apiClient, ApiException } from './client';
+import { apiClient } from './client';
 import {
   PaginatedResponse,
   DeleteResponse,
-  normalizePaginatedResponse,
-  LegacyListResponse,
   type AgencyListParams,
 } from './types';
 import { API_ENDPOINTS } from './endpoints';
@@ -61,38 +59,7 @@ export const agenciesApi = {
     if (params?.search) queryParams.search = params.search;
     if (params?.agency_type) queryParams.agency_type = params.agency_type;
 
-    try {
-      // 使用新版 POST API
-      return await apiClient.postList<AgencyWithStats>(API_ENDPOINTS.AGENCIES.LIST, queryParams);
-    } catch (error) {
-      // 若新 API 失敗，嘗試舊版格式（相容性）
-      if (error instanceof ApiException && error.statusCode === 404) {
-        const legacyParams: Record<string, unknown> = {
-          skip: ((params?.page ?? 1) - 1) * (params?.limit ?? 20),
-          limit: params?.limit ?? 100,
-          include_stats: params?.include_stats ?? true,
-        };
-        if (params?.search) legacyParams.search = params.search;
-
-        const response = await apiClient.get<{
-          agencies: AgencyWithStats[];
-          total: number;
-          returned: number;
-        }>(API_ENDPOINTS.AGENCIES.CREATE, {
-          params: legacyParams,
-        });
-        // 轉換舊版格式
-        return normalizePaginatedResponse(
-          {
-            items: response.agencies,
-            total: response.total,
-          } as LegacyListResponse<AgencyWithStats>,
-          params?.page,
-          params?.limit
-        );
-      }
-      throw error;
-    }
+    return await apiClient.postList<AgencyWithStats>(API_ENDPOINTS.AGENCIES.LIST, queryParams);
   },
 
   /**

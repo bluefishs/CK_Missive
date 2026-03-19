@@ -133,4 +133,32 @@ export type {
   // Code Wiki 代碼圖譜
   CodeWikiRequest,
   CodeWikiResponse,
+  // Knowledge Graph API
+  CodeGraphIngestRequest,
+  CodeGraphIngestResponse,
+  CycleDetectionResponse,
+  ArchitectureAnalysisResponse,
+  JsonImportRequest,
+  JsonImportResponse,
+  ModuleOverviewResponse,
+  DbSchemaGraphResponse,
+  DbColumnInfo,
+  DbForeignKey,
+  DbIndex,
+  DbTableInfo,
+  DbSchemaResponse,
+  ModuleMappingsResponse,
+  // SSE Callbacks
+  SSEErrorCode,
+  RAGStreamCallbacks,
+  AgentStreamCallbacks,
+  // Proactive Alerts
+  ProactiveAlertItem,
+  ProactiveAlertsResponse,
+  // Daily Trend
+  DailyTrendItem,
+  DailyTrendResponse,
+  // Tool Registry
+  ToolRegistryItem,
+  ToolRegistryResponse,
 } from '../../types/ai';

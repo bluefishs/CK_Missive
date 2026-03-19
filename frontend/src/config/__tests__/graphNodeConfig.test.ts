@@ -8,6 +8,7 @@ import {
   DEFAULT_NODE_CONFIG,
   KNOWN_NODE_TYPES,
   CANONICAL_ENTITY_TYPES,
+  DEFAULT_HIDDEN_TYPES,
   getNodeConfig,
   getUserOverrides,
   saveUserOverrides,
@@ -26,7 +27,8 @@ describe('GRAPH_NODE_CONFIG', () => {
     'menu_module', 'api_group',
     'py_module', 'py_class', 'py_function', 'db_table',
     'ts_module', 'ts_component', 'ts_hook',
-    'org', 'person', 'ner_project', 'location', 'date', 'topic',
+    'person', 'location', 'date', 'topic',
+    'domain', 'skill', 'agent', 'tool', 'service', 'command',
   ];
 
   it('應該包含所有預期的節點類型', () => {
@@ -68,10 +70,15 @@ describe('GRAPH_NODE_CONFIG', () => {
   });
 
   it('NER 提取實體類型 detailable 應為 true', () => {
-    const nerTypes = ['org', 'person', 'ner_project', 'location', 'date', 'topic'];
+    const nerTypes = ['person', 'location', 'date', 'topic'];
     for (const type of nerTypes) {
       expect(GRAPH_NODE_CONFIG[type]!.detailable).toBe(true);
     }
+  });
+
+  it('org 和 ner_project 應已統一到 agency/typroject（不應存在）', () => {
+    expect(GRAPH_NODE_CONFIG).not.toHaveProperty('org');
+    expect(GRAPH_NODE_CONFIG).not.toHaveProperty('ner_project');
   });
 });
 
@@ -113,9 +120,9 @@ describe('KNOWN_NODE_TYPES', () => {
     expect(KNOWN_NODE_TYPES.length).toBe(Object.keys(GRAPH_NODE_CONFIG).length);
   });
 
-  it('應包含 document 和 org', () => {
+  it('應包含 document 和 agency', () => {
     expect(KNOWN_NODE_TYPES).toContain('document');
-    expect(KNOWN_NODE_TYPES).toContain('org');
+    expect(KNOWN_NODE_TYPES).toContain('agency');
   });
 });
 
@@ -130,7 +137,7 @@ describe('CANONICAL_ENTITY_TYPES', () => {
 
   it('應只包含 detailable 為 true 的類型', () => {
     const expected = [
-      'org', 'person', 'ner_project', 'location', 'date', 'topic',
+      'person', 'location', 'date', 'topic',
       'py_module', 'py_class', 'py_function', 'db_table',
       'ts_module', 'ts_component', 'ts_hook',
     ];
@@ -155,7 +162,7 @@ describe('getNodeConfig', () => {
   it('已知類型應回傳對應配置', () => {
     const config = getNodeConfig('document');
     expect(config.color).toBe('#1890ff');
-    expect(config.label).toBe('公文');
+    expect(config.label).toContain('公文');
   });
 
   it('未知類型應回傳 DEFAULT_NODE_CONFIG', () => {
@@ -203,7 +210,7 @@ describe('localStorage override mechanism', () => {
 
   describe('saveUserOverrides', () => {
     it('應將覆蓋寫入 localStorage', () => {
-      const overrides = { org: { color: '#00ff00', label: '測試組織' } };
+      const overrides = { agency: { color: '#00ff00', label: '測試機關' } };
       saveUserOverrides(overrides);
       const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
       expect(stored).toEqual(overrides);
@@ -216,10 +223,10 @@ describe('localStorage override mechanism', () => {
     });
 
     it('應清除值為空物件的 entry', () => {
-      saveUserOverrides({ document: {}, org: { color: '#abc123' } });
+      saveUserOverrides({ document: {}, agency: { color: '#abc123' } });
       const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
       expect(stored).not.toHaveProperty('document');
-      expect(stored).toHaveProperty('org');
+      expect(stored).toHaveProperty('agency');
     });
   });
 
@@ -245,10 +252,24 @@ describe('getMergedNodeConfig', () => {
     localStorage.clear();
   });
 
-  it('無覆蓋時應回傳內建配置加 visible: true', () => {
+  it('無覆蓋時一般類型應 visible: true', () => {
     const merged = getMergedNodeConfig('document');
     expect(merged.color).toBe('#1890ff');
-    expect(merged.label).toBe('公文');
+    expect(merged.label).toContain('公文');
+    expect(merged.visible).toBe(true);
+  });
+
+  it('無覆蓋時 DEFAULT_HIDDEN_TYPES 應 visible: false', () => {
+    for (const type of DEFAULT_HIDDEN_TYPES) {
+      const merged = getMergedNodeConfig(type);
+      expect(merged.visible).toBe(false);
+    }
+  });
+
+  it('使用者覆蓋可強制開啟 DEFAULT_HIDDEN_TYPES', () => {
+    const overrides = { date: { visible: true } };
+    localStorage.setItem('kg_node_config_overrides', JSON.stringify(overrides));
+    const merged = getMergedNodeConfig('date');
     expect(merged.visible).toBe(true);
   });
 
@@ -265,10 +286,10 @@ describe('getMergedNodeConfig', () => {
   });
 
   it('visible 覆蓋為 false 時應正確反映', () => {
-    const overrides = { org: { visible: false } };
+    const overrides = { agency: { visible: false } };
     localStorage.setItem('kg_node_config_overrides', JSON.stringify(overrides));
 
-    const merged = getMergedNodeConfig('org');
+    const merged = getMergedNodeConfig('agency');
     expect(merged.visible).toBe(false);
   });
 
@@ -304,24 +325,28 @@ describe('getAllMergedConfigs', () => {
     }
   });
 
-  it('無覆蓋時所有類型 visible 應為 true', () => {
+  it('無覆蓋時 DEFAULT_HIDDEN_TYPES 應為 false，其餘為 true', () => {
     const all = getAllMergedConfigs();
-    for (const config of Object.values(all)) {
-      expect(config.visible).toBe(true);
+    for (const [type, config] of Object.entries(all)) {
+      if (DEFAULT_HIDDEN_TYPES.has(type)) {
+        expect(config.visible).toBe(false);
+      } else {
+        expect(config.visible).toBe(true);
+      }
     }
   });
 
   it('應正確合併部分覆蓋', () => {
     const overrides = {
       document: { color: '#000000' },
-      org: { visible: false },
+      agency: { visible: false },
     };
     localStorage.setItem('kg_node_config_overrides', JSON.stringify(overrides));
 
     const all = getAllMergedConfigs();
     expect(all['document']!.color).toBe('#000000');
     expect(all['document']!.visible).toBe(true);
-    expect(all['org']!.visible).toBe(false);
+    expect(all['agency']!.visible).toBe(false);
     // 未覆蓋的類型應保持原樣
     expect(all['project']!.color).toBe('#52c41a');
     expect(all['project']!.visible).toBe(true);

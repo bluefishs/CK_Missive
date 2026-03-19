@@ -26,7 +26,7 @@
 
 import { useMemo } from 'react';
 import { Grid } from 'antd';
-import type { Breakpoint } from 'antd/es/_util/responsiveObserver';
+import type { Breakpoint } from 'antd';
 
 const { useBreakpoint } = Grid;
 
@@ -40,6 +40,7 @@ export const BREAKPOINTS = {
   lg: 992,
   xl: 1200,
   xxl: 1600,
+  xxxl: 2000,
 } as const;
 
 /**
@@ -52,6 +53,7 @@ export interface ResponsiveConfig<T> {
   lg?: T;
   xl?: T;
   xxl?: T;
+  xxxl?: T;
 }
 
 /**
@@ -127,7 +129,7 @@ export interface UseResponsiveResult {
 /**
  * 斷點優先順序 (從大到小)
  */
-const BREAKPOINT_ORDER: Breakpoint[] = ['xxl', 'xl', 'lg', 'md', 'sm', 'xs'];
+const BREAKPOINT_ORDER: Breakpoint[] = ['xxxl', 'xxl', 'xl', 'lg', 'md', 'sm', 'xs'];
 
 /**
  * 斷點數值映射
@@ -139,6 +141,7 @@ const BREAKPOINT_VALUES: Record<Breakpoint, number> = {
   lg: 992,
   xl: 1200,
   xxl: 1600,
+  xxxl: 2000,
 };
 
 /**
