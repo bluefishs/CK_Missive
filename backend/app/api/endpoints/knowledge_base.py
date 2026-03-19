@@ -48,9 +48,9 @@ def _validate_path(user_path: str) -> Path:
     if not parts or parts[0] not in ALLOWED_SUBDIRS:
         raise HTTPException(status_code=400, detail="不允許的路徑")
 
-    # Only allow .md files
-    if not user_path.endswith(".md"):
-        raise HTTPException(status_code=400, detail="僅允許 .md 檔案")
+    # Only allow .md / .mmd files
+    if not (user_path.endswith(".md") or user_path.endswith(".mmd")):
+        raise HTTPException(status_code=400, detail="僅允許 .md / .mmd 檔案")
 
     # Layer 3: resolve and verify containment
     resolved = (DOCS_DIR / user_path).resolve()
@@ -203,17 +203,24 @@ async def list_diagrams(
     heading_re = re.compile(r"^#\s+(.+)")
 
     items: list[DiagramInfo] = []
-    for f in sorted(diagrams_dir.glob("*.md"), key=lambda p: p.name):
+    for f in sorted(
+        [*diagrams_dir.glob("*.md"), *diagrams_dir.glob("*.mmd")],
+        key=lambda p: p.name,
+    ):
         if f.name == "README.md":
             continue
 
         title = f.stem
         try:
-            lines = f.read_text(encoding="utf-8").splitlines()[:5]
+            lines = f.read_text(encoding="utf-8").splitlines()[:10]
             for line in lines:
                 m = heading_re.match(line)
                 if m:
                     title = m.group(1).strip()
+                    break
+                # Mermaid frontmatter: title: xxx
+                if line.strip().startswith("title:"):
+                    title = line.strip().split("title:", 1)[1].strip()
                     break
         except Exception:
             logger.warning("無法讀取架構圖檔案: %s", f.name)
