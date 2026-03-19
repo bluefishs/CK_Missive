@@ -36,7 +36,7 @@ from app.services.ai.agent_tool_monitor import get_tool_monitor
 from app.services.ai.agent_pattern_learner import get_pattern_learner
 from app.services.ai.agent_summarizer import get_summarizer
 from app.services.ai.agent_supervisor import AgentSupervisor
-from app.services.ai.agent_utils import sse, sanitize_history
+from app.services.ai.agent_utils import sse, sanitize_history, collect_sources, compute_adaptive_timeout
 from app.services.ai.agent_conversation_memory import get_conversation_memory
 from app.services.ai.tool_chain_resolver import enrich_plan_with_chain
 from app.services.ai.user_preference_extractor import (
@@ -306,7 +306,7 @@ class AgentOrchestrator:
             # Step 2-3: Tool Loop（即時串流 + 整體超時保護）
             # 自適應超時 (Phase 8): 根據工具數量和問題長度動態調整
             planned_tool_count = len(plan.get("tool_calls", [])) if plan else 0
-            self._adaptive_tool_timeout = self.compute_adaptive_timeout(
+            self._adaptive_tool_timeout = compute_adaptive_timeout(
                 self.config.agent_tool_timeout,
                 planned_tool_count,
                 len(question),
@@ -529,7 +529,7 @@ class AgentOrchestrator:
                     "result": result,
                 })
                 tools_used.append(tool_name)
-                self._collect_sources(tool_name, result, all_sources)
+                collect_sources(tool_name, result, all_sources)
 
                 # 更新工作記憶
                 memory.add_observation(
@@ -573,7 +573,7 @@ class AgentOrchestrator:
                         "result": result,
                     })
                     tools_used.append(tool_name)
-                    self._collect_sources(tool_name, result, all_sources)
+                    collect_sources(tool_name, result, all_sources)
 
                     # 更新工作記憶
                     memory.add_observation(
@@ -634,20 +634,6 @@ class AgentOrchestrator:
     # 工具執行
     # ========================================================================
 
-    @staticmethod
-    def compute_adaptive_timeout(
-        base_timeout: int,
-        planned_tool_count: int,
-        question_length: int,
-    ) -> float:
-        """
-        Compute adaptive timeout based on query complexity.
-
-        Formula: base + (tool_count * 2) + min(question_len / 100, 5), capped at 30s.
-        """
-        adaptive = base_timeout + (planned_tool_count * 2) + min(question_length / 100, 5)
-        return min(adaptive, 30)
-
     async def _execute_tool(
         self,
         tool_name: str,
@@ -677,28 +663,3 @@ class AgentOrchestrator:
                 return ToolResultGuard.guard(tool_name, params, raw)
             return raw
 
-    # ========================================================================
-    # 來源收集
-    # ========================================================================
-
-    @staticmethod
-    def _collect_sources(
-        tool_name: str,
-        result: Dict[str, Any],
-        all_sources: List[Dict[str, Any]],
-    ) -> None:
-        """從工具結果收集來源文件"""
-        if tool_name in ("search_documents", "find_similar") and result.get("documents"):
-            for doc in result["documents"]:
-                if not any(s.get("document_id") == doc.get("id") for s in all_sources):
-                    all_sources.append({
-                        "document_id": doc.get("id"),
-                        "doc_number": doc.get("doc_number", ""),
-                        "subject": doc.get("subject", ""),
-                        "doc_type": doc.get("doc_type", ""),
-                        "category": doc.get("category", ""),
-                        "sender": doc.get("sender", ""),
-                        "receiver": doc.get("receiver", ""),
-                        "doc_date": doc.get("doc_date", ""),
-                        "similarity": doc.get("similarity", 0),
-                    })

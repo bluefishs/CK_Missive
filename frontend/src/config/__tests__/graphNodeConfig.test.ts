@@ -27,6 +27,7 @@ describe('GRAPH_NODE_CONFIG', () => {
     'menu_module', 'api_group',
     'py_module', 'py_class', 'py_function', 'db_table',
     'ts_module', 'ts_component', 'ts_hook',
+    'layer', 'capability', 'future',
     'person', 'location', 'date', 'topic',
     'domain', 'skill', 'agent', 'tool', 'service', 'command',
   ];

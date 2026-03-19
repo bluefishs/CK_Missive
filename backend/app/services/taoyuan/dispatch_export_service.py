@@ -1,15 +1,6 @@
 """
-DispatchExportService - 派工單總表多工作表 Excel 匯出服務
-
-產生 5 個工作表的 Excel 總表匯出：
-1. 派工總表 - 每張派工單一列摘要
-2. 作業紀錄明細 - 跨派工單所有作業歷程
-3. 公文對照矩陣 - 來文/覆文配對
-4. 契金摘要 - 各派工單 7 項作業金額與彙總
-5. 統計摘要 - 匯出範圍 key-value 統計
-
-@version 1.0.0
-@date 2026-02-25
+DispatchExportService - 派工單總表 Excel 匯出 (5 工作表)。
+公文配對演算法見 dispatch_export_helpers.py。
 """
 
 import logging
@@ -30,7 +21,7 @@ from app.extended.models import (
     TaoyuanContractPayment,
     TaoyuanWorkRecord,
 )
-from app.utils.doc_helpers import is_outgoing_doc_number
+from app.services.taoyuan.dispatch_export_helpers import pair_documents_for_dispatch
 
 logger = logging.getLogger(__name__)
 
@@ -351,142 +342,8 @@ class DispatchExportService:
         records: List[TaoyuanWorkRecord],
         doc_links: list,
     ) -> List[tuple]:
-        """3 階段公文配對演算法 (與前端 buildCorrespondenceMatrix 一致)
-
-        Phase 1: parent_record_id chain pairing
-        Phase 2: date proximity greedy pairing (assigned + unassigned)
-        Phase 3: remaining standalone rows
-
-        Returns:
-            List of (incoming_dict | None, outgoing_dict | None) tuples
-        """
-        # --- 分離作業紀錄中的來文/覆文 ---
-        assigned_in: List[Dict[str, Any]] = []
-        assigned_out: List[Dict[str, Any]] = []
-        record_doc_ids: set = set()  # 已出現在 work records 的 document IDs
-
-        for r in records:
-            # Old format: incoming_doc / outgoing_doc
-            if r.incoming_doc:
-                doc = r.incoming_doc
-                assigned_in.append({
-                    'record_id': r.id,
-                    'parent_record_id': getattr(r, 'parent_record_id', None),
-                    'doc_number': doc.doc_number or '',
-                    'doc_date': self._fmt_date(doc.doc_date),
-                    'subject': r.description or (doc.subject or ''),
-                })
-                if doc.id:
-                    record_doc_ids.add(doc.id)
-            if r.outgoing_doc:
-                doc = r.outgoing_doc
-                assigned_out.append({
-                    'record_id': r.id,
-                    'parent_record_id': getattr(r, 'parent_record_id', None),
-                    'doc_number': doc.doc_number or '',
-                    'doc_date': self._fmt_date(doc.doc_date),
-                    'subject': r.description or (doc.subject or ''),
-                })
-                if doc.id:
-                    record_doc_ids.add(doc.id)
-            # New format: document (判斷方向)
-            if r.document and not r.incoming_doc and not r.outgoing_doc:
-                doc = r.document
-                doc_number = doc.doc_number or ''
-                item = {
-                    'record_id': r.id,
-                    'parent_record_id': getattr(r, 'parent_record_id', None),
-                    'doc_number': doc_number,
-                    'doc_date': self._fmt_date(doc.doc_date),
-                    'subject': r.description or (doc.subject or ''),
-                }
-                if is_outgoing_doc_number(doc_number):
-                    assigned_out.append(item)
-                else:
-                    assigned_in.append(item)
-                if doc.id:
-                    record_doc_ids.add(doc.id)
-
-        # --- 收集未指派到 work record 的公文 (unassigned) ---
-        unassigned_in: List[Dict[str, Any]] = []
-        unassigned_out: List[Dict[str, Any]] = []
-        for lk in doc_links:
-            doc = lk.document
-            if not doc or doc.id in record_doc_ids:
-                continue
-            item = {
-                'doc_number': doc.doc_number or '',
-                'doc_date': self._fmt_date(doc.doc_date),
-                'subject': doc.subject or '',
-            }
-            if lk.link_type == 'company_outgoing':
-                unassigned_out.append(item)
-            else:
-                unassigned_in.append(item)
-
-        # --- Phase 1: parent_record_id chain pairing ---
-        result: List[tuple] = []
-        used_in_ids: set = set()
-        used_out_ids: set = set()
-
-        for out_item in assigned_out:
-            pid = out_item.get('parent_record_id')
-            if not pid:
-                continue
-            for in_item in assigned_in:
-                if in_item['record_id'] == pid and in_item['record_id'] not in used_in_ids:
-                    result.append((in_item, out_item))
-                    used_in_ids.add(in_item['record_id'])
-                    used_out_ids.add(out_item['record_id'])
-                    break
-
-        # --- Phase 2: date proximity greedy pairing ---
-        remain_in = [
-            x for x in assigned_in if x.get('record_id') not in used_in_ids
-        ]
-        remain_out = [
-            x for x in assigned_out if x.get('record_id') not in used_out_ids
-        ]
-
-        all_in = sorted(remain_in + unassigned_in, key=lambda x: x.get('doc_date', ''))
-        all_out = sorted(remain_out + unassigned_out, key=lambda x: x.get('doc_date', ''))
-
-        used_out_idx: set = set()
-        date_matched: List[tuple] = []
-
-        for in_item in all_in:
-            best_idx = -1
-            best_date = ''
-            in_date = in_item.get('doc_date', '')
-
-            for j, out_item in enumerate(all_out):
-                if j in used_out_idx:
-                    continue
-                out_date = out_item.get('doc_date', '')
-                if out_date >= in_date:
-                    if best_idx == -1 or out_date < best_date:
-                        best_idx = j
-                        best_date = out_date
-
-            if best_idx >= 0:
-                date_matched.append((in_item, all_out[best_idx]))
-                used_out_idx.add(best_idx)
-            else:
-                date_matched.append((in_item, None))
-
-        # --- Phase 3: remaining outgoing standalone ---
-        for j, out_item in enumerate(all_out):
-            if j not in used_out_idx:
-                date_matched.append((None, out_item))
-
-        result.extend(date_matched)
-
-        # --- 按最早日期排序 ---
-        result.sort(key=lambda pair: (
-            pair[0].get('doc_date', '') if pair[0] else (pair[1].get('doc_date', '') if pair[1] else '')
-        ))
-
-        return result
+        """3 階段公文配對演算法 — 委派至 dispatch_export_helpers.pair_documents_for_dispatch"""
+        return pair_documents_for_dispatch(records, doc_links)
 
     def _build_sheet4(
         self,

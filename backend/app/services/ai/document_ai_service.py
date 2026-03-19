@@ -31,6 +31,7 @@ from .ai_config import get_ai_config
 from .ai_prompt_manager import AIPromptManager
 from .base_ai_service import BaseAIService
 from .search_intent_parser import SearchIntentParser
+from .document_search_helpers import resolve_search_entities
 from .synonym_expander import SynonymExpander
 from app.schemas.ai.search import (
     ClassificationResponse,
@@ -561,7 +562,7 @@ class DocumentAIService(BaseAIService):
         # 6. 解析搜尋中涉及的正規化實體（橋接圖譜）
         matched_entities: List[MatchedEntity] = []
         try:
-            matched_entities = await self._resolve_search_entities(
+            matched_entities = await resolve_search_entities(
                 db, parsed_intent, search_results,
             )
         except Exception as e:
@@ -620,84 +621,6 @@ class DocumentAIService(BaseAIService):
             matched_entities=matched_entities,
         )
 
-    @staticmethod
-    async def _resolve_search_entities(
-        db: AsyncSession,
-        parsed_intent: Any,
-        search_results: List[DocumentSearchResult],
-    ) -> List[MatchedEntity]:
-        """
-        從搜尋意圖和結果中解析正規化實體（橋接圖譜）
-
-        嘗試將 sender/receiver 映射到 canonical_entities 表。
-        僅做快速精確匹配 + 別名匹配，不涉及 LLM。
-        """
-        from app.extended.models import CanonicalEntity, EntityAlias
-
-        names_to_resolve: List[tuple] = []  # (name, source)
-
-        # 從意圖解析中取得 sender/receiver
-        if getattr(parsed_intent, 'sender', None):
-            names_to_resolve.append((parsed_intent.sender, "sender"))
-        if getattr(parsed_intent, 'receiver', None):
-            names_to_resolve.append((parsed_intent.receiver, "receiver"))
-
-        # 從搜尋結果中取得高頻 sender/receiver
-        sender_counts: Dict[str, int] = {}
-        for r in search_results[:20]:
-            if r.sender:
-                sender_counts[r.sender] = sender_counts.get(r.sender, 0) + 1
-        for name, count in sorted(sender_counts.items(), key=lambda x: -x[1])[:3]:
-            if not any(n == name for n, _ in names_to_resolve):
-                names_to_resolve.append((name, "sender"))
-
-        if not names_to_resolve:
-            return []
-
-        # --- Batch query: collect all names first ---
-        all_names = [name for name, _ in names_to_resolve]
-        name_to_source = {name: source for name, source in names_to_resolve}
-
-        # 1) Batch canonical_name lookup
-        canonical_result = await db.execute(
-            select(CanonicalEntity)
-            .where(CanonicalEntity.canonical_name.in_(all_names))
-        )
-        canonical_map: Dict[str, "CanonicalEntity"] = {
-            e.canonical_name: e for e in canonical_result.scalars().all()
-        }
-
-        # 2) Batch alias lookup for unmatched names
-        unmatched_names = [n for n in all_names if n not in canonical_map]
-        alias_map: Dict[str, "CanonicalEntity"] = {}
-        if unmatched_names:
-            alias_result = await db.execute(
-                select(CanonicalEntity, EntityAlias.alias_name)
-                .join(EntityAlias, EntityAlias.canonical_entity_id == CanonicalEntity.id)
-                .where(EntityAlias.alias_name.in_(unmatched_names))
-            )
-            for row in alias_result.all():
-                entity, alias_name = row[0], row[1]
-                if alias_name not in alias_map:
-                    alias_map[alias_name] = entity
-
-        # 3) Build results from batch maps
-        matched: List[MatchedEntity] = []
-        seen_ids: set = set()
-
-        for name, source in names_to_resolve:
-            entity = canonical_map.get(name) or alias_map.get(name)
-            if entity and entity.id not in seen_ids:
-                seen_ids.add(entity.id)
-                matched.append(MatchedEntity(
-                    entity_id=entity.id,
-                    canonical_name=entity.canonical_name,
-                    entity_type=entity.entity_type,
-                    mention_count=entity.mention_count or 0,
-                    match_source=source,
-                ))
-
-        return matched
 
 
 # 全域服務實例

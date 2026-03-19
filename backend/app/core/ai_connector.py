@@ -41,9 +41,9 @@ GROQ_DEFAULT_MODEL = "llama-3.3-70b-versatile"
 NVIDIA_API_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 NVIDIA_DEFAULT_MODEL = "nvidia/llama-3.3-nemotron-super-49b-v1.5"
 
-# NIM 本地配置 (OpenAI-compatible, 需 driver ≥595)
-NIM_LOCAL_URL = os.getenv("NIM_BASE_URL", "http://localhost:8000/v1/chat/completions")
-NIM_LOCAL_MODEL = "meta/llama-3.1-8b-instruct"
+# vLLM 本地配置 (OpenAI-compatible, 取代 NIM TRT-LLM)
+VLLM_LOCAL_URL = os.getenv("VLLM_BASE_URL", "http://localhost:8000/v1") + "/chat/completions"
+VLLM_LOCAL_MODEL = "meta-llama/Llama-3.1-8B-Instruct"
 
 # Ollama 配置
 OLLAMA_DEFAULT_URL = "http://localhost:11434"
@@ -108,9 +108,9 @@ class AIConnector:
             providers.append({"name": "groq", "model": GROQ_DEFAULT_MODEL, "priority": 1})
         if self.nvidia_api_key:
             providers.append({"name": "nvidia", "model": NVIDIA_DEFAULT_MODEL, "priority": 1})
-        # NIM local (same API key as NVIDIA Cloud, different endpoint)
-        if self.nvidia_api_key and os.getenv("NIM_ENABLED", "").lower() == "true":
-            providers.append({"name": "nim", "model": NIM_LOCAL_MODEL, "priority": 0})
+        # vLLM local (OpenAI-compatible, 取代 NIM TRT-LLM)
+        if os.getenv("VLLM_ENABLED", "").lower() == "true":
+            providers.append({"name": "vllm", "model": VLLM_LOCAL_MODEL, "priority": 0})
         providers.append({"name": "ollama", "model": OLLAMA_DEFAULT_MODEL, "priority": 2})
         return providers
 
@@ -210,19 +210,19 @@ class AIConnector:
             if last_error:
                 logger.warning("Groq API 最終失敗: %s", last_error)
 
-        # 嘗試 NIM 本地（最低延遲，需 driver ≥595 + NIM_ENABLED=true）
-        if self.nvidia_api_key and os.getenv("NIM_ENABLED", "").lower() == "true":
+        # 嘗試 vLLM 本地（最低延遲，OpenAI-compatible）
+        if os.getenv("VLLM_ENABLED", "").lower() == "true":
             try:
-                logger.info("嘗試 NIM 本地 (model=%s)...", NIM_LOCAL_MODEL)
+                logger.info("嘗試 vLLM 本地 (model=%s)...", VLLM_LOCAL_MODEL)
                 result = await self._nvidia_completion(
-                    messages, NIM_LOCAL_MODEL, temperature, max_tokens,
+                    messages, VLLM_LOCAL_MODEL, temperature, max_tokens,
                     response_format=response_format,
-                    api_url=NIM_LOCAL_URL,
+                    api_url=VLLM_LOCAL_URL,
                 )
-                self._last_provider = "nim"
+                self._last_provider = "vllm"
                 return result
             except Exception as e:
-                logger.warning("NIM 本地失敗: %s", e)
+                logger.warning("vLLM 本地失敗: %s", e)
 
         # 嘗試 NVIDIA Cloud API（高品質 49B 模型）
         if self.nvidia_api_key:
@@ -299,7 +299,7 @@ class AIConnector:
         response_format: Optional[Dict[str, str]] = None,
         api_url: Optional[str] = None,
     ) -> str:
-        """查詢 NVIDIA Cloud/NIM API (OpenAI-compatible)"""
+        """查詢 NVIDIA Cloud / vLLM API (OpenAI-compatible)"""
         url = api_url or NVIDIA_API_URL
         payload: Dict[str, Any] = {
             "model": model,
@@ -424,6 +424,19 @@ class AIConnector:
             except Exception as e:
                 logger.warning(f"Groq 串流失敗: {e}")
 
+        # 嘗試 vLLM 本地串流
+        if os.getenv("VLLM_ENABLED", "").lower() == "true":
+            try:
+                logger.info("嘗試 vLLM 本地串流...")
+                async for chunk in self._stream_nvidia(
+                    messages, VLLM_LOCAL_MODEL, temperature, max_tokens,
+                    api_url=VLLM_LOCAL_URL.replace("/chat/completions", ""),
+                ):
+                    yield chunk
+                return
+            except Exception as e:
+                logger.warning(f"vLLM 本地串流失敗: {e}")
+
         # 嘗試 NVIDIA Cloud 串流
         if self.nvidia_api_key:
             try:
@@ -500,14 +513,17 @@ class AIConnector:
         model: str,
         temperature: float,
         max_tokens: int,
+        api_url: Optional[str] = None,
     ) -> AsyncGenerator[str, None]:
-        """NVIDIA Cloud API 串流回應 (OpenAI-compatible SSE)"""
+        """NVIDIA Cloud / vLLM API 串流回應 (OpenAI-compatible SSE)"""
+        url = (api_url or NVIDIA_API_URL.rsplit("/chat/completions", 1)[0]) + "/chat/completions"
+        api_key = self.nvidia_api_key or os.getenv("VLLM_API_KEY", "token-placeholder")
         async with httpx.AsyncClient() as client:
             async with client.stream(
                 "POST",
-                NVIDIA_API_URL,
+                url,
                 headers={
-                    "Authorization": f"Bearer {self.nvidia_api_key}",
+                    "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
                 },
                 json={
@@ -901,26 +917,24 @@ class AIConnector:
         else:
             status["nvidia_cloud"]["message"] = "未設定 NVIDIA_API_KEY"
 
-        # 檢查 NIM 本地
-        status["nim_local"] = {"available": False, "message": ""}
-        if os.getenv("NIM_ENABLED", "").lower() == "true":
+        # 檢查 vLLM 本地
+        status["vllm_local"] = {"available": False, "message": ""}
+        if os.getenv("VLLM_ENABLED", "").lower() == "true":
             try:
-                nim_health_url = os.getenv("NIM_BASE_URL", "http://localhost:8000/v1").replace("/chat/completions", "")
+                vllm_base = os.getenv("VLLM_BASE_URL", "http://localhost:8000/v1")
+                vllm_health_url = vllm_base.rsplit("/v1", 1)[0] + "/health"
                 async with httpx.AsyncClient() as client:
-                    response = await client.get(
-                        f"{nim_health_url}/health/ready",
-                        timeout=5,
-                    )
+                    response = await client.get(vllm_health_url, timeout=5)
                     if response.status_code == 200:
-                        status["nim_local"]["available"] = True
-                        status["nim_local"]["message"] = "NIM 本地可用"
-                        status["nim_local"]["model"] = NIM_LOCAL_MODEL
+                        status["vllm_local"]["available"] = True
+                        status["vllm_local"]["message"] = "vLLM 本地可用"
+                        status["vllm_local"]["model"] = VLLM_LOCAL_MODEL
                     else:
-                        status["nim_local"]["message"] = f"HTTP {response.status_code}"
+                        status["vllm_local"]["message"] = f"HTTP {response.status_code}"
             except Exception as e:
-                status["nim_local"]["message"] = str(e)
+                status["vllm_local"]["message"] = str(e)
         else:
-            status["nim_local"]["message"] = "NIM_ENABLED 未設定 (設為 true 啟用)"
+            status["vllm_local"]["message"] = "VLLM_ENABLED 未設定 (設為 true 啟用)"
 
         # 檢查 Ollama（增強：模型驗證 + GPU 資訊）
         try:

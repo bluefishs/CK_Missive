@@ -2,7 +2,7 @@
 Agent Orchestrator 主編排模組單元測試
 
 測試範圍：
-- AgentOrchestrator._collect_sources: 來源收集（去重）
+- collect_sources: 來源收集（去重）
 - AgentOrchestrator._execute_tool: 超時與異常處理
 - stream_agent_query: 閒聊短路、速率限制、完整工具流程
 
@@ -14,6 +14,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.services.ai.agent_orchestrator import AgentOrchestrator
+from app.services.ai.agent_utils import collect_sources
 
 
 # ── Fixtures ──
@@ -73,7 +74,7 @@ class TestCollectSources:
                  "similarity": 0.9},
             ],
         }
-        AgentOrchestrator._collect_sources("search_documents", result, sources)
+        collect_sources("search_documents", result, sources)
         assert len(sources) == 1
         assert sources[0]["document_id"] == 1
 
@@ -86,7 +87,7 @@ class TestCollectSources:
                  "similarity": 0.8},
             ],
         }
-        AgentOrchestrator._collect_sources("find_similar", result, sources)
+        collect_sources("find_similar", result, sources)
         assert len(sources) == 1
 
     def test_no_duplicate_sources(self):
@@ -98,23 +99,23 @@ class TestCollectSources:
                  "doc_date": "", "similarity": 0},
             ],
         }
-        AgentOrchestrator._collect_sources("search_documents", result, sources)
+        collect_sources("search_documents", result, sources)
         assert len(sources) == 1  # 不重複
 
     def test_non_document_tools_ignored(self):
         sources = []
         result = {"entities": [{"id": 1}], "count": 1}
-        AgentOrchestrator._collect_sources("search_entities", result, sources)
+        collect_sources("search_entities", result, sources)
         assert len(sources) == 0
 
     def test_empty_documents(self):
         sources = []
-        AgentOrchestrator._collect_sources("search_documents", {"documents": []}, sources)
+        collect_sources("search_documents", {"documents": []}, sources)
         assert len(sources) == 0
 
     def test_no_documents_key(self):
         sources = []
-        AgentOrchestrator._collect_sources("search_documents", {"count": 0}, sources)
+        collect_sources("search_documents", {"count": 0}, sources)
         assert len(sources) == 0
 
 

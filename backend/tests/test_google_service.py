@@ -15,9 +15,10 @@ service = DocumentCalendarService()
 print(f"Service Ready: {service.is_ready()}")
 print(f"Calendar ID: {service.calendar_id}")
 print(f"Service object: {service.service}")
-print(f"Credentials: {service.credentials}")
+# credentials 已移至 GoogleCalendarClient (v1.84.4 拆分)
+print(f"Google Client: {service._google}")
 
 if service.is_ready():
-    print("\n✅ Google Calendar Service 初始化成功!")
+    print("\nGoogle Calendar Service initialized successfully")
 else:
-    print("\n❌ Google Calendar Service 初始化失敗")
+    print("\nGoogle Calendar Service initialization failed")

@@ -28,10 +28,10 @@ profiles:
       - synthesis
       - fallback
 
-  nim-local:
+  vllm-local:
     provider: openai
-    model: "meta/llama-3.1-8b-instruct"
-    api_key_env: NVIDIA_API_KEY
+    model: "meta-llama/Llama-3.1-8B-Instruct"
+    api_key_env: VLLM_API_KEY
     base_url: "http://localhost:8000/v1"
     timeout_seconds: 60
     priority: 0
@@ -40,7 +40,7 @@ profiles:
       - planning
       - synthesis
       - ner
-    note: "Local NIM on RTX 4060. Start: docker compose -f docker-compose.infra.yml --profile nim up -d nim"
+    note: "Local vLLM on RTX 4060. Start: docker compose -f docker-compose.infra.yml --profile vllm up -d vllm"
 
   nvidia-cloud:
     provider: openai

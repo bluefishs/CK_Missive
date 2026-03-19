@@ -7,7 +7,7 @@ DocumentAIService 單元測試
 - generate_summary: 摘要生成（含快取/降級）
 - suggest_classification: 分類建議（含 schema 驗證/降級）
 - extract_keywords: 關鍵字提取
-- _resolve_search_entities: 批次正規化實體解析
+- resolve_search_entities: 批次正規化實體解析 (document_search_helpers)
 
 @version 1.0.0
 @date 2026-03-14
@@ -17,6 +17,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.services.ai.document_ai_service import DocumentAIService
+from app.services.ai.document_search_helpers import resolve_search_entities
 
 
 # ============================================================
@@ -278,11 +279,11 @@ class TestExtractKeywords:
 
 
 # ============================================================
-# _resolve_search_entities 批次測試
+# resolve_search_entities 批次測試 (document_search_helpers)
 # ============================================================
 
 class TestResolveSearchEntities:
-    """_resolve_search_entities 批次正規化實體解析"""
+    """resolve_search_entities 批次正規化實體解析"""
 
     @pytest.mark.asyncio
     async def test_empty_intent_returns_empty(self):
@@ -292,7 +293,7 @@ class TestResolveSearchEntities:
         mock_intent.sender = None
         mock_intent.receiver = None
 
-        result = await DocumentAIService._resolve_search_entities(
+        result = await resolve_search_entities(
             mock_db, mock_intent, []
         )
 
@@ -317,7 +318,7 @@ class TestResolveSearchEntities:
         mock_canonical_result.scalars.return_value.all.return_value = [mock_entity]
         mock_db.execute.return_value = mock_canonical_result
 
-        result = await DocumentAIService._resolve_search_entities(
+        result = await resolve_search_entities(
             mock_db, mock_intent, []
         )
 
@@ -348,7 +349,7 @@ class TestResolveSearchEntities:
         mock_search_result = MagicMock()
         mock_search_result.sender = "桃園市政府"
 
-        result = await DocumentAIService._resolve_search_entities(
+        result = await resolve_search_entities(
             mock_db, mock_intent, [mock_search_result]
         )
 

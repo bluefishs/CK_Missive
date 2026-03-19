@@ -73,3 +73,39 @@ def sanitize_history(
         if role in ("user", "assistant") and content:
             result.append({"role": role, "content": content[:_HISTORY_CONTENT_MAX_LEN]})
     return result
+
+
+def compute_adaptive_timeout(
+    base_timeout: int,
+    planned_tool_count: int,
+    question_length: int,
+) -> float:
+    """
+    Compute adaptive timeout based on query complexity.
+
+    Formula: base + (tool_count * 2) + min(question_len / 100, 5), capped at 30s.
+    """
+    adaptive = base_timeout + (planned_tool_count * 2) + min(question_length / 100, 5)
+    return min(adaptive, 30)
+
+
+def collect_sources(
+    tool_name: str,
+    result: Dict[str, Any],
+    all_sources: List[Dict[str, Any]],
+) -> None:
+    """從工具結果收集來源文件"""
+    if tool_name in ("search_documents", "find_similar") and result.get("documents"):
+        for doc in result["documents"]:
+            if not any(s.get("document_id") == doc.get("id") for s in all_sources):
+                all_sources.append({
+                    "document_id": doc.get("id"),
+                    "doc_number": doc.get("doc_number", ""),
+                    "subject": doc.get("subject", ""),
+                    "doc_type": doc.get("doc_type", ""),
+                    "category": doc.get("category", ""),
+                    "sender": doc.get("sender", ""),
+                    "receiver": doc.get("receiver", ""),
+                    "doc_date": doc.get("doc_date", ""),
+                    "similarity": doc.get("similarity", 0),
+                })

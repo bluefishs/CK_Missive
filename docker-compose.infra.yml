@@ -121,25 +121,31 @@ services:
       retries: 3
       start_period: 30s
 
-  # --- 🧠 NVIDIA NIM 推理服務 (本地大模型) ---
-  # 前提：1) docker login nvcr.io  2) GeForce driver ≥595.79 (CUDA 13+)
-  # 啟動：docker compose -f docker-compose.infra.yml --profile nim up -d nim
-  # VRAM 策略：NIM ~5GB + Ollama embedding 0.6GB = 5.6GB / 8GB RTX 4060
-  #   → Ollama chat 模型 (qwen3:4b 3.3GB) 會在 NIM 啟動後自動卸載 (KEEP_ALIVE 到期)
-  nim:
-    image: nvcr.io/nim/meta/llama-3.1-8b-instruct:1.8.3
-    container_name: ${COMPOSE_PROJECT_NAME}_nim_dev
+  # --- 🧠 vLLM 本地推理服務 (取代 NIM TRT-LLM) ---
+  # 原因：NIM 1.8.3 自動選擇 TRT-LLM，RTX 4060 8GB 無法完成 engine build
+  # vLLM 直接提供 OpenAI-compatible API，啟動快、VRAM 效率高
+  # 啟動：docker compose -f docker-compose.infra.yml --profile vllm up -d vllm
+  # VRAM 策略：vLLM ~5GB + Ollama embedding 0.6GB = 5.6GB / 8GB RTX 4060
+  #   → Ollama chat 模型 (qwen3:4b 3.3GB) 會在 vLLM 啟動後自動卸載 (KEEP_ALIVE 到期)
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: ${COMPOSE_PROJECT_NAME}_vllm_dev
     ports:
-      - "${NIM_HOST_PORT:-8000}:8000"
+      - "${VLLM_HOST_PORT:-8000}:8000"
     environment:
-      - NGC_API_KEY=${NVIDIA_API_KEY}
-      # 若 driver <580.95，取消註解以下行繞過 CUDA 版本檢查（不建議生產使用）
-      # - NVIDIA_DISABLE_REQUIRE=1
+      - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN:-}
     volumes:
-      - nim_dev_cache:/opt/nim/.cache
+      - vllm_dev_cache:/root/.cache/huggingface
     networks:
       - app_network
     restart: unless-stopped
+    command: >
+      --model meta-llama/Llama-3.1-8B-Instruct
+      --dtype bfloat16
+      --max-model-len 4096
+      --gpu-memory-utilization 0.85
+      --port 8000
+      --trust-remote-code
     deploy:
       resources:
         reservations:
@@ -150,13 +156,13 @@ services:
         limits:
           memory: 12G
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8000/v1/health/ready || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 300s
+      start_period: 180s
     profiles:
-      - nim
+      - vllm
 
 # --- 持久化儲存（與 docker-compose.dev.yml 共享） ---
 volumes:
@@ -166,8 +172,8 @@ volumes:
     name: ${COMPOSE_PROJECT_NAME}_redis_dev_data
   ollama_dev_data:
     name: ${COMPOSE_PROJECT_NAME}_ollama_dev_data
-  nim_dev_cache:
-    name: ${COMPOSE_PROJECT_NAME}_nim_dev_cache
+  vllm_dev_cache:
+    name: ${COMPOSE_PROJECT_NAME}_vllm_dev_cache
 
 # --- 網路配置（與 docker-compose.dev.yml 共享） ---
 networks:
