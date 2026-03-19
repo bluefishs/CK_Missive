@@ -72,18 +72,27 @@ JSON 格式：{{"tool_feedback": "...", "quality_issue": "...", "lesson": "...",
         from app.services.ai.agent_utils import parse_json_safe
         parsed = parse_json_safe(reflection)
         if parsed and parsed.get("lesson"):
+            import hashlib
             from app.extended.models import AgentLearning
-            learning = AgentLearning(
-                session_id="self-talk",
-                learning_type="self_reflection",
-                pattern=question[:200],
-                lesson=parsed["lesson"],
-                confidence=float(parsed.get("confidence", 0.5)),
-                metadata={"tool_feedback": parsed.get("tool_feedback"), "quality_issue": parsed.get("quality_issue")},
-            )
-            db.add(learning)
-            await db.commit()
-            logger.info("Self-talk reflection saved: %s", parsed["lesson"][:80])
+            from app.db.database import AsyncSessionLocal
+
+            lesson_text = parsed["lesson"]
+            content_hash = hashlib.md5(
+                f"self_talk:{question[:100]}:{lesson_text[:50]}".encode()
+            ).hexdigest()
+
+            async with AsyncSessionLocal() as db_session:
+                async with db_session.begin():
+                    learning = AgentLearning(
+                        session_id="self-talk",
+                        learning_type="self_reflection",
+                        content=lesson_text,
+                        content_hash=content_hash,
+                        source_question=question[:200],
+                        confidence=float(parsed.get("confidence", 0.5)),
+                    )
+                    db_session.add(learning)
+            logger.info("Self-talk reflection saved: %s", lesson_text[:80])
     except Exception as e:
         logger.debug("Self-talk failed (non-critical): %s", e)
 
