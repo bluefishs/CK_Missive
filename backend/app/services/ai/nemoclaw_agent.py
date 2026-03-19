@@ -1,24 +1,22 @@
 """
 NemoClaw 代理人 — 自覺型 Agent
 
-與傳統智能體的差異:
-- 傳統: 問→查→答 (被動工具)
-- NemoClaw: 感知自己→理解上下文→問自己→答→反思→記住 (主動代理人)
+架構: CK_NemoClaw (獨立監控塔) → CK_Missive (本業務插件)
+監控塔 URL: env NEMOCLAW_TOWER_URL (預設 http://localhost:9000)
 
-每次回答的流程:
-1. 載入自我檔案 (我擅長什麼/不擅長什麼)
-2. 載入用戶歷史 (上次聊什麼/偏好)
-3. 檢查主動提醒 (有沒有該告訴用戶的事)
-4. 規劃+執行 (走原有 Agent pipeline)
-5. 人格化回覆 (口語+記住上下文)
-6. 自省+記錄教訓
+流程:
+1. 載入自我檔案 + 沙箱策略
+2. 載入用戶偏好
+3. 檢查主動提醒
+4. 規劃+執行 (Agent pipeline)
+5. 自省+記錄教訓
 
-Version: 1.0.0
+Version: 2.0.0 — 指向獨立 CK_NemoClaw 專案
 """
 
 import asyncio
-import json
 import logging
+import os
 import time
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
@@ -43,6 +41,7 @@ class NemoClawAgent:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.orchestrator = AgentOrchestrator(db)
+        self.tower_url = os.getenv("NEMOCLAW_TOWER_URL", "http://localhost:9000")
 
     async def stream_query(
         self,
