@@ -47,38 +47,30 @@ async def self_talk(
         result_count = sum(r.get("count", 0) for r in tool_results)
 
         messages = [
-            {"role": "system", "content": "你是一個 AI 自省助手。分析以下問答過程，提出改進建議。只輸出 JSON。"},
-            {"role": "user", "content": f"""問題：{question[:200]}
-回答摘要：{answer[:200]}
-使用工具：{tools_summary}
-結果數量：{result_count}
-
-請回答：
-1. 工具選擇是否最優？有更好的工具嗎？
-2. 回答品質的主要問題是什麼？
-3. 如果同樣問題再來，應該怎麼做不同？
-
-JSON 格式：{{"tool_feedback": "...", "quality_issue": "...", "lesson": "...", "confidence": 0.0-1.0}}"""}
+            {"role": "system", "content": "用一句繁體中文總結這次回答可以改進的地方。只輸出一句話。"},
+            {"role": "user", "content": (
+                f"問題：{question[:150]}\n"
+                f"工具：{tools_summary}\n"
+                f"結果：{result_count}筆\n"
+                f"回答前50字：{answer[:50]}"
+            )},
         ]
 
         reflection = await ai_connector.chat_completion(
             messages=messages,
             temperature=0.3,
-            max_tokens=200,
-            prefer_local=True,  # 用 vLLM/Ollama 本地推理
+            max_tokens=100,
+            # 走 vLLM P0 優先鏈，不用 prefer_local (那走 Ollama thinking mode)
         )
 
-        # Parse and store the lesson
-        from app.services.ai.agent_utils import parse_json_safe
-        parsed = parse_json_safe(reflection)
-        if parsed and parsed.get("lesson"):
+        lesson = reflection.strip()
+        if lesson and len(lesson) > 5 and len(lesson) < 200:
             import hashlib
             from app.extended.models import AgentLearning
             from app.db.database import AsyncSessionLocal
 
-            lesson_text = parsed["lesson"]
             content_hash = hashlib.md5(
-                f"self_talk:{question[:100]}:{lesson_text[:50]}".encode()
+                f"self_talk:{question[:80]}:{lesson[:30]}".encode()
             ).hexdigest()
 
             async with AsyncSessionLocal() as db_session:
@@ -86,13 +78,13 @@ JSON 格式：{{"tool_feedback": "...", "quality_issue": "...", "lesson": "...",
                     learning = AgentLearning(
                         session_id="self-talk",
                         learning_type="self_reflection",
-                        content=lesson_text,
+                        content=lesson,
                         content_hash=content_hash,
                         source_question=question[:200],
-                        confidence=float(parsed.get("confidence", 0.5)),
+                        confidence=0.7,
                     )
                     db_session.add(learning)
-            logger.info("Self-talk reflection saved: %s", lesson_text[:80])
+            logger.info("Self-talk saved: %s", lesson[:80])
     except Exception as e:
         logger.debug("Self-talk failed (non-critical): %s", e)
 
