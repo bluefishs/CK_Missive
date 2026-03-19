@@ -23,8 +23,8 @@ from app.services.ai.embedding_manager import EmbeddingManager
 
 logger = logging.getLogger(__name__)
 
-# Project root: backend/ parent
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+# Project root: CK_Missive/ (3 levels up from app/services/)
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DOCS_DIR = PROJECT_ROOT / "docs"
 
 # Subdirectories to scan
