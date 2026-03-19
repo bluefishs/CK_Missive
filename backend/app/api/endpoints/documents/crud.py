@@ -155,9 +155,10 @@ async def create_document(
         filtered_data = {k: v for k, v in create_data.items() if k in valid_model_fields}
 
         # 自動產生 auto_serial（若未提供），委派給 Service 層
+        # 注意：generate_auto_serial 需要 category（收文/發文），不是 doc_type（函/書函/公告等）
         if not filtered_data.get('auto_serial'):
-            doc_type = filtered_data.get('doc_type', '收文')
-            filtered_data['auto_serial'] = await service.generate_auto_serial(doc_type)
+            category = filtered_data.get('category', '收文')
+            filtered_data['auto_serial'] = await service.generate_auto_serial(category)
 
         # 日期欄位需要特別處理：字串轉換為 date 物件
         date_fields = ['doc_date', 'receive_date', 'send_date']
