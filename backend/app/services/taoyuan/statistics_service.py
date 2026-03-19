@@ -3,26 +3,21 @@ TaoyuanStatisticsService - 桃園派工統計服務
 
 提供桃園派工系統的綜合統計資料。
 
-@version 1.0.0
-@date 2026-01-28
+@version 2.0.0
+@date 2026-03-18
+@update 重構：直接 DB 查詢遷移至 TaoyuanStatisticsRepository
 """
 
 import logging
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 from datetime import datetime, date
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
 
 from app.repositories.taoyuan import (
     DispatchOrderRepository,
     TaoyuanProjectRepository,
     PaymentRepository,
-)
-from app.extended.models import (
-    TaoyuanDispatchOrder,
-    TaoyuanProject,
-    TaoyuanContractPayment,
-    ContractProject,
+    TaoyuanStatisticsRepository,
 )
 
 logger = logging.getLogger(__name__)
@@ -43,6 +38,7 @@ class TaoyuanStatisticsService:
         self.dispatch_repo = DispatchOrderRepository(db)
         self.project_repo = TaoyuanProjectRepository(db)
         self.payment_repo = PaymentRepository(db)
+        self.statistics_repo = TaoyuanStatisticsRepository(db)
 
     # =========================================================================
     # 綜合統計
@@ -92,54 +88,27 @@ class TaoyuanStatisticsService:
         Returns:
             彙總資料
         """
-        base_condition = (
-            TaoyuanDispatchOrder.contract_project_id == contract_project_id
-            if contract_project_id else True
-        )
-
-        # 總數
-        total_query = select(func.count(TaoyuanDispatchOrder.id)).where(base_condition)
-        total = (await self.db.execute(total_query)).scalar() or 0
-
-        # 本月新增
         today = date.today()
         month_start = date(today.year, today.month, 1)
-        this_month_query = select(func.count(TaoyuanDispatchOrder.id)).where(
-            and_(
-                base_condition,
-                TaoyuanDispatchOrder.created_at >= month_start,
-            )
-        )
-        this_month = (await self.db.execute(this_month_query)).scalar() or 0
 
-        # 按作業類別統計
-        work_type_query = (
-            select(
-                TaoyuanDispatchOrder.work_type,
-                func.count(TaoyuanDispatchOrder.id),
-            )
-            .where(base_condition)
-            .group_by(TaoyuanDispatchOrder.work_type)
+        total = await self.statistics_repo.count_dispatches(contract_project_id)
+        this_month = await self.statistics_repo.count_dispatches_since(
+            month_start, contract_project_id
         )
-        result = await self.db.execute(work_type_query)
-        by_work_type = [
-            {'work_type': row[0] or '未分類', 'count': row[1]}
-            for row in result.fetchall()
-        ]
-
-        # 逾期統計（履約期限已過但狀態非完成）
-        overdue_query = select(func.count(TaoyuanDispatchOrder.id)).where(
-            and_(
-                base_condition,
-                TaoyuanDispatchOrder.deadline < today,
-            )
+        work_type_counts = await self.statistics_repo.get_dispatch_counts_by_work_type(
+            contract_project_id
         )
-        overdue = (await self.db.execute(overdue_query)).scalar() or 0
+        overdue = await self.statistics_repo.count_overdue_dispatches(
+            today, contract_project_id
+        )
 
         return {
             'total': total,
             'this_month': this_month,
-            'by_work_type': by_work_type,
+            'by_work_type': [
+                {'work_type': item.work_type, 'count': item.count}
+                for item in work_type_counts
+            ],
             'overdue': overdue,
         }
 
@@ -155,33 +124,17 @@ class TaoyuanStatisticsService:
         Returns:
             彙總資料
         """
-        base_condition = (
-            TaoyuanProject.contract_project_id == contract_project_id
-            if contract_project_id else True
+        total = await self.statistics_repo.count_projects(contract_project_id)
+        status_counts = await self.statistics_repo.get_project_counts_by_status(
+            contract_project_id
         )
-
-        # 總數
-        total_query = select(func.count(TaoyuanProject.id)).where(base_condition)
-        total = (await self.db.execute(total_query)).scalar() or 0
-
-        # 按狀態統計
-        status_query = (
-            select(
-                TaoyuanProject.status,
-                func.count(TaoyuanProject.id),
-            )
-            .where(base_condition)
-            .group_by(TaoyuanProject.status)
-        )
-        result = await self.db.execute(status_query)
-        by_status = [
-            {'status': row[0] or '未設定', 'count': row[1]}
-            for row in result.fetchall()
-        ]
 
         return {
             'total': total,
-            'by_status': by_status,
+            'by_status': [
+                {'status': item.status, 'count': item.count}
+                for item in status_counts
+            ],
         }
 
     async def get_payment_summary(
@@ -219,68 +172,39 @@ class TaoyuanStatisticsService:
         today = date.today()
         warning_date = date.fromordinal(today.toordinal() + days_ahead)
 
-        base_condition = (
-            TaoyuanDispatchOrder.contract_project_id == contract_project_id
-            if contract_project_id else True
+        overdue_items = await self.statistics_repo.get_overdue_dispatches(
+            today, contract_project_id
         )
-
-        # 已逾期
-        overdue_query = (
-            select(TaoyuanDispatchOrder)
-            .where(
-                and_(
-                    base_condition,
-                    TaoyuanDispatchOrder.deadline < today,
-                )
-            )
-            .order_by(TaoyuanDispatchOrder.deadline.asc())
-            .limit(10)
+        upcoming_items = await self.statistics_repo.get_upcoming_deadline_dispatches(
+            today, warning_date, contract_project_id
         )
-        overdue_result = await self.db.execute(overdue_query)
-        overdue_items = [
-            {
-                'id': item.id,
-                'dispatch_no': item.dispatch_no,
-                'project_name': item.project_name,
-                'deadline': item.deadline.isoformat() if item.deadline else None,
-                'days_overdue': (today - item.deadline).days if item.deadline else 0,
-            }
-            for item in overdue_result.scalars().all()
-        ]
-
-        # 即將到期
-        upcoming_query = (
-            select(TaoyuanDispatchOrder)
-            .where(
-                and_(
-                    base_condition,
-                    TaoyuanDispatchOrder.deadline >= today,
-                    TaoyuanDispatchOrder.deadline <= warning_date,
-                )
-            )
-            .order_by(TaoyuanDispatchOrder.deadline.asc())
-            .limit(10)
-        )
-        upcoming_result = await self.db.execute(upcoming_query)
-        upcoming_items = [
-            {
-                'id': item.id,
-                'dispatch_no': item.dispatch_no,
-                'project_name': item.project_name,
-                'deadline': item.deadline.isoformat() if item.deadline else None,
-                'days_remaining': (item.deadline - today).days if item.deadline else 0,
-            }
-            for item in upcoming_result.scalars().all()
-        ]
 
         return {
             'overdue': {
                 'count': len(overdue_items),
-                'items': overdue_items,
+                'items': [
+                    {
+                        'id': item.id,
+                        'dispatch_no': item.dispatch_no,
+                        'project_name': item.project_name,
+                        'deadline': item.deadline,
+                        'days_overdue': item.days_overdue,
+                    }
+                    for item in overdue_items
+                ],
             },
             'upcoming': {
                 'count': len(upcoming_items),
-                'items': upcoming_items,
+                'items': [
+                    {
+                        'id': item.id,
+                        'dispatch_no': item.dispatch_no,
+                        'project_name': item.project_name,
+                        'deadline': item.deadline,
+                        'days_remaining': item.days_remaining,
+                    }
+                    for item in upcoming_items
+                ],
             },
             'tracking_date': today.isoformat(),
             'warning_days': days_ahead,
@@ -303,13 +227,11 @@ class TaoyuanStatisticsService:
             主控表報資料
         """
         # 取得承攬案件資訊
-        project_query = select(ContractProject).where(
-            ContractProject.id == contract_project_id
+        project_info = await self.statistics_repo.get_contract_project_info(
+            contract_project_id
         )
-        project_result = await self.db.execute(project_query)
-        project = project_result.scalar_one_or_none()
 
-        if not project:
+        if not project_info:
             return {'error': '承攬案件不存在'}
 
         # 取得統計資料
@@ -320,11 +242,11 @@ class TaoyuanStatisticsService:
 
         return {
             'contract_project': {
-                'id': project.id,
-                'project_name': project.project_name,
-                'project_code': project.project_code,
-                'winning_amount': float(project.winning_amount or 0),
-                'contract_amount': float(project.contract_amount or 0),
+                'id': project_info.id,
+                'project_name': project_info.project_name,
+                'project_code': project_info.project_code,
+                'winning_amount': project_info.winning_amount,
+                'contract_amount': project_info.contract_amount,
             },
             'overview': overview,
             'dispatch_summary': dispatch_summary,

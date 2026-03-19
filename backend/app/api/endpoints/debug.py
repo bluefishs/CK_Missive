@@ -15,14 +15,14 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-@router.get("/test")
+@router.post("/test")
 async def test_debug_endpoint(
     current_user: User = Depends(require_admin())
 ):
     """Simple test endpoint to verify debug router is working"""
     return {"message": "Debug router is working", "status": "success"}
 
-@router.get("/dev/mapping", summary="動態獲取前端功能與後端 API 對應關係 (樹狀結構)")
+@router.post("/dev/mapping", summary="動態獲取前端功能與後端 API 對應關係 (樹狀結構)")
 async def get_dynamic_api_mapping(
     request: Request,
     current_user: User = Depends(require_admin())
@@ -222,7 +222,7 @@ async def get_dynamic_api_mapping(
         
     return final_tree_data
 
-@router.get("/documents/count")
+@router.post("/documents/count")
 async def debug_document_count(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_admin())
@@ -254,7 +254,7 @@ async def debug_document_count(
         logger.error(f"Debug endpoint error: {e}", exc_info=True)
         return {"error": "Internal error"}
 
-@router.get("/documents/raw")
+@router.post("/documents/raw")
 async def debug_raw_documents(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_admin())

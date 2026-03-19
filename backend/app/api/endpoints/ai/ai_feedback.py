@@ -57,6 +57,19 @@ async def submit_feedback(
             f"[FEEDBACK] user={current_user.id} conv={request.conversation_id} "
             f"msg={request.message_index} score={request.score} type={request.feature_type}"
         )
+
+        # Phase 1: 將回饋關聯至 Agent Trace（非阻塞）
+        try:
+            from app.repositories.agent_trace_repository import AgentTraceRepository
+            trace_repo = AgentTraceRepository(db)
+            await trace_repo.link_feedback(
+                conversation_id=request.conversation_id,
+                score=request.score,
+                feedback_text=request.feedback_text,
+            )
+        except Exception as e:
+            logger.debug("link_feedback to trace skipped: %s", e)
+
         return AIFeedbackSubmitResponse(
             success=True,
             message=f"回饋已記錄 (ID: {record_id})",

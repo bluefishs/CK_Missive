@@ -3,18 +3,20 @@
 
 包含：詳情查詢、建立、更新、刪除
 
-@version 3.1.0
-@date 2026-01-19
+@version 3.2.0
+@date 2026-03-12
 
 變更紀錄:
+- v3.2.0: 新增公文建立/更新後自動觸發背景 NER 提取
 - v3.1.0: 業務邏輯下沉至 DocumentService (get_document_with_extra_info)
 - v3.0.0: 初始模組化版本
 """
 import os
+import asyncio
 from fastapi import APIRouter, Body, Request
 from starlette.responses import Response
 from fastapi.responses import JSONResponse
-from sqlalchemy import select, func
+from sqlalchemy import select
 
 from app.core.rate_limiter import limiter
 
@@ -30,6 +32,24 @@ from .common import (
 )
 
 router = APIRouter()
+
+
+async def _trigger_ner_background(doc_id: int, force: bool = False) -> None:
+    """背景觸發 NER 實體提取（不阻塞主回應）"""
+    try:
+        from app.db.database import AsyncSessionLocal
+        from app.services.ai.entity_extraction_service import extract_entities_for_document
+
+        async with AsyncSessionLocal() as db:
+            result = await extract_entities_for_document(db, doc_id, force=force, commit=True)
+            if not result.get("skipped"):
+                logger.info(
+                    f"[NER] 背景提取完成 doc_id={doc_id}: "
+                    f"{result.get('entities_count', 0)} 實體, "
+                    f"{result.get('relations_count', 0)} 關係"
+                )
+    except Exception as e:
+        logger.warning(f"[NER] 背景提取失敗 doc_id={doc_id}: {e}")
 
 
 # ============================================================================
@@ -134,25 +154,10 @@ async def create_document(
         # 過濾掉不存在於模型的欄位（避免 TypeError）
         filtered_data = {k: v for k, v in create_data.items() if k in valid_model_fields}
 
-        # 自動產生 auto_serial（若未提供）
+        # 自動產生 auto_serial（若未提供），委派給 Service 層
         if not filtered_data.get('auto_serial'):
             doc_type = filtered_data.get('doc_type', '收文')
-            prefix = 'R' if doc_type == '收文' else 'S'
-            # 查詢當前最大流水號
-            result = await db.execute(
-                select(func.max(OfficialDocument.auto_serial)).where(
-                    OfficialDocument.auto_serial.like(f'{prefix}%')
-                )
-            )
-            max_serial = result.scalar_one_or_none()
-            if max_serial:
-                try:
-                    num = int(max_serial[1:]) + 1
-                except (ValueError, IndexError):
-                    num = 1
-            else:
-                num = 1
-            filtered_data['auto_serial'] = f'{prefix}{num:04d}'
+            filtered_data['auto_serial'] = await service.generate_auto_serial(doc_type)
 
         # 日期欄位需要特別處理：字串轉換為 date 物件
         date_fields = ['doc_date', 'receive_date', 'send_date']
@@ -181,6 +186,9 @@ async def create_document(
             user_name=user_name,
             source="API"
         )
+
+        # 背景觸發 NER 實體提取（非阻塞）
+        asyncio.create_task(_trigger_ner_background(document.id))
 
         return DocumentResponse.model_validate(document)
     except Exception as e:
@@ -297,6 +305,9 @@ async def update_document(
                 logger.debug(f"已標記公文 {document_id} 的 AI 分析為過期")
             except Exception as e:
                 logger.warning(f"標記 AI 分析過期失敗: {e}")
+
+            # 背景重新觸發 NER 提取（force=True 覆蓋舊結果）
+            asyncio.create_task(_trigger_ner_background(document_id, force=True))
 
         # 審計日誌和通知（使用統一服務，自動管理獨立 session）
         if changes:

@@ -31,14 +31,9 @@ import logging
 from typing import List, Optional, Dict, Any, TYPE_CHECKING
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, delete, distinct
 from sqlalchemy.exc import IntegrityError
 
-from app.extended.models import (
-    ContractProject,
-    project_vendor_association,
-    project_user_assignment,
-)
+from app.extended.models import ContractProject
 
 if TYPE_CHECKING:
     from app.extended.models import User
@@ -82,7 +77,6 @@ class ProjectService:
         """
         self.db = db
         self.repository = ProjectRepository(db)
-        self.model = ContractProject
         self.entity_name = "承攬案件"
 
     # =========================================================================
@@ -114,7 +108,7 @@ class ProjectService:
         Returns:
             專案物件，若不存在則返回 None
         """
-        return await self.repository.get_by_field(field_name, field_value)
+        return await self.repository.find_one_by(**{field_name: field_value})
 
     async def get_list(
         self, skip: int = 0, limit: int = 100
@@ -129,14 +123,7 @@ class ProjectService:
         Returns:
             專案列表
         """
-        query = (
-            select(self.model)
-            .order_by(self.model.id.desc())
-            .offset(skip)
-            .limit(limit)
-        )
-        result = await self.db.execute(query)
-        return list(result.scalars().all())
+        return await self.repository.get_all(skip=skip, limit=limit)
 
     # =========================================================================
     # 專案特有業務方法
@@ -186,46 +173,27 @@ class ProjectService:
         Returns:
             包含專案列表和總數的字典
         """
-        query = select(ContractProject)
-
-        # ====================================================================
-        # 行級別權限過濾 (Row-Level Security) - 使用統一 RLSFilter
-        # ====================================================================
+        # 建構 RLS 過濾函數
+        rls_filter_fn = None
         if current_user is not None:
             user_id, is_admin, is_superuser = RLSFilter.get_user_rls_flags(
                 current_user
             )
-            query = RLSFilter.apply_project_rls(
-                query, ContractProject, user_id, is_admin, is_superuser
-            )
 
-        # ====================================================================
-        # 一般篩選條件
-        # ====================================================================
-        if query_params.search:
-            query = query.where(
-                ContractProject.project_name.ilike(f"%{query_params.search}%")
-            )
-        if query_params.year:
-            query = query.where(ContractProject.year == query_params.year)
-        if query_params.category:
-            query = query.where(
-                ContractProject.category == query_params.category
-            )
-        if query_params.status:
-            query = query.where(ContractProject.status == query_params.status)
+            def rls_filter_fn(query):  # noqa: E731
+                return RLSFilter.apply_project_rls(
+                    query, ContractProject, user_id, is_admin, is_superuser
+                )
 
-        # 計算總數
-        count_query = select(func.count()).select_from(query.subquery())
-        total = (await self.db.execute(count_query)).scalar_one()
-
-        # 執行分頁查詢
-        result = await self.db.execute(
-            query.order_by(ContractProject.id.desc())
-            .offset(query_params.skip)
-            .limit(query_params.limit)
+        projects, total = await self.repository.get_filtered_list(
+            search=query_params.search if query_params.search else None,
+            year=query_params.year if query_params.year else None,
+            category=query_params.category if query_params.category else None,
+            status=query_params.status if query_params.status else None,
+            skip=query_params.skip,
+            limit=query_params.limit,
+            rls_filter_fn=rls_filter_fn,
         )
-        projects = result.scalars().all()
 
         return {"projects": projects, "total": total}
 
@@ -240,35 +208,9 @@ class ProjectService:
         格式: CK{年度4碼}_{類別2碼}_{性質2碼}_{流水號3碼}
         例: CK2025_01_01_001
         """
-        # 確保類別和性質為2碼
-        category_code = category[:2] if category else "00"
-        nature_code = case_nature[:2] if case_nature else "00"
-        # 年度4碼格式: YYYY
-        year_str = str(year)
-
-        # 查詢同年度、同類別、同性質的最大流水號
-        prefix = f"CK{year_str}_{category_code}_{nature_code}_"
-        query = (
-            select(ContractProject.project_code)
-            .where(ContractProject.project_code.like(f"{prefix}%"))
-            .order_by(ContractProject.project_code.desc())
+        return await self.repository.get_next_project_code(
+            year, category, case_nature
         )
-
-        result = await self.db.execute(query)
-        existing_codes = result.scalars().all()
-
-        if existing_codes:
-            # 提取最大流水號
-            try:
-                last_code = existing_codes[0]
-                last_serial = int(last_code.split("_")[-1])
-                new_serial = last_serial + 1
-            except (IndexError, ValueError):
-                new_serial = 1
-        else:
-            new_serial = 1
-
-        return f"{prefix}{str(new_serial).zfill(3)}"
 
     async def create(self, data: ProjectCreate) -> ContractProject:
         """
@@ -303,15 +245,26 @@ class ProjectService:
                     f"專案編號 {project_data['project_code']} 已存在"
                 )
 
-        db_project = ContractProject(**project_data)
-        self.db.add(db_project)
-        await self.db.commit()
-        await self.db.refresh(db_project)
+        db_project = await self.repository.create(project_data)
 
         logger.info(
             f"建立{self.entity_name}: ID={db_project.id}, "
             f"Code={db_project.project_code}"
         )
+
+        # 回溯連結：將已存在的同名 CanonicalEntity 連結到新建專案
+        try:
+            from app.services.ai.canonical_entity_service import CanonicalEntityService
+            entity_svc = CanonicalEntityService(self.db)
+            await entity_svc.link_existing_entities(
+                record_name=db_project.project_name,
+                entity_type="project",
+                record_id=db_project.id,
+                field="linked_project_id",
+            )
+        except Exception as e:
+            logger.warning(f"Project 回溯連結 NER 實體失敗: {e}")
+
         return db_project
 
     async def update(
@@ -342,11 +295,9 @@ class ProjectService:
         if update_data.get("status") == "已結案":
             update_data["progress"] = 100
 
-        for key, value in update_data.items():
-            setattr(db_project, key, value)
-
-        await self.db.commit()
-        await self.db.refresh(db_project)
+        db_project = await self.repository.update(entity_id, update_data)
+        if not db_project:
+            return None
 
         # 當契約金額變更時，同步更新相關契金記錄的累進金額
         new_contract_amount = db_project.contract_amount
@@ -390,22 +341,13 @@ class ProjectService:
 
         try:
             # 先刪除關聯的承辦同仁資料
-            await self.db.execute(
-                delete(project_user_assignment).where(
-                    project_user_assignment.c.project_id == entity_id
-                )
-            )
+            await self.repository.delete_user_assignments(entity_id)
 
             # 再刪除關聯的廠商資料
-            await self.db.execute(
-                delete(project_vendor_association).where(
-                    project_vendor_association.c.project_id == entity_id
-                )
-            )
+            await self.repository.delete_vendor_associations(entity_id)
 
             # 最後刪除專案本身
-            await self.db.delete(db_project)
-            await self.db.commit()
+            await self.repository.delete(entity_id)
 
             logger.info(f"刪除{self.entity_name}: ID={entity_id}")
             return True
@@ -417,55 +359,7 @@ class ProjectService:
     async def get_project_statistics(self) -> dict:
         """取得專案統計資料"""
         try:
-            # 總專案數
-            total_result = await self.db.execute(
-                select(func.count(ContractProject.id))
-            )
-            total_projects = total_result.scalar() or 0
-
-            # 按狀態分組統計
-            status_result = await self.db.execute(
-                select(
-                    ContractProject.status,
-                    func.count(ContractProject.id),
-                )
-                .group_by(ContractProject.status)
-                .order_by(ContractProject.status)
-            )
-            status_stats = [
-                {"status": row[0] or "未設定", "count": row[1]}
-                for row in status_result.fetchall()
-            ]
-
-            # 按年度分組統計
-            year_result = await self.db.execute(
-                select(
-                    ContractProject.year,
-                    func.count(ContractProject.id),
-                )
-                .group_by(ContractProject.year)
-                .order_by(ContractProject.year.desc())
-            )
-            year_stats = [
-                {"year": row[0], "count": row[1]}
-                for row in year_result.fetchall()
-            ]
-
-            # 平均合約金額
-            amount_result = await self.db.execute(
-                select(func.avg(ContractProject.contract_amount)).where(
-                    ContractProject.contract_amount.isnot(None)
-                )
-            )
-            avg_amount = amount_result.scalar()
-            avg_amount = round(float(avg_amount), 2) if avg_amount else 0.0
-
-            return {
-                "total_projects": total_projects,
-                "status_breakdown": status_stats,
-                "year_breakdown": year_stats,
-                "average_contract_amount": avg_amount,
-            }
+            return await self.repository.get_project_statistics()
         except Exception as e:
             logger.error(f"取得專案統計資料失敗: {e}", exc_info=True)
             return {
@@ -496,35 +390,21 @@ class ProjectService:
         Returns:
             去重後的值列表
         """
-        field = getattr(self.model, field_name, None)
-        if field is None:
-            logger.warning(
-                f"欄位 {field_name} 不存在於 {self.model.__name__}"
-            )
-            return []
-
-        query = select(distinct(field))
-
-        if exclude_null:
-            query = query.where(field.isnot(None))
-
-        if sort_order.lower() == "desc":
-            query = query.order_by(field.desc())
-        else:
-            query = query.order_by(field)
-
-        result = await self.db.execute(query)
-        return [row[0] for row in result.fetchall() if row[0] is not None]
+        if sort_order.lower() == "desc" and field_name == "year":
+            return await self.repository.get_year_options()
+        return await self.repository.get_distinct_values(
+            field_name, exclude_null=exclude_null
+        )
 
     async def get_year_options(self) -> List[int]:
         """取得所有專案年度選項（降序排列）"""
-        return await self.get_distinct_options("year", sort_order="desc")
+        return await self.repository.get_year_options()
 
     async def get_category_options(self) -> List[str]:
         """取得所有專案類別選項（升序排列）"""
-        return await self.get_distinct_options("category", sort_order="asc")
+        return await self.repository.get_category_options()
 
     async def get_status_options(self) -> List[str]:
         """取得所有專案狀態選項（升序排列）"""
-        return await self.get_distinct_options("status", sort_order="asc")
+        return await self.repository.get_status_options()
 

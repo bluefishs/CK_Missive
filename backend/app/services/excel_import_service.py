@@ -35,6 +35,20 @@ logger = logging.getLogger(__name__)
 class ExcelImportService(ImportBaseService):
     """Excel 匯入服務"""
 
+    # 匯入格式版本標記
+    FORMAT_VERSION = "2.0"  # v2.0: 新增 normalized_sender/receiver 自動回填 (2026-03-13)
+
+    # 支援的欄位對照（Excel 欄名 → 內部欄名）
+    # 向後相容：舊版 Excel 格式仍可匯入
+    LEGACY_COLUMN_MAPPING = {
+        "公文ID": "id",
+        "流水號": "auto_serial",
+        "公文字號": "doc_number",
+        "發文單位": "sender",
+        "受文單位": "receiver",
+        "主旨": "subject",
+    }
+
     # 匯入欄位對應（Excel 欄位名 → 資料庫欄位）
     FIELD_MAPPING = {
         '公文ID': 'id',
@@ -62,10 +76,16 @@ class ExcelImportService(ImportBaseService):
     # 必填欄位
     REQUIRED_FIELDS = ['公文字號', '主旨', '類別']
 
-    def __init__(self, db: AsyncSession, auto_create_events: bool = True):
+    def __init__(
+        self,
+        db: AsyncSession,
+        auto_create_events: bool = True,
+        upsert_mode: bool = False,
+    ):
         super().__init__(db)
         self._auto_create_events = auto_create_events
         self._event_builder = CalendarEventAutoBuilder(db) if auto_create_events else None
+        self.upsert_mode = upsert_mode
 
     async def preview_excel(
         self,
@@ -323,6 +343,10 @@ class ExcelImportService(ImportBaseService):
                 f"新增={result.inserted}, 更新={result.updated}, "
                 f"跳過={result.skipped}, 錯誤={result.error_count}"
             )
+            # 通知 NER 排程器有新公文（事件驅動，立即處理）
+            if result.inserted > 0:
+                from app.services.ai.extraction_scheduler import notify_new_documents
+                notify_new_documents(result.inserted)
 
         except Exception as e:
             await self.db.rollback()
@@ -401,9 +425,13 @@ class ExcelImportService(ImportBaseService):
             elif doc_number:
                 existing_by_number = await self.check_duplicate_by_doc_number(doc_number)
                 if existing_by_number:
-                    result.status = "skipped"
-                    result.message = f"公文字號 '{doc_number}' 已存在 (ID={existing_by_number.id})"
-                    return result
+                    if self.upsert_mode:
+                        # upsert 模式：將既有記錄視為更新目標
+                        existing_doc = existing_by_number
+                    else:
+                        result.status = "skipped"
+                        result.message = f"公文字號 '{doc_number}' 已存在 (ID={existing_by_number.id})"
+                        return result
 
             # 5. 準備資料
             doc_data = await self._prepare_document_data(row_data, category, doc_type)
@@ -458,14 +486,33 @@ class ExcelImportService(ImportBaseService):
         receiver_agency_id = await self.match_agency(receiver_name) if receiver_name else None
         contract_project_id = await self.match_project(contract_name) if contract_name else None
 
+        # 正規化收發文單位
+        from app.services.receiver_normalizer import (
+            normalize_unit, cc_list_to_json, infer_agency_from_doc_number,
+        )
+        s_norm = normalize_unit(sender_name)
+        r_norm = normalize_unit(receiver_name)
+
+        # 根據公文字號前綴修正發文機關（如「府工用字第」→桃園市政府工務局）
+        doc_number = self.clean_string(row_data.get('公文字號')) or ''
+        inferred_agency = infer_agency_from_doc_number(doc_number)
+        if inferred_agency and s_norm.primary != inferred_agency:
+            s_norm = normalize_unit(inferred_agency)  # 重新正規化
+            corrected_id = await self.match_agency(inferred_agency)
+            if corrected_id:
+                sender_agency_id = corrected_id
+
         data = {
             'category': category,
             'doc_type': doc_type or '函',
-            'doc_number': self.clean_string(row_data.get('公文字號')) or '',
+            'doc_number': doc_number,
             'subject': self.clean_string(row_data.get('主旨')) or '',
             'content': self.clean_string(row_data.get('說明')),
             'sender': sender_name,
             'receiver': receiver_name,
+            'normalized_sender': s_norm.primary or None,
+            'normalized_receiver': r_norm.primary or None,
+            'cc_receivers': cc_list_to_json(r_norm.cc_list),
             'sender_agency_id': sender_agency_id,
             'receiver_agency_id': receiver_agency_id,
             'contract_project_id': contract_project_id,

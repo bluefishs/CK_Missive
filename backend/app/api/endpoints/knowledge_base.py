@@ -21,6 +21,9 @@ from app.schemas.knowledge_base import (
     FileContentResponse,
     FileInfo,
     FileRequest,
+    KBSearchRequest,
+    KBSearchResponse,
+    KBSearchResult,
     SectionInfo,
     TreeResponse,
 )
@@ -224,3 +227,65 @@ async def list_diagrams(
         )
 
     return DiagramListResponse(success=True, items=items)
+
+
+# Allowed directories for search (superset of ALLOWED_SUBDIRS to cover all KB content)
+_SEARCH_DIRS = ["knowledge-map", "adr", "diagrams", "reports", "specifications"]
+
+
+@router.post("/search", response_model=KBSearchResponse)
+async def search_knowledge_base(
+    req: KBSearchRequest,
+    _admin: dict = Depends(require_admin),
+) -> KBSearchResponse:
+    """全文搜尋知識庫內容。"""
+    query_lower = req.query.lower()
+    results: list[KBSearchResult] = []
+
+    for subdir_name in _SEARCH_DIRS:
+        subdir = DOCS_DIR / subdir_name
+        if not subdir.is_dir():
+            continue
+
+        for md_file in subdir.rglob("*.md"):
+            # Security: ensure file is within DOCS_DIR
+            try:
+                md_file.resolve().relative_to(DOCS_DIR.resolve())
+            except ValueError:
+                continue
+
+            try:
+                content = md_file.read_text(encoding="utf-8")
+            except Exception:
+                logger.warning("搜尋時無法讀取檔案: %s", md_file)
+                continue
+
+            lines = content.splitlines()
+            rel_path = md_file.relative_to(DOCS_DIR).as_posix()
+
+            for i, line in enumerate(lines):
+                if query_lower in line.lower():
+                    # Build excerpt with ±2 lines of context
+                    start = max(0, i - 2)
+                    end = min(len(lines), i + 3)
+                    excerpt = "\n".join(lines[start:end])
+
+                    # Score: exact case match > case-insensitive
+                    score = 2.0 if req.query in line else 1.0
+
+                    results.append(
+                        KBSearchResult(
+                            file_path=rel_path,
+                            filename=md_file.name,
+                            excerpt=excerpt,
+                            line_number=i + 1,
+                            relevance_score=score,
+                        )
+                    )
+
+    # Sort by relevance descending, then by file path
+    results.sort(key=lambda r: (-r.relevance_score, r.file_path, r.line_number))
+
+    # Apply limit
+    limited = results[: req.limit]
+    return KBSearchResponse(success=True, results=limited, total=len(results))

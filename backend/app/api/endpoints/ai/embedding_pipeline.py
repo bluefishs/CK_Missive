@@ -201,3 +201,105 @@ async def _run_batch_pipeline(limit: int, batch_size: int):
 
     except Exception as e:
         logger.error("Embedding 批次管線異常: %s", e)
+
+
+@router.post("/embedding/entity-batch", response_model=EmbeddingBatchResponse)
+async def run_entity_embedding_batch(
+    request: EmbeddingBatchRequest,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(require_admin()),
+):
+    """
+    觸發 CanonicalEntity embedding 批次管線
+
+    為知識圖譜正規化實體生成 embedding（用於語意搜尋/相似實體推薦）。
+    """
+    if not _pgvector_enabled():
+        return EmbeddingBatchResponse(
+            success=False,
+            message="pgvector 未啟用 (PGVECTOR_ENABLED=false)",
+        )
+
+    background_tasks.add_task(
+        _run_entity_embedding_pipeline,
+        limit=request.limit,
+        batch_size=request.batch_size,
+    )
+
+    return EmbeddingBatchResponse(
+        success=True,
+        message=f"實體 embedding 管線已在背景啟動，預計處理最多 {request.limit} 筆",
+    )
+
+
+async def _run_entity_embedding_pipeline(limit: int, batch_size: int):
+    """背景執行：為 CanonicalEntity 生成 embedding"""
+    from app.core.ai_connector import get_ai_connector
+    from app.db.database import AsyncSessionLocal
+    from app.extended.models import CanonicalEntity
+    from sqlalchemy import select
+
+    connector = get_ai_connector()
+    start_time = time.time()
+    success_count = 0
+    error_count = 0
+
+    try:
+        health = await connector.check_health()
+        if not health.get("ollama", {}).get("available", False):
+            logger.error("實體 embedding 管線: Ollama 不可用")
+            return
+
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(CanonicalEntity)
+                .where(CanonicalEntity.embedding.is_(None))
+                .order_by(CanonicalEntity.mention_count.desc())
+                .limit(limit)
+            )
+            entities = list(result.scalars().all())
+            total = len(entities)
+
+            if total == 0:
+                logger.info("所有實體已有 embedding，無需處理")
+                return
+
+            logger.info("實體 embedding 管線: 開始處理 %s 筆", total)
+
+            for batch_start in range(0, total, batch_size):
+                batch = entities[batch_start:batch_start + batch_size]
+                texts = [e.canonical_name for e in batch]
+
+                embeddings = await connector.generate_embeddings_batch(texts)
+
+                all_failed = all(emb is None for emb in embeddings)
+                if all_failed and texts:
+                    for entity, text in zip(batch, texts):
+                        try:
+                            emb = await connector.generate_embedding(text)
+                            if emb is not None:
+                                entity.embedding = emb
+                                success_count += 1
+                            else:
+                                error_count += 1
+                        except Exception as e:
+                            logger.error("Entity #%s embedding 失敗: %s", entity.id, e)
+                            error_count += 1
+                else:
+                    for entity, emb in zip(batch, embeddings):
+                        if emb is not None:
+                            entity.embedding = emb
+                            success_count += 1
+                        else:
+                            error_count += 1
+
+                await db.commit()
+
+        elapsed = time.time() - start_time
+        logger.info(
+            "實體 embedding 管線完成: 成功=%s, 失敗=%s, 耗時=%.1fs",
+            success_count, error_count, elapsed,
+        )
+
+    except Exception as e:
+        logger.error("實體 embedding 管線異常: %s", e, exc_info=True)

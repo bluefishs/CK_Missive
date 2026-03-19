@@ -86,6 +86,10 @@ async def import_documents_excel(
     request: Request,
     response: Response,
     file: UploadFile = File(..., description="要匯入的 Excel 檔案（.xlsx）"),
+    upsert_mode: bool = Query(
+        default=False,
+        description="啟用 upsert 模式：公文字號重複時更新既有記錄而非跳過",
+    ),
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_auth()),
 ):
@@ -101,6 +105,7 @@ async def import_documents_excel(
     - 公文ID 有值：更新現有資料
     - 公文ID 空白：新增資料（自動生成流水號）
     - 必填欄位：公文字號、主旨、類別
+    - upsert_mode=True：公文字號重複時更新既有記錄而非跳過
 
     與「電子公文檔匯入」(CSV) 的差異：
     - CSV 匯入：電子公文系統匯出的固定格式
@@ -126,7 +131,7 @@ async def import_documents_excel(
 
         # 使用 ExcelImportService 處理
         from app.services.excel_import_service import ExcelImportService
-        import_service = ExcelImportService(db)
+        import_service = ExcelImportService(db, upsert_mode=upsert_mode)
         result = await import_service.import_from_excel(file_content, filename)
 
         return result

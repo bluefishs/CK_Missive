@@ -45,6 +45,9 @@ google-api-python-client==2.143.0
 pandas==2.3.2
 openpyxl==3.1.2
 python-docx==1.1.0
+pdfplumber>=0.10.0
+Pillow>=10.0.0
+pytesseract>=0.3.10
 
 # --- Utilities ---
 tqdm==4.66.1
@@ -73,3 +76,5 @@ qrcode[pil]>=7.4.0
 
 # --- MCP Server (v1.75.0) ---
 mcp>=1.0.0,<2.0.0
+
+# Note: httpx already listed in External Services section (line 35)

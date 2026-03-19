@@ -55,6 +55,7 @@ from app.core.schema_validator import validate_schema
 from app.extended.models import Base
 from app.core.cors import allowed_origins
 from app.core.rate_limiter import setup_rate_limiter
+from app.core.middleware import RequestIdMiddleware
 
 # --- 統一日誌編碼配置 (解決 Windows 終端中文亂碼) ---
 if sys.platform == "win32":
@@ -279,7 +280,7 @@ app.add_middleware(
     allow_credentials=True,  # 必須為 True 以支援 httpOnly cookie 認證
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
-    expose_headers=["X-Process-Time"],  # 允許前端讀取的回應標頭
+    expose_headers=["X-Process-Time", "X-Request-ID"],  # 允許前端讀取的回應標頭
 )
 # 已移除重複的 CORSMiddleware - 使用上面已驗證可工作的配置
 app.add_middleware(GZipMiddleware, minimum_size=1000)
@@ -292,6 +293,10 @@ app.add_middleware(SecurityHeadersMiddleware)
 # --- 🛡️ CSRF 防護中間件 (v1.44.0) ---
 from app.core.csrf import CSRFMiddleware
 app.add_middleware(CSRFMiddleware)
+
+# --- 🔍 Request ID 追蹤中間件 (v1.83.0) ---
+# 最後加入 = 最外層執行，確保所有中間件/端點都能存取 request_id
+app.add_middleware(RequestIdMiddleware)
 
 # --- 🛡️ 統一異常處理器 ---
 # 確保所有 AppException（NotFoundException, ForbiddenException 等）正確返回對應的 HTTP 狀態碼和 CORS 標頭

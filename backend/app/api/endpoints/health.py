@@ -27,7 +27,7 @@ router = APIRouter()
 __all__ = ["router", "set_startup_time", "get_uptime"]
 
 
-@router.get("/health", summary="基本健康檢查")
+@router.post("/health", summary="基本健康檢查")
 @limiter.limit("60/minute")
 async def basic_health_check(request: Request, response: Response):
     """基本健康檢查端點"""
@@ -38,7 +38,7 @@ async def basic_health_check(request: Request, response: Response):
     }
 
 
-@router.get("/health/detailed", summary="詳細健康檢查")
+@router.post("/health/detailed", summary="詳細健康檢查")
 @limiter.limit("60/minute")
 async def detailed_health_check(
     request: Request,
@@ -74,11 +74,20 @@ async def detailed_health_check(
     # 4. 系統資源
     health_data["checks"]["system_resources"] = service.check_system_resources()
 
-    # 5. 回應時間
+    # 5. AI 服務狀態
+    try:
+        from app.core.ai_connector import get_ai_connector
+        ai_connector = get_ai_connector()
+        ai_health = await ai_connector.check_health()
+        health_data["checks"]["ai_services"] = ai_health
+    except Exception as e:
+        health_data["checks"]["ai_services"] = {"error": str(e)}
+
+    # 6. 回應時間
     total_ms = (time.time() - start_time) * 1000
     health_data["total_response_time_ms"] = round(total_ms, 2)
 
-    # 6. 整體狀態
+    # 7. 整體狀態
     if total_ms > 5000:
         health_data["status"] = "slow"
         health_data["message"] = "API response time is slower than expected"
@@ -88,7 +97,7 @@ async def detailed_health_check(
     return health_data
 
 
-@router.get("/health/metrics", summary="效能指標")
+@router.post("/health/metrics", summary="效能指標")
 @limiter.limit("60/minute")
 async def get_performance_metrics(
     request: Request,
@@ -111,7 +120,7 @@ async def get_performance_metrics(
         )
 
 
-@router.get("/health/readiness", summary="就緒狀態檢查")
+@router.post("/health/readiness", summary="就緒狀態檢查")
 @limiter.limit("60/minute")
 async def readiness_check(
     request: Request,
@@ -130,15 +139,11 @@ async def readiness_check(
         logger.error(f"Readiness check failed: {e}")
         raise HTTPException(
             status_code=503,
-            detail={
-                "status": "not_ready",
-                "timestamp": datetime.now().isoformat(),
-                "message": "Service is not ready to accept traffic",
-            },
+            detail="Service is not ready to accept traffic",
         )
 
 
-@router.get("/health/liveness", summary="存活狀態檢查")
+@router.post("/health/liveness", summary="存活狀態檢查")
 @limiter.limit("60/minute")
 async def liveness_check(request: Request, response: Response):
     """檢查服務是否存活"""
@@ -149,7 +154,7 @@ async def liveness_check(request: Request, response: Response):
     }
 
 
-@router.get("/health/pool", summary="連接池狀態")
+@router.post("/health/pool", summary="連接池狀態")
 @limiter.limit("60/minute")
 async def connection_pool_status(
     request: Request,
@@ -176,7 +181,7 @@ async def connection_pool_status(
         }
 
 
-@router.get("/health/tasks", summary="背景任務狀態")
+@router.post("/health/tasks", summary="背景任務狀態")
 @limiter.limit("60/minute")
 async def background_tasks_status(
     request: Request,
@@ -206,7 +211,7 @@ async def background_tasks_status(
         }
 
 
-@router.get("/health/audit", summary="審計服務狀態")
+@router.post("/health/audit", summary="審計服務狀態")
 @limiter.limit("60/minute")
 async def audit_service_status(
     request: Request,
@@ -220,7 +225,7 @@ async def audit_service_status(
     return result
 
 
-@router.get("/health/backup", summary="備份系統狀態")
+@router.post("/health/backup", summary="備份系統狀態")
 @limiter.limit("60/minute")
 async def backup_health_check(
     request: Request,
@@ -233,7 +238,7 @@ async def backup_health_check(
     return result
 
 
-@router.get("/health/summary", summary="系統健康摘要")
+@router.post("/health/summary", summary="系統健康摘要")
 @limiter.limit("60/minute")
 async def health_summary(
     request: Request,

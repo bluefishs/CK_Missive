@@ -23,6 +23,7 @@ from app.extended.models import ContractProject, OfficialDocument, TaoyuanDispat
 from app.repositories.taoyuan import DispatchOrderRepository, DispatchDocLinkRepository
 from app.utils.doc_number_parser import parse_doc_numbers
 from app.utils.doc_helpers import is_outgoing_doc_number
+from app.services.taoyuan.dispatch_link_resolver import is_generic_admin_doc
 
 logger = logging.getLogger(__name__)
 
@@ -238,7 +239,7 @@ class DispatchImportService:
         agency_doc_id = None
         company_doc_id = None
 
-        # 處理機關函文號
+        # 處理機關函文號（跳過通用行政文件）
         if agency_raw:
             numbers = parse_doc_numbers(agency_raw)
             for i, doc_num in enumerate(numbers):
@@ -358,12 +359,30 @@ class DispatchImportService:
 
         await self.db.commit()
 
+        # Post-relink: 標記通用行政文件（不自動刪除，僅記錄警告）
+        generic_warnings: List[str] = []
+        for dispatch in dispatch_orders:
+            links = await self.db.execute(
+                select(OfficialDocument.id, OfficialDocument.subject, OfficialDocument.ck_note)
+                .join(
+                    self.doc_link_repo.model,
+                    self.doc_link_repo.model.document_id == OfficialDocument.id,
+                )
+                .where(self.doc_link_repo.model.dispatch_order_id == dispatch.id)
+            )
+            for doc_id, subject, ck_note in links.all():
+                if is_generic_admin_doc(subject or '', ck_note or ''):
+                    generic_warnings.append(
+                        f"dispatch#{dispatch.id}({dispatch.dispatch_no}) 關聯了通用行政文件 doc#{doc_id}"
+                    )
+
         return {
             'total_scanned': total_scanned,
             'newly_linked': newly_linked,
             'already_linked': already_linked,
             'not_found': not_found_list,
             'doc_map_size': len(doc_number_map),
+            'generic_doc_warnings': generic_warnings[:20],
         }
 
     async def _build_doc_number_map(

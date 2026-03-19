@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-@router.get("/calendar-status")
+@router.post("/calendar-status")
 async def get_public_calendar_status():
     """取得行事曆服務狀態（公開端點，無需認證）"""
     
@@ -49,7 +49,7 @@ async def get_public_calendar_status():
             "endpoint_type": "public"
         }
 
-@router.get("/system-info")
+@router.post("/system-info")
 async def get_public_system_info():
     """取得系統基本資訊（公開端點，無需認證）"""
 

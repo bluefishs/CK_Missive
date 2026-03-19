@@ -12,7 +12,7 @@ from app.api.endpoints import (
     secure_site_management,
     dashboard, project_notifications, debug, project_vendors, project_staff,
     project_agency_contacts, system_notifications, backup, certifications,
-    taoyuan_dispatch, deployment, health, knowledge_base
+    taoyuan_dispatch, deployment, health, knowledge_base, line_webhook
 )
 # AI 服務模組 (v1.37.0)
 from app.api.endpoints.ai import router as ai_router
@@ -72,3 +72,14 @@ api_router.include_router(ai_router, tags=["AI服務"])
 
 # --- 知識庫瀏覽模組 ---
 api_router.include_router(knowledge_base.router, prefix="/knowledge-base", tags=["知識庫"])
+
+# --- LINE Bot 整合 (v1.83.0) ---
+api_router.include_router(line_webhook.router, prefix="/line", tags=["LINE Bot"])
+
+# --- 專案管理模組 (PM, v1.85.0) ---
+from app.api.endpoints.pm import router as pm_router
+api_router.include_router(pm_router, prefix="/pm", tags=["專案管理"])
+
+# --- 財務管理模組 (ERP, v1.85.0) ---
+from app.api.endpoints.erp import router as erp_router
+api_router.include_router(erp_router, prefix="/erp", tags=["財務管理"])

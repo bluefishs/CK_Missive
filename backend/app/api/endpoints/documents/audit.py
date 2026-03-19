@@ -8,7 +8,7 @@
 """
 from fastapi import APIRouter, Body, HTTPException, Request
 from starlette.responses import Response
-from sqlalchemy import text
+from sqlalchemy import text, select, func, and_, literal_column, column as sa_column
 
 from app.core.rate_limiter import limiter
 from app.core.dependencies import require_admin
@@ -68,54 +68,55 @@ async def get_audit_logs(
         if query.action and query.action not in ALLOWED_ACTIONS:
             raise HTTPException(status_code=400, detail=f"無效的操作類型: {query.action}")
 
-        # 構建查詢條件 — 所有用戶輸入均使用 bind parameter
+        # 構建查詢條件 — 使用 SQLAlchemy Core 表達式，避免 f-string SQL
+        audit_logs = text("audit_logs")
         conditions = []
-        params = {}
 
         if query.document_id:
-            conditions.append("record_id = :document_id")
-            params["document_id"] = query.document_id
+            conditions.append(sa_column('record_id') == query.document_id)
         if query.table_name:
-            conditions.append("table_name = :table_name")
-            params["table_name"] = query.table_name
+            conditions.append(sa_column('table_name') == query.table_name)
         if query.action:
-            conditions.append("action = :action")
-            params["action"] = query.action
+            conditions.append(sa_column('action') == query.action)
         if query.user_id:
-            conditions.append("user_id = :user_id")
-            params["user_id"] = query.user_id
+            conditions.append(sa_column('user_id') == query.user_id)
         if query.is_critical is not None:
-            conditions.append("is_critical = :is_critical")
-            params["is_critical"] = query.is_critical
+            conditions.append(sa_column('is_critical') == query.is_critical)
         if query.date_from:
-            conditions.append("created_at >= :date_from")
-            params["date_from"] = query.date_from
+            conditions.append(sa_column('created_at') >= query.date_from)
         if query.date_to:
-            conditions.append("created_at <= :date_to")
-            params["date_to"] = query.date_to + " 23:59:59"
+            conditions.append(sa_column('created_at') <= query.date_to + " 23:59:59")
 
-        where_clause = " AND ".join(conditions) if conditions else "1=1"
+        where_expr = and_(*conditions) if conditions else True
 
-        # 計算總筆數 — 使用靜態 SQL 模板 + bind params
-        count_sql = text(f"SELECT COUNT(*) FROM audit_logs WHERE {where_clause}")
-        count_result = await db.execute(count_sql, params)
+        # 計算總筆數 — 使用 SQLAlchemy Core（無 f-string 拼接）
+        count_stmt = select(func.count()).select_from(text("audit_logs")).where(where_expr)
+        count_result = await db.execute(count_stmt)
         total = count_result.scalar() or 0
 
         # 查詢資料（分頁）
         offset = (query.page - 1) * query.limit
-        data_sql = text(f"""
-            SELECT id, table_name, record_id, action, changes,
-                   user_id, user_name, source, is_critical,
-                   TO_CHAR(created_at, 'YYYY-MM-DD HH24:MI:SS') as created_at
-            FROM audit_logs
-            WHERE {where_clause}
-            ORDER BY created_at DESC
-            LIMIT :limit OFFSET :offset
-        """)
-        params["limit"] = query.limit
-        params["offset"] = offset
+        data_stmt = (
+            select(
+                sa_column('id'),
+                sa_column('table_name'),
+                sa_column('record_id'),
+                sa_column('action'),
+                sa_column('changes'),
+                sa_column('user_id'),
+                sa_column('user_name'),
+                sa_column('source'),
+                sa_column('is_critical'),
+                func.to_char(sa_column('created_at'), 'YYYY-MM-DD HH24:MI:SS').label('created_at'),
+            )
+            .select_from(text("audit_logs"))
+            .where(where_expr)
+            .order_by(sa_column('created_at').desc())
+            .limit(query.limit)
+            .offset(offset)
+        )
 
-        result = await db.execute(data_sql, params)
+        result = await db.execute(data_stmt)
         rows = result.fetchall()
 
         items = [

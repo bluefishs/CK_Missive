@@ -93,19 +93,26 @@ ALLOWED_TABLES: Set[str] = {
 
 def validate_table_name(table_name: str) -> bool:
     """
-    驗證表格名稱是否安全
-    - 只允許字母、數字、底線
-    - 必須以字母或底線開頭
-    - 必須在白名單中（如果啟用白名單）
+    驗證表格名稱是否安全（SQL 注入防禦）。
+
+    Security rationale: Table names cannot be parameterized in standard SQL,
+    so we enforce a strict lowercase identifier pattern. This is used as a
+    defense-in-depth measure alongside the ALLOWED_TABLES whitelist.
+    Only lowercase letters, digits, and underscores are permitted;
+    the name must start with a lowercase letter or underscore.
     """
-    # 格式驗證：只允許安全字元
-    if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', table_name):
+    # 格式驗證：嚴格限制為小寫識別符（拒絕大寫、特殊字元、空白）
+    if not re.match(r'^[a-z_][a-z0-9_]*$', table_name):
         return False
     return True
 
 class AdminService:
     """管理後台服務類別 (非同步版本)"""
-    
+
+    # 查詢超時保護（秒）— 使用 SET LOCAL 僅影響當前交易
+    QUERY_TIMEOUT_SECONDS = 30
+    COUNT_TIMEOUT_SECONDS = 10
+
     def __init__(self, db: AsyncSession):
         self.db = db
 
@@ -114,6 +121,9 @@ class AdminService:
         獲取 PostgreSQL 資料庫的基本信息，包括大小、表格列表、記錄數等。
         """
         try:
+            # 設定查詢超時保護
+            await self.db.execute(text(f"SET LOCAL statement_timeout = '{self.QUERY_TIMEOUT_SECONDS}s'"))
+
             # 獲取資料庫名稱和大小
             db_name_query = text("SELECT current_database()")
             db_name = (await self.db.execute(db_name_query)).scalar_one()
@@ -138,6 +148,10 @@ class AdminService:
                     logger.warning(f"跳過無效格式的表格名稱: {table_name}")
                     continue
 
+                # Security: table_name originates from information_schema (trusted
+                # DB catalog) and has passed validate_table_name() strict regex.
+                # Table names cannot be SQL-parameterized; format validation is
+                # the defense-in-depth measure here.
                 safe_table_name = f'"{table_name}"'
 
                 # 記錄數
@@ -205,6 +219,9 @@ class AdminService:
             raise HTTPException(status_code=403, detail=f"表格 {table_name} 不允許存取")
 
         try:
+            # 設定查詢超時保護
+            await self.db.execute(text(f"SET LOCAL statement_timeout = '{self.QUERY_TIMEOUT_SECONDS}s'"))
+
             # 獲取欄位
             columns_query = text("""
                 SELECT column_name FROM information_schema.columns
@@ -252,6 +269,9 @@ class AdminService:
         _validate_read_only_sql(query)
 
         try:
+            # 設定查詢超時保護
+            await self.db.execute(text(f"SET LOCAL statement_timeout = '{self.QUERY_TIMEOUT_SECONDS}s'"))
+
             start_time = datetime.now()
             result = await self.db.execute(text(query))
             
@@ -296,6 +316,9 @@ class AdminService:
         """
         issues = []
 
+        # 設定查詢超時保護
+        await self.db.execute(text(f"SET LOCAL statement_timeout = '{self.COUNT_TIMEOUT_SECONDS}s'"))
+
         # 1. 檢查外鍵約束違規
         fk_query = text("""
             SELECT tc.table_name, kcu.column_name,
@@ -313,6 +336,18 @@ class AdminService:
 
         for row in fk_rows:
             table, column, ref_table = row[0], row[1], row[2]
+
+            # Security: table/column/ref_table come from information_schema
+            # (trusted DB catalog), but we still validate format as defense-in-depth.
+            # Table names cannot be SQL-parameterized, so strict regex is essential.
+            if not (validate_table_name(table) and validate_table_name(ref_table)
+                    and re.match(r'^[a-z_][a-z0-9_]*$', column)):
+                logger.warning(
+                    "Skipping orphan check for invalid identifier: "
+                    "table=%s column=%s ref_table=%s", table, column, ref_table
+                )
+                continue
+
             # 檢查是否有 orphan 記錄
             orphan_query = text(f"""
                 SELECT COUNT(*) FROM "{table}" t

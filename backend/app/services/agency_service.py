@@ -84,7 +84,22 @@ class AgencyService:
         existing = await self.get_by_field("agency_name", data.agency_name)
         if existing:
             raise ValueError(f"機關名稱已存在: {data.agency_name}")
-        return await self.repository.create(data.model_dump())
+        agency = await self.repository.create(data.model_dump())
+
+        # 回溯連結：將已存在的同名 CanonicalEntity 連結到新建機關
+        try:
+            from app.services.ai.canonical_entity_service import CanonicalEntityService
+            entity_svc = CanonicalEntityService(self.db)
+            await entity_svc.link_existing_entities(
+                record_name=agency.agency_name,
+                entity_type="org",
+                record_id=agency.id,
+                field="linked_agency_id",
+            )
+        except Exception as e:
+            logger.warning(f"Agency 回溯連結 NER 實體失敗: {e}")
+
+        return agency
 
     async def update(self, agency_id: int, data: AgencyUpdate) -> Optional[GovernmentAgency]:
         """更新機關"""

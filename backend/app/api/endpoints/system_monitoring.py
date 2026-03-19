@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/health-detailed", summary="詳細系統健康檢查")
+@router.post("/health-detailed", summary="詳細系統健康檢查")
 async def get_detailed_health_check(
     db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(require_admin())
@@ -66,7 +66,7 @@ async def get_detailed_health_check(
         raise HTTPException(status_code=503, detail="健康檢查失敗，請稍後再試")
 
 
-@router.get("/error-summary", summary="錯誤統計摘要")
+@router.post("/error-summary", summary="錯誤統計摘要")
 async def get_error_summary(current_user: User = Depends(require_admin())):
     """
     獲取系統錯誤統計摘要
@@ -75,7 +75,7 @@ async def get_error_summary(current_user: User = Depends(require_admin())):
     return log_manager.get_error_summary()
 
 
-@router.get("/recent-errors", summary="最近錯誤列表")
+@router.post("/recent-errors", summary="最近錯誤列表")
 async def get_recent_errors(
     limit: int = Query(50, ge=1, le=200),
     category: Optional[str] = Query(None, description="錯誤類別篩選"),
@@ -128,7 +128,7 @@ async def clear_error_stats(current_user: User = Depends(require_admin())):
     return {"message": "Error statistics cleared", "timestamp": datetime.now().isoformat()}
 
 
-@router.get("/log-files", summary="日誌文件狀態")
+@router.post("/log-files", summary="日誌文件狀態")
 async def get_log_files_status(current_user: User = Depends(require_admin())):
     """
     獲取日誌文件的狀態信息
@@ -208,7 +208,7 @@ async def test_logging(
         raise HTTPException(status_code=500, detail="日誌測試失敗，請稍後再試")
 
 
-@router.get("/error-logs", summary="取得錯誤日誌")
+@router.post("/error-logs", summary="取得錯誤日誌")
 async def get_error_logs(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
@@ -235,7 +235,7 @@ async def get_error_logs(
     }
 
 
-@router.get("/system-metrics", summary="系統性能指標")
+@router.post("/system-metrics", summary="系統性能指標")
 async def get_system_metrics(current_user: User = Depends(require_admin())):
     """
     獲取系統性能指標

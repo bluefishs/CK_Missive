@@ -239,6 +239,60 @@ class SystemHealthService:
         return recommendations
 
     # ------------------------------------------------------------------
+    # 資料品質檢查
+    # ------------------------------------------------------------------
+
+    async def check_data_quality(self) -> Dict[str, Any]:
+        """檢查資料標準化品質指標"""
+        try:
+            result = await self.db.execute(text("""
+                SELECT
+                    COUNT(*) as total,
+                    COUNT(normalized_sender) as norm_sender,
+                    COUNT(normalized_receiver) as norm_receiver,
+                    COUNT(sender_agency_id) as sender_fk,
+                    COUNT(receiver_agency_id) as receiver_fk
+                FROM documents
+            """))
+            row = result.one()
+            total = row.total or 1
+
+            ner_result = await self.db.execute(text("""
+                SELECT
+                    COUNT(*) as total_docs,
+                    (SELECT COUNT(DISTINCT document_id) FROM document_entity_mentions) as ner_docs
+                FROM documents
+            """))
+            ner_row = ner_result.one()
+
+            sender_pct = round(row.sender_fk * 100.0 / total, 1)
+            receiver_pct = round(row.receiver_fk * 100.0 / total, 1)
+            ner_pct = round((ner_row.ner_docs or 0) * 100.0 / total, 1)
+
+            status = "healthy"
+            if sender_pct < 90 or receiver_pct < 90:
+                status = "warning"
+            if sender_pct < 70 or receiver_pct < 70:
+                status = "unhealthy"
+
+            return {
+                "status": status,
+                "total_documents": total,
+                "normalization": {
+                    "sender": row.norm_sender,
+                    "receiver": row.norm_receiver,
+                },
+                "agency_fk": {
+                    "sender_pct": sender_pct,
+                    "receiver_pct": receiver_pct,
+                },
+                "ner_coverage_pct": ner_pct,
+            }
+        except Exception as e:
+            logger.error(f"Data quality check failed: {e}")
+            return {"status": "error", "error": "Data quality check failed"}
+
+    # ------------------------------------------------------------------
     # 審計服務檢查（使用 text() — audit_logs 無 ORM 模型）
     # ------------------------------------------------------------------
 
@@ -409,7 +463,19 @@ class SystemHealthService:
         if res["status"] == "warning":
             issues.append("memory")
 
-        # 5. 備份狀態
+        # 5. 資料品質
+        try:
+            dq_check = await self.check_data_quality()
+            summary["components"]["data_quality"] = dq_check
+            if dq_check["status"] == "warning":
+                issues.append("data_quality_warning")
+            elif dq_check["status"] == "unhealthy":
+                issues.append("data_quality")
+        except Exception as e:
+            logger.debug(f"資料品質檢查失敗: {e}")
+            summary["components"]["data_quality"] = {"status": "unknown"}
+
+        # 6. 備份狀態
         backup_check = self.check_backup_status()
         summary["components"]["backup"] = {
             "status": backup_check["status"],

@@ -3,17 +3,17 @@
 
 從 AgencyService 拆分，負責智慧機關匹配、批次關聯、建議、修復等功能。
 
-版本: 1.0.0
-更新日期: 2026-03-10
+版本: 1.1.0
+更新日期: 2026-03-18
+變更: 遷移直接 DB 查詢至 AgencyRepository
 """
 import logging
 import re
 from typing import List, Optional, Dict, Any, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_, update, literal
 
 from app.repositories import AgencyRepository
-from app.extended.models import GovernmentAgency, OfficialDocument
+from app.extended.models import GovernmentAgency
 
 logger = logging.getLogger(__name__)
 
@@ -111,33 +111,17 @@ class AgencyMatchingService:
                 return agency
 
         # 2. 完全匹配機關名稱
-        agency = await self.repository.find_one_by(agency_name=name)
+        agency = await self.repository.get_by_name(name)
         if agency:
             return agency
 
         # 3. 完全匹配機關簡稱
-        result = await self.db.execute(
-            select(GovernmentAgency).where(
-                GovernmentAgency.agency_short_name == name
-            )
-        )
-        agency = result.scalar_one_or_none()
+        agency = await self.repository.get_by_short_name(name)
         if agency:
             return agency
 
-        # 4. 部分匹配 - DB 端比對
-        result = await self.db.execute(
-            select(GovernmentAgency).where(
-                GovernmentAgency.agency_name.isnot(None),
-                or_(
-                    func.strpos(literal(text), GovernmentAgency.agency_name) > 0,
-                    func.strpos(literal(text), GovernmentAgency.agency_short_name) > 0,
-                ),
-            )
-            .order_by(func.length(GovernmentAgency.agency_name).desc())
-            .limit(1)
-        )
-        agency = result.scalar_one_or_none()
+        # 4. 部分匹配 - DB 端比對 (最長名稱優先)
+        agency = await self.repository.find_by_text_contains(text)
         if agency:
             return agency
 
@@ -198,34 +182,26 @@ class AgencyMatchingService:
         }
 
         try:
-            base_query = select(OfficialDocument)
             if not overwrite:
-                base_query = base_query.where(
-                    or_(
-                        OfficialDocument.sender_agency_id.is_(None),
-                        OfficialDocument.receiver_agency_id.is_(None),
-                    )
-                )
-
-            count_query = select(func.count(OfficialDocument.id))
-            if not overwrite:
-                count_query = count_query.where(
-                    or_(
-                        OfficialDocument.sender_agency_id.is_(None),
-                        OfficialDocument.receiver_agency_id.is_(None),
-                    )
-                )
-            stats["total_documents"] = (await self.db.execute(count_query)).scalar() or 0
+                stats["total_documents"] = await self.repository.count_unassociated_documents()
+            else:
+                from app.repositories import DocumentRepository
+                doc_repo = DocumentRepository(self.db)
+                stats["total_documents"] = await doc_repo.count()
 
             batch_size = 100
             offset = 0
 
             while True:
-                result = await self.db.execute(
-                    base_query.order_by(OfficialDocument.id)
-                    .offset(offset).limit(batch_size)
-                )
-                documents = result.scalars().all()
+                if not overwrite:
+                    documents = await self.repository.get_documents_needing_association(
+                        offset=offset, limit=batch_size
+                    )
+                else:
+                    documents = await self.repository.get_all_documents_batched(
+                        offset=offset, limit=batch_size
+                    )
+
                 if not documents:
                     break
 
@@ -250,11 +226,7 @@ class AgencyMatchingService:
                                     stats["receiver_updated"] += 1
 
                         if updates:
-                            await self.db.execute(
-                                update(OfficialDocument)
-                                .where(OfficialDocument.id == doc.id)
-                                .values(**updates)
-                            )
+                            await self.repository.update_document_agency(doc.id, **updates)
 
                     except Exception as e:
                         logger.warning(f"文件 {doc.id} 機關關聯失敗: {e}")
@@ -274,49 +246,7 @@ class AgencyMatchingService:
 
     async def get_unassociated_summary(self) -> Dict[str, Any]:
         """取得未關聯機關的公文統計"""
-        total = (await self.db.execute(
-            select(func.count(OfficialDocument.id))
-        )).scalar() or 0
-
-        no_sender = (await self.db.execute(
-            select(func.count(OfficialDocument.id)).where(
-                OfficialDocument.sender_agency_id.is_(None),
-                OfficialDocument.sender.isnot(None),
-                OfficialDocument.sender != '',
-            )
-        )).scalar() or 0
-
-        no_receiver = (await self.db.execute(
-            select(func.count(OfficialDocument.id)).where(
-                OfficialDocument.receiver_agency_id.is_(None),
-                OfficialDocument.receiver.isnot(None),
-                OfficialDocument.receiver != '',
-            )
-        )).scalar() or 0
-
-        has_sender = (await self.db.execute(
-            select(func.count(OfficialDocument.id)).where(
-                OfficialDocument.sender_agency_id.isnot(None)
-            )
-        )).scalar() or 0
-
-        has_receiver = (await self.db.execute(
-            select(func.count(OfficialDocument.id)).where(
-                OfficialDocument.receiver_agency_id.isnot(None)
-            )
-        )).scalar() or 0
-
-        return {
-            "total_documents": total,
-            "sender_associated": has_sender,
-            "sender_unassociated": no_sender,
-            "receiver_associated": has_receiver,
-            "receiver_unassociated": no_receiver,
-            "association_rate": {
-                "sender": round(has_sender / total * 100, 1) if total > 0 else 0,
-                "receiver": round(has_receiver / total * 100, 1) if total > 0 else 0,
-            },
-        }
+        return await self.repository.get_unassociated_summary()
 
     async def suggest_agency(
         self,
@@ -327,26 +257,7 @@ class AgencyMatchingService:
         if not text or len(text) < 2:
             return []
 
-        result = await self.db.execute(
-            select(GovernmentAgency).where(
-                or_(
-                    GovernmentAgency.agency_name.ilike(f"%{text}%"),
-                    GovernmentAgency.agency_short_name.ilike(f"%{text}%"),
-                    GovernmentAgency.agency_code.ilike(f"%{text}%"),
-                )
-            ).limit(limit)
-        )
-        agencies = result.scalars().all()
-
-        return [
-            {
-                "id": a.id,
-                "agency_name": a.agency_name,
-                "agency_code": a.agency_code,
-                "agency_short_name": a.agency_short_name,
-            }
-            for a in agencies
-        ]
+        return await self.repository.suggest_agencies(text, limit)
 
     # =========================================================================
     # 資料修復

@@ -153,6 +153,7 @@ class DocumentExportService:
             attachment_text = f"{attachment_count} 個附件" if attachment_count > 0 else "無"
 
             data.append({
+                # --- 與匯入範本對齊的欄位 (順序一致) ---
                 "公文ID": doc.id,
                 "流水號": doc.auto_serial or "",
                 "發文形式": doc.delivery_method or "",
@@ -166,10 +167,12 @@ class DocumentExportService:
                 "發文日期": str(doc.send_date) if doc.send_date else "",
                 "發文單位": self._clean_agency_name(doc.sender or "", sender_agency_name),
                 "受文單位": self._clean_agency_name(doc.receiver or "", receiver_agency_name),
-                "附件紀錄": attachment_text,
                 "備註": getattr(doc, 'notes', '') or "",
+                "簡要說明(乾坤備註)": getattr(doc, 'ck_note', '') or "",
                 "狀態": doc.status or "",
                 "承攬案件": contract_case_name,
+                # --- 系統欄位 (僅匯出用，匯入時忽略) ---
+                "附件紀錄": attachment_text,
                 "建立時間": str(doc.created_at) if doc.created_at else "",
                 "更新時間": str(doc.updated_at) if doc.updated_at else "",
             })

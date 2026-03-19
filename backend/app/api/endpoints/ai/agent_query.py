@@ -64,7 +64,7 @@ async def agent_query_stream(
 _SESSION_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 
 
-@router.delete("/agent/conversation/{session_id}", response_model=OkResponse)
+@router.post("/agent/conversation/{session_id}/delete", response_model=OkResponse)
 async def clear_agent_conversation(
     session_id: str = Path(..., max_length=64),
     current_user: User = Depends(require_auth()),

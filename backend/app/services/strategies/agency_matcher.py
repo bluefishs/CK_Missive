@@ -503,15 +503,32 @@ class ProjectMatcher:
 
         return None
 
+    # Minimum input length required for fuzzy matching to avoid false positives
+    FUZZY_MIN_LENGTH = 8
+    # Maximum ratio of matched name length to input length
+    FUZZY_MAX_LENGTH_RATIO = 3.0
+
     async def _try_fuzzy_match(self, project_name: str) -> Optional[int]:
         """
         模糊匹配 (包含關係)
 
         匹配邏輯：
-        1. 案件名稱包含輸入字串
-        2. 輸入字串包含案件名稱的關鍵部分
+        1. 案件名稱包含輸入字串（需通過品質檢查）
+        2. 輸入字串包含案件名稱的關鍵部分（需通過品質檢查）
+
+        安全措施：
+        - 輸入長度 < FUZZY_MIN_LENGTH (8) 時跳過模糊匹配
+        - 匹配結果名稱長度超過輸入長度 FUZZY_MAX_LENGTH_RATIO (3x) 時拒絕
         """
         from app.extended.models import ContractProject
+
+        # Guard: skip fuzzy match for short inputs to prevent false positives
+        if len(project_name) < self.FUZZY_MIN_LENGTH:
+            logger.debug(
+                "案件模糊匹配跳過: 輸入 '%s' 長度 %d < 最低門檻 %d",
+                project_name, len(project_name), self.FUZZY_MIN_LENGTH,
+            )
+            return None
 
         # 策略1: 案件名稱包含輸入字串
         result = await self.db.execute(
@@ -522,8 +539,24 @@ class ProjectMatcher:
         )
         project = result.scalar_one_or_none()
         if project:
-            logger.info(f"案件模糊匹配成功 (包含): '{project_name}' -> '{project.project_name}'")
-            return project.id
+            if self._is_fuzzy_match_acceptable(project_name, project.project_name):
+                logger.info(
+                    "案件模糊匹配成功 (包含): '%s' -> '%s' "
+                    "(輸入長度=%d, 匹配長度=%d, 比率=%.1f)",
+                    project_name, project.project_name,
+                    len(project_name), len(project.project_name),
+                    len(project.project_name) / max(len(project_name), 1),
+                )
+                return project.id
+            else:
+                logger.warning(
+                    "案件模糊匹配拒絕 (長度比率過大): '%s' -> '%s' "
+                    "(輸入長度=%d, 匹配長度=%d, 比率=%.1f, 上限=%.1f)",
+                    project_name, project.project_name,
+                    len(project_name), len(project.project_name),
+                    len(project.project_name) / max(len(project_name), 1),
+                    self.FUZZY_MAX_LENGTH_RATIO,
+                )
 
         # 策略2: 若輸入字串較長，嘗試取前 10 個字匹配
         if len(project_name) >= 10:
@@ -536,10 +569,51 @@ class ProjectMatcher:
             )
             project = result.scalar_one_or_none()
             if project:
-                logger.info(f"案件模糊匹配成功 (前綴): '{short_name}' -> '{project.project_name}'")
-                return project.id
+                if self._is_fuzzy_match_acceptable(project_name, project.project_name):
+                    logger.info(
+                        "案件模糊匹配成功 (前綴): '%s' -> '%s' "
+                        "(輸入長度=%d, 匹配長度=%d, 比率=%.1f)",
+                        short_name, project.project_name,
+                        len(project_name), len(project.project_name),
+                        len(project.project_name) / max(len(project_name), 1),
+                    )
+                    return project.id
+                else:
+                    logger.warning(
+                        "案件模糊匹配拒絕 (前綴, 長度比率過大): '%s' -> '%s' "
+                        "(輸入長度=%d, 匹配長度=%d, 比率=%.1f, 上限=%.1f)",
+                        short_name, project.project_name,
+                        len(project_name), len(project.project_name),
+                        len(project.project_name) / max(len(project_name), 1),
+                        self.FUZZY_MAX_LENGTH_RATIO,
+                    )
 
         return None
+
+    def _is_fuzzy_match_acceptable(
+        self, input_name: str, matched_name: str
+    ) -> bool:
+        """
+        檢查模糊匹配結果是否可接受
+
+        驗證匹配名稱長度是否在輸入長度的合理倍數範圍內，
+        防止短輸入配對到非常長的案件名稱。
+
+        Args:
+            input_name: 原始輸入名稱
+            matched_name: 資料庫匹配到的名稱
+
+        Returns:
+            True 表示匹配品質可接受
+        """
+        input_len = len(input_name)
+        matched_len = len(matched_name)
+
+        if input_len == 0:
+            return False
+
+        ratio = matched_len / input_len
+        return ratio <= self.FUZZY_MAX_LENGTH_RATIO
 
     def clear_cache(self):
         """清除快取"""

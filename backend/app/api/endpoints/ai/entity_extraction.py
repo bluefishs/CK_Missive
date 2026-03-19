@@ -109,6 +109,39 @@ async def get_entity_extraction_stats(
     return EntityStatsResponse(**stats)
 
 
+@router.post("/entity/scheduler/trigger")
+async def trigger_ner_scheduler(
+    current_user: User = Depends(require_admin()),
+):
+    """手動觸發 NER 排程器立即執行一次批次提取"""
+    from app.services.ai.extraction_scheduler import get_extraction_scheduler
+
+    scheduler = get_extraction_scheduler()
+    if scheduler is None or not scheduler.is_running:
+        return {"success": False, "message": "NER 排程器未啟動"}
+
+    scheduler.notify_new_documents(0)  # 0 表示手動觸發
+    return {
+        "success": True,
+        "message": "已通知 NER 排程器立即執行",
+        "status": scheduler.get_status(),
+    }
+
+
+@router.post("/entity/scheduler/status")
+async def get_ner_scheduler_status(
+    current_user: User = Depends(require_admin()),
+):
+    """取得 NER 排程器狀態"""
+    from app.services.ai.extraction_scheduler import get_extraction_scheduler
+
+    scheduler = get_extraction_scheduler()
+    if scheduler is None:
+        return {"success": False, "message": "NER 排程器未初始化"}
+
+    return {"success": True, **scheduler.get_status()}
+
+
 async def _run_batch_extraction(limit: int, force: bool):
     """背景批次實體提取（含 AI 限速保護 + Ollama 優先 + 併發支援）"""
     import time

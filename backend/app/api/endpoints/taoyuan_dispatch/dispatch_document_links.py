@@ -7,6 +7,7 @@
 - /dispatch/{dispatch_id}/documents - 取得派工單關聯公文
 - /dispatch/{dispatch_id}/entity-similarity - 知識圖譜實體配對建議
 - /dispatch/{dispatch_id}/correspondence-suggestions - NER 驅動公文對照建議
+- /dispatch/{dispatch_id}/confirm-correspondence - 確認收發文對應並寫入知識圖譜
 - /dispatch/search-linkable-documents - 搜尋可關聯的桃園派工公文
 - /document/{document_id}/dispatch-links - 查詢公文關聯的派工單
 - /document/{document_id}/link-dispatch - 將公文關聯到派工單
@@ -18,14 +19,14 @@ from collections import defaultdict
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, tuple_
 from sqlalchemy.orm import selectinload
 from .common import (
     get_async_db, require_auth,
     TaoyuanDispatchOrder, TaoyuanDispatchDocumentLink, Document,
     DispatchDocumentLinkCreate
 )
-from app.schemas.taoyuan.links import SearchLinkableDocumentsRequest
+from app.schemas.taoyuan.links import SearchLinkableDocumentsRequest, ConfirmCorrespondenceRequest
 from app.utils.doc_helpers import OUTGOING_DOC_PREFIX
 from app.core.constants import TAOYUAN_PROJECT_ID
 
@@ -237,7 +238,8 @@ async def get_dispatch_documents(
             'doc_date': link.document.doc_date,
             'subject': link.document.subject,
             'sender': link.document.sender,
-            'receiver': link.document.receiver
+            'receiver': link.document.receiver,
+            'confidence': link.confidence,
         }
         if link.link_type == 'agency_incoming':
             agency_docs.append(doc_info)
@@ -382,7 +384,7 @@ async def get_correspondence_suggestions(
     try:
         from app.extended.models import (
             TaoyuanDispatchEntityLink, DocumentEntityMention,
-            CanonicalEntity, TaoyuanWorkRecord,
+            CanonicalEntity, TaoyuanWorkRecord, EntityRelationship,
         )
 
         # 1. 取得派工單的正規化實體集合
@@ -480,6 +482,27 @@ async def get_correspondence_suggestions(
                     confirmed_pairs.add((parent_doc_id, wr.document_id))
                     confirmed_pairs.add((wr.document_id, parent_doc_id))
 
+        # 4.5 查詢圖譜中已有的 correspondence 關係（Phase 2.5 增強）
+        # 找出各公文實體之間的 correspondence 邊，用於信心度加分
+        graph_boosted_pairs: set[tuple[int, int]] = set()
+        all_entity_ids = set()
+        for eid_set in doc_entities.values():
+            all_entity_ids.update(eid_set)
+        if all_entity_ids:
+            corr_rels_result = await db.execute(
+                select(
+                    EntityRelationship.source_entity_id,
+                    EntityRelationship.target_entity_id,
+                ).where(
+                    EntityRelationship.relation_type == "correspondence",
+                    EntityRelationship.source_entity_id.in_(all_entity_ids),
+                    EntityRelationship.target_entity_id.in_(all_entity_ids),
+                )
+            )
+            for src, tgt in corr_rels_result.all():
+                graph_boosted_pairs.add((src, tgt))
+                graph_boosted_pairs.add((tgt, src))
+
         # 5. 建立配對建議
         suggestions = []
         for in_id in incoming_ids:
@@ -500,6 +523,15 @@ async def get_correspondence_suggestions(
                     )
                     base_score = len(shared) / max(len(in_ents | out_ents), 1)
                     score = min(base_score + location_count * 0.1, 1.0)
+
+                    # Phase 2.5: 圖譜 correspondence 邊加分
+                    has_graph_link = any(
+                        (a, b) in graph_boosted_pairs
+                        for a in in_ents for b in out_ents
+                    )
+                    if has_graph_link:
+                        score = min(score + 0.15, 1.0)
+
                     confidence = "high" if score >= 0.3 else "medium"
                 else:
                     # 無共享實體 → 低信心
@@ -717,6 +749,274 @@ async def unlink_dispatch_from_document(
     await db.delete(link)
     await db.commit()
     return {"success": True, "message": "移除關聯成功"}
+
+
+@router.post(
+    "/dispatch/{dispatch_id}/confirm-correspondence",
+    summary="確認收發文對應並寫入知識圖譜",
+)
+async def confirm_correspondence(
+    dispatch_id: int,
+    request: ConfirmCorrespondenceRequest = Body(...),
+    db: AsyncSession = Depends(get_async_db),
+    current_user=Depends(require_auth()),
+):
+    """
+    確認收發文對應配對，將關係寫入知識圖譜。
+
+    對每組 incoming↔outgoing 配對：
+    1. 查找兩份公文共享的 CanonicalEntity（透過 DocumentEntityMention）
+    2. 為共享實體建立或更新 EntityRelationship (relation_type='correspondence')
+    3. 失效圖譜快取
+    """
+    logger = logging.getLogger(__name__)
+
+    try:
+        from app.extended.models import (
+            CanonicalEntity, DocumentEntityMention, EntityRelationship,
+        )
+        from app.services.ai.graph_helpers import invalidate_graph_cache
+
+        if not request.pairs:
+            return {
+                "success": True,
+                "confirmed_count": 0,
+                "relationships_created": 0,
+                "relationships_updated": 0,
+            }
+
+        # ----------------------------------------------------------------
+        # Phase 1: 批次預載所有相關公文的 canonical_entity_id
+        # 將 O(2N) 查詢合併為 1 次
+        # ----------------------------------------------------------------
+        valid_pairs = []
+        all_doc_ids = set()
+        for pair in request.pairs:
+            incoming_doc_id = pair.get("incoming_doc_id")
+            outgoing_doc_id = pair.get("outgoing_doc_id")
+            if not incoming_doc_id or not outgoing_doc_id:
+                logger.warning("跳過無效配對: incoming=%s, outgoing=%s", incoming_doc_id, outgoing_doc_id)
+                continue
+            valid_pairs.append((incoming_doc_id, outgoing_doc_id))
+            all_doc_ids.update([incoming_doc_id, outgoing_doc_id])
+
+        if not valid_pairs:
+            return {"success": True, "confirmed_count": 0, "relationships_created": 0, "relationships_updated": 0}
+
+        # 一次查詢所有 document → canonical_entity_id 映射
+        mentions_result = await db.execute(
+            select(
+                DocumentEntityMention.document_id,
+                DocumentEntityMention.canonical_entity_id,
+            ).where(
+                DocumentEntityMention.document_id.in_(all_doc_ids),
+                DocumentEntityMention.canonical_entity_id.isnot(None),
+            )
+        )
+        doc_entity_map: dict[int, set[int]] = {}
+        for doc_id, entity_id in mentions_result.all():
+            doc_entity_map.setdefault(doc_id, set()).add(entity_id)
+
+        # ----------------------------------------------------------------
+        # Phase 2: 收集所有需要的 (source, target) 對
+        # ----------------------------------------------------------------
+        needed_pairs: list[tuple[int, int, int]] = []  # (source_id, target_id, incoming_doc_id)
+        pair_plan: list[tuple[set[int], set[int], int, int]] = []  # (shared, fallback, in_id, out_id)
+
+        for incoming_doc_id, outgoing_doc_id in valid_pairs:
+            in_ents = doc_entity_map.get(incoming_doc_id, set())
+            out_ents = doc_entity_map.get(outgoing_doc_id, set())
+            shared = in_ents & out_ents
+
+            if not shared:
+                if in_ents and out_ents:
+                    src = next(iter(in_ents))
+                    tgt = next(iter(out_ents))
+                    needed_pairs.append((src, tgt, incoming_doc_id))
+            else:
+                for eid in shared:
+                    needed_pairs.append((eid, eid, incoming_doc_id))
+                shared_list = list(shared)
+                if len(shared_list) >= 2:
+                    needed_pairs.append((shared_list[0], shared_list[1], incoming_doc_id))
+
+            pair_plan.append((shared, in_ents | out_ents, incoming_doc_id, outgoing_doc_id))
+
+        # ----------------------------------------------------------------
+        # Phase 3: 批次查詢既有 correspondence 關係 → O(1) 查詢
+        # ----------------------------------------------------------------
+        existing_rels_map: dict[tuple[int, int], EntityRelationship] = {}
+        if needed_pairs:
+            st_pairs = [(s, t) for s, t, _ in needed_pairs]
+            unique_pairs = list(set(st_pairs))
+            # 批次查詢：所有相關的 correspondence 關係
+            existing_result = await db.execute(
+                select(EntityRelationship).where(
+                    EntityRelationship.relation_type == "correspondence",
+                    tuple_(
+                        EntityRelationship.source_entity_id,
+                        EntityRelationship.target_entity_id,
+                    ).in_(unique_pairs),
+                )
+            )
+            for rel in existing_result.scalars().all():
+                existing_rels_map[(rel.source_entity_id, rel.target_entity_id)] = rel
+
+        # ----------------------------------------------------------------
+        # Phase 4: 批次建立/更新關係 (純記憶體操作，最後一次 commit)
+        # ----------------------------------------------------------------
+        relationships_created = 0
+        relationships_updated = 0
+        confirmed_count = 0
+
+        for incoming_doc_id, outgoing_doc_id in valid_pairs:
+            in_ents = doc_entity_map.get(incoming_doc_id, set())
+            out_ents = doc_entity_map.get(outgoing_doc_id, set())
+            shared = in_ents & out_ents
+
+            def _upsert_rel(source_id: int, target_id: int, doc_id: int) -> None:
+                nonlocal relationships_created, relationships_updated
+                key = (source_id, target_id)
+                existing = existing_rels_map.get(key)
+                if existing:
+                    existing.document_count = (existing.document_count or 1) + 1
+                    existing.weight = (existing.weight or 1.0) + 1.0
+                    relationships_updated += 1
+                else:
+                    rel = EntityRelationship(
+                        source_entity_id=source_id,
+                        target_entity_id=target_id,
+                        relation_type="correspondence",
+                        relation_label="收發文對應",
+                        weight=1.0,
+                        document_count=1,
+                        first_document_id=doc_id,
+                    )
+                    db.add(rel)
+                    existing_rels_map[key] = rel
+                    relationships_created += 1
+
+            if not shared:
+                if in_ents and out_ents:
+                    _upsert_rel(next(iter(in_ents)), next(iter(out_ents)), incoming_doc_id)
+                confirmed_count += 1
+                continue
+
+            for eid in shared:
+                _upsert_rel(eid, eid, incoming_doc_id)
+
+            shared_list = list(shared)
+            if len(shared_list) >= 2:
+                _upsert_rel(shared_list[0], shared_list[1], incoming_doc_id)
+
+            confirmed_count += 1
+
+        await db.commit()
+
+        # 失效圖譜快取
+        await invalidate_graph_cache()
+
+        logger.info(
+            "收發文對應確認完成: dispatch=%d, confirmed=%d, created=%d, updated=%d",
+            dispatch_id, confirmed_count, relationships_created, relationships_updated,
+        )
+
+        return {
+            "success": True,
+            "confirmed_count": confirmed_count,
+            "relationships_created": relationships_created,
+            "relationships_updated": relationships_updated,
+        }
+
+    except Exception as e:
+        logger.error("收發文對應確認失敗: %s", e)
+        return {
+            "success": False,
+            "confirmed_count": 0,
+            "relationships_created": 0,
+            "relationships_updated": 0,
+        }
+
+
+@router.post(
+    "/dispatch/{dispatch_id}/rebuild-correspondence",
+    summary="重建派工單的公文對照矩陣",
+)
+async def rebuild_correspondence(
+    dispatch_id: int,
+    db: AsyncSession = Depends(get_async_db),
+    current_user=Depends(require_auth()),
+):
+    """
+    重建派工單的公文對照矩陣：
+
+    1. 取得該派工單所有已關聯的公文
+    2. 對每份公文重新執行自動關聯邏輯
+    3. 回傳更新後的關聯統計
+    """
+    logger = logging.getLogger(__name__)
+
+    try:
+        from app.services.document_dispatch_linker_service import DocumentDispatchLinkerService
+
+        # 1. 確認派工單存在
+        order_result = await db.execute(
+            select(TaoyuanDispatchOrder).where(TaoyuanDispatchOrder.id == dispatch_id)
+        )
+        order = order_result.scalar_one_or_none()
+        if not order:
+            raise HTTPException(status_code=404, detail="派工紀錄不存在")
+
+        # 2. 取得目前所有關聯公文 ID
+        existing_links_result = await db.execute(
+            select(TaoyuanDispatchDocumentLink)
+            .options(selectinload(TaoyuanDispatchDocumentLink.document))
+            .where(TaoyuanDispatchDocumentLink.dispatch_order_id == dispatch_id)
+        )
+        existing_links = existing_links_result.scalars().all()
+        existing_doc_ids = {link.document_id for link in existing_links}
+
+        # 3. 對每份已關聯的公文重新執行自動關聯
+        linker = DocumentDispatchLinkerService(db)
+        new_links_count = 0
+        for link in existing_links:
+            if link.document:
+                await linker.auto_link_to_dispatch_orders(link.document)
+
+        # 4. 統計新增的關聯
+        updated_links_result = await db.execute(
+            select(TaoyuanDispatchDocumentLink).where(
+                TaoyuanDispatchDocumentLink.dispatch_order_id == dispatch_id
+            )
+        )
+        updated_links = updated_links_result.scalars().all()
+        updated_doc_ids = {link.document_id for link in updated_links}
+        new_links_count = len(updated_doc_ids - existing_doc_ids)
+
+        await db.commit()
+
+        logger.info(
+            "重建公文對照矩陣完成: dispatch_id=%d, 既有=%d, 新增=%d, 總計=%d",
+            dispatch_id, len(existing_doc_ids), new_links_count, len(updated_doc_ids),
+        )
+
+        return {
+            "success": True,
+            "dispatch_id": dispatch_id,
+            "existing_count": len(existing_doc_ids),
+            "new_links_count": new_links_count,
+            "total_count": len(updated_doc_ids),
+            "message": f"重建完成：既有 {len(existing_doc_ids)} 筆，新增 {new_links_count} 筆",
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("重建公文對照矩陣失敗: dispatch_id=%d, error=%s", dispatch_id, e)
+        return {
+            "success": False,
+            "message": f"重建失敗: {str(e)}",
+        }
 
 
 @router.post("/documents/batch-dispatch-links", summary="批次查詢多筆公文的派工關聯")

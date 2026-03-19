@@ -122,13 +122,13 @@ async def get_master_control(
     )
 
 
-@router.get("/work-types", summary="取得作業類別清單")
+@router.post("/work-types", summary="取得作業類別清單")
 async def get_work_types():
     """取得作業類別清單"""
     return {"success": True, "items": WORK_TYPES}
 
 
-@router.get("/districts", summary="取得行政區清單")
+@router.post("/districts", summary="取得行政區清單")
 async def get_districts(
     contract_project_id: Optional[int] = None,
     db: AsyncSession = Depends(get_async_db)
