@@ -30,7 +30,7 @@ profiles:
 
   vllm-local:
     provider: openai
-    model: "meta-llama/Llama-3.1-8B-Instruct"
+    model: "${VLLM_MODEL:-Qwen/Qwen2.5-7B-Instruct}"
     api_key_env: VLLM_API_KEY
     base_url: "http://localhost:8000/v1"
     timeout_seconds: 60

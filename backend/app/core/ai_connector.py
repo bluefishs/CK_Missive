@@ -43,7 +43,7 @@ NVIDIA_DEFAULT_MODEL = "nvidia/llama-3.3-nemotron-super-49b-v1.5"
 
 # vLLM 本地配置 (OpenAI-compatible, 取代 NIM TRT-LLM)
 VLLM_LOCAL_URL = os.getenv("VLLM_BASE_URL", "http://localhost:8000/v1") + "/chat/completions"
-VLLM_LOCAL_MODEL = "meta-llama/Llama-3.1-8B-Instruct"
+VLLM_LOCAL_MODEL = os.getenv("VLLM_MODEL", "Qwen/Qwen2.5-7B-Instruct")
 
 # Ollama 配置
 OLLAMA_DEFAULT_URL = "http://localhost:11434"

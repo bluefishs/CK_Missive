@@ -140,7 +140,7 @@ services:
       - app_network
     restart: unless-stopped
     command: >
-      --model meta-llama/Llama-3.1-8B-Instruct
+      --model ${VLLM_MODEL:-Qwen/Qwen2.5-7B-Instruct}
       --dtype bfloat16
       --max-model-len 4096
       --gpu-memory-utilization 0.85
