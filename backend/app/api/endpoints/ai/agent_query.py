@@ -45,18 +45,19 @@ async def agent_query_stream(
       data: {"type":"done","latency_ms":N,"model":"...","tools_used":[...],"iterations":N}
       data: {"type":"error","error":"...","code":"RATE_LIMITED|SERVICE_ERROR|STREAM_TIMEOUT"}
     """
-    from app.services.ai.agent_orchestrator import AgentOrchestrator
+    # v5.0: 切換至 NemoClaw 代理人（自覺+主動+技能發現）
+    from app.services.ai.nemoclaw_agent import NemoClawAgent
 
-    orchestrator = AgentOrchestrator(db)
+    agent = NemoClawAgent(db)
 
     return create_sse_response(
-        stream_fn=lambda: orchestrator.stream_agent_query(
+        stream_fn=lambda: agent.stream_query(
             question=request.question,
             history=request.history,
             session_id=request.session_id,
             context=request.context,
         ),
-        endpoint_name="Agent",
+        endpoint_name="NemoClaw",
         done_extra={"tools_used": [], "iterations": 0},
     )
 

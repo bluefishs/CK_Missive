@@ -73,9 +73,10 @@ async def agent_query_sync(
     認證方式: X-Service-Token header（設定 MCP_SERVICE_TOKEN 環境變數啟用）
     未設定 token 時僅在 DEVELOPMENT_MODE=true 且來源為 localhost 時放行。
     """
-    from app.services.ai.agent_orchestrator import AgentOrchestrator
+    # v5.0: NemoClaw 代理人
+    from app.services.ai.nemoclaw_agent import NemoClawAgent
 
-    orchestrator = AgentOrchestrator(db)
+    agent = NemoClawAgent(db)
 
     answer_tokens = []
     sources = []
@@ -84,7 +85,7 @@ async def agent_query_sync(
 
     async def _collect_response():
         nonlocal latency_ms
-        async for event_str in orchestrator.stream_agent_query(
+        async for event_str in agent.stream_query(
             question=body.question,
             history=body.history,
             session_id=body.session_id,
