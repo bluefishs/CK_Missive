@@ -1,85 +1,90 @@
 ---
-title: CK_Missive 乾坤智能體技能圖譜 v1.84.3
+title: CK_Missive 乾坤智能體技能圖譜 v1.84.5
 ---
 mindmap
   root((乾坤智能體<br/>v4.0.0))
-    感知層 Input
+    感知層 Perception
       文字輸入
         公文查詢
         派工查詢
-        閒聊偵測
+        閒聊偵測 8回退
       語音辨識 ★3
         Groq Whisper
         Ollama 備用
-        CJK 中文優化
       影像辨識 ★3
         Tesseract OCR
         中英文 chi_tra+eng
-        PDF 掃描回退
-        EXIF 旋轉校正
       文件解析
         PDF 文字提取
         附件自動處理
-    認知層 Think
+    認知層 Cognition
       3層路由
         閒聊偵測
         模式匹配 MD5+語意
         LLM 規劃
       意圖解析
         6策略自動修正
-        工具動態發現 3層
+        工具動態發現 3層評分
+        跨會話學習注入
       自適應上下文
-        simple 2 turns
-        medium 4 turns
-        complex 6 turns
-    知識層 Know
-      知識圖譜 ★4
-        4,398 canonical
-        5,693 relationships
-        7-Phase 建構
-        跨圖譜統一查詢
+        simple 2 / medium 4 / complex 6
+      ReAct 推理迴圈
+        max 3 iterations
+        雙層評估 規則→LLM
+    知識層 Knowledge
+      知識圖譜 ★5
+        4,399 canonical entities
+        5,694 relationships
+        513 aliases
+        7-Phase 建構管線
+        跨圖譜統一查詢 KG+Code+DB
       程式碼圖譜 ★4
-        3,915 程式碼實體
-        Python+TS AST
-      DB 圖譜
-        40 表 Schema反射
+        3,955 程式碼實體
+        5,318 code relationships
+        Python+TS AST 分析
+        DB Schema 反射 253表
       RAG 文庫 ★5
-        1,641 chunks
-        100% embedded
-        Graph-RAG 融合
-    行動層 Execute
+        1,641 chunks 100% embedded
+        BM25+Vector 混合檢索
+        Graph-RAG KG實體擴展
+      知識庫 KB ★3
+        371 markdown files
+        ADR + 架構圖
+        全文搜尋 → ⬡ P3 向量搜尋
+    行動層 Execution
       22 Agent 工具
-        搜尋 5個
-        分析 5個
-        圖譜 3個
-        PM/ERP 6個
-        圖表 1個
-        文件 1個
-        外部 1個
+        搜尋 search_documents/dispatch/entities/similar/correspondence
+        分析 statistics/entity_detail/health/diagram/parse
+        圖譜 navigate_graph/explore_path/summarize_entity
+        PM/ERP projects/vendors/contracts/milestones/billings
       矩陣對照
-        6層匹配
+        6層匹配演算法
         信心度持久化
-        批次重建API
-    學習層 Learn
+    學習層 Learning
       模式學習 ★4
-        MD5 精確匹配
-        語意回退 0.85
-        500 模式上限
+        MD5 精確 + cosine 0.85
+        500 模式 / 7日衰減
+        29 冷啟動種子
       自我評估
-        5維度加權
-        severity 分級
-      進化排程
-        每50次觸發
-        提升/降級/清理
-      跨會話學習
-        DB 持久化
-        cosine 過濾
+        5維度加權評分
+        50次/24h 進化排程
+      跨會話記憶
+        Redis 1h TTL 對話
+        DB 持久化學習
         LLM prompt 注入
-    配置層 Config
-      agent-policy.yaml
-        28 參數宣告式
-      inference-profiles.yaml
-        6 推理 profile
-        P0 NIM → P1 Groq → P2 Ollama
-      ai_config v3.1
-        env > YAML > default
+    推理層 Inference
+      vLLM Local ★4 P0
+        Qwen2.5-7B-AWQ
+        5.2GB VRAM RTX4060
+        OpenAI-compatible
+      Groq Cloud P1
+        llama-3.3-70b
+        免費 30K req/day
+      NVIDIA Cloud P1
+        Nemotron-49B
+        高品質合成
+      Ollama Local P2
+        qwen3 4b chat
+        nomic-embed 768D
+      Fallback 鏈
+        vLLM→Groq→NVIDIA→Ollama→靜態回退

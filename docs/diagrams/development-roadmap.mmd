@@ -1,0 +1,84 @@
+---
+title: CK_Missive 乾坤智能體 — 技能樹發展藍圖 v1.84.5
+---
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#1890ff'}}}%%
+graph TD
+    %% ===== 主幹 (已完成) =====
+    ROOT[🏛️ 乾坤智能體 v4.0<br/>33 模組 · 22 工具 · 5503 測試]
+    ROOT --> PERCEPTION[感知層<br/>文字+語音+OCR+PDF]
+    ROOT --> COGNITION[認知層<br/>3層路由+ReAct+6策略修正]
+    ROOT --> KNOWLEDGE[知識層<br/>三圖架構+RAG+文庫]
+    ROOT --> EXECUTION[行動層<br/>22工具·矩陣對照]
+    ROOT --> LEARNING[學習層<br/>模式學習+自評+進化]
+    ROOT --> INFERENCE[推理層<br/>vLLM+Groq+NVIDIA+Ollama]
+
+    %% ===== 感知層分枝 =====
+    PERCEPTION --> P1[✅ 文字輸入<br/>公文/派工/閒聊]
+    PERCEPTION --> P2[✅ 語音 ★3<br/>Groq Whisper]
+    PERCEPTION --> P3[✅ OCR ★3<br/>Tesseract chi_tra]
+    PERCEPTION --> P4_FUTURE[⬡ 多模態 ★1<br/>圖片理解·表格OCR]
+    style P4_FUTURE stroke-dasharray: 5 5,fill:#fff3e0
+
+    %% ===== 認知層分枝 =====
+    COGNITION --> C1[✅ 3層路由<br/>chitchat→pattern→LLM]
+    COGNITION --> C2[✅ 意圖解析<br/>6策略修正+工具發現]
+    COGNITION --> C3[✅ ReAct Loop<br/>max 3 iter·雙層評估]
+    COGNITION --> C4[✅ Supervisor<br/>多域分解·並行子任務]
+    COGNITION --> C5_FUTURE[⬡ 多步推理 ★2<br/>Chain-of-Thought·自我反思]
+    style C5_FUTURE stroke-dasharray: 5 5,fill:#fff3e0
+
+    %% ===== 知識層分枝 (核心) =====
+    KNOWLEDGE --> K1[✅ 知識圖譜 ★5<br/>4399實體·5694關係·513別名]
+    KNOWLEDGE --> K2[✅ 程式碼圖譜 ★4<br/>3955實體·5318關係·AST分析]
+    KNOWLEDGE --> K3[✅ DB圖譜 ★4<br/>253表·Schema反射]
+    KNOWLEDGE --> K4[✅ RAG文庫 ★5<br/>1641chunks·Graph-RAG融合]
+    KNOWLEDGE --> K5[✅ 知識庫 ★3<br/>371 markdown·全文搜尋]
+
+    K1 --> K1A[✅ 跨圖譜統一查詢<br/>KG+Code+DB 並行]
+    K1 --> K1B[✅ 實體正規化<br/>4階段·fuzzy batch]
+    K4 --> K4A[✅ BM25+Vector混合<br/>nomic 768D embedding]
+    K4 --> K4B[✅ KG實體擴展<br/>同義詞+別名自動展開]
+    K5 --> K5_FUTURE[⬡ KB向量搜尋 ★2<br/>markdown→pgvector]
+    style K5_FUTURE stroke-dasharray: 5 5,fill:#fff3e0
+
+    %% ===== 行動層分枝 =====
+    EXECUTION --> E1[✅ 搜尋工具 5個<br/>doc·dispatch·entity·similar·correspondence]
+    EXECUTION --> E2[✅ 分析工具 5個<br/>stats·detail·health·diagram·parse]
+    EXECUTION --> E3[✅ 圖譜工具 3個<br/>navigate·explore·summarize]
+    EXECUTION --> E4[✅ PM/ERP 6個<br/>project·vendor·contract·milestone·billing]
+    EXECUTION --> E5_FUTURE[⬡ KB搜尋工具 ★1<br/>search_knowledge_base]
+    EXECUTION --> E6_FUTURE[⬡ 外部整合 ★1<br/>LINE推播·Email·Webhook]
+    style E5_FUTURE stroke-dasharray: 5 5,fill:#fff3e0
+    style E6_FUTURE stroke-dasharray: 5 5,fill:#fff3e0
+
+    %% ===== 學習層分枝 =====
+    LEARNING --> L1[✅ 模式學習 ★4<br/>MD5+cosine·500模式·7日衰減]
+    LEARNING --> L2[✅ 自評+進化<br/>5維度·50次/24h週期]
+    LEARNING --> L3[✅ 跨會話記憶<br/>Redis+DB·LLM注入]
+    LEARNING --> L4_FUTURE[⬡ 使用者畫像 ★2<br/>偏好學習·行為分析]
+    style L4_FUTURE stroke-dasharray: 5 5,fill:#fff3e0
+
+    %% ===== 推理層分枝 =====
+    INFERENCE --> I1[✅ vLLM Local P0<br/>Qwen2.5-7B-AWQ·5.2GB]
+    INFERENCE --> I2[✅ Groq Cloud P1<br/>llama-3.3-70b]
+    INFERENCE --> I3[✅ NVIDIA Cloud P1<br/>Nemotron-49B]
+    INFERENCE --> I4[✅ Ollama P2<br/>qwen3:4b+nomic-embed]
+    INFERENCE --> I5[⏸️ NIM Local<br/>待TRT-LLM profile支援]
+    INFERENCE --> I6_FUTURE[⬡ NVIDIA Embedding ★2<br/>nomic→nemotron-embed-1b]
+    INFERENCE --> I7_FUTURE[⬡ 動態Provider切換 ★2<br/>runtime selector UI]
+    style I5 fill:#f5f5f5,stroke:#999
+    style I6_FUTURE stroke-dasharray: 5 5,fill:#fff3e0
+    style I7_FUTURE stroke-dasharray: 5 5,fill:#fff3e0
+
+    %% ===== 外部整合 =====
+    ROOT --> FEDERATION[⏸️ OpenClaw聯邦<br/>CK_OpenClaw Skill整合]
+    style FEDERATION fill:#f5f5f5,stroke:#999
+
+    %% ===== 圖例 =====
+    classDef done fill:#e6f7e6,stroke:#52c41a
+    classDef future fill:#fff3e0,stroke:#fa8c16,stroke-dasharray: 5 5
+    classDef paused fill:#f5f5f5,stroke:#999
+
+    class P1,P2,P3,C1,C2,C3,C4,K1,K2,K3,K4,K5,K1A,K1B,K4A,K4B,E1,E2,E3,E4,L1,L2,L3,I1,I2,I3,I4 done
+    class P4_FUTURE,C5_FUTURE,K5_FUTURE,E5_FUTURE,E6_FUTURE,L4_FUTURE,I6_FUTURE,I7_FUTURE future
+    class I5,FEDERATION paused
