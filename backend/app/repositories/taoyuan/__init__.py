@@ -13,6 +13,7 @@ from .dispatch_link_repository import DispatchLinkRepository
 from .dispatch_doc_link_repository import DispatchDocLinkRepository
 from .dispatch_project_link_repository import DispatchProjectLinkRepository
 from .work_record_repository import WorkRecordRepository
+from .statistics_repository import TaoyuanStatisticsRepository
 
 __all__ = [
     'DispatchOrderRepository',
@@ -22,4 +23,5 @@ __all__ = [
     'DispatchDocLinkRepository',
     'DispatchProjectLinkRepository',
     'WorkRecordRepository',
+    'TaoyuanStatisticsRepository',
 ]

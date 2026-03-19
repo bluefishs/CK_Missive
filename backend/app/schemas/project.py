@@ -47,6 +47,7 @@ class ProjectBase(BaseModel):
     agency_contact_phone: Optional[str] = Field(None, max_length=50, description="機關承辦電話")
     agency_contact_email: Optional[EmailStr] = Field(None, max_length=100, description="機關承辦Email")
     has_dispatch_management: Optional[bool] = Field(None, description="啟用派工管理功能")
+    client_type: Optional[str] = Field(None, max_length=20, description="委託來源: agency=機關 vendor=廠商 other=其他")
 
     @field_validator('end_date') # 使用 field_validator
     @classmethod
@@ -102,6 +103,7 @@ class ProjectUpdate(BaseModel):
     agency_contact_phone: Optional[str] = Field(None, max_length=50, description="機關承辦電話")
     agency_contact_email: Optional[EmailStr] = Field(None, max_length=100, description="機關承辦Email")
     has_dispatch_management: Optional[bool] = Field(None, description="啟用派工管理功能")
+    client_type: Optional[str] = Field(None, max_length=20, description="委託來源: agency=機關 vendor=廠商 other=其他")
 
     @field_validator('end_date') # 使用 field_validator
     @classmethod

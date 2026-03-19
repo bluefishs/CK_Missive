@@ -6,7 +6,7 @@
 from sqlalchemy import (
     Column, Integer, String, Float, Date, DateTime,
     ForeignKey, Text, Boolean, Table, func,
-    UniqueConstraint, Index, JSON,
+    UniqueConstraint, Index, JSON, Numeric,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship, deferred, backref
@@ -28,6 +28,6 @@ __all__ = [
     "Base", "Vector",
     "Column", "Integer", "String", "Float", "Date", "DateTime",
     "ForeignKey", "Text", "Boolean", "Table", "func",
-    "UniqueConstraint", "Index", "JSON", "JSONB",
+    "UniqueConstraint", "Index", "JSON", "JSONB", "Numeric",
     "relationship", "deferred", "backref", "datetime",
 ]

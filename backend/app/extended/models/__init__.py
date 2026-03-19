@@ -92,6 +92,37 @@ from .ai_analysis import (
     DocumentAIAnalysis,
 )
 
+# 11. Agent 追蹤持久化模組
+from .agent_trace import (
+    AgentQueryTrace,
+    AgentToolCallLog,
+)
+
+# 12. Agent 學習持久化模組
+from .agent_learning import (
+    AgentLearning,
+)
+
+# 13. 文件分段模組
+from .document_chunk import (
+    DocumentChunk,
+)
+
+# 14. 專案管理模組 (PM)
+from .pm import (
+    PMCase,
+    PMMilestone,
+    PMCaseStaff,
+)
+
+# 15. 財務管理模組 (ERP)
+from .erp import (
+    ERPQuotation,
+    ERPInvoice,
+    ERPBilling,
+    ERPVendorPayable,
+)
+
 # 匯出 Base 供 Alembic 等工具使用
 from ._base import Base
 
@@ -129,6 +160,7 @@ __all__ = [
     "TaoyuanDispatchOrder",
     "TaoyuanDispatchProjectLink",
     "TaoyuanDispatchDocumentLink",
+    "TaoyuanDispatchEntityLink",
     "TaoyuanDocumentProjectLink",
     "TaoyuanContractPayment",
     "TaoyuanDispatchAttachment",
@@ -145,4 +177,20 @@ __all__ = [
     "GraphIngestionEvent",
     # AI 分析持久化
     "DocumentAIAnalysis",
+    # Agent 追蹤持久化
+    "AgentQueryTrace",
+    "AgentToolCallLog",
+    # Agent 學習持久化
+    "AgentLearning",
+    # 文件分段
+    "DocumentChunk",
+    # 專案管理 (PM)
+    "PMCase",
+    "PMMilestone",
+    "PMCaseStaff",
+    # 財務管理 (ERP)
+    "ERPQuotation",
+    "ERPInvoice",
+    "ERPBilling",
+    "ERPVendorPayable",
 ]

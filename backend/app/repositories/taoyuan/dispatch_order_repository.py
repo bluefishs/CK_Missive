@@ -12,7 +12,7 @@ import logging
 from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, or_, text
+from sqlalchemy import select, func, and_, or_, text, delete
 from sqlalchemy.orm import selectinload
 
 from ..base_repository import BaseRepository
@@ -498,7 +498,6 @@ class DispatchOrderRepository(BaseRepository[TaoyuanDispatchOrder]):
 
     async def delete_project_links(self, dispatch_order_id: int) -> int:
         """刪除派工單的所有工程關聯"""
-        from sqlalchemy import delete
         stmt = delete(TaoyuanDispatchProjectLink).where(
             TaoyuanDispatchProjectLink.dispatch_order_id == dispatch_order_id
         )
@@ -548,3 +547,62 @@ class DispatchOrderRepository(BaseRepository[TaoyuanDispatchOrder]):
         )
         result = await self.db.execute(query)
         return {row[0]: row[1] for row in result.all()}
+
+    async def get_siblings_by_contract(
+        self,
+        contract_project_id: int,
+        exclude_dispatch_id: int,
+    ) -> List[Tuple[int, Optional[str]]]:
+        """
+        取得同契約下的兄弟派工單 (排除指定 ID)
+
+        Args:
+            contract_project_id: 契約案件 ID
+            exclude_dispatch_id: 排除的派工單 ID
+
+        Returns:
+            [(dispatch_id, project_name), ...]
+        """
+        result = await self.db.execute(
+            select(
+                TaoyuanDispatchOrder.id,
+                TaoyuanDispatchOrder.project_name,
+            ).where(
+                TaoyuanDispatchOrder.contract_project_id == contract_project_id,
+                TaoyuanDispatchOrder.id != exclude_dispatch_id,
+            )
+        )
+        return list(result.all())
+
+    async def replace_work_types(
+        self,
+        dispatch_id: int,
+        work_types: List[str],
+    ) -> int:
+        """
+        替換派工單的所有作業類別
+
+        先刪除現有記錄，再建立新記錄。
+
+        Args:
+            dispatch_id: 派工單 ID
+            work_types: 作業類別列表
+
+        Returns:
+            新建的作業類別數量
+        """
+        await self.db.execute(
+            delete(TaoyuanDispatchWorkType).where(
+                TaoyuanDispatchWorkType.dispatch_order_id == dispatch_id
+            )
+        )
+
+        for idx, wt in enumerate(work_types):
+            link = TaoyuanDispatchWorkType(
+                dispatch_order_id=dispatch_id,
+                work_type=wt,
+                sort_order=idx,
+            )
+            self.db.add(link)
+
+        return len(work_types)

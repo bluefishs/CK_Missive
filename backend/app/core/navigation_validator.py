@@ -50,6 +50,7 @@ VALID_NAVIGATION_PATHS: Set[str] = {
 
     # AI 功能
     "/ai/knowledge-graph",
+    "/ai/skills-map",
     "/ai/code-wiki",
     "/ai/code-graph",
     "/ai/db-graph",
@@ -64,6 +65,12 @@ VALID_NAVIGATION_PATHS: Set[str] = {
 
     # 專案專區
     "/taoyuan/dispatch",
+
+    # PM 案件管理
+    "/pm/cases",
+
+    # ERP 財務管理
+    "/erp/quotations",
 }
 
 # 路徑描述對照表（用於錯誤訊息和前端下拉選單）
@@ -93,6 +100,7 @@ PATH_DESCRIPTIONS = {
     "/admin/ai-assistant": "AI 助理管理",
     "/admin/knowledge-base": "知識庫瀏覽器",
     "/ai/knowledge-graph": "公文圖譜",
+    "/ai/skills-map": "Skills 能力圖譜",
     "/ai/code-wiki": "代碼圖譜（舊路由）",
     "/ai/code-graph": "代碼圖譜",
     "/ai/db-graph": "資料庫圖譜",
@@ -103,6 +111,8 @@ PATH_DESCRIPTIONS = {
     "/api-mapping": "API對應表",
     "/api/docs": "API文件",
     "/taoyuan/dispatch": "桃園查估派工",
+    "/pm/cases": "PM 案件管理",
+    "/erp/quotations": "ERP 財務管理",
 }
 
 

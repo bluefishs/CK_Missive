@@ -195,6 +195,34 @@ class KGTimelineResponse(BaseModel):
 
 
 # ============================================================================
+# 時序聚合
+# ============================================================================
+
+
+class KGTimelineAggregateRequest(BaseModel):
+    """跨實體時序聚合查詢"""
+    relation_type: Optional[str] = Field(None, description="關係類型篩選 (如 correspondence)")
+    entity_type: Optional[str] = Field(None, description="實體類型篩選")
+    granularity: str = Field("month", description="聚合粒度: month / quarter / year")
+
+
+class KGTimelineAggregateBucket(BaseModel):
+    """時序聚合分桶"""
+    period: str
+    count: int = 0
+    total_weight: float = 0.0
+    entity_count: int = 0
+
+
+class KGTimelineAggregateResponse(BaseModel):
+    """時序聚合回應"""
+    success: bool = True
+    granularity: str = "month"
+    buckets: List[KGTimelineAggregateBucket] = []
+    total_relationships: int = 0
+
+
+# ============================================================================
 # 高頻實體
 # ============================================================================
 
@@ -251,6 +279,8 @@ class KGEntityGraphRequest(BaseModel):
     entity_types: Optional[List[str]] = Field(default=None, description="篩選實體類型")
     min_mentions: int = Field(default=2, ge=1, description="最低提及次數")
     limit: int = Field(default=200, ge=1, le=500, description="最大實體數量")
+    year: Optional[int] = Field(default=None, description="民國年篩選（如 114），只含該年度公文相關的實體")
+    collapse_agency: bool = Field(default=True, description="是否折疊子機關到上級機關")
 
 
 class KGEntityGraphResponse(BaseModel):
@@ -397,6 +427,37 @@ class KGJsonImportResponse(BaseModel):
     nodes_imported: int = 0
     edges_imported: int = 0
     elapsed_seconds: float = 0.0
+
+
+# ============================================================================
+# 資料庫 Schema 反射
+# ============================================================================
+
+
+class UnifiedGraphSearchRequest(BaseModel):
+    """跨圖譜統一搜尋請求"""
+    query: str = Field(..., min_length=2, max_length=200, description="搜尋關鍵字")
+    include_kg: bool = Field(True, description="搜尋知識圖譜")
+    include_code: bool = Field(True, description="搜尋代碼圖譜")
+    include_db: bool = Field(True, description="搜尋資料庫圖譜")
+    limit_per_graph: int = Field(default=5, ge=1, le=20, description="每個圖譜最大結果數")
+
+
+class UnifiedGraphResult(BaseModel):
+    """統一圖譜搜尋結果項目"""
+    source: str = Field(..., description="來源圖譜: kg / code / db")
+    entity_type: str = Field(..., description="實體類型")
+    name: str = Field(..., description="實體名稱")
+    description: str = ""
+    relevance: float = 1.0
+
+
+class UnifiedGraphSearchResponse(BaseModel):
+    """跨圖譜統一搜尋回應"""
+    success: bool = True
+    results: List[UnifiedGraphResult] = []
+    total: int = 0
+    sources_queried: List[str] = []
 
 
 # ============================================================================

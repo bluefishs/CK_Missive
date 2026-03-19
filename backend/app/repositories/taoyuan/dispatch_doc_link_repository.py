@@ -56,6 +56,7 @@ class DispatchDocLinkRepository:
         document_id: int,
         link_type: str = "agency_incoming",
         auto_commit: bool = True,
+        confidence: Optional[str] = None,
     ) -> Optional[TaoyuanDispatchDocumentLink]:
         """
         建立派工-公文關聯
@@ -67,6 +68,7 @@ class DispatchDocLinkRepository:
             document_id: 公文 ID
             link_type: 關聯類型 (agency_incoming / company_outgoing)
             auto_commit: 是否自動 commit
+            confidence: 匹配信心度 (confirmed / high / medium / low)
 
         Returns:
             新建的關聯記錄，若已存在則返回 None
@@ -89,6 +91,7 @@ class DispatchDocLinkRepository:
             dispatch_order_id=dispatch_id,
             document_id=document_id,
             link_type=link_type,
+            confidence=confidence,
             created_at=datetime.utcnow(),
         )
         self.db.add(link)
@@ -311,6 +314,26 @@ class DispatchDocLinkRepository:
             grouped.setdefault(link.document_id, []).append(link)
 
         return grouped
+
+    async def get_doc_id_and_types_for_dispatch(
+        self,
+        dispatch_id: int,
+    ) -> List[Any]:
+        """
+        取得派工單關聯的公文 ID 與 link_type (輕量查詢，不載入關聯)
+
+        Returns:
+            [(document_id, link_type), ...]
+        """
+        result = await self.db.execute(
+            select(
+                TaoyuanDispatchDocumentLink.document_id,
+                TaoyuanDispatchDocumentLink.link_type,
+            ).where(
+                TaoyuanDispatchDocumentLink.dispatch_order_id == dispatch_id
+            )
+        )
+        return list(result.all())
 
     # =========================================================================
     # 統計方法

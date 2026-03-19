@@ -143,6 +143,47 @@ class DocumentRepository(BaseRepository[OfficialDocument]):
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
+    async def get_by_project_ids(
+        self,
+        project_ids: List[int],
+        limit: int = 20,
+    ) -> List[Dict[str, Any]]:
+        """
+        根據專案 ID 列表取得關聯公文摘要
+
+        Args:
+            project_ids: 專案 ID 列表
+            limit: 取得筆數上限
+
+        Returns:
+            公文摘要字典列表
+        """
+        if not project_ids:
+            return []
+        query = (
+            select(
+                OfficialDocument.id,
+                OfficialDocument.doc_number,
+                OfficialDocument.subject,
+                OfficialDocument.doc_type,
+                OfficialDocument.doc_date,
+            )
+            .where(OfficialDocument.contract_project_id.in_(project_ids))
+            .order_by(OfficialDocument.doc_date.desc())
+            .limit(limit)
+        )
+        result = await self.db.execute(query)
+        return [
+            {
+                "id": row.id,
+                "doc_number": row.doc_number,
+                "subject": row.subject,
+                "doc_type": row.doc_type,
+                "doc_date": str(row.doc_date) if row.doc_date else None,
+            }
+            for row in result.all()
+        ]
+
     async def get_by_status(
         self,
         status: str,

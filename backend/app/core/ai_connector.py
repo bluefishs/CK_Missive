@@ -1,22 +1,24 @@
 """
 混合 AI 連接器
 
-Version: 1.1.0
+Version: 2.0.0
 Created: 2026-02-04
-Updated: 2026-02-26 - v1.1.0 Qwen3 thinking mode 支援 + format=json
+Updated: 2026-03-19 - v2.0.0 NVIDIA Cloud API 整合 (3-tier fallback)
 
 支援的 AI 服務優先順序:
 1. Groq API (免費，超快 ~100-500ms，llama3-70b)
-2. 本地 Ollama (離線備援)
-3. 智慧預設回應 (最終備援)
+2. NVIDIA Cloud API (Nemotron-49B，高品質)
+3. 本地 Ollama (離線備援)
+4. 智慧預設回應 (最終備援)
 
-免費方案設計:
-- Groq 免費額度：30 req/min, 14,400/day
-- Ollama 完全免費（本地運行）
+NVIDIA Cloud API:
+- 使用 OpenAI-compatible 介面 (integrate.api.nvidia.com/v1)
+- 支援模型: nvidia/llama-3.3-nemotron-super-49b-v1.5
+- 需要 NVIDIA_API_KEY 環境變數 (build.nvidia.com 啟用)
 
 Qwen3 thinking mode 處理:
 - 結構化任務 (NER/intent/classify): think=false + format=json
-- 生成任務 (RAG chat/summary): think=false（4B 推理品質不足以抵消延遲開銷）
+- 生成任務 (RAG chat/summary): think=false
 - 安全網: 內容後處理移除殘留 <think> 區塊
 """
 
@@ -34,6 +36,14 @@ logger = logging.getLogger(__name__)
 # Groq API 配置
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_DEFAULT_MODEL = "llama-3.3-70b-versatile"
+
+# NVIDIA Cloud API 配置 (OpenAI-compatible)
+NVIDIA_API_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
+NVIDIA_DEFAULT_MODEL = "nvidia/llama-3.3-nemotron-super-49b-v1.5"
+
+# NIM 本地配置 (OpenAI-compatible, 需 driver ≥595)
+NIM_LOCAL_URL = os.getenv("NIM_BASE_URL", "http://localhost:8000/v1/chat/completions")
+NIM_LOCAL_MODEL = "meta/llama-3.1-8b-instruct"
 
 # Ollama 配置
 OLLAMA_DEFAULT_URL = "http://localhost:11434"
@@ -65,27 +75,44 @@ REQUIRED_MODELS: set = {
 
 class AIConnector:
     """
-    混合 AI 連接器 - Groq（雲端）+ Ollama（本地）
+    混合 AI 連接器 - Groq + NVIDIA Cloud + Ollama (3-tier fallback)
 
-    優先使用 Groq API（免費、快速），
-    失敗時自動切換到本地 Ollama。
+    Provider 優先順序由 inference-profiles.yaml 的 priority 欄位控制。
+    預設: Groq (P1) → NVIDIA Cloud (P1) → Ollama (P2) → Fallback
     """
 
     def __init__(
         self,
         groq_api_key: Optional[str] = None,
+        nvidia_api_key: Optional[str] = None,
         ollama_base_url: Optional[str] = None,
         cloud_timeout: int = 30,
         local_timeout: int = 120,
         embed_timeout: int = 30,
     ):
         self.groq_api_key = groq_api_key or os.getenv("GROQ_API_KEY", "")
+        self.nvidia_api_key = nvidia_api_key or os.getenv("NVIDIA_API_KEY", "")
         self.ollama_base_url = ollama_base_url or os.getenv(
             "OLLAMA_BASE_URL", OLLAMA_DEFAULT_URL
         )
         self.cloud_timeout = cloud_timeout
         self.local_timeout = local_timeout
         self.embed_timeout = embed_timeout
+        self._last_provider: Optional[str] = None
+
+    @property
+    def available_providers(self) -> list:
+        """列出可用的 provider 及其狀態"""
+        providers = []
+        if self.groq_api_key:
+            providers.append({"name": "groq", "model": GROQ_DEFAULT_MODEL, "priority": 1})
+        if self.nvidia_api_key:
+            providers.append({"name": "nvidia", "model": NVIDIA_DEFAULT_MODEL, "priority": 1})
+        # NIM local (same API key as NVIDIA Cloud, different endpoint)
+        if self.nvidia_api_key and os.getenv("NIM_ENABLED", "").lower() == "true":
+            providers.append({"name": "nim", "model": NIM_LOCAL_MODEL, "priority": 0})
+        providers.append({"name": "ollama", "model": OLLAMA_DEFAULT_MODEL, "priority": 2})
+        return providers
 
     async def chat_completion(
         self,
@@ -130,10 +157,12 @@ class AIConnector:
         if prefer_local:
             try:
                 logger.info("Ollama-first: 嘗試本地 Ollama (model=%s)...", ollama_model)
-                return await self._ollama_completion(
+                result = await self._ollama_completion(
                     messages, ollama_model, temperature, max_tokens,
                     response_format=response_format,
                 )
+                self._last_provider = "ollama"
+                return result
             except Exception as e:
                 logger.warning("Ollama-first 失敗，降級至 Groq: %s", e)
                 # 繼續到下方 Groq-first 邏輯作為 fallback
@@ -152,10 +181,12 @@ class AIConnector:
                             attempt, MAX_RETRIES, delay,
                         )
                         await asyncio.sleep(delay)
-                    return await self._groq_completion(
+                    result = await self._groq_completion(
                         messages, groq_model, temperature, max_tokens,
                         response_format=response_format,
                     )
+                    self._last_provider = "groq"
+                    return result
                 except httpx.TimeoutException as e:
                     last_error = e
                     logger.warning("Groq API 逾時 (attempt %d/%d): %s",
@@ -179,18 +210,48 @@ class AIConnector:
             if last_error:
                 logger.warning("Groq API 最終失敗: %s", last_error)
 
+        # 嘗試 NIM 本地（最低延遲，需 driver ≥595 + NIM_ENABLED=true）
+        if self.nvidia_api_key and os.getenv("NIM_ENABLED", "").lower() == "true":
+            try:
+                logger.info("嘗試 NIM 本地 (model=%s)...", NIM_LOCAL_MODEL)
+                result = await self._nvidia_completion(
+                    messages, NIM_LOCAL_MODEL, temperature, max_tokens,
+                    response_format=response_format,
+                    api_url=NIM_LOCAL_URL,
+                )
+                self._last_provider = "nim"
+                return result
+            except Exception as e:
+                logger.warning("NIM 本地失敗: %s", e)
+
+        # 嘗試 NVIDIA Cloud API（高品質 49B 模型）
+        if self.nvidia_api_key:
+            try:
+                logger.info("嘗試 NVIDIA Cloud API (model=%s)...", NVIDIA_DEFAULT_MODEL)
+                result = await self._nvidia_completion(
+                    messages, NVIDIA_DEFAULT_MODEL, temperature, max_tokens,
+                    response_format=response_format,
+                )
+                self._last_provider = "nvidia"
+                return result
+            except Exception as e:
+                logger.warning("NVIDIA Cloud API 失敗: %s", e)
+
         # 嘗試 Ollama（本地）
         try:
             logger.info("嘗試本地 Ollama (model=%s)...", ollama_model)
-            return await self._ollama_completion(
+            result = await self._ollama_completion(
                 messages, ollama_model, temperature, max_tokens,
                 response_format=response_format,
             )
+            self._last_provider = "ollama"
+            return result
         except Exception as e:
             logger.warning("Ollama 失敗: %s", e)
 
         # 最終備援
         logger.error("所有 AI 服務均不可用，使用預設回應")
+        self._last_provider = "fallback"
         return self._generate_fallback_response(
             messages[-1]["content"] if messages else ""
         )
@@ -227,6 +288,44 @@ class AIConnector:
             data = response.json()
             content = data["choices"][0]["message"]["content"]
             logger.info(f"Groq API 回應成功 (model={model})")
+            return content
+
+    async def _nvidia_completion(
+        self,
+        messages: List[Dict[str, str]],
+        model: str,
+        temperature: float,
+        max_tokens: int,
+        response_format: Optional[Dict[str, str]] = None,
+        api_url: Optional[str] = None,
+    ) -> str:
+        """查詢 NVIDIA Cloud/NIM API (OpenAI-compatible)"""
+        url = api_url or NVIDIA_API_URL
+        payload: Dict[str, Any] = {
+            "model": model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+        if response_format:
+            payload["response_format"] = response_format
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                url,
+                headers={
+                    "Authorization": f"Bearer {self.nvidia_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+                timeout=self.cloud_timeout,
+            )
+            response.raise_for_status()
+            data = response.json()
+            content = data["choices"][0]["message"]["content"]
+            # Strip residual <think> tags (Nemotron models may include them)
+            content = self._strip_think_tags(content)
+            logger.info(f"NVIDIA Cloud API 回應成功 (model={model})")
             return content
 
     @staticmethod
@@ -325,6 +424,18 @@ class AIConnector:
             except Exception as e:
                 logger.warning(f"Groq 串流失敗: {e}")
 
+        # 嘗試 NVIDIA Cloud 串流
+        if self.nvidia_api_key:
+            try:
+                logger.info("嘗試 NVIDIA Cloud 串流 API...")
+                async for chunk in self._stream_nvidia(
+                    messages, NVIDIA_DEFAULT_MODEL, temperature, max_tokens
+                ):
+                    yield chunk
+                return
+            except Exception as e:
+                logger.warning(f"NVIDIA Cloud 串流失敗: {e}")
+
         # 嘗試 Ollama 串流
         try:
             logger.info("嘗試 Ollama 串流...")
@@ -382,6 +493,47 @@ class AIConnector:
                         except json.JSONDecodeError:
                             continue
         logger.info(f"Groq 串流完成 (model={model})")
+
+    async def _stream_nvidia(
+        self,
+        messages: List[Dict[str, str]],
+        model: str,
+        temperature: float,
+        max_tokens: int,
+    ) -> AsyncGenerator[str, None]:
+        """NVIDIA Cloud API 串流回應 (OpenAI-compatible SSE)"""
+        async with httpx.AsyncClient() as client:
+            async with client.stream(
+                "POST",
+                NVIDIA_API_URL,
+                headers={
+                    "Authorization": f"Bearer {self.nvidia_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": model,
+                    "messages": messages,
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                    "stream": True,
+                },
+                timeout=self.cloud_timeout,
+            ) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data_str = line[6:]
+                        if data_str.strip() == "[DONE]":
+                            break
+                        try:
+                            data = json.loads(data_str)
+                            delta = data.get("choices", [{}])[0].get("delta", {})
+                            content = delta.get("content", "")
+                            if content:
+                                yield content
+                        except json.JSONDecodeError:
+                            continue
+        logger.info(f"NVIDIA Cloud 串流完成 (model={model})")
 
     async def _stream_ollama(
         self,
@@ -700,6 +852,7 @@ class AIConnector:
         """
         status: Dict[str, Any] = {
             "groq": {"available": False, "message": ""},
+            "nvidia_cloud": {"available": False, "message": ""},
             "ollama": {
                 "available": False,
                 "message": "",
@@ -727,6 +880,47 @@ class AIConnector:
                 status["groq"]["message"] = str(e)
         else:
             status["groq"]["message"] = "未設定 GROQ_API_KEY"
+
+        # 檢查 NVIDIA Cloud API
+        if self.nvidia_api_key:
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(
+                        "https://integrate.api.nvidia.com/v1/models",
+                        headers={"Authorization": f"Bearer {self.nvidia_api_key}"},
+                        timeout=10,
+                    )
+                    if response.status_code == 200:
+                        status["nvidia_cloud"]["available"] = True
+                        status["nvidia_cloud"]["message"] = "NVIDIA Cloud API 可用"
+                        status["nvidia_cloud"]["model"] = NVIDIA_DEFAULT_MODEL
+                    else:
+                        status["nvidia_cloud"]["message"] = f"HTTP {response.status_code}"
+            except Exception as e:
+                status["nvidia_cloud"]["message"] = str(e)
+        else:
+            status["nvidia_cloud"]["message"] = "未設定 NVIDIA_API_KEY"
+
+        # 檢查 NIM 本地
+        status["nim_local"] = {"available": False, "message": ""}
+        if os.getenv("NIM_ENABLED", "").lower() == "true":
+            try:
+                nim_health_url = os.getenv("NIM_BASE_URL", "http://localhost:8000/v1").replace("/chat/completions", "")
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(
+                        f"{nim_health_url}/health/ready",
+                        timeout=5,
+                    )
+                    if response.status_code == 200:
+                        status["nim_local"]["available"] = True
+                        status["nim_local"]["message"] = "NIM 本地可用"
+                        status["nim_local"]["model"] = NIM_LOCAL_MODEL
+                    else:
+                        status["nim_local"]["message"] = f"HTTP {response.status_code}"
+            except Exception as e:
+                status["nim_local"]["message"] = str(e)
+        else:
+            status["nim_local"]["message"] = "NIM_ENABLED 未設定 (設為 true 啟用)"
 
         # 檢查 Ollama（增強：模型驗證 + GPU 資訊）
         try:

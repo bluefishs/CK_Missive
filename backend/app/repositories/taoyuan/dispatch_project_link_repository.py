@@ -534,6 +534,15 @@ class DispatchProjectLinkRepository:
         )
         return result.scalar() or 0
 
+    async def get_project_ids_for_dispatch(self, dispatch_id: int) -> List[int]:
+        """取得派工單關聯的工程 ID 列表 (輕量查詢)"""
+        result = await self.db.execute(
+            select(TaoyuanDispatchProjectLink.taoyuan_project_id).where(
+                TaoyuanDispatchProjectLink.dispatch_order_id == dispatch_id
+            )
+        )
+        return [row[0] for row in result.all()]
+
     async def count_projects_for_document(self, document_id: int) -> int:
         """取得公文關聯的工程數量"""
         result = await self.db.execute(

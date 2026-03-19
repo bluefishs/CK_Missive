@@ -38,9 +38,25 @@ class CanonicalEntity(Base):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
+    # 結構化 FK 連結
+    linked_agency_id = Column(
+        Integer,
+        ForeignKey("government_agencies.id", ondelete="SET NULL"),
+        nullable=True, index=True,
+        comment="對應的 government_agencies.id",
+    )
+    linked_project_id = Column(
+        Integer,
+        ForeignKey("taoyuan_projects.id", ondelete="SET NULL"),
+        nullable=True, index=True,
+        comment="對應的 taoyuan_projects.id",
+    )
+
     # 關聯
     aliases = relationship("EntityAlias", back_populates="canonical_entity", cascade="all, delete-orphan")
     mentions = relationship("DocumentEntityMention", back_populates="canonical_entity", cascade="all, delete-orphan")
+    linked_agency = relationship("GovernmentAgency", foreign_keys=[linked_agency_id])
+    linked_project = relationship("TaoyuanProject", foreign_keys=[linked_project_id])
 
     __table_args__ = (
         UniqueConstraint("canonical_name", "entity_type", name="uq_canonical_name_type"),

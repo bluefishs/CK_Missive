@@ -14,14 +14,18 @@ DispatchLinkRepository - 派工-公文-工程三方關聯資料存取層 (組合
 """
 
 import logging
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Set
 
+from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.extended.models import (
     TaoyuanDispatchProjectLink,
     TaoyuanDispatchDocumentLink,
     TaoyuanDocumentProjectLink,
+    CanonicalEntity,
+    EntityAlias,
+    TaoyuanDispatchEntityLink,
 )
 
 from .dispatch_doc_link_repository import DispatchDocLinkRepository
@@ -63,9 +67,10 @@ class DispatchLinkRepository:
         document_id: int,
         link_type: str = "agency_incoming",
         auto_commit: bool = True,
+        confidence: Optional[str] = None,
     ) -> Optional[TaoyuanDispatchDocumentLink]:
         return await self._doc_repo.link_dispatch_to_document(
-            dispatch_id, document_id, link_type, auto_commit
+            dispatch_id, document_id, link_type, auto_commit, confidence
         )
 
     async def unlink_dispatch_from_document(
@@ -229,6 +234,14 @@ class DispatchLinkRepository:
     # 統計 — 委派給對應子 Repository
     # =========================================================================
 
+    async def get_doc_id_and_types_for_dispatch(
+        self, dispatch_id: int
+    ) -> List[Any]:
+        return await self._doc_repo.get_doc_id_and_types_for_dispatch(dispatch_id)
+
+    async def get_project_ids_for_dispatch(self, dispatch_id: int) -> List[int]:
+        return await self._project_repo.get_project_ids_for_dispatch(dispatch_id)
+
     async def count_documents_for_dispatch(self, dispatch_id: int) -> int:
         return await self._doc_repo.count_documents_for_dispatch(dispatch_id)
 
@@ -237,3 +250,96 @@ class DispatchLinkRepository:
 
     async def count_projects_for_document(self, document_id: int) -> int:
         return await self._project_repo.count_projects_for_document(document_id)
+
+    # =========================================================================
+    # 派工-實體關聯 (Dispatch-Entity)
+    # =========================================================================
+
+    async def find_matching_entity_ids(
+        self,
+        keywords: List[str],
+    ) -> Set[int]:
+        """
+        根據關鍵詞搜尋匹配的正規化實體 ID
+
+        搜尋策略:
+        1. CanonicalEntity.canonical_name 精確匹配
+        2. EntityAlias.alias_name 精確匹配
+        3. CanonicalEntity.canonical_name ILIKE 模糊匹配 (限 location/project 類型, 關鍵詞 >= 2 字元)
+
+        Args:
+            keywords: 核心識別關鍵詞列表
+
+        Returns:
+            匹配的 CanonicalEntity ID 集合
+        """
+        matched: Set[int] = set()
+
+        for keyword in keywords:
+            # 精確匹配 canonical_name
+            result = await self.db.execute(
+                select(CanonicalEntity.id).where(
+                    CanonicalEntity.canonical_name == keyword
+                )
+            )
+            for row in result.all():
+                matched.add(row[0])
+
+            # 精確匹配 alias_name
+            result = await self.db.execute(
+                select(EntityAlias.canonical_entity_id).where(
+                    EntityAlias.alias_name == keyword
+                )
+            )
+            for row in result.all():
+                matched.add(row[0])
+
+            # 模糊匹配 (限 location/project)
+            if len(keyword) >= 2:
+                result = await self.db.execute(
+                    select(CanonicalEntity.id).where(
+                        CanonicalEntity.canonical_name.ilike(f"%{keyword}%"),
+                        CanonicalEntity.entity_type.in_(['location', 'project']),
+                    )
+                )
+                for row in result.all():
+                    matched.add(row[0])
+
+        return matched
+
+    async def replace_auto_entity_links(
+        self,
+        dispatch_id: int,
+        entity_ids: Set[int],
+    ) -> int:
+        """
+        替換派工單的自動實體關聯 (source='auto')
+
+        先刪除現有 auto 來源的關聯，再建立新關聯。
+
+        Args:
+            dispatch_id: 派工單 ID
+            entity_ids: 要關聯的 CanonicalEntity ID 集合
+
+        Returns:
+            新建的關聯數量
+        """
+        # 刪除現有 auto 來源的關聯
+        await self.db.execute(
+            delete(TaoyuanDispatchEntityLink).where(
+                TaoyuanDispatchEntityLink.dispatch_order_id == dispatch_id,
+                TaoyuanDispatchEntityLink.source == 'auto',
+            )
+        )
+
+        # 建立新關聯
+        for entity_id in entity_ids:
+            link = TaoyuanDispatchEntityLink(
+                dispatch_order_id=dispatch_id,
+                canonical_entity_id=entity_id,
+                source='auto',
+                confidence=1.0,
+            )
+            self.db.add(link)
+
+        return len(entity_ids)

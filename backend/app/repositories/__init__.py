@@ -55,6 +55,8 @@ from app.repositories.contact_repository import ContactRepository
 from app.repositories.project_staff_repository import ProjectStaffRepository
 from app.repositories.attachment_repository import AttachmentRepository
 from app.repositories.ai_analysis_repository import AIAnalysisRepository
+from app.repositories.agent_trace_repository import AgentTraceRepository
+from app.repositories.agent_learning_repository import AgentLearningRepository
 
 # Taoyuan 子模組
 from app.repositories.taoyuan import (
@@ -64,6 +66,7 @@ from app.repositories.taoyuan import (
     DispatchLinkRepository,
     DispatchDocLinkRepository,
     DispatchProjectLinkRepository,
+    TaoyuanStatisticsRepository,
 )
 
 # Query Builders (v1.1.0 新增)
@@ -94,6 +97,7 @@ __all__ = [
     "DispatchLinkRepository",
     "DispatchDocLinkRepository",
     "DispatchProjectLinkRepository",
+    "TaoyuanStatisticsRepository",
     # AI
     "AISynonymRepository",
     "AIPromptRepository",
@@ -105,6 +109,9 @@ __all__ = [
     "ProjectStaffRepository",
     "AttachmentRepository",
     "AIAnalysisRepository",
+    # Agent (Phase 3A)
+    "AgentTraceRepository",
+    "AgentLearningRepository",
     # Query Builders
     "DocumentQueryBuilder",
     "ProjectQueryBuilder",

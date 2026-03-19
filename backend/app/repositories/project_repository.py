@@ -17,7 +17,7 @@ import logging
 from typing import List, Optional, Dict, Any, Tuple
 from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, or_, extract, desc, asc, exists
+from sqlalchemy import select, func, and_, or_, extract, desc, asc, exists, delete
 from sqlalchemy.orm import selectinload
 
 from app.repositories.base_repository import BaseRepository
@@ -102,6 +102,22 @@ class ProjectRepository(BaseRepository[ContractProject]):
             專案實體，若不存在則返回 None
         """
         return await self.find_one_by(project_code=project_code)
+
+    async def get_ids_by_project_code(self, project_code: str) -> List[int]:
+        """
+        根據專案編號取得所有符合的專案 ID 列表
+
+        Args:
+            project_code: 專案編號
+
+        Returns:
+            專案 ID 列表
+        """
+        query = select(ContractProject.id).where(
+            ContractProject.project_code == project_code
+        )
+        result = await self.db.execute(query)
+        return [row[0] for row in result.all()]
 
     async def get_by_year(
         self,
@@ -721,6 +737,167 @@ class ProjectRepository(BaseRepository[ContractProject]):
             是否存在
         """
         return await self.exists_by(project_code=project_code)
+
+    # =========================================================================
+    # 關聯記錄刪除
+    # =========================================================================
+
+    async def delete_user_assignments(self, project_id: int) -> int:
+        """
+        刪除專案的所有人員指派記錄
+
+        Args:
+            project_id: 專案 ID
+
+        Returns:
+            刪除的筆數
+        """
+        result = await self.db.execute(
+            delete(project_user_assignment).where(
+                project_user_assignment.c.project_id == project_id
+            )
+        )
+        return result.rowcount
+
+    async def delete_vendor_associations(self, project_id: int) -> int:
+        """
+        刪除專案的所有廠商關聯記錄
+
+        Args:
+            project_id: 專案 ID
+
+        Returns:
+            刪除的筆數
+        """
+        result = await self.db.execute(
+            delete(project_vendor_association).where(
+                project_vendor_association.c.project_id == project_id
+            )
+        )
+        return result.rowcount
+
+    # =========================================================================
+    # 統計方法 (Service 層用)
+    # =========================================================================
+
+    async def get_project_statistics(self) -> Dict[str, Any]:
+        """
+        取得專案統計資料（含狀態/年度分組 + 平均金額）
+
+        Returns:
+            統計資料字典，包含:
+            - total_projects: 總專案數
+            - status_breakdown: [{status, count}, ...]
+            - year_breakdown: [{year, count}, ...]
+            - average_contract_amount: 平均合約金額
+        """
+        # 總專案數
+        total = await self.count()
+
+        # 按狀態分組統計
+        status_result = await self.db.execute(
+            select(
+                ContractProject.status,
+                func.count(ContractProject.id),
+            )
+            .group_by(ContractProject.status)
+            .order_by(ContractProject.status)
+        )
+        status_stats = [
+            {"status": row[0] or "未設定", "count": row[1]}
+            for row in status_result.fetchall()
+        ]
+
+        # 按年度分組統計
+        year_result = await self.db.execute(
+            select(
+                ContractProject.year,
+                func.count(ContractProject.id),
+            )
+            .group_by(ContractProject.year)
+            .order_by(ContractProject.year.desc())
+        )
+        year_stats = [
+            {"year": row[0], "count": row[1]}
+            for row in year_result.fetchall()
+        ]
+
+        # 平均合約金額
+        amount_result = await self.db.execute(
+            select(func.avg(ContractProject.contract_amount)).where(
+                ContractProject.contract_amount.isnot(None)
+            )
+        )
+        avg_amount = amount_result.scalar()
+        avg_amount = round(float(avg_amount), 2) if avg_amount else 0.0
+
+        return {
+            "total_projects": total,
+            "status_breakdown": status_stats,
+            "year_breakdown": year_stats,
+            "average_contract_amount": avg_amount,
+        }
+
+    # =========================================================================
+    # 列表查詢 (含 RLS 支援)
+    # =========================================================================
+
+    async def get_filtered_list(
+        self,
+        search: Optional[str] = None,
+        year: Optional[int] = None,
+        category: Optional[str] = None,
+        status: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 100,
+        rls_filter_fn: Optional[Any] = None,
+    ) -> Tuple[List[ContractProject], int]:
+        """
+        取得篩選後的專案列表（支援 RLS 權限過濾）
+
+        Args:
+            search: 搜尋關鍵字 (模糊比對 project_name)
+            year: 年度篩選
+            category: 類別篩選
+            status: 狀態篩選
+            skip: 跳過筆數
+            limit: 取得筆數
+            rls_filter_fn: RLS 過濾函數, 接收 query 並回傳過濾後的 query
+
+        Returns:
+            (專案列表, 總數) 元組
+        """
+        query = select(ContractProject)
+
+        # 套用 RLS 權限過濾
+        if rls_filter_fn is not None:
+            query = rls_filter_fn(query)
+
+        # 篩選條件
+        if search:
+            query = query.where(
+                ContractProject.project_name.ilike(f"%{search}%")
+            )
+        if year:
+            query = query.where(ContractProject.year == year)
+        if category:
+            query = query.where(ContractProject.category == category)
+        if status:
+            query = query.where(ContractProject.status == status)
+
+        # 計算總數
+        count_query = select(func.count()).select_from(query.subquery())
+        total = (await self.db.execute(count_query)).scalar_one()
+
+        # 執行分頁查詢
+        result = await self.db.execute(
+            query.order_by(ContractProject.id.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        projects = list(result.scalars().all())
+
+        return projects, total
 
     # =========================================================================
     # 進階篩選

@@ -30,6 +30,10 @@ class OfficialDocument(Base):
     sender_agency_id = Column(Integer, ForeignKey('government_agencies.id'), nullable=True, index=True, comment="發文機關ID")
     receiver_agency_id = Column(Integer, ForeignKey('government_agencies.id'), nullable=True, index=True, comment="受文機關ID")
 
+    normalized_sender = Column(String(200), nullable=True, index=True, comment="正規化發文單位")
+    normalized_receiver = Column(String(200), nullable=True, index=True, comment="正規化受文單位")
+    cc_receivers = Column(Text, nullable=True, comment="副本受文單位（JSON 陣列）")
+
     send_date = Column(Date, comment="發文日期")
     title = Column(Text, comment="標題")
     content = Column(Text, comment="說明")
@@ -39,6 +43,8 @@ class OfficialDocument(Base):
     assignee = Column(String(500), comment="承辦人（多人以逗號分隔）")
     notes = Column(Text, comment="備註")
     ck_note = Column(Text, comment="簡要說明(乾坤備註)")
+    keywords = Column(Text, nullable=True, comment="AI 提取關鍵字（JSON 陣列）")
+    ner_pending = Column(Boolean, server_default='true', nullable=False, index=True, comment="是否待 NER 提取")
 
     created_at = Column(DateTime, server_default=func.now(), comment="建立時間")
     updated_at = Column(DateTime, server_default=func.now(), comment="更新時間")

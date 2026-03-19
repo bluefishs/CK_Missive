@@ -16,8 +16,9 @@ AI 服務相關 Pydantic Schema
   - ollama: Ollama 模型管理
   - rag: RAG 問答與 Agent 查詢
   - analysis: 文件 AI 分析
+  - stats: AI 統計 (工具成功率、Agent 追蹤、學習模式)
 
-Version: 3.0.0
+Version: 3.1.0
 Created: 2026-02-05
-Updated: 2026-03-11 - 移除 re-export，各消費者已改用子模組路徑
+Updated: 2026-03-16 - 新增 stats 子模組 (SSOT 遷移)
 """

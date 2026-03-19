@@ -16,7 +16,7 @@ AgencyRepository - 機關資料存取層
 import logging
 from typing import List, Optional, Dict, Any, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, or_, desc, asc
+from sqlalchemy import select, func, and_, or_, desc, asc, literal
 
 from app.repositories.base_repository import BaseRepository
 from app.extended.models import (
@@ -633,6 +633,91 @@ class AgencyRepository(BaseRepository[GovernmentAgency]):
             }
             for a in agencies
         ]
+
+    async def find_by_text_contains(self, text: str) -> Optional[GovernmentAgency]:
+        """
+        部分匹配 — 搜尋文字中包含機關名稱或簡稱的機關
+
+        優先匹配名稱較長的機關（最長匹配原則）。
+
+        Args:
+            text: 搜尋文字
+
+        Returns:
+            匹配的機關，若無則返回 None
+        """
+        result = await self.db.execute(
+            select(GovernmentAgency).where(
+                GovernmentAgency.agency_name.isnot(None),
+                or_(
+                    func.strpos(literal(text), GovernmentAgency.agency_name) > 0,
+                    func.strpos(literal(text), GovernmentAgency.agency_short_name) > 0,
+                ),
+            )
+            .order_by(func.length(GovernmentAgency.agency_name).desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
+    async def count_unassociated_documents(self) -> int:
+        """取得未關聯機關的公文數量（sender 或 receiver 缺少 agency_id）"""
+        count = (await self.db.execute(
+            select(func.count(OfficialDocument.id)).where(
+                or_(
+                    OfficialDocument.sender_agency_id.is_(None),
+                    OfficialDocument.receiver_agency_id.is_(None),
+                )
+            )
+        )).scalar() or 0
+        return count
+
+    async def get_documents_needing_association(
+        self,
+        offset: int = 0,
+        limit: int = 100,
+    ) -> List[OfficialDocument]:
+        """取得需要機關關聯的公文（分批）"""
+        query = (
+            select(OfficialDocument)
+            .where(
+                or_(
+                    OfficialDocument.sender_agency_id.is_(None),
+                    OfficialDocument.receiver_agency_id.is_(None),
+                )
+            )
+            .order_by(OfficialDocument.id)
+            .offset(offset)
+            .limit(limit)
+        )
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def get_all_documents_batched(
+        self,
+        offset: int = 0,
+        limit: int = 100,
+    ) -> List[OfficialDocument]:
+        """取得所有公文（分批，用於全量關聯）"""
+        query = (
+            select(OfficialDocument)
+            .order_by(OfficialDocument.id)
+            .offset(offset)
+            .limit(limit)
+        )
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def update_document_agency(
+        self,
+        doc_id: int,
+        **kwargs: Any,
+    ) -> None:
+        """更新公文的機關關聯欄位"""
+        await self.db.execute(
+            sa_update(OfficialDocument)
+            .where(OfficialDocument.id == doc_id)
+            .values(**kwargs)
+        )
 
     # =========================================================================
     # 未關聯分析

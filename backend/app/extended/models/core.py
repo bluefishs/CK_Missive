@@ -64,6 +64,7 @@ class ContractProject(Base):
     agency_contact_phone = Column(String(50), comment="機關承辦電話")
     agency_contact_email = Column(String(100), comment="機關承辦Email")
     has_dispatch_management = Column(Boolean, default=False, server_default="false", comment="啟用派工管理功能")
+    client_type = Column(String(20), server_default='agency', comment='委託來源: agency=機關 vendor=廠商 other=其他')
 
     # 關聯關係
     documents = relationship("OfficialDocument", back_populates="contract_project")
@@ -81,9 +82,13 @@ class GovernmentAgency(Base):
     phone = Column(String(50), comment="電話")
     address = Column(String(500), comment="地址")
     email = Column(String(100), comment="電子郵件")
+    tax_id = Column(String(20), nullable=True, unique=True, comment="統一編號")
+    is_self = Column(Boolean, server_default="false", nullable=False, comment="是否為本公司")
+    parent_agency_id = Column(Integer, ForeignKey('government_agencies.id', ondelete='SET NULL'), nullable=True, comment="上級機關 ID")
     created_at = Column(DateTime, server_default=func.now(), comment="建立時間")
     updated_at = Column(DateTime, server_default=func.now(), comment="更新時間")
 
+    parent_agency = relationship("GovernmentAgency", remote_side="GovernmentAgency.id", foreign_keys=[parent_agency_id])
     sent_documents = relationship("OfficialDocument", foreign_keys="OfficialDocument.sender_agency_id", back_populates="sender_agency", lazy="dynamic")
     received_documents = relationship("OfficialDocument", foreign_keys="OfficialDocument.receiver_agency_id", back_populates="receiver_agency", lazy="dynamic")
 

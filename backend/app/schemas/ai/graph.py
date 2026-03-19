@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 class GraphNode(BaseModel):
     """圖譜節點"""
     id: str = Field(..., description="節點 ID (如 doc_1, project_2)")
-    type: str = Field(..., description="節點類型: document/project/dispatch/agency/org/person/location/date/topic")
+    type: str = Field(..., description="節點類型: document/project/dispatch/agency/org/person/location/date")
     label: str = Field(..., description="顯示文字")
     category: Optional[str] = Field(None, description="收文/發文 等分類")
     doc_number: Optional[str] = Field(None, description="公文字號")

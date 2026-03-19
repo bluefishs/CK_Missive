@@ -122,3 +122,8 @@ class SearchLinkableDocumentsRequest(BaseModel):
     exclude_document_ids: Optional[List[int]] = None
     link_type: Optional[str] = None
     contract_project_id: Optional[int] = None
+
+
+class ConfirmCorrespondenceRequest(BaseModel):
+    """確認收發文對應請求"""
+    pairs: List[dict]  # Each: {"incoming_doc_id": int, "outgoing_doc_id": int}

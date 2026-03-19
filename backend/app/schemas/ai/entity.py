@@ -9,7 +9,7 @@ class EntityItem(BaseModel):
     id: int
     document_id: int
     entity_name: str
-    entity_type: str = Field(description="org/person/project/location/date/topic")
+    entity_type: str = Field(description="org/person/project/location/date")
     confidence: float
     context: Optional[str] = None
     extracted_at: Optional[str] = None
