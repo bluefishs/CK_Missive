@@ -875,3 +875,69 @@ async def get_skills_capability_map(
         "nodes": nodes,
         "edges": edges,
     }
+
+
+# ============================================================================
+# NemoClaw: Agent 能力自覺 + 鏡像回饋
+# ============================================================================
+
+@router.post("/agent/capability-profile")
+async def get_agent_capability_profile(
+    current_user: User = Depends(require_auth()),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    Agent 能力自覺 — 分析最近 7 天各領域的表現。
+
+    返回每個領域的平均分數、查詢數、趨勢，
+    以及識別出的強項和弱項領域。
+    """
+    from app.services.ai.agent_capability_tracker import get_capability_profile
+
+    try:
+        profile = await get_capability_profile(db)
+        return {"success": True, **profile}
+    except Exception as e:
+        logger.error("能力剖面查詢失敗: %s", e, exc_info=True)
+        return {
+            "success": False,
+            "domains": {},
+            "strengths": [],
+            "weaknesses": [],
+            "overall_score": 0.0,
+            "total_queries": 0,
+        }
+
+
+@router.post("/agent/mirror-report")
+async def get_agent_mirror_report(
+    current_user: User = Depends(require_auth()),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    Agent 鏡像回饋 — 生成自我觀察報告。
+
+    統計今日查詢、學習記錄、能力剖面，
+    並用 LLM 生成一段自然語言的自我觀察。
+    """
+    from app.core.ai_connector import get_ai_connector
+    from app.services.ai.agent_mirror_feedback import generate_mirror_report
+
+    try:
+        ai_connector = get_ai_connector()
+    except Exception:
+        ai_connector = None
+
+    try:
+        report = await generate_mirror_report(db, ai_connector)
+        return {"success": True, **report}
+    except Exception as e:
+        logger.error("鏡像回饋報告生成失敗: %s", e, exc_info=True)
+        return {
+            "success": False,
+            "summary": "",
+            "stats": {},
+            "learnings": [],
+            "strengths": [],
+            "weaknesses": [],
+        }

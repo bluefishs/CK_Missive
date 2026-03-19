@@ -1,12 +1,14 @@
 /**
- * Evolution Graph v3 — 白底主題 + 結構化佈局
- *
- * @version 3.0.0
+ * Evolution Graph v4 — Clustered layout + HTML tooltip + category rings
+ * @version 4.0.0
  */
-
 import React, { useRef, useCallback, useMemo, useState, useEffect } from 'react';
 import ForceGraph2D, { type ForceGraphMethods } from 'react-force-graph-2d';
+import { forceCollide } from 'd3-force';
+import { Card, Tag, Space, Rate } from 'antd';
 import type { GraphNode, GraphLink, ForceGraphData, CategoryInfo } from './types';
+
+const SOURCE_COLORS: Record<string, string> = { active: '#52c41a', planned: '#1677ff', merged: '#faad14' };
 
 interface EvolutionGraphProps {
   graphData: ForceGraphData;
@@ -14,15 +16,15 @@ interface EvolutionGraphProps {
   highlightNodeId?: number | null;
 }
 
-export const EvolutionGraph: React.FC<EvolutionGraphProps> = ({
-  graphData,
-  categories,
-  highlightNodeId,
-}) => {
+const nodeRadius = (n: GraphNode) =>
+  4 + n.maturity * 1.8 + (n.size > 15 ? (n.size - 15) * 0.4 : 0);
+
+export const EvolutionGraph: React.FC<EvolutionGraphProps> = ({ graphData, categories, highlightNodeId }) => {
   const fgRef = useRef<ForceGraphMethods | undefined>(undefined);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState({ w: 800, h: 600 });
   const [hoverId, setHoverId] = useState<number | null>(null);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     const el = containerRef.current;
@@ -35,31 +37,24 @@ export const EvolutionGraph: React.FC<EvolutionGraphProps> = ({
     return () => obs.disconnect();
   }, []);
 
-  // Force config: cluster by category + spread apart
   useEffect(() => {
     const fg = fgRef.current;
     if (!fg) return;
-
-    // 按類別分配星團中心座標（環形排列）
     const catKeys = Object.keys(categories);
     const clusterCenters: Record<string, { x: number; y: number }> = {};
-    const radius = 200;
+    const r = 200;
     catKeys.forEach((cat, i) => {
       const angle = (2 * Math.PI * i) / catKeys.length - Math.PI / 2;
-      clusterCenters[cat] = { x: radius * Math.cos(angle), y: radius * Math.sin(angle) };
+      clusterCenters[cat] = { x: r * Math.cos(angle), y: r * Math.sin(angle) };
     });
-
-    fg.d3Force('charge')?.strength(-250);
+    fg.d3Force('charge')?.strength(-350);
     fg.d3Force('link')?.distance((link: { source: GraphNode; target: GraphNode }) => {
       const s = typeof link.source === 'object' ? link.source : null;
       const t = typeof link.target === 'object' ? link.target : null;
-      // 同類別距離短，跨類別距離長
-      const sameCat = s?.category === t?.category;
-      return sameCat ? 30 + ((s?.size ?? 8) + (t?.size ?? 8)) : 80 + ((s?.size ?? 8) + (t?.size ?? 8)) * 1.5;
+      return s?.category === t?.category ? 35 : 100;
     });
-
-    // Cluster force: 用 charge 的 x/y 初始位置讓同類別聚在一起
-    // 設定節點初始位置（按類別星團中心 + 小隨機偏移）
+    fg.d3Force('collide', forceCollide<GraphNode>()
+      .radius((n: GraphNode) => nodeRadius(n) + 4).iterations(2) as never);
     for (const node of graphData.nodes) {
       const center = clusterCenters[node.category];
       if (center && node.x == null) {
@@ -93,99 +88,79 @@ export const EvolutionGraph: React.FC<EvolutionGraphProps> = ({
     return s;
   }, [activeId, graphData.links]);
 
+  const hoveredNode = useMemo(
+    () => (hoverId != null ? graphData.nodes.find(n => n.id === hoverId) ?? null : null),
+    [hoverId, graphData.nodes],
+  );
   const getColor = useCallback((cat: string) => categories[cat]?.color || '#999', [categories]);
+
+  const categoryBounds = useMemo(() => {
+    const grouped: Record<string, GraphNode[]> = {};
+    for (const node of graphData.nodes) {
+      if (node.x == null || node.y == null) continue;
+      (grouped[node.category] ??= []).push(node);
+    }
+    const result: Array<{ cat: string; cx: number; cy: number; r: number; color: string }> = [];
+    for (const [cat, nodes] of Object.entries(grouped)) {
+      if (nodes.length < 2) continue;
+      const cx = nodes.reduce((s, n) => s + (n.x ?? 0), 0) / nodes.length;
+      const cy = nodes.reduce((s, n) => s + (n.y ?? 0), 0) / nodes.length;
+      let maxDist = 0;
+      for (const n of nodes) {
+        const d = Math.hypot((n.x ?? 0) - cx, (n.y ?? 0) - cy);
+        if (d > maxDist) maxDist = d;
+      }
+      result.push({ cat, cx, cy, r: maxDist + 30, color: categories[cat]?.color || '#999' });
+    }
+    return result;
+  }, [graphData.nodes, categories]);
+
+  const paintBefore = useCallback((ctx: CanvasRenderingContext2D) => {
+    for (const { cat, cx, cy, r, color } of categoryBounds) {
+      ctx.save();
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = color + '0D'; ctx.fill();
+      ctx.setLineDash([6, 4]); ctx.strokeStyle = color + '33'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.font = 'bold 7px "Microsoft JhengHei", sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillStyle = color + '99';
+      ctx.fillText(categories[cat]?.label || cat, cx, cy - r + 12);
+      ctx.restore();
+    }
+  }, [categoryBounds, categories]);
 
   const paintNode = useCallback((node: GraphNode, ctx: CanvasRenderingContext2D) => {
     const x = node.x ?? 0, y = node.y ?? 0;
-    const isPlanned = node.source === 'planned';
-    const isMerged = node.source === 'merged';
+    const isPlanned = node.source === 'planned', isMerged = node.source === 'merged';
     const isActive = activeId === node.id;
     const dimmed = connSet != null && !connSet.has(node.id);
-    const r = 4 + node.maturity * 1.8 + (node.size > 15 ? (node.size - 15) * 0.4 : 0);
-    const color = getColor(node.category);
-
-    ctx.save();
-    ctx.globalAlpha = dimmed ? 0.2 : 1;
-
-    // Shadow for active
-    if (isActive) {
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 15;
-    }
-
-    // Circle
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
+    const r = nodeRadius(node), color = getColor(node.category);
+    ctx.save(); ctx.globalAlpha = dimmed ? 0.2 : 1;
+    if (isActive) { ctx.shadowColor = color; ctx.shadowBlur = 15; }
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
     if (isPlanned) {
-      ctx.fillStyle = '#f5f5f5';
-      ctx.fill();
-      ctx.setLineDash([2, 2]);
-      ctx.strokeStyle = '#ccc';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-      ctx.setLineDash([]);
+      ctx.fillStyle = '#f5f5f5'; ctx.fill();
+      ctx.setLineDash([2, 2]); ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
     } else if (isMerged) {
-      ctx.fillStyle = '#fffbe6';
-      ctx.fill();
-      ctx.strokeStyle = '#faad14';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
+      ctx.fillStyle = '#fffbe6'; ctx.fill(); ctx.strokeStyle = '#faad14'; ctx.lineWidth = 1.5; ctx.stroke();
     } else {
-      ctx.fillStyle = color;
-      ctx.fill();
-      // White border for contrast on light bg
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
+      ctx.fillStyle = color; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
     }
     ctx.shadowBlur = 0;
-
-    // Label
     const showLabel = node.size >= 12 || isActive || (connSet != null && connSet.has(node.id));
     if (showLabel && !dimmed) {
       const fs = isActive ? 8 : Math.max(5, r * 0.5);
       ctx.font = `${isActive ? 'bold ' : ''}${fs}px "Microsoft JhengHei", sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
-      const ly = y + r + 3;
-      const tw = ctx.measureText(node.name).width;
-
-      // White background for text readability
-      ctx.fillStyle = 'rgba(255,255,255,0.85)';
-      ctx.fillRect(x - tw / 2 - 2, ly - 1, tw + 4, fs + 2);
-
-      ctx.fillStyle = isPlanned ? '#bbb' : '#333';
-      ctx.fillText(node.name, x, ly);
-
-      // Hover info
-      if (isActive && node.description) {
-        const dfs = fs - 1;
-        ctx.font = `${dfs}px "Microsoft JhengHei", sans-serif`;
-        ctx.fillStyle = '#888';
-        const desc = node.description.length > 25 ? node.description.slice(0, 25) + '…' : node.description;
-        const dtw = ctx.measureText(desc).width;
-        ctx.fillStyle = 'rgba(255,255,255,0.85)';
-        ctx.fillRect(x - dtw / 2 - 2, ly + fs + 2, dtw + 4, dfs + 2);
-        ctx.fillStyle = '#888';
-        ctx.fillText(desc, x, ly + fs + 3);
-
-        // Stars
-        const stars = '★'.repeat(node.maturity) + '☆'.repeat(5 - node.maturity);
-        ctx.fillStyle = '#faad14';
-        ctx.font = `${dfs}px sans-serif`;
-        ctx.fillText(stars, x, ly + fs + dfs + 5);
-      }
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      const ly = y + r + 3, tw = ctx.measureText(node.name).width;
+      ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fillRect(x - tw / 2 - 2, ly - 1, tw + 4, fs + 2);
+      ctx.fillStyle = isPlanned ? '#bbb' : '#333'; ctx.fillText(node.name, x, ly);
     }
-
-    // Version inside node for large ones
     if (node.size >= 18 && !dimmed && !isPlanned) {
-      ctx.font = 'bold 4px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(node.version, x, y);
+      ctx.font = 'bold 4px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#fff'; ctx.fillText(node.version, x, y);
     }
-
     ctx.restore();
   }, [activeId, connSet, getColor]);
 
@@ -193,72 +168,70 @@ export const EvolutionGraph: React.FC<EvolutionGraphProps> = ({
     const s = link.source as GraphNode, t = link.target as GraphNode;
     if (s.x == null || t.x == null || s.y == null || t.y == null) return;
     const connected = connSet == null || (connSet.has(s.id) && connSet.has(t.id));
-
-    ctx.save();
-    ctx.globalAlpha = connected ? 1 : 0.08;
-    ctx.beginPath();
-
+    ctx.save(); ctx.globalAlpha = connected ? 1 : 0.08; ctx.beginPath();
     if (link.type === 'merge') {
-      ctx.setLineDash([5, 3]);
-      ctx.strokeStyle = '#fa8c16';
-      ctx.lineWidth = 1.5;
+      ctx.setLineDash([5, 3]); ctx.strokeStyle = '#fa8c16'; ctx.lineWidth = 1.5;
     } else if (link.type === 'planned') {
-      ctx.setLineDash([3, 4]);
-      ctx.strokeStyle = '#d9d9d9';
-      ctx.lineWidth = 1;
-    } else {
-      ctx.strokeStyle = '#52c41a';
-      ctx.lineWidth = 1.8;
-    }
-
-    ctx.moveTo(s.x, s.y);
-    ctx.lineTo(t.x, t.y);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    // Arrow
+      ctx.setLineDash([3, 4]); ctx.strokeStyle = '#d9d9d9'; ctx.lineWidth = 1;
+    } else { ctx.strokeStyle = '#52c41a'; ctx.lineWidth = 1.8; }
+    ctx.moveTo(s.x, s.y); ctx.lineTo(t.x, t.y); ctx.stroke(); ctx.setLineDash([]);
     if (connected) {
-      const a = Math.atan2(t.y - s.y, t.x - s.x);
-      const tr = 4 + (t as GraphNode).maturity * 1.8;
-      const ax = t.x - Math.cos(a) * (tr + 4);
-      const ay = t.y - Math.sin(a) * (tr + 4);
-      ctx.beginPath();
-      ctx.moveTo(ax, ay);
+      const a = Math.atan2(t.y - s.y, t.x - s.x), tr = nodeRadius(t);
+      const ax = t.x - Math.cos(a) * (tr + 4), ay = t.y - Math.sin(a) * (tr + 4);
+      ctx.beginPath(); ctx.moveTo(ax, ay);
       ctx.lineTo(ax - 5 * Math.cos(a - 0.4), ay - 5 * Math.sin(a - 0.4));
       ctx.lineTo(ax - 5 * Math.cos(a + 0.4), ay - 5 * Math.sin(a + 0.4));
       ctx.closePath();
       ctx.fillStyle = link.type === 'merge' ? '#fa8c16' : link.type === 'planned' ? '#d9d9d9' : '#52c41a';
       ctx.fill();
     }
-
     ctx.restore();
   }, [connSet]);
 
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (rect) setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+  }, []);
+
   return (
-    <div ref={containerRef} style={{ width: '100%', height: '100%', background: '#fafbfc' }}>
+    <div ref={containerRef}
+      style={{ width: '100%', height: '100%', background: '#fafbfc', position: 'relative' }}
+      onMouseMove={handleMouseMove}>
       <ForceGraph2D
-        ref={fgRef as never}
-        graphData={graphData as never}
-        width={dims.w}
-        height={dims.h}
+        ref={fgRef as never} graphData={graphData as never} width={dims.w} height={dims.h}
         nodeCanvasObject={paintNode as never}
         nodePointerAreaPaint={((node: GraphNode, color: string, ctx: CanvasRenderingContext2D) => {
-          ctx.fillStyle = color;
-          ctx.beginPath();
-          ctx.arc(node.x ?? 0, node.y ?? 0, 8 + node.maturity * 2, 0, Math.PI * 2);
-          ctx.fill();
+          ctx.fillStyle = color; ctx.beginPath();
+          ctx.arc(node.x ?? 0, node.y ?? 0, 8 + node.maturity * 2, 0, Math.PI * 2); ctx.fill();
         }) as never}
-        linkCanvasObject={paintLink as never}
-        linkCanvasObjectMode={() => 'replace'}
+        linkCanvasObject={paintLink as never} linkCanvasObjectMode={() => 'replace'}
         onNodeHover={((n: GraphNode | null) => setHoverId(n?.id ?? null)) as never}
-        d3AlphaDecay={0.02}
-        d3VelocityDecay={0.25}
-        warmupTicks={100}
-        cooldownTicks={300}
-        onEngineStop={() => fgRef.current?.zoomToFit(400, 50)}
-        backgroundColor="#fafbfc"
-        enableNodeDrag
+        onRenderFramePre={paintBefore as never}
+        d3AlphaDecay={0.02} d3VelocityDecay={0.25} warmupTicks={100} cooldownTicks={300}
+        onEngineStop={() => fgRef.current?.zoomToFit(400, 50)} backgroundColor="#fafbfc" enableNodeDrag
       />
+      {hoveredNode && (
+        <Card size="small" style={{
+          position: 'absolute', left: Math.min(mousePos.x + 12, dims.w - 270),
+          top: Math.max(mousePos.y - 10, 4), maxWidth: 250, pointerEvents: 'none',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)', zIndex: 10,
+        }} styles={{ body: { padding: '10px 12px' } }}>
+          <Space direction="vertical" size={4} style={{ width: '100%' }}>
+            <span style={{ fontWeight: 700, fontSize: 14 }}>{hoveredNode.name}</span>
+            <Space size={4} wrap>
+              <Tag color={getColor(hoveredNode.category)}>
+                {categories[hoveredNode.category]?.label || hoveredNode.category}
+              </Tag>
+              <Tag>{hoveredNode.version}</Tag>
+              <Tag color={SOURCE_COLORS[hoveredNode.source] || '#999'}>{hoveredNode.source}</Tag>
+            </Space>
+            <Rate disabled value={hoveredNode.maturity} count={5} style={{ fontSize: 14 }} />
+            {hoveredNode.description && (
+              <span style={{ fontSize: 12, color: '#666' }}>{hoveredNode.description}</span>
+            )}
+          </Space>
+        </Card>
+      )}
     </div>
   );
 };
