@@ -32,8 +32,7 @@ import {
   DislikeFilled,
 } from '@ant-design/icons';
 import { AgentStepsDisplay } from './AgentStepsDisplay';
-import type { AgentStepInfo } from './AgentStepsDisplay';
-import type { RAGSourceItem } from '../../types/ai';
+import type { ChatMessage, RAGSourceItem } from '../../types/ai';
 
 const MermaidBlock = React.lazy(() => import('./MermaidBlock'));
 
@@ -67,22 +66,9 @@ export function parseMermaidBlocks(content: string): Array<{ type: 'text' | 'mer
   return parts.length > 0 ? parts : null;
 }
 
-export interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-  sources?: RAGSourceItem[];
-  latency_ms?: number;
-  model?: string;
-  retrieval_count?: number;
-  streaming?: boolean;
-  // Agentic 模式
-  agentSteps?: AgentStepInfo[];
-  toolsUsed?: string[];
-  iterations?: number;
-  // 回饋
-  feedbackScore?: 1 | -1 | null;
-}
+// ChatMessage 已遷移至 types/ai.ts (SSOT)
+// 保留 re-export 相容性
+export type { ChatMessage } from '../../types/ai';
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -116,7 +102,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         <Space size={4} style={{ marginBottom: 4 }}>
           {!isUser && <RobotOutlined style={{ color: '#722ed1' }} />}
           <Text type="secondary" style={{ fontSize: 11 }}>
-            {isUser ? '您' : 'AI 助理'}
+            {isUser ? '您' : (message.agentIdentity || 'AI 助理')}
             {' '}
             {message.timestamp.toLocaleTimeString('zh-TW', {
               hour: '2-digit',
@@ -201,6 +187,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 {message.retrieval_count} 篇引用
               </Tag>
             )}
+            {message.iterations != null && message.iterations > 0 && (
+              <Tag icon={<ThunderboltOutlined />} color="geekblue" style={{ fontSize: 11 }}>
+                {message.iterations} 輪推理
+              </Tag>
+            )}
             {message.toolsUsed && message.toolsUsed.length > 0 && (
               <Tag icon={<ToolOutlined />} color="purple" style={{ fontSize: 11 }}>
                 {message.toolsUsed.length} 工具
@@ -257,7 +248,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     dataSource={message.sources}
                     renderItem={(src: RAGSourceItem) => (
                       <List.Item style={{ padding: '4px 0' }}>
-                        <Space direction="vertical" size={0} style={{ width: '100%' }}>
+                        <Space vertical size={0} style={{ width: '100%' }}>
                           <Space>
                             <Tag color="blue" style={{ fontSize: 11 }}>
                               {src.doc_type || '函'}

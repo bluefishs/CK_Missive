@@ -97,10 +97,10 @@ const ImportPreviewCardInner: React.FC<ImportPreviewCardProps> = ({
 
   return (
     <Card>
-      <Space direction="vertical" style={{ width: '100%' }}>
+      <Space vertical style={{ width: '100%' }}>
         <Alert
           type={success ? 'info' : 'error'}
-          message={
+          title={
             <Space>
               <FileExcelOutlined />
               <Text strong>{filename}</Text>
@@ -150,7 +150,7 @@ const ImportPreviewCardInner: React.FC<ImportPreviewCardProps> = ({
 
         {preview_rows.length > 0 && (
           <>
-            <Divider orientation="left">資料預覽（前 {preview_rows.length} 筆）</Divider>
+            <Divider titlePlacement="left">資料預覽（前 {preview_rows.length} 筆）</Divider>
             <Table
               dataSource={preview_rows}
               columns={previewColumns}

@@ -19,7 +19,7 @@ export const PageLoading: React.FC<PageLoadingProps> = ({
       minHeight: '50vh',
       padding: '32px'
     }}>
-      <Space direction="vertical" size="large" align="center">
+      <Space vertical size="large" align="center">
         <Spin size="large" />
         <Text type="secondary" style={{ fontSize: 16 }}>
           {message}

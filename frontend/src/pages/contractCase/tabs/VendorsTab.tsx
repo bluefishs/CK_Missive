@@ -36,6 +36,7 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import type { VendorsTabProps, VendorAssociation } from './types';
 import { VENDOR_ROLE_OPTIONS } from './constants';
+import { parseCurrencyInput } from '../../../utils/format';
 
 const { Text } = Typography;
 const { Option } = Select;
@@ -78,7 +79,7 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({
       title: '廠商資訊',
       key: 'vendor_info',
       render: (_, record) => (
-        <Space direction="vertical" size="small">
+        <Space vertical size="small">
           <Text strong>{record.vendor_name}</Text>
           {record.vendor_code && <Text type="secondary">統編: {record.vendor_code}</Text>}
         </Space>
@@ -120,7 +121,7 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({
       title: '聯絡人',
       key: 'contact',
       render: (_, record) => (
-        <Space direction="vertical" size="small">
+        <Space vertical size="small">
           {record.contact_person && <span><UserOutlined /> {record.contact_person}</span>}
           {record.phone && <span><PhoneOutlined /> {record.phone}</span>}
         </Space>
@@ -136,7 +137,7 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({
       title: '合作期間',
       key: 'period',
       render: (_, record) => (
-        <Space direction="vertical" size="small">
+        <Space vertical size="small">
           <span>{record.start_date} ~</span>
           <span>{record.end_date}</span>
         </Space>
@@ -204,7 +205,7 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({
                 title="合作中廠商"
                 value={vendorList.filter(v => v.status === 'active').length}
                 suffix={`/ ${vendorList.length}`}
-                valueStyle={{ color: '#52c41a' }}
+                styles={{ content: { color: '#52c41a' } }}
               />
             </Card>
           </Col>
@@ -260,8 +261,7 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({
               style={{ width: '100%' }}
               placeholder="請輸入合約金額"
               formatter={value => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              parser={value => value?.replace(/\$\s?|(,*)/g, '') as any}
+              parser={parseCurrencyInput}
             />
           </Form.Item>
           <Row gutter={16}>

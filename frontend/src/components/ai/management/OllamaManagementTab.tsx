@@ -103,7 +103,7 @@ export const OllamaManagementTab: React.FC = () => {
 
   if (statusLoading) {
     return (
-      <Spin tip="載入 Ollama 狀態...">
+      <Spin description="載入 Ollama 狀態...">
         <div style={{ height: 200 }} />
       </Spin>
     );
@@ -114,7 +114,7 @@ export const OllamaManagementTab: React.FC = () => {
       <Alert
         type="error"
         showIcon
-        message="Ollama 狀態取得失敗"
+        title="Ollama 狀態取得失敗"
         description="無法連線至後端 API 取得 Ollama 狀態。請確認後端服務是否正常運行，且您具有管理員權限。"
         action={
           <Button size="small" icon={<ReloadOutlined />} onClick={() => refetchStatus()}>
@@ -206,7 +206,7 @@ export const OllamaManagementTab: React.FC = () => {
           type="warning"
           showIcon
           icon={<WarningOutlined />}
-          message="缺少必要模型"
+          title="缺少必要模型"
           description={
             <span>
               以下模型尚未安裝：{' '}
@@ -301,24 +301,30 @@ export const OllamaManagementTab: React.FC = () => {
                 dataSource={gpuModels}
                 renderItem={(gm) => (
                   <List.Item>
-                    <Descriptions size="small" column={1} style={{ width: '100%' }}>
-                      <Descriptions.Item label="模型">
-                        <Typography.Text style={{ fontFamily: 'monospace', fontSize: 13 }}>
-                          {gm.name}
-                        </Typography.Text>
-                      </Descriptions.Item>
-                      <Descriptions.Item label="模型大小">
-                        {formatBytes(gm.size)}
-                      </Descriptions.Item>
-                      <Descriptions.Item label="VRAM 使用">
-                        <Typography.Text
-                          type={gm.size_vram > 0 ? undefined : 'secondary'}
-                          style={{ fontWeight: gm.size_vram > 0 ? 500 : 400 }}
-                        >
-                          {gm.size_vram > 0 ? formatBytes(gm.size_vram) : 'N/A'}
-                        </Typography.Text>
-                      </Descriptions.Item>
-                    </Descriptions>
+                    <Descriptions size="small" column={1} style={{ width: '100%' }} items={[
+                      {
+                        key: '模型',
+                        label: '模型',
+                        children: (
+                          <Typography.Text style={{ fontFamily: 'monospace', fontSize: 13 }}>
+                            {gm.name}
+                          </Typography.Text>
+                        ),
+                      },
+                      { key: '模型大小', label: '模型大小', children: formatBytes(gm.size) },
+                      {
+                        key: 'VRAM 使用',
+                        label: 'VRAM 使用',
+                        children: (
+                          <Typography.Text
+                            type={gm.size_vram > 0 ? undefined : 'secondary'}
+                            style={{ fontWeight: gm.size_vram > 0 ? 500 : 400 }}
+                          >
+                            {gm.size_vram > 0 ? formatBytes(gm.size_vram) : 'N/A'}
+                          </Typography.Text>
+                        ),
+                      },
+                    ]} />
                   </List.Item>
                 )}
               />
@@ -337,7 +343,7 @@ export const OllamaManagementTab: React.FC = () => {
         title="管理動作"
         size="small"
       >
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+        <Space vertical size="middle" style={{ width: '100%' }}>
           <div>
             <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
               檢查系統必要模型是否已安裝，自動拉取缺少的模型。拉取大型模型可能需要數分鐘。

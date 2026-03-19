@@ -15,7 +15,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import { Card, Typography, Table, Spin, Alert } from 'antd';
-import { ResponsiveContent } from '../components/common';
+import { ResponsiveContent } from '@ck-shared/ui-components';
 
 const { Title, Paragraph } = Typography;
 
@@ -150,7 +150,7 @@ export const ApiMappingDisplayPage: React.FC = () => {
       </Paragraph>
 
       <Alert
-        message="開發模式"
+        title="開發模式"
         description="目前顯示的是開發用的靜態 API 對應數據，實際部署時會從後端動態獲取。"
         type="info"
         showIcon

@@ -141,7 +141,7 @@ export const FormPageLayout: React.FC<FormPageLayoutProps> = ({
 
       {/* 表單內容 */}
       <Card>
-        <Spin spinning={loading} tip="載入中...">
+        <Spin spinning={loading} description="載入中...">
           <div style={{ minHeight: loading ? 200 : 'auto' }}>
             {!loading && children}
           </div>

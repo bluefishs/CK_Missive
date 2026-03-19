@@ -68,7 +68,7 @@ export const EmbeddingTab: React.FC = () => {
 
   if (statsLoading) {
     return (
-      <Spin tip="載入 Embedding 統計...">
+      <Spin description="載入 Embedding 統計...">
         <div style={{ height: 200 }} />
       </Spin>
     );
@@ -83,7 +83,7 @@ export const EmbeddingTab: React.FC = () => {
           type="warning"
           showIcon
           icon={<WarningOutlined />}
-          message="pgvector 未啟用"
+          title="pgvector 未啟用"
           description="Embedding 功能需要啟用 pgvector 擴展 (PGVECTOR_ENABLED=true) 及 Ollama 服務。"
           style={{ marginBottom: 16 }}
         />
@@ -105,7 +105,7 @@ export const EmbeddingTab: React.FC = () => {
             <Statistic
               title="已生成 Embedding"
               value={embStats?.with_embedding ?? 0}
-              valueStyle={{ color: '#3f8600' }}
+              styles={{ content: { color: '#3f8600' } }}
               prefix={<CheckCircleOutlined />}
             />
           </Card>
@@ -115,7 +115,7 @@ export const EmbeddingTab: React.FC = () => {
             <Statistic
               title="未生成 Embedding"
               value={embStats?.without_embedding ?? 0}
-              valueStyle={{ color: embStats?.without_embedding ? '#cf1322' : '#3f8600' }}
+              styles={{ content: { color: embStats?.without_embedding ? '#cf1322' : '#3f8600' } }}
               prefix={<CloseCircleOutlined />}
             />
           </Card>
@@ -128,10 +128,10 @@ export const EmbeddingTab: React.FC = () => {
               suffix="%"
               precision={1}
               prefix={<DashboardOutlined />}
-              valueStyle={{
+              styles={{ content: {
                 color: (embStats?.coverage_percent ?? 0) >= 80 ? '#3f8600'
                   : (embStats?.coverage_percent ?? 0) >= 50 ? '#d48806' : '#cf1322',
-              }}
+              } }}
             />
           </Card>
         </Col>
@@ -169,7 +169,7 @@ export const EmbeddingTab: React.FC = () => {
           </Button>
         }
       >
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+        <Space vertical size="middle" style={{ width: '100%' }}>
           <div>
             <Typography.Text>每批處理筆數：</Typography.Text>
             <InputNumber
@@ -197,7 +197,7 @@ export const EmbeddingTab: React.FC = () => {
             </Button>
           </Popconfirm>
           {(embStats?.without_embedding ?? 0) === 0 && pgvectorEnabled && (
-            <Alert type="success" message="所有公文皆已生成 Embedding" showIcon />
+            <Alert type="success" title="所有公文皆已生成 Embedding" showIcon />
           )}
         </Space>
       </Card>

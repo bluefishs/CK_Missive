@@ -18,7 +18,7 @@
  * @status DEMO
  */
 import React, { useState } from 'react';
-import { ResponsiveContent } from '../components/common';
+import { ResponsiveContent } from '@ck-shared/ui-components';
 import {
   Card,
   Typography,
@@ -305,16 +305,16 @@ const UnifiedFormDemoPage: React.FC = () => {
 
   return (
     <ResponsiveContent maxWidth="full" padding="medium">
-      <Space direction="vertical" style={{ width: '100%' }} size="large">
+      <Space vertical style={{ width: '100%' }} size="large">
         {/* 頁面標題 */}
         <Card>
-          <Space direction="vertical" style={{ width: '100%' }}>
+          <Space vertical style={{ width: '100%' }}>
             <Title level={2}>
               <FormOutlined style={{ marginRight: 8 }} />
               統一表單系統演示
             </Title>
             <Alert
-              message="功能特色"
+              title="功能特色"
               description={
                 <div>
                   <Text>此頁面展示了統一表單系統的核心功能：</Text>
@@ -437,7 +437,7 @@ const UnifiedFormDemoPage: React.FC = () => {
           <Row gutter={16}>
             <Col xs={24} md={12}>
               <Card size="small" title={<><NumberOutlined /> 流水號系統</>}>
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space vertical style={{ width: '100%' }}>
                   <Text>• 支持自定義前綴、日期格式、分隔符</Text>
                   <Text>• 自動生成唯一流水號</Text>
                   <Text>• 支持手動編輯和複製功能</Text>
@@ -447,7 +447,7 @@ const UnifiedFormDemoPage: React.FC = () => {
             </Col>
             <Col xs={24} md={12}>
               <Card size="small" title={<><MessageOutlined /> 備註管理</>}>
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space vertical style={{ width: '100%' }}>
                   <Text>• 行內編輯模式</Text>
                   <Text>• 支持歷史記錄查看</Text>
                   <Text>• 快捷鍵操作 (Ctrl+Enter, Esc)</Text>
@@ -462,7 +462,7 @@ const UnifiedFormDemoPage: React.FC = () => {
           <Card size="small" title={<><TableOutlined /> 統一表格功能</>}>
             <Row gutter={16}>
               <Col xs={24} md={8}>
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space vertical style={{ width: '100%' }}>
                   <Text strong>篩選功能:</Text>
                   <Text>• 全文搜索</Text>
                   <Text>• 下拉選單篩選</Text>
@@ -471,7 +471,7 @@ const UnifiedFormDemoPage: React.FC = () => {
                 </Space>
               </Col>
               <Col xs={24} md={8}>
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space vertical style={{ width: '100%' }}>
                   <Text strong>排序功能:</Text>
                   <Text>• 多欄位排序</Text>
                   <Text>• 升序/降序切換</Text>
@@ -480,7 +480,7 @@ const UnifiedFormDemoPage: React.FC = () => {
                 </Space>
               </Col>
               <Col xs={24} md={8}>
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space vertical style={{ width: '100%' }}>
                   <Text strong>其他功能:</Text>
                   <Text>• 數據導出 (CSV/JSON)</Text>
                   <Text>• 序號自動生成</Text>

@@ -95,13 +95,13 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
                 label="事件類型"
                 rules={[{ required: true, message: '請選擇事件類型' }]}
               >
-                <Select placeholder="選擇事件類型">
-                  {EVENT_TYPE_OPTIONS.map(opt => (
-                    <Select.Option key={opt.value} value={opt.value}>
-                      <Space>{EVENT_TYPE_ICONS[opt.value]}{opt.label}</Space>
-                    </Select.Option>
-                  ))}
-                </Select>
+                <Select
+                  placeholder="選擇事件類型"
+                  options={EVENT_TYPE_OPTIONS.map(opt => ({
+                    value: opt.value,
+                    label: <Space>{EVENT_TYPE_ICONS[opt.value]}{opt.label}</Space>,
+                  }))}
+                />
               </Form.Item>
             </Col>
             <Col span={12}>
@@ -110,13 +110,13 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
                 label="優先級"
                 rules={[{ required: true, message: '請選擇優先級' }]}
               >
-                <Select placeholder="選擇優先級">
-                  {PRIORITY_OPTIONS.map(opt => (
-                    <Select.Option key={opt.value} value={opt.value}>
-                      <span style={{ color: opt.color }}>{opt.label}</span>
-                    </Select.Option>
-                  ))}
-                </Select>
+                <Select
+                  placeholder="選擇優先級"
+                  options={PRIORITY_OPTIONS.map(opt => ({
+                    value: opt.value,
+                    label: <span style={{ color: opt.color }}>{opt.label}</span>,
+                  }))}
+                />
               </Form.Item>
             </Col>
           </Row>
@@ -159,7 +159,7 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
             </Col>
           </Row>
 
-          <Divider orientation="left" plain>
+          <Divider titlePlacement="left" plain>
             <Space><FileTextOutlined />關聯公文</Space>
           </Divider>
 
@@ -202,20 +202,24 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
               }
               optionLabelProp="label"
               status={documentSearchError ? 'warning' : undefined}
-            >
-              {documentOptions.map(doc => (
-                <Select.Option key={doc.id} value={doc.id} label={doc.doc_number}>
+              options={documentOptions.map(doc => ({
+                value: doc.id,
+                label: doc.doc_number,
+              }))}
+              optionRender={(option) => {
+                const doc = documentOptions.find(d => d.id === option.value);
+                return (
                   <div>
-                    <div style={{ fontWeight: 500 }}>{doc.doc_number}</div>
-                    {doc.subject && (
+                    <div style={{ fontWeight: 500 }}>{doc?.doc_number}</div>
+                    {doc?.subject && (
                       <div style={{ fontSize: 12, color: '#888', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 250 }}>
                         {doc.subject}
                       </div>
                     )}
                   </div>
-                </Select.Option>
-              ))}
-            </Select>
+                );
+              }}
+            />
           </Form.Item>
         </Form>
       </Spin>

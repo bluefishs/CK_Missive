@@ -31,6 +31,7 @@ import {
   CASE_NATURE_OPTIONS,
   STATUS_OPTIONS,
 } from './constants';
+import { parseCurrencyInput } from '../../../utils/format';
 
 const { Text } = Typography;
 const { Option } = Select;
@@ -197,8 +198,7 @@ export const CaseInfoTab: React.FC<CaseInfoTabProps> = ({
                     style={{ width: '100%' }}
                     placeholder="請輸入契約金額"
                     formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    parser={value => value?.replace(/\$\s?|(,*)/g, '') as any}
+                    parser={parseCurrencyInput}
                     addonBefore="NT$"
                   />
                 </Form.Item>
@@ -209,8 +209,7 @@ export const CaseInfoTab: React.FC<CaseInfoTabProps> = ({
                     style={{ width: '100%' }}
                     placeholder="請輸入得標金額"
                     formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    parser={value => value?.replace(/\$\s?|(,*)/g, '') as any}
+                    parser={parseCurrencyInput}
                     addonBefore="NT$"
                   />
                 </Form.Item>
@@ -255,58 +254,42 @@ export const CaseInfoTab: React.FC<CaseInfoTabProps> = ({
             </Row>
           </Form>
         ) : (
-          <Descriptions column={2} bordered size="small">
-            <Descriptions.Item label="案件名稱" span={2}>
+          <Descriptions column={2} bordered size="small" items={[
+            { key: '案件名稱', label: '案件名稱', span: 2, children: (
               <Text strong>{data.project_name}</Text>
-            </Descriptions.Item>
-            <Descriptions.Item label="年度">{data.year}年</Descriptions.Item>
-            <Descriptions.Item label="委託單位">{data.client_agency || '-'}</Descriptions.Item>
-            <Descriptions.Item label="契約文號">{data.contract_doc_number || '-'}</Descriptions.Item>
-            <Descriptions.Item label="專案編號">
-              {data.project_code ? <Text code>{data.project_code}</Text> : '-'}
-            </Descriptions.Item>
-            <Descriptions.Item label="案件類別">
+            ) },
+            { key: '年度', label: '年度', children: `${data.year}年` },
+            { key: '委託單位', label: '委託單位', children: data.client_agency || '-' },
+            { key: '契約文號', label: '契約文號', children: data.contract_doc_number || '-' },
+            { key: '專案編號', label: '專案編號', children: data.project_code ? <Text code>{data.project_code}</Text> : '-' },
+            { key: '案件類別', label: '案件類別', children: (
               <Tag color={getCategoryTagColor(data.category)}>
                 {getCategoryTagText(data.category)}
               </Tag>
-            </Descriptions.Item>
-            <Descriptions.Item label="案件性質">
+            ) },
+            { key: '案件性質', label: '案件性質', children: (
               <Tag color={getCaseNatureTagColor(data.case_nature)}>
                 {getCaseNatureTagText(data.case_nature)}
               </Tag>
-            </Descriptions.Item>
-            <Descriptions.Item label="契約金額">
-              {data.contract_amount ? `NT$ ${formatAmount(data.contract_amount)}` : '-'}
-            </Descriptions.Item>
-            <Descriptions.Item label="得標金額">
-              {data.winning_amount ? `NT$ ${formatAmount(data.winning_amount)}` : '-'}
-            </Descriptions.Item>
-            <Descriptions.Item label="開始日期">
-              {data.start_date ? dayjs(data.start_date).format('YYYY/MM/DD') : '-'}
-            </Descriptions.Item>
-            <Descriptions.Item label="結束日期">
-              {data.end_date ? dayjs(data.end_date).format('YYYY/MM/DD') : '-'}
-            </Descriptions.Item>
-            <Descriptions.Item label="執行狀態">
+            ) },
+            { key: '契約金額', label: '契約金額', children: data.contract_amount ? `NT$ ${formatAmount(data.contract_amount)}` : '-' },
+            { key: '得標金額', label: '得標金額', children: data.winning_amount ? `NT$ ${formatAmount(data.winning_amount)}` : '-' },
+            { key: '開始日期', label: '開始日期', children: data.start_date ? dayjs(data.start_date).format('YYYY/MM/DD') : '-' },
+            { key: '結束日期', label: '結束日期', children: data.end_date ? dayjs(data.end_date).format('YYYY/MM/DD') : '-' },
+            { key: '執行狀態', label: '執行狀態', children: (
               <Tag color={getStatusTagColor(data.status)}>
                 {getStatusTagText(data.status)}
               </Tag>
-            </Descriptions.Item>
-            <Descriptions.Item label="完成進度">
-              {data.progress !== undefined ? `${data.progress}%` : '-'}
-            </Descriptions.Item>
-            <Descriptions.Item label="專案路徑" span={2}>
-              {data.project_path ? <Text type="secondary">{data.project_path}</Text> : '-'}
-            </Descriptions.Item>
-            <Descriptions.Item label="備註" span={2}>
-              {data.notes || '-'}
-            </Descriptions.Item>
-            <Descriptions.Item label="派工管理" span={2}>
+            ) },
+            { key: '完成進度', label: '完成進度', children: data.progress !== undefined ? `${data.progress}%` : '-' },
+            { key: '專案路徑', label: '專案路徑', span: 2, children: data.project_path ? <Text type="secondary">{data.project_path}</Text> : '-' },
+            { key: '備註', label: '備註', span: 2, children: data.notes || '-' },
+            { key: '派工管理', label: '派工管理', span: 2, children: (
               <Tag color={data.has_dispatch_management ? 'green' : 'default'}>
                 {data.has_dispatch_management ? '已啟用' : '未啟用'}
               </Tag>
-            </Descriptions.Item>
-          </Descriptions>
+            ) },
+          ]} />
         )}
       </Card>
 

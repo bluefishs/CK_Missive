@@ -288,7 +288,7 @@ const LoginPage: React.FC = () => {
         {/* 錯誤訊息 */}
         {error && (
           <Alert
-            message={error}
+            title={error}
             type="error"
             showIcon
             style={{ marginBottom: '20px' }}

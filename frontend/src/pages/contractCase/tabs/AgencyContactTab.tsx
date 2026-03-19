@@ -82,7 +82,7 @@ export const AgencyContactTab: React.FC<AgencyContactTabProps> = ({
       title: '聯絡電話',
       key: 'phones',
       render: (_: unknown, record: ProjectAgencyContact) => (
-        <Space direction="vertical" size={0}>
+        <Space vertical size={0}>
           {record.phone && <span><PhoneOutlined /> {record.phone}</span>}
           {record.mobile && <span><PhoneOutlined /> {record.mobile}</span>}
           {!record.phone && !record.mobile && '-'}

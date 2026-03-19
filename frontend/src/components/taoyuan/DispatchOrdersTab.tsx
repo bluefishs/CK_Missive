@@ -257,7 +257,7 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
               title={isMobile ? '總數' : '總派工單數'}
               value={stats.total}
               prefix={<SendOutlined />}
-              valueStyle={{ fontSize: isMobile ? 18 : 24 }}
+              styles={{ content: { fontSize: isMobile ? 18 : 24 } }}
             />
           </Card>
         </Col>
@@ -266,7 +266,7 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
             <Statistic
               title={isMobile ? '公文' : '關聯公文'}
               value={stats.linkedDocs}
-              valueStyle={{ color: '#1890ff', fontSize: isMobile ? 18 : 24 }}
+              styles={{ content: { color: '#1890ff', fontSize: isMobile ? 18 : 24 } }}
               prefix={<LinkOutlined />}
             />
           </Card>
@@ -276,7 +276,7 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
             <Statistic
               title={isMobile ? '工程' : '關聯工程'}
               value={stats.linkedProjects}
-              valueStyle={{ color: '#52c41a', fontSize: isMobile ? 18 : 24 }}
+              styles={{ content: { color: '#52c41a', fontSize: isMobile ? 18 : 24 } }}
               prefix={<LinkOutlined />}
             />
           </Card>
@@ -286,7 +286,7 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
             <Statistic
               title={isMobile ? '類別' : '作業類別數'}
               value={stats.workTypes}
-              valueStyle={{ fontSize: isMobile ? 18 : 24 }}
+              styles={{ content: { fontSize: isMobile ? 18 : 24 } }}
             />
           </Card>
         </Col>

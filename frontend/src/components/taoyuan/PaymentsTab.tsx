@@ -206,7 +206,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) =
               value={totalBudget}
               prefix={<DollarOutlined />}
               precision={0}
-              valueStyle={{ color: '#262626', fontSize: isMobile ? 16 : 24 }}
+              styles={{ content: { color: '#262626', fontSize: isMobile ? 16 : 24 } }}
             />
           </Card>
         </Col>
@@ -216,7 +216,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) =
               title={isMobile ? '累計派工' : '累計派工金額'}
               value={totalDispatched}
               precision={0}
-              valueStyle={{ color: '#1890ff', fontSize: isMobile ? 16 : 24 }}
+              styles={{ content: { color: '#1890ff', fontSize: isMobile ? 16 : 24 } }}
             />
           </Card>
         </Col>
@@ -226,7 +226,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) =
               title={isMobile ? '剩餘' : '剩餘金額'}
               value={totalRemaining}
               precision={0}
-              valueStyle={{ color: totalRemaining < 1000000 ? '#faad14' : '#52c41a', fontSize: isMobile ? 16 : 24 }}
+              styles={{ content: { color: totalRemaining < 1000000 ? '#faad14' : '#52c41a', fontSize: isMobile ? 16 : 24 } }}
             />
           </Card>
         </Col>
@@ -236,7 +236,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) =
               title={isMobile ? '已請款' : '已請款金額'}
               value={totalClaimed}
               precision={0}
-              valueStyle={{ color: '#fa541c', fontSize: isMobile ? 16 : 24 }}
+              styles={{ content: { color: '#fa541c', fontSize: isMobile ? 16 : 24 } }}
             />
           </Card>
         </Col>
@@ -246,7 +246,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) =
               title="派工單數"
               value={items.length}
               suffix="筆"
-              valueStyle={{ fontSize: isMobile ? 16 : 24 }}
+              styles={{ content: { fontSize: isMobile ? 16 : 24 } }}
             />
           </Card>
         </Col>
@@ -256,7 +256,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({ contractProjectId }) =
               title="請款率"
               value={totalBudget > 0 ? ((totalClaimed / totalBudget) * 100).toFixed(1) : 0}
               suffix="%"
-              valueStyle={{ color: '#722ed1', fontSize: isMobile ? 16 : 24 }}
+              styles={{ content: { color: '#722ed1', fontSize: isMobile ? 16 : 24 } }}
             />
           </Card>
         </Col>

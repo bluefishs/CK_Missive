@@ -77,7 +77,7 @@ const RegisterPage: React.FC = () => {
             }}
           >
             <Space
-              direction="vertical"
+              vertical
               size="large"
               style={{ width: '100%', textAlign: 'center' }}
             >
@@ -93,7 +93,7 @@ const RegisterPage: React.FC = () => {
               <Alert
                 type="success"
                 showIcon
-                message="帳號創建成功"
+                title="帳號創建成功"
                 description={
                   <div>
                     <p>您的帳號已成功建立並送出審核申請。</p>
@@ -143,7 +143,7 @@ const RegisterPage: React.FC = () => {
           }}
         >
           <Space
-            direction="vertical"
+            vertical
             size="large"
             style={{ width: '100%' }}
           >
@@ -333,7 +333,7 @@ const RegisterPage: React.FC = () => {
             <Alert
               type="info"
               showIcon
-              message="帳號審核說明"
+              title="帳號審核說明"
               description="為了確保系統安全，所有新註冊的帳號都需要經過管理員審核。審核通過後，您將收到電子郵件通知。"
               style={{ marginTop: 16 }}
             />

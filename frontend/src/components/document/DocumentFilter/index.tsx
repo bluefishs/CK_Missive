@@ -98,7 +98,7 @@ const DocumentFilterComponent: React.FC<DocumentFilterProps> = ({
   ).length;
 
   return (
-    <Card style={{ marginBottom: isMobile ? 12 : 16 }} size={isMobile ? 'small' : 'default'}>
+    <Card style={{ marginBottom: isMobile ? 12 : 16 }} size={isMobile ? 'small' : 'medium'}>
       {/* 標題列 */}
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: isMobile ? 12 : 16 }}>
         <SearchOutlined style={{ marginRight: 8 }} />

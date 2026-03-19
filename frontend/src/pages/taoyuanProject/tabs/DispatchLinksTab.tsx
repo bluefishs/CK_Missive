@@ -100,17 +100,11 @@ export const DispatchLinksTab: React.FC<DispatchLinksTabProps> = ({
           dataSource={linkedDispatches}
           renderItem={(dispatch: ProjectDispatchLink) => (
             <Card size="small" style={{ marginBottom: 12 }}>
-              <Descriptions size="small" column={2}>
-                <Descriptions.Item label="派工單號">
-                  <Tag color="blue">{dispatch.dispatch_no}</Tag>
-                </Descriptions.Item>
-                <Descriptions.Item label="作業類別">
-                  {dispatch.work_type || '-'}
-                </Descriptions.Item>
-                <Descriptions.Item label="工程名稱" span={2}>
-                  {dispatch.project_name || '-'}
-                </Descriptions.Item>
-              </Descriptions>
+              <Descriptions size="small" column={2} items={[
+                { key: '派工單號', label: '派工單號', children: <Tag color="blue">{dispatch.dispatch_no}</Tag> },
+                { key: '作業類別', label: '作業類別', children: dispatch.work_type || '-' },
+                { key: '工程名稱', label: '工程名稱', span: 2, children: dispatch.project_name || '-' },
+              ]} />
               <Space style={{ marginTop: 8 }}>
                 <Button
                   type="link"

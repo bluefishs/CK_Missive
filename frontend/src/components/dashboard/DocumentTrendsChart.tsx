@@ -9,7 +9,7 @@
  * @date 2026-02-07
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React from 'react';
 import { Card, Spin, Empty } from 'antd';
 import { LineChartOutlined } from '@ant-design/icons';
 import {
@@ -22,11 +22,12 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
+import { useQuery } from '@tanstack/react-query';
 
 import { documentsApi } from '../../api/documentsApi';
 import type { DocumentTrendItem } from '../../types/api';
 import { useResponsive } from '../../hooks';
-import { logger } from '../../services/logger';
+// logger available for debug: import { logger } from '../../services/logger';
 
 /** 圖表高度依裝置類型區分 */
 const CHART_HEIGHTS = {
@@ -50,31 +51,21 @@ const LINE_COLORS = {
 export const DocumentTrendsChart: React.FC = () => {
   const { isMobile, isTablet, responsiveValue } = useResponsive();
 
-  const [trends, setTrends] = useState<DocumentTrendItem[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const { data: trends = [], isLoading: loading } = useQuery<DocumentTrendItem[]>({
+    queryKey: ['document-trends'],
+    queryFn: async () => {
+      const response = await documentsApi.getDocumentTrends();
+      return response.trends;
+    },
+    staleTime: 5 * 60 * 1000,
+    meta: { errorMessage: '取得公文趨勢資料失敗' },
+  });
 
   const chartHeight = responsiveValue<number>({
     mobile: CHART_HEIGHTS.mobile,
     tablet: CHART_HEIGHTS.tablet,
     desktop: CHART_HEIGHTS.desktop,
   }) ?? CHART_HEIGHTS.desktop;
-
-  const fetchTrends = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await documentsApi.getDocumentTrends();
-      setTrends(response.trends);
-    } catch (error) {
-      logger.error('取得公文趨勢資料失敗:', error);
-      // 保留現有資料，不清空
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchTrends();
-  }, [fetchTrends]);
 
   const renderChart = () => {
     if (!loading && trends.length === 0) {

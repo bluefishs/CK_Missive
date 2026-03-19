@@ -121,12 +121,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         {isMobile && (
           <Drawer
             placement="left"
-            width={256}
             open={drawerVisible}
             onClose={() => setDrawerVisible(false)}
             destroyOnClose
             aria-label="導覽選單"
             styles={{
+              wrapper: { width: 256 },
               body: { padding: 0, background: '#001529' },
               header: { display: 'none' },
             }}
@@ -159,7 +159,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           {/* Email 驗證提醒 Banner */}
           {showEmailVerificationBanner && (
             <Alert
-              message="您的 Email 尚未驗證"
+              title="您的 Email 尚未驗證"
               description="部分功能可能受限。請檢查您的信箱並點擊驗證連結，或點擊按鈕重新發送驗證信。"
               type="warning"
               showIcon

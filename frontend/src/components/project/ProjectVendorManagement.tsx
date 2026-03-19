@@ -3,10 +3,7 @@ import {
   Modal,
   Table,
   Button,
-  Select,
   Form,
-  DatePicker,
-  InputNumber,
   App,
   Space,
   Tag,
@@ -32,8 +29,7 @@ import { apiClient } from '../../api/client';
 import { API_ENDPOINTS } from '../../api/endpoints';
 import { logger } from '../../services/logger';
 import type { Vendor } from '../../types/api';
-
-const { Option } = Select;
+import VendorAssociationForm from './VendorAssociationForm';
 
 interface ProjectVendorAssociation {
   project_id: number;
@@ -68,11 +64,34 @@ interface ProjectVendorManagementProps {
   onClose: () => void;
 }
 
+const getStatusColor = (status?: string) => {
+  switch (status) {
+    case 'active': return 'processing';
+    case 'completed': return 'success';
+    case 'inactive': return 'warning';
+    case 'cancelled': return 'error';
+    default: return 'default';
+  }
+};
+
+const getRoleColor = (role?: string) => {
+  switch (role) {
+    case '主承包商': return 'red';
+    case '分包商': return 'orange';
+    case '供應商': return 'green';
+    case '顧問': return 'blue';
+    case '監造': return 'purple';
+    default: return 'default';
+  }
+};
+
+const formatAmount = (amount?: number) => {
+  if (!amount) return '-';
+  return new Intl.NumberFormat('zh-TW').format(amount);
+};
+
 const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
-  projectId,
-  projectName,
-  visible,
-  onClose,
+  projectId, projectName, visible, onClose,
 }) => {
   const { message } = App.useApp();
   const queryClient = useQueryClient();
@@ -80,13 +99,11 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
   const [editingAssociation, setEditingAssociation] = useState<ProjectVendorAssociation | null>(null);
   const [form] = Form.useForm();
 
-  // 載入專案廠商關聯
   const { data: associations = [], isLoading: loading } = useQuery({
     queryKey: ['project-vendor-associations', projectId],
     queryFn: async () => {
       const data = await apiClient.post<{ associations: ProjectVendorAssociation[]; total: number }>(
-        API_ENDPOINTS.PROJECT_VENDORS.PROJECT_LIST(projectId),
-        {}
+        API_ENDPOINTS.PROJECT_VENDORS.PROJECT_LIST(projectId), {}
       );
       return data.associations || [];
     },
@@ -95,14 +112,10 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
     retry: 1,
   });
 
-  // 載入可選廠商
   const { data: vendors = [] } = useQuery({
     queryKey: ['vendor-list-for-project'],
     queryFn: async () => {
-      const data = await apiClient.post<{ items: Vendor[] }>(
-        API_ENDPOINTS.VENDORS.LIST,
-        { page: 1, limit: 100 }
-      );
+      const data = await apiClient.post<{ items: Vendor[] }>(API_ENDPOINTS.VENDORS.LIST, { page: 1, limit: 100 });
       return data.items || [];
     },
     enabled: visible,
@@ -114,11 +127,9 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
     queryClient.invalidateQueries({ queryKey: ['project-vendor-associations', projectId] });
   }, [queryClient, projectId]);
 
-  // 新增或編輯關聯
   const handleSubmit = async (values: ProjectVendorFormData) => {
     try {
       if (editingAssociation) {
-        // 更新關聯
         await apiClient.post(
           API_ENDPOINTS.PROJECT_VENDORS.UPDATE(projectId, editingAssociation.vendor_id),
           {
@@ -130,21 +141,14 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
           }
         );
       } else {
-        // 新增關聯
-        await apiClient.post(
-          API_ENDPOINTS.PROJECT_VENDORS.CREATE,
-          {
-            project_id: projectId,
-            vendor_id: values.vendor_id,
-            role: values.role,
-            contract_amount: values.contract_amount,
-            start_date: values.start_date ? dayjs(values.start_date).format('YYYY-MM-DD') : undefined,
-            end_date: values.end_date ? dayjs(values.end_date).format('YYYY-MM-DD') : undefined,
-            status: values.status || 'active',
-          }
-        );
+        await apiClient.post(API_ENDPOINTS.PROJECT_VENDORS.CREATE, {
+          project_id: projectId, vendor_id: values.vendor_id, role: values.role,
+          contract_amount: values.contract_amount,
+          start_date: values.start_date ? dayjs(values.start_date).format('YYYY-MM-DD') : undefined,
+          end_date: values.end_date ? dayjs(values.end_date).format('YYYY-MM-DD') : undefined,
+          status: values.status || 'active',
+        });
       }
-
       message.success(editingAssociation ? '關聯更新成功' : '關聯建立成功');
       setFormVisible(false);
       form.resetFields();
@@ -156,13 +160,9 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
     }
   };
 
-  // 刪除關聯
   const handleDelete = async (vendorId: number) => {
     try {
-      await apiClient.post(
-        API_ENDPOINTS.PROJECT_VENDORS.DELETE(projectId, vendorId),
-        {}
-      );
+      await apiClient.post(API_ENDPOINTS.PROJECT_VENDORS.DELETE(projectId, vendorId), {});
       message.success('關聯刪除成功');
       loadAssociations();
     } catch (error) {
@@ -171,168 +171,83 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
     }
   };
 
-  // 開啟編輯
   const handleEdit = (association: ProjectVendorAssociation) => {
     setEditingAssociation(association);
-    const formValues = {
+    form.setFieldsValue({
       vendor_id: association.vendor_id,
       role: association.role,
       contract_amount: association.contract_amount,
       start_date: association.start_date ? dayjs(association.start_date) : undefined,
       end_date: association.end_date ? dayjs(association.end_date) : undefined,
       status: association.status,
-    };
-    form.setFieldsValue(formValues);
+    });
     setFormVisible(true);
   };
 
-  // 狀態顏色
-  const getStatusColor = (status?: string) => {
-    switch (status) {
-      case 'active': return 'processing';
-      case 'completed': return 'success';
-      case 'inactive': return 'warning';
-      case 'cancelled': return 'error';
-      default: return 'default';
-    }
-  };
-
-  // 角色顏色
-  const getRoleColor = (role?: string) => {
-    switch (role) {
-      case '主承包商': return 'red';
-      case '分包商': return 'orange';
-      case '供應商': return 'green';
-      case '顧問': return 'blue';
-      case '監造': return 'purple';
-      default: return 'default';
-    }
-  };
-
-  // 格式化金額
-  const formatAmount = (amount?: number) => {
-    if (!amount) return '-';
-    return new Intl.NumberFormat('zh-TW').format(amount);
-  };
-
-  // 獲取未關聯的廠商
   const getAvailableVendors = () => {
     const associatedVendorIds = associations.map(a => a.vendor_id);
-    return vendors.filter(vendor => 
-      editingAssociation ? 
-        (vendor.id === editingAssociation.vendor_id || !associatedVendorIds.includes(vendor.id)) :
-        !associatedVendorIds.includes(vendor.id)
+    return vendors.filter(vendor =>
+      editingAssociation
+        ? (vendor.id === editingAssociation.vendor_id || !associatedVendorIds.includes(vendor.id))
+        : !associatedVendorIds.includes(vendor.id)
     );
   };
 
   const columns: ColumnsType<ProjectVendorAssociation> = [
     {
-      title: '廠商資訊',
-      key: 'vendor_info',
+      title: '廠商資訊', key: 'vendor_info',
       render: (_, record) => (
-        <Space direction="vertical" size="small">
+        <Space vertical size="small">
           <strong>{record.vendor_name}</strong>
-          {record.vendor_code && (
-            <small style={{ color: '#666' }}>統編: {record.vendor_code}</small>
-          )}
-          {record.vendor_business_type && (
-            <Tag>{record.vendor_business_type}</Tag>
-          )}
+          {record.vendor_code && <small style={{ color: '#666' }}>統編: {record.vendor_code}</small>}
+          {record.vendor_business_type && <Tag>{record.vendor_business_type}</Tag>}
         </Space>
       ),
     },
     {
-      title: '聯絡資訊',
-      key: 'contact',
+      title: '聯絡資訊', key: 'contact',
       render: (_, record) => (
-        <Space direction="vertical" size="small">
-          {record.vendor_contact_person && (
-            <span><UserOutlined /> {record.vendor_contact_person}</span>
-          )}
-          {record.vendor_phone && (
-            <span><PhoneOutlined /> {record.vendor_phone}</span>
-          )}
+        <Space vertical size="small">
+          {record.vendor_contact_person && <span><UserOutlined /> {record.vendor_contact_person}</span>}
+          {record.vendor_phone && <span><PhoneOutlined /> {record.vendor_phone}</span>}
         </Space>
       ),
     },
     {
-      title: '角色',
-      dataIndex: 'role',
-      key: 'role',
-      render: (role: string) => (
-        role ? <Tag color={getRoleColor(role)}>{role}</Tag> : <span style={{ color: '#999' }}>未設定</span>
-      ),
+      title: '角色', dataIndex: 'role', key: 'role',
+      render: (role: string) => role ? <Tag color={getRoleColor(role)}>{role}</Tag> : <span style={{ color: '#999' }}>未設定</span>,
     },
     {
-      title: '合約金額',
-      dataIndex: 'contract_amount',
-      key: 'contract_amount',
-      render: (amount: number) => (
-        <span>
-          <DollarOutlined style={{ marginRight: 4 }} />
-          ${formatAmount(amount)}
-        </span>
-      ),
+      title: '合約金額', dataIndex: 'contract_amount', key: 'contract_amount',
+      render: (amount: number) => <span><DollarOutlined style={{ marginRight: 4 }} />${formatAmount(amount)}</span>,
     },
     {
-      title: '合作期間',
-      key: 'duration',
+      title: '合作期間', key: 'duration',
       render: (_, record) => (
-        <Space direction="vertical" size="small">
-          {record.start_date && (
-            <span>
-              <CalendarOutlined style={{ marginRight: 4 }} />
-              開始: {dayjs(record.start_date).format('YYYY-MM-DD')}
-            </span>
-          )}
-          {record.end_date && (
-            <span>
-              <CalendarOutlined style={{ marginRight: 4 }} />
-              結束: {dayjs(record.end_date).format('YYYY-MM-DD')}
-            </span>
-          )}
+        <Space vertical size="small">
+          {record.start_date && <span><CalendarOutlined style={{ marginRight: 4 }} />開始: {dayjs(record.start_date).format('YYYY-MM-DD')}</span>}
+          {record.end_date && <span><CalendarOutlined style={{ marginRight: 4 }} />結束: {dayjs(record.end_date).format('YYYY-MM-DD')}</span>}
         </Space>
       ),
     },
     {
-      title: '狀態',
-      dataIndex: 'status',
-      key: 'status',
+      title: '狀態', dataIndex: 'status', key: 'status',
       render: (status: string) => (
         <Tag color={getStatusColor(status)}>
-          {status === 'active' ? '合作中' : 
-           status === 'completed' ? '已完成' :
-           status === 'inactive' ? '暫停' :
-           status === 'cancelled' ? '已取消' : status}
+          {status === 'active' ? '合作中' : status === 'completed' ? '已完成' :
+           status === 'inactive' ? '暫停' : status === 'cancelled' ? '已取消' : status}
         </Tag>
       ),
     },
     {
-      title: '操作',
-      key: 'action',
+      title: '操作', key: 'action',
       render: (_, record) => (
         <Space>
-          <Button
-            type="link"
-            icon={<EditOutlined />}
-            onClick={() => handleEdit(record)}
+          <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(record)}>編輯</Button>
+          <Popconfirm title="確定要刪除此關聯嗎？" description="刪除後無法恢復。"
+            onConfirm={() => handleDelete(record.vendor_id)} okText="確定" cancelText="取消"
           >
-            編輯
-          </Button>
-          <Popconfirm
-            title="確定要刪除此關聯嗎？"
-            description="刪除後無法恢復。"
-            onConfirm={() => handleDelete(record.vendor_id)}
-            okText="確定"
-            cancelText="取消"
-          >
-            <Button
-              type="link"
-              danger
-              icon={<DeleteOutlined />}
-            >
-              刪除
-            </Button>
+            <Button type="link" danger icon={<DeleteOutlined />}>刪除</Button>
           </Popconfirm>
         </Space>
       ),
@@ -341,180 +256,42 @@ const ProjectVendorManagement: React.FC<ProjectVendorManagementProps> = ({
 
   return (
     <>
-      <Modal
-        title={`專案廠商管理 - ${projectName}`}
-        open={visible}
-        onCancel={onClose}
-        footer={null}
-        width={1200}
-      >
+      <Modal title={`專案廠商管理 - ${projectName}`} open={visible} onCancel={onClose} footer={null} width={1200}>
         <Card style={{ marginBottom: 16 }}>
           <Row gutter={16}>
+            <Col span={8}><Statistic title="關聯廠商數" value={associations.length} /></Col>
             <Col span={8}>
-              <Statistic title="關聯廠商數" value={associations.length} />
-            </Col>
-            <Col span={8}>
-              <Statistic 
-                title="合約總金額" 
+              <Statistic title="合約總金額"
                 value={associations.reduce((sum, a) => sum + (a.contract_amount || 0), 0)}
                 formatter={value => `$${formatAmount(Number(value))}`}
               />
             </Col>
             <Col span={8}>
-              <Statistic 
-                title="進行中廠商" 
-                value={associations.filter(a => a.status === 'active').length}
-              />
+              <Statistic title="進行中廠商" value={associations.filter(a => a.status === 'active').length} />
             </Col>
           </Row>
         </Card>
 
         <div style={{ marginBottom: 16, textAlign: 'right' }}>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => {
-              setEditingAssociation(null);
-              form.resetFields();
-              setFormVisible(true);
-            }}
+          <Button type="primary" icon={<PlusOutlined />}
+            onClick={() => { setEditingAssociation(null); form.resetFields(); setFormVisible(true); }}
             disabled={getAvailableVendors().length === 0}
           >
             新增廠商關聯
           </Button>
         </div>
 
-        <Table
-          columns={columns}
-          dataSource={associations}
-          rowKey="vendor_id"
-          loading={loading}
-          pagination={false}
-          scroll={{ y: 400 }}
-        />
+        <Table columns={columns} dataSource={associations} rowKey="vendor_id" loading={loading} pagination={false} scroll={{ y: 400 }} />
       </Modal>
 
-      <Modal
-        title={editingAssociation ? '編輯廠商關聯' : '新增廠商關聯'}
-        open={formVisible}
-        onCancel={() => {
-          setFormVisible(false);
-          setEditingAssociation(null);
-          form.resetFields();
-        }}
-        footer={null}
-        width={600}
-        forceRender
-      >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSubmit}
-        >
-          <Form.Item
-            name="vendor_id"
-            label="選擇廠商"
-            rules={[{ required: true, message: '請選擇廠商' }]}
-          >
-            <Select
-              placeholder="請選擇廠商"
-              disabled={!!editingAssociation}
-              showSearch
-              optionFilterProp="children"
-            >
-              {getAvailableVendors().map(vendor => (
-                <Option key={vendor.id} value={vendor.id}>
-                  <Space>
-                    <strong>{vendor.vendor_name}</strong>
-                    {vendor.vendor_code && (
-                      <small style={{ color: '#666' }}>({vendor.vendor_code})</small>
-                    )}
-                    {vendor.business_type && (
-                      <Tag style={{ fontSize: '10px' }}>{vendor.business_type}</Tag>
-                    )}
-                  </Space>
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            name="role"
-            label="廠商角色"
-          >
-            <Select placeholder="請選擇角色">
-              <Option value="主承包商">主承包商</Option>
-              <Option value="分包商">分包商</Option>
-              <Option value="供應商">供應商</Option>
-              <Option value="顧問">顧問</Option>
-              <Option value="監造">監造</Option>
-              <Option value="其他">其他</Option>
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            name="contract_amount"
-            label="合約金額"
-          >
-            <InputNumber
-              placeholder="請輸入合約金額"
-              min={0}
-              style={{ width: '100%' }}
-              formatter={value => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Ant Design InputNumber parser expects string | undefined return
-              parser={value => value?.replace(/\$\s?|(,*)/g, '') as any}
-            />
-          </Form.Item>
-
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="start_date"
-                label="合作開始日期"
-              >
-                <DatePicker style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="end_date"
-                label="合作結束日期"
-              >
-                <DatePicker style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Form.Item
-            name="status"
-            label="合作狀態"
-          >
-            <Select placeholder="請選擇狀態" defaultValue="active">
-              <Option value="active">合作中</Option>
-              <Option value="completed">已完成</Option>
-              <Option value="inactive">暫停</Option>
-              <Option value="cancelled">已取消</Option>
-            </Select>
-          </Form.Item>
-
-          <Form.Item style={{ textAlign: 'right', marginBottom: 0 }}>
-            <Space>
-              <Button 
-                onClick={() => {
-                  setFormVisible(false);
-                  setEditingAssociation(null);
-                  form.resetFields();
-                }}
-              >
-                取消
-              </Button>
-              <Button type="primary" htmlType="submit">
-                {editingAssociation ? '更新' : '建立'}
-              </Button>
-            </Space>
-          </Form.Item>
-        </Form>
-      </Modal>
+      <VendorAssociationForm
+        visible={formVisible}
+        editing={!!editingAssociation}
+        form={form}
+        availableVendors={getAvailableVendors()}
+        onSubmit={handleSubmit}
+        onCancel={() => { setFormVisible(false); setEditingAssociation(null); form.resetFields(); }}
+      />
     </>
   );
 };

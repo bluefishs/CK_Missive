@@ -17,7 +17,6 @@ import type {
 } from '../../types/navigation';
 import { defaultFormLabels } from '../../types/navigation';
 
-const { Option } = Select;
 const { TextArea } = Input;
 
 export interface NavigationItemFormProps {
@@ -129,13 +128,14 @@ const NavigationItemForm: React.FC<NavigationItemFormProps> = ({
           </Col>
           <Col span={12}>
             <Form.Item name="icon" label={labels.icon}>
-              <Select placeholder={`選擇${labels.icon}`} allowClear>
-                {iconOptions.map(icon => (
-                  <Option key={icon.value} value={icon.value}>
-                    {icon.icon} {icon.label}
-                  </Option>
-                ))}
-              </Select>
+              <Select
+                placeholder={`選擇${labels.icon}`}
+                allowClear
+                options={iconOptions.map(icon => ({
+                  value: icon.value,
+                  label: <>{icon.icon} {icon.label}</>,
+                }))}
+              />
             </Form.Item>
           </Col>
         </Row>
@@ -143,13 +143,14 @@ const NavigationItemForm: React.FC<NavigationItemFormProps> = ({
         <Row gutter={16}>
           <Col span={8}>
             <Form.Item name="parent_id" label={labels.parent}>
-              <Select placeholder={`選擇${labels.parent}`} allowClear>
-                {parentOptions.map(option => (
-                  <Option key={option.value} value={option.value}>
-                    {option.label}
-                  </Option>
-                ))}
-              </Select>
+              <Select
+                placeholder={`選擇${labels.parent}`}
+                allowClear
+                options={parentOptions.map(option => ({
+                  value: option.value,
+                  label: option.label,
+                }))}
+              />
             </Form.Item>
           </Col>
           <Col span={8}>
@@ -182,10 +183,12 @@ const NavigationItemForm: React.FC<NavigationItemFormProps> = ({
           {showTargetField && (
             <Col span={8}>
               <Form.Item name="target" label={labels.target} rules={[{ required: true }]}>
-                <Select>
-                  <Option value="_self">當前頁面</Option>
-                  <Option value="_blank">新頁面</Option>
-                </Select>
+                <Select
+                  options={[
+                    { value: '_self', label: '當前頁面' },
+                    { value: '_blank', label: '新頁面' },
+                  ]}
+                />
               </Form.Item>
             </Col>
           )}
@@ -203,15 +206,19 @@ const NavigationItemForm: React.FC<NavigationItemFormProps> = ({
 
         {showPermissionField && permissionGroups.length > 0 && (
           <Form.Item name="permission_required" label={labels.permission}>
-            <Select placeholder="選擇所需權限或留空" allowClear showSearch optionFilterProp="children">
-              {permissionGroups.map(group => (
-                <Select.OptGroup key={group.label} label={group.label}>
-                  {group.options.map(opt => (
-                    <Option key={opt.value} value={opt.value}>{opt.label}</Option>
-                  ))}
-                </Select.OptGroup>
-              ))}
-            </Select>
+            <Select
+              placeholder="選擇所需權限或留空"
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              options={permissionGroups.map(group => ({
+                label: group.label,
+                options: group.options.map(opt => ({
+                  value: opt.value,
+                  label: opt.label,
+                })),
+              }))}
+            />
           </Form.Item>
         )}
 

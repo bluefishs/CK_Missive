@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { Form, Upload, Card, List, Progress, Alert, Empty } from 'antd';
+import { Form, Upload, Card, Progress, Alert, Empty, Flex, Typography } from 'antd';
 import type { UploadFile, UploadChangeParam, UploadProps } from 'antd/es/upload';
 import {
   InboxOutlined,
@@ -91,19 +91,19 @@ export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
             </span>
           }
         >
-          <List
-            size="small"
-            dataSource={fileList}
-            renderItem={(file: UploadFile) => (
-              <List.Item>
-                <List.Item.Meta
-                  avatar={<FileOutlined style={{ color: '#1890ff' }} />}
-                  title={file.name}
-                  description={file.size ? `${(file.size / 1024).toFixed(1)} KB` : ''}
-                />
-              </List.Item>
-            )}
-          />
+          <Flex vertical>
+            {fileList.map((file: UploadFile) => (
+              <Flex key={file.uid} align="center" gap={12} style={{ padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>
+                <FileOutlined style={{ color: '#1890ff' }} />
+                <div>
+                  <Typography.Text strong>{file.name}</Typography.Text>
+                  {file.size && (
+                    <div><Typography.Text type="secondary" style={{ fontSize: 12 }}>{(file.size / 1024).toFixed(1)} KB</Typography.Text></div>
+                  )}
+                </div>
+              </Flex>
+            ))}
+          </Flex>
           <p style={{ color: '#999', fontSize: 12, marginTop: 8, marginBottom: 0 }}>
             點擊下方「儲存變更」按鈕後開始上傳
           </p>
@@ -153,7 +153,7 @@ export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
           closable
           onClose={onClearErrors}
           style={{ marginTop: 16 }}
-          message="部分檔案上傳失敗"
+          title="部分檔案上傳失敗"
           description={
             <ul style={{ margin: 0, paddingLeft: 20 }}>
               {uploadErrors.map((err, idx) => (

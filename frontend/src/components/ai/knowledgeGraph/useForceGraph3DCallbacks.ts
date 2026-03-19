@@ -4,16 +4,36 @@
  * 3D 版本使用 Three.js Sprite 渲染節點標籤，
  * 節點顏色/大小/高亮邏輯與 2D 版共用。
  *
- * @version 1.0.0
+ * three / three-spritetext 使用 dynamic import，
+ * 僅在 3D 模式啟用時才載入 (~600KB)。
+ *
+ * @version 2.0.0 - lazy-load three
  * @created 2026-03-10
  */
 
-import { useCallback } from 'react';
-import * as THREE from 'three';
-import SpriteText from 'three-spritetext';
+import { useCallback, useRef, useEffect } from 'react';
 import { getNodeConfig } from '../../../config/graphNodeConfig';
 import type { ForceNode, ForceLink } from './types';
 import { EDGE_COLORS, DEFAULT_EDGE_COLOR, truncate, getNodeId } from './types';
+
+// Lazy-loaded modules
+let THREE: typeof import('three') | null = null;
+let SpriteText: (typeof import('three-spritetext'))['default'] | null = null;
+let loadPromise: Promise<void> | null = null;
+
+async function ensureThreeLoaded(): Promise<void> {
+  if (THREE && SpriteText) return;
+  if (!loadPromise) {
+    loadPromise = Promise.all([
+      import('three'),
+      import('three-spritetext'),
+    ]).then(([threeModule, spriteModule]) => {
+      THREE = threeModule;
+      SpriteText = spriteModule.default;
+    });
+  }
+  await loadPromise;
+}
 
 export interface UseForceGraph3DCallbacksParams {
   mergedConfigs: Record<string, { color: string; radius: number; visible: boolean }>;
@@ -21,6 +41,7 @@ export interface UseForceGraph3DCallbacksParams {
   hoveredNodeId: string | null;
   searchMatchIds: Set<string> | null;
   neighborMap: Map<string, Set<string>>;
+  enabled?: boolean;
 }
 
 export function useForceGraph3DCallbacks({
@@ -29,7 +50,17 @@ export function useForceGraph3DCallbacks({
   hoveredNodeId,
   searchMatchIds,
   neighborMap,
+  enabled = true,
 }: UseForceGraph3DCallbacksParams) {
+  const threeReady = useRef(false);
+
+  // Pre-load three when enabled
+  useEffect(() => {
+    if (enabled && !threeReady.current) {
+      ensureThreeLoaded().then(() => { threeReady.current = true; });
+    }
+  }, [enabled]);
+
   // 高亮判斷（與 2D 版共用邏輯）
   const isHighlighted = useCallback((nodeId: string): boolean => {
     if (searchMatchIds) return searchMatchIds.has(nodeId);
@@ -53,16 +84,15 @@ export function useForceGraph3DCallbacks({
 
   // 3D 節點物件 — 球體 + 文字標籤（效能優化版）
   const nodeThreeObject = useCallback((node: ForceNode) => {
+    if (!THREE || !SpriteText) return new Object();
     const cfg = mergedConfigs[node.type] ?? getNodeConfig(node.type);
     const highlighted = isHighlighted(node.id);
     const isSelected = selectedNodeId === node.id;
     const isSearchMatch = searchMatchIds?.has(node.id);
 
-    // 根據 mention_count 調整大小
     const mentionBonus = node.mention_count ? Math.min(Math.log2(node.mention_count + 1) * 1.5, 6) : 0;
     const radius = cfg.radius + mentionBonus;
 
-    // 降低幾何精度：高亮節點 12/8 segments，其餘 8/6（大幅減少三角面數）
     const segments = highlighted ? 12 : 8;
     const rings = highlighted ? 8 : 6;
     const geometry = new THREE.SphereGeometry(radius, segments, rings);
@@ -75,7 +105,6 @@ export function useForceGraph3DCallbacks({
     });
     const sphere = new THREE.Mesh(geometry, material);
 
-    // 外框光暈 (selected / search match)
     if (isSelected || isSearchMatch) {
       const glowGeom = new THREE.SphereGeometry(radius * 1.3, 8, 6);
       const glowColor = isSelected ? '#333333' : '#ff4d4f';
@@ -88,7 +117,6 @@ export function useForceGraph3DCallbacks({
       sphere.add(glow);
     }
 
-    // 文字標籤 — 僅高亮/選中/搜尋命中節點顯示（大幅降低 SpriteText 數量）
     if (highlighted || isSelected || isSearchMatch) {
       const sprite = new SpriteText(truncate(node.label, 14));
       sprite.color = highlighted ? '#222' : '#aaa';
@@ -118,6 +146,7 @@ export function useForceGraph3DCallbacks({
 
   // 邊標籤（3D 使用 SpriteText）
   const linkThreeObject = useCallback((link: ForceLink) => {
+    if (!THREE || !SpriteText) return new Object();
     if (!isLinkHighlighted(link)) return new THREE.Object3D();
     const label = (link as { label?: string }).label || (link as { type?: string }).type || '';
     if (!label) return new THREE.Object3D();
@@ -133,7 +162,7 @@ export function useForceGraph3DCallbacks({
 
   // 邊標籤位置更新（放在邊的中點）
   const linkPositionUpdate = useCallback(
-    (sprite: THREE.Object3D, coords: { start: { x: number; y: number; z: number }; end: { x: number; y: number; z: number } }) => {
+    (sprite: { position: { x: number; y: number; z: number } }, coords: { start: { x: number; y: number; z: number }; end: { x: number; y: number; z: number } }) => {
       if (!coords.start || !coords.end) return false;
       sprite.position.x = (coords.start.x + coords.end.x) / 2;
       sprite.position.y = (coords.start.y + coords.end.y) / 2;

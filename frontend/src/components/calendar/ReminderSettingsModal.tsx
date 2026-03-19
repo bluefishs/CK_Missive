@@ -127,14 +127,14 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
       );
 
       if (response.success) {
-        notification.success({ message: '提醒已新增' });
+        notification.success({ title: '提醒已新增' });
         invalidateReminders();
         onSuccess?.();
       }
     } catch (error: unknown) {
       logger.error('Failed to add reminder:', error);
       notification.error({
-        message: '新增提醒失敗',
+        title: '新增提醒失敗',
         description: error instanceof Error ? error.message : '請稍後再試'
       });
     } finally {
@@ -157,14 +157,14 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
       );
 
       if (response.success) {
-        notification.success({ message: '提醒已刪除' });
+        notification.success({ title: '提醒已刪除' });
         invalidateReminders();
         onSuccess?.();
       }
     } catch (error: unknown) {
       logger.error('Failed to delete reminder:', error);
       notification.error({
-        message: '刪除提醒失敗',
+        title: '刪除提醒失敗',
         description: error instanceof Error ? error.message : '請稍後再試'
       });
     } finally {
@@ -187,12 +187,12 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
       );
 
       if (response.success) {
-        notification.success({ message: '測試提醒已發送' });
+        notification.success({ title: '測試提醒已發送' });
       }
     } catch (error: unknown) {
       logger.error('Failed to send test reminder:', error);
       notification.error({
-        message: '發送測試提醒失敗',
+        title: '發送測試提醒失敗',
         description: error instanceof Error ? error.message : '請稍後再試'
       });
     } finally {
@@ -240,7 +240,7 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
     >
       <Spin spinning={loading}>
         {event ? (
-          <Space direction="vertical" size="large" style={{ width: '100%' }}>
+          <Space vertical size="large" style={{ width: '100%' }}>
             {/* 事件資訊 */}
             <div style={{ background: '#f5f5f5', padding: '12px', borderRadius: '4px' }}>
               <Text strong>事件時間：</Text>
@@ -264,13 +264,11 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
                     value={newReminderType}
                     onChange={setNewReminderType}
                     style={{ width: '100%' }}
-                  >
-                    {REMINDER_TYPES.map(type => (
-                      <Select.Option key={type.value} value={type.value}>
-                        <Space>{type.icon}{type.label}</Space>
-                      </Select.Option>
-                    ))}
-                  </Select>
+                    options={REMINDER_TYPES.map(type => ({
+                      value: type.value,
+                      label: <Space>{type.icon}{type.label}</Space>,
+                    }))}
+                  />
                 </Col>
                 <Col span={6}>
                   <Button

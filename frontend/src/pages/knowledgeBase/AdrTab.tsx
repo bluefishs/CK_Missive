@@ -13,7 +13,7 @@ import type { ColumnsType } from 'antd/es/table';
 
 import { knowledgeBaseApi } from '../../api/knowledgeBaseApi';
 import type { AdrInfo } from '../../api/knowledgeBaseApi';
-import { MarkdownRenderer } from '../../components/common/MarkdownRenderer';
+import { MarkdownRenderer } from '@ck-shared/ui-components';
 
 const STATUS_COLORS: Record<string, string> = {
   accepted: 'green',
@@ -81,7 +81,7 @@ export const AdrTab: React.FC = () => {
       {/* Top: ADR Table */}
       <Card size="small" title={`架構決策記錄 (${items.length} 筆)`} style={{ flexShrink: 0 }}>
         {listLoading ? (
-          <Spin tip="載入中..."><div style={{ padding: 40 }} /></Spin>
+          <Spin description="載入中..."><div style={{ padding: 40 }} /></Spin>
         ) : (
           <Table<AdrInfo>
             columns={columns}
@@ -104,7 +104,7 @@ export const AdrTab: React.FC = () => {
       {/* Bottom: ADR Detail */}
       <Card size="small" title={fileData?.filename?.replace(/\.md$/, '') || 'ADR 詳情'} style={{ flex: 1, overflow: 'auto' }}>
         {fileLoading ? (
-          <Spin tip="載入中..."><div style={{ padding: 40 }} /></Spin>
+          <Spin description="載入中..."><div style={{ padding: 40 }} /></Spin>
         ) : fileData?.content ? (
           <MarkdownRenderer content={fileData.content} />
         ) : (

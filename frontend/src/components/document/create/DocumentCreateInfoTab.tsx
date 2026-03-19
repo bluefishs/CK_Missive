@@ -270,7 +270,7 @@ const SendInfoTab: React.FC<SendInfoTabProps> = ({
         {nextNumberLoading ? (
           <Skeleton.Input active style={{ width: 300 }} />
         ) : (
-          <Space direction="vertical" size={0}>
+          <Space vertical size={0}>
             <span style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>
               {nextNumber?.full_number || '載入中...'}
             </span>

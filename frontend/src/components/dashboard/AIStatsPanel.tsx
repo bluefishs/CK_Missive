@@ -269,9 +269,9 @@ export const AIStatsPanel: React.FC = () => {
             <Statistic
               title="速率限制次數"
               value={stats?.rate_limit_hits ?? 0}
-              valueStyle={
+              styles={
                 (stats?.rate_limit_hits ?? 0) > 0
-                  ? { color: '#f5222d' }
+                  ? { content: { color: '#f5222d' } }
                   : undefined
               }
             />

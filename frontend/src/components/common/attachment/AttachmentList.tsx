@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { Card, List, Empty, Space } from 'antd';
+import { Card, Empty, Space, Flex, Spin } from 'antd';
 import { PaperClipOutlined } from '@ant-design/icons';
 
 import { AttachmentListItem, AttachmentItem } from './AttachmentListItem';
@@ -78,25 +78,27 @@ export const AttachmentList: React.FC<AttachmentListProps> = ({
 
   // 列表內容
   const listContent = attachments.length > 0 ? (
-    <List
-      size="small"
-      loading={loading}
-      dataSource={attachments}
-      renderItem={(item) => (
-        <AttachmentListItem
-          attachment={item}
-          editable={editable}
-          showPreview={showPreview}
-          showDownload={showDownload}
-          deleteLoading={deleteLoading}
-          onPreview={onPreview}
-          onDownload={onDownload}
-          onDelete={onDelete}
-          deleteConfirmTitle={deleteConfirmTitle}
-          deleteConfirmDescription={deleteConfirmDescription}
-        />
-      )}
-    />
+    loading ? (
+      <div style={{ textAlign: 'center', padding: '20px' }}><Spin size="small" /></div>
+    ) : (
+      <Flex vertical>
+        {attachments.map((item) => (
+          <AttachmentListItem
+            key={item.id}
+            attachment={item}
+            editable={editable}
+            showPreview={showPreview}
+            showDownload={showDownload}
+            deleteLoading={deleteLoading}
+            onPreview={onPreview}
+            onDownload={onDownload}
+            onDelete={onDelete}
+            deleteConfirmTitle={deleteConfirmTitle}
+            deleteConfirmDescription={deleteConfirmDescription}
+          />
+        ))}
+      </Flex>
+    )
   ) : (
     <Empty description={emptyText} image={Empty.PRESENTED_IMAGE_SIMPLE} />
   );

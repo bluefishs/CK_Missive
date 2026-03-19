@@ -229,7 +229,7 @@ const DatabaseGraphPage: React.FC = () => {
                   title={<span style={{ fontSize: 11 }}>資料表</span>}
                   value={stats.totalTables}
                   prefix={<NodeIndexOutlined style={{ fontSize: 12 }} />}
-                  valueStyle={{ fontSize: 18 }}
+                  styles={{ content: { fontSize: 18 } }}
                 />
               </Col>
               <Col span={12}>
@@ -237,7 +237,7 @@ const DatabaseGraphPage: React.FC = () => {
                   title={<span style={{ fontSize: 11 }}>FK 關係</span>}
                   value={stats.totalRelationships}
                   prefix={<ApartmentOutlined style={{ fontSize: 12 }} />}
-                  valueStyle={{ fontSize: 18 }}
+                  styles={{ content: { fontSize: 18 } }}
                 />
               </Col>
             </Row>
@@ -290,20 +290,12 @@ const DatabaseGraphPage: React.FC = () => {
                 children: (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                     {/* Basic Info */}
-                    <Descriptions size="small" column={2} bordered>
-                      <Descriptions.Item label="欄位數">
-                        {selectedTable.columns.length}
-                      </Descriptions.Item>
-                      <Descriptions.Item label="主鍵">
-                        {selectedTable.primary_key_columns.join(', ') || '-'}
-                      </Descriptions.Item>
-                      <Descriptions.Item label="外鍵數">
-                        {selectedTable.foreign_keys.length}
-                      </Descriptions.Item>
-                      <Descriptions.Item label="索引數">
-                        {selectedTable.indexes.length}
-                      </Descriptions.Item>
-                    </Descriptions>
+                    <Descriptions size="small" column={2} bordered items={[
+                      { key: '欄位數', label: '欄位數', children: selectedTable.columns.length },
+                      { key: '主鍵', label: '主鍵', children: selectedTable.primary_key_columns.join(', ') || '-' },
+                      { key: '外鍵數', label: '外鍵數', children: selectedTable.foreign_keys.length },
+                      { key: '索引數', label: '索引數', children: selectedTable.indexes.length },
+                    ]} />
 
                     {/* Columns */}
                     <div>

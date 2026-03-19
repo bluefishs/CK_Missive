@@ -282,17 +282,16 @@ export const InlineRecordCreator: React.FC<InlineRecordCreatorProps> = ({
               rules={[{ required: true, message: '請選擇' }]}
               style={{ marginBottom: 8 }}
             >
-              <Select placeholder="請選擇">
-                {WORK_CATEGORY_GROUPS.map((group) => (
-                  <Select.OptGroup key={group.group} label={group.group}>
-                    {group.items.map((item) => (
-                      <Select.Option key={item.value} value={item.value}>
-                        {item.label}
-                      </Select.Option>
-                    ))}
-                  </Select.OptGroup>
-                ))}
-              </Select>
+              <Select
+                placeholder="請選擇"
+                options={WORK_CATEGORY_GROUPS.map((group) => ({
+                  label: group.group,
+                  options: group.items.map((item) => ({
+                    value: item.value,
+                    label: item.label,
+                  })),
+                }))}
+              />
             </Form.Item>
           </Col>
           <Col span={10}>

@@ -1,29 +1,16 @@
-/**
- * 備份管理頁面
- * 提供備份列表、異地備份設定、排程器管理、備份日誌查詢
- *
- * @version 2.0.0
- * @date 2026-02-07
- */
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ResponsiveContent } from '../components/common';
+import { ResponsiveContent } from '@ck-shared/ui-components';
 import {
-  Card, Tabs, Button, Space, Typography, Row, Col,
-  Statistic, Alert, Input, Form, Tag, App,
-  Tooltip, Popconfirm, Switch, Spin, Select, InputNumber
+  Card, Tabs, Button, Typography, Row, Col,
+  Alert, Form, App, Spin
 } from 'antd';
-import type { ColumnsType } from 'antd/es/table';
 import {
-  CloudServerOutlined, ReloadOutlined, DeleteOutlined,
-  CheckCircleOutlined, CloseCircleOutlined, SyncOutlined,
-  PlayCircleOutlined, PauseCircleOutlined, HistoryOutlined,
-  SettingOutlined, DatabaseOutlined, FolderOutlined,
-  CloudUploadOutlined, ExclamationCircleOutlined,
-  WarningOutlined, ClearOutlined
+  CloudServerOutlined, ReloadOutlined,
+  DatabaseOutlined, CloudUploadOutlined,
+  ExclamationCircleOutlined, WarningOutlined,
+  SettingOutlined, HistoryOutlined, ClearOutlined
 } from '@ant-design/icons';
-import { ResponsiveTable } from '../components/common';
 import { apiClient } from '../api/client';
 import { API_ENDPOINTS } from '../api/endpoints';
 import type {
@@ -31,13 +18,18 @@ import type {
   BackupListResponse,
   RemoteBackupConfig,
   SchedulerStatus,
-  BackupLogEntry,
   BackupLogListResponse
 } from '../types/api';
+import {
+  BackupListTab,
+  RemoteBackupTab,
+  SchedulerTab as SchedulerTabComponent,
+  BackupLogsTab,
+  BackupStatsCards,
+} from './backup';
 
 const { Title, Text } = Typography;
 
-/** 備份環境狀態 */
 interface EnvironmentStatus {
   docker_available: boolean;
   docker_path: string;
@@ -51,23 +43,14 @@ export const BackupManagementPage: React.FC = () => {
   const { message, modal } = App.useApp();
   const queryClient = useQueryClient();
 
-  // 狀態
   const [activeTab, setActiveTab] = useState('list');
-
-  // 表單
   const [remoteConfigForm] = Form.useForm();
-
-  // 備份日誌篩選
   const [logFilters, setLogFilters] = useState({
     page: 1,
     page_size: 20,
     action_filter: undefined as string | undefined,
     status_filter: undefined as string | undefined
   });
-
-  // =========================================================================
-  // React Query: 資料載入
-  // =========================================================================
 
   const {
     data: envStatus = null,
@@ -97,7 +80,6 @@ export const BackupManagementPage: React.FC = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  // 遠端設定載入後同步到表單（避免在 queryFn 中呼叫 setFieldsValue 觸發 useForm 警告）
   useEffect(() => {
     if (remoteConfig) {
       remoteConfigForm.setFieldsValue({
@@ -126,20 +108,11 @@ export const BackupManagementPage: React.FC = () => {
     enabled: activeTab === 'logs',
   });
 
-  const fetchLogs = refetchLogs;
-
   const refreshAll = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ['backup'] });
     message.success('資料已重新整理');
   }, [queryClient, message]);
 
-  const fetchEnvironmentStatus = refetchEnvStatus;
-
-  // =========================================================================
-  // 備份操作
-  // =========================================================================
-
-  // Mutations
   const createBackupMutation = useMutation({
     mutationFn: () => apiClient.post(API_ENDPOINTS.BACKUP.CREATE, {
       include_database: true,
@@ -180,51 +153,6 @@ export const BackupManagementPage: React.FC = () => {
       message.error('還原失敗');
     },
   });
-
-  const handleCreateBackup = async () => {
-    modal.confirm({
-      title: '建立備份',
-      content: '確定要立即建立備份嗎？這可能需要一些時間。',
-      icon: <DatabaseOutlined />,
-      okText: '確定',
-      cancelText: '取消',
-      onOk: () => createBackupMutation.mutateAsync(),
-    });
-  };
-
-  const handleDeleteBackup = async (item: BackupItem) => {
-    const backupName = item.filename || item.dirname;
-    if (!backupName) return;
-
-    deleteBackupMutation.mutate({
-      backup_name: backupName,
-      backup_type: item.type
-    });
-  };
-
-  const handleRestoreBackup = async (item: BackupItem) => {
-    if (item.type !== 'database' || !item.filename) return;
-
-    modal.confirm({
-      title: '還原資料庫',
-      content: (
-        <Alert
-          type="warning"
-          message="警告：此操作會覆蓋現有資料"
-          description={`確定要從 ${item.filename} 還原資料庫嗎？此操作不可逆。`}
-        />
-      ),
-      icon: <ExclamationCircleOutlined style={{ color: '#faad14' }} />,
-      okText: '確定還原',
-      okType: 'danger',
-      cancelText: '取消',
-      onOk: () => restoreBackupMutation.mutateAsync(item.filename!),
-    });
-  };
-
-  // =========================================================================
-  // 異地備份操作
-  // =========================================================================
 
   const updateRemoteConfigMutation = useMutation({
     mutationFn: (values: { remote_path: string; sync_enabled: boolean; sync_interval_hours: number }) =>
@@ -268,26 +196,6 @@ export const BackupManagementPage: React.FC = () => {
     },
   });
 
-  const handleUpdateRemoteConfig = async (values: {
-    remote_path: string;
-    sync_enabled: boolean;
-    sync_interval_hours: number;
-  }) => {
-    updateRemoteConfigMutation.mutate(values);
-  };
-
-  const handleRemoteSync = async () => {
-    remoteSyncMutation.mutate();
-  };
-
-  const handleCleanupOrphans = async () => {
-    cleanupOrphansMutation.mutate();
-  };
-
-  // =========================================================================
-  // 排程器操作
-  // =========================================================================
-
   const schedulerToggleMutation = useMutation({
     mutationFn: (isRunning: boolean) => {
       if (isRunning) {
@@ -305,11 +213,62 @@ export const BackupManagementPage: React.FC = () => {
     },
   });
 
-  const handleSchedulerToggle = async () => {
+  const handleCreateBackup = () => {
+    modal.confirm({
+      title: '建立備份',
+      content: '確定要立即建立備份嗎？這可能需要一些時間。',
+      icon: <DatabaseOutlined />,
+      okText: '確定',
+      cancelText: '取消',
+      onOk: () => createBackupMutation.mutateAsync(),
+    });
+  };
+
+  const handleDeleteBackup = (item: BackupItem) => {
+    const backupName = item.filename || item.dirname;
+    if (!backupName) return;
+    deleteBackupMutation.mutate({ backup_name: backupName, backup_type: item.type });
+  };
+
+  const handleRestoreBackup = (item: BackupItem) => {
+    if (item.type !== 'database' || !item.filename) return;
+    modal.confirm({
+      title: '還原資料庫',
+      content: (
+        <Alert
+          type="warning"
+          title="警告：此操作會覆蓋現有資料"
+          description={`確定要從 ${item.filename} 還原資料庫嗎？此操作不可逆。`}
+        />
+      ),
+      icon: <ExclamationCircleOutlined style={{ color: '#faad14' }} />,
+      okText: '確定還原',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: () => restoreBackupMutation.mutateAsync(item.filename!),
+    });
+  };
+
+  const handleUpdateRemoteConfig = (values: {
+    remote_path: string;
+    sync_enabled: boolean;
+    sync_interval_hours: number;
+  }) => {
+    updateRemoteConfigMutation.mutate(values);
+  };
+
+  const handleRemoteSync = () => {
+    remoteSyncMutation.mutate();
+  };
+
+  const handleCleanupOrphans = () => {
+    cleanupOrphansMutation.mutate();
+  };
+
+  const handleSchedulerToggle = () => {
     schedulerToggleMutation.mutate(!!schedulerStatus?.running);
   };
 
-  // Combined loading state for UI
   const loading = backupsLoading
     || createBackupMutation.isPending
     || deleteBackupMutation.isPending
@@ -319,468 +278,9 @@ export const BackupManagementPage: React.FC = () => {
     || cleanupOrphansMutation.isPending
     || schedulerToggleMutation.isPending;
 
-  // =========================================================================
-  // 表格欄位定義
-  // =========================================================================
-
-  const backupColumns: ColumnsType<BackupItem> = [
-    {
-      title: '備份名稱',
-      key: 'name',
-      render: (_, record) => (
-        <Space>
-          {record.type === 'database' ? <DatabaseOutlined /> : <FolderOutlined />}
-          <Text>{record.filename || record.dirname}</Text>
-          {record.mode === 'incremental' && (
-            <Tag color="cyan">增量</Tag>
-          )}
-        </Space>
-      )
-    },
-    {
-      title: '類型',
-      dataIndex: 'type',
-      width: 100,
-      render: (type: string) => (
-        <Tag color={type === 'database' ? 'blue' : 'green'}>
-          {type === 'database' ? '資料庫' : '附件'}
-        </Tag>
-      )
-    },
-    {
-      title: '大小',
-      key: 'size',
-      width: 120,
-      render: (_, record) => (
-        record.size_kb
-          ? `${record.size_kb} KB`
-          : record.size_mb
-            ? `${record.size_mb} MB`
-            : '-'
-      )
-    },
-    {
-      title: '統計',
-      key: 'stats',
-      width: 180,
-      render: (_, record) => {
-        if (record.mode === 'incremental' && (record.copied_count !== undefined || record.file_count !== undefined)) {
-          return (
-            <Tooltip title={`已複製: ${record.copied_count || 0}, 跳過: ${record.skipped_count || 0}, 移除: ${record.removed_count || 0}`}>
-              <Text type="secondary">
-                {record.file_count || 0} 檔案
-                {record.copied_count ? ` (+${record.copied_count})` : ''}
-              </Text>
-            </Tooltip>
-          );
-        }
-        return record.file_count ? `${record.file_count} 檔案` : '-';
-      }
-    },
-    {
-      title: '建立時間',
-      dataIndex: 'created_at',
-      width: 180,
-      render: (time: string) => new Date(time).toLocaleString('zh-TW')
-    },
-    {
-      title: '操作',
-      key: 'actions',
-      width: 150,
-      render: (_, record) => (
-        <Space size="small">
-          {record.type === 'database' && (
-            <Tooltip title="還原">
-              <Button
-                type="link"
-                size="small"
-                icon={<SyncOutlined />}
-                onClick={() => handleRestoreBackup(record)}
-              />
-            </Tooltip>
-          )}
-          {/* 禁止刪除增量備份主目錄 */}
-          {record.dirname !== 'attachments_latest' && (
-            <Popconfirm
-              title="確定刪除此備份？"
-              onConfirm={() => handleDeleteBackup(record)}
-              okText="確定"
-              cancelText="取消"
-            >
-              <Tooltip title="刪除">
-                <Button
-                  type="link"
-                  size="small"
-                  danger
-                  icon={<DeleteOutlined />}
-                />
-              </Tooltip>
-            </Popconfirm>
-          )}
-        </Space>
-      )
-    }
-  ];
-
-  const logColumns: ColumnsType<BackupLogEntry> = [
-    {
-      title: '時間',
-      dataIndex: 'timestamp',
-      width: 180,
-      render: (time: string) => new Date(time).toLocaleString('zh-TW')
-    },
-    {
-      title: '操作',
-      dataIndex: 'action',
-      width: 100,
-      render: (action: string) => {
-        const actionMap: Record<string, { text: string; color: string }> = {
-          create: { text: '建立', color: 'blue' },
-          delete: { text: '刪除', color: 'red' },
-          restore: { text: '還原', color: 'orange' },
-          sync: { text: '同步', color: 'cyan' },
-          config_update: { text: '設定', color: 'purple' }
-        };
-        const info = actionMap[action] || { text: action, color: 'default' };
-        return <Tag color={info.color}>{info.text}</Tag>;
-      }
-    },
-    {
-      title: '狀態',
-      dataIndex: 'status',
-      width: 80,
-      render: (status: string) => (
-        status === 'success'
-          ? <Tag icon={<CheckCircleOutlined />} color="success">成功</Tag>
-          : <Tag icon={<CloseCircleOutlined />} color="error">失敗</Tag>
-      )
-    },
-    {
-      title: '詳細資訊',
-      dataIndex: 'details',
-      width: 250,
-      ellipsis: { showTitle: false },
-      render: (text: string) => text ? (
-        <Tooltip title={text} placement="topLeft"><span>{text}</span></Tooltip>
-      ) : '-'
-    },
-    {
-      title: '操作者',
-      dataIndex: 'operator',
-      width: 100
-    }
-  ];
-
-  // =========================================================================
-  // Tab 內容渲染
-  // =========================================================================
-
-  const renderBackupList = () => (
-    <Space direction="vertical" style={{ width: '100%' }} size="large">
-      <Row justify="space-between" align="middle">
-        <Col>
-          <Alert
-            message="備份管理"
-            description="管理系統備份檔案，可建立、刪除或還原備份。"
-            type="info"
-            showIcon
-          />
-        </Col>
-        <Col>
-          <Button
-            type="primary"
-            icon={<DatabaseOutlined />}
-            onClick={handleCreateBackup}
-            loading={loading}
-          >
-            立即備份
-          </Button>
-        </Col>
-      </Row>
-
-      <Card title="資料庫備份" size="small">
-        <ResponsiveTable
-          columns={backupColumns}
-          dataSource={backups?.database_backups || []}
-          rowKey="path"
-          size="small"
-          scroll={{ x: 700 }}
-          mobileHiddenColumns={['stats', 'created_at']}
-          pagination={{ pageSize: 10 }}
-          loading={loading}
-        />
-      </Card>
-
-      <Card title="附件備份" size="small">
-        <ResponsiveTable
-          columns={backupColumns}
-          dataSource={backups?.attachment_backups || []}
-          rowKey="path"
-          size="small"
-          scroll={{ x: 700 }}
-          mobileHiddenColumns={['stats', 'created_at']}
-          pagination={{ pageSize: 10 }}
-          loading={loading}
-        />
-      </Card>
-    </Space>
-  );
-
-  const renderRemoteConfig = () => (
-    <Space direction="vertical" style={{ width: '100%' }} size="large">
-      <Alert
-        message="異地備份設定"
-        description="設定異地備份路徑，系統會自動將備份同步到指定位置。"
-        type="info"
-        showIcon
-      />
-
-      <Card title="目前狀態" size="small">
-        <Row gutter={16}>
-          <Col span={8}>
-            <Statistic
-              title="同步狀態"
-              value={remoteConfig?.sync_status === 'idle' ? '閒置' : remoteConfig?.sync_status === 'syncing' ? '同步中' : '錯誤'}
-              valueStyle={{
-                color: remoteConfig?.sync_status === 'error' ? '#cf1322' : '#3f8600'
-              }}
-            />
-          </Col>
-          <Col span={8}>
-            <Statistic
-              title="最後同步時間"
-              value={remoteConfig?.last_sync_time
-                ? new Date(remoteConfig.last_sync_time).toLocaleString('zh-TW')
-                : '尚未同步'}
-            />
-          </Col>
-          <Col span={8}>
-            <Statistic
-              title="同步間隔"
-              value={remoteConfig?.sync_interval_hours || 24}
-              suffix="小時"
-            />
-          </Col>
-        </Row>
-      </Card>
-
-      <Card title="設定" size="small">
-        <Form
-          form={remoteConfigForm}
-          layout="vertical"
-          onFinish={handleUpdateRemoteConfig}
-        >
-          <Form.Item
-            name="remote_path"
-            label="異地備份路徑"
-            rules={[{ required: true, message: '請輸入異地備份路徑' }]}
-            extra="可使用本地路徑或網路共享路徑 (如: \\\\server\\backup)"
-          >
-            <Input
-              prefix={<FolderOutlined />}
-              placeholder="例如: D:\Backup 或 \\server\backup"
-            />
-          </Form.Item>
-
-          <Form.Item
-            name="sync_enabled"
-            label="啟用自動同步"
-            valuePropName="checked"
-          >
-            <Switch />
-          </Form.Item>
-
-          <Form.Item
-            name="sync_interval_hours"
-            label="同步間隔 (小時)"
-            rules={[{ required: true, message: '請輸入同步間隔' }]}
-          >
-            <InputNumber min={1} max={168} style={{ width: 120 }} />
-          </Form.Item>
-
-          <Form.Item>
-            <Space>
-              <Button type="primary" htmlType="submit" loading={loading}>
-                儲存設定
-              </Button>
-              <Button
-                icon={<CloudUploadOutlined />}
-                onClick={handleRemoteSync}
-                loading={loading}
-                disabled={!remoteConfig?.remote_path}
-              >
-                立即同步
-              </Button>
-            </Space>
-          </Form.Item>
-        </Form>
-      </Card>
-    </Space>
-  );
-
-  const renderScheduler = () => (
-    <Space direction="vertical" style={{ width: '100%' }} size="large">
-      <Alert
-        message="排程器設定"
-        description="管理自動備份排程，系統會在設定的時間自動執行備份。"
-        type="info"
-        showIcon
-      />
-
-      <Card title="排程器狀態" size="small">
-        <Row gutter={16}>
-          <Col span={6}>
-            <Statistic
-              title="運行狀態"
-              value={schedulerStatus?.running ? '運行中' : '已停止'}
-              valueStyle={{
-                color: schedulerStatus?.running ? '#3f8600' : '#cf1322'
-              }}
-              prefix={schedulerStatus?.running ? <PlayCircleOutlined /> : <PauseCircleOutlined />}
-            />
-          </Col>
-          <Col span={6}>
-            <Statistic
-              title="備份時間"
-              value={schedulerStatus?.backup_time || '--:--'}
-            />
-          </Col>
-          <Col span={6}>
-            <Statistic
-              title="下次執行"
-              value={schedulerStatus?.next_backup
-                ? new Date(schedulerStatus.next_backup).toLocaleString('zh-TW')
-                : '-'}
-            />
-          </Col>
-          <Col span={6}>
-            <Statistic
-              title="上次執行"
-              value={schedulerStatus?.last_backup
-                ? new Date(schedulerStatus.last_backup).toLocaleString('zh-TW')
-                : '-'}
-            />
-          </Col>
-        </Row>
-
-        <Row gutter={16} style={{ marginTop: 24 }}>
-          <Col span={8}>
-            <Statistic
-              title="總備份次數"
-              value={schedulerStatus?.stats?.total_backups || 0}
-            />
-          </Col>
-          <Col span={8}>
-            <Statistic
-              title="成功次數"
-              value={schedulerStatus?.stats?.successful_backups || 0}
-              valueStyle={{ color: '#3f8600' }}
-            />
-          </Col>
-          <Col span={8}>
-            <Statistic
-              title="失敗次數"
-              value={schedulerStatus?.stats?.failed_backups || 0}
-              valueStyle={{ color: schedulerStatus?.stats?.failed_backups ? '#cf1322' : undefined }}
-            />
-          </Col>
-        </Row>
-      </Card>
-
-      <Card title="控制" size="small">
-        <Space>
-          <Button
-            type={schedulerStatus?.running ? 'default' : 'primary'}
-            icon={schedulerStatus?.running ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
-            onClick={handleSchedulerToggle}
-            loading={loading}
-          >
-            {schedulerStatus?.running ? '停止排程器' : '啟動排程器'}
-          </Button>
-        </Space>
-      </Card>
-    </Space>
-  );
-
-  const renderLogs = () => (
-    <Space direction="vertical" style={{ width: '100%' }} size="large">
-      <Alert
-        message="備份日誌"
-        description="查看所有備份操作的歷史記錄。"
-        type="info"
-        showIcon
-      />
-
-      <Card title="篩選條件" size="small">
-        <Row gutter={16}>
-          <Col span={6}>
-            <Select
-              placeholder="操作類型"
-              style={{ width: '100%' }}
-              allowClear
-              value={logFilters.action_filter}
-              onChange={(v) => setLogFilters(prev => ({ ...prev, action_filter: v, page: 1 }))}
-              options={[
-                { value: 'create', label: '建立' },
-                { value: 'delete', label: '刪除' },
-                { value: 'restore', label: '還原' },
-                { value: 'sync', label: '同步' },
-                { value: 'config_update', label: '設定' }
-              ]}
-            />
-          </Col>
-          <Col span={6}>
-            <Select
-              placeholder="狀態"
-              style={{ width: '100%' }}
-              allowClear
-              value={logFilters.status_filter}
-              onChange={(v) => setLogFilters(prev => ({ ...prev, status_filter: v, page: 1 }))}
-              options={[
-                { value: 'success', label: '成功' },
-                { value: 'failed', label: '失敗' }
-              ]}
-            />
-          </Col>
-          <Col span={6}>
-            <Button icon={<ReloadOutlined />} onClick={() => fetchLogs()}>
-              重新整理
-            </Button>
-          </Col>
-        </Row>
-      </Card>
-
-      <ResponsiveTable
-        columns={logColumns}
-        dataSource={logs?.logs || []}
-        rowKey="id"
-        size="small"
-        scroll={{ x: 600 }}
-        mobileHiddenColumns={['operator', 'details']}
-        loading={loading}
-        pagination={{
-          current: logs?.page || 1,
-          pageSize: logs?.page_size || 20,
-          total: logs?.total || 0,
-          showTotal: (total: number) => `共 ${total} 筆記錄`,
-          onChange: (page: number, pageSize: number) => setLogFilters(prev => ({
-            ...prev,
-            page,
-            page_size: pageSize
-          }))
-        }}
-      />
-    </Space>
-  );
-
-  // =========================================================================
-  // 主要渲染
-  // =========================================================================
-
   return (
     <ResponsiveContent maxWidth="full" padding="medium" style={{ background: '#f5f5f5', minHeight: '100vh' }}>
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
-        {/* 頁面標題 */}
         <Row justify="space-between" align="middle" style={{ marginBottom: 24 }}>
           <Col>
             <Title level={2} style={{ margin: 0, color: '#1976d2' }}>
@@ -800,17 +300,16 @@ export const BackupManagementPage: React.FC = () => {
           </Col>
         </Row>
 
-        {/* 環境狀態警告 */}
         {envStatus && !envStatus.docker_available && (
           <Alert
-            message="Docker 環境不可用"
+            title="Docker 環境不可用"
             description={`Docker CLI 路徑: ${envStatus.docker_path}。資料庫備份功能將無法使用，請確認 Docker Desktop 已啟動。`}
             type="error"
             showIcon
             icon={<WarningOutlined />}
             style={{ marginBottom: 16 }}
             action={
-              <Button size="small" onClick={() => fetchEnvironmentStatus()}>
+              <Button size="small" onClick={() => refetchEnvStatus()}>
                 重新檢測
               </Button>
             }
@@ -819,7 +318,7 @@ export const BackupManagementPage: React.FC = () => {
 
         {envStatus && envStatus.consecutive_failures > 0 && (
           <Alert
-            message={`備份連續失敗 ${envStatus.consecutive_failures} 次`}
+            title={`備份連續失敗 ${envStatus.consecutive_failures} 次`}
             description={
               envStatus.last_success_time
                 ? `最後成功備份: ${new Date(envStatus.last_success_time).toLocaleString('zh-TW')}`
@@ -837,53 +336,8 @@ export const BackupManagementPage: React.FC = () => {
           />
         )}
 
-        {/* 統計卡片 */}
-        <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-          <Col xs={12} md={6}>
-            <Card>
-              <Statistic
-                title="資料庫備份"
-                value={statistics?.database_backup_count || 0}
-                prefix={<DatabaseOutlined style={{ color: '#1976d2' }} />}
-                suffix="個"
-              />
-            </Card>
-          </Col>
-          <Col xs={12} md={6}>
-            <Card>
-              <Statistic
-                title="附件備份"
-                value={statistics?.attachment_backup_count || 0}
-                prefix={<FolderOutlined style={{ color: '#52c41a' }} />}
-                suffix="個"
-              />
-            </Card>
-          </Col>
-          <Col xs={12} md={6}>
-            <Card>
-              <Statistic
-                title="總備份大小"
-                value={statistics?.total_size_mb || 0}
-                precision={2}
-                suffix="MB"
-              />
-            </Card>
-          </Col>
-          <Col xs={12} md={6}>
-            <Card>
-              <Statistic
-                title="Docker 狀態"
-                value={envStatus?.docker_available ? '可用' : '不可用'}
-                valueStyle={{
-                  color: envStatus?.docker_available ? '#3f8600' : '#cf1322'
-                }}
-                prefix={envStatus?.docker_available ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
-              />
-            </Card>
-          </Col>
-        </Row>
+        <BackupStatsCards statistics={statistics} envStatus={envStatus} />
 
-        {/* 主要內容 */}
         <Card>
           <Spin spinning={loading}>
             <Tabs
@@ -893,22 +347,52 @@ export const BackupManagementPage: React.FC = () => {
                 {
                   key: 'list',
                   label: <span><DatabaseOutlined /> 備份列表</span>,
-                  children: renderBackupList()
+                  children: (
+                    <BackupListTab
+                      backups={backups}
+                      loading={loading}
+                      onCreateBackup={handleCreateBackup}
+                      onDeleteBackup={handleDeleteBackup}
+                      onRestoreBackup={handleRestoreBackup}
+                    />
+                  )
                 },
                 {
                   key: 'remote',
                   label: <span><CloudUploadOutlined /> 異地備份</span>,
-                  children: renderRemoteConfig()
+                  children: (
+                    <RemoteBackupTab
+                      remoteConfig={remoteConfig}
+                      form={remoteConfigForm}
+                      loading={loading}
+                      onUpdateConfig={handleUpdateRemoteConfig}
+                      onRemoteSync={handleRemoteSync}
+                    />
+                  )
                 },
                 {
                   key: 'scheduler',
                   label: <span><SettingOutlined /> 排程器</span>,
-                  children: renderScheduler()
+                  children: (
+                    <SchedulerTabComponent
+                      schedulerStatus={schedulerStatus}
+                      loading={loading}
+                      onSchedulerToggle={handleSchedulerToggle}
+                    />
+                  )
                 },
                 {
                   key: 'logs',
                   label: <span><HistoryOutlined /> 備份日誌</span>,
-                  children: renderLogs()
+                  children: (
+                    <BackupLogsTab
+                      logs={logs}
+                      logFilters={logFilters}
+                      loading={loading}
+                      onLogFiltersChange={setLogFilters}
+                      onRefreshLogs={() => refetchLogs()}
+                    />
+                  )
                 }
               ]}
             />

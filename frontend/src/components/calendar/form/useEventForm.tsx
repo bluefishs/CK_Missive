@@ -154,7 +154,7 @@ export function useEventForm(
         logger.error('搜尋公文失敗:', error);
         setDocumentSearchError('搜尋時發生錯誤');
         notification.error({
-          message: '搜尋公文失敗',
+          title: '搜尋公文失敗',
           description: '請檢查網路連線或稍後再試',
           duration: 3,
         });
@@ -213,7 +213,7 @@ export function useEventForm(
 
       if (mode === 'create' && existingEventsDetail.length > 0 && !duplicateConfirmed) {
         notification.warning({
-          message: '請確認重複事件警告',
+          title: '請確認重複事件警告',
           description: '請先在彈出的警告對話框中確認後再提交。',
         });
         checkDocumentEvents(currentValues.document_id);
@@ -242,7 +242,7 @@ export function useEventForm(
           submitData
         );
         if (response.success) {
-          notification.success({ message: '事件建立成功' });
+          notification.success({ title: '事件建立成功' });
           onSuccess();
           onClose();
         } else {
@@ -254,7 +254,7 @@ export function useEventForm(
           { event_id: event.id, ...submitData }
         );
         if (response.success) {
-          notification.success({ message: '事件更新成功' });
+          notification.success({ title: '事件更新成功' });
           onSuccess();
           onClose();
         } else {
@@ -280,7 +280,7 @@ export function useEventForm(
       if (isFormValidationError(error)) {
         const errorMessages = error.errorFields.map((f) => `${f.name.join('.')}: ${f.errors.join(', ')}`).join('\n');
         notification.error({
-          message: '表單驗證失敗',
+          title: '表單驗證失敗',
           description: errorMessages,
           duration: 5,
         });
@@ -288,7 +288,7 @@ export function useEventForm(
         // 處理 API 錯誤
         const errorMessage = error instanceof Error ? error.message : '請稍後再試';
         notification.error({
-          message: mode === 'create' ? '建立事件失敗' : '更新事件失敗',
+          title: mode === 'create' ? '建立事件失敗' : '更新事件失敗',
           description: errorMessage,
         });
       }

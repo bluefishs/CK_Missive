@@ -113,7 +113,7 @@ export const EventListView: React.FC<EventListViewProps> = ({
                   </Space>
                 }
                 description={
-                  <Space direction="vertical" size="small">
+                  <Space vertical size="small">
                     <div>{event.description}</div>
                     <Space>
                       <ClockCircleOutlined />

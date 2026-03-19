@@ -156,7 +156,7 @@ export const StaffPage: React.FC = () => {
           dataIndex: 'full_name',
           key: 'full_name',
           render: (text: string, record: Staff) => (
-            <Space direction="vertical" size={0}>
+            <Space vertical size={0}>
               <strong><UserOutlined /> {text || record.username}</strong>
               {record.department && <Tag color="blue" style={{ fontSize: 12 }}>{record.department}</Tag>}
               <small style={{ color: '#666' }}>{record.email}</small>
@@ -289,7 +289,7 @@ export const StaffPage: React.FC = () => {
               title={isMobile ? '總數' : '總人數'}
               value={stats.total}
               prefix={<TeamOutlined />}
-              valueStyle={{ fontSize: isMobile ? 18 : 24 }}
+              styles={{ content: { fontSize: isMobile ? 18 : 24 } }}
             />
           </Card>
         </Col>
@@ -298,7 +298,7 @@ export const StaffPage: React.FC = () => {
             <Statistic
               title={isMobile ? '啟用' : '啟用中'}
               value={stats.active}
-              valueStyle={{ color: '#3f8600', fontSize: isMobile ? 18 : 24 }}
+              styles={{ content: { color: '#3f8600', fontSize: isMobile ? 18 : 24 } }}
               prefix={<CheckCircleOutlined />}
             />
           </Card>
@@ -308,7 +308,7 @@ export const StaffPage: React.FC = () => {
             <Statistic
               title={isMobile ? '停用' : '已停用'}
               value={stats.inactive}
-              valueStyle={{ color: '#999', fontSize: isMobile ? 18 : 24 }}
+              styles={{ content: { color: '#999', fontSize: isMobile ? 18 : 24 } }}
               prefix={<CloseCircleOutlined />}
             />
           </Card>
@@ -316,7 +316,7 @@ export const StaffPage: React.FC = () => {
       </Row>
 
       {/* 主要內容卡片 */}
-      <Card size={isMobile ? 'small' : 'default'}>
+      <Card size={isMobile ? 'small' : undefined}>
         {/* 工具列 */}
         <Row gutter={[8, 8]} style={{ marginBottom: isMobile ? 12 : 16 }}>
           <Col xs={24} sm={16}>
@@ -404,7 +404,7 @@ export const StaffPage: React.FC = () => {
               setCurrent(page);
               setPageSize(size);
             },
-            size: isMobile ? 'small' : 'default',
+            size: isMobile ? 'small' : undefined,
           }}
         />
       </Card>

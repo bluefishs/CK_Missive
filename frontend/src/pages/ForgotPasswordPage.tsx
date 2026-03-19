@@ -112,7 +112,7 @@ const ForgotPasswordPage: React.FC = () => {
           }}
         >
           <Space
-            direction="vertical"
+            vertical
             size="large"
             style={{ width: '100%' }}
           >

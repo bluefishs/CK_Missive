@@ -35,7 +35,7 @@ export const CalendarStatistics: React.FC<CalendarStatisticsProps> = ({
   onBatchMarkCancelled
 }) => {
   return (
-    <Card size={isMobile ? 'small' : 'default'}>
+    <Card size={isMobile ? 'small' : 'medium'}>
       {/* 快速篩選提示 */}
       {quickFilter && quickFilter !== 'all' && (
         <div style={{ marginBottom: 12 }}>
@@ -64,7 +64,7 @@ export const CalendarStatistics: React.FC<CalendarStatisticsProps> = ({
                 title="總事件數"
                 value={statistics.total}
                 prefix={<CalendarOutlined />}
-                valueStyle={{ color: '#1890ff', fontSize: isMobile ? '18px' : '24px' }}
+                styles={{ content: { color: '#1890ff', fontSize: isMobile ? '18px' : '24px' } }}
               />
             </div>
           </Tooltip>
@@ -83,7 +83,7 @@ export const CalendarStatistics: React.FC<CalendarStatisticsProps> = ({
               <Statistic
                 title="今日事件"
                 value={statistics.today}
-                valueStyle={{ color: '#52c41a', fontSize: isMobile ? '18px' : '24px' }}
+                styles={{ content: { color: '#52c41a', fontSize: isMobile ? '18px' : '24px' } }}
                 prefix={<ClockCircleOutlined />}
               />
             </div>
@@ -103,7 +103,7 @@ export const CalendarStatistics: React.FC<CalendarStatisticsProps> = ({
               <Statistic
                 title="本週事件"
                 value={statistics.thisWeek}
-                valueStyle={{ color: '#faad14', fontSize: isMobile ? '18px' : '24px' }}
+                styles={{ content: { color: '#faad14', fontSize: isMobile ? '18px' : '24px' } }}
                 prefix={<CalendarOutlined />}
               />
             </div>
@@ -123,7 +123,7 @@ export const CalendarStatistics: React.FC<CalendarStatisticsProps> = ({
               <Statistic
                 title="下週事件"
                 value={statistics.upcoming}
-                valueStyle={{ color: '#722ed1', fontSize: isMobile ? '18px' : '24px' }}
+                styles={{ content: { color: '#722ed1', fontSize: isMobile ? '18px' : '24px' } }}
                 prefix={<BellOutlined />}
               />
             </div>

@@ -169,7 +169,7 @@ describe('GraphAgentEventBus - 事件匯流排核心', () => {
         type: 'summary_result',
         entityId: 1,
         entityName: 'Test',
-        entityType: 'org',
+        entityType: 'agency',
       });
     });
 
@@ -226,7 +226,7 @@ describe('GraphAgentEventBus - 事件匯流排核心', () => {
       type: 'request_summary',
       entityId: 42,
       entityName: 'TestEntity',
-      entityType: 'org',
+      entityType: 'agency',
     };
 
     act(() => {
@@ -272,7 +272,7 @@ describe('Event type discrimination - 事件型別判別', () => {
       highlightIds: ['entity-1', 'entity-2', 'entity-3'],
       centerEntityName: 'CenterNode',
       clusterNodes: [
-        { id: 1, name: 'Node1', type: 'org', mention_count: 5 },
+        { id: 1, name: 'Node1', type: 'agency', mention_count: 5 },
         { id: 2, name: 'Node2', type: 'person' },
       ],
     };
@@ -471,7 +471,7 @@ describe('Context methods - 便捷方法', () => {
       result.current.sendSummaryResult({
         entityId: 5,
         entityName: 'OrgA',
-        entityType: 'org',
+        entityType: 'agency',
         upstreamNames: ['Parent'],
         downstreamNames: ['Child1', 'Child2'],
       });
@@ -544,14 +544,14 @@ describe('Context methods - 便捷方法', () => {
     });
 
     act(() => {
-      result.current.requestNavigate('find related entities', 'org');
+      result.current.requestNavigate('find related entities', 'agency');
     });
 
     expect(handler).toHaveBeenCalledTimes(1);
     const received = handler.mock.calls[0][0] as RequestNavigateEvent;
     expect(received.type).toBe('request_navigate');
     expect(received.query).toBe('find related entities');
-    expect(received.entityType).toBe('org');
+    expect(received.entityType).toBe('agency');
   });
 
   it('requestNavigate() works without entityType parameter', () => {

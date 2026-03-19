@@ -46,7 +46,7 @@ const ImportResultCardInner: React.FC<ImportResultCardProps> = ({
 
       <Divider />
 
-      <Space direction="vertical" style={{ width: '100%' }}>
+      <Space vertical style={{ width: '100%' }}>
         <div style={{ display: 'flex', justifyContent: 'space-around', textAlign: 'center' }}>
           <div>
             <Text type="secondary">總筆數</Text>
@@ -71,7 +71,7 @@ const ImportResultCardInner: React.FC<ImportResultCardProps> = ({
             <Divider />
             <Alert
               type="error"
-              message={`${errors.length} 個錯誤`}
+              title={`${errors.length} 個錯誤`}
               description={
                 <List
                   size="small"

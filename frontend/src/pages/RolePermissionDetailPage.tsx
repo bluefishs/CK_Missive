@@ -11,7 +11,7 @@
  */
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ResponsiveContent } from '../components/common';
+import { ResponsiveContent } from '@ck-shared/ui-components';
 import {
   Card,
   Typography,
@@ -116,7 +116,7 @@ const RolePermissionDetailPage: React.FC = () => {
       <ResponsiveContent maxWidth="full" padding="medium">
         <Card>
           <Alert
-            message="角色不存在"
+            title="角色不存在"
             description={`找不到角色「${role}」的權限設定`}
             type="error"
             showIcon
@@ -141,7 +141,7 @@ const RolePermissionDetailPage: React.FC = () => {
         <div style={{ marginBottom: '24px' }}>
           <Row justify="space-between" align="middle">
             <Col>
-              <Space direction="vertical" size={4}>
+              <Space vertical size={4}>
                 <Button
                   type="link"
                   icon={<ArrowLeftOutlined />}
@@ -185,9 +185,9 @@ const RolePermissionDetailPage: React.FC = () => {
 
         {/* 說明提示 */}
         <Alert
-          message="權限設定說明"
+          title="權限設定說明"
           description={
-            <Space direction="vertical" size={4}>
+            <Space vertical size={4}>
               <Text>
                 此頁面顯示「{roleInfo.name_zh}」角色的預設權限配置。
               </Text>

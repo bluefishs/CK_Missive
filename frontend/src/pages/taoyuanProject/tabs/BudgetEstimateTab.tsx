@@ -64,7 +64,7 @@ export const BudgetEstimateTab: React.FC<BudgetEstimateTabProps> = ({
               value={project.total_cost || 0}
               prefix="$"
               precision={0}
-              valueStyle={{ color: '#1890ff' }}
+              styles={{ content: { color: '#1890ff' } }}
             />
           </Card>
         </ResponsiveFormRow>

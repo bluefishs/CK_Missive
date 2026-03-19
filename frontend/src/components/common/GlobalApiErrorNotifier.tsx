@@ -29,25 +29,25 @@ const GlobalApiErrorNotifier: React.FC = () => {
 
       if (statusCode === 429) {
         notification.warning({
-          message: '請求過於頻繁',
+          title: '請求過於頻繁',
           description: '系統偵測到短時間內大量請求，已暫時限制。請稍候再試。',
           duration: 5,
         });
       } else if (statusCode === 403) {
         notification.warning({
-          message: '權限不足',
+          title: '權限不足',
           description: message || '您沒有權限執行此操作',
           duration: 5,
         });
       } else if (statusCode >= 500) {
         notification.error({
-          message: '伺服器錯誤',
+          title: '伺服器錯誤',
           description: message || '伺服器暫時無法處理請求，請稍後重試',
           duration: 5,
         });
       } else if (statusCode === 0) {
         notification.error({
-          message: '網路連線失敗',
+          title: '網路連線失敗',
           description: message || '請檢查網路連線後重試',
           duration: 5,
         });

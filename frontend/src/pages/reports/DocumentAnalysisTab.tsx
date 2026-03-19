@@ -135,14 +135,14 @@ const DocumentAnalysisTab: React.FC<DocumentAnalysisTabProps> = ({ isMobile }) =
             style={{ width: 120 }}
             placeholder="載入中..."
             loading={selectedYear === null}
-          >
-            <Select.Option value="all">全部年度</Select.Option>
-            {yearOptions.map((year) => (
-              <Select.Option key={year} value={year}>
-                {year} 年
-              </Select.Option>
-            ))}
-          </Select>
+            options={[
+              { value: 'all', label: '全部年度' },
+              ...yearOptions.map((year) => ({
+                value: year,
+                label: `${year} 年`,
+              })),
+            ]}
+          />
         </Space>
       </Card>
 
@@ -155,7 +155,7 @@ const DocumentAnalysisTab: React.FC<DocumentAnalysisTabProps> = ({ isMobile }) =
               value={stats.totalDocuments}
               prefix={<FileTextOutlined />}
               suffix="件"
-              valueStyle={{ color: '#1890ff' }}
+              styles={{ content: { color: '#1890ff' } }}
             />
           </Card>
         </Col>
@@ -166,7 +166,7 @@ const DocumentAnalysisTab: React.FC<DocumentAnalysisTabProps> = ({ isMobile }) =
               value={stats.receiveCount}
               prefix={<FallOutlined />}
               suffix="件"
-              valueStyle={{ color: '#52c41a' }}
+              styles={{ content: { color: '#52c41a' } }}
             />
           </Card>
         </Col>
@@ -177,7 +177,7 @@ const DocumentAnalysisTab: React.FC<DocumentAnalysisTabProps> = ({ isMobile }) =
               value={stats.sendCount}
               prefix={<RiseOutlined />}
               suffix="件"
-              valueStyle={{ color: '#faad14' }}
+              styles={{ content: { color: '#faad14' } }}
             />
           </Card>
         </Col>

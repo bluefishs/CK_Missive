@@ -67,7 +67,7 @@ export const OverviewTab: React.FC = () => {
 
   if (loading) {
     return (
-      <Spin tip="載入統計中...">
+      <Spin description="載入統計中...">
         <div style={{ height: 200 }} />
       </Spin>
     );
@@ -127,7 +127,7 @@ export const OverviewTab: React.FC = () => {
               suffix="%"
               precision={1}
               prefix={<ThunderboltOutlined />}
-              valueStyle={{ color: stats.rule_engine_hit_rate > 0.5 ? '#3f8600' : '#cf1322' }}
+              styles={{ content: { color: stats.rule_engine_hit_rate > 0.5 ? '#3f8600' : '#cf1322' } }}
             />
           </Card>
         </Col>
@@ -139,7 +139,7 @@ export const OverviewTab: React.FC = () => {
               suffix="ms"
               precision={0}
               prefix={<DashboardOutlined />}
-              valueStyle={{ color: stats.avg_latency_ms < 500 ? '#3f8600' : '#cf1322' }}
+              styles={{ content: { color: stats.avg_latency_ms < 500 ? '#3f8600' : '#cf1322' } }}
             />
           </Card>
         </Col>
@@ -155,7 +155,7 @@ export const OverviewTab: React.FC = () => {
               suffix="%"
               precision={1}
               prefix={<CheckCircleOutlined />}
-              valueStyle={{ color: (stats.avg_confidence ?? 0) >= 0.6 ? '#3f8600' : '#faad14' }}
+              styles={{ content: { color: (stats.avg_confidence ?? 0) >= 0.6 ? '#3f8600' : '#faad14' } }}
             />
           </Card>
         </Col>
@@ -171,9 +171,9 @@ export const OverviewTab: React.FC = () => {
               suffix="%"
               precision={1}
               prefix={<WarningOutlined />}
-              valueStyle={{
+              styles={{ content: {
                 color: (stats.source_distribution?.error ?? 0) > 0 ? '#cf1322' : '#3f8600',
-              }}
+              } }}
             />
           </Card>
         </Col>
@@ -209,45 +209,39 @@ export const OverviewTab: React.FC = () => {
           {Object.keys(stats.strategy_distribution).length > 0 && (
             <Col xs={24} sm={8}>
               <Card title="搜尋策略分佈" size="small">
-                <Descriptions column={1} size="small">
-                  {Object.entries(stats.strategy_distribution).map(([key, val]) => (
-                    <Descriptions.Item key={key} label={
-                      <Tag color={key === 'hybrid' ? 'purple' : key === 'similarity' ? 'blue' : 'default'}>{key}</Tag>
-                    }>
-                      {val} 次
-                    </Descriptions.Item>
-                  ))}
-                </Descriptions>
+                <Descriptions column={1} size="small" items={
+                  Object.entries(stats.strategy_distribution).map(([key, val]) => ({
+                    key,
+                    label: (<Tag color={key === 'hybrid' ? 'purple' : key === 'similarity' ? 'blue' : 'default'}>{key}</Tag>),
+                    children: `${val} 次`,
+                  }))
+                } />
               </Card>
             </Col>
           )}
           {Object.keys(stats.source_distribution).length > 0 && (
             <Col xs={24} sm={8}>
               <Card title="解析來源分佈" size="small">
-                <Descriptions column={1} size="small">
-                  {Object.entries(stats.source_distribution).map(([key, val]) => (
-                    <Descriptions.Item key={key} label={
-                      <Tag color={key === 'rule_engine' ? 'green' : key === 'vector' ? 'cyan' : key === 'ai' ? 'blue' : key === 'merged' ? 'purple' : 'default'}>{key}</Tag>
-                    }>
-                      {val} 次
-                    </Descriptions.Item>
-                  ))}
-                </Descriptions>
+                <Descriptions column={1} size="small" items={
+                  Object.entries(stats.source_distribution).map(([key, val]) => ({
+                    key,
+                    label: (<Tag color={key === 'rule_engine' ? 'green' : key === 'vector' ? 'cyan' : key === 'ai' ? 'blue' : key === 'merged' ? 'purple' : 'default'}>{key}</Tag>),
+                    children: `${val} 次`,
+                  }))
+                } />
               </Card>
             </Col>
           )}
           {Object.keys(stats.entity_distribution).length > 0 && (
             <Col xs={24} sm={8}>
               <Card title="實體類型分佈" size="small">
-                <Descriptions column={1} size="small">
-                  {Object.entries(stats.entity_distribution).map(([key, val]) => (
-                    <Descriptions.Item key={key} label={
-                      <Tag color="volcano">{key === 'dispatch_order' ? '派工單' : key === 'project' ? '專案' : key}</Tag>
-                    }>
-                      {val} 次
-                    </Descriptions.Item>
-                  ))}
-                </Descriptions>
+                <Descriptions column={1} size="small" items={
+                  Object.entries(stats.entity_distribution).map(([key, val]) => ({
+                    key,
+                    label: (<Tag color="volcano">{key === 'dispatch_order' ? '派工單' : key === 'project' ? '專案' : key}</Tag>),
+                    children: `${val} 次`,
+                  }))
+                } />
               </Card>
             </Col>
           )}

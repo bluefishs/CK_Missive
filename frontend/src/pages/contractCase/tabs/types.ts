@@ -97,6 +97,7 @@ export interface CaseInfoFormValues {
   project_name: string;
   year: number;
   client_agency?: string;
+  client_type?: 'agency' | 'vendor' | 'other';
   contract_doc_number?: string;
   project_code?: string;
   category?: string;

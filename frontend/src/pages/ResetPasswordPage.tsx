@@ -205,7 +205,7 @@ const ResetPasswordPage: React.FC = () => {
           }}
         >
           <Space
-            direction="vertical"
+            vertical
             size="large"
             style={{ width: '100%' }}
           >
@@ -281,7 +281,7 @@ const ResetPasswordPage: React.FC = () => {
                     </Text>
                   </div>
                   <Space
-                    direction="vertical"
+                    vertical
                     size={2}
                     style={{ marginTop: 8, fontSize: 12 }}
                   >

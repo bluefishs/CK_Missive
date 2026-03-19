@@ -10,3 +10,4 @@ export { OllamaManagementTab } from './OllamaManagementTab';
 export { DataAnalyticsTab } from './DataAnalyticsTab';
 export { DataPipelineTab } from './DataPipelineTab';
 export { ServiceStatusTab } from './ServiceStatusTab';
+export { AgentPerformanceTab } from './AgentPerformanceTab';

@@ -10,7 +10,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ResponsiveContent } from '../components/common';
+import { ResponsiveContent } from '@ck-shared/ui-components';
 import {
   Form,
   Button,

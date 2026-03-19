@@ -129,23 +129,13 @@ export const DispatchProjectsTab: React.FC<DispatchProjectsTabProps> = ({
           dataSource={linkedProjects}
           renderItem={(proj: LinkedProject) => (
             <Card size="small" style={{ marginBottom: 12 }}>
-              <Descriptions size="small" column={2}>
-                <Descriptions.Item label="工程名稱" span={2}>
-                  {proj.project_name || '-'}
-                </Descriptions.Item>
-                <Descriptions.Item label="分案名稱">
-                  {proj.sub_case_name || '-'}
-                </Descriptions.Item>
-                <Descriptions.Item label="行政區">
-                  {proj.district || '-'}
-                </Descriptions.Item>
-                <Descriptions.Item label="案件承辦">
-                  {proj.case_handler || '-'}
-                </Descriptions.Item>
-                <Descriptions.Item label="案件類型">
-                  {proj.case_type ? <Tag color="blue">{proj.case_type}</Tag> : '-'}
-                </Descriptions.Item>
-              </Descriptions>
+              <Descriptions size="small" column={2} items={[
+                { key: '工程名稱', label: '工程名稱', span: 2, children: proj.project_name || '-' },
+                { key: '分案名稱', label: '分案名稱', children: proj.sub_case_name || '-' },
+                { key: '行政區', label: '行政區', children: proj.district || '-' },
+                { key: '案件承辦', label: '案件承辦', children: proj.case_handler || '-' },
+                { key: '案件類型', label: '案件類型', children: proj.case_type ? <Tag color="blue">{proj.case_type}</Tag> : '-' },
+              ]} />
               <Space style={{ marginTop: 8 }}>
                 <Button
                   type="link"

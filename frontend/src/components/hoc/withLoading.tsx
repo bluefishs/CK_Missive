@@ -115,7 +115,7 @@ export function withLoading<P extends WithLoadingInjectedProps>(
         <div style={{ padding: 24 }}>
           <Alert
             type="error"
-            message={errorTitle}
+            title={errorTitle}
             description={error.message}
             showIcon
             closable

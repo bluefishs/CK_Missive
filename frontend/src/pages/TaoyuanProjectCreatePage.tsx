@@ -10,7 +10,7 @@
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ResponsiveContent } from '../components/common';
+import { ResponsiveContent } from '@ck-shared/ui-components';
 import {
   Form,
   Input,

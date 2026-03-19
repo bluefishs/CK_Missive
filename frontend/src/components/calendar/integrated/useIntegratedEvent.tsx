@@ -188,7 +188,7 @@ export function useIntegratedEvent(
       r => r.minutes_before === newReminderMinutes && r.notification_type === newReminderType
     );
     if (exists) {
-      notification.warning({ message: '此提醒設定已存在' });
+      notification.warning({ title: '此提醒設定已存在' });
       return;
     }
     setReminders([...reminders, {
@@ -237,7 +237,7 @@ export function useIntegratedEvent(
 
       if (response.success) {
         notification.success({
-          message: '事件建立成功',
+          title: '事件建立成功',
           description: response.google_event_id
             ? '已同步至 Google Calendar'
             : '事件已建立，提醒已設定',
@@ -250,7 +250,7 @@ export function useIntegratedEvent(
     } catch (error: unknown) {
       logger.error('建立事件失敗:', error);
       notification.error({
-        message: '建立事件失敗',
+        title: '建立事件失敗',
         description: error instanceof Error ? error.message : '請稍後再試',
       });
     } finally {

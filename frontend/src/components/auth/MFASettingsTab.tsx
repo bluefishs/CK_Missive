@@ -220,7 +220,7 @@ export const MFASettingsTab: React.FC = () => {
       {setupStep === 'qrcode' && setupData && (
         <Card title="步驟 1：掃描 QR Code" style={{ marginTop: 16 }}>
           <Alert
-            message="請使用驗證器 App 掃描以下 QR Code"
+            title="請使用驗證器 App 掃描以下 QR Code"
             description="支援 Google Authenticator、Microsoft Authenticator 等 TOTP 標準驗證器。"
             type="info"
             showIcon
@@ -256,7 +256,7 @@ export const MFASettingsTab: React.FC = () => {
 
           <Title level={5}>備用碼</Title>
           <Alert
-            message="請妥善保管以下備用碼"
+            title="請妥善保管以下備用碼"
             description="當您無法使用驗證器 App 時，可以使用備用碼登入。每組備用碼只能使用一次。此為唯一一次顯示機會。"
             type="warning"
             showIcon
@@ -340,7 +340,7 @@ export const MFASettingsTab: React.FC = () => {
       {/* 步驟完成 */}
       {setupStep === 'done' && (
         <Alert
-          message="MFA 已成功啟用!"
+          title="MFA 已成功啟用!"
           description="下次登入時，您需要在輸入密碼後提供驗證器 App 的驗證碼。"
           type="success"
           showIcon

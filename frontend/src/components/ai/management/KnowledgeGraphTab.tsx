@@ -92,7 +92,7 @@ export const KnowledgeGraphTab: React.FC = () => {
                 title="實體覆蓋率"
                 value={entityStats.coverage_percent}
                 suffix="%"
-                valueStyle={{ color: entityStats.coverage_percent > 50 ? '#52c41a' : '#fa8c16' }}
+                styles={{ content: { color: entityStats.coverage_percent > 50 ? '#52c41a' : '#fa8c16' } }}
               />
             </Col>
             <Col span={3}>

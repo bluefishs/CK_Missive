@@ -180,7 +180,7 @@ export const LoginHistoryTab: React.FC<LoginHistoryTabProps> = ({ isMobile = fal
           dot: eventIcon,
           children: (
             <div style={{ paddingBottom: 8 }}>
-              <Space direction={isMobile ? 'vertical' : 'horizontal'} size={isMobile ? 2 : 8} wrap>
+              <Space orientation={isMobile ? 'vertical' : 'horizontal'} size={isMobile ? 2 : 8} wrap>
                 <Tag icon={eventIcon} color={eventColor}>
                   {eventLabel}
                 </Tag>
@@ -212,7 +212,7 @@ export const LoginHistoryTab: React.FC<LoginHistoryTabProps> = ({ isMobile = fal
     <div>
       {/* 日期範圍篩選 */}
       <div style={{ marginBottom: 16 }}>
-        <Space direction={isMobile ? 'vertical' : 'horizontal'} size={8}>
+        <Space orientation={isMobile ? 'vertical' : 'horizontal'} size={8}>
           <Text strong style={{ fontSize: isMobile ? 12 : 14 }}>
             篩選日期範圍：
           </Text>
@@ -243,7 +243,7 @@ export const LoginHistoryTab: React.FC<LoginHistoryTabProps> = ({ isMobile = fal
                   pageSize={pageSize}
                   onChange={handlePageChange}
                   showTotal={(t) => `共 ${t} 筆紀錄`}
-                  size={isMobile ? 'small' : 'default'}
+                  size={isMobile ? 'small' : undefined}
                   showSizeChanger={false}
                 />
               </div>

@@ -45,11 +45,14 @@ export interface RAGChatPanelProps {
   embedded?: boolean;
   /** 是否使用 Agentic 模式 (預設 true) */
   agentMode?: boolean;
+  /** 助理上下文標識（影響後端 system prompt 與工具篩選） */
+  context?: string;
 }
 
 export const RAGChatPanel: React.FC<RAGChatPanelProps> = ({
   embedded = false,
   agentMode = true,
+  context,
 }) => {
   const { message: messageApi } = App.useApp();
   const [input, setInput] = useState('');
@@ -68,6 +71,7 @@ export const RAGChatPanel: React.FC<RAGChatPanelProps> = ({
     setMessages,
   } = useAgentSSE({
     agentMode,
+    context,
     onError: useCallback((msg: string, severity: 'warning' | 'error') => {
       if (severity === 'warning') messageApi.warning(msg);
       else messageApi.error(msg);
@@ -201,7 +205,7 @@ export const RAGChatPanel: React.FC<RAGChatPanelProps> = ({
           <Empty
             image={<ThunderboltOutlined style={{ fontSize: embedded ? 36 : 48, color: '#bfbfbf' }} />}
             description={
-              <Space direction="vertical" size={4}>
+              <Space vertical size={4}>
                 <Text type="secondary" style={{ fontSize: embedded ? 12 : 14 }}>
                   {agentMode ? 'AI 智能體問答助理' : '基於公文知識庫的 AI 問答助理'}
                 </Text>

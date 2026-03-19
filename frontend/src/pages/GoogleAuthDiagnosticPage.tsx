@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ResponsiveContent } from '../components/common';
+import { ResponsiveContent } from '@ck-shared/ui-components';
 import {
   Card,
   Alert,
@@ -20,8 +20,6 @@ import {
 } from '@ant-design/icons';
 
 const { Title, Text, Paragraph } = Typography;
-const { Step } = Steps;
-
 const GoogleAuthDiagnosticPage: React.FC = () => {
   const [currentDomain, setCurrentDomain] = useState('');
   const [googleClientId, setGoogleClientId] = useState('');
@@ -85,7 +83,7 @@ const GoogleAuthDiagnosticPage: React.FC = () => {
 
   return (
     <ResponsiveContent maxWidth="full" padding="medium">
-      <Space direction="vertical" style={{ width: '100%' }} size="large">
+      <Space vertical style={{ width: '100%' }} size="large">
         {/* 頁面標題 */}
         <Card>
           <Title level={2}>
@@ -100,60 +98,61 @@ const GoogleAuthDiagnosticPage: React.FC = () => {
         {/* 當前狀態 */}
         {diagnosticResult && (
           <Card title="當前系統狀態">
-            <Descriptions bordered>
-              <Descriptions.Item label="當前域名">{diagnosticResult.domain}</Descriptions.Item>
-              <Descriptions.Item label="協定">{diagnosticResult.protocol}</Descriptions.Item>
-              <Descriptions.Item label="主機名稱">{diagnosticResult.hostname}</Descriptions.Item>
-              <Descriptions.Item label="端口">{diagnosticResult.port || '無'}</Descriptions.Item>
-              <Descriptions.Item label="Google Client ID" span={2}>
-                {diagnosticResult.clientId ? (
-                  <Text code>{diagnosticResult.clientId}</Text>
-                ) : (
-                  <Text type="danger">未設定</Text>
-                )}
-              </Descriptions.Item>
-            </Descriptions>
+            <Descriptions bordered items={[
+              { key: '當前域名', label: '當前域名', children: diagnosticResult.domain },
+              { key: '協定', label: '協定', children: diagnosticResult.protocol },
+              { key: '主機名稱', label: '主機名稱', children: diagnosticResult.hostname },
+              { key: '端口', label: '端口', children: diagnosticResult.port || '無' },
+              {
+                key: 'Google Client ID',
+                label: 'Google Client ID',
+                span: 2,
+                children: diagnosticResult.clientId
+                  ? (<Text code>{diagnosticResult.clientId}</Text>)
+                  : (<Text type="danger">未設定</Text>),
+              },
+            ]} />
           </Card>
         )}
 
         {/* 診斷步驟 */}
         <Card title="診斷步驟">
-          <Steps direction="vertical" current={-1}>
-            <Step
-              status={getStepStatus(!!googleClientId)}
-              title="Google Client ID 配置"
-              description={
-                googleClientId ? (
+          <Steps
+            direction="vertical"
+            current={-1}
+            items={[
+              {
+                status: getStepStatus(!!googleClientId),
+                title: 'Google Client ID 配置',
+                description: googleClientId ? (
                   <Text type="success">✓ Google Client ID 已設定</Text>
                 ) : (
                   <Text type="danger">✗ Google Client ID 未設定</Text>
-                )
-              }
-            />
-            <Step
-              status={getStepStatus(currentDomain.includes('localhost') || currentDomain.startsWith('https:'))}
-              title="協定檢查"
-              description={
-                currentDomain.includes('localhost') || currentDomain.startsWith('https:') ? (
+                ),
+              },
+              {
+                status: getStepStatus(currentDomain.includes('localhost') || currentDomain.startsWith('https:')),
+                title: '協定檢查',
+                description: currentDomain.includes('localhost') || currentDomain.startsWith('https:') ? (
                   <Text type="success">✓ 使用安全協定或localhost</Text>
                 ) : (
                   <Text type="danger">✗ 需要 HTTPS 或 localhost 環境</Text>
-                )
-              }
-            />
-            <Step
-              status="process"
-              title="Google Console 設定檢查"
-              description="需要手動確認 Google Console 設定"
-            />
-          </Steps>
+                ),
+              },
+              {
+                status: 'process' as const,
+                title: 'Google Console 設定檢查',
+                description: '需要手動確認 Google Console 設定',
+              },
+            ]}
+          />
         </Card>
 
         {/* 問題和建議 */}
         {diagnosticResult?.issues?.length > 0 && (
           <Card title="發現的問題">
             <Alert
-              message="需要修復的問題"
+              title="需要修復的問題"
               type="error"
               showIcon
               style={{ marginBottom: 16 }}
@@ -173,7 +172,7 @@ const GoogleAuthDiagnosticPage: React.FC = () => {
         {diagnosticResult?.recommendations?.length > 0 && (
           <Card title="修復建議">
             <Alert
-              message="建議的解決方案"
+              title="建議的解決方案"
               type="info"
               showIcon
               style={{ marginBottom: 16 }}
@@ -193,14 +192,14 @@ const GoogleAuthDiagnosticPage: React.FC = () => {
         {/* Google Console 設定指南 */}
         <Card title="Google Console 設定指南">
           <Alert
-            message="重要提醒"
+            title="重要提醒"
             description="以下設定需要在 Google Cloud Console 中的 OAuth 2.0 客戶端 ID 設定頁面進行配置"
             type="warning"
             showIcon
             style={{ marginBottom: 16 }}
           />
           
-          <Divider orientation="left">授權的 JavaScript 來源</Divider>
+          <Divider titlePlacement="left">授權的 JavaScript 來源</Divider>
           <List
             header="需要在 Google Console 中添加以下來源："
             bordered
@@ -217,7 +216,7 @@ const GoogleAuthDiagnosticPage: React.FC = () => {
             )}
           />
 
-          <Divider orientation="left">授權的重新導向 URI</Divider>
+          <Divider titlePlacement="left">授權的重新導向 URI</Divider>
           <List
             header="需要在 Google Console 中添加以下重新導向 URI："
             bordered
@@ -232,7 +231,7 @@ const GoogleAuthDiagnosticPage: React.FC = () => {
           <Divider />
           
           <Alert
-            message="設定步驟"
+            title="設定步驟"
             description={
               <div>
                 <ol>

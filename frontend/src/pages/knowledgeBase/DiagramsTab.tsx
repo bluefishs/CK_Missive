@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { knowledgeBaseApi } from '../../api/knowledgeBaseApi';
 import type { DiagramInfo } from '../../api/knowledgeBaseApi';
-import { MarkdownRenderer } from '../../components/common/MarkdownRenderer';
+import { MarkdownRenderer } from '@ck-shared/ui-components';
 
 export const DiagramsTab: React.FC = () => {
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
@@ -47,9 +47,9 @@ export const DiagramsTab: React.FC = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: 'calc(100vh - 260px)' }}>
       {/* Diagram Selector */}
-      <Card size="small" bodyStyle={{ padding: '12px 16px' }}>
+      <Card size="small" styles={{ body: { padding: '12px 16px' } }}>
         {listLoading ? (
-          <Spin tip="載入中..."><div style={{ padding: 20 }} /></Spin>
+          <Spin description="載入中..."><div style={{ padding: 20 }} /></Spin>
         ) : items.length > 0 ? (
           <Segmented
             options={segmentOptions}
@@ -65,7 +65,7 @@ export const DiagramsTab: React.FC = () => {
       {/* Diagram Content */}
       <Card size="small" style={{ flex: 1, overflow: 'auto' }}>
         {fileLoading ? (
-          <Spin tip="載入圖表中..."><div style={{ padding: 40 }} /></Spin>
+          <Spin description="載入圖表中..."><div style={{ padding: 40 }} /></Spin>
         ) : fileData?.content ? (
           <MarkdownRenderer content={fileData.content} />
         ) : (

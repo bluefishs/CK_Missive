@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Typography, Tag, Space, Button, Popover, List, Spin } from 'antd';
+import { Typography, Tag, Space, Button, Popover, Spin, Flex } from 'antd';
 import { PaperClipOutlined, DownloadOutlined, EyeOutlined, FileOutlined } from '@ant-design/icons';
 import type { ColumnsType, ColumnType } from 'antd/es/table';
 import Highlighter from 'react-highlight-words';
@@ -45,7 +45,7 @@ export const getMobileColumns = (
     title: '公文資訊',
     key: 'document_info',
     render: (_: unknown, record: Document, index: number) => (
-      <Space direction="vertical" size={0} style={{ width: '100%' }}>
+      <Space vertical size={0} style={{ width: '100%' }}>
         <Space size={4} wrap>
           <Typography.Text type="secondary" style={{ fontSize: 11 }}>
             #{getRowNumber(index)}
@@ -275,49 +275,48 @@ export const getDesktopColumns = (options: GetColumnsOptions): ColumnsType<Docum
                 尚無附件資料
               </div>
             ) : (
-              <List
-                size="small"
-                dataSource={attachments}
-                renderItem={(attachment: DocumentAttachment) => (
-                  <List.Item
+              <Flex vertical>
+                {attachments.map((attachment: DocumentAttachment) => (
+                  <Flex
                     key={attachment.id}
-                    actions={[
-                      isPreviewable(attachment.content_type) && (
+                    align="center"
+                    justify="space-between"
+                    style={{ padding: '6px 0', borderBottom: '1px solid #f0f0f0' }}
+                  >
+                    <Flex align="center" gap={8} style={{ flex: 1, minWidth: 0 }}>
+                      <FileOutlined style={{ fontSize: 16, color: '#1890ff' }} />
+                      <div style={{ minWidth: 0 }}>
+                        <Typography.Text ellipsis style={{ maxWidth: 180 }} title={attachment.filename}>
+                          {attachment.filename}
+                        </Typography.Text>
+                        <div>
+                          <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+                            {formatFileSize(attachment.file_size)}
+                          </Typography.Text>
+                        </div>
+                      </div>
+                    </Flex>
+                    <Space size={0}>
+                      {isPreviewable(attachment.content_type) && (
                         <Button
-                          key="preview"
                           type="text"
                           size="small"
                           icon={<EyeOutlined />}
                           onClick={(e) => handlePreviewAttachment(attachment, e)}
                           title="預覽"
                         />
-                      ),
+                      )}
                       <Button
-                        key="download"
                         type="text"
                         size="small"
                         icon={<DownloadOutlined />}
                         onClick={(e) => handleDownloadAttachment(attachment, e)}
                         title="下載"
-                      />,
-                    ].filter(Boolean)}
-                  >
-                    <List.Item.Meta
-                      avatar={<FileOutlined style={{ fontSize: 16, color: '#1890ff' }} />}
-                      title={
-                        <Typography.Text ellipsis style={{ maxWidth: 180 }} title={attachment.filename}>
-                          {attachment.filename}
-                        </Typography.Text>
-                      }
-                      description={
-                        <Typography.Text type="secondary" style={{ fontSize: 11 }}>
-                          {formatFileSize(attachment.file_size)}
-                        </Typography.Text>
-                      }
-                    />
-                  </List.Item>
-                )}
-              />
+                      />
+                    </Space>
+                  </Flex>
+                ))}
+              </Flex>
             )}
           </div>
         );

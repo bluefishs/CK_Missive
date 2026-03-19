@@ -195,24 +195,29 @@ export const HistoryTab: React.FC = () => {
         }}
         expandable={{
           expandedRowRender: (record) => (
-            <Descriptions size="small" column={2} bordered>
-              <Descriptions.Item label="原始查詢" span={2}>{record.query}</Descriptions.Item>
-              <Descriptions.Item label="搜尋策略">{record.search_strategy || '-'}</Descriptions.Item>
-              <Descriptions.Item label="同義詞擴展">{record.synonym_expanded ? '是' : '否'}</Descriptions.Item>
-              <Descriptions.Item label="關聯實體">
-                {record.related_entity
+            <Descriptions size="small" column={2} bordered items={[
+              { key: '原始查詢', label: '原始查詢', span: 2, children: record.query },
+              { key: '搜尋策略', label: '搜尋策略', children: record.search_strategy || '-' },
+              { key: '同義詞擴展', label: '同義詞擴展', children: record.synonym_expanded ? '是' : '否' },
+              {
+                key: '關聯實體',
+                label: '關聯實體',
+                children: record.related_entity
                   ? <Tag color="volcano">{record.related_entity === 'dispatch_order' ? '派工單' : record.related_entity === 'project' ? '專案' : record.related_entity}</Tag>
-                  : '-'}
-              </Descriptions.Item>
-              <Descriptions.Item label="結果數量">{record.results_count}</Descriptions.Item>
-              {record.parsed_intent && (
-                <Descriptions.Item label="解析意圖" span={2}>
+                  : '-',
+              },
+              { key: '結果數量', label: '結果數量', children: record.results_count },
+              ...(record.parsed_intent ? [{
+                key: '解析意圖',
+                label: '解析意圖',
+                span: 2,
+                children: (
                   <pre style={{ fontSize: 12, margin: 0, maxHeight: 200, overflow: 'auto' }}>
                     {JSON.stringify(record.parsed_intent, null, 2)}
                   </pre>
-                </Descriptions.Item>
-              )}
-            </Descriptions>
+                ),
+              }] : []),
+            ]} />
           ),
         }}
       />

@@ -107,7 +107,7 @@ export const StaffTab: React.FC<StaffTabProps> = ({
       title: '聯絡方式',
       key: 'contact',
       render: (_, record) => (
-        <Space direction="vertical" size="small">
+        <Space vertical size="small">
           {record.phone && <span><PhoneOutlined /> {record.phone}</span>}
           {record.email && <span><MailOutlined /> {record.email}</span>}
         </Space>

@@ -64,7 +64,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
     setIsDragging(false);
 
     if (!onEventDrop) {
-      notification.warning({ message: '拖曳功能暫不可用' });
+      notification.warning({ title: '拖曳功能暫不可用' });
       return;
     }
 
@@ -79,13 +79,13 @@ export const MonthView: React.FC<MonthViewProps> = ({
 
       await onEventDrop(eventId, targetDate, originalDate);
       notification.success({
-        message: '事件已移動',
+        title: '事件已移動',
         description: `事件已移至 ${targetDate.format('YYYY-MM-DD')}`
       });
     } catch (error) {
       logger.error('拖曳失敗:', error);
       notification.error({
-        message: '移動失敗',
+        title: '移動失敗',
         description: '無法移動事件，請稍後再試'
       });
     }

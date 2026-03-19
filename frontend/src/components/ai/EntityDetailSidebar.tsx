@@ -13,7 +13,8 @@
  * @updated 2026-02-26 - v1.1.0 整合時間軸 API
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Spin, Empty, Tag, List, Descriptions,
   Drawer, Typography, Divider, Space, Tooltip, Timeline,
@@ -31,7 +32,6 @@ import type {
   KGEntityDetailResponse,
   KGEntityRelationship,
   KGEntityDocument,
-  KGTimelineItem,
 } from '../../types/ai';
 import { getMergedNodeConfig, CODE_ENTITY_TYPES } from '../../config/graphNodeConfig';
 
@@ -73,61 +73,20 @@ const defaultExtraSections = (detail: KGEntityDetailResponse, type: string): Rea
   if (!meta) return null;
   return (
     <>
-      <Divider orientation="left" style={{ fontSize: 13 }}>
+      <Divider titlePlacement="left" style={{ fontSize: 13 }}>
         <CodeOutlined /> 程式碼資訊
       </Divider>
-      <Descriptions column={1} size="small" bordered>
-        {!!meta.file_path && (
-          <Descriptions.Item label="檔案路徑">
-            <Text code style={{ fontSize: 11, wordBreak: 'break-all' }}>
-              {String(meta.file_path)}
-            </Text>
-          </Descriptions.Item>
-        )}
-        {meta.lines != null && (
-          <Descriptions.Item label="行數">{String(meta.lines)}</Descriptions.Item>
-        )}
-        {meta.line_start != null && (
-          <Descriptions.Item label="位置">
-            L{String(meta.line_start)}
-            {meta.line_end ? `–L${String(meta.line_end)}` : ''}
-          </Descriptions.Item>
-        )}
-        {meta.is_async != null && (
-          <Descriptions.Item label="非同步">
-            <Tag color={meta.is_async ? 'green' : 'default'}>
-              {meta.is_async ? 'async' : 'sync'}
-            </Tag>
-          </Descriptions.Item>
-        )}
-        {meta.is_private != null && meta.is_private && (
-          <Descriptions.Item label="可見性">
-            <Tag color="orange">private</Tag>
-          </Descriptions.Item>
-        )}
-        {Array.isArray(meta.args) && meta.args.length > 0 && (
-          <Descriptions.Item label="參數">
-            {(meta.args as string[]).map((arg) => (
-              <Tag key={arg} style={{ fontSize: 11 }}>{arg}</Tag>
-            ))}
-          </Descriptions.Item>
-        )}
-        {Array.isArray(meta.bases) && meta.bases.length > 0 && (
-          <Descriptions.Item label="繼承">
-            {(meta.bases as string[]).map((base) => (
-              <Tag key={base} color="purple" style={{ fontSize: 11 }}>{base}</Tag>
-            ))}
-          </Descriptions.Item>
-        )}
-        {!!meta.table_name && (
-          <Descriptions.Item label="表名">
-            <Text code>{String(meta.table_name)}</Text>
-          </Descriptions.Item>
-        )}
-        {meta.column_count != null && (
-          <Descriptions.Item label="欄位數">{String(meta.column_count)}</Descriptions.Item>
-        )}
-      </Descriptions>
+      <Descriptions column={1} size="small" bordered items={[
+        ...(meta.file_path ? [{ key: '檔案路徑', label: '檔案路徑', children: (<Text code style={{ fontSize: 11, wordBreak: 'break-all' }}>{String(meta.file_path)}</Text>) }] : []),
+        ...(meta.lines != null ? [{ key: '行數', label: '行數', children: String(meta.lines) }] : []),
+        ...(meta.line_start != null ? [{ key: '位置', label: '位置', children: (<>L{String(meta.line_start)}{meta.line_end ? `–L${String(meta.line_end)}` : ''}</>) }] : []),
+        ...(meta.is_async != null ? [{ key: '非同步', label: '非同步', children: (<Tag color={meta.is_async ? 'green' : 'default'}>{meta.is_async ? 'async' : 'sync'}</Tag>) }] : []),
+        ...(meta.is_private != null && meta.is_private ? [{ key: '可見性', label: '可見性', children: (<Tag color="orange">private</Tag>) }] : []),
+        ...(Array.isArray(meta.args) && meta.args.length > 0 ? [{ key: '參數', label: '參數', children: (<>{(meta.args as string[]).map((arg) => (<Tag key={arg} style={{ fontSize: 11 }}>{arg}</Tag>))}</>) }] : []),
+        ...(Array.isArray(meta.bases) && meta.bases.length > 0 ? [{ key: '繼承', label: '繼承', children: (<>{(meta.bases as string[]).map((base) => (<Tag key={base} color="purple" style={{ fontSize: 11 }}>{base}</Tag>))}</>) }] : []),
+        ...(meta.table_name ? [{ key: '表名', label: '表名', children: (<Text code>{String(meta.table_name)}</Text>) }] : []),
+        ...(meta.column_count != null ? [{ key: '欄位數', label: '欄位數', children: String(meta.column_count) }] : []),
+      ]} />
       {meta.docstring && (
         <div style={{ marginTop: 8, padding: '6px 8px', background: '#f6f8fa', borderRadius: 4, fontSize: 12 }}>
           <Text type="secondary" style={{ fontSize: 11 }}>docstring:</Text>
@@ -148,56 +107,32 @@ export const EntityDetailSidebar: React.FC<EntityDetailSidebarProps> = ({
   renderExtraSections = defaultExtraSections,
   inline = false,
 }) => {
-  const [loading, setLoading] = useState(false);
-  const [detail, setDetail] = useState<KGEntityDetailResponse | null>(null);
-  const [timeline, setTimeline] = useState<KGTimelineItem[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
   const entityConfig = useMemo(() => getMergedNodeConfig(entityType), [entityType]);
 
-  useEffect(() => {
-    if (!visible || !entityName) {
-      setDetail(null);
-      setTimeline([]);
-      setError(null);
-      return;
-    }
-
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    (async () => {
-      try {
-        // 圖譜顯示層用 "ner_project" 區分，但 DB 存的是 "project"
-        const dbEntityType = entityType === 'ner_project' ? 'project' : entityType;
-        const searchResult = await aiApi.searchGraphEntities({
-          query: entityName, entity_type: dbEntityType, limit: 1,
-        });
-        if (cancelled) return;
-        const firstMatch = searchResult.results?.[0];
-        if (!firstMatch) {
-          setError('尚未建立正規化實體');
-          setLoading(false);
-          return;
-        }
-        const [detailResult, timelineResult] = await Promise.all([
-          aiApi.getEntityDetail({ entity_id: firstMatch.id }),
-          aiApi.getEntityTimeline({ entity_id: firstMatch.id }),
-        ]);
-        if (cancelled) return;
-        setDetail(detailResult);
-        setTimeline(timelineResult.timeline || []);
-        setLoading(false);
-      } catch (err) {
-        if (cancelled) return;
-        setError(err instanceof Error ? err.message : '載入失敗');
-        setLoading(false);
+  const { data: entityData, isLoading: loading, error: queryError } = useQuery({
+    queryKey: ['entity-detail', entityName, entityType],
+    queryFn: async () => {
+      // 統一後 agency/typroject 可能來自 NER，不傳 entity_type 避免篩選衝突
+      const searchResult = await aiApi.searchGraphEntities({
+        query: entityName, limit: 1,
+      });
+      const firstMatch = searchResult.results?.[0];
+      if (!firstMatch) {
+        throw new Error('尚未建立正規化實體');
       }
-    })();
+      const [detailResult, timelineResult] = await Promise.all([
+        aiApi.getEntityDetail({ entity_id: firstMatch.id }),
+        aiApi.getEntityTimeline({ entity_id: firstMatch.id }),
+      ]);
+      return { detail: detailResult, timeline: timelineResult.timeline || [] };
+    },
+    enabled: visible && !!entityName,
+    staleTime: 2 * 60 * 1000,
+  });
 
-    return () => { cancelled = true; };
-  }, [visible, entityName, entityType]);
+  const detail = entityData?.detail ?? null;
+  const timeline = entityData?.timeline ?? [];
+  const error = queryError instanceof Error ? queryError.message : null;
 
   const titleContent = (
     <Space>
@@ -216,7 +151,7 @@ export const EntityDetailSidebar: React.FC<EntityDetailSidebarProps> = ({
     <>
       {loading && (
         <div style={{ textAlign: 'center', padding: 40 }}>
-          <Spin tip="查詢正規化實體..."><div /></Spin>
+          <Spin description="查詢正規化實體..."><div /></Spin>
         </div>
       )}
 
@@ -227,17 +162,13 @@ export const EntityDetailSidebar: React.FC<EntityDetailSidebarProps> = ({
       {detail && !loading && (
         <>
           {/* 基本資訊 */}
-          <Descriptions column={1} size="small" bordered>
-            <Descriptions.Item label="正規名稱">{detail.canonical_name}</Descriptions.Item>
-            <Descriptions.Item label="提及次數">{detail.mention_count}</Descriptions.Item>
-            <Descriptions.Item label="別名數">{detail.alias_count}</Descriptions.Item>
-            {detail.first_seen_at && (
-              <Descriptions.Item label="首次出現">{detail.first_seen_at.split('T')[0]}</Descriptions.Item>
-            )}
-            {detail.last_seen_at && (
-              <Descriptions.Item label="最近出現">{detail.last_seen_at.split('T')[0]}</Descriptions.Item>
-            )}
-          </Descriptions>
+          <Descriptions column={1} size="small" bordered items={[
+            { key: '正規名稱', label: '正規名稱', children: detail.canonical_name },
+            { key: '提及次數', label: '提及次數', children: detail.mention_count },
+            { key: '別名數', label: '別名數', children: detail.alias_count },
+            ...(detail.first_seen_at ? [{ key: '首次出現', label: '首次出現', children: detail.first_seen_at.split('T')[0] }] : []),
+            ...(detail.last_seen_at ? [{ key: '最近出現', label: '最近出現', children: detail.last_seen_at.split('T')[0] }] : []),
+          ]} />
 
           {/* 自訂區塊（預設：Code Wiki 元數據） */}
           {renderExtraSections?.(detail, entityType)}
@@ -245,7 +176,7 @@ export const EntityDetailSidebar: React.FC<EntityDetailSidebarProps> = ({
           {/* 別名 */}
           {detail.aliases.length > 0 && (
             <>
-              <Divider orientation="left" style={{ fontSize: 13 }}>
+              <Divider titlePlacement="left" style={{ fontSize: 13 }}>
                 <TagsOutlined /> 別名 ({detail.aliases.length})
               </Divider>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
@@ -259,7 +190,7 @@ export const EntityDetailSidebar: React.FC<EntityDetailSidebarProps> = ({
           {/* 關聯公文 */}
           {detail.documents.length > 0 && (
             <>
-              <Divider orientation="left" style={{ fontSize: 13 }}>
+              <Divider titlePlacement="left" style={{ fontSize: 13 }}>
                 <FileTextOutlined /> 關聯公文 ({detail.documents.length})
               </Divider>
               <List
@@ -296,7 +227,7 @@ export const EntityDetailSidebar: React.FC<EntityDetailSidebarProps> = ({
           {/* 關係 */}
           {detail.relationships.length > 0 && (
             <>
-              <Divider orientation="left" style={{ fontSize: 13 }}>
+              <Divider titlePlacement="left" style={{ fontSize: 13 }}>
                 <ShareAltOutlined /> 關係 ({detail.relationships.length})
               </Divider>
               <List
@@ -336,7 +267,7 @@ export const EntityDetailSidebar: React.FC<EntityDetailSidebarProps> = ({
           {/* 時間軸 */}
           {timeline.length > 0 && (
             <>
-              <Divider orientation="left" style={{ fontSize: 13 }}>
+              <Divider titlePlacement="left" style={{ fontSize: 13 }}>
                 <FieldTimeOutlined /> 關係時間軸 ({timeline.length})
               </Divider>
               <Timeline
@@ -391,7 +322,7 @@ export const EntityDetailSidebar: React.FC<EntityDetailSidebarProps> = ({
     <Drawer
       title={titleContent}
       placement="right"
-      width={380}
+
       open={visible}
       onClose={onClose}
       mask={false}

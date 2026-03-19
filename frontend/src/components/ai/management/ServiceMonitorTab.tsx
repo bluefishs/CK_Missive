@@ -63,7 +63,7 @@ export const ServiceMonitorTab: React.FC = () => {
 
   if (loading) {
     return (
-      <Spin tip="檢查 AI 服務狀態...">
+      <Spin description="檢查 AI 服務狀態...">
         <div style={{ height: 200 }} />
       </Spin>
     );
@@ -104,10 +104,10 @@ export const ServiceMonitorTab: React.FC = () => {
                 title="目前使用量"
                 value={rateLimit.current_requests}
                 suffix={`/ ${rateLimit.max_requests}`}
-                valueStyle={{
+                styles={{ content: {
                   color: rateLimit.current_requests / rateLimit.max_requests > 0.8
                     ? '#cf1322' : '#3f8600',
-                }}
+                } }}
               />
             </Col>
             <Col xs={12} sm={8}>
@@ -143,26 +143,14 @@ export const ServiceMonitorTab: React.FC = () => {
       {/* 服務配置 */}
       {config && (
         <Card title="AI 服務配置" size="small">
-          <Descriptions column={{ xs: 1, sm: 2 }} size="small" bordered>
-            <Descriptions.Item label="AI 功能">
-              <Badge status={config.enabled ? 'success' : 'error'} text={config.enabled ? '已啟用' : '已停用'} />
-            </Descriptions.Item>
-            <Descriptions.Item label="Groq 模型">
-              {config.providers.groq.model}
-            </Descriptions.Item>
-            <Descriptions.Item label="Ollama 模型">
-              {config.providers.ollama.model}
-            </Descriptions.Item>
-            <Descriptions.Item label="Ollama URL">
-              {config.providers.ollama.url}
-            </Descriptions.Item>
-            <Descriptions.Item label="Rate Limit">
-              {config.rate_limit.max_requests} 次 / {config.rate_limit.window_seconds} 秒
-            </Descriptions.Item>
-            <Descriptions.Item label="快取">
-              {config.cache.enabled ? '已啟用' : '停用'} (摘要 {config.cache.ttl_summary}s / 分類 {config.cache.ttl_classify}s)
-            </Descriptions.Item>
-          </Descriptions>
+          <Descriptions column={{ xs: 1, sm: 2 }} size="small" bordered items={[
+            { key: 'AI 功能', label: 'AI 功能', children: (<Badge status={config.enabled ? 'success' : 'error'} text={config.enabled ? '已啟用' : '已停用'} />) },
+            { key: 'Groq 模型', label: 'Groq 模型', children: config.providers.groq.model },
+            { key: 'Ollama 模型', label: 'Ollama 模型', children: config.providers.ollama.model },
+            { key: 'Ollama URL', label: 'Ollama URL', children: config.providers.ollama.url },
+            { key: 'Rate Limit', label: 'Rate Limit', children: `${config.rate_limit.max_requests} 次 / ${config.rate_limit.window_seconds} 秒` },
+            { key: '快取', label: '快取', children: `${config.cache.enabled ? '已啟用' : '停用'} (摘要 ${config.cache.ttl_summary}s / 分類 ${config.cache.ttl_classify}s)` },
+          ]} />
         </Card>
       )}
     </div>

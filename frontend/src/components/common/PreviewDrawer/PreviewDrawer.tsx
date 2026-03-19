@@ -115,9 +115,9 @@ export const PreviewDrawer: React.FC<PreviewDrawerProps> = ({
           )}
         </div>
       }
-      width={drawerWidth}
       closeIcon={<CloseOutlined />}
       styles={{
+        wrapper: { width: drawerWidth },
         body: {
           padding: isMobile ? 12 : 16,
           display: 'flex',

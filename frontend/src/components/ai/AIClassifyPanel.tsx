@@ -116,7 +116,7 @@ export const AIClassifyPanel: React.FC<AIClassifyPanelProps> = ({
 
   // 面板內容
   const panelContent = (
-    <Space direction="vertical" style={{ width: '100%' }}>
+    <Space vertical style={{ width: '100%' }}>
       {/* 操作按鈕 */}
       <Space>
         <Button
@@ -139,7 +139,7 @@ export const AIClassifyPanel: React.FC<AIClassifyPanelProps> = ({
       {/* 載入中 */}
       {loading && (
         <div style={{ textAlign: 'center', padding: '16px 0' }}>
-          <Spin tip="AI 正在分析公文...">
+          <Spin description="AI 正在分析公文...">
             <div style={{ padding: '30px 50px' }} />
           </Spin>
         </div>
@@ -148,27 +148,35 @@ export const AIClassifyPanel: React.FC<AIClassifyPanelProps> = ({
       {/* 分類結果 */}
       {result && !loading && (
         <div>
-          <Descriptions column={1} size="small" bordered>
-            <Descriptions.Item label="公文類型">
-              <Space>
-                <Tag color="blue">{result.doc_type}</Tag>
-                {renderConfidence(result.doc_type_confidence, '信心度')}
-              </Space>
-            </Descriptions.Item>
-            <Descriptions.Item label="收發類別">
-              <Space>
-                <Tag color={result.category === '收文' ? 'green' : 'orange'}>
-                  {result.category}
-                </Tag>
-                {renderConfidence(result.category_confidence, '信心度')}
-              </Space>
-            </Descriptions.Item>
-            {result.reasoning && (
-              <Descriptions.Item label="判斷理由">
-                <Text type="secondary">{result.reasoning}</Text>
-              </Descriptions.Item>
-            )}
-          </Descriptions>
+          <Descriptions column={1} size="small" bordered items={[
+            {
+              key: '公文類型',
+              label: '公文類型',
+              children: (
+                <Space>
+                  <Tag color="blue">{result.doc_type}</Tag>
+                  {renderConfidence(result.doc_type_confidence, '信心度')}
+                </Space>
+              ),
+            },
+            {
+              key: '收發類別',
+              label: '收發類別',
+              children: (
+                <Space>
+                  <Tag color={result.category === '收文' ? 'green' : 'orange'}>
+                    {result.category}
+                  </Tag>
+                  {renderConfidence(result.category_confidence, '信心度')}
+                </Space>
+              ),
+            },
+            ...(result.reasoning ? [{
+              key: '判斷理由',
+              label: '判斷理由',
+              children: (<Text type="secondary">{result.reasoning}</Text>),
+            }] : []),
+          ]} />
 
           {/* 來源標籤 (使用集中配置) */}
           <div style={{ marginTop: 8 }}>

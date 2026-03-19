@@ -302,7 +302,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
       showSizeChanger: !isMobile,
       pageSizeOptions: ['10', '20', '50', '100'],
       showTotal: isMobile ? undefined : (totalNum, range) => `第 ${range[0]}-${range[1]} 筆，共 ${totalNum} 筆`,
-      size: isMobile ? 'small' : 'default',
+      size: isMobile ? 'small' : undefined,
       showQuickJumper: !isMobile,
     },
     scroll: isMobile ? undefined : { x: 1050 },

@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { Modal, Space, Typography, Tag, List, Badge, Button } from 'antd';
+import { Modal, Space, Typography, Tag, Badge, Button, Flex } from 'antd';
 import { BellOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import type { CalendarEvent } from './types';
@@ -51,7 +51,7 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
       width={isMobile ? '95%' : 600}
       style={{ maxWidth: '95vw' }}
     >
-      <Space direction="vertical" size="large" style={{ width: '100%' }}>
+      <Space vertical size="large" style={{ width: '100%' }}>
         <div>
           <Title level={4}>{event.title}</Title>
           <Space wrap>
@@ -86,11 +86,9 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
         {event.reminders && event.reminders.length > 0 && (
           <div>
             <Text strong>提醒設定：</Text>
-            <List
-              size="small"
-              dataSource={event.reminders}
-              renderItem={(reminder) => (
-                <List.Item>
+            <Flex vertical>
+              {event.reminders.map((reminder, index) => (
+                <div key={index} style={{ padding: '8px 0', borderBottom: index < (event.reminders?.length ?? 0) - 1 ? '1px solid #f0f0f0' : undefined }}>
                   <Space>
                     <Badge
                       status={
@@ -105,9 +103,9 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
                       <Text type="warning">重試 {reminder.retry_count} 次</Text>
                     )}
                   </Space>
-                </List.Item>
-              )}
-            />
+                </div>
+              ))}
+            </Flex>
           </div>
         )}
       </Space>

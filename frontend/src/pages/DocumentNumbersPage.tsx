@@ -12,7 +12,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { logger } from '../services/logger';
-import { ResponsiveContent } from '../components/common';
+import { ResponsiveContent } from '@ck-shared/ui-components';
 import {
   Card,
   Button,
@@ -72,12 +72,12 @@ export const DocumentNumbersPage: React.FC = () => {
   });
 
   // 公文操作狀態
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- state value reserved for modal visibility tracking, setter is used
-  const [documentOperation, setDocumentOperation] = useState<{
+  const [_documentOperation, setDocumentOperation] = useState<{
     type: 'view' | 'edit' | 'create' | 'copy' | null;
     document: Document | null;
     visible: boolean;
   }>({ type: null, document: null, visible: false });
+  void _documentOperation; // suppress noUnusedLocals — value used in commented JSX below
 
   // 刪除確認 Modal
   const [deleteModal, setDeleteModal] = useState<{
@@ -205,32 +205,6 @@ export const DocumentNumbersPage: React.FC = () => {
     }
   };
 
-  // 複製公文處理 - 功能已停用 (2026-01-12)
-  // const handleSaveDocument = async (documentData: Partial<Document>): Promise<Document | void> => {
-  //   try {
-  //     // 只處理複製
-  //     if (documentOperation.type !== 'copy') return;
-  //
-  //     const payload = {
-  //       ...documentData,
-  //       category: '發文',
-  //       doc_type: '發文',
-  //     };
-  //
-  //     const result = await documentsApi.createDocument(payload as any);
-  //     message.success('發文複製成功！');
-  //
-  //     setDocumentOperation({ type: null, document: null, visible: false });
-  //     refetch();
-  //     loadStats();
-  //     loadNextNumber();
-  //     return result;
-  //   } catch (error) {
-  //     console.error('複製公文失敗:', error);
-  //     throw error;
-  //   }
-  // };
-
   const handleExport = async () => {
     setIsExporting(true);
     try {
@@ -285,7 +259,7 @@ export const DocumentNumbersPage: React.FC = () => {
         >
           <Row gutter={16} align="middle">
             <Col flex="1">
-              <Space direction="vertical" size={0}>
+              <Space vertical size={0}>
                 <Text style={{ color: 'white', opacity: 0.8, fontSize: '14px' }}>
                   下一個可用發文字號
                 </Text>
@@ -334,7 +308,7 @@ export const DocumentNumbersPage: React.FC = () => {
               title="電子交換"
               value={stats?.delivery_method_stats?.electronic ?? 0}
               prefix={<CloudOutlined />}
-              valueStyle={{ color: '#52c41a' }}
+              styles={{ content: { color: '#52c41a' } }}
               suffix="筆"
             />
           </Card>
@@ -345,7 +319,7 @@ export const DocumentNumbersPage: React.FC = () => {
               title="紙本郵寄"
               value={stats?.delivery_method_stats?.paper ?? 0}
               prefix={<MailOutlined />}
-              valueStyle={{ color: '#faad14' }}
+              styles={{ content: { color: '#faad14' } }}
               suffix="筆"
             />
           </Card>
@@ -356,7 +330,7 @@ export const DocumentNumbersPage: React.FC = () => {
               title="本年度發文數"
               value={stats?.current_year_send_count ?? 0}
               prefix={<CalendarOutlined />}
-              valueStyle={{ color: '#1890ff' }}
+              styles={{ content: { color: '#1890ff' } }}
             />
           </Card>
         </Col>

@@ -237,8 +237,8 @@ export const DispatchDocumentsTab: React.FC<DispatchDocumentsTabProps> = ({
                   dataSource={agencyDocs}
                   renderItem={(doc: DispatchDocumentLink) => (
                     <Card size="small" style={{ marginBottom: 8 }}>
-                      <Descriptions size="small" column={2}>
-                        <Descriptions.Item label="公文字號">
+                      <Descriptions size="small" column={2} items={[
+                        { key: '公文字號', label: '公文字號', children: (
                           <Space>
                             {doc.doc_date && (
                               <Text type="secondary" style={{ fontSize: 12 }}>
@@ -249,14 +249,10 @@ export const DispatchDocumentsTab: React.FC<DispatchDocumentsTabProps> = ({
                               {doc.doc_number || `#${doc.document_id}`}
                             </Tag>
                           </Space>
-                        </Descriptions.Item>
-                        <Descriptions.Item label="類型">
-                          <Tag color="blue">機關來函</Tag>
-                        </Descriptions.Item>
-                        <Descriptions.Item label="主旨" span={2}>
-                          {doc.subject || '-'}
-                        </Descriptions.Item>
-                      </Descriptions>
+                        ) },
+                        { key: '類型', label: '類型', children: <Tag color="blue">機關來函</Tag> },
+                        { key: '主旨', label: '主旨', span: 2, children: doc.subject || '-' },
+                      ]} />
                       <Space>
                         <Button
                           type="link"
@@ -309,8 +305,8 @@ export const DispatchDocumentsTab: React.FC<DispatchDocumentsTabProps> = ({
                   dataSource={companyDocs}
                   renderItem={(doc: DispatchDocumentLink) => (
                     <Card size="small" style={{ marginBottom: 8 }}>
-                      <Descriptions size="small" column={2}>
-                        <Descriptions.Item label="公文字號">
+                      <Descriptions size="small" column={2} items={[
+                        { key: '公文字號', label: '公文字號', children: (
                           <Space>
                             {doc.doc_date && (
                               <Text type="secondary" style={{ fontSize: 12 }}>
@@ -321,14 +317,10 @@ export const DispatchDocumentsTab: React.FC<DispatchDocumentsTabProps> = ({
                               {doc.doc_number || `#${doc.document_id}`}
                             </Tag>
                           </Space>
-                        </Descriptions.Item>
-                        <Descriptions.Item label="類型">
-                          <Tag color="green">乾坤發文</Tag>
-                        </Descriptions.Item>
-                        <Descriptions.Item label="主旨" span={2}>
-                          {doc.subject || '-'}
-                        </Descriptions.Item>
-                      </Descriptions>
+                        ) },
+                        { key: '類型', label: '類型', children: <Tag color="green">乾坤發文</Tag> },
+                        { key: '主旨', label: '主旨', span: 2, children: doc.subject || '-' },
+                      ]} />
                       <Space>
                         <Button
                           type="link"

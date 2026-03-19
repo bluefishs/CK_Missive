@@ -148,7 +148,7 @@ const WorkRecordStatsCardInner: React.FC<WorkRecordStatsCardProps> = (props) => 
                 <Statistic
                   value={linkedDocCount}
                   prefix={<LinkOutlined />}
-                  valueStyle={{ fontSize: 20 }}
+                  styles={{ content: { fontSize: 20 } }}
                 />
               )}
               <Tooltip title="不重複來文數">

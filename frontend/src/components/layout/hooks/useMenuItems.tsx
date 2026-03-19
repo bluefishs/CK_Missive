@@ -39,6 +39,9 @@ import {
   EnvironmentOutlined,
   SendOutlined,
   CodeOutlined,
+  AuditOutlined,
+  AccountBookOutlined,
+  NodeIndexOutlined,
 } from '@ant-design/icons';
 import { ROUTES } from '../../../router/types';
 import type { NavigationItem } from './types';
@@ -102,6 +105,9 @@ const iconMap: { [key: string]: React.ReactNode } = {
   'SendOutlined': <SendOutlined />,
   'NumberOutlined': <NumberOutlined />,
   'CodeOutlined': <CodeOutlined />,
+  'AuditOutlined': <AuditOutlined />,
+  'AccountBookOutlined': <AccountBookOutlined />,
+  'NodeIndexOutlined': <NodeIndexOutlined />,
 };
 
 /**
@@ -206,6 +212,18 @@ export const getStaticMenuItems = (): MenuItem[] => [
         icon: <TeamOutlined />,
         label: '承辦同仁',
         path: ROUTES.STAFF,
+      },
+      {
+        key: ROUTES.PM_CASES,
+        icon: <AuditOutlined />,
+        label: 'PM 案件管理',
+        path: ROUTES.PM_CASES,
+      },
+      {
+        key: ROUTES.ERP_QUOTATIONS,
+        icon: <AccountBookOutlined />,
+        label: 'ERP 財務管理',
+        path: ROUTES.ERP_QUOTATIONS,
       },
     ],
   },
@@ -341,6 +359,8 @@ export const getDefaultOpenKeys = (pathname: string): string[] => {
   if (pathname.startsWith('/reports')) return ['/reports', 'reports'];
   if (pathname.startsWith('/api-docs')) return ['/reports', 'reports'];
   if (pathname.startsWith('/demo/unified-form')) return ['/reports', 'reports'];
+  if (pathname.startsWith('/pm')) return ['case-data-menu', 'parent-project-management'];
+  if (pathname.startsWith('/erp')) return ['case-data-menu', 'parent-project-management'];
   if (pathname.startsWith('/admin')) return ['/admin/system', 'system'];
   if (pathname.startsWith('/settings')) return ['/settings', 'settings'];
   return [];

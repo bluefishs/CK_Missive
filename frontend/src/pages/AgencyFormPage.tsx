@@ -10,7 +10,7 @@
 
 import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Form, Input, Select, App, Modal } from 'antd';
+import { Form, Input, Select, App } from 'antd';
 import { ResponsiveFormRow } from '../components/common/ResponsiveFormRow';
 import { ExclamationCircleOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -41,7 +41,7 @@ const normalizeName = (value: string | undefined | null): string | undefined => 
 export const AgencyFormPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const [form] = Form.useForm();
   const queryClient = useQueryClient();
 
@@ -114,7 +114,7 @@ export const AgencyFormPage: React.FC = () => {
 
   // 刪除確認
   const handleDelete = () => {
-    Modal.confirm({
+    modal.confirm({
       title: '確定要刪除此機關單位？',
       icon: <ExclamationCircleOutlined />,
       content: '刪除後將無法復原',

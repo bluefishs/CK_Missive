@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { List, Button, Popconfirm, Space, Typography } from 'antd';
+import { Button, Popconfirm, Space, Typography, Flex } from 'antd';
 import {
   DownloadOutlined,
   DeleteOutlined,
@@ -144,31 +144,38 @@ const AttachmentListItemInner: React.FC<AttachmentListItemProps> = ({
   }
 
   return (
-    <List.Item actions={actions}>
-      <List.Item.Meta
-        avatar={
-          <span style={{ fontSize: 20, color: iconConfig.color }}>
-            {iconConfig.icon}
-          </span>
-        }
-        title={
+    <Flex
+      align="center"
+      justify="space-between"
+      style={{ padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}
+    >
+      <Flex align="center" gap={12} style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ fontSize: 20, color: iconConfig.color }}>
+          {iconConfig.icon}
+        </span>
+        <div style={{ minWidth: 0 }}>
           <Text ellipsis={{ tooltip: displayFilename }}>
             {displayFilename}
           </Text>
-        }
-        description={
-          <Space size="small" style={{ fontSize: 12, color: '#999' }}>
-            {fileSize !== undefined && <span>{formatFileSize(fileSize)}</span>}
-            {uploadDate && (
-              <>
-                <span>·</span>
-                <span>{dayjs(uploadDate).format('YYYY-MM-DD HH:mm')}</span>
-              </>
-            )}
-          </Space>
-        }
-      />
-    </List.Item>
+          <div>
+            <Space size="small" style={{ fontSize: 12, color: '#999' }}>
+              {fileSize !== undefined && <span>{formatFileSize(fileSize)}</span>}
+              {uploadDate && (
+                <>
+                  <span>·</span>
+                  <span>{dayjs(uploadDate).format('YYYY-MM-DD HH:mm')}</span>
+                </>
+              )}
+            </Space>
+          </div>
+        </div>
+      </Flex>
+      {actions.length > 0 && (
+        <Space size={0}>
+          {actions}
+        </Space>
+      )}
+    </Flex>
   );
 };
 

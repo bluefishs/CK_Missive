@@ -65,6 +65,11 @@ interface HealthSummaryResponse {
       memory_percent?: number;
       cpu_percent?: number;
     };
+    data_quality?: {
+      status: string;
+      agency_fk?: { sender_pct?: number; receiver_pct?: number };
+      ner_coverage_pct?: number;
+    };
   };
   issues?: string[];
 }
@@ -115,7 +120,7 @@ export const SystemHealthDashboard: React.FC = () => {
     queryKey: ['system-health'],
     queryFn: async () => {
       try {
-        return await apiClient.get<HealthSummaryResponse>(
+        return await apiClient.post<HealthSummaryResponse>(
           SYSTEM_ENDPOINTS.HEALTH_SUMMARY
         );
       } catch (err) {
@@ -157,7 +162,7 @@ export const SystemHealthDashboard: React.FC = () => {
     return (
       <Card>
         <div style={{ textAlign: 'center', padding: '40px 0' }}>
-          <Spin tip="載入系統健康狀態..."><div /></Spin>
+          <Spin description="載入系統健康狀態..."><div /></Spin>
         </div>
       </Card>
     );
@@ -187,7 +192,7 @@ export const SystemHealthDashboard: React.FC = () => {
     >
       {error && !healthData && (
         <Alert
-          message="載入失敗"
+          title="載入失敗"
           description={error}
           type="error"
           showIcon
@@ -197,7 +202,7 @@ export const SystemHealthDashboard: React.FC = () => {
 
       {error && healthData && (
         <Alert
-          message="刷新失敗，顯示上次資料"
+          title="刷新失敗，顯示上次資料"
           type="warning"
           showIcon
           closable
@@ -236,9 +241,9 @@ export const SystemHealthDashboard: React.FC = () => {
               title="記憶體使用率"
               value={memoryPercent}
               suffix="%"
-              valueStyle={{
+              styles={{ content: {
                 color: memoryPercent >= 90 ? '#f5222d' : memoryPercent >= 70 ? '#faad14' : '#52c41a',
-              }}
+              } }}
             />
             <Progress
               percent={memoryPercent}
@@ -257,7 +262,7 @@ export const SystemHealthDashboard: React.FC = () => {
               title="資料庫活躍連線"
               value={dbActive}
               prefix={<DatabaseOutlined />}
-              valueStyle={{ color: '#1890ff' }}
+              styles={{ content: { color: '#1890ff' } }}
             />
             <Text type="secondary" style={{ fontSize: 12 }}>
               回應:{' '}
@@ -275,7 +280,7 @@ export const SystemHealthDashboard: React.FC = () => {
               title="系統運行時間"
               value={uptime}
               prefix={<CloudServerOutlined />}
-              valueStyle={{ fontSize: 18, color: '#722ed1' }}
+              styles={{ content: { fontSize: 18, color: '#722ed1' } }}
             />
             <Text type="secondary" style={{ fontSize: 12 }}>
               CPU: {cpuPercent}%
@@ -283,6 +288,42 @@ export const SystemHealthDashboard: React.FC = () => {
           </Card>
         </Col>
       </Row>
+
+      {/* 資料品質指標 */}
+      {healthData?.components?.data_quality && (
+        <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+          <Col xs={24} sm={8}>
+            <Card size="small">
+              <Statistic
+                title="發文機關 FK"
+                value={healthData.components.data_quality.agency_fk?.sender_pct ?? '--'}
+                suffix="%"
+                styles={{ content: { color: (healthData.components.data_quality.agency_fk?.sender_pct ?? 0) >= 95 ? '#52c41a' : '#fa8c16' } }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={8}>
+            <Card size="small">
+              <Statistic
+                title="受文機關 FK"
+                value={healthData.components.data_quality.agency_fk?.receiver_pct ?? '--'}
+                suffix="%"
+                styles={{ content: { color: (healthData.components.data_quality.agency_fk?.receiver_pct ?? 0) >= 95 ? '#52c41a' : '#fa8c16' } }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={8}>
+            <Card size="small">
+              <Statistic
+                title="NER 覆蓋率"
+                value={healthData.components.data_quality.ner_coverage_pct ?? '--'}
+                suffix="%"
+                styles={{ content: { color: (healthData.components.data_quality.ner_coverage_pct ?? 0) >= 90 ? '#52c41a' : '#fa8c16' } }}
+              />
+            </Card>
+          </Col>
+        </Row>
+      )}
     </Card>
   );
 };

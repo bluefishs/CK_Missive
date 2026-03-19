@@ -1,6 +1,6 @@
 import React from 'react';
 import { SynonymManagementContent, DEFAULT_CATEGORIES, CATEGORY_COLORS } from '../components/ai/management/SynonymManagementPanel';
-import { ResponsiveContent } from '../components/common';
+import { ResponsiveContent } from '@ck-shared/ui-components';
 
 // eslint-disable-next-line react-refresh/only-export-components
 export { SynonymManagementContent, DEFAULT_CATEGORIES, CATEGORY_COLORS };

@@ -87,7 +87,7 @@ export const IntegratedEventModal: React.FC<IntegratedEventModalProps> = ({
               size="small"
               style={{ marginBottom: 16, borderColor: '#faad14', background: '#fffbe6' }}
             >
-              <Space direction="vertical" style={{ width: '100%' }}>
+              <Space vertical style={{ width: '100%' }}>
                 <Text strong style={{ color: '#d48806' }}>
                   <AlertOutlined /> 此公文已有 {existingEvents.length} 筆行事曆事件
                 </Text>
@@ -130,13 +130,13 @@ export const IntegratedEventModal: React.FC<IntegratedEventModalProps> = ({
                   label="事件類型"
                   rules={[{ required: true, message: '請選擇事件類型' }]}
                 >
-                  <Select placeholder="選擇事件類型">
-                    {EVENT_TYPE_OPTIONS.map(opt => (
-                      <Select.Option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </Select.Option>
-                    ))}
-                  </Select>
+                  <Select
+                    placeholder="選擇事件類型"
+                    options={EVENT_TYPE_OPTIONS.map(opt => ({
+                      value: opt.value,
+                      label: opt.label,
+                    }))}
+                  />
                 </Form.Item>
               </Col>
               <Col xs={24} sm={12}>
@@ -145,13 +145,13 @@ export const IntegratedEventModal: React.FC<IntegratedEventModalProps> = ({
                   label="優先級"
                   rules={[{ required: true, message: '請選擇優先級' }]}
                 >
-                  <Select placeholder="選擇優先級">
-                    {PRIORITY_OPTIONS.map(opt => (
-                      <Select.Option key={opt.value} value={opt.value}>
-                        <span style={{ color: opt.color }}>{opt.label}</span>
-                      </Select.Option>
-                    ))}
-                  </Select>
+                  <Select
+                    placeholder="選擇優先級"
+                    options={PRIORITY_OPTIONS.map(opt => ({
+                      value: opt.value,
+                      label: <span style={{ color: opt.color }}>{opt.label}</span>,
+                    }))}
+                  />
                 </Form.Item>
               </Col>
             </Row>
@@ -208,7 +208,7 @@ export const IntegratedEventModal: React.FC<IntegratedEventModalProps> = ({
             style={{ marginBottom: 16 }}
           >
             {reminderEnabled ? (
-              <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+              <Space vertical size="middle" style={{ width: '100%' }}>
                 <div>
                   <Text type="secondary" style={{ marginBottom: 8, display: 'block' }}>
                     新增提醒：
@@ -227,16 +227,16 @@ export const IntegratedEventModal: React.FC<IntegratedEventModalProps> = ({
                         value={newReminderType}
                         onChange={setNewReminderType}
                         style={{ width: '100%' }}
-                      >
-                        {REMINDER_TYPE_OPTIONS.map(type => (
-                          <Select.Option key={type.value} value={type.value}>
+                        options={REMINDER_TYPE_OPTIONS.map(type => ({
+                          value: type.value,
+                          label: (
                             <Space size="small">
                               {type.value === 'system' ? <NotificationOutlined /> : <MailOutlined />}
                               {!isMobile && type.label}
                             </Space>
-                          </Select.Option>
-                        ))}
-                      </Select>
+                          ),
+                        }))}
+                      />
                     </Col>
                     <Col xs={6} sm={8}>
                       <Button

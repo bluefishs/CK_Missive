@@ -17,7 +17,7 @@ const SwaggerUI = lazy(() =>
     return m;
   })
 );
-import { ResponsiveContent } from '../components/common';
+import { ResponsiveContent } from '@ck-shared/ui-components';
 import { SERVER_BASE_URL } from '../api/client';
 import { logger } from '../utils/logger';
 
@@ -107,7 +107,7 @@ const ApiDocumentationPage: React.FC = () => {
     return (
       <ResponsiveContent maxWidth="full" padding="medium">
         <Alert
-          message="載入失敗"
+          title="載入失敗"
           description={`無法載入 API 文件：${error instanceof Error ? error.message : '未知錯誤'}`}
           type="error"
           showIcon
@@ -123,11 +123,11 @@ const ApiDocumentationPage: React.FC = () => {
 
   return (
     <ResponsiveContent maxWidth="full" padding="medium">
-      <Space direction="vertical" size="large" style={{ width: '100%' }}>
+      <Space vertical size="large" style={{ width: '100%' }}>
 
         {/* 頁面標題 */}
         <Card>
-          <Space direction="vertical" style={{ width: '100%' }}>
+          <Space vertical style={{ width: '100%' }}>
             <Space align="center">
               <ApiOutlined style={{ fontSize: '32px', color: '#1890ff' }} />
               <Title level={2} style={{ margin: 0 }}>API 文件</Title>
@@ -160,7 +160,7 @@ const ApiDocumentationPage: React.FC = () => {
         {/* API 文件統計 */}
         {spec && (
           <Card title="API 概覽" size="small">
-            <Space direction="horizontal" size="large">
+            <Space size="large">
               <div>
                 <Text strong>API 版本：</Text>
                 <Text code>{spec.info?.version || 'N/A'}</Text>
@@ -191,12 +191,12 @@ const ApiDocumentationPage: React.FC = () => {
         >
           <div style={{ padding: '16px' }} className="swagger-container">
             {spec ? (
-              <Suspense fallback={<Spin tip="載入 Swagger UI..." style={{ display: 'block', margin: '40px auto' }}><div style={{ padding: 40 }} /></Spin>}>
+              <Suspense fallback={<Spin description="載入 Swagger UI..." style={{ display: 'block', margin: '40px auto' }}><div style={{ padding: 40 }} /></Spin>}>
                 <SwaggerUI {...swaggerConfig} />
               </Suspense>
             ) : (
               <Alert
-                message="無法載入 API 規範"
+                title="無法載入 API 規範"
                 type="warning"
                 showIcon
               />
@@ -206,7 +206,7 @@ const ApiDocumentationPage: React.FC = () => {
 
         {/* 使用說明 */}
         <Card title="使用說明" size="small">
-          <Space direction="vertical">
+          <Space vertical>
             <Paragraph>
               <Text strong>搜尋功能：</Text>
               使用上方的搜尋框可以快速找到特定的 API 端點。

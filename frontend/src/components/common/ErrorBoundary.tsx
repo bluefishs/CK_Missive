@@ -11,7 +11,7 @@ import { ReloadOutlined, BugOutlined } from '@ant-design/icons';
 import { logger } from '../../services/logger';
 
 const { Text, Paragraph } = Typography;
-const { Panel } = Collapse;
+
 
 interface Props {
   children: ReactNode;
@@ -150,54 +150,60 @@ export class ErrorBoundary extends Component<Props, State> {
               {/* 開發環境顯示詳細錯誤信息 */}
               {process.env.NODE_ENV === 'development' && this.state.error && (
                 <Card style={{ marginTop: '16px' }}>
-                  <Collapse ghost>
-                    <Panel header={<Text type="danger"><BugOutlined /> 開發者錯誤詳情</Text>} key="error-details">
-                      <div style={{ marginBottom: '16px' }}>
-                        <Text strong>錯誤訊息：</Text>
-                        <pre style={{
-                          background: '#f5f5f5',
-                          padding: '8px',
-                          borderRadius: '4px',
-                          fontSize: '12px',
-                          overflow: 'auto'
-                        }}>
-                          {this.state.error.message}
-                        </pre>
-                      </div>
+                  <Collapse ghost items={[
+                    {
+                      key: 'error-details',
+                      label: <Text type="danger"><BugOutlined /> 開發者錯誤詳情</Text>,
+                      children: (
+                        <>
+                          <div style={{ marginBottom: '16px' }}>
+                            <Text strong>錯誤訊息：</Text>
+                            <pre style={{
+                              background: '#f5f5f5',
+                              padding: '8px',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              overflow: 'auto'
+                            }}>
+                              {this.state.error.message}
+                            </pre>
+                          </div>
 
-                      {this.state.error.stack && (
-                        <div style={{ marginBottom: '16px' }}>
-                          <Text strong>錯誤堆疊：</Text>
-                          <pre style={{
-                            background: '#f5f5f5',
-                            padding: '8px',
-                            borderRadius: '4px',
-                            fontSize: '10px',
-                            overflow: 'auto',
-                            maxHeight: '200px'
-                          }}>
-                            {this.state.error.stack}
-                          </pre>
-                        </div>
-                      )}
+                          {this.state.error.stack && (
+                            <div style={{ marginBottom: '16px' }}>
+                              <Text strong>錯誤堆疊：</Text>
+                              <pre style={{
+                                background: '#f5f5f5',
+                                padding: '8px',
+                                borderRadius: '4px',
+                                fontSize: '10px',
+                                overflow: 'auto',
+                                maxHeight: '200px'
+                              }}>
+                                {this.state.error.stack}
+                              </pre>
+                            </div>
+                          )}
 
-                      {this.state.errorInfo && this.state.errorInfo.componentStack && (
-                        <div>
-                          <Text strong>組件堆疊：</Text>
-                          <pre style={{
-                            background: '#f5f5f5',
-                            padding: '8px',
-                            borderRadius: '4px',
-                            fontSize: '10px',
-                            overflow: 'auto',
-                            maxHeight: '200px'
-                          }}>
-                            {this.state.errorInfo.componentStack}
-                          </pre>
-                        </div>
-                      )}
-                    </Panel>
-                  </Collapse>
+                          {this.state.errorInfo && this.state.errorInfo.componentStack && (
+                            <div>
+                              <Text strong>組件堆疊：</Text>
+                              <pre style={{
+                                background: '#f5f5f5',
+                                padding: '8px',
+                                borderRadius: '4px',
+                                fontSize: '10px',
+                                overflow: 'auto',
+                                maxHeight: '200px'
+                              }}>
+                                {this.state.errorInfo.componentStack}
+                              </pre>
+                            </div>
+                          )}
+                        </>
+                      )
+                    }
+                  ]} />
                 </Card>
               )}
             </div>

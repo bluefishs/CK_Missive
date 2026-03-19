@@ -201,7 +201,7 @@ export const AISummaryPanel: React.FC<AISummaryPanelProps> = ({
 
   // 面板內容
   const panelContent = (
-    <Space direction="vertical" style={{ width: '100%' }}>
+    <Space vertical style={{ width: '100%' }}>
       {/* 操作按鈕列 */}
       <Space wrap>
         <Button
@@ -240,7 +240,7 @@ export const AISummaryPanel: React.FC<AISummaryPanelProps> = ({
       {/* 載入中（非串流模式） */}
       {loading && !isStreaming && (
         <div style={{ textAlign: 'center', padding: '16px 0' }}>
-          <Spin tip="AI 正在生成摘要...">
+          <Spin description="AI 正在生成摘要...">
             <div style={{ padding: '30px 50px' }} />
           </Spin>
         </div>

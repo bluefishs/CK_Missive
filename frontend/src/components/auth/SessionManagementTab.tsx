@@ -9,7 +9,8 @@
  * @date 2026-02-08
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   List,
   Tag,
@@ -37,8 +38,6 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/zh-tw';
 import { listSessions, revokeSession, revokeAllSessions } from '../../api/sessionApi';
-import { logger } from '../../utils/logger';
-import type { SessionInfo } from '../../api/sessionApi';
 
 dayjs.extend(relativeTime);
 dayjs.locale('zh-tw');
@@ -118,60 +117,38 @@ export const SessionManagementTab: React.FC<SessionManagementTabProps> = ({
   isMobile = false,
 }) => {
   const { message } = App.useApp();
-  const [sessions, setSessions] = useState<SessionInfo[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [revokingId, setRevokingId] = useState<number | null>(null);
-  const [revokingAll, setRevokingAll] = useState(false);
+  const queryClient = useQueryClient();
 
-  const fetchSessions = useCallback(async () => {
-    setLoading(true);
-    try {
+  const { data: sessions = [], isLoading: loading, refetch: fetchSessions } = useQuery({
+    queryKey: ['sessions'],
+    queryFn: async () => {
       const response = await listSessions();
-      setSessions(response.sessions);
-    } catch (error) {
-      logger.error('載入 Session 列表失敗:', error);
-      // 保留現有資料，不清空
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchSessions();
-  }, [fetchSessions]);
-
-  const handleRevokeSession = useCallback(
-    async (sessionId: number) => {
-      setRevokingId(sessionId);
-      try {
-        await revokeSession(sessionId);
-        message.success('已成功登出該裝置');
-        // 重新載入列表
-        await fetchSessions();
-      } catch (error) {
-        const detail = (error as { message?: string })?.message;
-        message.error(detail || '撤銷 Session 失敗');
-      } finally {
-        setRevokingId(null);
-      }
+      return response.sessions;
     },
-    [fetchSessions, message]
-  );
+    staleTime: 1 * 60 * 1000,
+  });
 
-  const handleRevokeAll = useCallback(async () => {
-    setRevokingAll(true);
-    try {
-      const response = await revokeAllSessions();
+  const revokeMutation = useMutation({
+    mutationFn: (sessionId: number) => revokeSession(sessionId),
+    onSuccess: () => {
+      message.success('已成功登出該裝置');
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+    },
+    onError: (error) => {
+      message.error((error as { message?: string })?.message || '撤銷 Session 失敗');
+    },
+  });
+
+  const revokeAllMutation = useMutation({
+    mutationFn: () => revokeAllSessions(),
+    onSuccess: (response) => {
       message.success(response.message || '已成功登出所有其他裝置');
-      // 重新載入列表
-      await fetchSessions();
-    } catch (error) {
-      const detail = (error as { message?: string })?.message;
-      message.error(detail || '撤銷所有 Session 失敗');
-    } finally {
-      setRevokingAll(false);
-    }
-  }, [fetchSessions, message]);
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+    },
+    onError: (error) => {
+      message.error((error as { message?: string })?.message || '撤銷所有 Session 失敗');
+    },
+  });
 
   // 計算是否有可撤銷的其他 session
   const otherSessionCount = useMemo(
@@ -201,7 +178,7 @@ export const SessionManagementTab: React.FC<SessionManagementTabProps> = ({
               type="text"
               icon={<ReloadOutlined />}
               size="small"
-              onClick={fetchSessions}
+              onClick={() => fetchSessions()}
               loading={loading}
               aria-label="重新整理"
             />
@@ -212,7 +189,7 @@ export const SessionManagementTab: React.FC<SessionManagementTabProps> = ({
           <Popconfirm
             title="登出所有其他裝置"
             description={`確定要登出其他 ${otherSessionCount} 個裝置嗎？此操作無法復原。`}
-            onConfirm={handleRevokeAll}
+            onConfirm={() => revokeAllMutation.mutate()}
             okText="確定登出"
             cancelText="取消"
             okButtonProps={{ danger: true }}
@@ -221,7 +198,7 @@ export const SessionManagementTab: React.FC<SessionManagementTabProps> = ({
               danger
               icon={<DisconnectOutlined />}
               size={isMobile ? 'small' : 'middle'}
-              loading={revokingAll}
+              loading={revokeAllMutation.isPending}
             >
               {isMobile ? '登出所有' : '登出所有其他裝置'}
             </Button>
@@ -269,7 +246,7 @@ export const SessionManagementTab: React.FC<SessionManagementTabProps> = ({
                             key="revoke"
                             title="登出此裝置"
                             description="確定要登出此裝置嗎？"
-                            onConfirm={() => handleRevokeSession(session.id)}
+                            onConfirm={() => revokeMutation.mutate(session.id)}
                             okText="確定"
                             cancelText="取消"
                             okButtonProps={{ danger: true }}
@@ -279,7 +256,7 @@ export const SessionManagementTab: React.FC<SessionManagementTabProps> = ({
                               type="link"
                               icon={<DeleteOutlined />}
                               size="small"
-                              loading={revokingId === session.id}
+                              loading={revokeMutation.isPending && revokeMutation.variables === session.id}
                             >
                               登出
                             </Button>
@@ -312,7 +289,7 @@ export const SessionManagementTab: React.FC<SessionManagementTabProps> = ({
                     }
                     description={
                       <Space
-                        direction="vertical"
+                        vertical
                         size={2}
                         style={{ width: '100%' }}
                       >

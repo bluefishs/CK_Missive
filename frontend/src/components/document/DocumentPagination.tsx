@@ -79,28 +79,28 @@ export const DocumentPagination: React.FC<DocumentPaginationProps> = ({
             title="總計"
             value={total}
             prefix={<FileTextOutlined />}
-            valueStyle={{ color: '#1890ff', fontSize: '18px' }}
+            styles={{ content: { color: '#1890ff', fontSize: '18px' } }}
           />
         </Col>
         <Col xs={24} sm={12} md={6}>
           <Statistic
             title="收文"
             value={stats.receiveCount}
-            valueStyle={{ color: '#52c41a', fontSize: '16px' }}
+            styles={{ content: { color: '#52c41a', fontSize: '16px' } }}
           />
         </Col>
         <Col xs={24} sm={12} md={6}>
           <Statistic
             title="發文"
             value={stats.sendCount}
-            valueStyle={{ color: '#722ed1', fontSize: '16px' }}
+            styles={{ content: { color: '#722ed1', fontSize: '16px' } }}
           />
         </Col>
         <Col xs={24} sm={12} md={6}>
           <Statistic
             title="已完成"
             value={stats.completedCount}
-            valueStyle={{ color: '#fa8c16', fontSize: '16px' }}
+            styles={{ content: { color: '#fa8c16', fontSize: '16px' } }}
           />
         </Col>
       </Row>

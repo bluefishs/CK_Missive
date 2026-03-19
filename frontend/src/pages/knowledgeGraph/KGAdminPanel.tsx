@@ -99,7 +99,7 @@ export const KGAdminPanel: React.FC<KGAdminPanelProps> = ({
       }
       styles={{ body: { padding: '8px 12px' } }}
     >
-      <Space direction="vertical" style={{ width: '100%' }} size={8}>
+      <Space vertical style={{ width: '100%' }} size={8}>
         <Popconfirm
           title="確定要批次提取實體？將處理最多 200 筆公文。"
           onConfirm={handleEntityBatch}

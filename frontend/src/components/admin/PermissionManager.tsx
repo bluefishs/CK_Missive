@@ -78,7 +78,7 @@ export const PermissionManager: React.FC<PermissionManagerProps> = ({
       selectable: false,
       children: category.permissions.map(permission => ({
         title: (
-          <Space direction="vertical" size={0}>
+          <Space vertical size={0}>
             <Text>
               {language === 'zh' ? permission.name_zh : permission.name_en}
             </Text>
@@ -93,6 +93,7 @@ export const PermissionManager: React.FC<PermissionManagerProps> = ({
       }))
     }));
   }, [language]);
+  void _treeData; // suppress noUnusedLocals — reserved for future tree view rendering
 
   const handlePermissionToggle = (permissionKey: string, checked: boolean) => {
     if (readOnly) return;
@@ -247,7 +248,7 @@ export const PermissionManager: React.FC<PermissionManagerProps> = ({
                 )
               }
             >
-              <Space direction="vertical" style={{ width: '100%' }} size={8}>
+              <Space vertical style={{ width: '100%' }} size={8}>
                 {category.permissions.map(permission => (
                   <div key={permission.key} style={{ display: 'flex', alignItems: 'flex-start' }}>
                     <Checkbox

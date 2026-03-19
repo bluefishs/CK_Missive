@@ -1,12 +1,10 @@
 /**
  * GraphNodeSettings - 知識圖譜節點配置面板
  *
- * 使用者可自訂各節點類型的顏色、標籤、說明、可見性。
- * 設定持久化到 localStorage，重新整理頁面後仍保留。
+ * 僅顯示圖譜中實際存在的節點類型，讓使用者調整顏色、標籤、大小與可見度。
+ * 不支援新增自訂類型（節點類型由後端 AI 提取或業務資料決定）。
  *
- * v2.0: 加入 activeTypes 過濾 + 分類分組顯示
- *
- * @version 2.0.0
+ * @version 4.0.0
  * @created 2026-02-24
  * @updated 2026-03-12
  */
@@ -14,11 +12,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Drawer, Button, Input, Switch, Space, Divider, Slider,
-  Typography, Popconfirm, ColorPicker, App, Collapse, Tag,
+  Typography, Popconfirm, ColorPicker, App, Collapse, Tag, Alert,
 } from 'antd';
 import {
   SettingOutlined,
   UndoOutlined,
+  InfoCircleOutlined,
 } from '@ant-design/icons';
 import type { Color } from 'antd/es/color-picker';
 import {
@@ -30,29 +29,51 @@ import {
   type GraphNodeTypeConfig,
 } from '../../config/graphNodeConfig';
 
-const { Text } = Typography;
+const { Text, Paragraph } = Typography;
 const { TextArea } = Input;
 
 /** 節點類型分組定義 */
-const NODE_TYPE_GROUPS: { key: string; label: string; types: string[] }[] = [
+const NODE_TYPE_GROUPS: { key: string; label: string; description: string; types: string[] }[] = [
   {
-    key: 'business',
-    label: '業務實體',
-    types: ['document', 'project', 'agency', 'dispatch', 'typroject'],
+    key: 'doc-dispatch',
+    label: '公文 / 派工',
+    description: '系統中的收發文記錄與桃園派工通知單',
+    types: ['document', 'dispatch'],
   },
   {
-    key: 'ner',
-    label: 'AI 提取實體',
-    types: ['org', 'person', 'ner_project', 'location', 'date', 'topic'],
+    key: 'agency',
+    label: '機關',
+    description: 'DB 機關 + AI 提取的組織（已自動合併同源，統一顯示為「機關」）',
+    types: ['agency'],
+  },
+  {
+    key: 'project',
+    label: '工程 / 案件',
+    description: 'DB 承攬案件 + 查估工程 + AI 提取的工程名稱（已自動合併同源）',
+    types: ['project', 'typroject'],
+  },
+  {
+    key: 'ner-other',
+    label: '人物 / 地點',
+    description: 'AI 提取的人物與聚合後的行政區域',
+    types: ['person', 'location'],
+  },
+  {
+    key: 'ner-minor',
+    label: '日期',
+    description: 'AI 提取的日期（預設隱藏，可手動開啟）',
+    types: ['date'],
   },
   {
     key: 'code',
     label: '程式碼圖譜',
+    description: '從專案原始碼靜態分析產生的程式碼結構節點',
     types: ['py_module', 'py_class', 'py_function', 'db_table', 'ts_module', 'ts_component', 'ts_hook'],
   },
   {
     key: 'module',
     label: '模組總覽',
+    description: '系統功能模組與 API 群組的巨觀架構節點',
     types: ['menu_module', 'api_group'],
   },
 ];
@@ -60,9 +81,8 @@ const NODE_TYPE_GROUPS: { key: string; label: string; types: string[] }[] = [
 export interface GraphNodeSettingsProps {
   open: boolean;
   onClose: () => void;
-  /** 儲存後通知父元件重繪 */
   onSaved?: () => void;
-  /** 當前圖譜中實際出現的節點類型（未傳入則顯示全部） */
+  /** 圖譜中實際存在的節點類型 */
   activeTypes?: Set<string>;
 }
 
@@ -105,22 +125,21 @@ export const GraphNodeSettings: React.FC<GraphNodeSettingsProps> = ({
     buildEditState(GRAPH_NODE_CONFIG, getUserOverrides())
   );
 
-  // 每次開啟時重新從 localStorage 載入
+  // Reload on open
   useEffect(() => {
     if (open) {
       setEditState(buildEditState(GRAPH_NODE_CONFIG, getUserOverrides()));
     }
   }, [open]);
 
-  // 過濾分組：只顯示有實際節點的分組
+  // Only show groups that have active nodes in the graph
   const filteredGroups = useMemo(() => {
-    if (!activeTypes || activeTypes.size === 0) return NODE_TYPE_GROUPS;
-    return NODE_TYPE_GROUPS
-      .map((group) => ({
-        ...group,
-        types: group.types.filter((t) => activeTypes.has(t)),
-      }))
-      .filter((group) => group.types.length > 0);
+    return NODE_TYPE_GROUPS.map((group) => ({
+      ...group,
+      types: activeTypes && activeTypes.size > 0
+        ? group.types.filter((t) => activeTypes.has(t))
+        : group.types,
+    })).filter((group) => group.types.length > 0);
   }, [activeTypes]);
 
   const handleFieldChange = (
@@ -131,8 +150,7 @@ export const GraphNodeSettings: React.FC<GraphNodeSettingsProps> = ({
     setEditState((prev) => {
       const current = prev[type];
       if (!current) return prev;
-      const updated: EditableConfig = { ...current, [field]: value as never };
-      return { ...prev, [type]: updated };
+      return { ...prev, [type]: { ...current, [field]: value as never } };
     });
   };
 
@@ -140,7 +158,6 @@ export const GraphNodeSettings: React.FC<GraphNodeSettingsProps> = ({
     handleFieldChange(type, 'color', color.toHexString());
   };
 
-  // 群組全部顯示/隱藏切換
   const handleGroupVisibilityToggle = (types: string[], visible: boolean) => {
     setEditState((prev) => {
       const next = { ...prev };
@@ -154,7 +171,6 @@ export const GraphNodeSettings: React.FC<GraphNodeSettingsProps> = ({
   };
 
   const handleSave = () => {
-    // 計算覆蓋差異（只存與預設不同的值）
     const overrides: NodeConfigOverrides = {};
     for (const [type, edited] of Object.entries(editState)) {
       const base = GRAPH_NODE_CONFIG[type];
@@ -183,13 +199,12 @@ export const GraphNodeSettings: React.FC<GraphNodeSettingsProps> = ({
   };
 
   const renderNodeTypeRow = (type: string) => {
-    const base = GRAPH_NODE_CONFIG[type];
     const edited = editState[type];
-    if (!base || !edited) return null;
+    if (!edited) return null;
 
     return (
       <div key={type} style={{ marginBottom: 12 }}>
-        <div style={{ marginBottom: 6 }}>
+        <div style={{ marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Space align="center" size={4}>
             <span style={{
               width: 10, height: 10, borderRadius: '50%',
@@ -272,7 +287,7 @@ export const GraphNodeSettings: React.FC<GraphNodeSettingsProps> = ({
           cancelText="取消"
         >
           <Button size="small" icon={<UndoOutlined />}>
-            重置預設
+            重置
           </Button>
         </Popconfirm>
       }
@@ -285,6 +300,20 @@ export const GraphNodeSettings: React.FC<GraphNodeSettingsProps> = ({
         </div>
       }
     >
+      <Alert
+        type="info"
+        showIcon
+        icon={<InfoCircleOutlined />}
+        title="操作提示"
+        description={
+          <>
+            <div>僅顯示圖譜中實際存在的節點類型。節點類型由後端 AI 提取或業務資料決定。</div>
+            <div style={{ marginTop: 4 }}>點擊 AI 提取實體節點（組織/人物/主題等），可在側面板查看關聯公文、別名及關係時間軸。</div>
+          </>
+        }
+        style={{ marginBottom: 12, fontSize: 12 }}
+      />
+
       <Collapse
         defaultActiveKey={filteredGroups.map((g) => g.key)}
         ghost
@@ -316,6 +345,9 @@ export const GraphNodeSettings: React.FC<GraphNodeSettingsProps> = ({
             ),
             children: (
               <div style={{ paddingLeft: 4 }}>
+                <Paragraph type="secondary" style={{ fontSize: 11, marginBottom: 8 }}>
+                  {group.description}
+                </Paragraph>
                 {group.types.map((type, idx) => (
                   <React.Fragment key={type}>
                     {idx > 0 && <Divider style={{ margin: '8px 0' }} />}

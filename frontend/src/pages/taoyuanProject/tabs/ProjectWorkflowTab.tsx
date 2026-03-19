@@ -1,14 +1,10 @@
 /**
  * 工程作業歷程 Tab 元件 - 批次分組時間軸視圖
  *
- * v2.0.0 重構：
- * - 整合儀表板：統計總派工數、來文數、發文數、完成里程碑數、當前階段
- * - 批次分組視圖：依 batch_no 分組，未指定批次歸為「未分批」
- * - 時間軸佈局：每個批次以 Timeline 呈現里程碑進度
- * - 保留平面表格作為切換選項
+ * v2.1.0 重構：拆分 WorkflowStatsCard + WorkflowTimeline
  *
- * @version 2.0.0
- * @date 2026-02-13
+ * @version 2.1.0
+ * @date 2026-03-18
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
@@ -24,14 +20,7 @@ import {
   Typography,
   Select,
   App,
-  Card,
-  Row,
-  Col,
-  Statistic,
-  Timeline,
   Segmented,
-  Collapse,
-  Badge,
 } from 'antd';
 import {
   PlusOutlined,
@@ -40,9 +29,6 @@ import {
   FileTextOutlined,
   OrderedListOutlined,
   ApartmentOutlined,
-  CheckCircleOutlined,
-  ClockCircleOutlined,
-  RocketOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -64,8 +50,11 @@ import {
   isOutgoingDocNumber,
 } from '../../../components/taoyuan/workflow';
 import { logger } from '../../../services/logger';
+import { WorkflowStatsCard } from './WorkflowStatsCard';
+import type { WorkflowStats } from './WorkflowStatsCard';
+import { WorkflowTimeline } from './WorkflowTimeline';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 // =============================================================================
 // Props
@@ -90,8 +79,6 @@ interface BatchGroup {
 }
 
 function groupByBatch(records: WorkRecord[]): BatchGroup[] {
-  // NOTE: 批次已遷移至 DispatchOrder 層級，此孤立元件無 dispatch 資料
-  // 故全部歸為「未分批」。實際使用的是 ProjectWorkOverviewTab。
   const completed = records.filter((r) => r.status === 'completed').length;
   return [{
     batchNo: null,
@@ -100,19 +87,6 @@ function groupByBatch(records: WorkRecord[]): BatchGroup[] {
     completedCount: completed,
     totalCount: records.length,
   }];
-}
-
-// =============================================================================
-// 時間軸 dot 顏色
-// =============================================================================
-
-function timelineDotColor(status: WorkRecordStatus): string {
-  switch (status) {
-    case 'completed': return 'green';
-    case 'in_progress': return 'blue';
-    case 'overdue': return 'red';
-    default: return 'gray';
-  }
 }
 
 // =============================================================================
@@ -130,10 +104,7 @@ export const ProjectWorkflowTab: React.FC<ProjectWorkflowTabProps> = ({
   const [selectedDispatchId, setSelectedDispatchId] = useState<number>();
   const [viewMode, setViewMode] = useState<string>('timeline');
 
-  // ===========================================================================
   // 資料查詢
-  // ===========================================================================
-
   const {
     data: workRecordData,
     isLoading,
@@ -148,16 +119,12 @@ export const ProjectWorkflowTab: React.FC<ProjectWorkflowTabProps> = ({
     [workRecordData?.items],
   );
 
-  // ===========================================================================
-  // 統計資料 (Task #8: 整合儀表板)
-  // ===========================================================================
-
-  const stats = useMemo(() => {
+  // 統計資料
+  const stats = useMemo((): WorkflowStats => {
     const total = records.length;
     const completed = records.filter((r) => r.status === 'completed').length;
     const inProgress = records.filter((r) => r.status === 'in_progress').length;
     const overdue = records.filter((r) => r.status === 'overdue').length;
-    // 統計來文/發文數（新舊格式兼容）
     const incomingIds = new Set<number>();
     const outgoingIds = new Set<number>();
     for (const r of records) {
@@ -171,10 +138,7 @@ export const ProjectWorkflowTab: React.FC<ProjectWorkflowTabProps> = ({
         }
       }
     }
-    const incomingDocs = incomingIds.size;
-    const outgoingDocs = outgoingIds.size;
 
-    // 最新階段：取最後一筆非 completed 紀錄
     let currentStage = '尚未開始';
     for (let i = records.length - 1; i >= 0; i--) {
       const rec = records[i];
@@ -183,21 +147,16 @@ export const ProjectWorkflowTab: React.FC<ProjectWorkflowTabProps> = ({
         break;
       }
     }
-    // 若全部完成
     if (total > 0 && completed === total) {
       currentStage = '全部完成';
     }
 
-    return { total, completed, inProgress, overdue, incomingDocs, outgoingDocs, currentStage };
+    return { total, completed, inProgress, overdue, incomingDocs: incomingIds.size, outgoingDocs: outgoingIds.size, currentStage };
   }, [records]);
 
-  // 批次分組
   const batchGroups = useMemo(() => groupByBatch(records), [records]);
 
-  // ===========================================================================
   // Mutations
-  // ===========================================================================
-
   const deleteMutation = useMutation({
     mutationFn: (id: number) => workflowApi.delete(id),
     onSuccess: () => {
@@ -211,10 +170,7 @@ export const ProjectWorkflowTab: React.FC<ProjectWorkflowTabProps> = ({
     },
   });
 
-  // ===========================================================================
   // Handlers
-  // ===========================================================================
-
   const returnTo = encodeURIComponent(`/taoyuan/project/${projectId}?tab=workflow`);
 
   const handleAdd = useCallback(() => {
@@ -229,10 +185,7 @@ export const ProjectWorkflowTab: React.FC<ProjectWorkflowTabProps> = ({
     [navigate, returnTo],
   );
 
-  // ===========================================================================
-  // Table Columns (平面視圖)
-  // ===========================================================================
-
+  // Table Columns
   const dispatchOptions = useMemo(
     () =>
       linkedDispatches.map((d) => ({
@@ -365,158 +318,10 @@ export const ProjectWorkflowTab: React.FC<ProjectWorkflowTabProps> = ({
     [canEdit, handleEdit, deleteMutation],
   );
 
-  // ===========================================================================
-  // 時間軸渲染
-  // ===========================================================================
-
-  const renderTimeline = useCallback(
-    (group: BatchGroup) => (
-      <Timeline
-        items={group.records.map((r) => ({
-          color: timelineDotColor(r.status),
-          children: (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <Space size="small" wrap>
-                  <Tag color={getCategoryColor(r)}>
-                    {getCategoryLabel(r)}
-                  </Tag>
-                  <Tag color={getStatusColor(r.status)}>
-                    {getStatusLabel(r.status)}
-                  </Tag>
-                  {r.record_date && (
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      {dayjs(r.record_date).format('YYYY-MM-DD')}
-                    </Text>
-                  )}
-                </Space>
-                {r.description && (
-                  <div style={{ marginTop: 4 }}>
-                    <Text>{r.description}</Text>
-                  </div>
-                )}
-                {r.dispatch_subject && (
-                  <div style={{ marginTop: 2 }}>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      派工: {r.dispatch_subject}
-                    </Text>
-                  </div>
-                )}
-                {(() => {
-                  // 新舊格式公文顯示兼容
-                  const docs: { doc: DocBrief; isOutgoing: boolean }[] = [];
-                  if (r.incoming_doc?.doc_number) {
-                    docs.push({ doc: r.incoming_doc, isOutgoing: false });
-                  }
-                  if (r.outgoing_doc?.doc_number) {
-                    docs.push({ doc: r.outgoing_doc, isOutgoing: true });
-                  }
-                  if (docs.length === 0 && r.document?.doc_number) {
-                    docs.push({
-                      doc: r.document,
-                      isOutgoing: isOutgoingDocNumber(r.document.doc_number),
-                    });
-                  }
-                  if (docs.length === 0) return null;
-                  return (
-                    <div style={{ marginTop: 2 }}>
-                      {docs.map((d, idx) => (
-                        <Tooltip key={idx} title={d.doc.subject}>
-                          <Tag
-                            icon={<FileTextOutlined />}
-                            color={d.isOutgoing ? 'blue' : undefined}
-                            style={{ fontSize: 11 }}
-                          >
-                            {d.isOutgoing ? '覆文' : '來文'}: {d.doc.doc_number}
-                          </Tag>
-                        </Tooltip>
-                      ))}
-                    </div>
-                  );
-                })()}
-              </div>
-              {canEdit && (
-                <Space size="small" style={{ flexShrink: 0, marginLeft: 8 }}>
-                  <Button
-                    type="link"
-                    size="small"
-                    icon={<EditOutlined />}
-                    onClick={() => handleEdit(r)}
-                    aria-label="編輯"
-                  />
-                  <Popconfirm
-                    title="確定要刪除此紀錄嗎？"
-                    onConfirm={() => deleteMutation.mutate(r.id)}
-                    okText="確定"
-                    cancelText="取消"
-                  >
-                    <Button type="link" size="small" danger icon={<DeleteOutlined />} aria-label="刪除" />
-                  </Popconfirm>
-                </Space>
-              )}
-            </div>
-          ),
-        }))}
-      />
-    ),
-    [canEdit, handleEdit, deleteMutation],
-  );
-
-  // ===========================================================================
   // Render
-  // ===========================================================================
-
   return (
     <div>
-      {/* 整合儀表板 (Task #8) */}
-      <Card size="small" style={{ marginBottom: 16 }}>
-        <Row gutter={[16, 8]}>
-          <Col xs={12} sm={8} md={4}>
-            <Statistic
-              title="總紀錄數"
-              value={stats.total}
-              prefix={<OrderedListOutlined />}
-            />
-          </Col>
-          <Col xs={12} sm={8} md={4}>
-            <Statistic
-              title="已完成"
-              value={stats.completed}
-              valueStyle={{ color: '#52c41a' }}
-              prefix={<CheckCircleOutlined />}
-            />
-          </Col>
-          <Col xs={12} sm={8} md={4}>
-            <Statistic
-              title="進行中"
-              value={stats.inProgress}
-              valueStyle={{ color: '#1890ff' }}
-              prefix={<ClockCircleOutlined />}
-            />
-          </Col>
-          {/* 逾期統計暫隱藏：目前無逾期檢測邏輯
-          <Col xs={12} sm={8} md={4}>
-            <Statistic
-              title="逾期"
-              value={stats.overdue}
-              valueStyle={stats.overdue > 0 ? { color: '#ff4d4f' } : undefined}
-              prefix={<ExclamationCircleOutlined />}
-            />
-          </Col>
-          */}
-          <Col xs={12} sm={8} md={4}>
-            <Statistic title="關聯來文" value={stats.incomingDocs} prefix={<FileTextOutlined />} />
-          </Col>
-          <Col xs={12} sm={8} md={4}>
-            <Statistic
-              title="當前階段"
-              value={stats.currentStage}
-              prefix={<RocketOutlined />}
-              valueStyle={{ fontSize: 16 }}
-            />
-          </Col>
-        </Row>
-      </Card>
+      <WorkflowStatsCard stats={stats} />
 
       {/* 工具列 */}
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
@@ -557,29 +362,13 @@ export const ProjectWorkflowTab: React.FC<ProjectWorkflowTabProps> = ({
           image={Empty.PRESENTED_IMAGE_SIMPLE}
         />
       ) : viewMode === 'timeline' ? (
-        /* 批次分組時間軸視圖 (Task #6) */
-        <Collapse
-          defaultActiveKey={batchGroups.map((_, i) => String(i))}
-          items={batchGroups.map((group, idx) => ({
-            key: String(idx),
-            label: (
-              <Space>
-                <Title level={5} style={{ margin: 0 }}>
-                  {group.label}
-                </Title>
-                <Badge
-                  count={`${group.completedCount}/${group.totalCount}`}
-                  style={{
-                    backgroundColor: group.completedCount === group.totalCount ? '#52c41a' : '#1890ff',
-                  }}
-                />
-              </Space>
-            ),
-            children: renderTimeline(group),
-          }))}
+        <WorkflowTimeline
+          batchGroups={batchGroups}
+          canEdit={canEdit}
+          onEdit={handleEdit}
+          onDelete={(id) => deleteMutation.mutate(id)}
         />
       ) : (
-        /* 平面表格視圖 */
         <Table<WorkRecord>
           columns={columns}
           dataSource={records}

@@ -9,12 +9,14 @@
  * 1. AI 問答 — RAG/Agent 問答面板
  * 2. 數據分析 — 搜尋總覽 + 搜尋歷史
  * 3. 資料管線 — Embedding 管理 + 知識圖譜
- * 4. 服務狀態 — Ollama 管理 + 系統監控
+ * 4. Agent 效能 — 工具成功率/路由分佈/學習模式 (Phase 3A)
+ * 5. 服務狀態 — Ollama 管理 + 系統監控
  */
 import React, { useMemo } from 'react';
 import { Tabs, Typography } from 'antd';
 import {
   BarChartOutlined,
+  DashboardOutlined,
   DatabaseOutlined,
   ExperimentOutlined,
   HeartOutlined,
@@ -23,6 +25,7 @@ import {
 
 import { RAGChatPanel } from '../components/ai/RAGChatPanel';
 import {
+  AgentPerformanceTab,
   DataAnalyticsTab,
   DataPipelineTab,
   ServiceStatusTab,
@@ -54,6 +57,13 @@ const AIAssistantManagementPage: React.FC = () => {
       children: <DataPipelineTab />,
     },
     {
+      key: 'agent-perf',
+      label: (
+        <span><DashboardOutlined /> Agent 效能</span>
+      ),
+      children: <AgentPerformanceTab />,
+    },
+    {
       key: 'status',
       label: (
         <span><HeartOutlined /> 服務狀態</span>
@@ -69,7 +79,7 @@ const AIAssistantManagementPage: React.FC = () => {
           <ExperimentOutlined /> AI 助理管理
         </Title>
         <Text type="secondary">
-          AI 問答、數據分析、資料管線、服務狀態
+          AI 問答、數據分析、資料管線、Agent 效能、服務狀態
         </Text>
       </div>
       <Tabs defaultActiveKey="ai-chat" items={tabItems} />

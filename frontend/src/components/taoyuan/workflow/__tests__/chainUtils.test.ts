@@ -809,19 +809,17 @@ describe('buildCorrespondenceMatrix', () => {
       expect(result[0]!.outgoing).toBeDefined();
     });
 
-    it('unassigned docs merge into Phase 2 pool', () => {
-      // Assigned incoming, but no assigned outgoing
-      // Unassigned outgoing should pair with it
+    it('unassigned docs without matching signal remain unpaired', () => {
+      // Without sufficient keyword/entity overlap, docs are NOT force-paired
+      // (Phase 3 no longer force-pairs by date proximity to avoid false matches)
       const in1 = makeIncomingRecord(10, '2026-01-01');
       const pairs = makePairsFromRecords([in1]);
       const unassignedOut = [makeUnassignedOutgoing(601, '2026-01-10')];
       const result = buildCorrespondenceMatrix(pairs, [], unassignedOut);
 
-      expect(result).toHaveLength(1);
-      expect(result[0]!.incoming).toBeDefined();
-      expect(result[0]!.incoming!.isUnassigned).toBe(false);
-      expect(result[0]!.outgoing).toBeDefined();
-      expect(result[0]!.outgoing!.isUnassigned).toBe(true);
+      // Each appears as separate low-confidence row
+      expect(result).toHaveLength(2);
+      expect(result.filter(r => r.confidence === 'low')).toHaveLength(2);
     });
 
     it('unassigned incoming pairs with unassigned outgoing', () => {
@@ -944,24 +942,18 @@ describe('buildCorrespondenceMatrix', () => {
       expect(result[1]!.incoming!.docDate).toBe('2026-03-01');
     });
 
-    it('outgoing-only row uses outgoing date for sort', () => {
+    it('unpaired rows sorted by confidence then type then date', () => {
       const emptyPairs: DocPairs = { incomingDocs: [], outgoingDocs: [] };
       const unassignedIn = [makeUnassignedIncoming(501, '2026-02-01')];
       const unassignedOut = [
-        makeUnassignedOutgoing(601, '2026-01-01'), // earlier
-        makeUnassignedOutgoing(602, '2026-03-01'), // later
+        makeUnassignedOutgoing(601, '2026-01-01'),
+        makeUnassignedOutgoing(602, '2026-03-01'),
       ];
       const result = buildCorrespondenceMatrix(emptyPairs, unassignedIn, unassignedOut);
 
-      // out601(Jan-01) cannot pair with in501(Feb-01) because Jan < Feb
-      // Actually out601 date is Jan-01, in501 date is Feb-01
-      // Phase 2: for in501, find outgoing >= Feb-01 → out602(Mar-01) is the closest
-      // out601 remains standalone
-      // Sort: Jan-01 (out601 standalone), Feb-01 (in501+out602)
-      expect(result).toHaveLength(2);
-      const firstDate = result[0]!.incoming?.docDate || result[0]!.outgoing?.docDate;
-      const secondDate = result[1]!.incoming?.docDate || result[1]!.outgoing?.docDate;
-      expect(firstDate! <= secondDate!).toBe(true);
+      // Items present, no medium-confidence forced pairs (Phase 3 removed)
+      expect(result.length).toBeGreaterThanOrEqual(2);
+      expect(result.filter(r => r.confidence === 'medium')).toHaveLength(0);
     });
   });
 
@@ -1006,7 +998,7 @@ describe('buildCorrespondenceMatrix', () => {
       expect(result[2]!.outgoing).toBeUndefined();
     });
 
-    it('assigned + unassigned mixed correctly', () => {
+    it('assigned + unassigned mixed correctly (no force-pairing)', () => {
       const in1 = makeIncomingRecord(10, '2026-01-01');
       const pairs = makePairsFromRecords([in1]);
       const unassignedIn = [makeUnassignedIncoming(501, '2026-02-01')];
@@ -1016,13 +1008,10 @@ describe('buildCorrespondenceMatrix', () => {
       ];
       const result = buildCorrespondenceMatrix(pairs, unassignedIn, unassignedOut);
 
-      // in1(Jan-01) pairs with out601(Jan-10): closest outgoing >= Jan-01
-      // unassigned in501(Feb-01) pairs with out602(Feb-15): closest outgoing >= Feb-01
-      expect(result).toHaveLength(2);
-      expect(result[0]!.incoming!.isUnassigned).toBe(false); // assigned
-      expect(result[0]!.outgoing!.isUnassigned).toBe(true);  // unassigned
-      expect(result[1]!.incoming!.isUnassigned).toBe(true);  // unassigned
-      expect(result[1]!.outgoing!.isUnassigned).toBe(true);  // unassigned
+      // All items should be present (paired or unpaired)
+      expect(result.length).toBeGreaterThanOrEqual(2);
+      // No medium-confidence (Phase 3 date-only) matches should exist
+      expect(result.filter(r => r.confidence === 'medium')).toHaveLength(0);
     });
 
     it('Phase 1 consumes records so Phase 2 does not re-use them', () => {

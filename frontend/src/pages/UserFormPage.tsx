@@ -10,7 +10,7 @@
 
 import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Form, Input, Select, Row, Col, App, Modal, Switch, Tabs, Divider } from 'antd';
+import { Form, Input, Select, Row, Col, App, Switch, Tabs, Divider } from 'antd';
 import { ExclamationCircleOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FormPageLayout } from '../components/common/FormPage';
@@ -25,7 +25,7 @@ const { Option } = Select;
 export const UserFormPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const [form] = Form.useForm();
   const [permissionForm] = Form.useForm();
   const queryClient = useQueryClient();
@@ -155,7 +155,7 @@ export const UserFormPage: React.FC = () => {
 
   // 刪除確認
   const handleDelete = () => {
-    Modal.confirm({
+    modal.confirm({
       title: '確定要刪除此使用者？',
       icon: <ExclamationCircleOutlined />,
       content: '刪除後將無法復原，該使用者將無法登入系統。',

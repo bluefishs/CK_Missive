@@ -260,7 +260,7 @@ export const DocumentEditPage: React.FC = () => {
             <Form.Item style={{ marginBottom: 0 }}>
               {isMobile ? (
                 // 手機版: 按鈕堆疊
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space vertical style={{ width: '100%' }}>
                   <Button type="primary" htmlType="submit" loading={loading} block>
                     更新公文
                   </Button>

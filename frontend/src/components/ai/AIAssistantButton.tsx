@@ -17,7 +17,6 @@ import {
   Card,
   Space,
   Tooltip,
-  Badge,
   Segmented,
   Spin,
 } from 'antd';
@@ -27,13 +26,11 @@ import {
   DragOutlined,
   MinusOutlined,
   ExpandOutlined,
-  SearchOutlined,
-  MessageOutlined,
+  FileSearchOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
-import { useLocation } from 'react-router-dom';
 import { useResponsive } from '../../hooks';
 import { syncAIConfigFromServer } from '../../config/aiConfig';
-const NaturalSearchPanel = React.lazy(() => import('./NaturalSearchPanel').then(m => ({ default: m.NaturalSearchPanel })));
 const RAGChatPanel = React.lazy(() => import('./RAGChatPanel'));
 
 interface AIAssistantButtonProps {
@@ -50,19 +47,11 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
   visible = true,
 }) => {
   const { isMobile, responsiveValue } = useResponsive();
-  const location = useLocation();
-
-  // 路由感知：不同頁面使用不同助理上下文
-  const isGraphPage = location.pathname.startsWith('/ai/code-graph')
-    || location.pathname.startsWith('/ai/db-graph');
-  // assistantContext 作為 key 驅動 RAGChatPanel 重新掛載 → 分離對話歷史
-  const assistantContext = isGraphPage ? 'dev' : 'doc';
 
   // 面板狀態
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
-  const [searchResultCount, setSearchResultCount] = useState<number | null>(null);
-  const [mode, setMode] = useState<'search' | 'chat'>('search');
+  const [mode, setMode] = useState<'doc' | 'agent'>('doc');
 
   // 拖曳功能狀態
   const [position, setPosition] = useState({ right: 80, bottom: 100 });
@@ -172,29 +161,27 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
     <>
       {/* 浮動按鈕 */}
       <Tooltip title="AI 智慧助理" placement="left">
-        <Badge count={0} offset={[-5, 5]}>
-          <Button
-            type="primary"
-            shape="circle"
-            size="large"
-            icon={isOpen ? <CloseOutlined /> : <RobotOutlined />}
-            onClick={() => setIsOpen(!isOpen)}
-            aria-label={isOpen ? '關閉 AI 智慧助理' : 'AI 智慧助理'}
-            style={{
-              position: 'fixed',
-              right: 24,
-              bottom: 24,
-              width: buttonSize,
-              height: buttonSize,
-              zIndex: 1000,
-              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-              pointerEvents: 'auto',
-              background: 'linear-gradient(135deg, #1890ff 0%, #722ed1 100%)',
-              border: 'none',
-              transition: 'all 0.3s ease',
-            }}
-          />
-        </Badge>
+        <Button
+          type="primary"
+          shape="circle"
+          size="large"
+          icon={isOpen ? <CloseOutlined /> : <RobotOutlined />}
+          onClick={() => setIsOpen(!isOpen)}
+          aria-label={isOpen ? '關閉 AI 智慧助理' : 'AI 智慧助理'}
+          style={{
+            position: 'fixed',
+            right: 24,
+            bottom: 24,
+            width: buttonSize,
+            height: buttonSize,
+            zIndex: 1000,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            pointerEvents: 'auto',
+            background: 'linear-gradient(135deg, #1890ff 0%, #722ed1 100%)',
+            border: 'none',
+            transition: 'all 0.3s ease',
+          }}
+        />
       </Tooltip>
 
       {/* AI 助手面板 (卡片式，可拖曳，可縮合) */}
@@ -216,16 +203,13 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
               <Segmented
                 size="small"
                 value={mode}
-                onChange={(val) => setMode(val as 'search' | 'chat')}
+                onChange={(val) => setMode(val as 'doc' | 'agent')}
                 options={[
-                  { label: '搜尋', value: 'search', icon: <SearchOutlined /> },
-                  { label: '問答', value: 'chat', icon: <MessageOutlined /> },
+                  { label: '公文助理', value: 'doc', icon: <FileSearchOutlined /> },
+                  { label: '智能體', value: 'agent', icon: <ThunderboltOutlined /> },
                 ]}
                 style={{ fontSize: 12 }}
               />
-              {mode === 'search' && searchResultCount !== null && searchResultCount > 0 && (
-                <Badge count={searchResultCount} size="small" overflowCount={999} />
-              )}
             </div>
           }
           extra={
@@ -285,25 +269,13 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
             },
           }}
         >
-          {mode === 'search' ? (
-            <Suspense fallback={
-              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, padding: 40 }}>
-                <Spin tip="載入搜尋模組..."><div /></Spin>
-              </div>
-            }>
-              <NaturalSearchPanel
-                onSearchComplete={(count) => setSearchResultCount(count)}
-              />
-            </Suspense>
-          ) : (
-            <Suspense fallback={
-              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, padding: 40 }}>
-                <Spin tip="載入問答模組..."><div /></Spin>
-              </div>
-            }>
-              <RAGChatPanel key={assistantContext} embedded agentMode={isGraphPage} />
-            </Suspense>
-          )}
+          <Suspense fallback={
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, padding: 40 }}>
+              <Spin description="載入中..."><div /></Spin>
+            </div>
+          }>
+            <RAGChatPanel key={mode} embedded agentMode context={mode} />
+          </Suspense>
         </Card>
       )}
     </>

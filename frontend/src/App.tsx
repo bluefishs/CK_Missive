@@ -45,10 +45,9 @@ function App() {
   return (
     <ErrorBoundary>
       <QueryProvider>
-        <ConfigProvider 
-          theme={theme} 
+        <ConfigProvider
+          theme={theme}
           locale={zhTW}
-          componentSize="middle"
         >
           <AntdApp>
             <GlobalApiErrorNotifier />

@@ -40,6 +40,10 @@ export {
 export { CorrespondenceMatrix } from './CorrespondenceMatrix';
 export { CorrespondenceBody, DocEntry } from './CorrespondenceBody';
 export type { CorrespondenceBodyData, CorrespondenceBodyProps } from './CorrespondenceBody';
+export { MatrixDocCell } from './MatrixDocCell';
+export type { MatrixDocCellProps, DocEntryProps } from './MatrixDocCell';
+export { MatrixTable, confidenceTooltip, confidenceColor } from './MatrixTable';
+export type { MatrixTableProps } from './MatrixTable';
 export { WorkflowTimelineView } from './WorkflowTimelineView';
 export { WorkflowKanbanView } from './WorkflowKanbanView';
 

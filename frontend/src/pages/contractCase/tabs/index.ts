@@ -9,6 +9,7 @@
 export { CaseInfoTab } from './CaseInfoTab';
 export { AgencyContactTab } from './AgencyContactTab';
 export { StaffTab } from './StaffTab';
+export { CaseRolesTab } from './CaseRolesTab';
 export { VendorsTab } from './VendorsTab';
 export { AttachmentsTab } from './AttachmentsTab';
 export { RelatedDocumentsTab } from './RelatedDocumentsTab';

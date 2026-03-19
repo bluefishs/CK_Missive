@@ -17,6 +17,7 @@ import React from 'react';
 import { Typography } from 'antd';
 import { useResponsive } from '../hooks';
 import { DashboardCalendarSection } from '../components/dashboard';
+import { ProjectStatsPanel } from '../components/dashboard/ProjectStatsPanel';
 
 const { Title } = Typography;
 
@@ -53,6 +54,9 @@ export const DashboardPage: React.FC = () => {
       >
         {isMobile ? '儀表板' : '儀表板總覽'}
       </Title>
+
+      {/* PM/ERP 統計概況 */}
+      <ProjectStatsPanel />
 
       {/* 我的待辦事項 - 滿版 */}
       <DashboardCalendarSection maxEvents={15} />

@@ -14,6 +14,20 @@ import type { DispatchDocumentLink } from '../../../types/api';
 import { getCategoryLabel } from './workCategoryConstants';
 
 // ============================================================================
+// Correspondence matching thresholds (SSOT)
+// ============================================================================
+
+/** Unified similarity thresholds for correspondence matching phases */
+const SIMILARITY_THRESHOLDS = {
+  /** Phase 2: TF-IDF + entity composite score minimum */
+  HIGH_CONFIDENCE: 0.25,
+  /** Phase 1.7: Sender/receiver flip minimum keyword overlap */
+  FLIP_MATCH_MIN: 0.08,
+  /** Phase 2: Date proximity bonus (within 7 days) */
+  DATE_PROXIMITY_BONUS: 0.05,
+} as const;
+
+// ============================================================================
 // Types
 // ============================================================================
 
@@ -348,6 +362,35 @@ function buildIdfWeights(allKeywordSets: Set<string>[]): Map<string, number> {
 /** 配對信心度等級 */
 export type MatchConfidence = 'confirmed' | 'high' | 'medium' | 'low';
 
+/** 公文業務類型 (用於分組顯示未配對公文) */
+export type DocBusinessType = 'dispatch' | 'review' | 'reply' | 'submit' | 'payment' | 'admin' | 'other';
+
+const DOC_TYPE_LABELS: Record<DocBusinessType, string> = {
+  dispatch: '派工通知',
+  review: '審查/會議',
+  reply: '函覆/回覆',
+  submit: '送件/提交',
+  payment: '請款/結算',
+  admin: '行政事項',
+  other: '其他',
+};
+
+/** 從公文主旨分類業務類型 */
+export function classifyDocType(subject?: string): { type: DocBusinessType; label: string } {
+  if (!subject) return { type: 'other', label: DOC_TYPE_LABELS.other };
+  const s = subject;
+
+  if (/派工單[號(（]?\s*\d/i.test(s)) return { type: 'dispatch', label: DOC_TYPE_LABELS.dispatch };
+  if (/審查會|會議[紀記]錄|開會通知|會勘/.test(s)) return { type: 'review', label: DOC_TYPE_LABELS.review };
+  if (/函[覆復]|惠復|復函|回覆/.test(s)) return { type: 'reply', label: DOC_TYPE_LABELS.reply };
+  if (/請領|請款|撥付|結算|估驗|付款/.test(s)) return { type: 'payment', label: DOC_TYPE_LABELS.payment };
+  if (/檢送|提送|報送|送[達審]/.test(s)) return { type: 'submit', label: DOC_TYPE_LABELS.submit };
+  if (/教育訓練|契約書|保險|印鑑|投標|工作計畫|系統建置/.test(s)) return { type: 'admin', label: DOC_TYPE_LABELS.admin };
+  if (/承攬|查估|測量|拆除|地上物/.test(s)) return { type: 'dispatch', label: DOC_TYPE_LABELS.dispatch };
+
+  return { type: 'other', label: DOC_TYPE_LABELS.other };
+}
+
 /** 帶信心度的矩陣行 */
 export interface CorrespondenceMatrixRow {
   incoming?: MatrixDocItem;
@@ -356,6 +399,8 @@ export interface CorrespondenceMatrixRow {
   confidence?: MatchConfidence;
   /** 共享知識圖譜實體名稱（僅 entity 配對時） */
   sharedEntities?: string[];
+  /** 公文業務類型標籤（未配對時顯示分類） */
+  docTypeLabel?: string;
 }
 
 /** 知識圖譜實體配對分數（來自 API） */
@@ -429,6 +474,106 @@ export function buildCorrespondenceMatrix(
     ...unassignedOutgoing.map(linkToMatrixItem),
   ].sort((a, b) => (a.docDate || '').localeCompare(b.docDate || ''));
 
+  // === Phase 1.5: 文號交叉引用配對（高精度） ===
+  // 如果發文主旨包含來文文號，或來文主旨包含發文文號 → 幾乎確定是對應
+  const usedInIdx15 = new Set<number>();
+  const usedOutIdx15 = new Set<number>();
+
+  for (let i = 0; i < allUnpairedIn.length; i++) {
+    const inItem = allUnpairedIn[i]!;
+    const inDocNum = inItem.docNumber || '';
+    const inSubject = inItem.subject || '';
+    if (!inDocNum && !inSubject) continue;
+
+    for (let j = 0; j < allUnpairedOut.length; j++) {
+      if (usedOutIdx15.has(j)) continue;
+      const outItem = allUnpairedOut[j]!;
+      const outDocNum = outItem.docNumber || '';
+      const outSubject = outItem.subject || '';
+
+      // 發文主旨提到來文文號，或來文主旨提到發文文號
+      const outRefersIn = inDocNum.length > 4 && outSubject.includes(inDocNum);
+      const inRefersOut = outDocNum.length > 4 && inSubject.includes(outDocNum);
+
+      if (outRefersIn || inRefersOut) {
+        rows.push({
+          incoming: inItem,
+          outgoing: outItem,
+          confidence: 'confirmed',
+          sharedEntities: [outRefersIn ? `引用文號:${inDocNum}` : `引用文號:${outDocNum}`],
+        });
+        usedInIdx15.add(i);
+        usedOutIdx15.add(j);
+        break;
+      }
+    }
+  }
+
+  // === Phase 1.7: 收發對調 + 主旨相似度配對（高精度） ===
+  // 來文 A→B 且 發文 B→A 且主旨關鍵字有交集 → 高度對應
+  // 注意：同一工程的公文大多是同組收發者，需主旨相似度過濾避免過度匹配
+  const flipInKeywords = allUnpairedIn.map((item) => extractKeywords(item.subject));
+  const flipOutKeywords = allUnpairedOut.map((item) => extractKeywords(item.subject));
+
+  for (let i = 0; i < allUnpairedIn.length; i++) {
+    if (usedInIdx15.has(i)) continue;
+    const inItem = allUnpairedIn[i]!;
+    const inLink = inItem.linkedDoc;
+    if (!inLink) continue;
+    const inSender = (inLink.sender || '').trim();
+    const inReceiver = (inLink.receiver || '').trim();
+    if (!inSender || !inReceiver || inSender.length < 2 || inReceiver.length < 2) continue;
+
+    let bestIdx = -1;
+    let bestScore = 0;
+
+    for (let j = 0; j < allUnpairedOut.length; j++) {
+      if (usedOutIdx15.has(j)) continue;
+      const outItem = allUnpairedOut[j]!;
+      const outLink = outItem.linkedDoc;
+      if (!outLink) continue;
+      const outSender = (outLink.sender || '').trim();
+      const outReceiver = (outLink.receiver || '').trim();
+
+      // 收發對調: 來文 A→B，發文 B→A
+      const flipMatch =
+        (inSender.includes(outReceiver) || outReceiver.includes(inSender)) &&
+        (inReceiver.includes(outSender) || outSender.includes(inReceiver));
+
+      if (!flipMatch) continue;
+
+      // 必須加入主旨相似度過濾，避免同組收發者的不相關公文被誤配
+      const kwSim = keywordSimilarity(flipInKeywords[i]!, flipOutKeywords[j]!);
+      if (kwSim < SIMILARITY_THRESHOLDS.FLIP_MATCH_MIN) continue; // 主旨完全無交集 → 跳過
+
+      // 日期鄰近加分
+      const inTime = inItem.docDate ? new Date(inItem.docDate).getTime() : 0;
+      const outTime = outItem.docDate ? new Date(outItem.docDate).getTime() : 0;
+      const dayGap = inTime && outTime ? (outTime - inTime) / (24 * 60 * 60 * 1000) : 999;
+      if (dayGap < 0 || dayGap > 60) continue; // 發文必須在來文之後 60 天內
+
+      // 複合分數: 主旨相似度 + 日期接近度
+      const dateBonus = dayGap <= 14 ? 0.1 * (1 - dayGap / 14) : 0;
+      const score = kwSim + dateBonus;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestIdx = j;
+      }
+    }
+
+    if (bestIdx >= 0) {
+      rows.push({
+        incoming: inItem,
+        outgoing: allUnpairedOut[bestIdx],
+        confidence: 'high',
+        sharedEntities: [`收發對調+主旨相似(${bestScore.toFixed(2)})`],
+      });
+      usedInIdx15.add(i);
+      usedOutIdx15.add(bestIdx);
+    }
+  }
+
   // 預計算所有關鍵字集合
   const inKeywords = allUnpairedIn.map((item) => extractKeywords(item.subject));
   const outKeywords = allUnpairedOut.map((item) => extractKeywords(item.subject));
@@ -450,25 +595,27 @@ export function buildCorrespondenceMatrix(
     }
   }
 
-  // 實體分數正規化：全員重疊 (>80% pairs non-zero) 時降低實體權重
+  // 實體分數正規化：覆蓋率越高 → 實體越可靠 → 權重越高
   const totalPossiblePairs = allUnpairedIn.length * allUnpairedOut.length;
   const entityCoverage = totalPossiblePairs > 0
     ? entityScoreMap.size / totalPossiblePairs
     : 0;
-  // 覆蓋率 >80% → 實體權重從 0.4 線性降至 0.1
+  // 覆蓋率 >80% → 實體可信度高 → 權重提升至 0.5-0.6
   const effectiveEntityWeight = entityCoverage > 0.8
-    ? 0.1 + 0.3 * (1 - entityCoverage) / 0.2
+    ? 0.5 + 0.1 * Math.min((entityCoverage - 0.8) / 0.2, 1)
     : 0.4;
   const effectiveKeywordWeight = 1 - effectiveEntityWeight;
 
-  const usedOutIdx = new Set<number>();
+  // 將 Phase 1.5/1.7 已配對的索引加入排除集
+  const usedOutIdx = new Set<number>(usedOutIdx15);
 
   // --- Phase 2: TF-IDF 關鍵字 + 正規化實體 複合相似度配對（高信心度） ---
-  const SIMILARITY_THRESHOLD = 0.15; // N-gram+TF-IDF 下正確配對 ≥ 0.20，錯誤配對 ≤ 0.02
-  const DATE_PROXIMITY_BONUS = 0.05; // 日期鄰近加分（7天內）
+  const SIMILARITY_THRESHOLD = SIMILARITY_THRESHOLDS.HIGH_CONFIDENCE;
+  const DATE_PROXIMITY_BONUS = SIMILARITY_THRESHOLDS.DATE_PROXIMITY_BONUS;
   const pendingInIndices: number[] = []; // 未被 Phase 2 配對的來文 index
 
   for (let i = 0; i < allUnpairedIn.length; i++) {
+    if (usedInIdx15.has(i)) continue; // 已在 Phase 1.5/1.7 配對
     const inItem = allUnpairedIn[i]!;
     const inKw = inKeywords[i]!;
     const inDate = inItem.docDate || '';
@@ -528,54 +675,33 @@ export function buildCorrespondenceMatrix(
     }
   }
 
-  // --- Phase 3: 日期鄰近配對（中信心度，限 30 天窗口） ---
-  const MAX_DATE_GAP_MS = 30 * 24 * 60 * 60 * 1000; // 30 天
-
+  // --- Phase 3: 未配對公文 → 按業務類型分類排列 ---
+  // 不強制日期配對，改為分類顯示（派工/審查/送件/行政等）
   for (const i of pendingInIndices) {
-    const inItem = allUnpairedIn[i]!;
-    const inDate = inItem.docDate || '';
-    const inTime = inDate ? new Date(inDate).getTime() : 0;
-
-    let bestIdx = -1;
-    let bestGap = Infinity;
-
-    for (let j = 0; j < allUnpairedOut.length; j++) {
-      if (usedOutIdx.has(j)) continue;
-      const outDate = allUnpairedOut[j]!.docDate || '';
-      if (outDate < inDate) continue;
-
-      const outTime = outDate ? new Date(outDate).getTime() : 0;
-      const gap = outTime - inTime;
-
-      // 限制 30 天內
-      if (gap >= 0 && gap <= MAX_DATE_GAP_MS && gap < bestGap) {
-        bestGap = gap;
-        bestIdx = j;
-      }
-    }
-
-    if (bestIdx >= 0) {
-      rows.push({
-        incoming: inItem,
-        outgoing: allUnpairedOut[bestIdx],
-        confidence: 'medium',
-      });
-      usedOutIdx.add(bestIdx);
-    } else {
-      // Phase 4: 未配對，單獨成行
-      rows.push({ incoming: inItem, outgoing: undefined, confidence: 'low' });
-    }
+    if (usedInIdx15.has(i)) continue;
+    const item = allUnpairedIn[i]!;
+    const { label } = classifyDocType(item.subject);
+    rows.push({ incoming: item, outgoing: undefined, confidence: 'low', docTypeLabel: label });
   }
 
-  // 剩餘未配對的發文
   for (let j = 0; j < allUnpairedOut.length; j++) {
     if (!usedOutIdx.has(j)) {
-      rows.push({ incoming: undefined, outgoing: allUnpairedOut[j], confidence: 'low' });
+      const item = allUnpairedOut[j]!;
+      const { label } = classifyDocType(item.subject);
+      rows.push({ incoming: undefined, outgoing: item, confidence: 'low', docTypeLabel: label });
     }
   }
 
-  // --- 依行首日期排序（取來文或發文日期中較早者） ---
+  // --- 排序: 配對行優先(confirmed>high) → 未配對按類型分組 → 各組內按日期 ---
+  const confidenceOrder: Record<string, number> = { confirmed: 0, high: 1, medium: 2, low: 3 };
   rows.sort((a, b) => {
+    const ca = confidenceOrder[a.confidence || 'low'] ?? 3;
+    const cb = confidenceOrder[b.confidence || 'low'] ?? 3;
+    if (ca !== cb) return ca - cb;
+    // 同信心度: 按類型標籤分組, 組內按日期
+    if (a.docTypeLabel !== b.docTypeLabel) {
+      return (a.docTypeLabel || 'zzz').localeCompare(b.docTypeLabel || 'zzz');
+    }
     const dateA = a.incoming?.docDate || a.outgoing?.docDate || '';
     const dateB = b.incoming?.docDate || b.outgoing?.docDate || '';
     return dateA.localeCompare(dateB);

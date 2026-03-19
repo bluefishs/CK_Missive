@@ -162,7 +162,7 @@ export const DocumentCreateAttachmentTab: React.FC<DocumentCreateAttachmentTabPr
           closable
           onClose={clearUploadErrors}
           style={{ marginTop: 16 }}
-          message="部分檔案上傳失敗"
+          title="部分檔案上傳失敗"
           description={
             <ul style={{ margin: 0, paddingLeft: 20 }}>
               {uploadErrors.map((err, idx) => (

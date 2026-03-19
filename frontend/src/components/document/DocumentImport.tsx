@@ -62,7 +62,7 @@ export const DocumentImport: React.FC<DocumentImportProps> = ({
         type="info"
         showIcon
         icon={<InfoCircleOutlined />}
-        message="手動公文匯入"
+        title="手動公文匯入"
         description={
           <ul style={{ margin: '8px 0 0 0', paddingLeft: 20 }}>
             <li>適用於紙本郵寄紀錄、手動輸入的公文資料</li>
@@ -129,7 +129,7 @@ export const DocumentImport: React.FC<DocumentImportProps> = ({
         type="info"
         showIcon
         icon={<InfoCircleOutlined />}
-        message="電子公文檔匯入"
+        title="電子公文檔匯入"
         description={
           <ul style={{ margin: '8px 0 0 0', paddingLeft: 20 }}>
             <li>適用於電子公文系統匯出的 CSV 檔案</li>

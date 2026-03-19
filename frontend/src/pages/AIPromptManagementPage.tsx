@@ -1,6 +1,6 @@
 import React from 'react';
 import { PromptManagementContent } from '../components/ai/management/PromptManagementPanel';
-import { ResponsiveContent } from '../components/common';
+import { ResponsiveContent } from '@ck-shared/ui-components';
 
 export { PromptManagementContent };
 

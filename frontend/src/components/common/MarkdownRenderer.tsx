@@ -11,7 +11,7 @@ import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Typography, Spin } from 'antd';
 
-const MermaidBlock = React.lazy(() => import('../ai/MermaidBlock'));
+const MermaidBlock = React.lazy(() => import('./MermaidBlock'));
 
 interface MarkdownRendererProps {
   content: string;
@@ -32,8 +32,8 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, cla
 
             if (lang === 'mermaid') {
               return (
-                <Suspense fallback={<Spin tip="載入圖表..."><div style={{ padding: 40 }} /></Spin>}>
-                  <MermaidBlock chart={codeStr} />
+                <Suspense fallback={<Spin description="載入圖表..."><div style={{ padding: 40 }} /></Spin>}>
+                  <MermaidBlock code={codeStr} />
                 </Suspense>
               );
             }

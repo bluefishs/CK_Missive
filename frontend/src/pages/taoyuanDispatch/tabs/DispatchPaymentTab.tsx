@@ -156,45 +156,43 @@ const PaymentReadOnlyView: React.FC<PaymentReadOnlyViewProps> = ({
     : ALL_WORK_TYPE_FIELDS;
 
   return (
-    <Descriptions bordered column={2} size="small">
-      {activeFields.map(({ code, label }) => {
+    <Descriptions bordered column={2} size="small" items={[
+      ...activeFields.flatMap(({ code, label }) => {
         const dateKey = `work_${code}_date` as keyof ContractPayment;
         const amountKey = `work_${code}_amount` as keyof ContractPayment;
         const dateVal = paymentData[dateKey] as string | undefined;
         const amountVal = paymentData[amountKey] as number | undefined;
-        return (
-          <React.Fragment key={code}>
-            <Descriptions.Item label={`${code}.${label} - 派工日期`}>
-              {dateVal
-                ? dayjs(dateVal).format('YYYY-MM-DD')
-                : dispatchDate
-                  ? dayjs(dispatchDate).format('YYYY-MM-DD')
-                  : '-'}
-            </Descriptions.Item>
-            <Descriptions.Item label={`${code}.${label} - 金額`}>
-              {amountVal && amountVal > 0
-                ? `$${Math.round(amountVal).toLocaleString()}`
-                : '-'}
-            </Descriptions.Item>
-          </React.Fragment>
-        );
-      })}
-      <Descriptions.Item label="本次派工總金額">
+        return [
+          {
+            key: `${code}-date`,
+            label: `${code}.${label} - 派工日期`,
+            children: dateVal
+              ? dayjs(dateVal).format('YYYY-MM-DD')
+              : dispatchDate
+                ? dayjs(dispatchDate).format('YYYY-MM-DD')
+                : '-',
+          },
+          {
+            key: `${code}-amount`,
+            label: `${code}.${label} - 金額`,
+            children: amountVal && amountVal > 0
+              ? `$${Math.round(amountVal).toLocaleString()}`
+              : '-',
+          },
+        ];
+      }),
+      { key: '本次派工總金額', label: '本次派工總金額', children: (
         <Text strong style={{ color: '#1890ff' }}>
           {paymentData.current_amount && paymentData.current_amount > 0
             ? `$${Math.round(paymentData.current_amount).toLocaleString()}`
             : '-'}
         </Text>
-      </Descriptions.Item>
-      <Descriptions.Item label="累進派工金額">
-        {paymentData.cumulative_amount && paymentData.cumulative_amount > 0
-          ? `$${Math.round(paymentData.cumulative_amount).toLocaleString()}`
-          : '-'}
-      </Descriptions.Item>
-      <Descriptions.Item label="剩餘金額" span={2}>
-        {formatCurrency(paymentData.remaining_amount)}
-      </Descriptions.Item>
-    </Descriptions>
+      ) },
+      { key: '累進派工金額', label: '累進派工金額', children: paymentData.cumulative_amount && paymentData.cumulative_amount > 0
+        ? `$${Math.round(paymentData.cumulative_amount).toLocaleString()}`
+        : '-' },
+      { key: '剩餘金額', label: '剩餘金額', span: 2, children: formatCurrency(paymentData.remaining_amount) },
+    ]} />
   );
 };
 
@@ -223,7 +221,7 @@ const PaymentEditForm: React.FC<PaymentEditFormProps> = ({ form, workType }) => 
         </Text>
       </div>
 
-      <Divider orientation="left">作業類別派工金額</Divider>
+      <Divider titlePlacement="left">作業類別派工金額</Divider>
       {activeFields.map(({ code, label }) => (
         <Row gutter={16} key={code}>
           <Col span={12}>
@@ -245,7 +243,7 @@ const PaymentEditForm: React.FC<PaymentEditFormProps> = ({ form, workType }) => 
         </Row>
       ))}
 
-      <Divider orientation="left">金額彙總</Divider>
+      <Divider titlePlacement="left">金額彙總</Divider>
       <Row gutter={16}>
         <Col span={8}>
           <Form.Item name="cumulative_amount" label="累進派工金額（統計）">

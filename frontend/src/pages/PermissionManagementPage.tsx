@@ -10,7 +10,7 @@
  * @date 2026-02-02
  */
 import React, { useMemo } from 'react';
-import { ResponsiveContent } from '../components/common';
+import { ResponsiveContent } from '@ck-shared/ui-components';
 import {
   Card,
   Typography,
@@ -180,7 +180,7 @@ const PermissionManagementPage: React.FC = () => {
           {Object.entries(grouped).map(([category, permissions]) => (
             <Col xs={24} sm={12} md={8} lg={6} key={category}>
               <Card size="small" title={PERMISSION_CATEGORIES[category]?.name_zh || category}>
-                <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                <Space vertical size={4} style={{ width: '100%' }}>
                   {permissions.map(p => (
                     <Text key={p.key} style={{ fontSize: 12 }}>
                       • {p.name_zh}
@@ -224,9 +224,9 @@ const PermissionManagementPage: React.FC = () => {
 
         {/* 說明提示 */}
         <Alert
-          message="角色權限說明"
+          title="角色權限說明"
           description={
-            <Space direction="vertical" size={4}>
+            <Space vertical size={4}>
               <Text>
                 系統採用「角色基礎存取控制」(RBAC) 機制，每個角色具有預設權限配置。
               </Text>
@@ -265,7 +265,7 @@ const PermissionManagementPage: React.FC = () => {
             {Object.entries(PERMISSION_CATEGORIES).map(([key, category]) => (
               <Col xs={24} sm={12} lg={8} key={key}>
                 <Card size="small" style={{ height: '100%' }}>
-                  <Space direction="vertical" style={{ width: '100%' }}>
+                  <Space vertical style={{ width: '100%' }}>
                     <Text strong>{category.name_zh}</Text>
                     <Text type="secondary" style={{ fontSize: '12px' }}>
                       {category.permissions.length} 個權限項目

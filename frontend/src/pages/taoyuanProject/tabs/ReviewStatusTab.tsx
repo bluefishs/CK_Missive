@@ -54,8 +54,7 @@ export const ReviewStatusTab: React.FC<ReviewStatusTabProps> = ({
         <Select allowClear>
           {PROGRESS_STATUS_OPTIONS.map((opt) => (
             <Option key={opt.value} value={opt.value}>
-              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-              <Badge status={opt.color as any} text={opt.label} />
+              <Badge status={opt.color} text={opt.label} />
             </Option>
           ))}
         </Select>
@@ -64,8 +63,7 @@ export const ReviewStatusTab: React.FC<ReviewStatusTabProps> = ({
         <Select allowClear>
           {PROGRESS_STATUS_OPTIONS.map((opt) => (
             <Option key={opt.value} value={opt.value}>
-              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-              <Badge status={opt.color as any} text={opt.label} />
+              <Badge status={opt.color} text={opt.label} />
             </Option>
           ))}
         </Select>
@@ -74,8 +72,7 @@ export const ReviewStatusTab: React.FC<ReviewStatusTabProps> = ({
         <Select allowClear>
           {PROGRESS_STATUS_OPTIONS.map((opt) => (
             <Option key={opt.value} value={opt.value}>
-              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-              <Badge status={opt.color as any} text={opt.label} />
+              <Badge status={opt.color} text={opt.label} />
             </Option>
           ))}
         </Select>
@@ -97,48 +94,40 @@ export const ReviewStatusTab: React.FC<ReviewStatusTabProps> = ({
         <Divider />
         <ResponsiveFormRow>
           <Card size="small">
-            <Descriptions column={1} size="small">
-              <Descriptions.Item label="土地協議">
-                {project.land_agreement_status ? (
-                  <Tag color="blue">{project.land_agreement_status}</Tag>
-                ) : (
-                  <Tag>未設定</Tag>
-                )}
-              </Descriptions.Item>
-            </Descriptions>
+            <Descriptions column={1} size="small" items={[
+              { key: '土地協議', label: '土地協議', children: project.land_agreement_status ? (
+                <Tag color="blue">{project.land_agreement_status}</Tag>
+              ) : (
+                <Tag>未設定</Tag>
+              ) },
+            ]} />
           </Card>
           <Card size="small">
-            <Descriptions column={1} size="small">
-              <Descriptions.Item label="土地徵收">
-                {project.land_expropriation_status ? (
-                  <Tag color="orange">{project.land_expropriation_status}</Tag>
-                ) : (
-                  <Tag>未設定</Tag>
-                )}
-              </Descriptions.Item>
-            </Descriptions>
+            <Descriptions column={1} size="small" items={[
+              { key: '土地徵收', label: '土地徵收', children: project.land_expropriation_status ? (
+                <Tag color="orange">{project.land_expropriation_status}</Tag>
+              ) : (
+                <Tag>未設定</Tag>
+              ) },
+            ]} />
           </Card>
           <Card size="small">
-            <Descriptions column={1} size="small">
-              <Descriptions.Item label="地上物查估">
-                {project.building_survey_status ? (
-                  <Tag color="green">{project.building_survey_status}</Tag>
-                ) : (
-                  <Tag>未設定</Tag>
-                )}
-              </Descriptions.Item>
-            </Descriptions>
+            <Descriptions column={1} size="small" items={[
+              { key: '地上物查估', label: '地上物查估', children: project.building_survey_status ? (
+                <Tag color="green">{project.building_survey_status}</Tag>
+              ) : (
+                <Tag>未設定</Tag>
+              ) },
+            ]} />
           </Card>
           <Card size="small">
-            <Descriptions column={1} size="small">
-              <Descriptions.Item label="驗收狀態">
-                {project.acceptance_status === '已驗收' ? (
-                  <Badge status="success" text="已驗收" />
-                ) : (
-                  <Badge status="default" text="未驗收" />
-                )}
-              </Descriptions.Item>
-            </Descriptions>
+            <Descriptions column={1} size="small" items={[
+              { key: '驗收狀態', label: '驗收狀態', children: project.acceptance_status === '已驗收' ? (
+                <Badge status="success" text="已驗收" />
+              ) : (
+                <Badge status="default" text="未驗收" />
+              ) },
+            ]} />
           </Card>
         </ResponsiveFormRow>
       </>

@@ -234,7 +234,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({ contractProjectId }) =
           return <Text type="secondary">-</Text>;
         }
         return (
-          <Space direction="vertical" size={0}>
+          <Space vertical size={0}>
             {dispatches.slice(0, 2).map((d, idx) => (
               <Tag key={idx} color="blue" style={{ marginBottom: 2, fontSize: 11 }}>
                 {d.dispatch_no || `派工#${d.dispatch_order_id}`}
@@ -258,7 +258,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({ contractProjectId }) =
           return <Text type="secondary">-</Text>;
         }
         return (
-          <Space direction="vertical" size={0}>
+          <Space vertical size={0}>
             {docs.slice(0, 2).map((d, idx) => {
               const correctedType = detectLinkType(d.doc_number);
               const isAgency = correctedType === 'agency_incoming';
@@ -343,7 +343,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({ contractProjectId }) =
               title={isMobile ? '總數' : '總工程數'}
               value={projects.length}
               prefix={<ProjectOutlined />}
-              valueStyle={{ fontSize: isMobile ? 18 : 24 }}
+              styles={{ content: { fontSize: isMobile ? 18 : 24 } }}
             />
           </Card>
         </Col>
@@ -352,7 +352,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({ contractProjectId }) =
             <Statistic
               title="已派工"
               value={dispatchedCount}
-              valueStyle={{ color: '#1890ff', fontSize: isMobile ? 18 : 24 }}
+              styles={{ content: { color: '#1890ff', fontSize: isMobile ? 18 : 24 } }}
               prefix={<SendOutlined />}
             />
           </Card>
@@ -362,7 +362,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({ contractProjectId }) =
             <Statistic
               title="已完成"
               value={completedCount}
-              valueStyle={{ color: '#52c41a', fontSize: isMobile ? 18 : 24 }}
+              styles={{ content: { color: '#52c41a', fontSize: isMobile ? 18 : 24 } }}
               prefix={<Badge status="success" />}
             />
           </Card>
@@ -373,7 +373,7 @@ export const ProjectsTab: React.FC<ProjectsTabProps> = ({ contractProjectId }) =
               title="完成率"
               value={projects.length ? Math.round((completedCount / projects.length) * 100) : 0}
               suffix="%"
-              valueStyle={{ fontSize: isMobile ? 18 : 24 }}
+              styles={{ content: { fontSize: isMobile ? 18 : 24 } }}
             />
           </Card>
         </Col>

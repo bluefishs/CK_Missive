@@ -55,7 +55,7 @@ export const CodeWikiFiltersCard: React.FC<CodeWikiFiltersCardProps> = ({
       }
       styles={{ body: { padding: '8px 12px' } }}
     >
-      <Space direction="vertical" style={{ width: '100%' }} size={8}>
+      <Space vertical style={{ width: '100%' }} size={8}>
         <div>
           <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>實體類型</Text>
           <Select

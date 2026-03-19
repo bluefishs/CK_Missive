@@ -66,7 +66,7 @@ export const DetailPageLayout: React.FC<DetailPageLayoutProps> = ({
   // Loading 狀態
   if (loading) {
     return (
-      <Spin size="large" tip={loadingTip} fullscreen />
+      <Spin size="large" description={loadingTip} fullscreen />
     );
   }
 
@@ -100,7 +100,7 @@ export const DetailPageLayout: React.FC<DetailPageLayoutProps> = ({
           onChange={handleTabChange}
           items={tabs}
           size={isMobile ? 'middle' : 'large'}
-          tabPosition={isMobile ? 'top' : 'top'}
+          tabPlacement={isMobile ? 'top' : 'top'}
         />
       </Card>
 

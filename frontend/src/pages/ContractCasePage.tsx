@@ -1,7 +1,5 @@
-import React, { useState, useRef, useMemo } from 'react';
-import type { InputRef, TableColumnType } from 'antd';
-import type { FilterDropdownProps } from 'antd/es/table/interface';
-import { ResponsiveContent } from '../components/common';
+import React, { useState, useMemo } from 'react';
+import { ResponsiveContent } from '@ck-shared/ui-components';
 import {
   Card,
   Button,
@@ -26,7 +24,6 @@ import {
   ReloadOutlined,
   EyeOutlined,
 } from '@ant-design/icons';
-import Highlighter from 'react-highlight-words';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { ROUTES } from '../router/types';
@@ -34,60 +31,19 @@ import { ResponsiveTable } from '../components/common';
 import ProjectVendorManagement from '../components/project/ProjectVendorManagement';
 import { useProjectsPage } from '../hooks';
 import { useAuthGuard, useResponsive } from '../hooks';
-import { STATUS_OPTIONS } from './contractCase/tabs/constants';
+import { useContractCaseColumns } from './contractCase/useContractCaseColumns';
+import { getStatusColor, getStatusLabel } from './contractCase/contractCaseConstants';
 
 const { Title } = Typography;
 const { Option } = Select;
 
-// 案件類別選項 (與 ContractCaseDetailPage 保持一致)
-const CATEGORY_OPTIONS = [
-  { value: '01', label: '01委辦案件', color: 'blue' },
-  { value: '02', label: '02協力計畫', color: 'green' },
-  { value: '03', label: '03小額採購', color: 'orange' },
-  { value: '04', label: '04其他類別', color: 'default' },
-];
-
-// 類別映射表 (處理舊資料格式)
-const CATEGORY_MAP: Record<string, string> = {
-  '01': '01', '委辦案件': '01', '01委辦案件': '01',
-  '02': '02', '協力計畫': '02', '02協力計畫': '02',
-  '03': '03', '小額採購': '03', '03小額採購': '03',
-  '04': '04', '其他類別': '04', '04其他類別': '04',
-};
-
-// 取得標準化類別代碼
-const normalizeCategory = (category?: string): string => {
-  if (!category) return '';
-  return CATEGORY_MAP[category] || category;
-};
-
-// 取得類別標籤顏色
-const getCategoryTagColor = (category?: string) => {
-  const normalized = normalizeCategory(category);
-  const option = CATEGORY_OPTIONS.find(c => c.value === normalized);
-  return option?.color || 'default';
-};
-
-// 取得類別標籤文字
-const getCategoryTagText = (category?: string) => {
-  const normalized = normalizeCategory(category);
-  const option = CATEGORY_OPTIONS.find(c => c.value === normalized);
-  return option?.label || category || '未分類';
-};
-
 // ---[類型定義]---
 import type { Project, ViewMode } from '../types/api';
-
-type DataIndex = keyof Project;
 
 // ---[主元件]---
 export const ContractCasePage: React.FC = () => {
   const navigate = useNavigate();
-
-  // 📱 響應式設計
   const { isMobile } = useResponsive();
-
-  // 🔒 權限控制 Hook
   const { hasPermission } = useAuthGuard();
   const canCreate = hasPermission('projects:write');
 
@@ -105,11 +61,6 @@ export const ContractCasePage: React.FC = () => {
   // 廠商管理模態框狀態
   const [vendorManagementVisible, setVendorManagementVisible] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-
-  // 欄位搜尋狀態
-  const [columnSearchText, setColumnSearchText] = useState('');
-  const [searchedColumn, setSearchedColumn] = useState('');
-  const searchInput = useRef<InputRef>(null);
 
   // ---[React Query Hook]---
   const queryParams = useMemo(() => ({
@@ -146,86 +97,15 @@ export const ContractCasePage: React.FC = () => {
     };
   }, [statistics]);
 
-  // 欄位搜尋功能
-  const handleColumnSearch = (
-    selectedKeys: string[],
-    confirm: FilterDropdownProps['confirm'],
-    dataIndex: DataIndex,
-  ) => {
-    confirm();
-    setColumnSearchText(selectedKeys[0] ?? '');
-    setSearchedColumn(dataIndex);
-  };
-
-  const handleColumnReset = (clearFilters: () => void) => {
-    clearFilters();
-    setColumnSearchText('');
-  };
-
-  // 取得欄位搜尋屬性
-  const getColumnSearchProps = (dataIndex: DataIndex): TableColumnType<Project> => ({
-    filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters, close }) => (
-      <div style={{ padding: 8 }} onKeyDown={(e) => e.stopPropagation()}>
-        <Input
-          ref={searchInput}
-          placeholder={`搜尋...`}
-          value={selectedKeys[0]}
-          onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
-          onPressEnter={() => handleColumnSearch(selectedKeys as string[], confirm, dataIndex)}
-          style={{ marginBottom: 8, display: 'block' }}
-        />
-        <Space>
-          <Button
-            type="primary"
-            onClick={() => handleColumnSearch(selectedKeys as string[], confirm, dataIndex)}
-            icon={<SearchOutlined />}
-            size="small"
-            style={{ width: 90 }}
-          >
-            搜尋
-          </Button>
-          <Button
-            onClick={() => clearFilters && handleColumnReset(clearFilters)}
-            size="small"
-            style={{ width: 90 }}
-          >
-            重置
-          </Button>
-          <Button type="link" size="small" onClick={() => close()}>關閉</Button>
-        </Space>
-      </div>
-    ),
-    filterIcon: (filtered: boolean) => (
-      <SearchOutlined style={{ color: filtered ? '#1677ff' : undefined }} />
-    ),
-    onFilter: (value, record) =>
-      record[dataIndex]?.toString().toLowerCase().includes((value as string).toLowerCase()) ?? false,
-    filterDropdownProps: {
-      onOpenChange(open) {
-        if (open) setTimeout(() => searchInput.current?.select(), 100);
-      },
-    },
-    render: (text) =>
-      searchedColumn === dataIndex ? (
-        <Highlighter
-          highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
-          searchWords={[columnSearchText]}
-          autoEscape
-          textToHighlight={text ? text.toString() : ''}
-        />
-      ) : text,
-  });
+  // 表格欄位 (extracted hook)
+  const { columns } = useContractCaseColumns(availableYears, availableStatuses);
 
   // ---[事件處理]---
-
-  // ---[事件處理函式]---
   const handleView = (project: Project) => {
-    // 導航到詳情頁面（採用 TAB 分頁模式：案件資訊、承辦同仁、協力廠商）
     navigate(ROUTES.CONTRACT_CASE_DETAIL.replace(':id', String(project.id)));
   };
 
   const handleAddNew = () => {
-    // 導航至新增案件頁面
     navigate(ROUTES.CONTRACT_CASE_CREATE);
   };
 
@@ -237,189 +117,14 @@ export const ContractCasePage: React.FC = () => {
     setCurrentPage(1);
   };
 
-  // ---[UI 輔助函式]---
-  const getStatusColor = (status?: string) => {
-    switch (status) {
-      case '執行中': return 'processing';
-      case '已結案': return 'success';
-      case '未得標': return 'error';
-      case '暫停': return 'error';  // 舊資料相容
-      default: return 'default';
-    }
-  };
-
-  // 取得狀態顯示標籤（暫停 → 未得標）
-  const getStatusLabel = (status?: string) => {
-    if (!status) return '未設定';
-    const option = STATUS_OPTIONS.find(opt => opt.value === status);
-    return option?.label || status;
-  };
-
-  // ---[渲染邏輯]---
-
-  // 列表視圖的欄位定義 - 欄位順序: 專案編號、年度、專案名稱、委託單位、案件類別、案件狀態、契約期程
-  // 欄位寬度已優化 (2026-01-12)
-  const columns: TableColumnType<Project>[] = [
-    {
-      title: '專案編號',
-      dataIndex: 'project_code',
-      key: 'project_code',
-      width: 100,
-      sorter: (a, b) => (a.project_code || '').localeCompare(b.project_code || ''),
-      ...getColumnSearchProps('project_code'),
-      render: (text) => (
-        <span style={{ fontFamily: 'monospace', fontSize: '12px' }}>
-          {searchedColumn === 'project_code' ? (
-            <Highlighter
-              highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
-              searchWords={[columnSearchText]}
-              autoEscape
-              textToHighlight={text || '-'}
-            />
-          ) : (text || '-')}
-        </span>
-      ),
-    },
-    {
-      title: '案件年度',
-      dataIndex: 'year',
-      key: 'year',
-      width: 80,
-      align: 'center',
-      sorter: (a, b) => (a.year || 0) - (b.year || 0),
-      defaultSortOrder: 'descend',
-      filters: availableYears.map(y => ({ text: `${y}年`, value: y })),
-      onFilter: (value, record) => record.year === value,
-    },
-    {
-      title: '專案名稱',
-      dataIndex: 'project_name',
-      key: 'project_name',
-      width: 260,
-      ellipsis: true,
-      sorter: (a, b) => a.project_name.localeCompare(b.project_name, 'zh-TW'),
-      ...getColumnSearchProps('project_name'),
-      render: (text, _record) => (
-        <strong>
-          {searchedColumn === 'project_name' ? (
-            <Highlighter
-              highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
-              searchWords={[columnSearchText]}
-              autoEscape
-              textToHighlight={text || ''}
-            />
-          ) : text}
-        </strong>
-      ),
-    },
-    {
-      title: '委託單位',
-      dataIndex: 'client_agency',
-      key: 'client_agency',
-      width: 160,
-      ellipsis: true,
-      sorter: (a, b) => (a.client_agency || '').localeCompare(b.client_agency || '', 'zh-TW'),
-      ...getColumnSearchProps('client_agency'),
-    },
-    {
-      title: '案件類別',
-      dataIndex: 'category',
-      key: 'category',
-      width: 90,
-      align: 'center',
-      filters: CATEGORY_OPTIONS.map(c => ({ text: c.label, value: c.value })),
-      onFilter: (value, record) => normalizeCategory(record.category) === value,
-      render: (category) => (
-        <Tag color={getCategoryTagColor(category)}>
-          {getCategoryTagText(category)}
-        </Tag>
-      ),
-    },
-    {
-      title: '案件狀態',
-      dataIndex: 'status',
-      key: 'status',
-      width: 80,
-      align: 'center',
-      filters: availableStatuses.map(s => ({ text: getStatusLabel(s), value: s })),
-      onFilter: (value, record) => record.status === value,
-      render: (status) => <Tag color={getStatusColor(status)}>{getStatusLabel(status)}</Tag>,
-    },
-    {
-      title: '契約期程',
-      key: 'contract_period',
-      width: 120,
-      render: (_, record) => {
-        const startDate = record.start_date ? dayjs(record.start_date).format('YYYY/MM/DD') : '';
-        const endDate = record.end_date ? dayjs(record.end_date).format('YYYY/MM/DD') : '';
-        if (!startDate && !endDate) return '-';
-        return `${startDate || '未定'}~${endDate || '未定'}`;
-      },
-    },
-    // 操作欄位已簡化 - 編輯與廠商管理已移至詳情頁 TAB 分頁 (2026-01-12)
-    // 點擊行可直接進入詳情頁進行完整操作
-    // {
-    //   title: '操作',
-    //   key: 'actions',
-    //   width: 150,
-    //   fixed: 'right',
-    //   render: (_, record) => (
-    //     <Space>
-    //       {/* 編輯按鈕 - 需要 projects:write 權限 */}
-    //       {canEdit && (
-    //         <Button
-    //           type="link"
-    //           size="small"
-    //           icon={<EditOutlined />}
-    //           onClick={(e) => {
-    //             e.stopPropagation();
-    //             handleEdit(record);
-    //           }}
-    //         >編輯</Button>
-    //       )}
-    //       {/* 廠商管理按鈕 - 所有人可見 */}
-    //       <Button
-    //         type="link"
-    //         size="small"
-    //         icon={<TeamOutlined />}
-    //         onClick={(e) => {
-    //           e.stopPropagation();
-    //           setSelectedProject(record);
-    //           setVendorManagementVisible(true);
-    //         }}
-    //       >廠商</Button>
-    //       {/* 刪除按鈕 - 需要 projects:delete 權限 */}
-    //       {canDelete && (
-    //         <Popconfirm
-    //           title="確定刪除此專案嗎？"
-    //           description="此操作不可撤銷"
-    //           onConfirm={(e) => {
-    //             e?.stopPropagation();
-    //             handleDelete(record.id);
-    //           }}
-    //           onCancel={(e) => e?.stopPropagation()}
-    //           okText="確定"
-    //           cancelText="取消"
-    //         >
-    //           <Button type="link" size="small" danger icon={<DeleteOutlined />} onClick={(e) => e.stopPropagation()}>刪除</Button>
-    //         </Popconfirm>
-    //       )}
-    //     </Space>
-    //   ),
-    // },
-  ];
-
   // 看板視圖渲染
   const renderBoardView = () => {
     if (projects.length === 0) return <Empty description="暫無數據" />;
 
-    // 操作按鈕已簡化 - 點擊卡片直接進入詳情頁 (2026-01-12)
     const getCardActions = (item: Project) => {
-      // 只保留檢視按鈕，編輯與廠商管理已移至詳情頁 TAB 分頁
-      const actions = [
+      return [
         <EyeOutlined key="view" onClick={() => handleView(item)} />,
       ];
-      return actions;
     };
 
     return (
@@ -431,7 +136,7 @@ export const ContractCasePage: React.FC = () => {
               size="small"
               actions={getCardActions(item)}
             >
-              <Space direction="vertical" style={{ width: '100%' }}>
+              <Space vertical style={{ width: '100%' }}>
                 <div>
                   <Tag color={getStatusColor(item.status)}>{getStatusLabel(item.status)}</Tag>
                   {item.year && <Tag>{item.year}年</Tag>}
@@ -452,7 +157,7 @@ export const ContractCasePage: React.FC = () => {
 
   return (
     <ResponsiveContent maxWidth="full" padding="medium">
-      {/* 頁面標題和統計 - 使用全域統計數據（從後端 API 取得） */}
+      {/* 頁面標題和統計 */}
       <Card style={{ marginBottom: 16 }}>
         <Row justify="space-between" align="middle">
           <Col><Title level={3} style={{ margin: 0 }}>承攬案件管理</Title></Col>
@@ -466,7 +171,7 @@ export const ContractCasePage: React.FC = () => {
 
       {/* 篩選和操作區 */}
       <Card style={{ marginBottom: 16 }}>
-        <Space direction="vertical" style={{ width: '100%' }}>
+        <Space vertical style={{ width: '100%' }}>
           <Row gutter={[16, 8]}>
             <Col xs={24} sm={12} md={8} lg={6}>
               <Input
@@ -484,7 +189,13 @@ export const ContractCasePage: React.FC = () => {
             </Col>
             <Col xs={12} sm={6} md={5} lg={4}>
               <Select placeholder="案件類別" value={categoryFilter} onChange={setCategoryFilter} allowClear style={{ width: '100%' }}>
-                {CATEGORY_OPTIONS.map(opt => <Option key={opt.value} value={opt.value}>{opt.label}</Option>)}
+                {/* CATEGORY_OPTIONS imported via useContractCaseColumns */}
+                {[
+                  { value: '01', label: '01委辦案件' },
+                  { value: '02', label: '02協力計畫' },
+                  { value: '03', label: '03小額採購' },
+                  { value: '04', label: '04其他類別' },
+                ].map(opt => <Option key={opt.value} value={opt.value}>{opt.label}</Option>)}
               </Select>
             </Col>
             <Col xs={12} sm={6} md={4} lg={4}>
@@ -502,7 +213,6 @@ export const ContractCasePage: React.FC = () => {
             </Col>
             <Col>
               <Space>
-                {/* 🔒 新增按鈕 - 需要 projects:write 權限 */}
                 {canCreate && (
                   <Button type="primary" icon={<PlusOutlined />} onClick={handleAddNew}>新增案件</Button>
                 )}

@@ -121,7 +121,7 @@ export function useDispatchOrderColumns({
           return <Tag color="blue">{types[0]}</Tag>;
         }
         return (
-          <Space direction="vertical" size={2}>
+          <Space vertical size={2}>
             {types.slice(0, 2).map((t, idx) => (
               <Tag key={idx} color="blue" style={{ fontSize: 11 }}>{t}</Tag>
             ))}
@@ -173,7 +173,7 @@ export function useDispatchOrderColumns({
         const st = statusMap[wp.status || 'pending'] || { color: 'default', label: '待處理' };
         return (
           <Tooltip title={`紀錄 ${wp.total} 筆：完成 ${wp.completed}、進行中 ${wp.in_progress}`}>
-            <Space direction="vertical" size={0}>
+            <Space vertical size={0}>
               {wp.current_stage && (
                 <Text style={{ fontSize: 11, lineHeight: '16px' }}>{wp.current_stage}</Text>
               )}
@@ -259,7 +259,7 @@ export function useDispatchOrderColumns({
           return dateB.localeCompare(dateA);
         });
         return (
-          <Space direction="vertical" size={0}>
+          <Space vertical size={0}>
             {sortedDocs.slice(0, 2).map((doc) => {
               const correctedType = detectLinkType(doc.doc_number);
               const isAgency = correctedType === 'agency_incoming';
@@ -288,7 +288,7 @@ export function useDispatchOrderColumns({
         const projects = record.linked_projects || [];
         if (projects.length === 0) return <Text type="secondary">-</Text>;
         return (
-          <Space direction="vertical" size={0}>
+          <Space vertical size={0}>
             {projects.slice(0, 2).map((proj) => (
               <Tooltip key={proj.id} title={proj.project_name}>
                 <Tag color="purple" style={{ marginBottom: 2, fontSize: 11 }}>

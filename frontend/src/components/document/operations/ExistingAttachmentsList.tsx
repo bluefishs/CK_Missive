@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { Card, List, Button, Popconfirm, Space } from 'antd';
+import { Card, Button, Popconfirm, Space, Flex, Typography } from 'antd';
 import {
   PaperClipOutlined,
   DownloadOutlined,
@@ -72,16 +72,31 @@ export const ExistingAttachmentsList: React.FC<ExistingAttachmentsListProps> = (
       style={{ marginBottom: 16 }}
       loading={loading}
     >
-      <List
-        size="small"
-        dataSource={attachments}
-        renderItem={(item: DocumentAttachment) => (
-          <List.Item
-            actions={[
-              // 預覽按鈕（僅支援 PDF/圖片/文字檔）
-              isPreviewable(item.content_type, item.original_filename || item.filename) && (
+      <Flex vertical>
+        {attachments.map((item: DocumentAttachment) => (
+          <Flex
+            key={item.id}
+            align="center"
+            justify="space-between"
+            style={{ padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}
+          >
+            <Flex align="center" gap={12} style={{ flex: 1, minWidth: 0 }}>
+              {getFileIcon(item.content_type, item.original_filename || item.filename)}
+              <div style={{ minWidth: 0 }}>
+                <Typography.Text strong ellipsis={{ tooltip: item.original_filename || item.filename }}>
+                  {item.original_filename || item.filename}
+                </Typography.Text>
+                <div>
+                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    {item.file_size ? `${(item.file_size / 1024).toFixed(1)} KB` : ''}
+                    {item.created_at && ` · ${dayjs(item.created_at).format('YYYY-MM-DD HH:mm')}`}
+                  </Typography.Text>
+                </div>
+              </div>
+            </Flex>
+            <Space size={0}>
+              {isPreviewable(item.content_type, item.original_filename || item.filename) && (
                 <Button
-                  key="preview"
                   type="link"
                   size="small"
                   icon={<EyeOutlined />}
@@ -90,19 +105,17 @@ export const ExistingAttachmentsList: React.FC<ExistingAttachmentsListProps> = (
                 >
                   預覽
                 </Button>
-              ),
+              )}
               <Button
-                key="download"
                 type="link"
                 size="small"
                 icon={<DownloadOutlined />}
                 onClick={() => onDownload(item.id, item.original_filename || item.filename)}
               >
                 下載
-              </Button>,
-              !readOnly && (
+              </Button>
+              {!readOnly && (
                 <Popconfirm
-                  key="delete"
                   title="確定要刪除此附件嗎？"
                   onConfirm={() => onDelete(item.id)}
                   okText="確定"
@@ -112,22 +125,11 @@ export const ExistingAttachmentsList: React.FC<ExistingAttachmentsListProps> = (
                     刪除
                   </Button>
                 </Popconfirm>
-              ),
-            ].filter(Boolean)}
-          >
-            <List.Item.Meta
-              avatar={getFileIcon(item.content_type, item.original_filename || item.filename)}
-              title={item.original_filename || item.filename}
-              description={
-                <span style={{ fontSize: 12, color: '#999' }}>
-                  {item.file_size ? `${(item.file_size / 1024).toFixed(1)} KB` : ''}
-                  {item.created_at && ` · ${dayjs(item.created_at).format('YYYY-MM-DD HH:mm')}`}
-                </span>
-              }
-            />
-          </List.Item>
-        )}
-      />
+              )}
+            </Space>
+          </Flex>
+        ))}
+      </Flex>
     </Card>
   );
 };

@@ -21,20 +21,15 @@ import {
   CheckCircleOutlined,
   CopyOutlined,
   BarChartOutlined,
+  SwapOutlined,
+  ForkOutlined,
 } from '@ant-design/icons';
 
 const { Text } = Typography;
 
-/** 推理步驟 */
-export interface AgentStepInfo {
-  type: 'thinking' | 'tool_call' | 'tool_result';
-  step_index: number;
-  step?: string;
-  tool?: string;
-  params?: Record<string, unknown>;
-  summary?: string;
-  count?: number;
-}
+// AgentStepInfo 已遷移至 types/ai.ts (SSOT)
+export type { AgentStepInfo } from '../../types/ai';
+import type { AgentStepInfo } from '../../types/ai';
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const TOOL_ICONS: Record<string, React.ReactNode> = {
@@ -44,6 +39,8 @@ export const TOOL_ICONS: Record<string, React.ReactNode> = {
   get_entity_detail: <DatabaseOutlined />,
   find_similar: <CopyOutlined />,
   get_statistics: <BarChartOutlined />,
+  find_correspondence: <SwapOutlined />,
+  explore_entity_path: <ForkOutlined />,
 };
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -54,6 +51,8 @@ export const TOOL_LABELS: Record<string, string> = {
   get_entity_detail: '實體詳情',
   find_similar: '相似公文',
   get_statistics: '統計資訊',
+  find_correspondence: '收發文對照',
+  explore_entity_path: '路徑探索',
 };
 
 export const AgentStepsDisplay: React.FC<{ steps: AgentStepInfo[]; streaming: boolean }> = ({
@@ -69,6 +68,18 @@ export const AgentStepsDisplay: React.FC<{ steps: AgentStepInfo[]; streaming: bo
     if (s.type === 'thinking') {
       return {
         title: <Text style={{ fontSize: 11 }}><BulbOutlined /> {s.step}</Text>,
+        status: 'finish' as const,
+      };
+    }
+    if (s.type === 'react') {
+      const pct = s.confidence != null ? `${Math.round(s.confidence * 100)}%` : '';
+      const actionLabel = s.action === 'refine' ? '精煉' : s.action === 'answer' ? '回答' : '繼續';
+      return {
+        title: (
+          <Text style={{ fontSize: 11, color: '#722ed1' }}>
+            <BulbOutlined /> 深度推理 ({actionLabel}{pct ? ` · 信心 ${pct}` : ''}) — {s.step}
+          </Text>
+        ),
         status: 'finish' as const,
       };
     }
@@ -114,7 +125,7 @@ export const AgentStepsDisplay: React.FC<{ steps: AgentStepInfo[]; streaming: bo
     <div style={{ marginBottom: 8, padding: '4px 0' }}>
       <Steps
         size="small"
-        direction="vertical"
+        orientation="vertical"
         current={stepsItems.length - 1}
         items={stepsItems}
         style={{ fontSize: 11 }}

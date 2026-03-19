@@ -33,7 +33,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         dot: EVENT_TYPE_CONFIG[event.event_type]?.icon,
         children: (
           <Card size="small" style={{ marginBottom: 8 }}>
-            <Space direction="vertical" size="small">
+            <Space vertical size="small">
               <Space>
                 <Text strong>{event.title}</Text>
                 <Tag color={EVENT_TYPE_CONFIG[event.event_type]?.color || 'default'}>

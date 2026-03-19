@@ -130,42 +130,43 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
             color: '#333',
           },
         }}
-      >
-        <Descriptions.Item label="文號">
-          <Text strong copyable={{ text: document.doc_number || '' }}>
-            {document.doc_number || '-'}
-          </Text>
-        </Descriptions.Item>
-
-        {document.auto_serial && (
-          <Descriptions.Item label="流水號">
-            <Tag color="purple">{document.auto_serial}</Tag>
-          </Descriptions.Item>
-        )}
-
-        <Descriptions.Item label="主旨">
-          <Paragraph
-            ellipsis={showFullContent ? false : { rows: 2, expandable: true }}
-            style={{ margin: 0 }}
-          >
-            {document.subject || document.title || '-'}
-          </Paragraph>
-        </Descriptions.Item>
-
-        <Descriptions.Item label={isReceiveDoc ? '發文單位' : '受文單位'}>
-          {isReceiveDoc ? document.sender : document.receiver || '-'}
-        </Descriptions.Item>
-
-        {isReceiveDoc ? (
-          <Descriptions.Item label="受文者">
-            {document.receiver || '-'}
-          </Descriptions.Item>
-        ) : (
-          <Descriptions.Item label="發文單位">
-            {document.sender || '-'}
-          </Descriptions.Item>
-        )}
-      </Descriptions>
+        items={[
+          {
+            key: '文號',
+            label: '文號',
+            children: (
+              <Text strong copyable={{ text: document.doc_number || '' }}>
+                {document.doc_number || '-'}
+              </Text>
+            ),
+          },
+          ...(document.auto_serial ? [{
+            key: '流水號',
+            label: '流水號',
+            children: (<Tag color="purple">{document.auto_serial}</Tag>),
+          }] : []),
+          {
+            key: '主旨',
+            label: '主旨',
+            children: (
+              <Paragraph
+                ellipsis={showFullContent ? false : { rows: 2, expandable: true }}
+                style={{ margin: 0 }}
+              >
+                {document.subject || document.title || '-'}
+              </Paragraph>
+            ),
+          },
+          {
+            key: isReceiveDoc ? '發文單位' : '受文單位',
+            label: isReceiveDoc ? '發文單位' : '受文單位',
+            children: isReceiveDoc ? document.sender : document.receiver || '-',
+          },
+          isReceiveDoc
+            ? { key: '受文者', label: '受文者', children: document.receiver || '-' }
+            : { key: '發文單位-2', label: '發文單位', children: document.sender || '-' },
+        ]}
+      />
 
       <Divider style={{ margin: '12px 0' }} />
 
@@ -179,22 +180,21 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({
             color: '#666',
           },
         }}
-      >
-        <Descriptions.Item
-          label={<><CalendarOutlined /> {isReceiveDoc ? '收文日' : '發文日'}</>}
-        >
-          {isReceiveDoc
-            ? (document.receive_date ? dayjs(document.receive_date).format('YYYY/MM/DD') : '-')
-            : (document.doc_date ? dayjs(document.doc_date).format('YYYY/MM/DD') : '-')
-          }
-        </Descriptions.Item>
-
-        {document.send_date && (
-          <Descriptions.Item label={<><ClockCircleOutlined /> 發送日</>}>
-            {dayjs(document.send_date).format('YYYY/MM/DD')}
-          </Descriptions.Item>
-        )}
-      </Descriptions>
+        items={[
+          {
+            key: '收發文日',
+            label: (<><CalendarOutlined /> {isReceiveDoc ? '收文日' : '發文日'}</>),
+            children: isReceiveDoc
+              ? (document.receive_date ? dayjs(document.receive_date).format('YYYY/MM/DD') : '-')
+              : (document.doc_date ? dayjs(document.doc_date).format('YYYY/MM/DD') : '-'),
+          },
+          ...(document.send_date ? [{
+            key: '發送日',
+            label: (<><ClockCircleOutlined /> 發送日</>),
+            children: dayjs(document.send_date).format('YYYY/MM/DD'),
+          }] : []),
+        ]}
+      />
 
       {/* 承攬案件 */}
       {document.contract_project_name && (

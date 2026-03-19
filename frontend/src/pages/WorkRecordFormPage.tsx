@@ -5,13 +5,13 @@
  * - 新建: /taoyuan/dispatch/:dispatchId/workflow/create
  * - 編輯: /taoyuan/dispatch/:dispatchId/workflow/:recordId/edit
  *
- * v3.0.0: 精簡表單 — 僅保留必要欄位
+ * v3.1.0: 公文選項 + 表單邏輯提取至 hooks
  *
- * @version 3.0.0
- * @date 2026-02-15
+ * @version 3.1.0
+ * @date 2026-03-18
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Card,
@@ -26,37 +26,21 @@ import {
   Row,
   Col,
   Radio,
-  Tag,
   Empty,
-  Tooltip,
 } from 'antd';
 import {
   ArrowLeftOutlined,
   SaveOutlined,
   HistoryOutlined,
 } from '@ant-design/icons';
-import dayjs from 'dayjs';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
-import { ResponsiveContent } from '../components/common';
-import { workflowApi } from '../api/taoyuan';
-import { queryKeys } from '../config/queryConfig';
-import { dispatchOrdersApi } from '../api/taoyuanDispatchApi';
-import { apiClient } from '../api/client';
-import { API_ENDPOINTS } from '../api/endpoints';
-import { isReceiveDocument } from '../types/api';
-import type {
-  WorkRecordCreate,
-  WorkRecordUpdate,
-  WorkRecord,
-  DispatchDocumentLink,
-} from '../types/taoyuan';
+import { ResponsiveContent } from '@ck-shared/ui-components';
 import {
   WORK_CATEGORY_GROUPS,
   CHAIN_STATUS_OPTIONS,
-  getCategoryLabel,
 } from '../components/taoyuan/workflow';
-import { logger } from '../services/logger';
+import { useWorkRecordDocOptions } from './workRecordForm/useWorkRecordDocOptions';
+import { useWorkRecordFormLogic } from './workRecordForm/useWorkRecordFormLogic';
 
 const { TextArea } = Input;
 const { Title, Text } = Typography;
@@ -70,7 +54,6 @@ const WorkRecordFormPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [form] = Form.useForm();
   const { message } = App.useApp();
-  const queryClient = useQueryClient();
 
   const isNew = !recordId;
   const dispatchOrderId = parseInt(dispatchId || '0', 10);
@@ -79,349 +62,55 @@ const WorkRecordFormPage: React.FC = () => {
   const returnTo = searchParams.get('returnTo');
   const returnPath = returnTo || `/taoyuan/dispatch/${dispatchId}?tab=correspondence`;
 
-  // 公文搜尋狀態
-  const [docSearchKeyword, setDocSearchKeyword] = useState('');
-
-  // URL 參數預填（新格式優先，舊格式自動轉換）
   const urlDocumentId = searchParams.get('document_id')
     || searchParams.get('incoming_doc_id')
     || searchParams.get('outgoing_doc_id');
   const urlParentRecordId = searchParams.get('parent_record_id');
   const urlWorkCategory = searchParams.get('work_category');
 
-  // ===========================================================================
-  // 資料查詢
-  // ===========================================================================
+  // 公文選項 (extracted hook)
+  const {
+    docOptions,
+    linkedDocs,
+    searchedDocsResult,
+    setDocSearchKeyword,
+    searchingDocs,
+    docSearchKeyword,
+  } = useWorkRecordDocOptions(dispatchOrderId, undefined); // record loaded separately
 
-  const { data: record, isLoading } = useQuery({
-    queryKey: ['dispatch-work-record', workRecordId],
-    queryFn: () => workflowApi.getDetail(workRecordId!),
-    enabled: !isNew && !!workRecordId,
+  // 表單邏輯 (extracted hook)
+  const {
+    record,
+    isLoading,
+    parentRecordOptions,
+    handleDocumentChange,
+    handleSave,
+    isSaving,
+  } = useWorkRecordFormLogic({
+    dispatchOrderId,
+    workRecordId,
+    isNew,
+    form,
+    message,
+    navigate,
+    returnPath,
+    urlDocumentId,
+    urlParentRecordId,
+    urlWorkCategory,
+    linkedDocs,
+    searchedDocsResult,
   });
 
-  const { data: linkedDocs } = useQuery({
-    queryKey: ['dispatch-documents', dispatchOrderId],
-    queryFn: async () => {
-      const resp = await apiClient.post<{ items: DispatchDocumentLink[] }>(
-        API_ENDPOINTS.TAOYUAN_DISPATCH.DISPATCH_DOCUMENTS(dispatchOrderId),
-      );
-      return resp.items ?? [];
-    },
-    enabled: dispatchOrderId > 0,
-  });
+  // Re-init doc options with actual record once loaded
+  const {
+    docOptions: docOptionsWithRecord,
+  } = useWorkRecordDocOptions(dispatchOrderId, record);
 
-  // 搜尋可關聯的公文（伺服器端搜尋）
-  const { data: searchedDocsResult, isLoading: searchingDocs } = useQuery({
-    queryKey: ['documents-for-work-record', docSearchKeyword],
-    queryFn: async () => {
-      if (!docSearchKeyword.trim()) return { items: [] };
-      return dispatchOrdersApi.searchLinkableDocuments(
-        docSearchKeyword,
-        20,
-      );
-    },
-    enabled: !!docSearchKeyword.trim(),
-  });
-
-  const { data: existingRecordsData } = useQuery({
-    queryKey: queryKeys.workRecords.dispatch(dispatchOrderId),
-    queryFn: () => workflowApi.listByDispatchOrder(dispatchOrderId),
-    enabled: dispatchOrderId > 0,
-  });
-
-  const existingRecords = useMemo(
-    () => (existingRecordsData?.items ?? []) as WorkRecord[],
-    [existingRecordsData?.items],
-  );
-
-  // 公文選項：合併 [當前紀錄公文] + [已關聯公文] + [搜尋結果]
-  const docOptions = useMemo(() => {
-    const seenIds = new Set<number>();
-    const options: Array<{
-      value: number;
-      label: React.ReactNode;
-      searchText: string;
-    }> = [];
-
-    // 當前紀錄已選的公文（確保編輯模式下顯示文號而非數字 ID）
-    if (record?.document_id && record.document) {
-      seenIds.add(record.document_id);
-      const doc = record.document;
-      const isOutgoing = doc.doc_number?.startsWith('乾坤');
-      const tag = isOutgoing ? '發' : '收';
-      const color = isOutgoing ? 'green' : 'blue';
-      const docNumber = doc.doc_number || `#${record.document_id}`;
-      const subject = doc.subject || '';
-      options.push({
-        value: record.document_id,
-        label: (
-          <Tooltip title={subject} placement="right" mouseEnterDelay={0.5}>
-            <span>
-              <Tag color={color} style={{ marginRight: 4 }}>{tag}</Tag>
-              {docNumber}
-              {doc.doc_date ? ` (${doc.doc_date.substring(0, 10)})` : ''}
-            </span>
-          </Tooltip>
-        ),
-        searchText: `${doc.doc_number || ''} ${subject}`,
-      });
-    }
-
-    // 已關聯公文（優先顯示）
-    if (linkedDocs) {
-      for (const d of linkedDocs) {
-        if (seenIds.has(d.document_id)) continue;
-        seenIds.add(d.document_id);
-        const isOutgoing = d.doc_number?.startsWith('乾坤');
-        const tag = isOutgoing ? '發' : '收';
-        const color = isOutgoing ? 'green' : 'blue';
-        const docNumber = d.doc_number || `ID:${d.document_id}`;
-        const subject = d.subject || '';
-        options.push({
-          value: d.document_id,
-          label: (
-            <Tooltip
-              title={subject}
-              placement="right"
-              mouseEnterDelay={0.5}
-            >
-              <span>
-                <Tag color={color} style={{ marginRight: 4 }}>{tag}</Tag>
-                {docNumber}
-                {d.doc_date ? ` (${d.doc_date.substring(0, 10)})` : ''}
-              </span>
-            </Tooltip>
-          ),
-          searchText: `${d.doc_number || ''} ${subject}`,
-        });
-      }
-    }
-
-    // 搜尋結果
-    const searchedDocs = searchedDocsResult?.items ?? [];
-    for (const d of searchedDocs) {
-      if (seenIds.has(d.id)) continue;
-      seenIds.add(d.id);
-      const docIsReceive = isReceiveDocument(d.category);
-      const tag = docIsReceive ? '收' : '發';
-      const color = docIsReceive ? 'blue' : 'green';
-      const docNumber = d.doc_number || `#${d.id}`;
-      const subject = d.subject || '(無主旨)';
-      options.push({
-        value: d.id,
-        label: (
-          <Tooltip
-            title={<div><div>{docNumber}</div><div>{subject}</div></div>}
-            placement="right"
-            mouseEnterDelay={0.5}
-          >
-            <span>
-              <Tag color={color} style={{ marginRight: 4 }}>{tag}</Tag>
-              {docNumber}
-              {d.doc_date ? ` (${d.doc_date.substring(0, 10)})` : ''}
-              <span style={{ color: '#999', marginLeft: 8, fontSize: 12 }}>
-                {subject.length > 20 ? subject.substring(0, 20) + '...' : subject}
-              </span>
-            </span>
-          </Tooltip>
-        ),
-        searchText: `${d.doc_number || ''} ${subject}`,
-      });
-    }
-
-    return options;
-  }, [record, linkedDocs, searchedDocsResult?.items]);
-
-  // 前序紀錄選項（顯示時間軸序號，非 DB ID）
-  const parentRecordOptions = useMemo(() => {
-    // 排序方式與時間軸一致：sort_order → record_date
-    const sorted = [...existingRecords].sort((a, b) => {
-      if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
-      return (a.record_date || '').localeCompare(b.record_date || '');
-    });
-
-    // 建立 id → 時間軸序號映射
-    const seqMap = new Map<number, number>();
-    sorted.forEach((r, i) => seqMap.set(r.id, i + 1));
-
-    return sorted
-      .filter((r) => r.id !== workRecordId)
-      .map((r) => {
-        const seq = seqMap.get(r.id) ?? r.sort_order;
-        const catLabel = getCategoryLabel(r);
-        const docNum = r.document?.doc_number || r.incoming_doc?.doc_number || r.outgoing_doc?.doc_number || '';
-        return {
-          value: r.id,
-          label: `#${seq} ${catLabel}${docNum ? ` — ${docNum}` : ''}${r.record_date ? ` (${r.record_date})` : ''}`,
-        };
-      });
-  }, [existingRecords, workRecordId]);
-
-  // ===========================================================================
-  // 公文選擇時自動帶入主旨
-  // ===========================================================================
-
-  const handleDocumentChange = useCallback(
-    (docId: number | undefined) => {
-      if (!docId) return;
-      // 先從已關聯公文找
-      const linkedDoc = linkedDocs?.find((d) => d.document_id === docId);
-      const searchedDoc = searchedDocsResult?.items?.find((d) => d.id === docId);
-      const subject = linkedDoc?.subject || searchedDoc?.subject;
-      if (subject) {
-        const currentDesc = form.getFieldValue('description');
-        // 僅在描述為空時自動帶入公文主旨
-        if (!currentDesc) {
-          form.setFieldsValue({ description: subject });
-        }
-      }
-    },
-    [linkedDocs, searchedDocsResult?.items, form],
-  );
-
-  // ===========================================================================
-  // 表單初始化
-  // ===========================================================================
-
-  // 編輯模式：填入現有資料
-  useEffect(() => {
-    if (record) {
-      // 編輯模式：description 為空時自動帶入公文主旨
-      let desc = record.description;
-      if (!desc && record.document?.subject) {
-        desc = record.document.subject;
-      }
-      form.setFieldsValue({
-        work_category: record.work_category,
-        document_id: record.document_id,
-        parent_record_id: record.parent_record_id,
-        deadline_date: record.deadline_date ? dayjs(record.deadline_date) : undefined,
-        status: record.status,
-        description: desc,
-        // 保留舊格式供後端向後相容
-        incoming_doc_id: record.incoming_doc_id,
-        outgoing_doc_id: record.outgoing_doc_id,
-        milestone_type: record.milestone_type,
-      });
-    }
-  }, [record, form]);
-
-  // 新建模式：預設值
-  useEffect(() => {
-    if (isNew) {
-      const defaults: Record<string, unknown> = {
-        status: 'in_progress',
-      };
-
-      if (urlDocumentId) {
-        const parsed = parseInt(urlDocumentId, 10);
-        if (!isNaN(parsed)) {
-          defaults.document_id = parsed;
-          // 自動帶入公文主旨
-          const doc = linkedDocs?.find((d) => d.document_id === parsed);
-          if (doc?.subject) {
-            defaults.description = doc.subject;
-          }
-        }
-      }
-      if (urlParentRecordId) {
-        const parsed = parseInt(urlParentRecordId, 10);
-        if (!isNaN(parsed)) defaults.parent_record_id = parsed;
-      }
-      if (urlWorkCategory) {
-        defaults.work_category = urlWorkCategory;
-      }
-
-      // 自動預選最後一筆紀錄為前序
-      if (!urlParentRecordId && existingRecords.length > 0) {
-        const lastRecord = existingRecords[existingRecords.length - 1];
-        if (lastRecord) defaults.parent_record_id = lastRecord.id;
-      }
-
-      form.setFieldsValue(defaults);
-    }
-  }, [isNew, form, urlDocumentId, urlParentRecordId, urlWorkCategory, existingRecords, linkedDocs]);
-
-  // ===========================================================================
-  // Mutations
-  // ===========================================================================
-
-  const createMutation = useMutation({
-    mutationFn: (data: WorkRecordCreate) => workflowApi.create(data),
-    onSuccess: () => {
-      message.success('作業紀錄建立成功');
-      queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.dispatch(dispatchOrderId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.projectAll });
-      navigate(returnPath);
-    },
-    onError: (error: Error) => {
-      logger.error('[WorkRecordForm] 建立失敗:', error);
-      message.error('建立失敗，請稍後再試');
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: WorkRecordUpdate }) =>
-      workflowApi.update(id, data),
-    onSuccess: () => {
-      message.success('作業紀錄更新成功');
-      queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.dispatch(dispatchOrderId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.projectAll });
-      navigate(returnPath);
-    },
-    onError: (error: Error) => {
-      logger.error('[WorkRecordForm] 更新失敗:', error);
-      message.error('更新失敗，請稍後再試');
-    },
-  });
-
-  // ===========================================================================
-  // Handlers
-  // ===========================================================================
-
-  const formatDate = (val: unknown): string | undefined => {
-    if (!val) return undefined;
-    if (typeof val === 'object' && val !== null && 'format' in val) {
-      return (val as { format: (f: string) => string }).format('YYYY-MM-DD');
-    }
-    if (typeof val === 'string') return val;
-    return undefined;
-  };
-
-  const handleSave = useCallback(async () => {
-    try {
-      const values = await form.validateFields();
-
-      const payload: Record<string, unknown> = {
-        work_category: values.work_category,
-        document_id: values.document_id ?? null,
-        parent_record_id: values.parent_record_id ?? null,
-        deadline_date: formatDate(values.deadline_date) ?? null,
-        status: values.status,
-        description: values.description || null,
-        milestone_type: values.milestone_type || 'other',
-      };
-
-      if (isNew) {
-        payload.dispatch_order_id = dispatchOrderId;
-        createMutation.mutate(payload as unknown as WorkRecordCreate);
-      } else if (workRecordId) {
-        updateMutation.mutate({ id: workRecordId, data: payload as unknown as WorkRecordUpdate });
-      }
-    } catch {
-      // form validation failed
-    }
-  }, [form, isNew, dispatchOrderId, workRecordId, createMutation, updateMutation]);
+  const finalDocOptions = record ? docOptionsWithRecord : docOptions;
 
   const handleBack = useCallback(() => {
     navigate(returnPath);
   }, [navigate, returnPath]);
-
-  const isSaving = createMutation.isPending || updateMutation.isPending;
-
-  // ===========================================================================
-  // Render
-  // ===========================================================================
 
   return (
     <ResponsiveContent>
@@ -445,11 +134,10 @@ const WorkRecordFormPage: React.FC = () => {
         {/* Form */}
         <Card loading={!isNew && isLoading}>
           <Form form={form} layout="vertical" size="middle">
-            {/* 1. 關聯公文 — 最重要的欄位 */}
             <Form.Item name="document_id" label="關聯公文">
               <Select
                 placeholder="輸入公文字號或主旨搜尋..."
-                options={docOptions}
+                options={finalDocOptions}
                 allowClear
                 showSearch
                 filterOption={false}
@@ -466,7 +154,6 @@ const WorkRecordFormPage: React.FC = () => {
               />
             </Form.Item>
 
-            {/* 2. 作業類別 + 狀態 — 必填 */}
             <Row gutter={12}>
               <Col span={14}>
                 <Form.Item
@@ -474,17 +161,16 @@ const WorkRecordFormPage: React.FC = () => {
                   label="作業類別"
                   rules={[{ required: true, message: '請選擇作業類別' }]}
                 >
-                  <Select placeholder="請選擇">
-                    {WORK_CATEGORY_GROUPS.map((group) => (
-                      <Select.OptGroup key={group.group} label={group.group}>
-                        {group.items.map((item) => (
-                          <Select.Option key={item.value} value={item.value}>
-                            {item.label}
-                          </Select.Option>
-                        ))}
-                      </Select.OptGroup>
-                    ))}
-                  </Select>
+                  <Select
+                    placeholder="請選擇"
+                    options={WORK_CATEGORY_GROUPS.map((group) => ({
+                      label: group.group,
+                      options: group.items.map((item) => ({
+                        value: item.value,
+                        label: item.label,
+                      })),
+                    }))}
+                  />
                 </Form.Item>
               </Col>
               <Col span={10}>
@@ -504,7 +190,6 @@ const WorkRecordFormPage: React.FC = () => {
               </Col>
             </Row>
 
-            {/* 3. 前序紀錄 + 期限 */}
             <Row gutter={12}>
               <Col span={14}>
                 <Form.Item name="parent_record_id" label="前序紀錄">
@@ -525,23 +210,15 @@ const WorkRecordFormPage: React.FC = () => {
               </Col>
             </Row>
 
-            {/* 4. 事項描述（選擇公文時自動帶入主旨，可修改） */}
             <Form.Item name="description" label="事項描述">
               <TextArea rows={3} placeholder="選擇公文後自動帶入主旨，可自行修改補充" />
             </Form.Item>
 
-            {/* 隱藏欄位：舊格式向後相容 */}
-            <Form.Item name="milestone_type" hidden>
-              <Input />
-            </Form.Item>
-            <Form.Item name="incoming_doc_id" hidden>
-              <Input />
-            </Form.Item>
-            <Form.Item name="outgoing_doc_id" hidden>
-              <Input />
-            </Form.Item>
+            {/* 隱藏欄位 */}
+            <Form.Item name="milestone_type" hidden><Input /></Form.Item>
+            <Form.Item name="incoming_doc_id" hidden><Input /></Form.Item>
+            <Form.Item name="outgoing_doc_id" hidden><Input /></Form.Item>
 
-            {/* Actions */}
             <div style={{ textAlign: 'right', marginTop: 8 }}>
               <Space>
                 <Button onClick={handleBack}>取消</Button>

@@ -88,7 +88,7 @@ const VendorList: React.FC = () => {
           dataIndex: 'vendor_name',
           key: 'vendor_name',
           render: (text: string, record: Vendor) => (
-            <Space direction="vertical" size={0}>
+            <Space vertical size={0}>
               <strong>{text}</strong>
               {record.contact_person && <small><UserOutlined /> {record.contact_person}</small>}
               {record.business_type && <Tag color={getBusinessTypeColor(record.business_type)}>{record.business_type}</Tag>}
@@ -103,7 +103,7 @@ const VendorList: React.FC = () => {
           key: 'vendor_name',
           sorter: (a, b) => a.vendor_name.localeCompare(b.vendor_name, 'zh-TW'),
           render: (text: string, record: Vendor) => (
-            <Space direction="vertical" size="small">
+            <Space vertical size="small">
               <strong>{text}</strong>
               {record.vendor_code && (
                 <small style={{ color: '#666' }}>統編: {record.vendor_code}</small>
@@ -116,7 +116,7 @@ const VendorList: React.FC = () => {
           key: 'contact',
           sorter: (a, b) => (a.contact_person || '').localeCompare(b.contact_person || '', 'zh-TW'),
           render: (_, record: Vendor) => (
-            <Space direction="vertical" size="small">
+            <Space vertical size="small">
               {record.contact_person && (<span><UserOutlined /> {record.contact_person}</span>)}
               {record.phone && (<span><PhoneOutlined /> {record.phone}</span>)}
               {record.email && (<span><MailOutlined /> {record.email}</span>)}
@@ -165,7 +165,7 @@ const VendorList: React.FC = () => {
 
   return (
     <div style={{ padding: pagePadding }}>
-      <Card size={isMobile ? 'small' : 'default'}>
+      <Card size={isMobile ? 'small' : undefined}>
         <div style={{ marginBottom: isMobile ? 12 : 16 }}>
           <Row gutter={[8, 8]} align="middle">
             <Col xs={12} sm={6}>
@@ -261,7 +261,7 @@ const VendorList: React.FC = () => {
               setCurrent(page);
               setPageSize(size || 10);
             },
-            size: isMobile ? 'small' : 'default',
+            size: isMobile ? 'small' : undefined,
           }}
         />
       </Card>

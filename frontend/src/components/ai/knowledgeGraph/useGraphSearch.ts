@@ -57,9 +57,13 @@ export function useGraphSearch({ rawNodes }: UseGraphSearchOptions): UseGraphSea
       ) {
         ids.add(node.id);
       }
-      // 派工單號智慧匹配：搜尋 "派工單007" 能命中 label "派工 115年_派工單號007"
-      else if (dispatchNum && node.type === 'dispatch' && labelLower.includes(dispatchNum)) {
-        ids.add(node.id);
+      // 派工單號智慧匹配：搜尋 "派工單007" 能命中 dispatch label 或工程的 dispatch_nos
+      else if (dispatchNum) {
+        if (node.type === 'dispatch' && labelLower.includes(dispatchNum)) {
+          ids.add(node.id);
+        } else if (node.dispatch_nos?.some(no => no.includes(dispatchNum))) {
+          ids.add(node.id);
+        }
       }
     }
     return ids;
@@ -89,8 +93,12 @@ export function useGraphSearch({ rawNodes }: UseGraphSearchOptions): UseGraphSea
         (node.doc_number && node.doc_number.toLowerCase().includes(qLower))
       ) {
         localIds.add(node.id);
-      } else if (dNum && node.type === 'dispatch' && labelLower.includes(dNum)) {
-        localIds.add(node.id);
+      } else if (dNum) {
+        if (node.type === 'dispatch' && labelLower.includes(dNum)) {
+          localIds.add(node.id);
+        } else if (node.dispatch_nos?.some(no => no.includes(dNum))) {
+          localIds.add(node.id);
+        }
       }
     }
 
@@ -98,16 +106,23 @@ export function useGraphSearch({ rawNodes }: UseGraphSearchOptions): UseGraphSea
       const result = await aiApi.searchGraphEntities({ query: q, limit: 30 });
       const apiIds = new Set<string>();
       if (result?.results?.length > 0) {
-        // Map API-returned entity names to existing graph nodes
-        const matchedNames = new Set(result.results.map((r: { canonical_name: string }) => r.canonical_name.toLowerCase()));
+        // 收集 API 回傳的 canonical_name（含模糊匹配）
+        const apiNames = result.results.map(
+          (r: { canonical_name: string }) => r.canonical_name.toLowerCase(),
+        );
+
         for (const node of rawNodes) {
-          if (matchedNames.has(node.label.toLowerCase())) {
-            apiIds.add(node.id);
+          const nodeLower = node.label.toLowerCase();
+          // 雙向 includes：API name 包含 node label 或反之
+          for (const apiName of apiNames) {
+            if (nodeLower.includes(apiName) || apiName.includes(nodeLower)) {
+              apiIds.add(node.id);
+              break;
+            }
           }
         }
 
-        // 別名命中提示：僅當 API 有命中且 canonical_name 與查詢明顯不同
-        // 短查詢（≤3字）且結果差異大時不顯示（避免 "007" → 無關實體的誤導提示）
+        // 別名命中提示
         if (apiIds.size > 0) {
           const aliasMatch = result.results.find(
             (r: { canonical_name: string }) =>
@@ -120,13 +135,21 @@ export function useGraphSearch({ rawNodes }: UseGraphSearchOptions): UseGraphSea
         }
       }
 
-      // 2. 合併：API 命中 + 本地命中
+      // 2. 同時用搜尋關鍵字做本地模糊匹配（補充 API 未涵蓋的業務實體）
+      for (const node of rawNodes) {
+        const nodeLower = node.label.toLowerCase();
+        if (nodeLower.includes(qLower) || qLower.includes(nodeLower)) {
+          localIds.add(node.id);
+        }
+      }
+
+      // 3. 合併：API 命中 + 本地命中
       const merged = new Set([...apiIds, ...localIds]);
       if (merged.size > 0) {
         setApiSearchMatchIds(merged);
       } else {
         setApiSearchMatchIds(null);
-        message.info('未找到匹配的節點');
+        message.info('未找到匹配的節點（圖譜中無相關實體）');
       }
     } catch {
       // API 失敗時使用本地結果

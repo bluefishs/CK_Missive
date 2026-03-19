@@ -138,7 +138,7 @@ export const TaoyuanDispatchPage: React.FC = () => {
         onChange={handleTabChange}
         type="card"
         size={isMobile ? 'middle' : 'large'}
-        tabPosition="top"
+        tabPlacement="top"
         items={[
           {
             key: '1',

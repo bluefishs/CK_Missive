@@ -160,9 +160,11 @@ export const DocumentAITab: React.FC<DocumentAITabProps> = ({ document }) => {
           {analysisLoading ? (
             <Spin size="small" />
           ) : analysis?.suggested_doc_type || analysis?.suggested_category ? (
-            <Descriptions size="small" bordered column={2} style={{ maxWidth: 500 }}>
-              {analysis.suggested_doc_type && (
-                <Descriptions.Item label="文件類型">
+            <Descriptions size="small" bordered column={2} style={{ maxWidth: 500 }} items={[
+              ...(analysis.suggested_doc_type ? [{
+                key: '文件類型',
+                label: '文件類型',
+                children: (
                   <Space size={4}>
                     <Tag color="blue">{analysis.suggested_doc_type}</Tag>
                     {analysis.doc_type_confidence != null && (
@@ -171,10 +173,12 @@ export const DocumentAITab: React.FC<DocumentAITabProps> = ({ document }) => {
                       </Text>
                     )}
                   </Space>
-                </Descriptions.Item>
-              )}
-              {analysis.suggested_category && (
-                <Descriptions.Item label="分類">
+                ),
+              }] : []),
+              ...(analysis.suggested_category ? [{
+                key: '分類',
+                label: '分類',
+                children: (
                   <Space size={4}>
                     <Tag color="green">{analysis.suggested_category}</Tag>
                     {analysis.category_confidence != null && (
@@ -183,16 +187,19 @@ export const DocumentAITab: React.FC<DocumentAITabProps> = ({ document }) => {
                       </Text>
                     )}
                   </Space>
-                </Descriptions.Item>
-              )}
-              {analysis.classification_reasoning && (
-                <Descriptions.Item label="分類依據" span={2}>
+                ),
+              }] : []),
+              ...(analysis.classification_reasoning ? [{
+                key: '分類依據',
+                label: '分類依據',
+                span: 2 as const,
+                children: (
                   <Text type="secondary" style={{ fontSize: 12 }}>
                     {analysis.classification_reasoning}
                   </Text>
-                </Descriptions.Item>
-              )}
-            </Descriptions>
+                ),
+              }] : []),
+            ]} />
           ) : (
             <Text type="secondary" style={{ fontSize: 12 }}>
               尚未分析分類
@@ -255,12 +262,12 @@ export const DocumentAITab: React.FC<DocumentAITabProps> = ({ document }) => {
         </Space>
       ),
       children: (
-        <Space direction="vertical" size={8} style={{ width: '100%' }}>
+        <Space vertical size={8} style={{ width: '100%' }}>
           {hasAnalysis && (analysis.entities_count > 0 || analysis.relations_count > 0) ? (
-            <Descriptions size="small" bordered column={2} style={{ maxWidth: 400 }}>
-              <Descriptions.Item label="實體數">{analysis.entities_count}</Descriptions.Item>
-              <Descriptions.Item label="關係數">{analysis.relations_count}</Descriptions.Item>
-            </Descriptions>
+            <Descriptions size="small" bordered column={2} style={{ maxWidth: 400 }} items={[
+              { key: '實體數', label: '實體數', children: analysis.entities_count },
+              { key: '關係數', label: '關係數', children: analysis.relations_count },
+            ]} />
           ) : null}
           <Button
             icon={<ExperimentOutlined />}
@@ -272,26 +279,23 @@ export const DocumentAITab: React.FC<DocumentAITabProps> = ({ document }) => {
             {extractResult ? '已提取' : '提取實體與關係'}
           </Button>
           {extractResult && (
-            <Descriptions size="small" bordered column={2} style={{ maxWidth: 400 }}>
-              <Descriptions.Item label="狀態">
-                {extractResult.skipped ? (
-                  <Tag color="default">已跳過</Tag>
-                ) : (
-                  <Tag icon={<CheckCircleOutlined />} color="success">完成</Tag>
-                )}
-              </Descriptions.Item>
-              <Descriptions.Item label="實體數">
-                {extractResult.entities_count ?? 0}
-              </Descriptions.Item>
-              <Descriptions.Item label="關係數">
-                {extractResult.relations_count ?? 0}
-              </Descriptions.Item>
-              {extractResult.reason && (
-                <Descriptions.Item label="訊息" span={2}>
+            <Descriptions size="small" bordered column={2} style={{ maxWidth: 400 }} items={[
+              { key: '狀態', label: '狀態', children: extractResult.skipped ? (
+                <Tag color="default">已跳過</Tag>
+              ) : (
+                <Tag icon={<CheckCircleOutlined />} color="success">完成</Tag>
+              ) },
+              { key: '實體數', label: '實體數', children: extractResult.entities_count ?? 0 },
+              { key: '關係數', label: '關係數', children: extractResult.relations_count ?? 0 },
+              ...(extractResult.reason ? [{
+                key: '訊息',
+                label: '訊息',
+                span: 2 as const,
+                children: (
                   <Text type="secondary" style={{ fontSize: 12 }}>{extractResult.reason}</Text>
-                </Descriptions.Item>
-              )}
-            </Descriptions>
+                ),
+              }] : []),
+            ]} />
           )}
         </Space>
       ),

@@ -46,7 +46,7 @@ export const DuplicateFileModal: React.FC<DuplicateFileModalProps> = ({
     >
       <div style={{ padding: '16px 0' }}>
         <Alert
-          message="已存在相同檔名的附件"
+          title="已存在相同檔名的附件"
           description={
             <div>
               <p>

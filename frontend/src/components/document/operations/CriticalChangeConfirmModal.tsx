@@ -9,7 +9,7 @@
  */
 
 import React from 'react';
-import { Modal, Button, Alert, List, Tag } from 'antd';
+import { Modal, Button, Alert, Tag, Flex } from 'antd';
 import { FileTextOutlined } from '@ant-design/icons';
 import type { CriticalChangeConfirmModalProps } from './types';
 
@@ -48,52 +48,48 @@ export const CriticalChangeConfirmModal: React.FC<CriticalChangeConfirmModalProp
     >
       <div style={{ padding: '16px 0' }}>
         <Alert
-          message="您即將修改以下關鍵欄位"
+          title="您即將修改以下關鍵欄位"
           description={
             <div>
               <p style={{ marginBottom: 12, color: '#666' }}>
                 這些變更將被記錄在審計日誌中。請確認以下修改內容：
               </p>
-              <List
-                size="small"
-                dataSource={changes}
-                renderItem={(change) => (
-                  <List.Item style={{ padding: '8px 0' }}>
-                    <div style={{ width: '100%' }}>
-                      <div style={{ fontWeight: 'bold', marginBottom: 4 }}>
-                        {change.icon} {change.label}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <Tag
-                          color="red"
-                          style={{
-                            maxWidth: '45%',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                          }}
-                        >
-                          {change.oldValue.length > 30
-                            ? change.oldValue.slice(0, 30) + '...'
-                            : change.oldValue}
-                        </Tag>
-                        <span>→</span>
-                        <Tag
-                          color="green"
-                          style={{
-                            maxWidth: '45%',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                          }}
-                        >
-                          {change.newValue.length > 30
-                            ? change.newValue.slice(0, 30) + '...'
-                            : change.newValue}
-                        </Tag>
-                      </div>
+              <Flex vertical>
+                {changes.map((change, index) => (
+                  <div key={index} style={{ padding: '8px 0', borderBottom: index < changes.length - 1 ? '1px solid #f0f0f0' : undefined }}>
+                    <div style={{ fontWeight: 'bold', marginBottom: 4 }}>
+                      {change.icon} {change.label}
                     </div>
-                  </List.Item>
-                )}
-              />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Tag
+                        color="red"
+                        style={{
+                          maxWidth: '45%',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {change.oldValue.length > 30
+                          ? change.oldValue.slice(0, 30) + '...'
+                          : change.oldValue}
+                      </Tag>
+                      <span>→</span>
+                      <Tag
+                        color="green"
+                        style={{
+                          maxWidth: '45%',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {change.newValue.length > 30
+                          ? change.newValue.slice(0, 30) + '...'
+                          : change.newValue}
+                      </Tag>
+                    </div>
+                  </div>
+                ))}
+              </Flex>
             </div>
           }
           type="warning"

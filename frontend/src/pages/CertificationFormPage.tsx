@@ -11,7 +11,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Form, Input, Select, Row, Col, App, DatePicker, Modal, Upload, Button, Space, Image } from 'antd';
+import { Form, Input, Select, Row, Col, App, DatePicker, Upload, Button, Space, Image } from 'antd';
 import { ExclamationCircleOutlined, UploadOutlined, DeleteOutlined, EyeOutlined, FileOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FormPageLayout } from '../components/common/FormPage';
@@ -33,7 +33,7 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 export const CertificationFormPage: React.FC = () => {
   const { userId, certId } = useParams<{ userId: string; certId: string }>();
   const navigate = useNavigate();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const [form] = Form.useForm();
   const queryClient = useQueryClient();
 
@@ -165,7 +165,7 @@ export const CertificationFormPage: React.FC = () => {
 
   // 刪除確認
   const handleDelete = () => {
-    Modal.confirm({
+    modal.confirm({
       title: '確定要刪除此證照？',
       icon: <ExclamationCircleOutlined />,
       content: '刪除後將無法復原。',
@@ -178,7 +178,7 @@ export const CertificationFormPage: React.FC = () => {
 
   // 刪除附件確認
   const handleDeleteAttachment = () => {
-    Modal.confirm({
+    modal.confirm({
       title: '確定要刪除附件？',
       icon: <ExclamationCircleOutlined />,
       content: '刪除後將無法復原。',

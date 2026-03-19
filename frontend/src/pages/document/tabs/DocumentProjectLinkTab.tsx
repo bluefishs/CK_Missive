@@ -186,32 +186,22 @@ export const DocumentProjectLinkTab: React.FC<DocumentProjectLinkTabProps> = ({
                 </Space>
               }
             >
-              <Descriptions size="small" column={{ xs: 1, sm: 2, md: 3 }} bordered>
-                <Descriptions.Item label="審議年度">{item.review_year || '-'}</Descriptions.Item>
-                <Descriptions.Item label="案件類型">{item.case_type || '-'}</Descriptions.Item>
-                <Descriptions.Item label="行政區">{item.district || '-'}</Descriptions.Item>
-                <Descriptions.Item label="分案名稱">{item.sub_case_name || '-'}</Descriptions.Item>
-                <Descriptions.Item label="案件承辦">{item.case_handler || '-'}</Descriptions.Item>
-                <Descriptions.Item label="查估單位">{item.survey_unit || '-'}</Descriptions.Item>
-                <Descriptions.Item label="工程起點">{item.start_point || '-'}</Descriptions.Item>
-                <Descriptions.Item label="工程迄點">{item.end_point || '-'}</Descriptions.Item>
-                <Descriptions.Item label="道路長度">
-                  {item.road_length ? `${item.road_length} 公尺` : '-'}
-                </Descriptions.Item>
-                <Descriptions.Item label="現況路寬">
-                  {item.current_width ? `${item.current_width} 公尺` : '-'}
-                </Descriptions.Item>
-                <Descriptions.Item label="計畫路寬">
-                  {item.planned_width ? `${item.planned_width} 公尺` : '-'}
-                </Descriptions.Item>
-                <Descriptions.Item label="審議結果">{item.review_result || '-'}</Descriptions.Item>
-                {item.notes && (
-                  <Descriptions.Item label="關聯備註" span={3}>{item.notes}</Descriptions.Item>
-                )}
-                <Descriptions.Item label="關聯時間">
-                  {item.created_at ? dayjs(item.created_at).format('YYYY-MM-DD HH:mm') : '-'}
-                </Descriptions.Item>
-              </Descriptions>
+              <Descriptions size="small" column={{ xs: 1, sm: 2, md: 3 }} bordered items={[
+                { key: '審議年度', label: '審議年度', children: item.review_year || '-' },
+                { key: '案件類型', label: '案件類型', children: item.case_type || '-' },
+                { key: '行政區', label: '行政區', children: item.district || '-' },
+                { key: '分案名稱', label: '分案名稱', children: item.sub_case_name || '-' },
+                { key: '案件承辦', label: '案件承辦', children: item.case_handler || '-' },
+                { key: '查估單位', label: '查估單位', children: item.survey_unit || '-' },
+                { key: '工程起點', label: '工程起點', children: item.start_point || '-' },
+                { key: '工程迄點', label: '工程迄點', children: item.end_point || '-' },
+                { key: '道路長度', label: '道路長度', children: item.road_length ? `${item.road_length} 公尺` : '-' },
+                { key: '現況路寬', label: '現況路寬', children: item.current_width ? `${item.current_width} 公尺` : '-' },
+                { key: '計畫路寬', label: '計畫路寬', children: item.planned_width ? `${item.planned_width} 公尺` : '-' },
+                { key: '審議結果', label: '審議結果', children: item.review_result || '-' },
+                ...(item.notes ? [{ key: '關聯備註', label: '關聯備註', span: 3 as const, children: item.notes }] : []),
+                { key: '關聯時間', label: '關聯時間', children: item.created_at ? dayjs(item.created_at).format('YYYY-MM-DD HH:mm') : '-' },
+              ]} />
             </Card>
           ))}
         </Card>
