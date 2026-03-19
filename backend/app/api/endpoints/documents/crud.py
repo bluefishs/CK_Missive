@@ -421,7 +421,24 @@ async def delete_document(
         attachments_count = len(attachments)
         logger.info(f"公文 {document_id} 刪除 by {user_name}")
 
-        # 5. 刪除資料庫記錄（CASCADE 會自動刪除 document_attachments）
+        # 5. 清理衍生資料（NER entities / chunks / AI analyses — 不阻塞刪除）
+        from sqlalchemy import delete as sql_delete, text as sql_text
+        try:
+            for derived_table in [
+                "document_entity_mentions",
+                "document_entities",
+                "document_chunks",
+                "document_ai_analyses",
+                "graph_ingestion_events",
+            ]:
+                await db.execute(
+                    sql_text(f"DELETE FROM {derived_table} WHERE document_id = :did"),
+                    {"did": document_id},
+                )
+        except Exception as cleanup_err:
+            logger.warning(f"衍生資料清理部分失敗 (doc {document_id}): {cleanup_err}")
+
+        # 6. 刪除資料庫記錄（CASCADE 會自動刪除 document_attachments）
         await db.delete(document)
         await db.commit()
 
