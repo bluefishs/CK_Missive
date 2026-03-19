@@ -435,15 +435,30 @@ async def get_ai_config_endpoint() -> AIConfigResponse:
     """
     config = get_ai_config()
 
+    import os
     return AIConfigResponse(
         enabled=config.enabled,
         providers={
+            "vllm": {
+                "name": "vLLM Local",
+                "description": "本地 vLLM 推理 (RTX 4060)",
+                "priority": 0,
+                "model": os.getenv("VLLM_MODEL", "Qwen/Qwen2.5-7B-Instruct-AWQ"),
+                "available": os.getenv("VLLM_ENABLED", "").lower() == "true",
+            },
             "groq": {
                 "name": "Groq",
                 "description": "主要 AI 服務（雲端）",
                 "priority": 1,
                 "model": config.groq_model,
                 "available": bool(config.groq_api_key),
+            },
+            "nvidia": {
+                "name": "NVIDIA Cloud",
+                "description": "NVIDIA Nemotron-49B（雲端）",
+                "priority": 1,
+                "model": "nvidia/llama-3.3-nemotron-super-49b-v1.5",
+                "available": bool(os.getenv("NVIDIA_API_KEY")),
             },
             "ollama": {
                 "name": "Ollama",

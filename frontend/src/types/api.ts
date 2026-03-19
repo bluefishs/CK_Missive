@@ -260,6 +260,7 @@ export interface Agency {
   email?: string;
   address?: string;
   notes?: string;
+  source?: 'manual' | 'auto' | 'import';
   created_at: string;
   updated_at: string;
 }

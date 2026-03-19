@@ -85,6 +85,7 @@ class GovernmentAgency(Base):
     tax_id = Column(String(20), nullable=True, unique=True, comment="統一編號")
     is_self = Column(Boolean, server_default="false", nullable=False, comment="是否為本公司")
     parent_agency_id = Column(Integer, ForeignKey('government_agencies.id', ondelete='SET NULL'), nullable=True, comment="上級機關 ID")
+    source = Column(String(20), server_default="manual", nullable=False, comment="資料來源: manual/auto/import")
     created_at = Column(DateTime, server_default=func.now(), comment="建立時間")
     updated_at = Column(DateTime, server_default=func.now(), comment="更新時間")
 

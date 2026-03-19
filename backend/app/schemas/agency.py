@@ -74,12 +74,14 @@ class AgencyUpdate(BaseModel):
 class Agency(AgencyBase):
     """用於 API 回應的 schema，包含資料庫生成的欄位"""
     id: int
+    source: str = Field("manual", description="資料來源: manual/auto/import")
     created_at: datetime
     updated_at: datetime
 
 class AgencyWithStats(AgencyBase):
     """包含統計資訊的機關 schema"""
     id: int
+    source: str = Field("manual", description="資料來源: manual/auto/import")
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     document_count: int = 0
