@@ -7,7 +7,7 @@
  * @version 1.1.0
  */
 import React, { useState, useCallback } from 'react';
-import { Tree, Card, Empty, Spin, Typography, Input, List, Tag, Space } from 'antd';
+import { Tree, Card, Empty, Spin, Typography, Input, Flex, Tag, Space } from 'antd';
 import { FileTextOutlined, FolderOutlined, SearchOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import type { TreeDataNode } from 'antd';
@@ -132,42 +132,40 @@ export const KnowledgeMapTab: React.FC = () => {
                   {(searchData?.total ?? 0) > searchResults.length &&
                     `（顯示前 ${searchResults.length} 筆）`}
                 </Typography.Text>
-                <List
-                  size="small"
-                  dataSource={searchResults}
-                  renderItem={(item) => (
-                    <List.Item
+                <Flex vertical gap={2}>
+                  {searchResults.map((item) => (
+                    <div
+                      key={`${item.file_path}:${item.line_number}`}
                       style={{
                         cursor: 'pointer',
                         padding: '6px 4px',
                         backgroundColor: selectedPath === item.file_path ? '#e6f4ff' : undefined,
+                        borderBottom: '1px solid #f0f0f0',
                       }}
                       onClick={() => handleSearchResultClick(item)}
                     >
-                      <div style={{ width: '100%', overflow: 'hidden' }}>
-                        <Space size={4}>
-                          <FileTextOutlined style={{ color: '#1677ff' }} />
-                          <Typography.Text strong ellipsis style={{ maxWidth: 200 }}>
-                            {item.filename.replace(/\.md$/, '')}
-                          </Typography.Text>
-                          <Tag color="blue" style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>
-                            L{item.line_number}
-                          </Tag>
-                        </Space>
-                        <Typography.Paragraph
-                          type="secondary"
-                          ellipsis={{ rows: 2 }}
-                          style={{ fontSize: 12, margin: '4px 0 0', whiteSpace: 'pre-wrap' }}
-                        >
-                          {highlightText(
-                            item.excerpt.split('\n').find((l) => l.toLowerCase().includes(activeSearch.toLowerCase())) ?? item.excerpt.split('\n')[0] ?? '',
-                            activeSearch,
-                          )}
-                        </Typography.Paragraph>
-                      </div>
-                    </List.Item>
-                  )}
-                />
+                      <Space size={4}>
+                        <FileTextOutlined style={{ color: '#1677ff' }} />
+                        <Typography.Text strong ellipsis style={{ maxWidth: 200 }}>
+                          {item.filename.replace(/\.md$/, '')}
+                        </Typography.Text>
+                        <Tag color="blue" style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>
+                          L{item.line_number}
+                        </Tag>
+                      </Space>
+                      <Typography.Paragraph
+                        type="secondary"
+                        ellipsis={{ rows: 2 }}
+                        style={{ fontSize: 12, margin: '4px 0 0', whiteSpace: 'pre-wrap' }}
+                      >
+                        {highlightText(
+                          item.excerpt.split('\n').find((l) => l.toLowerCase().includes(activeSearch.toLowerCase())) ?? item.excerpt.split('\n')[0] ?? '',
+                          activeSearch,
+                        )}
+                      </Typography.Paragraph>
+                    </div>
+                  ))}
+                </Flex>
               </>
             ) : (
               <Empty description="無搜尋結果" image={Empty.PRESENTED_IMAGE_SIMPLE} />
