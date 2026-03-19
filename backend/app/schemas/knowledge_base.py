@@ -70,3 +70,20 @@ class KBSearchResponse(BaseModel):
     success: bool
     results: list[KBSearchResult]
     total: int
+    search_mode: str = "text"  # "vector" | "text"
+
+
+class KBEmbedResponse(BaseModel):
+    success: bool
+    files_scanned: int
+    chunks_created: int
+    embeddings_generated: int
+
+
+class KBStatsResponse(BaseModel):
+    success: bool
+    total_chunks: int
+    with_embedding: int
+    without_embedding: int
+    coverage_percent: float
+    files_indexed: int

@@ -75,6 +75,8 @@ _DISPATCH_KEYS = {
     "get_unpaid_billings",
     # Document parsing tool (v10.1)
     "parse_document",
+    # Knowledge Base search (v1.84.5)
+    "search_knowledge_base",
     # Federation Intelligence Interface (v1.84.0)
     "ask_external_system",
 }
@@ -117,6 +119,8 @@ class ToolResultGuard:
         "get_unpaid_billings": {"billings": [], "count": 0},
         # Document parsing (v10.1)
         "parse_document": {"attachments": [], "count": 0},
+        # Knowledge Base (v1.84.5)
+        "search_knowledge_base": {"results": [], "count": 0},
         # Federation (v1.84.0)
         "ask_external_system": {"answer": "", "system": "", "count": 0},
     }
@@ -271,6 +275,8 @@ class AgentToolExecutor:
             "get_unpaid_billings": self._domain.get_unpaid_billings,
             # Document parsing tool (v10.1)
             "parse_document": self._document.parse_document,
+            # Knowledge Base search (v1.84.5)
+            "search_knowledge_base": self._analysis.search_knowledge_base,
             # Federation Intelligence Interface (v1.84.0)
             "ask_external_system": self._ask_external_system,
         }

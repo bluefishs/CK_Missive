@@ -262,10 +262,10 @@ class TestToolRegistryContextFiltering:
         tool_names = [tc["name"] for tc in parsed["tool_calls"]]
         assert "get_system_health" in tool_names
 
-    def test_total_tool_count_is_22(self):
-        """應有 22 個預設工具 (12 原始 + 8 PM/ERP + parse_document + ask_external_system)"""
+    def test_total_tool_count_is_23(self):
+        """應有 23 個預設工具 (12 原始 + 8 PM/ERP + parse_document + search_knowledge_base + ask_external_system)"""
         registry = get_tool_registry()
-        assert registry.get_tool_count() == 22
+        assert registry.get_tool_count() == 23
 
 
 # ============================================================================

@@ -403,3 +403,65 @@ class AnalysisToolExecutor:
         except Exception as e:
             logger.error("explore_entity_path failed: %s", e)
             return {"error": "圖譜路徑探索失敗", "count": 0}
+
+    async def search_knowledge_base(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """搜尋知識庫文件（API 規格、架構、ADR、開發規範）"""
+        import re as re_mod
+        from pathlib import Path
+
+        query = params.get("query", "")
+        limit = min(params.get("limit", 5), 10)
+
+        if not query:
+            return {"error": "缺少 query 參數", "count": 0}
+
+        docs_dir = Path(__file__).resolve().parents[3] / "docs"
+        search_dirs = ["knowledge-map", "adr", "diagrams", "reports", "specifications"]
+        query_lower = query.lower()
+        results: List[Dict[str, Any]] = []
+
+        # 先嘗試 vector search（如果 kb_chunks 表有資料）
+        try:
+            from app.services.kb_embedding_service import KBEmbeddingService
+            kb_svc = KBEmbeddingService(self.db)
+            vector_results = await kb_svc.search(query, limit=limit)
+            if vector_results:
+                return {
+                    "results": vector_results,
+                    "count": len(vector_results),
+                    "search_type": "vector",
+                }
+        except Exception:
+            pass  # 降級為文字搜尋
+
+        # 文字搜尋降級
+        for subdir_name in search_dirs:
+            subdir = docs_dir / subdir_name
+            if not subdir.is_dir():
+                continue
+            for md_file in subdir.rglob("*.md"):
+                try:
+                    content = md_file.read_text(encoding="utf-8")
+                except Exception:
+                    continue
+                lines = content.splitlines()
+                for i, line in enumerate(lines):
+                    if query_lower in line.lower():
+                        start = max(0, i - 1)
+                        end = min(len(lines), i + 2)
+                        excerpt = "\n".join(lines[start:end])
+                        results.append({
+                            "file": md_file.relative_to(docs_dir).as_posix(),
+                            "line": i + 1,
+                            "excerpt": excerpt[:300],
+                            "score": 2.0 if query in line else 1.0,
+                        })
+                        break  # 每個檔案只取第一個匹配
+
+        results.sort(key=lambda r: -r["score"])
+        limited = results[:limit]
+        return {
+            "results": limited,
+            "count": len(limited),
+            "search_type": "text",
+        }

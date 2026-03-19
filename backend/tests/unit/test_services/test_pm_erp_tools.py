@@ -18,12 +18,12 @@ import pytest
 class TestToolRegistryExpansion:
     """驗證 ToolRegistry 包含 18 個工具"""
 
-    def test_registry_has_22_tools(self):
+    def test_registry_has_23_tools(self):
         from app.services.ai.tool_registry import ToolRegistry, _register_default_tools
 
         registry = ToolRegistry()
         _register_default_tools(registry)
-        assert registry.get_tool_count() == 22
+        assert registry.get_tool_count() == 23
 
     def test_pm_tools_registered(self):
         from app.services.ai.tool_registry import ToolRegistry, _register_default_tools

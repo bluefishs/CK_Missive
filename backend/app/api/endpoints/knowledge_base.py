@@ -1,9 +1,9 @@
 """知識庫瀏覽器 API
 
-提供知識地圖、ADR、架構圖的瀏覽功能。
+提供知識地圖、ADR、架構圖的瀏覽功能，以及向量搜尋。
 
-@version 1.0.0
-@date 2026-03-11
+@version 2.0.0
+@date 2026-03-19
 """
 
 import logging
@@ -11,8 +11,10 @@ import re
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_admin
+from app.db.database import get_async_db
 from app.schemas.knowledge_base import (
     AdrInfo,
     AdrListResponse,
@@ -21,9 +23,11 @@ from app.schemas.knowledge_base import (
     FileContentResponse,
     FileInfo,
     FileRequest,
+    KBEmbedResponse,
     KBSearchRequest,
     KBSearchResponse,
     KBSearchResult,
+    KBStatsResponse,
     SectionInfo,
     TreeResponse,
 )
@@ -244,8 +248,39 @@ _SEARCH_DIRS = ["knowledge-map", "adr", "diagrams", "reports", "specifications"]
 async def search_knowledge_base(
     req: KBSearchRequest,
     _admin: dict = Depends(require_admin),
+    db: AsyncSession = Depends(get_async_db),
 ) -> KBSearchResponse:
-    """全文搜尋知識庫內容。"""
+    """混合搜尋知識庫內容：向量搜尋優先，文字搜尋兜底。"""
+    from app.services.kb_embedding_service import KBEmbeddingService
+
+    # Try vector search first
+    kb_service = KBEmbeddingService(db)
+    vector_results = await kb_service.search(req.query, limit=req.limit)
+
+    if vector_results:
+        results = [
+            KBSearchResult(
+                file_path=r["file_path"],
+                filename=r["filename"],
+                excerpt=r["content"][:500],
+                line_number=0,
+                relevance_score=r["score"],
+            )
+            for r in vector_results
+        ]
+        return KBSearchResponse(
+            success=True,
+            results=results,
+            total=len(results),
+            search_mode="vector",
+        )
+
+    # Fallback: text search on filesystem
+    return _text_search_filesystem(req)
+
+
+def _text_search_filesystem(req: KBSearchRequest) -> KBSearchResponse:
+    """原始文字搜尋（檔案系統掃描）。"""
     query_lower = req.query.lower()
     results: list[KBSearchResult] = []
 
@@ -272,14 +307,11 @@ async def search_knowledge_base(
 
             for i, line in enumerate(lines):
                 if query_lower in line.lower():
-                    # Build excerpt with ±2 lines of context
                     start = max(0, i - 2)
                     end = min(len(lines), i + 3)
                     excerpt = "\n".join(lines[start:end])
 
-                    # Score: exact case match > case-insensitive
                     score = 2.0 if req.query in line else 1.0
-
                     results.append(
                         KBSearchResult(
                             file_path=rel_path,
@@ -290,9 +322,39 @@ async def search_knowledge_base(
                         )
                     )
 
-    # Sort by relevance descending, then by file path
     results.sort(key=lambda r: (-r.relevance_score, r.file_path, r.line_number))
-
-    # Apply limit
     limited = results[: req.limit]
-    return KBSearchResponse(success=True, results=limited, total=len(results))
+    return KBSearchResponse(
+        success=True, results=limited, total=len(results), search_mode="text"
+    )
+
+
+@router.post("/embed", response_model=KBEmbedResponse)
+async def trigger_kb_embedding(
+    _admin: dict = Depends(require_admin),
+    db: AsyncSession = Depends(get_async_db),
+) -> KBEmbedResponse:
+    """觸發知識庫 Embedding 管線（掃描 docs/ → 分段 → 向量化）。"""
+    from app.services.kb_embedding_service import KBEmbeddingService
+
+    kb_service = KBEmbeddingService(db)
+    try:
+        stats = await kb_service.scan_and_embed()
+    except Exception:
+        logger.exception("KB embedding 管線失敗")
+        raise HTTPException(status_code=500, detail="Embedding 管線執行失敗")
+
+    return KBEmbedResponse(success=True, **stats)
+
+
+@router.post("/stats", response_model=KBStatsResponse)
+async def get_kb_stats(
+    _admin: dict = Depends(require_admin),
+    db: AsyncSession = Depends(get_async_db),
+) -> KBStatsResponse:
+    """取得知識庫 Embedding 統計資訊。"""
+    from app.services.kb_embedding_service import KBEmbeddingService
+
+    kb_service = KBEmbeddingService(db)
+    stats = await kb_service.get_stats()
+    return KBStatsResponse(success=True, **stats)

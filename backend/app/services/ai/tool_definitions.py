@@ -338,7 +338,23 @@ def register_default_tools(registry: ToolRegistry) -> None:
         contexts=["doc"],
     ))
 
-    # 22. ask_external_system — 聯邦式外部 AI 系統查詢
+    # 23. search_knowledge_base — 知識庫文件搜尋
+    registry.register(ToolDefinition(
+        name="search_knowledge_base",
+        description="搜尋系統知識庫文件（包含 API 規格、架構文件、ADR 決策記錄、開發規範等技術文件）。適用於查詢系統架構、開發標準、技術決策相關問題。",
+        parameters={
+            "query": {"type": "string", "description": "搜尋關鍵字"},
+            "limit": {"type": "integer", "description": "最大結果數 (預設5)"},
+        },
+        few_shot={
+            "question": "系統的 API 認證機制是什麼？",
+            "response_json": '{"reasoning": "這是關於系統架構的技術問題，需要查詢知識庫文件", "tool_calls": [{"name": "search_knowledge_base", "params": {"query": "API 認證 auth", "limit": 5}}]}',
+        },
+        priority=3,
+        contexts=["dev", "agent"],
+    ))
+
+    # 24. ask_external_system — 聯邦式外部 AI 系統查詢
     registry.register(ToolDefinition(
         name="ask_external_system",
         description="詢問外部 AI 系統（如 CK_OpenClaw）處理超出本系統專業範圍的查詢。僅在已設定外部系統時可用。",

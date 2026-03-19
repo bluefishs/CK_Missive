@@ -123,6 +123,11 @@ from .erp import (
     ERPVendorPayable,
 )
 
+# 16. 知識庫分段模組
+from .knowledge_base import (
+    KBChunk,
+)
+
 # 匯出 Base 供 Alembic 等工具使用
 from ._base import Base
 
@@ -193,4 +198,6 @@ __all__ = [
     "ERPInvoice",
     "ERPBilling",
     "ERPVendorPayable",
+    # 知識庫分段
+    "KBChunk",
 ]
