@@ -249,6 +249,22 @@ useEffect(() => {
 **原因**: 匯入時未使用智慧匹配
 **解法**: 整合 `AgencyMatcher` / `ProjectMatcher`
 
+### 6.1 Excel 匯入 upsert 模式缺失 (v1.84.2 新增)
+
+**問題**: `ExcelImportService` 無 `公文ID` 時遇到重複 `doc_number` 只會跳過，無法更新已存在資料。
+**臨時解法**: `backend/scripts/fixes/import_112_documents.py` (支援 `--dry-run`)
+**長期建議**: 為 `import_from_file()` 新增 `upsert_mode` 參數。
+
+### 6.2 ProjectMatcher 模糊匹配風險 (v1.84.2 新增)
+
+**問題**: ILIKE 模糊匹配無相似度閾值，短名稱可能誤匹配。
+**建議**: 加入最低字元數門檻 (>=8 字) 或 Levenshtein 距離比對。
+
+### 6.3 自動建立機關無來源標記 (v1.84.2 新增)
+
+**問題**: `AgencyMatcher._create_agency()` 自動建立的機關無法區分來源。93 個機關中 83 個缺 `agency_code`。
+**建議**: 新增 `source` 欄位 (`manual` / `import_auto` / `api_auto`)。
+
 ### 6.5 Antd Modal useForm 警告 (2026-01-29 新增)
 **錯誤**: `Warning: Instance created by useForm is not connected to any Form element`
 **原因**: 在 Modal 組件中使用 `Form.useForm()`，當 `open=false` 時 Modal 內容不渲染，但 hook 已執行
@@ -613,6 +629,47 @@ apiClient.post(AI_ENDPOINTS.ANALYSIS_GET(documentId));
 - 清單 L (`MANDATORY_CHECKLIST.md`)：開發前必須確認端點已定義
 
 **相關事故**: 2026-03-06 發現 21 處硬編碼路徑，v1.79.0 全部消除
+
+### 15. 🟡 Endpoint 本地 BaseModel 違反 SSOT (v1.83.5 新增)
+
+**錯誤**: 在 `api/endpoints/` 檔案中定義本地 Pydantic BaseModel，而非從 `schemas/` 匯入。
+
+**原因**: 新增 API 端點時直接就地定義回應型別，未遵循 Schema SSOT 架構。
+
+**已知違規位置**:
+
+| 檔案 | 本地 BaseModel | 應移至 |
+|------|---------------|--------|
+| `ai/ai_stats.py` | `ToolSuccessRateItem`, `ToolSuccessRatesResponse`, `DailyTrendItem`, `DailyTrendResponse` | `schemas/ai/stats.py` (新建) |
+| `line_webhook.py` | `WebhookResponse` | `schemas/line.py` (已存在) |
+| `taoyuan_dispatch/dispatch_document_links.py` | `ConfirmCorrespondenceRequest` | `schemas/taoyuan/` |
+
+**❌ 錯誤做法**:
+```python
+# 在 endpoints/ 中直接定義
+class ToolSuccessRateItem(BaseModel):
+    tool_name: str
+    success_rate: float
+```
+
+**✅ 正確做法**:
+```python
+# schemas/ai/stats.py
+class ToolSuccessRateItem(BaseModel):
+    tool_name: str
+    success_rate: float
+
+# endpoints/ai/ai_stats.py
+from app.schemas.ai.stats import ToolSuccessRateItem
+```
+
+**自動化檢查**:
+```bash
+# 搜尋 endpoints/ 中的本地 BaseModel 定義
+grep -rn "class.*BaseModel" backend/app/api/endpoints/ --include="*.py" | grep -v __pycache__
+```
+
+---
 
 ### 13.5. 🟡 服務層遷移檢查清單 (v1.60.0)
 

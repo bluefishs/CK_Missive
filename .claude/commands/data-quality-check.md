@@ -60,6 +60,47 @@ SELECT
 FROM documents;
 ```
 
+### 正規化 & FK 覆蓋率
+```sql
+SELECT
+    COUNT(*) as total,
+    COUNT(normalized_sender) as norm_sender,
+    COUNT(normalized_receiver) as norm_receiver,
+    COUNT(sender_agency_id) as sender_fk,
+    COUNT(receiver_agency_id) as receiver_fk,
+    ROUND(COUNT(sender_agency_id)*100.0/NULLIF(COUNT(*),0),1) as sender_pct,
+    ROUND(COUNT(receiver_agency_id)*100.0/NULLIF(COUNT(*),0),1) as receiver_pct
+FROM documents;
+```
+
+### NER 實體連結率
+```sql
+SELECT entity_type, COUNT(*) as total,
+    COUNT(linked_agency_id) as linked_agency,
+    COUNT(linked_project_id) as linked_project,
+    ROUND(
+        CASE
+            WHEN entity_type='org' THEN COUNT(linked_agency_id)*100.0/NULLIF(COUNT(*),0)
+            WHEN entity_type='project' THEN COUNT(linked_project_id)*100.0/NULLIF(COUNT(*),0)
+            ELSE 0
+        END, 1
+    ) as link_pct
+FROM canonical_entities
+WHERE entity_type IN ('org','project','person','location','date')
+GROUP BY entity_type ORDER BY total DESC;
+```
+
+### 機關層級完整性
+```sql
+SELECT
+    COUNT(*) as total_agencies,
+    COUNT(parent_agency_id) as has_parent,
+    COUNT(agency_short_name) as has_short_name,
+    COUNT(tax_id) as has_tax_id,
+    SUM(CASE WHEN is_self THEN 1 ELSE 0 END) as self_company
+FROM government_agencies;
+```
+
 ## 修復指南
 
 如果發現問題，請參考以下修復方式：

@@ -59,6 +59,8 @@
 ├── DEVELOPMENT_GUIDELINES.md   # 開發指引
 ├── MANDATORY_CHECKLIST.md      # 強制性開發檢查清單
 ├── CHANGELOG.md                # 版本更新記錄
+├── qa-route-map.json          # QA 路由映射
+├── review-checklist.md          # 程式碼審查檢查清單
 ├── settings.json               # 專案配置 (hooks, skills inherit)
 └── settings.local.json         # 本地權限設定
 ```

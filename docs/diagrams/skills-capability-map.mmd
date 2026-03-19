@@ -1,0 +1,85 @@
+---
+title: CK_Missive 乾坤智能體技能圖譜 v1.84.3
+---
+mindmap
+  root((乾坤智能體<br/>v4.0.0))
+    感知層 Input
+      文字輸入
+        公文查詢
+        派工查詢
+        閒聊偵測
+      語音辨識 ★3
+        Groq Whisper
+        Ollama 備用
+        CJK 中文優化
+      影像辨識 ★3
+        Tesseract OCR
+        中英文 chi_tra+eng
+        PDF 掃描回退
+        EXIF 旋轉校正
+      文件解析
+        PDF 文字提取
+        附件自動處理
+    認知層 Think
+      3層路由
+        閒聊偵測
+        模式匹配 MD5+語意
+        LLM 規劃
+      意圖解析
+        6策略自動修正
+        工具動態發現 3層
+      自適應上下文
+        simple 2 turns
+        medium 4 turns
+        complex 6 turns
+    知識層 Know
+      知識圖譜 ★4
+        4,398 canonical
+        5,693 relationships
+        7-Phase 建構
+        跨圖譜統一查詢
+      程式碼圖譜 ★4
+        3,915 程式碼實體
+        Python+TS AST
+      DB 圖譜
+        40 表 Schema反射
+      RAG 文庫 ★5
+        1,641 chunks
+        100% embedded
+        Graph-RAG 融合
+    行動層 Execute
+      22 Agent 工具
+        搜尋 5個
+        分析 5個
+        圖譜 3個
+        PM/ERP 6個
+        圖表 1個
+        文件 1個
+        外部 1個
+      矩陣對照
+        6層匹配
+        信心度持久化
+        批次重建API
+    學習層 Learn
+      模式學習 ★4
+        MD5 精確匹配
+        語意回退 0.85
+        500 模式上限
+      自我評估
+        5維度加權
+        severity 分級
+      進化排程
+        每50次觸發
+        提升/降級/清理
+      跨會話學習
+        DB 持久化
+        cosine 過濾
+        LLM prompt 注入
+    配置層 Config
+      agent-policy.yaml
+        28 參數宣告式
+      inference-profiles.yaml
+        6 推理 profile
+        P0 NIM → P1 Groq → P2 Ollama
+      ai_config v3.1
+        env > YAML > default

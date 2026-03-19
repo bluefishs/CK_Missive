@@ -59,6 +59,7 @@
 |------|------|------|
 | route-sync-check | 檢查前後端路徑一致性 | `.claude/hooks/route-sync-check.ps1` |
 | link-id-check | 檢查 link_id 使用模式 | `.claude/hooks/link-id-check.ps1` |
+| link-id-validation | 後端 link_id 傳遞完整性驗證 | `.claude/hooks/link-id-validation.ps1` |
 
 ## Hook 開發協議
 

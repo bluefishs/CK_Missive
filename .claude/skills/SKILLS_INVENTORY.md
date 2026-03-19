@@ -7,7 +7,7 @@ triggers:
   - skills
   - inventory
   - 清單
-updated: '2026-02-05'
+updated: '2026-03-18'
 ---
 
 # Skills 清單與版本管理

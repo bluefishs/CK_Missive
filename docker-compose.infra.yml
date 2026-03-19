@@ -98,6 +98,8 @@ services:
     container_name: ${COMPOSE_PROJECT_NAME}_ollama_dev
     ports:
       - "${OLLAMA_HOST_PORT:-11434}:11434"
+    environment:
+      - OLLAMA_KEEP_ALIVE=30m
     volumes:
       - ollama_dev_data:/root/.ollama
     networks:
@@ -113,11 +115,48 @@ services:
         limits:
           memory: 8G
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      test: ["CMD", "ollama", "list"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
+
+  # --- 🧠 NVIDIA NIM 推理服務 (本地大模型) ---
+  # 前提：1) docker login nvcr.io  2) GeForce driver ≥595.79 (CUDA 13+)
+  # 啟動：docker compose -f docker-compose.infra.yml --profile nim up -d nim
+  # VRAM 策略：NIM ~5GB + Ollama embedding 0.6GB = 5.6GB / 8GB RTX 4060
+  #   → Ollama chat 模型 (qwen3:4b 3.3GB) 會在 NIM 啟動後自動卸載 (KEEP_ALIVE 到期)
+  nim:
+    image: nvcr.io/nim/meta/llama-3.1-8b-instruct:1.8.3
+    container_name: ${COMPOSE_PROJECT_NAME}_nim_dev
+    ports:
+      - "${NIM_HOST_PORT:-8000}:8000"
+    environment:
+      - NGC_API_KEY=${NVIDIA_API_KEY}
+      # 若 driver <580.95，取消註解以下行繞過 CUDA 版本檢查（不建議生產使用）
+      # - NVIDIA_DISABLE_REQUIRE=1
+    volumes:
+      - nim_dev_cache:/opt/nim/.cache
+    networks:
+      - app_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+        limits:
+          memory: 12G
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/v1/health/ready || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 300s
+    profiles:
+      - nim
 
 # --- 持久化儲存（與 docker-compose.dev.yml 共享） ---
 volumes:
@@ -127,6 +166,8 @@ volumes:
     name: ${COMPOSE_PROJECT_NAME}_redis_dev_data
   ollama_dev_data:
     name: ${COMPOSE_PROJECT_NAME}_ollama_dev_data
+  nim_dev_cache:
+    name: ${COMPOSE_PROJECT_NAME}_nim_dev_cache
 
 # --- 網路配置（與 docker-compose.dev.yml 共享） ---
 networks:

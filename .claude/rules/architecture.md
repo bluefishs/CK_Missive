@@ -20,6 +20,10 @@ CK_Missive/
 ├── .env                        # 環境設定 (唯一來源)
 ├── docker-compose.infra.yml    # 基礎設施 Compose (PostgreSQL+Redis)
 ├── docker-compose.dev.yml      # 全 Docker 開發 Compose
+├── backend/config/
+│   ├── agent-policy.yaml       # Agent 路由/工具/回退策略
+│   ├── inference-profiles.yaml # 推理 Profile (6 profiles: nim/groq/ollama...)
+│   └── remote_backup.json      # 異地備份配置
 ├── CLAUDE.md                   # 主配置
 ├── README.md                   # 專案說明
 └── ecosystem.config.js         # PM2 配置
@@ -42,7 +46,10 @@ backend/app/extended/models/
 ├── taoyuan.py           # 桃園派工 (Project, DispatchOrder, WorkRecord, etc.)
 ├── entity.py            # 實體識別 (DocumentEntity, EntityRelation)
 ├── knowledge_graph.py   # 知識圖譜 (CanonicalEntity, Alias, Mention)
-└── ai_analysis.py       # AI 分析 (PromptTemplate, Synonym, SearchHistory)
+├── ai_analysis.py       # AI 分析 (PromptTemplate, Synonym, SearchHistory)
+├── agent_trace.py       # Agent 執行追蹤 (AgentTrace, AgentSpan)
+├── agent_learning.py    # Agent 學習持久化 (AgentLearning)
+└── document_chunk.py    # 文件分段 (DocumentChunk, BM25 tsvector)
 ```
 
 ## 後端 Service 層結構
@@ -50,30 +57,83 @@ backend/app/extended/models/
 ```
 backend/app/services/
 ├── base/                       # 基礎服務 (ImportBaseService, ServiceResponse)
-├── ai/                         # AI 服務 (27 個模組)
-│   ├── ai_config.py            # AI 配置管理 Singleton (v1.1.0)
+├── ai/                         # AI 服務 (66 個模組, ~22,000L)
+│   ├── # --- 核心基礎 ---
+│   ├── ai_config.py            # AI 配置管理 Singleton (v3.0.0, 48 params)
 │   ├── base_ai_service.py      # 基類：滑動窗口限流+Redis快取+統計 (v3.0.0)
 │   ├── document_ai_service.py  # 公文摘要/分類/關鍵字/意圖 (v5.0.0)
 │   ├── document_analysis_service.py  # 文件分析服務
+│   ├── document_chunker.py     # 文件分段 (段落+滑動窗口+合併)
 │   ├── embedding_manager.py    # Embedding LRU快取+覆蓋率統計 (v1.1.0)
 │   ├── entity_extraction_service.py  # NER 實體提取+4策略JSON解析 (v1.0.0)
 │   ├── rag_query_service.py          # RAG 問答服務 (v2.3.0)
-│   ├── agent_orchestrator.py        # Agentic 主編排 (v2.0.0 模組化)
-│   ├── agent_chitchat.py            # 閒聊偵測+LLM對話+回應清理
-│   ├── agent_tools.py               # 6工具定義+實作 (AgentToolExecutor)
-│   ├── agent_planner.py             # 意圖前處理+LLM規劃+自動修正
-│   ├── agent_synthesis.py           # 答案合成+thinking過濾+context建構
+│   ├── # --- 乾坤智能體 Agent 模組 (31 個) ---
+│   ├── agent_orchestrator.py        # 主編排 v2.6.0 ReAct+SSE+Router
+│   ├── agent_tools.py               # 工具調度入口 (260L, 委派子執行器)
+│   ├── agent_planner.py             # 意圖前處理+LLM規劃+6策略自動修正 v2.4.0
+│   ├── agent_synthesis.py           # 答案合成 v1.8.0 (518L)
+│   ├── agent_chitchat.py            # 閒聊偵測+8回退模式 v1.0.0
+│   ├── agent_trace.py               # 執行追蹤+Span計時 v1.0.0
+│   ├── agent_router.py              # 3層路由(chitchat→pattern→llm) v1.0.0
+│   ├── agent_roles.py               # 5角色定義(SSOT) v1.1.0
+│   ├── agent_tool_monitor.py        # 滑動窗口+自動降級/恢復 v1.0.0
+│   ├── agent_pattern_learner.py     # 模式學習+MD5/語意匹配 v2.0.0
+│   ├── agent_summarizer.py          # 3-Tier自適應壓縮+學習萃取 v2.0.0
+│   ├── agent_supervisor.py          # 多域分解+並行子任務+結果合併 v1.0.0
+│   ├── agent_diagram_builder.py     # 4類Mermaid圖表生成 v1.0.0
+│   ├── agent_conversation_memory.py # Redis對話記憶+TTL v1.0.0
+│   ├── agent_conductor.py           # Conductor式並行Agent編排 v1.0.0
+│   ├── agent_self_evaluator.py      # 自動評分(5維度) v1.0.0
+│   ├── agent_evolution_scheduler.py # 自動進化排程(50次/24h) v1.0.0
 │   ├── agent_utils.py               # parse_json_safe, sse 共用工具
+│   ├── # --- 工具子執行器 (拆分自 agent_tools) ---
+│   ├── tool_executor_search.py      # 搜尋工具 (540L): doc/dispatch/entity/similar
+│   ├── tool_executor_analysis.py    # 分析工具 (405L): detail/stats/health/graph
+│   ├── tool_executor_domain.py      # PM/ERP工具 (105L): projects/vendors/contracts
+│   ├── tool_executor_document.py    # 文件工具子執行器 v1.0.0
+│   ├── tool_chain_resolver.py       # Chain-of-Tools 自動參數注入 (175L)
+│   ├── citation_validator.py        # 引用準確性驗證 (精確+模糊匹配)
+│   ├── thinking_filter.py           # LLM thinking 標記 5 階段過濾
+│   ├── pattern_seeds.py             # 冷啟動種子模式 (29 個, 7 類別)
+│   ├── user_preference_extractor.py # 雙層使用者記憶 (Redis+DB)
+│   ├── user_query_tracker.py        # 使用者查詢追蹤統計 v1.0.0
+│   ├── voice_transcriber.py         # 語音轉文字服務 v1.0.0
+│   ├── federation_client.py         # OpenClaw聯邦整合客戶端 v1.0.0
+│   ├── agent_auto_corrector.py      # 6策略自動修正 (拆分自planner) v1.0.0
+│   ├── agent_learning_injector.py   # 跨會話學習注入 (拆分自planner) v1.0.0
+│   ├── agent_post_processing.py     # 後處理管線 (拆分自orchestrator) v1.0.0
+│   ├── agent_streaming_helpers.py   # SSE串流輔助 (拆分自orchestrator) v1.0.0
+│   ├── # --- 知識圖譜模組 (8 個) ---
 │   ├── relation_graph_service.py     # 知識圖譜7-Phase建構 (v1.0.0)
 │   ├── canonical_entity_service.py   # 正規化實體4階段策略 (v1.0.0)
 │   ├── graph_ingestion_pipeline.py   # 圖譜資料入圖管線 (v1.0.0)
-│   ├── graph_query_service.py        # 圖譜查詢服務 (v1.0.0)
+│   ├── graph_helpers.py              # 圖譜工具函數+常數+快取 (v1.0.0)
+│   ├── graph_merge_strategy.py       # 圖譜實體合併策略 Phase 2.5~4 (v1.0.0)
+│   ├── graph_query_service.py        # 圖譜查詢服務 (v1.2.0 拆分重構)
+│   ├── graph_statistics_service.py   # 圖譜統計服務
+│   ├── graph_traversal_service.py    # 圖譜遍歷服務
+│   ├── # --- Code Graph 模組 (4 個) ---
+│   ├── code_graph_service.py         # 程式碼圖譜主服務 (558L)
+│   ├── code_graph_analysis.py        # 程式碼圖譜分析
+│   ├── code_graph_ast_analyzer.py    # AST 分析器 (Python/TypeScript)
+│   ├── code_graph_types.py           # 型別定義
+│   ├── graph_code_wiki_service.py    # Code Wiki 整合
+│   ├── schema_reflector.py           # DB Schema 反射 (asyncio.to_thread)
+│   ├── ts_extractor.py               # TypeScript AST 提取
+│   ├── # --- 搜尋/排序模組 ---
 │   ├── reranker.py                   # Hybrid 重排序器
 │   ├── search_intent_parser.py       # 搜尋意圖解析 (v1.0.0)
 │   ├── search_entity_expander.py     # 搜尋實體擴展 (v1.0.0)
 │   ├── synonym_expander.py           # 同義詞擴展 (v1.0.0)
 │   ├── rule_engine.py                # 規則引擎 (v2.0.0)
-│   ├── extraction_scheduler.py       # NER提取排程器 (v1.0.0)
+│   ├── # --- PM/ERP 查詢模組 ---
+│   ├── pm_query_service.py           # 專案管理查詢 (v1.0.0)
+│   ├── erp_query_service.py          # ERP廠商/合約查詢 (v1.0.0)
+│   ├── tool_registry.py              # Agent 工具註冊中心 Singleton (22工具)
+│   ├── # --- 排程/管理模組 ---
+│   ├── extraction_scheduler.py       # NER提取排程器 混合模式 (v2.0.0)
+│   ├── proactive_triggers.py         # 主動觸發掃描 (deadline/overdue/品質)
+│   ├── proactive_recommender.py      # 主動推薦引擎 v1.0.0
 │   ├── ai_prompt_manager.py          # Prompt模板管理(DB熱重載)
 │   ├── prompts.yaml                  # 5組Prompt模板 (v1.1.0)
 │   ├── synonyms.yaml                # 53組同義詞字典 (v1.0.0)
@@ -83,20 +143,26 @@ backend/app/services/
 │   └── batch_create_events.py  # 批次建立事件
 ├── strategies/                 # 策略模式
 │   └── agency_matcher.py       # 機關智慧匹配
-├── taoyuan/                    # 桃園派工服務 (dispatch_import/order/payment + enrichment)
+├── taoyuan/                    # 桃園派工服務 (dispatch_import/order/payment/dispatch_link + enrichment)
 ├── backup/                     # 備份服務套件 (v3.0.0)
 │   ├── __init__.py             # BackupService (組合 4 個 Mixin)
 │   ├── utils.py                # Docker 偵測、路徑、環境、日誌
 │   ├── db_backup.py            # PostgreSQL pg_dump/restore
 │   ├── attachment_backup.py    # 附件增量備份
 │   └── scheduler.py            # 備份建立/列表/刪除、異地同步
+├── receiver_normalizer.py       # 收發文單位正規化 (v1.0.0)
 ├── backup_scheduler.py         # 備份排程器 + 異地自動同步 (v2.0.0)
 ├── system_health_service.py    # 系統健康檢查 (含備份狀態)
 ├── agency_service.py           # 機關服務
-├── document_service.py         # 公文服務
-├── project_service.py          # 專案服務
+├── document_service.py         # 公文服務 (613L)
+├── document_dispatch_linker_service.py  # 公文-派工關聯服務 (拆分自 document_service)
+├── document_import_logic_service.py     # 匯入邏輯服務 (拆分自 document_service)
+├── project_service.py          # 專案服務 (410L)
+├── case_code_service.py        # 案件代碼服務
 ├── vendor_service.py           # 廠商服務
 ├── audit_service.py            # 審計服務 (獨立 session)
+├── line_bot_service.py         # LINE Bot 整合服務
+├── line_push_scheduler.py      # LINE 推播排程器
 └── *_service.py                # 其他業務服務
 ```
 
@@ -124,19 +190,153 @@ backend/app/api/endpoints/
 │   ├── prompts.py                # Prompt 模板端點
 │   ├── search_history.py         # 搜尋歷史端點
 │   └── synonyms.py               # 同義詞管理端點
-├── knowledge_base.py      # 知識庫瀏覽器 API (tree/file/adr/diagrams)
+├── pm/                     # 專案管理 API (模組化)
+│   ├── cases.py, staff.py, milestones.py
+├── erp/                    # ERP 廠商管理 API (模組化)
+│   ├── quotations.py, vendor_payables.py, billings.py, invoices.py
+├── knowledge_base.py      # 知識庫瀏覽器 API (tree/file/adr/diagrams/search)
+├── line_webhook.py        # LINE Webhook 整合端點
+├── health.py              # 健康檢查端點 (含 detailed)
+├── public.py              # 公開端點 (免認證)
+├── system_monitoring.py   # 系統監控端點
+├── debug.py               # 開發除錯端點
 └── *.py                    # 其他 API 端點
+```
+
+## 後端 Repository 層結構 (34 類別)
+
+```
+backend/app/repositories/
+├── base_repository.py              # BaseRepository[T] — 泛型 CRUD + 分頁 + 搜尋
+├── # --- 核心業務 (10) ---
+├── document_repository.py          # DocumentRepository — filter/keyword/projection
+├── document_stats_repository.py    # DocumentStatsRepository — 統計/趨勢
+├── project_repository.py           # ProjectRepository — staff/vendors/access
+├── agency_repository.py            # AgencyRepository — match/suggest/tax_id
+├── vendor_repository.py            # VendorRepository — projects/filter
+├── user_repository.py              # UserRepository — email/sessions/soft_delete
+├── attachment_repository.py        # AttachmentRepository — by_document
+├── staff_certification_repository.py # StaffCertificationRepository — expiring
+├── contact_repository.py           # ContactRepository — primary_contact
+├── # --- 系統 (4) ---
+├── calendar_repository.py          # CalendarRepository — date_range/overdue
+├── notification_repository.py      # NotificationRepository — unread/mark
+├── session_repository.py           # SessionRepository — active/revoke/cleanup
+├── configuration_repository.py     # ConfigurationRepository — key-value
+├── navigation_repository.py        # NavigationRepository — tree/order
+├── # --- AI (5) ---
+├── ai_synonym_repository.py        # AISynonymRepository — category/toggle
+├── ai_prompt_repository.py         # AIPromptRepository — versioning
+├── ai_search_history_repository.py # AISearchHistoryRepository — trends/suggestions
+├── ai_feedback_repository.py       # AIFeedbackRepository — feedback_stats
+├── ai_analysis_repository.py       # AIAnalysisRepository — upsert
+├── # --- Agent (2) ---
+├── agent_trace_repository.py       # AgentTraceRepository — traces/metrics
+├── agent_learning_repository.py    # AgentLearningRepository — learnings/similar
+├── # --- 關聯表 (2) ---
+├── project_vendor_repository.py    # ProjectVendorRepository — association
+├── project_staff_repository.py     # ProjectStaffRepository — assignment
+├── # --- 桃園派工 (7) ---
+├── taoyuan/
+│   ├── dispatch_order_repository.py    # DispatchOrderRepository — filter/stats
+│   ├── project_repository.py           # TaoyuanProjectRepository — links/docs
+│   ├── work_record_repository.py       # WorkRecordRepository — timeline/batch
+│   ├── payment_repository.py           # PaymentRepository — totals/timeline
+│   ├── dispatch_link_repository.py     # DispatchLinkRepository — 複合包裝器
+│   ├── dispatch_doc_link_repository.py # DispatchDocLinkRepository — doc links
+│   └── dispatch_project_link_repository.py # DispatchProjectLinkRepository
+├── # --- PM/ERP (待建立, 目前直接 DB 存取) ---
+├── pm/                                # PM Repository (規劃中)
+├── erp/                               # ERP Repository (規劃中)
+├── # --- Query Builder (3) ---
+└── query_builders/
+    ├── document_query_builder.py       # Fluent API — status/date/keyword
+    ├── project_query_builder.py        # Fluent API — user/vendor/status
+    └── agency_query_builder.py         # Fluent API — type/tax_id
 ```
 
 ## 前端元件結構
 
-### 知識庫瀏覽器 (v1.0.0)
+### 頁面模組化拆分 (v1.83.0)
 
 ```
-frontend/src/pages/knowledgeBase/
-├── KnowledgeMapTab.tsx        # 樹狀目錄 + Markdown 渲染
-├── AdrTab.tsx                 # ADR 表格 + 狀態標籤 + 詳情
-└── DiagramsTab.tsx            # Segmented 切換 + Mermaid 架構圖
+frontend/src/pages/
+├── codeGraph/                  # CodeGraphManagementPage 子元件
+│   ├── CodeGraphSidebar.tsx    # 左側欄：統計+管理動作+篩選 (222L)
+│   ├── ModuleConfigPanel.tsx   # 模組映射編輯/瀏覽面板 (131L)
+│   ├── ArchitectureOverviewTab.tsx  # 架構總覽頁籤 (190L)
+│   └── index.ts
+├── backup/                     # BackupManagementPage 子元件
+│   ├── BackupListTab.tsx       # 備份列表頁籤 (177L)
+│   ├── RemoteBackupTab.tsx     # 遠端備份頁籤 (116L)
+│   ├── SchedulerTab.tsx        # 排程器頁籤 (104L)
+│   ├── BackupLogsTab.tsx       # 日誌頁籤 (153L)
+│   ├── BackupStatsCards.tsx    # 統計卡片 (78L)
+│   └── index.ts
+├── knowledgeGraph/             # KnowledgeGraphPage 子元件
+│   ├── GraphLeftPanel.tsx      # 左側面板 (369L) 含 CoveragePanel+TimelineTrendMini
+│   ├── ShortestPathFinder.tsx  # 最短路徑搜尋 (104L)
+│   ├── MergeEntitiesModal.tsx  # 實體合併對話框 (80L)
+│   ├── EntityTypeDistribution.tsx  # 實體類型分布 (60L)
+│   ├── TopEntitiesRanking.tsx  # 高頻實體排行 (61L)
+│   └── KGAdminPanel.tsx        # 管理面板 (152L)
+├── taoyuanDispatch/            # TaoyuanDispatchDetailPage 子元件
+│   ├── DispatchDetailHeader.tsx # 詳情頁標頭 (91L)
+│   └── tabs/                   # 既有頁籤元件
+├── knowledgeBase/              # 知識庫瀏覽器
+│   ├── KnowledgeMapTab.tsx     # 樹狀目錄 + Markdown 渲染
+│   ├── AdrTab.tsx              # ADR 表格 + 狀態標籤 + 詳情
+│   └── DiagramsTab.tsx         # Segmented 切換 + Mermaid 架構圖
+└── ...
+```
+
+### 前端 Hooks 結構 (39 檔案, 150+ hooks)
+
+```
+frontend/src/hooks/
+├── index.ts                        # 統一匯出入口
+├── useCodeWikiGraph.ts             # 程式碼圖譜資料載入 Hook
+├── business/                       # 業務邏輯 (13 檔)
+│   ├── useDocuments.ts             # 公文 CRUD + 統計 (8 hooks)
+│   ├── useDocumentsWithStore.ts    # 公文 React Query + Zustand 整合
+│   ├── useDocumentCreateForm.ts    # 公文建立表單 Hook
+│   ├── useProjects.ts             # 承攬案件 CRUD (9 hooks)
+│   ├── useProjectsWithStore.ts    # 專案整合 Hook
+│   ├── useVendors.ts              # 廠商 CRUD (5 hooks)
+│   ├── useVendorsWithStore.ts     # 廠商整合 Hook
+│   ├── useAgencies.ts             # 機關 CRUD (5 hooks)
+│   ├── useAgenciesWithStore.ts    # 機關整合 Hook
+│   ├── useTaoyuanProjects.ts      # 桃園專案列表
+│   ├── useTaoyuanDispatch.ts      # 桃園派工列表
+│   ├── useTaoyuanPayments.ts      # 桃園請款列表
+│   ├── useDropdownData.ts         # 全域下拉快取 (10-30min staleTime)
+│   └── createEntityHookWithStore.ts # WithStore Hook 工廠函數
+├── system/                         # 系統服務 (11 檔)
+│   ├── useCalendar.ts             # 行事曆 CRUD (5 hooks)
+│   ├── useCalendarIntegration.ts  # 公文→行事曆整合
+│   ├── useDashboard.ts            # 儀表板資料
+│   ├── useDashboardCalendar.ts    # 儀表板行事曆
+│   ├── useAdminUsers.ts           # 管理員使用者管理
+│   ├── useDepartments.ts          # 部門選項 (5min 快取)
+│   ├── useDocumentStats.ts        # 公文統計
+│   ├── useDocumentAnalysis.ts     # AI 分析結果
+│   ├── useNotifications.ts        # 通知中心 (4 hooks)
+│   ├── useAISynonyms.ts           # AI 同義詞管理
+│   ├── useAIPrompts.ts            # AI Prompt 版本管理
+│   ├── useStreamingChat.ts        # re-export @ck-shared 泛型流式聊天
+│   └── useAgentSSE.ts             # Agent SSE 串流問答 Hook
+├── utility/                        # 工具 (8 檔)
+│   ├── useAuthGuard.ts            # 認證守衛 + 路由保護
+│   ├── usePermissions.ts          # 動態權限檢查 + 導覽篩選
+│   ├── useAppNavigation.ts        # 應用導航 (goBack/goTo/goToDocument)
+│   ├── useResponsive.ts           # 響應式設計 (斷點/布林助手)
+│   ├── useTableColumnSearch.tsx   # Ant Design 表格搜尋
+│   ├── useIdleTimeout.ts          # 閒置超時自動登出
+│   ├── usePerformance.ts          # 效能監控
+│   └── useApiErrorHandler.ts      # API 錯誤處理 + 重試
+└── taoyuan/                        # 派工專用 (2 檔)
+    ├── useDispatchMutations.ts    # 8 個 mutation 集中管理 (241L)
+    └── useDispatchQueries.ts      # 資料查詢+衍生狀態 (110L)
 ```
 
 ### 通用元件
@@ -200,6 +400,8 @@ frontend/src/types/
 ├── forms.ts            # 表單共用型別
 ├── admin-system.ts     # 系統管理型別
 ├── taoyuan.ts          # 桃園派工型別
+├── pm.ts               # 專案管理型別 (PM Cases)
+├── erp.ts              # ERP 廠商管理型別 (Quotations)
 ├── navigation.ts       # 導覽型別
 └── index.ts            # 統一匯出 (含相容別名)
 ```

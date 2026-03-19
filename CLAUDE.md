@@ -2,8 +2,8 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.81.0
-> **最後更新**: 2026-03-11
+> **Claude Code 配置版本**: 1.84.1
+> **最後更新**: 2026-03-17
 
 ---
 
@@ -94,4 +94,4 @@ node .claude/scripts/promote-learned-patterns.cjs # 學習模式升級
 
 ---
 
-> 配置維護: Claude Code Assistant | 版本: v1.81.0
+> 配置維護: Claude Code Assistant | 版本: v1.84.1

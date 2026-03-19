@@ -1,0 +1,46 @@
+{
+  "date": "2026-03-16",
+  "window_days": 7,
+  "period": "2026-03-09 ~ 2026-03-16",
+  "metrics": {
+    "commits": 15,
+    "contributors": 1,
+    "loc_added": 39579,
+    "loc_deleted": 15639,
+    "loc_net": 23940,
+    "files_changed": 500,
+    "active_days": 2,
+    "avg_commits_per_active_day": 7.5,
+    "test_files_backend": 106,
+    "test_files_frontend": 99
+  },
+  "commit_types": {
+    "feat": 5,
+    "chore": 5,
+    "fix": 4,
+    "docs": 1
+  },
+  "peak_hours": [20, 19, 18, 17, 21],
+  "hotspot_files": [
+    "frontend/package.json",
+    "backend/app/services/ai/graph_query_service.py",
+    "backend/app/services/ai/canonical_entity_service.py",
+    "frontend/vite.config.ts",
+    "frontend/src/router/types.ts"
+  ],
+  "authors": {
+    "bluefishs": {
+      "commits": 15,
+      "focus_areas": ["AI agent", "知識圖譜", "前端重構", "安全強化"],
+      "commit_mix": { "feat": 5, "fix": 4, "chore": 5, "docs": 1 }
+    }
+  },
+  "highlights": [
+    "知識圖譜 UI 全面優化 — 側邊欄/節點設定/3D效能/搜尋修復",
+    "前端頁面重構 + 知識庫/DB圖譜 + useQuery 合規 + 路由擴充",
+    "後端 AI agent 強化 + 圖譜隔離 + 知識庫 API + 派工實體配對"
+  ],
+  "config_version": "1.83.3",
+  "ai_modules": 57,
+  "commands_count": 21
+}

@@ -51,6 +51,10 @@ test*.csv
 !/backend/tests/
 !/frontend/src/test/
 
+# E2E / Playwright test results
+frontend/test-results/
+**/test-results/
+
 # Test coverage
 backend/.coverage
 .coverage

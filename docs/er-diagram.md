@@ -4,8 +4,11 @@
 
 ```mermaid
 erDiagram
+    agent_query_traces ||--o{ agent_tool_call_logs : "trace_id"
     users ||--o{ ai_conversation_feedback : "user_id"
     users ||--o{ ai_search_history : "user_id"
+    government_agencies ||--o{ canonical_entities : "linked_agency_id"
+    taoyuan_projects ||--o{ canonical_entities : "linked_project_id"
     government_agencies ||--o{ contract_projects : "client_agency_id"
     documents ||--o{ document_ai_analyses : "document_id"
     documents ||--o{ document_attachments : "document_id"
@@ -13,6 +16,7 @@ erDiagram
     users ||--o{ document_calendar_events : "assigned_user_id"
     users ||--o{ document_calendar_events : "created_by"
     documents ||--o{ document_calendar_events : "document_id"
+    documents ||--o{ document_chunks : "document_id"
     documents ||--o{ document_entities : "document_id"
     canonical_entities ||--o{ document_entity_mentions : "canonical_entity_id"
     documents ||--o{ document_entity_mentions : "document_id"
@@ -24,9 +28,19 @@ erDiagram
     documents ||--o{ entity_relationships : "first_document_id"
     canonical_entities ||--o{ entity_relationships : "source_entity_id"
     canonical_entities ||--o{ entity_relationships : "target_entity_id"
+    erp_quotations ||--o{ erp_billings : "erp_quotation_id"
+    erp_invoices ||--o{ erp_billings : "invoice_id"
+    erp_quotations ||--o{ erp_invoices : "erp_quotation_id"
+    users ||--o{ erp_quotations : "created_by"
+    erp_quotations ||--o{ erp_vendor_payables : "erp_quotation_id"
     document_calendar_events ||--o{ event_reminders : "event_id"
     users ||--o{ event_reminders : "recipient_user_id"
+    government_agencies ||--o{ government_agencies : "parent_agency_id"
     documents ||--o{ graph_ingestion_events : "document_id"
+    pm_cases ||--o{ pm_case_staff : "pm_case_id"
+    users ||--o{ pm_case_staff : "user_id"
+    users ||--o{ pm_cases : "created_by"
+    pm_cases ||--o{ pm_milestones : "pm_case_id"
     contract_projects ||--o{ project_agency_contacts : "project_id"
     contract_projects ||--o{ project_user_assignments : "project_id"
     users ||--o{ project_user_assignments : "user_id"
@@ -60,6 +74,55 @@ erDiagram
     taoyuan_projects ||--o{ taoyuan_work_records : "taoyuan_project_id"
     users ||--o{ user_sessions : "user_id"
 
+    agent_learnings {
+        int id "PK"
+        varchar session_id "NOT NULL"
+        varchar learning_type "NOT NULL"
+        text content "NOT NULL"
+        varchar content_hash "NOT NULL"
+        text source_question
+        float8 confidence
+        int hit_count
+        bool is_active
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    agent_query_traces {
+        int id "PK"
+        varchar query_id "NOT NULL"
+        text question "NOT NULL"
+        varchar context
+        varchar route_type "NOT NULL"
+        int plan_tool_count
+        int hint_count
+        int iterations
+        int total_results
+        bool correction_triggered
+        bool react_triggered
+        int citation_count
+        int citation_verified
+        int answer_length
+        int total_ms
+        varchar model_used
+        smallint feedback_score
+        varchar feedback_text
+        timestamptz feedback_at
+        varchar answer_preview
+        jsonb tools_used
+        timestamptz created_at "NOT NULL"
+    }
+    agent_tool_call_logs {
+        int id "PK"
+        int trace_id "FK,NOT NULL"
+        varchar tool_name "NOT NULL"
+        jsonb params
+        bool success "NOT NULL"
+        int result_count
+        int duration_ms
+        varchar error_message
+        smallint call_order
+        timestamptz created_at "NOT NULL"
+    }
     ai_conversation_feedback {
         int id "PK"
         int user_id "FK"
@@ -134,6 +197,8 @@ erDiagram
         timestamp created_at
         timestamp updated_at
         vector embedding
+        int linked_agency_id "FK"
+        int linked_project_id "FK"
     }
     contract_projects {
         int id "PK"
@@ -170,6 +235,7 @@ erDiagram
         int progress
         varchar case_nature
         bool has_dispatch_management
+        varchar client_type
     }
     document_ai_analyses {
         int id "PK"
@@ -228,6 +294,17 @@ erDiagram
         varchar google_sync_status
         varchar status
     }
+    document_chunks {
+        int id "PK"
+        int document_id "FK,NOT NULL"
+        int chunk_index "NOT NULL"
+        text chunk_text "NOT NULL"
+        int start_char
+        int end_char
+        int token_count
+        timestamp created_at
+        vector embedding
+    }
     document_entities {
         int id "PK"
         int document_id "FK,NOT NULL"
@@ -274,6 +351,12 @@ erDiagram
         text content
         text ck_note
         vector embedding
+        varchar normalized_sender
+        varchar normalized_receiver
+        text cc_receivers
+        text keywords
+        bool ner_pending "NOT NULL"
+        tsvector search_vector
     }
     entity_aliases {
         int id "PK"
@@ -310,6 +393,69 @@ erDiagram
         timestamp created_at
         timestamp updated_at
     }
+    erp_billings {
+        int id "PK"
+        int erp_quotation_id "FK,NOT NULL"
+        varchar billing_period
+        date billing_date "NOT NULL"
+        numeric billing_amount "NOT NULL"
+        int invoice_id "FK"
+        varchar payment_status
+        date payment_date
+        numeric payment_amount
+        text notes
+        timestamp created_at
+        timestamp updated_at
+    }
+    erp_invoices {
+        int id "PK"
+        int erp_quotation_id "FK,NOT NULL"
+        varchar invoice_number "NOT NULL"
+        date invoice_date "NOT NULL"
+        numeric amount "NOT NULL"
+        numeric tax_amount
+        varchar invoice_type
+        varchar description
+        varchar status
+        timestamp voided_at
+        text notes
+        timestamp created_at
+        timestamp updated_at
+    }
+    erp_quotations {
+        int id "PK"
+        varchar case_code "NOT NULL"
+        varchar case_name
+        int year
+        numeric total_price
+        numeric tax_amount
+        numeric outsourcing_fee
+        numeric personnel_fee
+        numeric overhead_fee
+        numeric other_cost
+        varchar status
+        text notes
+        int created_by "FK"
+        timestamp created_at
+        timestamp updated_at
+        numeric budget_limit
+    }
+    erp_vendor_payables {
+        int id "PK"
+        int erp_quotation_id "FK,NOT NULL"
+        varchar vendor_name "NOT NULL"
+        varchar vendor_code
+        numeric payable_amount "NOT NULL"
+        varchar description
+        date due_date
+        date paid_date
+        numeric paid_amount
+        varchar payment_status
+        varchar invoice_number
+        text notes
+        timestamp created_at
+        timestamp updated_at
+    }
     event_reminders {
         int id "PK"
         int event_id "FK,NOT NULL"
@@ -343,6 +489,9 @@ erDiagram
         timestamp created_at
         timestamp updated_at
         varchar agency_short_name
+        varchar tax_id
+        bool is_self "NOT NULL"
+        int parent_agency_id "FK"
     }
     graph_ingestion_events {
         int id "PK"
@@ -384,6 +533,53 @@ erDiagram
         text address
         varchar business_type
         int rating
+        timestamp created_at
+        timestamp updated_at
+    }
+    pm_case_staff {
+        int id "PK"
+        int pm_case_id "FK,NOT NULL"
+        int user_id "FK"
+        varchar staff_name "NOT NULL"
+        varchar role "NOT NULL"
+        bool is_primary
+        date start_date
+        date end_date
+        varchar notes
+        timestamp created_at
+    }
+    pm_cases {
+        int id "PK"
+        varchar case_code "NOT NULL"
+        varchar case_name "NOT NULL"
+        int year
+        varchar category
+        varchar client_name
+        varchar client_contact
+        varchar client_phone
+        numeric contract_amount
+        varchar status "NOT NULL"
+        int progress
+        date start_date
+        date end_date
+        date actual_end_date
+        varchar location
+        text description
+        text notes
+        int created_by "FK"
+        timestamp created_at
+        timestamp updated_at
+    }
+    pm_milestones {
+        int id "PK"
+        int pm_case_id "FK,NOT NULL"
+        varchar milestone_name "NOT NULL"
+        varchar milestone_type
+        date planned_date
+        date actual_date
+        varchar status
+        int sort_order
+        text notes
         timestamp created_at
         timestamp updated_at
     }
@@ -529,6 +725,7 @@ erDiagram
         int document_id "FK,NOT NULL"
         varchar link_type "NOT NULL"
         timestamp created_at
+        varchar confidence
     }
     taoyuan_dispatch_entity_link {
         int id "PK"
@@ -694,7 +891,7 @@ erDiagram
 
 | 指標 | 數值 |
 |------|------|
-| 總表數 | 40 |
-| 總欄位數 | 548 |
-| 外鍵關聯 | 58 |
+| 總表數 | 51 |
+| 總欄位數 | 709 |
+| 外鍵關聯 | 72 |
 | 自訂列舉型別 | 0 |

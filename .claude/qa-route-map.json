@@ -1,0 +1,111 @@
+{
+  "_description": "前端路由 → E2E spec 映射表，供 /qa-smart diff-aware 模式自動選擇對應 Playwright spec",
+  "_updated": "2026-03-16",
+  "mappings": [
+    {
+      "e2e_spec": "e2e/smoke.spec.ts",
+      "routes": ["/", "/dashboard", "/login"],
+      "trigger_patterns": [
+        "src/pages/DashboardPage.tsx",
+        "src/pages/LoginPage.tsx",
+        "src/pages/EntryPage.tsx",
+        "src/components/Layout.tsx",
+        "src/router/AppRouter.tsx"
+      ]
+    },
+    {
+      "e2e_spec": "e2e/auth.spec.ts",
+      "routes": ["/login", "/register", "/forgot-password", "/reset-password"],
+      "trigger_patterns": [
+        "src/pages/LoginPage.tsx",
+        "src/pages/RegisterPage.tsx",
+        "src/pages/ForgotPasswordPage.tsx",
+        "src/pages/ResetPasswordPage.tsx",
+        "src/services/authService.ts",
+        "src/hooks/utility/useAuthGuard.ts",
+        "src/config/env.ts"
+      ]
+    },
+    {
+      "e2e_spec": "e2e/documents.spec.ts",
+      "routes": ["/documents", "/documents/create", "/documents/:id"],
+      "trigger_patterns": [
+        "src/pages/Document*.tsx",
+        "src/pages/ReceiveDocumentCreatePage.tsx",
+        "src/pages/SendDocumentCreatePage.tsx",
+        "src/components/document/**",
+        "src/hooks/business/useDocuments.ts",
+        "src/api/documentsApi.ts",
+        "src/types/document.ts"
+      ]
+    },
+    {
+      "e2e_spec": "e2e/projects.spec.ts",
+      "routes": ["/projects", "/projects/:id"],
+      "trigger_patterns": [
+        "src/pages/ContractCase*.tsx",
+        "src/pages/contractCase/**",
+        "src/hooks/business/useProjects.ts",
+        "src/components/project/**"
+      ]
+    },
+    {
+      "e2e_spec": "e2e/dispatch.spec.ts",
+      "routes": ["/taoyuan/dispatch", "/taoyuan/dispatch/:id"],
+      "trigger_patterns": [
+        "src/pages/TaoyuanDispatch*.tsx",
+        "src/pages/taoyuanDispatch/**",
+        "src/components/taoyuan/**",
+        "src/hooks/taoyuan/**",
+        "src/api/taoyuan/**",
+        "src/types/taoyuan.ts"
+      ]
+    },
+    {
+      "e2e_spec": "e2e/knowledge-graph.spec.ts",
+      "routes": ["/knowledge-graph"],
+      "trigger_patterns": [
+        "src/pages/KnowledgeGraphPage.tsx",
+        "src/pages/knowledgeGraph/**",
+        "src/components/ai/KnowledgeGraph.tsx",
+        "src/components/ai/knowledgeGraph/**",
+        "src/api/ai/knowledgeGraph.ts",
+        "src/types/ai.ts"
+      ]
+    },
+    {
+      "e2e_spec": "e2e/knowledge-base.spec.ts",
+      "routes": ["/knowledge-base"],
+      "trigger_patterns": [
+        "src/pages/KnowledgeBasePage.tsx",
+        "src/pages/knowledgeBase/**",
+        "src/api/knowledgeBaseApi.ts",
+        "src/components/common/MarkdownRenderer.tsx"
+      ]
+    },
+    {
+      "e2e_spec": "e2e/test-ai-search.spec.ts",
+      "routes": ["/ai-assistant"],
+      "trigger_patterns": [
+        "src/components/ai/AIAssistantButton.tsx",
+        "src/components/ai/RAGChatPanel.tsx",
+        "src/components/ai/MessageBubble.tsx",
+        "src/hooks/system/useAgentSSE.ts",
+        "src/hooks/system/useStreamingChat.ts",
+        "src/api/ai/**"
+      ]
+    }
+  ],
+  "global_triggers": {
+    "_description": "修改這些檔案時，應執行所有 E2E spec",
+    "patterns": [
+      "src/api/client.ts",
+      "src/api/endpoints.ts",
+      "src/api/errors.ts",
+      "src/config/env.ts",
+      "src/styles/theme.ts",
+      "vite.config.ts",
+      "package.json"
+    ]
+  }
+}

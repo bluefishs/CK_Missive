@@ -245,5 +245,5 @@ async def update_document(self, doc_id: int, data: dict):
 | React Query | `providers/QueryProvider.tsx` | 前端 API 快取 |
 | Redis AI Cache | `services/ai/base_ai_service.py` | AI 結果快取 + graceful fallback |
 | SimpleCache | `services/ai/base_ai_service.py` | Redis 降級備援 |
-| SearchCache | `components/ai/NaturalSearchPanel.tsx` | 搜尋結果前端快取 (5min TTL) |
+| SearchCache | `components/ai/RAGChatPanel.tsx` | 搜尋結果前端快取 (5min TTL) |
 | RequestThrottler | `api/client.ts` | 請求熔斷器 (防重複請求) |

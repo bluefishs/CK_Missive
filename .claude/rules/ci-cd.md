@@ -9,14 +9,15 @@
 
 | Job | 說明 |
 |-----|------|
-| `frontend-check` | TypeScript + ESLint + 單元測試 |
-| `backend-check` | Python 語法 + 模組匯入驗證 + pytest |
+| `frontend-check` | TypeScript + ESLint (max-warnings=0) + 單元測試 |
+| `backend-check` | Python 語法 + 模組匯入驗證 + pytest + 整合測試 (soft-fail) + MyPy (soft-fail) |
 | `config-consistency` | .env 配置一致性 (禁止 backend/.env) |
 | `skills-sync-check` | Skills/Commands/Hooks 同步驗證 (42 項) |
 | `security-scan` | npm/pip audit + Bandit + 硬編碼檢測 |
 | `docker-build` | Docker 映像建置驗證 |
-| `test-coverage` | 前後端測試覆蓋率 + Codecov |
+| `test-coverage` | 前後端測試覆蓋率 (後端 70%+ 閾值) |
 | `migration-check` | Alembic 遷移一致性 (單一 HEAD) |
+| `bundle-size-check` | 前端 Bundle 大小限制 (10.5MB raw / 3.5MB gzip / 1.5MB per file) |
 | `ai-config-check` | AI 服務配置驗證 |
 
 ## CD 自動部署

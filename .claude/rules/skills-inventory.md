@@ -17,6 +17,14 @@
 | `/adr` | 📋 **架構決策記錄 (ADR)** 管理 | `.claude/commands/adr.md` |
 | `/knowledge-map` | 🗺️ **知識地圖重建與差異報告** | `.claude/commands/knowledge-map.md` |
 
+### gstack 啟發指令 (v1.83.3)
+
+| 指令 | 說明 | 檔案 |
+|------|------|------|
+| `/ship` | 🚀 **統一發布工作流** — branch→test→review→commit→PR | `.claude/commands/ship.md` |
+| `/retro` | 📊 **工程回顧** — commit 統計/趨勢/熱點/JSON 持久化 | `.claude/commands/retro.md` |
+| `/qa-smart` | 🧪 **Diff-Aware 智慧測試** — 4 模式 + 8 維度健康度 | `.claude/commands/qa-smart.md` |
+
 ### Everything Claude Code 指令
 
 | 指令 | 說明 | 檔案 |
@@ -55,7 +63,7 @@
 | `unicode-handling.md` | Unicode, 編碼, 中文, UTF-8, 亂碼, CJK, 正規化, normalize, 搜尋失敗, ILIKE | Unicode 處理規範 (v2.0.0) |
 | `workflow-management.md` | workflow, 作業歷程, 時間軸, chain, timeline, batch, 批次, 結案批次, InlineRecordCreator, work_category, WorkRecordStatsCard, useDeleteWorkRecord | 作業歷程管理規範 (v2.0.0) |
 | `dispatch-import.md` | 匯入, import, Excel, 派工單匯入, batch-relink, 文號, doc_number | 派工單匯入與公文關聯規範 (v1.0.0) |
-| `ai-development.md` | AI, Groq, Ollama, 語意, 摘要, 分類, 同義詞, 知識圖譜, NER, 實體提取, CanonicalEntity, embedding, Agent, 派工單, dispatch, 閒聊, chitchat | AI 功能開發規範 (v3.2.0) |
+| `ai-development.md` | AI, Groq, Ollama, 語意, 摘要, 分類, 同義詞, 知識圖譜, NER, 實體提取, CanonicalEntity, embedding, Agent, 派工單, dispatch, 閒聊, chitchat | AI 功能開發規範 (v3.4.0) |
 | `database-performance.md` | 慢查詢, N+1, 索引, 查詢優化, slow query | 資料庫效能優化指南 |
 | `development-environment.md` | 環境, Docker, 依賴, 配置, env | 開發環境檢查指南 |
 | `accessibility.md` | 可訪問性, a11y, WCAG, ARIA, 鍵盤導航 | 可訪問性規範 (v1.0.0) |
@@ -104,6 +112,216 @@
 | 工具 | `refactoring-migration-procedures` | 重構遷移, migration | 重構遷移程序 |
 
 > 位置: `.claude/skills/_shared/shared/`
+
+---
+
+## v1.84.3 乾坤智能體 v4.0.0 — 全模組盤點 (2026-03-19)
+
+### 乾坤智能體 (OpenClaw Agent) 模組清單 (33 模組, ~8000L, 600+ 測試)
+
+| 模組 | 版本 | 說明 |
+|------|------|------|
+| `agent_orchestrator.py` | v2.6.0 | 主編排: ReAct loop + SSE + Router 整合 |
+| `agent_tools.py` | v2.0.0 | 工具調度入口 (260L, 委派 3 子執行器) |
+| `agent_planner.py` | v2.4.0 | 意圖解析 + LLM 規劃 + 6 策略自動修正 + 跨會話學習注入 |
+| `agent_synthesis.py` | v1.8.0 | 答案合成 (518L, citation+thinking 已提取) |
+| `agent_pattern_learner.py` | v2.0.0 | 模式學習: MD5 精確 → Embedding cosine similarity |
+| `agent_summarizer.py` | v2.0.0 | 3-Tier 自適應壓縮 + 學習萃取持久化 |
+| `agent_diagram_builder.py` | v1.0.0 | 4 類 Mermaid 圖表 (ER/依賴/流程/類別) |
+| `agent_tool_monitor.py` | v1.0.0 | 滑動窗口監控 + 自動降級(<30%)/恢復(>70%) |
+| `agent_supervisor.py` | v1.0.0 | 多域分解 (doc/pm/erp/dispatch) + 並行子任務 |
+| `agent_trace.py` | v1.0.0 | Span 計時 + 指標收集 + DB 持久化 |
+| `agent_chitchat.py` | v1.0.0 | 閒聊偵測 (反向關鍵字) + 8 回退模式 |
+| `agent_roles.py` | v1.1.0 | 5 角色定義 (CK/Doc/Dev/Dispatch/Graph) |
+| `agent_router.py` | v1.0.0 | 3 層路由: chitchat → pattern → llm |
+| `agent_conversation_memory.py` | v1.0.0 | Redis 對話記憶 (1h TTL, 自動延展) |
+| `agent_utils.py` | v1.0.0 | JSON 4 階段解析 + SSE 格式化 |
+| `tool_executor_search.py` | v1.0.0 | 搜尋工具 (540L): doc/dispatch/entity/similar/correspondence |
+| `tool_executor_analysis.py` | v1.0.0 | 分析工具 (405L): detail/stats/health/graph/diagram |
+| `tool_executor_domain.py` | v1.0.0 | PM/ERP 工具 (105L): projects/vendors/contracts |
+| `tool_chain_resolver.py` | v1.0.0 | Chain-of-Tools 自動參數注入 |
+| `citation_validator.py` | v1.0.0 | 引用準確性驗證 (精確+模糊匹配) |
+| `thinking_filter.py` | v1.0.0 | LLM thinking 標記 5 階段過濾 |
+| `pattern_seeds.py` | v1.0.0 | 冷啟動種子模式 (29 個, 7 類別) |
+| `user_preference_extractor.py` | v1.0.0 | 雙層使用者記憶 (Redis+DB) + 偏好注入 |
+| `document_chunker.py` | v1.0.0 | 文件分段 (段落+滑動窗口+合併) |
+| `agent_conductor.py` | v1.0.0 | Conductor 式並行 Agent 編排 |
+| `agent_self_evaluator.py` | v1.0.0 | 每次回答自動評分 (5 維度) |
+| `agent_evolution_scheduler.py` | v1.0.0 | 每 50 次/24h 自動進化排程 |
+| `voice_transcriber.py` | v1.0.0 | 語音轉文字服務 |
+| `federation_client.py` | v1.0.0 | OpenClaw 聯邦整合客戶端 |
+| `tool_executor_document.py` | v1.0.0 | 文件工具子執行器 |
+| `proactive_recommender.py` | v1.0.0 | 主動推薦引擎 |
+| `user_query_tracker.py` | v1.0.0 | 使用者查詢追蹤統計 |
+| `agent_auto_corrector.py` | v1.0.0 | 6 策略自動修正 (拆分自 planner) |
+| `agent_learning_injector.py` | v1.0.0 | 跨會話學習注入 (拆分自 planner) |
+
+### AI 服務全量盤點 (70 模組)
+
+| 分類 | 模組數 | 說明 |
+|------|--------|------|
+| 核心基礎 | 8 | ai_config, base_ai, doc_ai, doc_analysis, doc_chunker, embedding, NER, RAG |
+| 乾坤 Agent | 33 | 編排+規劃+合成+路由+學習+監控+圖表+記憶+子執行器+conductor+evaluator+federation+recommender+tracker+transcriber+auto_corrector+learning_injector |
+| 知識圖譜 | 8 | relation, canonical, ingestion, helpers, merge, query, statistics, traversal |
+| Code Graph | 5 | service, analysis, ast_analyzer, types, wiki + ts_extractor + schema_reflector |
+| 搜尋排序 | 5 | reranker, intent_parser, entity_expander, synonym, rule_engine |
+| PM/ERP | 3 | pm_query, erp_query, tool_registry |
+| 排程管理 | 5 | extraction_scheduler, proactive_triggers, proactive_recommender, ai_prompt_manager + YAML 配置 |
+| 追蹤/統計 | 4 | agent_self_evaluator, agent_evolution_scheduler, user_query_tracker, voice_transcriber |
+
+### 乾坤智能體配置參數 (ai_config v3.1.0, 48 params)
+
+| 類別 | 參數數 | 重點參數 |
+|------|--------|---------|
+| 核心 Agent | 5 | max_iterations=3, tool_timeout=15s, stream_timeout=60s |
+| Tool Monitor | 4 | window=100, degraded<30%, recovery>70%, probe=600s |
+| Pattern Learner | 6 | max=500, decay=7d, semantic_threshold=0.85 |
+| Summarizer | 3 | trigger=6turns, max_chars=500, keep_recent=2 |
+| Router | 2 | pattern_threshold=0.8, rule_threshold=0.9 |
+| Self-Reflection | 3 | threshold=5, timeout=5s |
+| Memory Flush | 3 | ttl=24h, max_learnings=10 |
+| Persistent Learning | 3 | max_per_session=10, inject_limit=5 |
+| 3-Tier Compaction | 3 | tier1_timeout=10s, tier2_max=500ch, tier3_topics=10 |
+
+### AI 助理管理介面 — 完整 Tab 清單 (14 個)
+
+| Tab 元件 | 類型 | API 端點 | 說明 |
+|---------|------|---------|------|
+| `ServiceStatusTab` | 包裝器 | — | 組合 OllamaManagement + ServiceMonitor |
+| `DataAnalyticsTab` | 包裝器 | — | 組合 Overview + History |
+| `DataPipelineTab` | 包裝器 | — | 組合 Embedding + KnowledgeGraph |
+| `OllamaManagementTab` | 功能 | `/ai/ollama/status,ensure-models,warmup` | Ollama 服務管理 |
+| `ServiceMonitorTab` | 功能 | `/health/detailed, /ai/embedding/stats, /ai/config` | 服務監控儀表板 |
+| `OverviewTab` | 功能 | `/ai/search/stats` | 搜尋統計總覽 |
+| `HistoryTab` | 功能 | `/ai/search/history/list,clear` | 搜尋歷史管理 |
+| `EmbeddingTab` | 功能 | `/ai/embedding/stats,batch` | Embedding 管線 |
+| `KnowledgeGraphTab` | 功能 | `/ai/entity/stats,batch` | 知識圖譜 NER 管線 |
+| `AgentPerformanceTab` | 功能 | `/ai/stats/tool-success-rates,agent-traces,patterns,learnings,daily-trend` + `/ai/proactive/alerts` | Agent 效能監控 |
+| `PromptManagementPanel` | 功能 | Prompt CRUD API | Prompt 模板管理 |
+| `SynonymManagementPanel` | 功能 | Synonym CRUD API | 同義詞管理 |
+| `AIConfigTab` | 功能 | `/ai/config` | AI 配置管理 |
+| `statusUtils.tsx` | 工具 | — | 狀態顯示工具函數 |
+
+### 前端大頁面拆分成果
+
+| 頁面 | 原始 | 拆分後 | 減少 | 新增元件數 |
+|------|------|--------|------|-----------|
+| CodeGraphManagementPage | 921L | 526L | -43% | 3 元件 |
+| BackupManagementPage | 920L | 404L | -56% | 5 元件 |
+| KnowledgeGraphPage | 812L | 326L | -60% | 5 元件 |
+| TaoyuanDispatchDetailPage | 912L | 545L | -40% | 1 元件 + 2 hooks |
+| ProfilePage | ~600L | ~280L | -53% | 子元件拆分 |
+| AdminDashboardPage | ~700L | ~300L | -57% | 子元件拆分 |
+| StaffPage/StaffDetailPage | ~650L | ~290L | -55% | 子元件拆分 |
+| SimpleDatabaseViewer | ~800L | ~320L | -60% | 子元件拆分 |
+
+### v1.84.2 全系統優化 (2026-03-18) — 六輪累計
+
+#### 資料匯入 + 附件上傳
+- 851 筆公文匯入 (541 新增 + 310 更新), 733 PDF 附件上傳
+- 新建 19 承攬案件, ~30 機關; Chunking/Embedding 100%
+- 匯入腳本: `backend/scripts/fixes/import_112_documents.py` (--dry-run)
+- 附件腳本: `backend/scripts/fixes/batch_attach_documents.py` (--dry-run)
+
+#### 後端服務拆分 (4 服務)
+| 服務 | 前 → 後 | 新增模組 |
+|------|---------|---------|
+| document_service | 866→613L | document_dispatch_linker_service + document_import_logic_service |
+| graph_query_service | 853→351L | graph_entity_graph_builder |
+| project_service | 544→411L | 遷移至 ProjectRepository |
+| agent_orchestrator | 929→700L | agent_post_processing + agent_streaming_helpers |
+
+#### Repository 遷移 (5 服務, 50+ 查詢)
+- dispatch_link, statistics(新建), agency_matching, project, case_code — 全部完成
+
+#### 前端元件拆分 (16 元件, >500L → 0)
+- 全部 18 個 >500L 元件拆分至 <500L, 最大降至 498L
+
+#### 效能優化
+- DB 索引: 274→253 (-21 重複), +8 FK 索引, +3 複合索引
+- idle_in_transaction_session_timeout = 5 分鐘
+- `three` lazy-load (~600KB 延遲載入), antd `List` → `Flex` (9 檔案)
+- ProjectMatcher: min 8 chars + 3x ratio fuzzy match 防護
+- ExcelImportService: upsert_mode 參數
+
+#### 新增功能 (v1.84.2)
+- KB 內容搜尋: `POST /knowledge-base/search` + 前端 Input.Search UI
+- Graph-RAG 融合: RAG v2.4.0, KG 實體擴展 (synonyms+canonical+aliases)
+- Agent 工具動態發現: ToolRegistry v1.2.0, 3 層評分 (query type+entity+KG context)
+- agent_planner: 自動注入工具推薦至 LLM prompt
+
+#### 最終評級 (v1.84.2)
+| 維度 | 等級 |
+|------|------|
+| SSOT (前後端) | A+ |
+| TypeScript | A+ (0 errors) |
+| React Query | A+ |
+| Chunk/Embed/NER | A+ (100%) |
+| 後端測試 | A+ (2501 passed) |
+| Repository 合規 | A+ (0 繞過) |
+| >500L 前端元件 | A+ (18→0) |
+| DB 索引覆蓋 | A+ (0 FK 缺失) |
+| Agent/KG/RAG 整合 | A+ (Graph-RAG+工具發現+全量入圖) |
+
+### v1.84.1 SSOT 修復與架構優化 (2026-03-18)
+
+#### 後端 SSOT 修復
+- PM endpoints 本地 BaseModel → `schemas/pm/requests.py` (10 schema classes)
+- ERP endpoints 本地 BaseModel → `schemas/erp/requests.py` (8 schema classes)
+- 7 個 endpoint 檔案清理完成，0 本地 BaseModel 殘留
+
+#### 系統復盤結果
+| 維度 | 等級 | 說明 |
+|------|------|------|
+| 型別安全 (SSOT) | A | 前端零違規，後端 PM/ERP 已修復 |
+| 模組化 | B+ | 前端 23 元件 >500L，後端 10 service >500L |
+| 資料層 | B | PM/ERP Repository 待建立 |
+| 測試覆蓋 | A | 2484 後端 + 2754 前端，2 頁面缺測試 |
+| 文件一致性 | A | Skills/Commands/Agents 100% 吻合 |
+
+### 新增前端模組
+
+| 目錄 | 元件 | 說明 |
+|------|------|------|
+| `pages/codeGraph/` | CodeGraphSidebar, ModuleConfigPanel, ArchitectureOverviewTab | 程式碼圖譜管理拆分 |
+| `pages/backup/` | BackupListTab, RemoteBackupTab, SchedulerTab, BackupLogsTab, BackupStatsCards | 備份管理拆分 |
+| `pages/knowledgeGraph/` | GraphLeftPanel, ShortestPathFinder, MergeEntitiesModal, EntityTypeDistribution, TopEntitiesRanking | 知識圖譜拆分 |
+| `pages/taoyuanDispatch/` | DispatchDetailHeader | 派工詳情標頭 |
+| `hooks/taoyuan/` | useDispatchMutations (241L), useDispatchQueries (110L) | 派工 Hooks |
+
+---
+
+## v1.82.0 收發文正規化 + 知識圖譜強化
+
+### 新增服務模組
+
+| 服務 | 位置 | 說明 |
+|------|------|------|
+| `ReceiverNormalizer` | `services/receiver_normalizer.py` | 收發文單位正規化 (6 模式 + NFKC) |
+| `ToolRegistry` | `services/ai/tool_registry.py` | Agent 工具註冊中心 (Singleton, 22 工具) |
+
+### Schema 擴充
+
+| 模型 | 新增欄位 | 說明 |
+|------|---------|------|
+| `OfficialDocument` | `normalized_sender`, `normalized_receiver`, `cc_receivers`, `keywords` | 正規化收發文 + AI 關鍵字 |
+| `GovernmentAgency` | `tax_id`, `is_self`, `parent_agency_id` | 統編 + 自身機關 + 階層 |
+| `CanonicalEntity` | `linked_agency_id`, `linked_project_id` | NER 實體 ↔ 業務記錄自動連結 |
+
+### 知識圖譜查詢新參數
+
+| 參數 | 說明 |
+|------|------|
+| `year` | 民國年度篩選 |
+| `collapse_agency` | 同源實體合併開關 |
+
+### 前端新增
+
+| 元件 | 說明 |
+|------|------|
+| `GraphToolbar` 年度/合併控制 | 年度 Slider + collapse 開關 |
+| `SystemHealthDashboard` 資料品質 | FK 覆蓋率 + NER 覆蓋率指標 |
+| `AgentStepInfo` / `ChatMessage` 型別 | Agent 推理步驟 + 聊天訊息 SSOT |
 
 ---
 

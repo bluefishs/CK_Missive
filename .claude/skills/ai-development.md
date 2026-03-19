@@ -1,7 +1,7 @@
 ---
 name: ai-development
 description: AI 相關功能開發與維護
-version: 3.2.0
+version: 3.4.0
 category: ai
 triggers:
   - AI
@@ -21,7 +21,7 @@ triggers:
   - dispatch
   - 閒聊
   - chitchat
-updated: '2026-02-26'
+updated: '2026-03-19'
 ---
 
 # AI 功能開發規範
@@ -164,7 +164,7 @@ Agent 工具模式（N 事件）:
 
 | 元件 | 位置 | 版本 | 說明 |
 |------|------|------|------|
-| `AIConfig` | `services/ai/ai_config.py` | 1.1.0 | AI 配置管理 (Singleton) |
+| `AIConfig` | `services/ai/ai_config.py` | 3.1.0 | AI 配置管理 (Singleton, 48 params, env>YAML>hardcoded) |
 | `AIConnector` | `core/ai_connector.py` | 1.1.0 | 混合 AI 連接器 (Groq + Ollama + qwen3 thinking mode) |
 | `BaseAIService` | `services/ai/base_ai_service.py` | 3.0.0 | 基類: 滑動窗口限流 + Redis快取 + 統計持久化 |
 | `DocumentAIService` | `services/ai/document_ai_service.py` | 5.0.0 | 公文摘要/分類/關鍵字/意圖解析/同義詞 |
@@ -179,8 +179,18 @@ Agent 工具模式（N 事件）:
 | `SynonymExpander` | `services/ai/synonym_expander.py` | 1.0.0 | 同義詞擴展 |
 | `RuleEngine` | `services/ai/rule_engine.py` | 2.0.0 | 規則引擎 |
 | `ExtractionScheduler` | `services/ai/extraction_scheduler.py` | 1.0.0 | NER 提取排程器 |
-| `AgentOrchestrator` | `services/ai/agent_orchestrator.py` | 2.0.0 | Agentic 主編排 — 模組化 (tools/planner/synthesis/chitchat/utils) |
-| `RAGQueryService` | `services/ai/rag_query_service.py` | 2.3.0 | RAG 問答服務 (向量+關鍵字+串流) |
+| `AgentOrchestrator` | `services/ai/agent_orchestrator.py` | 2.6.0 | Agentic 主編排 — ReAct loop + SSE + Router 整合 |
+| `RAGQueryService` | `services/ai/rag_query_service.py` | 2.4.0 | RAG 問答服務 (Graph-RAG 融合, BM25+vector hybrid) |
+| `ToolRegistry` | `services/ai/tool_registry.py` | 1.2.0 | Agent 工具註冊中心 (Singleton, 22 工具, 3 層評分) |
+| `AgentRouter` | `services/ai/agent_router.py` | 1.0.0 | 3 層路由: chitchat → pattern → llm |
+| `AgentPatternLearner` | `services/ai/agent_pattern_learner.py` | 2.0.0 | 模式學習: MD5 精確 → Embedding cosine |
+| `AgentSummarizer` | `services/ai/agent_summarizer.py` | 2.0.0 | 3-Tier 自適應壓縮 + 學習萃取 |
+| `AgentToolMonitor` | `services/ai/agent_tool_monitor.py` | 1.0.0 | 滑動窗口監控 + 自動降級/恢復 |
+| `AgentTrace` | `services/ai/agent_trace.py` | 1.0.0 | Span 計時 + 指標收集 + DB 持久化 |
+| `AgentConductor` | `services/ai/agent_conductor.py` | 1.0.0 | Conductor 式並行 Agent 編排 |
+| `AgentSelfEvaluator` | `services/ai/agent_self_evaluator.py` | 1.0.0 | 每次回答自動評分 (5 維度) |
+| `FederationClient` | `services/ai/federation_client.py` | 1.0.0 | OpenClaw 聯邦整合客戶端 |
+| `DocumentChunker` | `services/ai/document_chunker.py` | 1.0.0 | 文件分段 (段落+滑動窗口+合併) |
 | `AIPromptManager` | `services/ai/ai_prompt_manager.py` | - | Prompt 模板管理 (DB 熱重載) |
 | `prompts.yaml` | `services/ai/prompts.yaml` | 1.1.0 | 5 組 Prompt 模板 |
 | `synonyms.yaml` | `services/ai/synonyms.yaml` | 1.0.0 | 53 組同義詞字典 |
@@ -206,7 +216,7 @@ Agent 工具模式（N 事件）:
 | 元件 | 位置 | 說明 |
 |------|------|------|
 | `AIAssistantButton` | `components/ai/` | AI 浮動按鈕 (Portal 渲染) |
-| `NaturalSearchPanel` | `components/ai/` | 自然語言搜尋 + `useNaturalSearch` Hook |
+| `RAGChatPanel` | `components/ai/` | RAG 對話面板 + Agent SSE 串流 |
 | `AISummaryPanel` | `components/ai/` | 摘要生成面板 |
 | `AIClassifyPanel` | `components/ai/` | 分類建議面板 |
 | `KnowledgeGraph` | `components/ai/` | 知識圖譜互動式視覺化 (react-force-graph-2d) |
@@ -291,7 +301,7 @@ Phase 7: 圖譜品質優化
 | 模型 | nomic-embed-text (Ollama 本地) |
 | 維度 | **768D** |
 | DB 擴展 | pgvector 0.8.0 |
-| 覆蓋率 | 97.66% (711/728) |
+| 覆蓋率 | 100% (1,641 chunks, 全部 embedded) |
 | 快取 | LRU 500 筆, TTL 30 min |
 | 並發安全 | asyncio.Lock |
 
@@ -431,6 +441,61 @@ AI_CACHE_TTL_KEYWORDS=3600
 5. **Circuit Breaker**: 連續失敗 50 筆自動中止，避免浪費資源
 6. **資安**: 所有 AI 端點使用 POST + require_auth/require_admin
 7. **Prompt 外部化**: 一般 prompt 在 `prompts.yaml`，NER prompt 在 service 常數
+
+---
+
+## v3.4.0 新增功能 (2026-03-19)
+
+### Graph-RAG 融合 (RAG v2.4.0)
+
+RAG 查詢自動擴展知識圖譜上下文：
+- 查詢 → 同義詞擴展 → CanonicalEntity 匹配 → alias 展開
+- BM25 tsvector + pgvector cosine similarity 混合搜尋
+- Document chunking: 段落 + 滑動窗口 + 合併 (1,641 chunks)
+
+### Agent 工具動態發現 (ToolRegistry v1.2.0)
+
+```python
+# 3 層評分機制
+score = query_type_match * 0.4 + entity_relevance * 0.3 + kg_context * 0.3
+# 動態注入 top-K 工具推薦至 LLM prompt
+```
+
+22 個工具: doc/dispatch/entity/similar/correspondence/pm/erp/graph/diagram/milestone/billing...
+
+### 跨圖譜聯合查詢
+
+```
+POST /ai/graph/unified-search
+→ KnowledgeGraph + CodeGraph + DBGraph 並行查詢
+→ 結果合併 + 去重 + 排序
+```
+
+### 自適應上下文窗口
+
+| 查詢複雜度 | 保留對話回合數 |
+|-----------|--------------|
+| simple | 2 turns |
+| medium | 4 turns |
+| complex | 6 turns |
+
+### Agent 策略配置
+
+- `backend/config/agent-policy.yaml` — 路由/工具/回退策略
+- `backend/config/inference-profiles.yaml` — 6 個推理 Profile (nim-local, nvidia-cloud, groq, ollama...)
+- 優先順序: env vars > YAML > hardcoded defaults
+
+### 乾坤智能體模組統計 (v4.0.0)
+
+| 分類 | 模組數 | 說明 |
+|------|--------|------|
+| Agent 核心 | 33 | 編排/規劃/合成/路由/學習/監控/圖表/記憶/conductor/evaluator |
+| 知識圖譜 | 8 | relation/canonical/ingestion/helpers/merge/query/statistics/traversal |
+| Code Graph | 5 | service/analysis/ast_analyzer/types/wiki |
+| 搜尋排序 | 5 | reranker/intent_parser/entity_expander/synonym/rule_engine |
+| PM/ERP | 3 | pm_query/erp_query/tool_registry |
+| 其他 | 12 | config/base_ai/doc_ai/doc_analysis/doc_chunker/embedding/NER/RAG/prompt/scheduler... |
+| **合計** | **66+** | |
 
 ---
 

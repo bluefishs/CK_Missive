@@ -4,6 +4,474 @@
 
 ---
 
+## [1.84.3] - 2026-03-19
+
+### 全系統優化 — 十二輪深度重構 + NIM 整合
+
+#### 資料匯入
+- 851 筆公文匯入 (541 新增 + 310 更新), 0 錯誤
+- 733 PDF 附件批次上傳 (173 → 906), 112 磁碟缺檔
+- NER 100% 完成 (5,915 entities, 0 pending), KG 全量入圖
+- 機關代碼回補: 0 → 47/93 有代碼
+- 匯入腳本: `scripts/fixes/import_112_documents.py`, `batch_attach_documents.py`
+
+#### 後端服務拆分 (5 服務 → 12 新模組)
+- document_service: 866→613L (+dispatch_linker +import_logic)
+- graph_query_service: 853→351L (+graph_entity_graph_builder)
+- agent_orchestrator: 929→700L (+post_processing +streaming_helpers)
+- agent_planner: 902→613L (+auto_corrector +learning_injector)
+- project_service: 544→411L (遷移至 Repository)
+
+#### Repository 遷移 (5 服務, 50+ 查詢 → 0 繞過)
+- dispatch_link_service, statistics_service(新建), agency_matching_service, project_service, case_code_service
+
+#### 前端元件拆分 (16 元件, 18→0 個 >500L)
+- 最大: CorrespondenceBody 638→179L (-72%), UserManagementPage 501→157L (-69%)
+
+#### 新功能 (9 項)
+- KB 內容全文搜尋: `POST /knowledge-base/search` + 前端 Search UI
+- Graph-RAG 融合: RAG v2.4.0, KG 實體擴展 (synonyms+canonical+aliases)
+- Agent 工具動態發現: ToolRegistry v1.2.0, 3 層評分 (query type+entity+KG context)
+- 跨圖譜聯合查詢: `POST /ai/graph/unified-search` (KG+Code+DB 並行)
+- 自適應上下文窗口: simple(2)/medium(4)/complex(6) turns
+- ExcelImportService upsert 模式
+- ProjectMatcher 強化 (min 8 chars + 3x ratio)
+- Agent 策略 YAML: `config/agent-policy.yaml`
+- 推理 Profile: `config/inference-profiles.yaml` (6 profiles)
+
+#### 效能優化
+- DB 索引: 274→253 (-21 重複, +11 新增), idle_in_transaction 5min
+- three.js lazy-load (~600KB 延遲載入), antd List→Flex (9), Collapse→items (1)
+- 連接池救援: 6 個 idle-in-transaction 連線終止 (最長 57min)
+- 後端整合測試 event loop 修復 (2568 全通過)
+- 前端 flaky 測試修復 (16 files, 2837 全通過)
+
+#### NIM 整合 (部分完成)
+- NGC Docker 登入: OK
+- NIM 映像下載: latest + 1.8.3 (10.4GB)
+- docker-compose nim profile: 配置完成
+- NVIDIA API Key: 已配置 (.env)
+- **受阻**: CUDA 12.8+ / Driver 580.95+ 尚未公開發布
+
+#### 最終指標
+- 後端測試: 2,568 passed (0 failures)
+- 前端測試: 2,837 passed (0 flaky)
+- TypeScript: 0 errors
+- SSOT: 0 violations
+- >500L 前端元件: 0
+- Repository 繞過: 0
+- Chunk/Embed/NER: 100%
+- 全 4 服務 healthy
+
+---
+
+## [1.84.1] - 2026-03-18
+
+### 系統復盤與架構優化
+
+#### SSOT 修復
+- PM/ERP endpoints 本地 BaseModel 遷移至 schemas/ (6 檔案, 8+ 違規)
+- 新增共用 schema: `CaseIdRequest`, `IdRequest` 等
+
+#### 文件同步更新
+- skills-inventory.md: 更新模組統計 (66 AI modules, 31 agent modules)
+- architecture.md: 補充 PM/ERP endpoints/schemas 結構
+- directory-structure.md: 補登 review-checklist.md
+- MEMORY.md: 精簡歷史段落，控制 200 行以內
+
+#### 復盤發現
+- 前端 SSOT/React Query/Endpoint 常數化: 零違規
+- 後端 Repository 層缺口: PM/ERP 模組直接 DB 存取待改善
+- 前端大元件待拆分: 23 個超 500L (top: KnowledgeGraph 922L)
+- 後端 Service 膨脹: 10 個超 500L (top: agent_orchestrator 928L)
+
+---
+
+## [1.84.0] - 2026-03-16
+
+### 乾坤智能體 v4.0.0 — 全 Phase 完成 (多模態+聯邦+並行)
+
+#### Phase 10.2: OCR 圖像辨識
+- tool_executor_document 增強: pytesseract OCR (chi_tra+eng)
+- 支援格式: PNG/JPG/JPEG/TIFF/BMP
+- Image-only PDF 偵測: < 50 chars/page → 自動 OCR
+- 優雅降級: Tesseract 未安裝時回傳提示訊息
+
+#### Phase 10.3: 語音轉文字
+- 新增 `voice_transcriber.py`: Groq Whisper API (主) + Ollama (備)
+- LINE 語音訊息: webhook 自動轉文字 → agent 處理
+- Redis 快取 24h TTL (避免重複轉錄)
+
+#### Conductor 並行 Agent
+- 新增 `agent_conductor.py`: asyncio.gather 並行子任務
+- 角色分配: DOC/DISPATCH/PM/ERP/GRAPH
+- 錯誤隔離: 單一子任務失敗不阻塞其他
+- 結果合併: 去重 + 關聯度排序
+
+#### MCP Server 評估
+- mcp>=1.0.0 依賴已存在, agent_query_sync 已提供 MCP 相容介面
+- 結論: 現有架構已具 MCP 能力, 暫不需額外標準化
+
+#### 統計
+- AI 服務模組: 62→66 (+4: voice_transcriber, agent_conductor, OCR增強, federation)
+- 後端測試: 2315→2347 (+32)
+- 後端測試檔案: 116→120 (+4)
+
+---
+
+## [1.83.9] - 2026-03-16
+
+### 乾坤智能體 Phase 10.1 + Phase 11 + 最終生產就緒掃描
+
+#### Phase 10.1: PDF/DOCX 文件解析工具
+- 新增 `tool_executor_document.py`: PDF (pdfplumber) + DOCX (python-docx) + TXT 文字提取
+- 新增 `parse_document` 工具 (第 19 個): 解析公文附件供 RAG 問答使用
+- 新增 `pdfplumber>=0.10.0` 依賴
+
+#### Phase 11: 聯邦智能介面
+- 新增 `federation_client.py`: CK_OpenClaw 雙向查詢介面 (httpx async, 30s timeout)
+- 新增 `ask_external_system` 工具 (第 20 個): 委派超出領域的查詢到外部 AI 系統
+- 支援系統: openclaw (URL + Token via env vars)
+- 12 個新測試通過
+
+#### 工具系統擴充
+- ToolRegistry: 18→20 工具 (+parse_document, +ask_external_system)
+- ToolResultGuard: 新增 2 個回退模板
+- 測試更新: tool count assertions 18→20
+
+---
+
+## [1.83.8] - 2026-03-16
+
+### 乾坤智能體 Phase 9.3 主動推薦 + 最終架構驗證
+
+#### Phase 9.3: 主動推薦服務
+- 新增 `proactive_recommender.py`: 掃描近 24h 新公文 × 使用者興趣匹配
+- 新增 `POST /ai/stats/recommendations` 端點 (個人化推薦)
+- 整合 ProactiveTriggerService → 新增 `recommendation` 警報類型
+- AI 服務模組: 62 個 (含 proactive_recommender, user_query_tracker)
+
+#### 最終架構驗證
+- 後端 .py 檔案: 376 個
+- 前端 .tsx 檔案: 407 個, .ts 檔案: 321 個
+- 後端測試: 116 files / 2289 passed
+- 前端測試: 201 files / 2754 passed
+- AI 服務模組: 62 個 (文件記載 57→62, +5 新模組)
+
+---
+
+## [1.83.7] - 2026-03-16
+
+### 乾坤智能體 Phase 8-9 + Embedding Backfill + Page Split R4
+
+#### Phase 8: 階層化評估信號
+- agent_self_evaluator: 信號分級 CRITICAL/HIGH/MEDIUM/LOW (取代二值 needs_improvement)
+- agent_orchestrator: 自適應超時 base + tool_count*2 + question_length/100 (cap 30s)
+- 27 個新測試通過
+
+#### Phase 9.1-9.2: 使用者查詢圖譜
+- 新增 `user_query_tracker.py`: Redis HINCRBY 原子計數 + 30 天 TTL
+- 5 類興趣標記: agency/project/document_type/entity/topic
+- orchestrator 非阻塞整合: `asyncio.create_task(tracker.track_query(...))`
+
+#### Chunk Embedding Backfill
+- backfill 腳本就緒 (`scripts/fixes/backfill_chunk_embeddings.py`)
+- pgvector 未安裝 → embedding 列不存在 → 需先安裝 pgvector
+
+#### Page Split Round 4
+- NavigationTreePanel: 614L → ~350L, 提取 NavigationTree/NavigationFormModal/constants
+
+#### 前後端清理
+- 移除 3 個 legacy GET fallback (vendors/documents/agencies API)
+- health.py HTTPException detail dict → string
+
+---
+
+## [1.83.6] - 2026-03-16
+
+### 乾坤智能體 Phase 6-7 + 前後端架構清理
+
+#### Phase 6: 生產數據基礎設施
+- DB 遷移驗證: agent_traces/tool_call_logs/learnings/chunks 全部就緒
+- document_chunks: 1092 筆已存在 (backfill 已完成)
+- search_vector (BM25): 1091/1088 筆已填充
+- agent_learnings: 1 筆初始學習記錄
+
+#### Phase 7.1: 學習注入語意篩選
+- agent_planner: 學習注入前 fetch 3x candidates → cosine similarity 篩選 top-5
+- 避免不相關學習干擾規劃品質
+
+#### 前後端架構清理
+- 移除 3 個 GET API fallback (vendorsApi/documentsApi/agenciesApi) — POST-only 下永不觸發
+- 清除 unused imports (ApiException, normalizePaginatedResponse, LegacyListResponse)
+- 移除 4 個對應的 GET fallback 測試
+- 後端安全掃描: 0 個 GET endpoint, 0 個 str(e) 洩漏至客戶端
+- 前端掃描: 0 個生產 `as any`, 0 個 apiClient.get (生產代碼)
+
+#### 測試結果
+- 前端: 201 files / 2754 passed / 0 failed
+- 後端: 2262 passed / 0 failed
+
+---
+
+## [1.83.5] - 2026-03-16
+
+### 系統全面審查 + SSOT 違規修正 + 架構優化建議
+
+#### 系統審查結果
+- 全面掃描 57 AI 模組 + 34 Repository + 50+ 前端頁面 + 186 測試檔案
+- 架構合規等級: **A 級** (SSOT/DI/Repository/React Query 全面遵循)
+- TypeScript 嚴格模式: 0 errors, 0 `as any`, 全開啟
+- ESLint: 0 errors, 7 warnings (不可避免 fast-refresh)
+
+#### 發現 & 修正 — SSOT 違規 (P0)
+- ⚠️ 3 個 endpoint 檔案定義了本地 BaseModel (違反 SSOT):
+  - `ai_stats.py`: 4 個 BaseModel → 應建立 `schemas/ai/stats.py`
+  - `line_webhook.py`: 1 個 BaseModel → 應搬至 `schemas/line.py`
+  - `dispatch_document_links.py`: 1 個 BaseModel → 應搬至 `schemas/taoyuan/`
+- `requirements.txt`: httpx 重複 (line 35 & 78)
+
+#### 規範文件更新
+- `CHANGELOG.md`: 新增 v1.83.5 全面審查記錄
+- `DEVELOPMENT_GUIDELINES.md`: 新增第 15 項常見錯誤 (endpoint 本地 BaseModel)
+- `skills-inventory.md`: 前端頁面拆分成果數據更新
+- `architecture.md`: AI 服務直接 ORM 查詢清單補充
+
+#### P1 測試覆蓋率大幅提升
+- AI Management 元件測試: 0% → 100% (11 test files, 135 tests)
+  - OverviewTab, HistoryTab, EmbeddingTab, KnowledgeGraphTab
+  - OllamaManagementTab, ServiceMonitorTab, AgentPerformanceTab
+  - PromptManagementPanel, SynonymManagementPanel, statusUtils, ManagementTabs
+- System hooks 測試: 23% → 77% (7 new test files, 72+ tests)
+  - useCalendar, useDashboard, useAdminUsers, useAIPrompts
+  - useAISynonyms, useDepartments, useDocumentStats
+- Business/Utility hooks 測試: (7 new test files)
+  - useDocumentCreateForm, useDocumentsWithStore, useProjectsWithStore
+  - useAgenciesWithStore, useVendorsWithStore, usePermissions, usePerformance
+- 前端測試總數: 186 → **201 files**, 2512 → **2758 tests** (+246)
+- 後端單元測試: 1728 → **2262 tests** (+534, 含新增服務測試)
+
+#### P2-1: Page Splitting Round 3 (4 頁面)
+- `ProfilePage.tsx`: 593L → 280L (-53%), 提取 ProfileInfoCard/AccountInfoCard/PasswordChangeModal
+- `AdminDashboardPage.tsx`: 567L → 247L (-56%), 提取 UserStatsCards/SystemAlertsCard/PendingUsersCard/QuickActionsPanel/DocumentStatsSection/RoleStatusReference
+- `StaffDetailPage.tsx`: 614L → 257L (-58%), 提取 StaffDetailHeader/StaffBasicInfoTab/StaffCertificationsTab
+- `SimpleDatabaseViewer.tsx`: 623L → 250L (-60%), 提取 DatabaseStatsCards/OverviewTable/RelationView/ApiMappingView/TableDetailModal
+
+#### P2-2: Tool Monitor 儀表板
+- 後端新增 `POST /ai/stats/tool-registry` 端點 (18 工具元資料+即時狀態)
+- 新增 `ToolRegistryItem`/`ToolRegistryResponse` schema (SSOT)
+- 前端 AgentPerformanceTab 新增 "工具清單" 表格 (名稱/描述/類別/優先序/上下文/狀態)
+
+#### 緊急修復: 資料庫遷移未套用
+- **根因**: ORM 定義 `ner_pending` 欄位但資料庫無此欄 → 所有 SELECT 查詢 500 錯誤被 catch 吞掉
+- 套用 5 個缺失遷移: ner_pending + agent_traces + agent_learnings + document_chunks + BM25 tsvector
+- Alembic 版本: `20260313a002` → `20260315a003`
+- 公文列表 (1088 筆) 和派工列表 (123 筆) 恢復正常
+
+#### 修復: 405 Method Not Allowed
+- `calendarApi.getGoogleStatus()`: GET → POST (符合 POST-only 政策)
+- `SystemHealthDashboard`: GET → POST
+
+#### 修復: antd v6 Deprecation 警告 (60+ 處)
+- `Drawer width` → `styles.wrapper.width` (3 處: Layout/DatabaseManagement/PreviewDrawer)
+- `Spin tip` → `Spin description` (20 處, 18 檔案)
+- `Card bodyStyle` → `styles.body` (2 處)
+- `notification({ message:` → `notification({ title:` (15+ 處, 8 檔案)
+
+---
+
+## [1.83.4] - 2026-03-16
+
+### TypeScript Strict Mode + 測試覆蓋率提升 + 服務修復
+
+#### TypeScript Strict Unused 正式啟用
+- `noUnusedLocals: true` + `noUnusedParameters: true` 正式啟用
+- 修復 43 個 src/ 檔案 + 4 個 shared-modules/ 檔案的 unused imports/variables
+- 生產程式碼: `_` 前綴模式用於保留變數，`void` 抑制用於未來使用的值
+- 測試程式碼: 移除 unused `React`/`screen`/`waitFor`/`fireEvent` imports
+
+#### 測試覆蓋率提升
+- 新增 8 個元件 smoke tests: PaymentsTab, ProjectsTab, DispatchOrdersTab, EventFormModal, LoginHistoryTab, MFASettingsTab, SimpleDatabaseViewer, DocumentPagination
+- 前端測試檔案: 133 → **186 個** (+53)
+- 類別分布: 56 pages + 63 components + 22 hooks + 13 API + 7 config + 2 utils
+
+#### 服務修復
+- Ollama healthcheck: `curl` → `wget` (容器無 curl 導致 unhealthy)
+- PM2 ck-backend: 停止 restart loop (port 8001 已被 uvicorn 佔用)
+- Review Checklist 外部化: `.claude/review-checklist.md`
+- QA Route Map: `.claude/qa-route-map.json` (8 E2E spec, 50+ trigger patterns)
+- 首個工程回顧基線: `.claude/retros/2026-03-16.json`
+
+---
+
+## [1.83.3] - 2026-03-16
+
+### gstack 啟發 — 認知模式分離 + 工作流強化
+
+> 參考: [garrytan/gstack](https://github.com/garrytan/gstack) — 8 種認知模式的開發工具
+
+#### 新增 Slash Commands (3 個)
+- **`/ship`** — 統一發布工作流 (5 階段: pre-flight → merge+test → pre-landing review → commit → PR)
+- **`/retro`** — 工程回顧指標追蹤 (commit 統計/LOC/測試比率/熱點/趨勢/JSON 持久化)
+- **`/qa-smart`** — Diff-Aware 智慧測試 (4 模式: diff/full/quick/regression + 8 維度健康度評分)
+
+#### 增強既有 Skills (2 個)
+- **`/code-review`** 升級為兩階段結構化審查 — Critical pass (安全+正確性) → Informational pass (品質+規範) + CK_Missive 專案規範檢查
+- **`/plan`** 加入 gstack Scope 模式 — Step 0 前提挑戰 + 3 種 Scope 模式 (EXPANSION/HOLD/REDUCTION) + 9 條 Prime Directives
+
+#### gstack 對照分析結論
+- 採納: 認知模式分離、統一發布管線、diff-aware 測試、結構化審查
+- 不採納: 持久化瀏覽器 (使用 Playwright E2E 替代)、Cookie 導入 (macOS 專用)
+- Commands 總數: 18 → 21 個
+
+---
+
+## [1.83.2] - 2026-03-16
+
+### 系統規範全面審計 + 文件同步 + 測試覆蓋率提升
+
+#### 規範文件全量更新
+- `architecture.md`: AI 服務模組數修正 44→57 (13 個缺漏模組補齊)
+- `architecture.md`: 新增後端 Repository 層結構 (34 類別: 21 ORM + 7 關聯 + 3 QueryBuilder + 3 桃園)
+- `architecture.md`: 新增前端 Hooks 完整結構 (39 檔, 150+ hooks, 4 目錄分類)
+- `architecture.md`: 新增 3 個 ORM 模型 (agent_trace, agent_learning, document_chunk)
+- `skills-inventory.md`: Agent 模組清單更新至 24 個 (含 user_preference_extractor, document_chunker)
+- `skills-inventory.md`: 新增 AI 服務全量分類表 (7 大類, 57 模組)
+- `skills-inventory.md`: 新增 AI Management Tabs 完整清單 (14 個 Tab + API 端點對照)
+- `ci-cd.md`: 新增 `bundle-size-check` Job (10 → 10 Jobs 完整記錄)
+
+#### 測試覆蓋率提升
+- 新增 17 個頁面 smoke tests (覆蓋率缺口 30% → 0%)
+- 新增 7 個關鍵 Hooks 測試 (useDocuments/useProjects/useVendors/useCalendar 等)
+- 前端測試檔案: 80 → 97+ 檔
+
+#### Memory 修正
+- AI 服務模組數: 44→57
+- 前端頁面檔案數: 89→57 (修正統計錯誤)
+- Bundle chunks: 22→23
+- Config version: 1.83.0→1.83.1
+
+#### 系統審計發現
+- AI Management 3 個 wrapper Tab (ServiceStatus/DataAnalytics/DataPipeline) API 端點全部正確對應
+- Repository 層 34 類別完整運作 (含 3 個 Fluent Query Builder)
+- 前端 Hooks 三層架構: React Query → WithStore → 業務特定
+
+---
+
+## [1.83.1] - 2026-03-15
+
+### 乾坤智能體 v3.1.0 — 自主成長能力強化 + NexusMind 對標分析
+
+#### 自主成長能力 (對標 OpenClaw / NexusMind)
+- **Chain-of-Tools**: `tool_chain_resolver.py` (175L) — 自動從前輪結果萃取 entity_id/dispatch_id/document_id 注入後續工具參數，19 tests
+- **Cross-session Learning**: AgentPlanner 查詢時從 DB 載入歷史學習，注入 LLM planning prompt，11 tests
+- **Pattern Learner Seeds**: `pattern_seeds.py` 29 個冷啟動模式 (7 類別)，首次查詢自動載入，13 tests
+- **Agent Benchmark Suite**: `test_agent_benchmark.py` 50 標準問答 (8 類別, 14 工具)，21 回歸測試
+
+#### 模組拆分重構
+- `agent_tools.py` 1215L → 260L (-79%): 拆為 SearchToolExecutor(540L) + AnalysisToolExecutor(405L) + DomainToolExecutor(105L)
+- `agent_synthesis.py` 745L → 518L (-30%): 提取 citation_validator(85L) + thinking_filter(187L)
+- Agent 模組 15→22 個，總計 491 tests 通過
+
+#### RAG 管線升級 (NexusMind 借鑑)
+- **Document Chunking**: `DocumentChunk` 模型 + `document_chunker.py` (段落分割+滑動窗口+合併) + Alembic migration
+- **BM25 全文搜尋**: `tsvector` + GIN index + 觸發器自動更新 + chunk retrieval BM25 boost
+- **雙層使用者記憶**: `user_preference_extractor.py` — 規則式偏好萃取 (topic/format) + Redis+DB 雙寫 + planner 注入
+- RAG pipeline: doc-level → chunk-level retrieval (graceful fallback)
+
+#### 前後端架構全面複查
+- 後端 391 API 端點, 37 Repository, 24 Agent 模組
+- 後端大服務待拆: graph_query_service(1416L), code_graph_service(1262L), dispatch_order_service(990L)
+- 前端 14 頁面 >500L (已完成 Top 4 拆分，Round 2 待續)
+- 前端測試覆蓋率 39% (目標 80%)
+- 無循環匯入、無 console.log 汙染、型別 SSOT 合規
+
+#### NexusMind 對標結論
+- 我方優勢: 自我學習、Chain-of-Tools、多域協調、工具監控、品質基準 (NexusMind 均無)
+- 已採納: 文件分段 Embedding (P0)、BM25 混合搜尋 (P1)、雙層使用者記憶 (P1)
+
+---
+
+## [1.83.0] - 2026-03-15
+
+### 乾坤智能體統整 + 大頁面拆分 + Phase 5 重構
+
+#### 乾坤智能體 (OpenClaw Agent) 架構統整
+- 完成 15 模組清單盤點 (5,554 行, 327 測試)
+- Phase 1-3 全部完成: ReAct loop, 角色系統, Trace, 工具監控, 模式學習, 對話壓縮, 路由, 多域協調
+- `ai_config.py` 升級至 v3.0.0 (48 配置參數)
+- `tool_registry.py` 管理 18 工具 (含 PM/ERP 擴充)
+- `agent_pattern_learner.py` 升級 v2.0.0: Jaccard → Embedding cosine similarity
+- `agent_summarizer.py` 升級 v2.0.0: 3-Tier Adaptive Compaction + 學習萃取持久化
+
+#### 前端大頁面模組化拆分 (Top 4)
+- `CodeGraphManagementPage` 921L → 526L (-43%): 拆出 CodeGraphSidebar, ModuleConfigPanel, ArchitectureOverviewTab
+- `BackupManagementPage` 920L → 404L (-56%): 拆出 5 Tab 元件 + StatsCards
+- `KnowledgeGraphPage` 812L → 326L (-60%): 拆出 GraphLeftPanel, ShortestPathFinder, MergeEntitiesModal 等 5 元件
+- `TaoyuanDispatchDetailPage` 912L → 545L (-40%): 拆出 DispatchDetailHeader + 2 hooks
+- 總計: 3,565L → 1,801L (-49%), 新增 18 個模組化檔案
+
+#### Phase 5 重構進度
+- `agent_tools.py`: 1512L → 1215L (提取 agent_diagram_builder.py 323L)
+- `agent_orchestrator.py`: 920L → 804L (提取 agent_conversation_memory.py 137L)
+- LINE Push Scheduler: ProactiveTriggerService → LineBotService 整合
+- Agent Performance: daily-trend API + LineChart (14 天查詢/延遲趨勢)
+
+#### 系統文件更新
+- `architecture.md`: 新增 44 模組 AI 服務結構 + 頁面模組化目錄
+- `skills-inventory.md`: 新增 v1.83.0 智能體完整清單 + 配置參數 + 拆分成果
+- Memory: 更新乾坤智能體發展進度與優化事項
+
+---
+
+## [1.82.0] - 2026-03-13
+
+### 收發文正規化 + 知識圖譜強化 + 資料品質監測
+
+#### 收發文單位正規化 (Receiver/Sender Normalization)
+- 新增 `receiver_normalizer.py` — 6 種正規化模式：統編前綴移除、機關代碼括號格式、多受文者分割、換行正規化、代表人後綴移除、協力廠商後綴移除
+- NFKC Unicode 雙向正規化 + 公文字號 → 機關名稱推斷 (如 `府工用字第` → `桃園市政府工務局`)
+- `backfill_normalized_fields.py` 回填腳本 (200 筆/批次，支援 dry-run)
+- 14 個單元測試覆蓋所有正規化模式
+
+#### 資料庫 Schema 擴充 (+8 欄位, +3 FK)
+- `documents`: `normalized_sender`, `normalized_receiver` (indexed), `cc_receivers` (JSON), `keywords` (JSON)
+- `government_agencies`: `tax_id` (unique), `is_self`, `parent_agency_id` (自參照 FK)
+- `canonical_entities`: `linked_agency_id` (FK), `linked_project_id` (FK) — NER 實體自動連結業務記錄
+- 2 支 Alembic 遷移：`20260313a001`, `20260313a002`
+
+#### 知識圖譜查詢強化
+- `graph_query_service` 重構 (835 → 1700+ 行)：7-Phase 公文知識圖譜 Pipeline
+- 三階段同源實體合併：完全匹配 → 包含匹配 (40% 閾值) → 文件共現配對
+- 新增參數：`year` (民國年度篩選)、`collapse_agency` (同源合併開關)
+- Redis 快取 (TTL=5min, key 含 entity_types/mentions/limit/year/collapse)
+
+#### NER 提取排程器升級 (事件驅動)
+- `extraction_scheduler` 升級為混合模式 (polling 60min + event-driven)
+- `notify_new_documents()` — 文件建立時立即觸發 NER，無需等待排程
+- `canonical_entity_service` 新增自動連結：org → agency, project → project
+
+#### Tool Registry (工具註冊中心)
+- 新增 `tool_registry.py` (v1.0.0) — Singleton 集中管理 9 個 Agent 工具
+- LLM Schema + Few-shot 範例 + 上下文感知篩選 (doc/dev/all)
+- `agent_tools.py` 工具數 6 → 9 (新增 navigate_graph, summarize_entity, draw_diagram)
+
+#### 前端知識圖譜 UI 升級
+- 視圖模式切換 (`entity` / `full`)
+- `GraphToolbar` 新增年度篩選 Slider + 同源合併開關
+- GraphNode 新增 `fullLabel`, `dispatch_nos` 屬性
+- ChatMessage / AgentStepInfo SSOT 型別定義
+
+#### 系統健康監測擴充
+- 資料品質指標面板：發文機關 FK 覆蓋率 / 受文機關 FK 覆蓋率 / NER 覆蓋率
+- `SystemHealthDashboard` 新增 data_quality 區塊
+
+#### 文件匯入增強
+- Excel 匯入自動呼叫 `receiver_normalizer.normalize_unit()`
+- 公文 CRUD 自動回填 normalized 欄位 + 觸發 NER 排程
+
+---
+
 ## [1.81.0] - 2026-03-11
 
 ### 知識庫瀏覽器 + Bundle 優化 + 程式碼品質強化
