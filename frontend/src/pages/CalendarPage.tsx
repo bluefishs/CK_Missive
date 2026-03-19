@@ -407,7 +407,7 @@ const CalendarPage: React.FC = () => {
         placement="right"
         onClose={() => setSidebarVisible(false)}
         open={sidebarVisible}
-        destroyOnClose
+        destroyOnHidden
         width={isMobile ? '85%' : 350}
         styles={{
           body: { padding: '12px' }

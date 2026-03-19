@@ -285,7 +285,7 @@ export const DocumentProjectLinkTab: React.FC<DocumentProjectLinkTabProps> = ({
         okText="新增並關聯"
         cancelText="取消"
         width={600}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={createForm} layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item

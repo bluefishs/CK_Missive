@@ -123,7 +123,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             placement="left"
             open={drawerVisible}
             onClose={() => setDrawerVisible(false)}
-            destroyOnClose
+            destroyOnHidden
             aria-label="導覽選單"
             styles={{
               wrapper: { width: 256 },

@@ -245,7 +245,7 @@ const VendorPayablesTab: React.FC<VendorPayablesTabProps> = ({ erpQuotationId })
         onOk={handleSubmit}
         onCancel={handleCancel}
         confirmLoading={createMutation.isPending || updateMutation.isPending}
-        destroyOnClose
+        destroyOnHidden
         width={600}
       >
         <Form form={form} layout="vertical" preserve={false}>

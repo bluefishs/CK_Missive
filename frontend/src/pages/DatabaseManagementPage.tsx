@@ -318,7 +318,7 @@ export const DatabaseManagementPage: React.FC = () => {
           title="增強型資料庫檢視"
           onClose={() => setEnhancedDrawerVisible(false)}
           open={enhancedDrawerVisible}
-          destroyOnClose
+          destroyOnHidden
           styles={{ wrapper: { width: '90%' }, body: { padding: 0 } }}
         >
           <SimpleDatabaseViewer />

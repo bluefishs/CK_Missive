@@ -237,11 +237,13 @@ class VendorService:
         """
         # 檢查統一編號是否重複
         if data.vendor_code:
-            existing = await self.repository.get_by_field('vendor_code', data.vendor_code)
+            existing = await self.repository.search(
+                search_term=data.vendor_code, search_fields=['vendor_code'], limit=1,
+            )
             if existing:
                 raise ValueError(f"廠商統一編號 {data.vendor_code} 已存在")
 
-        return await self.repository.create(data)
+        return await self.repository.create(data.model_dump(exclude_unset=True))
 
     async def update(
         self,
@@ -258,7 +260,7 @@ class VendorService:
         Returns:
             更新後的廠商，或 None（如不存在）
         """
-        return await self.repository.update(vendor_id, data)
+        return await self.repository.update(vendor_id, data.model_dump(exclude_unset=True))
 
     async def delete(self, vendor_id: int) -> bool:
         """
