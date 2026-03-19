@@ -19,7 +19,6 @@ import type {
 import { DeploymentStatusTag } from './StatusTags';
 
 const { Text } = Typography;
-const { Panel } = Collapse;
 
 interface TriggerModalProps {
   visible: boolean;
@@ -142,23 +141,23 @@ export const LogsModal: React.FC<LogsModalProps> = ({
               { key: '狀態', label: '狀態', children: (<DeploymentStatusTag status={logs.status as DeploymentStatus} />) },
             ]} />
 
-            <Collapse defaultActiveKey={logs.jobs.map((_, i) => i.toString())}>
-              {logs.jobs.map((job, index) => (
-                <Panel
-                  key={index}
-                  header={
-                    <Space>
-                      {job.status === 'success' ? (
-                        <CheckCircleOutlined style={{ color: '#52c41a' }} />
-                      ) : job.status === 'failure' ? (
-                        <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
-                      ) : (
-                        <SyncOutlined spin />
-                      )}
-                      {job.job_name}
-                    </Space>
-                  }
-                >
+            <Collapse
+              defaultActiveKey={logs.jobs.map((_, i) => i.toString())}
+              items={logs.jobs.map((job, index) => ({
+                key: index.toString(),
+                label: (
+                  <Space>
+                    {job.status === 'success' ? (
+                      <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                    ) : job.status === 'failure' ? (
+                      <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
+                    ) : (
+                      <SyncOutlined spin />
+                    )}
+                    {job.job_name}
+                  </Space>
+                ),
+                children: (
                   <pre
                     style={{
                       background: '#f5f5f5',
@@ -171,9 +170,9 @@ export const LogsModal: React.FC<LogsModalProps> = ({
                   >
                     {job.logs}
                   </pre>
-                </Panel>
-              ))}
-            </Collapse>
+                ),
+              }))}
+            />
           </Space>
         )}
       </Spin>
