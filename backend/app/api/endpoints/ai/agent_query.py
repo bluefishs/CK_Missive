@@ -61,6 +61,37 @@ async def agent_query_stream(
     )
 
 
+@router.post("/agent/nemoclaw/stream")
+async def nemoclaw_query_stream(
+    request: AgentQueryRequest,
+    current_user: User = Depends(require_auth()),
+    db: AsyncSession = Depends(get_async_db),
+) -> StreamingResponse:
+    """
+    NemoClaw 代理人串流問答 — 自覺型 Agent
+
+    在原有 Agent 基礎上增加:
+      data: {"type":"self_awareness","identity":"...","personality":"...","strengths":[...]}
+      data: {"type":"proactive_alert","message":"...","count":N}
+
+    對比測試: 同一問題分別用 /agent/query/stream (傳統) 和 /agent/nemoclaw/stream (代理人)
+    """
+    from app.services.ai.nemoclaw_agent import NemoClawAgent
+
+    agent = NemoClawAgent(db)
+
+    return create_sse_response(
+        stream_fn=lambda: agent.stream_query(
+            question=request.question,
+            history=request.history,
+            session_id=request.session_id,
+            context=request.context,
+        ),
+        endpoint_name="NemoClaw",
+        done_extra={"tools_used": [], "iterations": 0},
+    )
+
+
 _SESSION_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 
 
