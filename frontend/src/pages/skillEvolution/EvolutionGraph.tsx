@@ -35,18 +35,40 @@ export const EvolutionGraph: React.FC<EvolutionGraphProps> = ({
     return () => obs.disconnect();
   }, []);
 
-  // Force config: spread nodes apart
+  // Force config: cluster by category + spread apart
   useEffect(() => {
     const fg = fgRef.current;
     if (!fg) return;
-    fg.d3Force('charge')?.strength(-400);
+
+    // 按類別分配星團中心座標（環形排列）
+    const catKeys = Object.keys(categories);
+    const clusterCenters: Record<string, { x: number; y: number }> = {};
+    const radius = 200;
+    catKeys.forEach((cat, i) => {
+      const angle = (2 * Math.PI * i) / catKeys.length - Math.PI / 2;
+      clusterCenters[cat] = { x: radius * Math.cos(angle), y: radius * Math.sin(angle) };
+    });
+
+    fg.d3Force('charge')?.strength(-250);
     fg.d3Force('link')?.distance((link: { source: GraphNode; target: GraphNode }) => {
       const s = typeof link.source === 'object' ? link.source : null;
       const t = typeof link.target === 'object' ? link.target : null;
-      return 50 + ((s?.size ?? 10) + (t?.size ?? 10)) * 1.2;
+      // 同類別距離短，跨類別距離長
+      const sameCat = s?.category === t?.category;
+      return sameCat ? 30 + ((s?.size ?? 8) + (t?.size ?? 8)) : 80 + ((s?.size ?? 8) + (t?.size ?? 8)) * 1.5;
     });
-    fg.d3Force('center')?.strength(0.04);
-  }, [graphData]);
+
+    // Cluster force: 用 charge 的 x/y 初始位置讓同類別聚在一起
+    // 設定節點初始位置（按類別星團中心 + 小隨機偏移）
+    for (const node of graphData.nodes) {
+      const center = clusterCenters[node.category];
+      if (center && node.x == null) {
+        node.x = center.x + (Math.random() - 0.5) * 60;
+        node.y = center.y + (Math.random() - 0.5) * 60;
+      }
+    }
+    fg.d3Force('center')?.strength(0.02);
+  }, [graphData, categories]);
 
   useEffect(() => {
     if (highlightNodeId != null && fgRef.current) {

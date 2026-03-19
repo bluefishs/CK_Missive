@@ -497,6 +497,7 @@ class AgentOrchestrator:
                     type="tool_call",
                     tool=tool_name,
                     params=params,
+                    reasoning=call.get("reasoning", ""),  # Intent transparency
                     step_index=step_index,
                 ))
                 step_index += 1
@@ -542,6 +543,7 @@ class AgentOrchestrator:
                         type="tool_call",
                         tool=call.get("name", ""),
                         params=call.get("params", {}),
+                        reasoning=call.get("reasoning", ""),  # Intent transparency
                         step_index=step_index,
                     ))
                     step_index += 1

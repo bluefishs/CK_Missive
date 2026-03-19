@@ -33,6 +33,61 @@ from app.services.ai.user_query_tracker import get_query_tracker
 logger = logging.getLogger(__name__)
 
 
+async def self_talk(
+    question: str,
+    answer: str,
+    tools_used: list,
+    tool_results: list,
+    ai_connector: Any,
+    db: Any,
+) -> None:
+    """NemoClaw 自省對話：Agent 與自己對話，產生改進教訓"""
+    try:
+        tools_summary = ", ".join(tools_used) if tools_used else "無"
+        result_count = sum(r.get("count", 0) for r in tool_results)
+
+        messages = [
+            {"role": "system", "content": "你是一個 AI 自省助手。分析以下問答過程，提出改進建議。只輸出 JSON。"},
+            {"role": "user", "content": f"""問題：{question[:200]}
+回答摘要：{answer[:200]}
+使用工具：{tools_summary}
+結果數量：{result_count}
+
+請回答：
+1. 工具選擇是否最優？有更好的工具嗎？
+2. 回答品質的主要問題是什麼？
+3. 如果同樣問題再來，應該怎麼做不同？
+
+JSON 格式：{{"tool_feedback": "...", "quality_issue": "...", "lesson": "...", "confidence": 0.0-1.0}}"""}
+        ]
+
+        reflection = await ai_connector.chat_completion(
+            messages=messages,
+            temperature=0.3,
+            max_tokens=200,
+            prefer_local=True,  # 用 vLLM/Ollama 本地推理
+        )
+
+        # Parse and store the lesson
+        from app.services.ai.agent_utils import parse_json_safe
+        parsed = parse_json_safe(reflection)
+        if parsed and parsed.get("lesson"):
+            from app.extended.models import AgentLearning
+            learning = AgentLearning(
+                session_id="self-talk",
+                learning_type="self_reflection",
+                pattern=question[:200],
+                lesson=parsed["lesson"],
+                confidence=float(parsed.get("confidence", 0.5)),
+                metadata={"tool_feedback": parsed.get("tool_feedback"), "quality_issue": parsed.get("quality_issue")},
+            )
+            db.add(learning)
+            await db.commit()
+            logger.info("Self-talk reflection saved: %s", parsed["lesson"][:80])
+    except Exception as e:
+        logger.debug("Self-talk failed (non-critical): %s", e)
+
+
 async def self_evaluate_and_evolve(
     question: str,
     answer: str,
@@ -236,5 +291,15 @@ async def run_post_synthesis(
             ctx.trace, citation_result,
         )
     )
+
+    # 非阻塞：NemoClaw 自省對話 (用 vLLM 本地推理)
+    if ctx.tool_results and ctx.ai:
+        asyncio.create_task(
+            self_talk(
+                ctx.question, ctx.answer_text,
+                ctx.tools_used, ctx.tool_results,
+                ctx.ai, ctx.db,
+            )
+        )
 
     return events

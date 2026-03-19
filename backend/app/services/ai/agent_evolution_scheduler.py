@@ -103,6 +103,7 @@ class AgentEvolutionScheduler:
             "actions": [],
             "signals_consumed": 0,
         }
+        actions_taken: list = []
 
         try:
             # 1. 消費改進信號
@@ -121,6 +122,7 @@ class AgentEvolutionScheduler:
                     "count": len(promoted),
                     "patterns": promoted,
                 })
+                actions_taken.append({"type": "promote", "count": len(promoted)})
 
             # 4. 降級持續失敗的模式
             demoted = await self._demote_failing_patterns()
@@ -130,6 +132,7 @@ class AgentEvolutionScheduler:
                     "count": len(demoted),
                     "patterns": demoted,
                 })
+                actions_taken.append({"type": "demote", "count": len(demoted)})
 
             # 5. 計算品質趨勢
             trend = await self._compute_quality_trend()
@@ -142,6 +145,7 @@ class AgentEvolutionScheduler:
                     "type": "cleanup",
                     "removed": cleaned,
                 })
+                actions_taken.append({"type": "cleanup", "count": cleaned})
 
             # 記錄進化時間
             await self.redis.set(LAST_EVOLUTION_KEY, str(time.time()))
@@ -162,6 +166,21 @@ class AgentEvolutionScheduler:
                 report["signals_consumed"], total_actions,
                 trend.get("slope", 0) if trend else 0,
             )
+
+            # 進化日誌：記錄本次進化
+            try:
+                query_count_raw = await self.redis.get(QUERY_COUNTER_KEY)
+                query_count = int(query_count_raw) if query_count_raw else 0
+                journal_entry = json.dumps({
+                    "timestamp": time.time(),
+                    "triggered_by": "query_count" if query_count >= self.EVOLVE_EVERY_N_QUERIES else "time_interval",
+                    "actions": actions_taken,
+                    "signals_processed": len(signals),
+                }, ensure_ascii=False)
+                await self.redis.lpush("agent:evolution:journal", journal_entry)
+                await self.redis.ltrim("agent:evolution:journal", 0, 99)  # Keep last 100
+            except Exception:
+                pass
 
         except Exception as e:
             logger.warning("Evolution failed (non-critical): %s", e)
