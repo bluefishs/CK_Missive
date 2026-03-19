@@ -72,8 +72,6 @@ class TestEntityTypeMap:
         ("案件", "project"),
         ("地點", "location"),
         ("地址", "location"),
-        ("主題", "topic"),
-        ("議題", "topic"),
         ("日期", "date"),
         ("時間", "date"),
     ])
@@ -127,8 +125,8 @@ class TestToolExecutorRouting:
 
     @pytest.mark.asyncio
     async def test_dispatch_to_search_entities(self, executor):
-        with patch(
-            "app.services.ai.agent_tools.AgentToolExecutor._search_entities",
+        with patch.object(
+            executor._search, "search_entities",
             new_callable=AsyncMock,
             return_value={"entities": [], "count": 0},
         ) as mock:
@@ -138,8 +136,8 @@ class TestToolExecutorRouting:
 
     @pytest.mark.asyncio
     async def test_dispatch_to_get_statistics(self, executor):
-        with patch(
-            "app.services.ai.agent_tools.AgentToolExecutor._get_statistics",
+        with patch.object(
+            executor._analysis, "get_statistics",
             new_callable=AsyncMock,
             return_value={"stats": {}, "top_entities": [], "count": 1},
         ) as mock:
@@ -161,7 +159,7 @@ class TestSearchEntities:
             "app.services.ai.graph_query_service.GraphQueryService",
             return_value=mock_svc,
         ):
-            result = await executor._search_entities({
+            result = await executor._search.search_entities({
                 "query": "test",
                 "entity_type": "organization",
                 "limit": 5,
@@ -180,7 +178,7 @@ class TestSearchEntities:
             "app.services.ai.graph_query_service.GraphQueryService",
             return_value=mock_svc,
         ):
-            await executor._search_entities({"query": "test", "limit": 100})
+            await executor._search.search_entities({"query": "test", "limit": 100})
             _, kwargs = mock_svc.search_entities.call_args
             assert kwargs["limit"] == 20
 
@@ -190,7 +188,7 @@ class TestGetEntityDetail:
 
     @pytest.mark.asyncio
     async def test_missing_entity_id(self, executor):
-        result = await executor._get_entity_detail({})
+        result = await executor._analysis.get_entity_detail({})
         assert "error" in result
         assert "entity_id" in result["error"]
 
@@ -203,7 +201,7 @@ class TestGetEntityDetail:
             "app.services.ai.graph_query_service.GraphQueryService",
             return_value=mock_svc,
         ):
-            result = await executor._get_entity_detail({"entity_id": 999})
+            result = await executor._analysis.get_entity_detail({"entity_id": 999})
             assert "error" in result
             assert "999" in result["error"]
 
@@ -221,7 +219,7 @@ class TestGetEntityDetail:
             "app.services.ai.graph_query_service.GraphQueryService",
             return_value=mock_svc,
         ):
-            result = await executor._get_entity_detail({"entity_id": 1})
+            result = await executor._analysis.get_entity_detail({"entity_id": 1})
             assert result["count"] == 1
             assert result["entity"]["canonical_name"] == "工務局"
 
@@ -231,7 +229,7 @@ class TestFindSimilar:
 
     @pytest.mark.asyncio
     async def test_missing_document_id(self, executor):
-        result = await executor._find_similar({})
+        result = await executor._search.find_similar({})
         assert "error" in result
         assert "document_id" in result["error"]
 
@@ -241,7 +239,7 @@ class TestFindSimilar:
         mock_result.scalar_one_or_none.return_value = None
         executor.db.execute.return_value = mock_result
 
-        result = await executor._find_similar({"document_id": 999})
+        result = await executor._search.find_similar({"document_id": 999})
         assert "error" in result
         assert "999" in result["error"]
 
@@ -259,7 +257,7 @@ class TestGetStatistics:
             "app.services.ai.graph_query_service.GraphQueryService",
             return_value=mock_svc,
         ):
-            result = await executor._get_statistics({})
+            result = await executor._analysis.get_statistics({})
             assert result["count"] == 1
             assert result["stats"]["total_entities"] == 100
             assert len(result["top_entities"]) == 1
@@ -312,7 +310,7 @@ class TestExecuteParallel:
 
     @pytest.mark.asyncio
     async def test_parallel_one_tool_fails(self, executor):
-        """一個工具失敗不影響其他工具"""
+        """一個工具失敗不影響其他工具（ToolResultGuard 啟用）"""
         calls = [
             {"name": "search_documents", "params": {"keywords": ["test"]}},
             {"name": "search_entities", "params": {"query": "test"}},
@@ -342,15 +340,16 @@ class TestExecuteParallel:
                 results = await executor.execute_parallel(calls, tool_timeout=15)
 
             assert len(results) == 2
-            # 第一個失敗，應有 error
-            assert "error" in results[0]
-            assert "工具執行失敗" in results[0]["error"]
+            # 第一個失敗 → ToolResultGuard 回傳 guarded 結果
+            assert results[0].get("guarded") is True
+            assert "工具執行失敗" in results[0].get("guard_reason", "")
+            assert results[0]["documents"] == []
             # 第二個成功
             assert results[1]["count"] == 0
 
     @pytest.mark.asyncio
     async def test_parallel_timeout(self, executor):
-        """工具超時處理"""
+        """工具超時處理（ToolResultGuard 啟用）"""
         import asyncio
 
         calls = [
@@ -376,14 +375,63 @@ class TestExecuteParallel:
                 results = await executor.execute_parallel(calls, tool_timeout=0.01)
 
             assert len(results) == 1
-            assert "error" in results[0]
-            assert "超時" in results[0]["error"]
+            assert results[0].get("guarded") is True
+            assert "超時" in results[0].get("guard_reason", "")
 
     @pytest.mark.asyncio
     async def test_parallel_empty_calls(self, executor):
         """空呼叫列表"""
         results = await executor.execute_parallel([], tool_timeout=15)
         assert results == []
+
+
+class TestSanitizeParams:
+    """_sanitize_params 參數驗證測試"""
+
+    def test_string_truncation(self):
+        params = {"keywords": "A" * 1000}
+        result = AgentToolExecutor._sanitize_params(params)
+        assert len(result["keywords"]) == 500
+
+    def test_list_truncation(self):
+        params = {"keywords": [f"kw{i}" for i in range(30)]}
+        result = AgentToolExecutor._sanitize_params(params)
+        assert len(result["keywords"]) == 20
+
+    def test_list_item_string_truncation(self):
+        params = {"keywords": ["A" * 1000, "short"]}
+        result = AgentToolExecutor._sanitize_params(params)
+        assert len(result["keywords"][0]) == 500
+        assert result["keywords"][1] == "short"
+
+    def test_limit_clamped_to_max_50(self):
+        result = AgentToolExecutor._sanitize_params({"limit": 999})
+        assert result["limit"] == 50
+
+    def test_limit_clamped_to_min_1(self):
+        result = AgentToolExecutor._sanitize_params({"limit": -5})
+        assert result["limit"] == 1
+
+    def test_limit_invalid_type_defaults(self):
+        result = AgentToolExecutor._sanitize_params({"limit": "not_a_number"})
+        assert result["limit"] == 10
+
+    def test_top_k_clamped(self):
+        result = AgentToolExecutor._sanitize_params({"top_k": 100})
+        assert result["top_k"] == 20
+
+    def test_numeric_passthrough(self):
+        result = AgentToolExecutor._sanitize_params({"entity_id": 42, "threshold": 0.8})
+        assert result["entity_id"] == 42
+        assert result["threshold"] == 0.8
+
+    def test_bool_passthrough(self):
+        result = AgentToolExecutor._sanitize_params({"include_docs": True})
+        assert result["include_docs"] is True
+
+    def test_empty_params(self):
+        result = AgentToolExecutor._sanitize_params({})
+        assert result == {}
 
 
 class TestSearchDispatchOrders:
@@ -399,7 +447,7 @@ class TestSearchDispatchOrders:
             "app.repositories.taoyuan.dispatch_order_repository.DispatchOrderRepository",
             return_value=mock_repo,
         ):
-            result = await executor._search_dispatch_orders({"dispatch_no": "014"})
+            result = await executor._search.search_dispatch_orders({"dispatch_no": "014"})
             mock_repo.filter_dispatch_orders.assert_called_once()
             call_kwargs = mock_repo.filter_dispatch_orders.call_args[1]
             assert call_kwargs["search"] == "014"
@@ -414,7 +462,7 @@ class TestSearchDispatchOrders:
             "app.repositories.taoyuan.dispatch_order_repository.DispatchOrderRepository",
             return_value=mock_repo,
         ):
-            result = await executor._search_dispatch_orders({"search": "道路工程"})
+            result = await executor._search.search_dispatch_orders({"search": "道路工程"})
             call_kwargs = mock_repo.filter_dispatch_orders.call_args[1]
             assert call_kwargs["search"] == "道路工程"
 
@@ -428,6 +476,95 @@ class TestSearchDispatchOrders:
             "app.repositories.taoyuan.dispatch_order_repository.DispatchOrderRepository",
             return_value=mock_repo,
         ):
-            await executor._search_dispatch_orders({"search": "test", "limit": 100})
+            await executor._search.search_dispatch_orders({"search": "test", "limit": 100})
             call_kwargs = mock_repo.filter_dispatch_orders.call_args[1]
             assert call_kwargs["limit"] == 20
+
+
+class TestGetSystemHealth:
+    """get_system_health 工具測試（乾坤智能體專用）"""
+
+    @pytest.mark.asyncio
+    async def test_basic_health_report(self, executor):
+        """基本健康報告回傳 summary + count"""
+        mock_svc = MagicMock()
+        mock_svc.build_summary = AsyncMock(return_value={
+            "database": {"status": "healthy"},
+            "resources": {"cpu_percent": 25.0},
+        })
+
+        with patch(
+            "app.services.system_health_service.SystemHealthService",
+            return_value=mock_svc,
+        ):
+            result = await executor._analysis.get_system_health_report({})
+            assert result["count"] == 1
+            assert "summary" in result
+            assert result["summary"]["database"]["status"] == "healthy"
+            mock_svc.build_summary.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_with_benchmarks(self, executor):
+        """include_benchmarks=True 時包含效能基準"""
+        mock_svc = MagicMock()
+        mock_svc.build_summary = AsyncMock(return_value={"database": {}})
+        mock_svc.run_performance_benchmarks = AsyncMock(return_value={
+            "query_latency_ms": 12.5,
+        })
+        mock_svc.get_performance_recommendations = MagicMock(return_value=[
+            "Consider adding index on documents.sender",
+        ])
+
+        with patch(
+            "app.services.system_health_service.SystemHealthService",
+            return_value=mock_svc,
+        ):
+            result = await executor._analysis.get_system_health_report({"include_benchmarks": True})
+            assert result["count"] == 1
+            assert "benchmarks" in result["summary"]
+            assert result["summary"]["benchmarks"]["query_latency_ms"] == 12.5
+            assert "recommendations" in result["summary"]
+            assert len(result["summary"]["recommendations"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_benchmarks_error_graceful(self, executor):
+        """效能基準失敗時不影響基本報告"""
+        mock_svc = MagicMock()
+        mock_svc.build_summary = AsyncMock(return_value={"database": {}})
+        mock_svc.run_performance_benchmarks = AsyncMock(
+            side_effect=RuntimeError("benchmark failed"),
+        )
+
+        with patch(
+            "app.services.system_health_service.SystemHealthService",
+            return_value=mock_svc,
+        ):
+            result = await executor._analysis.get_system_health_report({"include_benchmarks": True})
+            assert result["count"] == 1
+            assert "error" in result["summary"]["benchmarks"]
+
+    @pytest.mark.asyncio
+    async def test_without_benchmarks_default(self, executor):
+        """預設不執行效能基準"""
+        mock_svc = MagicMock()
+        mock_svc.build_summary = AsyncMock(return_value={"status": "ok"})
+
+        with patch(
+            "app.services.system_health_service.SystemHealthService",
+            return_value=mock_svc,
+        ):
+            result = await executor._analysis.get_system_health_report({})
+            mock_svc.run_performance_benchmarks.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_dispatch_routes_to_handler(self, executor):
+        """execute() 能正確路由到 get_system_health"""
+        mock_svc = MagicMock()
+        mock_svc.build_summary = AsyncMock(return_value={"status": "ok"})
+
+        with patch(
+            "app.services.system_health_service.SystemHealthService",
+            return_value=mock_svc,
+        ):
+            result = await executor.execute("get_system_health", {})
+            assert result["count"] == 1

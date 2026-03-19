@@ -234,9 +234,20 @@ class TestCleanEntitiesConstants:
 # merge_cross_type_dupes 測試
 # ============================================================================
 
-from scripts.fixes.merge_cross_type_dupes import KEEP_RULES
+_merge_cross_type_available = True
+try:
+    from scripts.fixes.merge_cross_type_dupes import KEEP_RULES
+except ImportError:
+    _merge_cross_type_available = False
+    KEEP_RULES = {}
+
+_skip_merge = pytest.mark.skipif(
+    not _merge_cross_type_available,
+    reason="merge_cross_type_dupes archived to scripts/fixes/archive/",
+)
 
 
+@_skip_merge
 class TestKeepRules:
     """KEEP_RULES 配置驗證"""
 
@@ -257,6 +268,7 @@ class TestKeepRules:
         assert KEEP_RULES['桃園市政府工務局'] == 'org'
 
 
+@_skip_merge
 class TestMergeDuplicatesLogic:
     """merge_cross_type_dupes 合併邏輯 — 驗證 keep_id 選取策略"""
 

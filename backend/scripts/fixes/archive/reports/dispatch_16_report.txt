@@ -1,0 +1,18 @@
+=== Dispatch #16 ===
+No: 115年_派工單號006
+Project: 桃園區鹽庫西街至春日路
+Sub-case: 桃園區鹽庫西街至春日路_02.土地協議市價查估作業
+
+Incoming: 1, Outgoing: 0
+  IN  # 836 [2026-01-30] 桃工用字第1150004440號
+       檢送「115年度桃園市興辦公共設施用地取得所需土地市價及地上物查估、測量作業暨開瓶資料製作委託專業服務(開口契約)」派工單(006
+       note: 115年查估案_派工單號006
+
+--- Searching for unlinked outgoing docs matching '桃園區鹽庫西街' ---
+Found 1 candidates:
+  #1231 [2026-03-06] 乾坤測字第1150000026號
+       檢送本公司辦理「115年度桃園市興辦公共設施用地取得所需土地市價及地上物查估、測量作業暨開瓶資料製作委託專業服務(開口契約)」案-
+       note: 115年查估案_派工單006
+
+--- Searching by dispatch number '6' in ck_note ---
+Found 0 docs with dispatch#6 in ck_note:

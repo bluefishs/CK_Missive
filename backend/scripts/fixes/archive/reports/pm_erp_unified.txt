@@ -1,0 +1,109 @@
+=== 1. Case Categories & Natures ===
+  cat=01 nature=01 procurement=(null) x13
+  cat=03 nature=01 procurement=(null) x6
+  cat=02 nature=01 procurement=(null) x1
+  cat=01 nature=03 procurement=限制性招標 x1
+
+=== 2. Client Agencies (委託單位) ===
+  "交通部公路局中區養護工程分局埔里工務段" agency_id=5
+  "內政部國土測繪中心" agency_id=16
+  "南投縣埔里地政事務所" agency_id=None
+  "南投縣政府" agency_id=3
+  "台塑網科技股份有限公司" agency_id=15
+  "嘉義縣竹崎地政事務所" agency_id=None
+  "國際海洋股份有限公司" agency_id=17
+  "大有國際不動產估價師聯合事務所" agency_id=13
+  "彰化縣和美地政事務所" agency_id=None
+  "彰化縣田中地政事務所" agency_id=None
+  "林同棪工程顧問股份有限公司" agency_id=None
+  "桃園市政府⼯務局" agency_id=2
+  "桃園市政府工務局" agency_id=2
+  "苗栗縣政府" agency_id=None
+  "青山工程顧問股份有限公司" agency_id=12
+
+=== 3. Vendor-Project Roles ===
+  [01] CK2023_01_01_001 -> V#10 大有國際不動產估價師聯合事務所 role=查估業務
+  [01] CK2024_01_01_001 -> V#1 上升空間資訊股份有限公司 role=(null)
+  [01] CK2024_01_01_001 -> V#3 秋森萬工程顧問有限公司 role=(null)
+  [01] CK2025_03_01_001 -> V#1 上升空間資訊股份有限公司 role=(null)
+  [01] CK2025_01_01_001 -> V#2 政威資訊顧問有限公司 role=(null)
+  [01] CK2024_01_01_002 -> V#4 竣吉不動產估價師事務所 role=查估業務
+  [01] CK2024_01_01_002 -> V#10 大有國際不動產估價師聯合事務所 role=查估業務
+  [01] CK2025_01_01_003 -> V#1 上升空間資訊股份有限公司 role=測量業務
+  [01] CK2025_01_01_003 -> V#3 秋森萬工程顧問有限公司 role=其他類別
+  [01] CK2025_02_01_001 -> V#1 上升空間資訊股份有限公司 role=(null)
+  [03] CK2025_01_03_001 -> V#1 上升空間資訊股份有限公司 role=測量業務
+  [03] CK2025_01_03_001 -> V#4 竣吉不動產估價師事務所 role=查估單位
+  [03] CK2025_01_03_001 -> V#6 威名不動產估價師事務所 role=查估業務
+  [03] CK2025_01_03_001 -> V#7 全國不動產估價師事務所 role=查估業務
+  [03] CK2025_01_03_001 -> V#8 昇揚不動產估價師聯合事務所 role=查估業務
+  [03] CK2025_01_03_001 -> V#9 冠誠不動產估價師事務所 role=查估業務
+  [03] CK2025_01_03_001 -> V#10 大有國際不動產估價師聯合事務所 role=查估單位
+  [03] CK2025_01_03_001 -> V#12 金粟科技工程顧問有限公司 role=系統業務
+  [03] CK2025_01_03_001 -> V#13 勤典測量工程行 role=測量業務
+  [01] CK2026_01_01_002 -> V#1 上升空間資訊股份有限公司 role=測量業務
+  [01] CK2026_01_01_002 -> V#5 奕信工程有限公司 role=測量業務
+
+=== 4. User Assignments (承辦同仁 = project_user_assignments) ===
+  [01] CK2023_01_01_001 -> 洪慶忠 role=專案PM
+  [01] CK2024_01_01_001 -> 曾廷睿 role=專案PM
+  [01] CK2024_01_01_001 -> 洪慶忠 role=計畫主持
+  [01] CK2025_03_01_001 -> 曾廷睿 role=專案PM
+  [01] CK2024_02_01_001 -> 洪慶忠 role=計畫協同
+  [01] CK2023_01_01_002 -> 洪慶忠 role=專案PM
+  [01] CK2025_01_01_001 -> 何丞穎 role=專案PM
+  [01] CK2024_01_01_002 -> 洪慶忠 role=專案PM
+  [01] CK2025_01_01_002 -> 邱元宏 role=計畫主持
+  [01] CK2024_01_01_003 -> 洪慶忠 role=專案PM
+  [01] CK2023_01_01_003 -> 洪慶忠 role=專案PM
+  [01] CK2025_01_01_003 -> 洪慶忠 role=計畫主持
+  [01] CK2025_01_01_003 -> 曾廷睿 role=專案PM
+  [01] CK2025_01_01_004 -> 邱元宏 role=專案PM
+  [01] CK2025_02_01_001 -> 洪慶忠 role=primary
+  [03] CK2025_01_03_001 -> 王駿穠 role=計畫主持
+  [03] CK2025_01_03_001 -> 李昭德 role=專案PM
+  [01] CK2025_03_01_002 -> 邱元宏 role=專案PM
+  [01] CK2025_03_01_003 -> 邱元宏 role=專案PM
+  [01] CK2026_01_01_001 -> 邱元宏 role=計畫主持
+  [01] CK2026_01_01_001 -> 賴柏霖 role=專案PM
+  [01] CK2026_01_01_002 -> 邱元宏 role=計畫主持
+  [01] CK2026_01_01_002 -> 賴柏霖 role=專案PM
+  [01] CK2025_03_01_004 -> 洪慶忠 role=專案PM
+  [01] CK2025_03_01_004 -> 賴柏霖 role=專案PM
+  [01] CK2026_01_01_003 -> 邱元宏 role=計畫主持
+  [01] CK2026_01_01_003 -> 賴柏霖 role=專案PM
+  Total: 27
+
+=== 5. Agency Contacts (機關承辦 = project_agency_contacts) ===
+  CK2024_01_01_002 -> 陳有忠 [-] @- proj:-
+  CK2025_01_03_001 -> 張語情 [-] @- proj:-
+  CK2025_01_03_001 -> 粘亞溱 [-] @- proj:-
+  CK2025_01_03_001 -> 吳佳芸 [-] @- proj:-
+  CK2025_01_03_001 -> 詹怡萍 [-] @- proj:-
+  CK2025_01_03_001 -> 李佳融 [-] @- proj:-
+  CK2025_01_03_001 -> 葉致雯 [-] @- proj:-
+  CK2025_01_03_001 -> 汪郁晨 [-] @- proj:-
+  CK2025_01_03_001 -> 劉虹吟 [-] @- proj:-
+  CK2025_01_03_001 -> 胡可如 [-] @- proj:-
+  CK2025_01_03_001 -> 廖偉翔 [-] @- proj:-
+  CK2025_01_03_001 -> 吳玫蓉 [-] @- proj:-
+  CK2026_01_01_001 -> 謝名竑 [-] @- proj:-
+  Total: 13
+
+=== 6. PM Case Staff (pm_case_staff) ===
+  Columns: ['id', 'pm_case_id', 'user_id', 'staff_name', 'role', 'is_primary', 'start_date', 'end_date', 'notes', 'created_at']
+  Rows: 0
+
+=== 7. ERP Vendor Payables ===
+  Columns: ['id', 'erp_quotation_id', 'vendor_name', 'vendor_code', 'payable_amount', 'description', 'due_date', 'paid_date', 'paid_amount', 'payment_status', 'invoice_number', 'notes', 'created_at', 'updated_at']
+  Rows: 32
+
+=== 8. Agencies that are also Vendors? ===
+  DUAL: vendor "秋森萬工程顧問有限公司" also appears in agencies
+  DUAL: vendor "大有國際不動產估價師聯合事務所" also appears in agencies
+  DUAL: vendor "竣吉不動產估價師事務所" also appears in agencies
+  DUAL: vendor "上升空間資訊股份有限公司" also appears in agencies
+  DUAL: vendor "昇揚不動產估價師聯合事務所" also appears in agencies
+
+=== 9. Client Agencies that are Vendors? ===
+  DUAL: client "大有國際不動產估價師聯合事務所" also appears in vendors

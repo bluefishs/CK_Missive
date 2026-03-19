@@ -96,6 +96,59 @@ class TestIsChitchat:
     def test_whitespace_only(self):
         assert is_chitchat("   ") is True  # stripped to ""
 
+    # ── context 感知測試（v1.82.0 雙軌架構） ──
+
+    @pytest.mark.parametrize("text", [
+        "你好", "hi", "謝謝", "掰掰", "早安",
+    ])
+    def test_greetings_always_chitchat_regardless_of_context(self, text):
+        """精確匹配的問候語在任何 context 下都是閒聊"""
+        assert is_chitchat(text, context="agent") is True
+        assert is_chitchat(text, context="doc") is True
+        assert is_chitchat(text, context=None) is True
+
+    @pytest.mark.parametrize("text", [
+        "你是誰", "你能做什麼", "怎麼使用",
+    ])
+    def test_prefix_match_always_chitchat_regardless_of_context(self, text):
+        """前綴匹配在任何 context 下都是閒聊"""
+        assert is_chitchat(text, context="agent") is True
+        assert is_chitchat(text, context="doc") is True
+
+    def test_agent_context_skips_short_sentence_fallback(self):
+        """乾坤智能體上下文：短句無業務關鍵字 → 不走閒聊（保守走 Agent）"""
+        # "效能如何" 4 字，無精確匹配也無前綴匹配
+        # doc context → 閒聊 (<=40 且無業務關鍵字... 但 "效能" 是業務關鍵字)
+        # 用真正不含關鍵字的短句測試
+        assert is_chitchat("今天真無聊", context="agent") is False
+        assert is_chitchat("今天真無聊", context="doc") is True
+        assert is_chitchat("今天真無聊", context=None) is True
+
+    def test_agent_context_with_business_keyword_not_chitchat(self):
+        """有業務關鍵字 → 任何 context 都不是閒聊"""
+        assert is_chitchat("分析一下", context="agent") is False
+        assert is_chitchat("分析一下", context="doc") is False
+
+    def test_system_analysis_keywords_not_chitchat(self):
+        """v1.82.0 新增的系統分析關鍵字不應被視為閒聊"""
+        analysis_texts = [
+            "本系統優化建議",
+            "效能報告",
+            "資料庫狀態",
+            "備份是否正常",
+            "品質覆蓋率多少",
+            "架構分析",
+            "服務健康狀態",
+        ]
+        for text in analysis_texts:
+            assert is_chitchat(text) is False, f'"{text}" should not be chitchat'
+
+    def test_optimization_suggestion_not_chitchat(self):
+        """回歸測試：「本系統優化建議」觸發 bug 的原始問題"""
+        assert is_chitchat("本系統優化建議") is False
+        assert is_chitchat("本系統優化建議", context="agent") is False
+        assert is_chitchat("本系統優化建議", context="doc") is False
+
 
 class TestGetSmartFallback:
     """智慧預設回覆測試"""

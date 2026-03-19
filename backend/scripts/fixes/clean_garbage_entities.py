@@ -59,6 +59,8 @@ _PRONOUN_BLACKLIST = {
     '諒達', '敬請鑒核', '敬請查照', '敬請備查',
     '檢送本公司', '函送本公司', '檢附本公司',
     '承辦人', '主管', '機關', '單位',
+    # 動作詞（不是實體名稱）
+    '檢退', '檢還', '退件', '退回',
     # 佔位符 / 簡體 / 無意義亂碼
     '實體名', '服务器',
     '司练南大家八室', '布八室', '服加八室',
@@ -98,9 +100,13 @@ def is_garbage_entity(name: str, entity_type: str) -> str | None:
     if re.search(r'(.)\1{3,}', normalized):
         return "repetition"
 
-    # 隱私遮蔽符號
-    if '○' in normalized or '〇' in normalized:
+    # 隱私遮蔽符號（○、〇、■、□ 等 OCR 損壞標記）
+    if any(ch in normalized for ch in '○〇■□▪▫'):
         return "privacy_mask"
+
+    # 公文字號模式（如「桃工用字第1140045160號」）— 不是實體
+    if re.search(r'字第\d{5,}號', normalized):
+        return "doc_number_as_entity"
 
     # 簡體字混入
     cjk_count = sum(1 for c in normalized if '\u4e00' <= c <= '\u9fff')
@@ -141,6 +147,13 @@ def is_garbage_entity(name: str, entity_type: str) -> str | None:
         normalized
     ):
         return "generic_topic"
+
+    # location 建築內部位置（會議室、研討室等，對圖譜關聯性低）
+    if entity_type == 'location' and (
+        re.search(r'\d+樓.*[室廳間]', normalized)
+        or re.search(r'(?:會議室|研討室|辦公室|會議廳|簡報室|視聽室)', normalized)
+    ):
+        return "indoor_location"
 
     return None
 

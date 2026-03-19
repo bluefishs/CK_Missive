@@ -107,6 +107,13 @@ def matching_service(mock_db):
     with patch("app.services.agency_matching_service.AgencyRepository") as MockRepo:
         mock_repo = MagicMock()
         mock_repo.find_one_by = AsyncMock()
+        mock_repo.get_by_name = AsyncMock(return_value=None)
+        mock_repo.get_by_short_name = AsyncMock(return_value=None)
+        mock_repo.find_by_text_contains = AsyncMock(return_value=None)
+        mock_repo.count_unassociated_documents = AsyncMock(return_value=0)
+        mock_repo.get_documents_needing_association = AsyncMock(return_value=[])
+        mock_repo.get_all_documents_batched = AsyncMock(return_value=[])
+        mock_repo.update_document_agency = AsyncMock()
         mock_repo.get_all_agencies = AsyncMock()
         mock_repo.reassign_document_agency = AsyncMock()
         MockRepo.return_value = mock_repo
@@ -531,21 +538,19 @@ class TestMatchAgency:
     @pytest.mark.asyncio
     async def test_match_agency_exact_by_name(self, matching_service, mock_db, mock_agency):
         """測試 match_agency - 透過機關名稱精確匹配（無代碼時直接匹配名稱）"""
-        matching_service.repository.find_one_by.return_value = mock_agency
+        matching_service.repository.get_by_name.return_value = mock_agency
 
         result = await matching_service.match_agency("桃園市政府")
 
         assert result is mock_agency
-        matching_service.repository.find_one_by.assert_awaited_with(agency_name="桃園市政府")
+        matching_service.repository.get_by_name.assert_awaited_with("桃園市政府")
 
     @pytest.mark.asyncio
     async def test_match_agency_by_short_name(self, matching_service, mock_db, mock_agency):
         """測試 match_agency - 透過簡稱匹配"""
         matching_service.repository.find_one_by.return_value = None
-
-        mock_scalar_result = MagicMock()
-        mock_scalar_result.scalar_one_or_none.return_value = mock_agency
-        mock_db.execute.return_value = mock_scalar_result
+        matching_service.repository.get_by_name.return_value = None
+        matching_service.repository.get_by_short_name.return_value = mock_agency
 
         result = await matching_service.match_agency("桃市府")
 
@@ -555,14 +560,9 @@ class TestMatchAgency:
     async def test_match_agency_fuzzy(self, matching_service, mock_db, mock_agency):
         """測試 match_agency - 部分匹配（DB 端 strpos 比對）"""
         matching_service.repository.find_one_by.return_value = None
-
-        mock_short_name_result = MagicMock()
-        mock_short_name_result.scalar_one_or_none.return_value = None
-
-        mock_fuzzy_result = MagicMock()
-        mock_fuzzy_result.scalar_one_or_none.return_value = mock_agency
-
-        mock_db.execute.side_effect = [mock_short_name_result, mock_fuzzy_result]
+        matching_service.repository.get_by_name.return_value = None
+        matching_service.repository.get_by_short_name.return_value = None
+        matching_service.repository.find_by_text_contains.return_value = mock_agency
 
         result = await matching_service.match_agency("函覆桃園市政府有關案件")
 

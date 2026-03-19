@@ -238,6 +238,32 @@ DEFAULT_NAVIGATION_ITEMS = [
         "permission_required": "[]"
     },
 
+    # PM 案件管理 (對應 ROUTES.PM_CASES)
+    {
+        "title": "PM 案件管理",
+        "key": "pm-cases",
+        "path": "/pm/cases",
+        "icon": "AuditOutlined",
+        "sort_order": 5,
+        "level": 2,
+        "parent_key": "project-management",
+        "description": "PM,案件,專案管理,測量,規劃,監造",
+        "permission_required": "[]"
+    },
+
+    # ERP 財務管理 (對應 ROUTES.ERP_QUOTATIONS)
+    {
+        "title": "ERP 財務管理",
+        "key": "erp-quotations",
+        "path": "/erp/quotations",
+        "icon": "AccountBookOutlined",
+        "sort_order": 6,
+        "level": 2,
+        "parent_key": "project-management",
+        "description": "ERP,財務,報價,發票,請款,成本",
+        "permission_required": "[]"
+    },
+
     # =========================================================================
     # 行事曆管理 子項目
     # =========================================================================
@@ -477,13 +503,26 @@ DEFAULT_NAVIGATION_ITEMS = [
         "permission_required": "[]"
     },
 
+    # Skills 能力圖譜 (對應 ROUTES.SKILLS_MAP)
+    {
+        "title": "Skills 能力圖譜",
+        "key": "skills-map",
+        "path": "/ai/skills-map",
+        "icon": "NodeIndexOutlined",
+        "sort_order": 4,
+        "level": 2,
+        "parent_key": "ai-features",
+        "description": "Skills,能力,圖譜,Agent,工具,技能",
+        "permission_required": "[]"
+    },
+
     # AI 助理管理 (對應 ROUTES.AI_ASSISTANT_MANAGEMENT)
     {
         "title": "AI 助理管理",
         "key": "ai-assistant-management",
         "path": "/admin/ai-assistant",
         "icon": "ExperimentOutlined",
-        "sort_order": 4,
+        "sort_order": 5,
         "level": 2,
         "parent_key": "ai-features",
         "description": "AI,助理,管理,儀表板",
@@ -496,7 +535,7 @@ DEFAULT_NAVIGATION_ITEMS = [
         "key": "knowledge-base",
         "path": "/admin/knowledge-base",
         "icon": "BookOutlined",
-        "sort_order": 5,
+        "sort_order": 6,
         "level": 2,
         "parent_key": "ai-features",
         "description": "知識庫,瀏覽器,ADR,架構圖,知識地圖",

@@ -1,0 +1,19 @@
+=== Dispatch #28 ===
+No: 115年_派工單號012
+Project: 中壢區成功路94巷至122巷道路拓寬工程
+
+DB links: 0 incoming, 1 outgoing
+
+  link#714 [company_outgoing ] doc# 900 [2026-03-05]
+    Number: 乾坤測字第1150000024號
+    Subject: 檢送本公司辦理「115年度桃園市興辦公共設施用地取得所需土地市價及地上物查估、測量作業暨開瓶資料製作委託專業服務(開口契約)」案-「中壢區成
+    Sender: 乾坤測繪科技有限公司
+    Receiver: 桃園市政府工務局
+    Note: 115年查估案_派工單012
+
+Work records: 2
+  WR#26 doc=866 parent=None cat=dispatch_notice status=completed
+  WR#55 doc=900 parent=26 cat=work_result status=completed
+
+--- API check: dispatch documents endpoint ---
+API would return: agency=0, company=1

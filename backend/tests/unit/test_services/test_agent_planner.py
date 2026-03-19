@@ -338,6 +338,80 @@ class TestAutoCorrect:
         assert detail_calls[0]["params"]["entity_id"] == 1
         assert detail_calls[1]["params"]["entity_id"] == 2
 
+    def test_strategy6_dispatch_auto_expand(self):
+        """策略 6: search_dispatch_orders 有結果 → 自動追查收發文配對 + 相關實體"""
+        tool_results = [
+            {
+                "tool": "search_dispatch_orders",
+                "params": {"dispatch_no": "015"},
+                "result": {
+                    "count": 1,
+                    "dispatch_orders": [
+                        {
+                            "id": 15,
+                            "dispatch_no": "015",
+                            "project_name": "某路工程",
+                            "work_type": "地形測量",
+                        },
+                    ],
+                    "linked_documents": [],
+                },
+            },
+        ]
+        plan = AgentPlanner._auto_correct("派工單015", tool_results)
+        assert plan is not None
+        tool_names = [tc["name"] for tc in plan["tool_calls"]]
+        assert "find_correspondence" in tool_names
+        assert "search_entities" in tool_names
+        # find_correspondence 應使用正確的 dispatch_id
+        corr_call = next(tc for tc in plan["tool_calls"] if tc["name"] == "find_correspondence")
+        assert corr_call["params"]["dispatch_id"] == 15
+        # search_entities 應使用工程名稱
+        entity_call = next(tc for tc in plan["tool_calls"] if tc["name"] == "search_entities")
+        assert "某路工程" in entity_call["params"]["query"]
+
+    def test_strategy6_skip_if_already_queried(self):
+        """策略 6: 已查過收發文配對 → 不重複"""
+        tool_results = [
+            {
+                "tool": "find_correspondence",
+                "params": {"dispatch_id": 15},
+                "result": {"count": 2, "pairs": []},
+            },
+            {
+                "tool": "search_dispatch_orders",
+                "params": {"dispatch_no": "015"},
+                "result": {
+                    "count": 1,
+                    "dispatch_orders": [{"id": 15, "project_name": "某路工程"}],
+                },
+            },
+        ]
+        plan = AgentPlanner._auto_correct("派工單015", tool_results)
+        # find_correspondence 已用過，不應再追加
+        if plan:
+            tool_names = [tc["name"] for tc in plan["tool_calls"]]
+            assert "find_correspondence" not in tool_names
+
+    def test_strategy6_no_project_name(self):
+        """策略 6: 無工程名稱 → 只追查收發文配對"""
+        tool_results = [
+            {
+                "tool": "search_dispatch_orders",
+                "params": {"dispatch_no": "015"},
+                "result": {
+                    "count": 1,
+                    "dispatch_orders": [{"id": 15, "project_name": ""}],
+                },
+            },
+        ]
+        plan = AgentPlanner._auto_correct("派工單015", tool_results)
+        assert plan is not None
+        tool_names = [tc["name"] for tc in plan["tool_calls"]]
+        assert "find_correspondence" in tool_names
+        # 無工程名稱 → 不查實體
+        assert "search_entities" not in tool_names
+
     def test_no_correction_needed(self):
         """有結果且無錯誤 → 不需修正"""
         tool_results = [

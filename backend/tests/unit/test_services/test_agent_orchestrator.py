@@ -148,6 +148,26 @@ class TestExecuteTool:
         orchestrator.config.agent_tool_timeout = 0.01
 
         result = await orchestrator._execute_tool("search_documents", {})
+        # ToolResultGuard 啟用時回傳 guarded 結果（無 error key）
+        assert result.get("guarded") is True
+        assert "超時" in result.get("guard_reason", "")
+        assert result["documents"] == []
+
+    @pytest.mark.asyncio
+    async def test_timeout_handling_guard_disabled(self, mock_db):
+        """ToolResultGuard 停用時回傳原始 error"""
+        import asyncio
+        orchestrator = make_orchestrator(mock_db)
+
+        async def slow_tool(*args, **kwargs):
+            await asyncio.sleep(100)
+
+        orchestrator._tools = MagicMock()
+        orchestrator._tools.execute = slow_tool
+        orchestrator.config.agent_tool_timeout = 0.01
+        orchestrator.config.tool_guard_enabled = False
+
+        result = await orchestrator._execute_tool("search_documents", {})
         assert "error" in result
         assert "超時" in result["error"]
 
@@ -156,6 +176,19 @@ class TestExecuteTool:
         orchestrator = make_orchestrator(mock_db)
         orchestrator._tools = MagicMock()
         orchestrator._tools.execute = AsyncMock(side_effect=ValueError("test error"))
+
+        result = await orchestrator._execute_tool("search_documents", {})
+        # ToolResultGuard 啟用時回傳 guarded 結果
+        assert result.get("guarded") is True
+        assert "工具執行失敗" in result.get("guard_reason", "")
+
+    @pytest.mark.asyncio
+    async def test_exception_handling_guard_disabled(self, mock_db):
+        """ToolResultGuard 停用時回傳原始 error"""
+        orchestrator = make_orchestrator(mock_db)
+        orchestrator._tools = MagicMock()
+        orchestrator._tools.execute = AsyncMock(side_effect=ValueError("test error"))
+        orchestrator.config.tool_guard_enabled = False
 
         result = await orchestrator._execute_tool("search_documents", {})
         assert "error" in result
@@ -212,17 +245,16 @@ class TestStreamAgentQuery:
         orchestrator._planner.preprocess_question = AsyncMock(return_value={})
         orchestrator._planner.plan_tools = AsyncMock(return_value={"tool_calls": []})
 
-        # Mock fallback RAG
-        async def mock_rag(q, h, t):
+        # Mock fallback RAG (now a module-level function)
+        async def mock_rag(db, q, h):
             yield 'data: {"type": "token", "token": "RAG回答"}\n\n'
             yield 'data: {"type": "done", "latency_ms": 100}\n\n'
 
-        orchestrator._fallback_rag = mock_rag
-
         events = []
         # 使用含業務關鍵字的問題，避免被閒聊偵測攔截
-        async for event in orchestrator.stream_agent_query("公文管理系統的一般問題"):
-            events.append(event)
+        with patch("app.services.ai.agent_orchestrator.stream_fallback_rag", mock_rag):
+            async for event in orchestrator.stream_agent_query("公文管理系統的一般問題"):
+                events.append(event)
 
         all_text = "".join(events)
         assert "RAG回答" in all_text
@@ -238,7 +270,7 @@ class TestStreamAgentQuery:
             call_order.append("preprocess_start")
             return {"sender": "工務局"}
 
-        async def mock_plan(q, h, context=None):
+        async def mock_plan(q, h, context=None, db=None):
             call_order.append("plan_start")
             return {
                 "reasoning": "搜尋",
@@ -335,8 +367,10 @@ class TestStreamAgentQuery:
         orchestrator._synthesizer.synthesize_answer = mock_synth
 
         events = []
-        async for event in orchestrator.stream_agent_query("道路工程相關公文和派工"):
-            events.append(event)
+        with patch("app.services.ai.agent_orchestrator.AgentSupervisor") as mock_sup_cls:
+            mock_sup_cls.return_value.is_multi_domain.return_value = False
+            async for event in orchestrator.stream_agent_query("道路工程相關公文和派工"):
+                events.append(event)
 
         parsed = [json.loads(e.replace("data: ", "").strip()) for e in events if e.strip()]
         types = [p["type"] for p in parsed]
@@ -392,6 +426,7 @@ class TestStreamAgentQuery:
             "tool_calls": [{"name": "search_documents", "params": {"keywords": ["工務局"]}}],
         })
         orchestrator._planner.evaluate_and_replan = MagicMock(return_value=None)
+        orchestrator._planner.react = AsyncMock(return_value=None)
 
         # Mock tool executor
         orchestrator._tools = MagicMock()

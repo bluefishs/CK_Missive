@@ -1,0 +1,11 @@
+=== Dispatch Link Cleanup (DRY RUN) ===
+
+Total links: 682
+
+Links to remove: 0
+================================================================================
+
+=== Summary ===
+Affected documents: 0
+Affected dispatches: 0
+Links to remove: 0 / 682 total (0%)

@@ -39,8 +39,12 @@ from main import app
 
 @pytest.fixture(scope="session")
 def event_loop() -> Generator:
-    """建立 session 範圍的事件迴圈"""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
+    """建立 session 範圍的事件迴圈
+
+    注意: pytest-asyncio >= 0.23 建議使用 loop_scope 設定，
+    但為保持與現有測試的相容性，保留此 fixture。
+    """
+    loop = asyncio.new_event_loop()
     yield loop
     loop.close()
 
@@ -135,24 +139,35 @@ def mock_db_session() -> MagicMock:
 async def client() -> AsyncGenerator[AsyncClient, None]:
     """建立測試用 HTTP 客戶端
 
+    每次測試後清理 app 的 DB 連線池，避免 Event loop is closed 錯誤。
+    因為 app 的 engine 是模組級全域變數，連線池跨測試共享，
+    若前一個測試的 event loop 已關閉，殘留的連線會導致後續測試失敗。
+
     使用範例:
         async def test_list_documents(client):
             response = await client.post("/api/documents-enhanced/list")
             assert response.status_code == 200
     """
+    from app.db.database import engine as app_engine
+
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
+
+    # 清理 app 的 DB 連線池，防止跨測試 event loop 衝突
+    await app_engine.dispose()
 
 
 @pytest_asyncio.fixture(scope="function")
 async def authenticated_client(mock_current_user) -> AsyncGenerator[AsyncClient, None]:
     """建立已認證的測試用 HTTP 客戶端
 
-    自動覆蓋認證依賴，使用 mock_current_user
+    自動覆蓋認證依賴，使用 mock_current_user。
+    每次測試後清理 app 的 DB 連線池，避免 Event loop is closed 錯誤。
     """
     from app.api.endpoints.auth import get_current_user
     from app.extended.models import User
+    from app.db.database import engine as app_engine
 
     # 建立 mock User 物件
     mock_user = MagicMock(spec=User)
@@ -175,6 +190,9 @@ async def authenticated_client(mock_current_user) -> AsyncGenerator[AsyncClient,
 
     # 清理覆蓋
     app.dependency_overrides.clear()
+
+    # 清理 app 的 DB 連線池，防止跨測試 event loop 衝突
+    await app_engine.dispose()
 
 
 # ============================================================

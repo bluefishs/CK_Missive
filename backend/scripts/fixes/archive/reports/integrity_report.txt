@@ -1,0 +1,30 @@
+================================================================================
+FULL INTEGRITY CHECK
+================================================================================
+
+--- CHECK 1: ck_note dispatch number mismatch ---
+  MISMATCH: doc#866 (桃工用字第1150005844號) note says dispatch {'10'} but linked to 115年_派工單號011
+  MISMATCH: doc#866 (桃工用字第1150005844號) note says dispatch {'10'} but linked to 115年_派工單號012
+
+--- CHECK 2: Duplicate links ---
+  PASS: No duplicate links
+
+--- CHECK 3: Orphan links ---
+  PASS: No orphan links
+
+--- CHECK 4: Dispatches with incoming but no outgoing ---
+  Found 7 dispatches with incoming but no outgoing:
+    # 24 (115年_派工單號009        ) in=1 out=0 | 楊梅都市計畫(幼獅路一段東側產業遊樂區)旁公園用地取得
+    # 30 (115年_派工單號014        ) in=1 out=0 | 新屋區中華南路一段(福九路至高鐵南路七段)道路拓寬工程
+    # 45 (112年_派工單號007        ) in=1 out=0 | 八德區廣福路879巷192弄銜接永豐南路31巷道路拓寬工程
+    # 51 (112年_派工單號013        ) in=2 out=0 | 桃園區龍城六街打通至龍泉五街道路新闢工程
+    #149 (115年_派工單號015        ) in=1 out=0 | 桃園區經國路208巷打通至南通路21巷道路工程
+    #151 (115年_派工單號016        ) in=1 out=0 | 桃園市八德區延平路(和平路至大興路151巷)道路新闢工程
+    #152 (115年_派工單號017        ) in=1 out=0 | 八德區豐田路至捷運綠線G02站道路開闢工程
+
+--- CHECK 5: Unlinked docs with dispatch number in ck_note ---
+  PASS: No unlinked docs with identifiable dispatch numbers
+
+================================================================================
+SUMMARY: 2 issues found, 674 total links
+================================================================================

@@ -110,7 +110,6 @@ class TestProjectServiceInit:
             MockRepo.assert_called_once_with(mock_db)
             assert svc.db is mock_db
             assert svc.repository is mock_repo
-            assert svc.model is ContractProject
             assert svc.entity_name == "承攬案件"
 
 
@@ -147,33 +146,23 @@ class TestProjectServiceQuery:
     @pytest.mark.asyncio
     async def test_get_list_default(self, service, mock_db, sample_project):
         """測試 get_list 使用預設參數呼叫"""
-        # 模擬 db.execute 返回值
-        mock_scalars = MagicMock()
-        mock_scalars.all.return_value = [sample_project]
-        mock_result = MagicMock()
-        mock_result.scalars.return_value = mock_scalars
-        mock_db.execute.return_value = mock_result
+        service.repository.get_all = AsyncMock(return_value=[sample_project])
 
         result = await service.get_list()
 
         assert len(result) == 1
         assert result[0] is sample_project
-        # 驗證 execute 被呼叫（使用預設 skip=0, limit=100）
-        mock_db.execute.assert_awaited_once()
+        service.repository.get_all.assert_awaited_once_with(skip=0, limit=100)
 
     @pytest.mark.asyncio
     async def test_get_list_with_filters(self, service, mock_db, sample_project):
         """測試 get_list 使用自訂 skip/limit 參數"""
-        mock_scalars = MagicMock()
-        mock_scalars.all.return_value = [sample_project]
-        mock_result = MagicMock()
-        mock_result.scalars.return_value = mock_scalars
-        mock_db.execute.return_value = mock_result
+        service.repository.get_all = AsyncMock(return_value=[sample_project])
 
         result = await service.get_list(skip=10, limit=5)
 
         assert len(result) == 1
-        mock_db.execute.assert_awaited_once()
+        service.repository.get_all.assert_awaited_once_with(skip=10, limit=5)
 
     @pytest.mark.asyncio
     async def test_get_project_found(self, service, sample_project):
@@ -265,26 +254,21 @@ class TestProjectServiceCRUD:
             project_code="CK2026_01_01_005",
         )
 
-        # Mock get_by_field 返回 None（編號不重複）
-        service.repository.get_by_field = AsyncMock(return_value=None)
+        # Mock find_one_by 返回 None（編號不重複）
+        service.repository.find_one_by = AsyncMock(return_value=None)
 
-        # Mock db.refresh 設定返回的物件屬性
+        # Mock repository.create 返回建立的物件
         created_project = MagicMock(spec=ContractProject)
         created_project.id = 10
         created_project.project_code = "CK2026_01_01_005"
-
-        async def mock_refresh(obj):
-            obj.id = 10
-            obj.project_code = "CK2026_01_01_005"
-
-        mock_db.refresh = AsyncMock(side_effect=mock_refresh)
+        created_project.project_name = "新案件"
+        service.repository.create = AsyncMock(return_value=created_project)
 
         result = await service.create(create_data)
 
-        # 驗證 db 操作
-        mock_db.add.assert_called_once()
-        mock_db.commit.assert_awaited_once()
-        mock_db.refresh.assert_awaited_once()
+        # 驗證 repository.create 被呼叫
+        service.repository.create.assert_awaited_once()
+        assert result.id == 10
 
     @pytest.mark.asyncio
     async def test_create_generates_project_code(self, service, mock_db):
@@ -297,25 +281,28 @@ class TestProjectServiceCRUD:
         )
         # project_code 為 None，應自動產生
 
-        # Mock _generate_project_code 的資料庫查詢
-        mock_scalars = MagicMock()
-        mock_scalars.all.return_value = []
-        mock_result = MagicMock()
-        mock_result.scalars.return_value = mock_scalars
-        mock_db.execute.return_value = mock_result
+        # Mock repository.get_next_project_code
+        service.repository.get_next_project_code = AsyncMock(
+            return_value="CK2026_02_01_001"
+        )
 
-        async def mock_refresh(obj):
-            obj.id = 20
-            obj.project_code = "CK2026_02_01_001"
-
-        mock_db.refresh = AsyncMock(side_effect=mock_refresh)
+        # Mock repository.create 返回建立的物件
+        created_project = MagicMock(spec=ContractProject)
+        created_project.id = 20
+        created_project.project_code = "CK2026_02_01_001"
+        created_project.project_name = "自動編號案件"
+        service.repository.create = AsyncMock(return_value=created_project)
 
         result = await service.create(create_data)
 
-        # 驗證 db.add 被呼叫，且傳入的物件有 project_code
-        mock_db.add.assert_called_once()
-        added_obj = mock_db.add.call_args[0][0]
-        assert added_obj.project_code == "CK2026_02_01_001"
+        # 驗證 get_next_project_code 和 create 被呼叫
+        service.repository.get_next_project_code.assert_awaited_once_with(
+            2026, "02", "01"
+        )
+        service.repository.create.assert_awaited_once()
+        # 驗證傳入 create 的資料包含產生的 project_code
+        call_args = service.repository.create.call_args[0][0]
+        assert call_args["project_code"] == "CK2026_02_01_001"
 
     @pytest.mark.asyncio
     async def test_create_duplicate_code_raises_error(self, service, mock_db):
@@ -326,10 +313,10 @@ class TestProjectServiceCRUD:
             project_code="CK2026_01_01_001",
         )
 
-        # Mock get_by_field 返回已存在的專案（編號重複）
+        # Mock find_one_by 返回已存在的專案（編號重複）
         existing = MagicMock(spec=ContractProject)
         existing.project_code = "CK2026_01_01_001"
-        service.repository.get_by_field = AsyncMock(return_value=existing)
+        service.repository.find_one_by = AsyncMock(return_value=existing)
 
         with pytest.raises(ValueError, match="已存在"):
             await service.create(create_data)
@@ -343,13 +330,15 @@ class TestProjectServiceCRUD:
         service.repository.get_by_id.return_value = sample_project
         sample_project.contract_amount = 1000000.0  # 原始金額
 
+        # Mock repository.update 返回更新後的物件
+        service.repository.update = AsyncMock(return_value=sample_project)
+
         update_data = ProjectUpdate(project_name="更新後的案件名稱")
 
         result = await service.update(1, update_data)
 
         assert result is sample_project
-        mock_db.commit.assert_awaited_once()
-        mock_db.refresh.assert_awaited_once()
+        service.repository.update.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_update_auto_progress_on_close(self, service, mock_db, sample_project):
@@ -360,12 +349,15 @@ class TestProjectServiceCRUD:
 
         update_data = ProjectUpdate(status="已結案")
 
+        # Mock repository.update
+        service.repository.update = AsyncMock(return_value=sample_project)
+
         result = await service.update(1, update_data)
 
-        # 驗證 setattr 被呼叫過 progress=100
-        # 由於 sample_project 是 MagicMock，我們檢查 setattr 調用
         assert result is sample_project
-        mock_db.commit.assert_awaited_once()
+        # 驗證傳入 repository.update 的資料包含 progress=100
+        call_args = service.repository.update.call_args
+        assert call_args[0][1]["progress"] == 100
 
     @pytest.mark.asyncio
     async def test_update_contract_amount_syncs_payments(
@@ -378,12 +370,10 @@ class TestProjectServiceCRUD:
 
         update_data = ProjectUpdate(contract_amount=1200000.0)
 
-        # 因為 sample_project 是 MagicMock，setattr 後 contract_amount 改變
-        # 我們需要模擬 refresh 後的狀態
-        async def mock_refresh(obj):
-            obj.contract_amount = 1200000.0
-
-        mock_db.refresh = AsyncMock(side_effect=mock_refresh)
+        # Mock repository.update 返回金額已變更的物件
+        updated_project = MagicMock(spec=ContractProject)
+        updated_project.contract_amount = 1200000.0
+        service.repository.update = AsyncMock(return_value=updated_project)
 
         with patch(
             "app.services.project_service.PaymentRepository"
@@ -396,7 +386,7 @@ class TestProjectServiceCRUD:
 
             result = await service.update(1, update_data)
 
-            assert result is sample_project
+            assert result is updated_project
 
     @pytest.mark.asyncio
     async def test_update_not_found(self, service, mock_db):
@@ -408,20 +398,21 @@ class TestProjectServiceCRUD:
         result = await service.update(999, update_data)
 
         assert result is None
-        mock_db.commit.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_delete_success(self, service, mock_db, sample_project):
         """測試成功刪除專案（含關聯資料清理）"""
         service.repository.get_by_id.return_value = sample_project
+        service.repository.delete_user_assignments = AsyncMock(return_value=2)
+        service.repository.delete_vendor_associations = AsyncMock(return_value=1)
+        service.repository.delete = AsyncMock(return_value=True)
 
         result = await service.delete(1)
 
         assert result is True
-        # 驗證關聯資料刪除（execute 至少呼叫 2 次：user_assignment + vendor_association）
-        assert mock_db.execute.await_count >= 2
-        mock_db.delete.assert_awaited_once_with(sample_project)
-        mock_db.commit.assert_awaited_once()
+        service.repository.delete_user_assignments.assert_awaited_once_with(1)
+        service.repository.delete_vendor_associations.assert_awaited_once_with(1)
+        service.repository.delete.assert_awaited_once_with(1)
 
     @pytest.mark.asyncio
     async def test_delete_not_found(self, service, mock_db):
@@ -431,8 +422,6 @@ class TestProjectServiceCRUD:
         result = await service.delete(999)
 
         assert result is False
-        mock_db.delete.assert_not_awaited()
-        mock_db.commit.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_delete_integrity_error_raises_value_error(
@@ -440,9 +429,11 @@ class TestProjectServiceCRUD:
     ):
         """測試刪除有外鍵約束的專案時拋出 ValueError"""
         service.repository.get_by_id.return_value = sample_project
+        service.repository.delete_user_assignments = AsyncMock(return_value=0)
+        service.repository.delete_vendor_associations = AsyncMock(return_value=0)
 
-        # 模擬 db.delete 時發生 IntegrityError
-        mock_db.delete = AsyncMock(
+        # 模擬 repository.delete 時發生 IntegrityError
+        service.repository.delete = AsyncMock(
             side_effect=IntegrityError(
                 statement="DELETE",
                 params={},
@@ -467,37 +458,20 @@ class TestProjectServiceStatistics:
     @pytest.mark.asyncio
     async def test_get_project_statistics(self, service, mock_db):
         """測試取得專案統計資料返回正確結構"""
-        # Mock 四個查詢結果
-
-        # 1. 總數查詢
-        total_result = MagicMock()
-        total_result.scalar.return_value = 50
-
-        # 2. 狀態統計
-        status_result = MagicMock()
-        status_result.fetchall.return_value = [
-            ("執行中", 30),
-            ("已結案", 20),
-        ]
-
-        # 3. 年度統計
-        year_result = MagicMock()
-        year_result.fetchall.return_value = [
-            (2026, 25),
-            (2025, 25),
-        ]
-
-        # 4. 平均金額
-        amount_result = MagicMock()
-        amount_result.scalar.return_value = 1500000.0
-
-        mock_db.execute = AsyncMock(
-            side_effect=[
-                total_result,
-                status_result,
-                year_result,
-                amount_result,
-            ]
+        stats_data = {
+            "total_projects": 50,
+            "status_breakdown": [
+                {"status": "執行中", "count": 30},
+                {"status": "已結案", "count": 20},
+            ],
+            "year_breakdown": [
+                {"year": 2026, "count": 25},
+                {"year": 2025, "count": 25},
+            ],
+            "average_contract_amount": 1500000.0,
+        }
+        service.repository.get_project_statistics = AsyncMock(
+            return_value=stats_data
         )
 
         result = await service.get_project_statistics()
@@ -515,7 +489,7 @@ class TestProjectServiceStatistics:
         self, service, mock_db
     ):
         """測試統計查詢失敗時返回預設值"""
-        mock_db.execute = AsyncMock(
+        service.repository.get_project_statistics = AsyncMock(
             side_effect=Exception("DB connection error")
         )
 
@@ -529,72 +503,67 @@ class TestProjectServiceStatistics:
     @pytest.mark.asyncio
     async def test_get_year_options(self, service, mock_db):
         """測試取得年度選項列表（降序排列）"""
-        mock_result = MagicMock()
-        mock_result.fetchall.return_value = [
-            (2026,),
-            (2025,),
-            (2024,),
-        ]
-        mock_db.execute.return_value = mock_result
+        service.repository.get_year_options = AsyncMock(
+            return_value=[2026, 2025, 2024]
+        )
 
         result = await service.get_year_options()
 
         assert result == [2026, 2025, 2024]
+        service.repository.get_year_options.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_get_distinct_options(self, service, mock_db):
         """測試取得去重欄位值列表"""
-        mock_result = MagicMock()
-        mock_result.fetchall.return_value = [
-            ("執行中",),
-            ("已結案",),
-        ]
-        mock_db.execute.return_value = mock_result
+        service.repository.get_distinct_values = AsyncMock(
+            return_value=["執行中", "已結案"]
+        )
 
         result = await service.get_distinct_options("status")
 
         assert result == ["執行中", "已結案"]
+        service.repository.get_distinct_values.assert_awaited_once_with(
+            "status", exclude_null=True
+        )
 
     @pytest.mark.asyncio
     async def test_get_distinct_options_invalid_field(self, service, mock_db):
         """測試取得不存在欄位的去重值返回空列表"""
+        service.repository.get_distinct_values = AsyncMock(return_value=[])
+
         result = await service.get_distinct_options("nonexistent_field")
 
         assert result == []
-        mock_db.execute.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_get_distinct_options_desc_order(self, service, mock_db):
-        """測試取得去重值使用降序排列"""
-        mock_result = MagicMock()
-        mock_result.fetchall.return_value = [
-            (2026,),
-            (2025,),
-        ]
-        mock_db.execute.return_value = mock_result
+        """測試取得去重值使用降序排列（year 欄位走 get_year_options）"""
+        service.repository.get_year_options = AsyncMock(
+            return_value=[2026, 2025]
+        )
 
         result = await service.get_distinct_options(
             "year", sort_order="desc"
         )
 
         assert result == [2026, 2025]
-        mock_db.execute.assert_awaited_once()
+        service.repository.get_year_options.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_get_distinct_options_exclude_null(self, service, mock_db):
         """測試去重值排除 NULL（預設行為）"""
-        mock_result = MagicMock()
-        mock_result.fetchall.return_value = [
-            ("01",),
-            ("02",),
-        ]
-        mock_db.execute.return_value = mock_result
+        service.repository.get_distinct_values = AsyncMock(
+            return_value=["01", "02"]
+        )
 
         result = await service.get_distinct_options(
             "category", exclude_null=True
         )
 
         assert result == ["01", "02"]
+        service.repository.get_distinct_values.assert_awaited_once_with(
+            "category", exclude_null=True
+        )
 
 
 # ============================================================
@@ -608,18 +577,8 @@ class TestProjectServiceGetProjects:
     @pytest.mark.asyncio
     async def test_get_projects_no_user(self, service, mock_db, sample_project):
         """測試不帶使用者時查詢所有專案（不套用 RLS）"""
-        # 模擬 count 查詢
-        count_result = MagicMock()
-        count_result.scalar_one.return_value = 1
-
-        # 模擬專案列表查詢
-        mock_scalars = MagicMock()
-        mock_scalars.all.return_value = [sample_project]
-        list_result = MagicMock()
-        list_result.scalars.return_value = mock_scalars
-
-        mock_db.execute = AsyncMock(
-            side_effect=[count_result, list_result]
+        service.repository.get_filtered_list = AsyncMock(
+            return_value=([sample_project], 1)
         )
 
         query_params = MagicMock()
@@ -634,22 +593,17 @@ class TestProjectServiceGetProjects:
 
         assert result["total"] == 1
         assert len(result["projects"]) == 1
+        # 驗證 rls_filter_fn 為 None
+        call_kwargs = service.repository.get_filtered_list.call_args[1]
+        assert call_kwargs["rls_filter_fn"] is None
 
     @pytest.mark.asyncio
     async def test_get_projects_with_search_filter(
         self, service, mock_db, sample_project
     ):
         """測試帶搜尋條件的專案查詢"""
-        count_result = MagicMock()
-        count_result.scalar_one.return_value = 1
-
-        mock_scalars = MagicMock()
-        mock_scalars.all.return_value = [sample_project]
-        list_result = MagicMock()
-        list_result.scalars.return_value = mock_scalars
-
-        mock_db.execute = AsyncMock(
-            side_effect=[count_result, list_result]
+        service.repository.get_filtered_list = AsyncMock(
+            return_value=([sample_project], 1)
         )
 
         query_params = MagicMock()
@@ -663,6 +617,10 @@ class TestProjectServiceGetProjects:
         result = await service.get_projects(query_params, current_user=None)
 
         assert result["total"] == 1
+        call_kwargs = service.repository.get_filtered_list.call_args[1]
+        assert call_kwargs["search"] == "桃園"
+        assert call_kwargs["year"] == 2026
+        assert call_kwargs["status"] == "執行中"
 
 
 # ============================================================
@@ -683,24 +641,23 @@ class TestProjectServiceGenerateCode:
     @pytest.mark.asyncio
     async def test_generate_project_code_first(self, service, mock_db):
         """測試產生第一個專案編號（無既有編號）"""
-        mock_scalars = MagicMock()
-        mock_scalars.all.return_value = []
-        mock_result = MagicMock()
-        mock_result.scalars.return_value = mock_scalars
-        mock_db.execute.return_value = mock_result
+        service.repository.get_next_project_code = AsyncMock(
+            return_value="CK2026_01_01_001"
+        )
 
         code = await service._generate_project_code(2026, "01", "01")
 
         assert code == "CK2026_01_01_001"
+        service.repository.get_next_project_code.assert_awaited_once_with(
+            2026, "01", "01"
+        )
 
     @pytest.mark.asyncio
     async def test_generate_project_code_increment(self, service, mock_db):
         """測試產生遞增的專案編號"""
-        mock_scalars = MagicMock()
-        mock_scalars.all.return_value = ["CK2026_01_01_003"]
-        mock_result = MagicMock()
-        mock_result.scalars.return_value = mock_scalars
-        mock_db.execute.return_value = mock_result
+        service.repository.get_next_project_code = AsyncMock(
+            return_value="CK2026_01_01_004"
+        )
 
         code = await service._generate_project_code(2026, "01", "01")
 
@@ -709,11 +666,9 @@ class TestProjectServiceGenerateCode:
     @pytest.mark.asyncio
     async def test_generate_project_code_empty_category(self, service, mock_db):
         """測試空類別和空性質使用預設值 00"""
-        mock_scalars = MagicMock()
-        mock_scalars.all.return_value = []
-        mock_result = MagicMock()
-        mock_result.scalars.return_value = mock_scalars
-        mock_db.execute.return_value = mock_result
+        service.repository.get_next_project_code = AsyncMock(
+            return_value="CK2026_00_00_001"
+        )
 
         code = await service._generate_project_code(2026, "", "")
 

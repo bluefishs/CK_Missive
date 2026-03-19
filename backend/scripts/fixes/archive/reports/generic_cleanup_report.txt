@@ -1,0 +1,67 @@
+=== Generic Admin Doc Cleanup (APPLY) ===
+
+  REMOVE link#995: doc#564 (乾坤測字第1150000002號) from dispatch#149
+  REMOVE link#973: doc#564 (乾坤測字第1150000002號) from dispatch#151
+  REMOVE link#865: doc#564 (乾坤測字第1150000002號) from dispatch#152
+    KEEP in dispatch#24
+    Subject: 檢送「115年度桃園市興辦公共設施用地取得所需土地市價及地上物查估、測量作業暨開瓶資料製作委託專業服務(開口契約)案」之
+    Note: (empty)
+
+  REMOVE link#993: doc#709 (桃工用字第1150002017號) from dispatch#149
+  REMOVE link#971: doc#709 (桃工用字第1150002017號) from dispatch#151
+  REMOVE link#863: doc#709 (桃工用字第1150002017號) from dispatch#152
+    KEEP in dispatch#24
+    Subject: 有關貴公司檢送「115年度桃園市興辦公共設施用地取得所需土地市價及地上查估、測量作業暨開瓶資料製作委託專業服務（開口契約
+    Note: (empty)
+
+  REMOVE link#867: doc#812 (乾坤測字第1140000213號) from dispatch#152
+    KEEP in dispatch#24
+    Subject: 檢送「115年度桃園市興辦公共設施用地取得所需土地市價及地上物查估、測量作業暨開瓶資料製作委託專業服務(開口契約)」(標
+    Note: (empty)
+
+  REMOVE link#989: doc#819 (桃工用字第1150001987號) from dispatch#149
+  REMOVE link#967: doc#819 (桃工用字第1150001987號) from dispatch#151
+  REMOVE link#859: doc#819 (桃工用字第1150001987號) from dispatch#152
+    KEEP in dispatch#24
+    Subject: 檢送「115年度桃園市興辦公共設施用地取得所需土地市價及地上物查估、測量作業暨開瓶資料製作委託專業服務(開口契約)」契約
+    Note: (empty)
+
+  REMOVE link#988: doc#824 (桃工用字第1150003303號) from dispatch#149
+  REMOVE link#966: doc#824 (桃工用字第1150003303號) from dispatch#151
+  REMOVE link#858: doc#824 (桃工用字第1150003303號) from dispatch#152
+    KEEP in dispatch#24
+    Subject: 「115年度桃園市興辦公共設施用地取得所需土地市價及地上查估、測量作業暨開瓶資料製作委託專業服務（開口契約）」道路專案系
+    Note: (empty)
+
+  REMOVE link#985: doc#833 (乾坤測字第1150000005號) from dispatch#149
+  REMOVE link#961: doc#833 (乾坤測字第1150000005號) from dispatch#151
+  REMOVE link#852: doc#833 (乾坤測字第1150000005號) from dispatch#152
+    KEEP in dispatch#24
+    Subject: 檢送「115年度桃園市興辦公共設施用地取得所需土地市價及地上物查估、測量作業暨開瓶資料製作委託專業服務(開口契約)」案之
+    Note: (empty)
+
+  REMOVE link#984: doc#846 (桃工用字第1150004865號) from dispatch#149
+  REMOVE link#960: doc#846 (桃工用字第1150004865號) from dispatch#151
+  REMOVE link#850: doc#846 (桃工用字第1150004865號) from dispatch#152
+    KEEP in dispatch#24
+    Subject: 檢送本局115年1月28日辦理「115年度桃園市興辦公共設施用地取得所需土地市價及地上查估、測量作業暨開瓶資料製作委託專
+    Note: 115查估_系統建置
+
+  REMOVE link#980: doc#858 (桃工用字第1150006047號) from dispatch#149
+  REMOVE link#954: doc#858 (桃工用字第1150006047號) from dispatch#151
+  REMOVE link#843: doc#858 (桃工用字第1150006047號) from dispatch#152
+    KEEP in dispatch#24
+    Subject: 有關貴公司提送「115年度桃園市興辦公共設施用地取得所需土地市價 及地上查估、測量作業暨開瓶資料製作委託專業服務(開口契
+    Note: 115查估案_道路專案系統建置
+
+  REMOVE link#977: doc#895 (乾坤測字第1150000019號) from dispatch#149
+  REMOVE link#945: doc#895 (乾坤測字第1150000019號) from dispatch#151
+  REMOVE link#829: doc#895 (乾坤測字第1150000019號) from dispatch#152
+    KEEP in dispatch#24
+    Subject: 請領本公司辦理「115年度桃園市興辦公共設施用地取得所需土地市價及地上物查估、測量作業暨開瓶資料製作委託專業服務(開口契
+    Note: 115查估_道路專案系統建置
+
+Total to remove: 25
+APPLIED: deleted 25 links
+
+Total links after: 682

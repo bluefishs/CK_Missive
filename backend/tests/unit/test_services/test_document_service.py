@@ -342,6 +342,63 @@ class TestGetNextAutoSerial:
 
         assert result == "R0051"
 
+    @pytest.mark.asyncio
+    async def test_generate_auto_serial_invalid_type_raises_value_error(self, mock_db_session):
+        """測試無效公文類型拋出 ValueError"""
+        service = DocumentService(db=mock_db_session, auto_create_events=False)
+
+        with pytest.raises(ValueError, match="無效的公文類型"):
+            await service.generate_auto_serial("無效類型")
+
+    @pytest.mark.asyncio
+    async def test_generate_auto_serial_empty_type_raises_value_error(self, mock_db_session):
+        """測試空字串公文類型拋出 ValueError"""
+        service = DocumentService(db=mock_db_session, auto_create_events=False)
+
+        with pytest.raises(ValueError, match="無效的公文類型"):
+            await service.generate_auto_serial("")
+
+    @pytest.mark.asyncio
+    async def test_generate_auto_serial_alias_works(self, mock_db_session):
+        """測試 _get_next_auto_serial 別名可正常使用"""
+        service = DocumentService(db=mock_db_session, auto_create_events=False)
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_db_session.execute.return_value = mock_result
+
+        # 兩個名稱應產生相同結果
+        result1 = await service.generate_auto_serial("收文")
+        mock_db_session.execute.return_value = mock_result  # reset
+        result2 = await service._get_next_auto_serial("收文")
+        assert result1 == result2
+
+    @pytest.mark.asyncio
+    async def test_generate_auto_serial_send_increment(self, mock_db_session):
+        """測試發文流水號遞增"""
+        service = DocumentService(db=mock_db_session, auto_create_events=False)
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = "S0099"
+        mock_db_session.execute.return_value = mock_result
+
+        result = await service.generate_auto_serial("發文")
+
+        assert result == "S0100"
+
+    @pytest.mark.asyncio
+    async def test_generate_auto_serial_corrupted_serial_resets(self, mock_db_session):
+        """測試最大流水號格式異常時重置為 0001"""
+        service = DocumentService(db=mock_db_session, auto_create_events=False)
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = "RCORRUPT"
+        mock_db_session.execute.return_value = mock_result
+
+        result = await service.generate_auto_serial("收文")
+
+        assert result == "R0001"
+
 
 class TestCreateDocument:
     """測試建立公文"""
@@ -424,6 +481,52 @@ class TestImportDocuments:
         assert result.total_rows == 1
         assert result.skipped_count == 1
         assert result.success_count == 0
+
+    @pytest.mark.asyncio
+    async def test_import_documents_success_flow(self, mock_db_session):
+        """測試成功匯入一筆公文的完整流程"""
+        service = DocumentService(db=mock_db_session, auto_create_events=False)
+
+        # Mock: 去重查詢回傳 None (不存在)
+        mock_dedup_result = MagicMock()
+        mock_dedup_result.scalar_one_or_none.return_value = None
+        mock_db_session.execute.return_value = mock_dedup_result
+
+        with patch.object(service, '_get_or_create_agency_id', new_callable=AsyncMock, return_value=1), \
+             patch.object(service, '_get_or_create_project_id', new_callable=AsyncMock, return_value=None), \
+             patch.object(service, '_get_next_auto_serial', new_callable=AsyncMock, return_value='R0001'), \
+             patch('app.services.ai.extraction_scheduler.notify_new_documents'):
+
+            docs_to_import = [
+                {
+                    "doc_number": "NEW-001",
+                    "subject": "新公文",
+                    "doc_type": "收文",
+                    "sender": "桃園市政府",
+                    "receiver": "乾坤測繪",
+                    "doc_date": "2026-01-15",
+                }
+            ]
+
+            result = await service.import_documents_from_processed_data(docs_to_import)
+
+            assert result.total_rows == 1
+            assert result.success_count == 1
+            assert result.error_count == 0
+            assert result.skipped_count == 0
+            assert result.processing_time > 0
+            assert mock_db_session.add.called
+            assert mock_db_session.commit.called
+
+    @pytest.mark.asyncio
+    async def test_import_documents_result_has_errors_list(self, mock_db_session):
+        """測試匯入結果包含錯誤列表"""
+        service = DocumentService(db=mock_db_session, auto_create_events=False)
+
+        result = await service.import_documents_from_processed_data([])
+
+        assert isinstance(result.errors, list)
+        assert result.errors == []
 
 
 class TestApplyFilters:
