@@ -102,15 +102,17 @@ class AIConnector:
 
     @property
     def available_providers(self) -> list:
-        """列出可用的 provider 及其狀態"""
+        """列出可用的 provider 及其狀態（按 priority 排序）"""
         providers = []
+        # P0: vLLM local（最低延遲）
+        if os.getenv("VLLM_ENABLED", "").lower() == "true":
+            providers.append({"name": "vllm", "model": VLLM_LOCAL_MODEL, "priority": 0})
+        # P1: Groq + NVIDIA Cloud
         if self.groq_api_key:
             providers.append({"name": "groq", "model": GROQ_DEFAULT_MODEL, "priority": 1})
         if self.nvidia_api_key:
             providers.append({"name": "nvidia", "model": NVIDIA_DEFAULT_MODEL, "priority": 1})
-        # vLLM local (OpenAI-compatible, 取代 NIM TRT-LLM)
-        if os.getenv("VLLM_ENABLED", "").lower() == "true":
-            providers.append({"name": "vllm", "model": VLLM_LOCAL_MODEL, "priority": 0})
+        # P2: Ollama（備援）
         providers.append({"name": "ollama", "model": OLLAMA_DEFAULT_MODEL, "priority": 2})
         return providers
 
@@ -167,6 +169,20 @@ class AIConnector:
                 logger.warning("Ollama-first 失敗，降級至 Groq: %s", e)
                 # 繼續到下方 Groq-first 邏輯作為 fallback
 
+        # 嘗試 vLLM 本地（最低延遲，P0 優先）
+        if os.getenv("VLLM_ENABLED", "").lower() == "true":
+            try:
+                logger.info("嘗試 vLLM 本地 (model=%s)...", VLLM_LOCAL_MODEL)
+                result = await self._nvidia_completion(
+                    messages, VLLM_LOCAL_MODEL, temperature, max_tokens,
+                    response_format=response_format,
+                    api_url=VLLM_LOCAL_URL,
+                )
+                self._last_provider = "vllm"
+                return result
+            except Exception as e:
+                logger.warning("vLLM 本地失敗: %s", e)
+
         # 嘗試 Groq API（雲端、免費）— 含重試機制
         if self.groq_api_key:
             last_error: Optional[Exception] = None
@@ -209,20 +225,6 @@ class AIConnector:
                     break
             if last_error:
                 logger.warning("Groq API 最終失敗: %s", last_error)
-
-        # 嘗試 vLLM 本地（最低延遲，OpenAI-compatible）
-        if os.getenv("VLLM_ENABLED", "").lower() == "true":
-            try:
-                logger.info("嘗試 vLLM 本地 (model=%s)...", VLLM_LOCAL_MODEL)
-                result = await self._nvidia_completion(
-                    messages, VLLM_LOCAL_MODEL, temperature, max_tokens,
-                    response_format=response_format,
-                    api_url=VLLM_LOCAL_URL,
-                )
-                self._last_provider = "vllm"
-                return result
-            except Exception as e:
-                logger.warning("vLLM 本地失敗: %s", e)
 
         # 嘗試 NVIDIA Cloud API（高品質 49B 模型）
         if self.nvidia_api_key:
@@ -412,19 +414,7 @@ class AIConnector:
         Yields:
             每個文字片段 (chunk)
         """
-        # 嘗試 Groq 串流
-        if self.groq_api_key:
-            try:
-                logger.info("嘗試 Groq 串流 API...")
-                async for chunk in self._stream_groq(
-                    messages, model or GROQ_DEFAULT_MODEL, temperature, max_tokens
-                ):
-                    yield chunk
-                return
-            except Exception as e:
-                logger.warning(f"Groq 串流失敗: {e}")
-
-        # 嘗試 vLLM 本地串流
+        # 嘗試 vLLM 本地串流（P0 優先）
         if os.getenv("VLLM_ENABLED", "").lower() == "true":
             try:
                 logger.info("嘗試 vLLM 本地串流...")
@@ -436,6 +426,18 @@ class AIConnector:
                 return
             except Exception as e:
                 logger.warning(f"vLLM 本地串流失敗: {e}")
+
+        # 嘗試 Groq 串流
+        if self.groq_api_key:
+            try:
+                logger.info("嘗試 Groq 串流 API...")
+                async for chunk in self._stream_groq(
+                    messages, model or GROQ_DEFAULT_MODEL, temperature, max_tokens
+                ):
+                    yield chunk
+                return
+            except Exception as e:
+                logger.warning(f"Groq 串流失敗: {e}")
 
         # 嘗試 NVIDIA Cloud 串流
         if self.nvidia_api_key:

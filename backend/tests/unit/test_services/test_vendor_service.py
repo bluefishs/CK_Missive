@@ -51,6 +51,7 @@ def mock_repository():
     repo.exists = AsyncMock()
     repo.get_by_field = AsyncMock()
     repo.find_one_by = AsyncMock()
+    repo.search = AsyncMock()
     return repo
 
 
@@ -342,7 +343,7 @@ class TestCreate:
 
         assert result.id == 10
         assert result.vendor_name == "新廠商"
-        mock_repository.create.assert_awaited_once_with(create_data)
+        mock_repository.create.assert_awaited_once_with({"vendor_name": "新廠商"})
 
     @pytest.mark.asyncio
     async def test_create_with_all_fields(self, service, mock_repository):
@@ -362,18 +363,20 @@ class TestCreate:
             vendor_name="全欄位廠商",
             vendor_code="V-FULL-001",
         )
-        # get_by_field 回傳 None 表示統一編號不重複
-        mock_repository.get_by_field.return_value = None
+        # search 回傳空列表表示統一編號不重複
+        mock_repository.search.return_value = []
         mock_repository.create.return_value = mock_new_vendor
 
         result = await service.create(create_data)
 
         assert result.id == 11
         # 驗證有先檢查統一編號是否重複
-        mock_repository.get_by_field.assert_awaited_once_with(
-            "vendor_code", "V-FULL-001"
+        mock_repository.search.assert_awaited_once_with(
+            search_term="V-FULL-001", search_fields=["vendor_code"], limit=1,
         )
-        mock_repository.create.assert_awaited_once_with(create_data)
+        mock_repository.create.assert_awaited_once_with(
+            create_data.model_dump(exclude_unset=True)
+        )
 
     @pytest.mark.asyncio
     async def test_create_duplicate_vendor_code(self, service, mock_repository):
@@ -383,7 +386,7 @@ class TestCreate:
             vendor_code="V-DUP-001",
         )
         existing_vendor = _make_vendor(vendor_id=99, vendor_code="V-DUP-001")
-        mock_repository.get_by_field.return_value = existing_vendor
+        mock_repository.search.return_value = [existing_vendor]
 
         with pytest.raises(ValueError, match="已存在"):
             await service.create(create_data)
@@ -427,7 +430,7 @@ class TestUpdate:
 
         assert result is not None
         assert result.phone == "0912-345-678"
-        mock_repository.update.assert_awaited_once_with(1, update_data)
+        mock_repository.update.assert_awaited_once_with(1, {"phone": "0912-345-678"})
 
     @pytest.mark.asyncio
     async def test_update_not_found(self, service, mock_repository):
@@ -438,7 +441,7 @@ class TestUpdate:
         result = await service.update(999, update_data)
 
         assert result is None
-        mock_repository.update.assert_awaited_once_with(999, update_data)
+        mock_repository.update.assert_awaited_once_with(999, {"phone": "0999-999-999"})
 
 
 # ============================================================
