@@ -80,9 +80,12 @@ _DISPATCH_KEYS = {
     # Federation Intelligence Interface (v1.84.0)
     "ask_external_system",
 }
-if _DISPATCH_KEYS != VALID_TOOL_NAMES:
+# Validate: all dispatch keys must be in registry, and all non-skill registry tools
+# must be in dispatch keys. Skill tools (skill_*) are handled dynamically.
+_non_skill_registry = {n for n in VALID_TOOL_NAMES if not n.startswith("skill_")}
+if _DISPATCH_KEYS != _non_skill_registry:
     raise RuntimeError(
-        f"dispatch_map keys {_DISPATCH_KEYS} != registry tools {VALID_TOOL_NAMES}"
+        f"dispatch_map keys {_DISPATCH_KEYS} != non-skill registry tools {_non_skill_registry}"
     )
 
 
@@ -142,8 +145,12 @@ class ToolResultGuard:
         """
         template = cls._GUARD_TEMPLATES.get(tool_name)
         if template is None:
-            # 未知工具不做守衛，回傳原始錯誤
-            return error_result
+            # Auto-discovered skill tools get a generic guard
+            if tool_name.startswith("skill_"):
+                template = {"results": [], "count": 0}
+            else:
+                # 未知工具不做守衛，回傳原始錯誤
+                return error_result
 
         guarded = {**template}
         guarded["guarded"] = True
@@ -282,6 +289,13 @@ class AgentToolExecutor:
         }
 
         handler = dispatch_map.get(tool_name)
+
+        # Fallback: auto-discovered skill tools → delegate to KB search
+        if handler is None and tool_name.startswith("skill_"):
+            safe_params = self._sanitize_params(params)
+            skill_key = tool_name.replace("skill_", "").replace("_", "-")
+            return await self._analysis.execute_skill_query(safe_params, skill_key)
+
         if not handler:
             return {"error": f"未知工具: {tool_name}", "count": 0}
 

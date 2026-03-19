@@ -262,10 +262,13 @@ class TestToolRegistryContextFiltering:
         tool_names = [tc["name"] for tc in parsed["tool_calls"]]
         assert "get_system_health" in tool_names
 
-    def test_total_tool_count_is_23(self):
-        """應有 23 個預設工具 (12 原始 + 8 PM/ERP + parse_document + search_knowledge_base + ask_external_system)"""
+    def test_total_tool_count_at_least_23(self):
+        """應有至少 23 個手動工具 + 自動發現的 skill 工具"""
         registry = get_tool_registry()
-        assert registry.get_tool_count() == 23
+        non_skill = {n for n in registry.valid_tool_names if not n.startswith("skill_")}
+        assert len(non_skill) == 23
+        # Total includes auto-discovered skill tools
+        assert registry.get_tool_count() >= 23
 
 
 # ============================================================================

@@ -77,11 +77,12 @@ class TestToolResultGuard:
         assert result.get("guarded") is True
 
     def test_all_tools_have_templates(self):
-        """確認所有已知工具都有守衛模板"""
+        """確認所有已知工具都有守衛模板（skill_ 前綴工具動態處理，不需模板）"""
         Guard = self._guard()
-        # 確認守衛模板覆蓋所有已註冊工具
+        # 確認守衛模板覆蓋所有非 skill 的已註冊工具
         from app.services.ai.agent_tools import VALID_TOOL_NAMES
-        assert set(Guard._GUARD_TEMPLATES.keys()) == VALID_TOOL_NAMES
+        non_skill_tools = {n for n in VALID_TOOL_NAMES if not n.startswith("skill_")}
+        assert set(Guard._GUARD_TEMPLATES.keys()) == non_skill_tools
 
 
 # ============================================================================

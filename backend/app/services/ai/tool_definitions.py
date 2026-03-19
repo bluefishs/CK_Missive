@@ -370,4 +370,31 @@ def register_default_tools(registry: ToolRegistry) -> None:
         contexts=["agent"],
     ))
 
-    logger.info("Tool registry initialized: %d tools registered", registry.get_tool_count())
+    logger.info("Tool registry initialized: %d manual tools registered", registry.get_tool_count())
+
+    # === NemoClaw Stage 3: 自動從 Skills 目錄發現並註冊工具 ===
+    try:
+        from .skill_scanner import scan_skills
+        skills = scan_skills()
+        auto_count = 0
+        for skill in skills:
+            name = f"skill_{skill['name'].replace('-', '_')}"
+            # Skip if already registered (manual tools take precedence)
+            if name in registry.valid_tool_names:
+                continue
+            registry.register(ToolDefinition(
+                name=name,
+                description=f"[Skill] {skill['description']}",
+                parameters={
+                    "query": {"type": "string", "description": "相關問題或查詢"},
+                },
+                priority=1,  # Lower than manual tools
+                contexts=["agent"],
+            ))
+            auto_count += 1
+        logger.info(
+            "Auto-discovered %d skills from .claude/skills/ (%d total tools)",
+            auto_count, registry.get_tool_count(),
+        )
+    except Exception as e:
+        logger.debug("Skill auto-discovery failed (non-critical): %s", e)

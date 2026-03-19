@@ -404,6 +404,14 @@ class AnalysisToolExecutor:
             logger.error("explore_entity_path failed: %s", e)
             return {"error": "圖譜路徑探索失敗", "count": 0}
 
+    async def execute_skill_query(self, params: Dict[str, Any], skill_name: str) -> Dict[str, Any]:
+        """執行 skill-based 查詢 — 從 KB 搜尋相關知識"""
+        query = params.get("query", "")
+        # Delegate to search_knowledge_base with skill name as context
+        return await self.search_knowledge_base(
+            {"query": f"{skill_name} {query}".strip(), "limit": 3}
+        )
+
     async def search_knowledge_base(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """搜尋知識庫文件（API 規格、架構、ADR、開發規範）"""
         import re as re_mod

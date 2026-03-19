@@ -941,3 +941,71 @@ async def get_agent_mirror_report(
             "strengths": [],
             "weaknesses": [],
         }
+
+
+# ============================================================================
+# NemoClaw Stage 1B: Agent Self-Profile
+# ============================================================================
+
+
+@router.post("/agent/self-profile")
+async def get_agent_self_profile(
+    current_user: User = Depends(require_auth()),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    Agent 自我檔案 — 我是誰、我擅長什麼。
+
+    從 DB 統計查詢總數、常用領域、常用工具、平均分數、
+    學習記錄數，並產生一段個性描述。
+    """
+    from app.services.ai.agent_self_profile import get_self_profile
+
+    try:
+        profile = await get_self_profile(db)
+        return {"success": True, **profile}
+    except Exception as e:
+        logger.error("Agent 自我檔案查詢失敗: %s", e, exc_info=True)
+        return {
+            "success": False,
+            "identity": "乾坤",
+            "total_queries": 0,
+            "top_domains": [],
+            "favorite_tools": [],
+            "avg_score": 0.0,
+            "learnings_count": 0,
+            "conversation_summaries": 0,
+            "personality_hint": "系統資料暫時無法存取",
+        }
+
+
+# ============================================================================
+# NemoClaw Stage 2: Proactive Alerts (deadline-focused)
+# ============================================================================
+
+
+@router.post("/agent/proactive-alerts")
+async def get_agent_proactive_alerts(
+    current_user: User = Depends(require_auth()),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    Agent 主動提醒 — 即將到期公文 + 系統健康 + 未讀通知。
+
+    專為 Agent 問答注入上下文設計，與 ai_stats 的
+    proactive/alerts 端點互補（後者側重案件逾期與品質）。
+    """
+    from app.services.ai.agent_proactive_scanner import scan_agent_alerts
+
+    try:
+        alerts = await scan_agent_alerts(db)
+        return {"success": True, **alerts}
+    except Exception as e:
+        logger.error("Agent 主動提醒掃描失敗: %s", e, exc_info=True)
+        return {
+            "success": False,
+            "deadline_alerts": [],
+            "health_issues": [],
+            "unread_notifications": 0,
+            "total_alerts": 0,
+        }

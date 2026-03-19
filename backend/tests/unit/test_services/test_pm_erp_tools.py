@@ -18,12 +18,15 @@ import pytest
 class TestToolRegistryExpansion:
     """驗證 ToolRegistry 包含 18 個工具"""
 
-    def test_registry_has_23_tools(self):
+    def test_registry_has_at_least_23_manual_tools(self):
         from app.services.ai.tool_registry import ToolRegistry, _register_default_tools
 
         registry = ToolRegistry()
         _register_default_tools(registry)
-        assert registry.get_tool_count() == 23
+        # 23 manual tools + auto-discovered skill tools
+        non_skill = {n for n in registry.valid_tool_names if not n.startswith("skill_")}
+        assert len(non_skill) == 23
+        assert registry.get_tool_count() >= 23
 
     def test_pm_tools_registered(self):
         from app.services.ai.tool_registry import ToolRegistry, _register_default_tools
@@ -91,10 +94,12 @@ class TestToolRegistryExpansion:
 class TestToolResultGuardExpansion:
     """驗證 ToolResultGuard 包含 PM/ERP 回退模板"""
 
-    def test_guard_templates_cover_all_tools(self):
+    def test_guard_templates_cover_all_non_skill_tools(self):
         from app.services.ai.agent_tools import ToolResultGuard, VALID_TOOL_NAMES
 
         for name in VALID_TOOL_NAMES:
+            if name.startswith("skill_"):
+                continue  # skill tools handled dynamically in guard()
             assert name in ToolResultGuard._GUARD_TEMPLATES, f"Missing guard for {name}"
 
     def test_pm_guard_search_projects(self):
@@ -303,6 +308,7 @@ class TestERPQueryService:
 class TestDispatchMapConsistency:
     """確認 dispatch_map 與 ToolRegistry 一致"""
 
-    def test_dispatch_keys_match_registry(self):
+    def test_dispatch_keys_match_non_skill_registry(self):
         from app.services.ai.agent_tools import _DISPATCH_KEYS, VALID_TOOL_NAMES
-        assert _DISPATCH_KEYS == VALID_TOOL_NAMES
+        non_skill = {n for n in VALID_TOOL_NAMES if not n.startswith("skill_")}
+        assert _DISPATCH_KEYS == non_skill

@@ -127,7 +127,7 @@ class ConversationMemory:
         *,
         tool_count: int = 0,
     ) -> None:
-        """追加本輪對話並儲存（含內容截斷保護 + 自適應上下文窗口）"""
+        """追加本輪對話並儲存（含內容截斷保護 + 自適應上下文窗口 + DB 持久化）"""
         try:
             r = await self._get_redis()
             if r is None:
@@ -156,9 +156,61 @@ class ConversationMemory:
                 _CONV_TTL,
                 json.dumps(history, ensure_ascii=False),
             )
+
+            # Stage 1A: Persist conversation summary to DB when 4+ turns
+            if len(history) >= 8:  # 4+ turns (user+assistant pairs)
+                await self._persist_conversation_summary(
+                    session_id, question, len(history),
+                )
         except Exception as e:
             logger.debug("Conv memory save failed: %s", e)
             self._redis = None
+
+    async def _persist_conversation_summary(
+        self,
+        session_id: str,
+        question: str,
+        history_len: int,
+    ) -> None:
+        """Persist a conversation summary to the agent_learnings table."""
+        try:
+            import hashlib
+            from app.extended.models import AgentLearning
+            from app.db.database import AsyncSessionLocal
+
+            turns = history_len // 2
+            summary_text = (
+                f"Session {session_id}: {turns} turns about "
+                f"'{question[:100]}'"
+            )
+            content_hash = hashlib.md5(
+                f"conv_summary:{session_id}".encode(),
+            ).hexdigest()
+
+            async with AsyncSessionLocal() as db_session:
+                async with db_session.begin():
+                    # Check if summary for this session already exists
+                    from sqlalchemy import select
+                    existing = await db_session.execute(
+                        select(AgentLearning.id).where(
+                            AgentLearning.content_hash == content_hash,
+                            AgentLearning.is_active == True,
+                        )
+                    )
+                    if existing.scalar_one_or_none() is not None:
+                        return  # Already persisted
+
+                    learning = AgentLearning(
+                        session_id=session_id,
+                        learning_type="conversation_summary",
+                        content=summary_text,
+                        content_hash=content_hash,
+                        source_question=question[:200],
+                        confidence=0.8,
+                    )
+                    db_session.add(learning)
+        except Exception as e:
+            logger.debug("Conversation persistence failed: %s", e)
 
     async def delete(self, session_id: str) -> None:
         """清除對話歷史"""
