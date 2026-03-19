@@ -1,0 +1,85 @@
+# Agent Policy Configuration (inspired by NemoClaw)
+# Values here serve as defaults; environment variables always take priority.
+# See: app/services/ai/ai_config.py for field mapping.
+version: "1.0.0"
+
+agent:
+  max_iterations: 3
+  tool_timeout_seconds: 15
+  stream_timeout_seconds: 60
+  sync_query_timeout_seconds: 90
+  find_similar_threshold: 0.7
+
+tool_monitor:
+  window_size: 100
+  degrade_threshold: 0.30
+  recovery_threshold: 0.70
+  probe_interval_seconds: 600
+
+pattern_learner:
+  max_patterns: 500
+  decay_half_life_seconds: 604800   # 7 days
+  match_threshold: 0.8
+  semantic_enabled: true
+  semantic_threshold: 0.85
+  semantic_top_k: 5
+
+summarizer:
+  trigger_turns: 6
+  max_chars: 500
+  keep_recent: 2
+
+router:
+  pattern_threshold: 0.8
+  rule_threshold: 0.9
+
+tool_guard:
+  enabled: true
+
+adaptive_fewshot:
+  enabled: true
+  limit: 3
+  min_results: 1
+
+self_reflection:
+  enabled: true
+  threshold: 5
+  timeout_seconds: 5
+
+memory:
+  flush_enabled: true
+  learnings_ttl_seconds: 86400    # 24 hours
+  max_learnings: 10
+
+learning:
+  persist_enabled: true
+  max_per_session: 10
+  inject_limit: 5
+
+compaction:
+  tier1_timeout_seconds: 10
+  tier2_max_msg_chars: 500
+  tier3_topic_limit: 10
+
+evolution:
+  trigger_every_n_queries: 50
+  trigger_interval_hours: 24
+
+# Provider routing preferences (v2.0.0)
+# Task types: chat, planning, synthesis, ner, embedding
+provider_routing:
+  chat:
+    preferred: [groq, nvidia, ollama]
+    prefer_local: false
+  planning:
+    preferred: [groq, nvidia, ollama]
+    prefer_local: false
+  synthesis:
+    preferred: [groq, nvidia, ollama]
+    prefer_local: false
+  ner:
+    preferred: [ollama, nvidia, groq]
+    prefer_local: true
+  embedding:
+    preferred: [ollama]
+    prefer_local: true

@@ -1,26 +1,69 @@
 """
-Agent 規劃模組 — 意圖前處理、LLM 工具規劃、評估/重規劃、自動修正
+Agent 規劃模組 — 意圖前處理、LLM 工具規劃、ReAct 循環、自動修正
 
 流程：
 1. _preprocess_question → 4 層意圖解析提取結構化 hints
 2. plan_tools → LLM Few-shot 規劃 + hints 合併 + 空計劃修復
-3. evaluate_and_replan → 評估結果充分性
-4. auto_correct → 規則式自我修正（5 策略，不需 LLM）
+3. evaluate_and_replan → 快速路徑（規則自動修正） + 慢路徑（LLM ReAct）
+4. react → LLM 觀察工具結果，決定下一步行動或生成回答
 
 Extracted from agent_orchestrator.py v1.8.0
+Updated: v2.4.0 — ReAct 循環 + 工作記憶
+Updated: v2.8.0 — Cross-session Learning 啟動注入
+Updated: v2.9.0 — 自動修正/學習注入提取至獨立模組
 """
 
-import json
 import logging
 import re
 import time
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from app.services.ai.tool_registry import get_tool_registry
 from app.services.ai.agent_utils import sanitize_history
+from app.services.ai.agent_auto_corrector import auto_correct_plan
+from app.services.ai.agent_learning_injector import (
+    build_adaptive_fewshot,
+    cosine_similarity,
+    inject_cross_session_learnings,
+)
 
 logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# 工作記憶 — 本次對話推理狀態
+# ============================================================================
+
+@dataclass
+class AgentWorkingMemory:
+    """
+    智能體工作記憶 — 追蹤本次問答的推理鏈。
+
+    用途：
+    - scratchpad: ReAct 各輪推理摘要（供 LLM 回顧）
+    - discovered_entities: 已發現的實體名稱（避免重複查詢）
+    - confidence: 目前答案信心度（0-1，由 LLM 評估）
+    - total_results: 累計結果數量
+    """
+    scratchpad: List[str] = field(default_factory=list)
+    discovered_entities: set = field(default_factory=set)
+    confidence: float = 0.0
+    total_results: int = 0
+    max_scratchpad: int = 12
+
+    def add_observation(self, tool: str, count: int, summary: str) -> None:
+        """記錄工具執行觀察（超過上限自動淘汰舊項）"""
+        self.scratchpad.append(f"[{tool}] → {count} 筆結果: {summary[:100]}")
+        if len(self.scratchpad) > self.max_scratchpad:
+            self.scratchpad = self.scratchpad[-self.max_scratchpad:]
+        self.total_results += count
+
+    def get_scratchpad_text(self, max_entries: int = 6) -> str:
+        """取得推理鏈文字（供 LLM prompt）"""
+        entries = self.scratchpad[-max_entries:]
+        return "\n".join(f"  {i+1}. {e}" for i, e in enumerate(entries))
 
 
 class AgentPlanner:
@@ -90,12 +133,14 @@ class AgentPlanner:
         question: str,
         history: Optional[List[Dict[str, str]]],
         context: Optional[str] = None,
+        db: Optional[Any] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         LLM 分析問題，決定要呼叫哪些工具。
 
         Args:
             context: 助理上下文 ('doc'/'dev')，用於篩選可用工具集。
+            db: AsyncSession，用於 Adaptive Few-shot 查詢歷史 trace。
 
         注意：此方法只做 LLM 規劃。hints 合併由 orchestrator 在
         preprocess_question 完成後統一呼叫 merge_hints_into_plan 處理。
@@ -122,8 +167,9 @@ class AgentPlanner:
             ),
             (
                 '使用者：「派工單007的詳情」\n'
-                '回應：{"reasoning": "搜尋特定派工單號", '
-                '"tool_calls": [{"name": "search_dispatch_orders", "params": {"dispatch_no": "007", "limit": 10}}]}'
+                '回應：{"reasoning": "搜尋特定派工單號，並查詢收發文配對以提供完整資訊", '
+                '"tool_calls": [{"name": "search_dispatch_orders", "params": {"dispatch_no": "007", "limit": 10}}, '
+                '{"name": "find_correspondence", "params": {"dispatch_id": 7}}]}'
             ),
             (
                 '使用者：「道路工程相關的派工和公文」\n'
@@ -154,7 +200,41 @@ class AgentPlanner:
         else:
             few_shot_str_block = extra_block
 
-        system_prompt = f"""你是公文管理系統的 AI 智能體。根據使用者問題，決定需要呼叫哪些工具來回答。
+        # Phase 2B: Adaptive Few-shot — 從歷史成功 trace 注入範例
+        if db and self.config.adaptive_fewshot_enabled:
+            try:
+                adaptive_block = await build_adaptive_fewshot(
+                    question, db, self.config, context,
+                )
+                if adaptive_block:
+                    few_shot_str_block += "\n\n# 歷史成功案例\n" + adaptive_block
+            except Exception as e:
+                logger.debug("Adaptive few-shot skipped: %s", e)
+
+        # Phase 3A+: Cross-session Learning — 從 DB 持久化學習注入規劃提示
+        cross_session_hints = ""
+        if db and self.config.learning_persist_enabled:
+            try:
+                cross_session_hints = await inject_cross_session_learnings(
+                    question, db, self.config,
+                )
+            except Exception as e:
+                logger.debug("Cross-session learning injection skipped: %s", e)
+
+        # Tool Discovery — 動態工具推薦 (v1.2.0)
+        tool_discovery_hint = ""
+        try:
+            suggestions = await registry.suggest_tools_for_query(
+                question, db=db, top_k=5, context=context,
+            )
+            tool_discovery_hint = registry.get_tool_suggestions_prompt(suggestions)
+        except Exception as e:
+            logger.debug("Tool discovery skipped: %s", e)
+
+        from app.services.ai.agent_roles import get_role_profile
+        role = get_role_profile(context)
+
+        system_prompt = f"""你是「{role.identity}」。根據使用者問題，決定需要呼叫哪些工具來回答。
 
 可用工具：
 {tool_defs_str}
@@ -173,6 +253,8 @@ class AgentPlanner:
 - 當問題涉及「資料表結構」「欄位」「schema」等資料庫問題時，附帶 draw_diagram(diagram_type=erDiagram)
 - 今天日期：{today}
 {hints_str}
+{cross_session_hints}
+{tool_discovery_hint}
 
 以下是幾個規劃範例：
 
@@ -322,6 +404,15 @@ class AgentPlanner:
 
         return forced_calls
 
+    # Backward-compatible delegates for extracted methods
+    _cosine_similarity = staticmethod(cosine_similarity)
+
+    async def _build_adaptive_fewshot(self, question, db, context=None):
+        return await build_adaptive_fewshot(question, db, self.config, context)
+
+    async def _inject_cross_session_learnings(self, question, db):
+        return await inject_cross_session_learnings(question, db, self.config)
+
     @staticmethod
     def _build_fallback_plan(
         question: str,
@@ -383,113 +474,151 @@ class AgentPlanner:
         question: str,
         tool_results: List[Dict[str, Any]],
     ) -> Optional[Dict[str, Any]]:
+        """規則式自我修正 — 委派至 agent_auto_corrector 模組"""
+        return auto_correct_plan(question, tool_results)
+
+    # ========================================================================
+    # ReAct 循環 — LLM 驅動的多步推理（慢路徑）
+    # ========================================================================
+
+    async def react(
+        self,
+        question: str,
+        tool_results: List[Dict[str, Any]],
+        memory: AgentWorkingMemory,
+        context: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
         """
-        規則式自我修正 — 不需 LLM 即可快速決定重試策略
+        ReAct（Reason + Act）循環 — LLM 驅動的多步推理。
+
+        觀察工具結果 → LLM 判斷：
+        - action="answer"   → 結果充分，進入合成
+        - action="continue" → 需要查詢更多資料
+        - action="refine"   → 用不同參數重試
+
+        僅在 auto_correct 未觸發時呼叫（作為慢路徑）。
 
         Returns:
-            修正後的 plan dict（含 tool_calls），或 None 若不需要修正
+            修正後的 plan dict（含 tool_calls），或 None 表示結果充分
         """
         if not tool_results:
             return None
 
-        last = tool_results[-1]
-        last_tool = last.get("tool", "")
-        last_result = last.get("result", {})
-        last_error = last_result.get("error")
-        last_count = last_result.get("count", 0)
+        # 若已有足夠結果且信心度高，跳過 LLM 呼叫
+        if memory.total_results >= 3 and memory.confidence >= 0.7:
+            logger.info("ReAct skipped: confidence=%.2f, results=%d",
+                        memory.confidence, memory.total_results)
+            return None
+
+        # 構建最近工具結果摘要
+        results_summary = []
+        for tr in tool_results[-4:]:
+            tool = tr.get("tool", "unknown")
+            count = tr.get("result", {}).get("count", 0)
+            error = tr.get("result", {}).get("error")
+            if error:
+                results_summary.append(f"- {tool}: 失敗 ({error})")
+            else:
+                results_summary.append(f"- {tool}: {count} 筆結果")
+        results_text = "\n".join(results_summary)
+
+        scratchpad_text = memory.get_scratchpad_text()
+
+        registry = get_tool_registry()
+        tool_names = [t.name for t in registry._filter_by_context(context)]
         used_tools = {tr["tool"] for tr in tool_results}
+        available_unused = [t for t in tool_names if t not in used_tools]
 
-        # 策略 1: search_documents 返回 0 結果 → 放寬條件重試
-        doc_search_count = sum(
-            1 for tr in tool_results
-            if tr["tool"] == "search_documents" and tr["result"].get("count", 0) == 0
-        )
-        if last_tool == "search_documents" and last_count == 0 and not last_error and doc_search_count < 2:
-            original_params = last.get("params", {})
-            relaxed_params: Dict[str, Any] = {"keywords": [question], "limit": 8}
-            if original_params.get("keywords"):
-                relaxed_params["keywords"] = original_params["keywords"]
+        from app.services.ai.agent_roles import get_role_profile
+        role = get_role_profile(context)
 
-            extra_tools: List[Dict[str, Any]] = [
-                {"name": "search_documents", "params": relaxed_params},
-            ]
-            if "search_entities" not in used_tools:
-                extra_tools.append(
-                    {"name": "search_entities", "params": {"query": question, "limit": 10}}
-                )
+        system_prompt = f"""你是「{role.identity}」，正在進行多步推理來回答使用者的問題。
 
-            return {
-                "reasoning": "公文搜尋無結果，放寬條件重試（移除篩選限制）",
-                "tool_calls": extra_tools,
-            }
+使用者問題：{question[:300]}
 
-        # 策略 2: search_entities 返回 0 結果且尚未搜文件 → 改用文件搜尋
-        if last_tool == "search_entities" and last_count == 0 and not last_error:
-            if "search_documents" not in used_tools:
-                return {
-                    "reasoning": "實體搜尋無結果，改用公文全文搜尋",
-                    "tool_calls": [
-                        {"name": "search_documents", "params": {"keywords": [question], "limit": 10}},
-                    ],
-                }
+目前已執行的工具結果：
+{results_text}
 
-        # 策略 2.5: search_documents 無結果且未搜尋派工單 → 嘗試派工單搜尋
-        if (
-            last_tool == "search_documents"
-            and last_count == 0
-            and "search_dispatch_orders" not in used_tools
-        ):
-            return {
-                "reasoning": "公文搜尋無結果，嘗試搜尋派工單紀錄",
-                "tool_calls": [
-                    {"name": "search_dispatch_orders", "params": {"search": question, "limit": 10}},
+推理過程記錄：
+{scratchpad_text if scratchpad_text else "（尚無記錄）"}
+
+尚未使用的工具：{', '.join(available_unused[:8]) if available_unused else '（全部已用）'}
+
+請判斷是否需要更多查詢來回答使用者的問題。
+
+回傳 JSON 格式：
+{{"action": "answer|continue|refine", "reasoning": "簡短說明", "confidence": 0.0~1.0, "tool_calls": [...]}}
+
+規則：
+- action="answer": 目前結果已足夠回答，不需要更多工具
+- action="continue": 需要查詢更多資料，在 tool_calls 指定新工具
+- action="refine": 目前結果不理想，用不同參數重試
+- confidence: 你對目前能回答問題的信心度
+- tool_calls 格式: [{{"name": "工具名稱", "params": {{...}}}}]
+- 最多選擇 2 個工具"""
+
+        try:
+            t0 = time.time()
+            response = await self.ai.chat_completion(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": "請分析並決定下一步行動。"},
                 ],
-            }
+                temperature=0.3,
+                max_tokens=300,
+                task_type="chat",
+                response_format={"type": "json_object"},
+            )
+            logger.info("ReAct LLM call: %dms", int((time.time() - t0) * 1000))
 
-        # 策略 3: 所有工具都返回 0 結果或錯誤 → 嘗試統計概覽
-        all_empty = all(
-            tr["result"].get("count", 0) == 0 or tr["result"].get("error")
-            for tr in tool_results
-        )
-        if all_empty and "get_statistics" not in used_tools:
+            from app.services.ai.agent_utils import parse_json_safe
+            decision = parse_json_safe(response)
+
+            if not decision:
+                return None
+
+            # 更新信心度
+            confidence = decision.get("confidence", 0.5)
+            memory.confidence = max(memory.confidence, confidence)
+
+            action = decision.get("action", "answer")
+            reasoning = decision.get("reasoning", "")
+
+            if action == "answer" or confidence >= 0.8:
+                logger.info("ReAct → answer (confidence=%.2f, reason=%s)",
+                            confidence, reasoning[:60])
+                memory.scratchpad.append(f"[ReAct] 結論: {reasoning[:80]}")
+                return None
+
+            tool_calls = decision.get("tool_calls", [])
+            if not tool_calls:
+                return None
+
+            # 過濾已使用且成功的工具（refine 允許重用）
+            filtered_calls = []
+            for tc in tool_calls:
+                name = tc.get("name", "")
+                if name not in used_tools or action == "refine":
+                    filtered_calls.append(tc)
+
+            if not filtered_calls:
+                return None
+
+            memory.scratchpad.append(
+                f"[ReAct] {action}: {reasoning[:60]} → "
+                f"{[tc['name'] for tc in filtered_calls]}"
+            )
+
+            logger.info(
+                "ReAct → %s (confidence=%.2f) → %s",
+                action, confidence, [tc["name"] for tc in filtered_calls],
+            )
+
             return {
-                "reasoning": "所有查詢均無結果，取得系統概覽供參考",
-                "tool_calls": [
-                    {"name": "get_statistics", "params": {}},
-                ],
+                "reasoning": f"ReAct: {reasoning}",
+                "tool_calls": filtered_calls[:2],
             }
 
-        # 策略 4: 工具執行錯誤 → 如果是 find_similar 缺向量，改用文件搜尋
-        if last_tool == "find_similar" and last_error and "search_documents" not in used_tools:
-            return {
-                "reasoning": f"相似公文查詢失敗（{last_error}），改用關鍵字搜尋",
-                "tool_calls": [
-                    {"name": "search_documents", "params": {"keywords": [question], "limit": 10}},
-                ],
-            }
-
-        # 策略 5: search_entities 有結果但未取得 detail → 自動展開前 2 個實體
-        if "get_entity_detail" not in used_tools:
-            for tr in tool_results:
-                if (
-                    tr.get("tool") == "search_entities"
-                    and tr["result"].get("count", 0) > 0
-                    and not tr["result"].get("error")
-                ):
-                    entities = tr["result"].get("entities", [])
-                    detail_calls = [
-                        {
-                            "name": "get_entity_detail",
-                            "params": {"entity_id": e.get("id")},
-                        }
-                        for e in entities[:2]
-                        if e.get("id")
-                    ]
-                    if detail_calls:
-                        return {
-                            "reasoning": "實體搜尋命中，自動取得詳細關係與關聯公文",
-                            "tool_calls": detail_calls,
-                        }
-                    break
-
-        return None
+        except Exception as e:
+            logger.warning("ReAct LLM call failed: %s", e)
+            return None

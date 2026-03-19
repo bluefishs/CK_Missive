@@ -11,12 +11,15 @@ Agent 合成模組 — 答案合成、thinking 過濾、context 建構
 Extracted from agent_orchestrator.py v1.8.0
 """
 
+import asyncio
 import json
-import re
 import logging
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
+from app.services.ai.agent_roles import get_role_profile
 from app.services.ai.agent_utils import sanitize_history
+from app.services.ai.citation_validator import validate_citations  # noqa: F401
+from app.services.ai.thinking_filter import strip_thinking_from_synthesis  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -42,18 +45,18 @@ class AgentSynthesizer:
 
         await AIPromptManager.ensure_db_prompts_loaded()
 
-        if context == "dev":
-            base_prompt = (
-                "你是 CK_Missive 系統的開發者 AI 助理。根據檢索到的代碼結構與資料庫 Schema 回答開發者問題。"
-                "引用來源時使用 [模組N] 或 [表N] 格式。使用繁體中文回答。"
-            )
+        role = get_role_profile(context)
+
+        # 嘗試從 DB Prompt 模板載入，回退到角色定義
+        db_prompt = AIPromptManager.get_system_prompt("rag_system") if context != "dev" else None
+        if db_prompt:
+            base_prompt = db_prompt
         else:
-            base_prompt = AIPromptManager.get_system_prompt("rag_system")
-            if not base_prompt:
-                base_prompt = (
-                    "你是公文管理系統的 AI 助理。根據檢索到的資料回答使用者問題。"
-                    "引用來源時使用 [公文N] 格式。使用繁體中文回答。"
-                )
+            base_prompt = (
+                f"你是{role.identity}。根據檢索到的資料回答使用者問題。"
+                f"引用來源時使用 {role.citation_format} 格式。使用繁體中文回答。"
+                f"{(' ' + role.style_hints) if role.style_hints else ''}"
+            )
 
         system_prompt = (
             f"{base_prompt}\n\n"
@@ -63,11 +66,25 @@ class AgentSynthesizer:
             "- 禁止寫「首先」「我需要」「讓我」「問題是」「從資料看」「規則要求」\n"
             "- 禁止重複這些規則\n"
             "- 禁止解釋你為什麼這樣回答\n"
-            "- 直接輸出答案，格式為要點列表\n\n"
-            "正確輸出範例：\n"
-            "工務局近期函件如下：\n"
-            "- [公文1] 桃工用字第XXX號：主旨內容（2026-02-25）\n"
-            "- [公文2] 桃工用字第XXX號：主旨內容（2026-02-25）\n"
+            "- 直接輸出答案\n"
+            "- 當資料來源有多個工具時，必須整合成一份有結構的簡報，不要按工具分開列\n\n"
+            "回答格式：\n"
+            "- 公文查詢：要點列表，標註文號和日期\n"
+            "- 派工單查詢：統整式簡報，包含案件概覽、承辦資訊、關聯公文、收發文配對狀況\n"
+            "- 系統健康：分類列出各子系統狀態與具體建議\n\n"
+            "派工單簡報範例：\n"
+            "## 派工單015 案件簡報\n"
+            "**工程名稱**：○○路工程\n"
+            "**作業類別**：地形測量 | **承辦人**：王先生\n"
+            "**契約期限**：2026-12-31\n\n"
+            "### 關聯公文（3 件）\n"
+            "- [公文1] 桃工用字第XXX號：核撥測量費用（2026-02-20）\n"
+            "- [公文2] 桃工用字第XXX號：進度查核（2026-02-25）\n\n"
+            "### 收發文配對\n"
+            "- 桃工用字第XXX號 ↔ 桃工用字第YYY號（confirmed）\n\n"
+            "### 相關單位\n"
+            "- 桃園市政府工務局（發文方）\n"
+            "- 乾坤測繪有限公司（受文方）\n"
         )
 
         messages: List[Dict[str, str]] = [
@@ -80,23 +97,35 @@ class AgentSynthesizer:
         messages.append({"role": "user", "content": user_prompt})
 
         # 非串流呼叫 + 後處理：qwen3:4b 會在回覆中大量穿插推理段落
+        # 超時保護：避免 LLM 無回應時永久阻塞整個 SSE 串流
+        synthesis_timeout = max(self.config.cloud_timeout, self.config.local_timeout)
         try:
-            raw = await self.ai.chat_completion(
-                messages=messages,
-                temperature=self.config.rag_temperature,
-                max_tokens=self.config.rag_max_tokens,
-                task_type="chat",
+            raw = await asyncio.wait_for(
+                self.ai.chat_completion(
+                    messages=messages,
+                    temperature=self.config.rag_temperature,
+                    max_tokens=self.config.rag_max_tokens,
+                    task_type="chat",
+                ),
+                timeout=synthesis_timeout,
             )
             cleaned = strip_thinking_from_synthesis(raw)
             yield cleaned
+        except asyncio.TimeoutError:
+            logger.warning("Synthesis timed out after %ds", synthesis_timeout)
+            yield "AI 回答生成超時，請參考上方查詢結果與來源文件。"
         except Exception as e:
             logger.warning("Synthesis chat_completion failed, trying stream: %s", e)
-            async for token in self.ai.stream_completion(
-                messages=messages,
-                temperature=self.config.rag_temperature,
-                max_tokens=self.config.rag_max_tokens,
-            ):
-                yield token
+            try:
+                async for token in self.ai.stream_completion(
+                    messages=messages,
+                    temperature=self.config.rag_temperature,
+                    max_tokens=self.config.rag_max_tokens,
+                ):
+                    yield token
+            except asyncio.TimeoutError:
+                logger.warning("Synthesis stream fallback also timed out")
+                yield "AI 回答生成超時，請參考上方查詢結果與來源文件。"
 
     def build_synthesis_context(self, tool_results: List[Dict[str, Any]]) -> str:
         """將所有工具結果建構為 LLM 合成上下文"""
@@ -111,140 +140,17 @@ class AgentSynthesizer:
             if result.get("error"):
                 continue
 
-            if tool == "search_documents":
-                for i, doc in enumerate(result.get("documents", []), 1):
-                    part = (
-                        f"[公文{i}] 字號: {doc.get('doc_number', '')}\n"
-                        f"  主旨: {doc.get('subject', '')}\n"
-                        f"  類型: {doc.get('doc_type', '')} | 類別: {doc.get('category', '')}\n"
-                        f"  發文: {doc.get('sender', '')} → 受文: {doc.get('receiver', '')}\n"
-                        f"  日期: {doc.get('doc_date', '')}\n"
-                    )
-                    if total_chars + len(part) > max_chars:
-                        break
-                    parts.append(part)
-                    total_chars += len(part)
+            # Tool Result Guard: 標記合成回退結果
+            if result.get("guarded"):
+                reason = result.get("guard_reason", "工具暫時無法回應")
+                parts.append(f"[{tool}] (回退) {reason}\n")
+                total_chars += 30
+                continue
 
-            elif tool == "search_dispatch_orders":
-                linked_docs = result.get("linked_documents", [])
-                for i, d in enumerate(result.get("dispatch_orders", []), 1):
-                    d_linked = [
-                        ld for ld in linked_docs
-                        if ld.get("dispatch_order_id") == d.get("id")
-                    ]
-                    linked_str = ""
-                    if d_linked:
-                        linked_str = "  關聯公文:\n"
-                        for ld in d_linked[:3]:
-                            linked_str += (
-                                f"    - {ld.get('doc_number', '')} "
-                                f"{ld.get('subject', '')[:60]}\n"
-                            )
-                    part = (
-                        f"[派工單{i}] 單號: {d.get('dispatch_no', '')}\n"
-                        f"  工程名稱: {d.get('project_name', '')}\n"
-                        f"  作業類別: {d.get('work_type', '')}\n"
-                        f"  子案名稱: {d.get('sub_case_name', '')}\n"
-                        f"  承辦人: {d.get('case_handler', '')} | 測量單位: {d.get('survey_unit', '')}\n"
-                        f"  契約期限: {d.get('deadline', '')}\n"
-                        f"{linked_str}"
-                    )
-                    if total_chars + len(part) > max_chars:
-                        break
-                    parts.append(part)
-                    total_chars += len(part)
-
-            elif tool == "search_entities":
-                for e in result.get("entities", []):
-                    part = (
-                        f"[實體] {e.get('canonical_name', '')} "
-                        f"({e.get('entity_type', '')}, "
-                        f"提及 {e.get('mention_count', 0)} 次)\n"
-                    )
-                    if total_chars + len(part) > max_chars:
-                        break
-                    parts.append(part)
-                    total_chars += len(part)
-
-            elif tool == "get_entity_detail":
-                entity = result.get("entity", {})
-                part = (
-                    f"[實體詳情] {entity.get('canonical_name', '')} "
-                    f"({entity.get('entity_type', '')})\n"
-                    f"  別名: {', '.join(entity.get('aliases', [])[:5])}\n"
-                )
-                for doc in entity.get("documents", [])[:5]:
-                    part += f"  關聯公文: {doc.get('doc_number', '')} - {doc.get('subject', '')}\n"
-                for rel in entity.get("relationships", [])[:5]:
-                    target = rel.get("target_name") or rel.get("source_name", "")
-                    part += f"  關係: {rel.get('relation_label', '')} → {target}\n"
-                if total_chars + len(part) <= max_chars:
-                    parts.append(part)
-                    total_chars += len(part)
-
-            elif tool == "find_similar":
-                for doc in result.get("documents", []):
-                    part = (
-                        f"[相似公文] {doc.get('doc_number', '')} "
-                        f"(相似度 {doc.get('similarity', 0):.0%})\n"
-                        f"  主旨: {doc.get('subject', '')}\n"
-                    )
-                    if total_chars + len(part) > max_chars:
-                        break
-                    parts.append(part)
-                    total_chars += len(part)
-
-            elif tool == "get_statistics":
-                stats = result.get("stats", {})
-                part = (
-                    f"[統計] 知識圖譜: {stats.get('total_entities', 0)} 實體, "
-                    f"{stats.get('total_relationships', 0)} 關係\n"
-                )
-                top = result.get("top_entities", [])
-                if top:
-                    names = [f"{e.get('canonical_name', '')}({e.get('mention_count', 0)})" for e in top[:5]]
-                    part += f"  高頻實體: {', '.join(names)}\n"
-                if total_chars + len(part) <= max_chars:
-                    parts.append(part)
-                    total_chars += len(part)
-
-            elif tool == "navigate_graph":
-                center = result.get("center_entity", {})
-                cluster = result.get("cluster_nodes", [])
-                part = (
-                    f"[導航] 已定位至「{center.get('name', '')}」叢集\n"
-                    f"  相關節點 {len(cluster)} 個:\n"
-                )
-                for node in cluster[:8]:
-                    part += f"    - {node.get('name', '')} ({node.get('type', '')})\n"
-                if total_chars + len(part) <= max_chars:
-                    parts.append(part)
-                    total_chars += len(part)
-
-            elif tool == "summarize_entity":
-                entity = result.get("entity", {})
-                summary_text = result.get("summary", "")
-                part = (
-                    f"[實體摘要] {entity.get('name', '')} ({entity.get('type', '')})\n"
-                    f"  {summary_text[:200]}\n"
-                )
-                for u in result.get("upstream", [])[:3]:
-                    part += f"  上游: {u.get('entity_name', '')} ({u.get('relation', '')})\n"
-                for d in result.get("downstream", [])[:3]:
-                    part += f"  下游: {d.get('entity_name', '')} ({d.get('relation', '')})\n"
-                timeline = result.get("timeline", [])
-                if timeline:
-                    part += f"  時間軸: {len(timeline)} 個事件\n"
-                    for evt in timeline[:3]:
-                        part += f"    - {evt.get('date', '')} {evt.get('subject', '')[:40]}\n"
-                docs = result.get("documents", [])
-                if docs:
-                    part += f"  關聯公文 {len(docs)} 篇:\n"
-                    for doc in docs[:3]:
-                        part += f"    - {doc.get('doc_number', '')} {doc.get('subject', '')[:40]}\n"
-                if total_chars + len(part) <= max_chars:
-                    parts.append(part)
-                    total_chars += len(part)
+            part = _format_tool_context(tool, result, max_chars - total_chars)
+            if part:
+                parts.append(part)
+                total_chars += len(part)
 
         return "\n".join(parts) if parts else "(查詢未取得有效資料)"
 
@@ -258,6 +164,212 @@ class AgentSynthesizer:
             summary = summarize_tool_result(tool, result)
             parts.append(f"- [{tool}] {summary}")
         return "\n".join(parts) if parts else "(無結果)"
+
+
+def _format_tool_context(tool: str, result: Dict[str, Any], remaining_chars: int) -> str:
+    """格式化單一工具結果為上下文字串"""
+    parts: list[str] = []
+
+    if tool == "search_documents":
+        for i, doc in enumerate(result.get("documents", []), 1):
+            part = (
+                f"[公文{i}] 字號: {doc.get('doc_number', '')}\n"
+                f"  主旨: {doc.get('subject', '')}\n"
+                f"  類型: {doc.get('doc_type', '')} | 類別: {doc.get('category', '')}\n"
+                f"  發文: {doc.get('sender', '')} → 受文: {doc.get('receiver', '')}\n"
+                f"  日期: {doc.get('doc_date', '')}\n"
+            )
+            if sum(len(p) for p in parts) + len(part) > remaining_chars:
+                break
+            parts.append(part)
+
+    elif tool == "search_dispatch_orders":
+        linked_docs = result.get("linked_documents", [])
+        for i, d in enumerate(result.get("dispatch_orders", []), 1):
+            d_linked = [
+                ld for ld in linked_docs
+                if ld.get("dispatch_order_id") == d.get("id")
+            ]
+            linked_str = ""
+            if d_linked:
+                linked_str = "  關聯公文:\n"
+                for ld in d_linked[:3]:
+                    linked_str += (
+                        f"    - {ld.get('doc_number', '')} "
+                        f"{ld.get('subject', '')[:60]}\n"
+                    )
+            part = (
+                f"[派工單{i}] 單號: {d.get('dispatch_no', '')}\n"
+                f"  工程名稱: {d.get('project_name', '')}\n"
+                f"  作業類別: {d.get('work_type', '')}\n"
+                f"  子案名稱: {d.get('sub_case_name', '')}\n"
+                f"  承辦人: {d.get('case_handler', '')} | 測量單位: {d.get('survey_unit', '')}\n"
+                f"  契約期限: {d.get('deadline', '')}\n"
+                f"{linked_str}"
+            )
+            if sum(len(p) for p in parts) + len(part) > remaining_chars:
+                break
+            parts.append(part)
+
+    elif tool == "search_entities":
+        for e in result.get("entities", []):
+            part = (
+                f"[實體] {e.get('canonical_name', '')} "
+                f"({e.get('entity_type', '')}, "
+                f"提及 {e.get('mention_count', 0)} 次)\n"
+            )
+            if sum(len(p) for p in parts) + len(part) > remaining_chars:
+                break
+            parts.append(part)
+
+    elif tool == "get_entity_detail":
+        entity = result.get("entity", {})
+        part = (
+            f"[實體詳情] {entity.get('canonical_name', '')} "
+            f"({entity.get('entity_type', '')})\n"
+            f"  別名: {', '.join(entity.get('aliases', [])[:5])}\n"
+        )
+        for doc in entity.get("documents", [])[:5]:
+            part += f"  關聯公文: {doc.get('doc_number', '')} - {doc.get('subject', '')}\n"
+        for rel in entity.get("relationships", [])[:5]:
+            target = rel.get("target_name") or rel.get("source_name", "")
+            part += f"  關係: {rel.get('relation_label', '')} → {target}\n"
+        if len(part) <= remaining_chars:
+            parts.append(part)
+
+    elif tool == "find_similar":
+        for doc in result.get("documents", []):
+            part = (
+                f"[相似公文] {doc.get('doc_number', '')} "
+                f"(相似度 {doc.get('similarity', 0):.0%})\n"
+                f"  主旨: {doc.get('subject', '')}\n"
+            )
+            if sum(len(p) for p in parts) + len(part) > remaining_chars:
+                break
+            parts.append(part)
+
+    elif tool == "get_statistics":
+        stats = result.get("stats", {})
+        part = (
+            f"[統計] 知識圖譜: {stats.get('total_entities', 0)} 實體, "
+            f"{stats.get('total_relationships', 0)} 關係\n"
+        )
+        top = result.get("top_entities", [])
+        if top:
+            names = [f"{e.get('canonical_name', '')}({e.get('mention_count', 0)})" for e in top[:5]]
+            part += f"  高頻實體: {', '.join(names)}\n"
+        if len(part) <= remaining_chars:
+            parts.append(part)
+
+    elif tool == "navigate_graph":
+        center = result.get("center_entity", {})
+        cluster = result.get("cluster_nodes", [])
+        part = (
+            f"[導航] 已定位至「{center.get('name', '')}」叢集\n"
+            f"  相關節點 {len(cluster)} 個:\n"
+        )
+        for node in cluster[:8]:
+            part += f"    - {node.get('name', '')} ({node.get('type', '')})\n"
+        if len(part) <= remaining_chars:
+            parts.append(part)
+
+    elif tool == "summarize_entity":
+        entity = result.get("entity", {})
+        summary_text = result.get("summary", "")
+        part = (
+            f"[實體摘要] {entity.get('name', '')} ({entity.get('type', '')})\n"
+            f"  {summary_text[:200]}\n"
+        )
+        for u in result.get("upstream", [])[:3]:
+            part += f"  上游: {u.get('entity_name', '')} ({u.get('relation', '')})\n"
+        for d in result.get("downstream", [])[:3]:
+            part += f"  下游: {d.get('entity_name', '')} ({d.get('relation', '')})\n"
+        timeline = result.get("timeline", [])
+        if timeline:
+            part += f"  時間軸: {len(timeline)} 個事件\n"
+            for evt in timeline[:3]:
+                part += f"    - {evt.get('date', '')} {evt.get('subject', '')[:40]}\n"
+        docs = result.get("documents", [])
+        if docs:
+            part += f"  關聯公文 {len(docs)} 篇:\n"
+            for doc in docs[:3]:
+                part += f"    - {doc.get('doc_number', '')} {doc.get('subject', '')[:40]}\n"
+        if len(part) <= remaining_chars:
+            parts.append(part)
+
+    elif tool == "draw_diagram":
+        dtype = result.get("diagram_type", "er")
+        mermaid = result.get("mermaid", "")
+        related = result.get("related_entities", [])
+        part = f"[圖表] 類型: {dtype}\n"
+        if related:
+            part += f"  涵蓋實體: {', '.join(str(e) for e in related[:10])}\n"
+        if mermaid:
+            part += f"  Mermaid 程式碼已產生 ({len(mermaid)} 字元)\n"
+        if len(part) <= remaining_chars:
+            parts.append(part)
+
+    elif tool == "find_correspondence":
+        pairs = result.get("pairs", [])
+        part = f"[公文配對] 共找到 {len(pairs)} 組收發對應\n"
+        for p in pairs[:5]:
+            conf = p.get("confidence", "")
+            part += (
+                f"  - {p.get('incoming_doc', '')} ↔ {p.get('outgoing_doc', '')} "
+                f"({conf})\n"
+            )
+        shared = result.get("shared_entities", [])
+        if shared:
+            part += f"  共同實體: {', '.join(str(e) for e in shared[:8])}\n"
+        if len(part) <= remaining_chars:
+            parts.append(part)
+
+    elif tool == "explore_entity_path":
+        path_nodes = result.get("path", [])
+        part = f"[路徑探索] {len(path_nodes)} 個節點\n"
+        if path_nodes:
+            names = [n.get("name", "") for n in path_nodes]
+            part += f"  路徑: {' → '.join(names)}\n"
+        relations = result.get("relations", [])
+        for rel in relations[:5]:
+            part += (
+                f"  {rel.get('source', '')} —[{rel.get('label', '')}]→ "
+                f"{rel.get('target', '')}\n"
+            )
+        if len(part) <= remaining_chars:
+            parts.append(part)
+
+    elif tool == "get_system_health":
+        summary = result.get("summary", {})
+        db_info = summary.get("database", {})
+        res_info = summary.get("resources", {})
+        dq_info = summary.get("data_quality", {})
+        backup_info = summary.get("backup", {})
+        part = (
+            f"[系統健康]\n"
+            f"  資料庫: {db_info.get('status', 'unknown')}\n"
+            f"  CPU: {res_info.get('cpu_percent', 'N/A')}% | "
+            f"記憶體: {res_info.get('memory_percent', 'N/A')}%\n"
+        )
+        if dq_info:
+            part += (
+                f"  資料品質: FK覆蓋率 {dq_info.get('fk_coverage', 'N/A')} | "
+                f"NER覆蓋率 {dq_info.get('ner_coverage', 'N/A')}\n"
+            )
+        if backup_info:
+            part += f"  備份: {backup_info.get('status', 'N/A')}\n"
+        benchmarks = summary.get("benchmarks", {})
+        if benchmarks and not benchmarks.get("error"):
+            part += f"  效能基準: 查詢延遲 {benchmarks.get('query_latency_ms', 'N/A')}ms\n"
+        recommendations = summary.get("recommendations", [])
+        if recommendations:
+            part += "  建議:\n"
+            for rec in recommendations[:5]:
+                part += f"    - {rec}\n"
+        if len(part) <= remaining_chars:
+            parts.append(part)
+
+    return "".join(parts)
 
 
 def summarize_tool_result(tool_name: str, result: Dict[str, Any]) -> str:
@@ -320,7 +432,6 @@ def summarize_tool_result(tool_name: str, result: Dict[str, Any]) -> str:
         count = result.get("count", 0)
         center = result.get("center_entity", {})
         center_name = center.get("name", "") if center else ""
-        # 回傳 JSON 格式讓前端 Bridge 可以直接解析
         return json.dumps({
             "action": "navigate",
             "center_entity": center,
@@ -337,7 +448,6 @@ def summarize_tool_result(tool_name: str, result: Dict[str, Any]) -> str:
         upstream_count = len(result.get("upstream", []))
         downstream_count = len(result.get("downstream", []))
         doc_count = len(result.get("documents", []))
-        # 回傳 JSON 格式讓前端 Bridge 可以解析上下游
         return json.dumps({
             "entity": entity,
             "upstream": result.get("upstream", [])[:10],
@@ -354,145 +464,55 @@ def summarize_tool_result(tool_name: str, result: Dict[str, Any]) -> str:
     return f"完成 (count={result.get('count', 0)})"
 
 
-def strip_thinking_from_synthesis(raw: str) -> str:
+# ============================================================================
+# 品質自省 — 對標 OpenClaw Thinking/Reflection (Phase 2C)
+# ============================================================================
+
+async def self_reflect(
+    ai_connector,
+    question: str,
+    answer: str,
+    tool_results: List[Dict[str, Any]],
+    config,
+) -> Dict[str, Any]:
     """
-    從合成回答中提取真正的答案，丟棄 qwen3:4b 洩漏的推理段落。
+    答案品質自省 — 輕量 LLM 評估。
 
-    策略：「答案提取」而非「推理過濾」
-    - Phase 1: 移除 <think> 標記
-    - Phase 2: 短回答快速通過
-    - Phase 3: 尋找答案邊界標記（「如下：」「以下是」等），取後半段
-    - Phase 4: 從末尾向前掃描，找最後一段含 [公文N]/[派工單N] 的區塊
-    - Phase 5: 逐行過濾（最後手段）
+    Returns:
+        {"score": 0-10, "issues": [...], "suggested_tools": [...]}
+        失敗時回傳 {"score": 10, "issues": []}（安全預設，不觸發重試）
     """
-    if not raw:
-        return raw
+    try:
+        total_count = sum(
+            tr.get("result", {}).get("count", 0) for tr in tool_results
+        )
+        prompt = (
+            f"評估以下回答的品質（0-10 分，10=完美）：\n\n"
+            f"問題：{question[:200]}\n"
+            f"回答：{answer[:500]}\n"
+            f"可用資料量：{total_count} 筆\n\n"
+            f"評估標準：完整性、相關性、引用準確性。\n"
+            f"回傳 JSON：{{\"score\": N, \"issues\": [\"問題描述\"], "
+            f"\"suggested_tools\": [\"tool_name\"]}}"
+        )
 
-    # Phase 1: 移除 <think> 標記
-    cleaned = re.sub(r"<think>.*?</think>\s*", "", raw, flags=re.DOTALL).strip()
+        response = await asyncio.wait_for(
+            ai_connector.chat_completion(
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.1,
+                max_tokens=128,
+                task_type="chat",
+                response_format={"type": "json_object"},
+            ),
+            timeout=config.self_reflect_timeout,
+        )
 
-    # Phase 2: 短回答快速通過
-    _OBVIOUS_THINKING = ("首先", "我需要", "問題是", "規則要求", "讓我分析", "从资料")
-    ref_pattern = re.compile(r"\[(公文|派工單)\d+\]")
-    has_refs = bool(ref_pattern.search(cleaned))
-
-    if len(cleaned) < 300 and not has_refs and not any(m in cleaned for m in _OBVIOUS_THINKING):
-        return cleaned
-
-    lines = cleaned.split("\n")
-
-    # Phase 3: 尋找答案邊界
-    _ANSWER_BOUNDARIES = (
-        "如下：", "如下:", "重點如下", "資訊如下", "相關資訊如下",
-        "可能的回應", "回答：", "回答:", "回覆：", "回覆:",
-        "綜合以上", "以下是", "以下為",
-    )
-
-    boundary_idx = None
-    for i in range(len(lines) - 1, -1, -1):
-        stripped = lines[i].strip()
-        if any(marker in stripped for marker in _ANSWER_BOUNDARIES):
-            boundary_idx = i
-            break
-
-    if boundary_idx is not None:
-        answer_lines = lines[boundary_idx:]
-        result = "\n".join(answer_lines).strip()
-        if result and len(result) > 20:
+        from app.services.ai.agent_utils import parse_json_safe
+        result = parse_json_safe(response)
+        if result and "score" in result:
             return result
+        return {"score": 10, "issues": []}
 
-    # Phase 3.5: 找末尾的 intro + 結構化區塊
-    for i in range(len(lines) - 2, -1, -1):
-        stripped = lines[i].strip()
-        if stripped and (stripped.endswith("：") or stripped.endswith(":")):
-            next_stripped = lines[i + 1].strip() if i + 1 < len(lines) else ""
-            if ref_pattern.search(next_stripped) or next_stripped.startswith("-") or next_stripped.startswith("*"):
-                answer_lines = lines[i:]
-                result = "\n".join(answer_lines).strip()
-                if result and len(result) > 20:
-                    return result
-
-    # Phase 4: 無明確邊界 → 找最後一段含 [公文N]/[派工單N] 的連續區塊
-    ref_blocks: list[tuple[int, int]] = []
-    block_start = -1
-    block_end = -1
-
-    for i, line in enumerate(lines):
-        stripped = line.strip()
-        has_ref = bool(ref_pattern.search(stripped))
-        is_continuation = line.startswith("  ") or stripped.startswith("*") or not stripped
-
-        if has_ref:
-            if block_start == -1:
-                block_start = i
-            block_end = i
-        elif block_start != -1:
-            if is_continuation:
-                block_end = i
-            else:
-                ref_blocks.append((block_start, block_end))
-                block_start = -1
-
-    if block_start != -1:
-        ref_blocks.append((block_start, block_end))
-
-    if ref_blocks:
-        start, end = ref_blocks[-1]
-
-        for back in range(1, 3):
-            idx = start - back
-            if idx >= 0:
-                prev = lines[idx].strip()
-                if prev and len(prev) < 100 and not any(
-                    prev.startswith(m) for m in _OBVIOUS_THINKING
-                ):
-                    start = idx
-                    break
-                elif not prev:
-                    break
-
-        answer_lines = lines[start:end + 1]
-        result = "\n".join(answer_lines).strip()
-        if result and len(result) > 20:
-            return result
-
-    # Phase 5: 逐行過濾（最後手段）
-    _THINK_PREFIXES = (
-        "首先", "我需要", "問題是", "讓我", "让我",
-        "用户", "用戶", "規則要求", "規則說", "回答結構",
-        "回答要", "日期格式", "我假設", "我将", "我將",
-        "在公文資料中", "由於問題", "可能用戶",
-        "但規則", "但問題", "回覆結構", "結構建議",
-        "從資料看", "從檢索結果", "所以重點", "所以我",
-        "列出每", "所有公文",
-        "- 只根據", "- 引用來源", "- 如果資料不足",
-        "- 使用繁體", "- 回答簡潔", "- 若問題涉及",
-        "- 日期格式使用", "- 簡潔扼要", "- 用繁體",
-        "在中文公文術語中", "這有點", "為了遵守",
-        "我應該", "先提取", "現在，",
-    )
-
-    kept: list[str] = []
-    for line in lines:
-        stripped = line.strip()
-        if not stripped:
-            if kept and kept[-1] != "":
-                kept.append("")
-            continue
-        if any(stripped.startswith(m) for m in _THINK_PREFIXES):
-            continue
-        meta_count = sum(1 for m in ("分析", "假設", "應該", "需要",
-                                      "結構", "格式", "簡潔") if m in stripped)
-        if meta_count >= 3:
-            continue
-        kept.append(line)
-
-    result = "\n".join(kept).strip()
-
-    if not result or len(result) < 20:
-        doc_lines = [ln for ln in lines if ref_pattern.search(ln)]
-        if doc_lines:
-            return "\n".join(doc_lines).strip()
-        return cleaned
-
-    return result
+    except Exception as e:
+        logger.debug("self_reflect failed: %s", e)
+        return {"score": 10, "issues": []}

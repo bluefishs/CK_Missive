@@ -1,33 +1,14 @@
 """
 Agentic 文件檢索引擎 — 主編排模組
 
-借鑑 OpenClaw 智能體模式，實現多步工具呼叫：
-1. 意圖預處理 → 規則引擎 + 同義詞擴展
-2. LLM 規劃 → 選擇工具 + 參數（Few-shot 引導）
-3. Tool Loop (最多 MAX_ITERATIONS 輪):
-   - 執行工具
-   - 規則式自我修正 (5 策略)
-4. 合成最終回答 (SSE 串流)
+流程: 意圖預處理 → LLM 規劃 → Tool Loop → 合成回答 (SSE 串流)
 
-Tools:
-- search_documents: 向量+SQL 混合公文搜尋 + Hybrid Reranking
-- search_entities: 知識圖譜實體搜尋
-- get_entity_detail: 實體詳情 (關係+關聯公文)
-- find_similar: 語意相似公文
-- get_statistics: 圖譜 / 公文統計
-- search_dispatch_orders: 派工單搜尋 (桃園工務局)
+子模組:
+- agent_post_processing.py: 後處理 (引用核實/記憶/追蹤/學習/進化)
+- agent_streaming_helpers.py: 閒聊串流 + Fallback RAG
+- agent_planner.py / agent_tools.py / agent_synthesis.py: 規劃/工具/合成
 
-Architecture (v2.0.0 — 模組化重構):
-- agent_chitchat.py:  閒聊偵測 + LLM 對話 + 回應清理
-- agent_tools.py:     工具定義 + 6 個工具實作 (AgentToolExecutor)
-- agent_planner.py:   意圖前處理 + LLM 規劃 + 自動修正 (AgentPlanner)
-- agent_synthesis.py: 答案合成 + thinking 過濾 + context 建構 (AgentSynthesizer)
-- agent_utils.py:     parse_json_safe, sse
-- agent_orchestrator.py: 本檔 — 主編排流程 (AgentOrchestrator)
-
-Version: 2.3.0 - SSE 即時串流 + asyncio.Queue 事件管道
-Created: 2026-02-26
-Updated: 2026-02-28 - v2.2.0 並行化：intent+planning gather + 工具並行執行
+Version: 2.6.0 - 模組化拆分 (post_processing + streaming_helpers)
 """
 
 import asyncio
@@ -42,124 +23,36 @@ from app.core.ai_connector import get_ai_connector
 from app.services.ai.ai_config import get_ai_config
 from app.services.ai.embedding_manager import EmbeddingManager
 
-from app.services.ai.agent_chitchat import (
-    is_chitchat,
-    get_smart_fallback,
-    clean_chitchat_response,
-    get_chat_system_prompt,
-)
 from app.services.ai.agent_tools import AgentToolExecutor, VALID_TOOL_NAMES
-from app.services.ai.agent_planner import AgentPlanner
+from app.services.ai.agent_planner import AgentPlanner, AgentWorkingMemory
 from app.services.ai.agent_synthesis import (
     AgentSynthesizer,
     summarize_tool_result,
 )
+from app.services.ai.agent_roles import get_role_profile
+from app.services.ai.agent_trace import AgentTrace
+from app.services.ai.agent_router import AgentRouter
+from app.services.ai.agent_tool_monitor import get_tool_monitor
+from app.services.ai.agent_pattern_learner import get_pattern_learner
+from app.services.ai.agent_summarizer import get_summarizer
+from app.services.ai.agent_supervisor import AgentSupervisor
 from app.services.ai.agent_utils import sse, sanitize_history
+from app.services.ai.agent_conversation_memory import get_conversation_memory
+from app.services.ai.tool_chain_resolver import enrich_plan_with_chain
+from app.services.ai.user_preference_extractor import (
+    load_preferences,
+    format_preferences_for_prompt,
+)
+from app.services.ai.agent_post_processing import (
+    PostProcessingContext,
+    run_post_synthesis,
+)
+from app.services.ai.agent_streaming_helpers import (
+    stream_chitchat,
+    stream_fallback_rag,
+)
 
 logger = logging.getLogger(__name__)
-
-# ============================================================================
-# 對話記憶 — Redis 持久化
-# ============================================================================
-
-_CONV_TTL = 3600  # 1 小時
-
-
-class ConversationMemory:
-    """
-    伺服器端對話記憶 — Redis 持久化
-
-    Key 格式: agent:conv:{session_id}
-    Value: JSON array of {role, content}
-    TTL: 1 小時（每次存取自動延長）
-
-    設計原則:
-    - Redis 不可用時靜默降級（不影響問答流程）
-    - 僅儲存 user/assistant 文字，不存工具中間結果
-    - 與前端傳入 history 互斥：有 session_id 用 Redis，否則用 request body
-    - max_turns 從 ai_config.rag_max_history_turns 讀取（SSOT）
-    """
-
-    _PREFIX = "agent:conv"
-
-    def __init__(self) -> None:
-        self._redis = None
-
-    async def _get_redis(self):
-        if self._redis is None:
-            try:
-                from app.core.redis_client import get_redis
-                self._redis = await get_redis()
-            except Exception:
-                return None
-        return self._redis
-
-    async def load(self, session_id: str) -> List[Dict[str, str]]:
-        """載入對話歷史"""
-        try:
-            r = await self._get_redis()
-            if r is None:
-                return []
-            raw = await r.get(f"{self._PREFIX}:{session_id}")
-            if raw is None:
-                return []
-            # 延長 TTL
-            await r.expire(f"{self._PREFIX}:{session_id}", _CONV_TTL)
-            return json.loads(raw)
-        except Exception as e:
-            logger.debug("Conv memory load failed: %s", e)
-            self._redis = None
-            return []
-
-    async def save(
-        self,
-        session_id: str,
-        question: str,
-        answer: str,
-        existing_history: List[Dict[str, str]],
-    ) -> None:
-        """追加本輪對話並儲存"""
-        try:
-            r = await self._get_redis()
-            if r is None:
-                return
-            history = list(existing_history)
-            history.append({"role": "user", "content": question})
-            if answer:
-                history.append({"role": "assistant", "content": answer})
-            # 截斷至最大輪數 (從 ai_config 讀取，與 planner/chitchat 一致)
-            max_turns = get_ai_config().rag_max_history_turns
-            history = history[-(max_turns * 2):]
-            await r.setex(
-                f"{self._PREFIX}:{session_id}",
-                _CONV_TTL,
-                json.dumps(history, ensure_ascii=False),
-            )
-        except Exception as e:
-            logger.debug("Conv memory save failed: %s", e)
-            self._redis = None
-
-    async def delete(self, session_id: str) -> None:
-        """清除對話歷史"""
-        try:
-            r = await self._get_redis()
-            if r is None:
-                return
-            await r.delete(f"{self._PREFIX}:{session_id}")
-        except Exception as e:
-            logger.debug("Conv memory delete failed: %s", e)
-            self._redis = None
-
-
-# 單例
-_conversation_memory: Optional[ConversationMemory] = None
-
-
-def get_conversation_memory() -> ConversationMemory:
-    global _conversation_memory
-    if _conversation_memory is None:
-        _conversation_memory = ConversationMemory()
-    return _conversation_memory
 
 
 class AgentOrchestrator:
@@ -191,6 +84,9 @@ class AgentOrchestrator:
         self._tools = AgentToolExecutor(self.db, self.ai, self.embedding_mgr, self.config)
         self._synthesizer = AgentSynthesizer(self.ai, self.config)
 
+        # 自適應超時（預設值，會在 tool loop 中動態更新）
+        self._adaptive_tool_timeout: float = float(self.config.agent_tool_timeout)
+
     async def stream_agent_query(
         self,
         question: str,
@@ -216,6 +112,13 @@ class AgentOrchestrator:
         tool_results: List[Dict[str, Any]] = []
         tools_used: List[str] = []
 
+        # ── 結構化追蹤 ──
+        trace = AgentTrace(
+            question=question,
+            context=context,
+            query_id=session_id or "",
+        )
+
         # ── 對話記憶：session_id 優先於 request body history ──
         conv_memory = get_conversation_memory() if session_id else None
         if session_id and conv_memory:
@@ -224,11 +127,33 @@ class AgentOrchestrator:
                 history = loaded
 
         try:
-            # ── 閒聊短路：跳過工具規劃 + RAG 向量檢索，僅用 LLM 自然對話 ──
-            if is_chitchat(question):
+            # ── 對話摘要壓縮 ──
+            summarizer = get_summarizer()
+            if history and summarizer.should_summarize(history):
+                history = await summarizer.get_effective_history(
+                    session_id or "", history,
+                )
+
+            # ── 種子資料冷啟動（非阻塞，僅首次） ──
+            asyncio.create_task(get_pattern_learner().load_seeds_if_empty())
+
+            # ── 路由層：chitchat / pattern / llm ──
+            router = AgentRouter(
+                pattern_threshold=self.config.router_pattern_threshold,
+            )
+            route = await router.route(question, context=context)
+            trace.route_type = route.route_type
+            route_span = trace.start_span("routing", route_type=route.route_type)
+            route_span.finish(
+                confidence=route.confidence,
+                source=route.source,
+            )
+
+            # -- Chitchat 短路 --
+            if route.route_type == "chitchat":
+                trace.chitchat_detected = True
                 chitchat_tokens: List[str] = []
-                async for event in self._stream_chitchat(question, history, t0, context):
-                    # 攔截 token 收集回答文字（供對話記憶儲存）
+                async for event in stream_chitchat(self.ai, self.config, question, history, t0, context):
                     if session_id and conv_memory and event.startswith("data: "):
                         try:
                             evt = json.loads(event[6:])
@@ -237,10 +162,11 @@ class AgentOrchestrator:
                         except (json.JSONDecodeError, IndexError):
                             pass
                     yield event
-                # 儲存閒聊對話至 Redis（保持多輪對話連貫性）
                 if session_id and conv_memory and chitchat_tokens:
                     answer_text = "".join(chitchat_tokens)
                     await conv_memory.save(session_id, question, answer_text, history or [])
+                trace.finish()
+                trace.log_summary()
                 return
 
             # 速率限制檢查
@@ -260,26 +186,108 @@ class AgentOrchestrator:
                 )
                 return
 
-            # Step 1: Planning
+            # Step 0: 發送角色身份
+            role = get_role_profile(context)
+            trace.role_identity = role.identity
             yield sse(
-                type="thinking",
-                step="分析問題，規劃查詢策略...",
-                step_index=step_index,
-            )
-            step_index += 1
-
-            # 並行：意圖前處理（需 db）+ LLM 工具規劃（不需 db）
-            hints, plan = await asyncio.gather(
-                self._planner.preprocess_question(question, self.db),
-                self._planner.plan_tools(question, history, context=context),
+                type="role",
+                identity=role.identity,
+                context=role.context,
             )
 
-            # 後合併：將前處理 hints 注入 LLM 生成的 plan
-            if hints and plan:
-                sanitized_q = question.replace("{", "（").replace("}", "）")
-                sanitized_q = sanitized_q.replace("```", "").replace("<", "（").replace(">", "）")
-                sanitized_q = sanitized_q[:500]
-                plan = self._planner._merge_hints_into_plan(plan, hints, sanitized_q)
+            # Step 0.5: 載入使用者偏好（非阻塞）
+            user_pref_text = ""
+            if session_id:
+                try:
+                    prefs = await load_preferences(session_id)
+                    user_pref_text = format_preferences_for_prompt(prefs)
+                except Exception:
+                    pass
+
+            # Step 1: Planning（Router 可能已提供 plan）
+            hints = None
+            plan = route.plan  # pattern 路由時有值，llm 路由時為 None
+
+            if route.route_type == "pattern":
+                yield sse(
+                    type="thinking",
+                    step=f"快速路由: {route.source}",
+                    step_index=step_index,
+                )
+                step_index += 1
+                plan_span = trace.start_span("planning", route="pattern")
+                # 非阻塞取 hints（供後續 learn 使用相同正規化）
+                hints = await self._planner.preprocess_question(question, self.db)
+                plan_span.finish(
+                    tool_count=len(plan.get("tool_calls", [])) if plan else 0,
+                )
+            else:
+                # LLM 規劃
+                yield sse(
+                    type="thinking",
+                    step="分析問題，規劃查詢策略...",
+                    step_index=step_index,
+                )
+                step_index += 1
+
+                plan_span = trace.start_span("planning", route="llm")
+
+                # 並行：意圖前處理（需 db）+ LLM 工具規劃（不需 db）
+                hints, plan = await asyncio.gather(
+                    self._planner.preprocess_question(question, self.db),
+                    self._planner.plan_tools(question, history, context=context, db=self.db),
+                )
+
+                # 後合併：將前處理 hints 注入 LLM 生成的 plan
+                if hints and plan:
+                    sanitized_q = question.replace("{", "（").replace("}", "）")
+                    sanitized_q = sanitized_q.replace("```", "").replace("<", "（").replace(">", "）")
+                    sanitized_q = sanitized_q[:500]
+                    plan = self._planner._merge_hints_into_plan(plan, hints, sanitized_q)
+
+                # 過濾降級工具
+                if plan and plan.get("tool_calls"):
+                    try:
+                        degraded = await get_tool_monitor().get_degraded_tools()
+                        if degraded:
+                            plan["tool_calls"] = [
+                                c for c in plan["tool_calls"]
+                                if c.get("name", "") not in degraded
+                            ]
+                            if degraded:
+                                logger.info(
+                                    "Filtered degraded tools from LLM plan: %s",
+                                    degraded,
+                                )
+                    except Exception:
+                        pass
+
+                plan_span.finish(
+                    hint_count=len(hints) if hints else 0,
+                    tool_count=len(plan.get("tool_calls", [])) if plan else 0,
+                )
+
+            # ── Supervisor 多域擴展：偵測跨域問題並補充工具呼叫 ──
+            supervisor = AgentSupervisor(self.db)
+            if supervisor.is_multi_domain(question):
+                domains = supervisor.detect_domains(question)
+                trace.multi_domain = True
+                # 確保 plan 存在
+                if not plan:
+                    plan = {"tool_calls": []}
+                existing_tools = {c.get("name") for c in plan.get("tool_calls", [])}
+                from app.services.ai.agent_supervisor import _get_default_calls
+                for domain in domains:
+                    for call in _get_default_calls(domain, question):
+                        if call["name"] not in existing_tools:
+                            plan["tool_calls"].append(call)
+                            existing_tools.add(call["name"])
+                yield sse(
+                    type="thinking",
+                    step=f"跨域協調：{', '.join(domains)}",
+                    step_index=step_index,
+                )
+                step_index += 1
 
             if not plan or not plan.get("tool_calls"):
                 yield sse(
@@ -289,11 +297,20 @@ class AgentOrchestrator:
                 )
                 step_index += 1
 
-                async for event in self._fallback_rag(question, history, t0):
+                async for event in stream_fallback_rag(self.db, question, history):
                     yield event
+                trace.finish()
+                trace.log_summary()
                 return
 
             # Step 2-3: Tool Loop（即時串流 + 整體超時保護）
+            # 自適應超時 (Phase 8): 根據工具數量和問題長度動態調整
+            planned_tool_count = len(plan.get("tool_calls", [])) if plan else 0
+            self._adaptive_tool_timeout = self.compute_adaptive_timeout(
+                self.config.agent_tool_timeout,
+                planned_tool_count,
+                len(question),
+            )
             actual_iterations = 0
             event_queue: asyncio.Queue = asyncio.Queue()
 
@@ -302,6 +319,7 @@ class AgentOrchestrator:
                 result = await self._execute_tool_loop(
                     question, plan, tool_results, tools_used,
                     all_sources, step_index, event_queue,
+                    context=context, trace=trace,
                 )
                 actual_iterations = result["iterations"]
                 step_index = result["step_index"]
@@ -352,7 +370,8 @@ class AgentOrchestrator:
             )
             step_index += 1
 
-            model_used = "ollama"
+            synth_span = trace.start_span("synthesis")
+            model_used = getattr(self.ai, '_last_provider', None) or "unknown"
             answer_tokens: List[str] = []
             try:
                 async for token in self._synthesizer.synthesize_answer(
@@ -360,34 +379,50 @@ class AgentOrchestrator:
                 ):
                     answer_tokens.append(token)
                     yield sse(type="token", token=token)
+                # Update model_used with actual provider after synthesis
+                model_used = getattr(self.ai, '_last_provider', None) or model_used
+                synth_span.finish()
             except Exception as e:
                 logger.error("Agent synthesis failed: %s", e)
                 fallback_msg = "AI 回答生成失敗，請參考上方查詢結果與來源文件。"
                 answer_tokens.append(fallback_msg)
                 yield sse(type="token", token=fallback_msg)
                 model_used = "fallback"
+                synth_span.finish(status="error")
 
-            # ── 對話記憶：儲存本輪 ──
-            if session_id and conv_memory:
-                answer_text = "".join(answer_tokens)
-                await conv_memory.save(
-                    session_id, question, answer_text, history or [],
-                )
+            # ── 後處理：引用核實 + 自省 + 記憶 + 追蹤 + 學習 + 進化 ──
+            answer_text = "".join(answer_tokens)
+            pp_ctx = PostProcessingContext(
+                question=question,
+                answer_text=answer_text,
+                tool_results=tool_results,
+                tools_used=tools_used,
+                hints=hints,
+                model_used=model_used,
+                trace=trace,
+                session_id=session_id,
+                history=history,
+                t0=t0,
+                actual_iterations=actual_iterations,
+                config=self.config,
+                conv_memory=conv_memory,
+                summarizer=summarizer,
+                db=self.db,
+                ai=self.ai,
+            )
+            pp_events = await run_post_synthesis(pp_ctx)
+            for pp_event in pp_events:
+                yield pp_event
 
             latency_ms = int((time.time() - t0) * 1000)
             yield sse(
                 type="done",
                 latency_ms=latency_ms,
                 model=model_used,
+                provider=getattr(self.ai, '_last_provider', None) or model_used,
                 tools_used=list(set(tools_used)),
                 iterations=actual_iterations,
-            )
-
-            logger.info(
-                "Agent query completed: %d tools, %d sources, %dms",
-                len(tools_used),
-                len(all_sources),
-                latency_ms,
+                providers_available=[p["name"] for p in self.ai.available_providers],
             )
 
         except Exception as e:
@@ -418,9 +453,15 @@ class AgentOrchestrator:
         all_sources: List[Dict[str, Any]],
         step_index: int,
         event_queue: asyncio.Queue,
+        context: Optional[str] = None,
+        trace: Optional[AgentTrace] = None,
     ) -> Dict[str, Any]:
         """
         執行工具迴圈（最多 MAX_ITERATIONS 輪）。
+
+        雙層評估策略：
+        1. 快速路徑：規則式 auto_correct（0ms，覆蓋常見情境）
+        2. 慢路徑：ReAct LLM 推理（~500ms，處理複雜場景）
 
         SSE 事件即時推送至 event_queue，供 stream_agent_query 即時 yield。
 
@@ -428,9 +469,15 @@ class AgentOrchestrator:
             {"iterations": int, "step_index": int}
         """
         iterations = 0
+        memory = AgentWorkingMemory()
 
         for iteration in range(self.config.agent_max_iterations):
             iterations = iteration + 1
+
+            # Chain-of-Tools: 注入前輪結果中的 ID/名稱到本輪工具參數
+            if iteration > 0 and tool_results:
+                plan = enrich_plan_with_chain(plan, tool_results)
+
             calls = plan.get("tool_calls", [])
 
             # 過濾有效工具
@@ -454,14 +501,24 @@ class AgentOrchestrator:
                 ))
                 step_index += 1
 
+                tool_span = trace.start_span(f"tool:{tool_name}") if trace else None
                 result = await self._execute_tool(tool_name, params)
+                success = "error" not in result
+                count = result.get("count", 0)
+                if tool_span:
+                    tool_span.finish(
+                        status="ok" if success else "error",
+                        count=count,
+                    )
+                if trace:
+                    trace.record_tool_call(tool_name, success, count)
 
                 summary = summarize_tool_result(tool_name, result)
                 await event_queue.put(sse(
                     type="tool_result",
                     tool=tool_name,
                     summary=summary,
-                    count=result.get("count", 0),
+                    count=count,
                     step_index=step_index,
                 ))
                 step_index += 1
@@ -473,9 +530,13 @@ class AgentOrchestrator:
                 })
                 tools_used.append(tool_name)
                 self._collect_sources(tool_name, result, all_sources)
+
+                # 更新工作記憶
+                memory.add_observation(
+                    tool_name, count, summary,
+                )
             else:
                 # 多工具 — 並行執行（每工具獨立 db session）
-                # 先發送所有 tool_call 事件
                 for call in valid_calls:
                     await event_queue.put(sse(
                         type="tool_call",
@@ -485,21 +546,23 @@ class AgentOrchestrator:
                     ))
                     step_index += 1
 
-                # 並行執行
                 results = await self._tools.execute_parallel(
-                    valid_calls, self.config.agent_tool_timeout,
+                    valid_calls, self._adaptive_tool_timeout,
                 )
 
-                # 批次發送 tool_result 事件
                 for call, result in zip(valid_calls, results):
                     tool_name = call.get("name", "")
                     params = call.get("params", {})
+                    success = "error" not in result
+                    count = result.get("count", 0)
+                    if trace:
+                        trace.record_tool_call(tool_name, success, count)
                     summary = summarize_tool_result(tool_name, result)
                     await event_queue.put(sse(
                         type="tool_result",
                         tool=tool_name,
                         summary=summary,
-                        count=result.get("count", 0),
+                        count=count,
                         step_index=step_index,
                     ))
                     step_index += 1
@@ -512,9 +575,18 @@ class AgentOrchestrator:
                     tools_used.append(tool_name)
                     self._collect_sources(tool_name, result, all_sources)
 
-            # 評估是否需要更多工具呼叫
+                    # 更新工作記憶
+                    memory.add_observation(
+                        tool_name, count, summary,
+                    )
+
+            # ── 雙層評估：快速路徑 → 慢路徑 ──
+
+            # Layer 1: 規則式 auto_correct（快速路徑，0ms）
             replan = self._planner.evaluate_and_replan(question, tool_results)
             if replan and replan.get("tool_calls"):
+                if trace:
+                    trace.record_correction(replan.get("reasoning", "auto_correct"))
                 await event_queue.put(sse(
                     type="thinking",
                     step=replan.get("reasoning", "自動修正中..."),
@@ -522,8 +594,36 @@ class AgentOrchestrator:
                 ))
                 step_index += 1
                 plan = replan
-            else:
-                break
+                continue
+
+            # Layer 2: ReAct LLM 推理（慢路徑，僅在快速路徑未觸發時）
+            # 條件：結果不足（<3 筆）且尚有迭代配額
+            if (
+                memory.total_results < 3
+                and iteration < self.config.agent_max_iterations - 1
+            ):
+                react_plan = await self._planner.react(
+                    question, tool_results, memory, context=context,
+                )
+                if react_plan and react_plan.get("tool_calls"):
+                    if trace:
+                        trace.record_react(
+                            react_plan.get("action", "continue"),
+                            react_plan.get("confidence", 0),
+                        )
+                    await event_queue.put(sse(
+                        type="react",
+                        step=react_plan.get("reasoning", "深度推理中..."),
+                        confidence=react_plan.get("confidence", 0),
+                        action=react_plan.get("action", "continue"),
+                        step_index=step_index,
+                    ))
+                    step_index += 1
+                    plan = react_plan
+                    continue
+
+            # 兩層都未觸發 → 結果充分，結束迴圈
+            break
 
         return {
             "iterations": iterations,
@@ -534,26 +634,48 @@ class AgentOrchestrator:
     # 工具執行
     # ========================================================================
 
+    @staticmethod
+    def compute_adaptive_timeout(
+        base_timeout: int,
+        planned_tool_count: int,
+        question_length: int,
+    ) -> float:
+        """
+        Compute adaptive timeout based on query complexity.
+
+        Formula: base + (tool_count * 2) + min(question_len / 100, 5), capped at 30s.
+        """
+        adaptive = base_timeout + (planned_tool_count * 2) + min(question_length / 100, 5)
+        return min(adaptive, 30)
+
     async def _execute_tool(
         self,
         tool_name: str,
         params: Dict[str, Any],
     ) -> Dict[str, Any]:
-        """執行單個工具，回傳結果 dict"""
+        """執行單個工具，回傳結果 dict（含 ToolResultGuard 守衛 + 自適應超時）"""
         try:
-            tt = self.config.agent_tool_timeout
+            tt = self._adaptive_tool_timeout
             result = await asyncio.wait_for(
                 self._tools.execute(tool_name, params),
                 timeout=tt,
             )
             return result
         except asyncio.TimeoutError:
-            tt = self.config.agent_tool_timeout
-            logger.warning("Tool %s timed out (%ds)", tool_name, tt)
-            return {"error": f"工具執行超時 ({tt}s)", "count": 0}
+            tt = self._adaptive_tool_timeout
+            logger.warning("Tool %s timed out (%.1fs)", tool_name, tt)
+            raw = {"error": f"工具執行超時 ({tt:.0f}s)", "count": 0}
+            if self.config.tool_guard_enabled:
+                from app.services.ai.agent_tools import ToolResultGuard
+                return ToolResultGuard.guard(tool_name, params, raw)
+            return raw
         except Exception as e:
             logger.error("Tool %s failed: %s", tool_name, e)
-            return {"error": "工具執行失敗", "count": 0}
+            raw = {"error": "工具執行失敗", "count": 0}
+            if self.config.tool_guard_enabled:
+                from app.services.ai.agent_tools import ToolResultGuard
+                return ToolResultGuard.guard(tool_name, params, raw)
+            return raw
 
     # ========================================================================
     # 來源收集
@@ -580,69 +702,3 @@ class AgentOrchestrator:
                         "doc_date": doc.get("doc_date", ""),
                         "similarity": doc.get("similarity", 0),
                     })
-
-    # ========================================================================
-    # 閒聊對話 — 輕量 LLM 串流（跳過工具規劃 + 向量檢索）
-    # ========================================================================
-
-    async def _stream_chitchat(
-        self,
-        question: str,
-        history: Optional[List[Dict[str, str]]],
-        t0: float,
-        context: Optional[str] = None,
-    ) -> AsyncGenerator[str, None]:
-        """閒聊模式 — 僅 1 次 LLM 呼叫，自然語言回應"""
-        yield sse(type="thinking", step="正在回覆您...", step_index=0)
-
-        messages: List[Dict[str, str]] = [
-            {"role": "system", "content": get_chat_system_prompt(context)},
-        ]
-        messages.extend(sanitize_history(history, self.config.rag_max_history_turns))
-        messages.append({"role": "user", "content": question})
-
-        model_used = "chat"
-        try:
-            raw = await self.ai.chat_completion(
-                messages=messages,
-                temperature=0.8,
-                max_tokens=150,
-                task_type="chat",
-            )
-            answer = clean_chitchat_response(raw, question)
-            yield sse(type="token", token=answer)
-        except Exception as e:
-            logger.warning("Chitchat failed: %s", e)
-            yield sse(
-                type="token",
-                token=get_smart_fallback(question),
-            )
-            model_used = "fallback"
-
-        yield sse(
-            type="done",
-            latency_ms=int((time.time() - t0) * 1000),
-            model=model_used,
-            tools_used=[],
-            iterations=0,
-        )
-
-    # ========================================================================
-    # Fallback RAG (無工具直接回答)
-    # ========================================================================
-
-    async def _fallback_rag(
-        self,
-        question: str,
-        history: Optional[List[Dict[str, str]]],
-        t0: float,
-    ) -> AsyncGenerator[str, None]:
-        """回退到基本 RAG 管線"""
-        from app.services.ai.rag_query_service import RAGQueryService
-
-        svc = RAGQueryService(self.db)
-        async for event in svc.stream_query(
-            question=question,
-            history=history,
-        ):
-            yield event

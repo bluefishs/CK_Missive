@@ -326,6 +326,12 @@ class CanonicalEntityService:
         # 刪除被合併的實體
         await self.db.delete(merge_entity)
         await self.db.flush()
+        # 快取失效：合併實體影響圖譜
+        try:
+            from app.services.ai.graph_query_service import invalidate_graph_cache
+            await invalidate_graph_cache()
+        except Exception:
+            pass
 
         logger.info(f"實體合併: {merge_entity.canonical_name} → {keep_entity.canonical_name}")
         return keep_entity
@@ -495,16 +501,58 @@ class CanonicalEntityService:
     async def _create_entity(
         self, name: str, entity_type: str,
     ) -> CanonicalEntity:
-        """建立新的正規化實體"""
+        """建立新的正規化實體，並自動嘗試連結結構化記錄"""
         entity = CanonicalEntity(
             canonical_name=name,
             entity_type=entity_type,
             alias_count=1,
             mention_count=0,
         )
+        # 自動連結 org → government_agencies
+        if entity_type == "org":
+            entity.linked_agency_id = await self._find_agency_id(name)
+        # 自動連結 project → taoyuan_projects
+        elif entity_type == "project":
+            entity.linked_project_id = await self._find_project_id(name)
         self.db.add(entity)
         await self.db.flush()
+        # 快取失效：新實體影響圖譜查詢結果
+        try:
+            from app.services.ai.graph_query_service import invalidate_graph_cache
+            await invalidate_graph_cache("entity_graph:*")
+        except Exception:
+            pass  # 快取失效不應影響主流程
         return entity
+
+    async def _find_agency_id(self, name: str) -> int | None:
+        """嘗試以精確名稱或簡稱匹配 government_agencies"""
+        from app.extended.models import GovernmentAgency
+        # 精確匹配
+        result = await self.db.execute(
+            select(GovernmentAgency.id)
+            .where(GovernmentAgency.agency_name == name)
+            .limit(1)
+        )
+        row = result.scalar_one_or_none()
+        if row:
+            return row
+        # 簡稱匹配
+        result = await self.db.execute(
+            select(GovernmentAgency.id)
+            .where(GovernmentAgency.agency_short_name == name)
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
+    async def _find_project_id(self, name: str) -> int | None:
+        """嘗試以精確名稱匹配 taoyuan_projects"""
+        from app.extended.models import TaoyuanProject
+        result = await self.db.execute(
+            select(TaoyuanProject.id)
+            .where(TaoyuanProject.project_name == name)
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
 
     async def _add_alias(
         self,
@@ -535,3 +583,60 @@ class CanonicalEntityService:
         canonical.alias_count = (canonical.alias_count or 0) + 1
         await self.db.flush()
         return alias
+
+    async def link_existing_entities(
+        self,
+        record_name: str,
+        entity_type: str,
+        record_id: int,
+        field: str = "linked_agency_id",
+    ) -> int:
+        """
+        回溯連結：當新增業務記錄（機關/專案）時，
+        自動將已存在的同名 CanonicalEntity 連結到該記錄。
+
+        Args:
+            record_name: 業務記錄名稱
+            entity_type: 實體類型 ("org" or "project")
+            record_id: 業務記錄 ID
+            field: 要更新的 FK 欄位名 ("linked_agency_id" or "linked_project_id")
+
+        Returns:
+            連結的實體數量
+        """
+        from sqlalchemy import update
+
+        # 精確匹配：canonical_name 或別名完全相同
+        alias_result = await self.db.execute(
+            select(EntityAlias.canonical_entity_id)
+            .join(CanonicalEntity, EntityAlias.canonical_entity_id == CanonicalEntity.id)
+            .where(EntityAlias.alias_name == record_name)
+            .where(CanonicalEntity.entity_type == entity_type)
+            .where(getattr(CanonicalEntity, field).is_(None))
+        )
+        entity_ids = list({row[0] for row in alias_result.all()})
+
+        if not entity_ids:
+            return 0
+
+        # 批次更新
+        await self.db.execute(
+            update(CanonicalEntity)
+            .where(CanonicalEntity.id.in_(entity_ids))
+            .values({field: record_id})
+        )
+        await self.db.flush()
+
+        logger.info(
+            f"回溯連結: {record_name} ({entity_type}) → "
+            f"{len(entity_ids)} 個 CanonicalEntity (field={field})"
+        )
+
+        # 快取失效
+        try:
+            from app.services.ai.graph_query_service import invalidate_graph_cache
+            await invalidate_graph_cache("entity_graph:*")
+        except Exception:
+            pass
+
+        return len(entity_ids)

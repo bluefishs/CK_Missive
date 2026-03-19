@@ -48,6 +48,7 @@ class ExtractionScheduler:
         self.is_running: bool = False
         self._task: Optional[asyncio.Task] = None
         self._stop_event: asyncio.Event = asyncio.Event()
+        self._trigger_event: asyncio.Event = asyncio.Event()
         self.interval_seconds: int = (
             int(os.getenv("NER_SCHEDULER_INTERVAL_MINUTES", str(DEFAULT_INTERVAL_MINUTES))) * 60
         )
@@ -74,6 +75,7 @@ class ExtractionScheduler:
 
         self.is_running = False
         self._stop_event.set()
+        self._trigger_event.set()  # 喚醒等待中的排程
 
         if self._task:
             self._task.cancel()
@@ -85,8 +87,17 @@ class ExtractionScheduler:
 
         logger.info("NER 實體提取排程器已停止")
 
+    def notify_new_documents(self, count: int = 1):
+        """
+        事件驅動觸發：公文建立/匯入後呼叫此方法，
+        排程器會在當前休眠結束後立即處理，無需等待 60 分鐘。
+        """
+        if self.is_running:
+            self._trigger_event.set()
+            logger.info(f"NER 排程器收到即時觸發通知 ({count} 筆新公文)")
+
     async def _run_loop(self):
-        """排程器主迴圈"""
+        """排程器主迴圈（混合模式：定時輪詢 + 事件驅動即時觸發）"""
         logger.info("NER 實體提取排程器開始運行")
 
         # 首次啟動：註冊結構化實體
@@ -101,17 +112,26 @@ class ExtractionScheduler:
             except Exception as e:
                 logger.error(f"NER 實體提取排程器運行錯誤: {e}", exc_info=True)
 
-            # 等待下次執行，支持提前取消
+            # 混合等待：定時輪詢 OR 事件驅動即時觸發
+            # - _stop_event.set() → 退出迴圈
+            # - _trigger_event.set() → 立即執行下一批次
+            # - timeout → 正常定時輪詢
+            self._trigger_event.clear()
             try:
-                await asyncio.wait_for(
-                    self._stop_event.wait(),
+                stop_task = asyncio.create_task(self._stop_event.wait())
+                trigger_task = asyncio.create_task(self._trigger_event.wait())
+                done, pending = await asyncio.wait(
+                    {stop_task, trigger_task},
                     timeout=self.interval_seconds,
+                    return_when=asyncio.FIRST_COMPLETED,
                 )
-                # stop_event 被設定 → 退出迴圈
-                break
-            except asyncio.TimeoutError:
-                # 正常超時 → 繼續下一輪
-                pass
+                for t in pending:
+                    t.cancel()
+
+                if stop_task in done:
+                    break
+                if trigger_task in done:
+                    logger.info("NER 排程器：收到即時觸發，提前開始處理")
             except asyncio.CancelledError:
                 break
 
@@ -244,7 +264,6 @@ class ExtractionScheduler:
         """
         from app.services.ai.entity_extraction_service import (
             extract_entities_for_document,
-            get_extracted_document_ids,
         )
         from app.services.ai.graph_ingestion_pipeline import GraphIngestionPipeline
 
@@ -266,13 +285,10 @@ class ExtractionScheduler:
         try:
             db = AsyncSessionLocal()
 
-            # 取得已提取的公文 ID 集合
-            extracted_ids = await get_extracted_document_ids(db)
-
-            # 查詢待提取公文 ID
+            # 查詢待提取公文（使用 DB flag，無需掃描 mentions 表）
             all_doc_result = await db.execute(
                 select(OfficialDocument.id)
-                .where(OfficialDocument.id.notin_(extracted_ids) if extracted_ids else True)
+                .where(OfficialDocument.ner_pending.is_(True))
                 .order_by(OfficialDocument.id.desc())
                 .limit(BATCH_LIMIT)
             )
@@ -326,6 +342,11 @@ class ExtractionScheduler:
                             logger.warning(
                                 f"公文 #{doc_id} 入圖失敗（提取已完成）: {ingest_err}"
                             )
+
+                        # 標記為已完成 NER
+                        doc = await db.get(OfficialDocument, doc_id)
+                        if doc:
+                            doc.ner_pending = False
 
                         success_count += 1
                         consecutive_failures = 0
@@ -393,6 +414,7 @@ class ExtractionScheduler:
             "interval_minutes": self.interval_seconds // 60,
             "structured_registered": self._structured_registered,
             "last_run_stats": self._last_run_stats,
+            "mode": "hybrid (polling + event-driven)",
             "task_active": (
                 self._task is not None and not self._task.done()
                 if self._task
@@ -422,3 +444,14 @@ async def stop_extraction_scheduler():
 def get_extraction_scheduler() -> Optional[ExtractionScheduler]:
     """取得 NER 實體提取排程器實例"""
     return _scheduler
+
+
+def notify_new_documents(count: int = 1):
+    """
+    模組級別便利函數：通知排程器有新公文需要處理。
+
+    公文建立/匯入後呼叫此函數，排程器會在當前休眠結束後立即處理，
+    無需等待 60 分鐘定時輪詢。若排程器未啟動則靜默忽略。
+    """
+    if _scheduler is not None:
+        _scheduler.notify_new_documents(count)

@@ -204,39 +204,38 @@ class RelationGraphService:
     # ==================================================================
 
     async def _load_default_doc_ids(self) -> List[int]:
-        """載入預設公文 ID（最近公文 + 有派工關聯的公文）— 單次 UNION 查詢"""
-        from sqlalchemy import union_all, literal_column
+        """載入預設公文 ID — 有 NER 實體提取的公文 + 有派工關聯的公文"""
+        from app.extended.models import DocumentEntity
 
-        # 合併 4 個子查詢為 1 次 DB round-trip
-        q_recent = (
-            select(OfficialDocument.id.label("doc_id"))
-            .order_by(OfficialDocument.created_at.desc().nullslast())
-            .limit(10)
+        # 有 NER 提取的公文（核心數據源）
+        ner_result = await self.db.execute(
+            select(DocumentEntity.document_id).distinct()
         )
-        q_dispatch_link = (
-            select(TaoyuanDispatchDocumentLink.document_id.label("doc_id"))
-            .distinct()
-            .order_by(TaoyuanDispatchDocumentLink.document_id.desc())
-            .limit(5)
+        ner_doc_ids = {row[0] for row in ner_result.all()}
+
+        # 有派工關聯的公文（確保派工單能對應）
+        dispatch_result = await self.db.execute(
+            select(TaoyuanDispatchDocumentLink.document_id).distinct()
         )
-        q_fk_agency = (
-            select(TaoyuanDispatchOrder.agency_doc_id.label("doc_id"))
+        dispatch_doc_ids = {row[0] for row in dispatch_result.all()}
+
+        fk_result = await self.db.execute(
+            select(TaoyuanDispatchOrder.agency_doc_id)
             .where(TaoyuanDispatchOrder.agency_doc_id.isnot(None))
-            .order_by(TaoyuanDispatchOrder.id.desc())
-            .limit(5)
         )
-        q_fk_company = (
-            select(TaoyuanDispatchOrder.company_doc_id.label("doc_id"))
+        fk_ids = {row[0] for row in fk_result.all()}
+        fk_result2 = await self.db.execute(
+            select(TaoyuanDispatchOrder.company_doc_id)
             .where(TaoyuanDispatchOrder.company_doc_id.isnot(None))
-            .order_by(TaoyuanDispatchOrder.id.desc())
-            .limit(5)
         )
+        fk_ids |= {row[0] for row in fk_result2.all()}
 
-        combined = union_all(q_recent, q_dispatch_link, q_fk_agency, q_fk_company)
-        result = await self.db.execute(
-            select(literal_column("doc_id")).select_from(combined.subquery())
+        all_ids = ner_doc_ids | dispatch_doc_ids | fk_ids
+        logger.info(
+            f"Default doc IDs: {len(all_ids)} "
+            f"(NER: {len(ner_doc_ids)}, dispatch: {len(dispatch_doc_ids | fk_ids)})"
         )
-        return list(dict.fromkeys(row[0] for row in result.all()))
+        return list(all_ids)
 
     async def _fetch_documents(self, doc_ids: List[int]) -> list:
         result = await self.db.execute(

@@ -1,0 +1,79 @@
+# Inference Provider Profiles (inspired by NemoClaw)
+# Environment variables (${VAR}) are resolved at load time.
+# See: app/services/ai/ai_config.py for usage.
+version: "1.0.0"
+
+profiles:
+  groq-cloud:
+    provider: groq
+    model: "${AI_DEFAULT_MODEL}"
+    api_key_env: GROQ_API_KEY
+    base_url: "https://api.groq.com/openai/v1"
+    timeout_seconds: 30
+    priority: 1
+    capabilities:
+      - chat
+      - planning
+      - synthesis
+
+  ollama-local:
+    provider: ollama
+    model: "${OLLAMA_MODEL}"
+    base_url: "${OLLAMA_BASE_URL}"
+    timeout_seconds: 60
+    priority: 2
+    capabilities:
+      - chat
+      - planning
+      - synthesis
+      - fallback
+
+  nim-local:
+    provider: openai
+    model: "meta/llama-3.1-8b-instruct"
+    api_key_env: NVIDIA_API_KEY
+    base_url: "http://localhost:8000/v1"
+    timeout_seconds: 60
+    priority: 0
+    capabilities:
+      - chat
+      - planning
+      - synthesis
+      - ner
+    note: "Local NIM on RTX 4060. Start: docker compose -f docker-compose.infra.yml --profile nim up -d nim"
+
+  nvidia-cloud:
+    provider: openai
+    model: "nvidia/llama-3.3-nemotron-super-49b-v1.5"
+    api_key_env: NVIDIA_API_KEY
+    base_url: "https://integrate.api.nvidia.com/v1"
+    timeout_seconds: 30
+    priority: 1
+    capabilities:
+      - chat
+      - planning
+      - synthesis
+      - ner
+    note: "NVIDIA Cloud. Requires build.nvidia.com model activation."
+
+  nvidia-embed:
+    provider: openai
+    model: "nvidia/llama-nemotron-embed-1b-v2"
+    api_key_env: NVIDIA_API_KEY
+    base_url: "https://integrate.api.nvidia.com/v1"
+    timeout_seconds: 30
+    purpose: embedding
+    priority: 0
+    capabilities:
+      - embedding
+    note: "NVIDIA 1B embedding model, 1024 dimensions."
+
+  ollama-embed:
+    provider: ollama
+    model: "nomic-embed-text"
+    base_url: "${OLLAMA_BASE_URL}"
+    timeout_seconds: 30
+    purpose: embedding
+    priority: 1
+    capabilities:
+      - embedding

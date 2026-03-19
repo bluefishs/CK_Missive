@@ -654,28 +654,39 @@ class DocumentAIService(BaseAIService):
         if not names_to_resolve:
             return []
 
+        # --- Batch query: collect all names first ---
+        all_names = [name for name, _ in names_to_resolve]
+        name_to_source = {name: source for name, source in names_to_resolve}
+
+        # 1) Batch canonical_name lookup
+        canonical_result = await db.execute(
+            select(CanonicalEntity)
+            .where(CanonicalEntity.canonical_name.in_(all_names))
+        )
+        canonical_map: Dict[str, "CanonicalEntity"] = {
+            e.canonical_name: e for e in canonical_result.scalars().all()
+        }
+
+        # 2) Batch alias lookup for unmatched names
+        unmatched_names = [n for n in all_names if n not in canonical_map]
+        alias_map: Dict[str, "CanonicalEntity"] = {}
+        if unmatched_names:
+            alias_result = await db.execute(
+                select(CanonicalEntity, EntityAlias.alias_name)
+                .join(EntityAlias, EntityAlias.canonical_entity_id == CanonicalEntity.id)
+                .where(EntityAlias.alias_name.in_(unmatched_names))
+            )
+            for row in alias_result.all():
+                entity, alias_name = row[0], row[1]
+                if alias_name not in alias_map:
+                    alias_map[alias_name] = entity
+
+        # 3) Build results from batch maps
         matched: List[MatchedEntity] = []
         seen_ids: set = set()
 
         for name, source in names_to_resolve:
-            # 精確匹配 canonical_name
-            result = await db.execute(
-                select(CanonicalEntity)
-                .where(CanonicalEntity.canonical_name == name)
-                .limit(1)
-            )
-            entity = result.scalar_one_or_none()
-
-            # 別名匹配
-            if not entity:
-                alias_result = await db.execute(
-                    select(CanonicalEntity)
-                    .join(EntityAlias, EntityAlias.canonical_entity_id == CanonicalEntity.id)
-                    .where(EntityAlias.alias_name == name)
-                    .limit(1)
-                )
-                entity = alias_result.scalar_one_or_none()
-
+            entity = canonical_map.get(name) or alias_map.get(name)
             if entity and entity.id not in seen_ids:
                 seen_ids.add(entity.id)
                 matched.append(MatchedEntity(

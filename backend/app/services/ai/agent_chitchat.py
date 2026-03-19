@@ -32,40 +32,13 @@ _CHITCHAT_PREFIXES = (
     "今天天氣", "講個笑話", "心情不好",
 )
 
-CHAT_SYSTEM_PROMPT = """你是「乾坤助理」，乾坤測繪公文管理系統的 AI 助理。
-
-你只能做這些事：搜尋公文、查詢派工單、探索知識圖譜、統計公文資料。
-除此之外的事情你都做不到，包括但不限於：影片、音樂、電影、訂餐、天氣、新聞、翻譯、寫程式。
-
-規則：
-1. 只用繁體中文，直接回覆，不要輸出推理過程
-2. 回覆最多 2-3 句話，簡潔親切
-3. 如果使用者問你能力範圍以外的事，坦白說「這個我幫不上忙」，然後友善地提醒你能做什麼
-4. 問候和閒聊正常回應，但適時引導回公文相關功能"""
-
-DEV_CHAT_SYSTEM_PROMPT = """你是「乾坤開發助理」，CK_Missive 系統的開發者 AI 助理。
-
-你能協助的範圍：查詢代碼結構、探索資料庫 Schema、分析模組依賴關係、搜尋程式碼圖譜。
-除此之外的事情你都做不到，包括但不限於：直接修改程式碼、部署系統、管理伺服器。
-
-規則：
-1. 只用繁體中文，直接回覆，不要輸出推理過程
-2. 回覆最多 2-3 句話，簡潔親切
-3. 如果使用者問你能力範圍以外的事，坦白說「這個我幫不上忙」，然後友善地提醒你能做什麼
-4. 問候和閒聊正常回應，但適時引導回開發相關功能"""
-
-# 上下文 → 系統 Prompt 映射
-_CONTEXT_PROMPTS = {
-    "doc": CHAT_SYSTEM_PROMPT,
-    "dev": DEV_CHAT_SYSTEM_PROMPT,
-}
+# 角色 Prompt 由 agent_roles.py 統一管理（SSOT）
+from app.services.ai.agent_roles import get_role_profile
 
 
 def get_chat_system_prompt(context: str | None = None) -> str:
-    """根據 context 回傳對應的閒聊系統 Prompt。"""
-    if context and context in _CONTEXT_PROMPTS:
-        return _CONTEXT_PROMPTS[context]
-    return CHAT_SYSTEM_PROMPT
+    """根據 context 回傳對應的閒聊系統 Prompt（委派給 AgentRoleProfile）。"""
+    return get_role_profile(context).system_prompt
 
 # 問題類型 → 智慧回覆（Ollama 回退時使用）
 _SMART_FALLBACKS: List[tuple] = [
@@ -110,20 +83,28 @@ _BUSINESS_KEYWORDS = (
     # 日期篩選
     "上個月", "這個月", "今年", "去年", "本週", "最近",
     "月", "年",
+    # 系統分析 / 技術服務
+    "分析", "優化", "建議", "效能", "健康", "狀態", "報告",
+    "摘要", "總結", "資料庫", "備份", "連線", "品質", "覆蓋率",
+    "架構", "模組", "依賴", "服務",
 )
 
 
-def is_chitchat(text: str) -> bool:
+def is_chitchat(text: str, context: str | None = None) -> bool:
     """
     判斷是否為閒聊/非文件查詢
 
     策略：反向偵測 — 檢查是否包含公文業務關鍵字
     - 有業務關鍵字 → 不是閒聊 → 走 Agent 工具流程
     - 沒有業務關鍵字 → 視為閒聊 → 走輕量 LLM 對話
+
+    Args:
+        context: 助理上下文。「agent」上下文跳過短句閒聊判定，
+                 因為乾坤智能體的問題天然偏向分析性質。
     """
     normalized = text.strip().lower()
 
-    # 1. 精確匹配已知問候（最快路徑）
+    # 1. 精確匹配已知問候（最快路徑，任何 context 都是閒聊）
     if normalized in _CHITCHAT_EXACT:
         return True
 
@@ -135,7 +116,11 @@ def is_chitchat(text: str) -> bool:
     if any(kw in normalized for kw in _BUSINESS_KEYWORDS):
         return False
 
-    # 4. 短句且無業務關鍵字 → 閒聊
+    # 4. 乾坤智能體上下文 → 跳過短句閒聊判定，保守走 Agent
+    if context == "agent":
+        return False
+
+    # 5. 短句且無業務關鍵字 → 閒聊
     #    （超過 40 字的長句可能是複雜查詢描述，保守走 Agent）
     if len(normalized) <= 40:
         return True

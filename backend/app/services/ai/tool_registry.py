@@ -4,19 +4,26 @@ Tool Registry — 統一工具註冊中心
 集中管理新增工具所需的：
 - 工具定義（LLM 看到的 schema）
 - Few-shot 範例（規劃 prompt）
+- 動態工具推薦（基於查詢內容與 KG 上下文）
 
 自修正規則仍由 agent_planner._auto_correct 管理（動態邏輯，不適合聲明式）。
 Handler 路由由 agent_tools.AgentToolExecutor.dispatch_map 管理。
 
-Version: 1.1.0
+Version: 1.2.0
 Created: 2026-03-07
 Updated: 2026-03-07 - v1.1.0 移除未消費的 CorrectionRule 死碼
+Updated: 2026-03-18 - v1.2.0 新增 suggest_tools_for_query 動態工具推薦
 """
 
 import json
 import logging
+import re
+import time
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +147,270 @@ class ToolRegistry:
             count += 1
         return count
 
+    # ========================================================================
+    # 動態工具推薦 (v1.2.0)
+    # ========================================================================
+
+    # 查詢類型 → 工具名稱加權映射
+    _QUERY_TOOL_BOOST: Dict[str, Dict[str, float]] = {
+        "entity": {
+            "search_entities": 8.0,
+            "get_entity_detail": 5.0,
+            "explore_entity_path": 4.0,
+            "navigate_graph": 4.0,
+            "summarize_entity": 3.0,
+        },
+        "statistics": {
+            "get_statistics": 8.0,
+            "get_contract_summary": 5.0,
+            "get_system_health": 3.0,
+        },
+        "document": {
+            "search_documents": 8.0,
+            "get_entity_detail": 3.0,
+            "find_similar": 4.0,
+            "parse_document": 3.0,
+        },
+        "dispatch": {
+            "search_dispatch_orders": 8.0,
+            "find_correspondence": 5.0,
+        },
+        "project": {
+            "search_projects": 8.0,
+            "get_project_detail": 5.0,
+            "get_project_progress": 4.0,
+            "get_overdue_milestones": 3.0,
+        },
+        "vendor": {
+            "search_vendors": 8.0,
+            "get_vendor_detail": 5.0,
+            "get_contract_summary": 4.0,
+            "get_unpaid_billings": 3.0,
+        },
+        "visual": {
+            "draw_diagram": 8.0,
+            "navigate_graph": 4.0,
+        },
+    }
+
+    # 查詢類型偵測關鍵字
+    _QUERY_TYPE_KEYWORDS: Dict[str, List[str]] = {
+        "statistics": ["統計", "多少", "趨勢", "數量", "總數", "比例", "排行", "佔比"],
+        "document": ["公文", "文號", "收文", "發文", "函", "令", "書函", "開會通知"],
+        "dispatch": ["派工", "派工單", "查估", "派工案件", "派工單號"],
+        "project": ["案件", "專案", "承攬", "工程", "里程碑", "進度"],
+        "vendor": ["廠商", "協力", "供應商", "承包"],
+        "visual": ["畫", "圖", "結構圖", "架構圖", "ER圖", "流程圖", "依賴", "顯示結構"],
+    }
+
+    # KG 實體類型 → 偵測關鍵字
+    _ENTITY_TYPE_KEYWORDS: Dict[str, List[str]] = {
+        "org": ["機關", "單位", "局", "處", "公司", "政府", "市府", "縣府", "署"],
+        "person": ["人員", "承辦", "主管", "聯絡人", "技師", "工程師"],
+        "project": ["專案", "案件", "工程", "計畫"],
+        "location": ["桃園", "台北", "新北", "地點", "地區", "路", "街", "區"],
+        "date": ["日期", "時間", "截止", "期限"],
+    }
+
+    async def suggest_tools_for_query(
+        self,
+        query: str,
+        db: Optional["AsyncSession"] = None,
+        top_k: int = 5,
+        context: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        根據查詢內容與 KG 上下文，推薦最相關的工具。
+
+        邏輯：
+        1. 關鍵字偵測查詢類型 → 對應工具加分
+        2. 偵測是否提及 KG 實體類型 → 圖譜工具加分
+        3. 若 db 可用，查詢 KG 實體類型分布統計（Redis 快取 5min）→ 微調
+        4. 依 context 過濾後，依分數排序取 top_k
+
+        Args:
+            query: 使用者查詢文字
+            db: AsyncSession (可選，用於 KG 統計查詢)
+            top_k: 回傳數量
+            context: 助理上下文 ('doc'/'dev'/'pm'/'erp')
+
+        Returns:
+            [{"name": str, "description": str, "relevance_score": float}, ...]
+        """
+        t0 = time.time()
+        scores: Dict[str, float] = {}
+
+        # 初始化：所有適用工具以 priority 為基礎分
+        applicable_tools = self._filter_by_context(context)
+        for tool in applicable_tools:
+            scores[tool.name] = tool.priority * 0.1  # priority 10 → base 1.0
+
+        # Step 1: 關鍵字偵測查詢類型 → 加分
+        detected_types = self._detect_query_types(query)
+        for qtype in detected_types:
+            boosts = self._QUERY_TOOL_BOOST.get(qtype, {})
+            for tool_name, boost in boosts.items():
+                if tool_name in scores:
+                    scores[tool_name] += boost
+
+        # Step 2: 偵測 KG 實體類型提及 → 圖譜工具加分
+        entity_types_mentioned = self._detect_entity_types(query)
+        if entity_types_mentioned:
+            entity_boosts = self._QUERY_TOOL_BOOST.get("entity", {})
+            # 提及越多實體類型，加分越多（但有上限）
+            multiplier = min(len(entity_types_mentioned), 3)
+            for tool_name, boost in entity_boosts.items():
+                if tool_name in scores:
+                    scores[tool_name] += boost * 0.5 * multiplier
+
+        # Step 3: KG 統計加分（若 db 可用）
+        if db is not None:
+            kg_boosts = await self._get_kg_context_boosts(
+                query, entity_types_mentioned, db
+            )
+            for tool_name, boost in kg_boosts.items():
+                if tool_name in scores:
+                    scores[tool_name] += boost
+
+        # 排序並取 top_k
+        sorted_items = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+        results = []
+        for name, score in sorted_items[:top_k]:
+            tool = self._tools.get(name)
+            if tool:
+                results.append({
+                    "name": name,
+                    "description": tool.description,
+                    "relevance_score": round(score, 2),
+                })
+
+        latency_ms = (time.time() - t0) * 1000
+        logger.debug(
+            "Tool discovery: %d types detected, %d entity types, top=%s (%.1fms)",
+            len(detected_types),
+            len(entity_types_mentioned),
+            results[0]["name"] if results else "none",
+            latency_ms,
+        )
+
+        return results
+
+    def _detect_query_types(self, query: str) -> List[str]:
+        """偵測查詢屬於哪些類型"""
+        detected = []
+        for qtype, keywords in self._QUERY_TYPE_KEYWORDS.items():
+            if any(kw in query for kw in keywords):
+                detected.append(qtype)
+        return detected
+
+    def _detect_entity_types(self, query: str) -> List[str]:
+        """偵測查詢中提及的 KG 實體類型"""
+        detected = []
+        for etype, keywords in self._ENTITY_TYPE_KEYWORDS.items():
+            if any(kw in query for kw in keywords):
+                detected.append(etype)
+        return detected
+
+    async def _get_kg_context_boosts(
+        self,
+        query: str,
+        entity_types_mentioned: List[str],
+        db: "AsyncSession",
+    ) -> Dict[str, float]:
+        """
+        基於 KG 統計資料，提供額外的工具加分。
+        使用 Redis 快取 5 分鐘，避免熱路徑上的 DB 查詢。
+        """
+        boosts: Dict[str, float] = {}
+
+        try:
+            # 嘗試從 Redis 取得快取的 KG 統計
+            kg_stats = await self._get_cached_kg_stats(db)
+            if not kg_stats:
+                return boosts
+
+            total_entities = kg_stats.get("total_entities", 0)
+            type_distribution = kg_stats.get("entity_type_distribution", {})
+
+            # 若 KG 有大量實體，圖譜工具更有價值
+            if total_entities > 100:
+                boosts["search_entities"] = 2.0
+                boosts["explore_entity_path"] = 1.5
+
+            # 若提及的實體類型在 KG 中有高密度資料，加分
+            for etype in entity_types_mentioned:
+                count = type_distribution.get(etype, 0)
+                if count > 50:
+                    boosts["search_entities"] = boosts.get("search_entities", 0) + 2.0
+                    boosts["get_entity_detail"] = boosts.get("get_entity_detail", 0) + 1.0
+                elif count > 10:
+                    boosts["search_entities"] = boosts.get("search_entities", 0) + 1.0
+
+        except Exception as e:
+            logger.debug("KG context boost failed (graceful): %s", e)
+
+        return boosts
+
+    async def _get_cached_kg_stats(self, db: "AsyncSession") -> Optional[Dict[str, Any]]:
+        """
+        取得 KG 統計（Redis 快取 5 分鐘）。
+        若 Redis 不可用或 KG 查詢失敗，回傳 None（graceful fallback）。
+        """
+        cache_key = "tool_discovery:kg_stats"
+
+        # 嘗試 Redis 快取
+        try:
+            import redis.asyncio as aioredis
+            from app.core.config import get_settings
+            settings = get_settings()
+            r = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+            cached = await r.get(cache_key)
+            if cached:
+                await r.aclose()
+                return json.loads(cached)
+        except Exception:
+            r = None
+
+        # 快取未命中，從 DB 查詢
+        try:
+            from app.services.ai.canonical_entity_service import CanonicalEntityService
+            service = CanonicalEntityService()
+            stats = await service.get_stats(db)
+
+            # 寫入 Redis 快取 (5 分鐘 TTL)
+            if r is not None:
+                try:
+                    await r.set(cache_key, json.dumps(stats), ex=300)
+                    await r.aclose()
+                except Exception:
+                    pass
+
+            return stats
+        except Exception as e:
+            logger.debug("KG stats query failed: %s", e)
+            return None
+
+    def get_tool_suggestions_prompt(
+        self, suggestions: List[Dict[str, Any]]
+    ) -> str:
+        """
+        將工具推薦結果格式化為 LLM 提示文字。
+
+        Args:
+            suggestions: suggest_tools_for_query 的回傳結果
+
+        Returns:
+            格式化的提示字串，可直接嵌入 system prompt
+        """
+        if not suggestions:
+            return ""
+
+        lines = ["根據查詢分析，以下工具最可能有用（依相關度排序）："]
+        for i, s in enumerate(suggestions, 1):
+            lines.append(f"  {i}. {s['name']} (相關度: {s['relevance_score']}) — {s['description'][:60]}")
+
+        return "\n".join(lines)
+
     def clear(self) -> None:
         """清除所有已註冊工具（測試/重新載入用）。"""
         self._tools.clear()
@@ -163,152 +434,13 @@ def get_tool_registry() -> ToolRegistry:
     global _registry
     if _registry is None:
         _registry = ToolRegistry()
-        _register_default_tools(_registry)
+        from .tool_definitions import register_default_tools
+        register_default_tools(_registry)
     return _registry
 
 
-# ============================================================================
-# 預設工具註冊
-# ============================================================================
-
+# Backward-compatible alias (tests may import the old private name)
 def _register_default_tools(registry: ToolRegistry) -> None:
-    """註冊系統內建的 9 個工具"""
-
-    # 1. search_documents (公文助理專用)
-    registry.register(ToolDefinition(
-        name="search_documents",
-        description="搜尋公文資料庫，支援關鍵字、發文單位、受文單位、日期範圍、公文類型等條件。回傳匹配的公文列表。",
-        parameters={
-            "keywords": {"type": "array", "description": "搜尋關鍵字列表"},
-            "sender": {"type": "string", "description": "發文單位 (模糊匹配)"},
-            "receiver": {"type": "string", "description": "受文單位 (模糊匹配)"},
-            "doc_type": {"type": "string", "description": "公文類型 (函/令/公告/書函/開會通知單/簽等)"},
-            "date_from": {"type": "string", "description": "起始日期 YYYY-MM-DD"},
-            "date_to": {"type": "string", "description": "結束日期 YYYY-MM-DD"},
-            "limit": {"type": "integer", "description": "最大結果數 (預設5, 最大10)"},
-        },
-        few_shot={
-            "question": "工務局上個月發的函有哪些？",
-            "response_json": '{"reasoning": "查詢特定機關的近期公文，使用日期和發文單位篩選", "tool_calls": [{"name": "search_documents", "params": {"sender": "桃園市政府工務局", "doc_type": "函", "date_from": "2026-01-01", "date_to": "2026-01-31", "limit": 8}}]}',
-        },
-        priority=10,
-        contexts=["doc"],
-    ))
-
-    # 2. search_entities (公文+開發共用)
-    registry.register(ToolDefinition(
-        name="search_entities",
-        description="在知識圖譜中搜尋實體（機關、人員、專案、地點、程式碼模組、類別、函數、資料表等）。回傳匹配的正規化實體列表。",
-        parameters={
-            "query": {"type": "string", "description": "搜尋文字"},
-            "entity_type": {"type": "string", "description": "篩選實體類型: org/person/project/location/topic/date/py_module/py_class/py_function/db_table"},
-            "limit": {"type": "integer", "description": "最大結果數 (預設5)"},
-        },
-        few_shot={
-            "question": "桃園市政府工務局相關的專案有哪些？",
-            "response_json": '{"reasoning": "查詢機關相關的實體關係，使用知識圖譜搜尋", "tool_calls": [{"name": "search_entities", "params": {"query": "桃園市政府工務局", "entity_type": "organization", "limit": 5}}, {"name": "search_documents", "params": {"keywords": ["桃園市政府工務局", "專案"], "limit": 5}}]}',
-        },
-        priority=5,
-    ))
-
-    # 3. get_entity_detail
-    registry.register(ToolDefinition(
-        name="get_entity_detail",
-        description="取得知識圖譜中某個實體的詳細資訊，包含別名、關係、關聯公文。適合深入了解特定機關、人員或專案。",
-        parameters={
-            "entity_id": {"type": "integer", "description": "實體 ID (從 search_entities 取得)"},
-        },
-        priority=3,
-    ))
-
-    # 4. find_similar (公文助理專用)
-    registry.register(ToolDefinition(
-        name="find_similar",
-        description="根據指定公文 ID 查找語意相似的公文。適合找出相關或類似主題的公文。",
-        parameters={
-            "document_id": {"type": "integer", "description": "公文 ID (從 search_documents 取得)"},
-            "limit": {"type": "integer", "description": "最大結果數 (預設5)"},
-        },
-        priority=2,
-        contexts=["doc"],
-    ))
-
-    # 5. search_dispatch_orders (公文助理專用)
-    registry.register(ToolDefinition(
-        name="search_dispatch_orders",
-        description="搜尋派工單紀錄（桃園市政府工務局委託案件）。支援派工單號、工程名稱、作業類別等條件。適合查詢「派工單號XXX」「道路工程派工」「測量作業」等問題。",
-        parameters={
-            "dispatch_no": {"type": "string", "description": "派工單號 (模糊匹配，如 '014' 會匹配 '115年_派工單號014')"},
-            "search": {"type": "string", "description": "關鍵字搜尋 (同時搜尋派工單號 + 工程名稱)"},
-            "work_type": {"type": "string", "description": "作業類別 (如 地形測量/控制測量/協議價購/用地取得 等)"},
-            "limit": {"type": "integer", "description": "最大結果數 (預設5, 最大20)"},
-        },
-        few_shot={
-            "question": "查詢派工單號014紀錄",
-            "response_json": '{"reasoning": "查詢特定派工單號，使用派工單搜尋", "tool_calls": [{"name": "search_dispatch_orders", "params": {"dispatch_no": "014", "limit": 5}}]}',
-        },
-        priority=8,
-        contexts=["doc"],
-    ))
-
-    # 6. get_statistics (公文+開發共用)
-    registry.register(ToolDefinition(
-        name="get_statistics",
-        description="取得系統統計資訊：知識圖譜實體/關係數量、高頻實體排行等。適合回答「系統有多少」「最常見的」之類的問題。",
-        parameters={},
-        few_shot={
-            "question": "系統裡有多少公文和實體？",
-            "response_json": '{"reasoning": "查詢系統統計資訊", "tool_calls": [{"name": "get_statistics", "params": {}}]}',
-        },
-        priority=1,
-    ))
-
-    # 7. navigate_graph — 導航 Agent 工具
-    registry.register(ToolDefinition(
-        name="navigate_graph",
-        description="在 3D 知識圖譜中導航至指定實體或叢集。搜尋實體後回傳座標與鄰居資訊，前端可據此執行 fly-to 動畫。適合「帶我到淨零排碳相關公文」「顯示工務局的關聯圖」等導航型問題。",
-        parameters={
-            "query": {"type": "string", "description": "搜尋關鍵字或實體名稱"},
-            "entity_type": {"type": "string", "description": "限定實體類型 (org/person/project/location)"},
-            "expand_neighbors": {"type": "boolean", "description": "是否展開鄰居節點 (預設 true)"},
-        },
-        few_shot={
-            "question": "帶我看淨零排碳相關的公文叢集",
-            "response_json": '{"reasoning": "導航至圖譜中淨零排碳相關的實體叢集", "tool_calls": [{"name": "navigate_graph", "params": {"query": "淨零排碳", "expand_neighbors": true}}]}',
-        },
-        priority=7,
-    ))
-
-    # 8. summarize_entity — 摘要 Agent 工具
-    registry.register(ToolDefinition(
-        name="summarize_entity",
-        description="對指定實體生成智能摘要簡報：包含基本資訊、上下游關係、關聯公文時間軸、關鍵事件。適合點擊實體節點後快速了解其全貌。",
-        parameters={
-            "entity_id": {"type": "integer", "description": "實體 ID (從 search_entities 取得)"},
-            "include_timeline": {"type": "boolean", "description": "是否包含時間軸 (預設 true)"},
-            "include_upstream_downstream": {"type": "boolean", "description": "是否包含上下游分析 (預設 true)"},
-        },
-        few_shot={
-            "question": "這個工程案件的來龍去脈是什麼？",
-            "response_json": '{"reasoning": "需要生成實體的完整摘要包含上下游關係", "tool_calls": [{"name": "summarize_entity", "params": {"entity_id": 42, "include_timeline": true, "include_upstream_downstream": true}}]}',
-        },
-        priority=6,
-    ))
-
-    # 9. draw_diagram — 視覺化圖表生成
-    registry.register(ToolDefinition(
-        name="draw_diagram",
-        description="根據查詢主題自動生成 Mermaid 圖表（ER圖、流程圖、架構圖、關聯圖）。適合「畫出資料庫結構」「顯示模組依賴」「這個流程圖」等視覺化需求。圖表以 Mermaid 語法返回，前端會自動渲染。",
-        parameters={
-            "diagram_type": {"type": "string", "description": "圖表類型: erDiagram/flowchart/classDiagram/graph (預設自動判斷)"},
-            "scope": {"type": "string", "description": "範圍限定，如表名、模組名、實體名 (可選)"},
-            "detail_level": {"type": "string", "description": "詳細程度: brief/normal/full (預設 normal)"},
-        },
-        few_shot={
-            "question": "畫出派工單相關的資料庫結構圖",
-            "response_json": '{"reasoning": "需要生成資料庫 ER 圖，範圍限定在派工單相關表", "tool_calls": [{"name": "draw_diagram", "params": {"diagram_type": "erDiagram", "scope": "taoyuan", "detail_level": "normal"}}]}',
-        },
-        priority=6,
-    ))
-
-    logger.info("Tool registry initialized: %d tools registered", registry.get_tool_count())
+    """Backward-compatible alias for register_default_tools."""
+    from .tool_definitions import register_default_tools
+    register_default_tools(registry)

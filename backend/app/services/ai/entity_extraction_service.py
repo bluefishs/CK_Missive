@@ -31,14 +31,14 @@ logger = logging.getLogger(__name__)
 # 注意：Code Graph 實體 (py_module, py_class, py_function, db_table) 有獨立入庫路徑
 #       (code_graph_service.py)，不經過 NER 驗證，因此不列入此處
 VALID_ENTITY_TYPES = {
-    "org", "person", "project", "location", "date", "topic",
+    "org", "person", "project", "location", "date",
 }
 # MIN_CONFIDENCE 改由 AIConfig 統一管理，此處保留 fallback
 MIN_CONFIDENCE = get_ai_config().ner_min_confidence
 
 EXTRACTION_SYSTEM_PROMPT = """Output ONLY valid JSON. No markdown, no explanation, no bullet points.
 
-Entity types: org, person, project, location, date, topic
+Entity types: org, person, project, location, date
 Relation types: issues, receives, manages, located_in, belongs_to, related_to, approves, inspects, deadline
 
 Output this exact JSON structure:
@@ -58,6 +58,12 @@ DO NOT extract:
 
 Rules: extract only explicitly mentioned entities, use full official names, confidence 0.0-1.0.
 - 同一個名稱只能有一個最適合的類型（例如「桃園市」應為 location 而非 org）
+
+**CRITICAL OUTPUT FORMAT**:
+- Output ONLY valid JSON, no markdown, no explanation.
+- Do NOT wrap in ```json``` code blocks.
+- Expected format:
+{"entities": [{"name": "...", "type": "org|person|project|location|date", "confidence": 0.9}], "relations": [{"source": "...", "target": "...", "relation_type": "...", "confidence": 0.8}]}
 IMPORTANT: Your entire response must be parseable by json.loads(). No other text."""
 
 
@@ -229,8 +235,8 @@ def _has_corruption_signs(text: str) -> bool:
     - 連續 3+ 非 CJK/ASCII 罕用 Unicode 區段字元（Mojibake 典型特徵）
     - 同一字元重複 4+ 次（LLM 幻覺產物）
     """
-    # U+FFFD 替換字元
-    if '\ufffd' in text:
+    # U+FFFD 替換字元 / 遮蔽符號
+    if '\ufffd' in text or '■' in text or '□' in text:
         return True
     # 控制字元（排除 tab/newline/carriage return）
     for ch in text:
@@ -314,14 +320,17 @@ _PRONOUN_ENTITY_BLACKLIST = {
     '諒達', '敬請鑒核', '敬請查照', '敬請備查',
     '檢送本公司', '函送本公司', '檢附本公司',
     '承辦人', '主管', '機關', '單位',
+    # 動作詞（不是實體名稱）
+    '檢退', '檢還', '退件', '退回',
     # 佔位符 / 簡體 / 無意義亂碼
     '實體名', '服务器',
     '司练南大家八室', '布八室', '服加八室',
 }
 
-# 公文號正則 — 符合此模式的是公文編號，不應列為 date/topic
+# 公文號正則 — 符合此模式的是公文編號，不應列為實體
+# 覆蓋：桃工用字第1140045160號、第1140045160號、1140045160號 等
 _DOC_NUMBER_RE = re.compile(
-    r'^(?:[A-Z0-9]*[字函令書]第?\d{5,}號?$|^\d{7,}號$)'
+    r'(?:^[A-Z0-9]*[字函令書]第?\d{5,}號?$|^\d{7,}號$|字第\d{5,}號)'
 )
 
 # 統一編號前綴正則（8-10 碼英數 + 空格 + 名稱）
@@ -363,6 +372,16 @@ def _validate_entities(entities: List) -> List[Dict]:
             logger.debug(f"公文套語實體已過濾: '{name}'")
             continue
 
+        # location 降級：建築物內部位置（會議室、研討室等）對圖譜關聯性低，過濾掉
+        # 1. 含「N樓...室/廳/間」模式（7樓研討室、2樓會議室）
+        # 2. 直接含「會議室」「研討室」「辦公室」等室內場所關鍵字
+        if etype == 'location' and (
+            re.search(r'(?:[B]?\d+[F樓]|地下\d)', name) and re.search(r'[室廳間]', name)
+            or re.search(r'(?:會議室|研討室|辦公室|會議廳|簡報室|視聽室|教室|禮堂)', name)
+        ):
+            logger.debug(f"建築內部位置實體已過濾: '{name}'")
+            continue
+
         # 過短實體過濾（<=1 字元，人名除外）
         if len(name) <= 1 and etype != 'person':
             continue
@@ -378,14 +397,35 @@ def _validate_entities(entities: List) -> List[Dict]:
             logger.debug(f"統一編號前綴剝離: '{name}' → '{stripped}'")
             name = stripped
 
-        # 公文號識別：date/topic 但符合公文號模式 → 跳過（公文號不應為圖譜實體）
-        if etype in ('date', 'topic') and _DOC_NUMBER_RE.match(name):
+        # 公文號識別：任何類型若符合公文號模式 → 跳過（公文號不是實體）
+        if _DOC_NUMBER_RE.search(name):
             logger.debug(f"公文號誤分類為 {etype}，已跳過: '{name}'")
             continue
 
         # 金額實體過濾（297萬元整、99萬元整等）
         if re.match(r'^[\d,]+萬?元', name):
             continue
+
+        # person 敬稱後綴剝離（「君」「先生」「小姐」「女士」「代表」）
+        if etype == 'person':
+            name = re.sub(r'(君|先生|小姐|女士|代表)$', '', name)
+            if len(name) <= 1:  # 剝離後過短
+                continue
+
+        # project 類型品質過濾
+        if etype == 'project':
+            # 純專案代碼（如 PULI-11502）→ 不是有效名稱
+            if re.match(r'^[A-Z]+-?\d+$', name, re.IGNORECASE):
+                logger.debug(f"專案代碼非名稱，已跳過: '{name}'")
+                continue
+            # 會議/課程/活動 → 不是工程專案
+            if re.search(r'(會議|課程|茶會|聯誼|工作會報|說明會)$', name):
+                logger.debug(f"會議/活動誤分類為 project，已跳過: '{name}'")
+                continue
+            # 文件名稱（計畫書/修正版/工作計畫）→ 不是專案
+            if re.search(r'(計畫書|修正版|修正本|工作計畫|報告書)[\(（]?[^)）]*[\)）]?$', name):
+                logger.debug(f"文件名稱誤分類為 project，已跳過: '{name}'")
+                continue
 
         # date 類型降級：日期實體對圖譜關聯性低，僅保留高信心度的
         if etype == 'date':

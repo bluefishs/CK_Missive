@@ -3,15 +3,16 @@ RAG (Retrieval-Augmented Generation) 查詢服務
 
 基於現有 pgvector 向量搜尋 + Ollama LLM 的輕量 RAG 管線：
 1. 查詢 embedding 生成 (EmbeddingManager)
-2. 向量相似度檢索 (documents.embedding cosine_distance)
-3. 上下文建構 + LLM 回答生成 (AIConnector, prefer_local)
-4. 來源引用追蹤
-5. 多輪對話上下文 (conversation history)
-6. SSE 串流回答
+2. 知識圖譜查詢擴展 (KG neighbor expansion)
+3. 向量相似度檢索 (documents.embedding cosine_distance)
+4. 上下文建構 + LLM 回答生成 (AIConnector, prefer_local)
+5. 來源引用追蹤
+6. 多輪對話上下文 (conversation history)
+7. SSE 串流回答
 
-Version: 2.3.0
+Version: 2.4.0
 Created: 2026-02-25
-Updated: 2026-02-26 - v2.3.0 DocumentQueryBuilder 整合 (SQL+向量混合檢索)
+Updated: 2026-03-18 - v2.4.0 Knowledge Graph 查詢擴展 (KG-RAG bridge)
 """
 
 import json
@@ -20,6 +21,7 @@ import re
 import time
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
+import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.ai_connector import get_ai_connector
@@ -60,6 +62,53 @@ class RAGQueryService:
         return prompt if prompt else _FALLBACK_RAG_PROMPT
 
     # ========================================================================
+    # Knowledge Graph 查詢擴展
+    # ========================================================================
+
+    async def _expand_query_with_kg(self, query_terms: List[str]) -> List[str]:
+        """
+        使用知識圖譜擴展查詢詞彙。
+
+        透過 search_entity_expander 統一管道：
+        1. SynonymExpander — ai_synonyms 表同義詞擴展
+        2. Knowledge Graph — canonical_entities + entity_aliases 別名擴展
+
+        若查詢提到的實體存在於 KG 中，其別名和同義詞會被加入搜尋詞，
+        讓向量搜尋能找到用不同名稱提及同一實體的文件。
+
+        Args:
+            query_terms: 從查詢中提取的搜尋詞彙
+
+        Returns:
+            擴展後的搜尋詞彙列表（包含原始詞 + KG 鄰居名稱）。
+            任何錯誤都會被捕獲，回傳原始詞彙。
+        """
+        if not query_terms:
+            return query_terms
+
+        try:
+            from app.services.ai.search_entity_expander import (
+                expand_search_terms,
+                flatten_expansions,
+            )
+
+            expansions = await expand_search_terms(self.db, query_terms)
+            expanded = flatten_expansions(expansions)
+
+            if len(expanded) > len(query_terms):
+                logger.info(
+                    "KG-RAG query expansion: %d terms → %d terms (added: %s)",
+                    len(query_terms),
+                    len(expanded),
+                    [t for t in expanded if t not in query_terms],
+                )
+
+            return expanded
+        except Exception as e:
+            logger.debug("KG query expansion failed, using original terms: %s", e)
+            return query_terms
+
+    # ========================================================================
     # 同步問答 (非串流)
     # ========================================================================
 
@@ -93,7 +142,9 @@ class RAGQueryService:
             )
 
         query_terms = self._extract_query_terms(question)
-        sources = await self._retrieve_documents(
+        # KG-RAG bridge: 擴展查詢詞彙（同義詞 + 知識圖譜別名）
+        query_terms = await self._expand_query_with_kg(query_terms)
+        sources = await self._retrieve_chunks(
             query_embedding, top_k, similarity_threshold,
             query_terms=query_terms,
         )
@@ -173,9 +224,10 @@ class RAGQueryService:
             yield _sse(type="done", latency_ms=int((time.time() - t0) * 1000), model="none")
             return
 
-        # 2. 向量檢索 + Hybrid Reranking
+        # 2. KG-RAG bridge: 擴展查詢詞彙 + 向量檢索 + Hybrid Reranking
         query_terms = self._extract_query_terms(question)
-        sources = await self._retrieve_documents(
+        query_terms = await self._expand_query_with_kg(query_terms)
+        sources = await self._retrieve_chunks(
             query_embedding, top_k, similarity_threshold,
             query_terms=query_terms,
         )
@@ -261,11 +313,12 @@ class RAGQueryService:
         query_terms: Optional[List[str]] = None,
     ) -> List[Dict[str, Any]]:
         """
-        從 documents 表檢索最相關的文件
+        從 documents 表檢索最相關的文件 (fallback for chunk retrieval)
 
         使用 DocumentQueryBuilder 同時支援：
         - 向量語意搜尋（cosine similarity）
         - 關鍵字全文搜尋（SQL LIKE / ts_rank）
+        - BM25 tsvector 全文搜尋 (v1.83.1)
         - Hybrid Reranking（向量 + 關鍵字覆蓋度）
         """
         from app.repositories.query_builders.document_query_builder import DocumentQueryBuilder
@@ -312,6 +365,116 @@ class RAGQueryService:
             sources = sources[:top_k]
 
         return sources
+
+    async def _retrieve_chunks(
+        self,
+        query_embedding: List[float],
+        top_k: int,
+        threshold: float,
+        query_terms: Optional[List[str]] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        段落級檢索 — 從 document_chunks 表搜尋最相關的分段
+
+        優先使用 chunk-level retrieval (更精準)，
+        若無 chunks 可用則 fallback 到 document-level。
+        """
+        try:
+            from app.extended.models import DocumentChunk, OfficialDocument
+            from sqlalchemy import select as sa_select, func as sa_func
+
+            # 確認是否有 chunks
+            count_result = await self.db.execute(
+                sa_select(sa_func.count(DocumentChunk.id))
+            )
+            chunk_count = count_result.scalar() or 0
+            if chunk_count == 0:
+                logger.info("No document chunks available, falling back to doc-level retrieval")
+                return await self._retrieve_documents(
+                    query_embedding, top_k, threshold, query_terms,
+                )
+
+            # pgvector cosine distance search on chunks
+            if not hasattr(DocumentChunk, 'embedding'):
+                return await self._retrieve_documents(
+                    query_embedding, top_k, threshold, query_terms,
+                )
+
+            # BM25 boost: 如果有 tsvector 且有 query terms，加入 ts_rank 評分
+            bm25_score_col = sa.literal(0.0).label("bm25_score")
+            if query_terms:
+                try:
+                    tsquery = " | ".join(query_terms[:10])
+                    bm25_score_col = sa.func.coalesce(
+                        sa.func.ts_rank(
+                            OfficialDocument.search_vector,
+                            sa.func.to_tsquery("simple", tsquery),
+                        ),
+                        0.0,
+                    ).label("bm25_score")
+                except Exception:
+                    pass
+
+            stmt = (
+                sa_select(
+                    DocumentChunk.id,
+                    DocumentChunk.document_id,
+                    DocumentChunk.chunk_index,
+                    DocumentChunk.chunk_text,
+                    DocumentChunk.embedding.cosine_distance(query_embedding).label("distance"),
+                    bm25_score_col,
+                    OfficialDocument.doc_number,
+                    OfficialDocument.subject,
+                    OfficialDocument.doc_type,
+                    OfficialDocument.category,
+                    OfficialDocument.sender,
+                    OfficialDocument.receiver,
+                    OfficialDocument.doc_date,
+                )
+                .join(OfficialDocument, DocumentChunk.document_id == OfficialDocument.id)
+                .where(DocumentChunk.embedding.isnot(None))
+                .order_by("distance")
+                .limit(top_k * 2)
+            )
+            result = await self.db.execute(stmt)
+            rows = result.fetchall()
+
+            if not rows:
+                return await self._retrieve_documents(
+                    query_embedding, top_k, threshold, query_terms,
+                )
+
+            sources = []
+            seen_docs = set()
+            for row in rows:
+                sources.append({
+                    "document_id": row.document_id,
+                    "chunk_id": row.id,
+                    "chunk_index": row.chunk_index,
+                    "doc_number": row.doc_number or "",
+                    "subject": row.subject or "",
+                    "doc_type": row.doc_type or "",
+                    "category": row.category or "",
+                    "sender": row.sender or "",
+                    "receiver": row.receiver or "",
+                    "doc_date": str(row.doc_date) if row.doc_date else "",
+                    "ck_note": row.chunk_text or "",
+                    "similarity": max(0, 1 - (row.distance or 1)),
+                })
+                seen_docs.add(row.document_id)
+
+            # Hybrid reranking
+            if query_terms and len(sources) > 1:
+                from app.services.ai.reranker import rerank_documents
+                sources = rerank_documents(sources, query_terms)
+
+            return sources[:top_k]
+
+        except Exception as e:
+            logger.warning("Chunk retrieval failed, falling back to doc-level: %s", e)
+            return await self._retrieve_documents(
+                query_embedding, top_k, threshold, query_terms,
+            )
 
     def _build_context(self, sources: List[Dict[str, Any]]) -> str:
         """將檢索到的文件建構為 LLM 上下文"""

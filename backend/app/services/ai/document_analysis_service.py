@@ -177,6 +177,13 @@ class DocumentAnalysisService:
             error_message=None,
             analyzed_at=sa_func.now(),
         )
+        # 持久化 keywords 到 documents 表（免重複 AI 呼叫）
+        if keywords_result and keywords_result.get("keywords"):
+            import json
+            doc.keywords = json.dumps(
+                keywords_result["keywords"], ensure_ascii=False,
+            )
+
         await self.db.commit()
         return analysis
 
