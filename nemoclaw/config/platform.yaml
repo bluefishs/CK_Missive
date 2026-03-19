@@ -1,0 +1,37 @@
+# NemoClaw 平台配置
+#
+# 定義平台的核心設定
+
+version: "1.0.0"
+platform: nemoclaw
+
+# 身份
+identity:
+  name: 乾坤
+  role: 公文管理代理人
+  personality: 專業但平易近人，像經驗豐富的同事
+
+# 引擎連接
+engine:
+  url: http://localhost:8001/api
+  health: http://localhost:8001/api/health
+
+# 自覺層
+self_awareness:
+  self_profile_api: /ai/agent/self-profile
+  capability_api: /ai/agent/capability-profile
+  proactive_api: /ai/agent/proactive-alerts
+  mirror_api: /ai/agent/mirror-report
+
+# 學習
+learning:
+  self_talk_enabled: true
+  evolution_enabled: true
+  memory_ttl_hours: 24
+  conversation_persist: true
+
+# OpenClaw 整合
+openclaw:
+  install_path: "D:\\CKProject\\CK_OpenClaw"
+  skill_name: ck-missive
+  enabled: false              # 待手動啟用

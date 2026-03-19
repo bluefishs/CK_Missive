@@ -1,0 +1,38 @@
+# NemoClaw 沙箱策略
+#
+# 控制乾坤引擎和 OpenClaw 代理人的安全邊界
+
+version: "1.0.0"
+
+# 資料安全
+data:
+  scope: local_only           # 資料不出本機
+  encryption: false           # 內網不加密 (效能考量)
+  audit_log: true             # 記錄所有存取
+
+# 推理安全
+inference:
+  primary: vllm_local         # 優先本地推理
+  fallback_allowed: true      # 允許 fallback 到雲端
+  fallback_providers:
+    - groq                    # 免費 tier
+    - nvidia_cloud            # 免費 tier
+  sensitive_data_to_cloud: false  # 公文內容不送雲端
+
+# OpenClaw 代理人權限
+openclaw_agent:
+  channels_allowed:
+    - line                    # LINE Bot
+    - web                     # Web 介面
+  channels_blocked:
+    - discord                 # 不允許 Discord (公開)
+    - telegram                # 暫不開放
+  max_concurrent_sessions: 10
+  session_ttl_hours: 24
+
+# 乾坤引擎權限
+engine:
+  tools_allowed: all          # 23 個真工具全部可用
+  auto_skills: false          # 暫停 51 個自動發現 skill
+  write_operations: false     # 唯讀，不允許修改資料
+  admin_api: false            # 不暴露管理 API

@@ -1,0 +1,62 @@
+# CK_Missive 乾坤代理人 — OpenClaw Skill 定義
+#
+# 此檔案定義乾坤如何作為 OpenClaw 的 Skill 被呼叫。
+# OpenClaw 透過此 Skill 存取乾坤的公文/派工/圖譜能力。
+#
+# 部署: 複製到 OpenClaw 的 skills/ 目錄
+# 或在 OpenClaw 配置中指定此路徑
+
+name: ck-missive
+display_name: 乾坤公文助理
+description: |
+  乾坤測繪公司的公文管理智能引擎。
+  可搜尋公文、查詢派工單、探索知識圖譜、分析統計資料。
+  所有資料在本地處理，不會外送。
+
+# OpenClaw Skill 接口
+api:
+  endpoint: http://localhost:8001/api/ai/agent/query
+  method: POST
+  headers:
+    Content-Type: application/json
+    X-Service-Token: "${MCP_SERVICE_TOKEN}"
+  request_format:
+    question: "{{input}}"
+    session_id: "openclaw-{{session_id}}"
+  response_path: answer
+
+# 觸發條件 — 什麼時候 OpenClaw 應該呼叫乾坤
+triggers:
+  keywords:
+    - 公文
+    - 派工
+    - 測量
+    - 圖譜
+    - 桃園
+    - 工務局
+    - 乾坤
+    - 文號
+    - 收文
+    - 發文
+  patterns:
+    - "查詢.*公文"
+    - "搜尋.*文號"
+    - "派工單.*"
+    - ".*有.*幾.*筆"
+
+# 能力宣告
+capabilities:
+  - document_search    # 公文搜尋
+  - dispatch_query     # 派工查詢
+  - knowledge_graph    # 知識圖譜
+  - statistics         # 統計分析
+  - rag_qa             # RAG 問答
+
+# 安全邊界 (NemoClaw 沙箱控制)
+sandbox:
+  data_scope: local_only    # 資料不出本機
+  auth_required: true       # 需要 service token
+  rate_limit: 30/minute     # 速率限制
+  allowed_origins:
+    - localhost
+    - "192.168.*"           # 內網
