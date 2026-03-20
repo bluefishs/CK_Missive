@@ -85,15 +85,38 @@ class AnalysisToolExecutor:
         }
 
     async def get_statistics(self, _params: Dict[str, Any]) -> Dict[str, Any]:
-        """取得圖譜統計 + 高頻實體"""
+        """取得系統統計 — 公文總數 + 圖譜統計 + 高頻實體"""
+        from sqlalchemy import select, func
+        from app.extended.models import OfficialDocument
         from app.services.ai.graph_query_service import GraphQueryService
 
+        # 公文基本統計
+        doc_total = 0
+        doc_by_cat = {}
+        try:
+            doc_total = await self.db.scalar(
+                select(func.count()).select_from(OfficialDocument)
+            ) or 0
+            rows = await self.db.execute(
+                select(OfficialDocument.category, func.count())
+                .group_by(OfficialDocument.category)
+            )
+            for r in rows.all():
+                if r[0]:
+                    doc_by_cat[r[0]] = r[1]
+        except Exception:
+            pass
+
+        # 圖譜統計
         svc = GraphQueryService(self.db)
-        stats = await svc.get_graph_stats()
+        graph_stats = await svc.get_graph_stats()
         top_entities = await svc.get_top_entities(limit=10)
 
         return {
-            "stats": stats,
+            "document_total": doc_total or 0,
+            "document_by_category": doc_by_cat,
+            "summary": f"系統共有 {doc_total} 筆公文" + (f"（收文 {doc_by_cat.get('收文',0)}、發文 {doc_by_cat.get('發文',0)}）" if doc_by_cat else ""),
+            "graph_stats": graph_stats,
             "top_entities": top_entities,
             "count": 1,
         }

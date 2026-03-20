@@ -259,8 +259,9 @@ class TestGetStatistics:
         ):
             result = await executor._analysis.get_statistics({})
             assert result["count"] == 1
-            assert result["stats"]["total_entities"] == 100
+            assert result["graph_stats"]["total_entities"] == 100
             assert len(result["top_entities"]) == 1
+            assert "document_total" in result
 
 
 class TestExecuteParallel:
