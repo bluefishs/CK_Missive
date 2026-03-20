@@ -47,7 +47,12 @@ async def self_talk(
         result_count = sum(r.get("count", 0) for r in tool_results)
 
         messages = [
-            {"role": "system", "content": "用一句繁體中文總結這次回答可以改進的地方。只輸出一句話。"},
+            {"role": "system", "content": (
+                "用一句繁體中文（臺灣正體）總結這次回答可以改進的具體做法。"
+                "必須指出具體問題和具體改善方式，禁止泛泛而談如「可以提供更多資訊」。"
+                "嚴禁使用簡體字（如关、应、为、进、据、询、问、统、节等）。"
+                "只輸出一句話，不超過60字。"
+            )},
             {"role": "user", "content": (
                 f"問題：{question[:150]}\n"
                 f"工具：{tools_summary}\n"
@@ -64,6 +69,18 @@ async def self_talk(
         )
 
         lesson = reflection.strip()
+        # 品質過濾：丟棄空洞或過度簡體的反思
+        _VAGUE_PATTERNS = ("可以提供更多", "可以增加", "可以更", "应明确", "应该更")
+        if any(p in lesson for p in _VAGUE_PATTERNS):
+            logger.debug("Self-talk discarded (vague): %s", lesson[:60])
+            return
+        # 簡體→繁體 後處理（常見替換）
+        _SC2TC = {"关系": "關係", "实体": "實體", "统计": "統計", "查询": "查詢",
+                  "文档": "文件", "系统": "系統", "节点": "節點", "信息": "資訊",
+                  "数据": "資料", "应该": "應該", "应明确": "應明確", "进行": "進行",
+                  "为了": "為了", "关于": "關於", "问题": "問題"}
+        for sc, tc in _SC2TC.items():
+            lesson = lesson.replace(sc, tc)
         if lesson and len(lesson) > 5 and len(lesson) < 200:
             import hashlib
             from app.extended.models import AgentLearning
