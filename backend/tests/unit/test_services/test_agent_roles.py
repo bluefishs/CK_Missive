@@ -162,19 +162,19 @@ class TestGetRoleProfile:
         assert profile is GRAPH_ANALYST
 
     def test_none_context_returns_document_assistant(self):
-        """None context 預設回傳公文助理（向後相容）"""
+        """None context 預設回傳乾坤智能體（NemoClaw 統一入口）"""
         profile = get_role_profile(None)
-        assert profile is DOCUMENT_ASSISTANT
+        assert profile is CK_AGENT
 
-    def test_unknown_context_returns_document_assistant(self):
-        """未知 context 回傳公文助理"""
+    def test_unknown_context_returns_ck_agent(self):
+        """未知 context 回傳乾坤智能體"""
         profile = get_role_profile("nonexistent")
-        assert profile is DOCUMENT_ASSISTANT
+        assert profile is CK_AGENT
 
-    def test_empty_string_returns_document_assistant(self):
-        """空字串 context 回傳公文助理"""
+    def test_empty_string_returns_ck_agent(self):
+        """空字串 context 回傳乾坤智能體"""
         profile = get_role_profile("")
-        assert profile is DOCUMENT_ASSISTANT
+        assert profile is CK_AGENT
 
 
 # ============================================================================

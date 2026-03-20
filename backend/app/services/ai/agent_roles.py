@@ -188,10 +188,11 @@ _ROLE_PROFILES: Dict[str, AgentRoleProfile] = {
 
 
 def get_role_profile(context: Optional[str] = None) -> AgentRoleProfile:
-    """根據 context 取得角色 Profile，預設回傳文件助理。"""
+    """根據 context 取得角色 Profile。NemoClaw 統一入口預設用乾坤智能體。"""
     if context and context in _ROLE_PROFILES:
         return _ROLE_PROFILES[context]
-    return DOCUMENT_ASSISTANT
+    # v5.0: NemoClaw 代理人統一入口，預設用全能力的乾坤智能體
+    return CK_AGENT
 
 
 def get_all_role_profiles() -> Dict[str, AgentRoleProfile]:
