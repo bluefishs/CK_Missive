@@ -336,7 +336,7 @@ class ProjectService:
         6. 刪除專案本身
         """
         from app.extended.models.document import OfficialDocument
-        from app.extended.models.taoyuan import TaoyuanProject, DispatchOrder
+        from app.extended.models.taoyuan import TaoyuanProject, TaoyuanDispatchOrder
 
         db_project = await self.get_by_id(entity_id)
         if not db_project:
@@ -359,8 +359,8 @@ class ProjectService:
 
             # 3. 解除派工單關聯
             await self.db.execute(
-                update(DispatchOrder)
-                .where(DispatchOrder.contract_project_id == entity_id)
+                update(TaoyuanDispatchOrder)
+                .where(TaoyuanDispatchOrder.contract_project_id == entity_id)
                 .values(contract_project_id=None)
             )
 
