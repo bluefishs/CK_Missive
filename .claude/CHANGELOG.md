@@ -4,6 +4,47 @@
 
 ---
 
+## [5.0.0] - 2026-03-20
+
+### v5.0 NemoClaw 代理人正式版
+
+#### 里程碑摘要
+NemoClaw 代理人正式發布，歷經 70+ commits 從 v1.84.3 升級：
+- **乾坤智能體**: 41 模組、74 工具 (23 手動 + 51 auto-discovered)
+- **自覺層**: 5 Phase 完成 (self-talk → journal → transparency → capability → mirror)
+- **vLLM 本地推理**: Qwen2.5-7B-AWQ, RTX 4060 8GB, 月費 $0
+- **多專案架構**: CK_Missive + CK_NemoClaw (監控塔) + CK_OpenClaw (通用引擎)
+
+#### 前端品質 (antd v6 全面合規)
+- antd List → Flex: 19 檔案替換，保留 4 正當用法
+- Card `size="default"` → `"medium"`: 全域修正
+- Select `dropdownRender` → `popupRender`
+- InputNumber `addonBefore` → `prefix`: 5 處
+- 0 TSC errors, 2,837 tests passed
+
+#### 承攬案件管理
+- 詳情頁新增刪除功能 (Popconfirm 二次確認 + 級聯解除 FK)
+- 建立端點 `POST /projects/` → `/projects/create` (修正 redirect_slashes 404)
+
+#### OpenClaw 聯邦協議
+- federation_client: endpoint `/reason`, 標準化 payload (agent_id + action + payload)
+
+#### 系統指標
+| 維度 | 數值 |
+|------|------|
+| 後端測試 | 2,568+ passed |
+| 前端測試 | 2,837 passed |
+| Skills | 23 project + 48 shared |
+| Agents | 5 project + 8 shared |
+| Commands | 23 |
+| AI 模組 | 74 |
+| 工具 | 74 (23 + 51 auto) |
+| DB 索引 | 253 (optimized) |
+| NER | 100% (5,915 entities) |
+| 文件 | 1,638 (100% chunked) |
+
+---
+
 ## [1.84.3] - 2026-03-19
 
 ### 全系統優化 — 十二輪深度重構 + NIM 整合
