@@ -1,20 +1,29 @@
 # CK_Missive 公文管理系統 - Claude Code 配置
 
 > **專案代碼**: CK_Missive
-> **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design
-> **Claude Code 配置版本**: 1.84.1
-> **最後更新**: 2026-03-17
+> **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design + vLLM
+> **版本**: v5.0 NemoClaw 代理人
+> **最後更新**: 2026-03-20
 
 ---
 
 ## 專案概述
 
-CK_Missive 是一套企業級公文管理系統，具備以下核心功能：
+CK_Missive 是一套企業級公文管理系統，搭載 NemoClaw 自覺型代理人：
 
 1. **公文管理** - 收發文登錄、流水序號自動編排、附件管理
 2. **行事曆整合** - 公文截止日追蹤、Google Calendar 雙向同步
 3. **專案管理** - 承攬案件管理、專案人員配置
 4. **機關/廠商管理** - 往來單位維護、智慧匹配
+5. **NemoClaw 代理人** - 23 真工具、自省閉環、主動推薦、vLLM 本地推理
+
+### 多專案架構
+
+```
+CK_NemoClaw (獨立專案) — 監控塔 · 沙箱 · 插件註冊
+CK_OpenClaw (獨立專案) — 多頻道通用引擎
+CK_Missive  (本專案)   — 公文領域智能引擎 (業務插件)
+```
 
 ---
 
@@ -49,7 +58,10 @@ CK_Missive 是一套企業級公文管理系統，具備以下核心功能：
 ### 開發環境
 - 後端 API: http://localhost:8001/docs
 - 前端開發: http://localhost:3000
-- 資料庫: PostgreSQL 16 (Docker)
+- 資料庫: PostgreSQL 16 (Docker, port 5434)
+- NemoClaw 監控塔: http://localhost:9000 (Docker, CK_NemoClaw)
+- vLLM 本地推理: http://localhost:8000 (Docker, Qwen2.5-7B-AWQ)
+- Ollama: http://localhost:11434 (Docker, nomic-embed)
 
 ### 常用命令
 ```powershell

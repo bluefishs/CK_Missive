@@ -115,9 +115,32 @@
 
 ---
 
-## v1.84.3 乾坤智能體 v4.0.0 — 全模組盤點 (2026-03-19)
+## v5.0 NemoClaw 代理人 — 全模組盤點 (2026-03-20)
 
-### 乾坤智能體 (OpenClaw Agent) 模組清單 (33 模組, ~8000L, 600+ 測試)
+### NemoClaw 代理人新增模組 (v4.0→v5.0)
+
+| 模組 | 版本 | 說明 |
+|------|------|------|
+| `nemoclaw_agent.py` | v2.0 | NemoClaw 代理人主體 (自覺層 wrapper) |
+| `agent_self_profile.py` | v1.0 | Agent 自我檔案 (強項/弱項/總查詢) |
+| `agent_proactive_scanner.py` | v1.0 | 主動掃描 (截止日/異常/通知) |
+| `agent_capability_tracker.py` | v1.0 | 能力自覺 (按領域分析表現) |
+| `agent_mirror_feedback.py` | v1.0 | 鏡像回饋 (LLM 自我觀察報告) |
+| `skill_scanner.py` | v1.0 | 技能自動發現 (51 skills from .claude/) |
+| `skill_evolution_service.py` | v1.0 | 技能演化樹數據生成 |
+| `kb_embedding_service.py` | v1.0 | 知識庫向量搜尋 (2343 chunks) |
+
+### 獨立專案: CK_NemoClaw (監控塔)
+
+| 檔案 | 說明 |
+|------|------|
+| `Dockerfile` | nginx:alpine 沙箱策略 API |
+| `docker-compose.yml` | 多容器編排 (tower + plugins) |
+| `sandbox/policy.yaml` | 全域安全策略 |
+| `config/platform.yaml` | 插件註冊 + 共享服務 |
+| `agents/ck-missive/` | 公文代理人腳本 |
+
+### 乾坤智能體 (NemoClaw Agent) 模組清單 (41 模組, 74 工具)
 
 | 模組 | 版本 | 說明 |
 |------|------|------|
