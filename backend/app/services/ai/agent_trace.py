@@ -247,7 +247,7 @@ class AgentTrace:
             repo = AgentTraceRepository(db)
             return await repo.save_trace(self.to_db_dict())
         except Exception as e:
-            logger.debug("flush_to_db failed: %s", e)
+            logger.warning("flush_to_db failed: %s", e)
             return None
 
     async def flush_to_monitor(self) -> None:
