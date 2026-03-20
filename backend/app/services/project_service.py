@@ -337,6 +337,7 @@ class ProjectService:
         """
         from app.extended.models.document import OfficialDocument
         from app.extended.models.taoyuan import TaoyuanProject, TaoyuanDispatchOrder
+        from app.extended.models.staff import ProjectAgencyContact
 
         db_project = await self.get_by_id(entity_id)
         if not db_project:
@@ -364,10 +365,17 @@ class ProjectService:
                 .values(contract_project_id=None)
             )
 
-            # 4. 刪除承辦同仁資料
+            # 4. 刪除機關承辦聯絡人
+            from sqlalchemy import delete as sa_delete
+            await self.db.execute(
+                sa_delete(ProjectAgencyContact)
+                .where(ProjectAgencyContact.project_id == entity_id)
+            )
+
+            # 5. 刪除承辦同仁資料
             await self.repository.delete_user_assignments(entity_id)
 
-            # 5. 刪除廠商關聯資料
+            # 6. 刪除廠商關聯資料
             await self.repository.delete_vendor_associations(entity_id)
 
             # 6. 刪除專案本身
