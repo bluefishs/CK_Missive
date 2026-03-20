@@ -9,9 +9,13 @@ Version: 1.0.0
 """
 
 import logging
+import re
 from typing import Any, Dict
 
 logger = logging.getLogger(__name__)
+
+# 文號正則 (e.g. 1130006974, 桃工用字第1130006974號)
+_DOC_NUMBER_RE = re.compile(r'(\d{10})')
 
 
 async def preprocess_question(question: str, db) -> Dict[str, Any]:
@@ -26,6 +30,13 @@ async def preprocess_question(question: str, db) -> Dict[str, Any]:
     在 LLM 規劃前先提取結構化線索，提高工具選擇與參數品質。
     """
     hints: Dict[str, Any] = {}
+
+    # 文號偵測 — 精確匹配優先
+    doc_num_match = _DOC_NUMBER_RE.search(question)
+    if doc_num_match:
+        hints["keywords"] = [doc_num_match.group(1)]
+        hints["_doc_number_detected"] = True
+        logger.info("文號偵測: %s", doc_num_match.group(1))
 
     try:
         from app.services.ai.base_ai_service import BaseAIService
