@@ -339,13 +339,16 @@ class TestBuildSynthesisContext:
         tool_results = [{
             "tool": "get_statistics",
             "result": {
-                "stats": {"total_entities": 100, "total_relationships": 500},
+                "document_total": 1643,
+                "document_by_category": {"收文": 1100, "發文": 543},
+                "summary": "系統共有 1643 筆公文（收文 1100、發文 543）",
+                "graph_stats": {"total_entities": 100, "total_relationships": 500},
                 "top_entities": [{"canonical_name": "工務局", "mention_count": 50}],
             },
         }]
         ctx = synthesizer.build_synthesis_context(tool_results)
+        assert "1643" in ctx
         assert "100" in ctx
-        assert "500" in ctx
         assert "工務局" in ctx
 
     def test_error_results_skipped(self, synthesizer):

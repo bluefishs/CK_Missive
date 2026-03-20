@@ -55,8 +55,7 @@ describe('AIAssistantButton', () => {
     await user.click(screen.getByLabelText('AI 智慧助理'));
 
     expect(screen.getByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByText('公文助理')).toBeInTheDocument();
-    expect(screen.getByText('智能體')).toBeInTheDocument();
+    expect(screen.getByText('乾坤')).toBeInTheDocument();
   });
 
   it('開啟後按鈕變為關閉圖示', async () => {
