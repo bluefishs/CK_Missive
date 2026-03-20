@@ -6,8 +6,8 @@ import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { logger } from '../../services/logger';
 import {
-  Modal, Select, Button, Space,
-  List, Tag, Tooltip, notification, Empty, Spin, Typography, Row, Col, Grid
+  Modal, Select, Button, Space, Flex,
+  Tag, Tooltip, notification, Empty, Spin, Typography, Row, Col, Grid
 } from 'antd';
 
 const { useBreakpoint } = Grid;
@@ -287,50 +287,45 @@ export const ReminderSettingsModal: React.FC<ReminderSettingsModalProps> = ({
             <div>
               <Text strong style={{ marginBottom: '8px', display: 'block' }}>現有提醒：</Text>
               {reminders.length > 0 ? (
-                <List
-                  size="small"
-                  dataSource={reminders}
-                  renderItem={(reminder) => (
-                    <List.Item
-                      actions={[
-                        <Tooltip title="刪除提醒" key="delete">
-                          <Button
-                            type="text"
-                            danger
-                            icon={<DeleteOutlined />}
-                            onClick={() => handleDeleteReminder(reminder.id)}
-                            size="small"
-                            aria-label="刪除提醒"
-                          />
-                        </Tooltip>
-                      ]}
-                    >
-                      <List.Item.Meta
-                        avatar={
-                          reminder.reminder_type === 'email' ? (
-                            <MailOutlined style={{ fontSize: '20px', color: '#1890ff' }} />
-                          ) : (
-                            <NotificationOutlined style={{ fontSize: '20px', color: '#52c41a' }} />
-                          )
-                        }
-                        title={
+                <Flex vertical gap={0}>
+                  {reminders.map((reminder) => (
+                    <div key={reminder.id} style={{ display: 'flex', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>
+                      <div style={{ marginRight: 12, flexShrink: 0 }}>
+                        {reminder.reminder_type === 'email' ? (
+                          <MailOutlined style={{ fontSize: '20px', color: '#1890ff' }} />
+                        ) : (
+                          <NotificationOutlined style={{ fontSize: '20px', color: '#52c41a' }} />
+                        )}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div>
                           <Space>
                             <Text>{dayjs(reminder.reminder_time).format('YYYY-MM-DD HH:mm')}</Text>
                             {getStatusTag(reminder.status, reminder.is_sent)}
                           </Space>
-                        }
-                        description={
+                        </div>
+                        <div>
                           <Space>
                             <Tag>{reminder.reminder_type === 'email' ? '郵件' : '系統'}</Tag>
                             {reminder.retry_count > 0 && (
                               <Text type="warning">重試 {reminder.retry_count} 次</Text>
                             )}
                           </Space>
-                        }
-                      />
-                    </List.Item>
-                  )}
-                />
+                        </div>
+                      </div>
+                      <Tooltip title="刪除提醒">
+                        <Button
+                          type="text"
+                          danger
+                          icon={<DeleteOutlined />}
+                          onClick={() => handleDeleteReminder(reminder.id)}
+                          size="small"
+                          aria-label="刪除提醒"
+                        />
+                      </Tooltip>
+                    </div>
+                  ))}
+                </Flex>
               ) : (
                 <Empty description="尚未設定提醒" image={Empty.PRESENTED_IMAGE_SIMPLE} />
               )}

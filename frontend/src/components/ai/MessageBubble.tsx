@@ -13,7 +13,7 @@ import {
   Typography,
   Space,
   Tag,
-  List,
+  Flex,
   Collapse,
   Button,
   Tooltip,
@@ -243,11 +243,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   </Text>
                 ),
                 children: (
-                  <List
-                    size="small"
-                    dataSource={message.sources}
-                    renderItem={(src: RAGSourceItem) => (
-                      <List.Item style={{ padding: '4px 0' }}>
+                  <Flex vertical gap={4}>
+                    {message.sources.map((src: RAGSourceItem, idx: number) => (
+                      <div key={idx} style={{ padding: '4px 0', borderBottom: '1px solid #f0f0f0' }}>
                         <Space vertical size={0} style={{ width: '100%' }}>
                           <Space>
                             <Tag color="blue" style={{ fontSize: 11 }}>
@@ -269,9 +267,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                             {src.sender} {src.doc_date ? `| ${src.doc_date}` : ''}
                           </Text>
                         </Space>
-                      </List.Item>
-                    )}
-                  />
+                      </div>
+                    ))}
+                  </Flex>
                 ),
               },
             ]}

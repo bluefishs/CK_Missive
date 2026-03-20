@@ -16,7 +16,7 @@
 import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Spin, Empty, Tag, List, Descriptions,
+  Spin, Empty, Tag, Descriptions, Flex,
   Drawer, Typography, Divider, Space, Tooltip, Timeline,
 } from 'antd';
 import {
@@ -193,29 +193,25 @@ export const EntityDetailSidebar: React.FC<EntityDetailSidebarProps> = ({
               <Divider titlePlacement="left" style={{ fontSize: 13 }}>
                 <FileTextOutlined /> 關聯公文 ({detail.documents.length})
               </Divider>
-              <List
-                size="small"
-                dataSource={detail.documents.slice(0, 10)}
-                renderItem={(doc: KGEntityDocument) => (
-                  <List.Item style={{ padding: '4px 0' }}>
-                    <div style={{ width: '100%' }}>
-                      <div style={{ fontSize: 12 }}>
-                        <Text strong>{doc.doc_number || `#${doc.document_id}`}</Text>
-                        {doc.doc_date && (
-                          <Text type="secondary" style={{ marginLeft: 8, fontSize: 11 }}>
-                            {doc.doc_date}
-                          </Text>
-                        )}
-                      </div>
-                      {doc.subject && (
-                        <Text type="secondary" style={{ fontSize: 11 }}>
-                          {truncate(doc.subject, 40)}
+              <Flex vertical gap={4}>
+                {detail.documents.slice(0, 10).map((doc: KGEntityDocument) => (
+                  <div key={doc.document_id} style={{ padding: '4px 0', borderBottom: '1px solid #f0f0f0' }}>
+                    <div style={{ fontSize: 12 }}>
+                      <Text strong>{doc.doc_number || `#${doc.document_id}`}</Text>
+                      {doc.doc_date && (
+                        <Text type="secondary" style={{ marginLeft: 8, fontSize: 11 }}>
+                          {doc.doc_date}
                         </Text>
                       )}
                     </div>
-                  </List.Item>
-                )}
-              />
+                    {doc.subject && (
+                      <Text type="secondary" style={{ fontSize: 11 }}>
+                        {truncate(doc.subject, 40)}
+                      </Text>
+                    )}
+                  </div>
+                ))}
+              </Flex>
               {detail.documents.length > 10 && (
                 <Text type="secondary" style={{ fontSize: 11 }}>
                   ...還有 {detail.documents.length - 10} 篇
@@ -230,17 +226,15 @@ export const EntityDetailSidebar: React.FC<EntityDetailSidebarProps> = ({
               <Divider titlePlacement="left" style={{ fontSize: 13 }}>
                 <ShareAltOutlined /> 關係 ({detail.relationships.length})
               </Divider>
-              <List
-                size="small"
-                dataSource={detail.relationships}
-                renderItem={(rel: KGEntityRelationship) => {
+              <Flex vertical gap={4}>
+                {detail.relationships.map((rel: KGEntityRelationship, idx: number) => {
                   const otherName = rel.direction === 'outgoing'
                     ? rel.target_name : rel.source_name;
                   const otherType = rel.direction === 'outgoing'
                     ? rel.target_type : rel.source_type;
                   const arrow = rel.direction === 'outgoing' ? ' → ' : ' ← ';
                   return (
-                    <List.Item style={{ padding: '4px 0' }}>
+                    <div key={idx} style={{ padding: '4px 0', borderBottom: '1px solid #f0f0f0' }}>
                       <div style={{ fontSize: 12, width: '100%' }}>
                         <Tag color="geekblue" style={{ fontSize: 11 }}>
                           {rel.relation_label || rel.relation_type}
@@ -257,10 +251,10 @@ export const EntityDetailSidebar: React.FC<EntityDetailSidebarProps> = ({
                           {rel.valid_from && ` | 自 ${rel.valid_from.split('T')[0]}`}
                         </div>
                       </div>
-                    </List.Item>
+                    </div>
                   );
-                }}
-              />
+                })}
+              </Flex>
             </>
           )}
 

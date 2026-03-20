@@ -13,7 +13,7 @@ import {
   Badge,
   Button,
   Dropdown,
-  List,
+  Flex,
   Typography,
   Tag,
   Space,
@@ -155,30 +155,30 @@ export const NotificationCenter: React.FC = () => {
             style={{ padding: 40 }}
           />
         ) : (
-          <List
-            dataSource={notifications}
-            renderItem={(item) => {
-              // 取得嚴重程度配置，預設為 info
+          <Flex vertical gap={0}>
+            {notifications.map((item) => {
               const config: SeverityConfig =
                 severityConfig[item.severity] ?? defaultSeverityConfig;
               return (
-                <List.Item
+                <div
+                  key={item.id}
                   onClick={() => handleNotificationClick(item)}
                   style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
                     padding: '12px 16px',
                     cursor: 'pointer',
                     background: item.is_read ? '#fff' : '#f6ffed',
                     borderLeft: item.is_read ? 'none' : '3px solid #52c41a',
+                    borderBottom: '1px solid #f0f0f0',
                   }}
                   className="notification-item"
                 >
-                  <List.Item.Meta
-                    avatar={
-                      <span style={{ color: config.color, fontSize: 20 }}>
-                        {config.icon}
-                      </span>
-                    }
-                    title={
+                  <span style={{ color: config.color, fontSize: 20, marginRight: 12, flexShrink: 0 }}>
+                    {config.icon}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div>
                       <Space size={8}>
                         <Text
                           strong={!item.is_read}
@@ -190,36 +190,32 @@ export const NotificationCenter: React.FC = () => {
                           {typeLabels[item.type] || item.type}
                         </Tag>
                       </Space>
-                    }
-                    description={
-                      <>
-                        <Paragraph
-                          ellipsis={{ rows: 2 }}
-                          style={{
-                            marginBottom: 4,
-                            fontSize: 12,
-                            color: '#666',
-                          }}
-                        >
-                          {item.message}
-                        </Paragraph>
-                        <Space size={8}>
-                          <Text type="secondary" style={{ fontSize: 11 }}>
-                            {formatTime(item.created_at)}
-                          </Text>
-                          {item.user_name && (
-                            <Text type="secondary" style={{ fontSize: 11 }}>
-                              by {item.user_name}
-                            </Text>
-                          )}
-                        </Space>
-                      </>
-                    }
-                  />
-                </List.Item>
+                    </div>
+                    <Paragraph
+                      ellipsis={{ rows: 2 }}
+                      style={{
+                        marginBottom: 4,
+                        fontSize: 12,
+                        color: '#666',
+                      }}
+                    >
+                      {item.message}
+                    </Paragraph>
+                    <Space size={8}>
+                      <Text type="secondary" style={{ fontSize: 11 }}>
+                        {formatTime(item.created_at)}
+                      </Text>
+                      {item.user_name && (
+                        <Text type="secondary" style={{ fontSize: 11 }}>
+                          by {item.user_name}
+                        </Text>
+                      )}
+                    </Space>
+                  </div>
+                </div>
               );
-            }}
-          />
+            })}
+          </Flex>
         )}
       </div>
 

@@ -199,7 +199,7 @@ export const CaseInfoTab: React.FC<CaseInfoTabProps> = ({
                     placeholder="請輸入契約金額"
                     formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                     parser={parseCurrencyInput}
-                    addonBefore="NT$"
+                    prefix="NT$"
                   />
                 </Form.Item>
               </Col>
@@ -210,7 +210,7 @@ export const CaseInfoTab: React.FC<CaseInfoTabProps> = ({
                     placeholder="請輸入得標金額"
                     formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                     parser={parseCurrencyInput}
-                    addonBefore="NT$"
+                    prefix="NT$"
                   />
                 </Form.Item>
               </Col>

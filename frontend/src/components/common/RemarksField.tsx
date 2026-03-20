@@ -8,7 +8,7 @@ import {
   Popover,
   Tag,
   Card,
-  List,
+  Flex,
   Avatar,
   App,
 } from 'antd';
@@ -121,26 +121,24 @@ const RemarksField: React.FC<RemarksFieldProps> = ({
       <div style={{ marginBottom: 12 }}>
         <Text strong>備註歷史記錄</Text>
       </div>
-      <List
-        size="small"
-        dataSource={history}
-        renderItem={(item) => (
-          <List.Item>
-            <List.Item.Meta
-              avatar={<Avatar size="small" icon={<UserOutlined />} />}
-              title={
-                <Space>
-                  <Text style={{ fontSize: 12 }}>{item.authorName}</Text>
-                  <Tag color={
-                    item.action === 'create' ? 'green' :
-                    item.action === 'update' ? 'blue' : 'red'
-                  }>
-                    {item.action === 'create' ? '新增' : 
-                     item.action === 'update' ? '修改' : '刪除'}
-                  </Tag>
-                </Space>
-              }
-              description={
+      {history.length > 0 ? (
+        <Flex vertical gap={0}>
+          {history.map((item) => (
+            <div key={item.id} style={{ display: 'flex', alignItems: 'flex-start', padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>
+              <Avatar size="small" icon={<UserOutlined />} style={{ marginRight: 12, flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div>
+                  <Space>
+                    <Text style={{ fontSize: 12 }}>{item.authorName}</Text>
+                    <Tag color={
+                      item.action === 'create' ? 'green' :
+                      item.action === 'update' ? 'blue' : 'red'
+                    }>
+                      {item.action === 'create' ? '新增' :
+                       item.action === 'update' ? '修改' : '刪除'}
+                    </Tag>
+                  </Space>
+                </div>
                 <div>
                   <Text type="secondary" style={{ fontSize: 11 }}>
                     {dayjs(item.timestamp).format('YYYY-MM-DD HH:mm')}
@@ -152,12 +150,13 @@ const RemarksField: React.FC<RemarksFieldProps> = ({
                     {item.content}
                   </Paragraph>
                 </div>
-              }
-            />
-          </List.Item>
-        )}
-        locale={{ emptyText: '暫無歷史記錄' }}
-      />
+              </div>
+            </div>
+          ))}
+        </Flex>
+      ) : (
+        <div style={{ textAlign: 'center', padding: '16px 0', color: 'rgba(0, 0, 0, 0.25)' }}>暫無歷史記錄</div>
+      )}
     </div>
   );
 

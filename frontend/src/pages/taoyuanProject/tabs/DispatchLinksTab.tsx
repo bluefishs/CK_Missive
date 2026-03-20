@@ -13,7 +13,7 @@ import {
   Empty,
   Descriptions,
   Popconfirm,
-  List,
+  Flex,
   Card,
   Tag,
 } from 'antd';
@@ -96,10 +96,9 @@ export const DispatchLinksTab: React.FC<DispatchLinksTabProps> = ({
       )}
 
       {linkedDispatches.length > 0 ? (
-        <List
-          dataSource={linkedDispatches}
-          renderItem={(dispatch: ProjectDispatchLink) => (
-            <Card size="small" style={{ marginBottom: 12 }}>
+        <Flex vertical gap={0}>
+          {linkedDispatches.map((dispatch: ProjectDispatchLink) => (
+            <Card key={dispatch.link_id ?? dispatch.dispatch_order_id} size="small" style={{ marginBottom: 12 }}>
               <Descriptions size="small" column={2} items={[
                 { key: '派工單號', label: '派工單號', children: <Tag color="blue">{dispatch.dispatch_no}</Tag> },
                 { key: '作業類別', label: '作業類別', children: dispatch.work_type || '-' },
@@ -140,8 +139,8 @@ export const DispatchLinksTab: React.FC<DispatchLinksTabProps> = ({
                 )}
               </Space>
             </Card>
-          )}
-        />
+          ))}
+        </Flex>
       ) : (
         <Empty description="此工程尚無關聯派工紀錄" image={Empty.PRESENTED_IMAGE_SIMPLE}>
           {!canEdit && (

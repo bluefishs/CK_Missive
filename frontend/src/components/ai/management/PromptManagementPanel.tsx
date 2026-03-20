@@ -12,7 +12,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import {
   App,
   Card,
-  List,
+  Flex,
   Tag,
   Button,
   Switch,
@@ -244,15 +244,52 @@ export const PromptManagementContent: React.FC = () => {
                     </Button>
                   }
                 >
-                  <List
-                    dataSource={items}
-                    renderItem={(item) => (
-                      <List.Item
+                  <Flex vertical gap={0}>
+                    {items.map((item) => (
+                      <div
                         key={item.id}
-                        actions={[
+                        style={{ display: 'flex', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}
+                      >
+                        <div style={{ marginRight: 12, flexShrink: 0 }}>
+                          {item.is_active ? (
+                            <CheckCircleOutlined
+                              style={{ fontSize: 20, color: '#52c41a' }}
+                            />
+                          ) : (
+                            <ClockCircleOutlined
+                              style={{ fontSize: 20, color: '#d9d9d9' }}
+                            />
+                          )}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div>
+                            <Space>
+                              <Text strong>v{item.version}</Text>
+                              {item.is_active && (
+                                <Tag color="success">目前使用中</Tag>
+                              )}
+                              {item.description && (
+                                <Text type="secondary">{item.description}</Text>
+                              )}
+                            </Space>
+                          </div>
+                          <div>
+                            <Space size="large">
+                              <Text type="secondary">
+                                建立者：{item.created_by || '系統'}
+                              </Text>
+                              <Text type="secondary">
+                                建立時間：
+                                {item.created_at
+                                  ? new Date(item.created_at).toLocaleString('zh-TW')
+                                  : '-'}
+                              </Text>
+                            </Space>
+                          </div>
+                        </div>
+                        <Space style={{ flexShrink: 0, marginLeft: 12 }}>
                           <Tooltip
                             title={item.is_active ? '目前已啟用' : '點擊啟用此版本'}
-                            key="activate"
                           >
                             <Switch
                               checked={item.is_active}
@@ -268,9 +305,8 @@ export const PromptManagementContent: React.FC = () => {
                               checkedChildren="啟用"
                               unCheckedChildren="停用"
                             />
-                          </Tooltip>,
+                          </Tooltip>
                           <Button
-                            key="expand"
                             type="link"
                             size="small"
                             onClick={() =>
@@ -278,49 +314,11 @@ export const PromptManagementContent: React.FC = () => {
                             }
                           >
                             {expandedId === item.id ? '收合' : '查看'}
-                          </Button>,
-                        ]}
-                      >
-                        <List.Item.Meta
-                          avatar={
-                            item.is_active ? (
-                              <CheckCircleOutlined
-                                style={{ fontSize: 20, color: '#52c41a' }}
-                              />
-                            ) : (
-                              <ClockCircleOutlined
-                                style={{ fontSize: 20, color: '#d9d9d9' }}
-                              />
-                            )
-                          }
-                          title={
-                            <Space>
-                              <Text strong>v{item.version}</Text>
-                              {item.is_active && (
-                                <Tag color="success">目前使用中</Tag>
-                              )}
-                              {item.description && (
-                                <Text type="secondary">{item.description}</Text>
-                              )}
-                            </Space>
-                          }
-                          description={
-                            <Space size="large">
-                              <Text type="secondary">
-                                建立者：{item.created_by || '系統'}
-                              </Text>
-                              <Text type="secondary">
-                                建立時間：
-                                {item.created_at
-                                  ? new Date(item.created_at).toLocaleString('zh-TW')
-                                  : '-'}
-                              </Text>
-                            </Space>
-                          }
-                        />
-                      </List.Item>
-                    )}
-                  />
+                          </Button>
+                        </Space>
+                      </div>
+                    ))}
+                  </Flex>
                   {items
                     .filter((item) => expandedId === item.id)
                     .map((item) => (

@@ -27,6 +27,7 @@ import {
   Input,
   Button,
   Select,
+  InputNumber,
   Row,
   Col,
   Divider,
@@ -388,7 +389,7 @@ const UnifiedFormDemoPage: React.FC = () => {
               </Col>
               <Col xs={24} sm={8}>
                 <Form.Item name="amount" label="預算金額">
-                  <Input type="number" placeholder="輸入金額" addonBefore="NT$" />
+                  <InputNumber style={{ width: '100%' }} placeholder="輸入金額" prefix="NT$" />
                 </Form.Item>
               </Col>
             </Row>

@@ -12,7 +12,7 @@ import {
   Col,
   Descriptions,
   Empty,
-  List,
+  Flex,
   message,
   Popconfirm,
   Row,
@@ -242,10 +242,8 @@ export const OllamaManagementTab: React.FC = () => {
             }
           >
             {status.models.length > 0 ? (
-              <List
-                size="small"
-                dataSource={status.models}
-                renderItem={(model) => {
+              <Flex vertical gap={0}>
+                {status.models.map((model) => {
                   const isRequired = status.required_models.some(
                     (req) => model === req || model.startsWith(req.split(':')[0] ?? req)
                   );
@@ -253,28 +251,26 @@ export const OllamaManagementTab: React.FC = () => {
                     (gm) => gm.name === model || model.startsWith(gm.name.split(':')[0] ?? gm.name)
                   );
                   return (
-                    <List.Item>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
-                        <Typography.Text
-                          style={{ flex: 1, fontFamily: 'monospace', fontSize: 13 }}
-                        >
-                          {model}
-                        </Typography.Text>
-                        {isRequired && (
-                          <Tooltip title="系統必要模型">
-                            <Tag color="blue">必要</Tag>
-                          </Tooltip>
-                        )}
-                        {isLoaded && (
-                          <Tooltip title="已載入 GPU 記憶體">
-                            <Tag color="green">GPU</Tag>
-                          </Tooltip>
-                        )}
-                      </div>
-                    </List.Item>
+                    <div key={model} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>
+                      <Typography.Text
+                        style={{ flex: 1, fontFamily: 'monospace', fontSize: 13 }}
+                      >
+                        {model}
+                      </Typography.Text>
+                      {isRequired && (
+                        <Tooltip title="系統必要模型">
+                          <Tag color="blue">必要</Tag>
+                        </Tooltip>
+                      )}
+                      {isLoaded && (
+                        <Tooltip title="已載入 GPU 記憶體">
+                          <Tag color="green">GPU</Tag>
+                        </Tooltip>
+                      )}
+                    </div>
                   );
-                }}
-              />
+                })}
+              </Flex>
             ) : (
               <Empty
                 description={ollamaOk ? '無已安裝模型' : 'Ollama 離線'}
@@ -296,11 +292,9 @@ export const OllamaManagementTab: React.FC = () => {
             size="small"
           >
             {gpuModels.length > 0 ? (
-              <List
-                size="small"
-                dataSource={gpuModels}
-                renderItem={(gm) => (
-                  <List.Item>
+              <Flex vertical gap={8}>
+                {gpuModels.map((gm) => (
+                  <div key={gm.name} style={{ padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>
                     <Descriptions size="small" column={1} style={{ width: '100%' }} items={[
                       {
                         key: '模型',
@@ -325,9 +319,9 @@ export const OllamaManagementTab: React.FC = () => {
                         ),
                       },
                     ]} />
-                  </List.Item>
-                )}
-              />
+                  </div>
+                ))}
+              </Flex>
             ) : (
               <Empty
                 description={ollamaOk ? '目前無模型載入 GPU' : 'Ollama 離線'}

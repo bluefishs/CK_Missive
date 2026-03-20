@@ -65,7 +65,7 @@ export const ContractCaseFormPage: React.FC = () => {
 
   return (
     <div style={{ padding: isMobile ? '12px' : undefined }}>
-      <Card style={{ marginBottom: isMobile ? 12 : 16 }} size={isMobile ? 'small' : 'default'}>
+      <Card style={{ marginBottom: isMobile ? 12 : 16 }} size={isMobile ? 'small' : 'medium'}>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: isMobile ? 8 : 16 }}>
           <Button type="text" icon={<ArrowLeftOutlined />} onClick={handleBack} size={isMobile ? 'small' : 'middle'}>
             {isMobile ? '返回' : '返回列表'}
@@ -74,7 +74,7 @@ export const ContractCaseFormPage: React.FC = () => {
         </div>
       </Card>
 
-      <Card size={isMobile ? 'small' : 'default'} styles={{ body: { padding: isMobile ? 12 : 24 } }}>
+      <Card size={isMobile ? 'small' : 'medium'} styles={{ body: { padding: isMobile ? 12 : 24 } }}>
         <Form
           form={form}
           layout="vertical"
@@ -138,7 +138,7 @@ export const ContractCaseFormPage: React.FC = () => {
                               ? `${agency.agency_name} (${agency.agency_short_name})`
                               : agency.agency_name,
                           }))}
-                          dropdownRender={(menu) => (
+                          popupRender={(menu) => (
                             <>
                               {menu}
                               <Divider style={{ margin: '8px 0' }} />
@@ -203,7 +203,7 @@ export const ContractCaseFormPage: React.FC = () => {
                   style={{ width: '100%' }}
                   formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                   parser={(value) => Number(value!.replace(/\$\s?|(,*)/g, ''))}
-                  placeholder="請輸入契約金額" min={0} addonBefore="NT$"
+                  placeholder="請輸入契約金額" min={0} prefix="NT$"
                 />
               </Form.Item>
             </Col>
@@ -213,7 +213,7 @@ export const ContractCaseFormPage: React.FC = () => {
                   style={{ width: '100%' }}
                   formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                   parser={(value) => Number(value!.replace(/\$\s?|(,*)/g, ''))}
-                  placeholder="請輸入得標金額" min={0} addonBefore="NT$"
+                  placeholder="請輸入得標金額" min={0} prefix="NT$"
                 />
               </Form.Item>
             </Col>

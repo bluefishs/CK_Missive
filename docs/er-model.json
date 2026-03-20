@@ -3738,6 +3738,14 @@
           "nullable": true,
           "default": null,
           "udt_name": "int4"
+        },
+        {
+          "name": "source",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": "'manual'::character varying",
+          "udt_name": "varchar",
+          "max_length": 20
         }
       ],
       "primary_key": [
@@ -3914,6 +3922,96 @@
       ],
       "unique_constraints": {},
       "row_count_estimate": 3439
+    },
+    "kb_chunks": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('kb_chunks_id_seq'::regclass)",
+          "udt_name": "int4"
+        },
+        {
+          "name": "file_path",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 500
+        },
+        {
+          "name": "filename",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 200
+        },
+        {
+          "name": "section_title",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 500
+        },
+        {
+          "name": "content",
+          "type": "TEXT",
+          "nullable": false,
+          "default": null,
+          "udt_name": "text"
+        },
+        {
+          "name": "chunk_index",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "udt_name": "int4"
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "udt_name": "timestamp"
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "udt_name": "timestamp"
+        },
+        {
+          "name": "embedding",
+          "type": "VECTOR",
+          "nullable": true,
+          "default": null,
+          "udt_name": "vector"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [],
+      "indexes": [
+        {
+          "name": "kb_chunks_pkey",
+          "definition": "CREATE UNIQUE INDEX kb_chunks_pkey ON public.kb_chunks USING btree (id)"
+        },
+        {
+          "name": "ix_kb_chunks_file_path",
+          "definition": "CREATE INDEX ix_kb_chunks_file_path ON public.kb_chunks USING btree (file_path)"
+        },
+        {
+          "name": "ix_kb_chunks_file_path_idx",
+          "definition": "CREATE INDEX ix_kb_chunks_file_path_idx ON public.kb_chunks USING btree (file_path, chunk_index)"
+        }
+      ],
+      "unique_constraints": {},
+      "row_count_estimate": 2083
     },
     "notifications": {
       "columns": [
@@ -6958,7 +7056,7 @@
         }
       ],
       "unique_constraints": {},
-      "row_count_estimate": 61
+      "row_count_estimate": 143
     },
     "user_sessions": {
       "columns": [

@@ -9,7 +9,7 @@ import {
   Space,
   Typography,
   Divider,
-  List,
+  Flex,
   Tag,
   Table,
   Tooltip,
@@ -109,16 +109,14 @@ const ImportPreviewCardInner: React.FC<ImportPreviewCardProps> = ({
           }
           description={
             errors.length > 0 ? (
-              <List
-                size="small"
-                dataSource={errors}
-                renderItem={(item) => (
-                  <List.Item>
+              <Flex vertical gap={4}>
+                {errors.map((item, idx) => (
+                  <div key={idx} style={{ padding: '4px 0' }}>
                     <CloseCircleOutlined style={{ color: '#ff4d4f', marginRight: 8 }} />
                     {item}
-                  </List.Item>
-                )}
-              />
+                  </div>
+                ))}
+              </Flex>
             ) : null
           }
         />

@@ -19,7 +19,7 @@ import {
   Select,
   Button,
   Empty,
-  List,
+  Flex,
   Descriptions,
   Tag,
   Space,
@@ -125,10 +125,9 @@ export const DispatchProjectsTab: React.FC<DispatchProjectsTabProps> = ({
 
       {/* 已關聯工程列表 */}
       {linkedProjects.length > 0 ? (
-        <List
-          dataSource={linkedProjects}
-          renderItem={(proj: LinkedProject) => (
-            <Card size="small" style={{ marginBottom: 12 }}>
+        <Flex vertical gap={0}>
+          {linkedProjects.map((proj: LinkedProject) => (
+            <Card key={proj.link_id} size="small" style={{ marginBottom: 12 }}>
               <Descriptions size="small" column={2} items={[
                 { key: '工程名稱', label: '工程名稱', span: 2, children: proj.project_name || '-' },
                 { key: '分案名稱', label: '分案名稱', children: proj.sub_case_name || '-' },
@@ -148,11 +147,9 @@ export const DispatchProjectsTab: React.FC<DispatchProjectsTabProps> = ({
                   <Popconfirm
                     title="確定要移除此關聯嗎？"
                     onConfirm={() => {
-                      // 必須使用 link_id（關聯記錄 ID），不可使用 id（工程 ID）
                       const linkId = proj.link_id;
                       const projectId = proj.project_id ?? proj.id;
 
-                      // 嚴格驗證：link_id 必須存在且不等於 project_id
                       if (linkId === undefined || linkId === null) {
                         messageError('關聯資料缺少 link_id，請重新整理頁面後再試');
                         logger.error('[unlinkProject] link_id 缺失:', {
@@ -161,7 +158,7 @@ export const DispatchProjectsTab: React.FC<DispatchProjectsTabProps> = ({
                           project_id: proj.project_id,
                           id: proj.id,
                         });
-                        refetch(); // 自動重新載入數據
+                        refetch();
                         return;
                       }
 
@@ -189,8 +186,8 @@ export const DispatchProjectsTab: React.FC<DispatchProjectsTabProps> = ({
                 )}
               </Space>
             </Card>
-          )}
-        />
+          ))}
+        </Flex>
       ) : (
         <Empty description="此派工單尚無關聯工程" image={Empty.PRESENTED_IMAGE_SIMPLE}>
           {!canEdit && (

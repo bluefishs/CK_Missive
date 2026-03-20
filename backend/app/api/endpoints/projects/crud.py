@@ -122,7 +122,7 @@ async def list_projects(
 # ============================================================================
 
 @router.post(
-    "/",
+    "/create",
     response_model=ProjectResponse,
     status_code=status.HTTP_201_CREATED,
     summary="建立新專案"

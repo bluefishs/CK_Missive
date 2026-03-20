@@ -30,6 +30,7 @@
 import logging
 from typing import List, Optional, Dict, Any, TYPE_CHECKING
 
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
@@ -324,37 +325,60 @@ class ProjectService:
 
     async def delete(self, entity_id: int) -> bool:
         """
-        刪除專案（處理關聯資料）
+        刪除專案（級聯解除關聯 + 刪除子資料）
 
-        Args:
-            entity_id: 專案 ID
-
-        Returns:
-            刪除是否成功
-
-        Raises:
-            ValueError: 無法刪除（仍有關聯的公文或其他資料）
+        流程:
+        1. 解除公文關聯 (documents.contract_project_id → NULL)
+        2. 解除桃園專案關聯 (taoyuan_projects.contract_project_id → NULL)
+        3. 解除派工單關聯 (dispatch_orders.contract_project_id → NULL)
+        4. 刪除承辦同仁資料
+        5. 刪除廠商關聯資料
+        6. 刪除專案本身
         """
+        from app.extended.models.document import OfficialDocument
+        from app.extended.models.taoyuan import TaoyuanProject, DispatchOrder
+
         db_project = await self.get_by_id(entity_id)
         if not db_project:
             return False
 
         try:
-            # 先刪除關聯的承辦同仁資料
+            # 1. 解除公文關聯
+            await self.db.execute(
+                update(OfficialDocument)
+                .where(OfficialDocument.contract_project_id == entity_id)
+                .values(contract_project_id=None)
+            )
+
+            # 2. 解除桃園專案關聯
+            await self.db.execute(
+                update(TaoyuanProject)
+                .where(TaoyuanProject.contract_project_id == entity_id)
+                .values(contract_project_id=None)
+            )
+
+            # 3. 解除派工單關聯
+            await self.db.execute(
+                update(DispatchOrder)
+                .where(DispatchOrder.contract_project_id == entity_id)
+                .values(contract_project_id=None)
+            )
+
+            # 4. 刪除承辦同仁資料
             await self.repository.delete_user_assignments(entity_id)
 
-            # 再刪除關聯的廠商資料
+            # 5. 刪除廠商關聯資料
             await self.repository.delete_vendor_associations(entity_id)
 
-            # 最後刪除專案本身
+            # 6. 刪除專案本身
             await self.repository.delete(entity_id)
 
-            logger.info(f"刪除{self.entity_name}: ID={entity_id}")
+            logger.info(f"刪除{self.entity_name}: ID={entity_id}，已解除所有關聯")
             return True
         except IntegrityError as e:
             await self.db.rollback()
             logger.error(f"刪除專案失敗 (外鍵約束): {e}")
-            raise ValueError("無法刪除此專案，可能仍有關聯的公文或其他資料")
+            raise ValueError("無法刪除此專案，仍有未處理的關聯資料")
 
     async def get_project_statistics(self) -> dict:
         """取得專案統計資料"""

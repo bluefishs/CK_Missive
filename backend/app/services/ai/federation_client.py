@@ -16,6 +16,7 @@ Created: 2026-03-16
 import logging
 import os
 import time
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 try:
@@ -46,8 +47,8 @@ class FederationClient:
             "description": "多頻道 AI 管道系統 (228 agent 模組, 30+ 頻道)",
             "url_env": "OPENCLAW_URL",
             "token_env": "MCP_SERVICE_TOKEN",
-            "endpoint": "/api/ai/agent/query",
-            "default_url": "http://localhost:3001",
+            "endpoint": "/reason",
+            "default_url": "http://openclaw:18789",
         },
     }
 
@@ -56,9 +57,9 @@ class FederationClient:
         self._load_configs()
 
     def _load_configs(self) -> None:
-        """從環境變數載入各系統的連線設定"""
+        """從環境變數載入各系統的連線設定，未設定時回退至 default_url"""
         for system_id, registry in self._SYSTEM_REGISTRY.items():
-            url = os.getenv(registry["url_env"], "")
+            url = os.getenv(registry["url_env"], "") or registry.get("default_url", "")
             token = os.getenv(registry["token_env"], "")
             if url:
                 self._configs[system_id] = {
@@ -66,10 +67,12 @@ class FederationClient:
                     "token": token,
                     "endpoint": registry["endpoint"],
                 }
+                source = "env" if os.getenv(registry["url_env"], "") else "default"
                 logger.info(
-                    "Federation system '%s' configured: %s",
+                    "Federation system '%s' configured: %s (%s)",
                     system_id,
                     url,
+                    source,
                 )
 
     def is_available(self, system_id: str) -> bool:
@@ -133,11 +136,15 @@ class FederationClient:
             headers["X-Service-Token"] = config["token"]
 
         payload: Dict[str, Any] = {
-            "question": question,
+            "agent_id": "ck_missive",
+            "action": "reason",
+            "payload": {
+                "question": question,
+                "context": context or {},
+            },
             "session_id": f"federation_{system_id}",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
-        if context:
-            payload["context"] = context
 
         start = time.monotonic()
 
@@ -163,14 +170,17 @@ class FederationClient:
 
                 data = resp.json()
                 success = data.get("success", False)
+                result = data.get("result") or {}
+                meta = data.get("meta") or {}
+                error_obj = data.get("error") or {}
 
                 return {
                     "system": system_id,
                     "success": success,
-                    "answer": data.get("answer", ""),
-                    "tools_used": data.get("tools_used", []),
-                    "latency_ms": elapsed_ms,
-                    "error": data.get("error") if not success else None,
+                    "answer": result.get("answer", "") if isinstance(result, dict) else "",
+                    "tools_used": result.get("tools_used", []) if isinstance(result, dict) else [],
+                    "latency_ms": meta.get("latency_ms", elapsed_ms) if isinstance(meta, dict) else elapsed_ms,
+                    "error": error_obj.get("message") if isinstance(error_obj, dict) and not success else None,
                 }
 
         except ImportError:

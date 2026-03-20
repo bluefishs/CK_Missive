@@ -492,6 +492,7 @@ erDiagram
         varchar tax_id
         bool is_self "NOT NULL"
         int parent_agency_id "FK"
+        varchar source "NOT NULL"
     }
     graph_ingestion_events {
         int id "PK"
@@ -506,6 +507,17 @@ erDiagram
         varchar status
         text error_message
         timestamp created_at
+    }
+    kb_chunks {
+        int id "PK"
+        varchar file_path "NOT NULL"
+        varchar filename "NOT NULL"
+        varchar section_title
+        text content "NOT NULL"
+        int chunk_index
+        timestamp created_at
+        timestamp updated_at
+        vector embedding
     }
     notifications {
         bigint id "PK"
@@ -891,7 +903,7 @@ erDiagram
 
 | 指標 | 數值 |
 |------|------|
-| 總表數 | 51 |
-| 總欄位數 | 709 |
+| 總表數 | 52 |
+| 總欄位數 | 719 |
 | 外鍵關聯 | 72 |
 | 自訂列舉型別 | 0 |

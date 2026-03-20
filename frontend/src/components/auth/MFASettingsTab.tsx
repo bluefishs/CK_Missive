@@ -21,7 +21,6 @@ import {
   Modal,
   App,
   Divider,
-  List,
 } from 'antd';
 import {
   SafetyOutlined,
@@ -263,25 +262,21 @@ export const MFASettingsTab: React.FC = () => {
             style={{ marginBottom: 16 }}
           />
 
-          <List
-            grid={{ gutter: 8, column: 2 }}
-            dataSource={setupData.backup_codes}
-            renderItem={(code) => (
-              <List.Item>
-                <div style={{
-                  fontFamily: 'monospace',
-                  fontSize: 16,
-                  textAlign: 'center',
-                  padding: '4px 8px',
-                  background: '#fafafa',
-                  border: '1px solid #f0f0f0',
-                  borderRadius: 4,
-                }}>
-                  {code}
-                </div>
-              </List.Item>
-            )}
-          />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {setupData.backup_codes.map((code, idx) => (
+              <div key={idx} style={{
+                fontFamily: 'monospace',
+                fontSize: 16,
+                textAlign: 'center',
+                padding: '4px 8px',
+                background: '#fafafa',
+                border: '1px solid #f0f0f0',
+                borderRadius: 4,
+              }}>
+                {code}
+              </div>
+            ))}
+          </div>
 
           <Space style={{ marginTop: 16 }}>
             <Button icon={<CopyOutlined />} onClick={handleCopyBackupCodes}>

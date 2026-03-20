@@ -12,7 +12,7 @@ import {
   Card,
   Upload,
   Spin,
-  List,
+  Flex,
   Alert,
   Progress,
   Button,
@@ -102,31 +102,25 @@ export const DocumentCreateAttachmentTab: React.FC<DocumentCreateAttachmentTabPr
             </span>
           }
         >
-          <List
-            size="small"
-            dataSource={fileList}
-            renderItem={(file: UploadFile) => (
-              <List.Item
-                actions={[
-                  <Button
-                    key="remove"
-                    type="link"
-                    size="small"
-                    danger
-                    onClick={() => handleRemoveFile(file.uid)}
-                  >
-                    移除
-                  </Button>
-                ]}
-              >
-                <List.Item.Meta
-                  avatar={<FileOutlined style={{ color: '#1890ff' }} />}
-                  title={file.name}
-                  description={`${((file.size || 0) / 1024).toFixed(1)} KB`}
-                />
-              </List.Item>
-            )}
-          />
+          <Flex vertical gap={0}>
+            {fileList.map((file: UploadFile) => (
+              <div key={file.uid} style={{ display: 'flex', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>
+                <FileOutlined style={{ color: '#1890ff', marginRight: 12, flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div>{file.name}</div>
+                  <div style={{ fontSize: 12, color: 'rgba(0, 0, 0, 0.45)' }}>{`${((file.size || 0) / 1024).toFixed(1)} KB`}</div>
+                </div>
+                <Button
+                  type="link"
+                  size="small"
+                  danger
+                  onClick={() => handleRemoveFile(file.uid)}
+                >
+                  移除
+                </Button>
+              </div>
+            ))}
+          </Flex>
           <p style={{ color: '#999', fontSize: 12, marginTop: 8, marginBottom: 0 }}>
             點擊上方「儲存」按鈕後開始上傳
           </p>

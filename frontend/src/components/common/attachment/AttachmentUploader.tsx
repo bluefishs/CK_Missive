@@ -12,7 +12,7 @@ import {
   Card,
   Upload,
   Button,
-  List,
+  Flex,
   Progress,
   Alert,
   App,
@@ -152,33 +152,27 @@ export const AttachmentUploader: React.FC<AttachmentUploaderProps> = ({
             </span>
           }
         >
-          <List
-            size="small"
-            dataSource={fileList}
-            renderItem={(file: UploadFile) => (
-              <List.Item
-                actions={[
-                  <Button
-                    key="remove"
-                    type="link"
-                    size="small"
-                    danger
-                    onClick={() =>
-                      setFileList((prev) => prev.filter((f) => f.uid !== file.uid))
-                    }
-                  >
-                    移除
-                  </Button>,
-                ]}
-              >
-                <List.Item.Meta
-                  avatar={<FileOutlined style={{ color: '#1890ff' }} />}
-                  title={file.name}
-                  description={formatFileSize(file.size)}
-                />
-              </List.Item>
-            )}
-          />
+          <Flex vertical gap={0}>
+            {fileList.map((file: UploadFile) => (
+              <div key={file.uid} style={{ display: 'flex', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>
+                <FileOutlined style={{ color: '#1890ff', marginRight: 12, flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div>{file.name}</div>
+                  <div style={{ fontSize: 12, color: 'rgba(0, 0, 0, 0.45)' }}>{formatFileSize(file.size)}</div>
+                </div>
+                <Button
+                  type="link"
+                  size="small"
+                  danger
+                  onClick={() =>
+                    setFileList((prev) => prev.filter((f) => f.uid !== file.uid))
+                  }
+                >
+                  移除
+                </Button>
+              </div>
+            ))}
+          </Flex>
 
           {showUploadButton && onStartUpload && (
             <Button

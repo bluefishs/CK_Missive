@@ -8,7 +8,7 @@ import {
   Typography,
   Descriptions,
   Steps,
-  List,
+  Flex,
   Tag,
   Divider
 } from 'antd';
@@ -157,15 +157,14 @@ const GoogleAuthDiagnosticPage: React.FC = () => {
               showIcon
               style={{ marginBottom: 16 }}
             />
-            <List
-              dataSource={diagnosticResult?.issues}
-              renderItem={(item: string) => (
-                <List.Item>
+            <Flex vertical gap={4}>
+              {diagnosticResult?.issues?.map((item: string, idx: number) => (
+                <div key={idx} style={{ padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>
                   <CloseCircleOutlined style={{ color: '#ff4d4f', marginRight: 8 }} />
                   {item}
-                </List.Item>
-              )}
-            />
+                </div>
+              ))}
+            </Flex>
           </Card>
         )}
 
@@ -177,15 +176,14 @@ const GoogleAuthDiagnosticPage: React.FC = () => {
               showIcon
               style={{ marginBottom: 16 }}
             />
-            <List
-              dataSource={diagnosticResult?.recommendations}
-              renderItem={(item: string) => (
-                <List.Item>
+            <Flex vertical gap={4}>
+              {diagnosticResult?.recommendations?.map((item: string, idx: number) => (
+                <div key={idx} style={{ padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>
                   <CheckCircleOutlined style={{ color: '#52c41a', marginRight: 8 }} />
                   {item}
-                </List.Item>
-              )}
-            />
+                </div>
+              ))}
+            </Flex>
           </Card>
         )}
 
@@ -200,33 +198,37 @@ const GoogleAuthDiagnosticPage: React.FC = () => {
           />
           
           <Divider titlePlacement="left">授權的 JavaScript 來源</Divider>
-          <List
-            header="需要在 Google Console 中添加以下來源："
-            bordered
-            dataSource={authorizedOrigins}
-            renderItem={item => (
-              <List.Item>
-                <Space>
-                  <Tag color={item.includes(window.location.origin) ? 'green' : 'default'}>
-                    {item}
-                  </Tag>
-                  {item.includes(window.location.origin) && <Text type="success">(當前)</Text>}
-                </Space>
-              </List.Item>
-            )}
-          />
+          <div style={{ border: '1px solid #f0f0f0', borderRadius: 4 }}>
+            <div style={{ padding: '8px 16px', background: '#fafafa', borderBottom: '1px solid #f0f0f0' }}>
+              需要在 Google Console 中添加以下來源：
+            </div>
+            <Flex vertical gap={0}>
+              {authorizedOrigins.map((item, idx) => (
+                <div key={idx} style={{ padding: '8px 16px', borderBottom: '1px solid #f0f0f0' }}>
+                  <Space>
+                    <Tag color={item.includes(window.location.origin) ? 'green' : 'default'}>
+                      {item}
+                    </Tag>
+                    {item.includes(window.location.origin) && <Text type="success">(當前)</Text>}
+                  </Space>
+                </div>
+              ))}
+            </Flex>
+          </div>
 
           <Divider titlePlacement="left">授權的重新導向 URI</Divider>
-          <List
-            header="需要在 Google Console 中添加以下重新導向 URI："
-            bordered
-            dataSource={authorizedRedirectUris}
-            renderItem={item => (
-              <List.Item>
-                <Tag color="blue">{item}</Tag>
-              </List.Item>
-            )}
-          />
+          <div style={{ border: '1px solid #f0f0f0', borderRadius: 4 }}>
+            <div style={{ padding: '8px 16px', background: '#fafafa', borderBottom: '1px solid #f0f0f0' }}>
+              需要在 Google Console 中添加以下重新導向 URI：
+            </div>
+            <Flex vertical gap={0}>
+              {authorizedRedirectUris.map((item, idx) => (
+                <div key={idx} style={{ padding: '8px 16px', borderBottom: '1px solid #f0f0f0' }}>
+                  <Tag color="blue">{item}</Tag>
+                </div>
+              ))}
+            </Flex>
+          </div>
 
           <Divider />
           

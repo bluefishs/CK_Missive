@@ -66,7 +66,7 @@ export const DocumentCreatePage: React.FC = () => {
 
         <Card
           title="公文基本資訊"
-          size={isMobile ? 'small' : 'default'}
+          size={isMobile ? 'small' : 'medium'}
           styles={{
             body: { padding: isMobile ? 12 : 24 }
           }}

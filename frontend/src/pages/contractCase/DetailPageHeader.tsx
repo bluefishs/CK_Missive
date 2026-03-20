@@ -1,6 +1,6 @@
 import React from 'react';
-import { Card, Tag, Button, Typography } from 'antd';
-import { ArrowLeftOutlined } from '@ant-design/icons';
+import { Card, Tag, Button, Typography, Space, Popconfirm } from 'antd';
+import { ArrowLeftOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { CATEGORY_OPTIONS, STATUS_OPTIONS } from './tabs';
 
 const { Title } = Typography;
@@ -25,6 +25,9 @@ interface DetailPageHeaderProps {
   category?: string;
   status?: string;
   onBack: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  deleting?: boolean;
 }
 
 export const DetailPageHeader: React.FC<DetailPageHeaderProps> = ({
@@ -32,6 +35,9 @@ export const DetailPageHeader: React.FC<DetailPageHeaderProps> = ({
   category,
   status,
   onBack,
+  onEdit,
+  onDelete,
+  deleting,
 }) => {
   return (
     <Card style={{ marginBottom: 16 }}>
@@ -52,6 +58,27 @@ export const DetailPageHeader: React.FC<DetailPageHeaderProps> = ({
             </div>
           </div>
         </div>
+        <Space>
+          {onEdit && (
+            <Button icon={<EditOutlined />} onClick={onEdit}>
+              編輯
+            </Button>
+          )}
+          {onDelete && (
+            <Popconfirm
+              title="確定要刪除此承攬案件嗎？"
+              description="刪除後將無法復原，關聯的承辦同仁與廠商資料也會一併刪除。"
+              onConfirm={onDelete}
+              okText="確定刪除"
+              cancelText="取消"
+              okButtonProps={{ danger: true, loading: deleting }}
+            >
+              <Button danger icon={<DeleteOutlined />} loading={deleting}>
+                刪除
+              </Button>
+            </Popconfirm>
+          )}
+        </Space>
       </div>
     </Card>
   );

@@ -9,7 +9,7 @@ import {
   Space,
   Typography,
   Divider,
-  List,
+  Flex,
   Tag,
   Card,
   Result,
@@ -73,16 +73,14 @@ const ImportResultCardInner: React.FC<ImportResultCardProps> = ({
               type="error"
               title={`${errors.length} 個錯誤`}
               description={
-                <List
-                  size="small"
-                  dataSource={errors.slice(0, 10)}
-                  renderItem={(item) => (
-                    <List.Item>
+                <Flex vertical gap={4}>
+                  {errors.slice(0, 10).map((item, idx) => (
+                    <div key={idx} style={{ padding: '4px 0' }}>
                       <CloseCircleOutlined style={{ color: '#ff4d4f', marginRight: 8 }} />
                       {item}
-                    </List.Item>
-                  )}
-                />
+                    </div>
+                  ))}
+                </Flex>
               }
             />
           </>
@@ -92,11 +90,9 @@ const ImportResultCardInner: React.FC<ImportResultCardProps> = ({
           <>
             <Divider />
             <Text strong>處理明細（前 20 筆）</Text>
-            <List
-              size="small"
-              dataSource={details.slice(0, 20)}
-              renderItem={(item) => (
-                <List.Item>
+            <Flex vertical gap={4}>
+              {details.slice(0, 20).map((item, idx) => (
+                <div key={idx} style={{ padding: '4px 0', borderBottom: '1px solid #f0f0f0' }}>
                   <Space>
                     <Tag>{`第 ${item.row} 列`}</Tag>
                     <Tag color={
@@ -110,9 +106,9 @@ const ImportResultCardInner: React.FC<ImportResultCardProps> = ({
                     </Tag>
                     <Text ellipsis style={{ maxWidth: 300 }}>{item.message}</Text>
                   </Space>
-                </List.Item>
-              )}
-            />
+                </div>
+              ))}
+            </Flex>
           </>
         )}
       </Space>

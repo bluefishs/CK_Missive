@@ -23,7 +23,7 @@ import {
   Spin,
   Empty,
   Descriptions,
-  List,
+  Flex,
   Popconfirm,
   Radio,
   Typography,
@@ -233,10 +233,9 @@ export const DispatchDocumentsTab: React.FC<DispatchDocumentsTabProps> = ({
                 title={<><Tag color="blue">機關來函</Tag> ({agencyDocs.length} 筆)</>}
                 style={{ marginBottom: 16 }}
               >
-                <List
-                  dataSource={agencyDocs}
-                  renderItem={(doc: DispatchDocumentLink) => (
-                    <Card size="small" style={{ marginBottom: 8 }}>
+                <Flex vertical gap={0}>
+                  {agencyDocs.map((doc: DispatchDocumentLink) => (
+                    <Card key={doc.document_id} size="small" style={{ marginBottom: 8 }}>
                       <Descriptions size="small" column={2} items={[
                         { key: '公文字號', label: '公文字號', children: (
                           <Space>
@@ -285,8 +284,8 @@ export const DispatchDocumentsTab: React.FC<DispatchDocumentsTabProps> = ({
                         )}
                       </Space>
                     </Card>
-                  )}
-                />
+                  ))}
+                </Flex>
               </Card>
             );
           })()}
@@ -301,10 +300,9 @@ export const DispatchDocumentsTab: React.FC<DispatchDocumentsTabProps> = ({
                 title={<><Tag color="green">乾坤發文</Tag> ({companyDocs.length} 筆)</>}
                 style={{ marginBottom: 16 }}
               >
-                <List
-                  dataSource={companyDocs}
-                  renderItem={(doc: DispatchDocumentLink) => (
-                    <Card size="small" style={{ marginBottom: 8 }}>
+                <Flex vertical gap={0}>
+                  {companyDocs.map((doc: DispatchDocumentLink) => (
+                    <Card key={doc.document_id} size="small" style={{ marginBottom: 8 }}>
                       <Descriptions size="small" column={2} items={[
                         { key: '公文字號', label: '公文字號', children: (
                           <Space>
@@ -353,8 +351,8 @@ export const DispatchDocumentsTab: React.FC<DispatchDocumentsTabProps> = ({
                         )}
                       </Space>
                     </Card>
-                  )}
-                />
+                  ))}
+                </Flex>
               </Card>
             );
           })()}

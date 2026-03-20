@@ -321,7 +321,7 @@ describe('DOCUMENTS_ENDPOINTS', () => {
 describe('PROJECTS_ENDPOINTS', () => {
   it('應該包含專案 CRUD 端點', () => {
     expect(PROJECTS_ENDPOINTS.LIST).toBe('/projects/list');
-    expect(PROJECTS_ENDPOINTS.CREATE).toBe('/projects');
+    expect(PROJECTS_ENDPOINTS.CREATE).toBe('/projects/create');
     expect(PROJECTS_ENDPOINTS.STATISTICS).toBe('/projects/statistics');
   });
 

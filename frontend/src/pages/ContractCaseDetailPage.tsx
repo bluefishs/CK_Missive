@@ -120,7 +120,29 @@ export const ContractCaseDetailContent: React.FC<ContractCaseDetailContentProps>
   const loadUserOptions = async () => {};
   const loadVendorOptions = async () => {};
 
+  const [deleting, setDeleting] = useState(false);
+
   const handleBack = () => navigate(backRoute || ROUTES.CONTRACT_CASES);
+
+  const handleEdit = () => {
+    navigate(`${ROUTES.CONTRACT_CASES}/${propProjectId}/edit`);
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await projectsApi.deleteProject(propProjectId);
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
+      message.success('案件已刪除');
+      navigate(backRoute || ROUTES.CONTRACT_CASES);
+    } catch (error) {
+      logger.error('刪除案件失敗:', error);
+      const axiosError = error as { response?: { data?: ApiErrorResponse } };
+      message.error(axiosError.response?.data?.detail as string || '刪除案件失敗，可能仍有關聯資料');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const calculateProgress = () => {
     if (!data || !data.start_date || !data.end_date) return 0;
@@ -434,6 +456,7 @@ export const ContractCaseDetailContent: React.FC<ContractCaseDetailContentProps>
       <DetailPageHeader
         projectName={data.project_name} category={data.category}
         status={data.status} onBack={handleBack}
+        onEdit={handleEdit} onDelete={handleDelete} deleting={deleting}
       />
       <Card>
         <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} size="large" />

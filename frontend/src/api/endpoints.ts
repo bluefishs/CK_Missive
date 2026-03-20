@@ -72,8 +72,8 @@ export const DOCUMENTS_ENDPOINTS = {
 export const PROJECTS_ENDPOINTS = {
   /** 專案列表 POST /projects/list */
   LIST: '/projects/list',
-  /** 建立專案 POST /projects */
-  CREATE: '/projects',
+  /** 建立專案 POST /projects/create */
+  CREATE: '/projects/create',
   /** 專案詳情 POST /projects/:id/detail */
   DETAIL: (id: number) => `/projects/${id}/detail`,
   /** 更新專案 POST /projects/:id/update */

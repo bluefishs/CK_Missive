@@ -11,7 +11,7 @@ import {
   Upload,
   Button,
   Space,
-  List,
+  Flex,
   Popconfirm,
   Spin,
   Empty,
@@ -144,15 +144,22 @@ export const DocumentAttachmentsTab: React.FC<DocumentAttachmentsTabProps> = ({
           }
           style={{ marginBottom: 16 }}
         >
-          <List
-            size="small"
-            dataSource={attachments}
-            renderItem={(item: DocumentAttachment) => (
-              <List.Item
-                actions={[
-                  isPreviewable(item.content_type, item.original_filename || item.filename) && (
+          <Flex vertical gap={0}>
+            {attachments.map((item: DocumentAttachment) => (
+              <div key={item.id} style={{ display: 'flex', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>
+                <div style={{ marginRight: 12, flexShrink: 0 }}>
+                  {getFileIcon(item.content_type, item.original_filename || item.filename)}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div>{item.original_filename || item.filename}</div>
+                  <div style={{ fontSize: 12, color: '#999' }}>
+                    {item.file_size ? `${(item.file_size / 1024).toFixed(1)} KB` : ''}
+                    {item.created_at && ` · ${dayjs(item.created_at).format('YYYY-MM-DD HH:mm')}`}
+                  </div>
+                </div>
+                <Space style={{ flexShrink: 0, marginLeft: 12 }}>
+                  {isPreviewable(item.content_type, item.original_filename || item.filename) && (
                     <Button
-                      key="preview"
                       type="link"
                       size="small"
                       icon={<EyeOutlined />}
@@ -161,19 +168,17 @@ export const DocumentAttachmentsTab: React.FC<DocumentAttachmentsTabProps> = ({
                     >
                       預覽
                     </Button>
-                  ),
+                  )}
                   <Button
-                    key="download"
                     type="link"
                     size="small"
                     icon={<DownloadOutlined />}
                     onClick={() => onDownload(item.id, item.original_filename || item.filename)}
                   >
                     下載
-                  </Button>,
-                  isEditing && (
+                  </Button>
+                  {isEditing && (
                     <Popconfirm
-                      key="delete"
                       title="確定要刪除此附件嗎？"
                       onConfirm={() => onDelete(item.id)}
                       okText="確定"
@@ -183,22 +188,11 @@ export const DocumentAttachmentsTab: React.FC<DocumentAttachmentsTabProps> = ({
                         刪除
                       </Button>
                     </Popconfirm>
-                  ),
-                ].filter(Boolean)}
-              >
-                <List.Item.Meta
-                  avatar={getFileIcon(item.content_type, item.original_filename || item.filename)}
-                  title={item.original_filename || item.filename}
-                  description={
-                    <span style={{ fontSize: 12, color: '#999' }}>
-                      {item.file_size ? `${(item.file_size / 1024).toFixed(1)} KB` : ''}
-                      {item.created_at && ` · ${dayjs(item.created_at).format('YYYY-MM-DD HH:mm')}`}
-                    </span>
-                  }
-                />
-              </List.Item>
-            )}
-          />
+                  )}
+                </Space>
+              </div>
+            ))}
+          </Flex>
         </Card>
       )}
 
@@ -227,19 +221,17 @@ export const DocumentAttachmentsTab: React.FC<DocumentAttachmentsTabProps> = ({
                 </span>
               }
             >
-              <List
-                size="small"
-                dataSource={fileList}
-                renderItem={(file: UploadFile) => (
-                  <List.Item>
-                    <List.Item.Meta
-                      avatar={<FileOutlined style={{ color: '#1890ff' }} />}
-                      title={file.name}
-                      description={`${file.size ? (file.size / 1024).toFixed(1) : 0} KB`}
-                    />
-                  </List.Item>
-                )}
-              />
+              <Flex vertical gap={0}>
+                {fileList.map((file: UploadFile) => (
+                  <div key={file.uid} style={{ display: 'flex', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>
+                    <FileOutlined style={{ color: '#1890ff', marginRight: 12, flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div>{file.name}</div>
+                      <div style={{ fontSize: 12, color: 'rgba(0, 0, 0, 0.45)' }}>{`${file.size ? (file.size / 1024).toFixed(1) : 0} KB`}</div>
+                    </div>
+                  </div>
+                ))}
+              </Flex>
               <p style={{ color: '#999', fontSize: 12, marginTop: 8, marginBottom: 0 }}>
                 點擊上方「儲存」按鈕後開始上傳
               </p>

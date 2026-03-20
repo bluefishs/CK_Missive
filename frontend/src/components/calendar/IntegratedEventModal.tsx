@@ -9,7 +9,7 @@ import React from 'react';
 import {
   Modal, Form, Input, Select, DatePicker, Switch,
   Row, Col, Space, Button, Spin, Card,
-  List, Tag, Tooltip, Typography,
+  Flex, Tag, Tooltip, Typography,
 } from 'antd';
 import {
   BellOutlined, CalendarOutlined, AlertOutlined, PlusOutlined,
@@ -257,24 +257,9 @@ export const IntegratedEventModal: React.FC<IntegratedEventModalProps> = ({
                     <Text type="secondary" style={{ marginBottom: 8, display: 'block' }}>
                       已設定的提醒：
                     </Text>
-                    <List
-                      size="small"
-                      dataSource={reminders}
-                      renderItem={(reminder, index) => (
-                        <List.Item
-                          actions={[
-                            <Tooltip title="移除" key="remove">
-                              <Button
-                                type="text"
-                                danger
-                                size="small"
-                                icon={<DeleteOutlined />}
-                                onClick={() => handleRemoveReminder(index)}
-                                aria-label="移除提醒"
-                              />
-                            </Tooltip>,
-                          ]}
-                        >
+                    <Flex vertical gap={0}>
+                      {reminders.map((reminder, index) => (
+                        <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>
                           <Space>
                             {reminder.notification_type === 'email' ? (
                               <MailOutlined style={{ color: '#1890ff' }} />
@@ -288,9 +273,19 @@ export const IntegratedEventModal: React.FC<IntegratedEventModalProps> = ({
                               {reminder.notification_type === 'email' ? '郵件' : '系統'}通知
                             </Text>
                           </Space>
-                        </List.Item>
-                      )}
-                    />
+                          <Tooltip title="移除">
+                            <Button
+                              type="text"
+                              danger
+                              size="small"
+                              icon={<DeleteOutlined />}
+                              onClick={() => handleRemoveReminder(index)}
+                              aria-label="移除提醒"
+                            />
+                          </Tooltip>
+                        </div>
+                      ))}
+                    </Flex>
                   </div>
                 )}
 

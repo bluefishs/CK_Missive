@@ -5,7 +5,7 @@
 
 import React from 'react';
 import {
-  List, Space, Tag, Badge, Tooltip, Button, Checkbox, Dropdown, Popconfirm
+  Flex, Space, Tag, Badge, Tooltip, Button, Checkbox, Dropdown, Popconfirm
 } from 'antd';
 import type { MenuProps } from 'antd';
 import {
@@ -64,33 +64,26 @@ export const EventListView: React.FC<EventListViewProps> = ({
           </Space>
         </div>
       )}
-      <List
-        dataSource={events}
-        renderItem={(event) => (
-          <List.Item
-            actions={[
-              <Dropdown key="actions" menu={{ items: getEventActionMenu(event) }} trigger={['click']}>
-                <Button icon={<SettingOutlined />} size="small" aria-label="事件操作" />
-              </Dropdown>
-            ]}
-          >
-            <div style={{ display: 'flex', alignItems: 'flex-start', width: '100%' }}>
+      <Flex vertical gap={0}>
+        {events.map((event) => (
+          <div key={event.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', flex: 1, minWidth: 0 }}>
               <Checkbox
                 checked={selectedEventIds.includes(event.id)}
                 onChange={(e) => onSelectEvent(event.id, e.target.checked)}
                 style={{ marginRight: 12, marginTop: 4 }}
               />
-              <List.Item.Meta
-                avatar={
-                  <Badge
-                    status={
-                      event.status === 'completed' ? 'success' :
-                      event.status === 'cancelled' ? 'error' : 'processing'
-                    }
-                    text=""
-                  />
-                }
-                title={
+              <div style={{ marginRight: 12, flexShrink: 0 }}>
+                <Badge
+                  status={
+                    event.status === 'completed' ? 'success' :
+                    event.status === 'cancelled' ? 'error' : 'processing'
+                  }
+                  text=""
+                />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div>
                   <Space>
                     {EVENT_TYPE_CONFIG[event.event_type]?.icon}
                     <span>{event.title}</span>
@@ -111,8 +104,8 @@ export const EventListView: React.FC<EventListViewProps> = ({
                       </Tooltip>
                     )}
                   </Space>
-                }
-                description={
+                </div>
+                <div style={{ color: 'rgba(0, 0, 0, 0.45)', fontSize: 14 }}>
                   <Space vertical size="small">
                     <div>{event.description}</div>
                     <Space>
@@ -134,12 +127,15 @@ export const EventListView: React.FC<EventListViewProps> = ({
                       </Button>
                     )}
                   </Space>
-                }
-              />
+                </div>
+              </div>
             </div>
-          </List.Item>
-        )}
-      />
+            <Dropdown menu={{ items: getEventActionMenu(event) }} trigger={['click']}>
+              <Button icon={<SettingOutlined />} size="small" aria-label="事件操作" />
+            </Dropdown>
+          </div>
+        ))}
+      </Flex>
     </>
   );
 };
