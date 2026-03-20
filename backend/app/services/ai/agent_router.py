@@ -81,6 +81,26 @@ class AgentRouter:
                 source="is_chitchat()",
             )
 
+        # ── Layer 1.5: 統計/健康快速路由 — 只需單一工具 ──
+        _STATS_KW = ("多少筆", "總數", "有幾筆", "共有", "共幾", "總共")
+        _HEALTH_KW = ("系統狀態", "系統健康", "健康檢查", "服務狀態")
+        if any(kw in question for kw in _STATS_KW):
+            return RouteDecision(
+                route_type="pattern",
+                confidence=1.0,
+                latency_ms=(time.time() - t0) * 1000,
+                source="stats_shortcut",
+                plan={"tool_calls": [{"name": "get_statistics", "params": {}}]},
+            )
+        if any(kw in question for kw in _HEALTH_KW):
+            return RouteDecision(
+                route_type="pattern",
+                confidence=1.0,
+                latency_ms=(time.time() - t0) * 1000,
+                source="health_shortcut",
+                plan={"tool_calls": [{"name": "get_system_health", "params": {}}]},
+            )
+
         # ── Layer 2: Pattern Match ──
         try:
             from app.services.ai.agent_pattern_learner import get_pattern_learner

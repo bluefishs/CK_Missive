@@ -259,6 +259,9 @@ class AgentPlanner:
             logger.warning("Agent planning failed: %s", e)
             return self._build_fallback_plan(question, {})
 
+    # 統計問題關鍵字 — 只需 get_statistics，不需其他工具
+    _STATS_KEYWORDS = {"多少筆", "總數", "有幾筆", "幾筆", "共有", "共幾", "總共"}
+
     def _merge_hints_into_plan(
         self,
         plan: Dict[str, Any],
@@ -267,6 +270,12 @@ class AgentPlanner:
     ) -> Dict[str, Any]:
         """合併預處理 hints 到 LLM 生成的 plan"""
         if not hints:
+            return plan
+
+        # ── 統計快速路徑：「多少筆公文」只需 get_statistics ──
+        if any(kw in sanitized_q for kw in self._STATS_KEYWORDS):
+            plan["tool_calls"] = [{"name": "get_statistics", "params": {}}]
+            logger.info("統計快速路徑: 只用 get_statistics (問題含統計關鍵字)")
             return plan
 
         # 補充 LLM 未抽取的欄位

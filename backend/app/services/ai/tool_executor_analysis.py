@@ -118,7 +118,7 @@ class AnalysisToolExecutor:
             "summary": f"系統共有 {doc_total} 筆公文" + (f"（收文 {doc_by_cat.get('收文',0)}、發文 {doc_by_cat.get('發文',0)}）" if doc_by_cat else ""),
             "graph_stats": graph_stats,
             "top_entities": top_entities,
-            "count": 1,
+            "count": max(doc_total, 10),  # 統計結果充分，防止 ReAct 追加工具
         }
 
     async def get_system_health_report(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -138,7 +138,7 @@ class AnalysisToolExecutor:
             except Exception as e:
                 summary["benchmarks"] = {"error": str(e)}
 
-        return {"summary": summary, "count": 1}
+        return {"summary": summary, "count": 10}  # 健康報告結果充分
 
     async def navigate_graph(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """導航 Agent — 搜尋實體並回傳叢集資訊供前端 fly-to"""
