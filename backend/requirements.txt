@@ -55,6 +55,7 @@ tenacity==8.2.3
 aiofiles==24.1.0
 psutil>=5.9.8
 python-dateutil>=2.8.0
+opencc-python-reimplemented>=0.1.7
 
 # --- Rate Limiting & Logging ---
 slowapi==0.1.9

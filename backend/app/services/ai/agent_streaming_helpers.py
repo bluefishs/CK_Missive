@@ -58,7 +58,8 @@ async def stream_chitchat(
             task_type="chat",
         )
         answer = clean_chitchat_response(raw, question)
-        yield sse(type="token", token=answer)
+        from app.services.ai.agent_post_processing import _sc2tc
+        yield sse(type="token", token=_sc2tc(answer))
     except Exception as e:
         logger.warning("Chitchat failed: %s", e)
         yield sse(

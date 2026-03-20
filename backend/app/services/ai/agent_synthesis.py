@@ -99,7 +99,9 @@ class AgentSynthesizer:
                 timeout=synthesis_timeout,
             )
             cleaned = strip_thinking_from_synthesis(raw)
-            yield cleaned
+            # 簡體→繁體後處理（OpenCC s2twp，防 LLM 簡體輸出）
+            from app.services.ai.agent_post_processing import _sc2tc
+            yield _sc2tc(cleaned)
         except asyncio.TimeoutError:
             logger.warning("Synthesis timed out after %ds", synthesis_timeout)
             yield "AI 回答生成超時，請參考上方查詢結果與來源文件。"

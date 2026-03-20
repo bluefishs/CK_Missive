@@ -32,6 +32,21 @@ from app.services.ai.user_query_tracker import get_query_tracker
 
 logger = logging.getLogger(__name__)
 
+# ── 簡體→繁體（臺灣用語）轉換器 ──
+_opencc_converter = None
+
+def _sc2tc(text: str) -> str:
+    """簡體→繁體臺灣用語轉換（OpenCC s2twp，懶初始化）"""
+    global _opencc_converter
+    if _opencc_converter is None:
+        try:
+            from opencc import OpenCC
+            _opencc_converter = OpenCC("s2twp")
+        except ImportError:
+            logger.warning("opencc-python-reimplemented not installed, skipping SC→TC")
+            return text
+    return _opencc_converter.convert(text)
+
 
 async def self_talk(
     question: str,
@@ -74,13 +89,8 @@ async def self_talk(
         if any(p in lesson for p in _VAGUE_PATTERNS):
             logger.debug("Self-talk discarded (vague): %s", lesson[:60])
             return
-        # 簡體→繁體 後處理（常見替換）
-        _SC2TC = {"关系": "關係", "实体": "實體", "统计": "統計", "查询": "查詢",
-                  "文档": "文件", "系统": "系統", "节点": "節點", "信息": "資訊",
-                  "数据": "資料", "应该": "應該", "应明确": "應明確", "进行": "進行",
-                  "为了": "為了", "关于": "關於", "问题": "問題"}
-        for sc, tc in _SC2TC.items():
-            lesson = lesson.replace(sc, tc)
+        # 簡體→繁體 後處理（OpenCC 詞彙級轉換）
+        lesson = _sc2tc(lesson)
         if lesson and len(lesson) > 5 and len(lesson) < 200:
             import hashlib
             from app.extended.models import AgentLearning
