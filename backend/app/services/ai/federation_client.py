@@ -15,6 +15,7 @@ Created: 2026-03-16
 
 import logging
 import os
+import threading
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -216,11 +217,14 @@ class FederationClient:
 # ============================================================================
 
 _client: Optional[FederationClient] = None
+_client_lock = threading.Lock()
 
 
 def get_federation_client() -> FederationClient:
-    """取得全域 FederationClient 單例"""
+    """取得全域 FederationClient 單例（thread-safe）"""
     global _client
     if _client is None:
-        _client = FederationClient()
+        with _client_lock:
+            if _client is None:
+                _client = FederationClient()
     return _client
