@@ -1316,7 +1316,7 @@ export interface ToolRegistryResponse {
 export interface AgentStreamCallbacks {
   onThinking: (step: string, stepIndex: number) => void;
   onRole?: (identity: string, context: string) => void;
-  onToolCall: (tool: string, params: Record<string, unknown>, stepIndex: number) => void;
+  onToolCall: (tool: string, params: Record<string, unknown>, stepIndex: number, reasoning?: string) => void;
   onToolResult: (tool: string, summary: string, count: number, stepIndex: number) => void;
   onReact?: (step: string, stepIndex: number, confidence: number, action: string) => void;
   onSelfAwareness?: (data: { identity: string; personality: string; strengths: string[]; alertCount: number }) => void;

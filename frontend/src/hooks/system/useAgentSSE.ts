@@ -85,7 +85,25 @@ function createAgentAPIs(
           onRole: callbacks.onRole,
           onThinking: callbacks.onThinking!,
           onReact: callbacks.onReact,
-          onToolCall: callbacks.onToolCall!,
+          onToolCall: (tool, params, stepIndex, reasoning) => {
+            callbacks.onToolCall!(tool, params, stepIndex);
+            // reasoning 注入到 agent step
+            if (reasoning && setMessagesRef.current) {
+              setMessagesRef.current(prev => {
+                const updated = [...prev];
+                const last = updated[updated.length - 1];
+                if (last?.role === 'assistant' && last.agentSteps?.length) {
+                  const steps = [...last.agentSteps];
+                  const lastStep = steps[steps.length - 1];
+                  if (lastStep?.type === 'tool_call') {
+                    steps[steps.length - 1] = { ...lastStep, reasoning };
+                    updated[updated.length - 1] = { ...last, agentSteps: steps };
+                  }
+                }
+                return updated;
+              });
+            }
+          },
           onToolResult: (tool, summary, count, stepIndex) => {
             callbacks.onToolResult!(tool, summary, count, stepIndex);
             // draw_diagram post-processing

@@ -545,7 +545,7 @@ export function streamAgentQuery(
                 callbacks.onReact?.(data.step || '', data.step_index || 0, data.confidence || 0, data.action || 'continue');
                 break;
               case 'tool_call':
-                callbacks.onToolCall(data.tool || '', data.params || {}, data.step_index || 0);
+                callbacks.onToolCall(data.tool || '', data.params || {}, data.step_index || 0, data.reasoning || '');
                 break;
               case 'tool_result':
                 callbacks.onToolResult(data.tool || '', data.summary || '', data.count || 0, data.step_index || 0);
@@ -603,7 +603,7 @@ export function streamAgentQuery(
                 callbacks.onReact?.(data.step || '', data.step_index || 0, data.confidence || 0, data.action || 'continue');
                 break;
               case 'tool_call':
-                callbacks.onToolCall(data.tool || '', data.params || {}, data.step_index || 0);
+                callbacks.onToolCall(data.tool || '', data.params || {}, data.step_index || 0, data.reasoning || '');
                 break;
               case 'tool_result':
                 callbacks.onToolResult(data.tool || '', data.summary || '', data.count || 0, data.step_index || 0);

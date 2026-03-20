@@ -109,6 +109,9 @@ export const AgentStepsDisplay: React.FC<{ steps: AgentStepInfo[]; streaming: bo
         title: (
           <Text style={{ fontSize: 11 }}>
             {icon} 呼叫 {label}
+            {s.reasoning && (
+              <Text type="secondary" style={{ fontSize: 10, marginLeft: 4 }}>— {s.reasoning}</Text>
+            )}
           </Text>
         ),
         status: hasResult ? ('finish' as const) : ('process' as const),
