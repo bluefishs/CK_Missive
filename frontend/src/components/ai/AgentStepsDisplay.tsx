@@ -23,6 +23,8 @@ import {
   BarChartOutlined,
   SwapOutlined,
   ForkOutlined,
+  RobotOutlined,
+  AlertOutlined,
 } from '@ant-design/icons';
 
 const { Text } = Typography;
@@ -66,6 +68,19 @@ export const AgentStepsDisplay: React.FC<{ steps: AgentStepInfo[]; streaming: bo
 
   const stepsItems = sorted.map((s, idx) => {
     if (s.type === 'thinking') {
+      // NemoClaw 自覺資訊 (step_index < 0)
+      if (s.step_index === -1) {
+        return {
+          title: <Text style={{ fontSize: 11, color: '#1677ff' }}><RobotOutlined /> {s.step}</Text>,
+          status: 'finish' as const,
+        };
+      }
+      if (s.step_index === -2) {
+        return {
+          title: <Text style={{ fontSize: 11, color: '#fa8c16' }}><AlertOutlined /> {s.step}</Text>,
+          status: 'finish' as const,
+        };
+      }
       return {
         title: <Text style={{ fontSize: 11 }}><BulbOutlined /> {s.step}</Text>,
         status: 'finish' as const,

@@ -553,6 +553,17 @@ export function streamAgentQuery(
               case 'sources':
                 callbacks.onSources(data.sources || [], data.retrieval_count || 0);
                 break;
+              case 'self_awareness':
+                callbacks.onSelfAwareness?.({
+                  identity: data.identity || '乾坤',
+                  personality: data.personality || '',
+                  strengths: data.strengths || [],
+                  alertCount: data.alert_count || 0,
+                });
+                break;
+              case 'proactive_alert':
+                callbacks.onProactiveAlert?.(data.message || '', data.count || 0);
+                break;
               case 'token':
                 if (data.token) callbacks.onToken(data.token);
                 break;
@@ -599,6 +610,17 @@ export function streamAgentQuery(
                 break;
               case 'sources':
                 callbacks.onSources(data.sources || [], data.retrieval_count || 0);
+                break;
+              case 'self_awareness':
+                callbacks.onSelfAwareness?.({
+                  identity: data.identity || '乾坤',
+                  personality: data.personality || '',
+                  strengths: data.strengths || [],
+                  alertCount: data.alert_count || 0,
+                });
+                break;
+              case 'proactive_alert':
+                callbacks.onProactiveAlert?.(data.message || '', data.count || 0);
                 break;
               case 'token':
                 if (data.token) callbacks.onToken(data.token);

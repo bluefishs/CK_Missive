@@ -1319,6 +1319,8 @@ export interface AgentStreamCallbacks {
   onToolCall: (tool: string, params: Record<string, unknown>, stepIndex: number) => void;
   onToolResult: (tool: string, summary: string, count: number, stepIndex: number) => void;
   onReact?: (step: string, stepIndex: number, confidence: number, action: string) => void;
+  onSelfAwareness?: (data: { identity: string; personality: string; strengths: string[]; alertCount: number }) => void;
+  onProactiveAlert?: (message: string, count: number) => void;
   onSources: (sources: RAGQueryResponse['sources'], count: number) => void;
   onToken: (token: string) => void;
   onDone: (latencyMs: number, model: string, toolsUsed: string[], iterations: number) => void;

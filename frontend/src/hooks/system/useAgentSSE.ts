@@ -110,6 +110,17 @@ function createAgentAPIs(
             }
           },
           onSources: callbacks.onSources!,
+          onSelfAwareness: (data) => {
+            // 映射為 agent step + 更新 agentIdentity
+            callbacks.onRole?.(data.identity, '');
+            callbacks.onThinking?.(
+              `${data.identity} 就緒` + (data.strengths?.length ? `（擅長: ${data.strengths.join('、')}）` : ''),
+              -1,
+            );
+          },
+          onProactiveAlert: (message) => {
+            callbacks.onThinking?.(message, -2);
+          },
           onToken: callbacks.onToken,
           onDone: (latencyMs, model, toolsUsed, iterations) =>
             callbacks.onDone(latencyMs, model, toolsUsed, iterations),
