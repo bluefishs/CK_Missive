@@ -841,3 +841,31 @@ export async function getToolRegistry(): Promise<ToolRegistryResponse | null> {
     return null;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Voice Transcription
+// ---------------------------------------------------------------------------
+
+export interface VoiceTranscriptionResult {
+  text: string;
+  language: string;
+  duration_ms: number;
+  source: 'groq' | 'ollama';
+}
+
+/**
+ * 語音轉文字 — 上傳音訊 blob 至 Groq Whisper
+ */
+export async function transcribeVoice(
+  audioBlob: Blob,
+  language = 'zh',
+): Promise<VoiceTranscriptionResult> {
+  const formData = new FormData();
+  formData.append('audio', audioBlob, 'recording.webm');
+  formData.append('language', language);
+
+  return apiClient.postForm<VoiceTranscriptionResult>(
+    AI_ENDPOINTS.VOICE_TRANSCRIBE,
+    formData,
+  );
+}

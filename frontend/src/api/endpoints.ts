@@ -748,6 +748,9 @@ export const AI_ENDPOINTS = {
   AGENT_QUERY_STREAM: '/ai/agent/query/stream',
   /** 清除 Agent 對話記憶 POST /ai/agent/conversation/{session_id}/delete */
   AGENT_CONVERSATION_CLEAR: (sessionId: string) => `/ai/agent/conversation/${sessionId}/delete` as const,
+  // --- 語音轉文字 ---
+  /** 語音轉文字 POST /ai/voice/transcribe (multipart/form-data) */
+  VOICE_TRANSCRIBE: '/ai/voice/transcribe',
   // --- Ollama 管理 ---
   /** Ollama 詳細狀態 POST /ai/ollama/status */
   OLLAMA_STATUS: '/ai/ollama/status',

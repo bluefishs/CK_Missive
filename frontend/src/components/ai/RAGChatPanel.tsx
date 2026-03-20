@@ -33,6 +33,7 @@ import {
 } from '@ant-design/icons';
 import { submitAIFeedback } from '../../api/ai/adminManagement';
 import { MessageBubble } from './MessageBubble';
+import { VoiceInputButton } from './VoiceInputButton';
 import { useGraphAgentBridgeOptional } from './knowledgeGraph/GraphAgentBridge';
 import type { RequestSummaryEvent, RequestNavigateEvent } from './knowledgeGraph/GraphAgentBridge';
 import { useAgentSSE, type DrawDiagramPayload } from '../../hooks/system/useAgentSSE';
@@ -270,6 +271,12 @@ export const RAGChatPanel: React.FC<RAGChatPanelProps> = ({
             {embedded ? '' : '送出'}
           </Button>
         </Space.Compact>
+        <VoiceInputButton
+          onTranscribed={(text) => {
+            setInput(prev => prev ? `${prev} ${text}` : text);
+          }}
+          disabled={loading}
+        />
       </div>
     </>
   );

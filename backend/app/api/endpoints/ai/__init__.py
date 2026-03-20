@@ -23,6 +23,7 @@ from .agent_query import router as agent_query_router
 from .agent_query_sync import router as agent_query_sync_router
 from .ai_feedback import router as ai_feedback_router
 from .document_analysis import router as document_analysis_router
+from .voice_transcription import router as voice_transcription_router
 
 router = APIRouter(prefix="/ai", tags=["AI"])
 
@@ -42,3 +43,4 @@ router.include_router(rag_query_router)
 router.include_router(agent_query_router)
 router.include_router(agent_query_sync_router)
 router.include_router(document_analysis_router)
+router.include_router(voice_transcription_router)

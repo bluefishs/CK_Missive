@@ -9,3 +9,4 @@ export { GraphNodeSettings } from './GraphNodeSettings';
 export { KnowledgeGraph } from './KnowledgeGraph';
 export { MessageBubble } from './MessageBubble';
 export { RAGChatPanel } from './RAGChatPanel';
+export { VoiceInputButton } from './VoiceInputButton';
