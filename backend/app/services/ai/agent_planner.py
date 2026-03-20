@@ -308,6 +308,26 @@ class AgentPlanner:
                 })
                 logger.info("Auto-injected search_dispatch_orders from intent hint")
 
+            # hints 有 keywords 但 plan 沒有 search_documents → 強制注入
+            has_search_doc = any(
+                tc.get("name") == "search_documents"
+                for tc in plan["tool_calls"]
+            )
+            if not has_search_doc and hints.get("keywords"):
+                plan["tool_calls"].insert(0, {
+                    "name": "search_documents",
+                    "params": {
+                        "keywords": hints["keywords"],
+                        **({"sender": hints["sender"]} if hints.get("sender") else {}),
+                        **({"receiver": hints["receiver"]} if hints.get("receiver") else {}),
+                        **({"doc_type": hints["doc_type"]} if hints.get("doc_type") else {}),
+                        **({"date_from": hints["date_from"]} if hints.get("date_from") else {}),
+                        **({"date_to": hints["date_to"]} if hints.get("date_to") else {}),
+                        "limit": 8,
+                    },
+                })
+                logger.info("Auto-injected search_documents from hints keywords: %s", hints["keywords"])
+
         # ── 空計劃修復：LLM 回傳空 tool_calls 但 hints 有明確意圖 → 強制建構 ──
         if not plan.get("tool_calls"):
             forced_calls = self._build_forced_calls(hints, sanitized_q)

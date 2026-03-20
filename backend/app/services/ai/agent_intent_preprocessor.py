@@ -54,6 +54,15 @@ async def preprocess_question(question: str, db) -> Dict[str, Any]:
                 if val is not None:
                     hints[field] = val
 
+            # 清理 sender/receiver 中混入的時間詞
+            _TIME_WORDS = ("上個月", "本月", "今年", "去年", "最近", "上週", "本週")
+            for f in ("sender", "receiver"):
+                if f in hints and isinstance(hints[f], str):
+                    for tw in _TIME_WORDS:
+                        hints[f] = hints[f].replace(tw, "").strip()
+                    if not hints[f]:
+                        del hints[f]
+
             logger.info(
                 "Agent preprocessing: %s extracted %d hints (conf=%.2f)",
                 source, len(hints), intent.confidence,
