@@ -25,6 +25,10 @@ tmp/
 # Ignore data directories that should be mounted as volumes
 data/
 logs/
+backups/
+uploads/
+scripts/fixes/
+scripts/archive/
 
 # Ignore test-related files
 .pytest_cache/
