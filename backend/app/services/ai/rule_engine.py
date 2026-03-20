@@ -164,6 +164,28 @@ class IntentRuleEngine:
             first = today.replace(day=1)
             return (first - timedelta(days=1)).isoformat()
 
+        if spec == "quarter_start()":
+            today = date.today()
+            q = (today.month - 1) // 3
+            return today.replace(month=q * 3 + 1, day=1).isoformat()
+
+        if spec == "last_quarter_start()":
+            today = date.today()
+            q = (today.month - 1) // 3
+            if q == 0:
+                return f"{today.year - 1}-10-01"
+            return today.replace(month=(q - 1) * 3 + 1, day=1).isoformat()
+
+        if spec == "last_quarter_end()":
+            today = date.today()
+            q = (today.month - 1) // 3
+            if q == 0:
+                return f"{today.year - 1}-12-31"
+            end_month = q * 3
+            if end_month == 12:
+                return f"{today.year}-12-31"
+            return (today.replace(month=end_month + 1, day=1) - timedelta(days=1)).isoformat()
+
         if spec.startswith("normalize_status("):
             raw = self._resolve_value(spec[17:-1], match)
             if not raw:

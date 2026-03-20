@@ -54,6 +54,27 @@ def _compute_date_range(keyword: str) -> tuple[str, str] | None:
         start = today - timedelta(days=30)
         return start.strftime("%Y-%m-%d"), today.strftime("%Y-%m-%d")
 
+    # 季度
+    if keyword in ("本季", "本季度", "這一季"):
+        q = (today.month - 1) // 3
+        q_start = today.replace(month=q * 3 + 1, day=1)
+        return q_start.strftime("%Y-%m-%d"), today.strftime("%Y-%m-%d")
+
+    if keyword in ("上季", "上季度", "上一季"):
+        q = (today.month - 1) // 3
+        if q == 0:
+            q_start = today.replace(year=today.year - 1, month=10, day=1)
+            q_end = today.replace(year=today.year - 1, month=12, day=31)
+        else:
+            q_start = today.replace(month=(q - 1) * 3 + 1, day=1)
+            q_end_month = q * 3
+            # 計算該月最後一天
+            if q_end_month == 12:
+                q_end = today.replace(month=12, day=31)
+            else:
+                q_end = today.replace(month=q_end_month + 1, day=1) - timedelta(days=1)
+        return q_start.strftime("%Y-%m-%d"), q_end.strftime("%Y-%m-%d")
+
     return None
 
 
@@ -78,7 +99,7 @@ async def preprocess_question(question: str, db) -> Dict[str, Any]:
         logger.info("文號偵測: %s", doc_num_match.group(1))
 
     # 日期語意偵測 — 「上個月」「最近」「本週」等
-    for kw in ("上個月", "上月", "本月", "這個月", "上週", "上星期", "本週", "這週", "今年", "本年", "去年", "上年", "最近", "近期"):
+    for kw in ("上個月", "上月", "本月", "這個月", "上週", "上星期", "本週", "這週", "今年", "本年", "去年", "上年", "最近", "近期", "本季", "本季度", "這一季", "上季", "上季度", "上一季"):
         if kw in question:
             date_range = _compute_date_range(kw)
             if date_range:

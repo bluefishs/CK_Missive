@@ -135,6 +135,22 @@ rules:
       date_to: "last_month_end()"
     confidence: 0.88
 
+  - name: "this_quarter"
+    description: "本季/本季度"
+    pattern: "(?:本季度?|這一?季)"
+    extract:
+      date_from: "quarter_start()"
+      date_to: "today()"
+    confidence: 0.88
+
+  - name: "last_quarter"
+    description: "上季/上季度"
+    pattern: "(?:上一?季度?)"
+    extract:
+      date_from: "last_quarter_start()"
+      date_to: "last_quarter_end()"
+    confidence: 0.88
+
   # === 公文字號/代碼規則 ===
   - name: "doc_number_full"
     description: "完整公文字號 (如 桃工用字第1140005057號)"

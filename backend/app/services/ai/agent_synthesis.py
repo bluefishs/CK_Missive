@@ -70,6 +70,10 @@ class AgentSynthesizer:
             "- 公文列表附文號和日期\n"
             "- 多個工具的結果要整合成一份，不要按工具分開\n"
             "- 結尾可以簡短問一句「需要更多細節嗎？」之類的\n"
+            "\n## 語言規範（嚴格遵守）\n"
+            "- 必須全程使用**繁體中文**，嚴禁簡體字\n"
+            "- 常見錯誤：数据→資料、关系→關係、实体→實體、统计→統計、"
+            "查询→查詢、文档→文件、系统→系統、节点→節點、信息→資訊\n"
         )
 
         messages: List[Dict[str, str]] = [
@@ -234,11 +238,25 @@ def _format_tool_context(tool: str, result: Dict[str, Any], remaining_chars: int
             parts.append(part)
 
     elif tool == "get_statistics":
-        stats = result.get("stats", {})
-        part = (
-            f"[統計] 知識圖譜: {stats.get('total_entities', 0)} 實體, "
-            f"{stats.get('total_relationships', 0)} 關係\n"
-        )
+        # 公文統計（優先使用預合成摘要）
+        summary_text = result.get("summary", "")
+        if summary_text:
+            part = f"[統計] {summary_text}\n"
+        else:
+            doc_total = result.get("document_total", 0)
+            doc_by_cat = result.get("document_by_category", {})
+            cat_detail = "、".join(f"{k} {v}" for k, v in doc_by_cat.items()) if doc_by_cat else ""
+            part = f"[統計] 系統共有 {doc_total} 筆公文"
+            if cat_detail:
+                part += f"（{cat_detail}）"
+            part += "\n"
+        # 知識圖譜統計
+        graph_stats = result.get("graph_stats", {})
+        if graph_stats:
+            part += (
+                f"  知識圖譜: {graph_stats.get('total_entities', 0)} 實體, "
+                f"{graph_stats.get('total_relationships', 0)} 關係\n"
+            )
         top = result.get("top_entities", [])
         if top:
             names = [f"{e.get('canonical_name', '')}({e.get('mention_count', 0)})" for e in top[:5]]
