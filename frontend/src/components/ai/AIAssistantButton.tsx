@@ -17,7 +17,6 @@ import {
   Card,
   Space,
   Tooltip,
-  Segmented,
   Spin,
 } from 'antd';
 import {
@@ -26,7 +25,6 @@ import {
   DragOutlined,
   MinusOutlined,
   ExpandOutlined,
-  FileSearchOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
 import { useResponsive } from '../../hooks';
@@ -51,7 +49,8 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
   // 面板狀態
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
-  const [mode, setMode] = useState<'doc' | 'agent'>('doc');
+  // v5.0: NemoClaw 統一入口，不再區分 doc/agent
+  const mode = 'agent' as const;
 
   // 拖曳功能狀態
   const [position, setPosition] = useState({ right: 80, bottom: 100 });
@@ -200,16 +199,10 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
               }}
             >
               {!isMobile && <DragOutlined style={{ color: '#bfbfbf', fontSize: 12 }} />}
-              <Segmented
-                size="small"
-                value={mode}
-                onChange={(val) => setMode(val as 'doc' | 'agent')}
-                options={[
-                  { label: '公文助理', value: 'doc', icon: <FileSearchOutlined /> },
-                  { label: '智能體', value: 'agent', icon: <ThunderboltOutlined /> },
-                ]}
-                style={{ fontSize: 12 }}
-              />
+              <Space size={4}>
+                <ThunderboltOutlined style={{ color: '#1890ff' }} />
+                <span style={{ fontSize: 13, fontWeight: 500 }}>乾坤</span>
+              </Space>
             </div>
           }
           extra={
