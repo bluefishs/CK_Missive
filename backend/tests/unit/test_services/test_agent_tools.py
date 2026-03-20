@@ -450,7 +450,8 @@ class TestSearchDispatchOrders:
             result = await executor._search.search_dispatch_orders({"dispatch_no": "014"})
             mock_repo.filter_dispatch_orders.assert_called_once()
             call_kwargs = mock_repo.filter_dispatch_orders.call_args[1]
-            assert call_kwargs["search"] == "014"
+            # 純數字會自動補全為 "115年_派工單號014" (當前民國年)
+            assert "派工單號014" in call_kwargs["search"]
 
     @pytest.mark.asyncio
     async def test_search_strategy(self, executor):

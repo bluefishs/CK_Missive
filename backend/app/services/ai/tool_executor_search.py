@@ -172,6 +172,11 @@ class SearchToolExecutor:
 
         if dispatch_no:
             search_term = dispatch_no.strip()
+            # 純數字 (如 "001") → 自動加最新年度前綴 (如 "115年_派工單號001")
+            if search_term.isdigit() and len(search_term) <= 3:
+                roc_year = datetime.now().year - 1911  # 民國年
+                search_term = f"{roc_year}年_派工單號{search_term.zfill(3)}"
+                logger.info("派工單號自動補全: %s → %s", dispatch_no.strip(), search_term)
             items, total = await repo.filter_dispatch_orders(
                 search=search_term,
                 work_type=work_type,
