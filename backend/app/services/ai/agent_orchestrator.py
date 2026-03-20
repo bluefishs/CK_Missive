@@ -87,6 +87,16 @@ class AgentOrchestrator:
         # 自適應超時（預設值，會在 tool loop 中動態更新）
         self._adaptive_tool_timeout: float = float(self.config.agent_tool_timeout)
 
+    async def _flush_trace_lightweight(self, trace: "AgentTrace") -> None:
+        """輕量 trace 持久化 — 用於 chitchat/rate-limited/fallback 等短路路徑"""
+        trace.finish()
+        trace.log_summary()
+        try:
+            asyncio.create_task(trace.flush_to_monitor())
+            asyncio.create_task(trace.flush_to_db(self.db))
+        except Exception as e:
+            logger.warning("Lightweight trace flush failed: %s", e)
+
     async def stream_agent_query(
         self,
         question: str,
@@ -165,13 +175,13 @@ class AgentOrchestrator:
                 if session_id and conv_memory and chitchat_tokens:
                     answer_text = "".join(chitchat_tokens)
                     await conv_memory.save(session_id, question, answer_text, history or [])
-                trace.finish()
-                trace.log_summary()
+                await self._flush_trace_lightweight(trace)
                 return
 
             # 速率限制檢查
             allowed, wait_time = await self._rate_limiter.acquire()
             if not allowed:
+                trace.route_type = "rate_limited"
                 yield sse(
                     type="error",
                     error=f"AI 服務請求過於頻繁，請等待 {int(wait_time):.0f} 秒後重試。",
@@ -184,6 +194,7 @@ class AgentOrchestrator:
                     tools_used=[],
                     iterations=0,
                 )
+                await self._flush_trace_lightweight(trace)
                 return
 
             # Step 0: 發送角色身份
@@ -302,8 +313,7 @@ class AgentOrchestrator:
 
                 async for event in stream_fallback_rag(self.db, question, history):
                     yield event
-                trace.finish()
-                trace.log_summary()
+                await self._flush_trace_lightweight(trace)
                 return
 
             # Step 2-3: Tool Loop（即時串流 + 整體超時保護）
@@ -430,6 +440,7 @@ class AgentOrchestrator:
 
         except Exception as e:
             logger.error("Agent orchestrator error: %s", e, exc_info=True)
+            trace.route_type = getattr(trace, "route_type", None) or "error"
             yield sse(
                 type="error",
                 error="AI 服務暫時無法處理您的請求，請稍後再試。",
@@ -442,6 +453,7 @@ class AgentOrchestrator:
                 tools_used=list(set(tools_used)),
                 iterations=0,
             )
+            await self._flush_trace_lightweight(trace)
 
     # ========================================================================
     # 工具迴圈（整體超時保護用）
