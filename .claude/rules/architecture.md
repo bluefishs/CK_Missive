@@ -49,7 +49,9 @@ backend/app/extended/models/
 ├── ai_analysis.py       # AI 分析 (PromptTemplate, Synonym, SearchHistory)
 ├── agent_trace.py       # Agent 執行追蹤 (AgentTrace, AgentSpan)
 ├── agent_learning.py    # Agent 學習持久化 (AgentLearning)
-└── document_chunk.py    # 文件分段 (DocumentChunk, BM25 tsvector)
+├── document_chunk.py    # 文件分段 (DocumentChunk, BM25 tsvector)
+├── invoice.py           # 費用報銷 (ExpenseInvoice, ExpenseInvoiceItem)
+└── finance.py           # 統一帳本 (FinanceLedger)
 ```
 
 ## 後端 Service 層結構
@@ -192,8 +194,11 @@ backend/app/api/endpoints/
 │   └── synonyms.py               # 同義詞管理端點
 ├── pm/                     # 專案管理 API (模組化)
 │   ├── cases.py, staff.py, milestones.py
-├── erp/                    # ERP 廠商管理 API (模組化)
+├── erp/                    # ERP 財務管理 API (模組化)
 │   ├── quotations.py, vendor_payables.py, billings.py, invoices.py
+│   ├── expenses.py         # 費用報銷 (7 端點: list/create/detail/update/approve/reject/qr-scan)
+│   ├── ledger.py            # 統一帳本 (6 端點: list/create/detail/balance/category-breakdown/delete)
+│   └── financial_summary.py # 財務彙總 (3 端點: project/projects/company)
 ├── knowledge_base.py      # 知識庫瀏覽器 API (tree/file/adr/diagrams/search)
 ├── line_webhook.py        # LINE Webhook 整合端點
 ├── health.py              # 健康檢查端點 (含 detailed)
@@ -245,9 +250,16 @@ backend/app/repositories/
 │   ├── dispatch_link_repository.py     # DispatchLinkRepository — 複合包裝器
 │   ├── dispatch_doc_link_repository.py # DispatchDocLinkRepository — doc links
 │   └── dispatch_project_link_repository.py # DispatchProjectLinkRepository
-├── # --- PM/ERP (待建立, 目前直接 DB 存取) ---
+├── # --- PM/ERP ---
 ├── pm/                                # PM Repository (規劃中)
-├── erp/                               # ERP Repository (規劃中)
+├── erp/                               # ERP Repository (7 類別)
+│   ├── quotation_repository.py        # ERPQuotationRepository
+│   ├── invoice_repository.py          # ERPInvoiceRepository
+│   ├── billing_repository.py          # ERPBillingRepository
+│   ├── vendor_payable_repository.py   # ERPVendorPayableRepository
+│   ├── expense_invoice_repository.py  # ExpenseInvoiceRepository — inv_num/case_code/query
+│   ├── ledger_repository.py           # LedgerRepository — balance/category_breakdown
+│   └── financial_summary_repository.py # FinancialSummaryRepository — 跨模組 JOIN
 ├── # --- Query Builder (3) ---
 └── query_builders/
     ├── document_query_builder.py       # Fluent API — status/date/keyword

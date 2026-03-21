@@ -178,5 +178,5 @@ volumes:
 # --- 網路配置（與 docker-compose.dev.yml 共享） ---
 networks:
   app_network:
-    name: ck_missive_dev_network
+    name: ck_missive_network
     driver: bridge

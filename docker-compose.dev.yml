@@ -211,5 +211,5 @@ volumes:
 # --- 🌐 網路配置 ---
 networks:
   app_network:
-    name: ck_missive_dev_network
+    name: ck_missive_network
     driver: bridge

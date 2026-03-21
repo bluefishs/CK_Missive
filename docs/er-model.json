@@ -106,7 +106,7 @@
         }
       ],
       "unique_constraints": {},
-      "row_count_estimate": -1
+      "row_count_estimate": 39
     },
     "agent_query_traces": {
       "columns": [

@@ -191,6 +191,13 @@ class ToolRegistry:
             "draw_diagram": 8.0,
             "navigate_graph": 4.0,
         },
+        "finance": {
+            "get_financial_summary": 8.0,
+            "get_expense_overview": 5.0,
+            "check_budget_alert": 6.0,
+            "get_contract_summary": 4.0,
+            "get_unpaid_billings": 3.0,
+        },
     }
 
     # 查詢類型偵測關鍵字
@@ -201,6 +208,7 @@ class ToolRegistry:
         "project": ["案件", "專案", "承攬", "工程", "里程碑", "進度"],
         "vendor": ["廠商", "協力", "供應商", "承包"],
         "visual": ["畫", "圖", "結構圖", "架構圖", "ER圖", "流程圖", "依賴", "顯示結構"],
+        "finance": ["財務", "預算", "報銷", "支出", "收入", "結餘", "帳本", "費用", "超支", "發票", "請款"],
     }
 
     # KG 實體類型 → 偵測關鍵字

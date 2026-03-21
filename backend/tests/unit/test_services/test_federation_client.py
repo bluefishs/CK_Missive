@@ -77,7 +77,7 @@ class TestFederationClientQuery:
         client = FederationClient()
         result = await client.query_external("nonexistent", "hello")
         assert result["success"] is False
-        assert "未知" in result["error"]
+        assert "nonexistent" in result["error"]
 
     @pytest.mark.asyncio
     async def test_unknown_system_id_returns_error(self):
@@ -85,7 +85,7 @@ class TestFederationClientQuery:
         client = FederationClient()
         result = await client.query_external("nonexistent_system", "hello")
         assert result["success"] is False
-        assert "未知" in result["error"]
+        assert "nonexistent_system" in result["error"]
 
     @pytest.mark.asyncio
     async def test_successful_query(self):

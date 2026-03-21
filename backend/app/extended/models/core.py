@@ -137,3 +137,7 @@ class User(Base):
 
     # 證照關聯
     certifications = relationship("StaffCertification", back_populates="user", cascade="all, delete-orphan")
+
+    # 費用報銷 & 帳本
+    expense_invoices = relationship("ExpenseInvoice", back_populates="user")
+    finance_ledgers = relationship("FinanceLedger", back_populates="user")

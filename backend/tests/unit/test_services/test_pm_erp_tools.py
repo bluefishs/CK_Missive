@@ -18,15 +18,15 @@ import pytest
 class TestToolRegistryExpansion:
     """驗證 ToolRegistry 包含 18 個工具"""
 
-    def test_registry_has_at_least_23_manual_tools(self):
+    def test_registry_has_at_least_26_manual_tools(self):
         from app.services.ai.tool_registry import ToolRegistry, _register_default_tools
 
         registry = ToolRegistry()
         _register_default_tools(registry)
-        # 23 manual tools + auto-discovered skill tools
+        # 26 manual tools (23 original + 3 finance) + auto-discovered skill tools
         non_skill = {n for n in registry.valid_tool_names if not n.startswith("skill_")}
-        assert len(non_skill) == 23
-        assert registry.get_tool_count() >= 23
+        assert len(non_skill) == 26
+        assert registry.get_tool_count() >= 26
 
     def test_pm_tools_registered(self):
         from app.services.ai.tool_registry import ToolRegistry, _register_default_tools

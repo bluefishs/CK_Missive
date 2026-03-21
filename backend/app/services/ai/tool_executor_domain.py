@@ -10,8 +10,12 @@ PM/ERP 領域工具執行器
 - get_contract_summary: 取得合約金額統計
 - get_overdue_milestones: 查詢逾期里程碑
 - get_unpaid_billings: 查詢未收款/逾期請款
+- get_financial_summary: 查詢專案/公司財務總覽
+- get_expense_overview: 查詢費用報銷總覽
+- check_budget_alert: 預算超支警報檢查
 
 Extracted from agent_tools.py v1.83.0
+Updated v5.1.1: 財務工具整合 (Phase 3-1/3-2)
 """
 
 import logging
@@ -123,3 +127,87 @@ class DomainToolExecutor:
         return await svc.get_unpaid_billings(
             limit=min(int(params.get("limit", 20)), 50),
         )
+
+    # === Finance Tools (Phase 3, v5.1.1) ===
+
+    async def get_financial_summary(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """查詢專案或公司財務總覽"""
+        from app.services.financial_summary_service import FinancialSummaryService
+
+        case_code = params.get("case_code")
+        year = params.get("year")
+        top_n = min(int(params.get("top_n", 10)), 50)
+
+        svc = FinancialSummaryService(self.db)
+
+        if case_code:
+            result = await svc.get_project_summary(case_code)
+            return {"type": "project", "summary": result, "count": 1}
+        else:
+            result = await svc.get_company_overview(year=year, top_n=top_n)
+            return {"type": "company", "summary": result, "count": 1}
+
+    async def get_expense_overview(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """查詢費用報銷總覽"""
+        from app.schemas.erp.expense import ExpenseInvoiceQuery
+        from app.services.expense_invoice_service import ExpenseInvoiceService
+
+        limit = min(int(params.get("limit", 20)), 50)
+        query = ExpenseInvoiceQuery(
+            case_code=params.get("case_code"),
+            status=params.get("status"),
+            skip=0,
+            limit=limit,
+        )
+
+        svc = ExpenseInvoiceService(self.db)
+        items, total = await svc.query(query)
+
+        return {
+            "items": [
+                {
+                    "id": inv.id,
+                    "inv_num": inv.inv_num,
+                    "date": str(inv.date) if inv.date else None,
+                    "amount": float(inv.amount) if inv.amount else 0,
+                    "category": inv.category,
+                    "status": inv.status,
+                    "case_code": inv.case_code,
+                    "description": inv.description,
+                }
+                for inv in items
+            ],
+            "total": total,
+            "count": len(items),
+        }
+
+    async def check_budget_alert(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """預算超支警報檢查"""
+        from app.services.financial_summary_service import FinancialSummaryService
+
+        threshold_pct = min(float(params.get("threshold_pct", 80)), 100)
+        year = params.get("year")
+
+        svc = FinancialSummaryService(self.db)
+        overview = await svc.get_company_overview(year=year, top_n=50)
+
+        alerts = []
+        for proj in overview.get("top_projects", []):
+            revenue = float(proj.get("revenue", 0) or 0)
+            expenses = float(proj.get("expenses", 0) or 0)
+            if revenue > 0:
+                usage_pct = (expenses / revenue) * 100
+                if usage_pct >= threshold_pct:
+                    alerts.append({
+                        "case_code": proj.get("case_code"),
+                        "revenue": revenue,
+                        "expenses": expenses,
+                        "usage_pct": round(usage_pct, 1),
+                        "level": "critical" if usage_pct >= 100 else "warning",
+                    })
+
+        return {
+            "threshold_pct": threshold_pct,
+            "alerts": alerts,
+            "count": len(alerts),
+        }

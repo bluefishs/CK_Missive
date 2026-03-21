@@ -562,6 +562,84 @@ async def health_check(db: AsyncSession = Depends(get_async_db)):
     }
 
 
+# --- Prometheus Metrics 端點 (P4 觀測層) ---
+@app.get("/metrics", tags=["System Monitoring"], include_in_schema=False)
+async def prometheus_metrics():
+    """
+    Prometheus metrics endpoint（無認證，供 Prometheus scraper 使用）
+    """
+    try:
+        from prometheus_client import (
+            CollectorRegistry,
+            Counter,
+            Gauge,
+            generate_latest,
+            CONTENT_TYPE_LATEST,
+        )
+        from starlette.responses import Response
+
+        registry = CollectorRegistry()
+
+        # App info
+        info = Gauge(
+            "ck_missive_app_info",
+            "CK Missive application info",
+            ["version"],
+            registry=registry,
+        )
+        info.labels(version=app.version).set(1)
+
+        # Uptime
+        up = Gauge("ck_missive_up", "CK Missive is up", registry=registry)
+        up.set(1)
+
+        # DB health probe
+        db_healthy = Gauge(
+            "ck_missive_db_healthy",
+            "Database connectivity (1=ok, 0=fail)",
+            registry=registry,
+        )
+        try:
+            from app.db.database import engine as _engine
+            from sqlalchemy import text as _text
+            import sqlalchemy
+
+            async with _engine.connect() as conn:
+                await conn.execute(_text("SELECT 1"))
+            db_healthy.set(1)
+        except Exception:
+            db_healthy.set(0)
+
+        # Process metrics
+        import psutil, os
+
+        process = psutil.Process(os.getpid())
+        mem = Gauge(
+            "ck_missive_memory_rss_bytes",
+            "Resident memory in bytes",
+            registry=registry,
+        )
+        mem.set(process.memory_info().rss)
+
+        cpu = Gauge(
+            "ck_missive_cpu_percent",
+            "CPU usage percent",
+            registry=registry,
+        )
+        cpu.set(process.cpu_percent(interval=0))
+
+        return Response(
+            content=generate_latest(registry),
+            media_type=CONTENT_TYPE_LATEST,
+        )
+    except ImportError:
+        from starlette.responses import JSONResponse
+        return JSONResponse(
+            status_code=501,
+            content={"error": "prometheus-client not installed"},
+        )
+
+
 @app.get("/api/debug/cors", tags=["Debug"])
 async def debug_cors(request: Request):
     """

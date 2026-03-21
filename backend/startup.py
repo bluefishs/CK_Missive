@@ -52,14 +52,14 @@ def log(step: str, msg: str, level: str = "INFO"):
 
 
 def check_port(port: int) -> bool:
-    """檢查端口是否可用"""
+    """檢查端口是否可用（使用 bind 測試，支援 SO_REUSEADDR 覆蓋殭屍 socket）"""
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.settimeout(1)
-            result = s.connect_ex(("127.0.0.1", port))
-            return result != 0  # 0 = 已被佔用, 非0 = 可用
-    except Exception:
-        return True  # 無法檢查，視為可用
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.bind(("0.0.0.0", port))
+            return True  # bind 成功 = 可用
+    except OSError:
+        return False  # bind 失敗 = 真正被佔用
 
 
 def check_service(host: str, port: int, timeout: float = 2.0) -> bool:
@@ -88,14 +88,15 @@ def main():
     # ================================================================
     # Step 0: 端口衝突偵測
     # ================================================================
-    log("Step 0", "Checking port 8001 availability...")
+    port = int(os.environ.get("BACKEND_PORT", "8001"))
+    log("Step 0", f"Checking port {port} availability...")
 
-    if not check_port(8001):
-        log("Step 0", "Port 8001 is occupied! Another process is using it.", "ERROR")
-        log("Step 0", "Check: netstat -ano | findstr :8001", "WARN")
+    if not check_port(port):
+        log("Step 0", f"Port {port} is occupied! Another process is using it.", "ERROR")
+        log("Step 0", f"Check: netstat -ano | findstr :{port}", "WARN")
         sys.exit(1)
 
-    log("Step 0", "Port 8001 is available.")
+    log("Step 0", f"Port {port} is available.")
 
     # ================================================================
     # Step 0.5: 基礎設施依賴檢查
@@ -181,21 +182,21 @@ def main():
     # ================================================================
     # Step 3: 啟動 FastAPI 後端服務
     # ================================================================
-    log("Step 3", "Starting backend service on port 8001...")
+    log("Step 3", f"Starting backend service on port {port}...")
 
     if sys.platform == "win32":
         # Windows: os.execvp 會 spawn 新進程然後退出原進程，
         # 導致 PM2 看到進程退出而觸發重啟迴圈。
         # 改用 subprocess.run 保持阻塞，PM2 追蹤此 Python 進程。
         result = subprocess.run(
-            [sys.executable, "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"],
+            [sys.executable, "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", str(port), "--reload"],
         )
         sys.exit(result.returncode)
     else:
         # Linux/macOS: os.execvp 正確替換進程
         os.execvp(
             sys.executable,
-            [sys.executable, "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"],
+            [sys.executable, "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", str(port), "--reload"],
         )
 
 

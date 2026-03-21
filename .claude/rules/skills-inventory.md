@@ -115,6 +115,48 @@
 
 ---
 
+## v5.1 ERP 財務模組 + Agent Federation v2.0 (2026-03-21)
+
+### 新增後端模組
+
+| 模組 | 類型 | 說明 |
+|------|------|------|
+| `models/invoice.py` | ORM | ExpenseInvoice + ExpenseInvoiceItem (79L) |
+| `models/finance.py` | ORM | FinanceLedger — 統一帳本 (66L) |
+| `schemas/erp/expense.py` | Schema | 費用報銷 CRUD + QR + Query (8 classes, EXPENSE_CATEGORIES Literal) |
+| `schemas/erp/ledger.py` | Schema | 帳本 CRUD + Balance + Breakdown (7 classes) |
+| `schemas/erp/financial_summary.py` | Schema | 專案/公司彙總 (6 classes) |
+| `schemas/ai/rag.py` | Schema | Schema v1.0 CK-AaaP 統一信封 (7 classes + detect_request_format) |
+| `repositories/erp/expense_invoice_repository.py` | Repo | 費用報銷查詢 + inv_num 唯一 |
+| `repositories/erp/ledger_repository.py` | Repo | 帳本餘額 (Decimal) + 分類彙總 |
+| `repositories/erp/financial_summary_repository.py` | Repo | 跨模組 JOIN — project_summary + company_overview |
+| `services/expense_invoice_service.py` | Service | QR 解析 + CRUD + 審核入帳 (7 方法) |
+| `services/finance_ledger_service.py` | Service | 帳本記錄 + 餘額 + 分類 (7 方法) |
+| `services/financial_summary_service.py` | Service | 專案/全案/公司級彙總 (128L) |
+| `endpoints/erp/expenses.py` | API | 7 端點 (list/create/detail/update/approve/reject/qr-scan) |
+| `endpoints/erp/ledger.py` | API | 6 端點 (list/create/detail/balance/category-breakdown/delete) |
+| `endpoints/erp/financial_summary.py` | API | 3 端點 (project/projects/company) |
+| `alembic/3fc21c653f96` | Migration | 3 表: expense_invoices, expense_invoice_items, finance_ledgers |
+
+### 修改核心模組
+
+| 模組 | 版本 | 變更說明 |
+|------|------|---------|
+| `agent_query_sync.py` | v1.2→v2.0 | 雙格式支援 (v0 legacy + v1 Schema), 3 錯誤碼 |
+| `federation_client.py` | v1.0→v3.0 | NemoClaw Registry 動態發現 + Gateway 路由 + TTL 快取 |
+| `main.py` | — | Prometheus /metrics 端點 (5 Gauge: app/db/memory/cpu) |
+| `startup.py` | — | BACKEND_PORT 環境變數 + bind-based port 偵測 |
+| `requirements.txt` | — | +4 依賴 (email-validator, PyYAML, APScheduler, prometheus-client) |
+
+### 測試
+
+| 檔案 | 測試數 | 說明 |
+|------|--------|------|
+| `tests/unit/test_expense_invoice.py` | 33 | Schema 驗證 + QR 解析 + Service 邏輯 + Query |
+| `tests/integration/test_agent_query_sync_v1.py` | — | Agent 同步 API v1 整合測試 |
+
+---
+
 ## v5.0 NemoClaw 代理人 — 全模組盤點 (2026-03-20)
 
 ### NemoClaw 代理人新增模組 (v4.0→v5.0)
@@ -321,7 +363,7 @@
 | 服務 | 位置 | 說明 |
 |------|------|------|
 | `ReceiverNormalizer` | `services/receiver_normalizer.py` | 收發文單位正規化 (6 模式 + NFKC) |
-| `ToolRegistry` | `services/ai/tool_registry.py` | Agent 工具註冊中心 (Singleton, 22 工具) |
+| `ToolRegistry` | `services/ai/tool_registry.py` | Agent 工具註冊中心 (Singleton, 26 工具) |
 
 ### Schema 擴充
 

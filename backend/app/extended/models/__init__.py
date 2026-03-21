@@ -128,6 +128,22 @@ from .knowledge_base import (
     KBChunk,
 )
 
+# 17. 費用報銷發票模組
+from .invoice import (
+    ExpenseInvoice,
+    ExpenseInvoiceItem,
+)
+
+# 18. 統一帳本模組
+from .finance import (
+    FinanceLedger,
+)
+
+# 19. 電子發票同步模組
+from .einvoice_sync import (
+    EInvoiceSyncLog,
+)
+
 # 匯出 Base 供 Alembic 等工具使用
 from ._base import Base
 
@@ -200,4 +216,11 @@ __all__ = [
     "ERPVendorPayable",
     # 知識庫分段
     "KBChunk",
+    # 費用報銷發票
+    "ExpenseInvoice",
+    "ExpenseInvoiceItem",
+    # 統一帳本
+    "FinanceLedger",
+    # 電子發票同步
+    "EInvoiceSyncLog",
 ]

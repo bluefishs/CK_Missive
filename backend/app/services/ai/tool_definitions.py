@@ -370,6 +370,58 @@ def register_default_tools(registry: ToolRegistry) -> None:
         contexts=["agent"],
     ))
 
+    # === Finance Tools (Phase 3, v5.1.1) ===
+
+    # 25. get_financial_summary — 財務總覽
+    registry.register(ToolDefinition(
+        name="get_financial_summary",
+        description="查詢專案或全公司的財務總覽，包含收入、支出、結餘。可指定案件代碼查詢單一專案，或不指定查詢公司整體（含 Top N 專案排行）。",
+        parameters={
+            "case_code": {"type": "string", "description": "案件代碼 (如 A-115-001)，不提供則查詢全公司"},
+            "year": {"type": "integer", "description": "民國年度篩選 (如 115)"},
+            "top_n": {"type": "integer", "description": "公司總覽時回傳前 N 專案 (預設10)"},
+        },
+        few_shot={
+            "question": "公司今年的財務狀況如何？",
+            "response_json": '{"reasoning": "查詢公司整體財務概況，使用民國年篩選", "tool_calls": [{"name": "get_financial_summary", "params": {"year": 115, "top_n": 10}}]}',
+        },
+        priority=8,
+        contexts=["erp", "pm"],
+    ))
+
+    # 26. get_expense_overview — 費用報銷總覽
+    registry.register(ToolDefinition(
+        name="get_expense_overview",
+        description="查詢費用報銷發票列表，可依案件代碼或審核狀態篩選。狀態包含: pending(待審核)、verified(已審核)、rejected(已駁回)、pending_receipt(待核銷)。",
+        parameters={
+            "case_code": {"type": "string", "description": "案件代碼篩選"},
+            "status": {"type": "string", "description": "狀態篩選 (pending/verified/rejected/pending_receipt)"},
+            "limit": {"type": "integer", "description": "最大結果數 (預設20)"},
+        },
+        few_shot={
+            "question": "目前有哪些待審核的報銷單？",
+            "response_json": '{"reasoning": "查詢待審核狀態的報銷發票", "tool_calls": [{"name": "get_expense_overview", "params": {"status": "pending", "limit": 20}}]}',
+        },
+        priority=6,
+        contexts=["erp"],
+    ))
+
+    # 27. check_budget_alert — 預算超支警報
+    registry.register(ToolDefinition(
+        name="check_budget_alert",
+        description="檢查各專案是否有預算超支或接近超支的情況。回傳超過閾值的專案警報清單，含使用率百分比。",
+        parameters={
+            "threshold_pct": {"type": "number", "description": "警報閾值百分比 (預設80，即支出超過收入80%時警報)"},
+            "year": {"type": "integer", "description": "民國年度篩選 (如 115)"},
+        },
+        few_shot={
+            "question": "有沒有快超支的案件？",
+            "response_json": '{"reasoning": "檢查預算使用率超標的案件", "tool_calls": [{"name": "check_budget_alert", "params": {"threshold_pct": 80}}]}',
+        },
+        priority=7,
+        contexts=["erp", "pm"],
+    ))
+
     logger.info("Tool registry initialized: %d manual tools registered", registry.get_tool_count())
 
     # === NemoClaw Stage 3: 自動從 Skills 目錄發現並註冊工具 ===

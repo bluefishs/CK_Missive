@@ -63,6 +63,26 @@ async def cleanup_expired_events_job():
         logger.error(f"過期事件清理排程任務失敗: {e}", exc_info=True)
 
 
+async def einvoice_sync_job():
+    """電子發票自動同步排程任務 — 每晚從財政部下載公司統編發票"""
+    from app.db.database import async_session_maker
+    from app.services.einvoice.einvoice_sync_service import EInvoiceSyncService
+
+    logger.info("開始執行電子發票自動同步排程任務")
+
+    try:
+        async with async_session_maker() as db:
+            service = EInvoiceSyncService(db)
+            stats = await service.sync_invoices()
+            logger.info(
+                f"電子發票同步完成: 取得={stats.get('total_fetched', 0)}, "
+                f"新增={stats.get('new_imported', 0)}, "
+                f"重複={stats.get('skipped_duplicate', 0)}"
+            )
+    except Exception as e:
+        logger.error(f"電子發票同步排程任務失敗: {e}", exc_info=True)
+
+
 def setup_scheduler(
     reminder_interval_minutes: int = 5,
     cleanup_hour: int = 2,
@@ -109,6 +129,22 @@ def setup_scheduler(
         coalesce=True
     )
     logger.info(f"已添加清理任務: 每日 {cleanup_hour:02d}:{cleanup_minute:02d} 執行")
+
+    # 添加電子發票同步任務 - 每日凌晨 01:00 執行
+    import os
+    if os.getenv("MOF_APP_ID"):
+        scheduler.add_job(
+            einvoice_sync_job,
+            trigger=CronTrigger(hour=1, minute=0),
+            id='einvoice_sync',
+            name='電子發票自動同步 (財政部)',
+            replace_existing=True,
+            max_instances=1,
+            coalesce=True
+        )
+        logger.info("已添加電子發票同步任務: 每日 01:00 執行")
+    else:
+        logger.info("電子發票同步未啟用 (MOF_APP_ID 未設定)")
 
     return scheduler
 

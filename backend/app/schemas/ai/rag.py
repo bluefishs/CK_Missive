@@ -1,11 +1,16 @@
 """RAG 問答 + Agent Schema"""
-from typing import Any, Dict, List, Optional
+from datetime import datetime
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, Field
 
 
+# ---------------------------------------------------------------------------
+# Legacy (v0) — 原始格式，保留向下相容
+# ---------------------------------------------------------------------------
+
 class AgentQueryRequest(BaseModel):
-    """Agentic 問答請求"""
+    """Agentic 問答請求 (v0 legacy 格式)"""
     question: str = Field(..., min_length=1, max_length=500, description="自然語言問題")
     history: Optional[List[Dict[str, str]]] = Field(
         None, description="對話歷史 [{role, content}, ...]"
@@ -25,13 +30,100 @@ class AgentQueryRequest(BaseModel):
 
 
 class AgentSyncResponse(BaseModel):
-    """Agent 同步問答回應（非串流）"""
+    """Agent 同步問答回應（非串流，v0 legacy 格式）"""
     success: bool = True
     answer: str = ""
     sources: List[Dict[str, Any]] = []
     tools_used: List[str] = []
     latency_ms: int = 0
     error: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Schema v1.0 — CK-AaaP 統一通訊格式
+# ---------------------------------------------------------------------------
+
+class AgentV1ReasonPayload(BaseModel):
+    """Schema v1.0 reason action payload"""
+    question: str = Field(..., min_length=1, max_length=32000)
+    context: Optional[Dict[str, Any]] = None
+
+
+class AgentV1Options(BaseModel):
+    """Schema v1.0 request options"""
+    stream: bool = False
+    timeout_ms: int = Field(default=30000, ge=1000, le=300000)
+    priority: Literal["low", "normal", "high"] = "normal"
+
+
+class AgentV1Request(BaseModel):
+    """CK-AaaP Schema v1.0 統一請求格式"""
+    agent_id: str = Field(
+        ..., pattern=r"^ck_[a-z][a-z0-9_]*$",
+        description="發起方代理人 ID",
+    )
+    action: Literal["reason", "query", "register", "heartbeat", "notify", "health"] = Field(
+        ..., description="操作類型",
+    )
+    payload: Dict[str, Any] = Field(..., description="依 action 不同而異的業務資料")
+    options: Optional[AgentV1Options] = None
+    session_id: Optional[str] = Field(None, description="對話 session UUID")
+    timestamp: str = Field(..., description="ISO-8601 含時區")
+
+
+class AgentV1ReasonResult(BaseModel):
+    """Schema v1.0 reason 成功回應"""
+    answer: str = ""
+    sources: List[Dict[str, Any]] = []
+    tools_used: List[str] = []
+    model: str = ""
+
+
+class AgentV1ErrorObject(BaseModel):
+    """Schema v1.0 標準錯誤物件"""
+    code: str = Field(..., description="標準錯誤碼")
+    message: str = Field(..., description="人類可讀錯誤訊息")
+    details: Optional[Dict[str, Any]] = None
+
+
+class AgentV1Meta(BaseModel):
+    """Schema v1.0 回應後設資料"""
+    latency_ms: int = 0
+    request_id: Optional[str] = None
+    token_usage: Optional[Dict[str, int]] = None
+
+
+class AgentV1Response(BaseModel):
+    """CK-AaaP Schema v1.0 統一回應格式"""
+    success: bool
+    agent_id: str = Field(..., description="回應方代理人 ID")
+    action: str = Field(..., description="與請求 action 對應")
+    result: Optional[Union[AgentV1ReasonResult, Dict[str, Any]]] = None
+    error: Optional[AgentV1ErrorObject] = None
+    meta: Optional[AgentV1Meta] = None
+    timestamp: str = Field(
+        default_factory=lambda: datetime.utcnow().isoformat() + "Z",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Dual-format detection helper
+# ---------------------------------------------------------------------------
+
+def detect_request_format(data: Dict[str, Any]) -> Literal["v0", "v1"]:
+    """偵測請求是 v0 (legacy) 還是 v1 (Schema v1.0) 格式。
+
+    v1 必備: agent_id + action + payload + timestamp
+    v0 特徵: question 在頂層
+    """
+    if (
+        "agent_id" in data
+        and "action" in data
+        and "payload" in data
+        and "timestamp" in data
+    ):
+        return "v1"
+    return "v0"
 
 
 class RAGQueryRequest(BaseModel):

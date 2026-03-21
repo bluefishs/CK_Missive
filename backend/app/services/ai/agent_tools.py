@@ -79,6 +79,10 @@ _DISPATCH_KEYS = {
     "search_knowledge_base",
     # Federation Intelligence Interface (v1.84.0)
     "ask_external_system",
+    # Finance tools (Phase 3, v5.1.1)
+    "get_financial_summary",
+    "get_expense_overview",
+    "check_budget_alert",
 }
 # Validate: all dispatch keys must be in registry, and all non-skill registry tools
 # must be in dispatch keys. Skill tools (skill_*) are handled dynamically.
@@ -126,6 +130,10 @@ class ToolResultGuard:
         "search_knowledge_base": {"results": [], "count": 0},
         # Federation (v1.84.0)
         "ask_external_system": {"answer": "", "system": "", "count": 0},
+        # Finance tools (Phase 3, v5.1.1)
+        "get_financial_summary": {"summary": {}, "count": 0},
+        "get_expense_overview": {"items": [], "count": 0},
+        "check_budget_alert": {"alerts": [], "count": 0},
     }
 
     @classmethod
@@ -280,6 +288,10 @@ class AgentToolExecutor:
             # PM/ERP P4-1 tools
             "get_overdue_milestones": self._domain.get_overdue_milestones,
             "get_unpaid_billings": self._domain.get_unpaid_billings,
+            # Finance tools (Phase 3, v5.1.1)
+            "get_financial_summary": self._domain.get_financial_summary,
+            "get_expense_overview": self._domain.get_expense_overview,
+            "check_budget_alert": self._domain.check_budget_alert,
             # Document parsing tool (v10.1)
             "parse_document": self._document.parse_document,
             # Knowledge Base search (v1.84.5)
