@@ -44,6 +44,8 @@ class LinePushScheduler:
         "invoice_reminder": "發票催開",
         "vendor_payment_overdue": "外包付款逾期",
         "vendor_payment_warning": "外包付款提醒",
+        "budget_overrun": "預算警報",
+        "pending_receipt_stale": "待核銷提醒",
         "recommendation": "智慧推薦",
     }
 

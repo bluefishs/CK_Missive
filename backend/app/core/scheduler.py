@@ -83,6 +83,75 @@ async def einvoice_sync_job():
         logger.error(f"電子發票同步排程任務失敗: {e}", exc_info=True)
 
 
+async def proactive_trigger_scan_job():
+    """
+    NemoClaw 夜間吹哨者 — 掃描 PM/ERP 預算超支、逾期請款、待核銷發票等警報。
+
+    掃描結果：
+    1. 持久化至 SystemNotification (DB)
+    2. 推播至 LINE (若已設定)
+    """
+    from app.db.database import async_session_maker
+    from app.services.ai.proactive_triggers import ProactiveTriggerService
+    from app.services.ai.proactive_triggers_erp import ERPTriggerScanner
+    from app.services.notification_helpers import _safe_create_notification
+
+    logger.info("開始執行 NemoClaw 夜間吹哨者掃描")
+
+    try:
+        async with async_session_maker() as db:
+            # 掃描基礎警報 (公文截止日/資料品質)
+            base_service = ProactiveTriggerService(db)
+            base_alerts = await base_service.scan_all()
+
+            # 掃描 ERP 警報 (預算/請款/發票/廠商付款)
+            erp_scanner = ERPTriggerScanner(db)
+            erp_alerts = await erp_scanner.scan_all()
+
+            all_alerts = base_alerts + erp_alerts
+
+            # 篩選 warning 以上持久化至 DB
+            severity_order = {"critical": 3, "warning": 2, "info": 1}
+            actionable = [
+                a for a in all_alerts
+                if severity_order.get(a.severity, 0) >= 2
+            ]
+
+            persisted = 0
+            for alert in actionable:
+                ok = await _safe_create_notification(
+                    notification_type="proactive_alert",
+                    severity=alert.severity,
+                    title=alert.title,
+                    message=alert.message,
+                    source_table=alert.entity_type,
+                    source_id=alert.entity_id,
+                    changes=alert.metadata,
+                )
+                if ok:
+                    persisted += 1
+
+            logger.info(
+                f"NemoClaw 吹哨者完成: "
+                f"掃描={len(all_alerts)}, "
+                f"warning+={len(actionable)}, "
+                f"已通知={persisted}"
+            )
+
+            # LINE 推播 (嘗試性，失敗不影響主流程)
+            try:
+                from app.services.line_push_scheduler import LinePushScheduler
+                push_scheduler = LinePushScheduler(db)
+                push_result = await push_scheduler.scan_and_push(min_severity="warning")
+                if push_result.get("sent", 0) > 0:
+                    logger.info(f"LINE 推播完成: {push_result}")
+            except Exception as line_err:
+                logger.debug(f"LINE 推播跳過: {line_err}")
+
+    except Exception as e:
+        logger.error(f"NemoClaw 夜間吹哨者失敗: {e}", exc_info=True)
+
+
 def setup_scheduler(
     reminder_interval_minutes: int = 5,
     cleanup_hour: int = 2,
@@ -145,6 +214,18 @@ def setup_scheduler(
         logger.info("已添加電子發票同步任務: 每日 01:00 執行")
     else:
         logger.info("電子發票同步未啟用 (MOF_APP_ID 未設定)")
+
+    # 添加 NemoClaw 夜間吹哨者 — 每日 00:30 掃描預算/逾期/待核銷
+    scheduler.add_job(
+        proactive_trigger_scan_job,
+        trigger=CronTrigger(hour=0, minute=30),
+        id='proactive_trigger_scan',
+        name='NemoClaw 夜間吹哨者 (預算/逾期/待核銷)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    logger.info("已添加 NemoClaw 夜間吹哨者: 每日 00:30 執行")
 
     return scheduler
 

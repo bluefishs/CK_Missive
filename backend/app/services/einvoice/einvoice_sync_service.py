@@ -11,19 +11,20 @@
 4. 抓取每筆發票明細寫入 ExpenseInvoiceItem
 5. 記錄同步批次至 EInvoiceSyncLog
 
-Version: 1.0.0
+Version: 1.1.0
 Created: 2026-03-21
+Updated: 2026-03-21 — 遷移至 EInvoiceSyncRepository
 """
 import logging
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.extended.models.invoice import ExpenseInvoice, ExpenseInvoiceItem
 from app.extended.models.einvoice_sync import EInvoiceSyncLog
+from app.repositories.erp.einvoice_sync_repository import EInvoiceSyncRepository
 from app.services.einvoice.mof_api_client import MofApiClient, MofApiError
 
 logger = logging.getLogger(__name__)
@@ -33,7 +34,7 @@ class EInvoiceSyncService:
     """電子發票自動同步服務"""
 
     def __init__(self, db: AsyncSession, client: Optional[MofApiClient] = None):
-        self.db = db
+        self.repo = EInvoiceSyncRepository(db)
         self.client = client or MofApiClient()
 
     async def sync_invoices(
@@ -67,8 +68,7 @@ class EInvoiceSyncService:
             query_end=end_date,
             status="running",
         )
-        self.db.add(sync_log)
-        await self.db.flush()
+        await self.repo.create_sync_log(sync_log)
 
         stats = {
             "sync_log_id": sync_log.id,
@@ -86,7 +86,7 @@ class EInvoiceSyncService:
             logger.info(f"財政部 API 回傳 {len(invoices)} 筆發票 ({start_date} ~ {end_date})")
 
             # 2. 過濾已存在的發票
-            existing_nums = await self._get_existing_inv_nums(
+            existing_nums = await self.repo.get_existing_inv_nums(
                 [inv["inv_num"] for inv in invoices]
             )
 
@@ -124,13 +124,13 @@ class EInvoiceSyncService:
             if stats["errors"]:
                 sync_log.error_message = "\n".join(stats["errors"][:10])
 
-            await self.db.commit()
+            await self.repo.commit()
 
         except MofApiError as e:
             sync_log.status = "failed"
             sync_log.error_message = str(e)
             sync_log.completed_at = datetime.now()
-            await self.db.commit()
+            await self.repo.commit()
             logger.error(f"財政部 API 同步失敗: {e}")
             stats["status"] = "failed"
             stats["error"] = str(e)
@@ -139,7 +139,7 @@ class EInvoiceSyncService:
             sync_log.status = "failed"
             sync_log.error_message = str(e)
             sync_log.completed_at = datetime.now()
-            await self.db.commit()
+            await self.repo.commit()
             logger.error(f"發票同步異常: {e}", exc_info=True)
             stats["status"] = "failed"
             stats["error"] = str(e)
@@ -152,17 +152,6 @@ class EInvoiceSyncService:
             f"新增={stats['new_imported']}, 重複={stats['skipped_duplicate']}"
         )
         return stats
-
-    async def _get_existing_inv_nums(self, inv_nums: list[str]) -> set[str]:
-        """批量查詢已存在的發票號碼"""
-        if not inv_nums:
-            return set()
-        result = await self.db.execute(
-            select(ExpenseInvoice.inv_num).where(
-                ExpenseInvoice.inv_num.in_(inv_nums)
-            )
-        )
-        return {row[0] for row in result.fetchall()}
 
     async def _create_invoice(self, inv_data: dict) -> ExpenseInvoice:
         """從 API 資料建立 ExpenseInvoice"""
@@ -180,9 +169,7 @@ class EInvoiceSyncService:
             mof_period=inv_data.get("inv_period"),
             synced_at=datetime.now(),
         )
-        self.db.add(invoice)
-        await self.db.flush()
-        return invoice
+        return await self.repo.create_invoice(invoice)
 
     async def _fetch_and_save_details(
         self, invoice: ExpenseInvoice, inv_date: date
@@ -200,7 +187,7 @@ class EInvoiceSyncService:
                     unit_price=item_data["unit_price"],
                     amount=item_data["amount"],
                 )
-                self.db.add(item)
+                await self.repo.add_invoice_item(item)
             return bool(items)
         except MofApiError as e:
             logger.warning(f"發票 {invoice.inv_num} 明細查詢失敗: {e}")
@@ -215,24 +202,7 @@ class EInvoiceSyncService:
 
         給報帳員手機端使用，列出所有從財政部同步但尚未上傳收據的發票。
         """
-        from sqlalchemy import func as sa_func
-
-        count_q = select(sa_func.count()).select_from(ExpenseInvoice).where(
-            ExpenseInvoice.status == "pending_receipt"
-        )
-        total = (await self.db.execute(count_q)).scalar() or 0
-
-        query = (
-            select(ExpenseInvoice)
-            .where(ExpenseInvoice.status == "pending_receipt")
-            .order_by(ExpenseInvoice.date.desc())
-            .offset(skip)
-            .limit(limit)
-        )
-        result = await self.db.execute(query)
-        items = list(result.scalars().all())
-
-        return items, total
+        return await self.repo.get_pending_receipts(skip, limit)
 
     async def attach_receipt(
         self,
@@ -254,7 +224,7 @@ class EInvoiceSyncService:
         Returns:
             更新後的 ExpenseInvoice
         """
-        invoice = await self.db.get(ExpenseInvoice, invoice_id)
+        invoice = await self.repo.get_invoice_by_id(invoice_id)
         if not invoice:
             return None
 
@@ -263,33 +233,12 @@ class EInvoiceSyncService:
                 f"發票狀態為 {invoice.status}，僅 pending_receipt 可上傳收據"
             )
 
-        invoice.receipt_image_path = receipt_path
-        invoice.status = "pending"  # 轉為待審核
-        invoice.user_id = user_id
-        if case_code is not None:
-            invoice.case_code = case_code
-        if category is not None:
-            invoice.category = category
-
-        await self.db.flush()
-        await self.db.refresh(invoice)
-        return invoice
+        return await self.repo.update_invoice_receipt(
+            invoice, receipt_path, case_code, category, user_id
+        )
 
     async def get_sync_logs(
         self, skip: int = 0, limit: int = 10
     ) -> tuple[list[EInvoiceSyncLog], int]:
         """取得同步歷史記錄"""
-        from sqlalchemy import func as sa_func
-
-        count_q = select(sa_func.count()).select_from(EInvoiceSyncLog)
-        total = (await self.db.execute(count_q)).scalar() or 0
-
-        query = (
-            select(EInvoiceSyncLog)
-            .order_by(EInvoiceSyncLog.started_at.desc())
-            .offset(skip)
-            .limit(limit)
-        )
-        result = await self.db.execute(query)
-        items = list(result.scalars().all())
-        return items, total
+        return await self.repo.get_sync_logs(skip, limit)

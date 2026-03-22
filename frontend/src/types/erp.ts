@@ -153,3 +153,455 @@ export const ERP_CATEGORY_CODES: Record<string, string> = {
   '03': '追加減',
   '99': '其他',
 };
+
+// ============================================================================
+// 費用報銷模組 (ExpenseInvoice) — 對應 schemas/erp/expense.py
+// ============================================================================
+
+/** 支援幣別 (ISO 4217) — 與後端 SUPPORTED_CURRENCIES 同步 */
+export type SupportedCurrency = 'TWD' | 'USD' | 'CNY' | 'JPY' | 'EUR';
+
+export const CURRENCY_OPTIONS: { value: SupportedCurrency; label: string }[] = [
+  { value: 'TWD', label: 'TWD 新台幣' },
+  { value: 'USD', label: 'USD 美元' },
+  { value: 'CNY', label: 'CNY 人民幣' },
+  { value: 'JPY', label: 'JPY 日圓' },
+  { value: 'EUR', label: 'EUR 歐元' },
+];
+
+export const CURRENCY_SYMBOLS: Record<SupportedCurrency, string> = {
+  TWD: 'NT$',
+  USD: '$',
+  CNY: '¥',
+  JPY: '¥',
+  EUR: '€',
+};
+
+/** 費用分類 — 與後端 EXPENSE_CATEGORIES Literal 同步 */
+export type ExpenseCategory =
+  | '交通費' | '差旅費' | '文具及印刷' | '郵電費' | '水電費'
+  | '保險費' | '租金' | '維修費' | '雜費' | '設備採購'
+  | '外包及勞務' | '訓練費' | '材料費' | '報銷及費用' | '其他';
+
+export const EXPENSE_CATEGORY_OPTIONS: { value: ExpenseCategory; label: string }[] = [
+  { value: '交通費', label: '交通費' },
+  { value: '差旅費', label: '差旅費' },
+  { value: '文具及印刷', label: '文具及印刷' },
+  { value: '郵電費', label: '郵電費' },
+  { value: '水電費', label: '水電費' },
+  { value: '保險費', label: '保險費' },
+  { value: '租金', label: '租金' },
+  { value: '維修費', label: '維修費' },
+  { value: '雜費', label: '雜費' },
+  { value: '設備採購', label: '設備採購' },
+  { value: '外包及勞務', label: '外包及勞務' },
+  { value: '訓練費', label: '訓練費' },
+  { value: '材料費', label: '材料費' },
+  { value: '報銷及費用', label: '報銷及費用' },
+  { value: '其他', label: '其他' },
+];
+
+/** 費用發票來源 */
+export type ExpenseSource = 'qr_scan' | 'manual' | 'api' | 'ocr' | 'mof_sync';
+
+/** 費用發票狀態 — Phase 5-5 多層審核 */
+export type ExpenseInvoiceStatus =
+  | 'pending'           // 待主管審核
+  | 'pending_receipt'   // 待上傳收據
+  | 'manager_approved'  // 主管已核准
+  | 'finance_approved'  // 財務已核准
+  | 'verified'          // 最終通過 (已入帳)
+  | 'rejected';         // 已駁回
+
+export const EXPENSE_STATUS_LABELS: Record<ExpenseInvoiceStatus, string> = {
+  pending: '待主管審核',
+  pending_receipt: '待上傳收據',
+  manager_approved: '主管已核准',
+  finance_approved: '財務已核准',
+  verified: '最終通過',
+  rejected: '已駁回',
+};
+
+export const EXPENSE_STATUS_COLORS: Record<ExpenseInvoiceStatus, string> = {
+  pending: 'orange',
+  pending_receipt: 'blue',
+  manager_approved: 'cyan',
+  finance_approved: 'geekblue',
+  verified: 'green',
+  rejected: 'red',
+};
+
+/** 審核金額門檻 (TWD) — 與後端 APPROVAL_THRESHOLD 同步 */
+export const APPROVAL_THRESHOLD = 30000;
+
+export const EXPENSE_SOURCE_LABELS: Record<ExpenseSource, string> = {
+  qr_scan: 'QR 掃描',
+  manual: '手動輸入',
+  api: 'API',
+  ocr: 'OCR 辨識',
+  mof_sync: '財政部同步',
+};
+
+/** 費用發票明細項目 */
+export interface ExpenseInvoiceItem {
+  id: number;
+  invoice_id: number;
+  item_name: string;
+  qty: number;
+  unit_price: number;
+  amount: number;
+}
+
+export interface ExpenseInvoiceItemCreate {
+  item_name: string;
+  qty: number;
+  unit_price: number;
+  amount: number;
+}
+
+/** 費用報銷發票 */
+export interface ExpenseInvoice {
+  id: number;
+  inv_num: string;
+  date: string;
+  amount: number;
+  tax_amount?: number;
+  buyer_ban?: string;
+  seller_ban?: string;
+  case_code?: string;
+  category?: ExpenseCategory;
+  source: ExpenseSource;
+  notes?: string;
+  user_id?: number;
+  status: ExpenseInvoiceStatus;
+  source_image_path?: string;
+  receipt_image_path?: string;
+  items: ExpenseInvoiceItem[];
+  // 多幣別 (Phase 5-4)
+  currency: SupportedCurrency;
+  original_amount?: number;
+  exchange_rate?: number;
+  // 多層審核 (Phase 5-5)
+  approval_level?: string;
+  next_approval?: string;
+}
+
+export interface ExpenseInvoiceCreate {
+  inv_num: string;
+  date: string;
+  amount: number;
+  tax_amount?: number;
+  buyer_ban?: string;
+  seller_ban?: string;
+  case_code?: string;
+  category?: ExpenseCategory;
+  source?: ExpenseSource;
+  notes?: string;
+  items?: ExpenseInvoiceItemCreate[];
+  // 多幣別 (Phase 5-4)
+  currency?: SupportedCurrency;
+  original_amount?: number;
+  exchange_rate?: number;
+}
+
+export interface ExpenseInvoiceUpdate {
+  category?: ExpenseCategory;
+  notes?: string;
+  status?: string;
+}
+
+/** OCR 辨識結果 */
+export interface ExpenseInvoiceOCRResult {
+  inv_num?: string;
+  date?: string;
+  amount?: number;
+  tax_amount?: number;
+  buyer_ban?: string;
+  seller_ban?: string;
+  raw_text: string;
+  confidence: number;
+  warnings: string[];
+  source_image_path?: string;
+}
+
+export interface ExpenseInvoiceQuery {
+  case_code?: string;
+  category?: string;
+  status?: string;
+  date_from?: string;
+  date_to?: string;
+  user_id?: number;
+  skip?: number;
+  limit?: number;
+}
+
+export interface ExpenseInvoiceRejectRequest {
+  id: number;
+  reason?: string;
+}
+
+export interface ExpenseInvoiceQRScanRequest {
+  raw_qr: string;
+  case_code?: string;
+  category?: ExpenseCategory;
+}
+
+// ============================================================================
+// 統一帳本模組 (FinanceLedger) — 對應 schemas/erp/ledger.py
+// ============================================================================
+
+/** 帳本類型 */
+export type LedgerEntryType = 'income' | 'expense';
+
+export const LEDGER_ENTRY_TYPE_LABELS: Record<LedgerEntryType, string> = {
+  income: '收入',
+  expense: '支出',
+};
+
+/** 帳本記錄 */
+export interface FinanceLedger {
+  id: number;
+  amount: number;
+  entry_type: LedgerEntryType;
+  category?: string;
+  description?: string;
+  case_code?: string;
+  transaction_date?: string;
+  user_id?: number;
+  source_type: string;
+  source_id?: number;
+}
+
+export interface LedgerCreate {
+  amount: number;
+  entry_type: LedgerEntryType;
+  category?: string;
+  description?: string;
+  case_code?: string;
+  transaction_date?: string;
+}
+
+export interface LedgerQuery {
+  case_code?: string;
+  entry_type?: LedgerEntryType;
+  category?: string;
+  date_from?: string;
+  date_to?: string;
+  user_id?: number;
+  skip?: number;
+  limit?: number;
+}
+
+export interface LedgerBalanceRequest {
+  case_code: string;
+}
+
+export interface LedgerCategoryBreakdownRequest {
+  case_code?: string;
+  date_from?: string;
+  date_to?: string;
+  entry_type?: LedgerEntryType;
+}
+
+export interface LedgerBalance {
+  income: number;
+  expense: number;
+  net: number;
+}
+
+export interface LedgerCategoryBreakdown {
+  category: string;
+  total: number;
+  count: number;
+}
+
+// ============================================================================
+// 財務彙總模組 (FinancialSummary) — 對應 schemas/erp/financial_summary.py
+// ============================================================================
+
+/** 單一專案財務彙總 */
+export interface ProjectFinancialSummary {
+  case_code: string;
+  case_name?: string;
+  budget_total?: number;
+  quotation_total?: number;
+  billed_amount: number;
+  received_amount: number;
+  vendor_payable_total: number;
+  vendor_paid_total: number;
+  expense_invoice_count: number;
+  expense_invoice_total: number;
+  total_income: number;
+  total_expense: number;
+  net_balance: number;
+  budget_used_percentage?: number;
+  budget_alert?: string;
+}
+
+/** 全公司財務總覽 */
+export interface CompanyFinancialOverview {
+  period_start: string;
+  period_end: string;
+  total_income: number;
+  total_expense: number;
+  net_balance: number;
+  expense_by_category: Record<string, number>;
+  project_expense: number;
+  operation_expense: number;
+  top_projects: ProjectFinancialSummary[];
+}
+
+export interface ProjectSummaryRequest {
+  case_code: string;
+}
+
+export interface AllProjectsSummaryRequest {
+  year?: number;
+  skip?: number;
+  limit?: number;
+}
+
+export interface CompanyOverviewRequest {
+  date_from?: string;
+  date_to?: string;
+  year?: number;
+  top_n?: number;
+}
+
+// ============================================================================
+// Dashboard 擴展 (Phase 7-D) — 月度趨勢 + 預算排行
+// ============================================================================
+
+/** 月度收支趨勢請求 */
+export interface MonthlyTrendRequest {
+  months?: number;
+  case_code?: string;
+}
+
+/** 單月收支 */
+export interface MonthlyTrendItem {
+  month: string;
+  income: number;
+  expense: number;
+  net: number;
+}
+
+/** 月度收支趨勢回應 */
+export interface MonthlyTrendResponse {
+  months: MonthlyTrendItem[];
+  case_code?: string;
+}
+
+/** 預算使用率排行請求 */
+export interface BudgetRankingRequest {
+  top_n?: number;
+  order?: 'asc' | 'desc';
+}
+
+/** 預算排行項目 */
+export interface BudgetRankingItem {
+  case_code: string;
+  case_name?: string;
+  budget_total?: number;
+  total_expense: number;
+  total_income: number;
+  usage_pct?: number;
+  alert: string;
+}
+
+/** 預算使用率排行回應 */
+export interface BudgetRankingResponse {
+  items: BudgetRankingItem[];
+  total_projects: number;
+}
+
+/** 匯出費用報銷 Excel 請求 */
+export interface ExportExpensesRequest {
+  date_from?: string;
+  date_to?: string;
+  case_code?: string;
+  status?: string;
+}
+
+/** 匯出帳本 Excel 請求 */
+export interface ExportLedgerRequest {
+  date_from?: string;
+  date_to?: string;
+  case_code?: string;
+  entry_type?: string;
+}
+
+// ============================================================================
+// 電子發票同步模組 (EInvoiceSync) — 對應 schemas/erp/einvoice_sync.py
+// ============================================================================
+
+export interface EInvoiceSyncRequest {
+  start_date?: string;
+  end_date?: string;
+}
+
+export interface EInvoiceSyncLog {
+  id: number;
+  buyer_ban: string;
+  query_start: string;
+  query_end: string;
+  status: string;
+  total_fetched: number;
+  new_imported: number;
+  skipped_duplicate: number;
+  detail_fetched: number;
+  error_message?: string;
+  started_at?: string;
+  completed_at?: string;
+}
+
+export interface EInvoiceSyncLogQuery {
+  skip?: number;
+  limit?: number;
+}
+
+export interface ReceiptUploadRequest {
+  invoice_id: number;
+  case_code?: string;
+  category?: string;
+}
+
+export interface PendingReceiptQuery {
+  skip?: number;
+  limit?: number;
+}
+
+// ============================================================================
+// API Response Wrappers — 各 API 服務共用分頁回應型別
+// ============================================================================
+
+export interface ExpenseListResponse {
+  items: ExpenseInvoice[];
+  total: number;
+}
+
+export interface LedgerListResponse {
+  items: FinanceLedger[];
+  total: number;
+}
+
+export interface ProjectsSummaryResponse {
+  items: ProjectFinancialSummary[];
+  total: number;
+}
+
+export interface SyncResult {
+  total_fetched: number;
+  new_imported: number;
+  skipped_duplicate: number;
+}
+
+export interface PendingListResponse {
+  items: ExpenseInvoice[];
+  total: number;
+}
+
+export interface SyncLogsResponse {
+  items: EInvoiceSyncLog[];
+  total: number;
+}

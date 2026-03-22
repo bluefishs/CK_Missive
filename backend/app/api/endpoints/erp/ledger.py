@@ -1,7 +1,7 @@
 """統一帳本 API 端點 (POST-only)"""
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.core.dependencies import get_service, optional_auth
+from app.core.dependencies import get_service, optional_auth, require_auth
 from app.extended.models import User
 from app.services.finance_ledger_service import FinanceLedgerService
 from app.schemas.erp.ledger import (
@@ -20,6 +20,7 @@ router = APIRouter()
 async def list_ledger(
     params: LedgerQuery,
     service: FinanceLedgerService = Depends(get_service(FinanceLedgerService)),
+    current_user: User = Depends(require_auth()),
 ):
     """帳本記錄列表 (多條件查詢)"""
     items, total = await service.query(params)
@@ -44,6 +45,7 @@ async def create_ledger_entry(
 async def get_ledger_detail(
     params: ERPIdRequest,
     service: FinanceLedgerService = Depends(get_service(FinanceLedgerService)),
+    current_user: User = Depends(require_auth()),
 ):
     """取得帳本記錄詳情"""
     result = await service.get_by_id(params.id)
@@ -56,6 +58,7 @@ async def get_ledger_detail(
 async def get_case_balance(
     params: LedgerBalanceRequest,
     service: FinanceLedgerService = Depends(get_service(FinanceLedgerService)),
+    current_user: User = Depends(require_auth()),
 ):
     """查詢專案收支餘額"""
     result = await service.get_case_balance(params.case_code)
@@ -66,6 +69,7 @@ async def get_case_balance(
 async def get_category_breakdown(
     params: LedgerCategoryBreakdownRequest,
     service: FinanceLedgerService = Depends(get_service(FinanceLedgerService)),
+    current_user: User = Depends(require_auth()),
 ):
     """帳本分類拆解"""
     result = await service.get_category_breakdown(
@@ -81,6 +85,7 @@ async def get_category_breakdown(
 async def delete_ledger_entry(
     params: ERPIdRequest,
     service: FinanceLedgerService = Depends(get_service(FinanceLedgerService)),
+    current_user: User = Depends(require_auth()),
 ):
     """刪除帳本記錄 (僅限手動記帳)"""
     try:

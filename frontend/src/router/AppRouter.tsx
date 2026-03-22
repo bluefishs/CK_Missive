@@ -94,6 +94,11 @@ const PMCaseFormPage = lazy(() => import('../pages/PMCaseFormPage'));
 const ERPQuotationListPage = lazy(() => import('../pages/ERPQuotationListPage'));
 const ERPQuotationDetailPage = lazy(() => import('../pages/ERPQuotationDetailPage'));
 const ERPQuotationFormPage = lazy(() => import('../pages/ERPQuotationFormPage'));
+const ERPExpenseListPage = lazy(() => import('../pages/ERPExpenseListPage'));
+const ERPExpenseDetailPage = lazy(() => import('../pages/ERPExpenseDetailPage'));
+const ERPLedgerPage = lazy(() => import('../pages/ERPLedgerPage'));
+const ERPFinancialDashboardPage = lazy(() => import('../pages/ERPFinancialDashboardPage'));
+const ERPEInvoiceSyncPage = lazy(() => import('../pages/ERPEInvoiceSyncPage'));
 
 // ProtectedRoute 已移至獨立模組：./ProtectedRoute.tsx
 
@@ -239,6 +244,11 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.ERP_QUOTATION_CREATE} element={<ProtectedRoute><ERPQuotationFormPage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_QUOTATION_EDIT} element={<ProtectedRoute><ERPQuotationFormPage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_QUOTATION_DETAIL} element={<ProtectedRoute><ERPQuotationDetailPage /></ProtectedRoute>} />
+          <Route path={ROUTES.ERP_EXPENSES} element={<ProtectedRoute><ERPExpenseListPage /></ProtectedRoute>} />
+          <Route path={ROUTES.ERP_EXPENSE_DETAIL} element={<ProtectedRoute><ERPExpenseDetailPage /></ProtectedRoute>} />
+          <Route path={ROUTES.ERP_LEDGER} element={<ProtectedRoute><ERPLedgerPage /></ProtectedRoute>} />
+          <Route path={ROUTES.ERP_FINANCIAL_DASHBOARD} element={<ProtectedRoute><ERPFinancialDashboardPage /></ProtectedRoute>} />
+          <Route path={ROUTES.ERP_EINVOICE_SYNC} element={<ProtectedRoute><ERPEInvoiceSyncPage /></ProtectedRoute>} />
 
           {/* 需要認證的路由 */}
           {/* /settings 已統一至 /profile */}

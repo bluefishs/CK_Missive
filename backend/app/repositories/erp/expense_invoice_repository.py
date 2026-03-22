@@ -2,7 +2,7 @@ from typing import Optional, List, Tuple
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.repositories.base_repository import BaseRepository
-from app.extended.models.invoice import ExpenseInvoice
+from app.extended.models.invoice import ExpenseInvoice, ExpenseInvoiceItem
 from app.schemas.erp.expense import ExpenseInvoiceQuery
 
 class ExpenseInvoiceRepository(BaseRepository[ExpenseInvoice]):
@@ -56,5 +56,46 @@ class ExpenseInvoiceRepository(BaseRepository[ExpenseInvoice]):
         stmt = stmt.order_by(self.model.created_at.desc()).offset(params.skip).limit(params.limit)
         result = await self.db.execute(stmt)
         items = result.scalars().all()
-        
+
         return list(items), total or 0
+
+    async def create_with_items(
+        self, invoice: ExpenseInvoice, items: List[ExpenseInvoiceItem]
+    ) -> ExpenseInvoice:
+        """新增發票主檔 + 明細項目，flush 取 ID 後逐一加入 items"""
+        self.db.add(invoice)
+        await self.db.flush()
+
+        for item in items:
+            item.invoice_id = invoice.id
+            self.db.add(item)
+
+        await self.db.commit()
+        await self.db.refresh(invoice)
+        return invoice
+
+    async def update_fields(self, invoice: ExpenseInvoice, data: dict) -> ExpenseInvoice:
+        """逐一更新指定欄位"""
+        for key, value in data.items():
+            if value is not None:
+                setattr(invoice, key, value)
+        await self.db.flush()
+        await self.db.refresh(invoice)
+        return invoice
+
+    async def update_status(
+        self, invoice: ExpenseInvoice, status: str, notes_append: Optional[str] = None
+    ) -> ExpenseInvoice:
+        """更新狀態，可選追加備註"""
+        invoice.status = status
+        if notes_append:
+            invoice.notes = (
+                f"{invoice.notes}\n{notes_append}" if invoice.notes else notes_append
+            )
+        await self.db.flush()
+        await self.db.refresh(invoice)
+        return invoice
+
+    async def commit(self):
+        """委派 session commit"""
+        await self.db.commit()

@@ -115,7 +115,7 @@
 
 ---
 
-## v5.1 ERP 財務模組 + Agent Federation v2.0 (2026-03-21)
+## v5.1 ERP 財務模組 Phase 1~7-D + Agent Federation v2.0 (2026-03-22)
 
 ### 新增後端模組
 
@@ -132,11 +132,20 @@
 | `repositories/erp/financial_summary_repository.py` | Repo | 跨模組 JOIN — project_summary + company_overview |
 | `services/expense_invoice_service.py` | Service | QR 解析 + CRUD + 審核入帳 (7 方法) |
 | `services/finance_ledger_service.py` | Service | 帳本記錄 + 餘額 + 分類 (7 方法) |
-| `services/financial_summary_service.py` | Service | 專案/全案/公司級彙總 (128L) |
-| `endpoints/erp/expenses.py` | API | 7 端點 (list/create/detail/update/approve/reject/qr-scan) |
+| `services/financial_summary_service.py` | Service | 專案/全案/公司級彙總 + 月趨勢 + 預算排名 |
+| `services/finance_export_service.py` | Service | 財務報表匯出 (Excel/CSV) |
+| `services/invoice_ocr_service.py` | Service | 發票 OCR 解析 (Tesseract) |
+| `services/einvoice/einvoice_sync_service.py` | Service | MOF 電子發票同步 (HMAC-SHA256 + APScheduler) |
+| `services/ai/cross_domain_contribution_service.py` | Service | 跨域貢獻追蹤 (KG federation) |
+| `repositories/erp/einvoice_sync_repository.py` | Repo | 電子發票同步日誌 + 去重 |
+| `endpoints/erp/expenses.py` | API | 9 端點 (list/create/detail/update/approve/reject/qr-scan/upload-receipt/ocr-parse) |
 | `endpoints/erp/ledger.py` | API | 6 端點 (list/create/detail/balance/category-breakdown/delete) |
-| `endpoints/erp/financial_summary.py` | API | 3 端點 (project/projects/company) |
+| `endpoints/erp/financial_summary.py` | API | 7 端點 (project/projects/company/monthly-trend/budget-ranking/export-expenses/export-ledger) |
+| `endpoints/erp/einvoice_sync.py` | API | 4 端點 (sync/pending-list/upload-receipt/sync-logs) |
 | `alembic/3fc21c653f96` | Migration | 3 表: expense_invoices, expense_invoice_items, finance_ledgers |
+| `alembic/20260321a001` | Migration | 電子發票同步日誌表 einvoice_sync_logs |
+| `alembic/20260321a002` | Migration | 費用多幣別欄位 (currency, exchange_rate) |
+| `alembic/20260322a001` | Migration | KG federation 欄位 (source_system, federation_id) |
 
 ### 修改核心模組
 
@@ -148,11 +157,32 @@
 | `startup.py` | — | BACKEND_PORT 環境變數 + bind-based port 偵測 |
 | `requirements.txt` | — | +4 依賴 (email-validator, PyYAML, APScheduler, prometheus-client) |
 
+### 新增前端模組
+
+| 模組 | 類型 | 說明 |
+|------|------|------|
+| `pages/ERPExpenseListPage.tsx` | Page | 費用報銷列表 (篩選+搜尋+狀態標籤) |
+| `pages/ERPExpenseDetailPage.tsx` | Page | 費用報銷詳情 (明細+審核+收據上傳) |
+| `pages/ERPLedgerPage.tsx` | Page | 統一帳本 (科目分類+餘額) |
+| `pages/ERPFinancialDashboardPage.tsx` | Page | 財務儀表板 (月趨勢+預算排名+Recharts) |
+| `pages/ERPEInvoiceSyncPage.tsx` | Page | 電子發票同步 (MOF 同步狀態+待核銷) |
+| `api/erp/expensesApi.ts` | API | 費用報銷 API (9 端點) |
+| `api/erp/ledgerApi.ts` | API | 統一帳本 API (6 端點) |
+| `api/erp/financialSummaryApi.ts` | API | 財務彙總 API (7 端點) |
+| `api/erp/einvoiceSyncApi.ts` | API | 電子發票同步 API (4 端點) |
+| `hooks/business/useERPFinance.ts` | Hook | ERP 財務 hooks (expenses/ledger/dashboard/einvoice) |
+| `types/erp.ts` | Type | ERP 型別擴充 (+452L: 費用/帳本/發票/儀表板) |
+
 ### 測試
 
 | 檔案 | 測試數 | 說明 |
 |------|--------|------|
-| `tests/unit/test_expense_invoice.py` | 33 | Schema 驗證 + QR 解析 + Service 邏輯 + Query |
+| `tests/unit/test_expense_invoice.py` | 76 | Schema 驗證 + QR 解析 + Service 邏輯 + Query + 安全加固 |
+| `tests/unit/test_finance_export.py` | 19 | 財務報表匯出測試 |
+| `tests/unit/test_invoice_ocr.py` | 11 | 發票 OCR 解析測試 |
+| `tests/unit/test_services/test_financial_dashboard.py` | 13 | 月趨勢 + 預算排名 + Schema 驗證 |
+| `tests/unit/test_services/test_nightly_scanner.py` | 8 | NemoClaw 夜間吹哨者排程測試 |
+| `tests/unit/test_services/test_erp_quotation_service.py` | 26 | 報價 CRUD + 利潤 + 預算控制 |
 | `tests/integration/test_agent_query_sync_v1.py` | — | Agent 同步 API v1 整合測試 |
 
 ---

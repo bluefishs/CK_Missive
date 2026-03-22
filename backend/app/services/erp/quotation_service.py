@@ -1,6 +1,7 @@
 """ERP 報價/成本服務 — 含損益即時計算
 
-Version: 1.2.0
+Version: 1.3.0
+- v1.3.0: create/update/delete 改用 Repository 方法 (合規修正)
 """
 import csv
 import io
@@ -63,14 +64,8 @@ class ERPQuotationService:
             # case_code 參照完整性驗證 — 確認 PM 案件存在
             await self._validate_case_code(dump["case_code"])
 
-        quotation = ERPQuotation(
-            **dump,
-            created_by=user_id,
-        )
-        self.db.add(quotation)
-        await self.db.flush()
-        await self.db.refresh(quotation)
-        await self.db.commit()
+        dump["created_by"] = user_id
+        quotation = await self.repo.create(dump)
         return await self._to_response(quotation)
 
     async def get_detail(self, quotation_id: int) -> Optional[ERPQuotationResponse]:
@@ -82,27 +77,14 @@ class ERPQuotationService:
 
     async def update(self, quotation_id: int, data: ERPQuotationUpdate) -> Optional[ERPQuotationResponse]:
         """更新報價"""
-        quotation = await self.repo.get_by_id(quotation_id)
+        quotation = await self.repo.update(quotation_id, data.model_dump(exclude_unset=True))
         if not quotation:
             return None
-
-        update_data = data.model_dump(exclude_unset=True)
-        for key, value in update_data.items():
-            setattr(quotation, key, value)
-
-        await self.db.flush()
-        await self.db.refresh(quotation)
-        await self.db.commit()
         return await self._to_response(quotation)
 
     async def delete(self, quotation_id: int) -> bool:
         """刪除報價"""
-        quotation = await self.repo.get_by_id(quotation_id)
-        if not quotation:
-            return False
-        await self.db.delete(quotation)
-        await self.db.commit()
-        return True
+        return await self.repo.delete(quotation_id)
 
     async def list_quotations(self, params: ERPQuotationListRequest) -> Tuple[List[ERPQuotationResponse], int]:
         """報價列表 — 使用批次聚合消除 N+1 查詢"""

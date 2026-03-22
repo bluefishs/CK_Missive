@@ -1,6 +1,7 @@
 """ERP 發票服務
 
-Version: 1.0.0
+Version: 1.1.0
+- v1.1.0: CRUD 改用 Repository 方法 (合規修正)
 """
 import logging
 from typing import Optional, List
@@ -8,7 +9,6 @@ from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.extended.models.erp import ERPInvoice
 from app.repositories.erp import ERPInvoiceRepository
 from app.schemas.erp import ERPInvoiceCreate, ERPInvoiceUpdate, ERPInvoiceResponse
 
@@ -24,11 +24,7 @@ class ERPInvoiceService:
 
     async def create(self, data: ERPInvoiceCreate) -> ERPInvoiceResponse:
         """建立發票"""
-        invoice = ERPInvoice(**data.model_dump())
-        self.db.add(invoice)
-        await self.db.flush()
-        await self.db.refresh(invoice)
-        await self.db.commit()
+        invoice = await self.repo.create(data.model_dump())
         return ERPInvoiceResponse.model_validate(invoice)
 
     async def get_by_quotation(self, quotation_id: int) -> List[ERPInvoiceResponse]:
@@ -48,19 +44,9 @@ class ERPInvoiceService:
         if update_data.get("status") == "voided" and invoice.status != "voided":
             update_data["voided_at"] = datetime.utcnow()
 
-        for key, value in update_data.items():
-            setattr(invoice, key, value)
-
-        await self.db.flush()
-        await self.db.refresh(invoice)
-        await self.db.commit()
+        invoice = await self.repo.update(invoice_id, update_data)
         return ERPInvoiceResponse.model_validate(invoice)
 
     async def delete(self, invoice_id: int) -> bool:
         """刪除發票"""
-        invoice = await self.repo.get_by_id(invoice_id)
-        if not invoice:
-            return False
-        await self.db.delete(invoice)
-        await self.db.commit()
-        return True
+        return await self.repo.delete(invoice_id)

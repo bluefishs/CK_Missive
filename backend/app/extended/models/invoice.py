@@ -36,9 +36,17 @@ class ExpenseInvoice(Base):
     category = Column(String(50), nullable=True,
                       comment="費用分類: 交通/餐費/設備/文具/差旅/其他")
     status = Column(String(20), nullable=False, server_default="pending",
-                    comment="pending / processed / verified / rejected")
+                    comment="pending / pending_receipt / manager_approved / finance_approved / verified / rejected")
     source = Column(String(20), nullable=False, server_default="manual",
                     comment="qr_scan / manual / api / ocr / mof_sync")
+    # 多幣別支援 (Phase 5-4)
+    currency = Column(String(3), nullable=False, server_default="TWD",
+                      comment="幣別 (ISO 4217: TWD/USD/CNY/JPY/EUR)")
+    original_amount = Column(Numeric(15, 2), nullable=True,
+                             comment="原始幣別金額 (非 TWD 時填入)")
+    exchange_rate = Column(Numeric(10, 6), nullable=True,
+                           comment="匯率 (original_amount × exchange_rate = amount)")
+
     source_image_path = Column(String(500), nullable=True, comment="原始圖檔路徑")
     receipt_image_path = Column(String(500), nullable=True,
                                 comment="收據影本路徑 (報帳員上傳)")

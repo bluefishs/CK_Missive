@@ -2,10 +2,12 @@
 知識圖譜 Pydantic Schema
 
 Phase 2 正規化實體查詢/管理的 Request/Response Schema。
+Phase 3 跨專案聯邦 Federation 的 Contribution/Search Schema。
 對應前端型別: frontend/src/api/ai/types.ts (KG* 系列)
 
-Version: 1.0.0
+Version: 1.1.0
 Created: 2026-02-24
+Updated: 2026-03-22 — KG Federation schemas
 """
 from typing import Any, Dict, List, Optional
 
@@ -529,3 +531,87 @@ class KGDbGraphResponse(BaseModel):
     nodes: List[KGDbGraphNode] = []
     edges: List[KGDbGraphEdge] = []
     error: Optional[str] = None
+
+
+# ============================================================================
+# 跨專案聯邦 (KG Federation, v1.1.0)
+# ============================================================================
+
+
+class EntityContribution(BaseModel):
+    """單一實體貢獻（由外部專案提交）"""
+    entity_type: str = Field(..., min_length=1, max_length=50, description="實體類型")
+    canonical_name: str = Field(..., min_length=1, max_length=300, description="正規化名稱")
+    external_id: str = Field(..., min_length=1, max_length=255, description="來源專案原始 ID")
+    description: Optional[str] = Field(None, max_length=500, description="實體描述")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="附加元資料 (座標/嚴重度/etc)")
+    aliases: List[str] = Field(default_factory=list, description="別名列表")
+
+    model_config = {"extra": "ignore"}
+
+
+class RelationContribution(BaseModel):
+    """單一關係貢獻（由外部專案提交）"""
+    source_external_id: str = Field(..., description="來源實體的 external_id")
+    source_type: str = Field(..., description="來源實體類型")
+    target_external_id: str = Field(..., description="目標實體的 external_id")
+    target_type: str = Field(..., description="目標實體類型")
+    relation_type: str = Field(..., max_length=100, description="關係類型")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="關係元資料")
+
+    model_config = {"extra": "ignore"}
+
+
+class FederatedContributionRequest(BaseModel):
+    """跨專案聯邦貢獻請求"""
+    source_project: str = Field(..., description="來源專案: ck-lvrland | ck-tunnel")
+    contributions: List[EntityContribution] = Field(..., min_length=1, max_length=500)
+    relations: List[RelationContribution] = Field(default_factory=list, max_length=500)
+
+    model_config = {"extra": "ignore"}
+
+
+class ResolvedEntity(BaseModel):
+    """單一實體解析結果"""
+    external_id: str
+    hub_entity_id: int
+    resolution: str = Field(description="exact_match | fuzzy_match | semantic_match | created")
+    canonical_name: str
+
+
+class FederatedContributionResponse(BaseModel):
+    """跨專案聯邦貢獻回應"""
+    success: bool = True
+    resolved: List[ResolvedEntity] = []
+    relations_created: int = 0
+    processing_ms: int = 0
+    message: Optional[str] = None
+
+
+class FederatedSearchRequest(BaseModel):
+    """跨專案聯邦搜尋請求"""
+    query: str = Field(..., min_length=1, max_length=200, description="搜尋關鍵字")
+    entity_types: Optional[List[str]] = Field(None, description="實體類型篩選")
+    source_projects: Optional[List[str]] = Field(None, description="來源專案篩選")
+    max_hops: int = Field(default=2, ge=1, le=4, description="最大跳數 (鄰居查詢)")
+    limit: int = Field(default=50, ge=1, le=200, description="最大結果數")
+
+
+class FederatedGraphNode(BaseModel):
+    """跨專案圖譜節點（含來源標記）"""
+    id: int
+    name: str
+    type: str
+    source_project: str = "ck-missive"
+    mention_count: int = 0
+    external_id: Optional[str] = None
+    hop: int = 0
+
+
+class FederatedSearchResponse(BaseModel):
+    """跨專案聯邦搜尋回應"""
+    success: bool = True
+    nodes: List[FederatedGraphNode] = []
+    edges: List[KGGraphEdge] = []
+    total: int = 0
+    source_projects_found: List[str] = []

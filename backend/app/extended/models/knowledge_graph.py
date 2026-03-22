@@ -2,6 +2,7 @@
 9. 知識圖譜正規化模型 (Knowledge Graph Canonical Models)
 
 Phase 2: 正規化實體 + 時態關係 + 入圖事件
+Phase 3: 跨專案聯邦 (Federation) — source_project + external_id + external_meta
 
 - CanonicalEntity: 正規化實體（去重合併後的唯一實體）
 - EntityAlias: 實體別名（多個表面名稱 → 同一正規實體）
@@ -9,8 +10,9 @@ Phase 2: 正規化實體 + 時態關係 + 入圖事件
 - EntityRelationship: 正規化的實體關係（含時態追蹤）
 - GraphIngestionEvent: 入圖事件日誌（Episode 層）
 
-Version: 1.0.0
+Version: 1.1.0
 Created: 2026-02-24
+Updated: 2026-03-22 — KG Federation columns
 """
 from ._base import *
 
@@ -38,6 +40,20 @@ class CanonicalEntity(Base):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
+    # === 跨專案聯邦欄位 (KG Federation, v1.1.0) ===
+    source_project = Column(
+        String(50), nullable=False, server_default="ck-missive", index=True,
+        comment="來源專案: ck-missive | ck-lvrland | ck-tunnel",
+    )
+    external_id = Column(
+        String(255), nullable=True,
+        comment="來源專案的原始 ID (UUID/land_no14/etc)",
+    )
+    external_meta = Column(
+        JSONB, nullable=True, server_default="{}",
+        comment="來源專案的附加元資料 (座標/嚴重度/分區/etc)",
+    )
+
     # 結構化 FK 連結
     linked_agency_id = Column(
         Integer,
@@ -60,7 +76,9 @@ class CanonicalEntity(Base):
 
     __table_args__ = (
         UniqueConstraint("canonical_name", "entity_type", name="uq_canonical_name_type"),
+        UniqueConstraint("source_project", "external_id", "entity_type", name="uq_source_ext_type"),
         Index("ix_canonical_entity_name_trgm", "canonical_name"),
+        Index("ix_canonical_entity_source_ext", "source_project", "external_id"),
     )
 
     def __repr__(self):
@@ -166,6 +184,12 @@ class EntityRelationship(Base):
     )
     document_count = Column(Integer, default=1, comment="佐證公文數")
 
+    # 跨專案聯邦欄位 (KG Federation, v1.1.0)
+    source_project = Column(
+        String(50), nullable=False, server_default="ck-missive",
+        comment="建立此關係的來源專案",
+    )
+
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -178,6 +202,7 @@ class EntityRelationship(Base):
         Index("ix_entity_relationship_src_tgt", "source_entity_id", "target_entity_id"),
         Index("ix_entity_relationship_type", "relation_type"),
         Index("ix_entity_relationship_valid", "valid_from", "valid_to"),
+        Index("ix_entity_relationship_source_project", "source_project"),
     )
 
     def __repr__(self):

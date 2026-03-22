@@ -54,6 +54,12 @@ from app.schemas.knowledge_graph import (
     KGModuleOverviewResponse,
     KGDbSchemaResponse,
     KGDbGraphResponse,
+    # KG Federation (v1.1.0)
+    FederatedContributionRequest,
+    FederatedContributionResponse,
+    FederatedSearchRequest,
+    FederatedSearchResponse,
+    FederatedGraphNode,
 )
 
 logger = logging.getLogger(__name__)
@@ -1009,3 +1015,122 @@ async def get_agent_proactive_alerts(
             "unread_notifications": 0,
             "total_alerts": 0,
         }
+
+
+# ============================================================================
+# 跨專案聯邦 (KG Federation, v1.1.0)
+# ============================================================================
+
+
+@router.post(
+    "/graph/federated-contribute",
+    response_model=FederatedContributionResponse,
+    summary="跨專案聯邦貢獻 — 接收外部專案的實體與關係",
+)
+async def federated_contribute(
+    request: FederatedContributionRequest,
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    接收外部專案 (ck-lvrland, ck-tunnel) 的實體貢獻。
+
+    透過 NemoClaw service-token 認證（不需使用者登入），
+    將實體正規化後存入 KG Hub。
+
+    @security 使用 MCP_SERVICE_TOKEN 認證，非使用者端點
+    """
+    from app.services.ai.cross_domain_contribution_service import (
+        CrossDomainContributionService,
+    )
+    try:
+        svc = CrossDomainContributionService(db)
+        return await svc.process_contribution(request)
+    except Exception as e:
+        logger.error("Federation contribute failed: %s", e, exc_info=True)
+        return FederatedContributionResponse(
+            success=False, message=str(e),
+        )
+
+
+@router.post(
+    "/graph/federated-search",
+    response_model=FederatedSearchResponse,
+    summary="跨專案聯邦搜尋 — 搜尋含來源標記的實體",
+)
+async def federated_search(
+    request: FederatedSearchRequest,
+    current_user: User = Depends(require_auth()),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    跨專案實體搜尋，回傳含 source_project 標記的節點與邊。
+    支援按來源專案和實體類型篩選。
+    """
+    from sqlalchemy import select, and_, or_
+    from app.extended.models import CanonicalEntity, EntityRelationship
+
+    try:
+        # 建立查詢條件
+        conditions = [CanonicalEntity.canonical_name.ilike(f"%{request.query}%")]
+        if request.entity_types:
+            conditions.append(CanonicalEntity.entity_type.in_(request.entity_types))
+        if request.source_projects:
+            conditions.append(CanonicalEntity.source_project.in_(request.source_projects))
+
+        result = await db.execute(
+            select(CanonicalEntity)
+            .where(and_(*conditions))
+            .order_by(CanonicalEntity.mention_count.desc())
+            .limit(request.limit)
+        )
+        entities = result.scalars().all()
+
+        nodes = [
+            FederatedGraphNode(
+                id=e.id,
+                name=e.canonical_name,
+                type=e.entity_type,
+                source_project=e.source_project,
+                mention_count=e.mention_count or 0,
+                external_id=e.external_id,
+            )
+            for e in entities
+        ]
+
+        # 取得相關的邊
+        entity_ids = [e.id for e in entities]
+        edges = []
+        if entity_ids:
+            edge_result = await db.execute(
+                select(EntityRelationship).where(
+                    and_(
+                        or_(
+                            EntityRelationship.source_entity_id.in_(entity_ids),
+                            EntityRelationship.target_entity_id.in_(entity_ids),
+                        ),
+                        EntityRelationship.invalidated_at.is_(None),
+                    )
+                ).limit(200)
+            )
+            from app.schemas.knowledge_graph import KGGraphEdge
+            for rel in edge_result.scalars().all():
+                edges.append(KGGraphEdge(
+                    source_id=rel.source_entity_id,
+                    target_id=rel.target_entity_id,
+                    relation_type=rel.relation_type,
+                    relation_label=rel.relation_label,
+                    weight=rel.weight or 1.0,
+                ))
+
+        source_projects_found = list(set(e.source_project for e in entities))
+
+        return FederatedSearchResponse(
+            success=True,
+            nodes=nodes,
+            edges=edges,
+            total=len(nodes),
+            source_projects_found=source_projects_found,
+        )
+    except Exception as e:
+        logger.error("Federated search failed: %s", e, exc_info=True)
+        return FederatedSearchResponse(success=False)

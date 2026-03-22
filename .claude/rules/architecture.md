@@ -163,6 +163,18 @@ backend/app/services/
 ├── case_code_service.py        # 案件代碼服務
 ├── vendor_service.py           # 廠商服務
 ├── audit_service.py            # 審計服務 (獨立 session)
+├── erp/                        # ERP 子服務
+│   ├── quotation_service.py   # 報價管理
+│   ├── invoice_service.py     # 開票管理
+│   ├── billing_service.py     # 請款管理
+│   └── vendor_payable_service.py # 廠商應付帳款
+├── einvoice/                   # 電子發票
+│   └── einvoice_sync_service.py # MOF 電子發票同步 (HMAC-SHA256)
+├── expense_invoice_service.py  # 費用報銷 (QR + CRUD + 審核入帳)
+├── finance_ledger_service.py   # 統一帳本 (餘額 + 分類)
+├── financial_summary_service.py # 財務彙總 (專案/全案/公司級)
+├── finance_export_service.py   # 財務報表匯出 (Excel/CSV)
+├── invoice_ocr_service.py      # 發票 OCR 解析 (Tesseract)
 ├── line_bot_service.py         # LINE Bot 整合服務
 ├── line_push_scheduler.py      # LINE 推播排程器
 └── *_service.py                # 其他業務服務
@@ -196,9 +208,10 @@ backend/app/api/endpoints/
 │   ├── cases.py, staff.py, milestones.py
 ├── erp/                    # ERP 財務管理 API (模組化)
 │   ├── quotations.py, vendor_payables.py, billings.py, invoices.py
-│   ├── expenses.py         # 費用報銷 (7 端點: list/create/detail/update/approve/reject/qr-scan)
+│   ├── expenses.py         # 費用報銷 (9 端點: list/create/detail/update/approve/reject/qr-scan/upload-receipt/ocr-parse)
 │   ├── ledger.py            # 統一帳本 (6 端點: list/create/detail/balance/category-breakdown/delete)
-│   └── financial_summary.py # 財務彙總 (3 端點: project/projects/company)
+│   ├── financial_summary.py # 財務彙總 (7 端點: project/projects/company/monthly-trend/budget-ranking/export-expenses/export-ledger)
+│   └── einvoice_sync.py     # 電子發票同步 (4 端點: sync/pending-list/upload-receipt/sync-logs)
 ├── knowledge_base.py      # 知識庫瀏覽器 API (tree/file/adr/diagrams/search)
 ├── line_webhook.py        # LINE Webhook 整合端點
 ├── health.py              # 健康檢查端點 (含 detailed)
@@ -252,14 +265,15 @@ backend/app/repositories/
 │   └── dispatch_project_link_repository.py # DispatchProjectLinkRepository
 ├── # --- PM/ERP ---
 ├── pm/                                # PM Repository (規劃中)
-├── erp/                               # ERP Repository (7 類別)
+├── erp/                               # ERP Repository (8 類別)
 │   ├── quotation_repository.py        # ERPQuotationRepository
 │   ├── invoice_repository.py          # ERPInvoiceRepository
 │   ├── billing_repository.py          # ERPBillingRepository
 │   ├── vendor_payable_repository.py   # ERPVendorPayableRepository
 │   ├── expense_invoice_repository.py  # ExpenseInvoiceRepository — inv_num/case_code/query
 │   ├── ledger_repository.py           # LedgerRepository — balance/category_breakdown
-│   └── financial_summary_repository.py # FinancialSummaryRepository — 跨模組 JOIN
+│   ├── financial_summary_repository.py # FinancialSummaryRepository — 跨模組 JOIN
+│   └── einvoice_sync_repository.py    # EInvoiceSyncRepository — sync_logs/dedup
 ├── # --- Query Builder (3) ---
 └── query_builders/
     ├── document_query_builder.py       # Fluent API — status/date/keyword
@@ -299,6 +313,11 @@ frontend/src/pages/
 │   ├── KnowledgeMapTab.tsx     # 樹狀目錄 + Markdown 渲染
 │   ├── AdrTab.tsx              # ADR 表格 + 狀態標籤 + 詳情
 │   └── DiagramsTab.tsx         # Segmented 切換 + Mermaid 架構圖
+├── ERPExpenseListPage.tsx      # 費用報銷列表 (篩選+搜尋+狀態標籤)
+├── ERPExpenseDetailPage.tsx    # 費用報銷詳情 (明細+審核+收據上傳)
+├── ERPLedgerPage.tsx           # 統一帳本 (科目分類+餘額)
+├── ERPFinancialDashboardPage.tsx # 財務儀表板 (月趨勢+預算排名+Recharts)
+├── ERPEInvoiceSyncPage.tsx     # 電子發票同步 (MOF 同步狀態+待核銷)
 └── ...
 ```
 
@@ -322,6 +341,7 @@ frontend/src/hooks/
 │   ├── useTaoyuanDispatch.ts      # 桃園派工列表
 │   ├── useTaoyuanPayments.ts      # 桃園請款列表
 │   ├── useDropdownData.ts         # 全域下拉快取 (10-30min staleTime)
+│   ├── useERPFinance.ts           # ERP 財務 hooks (expenses/ledger/dashboard/einvoice)
 │   └── createEntityHookWithStore.ts # WithStore Hook 工廠函數
 ├── system/                         # 系統服務 (11 檔)
 │   ├── useCalendar.ts             # 行事曆 CRUD (5 hooks)
@@ -413,7 +433,7 @@ frontend/src/types/
 ├── admin-system.ts     # 系統管理型別
 ├── taoyuan.ts          # 桃園派工型別
 ├── pm.ts               # 專案管理型別 (PM Cases)
-├── erp.ts              # ERP 廠商管理型別 (Quotations)
+├── erp.ts              # ERP 財務型別 (Quotations + Expenses + Ledger + Dashboard + EInvoice)
 ├── navigation.ts       # 導覽型別
 └── index.ts            # 統一匯出 (含相容別名)
 ```

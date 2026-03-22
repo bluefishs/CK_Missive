@@ -35,6 +35,9 @@ erDiagram
     erp_quotations ||--o{ erp_vendor_payables : "erp_quotation_id"
     document_calendar_events ||--o{ event_reminders : "event_id"
     users ||--o{ event_reminders : "recipient_user_id"
+    expense_invoices ||--o{ expense_invoice_items : "invoice_id"
+    users ||--o{ expense_invoices : "user_id"
+    users ||--o{ finance_ledgers : "user_id"
     government_agencies ||--o{ government_agencies : "parent_agency_id"
     documents ||--o{ graph_ingestion_events : "document_id"
     pm_cases ||--o{ pm_case_staff : "pm_case_id"
@@ -199,6 +202,9 @@ erDiagram
         vector embedding
         int linked_agency_id "FK"
         int linked_project_id "FK"
+        varchar source_project "NOT NULL"
+        varchar external_id
+        jsonb external_meta
     }
     contract_projects {
         int id "PK"
@@ -358,6 +364,20 @@ erDiagram
         bool ner_pending "NOT NULL"
         tsvector search_vector
     }
+    einvoice_sync_logs {
+        int id "PK"
+        varchar buyer_ban "NOT NULL"
+        date query_start "NOT NULL"
+        date query_end "NOT NULL"
+        varchar status "NOT NULL"
+        int total_fetched "NOT NULL"
+        int new_imported "NOT NULL"
+        int skipped_duplicate "NOT NULL"
+        int detail_fetched "NOT NULL"
+        text error_message
+        timestamp started_at
+        timestamp completed_at
+    }
     entity_aliases {
         int id "PK"
         varchar alias_name "NOT NULL"
@@ -392,6 +412,7 @@ erDiagram
         int document_count
         timestamp created_at
         timestamp updated_at
+        varchar source_project "NOT NULL"
     }
     erp_billings {
         int id "PK"
@@ -476,6 +497,55 @@ erDiagram
         varchar title
         timestamp sent_at
         int max_retries "NOT NULL"
+    }
+    expense_invoice_items {
+        int id "PK"
+        int invoice_id "FK,NOT NULL"
+        varchar item_name "NOT NULL"
+        numeric qty "NOT NULL"
+        numeric unit_price "NOT NULL"
+        numeric amount "NOT NULL"
+        timestamp created_at
+    }
+    expense_invoices {
+        int id "PK"
+        varchar inv_num "NOT NULL"
+        date date "NOT NULL"
+        numeric amount "NOT NULL"
+        numeric tax_amount
+        varchar buyer_ban
+        varchar seller_ban
+        varchar case_code
+        int user_id "FK"
+        varchar category
+        varchar status "NOT NULL"
+        varchar source "NOT NULL"
+        varchar source_image_path
+        text raw_qr_data
+        varchar notes
+        timestamp created_at
+        timestamp updated_at
+        varchar receipt_image_path
+        varchar mof_invoice_track
+        varchar mof_period
+        timestamp synced_at
+        varchar currency "NOT NULL"
+        numeric original_amount
+        numeric exchange_rate
+    }
+    finance_ledgers {
+        int id "PK"
+        varchar case_code
+        varchar source_type "NOT NULL"
+        int source_id
+        numeric amount "NOT NULL"
+        varchar entry_type "NOT NULL"
+        varchar category
+        varchar description
+        int user_id "FK"
+        date transaction_date "NOT NULL"
+        timestamp created_at
+        timestamp updated_at
     }
     government_agencies {
         int id "PK"
@@ -903,7 +973,7 @@ erDiagram
 
 | 指標 | 數值 |
 |------|------|
-| 總表數 | 52 |
-| 總欄位數 | 719 |
-| 外鍵關聯 | 72 |
+| 總表數 | 56 |
+| 總欄位數 | 778 |
+| 外鍵關聯 | 75 |
 | 自訂列舉型別 | 0 |

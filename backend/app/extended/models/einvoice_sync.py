@@ -15,6 +15,10 @@ from ._base import *
 class EInvoiceSyncLog(Base):
     """電子發票同步批次記錄 — 追蹤每次財政部 API 同步結果"""
     __tablename__ = "einvoice_sync_logs"
+    __table_args__ = (
+        Index("idx_einvoice_buyer", "buyer_ban"),
+        Index("idx_einvoice_query_date", "query_start", "query_end"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
 

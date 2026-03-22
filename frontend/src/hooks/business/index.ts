@@ -34,6 +34,7 @@ export * from './usePMCases';
 
 // ERP 財務管理
 export * from './useERPQuotations';
+export * from './useERPFinance';
 
 // 共用下拉選單
 export * from './useDropdownData';

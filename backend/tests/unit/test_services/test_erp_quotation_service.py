@@ -163,7 +163,9 @@ class TestERPQuotationServiceCreate:
     @pytest.mark.asyncio
     async def test_create_quotation_with_auto_code(self, mock_db_session):
         """case_code not provided triggers auto-generation"""
-        with patch("app.services.erp.quotation_service.ERPQuotationRepository"), \
+        mock_q = _make_mock_quotation(case_code="CK2025_FN_01_001")
+
+        with patch("app.services.erp.quotation_service.ERPQuotationRepository") as MockRepo, \
              patch("app.services.erp.quotation_service.ERPInvoiceRepository"), \
              patch("app.services.erp.quotation_service.ERPBillingRepository"), \
              patch("app.services.erp.quotation_service.ERPVendorPayableRepository"), \
@@ -171,6 +173,7 @@ class TestERPQuotationServiceCreate:
 
             code_inst = MockCode.return_value
             code_inst.generate_case_code = AsyncMock(return_value="CK2025_FN_01_001")
+            MockRepo.return_value.create = AsyncMock(return_value=mock_q)
 
             service = ERPQuotationService(mock_db_session)
             service._to_response = AsyncMock(return_value=ERPQuotationResponse(
@@ -186,7 +189,9 @@ class TestERPQuotationServiceCreate:
     @pytest.mark.asyncio
     async def test_create_quotation_with_manual_code(self, mock_db_session):
         """Provided case_code is preserved"""
-        with patch("app.services.erp.quotation_service.ERPQuotationRepository"), \
+        mock_q = _make_mock_quotation(case_code="MANUAL_FN_001")
+
+        with patch("app.services.erp.quotation_service.ERPQuotationRepository") as MockRepo, \
              patch("app.services.erp.quotation_service.ERPInvoiceRepository"), \
              patch("app.services.erp.quotation_service.ERPBillingRepository"), \
              patch("app.services.erp.quotation_service.ERPVendorPayableRepository"), \
@@ -194,6 +199,7 @@ class TestERPQuotationServiceCreate:
 
             code_inst = MockCode.return_value
             code_inst.generate_case_code = AsyncMock()
+            MockRepo.return_value.create = AsyncMock(return_value=mock_q)
 
             service = ERPQuotationService(mock_db_session)
             service._to_response = AsyncMock(return_value=ERPQuotationResponse(
@@ -266,7 +272,7 @@ class TestERPQuotationServiceUpdate:
 
     @pytest.mark.asyncio
     async def test_update_quotation(self, mock_db_session):
-        """Verify update flow"""
+        """Verify update flow via repo.update()"""
         mock_q = _make_mock_quotation()
 
         with patch("app.services.erp.quotation_service.ERPQuotationRepository") as MockRepo, \
@@ -275,7 +281,7 @@ class TestERPQuotationServiceUpdate:
              patch("app.services.erp.quotation_service.ERPVendorPayableRepository") as MockPay, \
              patch("app.services.erp.quotation_service.CaseCodeService"):
 
-            MockRepo.return_value.get_by_id = AsyncMock(return_value=mock_q)
+            MockRepo.return_value.update = AsyncMock(return_value=mock_q)
             MockInv.return_value.get_by_quotation_id = AsyncMock(return_value=[])
             MockBill.return_value.get_by_quotation_id = AsyncMock(return_value=[])
             MockBill.return_value.get_total_billed = AsyncMock(return_value=Decimal("0"))
@@ -288,8 +294,7 @@ class TestERPQuotationServiceUpdate:
             result = await service.update(1, data)
 
             assert result is not None
-            mock_db_session.flush.assert_awaited()
-            mock_db_session.commit.assert_awaited()
+            MockRepo.return_value.update.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_update_quotation_not_found(self, mock_db_session):
@@ -300,7 +305,7 @@ class TestERPQuotationServiceUpdate:
              patch("app.services.erp.quotation_service.ERPVendorPayableRepository"), \
              patch("app.services.erp.quotation_service.CaseCodeService"):
 
-            MockRepo.return_value.get_by_id = AsyncMock(return_value=None)
+            MockRepo.return_value.update = AsyncMock(return_value=None)
 
             service = ERPQuotationService(mock_db_session)
             result = await service.update(999, ERPQuotationUpdate(status="confirmed"))
@@ -313,23 +318,20 @@ class TestERPQuotationServiceDelete:
 
     @pytest.mark.asyncio
     async def test_delete_quotation(self, mock_db_session):
-        """Verify deletion returns True"""
-        mock_q = _make_mock_quotation()
-        mock_db_session.delete = AsyncMock()
-
+        """Verify deletion returns True via repo.delete()"""
         with patch("app.services.erp.quotation_service.ERPQuotationRepository") as MockRepo, \
              patch("app.services.erp.quotation_service.ERPInvoiceRepository"), \
              patch("app.services.erp.quotation_service.ERPBillingRepository"), \
              patch("app.services.erp.quotation_service.ERPVendorPayableRepository"), \
              patch("app.services.erp.quotation_service.CaseCodeService"):
 
-            MockRepo.return_value.get_by_id = AsyncMock(return_value=mock_q)
+            MockRepo.return_value.delete = AsyncMock(return_value=True)
 
             service = ERPQuotationService(mock_db_session)
             result = await service.delete(1)
 
             assert result is True
-            mock_db_session.delete.assert_awaited_once_with(mock_q)
+            MockRepo.return_value.delete.assert_awaited_once_with(1)
 
     @pytest.mark.asyncio
     async def test_delete_quotation_not_found(self, mock_db_session):
@@ -340,7 +342,7 @@ class TestERPQuotationServiceDelete:
              patch("app.services.erp.quotation_service.ERPVendorPayableRepository"), \
              patch("app.services.erp.quotation_service.CaseCodeService"):
 
-            MockRepo.return_value.get_by_id = AsyncMock(return_value=None)
+            MockRepo.return_value.delete = AsyncMock(return_value=False)
 
             service = ERPQuotationService(mock_db_session)
             result = await service.delete(999)

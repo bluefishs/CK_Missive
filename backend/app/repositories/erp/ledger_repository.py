@@ -94,3 +94,17 @@ class LedgerRepository(BaseRepository[FinanceLedger]):
             }
             for row in result.all()
         ]
+
+    async def create_entry(self, ledger: FinanceLedger) -> FinanceLedger:
+        """新增帳本記錄"""
+        self.db.add(ledger)
+        await self.db.commit()
+        await self.db.refresh(ledger)
+        return ledger
+
+    async def delete_entry(self, ledger: FinanceLedger) -> bool:
+        """刪除帳本記錄"""
+        await self.db.delete(ledger)
+        await self.db.flush()
+        await self.db.commit()
+        return True

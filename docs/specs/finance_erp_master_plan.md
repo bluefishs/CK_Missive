@@ -1,7 +1,7 @@
 # 公司級 ERP 財務模組：主藍圖與任務進度統整 (Master Plan)
 
 > **建立日期**: 2026-03-21
-> **最後更新**: 2026-03-21 (v5.1.2 架構審計修復)
+> **最後更新**: 2026-03-22 (v5.1.8 Phase 7-A/7-B 完成 + Final Roadmap v2.0 三季度藍圖)
 > **角色定位**: 作為團隊開發之唯一真實來源 (SSOT) 狀態版
 > **衍生自**: `invoice_system_architecture_plan.md` (v2.0)
 
@@ -67,24 +67,42 @@
 | **W07** | `get_category_breakdown()` 從 Python 迴圈改為 SQL GROUP BY | ✅ 完成 |
 | **W08** | `FinanceLedgerService.delete()` 補上 `commit()` | ✅ 完成 |
 
-**Phase 4: 前端整合** — ⏳ **待辦**
+**Phase 3.6: 安全加固與 Repository 合規** — ✅ **完成**
 
 | 任務代碼 | 任務內容 | 狀態 |
 |---------|---------|------|
-| **4-1** | 前端型別定義 (`types/erp.ts`) + Endpoint 常數 | ⏳ 待辦 |
-| **4-2** | React Query Hooks (expenses, ledger, financialSummary, einvoiceSync) | ⏳ 待辦 |
-| **4-3** | ERP 費用報銷頁面 + 待核銷手機清單 | ⏳ 待辦 |
-| **4-4** | 專案財務儀表板 (ProjectFinancialSummary) | ⏳ 待辦 |
-| **4-5** | 全公司財務總覽頁 | ⏳ 待辦 |
-| **4-6** | 收據拍照上傳 (PWA / Mobile Web) | ⏳ 待辦 |
+| **S01** | 20 個 ERP 端點全部加上認證保護 (`require_auth` / `require_admin`) | ✅ 完成 |
+| **R01** | 新增 `EInvoiceSyncRepository` (16 DB 操作從 Service 遷移) | ✅ 完成 |
+| **R02** | 擴展 `ExpenseInvoiceRepository` (+create_with_items/update_fields/update_status) | ✅ 完成 |
+| **R03** | 擴展 `LedgerRepository` (+create_entry/delete_entry) | ✅ 完成 |
+| **R04** | 擴展 `FinancialSummaryRepository` (+get_case_codes_paginated/get_top_expense_projects) | ✅ 完成 |
+| **R05** | 4 Service 直接 DB 操作 39→0 | ✅ 完成 |
+| **R06** | `approve()` 改用 `ledger_service.record_from_expense()` (解耦跨 Service 依賴) | ✅ 完成 |
+| **T01** | 6 個 API response interface 統一至 `types/erp.ts` (SSOT) | ✅ 完成 |
 
-**Phase 5: 進階功能** — ⏳ **待辦**
+**Phase 4: 前端整合** — ✅ **完成**
 
 | 任務代碼 | 任務內容 | 狀態 |
 |---------|---------|------|
-| **5-1** | 匯出報表 (Excel / PDF) | ⏳ 待辦 |
-| **5-2** | 定期對帳自動化 (排程) | ⏳ 待辦 |
-| **5-3** | ERPBilling 收款 → Ledger 自動入帳 | ⏳ 待辦 |
+| **4-1** | 前端型別定義 (`types/erp.ts` +25 型別 +6 response interfaces) + Endpoint 常數 (+20 端點) | ✅ 完成 |
+| **4-2** | React Query Hooks (18 hooks: expenses 7, ledger 6, financialSummary 3, einvoiceSync 4) | ✅ 完成 |
+| **4-3** | ERP 費用報銷頁面 (列表+詳情+編輯+建立+QR掃描+審核/駁回) | ✅ 完成 |
+| **4-4** | 統一帳本頁面 (列表+手動記帳+分類拆解+刪除保護) | ✅ 完成 |
+| **4-5** | 財務儀表板 (全公司總覽+專案一覽+預算警報+支出分類) | ✅ 完成 |
+| **4-6** | 電子發票同步管理 (同步觸發+待核銷+收據上傳+歷史) | ✅ 完成 |
+| **4-7** | 路由三方同步 (types.ts + AppRouter.tsx + init_navigation_data.py) | ✅ 完成 |
+
+**Phase 5: 進階功能** — ✅ **完成**
+
+| 任務代碼 | 任務內容 | 狀態 |
+|---------|---------|------|
+| **5-1** | 收據影像上傳/預覽 (Upload+Image+FormData+相對路徑+POST-only 取圖) | ✅ 完成 |
+| **5-2** | 發票 OCR 自動辨識 (`InvoiceOCRService` + Tesseract + confidence + 前端 Modal) | ✅ 完成 |
+| **5-3** | 匯出 Excel 報表 (`FinanceExportService` + 費用/帳本明細 + openpyxl 樣式) | ✅ 完成 |
+| **5-4** | 多幣別支援 (currency+original_amount+exchange_rate, 5幣別, Schema自動換算, 帳本/匯出/前端全通) | ✅ 完成 |
+| **5-5** | 多層審核狀態機 (pending→manager_approved→finance_approved→verified, 30K門檻, 64 tests) | ✅ 完成 |
+| **5-6** | ERPBilling 收款確認 → Ledger 自動入帳 (paid 狀態觸發 income 記錄, 防重複入帳, 67 tests) | ✅ 完成 |
+| **5-7** | 預算聯防控制 (approve→verified 前檢查 ERPQuotation.budget_limit, >80% 預警放行, >100% 攔截, 75 tests) | ✅ 完成 |
 
 ## 📐 三、環境配置要求
 
@@ -155,5 +173,117 @@ RECEIPT_UPLOAD_DIR=uploads/receipts
 | `POST /project` | 單一專案財務彙總 |
 | `POST /projects` | 所有專案一覽 |
 | `POST /company` | 全公司財務總覽 |
+
+## 🔮 六、Phase 5 進階優化架構指南
+
+### 5-1. 實體附件儲存 (Attachment Storage)
+**目標**: 處理費用報銷圖片與收據上傳。
+- **隔離儲存**：嚴格禁止將二進位檔轉 Base64 塞入資料庫。
+- **作法**：實作專屬 `StorageService`，將 `receipt_image_path` 指向本地的 `/storage/receipts` 或對接 S3 Bucket。端點僅返回可預覽的 Signed URL。
+
+### 5-2. 發票 OCR 自動辨識 (Tesseract)
+**目標**: 從圖檔文字萃取發票資訊。
+- 於 `qr_scanner.py` 周邊建立 `ocr_extractor.py` 作為純函數。
+- OCR 具有機率性誤判（如 8 變成 B），API 返回結果須加上 `confidence_score`。
+- 前端設計為「預填入表單供人類二次確認」，切勿直接產生 `verified` 狀態發票，應維持在 `pending`。
+
+### 5-4. 多幣別支援引擎 (Multi-Currency)
+**目標**: 支援 TWD, USD, CNY 等報銷。
+- **保留原始金額**：擴充 `original_amount` 與 `currency` 欄位。
+- **統一會計本位幣**：`amount` 欄位始終保持公司營運基期幣別 (TWD)。新建發票時提供 `exchange_rate` 做即時轉換。
+
+### 5-5. 多層審核狀態機 (Approval Workflow State-Machine) ✅
+**已實作完成**。
+- **狀態**: `pending` → `manager_approved` → `finance_approved` → `verified` (+ `rejected` 任意階段可駁回)
+- **金額門檻**: `APPROVAL_THRESHOLD = 30,000 TWD`
+  - ≤30K: 二級審核 (`pending → manager_approved → verified`)
+  - >30K: 三級審核 (`pending → manager_approved → finance_approved → verified`)
+- **帳本入帳**: 僅 `verified` 終態觸發 `FinanceLedger` 自動入帳
+- **流轉規則**: `APPROVAL_TRANSITIONS` dict 定義合法狀態轉換，防非法跳轉
+- **前端**: 按鈕文字動態切換 (主管核准/財務核准/最終核准)，狀態 Tag 顏色區分 6 階段
+- **測試**: 64 unit tests (含邊界值 30K/30001)
+
+### 5-7. 預算聯防控制 (Budget Audit Control) ✅
+**已實作完成**。
+- **觸發點**: `approve()` 進入 `verified` 前自動檢查 `ERPQuotation.budget_limit`
+- **門檻**: `BUDGET_WARNING_PCT = 80%` (預警放行) / `BUDGET_BLOCK_PCT = 100%` (攔截審核)
+- **邏輯**: 累計支出 + 本筆金額 → 計算使用率 → 攔截/預警/放行
+- **API 層**: 預警訊息透過 `_budget_warning` 動態屬性附加至 response.message
+- **測試**: 75 unit tests (含邊界值 80%/100%)
+
+---
+
+## 🔗 七、v8.0 跨模組整合戰略 (Cross-Module Integration)
+
+### 戰略 A: AR/AP 自動拋轉 ✅
+- **AR (應收)**: `ERPBillingService.update()` → `record_from_billing()` (Phase 5-6)
+- **AP (應付)**: `ERPVendorPayableService.update()` → `record_from_vendor_payable()` (v1.1.0)
+  - 付款狀態 `unpaid → paid` 自動寫入 `FinanceLedger` 支出記錄
+  - 透過 `ERPQuotation` 反查 `case_code` 歸屬專案
+
+### 戰略 B: 預算聯防控制 ✅
+- 已在 Phase 5-7 實作完成，詳見上方。
+
+### 戰略 C: 統一 BI 中樞 ✅
+- **Excel 匯出**: `FinanceExportService` 費用/帳本明細 openpyxl 匯出 (Phase 5-3)
+- **BI 圖表**: 前端 recharts 專案利潤排名 (BarChart Top 15) + 支出分類分布 (PieChart)
+
+---
+
+## 🚀 八、Phase 7: 戰略強化 (Strategic Enhancement)
+
+### Phase 7-A: 前端預算警報 UX 升級 — ✅ **完成**
+
+| 任務代碼 | 任務內容 | 狀態 |
+|---------|---------|------|
+| **7A-1** | `ERPExpenseListPage` 審核按鈕改用 `Modal.warning()` / `Modal.error()` AlertDialog | ✅ 完成 |
+| **7A-2** | `ERPExpenseDetailPage` 同步升級預算警報 UX | ✅ 完成 |
+| **7A-3** | 錯誤訊息關鍵字匹配 (超支/預算/budget → AlertDialog, 其餘 → toast) | ✅ 完成 |
+
+**設計決策**:
+- **預算預警 (80~100%)**: `Modal.warning()` — 標題「預算警告」，放行但提醒
+- **預算超支 (>100%)**: `Modal.error()` — 標題「預算超支攔截」，HTTP 400 阻止審核
+- **錯誤流**: Backend `ValueError` → `HTTPException(400)` → Frontend `ApiException` → Component catch → `Modal.error()`
+
+### Phase 7-B: ERP Repository 合規修正 — ✅ **完成**
+
+| 任務代碼 | 任務內容 | 狀態 |
+|---------|---------|------|
+| **7B-1** | `ERPQuotationService` create/update/delete 改用 `repo.create()` / `repo.update()` / `repo.delete()` | ✅ 完成 |
+| **7B-2** | `ERPInvoiceService` create/update/delete 改用 Repository 方法 | ✅ 完成 |
+| **7B-3** | `ERPBillingService` create/delete 改用 Repository (update 保留 — 含 AR 自動拋轉邏輯) | ✅ 完成 |
+| **7B-4** | `ERPVendorPayableService` create/delete 改用 Repository (update 保留 — 含 AP 自動拋轉邏輯) | ✅ 完成 |
+
+**修復統計**: 4 Services × 8 violations → 0 直接 DB 操作殘留
+
+### Phase 7-C: NemoClaw 夜間預算掃描器 — ⏳ **規劃中**
+
+| 任務代碼 | 任務內容 | 狀態 |
+|---------|---------|------|
+| **7C-1** | `ERPTriggerScanner` 擴充: 掃描 80~100% 區間專案發出預警通知 | ⏳ 待辦 |
+| **7C-2** | 通知管道整合 (Notification + LINE Push) | ⏳ 待辦 |
+
+### Phase 7-D: Dashboard 擴展 — ⏳ **規劃中**
+
+| 任務代碼 | 任務內容 | 狀態 |
+|---------|---------|------|
+| **7D-1** | 即時損益表 — 結合 AR/AP 資料產出損益報表 | ⏳ 待辦 |
+| **7D-2** | 預算使用率排行榜 — Top N 專案預算消耗視覺化 | ⏳ 待辦 |
+
+---
+
+## 🗺️ 九、長線發展藍圖 (Final Roadmap)
+
+詳見 `specs/finance_erp_final_roadmap.md` — 未來三季度 (Q2~Q4) 戰略指引。
+
+| 季度 | 主題 | 重點 |
+|------|------|------|
+| **Q2** | 前台體驗與 BI 儀表板 | 夜間吹哨者排程、損益表、月度趨勢、預算排行 |
+| **Q3** | 實體解耦與 AI 助理 | StorageService 抽象、OCR 強化、Agent 財務問答 |
+| **Q4** | 行動決策圈 | LINE 卡片式簽核、Mobile Web PWA、AI 異常偵測 |
+
+三大戰略支柱: **可見性 (Visibility)** → **可觸及 (Accessibility)** → **可預測 (Predictability)**
+
+---
 
 本規劃書已取代所有過渡用之草案，為當前唯一基準。

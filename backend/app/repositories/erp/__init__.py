@@ -6,10 +6,11 @@ from .vendor_payable_repository import ERPVendorPayableRepository
 from .expense_invoice_repository import ExpenseInvoiceRepository
 from .ledger_repository import LedgerRepository
 from .financial_summary_repository import FinancialSummaryRepository
+from .einvoice_sync_repository import EInvoiceSyncRepository
 
 __all__ = [
     "ERPQuotationRepository", "ERPInvoiceRepository",
     "ERPBillingRepository", "ERPVendorPayableRepository",
     "ExpenseInvoiceRepository", "LedgerRepository",
-    "FinancialSummaryRepository",
+    "FinancialSummaryRepository", "EInvoiceSyncRepository",
 ]

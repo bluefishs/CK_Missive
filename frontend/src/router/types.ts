@@ -109,6 +109,15 @@ export const ROUTES = {
   ERP_QUOTATION_DETAIL: '/erp/quotations/:id',
   ERP_QUOTATION_CREATE: '/erp/quotations/create',
   ERP_QUOTATION_EDIT: '/erp/quotations/:id/edit',
+  // 費用報銷
+  ERP_EXPENSES: '/erp/expenses',
+  ERP_EXPENSE_DETAIL: '/erp/expenses/:id',
+  // 統一帳本
+  ERP_LEDGER: '/erp/ledger',
+  // 財務儀表板
+  ERP_FINANCIAL_DASHBOARD: '/erp/financial-dashboard',
+  // 電子發票同步
+  ERP_EINVOICE_SYNC: '/erp/einvoice-sync',
 } as const;
 
 // 路由元數據
@@ -385,5 +394,36 @@ export const ROUTE_META = {
     title: '編輯作業紀錄',
     description: '桃園查估專區 - 編輯作業歷程紀錄',
     breadcrumb: true,
+  },
+  [ROUTES.ERP_EXPENSES]: {
+    title: '費用報銷',
+    description: '費用報銷與核銷管理',
+    icon: 'FileTextOutlined',
+    requireAuth: true,
+  },
+  [ROUTES.ERP_EXPENSE_DETAIL]: {
+    title: '費用報銷詳情',
+    description: '費用報銷明細與審核',
+    icon: 'FileTextOutlined',
+    requireAuth: true,
+    hideInMenu: true,
+  },
+  [ROUTES.ERP_LEDGER]: {
+    title: '統一帳本',
+    description: '記帳與科目管理',
+    icon: 'BookOutlined',
+    requireAuth: true,
+  },
+  [ROUTES.ERP_FINANCIAL_DASHBOARD]: {
+    title: '財務儀表板',
+    description: '預算與支出總覽',
+    icon: 'DashboardOutlined',
+    requireAuth: true,
+  },
+  [ROUTES.ERP_EINVOICE_SYNC]: {
+    title: '電子發票同步',
+    description: '財政部電子發票整合',
+    icon: 'CloudSyncOutlined',
+    requireAuth: true,
   },
 } as const;

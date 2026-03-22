@@ -936,6 +936,68 @@ export const ERP_ENDPOINTS = {
   PROFIT_TREND: '/erp/quotations/profit-trend',
   /** 匯出 CSV POST /erp/quotations/export */
   EXPORT: '/erp/quotations/export',
+
+  // --- 費用報銷 (expenses) ---
+  /** 費用發票列表 POST /erp/expenses/list */
+  EXPENSES_LIST: '/erp/expenses/list',
+  /** 建立報銷發票 POST /erp/expenses/create */
+  EXPENSES_CREATE: '/erp/expenses/create',
+  /** 發票詳情 POST /erp/expenses/detail */
+  EXPENSES_DETAIL: '/erp/expenses/detail',
+  /** 更新報銷發票 POST /erp/expenses/update */
+  EXPENSES_UPDATE: '/erp/expenses/update',
+  /** 審核通過 POST /erp/expenses/approve */
+  EXPENSES_APPROVE: '/erp/expenses/approve',
+  /** 駁回報銷 POST /erp/expenses/reject */
+  EXPENSES_REJECT: '/erp/expenses/reject',
+  /** QR Code 掃描建立 POST /erp/expenses/qr-scan */
+  EXPENSES_QR_SCAN: '/erp/expenses/qr-scan',
+  /** 上傳收據影像 POST /erp/expenses/upload-receipt */
+  EXPENSES_UPLOAD_RECEIPT: '/erp/expenses/upload-receipt',
+  /** 取得收據影像 POST /erp/expenses/receipt-image */
+  EXPENSES_RECEIPT_IMAGE: '/erp/expenses/receipt-image',
+  /** OCR 辨識發票影像 POST /erp/expenses/ocr-parse */
+  EXPENSES_OCR_PARSE: '/erp/expenses/ocr-parse',
+
+  // --- 統一帳本 (ledger) ---
+  /** 帳本列表 POST /erp/ledger/list */
+  LEDGER_LIST: '/erp/ledger/list',
+  /** 手動記帳 POST /erp/ledger/create */
+  LEDGER_CREATE: '/erp/ledger/create',
+  /** 帳本詳情 POST /erp/ledger/detail */
+  LEDGER_DETAIL: '/erp/ledger/detail',
+  /** 專案收支餘額 POST /erp/ledger/balance */
+  LEDGER_BALANCE: '/erp/ledger/balance',
+  /** 分類拆解 POST /erp/ledger/category-breakdown */
+  LEDGER_CATEGORY_BREAKDOWN: '/erp/ledger/category-breakdown',
+  /** 刪除帳本 POST /erp/ledger/delete */
+  LEDGER_DELETE: '/erp/ledger/delete',
+
+  // --- 財務彙總 (financial-summary) ---
+  /** 單一專案財務彙總 POST /erp/financial-summary/project */
+  FINANCIAL_SUMMARY_PROJECT: '/erp/financial-summary/project',
+  /** 所有專案一覽 POST /erp/financial-summary/projects */
+  FINANCIAL_SUMMARY_PROJECTS: '/erp/financial-summary/projects',
+  /** 全公司財務總覽 POST /erp/financial-summary/company */
+  FINANCIAL_SUMMARY_COMPANY: '/erp/financial-summary/company',
+  /** 月度收支趨勢 POST /erp/financial-summary/monthly-trend */
+  FINANCIAL_SUMMARY_MONTHLY_TREND: '/erp/financial-summary/monthly-trend',
+  /** 預算使用率排行 POST /erp/financial-summary/budget-ranking */
+  FINANCIAL_SUMMARY_BUDGET_RANKING: '/erp/financial-summary/budget-ranking',
+  /** 匯出費用報銷 Excel POST /erp/financial-summary/export-expenses */
+  EXPORT_EXPENSES: '/erp/financial-summary/export-expenses',
+  /** 匯出帳本 Excel POST /erp/financial-summary/export-ledger */
+  EXPORT_LEDGER: '/erp/financial-summary/export-ledger',
+
+  // --- 電子發票同步 (einvoice-sync) ---
+  /** 手動觸發同步 POST /erp/einvoice-sync/sync */
+  EINVOICE_SYNC: '/erp/einvoice-sync/sync',
+  /** 待核銷清單 POST /erp/einvoice-sync/pending-list */
+  EINVOICE_PENDING_LIST: '/erp/einvoice-sync/pending-list',
+  /** 上傳收據照片 POST /erp/einvoice-sync/upload-receipt */
+  EINVOICE_UPLOAD_RECEIPT: '/erp/einvoice-sync/upload-receipt',
+  /** 同步歷史記錄 POST /erp/einvoice-sync/sync-logs */
+  EINVOICE_SYNC_LOGS: '/erp/einvoice-sync/sync-logs',
 } as const;
 
 // ============================================================================

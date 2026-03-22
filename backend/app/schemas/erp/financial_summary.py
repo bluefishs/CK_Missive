@@ -67,3 +67,70 @@ class CompanyOverviewRequest(BaseModel):
     date_to: Optional[datetime.date] = None
     year: Optional[int] = Field(None, description="民國年度")
     top_n: int = Field(default=10, description="Top N 專案")
+
+
+class MonthlyTrendRequest(BaseModel):
+    """月度收支趨勢請求"""
+    months: int = Field(default=12, ge=1, le=36, description="回溯月數")
+    case_code: Optional[str] = Field(None, description="指定案號 (空=全公司)")
+
+
+class MonthlyTrendItem(BaseModel):
+    """單月收支"""
+    month: str = Field(..., description="YYYY-MM 格式")
+    income: Decimal = Decimal("0")
+    expense: Decimal = Decimal("0")
+    net: Decimal = Decimal("0")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MonthlyTrendResponse(BaseModel):
+    """月度收支趨勢回應"""
+    months: List[MonthlyTrendItem]
+    case_code: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BudgetRankingRequest(BaseModel):
+    """預算使用率排行請求"""
+    top_n: int = Field(default=15, ge=1, le=50, description="Top N")
+    order: str = Field(default="desc", pattern="^(asc|desc)$", description="排序方向")
+
+
+class BudgetRankingItem(BaseModel):
+    """專案預算使用率"""
+    case_code: str
+    case_name: Optional[str] = None
+    budget_total: Optional[Decimal] = None
+    total_expense: Decimal = Decimal("0")
+    total_income: Decimal = Decimal("0")
+    usage_pct: Optional[float] = None
+    alert: str = "normal"
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BudgetRankingResponse(BaseModel):
+    """預算使用率排行回應"""
+    items: List[BudgetRankingItem]
+    total_projects: int = 0
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ExportExpensesRequest(BaseModel):
+    """匯出費用報銷 Excel"""
+    date_from: Optional[datetime.date] = None
+    date_to: Optional[datetime.date] = None
+    case_code: Optional[str] = None
+    status: Optional[str] = None
+
+
+class ExportLedgerRequest(BaseModel):
+    """匯出帳本 Excel"""
+    date_from: Optional[datetime.date] = None
+    date_to: Optional[datetime.date] = None
+    case_code: Optional[str] = None
+    entry_type: Optional[str] = None

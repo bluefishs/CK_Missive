@@ -14,7 +14,7 @@ from pathlib import Path
 import aiofiles
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 
-from app.core.dependencies import get_service, optional_auth
+from app.core.dependencies import get_service, optional_auth, require_auth, require_admin
 from app.extended.models import User
 from app.services.einvoice.einvoice_sync_service import EInvoiceSyncService
 from app.schemas.erp.einvoice_sync import (
@@ -37,6 +37,7 @@ RECEIPT_UPLOAD_DIR = Path(
 async def trigger_sync(
     params: EInvoiceSyncRequest,
     service: EInvoiceSyncService = Depends(get_service(EInvoiceSyncService)),
+    current_user: User = Depends(require_admin()),
 ):
     """手動觸發電子發票同步 (管理員用)"""
     result = await service.sync_invoices(
@@ -50,6 +51,7 @@ async def trigger_sync(
 async def get_pending_receipt_list(
     params: PendingReceiptQuery,
     service: EInvoiceSyncService = Depends(get_service(EInvoiceSyncService)),
+    current_user: User = Depends(require_auth()),
 ):
     """待核銷發票清單 (手機端報帳員使用)
 
@@ -87,22 +89,33 @@ async def upload_receipt(
             detail=f"不支援的檔案格式: {file.content_type}，請上傳 JPEG/PNG/WebP/HEIC",
         )
 
-    # 儲存檔案
+    # 檔案大小限制 (10MB)
+    MAX_RECEIPT_SIZE = 10 * 1024 * 1024
+    content = await file.read()
+    if len(content) > MAX_RECEIPT_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"檔案過大 ({len(content) // 1024 // 1024}MB)，上限為 10MB",
+        )
+
+    # 儲存檔案 (使用相對路徑，對應 /uploads StaticFiles mount)
     RECEIPT_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     ext = Path(file.filename or "receipt.jpg").suffix or ".jpg"
     filename = f"{uuid.uuid4().hex}{ext}"
     file_path = RECEIPT_UPLOAD_DIR / filename
 
     async with aiofiles.open(file_path, "wb") as f:
-        content = await file.read()
         await f.write(content)
+
+    # 儲存相對路徑 (receipts/xxx.jpg)，前端透過 /uploads/ 前綴存取
+    relative_path = f"receipts/{filename}"
 
     # 關聯發票
     user_id = current_user.id if current_user else None
     try:
         result = await service.attach_receipt(
             invoice_id=invoice_id,
-            receipt_path=str(file_path),
+            receipt_path=relative_path,
             case_code=case_code,
             category=category,
             user_id=user_id,
@@ -123,6 +136,7 @@ async def upload_receipt(
 async def get_sync_logs(
     params: EInvoiceSyncLogQuery,
     service: EInvoiceSyncService = Depends(get_service(EInvoiceSyncService)),
+    current_user: User = Depends(require_auth()),
 ):
     """查詢同步歷史記錄"""
     items, total = await service.get_sync_logs(

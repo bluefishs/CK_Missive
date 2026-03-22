@@ -4,10 +4,11 @@
 所有業務常數統一在此定義，供 schemas、models、endpoints 引用
 避免硬編碼和重複定義
 
-@version 1.0.0
+@version 1.1.0
 @date 2026-01-26
+@updated 2026-03-22 — KG Federation entity/relation types
 """
-from typing import List
+from typing import List, FrozenSet
 
 # ============================================================================
 # 承攬案件相關常數
@@ -109,4 +110,35 @@ AGENCY_TYPE_OPTIONS: List[str] = [
 CODE_ENTITY_TYPES: frozenset[str] = frozenset({
     'py_module', 'py_class', 'py_function', 'db_table',
     'ts_module', 'ts_component', 'ts_hook',
+})
+
+# ============================================================================
+# 知識圖譜 — 跨專案聯邦實體類型 (KG Federation, v1.1.0)
+# ============================================================================
+
+# 來源專案識別碼
+KG_SOURCE_PROJECTS: FrozenSet[str] = frozenset({
+    'ck-missive', 'ck-lvrland', 'ck-tunnel',
+})
+
+# 跨專案實體類型（與公文/程式碼圖譜邏輯分離）
+CROSS_PROJECT_ENTITY_TYPES: FrozenSet[str] = frozenset({
+    'land_parcel',       # LvrLand: 地段 (land_no14)
+    'development_zone',  # LvrLand: 開發區/都更案
+    'transaction',       # LvrLand: 不動產交易
+    'tunnel',            # Tunnel: 隧道
+    'crack_defect',      # Tunnel: 裂縫缺陷
+    'inspection',        # Tunnel: 檢查紀錄
+    'contractor',        # Cross-domain: 承包商/承攬廠商
+})
+
+# 跨專案關係類型
+CROSS_PROJECT_RELATION_TYPES: FrozenSet[str] = frozenset({
+    'located_at',        # entity → land_parcel (位於地段)
+    'contracted_by',     # project/inspection → contractor (承攬)
+    'detected_in',       # crack_defect → tunnel (偵測於)
+    'affects_parcel',    # development_zone → land_parcel (影響地段)
+    'part_of_project',   # tunnel/inspection → project (隸屬專案)
+    'transacted_at',     # transaction → land_parcel (交易於)
+    'commissioned_by',   # project/tunnel → agency (委託)
 })

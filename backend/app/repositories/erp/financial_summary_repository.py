@@ -1,10 +1,11 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-from typing import List, Optional
+from sqlalchemy import select, func, and_, case as sa_case, extract
+from typing import List, Optional, Tuple
 from datetime import date
 from decimal import Decimal
 
 from app.extended.models.core import ContractProject
+from app.extended.models.erp import ERPQuotation
 from app.extended.models.invoice import ExpenseInvoice
 from app.extended.models.finance import FinanceLedger
 from app.schemas.erp.financial_summary import ProjectFinancialSummary, CompanyFinancialOverview
@@ -143,3 +144,186 @@ class FinancialSummaryRepository:
             "operation_expense": operation_expense,
             "top_projects": [],  # 由 Service 層填充
         }
+
+    async def get_case_codes_paginated(
+        self, year: Optional[int] = None, skip: int = 0, limit: int = 20
+    ) -> Tuple[List[str], int]:
+        """從 ERPQuotation 取分頁案號列表及總數"""
+        conditions = []
+        if year:
+            conditions.append(ERPQuotation.year == year)
+
+        # 案號列表
+        stmt = select(ERPQuotation.case_code)
+        if conditions:
+            stmt = stmt.where(*conditions)
+        stmt = stmt.order_by(ERPQuotation.case_code).offset(skip).limit(limit)
+        result = await self.db.execute(stmt)
+        case_codes = [row[0] for row in result.all()]
+
+        # 總數
+        count_stmt = select(func.count()).select_from(ERPQuotation)
+        if conditions:
+            count_stmt = count_stmt.where(*conditions)
+        total = await self.db.scalar(count_stmt) or 0
+
+        return case_codes, total
+
+    async def get_top_expense_projects(
+        self,
+        date_from: Optional[date] = None,
+        date_to: Optional[date] = None,
+        top_n: int = 10,
+    ) -> List[str]:
+        """取得支出最高的 Top N 案號"""
+        conditions = [
+            FinanceLedger.case_code.isnot(None),
+            FinanceLedger.entry_type == "expense",
+        ]
+        if date_from:
+            conditions.append(FinanceLedger.transaction_date >= date_from)
+        if date_to:
+            conditions.append(FinanceLedger.transaction_date <= date_to)
+
+        stmt = (
+            select(FinanceLedger.case_code)
+            .where(and_(*conditions))
+            .group_by(FinanceLedger.case_code)
+            .order_by(func.sum(FinanceLedger.amount).desc())
+            .limit(top_n)
+        )
+        result = await self.db.execute(stmt)
+        return [row[0] for row in result.all()]
+
+    async def get_monthly_trend(
+        self,
+        months: int = 12,
+        case_code: Optional[str] = None,
+    ) -> List[dict]:
+        """月度收支趨勢 — 回溯 N 個月的收入/支出/淨額
+
+        Returns:
+            [{"month": "2026-03", "income": Decimal, "expense": Decimal, "net": Decimal}, ...]
+        """
+        from dateutil.relativedelta import relativedelta
+
+        end_date = date.today()
+        start_date = end_date - relativedelta(months=months - 1)
+        start_date = start_date.replace(day=1)
+
+        conditions = [
+            FinanceLedger.transaction_date >= start_date,
+            FinanceLedger.transaction_date <= end_date,
+        ]
+        if case_code:
+            conditions.append(FinanceLedger.case_code == case_code)
+
+        stmt = (
+            select(
+                func.to_char(FinanceLedger.transaction_date, 'YYYY-MM').label("month"),
+                func.sum(
+                    sa_case(
+                        (FinanceLedger.entry_type == "income", FinanceLedger.amount),
+                        else_=Decimal("0"),
+                    )
+                ).label("income"),
+                func.sum(
+                    sa_case(
+                        (FinanceLedger.entry_type == "expense", FinanceLedger.amount),
+                        else_=Decimal("0"),
+                    )
+                ).label("expense"),
+            )
+            .where(and_(*conditions))
+            .group_by(func.to_char(FinanceLedger.transaction_date, 'YYYY-MM'))
+            .order_by(func.to_char(FinanceLedger.transaction_date, 'YYYY-MM'))
+        )
+        result = await self.db.execute(stmt)
+        rows = result.all()
+
+        # 補全空月份
+        trend = []
+        current = start_date
+        data_map = {r.month: r for r in rows}
+        while current <= end_date:
+            key = current.strftime("%Y-%m")
+            if key in data_map:
+                r = data_map[key]
+                inc = r.income or Decimal("0")
+                exp = r.expense or Decimal("0")
+            else:
+                inc = Decimal("0")
+                exp = Decimal("0")
+            trend.append({
+                "month": key,
+                "income": inc,
+                "expense": exp,
+                "net": inc - exp,
+            })
+            current = (current + relativedelta(months=1))
+
+        return trend
+
+    async def get_budget_ranking(
+        self,
+        top_n: int = 15,
+        order_desc: bool = True,
+    ) -> Tuple[List[dict], int]:
+        """預算使用率排行 — 各專案支出/收入比
+
+        Returns:
+            (items, total_projects)
+        """
+        # 從 FinanceLedger GROUP BY case_code 取收支
+        stmt = (
+            select(
+                FinanceLedger.case_code,
+                func.sum(
+                    sa_case(
+                        (FinanceLedger.entry_type == "income", FinanceLedger.amount),
+                        else_=Decimal("0"),
+                    )
+                ).label("total_income"),
+                func.sum(
+                    sa_case(
+                        (FinanceLedger.entry_type == "expense", FinanceLedger.amount),
+                        else_=Decimal("0"),
+                    )
+                ).label("total_expense"),
+            )
+            .where(FinanceLedger.case_code.isnot(None))
+            .group_by(FinanceLedger.case_code)
+        )
+        result = await self.db.execute(stmt)
+        rows = result.all()
+
+        # 計算 usage_pct 並排序
+        items = []
+        for r in rows:
+            income = float(r.total_income or 0)
+            expense = float(r.total_expense or 0)
+            usage_pct = (expense / income * 100) if income > 0 else None
+
+            alert = "normal"
+            if usage_pct is not None:
+                if usage_pct >= 100:
+                    alert = "critical"
+                elif usage_pct >= 80:
+                    alert = "warning"
+
+            items.append({
+                "case_code": r.case_code,
+                "total_income": r.total_income or Decimal("0"),
+                "total_expense": r.total_expense or Decimal("0"),
+                "usage_pct": round(usage_pct, 1) if usage_pct is not None else None,
+                "alert": alert,
+            })
+
+        # 排序 (None usage_pct 排最後)
+        items.sort(
+            key=lambda x: x["usage_pct"] if x["usage_pct"] is not None else -1,
+            reverse=order_desc,
+        )
+
+        total = len(items)
+        return items[:top_n], total

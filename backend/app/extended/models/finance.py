@@ -53,6 +53,11 @@ class FinanceLedger(Base):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
+    __table_args__ = (
+        Index("idx_ledger_case_date", "case_code", "transaction_date"),
+        Index("idx_ledger_source", "source_type", "source_id"),
+    )
+
     # Relationships
     user = relationship("User", back_populates="finance_ledgers")
     expense_invoice = relationship(

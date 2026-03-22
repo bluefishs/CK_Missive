@@ -264,6 +264,58 @@ DEFAULT_NAVIGATION_ITEMS = [
         "permission_required": "[]"
     },
 
+    # ERP 費用報銷 (對應 ROUTES.ERP_EXPENSES)
+    {
+        "title": "費用報銷",
+        "key": "erp-expenses",
+        "path": "/erp/expenses",
+        "icon": "FileTextOutlined",
+        "sort_order": 7,
+        "level": 2,
+        "parent_key": "project-management",
+        "description": "費用,報銷,發票,核銷,QR,掃描",
+        "permission_required": "[]"
+    },
+
+    # ERP 統一帳本 (對應 ROUTES.ERP_LEDGER)
+    {
+        "title": "統一帳本",
+        "key": "erp-ledger",
+        "path": "/erp/ledger",
+        "icon": "BookOutlined",
+        "sort_order": 8,
+        "level": 2,
+        "parent_key": "project-management",
+        "description": "帳本,記帳,收支,帳目,分類",
+        "permission_required": "[]"
+    },
+
+    # ERP 財務儀表板 (對應 ROUTES.ERP_FINANCIAL_DASHBOARD)
+    {
+        "title": "財務儀表板",
+        "key": "erp-financial-dashboard",
+        "path": "/erp/financial-dashboard",
+        "icon": "DashboardOutlined",
+        "sort_order": 9,
+        "level": 2,
+        "parent_key": "project-management",
+        "description": "財務,儀表板,預算,警報,總覽",
+        "permission_required": "[]"
+    },
+
+    # ERP 電子發票同步 (對應 ROUTES.ERP_EINVOICE_SYNC)
+    {
+        "title": "電子發票同步",
+        "key": "erp-einvoice-sync",
+        "path": "/erp/einvoice-sync",
+        "icon": "CloudSyncOutlined",
+        "sort_order": 10,
+        "level": 2,
+        "parent_key": "project-management",
+        "description": "電子發票,同步,財政部,核銷,收據",
+        "permission_required": "[]"
+    },
+
     # =========================================================================
     # 行事曆管理 子項目
     # =========================================================================
