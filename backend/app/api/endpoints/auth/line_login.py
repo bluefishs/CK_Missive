@@ -153,6 +153,7 @@ async def line_login_callback(
     5. 簽發 JWT + httpOnly cookie
     """
     ip_address, user_agent = get_client_info(request)
+    logger.info(f"[LINE] === callback 進入 === code={line_request.code[:8]}... redirect_uri={line_request.redirect_uri}")
 
     try:
         # 1. Exchange code for token

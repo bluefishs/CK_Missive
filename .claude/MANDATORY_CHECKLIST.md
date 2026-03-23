@@ -1,8 +1,8 @@
 # CK_Missive 強制性開發規範檢查清單
 
-> **版本**: 1.18.0
+> **版本**: 1.19.0
 > **建立日期**: 2026-01-11
-> **最後更新**: 2026-03-10
+> **最後更新**: 2026-03-23
 > **狀態**: 強制執行 - 所有開發任務啟動前必須檢視
 
 ---
@@ -1500,6 +1500,15 @@ const { data } = useQuery({
 - [ ] 日誌中不包含密碼 hash、token 值或其他敏感資料
 - [ ] 所有端點均有適當認證 (`require_auth()` / `require_admin()`)，CSRF 不等於認證
 
+### LINE / Google OAuth 整合檢查 (v1.19.0 新增)
+- [ ] LINE OAuth redirect_uri 須為公網域名或 localhost（私有 IP 不被 LINE 接受）
+- [ ] LINE Login scope 包含 `profile openid email`（取得 id_token 解碼 email）
+- [ ] LINE callback 頁面使用 `useRef` 防護 StrictMode 雙重 mount
+- [ ] LINE/Google state 參數使用 `crypto.randomUUID()` + 非 HTTPS fallback
+- [ ] `sessionStorage` 中的 state/return_url 在 callback 處理後立即清除
+- [ ] return_url 驗證為相對路徑（防止 open redirect）
+- [ ] ERP 財務端點使用 `require_auth()` 認證保護
+
 ### 相關檔案
 
 | 檔案 | 說明 |
@@ -1507,8 +1516,11 @@ const { data } = useQuery({
 | `backend/app/core/auth_service.py` | 認證服務（密碼、token、session） |
 | `backend/app/core/config.py` | SECRET_KEY 驗證 |
 | `backend/app/api/endpoints/auth/session.py` | Refresh/Logout 端點 |
+| `backend/app/api/endpoints/auth/line_login.py` | LINE OAuth callback/bind/unbind |
+| `backend/app/api/endpoints/auth/oauth.py` | Google OAuth + MFA |
 | `backend/app/api/endpoints/public.py` | 公開端點 |
 | `frontend/src/services/authService.ts` | 前端認證服務 |
+| `frontend/src/pages/LineCallbackPage.tsx` | LINE OAuth callback 頁面 |
 | `frontend/src/hooks/utility/useAuthGuard.ts` | 認證守衛 Hook |
 | `frontend/src/hooks/utility/useIdleTimeout.ts` | 閒置超時 Hook |
 | `frontend/src/router/AppRouter.tsx` | 路由保護 |
@@ -1603,6 +1615,7 @@ if os.environ.get("PGVECTOR_ENABLED", "").lower() == "true":
 
 | 版本 | 日期 | 說明 |
 |------|------|------|
+| 1.19.0 | 2026-03-23 | **強化清單 V**（LINE/Google OAuth 整合檢查、ERP 財務端點認證、相關檔案補齊）- LINE Login + ERP Phase 4 上線 |
 | 1.18.0 | 2026-03-10 | **強化清單 T**（資料取得必須使用 React Query、禁止 useEffect+apiClient、快取策略表、反模式修復案例）- 429 熔斷事故根因修復 |
 | 1.14.0 | 2026-02-19 | **更新清單 H**（加入 Schema-ORM 對齊規則、前端 SSOT 規則）- v17.2.0 SSOT 全面強化 |
 | 1.13.0 | 2026-02-09 | **新增清單 W、X**（Docker+PM2 混合環境、Feature Flags）- v1.53.0 開發環境韌性強化 |

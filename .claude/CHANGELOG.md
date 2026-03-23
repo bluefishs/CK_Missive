@@ -4,6 +4,56 @@
 
 ---
 
+## [5.1.15] - 2026-03-23
+
+### ERP 財務模組 Phase 4 前端 + LINE 整合 + 系統優化
+
+#### ERP 財務前端 (Phase 4 完成)
+- 費用報銷列表/詳情頁面 (ERPExpenseListPage, ERPExpenseDetailPage)
+- 統一帳本頁面 (ERPLedgerPage)
+- 財務儀表板 (ERPFinancialDashboardPage) — Recharts 月趨勢+預算排名
+- 電子發票同步頁面 (ERPEInvoiceSyncPage)
+- 4 API 模組 (expensesApi, ledgerApi, financialSummaryApi, einvoiceSyncApi)
+- useERPFinance hook — 費用/帳本/儀表板/電子發票完整 hooks
+- ERP 型別定義 (+452L in types/erp.ts)
+- 路由三處同步完成 (types.ts / AppRouter.tsx / init_navigation_data.py)
+
+#### LINE Login 整合 (v5.1.14~v5.1.15)
+- LINE OAuth 2.1 callback 端點 (line_login.py)
+- StrictMode 雙重 mount 防護 (processedRef)
+- id_token email 解碼 (LINE Verify API)
+- 前端 scope 加入 `email`
+- LINE bind/unbind 管理端點
+- 公網域名議題延緩 (私有 IP 不支援 LINE OAuth redirect_uri)
+
+#### 後端服務拆分 (v5.1.13)
+- document_service 866→613L (拆出 dispatch_linker + import_logic)
+- system_health_service 拆分優化
+- canonical_entity_service 拆分
+
+#### 系統優化 (v5.1.10~v5.1.12)
+- ERP Phase 3.6~7-E: 安全加固 + dashboard + nightly scanner
+- CORS 修復 + HTTPS proxy (自簽憑證 SAN)
+- userform 拆分 + AuthProvidersTab (LINE/Google 管理)
+- Knowledge Graph 載入優化 (limit 300→150, staleTime 5min)
+- antd v6 deprecation 修正 (Steps direction→orientation)
+- React Query staleTime 30s→2min (減少頁面切換重載)
+
+#### 測試修復
+- vendor_payable auto-ledger 測試修復 (FakePayable 新增 vendor_id)
+- quotation_service RuntimeWarning 清理 (async mock _validate_case_code)
+
+#### 系統指標
+| 維度 | 數值 |
+|------|------|
+| 後端測試 | 2,666+ passed |
+| 前端測試 | 2,837+ passed |
+| ERP 端點 | 45 (8 sub-routers) |
+| 前端頁面 | 183 files |
+| 前端元件 | 177 files |
+
+---
+
 ## [5.0.0] - 2026-03-20
 
 ### v5.0 NemoClaw 代理人正式版

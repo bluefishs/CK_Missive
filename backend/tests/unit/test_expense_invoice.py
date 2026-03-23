@@ -1172,6 +1172,7 @@ class TestVendorPayableAutoLedger:
             erp_quotation_id = 10
             vendor_name = "測試廠商"
             vendor_code = "V001"
+            vendor_id = 5
             payable_amount = Decimal("80000")
             description = "外包設計費"
             due_date = date(2026, 4, 1)

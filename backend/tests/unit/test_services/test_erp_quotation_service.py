@@ -202,6 +202,7 @@ class TestERPQuotationServiceCreate:
             MockRepo.return_value.create = AsyncMock(return_value=mock_q)
 
             service = ERPQuotationService(mock_db_session)
+            service._validate_case_code = AsyncMock()  # 避免 PM import 產生未 await coroutine
             service._to_response = AsyncMock(return_value=ERPQuotationResponse(
                 id=1, case_code="MANUAL_FN_001", status="draft",
             ))

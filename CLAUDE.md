@@ -2,8 +2,8 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design + vLLM
-> **版本**: v5.0 NemoClaw 代理人
-> **最後更新**: 2026-03-20
+> **版本**: v5.1.15 ERP 財務模組 + LINE 整合 + NemoClaw 代理人
+> **最後更新**: 2026-03-23
 
 ---
 
