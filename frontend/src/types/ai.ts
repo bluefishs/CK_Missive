@@ -1447,3 +1447,34 @@ export interface AgentTopologyResponse {
   edges: AgentEdge[];
   meta: { total_nodes: number; total_edges: number; timestamp: string };
 }
+
+// ============================================================================
+// QA Impact Analysis (V-3.3)
+// ============================================================================
+
+/** QA 影響模組 */
+export interface QaAffectedModule {
+  layer: 'backend' | 'frontend';
+  category: string;
+  files: string[];
+  count: number;
+  risk: 'high' | 'medium' | 'low';
+}
+
+/** QA 影響分析回應 */
+export interface QaImpactResponse {
+  success: boolean;
+  changed_files_count: number;
+  affected: QaAffectedModule[];
+  recommendation: 'full_qa' | 'diff_aware_qa' | 'quick_qa' | 'no_changes';
+  message: string;
+  summary?: {
+    backend_changes: number;
+    frontend_changes: number;
+    other_changes: number;
+    high_risk_modules: number;
+    has_migrations: boolean;
+  };
+  suggested_commands?: Record<string, string>;
+  error?: string;
+}

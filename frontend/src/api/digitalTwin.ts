@@ -177,6 +177,9 @@ export async function getTaskStatus(jobId: string): Promise<{
   const res = await fetch(`/api${DIGITAL_TWIN_ENDPOINTS.TASK_STATUS(jobId)}`, {
     credentials: 'include',
   });
+  if (!res.ok) {
+    return { success: false, error: `HTTP ${res.status}` };
+  }
   return res.json();
 }
 
@@ -190,6 +193,9 @@ export async function approveTask(
     credentials: 'include',
     body: JSON.stringify({ approved_by: approvedBy || '' }),
   });
+  if (!res.ok) {
+    return { success: false, error: `HTTP ${res.status}` };
+  }
   return res.json();
 }
 
@@ -204,6 +210,9 @@ export async function rejectTask(
     credentials: 'include',
     body: JSON.stringify({ rejected_by: rejectedBy || '', reason: reason || '' }),
   });
+  if (!res.ok) {
+    return { success: false, error: `HTTP ${res.status}` };
+  }
   return res.json();
 }
 
@@ -222,6 +231,27 @@ export async function getAgentTopology(): Promise<AgentTopologyResponse> {
   const res = await fetch(`/api${DIGITAL_TWIN_ENDPOINTS.AGENT_TOPOLOGY}`, {
     credentials: 'include',
   });
+  if (!res.ok) {
+    return { nodes: [], edges: [], meta: { total_nodes: 0, total_edges: 0, timestamp: new Date().toISOString() } };
+  }
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
+// QA Impact Analysis (V-3.3) — SSOT 在 types/ai.ts
+// ---------------------------------------------------------------------------
+
+export type { QaAffectedModule, QaImpactResponse } from '../types/ai';
+import type { QaImpactResponse } from '../types/ai';
+
+export async function getQaImpact(baseBranch = 'main'): Promise<QaImpactResponse> {
+  const res = await fetch(
+    `/api${DIGITAL_TWIN_ENDPOINTS.QA_IMPACT}?base_branch=${encodeURIComponent(baseBranch)}`,
+    { credentials: 'include' },
+  );
+  if (!res.ok) {
+    return { success: false, changed_files_count: 0, affected: [], recommendation: 'no_changes', message: `HTTP ${res.status}` };
+  }
   return res.json();
 }
 
