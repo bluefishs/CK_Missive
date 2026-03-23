@@ -6,7 +6,7 @@
  * @version 1.1.0
  * @date 2026-03-22
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, Spin, Result, Typography, App } from 'antd';
 import { LoadingOutlined } from '@ant-design/icons';
@@ -37,8 +37,13 @@ const LineCallbackPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [error, setError] = useState<string>('');
+  const processedRef = useRef(false);
 
   useEffect(() => {
+    // StrictMode 防護：防止雙重 mount 導致第二次執行時 sessionStorage 已被清除
+    if (processedRef.current) return;
+    processedRef.current = true;
+
     const code = searchParams.get('code');
     const state = searchParams.get('state');
     const errorParam = searchParams.get('error');

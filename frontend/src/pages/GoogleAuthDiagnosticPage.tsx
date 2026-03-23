@@ -118,13 +118,13 @@ const GoogleAuthDiagnosticPage: React.FC = () => {
         {/* 診斷步驟 */}
         <Card title="診斷步驟">
           <Steps
-            direction="vertical"
+            orientation="vertical"
             current={-1}
             items={[
               {
                 status: getStepStatus(!!googleClientId),
                 title: 'Google Client ID 配置',
-                description: googleClientId ? (
+                content: googleClientId ? (
                   <Text type="success">✓ Google Client ID 已設定</Text>
                 ) : (
                   <Text type="danger">✗ Google Client ID 未設定</Text>
@@ -133,7 +133,7 @@ const GoogleAuthDiagnosticPage: React.FC = () => {
               {
                 status: getStepStatus(currentDomain.includes('localhost') || currentDomain.startsWith('https:')),
                 title: '協定檢查',
-                description: currentDomain.includes('localhost') || currentDomain.startsWith('https:') ? (
+                content: currentDomain.includes('localhost') || currentDomain.startsWith('https:') ? (
                   <Text type="success">✓ 使用安全協定或localhost</Text>
                 ) : (
                   <Text type="danger">✗ 需要 HTTPS 或 localhost 環境</Text>
@@ -142,7 +142,7 @@ const GoogleAuthDiagnosticPage: React.FC = () => {
               {
                 status: 'process' as const,
                 title: 'Google Console 設定檢查',
-                description: '需要手動確認 Google Console 設定',
+                content: '需要手動確認 Google Console 設定',
               },
             ]}
           />

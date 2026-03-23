@@ -214,8 +214,8 @@ export const staleTimeConfig = {
   // 下拉選單 - 較長快取（10 分鐘）
   dropdown: 10 * 60 * 1000,
 
-  // 列表資料 - 中等快取（30 秒）
-  list: 30 * 1000,
+  // 列表資料 - 中等快取（2 分鐘，mutation 成功時透過 invalidateQueries 更新）
+  list: 2 * 60 * 1000,
 
   // 詳情資料 - 中等快取（1 分鐘）
   detail: 60 * 1000,
