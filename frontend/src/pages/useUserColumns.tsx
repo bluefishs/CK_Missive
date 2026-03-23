@@ -14,14 +14,18 @@ import { SearchOutlined, UserOutlined } from '@ant-design/icons';
 import { getRoleDisplayName, getStatusDisplayName } from '../constants/permissions';
 import type { User } from '../types/api';
 
-// Auth provider display
-const getAuthProviderDisplay = (provider?: string) => {
-  const providerNames: Record<string, { label: string; color: string }> = {
-    google: { label: 'Google', color: 'blue' },
-    email: { label: '電子郵件', color: 'green' },
-    local: { label: '本地帳號', color: 'default' },
-  };
-  return providerNames[provider || 'email'] || { label: provider || '未知', color: 'default' };
+// Auth provider display config
+const PROVIDER_CONFIG: Record<string, { label: string; color: string; icon?: string }> = {
+  email: { label: '電子郵件', color: 'green' },
+  google: { label: 'Google', color: 'blue' },
+  line: { label: 'LINE', color: 'lime' },
+  internal: { label: '內網', color: 'orange' },
+  local: { label: '本地帳號', color: 'default' },
+};
+
+const getProviderTag = (provider: string) => {
+  const config = PROVIDER_CONFIG[provider] || { label: provider, color: 'default' };
+  return config;
 };
 
 // Date formatting
@@ -121,9 +125,10 @@ export function useUserColumns(isMobile: boolean) {
   ];
 
   const authProviderFilters = [
-    { text: 'Google', value: 'google' },
     { text: '電子郵件', value: 'email' },
-    { text: '本地帳號', value: 'local' },
+    { text: 'Google', value: 'google' },
+    { text: 'LINE', value: 'line' },
+    { text: '內網', value: 'internal' },
   ];
 
   const statusFilters = [
@@ -171,16 +176,32 @@ export function useUserColumns(isMobile: boolean) {
     },
     {
       title: '認證方式',
-      dataIndex: 'auth_provider',
-      key: 'auth_provider',
-      width: 100,
+      dataIndex: 'auth_providers',
+      key: 'auth_providers',
+      width: 130,
       align: 'center' as const,
       filters: authProviderFilters,
-      onFilter: (value, record) => (record.auth_provider || 'email') === value,
-      sorter: (a, b) => (a.auth_provider || 'email').localeCompare(b.auth_provider || 'email'),
-      render: (provider: string) => {
-        const display = getAuthProviderDisplay(provider);
-        return <Tag color={display.color}>{display.label}</Tag>;
+      onFilter: (value, record) => {
+        const providers = record.auth_providers || [record.auth_provider || 'email'];
+        return providers.includes(value as string);
+      },
+      sorter: (a, b) => {
+        const aProviders = (a.auth_providers || [a.auth_provider || 'email']).join(',');
+        const bProviders = (b.auth_providers || [b.auth_provider || 'email']).join(',');
+        return aProviders.localeCompare(bProviders);
+      },
+      render: (_: unknown, record: User) => {
+        const providers = record.auth_providers?.length
+          ? record.auth_providers
+          : [record.auth_provider || 'email'];
+        return (
+          <Space size={2} wrap>
+            {providers.map((p) => {
+              const config = getProviderTag(p);
+              return <Tag key={p} color={config.color} style={{ margin: 0 }}>{config.label}</Tag>;
+            })}
+          </Space>
+        );
       },
     },
     {

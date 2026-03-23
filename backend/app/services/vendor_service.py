@@ -26,6 +26,8 @@
 import logging
 from typing import List, Optional, Dict, Any
 
+from decimal import Decimal
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 
@@ -359,5 +361,67 @@ class VendorService:
             "rating": vendor.rating,
             "created_at": vendor.created_at,
             "updated_at": vendor.updated_at,
+        }
+
+    # =========================================================================
+    # 廠商財務彙總
+    # =========================================================================
+
+    async def get_financial_summary(self, vendor_id: int) -> Optional[Dict[str, Any]]:
+        """廠商財務彙總 — 跨模組 JOIN 查詢應付/報銷/帳本"""
+        from app.extended.models.erp import ERPVendorPayable
+        from app.extended.models.invoice import ExpenseInvoice
+        from app.extended.models.finance import FinanceLedger
+
+        vendor = await self.repository.get_by_id(vendor_id)
+        if not vendor:
+            return None
+
+        # 1. 應付帳款彙總
+        payable_stmt = select(
+            func.coalesce(func.sum(ERPVendorPayable.payable_amount), 0).label("total_payable"),
+            func.coalesce(func.sum(ERPVendorPayable.paid_amount), 0).label("total_paid"),
+            func.count(ERPVendorPayable.id).label("payable_count"),
+        ).where(ERPVendorPayable.vendor_id == vendor_id)
+        payable_result = await self.db.execute(payable_stmt)
+        payable_row = payable_result.one()
+
+        # 2. 報銷發票彙總 (透過 vendor_id)
+        expense_stmt = select(
+            func.coalesce(func.sum(ExpenseInvoice.amount), 0).label("total_expenses"),
+            func.count(ExpenseInvoice.id).label("expense_count"),
+        ).where(
+            ExpenseInvoice.vendor_id == vendor_id,
+            ExpenseInvoice.status != "rejected",
+        )
+        expense_result = await self.db.execute(expense_stmt)
+        expense_row = expense_result.one()
+
+        # 3. 帳本彙總 (直接 vendor_id)
+        ledger_stmt = select(
+            func.coalesce(func.sum(FinanceLedger.amount), 0).label("ledger_total"),
+            func.count(FinanceLedger.id).label("ledger_count"),
+        ).where(
+            FinanceLedger.vendor_id == vendor_id,
+            FinanceLedger.entry_type == "expense",
+        )
+        ledger_result = await self.db.execute(ledger_stmt)
+        ledger_row = ledger_result.one()
+
+        total_payable = Decimal(str(payable_row.total_payable))
+        total_paid = Decimal(str(payable_row.total_paid))
+
+        return {
+            "vendor_id": vendor_id,
+            "vendor_name": vendor.vendor_name,
+            "vendor_code": vendor.vendor_code,
+            "total_payable": total_payable,
+            "total_paid": total_paid,
+            "pending_payable": total_payable - total_paid,
+            "payable_count": payable_row.payable_count,
+            "total_expenses": Decimal(str(expense_row.total_expenses)),
+            "expense_count": expense_row.expense_count,
+            "ledger_expense_total": Decimal(str(ledger_row.ledger_total)),
+            "ledger_entry_count": ledger_row.ledger_count,
         }
 

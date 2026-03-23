@@ -46,6 +46,8 @@ class FinanceLedger(Base):
     # 經辦人
     user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"),
                      nullable=True, comment="記帳人/經辦人")
+    vendor_id = Column(Integer, ForeignKey("partner_vendors.id", ondelete="SET NULL"),
+                       nullable=True, index=True, comment="廠商 ID (應付帳款來源)")
 
     # 時間
     transaction_date = Column(Date, nullable=False, server_default=func.current_date(),
@@ -60,6 +62,7 @@ class FinanceLedger(Base):
 
     # Relationships
     user = relationship("User", back_populates="finance_ledgers")
+    vendor = relationship("PartnerVendor", foreign_keys=[vendor_id])
     expense_invoice = relationship(
         "ExpenseInvoice",
         primaryjoin="and_(foreign(FinanceLedger.source_id) == ExpenseInvoice.id, "

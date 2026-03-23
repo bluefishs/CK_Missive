@@ -31,6 +31,9 @@ from .einvoice_sync import (
     EInvoiceSyncRequest, EInvoiceSyncLogResponse, EInvoiceSyncLogQuery,
     ReceiptUploadRequest, PendingReceiptQuery,
 )
+from .vendor_financial import (
+    VendorFinancialSummary, VendorFinancialSummaryRequest,
+)
 from .requests import (
     ERPIdRequest, ERPQuotationIdRequest,
     ERPQuotationUpdateRequest, ERPSummaryRequest,
@@ -59,6 +62,8 @@ __all__ = [
     # 電子發票同步
     "EInvoiceSyncRequest", "EInvoiceSyncLogResponse", "EInvoiceSyncLogQuery",
     "ReceiptUploadRequest", "PendingReceiptQuery",
+    # 廠商財務彙總
+    "VendorFinancialSummary", "VendorFinancialSummaryRequest",
     # Request schemas
     "ERPIdRequest", "ERPQuotationIdRequest",
     "ERPQuotationUpdateRequest", "ERPSummaryRequest",

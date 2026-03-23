@@ -42,7 +42,8 @@ class FinanceLedgerService:
             user_id=invoice.user_id,
             source_type="expense_invoice",
             source_id=invoice.id,
-            transaction_date=invoice.date
+            transaction_date=invoice.date,
+            vendor_id=getattr(invoice, "vendor_id", None),
         )
         return await self.repo.create_entry(ledger)
 
@@ -74,6 +75,7 @@ class FinanceLedgerService:
         paid_amount, paid_date=None,
         vendor_name: Optional[str] = None,
         description: Optional[str] = None,
+        vendor_id: Optional[int] = None,
     ) -> FinanceLedger:
         """從廠商應付付款確認自動產生帳本支出記錄"""
         from decimal import Decimal
@@ -92,6 +94,7 @@ class FinanceLedgerService:
             source_type="erp_vendor_payable",
             source_id=payable_id,
             transaction_date=paid_date or date.today(),
+            vendor_id=vendor_id,
         )
         return await self.repo.create_entry(ledger)
 

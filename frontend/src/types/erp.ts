@@ -91,6 +91,7 @@ export interface ERPVendorPayableDetail {
   erp_quotation_id: number;
   vendor_name: string;
   vendor_code?: string;
+  vendor_id?: number;
   payable_amount: number;
   description?: string;
   due_date?: string;
@@ -202,7 +203,7 @@ export const EXPENSE_CATEGORY_OPTIONS: { value: ExpenseCategory; label: string }
 ];
 
 /** 費用發票來源 */
-export type ExpenseSource = 'qr_scan' | 'manual' | 'api' | 'ocr' | 'mof_sync';
+export type ExpenseSource = 'qr_scan' | 'manual' | 'api' | 'ocr' | 'mof_sync' | 'line_upload';
 
 /** 費用發票狀態 — Phase 5-5 多層審核 */
 export type ExpenseInvoiceStatus =
@@ -240,6 +241,7 @@ export const EXPENSE_SOURCE_LABELS: Record<ExpenseSource, string> = {
   api: 'API',
   ocr: 'OCR 辨識',
   mof_sync: '財政部同步',
+  line_upload: 'LINE 上傳',
 };
 
 /** 費用發票明細項目 */
@@ -269,6 +271,7 @@ export interface ExpenseInvoice {
   buyer_ban?: string;
   seller_ban?: string;
   case_code?: string;
+  vendor_id?: number;
   category?: ExpenseCategory;
   source: ExpenseSource;
   notes?: string;
@@ -370,6 +373,7 @@ export interface FinanceLedger {
   user_id?: number;
   source_type: string;
   source_id?: number;
+  vendor_id?: number;
 }
 
 export interface LedgerCreate {
@@ -604,4 +608,23 @@ export interface PendingListResponse {
 export interface SyncLogsResponse {
   items: EInvoiceSyncLog[];
   total: number;
+}
+
+// ============================================================================
+// 廠商財務彙總 — 對應 schemas/erp/vendor_financial.py
+// ============================================================================
+
+/** 廠商財務彙總 */
+export interface VendorFinancialSummary {
+  vendor_id: number;
+  vendor_name: string;
+  vendor_code?: string;
+  total_payable: number;
+  total_paid: number;
+  pending_payable: number;
+  payable_count: number;
+  total_expenses: number;
+  expense_count: number;
+  ledger_expense_total: number;
+  ledger_entry_count: number;
 }

@@ -128,6 +128,8 @@ class ERPVendorPayable(Base):
     vendor_name = Column(String(200), nullable=False, comment="廠商名稱")
     vendor_code = Column(String(50), nullable=True, index=True,
                          comment="廠商代碼 (軟參照 partner_vendors.vendor_code)")
+    vendor_id = Column(Integer, ForeignKey("partner_vendors.id", ondelete="SET NULL"),
+                       nullable=True, index=True, comment="廠商 ID (強參照)")
     payable_amount = Column(Numeric(15, 2), nullable=False, comment="應付金額")
     description = Column(String(300), comment="項目說明")
 
@@ -145,3 +147,4 @@ class ERPVendorPayable(Base):
 
     # 關聯
     quotation = relationship("ERPQuotation", back_populates="vendor_payables")
+    vendor = relationship("PartnerVendor", foreign_keys=[vendor_id])

@@ -223,7 +223,10 @@ def require_admin():
         current_user: User = Depends(get_current_user)
     ) -> User:
         from app.core.exceptions import ForbiddenException
-        if not current_user.is_admin and not current_user.is_superuser:
+        # 統一檢查：is_admin 布林 OR role 欄位 (防止雙軌不一致)
+        is_admin_by_flag = current_user.is_admin or current_user.is_superuser
+        is_admin_by_role = current_user.role in ('admin', 'superuser')
+        if not is_admin_by_flag and not is_admin_by_role:
             raise ForbiddenException("需要管理員權限")
         return current_user
     return _require_admin

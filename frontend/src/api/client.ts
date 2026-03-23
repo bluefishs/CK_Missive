@@ -74,6 +74,14 @@ function getDynamicApiBaseUrl(): string {
   const hostname = window.location.hostname;
   const defaultPort = '8001';
 
+  // 開發模式 → 一律使用相對路徑，透過 Vite proxy 轉發到後端
+  // 避免 HTTPS 前端 → HTTP 後端的 mixed content / CORS 問題
+  if (import.meta.env.DEV) {
+    return '/api';
+  }
+
+  // === 以下為生產環境邏輯 ===
+
   // 1. localhost 或 127.0.0.1 → 使用 localhost 後端
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     return `http://localhost:${defaultPort}/api`;
@@ -85,7 +93,6 @@ function getDynamicApiBaseUrl(): string {
   }
 
   // 3. ngrok 或其他公網域名 → 使用環境變數或相對路徑
-  // ngrok 需要後端也有隧道，這裡使用環境變數或 fallback
   if (import.meta.env.VITE_API_BASE_URL) {
     return `${import.meta.env.VITE_API_BASE_URL}/api`;
   }

@@ -510,6 +510,19 @@ DEFAULT_NAVIGATION_ITEMS = [
         "permission_required": "[\"admin:settings\"]"
     },
 
+    # 登入紀錄 (對應 ROUTES.ADMIN_LOGIN_HISTORY)
+    {
+        "title": "登入紀錄",
+        "key": "login-history",
+        "path": "/admin/login-history",
+        "icon": "HistoryOutlined",
+        "sort_order": 10,
+        "level": 2,
+        "parent_key": "system-management",
+        "description": "登入,紀錄,審計,資安",
+        "permission_required": "[\"admin:users\"]"
+    },
+
     # AI 同義詞管理、AI Prompt 管理已整合至 AI 助理管理 (/admin/ai-assistant) Tab 分頁
 
     # =========================================================================

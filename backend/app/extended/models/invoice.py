@@ -31,6 +31,8 @@ class ExpenseInvoice(Base):
                        comment="案號 (軟參照 pm_cases / erp_quotations)，NULL=一般營運")
     user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"),
                      nullable=True, comment="上傳者/報銷人")
+    vendor_id = Column(Integer, ForeignKey("partner_vendors.id", ondelete="SET NULL"),
+                       nullable=True, index=True, comment="廠商 ID (由 seller_ban 自動配對)")
 
     # 分類與狀態
     category = Column(String(50), nullable=True,
@@ -64,6 +66,7 @@ class ExpenseInvoice(Base):
 
     # Relationships
     user = relationship("User", back_populates="expense_invoices")
+    vendor = relationship("PartnerVendor", foreign_keys=[vendor_id])
     items = relationship("ExpenseInvoiceItem", back_populates="invoice",
                          cascade="all, delete-orphan")
     ledger_entries = relationship(

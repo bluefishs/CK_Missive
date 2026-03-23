@@ -2709,6 +2709,14 @@
         {
           "name": "ix_einvoice_sync_logs_id",
           "definition": "CREATE INDEX ix_einvoice_sync_logs_id ON public.einvoice_sync_logs USING btree (id)"
+        },
+        {
+          "name": "idx_einvoice_buyer",
+          "definition": "CREATE INDEX idx_einvoice_buyer ON public.einvoice_sync_logs USING btree (buyer_ban)"
+        },
+        {
+          "name": "idx_einvoice_query_date",
+          "definition": "CREATE INDEX idx_einvoice_query_date ON public.einvoice_sync_logs USING btree (query_start, query_end)"
         }
       ],
       "unique_constraints": {},
@@ -3579,6 +3587,13 @@
           "nullable": true,
           "default": "now()",
           "udt_name": "timestamp"
+        },
+        {
+          "name": "vendor_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
         }
       ],
       "primary_key": [
@@ -3588,6 +3603,11 @@
         {
           "column": "erp_quotation_id",
           "ref_table": "erp_quotations",
+          "ref_column": "id"
+        },
+        {
+          "column": "vendor_id",
+          "ref_table": "partner_vendors",
           "ref_column": "id"
         }
       ],
@@ -3607,6 +3627,10 @@
         {
           "name": "ix_erp_vendor_payables_payment_status",
           "definition": "CREATE INDEX ix_erp_vendor_payables_payment_status ON public.erp_vendor_payables USING btree (payment_status)"
+        },
+        {
+          "name": "ix_erp_vendor_payables_vendor_id",
+          "definition": "CREATE INDEX ix_erp_vendor_payables_vendor_id ON public.erp_vendor_payables USING btree (vendor_id)"
         }
       ],
       "unique_constraints": {},
@@ -4051,6 +4075,13 @@
           "nullable": true,
           "default": null,
           "udt_name": "numeric"
+        },
+        {
+          "name": "vendor_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
         }
       ],
       "primary_key": [
@@ -4060,6 +4091,11 @@
         {
           "column": "user_id",
           "ref_table": "users",
+          "ref_column": "id"
+        },
+        {
+          "column": "vendor_id",
+          "ref_table": "partner_vendors",
           "ref_column": "id"
         }
       ],
@@ -4079,6 +4115,10 @@
         {
           "name": "ix_expense_invoices_case_code",
           "definition": "CREATE INDEX ix_expense_invoices_case_code ON public.expense_invoices USING btree (case_code)"
+        },
+        {
+          "name": "ix_expense_invoices_vendor_id",
+          "definition": "CREATE INDEX ix_expense_invoices_vendor_id ON public.expense_invoices USING btree (vendor_id)"
         }
       ],
       "unique_constraints": {},
@@ -4174,6 +4214,13 @@
           "nullable": true,
           "default": "now()",
           "udt_name": "timestamp"
+        },
+        {
+          "name": "vendor_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
         }
       ],
       "primary_key": [
@@ -4183,6 +4230,11 @@
         {
           "column": "user_id",
           "ref_table": "users",
+          "ref_column": "id"
+        },
+        {
+          "column": "vendor_id",
+          "ref_table": "partner_vendors",
           "ref_column": "id"
         }
       ],
@@ -4198,6 +4250,18 @@
         {
           "name": "ix_finance_ledgers_case_code",
           "definition": "CREATE INDEX ix_finance_ledgers_case_code ON public.finance_ledgers USING btree (case_code)"
+        },
+        {
+          "name": "idx_ledger_case_date",
+          "definition": "CREATE INDEX idx_ledger_case_date ON public.finance_ledgers USING btree (case_code, transaction_date)"
+        },
+        {
+          "name": "idx_ledger_source",
+          "definition": "CREATE INDEX idx_ledger_source ON public.finance_ledgers USING btree (source_type, source_id)"
+        },
+        {
+          "name": "ix_finance_ledgers_vendor_id",
+          "definition": "CREATE INDEX ix_finance_ledgers_vendor_id ON public.finance_ledgers USING btree (vendor_id)"
         }
       ],
       "unique_constraints": {},
@@ -7972,6 +8036,22 @@
           "nullable": true,
           "default": null,
           "udt_name": "timestamptz"
+        },
+        {
+          "name": "line_user_id",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 64
+        },
+        {
+          "name": "line_display_name",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 100
         }
       ],
       "primary_key": [
@@ -7990,11 +8070,22 @@
         {
           "name": "users_email_key",
           "definition": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)"
+        },
+        {
+          "name": "users_line_user_id_key",
+          "definition": "CREATE UNIQUE INDEX users_line_user_id_key ON public.users USING btree (line_user_id)"
+        },
+        {
+          "name": "ix_users_line_user_id",
+          "definition": "CREATE UNIQUE INDEX ix_users_line_user_id ON public.users USING btree (line_user_id)"
         }
       ],
       "unique_constraints": {
         "users_email_key": [
           "email"
+        ],
+        "users_line_user_id_key": [
+          "line_user_id"
         ],
         "users_username_key": [
           "username"

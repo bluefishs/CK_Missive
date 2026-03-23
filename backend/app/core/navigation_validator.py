@@ -72,6 +72,10 @@ VALID_NAVIGATION_PATHS: Set[str] = {
 
     # ERP 財務管理
     "/erp/quotations",
+    "/erp/expenses",
+    "/erp/ledger",
+    "/erp/financial-dashboard",
+    "/erp/einvoice-sync",
 }
 
 # 路徑描述對照表（用於錯誤訊息和前端下拉選單）
@@ -114,7 +118,11 @@ PATH_DESCRIPTIONS = {
     "/api/docs": "API文件",
     "/taoyuan/dispatch": "桃園查估派工",
     "/pm/cases": "PM 案件管理",
-    "/erp/quotations": "ERP 財務管理",
+    "/erp/quotations": "ERP 報價管理",
+    "/erp/expenses": "費用報銷管理",
+    "/erp/ledger": "統一帳本",
+    "/erp/financial-dashboard": "財務儀表板",
+    "/erp/einvoice-sync": "電子發票同步",
 }
 
 

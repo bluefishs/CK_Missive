@@ -1,7 +1,7 @@
 # 公司級 ERP 財務模組：主藍圖與任務進度統整 (Master Plan)
 
 > **建立日期**: 2026-03-21
-> **最後更新**: 2026-03-22 (v5.1.8 Phase 7-A/7-B 完成 + Final Roadmap v2.0 三季度藍圖)
+> **最後更新**: 2026-03-22 (v5.1.15 Phase 8~14 + ERP-PM 廠商整合 + QR/行動裝置評估)
 > **角色定位**: 作為團隊開發之唯一真實來源 (SSOT) 狀態版
 > **衍生自**: `invoice_system_architecture_plan.md` (v2.0)
 
@@ -173,6 +173,10 @@ RECEIPT_UPLOAD_DIR=uploads/receipts
 | `POST /project` | 單一專案財務彙總 |
 | `POST /projects` | 所有專案一覽 |
 | `POST /company` | 全公司財務總覽 |
+| `POST /monthly-trend` | 月度收支趨勢 (N 個月) |
+| `POST /budget-ranking` | 預算使用率排行 (Top N) |
+| `POST /export-expenses` | 匯出費用報銷 Excel |
+| `POST /export-ledger` | 匯出帳本收支 Excel |
 
 ## 🔮 六、Phase 5 進階優化架構指南
 
@@ -256,19 +260,108 @@ RECEIPT_UPLOAD_DIR=uploads/receipts
 
 **修復統計**: 4 Services × 8 violations → 0 直接 DB 操作殘留
 
-### Phase 7-C: NemoClaw 夜間預算掃描器 — ⏳ **規劃中**
+### Phase 7-C: NemoClaw 夜間預算掃描器 — ✅ **完成**
 
 | 任務代碼 | 任務內容 | 狀態 |
 |---------|---------|------|
-| **7C-1** | `ERPTriggerScanner` 擴充: 掃描 80~100% 區間專案發出預警通知 | ⏳ 待辦 |
-| **7C-2** | 通知管道整合 (Notification + LINE Push) | ⏳ 待辦 |
+| **7C-1** | `ERPTriggerScanner` 擴充: 掃描 80~100% 區間專案發出預警通知 | ✅ 完成 |
+| **7C-2** | 通知管道整合 (Notification + LINE Push) | ✅ 完成 |
 
-### Phase 7-D: Dashboard 擴展 — ⏳ **規劃中**
+### Phase 7-D: Dashboard 擴展 — ✅ **完成**
 
 | 任務代碼 | 任務內容 | 狀態 |
 |---------|---------|------|
-| **7D-1** | 即時損益表 — 結合 AR/AP 資料產出損益報表 | ⏳ 待辦 |
-| **7D-2** | 預算使用率排行榜 — Top N 專案預算消耗視覺化 | ⏳ 待辦 |
+| **7D-1** | 月度收支趨勢 — API `POST /monthly-trend` + Repository `get_monthly_trend()` + 空月補零 | ✅ 完成 |
+| **7D-2** | 預算使用率排行 — API `POST /budget-ranking` + Repository `get_budget_ranking()` + 案名補充 | ✅ 完成 |
+| **7D-3** | 匯出功能 — `POST /export-expenses` + `POST /export-ledger` → Excel 下載 | ✅ 完成 |
+| **7D-4** | 前端圖表 — recharts BarChart (利潤排名) + PieChart (支出分類) + LineChart (月度趨勢) | ✅ 完成 |
+| **7D-5** | 單元測試 — `test_financial_dashboard.py` (17 tests: 月度趨勢/預算排行/批量彙總/Schema驗證) | ✅ 完成 |
+
+### Phase 7-E: 效能與測試強化 — ✅ **完成**
+
+| 任務代碼 | 任務內容 | 狀態 |
+|---------|---------|------|
+| **P01** | N+1 查詢修復 — `get_batch_project_summaries()` 批量方法 (3 queries 取代 N×3) | ✅ 完成 |
+| **I01** | ORM 複合索引 — `idx_ledger_case_date`, `idx_ledger_source` | ✅ 完成 |
+| **I02** | ORM 複合索引 — `idx_einvoice_buyer`, `idx_einvoice_query_date` | ✅ 完成 |
+| **M01** | Alembic 遷移 `20260322a002` — 4 個複合索引 | ✅ 完成 |
+| **D01** | 規範同步 — `architecture.md` + `skills-inventory.md` ERP 模組盤點更新 | ✅ 完成 |
+| **D02** | 前端頁面測試 — `ERPPages.test.tsx` (8 tests, 5 pages smoke tests) | ✅ 完成 |
+
+---
+
+### Phase 8: 安全加固與原子性修復 — ✅ **完成**
+
+| 任務代碼 | 任務內容 | 狀態 |
+|---------|---------|------|
+| **8-1** | approve/reject 端點改用 `require_permission("projects:write")` + 禁止自我審核 (`user_id == current_user.id`) | ✅ 完成 |
+| **8-3** | `ledger_repository.create_entry()` 改 `flush()` 確保交易原子性 (由 service 層控制 commit) | ✅ 完成 |
+| **9-2** | ERPExpenseDetailPage 收據圖片改用 `expensesApi.receiptImage()` POST API + Blob URL (移除硬編碼 URL) | ✅ 完成 |
+| **8-4** | Docker volume mount 收據儲存 — 已存在 (`./backend/uploads:/app/uploads`) 確認無需變更 | ✅ 已驗證 |
+
+### Phase 13: PM → ERP 整合導航 — ✅ **完成**
+
+| 任務代碼 | 任務內容 | 狀態 |
+|---------|---------|------|
+| **13-1** | PMCaseDetailPage ERP Tab 擴充 — 財務摘要 (預算/支出/收入/淨額/使用率/預算條) + 關聯報價 + 最近費用 | ✅ 完成 |
+| **13-2** | `expense_invoice_service.create()` 加 `_validate_case_code()` — 三層驗證 (ContractProject → PMCase → ERPQuotation) | ✅ 完成 |
+
+### Phase 14: ERP 頁面強化 — ✅ **完成**
+
+| 任務代碼 | 任務內容 | 狀態 |
+|---------|---------|------|
+| **14-1** | ERPExpenseListPage + ERPLedgerPage 案號篩選改為專案下拉 (useProjectsDropdown + showSearch) | ✅ 完成 |
+| **14-1b** | ERPExpenseListPage 支援 URL `?case_code=` 預填篩選 (PM→ERP 導航銜接) | ✅ 完成 |
+| **14-2** | PMCaseListPage 加預算使用率欄位 — useAllProjectsSummary 批次查詢 + 色彩 Tag | ✅ 完成 |
+
+### Phase 14-D: ERP-PM 廠商資訊整合 — ✅ **完成**
+
+| 任務代碼 | 任務內容 | 狀態 |
+|---------|---------|------|
+| **14D-A** | Model 層 vendor_id FK — ERPVendorPayable, ExpenseInvoice, FinanceLedger 加硬參照 | ✅ 完成 |
+| **14D-B** | Alembic 遷移 `20260322a003` — 3 表加 vendor_id + 索引 + 回填 | ✅ 完成 |
+| **14D-C** | Service 自動配對 — vendor_code/seller_ban → vendor_id 解析 (3 Services) | ✅ 完成 |
+| **14D-D** | 廠商財務彙總 API — `VendorService.get_financial_summary()` + `POST /{vendor_id}/financial-summary` | ✅ 完成 |
+| **14D-E** | 前端整合 — endpoint 常數 + `VendorFinancialSummary` 型別 + `useVendorFinancialSummary` Hook | ✅ 完成 |
+| **14D-F** | Schema SSOT — `VendorFinancialSummary` + `VendorFinancialSummaryRequest` 定義於 `schemas/erp/vendor_financial.py` | ✅ 完成 |
+
+**設計決策**:
+- **單一主資料策略**: `PartnerVendor` (PM) 為唯一廠商主檔，ERP 各表透過 `vendor_id` FK 參照
+- **自動配對**: `vendor_code == seller_ban` (統編) 慣例，新建時自動解析，遷移時回填
+- **向後相容**: `vendor_id` 為 nullable FK + `SET NULL`，不破壞現有軟參照流程
+- **財務彙總**: 3 SQL 聚合查詢 (應付帳款 + 費用報銷 + 帳本支出)，由 vendor_id JOIN
+
+### Phase 15: 進階整合 + LINE Login — 🔜 **規劃中**
+
+#### 軌道 A：LINE Login 整合 (P0)
+
+| Phase | 優先級 | 主題 | 關鍵交付 |
+|-------|--------|------|---------|
+| **M1-A** | P0 | User Model 擴充 | `line_user_id`, `line_display_name` + Alembic 遷移 + 索引 |
+| **M1-B** | P0 | LINE OAuth API | `AuthProvider.LINE` + `POST /auth/line/callback` + `POST /auth/line/bind` |
+| **M1-C** | P0 | 前端 LINE Login | LoginPage LINE 按鈕 + authService.lineLogin() + OAuth 流程 |
+| **M2** | P0 | LIFF QR 掃描 | LIFF Compact App + `liff.scanCodeV2()` → `/erp/expenses/qr-scan` |
+| **M3** | P1 | 收據拍照上傳 | LIFF Full 模式 + 相機/相簿 → `/erp/einvoice-sync/upload-receipt` |
+| **M4** | P1 | Flex Message 簽核 | 待審核推播 + Postback 一鍵核准/駁回 |
+| **M5** | P2 | LIFF 費用查詢 | LIFF Tall 模式 + 費用清單 + 餘額查詢 |
+
+#### 軌道 B：技術債清理 (P1)
+
+| Phase | 優先級 | 主題 | 關鍵交付 |
+|-------|--------|------|---------|
+| **G01** | P1 | 全公司餘額邏輯 | `FinanceLedgerService.get_balance()` 實作全公司收支彙總 |
+| **G05** | P0 | Alembic 遷移 | 執行 `alembic upgrade head` 套用 20260322a003 |
+| **G07** | P2 | vendorPayablesApi 對齊 | 補齊完整 CRUD 方法 (目前僅 10L) |
+| **14-3** | P1 | 統一財務 API | 新增合併端點 (expenses+ledger+milestone 一次回傳) |
+
+#### 軌道 C：進階功能 (P2)
+
+| Phase | 優先級 | 主題 | 關鍵交付 |
+|-------|--------|------|---------|
+| **15-1** | P2 | 預算變更歷史 | 新增 BudgetHistory 表追蹤預算修正紀錄 |
+| **15-2** | P2 | Agent 整合工具 | 新增 `get_project_health_summary()` 跨模組 Agent 工具 |
+| **15-3** | P3 | 預算預測 | 基於歷史支出速率預測專案預算消耗時間 |
+| **15-4** | P2 | StorageService 抽象 | S3/MinIO/Local 三態切換，收據影像脫離本地 |
 
 ---
 
@@ -280,9 +373,30 @@ RECEIPT_UPLOAD_DIR=uploads/receipts
 |------|------|------|
 | **Q2** | 前台體驗與 BI 儀表板 | 夜間吹哨者排程、損益表、月度趨勢、預算排行 |
 | **Q3** | 實體解耦與 AI 助理 | StorageService 抽象、OCR 強化、Agent 財務問答 |
-| **Q4** | 行動決策圈 | LINE 卡片式簽核、Mobile Web PWA、AI 異常偵測 |
+| **Q4** | 行動決策圈 | LINE LIFF QR 掃描、卡片式簽核、AI 異常偵測 |
 
 三大戰略支柱: **可見性 (Visibility)** → **可觸及 (Accessibility)** → **可預測 (Predictability)**
+
+### 📱 行動裝置整合評估 (2026-03-22)
+
+**評估四方案**:
+
+| 方案 | 優勢 | 劣勢 | 推薦 |
+|------|------|------|------|
+| **LINE LIFF App** | 既有 LINE Bot 基礎設施、免安裝、台灣普及率高 | 需 LIFF SDK 整合、LINE Login 帳號綁定 | ⭐ **P0 推薦** |
+| **PWA** | 跨平台、瀏覽器原生、可離線 | QR 掃描需 getUserMedia、推播需 Service Worker | P1 備選 |
+| **Telegram Bot** | API 簡潔、Webhook 原生支援 | 台灣使用率低、企業接受度差 | ❌ 不建議 |
+| **Native App** | 效能最佳、裝置 API 完整 | 開發成本高、需上架審核 | ❌ 不符投資效益 |
+
+**LINE LIFF 實作路線圖**:
+
+| Phase | 優先級 | 主題 | 關鍵交付 |
+|-------|--------|------|---------|
+| **M1** | P0 | LINE Login 帳號綁定 | `users.line_user_id` + 綁定 API + LINE Profile 自動對應 |
+| **M2** | P0 | LIFF QR 掃描 | LIFF App (Compact) + `liff.scanCodeV2()` → `/erp/expenses/qr-scan` |
+| **M3** | P1 | 收據拍照上傳 | LIFF Full 模式 + 拍照/相簿 → `/erp/einvoice-sync/upload-receipt` |
+| **M4** | P1 | Flex Message 簽核 | 待審核推播 + Postback 一鍵核准/駁回 |
+| **M5** | P2 | LIFF 費用查詢 | LIFF Tall 模式 + 費用清單 + 餘額查詢 |
 
 ---
 

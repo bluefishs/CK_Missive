@@ -10,7 +10,7 @@ import { Typography, Input, Button, Space, Card, Statistic, Row, Col, Tag, Selec
 import { PlusOutlined, ReloadOutlined, ProjectOutlined, CheckCircleOutlined, ClockCircleOutlined, DollarOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { ResponsiveContent } from '@ck-shared/ui-components';
-import { usePMCases, usePMCaseSummary, useAuthGuard, useResponsive } from '../hooks';
+import { usePMCases, usePMCaseSummary, useAuthGuard, useResponsive, useAllProjectsSummary } from '../hooks';
 import { PM_CASE_STATUS_LABELS, PM_CASE_STATUS_COLORS, PM_CATEGORY_LABELS } from '../types/api';
 import type { PMCase } from '../types/api';
 import type { ColumnsType } from 'antd/es/table';
@@ -42,6 +42,16 @@ export const PMCaseListPage: React.FC = () => {
 
   const { data: casesData, isLoading, refetch } = usePMCases(queryParams);
   const { data: summary } = usePMCaseSummary({ year: yearFilter });
+  const { data: financialData } = useAllProjectsSummary({ year: yearFilter, limit: 200 });
+
+  // Build budget alert lookup by case_code
+  const budgetMap = useMemo(() => {
+    const map: Record<string, { pct?: number; alert?: string }> = {};
+    for (const p of financialData?.items ?? []) {
+      map[p.case_code] = { pct: p.budget_used_percentage, alert: p.budget_alert };
+    }
+    return map;
+  }, [financialData]);
 
   // PaginatedResponse<PMCase> has .items and .pagination directly
   const cases = casesData?.items ?? [];
@@ -101,6 +111,17 @@ export const PMCaseListPage: React.FC = () => {
       key: 'progress',
       width: 110,
       render: (p: number) => <Progress percent={p} size="small" />,
+    },
+    {
+      title: '預算',
+      key: 'budget_alert',
+      width: 100,
+      render: (_: unknown, record: PMCase) => {
+        const info = budgetMap[record.case_code];
+        if (!info || info.pct == null) return <Tag>-</Tag>;
+        const color = info.alert === 'critical' ? 'red' : info.alert === 'warning' ? 'orange' : 'green';
+        return <Tag color={color}>{info.pct.toFixed(0)}%</Tag>;
+      },
     },
     {
       title: '開始日期',

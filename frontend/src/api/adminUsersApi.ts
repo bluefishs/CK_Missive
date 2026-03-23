@@ -189,6 +189,34 @@ export const adminUsersApi = {
   },
 
   /**
+   * 管理員解鎖帳號 (POST)
+   */
+  async unlockUser(userId: number): Promise<User> {
+    return await apiClient.post<User>(
+      API_ENDPOINTS.ADMIN_USER_MANAGEMENT.USERS_UNLOCK(userId)
+    );
+  },
+
+  /**
+   * 管理員綁定 LINE (POST)
+   */
+  async bindLine(userId: number, lineUserId: string, lineDisplayName?: string): Promise<User> {
+    return await apiClient.post<User>(
+      API_ENDPOINTS.ADMIN_USER_MANAGEMENT.LINE_BIND(userId),
+      { line_user_id: lineUserId, line_display_name: lineDisplayName }
+    );
+  },
+
+  /**
+   * 管理員解除 LINE 綁定 (POST)
+   */
+  async unbindLine(userId: number): Promise<User> {
+    return await apiClient.post<User>(
+      API_ENDPOINTS.ADMIN_USER_MANAGEMENT.LINE_UNBIND(userId)
+    );
+  },
+
+  /**
    * 批量更新使用者角色 (POST)
    */
   async batchUpdateRole(

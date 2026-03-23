@@ -67,6 +67,8 @@ export interface AuthGuardOptions {
  * 條件：
  * 1. VITE_AUTH_DISABLED=true（完全停用認證）
  * 2. 內網環境 + 已有 internal auth_provider 的 user_info
+ *
+ * 注意：Google/LINE/email 等外部 provider 不適用繞過，一律走完整 JWT 認證流程。
  */
 const shouldBypassAuth = (): boolean => {
   // 環境變數完全停用認證

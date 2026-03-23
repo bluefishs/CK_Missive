@@ -32,7 +32,7 @@ import {
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ResponsiveContent } from '@ck-shared/ui-components';
-import { usePMCase, useCrossModuleLookup, useAuthGuard } from '../hooks';
+import { usePMCase, useCrossModuleLookup, useAuthGuard, useProjectFinancialSummary, useExpenses } from '../hooks';
 import { projectsApi } from '../api/projectsApi';
 import { PM_CASE_STATUS_LABELS, PM_CASE_STATUS_COLORS, PM_CATEGORY_LABELS } from '../types/api';
 import type { PMCaseStatus } from '../types/api';
@@ -67,6 +67,10 @@ export const PMCaseDetailPage: React.FC = () => {
   // ERP cross-module
   const { data: crossData } = useCrossModuleLookup(pmCase?.case_code ?? null);
   const erpLink = crossData?.erp;
+
+  // ERP Financial Summary
+  const { data: financialData, isLoading: finLoading } = useProjectFinancialSummary(pmCase?.case_code);
+  const { data: expensesData } = useExpenses(pmCase?.case_code ? { case_code: pmCase.case_code, limit: 5, skip: 0 } : undefined);
 
   if (pmLoading || matchLoading) {
     return (
@@ -152,19 +156,74 @@ export const PMCaseDetailPage: React.FC = () => {
     {
       key: 'erp',
       label: <span><DollarOutlined /> ERP 財務</span>,
-      children: erpLink ? (
-        <Card size="small" title="關聯報價"
-          extra={<Button size="small" onClick={() => navigate(`/erp/quotations/${erpLink.id}`)}>查看詳情</Button>}
-        >
-          <Row gutter={[16, 16]}>
-            <Col xs={12} sm={6}><Statistic title="總價" value={Number(erpLink.total_price) || 0} prefix="NT$" /></Col>
-            <Col xs={12} sm={6}><Statistic title="毛利" value={Number(erpLink.gross_profit) || 0} prefix="NT$" /></Col>
-            <Col xs={12} sm={6}><Statistic title="狀態" value={erpLink.status === 'confirmed' ? '已確認' : erpLink.status === 'draft' ? '草稿' : '已結案'} /></Col>
-            <Col xs={12} sm={6}><Statistic title="案件名稱" value={erpLink.case_name} /></Col>
-          </Row>
-        </Card>
-      ) : (
-        <Result status="info" title="尚無 ERP 關聯" subTitle={`案號 ${pmCase.case_code} 在 ERP 模組中沒有對應的報價記錄`} />
+      children: (
+        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          {/* 財務摘要 */}
+          {finLoading ? <Spin /> : financialData?.data ? (() => {
+            const fin = financialData.data;
+            const alertColor = fin.budget_alert === 'critical' ? '#ff4d4f' : fin.budget_alert === 'warning' ? '#faad14' : '#52c41a';
+            return (
+              <Card size="small" title="專案財務摘要"
+                extra={<Button size="small" onClick={() => navigate(`${ROUTES.ERP_EXPENSES}?case_code=${pmCase.case_code}`)}>查看費用明細</Button>}
+              >
+                <Row gutter={[16, 16]}>
+                  <Col xs={12} sm={6}><Statistic title="預算總額" value={fin.budget_total ?? 0} prefix="NT$" precision={0} /></Col>
+                  <Col xs={12} sm={6}><Statistic title="累計支出" value={fin.total_expense} prefix="NT$" precision={0} /></Col>
+                  <Col xs={12} sm={6}><Statistic title="累計收入" value={fin.total_income} prefix="NT$" precision={0} /></Col>
+                  <Col xs={12} sm={6}><Statistic title="淨額" value={fin.net_balance} prefix="NT$" precision={0} valueStyle={{ color: fin.net_balance >= 0 ? '#3f8600' : '#cf1322' }} /></Col>
+                </Row>
+                <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+                  <Col xs={12} sm={6}><Statistic title="報銷筆數" value={fin.expense_invoice_count} suffix="筆" /></Col>
+                  <Col xs={12} sm={6}><Statistic title="報銷總額" value={fin.expense_invoice_total} prefix="NT$" precision={0} /></Col>
+                  <Col xs={12} sm={6}>
+                    <Statistic title="預算使用率" value={fin.budget_used_percentage ?? 0} suffix="%" precision={1}
+                      valueStyle={{ color: alertColor }}
+                    />
+                  </Col>
+                  <Col xs={12} sm={6}>
+                    <Statistic title="預算狀態" value={fin.budget_alert === 'critical' ? '超支警告' : fin.budget_alert === 'warning' ? '接近上限' : '正常'} valueStyle={{ color: alertColor }} />
+                  </Col>
+                </Row>
+                {fin.budget_used_percentage != null && (
+                  <Progress percent={Math.min(fin.budget_used_percentage, 100)} status={fin.budget_alert === 'critical' ? 'exception' : fin.budget_alert === 'warning' ? 'active' : 'normal'} style={{ marginTop: 12 }} />
+                )}
+              </Card>
+            );
+          })() : (
+            <Result status="info" title="尚無財務記錄" subTitle={`案號 ${pmCase.case_code} 目前無費用報銷或帳本記錄`} />
+          )}
+
+          {/* 關聯報價 */}
+          {erpLink && (
+            <Card size="small" title="關聯報價"
+              extra={<Button size="small" onClick={() => navigate(`/erp/quotations/${erpLink.id}`)}>查看詳情</Button>}
+            >
+              <Row gutter={[16, 16]}>
+                <Col xs={12} sm={6}><Statistic title="報價總價" value={Number(erpLink.total_price) || 0} prefix="NT$" /></Col>
+                <Col xs={12} sm={6}><Statistic title="毛利" value={Number(erpLink.gross_profit) || 0} prefix="NT$" /></Col>
+                <Col xs={12} sm={6}><Statistic title="狀態" value={erpLink.status === 'confirmed' ? '已確認' : erpLink.status === 'draft' ? '草稿' : '已結案'} /></Col>
+                <Col xs={12} sm={6}><Statistic title="案件名稱" value={erpLink.case_name} /></Col>
+              </Row>
+            </Card>
+          )}
+
+          {/* 最近費用 */}
+          {expensesData?.items && expensesData.items.length > 0 && (
+            <Card size="small" title={`最近費用 (共 ${expensesData.total ?? expensesData.items.length} 筆)`}
+              extra={<Button size="small" onClick={() => navigate(`${ROUTES.ERP_EXPENSES}?case_code=${pmCase.case_code}`)}>查看全部</Button>}
+            >
+              {expensesData.items.slice(0, 5).map((exp) => (
+                <div key={exp.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f0f0f0' }}>
+                  <span>{exp.inv_num} — {exp.category ?? '未分類'}</span>
+                  <Space>
+                    <span>NT${exp.amount?.toLocaleString()}</span>
+                    <Tag color={exp.status === 'verified' ? 'green' : exp.status === 'rejected' ? 'red' : 'blue'}>{exp.status}</Tag>
+                  </Space>
+                </div>
+              ))}
+            </Card>
+          )}
+        </Space>
       ),
     },
   ];

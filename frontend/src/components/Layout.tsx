@@ -37,7 +37,7 @@ interface LayoutProps {
 }
 
 // 不需要布局的公開頁面路徑
-const PUBLIC_ROUTES = ['/entry', '/login', '/register', '/forgot-password', '/verify-email'];
+const PUBLIC_ROUTES = ['/entry', '/login', '/register', '/forgot-password', '/verify-email', '/auth/line/callback', '/auth/line/bind-callback'];
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { message } = App.useApp();

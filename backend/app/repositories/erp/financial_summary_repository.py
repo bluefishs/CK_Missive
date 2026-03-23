@@ -74,6 +74,96 @@ class FinancialSummaryRepository:
             budget_alert=alert
         )
 
+    async def get_batch_project_summaries(
+        self, case_codes: List[str]
+    ) -> List[Optional[ProjectFinancialSummary]]:
+        """批量取得多專案財務彙總 — 避免 N+1 查詢
+
+        用 3 批量查詢取代 N*3 逐筆查詢：
+        1. 一次查所有 ContractProject
+        2. 一次 GROUP BY 所有 ExpenseInvoice
+        3. 一次 GROUP BY 所有 FinanceLedger
+        """
+        if not case_codes:
+            return []
+
+        # 1. 批量取專案主檔
+        stmt_proj = select(ContractProject).where(
+            ContractProject.project_code.in_(case_codes)
+        )
+        proj_rows = (await self.db.execute(stmt_proj)).scalars().all()
+        proj_map = {p.project_code: p for p in proj_rows}
+
+        # 2. 批量取 ExpenseInvoice 統計
+        stmt_expense = (
+            select(
+                ExpenseInvoice.case_code,
+                func.count(ExpenseInvoice.id).label("cnt"),
+                func.sum(ExpenseInvoice.amount).label("total"),
+            )
+            .where(ExpenseInvoice.case_code.in_(case_codes))
+            .group_by(ExpenseInvoice.case_code)
+        )
+        expense_rows = (await self.db.execute(stmt_expense)).all()
+        expense_map = {r.case_code: r for r in expense_rows}
+
+        # 3. 批量取 Ledger 統計
+        stmt_ledger = (
+            select(
+                FinanceLedger.case_code,
+                FinanceLedger.entry_type,
+                func.sum(FinanceLedger.amount).label("total"),
+            )
+            .where(FinanceLedger.case_code.in_(case_codes))
+            .group_by(FinanceLedger.case_code, FinanceLedger.entry_type)
+        )
+        ledger_rows = (await self.db.execute(stmt_ledger)).all()
+        ledger_map: dict = {}
+        for r in ledger_rows:
+            ledger_map.setdefault(r.case_code, {})[r.entry_type] = r.total or Decimal("0")
+
+        # 4. 組裝結果（保留原始順序）
+        results = []
+        for cc in case_codes:
+            proj = proj_map.get(cc)
+            if not proj:
+                results.append(None)
+                continue
+
+            exp = expense_map.get(cc)
+            exp_count = exp.cnt if exp else 0
+            exp_total = exp.total or Decimal("0") if exp else Decimal("0")
+
+            ledger_entry = ledger_map.get(cc, {})
+            income = ledger_entry.get("income", Decimal("0"))
+            expense_amt = ledger_entry.get("expense", Decimal("0"))
+            net_balance = income - expense_amt
+
+            budget = Decimal(str(proj.contract_amount)) if proj.contract_amount else None
+            used_perc = float((expense_amt / budget) * 100) if budget and budget > 0 else None
+
+            alert = "normal"
+            if used_perc:
+                if used_perc > 95:
+                    alert = "critical"
+                elif used_perc > 80:
+                    alert = "warning"
+
+            results.append(ProjectFinancialSummary(
+                case_code=cc,
+                case_name=proj.project_name,
+                budget_total=budget,
+                expense_invoice_count=exp_count,
+                expense_invoice_total=exp_total,
+                total_income=income,
+                total_expense=expense_amt,
+                net_balance=net_balance,
+                budget_used_percentage=used_perc,
+                budget_alert=alert,
+            ))
+
+        return results
+
     async def get_company_overview(
         self,
         date_from: Optional[date] = None,

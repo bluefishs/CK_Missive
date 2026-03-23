@@ -81,18 +81,25 @@ async def login_for_access_token(
     """
     masked_user = form_data.username[:2] + "***" if len(form_data.username) > 2 else "***"
     logger.info(f"[AUTH] 帳密登入嘗試: {masked_user}")
+    ip_address, user_agent = get_client_info(request)
     try:
         user = await AuthService.authenticate_user(
             db, form_data.username, form_data.password
         )
         if not user:
+            await AuditService.log_auth_event(
+                event_type="LOGIN_FAILED",
+                email=form_data.username,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                details={"auth_provider": "email", "reason": "invalid_credentials"},
+                success=False,
+            )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="帳號或密碼錯誤",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-
-        ip_address, user_agent = get_client_info(request)
 
         # 檢查 MFA 狀態
         if user.mfa_enabled and user.mfa_secret:
@@ -108,6 +115,16 @@ async def login_for_access_token(
 
         token_response = await AuthService.generate_login_response(
             db, user, ip_address, user_agent
+        )
+
+        await AuditService.log_auth_event(
+            event_type="LOGIN_SUCCESS",
+            user_id=user.id,
+            email=user.email,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            details={"auth_provider": "email"},
+            success=True,
         )
 
         # 建立 JSONResponse 以便同時設定 cookies
@@ -177,7 +194,7 @@ async def google_oauth_login(
                 email=google_info.email,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                details={"reason": "domain_not_allowed"},
+                details={"reason": "domain_not_allowed", "auth_provider": "google"},
                 success=False,
             )
             raise HTTPException(
@@ -248,7 +265,8 @@ async def google_oauth_login(
                 details={
                     "reason": "pending_approval"
                     if is_new_user
-                    else "account_deactivated"
+                    else "account_deactivated",
+                    "auth_provider": "google",
                 },
                 success=False,
             )

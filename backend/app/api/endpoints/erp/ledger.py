@@ -1,7 +1,7 @@
 """統一帳本 API 端點 (POST-only)"""
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.core.dependencies import get_service, optional_auth, require_auth
+from app.core.dependencies import get_service, require_auth
 from app.extended.models import User
 from app.services.finance_ledger_service import FinanceLedgerService
 from app.schemas.erp.ledger import (
@@ -33,10 +33,10 @@ async def list_ledger(
 async def create_ledger_entry(
     data: LedgerCreate,
     service: FinanceLedgerService = Depends(get_service(FinanceLedgerService)),
-    current_user: User = Depends(optional_auth()),
+    current_user: User = Depends(require_auth()),
 ):
     """手動記帳"""
-    user_id = current_user.id if current_user else None
+    user_id = current_user.id
     result = await service.create(data, user_id=user_id)
     return SuccessResponse(data=result, message="記帳成功")
 

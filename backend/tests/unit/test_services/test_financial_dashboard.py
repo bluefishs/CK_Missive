@@ -161,6 +161,115 @@ class TestBudgetRankingRepository:
         assert len(items) == 5
 
 
+class TestBatchProjectSummaries:
+    """FinancialSummaryRepository.get_batch_project_summaries 測試"""
+
+    @pytest.mark.asyncio
+    async def test_batch_returns_correct_count(self):
+        """批量查詢回傳與輸入等量結果"""
+        mock_db = AsyncMock()
+
+        # 模擬 3 個專案主檔
+        proj1 = MagicMock(project_code="A001", project_name="專案A", contract_amount=Decimal("1000000"))
+        proj2 = MagicMock(project_code="A002", project_name="專案B", contract_amount=Decimal("500000"))
+        proj3 = MagicMock(project_code="A003", project_name="專案C", contract_amount=None)
+
+        # 模擬 3 次 execute: project, expense, ledger
+        mock_proj_result = MagicMock()
+        mock_proj_result.scalars.return_value.all.return_value = [proj1, proj2, proj3]
+
+        mock_expense_result = MagicMock()
+        mock_expense_result.all.return_value = [
+            MagicMock(case_code="A001", cnt=5, total=Decimal("300000")),
+            MagicMock(case_code="A002", cnt=2, total=Decimal("100000")),
+        ]
+
+        mock_ledger_result = MagicMock()
+        mock_ledger_result.all.return_value = [
+            MagicMock(case_code="A001", entry_type="income", total=Decimal("800000")),
+            MagicMock(case_code="A001", entry_type="expense", total=Decimal("300000")),
+            MagicMock(case_code="A002", entry_type="expense", total=Decimal("100000")),
+        ]
+
+        mock_db.execute = AsyncMock(side_effect=[mock_proj_result, mock_expense_result, mock_ledger_result])
+
+        from app.repositories.erp.financial_summary_repository import FinancialSummaryRepository
+        repo = FinancialSummaryRepository(mock_db)
+
+        results = await repo.get_batch_project_summaries(["A001", "A002", "A003"])
+
+        assert len(results) == 3
+        assert results[0].case_code == "A001"
+        assert results[0].expense_invoice_count == 5
+        assert results[0].total_income == Decimal("800000")
+        assert results[0].budget_alert == "normal"  # 300k/1M = 30%
+
+        assert results[1].case_code == "A002"
+        assert results[1].budget_alert == "normal"  # 100k/500k = 20%
+
+        assert results[2].case_code == "A003"
+        assert results[2].budget_used_percentage is None  # no budget
+
+    @pytest.mark.asyncio
+    async def test_batch_empty_list(self):
+        """空案號列表回傳空"""
+        mock_db = AsyncMock()
+        from app.repositories.erp.financial_summary_repository import FinancialSummaryRepository
+        repo = FinancialSummaryRepository(mock_db)
+        results = await repo.get_batch_project_summaries([])
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_batch_missing_project(self):
+        """找不到專案主檔的案號回傳 None"""
+        mock_db = AsyncMock()
+
+        mock_proj_result = MagicMock()
+        mock_proj_result.scalars.return_value.all.return_value = []  # 沒有專案
+
+        mock_expense_result = MagicMock()
+        mock_expense_result.all.return_value = []
+
+        mock_ledger_result = MagicMock()
+        mock_ledger_result.all.return_value = []
+
+        mock_db.execute = AsyncMock(side_effect=[mock_proj_result, mock_expense_result, mock_ledger_result])
+
+        from app.repositories.erp.financial_summary_repository import FinancialSummaryRepository
+        repo = FinancialSummaryRepository(mock_db)
+
+        results = await repo.get_batch_project_summaries(["MISSING"])
+        assert len(results) == 1
+        assert results[0] is None
+
+    @pytest.mark.asyncio
+    async def test_batch_budget_alert_levels(self):
+        """驗證 critical (>95%) / warning (>80%) / normal 判定"""
+        mock_db = AsyncMock()
+
+        proj_crit = MagicMock(project_code="C1", project_name="超支", contract_amount=Decimal("100000"))
+        proj_warn = MagicMock(project_code="C2", project_name="警告", contract_amount=Decimal("100000"))
+
+        mock_proj_result = MagicMock()
+        mock_proj_result.scalars.return_value.all.return_value = [proj_crit, proj_warn]
+        mock_expense_result = MagicMock()
+        mock_expense_result.all.return_value = []
+        mock_ledger_result = MagicMock()
+        mock_ledger_result.all.return_value = [
+            MagicMock(case_code="C1", entry_type="expense", total=Decimal("96000")),  # 96%
+            MagicMock(case_code="C2", entry_type="expense", total=Decimal("85000")),  # 85%
+        ]
+
+        mock_db.execute = AsyncMock(side_effect=[mock_proj_result, mock_expense_result, mock_ledger_result])
+
+        from app.repositories.erp.financial_summary_repository import FinancialSummaryRepository
+        repo = FinancialSummaryRepository(mock_db)
+
+        results = await repo.get_batch_project_summaries(["C1", "C2"])
+        assert results[0].budget_alert == "critical"
+        assert results[1].budget_alert == "warning"
+
+
 class TestFinancialSummaryServiceDashboard:
     """FinancialSummaryService dashboard 方法測試"""
 

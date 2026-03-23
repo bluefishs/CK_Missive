@@ -62,6 +62,8 @@ export const ROUTES = {
   FORGOT_PASSWORD: '/forgot-password',
   RESET_PASSWORD: '/reset-password',
   VERIFY_EMAIL: '/verify-email',
+  LINE_CALLBACK: '/auth/line/callback',
+  LINE_BIND_CALLBACK: '/auth/line/bind-callback',
   NOT_FOUND: '/404',
   API_MAPPING: '/api-mapping', // 新增 API 對應頁面路由
   API_DOCS: '/api/docs', // API 文件頁面路由
@@ -118,6 +120,8 @@ export const ROUTES = {
   ERP_FINANCIAL_DASHBOARD: '/erp/financial-dashboard',
   // 電子發票同步
   ERP_EINVOICE_SYNC: '/erp/einvoice-sync',
+  // 登入紀錄 (資安管理)
+  ADMIN_LOGIN_HISTORY: '/admin/login-history',
 } as const;
 
 // 路由元數據
@@ -378,6 +382,16 @@ export const ROUTE_META = {
     title: 'Email 驗證',
     description: '驗證您的電子郵件',
     icon: 'MailOutlined',
+  },
+  [ROUTES.LINE_CALLBACK]: {
+    title: 'LINE 登入',
+    description: 'LINE OAuth 登入回調',
+    hideInMenu: true,
+  },
+  [ROUTES.LINE_BIND_CALLBACK]: {
+    title: 'LINE 綁定',
+    description: 'LINE 帳號綁定回調',
+    hideInMenu: true,
   },
   [ROUTES.TAOYUAN_DISPATCH_CREATE]: {
     title: '新增派工單',

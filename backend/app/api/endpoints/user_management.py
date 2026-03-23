@@ -10,6 +10,7 @@ import json
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select as sa_select
 
 from app.core.auth_service import AuthService
 from app.core.dependencies import get_async_db, require_admin
@@ -17,8 +18,9 @@ from app.api.endpoints.auth import get_current_user
 from app.repositories.user_repository import UserRepository
 from app.schemas.auth import (
     UserResponse, UserUpdate, UserListResponse, UserSearchParams,
-    UserPermissions, PermissionCheck, UserSessionsResponse, UserRegister
+    UserPermissions, PermissionCheck, UserSessionsResponse, UserRegister,
 )
+from app.schemas.admin import AdminLineBindRequest
 from app.extended.models import User
 from app.services.audit_service import AuditService
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -384,6 +386,120 @@ async def revoke_user_session(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="撤銷會話失敗"
         )
+
+
+# === 帳號解鎖 ===
+
+@router.post("/users/{user_id}/unlock", response_model=UserResponse, summary="管理員解鎖帳號")
+async def admin_unlock_user(
+    user_id: int,
+    user_repo: UserRepository = Depends(get_user_repository),
+    admin_user: User = Depends(require_admin())
+):
+    """管理員解鎖被鎖定的使用者帳號 (重置登入失敗次數) - POST-only"""
+    user = await user_repo.get_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="使用者不存在")
+
+    if not user.locked_until and (user.failed_login_attempts or 0) == 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="此帳號未被鎖定")
+
+    old_attempts = user.failed_login_attempts
+    old_locked = user.locked_until
+    await user_repo.update_fields(user_id, failed_login_attempts=0, locked_until=None)
+    await user_repo.db.commit()
+
+    updated_user = await user_repo.get_by_id(user_id)
+
+    await AuditService.log_user_change(
+        user_id=user_id,
+        action="ACCOUNT_UNLOCK",
+        changes={
+            "failed_login_attempts": {"old": old_attempts, "new": 0},
+            "locked_until": {"old": str(old_locked) if old_locked else None, "new": None},
+        },
+        admin_id=admin_user.id,
+        admin_name=admin_user.full_name
+    )
+
+    logger.info(f"[USER_MGMT] 管理員解鎖帳號: user={user_id} (was locked, {old_attempts} failed attempts) by {admin_user.email}")
+    return UserResponse.model_validate(updated_user)
+
+
+# === LINE 綁定管理 ===
+
+@router.post("/users/{user_id}/line-bind", response_model=UserResponse, summary="管理員綁定 LINE")
+async def admin_bind_line(
+    user_id: int,
+    bind_data: AdminLineBindRequest,
+    user_repo: UserRepository = Depends(get_user_repository),
+    admin_user: User = Depends(require_admin())
+):
+    """管理員手動綁定 LINE 帳號到指定使用者 - POST-only"""
+    user = await user_repo.get_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="使用者不存在")
+
+    # 檢查 LINE ID 格式
+    if not bind_data.line_user_id.startswith("U"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="LINE User ID 格式錯誤 (應以 U 開頭)")
+
+    # 檢查 LINE ID 是否已被其他帳號使用
+    result = await user_repo.db.execute(
+        sa_select(User).where(User.line_user_id == bind_data.line_user_id, User.id != user_id)
+    )
+    if result.scalars().first():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="此 LINE ID 已綁定到其他帳號")
+
+    old_line_id = user.line_user_id
+    await user_repo.update_fields(user_id, line_user_id=bind_data.line_user_id, line_display_name=bind_data.line_display_name or user.full_name)
+    await user_repo.db.commit()
+
+    updated_user = await user_repo.get_by_id(user_id)
+
+    await AuditService.log_user_change(
+        user_id=user_id,
+        action="LINE_BIND",
+        changes={"line_user_id": {"old": old_line_id, "new": bind_data.line_user_id}},
+        admin_id=admin_user.id,
+        admin_name=admin_user.full_name
+    )
+
+    logger.info(f"[USER_MGMT] 管理員綁定 LINE: user={user_id}, line_id={bind_data.line_user_id[:12]}... by {admin_user.email}")
+    return UserResponse.model_validate(updated_user)
+
+
+@router.post("/users/{user_id}/line-unbind", response_model=UserResponse, summary="管理員解除 LINE 綁定")
+async def admin_unbind_line(
+    user_id: int,
+    user_repo: UserRepository = Depends(get_user_repository),
+    admin_user: User = Depends(require_admin())
+):
+    """管理員解除指定使用者的 LINE 綁定 - POST-only"""
+    user = await user_repo.get_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="使用者不存在")
+
+    if not user.line_user_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="此使用者尚未綁定 LINE")
+
+    old_line_id = user.line_user_id
+    old_line_name = user.line_display_name
+    await user_repo.update_fields(user_id, line_user_id=None, line_display_name=None)
+    await user_repo.db.commit()
+
+    updated_user = await user_repo.get_by_id(user_id)
+
+    await AuditService.log_user_change(
+        user_id=user_id,
+        action="LINE_UNBIND",
+        changes={"line_user_id": {"old": old_line_id, "new": None}, "line_display_name": {"old": old_line_name, "new": None}},
+        admin_id=admin_user.id,
+        admin_name=admin_user.full_name
+    )
+
+    logger.info(f"[USER_MGMT] 管理員解除 LINE: user={user_id} by {admin_user.email}")
+    return UserResponse.model_validate(updated_user)
 
 
 # === 權限預設清單 ===

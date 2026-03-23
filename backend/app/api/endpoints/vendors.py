@@ -18,7 +18,9 @@ from app.schemas.vendor import (
 from app.schemas.common import (
     PaginationMeta,
     DeleteResponse,
+    SuccessResponse,
 )
+from app.schemas.erp.vendor_financial import VendorFinancialSummary
 from app.services.vendor_service import VendorService
 from app.core.exceptions import NotFoundException, ConflictException, ResourceInUseException
 from app.core.dependencies import get_service
@@ -200,6 +202,27 @@ async def get_vendor_statistics(
     """
     stats = await vendor_service.get_statistics()
     return VendorStatisticsResponse(success=True, data=stats)
+
+
+@router.post(
+    "/{vendor_id}/financial-summary",
+    response_model=SuccessResponse,
+    summary="取得廠商財務彙總",
+)
+async def get_vendor_financial_summary(
+    vendor_id: int,
+    vendor_service: VendorService = Depends(get_service(VendorService)),
+    current_user: User = Depends(require_auth()),
+):
+    """
+    取得廠商財務彙總 — 應付帳款 + 報銷發票 + 帳本支出
+
+    🔒 需要認證
+    """
+    result = await vendor_service.get_financial_summary(vendor_id)
+    if not result:
+        raise NotFoundException(resource="廠商", resource_id=vendor_id)
+    return SuccessResponse(success=True, data=VendorFinancialSummary(**result).model_dump())
 
 
 # ============================================================================

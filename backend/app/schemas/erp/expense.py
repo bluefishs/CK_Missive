@@ -68,7 +68,7 @@ class ExpenseInvoiceBase(BaseModel):
     seller_ban: Optional[str] = Field(None, min_length=8, max_length=8, description="賣方統編 (8碼)")
     case_code: Optional[str] = Field(None, max_length=50, description="案號 (NULL=一般營運支出)")
     category: Optional[EXPENSE_CATEGORIES] = Field(None, description="費用分類")
-    source: Literal["qr_scan", "manual", "api", "ocr", "mof_sync"] = "manual"
+    source: Literal["qr_scan", "manual", "api", "ocr", "mof_sync", "line_upload"] = "manual"
     notes: Optional[str] = Field(None, max_length=500, description="備註")
     # 多幣別 (Phase 5-4)
     currency: SUPPORTED_CURRENCIES = Field("TWD", description="幣別 (ISO 4217)")
@@ -78,6 +78,7 @@ class ExpenseInvoiceBase(BaseModel):
 class ExpenseInvoiceCreate(ExpenseInvoiceBase):
     """費用報銷發票建立 (QR 自動填入或手動輸入)"""
     items: Optional[List[ExpenseInvoiceItemCreate]] = None
+    receipt_image_path: Optional[str] = Field(None, description="收據影像路徑 (LINE 上傳時自動填入)")
 
     @model_validator(mode="after")
     def validate_multi_currency(self) -> "ExpenseInvoiceCreate":

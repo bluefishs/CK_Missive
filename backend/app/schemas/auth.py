@@ -9,6 +9,7 @@ from enum import Enum
 class AuthProvider(str, Enum):
     EMAIL = "email"
     GOOGLE = "google"
+    LINE = "line"
     INTERNAL = "internal"  # 內網免認證模式
 
 class UserRole(str, Enum):
@@ -77,11 +78,38 @@ class UserResponse(UserBase):
     role: Optional[str] = None  # 覆寫為字串，支援中文角色名稱如 '專案PM'
     department: Optional[str] = None
     position: Optional[str] = None
+    # 多 provider 追蹤 (管理員用)
+    line_user_id: Optional[str] = None
+    line_display_name: Optional[str] = None
+    google_id: Optional[str] = None
+    auth_providers: List[str] = []
 
     model_config = ConfigDict(from_attributes=True) # 使用 model_config
 
+    @classmethod
+    def model_validate(cls, obj, **kwargs):
+        """覆寫 model_validate 以自動計算 auth_providers"""
+        instance = super().model_validate(obj, **kwargs)
+        # 從 ORM 物件的實際欄位計算可用認證方式
+        providers = []
+        if hasattr(obj, 'password_hash') and obj.password_hash:
+            providers.append('email')
+        if hasattr(obj, 'google_id') and obj.google_id:
+            providers.append('google')
+        if hasattr(obj, 'line_user_id') and obj.line_user_id:
+            providers.append('line')
+        if hasattr(obj, 'auth_provider') and obj.auth_provider == 'internal':
+            providers.append('internal')
+        # 如果都沒有，至少保留 auth_provider 欄位值
+        if not providers and instance.auth_provider:
+            providers.append(instance.auth_provider.value if isinstance(instance.auth_provider, AuthProvider) else str(instance.auth_provider))
+        instance.auth_providers = providers
+        return instance
+
 class UserProfile(UserResponse):
     permissions: Optional[str] = None
+    line_user_id: Optional[str] = None
+    line_display_name: Optional[str] = None
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -171,6 +199,7 @@ class LoginHistoryItem(BaseModel):
     """登入歷史項目"""
     id: int
     event_type: str = Field(..., description="事件類型 (LOGIN_SUCCESS, LOGIN_FAILED, LOGIN_BLOCKED, LOGOUT, TOKEN_REFRESH)")
+    auth_provider: Optional[str] = Field(None, description="登入方式 (email, google, line, internal)")
     ip_address: Optional[str] = None
     user_agent: Optional[str] = None
     success: bool = True
@@ -180,6 +209,21 @@ class LoginHistoryItem(BaseModel):
 class LoginHistoryResponse(BaseModel):
     """登入歷史回應"""
     items: List[LoginHistoryItem]
+    total: int
+    page: int
+    page_size: int
+
+
+class AdminLoginHistoryItem(LoginHistoryItem):
+    """管理員登入歷史項目 — 包含使用者資訊"""
+    user_id: Optional[int] = None
+    email: Optional[str] = None
+    username: Optional[str] = None
+
+
+class AdminLoginHistoryResponse(BaseModel):
+    """管理員登入歷史回應"""
+    items: List[AdminLoginHistoryItem]
     total: int
     page: int
     page_size: int
@@ -216,3 +260,24 @@ class MFAStatusResponse(BaseModel):
 class VerifyEmailRequest(BaseModel):
     """驗證 Email 請求"""
     token: str = Field(..., description="Email 驗證 token")
+
+
+# === LINE Login ===
+
+class LineAuthRequest(BaseModel):
+    """LINE Login OAuth callback 請求"""
+    code: str = Field(..., description="LINE OAuth authorization code")
+    state: Optional[str] = Field(None, description="CSRF state token")
+    redirect_uri: Optional[str] = Field(None, description="前端 redirect URI (LIFF 或 Web)")
+
+class LineBindRequest(BaseModel):
+    """已登入帳號綁定 LINE"""
+    code: str = Field(..., description="LINE OAuth authorization code")
+    redirect_uri: Optional[str] = Field(None, description="前端 redirect URI")
+
+class LineUserInfo(BaseModel):
+    """LINE 使用者資訊 (從 ID Token 或 Profile API 取得)"""
+    line_user_id: str = Field(..., description="LINE User ID (U 開頭)")
+    display_name: str = Field(..., description="LINE 顯示名稱")
+    picture_url: Optional[str] = Field(None, description="LINE 大頭照 URL")
+    email: Optional[EmailStr] = Field(None, description="LINE 帳號 Email (需 openid email scope)")

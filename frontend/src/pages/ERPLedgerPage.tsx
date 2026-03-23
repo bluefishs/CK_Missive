@@ -12,7 +12,7 @@ import { PlusOutlined, ReloadOutlined, DeleteOutlined } from '@ant-design/icons'
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import {
   useLedger, useCreateLedger, useDeleteLedger,
-  useLedgerCategoryBreakdown, useAuthGuard,
+  useLedgerCategoryBreakdown, useAuthGuard, useProjectsDropdown,
 } from '../hooks';
 import type { FinanceLedger, LedgerQuery, LedgerCreate, LedgerEntryType } from '../types/erp';
 import { LEDGER_ENTRY_TYPE_LABELS } from '../types/erp';
@@ -25,6 +25,7 @@ const ERPLedgerPage: React.FC = () => {
   const { hasPermission } = useAuthGuard();
   const canWrite = hasPermission('projects:write');
   const [params, setParams] = useState<LedgerQuery>({ skip: 0, limit: 20 });
+  const { projects: projectOptions } = useProjectsDropdown();
   const { data, isLoading, refetch } = useLedger(params);
   const { data: breakdownData } = useLedgerCategoryBreakdown({ entry_type: 'expense' });
   const createMutation = useCreateLedger();
@@ -140,11 +141,15 @@ const ERPLedgerPage: React.FC = () => {
 
       <Card>
         <Space wrap style={{ marginBottom: 16 }}>
-          <Input.Search
-            placeholder="搜尋案號"
+          <Select
+            placeholder="篩選專案"
             allowClear
-            onSearch={(v) => setParams(p => ({ ...p, case_code: v || undefined, skip: 0 }))}
-            style={{ width: 200 }}
+            showSearch
+            optionFilterProp="label"
+            value={params.case_code}
+            onChange={(v) => setParams(p => ({ ...p, case_code: v || undefined, skip: 0 }))}
+            style={{ width: 220 }}
+            options={projectOptions?.map(p => ({ value: p.project_code, label: `${p.project_code} ${p.project_name}` })) ?? []}
           />
           <Select
             placeholder="類型"

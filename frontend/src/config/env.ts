@@ -46,6 +46,9 @@ export const isInternalIPAddress = (hostname: string): boolean => {
 // ============================================================================
 export const AUTH_DISABLED_ENV = getEnvVar('VITE_AUTH_DISABLED') === 'true';
 export const GOOGLE_CLIENT_ID = getEnvVar('VITE_GOOGLE_CLIENT_ID') || '';
+export const LINE_LOGIN_CHANNEL_ID = getEnvVar('VITE_LINE_LOGIN_CHANNEL_ID') || '';
+export const LINE_LOGIN_REDIRECT_URI = getEnvVar('VITE_LINE_LOGIN_REDIRECT_URI') || `${window.location.origin}/auth/line/callback`;
+export const LINE_BIND_REDIRECT_URI = `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/line/bind-callback`;
 
 /**
  * 檢測環境類型
@@ -111,6 +114,7 @@ export const ENV_CONFIG = {
   VITE_AUTH_DISABLED: getEnvVar('VITE_AUTH_DISABLED'),
   VITE_API_BASE_URL: getEnvVar('VITE_API_BASE_URL'),
   VITE_GOOGLE_CLIENT_ID: getEnvVar('VITE_GOOGLE_CLIENT_ID'),
+  VITE_LINE_LOGIN_CHANNEL_ID: getEnvVar('VITE_LINE_LOGIN_CHANNEL_ID'),
   NODE_ENV: getEnvVar('NODE_ENV'),
   DEV: import.meta.env.DEV,
 };
@@ -121,6 +125,9 @@ export default {
   AUTH_DISABLED,
   AUTH_DISABLED_ENV,
   GOOGLE_CLIENT_ID,
+  LINE_LOGIN_CHANNEL_ID,
+  LINE_LOGIN_REDIRECT_URI,
+  LINE_BIND_REDIRECT_URI,
   IS_DEV,
   NODE_ENV,
   ENV_CONFIG,

@@ -1134,3 +1134,36 @@ async def federated_search(
     except Exception as e:
         logger.error("Federated search failed: %s", e, exc_info=True)
         return FederatedSearchResponse(success=False)
+
+
+@router.post(
+    "/graph/cross-domain-link",
+    summary="執行跨專案實體自動連結 — 偵測並建立跨域關係",
+)
+async def cross_domain_link(
+    current_user: User = Depends(require_auth()),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    觸發 CrossDomainLinker 執行四條連結規則:
+    1. Contractor bridging (Tunnel contractor ↔ Missive org)
+    2. Location bridging (Missive location ↔ LvrLand land_parcel)
+    3. Project bridging (Missive project ↔ Tunnel tunnel)
+    4. Agency bridging (Missive org ↔ Tunnel inspection)
+
+    @admin 建議在聯邦貢獻完成後手動或排程觸發
+    """
+    from app.services.ai.cross_domain_linker import CrossDomainLinker
+
+    try:
+        linker = CrossDomainLinker(db)
+        results = await linker.run_all_rules()
+        total = sum(results.values())
+        return {
+            "success": True,
+            "relations_created": total,
+            "details": results,
+        }
+    except Exception as e:
+        logger.error("Cross-domain linking failed: %s", e, exc_info=True)
+        return {"success": False, "error": str(e)}

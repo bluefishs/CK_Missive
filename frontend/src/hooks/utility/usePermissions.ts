@@ -217,14 +217,26 @@ export const usePermissions = () => {
         'dashboard', 'documents-menu', 'document-list', 'document-create',
         'projects-menu', 'projects', 'contract-cases', 'agencies', 'vendors',
         'calendar-menu', 'calendar', 'reports',
+        'taoyuan-dispatch-menu', 'taoyuan-dispatch-list',
+        'erp-menu', 'erp-quotations', 'erp-invoices', 'erp-billings',
+        'erp-vendor-payables', 'erp-expenses', 'erp-ledger',
+        'erp-financial-dashboard', 'erp-einvoice-sync',
+        'ai-menu', 'ai-assistant', 'ai-management', 'knowledge-graph',
+        'code-graph', 'knowledge-base',
         'system-docs-menu', 'api-docs', 'api-mapping', 'unified-form-demo',
-        'system-admin-menu', 'admin-dashboard', 'user-management',
-        'permission-management', 'site-management', 'database-management'
+        'system-management', 'admin-dashboard', 'user-management',
+        'permission-management', 'site-management', 'database-management',
+        'login-history', 'backup-management',
+        'profile'
       ],
       'user': [
         'dashboard', 'documents-menu', 'document-list',
         'projects-menu', 'projects', 'agencies', 'vendors',
-        'calendar-menu', 'calendar', 'reports'
+        'calendar-menu', 'calendar', 'reports',
+        'taoyuan-dispatch-menu', 'taoyuan-dispatch-list',
+        'erp-menu', 'erp-expenses', 'erp-ledger',
+        'ai-menu', 'ai-assistant',
+        'profile'
       ],
       'unverified': [
         'dashboard'

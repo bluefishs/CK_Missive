@@ -120,6 +120,8 @@ const UserManagementPage: React.FC = () => {
               >
                 <Option value="email">電子郵件</Option>
                 <Option value="google">Google</Option>
+                <Option value="line">LINE</Option>
+                <Option value="internal">內網</Option>
               </Select>
             </Col>
           )}
@@ -135,7 +137,7 @@ const UserManagementPage: React.FC = () => {
         <ResponsiveTable
           columns={columns} dataSource={users} loading={isLoading} rowKey="id"
           scroll={{ x: isMobile ? 400 : 800 }}
-          mobileHiddenColumns={['auth_provider', 'created_at', 'last_login']}
+          mobileHiddenColumns={['auth_providers', 'created_at', 'last_login']}
           onChange={handleTableChange}
           onRow={(record) => ({ onClick: () => handleRowClick(record), style: { cursor: 'pointer' } })}
           pagination={{

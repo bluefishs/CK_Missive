@@ -1,8 +1,8 @@
 # ERP 財務模組架構審計報告
 
 > **日期**: 2026-03-22
-> **版本**: v5.1.10
-> **審計範圍**: Phase 1~7D 全後端 + Agent 整合 + 前端頁面 + 安全審計 + 跨模組整合 + Repository 合規 + 前端 UX + 夜間吹哨者 + Dashboard 擴展 + 架構覆盤
+> **版本**: v5.1.15
+> **審計範圍**: Phase 1~7E + 14-D ERP-PM 廠商整合 + QR/行動裝置評估
 
 ---
 
@@ -24,6 +24,7 @@
 | 7-C | NemoClaw 夜間吹哨者 (APScheduler 00:30) | ✅ | 2 修改 + 1 新增 | 8 |
 | 7-D | Dashboard 擴展 (月度趨勢 + 預算排行) | ✅ | 4 修改 + 2 新增 | 13 |
 | 7-E | 架構覆盤 — N+1 修復 + 複合索引 + ROUTE_META + 文件同步 | ✅ | 6 修改 | — |
+| 14-D | ERP-PM 廠商整合 — vendor_id FK + 自動配對 + 財務彙總 API | ✅ | 8 修改 + 2 新增 | — |
 
 **後端測試**: 76 ERP tests + 19 export + 11 OCR + 24 einvoice_sync + 26 quotation + 8 nightly + 13 dashboard = **153 tests**
 
@@ -99,6 +100,19 @@
 | **D01** | orphan `specs/` 目錄與 `docs/specs/` 不一致 | 合併 roadmap+task_tracker → `docs/specs/`，刪除 orphan |
 | **D02** | `architecture.md` / `skills-inventory.md` 遺漏 ERP 模組 | 補充 +60L (services/repos/pages/hooks/tests)
 
+### Phase 14-D ERP-PM 廠商整合 (2026-03-22)
+
+| 代碼 | 項目 | 說明 |
+|------|------|------|
+| **V01** | Model vendor_id FK | ERPVendorPayable, ExpenseInvoice, FinanceLedger 加 `vendor_id` FK → `partner_vendors.id` |
+| **V02** | Alembic `20260322a003` | 3 表加 nullable FK + index + backfill (vendor_code match) |
+| **V03** | Auto-matching | `VendorPayableService._resolve_vendor_id()` + `ExpenseInvoiceService._resolve_vendor_by_ban()` |
+| **V04** | Ledger pass-through | `record_from_expense()` + `record_from_vendor_payable()` 傳遞 vendor_id |
+| **V05** | Financial Summary API | `VendorService.get_financial_summary()` — 3 SQL 聚合 (payable+expense+ledger) |
+| **V06** | Schema | `schemas/erp/vendor_financial.py` (VendorFinancialSummary 11 fields) |
+| **V07** | Endpoint | `POST /vendors/{vendor_id}/financial-summary` |
+| **V08** | Frontend | endpoint 常數 + `VendorFinancialSummary` type + `useVendorFinancialSummary` hook |
+
 ### 其他修復 (非財務模組)
 
 | 問題 | 修復 |
@@ -173,30 +187,32 @@
 
 ---
 
-## 五、下一步建議 (Phase 7-C~D → Final Roadmap)
+## 五、全系統複查 (2026-03-22 Phase 15 規劃前)
 
-> Phase 5 全部完成。後續規劃已納入 `specs/finance_erp_final_roadmap.md` 三季度藍圖。
+### 複查評級
 
-### Q2 近期 (P0)
+| 維度 | 評級 | 說明 |
+|------|------|------|
+| 後端 API 完整度 | **A+** | 48 POST 端點，100% 認證保護，0 缺失 |
+| 前端 ERP 頁面 | **A+** | 8 頁面 2,177L，全部 lazy-load + ProtectedRoute，0 TODO |
+| 型別 SSOT | **A+** | 前端 630L + 後端 8 schema 檔，零違規 |
+| Repository 合規 | **A+** | 9 ERP repos，0 service 直接 DB 操作 |
+| 廠商整合 (14-D) | **A+** | vendor_id FK 3 表 + 自動配對 + 財務彙總 API |
+| LINE Bot 基礎設施 | **B+** | Webhook + Push 100% 就緒，LINE Login 0% |
+| 行動端整合 | **C** | 架構評估完成，LIFF/QR 實作待開始 |
 
-| 項目 | 說明 |
-|------|------|
-| **7-C 夜間吹哨者** | ERPTriggerScanner 加入 APScheduler (00:30)，80~100% 區間掃描 + LINE 推播 |
-| **7-D 損益儀表板** | income-statement API + 月度趨勢 + 預算排行 + 帳齡分析 |
+### 發現問題
 
-### Q3 中期 (P1)
-
-| 項目 | 說明 |
-|------|------|
-| **StorageService 抽象** | S3/MinIO/Local 三態切換，收據影像脫離本地檔案系統 |
-| **Agent 財務問答** | 新增 3 工具 (income_statement/ar_aging/budget_ranking) |
-
-### Q4 遠期 (P2)
-
-| 項目 | 說明 |
-|------|------|
-| **LINE 卡片式簽核** | Flex Message + Postback 一鍵核決 |
-| **AI 異常偵測** | Z-score 異常報銷偵測 + 現金流預測 |
+| 代碼 | 問題 | 嚴重度 | 狀態 |
+|------|------|--------|------|
+| **G01** | `get_balance()` 全公司餘額 hardcoded zeros | Medium | 待修復 |
+| **G02** | 22 ERP 新檔未 commit | High | 待提交 |
+| **G03** | `AuthProvider` enum 缺 LINE | Medium | Phase M1 處理 |
+| **G04** | User Model 缺 `line_user_id` | Medium | Phase M1 處理 |
+| **G05** | Alembic 20260322a003 未 apply | High | 待執行 |
+| **G06** | EInvoice Sync 缺 ROUTE_META | Low | 補充 |
+| **G07** | vendorPayablesApi 僅 10L | Low | 補齊 CRUD |
+| **G08** | ERP 頁面缺 E2E 測試 | Medium | Q2 補充 |
 
 ### 已消除技術債
 
@@ -205,6 +221,17 @@
 - ~~`update()` 欄位白名單~~ → 端點層 `require_auth()` 保護
 - ~~8 處 ERP Service 直接 DB 操作~~ → Phase 7-B Repository 合規修正
 - ~~前端 toast 預算警報~~ → Phase 7-A AlertDialog 升級
+- ~~ERP-PM 廠商資料斷鏈~~ → Phase 14-D vendor_id FK + 自動配對
+
+### 下一步規劃 (三軌並行)
+
+> 詳見 `finance_erp_master_plan.md` Phase 15 三軌規劃。
+
+| 軌道 | 優先級 | 主題 | 時程 |
+|------|--------|------|------|
+| **A: LINE Login** | P0 | 帳號綁定 + LIFF QR + Flex 簽核 | Q2 |
+| **B: 技術債** | P1 | G01/G05/G07/14-3 清理 | 持續 |
+| **C: 進階功能** | P2 | 預算歷史 + Agent 工具 + StorageService | Q3 |
 
 ---
 

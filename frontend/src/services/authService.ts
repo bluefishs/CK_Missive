@@ -36,6 +36,12 @@ export interface GoogleAuthRequest {
   credential: string;
 }
 
+export interface LineAuthRequest {
+  code: string;
+  state?: string;
+  redirect_uri?: string;
+}
+
 export interface RegisterRequest {
   email: string;
   username: string;
@@ -206,6 +212,45 @@ class AuthService {
     }
 
     this.saveAuthData(response.data);
+    return response.data;
+  }
+
+  /**
+   * LINE Login OAuth callback
+   *
+   * 將 authorization code 傳送至後端交換 token
+   */
+  async lineLogin(code: string, redirectUri?: string): Promise<TokenResponse> {
+    const response: AxiosResponse<TokenResponse> = await this.axios.post(AUTH_ENDPOINTS.LINE_CALLBACK, {
+      code,
+      redirect_uri: redirectUri,
+    });
+
+    // MFA 流程
+    if (response.data.mfa_required && response.data.mfa_token) {
+      throw new MFARequiredError(response.data.mfa_token);
+    }
+
+    this.saveAuthData(response.data);
+    return response.data;
+  }
+
+  /**
+   * 綁定 LINE 帳號 (已登入狀態)
+   */
+  async bindLine(code: string, redirectUri?: string): Promise<{ success: boolean; message: string }> {
+    const response = await this.axios.post(AUTH_ENDPOINTS.LINE_BIND, {
+      code,
+      redirect_uri: redirectUri,
+    });
+    return response.data;
+  }
+
+  /**
+   * 解除 LINE 帳號綁定
+   */
+  async unbindLine(): Promise<{ success: boolean; message: string }> {
+    const response = await this.axios.post(AUTH_ENDPOINTS.LINE_UNBIND, {});
     return response.data;
   }
 

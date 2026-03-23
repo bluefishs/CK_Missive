@@ -10,6 +10,7 @@ class ERPVendorPayableCreate(BaseModel):
     erp_quotation_id: int
     vendor_name: str = Field(..., max_length=200, description="廠商名稱")
     vendor_code: Optional[str] = Field(None, max_length=50, description="廠商代碼")
+    vendor_id: Optional[int] = Field(None, description="廠商 ID (自動配對)")
     payable_amount: Decimal = Field(..., description="應付金額")
     description: Optional[str] = Field(None, max_length=300)
     due_date: Optional[date] = None
@@ -37,6 +38,7 @@ class ERPVendorPayableResponse(BaseModel):
     erp_quotation_id: int
     vendor_name: str
     vendor_code: Optional[str] = None
+    vendor_id: Optional[int] = None
     payable_amount: Decimal
     description: Optional[str] = None
     due_date: Optional[date] = None

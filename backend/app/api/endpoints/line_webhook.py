@@ -96,6 +96,16 @@ async def line_webhook(
                     message_id,
                 )
 
+        elif msg_type == "image":
+            message_id = msg.get("id", "")
+            if message_id:
+                background_tasks.add_task(
+                    service.handle_image_message,
+                    reply_token,
+                    user_id,
+                    message_id,
+                )
+
     return WebhookResponse()
 
 

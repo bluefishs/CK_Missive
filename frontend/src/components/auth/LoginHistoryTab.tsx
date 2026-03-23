@@ -3,9 +3,10 @@
  *
  * 在 ProfilePage 中顯示使用者的登入歷史紀錄時間軸。
  * 使用 Ant Design Timeline 與 Tag 元件呈現。
+ * 包含登入方式 (auth_provider) 標籤。
  *
- * @version 1.0.0
- * @date 2026-02-08
+ * @version 1.1.0 - 新增 auth_provider 登入方式顯示
+ * @date 2026-03-23
  */
 
 import React, { useState, useCallback, useMemo } from 'react';
@@ -78,6 +79,14 @@ const TIMELINE_DOT_COLORS: Record<string, string> = {
   LOGIN_BLOCKED: 'orange',
   LOGOUT: 'blue',
   TOKEN_REFRESH: 'cyan',
+};
+
+// 登入方式標籤
+const AUTH_PROVIDER_LABELS: Record<string, { label: string; color: string }> = {
+  email: { label: '郵箱', color: 'green' },
+  google: { label: 'Google', color: 'blue' },
+  line: { label: 'LINE', color: 'lime' },
+  internal: { label: '內網', color: 'cyan' },
 };
 
 /**
@@ -171,6 +180,7 @@ export const LoginHistoryTab: React.FC<LoginHistoryTabProps> = ({ isMobile = fal
         const eventColor = EVENT_TYPE_COLORS[item.event_type] || 'default';
         const eventIcon = EVENT_TYPE_ICONS[item.event_type];
         const dotColor = TIMELINE_DOT_COLORS[item.event_type] || 'gray';
+        const providerInfo = item.auth_provider ? AUTH_PROVIDER_LABELS[item.auth_provider] : undefined;
         const relativeTimeStr = dayjs(item.created_at).fromNow();
         const absoluteTimeStr = dayjs(item.created_at).format('YYYY-MM-DD HH:mm:ss');
 
@@ -184,6 +194,11 @@ export const LoginHistoryTab: React.FC<LoginHistoryTabProps> = ({ isMobile = fal
                 <Tag icon={eventIcon} color={eventColor}>
                   {eventLabel}
                 </Tag>
+                {providerInfo && (
+                  <Tag color={providerInfo.color} style={{ fontSize: isMobile ? 10 : 12 }}>
+                    {providerInfo.label}
+                  </Tag>
+                )}
                 {item.ip_address && (
                   <Text type="secondary" style={{ fontSize: isMobile ? 11 : 13 }}>
                     <GlobalOutlined style={{ marginRight: 4 }} />

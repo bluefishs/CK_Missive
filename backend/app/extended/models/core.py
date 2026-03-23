@@ -135,6 +135,10 @@ class User(Base):
     mfa_secret = Column(String(64), nullable=True, comment="TOTP secret (base32 encoded)")
     mfa_backup_codes = Column(Text, nullable=True, comment="備用碼 (JSON 格式, SHA-256 hashed)")
 
+    # LINE Login 整合
+    line_user_id = Column(String(64), unique=True, nullable=True, index=True, comment="LINE User ID (帳號綁定)")
+    line_display_name = Column(String(100), nullable=True, comment="LINE 顯示名稱")
+
     # 證照關聯
     certifications = relationship("StaffCertification", back_populates="user", cascade="all, delete-orphan")
 

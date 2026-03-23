@@ -24,14 +24,21 @@ class ExpenseInvoiceService:
         self.ledger_service = FinanceLedgerService(db)
 
     async def create(self, data: ExpenseInvoiceCreate, user_id: Optional[int] = None) -> ExpenseInvoice:
-        """建立報銷發票 (含重複檢查)，狀態為 pending 待審核
+        """建立報銷發票 (含重複檢查 + case_code 驗證)，狀態為 pending 待審核
 
         帳本記錄在 approve() 審核通過時才寫入，避免雙重記帳。
         """
+        # 0. 驗證 case_code 對應專案存在 (Phase 13-2)
+        if data.case_code:
+            await self._validate_case_code(data.case_code)
+
         # 1. 檢查是否有重複發票
         is_duplicate = await self.repo.check_duplicate(data.inv_num)
         if is_duplicate:
             raise ValueError(f"發票號碼 {data.inv_num} 已存在，請確認是否重複報銷。")
+
+        # 1.5 自動由 seller_ban 配對 vendor_id
+        vendor_id = await self._resolve_vendor_by_ban(data.seller_ban) if data.seller_ban else None
 
         # 2. 建立 ExpenseInvoice 主檔 (status=pending，等待審核)
         invoice = ExpenseInvoice(
@@ -47,6 +54,8 @@ class ExpenseInvoiceService:
             notes=data.notes,
             user_id=user_id,
             status="pending",
+            vendor_id=vendor_id,
+            receipt_image_path=getattr(data, "receipt_image_path", None),
             # 多幣別 (Phase 5-4)
             currency=data.currency,
             original_amount=data.original_amount,
@@ -127,6 +136,52 @@ class ExpenseInvoiceService:
         # 將預算警告附加為動態屬性，API 層可讀取
         invoice._budget_warning = budget_warning  # type: ignore[attr-defined]
         return invoice
+
+    async def _resolve_vendor_by_ban(self, seller_ban: str) -> Optional[int]:
+        """由賣方統編查找 partner_vendors.id (稅籍號碼 = vendor_code 慣例)"""
+        from sqlalchemy import select
+        from app.extended.models.core import PartnerVendor
+        # vendor_code 通常就是統編
+        stmt = select(PartnerVendor.id).where(PartnerVendor.vendor_code == seller_ban).limit(1)
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def _validate_case_code(self, case_code: str) -> None:
+        """驗證 case_code 對應的專案或報價存在
+
+        檢查順序: ContractProject.project_code → PMCase.case_code → ERPQuotation.case_code
+        任一匹配即通過，全部不匹配則拋出 ValueError。
+        """
+        from sqlalchemy import select, exists
+        from app.extended.models.core import ContractProject
+
+        # 1. 檢查 ContractProject
+        stmt = select(exists().where(ContractProject.project_code == case_code))
+        found = await self.db.scalar(stmt)
+        if found:
+            return
+
+        # 2. 檢查 PMCase (soft match)
+        try:
+            from app.extended.models.pm import PMCase
+            stmt2 = select(exists().where(PMCase.case_code == case_code))
+            found2 = await self.db.scalar(stmt2)
+            if found2:
+                return
+        except ImportError:
+            pass
+
+        # 3. 檢查 ERPQuotation
+        try:
+            from app.extended.models.erp import ERPQuotation
+            stmt3 = select(exists().where(ERPQuotation.case_code == case_code))
+            found3 = await self.db.scalar(stmt3)
+            if found3:
+                return
+        except ImportError:
+            pass
+
+        raise ValueError(f"案號 {case_code} 不存在，請確認後再提交。")
 
     async def _check_budget(self, case_code: str, invoice_amount: Decimal) -> Optional[str]:
         """預算聯防 — 檢查專案預算水位

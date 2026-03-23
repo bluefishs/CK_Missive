@@ -8,7 +8,7 @@ import aiofiles
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
 
-from app.core.dependencies import get_service, optional_auth, require_auth
+from app.core.dependencies import get_service, optional_auth, require_auth, require_permission
 from app.extended.models import User
 from app.services.expense_invoice_service import ExpenseInvoiceService
 from app.schemas.erp.expense import (
@@ -89,14 +89,24 @@ async def update_expense(
 async def approve_expense(
     params: ERPIdRequest,
     service: ExpenseInvoiceService = Depends(get_service(ExpenseInvoiceService)),
-    current_user: User = Depends(require_auth()),
+    current_user: User = Depends(require_permission("projects:write")),
 ):
     """多層審核推進 — 依金額自動決定下一審核階段
 
     預算聯防：即將 verified 時自動比對專案預算
     - >100%: 攔截 (HTTP 400)
     - >80%: 警告 (附在 message 中，仍放行)
+
+    權限需求: projects:write (主管/財務)
+    禁止自我審核: 申請人不可審核自己的報銷
     """
+    # 禁止自我審核
+    invoice = await service.get_by_id(params.id)
+    if not invoice:
+        raise HTTPException(status_code=404, detail="發票不存在")
+    if invoice.user_id and invoice.user_id == current_user.id:
+        raise HTTPException(status_code=403, detail="不可審核自己提交的報銷")
+
     try:
         result = await service.approve(params.id)
         if not result:
@@ -120,9 +130,9 @@ async def approve_expense(
 async def reject_expense(
     params: ExpenseInvoiceRejectRequest,
     service: ExpenseInvoiceService = Depends(get_service(ExpenseInvoiceService)),
-    current_user: User = Depends(require_auth()),
+    current_user: User = Depends(require_permission("projects:write")),
 ):
-    """駁回報銷"""
+    """駁回報銷 (權限需求: projects:write)"""
     try:
         result = await service.reject(params.id, reason=params.reason)
         if not result:

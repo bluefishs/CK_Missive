@@ -126,6 +126,18 @@ export const useBatchDeleteVendors = () => {
   });
 };
 
+/**
+ * 取得廠商財務彙總 — 應付帳款 + 報銷發票 + 帳本支出
+ */
+export const useVendorFinancialSummary = (vendorId: number | null | undefined) => {
+  return useQuery({
+    queryKey: [...queryKeys.vendors.all, 'financial-summary', vendorId],
+    queryFn: () => vendorsApi.getFinancialSummary(vendorId!),
+    ...defaultQueryOptions.detail,
+    enabled: !!vendorId,
+  });
+};
+
 // ============================================================================
 // 組合 Hooks
 // ============================================================================

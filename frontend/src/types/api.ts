@@ -437,6 +437,12 @@ export interface User {
   position?: string;
   // MFA 雙因素認證
   mfa_enabled?: boolean;
+  // LINE Login 整合
+  line_user_id?: string;
+  line_display_name?: string;
+  // 多 provider 追蹤
+  google_id?: string;
+  auth_providers?: string[];
 }
 
 /** 使用者選項（下拉選單用） */

@@ -1,16 +1,24 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import basicSsl from '@vitejs/plugin-basic-ssl';
 import { resolve } from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  // Load env file based on `mode` in the current working directory.
+  // Load env file from project root (parent of frontend/).
   // Set the third parameter to '' to load all env regardless of the `VITE_` prefix.
-  const env = loadEnv(mode, process.cwd(), '');
+  const envDir = resolve(__dirname, '..');
+  const env = loadEnv(mode, envDir, '');
 
   return {
     root: __dirname,
-    plugins: [react()],
+    envDir,
+    plugins: [
+      react(),
+      // Self-signed SSL: 啟用 HTTPS 讓內網手機可使用相機掃描 QR Code
+      // 瀏覽器首次連線時需接受自簽憑證 (進階 → 繼續前往)
+      basicSsl(),
+    ],
 
     // Define global variables and environment variable types
     define: {
@@ -58,7 +66,7 @@ export default defineConfig(({ mode }) => {
       // 不指定 host，Vite 會使用瀏覽器位址列的 hostname，支援區網 IP 存取
       hmr: {
         port: 3000,
-        protocol: 'ws',
+        protocol: 'wss',
       },
       proxy: {
         // Proxy API requests to the backend server

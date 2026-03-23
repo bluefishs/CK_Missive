@@ -14,7 +14,7 @@ from pathlib import Path
 import aiofiles
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 
-from app.core.dependencies import get_service, optional_auth, require_auth, require_admin
+from app.core.dependencies import get_service, require_auth, require_admin
 from app.extended.models import User
 from app.services.einvoice.einvoice_sync_service import EInvoiceSyncService
 from app.schemas.erp.einvoice_sync import (
@@ -75,7 +75,7 @@ async def upload_receipt(
     category: str = Form(None, description="費用分類"),
     file: UploadFile = File(..., description="收據影像"),
     service: EInvoiceSyncService = Depends(get_service(EInvoiceSyncService)),
-    current_user: User = Depends(optional_auth()),
+    current_user: User = Depends(require_auth()),
 ):
     """上傳收據影像並關聯發票 — 報帳員核銷動作
 

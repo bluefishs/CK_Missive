@@ -96,9 +96,9 @@ class LedgerRepository(BaseRepository[FinanceLedger]):
         ]
 
     async def create_entry(self, ledger: FinanceLedger) -> FinanceLedger:
-        """新增帳本記錄"""
+        """新增帳本記錄 (flush only — 由呼叫端控制 commit 以確保交易原子性)"""
         self.db.add(ledger)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(ledger)
         return ledger
 

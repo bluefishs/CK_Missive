@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.extended.models.erp import ERPVendorPayable, ERPQuotation
+from app.extended.models.core import PartnerVendor
 from app.repositories.erp import ERPVendorPayableRepository
 from app.schemas.erp import ERPVendorPayableCreate, ERPVendorPayableUpdate, ERPVendorPayableResponse
 from app.services.finance_ledger_service import FinanceLedgerService
@@ -27,8 +28,14 @@ class ERPVendorPayableService:
         self.ledger_service = FinanceLedgerService(db)
 
     async def create(self, data: ERPVendorPayableCreate) -> ERPVendorPayableResponse:
-        """建立廠商應付"""
-        payable = await self.repo.create(data.model_dump())
+        """建立廠商應付 — 自動由 vendor_code 配對 vendor_id"""
+        create_data = data.model_dump()
+        # 自動配對 vendor_id
+        if not create_data.get("vendor_id") and create_data.get("vendor_code"):
+            create_data["vendor_id"] = await self._resolve_vendor_id(
+                vendor_code=create_data["vendor_code"]
+            )
+        payable = await self.repo.create(create_data)
         return ERPVendorPayableResponse.model_validate(payable)
 
     async def get_by_quotation(self, quotation_id: int) -> List[ERPVendorPayableResponse]:
@@ -66,6 +73,7 @@ class ERPVendorPayableService:
                     paid_date=payable.paid_date,
                     vendor_name=payable.vendor_name,
                     description=payable.description,
+                    vendor_id=payable.vendor_id,
                 )
                 logger.info(
                     f"AP 自動入帳: 廠商 {payable.vendor_name}, "
@@ -78,6 +86,14 @@ class ERPVendorPayableService:
     async def _get_case_code(self, quotation_id: int) -> Optional[str]:
         """透過報價單取得案號"""
         stmt = select(ERPQuotation.case_code).where(ERPQuotation.id == quotation_id)
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def _resolve_vendor_id(self, vendor_code: Optional[str] = None) -> Optional[int]:
+        """由 vendor_code 查找 partner_vendors.id"""
+        if not vendor_code:
+            return None
+        stmt = select(PartnerVendor.id).where(PartnerVendor.vendor_code == vendor_code)
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 

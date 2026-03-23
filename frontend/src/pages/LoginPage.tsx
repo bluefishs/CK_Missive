@@ -2,16 +2,16 @@
  * LoginPage.tsx - 統一登入頁面
  *
  * 登入方式依環境決定：
- * ┌──────────────┬──────────┬──────────┬────────────┐
- * │ 環境          │ 快速進入  │ 帳密登入  │ Google登入 │
- * ├──────────────┼──────────┼──────────┼────────────┤
- * │ localhost    │ ✅       │ ✅       │ ✅         │
- * │ internal     │ ✅       │ ✅       │ ❌         │
- * │ ngrok/public │ ❌       │ ✅       │ ✅         │
- * └──────────────┴──────────┴──────────┴────────────┘
+ * ┌──────────────┬──────────┬──────────┬────────────┬────────────┐
+ * │ 環境          │ 快速進入  │ 帳密登入  │ Google登入 │ LINE登入   │
+ * ├──────────────┼──────────┼──────────┼────────────┼────────────┤
+ * │ localhost    │ ✅       │ ✅       │ ✅         │ ✅         │
+ * │ internal     │ ✅       │ ✅       │ ❌         │ ✅         │
+ * │ ngrok/public │ ❌       │ ✅       │ ✅         │ ✅         │
+ * └──────────────┴──────────┴──────────┴────────────┴────────────┘
  *
- * @version 2.1.0
- * @date 2026-01-13
+ * @version 2.2.0
+ * @date 2026-03-22
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -34,7 +34,7 @@ import {
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import authService, { MFARequiredError } from '../services/authService';
 import { useResponsive } from '../hooks';
-import { detectEnvironment, isAuthDisabled, GOOGLE_CLIENT_ID } from '../config/env';
+import { detectEnvironment, isAuthDisabled, GOOGLE_CLIENT_ID, LINE_LOGIN_CHANNEL_ID, LINE_LOGIN_REDIRECT_URI } from '../config/env';
 import { logger } from '../utils/logger';
 
 const { Title, Text } = Typography;
@@ -46,6 +46,7 @@ const LoginPage: React.FC = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [lineLoading, setLineLoading] = useState(false);
   const [error, setError] = useState<string>('');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -64,9 +65,13 @@ const LoginPage: React.FC = () => {
     GOOGLE_CLIENT_ID !== 'your-actual-google-client-id.apps.googleusercontent.com'
   );
 
+  // LINE Login 啟用條件
+  const lineLoginEnabled = Boolean(LINE_LOGIN_CHANNEL_ID);
+
   // 根據環境決定顯示哪些登入選項
   const showQuickEntry = isAuthDisabled() || envType === 'localhost' || envType === 'internal';
   const showGoogleLogin = googleLoginEnabled && (envType === 'localhost' || envType === 'ngrok' || envType === 'public');
+  const showLineLogin = lineLoginEnabled;
 
   const [googleReady, setGoogleReady] = useState(!showGoogleLogin);
 
@@ -240,6 +245,30 @@ const LoginPage: React.FC = () => {
     }
   };
 
+  // LINE 登入觸發 — 重導向至 LINE Authorization URL
+  const handleLineLogin = () => {
+    setLineLoading(true);
+    // crypto.randomUUID() 僅在 Secure Context (https/localhost) 可用
+    // 內網 HTTP 環境使用 fallback
+    const state = typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    sessionStorage.setItem('line_login_state', state);
+    if (returnUrl) {
+      sessionStorage.setItem('line_login_return_url', returnUrl);
+    }
+
+    const params = new URLSearchParams({
+      response_type: 'code',
+      client_id: LINE_LOGIN_CHANNEL_ID,
+      redirect_uri: LINE_LOGIN_REDIRECT_URI,
+      state,
+      scope: 'profile openid',
+    });
+
+    window.location.href = `https://access.line.me/oauth2/v2.1/authorize?${params.toString()}`;
+  };
+
   // 環境標籤
   const getEnvLabel = () => {
     switch (envType) {
@@ -365,27 +394,50 @@ const LoginPage: React.FC = () => {
           </Form.Item>
         </Form>
 
-        {/* Google 登入 */}
-        {showGoogleLogin && googleReady && (
+        {/* 第三方登入 */}
+        {(showGoogleLogin || showLineLogin) && (
           <>
             <Divider style={{ margin: isMobile ? '12px 0' : '16px 0', color: '#8c8c8c', fontSize: isMobile ? 12 : 14 }}>或</Divider>
-            <div id="google-signin-container" style={{ display: 'flex', justifyContent: 'center' }}>
+
+            {/* Google 登入 */}
+            {showGoogleLogin && googleReady && (
+              <div id="google-signin-container" style={{ display: 'flex', justifyContent: 'center', marginBottom: showLineLogin ? (isMobile ? 8 : 12) : 0 }}>
+                <Button
+                  icon={<GoogleOutlined />}
+                  size={isMobile ? 'middle' : 'large'}
+                  block
+                  loading={googleLoading}
+                  onClick={handleGoogleLogin}
+                  style={{
+                    height: isMobile ? '40px' : '44px',
+                    backgroundColor: '#fff',
+                    borderColor: '#d9d9d9',
+                    color: '#333'
+                  }}
+                >
+                  {isMobile ? 'Google 登入' : '使用 Google 帳號登入'}
+                </Button>
+              </div>
+            )}
+
+            {/* LINE 登入 */}
+            {showLineLogin && (
               <Button
-                icon={<GoogleOutlined />}
                 size={isMobile ? 'middle' : 'large'}
                 block
-                loading={googleLoading}
-                onClick={handleGoogleLogin}
+                loading={lineLoading}
+                onClick={handleLineLogin}
                 style={{
                   height: isMobile ? '40px' : '44px',
-                  backgroundColor: '#fff',
-                  borderColor: '#d9d9d9',
-                  color: '#333'
+                  backgroundColor: '#06C755',
+                  borderColor: '#06C755',
+                  color: '#fff',
+                  fontWeight: 600,
                 }}
               >
-                {isMobile ? 'Google 登入' : '使用 Google 帳號登入'}
+                {isMobile ? 'LINE 登入' : '使用 LINE 帳號登入'}
               </Button>
-            </div>
+            )}
           </>
         )}
 

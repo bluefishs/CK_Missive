@@ -304,6 +304,7 @@ class AuthService:
                     email=user.email,
                     details={
                         "reason": "max_failed_attempts",
+                        "auth_provider": "email",
                         "failed_attempts": new_attempts,
                         "locked_until": lock_until.isoformat(),
                         "lockout_minutes": AuthService.LOCKOUT_DURATION_MINUTES,

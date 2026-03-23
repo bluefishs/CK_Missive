@@ -120,6 +120,8 @@ export const VENDORS_ENDPOINTS = {
   DELETE: (id: number) => `/vendors/${id}/delete`,
   /** 廠商統計 POST /vendors/statistics */
   STATISTICS: '/vendors/statistics',
+  /** 廠商財務彙總 POST /vendors/:id/financial-summary */
+  FINANCIAL_SUMMARY: (id: number) => `/vendors/${id}/financial-summary`,
 } as const;
 
 // ============================================================================
@@ -274,6 +276,8 @@ export const AUTH_ENDPOINTS = {
   VERIFY_EMAIL: '/auth/verify-email',
   /** 登入歷史 POST /auth/login-history */
   LOGIN_HISTORY: '/auth/login-history',
+  /** 管理員登入紀錄 POST /auth/login-history/admin */
+  LOGIN_HISTORY_ADMIN: '/auth/login-history/admin',
   /** 活躍 Session 列表 POST /auth/sessions */
   SESSIONS: '/auth/sessions',
   /** 撤銷指定 Session POST /auth/sessions/revoke */
@@ -290,6 +294,12 @@ export const AUTH_ENDPOINTS = {
   MFA_VALIDATE: '/auth/mfa/validate',
   /** MFA 狀態查詢 POST /auth/mfa/status */
   MFA_STATUS: '/auth/mfa/status',
+  /** LINE Login OAuth Callback POST /auth/line/callback */
+  LINE_CALLBACK: '/auth/line/callback',
+  /** 綁定 LINE 帳號 POST /auth/line/bind */
+  LINE_BIND: '/auth/line/bind',
+  /** 解除 LINE 綁定 POST /auth/line/unbind */
+  LINE_UNBIND: '/auth/line/unbind',
 } as const;
 
 /** 管理員使用者管理 API 端點 (POST-only) */
@@ -316,6 +326,12 @@ export const ADMIN_USER_MANAGEMENT_ENDPOINTS = {
   PERMISSIONS_AVAILABLE: '/admin/user-management/permissions/available',
   /** 檢查權限 POST /admin/user-management/permissions/check */
   PERMISSIONS_CHECK: '/admin/user-management/permissions/check',
+  /** 管理員解鎖帳號 POST /admin/user-management/users/:id/unlock */
+  USERS_UNLOCK: (id: number) => `/admin/user-management/users/${id}/unlock`,
+  /** 管理員綁定 LINE POST /admin/user-management/users/:id/line-bind */
+  LINE_BIND: (id: number) => `/admin/user-management/users/${id}/line-bind`,
+  /** 管理員解除 LINE POST /admin/user-management/users/:id/line-unbind */
+  LINE_UNBIND: (id: number) => `/admin/user-management/users/${id}/line-unbind`,
 } as const;
 
 // ============================================================================
@@ -793,6 +809,18 @@ export const AI_ENDPOINTS = {
   GRAPH_SKILLS_MAP: '/ai/graph/skills-map',
   /** 技能演化樹 POST /ai/graph/skill-evolution */
   GRAPH_SKILL_EVOLUTION: '/ai/graph/skill-evolution',
+} as const;
+
+// ============================================================================
+// 數位分身 (NemoClaw Gateway) 端點
+// ============================================================================
+
+/** 數位分身 API 端點 — 透過 Missive 後端代理至 NemoClaw Gateway */
+export const DIGITAL_TWIN_ENDPOINTS = {
+  /** 串流查詢 POST /ai/digital-twin/query/stream (SSE) */
+  QUERY_STREAM: '/ai/digital-twin/query/stream',
+  /** 健康檢查 GET /ai/digital-twin/health */
+  HEALTH: '/ai/digital-twin/health',
 } as const;
 
 // ============================================================================

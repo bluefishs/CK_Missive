@@ -341,6 +341,8 @@ export interface AIStatsResponse {
 export interface LoginHistoryItem {
   id: number;
   event_type: string;
+  /** 登入方式 (email, google, line, internal) */
+  auth_provider?: string;
   ip_address?: string;
   user_agent?: string;
   success: boolean;
@@ -351,6 +353,21 @@ export interface LoginHistoryItem {
 /** 登入歷史回應 */
 export interface LoginHistoryResponse {
   items: LoginHistoryItem[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+/** 管理員登入歷史項目 — 包含使用者資訊 */
+export interface AdminLoginHistoryItem extends LoginHistoryItem {
+  user_id?: number;
+  email?: string;
+  username?: string;
+}
+
+/** 管理員登入歷史回應 */
+export interface AdminLoginHistoryResponse {
+  items: AdminLoginHistoryItem[];
   total: number;
   page: number;
   page_size: number;

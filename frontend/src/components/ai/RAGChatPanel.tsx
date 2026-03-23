@@ -30,6 +30,7 @@ import {
   RobotOutlined,
   DeleteOutlined,
   ThunderboltOutlined,
+  SwapOutlined,
 } from '@ant-design/icons';
 import { submitAIFeedback } from '../../api/ai/adminManagement';
 import { MessageBubble } from './MessageBubble';
@@ -37,6 +38,8 @@ import { VoiceInputButton } from './VoiceInputButton';
 import { useGraphAgentBridgeOptional } from './knowledgeGraph/GraphAgentBridge';
 import type { RequestSummaryEvent, RequestNavigateEvent } from './knowledgeGraph/GraphAgentBridge';
 import { useAgentSSE, type DrawDiagramPayload } from '../../hooks/system/useAgentSSE';
+
+const DualModeChatPanel = React.lazy(() => import('./DualModeChatPanel'));
 
 const { Text } = Typography;
 const { TextArea } = Input;
@@ -48,15 +51,19 @@ export interface RAGChatPanelProps {
   agentMode?: boolean;
   /** 助理上下文標識（影響後端 system prompt 與工具篩選） */
   context?: string;
+  /** 啟用雙模式比較按鈕 (預設 true，embedded 模式下自動隱藏) */
+  enableDualMode?: boolean;
 }
 
 export const RAGChatPanel: React.FC<RAGChatPanelProps> = ({
   embedded = false,
   agentMode = true,
   context,
+  enableDualMode = true,
 }) => {
   const { message: messageApi } = App.useApp();
   const [input, setInput] = useState('');
+  const [dualMode, setDualMode] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // 三位一體：GraphAgentBridge 連接（可選）
@@ -281,6 +288,26 @@ export const RAGChatPanel: React.FC<RAGChatPanelProps> = ({
     </>
   );
 
+  // --- 雙模式比較 ---
+  if (dualMode && !embedded) {
+    return (
+      <React.Suspense fallback={<Card loading style={{ height: 600 }} />}>
+        <div style={{ position: 'relative' }}>
+          <DualModeChatPanel context={context} />
+          <Tooltip title="返回單模式">
+            <Button
+              type="text"
+              icon={<SwapOutlined />}
+              onClick={() => setDualMode(false)}
+              size="small"
+              style={{ position: 'absolute', top: 12, right: 48 }}
+            />
+          </Tooltip>
+        </div>
+      </React.Suspense>
+    );
+  }
+
   if (embedded) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
@@ -306,11 +333,23 @@ export const RAGChatPanel: React.FC<RAGChatPanelProps> = ({
         </Space>
       }
       extra={
-        messages.length > 0 && (
-          <Tooltip title="清除對話">
-            <Button type="text" icon={<DeleteOutlined />} onClick={clearConversation} size="small" />
-          </Tooltip>
-        )
+        <Space size={4}>
+          {enableDualMode && (
+            <Tooltip title="雙模式比較 (Agent vs 數位分身)">
+              <Button
+                type="text"
+                icon={<SwapOutlined />}
+                onClick={() => setDualMode(true)}
+                size="small"
+              />
+            </Tooltip>
+          )}
+          {messages.length > 0 && (
+            <Tooltip title="清除對話">
+              <Button type="text" icon={<DeleteOutlined />} onClick={clearConversation} size="small" />
+            </Tooltip>
+          )}
+        </Space>
       }
       styles={{ body: { padding: 0, display: 'flex', flexDirection: 'column', height: 520 } }}
     >

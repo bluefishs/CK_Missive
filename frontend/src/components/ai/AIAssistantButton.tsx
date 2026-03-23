@@ -26,10 +26,12 @@ import {
   MinusOutlined,
   ExpandOutlined,
   ThunderboltOutlined,
+  SwapOutlined,
 } from '@ant-design/icons';
 import { useResponsive } from '../../hooks';
 import { syncAIConfigFromServer } from '../../config/aiConfig';
 const RAGChatPanel = React.lazy(() => import('./RAGChatPanel'));
+const DualModeChatPanel = React.lazy(() => import('./DualModeChatPanel'));
 
 interface AIAssistantButtonProps {
   /** 是否顯示 */
@@ -49,6 +51,7 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
   // 面板狀態
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [dualMode, setDualMode] = useState(false);
   // v5.0: NemoClaw 統一入口，不再區分 doc/agent
   const mode = 'agent' as const;
 
@@ -59,7 +62,9 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
   const panelRef = useRef<HTMLDivElement>(null);
 
   // 響應式面板尺寸 - v2.3.0: 動態高度，最高佔螢幕 75%
-  const panelWidth = responsiveValue({ mobile: 'calc(100vw - 32px)', desktop: '380px' }) || '380px';
+  const singleWidth = responsiveValue({ mobile: 'calc(100vw - 32px)', desktop: '380px' }) || '380px';
+  const dualWidth = responsiveValue({ mobile: 'calc(100vw - 32px)', desktop: '780px' }) || '780px';
+  const panelWidth = dualMode ? dualWidth : singleWidth;
   const panelMaxHeight = responsiveValue({ mobile: 'calc(100vh - 120px)', desktop: 'calc(75vh)' }) || 'calc(75vh)';
   const buttonSize = responsiveValue({ mobile: 48, desktop: 56 }) || 56;
 
@@ -207,6 +212,18 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
           }
           extra={
             <Space size={0}>
+              {!isMobile && (
+                <Tooltip title={dualMode ? '單模式' : '雙模式比較'}>
+                  <Button
+                    type="text"
+                    icon={<SwapOutlined />}
+                    onClick={() => setDualMode(!dualMode)}
+                    size="small"
+                    aria-label={dualMode ? '切換單模式' : '切換雙模式比較'}
+                    style={dualMode ? { color: '#13c2c2' } : undefined}
+                  />
+                </Tooltip>
+              )}
               <Tooltip title={isMinimized ? '展開' : '縮小'}>
                 <Button
                   type="text"
@@ -267,7 +284,10 @@ export const AIAssistantButton: React.FC<AIAssistantButtonProps> = ({
               <Spin description="載入中..."><div /></Spin>
             </div>
           }>
-            <RAGChatPanel key={mode} embedded agentMode context={mode} />
+            {dualMode
+              ? <DualModeChatPanel context={mode} embedded />
+              : <RAGChatPanel key={mode} embedded agentMode context={mode} />
+            }
           </Suspense>
         </Card>
       )}

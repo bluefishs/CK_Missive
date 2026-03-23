@@ -17,6 +17,7 @@ import type {
   VendorOption,
   VendorStatistics,
 } from '../types/api';
+import type { VendorFinancialSummary } from '../types/erp';
 import { API_ENDPOINTS } from './endpoints';
 
 // 重新匯出型別供外部使用
@@ -130,6 +131,17 @@ export const vendorsApi = {
       }
       return option;
     });
+  },
+
+  /**
+   * 取得廠商財務彙總
+   */
+  async getFinancialSummary(vendorId: number): Promise<VendorFinancialSummary> {
+    const response = await apiClient.post<{
+      success: boolean;
+      data: VendorFinancialSummary;
+    }>(API_ENDPOINTS.VENDORS.FINANCIAL_SUMMARY(vendorId));
+    return response.data;
   },
 
   /**

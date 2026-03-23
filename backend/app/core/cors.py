@@ -65,6 +65,7 @@ def generate_origins_for_ips(ips: Set[str], ports: List[int]) -> List[str]:
     for ip in ips:
         for port in ports:
             origins.append(f"http://{ip}:{port}")
+            origins.append(f"https://{ip}:{port}")
     return origins
 
 

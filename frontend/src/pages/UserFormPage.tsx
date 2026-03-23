@@ -8,17 +8,17 @@
  * @date 2026-01-26
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Form, Input, Select, Row, Col, App, Switch, Tabs, Divider } from 'antd';
-import { ExclamationCircleOutlined } from '@ant-design/icons';
+import { Form, Input, Select, Row, Col, App, Switch, Tabs, Divider, Tag, Space, Button, Descriptions, Popconfirm } from 'antd';
+import { ExclamationCircleOutlined, LinkOutlined, DisconnectOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FormPageLayout } from '../components/common/FormPage';
 import { adminUsersApi } from '../api/adminUsersApi';
 import { ROUTES } from '../router/types';
 import { USER_ROLES, USER_STATUSES } from '../constants/permissions';
 import PermissionManager from '../components/admin/PermissionManager';
-import type { User, UserPermissions } from '../types/api';
+import type { UserPermissions } from '../types/api';
 
 const { Option } = Select;
 
@@ -34,13 +34,10 @@ export const UserFormPage: React.FC = () => {
   const title = isEdit ? '編輯使用者' : '新增使用者';
   const userId = id ? parseInt(id, 10) : undefined;
 
-  // 編輯模式：載入使用者資料
+  // 編輯模式：載入使用者資料 (使用 detail API 取得完整資訊含 auth_providers)
   const { data: user, isLoading } = useQuery({
     queryKey: ['user', userId],
-    queryFn: async () => {
-      const response = await adminUsersApi.getUsers({ page: 1, per_page: 100 });
-      return response.items?.find((u: User) => u.id === userId);
-    },
+    queryFn: () => adminUsersApi.getUserDetail(userId!),
     enabled: isEdit && !!userId,
   });
 
@@ -150,6 +147,38 @@ export const UserFormPage: React.FC = () => {
     },
     onError: (error: Error) => {
       message.error(error.message || '刪除失敗');
+    },
+  });
+
+  // LINE 綁定 state
+  const [lineIdInput, setLineIdInput] = useState('');
+  const [lineNameInput, setLineNameInput] = useState('');
+
+  // LINE 綁定 mutation
+  const bindLineMutation = useMutation({
+    mutationFn: () => adminUsersApi.bindLine(userId!, lineIdInput, lineNameInput || undefined),
+    onSuccess: () => {
+      message.success('LINE 綁定成功');
+      setLineIdInput('');
+      setLineNameInput('');
+      queryClient.invalidateQueries({ queryKey: ['user', userId] });
+      queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
+    },
+    onError: (error: Error) => {
+      message.error(error.message || 'LINE 綁定失敗');
+    },
+  });
+
+  // LINE 解除綁定 mutation
+  const unbindLineMutation = useMutation({
+    mutationFn: () => adminUsersApi.unbindLine(userId!),
+    onSuccess: () => {
+      message.success('LINE 綁定已解除');
+      queryClient.invalidateQueries({ queryKey: ['user', userId] });
+      queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
+    },
+    onError: (error: Error) => {
+      message.error(error.message || '解除綁定失敗');
     },
   });
 
@@ -332,8 +361,107 @@ export const UserFormPage: React.FC = () => {
     },
   ];
 
-  // 編輯模式才顯示權限 Tab
+  // 編輯模式才顯示額外 Tab
   if (isEdit) {
+    // 認證方式 Tab
+    tabItems.push({
+      key: 'auth',
+      label: '認證方式',
+      children: (
+        <div>
+          <Descriptions column={1} bordered size="small" style={{ marginBottom: 24 }}>
+            <Descriptions.Item label="主要認證方式">
+              <Tag color={user?.auth_provider === 'google' ? 'blue' : user?.auth_provider === 'line' ? 'lime' : 'green'}>
+                {user?.auth_provider === 'google' ? 'Google' : user?.auth_provider === 'line' ? 'LINE' : '電子郵件'}
+              </Tag>
+            </Descriptions.Item>
+            <Descriptions.Item label="可用認證方式">
+              <Space>
+                {(user?.auth_providers || []).map((p) => {
+                  const config: Record<string, { label: string; color: string }> = {
+                    email: { label: '電子郵件', color: 'green' },
+                    google: { label: 'Google', color: 'blue' },
+                    line: { label: 'LINE', color: 'lime' },
+                    internal: { label: '內網', color: 'orange' },
+                  };
+                  const c = config[p] || { label: p, color: 'default' };
+                  return <Tag key={p} color={c.color}>{c.label}</Tag>;
+                })}
+                {(!user?.auth_providers || user.auth_providers.length === 0) && <Tag>無</Tag>}
+              </Space>
+            </Descriptions.Item>
+            {user?.google_id && (
+              <Descriptions.Item label="Google ID">{user.google_id}</Descriptions.Item>
+            )}
+          </Descriptions>
+
+          <Divider>LINE 帳號綁定</Divider>
+
+          {user?.line_user_id ? (
+            <Descriptions column={1} bordered size="small">
+              <Descriptions.Item label="LINE User ID">
+                <code>{user.line_user_id}</code>
+              </Descriptions.Item>
+              <Descriptions.Item label="LINE 顯示名稱">
+                {user.line_display_name || '-'}
+              </Descriptions.Item>
+              <Descriptions.Item label="操作">
+                <Popconfirm
+                  title="確定解除此使用者的 LINE 綁定？"
+                  onConfirm={() => unbindLineMutation.mutate()}
+                  okText="確定"
+                  cancelText="取消"
+                >
+                  <Button
+                    danger
+                    icon={<DisconnectOutlined />}
+                    loading={unbindLineMutation.isPending}
+                    size="small"
+                  >
+                    解除綁定
+                  </Button>
+                </Popconfirm>
+              </Descriptions.Item>
+            </Descriptions>
+          ) : (
+            <Form layout="vertical">
+              <Row gutter={16}>
+                <Col xs={24} sm={12}>
+                  <Form.Item label="LINE User ID" required>
+                    <Input
+                      placeholder="U773510136cb50aa415ed6852bb3ba336"
+                      value={lineIdInput}
+                      onChange={(e) => setLineIdInput(e.target.value)}
+                      maxLength={64}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12}>
+                  <Form.Item label="LINE 顯示名稱">
+                    <Input
+                      placeholder="選填，預設使用帳號姓名"
+                      value={lineNameInput}
+                      onChange={(e) => setLineNameInput(e.target.value)}
+                      maxLength={100}
+                    />
+                  </Form.Item>
+                </Col>
+              </Row>
+              <Button
+                type="primary"
+                icon={<LinkOutlined />}
+                onClick={() => bindLineMutation.mutate()}
+                loading={bindLineMutation.isPending}
+                disabled={!lineIdInput || lineIdInput.length < 10}
+              >
+                綁定 LINE
+              </Button>
+            </Form>
+          )}
+        </div>
+      ),
+    });
+
     tabItems.push({
       key: 'permissions',
       label: '權限設定',

@@ -33,11 +33,14 @@ erDiagram
     erp_quotations ||--o{ erp_invoices : "erp_quotation_id"
     users ||--o{ erp_quotations : "created_by"
     erp_quotations ||--o{ erp_vendor_payables : "erp_quotation_id"
+    partner_vendors ||--o{ erp_vendor_payables : "vendor_id"
     document_calendar_events ||--o{ event_reminders : "event_id"
     users ||--o{ event_reminders : "recipient_user_id"
     expense_invoices ||--o{ expense_invoice_items : "invoice_id"
     users ||--o{ expense_invoices : "user_id"
+    partner_vendors ||--o{ expense_invoices : "vendor_id"
     users ||--o{ finance_ledgers : "user_id"
+    partner_vendors ||--o{ finance_ledgers : "vendor_id"
     government_agencies ||--o{ government_agencies : "parent_agency_id"
     documents ||--o{ graph_ingestion_events : "document_id"
     pm_cases ||--o{ pm_case_staff : "pm_case_id"
@@ -476,6 +479,7 @@ erDiagram
         text notes
         timestamp created_at
         timestamp updated_at
+        int vendor_id "FK"
     }
     event_reminders {
         int id "PK"
@@ -532,6 +536,7 @@ erDiagram
         varchar currency "NOT NULL"
         numeric original_amount
         numeric exchange_rate
+        int vendor_id "FK"
     }
     finance_ledgers {
         int id "PK"
@@ -546,6 +551,7 @@ erDiagram
         date transaction_date "NOT NULL"
         timestamp created_at
         timestamp updated_at
+        int vendor_id "FK"
     }
     government_agencies {
         int id "PK"
@@ -966,6 +972,8 @@ erDiagram
         text mfa_backup_codes
         varchar email_verification_token
         timestamptz email_verification_expires
+        varchar line_user_id
+        varchar line_display_name
     }
 ```
 
@@ -974,6 +982,6 @@ erDiagram
 | 指標 | 數值 |
 |------|------|
 | 總表數 | 56 |
-| 總欄位數 | 778 |
-| 外鍵關聯 | 75 |
+| 總欄位數 | 783 |
+| 外鍵關聯 | 78 |
 | 自訂列舉型別 | 0 |

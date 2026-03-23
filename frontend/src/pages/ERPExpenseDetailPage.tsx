@@ -13,6 +13,7 @@ import {
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useExpenseDetail, useApproveExpense, useRejectExpense, useUpdateExpense, useUploadExpenseReceipt, useAuthGuard } from '../hooks';
+import { expensesApi } from '../api/erp';
 import type { ExpenseInvoiceItem, ExpenseInvoiceUpdate } from '../types/erp';
 import { EXPENSE_STATUS_LABELS, EXPENSE_STATUS_COLORS, EXPENSE_SOURCE_LABELS, EXPENSE_CATEGORY_OPTIONS, CURRENCY_SYMBOLS, APPROVAL_THRESHOLD } from '../types/erp';
 import type { ColumnsType } from 'antd/es/table';
@@ -44,14 +45,25 @@ const ERPExpenseDetailPage: React.FC = () => {
     );
   };
 
-  // 收據圖片 URL (相對路徑透過 API base URL 存取)
-  const getReceiptUrl = (path: string) => {
-    if (path.startsWith('http')) return path;
-    const base = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001';
-    return `${base}/uploads/${path}`;
-  };
+  // 收據圖片透過 POST API 安全取得 (避免硬編碼 URL)
+  const [receiptBlobUrl, setReceiptBlobUrl] = React.useState<string | null>(null);
 
   const invoice = data?.data;
+
+  React.useEffect(() => {
+    if (!invoice?.receipt_image_path || !invoice?.id) return;
+    let revoked = false;
+    expensesApi.receiptImage(invoice.id).then((blob) => {
+      if (!revoked) {
+        setReceiptBlobUrl(URL.createObjectURL(blob));
+      }
+    }).catch(() => { /* 靜默失敗，UI 顯示「無收據」 */ });
+    return () => {
+      revoked = true;
+      if (receiptBlobUrl) URL.revokeObjectURL(receiptBlobUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoice?.id, invoice?.receipt_image_path]);
 
   const handleApprove = async () => {
     if (!invoice) return;
@@ -234,13 +246,15 @@ const ERPExpenseDetailPage: React.FC = () => {
           )
         }
       >
-        {invoice.receipt_image_path ? (
+        {invoice.receipt_image_path && receiptBlobUrl ? (
           <Image
-            src={getReceiptUrl(invoice.receipt_image_path)}
+            src={receiptBlobUrl}
             alt="收據影像"
             style={{ maxWidth: 400, maxHeight: 500 }}
             placeholder
           />
+        ) : invoice.receipt_image_path ? (
+          <Spin size="small" />
         ) : (
           <Typography.Text type="secondary">尚未上傳收據影像</Typography.Text>
         )}

@@ -61,4 +61,9 @@ export const expensesApi = {
       { invoice_id: String(invoiceId) },
     );
   },
+
+  /** 取得收據影像 URL (POST-only 安全策略，回傳 Blob) */
+  async receiptImage(id: number): Promise<Blob> {
+    return apiClient.post<Blob>(ERP_ENDPOINTS.EXPENSES_RECEIPT_IMAGE, { id }, { responseType: 'blob' });
+  },
 };

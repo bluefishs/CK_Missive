@@ -108,6 +108,20 @@ class Settings(BaseSettings):
     DEFAULT_USER_ROLE: str = "user"
 
     # =========================================================================
+    # LINE Login 設定
+    # =========================================================================
+    LINE_LOGIN_CHANNEL_ID: Optional[str] = Field(
+        default=None, description="LINE Login Channel ID (LINE Developers Console)"
+    )
+    LINE_LOGIN_CHANNEL_SECRET: Optional[str] = Field(
+        default=None, description="LINE Login Channel Secret"
+    )
+    LINE_LOGIN_REDIRECT_URI: str = Field(
+        default="http://localhost:3000/auth/line/callback",
+        description="LINE Login OAuth 回調 URI"
+    )
+
+    # =========================================================================
     # Redis 設定
     # =========================================================================
     REDIS_URL: str = Field(

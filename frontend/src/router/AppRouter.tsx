@@ -33,6 +33,8 @@ const ForgotPasswordPage = lazy(() => import('../pages/ForgotPasswordPage'));
 const ResetPasswordPage = lazy(() => import('../pages/ResetPasswordPage'));
 const MFAVerifyPage = lazy(() => import('../pages/MFAVerifyPage'));
 const VerifyEmailPage = lazy(() => import('../pages/VerifyEmailPage'));
+const LineCallbackPage = lazy(() => import('../pages/LineCallbackPage'));
+const LineBindCallbackPage = lazy(() => import('../pages/LineBindCallbackPage'));
 const UserManagementPage = lazy(() => import('../pages/UserManagementPage'));
 const UserFormPage = lazy(() => import('../pages/UserFormPage').then(module => ({ default: module.UserFormPage })));
 
@@ -100,6 +102,9 @@ const ERPLedgerPage = lazy(() => import('../pages/ERPLedgerPage'));
 const ERPFinancialDashboardPage = lazy(() => import('../pages/ERPFinancialDashboardPage'));
 const ERPEInvoiceSyncPage = lazy(() => import('../pages/ERPEInvoiceSyncPage'));
 
+// 資安管理
+const AdminLoginHistoryPage = lazy(() => import('../pages/AdminLoginHistoryPage'));
+
 // ProtectedRoute 已移至獨立模組：./ProtectedRoute.tsx
 
 // 主路由器組件
@@ -119,6 +124,8 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.RESET_PASSWORD} element={<ResetPasswordPage />} />
           <Route path={ROUTES.MFA_VERIFY} element={<MFAVerifyPage />} />
           <Route path={ROUTES.VERIFY_EMAIL} element={<VerifyEmailPage />} />
+          <Route path={ROUTES.LINE_CALLBACK} element={<LineCallbackPage />} />
+          <Route path={ROUTES.LINE_BIND_CALLBACK} element={<LineBindCallbackPage />} />
 
           {/* 公文相關路由（需要認證） */}
           <Route path={ROUTES.DOCUMENTS} element={<ProtectedRoute><DocumentPage /></ProtectedRoute>} />
@@ -249,6 +256,9 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.ERP_LEDGER} element={<ProtectedRoute><ERPLedgerPage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_FINANCIAL_DASHBOARD} element={<ProtectedRoute><ERPFinancialDashboardPage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_EINVOICE_SYNC} element={<ProtectedRoute><ERPEInvoiceSyncPage /></ProtectedRoute>} />
+
+          {/* 資安管理 */}
+          <Route path={ROUTES.ADMIN_LOGIN_HISTORY} element={<ProtectedRoute roles={['admin', 'superuser']}><AdminLoginHistoryPage /></ProtectedRoute>} />
 
           {/* 需要認證的路由 */}
           {/* /settings 已統一至 /profile */}

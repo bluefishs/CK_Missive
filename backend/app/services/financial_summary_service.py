@@ -61,11 +61,10 @@ class FinancialSummaryService:
             year=year, skip=skip, limit=limit
         )
 
-        # 批量查詢各案彙總
-        summaries = []
-        for cc in case_codes:
-            summary = await self.repo.get_project_summary(cc)
-            summaries.append(summary)
+        # 批量查詢各案彙總 (3 queries 取代 N*3)
+        summaries = await self.repo.get_batch_project_summaries(case_codes)
+        # 過濾 None（找不到專案主檔的案號）
+        summaries = [s for s in summaries if s is not None]
 
         return {"items": summaries, "total": total, "skip": skip, "limit": limit}
 
@@ -124,10 +123,6 @@ class FinancialSummaryService:
             date_from=date_from, date_to=date_to, top_n=top_n
         )
 
-        # 各案取完整彙總
-        summaries = []
-        for cc in top_case_codes:
-            summary = await self.repo.get_project_summary(cc)
-            summaries.append(summary)
-
-        return summaries
+        # 批量取完整彙總 (3 queries 取代 N*3)
+        summaries = await self.repo.get_batch_project_summaries(top_case_codes)
+        return [s for s in summaries if s is not None]
