@@ -55,8 +55,6 @@ VALID_NAVIGATION_PATHS: Set[str] = {
     "/ai/code-graph",
     "/ai/db-graph",
     "/ai/skill-evolution",
-    "/admin/code-graph",
-
     # 系統頁面
     "/system",
     "/google-auth-diagnostic",
@@ -110,7 +108,6 @@ PATH_DESCRIPTIONS = {
     "/ai/code-graph": "代碼圖譜",
     "/ai/db-graph": "資料庫圖譜",
     "/ai/skill-evolution": "技能演化樹",
-    "/admin/code-graph": "代碼圖譜管理（已重導至 /ai/code-graph）",
     "/system": "系統監控",
     "/google-auth-diagnostic": "Google認證診斷",
     "/unified-form-demo": "統一表單示例",

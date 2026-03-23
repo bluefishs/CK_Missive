@@ -16,6 +16,7 @@ from app.services.ai.canonical_entity_service import (
     _preprocess_entity_name,
     CanonicalEntityService,
 )
+from app.services.ai.canonical_entity_matcher import CanonicalEntityMatcher
 
 
 class TestPreprocessEntityName:
@@ -53,25 +54,25 @@ class TestIsFalseFuzzyMatch:
 
     def test_short_names_pass(self):
         # 短名稱不檢查
-        assert CanonicalEntityService._is_false_fuzzy_match('工務局', '地政局') is False
+        assert CanonicalEntityMatcher.is_false_fuzzy_match('工務局', '地政局') is False
 
     def test_same_year_different_region(self):
         # 年度前綴相同但內容不同
         name = '115年度苗栗縣公共工程品質抽驗'
         candidate = '115年度桃園市公共工程品質抽驗'
-        result = CanonicalEntityService._is_false_fuzzy_match(name, candidate)
+        result = CanonicalEntityMatcher.is_false_fuzzy_match(name, candidate)
         assert result is True
 
     def test_same_content_passes(self):
         name = '115年度桃園市公共工程品質抽驗計畫'
         candidate = '115年度桃園市公共工程品質抽驗計畫書'
-        result = CanonicalEntityService._is_false_fuzzy_match(name, candidate)
+        result = CanonicalEntityMatcher.is_false_fuzzy_match(name, candidate)
         assert result is False
 
     def test_completely_different_long_names(self):
         name = '桃園市龍潭區某某某某某某某某某某某某某某某道路改善工程'
         candidate = '南投縣仁愛鄉某某某某某某某某某某某某某某某產業道路'
-        result = CanonicalEntityService._is_false_fuzzy_match(name, candidate)
+        result = CanonicalEntityMatcher.is_false_fuzzy_match(name, candidate)
         assert result is True
 
 
@@ -119,7 +120,7 @@ class TestResolveEntity:
         mock_entity.alias_count = 1
 
         with patch.object(service, '_exact_match', new_callable=AsyncMock, return_value=None), \
-             patch.object(service, '_fuzzy_match', new_callable=AsyncMock, return_value=mock_entity), \
+             patch.object(service._matcher, 'fuzzy_match', new_callable=AsyncMock, return_value=mock_entity), \
              patch.object(service, '_add_alias', new_callable=AsyncMock):
             result = await service.resolve_entity('桃園市工務局', 'org')
             assert result.canonical_name == '桃園市政府工務局'
@@ -131,7 +132,7 @@ class TestResolveEntity:
         mock_entity.canonical_name = '新機關名稱'
 
         with patch.object(service, '_exact_match', new_callable=AsyncMock, return_value=None), \
-             patch.object(service, '_fuzzy_match', new_callable=AsyncMock, return_value=None), \
+             patch.object(service._matcher, 'fuzzy_match', new_callable=AsyncMock, return_value=None), \
              patch.object(service, '_create_entity', new_callable=AsyncMock, return_value=mock_entity), \
              patch.object(service, '_add_alias', new_callable=AsyncMock):
             result = await service.resolve_entity('新機關名稱', 'org')
