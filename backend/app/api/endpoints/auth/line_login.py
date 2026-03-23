@@ -76,11 +76,12 @@ async def _exchange_line_token(code: str, redirect_uri: Optional[str] = None) ->
         return resp.json()
 
 
-async def _get_line_profile(access_token: str) -> LineUserInfo:
+async def _get_line_profile(access_token: str, id_token: Optional[str] = None) -> LineUserInfo:
     """
-    LINE Profile API: 取得使用者基本資料
+    LINE Profile API: 取得使用者基本資料 + id_token 解碼 email
 
     https://developers.line.biz/en/docs/line-login/getting-user-profile/
+    https://developers.line.biz/en/docs/line-login/verify-id-token/
     """
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.get(
@@ -94,10 +95,31 @@ async def _get_line_profile(access_token: str) -> LineUserInfo:
                 detail="LINE access token 無效",
             )
         data = resp.json()
+
+        # 從 id_token 解碼 email (LINE Verify API)
+        email = None
+        if id_token:
+            channel_id = getattr(settings, "LINE_LOGIN_CHANNEL_ID", None) or ""
+            try:
+                verify_resp = await client.post(
+                    "https://api.line.me/oauth2/v2.1/verify",
+                    data={"id_token": id_token, "client_id": channel_id},
+                )
+                if verify_resp.status_code == 200:
+                    verify_data = verify_resp.json()
+                    email = verify_data.get("email")
+                    if email:
+                        logger.info(f"[LINE] id_token 取得 email: {email}")
+                else:
+                    logger.warning(f"[LINE] id_token verify failed: {verify_resp.status_code}")
+            except Exception as e:
+                logger.warning(f"[LINE] id_token 解碼失敗: {e}")
+
         return LineUserInfo(
             line_user_id=data["userId"],
             display_name=data["displayName"],
             picture_url=data.get("pictureUrl"),
+            email=email,
         )
 
 
@@ -136,9 +158,10 @@ async def line_login_callback(
         # 1. Exchange code for token
         token_data = await _exchange_line_token(line_request.code, line_request.redirect_uri)
         access_token = token_data["access_token"]
+        id_token = token_data.get("id_token")
 
-        # 2. Get LINE profile
-        line_info = await _get_line_profile(access_token)
+        # 2. Get LINE profile (含 id_token email 解碼)
+        line_info = await _get_line_profile(access_token, id_token)
         logger.info(f"[LINE] 登入嘗試: {line_info.display_name} ({line_info.line_user_id[:8]}...)")
 
         # 3. Find user (line_user_id → email → reject)

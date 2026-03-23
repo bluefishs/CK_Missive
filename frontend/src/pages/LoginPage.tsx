@@ -263,7 +263,7 @@ const LoginPage: React.FC = () => {
       client_id: LINE_LOGIN_CHANNEL_ID,
       redirect_uri: LINE_LOGIN_REDIRECT_URI,
       state,
-      scope: 'profile openid',
+      scope: 'profile openid email',
     });
 
     window.location.href = `https://access.line.me/oauth2/v2.1/authorize?${params.toString()}`;
