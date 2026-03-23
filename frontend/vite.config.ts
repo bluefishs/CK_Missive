@@ -1,6 +1,6 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
-import basicSsl from '@vitejs/plugin-basic-ssl';
+import fs from 'fs';
 import { resolve } from 'path';
 
 // https://vitejs.dev/config/
@@ -15,9 +15,6 @@ export default defineConfig(({ mode }) => {
     envDir,
     plugins: [
       react(),
-      // Self-signed SSL: 啟用 HTTPS 讓內網手機可使用相機掃描 QR Code
-      // 瀏覽器首次連線時需接受自簽憑證 (進階 → 繼續前往)
-      basicSsl(),
     ],
 
     // Define global variables and environment variable types
@@ -51,6 +48,15 @@ export default defineConfig(({ mode }) => {
 
     // Development server settings
     server: {
+      // HTTPS: 自簽憑證含 SAN (localhost + 192.168.50.x)
+      // 讓內網手機可使用相機掃描 QR Code
+      // 首次連線需接受自簽憑證 (進階 → 繼續前往)
+      https: fs.existsSync(resolve(__dirname, 'certs/dev-cert.pem'))
+        ? {
+            cert: fs.readFileSync(resolve(__dirname, 'certs/dev-cert.pem')),
+            key: fs.readFileSync(resolve(__dirname, 'certs/dev-key.pem')),
+          }
+        : undefined,
       // Use environment variable or fallback to 3000
       // CK_Missive 專案指定端口：3000
       port: parseInt(env.VITE_PORT) || 3000,
