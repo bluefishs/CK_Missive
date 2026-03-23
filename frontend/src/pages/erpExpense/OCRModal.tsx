@@ -96,7 +96,7 @@ const OCRModal: React.FC<Props> = ({ open, onClose, createForm, onOpenCreate }) 
             style={{ marginBottom: 12 }}
           />
           {ocrResult.warnings.length > 0 && (
-            <Alert type="info" message={ocrResult.warnings.join('、')} style={{ marginBottom: 12 }} />
+            <Alert type="info" title={ocrResult.warnings.join('、')} style={{ marginBottom: 12 }} />
           )}
         </div>
       )}

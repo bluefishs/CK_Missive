@@ -73,6 +73,20 @@ export const GRAPH_NODE_CONFIG: Record<string, GraphNodeTypeConfig> = {
 // 衍生常數（從配置表自動產生）
 // ============================================================================
 
+/** 跨域來源專案色碼 (V-1.1) — Missive=藍, LvrLand=綠, Tunnel=橘 */
+export const SOURCE_PROJECT_COLORS: Record<string, string> = {
+  'ck-missive': '#1890ff',
+  'ck-lvrland': '#52c41a',
+  'ck-tunnel':  '#fa8c16',
+};
+
+/** 來源專案中文標籤 */
+export const SOURCE_PROJECT_LABELS: Record<string, string> = {
+  'ck-missive': '公文 Missive',
+  'ck-lvrland': '地政 LvrLand',
+  'ck-tunnel':  '隧道 Tunnel',
+};
+
 /** 未知類型的 fallback 配置 */
 export const DEFAULT_NODE_CONFIG: GraphNodeTypeConfig = {
   color: '#999999',

@@ -10,7 +10,7 @@
  * @date 2026-03-23
  */
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Alert, Button, Space, Typography } from 'antd';
+import { Alert, Button, Space, Flex, Typography } from 'antd';
 import { CameraOutlined, SwapOutlined } from '@ant-design/icons';
 
 const { Text } = Typography;
@@ -124,9 +124,14 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (html5QrCodeRef.current) {
-        html5QrCodeRef.current.stop().catch(() => {});
-        html5QrCodeRef.current.clear();
+      const scanner = html5QrCodeRef.current;
+      if (scanner) {
+        // isScanning 為 true 才能呼叫 stop()，否則會拋 Error
+        const isRunning = scanner.getState?.() === 2; // Html5QrcodeScannerState.SCANNING
+        if (isRunning) {
+          scanner.stop().catch(() => {});
+        }
+        try { scanner.clear(); } catch { /* ignore */ }
       }
     };
   }, []);
@@ -136,7 +141,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({
       {error && (
         <Alert
           type="error"
-          message={error}
+          title={error}
           style={{ marginBottom: 12 }}
           closable
           onClose={() => setError(null)}
@@ -154,7 +159,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({
         }}
       />
 
-      <Space direction="vertical" style={{ marginTop: 12 }}>
+      <Flex vertical align="center" gap={8} style={{ marginTop: 12 }}>
         {!scanning ? (
           <Button
             type="primary"
@@ -175,7 +180,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({
         <Text type="secondary" style={{ fontSize: 12 }}>
           將電子發票 QR Code 對準掃描框
         </Text>
-      </Space>
+      </Flex>
     </div>
   );
 };

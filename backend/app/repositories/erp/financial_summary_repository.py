@@ -308,9 +308,15 @@ class FinancialSummaryRepository:
         if case_code:
             conditions.append(FinanceLedger.case_code == case_code)
 
+        # 使用 literal_column 避免 asyncpg 在 SELECT 和 GROUP BY 產生不同參數索引，
+        # 導致 PostgreSQL 回傳 GroupingError。
+        from sqlalchemy import literal_column
+        month_fmt = literal_column("'YYYY-MM'")
+        month_expr = func.to_char(FinanceLedger.transaction_date, month_fmt).label("month")
+
         stmt = (
             select(
-                func.to_char(FinanceLedger.transaction_date, 'YYYY-MM').label("month"),
+                month_expr,
                 func.sum(
                     sa_case(
                         (FinanceLedger.entry_type == "income", FinanceLedger.amount),
@@ -325,8 +331,8 @@ class FinancialSummaryRepository:
                 ).label("expense"),
             )
             .where(and_(*conditions))
-            .group_by(func.to_char(FinanceLedger.transaction_date, 'YYYY-MM'))
-            .order_by(func.to_char(FinanceLedger.transaction_date, 'YYYY-MM'))
+            .group_by(func.to_char(FinanceLedger.transaction_date, month_fmt))
+            .order_by(func.to_char(FinanceLedger.transaction_date, month_fmt))
         )
         result = await self.db.execute(stmt)
         rows = result.all()

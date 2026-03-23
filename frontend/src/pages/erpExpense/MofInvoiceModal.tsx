@@ -3,7 +3,7 @@
  */
 import React, { useState, useMemo } from 'react';
 import {
-  Modal, Table, Button, Space, Tag, Input, Row, Col, Alert,
+  Modal, Table, Button, Flex, Tag, Input, Row, Col, Alert,
   AutoComplete, Segmented,
 } from 'antd';
 import { CloudDownloadOutlined, SearchOutlined } from '@ant-design/icons';
@@ -65,7 +65,7 @@ const MofInvoiceModal: React.FC<Props> = ({ open, onClose }) => {
       footer={<Button onClick={handleClose}>關閉</Button>}
       width={780}
     >
-      <Space direction="vertical" style={{ width: '100%', marginBottom: 16 }}>
+      <Flex vertical style={{ width: '100%', marginBottom: 16 }}>
         <Alert
           type="info"
           message="財政部自動同步的電子發票。篩選「未指定案號」可快速找出需報帳的發票。"
@@ -99,7 +99,7 @@ const MofInvoiceModal: React.FC<Props> = ({ open, onClose }) => {
             />
           </Col>
         </Row>
-      </Space>
+      </Flex>
       <Table<ExpenseInvoice>
         dataSource={filteredItems}
         rowKey="id"

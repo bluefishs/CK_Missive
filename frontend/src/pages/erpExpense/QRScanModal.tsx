@@ -2,10 +2,10 @@
  * QR Code 掃描建立 Modal
  */
 import React from 'react';
-import { Modal, Form, Input, Select, Alert, message } from 'antd';
+import { Modal, Form, Input, Select, Alert, App } from 'antd';
 import { ScanOutlined } from '@ant-design/icons';
 import { EXPENSE_CATEGORY_OPTIONS } from '../../types/erp';
-import { useQRScanExpense } from '../../hooks';
+import { useQRScanExpense, useProjectsDropdown } from '../../hooks';
 import QRCodeScanner from '../../components/common/QRCodeScanner';
 
 interface Props {
@@ -14,18 +14,20 @@ interface Props {
 }
 
 const QRScanModal: React.FC<Props> = ({ open, onClose }) => {
+  const { message: messageApi } = App.useApp();
   const [form] = Form.useForm();
   const qrScanMutation = useQRScanExpense();
+  const { projects: projectOptions } = useProjectsDropdown();
 
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
       await qrScanMutation.mutateAsync(values);
-      message.success('QR 掃描建立成功');
+      messageApi.success('QR 掃描建立成功');
       onClose();
       form.resetFields();
     } catch {
-      message.error('QR 掃描失敗');
+      messageApi.error('QR 掃描失敗');
     }
   };
 
@@ -40,14 +42,14 @@ const QRScanModal: React.FC<Props> = ({ open, onClose }) => {
     >
       <Alert
         type="info"
-        message="手機用戶可直接使用相機掃描電子發票 QR Code；桌機用戶請手動貼上。"
+        title="手機用戶可直接使用相機掃描電子發票 QR Code；桌機用戶請手動貼上。"
         style={{ marginBottom: 16 }}
         showIcon
       />
       <QRCodeScanner
         onScan={(text) => {
           form.setFieldsValue({ raw_qr: text });
-          message.success('QR Code 掃描成功，請確認後送出');
+          messageApi.success('QR Code 掃描成功，請確認後送出');
         }}
         width={280}
         height={280}
@@ -57,7 +59,16 @@ const QRScanModal: React.FC<Props> = ({ open, onClose }) => {
           <Input.TextArea rows={3} placeholder="掃描後自動填入，或手動貼上電子發票 QR Code 內容" />
         </Form.Item>
         <Form.Item name="case_code" label="案號 (選填)">
-          <Input placeholder="留空 = 一般營運支出" />
+          <Select
+            placeholder="留空 = 一般營運支出"
+            allowClear
+            showSearch
+            optionFilterProp="label"
+            options={projectOptions?.filter(p => p.project_code).map(p => ({
+              value: p.project_code,
+              label: `${p.project_code} ${p.project_name}`,
+            })) ?? []}
+          />
         </Form.Item>
         <Form.Item name="category" label="費用分類">
           <Select placeholder="選擇分類" options={EXPENSE_CATEGORY_OPTIONS} allowClear />

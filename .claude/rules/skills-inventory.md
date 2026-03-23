@@ -12,18 +12,23 @@
 | `/data-quality-check` | 資料品質檢查 | `.claude/commands/data-quality-check.md` |
 | `/db-backup` | 資料庫備份管理 | `.claude/commands/db-backup.md` |
 | `/csv-import-validate` | CSV 匯入驗證 | `.claude/commands/csv-import-validate.md` |
-| `/security-audit` | 🔒 **資安審計檢查** | `.claude/commands/security-audit.md` |
+| `/security-audit` | 🔒 **CSO 等級資安審計 v2** — OWASP+STRIDE+信心閾值 | `.claude/commands/security-audit.md` |
 | `/performance-check` | ⚡ **效能診斷檢查** | `.claude/commands/performance-check.md` |
 | `/adr` | 📋 **架構決策記錄 (ADR)** 管理 | `.claude/commands/adr.md` |
 | `/knowledge-map` | 🗺️ **知識地圖重建與差異報告** | `.claude/commands/knowledge-map.md` |
 
-### gstack 啟發指令 (v1.83.3)
+### gstack 啟發指令 (v2.0.0, 2026-03-23 升級)
 
 | 指令 | 說明 | 檔案 |
 |------|------|------|
-| `/ship` | 🚀 **統一發布工作流** — branch→test→review→commit→PR | `.claude/commands/ship.md` |
-| `/retro` | 📊 **工程回顧** — commit 統計/趨勢/熱點/JSON 持久化 | `.claude/commands/retro.md` |
+| `/ship` | 🚀 **統一發布工作流 v2** — 測試歸因+review就緒+bisectable | `.claude/commands/ship.md` |
+| `/retro` | 📊 **工程回顧 v2** — per-author+compare+session偵測 | `.claude/commands/retro.md` |
 | `/qa-smart` | 🧪 **Diff-Aware 智慧測試** — 4 模式 + 8 維度健康度 | `.claude/commands/qa-smart.md` |
+| `/careful` | 🛡️ **危險命令攔截** — PreToolUse hook 自動攔截破壞性操作 | `.claude/commands/careful.md` |
+| `/freeze` | 🔒 **編輯範圍鎖定** — 限制 Edit/Write 到指定目錄 | `.claude/commands/freeze.md` |
+| `/unfreeze` | 🔓 **解除範圍鎖定** — 刪除 freeze-scope.json | `.claude/commands/unfreeze.md` |
+| `/guard` | 🛡️🔒 **綜合安全防護** — careful + freeze 合一 | `.claude/commands/guard.md` |
+| `/document-release` | 📝 **發布後文件同步** — 架構/Skills/CHANGELOG 自動檢查 | `.claude/commands/document-release.md` |
 
 ### Everything Claude Code 指令
 
@@ -32,7 +37,7 @@
 | `/verify` | 綜合驗證檢查 - Build/Type/Lint/Test | `.claude/commands/verify.md` |
 | `/tdd` | TDD 工作流 - RED-GREEN-REFACTOR | `.claude/commands/tdd.md` |
 | `/checkpoint` | 長對話進度保存 | `.claude/commands/checkpoint.md` |
-| `/code-review` | 全面程式碼審查 | `.claude/commands/code-review.md` |
+| `/code-review` | 結構化審查 v2 — Scope Drift+Fix-First | `.claude/commands/code-review.md` |
 | `/build-fix` | 快速修復構建錯誤 | `.claude/commands/build-fix.md` |
 
 ### Superpowers 指令

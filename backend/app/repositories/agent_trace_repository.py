@@ -122,6 +122,58 @@ class AgentTraceRepository:
             await self.db.rollback()
             return False
 
+    async def get_trace_detail(self, trace_id: int) -> Optional[Dict[str, Any]]:
+        """取得單筆 trace 詳情含 tool_calls（V-1.2 Timeline 用）"""
+        try:
+            stmt = select(AgentQueryTrace).where(AgentQueryTrace.id == trace_id)
+            result = await self.db.execute(stmt)
+            trace = result.scalar_one_or_none()
+            if not trace:
+                return None
+
+            # 取得 tool call logs
+            tc_stmt = (
+                select(AgentToolCallLog)
+                .where(AgentToolCallLog.trace_id == trace_id)
+                .order_by(AgentToolCallLog.call_order)
+            )
+            tc_result = await self.db.execute(tc_stmt)
+            tool_calls = [
+                {
+                    "tool_name": tc.tool_name,
+                    "call_order": tc.call_order,
+                    "duration_ms": tc.duration_ms,
+                    "success": tc.success,
+                    "result_count": tc.result_count,
+                    "error_message": tc.error_message,
+                    "created_at": tc.created_at.isoformat() if tc.created_at else None,
+                }
+                for tc in tc_result.scalars().all()
+            ]
+
+            return {
+                "id": trace.id,
+                "query_id": trace.query_id,
+                "question": trace.question,
+                "context": trace.context,
+                "route_type": trace.route_type,
+                "total_ms": trace.total_ms,
+                "iterations": trace.iterations,
+                "total_results": trace.total_results,
+                "correction_triggered": trace.correction_triggered,
+                "react_triggered": trace.react_triggered,
+                "plan_tool_count": trace.plan_tool_count,
+                "model_used": trace.model_used,
+                "tools_used": trace.tools_used,
+                "answer_preview": trace.answer_preview,
+                "feedback_score": trace.feedback_score,
+                "created_at": trace.created_at.isoformat() if trace.created_at else None,
+                "tool_calls": tool_calls,
+            }
+        except Exception as e:
+            logger.warning("get_trace_detail failed: %s", e)
+            return None
+
     async def get_recent_traces(
         self,
         context: Optional[str] = None,

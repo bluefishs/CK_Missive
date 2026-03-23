@@ -293,3 +293,115 @@ async def get_system_metrics(current_user: User = Depends(require_admin())):
         log_error(f"Failed to get system metrics: {e}", ErrorCategory.SYSTEM)
         logger.error(f"獲取系統指標失敗: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="獲取系統指標失敗，請稍後再試")
+
+
+@router.post("/review-dashboard", summary="系統覆盤儀表板")
+async def get_review_dashboard(
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_admin())
+):
+    """
+    彙總所有子系統狀態 — Knowledge Graph / Code Graph / DB Graph /
+    Skills Map / Knowledge Base / Skill Evolution / 排程器
+    """
+    from app.core.scheduler import get_scheduler_status
+
+    result = {
+        "timestamp": datetime.now().isoformat(),
+        "subsystems": {},
+        "scheduler": get_scheduler_status(),
+    }
+
+    # --- Knowledge Graph ---
+    try:
+        from sqlalchemy import text, func
+        from app.extended.models.knowledge_graph import (
+            CanonicalEntity, EntityRelationship,
+        )
+        from app.extended.models.entity import DocumentEntity
+
+        entities_count = (await db.execute(
+            text("SELECT count(*) FROM canonical_entities")
+        )).scalar() or 0
+        relations_count = (await db.execute(
+            text("SELECT count(*) FROM entity_relationships")
+        )).scalar() or 0
+        aliases_count = (await db.execute(
+            text("SELECT count(*) FROM entity_aliases")
+        )).scalar() or 0
+        pending = (await db.execute(
+            text("SELECT count(*) FROM official_documents WHERE ner_pending = true")
+        )).scalar() or 0
+
+        result["subsystems"]["knowledge_graph"] = {
+            "status": "healthy" if pending == 0 else "pending",
+            "entities": entities_count,
+            "relationships": relations_count,
+            "aliases": aliases_count,
+            "pending_documents": pending,
+            "coverage": "100%" if pending == 0 else f"{round((1 - pending / max(entities_count, 1)) * 100)}%",
+        }
+    except Exception as e:
+        result["subsystems"]["knowledge_graph"] = {"status": "error", "error": str(e)}
+
+    # --- Code Graph ---
+    try:
+        code_entities = (await db.execute(
+            text("SELECT count(*) FROM canonical_entities WHERE entity_type = 'code_module'")
+        )).scalar() or 0
+        code_relations = (await db.execute(
+            text(
+                "SELECT count(*) FROM entity_relationships "
+                "WHERE relation_type IN ('imports', 'calls', 'inherits', 'depends_on')"
+            )
+        )).scalar() or 0
+        result["subsystems"]["code_graph"] = {
+            "status": "healthy" if code_entities > 0 else "empty",
+            "modules": code_entities,
+            "dependencies": code_relations,
+        }
+    except Exception as e:
+        result["subsystems"]["code_graph"] = {"status": "error", "error": str(e)}
+
+    # --- DB Graph ---
+    try:
+        from app.services.ai.schema_reflector import SchemaReflectorService
+        schema = await SchemaReflectorService.get_full_schema_async()
+        tables = schema.get("tables", [])
+        result["subsystems"]["db_graph"] = {
+            "status": "healthy",
+            "tables": len(tables),
+            "cached": SchemaReflectorService._cache is not None,
+        }
+    except Exception as e:
+        result["subsystems"]["db_graph"] = {"status": "error", "error": str(e)}
+
+    # --- Knowledge Base (Embedding) ---
+    try:
+        from app.services.ai.embedding_manager import EmbeddingManager
+        stats = await EmbeddingManager.get_coverage_stats(db)
+        total = stats.get("total_chunks", 0)
+        embedded = stats.get("embedded_chunks", 0)
+        coverage = stats.get("coverage_percent", 0)
+        result["subsystems"]["knowledge_base"] = {
+            "status": "healthy" if coverage >= 95 else "degraded",
+            "chunks": total,
+            "embedded": embedded,
+            "coverage": f"{coverage:.1f}%",
+        }
+    except Exception as e:
+        result["subsystems"]["knowledge_base"] = {"status": "error", "error": str(e)}
+
+    # --- Skill Evolution ---
+    try:
+        from app.services.ai.agent_evolution_scheduler import AgentEvolutionScheduler
+        evo = AgentEvolutionScheduler()
+        should = await evo.should_evolve()
+        result["subsystems"]["skill_evolution"] = {
+            "status": "active",
+            "should_evolve": should,
+        }
+    except Exception as e:
+        result["subsystems"]["skill_evolution"] = {"status": "error", "error": str(e)}
+
+    return result

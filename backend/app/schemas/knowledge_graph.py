@@ -593,7 +593,7 @@ class FederatedSearchRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=200, description="搜尋關鍵字")
     entity_types: Optional[List[str]] = Field(None, description="實體類型篩選")
     source_projects: Optional[List[str]] = Field(None, description="來源專案篩選")
-    max_hops: int = Field(default=2, ge=1, le=4, description="最大跳數 (鄰居查詢)")
+    max_hops: int = Field(default=1, ge=1, le=4, description="鄰居展開跳數 (目前僅支援 1-hop)")
     limit: int = Field(default=50, ge=1, le=200, description="最大結果數")
 
 

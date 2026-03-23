@@ -58,6 +58,38 @@ class AgentTracesResponse(BaseModel):
     route_distribution: Dict[str, int] = {}
 
 
+class TraceToolCallItem(BaseModel):
+    """Trace 內的單筆工具呼叫 (V-1.2 Timeline)"""
+    tool_name: str
+    call_order: int = 0
+    duration_ms: int = 0
+    success: bool = True
+    result_count: int = 0
+    error_message: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class TraceDetailResponse(BaseModel):
+    """單筆 Trace 詳情 (V-1.2 Timeline)"""
+    id: int
+    query_id: str
+    question: str
+    context: Optional[str] = None
+    route_type: str = "llm"
+    total_ms: int = 0
+    iterations: int = 0
+    total_results: int = 0
+    correction_triggered: bool = False
+    react_triggered: bool = False
+    plan_tool_count: int = 0
+    model_used: Optional[str] = None
+    tools_used: Optional[List[str]] = None
+    answer_preview: Optional[str] = None
+    feedback_score: Optional[int] = None
+    created_at: Optional[str] = None
+    tool_calls: List[TraceToolCallItem] = []
+
+
 class PatternItem(BaseModel):
     """學習模式項目"""
     pattern_key: str

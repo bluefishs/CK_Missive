@@ -35,3 +35,4 @@ export * from './useDocumentAnalysis';
 // AI SSE 串流
 export * from './useStreamingChat';
 export * from './useAgentSSE';
+export * from './useLiveActivitySSE';

@@ -6,8 +6,8 @@
 import React, { useState, useMemo } from 'react';
 import {
   Card, Table, Button, Space, Tag, Input, Select, Typography,
-  Statistic, Row, Col, Popconfirm, message, Modal, Form, DatePicker,
-  AutoComplete,
+  Statistic, Row, Col, Popconfirm, Modal, Form, DatePicker,
+  AutoComplete, App,
 } from 'antd';
 import {
   PlusOutlined, ReloadOutlined, CheckCircleOutlined,
@@ -35,6 +35,7 @@ const { Title } = Typography;
 const { RangePicker } = DatePicker;
 
 const ERPExpenseListPage: React.FC = () => {
+  const { message } = App.useApp();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { hasPermission } = useAuthGuard();

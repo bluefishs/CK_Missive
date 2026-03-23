@@ -14,6 +14,7 @@ import {
   DatePicker,
   Button,
   Space,
+  Flex,
   Card,
   Typography,
   App,
@@ -77,7 +78,7 @@ export const PMCaseFormPage: React.FC = () => {
 
   return (
     <ResponsiveContent>
-      <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+      <Flex vertical gap={8} style={{ width: '100%' }}>
         <Space>
           <Button
             icon={<ArrowLeftOutlined />}
@@ -179,7 +180,7 @@ export const PMCaseFormPage: React.FC = () => {
             </Form.Item>
           </Form>
         </Card>
-      </Space>
+      </Flex>
     </ResponsiveContent>
   );
 };

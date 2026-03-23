@@ -66,7 +66,7 @@ export const ProjectStatsPanel: React.FC = () => {
                 <Statistic
                   title="進行中"
                   value={inProgress}
-                  prefix={<SyncOutlined spin={inProgress > 0} />}
+                  prefix={<SyncOutlined />}
                   styles={{ content: { color: '#1890ff' } }}
                 />
               </Col>

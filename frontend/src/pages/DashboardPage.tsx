@@ -10,14 +10,13 @@
  * - 滿版設計，充分利用螢幕空間
  * - 公文趨勢圖已移至「統計報表 > 公文數量分析」
  *
- * @version 3.1.0 - 公文趨勢圖移至 Reports
- * @date 2026-02-10
+ * @version 3.2.0 - 移除 PM/ERP 統計概況，整合至 Reports 頁
+ * @date 2026-03-23
  */
 import React from 'react';
 import { Typography } from 'antd';
 import { useResponsive } from '../hooks';
 import { DashboardCalendarSection } from '../components/dashboard';
-import { ProjectStatsPanel } from '../components/dashboard/ProjectStatsPanel';
 
 const { Title } = Typography;
 
@@ -54,9 +53,6 @@ export const DashboardPage: React.FC = () => {
       >
         {isMobile ? '儀表板' : '儀表板總覽'}
       </Title>
-
-      {/* PM/ERP 統計概況 */}
-      <ProjectStatsPanel />
 
       {/* 我的待辦事項 - 滿版 */}
       <DashboardCalendarSection maxEvents={15} />

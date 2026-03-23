@@ -42,6 +42,8 @@ from app.schemas.ai.stats import (
     ToolRegistryResponse,
     ToolSuccessRateItem,
     ToolSuccessRatesResponse,
+    TraceDetailResponse,
+    TraceToolCallItem,
 )
 from app.services.ai.base_ai_service import BaseAIService
 
@@ -156,6 +158,27 @@ async def get_agent_traces(
         total_count=len(traces),
         route_distribution=route_dist,
     )
+
+
+@router.get("/stats/agent-traces/{trace_id}", response_model=TraceDetailResponse)
+async def get_trace_detail(
+    trace_id: int,
+    db: AsyncSession = Depends(get_async_db),
+    current_user=Depends(optional_auth()),
+) -> TraceDetailResponse:
+    """
+    單筆 Trace 詳情含 tool_calls 時序（V-1.2 Timeline 用）
+    """
+    from app.repositories.agent_trace_repository import AgentTraceRepository
+
+    repo = AgentTraceRepository(db)
+    detail = await repo.get_trace_detail(trace_id)
+    if not detail:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Trace not found")
+
+    tool_calls = [TraceToolCallItem(**tc) for tc in detail.pop("tool_calls", [])]
+    return TraceDetailResponse(**detail, tool_calls=tool_calls)
 
 
 @router.post("/stats/patterns", response_model=PatternsResponse)

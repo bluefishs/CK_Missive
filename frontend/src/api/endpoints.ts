@@ -428,6 +428,8 @@ export const SYSTEM_ENDPOINTS = {
   METRICS: '/system/metrics',
   /** 系統健康摘要 GET /health/summary */
   HEALTH_SUMMARY: '/health/summary',
+  /** 系統覆盤儀表板 POST /system/review-dashboard */
+  REVIEW_DASHBOARD: '/system/review-dashboard',
 } as const;
 
 /** 管理員資料庫 API 端點 */
@@ -795,6 +797,8 @@ export const AI_ENDPOINTS = {
   STATS_TOOL_SUCCESS_RATES: '/ai/stats/tool-success-rates',
   /** Agent 追蹤記錄 POST /ai/stats/agent-traces */
   STATS_AGENT_TRACES: '/ai/stats/agent-traces',
+  /** 單筆 Trace 詳情 GET /ai/stats/agent-traces/{id} (V-1.2 Timeline) */
+  STATS_AGENT_TRACE_DETAIL: (traceId: number) => `/ai/stats/agent-traces/${traceId}`,
   /** 學習模式統計 POST /ai/stats/patterns */
   STATS_PATTERNS: '/ai/stats/patterns',
   /** 持久化學習統計 POST /ai/stats/learnings */
@@ -821,6 +825,14 @@ export const DIGITAL_TWIN_ENDPOINTS = {
   QUERY_STREAM: '/ai/digital-twin/query/stream',
   /** 健康檢查 GET /ai/digital-twin/health */
   HEALTH: '/ai/digital-twin/health',
+  /** 任務狀態 GET /ai/digital-twin/tasks/{jobId} */
+  TASK_STATUS: (jobId: string) => `/ai/digital-twin/tasks/${jobId}`,
+  /** 任務核准 POST /ai/digital-twin/tasks/{jobId}/approve (V-2.1) */
+  TASK_APPROVE: (jobId: string) => `/ai/digital-twin/tasks/${jobId}/approve`,
+  /** 任務拒絕 POST /ai/digital-twin/tasks/{jobId}/reject (V-2.1) */
+  TASK_REJECT: (jobId: string) => `/ai/digital-twin/tasks/${jobId}/reject`,
+  /** 即時轉播 GET /ai/digital-twin/live-activity/stream?channel=jobs (V-2.2 SSE) */
+  LIVE_ACTIVITY_STREAM: '/ai/digital-twin/live-activity/stream',
 } as const;
 
 // ============================================================================

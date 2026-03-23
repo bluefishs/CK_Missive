@@ -21,7 +21,6 @@ from app.extended.models import (
     CanonicalEntity,
     EntityAlias,
     EntityRelationship,
-    GraphIngestionEvent,
 )
 from app.schemas.knowledge_graph import (
     EntityContribution,

@@ -295,6 +295,8 @@ export interface GraphNode {
   mention_count?: number | null;
   /** 工程節點聚合的派工單號列表（供搜尋用） */
   dispatch_nos?: string[] | null;
+  /** 來源專案 (跨域 KG 色碼用): ck-missive | ck-lvrland | ck-tunnel */
+  source_project?: string | null;
 }
 
 export interface GraphEdge {
@@ -1235,6 +1237,38 @@ export interface AgentTracesResponse {
   route_distribution: Record<string, number>;
 }
 
+/** Trace 工具呼叫項目 (V-1.2 Timeline) */
+export interface TraceToolCallItem {
+  tool_name: string;
+  call_order: number;
+  duration_ms: number;
+  success: boolean;
+  result_count: number;
+  error_message?: string | null;
+  created_at?: string | null;
+}
+
+/** 單筆 Trace 詳情 (V-1.2 Timeline) */
+export interface TraceDetailResponse {
+  id: number;
+  query_id: string;
+  question: string;
+  context?: string | null;
+  route_type: string;
+  total_ms: number;
+  iterations: number;
+  total_results: number;
+  correction_triggered: boolean;
+  react_triggered: boolean;
+  plan_tool_count: number;
+  model_used?: string | null;
+  tools_used?: string[] | null;
+  answer_preview?: string | null;
+  feedback_score?: number | null;
+  created_at?: string | null;
+  tool_calls: TraceToolCallItem[];
+}
+
 /** 學習模式項目 */
 export interface PatternItem {
   pattern_key: string;
@@ -1310,6 +1344,61 @@ export interface ToolRegistryResponse {
   tools: ToolRegistryItem[];
   total_count: number;
   degraded_count: number;
+}
+
+// ============================================================================
+// 語音轉文字
+// ============================================================================
+
+/** 語音轉文字結果 */
+export interface VoiceTranscriptionResult {
+  text: string;
+  language: string;
+  duration_ms: number;
+  source: 'groq' | 'ollama';
+}
+
+// ============================================================================
+// Digital Twin (數位分身)
+// ============================================================================
+
+/** 數位分身委派請求 */
+export interface DelegateRequest {
+  /** 使用者問題 */
+  question: string;
+  /** 對話 session_id (啟用持續記憶) */
+  session_id?: string;
+  /** 額外上下文 */
+  context?: Record<string, unknown>;
+}
+
+/** 數位分身串流回調 */
+export interface DigitalTwinStreamCallbacks {
+  /** 收到串流文字 token */
+  onToken: (token: string) => void;
+  /** 完成 (含延遲 ms) */
+  onDone: (latencyMs: number, answer?: string) => void;
+  /** 錯誤 */
+  onError: (error: string) => void;
+  /** 狀態更新 */
+  onStatus?: (status: string, detail?: string) => void;
+}
+
+/** 任務執行記錄 (Human Approval Gate) */
+export interface TaskJobRecord {
+  job_id: string;
+  status: string;
+  agent_id: string;
+  input: string;
+  result: string | null;
+  error: string | null;
+  source: string;
+  correlation_id: string | null;
+  approval_reason: string | null;
+  approval_by: string | null;
+  rejection_reason: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 /** Agent SSE 事件回調 */

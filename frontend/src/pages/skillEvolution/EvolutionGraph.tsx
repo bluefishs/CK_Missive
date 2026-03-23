@@ -5,7 +5,7 @@
 import React, { useRef, useCallback, useMemo, useState, useEffect } from 'react';
 import ForceGraph2D, { type ForceGraphMethods } from 'react-force-graph-2d';
 import { forceCollide } from 'd3-force';
-import { Card, Tag, Space, Rate } from 'antd';
+import { Card, Tag, Flex, Space, Rate } from 'antd';
 import type { GraphNode, GraphLink, ForceGraphData, CategoryInfo } from './types';
 
 const SOURCE_COLORS: Record<string, string> = { active: '#52c41a', planned: '#1677ff', merged: '#faad14' };
@@ -216,7 +216,7 @@ export const EvolutionGraph: React.FC<EvolutionGraphProps> = ({ graphData, categ
           top: Math.max(mousePos.y - 10, 4), maxWidth: 250, pointerEvents: 'none',
           boxShadow: '0 4px 12px rgba(0,0,0,0.15)', zIndex: 10,
         }} styles={{ body: { padding: '10px 12px' } }}>
-          <Space direction="vertical" size={4} style={{ width: '100%' }}>
+          <Flex vertical gap={4} style={{ width: '100%' }}>
             <span style={{ fontWeight: 700, fontSize: 14 }}>{hoveredNode.name}</span>
             <Space size={4} wrap>
               <Tag color={getColor(hoveredNode.category)}>
@@ -229,7 +229,7 @@ export const EvolutionGraph: React.FC<EvolutionGraphProps> = ({ graphData, categ
             {hoveredNode.description && (
               <span style={{ fontSize: 12, color: '#666' }}>{hoveredNode.description}</span>
             )}
-          </Space>
+          </Flex>
         </Card>
       )}
     </div>

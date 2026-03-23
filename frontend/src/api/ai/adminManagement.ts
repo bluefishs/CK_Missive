@@ -58,6 +58,7 @@ import type {
   ToolRegistryResponse,
   AgentTraceQuery,
   AgentTracesResponse,
+  TraceDetailResponse,
   PatternsResponse,
   LearningsResponse,
   ProactiveAlertsResponse,
@@ -782,6 +783,19 @@ export async function getAgentTraces(
   }
 }
 
+/** 單筆 Trace 詳情 (V-1.2 Timeline) */
+export async function getTraceDetail(
+  traceId: number
+): Promise<TraceDetailResponse | null> {
+  try {
+    return await apiClient.get<TraceDetailResponse>(
+      AI_ENDPOINTS.STATS_AGENT_TRACE_DETAIL(traceId)
+    );
+  } catch {
+    return null;
+  }
+}
+
 /** 學習模式統計 */
 export async function getLearnedPatterns(): Promise<PatternsResponse | null> {
   try {
@@ -846,12 +860,9 @@ export async function getToolRegistry(): Promise<ToolRegistryResponse | null> {
 // Voice Transcription
 // ---------------------------------------------------------------------------
 
-export interface VoiceTranscriptionResult {
-  text: string;
-  language: string;
-  duration_ms: number;
-  source: 'groq' | 'ollama';
-}
+// VoiceTranscriptionResult 已移至 types/ai.ts (SSOT)
+export type { VoiceTranscriptionResult } from '../../types/ai';
+import type { VoiceTranscriptionResult } from '../../types/ai';
 
 /**
  * 語音轉文字 — 上傳音訊 blob 至 Groq Whisper

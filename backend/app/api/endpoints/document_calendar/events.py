@@ -18,7 +18,7 @@ from fastapi import APIRouter
 
 from .common import (
     Depends, HTTPException, status,
-    AsyncSession, select, or_, func,
+    AsyncSession, select, or_, and_, func,
     get_async_db, get_current_user,
     User, OfficialDocument, DocumentCalendarEvent, EventReminder,
     calendar_service,
@@ -577,7 +577,12 @@ async def get_user_calendar_events(
                 DocumentCalendarEvent.start_date <= end_dt,
                 or_(
                     DocumentCalendarEvent.assigned_user_id == request.user_id,
-                    DocumentCalendarEvent.created_by == request.user_id
+                    DocumentCalendarEvent.created_by == request.user_id,
+                    # 包含無指派使用者的公共事件（公文匯入自動建立）
+                    and_(
+                        DocumentCalendarEvent.assigned_user_id.is_(None),
+                        DocumentCalendarEvent.created_by.is_(None)
+                    )
                 )
             )
         )

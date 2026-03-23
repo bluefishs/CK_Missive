@@ -83,6 +83,79 @@ async def einvoice_sync_job():
         logger.error(f"電子發票同步排程任務失敗: {e}", exc_info=True)
 
 
+async def code_graph_incremental_job():
+    """Code Graph 增量更新 — 掃描 Python/TypeScript AST 變更並更新圖譜實體"""
+    from app.db.database import async_session_maker
+    from pathlib import Path
+
+    logger.info("開始執行 Code Graph 增量更新")
+
+    try:
+        async with async_session_maker() as db:
+            from app.services.ai.code_graph_service import CodeGraphIngestionService
+            service = CodeGraphIngestionService(db)
+            backend_dir = Path(__file__).parent.parent  # backend/app
+            frontend_dir = Path(__file__).parent.parent.parent.parent / "frontend" / "src"
+
+            stats = await service.ingest(
+                backend_app_dir=backend_dir,
+                incremental=True,
+                frontend_src_dir=frontend_dir if frontend_dir.exists() else None,
+            )
+            await db.commit()
+            logger.info(
+                f"Code Graph 增量更新完成: "
+                f"modules={stats.get('modules', 0)}, "
+                f"classes={stats.get('classes', 0)}, "
+                f"functions={stats.get('functions', 0)}"
+            )
+    except Exception as e:
+        logger.error(f"Code Graph 增量更新失敗: {e}", exc_info=True)
+
+
+async def db_schema_refresh_job():
+    """DB Schema 快照更新 — 反射 PostgreSQL information_schema 並重建快取"""
+
+    logger.info("開始執行 DB Schema 快照更新")
+
+    try:
+        from app.services.ai.schema_reflector import SchemaReflectorService
+        # 清除快取，強制重新反射
+        SchemaReflectorService._cache = None
+        SchemaReflectorService._cache_time = 0
+        schema = await SchemaReflectorService.get_full_schema_async()
+        tables = len(schema.get("tables", []))
+        logger.info(f"DB Schema 快照更新完成: {tables} 表")
+    except Exception as e:
+        logger.error(f"DB Schema 快照更新失敗: {e}", exc_info=True)
+
+
+async def kb_coverage_check_job():
+    """KB Embedding 覆蓋率檢查 — 確認所有文件分段都已產生向量"""
+    from app.db.database import async_session_maker
+
+    logger.info("開始執行 KB Embedding 覆蓋率檢查")
+
+    try:
+        async with async_session_maker() as db:
+            from app.services.ai.embedding_manager import EmbeddingManager
+            stats = await EmbeddingManager.get_coverage_stats(db)
+            total = stats.get("total_chunks", 0)
+            embedded = stats.get("embedded_chunks", 0)
+            coverage = stats.get("coverage_percent", 0)
+            logger.info(
+                f"KB 覆蓋率檢查完成: "
+                f"total={total}, embedded={embedded}, coverage={coverage:.1f}%"
+            )
+            if coverage < 95.0 and total > 0:
+                logger.warning(
+                    f"KB Embedding 覆蓋率低於 95%: {coverage:.1f}% "
+                    f"({total - embedded} chunks 未 embed)"
+                )
+    except Exception as e:
+        logger.error(f"KB 覆蓋率檢查失敗: {e}", exc_info=True)
+
+
 async def proactive_trigger_scan_job():
     """
     NemoClaw 夜間吹哨者 — 掃描 PM/ERP 預算超支、逾期請款、待核銷發票等警報。
@@ -226,6 +299,42 @@ def setup_scheduler(
         coalesce=True
     )
     logger.info("已添加 NemoClaw 夜間吹哨者: 每日 00:30 執行")
+
+    # 添加 Code Graph 增量更新 — 每日 03:00 掃描 Python/TypeScript AST
+    scheduler.add_job(
+        code_graph_incremental_job,
+        trigger=CronTrigger(hour=3, minute=0),
+        id='code_graph_update',
+        name='Code Graph 增量更新 (AST)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    logger.info("已添加 Code Graph 增量更新: 每日 03:00 執行")
+
+    # 添加 DB Schema 快照更新 — 每日 03:30 反射 PostgreSQL schema
+    scheduler.add_job(
+        db_schema_refresh_job,
+        trigger=CronTrigger(hour=3, minute=30),
+        id='db_graph_refresh',
+        name='DB Schema 快照更新',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    logger.info("已添加 DB Schema 快照更新: 每日 03:30 執行")
+
+    # 添加 KB Embedding 覆蓋率檢查 — 每日 04:00 驗證文件向量完整性
+    scheduler.add_job(
+        kb_coverage_check_job,
+        trigger=CronTrigger(hour=4, minute=0),
+        id='kb_coverage_check',
+        name='KB Embedding 覆蓋率檢查',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    logger.info("已添加 KB Embedding 覆蓋率檢查: 每日 04:00 執行")
 
     return scheduler
 

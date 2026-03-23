@@ -41,6 +41,7 @@ import { useGraphAgentEvents } from './knowledgeGraph/useGraphAgentEvents';
 import { useGraphForceConfig } from './knowledgeGraph/useGraphForceConfig';
 import { useGraphDataLoader } from './knowledgeGraph/useGraphDataLoader';
 import { useGraphTransform } from './knowledgeGraph/useGraphTransform';
+import type { ColorByMode } from './knowledgeGraph/useGraphTransform';
 import { useContainerWidth } from './knowledgeGraph/useContainerWidth';
 import { GraphCanvas } from './knowledgeGraph/GraphCanvas';
 import { GraphStatsBar } from './knowledgeGraph/GraphStatsBar';
@@ -69,6 +70,7 @@ export interface KnowledgeGraphProps {
   onNodeClickExternal?: (node: { id: string; label: string; type: string }) => void;
   dataProvider?: GraphDataProvider;
   nodeConfig?: Record<string, GraphNodeTypeConfig>;
+  colorBy?: ColorByMode;
 }
 
 // ============================================================================
@@ -92,6 +94,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
   onNodeClickExternal,
   dataProvider = defaultProvider,
   nodeConfig,
+  colorBy = 'type',
 }) => {
   // 衍生配置函數（支援自訂 nodeConfig 覆蓋）
   const effectiveConfig = nodeConfig ?? GRAPH_NODE_CONFIG;
@@ -193,6 +196,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
     mergedConfigs,
     viewMode,
     effectiveGetNodeConfig,
+    colorBy,
   });
 
   // Force-graph 渲染回調 (2D)

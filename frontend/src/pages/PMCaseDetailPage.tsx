@@ -13,6 +13,7 @@ import {
   Spin,
   Result,
   Space,
+  Flex,
   Tabs,
   Descriptions,
   Tag,
@@ -157,7 +158,7 @@ export const PMCaseDetailPage: React.FC = () => {
       key: 'erp',
       label: <span><DollarOutlined /> ERP 財務</span>,
       children: (
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+        <Flex vertical gap={8} style={{ width: '100%' }}>
           {/* 財務摘要 */}
           {finLoading ? <Spin /> : financialData?.data ? (() => {
             const fin = financialData.data;
@@ -170,18 +171,18 @@ export const PMCaseDetailPage: React.FC = () => {
                   <Col xs={12} sm={6}><Statistic title="預算總額" value={fin.budget_total ?? 0} prefix="NT$" precision={0} /></Col>
                   <Col xs={12} sm={6}><Statistic title="累計支出" value={fin.total_expense} prefix="NT$" precision={0} /></Col>
                   <Col xs={12} sm={6}><Statistic title="累計收入" value={fin.total_income} prefix="NT$" precision={0} /></Col>
-                  <Col xs={12} sm={6}><Statistic title="淨額" value={fin.net_balance} prefix="NT$" precision={0} valueStyle={{ color: fin.net_balance >= 0 ? '#3f8600' : '#cf1322' }} /></Col>
+                  <Col xs={12} sm={6}><Statistic title="淨額" value={fin.net_balance} prefix="NT$" precision={0} styles={{ content: { color: fin.net_balance >= 0 ? '#3f8600' : '#cf1322' } }} /></Col>
                 </Row>
                 <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
                   <Col xs={12} sm={6}><Statistic title="報銷筆數" value={fin.expense_invoice_count} suffix="筆" /></Col>
                   <Col xs={12} sm={6}><Statistic title="報銷總額" value={fin.expense_invoice_total} prefix="NT$" precision={0} /></Col>
                   <Col xs={12} sm={6}>
                     <Statistic title="預算使用率" value={fin.budget_used_percentage ?? 0} suffix="%" precision={1}
-                      valueStyle={{ color: alertColor }}
+                      styles={{ content: { color: alertColor } }}
                     />
                   </Col>
                   <Col xs={12} sm={6}>
-                    <Statistic title="預算狀態" value={fin.budget_alert === 'critical' ? '超支警告' : fin.budget_alert === 'warning' ? '接近上限' : '正常'} valueStyle={{ color: alertColor }} />
+                    <Statistic title="預算狀態" value={fin.budget_alert === 'critical' ? '超支警告' : fin.budget_alert === 'warning' ? '接近上限' : '正常'} styles={{ content: { color: alertColor } }} />
                   </Col>
                 </Row>
                 {fin.budget_used_percentage != null && (
@@ -223,14 +224,14 @@ export const PMCaseDetailPage: React.FC = () => {
               ))}
             </Card>
           )}
-        </Space>
+        </Flex>
       ),
     },
   ];
 
   return (
     <ResponsiveContent>
-      <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+      <Flex vertical gap={8} style={{ width: '100%' }}>
         <Row justify="space-between" align="middle">
           <Col>
             <Space>
@@ -250,7 +251,7 @@ export const PMCaseDetailPage: React.FC = () => {
         <Card>
           <Tabs items={tabItems} size="large" />
         </Card>
-      </Space>
+      </Flex>
     </ResponsiveContent>
   );
 };

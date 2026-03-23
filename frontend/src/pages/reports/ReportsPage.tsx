@@ -11,6 +11,7 @@ import { DollarOutlined, FileTextOutlined } from '@ant-design/icons';
 import { useResponsive } from '../../hooks';
 import BudgetAnalysisTab from './BudgetAnalysisTab';
 import DocumentAnalysisTab from './DocumentAnalysisTab';
+import { ProjectStatsPanel } from '../../components/dashboard/ProjectStatsPanel';
 
 const { Title } = Typography;
 
@@ -23,6 +24,9 @@ const ReportsPage: React.FC = () => {
       <Title level={isMobile ? 4 : 2} style={{ marginBottom: 16 }}>
         統計報表
       </Title>
+
+      {/* PM 案件概況 + ERP 財務概況 */}
+      <ProjectStatsPanel />
 
       <Card>
         <Tabs

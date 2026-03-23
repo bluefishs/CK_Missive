@@ -17,6 +17,7 @@ import {
   Col,
   Empty,
   Row,
+  Flex,
   Space,
   Spin,
   Statistic,
@@ -43,6 +44,9 @@ import type { PatternItem, ToolRegistryItem } from '../../../types/ai';
 import { useAgentPerformanceData } from './useAgentPerformanceData';
 import { AgentToolSuccessCard } from './AgentToolSuccessCard';
 import { AgentAlertsCard } from './AgentAlertsCard';
+import { AgentTraceTimeline } from './AgentTraceTimeline';
+import { LiveActivityFeed } from './LiveActivityFeed';
+import { useLiveActivitySSE } from '../../../hooks/system/useLiveActivitySSE';
 
 const { Text } = Typography;
 
@@ -65,6 +69,8 @@ export const AgentPerformanceTab: React.FC = () => {
     routeData,
     trendData,
   } = useAgentPerformanceData();
+
+  const { events: liveEvents, isConnected } = useLiveActivitySSE('jobs');
 
   // ── 工具清單欄位 ──
   const registryColumns = useMemo(() => [
@@ -182,7 +188,7 @@ export const AgentPerformanceTab: React.FC = () => {
 
   return (
     <Spin spinning={loading}>
-      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+      <Flex vertical gap={16} style={{ width: '100%' }}>
         {/* ── 工具成功率 ── */}
         <AgentToolSuccessCard toolStats={toolStats} toolChartData={toolChartData} />
 
@@ -304,6 +310,22 @@ export const AgentPerformanceTab: React.FC = () => {
         {/* ── 主動警報 ── */}
         <AgentAlertsCard alerts={alerts} />
 
+        {/* ── 即時 Swarm 轉播 (V-2.2) ── */}
+        <LiveActivityFeed events={liveEvents} isConnected={isConnected} />
+
+        {/* ── Trace Timeline 甘特圖 (V-1.2) ── */}
+        {traces?.traces && traces.traces.length > 0 && (
+          <AgentTraceTimeline
+            traces={traces.traces.map((t) => ({
+              id: t.id as number,
+              question: (t.question as string) ?? '',
+              total_ms: (t.total_ms as number) ?? 0,
+              tools_used: (t.tools_used as string[]) ?? null,
+              created_at: (t.created_at as string) ?? null,
+            }))}
+          />
+        )}
+
         {/* ── 學習模式列表 ── */}
         <Card title="學習模式 Top 30" size="small">
           {patterns?.patterns?.length ? (
@@ -319,7 +341,7 @@ export const AgentPerformanceTab: React.FC = () => {
             <Empty description="尚無學習模式" image={Empty.PRESENTED_IMAGE_SIMPLE} />
           )}
         </Card>
-      </Space>
+      </Flex>
     </Spin>
   );
 };

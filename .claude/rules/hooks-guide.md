@@ -7,6 +7,8 @@
 | Hook | Matcher | 說明 | 腳本 |
 |------|---------|------|------|
 | validate-file-location | `Write\|Edit` | 確認檔案位置符合架構規範 | `.claude/hooks/validate-file-location.ps1` |
+| freeze-scope | `Write\|Edit` | 編輯範圍鎖定（需 freeze-scope.json） | `.claude/hooks/freeze-scope.ps1` |
+| careful-guard | `Bash` | 危險命令攔截（rm -rf, DROP, force push 等） | `.claude/hooks/careful-guard.ps1` |
 
 ### PostToolUse (工具執行後)
 

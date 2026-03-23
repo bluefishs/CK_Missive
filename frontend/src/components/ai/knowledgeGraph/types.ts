@@ -20,6 +20,7 @@ export interface ForceNode {
   doc_number?: string | null;
   status?: string | null;
   mention_count?: number;
+  source_project?: string;
   x?: number;
   y?: number;
   z?: number;

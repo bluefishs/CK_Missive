@@ -21,6 +21,7 @@ import {
   NodeIndexOutlined,
   FileTextOutlined,
   BarChartOutlined,
+  BgColorsOutlined,
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { getTimelineAggregate } from '../../api/ai/knowledgeGraph';
@@ -31,6 +32,8 @@ import type {
   KGEntityItem,
   KGShortestPathResponse,
 } from '../../types/ai';
+import type { ColorByMode } from '../../components/ai/knowledgeGraph/useGraphTransform';
+import { SOURCE_PROJECT_COLORS, SOURCE_PROJECT_LABELS } from '../../config/graphNodeConfig';
 import { KGAdminPanel } from './KGAdminPanel';
 import EntityTypeDistribution from './EntityTypeDistribution';
 import TopEntitiesRanking from './TopEntitiesRanking';
@@ -224,6 +227,8 @@ interface GraphLeftPanelProps {
   onEntitySearch: (query: string) => void;
   onFindPath: () => void;
   findPathLoading: boolean;
+  colorBy: ColorByMode;
+  onColorByChange: (mode: ColorByMode) => void;
 }
 
 const GraphLeftPanel: React.FC<GraphLeftPanelProps> = ({
@@ -249,6 +254,8 @@ const GraphLeftPanel: React.FC<GraphLeftPanelProps> = ({
   onEntitySearch,
   onFindPath,
   findPathLoading,
+  colorBy,
+  onColorByChange,
 }) => {
   return (
     <div
@@ -295,6 +302,38 @@ const GraphLeftPanel: React.FC<GraphLeftPanelProps> = ({
           unCheckedChildren="展開"
         />
       </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '8px 0' }}>
+        <Tooltip title="依節點類型或來源專案上色">
+          <Text style={{ fontSize: 12 }}>
+            <BgColorsOutlined style={{ marginRight: 4 }} />色彩模式
+          </Text>
+        </Tooltip>
+        <Select
+          size="small"
+          value={colorBy}
+          onChange={onColorByChange}
+          style={{ width: 120 }}
+          options={[
+            { label: '依類型', value: 'type' },
+            { label: '依來源專案', value: 'source_project' },
+          ]}
+        />
+      </div>
+
+      {colorBy === 'source_project' && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '0 0 4px 0' }}>
+          {Object.entries(SOURCE_PROJECT_COLORS).map(([key, color]) => (
+            <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{
+                display: 'inline-block', width: 10, height: 10, borderRadius: '50%',
+                background: color,
+              }} />
+              <Text style={{ fontSize: 11 }}>{SOURCE_PROJECT_LABELS[key] ?? key}</Text>
+            </div>
+          ))}
+        </div>
+      )}
 
       <Divider style={{ margin: '4px 0' }} />
 

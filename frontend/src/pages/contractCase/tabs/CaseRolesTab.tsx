@@ -12,6 +12,7 @@ import {
   Tag,
   Avatar,
   Space,
+  Flex,
   Empty,
 } from 'antd';
 import {
@@ -130,11 +131,11 @@ export const CaseRolesTab: React.FC<CaseRolesTabProps> = ({
       title: '聯絡方式',
       key: 'contact',
       render: (_: unknown, record: CaseRoleRow) => (
-        <Space direction="vertical" size={0}>
+        <Flex vertical gap={0}>
           {record.phone && <span><PhoneOutlined /> {record.phone}</span>}
           {record.email && <span><MailOutlined /> {record.email}</span>}
           {!record.phone && !record.email && '-'}
-        </Space>
+        </Flex>
       ),
     },
   ];

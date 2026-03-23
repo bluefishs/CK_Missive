@@ -14,7 +14,10 @@
 import { useMemo } from 'react';
 import type { GraphNode, GraphEdge } from '../../../types/ai';
 import type { GraphNodeTypeConfig } from '../../../config/graphNodeConfig';
+import { SOURCE_PROJECT_COLORS } from '../../../config/graphNodeConfig';
 import type { ForceNode, GraphData } from './types';
+
+export type ColorByMode = 'type' | 'source_project';
 
 interface MergedConfig extends GraphNodeTypeConfig {
   visible: boolean;
@@ -27,6 +30,7 @@ interface UseGraphTransformParams {
   mergedConfigs: Record<string, MergedConfig>;
   viewMode: 'entity' | 'full';
   effectiveGetNodeConfig: (type: string) => GraphNodeTypeConfig;
+  colorBy?: ColorByMode;
 }
 
 interface UseGraphTransformReturn {
@@ -42,6 +46,7 @@ export function useGraphTransform({
   mergedConfigs,
   viewMode,
   effectiveGetNodeConfig,
+  colorBy = 'type',
 }: UseGraphTransformParams): UseGraphTransformReturn {
   // 轉換為 force-graph 格式
   const graphData = useMemo((): GraphData => {
@@ -73,21 +78,28 @@ export function useGraphTransform({
 
     const nodes: ForceNode[] = typeFiltered
       .filter((n) => !isEntityMode || connectedIds.has(n.id))
-      .map((n) => ({
-        id: n.id,
-        label: n.label,
-        fullLabel: n.fullLabel ?? undefined,
-        type: n.type,
-        color: mergedConfigs[n.type]?.color ?? effectiveGetNodeConfig(n.type).color,
-        category: n.category,
-        doc_number: n.doc_number,
-        status: n.status,
-        mention_count: n.mention_count ?? undefined,
-      }));
+      .map((n) => {
+        const typeColor = mergedConfigs[n.type]?.color ?? effectiveGetNodeConfig(n.type).color;
+        const projectColor = n.source_project
+          ? SOURCE_PROJECT_COLORS[n.source_project] ?? typeColor
+          : typeColor;
+        return {
+          id: n.id,
+          label: n.label,
+          fullLabel: n.fullLabel ?? undefined,
+          type: n.type,
+          color: colorBy === 'source_project' ? projectColor : typeColor,
+          category: n.category,
+          doc_number: n.doc_number,
+          status: n.status,
+          mention_count: n.mention_count ?? undefined,
+          source_project: n.source_project ?? undefined,
+        };
+      });
 
     return { nodes, links };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rawNodes, rawEdges, visibleTypes, mergedConfigs, viewMode]);
+  }, [rawNodes, rawEdges, visibleTypes, mergedConfigs, viewMode, colorBy]);
 
   // 鄰居 lookup
   const neighborMap = useMemo(() => {

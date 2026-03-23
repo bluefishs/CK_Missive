@@ -191,6 +191,7 @@ import {
   // Phase 3A stats
   getToolSuccessRates,
   getAgentTraces,
+  getTraceDetail,
   getLearnedPatterns,
   getPersistentLearnings,
   // Proactive alerts
@@ -326,6 +327,7 @@ export const aiApi = {
   // Phase 3A Agent 統計
   getToolSuccessRates,
   getAgentTraces,
+  getTraceDetail,
   getLearnedPatterns,
   getPersistentLearnings,
 

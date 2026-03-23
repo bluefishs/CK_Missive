@@ -27,6 +27,7 @@ import type { ExternalGraphData } from '../components/ai/KnowledgeGraph';
 import { RAGChatPanel } from '../components/ai/RAGChatPanel';
 import { GraphAgentBridgeProvider } from '../components/ai/knowledgeGraph/GraphAgentBridge';
 import { getMergedNodeConfig } from '../config/graphNodeConfig';
+import type { ColorByMode } from '../components/ai/knowledgeGraph/useGraphTransform';
 import { useAuthGuard } from '../hooks/utility/useAuthGuard';
 import GraphLeftPanel from './knowledgeGraph/GraphLeftPanel';
 import MergeEntitiesModal from './knowledgeGraph/MergeEntitiesModal';
@@ -56,6 +57,7 @@ const KnowledgeGraphPage: React.FC = () => {
   }, []);
 
   const [collapseAgency, setCollapseAgency] = useState(true);
+  const [colorBy, setColorBy] = useState<ColorByMode>('type');
 
   const queryClient = useQueryClient();
 
@@ -244,6 +246,8 @@ const KnowledgeGraphPage: React.FC = () => {
         onEntitySearch={handleEntitySearch}
         onFindPath={handleFindPath}
         findPathLoading={findPathMutation.isPending}
+        colorBy={colorBy}
+        onColorByChange={setColorBy}
       />
 
       <div ref={graphContainerRef} style={{ flex: 1, minWidth: 0, overflow: 'hidden', background: '#fafafa' }}>
@@ -253,6 +257,7 @@ const KnowledgeGraphPage: React.FC = () => {
           onExternalRefresh={() => refetchEntityGraph()}
           height={typeof window !== 'undefined' ? window.innerHeight - 120 : 700}
           width={graphWidth || undefined}
+          colorBy={colorBy}
         />
       </div>
 

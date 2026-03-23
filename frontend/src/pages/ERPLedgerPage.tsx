@@ -149,7 +149,7 @@ const ERPLedgerPage: React.FC = () => {
             value={params.case_code}
             onChange={(v) => setParams(p => ({ ...p, case_code: v || undefined, skip: 0 }))}
             style={{ width: 220 }}
-            options={projectOptions?.map(p => ({ value: p.project_code, label: `${p.project_code} ${p.project_name}` })) ?? []}
+            options={projectOptions?.filter(p => p.project_code).map(p => ({ value: p.project_code, label: `${p.project_code} ${p.project_name}` })) ?? []}
           />
           <Select
             placeholder="類型"

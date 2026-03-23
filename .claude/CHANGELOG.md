@@ -4,6 +4,34 @@
 
 ---
 
+## [5.1.16] - 2026-03-23
+
+### gstack 深度整合 v2.0 — 安全護欄 + 指令升級
+
+#### 新增安全護欄 (gstack /careful + /freeze + /guard 理念)
+- `careful-guard.ps1` — PreToolUse hook 攔截危險 Bash 命令 (CRITICAL 10 + WARNING 14 模式)
+- `freeze-scope.ps1` — PreToolUse hook 限制 Edit/Write 範圍 (freeze-scope.json 配置)
+- `/careful` 指令 — 查看攔截規則與狀態
+- `/freeze` 指令 — 設定編輯範圍鎖定
+- `/unfreeze` 指令 — 解除鎖定
+- `/guard` 指令 — careful + freeze 合一模式
+- `settings.json` 新增 2 個 PreToolUse hooks (Bash matcher + Write|Edit matcher)
+
+#### 指令升級 (v1→v2)
+- `/security-audit` v2.0 — 8 階段 CSO 等級審計 (OWASP Top 10 + STRIDE + 資料分級 + 信心閾值 8/10 + 假陽性過濾 10 規則)
+- `/code-review` v2.0 — Scope Drift 偵測 (on-scope/adjacent/drift 分類) + Fix-First 模式 (AUTO-FIX vs ASK 分類審查)
+- `/ship` v2.0 — 測試失敗歸因 (in-branch/pre-existing/flaky) + Review 就緒檢查 + 13 層 bisectable commit 分組
+- `/retro` v2.0 — Per-author 貢獻分析 + Compare 趨勢模式 + Session 偵測 (deep/medium/micro) + 版本範圍回顧
+
+#### 新增指令
+- `/document-release` — 發布後文件同步 (6 類文件自動檢查: architecture/skills-inventory/hooks-guide/CHANGELOG/checklist/types)
+
+#### 文件同步
+- `skills-inventory.md` 更新 — 新增 5 指令、3 升級記錄
+- `hooks-guide.md` 更新 — 新增 2 PreToolUse hooks
+
+---
+
 ## [5.1.15] - 2026-03-23
 
 ### ERP 財務模組 Phase 4 前端 + LINE 整合 + 系統優化

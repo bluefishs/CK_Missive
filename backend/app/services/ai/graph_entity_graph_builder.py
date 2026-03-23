@@ -154,6 +154,7 @@ class GraphEntityGraphBuilder:
                 "label": full_name[:30] if len(full_name) > 30 else full_name,
                 "fullLabel": full_name if len(full_name) > 30 else None,
                 "mention_count": e.mention_count,
+                "source_project": e.source_project,
             })
 
         # NER 實體間的關係

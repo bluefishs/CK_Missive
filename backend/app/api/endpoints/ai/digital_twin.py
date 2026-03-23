@@ -17,24 +17,20 @@ import logging
 import time
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
 from starlette.responses import StreamingResponse
 
 from app.core.dependencies import require_auth
 from app.extended.models import User
 from app.api.sse_utils import SSE_HEADERS
+from app.schemas.ai.digital_twin import (
+    DigitalTwinQueryRequest,
+    TaskApprovalRequest,
+    TaskRejectionRequest,
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-class DigitalTwinQueryRequest(BaseModel):
-    """數位分身查詢請求"""
-
-    question: str = Field(..., min_length=1, max_length=2000)
-    session_id: str | None = None
-    context: dict | None = None
 
 
 def _sse_event(data: dict) -> str:
@@ -160,6 +156,170 @@ async def digital_twin_query_stream(
                 "latency_ms": elapsed_ms,
                 "model": "nemoclaw-gateway",
             })
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers=SSE_HEADERS,
+    )
+
+
+
+@router.post("/digital-twin/tasks/{job_id}/approve")
+async def approve_task(
+    job_id: str,
+    request: TaskApprovalRequest,
+    current_user: User = Depends(require_auth()),
+):
+    """
+    代理審批 — 轉發至 OpenClaw POST /tasks/{job_id}/approve
+
+    Human Approval Gate (V-2.1): 允許前端使用者核准敏感操作。
+    """
+    return await _proxy_task_action(
+        job_id,
+        "approve",
+        {"approved_by": request.approved_by or current_user.username},
+    )
+
+
+@router.post("/digital-twin/tasks/{job_id}/reject")
+async def reject_task(
+    job_id: str,
+    request: TaskRejectionRequest,
+    current_user: User = Depends(require_auth()),
+):
+    """
+    代理拒絕 — 轉發至 OpenClaw POST /tasks/{job_id}/reject
+
+    Human Approval Gate (V-2.1): 允許前端使用者拒絕敏感操作。
+    """
+    return await _proxy_task_action(
+        job_id,
+        "reject",
+        {
+            "rejected_by": request.rejected_by or current_user.username,
+            "reason": request.reason,
+        },
+    )
+
+
+@router.get("/digital-twin/tasks/{job_id}")
+async def get_task_status(
+    job_id: str,
+    _current_user: User = Depends(require_auth()),
+):
+    """代理查詢任務狀態 — 轉發至 OpenClaw GET /tasks/{job_id}"""
+    import os
+
+    try:
+        import httpx
+    except ImportError:
+        return {"success": False, "error": "httpx not installed"}
+
+    gateway_url = os.getenv("NEMOCLAW_GATEWAY_URL", "http://nemoclaw_tower:9000")
+    token = os.getenv("MCP_SERVICE_TOKEN", "")
+
+    headers: dict[str, str] = {"Accept": "application/json"}
+    if token:
+        headers["X-Service-Token"] = token
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                f"{gateway_url.rstrip('/')}/tasks/{job_id}",
+                headers=headers,
+            )
+            return resp.json()
+    except Exception as e:
+        logger.error("Task status proxy error: %s", e)
+        return {"success": False, "error": str(e)}
+
+
+async def _proxy_task_action(
+    job_id: str, action: str, body: dict
+) -> dict:
+    """共用代理函數 — 轉發 approve/reject 至 OpenClaw"""
+    import os
+
+    try:
+        import httpx
+    except ImportError:
+        return {"success": False, "error": "httpx not installed"}
+
+    gateway_url = os.getenv("NEMOCLAW_GATEWAY_URL", "http://nemoclaw_tower:9000")
+    token = os.getenv("MCP_SERVICE_TOKEN", "")
+
+    headers: dict[str, str] = {"Content-Type": "application/json"}
+    if token:
+        headers["X-Service-Token"] = token
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                f"{gateway_url.rstrip('/')}/tasks/{job_id}/{action}",
+                json=body,
+                headers=headers,
+            )
+            return resp.json()
+    except Exception as e:
+        logger.error("Task %s proxy error: %s", action, e)
+        return {"success": False, "error": str(e)}
+
+
+@router.get("/digital-twin/live-activity/stream")
+async def live_activity_stream(
+    channel: str = "jobs",
+    _current_user: User = Depends(require_auth()),
+) -> StreamingResponse:
+    """
+    即時 Swarm 轉播 (V-2.2) — 代理 OpenClaw EventRelay SSE 串流
+
+    前端透過 EventSource 訂閱此端點，即時接收 Agent 任務生命週期事件：
+    job_completed, job_failed, job_approved, job_rejected 等。
+
+    使用方式: new EventSource('/api/ai/digital-twin/live-activity/stream?channel=jobs')
+    """
+    import os
+
+    allowed_channels = {"jobs", "agents"}
+    if channel not in allowed_channels:
+        channel = "jobs"
+
+    gateway_url = os.getenv("NEMOCLAW_GATEWAY_URL", "http://nemoclaw_tower:9000")
+    token = os.getenv("MCP_SERVICE_TOKEN", "")
+
+    async def event_generator():
+        try:
+            import httpx
+        except ImportError:
+            yield _sse_event({"type": "error", "error": "httpx not installed"})
+            return
+
+        headers: dict[str, str] = {"Accept": "text/event-stream"}
+        if token:
+            headers["X-Service-Token"] = token
+
+        url = f"{gateway_url.rstrip('/')}/events?channel={channel}"
+
+        try:
+            async with httpx.AsyncClient(timeout=None) as client:
+                async with client.stream("GET", url, headers=headers) as resp:
+                    if resp.status_code != 200:
+                        yield _sse_event({
+                            "type": "error",
+                            "error": f"EventRelay HTTP {resp.status_code}",
+                        })
+                        return
+
+                    async for line in resp.aiter_lines():
+                        if line.startswith("data: "):
+                            yield f"{line}\n\n"
+                        elif line.startswith(":"):
+                            yield f"{line}\n\n"
+        except Exception as e:
+            logger.warning("Live activity stream error: %s", e)
+            yield _sse_event({"type": "error", "error": str(e)})
 
     return StreamingResponse(
         event_generator(),

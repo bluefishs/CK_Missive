@@ -6,7 +6,7 @@
  * @version 2.0.0
  */
 import React, { useState, useMemo } from 'react';
-import { Typography, Input, Button, Space, Card, Statistic, Row, Col, Tag, Select, Progress, Table } from 'antd';
+import { Typography, Input, Button, Flex, Card, Statistic, Row, Col, Tag, Select, Progress, Table } from 'antd';
 import { PlusOutlined, ReloadOutlined, ProjectOutlined, CheckCircleOutlined, ClockCircleOutlined, DollarOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { ResponsiveContent } from '@ck-shared/ui-components';
@@ -144,7 +144,7 @@ export const PMCaseListPage: React.FC = () => {
 
   return (
     <ResponsiveContent>
-      <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+      <Flex vertical gap={8} style={{ width: '100%' }}>
         <Row justify="space-between" align="middle">
           <Col>
             <Title level={4} style={{ margin: 0 }}>PM 專案管理</Title>
@@ -179,7 +179,7 @@ export const PMCaseListPage: React.FC = () => {
                   title="執行中"
                   value={summary.by_status?.['in_progress'] ?? 0}
                   prefix={<ClockCircleOutlined />}
-                  valueStyle={{ color: '#1890ff' }}
+                  styles={{ content: { color: '#1890ff' } }}
                 />
               </Card>
             </Col>
@@ -189,7 +189,7 @@ export const PMCaseListPage: React.FC = () => {
                   title="已完成"
                   value={summary.by_status?.['completed'] ?? 0}
                   prefix={<CheckCircleOutlined />}
-                  valueStyle={{ color: '#52c41a' }}
+                  styles={{ content: { color: '#52c41a' } }}
                 />
               </Card>
             </Col>
@@ -291,7 +291,7 @@ export const PMCaseListPage: React.FC = () => {
           size={isMobile ? 'small' : 'middle'}
           scroll={{ x: 800 }}
         />
-      </Space>
+      </Flex>
     </ResponsiveContent>
   );
 };

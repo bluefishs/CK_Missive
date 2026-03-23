@@ -16,28 +16,11 @@ import { DIGITAL_TWIN_ENDPOINTS } from './endpoints';
 import { logger } from '../services/logger';
 
 // ---------------------------------------------------------------------------
-// Types
+// Types — SSOT 在 types/ai.ts，此處 re-export
 // ---------------------------------------------------------------------------
 
-export interface DelegateRequest {
-  /** 使用者問題 */
-  question: string;
-  /** 對話 session_id (啟用持續記憶) */
-  session_id?: string;
-  /** 額外上下文 */
-  context?: Record<string, unknown>;
-}
-
-export interface DigitalTwinStreamCallbacks {
-  /** 收到串流文字 token */
-  onToken: (token: string) => void;
-  /** 完成 (含延遲 ms) */
-  onDone: (latencyMs: number, answer?: string) => void;
-  /** 錯誤 */
-  onError: (error: string) => void;
-  /** 狀態更新 */
-  onStatus?: (status: string, detail?: string) => void;
-}
+export type { DelegateRequest, DigitalTwinStreamCallbacks } from '../types/ai';
+import type { DelegateRequest, DigitalTwinStreamCallbacks } from '../types/ai';
 
 // ---------------------------------------------------------------------------
 // Core: SSE via Missive backend proxy
@@ -177,6 +160,51 @@ export function streamDigitalTwin(
   })();
 
   return controller;
+}
+
+// ---------------------------------------------------------------------------
+// Human Approval Gate (V-2.1) — TaskJobRecord SSOT 在 types/ai.ts
+// ---------------------------------------------------------------------------
+
+export type { TaskJobRecord } from '../types/ai';
+import type { TaskJobRecord } from '../types/ai';
+
+export async function getTaskStatus(jobId: string): Promise<{
+  success: boolean;
+  job?: TaskJobRecord;
+  error?: string;
+}> {
+  const res = await fetch(`/api${DIGITAL_TWIN_ENDPOINTS.TASK_STATUS(jobId)}`, {
+    credentials: 'include',
+  });
+  return res.json();
+}
+
+export async function approveTask(
+  jobId: string,
+  approvedBy?: string,
+): Promise<{ success: boolean; error?: string }> {
+  const res = await fetch(`/api${DIGITAL_TWIN_ENDPOINTS.TASK_APPROVE(jobId)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ approved_by: approvedBy || '' }),
+  });
+  return res.json();
+}
+
+export async function rejectTask(
+  jobId: string,
+  rejectedBy?: string,
+  reason?: string,
+): Promise<{ success: boolean; error?: string }> {
+  const res = await fetch(`/api${DIGITAL_TWIN_ENDPOINTS.TASK_REJECT(jobId)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ rejected_by: rejectedBy || '', reason: reason || '' }),
+  });
+  return res.json();
 }
 
 // ---------------------------------------------------------------------------

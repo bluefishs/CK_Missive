@@ -1042,9 +1042,31 @@ async def federated_contribute(
     from app.services.ai.cross_domain_contribution_service import (
         CrossDomainContributionService,
     )
+    from app.services.ai.cross_domain_linker import CrossDomainLinker
+
     try:
         svc = CrossDomainContributionService(db)
-        return await svc.process_contribution(request)
+        result = await svc.process_contribution(request)
+
+        # KG-2: 貢獻完成後自動執行跨域連結
+        if result.success and result.resolved:
+            try:
+                linker = CrossDomainLinker(db)
+                link_report = await linker.link_after_contribution(
+                    request.source_project,
+                )
+                if link_report.links_created > 0:
+                    await db.commit()
+                    logger.info(
+                        "Cross-domain linking after %s: %d new links",
+                        request.source_project, link_report.links_created,
+                    )
+            except Exception as link_err:
+                logger.warning(
+                    "Cross-domain linking failed (non-fatal): %s", link_err,
+                )
+
+        return result
     except Exception as e:
         logger.error("Federation contribute failed: %s", e, exc_info=True)
         return FederatedContributionResponse(
@@ -1066,20 +1088,38 @@ async def federated_search(
     跨專案實體搜尋，回傳含 source_project 標記的節點與邊。
     支援按來源專案和實體類型篩選。
     """
+    import re as _re
     from sqlalchemy import select, and_, or_
-    from app.extended.models import CanonicalEntity, EntityRelationship
+    from app.extended.models import CanonicalEntity, EntityAlias, EntityRelationship
 
     try:
-        # 建立查詢條件
-        conditions = [CanonicalEntity.canonical_name.ilike(f"%{request.query}%")]
+        escaped_query = _re.sub(r'([%_\\])', r'\\\1', request.query)
+        query_pattern = f"%{escaped_query}%"
+
+        # 搜尋條件: canonical_name OR external_id OR alias_name
+        name_or_ext = or_(
+            CanonicalEntity.canonical_name.ilike(query_pattern),
+            CanonicalEntity.external_id.ilike(query_pattern),
+        )
+
+        # 透過 alias 搜尋 (子查詢)
+        alias_subq = (
+            select(EntityAlias.canonical_entity_id)
+            .where(EntityAlias.alias_name.ilike(query_pattern))
+        ).scalar_subquery()
+
+        search_condition = or_(name_or_ext, CanonicalEntity.id.in_(alias_subq))
+
+        # 附加篩選條件
+        filters = [search_condition]
         if request.entity_types:
-            conditions.append(CanonicalEntity.entity_type.in_(request.entity_types))
+            filters.append(CanonicalEntity.entity_type.in_(request.entity_types))
         if request.source_projects:
-            conditions.append(CanonicalEntity.source_project.in_(request.source_projects))
+            filters.append(CanonicalEntity.source_project.in_(request.source_projects))
 
         result = await db.execute(
             select(CanonicalEntity)
-            .where(and_(*conditions))
+            .where(and_(*filters))
             .order_by(CanonicalEntity.mention_count.desc())
             .limit(request.limit)
         )
@@ -1097,8 +1137,8 @@ async def federated_search(
             for e in entities
         ]
 
-        # 取得相關的邊
-        entity_ids = [e.id for e in entities]
+        # 取得相關的邊 + 1-hop 鄰居節點
+        entity_ids = set(e.id for e in entities)
         edges = []
         if entity_ids:
             edge_result = await db.execute(
@@ -1113,6 +1153,7 @@ async def federated_search(
                 ).limit(200)
             )
             from app.schemas.knowledge_graph import KGGraphEdge
+            neighbor_ids = set()
             for rel in edge_result.scalars().all():
                 edges.append(KGGraphEdge(
                     source_id=rel.source_entity_id,
@@ -1121,8 +1162,30 @@ async def federated_search(
                     relation_label=rel.relation_label,
                     weight=rel.weight or 1.0,
                 ))
+                neighbor_ids.add(rel.source_entity_id)
+                neighbor_ids.add(rel.target_entity_id)
 
-        source_projects_found = list(set(e.source_project for e in entities))
+            # 補充鄰居節點 (hop=1)
+            missing_ids = neighbor_ids - entity_ids
+            if missing_ids:
+                neighbor_result = await db.execute(
+                    select(CanonicalEntity)
+                    .where(CanonicalEntity.id.in_(missing_ids))
+                )
+                for ne in neighbor_result.scalars().all():
+                    nodes.append(FederatedGraphNode(
+                        id=ne.id,
+                        name=ne.canonical_name,
+                        type=ne.entity_type,
+                        source_project=ne.source_project,
+                        mention_count=ne.mention_count or 0,
+                        external_id=ne.external_id,
+                        hop=1,
+                    ))
+
+        source_projects_found = list(set(
+            n.source_project for n in nodes
+        ))
 
         return FederatedSearchResponse(
             success=True,
@@ -1141,7 +1204,7 @@ async def federated_search(
     summary="執行跨專案實體自動連結 — 偵測並建立跨域關係",
 )
 async def cross_domain_link(
-    current_user: User = Depends(require_auth()),
+    current_user: User = Depends(require_admin()),
     db: AsyncSession = Depends(get_async_db),
 ):
     """
@@ -1157,12 +1220,23 @@ async def cross_domain_link(
 
     try:
         linker = CrossDomainLinker(db)
-        results = await linker.run_all_rules()
-        total = sum(results.values())
+        report = await linker.run_all_rules()
         return {
             "success": True,
-            "relations_created": total,
-            "details": results,
+            "links_created": report.links_created,
+            "links_skipped": report.links_skipped,
+            "processing_ms": report.processing_ms,
+            "details": [
+                {
+                    "bridge_type": d.bridge_type,
+                    "source_name": d.source_name,
+                    "target_name": d.target_name,
+                    "relation_type": d.relation_type,
+                    "similarity": round(d.similarity, 3),
+                }
+                for d in report.details
+            ],
+            "errors": report.errors,
         }
     except Exception as e:
         logger.error("Cross-domain linking failed: %s", e, exc_info=True)
