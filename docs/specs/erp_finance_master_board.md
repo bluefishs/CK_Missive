@@ -1,24 +1,23 @@
-# 📊 ERP 財務中樞全期總表 (Master Board)
+# 🌐 企業全域資源整合：三層系統與財務中樞總司令部 (Global Master Board)
 
 > **建立時間**: 2026-03-23  
-> **文件目的**: 將歷次迭代之架構決策 (Architecture Decisions)、議題覆盤 (Issue Log) 與任務進度 (Task Tracker) 整合為單一總表 (Single Source of Truth)，以利全局追蹤。
+> **文件定位**: 本藍圖打破了單一會話界線，將**前期系統會話 (15f73761)** 所設計的「專案管理 (PM)」、「財務 (ERP)」與「公文 (Doc)」三向架構分析，與目前剛成型的「高併發財務引擎」及「預算防呆聯防」進行了最強大的宇宙級縫合。這也是目前本專案所有任務的**唯一真相來源 (Single Source of Truth)**。
 
 ---
 
-## 🏛️ 壹、全期架構決策與議題日誌 (Decision & Issue Log)
+## 🏛️ 壹、全域系統架構決策與議題日誌 (Decision & Issue Log)
 
-此區塊紀錄我們在開發過程中遇見的關鍵議題，以及最終落定的架構防禦決策。
+以下涵蓋從前期 Excel 規劃期、三向架構分析期，至核心系統實踐期遇見之關鍵系統級決定。
 
-| 決策編號 | 遭遇議題 / 領域 | 最終架構決策與實作方案 (已落地) | 影響範圍 |
+| 領域 | 議題 / 目標 | 最終架構決策與實作方案 (已落地) | 階段屬性 |
 | :--- | :--- | :--- | :--- |
-| **ADR-01** | **Repository 越權** | 實施 `BaseRepository` 徹底將資料庫操作與 `Service` 邏輯隔離。 | CRUD 基礎 |
-| **ADR-02** | **多幣別本位幣污染** | 於 Pydantic Schema 使用 `@model_validator` 強制非 TWD 貨幣須帶匯率，入帳時一律轉為 TWD 本位幣 (`amount`)。 | 跨國結算 |
-| **ADR-03** | **審核退件死結** | 建立 `APPROVAL_TRANSITIONS` 狀態定義陣列，嚴格限制所有流轉；超過 30K TWD 強制掛載財務簽核關卡。 | 簽核流 |
-| **ADR-04** | **跨模組髒寫風險** | 拔除 Repository 的提早 `commit()`，統一改為 `flush()`，將 ACID 交易原子性控制權交回 Service，確立 Unit of Work 模式。 | 雙系統寫入 |
-| **ADR-05** | **專案超支防呆** | 實作 `_check_budget()` 預算大壩：於 `approval()` 時動態撈取報價單上限，**過 80% 警告，過 100% 拋出 `ValueError` 強制阻斷**。 | 專案預算 |
-| **ADR-06** | **N+1 儀表板風暴** | 針對大量專案彙整 (`get_batch_project_summaries`)，捨棄迴圈查詢，改用 3 次 `IN(...)` SQL 配合 Python Dictionary 本地映射。 | BI 效能 |
-| **ADR-07** | **幽靈專案發票** | 建立 `_validate_case_code`：申請時透過跨模組 `exists` 探測 `ContractProject` → `PMCase` → `ERPQuotation`，徹底阻絕手抖按錯。 | 全域防呆 |
-| **ADR-08** | **供應商自動對帳** | 新增 `vendor_id` 外鍵，透過發票之 `seller_ban` 於建檔時自動 `_resolve_vendor_by_ban`，打通廠商對帳單分析。 | 外包結算 |
+| **初期分析** | **三層架構定位** | 定立專案管理 (PM)、財務 (ERP)、公文系統 (Doc) 之職責與邊界。 | **前期承襲 (15f73761)** |
+| **資料對齊** | **Excel 藍本轉換** | 解析「114年度慶忠零星案件」等既有試算表欄位，將其轉化為 ER Model。 | **前期承襲 (15f73761)** |
+| **交易防護** | **跨模組髒寫風險** | ERP 模組拔除 Repository `commit()`，改以 `flush()` 落實 Unit of Work，確保交易原子性。 | **近期防護與實作** |
+| **預算控管** | **專案超支防呆** | 實作 `_check_budget()` 大壩：於簽核端自動抓取報價單上限，**過 80% 屬性預警，過 100% 拋出 `ValueError` 強制阻斷**。 | **近期防護與實作** |
+| **全域聯防** | **幽靈案號發票** | 建立 `_validate_case_code` 跨界探測：依序掃描 `ContractProject` → `PMCase` → `ERPQuotation`，跨系統防錯定址。 | **近期防護與實作** |
+| **BI 效能** | **N+1 儀表板風暴** | 針對大量專案彙整 (`get_batch_project_summaries`)，改用 3 次 `IN(...)` SQL 配 Python Dictionary Mapping 大幅加速。 | **近期防護與實作** |
+| **內外聯網** | **供應商自動對帳** | 新增 `vendor_id` 外鍵，透過發票之 `seller_ban` 於建檔時自動 `_resolve_vendor_by_ban`，打通廠商對帳單分析。 | **近期防護與實作** |
 
 ---
 
@@ -26,38 +25,48 @@
 
 > **狀態燈號**：🟢 已完成 | 🟡 進行中/待串接 | ⚪ 尚未開始
 
-### 🟢 Phase 1: 核心資料層與架構防線 (100%)
-- [x] ORM Models 架構確立：`ExpenseInvoice`, `FinanceLedger` (關聯 `user_id`, `vendor_id`)
-- [x] Schemas 防線建置：導入 20+ Pydantic Schemas，包含正則與 `@model_validator` 本位幣清洗
-- [x] Repository 單元隔離：`BaseRepository` CRUD，支援異步 `AsyncSession`
-- [x] 交易邊界鞏固：拔除底層 `commit`，嚴格落實 **ACID Unit of Work** 交易模式
+### 🟢 Phase 0: 系統前期規劃與三層架構分析 (早期任務繼承完成)
+*(源自 15f73761-0d71-4bf8-9f00-d1d3e241c105)*
+- [x] 分析專案管理(PM)、財務(ERP)與公文系統之三層架構。
+- [x] 解析既有 Excel 欄位對應（114年度慶忠零星案件委託一覽表）。
+- [x] 擬定跨系統數據自動對齊（Data Alignment）機制。
+- [x] 產出整體架構與開發規範 MD 文件（前期已產出 `system_development_specs.md`）。
+- [x] 檢視專案與財務管理目前架構與優化建議事項並產出文件。
+- [x] 進行數據庫 ER Model 設計與 API 規格定義 (由後續 Phase 1~3 承接落地)。
 
-### 🟢 Phase 2: 商業邏輯與金流中樞 (100%)
-- [x] **AP (應付) 拋轉接口**：實作 `record_from_vendor_payable` 吸納採購付款
-- [x] **AR (應收) 拋轉接口**：實作 `record_from_billing` 吸納請款收款
-- [x] **超級預算聯防大壩**：`_check_budget` (80% 屬性標記預警、100%強塞 `ValueError`)
-- [x] **多層狀態機引擎**：依照 30K 閥值自動分發一級 / 二級主管簽核與駁回流轉
-- [x] **全線三重防呆鎖**：`_validate_case_code` 攔截無效案號；`seller_ban` 自動黏合對應之廠商
+### 🟢 Phase 1: 數據庫 ER Model 核心與 API 引擎防線 (100%)
+- [x] ORM 實踐：完成 `ExpenseInvoice`, `FinanceLedger` 等底層關聯 (包含 `vendor_id` 外鍵掛載)。
+- [x] Pydantic 實踐：導入 20+ Schema，使用 `@model_validator` 解決多幣別本位幣污染。
+- [x] Repository 單元隔離：`BaseRepository` CRUD 職責切分。
+- [x] **ACID 交易邊界鞏固**：單一 Unit of Work 把關，由 Service 統籌 `commit`。
 
-### 🟢 Phase 3: 商業分析與 BI 儀表板基建 (100%)
-- [x] **N+1 效能終結版**：實作 `get_batch_project_summaries` 陣列查詢
-- [x] **無縫月均線演算法**：`get_monthly_trend` (包含 SQL YYYY-MM 群組化與空月墊片演算法)
-- [x] **危險專案熱圖排行**：`get_budget_ranking` (sa_case 組合式收支統計與 None 陣列後置)
-- [x] **資料庫效能優化**：新增 `idx_ledger_case_date` 以提升大數據聚合速度
+### 🟢 Phase 2: 商業邏輯與跨模組金流對齊 (100%)
+- [x] **超級預算聯防**：`_check_budget` 雙層警戒阻擋 (100% 絕對阻擋 `ValueError`)。
+- [x] **AP/AR 金流跨模組拋轉**：實作 `record_from_vendor_payable` 取代人工記帳。
+- [x] **多層狀態簽核大壩**：30K 閥值自動分批一級/會計簽核流引擎 (`APPROVAL_TRANSITIONS`)。
+- [x] **全線三重案號防呆鎖**：`_validate_case_code` 完美實踐 Phase 0 的「跨系統數據自動對齊」。
+- [x] **供應商智慧關聯**：導入 `seller_ban` 自動黏合對應之外部 `PartnerVendor` 廠商。
+
+### 🟢 Phase 3: 大數據 BI 儀表板基建 (100%)
+- [x] **N+1 效能終結版查詢**：`get_batch_project_summaries` 三向彙總。
+- [x] **無縫月均線演算法**：`get_monthly_trend` (SQL YYYY-MM 組合同補全空月墊片)。
+- [x] **危險專案熱圖排行**：`get_budget_ranking` (sa_case 動態聚合計算)。
+- [x] **大數據索引**：新增 `idx_ledger` 以提升大數據時限聚合速度。
 
 ---
 
-### 🟡 Phase 4: 前台整合與 O2O 智能落地 (Upcoming)
-為完成最後一哩路，下方程式碼層皆已準備就緒，僅待前台掛接與伺服器組態：
+### 🟡 Phase 4: 前台互動與 O2O 智能落地 (Upcoming Next Steps...)
 
-- [ ] **React Dashboard 匯流**
-  - 對接 `get_monthly_trend` 繪製「雙色堆疊長條圖 (Income vs Expense)」
-  - 對接 `get_budget_ranking` 渲染「Top N 專案預算燃燒熱力圖 (100% 亮紅燈)」
+底層防線與三層架構 (PM/ERP/Doc) 皆已滿載建置完畢。接下來請下達指令進入行動端、BI Dashboard 或是智能排程等前台操作介面：
+
+- [ ] **React Dashboard 企業戰情室**
+  - 對接 `get_monthly_trend` 繪製「雙色堆疊長條圖 (Income vs Expense)」。
+  - 對接 `get_budget_ranking` 渲染「Top N 專案預算燃燒熱帶雨林 (超過 100% 發布紅框)」。
 - [ ] **前端防禦 UX 對接 (Error Handling)**
-  - 捕捉 API 拋出的案號錯誤與預算 100% 超載的 HTTP 400 `ValueError`，實作全站統一的 `AlertDialog` 彈窗示警。
-- [ ] **LINE Bot 行動端兵站 (O2O Capture)**
-  - 建立 `/webhook` 接收行動裝置發票照片 (啟動 `source="line_upload"`)，解放員工出差卡單流程。
-- [ ] **Agent 吹哨者排程 (AI Automation)**
-  - 擴充 `NemoClaw` 發布夜間 `cronjob`，調用熱圖 API 掃描 80%~99% 水位專案，推送 Slack/LINE 警報給所屬專案經理。
-- [ ] **供應商對帳中心 (Vendor Statement)**
-  - 利用 Phase 2 完成的 `vendor_id`，開放一鍵產出「特定廠商年度發票/付款 Excel」(`pandas` 引擎)。
+  - 捕捉 API 拋出的「跨三大模組階查無此案號」等 HTTP 400 防呆警告，實作優雅的 React Query `AlertDialog` 彈窗。
+- [ ] **LINE Bot 第一線收據站 (Mobile O2O Capture)**
+  - 因應 `source="line_upload"` 被開放，建立 `/webhook` 接收行動裝置發票照片並結合 OCR 自動拋轉。
+- [ ] **廠商自動對帳單系統 (Vendor Statement Excel)**
+  - 承接 `vendor_id` 外鍵，一鍵產出「特定廠商年度發票/應付列表 (Pandas)」，賦能對外議價。
+- [ ] **Agent 吹哨者警報 (AI Watchdog)**
+  - 擴建 `NemoClaw` 發布夜間 `cronjob` 盤點 80%~99% 水位預警報表，主動透過 Slack/LINE 分發專案經理。
