@@ -84,7 +84,8 @@ const KnowledgeGraphPage: React.FC = () => {
             : ([] as KGEntityItem[]),
       };
     },
-    staleTime: 30_000,
+    staleTime: 5 * 60 * 1000,  // 統計資料 5 分鐘快取
+    gcTime: 10 * 60 * 1000,
   });
   const coverageStats = statsData?.coverageStats ?? { embedding: null, entity: null, graph: null };
   const topEntities = statsData?.topEntities ?? [];
@@ -93,8 +94,8 @@ const KnowledgeGraphPage: React.FC = () => {
     queryKey: ['kg-entity-graph', selectedYear, collapseAgency],
     queryFn: async () => {
       const params: { min_mentions: number; limit: number; year?: number; collapse_agency?: boolean } = {
-        min_mentions: 1,
-        limit: 300,
+        min_mentions: 2,
+        limit: 150,
         collapse_agency: collapseAgency,
       };
       if (selectedYear && selectedYear > 0) {
@@ -106,7 +107,9 @@ const KnowledgeGraphPage: React.FC = () => {
       }
       return null;
     },
-    staleTime: 30_000,
+    staleTime: 5 * 60 * 1000,  // 圖譜資料 5 分鐘快取
+    gcTime: 10 * 60 * 1000,
+    placeholderData: (prev) => prev,  // 切換篩選時保留舊資料避免閃爍
   });
 
   const [pathSourceId, setPathSourceId] = useState<number | null>(null);
