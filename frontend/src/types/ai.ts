@@ -1415,3 +1415,35 @@ export interface AgentStreamCallbacks {
   onDone: (latencyMs: number, model: string, toolsUsed: string[], iterations: number) => void;
   onError?: (error: string, code?: SSEErrorCode) => void;
 }
+
+// ============================================================================
+// Agent Topology (V-3.1)
+// ============================================================================
+
+/** Agent 拓撲節點 */
+export interface AgentNode {
+  id: string;
+  type: 'leader' | 'engine' | 'role' | 'plugin';
+  label: string;
+  description: string;
+  status: 'active' | 'degraded' | 'offline' | 'unknown';
+  capabilities: string[];
+  project: string;
+  context?: string;
+  triggers?: string[];
+}
+
+/** Agent 拓撲邊 */
+export interface AgentEdge {
+  source: string;
+  target: string;
+  label: string;
+  type: 'delegation' | 'data_flow';
+}
+
+/** Agent 拓撲查詢回應 */
+export interface AgentTopologyResponse {
+  nodes: AgentNode[];
+  edges: AgentEdge[];
+  meta: { total_nodes: number; total_edges: number; timestamp: string };
+}

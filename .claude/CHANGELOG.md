@@ -4,6 +4,34 @@
 
 ---
 
+## [5.1.17] - 2026-03-23
+
+### SSOT 修復 + 覆盤儀表板 + 系統文件同步
+
+#### SSOT 型別遷移 (前端 8 型別 + 後端 3 型別)
+- `VoiceTranscriptionResult` → `types/ai.ts` (從 `api/ai/adminManagement.ts`)
+- `DelegateRequest` + `DigitalTwinStreamCallbacks` → `types/ai.ts` (從 `api/digitalTwin.ts`)
+- `TaskJobRecord` → `types/ai.ts` (從 `api/digitalTwin.ts`)
+- `AgentNode` + `AgentEdge` + `AgentTopologyResponse` → `types/ai.ts` (從 `api/digitalTwin.ts`)
+- `DigitalTwinQueryRequest` → `schemas/ai/digital_twin.py` (從 endpoint)
+- `TaskApprovalRequest` + `TaskRejectionRequest` → `schemas/ai/digital_twin.py` (從 endpoint)
+
+#### 覆盤儀表板 UI
+- 新增 `ReviewDashboardPanel.tsx` — 6 子系統狀態 + 排程器面板
+- 整合至 `ServiceStatusTab` (AI 助理管理 > 服務狀態)
+
+#### 系統文件同步
+- CLAUDE.md 版本號 v5.1.15 → v5.1.17
+- CHANGELOG 補完 v5.1.16~v5.1.17
+
+#### 全系統覆盤結果
+- 後端: SSOT A+ / Repository A / 服務模組化 A- / API POST 一致性 A+
+- 前端: SSOT A+ / React Query A+ / antd v6 A+ / 元件 <500L A
+- 測試: 後端 1,685 / 前端 2,962 / 頁面覆蓋 89%
+- 遷移: 78 migrations, 單一 HEAD
+
+---
+
 ## [5.1.16] - 2026-03-23
 
 ### gstack 深度整合 v2.0 — 安全護欄 + 指令升級

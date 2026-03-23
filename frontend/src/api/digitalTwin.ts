@@ -211,6 +211,20 @@ export async function rejectTask(
 // Health check (via backend proxy)
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Agent Topology (V-3.1) — SSOT 在 types/ai.ts
+// ---------------------------------------------------------------------------
+
+export type { AgentNode, AgentEdge, AgentTopologyResponse } from '../types/ai';
+import type { AgentTopologyResponse } from '../types/ai';
+
+export async function getAgentTopology(): Promise<AgentTopologyResponse> {
+  const res = await fetch(`/api${DIGITAL_TWIN_ENDPOINTS.AGENT_TOPOLOGY}`, {
+    credentials: 'include',
+  });
+  return res.json();
+}
+
 export async function checkGatewayHealth(): Promise<{
   available: boolean;
   latencyMs: number;
