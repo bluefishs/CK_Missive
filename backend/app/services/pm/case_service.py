@@ -10,7 +10,7 @@ from typing import Optional, Dict, Any, Tuple, List
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.extended.models.pm import PMCase
-from app.repositories.pm import PMCaseRepository, PMMilestoneRepository, PMCaseStaffRepository
+from app.repositories.pm import PMCaseRepository, PMMilestoneRepository
 from app.schemas.pm import (
     PMCaseCreate, PMCaseUpdate, PMCaseResponse, PMCaseListRequest, PMCaseSummary,
     PMYearlyTrendItem,
@@ -27,7 +27,6 @@ class PMCaseService:
         self.db = db
         self.repo = PMCaseRepository(db)
         self.milestone_repo = PMMilestoneRepository(db)
-        self.staff_repo = PMCaseStaffRepository(db)
         self.code_service = CaseCodeService(db)
 
     async def generate_case_code(self, year: int, category: str = "01") -> str:
@@ -64,12 +63,26 @@ class PMCaseService:
         return await self._to_response(pm_case)
 
     async def update(self, case_id: int, data: PMCaseUpdate) -> Optional[PMCaseResponse]:
-        """更新案件"""
+        """更新案件（含 client_name auto-sync）"""
         pm_case = await self.repo.get_by_id(case_id)
         if not pm_case:
             return None
 
         update_data = data.model_dump(exclude_unset=True)
+
+        # Auto-sync client_name from client_vendor_id
+        if 'client_vendor_id' in update_data and update_data['client_vendor_id']:
+            from sqlalchemy import select
+            from app.extended.models.core import PartnerVendor
+            result = await self.db.execute(
+                select(PartnerVendor.vendor_name).where(
+                    PartnerVendor.id == update_data['client_vendor_id']
+                )
+            )
+            vendor_name = result.scalar()
+            if vendor_name:
+                update_data['client_name'] = vendor_name
+
         for key, value in update_data.items():
             setattr(pm_case, key, value)
 
@@ -107,13 +120,12 @@ class PMCaseService:
         # 批次取得聚合 (2 queries instead of N*2)
         ids = [c.id for c in items]
         milestone_counts = await self.milestone_repo.get_counts_batch(ids)
-        staff_counts = await self.staff_repo.get_counts_batch(ids)
 
         responses = [
             PMCaseResponse(
                 **{c.name: getattr(item, c.name) for c in item.__table__.columns},
                 milestone_count=milestone_counts.get(item.id, 0),
-                staff_count=staff_counts.get(item.id, 0),
+                staff_count=0,  # staff moved to unified table
             )
             for item in items
         ]
@@ -231,10 +243,9 @@ class PMCaseService:
     async def _to_response(self, pm_case: PMCase) -> PMCaseResponse:
         """轉換為回應格式 (含聚合欄位)"""
         milestones = await self.milestone_repo.get_by_case_id(pm_case.id)
-        staff = await self.staff_repo.get_by_case_id(pm_case.id)
 
         return PMCaseResponse(
             **{c.name: getattr(pm_case, c.name) for c in pm_case.__table__.columns},
             milestone_count=len(milestones),
-            staff_count=len(staff),
+            staff_count=0,  # staff moved to unified table
         )

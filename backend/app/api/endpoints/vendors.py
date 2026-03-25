@@ -57,11 +57,13 @@ async def list_vendors(
         skip=skip,
         limit=query.limit,
         search=query.search,
+        vendor_type=query.vendor_type,
         business_type=query.business_type,
         rating=query.rating
     )
     total = await vendor_service.get_count(
         search=query.search,
+        vendor_type=query.vendor_type,
         business_type=query.business_type,
         rating=query.rating
     )

@@ -71,6 +71,7 @@ export interface KnowledgeGraphProps {
   dataProvider?: GraphDataProvider;
   nodeConfig?: Record<string, GraphNodeTypeConfig>;
   colorBy?: ColorByMode;
+  visibleSourceProjects?: Set<string>;
 }
 
 // ============================================================================
@@ -95,12 +96,12 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
   dataProvider = defaultProvider,
   nodeConfig,
   colorBy = 'type',
+  visibleSourceProjects,
 }) => {
   // 衍生配置函數（支援自訂 nodeConfig 覆蓋）
   const effectiveConfig = nodeConfig ?? GRAPH_NODE_CONFIG;
   const effectiveGetNode = useCallback(
     (type: string) => getNodeConfig(type),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
   const effectiveGetNodeConfig = nodeConfig
@@ -197,6 +198,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
     viewMode,
     effectiveGetNodeConfig,
     colorBy,
+    visibleSourceProjects,
   });
 
   // Force-graph 渲染回調 (2D)
@@ -265,8 +267,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
         1000,
       );
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedNodeId, dimension, bridge, onNodeClickExternal]);
+  }, [selectedNodeId, dimension, bridge, onNodeClickExternal, effectiveDetailable]);
 
   // Hover 節點
   const handleNodeHover = useCallback((node: ForceNode | null) => {
@@ -298,7 +299,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
     setError(null);
     reload();
     setTimeout(() => fgRef.current?.zoomToFit(400, 60), 500);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reload]);
 
   // 搜尋後聚焦
@@ -341,7 +342,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
   const handleSearchChange = useCallback((value: string) => {
     setSearchText(value);
     setApiSearchMatchIds(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleBackgroundClick = useCallback(() => {

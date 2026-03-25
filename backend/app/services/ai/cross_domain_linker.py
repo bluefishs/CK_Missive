@@ -10,9 +10,9 @@
 3. Project bridging: Missive project ↔ Tunnel tunnel (name similarity ≥ 0.80)
 4. Agency bridging: Missive org (with linked_agency_id) ↔ Tunnel inspection commissioned_by
 
-Version: 1.1.0
+Version: 1.2.0
 Created: 2026-03-22
-Updated: 2026-03-23 — 整合 CanonicalEntityMatcher + link_after_contribution + agency meta
+Updated: 2026-03-23 — KG-3 語意向量回退 + CanonicalEntityMatcher + link_after_contribution + agency meta
 """
 
 import logging
@@ -157,7 +157,7 @@ class CrossDomainLinker:
             return
 
         for contractor in tunnel_contractors:
-            best_match, best_score = self._find_best_match(
+            best_match, best_score = await self._find_best_match(
                 contractor.canonical_name, missive_orgs,
                 threshold=CONTRACTOR_THRESHOLD,
             )
@@ -241,7 +241,7 @@ class CrossDomainLinker:
 
             # 段名未命中 → trigram 降級
             if not matched:
-                best_match, best_score = self._find_best_match(
+                best_match, best_score = await self._find_best_match(
                     loc_name, lvrland_parcels,
                     threshold=LOCATION_THRESHOLD,
                     use_false_match_check=False,
@@ -281,7 +281,7 @@ class CrossDomainLinker:
             return
 
         for tunnel in tunnel_tunnels:
-            best_match, best_score = self._find_best_match(
+            best_match, best_score = await self._find_best_match(
                 tunnel.canonical_name, missive_projects,
                 threshold=PROJECT_THRESHOLD,
             )
@@ -346,7 +346,7 @@ class CrossDomainLinker:
                 # 無委辦機關 meta — 回退到 inspection 名稱匹配
                 commissioning = inspection.canonical_name
 
-            best_match, best_score = self._find_best_match(
+            best_match, best_score = await self._find_best_match(
                 commissioning, linked_orgs,
                 threshold=AGENCY_THRESHOLD,
             )
@@ -392,16 +392,18 @@ class CrossDomainLinker:
         )
         return list(result.scalars().all())
 
-    @staticmethod
-    def _find_best_match(
+    async def _find_best_match(
+        self,
         name: str,
         candidates: List[CanonicalEntity],
         threshold: float = CONTRACTOR_THRESHOLD,
         use_false_match_check: bool = True,
     ) -> tuple[Optional[CanonicalEntity], float]:
         """
-        在候選清單中尋找最佳 trigram 模糊匹配。
-        使用 CanonicalEntityMatcher.compute_similarity (Python 端 trigram)。
+        在候選清單中尋找最佳匹配（trigram → 語意向量回退）。
+
+        Stage 1: CanonicalEntityMatcher.compute_similarity (Python 端 trigram)
+        Stage 2: 若 trigram 無匹配且 pgvector 啟用，以 cosine_distance 嘗試語意匹配
 
         Returns:
             (best_entity, best_score) — 無匹配時回傳 (None, 0.0)
@@ -409,6 +411,7 @@ class CrossDomainLinker:
         if not candidates or not name:
             return None, 0.0
 
+        # ── Stage 1: Trigram 模糊匹配 ──
         best_entity: Optional[CanonicalEntity] = None
         best_score = 0.0
 
@@ -424,7 +427,89 @@ class CrossDomainLinker:
                 best_entity = candidate
                 best_score = score
 
-        return best_entity, best_score
+        if best_entity is not None:
+            return best_entity, best_score
+
+        # ── Stage 2: 語意向量回退 (KG-3) ──
+        semantic_result = await self._semantic_fallback(name, candidates)
+        if semantic_result is not None:
+            return semantic_result
+
+        return None, 0.0
+
+    async def _semantic_fallback(
+        self,
+        name: str,
+        candidates: List[CanonicalEntity],
+    ) -> Optional[tuple[CanonicalEntity, float]]:
+        """
+        KG-3: 當 trigram 匹配失敗時，以 pgvector cosine_distance 嘗試語意匹配。
+
+        使用 DB-level pgvector 查詢（利用 ivfflat/hnsw 索引），
+        限定在候選實體 ID 範圍內搜尋，避免 Python 端 O(N) 向量比較。
+        門檻: cosine_distance ≤ 0.15 (similarity ≥ 0.85)。
+        """
+        from app.core.config import settings as _settings
+        if not _settings.PGVECTOR_ENABLED:
+            return None
+
+        candidate_ids = [c.id for c in candidates]
+        if not candidate_ids:
+            return None
+
+        try:
+            from app.services.ai.embedding_manager import EmbeddingManager
+            if not await EmbeddingManager.is_available():
+                return None
+
+            query_emb = await EmbeddingManager.get_embedding(name, connector=None)
+            if not query_emb:
+                return None
+        except Exception:
+            return None
+
+        SEMANTIC_MAX_DISTANCE = 0.15
+
+        try:
+            # DB-level pgvector cosine_distance — 利用索引，遠比 Python 端快
+            result = await self.db.execute(
+                select(CanonicalEntity)
+                .where(
+                    CanonicalEntity.id.in_(candidate_ids),
+                    CanonicalEntity.embedding.isnot(None),
+                    CanonicalEntity.embedding.cosine_distance(query_emb)
+                    <= SEMANTIC_MAX_DISTANCE,
+                )
+                .order_by(
+                    CanonicalEntity.embedding.cosine_distance(query_emb)
+                )
+                .limit(1)
+            )
+            best_entity = result.scalar_one_or_none()
+        except Exception as e:
+            logger.debug("Semantic fallback DB query failed: %s", e)
+            return None
+
+        if best_entity is not None:
+            # 重新計算精確距離用於日誌
+            try:
+                dist_result = await self.db.execute(
+                    select(
+                        CanonicalEntity.embedding.cosine_distance(query_emb)
+                    ).where(CanonicalEntity.id == best_entity.id)
+                )
+                dist = dist_result.scalar_one_or_none() or 0.0
+                similarity = 1.0 - dist
+            except Exception:
+                similarity = 0.85  # 門檻下限
+
+            logger.info(
+                "KG-3 semantic fallback: '%s' → '%s' (sim=%.3f)",
+                name, best_entity.canonical_name, similarity,
+            )
+            return best_entity, similarity
+
+        return None
 
     async def _create_relation_if_absent(
         self,

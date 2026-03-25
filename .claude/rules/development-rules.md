@@ -25,6 +25,29 @@
 2. `frontend/src/router/AppRouter.tsx` - Route 元素
 3. `backend/app/scripts/init_navigation_data.py` - DEFAULT_NAVIGATION_ITEMS
 
+### UI 設計強制規範 (v5.2.0+)
+
+| 規範 | 說明 |
+|------|------|
+| **DetailPageLayout** | 所有詳情頁必須使用 `components/common/DetailPage/DetailPageLayout`，禁止自訂 layout |
+| **導航模式** | CRUD 操作採 navigate to page，禁止 Modal/Drawer 編輯 |
+| **Inline 新增** | Select 下拉找不到選項時，使用 `dropdownRender` 提供即時新增 |
+| **Tab 建立** | 使用 `createTabItem(key, { icon, text, count? }, children)` 統一工具函數 |
+
+### 跨模組案號規範 (v5.2.0+)
+
+| 欄位 | 產生時機 | 用途 |
+|------|---------|------|
+| `case_code` | 建案時（邀標/報價階段） | PM Cases + ERP Quotations + contract_projects 的跨模組橋樑 |
+| `project_code` | 成案時（確認執行） | Contract Projects 的正式專案編號，避免未成案跳號 |
+
+### 委託單位/協力廠商規範 (v5.2.0+)
+
+| vendor_type | 管理頁面 | 說明 |
+|------------|---------|------|
+| `subcontractor` | `/vendors` | 協力廠商（乾坤委託別人） |
+| `client` | `/clients` | 委託單位（別人委託乾坤） |
+
 ---
 
 ## 1. API 端點一致性

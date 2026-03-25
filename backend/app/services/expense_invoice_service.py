@@ -139,12 +139,9 @@ class ExpenseInvoiceService:
 
     async def _resolve_vendor_by_ban(self, seller_ban: str) -> Optional[int]:
         """由賣方統編查找 partner_vendors.id (稅籍號碼 = vendor_code 慣例)"""
-        from sqlalchemy import select
-        from app.extended.models.core import PartnerVendor
-        # vendor_code 通常就是統編
-        stmt = select(PartnerVendor.id).where(PartnerVendor.vendor_code == seller_ban).limit(1)
-        result = await self.db.execute(stmt)
-        return result.scalar_one_or_none()
+        from app.repositories.vendor_repository import VendorRepository
+        vendor_repo = VendorRepository(self.db)
+        return await vendor_repo.get_id_by_vendor_code(seller_ban)
 
     async def _validate_case_code(self, case_code: str) -> None:
         """驗證 case_code 對應的專案或報價存在
@@ -152,17 +149,16 @@ class ExpenseInvoiceService:
         檢查順序: ContractProject.project_code → PMCase.case_code → ERPQuotation.case_code
         任一匹配即通過，全部不匹配則拋出 ValueError。
         """
-        from sqlalchemy import select, exists
-        from app.extended.models.core import ContractProject
+        from app.repositories import ProjectRepository
 
         # 1. 檢查 ContractProject
-        stmt = select(exists().where(ContractProject.project_code == case_code))
-        found = await self.db.scalar(stmt)
-        if found:
+        project_repo = ProjectRepository(self.db)
+        if await project_repo.exists_by_project_code(case_code):
             return
 
         # 2. 檢查 PMCase (soft match)
         try:
+            from sqlalchemy import select, exists
             from app.extended.models.pm import PMCase
             stmt2 = select(exists().where(PMCase.case_code == case_code))
             found2 = await self.db.scalar(stmt2)
@@ -173,6 +169,7 @@ class ExpenseInvoiceService:
 
         # 3. 檢查 ERPQuotation
         try:
+            from sqlalchemy import select, exists
             from app.extended.models.erp import ERPQuotation
             stmt3 = select(exists().where(ERPQuotation.case_code == case_code))
             found3 = await self.db.scalar(stmt3)

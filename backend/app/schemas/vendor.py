@@ -44,14 +44,17 @@ class VendorBase(BaseModel):
 
     不包含驗證，用於讀取資料（相容舊資料）
     """
-    vendor_name: str = Field(..., max_length=200, description="廠商名稱")
-    vendor_code: Optional[str] = Field(None, max_length=50, description="統一編號")
+    vendor_name: str = Field(..., max_length=200, description="單位名稱")
+    vendor_code: Optional[str] = Field(None, max_length=50, description="單位代碼")
+    vendor_type: Optional[str] = Field('subcontractor', description="類型: subcontractor=協力廠商, client=委託單位")
     contact_person: Optional[str] = Field(None, max_length=100, description="聯絡人")
     phone: Optional[str] = Field(None, max_length=50, description="電話")
     address: Optional[str] = Field(None, max_length=300, description="地址")
     email: Optional[EmailStr] = Field(None, max_length=100, description="電子郵件")
+    tax_id: Optional[str] = Field(None, max_length=20, description="統一編號")
     business_type: Optional[str] = Field(None, max_length=100, description="營業項目")
     rating: Optional[int] = Field(None, ge=1, le=5, description="合作評價 (1-5)")
+    notes: Optional[str] = Field(None, description="備註")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -67,6 +70,7 @@ class VendorCreate(VendorBase):
 class VendorUpdate(BaseModel):
     vendor_name: Optional[str] = Field(None, max_length=200)
     vendor_code: Optional[str] = Field(None, max_length=50)
+    vendor_type: Optional[str] = Field(None)
     contact_person: Optional[str] = Field(None, max_length=100)
     phone: Optional[str] = Field(None, max_length=50)
     address: Optional[str] = Field(None, max_length=300)
@@ -109,6 +113,7 @@ class VendorListQuery(BaseModel):
     page: int = Field(default=1, ge=1, description="頁碼")
     limit: int = Field(default=20, ge=1, le=100, description="每頁筆數")
     search: Optional[str] = Field(None, description="搜尋關鍵字")
+    vendor_type: Optional[str] = Field(None, description="類型篩選: subcontractor/client")
     business_type: Optional[str] = Field(None, description="業務類型篩選")
     rating: Optional[int] = Field(None, ge=1, le=5, description="評價篩選 (1-5)")
     sort_by: str = Field(default="id", description="排序欄位")

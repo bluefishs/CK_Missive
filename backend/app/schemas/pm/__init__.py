@@ -13,7 +13,7 @@ from .requests import (
     PMIdRequest, PMCaseIdByFieldRequest,
     PMCaseIdRequest, PMCaseUpdateRequest,
     PMSummaryRequest, PMGenerateCodeRequest,
-    PMCrossLookupRequest, PMLinkedDocsRequest,
+    PMCrossLookupRequest, PMLinkedDocsRequest, PMPromoteRequest,
     PMStaffUpdateRequest, PMMilestoneUpdateRequest,
 )
 
@@ -26,6 +26,6 @@ __all__ = [
     "PMIdRequest", "PMCaseIdByFieldRequest",
     "PMCaseIdRequest", "PMCaseUpdateRequest",
     "PMSummaryRequest", "PMGenerateCodeRequest",
-    "PMCrossLookupRequest", "PMLinkedDocsRequest",
+    "PMCrossLookupRequest", "PMLinkedDocsRequest", "PMPromoteRequest",
     "PMStaffUpdateRequest", "PMMilestoneUpdateRequest",
 ]

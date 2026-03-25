@@ -25,6 +25,10 @@ vi.mock('../../../../api/aiApi', () => ({
   aiApi: mockAiApi,
 }));
 
+vi.mock('../../../../hooks/system/useLiveActivitySSE', () => ({
+  useLiveActivitySSE: () => ({ events: [], connected: false, error: null }),
+}));
+
 // Mock recharts ResponsiveContainer (has sizing issues in test env)
 vi.mock('recharts', async () => {
   const actual = await vi.importActual<typeof import('recharts')>('recharts');

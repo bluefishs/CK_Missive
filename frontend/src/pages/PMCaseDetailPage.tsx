@@ -1,258 +1,290 @@
 /**
- * PM 案件詳情頁面 — 與 contract-cases 共用模板
+ * 邀標/報價詳情頁面 — 統一 DetailPageLayout + inline 編輯
  *
- * 1. case_code 有對應 contract_project → 渲染完整共用模板（含 CRUD）
- * 2. 無對應 contract_project → 用 PM 資料渲染同樣版面（唯讀）
+ * 與 documents、contract-cases 共用佈局/標頭/Tab/編輯模式。
+ * 編輯：inline Form（非跳轉頁面），儲存/取消按鈕切換。
  *
- * @version 5.0.0
+ * @version 7.0.0 — inline 編輯 + 統一模板
  */
-import React, { Suspense, lazy } from 'react';
+import { Suspense, lazy, useState, useEffect } from 'react';
 import {
-  Button,
-  Card,
-  Spin,
-  Result,
-  Space,
-  Flex,
-  Tabs,
-  Descriptions,
-  Tag,
-  Progress,
-  Typography,
-  Statistic,
-  Row,
-  Col,
+  Button, Spin, Descriptions, Tag, Typography, Popconfirm, App,
+  Form, Input, Select, InputNumber, Divider, Space,
 } from 'antd';
 import {
-  ArrowLeftOutlined,
-  EditOutlined,
-  InfoCircleOutlined,
-  TeamOutlined,
-  DollarOutlined,
+  EditOutlined, DeleteOutlined, RocketOutlined, SaveOutlined, CloseOutlined,
+  InfoCircleOutlined, TeamOutlined, PaperClipOutlined, BarChartOutlined, PlusOutlined,
 } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { ResponsiveContent } from '@ck-shared/ui-components';
-import { usePMCase, useCrossModuleLookup, useAuthGuard, useProjectFinancialSummary, useExpenses } from '../hooks';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import dayjs from 'dayjs';
+import { usePMCase, useAuthGuard } from '../hooks';
+import { useClientOptions } from '../hooks/business/useDropdownData';
+import { vendorsApi } from '../api/vendorsApi';
+import { apiClient } from '../api/client';
 import { projectsApi } from '../api/projectsApi';
-import { PM_CASE_STATUS_LABELS, PM_CASE_STATUS_COLORS, PM_CATEGORY_LABELS } from '../types/api';
-import type { PMCaseStatus } from '../types/api';
+import { pmCasesApi } from '../api/pm/casesApi';
+import { PM_CATEGORY_LABELS } from '../types/api';
+import type { PMCaseUpdate } from '../types/api';
 import { ROUTES } from '../router/types';
 
-// Shared template (when contract_project exists)
 import { ContractCaseDetailContent } from './ContractCaseDetailPage';
+import { DetailPageLayout } from '../components/common/DetailPage/DetailPageLayout';
+import { createTabItem, getTagColor } from '../components/common/DetailPage/utils';
 
-// PM-specific tabs (always available)
-const MilestonesTab = lazy(() => import('./pmCase/MilestonesTab'));
-const GanttTab = lazy(() => import('./pmCase/GanttTab'));
+const MilestonesGanttTab = lazy(() => import('./pmCase/MilestonesGanttTab'));
 const PMStaffTab = lazy(() => import('./pmCase/StaffTab'));
+const QuotationRecordsTab = lazy(() => import('./pmCase/QuotationRecordsTab'));
+
+// 承攬狀態：是否承作 → 是=已承攬, 否=未承攬, 其他=評估中
+const STATUS_OPTIONS = [
+  { value: 'planning', label: '評估中', color: 'default' },
+  { value: 'in_progress', label: '已承攬', color: 'success' },
+  { value: 'completed', label: '未承攬', color: 'warning' },
+  { value: 'closed', label: '未得標', color: 'error' },
+];
+
+const CATEGORY_OPTIONS = Object.entries(PM_CATEGORY_LABELS).map(([k, v]) => ({ value: k, label: v }));
 
 export const PMCaseDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { hasPermission } = useAuthGuard();
+  const { message } = App.useApp();
+  const queryClient = useQueryClient();
   const pmCaseId = id ? parseInt(id, 10) : null;
 
   const { data: pmCase, isLoading: pmLoading } = usePMCase(pmCaseId);
+  const { clients } = useClientOptions();
+  const [newClientName, setNewClientName] = useState('');
+  const handleAddClient = async () => {
+    if (!newClientName.trim()) return;
+    try {
+      const created = await vendorsApi.createVendor({ vendor_name: newClientName.trim(), vendor_type: 'client' });
+      message.success(`委託單位「${newClientName}」已建立`);
+      setNewClientName('');
+      queryClient.invalidateQueries({ queryKey: ['clients-dropdown'] });
+      form.setFieldsValue({ client_vendor_id: created.id });
+    } catch { message.error('建立失敗'); }
+  };
 
-  // Find matching contract_project by case_code = project_code
+  // ── Inline 編輯 ──
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form] = Form.useForm();
+
+  useEffect(() => {
+    if (pmCase && !isEditing) {
+      form.setFieldsValue({
+        ...pmCase,
+        start_date: pmCase.start_date ? dayjs(pmCase.start_date) : null,
+        end_date: pmCase.end_date ? dayjs(pmCase.end_date) : null,
+      });
+    }
+  }, [pmCase, isEditing, form]);
+
+  const handleSave = async () => {
+    if (!pmCase) return;
+    try {
+      setSaving(true);
+      const values = await form.validateFields();
+      // 同步 client_name 冗餘欄位
+      const matchedClient = clients.find(c => c.id === values.client_vendor_id);
+      const payload: PMCaseUpdate = {
+        case_name: values.case_name,
+        category: values.category,
+        client_vendor_id: values.client_vendor_id,
+        client_name: matchedClient?.vendor_name,
+        contract_amount: values.contract_amount,
+        status: values.status,
+        location: values.location,
+        notes: values.notes,
+      };
+      await pmCasesApi.update(pmCase.id, payload);
+      message.success('儲存成功');
+      setIsEditing(false);
+      queryClient.invalidateQueries({ queryKey: ['pm-cases'] });
+    } catch {
+      message.error('儲存失敗');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    if (pmCase) {
+      form.setFieldsValue({
+        ...pmCase,
+        start_date: pmCase.start_date ? dayjs(pmCase.start_date) : null,
+        end_date: pmCase.end_date ? dayjs(pmCase.end_date) : null,
+      });
+    }
+  };
+
+  // Find matching contract_project
   const { data: matchedProject, isLoading: matchLoading } = useQuery({
     queryKey: ['contract-project-by-code', pmCase?.case_code],
     queryFn: async () => {
       const result = await projectsApi.getProjects({ search: pmCase!.case_code, limit: 5 });
-      return result.items?.find(p => p.project_code === pmCase!.case_code) ?? null;
+      return result.items?.find(p => p.project_code === pmCase!.case_code || p.case_code === pmCase!.case_code) ?? null;
     },
     enabled: !!pmCase?.case_code,
   });
 
-  // ERP cross-module
-  const { data: crossData } = useCrossModuleLookup(pmCase?.case_code ?? null);
-  const erpLink = crossData?.erp;
-
-  // ERP Financial Summary
-  const { data: financialData, isLoading: finLoading } = useProjectFinancialSummary(pmCase?.case_code);
-  const { data: expensesData } = useExpenses(pmCase?.case_code ? { case_code: pmCase.case_code, limit: 5, skip: 0 } : undefined);
-
-  if (pmLoading || matchLoading) {
-    return (
-      <ResponsiveContent>
-        <Spin size="large" style={{ display: 'block', margin: '100px auto' }} />
-      </ResponsiveContent>
-    );
+  // ── Route A ──
+  if (!pmLoading && !matchLoading && matchedProject?.id) {
+    return <ContractCaseDetailContent projectId={matchedProject.id} backRoute={ROUTES.PM_CASES} />;
   }
 
-  if (!pmCase) {
-    return (
-      <ResponsiveContent>
-        <Result status="404" title="案件不存在"
-          extra={<Button onClick={() => navigate(ROUTES.PM_CASES)}>返回列表</Button>}
-        />
-      </ResponsiveContent>
-    );
+  if (!pmCase && !pmLoading) {
+    return <DetailPageLayout header={{ title: '案件不存在', backPath: ROUTES.PM_CASES }} tabs={[]} hasData={false} />;
   }
 
-  // ── Route A: Has matching contract_project → full shared template ──
-  if (matchedProject?.id) {
-    return (
-      <ContractCaseDetailContent
-        projectId={matchedProject.id}
-        backRoute={ROUTES.PM_CASES}
-      />
-    );
-  }
+  // ── Route B: PM-only view ──
+  const statusTag = STATUS_OPTIONS.find(o => o.value === pmCase?.status);
+  const canWrite = hasPermission('projects:write');
 
-  // ── Route B: No contract_project → PM-only view with same layout ──
-  const statusColor = PM_CASE_STATUS_COLORS[pmCase.status as PMCaseStatus] ?? 'default';
-  const statusLabel = PM_CASE_STATUS_LABELS[pmCase.status as PMCaseStatus] ?? pmCase.status;
+  const headerConfig = {
+    title: pmCase?.case_name ?? '載入中...',
+    subtitle: pmCase?.case_code,
+    icon: <RocketOutlined />,
+    backPath: ROUTES.PM_CASES,
+    backText: '返回列表',
+    tags: [
+      ...(statusTag ? [{ text: statusTag.label, color: statusTag.color }] : []),
+      ...(pmCase?.project_code ? [{ text: `成案: ${pmCase.project_code}`, color: 'success' }] : []),
+    ],
+    extra: isEditing ? (
+      <>
+        <Button icon={<CloseOutlined />} onClick={handleCancel}>取消</Button>
+        <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={handleSave}>儲存</Button>
+      </>
+    ) : (
+      <>
+        {canWrite && (
+          <Button type="primary" icon={<EditOutlined />} onClick={() => setIsEditing(true)}>編輯</Button>
+        )}
+        {canWrite && !pmCase?.project_code && pmCase?.status === 'in_progress' && (
+          <Popconfirm
+            title="確認成案？"
+            description="將自動產生專案編號、建立承攬案件與 ERP 報價連結"
+            okText="確認成案" cancelText="取消"
+            onConfirm={async () => {
+              try {
+                const resp = await apiClient.post<{ success: boolean; data: { project_code: string } }>(
+                  '/pm/cases/promote', { case_code: pmCase!.case_code }
+                );
+                message.success(`成案成功，專案編號: ${resp.data.project_code}`);
+                queryClient.invalidateQueries({ queryKey: ['pm-cases'] });
+              } catch { message.error('成案失敗'); }
+            }}
+          >
+            <Button type="primary" style={{ background: '#52c41a', borderColor: '#52c41a' }} icon={<RocketOutlined />}>確認成案</Button>
+          </Popconfirm>
+        )}
+        {canWrite && (
+          <Popconfirm
+            title="確定要刪除此案件嗎？"
+            description="刪除後將無法復原"
+            okText="確定刪除" cancelText="取消"
+            okButtonProps={{ danger: true }}
+            onConfirm={async () => {
+              try {
+                await pmCasesApi.delete(pmCase!.id);
+                message.success('案件已刪除');
+                navigate(ROUTES.PM_CASES);
+              } catch { message.error('刪除失敗'); }
+            }}
+          >
+            <Button danger icon={<DeleteOutlined />}>刪除</Button>
+          </Popconfirm>
+        )}
+      </>
+    ),
+  };
 
-  const tabItems = [
-    {
-      key: 'info',
-      label: <span><InfoCircleOutlined /> 案件資訊</span>,
-      children: (
-        <Descriptions bordered column={{ xs: 1, sm: 2 }} size="small">
-          <Descriptions.Item label="案號">{pmCase.case_code}</Descriptions.Item>
-          <Descriptions.Item label="案名">{pmCase.case_name}</Descriptions.Item>
-          <Descriptions.Item label="年度">{pmCase.year ? `${pmCase.year} 年` : '-'}</Descriptions.Item>
-          <Descriptions.Item label="類別">{pmCase.category ? (PM_CATEGORY_LABELS[pmCase.category] ?? pmCase.category) : '-'}</Descriptions.Item>
-          <Descriptions.Item label="委託單位">{pmCase.client_name ?? '-'}</Descriptions.Item>
-          <Descriptions.Item label="合約金額">{pmCase.contract_amount ? `NT$${pmCase.contract_amount.toLocaleString()}` : '-'}</Descriptions.Item>
-          <Descriptions.Item label="狀態"><Tag color={statusColor}>{statusLabel}</Tag></Descriptions.Item>
-          <Descriptions.Item label="進度"><Progress percent={pmCase.progress} size="small" style={{ width: 150 }} /></Descriptions.Item>
-          <Descriptions.Item label="開始日期">{pmCase.start_date ?? '-'}</Descriptions.Item>
-          <Descriptions.Item label="結束日期">{pmCase.end_date ?? '-'}</Descriptions.Item>
-          <Descriptions.Item label="地點" span={2}>{pmCase.location ?? '-'}</Descriptions.Item>
-          <Descriptions.Item label="說明" span={2}>{pmCase.description ?? '-'}</Descriptions.Item>
-          <Descriptions.Item label="備註" span={2}>{pmCase.notes ?? '-'}</Descriptions.Item>
-        </Descriptions>
-      ),
-    },
-    {
-      key: 'staff',
-      label: <span><TeamOutlined /> 承辦同仁</span>,
-      children: (
-        <Suspense fallback={<Spin />}>
-          <PMStaffTab pmCaseId={pmCase.id} />
-        </Suspense>
-      ),
-    },
-    {
-      key: 'milestones',
-      label: '里程碑',
-      children: (
-        <Suspense fallback={<Spin />}>
-          <MilestonesTab pmCaseId={pmCase.id} />
-        </Suspense>
-      ),
-    },
-    {
-      key: 'gantt',
-      label: '甘特圖',
-      children: (
-        <Suspense fallback={<Spin />}>
-          <GanttTab pmCaseId={pmCase.id} />
-        </Suspense>
-      ),
-    },
-    {
-      key: 'erp',
-      label: <span><DollarOutlined /> ERP 財務</span>,
-      children: (
-        <Flex vertical gap={8} style={{ width: '100%' }}>
-          {/* 財務摘要 */}
-          {finLoading ? <Spin /> : financialData?.data ? (() => {
-            const fin = financialData.data;
-            const alertColor = fin.budget_alert === 'critical' ? '#ff4d4f' : fin.budget_alert === 'warning' ? '#faad14' : '#52c41a';
-            return (
-              <Card size="small" title="專案財務摘要"
-                extra={<Button size="small" onClick={() => navigate(`${ROUTES.ERP_EXPENSES}?case_code=${pmCase.case_code}`)}>查看費用明細</Button>}
-              >
-                <Row gutter={[16, 16]}>
-                  <Col xs={12} sm={6}><Statistic title="預算總額" value={fin.budget_total ?? 0} prefix="NT$" precision={0} /></Col>
-                  <Col xs={12} sm={6}><Statistic title="累計支出" value={fin.total_expense} prefix="NT$" precision={0} /></Col>
-                  <Col xs={12} sm={6}><Statistic title="累計收入" value={fin.total_income} prefix="NT$" precision={0} /></Col>
-                  <Col xs={12} sm={6}><Statistic title="淨額" value={fin.net_balance} prefix="NT$" precision={0} styles={{ content: { color: fin.net_balance >= 0 ? '#3f8600' : '#cf1322' } }} /></Col>
-                </Row>
-                <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-                  <Col xs={12} sm={6}><Statistic title="報銷筆數" value={fin.expense_invoice_count} suffix="筆" /></Col>
-                  <Col xs={12} sm={6}><Statistic title="報銷總額" value={fin.expense_invoice_total} prefix="NT$" precision={0} /></Col>
-                  <Col xs={12} sm={6}>
-                    <Statistic title="預算使用率" value={fin.budget_used_percentage ?? 0} suffix="%" precision={1}
-                      styles={{ content: { color: alertColor } }}
-                    />
-                  </Col>
-                  <Col xs={12} sm={6}>
-                    <Statistic title="預算狀態" value={fin.budget_alert === 'critical' ? '超支警告' : fin.budget_alert === 'warning' ? '接近上限' : '正常'} styles={{ content: { color: alertColor } }} />
-                  </Col>
-                </Row>
-                {fin.budget_used_percentage != null && (
-                  <Progress percent={Math.min(fin.budget_used_percentage, 100)} status={fin.budget_alert === 'critical' ? 'exception' : fin.budget_alert === 'warning' ? 'active' : 'normal'} style={{ marginTop: 12 }} />
-                )}
-              </Card>
-            );
-          })() : (
-            <Result status="info" title="尚無財務記錄" subTitle={`案號 ${pmCase.case_code} 目前無費用報銷或帳本記錄`} />
-          )}
-
-          {/* 關聯報價 */}
-          {erpLink && (
-            <Card size="small" title="關聯報價"
-              extra={<Button size="small" onClick={() => navigate(`/erp/quotations/${erpLink.id}`)}>查看詳情</Button>}
-            >
-              <Row gutter={[16, 16]}>
-                <Col xs={12} sm={6}><Statistic title="報價總價" value={Number(erpLink.total_price) || 0} prefix="NT$" /></Col>
-                <Col xs={12} sm={6}><Statistic title="毛利" value={Number(erpLink.gross_profit) || 0} prefix="NT$" /></Col>
-                <Col xs={12} sm={6}><Statistic title="狀態" value={erpLink.status === 'confirmed' ? '已確認' : erpLink.status === 'draft' ? '草稿' : '已結案'} /></Col>
-                <Col xs={12} sm={6}><Statistic title="案件名稱" value={erpLink.case_name} /></Col>
-              </Row>
-            </Card>
-          )}
-
-          {/* 最近費用 */}
-          {expensesData?.items && expensesData.items.length > 0 && (
-            <Card size="small" title={`最近費用 (共 ${expensesData.total ?? expensesData.items.length} 筆)`}
-              extra={<Button size="small" onClick={() => navigate(`${ROUTES.ERP_EXPENSES}?case_code=${pmCase.case_code}`)}>查看全部</Button>}
-            >
-              {expensesData.items.slice(0, 5).map((exp) => (
-                <div key={exp.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f0f0f0' }}>
-                  <span>{exp.inv_num} — {exp.category ?? '未分類'}</span>
-                  <Space>
-                    <span>NT${exp.amount?.toLocaleString()}</span>
-                    <Tag color={exp.status === 'verified' ? 'green' : exp.status === 'rejected' ? 'red' : 'blue'}>{exp.status}</Tag>
+  // ── 案件資訊 Tab：view / edit 雙模式 ──
+  // 欄位順序：年度、案號、專案名稱、委託單位、作業類別、報價金額、作業地點、承攬狀態、成案編號、備註
+  const infoTabContent = pmCase ? (
+    isEditing ? (
+      <Form form={form} layout="vertical" size="small">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
+          <Form.Item label="年度"><Input value={pmCase.year ? `${pmCase.year} 年` : '-'} disabled /></Form.Item>
+          <Form.Item label="案號"><Input value={pmCase.case_code} disabled /></Form.Item>
+          <Form.Item name="case_name" label="專案名稱" rules={[{ required: true }]}><Input /></Form.Item>
+          <Form.Item name="client_vendor_id" label="委託單位">
+            <Select showSearch allowClear placeholder="選擇或新增委託單位" optionFilterProp="label"
+              options={clients.map(c => ({ value: c.id, label: c.vendor_name }))}
+              dropdownRender={(menu) => (
+                <>
+                  {menu}
+                  <Divider style={{ margin: '8px 0' }} />
+                  <Space style={{ padding: '0 8px 4px' }}>
+                    <Input placeholder="新委託單位" value={newClientName}
+                      onChange={(e) => setNewClientName(e.target.value)}
+                      onKeyDown={(e) => e.stopPropagation()} size="small" />
+                    <Button type="link" icon={<PlusOutlined />} onClick={handleAddClient} size="small">新增</Button>
                   </Space>
-                </div>
-              ))}
-            </Card>
-          )}
-        </Flex>
-      ),
-    },
-  ];
+                </>
+              )}
+            />
+          </Form.Item>
+          <Form.Item name="category" label="作業類別"><Select options={CATEGORY_OPTIONS} allowClear /></Form.Item>
+          <Form.Item name="contract_amount" label="報價金額"><InputNumber style={{ width: '100%' }} min={0} /></Form.Item>
+          <Form.Item name="location" label="作業地點" style={{ gridColumn: 'span 2' }}><Input /></Form.Item>
+          <Form.Item name="status" label="承攬狀態">
+            <Select options={[
+              { value: 'planning', label: '評估中' },
+              { value: 'in_progress', label: '已承攬' },
+              { value: 'completed', label: '未承攬' },
+              { value: 'closed', label: '未得標' },
+            ]} />
+          </Form.Item>
+          <Form.Item label="成案編號"><Input value={pmCase.project_code ?? '未成案'} disabled /></Form.Item>
+          <Form.Item name="notes" label="備註" style={{ gridColumn: 'span 2' }}><Input.TextArea rows={2} /></Form.Item>
+        </div>
+      </Form>
+    ) : (
+      <Descriptions bordered column={{ xs: 1, sm: 2 }} size="small">
+        <Descriptions.Item label="年度">{pmCase.year ? `${pmCase.year} 年` : '-'}</Descriptions.Item>
+        <Descriptions.Item label="案號">{pmCase.case_code}</Descriptions.Item>
+        <Descriptions.Item label="專案名稱">{pmCase.case_name}</Descriptions.Item>
+        <Descriptions.Item label="委託單位">{pmCase.client_name || clients.find(c => c.id === pmCase.client_vendor_id)?.vendor_name || '-'}</Descriptions.Item>
+        <Descriptions.Item label="作業類別">{pmCase.category ? (PM_CATEGORY_LABELS[pmCase.category] ?? pmCase.category) : '-'}</Descriptions.Item>
+        <Descriptions.Item label="報價金額">{pmCase.contract_amount ? `NT$${pmCase.contract_amount.toLocaleString()}` : '-'}</Descriptions.Item>
+        <Descriptions.Item label="作業地點" span={2}>{pmCase.location ?? '-'}</Descriptions.Item>
+        <Descriptions.Item label="承攬狀態">
+          <Tag color={getTagColor(pmCase.status, STATUS_OPTIONS)}>
+            {STATUS_OPTIONS.find(o => o.value === pmCase.status)?.label ?? '評估中'}
+          </Tag>
+        </Descriptions.Item>
+        <Descriptions.Item label="成案編號">{pmCase.project_code ?? <Typography.Text type="secondary">未成案</Typography.Text>}</Descriptions.Item>
+        <Descriptions.Item label="備註" span={2}>{pmCase.notes ?? '-'}</Descriptions.Item>
+      </Descriptions>
+    )
+  ) : null;
+
+  const tabs = pmCase ? [
+    createTabItem('info', { icon: <InfoCircleOutlined />, text: '案件資訊' }, infoTabContent),
+    createTabItem('staff', { icon: <TeamOutlined />, text: '承辦同仁' }, (
+      <Suspense fallback={<Spin />}><PMStaffTab caseCode={pmCase.case_code} /></Suspense>
+    )),
+    createTabItem('quotations', { icon: <PaperClipOutlined />, text: '報價紀錄' }, (
+      <Suspense fallback={<Spin />}><QuotationRecordsTab caseCode={pmCase.case_code} isEditing={isEditing} /></Suspense>
+    )),
+    createTabItem('milestones', { icon: <BarChartOutlined />, text: '里程碑/甘特圖' }, (
+      <Suspense fallback={<Spin />}><MilestonesGanttTab pmCaseId={pmCase.id} /></Suspense>
+    )),
+  ] : [];
 
   return (
-    <ResponsiveContent>
-      <Flex vertical gap={8} style={{ width: '100%' }}>
-        <Row justify="space-between" align="middle">
-          <Col>
-            <Space>
-              <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(ROUTES.PM_CASES)}>返回</Button>
-              <Typography.Title level={4} style={{ margin: 0 }}>{pmCase.case_name}</Typography.Title>
-              <Tag color={statusColor}>{statusLabel}</Tag>
-            </Space>
-          </Col>
-          <Col>
-            {hasPermission('projects:write') && (
-              <Button type="primary" icon={<EditOutlined />}
-                onClick={() => navigate(ROUTES.PM_CASE_EDIT.replace(':id', String(pmCase.id)))}
-              >編輯</Button>
-            )}
-          </Col>
-        </Row>
-        <Card>
-          <Tabs items={tabItems} size="large" />
-        </Card>
-      </Flex>
-    </ResponsiveContent>
+    <DetailPageLayout
+      header={headerConfig}
+      tabs={tabs}
+      loading={pmLoading || matchLoading}
+      hasData={!!pmCase}
+    />
   );
 };
 

@@ -651,6 +651,7 @@ export interface KGPathNode {
   id: number;
   name: string;
   type: string;
+  source_project?: string;
 }
 
 export interface KGShortestPathResponse {
@@ -659,6 +660,8 @@ export interface KGShortestPathResponse {
   depth: number;
   path: KGPathNode[];
   relations: string[];
+  source_projects_traversed?: string[];
+  is_cross_project?: boolean;
 }
 
 export interface KGEntityDetailRequest {
@@ -749,6 +752,31 @@ export interface KGGraphStatsResponse {
   total_relationships: number;
   total_ingestion_events: number;
   entity_type_distribution: Record<string, number>;
+  source_project_distribution?: Record<string, number>;
+  entities_with_embedding?: number;
+  embedding_coverage_percent?: number;
+  entities_without_embedding?: number;
+  embedding_backfill_needed?: boolean;
+}
+
+export interface KGFederationProjectHealth {
+  source_project: string;
+  entity_count: number;
+  last_updated: string | null;
+}
+
+export interface KGFederationEmbeddingCoverage {
+  total: number;
+  with_embedding: number;
+  coverage_pct: number;
+}
+
+export interface KGFederationHealthResponse {
+  success: boolean;
+  projects: KGFederationProjectHealth[];
+  cross_project_relations: number;
+  total_projects: number;
+  embedding_coverage?: Record<string, KGFederationEmbeddingCoverage>;
 }
 
 export interface KGIngestRequest {
@@ -782,6 +810,33 @@ export interface KGMergeEntitiesResponse {
   success: boolean;
   message: string;
   entity_id: number;
+}
+
+// ============================================================================
+// 跨圖譜統一搜尋
+// ============================================================================
+
+export interface UnifiedGraphSearchRequest {
+  query: string;
+  include_kg?: boolean;
+  include_code?: boolean;
+  include_db?: boolean;
+  limit_per_graph?: number;
+}
+
+export interface UnifiedGraphResult {
+  source: string;
+  entity_type: string;
+  name: string;
+  description: string;
+  relevance: number;
+}
+
+export interface UnifiedGraphSearchResponse {
+  success: boolean;
+  results: UnifiedGraphResult[];
+  total: number;
+  sources_queried: string[];
 }
 
 // ============================================================================

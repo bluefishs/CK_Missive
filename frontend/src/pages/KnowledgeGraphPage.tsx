@@ -16,9 +16,6 @@ import {
 
 import { aiApi } from '../api/aiApi';
 import type {
-  EmbeddingStatsResponse,
-  EntityStatsResponse,
-  KGGraphStatsResponse,
   KGEntityItem,
   KGShortestPathResponse,
 } from '../types/ai';
@@ -26,6 +23,7 @@ import { KnowledgeGraph } from '../components/ai/KnowledgeGraph';
 import type { ExternalGraphData } from '../components/ai/KnowledgeGraph';
 import { RAGChatPanel } from '../components/ai/RAGChatPanel';
 import { GraphAgentBridgeProvider } from '../components/ai/knowledgeGraph/GraphAgentBridge';
+import { ErrorBoundary } from '../components/common/ErrorBoundary';
 import { getMergedNodeConfig } from '../config/graphNodeConfig';
 import type { ColorByMode } from '../components/ai/knowledgeGraph/useGraphTransform';
 import { useAuthGuard } from '../hooks/utility/useAuthGuard';
@@ -34,11 +32,7 @@ import MergeEntitiesModal from './knowledgeGraph/MergeEntitiesModal';
 
 const { Text } = Typography;
 
-interface CoverageStats {
-  embedding: EmbeddingStatsResponse | null;
-  entity: EntityStatsResponse | null;
-  graph: KGGraphStatsResponse | null;
-}
+import type { CoverageStats } from './knowledgeGraph/CoveragePanel';
 
 const KnowledgeGraphPage: React.FC = () => {
   const { message } = App.useApp();
@@ -58,6 +52,7 @@ const KnowledgeGraphPage: React.FC = () => {
 
   const [collapseAgency, setCollapseAgency] = useState(true);
   const [colorBy, setColorBy] = useState<ColorByMode>('type');
+  const [visibleSourceProjects, setVisibleSourceProjects] = useState<Set<string>>(new Set());
 
   const queryClient = useQueryClient();
 
@@ -162,25 +157,40 @@ const KnowledgeGraphPage: React.FC = () => {
     }, 300);
   }, []);
 
-  const findPathMutation = useMutation({
-    mutationFn: (params: { source_id: number; target_id: number }) =>
-      aiApi.findShortestPath(params),
-    onSuccess: (result) => {
-      setPathResult(result);
-      if (!result?.found) {
+  const [pathTrigger, setPathTrigger] = useState(0);
+  const pathQueryEnabled = !!(pathSourceId && pathTargetId && pathTrigger > 0);
+
+  const findPathQuery = useQuery({
+    queryKey: ['kg-cross-domain-path', pathSourceId, pathTargetId],
+    queryFn: () => aiApi.findCrossDomainPath({
+      source_id: pathSourceId!,
+      target_id: pathTargetId!,
+    }),
+    enabled: pathQueryEnabled,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (findPathQuery.data) {
+      setPathResult(findPathQuery.data);
+      if (!findPathQuery.data.found) {
         message.info('未找到兩實體間的路徑');
       }
-    },
-    onError: () => {
+    }
+  }, [findPathQuery.data, message]);
+
+  useEffect(() => {
+    if (findPathQuery.error) {
       message.error('路徑查詢失敗');
-    },
-  });
+    }
+  }, [findPathQuery.error, message]);
 
   const handleFindPath = useCallback(() => {
     if (!pathSourceId || !pathTargetId) return;
     setPathResult(null);
-    findPathMutation.mutate({ source_id: pathSourceId, target_id: pathTargetId });
-  }, [pathSourceId, pathTargetId, findPathMutation]);
+    setPathTrigger((t) => t + 1);
+  }, [pathSourceId, pathTargetId]);
 
   const mergeMutation = useMutation({
     mutationFn: (params: { keep_id: number; merge_id: number }) =>
@@ -218,6 +228,7 @@ const KnowledgeGraphPage: React.FC = () => {
   }, []);
 
   const graphTypeDistribution = coverageStats.graph?.entity_type_distribution;
+  const sourceProjectDistribution = coverageStats.graph?.source_project_distribution;
 
   return (
     <GraphAgentBridgeProvider>
@@ -236,6 +247,7 @@ const KnowledgeGraphPage: React.FC = () => {
         withoutExtraction={coverageStats.entity?.without_extraction ?? 1}
         onOpenMergeModal={() => setMergeModalOpen(true)}
         graphTypeDistribution={graphTypeDistribution}
+        sourceProjectDistribution={sourceProjectDistribution}
         topEntities={topEntities}
         pathSourceId={pathSourceId}
         pathTargetId={pathTargetId}
@@ -245,20 +257,25 @@ const KnowledgeGraphPage: React.FC = () => {
         onTargetChange={handleTargetChange}
         onEntitySearch={handleEntitySearch}
         onFindPath={handleFindPath}
-        findPathLoading={findPathMutation.isPending}
+        findPathLoading={findPathQuery.isFetching}
         colorBy={colorBy}
         onColorByChange={setColorBy}
+        visibleSourceProjects={visibleSourceProjects}
+        onVisibleSourceProjectsChange={setVisibleSourceProjects}
       />
 
       <div ref={graphContainerRef} style={{ flex: 1, minWidth: 0, overflow: 'hidden', background: '#fafafa' }}>
-        <KnowledgeGraph
-          documentIds={emptyDocumentIds}
-          externalGraphData={entityGraphData ?? undefined}
-          onExternalRefresh={() => refetchEntityGraph()}
-          height={typeof window !== 'undefined' ? window.innerHeight - 120 : 700}
-          width={graphWidth || undefined}
-          colorBy={colorBy}
-        />
+        <ErrorBoundary>
+          <KnowledgeGraph
+            documentIds={emptyDocumentIds}
+            externalGraphData={entityGraphData ?? undefined}
+            onExternalRefresh={() => refetchEntityGraph()}
+            height={typeof window !== 'undefined' ? window.innerHeight - 120 : 700}
+            width={graphWidth || undefined}
+            colorBy={colorBy}
+            visibleSourceProjects={visibleSourceProjects}
+          />
+        </ErrorBoundary>
       </div>
 
       {chatPanelOpen && (

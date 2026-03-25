@@ -31,6 +31,7 @@ interface UseGraphTransformParams {
   viewMode: 'entity' | 'full';
   effectiveGetNodeConfig: (type: string) => GraphNodeTypeConfig;
   colorBy?: ColorByMode;
+  visibleSourceProjects?: Set<string>;
 }
 
 interface UseGraphTransformReturn {
@@ -47,6 +48,7 @@ export function useGraphTransform({
   viewMode,
   effectiveGetNodeConfig,
   colorBy = 'type',
+  visibleSourceProjects,
 }: UseGraphTransformParams): UseGraphTransformReturn {
   // 轉換為 force-graph 格式
   const graphData = useMemo((): GraphData => {
@@ -56,6 +58,10 @@ export function useGraphTransform({
       if (!visibleTypes.has(n.type)) return false;
       const cfg = mergedConfigs[n.type];
       if (cfg && !cfg.visible) return false;
+      if (visibleSourceProjects && visibleSourceProjects.size > 0) {
+        const proj = n.source_project ?? 'ck-missive';
+        if (!visibleSourceProjects.has(proj)) return false;
+      }
       return true;
     });
     const typeFilteredIds = new Set(typeFiltered.map((n) => n.id));
@@ -99,7 +105,7 @@ export function useGraphTransform({
 
     return { nodes, links };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rawNodes, rawEdges, visibleTypes, mergedConfigs, viewMode, colorBy]);
+  }, [rawNodes, rawEdges, visibleTypes, mergedConfigs, viewMode, colorBy, visibleSourceProjects]);
 
   // 鄰居 lookup
   const neighborMap = useMemo(() => {

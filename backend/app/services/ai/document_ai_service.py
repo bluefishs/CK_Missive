@@ -18,29 +18,20 @@ Updated: 2026-02-11 - 拆分為 4 模組：PromptManager/IntentParser/Features/S
 - 自然語言公文搜尋
 """
 
-import asyncio
 import logging
-import time
-from datetime import datetime
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .ai_config import get_ai_config
 from .ai_prompt_manager import AIPromptManager
 from .base_ai_service import BaseAIService
 from .search_intent_parser import SearchIntentParser
-from .document_search_helpers import resolve_search_entities
-from .synonym_expander import SynonymExpander
 from app.schemas.ai.search import (
     ClassificationResponse,
     KeywordsValidationResponse,
     NaturalSearchRequest,
-    AttachmentInfo,
-    DocumentSearchResult,
     NaturalSearchResponse,
-    MatchedEntity,
 )
 
 logger = logging.getLogger(__name__)
@@ -351,7 +342,7 @@ class DocumentAIService(BaseAIService):
         return await self._intent_parser.parse_search_intent(query, db)
 
     # ========================================================================
-    # 自然語言搜尋
+    # 自然語言搜尋 (委託至 document_natural_search 模組)
     # ========================================================================
 
     async def natural_search(
@@ -361,265 +352,8 @@ class DocumentAIService(BaseAIService):
         current_user: Optional[Any] = None,
     ) -> NaturalSearchResponse:
         """執行自然語言公文搜尋（含韌性降級）"""
-        from app.extended.models import DocumentAttachment, ContractProject
-        from app.repositories.query_builders.document_query_builder import DocumentQueryBuilder
-
-        start_time = time.monotonic()
-
-        # 1. 解析搜尋意圖（含超時保護和降級）
-        try:
-            parsed_intent, source = await asyncio.wait_for(
-                self.parse_search_intent(request.query, db=db),
-                timeout=10.0,  # 意圖解析最多 10 秒
-            )
-        except asyncio.TimeoutError:
-            logger.warning(f"意圖解析超時 (>10s)，降級為關鍵字搜尋: {request.query}")
-            from app.schemas.ai.search import ParsedSearchIntent as PSI
-            parsed_intent = PSI(keywords=[request.query], confidence=0.3)
-            source = "rule_engine"
-        except Exception as e:
-            logger.warning(f"意圖解析失敗，降級為關鍵字搜尋: {e}")
-            from app.schemas.ai.search import ParsedSearchIntent as PSI
-            parsed_intent = PSI(keywords=[request.query], confidence=0.3)
-            source = "rule_engine"
-
-        # 1.5 知識圖譜實體擴展（非阻塞：失敗時降級為原始關鍵字）
-        entity_expanded = False
-        expanded_keywords_list: Optional[List[str]] = None
-        search_keywords = parsed_intent.keywords  # 預設使用原始關鍵字
-
-        if parsed_intent.keywords:
-            try:
-                from app.services.ai.search_entity_expander import (
-                    expand_search_terms,
-                    flatten_expansions,
-                )
-                expansions = await expand_search_terms(db, parsed_intent.keywords)
-                flattened = flatten_expansions(expansions)
-                if len(flattened) > len(parsed_intent.keywords):
-                    entity_expanded = True
-                    expanded_keywords_list = flattened
-                    search_keywords = flattened
-                    logger.info(
-                        f"實體擴展: {parsed_intent.keywords} → {flattened}"
-                    )
-            except Exception as e:
-                logger.debug(f"實體擴展跳過: {e}")
-
-        # 2. QueryBuilder 建構查詢
-        qb = DocumentQueryBuilder(db)
-
-        if search_keywords:
-            # 使用擴展後的關鍵字（或原始關鍵字）
-            qb = qb.with_keywords_full(search_keywords)
-            logger.debug(f"AI 搜尋關鍵字: {search_keywords}")
-        if parsed_intent.doc_type:
-            qb = qb.with_doc_type(parsed_intent.doc_type)
-        if parsed_intent.category:
-            qb = qb.with_category(parsed_intent.category)
-        if parsed_intent.sender:
-            qb = qb.with_sender_like(parsed_intent.sender)
-        if parsed_intent.receiver:
-            qb = qb.with_receiver_like(parsed_intent.receiver)
-
-        # 日期範圍
-        date_from_val, date_to_val = None, None
-        if parsed_intent.date_from:
-            try:
-                date_from_val = datetime.strptime(parsed_intent.date_from, "%Y-%m-%d").date()
-            except ValueError:
-                logger.warning(f"AI 搜尋：無效的起始日期格式 '{parsed_intent.date_from}'")
-        if parsed_intent.date_to:
-            try:
-                date_to_val = datetime.strptime(parsed_intent.date_to, "%Y-%m-%d").date()
-            except ValueError:
-                logger.warning(f"AI 搜尋：無效的結束日期格式 '{parsed_intent.date_to}'")
-        if date_from_val or date_to_val:
-            qb = qb.with_date_range(date_from_val, date_to_val)
-
-        if parsed_intent.status:
-            qb = qb.with_status(parsed_intent.status)
-        if parsed_intent.contract_case:
-            qb = qb.with_contract_case(parsed_intent.contract_case)
-        if parsed_intent.related_entity == "dispatch_order":
-            qb = qb.with_dispatch_linked()
-            logger.info("AI 搜尋：啟用派工單關聯過濾")
-
-        # 權限過濾 (RLS)
-        if current_user:
-            is_admin = getattr(current_user, 'role', None) == 'admin'
-            if not is_admin:
-                user_name = getattr(current_user, 'full_name', None) or getattr(current_user, 'username', '')
-                if user_name:
-                    qb = qb.with_assignee_access(user_name)
-
-        # 排序策略
-        query_embedding = None
-        if parsed_intent.keywords:
-            relevance_text = " ".join(parsed_intent.keywords)
-            try:
-                from app.services.ai.embedding_manager import EmbeddingManager
-                query_embedding = await EmbeddingManager.get_embedding(
-                    request.query, self.connector,
-                )
-            except Exception as e:
-                logger.warning(f"查詢 embedding 生成失敗，降級為 trigram 搜尋: {e}")
-
-            if query_embedding:
-                qb = qb.with_relevance_order(relevance_text)
-                qb = qb.with_semantic_search(query_embedding, weight=get_ai_config().hybrid_semantic_weight)
-            else:
-                qb = qb.with_relevance_order(relevance_text)
-        else:
-            qb = qb.order_by("updated_at", descending=True)
-
-        if request.offset > 0:
-            qb = qb.offset(request.offset)
-        qb = qb.limit(request.max_results)
-
-        # 3. 執行查詢（超時保護：最多 20 秒）
-        try:
-            documents, total_count = await asyncio.wait_for(
-                qb.execute_with_count(),
-                timeout=get_ai_config().search_query_timeout,
-            )
-        except asyncio.TimeoutError:
-            logger.error(f"搜尋查詢超時 (>20s): {request.query}")
-            return NaturalSearchResponse(
-                success=False,
-                query=request.query,
-                parsed_intent=parsed_intent,
-                results=[],
-                total=0,
-                source=source,
-                search_strategy="keyword",
-                synonym_expanded=False,
-                error="搜尋查詢超時，請縮小搜尋範圍或使用更具體的關鍵字",
-            )
-
-        # 4. 並行取得附件與專案
-        doc_ids = [doc.id for doc in documents]
-        project_ids = list({doc.contract_project_id for doc in documents if doc.contract_project_id})
-
-        async def fetch_attachments():
-            att_map = {doc_id: [] for doc_id in doc_ids}
-            if not (request.include_attachments and doc_ids):
-                return att_map
-            att_query = (
-                select(DocumentAttachment)
-                .where(DocumentAttachment.document_id.in_(doc_ids))
-                .order_by(DocumentAttachment.created_at)
-            )
-            att_result = await db.execute(att_query)
-            for att in att_result.scalars().all():
-                if att.document_id in att_map:
-                    att_map[att.document_id].append(AttachmentInfo(
-                        id=att.id, file_name=att.file_name,
-                        original_name=att.original_name, file_size=att.file_size,
-                        mime_type=att.mime_type, created_at=att.created_at,
-                    ))
-            return att_map
-
-        async def fetch_projects():
-            proj_map = {}
-            if not project_ids:
-                return proj_map
-            proj_query = select(ContractProject).where(ContractProject.id.in_(project_ids))
-            proj_result = await db.execute(proj_query)
-            for proj in proj_result.scalars().all():
-                proj_map[proj.id] = proj.project_name
-            return proj_map
-
-        # 循序執行（AsyncSession 不支援同 session gather 並行）
-        attachment_map = await fetch_attachments()
-        project_map = await fetch_projects()
-
-        # 5. 組裝結果
-        search_results = []
-        for doc in documents:
-            doc_attachments = attachment_map.get(doc.id, [])
-            search_results.append(DocumentSearchResult(
-                id=doc.id, auto_serial=doc.auto_serial,
-                doc_number=doc.doc_number, subject=doc.subject,
-                doc_type=doc.doc_type, category=doc.category,
-                sender=doc.sender, receiver=doc.receiver,
-                doc_date=doc.doc_date, status=doc.status,
-                contract_project_name=project_map.get(doc.contract_project_id) if doc.contract_project_id else None,
-                ck_note=doc.ck_note, attachment_count=len(doc_attachments),
-                attachments=doc_attachments,
-                created_at=doc.created_at, updated_at=doc.updated_at,
-            ))
-
-        search_strategy = "keyword"
-        if parsed_intent.keywords and parsed_intent.confidence > 0:
-            search_strategy = "hybrid" if query_embedding else "similarity"
-
-        synonym_expanded = bool(
-            parsed_intent.keywords and len(parsed_intent.keywords) > 0
-            and SynonymExpander.get_lookup()
-        )
-
-        # 6. 解析搜尋中涉及的正規化實體（橋接圖譜）
-        matched_entities: List[MatchedEntity] = []
-        try:
-            matched_entities = await resolve_search_entities(
-                db, parsed_intent, search_results,
-            )
-        except Exception as e:
-            logger.debug(f"正規化實體解析跳過: {e}")
-
-        # 寫入搜尋歷史（非阻塞，失敗不影響搜尋結果）
-        history_id = None
-        try:
-            from app.extended.models import AISearchHistory
-            latency_ms = int((time.monotonic() - start_time) * 1000)
-            history = AISearchHistory(
-                user_id=getattr(current_user, 'id', None) if current_user else None,
-                query=request.query,
-                parsed_intent=parsed_intent.model_dump(exclude_none=True),
-                results_count=total_count,
-                search_strategy=search_strategy,
-                source=source,
-                synonym_expanded=synonym_expanded,
-                related_entity=parsed_intent.related_entity,
-                latency_ms=latency_ms,
-                confidence=parsed_intent.confidence,
-            )
-            if (isinstance(query_embedding, list)
-                    and len(query_embedding) > 0
-                    and hasattr(AISearchHistory, 'query_embedding')):
-                history.query_embedding = query_embedding
-            db.add(history)
-            await asyncio.wait_for(db.commit(), timeout=5.0)
-            await db.refresh(history)
-            history_id = history.id
-        except asyncio.TimeoutError:
-            logger.warning("搜尋歷史寫入超時 (>5s)，跳過")
-            try:
-                await db.rollback()
-            except Exception:
-                pass
-        except Exception as e:
-            logger.warning(f"搜尋歷史寫入失敗: {e}")
-            try:
-                await db.rollback()
-            except Exception:
-                pass
-
-        return NaturalSearchResponse(
-            success=True,
-            query=request.query,
-            parsed_intent=parsed_intent,
-            results=search_results,
-            total=total_count,
-            source=source,
-            search_strategy=search_strategy,
-            synonym_expanded=synonym_expanded,
-            entity_expanded=entity_expanded,
-            expanded_keywords=expanded_keywords_list,
-            history_id=history_id,
-            matched_entities=matched_entities,
-        )
+        from .document_natural_search import execute_natural_search
+        return await execute_natural_search(self, db, request, current_user)
 
 
 

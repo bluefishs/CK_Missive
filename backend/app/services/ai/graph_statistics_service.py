@@ -145,6 +145,82 @@ class GraphStatisticsService:
             logger.error(f"get_top_entities failed: {e}")
             return []
 
+    async def get_federation_health(self) -> dict:
+        """跨專案 KG 聯邦同步健康指標（30 分鐘快取）"""
+        try:
+            cache_key = "stats:federation_health"
+            cached = await _graph_cache.get(cache_key)
+            if cached:
+                return json.loads(cached)
+
+            # 各 source_project 的實體數量
+            dist_result = await self.db.execute(
+                select(
+                    sa_func.coalesce(
+                        CanonicalEntity.source_project, "ck-missive"
+                    ).label("project"),
+                    sa_func.count().label("count"),
+                    sa_func.max(CanonicalEntity.updated_at).label("last_updated"),
+                )
+                .where(CanonicalEntity.entity_type.notin_(_CODE_ENTITY_TYPES))
+                .group_by(
+                    sa_func.coalesce(CanonicalEntity.source_project, "ck-missive")
+                )
+            )
+            projects = []
+            for row in dist_result.all():
+                projects.append({
+                    "source_project": row.project,
+                    "entity_count": row.count,
+                    "last_updated": str(row.last_updated) if row.last_updated else None,
+                })
+
+            # 跨專案關係數量
+            cross_project_rels = await self.db.scalar(
+                select(sa_func.count()).select_from(EntityRelationship)
+                .where(
+                    EntityRelationship.invalidated_at.is_(None),
+                    EntityRelationship.source_project.isnot(None),
+                    EntityRelationship.source_project != "ck-missive",
+                )
+            ) or 0
+
+            # Embedding 覆蓋率 (per source_project)
+            embedding_coverage = {}
+            if hasattr(CanonicalEntity, "embedding"):
+                emb_result = await self.db.execute(
+                    select(
+                        sa_func.coalesce(
+                            CanonicalEntity.source_project, "ck-missive"
+                        ).label("project"),
+                        sa_func.count().label("total"),
+                        sa_func.count(CanonicalEntity.embedding).label("with_embedding"),
+                    )
+                    .where(CanonicalEntity.entity_type.notin_(_CODE_ENTITY_TYPES))
+                    .group_by(
+                        sa_func.coalesce(CanonicalEntity.source_project, "ck-missive")
+                    )
+                )
+                for row in emb_result.all():
+                    pct = round(row.with_embedding / row.total * 100, 1) if row.total else 0
+                    embedding_coverage[row.project] = {
+                        "total": row.total,
+                        "with_embedding": row.with_embedding,
+                        "coverage_pct": pct,
+                    }
+
+            result = {
+                "projects": projects,
+                "cross_project_relations": cross_project_rels,
+                "total_projects": len(projects),
+                "embedding_coverage": embedding_coverage,
+            }
+            await _graph_cache.set(cache_key, json.dumps(result, default=str), ex=1800)
+            return result
+        except Exception as e:
+            logger.error(f"get_federation_health failed: {e}")
+            return {"projects": [], "cross_project_relations": 0, "total_projects": 0}
+
     async def get_graph_stats(self) -> dict:
         """圖譜統計，帶 Redis 快取（TTL 30 分鐘）"""
         try:

@@ -132,21 +132,9 @@ class LinePushScheduler:
         若欄位不存在，回傳空列表。
         """
         try:
-            from sqlalchemy import select, text
-            from app.extended.models.core import User
-
-            # 檢查 line_user_id 欄位是否存在
-            if not hasattr(User, "line_user_id"):
-                return []
-
-            result = await self.db.execute(
-                select(User.line_user_id).where(
-                    User.line_user_id.isnot(None),
-                    User.line_user_id != "",
-                )
-            )
-            return [row[0] for row in result.all()]
-
+            from app.repositories.user_repository import UserRepository
+            user_repo = UserRepository(self.db)
+            return await user_repo.get_line_user_ids()
         except Exception as e:
             logger.debug("Failed to get push targets: %s", e)
             return []

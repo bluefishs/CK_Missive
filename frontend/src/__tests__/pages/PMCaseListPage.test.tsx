@@ -91,6 +91,7 @@ vi.mock('../../hooks', () => ({
   usePMCaseSummary: (..._args: unknown[]) => mockUsePMCaseSummary(),
   useDeletePMCase: () => mockUseDeletePMCase(),
   usePMYearlyTrend: () => ({ data: [], isLoading: false }),
+  useAllProjectsSummary: () => ({ data: null, isLoading: false }),
 }));
 
 // ==========================================================================
@@ -135,21 +136,21 @@ describe('PMCaseListPage', () => {
   it('renders the page title', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('PM 專案管理')).toBeInTheDocument();
+      expect(screen.getByText('邀標/報價管理')).toBeInTheDocument();
     }, WAIT_OPTS);
   });
 
   it('renders create button', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('新增案件')).toBeInTheDocument();
+      expect(screen.getByText('新增邀標')).toBeInTheDocument();
     }, WAIT_OPTS);
   });
 
   it('renders summary cards with total cases', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('總案件數')).toBeInTheDocument();
+      expect(screen.getByText('邀標總數')).toBeInTheDocument();
       expect(screen.getByText('15')).toBeInTheDocument();
     }, WAIT_OPTS);
   });
@@ -157,7 +158,7 @@ describe('PMCaseListPage', () => {
   it('renders summary cards with total contract amount', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('合約總額')).toBeInTheDocument();
+      expect(screen.getByText('報價總額')).toBeInTheDocument();
     }, WAIT_OPTS);
   });
 
@@ -169,7 +170,7 @@ describe('PMCaseListPage', () => {
     });
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('PM 專案管理')).toBeInTheDocument();
+      expect(screen.getByText('邀標/報價管理')).toBeInTheDocument();
     }, WAIT_OPTS);
   });
 
@@ -177,9 +178,9 @@ describe('PMCaseListPage', () => {
     mockUsePMCaseSummary.mockReturnValueOnce({ data: null });
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('PM 專案管理')).toBeInTheDocument();
+      expect(screen.getByText('邀標/報價管理')).toBeInTheDocument();
     }, WAIT_OPTS);
-    expect(screen.queryByText('總案件數')).not.toBeInTheDocument();
+    expect(screen.queryByText('邀標總數')).not.toBeInTheDocument();
   });
 
   it('renders search input with placeholder', async () => {
@@ -199,9 +200,9 @@ describe('PMCaseListPage', () => {
   it('navigates to create page when create button is clicked', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('新增案件')).toBeInTheDocument();
+      expect(screen.getByText('新增邀標')).toBeInTheDocument();
     }, WAIT_OPTS);
-    fireEvent.click(screen.getByText('新增案件'));
+    fireEvent.click(screen.getByText('新增邀標'));
     expect(mockNavigate).toHaveBeenCalledWith('/pm/cases/create');
   });
 

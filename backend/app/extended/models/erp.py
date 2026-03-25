@@ -21,7 +21,9 @@ class ERPQuotation(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     case_code = Column(String(50), nullable=False, index=True,
-                       comment="案號 (軟參照 pm_cases.case_code)")
+                       comment="建案案號 (軟參照 pm_cases.case_code)")
+    project_code = Column(String(100), nullable=True, index=True,
+                          comment="成案專案編號 (成案後同步，對應 contract_projects.project_code)")
     case_name = Column(String(500), comment="案名 (冗餘，獨立顯示用)")
     year = Column(Integer, index=True, comment="年度 (民國)")
 

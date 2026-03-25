@@ -14,9 +14,10 @@ Created: 2026-03-22
 
 import json
 import logging
+import re
 import time
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from starlette.responses import StreamingResponse
 
 from app.core.dependencies import require_auth
@@ -31,6 +32,16 @@ from app.schemas.ai.digital_twin import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+_JOB_ID_RE = re.compile(r'^[a-zA-Z0-9_-]{1,64}$')
+
+
+def _validate_job_id(job_id: str) -> str:
+    """驗證 job_id 格式，防止路徑穿越攻擊"""
+    if not _JOB_ID_RE.match(job_id):
+        raise HTTPException(status_code=400, detail="Invalid job_id format")
+    return job_id
 
 
 def _sse_event(data: dict) -> str:
@@ -176,6 +187,7 @@ async def approve_task(
 
     Human Approval Gate (V-2.1): 允許前端使用者核准敏感操作。
     """
+    _validate_job_id(job_id)
     return await _proxy_task_action(
         job_id,
         "approve",
@@ -194,6 +206,7 @@ async def reject_task(
 
     Human Approval Gate (V-2.1): 允許前端使用者拒絕敏感操作。
     """
+    _validate_job_id(job_id)
     return await _proxy_task_action(
         job_id,
         "reject",
@@ -210,12 +223,13 @@ async def get_task_status(
     _current_user: User = Depends(require_auth()),
 ):
     """代理查詢任務狀態 — 轉發至 OpenClaw GET /tasks/{job_id}"""
+    _validate_job_id(job_id)
     import os
 
     try:
         import httpx
     except ImportError:
-        return {"success": False, "error": "httpx not installed"}
+        return {"success": False, "error": "後端缺少必要套件"}
 
     gateway_url = os.getenv("NEMOCLAW_GATEWAY_URL", "http://nemoclaw_tower:9000")
     token = os.getenv("MCP_SERVICE_TOKEN", "")
@@ -230,10 +244,12 @@ async def get_task_status(
                 f"{gateway_url.rstrip('/')}/tasks/{job_id}",
                 headers=headers,
             )
+            if resp.status_code >= 400:
+                return {"success": False, "error": f"上游服務回應 HTTP {resp.status_code}"}
             return resp.json()
     except Exception as e:
         logger.error("Task status proxy error: %s", e)
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": "任務狀態查詢失敗"}
 
 
 async def _proxy_task_action(
@@ -245,7 +261,7 @@ async def _proxy_task_action(
     try:
         import httpx
     except ImportError:
-        return {"success": False, "error": "httpx not installed"}
+        return {"success": False, "error": "後端缺少必要套件"}
 
     gateway_url = os.getenv("NEMOCLAW_GATEWAY_URL", "http://nemoclaw_tower:9000")
     token = os.getenv("MCP_SERVICE_TOKEN", "")
@@ -261,10 +277,12 @@ async def _proxy_task_action(
                 json=body,
                 headers=headers,
             )
+            if resp.status_code >= 400:
+                return {"success": False, "error": f"上游服務回應 HTTP {resp.status_code}"}
             return resp.json()
     except Exception as e:
         logger.error("Task %s proxy error: %s", action, e)
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": f"任務{action}操作失敗"}
 
 
 @router.get("/digital-twin/live-activity/stream")
@@ -300,11 +318,14 @@ async def live_activity_stream(
         if token:
             headers["X-Service-Token"] = token
 
-        url = f"{gateway_url.rstrip('/')}/events?channel={channel}"
+        base_url = f"{gateway_url.rstrip('/')}/events"
 
         try:
-            async with httpx.AsyncClient(timeout=None) as client:
-                async with client.stream("GET", url, headers=headers) as resp:
+            timeout = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=10.0)
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                async with client.stream(
+                    "GET", base_url, params={"channel": channel}, headers=headers,
+                ) as resp:
                     if resp.status_code != 200:
                         yield _sse_event({
                             "type": "error",
@@ -319,13 +340,307 @@ async def live_activity_stream(
                             yield f"{line}\n\n"
         except Exception as e:
             logger.warning("Live activity stream error: %s", e)
-            yield _sse_event({"type": "error", "error": str(e)})
+            yield _sse_event({"type": "error", "error": "即時轉播連線中斷"})
 
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
         headers=SSE_HEADERS,
     )
+
+
+@router.get("/digital-twin/agent-topology")
+async def agent_topology(
+    _current_user: User = Depends(require_auth()),
+):
+    """
+    Agent 組織圖資料 (V-3.1) — 聚合 NemoClaw Registry + Missive Agent Roles
+
+    回傳結構化的 Agent 節點與邊資料，供前端 React Flow 渲染組織圖。
+    """
+    import os
+
+    nodes = []
+    edges = []
+
+    # ── 1. NemoClaw 節點 (Leader / Orchestrator) ──
+    nodes.append({
+        "id": "nemoclaw",
+        "type": "leader",
+        "label": "NemoClaw 監控塔",
+        "description": "Gateway + Registry + Scheduler + Health Probe",
+        "status": "unknown",
+        "capabilities": ["gateway", "registry", "scheduler", "health_probe"],
+        "project": "CK_NemoClaw",
+    })
+
+    # ── 2. OpenClaw 節點 (Engine + Leader Agent) ──
+    nodes.append({
+        "id": "openclaw",
+        "type": "engine",
+        "label": "OpenClaw 通用引擎",
+        "description": "Multi-Agent + Memory + Leader Agent 編排",
+        "status": "unknown",
+        "capabilities": ["reason", "delegate", "event_relay", "memory"],
+        "project": "CK_OpenClaw",
+    })
+    edges.append({
+        "source": "nemoclaw",
+        "target": "openclaw",
+        "label": "gateway → engine",
+        "type": "delegation",
+    })
+
+    # ── 3. Missive Agent Roles ──
+    try:
+        from app.services.ai.agent_roles import get_all_role_profiles
+
+        for ctx, profile in get_all_role_profiles().items():
+            node_id = f"missive-{ctx}"
+            nodes.append({
+                "id": node_id,
+                "type": "role",
+                "label": profile.identity,
+                "description": ", ".join(profile.capabilities[:4]),
+                "status": "active",
+                "capabilities": list(profile.capabilities),
+                "project": "CK_Missive",
+                "context": ctx,
+            })
+            edges.append({
+                "source": "openclaw",
+                "target": node_id,
+                "label": f"delegate → {ctx}",
+                "type": "delegation",
+            })
+    except Exception as e:
+        logger.warning("Failed to load agent roles: %s", e)
+
+    # ── 4. 外部專案 Agent ──
+    external_agents = [
+        {
+            "id": "ck-lvrland",
+            "label": "地政圖資引擎",
+            "description": "地籍查詢, 公告現值, 都更, 空間分析",
+            "capabilities": ["map_rendering", "spatial_analysis", "land_query"],
+            "project": "CK_lvrland_Webmap",
+            "triggers": ["地圖", "測繪", "圖資", "地籍", "土地"],
+        },
+        {
+            "id": "ck-tunnel",
+            "label": "隧道監測引擎",
+            "description": "裂縫偵測, 感測器監控, 點雲分析",
+            "capabilities": ["sensor_monitoring", "crack_detection", "alert_management"],
+            "project": "CK_DigitalTunnel",
+            "triggers": ["隧道", "感測", "監控", "裂縫"],
+        },
+    ]
+
+    for agent in external_agents:
+        nodes.append({
+            "id": agent["id"],
+            "type": "plugin",
+            "label": agent["label"],
+            "description": agent["description"],
+            "status": "unknown",
+            "capabilities": agent["capabilities"],
+            "project": agent["project"],
+            "triggers": agent.get("triggers", []),
+        })
+        edges.append({
+            "source": "openclaw",
+            "target": agent["id"],
+            "label": f"delegate → {agent['id']}",
+            "type": "delegation",
+        })
+
+    # ── 5. KG Hub 連線 ──
+    edges.append({
+        "source": "ck-lvrland",
+        "target": "missive-knowledge-graph",
+        "label": "federated-contribute",
+        "type": "data_flow",
+    })
+    edges.append({
+        "source": "ck-tunnel",
+        "target": "missive-knowledge-graph",
+        "label": "federated-contribute",
+        "type": "data_flow",
+    })
+
+    # ── 6. 嘗試從 NemoClaw Registry 取得即時狀態 ──
+    try:
+        from app.services.ai.federation_client import get_federation_client
+
+        client = get_federation_client()
+        systems = client.list_available_systems()
+
+        status_map = {s["id"]: s.get("status", "unknown") for s in systems}
+        for node in nodes:
+            nid = str(node["id"])
+            if nid in status_map:
+                node["status"] = status_map[nid]
+            elif nid.startswith("missive-"):
+                node["status"] = "active"
+    except Exception as e:
+        logger.debug("Registry status probe failed: %s", e)
+
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "meta": {
+            "total_nodes": len(nodes),
+            "total_edges": len(edges),
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        },
+    }
+
+
+@router.get("/digital-twin/qa-impact")
+async def qa_impact_analysis(
+    base_branch: str = "main",
+    _current_user: User = Depends(require_auth()),
+):
+    """
+    Diff-aware QA 影響分析 (V-3.3) — 分析 git diff 識別受影響模組
+
+    回傳受影響的前後端模組、建議測試範圍，供前端顯示或自動觸發 QA。
+    """
+    import os
+    import subprocess
+
+    project_root = os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+    )
+
+    try:
+        # 取得相對 base branch 的變更檔案
+        result = subprocess.run(
+            ["git", "diff", "--name-only", f"origin/{base_branch}"],
+            cwd=project_root,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        changed_files = [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
+    except Exception as e:
+        return {"success": False, "error": f"Git diff failed: {e}", "affected": []}
+
+    if not changed_files:
+        return {
+            "success": True,
+            "changed_files_count": 0,
+            "affected": [],
+            "recommendation": "no_changes",
+            "message": "沒有偵測到變更，無需 QA",
+        }
+
+    # ── 分類變更 ──
+    backend_changes = [f for f in changed_files if f.startswith("backend/")]
+    frontend_changes = [f for f in changed_files if f.startswith("frontend/")]
+    other_changes = [f for f in changed_files if not f.startswith(("backend/", "frontend/"))]
+
+    affected_modules: list[dict] = []
+
+    # 後端影響分析
+    backend_categories = {
+        "api": [], "services": [], "models": [], "schemas": [],
+        "migrations": [], "tests": [], "config": [],
+    }
+    for f in backend_changes:
+        if "/api/endpoints/" in f:
+            backend_categories["api"].append(f)
+        elif "/services/" in f:
+            backend_categories["services"].append(f)
+        elif "/models/" in f:
+            backend_categories["models"].append(f)
+        elif "/schemas/" in f:
+            backend_categories["schemas"].append(f)
+        elif "/alembic/" in f:
+            backend_categories["migrations"].append(f)
+        elif "/tests/" in f:
+            backend_categories["tests"].append(f)
+        else:
+            backend_categories["config"].append(f)
+
+    for cat, files in backend_categories.items():
+        if files:
+            affected_modules.append({
+                "layer": "backend",
+                "category": cat,
+                "files": files[:10],
+                "count": len(files),
+                "risk": "high" if cat in ("models", "migrations", "api") else "medium",
+            })
+
+    # 前端影響分析
+    frontend_categories = {
+        "pages": [], "components": [], "hooks": [], "api": [],
+        "types": [], "tests": [], "config": [],
+    }
+    for f in frontend_changes:
+        if "/pages/" in f:
+            frontend_categories["pages"].append(f)
+        elif "/components/" in f:
+            frontend_categories["components"].append(f)
+        elif "/hooks/" in f:
+            frontend_categories["hooks"].append(f)
+        elif "/api/" in f:
+            frontend_categories["api"].append(f)
+        elif "/types/" in f:
+            frontend_categories["types"].append(f)
+        elif "/__tests__/" in f or ".test." in f:
+            frontend_categories["tests"].append(f)
+        else:
+            frontend_categories["config"].append(f)
+
+    for cat, files in frontend_categories.items():
+        if files:
+            affected_modules.append({
+                "layer": "frontend",
+                "category": cat,
+                "files": files[:10],
+                "count": len(files),
+                "risk": "high" if cat in ("pages", "api", "types") else "medium",
+            })
+
+    # 風險評估
+    high_risk = sum(1 for m in affected_modules if m["risk"] == "high")
+    has_migrations = bool(backend_categories["migrations"])
+    has_model_changes = bool(backend_categories["models"])
+
+    if has_migrations or has_model_changes:
+        recommendation = "full_qa"
+        message = "偵測到 DB 模型/遷移變更，建議執行完整 QA"
+    elif high_risk >= 3:
+        recommendation = "full_qa"
+        message = f"偵測到 {high_risk} 個高風險模組變更，建議完整 QA"
+    elif high_risk >= 1:
+        recommendation = "diff_aware_qa"
+        message = f"偵測到 {high_risk} 個高風險模組，建議 diff-aware QA"
+    else:
+        recommendation = "quick_qa"
+        message = "僅低風險變更，快速 QA 即可"
+
+    return {
+        "success": True,
+        "changed_files_count": len(changed_files),
+        "affected": affected_modules,
+        "recommendation": recommendation,
+        "message": message,
+        "summary": {
+            "backend_changes": len(backend_changes),
+            "frontend_changes": len(frontend_changes),
+            "other_changes": len(other_changes),
+            "high_risk_modules": high_risk,
+            "has_migrations": has_migrations,
+        },
+        "suggested_commands": {
+            "full": "/qa-smart full",
+            "diff_aware": "/qa-smart",
+            "quick": "/qa-smart quick",
+        },
+    }
 
 
 @router.get("/digital-twin/health")

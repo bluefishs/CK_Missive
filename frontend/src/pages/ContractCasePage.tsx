@@ -164,8 +164,15 @@ export const ContractCasePage: React.FC = () => {
         </Row>
         <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
           <Col xs={12} sm={6} md={4}><Statistic title="總計案件" value={globalStats.total} /></Col>
-          <Col xs={12} sm={6} md={4}><Statistic title="執行中" value={globalStats.inProgress} /></Col>
-          <Col xs={12} sm={6} md={4}><Statistic title="已結案" value={globalStats.completed} /></Col>
+          <Col xs={12} sm={6} md={4}><Statistic title="執行中" value={globalStats.inProgress} styles={{ content: { color: '#1890ff' } }} /></Col>
+          <Col xs={12} sm={6} md={4}><Statistic title="已結案" value={globalStats.completed} styles={{ content: { color: '#52c41a' } }} /></Col>
+          <Col xs={12} sm={6} md={4}>
+            <Statistic
+              title="合約總額"
+              value={projects.reduce((sum, p) => sum + (p.contract_amount ?? 0), 0)}
+              formatter={(v) => `NT$${Number(v).toLocaleString()}`}
+            />
+          </Col>
         </Row>
       </Card>
 

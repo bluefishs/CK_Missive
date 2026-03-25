@@ -21,7 +21,10 @@ export const einvoiceSyncApi = {
   },
 
   async pendingList(params?: PendingReceiptQuery): Promise<PendingListResponse> {
-    return apiClient.post<PendingListResponse>(ERP_ENDPOINTS.EINVOICE_PENDING_LIST, params || {});
+    return apiClient.post<PendingListResponse>(
+      ERP_ENDPOINTS.EINVOICE_PENDING_LIST,
+      { skip: 0, limit: 20, ...params },
+    );
   },
 
   async uploadReceipt(

@@ -76,6 +76,9 @@ export interface UnassignedDocsData {
 // Hook
 // ============================================================================
 
+// 通用行政文件關鍵字（契約/保險等不需關聯到特定作業紀錄）
+const GENERIC_ADMIN_KEYWORDS = /契約書|保險|教育訓練|系統建置|議約|採購|印鑑|投標|工作計畫|道路專案系統/;
+
 interface UseDispatchWorkDataParams {
   dispatchOrderId: number;
   linkedDocuments?: DispatchDocumentLink[];
@@ -146,6 +149,8 @@ export function useDispatchWorkData({
       if (!doc.document_id) continue;
       // 已被作業紀錄引用 → 跳過
       if (assignedDocIds.has(doc.document_id)) continue;
+      // 通用行政文件（契約/保險等）→ 跳過，不需關聯到特定作業紀錄
+      if (doc.subject && GENERIC_ADMIN_KEYWORDS.test(doc.subject)) continue;
 
       const type = doc.link_type || detectLinkType(doc.doc_number);
       if (type === 'company_outgoing') {

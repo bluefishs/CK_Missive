@@ -43,8 +43,8 @@ erDiagram
     partner_vendors ||--o{ finance_ledgers : "vendor_id"
     government_agencies ||--o{ government_agencies : "parent_agency_id"
     documents ||--o{ graph_ingestion_events : "document_id"
-    pm_cases ||--o{ pm_case_staff : "pm_case_id"
-    users ||--o{ pm_case_staff : "user_id"
+    users ||--o{ pm_case_attachments : "uploaded_by"
+    partner_vendors ||--o{ pm_cases : "client_vendor_id"
     users ||--o{ pm_cases : "created_by"
     pm_cases ||--o{ pm_milestones : "pm_case_id"
     contract_projects ||--o{ project_agency_contacts : "project_id"
@@ -245,6 +245,7 @@ erDiagram
         varchar case_nature
         bool has_dispatch_management
         varchar client_type
+        varchar case_code
     }
     document_ai_analyses {
         int id "PK"
@@ -463,6 +464,7 @@ erDiagram
         timestamp created_at
         timestamp updated_at
         numeric budget_limit
+        varchar project_code
     }
     erp_vendor_payables {
         int id "PK"
@@ -623,18 +625,23 @@ erDiagram
         int rating
         timestamp created_at
         timestamp updated_at
+        varchar vendor_type
+        varchar tax_id
+        text notes
     }
-    pm_case_staff {
+    pm_case_attachments {
         int id "PK"
-        int pm_case_id "FK,NOT NULL"
-        int user_id "FK"
-        varchar staff_name "NOT NULL"
-        varchar role "NOT NULL"
-        bool is_primary
-        date start_date
-        date end_date
-        varchar notes
+        varchar case_code "NOT NULL"
+        varchar file_name "NOT NULL"
+        varchar file_path "NOT NULL"
+        int file_size
+        varchar mime_type
+        varchar original_name
+        varchar checksum
+        int uploaded_by "FK"
+        text notes
         timestamp created_at
+        timestamp updated_at
     }
     pm_cases {
         int id "PK"
@@ -657,6 +664,8 @@ erDiagram
         int created_by "FK"
         timestamp created_at
         timestamp updated_at
+        varchar project_code
+        int client_vendor_id "FK"
     }
     pm_milestones {
         int id "PK"
@@ -692,8 +701,8 @@ erDiagram
     }
     project_user_assignments {
         int id "PK"
-        int project_id "FK,NOT NULL"
-        int user_id "FK,NOT NULL"
+        int project_id "FK"
+        int user_id "FK"
         varchar role
         bool is_primary
         date assignment_date
@@ -703,6 +712,8 @@ erDiagram
         text notes
         timestamp created_at
         timestamp updated_at
+        varchar case_code
+        varchar staff_name
     }
     project_vendor_association {
         int project_id "PK,FK"
@@ -982,6 +993,6 @@ erDiagram
 | 指標 | 數值 |
 |------|------|
 | 總表數 | 56 |
-| 總欄位數 | 783 |
+| 總欄位數 | 794 |
 | 外鍵關聯 | 78 |
 | 自訂列舉型別 | 0 |

@@ -158,6 +158,7 @@ export interface UserListParams extends PaginationParams, SortParams {
 
 export interface VendorListParams extends PaginationParams, SortParams {
   search?: string;
+  vendor_type?: 'subcontractor' | 'client';
   business_type?: string;
 }
 

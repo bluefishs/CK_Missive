@@ -3,18 +3,19 @@ DocumentStatsRepository - 公文統計資料存取層
 
 從 DocumentRepository 提取，專注於統計查詢操作。
 
-版本: 1.0.0
+版本: 2.0.0
 建立日期: 2026-03-10
+更新日期: 2026-03-23 — 補完 8 個缺失方法 (A2)
 提取自: document_repository.py
 """
 
-from typing import Dict, Any
-from datetime import date
+from typing import Dict, Any, List, Optional
+from datetime import date, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_, extract
+from sqlalchemy import Integer, select, func, or_, and_, extract, case
 
 from app.repositories.base_repository import BaseRepository
-from app.extended.models import OfficialDocument
+from app.extended.models import OfficialDocument, DocumentCalendarEvent
 
 
 class DocumentStatsRepository(BaseRepository[OfficialDocument]):
@@ -144,3 +145,209 @@ class DocumentStatsRepository(BaseRepository[OfficialDocument]):
             if month:
                 stats[int(month)] = count
         return stats
+
+    # =========================================================================
+    # v2.0.0 新增方法 — 從 Service/Endpoint 提取 (A2)
+    # =========================================================================
+
+    async def get_current_year_send_count(self, year: Optional[int] = None) -> int:
+        """取得指定年度（預設當年）發文數"""
+        target_year = year or date.today().year
+        query = select(func.count(OfficialDocument.id)).where(
+            and_(
+                OfficialDocument.category == '發文',
+                extract('year', OfficialDocument.doc_date) == target_year,
+            )
+        )
+        return (await self.db.execute(query)).scalar() or 0
+
+    async def get_delivery_method_statistics(self) -> Dict[str, int]:
+        """取得發文形式統計 (電子交換/紙本郵寄/電子+紙本)"""
+        methods = ['電子交換', '紙本郵寄', '電子+紙本']
+        keys = ['electronic', 'paper', 'both']
+        result: Dict[str, int] = {}
+        for key, method in zip(keys, methods):
+            query = select(func.count(OfficialDocument.id)).where(
+                and_(
+                    OfficialDocument.category == '發文',
+                    OfficialDocument.delivery_method == method,
+                )
+            )
+            result[key] = (await self.db.execute(query)).scalar() or 0
+        return result
+
+    async def get_filtered_counts(
+        self,
+        conditions: list,
+    ) -> Dict[str, int]:
+        """
+        取得篩選後的收發文計數
+
+        Args:
+            conditions: SQLAlchemy WHERE 條件列表
+
+        Returns:
+            {'total': int, 'send_count': int, 'receive_count': int}
+        """
+        base_filter = and_(*conditions) if conditions else True
+
+        total_q = select(func.count(OfficialDocument.id)).where(base_filter)
+        total = (await self.db.execute(total_q)).scalar() or 0
+
+        send_q = select(func.count(OfficialDocument.id)).where(
+            and_(base_filter, OfficialDocument.category == '發文')
+        )
+        send_count = (await self.db.execute(send_q)).scalar() or 0
+
+        recv_q = select(func.count(OfficialDocument.id)).where(
+            and_(base_filter, OfficialDocument.category == '收文')
+        )
+        receive_count = (await self.db.execute(recv_q)).scalar() or 0
+
+        return {'total': total, 'send_count': send_count, 'receive_count': receive_count}
+
+    async def get_document_years(self) -> List[int]:
+        """取得所有文檔年度列表"""
+        query = (
+            select(extract('year', OfficialDocument.doc_date).label('year'))
+            .where(OfficialDocument.doc_date.isnot(None))
+            .distinct()
+            .order_by(extract('year', OfficialDocument.doc_date).desc())
+        )
+        result = await self.db.execute(query)
+        return [int(row.year) for row in result.all() if row.year]
+
+    async def get_next_send_sequence(
+        self, year_pattern: str, substr_start: int
+    ) -> int:
+        """
+        取得指定年度最大發文流水號
+
+        Args:
+            year_pattern: LIKE 樣式，如 '乾坤測字第115%'
+            substr_start: substring 起始位置
+
+        Returns:
+            最大流水號 (0 表示尚無資料)
+        """
+        query = (
+            select(
+                func.max(
+                    func.cast(
+                        func.substring(
+                            OfficialDocument.doc_number, substr_start, 7
+                        ),
+                        Integer,
+                    )
+                ).label("max_seq")
+            )
+            .where(OfficialDocument.doc_number.ilike(year_pattern))
+            .where(
+                or_(
+                    OfficialDocument.category == '發文',
+                    OfficialDocument.doc_type == '發文',
+                )
+            )
+        )
+        result = await self.db.execute(query)
+        row = result.fetchone()
+        return row[0] if row and row[0] else 0
+
+    async def get_monthly_trends(self, since: date) -> List[Dict[str, Any]]:
+        """
+        取得自指定日期起每月收發文趨勢
+
+        Args:
+            since: 起始日期
+
+        Returns:
+            [{'year': int, 'month': int, 'received': int, 'sent': int}, ...]
+        """
+        year_col = extract('year', OfficialDocument.doc_date)
+        month_col = extract('month', OfficialDocument.doc_date)
+
+        query = (
+            select(
+                year_col.label('year'),
+                month_col.label('month'),
+                func.sum(
+                    case((OfficialDocument.category == '收文', 1), else_=0)
+                ).label('received'),
+                func.sum(
+                    case((OfficialDocument.category == '發文', 1), else_=0)
+                ).label('sent'),
+            )
+            .where(
+                and_(
+                    OfficialDocument.doc_date.isnot(None),
+                    OfficialDocument.doc_date >= since,
+                )
+            )
+            .group_by(year_col, month_col)
+            .order_by(year_col.asc(), month_col.asc())
+        )
+        result = await self.db.execute(query)
+        return [
+            {
+                'year': int(row.year),
+                'month': int(row.month),
+                'received': int(row.received or 0),
+                'sent': int(row.sent or 0),
+            }
+            for row in result.all()
+        ]
+
+    async def get_status_distribution(self) -> List[Dict[str, Any]]:
+        """取得公文狀態分布"""
+        query = (
+            select(
+                OfficialDocument.status,
+                func.count(OfficialDocument.id).label('count'),
+            )
+            .where(OfficialDocument.status.isnot(None))
+            .group_by(OfficialDocument.status)
+            .order_by(func.count(OfficialDocument.id).desc())
+        )
+        result = await self.db.execute(query)
+        return [
+            {'status': row.status, 'count': int(row.count)}
+            for row in result.all()
+        ]
+
+    # =========================================================================
+    # 流水號查詢 — 供 DocumentSerialNumberService 使用 (B3)
+    # =========================================================================
+
+    async def get_max_auto_serial(self, pattern: str) -> Optional[str]:
+        """取得符合 pattern 的最大 auto_serial 值"""
+        query = select(func.max(OfficialDocument.auto_serial)).where(
+            OfficialDocument.auto_serial.like(pattern)
+        )
+        return (await self.db.execute(query)).scalar()
+
+    async def count_by_serial_pattern(self, pattern: str) -> int:
+        """取得符合 pattern 的 auto_serial 筆數"""
+        query = select(func.count(OfficialDocument.id)).where(
+            OfficialDocument.auto_serial.like(pattern)
+        )
+        return (await self.db.execute(query)).scalar() or 0
+
+    async def get_overdue_count(self) -> int:
+        """取得逾期公文數量 (未結案且行事曆事件已過期)"""
+        now = datetime.now()
+        query = (
+            select(func.count(func.distinct(OfficialDocument.id)))
+            .join(
+                DocumentCalendarEvent,
+                DocumentCalendarEvent.document_id == OfficialDocument.id,
+            )
+            .where(
+                and_(
+                    OfficialDocument.status != '已結案',
+                    DocumentCalendarEvent.end_date.isnot(None),
+                    DocumentCalendarEvent.end_date < now,
+                    DocumentCalendarEvent.status != 'completed',
+                )
+            )
+        )
+        return (await self.db.execute(query)).scalar() or 0

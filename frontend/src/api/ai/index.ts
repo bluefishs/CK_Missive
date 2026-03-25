@@ -98,6 +98,10 @@ export type {
   KGIngestResponse,
   KGMergeEntitiesRequest,
   KGMergeEntitiesResponse,
+  // 跨圖譜統一搜尋
+  UnifiedGraphSearchRequest,
+  UnifiedGraphResult,
+  UnifiedGraphSearchResponse,
   // Ollama 管理
   OllamaGpuLoadedModel,
   OllamaGpuInfo,
@@ -206,10 +210,13 @@ import {
   searchGraphEntities,
   getEntityNeighbors,
   findShortestPath,
+  findCrossDomainPath,
   getEntityDetail,
   getEntityTimeline,
+  getTimelineAggregate,
   getTopEntities,
   getGraphStats,
+  getFederationHealth,
   triggerGraphIngest,
   mergeGraphEntities,
   getCodeWikiGraph,
@@ -223,6 +230,9 @@ import {
   getDbSchema,
   getModuleMappings,
   getSkillsMap,
+  unifiedGraphSearch,
+  triggerCrossDomainLink,
+  triggerEmbeddingBackfill,
 } from './knowledgeGraph';
 
 export type { DbSchemaGraphResponse, DbSchemaResponse, DbTableInfo, DbColumnInfo, ModuleMappingsResponse } from './knowledgeGraph';
@@ -278,10 +288,13 @@ export const aiApi = {
   searchGraphEntities,
   getEntityNeighbors,
   findShortestPath,
+  findCrossDomainPath,
   getEntityDetail,
   getEntityTimeline,
+  getTimelineAggregate,
   getTopEntities,
   getGraphStats,
+  getFederationHealth,
   triggerGraphIngest,
   mergeGraphEntities,
 
@@ -305,6 +318,13 @@ export const aiApi = {
 
   // Skills capability map
   getSkillsMap,
+
+  // 跨圖譜統一搜尋
+  unifiedGraphSearch,
+
+  // 跨域橋接 + Embedding 回填 (Admin)
+  triggerCrossDomainLink,
+  triggerEmbeddingBackfill,
 
   // Ollama management
   getOllamaStatus,

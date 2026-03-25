@@ -199,6 +199,13 @@ export function useContractCaseColumns(
         return `${startDate || '未定'}~${endDate || '未定'}`;
       },
     },
+    {
+      title: '建案案號',
+      dataIndex: 'case_code',
+      key: 'case_code',
+      width: 120,
+      render: (code) => code ? <Tag color="blue">{code}</Tag> : '-',
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [availableYears, availableStatuses, columnSearchText, searchedColumn]);
 

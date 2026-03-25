@@ -6,9 +6,9 @@ import logging
 from datetime import datetime, timedelta, date
 from typing import Optional, Dict, Any, List, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
 from app.extended.models import OfficialDocument, DocumentCalendarEvent, User
+from app.repositories.calendar_repository import CalendarRepository
 from app.services.document_calendar_service import DocumentCalendarService
 from app.services.project_notification_service import ProjectNotificationService
 from app.services.reminder_service import ReminderService
@@ -214,12 +214,8 @@ class DocumentCalendarIntegrator:
         document_id: int
     ) -> List[DocumentCalendarEvent]:
         """獲取公文相關的所有行事曆事件"""
-        result = await db.execute(
-            select(DocumentCalendarEvent)
-            .where(DocumentCalendarEvent.document_id == document_id)
-            .order_by(DocumentCalendarEvent.start_date)
-        )
-        return result.scalars().all()
+        repo = CalendarRepository(db)
+        return await repo.get_events_by_document_ordered(document_id)
 
     async def get_reminder_status(
         self,
@@ -227,18 +223,15 @@ class DocumentCalendarIntegrator:
         document_id: int
     ) -> Dict[str, Any]:
         """獲取公文所有事件的提醒狀態"""
-        from app.extended.models import EventReminder
-
+        repo = CalendarRepository(db)
         events = await self.get_document_events(db, document_id)
         if not events:
             return {"error": f"公文 {document_id} 沒有行事曆事件"}
 
         all_reminders = []
         for event in events:
-            result = await db.execute(
-                select(EventReminder).where(EventReminder.event_id == event.id)
-            )
-            reminders = result.scalars().all()
+            event_with_reminders = await repo.get_with_reminders(event.id)
+            reminders = event_with_reminders.reminders if event_with_reminders else []
             for r in reminders:
                 all_reminders.append({
                     "id": r.id,

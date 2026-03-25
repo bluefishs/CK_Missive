@@ -1031,3 +1031,38 @@ class AgencyRepository(BaseRepository[GovernmentAgency]):
             .where(OfficialDocument.receiver_agency_id == old_agency_id)
             .values(receiver_agency_id=new_agency_id)
         )
+
+    async def get_for_dropdown(
+        self,
+        search: Optional[str] = None,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """取得機關下拉選項"""
+        query = select(
+            GovernmentAgency.id,
+            GovernmentAgency.agency_name,
+            GovernmentAgency.agency_code,
+            GovernmentAgency.agency_short_name,
+        ).where(
+            GovernmentAgency.agency_name.isnot(None),
+            GovernmentAgency.agency_name != '',
+        )
+        if search:
+            query = query.where(
+                or_(
+                    GovernmentAgency.agency_name.ilike(f"%{search}%"),
+                    GovernmentAgency.agency_short_name.ilike(f"%{search}%"),
+                )
+            )
+        query = query.order_by(GovernmentAgency.agency_name).limit(limit)
+        result = await self.db.execute(query)
+        return [
+            {
+                "value": a.agency_name,
+                "label": a.agency_name,
+                "id": a.id,
+                "agency_code": a.agency_code or "",
+                "agency_short_name": a.agency_short_name or "",
+            }
+            for a in result.all()
+        ]

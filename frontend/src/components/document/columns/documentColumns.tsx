@@ -116,12 +116,14 @@ export const getDesktopColumns = (options: GetColumnsOptions): ColumnsType<Docum
       filters: [
         { text: '電子交換', value: '電子交換' },
         { text: '紙本郵寄', value: '紙本郵寄' },
+        { text: '紙本傳遞', value: '紙本傳遞' },
       ],
       onFilter: (value, record) => record.delivery_method === value,
       render: (method: string) => {
         const colorMap: Record<string, string> = {
           '電子交換': 'green',
           '紙本郵寄': 'orange',
+          '紙本傳遞': 'blue',
         };
         return <Tag color={colorMap[method] || 'default'}>{method || '電子交換'}</Tag>;
       },

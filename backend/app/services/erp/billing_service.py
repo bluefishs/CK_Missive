@@ -8,10 +8,9 @@ import logging
 from typing import Optional, List
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
-from app.extended.models.erp import ERPBilling, ERPQuotation
-from app.repositories.erp import ERPBillingRepository
+from app.extended.models.erp import ERPBilling
+from app.repositories.erp import ERPBillingRepository, ERPQuotationRepository
 from app.schemas.erp import ERPBillingCreate, ERPBillingUpdate, ERPBillingResponse
 from app.services.finance_ledger_service import FinanceLedgerService
 
@@ -24,6 +23,7 @@ class ERPBillingService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.repo = ERPBillingRepository(db)
+        self._quotation_repo = ERPQuotationRepository(db)
         self.ledger_service = FinanceLedgerService(db)
 
     async def create(self, data: ERPBillingCreate) -> ERPBillingResponse:
@@ -71,7 +71,5 @@ class ERPBillingService:
 
     async def _get_case_code(self, quotation_id: int) -> str:
         """從報價單取得 case_code"""
-        stmt = select(ERPQuotation.case_code).where(ERPQuotation.id == quotation_id)
-        result = await self.db.execute(stmt)
-        case_code = result.scalar_one_or_none()
-        return case_code or "一般營運"
+        quotation = await self._quotation_repo.get_by_id(quotation_id)
+        return quotation.case_code if quotation and quotation.case_code else "一般營運"

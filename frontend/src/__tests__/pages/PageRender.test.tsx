@@ -71,35 +71,39 @@ vi.mock('../../utils/exportUtils', () => ({
 }));
 
 // Mock hooks that perform API calls
-vi.mock('../../hooks', () => ({
-  useDocuments: vi.fn(() => ({ data: { items: [], pagination: { total: 0 } }, isLoading: false, error: null })),
-  useDeleteDocument: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
-  useAuthGuard: vi.fn(() => ({ hasPermission: () => true, isAdmin: false, isAuthenticated: true, user: { id: 1, role: 'admin' } })),
-  useResponsive: vi.fn(() => ({ isMobile: false, isTablet: false, isDesktop: true, responsiveValue: (v: Record<string, unknown>) => v.desktop ?? v.tablet ?? v.mobile })),
-  useProjectsPage: vi.fn(() => ({
-    projects: [], pagination: { total: 0 }, isLoading: false,
-    statistics: { total_projects: 0, status_breakdown: [] },
-    availableYears: [], availableStatuses: [], refetch: vi.fn(), isDeleting: false,
-  })),
-  useAgenciesPage: vi.fn(() => ({
-    agencies: [], pagination: { total: 0 }, isLoading: false,
-    statistics: { total_agencies: 0, categories: [] },
-    refetch: vi.fn(), refetchStatistics: vi.fn(),
-  })),
-  useCalendarPage: vi.fn(() => ({
-    events: [], categories: [], googleStatus: null,
-    isLoading: false, updateEvent: vi.fn(), deleteEvent: vi.fn(),
-    bulkSync: vi.fn(), isSyncing: false, refetch: vi.fn(),
-  })),
-  useAdminUsersPage: vi.fn(() => ({
-    users: [], pagination: { total: 0 }, isLoading: false,
-    refetch: vi.fn(),
-  })),
-  useTableColumnSearch: vi.fn(() => ({ getColumnSearchProps: vi.fn(() => ({})) })),
-  useTaoyuanContractProjects: vi.fn(() => ({ data: [], isLoading: false })),
-  usePMCaseSummary: vi.fn(() => ({ data: null, isLoading: false })),
-  useERPProfitSummary: vi.fn(() => ({ data: null, isLoading: false })),
-}));
+vi.mock('../../hooks', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../hooks')>();
+  return {
+    ...actual,
+    useDocuments: vi.fn(() => ({ data: { items: [], pagination: { total: 0 } }, isLoading: false, error: null })),
+    useDeleteDocument: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+    useAuthGuard: vi.fn(() => ({ hasPermission: () => true, isAdmin: false, isAuthenticated: true, user: { id: 1, role: 'admin' } })),
+    useResponsive: vi.fn(() => ({ isMobile: false, isTablet: false, isDesktop: true, responsiveValue: (v: Record<string, unknown>) => v.desktop ?? v.tablet ?? v.mobile })),
+    useProjectsPage: vi.fn(() => ({
+      projects: [], pagination: { total: 0 }, isLoading: false,
+      statistics: { total_projects: 0, status_breakdown: [] },
+      availableYears: [], availableStatuses: [], refetch: vi.fn(), isDeleting: false,
+    })),
+    useAgenciesPage: vi.fn(() => ({
+      agencies: [], pagination: { total: 0 }, isLoading: false,
+      statistics: { total_agencies: 0, categories: [] },
+      refetch: vi.fn(), refetchStatistics: vi.fn(),
+    })),
+    useCalendarPage: vi.fn(() => ({
+      events: [], categories: [], googleStatus: null,
+      isLoading: false, updateEvent: vi.fn(), deleteEvent: vi.fn(),
+      bulkSync: vi.fn(), isSyncing: false, refetch: vi.fn(),
+    })),
+    useAdminUsersPage: vi.fn(() => ({
+      users: [], pagination: { total: 0 }, isLoading: false,
+      refetch: vi.fn(),
+    })),
+    useTableColumnSearch: vi.fn(() => ({ getColumnSearchProps: vi.fn(() => ({})) })),
+    useTaoyuanContractProjects: vi.fn(() => ({ data: [], isLoading: false })),
+    usePMCaseSummary: vi.fn(() => ({ data: null, isLoading: false })),
+    useERPProfitSummary: vi.fn(() => ({ data: null, isLoading: false })),
+  };
+});
 
 vi.mock('../../hooks/utility/useAuthGuard', () => ({
   useAuthGuard: vi.fn(() => ({ hasPermission: () => true, isAdmin: false, isAuthenticated: true, user: { id: 1, role: 'admin' } })),
@@ -221,11 +225,15 @@ vi.mock('../../services/authService', () => {
   };
 });
 
-vi.mock('../../config/env', () => ({
-  detectEnvironment: vi.fn(() => 'localhost'),
-  isAuthDisabled: vi.fn(() => true),
-  GOOGLE_CLIENT_ID: '',
-}));
+vi.mock('../../config/env', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../config/env')>();
+  return {
+    ...actual,
+    detectEnvironment: vi.fn(() => 'localhost'),
+    isAuthDisabled: vi.fn(() => true),
+    GOOGLE_CLIENT_ID: '',
+  };
+});
 
 // Mock components for ContractCasePage
 vi.mock('../../components/project/ProjectVendorManagement', () => ({

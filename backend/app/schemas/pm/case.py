@@ -23,8 +23,10 @@ def _validate_date_ordering(
 
 class PMCaseCreate(BaseModel):
     """建立案件"""
-    case_code: Optional[str] = Field(None, max_length=50, description="案號 (未提供時自動產生)")
+    case_code: Optional[str] = Field(None, max_length=50, description="建案案號 (未提供時自動產生)")
+    project_code: Optional[str] = Field(None, max_length=100, description="成案專案編號 (成案後由系統產生)")
     case_name: str = Field(..., max_length=500, description="案名")
+    client_vendor_id: Optional[int] = Field(None, description="委託單位 ID (partner_vendors)")
     year: Optional[int] = Field(None, description="年度 (民國)")
     category: Optional[str] = Field(None, max_length=50, description="案件類別")
     client_name: Optional[str] = Field(None, max_length=200, description="業主")
@@ -48,6 +50,7 @@ class PMCaseCreate(BaseModel):
 class PMCaseUpdate(BaseModel):
     """更新案件"""
     case_code: Optional[str] = Field(None, max_length=50)
+    project_code: Optional[str] = Field(None, max_length=100)
     case_name: Optional[str] = Field(None, max_length=500)
     year: Optional[int] = None
     category: Optional[str] = Field(None, max_length=50)
@@ -75,10 +78,12 @@ class PMCaseResponse(BaseModel):
     """案件完整資訊"""
     id: int
     case_code: str
+    project_code: Optional[str] = None
     case_name: str
     year: Optional[int] = None
     category: Optional[str] = None
     client_name: Optional[str] = None
+    client_vendor_id: Optional[int] = None
     client_contact: Optional[str] = None
     client_phone: Optional[str] = None
     contract_amount: Optional[Decimal] = None

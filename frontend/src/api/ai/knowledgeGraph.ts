@@ -28,6 +28,9 @@ import type {
   KGIngestResponse,
   KGMergeEntitiesRequest,
   KGMergeEntitiesResponse,
+  KGFederationHealthResponse,
+  UnifiedGraphSearchRequest,
+  UnifiedGraphSearchResponse,
   GraphNode,
   GraphEdge,
 } from './types';
@@ -58,6 +61,16 @@ export async function findShortestPath(
 ): Promise<KGShortestPathResponse> {
   return await apiClient.post<KGShortestPathResponse>(
     AI_ENDPOINTS.GRAPH_SHORTEST_PATH,
+    request,
+  );
+}
+
+/** 跨專案路徑查詢 — 回傳含 source_project 標記的路徑 */
+export async function findCrossDomainPath(
+  request: KGShortestPathRequest,
+): Promise<KGShortestPathResponse> {
+  return await apiClient.post<KGShortestPathResponse>(
+    AI_ENDPOINTS.GRAPH_CROSS_DOMAIN_PATH,
     request,
   );
 }
@@ -112,6 +125,48 @@ export async function getGraphStats(): Promise<KGGraphStatsResponse> {
   return await apiClient.post<KGGraphStatsResponse>(
     AI_ENDPOINTS.GRAPH_STATS,
     {},
+  );
+}
+
+/** 聯邦健康指標 */
+export async function getFederationHealth(): Promise<KGFederationHealthResponse> {
+  return await apiClient.post<KGFederationHealthResponse>(
+    AI_ENDPOINTS.GRAPH_FEDERATION_HEALTH,
+    {},
+  );
+}
+
+/** 跨圖譜統一搜尋 (KG + Code + DB) */
+export async function unifiedGraphSearch(
+  request: UnifiedGraphSearchRequest,
+): Promise<UnifiedGraphSearchResponse> {
+  return await apiClient.post<UnifiedGraphSearchResponse>(
+    AI_ENDPOINTS.GRAPH_UNIFIED_SEARCH,
+    request,
+  );
+}
+
+/** 跨域橋接觸發 (Admin) — 執行 4 條 CrossDomainLinker 規則 */
+export async function triggerCrossDomainLink(): Promise<{
+  success: boolean;
+  links_created: number;
+  links_skipped: number;
+  rules_applied: string[];
+}> {
+  return await apiClient.post(
+    AI_ENDPOINTS.GRAPH_CROSS_DOMAIN_LINK,
+    {},
+  );
+}
+
+/** Embedding 批次回填 (Admin) — 回填缺少向量的實體 */
+export async function triggerEmbeddingBackfill(
+  batchSize = 100,
+): Promise<{ success: boolean; processed?: number; skipped?: number; error?: string }> {
+  return await apiClient.post(
+    AI_ENDPOINTS.GRAPH_EMBEDDING_BACKFILL,
+    {},
+    { params: { batch_size: batchSize } },
   );
 }
 

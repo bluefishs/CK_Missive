@@ -91,6 +91,18 @@ class ProjectRepository(BaseRepository[ContractProject]):
     # 專案特定查詢方法
     # =========================================================================
 
+    async def get_by_name(self, name: str) -> Optional[ContractProject]:
+        """
+        根據專案名稱取得專案
+
+        Args:
+            name: 專案名稱
+
+        Returns:
+            專案實體，若不存在則返回 None
+        """
+        return await self.find_one_by(project_name=name)
+
     async def get_by_project_code(self, project_code: str) -> Optional[ContractProject]:
         """
         根據專案編號取得專案
@@ -115,6 +127,14 @@ class ProjectRepository(BaseRepository[ContractProject]):
         """
         query = select(ContractProject.id).where(
             ContractProject.project_code == project_code
+        )
+        result = await self.db.execute(query)
+        return [row[0] for row in result.all()]
+
+    async def get_ids_by_case_code(self, case_code: str) -> List[int]:
+        """根據建案案號取得專案 ID 列表"""
+        query = select(ContractProject.id).where(
+            ContractProject.case_code == case_code
         )
         result = await self.db.execute(query)
         return [row[0] for row in result.all()]
@@ -212,6 +232,54 @@ class ProjectRepository(BaseRepository[ContractProject]):
             .where(ContractProject.category == category)
             .order_by(desc(ContractProject.created_at))
             .offset(skip)
+            .limit(limit)
+        )
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def find_by_name_pattern(
+        self,
+        pattern: str,
+        limit: int = 1
+    ) -> List[ContractProject]:
+        """
+        根據名稱模式搜尋專案 (ILIKE)
+
+        Args:
+            pattern: 搜尋模式
+            limit: 回傳數量限制
+
+        Returns:
+            符合的專案列表 (按 id 降序)
+        """
+        query = (
+            select(ContractProject)
+            .where(ContractProject.project_name.ilike(f"%{pattern}%"))
+            .order_by(desc(ContractProject.id))
+            .limit(limit)
+        )
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def find_by_client_agency_name(
+        self,
+        agency_name: str,
+        limit: int = 1
+    ) -> List[ContractProject]:
+        """
+        根據委託機關名稱模糊搜尋專案
+
+        Args:
+            agency_name: 委託機關名稱
+            limit: 回傳數量限制
+
+        Returns:
+            符合的專案列表 (按 id 降序)
+        """
+        query = (
+            select(ContractProject)
+            .where(ContractProject.client_agency.ilike(f"%{agency_name}%"))
+            .order_by(desc(ContractProject.id))
             .limit(limit)
         )
         result = await self.db.execute(query)
@@ -1119,3 +1187,118 @@ class ProjectRepository(BaseRepository[ContractProject]):
             order_desc=True,
             conditions=conditions
         )
+
+    # =========================================================================
+    # 批次查詢方法 (v2.0.0, A6 提取)
+    # =========================================================================
+
+    async def get_staff_by_project_ids(
+        self, project_ids: List[int]
+    ) -> Dict[int, List[Dict[str, Any]]]:
+        """
+        批次取得多個專案的指派人員
+
+        Returns:
+            {project_id: [{'user_id': int, 'full_name': str, 'role': str}, ...]}
+        """
+        if not project_ids:
+            return {}
+        query = (
+            select(
+                project_user_assignment.c.project_id,
+                project_user_assignment.c.role,
+                User.id.label('user_id'),
+                User.full_name,
+            )
+            .select_from(
+                project_user_assignment.join(
+                    User, project_user_assignment.c.user_id == User.id
+                )
+            )
+            .where(project_user_assignment.c.project_id.in_(project_ids))
+        )
+        result = await self.db.execute(query)
+        staff_map: Dict[int, List[Dict[str, Any]]] = {}
+        for row in result.all():
+            pid = row.project_id
+            if pid not in staff_map:
+                staff_map[pid] = []
+            staff_map[pid].append({
+                'user_id': row.user_id,
+                'full_name': row.full_name or '未知',
+                'role': row.role or 'member',
+            })
+        return staff_map
+
+    async def cascade_nullify_references(self, project_id: int) -> None:
+        """刪除專案前解除所有 FK 參照 (公文/桃園專案/派工單/機關聯絡人)"""
+        from sqlalchemy import update as sa_update
+        from app.extended.models.taoyuan import TaoyuanProject, TaoyuanDispatchOrder
+        from app.extended.models.staff import ProjectAgencyContact
+
+        # 1. 解除公文關聯
+        await self.db.execute(
+            sa_update(OfficialDocument)
+            .where(OfficialDocument.contract_project_id == project_id)
+            .values(contract_project_id=None)
+        )
+        # 2. 解除桃園專案關聯
+        await self.db.execute(
+            sa_update(TaoyuanProject)
+            .where(TaoyuanProject.contract_project_id == project_id)
+            .values(contract_project_id=None)
+        )
+        # 3. 解除派工單關聯
+        await self.db.execute(
+            sa_update(TaoyuanDispatchOrder)
+            .where(TaoyuanDispatchOrder.contract_project_id == project_id)
+            .values(contract_project_id=None)
+        )
+        # 4. 刪除機關承辦聯絡人
+        await self.db.execute(
+            delete(ProjectAgencyContact)
+            .where(ProjectAgencyContact.project_id == project_id)
+        )
+
+    async def get_for_dropdown(
+        self,
+        search: Optional[str] = None,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """取得承攬案件下拉選項"""
+        query = select(
+            ContractProject.id,
+            ContractProject.project_name,
+            ContractProject.year,
+            ContractProject.category,
+        )
+        if search:
+            query = query.where(
+                or_(
+                    ContractProject.project_name.ilike(f"%{search}%"),
+                    ContractProject.project_code.ilike(f"%{search}%"),
+                    ContractProject.client_agency.ilike(f"%{search}%"),
+                )
+            )
+        query = query.order_by(
+            ContractProject.year.desc(),
+            ContractProject.project_name.asc(),
+        ).limit(limit)
+        result = await self.db.execute(query)
+        return [
+            {
+                "value": p.project_name,
+                "label": f"{p.project_name} ({p.year}年)",
+                "id": p.id,
+                "year": p.year,
+                "category": p.category,
+            }
+            for p in result.all()
+        ]
+
+    async def exists_by_project_code(self, project_code: str) -> bool:
+        """檢查案號是否存在"""
+        result = await self.db.execute(
+            select(exists().where(ContractProject.project_code == project_code))
+        )
+        return bool(result.scalar())

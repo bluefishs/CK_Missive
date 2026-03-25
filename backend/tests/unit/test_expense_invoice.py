@@ -1187,10 +1187,11 @@ class TestVendorPayableAutoLedger:
         payable = FakePayable()
         service.repo.get_by_id = AsyncMock(return_value=payable)
 
-        # 模擬: 查詢案號
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = "P113-001"
-        mock_db.execute = AsyncMock(return_value=mock_result)
+        # 模擬: 查詢案號 (透過 _quotation_repo.get_by_id)
+        fake_quotation = MagicMock()
+        fake_quotation.case_code = "P113-001"
+        service._quotation_repo = MagicMock()
+        service._quotation_repo.get_by_id = AsyncMock(return_value=fake_quotation)
 
         update_data = ERPVendorPayableUpdate(
             payment_status="paid",

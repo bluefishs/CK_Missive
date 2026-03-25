@@ -99,6 +99,7 @@ class KGPathNode(BaseModel):
     id: int
     name: str
     type: str
+    source_project: str = "ck-missive"
 
 
 class KGShortestPathResponse(BaseModel):
@@ -547,6 +548,16 @@ class EntityContribution(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict, description="附加元資料 (座標/嚴重度/etc)")
     aliases: List[str] = Field(default_factory=list, description="別名列表")
 
+    @field_validator("entity_type")
+    @classmethod
+    def validate_entity_type(cls, v: str) -> str:
+        from app.core.constants import CROSS_PROJECT_ENTITY_TYPES
+        if v not in CROSS_PROJECT_ENTITY_TYPES:
+            raise ValueError(
+                f"無效的實體類型: '{v}', 允許: {sorted(CROSS_PROJECT_ENTITY_TYPES)}"
+            )
+        return v
+
     model_config = {"extra": "ignore"}
 
 
@@ -559,6 +570,26 @@ class RelationContribution(BaseModel):
     relation_type: str = Field(..., max_length=100, description="關係類型")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="關係元資料")
 
+    @field_validator("source_type", "target_type")
+    @classmethod
+    def validate_entity_types(cls, v: str) -> str:
+        from app.core.constants import CROSS_PROJECT_ENTITY_TYPES
+        if v not in CROSS_PROJECT_ENTITY_TYPES:
+            raise ValueError(
+                f"無效的實體類型: '{v}', 允許: {sorted(CROSS_PROJECT_ENTITY_TYPES)}"
+            )
+        return v
+
+    @field_validator("relation_type")
+    @classmethod
+    def validate_relation_type(cls, v: str) -> str:
+        from app.core.constants import CROSS_PROJECT_RELATION_TYPES
+        if v not in CROSS_PROJECT_RELATION_TYPES:
+            raise ValueError(
+                f"無效的關係類型: '{v}', 允許: {sorted(CROSS_PROJECT_RELATION_TYPES)}"
+            )
+        return v
+
     model_config = {"extra": "ignore"}
 
 
@@ -567,6 +598,21 @@ class FederatedContributionRequest(BaseModel):
     source_project: str = Field(..., description="來源專案: ck-lvrland | ck-tunnel")
     contributions: List[EntityContribution] = Field(..., min_length=1, max_length=500)
     relations: List[RelationContribution] = Field(default_factory=list, max_length=500)
+    idempotency_key: Optional[str] = Field(
+        None,
+        max_length=128,
+        description="冪等鍵 — 相同 key 在 TTL 內重複提交將回傳快取結果",
+    )
+
+    @field_validator("source_project")
+    @classmethod
+    def validate_source_project(cls, v: str) -> str:
+        from app.core.constants import KG_SOURCE_PROJECTS
+        if v not in KG_SOURCE_PROJECTS:
+            raise ValueError(
+                f"未知的來源專案: '{v}', 允許: {sorted(KG_SOURCE_PROJECTS)}"
+            )
+        return v
 
     model_config = {"extra": "ignore"}
 
@@ -615,3 +661,40 @@ class FederatedSearchResponse(BaseModel):
     edges: List[KGGraphEdge] = []
     total: int = 0
     source_projects_found: List[str] = []
+
+
+# ============================================================================
+# 跨專案路徑查詢 (KG-4, v1.1.0)
+# ============================================================================
+
+
+class CrossDomainPathRequest(BaseModel):
+    """跨專案路徑查詢請求"""
+    source_id: int = Field(..., description="起始實體 ID")
+    target_id: int = Field(..., description="目標實體 ID")
+    max_hops: int = Field(default=6, ge=1, le=8, description="最大跳數")
+
+
+class CrossDomainPathNode(BaseModel):
+    """跨專案路徑節點（含來源專案標記）"""
+    id: int
+    name: str
+    type: str
+    source_project: str = "ck-missive"
+
+
+class CrossDomainPathResponse(BaseModel):
+    """跨專案路徑查詢回應"""
+    success: bool = True
+    found: bool = False
+    depth: int = 0
+    path: List[CrossDomainPathNode] = []
+    relations: List[str] = []
+    source_projects_traversed: List[str] = Field(
+        default_factory=list,
+        description="路徑中涉及的來源專案列表",
+    )
+    is_cross_project: bool = Field(
+        default=False,
+        description="路徑是否跨越專案邊界",
+    )

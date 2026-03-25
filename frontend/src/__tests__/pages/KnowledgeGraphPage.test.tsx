@@ -101,6 +101,11 @@ vi.mock('../../pages/knowledgeGraph/KGAdminPanel', () => ({
   ),
 }));
 
+vi.mock('../../api/ai/knowledgeGraph', () => ({
+  getTimelineAggregate: vi.fn().mockResolvedValue({ data: [] }),
+  getFederationHealth: vi.fn().mockResolvedValue({ status: 'ok' }),
+}));
+
 vi.mock('../../config/graphNodeConfig', () => ({
   getAllMergedConfigs: vi.fn(() => ({
     government_agency: { label: '政府機關', color: '#1890ff' },
@@ -201,7 +206,7 @@ describe('KnowledgeGraphPage', () => {
   it('renders embedding coverage label', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('Embedding 覆蓋')).toBeInTheDocument();
+      expect(screen.getByText('文件 Embedding')).toBeInTheDocument();
     });
   });
 

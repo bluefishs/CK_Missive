@@ -212,16 +212,29 @@ DEFAULT_NAVIGATION_ITEMS = [
         "permission_required": "[\"agencies:read\"]"
     },
 
-    # 廠商管理 (對應 ROUTES.VENDORS)
+    # 協力廠商管理 (對應 ROUTES.VENDORS)
     {
-        "title": "廠商管理",
+        "title": "協力廠商",
         "key": "vendors",
         "path": "/vendors",
         "icon": "ShopOutlined",
         "sort_order": 3,
         "level": 2,
         "parent_key": "project-management",
-        "description": "廠商,供應商",
+        "description": "協力廠商,下包商",
+        "permission_required": "[\"vendors:read\"]"
+    },
+
+    # 委託單位管理 (對應 ROUTES.CLIENTS)
+    {
+        "title": "委託單位",
+        "key": "clients",
+        "path": "/clients",
+        "icon": "BankOutlined",
+        "sort_order": 4,
+        "level": 2,
+        "parent_key": "project-management",
+        "description": "委託單位,業主",
         "permission_required": "[\"vendors:read\"]"
     },
 
@@ -231,7 +244,7 @@ DEFAULT_NAVIGATION_ITEMS = [
         "key": "staff",
         "path": "/staff",
         "icon": "TeamOutlined",
-        "sort_order": 4,
+        "sort_order": 5,
         "level": 2,
         "parent_key": "project-management",
         "description": "承辦,同仁,人員",
@@ -264,31 +277,26 @@ DEFAULT_NAVIGATION_ITEMS = [
         "permission_required": "[]"
     },
 
-    # ERP 費用報銷 (對應 ROUTES.ERP_EXPENSES)
+    # ERP 財務記錄 (統一入口：發票報銷 + 手動記帳)
     {
-        "title": "費用報銷",
+        "title": "財務記錄",
         "key": "erp-expenses",
         "path": "/erp/expenses",
         "icon": "FileTextOutlined",
         "sort_order": 7,
         "level": 2,
         "parent_key": "project-management",
-        "description": "費用,報銷,發票,核銷,QR,掃描",
+        "description": "費用,報銷,發票,核銷,QR,掃描,記帳",
         "permission_required": "[]"
     },
 
-    # ERP 統一帳本 (對應 ROUTES.ERP_LEDGER)
-    {
-        "title": "統一帳本",
-        "key": "erp-ledger",
-        "path": "/erp/ledger",
-        "icon": "BookOutlined",
-        "sort_order": 8,
-        "level": 2,
-        "parent_key": "project-management",
-        "description": "帳本,記帳,收支,帳目,分類",
-        "permission_required": "[]"
-    },
+    # ERP 統一帳本 (已合併至財務記錄，保留路由向後相容)
+    # {
+    #     "title": "統一帳本",
+    #     "key": "erp-ledger",
+    #     "path": "/erp/ledger",
+    #     ...
+    # },
 
     # ERP 財務儀表板 (對應 ROUTES.ERP_FINANCIAL_DASHBOARD)
     {
@@ -581,13 +589,26 @@ DEFAULT_NAVIGATION_ITEMS = [
         "permission_required": "[]"
     },
 
+    # 數位分身 (對應 ROUTES.DIGITAL_TWIN)
+    {
+        "title": "數位分身",
+        "key": "digital-twin",
+        "path": "/ai/digital-twin",
+        "icon": "CloudServerOutlined",
+        "sort_order": 5,
+        "level": 2,
+        "parent_key": "ai-features",
+        "description": "數位分身,NemoClaw,Agent,問答,跨專案,協作",
+        "permission_required": "[]"
+    },
+
     # 技能演化樹 (對應 ROUTES.SKILL_EVOLUTION)
     {
         "title": "技能演化樹",
         "key": "skill-evolution",
         "path": "/ai/skill-evolution",
         "icon": "RiseOutlined",
-        "sort_order": 5,
+        "sort_order": 6,
         "level": 2,
         "parent_key": "ai-features",
         "description": "技能,演化,演化樹,版本,融合,發展,藍圖",
@@ -600,7 +621,7 @@ DEFAULT_NAVIGATION_ITEMS = [
         "key": "ai-assistant-management",
         "path": "/admin/ai-assistant",
         "icon": "ExperimentOutlined",
-        "sort_order": 6,
+        "sort_order": 7,
         "level": 2,
         "parent_key": "ai-features",
         "description": "AI,助理,管理,儀表板",

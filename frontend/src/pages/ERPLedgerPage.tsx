@@ -9,7 +9,9 @@ import {
   Statistic, Row, Col, Modal, Form, DatePicker, message, Popconfirm,
 } from 'antd';
 import { PlusOutlined, ReloadOutlined, DeleteOutlined } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import { ResponsiveContent } from '@ck-shared/ui-components';
+import { ROUTES } from '../router/types';
 import {
   useLedger, useCreateLedger, useDeleteLedger,
   useLedgerCategoryBreakdown, useAuthGuard, useProjectsDropdown,
@@ -23,6 +25,7 @@ const { Title } = Typography;
 
 const ERPLedgerPage: React.FC = () => {
   const { hasPermission } = useAuthGuard();
+  const navigate = useNavigate();
   const canWrite = hasPermission('projects:write');
   const [params, setParams] = useState<LedgerQuery>({ skip: 0, limit: 20 });
   const { projects: projectOptions } = useProjectsDropdown();
@@ -114,7 +117,7 @@ const ERPLedgerPage: React.FC = () => {
           <Col><Title level={3} style={{ margin: 0 }}>統一帳本</Title></Col>
           <Col>
             {canWrite && (
-              <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>手動記帳</Button>
+              <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate(ROUTES.ERP_LEDGER_CREATE)}>手動記帳</Button>
             )}
           </Col>
         </Row>

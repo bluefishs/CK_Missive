@@ -17,11 +17,11 @@ import re
 import hashlib
 from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime, timedelta
-from functools import lru_cache
-from sqlalchemy import select, func, or_, and_, text, literal_column
+from sqlalchemy import select, func, or_, and_, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.extended.models import OfficialDocument as Document, ContractProject, GovernmentAgency
+from app.extended.models import OfficialDocument as Document
+from app.repositories.document_repository import DocumentRepository
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +52,7 @@ class SearchOptimizer:
 
     def __init__(self, db: AsyncSession):
         self.db = db
+        self._doc_repo = DocumentRepository(db)
         self._cache: Dict[str, Tuple[Any, datetime]] = {}
         self._cache_ttl = timedelta(minutes=5)
 
@@ -302,37 +303,23 @@ class SearchOptimizer:
         suggestions = []
 
         try:
-            # 從主旨搜尋
-            subject_query = (
-                select(Document.subject)
-                .where(Document.subject.ilike(f"%{normalized}%"))
-                .distinct()
-                .limit(limit)
-            )
-            subject_result = await self.db.execute(subject_query)
-            for row in subject_result:
-                if row[0]:
-                    suggestions.append({
-                        "type": "subject",
-                        "value": row[0][:100],  # 截斷過長的主旨
-                        "label": f"主旨: {row[0][:50]}..."
-                    })
+            # 從主旨搜尋 — 委派至 Repository
+            subjects = await self._doc_repo.search_distinct_subjects(normalized, limit)
+            for subj in subjects:
+                suggestions.append({
+                    "type": "subject",
+                    "value": subj[:100],
+                    "label": f"主旨: {subj[:50]}..."
+                })
 
-            # 從文號搜尋
-            doc_number_query = (
-                select(Document.doc_number)
-                .where(Document.doc_number.ilike(f"%{normalized}%"))
-                .distinct()
-                .limit(limit)
-            )
-            doc_number_result = await self.db.execute(doc_number_query)
-            for row in doc_number_result:
-                if row[0]:
-                    suggestions.append({
-                        "type": "doc_number",
-                        "value": row[0],
-                        "label": f"文號: {row[0]}"
-                    })
+            # 從文號搜尋 — 委派至 Repository
+            doc_numbers = await self._doc_repo.search_distinct_doc_numbers(normalized, limit)
+            for doc_num in doc_numbers:
+                suggestions.append({
+                    "type": "doc_number",
+                    "value": doc_num,
+                    "label": f"文號: {doc_num}"
+                })
 
             # 去重並限制數量
             seen = set()
@@ -358,23 +345,17 @@ class SearchOptimizer:
             熱門搜尋詞列表
         """
         try:
-            # 取得最近的公文主旨關鍵詞
-            query = (
-                select(Document.subject)
-                .order_by(Document.updated_at.desc())
-                .limit(100)
-            )
-            result = await self.db.execute(query)
+            # 取得最近的公文主旨關鍵詞 — 委派至 Repository
+            recent_subjects = await self._doc_repo.get_recent_subjects(100)
 
             # 簡易詞頻統計
             word_freq: Dict[str, int] = {}
-            for row in result:
-                if row[0]:
-                    # 提取中文詞彙 (長度 2-4)
-                    words = re.findall(r'[\u4e00-\u9fff]{2,4}', row[0])
-                    for word in words:
-                        if word not in self.STOP_WORDS:
-                            word_freq[word] = word_freq.get(word, 0) + 1
+            for subj in recent_subjects:
+                # 提取中文詞彙 (長度 2-4)
+                words = re.findall(r'[\u4e00-\u9fff]{2,4}', subj)
+                for word in words:
+                    if word not in self.STOP_WORDS:
+                        word_freq[word] = word_freq.get(word, 0) + 1
 
             # 排序並取前 N 個
             sorted_words = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)

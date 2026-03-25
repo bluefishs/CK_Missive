@@ -5,7 +5,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
 import {
@@ -112,6 +112,7 @@ export const useCalendarPage = () => {
   const deleteMutation = useDeleteCalendarEvent();
   const syncMutation = useBulkSync();
 
+  const queryClient = useQueryClient();
   const events = useMemo(() => eventsQuery.data ?? [], [eventsQuery.data]);
 
   // 計算統計資料
@@ -158,6 +159,54 @@ export const useCalendarPage = () => {
     };
   }, [events]);
 
+  // 批次更新事件狀態（單次 API 呼叫，避免 rate limit + N 次 invalidate）
+  const batchUpdateEventStatus = useCallback(async (
+    eventUpdates: Array<{ eventId: number; status: 'pending' | 'completed' | 'cancelled' }>
+  ): Promise<{ successCount: number; failCount: number }> => {
+    // 按 status 分組（通常只有一種）
+    const statusGroups = new Map<string, number[]>();
+    for (const { eventId, status } of eventUpdates) {
+      const ids = statusGroups.get(status) ?? [];
+      ids.push(eventId);
+      statusGroups.set(status, ids);
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const [status, ids] of statusGroups) {
+      try {
+        const result = await calendarApi.batchUpdateStatus(
+          ids,
+          status as 'pending' | 'completed' | 'cancelled'
+        );
+        successCount += result.updated;
+        failCount += result.total - result.updated;
+      } catch {
+        failCount += ids.length;
+      }
+    }
+
+    queryClient.invalidateQueries({ queryKey: queryKeys.calendar.events() });
+    queryClient.invalidateQueries({ queryKey: queryKeys.dashboardCalendar.all });
+
+    return { successCount, failCount };
+  }, [queryClient]);
+
+  // 批次刪除事件（單次 API 呼叫）
+  const batchDeleteEvents = useCallback(async (
+    eventIds: number[]
+  ): Promise<{ successCount: number; failCount: number }> => {
+    try {
+      const result = await calendarApi.batchDelete(eventIds);
+      queryClient.invalidateQueries({ queryKey: queryKeys.calendar.events() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardCalendar.all });
+      return { successCount: result.deleted, failCount: result.total - result.deleted };
+    } catch {
+      return { successCount: 0, failCount: eventIds.length };
+    }
+  }, [queryClient]);
+
   return {
     // 事件資料
     events,
@@ -177,6 +226,8 @@ export const useCalendarPage = () => {
     updateEvent: updateMutation.mutateAsync,
     deleteEvent: deleteMutation.mutateAsync,
     bulkSync: syncMutation.mutateAsync,
+    batchUpdateEventStatus,
+    batchDeleteEvents,
 
     // 操作狀態
     isUpdating: updateMutation.isPending,

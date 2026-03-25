@@ -1,8 +1,8 @@
 """ERP 發票 Repository"""
 import logging
-from typing import Optional, List
+from typing import Optional, List, Dict
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.extended.models.erp import ERPInvoice
@@ -30,3 +30,20 @@ class ERPInvoiceRepository(BaseRepository[ERPInvoice]):
     async def get_by_invoice_number(self, invoice_number: str) -> Optional[ERPInvoice]:
         """依發票號碼查詢"""
         return await self.find_one_by(invoice_number=invoice_number)
+
+    async def get_counts_by_quotation_ids(
+        self, quotation_ids: List[int]
+    ) -> Dict[int, int]:
+        """批次取得各報價單的發票數量"""
+        if not quotation_ids:
+            return {}
+        query = (
+            select(
+                ERPInvoice.erp_quotation_id,
+                func.count(ERPInvoice.id).label("cnt"),
+            )
+            .where(ERPInvoice.erp_quotation_id.in_(quotation_ids))
+            .group_by(ERPInvoice.erp_quotation_id)
+        )
+        result = await self.db.execute(query)
+        return {row.erp_quotation_id: row.cnt for row in result.all()}

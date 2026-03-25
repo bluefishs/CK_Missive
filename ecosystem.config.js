@@ -61,6 +61,8 @@ module.exports = {
       restart_delay: 10000,  // 增加到 10 秒，讓端口有時間釋放
       max_restarts: 10,
       min_uptime: '30s',
+      treekill: true,        // 殺掉整個進程樹（含 uvicorn 子進程）
+      kill_timeout: 10000,   // 等 10 秒讓進程優雅關閉
     },
 
     // ===== 前端 Vite 開發服務 =====

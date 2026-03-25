@@ -206,26 +206,9 @@ class DispatchExportService:
         """Query all work records for the given dispatch IDs (chunked to avoid SQL IN overflow)."""
         if not dispatch_ids:
             return []
-
-        chunk_size = 500
-        all_records: List[TaoyuanWorkRecord] = []
-
-        for i in range(0, len(dispatch_ids), chunk_size):
-            chunk = dispatch_ids[i:i + chunk_size]
-            query = (
-                select(TaoyuanWorkRecord)
-                .options(
-                    selectinload(TaoyuanWorkRecord.document),
-                    selectinload(TaoyuanWorkRecord.incoming_doc),
-                    selectinload(TaoyuanWorkRecord.outgoing_doc),
-                )
-                .where(TaoyuanWorkRecord.dispatch_order_id.in_(chunk))
-                .order_by(TaoyuanWorkRecord.dispatch_order_id, TaoyuanWorkRecord.sort_order)
-            )
-            result = await self.db.execute(query)
-            all_records.extend(result.scalars().unique().all())
-
-        return all_records
+        from app.repositories.taoyuan import WorkRecordRepository
+        wr_repo = WorkRecordRepository(self.db)
+        return await wr_repo.get_by_dispatch_ids_with_docs(dispatch_ids)
 
     # =========================================================================
     # Sheet builders

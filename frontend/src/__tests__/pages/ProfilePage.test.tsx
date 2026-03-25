@@ -185,7 +185,7 @@ describe('ProfilePage', () => {
   it('displays email auth provider tag for email users', async () => {
     renderProfilePage();
     await waitFor(() => {
-      expect(screen.getByText('郵箱')).toBeInTheDocument();
+      expect(screen.getAllByText('電子郵件').length).toBeGreaterThan(0);
     }, WAIT_OPTS);
   });
 

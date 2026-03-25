@@ -230,6 +230,28 @@ class CalendarRepository(BaseRepository[DocumentCalendarEvent]):
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
+    async def get_by_ids_with_reminders(
+        self, event_ids: List[int]
+    ) -> List[DocumentCalendarEvent]:
+        """
+        根據 ID 列表取得事件（含 reminders 關聯）
+
+        Args:
+            event_ids: 事件 ID 列表
+
+        Returns:
+            事件列表
+        """
+        if not event_ids:
+            return []
+        query = (
+            select(DocumentCalendarEvent)
+            .options(selectinload(DocumentCalendarEvent.reminders))
+            .where(DocumentCalendarEvent.id.in_(event_ids))
+        )
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
     async def get_synced_events(self) -> List[DocumentCalendarEvent]:
         """
         取得已同步的事件
@@ -535,3 +557,50 @@ class CalendarRepository(BaseRepository[DocumentCalendarEvent]):
             'upcoming_7_days': upcoming,
             'overdue': overdue,
         }
+
+    # =========================================================================
+    # 提醒查詢
+    # =========================================================================
+
+    async def get_pending_reminders(
+        self, check_time: datetime
+    ) -> List[EventReminder]:
+        """取得需要發送的待處理提醒"""
+        result = await self.db.execute(
+            select(EventReminder)
+            .options(
+                selectinload(EventReminder.event),
+                selectinload(EventReminder.recipient_user),
+            )
+            .where(
+                and_(
+                    EventReminder.status == "pending",
+                    EventReminder.reminder_time <= check_time,
+                    or_(
+                        EventReminder.next_retry_at.is_(None),
+                        EventReminder.next_retry_at <= check_time,
+                    ),
+                )
+            )
+            .order_by(EventReminder.priority, EventReminder.reminder_time)
+        )
+        return list(result.scalars().all())
+
+    async def delete_pending_reminders_by_event(self, event_id: int) -> int:
+        """刪除事件的所有待發送提醒，回傳刪除數"""
+        result = await self.db.execute(
+            EventReminder.__table__.delete().where(
+                and_(
+                    EventReminder.event_id == event_id,
+                    EventReminder.status == "pending",
+                )
+            )
+        )
+        return result.rowcount
+
+    async def get_reminders_by_event(self, event_id: int) -> List[EventReminder]:
+        """取得事件的所有提醒"""
+        result = await self.db.execute(
+            select(EventReminder).where(EventReminder.event_id == event_id)
+        )
+        return list(result.scalars().all())

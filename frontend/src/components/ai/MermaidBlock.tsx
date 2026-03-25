@@ -197,7 +197,7 @@ const MermaidBlock: React.FC<MermaidBlockProps> = ({ chart, title, description, 
         <div
           ref={svgWrapRef}
           style={{
-            transform: `translate(${translate.x}px, ${translate.y}px) scale(${scale})`,
+            transform: `translate(${translate.x || 0}px, ${translate.y || 0}px) scale(${isNaN(scale) ? 1 : scale})`,
             transformOrigin: 'center center',
             textAlign: 'center',
             transition: isPanning.current ? 'none' : 'transform 0.15s ease',

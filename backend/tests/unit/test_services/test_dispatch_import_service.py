@@ -58,8 +58,10 @@ class TestResolveRocYear:
     @pytest.mark.asyncio
     async def test_single_year(self, service, mock_db):
         """解析單一民國年格式 '115年度...'"""
+        mock_project = MagicMock()
+        mock_project.project_name = "115年度桃園市道路改善工程"
         result_mock = MagicMock()
-        result_mock.scalar_one_or_none.return_value = "115年度桃園市道路改善工程"
+        result_mock.scalar_one_or_none.return_value = mock_project
         mock_db.execute.return_value = result_mock
 
         year = await service._resolve_roc_year(1)
@@ -68,8 +70,10 @@ class TestResolveRocYear:
     @pytest.mark.asyncio
     async def test_range_year(self, service, mock_db):
         """解析年度範圍 '112至113年度...' 取起始年"""
+        mock_project = MagicMock()
+        mock_project.project_name = "112至113年度土地測量案"
         result_mock = MagicMock()
-        result_mock.scalar_one_or_none.return_value = "112至113年度土地測量案"
+        result_mock.scalar_one_or_none.return_value = mock_project
         mock_db.execute.return_value = result_mock
 
         year = await service._resolve_roc_year(1)
@@ -78,8 +82,10 @@ class TestResolveRocYear:
     @pytest.mark.asyncio
     async def test_no_year_in_name(self, service, mock_db):
         """名稱中無年度時回傳當年民國年"""
+        mock_project = MagicMock()
+        mock_project.project_name = "道路拓寬工程"
         result_mock = MagicMock()
-        result_mock.scalar_one_or_none.return_value = "道路拓寬工程"
+        result_mock.scalar_one_or_none.return_value = mock_project
         mock_db.execute.return_value = result_mock
 
         year = await service._resolve_roc_year(1)

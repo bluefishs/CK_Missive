@@ -198,6 +198,113 @@ class CaseCodeService:
         except (ValueError, IndexError):
             return None
 
+    async def generate_project_code(
+        self, year: int, category: str = "01", case_nature: str = "01",
+    ) -> str:
+        """產生成案專案編號 (project_code)
+
+        格式: CK{年度}_{類別}_{性質}_{流水號}
+        範例: CK2025_01_01_001
+        """
+        from sqlalchemy import select, func
+        from app.extended.models.core import ContractProject
+
+        year_str = str(year) if year > 1911 else str(year + 1911)
+        cat_code = category[:2].zfill(2) if category else "01"
+        nat_code = case_nature[:2].zfill(2) if case_nature else "01"
+        prefix = f"CK{year_str}_{cat_code}_{nat_code}_"
+
+        # 查最大流水號
+        query = select(func.max(ContractProject.project_code)).where(
+            ContractProject.project_code.like(f"{prefix}%")
+        )
+        result = await self.db.execute(query)
+        max_code = result.scalar()
+
+        next_serial = 1
+        if max_code:
+            try:
+                next_serial = int(max_code.split("_")[-1]) + 1
+            except (IndexError, ValueError):
+                pass
+
+        return f"{prefix}{str(next_serial).zfill(3)}"
+
+    async def promote_to_project(self, case_code: str) -> dict:
+        """成案觸發：從 PM Case 自動建立 ContractProject + 連結 ERP Quotation
+
+        1. 查找 PM Case
+        2. 產生 project_code
+        3. 建立 ContractProject (繼承基本欄位 + case_code)
+        4. 更新 PM Case 的 project_code + status
+        5. 更新 ERP Quotation 的 project_code (如存在)
+
+        Returns:
+            {'project_code': str, 'contract_project_id': int, 'erp_linked': bool}
+        """
+        from app.extended.models.core import ContractProject
+        from app.extended.models.erp import ERPQuotation
+
+        # 1. 查找 PM Case
+        pm_case = await self.pm_repo.get_by_case_code(case_code)
+        if not pm_case:
+            raise ValueError(f"找不到案號 {case_code}")
+        if pm_case.project_code:
+            raise ValueError(f"案號 {case_code} 已成案，project_code={pm_case.project_code}")
+
+        # 2. 產生 project_code
+        project_code = await self.generate_project_code(
+            year=pm_case.year or 114,
+            category=pm_case.category or "01",
+        )
+
+        # 3. 建立 ContractProject
+        contract_project = ContractProject(
+            project_name=pm_case.case_name,
+            project_code=project_code,
+            case_code=case_code,
+            year=pm_case.year,
+            category=pm_case.category,
+            client_agency=pm_case.client_name,
+            contract_amount=float(pm_case.contract_amount) if pm_case.contract_amount else None,
+            start_date=pm_case.start_date,
+            end_date=pm_case.end_date,
+            status="執行中",
+            location=getattr(pm_case, 'location', None),
+            description=pm_case.description,
+            notes=pm_case.notes,
+        )
+        self.db.add(contract_project)
+        await self.db.flush()
+
+        # 4. 更新 PM Case
+        pm_case.project_code = project_code
+        pm_case.status = "in_progress"
+
+        # 5. 連結 ERP Quotation (如存在)
+        erp_linked = False
+        from sqlalchemy import select
+        erp_result = await self.db.execute(
+            select(ERPQuotation).where(ERPQuotation.case_code == case_code)
+        )
+        erp_quotation = erp_result.scalar_one_or_none()
+        if erp_quotation:
+            erp_quotation.project_code = project_code
+            erp_linked = True
+
+        await self.db.commit()
+
+        logger.info(
+            f"成案完成: case_code={case_code} → project_code={project_code}, "
+            f"contract_project_id={contract_project.id}, erp_linked={erp_linked}"
+        )
+
+        return {
+            "project_code": project_code,
+            "contract_project_id": contract_project.id,
+            "erp_linked": erp_linked,
+        }
+
     async def cross_module_lookup(self, case_code: str) -> dict:
         """跨模組查詢案號 — 回傳該案號在 PM/ERP 各自的記錄"""
         result: dict = {"case_code": case_code, "pm": None, "erp": None}
@@ -213,17 +320,21 @@ class CaseCodeService:
     async def find_linked_documents(self, case_code: str, limit: int = 20) -> list:
         """透過 case_code 查找相關公文
 
-        搜尋策略:
-        1. ContractProject.project_code 精確匹配 case_code
-        2. OfficialDocument.contract_project_id 指向該 project
+        搜尋策略 (優先使用 case_code 欄位，回退 project_code):
+        1. ContractProject.case_code 精確匹配
+        2. ContractProject.project_code 精確匹配 (向後相容)
+        3. OfficialDocument.contract_project_id 指向該 project
         """
-        # 先找 ContractProject IDs
-        project_ids = await self.project_repo.get_ids_by_project_code(case_code)
+        # 優先用 case_code 欄位查找
+        project_ids = await self.project_repo.get_ids_by_case_code(case_code)
+
+        # 回退：用 project_code 查找 (向後相容)
+        if not project_ids:
+            project_ids = await self.project_repo.get_ids_by_project_code(case_code)
 
         if not project_ids:
             return []
 
-        # 再找關聯公文
         return await self.doc_repo.get_by_project_ids(project_ids, limit=limit)
 
     @staticmethod

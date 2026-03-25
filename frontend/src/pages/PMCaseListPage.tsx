@@ -1,17 +1,18 @@
 /**
- * PM 案件管理列表頁面
+ * 邀標/報價管理列表頁面
  *
- * 提供 PM 專案管理列表，包含統計卡片、搜尋篩選與分頁功能。
+ * 建案階段：邀標登錄、報價上傳、決標追蹤。
+ * 成案後自動帶入 Contract Cases 與 ERP Quotations。
  *
- * @version 2.0.0
+ * @version 3.0.0 — 重新定位為邀標/報價專區
  */
 import React, { useState, useMemo } from 'react';
-import { Typography, Input, Button, Flex, Card, Statistic, Row, Col, Tag, Select, Progress, Table } from 'antd';
-import { PlusOutlined, ReloadOutlined, ProjectOutlined, CheckCircleOutlined, ClockCircleOutlined, DollarOutlined } from '@ant-design/icons';
+import { Typography, Input, Button, Flex, Card, Statistic, Row, Col, Tag, Select, Table } from 'antd';
+import { PlusOutlined, ReloadOutlined, FileSearchOutlined, CheckCircleOutlined, DollarOutlined, SendOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { ResponsiveContent } from '@ck-shared/ui-components';
-import { usePMCases, usePMCaseSummary, useAuthGuard, useResponsive, useAllProjectsSummary } from '../hooks';
-import { PM_CASE_STATUS_LABELS, PM_CASE_STATUS_COLORS, PM_CATEGORY_LABELS } from '../types/api';
+import { usePMCases, usePMCaseSummary, useAuthGuard, useResponsive } from '../hooks';
+import { PM_CATEGORY_LABELS } from '../types/api';
 import type { PMCase } from '../types/api';
 import type { ColumnsType } from 'antd/es/table';
 import { ROUTES } from '../router/types';
@@ -42,16 +43,6 @@ export const PMCaseListPage: React.FC = () => {
 
   const { data: casesData, isLoading, refetch } = usePMCases(queryParams);
   const { data: summary } = usePMCaseSummary({ year: yearFilter });
-  const { data: financialData } = useAllProjectsSummary({ year: yearFilter, limit: 200 });
-
-  // Build budget alert lookup by case_code
-  const budgetMap = useMemo(() => {
-    const map: Record<string, { pct?: number; alert?: string }> = {};
-    for (const p of financialData?.items ?? []) {
-      map[p.case_code] = { pct: p.budget_used_percentage, alert: p.budget_alert };
-    }
-    return map;
-  }, [financialData]);
 
   // PaginatedResponse<PMCase> has .items and .pagination directly
   const cases = casesData?.items ?? [];
@@ -62,21 +53,14 @@ export const PMCaseListPage: React.FC = () => {
       title: '案號',
       dataIndex: 'case_code',
       key: 'case_code',
-      width: 130,
-      render: (code: string) => <Typography.Text strong>{code}</Typography.Text>,
+      width: 140,
+      render: (code: string) => <Typography.Text strong style={{ fontFamily: 'monospace', fontSize: 12 }}>{code}</Typography.Text>,
     },
     {
-      title: '案名',
+      title: '專案名稱',
       dataIndex: 'case_name',
       key: 'case_name',
       ellipsis: true,
-    },
-    {
-      title: '類別',
-      dataIndex: 'category',
-      key: 'category',
-      width: 100,
-      render: (cat: string) => PM_CATEGORY_LABELS[cat] || cat || '-',
     },
     {
       title: '委託單位',
@@ -87,57 +71,56 @@ export const PMCaseListPage: React.FC = () => {
       render: (v: string) => v || '-',
     },
     {
-      title: '合約金額',
+      title: '作業類別',
+      dataIndex: 'category',
+      key: 'category',
+      width: 100,
+      render: (cat: string) => PM_CATEGORY_LABELS[cat] || cat || '-',
+    },
+    {
+      title: '報價金額',
       dataIndex: 'contract_amount',
       key: 'contract_amount',
-      width: 130,
+      width: 120,
       align: 'right' as const,
       render: (v: number) => v ? `NT$${v.toLocaleString()}` : '-',
     },
     {
-      title: '狀態',
+      title: '承攬狀態',
       dataIndex: 'status',
-      key: 'status',
-      width: 100,
-      render: (s: string) => (
-        <Tag color={PM_CASE_STATUS_COLORS[s as keyof typeof PM_CASE_STATUS_COLORS] || 'default'}>
-          {PM_CASE_STATUS_LABELS[s as keyof typeof PM_CASE_STATUS_LABELS] || s}
-        </Tag>
-      ),
-    },
-    {
-      title: '進度',
-      dataIndex: 'progress',
-      key: 'progress',
-      width: 110,
-      render: (p: number) => <Progress percent={p} size="small" />,
-    },
-    {
-      title: '預算',
-      key: 'budget_alert',
-      width: 100,
-      render: (_: unknown, record: PMCase) => {
-        const info = budgetMap[record.case_code];
-        if (!info || info.pct == null) return <Tag>-</Tag>;
-        const color = info.alert === 'critical' ? 'red' : info.alert === 'warning' ? 'orange' : 'green';
-        return <Tag color={color}>{info.pct.toFixed(0)}%</Tag>;
+      key: 'contract_status',
+      width: 90,
+      align: 'center' as const,
+      filters: [
+        { text: '評估中', value: 'planning' },
+        { text: '已承攬', value: 'in_progress' },
+        { text: '未承攬', value: 'completed' },
+        { text: '未得標', value: 'closed' },
+      ],
+      onFilter: (value, record) => record.status === value,
+      render: (status: string) => {
+        if (status === 'in_progress') return <Tag color="success">已承攬</Tag>;
+        if (status === 'completed') return <Tag color="warning">未承攬</Tag>;
+        if (status === 'closed') return <Tag color="error">未得標</Tag>;
+        return <Tag color="default">評估中</Tag>;
       },
     },
     {
-      title: '開始日期',
-      dataIndex: 'start_date',
-      key: 'start_date',
-      width: 110,
-      render: (d: string) => d || '-',
+      title: '成案編號',
+      dataIndex: 'project_code',
+      key: 'project_code',
+      width: 130,
+      render: (code: string) => code
+        ? <Typography.Text style={{ fontFamily: 'monospace', fontSize: 12 }}>{code}</Typography.Text>
+        : <Typography.Text type="secondary">-</Typography.Text>,
     },
   ];
 
-  // Mobile: strip category, client, amount, start_date columns
+  // Mobile: 案號、專案名稱、是否承攬
   const mobileColumns: ColumnsType<PMCase> = [
     desktopColumns[0]!, // 案號
-    desktopColumns[1]!, // 案名
-    desktopColumns[5]!, // 狀態
-    desktopColumns[6]!, // 進度
+    desktopColumns[1]!, // 專案名稱
+    desktopColumns[5]!, // 是否承攬
   ];
 
   const columns = isMobile ? mobileColumns : desktopColumns;
@@ -147,7 +130,7 @@ export const PMCaseListPage: React.FC = () => {
       <Flex vertical gap={8} style={{ width: '100%' }}>
         <Row justify="space-between" align="middle">
           <Col>
-            <Title level={4} style={{ margin: 0 }}>PM 專案管理</Title>
+            <Title level={4} style={{ margin: 0 }}><FileSearchOutlined style={{ marginRight: 8 }} />邀標/報價管理</Title>
           </Col>
           <Col>
             {hasPermission('projects:write') && (
@@ -156,7 +139,7 @@ export const PMCaseListPage: React.FC = () => {
                 icon={<PlusOutlined />}
                 onClick={() => navigate(ROUTES.PM_CASE_CREATE)}
               >
-                新增案件
+                新增邀標
               </Button>
             )}
           </Col>
@@ -167,18 +150,18 @@ export const PMCaseListPage: React.FC = () => {
             <Col xs={12} sm={6}>
               <Card size="small">
                 <Statistic
-                  title="總案件數"
+                  title="邀標總數"
                   value={summary.total_cases}
-                  prefix={<ProjectOutlined />}
+                  prefix={<FileSearchOutlined />}
                 />
               </Card>
             </Col>
             <Col xs={12} sm={6}>
               <Card size="small">
                 <Statistic
-                  title="執行中"
+                  title="報價中"
                   value={summary.by_status?.['in_progress'] ?? 0}
-                  prefix={<ClockCircleOutlined />}
+                  prefix={<SendOutlined />}
                   styles={{ content: { color: '#1890ff' } }}
                 />
               </Card>
@@ -186,7 +169,7 @@ export const PMCaseListPage: React.FC = () => {
             <Col xs={12} sm={6}>
               <Card size="small">
                 <Statistic
-                  title="已完成"
+                  title="已成案"
                   value={summary.by_status?.['completed'] ?? 0}
                   prefix={<CheckCircleOutlined />}
                   styles={{ content: { color: '#52c41a' } }}
@@ -196,7 +179,7 @@ export const PMCaseListPage: React.FC = () => {
             <Col xs={12} sm={6}>
               <Card size="small">
                 <Statistic
-                  title="合約總額"
+                  title="報價總額"
                   value={summary.total_contract_amount ?? 0}
                   prefix={<DollarOutlined />}
                   formatter={(v) => `NT$${Number(v).toLocaleString()}`}
@@ -237,17 +220,19 @@ export const PMCaseListPage: React.FC = () => {
           <Col xs={8} sm={4}>
             <Select
               style={{ width: '100%' }}
-              placeholder="狀態"
+              placeholder="承攬狀態"
               allowClear
               value={statusFilter}
               onChange={(v) => {
                 setStatusFilter(v);
                 setCurrentPage(1);
               }}
-              options={Object.entries(PM_CASE_STATUS_LABELS).map(([k, v]) => ({
-                value: k,
-                label: v,
-              }))}
+              options={[
+                { value: 'planning', label: '評估中' },
+                { value: 'in_progress', label: '已承攬' },
+                { value: 'completed', label: '未承攬' },
+                { value: 'closed', label: '未得標' },
+              ]}
             />
           </Col>
           <Col xs={8} sm={4}>

@@ -92,6 +92,7 @@ class AIConfig:
     graph_cache_ttl_neighbors: int = 300       # 鄰居查詢快取 TTL (秒)
     graph_cache_ttl_search: int = 120          # 搜尋快取 TTL (秒)
     graph_cache_ttl_stats: int = 1800          # 統計快取 TTL (秒)
+    graph_cache_ttl_path: int = 300            # 最短路徑快取 TTL (秒)
 
     # Agent 編排引擎 (v2.2.0 新增)
     agent_max_iterations: int = 3              # 工具迴圈最大輪次
@@ -291,6 +292,7 @@ class AIConfig:
             graph_cache_ttl_neighbors=int(os.getenv("GRAPH_CACHE_TTL_NEIGHBORS", "300")),
             graph_cache_ttl_search=int(os.getenv("GRAPH_CACHE_TTL_SEARCH", "120")),
             graph_cache_ttl_stats=int(os.getenv("GRAPH_CACHE_TTL_STATS", "1800")),
+            graph_cache_ttl_path=int(os.getenv("GRAPH_CACHE_TTL_PATH", "300")),
             # Agent 編排引擎 (YAML: agent.*)
             agent_max_iterations=_env_or_yaml(
                 "AGENT_MAX_ITERATIONS", ("agent", "max_iterations"), 3, int),

@@ -9,7 +9,8 @@ from app.schemas.common import BaseQueryParams
 
 class ERPQuotationCreate(BaseModel):
     """建立報價"""
-    case_code: Optional[str] = Field(None, max_length=50, description="案號 (未提供時自動產生)")
+    case_code: Optional[str] = Field(None, max_length=50, description="建案案號 (未提供時自動產生)")
+    project_code: Optional[str] = Field(None, max_length=100, description="成案專案編號")
     case_name: Optional[str] = Field(None, max_length=500, description="案名")
     year: Optional[int] = Field(None, description="年度 (民國)")
     total_price: Optional[Decimal] = Field(None, description="總價 (含稅)")
@@ -48,6 +49,7 @@ class ERPQuotationCreate(BaseModel):
 class ERPQuotationUpdate(BaseModel):
     """更新報價"""
     case_code: Optional[str] = Field(None, max_length=50)
+    project_code: Optional[str] = Field(None, max_length=100)
     case_name: Optional[str] = Field(None, max_length=500)
     year: Optional[int] = None
     total_price: Optional[Decimal] = None
@@ -65,6 +67,7 @@ class ERPQuotationResponse(BaseModel):
     """報價完整資訊 (含計算欄位)"""
     id: int
     case_code: str
+    project_code: Optional[str] = None
     case_name: Optional[str] = None
     year: Optional[int] = None
     total_price: Optional[Decimal] = None

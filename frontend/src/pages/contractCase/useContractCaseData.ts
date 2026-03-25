@@ -179,7 +179,7 @@ export function useContractCaseData(projectId: number | undefined) {
   const { data: vendorOptions = [] } = useQuery({
     queryKey: ['contract-case-vendor-options'],
     queryFn: async () => {
-      const response = await vendorsApi.getVendors({ limit: 100 }) as PaginatedResponse<Vendor>;
+      const response = await vendorsApi.getVendors({ vendor_type: 'subcontractor', limit: 100 }) as PaginatedResponse<Vendor>;
       const vendors = response.items || [];
       return vendors.map((v) => ({
         id: v.id,

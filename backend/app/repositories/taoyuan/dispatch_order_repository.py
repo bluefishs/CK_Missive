@@ -606,3 +606,107 @@ class DispatchOrderRepository(BaseRepository[TaoyuanDispatchOrder]):
             self.db.add(link)
 
         return len(work_types)
+
+    async def build_dispatch_no_map(self) -> Dict[str, Dict[str, Any]]:
+        """建立 {dispatch_no: {id, dispatch_no}} 映射"""
+        result = await self.db.execute(
+            select(TaoyuanDispatchOrder.id, TaoyuanDispatchOrder.dispatch_no)
+        )
+        return {
+            row.dispatch_no: {'id': row.id, 'dispatch_no': row.dispatch_no}
+            for row in result.all()
+            if row.dispatch_no
+        }
+
+    async def search_by_doc_number_raw(
+        self, doc_number: str, direction: str = "agency"
+    ) -> List[int]:
+        """搜尋派工單 — 依機關/公司原始文號 ILIKE 比對，回傳 ID 列表"""
+        col = (
+            TaoyuanDispatchOrder.agency_doc_number_raw
+            if direction == "agency"
+            else TaoyuanDispatchOrder.company_doc_number_raw
+        )
+        result = await self.db.execute(
+            select(TaoyuanDispatchOrder.id).where(col.ilike(f"%{doc_number}%"))
+        )
+        return [row[0] for row in result.all()]
+
+    async def search_by_project_name(
+        self, keyword: str, limit: int = 5
+    ) -> List[int]:
+        """搜尋派工單 — 依工程名稱 ILIKE 模糊比對，回傳 ID 列表"""
+        from sqlalchemy import func as sa_func
+        result = await self.db.execute(
+            select(TaoyuanDispatchOrder.id).where(
+                and_(
+                    TaoyuanDispatchOrder.project_name.isnot(None),
+                    or_(
+                        TaoyuanDispatchOrder.project_name.ilike(f"%{keyword}%"),
+                        sa_func.position(
+                            sa_func.lower(TaoyuanDispatchOrder.project_name),
+                            sa_func.lower(keyword)
+                        ).op(">")(0),
+                    )
+                )
+            ).limit(limit)
+        )
+        return [row[0] for row in result.all()]
+
+    async def get_with_doc_numbers_by_project(
+        self, contract_project_id: int
+    ) -> List[TaoyuanDispatchOrder]:
+        """取得案件下有原始文號的派工單"""
+        result = await self.db.execute(
+            select(TaoyuanDispatchOrder).where(
+                TaoyuanDispatchOrder.contract_project_id == contract_project_id,
+                (TaoyuanDispatchOrder.agency_doc_number_raw.isnot(None))
+                | (TaoyuanDispatchOrder.company_doc_number_raw.isnot(None)),
+            )
+        )
+        return list(result.scalars().all())
+
+    async def get_by_ids(self, ids: List[int]) -> List[TaoyuanDispatchOrder]:
+        """依 ID 列表批次取得派工單"""
+        if not ids:
+            return []
+        result = await self.db.execute(
+            select(TaoyuanDispatchOrder).where(
+                TaoyuanDispatchOrder.id.in_(ids)
+            )
+        )
+        return list(result.scalars().all())
+
+    async def get_filtered_for_export(
+        self,
+        contract_project_id: Optional[int] = None,
+        search: Optional[str] = None,
+        conditions_fn=None,
+    ) -> List[TaoyuanDispatchOrder]:
+        """取得匯出用的派工單列表 (含篩選)"""
+        from sqlalchemy.orm import selectinload as _sel
+        query = (
+            select(TaoyuanDispatchOrder)
+            .options(
+                _sel(TaoyuanDispatchOrder.contract_project),
+                _sel(TaoyuanDispatchOrder.payment),
+            )
+        )
+        conds = []
+        if contract_project_id:
+            conds.append(
+                TaoyuanDispatchOrder.contract_project_id == contract_project_id
+            )
+        if search:
+            pattern = f"%{search}%"
+            conds.append(or_(
+                TaoyuanDispatchOrder.dispatch_no.ilike(pattern),
+                TaoyuanDispatchOrder.project_name.ilike(pattern),
+            ))
+        if conditions_fn:
+            query = conditions_fn(query)
+        if conds:
+            query = query.where(and_(*conds))
+        query = query.order_by(TaoyuanDispatchOrder.id.desc())
+        result = await self.db.execute(query)
+        return list(result.scalars().unique().all())

@@ -1,6 +1,6 @@
 """PM Repositories"""
 from .case_repository import PMCaseRepository
 from .milestone_repository import PMMilestoneRepository
-from .staff_repository import PMCaseStaffRepository
+# PMCaseStaffRepository removed — staff migrated to project_user_assignments (v5.2.0)
 
-__all__ = ["PMCaseRepository", "PMMilestoneRepository", "PMCaseStaffRepository"]
+__all__ = ["PMCaseRepository", "PMMilestoneRepository"]

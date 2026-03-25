@@ -46,6 +46,8 @@ import { AgentToolSuccessCard } from './AgentToolSuccessCard';
 import { AgentAlertsCard } from './AgentAlertsCard';
 import { AgentTraceTimeline } from './AgentTraceTimeline';
 import { LiveActivityFeed } from './LiveActivityFeed';
+import { AgentOrgChart } from './AgentOrgChart';
+import { QaImpactCard } from './QaImpactCard';
 import { useLiveActivitySSE } from '../../../hooks/system/useLiveActivitySSE';
 
 const { Text } = Typography;
@@ -309,6 +311,12 @@ export const AgentPerformanceTab: React.FC = () => {
 
         {/* ── 主動警報 ── */}
         <AgentAlertsCard alerts={alerts} />
+
+        {/* ── Agent 組織圖 (V-3.1) ── */}
+        <AgentOrgChart />
+
+        {/* ── Diff-aware QA 影響分析 (V-3.3) ── */}
+        <QaImpactCard />
 
         {/* ── 即時 Swarm 轉播 (V-2.2) ── */}
         <LiveActivityFeed events={liveEvents} isConnected={isConnected} />

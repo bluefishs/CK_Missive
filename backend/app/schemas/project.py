@@ -15,10 +15,11 @@ from app.schemas.common import PaginatedResponse, PaginationMeta, SortOrder
 class ProjectBase(BaseModel):
     """承攬案件基礎Schema"""
     project_name: str = Field(..., min_length=1, max_length=500, description="案件名稱")
-    year: Optional[int] = Field(None, ge=1990, le=2050, description="年度")
+    year: Optional[int] = Field(None, description="年度 (民國或西元)")
     client_agency: Optional[str] = Field(None, max_length=200, description="委託單位")
     contract_doc_number: Optional[str] = Field(None, max_length=100, description="契約文號")
-    project_code: Optional[str] = Field(None, max_length=100, description="專案編號: CK{年度}_{類別}_{性質}_{流水號} (如CK2025_01_01_001)")
+    project_code: Optional[str] = Field(None, max_length=100, description="成案專案編號 (成案後產生)")
+    case_code: Optional[str] = Field(None, max_length=50, description="建案案號 (來自 pm_cases，跨模組橋樑)")
     category: Optional[str] = Field(None, max_length=50, description="案件類別: 01委辦案件, 02協力計畫, 03小額採購, 04其他類別")
     case_nature: Optional[str] = Field(None, max_length=50, description="案件性質: 01測量案, 02資訊案, 03複合案")
     status: Optional[str] = Field(None, max_length=50, description="執行狀態: 執行中, 已結案")
@@ -71,10 +72,11 @@ class ProjectCreate(ProjectBase):
 class ProjectUpdate(BaseModel):
     """更新承攬案件Schema"""
     project_name: Optional[str] = Field(None, min_length=1, max_length=500, description="案件名稱")
-    year: Optional[int] = Field(None, ge=1990, le=2050, description="年度")
+    year: Optional[int] = Field(None, description="年度 (民國或西元)")
     client_agency: Optional[str] = Field(None, max_length=200, description="委託單位")
     contract_doc_number: Optional[str] = Field(None, max_length=100, description="契約文號")
-    project_code: Optional[str] = Field(None, max_length=100, description="專案編號: CK{年度}_{類別}_{性質}_{流水號} (如CK2025_01_01_001)")
+    project_code: Optional[str] = Field(None, max_length=100, description="成案專案編號")
+    case_code: Optional[str] = Field(None, max_length=50, description="建案案號")
     category: Optional[str] = Field(None, max_length=50, description="案件類別: 01委辦案件, 02協力計畫, 03小額採購, 04其他類別")
     case_nature: Optional[str] = Field(None, max_length=50, description="案件性質: 01測量案, 02資訊案, 03複合案")
     status: Optional[str] = Field(None, max_length=50, description="執行狀態: 執行中, 已結案")
@@ -147,6 +149,7 @@ class ProjectOption(BaseModel):
     id: int
     project_name: str
     project_code: Optional[str] = None
+    case_code: Optional[str] = None
     year: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)

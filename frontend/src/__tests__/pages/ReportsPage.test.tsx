@@ -24,12 +24,18 @@ vi.mock('../../services/logger', () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), log: vi.fn() },
 }));
 
-vi.mock('../../hooks', () => ({
-  useResponsive: () => ({
-    isMobile: false,
-    responsiveValue: ({ desktop }: { desktop: unknown }) => desktop,
-  }),
-}));
+vi.mock('../../hooks', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../hooks')>();
+  return {
+    ...actual,
+    useResponsive: () => ({
+      isMobile: false,
+      responsiveValue: ({ desktop }: { desktop: unknown }) => desktop,
+    }),
+    usePMCaseSummary: () => ({ data: null, isLoading: false }),
+    useERPProfitSummary: () => ({ data: null, isLoading: false }),
+  };
+});
 
 vi.mock('../../api', () => ({
   documentsApi: {

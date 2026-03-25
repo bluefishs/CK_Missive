@@ -65,6 +65,12 @@ export class RequestThrottler {
   check(method: string | undefined, url: string | undefined): { action: 'allow' } | { action: 'cache'; data: unknown } | { action: 'reject'; reason: string } {
     const now = Date.now();
     const key = this.getKey(method, url);
+    const upperMethod = (method || 'get').toUpperCase();
+
+    // 非冪等方法 (POST/PUT/PATCH/DELETE) 不做 per-URL 節流/快取
+    // 原因：每個 mutation 都有副作用，快取會導致資料遺失（如批次更新只有首筆寫入）
+    // 全域熔斷仍適用以防 runaway mutation loops
+    const isMutation = !['GET', 'HEAD', 'OPTIONS'].includes(upperMethod);
 
     // 全域熔斷器
     if (now < this.circuitOpenUntil) {
@@ -83,21 +89,23 @@ export class RequestThrottler {
     record.timestamps = this.pruneOld(record.timestamps, THROTTLE_CONFIG.WINDOW_MS);
     this.globalTimestamps = this.pruneOld(this.globalTimestamps, THROTTLE_CONFIG.WINDOW_MS);
 
-    // 檢查 1：同 URL 最小間隔
-    if (record.lastData && (now - record.lastTime) < THROTTLE_CONFIG.MIN_INTERVAL_MS) {
-      return { action: 'cache', data: record.lastData };
-    }
-
-    // 檢查 2：單 URL 頻率上限
-    if (record.timestamps.length >= THROTTLE_CONFIG.MAX_PER_URL) {
-      logger.error(`[Throttle] ${key} 超頻 (${record.timestamps.length}/${THROTTLE_CONFIG.WINDOW_MS}ms) - 疑似無限迴圈`);
-      if (record.lastData) {
+    if (!isMutation) {
+      // 檢查 1：同 URL 最小間隔（僅 GET 類請求）
+      if (record.lastData && (now - record.lastTime) < THROTTLE_CONFIG.MIN_INTERVAL_MS) {
         return { action: 'cache', data: record.lastData };
       }
-      return { action: 'reject', reason: '單 URL 請求過於頻繁' };
+
+      // 檢查 2：單 URL 頻率上限（僅 GET 類請求）
+      if (record.timestamps.length >= THROTTLE_CONFIG.MAX_PER_URL) {
+        logger.error(`[Throttle] ${key} 超頻 (${record.timestamps.length}/${THROTTLE_CONFIG.WINDOW_MS}ms) - 疑似無限迴圈`);
+        if (record.lastData) {
+          return { action: 'cache', data: record.lastData };
+        }
+        return { action: 'reject', reason: '單 URL 請求過於頻繁' };
+      }
     }
 
-    // 檢查 3：全域熔斷
+    // 檢查 3：全域熔斷（所有方法皆適用）
     if (this.globalTimestamps.length >= THROTTLE_CONFIG.GLOBAL_MAX) {
       logger.error(`[CircuitBreaker] 全域請求超限 (${this.globalTimestamps.length}/${THROTTLE_CONFIG.WINDOW_MS}ms) - 啟動熔斷`);
       this.circuitOpenUntil = now + THROTTLE_CONFIG.COOLDOWN_MS;

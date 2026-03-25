@@ -25,7 +25,6 @@ import {
   Typography,
   Divider,
   Button,
-  Drawer,
   Table,
   Tag,
   Descriptions,
@@ -265,20 +264,41 @@ const DatabaseGraphPage: React.FC = () => {
         )}
       </div>
 
-      {/* Right Drawer: Table Detail */}
-      <Drawer
-        title={
-          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      {/* Right Panel: Table Detail (inline, 不遮蔽圖譜) */}
+      {!!selectedTable && (
+      <div
+        style={{
+          width: 520,
+          minWidth: 520,
+          background: '#fff',
+          borderLeft: '1px solid #f0f0f0',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '10px 16px',
+            borderBottom: '1px solid #f0f0f0',
+            flexShrink: 0,
+          }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}>
             <DatabaseOutlined />
             {selectedTable?.name ?? '表格詳情'}
           </span>
-        }
-        open={!!selectedTable}
-        onClose={() => { setSelectedTable(null); setTableData(null); }}
-        width={560}
-        closeIcon={<CloseOutlined />}
-        styles={{ body: { padding: '12px 16px' } }}
-      >
+          <Button
+            type="text"
+            size="small"
+            icon={<CloseOutlined />}
+            onClick={() => { setSelectedTable(null); setTableData(null); }}
+          />
+        </div>
+        <div style={{ flex: 1, overflow: 'auto', padding: '12px 16px' }}>
         {selectedTable && (
           <Tabs
             defaultActiveKey="schema"
@@ -416,7 +436,9 @@ const DatabaseGraphPage: React.FC = () => {
             ]}
           />
         )}
-      </Drawer>
+        </div>
+      </div>
+      )}
     </div>
   );
 };

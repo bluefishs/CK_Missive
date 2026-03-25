@@ -342,3 +342,15 @@ class UserRepository(BaseRepository[User]):
         users = list(result.scalars().all())
 
         return users, total
+
+    async def get_line_user_ids(self) -> List[str]:
+        """取得所有已綁定 LINE 的使用者 line_user_id 列表"""
+        if not hasattr(User, "line_user_id"):
+            return []
+        result = await self.db.execute(
+            select(User.line_user_id).where(
+                User.line_user_id.isnot(None),
+                User.line_user_id != "",
+            )
+        )
+        return [row[0] for row in result.all()]

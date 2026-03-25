@@ -12,6 +12,7 @@ VendorRepository - 廠商資料存取層
 """
 
 import logging
+from decimal import Decimal
 from typing import List, Optional, Dict, Any, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_, desc, asc
@@ -64,6 +65,7 @@ class VendorRepository(BaseRepository[PartnerVendor]):
     async def filter_vendors(
         self,
         search: Optional[str] = None,
+        vendor_type: Optional[str] = None,
         business_type: Optional[str] = None,
         rating: Optional[int] = None,
         sort_by: str = 'vendor_name',
@@ -80,6 +82,9 @@ class VendorRepository(BaseRepository[PartnerVendor]):
         query = select(PartnerVendor)
         count_query = select(func.count(PartnerVendor.id))
         filters = []
+
+        if vendor_type:
+            filters.append(PartnerVendor.vendor_type == vendor_type)
 
         if search:
             search_conditions = [
@@ -145,6 +150,62 @@ class VendorRepository(BaseRepository[PartnerVendor]):
     # 統計方法
     # =========================================================================
 
+    async def get_financial_summary(self, vendor_id: int) -> Dict[str, Any]:
+        """
+        廠商財務彙總 — 跨模組 JOIN 查詢應付/報銷/帳本
+
+        Args:
+            vendor_id: 廠商 ID
+
+        Returns:
+            包含應付帳款、報銷發票、帳本彙總的字典
+        """
+        from app.extended.models.erp import ERPVendorPayable
+        from app.extended.models.invoice import ExpenseInvoice
+        from app.extended.models.finance import FinanceLedger
+
+        # 1. 應付帳款彙總
+        payable_stmt = select(
+            func.coalesce(func.sum(ERPVendorPayable.payable_amount), 0).label("total_payable"),
+            func.coalesce(func.sum(ERPVendorPayable.paid_amount), 0).label("total_paid"),
+            func.count(ERPVendorPayable.id).label("payable_count"),
+        ).where(ERPVendorPayable.vendor_id == vendor_id)
+        payable_row = (await self.db.execute(payable_stmt)).one()
+
+        # 2. 報銷發票彙總 (透過 vendor_id)
+        expense_stmt = select(
+            func.coalesce(func.sum(ExpenseInvoice.amount), 0).label("total_expenses"),
+            func.count(ExpenseInvoice.id).label("expense_count"),
+        ).where(
+            ExpenseInvoice.vendor_id == vendor_id,
+            ExpenseInvoice.status != "rejected",
+        )
+        expense_row = (await self.db.execute(expense_stmt)).one()
+
+        # 3. 帳本彙總 (直接 vendor_id)
+        ledger_stmt = select(
+            func.coalesce(func.sum(FinanceLedger.amount), 0).label("ledger_total"),
+            func.count(FinanceLedger.id).label("ledger_count"),
+        ).where(
+            FinanceLedger.vendor_id == vendor_id,
+            FinanceLedger.entry_type == "expense",
+        )
+        ledger_row = (await self.db.execute(ledger_stmt)).one()
+
+        total_payable = Decimal(str(payable_row.total_payable))
+        total_paid = Decimal(str(payable_row.total_paid))
+
+        return {
+            "total_payable": total_payable,
+            "total_paid": total_paid,
+            "pending_payable": total_payable - total_paid,
+            "payable_count": payable_row.payable_count,
+            "total_expenses": Decimal(str(expense_row.total_expenses)),
+            "expense_count": expense_row.expense_count,
+            "ledger_expense_total": Decimal(str(ledger_row.ledger_total)),
+            "ledger_entry_count": ledger_row.ledger_count,
+        }
+
     async def get_vendor_statistics(self) -> Dict[str, Any]:
         """取得廠商統計資訊"""
         # 總數
@@ -171,3 +232,12 @@ class VendorRepository(BaseRepository[PartnerVendor]):
             "total": total,
             "by_type": by_type,
         }
+
+    async def get_id_by_vendor_code(self, vendor_code: str) -> Optional[int]:
+        """依 vendor_code (統編) 查詢廠商 ID"""
+        result = await self.db.execute(
+            select(PartnerVendor.id)
+            .where(PartnerVendor.vendor_code == vendor_code)
+            .limit(1)
+        )
+        return result.scalar_one_or_none()

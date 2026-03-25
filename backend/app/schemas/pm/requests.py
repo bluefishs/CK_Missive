@@ -62,6 +62,11 @@ class PMLinkedDocsRequest(BaseModel):
     limit: int = Field(20, description="最多回傳筆數")
 
 
+class PMPromoteRequest(BaseModel):
+    """成案請求 — 從邀標/報價轉為正式承攬案件"""
+    case_code: str = Field(..., description="建案案號")
+
+
 # ============================================================================
 # 人員請求
 # ============================================================================

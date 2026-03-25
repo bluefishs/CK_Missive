@@ -227,6 +227,30 @@ export const calendarApi = {
       throw error;
     }
   },
+  /**
+   * 批次更新事件狀態（單次 API 呼叫，避免 rate limit）
+   */
+  async batchUpdateStatus(
+    eventIds: number[],
+    status: 'pending' | 'completed' | 'cancelled'
+  ): Promise<{ success: boolean; updated: number; total: number }> {
+    return apiClient.post<{ success: boolean; updated: number; total: number }>(
+      API_ENDPOINTS.CALENDAR.EVENTS_BATCH_UPDATE_STATUS,
+      { event_ids: eventIds, status }
+    );
+  },
+
+  /**
+   * 批次刪除事件（單次 API 呼叫）
+   */
+  async batchDelete(
+    eventIds: number[]
+  ): Promise<{ success: boolean; deleted: number; total: number }> {
+    return apiClient.post<{ success: boolean; deleted: number; total: number }>(
+      API_ENDPOINTS.CALENDAR.EVENTS_BATCH_DELETE,
+      { event_ids: eventIds }
+    );
+  },
 };
 
 export default calendarApi;

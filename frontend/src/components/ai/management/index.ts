@@ -14,3 +14,5 @@ export { ServiceStatusTab } from './ServiceStatusTab';
 export { AgentPerformanceTab } from './AgentPerformanceTab';
 export { AgentTraceTimeline } from './AgentTraceTimeline';
 export { LiveActivityFeed } from './LiveActivityFeed';
+export { AgentOrgChart } from './AgentOrgChart';
+export { QaImpactCard } from './QaImpactCard';

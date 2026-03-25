@@ -60,6 +60,23 @@ export const useUsersDropdown = () => {
   return { users: data ?? [], isLoading };
 };
 
+/**
+ * 委託單位下拉選單 Hook (vendor_type=client)
+ */
+export const useClientOptions = () => {
+  const { data, isLoading } = useQuery({
+    queryKey: ['clients-dropdown'],
+    queryFn: async () => {
+      const { vendorsApi } = await import('../../api/vendorsApi');
+      const resp = await vendorsApi.getVendors({ vendor_type: 'client', limit: 200 });
+      return resp.items ?? [];
+    },
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+  return { clients: data ?? [], isLoading };
+};
+
 /** 檔案設定預設值 */
 const DEFAULT_FILE_SETTINGS = {
   allowedExtensions: ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.jpg', '.png', '.zip'],

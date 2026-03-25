@@ -264,9 +264,11 @@ class TestDispatchImportServiceROCYear:
         db = make_mock_db()
         service = DispatchImportService(db)
 
-        # Mock 查詢回傳案件名稱
+        # Mock 查詢回傳 project 物件
+        mock_project = MagicMock()
+        mock_project.project_name = "115年度桃園市測繪開口契約"
         mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = "115年度桃園市測繪開口契約"
+        mock_result.scalar_one_or_none.return_value = mock_project
         db.execute.return_value = mock_result
 
         year = await service._resolve_roc_year(contract_project_id=1)
@@ -280,8 +282,10 @@ class TestDispatchImportServiceROCYear:
         db = make_mock_db()
         service = DispatchImportService(db)
 
+        mock_project = MagicMock()
+        mock_project.project_name = "112至113年度測繪契約"
         mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = "112至113年度測繪契約"
+        mock_result.scalar_one_or_none.return_value = mock_project
         db.execute.return_value = mock_result
 
         year = await service._resolve_roc_year(contract_project_id=1)

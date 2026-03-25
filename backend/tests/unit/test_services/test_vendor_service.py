@@ -151,62 +151,59 @@ class TestGetById:
 # ============================================================
 
 class TestGetList:
-    """廠商列表查詢"""
+    """廠商列表查詢 — 委派至 VendorRepository.filter_vendors"""
 
     @pytest.mark.asyncio
     async def test_get_list_default(self, service, mock_db):
         """測試預設參數的列表查詢"""
         mock_vendors = [_make_vendor(vendor_id=i) for i in range(3)]
-
-        # mock db.execute 回傳鏈
-        mock_result = MagicMock()
-        mock_result.scalars.return_value.all.return_value = mock_vendors
-        mock_db.execute.return_value = mock_result
+        service.repository.filter_vendors = AsyncMock(
+            return_value=(mock_vendors, 3)
+        )
 
         result = await service.get_list()
 
         assert len(result) == 3
-        mock_db.execute.assert_awaited_once()
+        service.repository.filter_vendors.assert_awaited_once_with(
+            search=None, vendor_type=None, business_type=None, rating=None, skip=0, limit=100,
+        )
 
     @pytest.mark.asyncio
     async def test_get_list_with_search(self, service, mock_db):
         """測試帶搜尋關鍵字的列表查詢"""
         mock_vendors = [_make_vendor(vendor_id=1, vendor_name="桃園建設")]
-        mock_result = MagicMock()
-        mock_result.scalars.return_value.all.return_value = mock_vendors
-        mock_db.execute.return_value = mock_result
+        service.repository.filter_vendors = AsyncMock(
+            return_value=(mock_vendors, 1)
+        )
 
         result = await service.get_list(search="桃園")
 
         assert len(result) == 1
         assert result[0].vendor_name == "桃園建設"
-        mock_db.execute.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_get_list_with_business_type(self, service, mock_db):
         """測試帶營業項目篩選的列表查詢"""
         mock_vendors = [_make_vendor(vendor_id=1, business_type="測量業務")]
-        mock_result = MagicMock()
-        mock_result.scalars.return_value.all.return_value = mock_vendors
-        mock_db.execute.return_value = mock_result
+        service.repository.filter_vendors = AsyncMock(
+            return_value=(mock_vendors, 1)
+        )
 
         result = await service.get_list(business_type="測量業務")
 
         assert len(result) == 1
-        mock_db.execute.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_get_list_with_rating(self, service, mock_db):
         """測試帶評價篩選的列表查詢"""
         mock_vendors = [_make_vendor(vendor_id=1, rating=5)]
-        mock_result = MagicMock()
-        mock_result.scalars.return_value.all.return_value = mock_vendors
-        mock_db.execute.return_value = mock_result
+        service.repository.filter_vendors = AsyncMock(
+            return_value=(mock_vendors, 1)
+        )
 
         result = await service.get_list(rating=5)
 
         assert len(result) == 1
-        mock_db.execute.assert_awaited_once()
 
 
 # ============================================================
@@ -214,37 +211,36 @@ class TestGetList:
 # ============================================================
 
 class TestGetCount:
-    """廠商總數查詢"""
+    """廠商總數查詢 — 委派至 VendorRepository.filter_vendors"""
 
     @pytest.mark.asyncio
     async def test_get_count(self, service, mock_db):
         """測試取得廠商總數"""
-        mock_result = MagicMock()
-        mock_result.scalar.return_value = 42
-        mock_db.execute.return_value = mock_result
+        service.repository.filter_vendors = AsyncMock(
+            return_value=([], 42)
+        )
 
         result = await service.get_count()
 
         assert result == 42
-        mock_db.execute.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_get_count_with_search(self, service, mock_db):
         """測試帶搜尋條件的廠商總數"""
-        mock_result = MagicMock()
-        mock_result.scalar.return_value = 5
-        mock_db.execute.return_value = mock_result
+        service.repository.filter_vendors = AsyncMock(
+            return_value=([], 5)
+        )
 
         result = await service.get_count(search="建設")
 
         assert result == 5
 
     @pytest.mark.asyncio
-    async def test_get_count_returns_zero_when_none(self, service, mock_db):
-        """測試 scalar 回傳 None 時返回 0"""
-        mock_result = MagicMock()
-        mock_result.scalar.return_value = None
-        mock_db.execute.return_value = mock_result
+    async def test_get_count_returns_zero(self, service, mock_db):
+        """測試回傳 0"""
+        service.repository.filter_vendors = AsyncMock(
+            return_value=([], 0)
+        )
 
         result = await service.get_count()
 
@@ -282,6 +278,7 @@ class TestGetPaginated:
                 skip=0,
                 limit=20,
                 search=None,
+                vendor_type=None,
                 business_type=None,
                 rating=None,
             )
@@ -306,6 +303,7 @@ class TestGetPaginated:
                 skip=20,
                 limit=20,
                 search=None,
+                vendor_type=None,
                 business_type=None,
                 rating=None,
             )

@@ -14,7 +14,6 @@ Excel 匯入/匯出邏輯已拆分至 dispatch_import_service.py。
 import logging
 from typing import Optional, List, Dict, Any, Tuple
 
-from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,7 +21,6 @@ from app.repositories.taoyuan import DispatchOrderRepository
 from app.extended.models import (
     TaoyuanDispatchOrder,
     TaoyuanDispatchProjectLink,
-    TaoyuanDocumentProjectLink,
 )
 from app.schemas.taoyuan.dispatch import (
     DispatchOrderCreate,
@@ -93,12 +91,7 @@ class DispatchOrderService:
         if not dispatch_ids:
             return 0
 
-        order_result = await self.db.execute(
-            select(TaoyuanDispatchOrder).where(
-                TaoyuanDispatchOrder.id.in_(dispatch_ids)
-            )
-        )
-        orders = order_result.scalars().all()
+        orders = await self.repository.get_by_ids(dispatch_ids)
         updated = 0
         for order in orders:
             for field, value in sync_fields.items():
@@ -297,12 +290,10 @@ class DispatchOrderService:
 
         # 如果有指定關聯工程，更新關聯記錄
         if linked_project_ids is not None:
-            # 刪除現有關聯
-            await self.db.execute(
-                delete(TaoyuanDispatchProjectLink).where(
-                    TaoyuanDispatchProjectLink.dispatch_order_id == dispatch_id
-                )
-            )
+            # 刪除現有關聯 — 委派至 Repository
+            from app.repositories.taoyuan import DispatchProjectLinkRepository
+            proj_link_repo = DispatchProjectLinkRepository(self.db)
+            await proj_link_repo.delete_links_by_dispatch(dispatch_id)
 
             # 建立新關聯
             for project_id in linked_project_ids:
@@ -375,12 +366,9 @@ class DispatchOrderService:
         # Step 1: 清理自動建立的公文-工程關聯
         # 這些記錄的 notes 欄位包含 "自動同步自派工單 {dispatch_no}"
         if dispatch_no:
-            auto_links_result = await self.db.execute(
-                select(TaoyuanDocumentProjectLink).where(
-                    TaoyuanDocumentProjectLink.notes.like(f"%自動同步自派工單 {dispatch_no}%")
-                )
-            )
-            auto_links = auto_links_result.scalars().all()
+            from app.repositories.taoyuan import DispatchProjectLinkRepository
+            proj_link_repo = DispatchProjectLinkRepository(self.db)
+            auto_links = await proj_link_repo.find_auto_links_by_notes(dispatch_no)
             for auto_link in auto_links:
                 await self.db.delete(auto_link)
                 logger.info(f"清理孤立公文-工程關聯: 公文 {auto_link.document_id} <- 工程 {auto_link.taoyuan_project_id}")

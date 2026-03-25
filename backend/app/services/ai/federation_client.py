@@ -163,8 +163,10 @@ class FederationClient:
                 "token": token,
                 "endpoint": "/api/gateway/reason",
             }
+            # 若 fallback 表有定義名稱則優先使用，避免 .title() 大小寫不一致
+            fallback_name = (_FALLBACK_REGISTRY.get(engine_name) or {}).get("name")
             self._system_meta[engine_name] = {
-                "name": f"CK_{engine_name.title()}",
+                "name": fallback_name or f"CK_{engine_name.title()}",
                 "description": "多頻道 AI 管道系統",
                 "status": engine_status,
             }

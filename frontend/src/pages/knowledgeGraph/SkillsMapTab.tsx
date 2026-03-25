@@ -23,8 +23,8 @@ const { Text } = Typography;
 /** Legend item for the skills map */
 const LEGEND_ITEMS = [
   { type: 'domain',  label: '領域',  color: '#f5222d' },
-  { type: 'skill',   label: 'Skill', color: '#1890ff' },
-  { type: 'agent',   label: 'Agent', color: '#52c41a' },
+  { type: 'skill',   label: '技能',  color: '#1890ff' },
+  { type: 'agent',   label: '代理',  color: '#52c41a' },
   { type: 'tool',    label: '工具',  color: '#faad14' },
   { type: 'service', label: '服務',  color: '#722ed1' },
   { type: 'command', label: '指令',  color: '#13c2c2' },
@@ -37,7 +37,7 @@ const TYPE_LABELS: Record<string, string> = {
   skill: '具體技能',
   future: '演進方向',
   domain: '領域',
-  agent: 'Agent',
+  agent: '代理',
   tool: '工具',
   service: '服務',
   command: '指令',
@@ -105,7 +105,7 @@ const SkillsMapTab: React.FC = () => {
   if (isLoading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 500 }}>
-        <Spin size="large" tip="載入 Skills 能力圖譜..." />
+        <Spin size="large" description="載入 Skills 能力圖譜..." />
       </div>
     );
   }

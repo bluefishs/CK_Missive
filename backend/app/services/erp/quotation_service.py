@@ -9,12 +9,9 @@ import logging
 from typing import Optional, Tuple, List
 from decimal import Decimal, ROUND_HALF_UP
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from sqlalchemy import func as sa_func
-
-from app.extended.models.erp import ERPQuotation, ERPInvoice
+from app.extended.models.erp import ERPQuotation
 from app.repositories.erp import (
     ERPQuotationRepository, ERPInvoiceRepository,
     ERPBillingRepository, ERPVendorPayableRepository,
@@ -125,19 +122,8 @@ class ERPQuotationService:
         return responses, total
 
     async def _get_invoice_counts_batch(self, quotation_ids: List[int]) -> dict:
-        """批次取得發票數量"""
-        if not quotation_ids:
-            return {}
-        query = (
-            select(
-                ERPInvoice.erp_quotation_id,
-                sa_func.count(ERPInvoice.id).label("cnt"),
-            )
-            .where(ERPInvoice.erp_quotation_id.in_(quotation_ids))
-            .group_by(ERPInvoice.erp_quotation_id)
-        )
-        result = await self.db.execute(query)
-        return {row.erp_quotation_id: row.cnt for row in result.all()}
+        """批次取得發票數量 — 委派至 ERPInvoiceRepository"""
+        return await self.invoice_repo.get_counts_by_quotation_ids(quotation_ids)
 
     def _to_response_with_aggregates(
         self,

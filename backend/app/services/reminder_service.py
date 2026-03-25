@@ -13,6 +13,7 @@ from sqlalchemy import select, and_, or_
 from sqlalchemy.orm import selectinload
 
 from app.extended.models import DocumentCalendarEvent, EventReminder, User
+from app.repositories.calendar_repository import CalendarRepository
 from app.services.notification_service import NotificationService
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,7 @@ class ReminderService:
             db: AsyncSession 資料庫連線
         """
         self.db = db
+        self._calendar_repo = CalendarRepository(db)
         self.notification_service: NotificationService = NotificationService(db)
 
     # 預設提醒配置模板（統一一天前email提醒）
@@ -181,23 +183,7 @@ class ReminderService:
         if check_time is None:
             check_time = datetime.now()
 
-        result = await self.db.execute(
-            select(EventReminder)
-            .options(selectinload(EventReminder.event), selectinload(EventReminder.recipient_user))
-            .where(
-                and_(
-                    EventReminder.status == "pending",
-                    EventReminder.reminder_time <= check_time,
-                    or_(
-                        EventReminder.next_retry_at.is_(None),
-                        EventReminder.next_retry_at <= check_time
-                    )
-                )
-            )
-            .order_by(EventReminder.priority, EventReminder.reminder_time)
-        )
-
-        return result.scalars().all()
+        return await self._calendar_repo.get_pending_reminders(check_time)
 
     async def send_reminder(
         self,
@@ -361,21 +347,11 @@ class ReminderService:
             是否更新成功
         """
         try:
-            # 刪除現有的未發送提醒
-            await self.db.execute(
-                EventReminder.__table__.delete().where(
-                    and_(
-                        EventReminder.event_id == event_id,
-                        EventReminder.status == "pending"
-                    )
-                )
-            )
+            # 刪除現有的未發送提醒 — 委派至 Repository
+            await self._calendar_repo.delete_pending_reminders_by_event(event_id)
 
-            # 獲取事件
-            result = await self.db.execute(
-                select(DocumentCalendarEvent).where(DocumentCalendarEvent.id == event_id)
-            )
-            event = result.scalar_one_or_none()
+            # 獲取事件 — 委派至 Repository
+            event = await self._calendar_repo.get_by_id(event_id)
 
             if not event:
                 return False
@@ -397,10 +373,7 @@ class ReminderService:
     ) -> Dict[str, Any]:
         """獲取事件的提醒狀態統計"""
         try:
-            result = await self.db.execute(
-                select(EventReminder).where(EventReminder.event_id == event_id)
-            )
-            reminders = result.scalars().all()
+            reminders = await self._calendar_repo.get_reminders_by_event(event_id)
 
             status_counts = {}
             for reminder in reminders:

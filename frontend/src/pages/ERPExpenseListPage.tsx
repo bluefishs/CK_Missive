@@ -166,7 +166,7 @@ const ERPExpenseListPage: React.FC = () => {
     <ResponsiveContent maxWidth="full" padding="medium">
       <Card style={{ marginBottom: 16 }}>
         <Row justify="space-between" align="middle">
-          <Col><Title level={3} style={{ margin: 0 }}>費用報銷管理</Title></Col>
+          <Col><Title level={3} style={{ margin: 0 }}>財務記錄管理</Title></Col>
           <Col>
             <Space wrap>
               <Button icon={<CloudDownloadOutlined />} onClick={() => setMofOpen(true)}>
@@ -174,7 +174,8 @@ const ERPExpenseListPage: React.FC = () => {
               </Button>
               <Button icon={<CameraOutlined />} onClick={() => setOcrOpen(true)}>OCR 辨識</Button>
               <Button icon={<QrcodeOutlined />} onClick={() => setQrOpen(true)}>QR 掃描</Button>
-              <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>新增報銷</Button>
+              <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate(ROUTES.ERP_EXPENSE_CREATE)}>新增報銷</Button>
+              <Button icon={<PlusOutlined />} onClick={() => navigate(ROUTES.ERP_LEDGER_CREATE)}>手動記帳</Button>
             </Space>
           </Col>
         </Row>

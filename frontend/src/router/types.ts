@@ -43,6 +43,9 @@ export const ROUTES = {
   VENDORS: '/vendors',
   VENDOR_CREATE: '/vendors/create',
   VENDOR_EDIT: '/vendors/:id/edit',
+  CLIENTS: '/clients',
+  CLIENT_CREATE: '/clients/create',
+  CLIENT_EDIT: '/clients/:id/edit',
   STAFF: '/staff',
   STAFF_CREATE: '/staff/create',
   STAFF_DETAIL: '/staff/:id',
@@ -113,13 +116,17 @@ export const ROUTES = {
   ERP_QUOTATION_EDIT: '/erp/quotations/:id/edit',
   // 費用報銷
   ERP_EXPENSES: '/erp/expenses',
+  ERP_EXPENSE_CREATE: '/erp/expenses/create',
   ERP_EXPENSE_DETAIL: '/erp/expenses/:id',
   // 統一帳本
   ERP_LEDGER: '/erp/ledger',
+  ERP_LEDGER_CREATE: '/erp/ledger/create',
   // 財務儀表板
   ERP_FINANCIAL_DASHBOARD: '/erp/financial-dashboard',
   // 電子發票同步
   ERP_EINVOICE_SYNC: '/erp/einvoice-sync',
+  // 數位分身
+  DIGITAL_TWIN: '/ai/digital-twin',
   // 登入紀錄 (資安管理)
   ADMIN_LOGIN_HISTORY: '/admin/login-history',
 } as const;
@@ -330,6 +337,12 @@ export const ROUTE_META = {
     title: '資料庫圖譜',
     description: '視覺化資料表 ER 關聯與欄位結構',
     icon: 'DatabaseOutlined',
+    requireAuth: true,
+  },
+  [ROUTES.DIGITAL_TWIN]: {
+    title: '數位分身',
+    description: 'NemoClaw 跨專案智能協作引擎 — 即時問答與能力展示',
+    icon: 'CloudServerOutlined',
     requireAuth: true,
   },
   [ROUTES.CODE_GRAPH_MANAGEMENT]: {

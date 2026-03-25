@@ -360,7 +360,7 @@ class TestERPQuotationServiceList:
         mock_items = [_make_mock_quotation(qid=i) for i in range(1, 4)]
 
         with patch("app.services.erp.quotation_service.ERPQuotationRepository") as MockRepo, \
-             patch("app.services.erp.quotation_service.ERPInvoiceRepository"), \
+             patch("app.services.erp.quotation_service.ERPInvoiceRepository") as MockInv, \
              patch("app.services.erp.quotation_service.ERPBillingRepository") as MockBill, \
              patch("app.services.erp.quotation_service.ERPVendorPayableRepository") as MockPay, \
              patch("app.services.erp.quotation_service.CaseCodeService"):
@@ -368,11 +368,7 @@ class TestERPQuotationServiceList:
             MockRepo.return_value.filter_quotations = AsyncMock(return_value=(mock_items, 3))
             MockBill.return_value.get_aggregates_batch = AsyncMock(return_value={})
             MockPay.return_value.get_aggregates_batch = AsyncMock(return_value={})
-
-            # Mock _get_invoice_counts_batch via db.execute
-            inv_result = MagicMock()
-            inv_result.all.return_value = []
-            mock_db_session.execute = AsyncMock(return_value=inv_result)
+            MockInv.return_value.get_counts_by_quotation_ids = AsyncMock(return_value={})
 
             service = ERPQuotationService(mock_db_session)
             params = ERPQuotationListRequest(page=1, limit=20, year=114)

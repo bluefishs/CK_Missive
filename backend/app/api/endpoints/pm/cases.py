@@ -11,7 +11,7 @@ from app.schemas.pm import (
     PMCaseListRequest, PMCaseSummary,
     PMCaseIdRequest, PMCaseUpdateRequest,
     PMSummaryRequest, PMGenerateCodeRequest,
-    PMCrossLookupRequest, PMLinkedDocsRequest,
+    PMCrossLookupRequest, PMLinkedDocsRequest, PMPromoteRequest,
 )
 from app.schemas.common import PaginatedResponse, SuccessResponse, DeleteResponse
 
@@ -172,3 +172,20 @@ async def get_linked_documents(
     """透過案號查詢相關公文 (case_code → ContractProject → OfficialDocument)"""
     docs = await service.code_service.find_linked_documents(req.case_code, req.limit)
     return SuccessResponse(data=docs)
+
+
+@router.post("/promote")
+async def promote_to_project(
+    req: PMPromoteRequest,
+    service: PMCaseService = Depends(get_service(PMCaseService)),
+):
+    """成案：從邀標/報價轉為正式承攬案件
+
+    自動產生 project_code，建立 ContractProject，連結 ERP Quotation。
+    """
+    try:
+        result = await service.code_service.promote_to_project(req.case_code)
+        return SuccessResponse(data=result, message=f"成案成功，專案編號: {result['project_code']}")
+    except ValueError as e:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=str(e))

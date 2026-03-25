@@ -109,10 +109,17 @@ export type {
   KGTopEntitiesRequest,
   KGTopEntitiesResponse,
   KGGraphStatsResponse,
+  KGFederationProjectHealth,
+  KGFederationEmbeddingCoverage,
+  KGFederationHealthResponse,
   KGIngestRequest,
   KGIngestResponse,
   KGMergeEntitiesRequest,
   KGMergeEntitiesResponse,
+  // 跨圖譜統一搜尋
+  UnifiedGraphSearchRequest,
+  UnifiedGraphResult,
+  UnifiedGraphSearchResponse,
   // Ollama 管理
   OllamaGpuLoadedModel,
   OllamaGpuInfo,

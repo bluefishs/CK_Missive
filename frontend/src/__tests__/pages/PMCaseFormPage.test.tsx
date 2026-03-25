@@ -72,6 +72,12 @@ vi.mock('../../hooks', () => ({
   }),
 }));
 
+vi.mock('../../hooks/business/useDropdownData', () => ({
+  useClientOptions: () => ({ clients: [{ id: 1, vendor_name: '測試委託' }], isLoading: false }),
+}));
+vi.mock('../../api/vendorsApi', () => ({
+  vendorsApi: { createVendor: vi.fn() },
+}));
 // No generate code API needed - form uses manual input
 
 // ==========================================================================
@@ -118,7 +124,7 @@ describe('PMCaseFormPage', () => {
     it('renders create mode title', async () => {
       renderPage();
       await waitFor(() => {
-        expect(screen.getByText('新增案件')).toBeInTheDocument();
+        expect(screen.getByText('新增邀標案件')).toBeInTheDocument();
       }, WAIT_OPTS);
     });
 
@@ -142,12 +148,12 @@ describe('PMCaseFormPage', () => {
       renderPage();
       await waitFor(() => {
         expect(screen.getByText('案號')).toBeInTheDocument();
-        expect(screen.getByText('案名')).toBeInTheDocument();
+        expect(screen.getByText('專案名稱')).toBeInTheDocument();
         expect(screen.getByText('年度')).toBeInTheDocument();
-        expect(screen.getByText('類別')).toBeInTheDocument();
+        expect(screen.getByText('作業類別')).toBeInTheDocument();
         expect(screen.getByText('狀態')).toBeInTheDocument();
         expect(screen.getByText('委託單位')).toBeInTheDocument();
-        expect(screen.getByText('合約金額')).toBeInTheDocument();
+        expect(screen.getByText('報價金額')).toBeInTheDocument();
         expect(screen.getByText('開始日期')).toBeInTheDocument();
         expect(screen.getByText('結束日期')).toBeInTheDocument();
         expect(screen.getByText('備註')).toBeInTheDocument();
@@ -192,7 +198,7 @@ describe('PMCaseFormPage', () => {
     it('renders edit mode title', async () => {
       renderPage();
       await waitFor(() => {
-        expect(screen.getByText('編輯案件')).toBeInTheDocument();
+        expect(screen.getByText('編輯邀標案件')).toBeInTheDocument();
       }, WAIT_OPTS);
     });
 
@@ -208,7 +214,7 @@ describe('PMCaseFormPage', () => {
       renderPage();
       await waitFor(() => {
         // Title is outside the Card, so it is visible even when Card is loading
-        expect(screen.getByText('編輯案件')).toBeInTheDocument();
+        expect(screen.getByText('編輯邀標案件')).toBeInTheDocument();
       }, WAIT_OPTS);
     });
   });

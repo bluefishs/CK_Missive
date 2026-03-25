@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, Select, Button, Space, Tag, Typography } from 'antd';
 import { ForkOutlined } from '@ant-design/icons';
 import type { KGShortestPathResponse } from '../../types/ai';
-import { getMergedNodeConfig } from '../../config/graphNodeConfig';
+import { getMergedNodeConfig, SOURCE_PROJECT_COLORS, SOURCE_PROJECT_LABELS } from '../../config/graphNodeConfig';
 
 const { Text } = Typography;
 
@@ -77,22 +77,54 @@ const ShortestPathFinder: React.FC<ShortestPathFinderProps> = ({
         </Button>
         {pathResult?.found && (
           <div style={{ fontSize: 12, padding: '4px 0' }}>
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              路徑深度: {pathResult.depth} 跳
-            </Text>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                路徑深度: {pathResult.depth} 跳
+              </Text>
+              {pathResult.is_cross_project && (
+                <Tag color="volcano" style={{ fontSize: 10, lineHeight: '16px', margin: 0 }}>
+                  跨專案
+                </Tag>
+              )}
+            </div>
+            {pathResult.source_projects_traversed && pathResult.source_projects_traversed.length > 1 && (
+              <div style={{ marginBottom: 4, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                {pathResult.source_projects_traversed.map((p) => (
+                  <span key={p} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10 }}>
+                    <span style={{
+                      width: 6, height: 6, borderRadius: '50%',
+                      background: SOURCE_PROJECT_COLORS[p] ?? '#999',
+                    }} />
+                    {SOURCE_PROJECT_LABELS[p] ?? p}
+                  </span>
+                ))}
+              </div>
+            )}
             <div style={{ marginTop: 4 }}>
-              {pathResult.path.map((node, idx) => (
-                <span key={node.id}>
-                  <Tag color={getMergedNodeConfig(node.type).color} style={{ fontSize: 11, marginBottom: 2 }}>
-                    {node.name}
-                  </Tag>
-                  {idx < pathResult.path.length - 1 && (
-                    <span style={{ fontSize: 10, color: '#999', margin: '0 2px' }}>
-                      —{pathResult.relations[idx] || ''}→{' '}
-                    </span>
-                  )}
-                </span>
-              ))}
+              {pathResult.path.map((node, idx) => {
+                const projColor = node.source_project
+                  ? SOURCE_PROJECT_COLORS[node.source_project]
+                  : undefined;
+                return (
+                  <span key={node.id}>
+                    <Tag
+                      color={getMergedNodeConfig(node.type).color}
+                      style={{
+                        fontSize: 11,
+                        marginBottom: 2,
+                        borderLeft: projColor ? `3px solid ${projColor}` : undefined,
+                      }}
+                    >
+                      {node.name}
+                    </Tag>
+                    {idx < pathResult.path.length - 1 && (
+                      <span style={{ fontSize: 10, color: '#999', margin: '0 2px' }}>
+                        —{pathResult.relations[idx] || ''}→{' '}
+                      </span>
+                    )}
+                  </span>
+                );
+              })}
             </div>
           </div>
         )}

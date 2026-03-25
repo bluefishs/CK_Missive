@@ -330,16 +330,34 @@ describe('RequestThrottler', () => {
 
       vi.advanceTimersByTime(500);
 
+      // GET 請求在 MIN_INTERVAL 內應返回快取
       const getResult = throttler.check('GET', '/api/documents');
       expect(getResult.action).toBe('cache');
       if (getResult.action === 'cache') {
         expect(getResult.data).toEqual({ method: 'GET' });
       }
 
+      // POST（mutation）不做 per-URL 節流，每次都放行
       const postResult = throttler.check('POST', '/api/documents');
-      expect(postResult.action).toBe('cache');
-      if (postResult.action === 'cache') {
-        expect(postResult.data).toEqual({ method: 'POST' });
+      expect(postResult.action).toBe('allow');
+    });
+
+    it('POST/PUT/PATCH/DELETE 不做 per-URL 節流（避免批次操作被快取吞掉）', () => {
+      const url = '/api/calendar/events/update';
+
+      // 快速發送超過 MAX_PER_URL 個 POST 請求
+      for (let i = 0; i < THROTTLE_CONFIG.MAX_PER_URL + 5; i++) {
+        vi.advanceTimersByTime(1);
+        const result = throttler.check('POST', url);
+        // mutation 請求全部放行（不快取、不拒絕）
+        expect(result.action).toBe('allow');
+      }
+
+      // PUT/PATCH/DELETE 同理
+      for (const method of ['PUT', 'PATCH', 'DELETE']) {
+        vi.advanceTimersByTime(1);
+        const result = throttler.check(method, url);
+        expect(result.action).toBe('allow');
       }
     });
 

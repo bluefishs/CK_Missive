@@ -31,9 +31,10 @@ export type DocType = (typeof DOC_TYPE_VALUES)[number];
 export const DELIVERY_METHOD_OPTIONS = [
   { value: '電子交換', label: '電子交換' },
   { value: '紙本郵寄', label: '紙本郵寄' },
+  { value: '紙本傳遞', label: '紙本傳遞' },
 ] as const;
 
-export const DELIVERY_METHOD_VALUES = ['電子交換', '紙本郵寄'] as const;
+export const DELIVERY_METHOD_VALUES = ['電子交換', '紙本郵寄', '紙本傳遞'] as const;
 
 export type DeliveryMethod = (typeof DELIVERY_METHOD_VALUES)[number];
 

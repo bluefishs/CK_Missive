@@ -10,9 +10,11 @@ from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 
 class ProjectStaffBase(BaseModel):
-    """案件與承辦同仁關聯基礎Schema"""
-    project_id: int = Field(..., description="案件ID")
-    user_id: int = Field(..., description="使用者ID")
+    """案件與承辦同仁關聯基礎Schema（統一人員表 v2.0）"""
+    project_id: Optional[int] = Field(None, description="承攬案件 ID (成案後填入)")
+    case_code: Optional[str] = Field(None, max_length=50, description="建案案號 (未成案時透過此欄關聯)")
+    user_id: Optional[int] = Field(None, description="系統使用者 ID (可為空，支援外部人員)")
+    staff_name: Optional[str] = Field(None, max_length=100, description="人員姓名 (user_id 為空時使用)")
     role: Optional[str] = Field("member", max_length=50, description="角色 (主辦/協辦/支援)")
     is_primary: bool = Field(False, description="是否為主要負責人")
     start_date: Optional[date] = Field(None, description="開始日期")
@@ -90,8 +92,10 @@ class ProjectStaffUpdate(BaseModel):
 class ProjectStaffResponse(BaseModel):
     """案件與承辦同仁關聯回應Schema"""
     id: int
-    project_id: int
-    user_id: int
+    project_id: Optional[int] = None
+    case_code: Optional[str] = None
+    user_id: Optional[int] = None
+    staff_name: Optional[str] = None
     user_name: str
     user_email: Optional[str] = None
     department: Optional[str] = None
@@ -110,7 +114,8 @@ class ProjectStaffResponse(BaseModel):
 
 class ProjectStaffListResponse(BaseModel):
     """案件承辦同仁列表回應Schema"""
-    project_id: int
+    project_id: Optional[int] = None
+    case_code: Optional[str] = None
     project_name: str
     staff: List[ProjectStaffResponse]
     total: int = Field(..., description="總人數")
@@ -125,5 +130,6 @@ class StaffListQuery(BaseModel):
     page: int = Field(default=1, ge=1, description="頁碼")
     limit: int = Field(default=20, ge=1, le=100, description="每頁筆數")
     project_id: Optional[int] = Field(None, description="案件 ID 篩選")
+    case_code: Optional[str] = Field(None, description="建案案號篩選")
     user_id: Optional[int] = Field(None, description="使用者 ID 篩選")
     status: Optional[str] = Field(None, description="狀態篩選")

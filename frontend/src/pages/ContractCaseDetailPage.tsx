@@ -40,8 +40,7 @@ import { CrossModuleCard } from './pmCase';
 import { useCrossModuleLookup } from '../hooks/business/usePMCases';
 import { Suspense, lazy } from 'react';
 
-const MilestonesTab = lazy(() => import('./pmCase/MilestonesTab'));
-const GanttTab = lazy(() => import('./pmCase/GanttTab'));
+const MilestonesGanttTab = lazy(() => import('./pmCase/MilestonesGanttTab'));
 
 import {
   CaseInfoTab,
@@ -112,13 +111,17 @@ export const ContractCaseDetailContent: React.FC<ContractCaseDetailContentProps>
     queryClient,
   } = useContractCaseData(projectId);
 
-  // ERP cross-module lookup via project_code
-  const { data: crossData } = useCrossModuleLookup(data?.project_code ?? null);
+  // ERP cross-module lookup via case_code (建案案號，跨模組橋樑)
+  // 優先用 case_code，回退 project_code（向後相容舊資料）
+  const crossLookupKey = data?.case_code ?? data?.project_code ?? null;
+  const { data: crossData } = useCrossModuleLookup(crossLookupKey);
   const hasErpData = !!crossData?.erp;
   const pmCaseId = crossData?.pm?.id ?? null;
 
   const loadUserOptions = async () => {};
-  const loadVendorOptions = async () => {};
+  const loadVendorOptions = async () => {
+    queryClient.invalidateQueries({ queryKey: ['contract-case-vendor-options'] });
+  };
 
   const [deleting, setDeleting] = useState(false);
 
@@ -429,25 +432,17 @@ export const ContractCaseDetailContent: React.FC<ContractCaseDetailContentProps>
     },
     ...(pmCaseId ? [{
       key: 'milestones',
-      label: <span>里程碑</span>,
+      label: <span>里程碑/甘特圖</span>,
       children: (
         <Suspense fallback={<Spin />}>
-          <MilestonesTab pmCaseId={pmCaseId} />
-        </Suspense>
-      ),
-    }, {
-      key: 'gantt',
-      label: <span>甘特圖</span>,
-      children: (
-        <Suspense fallback={<Spin />}>
-          <GanttTab pmCaseId={pmCaseId} />
+          <MilestonesGanttTab pmCaseId={pmCaseId} />
         </Suspense>
       ),
     }] : []),
-    ...(hasErpData && data?.project_code ? [{
+    ...((hasErpData || pmCaseId) && crossLookupKey ? [{
       key: 'erp',
       label: <span><DollarOutlined /> ERP 財務</span>,
-      children: <CrossModuleCard caseCode={data.project_code} />,
+      children: <CrossModuleCard caseCode={crossLookupKey} />,
     }] : []),
   ];
 

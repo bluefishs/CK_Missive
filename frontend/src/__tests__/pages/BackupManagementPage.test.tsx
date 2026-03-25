@@ -73,26 +73,34 @@ const mockSchedulerStatus = {
   },
 };
 
-vi.mock('../../api/client', () => ({
-  apiClient: {
-    get: vi.fn().mockResolvedValue({}),
-    post: vi.fn().mockImplementation((url: string) => {
-      if (url === '/backup/environment-status') return Promise.resolve(mockEnvStatus);
-      if (url === '/backup/list') return Promise.resolve(mockBackups);
-      if (url === '/backup/remote-config') return Promise.resolve(mockRemoteConfig);
-      if (url === '/backup/scheduler-status') return Promise.resolve(mockSchedulerStatus);
-      if (url === '/backup/logs') return Promise.resolve({ logs: [], total: 0, page: 1, page_size: 20 });
-      return Promise.resolve({});
-    }),
-    put: vi.fn().mockResolvedValue({}),
-    patch: vi.fn().mockResolvedValue({}),
-    delete: vi.fn().mockResolvedValue({}),
-  },
-}));
+vi.mock('../../api/client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../api/client')>();
+  return {
+    ...actual,
+    apiClient: {
+      get: vi.fn().mockResolvedValue({}),
+      post: vi.fn().mockImplementation((url: string) => {
+        if (url === '/backup/environment-status') return Promise.resolve(mockEnvStatus);
+        if (url === '/backup/list') return Promise.resolve(mockBackups);
+        if (url === '/backup/remote-config') return Promise.resolve(mockRemoteConfig);
+        if (url === '/backup/scheduler-status') return Promise.resolve(mockSchedulerStatus);
+        if (url === '/backup/logs') return Promise.resolve({ logs: [], total: 0, page: 1, page_size: 20 });
+        return Promise.resolve({});
+      }),
+      put: vi.fn().mockResolvedValue({}),
+      patch: vi.fn().mockResolvedValue({}),
+      delete: vi.fn().mockResolvedValue({}),
+    },
+  };
+});
 
-vi.mock('../../api/endpoints', () => ({
-  API_ENDPOINTS: {
-    BACKUP: {
+vi.mock('../../api/endpoints', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../api/endpoints')>();
+  return {
+    ...actual,
+    API_ENDPOINTS: {
+      ...actual.API_ENDPOINTS,
+      BACKUP: {
       LIST: '/backup/list',
       CREATE: '/backup/create',
       DELETE: '/backup/delete',
@@ -107,8 +115,9 @@ vi.mock('../../api/endpoints', () => ({
       SCHEDULER_STOP: '/backup/scheduler/stop',
       LOGS: '/backup/logs',
     },
-  },
-}));
+    },
+  };
+});
 
 vi.mock('@ck-shared/ui-components', () => ({
   ResponsiveContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,

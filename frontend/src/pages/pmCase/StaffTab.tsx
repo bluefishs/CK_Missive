@@ -1,246 +1,188 @@
 /**
- * PM 案件人員管理頁籤
+ * 承辦同仁 Tab（統一版）
  *
- * 提供案件人員的 CRUD 功能（子表格模式）
+ * 使用統一人員表 project_user_assignments，透過 case_code 查詢。
+ * 角色選項與 Contract Cases 一致（計畫主持/計畫協同/專案PM/職安主管）。
+ * 使用者下拉選擇使用 useUsersDropdown（與 Contract Cases 一致）。
+ *
+ * @version 4.0.0 — 統一版型，移除外部人員，使用 useUsersDropdown
  */
-import { useState, useCallback } from 'react';
-import { Table, Button, Modal, Form, Input, Select, Switch, DatePicker, Tag, Badge, Popconfirm, Space, message } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { useState } from 'react';
+import { Table, Button, Modal, Form, Select, Tag, Popconfirm, App } from 'antd';
+import { PlusOutlined, DeleteOutlined, UserOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import dayjs from 'dayjs';
-import type { PMCaseStaff, PMStaffRole } from '../../types/pm';
-import { PM_STAFF_ROLE_LABELS } from '../../types/pm';
-import {
-  usePMCaseStaff,
-  useCreatePMCaseStaff,
-  useUpdatePMCaseStaff,
-  useDeletePMCaseStaff,
-} from '../../hooks/business/usePMCases';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '../../api/client';
+import { API_ENDPOINTS } from '../../api/endpoints';
+import { useUsersDropdown } from '../../hooks';
+import { STAFF_ROLE_OPTIONS } from '../contractCase/tabs/constants';
+
+interface StaffRecord {
+  id: number;
+  user_id?: number;
+  staff_name?: string;
+  user_name: string;
+  role?: string;
+  is_primary?: boolean;
+  status?: string;
+}
+
+interface StaffListResponse {
+  staff: StaffRecord[];
+  total: number;
+}
 
 interface StaffTabProps {
-  pmCaseId: number;
+  caseCode: string;
 }
 
-const ROLE_TAG_COLOR: Record<PMStaffRole, string> = {
-  project_manager: 'blue',
-  engineer: 'green',
-  surveyor: 'orange',
-  assistant: 'cyan',
-  other: 'default',
-};
+export default function StaffTab({ caseCode }: StaffTabProps) {
+  const { message } = App.useApp();
+  const queryClient = useQueryClient();
+  const [form] = Form.useForm();
+  const [modalVisible, setModalVisible] = useState(false);
 
-interface FormValues {
-  staff_name: string;
-  role: PMStaffRole;
-  is_primary?: boolean;
-  start_date?: dayjs.Dayjs;
-  end_date?: dayjs.Dayjs;
-  notes?: string;
-}
+  const { users } = useUsersDropdown();
+  const queryKey = ['project-staff-by-case', caseCode];
 
-export default function StaffTab({ pmCaseId }: StaffTabProps) {
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingRecord, setEditingRecord] = useState<PMCaseStaff | null>(null);
-  const [form] = Form.useForm<FormValues>();
+  const { data, isLoading } = useQuery({
+    queryKey,
+    queryFn: () => apiClient.post<StaffListResponse>(
+      API_ENDPOINTS.PROJECT_STAFF.CASE_LIST(caseCode)
+    ),
+    enabled: !!caseCode,
+  });
 
-  const { data: staffList, isLoading } = usePMCaseStaff(pmCaseId);
-  const createMutation = useCreatePMCaseStaff();
-  const updateMutation = useUpdatePMCaseStaff();
-  const deleteMutation = useDeletePMCaseStaff();
-
-  const handleAdd = useCallback(() => {
-    setEditingRecord(null);
-    form.resetFields();
-    setModalOpen(true);
-  }, [form]);
-
-  const handleEdit = useCallback(
-    (record: PMCaseStaff) => {
-      setEditingRecord(record);
-      form.setFieldsValue({
-        staff_name: record.staff_name,
-        role: record.role as PMStaffRole,
-        is_primary: record.is_primary,
-        start_date: record.start_date ? dayjs(record.start_date) : undefined,
-        end_date: record.end_date ? dayjs(record.end_date) : undefined,
-        notes: record.notes ?? undefined,
-      });
-      setModalOpen(true);
+  const createMutation = useMutation({
+    mutationFn: (values: { user_id: number; role: string }) =>
+      apiClient.post(API_ENDPOINTS.PROJECT_STAFF.CREATE, {
+        case_code: caseCode,
+        user_id: values.user_id,
+        role: values.role,
+      }),
+    onSuccess: () => {
+      message.success('人員新增成功');
+      queryClient.invalidateQueries({ queryKey });
+      setModalVisible(false);
+      form.resetFields();
     },
-    [form],
-  );
+    onError: () => message.error('新增失敗'),
+  });
 
-  const handleDelete = useCallback(
-    (id: number) => {
-      deleteMutation.mutate(
-        { id, pmCaseId },
-        { onSuccess: () => message.success('人員已移除') },
-      );
+  const deleteMutation = useMutation({
+    mutationFn: (staffId: number) =>
+      apiClient.post(`/project-staff/assignment/${staffId}/delete`),
+    onSuccess: () => {
+      message.success('已移除人員');
+      queryClient.invalidateQueries({ queryKey });
     },
-    [deleteMutation, pmCaseId],
-  );
+    onError: () => message.error('移除失敗'),
+  });
 
-  const handleSubmit = useCallback(async () => {
-    const values = await form.validateFields();
-    const payload = {
-      staff_name: values.staff_name,
-      role: values.role,
-      is_primary: values.is_primary,
-      start_date: values.start_date?.format('YYYY-MM-DD'),
-      end_date: values.end_date?.format('YYYY-MM-DD'),
-      notes: values.notes,
-    };
+  const staff = data?.staff ?? [];
 
-    if (editingRecord) {
-      updateMutation.mutate(
-        { id: editingRecord.id, pmCaseId, data: payload },
-        {
-          onSuccess: () => {
-            message.success('人員資料已更新');
-            setModalOpen(false);
-          },
-        },
-      );
-    } else {
-      createMutation.mutate(
-        { ...payload, pm_case_id: pmCaseId, staff_name: payload.staff_name, role: payload.role },
-        {
-          onSuccess: () => {
-            message.success('人員已新增');
-            setModalOpen(false);
-          },
-        },
-      );
-    }
-  }, [form, editingRecord, pmCaseId, createMutation, updateMutation]);
+  const getRoleColor = (role?: string) => {
+    const opt = STAFF_ROLE_OPTIONS.find(o => o.value === role);
+    return opt?.color || 'default';
+  };
 
-  const roleOptions = Object.entries(PM_STAFF_ROLE_LABELS).map(([value, label]) => ({
-    value,
-    label,
-  }));
-
-  const columns: ColumnsType<PMCaseStaff> = [
+  const columns: ColumnsType<StaffRecord> = [
     {
       title: '姓名',
-      dataIndex: 'staff_name',
-      key: 'staff_name',
-      ellipsis: true,
-    },
-    {
-      title: '角色',
-      dataIndex: 'role',
-      key: 'role',
-      width: 120,
-      render: (val: PMStaffRole) => (
-        <Tag color={ROLE_TAG_COLOR[val]}>{PM_STAFF_ROLE_LABELS[val]}</Tag>
+      key: 'name',
+      render: (_, r) => (
+        <span>
+          <UserOutlined style={{ marginRight: 6, color: '#999' }} />
+          {r.user_name || r.staff_name || '-'}
+        </span>
       ),
     },
     {
-      title: '主要負責人',
-      dataIndex: 'is_primary',
-      key: 'is_primary',
+      title: '角色/職責',
+      dataIndex: 'role',
+      key: 'role',
       width: 110,
-      align: 'center',
-      render: (val: boolean) =>
-        val ? <Badge status="success" text="是" /> : <Badge status="default" text="否" />,
+      render: (role: string) => (
+        <Tag color={getRoleColor(role)}>
+          {STAFF_ROLE_OPTIONS.find(o => o.value === role)?.label || role || '-'}
+        </Tag>
+      ),
     },
     {
-      title: '起始日期',
-      dataIndex: 'start_date',
-      key: 'start_date',
-      width: 120,
-      render: (val: string | null) => val ?? '-',
+      title: '狀態',
+      dataIndex: 'status',
+      key: 'status',
+      width: 80,
+      render: (s: string) => (
+        <Tag color={s === 'active' ? 'green' : s === 'completed' ? 'blue' : 'default'}>
+          {s === 'active' ? '在職' : s === 'completed' ? '已結束' : s || '-'}
+        </Tag>
+      ),
     },
     {
-      title: '結束日期',
-      dataIndex: 'end_date',
-      key: 'end_date',
-      width: 120,
-      render: (val: string | null) => val ?? '-',
-    },
-    {
-      title: '操作',
+      title: '',
       key: 'actions',
-      width: 120,
-      render: (_: unknown, record: PMCaseStaff) => (
-        <Space size="small">
-          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
-            編輯
-          </Button>
-          <Popconfirm
-            title="確定移除此人員？"
-            onConfirm={() => handleDelete(record.id)}
-            okText="確定"
-            cancelText="取消"
-          >
-            <Button type="link" size="small" danger icon={<DeleteOutlined />}>
-              刪除
-            </Button>
-          </Popconfirm>
-        </Space>
+      width: 50,
+      render: (_, r) => (
+        <Popconfirm title="確定移除此人員？" onConfirm={() => deleteMutation.mutate(r.id)}>
+          <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+        </Popconfirm>
       ),
     },
   ];
 
+  // 使用者下拉選項（排除已加入的人員）
+  const existingUserIds = new Set(staff.map(s => s.user_id).filter(Boolean));
+  const userOptions = users
+    .filter(u => !existingUserIds.has(u.id))
+    .map(u => ({
+      value: u.id,
+      label: `${u.full_name || u.username}${u.email ? ` (${u.email})` : ''}`,
+    }));
+
   return (
-    <>
-      <div style={{ marginBottom: 16 }}>
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+        <span style={{ fontWeight: 600 }}>承辦同仁 ({staff.length})</span>
+        <Button size="small" icon={<PlusOutlined />} onClick={() => setModalVisible(true)}>
           新增人員
         </Button>
       </div>
 
-      <Table<PMCaseStaff>
-        rowKey="id"
+      <Table<StaffRecord>
+        dataSource={staff}
         columns={columns}
-        dataSource={staffList ?? []}
+        rowKey="id"
         loading={isLoading}
-        pagination={false}
         size="small"
+        pagination={false}
       />
 
       <Modal
-        title={editingRecord ? '編輯人員' : '新增人員'}
-        open={modalOpen}
-        onOk={handleSubmit}
-        onCancel={() => setModalOpen(false)}
-        confirmLoading={createMutation.isPending || updateMutation.isPending}
-        destroyOnHidden
+        title="新增承辦同仁"
+        open={modalVisible}
+        onCancel={() => { setModalVisible(false); form.resetFields(); }}
+        onOk={() => form.submit()}
+        confirmLoading={createMutation.isPending}
       >
-        <Form form={form} layout="vertical" initialValues={{ is_primary: false }}>
-          <Form.Item
-            name="staff_name"
-            label="姓名"
-            rules={[{ required: true, message: '請輸入姓名' }]}
+        <Form form={form} layout="vertical" onFinish={(v) => createMutation.mutate(v)}>
+          <Form.Item name="user_id" label="選擇同仁"
+            rules={[{ required: true, message: '請選擇同仁' }]}
           >
-            <Input placeholder="請輸入姓名" />
+            <Select
+              showSearch
+              placeholder="搜尋同仁..."
+              optionFilterProp="label"
+              options={userOptions}
+            />
           </Form.Item>
-
-          <Form.Item
-            name="role"
-            label="角色"
+          <Form.Item name="role" label="角色/職責" initialValue="專案PM"
             rules={[{ required: true, message: '請選擇角色' }]}
           >
-            <Select placeholder="請選擇角色" options={roleOptions} />
-          </Form.Item>
-
-          <Form.Item name="is_primary" label="主要負責人" valuePropName="checked">
-            <Switch />
-          </Form.Item>
-
-          <Form.Item name="start_date" label="起始日期">
-            <DatePicker style={{ width: '100%' }} />
-          </Form.Item>
-
-          <Form.Item name="end_date" label="結束日期">
-            <DatePicker style={{ width: '100%' }} />
-          </Form.Item>
-
-          <Form.Item name="notes" label="備註">
-            <Input.TextArea rows={3} placeholder="備註" />
+            <Select options={STAFF_ROLE_OPTIONS.map(o => ({ value: o.value, label: o.label }))} />
           </Form.Item>
         </Form>
       </Modal>
-    </>
+    </div>
   );
 }

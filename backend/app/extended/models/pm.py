@@ -20,14 +20,18 @@ class PMCase(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     case_code = Column(String(50), unique=True, nullable=False, index=True,
-                       comment="案號 (跨模組橋樑)")
+                       comment="建案案號 (跨模組橋樑)")
+    project_code = Column(String(100), nullable=True, index=True,
+                          comment="成案專案編號 (成案後產生，對應 contract_projects.project_code)")
     case_name = Column(String(500), nullable=False, index=True,
                        comment="案名")
     year = Column(Integer, index=True, comment="年度 (民國)")
     category = Column(String(50), comment="案件類別")
 
     # 業主資訊
-    client_name = Column(String(200), comment="業主/委託單位")
+    client_name = Column(String(200), comment="業主/委託單位 (冗餘，供顯示)")
+    client_vendor_id = Column(Integer, ForeignKey("partner_vendors.id", ondelete="SET NULL"),
+                              nullable=True, index=True, comment="委託單位 FK")
     client_contact = Column(String(100), comment="業主聯絡人")
     client_phone = Column(String(50), comment="業主電話")
 
@@ -60,8 +64,7 @@ class PMCase(Base):
     milestones = relationship("PMMilestone", back_populates="pm_case",
                               cascade="all, delete-orphan",
                               order_by="PMMilestone.sort_order")
-    staff_members = relationship("PMCaseStaff", back_populates="pm_case",
-                                 cascade="all, delete-orphan")
+    # staff_members 已遷移至統一人員表 project_user_assignments (v5.2.0)
 
 
 class PMMilestone(Base):
@@ -89,25 +92,24 @@ class PMMilestone(Base):
     pm_case = relationship("PMCase", back_populates="milestones")
 
 
-class PMCaseStaff(Base):
-    """案件人員配置"""
-    __tablename__ = "pm_case_staff"
+# PMCaseStaff 已移除 — 資料遷移至 project_user_assignments (v5.2.0)
+
+
+class PMCaseAttachment(Base):
+    """報價紀錄附件 — PM 案件的報價單上傳"""
+    __tablename__ = "pm_case_attachments"
 
     id = Column(Integer, primary_key=True, index=True)
-    pm_case_id = Column(Integer, ForeignKey("pm_cases.id", ondelete="CASCADE"),
-                        nullable=False, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"),
-                     nullable=True, index=True, comment="系統使用者 (optional)")
-
-    staff_name = Column(String(100), nullable=False, comment="人員姓名")
-    role = Column(String(50), nullable=False,
-                  comment="角色: project_manager/engineer/surveyor/assistant/other")
-    is_primary = Column(Boolean, default=False, comment="是否主要負責人")
-    start_date = Column(Date, comment="起始日期")
-    end_date = Column(Date, comment="結束日期")
-    notes = Column(String(300), comment="備註")
-
+    case_code = Column(String(50), nullable=False, index=True,
+                       comment="建案案號 (關聯 pm_cases.case_code)")
+    file_name = Column(String(255), nullable=False, comment="檔名")
+    file_path = Column(String(500), nullable=False, comment="儲存路徑")
+    file_size = Column(Integer, comment="檔案大小 (bytes)")
+    mime_type = Column(String(100), comment="MIME 類型")
+    original_name = Column(String(255), comment="原始檔名")
+    checksum = Column(String(64), index=True, comment="SHA256 校驗碼")
+    uploaded_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"),
+                         nullable=True, comment="上傳者")
+    notes = Column(Text, comment="備註 (如：第一版報價、修正版等)")
     created_at = Column(DateTime, server_default=func.now())
-
-    # 關聯
-    pm_case = relationship("PMCase", back_populates="staff_members")
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

@@ -225,6 +225,29 @@ async def proactive_trigger_scan_job():
         logger.error(f"NemoClaw 夜間吹哨者失敗: {e}", exc_info=True)
 
 
+async def kg_embedding_backfill_job():
+    """KG 實體 Embedding 自動回填 — 批次生成缺少向量的跨專案實體"""
+    from app.db.database import async_session_maker
+
+    logger.info("開始執行 KG Embedding 自動回填")
+
+    try:
+        async with async_session_maker() as db:
+            from app.services.ai.cross_domain_contribution_service import (
+                CrossDomainContributionService,
+            )
+            svc = CrossDomainContributionService(db)
+            result = await svc.backfill_embeddings(batch_size=200)
+            await db.commit()
+            processed = result.get("processed", 0)
+            skipped = result.get("skipped", 0)
+            logger.info(
+                f"KG Embedding 回填完成: processed={processed}, skipped={skipped}"
+            )
+    except Exception as e:
+        logger.error(f"KG Embedding 回填失敗: {e}", exc_info=True)
+
+
 def setup_scheduler(
     reminder_interval_minutes: int = 5,
     cleanup_hour: int = 2,
@@ -335,6 +358,18 @@ def setup_scheduler(
         coalesce=True
     )
     logger.info("已添加 KB Embedding 覆蓋率檢查: 每日 04:00 執行")
+
+    # P5-2: KG 實體 Embedding 自動回填 — 每日 04:30 批次回填跨專案實體向量
+    scheduler.add_job(
+        kg_embedding_backfill_job,
+        trigger=CronTrigger(hour=4, minute=30),
+        id='kg_embedding_backfill',
+        name='KG 實體 Embedding 自動回填',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    logger.info("已添加 KG Embedding 自動回填: 每日 04:30 執行")
 
     return scheduler
 

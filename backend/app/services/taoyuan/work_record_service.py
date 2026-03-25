@@ -361,24 +361,18 @@ class WorkRecordService:
         doc_id = old_parent.document_id
 
         # 檢查該派工單是否仍有其他紀錄引用此公文
-        ref_count_query = (
-            select(func.count())
-            .select_from(TaoyuanWorkRecord)
-            .where(
-                TaoyuanWorkRecord.dispatch_order_id == dispatch_order_id,
-                TaoyuanWorkRecord.document_id == doc_id,
-            )
+        # 委派至 Repository
+        count = await self.repository.count_by_dispatch_and_document(
+            dispatch_order_id, doc_id
         )
-        result = await self.db.execute(ref_count_query)
-        count = result.scalar() or 0
 
         if count == 0:
-            stmt = delete(TaoyuanDispatchDocumentLink).where(
-                TaoyuanDispatchDocumentLink.dispatch_order_id == dispatch_order_id,
-                TaoyuanDispatchDocumentLink.document_id == doc_id,
+            from app.repositories.taoyuan import DispatchDocLinkRepository
+            doc_link_repo = DispatchDocLinkRepository(self.db)
+            deleted = await doc_link_repo.delete_by_dispatch_and_document(
+                dispatch_order_id, doc_id
             )
-            result = await self.db.execute(stmt)
-            if result.rowcount > 0:
+            if deleted > 0:
                 logger.info(
                     f"級聯清理 DispatchDocumentLink: "
                     f"dispatch_order={dispatch_order_id}, "
@@ -482,10 +476,8 @@ class WorkRecordService:
             包含 project 資訊 + work_records + 統計的 dict，
             若工程不存在則返回 None
         """
-        # 取得工程資訊
-        query = select(TaoyuanProject).where(TaoyuanProject.id == project_id)
-        result = await self.db.execute(query)
-        project = result.scalar_one_or_none()
+        # 取得工程資訊 — 委派至 Repository
+        project = await self.repository.get_project_by_id(project_id)
         if not project:
             return None
 

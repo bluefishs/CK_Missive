@@ -130,6 +130,15 @@ class DocumentCalendarEventUpdate(BaseModel):
     reminder_enabled: Optional[bool] = None
     reminder_minutes: Optional[int] = None
 
+class BatchUpdateStatusRequest(BaseModel):
+    """批次更新事件狀態"""
+    event_ids: List[int] = Field(..., description="事件 ID 列表", min_length=1)
+    status: str = Field(..., description="目標狀態: pending/completed/cancelled")
+
+class BatchDeleteRequest(BaseModel):
+    """批次刪除事件"""
+    event_ids: List[int] = Field(..., description="事件 ID 列表", min_length=1)
+
 class DocumentCalendarEventResponse(BaseModel):
     """Schema for calendar event response"""
     id: int

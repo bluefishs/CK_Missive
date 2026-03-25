@@ -57,7 +57,13 @@ export const DetailPageLayout: React.FC<DetailPageLayoutProps> = ({
 
   // 內部 activeTab 狀態（若未受控則使用內部狀態）
   const [internalActiveTab, setInternalActiveTab] = useState(tabs[0]?.key || '');
-  const activeTab = controlledActiveTab ?? internalActiveTab;
+  // 當 tabs 載入完成且 internalActiveTab 為空或不存在於 tabs 中時，自動選取第一個
+  const firstTabKey = tabs[0]?.key || '';
+  const effectiveInternalTab =
+    internalActiveTab && tabs.some(t => t.key === internalActiveTab)
+      ? internalActiveTab
+      : firstTabKey;
+  const activeTab = controlledActiveTab ?? effectiveInternalTab;
   const handleTabChange = onTabChange ?? setInternalActiveTab;
 
   // 響應式間距

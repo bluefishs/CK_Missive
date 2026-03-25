@@ -3,20 +3,20 @@
 
 從 DocumentService 拆分，負責新公文建立後自動搜尋匹配的派工單並建立雙向關聯。
 
-@version 1.0.0
-@date 2026-03-18
+@version 2.0.0 — 全面遷移至 Repository 模式 (消除 6 個直接 db.execute)
+@date 2026-03-24
 """
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import and_, or_, func, select
 
 from app.extended.models import (
     OfficialDocument as Document,
-    TaoyuanDispatchOrder,
     TaoyuanDispatchDocumentLink,
     TaoyuanDocumentProjectLink,
-    TaoyuanDispatchProjectLink,
 )
+from app.repositories.taoyuan.dispatch_order_repository import DispatchOrderRepository
+from app.repositories.taoyuan.dispatch_doc_link_repository import DispatchDocLinkRepository
+from app.repositories.taoyuan.dispatch_project_link_repository import DispatchProjectLinkRepository
 from app.utils import is_outgoing_doc_number
 
 logger = logging.getLogger(__name__)
@@ -34,6 +34,9 @@ class DocumentDispatchLinkerService:
 
     def __init__(self, db: AsyncSession):
         self.db = db
+        self._dispatch_repo = DispatchOrderRepository(db)
+        self._doc_link_repo = DispatchDocLinkRepository(db)
+        self._project_link_repo = DispatchProjectLinkRepository(db)
 
     async def auto_link_to_dispatch_orders(self, document: Document) -> None:
         """新公文建立後，自動搜尋匹配的派工單並建立雙向關聯。
@@ -52,55 +55,30 @@ class DocumentDispatchLinkerService:
             matched_dispatch_ids: set[int] = set()
             match_confidence: dict[int, str] = {}  # dispatch_id -> confidence
 
-            # 策略 1: 精確文號比對
+            # 策略 1: 精確文號比對 — 委派至 Repository
             if doc_number:
-                if link_type == "agency_incoming":
-                    result = await self.db.execute(
-                        select(TaoyuanDispatchOrder.id).where(
-                            TaoyuanDispatchOrder.agency_doc_number_raw.ilike(f"%{doc_number}%")
-                        )
-                    )
-                else:
-                    result = await self.db.execute(
-                        select(TaoyuanDispatchOrder.id).where(
-                            TaoyuanDispatchOrder.company_doc_number_raw.ilike(f"%{doc_number}%")
-                        )
-                    )
-                for row in result.fetchall():
-                    matched_dispatch_ids.add(row[0])
-                    match_confidence[row[0]] = "confirmed"
+                direction = "company" if link_type == "company_outgoing" else "agency"
+                ids = await self._dispatch_repo.search_by_doc_number_raw(doc_number, direction)
+                for did in ids:
+                    matched_dispatch_ids.add(did)
+                    match_confidence[did] = "confirmed"
 
             # 策略 2: 主旨 <-> 工程名稱交叉比對（僅當文號無匹配時）
             if not matched_dispatch_ids and subject and len(subject) >= 4:
-                result = await self.db.execute(
-                    select(TaoyuanDispatchOrder.id).where(
-                        and_(
-                            TaoyuanDispatchOrder.project_name.isnot(None),
-                            or_(
-                                TaoyuanDispatchOrder.project_name.ilike(f"%{subject[:20]}%"),
-                                func.position(func.lower(TaoyuanDispatchOrder.project_name), func.lower(subject[:20])).op(">")(0),
-                            )
-                        )
-                    ).limit(5)
-                )
-                for row in result.fetchall():
-                    matched_dispatch_ids.add(row[0])
-                    match_confidence[row[0]] = "medium"
+                ids = await self._dispatch_repo.search_by_project_name(subject[:20], limit=5)
+                for did in ids:
+                    matched_dispatch_ids.add(did)
+                    match_confidence[did] = "medium"
 
             if not matched_dispatch_ids:
                 return
 
-            # 建立 dispatch <-> document 關聯
+            # 建立 dispatch <-> document 關聯 — 委派至 Repository
             for dispatch_id in matched_dispatch_ids:
-                existing = await self.db.execute(
-                    select(TaoyuanDispatchDocumentLink.id).where(
-                        and_(
-                            TaoyuanDispatchDocumentLink.dispatch_order_id == dispatch_id,
-                            TaoyuanDispatchDocumentLink.document_id == document.id,
-                        )
-                    )
+                existing = await self._doc_link_repo.find_dispatch_document_link(
+                    dispatch_id, document.id
                 )
-                if existing.scalar_one_or_none():
+                if existing:
                     continue
                 self.db.add(TaoyuanDispatchDocumentLink(
                     dispatch_order_id=dispatch_id,
@@ -109,23 +87,14 @@ class DocumentDispatchLinkerService:
                     confidence=match_confidence.get(dispatch_id),
                 ))
 
-            # 傳遞 project 關聯：從派工單的工程關聯同步到公文
+            # 傳遞 project 關聯：從派工單的工程關聯同步到公文 — 委派至 Repository
             for dispatch_id in matched_dispatch_ids:
-                proj_result = await self.db.execute(
-                    select(TaoyuanDispatchProjectLink.taoyuan_project_id).where(
-                        TaoyuanDispatchProjectLink.dispatch_order_id == dispatch_id
+                proj_ids = await self._project_link_repo.get_project_ids_for_dispatch(dispatch_id)
+                for proj_id in proj_ids:
+                    existing_dp = await self._project_link_repo.find_document_project_link(
+                        document.id, proj_id
                     )
-                )
-                for (proj_id,) in proj_result.fetchall():
-                    existing_dp = await self.db.execute(
-                        select(TaoyuanDocumentProjectLink.id).where(
-                            and_(
-                                TaoyuanDocumentProjectLink.document_id == document.id,
-                                TaoyuanDocumentProjectLink.taoyuan_project_id == proj_id,
-                            )
-                        )
-                    )
-                    if existing_dp.scalar_one_or_none():
+                    if existing_dp:
                         continue
                     self.db.add(TaoyuanDocumentProjectLink(
                         document_id=document.id,

@@ -403,6 +403,7 @@ class TestProjectServiceCRUD:
     async def test_delete_success(self, service, mock_db, sample_project):
         """測試成功刪除專案（含關聯資料清理）"""
         service.repository.get_by_id.return_value = sample_project
+        service.repository.cascade_nullify_references = AsyncMock()
         service.repository.delete_user_assignments = AsyncMock(return_value=2)
         service.repository.delete_vendor_associations = AsyncMock(return_value=1)
         service.repository.delete = AsyncMock(return_value=True)
@@ -429,6 +430,7 @@ class TestProjectServiceCRUD:
     ):
         """測試刪除有外鍵約束的專案時拋出 ValueError"""
         service.repository.get_by_id.return_value = sample_project
+        service.repository.cascade_nullify_references = AsyncMock()
         service.repository.delete_user_assignments = AsyncMock(return_value=0)
         service.repository.delete_vendor_associations = AsyncMock(return_value=0)
 

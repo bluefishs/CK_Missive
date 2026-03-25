@@ -97,6 +97,39 @@ class DocumentCalendarService:
         logger.info(f"已更新日曆事件: {db_event.title} (ID: {db_event.id})")
         return db_event
 
+    async def batch_update_status(
+        self, db: AsyncSession, event_ids: List[int], status: str
+    ) -> Dict[str, int]:
+        """批次更新事件狀態（單次 commit，避免 N 次 API 呼叫觸發 rate limit）"""
+        from sqlalchemy import update
+        from app.extended.models.calendar import DocumentCalendarEvent
+
+        result = await db.execute(
+            update(DocumentCalendarEvent)
+            .where(DocumentCalendarEvent.id.in_(event_ids))
+            .values(status=status)
+        )
+        await db.commit()
+        updated = result.rowcount or 0
+        logger.info(f"批次更新 {updated}/{len(event_ids)} 個事件狀態為 {status}")
+        return {"updated": updated, "total": len(event_ids)}
+
+    async def batch_delete(
+        self, db: AsyncSession, event_ids: List[int]
+    ) -> Dict[str, int]:
+        """批次刪除事件"""
+        from sqlalchemy import delete
+        from app.extended.models.calendar import DocumentCalendarEvent
+
+        result = await db.execute(
+            delete(DocumentCalendarEvent)
+            .where(DocumentCalendarEvent.id.in_(event_ids))
+        )
+        await db.commit()
+        deleted = result.rowcount or 0
+        logger.info(f"批次刪除 {deleted}/{len(event_ids)} 個事件")
+        return {"deleted": deleted, "total": len(event_ids)}
+
     # ==========================================================================
     # 整合操作：同步本地事件到 Google
     # ==========================================================================
@@ -252,25 +285,11 @@ class DocumentCalendarService:
 
         try:
             # 取得要同步的事件 (必須載入 reminders 關聯供計算提醒時間)
+            repo = CalendarRepository(db)
             if sync_all_pending:
-                result = await db.execute(
-                    select(DocumentCalendarEvent)
-                    .options(selectinload(DocumentCalendarEvent.reminders))
-                    .where(
-                        (DocumentCalendarEvent.google_event_id == None) |
-                        (DocumentCalendarEvent.google_sync_status != 'synced')
-                    )
-                )
-                events = result.scalars().all()
+                events = await repo.get_pending_sync_events()
             elif event_ids:
-                result = await db.execute(
-                    select(DocumentCalendarEvent)
-                    .options(selectinload(DocumentCalendarEvent.reminders))
-                    .where(
-                        DocumentCalendarEvent.id.in_(event_ids)
-                    )
-                )
-                events = result.scalars().all()
+                events = await repo.get_by_ids_with_reminders(event_ids)
             else:
                 return {
                     'success': False,

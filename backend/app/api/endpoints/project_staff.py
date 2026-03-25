@@ -79,6 +79,20 @@ async def delete_project_staff_assignment(
     return await service.delete_assignment(project_id, user_id)
 
 
+@router.post(
+    "/case/{case_code}/list",
+    response_model=ProjectStaffListResponse,
+    summary="依建案案號取得承辦同仁列表",
+)
+async def get_staff_by_case_code(
+    case_code: str,
+    service: ProjectStaffService = Depends(get_service(ProjectStaffService)),
+    current_user: User = Depends(require_auth()),
+):
+    """依 case_code 取得承辦同仁（支援未成案的 PM 案件）"""
+    return await service.get_staff_by_case_code(case_code)
+
+
 @router.post("/list", summary="取得所有承辦同仁關聯列表")
 async def get_all_staff_assignments(
     query: StaffListQuery = Body(default=StaffListQuery()),

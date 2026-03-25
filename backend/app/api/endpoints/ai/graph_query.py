@@ -8,9 +8,13 @@ Version: 1.0.0
 Created: 2026-02-24
 """
 
+import asyncio
+import hmac
 import logging
+import os
+import time
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_auth, require_admin, get_async_db
@@ -60,11 +64,160 @@ from app.schemas.knowledge_graph import (
     FederatedSearchRequest,
     FederatedSearchResponse,
     FederatedGraphNode,
+    # KG-4: Cross-domain path
+    CrossDomainPathRequest,
+    CrossDomainPathResponse,
+    CrossDomainPathNode,
 )
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+# ---------------------------------------------------------------------------
+# Service-to-service auth for KG Federation (reuses MCP_SERVICE_TOKEN)
+# ---------------------------------------------------------------------------
+
+def _verify_federation_token(
+    request: Request,
+    x_service_token: str | None = Header(None),
+) -> bool:
+    """Validate X-Service-Token for cross-project federation calls.
+
+    Supports dual-token rotation: accepts both MCP_SERVICE_TOKEN (current)
+    and MCP_SERVICE_TOKEN_PREV (previous) for zero-downtime token rotation.
+    Falls back to allowing localhost in dev mode when no token is configured.
+    Uses constant-time comparison to prevent timing attacks.
+    """
+    current_token = os.getenv("MCP_SERVICE_TOKEN")
+    prev_token = os.getenv("MCP_SERVICE_TOKEN_PREV")
+    if not current_token:
+        is_dev = os.getenv("DEVELOPMENT_MODE", "false").lower() == "true"
+        client_host = request.client.host if request.client else ""
+        if is_dev and client_host in ("127.0.0.1", "::1"):
+            return True
+        raise HTTPException(status_code=403, detail="Service token required")
+
+    if not x_service_token:
+        raise HTTPException(status_code=401, detail="Invalid service token")
+
+    token_bytes = x_service_token.encode("utf-8")
+    match_current = hmac.compare_digest(token_bytes, current_token.encode("utf-8"))
+    match_prev = (
+        hmac.compare_digest(token_bytes, prev_token.encode("utf-8"))
+        if prev_token
+        else False
+    )
+    if not match_current and not match_prev:
+        raise HTTPException(status_code=401, detail="Invalid service token")
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Per-source_project federation rate limiter (Redis ZSET sliding window)
+# ---------------------------------------------------------------------------
+
+# 每個 source_project 每分鐘最多 30 次 contribute 請求
+FEDERATION_RATE_LIMIT = int(os.getenv("FEDERATION_RATE_LIMIT", "30"))
+FEDERATION_RATE_WINDOW = int(os.getenv("FEDERATION_RATE_WINDOW", "60"))  # seconds
+
+
+async def _check_federation_rate_limit(source_project: str) -> None:
+    """Redis ZSET sliding window rate limiter for federation contribute.
+
+    Raises HTTPException 429 if source_project exceeds the limit.
+    Silently passes if Redis is unavailable (fail-open for availability).
+    """
+    try:
+        from app.core.redis_client import get_redis
+
+        redis = await get_redis()
+        if redis is None:
+            return  # fail-open: no Redis → skip rate limiting
+
+        key = f"federation:rate:{source_project}"
+        now = time.time()
+        window_start = now - FEDERATION_RATE_WINDOW
+
+        pipe = redis.pipeline()
+        pipe.zremrangebyscore(key, "-inf", window_start)  # prune expired
+        pipe.zcard(key)  # count remaining
+        pipe.zadd(key, {f"{now}": now})  # add current request
+        pipe.expire(key, FEDERATION_RATE_WINDOW + 10)  # TTL safety
+        results = await pipe.execute()
+
+        request_count = results[1]
+        if request_count >= FEDERATION_RATE_LIMIT:
+            # roll back the zadd we just did
+            await redis.zrem(key, f"{now}")
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    f"Rate limit exceeded for {source_project}: "
+                    f"{FEDERATION_RATE_LIMIT} requests per {FEDERATION_RATE_WINDOW}s"
+                ),
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning("Federation rate limit check failed (non-fatal): %s", e)
+
+
+# ---------------------------------------------------------------------------
+# Idempotency guard for federation contribute (P2-2)
+# ---------------------------------------------------------------------------
+
+FEDERATION_IDEMPOTENCY_TTL = 3600  # 1 hour
+
+
+async def _check_idempotency(
+    idempotency_key: str | None,
+) -> dict | None:
+    """Check if this idempotency_key was already processed.
+
+    Returns cached response dict if duplicate, None if new or no key provided.
+    Fails open: returns None on Redis errors.
+    """
+    if not idempotency_key:
+        return None
+    try:
+        import json
+
+        from app.core.redis_client import get_redis
+
+        redis = await get_redis()
+        if redis is None:
+            return None
+
+        cache_key = f"federation:idem:{idempotency_key}"
+        cached = await redis.get(cache_key)
+        if cached:
+            return json.loads(cached)
+        return None
+    except Exception as e:
+        logger.warning("Idempotency check failed (non-fatal): %s", e)
+        return None
+
+
+async def _store_idempotency(
+    idempotency_key: str | None, response_data: dict,
+) -> None:
+    """Cache response for idempotency dedup."""
+    if not idempotency_key:
+        return
+    try:
+        import json
+
+        from app.core.redis_client import get_redis
+
+        redis = await get_redis()
+        if redis is None:
+            return
+        cache_key = f"federation:idem:{idempotency_key}"
+        await redis.setex(cache_key, FEDERATION_IDEMPOTENCY_TTL, json.dumps(response_data))
+    except Exception as e:
+        logger.warning("Idempotency store failed (non-fatal): %s", e)
 
 
 # ============================================================================
@@ -302,10 +455,18 @@ async def ingest_code_graph(
     from pathlib import Path
     from app.services.ai.code_graph_service import CodeGraphIngestionService
 
-    # graph_query.py 位於 backend/app/api/endpoints/ai/ → parents[4] = backend/
-    project_root = Path(__file__).resolve().parents[5]
+    # 動態偵測專案根目錄（相容 PM2 + Docker + 直接執行）
+    _this_file = Path(__file__).resolve()
+    # 往上找直到找到包含 backend/ 和 frontend/ 的目錄
+    project_root = _this_file.parents[5]  # 預設: backend/app/api/endpoints/ai/ → 5 層
+    for i in range(3, 7):
+        candidate = _this_file.parents[i]
+        if (candidate / "backend" / "app").is_dir():
+            project_root = candidate
+            break
     backend_app_dir = project_root / "backend" / "app"
     frontend_src_dir = project_root / "frontend" / "src" if request.include_frontend else None
+    logger.info(f"Code-graph ingest: project_root={project_root}, backend_app={backend_app_dir} (exists={backend_app_dir.is_dir()})")
 
     # 建構同步 DB URL（schema reflection 用）
     db_url = None
@@ -1029,48 +1190,101 @@ async def get_agent_proactive_alerts(
 )
 async def federated_contribute(
     request: FederatedContributionRequest,
+    _auth: bool = Depends(_verify_federation_token),
     db: AsyncSession = Depends(get_async_db),
 ):
     """
     接收外部專案 (ck-lvrland, ck-tunnel) 的實體貢獻。
 
-    透過 NemoClaw service-token 認證（不需使用者登入），
-    將實體正規化後存入 KG Hub。
+    認證方式: X-Service-Token header (MCP_SERVICE_TOKEN 環境變數)。
+    用於 Celery worker 等服務間呼叫，無需使用者 JWT。
+    限流: 每個 source_project 每分鐘最多 30 次 (Redis ZSET sliding window)。
 
-    @security 使用 MCP_SERVICE_TOKEN 認證，非使用者端點
+    @security _verify_federation_token — service-to-service 認證
     """
     from app.services.ai.cross_domain_contribution_service import (
         CrossDomainContributionService,
     )
     from app.services.ai.cross_domain_linker import CrossDomainLinker
 
+    # P4-2: structured logging context
+    _log_ctx = {
+        "source_project": request.source_project,
+        "entity_count": len(request.contributions),
+        "relation_count": len(request.relations),
+        "idempotency_key": request.idempotency_key,
+        "entity_types": list({c.entity_type for c in request.contributions}),
+    }
+    t0 = time.time()
+
+    # P2-4: per-source_project rate limiting
+    await _check_federation_rate_limit(request.source_project)
+
+    # P2-2: idempotency dedup — return cached result if duplicate
+    cached = await _check_idempotency(request.idempotency_key)
+    if cached is not None:
+        logger.info("federation.contribute.idempotency_hit %s", _log_ctx)
+        return FederatedContributionResponse(**cached)
+
     try:
         svc = CrossDomainContributionService(db)
         result = await svc.process_contribution(request)
 
-        # KG-2: 貢獻完成後自動執行跨域連結
+        # 貢獻成功後失效相關圖譜快取 (path/neighbors/search)
         if result.success and result.resolved:
+            from app.services.ai.graph_helpers import invalidate_graph_cache
             try:
-                linker = CrossDomainLinker(db)
-                link_report = await linker.link_after_contribution(
-                    request.source_project,
-                )
-                if link_report.links_created > 0:
-                    await db.commit()
-                    logger.info(
-                        "Cross-domain linking after %s: %d new links",
-                        request.source_project, link_report.links_created,
+                cleared = await invalidate_graph_cache("path:*")
+                cleared += await invalidate_graph_cache("neighbors:*")
+                cleared += await invalidate_graph_cache("search:*")
+                if cleared > 0:
+                    logger.info("Invalidated %d graph cache keys after contribution", cleared)
+            except Exception:
+                pass  # cache invalidation is best-effort
+
+        # KG-2 + P2-3: 貢獻完成後以 fire-and-forget 方式觸發跨域連結
+        # 不阻塞 contribute 回應，加速 Celery worker 端到端時間
+        if result.success and result.resolved:
+            async def _deferred_link(src_project: str) -> None:
+                try:
+                    from app.db.database import AsyncSessionLocal
+                    async with AsyncSessionLocal() as link_db:
+                        linker = CrossDomainLinker(link_db)
+                        link_report = await linker.link_after_contribution(src_project)
+                        if link_report.links_created > 0:
+                            await link_db.commit()
+                            logger.info(
+                                "Deferred cross-domain linking after %s: %d new links",
+                                src_project, link_report.links_created,
+                            )
+                except Exception as link_err:
+                    logger.warning(
+                        "Deferred cross-domain linking failed (non-fatal): %s", link_err,
                     )
-            except Exception as link_err:
-                logger.warning(
-                    "Cross-domain linking failed (non-fatal): %s", link_err,
-                )
+
+            asyncio.create_task(_deferred_link(request.source_project))
+
+        # P2-2: cache successful result for idempotency
+        if result.success:
+            await _store_idempotency(
+                request.idempotency_key,
+                result.model_dump(),
+            )
+
+        # P4-2: structured success log
+        _log_ctx["processing_ms"] = int((time.time() - t0) * 1000)
+        _log_ctx["resolved_count"] = len(result.resolved) if result.resolved else 0
+        _log_ctx["relations_created"] = result.relations_created
+        _log_ctx["success"] = result.success
+        logger.info("federation.contribute.complete %s", _log_ctx)
 
         return result
     except Exception as e:
-        logger.error("Federation contribute failed: %s", e, exc_info=True)
+        _log_ctx["processing_ms"] = int((time.time() - t0) * 1000)
+        _log_ctx["error"] = str(e)[:200]
+        logger.error("federation.contribute.failed %s", _log_ctx, exc_info=True)
         return FederatedContributionResponse(
-            success=False, message=str(e),
+            success=False, message="聯邦貢獻處理失敗，請檢查伺服器日誌",
         )
 
 
@@ -1214,9 +1428,22 @@ async def cross_domain_link(
     3. Project bridging (Missive project ↔ Tunnel tunnel)
     4. Agency bridging (Missive org ↔ Tunnel inspection)
 
+    P2-3: 支援排程觸發 (Celery Beat / cron)，Redis 分散式鎖防重疊。
     @admin 建議在聯邦貢獻完成後手動或排程觸發
     """
     from app.services.ai.cross_domain_linker import CrossDomainLinker
+
+    # P2-3: distributed lock — prevent concurrent runs
+    try:
+        from app.core.redis_client import get_redis
+        redis = await get_redis()
+        if redis:
+            lock_key = "federation:linker:lock"
+            acquired = await redis.set(lock_key, "1", nx=True, ex=300)  # 5min TTL
+            if not acquired:
+                return {"success": False, "error": "跨域連結正在執行中，請稍後再試"}
+    except Exception:
+        pass  # fail-open
 
     try:
         linker = CrossDomainLinker(db)
@@ -1240,4 +1467,125 @@ async def cross_domain_link(
         }
     except Exception as e:
         logger.error("Cross-domain linking failed: %s", e, exc_info=True)
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": "跨域連結處理失敗，請檢查伺服器日誌"}
+    finally:
+        # P2-3: release distributed lock
+        try:
+            from app.core.redis_client import get_redis
+            redis = await get_redis()
+            if redis:
+                await redis.delete("federation:linker:lock")
+        except Exception:
+            pass
+
+
+@router.post(
+    "/graph/federation-health",
+    summary="跨專案 KG 聯邦同步健康指標",
+)
+async def federation_health(
+    current_user: User = Depends(require_auth()),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    回傳各來源專案的實體數量、最後更新時間、跨專案關係數。
+    用於管理面板監控聯邦同步健康狀態。
+    """
+    from app.services.ai.graph_statistics_service import GraphStatisticsService
+
+    try:
+        svc = GraphStatisticsService(db)
+        result = await svc.get_federation_health()
+        return {"success": True, **result}
+    except Exception as e:
+        logger.error("federation_health 端點錯誤: %s", e, exc_info=True)
+        return {"success": False, "projects": [], "cross_project_relations": 0, "total_projects": 0}
+
+
+@router.post(
+    "/graph/embedding-backfill",
+    summary="批次回填缺少 embedding 的實體向量",
+)
+async def embedding_backfill(
+    batch_size: int = 100,
+    _current_user: User = Depends(require_admin()),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    KG-3: 掃描缺少 embedding 的實體（含跨專案），批次生成 768D 向量。
+
+    @admin 管理員限定端點
+    """
+    from app.services.ai.cross_domain_contribution_service import (
+        CrossDomainContributionService,
+    )
+
+    try:
+        svc = CrossDomainContributionService(db)
+        result = await svc.backfill_embeddings(
+            batch_size=min(batch_size, 500),
+        )
+        await db.commit()
+        return {"success": True, **result}
+    except Exception as e:
+        logger.error("embedding_backfill 端點錯誤: %s", e, exc_info=True)
+        return {"success": False, "error": "Embedding 回填失敗"}
+
+
+@router.post(
+    "/graph/cross-domain-path",
+    response_model=CrossDomainPathResponse,
+    summary="跨專案路徑查詢 — 查找兩實體間的跨專案最短路徑",
+)
+async def cross_domain_path(
+    request: CrossDomainPathRequest,
+    current_user: User = Depends(require_auth()),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """
+    KG-4: 跨專案最短路徑查詢。
+
+    查找兩個實體間的最短路徑，回傳路徑上每個節點的
+    source_project 標記，並標示路徑是否跨越專案邊界。
+    """
+    from app.services.ai.graph_traversal_service import GraphTraversalService
+
+    try:
+        svc = GraphTraversalService(db)
+        result = await svc.find_shortest_path(
+            source_id=request.source_id,
+            target_id=request.target_id,
+            max_hops=request.max_hops,
+        )
+
+        if not result or not result.get("found"):
+            return CrossDomainPathResponse(
+                success=True, found=False,
+            )
+
+        path_nodes = [
+            CrossDomainPathNode(
+                id=n["id"],
+                name=n["name"],
+                type=n["type"],
+                source_project=n.get("source_project", "ck-missive"),
+            )
+            for n in result["path"]
+        ]
+
+        projects = list(dict.fromkeys(
+            n.source_project for n in path_nodes
+        ))
+
+        return CrossDomainPathResponse(
+            success=True,
+            found=True,
+            depth=result["depth"],
+            path=path_nodes,
+            relations=result.get("relations", []),
+            source_projects_traversed=projects,
+            is_cross_project=len(projects) > 1,
+        )
+    except Exception as e:
+        logger.error("cross_domain_path 端點錯誤: %s", e, exc_info=True)
+        return CrossDomainPathResponse(success=False)

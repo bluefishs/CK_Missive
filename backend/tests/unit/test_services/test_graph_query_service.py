@@ -90,19 +90,30 @@ class TestGetGraphStats:
             "app.services.ai.graph_query_service._graph_cache.set",
             new_callable=AsyncMock,
         ):
-            # mock scalar for counts
+            # mock scalar for counts (7 calls)
             mock_db.scalar = AsyncMock(return_value=10)
-            # mock execute for type distribution
-            mock_result = MagicMock()
-            mock_row = MagicMock()
-            mock_row.entity_type = "org"
-            mock_row.count = 5
-            mock_result.all.return_value = [mock_row]
-            mock_db.execute = AsyncMock(return_value=mock_result)
+
+            # mock execute — called twice:
+            # 1st: type_distribution {entity_type: count}
+            # 2nd: source_project_distribution {project: count}
+            type_row = MagicMock()
+            type_row.entity_type = "org"
+            type_row.count = 5
+            type_result = MagicMock()
+            type_result.all.return_value = [type_row]
+
+            proj_row = MagicMock()
+            proj_row.project = "ck-missive"
+            proj_row.count = 10
+            proj_result = MagicMock()
+            proj_result.all.return_value = [proj_row]
+
+            mock_db.execute = AsyncMock(side_effect=[type_result, proj_result])
 
             result = await service.get_graph_stats()
             assert isinstance(result, dict)
             assert "total_entities" in result
+            assert result["total_entities"] == 10
 
 
 class TestGetTopEntities:

@@ -1134,7 +1134,7 @@
           "entity_type"
         ]
       },
-      "row_count_estimate": 4401
+      "row_count_estimate": 6310
     },
     "contract_projects": {
       "columns": [
@@ -1400,6 +1400,14 @@
           "default": "'agency'::character varying",
           "udt_name": "varchar",
           "max_length": 20
+        },
+        {
+          "name": "case_code",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 50
         }
       ],
       "primary_key": [
@@ -1440,6 +1448,10 @@
         {
           "name": "idx_contract_projects_client_agency",
           "definition": "CREATE INDEX idx_contract_projects_client_agency ON public.contract_projects USING btree (client_agency_id)"
+        },
+        {
+          "name": "ix_contract_projects_case_code",
+          "definition": "CREATE UNIQUE INDEX ix_contract_projects_case_code ON public.contract_projects USING btree (case_code)"
         }
       ],
       "unique_constraints": {
@@ -1447,7 +1459,7 @@
           "project_code"
         ]
       },
-      "row_count_estimate": 34
+      "row_count_estimate": 35
     },
     "document_ai_analyses": {
       "columns": [
@@ -3070,7 +3082,7 @@
         }
       ],
       "unique_constraints": {},
-      "row_count_estimate": 5696
+      "row_count_estimate": 8150
     },
     "erp_billings": {
       "columns": [
@@ -3442,6 +3454,14 @@
           "nullable": true,
           "default": null,
           "udt_name": "numeric"
+        },
+        {
+          "name": "project_code",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 100
         }
       ],
       "primary_key": [
@@ -3478,6 +3498,10 @@
         {
           "name": "idx_erp_quotations_created_by",
           "definition": "CREATE INDEX idx_erp_quotations_created_by ON public.erp_quotations USING btree (created_by)"
+        },
+        {
+          "name": "ix_erp_quotations_project_code",
+          "definition": "CREATE INDEX ix_erp_quotations_project_code ON public.erp_quotations USING btree (project_code)"
         }
       ],
       "unique_constraints": {},
@@ -4872,6 +4896,29 @@
           "nullable": true,
           "default": "CURRENT_TIMESTAMP",
           "udt_name": "timestamp"
+        },
+        {
+          "name": "vendor_type",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": "'subcontractor'::character varying",
+          "udt_name": "varchar",
+          "max_length": 20
+        },
+        {
+          "name": "tax_id",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 20
+        },
+        {
+          "name": "notes",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "udt_name": "text"
         }
       ],
       "primary_key": [
@@ -4898,6 +4945,10 @@
         {
           "name": "idx_vendors_name_trgm",
           "definition": "CREATE INDEX idx_vendors_name_trgm ON public.partner_vendors USING gin (vendor_name gin_trgm_ops)"
+        },
+        {
+          "name": "ix_partner_vendors_vendor_type",
+          "definition": "CREATE INDEX ix_partner_vendors_vendor_type ON public.partner_vendors USING btree (vendor_type)"
         }
       ],
       "unique_constraints": {
@@ -4905,41 +4956,19 @@
           "vendor_name"
         ]
       },
-      "row_count_estimate": 13
+      "row_count_estimate": 15
     },
-    "pm_case_staff": {
+    "pm_case_attachments": {
       "columns": [
         {
           "name": "id",
           "type": "INTEGER",
           "nullable": false,
-          "default": "nextval('pm_case_staff_id_seq'::regclass)",
+          "default": "nextval('pm_case_attachments_id_seq'::regclass)",
           "udt_name": "int4"
         },
         {
-          "name": "pm_case_id",
-          "type": "INTEGER",
-          "nullable": false,
-          "default": null,
-          "udt_name": "int4"
-        },
-        {
-          "name": "user_id",
-          "type": "INTEGER",
-          "nullable": true,
-          "default": null,
-          "udt_name": "int4"
-        },
-        {
-          "name": "staff_name",
-          "type": "CHARACTER VARYING",
-          "nullable": false,
-          "default": null,
-          "udt_name": "varchar",
-          "max_length": 100
-        },
-        {
-          "name": "role",
+          "name": "case_code",
           "type": "CHARACTER VARYING",
           "nullable": false,
           "default": null,
@@ -4947,36 +4976,75 @@
           "max_length": 50
         },
         {
-          "name": "is_primary",
-          "type": "BOOLEAN",
-          "nullable": true,
-          "default": "false",
-          "udt_name": "bool"
+          "name": "file_name",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 255
         },
         {
-          "name": "start_date",
-          "type": "DATE",
+          "name": "file_path",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 500
+        },
+        {
+          "name": "file_size",
+          "type": "INTEGER",
           "nullable": true,
           "default": null,
-          "udt_name": "date"
+          "udt_name": "int4"
         },
         {
-          "name": "end_date",
-          "type": "DATE",
-          "nullable": true,
-          "default": null,
-          "udt_name": "date"
-        },
-        {
-          "name": "notes",
+          "name": "mime_type",
           "type": "CHARACTER VARYING",
           "nullable": true,
           "default": null,
           "udt_name": "varchar",
-          "max_length": 300
+          "max_length": 100
+        },
+        {
+          "name": "original_name",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 255
+        },
+        {
+          "name": "checksum",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 64
+        },
+        {
+          "name": "uploaded_by",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
+        },
+        {
+          "name": "notes",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "udt_name": "text"
         },
         {
           "name": "created_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "udt_name": "timestamp"
+        },
+        {
+          "name": "updated_at",
           "type": "TIMESTAMP WITHOUT TIME ZONE",
           "nullable": true,
           "default": "now()",
@@ -4988,28 +5056,23 @@
       ],
       "foreign_keys": [
         {
-          "column": "pm_case_id",
-          "ref_table": "pm_cases",
-          "ref_column": "id"
-        },
-        {
-          "column": "user_id",
+          "column": "uploaded_by",
           "ref_table": "users",
           "ref_column": "id"
         }
       ],
       "indexes": [
         {
-          "name": "pm_case_staff_pkey",
-          "definition": "CREATE UNIQUE INDEX pm_case_staff_pkey ON public.pm_case_staff USING btree (id)"
+          "name": "pm_case_attachments_pkey",
+          "definition": "CREATE UNIQUE INDEX pm_case_attachments_pkey ON public.pm_case_attachments USING btree (id)"
         },
         {
-          "name": "ix_pm_case_staff_pm_case_id",
-          "definition": "CREATE INDEX ix_pm_case_staff_pm_case_id ON public.pm_case_staff USING btree (pm_case_id)"
+          "name": "ix_pm_case_attachments_checksum",
+          "definition": "CREATE INDEX ix_pm_case_attachments_checksum ON public.pm_case_attachments USING btree (checksum)"
         },
         {
-          "name": "ix_pm_case_staff_user_id",
-          "definition": "CREATE INDEX ix_pm_case_staff_user_id ON public.pm_case_staff USING btree (user_id)"
+          "name": "ix_pm_case_attachments_case_code",
+          "definition": "CREATE INDEX ix_pm_case_attachments_case_code ON public.pm_case_attachments USING btree (case_code)"
         }
       ],
       "unique_constraints": {},
@@ -5164,12 +5227,32 @@
           "nullable": true,
           "default": "now()",
           "udt_name": "timestamp"
+        },
+        {
+          "name": "project_code",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 100
+        },
+        {
+          "name": "client_vendor_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
         }
       ],
       "primary_key": [
         "id"
       ],
       "foreign_keys": [
+        {
+          "column": "client_vendor_id",
+          "ref_table": "partner_vendors",
+          "ref_column": "id"
+        },
         {
           "column": "created_by",
           "ref_table": "users",
@@ -5204,6 +5287,14 @@
         {
           "name": "idx_pm_cases_created_by",
           "definition": "CREATE INDEX idx_pm_cases_created_by ON public.pm_cases USING btree (created_by)"
+        },
+        {
+          "name": "ix_pm_cases_project_code",
+          "definition": "CREATE INDEX ix_pm_cases_project_code ON public.pm_cases USING btree (project_code)"
+        },
+        {
+          "name": "ix_pm_cases_client_vendor_id",
+          "definition": "CREATE INDEX ix_pm_cases_client_vendor_id ON public.pm_cases USING btree (client_vendor_id)"
         }
       ],
       "unique_constraints": {},
@@ -5487,14 +5578,14 @@
         {
           "name": "project_id",
           "type": "INTEGER",
-          "nullable": false,
+          "nullable": true,
           "default": null,
           "udt_name": "int4"
         },
         {
           "name": "user_id",
           "type": "INTEGER",
-          "nullable": false,
+          "nullable": true,
           "default": null,
           "udt_name": "int4"
         },
@@ -5562,6 +5653,22 @@
           "nullable": true,
           "default": "CURRENT_TIMESTAMP",
           "udt_name": "timestamp"
+        },
+        {
+          "name": "case_code",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 50
+        },
+        {
+          "name": "staff_name",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 100
         }
       ],
       "primary_key": [
@@ -5591,6 +5698,10 @@
         {
           "name": "idx_project_user_project",
           "definition": "CREATE INDEX idx_project_user_project ON public.project_user_assignments USING btree (project_id)"
+        },
+        {
+          "name": "ix_project_user_assignments_case_code",
+          "definition": "CREATE INDEX ix_project_user_assignments_case_code ON public.project_user_assignments USING btree (case_code)"
         }
       ],
       "unique_constraints": {
@@ -5599,7 +5710,7 @@
           "user_id"
         ]
       },
-      "row_count_estimate": 15
+      "row_count_estimate": 28
     },
     "project_vendor_association": {
       "columns": [

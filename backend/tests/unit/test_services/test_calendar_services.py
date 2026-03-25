@@ -344,10 +344,9 @@ class TestAutoCreateEvent:
         db = make_mock_db()
         builder = CalendarEventAutoBuilder(db)
 
-        # Mock existing event
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = 42  # existing event ID
-        db.execute.return_value = mock_result
+        # Mock existing event via repository
+        builder._calendar_repo = MagicMock()
+        builder._calendar_repo.check_document_has_events = AsyncMock(return_value=True)
 
         doc = make_document()
         result = await builder.auto_create_event(doc, skip_if_exists=True)
@@ -363,10 +362,9 @@ class TestAutoCreateEvent:
         db = make_mock_db()
         builder = CalendarEventAutoBuilder(db)
 
-        # Mock no existing event
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = None
-        db.execute.return_value = mock_result
+        # Mock no existing event via repository
+        builder._calendar_repo = MagicMock()
+        builder._calendar_repo.check_document_has_events = AsyncMock(return_value=False)
 
         doc = make_document(
             receive_date=None, doc_date=None,
@@ -385,10 +383,9 @@ class TestAutoCreateEvent:
         db = make_mock_db()
         builder = CalendarEventAutoBuilder(db)
 
-        # Mock no existing event
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = None
-        db.execute.return_value = mock_result
+        # Mock no existing event via repository
+        builder._calendar_repo = MagicMock()
+        builder._calendar_repo.check_document_has_events = AsyncMock(return_value=False)
 
         doc = make_document()
         event = await builder.auto_create_event(doc, skip_if_exists=True)
@@ -437,10 +434,9 @@ class TestBatchCreateEvents:
         db = make_mock_db()
         builder = CalendarEventAutoBuilder(db)
 
-        # Mock no existing events
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = None
-        db.execute.return_value = mock_result
+        # Mock no existing events via repository
+        builder._calendar_repo = MagicMock()
+        builder._calendar_repo.check_document_has_events = AsyncMock(return_value=False)
 
         docs = [make_document(id=i) for i in range(1, 4)]
         result = await builder.batch_create_events(docs, skip_if_exists=True)
@@ -457,17 +453,16 @@ class TestBatchCreateEvents:
         db = make_mock_db()
         builder = CalendarEventAutoBuilder(db)
 
+        # First doc has existing event, others don't
         call_count = 0
 
-        async def mock_execute(query):
+        async def mock_check(document_id):
             nonlocal call_count
             call_count += 1
-            result = MagicMock()
-            # First doc has existing event, others don't
-            result.scalar_one_or_none.return_value = 42 if call_count == 1 else None
-            return result
+            return call_count == 1  # first call returns True (exists)
 
-        db.execute = AsyncMock(side_effect=mock_execute)
+        builder._calendar_repo = MagicMock()
+        builder._calendar_repo.check_document_has_events = AsyncMock(side_effect=mock_check)
 
         docs = [make_document(id=i) for i in range(1, 4)]
         result = await builder.batch_create_events(docs, skip_if_exists=True)

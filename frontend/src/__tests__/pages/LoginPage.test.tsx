@@ -62,11 +62,15 @@ vi.mock('../../services/authService', () => ({
   },
 }));
 
-vi.mock('../../config/env', () => ({
-  detectEnvironment: vi.fn(() => 'localhost'),
-  isAuthDisabled: vi.fn(() => true),
-  GOOGLE_CLIENT_ID: '',
-}));
+vi.mock('../../config/env', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../config/env')>();
+  return {
+    ...actual,
+    detectEnvironment: vi.fn(() => 'localhost'),
+    isAuthDisabled: vi.fn(() => true),
+    GOOGLE_CLIENT_ID: '',
+  };
+});
 
 vi.mock('../../hooks', () => ({
   useResponsive: vi.fn(() => ({

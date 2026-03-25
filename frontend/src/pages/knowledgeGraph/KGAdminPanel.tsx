@@ -26,6 +26,8 @@ import {
   ApartmentOutlined,
   CodeOutlined,
   SwapOutlined,
+  LinkOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 
@@ -54,6 +56,8 @@ export const KGAdminPanel: React.FC<KGAdminPanelProps> = ({
 
   const [entityBatchLoading, setEntityBatchLoading] = useState(false);
   const [graphIngestLoading, setGraphIngestLoading] = useState(false);
+  const [crossDomainLinkLoading, setCrossDomainLinkLoading] = useState(false);
+  const [embeddingBackfillLoading, setEmbeddingBackfillLoading] = useState(false);
 
   const handleEntityBatch = useCallback(async () => {
     setEntityBatchLoading(true);
@@ -86,6 +90,40 @@ export const KGAdminPanel: React.FC<KGAdminPanelProps> = ({
       message.error('批次入圖請求失敗');
     } finally {
       setGraphIngestLoading(false);
+    }
+  }, [message, onReloadStats]);
+
+  const handleCrossDomainLink = useCallback(async () => {
+    setCrossDomainLinkLoading(true);
+    try {
+      const result = await aiApi.triggerCrossDomainLink();
+      if (result?.success) {
+        message.success(`跨域橋接完成：建立 ${result.links_created} 條關係`);
+        onReloadStats();
+      } else {
+        message.error('跨域橋接失敗');
+      }
+    } catch {
+      message.error('跨域橋接請求失敗');
+    } finally {
+      setCrossDomainLinkLoading(false);
+    }
+  }, [message, onReloadStats]);
+
+  const handleEmbeddingBackfill = useCallback(async () => {
+    setEmbeddingBackfillLoading(true);
+    try {
+      const result = await aiApi.triggerEmbeddingBackfill(200);
+      if (result?.success) {
+        message.success(`Embedding 回填完成：處理 ${result.processed ?? 0} 筆`);
+        onReloadStats();
+      } else {
+        message.error(result?.error || 'Embedding 回填失敗');
+      }
+    } catch {
+      message.error('Embedding 回填請求失敗');
+    } finally {
+      setEmbeddingBackfillLoading(false);
     }
   }, [message, onReloadStats]);
 
@@ -135,6 +173,32 @@ export const KGAdminPanel: React.FC<KGAdminPanelProps> = ({
         >
           合併實體
         </Button>
+        <Popconfirm
+          title="執行跨專案實體自動連結？將觸發 4 條橋接規則。"
+          onConfirm={handleCrossDomainLink}
+        >
+          <Button
+            block
+            size="small"
+            icon={<LinkOutlined />}
+            loading={crossDomainLinkLoading}
+          >
+            跨域橋接
+          </Button>
+        </Popconfirm>
+        <Popconfirm
+          title="批次回填缺少 Embedding 的實體向量？最多處理 200 筆。"
+          onConfirm={handleEmbeddingBackfill}
+        >
+          <Button
+            block
+            size="small"
+            icon={<ThunderboltOutlined />}
+            loading={embeddingBackfillLoading}
+          >
+            Embedding 回填
+          </Button>
+        </Popconfirm>
 
         {/* Link to Code Graph Management */}
         <Button

@@ -46,6 +46,8 @@ interface EnhancedCalendarViewProps {
   loading?: boolean;
   onEventUpdate?: (eventId: number, updates: Partial<CalendarEvent>) => Promise<void>;
   onEventDelete?: (eventId: number) => Promise<void>;
+  onBatchUpdateStatus?: (updates: Array<{ eventId: number; status: 'pending' | 'completed' | 'cancelled' }>) => Promise<{ successCount: number; failCount: number }>;
+  onBatchDelete?: (eventIds: number[]) => Promise<{ successCount: number; failCount: number }>;
   onReminderUpdate?: (eventId: number, reminders: EventReminder[]) => Promise<void>;
   onDateSelect?: (date: Dayjs) => void;
   onRefresh?: () => void;
@@ -56,6 +58,8 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
   loading = false,
   onEventUpdate,
   onEventDelete,
+  onBatchUpdateStatus,
+  onBatchDelete,
   onReminderUpdate: _onReminderUpdate,
   onDateSelect,
   onRefresh
@@ -68,7 +72,7 @@ export const EnhancedCalendarView: React.FC<EnhancedCalendarViewProps> = ({
   const isMobile = !screens.md;
 
   // 視圖模型（篩選、統計、批次操作）
-  const vm = useCalendarViewModel({ events, onEventUpdate, onEventDelete, onRefresh });
+  const vm = useCalendarViewModel({ events, onEventUpdate, onEventDelete, onBatchUpdateStatus, onBatchDelete, onRefresh });
 
   // 模態框狀態
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);

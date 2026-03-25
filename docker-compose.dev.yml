@@ -95,6 +95,8 @@ services:
       - OLLAMA_BASE_URL=http://ollama:11434
       - DEBUG=true
       - LOG_LEVEL=DEBUG
+      - MCP_SERVICE_TOKEN=${MCP_SERVICE_TOKEN:-}
+      - MCP_SERVICE_TOKEN_PREV=${MCP_SERVICE_TOKEN_PREV:-}
     ports:
       - "${BACKEND_HOST_PORT}:${BACKEND_CONTAINER_PORT}"
     volumes:
@@ -106,7 +108,10 @@ services:
       - ./backend/logs:/app/logs
       - ./backend/GoogleCalendarAPIKEY.json:/app/GoogleCalendarAPIKEY.json:ro
     networks:
-      - app_network
+      app_network: {}
+      nemoclaw_network:
+        aliases:
+          - ck_missive_app
     depends_on:
       postgres:
         condition: service_healthy
@@ -213,3 +218,6 @@ networks:
   app_network:
     name: ck_missive_network
     driver: bridge
+  nemoclaw_network:
+    external: true
+    name: nemoclaw_network

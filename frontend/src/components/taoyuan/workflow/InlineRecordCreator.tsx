@@ -166,6 +166,7 @@ export const InlineRecordCreator: React.FC<InlineRecordCreatorProps> = ({
         queryKey: queryKeys.workRecords.dispatch(dispatchOrderId),
       });
       queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.projectAll });
+      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
       onCreated?.();
     },
     onError: (error: Error) => {

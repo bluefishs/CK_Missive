@@ -144,6 +144,10 @@ export const CALENDAR_ENDPOINTS = {
   EVENTS_DELETE: '/calendar/events/delete',
   /** 同步單一事件 POST /calendar/events/sync */
   EVENTS_SYNC: '/calendar/events/sync',
+  /** 批次更新狀態 POST /calendar/events/batch-update-status */
+  EVENTS_BATCH_UPDATE_STATUS: '/calendar/events/batch-update-status',
+  /** 批次刪除 POST /calendar/events/batch-delete */
+  EVENTS_BATCH_DELETE: '/calendar/events/batch-delete',
   /** 批次同步 POST /calendar/events/bulk-sync */
   EVENTS_BULK_SYNC: '/calendar/events/bulk-sync',
   /** 公文行事曆事件 POST /calendar/document/:docId/events */
@@ -362,6 +366,8 @@ export const PROJECT_STAFF_ENDPOINTS = {
   CREATE: '/project-staff',
   /** 案件承辦同仁列表 POST /project-staff/project/:projectId/list */
   PROJECT_LIST: (projectId: number) => `/project-staff/project/${projectId}/list` as const,
+  /** 依建案案號取得承辦同仁 POST /project-staff/case/:caseCode/list */
+  CASE_LIST: (caseCode: string) => `/project-staff/case/${caseCode}/list` as const,
   /** 更新關聯 POST /project-staff/project/:projectId/user/:userId/update */
   UPDATE: (projectId: number, userId: number) => `/project-staff/project/${projectId}/user/${userId}/update` as const,
   /** 刪除關聯 POST /project-staff/project/:projectId/user/:userId/delete */
@@ -730,6 +736,12 @@ export const AI_ENDPOINTS = {
   GRAPH_ENTITY_GRAPH: '/ai/graph/entity/graph',
   /** 圖譜統計 POST /ai/graph/stats */
   GRAPH_STATS: '/ai/graph/stats',
+  /** 聯邦健康指標 POST /ai/graph/federation-health */
+  GRAPH_FEDERATION_HEALTH: '/ai/graph/federation-health',
+  /** 跨專案路徑查詢 POST /ai/graph/cross-domain-path */
+  GRAPH_CROSS_DOMAIN_PATH: '/ai/graph/cross-domain-path',
+  /** Agent 自我檔案 POST /ai/agent/self-profile */
+  AGENT_SELF_PROFILE: '/ai/agent/self-profile',
   /** 時序聚合 POST /ai/graph/timeline/aggregate */
   GRAPH_TIMELINE_AGGREGATE: '/ai/graph/timeline/aggregate',
   /** 圖譜入圖管線 POST /ai/graph/ingest */
@@ -756,6 +768,10 @@ export const AI_ENDPOINTS = {
   GRAPH_DB_GRAPH: '/ai/graph/db-graph',
   /** 跨圖譜統一搜尋 POST /ai/graph/unified-search */
   GRAPH_UNIFIED_SEARCH: '/ai/graph/unified-search',
+  /** 跨域橋接觸發 POST /ai/graph/cross-domain-link (Admin) */
+  GRAPH_CROSS_DOMAIN_LINK: '/ai/graph/cross-domain-link',
+  /** Embedding 批次回填 POST /ai/graph/embedding-backfill (Admin) */
+  GRAPH_EMBEDDING_BACKFILL: '/ai/graph/embedding-backfill',
   // --- RAG 問答 ---
   /** RAG 問答 POST /ai/rag/query */
   RAG_QUERY: '/ai/rag/query',
@@ -833,6 +849,10 @@ export const DIGITAL_TWIN_ENDPOINTS = {
   TASK_REJECT: (jobId: string) => `/ai/digital-twin/tasks/${jobId}/reject`,
   /** 即時轉播 GET /ai/digital-twin/live-activity/stream?channel=jobs (V-2.2 SSE) */
   LIVE_ACTIVITY_STREAM: '/ai/digital-twin/live-activity/stream',
+  /** Agent 組織圖資料 GET /ai/digital-twin/agent-topology (V-3.1) */
+  AGENT_TOPOLOGY: '/ai/digital-twin/agent-topology',
+  /** QA 影響分析 GET /ai/digital-twin/qa-impact (V-3.3) */
+  QA_IMPACT: '/ai/digital-twin/qa-impact',
 } as const;
 
 // ============================================================================
@@ -922,6 +942,14 @@ export const PM_ENDPOINTS = {
   GANTT: '/pm/cases/gantt',
   /** 案號關聯公文 POST /pm/cases/linked-documents */
   LINKED_DOCUMENTS: '/pm/cases/linked-documents',
+  /** 報價附件上傳 POST /pm/cases/attachments/{caseCode}/upload */
+  ATTACHMENTS_UPLOAD: (caseCode: string) => `/pm/cases/attachments/${caseCode}/upload` as const,
+  /** 報價附件列表 POST /pm/cases/attachments/{caseCode}/list */
+  ATTACHMENTS_LIST: (caseCode: string) => `/pm/cases/attachments/${caseCode}/list` as const,
+  /** 報價附件下載 POST /pm/cases/attachments/{id}/download */
+  ATTACHMENTS_DOWNLOAD: (id: number) => `/pm/cases/attachments/${id}/download` as const,
+  /** 報價附件刪除 POST /pm/cases/attachments/{id}/delete */
+  ATTACHMENTS_DELETE: (id: number) => `/pm/cases/attachments/${id}/delete` as const,
   /** 匯出 CSV POST /pm/cases/export */
   EXPORT: '/pm/cases/export',
   /** 多年度趨勢 POST /pm/cases/yearly-trend */

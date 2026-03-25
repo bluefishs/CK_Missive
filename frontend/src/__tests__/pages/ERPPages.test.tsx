@@ -105,6 +105,13 @@ vi.mock('../../hooks', () => ({
     hasPermission: () => true,
     isLoading: false,
   }),
+  // Layout
+  useResponsive: () => ({
+    isMobile: false,
+    isTablet: false,
+    isDesktop: true,
+    responsiveValue: (opts: Record<string, unknown>) => opts.desktop ?? opts.tablet ?? opts.mobile,
+  }),
 }));
 
 // ==========================================================================

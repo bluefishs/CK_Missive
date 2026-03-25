@@ -168,7 +168,7 @@ describe('VendorPage', () => {
   it('renders the page title', async () => {
     renderVendorPage();
     await waitFor(() => {
-      expect(screen.getByText('廠商管理')).toBeInTheDocument();
+      expect(screen.getByText('協力廠商管理')).toBeInTheDocument();
     }, WAIT_OPTS);
   });
 

@@ -3,9 +3,9 @@
 
 使用工廠模式，db session 在建構函數注入。
 
-版本: 2.0.0
-更新日期: 2026-02-06
-變更: 從 BaseService 繼承模式升級為工廠模式
+版本: 2.1.0
+更新日期: 2026-03-23
+變更: 遷移至 Repository 層 (A7) — 消除直接 db.execute()
 
 使用方式:
     # 依賴注入（推薦）
@@ -29,7 +29,6 @@ from typing import List, Optional, Dict, Any
 from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_
 
 from app.repositories import VendorRepository
 from app.extended.models import PartnerVendor, project_vendor_association
@@ -96,92 +95,45 @@ class VendorService:
         skip: int = 0,
         limit: int = 100,
         search: Optional[str] = None,
+        vendor_type: Optional[str] = None,
         business_type: Optional[str] = None,
         rating: Optional[int] = None,
     ) -> List[PartnerVendor]:
-        """
-        取得廠商列表
-
-        Args:
-            skip: 跳過筆數
-            limit: 取得筆數
-            search: 搜尋關鍵字
-            business_type: 營業項目篩選
-            rating: 評價篩選
-
-        Returns:
-            廠商列表
-        """
-        query = select(self.model)
-
-        # 搜尋條件
-        if search:
-            search_pattern = f"%{search}%"
-            conditions = [
-                getattr(self.model, field).ilike(search_pattern)
-                for field in self.SEARCH_FIELDS
-                if hasattr(self.model, field)
-            ]
-            if conditions:
-                query = query.where(or_(*conditions))
-
-        # 篩選條件
-        if business_type:
-            query = query.where(self.model.business_type == business_type)
-        if rating:
-            query = query.where(self.model.rating == rating)
-
-        # 排序與分頁
-        query = query.order_by(self.model.vendor_name)
-        query = query.offset(skip).limit(limit)
-
-        result = await self.db.execute(query)
-        return list(result.scalars().all())
+        """取得廠商列表 — 委派至 VendorRepository"""
+        vendors, _ = await self.repository.filter_vendors(
+            search=search,
+            vendor_type=vendor_type,
+            business_type=business_type,
+            rating=rating,
+            skip=skip,
+            limit=limit,
+        )
+        return vendors
 
     async def get_count(
         self,
         search: Optional[str] = None,
+        vendor_type: Optional[str] = None,
         business_type: Optional[str] = None,
         rating: Optional[int] = None,
     ) -> int:
-        """
-        取得廠商總數
-
-        Args:
-            search: 搜尋關鍵字
-            business_type: 營業項目篩選
-            rating: 評價篩選
-
-        Returns:
-            符合條件的廠商總數
-        """
-        query = select(func.count(self.model.id))
-
-        # 搜尋條件
-        if search:
-            search_pattern = f"%{search}%"
-            conditions = [
-                getattr(self.model, field).ilike(search_pattern)
-                for field in self.SEARCH_FIELDS
-                if hasattr(self.model, field)
-            ]
-            if conditions:
-                query = query.where(or_(*conditions))
-
-        # 篩選條件
-        if business_type:
-            query = query.where(self.model.business_type == business_type)
-        if rating:
-            query = query.where(self.model.rating == rating)
-
-        result = await self.db.execute(query)
-        return result.scalar() or 0
+        """取得廠商總數 — 委派至 VendorRepository"""
+        _, total = await self.repository.filter_vendors(
+            search=search,
+            vendor_type=vendor_type,
+            business_type=business_type,
+            rating=rating,
+            skip=0,
+            limit=1,
+        )
+        return total
 
     async def get_paginated(
         self,
         page: int = 1,
         page_size: int = 20,
         search: Optional[str] = None,
+        vendor_type: Optional[str] = None,
         business_type: Optional[str] = None,
         rating: Optional[int] = None,
     ) -> Dict[str, Any]:
@@ -192,6 +144,7 @@ class VendorService:
             page: 頁碼（從 1 開始）
             page_size: 每頁筆數
             search: 搜尋關鍵字
+            vendor_type: 類型篩選 (subcontractor/client)
             business_type: 營業項目篩選
             rating: 評價篩選
 
@@ -204,12 +157,14 @@ class VendorService:
             skip=skip,
             limit=page_size,
             search=search,
+            vendor_type=vendor_type,
             business_type=business_type,
             rating=rating,
         )
 
         total = await self.get_count(
             search=search,
+            vendor_type=vendor_type,
             business_type=business_type,
             rating=rating,
         )
@@ -368,60 +323,16 @@ class VendorService:
     # =========================================================================
 
     async def get_financial_summary(self, vendor_id: int) -> Optional[Dict[str, Any]]:
-        """廠商財務彙總 — 跨模組 JOIN 查詢應付/報銷/帳本"""
-        from app.extended.models.erp import ERPVendorPayable
-        from app.extended.models.invoice import ExpenseInvoice
-        from app.extended.models.finance import FinanceLedger
-
+        """廠商財務彙總 — 委派至 VendorRepository"""
         vendor = await self.repository.get_by_id(vendor_id)
         if not vendor:
             return None
 
-        # 1. 應付帳款彙總
-        payable_stmt = select(
-            func.coalesce(func.sum(ERPVendorPayable.payable_amount), 0).label("total_payable"),
-            func.coalesce(func.sum(ERPVendorPayable.paid_amount), 0).label("total_paid"),
-            func.count(ERPVendorPayable.id).label("payable_count"),
-        ).where(ERPVendorPayable.vendor_id == vendor_id)
-        payable_result = await self.db.execute(payable_stmt)
-        payable_row = payable_result.one()
-
-        # 2. 報銷發票彙總 (透過 vendor_id)
-        expense_stmt = select(
-            func.coalesce(func.sum(ExpenseInvoice.amount), 0).label("total_expenses"),
-            func.count(ExpenseInvoice.id).label("expense_count"),
-        ).where(
-            ExpenseInvoice.vendor_id == vendor_id,
-            ExpenseInvoice.status != "rejected",
-        )
-        expense_result = await self.db.execute(expense_stmt)
-        expense_row = expense_result.one()
-
-        # 3. 帳本彙總 (直接 vendor_id)
-        ledger_stmt = select(
-            func.coalesce(func.sum(FinanceLedger.amount), 0).label("ledger_total"),
-            func.count(FinanceLedger.id).label("ledger_count"),
-        ).where(
-            FinanceLedger.vendor_id == vendor_id,
-            FinanceLedger.entry_type == "expense",
-        )
-        ledger_result = await self.db.execute(ledger_stmt)
-        ledger_row = ledger_result.one()
-
-        total_payable = Decimal(str(payable_row.total_payable))
-        total_paid = Decimal(str(payable_row.total_paid))
-
+        summary = await self.repository.get_financial_summary(vendor_id)
         return {
             "vendor_id": vendor_id,
             "vendor_name": vendor.vendor_name,
             "vendor_code": vendor.vendor_code,
-            "total_payable": total_payable,
-            "total_paid": total_paid,
-            "pending_payable": total_payable - total_paid,
-            "payable_count": payable_row.payable_count,
-            "total_expenses": Decimal(str(expense_row.total_expenses)),
-            "expense_count": expense_row.expense_count,
-            "ledger_expense_total": Decimal(str(ledger_row.ledger_total)),
-            "ledger_entry_count": ledger_row.ledger_count,
+            **summary,
         }
 

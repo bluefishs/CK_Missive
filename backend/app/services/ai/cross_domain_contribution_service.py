@@ -11,7 +11,7 @@ Created: 2026-03-22
 
 import logging
 import time
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -115,6 +115,9 @@ class CrossDomainContributionService:
                 canonical_name=entity.canonical_name,
             ))
             ext_id_to_hub[contrib.external_id] = entity.id
+
+        # --- Phase 2.5: 為新建實體生成 embedding (KG-3) ---
+        await self._generate_embeddings_for_new_entities(resolved_map, resolved_results)
 
         # --- Phase 3: 建立關係 ---
         relations_created = await self._create_relations(
@@ -226,6 +229,126 @@ class CrossDomainContributionService:
             created += 1
 
         return created
+
+    async def _generate_embeddings_for_new_entities(
+        self,
+        resolved_map: Dict[str, "CanonicalEntity"],
+        resolved_results: List[ResolvedEntity],
+    ) -> None:
+        """
+        KG-3: 為新建實體生成 768D embedding 並寫入 DB。
+
+        僅處理 resolution == 'created' 且尚無 embedding 的實體，
+        避免重複生成已有向量的舊實體。
+        """
+        from app.core.config import settings as _settings
+        if not _settings.PGVECTOR_ENABLED:
+            return
+
+        try:
+            from app.services.ai.embedding_manager import EmbeddingManager
+            if not await EmbeddingManager.is_available():
+                return
+        except Exception:
+            return
+
+        # 收集需要 embedding 的新實體
+        new_entities = []
+        new_names = []
+        for r in resolved_results:
+            if r.resolution != "created":
+                continue
+            key = f"{r.canonical_name}"
+            # 從 resolved_map 找到實體（key 格式: entity_type:canonical_name）
+            entity = None
+            for map_key, ent in resolved_map.items():
+                if ent.id == r.hub_entity_id:
+                    entity = ent
+                    break
+            if entity and entity.embedding is None:
+                new_entities.append(entity)
+                new_names.append(entity.canonical_name)
+
+        if not new_names:
+            return
+
+        # 批次生成 embedding
+        embeddings = await EmbeddingManager.get_embeddings_batch(
+            new_names, connector=None,
+        )
+        embedded_count = 0
+        for entity, emb in zip(new_entities, embeddings):
+            if emb:
+                entity.embedding = emb
+                embedded_count += 1
+
+        if embedded_count > 0:
+            logger.info(
+                "KG-3: Generated embeddings for %d/%d new entities",
+                embedded_count, len(new_names),
+            )
+
+    async def backfill_embeddings(
+        self,
+        batch_size: int = 100,
+    ) -> dict:
+        """
+        KG-3: 為缺少 embedding 的跨專案實體批次回填向量。
+
+        掃描所有 source_project != 'ck-missive' 且 embedding IS NULL 的實體，
+        使用 EmbeddingManager 批次生成 768D embedding。
+
+        Returns:
+            {"processed": int, "embedded": int, "skipped": int}
+        """
+        from app.core.config import settings as _settings
+        if not _settings.PGVECTOR_ENABLED:
+            return {"processed": 0, "embedded": 0, "skipped": 0, "reason": "pgvector disabled"}
+
+        try:
+            from app.services.ai.embedding_manager import EmbeddingManager
+            if not await EmbeddingManager.is_available():
+                return {"processed": 0, "embedded": 0, "skipped": 0, "reason": "embedding unavailable"}
+        except Exception:
+            return {"processed": 0, "embedded": 0, "skipped": 0, "reason": "embedding init error"}
+
+        from app.services.ai.graph_helpers import _CODE_ENTITY_TYPES
+
+        result = await self.db.execute(
+            select(CanonicalEntity)
+            .where(
+                CanonicalEntity.embedding.is_(None),
+                CanonicalEntity.entity_type.notin_(list(_CODE_ENTITY_TYPES)),
+            )
+            .order_by(CanonicalEntity.id)
+            .limit(batch_size)
+        )
+        entities = result.scalars().all()
+
+        if not entities:
+            return {"processed": 0, "embedded": 0, "skipped": 0}
+
+        names = [e.canonical_name for e in entities]
+        embeddings = await EmbeddingManager.get_embeddings_batch(names, connector=None)
+
+        embedded = 0
+        for entity, emb in zip(entities, embeddings):
+            if emb:
+                entity.embedding = emb
+                embedded += 1
+
+        if embedded > 0:
+            await self.db.flush()
+            logger.info(
+                "KG-3 Backfill: embedded %d/%d entities",
+                embedded, len(entities),
+            )
+
+        return {
+            "processed": len(entities),
+            "embedded": embedded,
+            "skipped": len(entities) - embedded,
+        }
 
     async def _log_ingestion_event(
         self,

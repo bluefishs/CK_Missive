@@ -312,15 +312,10 @@ class DispatchImportService:
         Returns:
             {total_scanned, newly_linked, already_linked, not_found}
         """
-        # 查詢有原始文號的派工單
-        result = await self.db.execute(
-            select(TaoyuanDispatchOrder).where(
-                TaoyuanDispatchOrder.contract_project_id == contract_project_id,
-                (TaoyuanDispatchOrder.agency_doc_number_raw.isnot(None))
-                | (TaoyuanDispatchOrder.company_doc_number_raw.isnot(None)),
-            )
+        # 查詢有原始文號的派工單 — 委派至 Repository
+        dispatch_orders = await self.repository.get_with_doc_numbers_by_project(
+            contract_project_id
         )
-        dispatch_orders = list(result.scalars().all())
 
         if not dispatch_orders:
             return {
@@ -362,15 +357,8 @@ class DispatchImportService:
         # Post-relink: 標記通用行政文件（不自動刪除，僅記錄警告）
         generic_warnings: List[str] = []
         for dispatch in dispatch_orders:
-            links = await self.db.execute(
-                select(OfficialDocument.id, OfficialDocument.subject, OfficialDocument.ck_note)
-                .join(
-                    self.doc_link_repo.model,
-                    self.doc_link_repo.model.document_id == OfficialDocument.id,
-                )
-                .where(self.doc_link_repo.model.dispatch_order_id == dispatch.id)
-            )
-            for doc_id, subject, ck_note in links.all():
+            linked_docs = await self.doc_link_repo.get_linked_doc_details(dispatch.id)
+            for doc_id, subject, ck_note in linked_docs:
                 if is_generic_admin_doc(subject or '', ck_note or ''):
                     generic_warnings.append(
                         f"dispatch#{dispatch.id}({dispatch.dispatch_no}) 關聯了通用行政文件 doc#{doc_id}"
@@ -400,18 +388,10 @@ class DispatchImportService:
         Returns:
             {doc_number: document_id} 字典
         """
-        # 載入所有公文（派工單的文號可能跨案件）
-        query = select(OfficialDocument.id, OfficialDocument.doc_number).where(
-            OfficialDocument.doc_number.isnot(None),
-        )
-        result = await self.db.execute(query)
-        rows = result.all()
-
-        doc_map = {}
-        for doc_id, doc_number in rows:
-            if doc_number and doc_number.strip():
-                doc_map[doc_number.strip()] = doc_id
-        return doc_map
+        # 載入所有公文（派工單的文號可能跨案件）— 委派至 Repository
+        from app.repositories.document_repository import DocumentRepository
+        doc_repo = DocumentRepository(self.db)
+        return await doc_repo.build_doc_number_map()
 
     async def _resolve_roc_year(self, contract_project_id: int) -> int:
         """
@@ -421,11 +401,10 @@ class DispatchImportService:
         - "115年度..." → 115
         - "112至113年度..." → 112
         """
-        result = await self.db.execute(
-            select(ContractProject.project_name)
-            .where(ContractProject.id == contract_project_id)
-        )
-        project_name = result.scalar_one_or_none()
+        from app.repositories import ProjectRepository
+        project_repo = ProjectRepository(self.db)
+        project = await project_repo.get_by_id(contract_project_id)
+        project_name = project.project_name if project else None
         if project_name:
             year_match = re.search(r'(\d{2,3})(?:[-~～至]\d{2,3})?年', project_name)
             if year_match:

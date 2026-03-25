@@ -345,3 +345,49 @@ class WorkRecordRepository(BaseRepository[TaoyuanWorkRecord]):
         )
         result = await self.db.execute(query)
         return (result.scalar() or 0) > 0
+
+    async def count_by_dispatch_and_document(
+        self, dispatch_order_id: int, document_id: int
+    ) -> int:
+        """計算派工單下引用特定公文的紀錄數"""
+        result = await self.db.execute(
+            select(func.count())
+            .select_from(TaoyuanWorkRecord)
+            .where(
+                TaoyuanWorkRecord.dispatch_order_id == dispatch_order_id,
+                TaoyuanWorkRecord.document_id == document_id,
+            )
+        )
+        return result.scalar() or 0
+
+    async def get_project_by_id(self, project_id: int):
+        """取得 TaoyuanProject by ID"""
+        from app.extended.models import TaoyuanProject
+        result = await self.db.execute(
+            select(TaoyuanProject).where(TaoyuanProject.id == project_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def get_by_dispatch_ids_with_docs(
+        self, dispatch_ids: List[int], chunk_size: int = 500
+    ) -> List[TaoyuanWorkRecord]:
+        """批次取得派工單的作業紀錄 (含公文關聯, chunked)"""
+        all_records: list[TaoyuanWorkRecord] = []
+        for i in range(0, len(dispatch_ids), chunk_size):
+            chunk = dispatch_ids[i:i + chunk_size]
+            query = (
+                select(TaoyuanWorkRecord)
+                .options(
+                    selectinload(TaoyuanWorkRecord.document),
+                    selectinload(TaoyuanWorkRecord.incoming_doc),
+                    selectinload(TaoyuanWorkRecord.outgoing_doc),
+                )
+                .where(TaoyuanWorkRecord.dispatch_order_id.in_(chunk))
+                .order_by(
+                    TaoyuanWorkRecord.dispatch_order_id,
+                    TaoyuanWorkRecord.sort_order,
+                )
+            )
+            result = await self.db.execute(query)
+            all_records.extend(result.scalars().unique().all())
+        return all_records

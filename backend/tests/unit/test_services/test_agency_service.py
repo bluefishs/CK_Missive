@@ -201,34 +201,29 @@ class TestGetList:
 
     @pytest.mark.asyncio
     async def test_get_list_default(self, service, mock_db, mock_agency, mock_agency_2):
-        """測試 get_list - 使用預設參數取得列表"""
-        # 模擬 db.execute 回傳
-        mock_scalars = MagicMock()
-        mock_scalars.all.return_value = [mock_agency, mock_agency_2]
-        mock_result = MagicMock()
-        mock_result.scalars.return_value = mock_scalars
-        mock_db.execute.return_value = mock_result
+        """測試 get_list - 委派至 repository.filter_agencies"""
+        service.repository.filter_agencies = AsyncMock(
+            return_value=([mock_agency, mock_agency_2], 2)
+        )
 
         result = await service.get_list()
 
         assert len(result) == 2
         assert result[0].agency_name == "桃園市政府"
         assert result[1].agency_name == "新北市政府"
-        mock_db.execute.assert_awaited_once()
+        service.repository.filter_agencies.assert_awaited_once_with(skip=0, limit=100)
 
     @pytest.mark.asyncio
     async def test_get_list_with_pagination(self, service, mock_db, mock_agency):
         """測試 get_list - 帶分頁參數"""
-        mock_scalars = MagicMock()
-        mock_scalars.all.return_value = [mock_agency]
-        mock_result = MagicMock()
-        mock_result.scalars.return_value = mock_scalars
-        mock_db.execute.return_value = mock_result
+        service.repository.filter_agencies = AsyncMock(
+            return_value=([mock_agency], 1)
+        )
 
         result = await service.get_list(skip=10, limit=5)
 
         assert len(result) == 1
-        mock_db.execute.assert_awaited_once()
+        service.repository.filter_agencies.assert_awaited_once_with(skip=10, limit=5)
 
 
 class TestCreate:
@@ -404,12 +399,10 @@ class TestGetAgenciesWithSearch:
 
     @pytest.mark.asyncio
     async def test_get_agencies_with_search(self, service, mock_db, mock_agency):
-        """測試 get_agencies_with_search - 帶搜尋條件"""
-        mock_scalars = MagicMock()
-        mock_scalars.all.return_value = [mock_agency]
-        mock_result = MagicMock()
-        mock_result.scalars.return_value = mock_scalars
-        mock_db.execute.return_value = mock_result
+        """測試 get_agencies_with_search - 委派至 repository.filter_agencies"""
+        service.repository.filter_agencies = AsyncMock(
+            return_value=([mock_agency], 1)
+        )
 
         result = await service.get_agencies_with_search(
             skip=0, limit=20, search="桃園"
@@ -419,16 +412,16 @@ class TestGetAgenciesWithSearch:
         assert len(result) == 1
         assert result[0]["agency_name"] == "桃園市政府"
         assert result[0]["id"] == 1
-        mock_db.execute.assert_awaited_once()
+        service.repository.filter_agencies.assert_awaited_once_with(
+            search="桃園", skip=0, limit=20
+        )
 
     @pytest.mark.asyncio
     async def test_get_agencies_with_search_no_results(self, service, mock_db):
         """測試 get_agencies_with_search - 無搜尋結果"""
-        mock_scalars = MagicMock()
-        mock_scalars.all.return_value = []
-        mock_result = MagicMock()
-        mock_result.scalars.return_value = mock_scalars
-        mock_db.execute.return_value = mock_result
+        service.repository.filter_agencies = AsyncMock(
+            return_value=([], 0)
+        )
 
         result = await service.get_agencies_with_search(search="不存在")
 
@@ -440,10 +433,10 @@ class TestGetTotalWithSearch:
 
     @pytest.mark.asyncio
     async def test_get_total_with_search(self, service, mock_db):
-        """測試 get_total_with_search - 帶搜尋條件的計數"""
-        mock_result = MagicMock()
-        mock_result.scalar.return_value = 5
-        mock_db.execute.return_value = mock_result
+        """測試 get_total_with_search - 委派至 repository.filter_agencies"""
+        service.repository.filter_agencies = AsyncMock(
+            return_value=([], 5)
+        )
 
         result = await service.get_total_with_search(search="桃園")
 
@@ -451,10 +444,10 @@ class TestGetTotalWithSearch:
 
     @pytest.mark.asyncio
     async def test_get_total_with_search_no_filter(self, service, mock_db):
-        """測試 get_total_with_search - 不帶搜尋條件（全部計數）"""
-        mock_result = MagicMock()
-        mock_result.scalar.return_value = 100
-        mock_db.execute.return_value = mock_result
+        """測試 get_total_with_search - 不帶搜尋條件"""
+        service.repository.filter_agencies = AsyncMock(
+            return_value=([], 100)
+        )
 
         result = await service.get_total_with_search()
 
@@ -462,10 +455,10 @@ class TestGetTotalWithSearch:
 
     @pytest.mark.asyncio
     async def test_get_total_with_search_returns_zero(self, service, mock_db):
-        """測試 get_total_with_search - scalar 返回 None 時回傳 0"""
-        mock_result = MagicMock()
-        mock_result.scalar.return_value = None
-        mock_db.execute.return_value = mock_result
+        """測試 get_total_with_search - 回傳 0"""
+        service.repository.filter_agencies = AsyncMock(
+            return_value=([], 0)
+        )
 
         result = await service.get_total_with_search(search="不存在")
 

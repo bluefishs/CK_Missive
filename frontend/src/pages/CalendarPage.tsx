@@ -69,6 +69,8 @@ const CalendarPage: React.FC = () => {
     updateEvent,
     deleteEvent,
     bulkSync,
+    batchUpdateEventStatus,
+    batchDeleteEvents,
     isSyncing,
     refetch,
   } = useCalendarPage();
@@ -372,6 +374,8 @@ const CalendarPage: React.FC = () => {
             loading={loading}
             onEventUpdate={handleEventUpdate}
             onEventDelete={handleEventDelete}
+            onBatchUpdateStatus={batchUpdateEventStatus}
+            onBatchDelete={batchDeleteEvents}
             onDateSelect={(date) => {
               setSelectedDate(date);
               // 行動版：選擇日期後自動開啟側邊欄
@@ -408,9 +412,9 @@ const CalendarPage: React.FC = () => {
         onClose={() => setSidebarVisible(false)}
         open={sidebarVisible}
         destroyOnHidden
-        width={isMobile ? '85%' : 350}
         styles={{
-          body: { padding: '12px' }
+          wrapper: { width: isMobile ? '85%' : 350 },
+          body: { padding: '12px' },
         }}
       >
         {renderSidebarContent()}

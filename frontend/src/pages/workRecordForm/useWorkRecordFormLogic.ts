@@ -174,6 +174,7 @@ export function useWorkRecordFormLogic({
       message.success('作業紀錄建立成功');
       queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.dispatch(dispatchOrderId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.projectAll });
+      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
       navigate(returnPath);
     },
     onError: (error: Error) => {
@@ -189,6 +190,8 @@ export function useWorkRecordFormLogic({
       message.success('作業紀錄更新成功');
       queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.dispatch(dispatchOrderId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.projectAll });
+      // 作業紀錄狀態變更會影響派工單列表的「作業進度」欄位
+      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
       navigate(returnPath);
     },
     onError: (error: Error) => {

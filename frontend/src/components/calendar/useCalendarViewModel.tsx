@@ -30,6 +30,8 @@ interface UseCalendarViewModelOptions {
   events: CalendarEvent[];
   onEventUpdate?: (eventId: number, updates: Partial<CalendarEvent>) => Promise<void>;
   onEventDelete?: (eventId: number) => Promise<void>;
+  onBatchUpdateStatus?: (updates: Array<{ eventId: number; status: 'pending' | 'completed' | 'cancelled' }>) => Promise<{ successCount: number; failCount: number }>;
+  onBatchDelete?: (eventIds: number[]) => Promise<{ successCount: number; failCount: number }>;
   onRefresh?: () => void;
 }
 
@@ -37,6 +39,8 @@ export function useCalendarViewModel({
   events,
   onEventUpdate,
   onEventDelete,
+  onBatchUpdateStatus,
+  onBatchDelete,
   onRefresh,
 }: UseCalendarViewModelOptions) {
   const { modal, notification } = App.useApp();
@@ -164,7 +168,7 @@ export function useCalendarViewModel({
 
   // 批次標記完成
   const handleBatchMarkComplete = useCallback(async () => {
-    if (!onEventUpdate) {
+    if (!onBatchUpdateStatus && !onEventUpdate) {
       notification.warning({ title: '此功能暫不可用' });
       return;
     }
@@ -210,43 +214,64 @@ export function useCalendarViewModel({
       cancelText: '取消',
       onOk: async () => {
         setBatchProcessing(true);
-        let successCount = 0;
-        let failCount = 0;
 
         try {
-          for (const event of eventsToUpdate) {
-            try {
-              await onEventUpdate(event.id, { status: 'completed' });
-              successCount++;
-            } catch (error) {
-              failCount++;
-              logger.error(`標記事件 ${event.id} 失敗:`, error);
-            }
-          }
+          // 優先使用批次 API（一次 invalidate，避免逐筆 refetch 造成超頻）
+          if (onBatchUpdateStatus) {
+            const { successCount, failCount } = await onBatchUpdateStatus(
+              eventsToUpdate.map((e) => ({ eventId: e.id, status: 'completed' }))
+            );
 
-          if (successCount > 0) {
-            notification.success({
-              title: '批次處理完成',
-              description: `成功標記 ${successCount} 個事件為已完成${failCount > 0 ? `，${failCount} 個失敗` : ''}`,
-            });
-            setQuickFilter(null);
-            onRefresh?.();
-          } else {
-            notification.error({
-              title: '批次處理失敗',
-              description: '所有事件標記失敗，請稍後再試',
-            });
+            if (successCount > 0) {
+              notification.success({
+                title: '批次處理完成',
+                description: `成功標記 ${successCount} 個事件為已完成${failCount > 0 ? `，${failCount} 個失敗` : ''}`,
+              });
+              setQuickFilter(null);
+            } else {
+              notification.error({
+                title: '批次處理失敗',
+                description: '所有事件標記失敗，請稍後再試',
+              });
+            }
+          } else if (onEventUpdate) {
+            // 回退：逐筆更新（舊行為）
+            let successCount = 0;
+            let failCount = 0;
+            for (const event of eventsToUpdate) {
+              try {
+                await onEventUpdate(event.id, { status: 'completed' });
+                successCount++;
+              } catch (error) {
+                failCount++;
+                logger.error(`標記事件 ${event.id} 失敗:`, error);
+              }
+            }
+
+            if (successCount > 0) {
+              notification.success({
+                title: '批次處理完成',
+                description: `成功標記 ${successCount} 個事件為已完成${failCount > 0 ? `，${failCount} 個失敗` : ''}`,
+              });
+              setQuickFilter(null);
+              onRefresh?.();
+            } else {
+              notification.error({
+                title: '批次處理失敗',
+                description: '所有事件標記失敗，請稍後再試',
+              });
+            }
           }
         } finally {
           setBatchProcessing(false);
         }
       },
     });
-  }, [onEventUpdate, quickFilter, filteredEvents, overdueEvents, modal, notification, onRefresh]);
+  }, [onBatchUpdateStatus, onEventUpdate, quickFilter, filteredEvents, overdueEvents, modal, notification, onRefresh]);
 
   // 批次標記取消
   const handleBatchMarkCancelled = useCallback(async () => {
-    if (!onEventUpdate) {
+    if (!onBatchUpdateStatus && !onEventUpdate) {
       notification.warning({ title: '此功能暫不可用' });
       return;
     }
@@ -265,32 +290,46 @@ export function useCalendarViewModel({
       cancelText: '返回',
       onOk: async () => {
         setBatchProcessing(true);
-        let successCount = 0;
 
         try {
-          for (const event of eventsToUpdate) {
-            try {
-              await onEventUpdate(event.id, { status: 'cancelled' });
-              successCount++;
-            } catch (error) {
-              logger.error(`標記事件 ${event.id} 失敗:`, error);
-            }
-          }
+          if (onBatchUpdateStatus) {
+            const { successCount } = await onBatchUpdateStatus(
+              eventsToUpdate.map((e) => ({ eventId: e.id, status: 'cancelled' }))
+            );
 
-          if (successCount > 0) {
-            notification.success({
-              title: '批次處理完成',
-              description: `成功標記 ${successCount} 個事件為已取消`,
-            });
-            setQuickFilter(null);
-            onRefresh?.();
+            if (successCount > 0) {
+              notification.success({
+                title: '批次處理完成',
+                description: `成功標記 ${successCount} 個事件為已取消`,
+              });
+              setQuickFilter(null);
+            }
+          } else if (onEventUpdate) {
+            let successCount = 0;
+            for (const event of eventsToUpdate) {
+              try {
+                await onEventUpdate(event.id, { status: 'cancelled' });
+                successCount++;
+              } catch (error) {
+                logger.error(`標記事件 ${event.id} 失敗:`, error);
+              }
+            }
+
+            if (successCount > 0) {
+              notification.success({
+                title: '批次處理完成',
+                description: `成功標記 ${successCount} 個事件為已取消`,
+              });
+              setQuickFilter(null);
+              onRefresh?.();
+            }
           }
         } finally {
           setBatchProcessing(false);
         }
       },
     });
-  }, [onEventUpdate, quickFilter, filteredEvents, overdueEvents, modal, notification, onRefresh]);
+  }, [onBatchUpdateStatus, onEventUpdate, quickFilter, filteredEvents, overdueEvents, modal, notification, onRefresh]);
 
   // 批次選取處理
   const handleSelectEvent = useCallback((eventId: number, checked: boolean) => {
@@ -315,25 +354,36 @@ export function useCalendarViewModel({
   const handleBatchDelete = useCallback(async () => {
     if (selectedEventIds.length === 0) return;
 
-    let successCount = 0;
-    let failCount = 0;
+    if (onBatchDelete) {
+      // 批次 API：一次性 invalidate，避免逐筆 refetch
+      const { successCount, failCount } = await onBatchDelete(selectedEventIds);
+      setSelectedEventIds([]);
+      notification.success({
+        title: '批次刪除完成',
+        description: `成功 ${successCount} 個${failCount > 0 ? `，失敗 ${failCount} 個` : ''}`,
+      });
+    } else if (onEventDelete) {
+      // 回退：逐筆刪除
+      let successCount = 0;
+      let failCount = 0;
 
-    for (const eventId of selectedEventIds) {
-      try {
-        await onEventDelete?.(eventId);
-        successCount++;
-      } catch {
-        failCount++;
+      for (const eventId of selectedEventIds) {
+        try {
+          await onEventDelete(eventId);
+          successCount++;
+        } catch {
+          failCount++;
+        }
       }
-    }
 
-    setSelectedEventIds([]);
-    notification.success({
-      title: '批次刪除完成',
-      description: `成功 ${successCount} 個${failCount > 0 ? `，失敗 ${failCount} 個` : ''}`,
-    });
-    onRefresh?.();
-  }, [selectedEventIds, onEventDelete, notification, onRefresh]);
+      setSelectedEventIds([]);
+      notification.success({
+        title: '批次刪除完成',
+        description: `成功 ${successCount} 個${failCount > 0 ? `，失敗 ${failCount} 個` : ''}`,
+      });
+      onRefresh?.();
+    }
+  }, [selectedEventIds, onBatchDelete, onEventDelete, notification, onRefresh]);
 
   return {
     // State

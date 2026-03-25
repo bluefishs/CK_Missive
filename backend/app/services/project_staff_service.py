@@ -33,21 +33,29 @@ class ProjectStaffService:
         self.repo = ProjectStaffRepository(db)
 
     async def create_assignment(self, data: ProjectStaffCreate) -> dict:
-        project = await self.repo.check_project_exists(data.project_id)
-        if not project:
-            raise NotFoundException(resource="承攬案件", resource_id=data.project_id)
+        # 支援 project_id 或 case_code（統一人員表 v2.0）
+        if data.project_id:
+            project = await self.repo.check_project_exists(data.project_id)
+            if not project:
+                raise NotFoundException(resource="承攬案件", resource_id=data.project_id)
 
-        user = await self.repo.check_user_exists(data.user_id)
-        if not user:
-            raise NotFoundException(resource="使用者", resource_id=data.user_id)
+        if data.user_id:
+            user = await self.repo.check_user_exists(data.user_id)
+            if not user:
+                raise NotFoundException(resource="使用者", resource_id=data.user_id)
 
-        existing = await self.repo.check_assignment_exists(data.project_id, data.user_id)
-        if existing:
-            raise ConflictException(message="該同仁已與此案件建立關聯", field="user_id")
+            if data.project_id:
+                existing = await self.repo.check_assignment_exists(data.project_id, data.user_id)
+                if existing:
+                    raise ConflictException(message="該同仁已與此案件建立關聯", field="user_id")
 
-        await self.repo.create_assignment(
+        from sqlalchemy import insert
+        from app.extended.models.associations import project_user_assignment
+        stmt = insert(project_user_assignment).values(
             project_id=data.project_id,
+            case_code=data.case_code,
             user_id=data.user_id,
+            staff_name=data.staff_name,
             role=data.role or 'member',
             is_primary=data.is_primary,
             start_date=data.start_date,
@@ -55,11 +63,13 @@ class ProjectStaffService:
             status=data.status or 'active',
             notes=data.notes,
         )
+        await self.db.execute(stmt)
         await self.db.commit()
 
         return {
-            "message": "案件與承辦同仁關聯建立成功",
+            "message": "承辦同仁關聯建立成功",
             "project_id": data.project_id,
+            "case_code": data.case_code,
             "user_id": data.user_id,
         }
 
@@ -94,6 +104,36 @@ class ProjectStaffService:
         return ProjectStaffListResponse(
             project_id=project_id,
             project_name=project.project_name,
+            staff=staff,
+            total=len(staff),
+        )
+
+    async def get_staff_by_case_code(self, case_code: str) -> ProjectStaffListResponse:
+        """依 case_code 取得承辦同仁（支援未成案 PM 案件）"""
+        rows = await self.repo.get_staff_by_case_code(case_code)
+
+        staff = [
+            ProjectStaffResponse(
+                id=row.id,
+                project_id=getattr(row, 'project_id', None),
+                case_code=getattr(row, 'case_code', case_code),
+                user_id=getattr(row, 'user_id', None),
+                staff_name=getattr(row, 'staff_name', None),
+                user_name=getattr(row, 'full_name', None) or getattr(row, 'username', None) or getattr(row, 'staff_name', None) or '未知',
+                user_email=getattr(row, 'email', None),
+                role=row.role,
+                is_primary=getattr(row, 'is_primary', False) or False,
+                start_date=getattr(row, 'start_date', None),
+                end_date=getattr(row, 'end_date', None),
+                status=getattr(row, 'status', None),
+                notes=getattr(row, 'notes', None),
+            )
+            for row in rows
+        ]
+
+        return ProjectStaffListResponse(
+            case_code=case_code,
+            project_name=case_code,
             staff=staff,
             total=len(staff),
         )

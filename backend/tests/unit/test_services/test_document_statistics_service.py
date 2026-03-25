@@ -111,12 +111,8 @@ class TestGetNextSendNumber:
 
     @pytest.mark.asyncio
     async def test_default_prefix(self, service, mock_db):
-        """使用預設前綴生成字號"""
-        fetchone_mock = MagicMock()
-        fetchone_mock.__getitem__ = MagicMock(return_value=3)
-        result_mock = MagicMock()
-        result_mock.fetchone.return_value = fetchone_mock
-        mock_db.execute.return_value = result_mock
+        """使用預設前綴生成字號 — 委派至 repository"""
+        service.repository.get_next_send_sequence = AsyncMock(return_value=3)
 
         result = await service.get_next_send_number(year=2026)
 
@@ -129,11 +125,7 @@ class TestGetNextSendNumber:
     @pytest.mark.asyncio
     async def test_first_number_in_year(self, service, mock_db):
         """該年度第一筆（無前序記錄）"""
-        fetchone_mock = MagicMock()
-        fetchone_mock.__getitem__ = MagicMock(return_value=None)
-        result_mock = MagicMock()
-        result_mock.fetchone.return_value = fetchone_mock
-        mock_db.execute.return_value = result_mock
+        service.repository.get_next_send_sequence = AsyncMock(return_value=0)
 
         result = await service.get_next_send_number(year=2026)
 
@@ -150,14 +142,10 @@ class TestGetDocumentYears:
 
     @pytest.mark.asyncio
     async def test_returns_sorted_years(self, service, mock_db):
-        """回傳降序年度列表"""
-        row_2026 = MagicMock()
-        row_2026.year = 2026
-        row_2025 = MagicMock()
-        row_2025.year = 2025
-        result_mock = MagicMock()
-        result_mock.all.return_value = [row_2026, row_2025]
-        mock_db.execute.return_value = result_mock
+        """回傳降序年度列表 — 委派至 repository"""
+        service.repository.get_document_years = AsyncMock(
+            return_value=[2026, 2025]
+        )
 
         years = await service.get_document_years()
 

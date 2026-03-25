@@ -112,7 +112,6 @@ from .document_chunk import (
 from .pm import (
     PMCase,
     PMMilestone,
-    PMCaseStaff,
 )
 
 # 15. 財務管理模組 (ERP)
@@ -208,7 +207,7 @@ __all__ = [
     # 專案管理 (PM)
     "PMCase",
     "PMMilestone",
-    "PMCaseStaff",
+    # PMCaseStaff removed (v5.2.0 — migrated to project_user_assignments)
     # 財務管理 (ERP)
     "ERPQuotation",
     "ERPInvoice",

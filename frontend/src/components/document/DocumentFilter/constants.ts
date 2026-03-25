@@ -23,9 +23,9 @@ export const DOC_TYPE_OPTIONS: DropdownOption[] = [
   { value: '會勘通知單', label: '會勘通知單' },
 ];
 
-/** 發文形式篩選選項 */
+/** 發文形式篩選選項 (SSOT: constants/documentOptions.ts) */
+import { DELIVERY_METHOD_OPTIONS as BASE_OPTIONS } from '../../../constants/documentOptions';
 export const DELIVERY_METHOD_OPTIONS: DropdownOption[] = [
   { value: '', label: '全部形式' },
-  { value: '電子交換', label: '電子交換' },
-  { value: '紙本郵寄', label: '紙本郵寄' },
+  ...BASE_OPTIONS.map(o => ({ value: o.value, label: o.label })),
 ];

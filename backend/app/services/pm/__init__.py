@@ -1,6 +1,6 @@
 """PM Services"""
 from .case_service import PMCaseService
 from .milestone_service import PMMilestoneService
-from .staff_service import PMCaseStaffService
+# PMCaseStaffService removed — staff migrated to unified project_user_assignments (v5.2.0)
 
-__all__ = ["PMCaseService", "PMMilestoneService", "PMCaseStaffService"]
+__all__ = ["PMCaseService", "PMMilestoneService"]

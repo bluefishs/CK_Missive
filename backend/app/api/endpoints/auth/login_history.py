@@ -60,7 +60,7 @@ async def get_login_history(
         SELECT COUNT(*) FROM audit_logs
         WHERE table_name = :table_name
           AND record_id = :record_id
-          AND action IN :actions
+          AND action = ANY(:actions)
     """)
 
     data_query = text("""
@@ -68,7 +68,7 @@ async def get_login_history(
         FROM audit_logs
         WHERE table_name = :table_name
           AND record_id = :record_id
-          AND action IN :actions
+          AND action = ANY(:actions)
         ORDER BY created_at DESC
         LIMIT :limit OFFSET :offset
     """)
@@ -76,7 +76,7 @@ async def get_login_history(
     params = {
         "table_name": "auth_events",
         "record_id": current_user.id,
-        "actions": tuple(ALLOWED_AUTH_ACTIONS),
+        "actions": list(ALLOWED_AUTH_ACTIONS),
         "limit": page_size,
         "offset": offset,
     }
@@ -151,10 +151,11 @@ async def get_admin_login_history(
     """
     from app.core.exceptions import ForbiddenException
 
-    # 管理員權限檢查
+    # 管理員權限檢查（相容 auth_disabled 模式的 mock user）
     is_admin = (
-        current_user.is_admin or current_user.is_superuser
-        or current_user.role in ('admin', 'superuser')
+        getattr(current_user, 'is_admin', False)
+        or getattr(current_user, 'is_superuser', False)
+        or getattr(current_user, 'role', '') in ('admin', 'superuser')
     )
     if not is_admin:
         raise ForbiddenException("需要管理員權限")
@@ -165,7 +166,7 @@ async def get_admin_login_history(
     where_clauses = ["table_name = :table_name", "action IN :actions"]
     params: dict = {
         "table_name": "auth_events",
-        "actions": tuple(ALLOWED_AUTH_ACTIONS),
+        "actions": list(ALLOWED_AUTH_ACTIONS),
         "limit": page_size,
         "offset": offset,
     }

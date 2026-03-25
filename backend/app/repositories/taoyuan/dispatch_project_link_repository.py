@@ -15,7 +15,7 @@ import logging
 from typing import Optional, List, Dict
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, delete
+from sqlalchemy import select, func, delete, and_
 from sqlalchemy.orm import selectinload
 
 from app.extended.models import (
@@ -551,3 +551,39 @@ class DispatchProjectLinkRepository:
             )
         )
         return result.scalar() or 0
+
+    async def find_document_project_link(
+        self, document_id: int, project_id: int
+    ) -> Optional[TaoyuanDocumentProjectLink]:
+        """查詢特定的公文-工程關聯"""
+        result = await self.db.execute(
+            select(TaoyuanDocumentProjectLink).where(
+                and_(
+                    TaoyuanDocumentProjectLink.document_id == document_id,
+                    TaoyuanDocumentProjectLink.taoyuan_project_id == project_id,
+                )
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def delete_links_by_dispatch(self, dispatch_id: int) -> int:
+        """刪除派工單的所有工程關聯，回傳刪除數"""
+        result = await self.db.execute(
+            delete(TaoyuanDispatchProjectLink).where(
+                TaoyuanDispatchProjectLink.dispatch_order_id == dispatch_id
+            )
+        )
+        return result.rowcount
+
+    async def find_auto_links_by_notes(
+        self, dispatch_no: str
+    ) -> List[TaoyuanDocumentProjectLink]:
+        """查詢自動建立的公文-工程關聯 (依 notes 包含派工單號)"""
+        result = await self.db.execute(
+            select(TaoyuanDocumentProjectLink).where(
+                TaoyuanDocumentProjectLink.notes.like(
+                    f"%自動同步自派工單 {dispatch_no}%"
+                )
+            )
+        )
+        return list(result.scalars().all())

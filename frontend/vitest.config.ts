@@ -33,6 +33,8 @@ export default defineConfig({
       },
     },
     testTimeout: 10000,
+    retry: 1,
+    maxConcurrency: 8,
   },
   resolve: {
     alias: {

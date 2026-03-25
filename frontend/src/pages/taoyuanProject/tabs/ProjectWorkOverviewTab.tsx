@@ -106,6 +106,7 @@ export const ProjectWorkOverviewTab: React.FC<ProjectWorkOverviewTabProps> = ({
     invalidateKeys: [
       queryKeys.workRecords.project(projectId),
       queryKeys.workRecords.dispatchAll,
+      queryKeys.taoyuanDispatch.all,
     ],
     logPrefix: 'ProjectWorkOverview',
   });

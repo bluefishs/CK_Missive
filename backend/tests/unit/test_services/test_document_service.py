@@ -216,7 +216,7 @@ class TestGetDocumentById:
         mock_doc.subject = "測試主旨"
 
         mock_result = MagicMock()
-        mock_result.scalars.return_value.first.return_value = mock_doc
+        mock_result.scalar_one_or_none.return_value = mock_doc
         mock_db_session.execute.return_value = mock_result
 
         result = await service.get_document_by_id(1)
@@ -230,7 +230,7 @@ class TestGetDocumentById:
         service = DocumentService(db=mock_db_session, auto_create_events=False)
 
         mock_result = MagicMock()
-        mock_result.scalars.return_value.first.return_value = None
+        mock_result.scalar_one_or_none.return_value = None
         mock_db_session.execute.return_value = mock_result
 
         result = await service.get_document_by_id(999)
@@ -292,7 +292,7 @@ class TestGetDocumentWithExtraInfo:
         service = DocumentService(db=mock_db_session, auto_create_events=False)
 
         mock_result = MagicMock()
-        mock_result.scalars.return_value.first.return_value = None
+        mock_result.scalar_one_or_none.return_value = None
         mock_db_session.execute.return_value = mock_result
 
         result = await service.get_document_with_extra_info(999)

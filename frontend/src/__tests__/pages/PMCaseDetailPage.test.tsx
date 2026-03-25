@@ -85,6 +85,8 @@ vi.mock('../../hooks', () => ({
   useResponsive: () => ({ isMobile: false, isTablet: false, isDesktop: true, breakpoint: 'lg' }),
   usePMCase: (..._args: unknown[]) => mockUsePMCase(),
   useCrossModuleLookup: () => ({ data: null, isLoading: false }),
+  useProjectFinancialSummary: () => ({ data: null, isLoading: false }),
+  useExpenses: () => ({ data: null, isLoading: false }),
 }));
 
 vi.mock('../../api/projectsApi', () => ({
@@ -97,21 +99,31 @@ vi.mock('../../pages/ContractCaseDetailPage', () => ({
   ContractCaseDetailContent: () => <div data-testid="mock-shared-template">SharedTemplate</div>,
 }));
 
-vi.mock('../../pages/pmCase', () => ({
-  MilestonesTab: ({ pmCaseId }: { pmCaseId: number }) => (
-    <div data-testid="mock-milestones-tab">MilestonesTab (caseId: {pmCaseId})</div>
+vi.mock('../../hooks/business/useDropdownData', () => ({
+  useClientOptions: () => ({ clients: [{ id: 1, vendor_name: '測試委託單位' }], isLoading: false }),
+}));
+
+vi.mock('../../api/vendorsApi', () => ({
+  vendorsApi: { createVendor: vi.fn() },
+}));
+
+vi.mock('../../api/pm/casesApi', () => ({
+  pmCasesApi: { update: vi.fn(), delete: vi.fn() },
+}));
+
+vi.mock('../../pages/pmCase/MilestonesGanttTab', () => ({
+  default: ({ pmCaseId }: { pmCaseId: number }) => (
+    <div data-testid="mock-milestones-tab">MilestonesGanttTab (caseId: {pmCaseId})</div>
   ),
-  StaffTab: ({ pmCaseId }: { pmCaseId: number }) => (
-    <div data-testid="mock-staff-tab">StaffTab (caseId: {pmCaseId})</div>
+}));
+vi.mock('../../pages/pmCase/StaffTab', () => ({
+  default: ({ caseCode }: { caseCode: string }) => (
+    <div data-testid="mock-staff-tab">StaffTab (caseCode: {caseCode})</div>
   ),
-  GanttTab: ({ pmCaseId }: { pmCaseId: number }) => (
-    <div data-testid="mock-gantt-tab">GanttTab (caseId: {pmCaseId})</div>
-  ),
-  LinkedDocsTab: ({ caseCode }: { caseCode: string }) => (
-    <div data-testid="mock-linked-docs-tab">LinkedDocsTab (code: {caseCode})</div>
-  ),
-  CrossModuleCard: ({ caseCode }: { caseCode: string }) => (
-    <div data-testid="mock-cross-module-card">CrossModuleCard (code: {caseCode})</div>
+}));
+vi.mock('../../pages/pmCase/QuotationRecordsTab', () => ({
+  default: ({ caseCode }: { caseCode: string }) => (
+    <div data-testid="mock-quotation-tab">QuotationRecordsTab (caseCode: {caseCode})</div>
   ),
 }));
 
@@ -215,7 +227,7 @@ describe('PMCaseDetailPage', () => {
   it('renders milestones tab label', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('里程碑')).toBeInTheDocument();
+      expect(screen.getByText('里程碑/甘特圖')).toBeInTheDocument();
     }, WAIT_OPTS);
   });
 

@@ -71,7 +71,8 @@ async def get_self_profile(db: AsyncSession) -> Dict[str, Any]:
             .limit(5)
         )
         profile["top_domains"] = [
-            row[0] for row in domain_result.all() if row[0]
+            {"domain": row[0], "count": row[1]}
+            for row in domain_result.all() if row[0]
         ]
 
         # 3. Top 5 favorite tools
@@ -85,7 +86,8 @@ async def get_self_profile(db: AsyncSession) -> Dict[str, Any]:
             .limit(5)
         )
         profile["favorite_tools"] = [
-            row[0] for row in tool_result.all() if row[0]
+            {"tool": row[0], "count": row[1]}
+            for row in tool_result.all() if row[0]
         ]
 
         # 4. Average feedback score (only rated queries)
@@ -106,7 +108,7 @@ async def get_self_profile(db: AsyncSession) -> Dict[str, Any]:
         )
         profile["learnings_count"] = learning_result.scalar() or 0
 
-        # 6. Conversation summaries count
+        # 6. Conversation summaries count + recent 3
         conv_result = await db.execute(
             select(func.count()).select_from(AgentLearning).where(
                 AgentLearning.is_active == True,
@@ -115,7 +117,32 @@ async def get_self_profile(db: AsyncSession) -> Dict[str, Any]:
         )
         profile["conversation_summaries"] = conv_result.scalar() or 0
 
-        # 7. Generate personality hint
+        recent_result = await db.execute(
+            select(AgentLearning.content, AgentLearning.created_at)
+            .where(
+                AgentLearning.is_active == True,
+                AgentLearning.learning_type == "conversation_summary",
+            )
+            .order_by(AgentLearning.created_at.desc())
+            .limit(3)
+        )
+        profile["recent_summaries"] = [
+            {
+                "content": row[0][:120] if row[0] else "",
+                "created_at": row[1].isoformat() if row[1] else None,
+            }
+            for row in recent_result.all()
+        ]
+
+        # 7. Score distribution
+        rated_result = await db.execute(
+            select(func.count()).select_from(AgentQueryTrace).where(
+                AgentQueryTrace.feedback_score.isnot(None)
+            )
+        )
+        profile["rated_queries"] = rated_result.scalar() or 0
+
+        # 8. Generate personality hint
         profile["personality_hint"] = _build_personality_hint(profile)
 
     except Exception as e:
@@ -144,7 +171,8 @@ def _build_personality_hint(profile: Dict[str, Any]) -> str:
     }
     if domains:
         top = domains[0]
-        label = domain_labels.get(top, top)
+        top_name = top["domain"] if isinstance(top, dict) else top
+        label = domain_labels.get(top_name, top_name)
         parts.append(f"擅長{label}")
 
     # Experience level

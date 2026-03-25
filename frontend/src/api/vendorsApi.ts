@@ -53,6 +53,7 @@ export const vendorsApi = {
 
     // 只添加有值的可選參數
     if (params?.search) queryParams.search = params.search;
+    if (params?.vendor_type) queryParams.vendor_type = params.vendor_type;
     if (params?.business_type) queryParams.business_type = params.business_type;
 
     return await apiClient.postList<Vendor>(API_ENDPOINTS.VENDORS.LIST, queryParams);

@@ -173,6 +173,7 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
     invalidateKeys: [
       queryKeys.workRecords.dispatch(dispatchOrderId),
       queryKeys.workRecords.projectAll,
+      queryKeys.taoyuanDispatch.all,
     ],
     logPrefix: 'WorkflowTab',
   });

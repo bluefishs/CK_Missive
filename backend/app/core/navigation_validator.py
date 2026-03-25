@@ -29,6 +29,7 @@ VALID_NAVIGATION_PATHS: Set[str] = {
     "/contract-cases",
     "/agencies",
     "/vendors",
+    "/clients",
     "/staff",
     "/projects",
     "/calendar",
@@ -47,6 +48,7 @@ VALID_NAVIGATION_PATHS: Set[str] = {
     "/admin/deployment",
     "/admin/ai-assistant",
     "/admin/knowledge-base",
+    "/admin/login-history",
 
     # AI 功能
     "/ai/knowledge-graph",

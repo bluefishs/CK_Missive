@@ -5,9 +5,9 @@
 統計功能已拆分至 AgencyStatisticsService。
 匹配功能已拆分至 AgencyMatchingService。
 
-版本: 4.0.0
-更新日期: 2026-03-10
-變更: 拆分為 3 服務 (CRUD / Statistics / Matching)
+版本: 4.1.0
+更新日期: 2026-03-23
+變更: 遷移至 Repository 層 (A7) — 消除直接 db.execute()
 
 使用方式:
     from app.core.dependencies import get_service
@@ -22,7 +22,6 @@
 import logging
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_
 
 from app.repositories import AgencyRepository
 from app.services.base import DeleteCheckHelper
@@ -69,10 +68,10 @@ class AgencyService:
         limit: int = 100,
     ) -> List[GovernmentAgency]:
         """取得機關列表"""
-        query = select(self.model).order_by(self.model.agency_name)
-        query = query.offset(skip).limit(limit)
-        result = await self.db.execute(query)
-        return list(result.scalars().all())
+        agencies, _ = await self.repository.filter_agencies(
+            skip=skip, limit=limit
+        )
+        return agencies
 
     async def create(self, data: AgencyCreate) -> GovernmentAgency:
         """
@@ -135,44 +134,18 @@ class AgencyService:
         limit: int = 100,
         search: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        """取得機關列表（含搜尋）"""
-        query = select(self.model)
-
-        if search:
-            search_pattern = f"%{search}%"
-            conditions = [
-                getattr(self.model, field).ilike(search_pattern)
-                for field in self.SEARCH_FIELDS
-                if hasattr(self.model, field)
-            ]
-            if conditions:
-                query = query.where(or_(*conditions))
-
-        sort_column = getattr(self.model, self.DEFAULT_SORT_FIELD, self.model.id)
-        query = query.order_by(sort_column.asc())
-        query = query.offset(skip).limit(limit)
-
-        result = await self.db.execute(query)
-        items = result.scalars().all()
-        return [self._to_dict(item) for item in items]
+        """取得機關列表（含搜尋）— 委派至 AgencyRepository"""
+        agencies, _ = await self.repository.filter_agencies(
+            search=search, skip=skip, limit=limit
+        )
+        return [self._to_dict(item) for item in agencies]
 
     async def get_total_with_search(self, search: Optional[str] = None) -> int:
-        """取得機關總數（含搜尋條件）"""
-        subquery = select(self.model.id)
-
-        if search:
-            search_pattern = f"%{search}%"
-            conditions = [
-                getattr(self.model, field).ilike(search_pattern)
-                for field in self.SEARCH_FIELDS
-                if hasattr(self.model, field)
-            ]
-            if conditions:
-                subquery = subquery.where(or_(*conditions))
-
-        query = select(func.count()).select_from(subquery.subquery())
-        result = await self.db.execute(query)
-        return result.scalar() or 0
+        """取得機關總數（含搜尋條件）— 委派至 AgencyRepository"""
+        _, total = await self.repository.filter_agencies(
+            search=search, skip=0, limit=1
+        )
+        return total
 
     # =========================================================================
     # 工具方法

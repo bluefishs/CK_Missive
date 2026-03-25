@@ -28,6 +28,7 @@ from .common import (
     event_to_dict, check_event_permission, get_user_project_doc_ids,
     logger, datetime, timedelta
 )
+from app.schemas.document_calendar import BatchUpdateStatusRequest, BatchDeleteRequest
 from app.extended.models import ContractProject
 from app.repositories.calendar_repository import CalendarRepository
 from app.repositories.document_repository import DocumentRepository
@@ -539,6 +540,45 @@ async def delete_calendar_event(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="刪除事件失敗，請稍後再試"
         )
+
+
+@router.post("/events/batch-update-status", summary="批次更新事件狀態")
+async def batch_update_event_status(
+    request: BatchUpdateStatusRequest,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user)
+):
+    """批次更新多個事件的狀態（單次 DB 操作，避免 rate limit）"""
+    try:
+        if request.status not in ('pending', 'completed', 'cancelled'):
+            raise HTTPException(status_code=422, detail="無效的狀態值")
+
+        result = await calendar_service.batch_update_status(db, request.event_ids, request.status)
+        logger.info(f"使用者 {current_user.id} 批次更新 {result['updated']} 個事件為 {request.status}")
+        return {"success": True, **result}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"批次更新事件狀態失敗: {e}", exc_info=True)
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="批次更新失敗")
+
+
+@router.post("/events/batch-delete", summary="批次刪除事件")
+async def batch_delete_events(
+    request: BatchDeleteRequest,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user)
+):
+    """批次刪除多個事件（單次 DB 操作）"""
+    try:
+        result = await calendar_service.batch_delete(db, request.event_ids)
+        logger.info(f"使用者 {current_user.id} 批次刪除 {result['deleted']} 個事件")
+        return {"success": True, **result}
+    except Exception as e:
+        logger.error(f"批次刪除事件失敗: {e}", exc_info=True)
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="批次刪除失敗")
 
 
 @router.post("/users/calendar-events", summary="獲取使用者的日曆事件")

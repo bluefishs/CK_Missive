@@ -8,11 +8,10 @@ import logging
 from typing import Optional, List
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
-from app.extended.models.erp import ERPVendorPayable, ERPQuotation
-from app.extended.models.core import PartnerVendor
-from app.repositories.erp import ERPVendorPayableRepository
+from app.extended.models.erp import ERPVendorPayable
+from app.repositories.erp import ERPVendorPayableRepository, ERPQuotationRepository
+from app.repositories.vendor_repository import VendorRepository
 from app.schemas.erp import ERPVendorPayableCreate, ERPVendorPayableUpdate, ERPVendorPayableResponse
 from app.services.finance_ledger_service import FinanceLedgerService
 
@@ -25,6 +24,8 @@ class ERPVendorPayableService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.repo = ERPVendorPayableRepository(db)
+        self._quotation_repo = ERPQuotationRepository(db)
+        self._vendor_repo = VendorRepository(db)
         self.ledger_service = FinanceLedgerService(db)
 
     async def create(self, data: ERPVendorPayableCreate) -> ERPVendorPayableResponse:
@@ -85,17 +86,15 @@ class ERPVendorPayableService:
 
     async def _get_case_code(self, quotation_id: int) -> Optional[str]:
         """透過報價單取得案號"""
-        stmt = select(ERPQuotation.case_code).where(ERPQuotation.id == quotation_id)
-        result = await self.db.execute(stmt)
-        return result.scalar_one_or_none()
+        quotation = await self._quotation_repo.get_by_id(quotation_id)
+        return quotation.case_code if quotation else None
 
     async def _resolve_vendor_id(self, vendor_code: Optional[str] = None) -> Optional[int]:
         """由 vendor_code 查找 partner_vendors.id"""
         if not vendor_code:
             return None
-        stmt = select(PartnerVendor.id).where(PartnerVendor.vendor_code == vendor_code)
-        result = await self.db.execute(stmt)
-        return result.scalar_one_or_none()
+        vendor = await self._vendor_repo.find_one_by(vendor_code=vendor_code)
+        return vendor.id if vendor else None
 
     async def delete(self, payable_id: int) -> bool:
         """刪除廠商應付"""

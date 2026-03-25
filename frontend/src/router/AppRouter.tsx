@@ -55,6 +55,7 @@ const ApiMappingDisplayPage = lazy(() => import('../pages/ApiMappingDisplayPage'
 const ApiDocumentationPage = lazy(() => import('../pages/ApiDocumentationPage'));
 const VendorPage = lazy(() => import('../pages/VendorPage'));
 const VendorFormPage = lazy(() => import('../pages/VendorFormPage').then(module => ({ default: module.VendorFormPage })));
+const ClientListPage = lazy(() => import('../pages/ClientListPage'));
 const StaffPage = lazy(() => import('../pages/StaffPage'));
 const StaffCreatePage = lazy(() => import('../pages/StaffCreatePage').then(module => ({ default: module.StaffCreatePage })));
 const StaffDetailPage = lazy(() => import('../pages/StaffDetailPage').then(module => ({ default: module.StaffDetailPage })));
@@ -97,10 +98,15 @@ const ERPQuotationListPage = lazy(() => import('../pages/ERPQuotationListPage'))
 const ERPQuotationDetailPage = lazy(() => import('../pages/ERPQuotationDetailPage'));
 const ERPQuotationFormPage = lazy(() => import('../pages/ERPQuotationFormPage'));
 const ERPExpenseListPage = lazy(() => import('../pages/ERPExpenseListPage'));
+const ERPExpenseCreatePage = lazy(() => import('../pages/ERPExpenseCreatePage'));
 const ERPExpenseDetailPage = lazy(() => import('../pages/ERPExpenseDetailPage'));
 const ERPLedgerPage = lazy(() => import('../pages/ERPLedgerPage'));
+const ERPLedgerCreatePage = lazy(() => import('../pages/ERPLedgerCreatePage'));
 const ERPFinancialDashboardPage = lazy(() => import('../pages/ERPFinancialDashboardPage'));
 const ERPEInvoiceSyncPage = lazy(() => import('../pages/ERPEInvoiceSyncPage'));
+
+// 數位分身
+const DigitalTwinPage = lazy(() => import('../pages/DigitalTwinPage'));
 
 // 資安管理
 const AdminLoginHistoryPage = lazy(() => import('../pages/AdminLoginHistoryPage'));
@@ -161,6 +167,9 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.VENDORS} element={<ProtectedRoute><VendorPage /></ProtectedRoute>} />
           <Route path={ROUTES.VENDOR_CREATE} element={<ProtectedRoute><VendorFormPage /></ProtectedRoute>} />
           <Route path={ROUTES.VENDOR_EDIT} element={<ProtectedRoute><VendorFormPage /></ProtectedRoute>} />
+          <Route path={ROUTES.CLIENTS} element={<ProtectedRoute><ClientListPage /></ProtectedRoute>} />
+          <Route path={ROUTES.CLIENT_CREATE} element={<ProtectedRoute><VendorFormPage /></ProtectedRoute>} />
+          <Route path={ROUTES.CLIENT_EDIT} element={<ProtectedRoute><VendorFormPage /></ProtectedRoute>} />
 
           {/* 承辦同仁管理（需要認證） */}
           <Route path={ROUTES.STAFF} element={<ProtectedRoute><StaffPage /></ProtectedRoute>} />
@@ -237,6 +246,8 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.CODE_GRAPH_MANAGEMENT} element={<Navigate to={ROUTES.CODE_GRAPH} replace />} />
           {/* 資料庫圖譜 */}
           <Route path={ROUTES.DB_GRAPH} element={<ProtectedRoute><DatabaseGraphPage /></ProtectedRoute>} />
+          {/* 數位分身 */}
+          <Route path={ROUTES.DIGITAL_TWIN} element={<ProtectedRoute><DigitalTwinPage /></ProtectedRoute>} />
           {/* 知識庫瀏覽器 */}
           <Route path={ROUTES.KNOWLEDGE_BASE} element={<ProtectedRoute requireAuth={true} roles={['admin']}><KnowledgeBasePage /></ProtectedRoute>} />
 
@@ -252,8 +263,10 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.ERP_QUOTATION_EDIT} element={<ProtectedRoute><ERPQuotationFormPage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_QUOTATION_DETAIL} element={<ProtectedRoute><ERPQuotationDetailPage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_EXPENSES} element={<ProtectedRoute><ERPExpenseListPage /></ProtectedRoute>} />
+          <Route path={ROUTES.ERP_EXPENSE_CREATE} element={<ProtectedRoute><ERPExpenseCreatePage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_EXPENSE_DETAIL} element={<ProtectedRoute><ERPExpenseDetailPage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_LEDGER} element={<ProtectedRoute><ERPLedgerPage /></ProtectedRoute>} />
+          <Route path={ROUTES.ERP_LEDGER_CREATE} element={<ProtectedRoute><ERPLedgerCreatePage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_FINANCIAL_DASHBOARD} element={<ProtectedRoute><ERPFinancialDashboardPage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_EINVOICE_SYNC} element={<ProtectedRoute><ERPEInvoiceSyncPage /></ProtectedRoute>} />
 

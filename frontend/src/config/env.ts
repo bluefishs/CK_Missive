@@ -47,7 +47,7 @@ export const isInternalIPAddress = (hostname: string): boolean => {
 export const AUTH_DISABLED_ENV = getEnvVar('VITE_AUTH_DISABLED') === 'true';
 export const GOOGLE_CLIENT_ID = getEnvVar('VITE_GOOGLE_CLIENT_ID') || '';
 export const LINE_LOGIN_CHANNEL_ID = getEnvVar('VITE_LINE_LOGIN_CHANNEL_ID') || '';
-export const LINE_LOGIN_REDIRECT_URI = getEnvVar('VITE_LINE_LOGIN_REDIRECT_URI') || `${window.location.origin}/auth/line/callback`;
+export const LINE_LOGIN_REDIRECT_URI = getEnvVar('VITE_LINE_LOGIN_REDIRECT_URI') || `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/line/callback`;
 export const LINE_BIND_REDIRECT_URI = `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/line/bind-callback`;
 
 /**

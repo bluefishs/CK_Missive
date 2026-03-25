@@ -48,7 +48,7 @@ interface LiveActivityFeedProps {
   isConnected: boolean;
 }
 
-export const LiveActivityFeed: React.FC<LiveActivityFeedProps> = ({ events, isConnected }) => {
+export const LiveActivityFeed: React.FC<LiveActivityFeedProps> = React.memo(({ events, isConnected }) => {
   return (
     <Card
       title={
@@ -118,6 +118,8 @@ export const LiveActivityFeed: React.FC<LiveActivityFeedProps> = ({ events, isCo
       )}
     </Card>
   );
-};
+});
+
+LiveActivityFeed.displayName = 'LiveActivityFeed';
 
 export default LiveActivityFeed;

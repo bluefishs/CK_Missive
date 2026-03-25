@@ -77,7 +77,8 @@ class CanonicalEntityService:
         4 階段策略（逐步嘗試，命中即停）：
         1. 精確匹配別名
         2. 模糊匹配 (pg_trgm)
-        3. 新建實體
+        3. 語意匹配 (pgvector cosine_distance <= 0.15)
+        4. 新建實體
         """
         name = _preprocess_entity_name(entity_name)
         if not name:
@@ -92,12 +93,18 @@ class CanonicalEntityService:
         # Stage 2: 模糊匹配 (pg_trgm)
         canonical = await self._matcher.fuzzy_match(name, entity_type)
         if canonical:
-            # 新增別名
             await self._add_alias(canonical, name, source="auto", confidence=0.8)
             logger.info(f"實體模糊匹配: {name} → {canonical.canonical_name}")
             return canonical
 
-        # Stage 3: 新建實體
+        # Stage 3: 語意匹配 (pgvector cosine_distance)
+        canonical = await self._semantic_match(name, entity_type)
+        if canonical:
+            await self._add_alias(canonical, name, source="auto", confidence=0.75)
+            logger.info(f"實體語意匹配: {name} → {canonical.canonical_name}")
+            return canonical
+
+        # Stage 4: 新建實體
         canonical = await self._create_entity(name, entity_type)
         await self._add_alias(canonical, name, source=source)
         logger.info(f"新建正規實體: {name} ({entity_type})")
@@ -208,7 +215,68 @@ class CanonicalEntityService:
                     ))
                     canonical.alias_count = (canonical.alias_count or 0) + 1
 
-        # ── Stage 3: 批次建立新實體（2 次 flush：建實體 + 建別名）──
+        # ── Stage 3: 批次語意匹配（預批次 embedding + pgvector）────
+        if still_unmatched and PGVECTOR_ENABLED:
+            semantic_remaining: List[Tuple[str, str]] = []
+            # 上限 50 筆，避免大批次 embedding + pgvector 風暴
+            semantic_candidates = still_unmatched[:50]
+            if len(still_unmatched) > 50:
+                semantic_remaining.extend(still_unmatched[50:])
+                logger.warning(
+                    "語意匹配批次上限 50，跳過 %d 筆",
+                    len(still_unmatched) - 50,
+                )
+
+            # 預批次取得所有 embeddings（消除 N+1 embedding 計算）
+            embeddings_map: Dict[str, list] = {}
+            try:
+                from app.services.ai.embedding_manager import EmbeddingManager
+                if await EmbeddingManager.is_available():
+                    for name, _ in semantic_candidates:
+                        emb = await EmbeddingManager.get_embedding(name, connector=None)
+                        if emb:
+                            embeddings_map[name] = emb
+            except Exception as e:
+                logger.debug("批次 embedding 取得失敗: %s", e)
+
+            if embeddings_map:
+                from app.services.ai.ai_config import AIConfig
+                config = AIConfig.get_instance()
+                max_distance = config.kg_semantic_distance
+
+                for name, etype in semantic_candidates:
+                    query_emb = embeddings_map.get(name)
+                    if not query_emb:
+                        semantic_remaining.append((name, etype))
+                        continue
+                    try:
+                        match_result = await self.db.execute(
+                            select(CanonicalEntity)
+                            .where(
+                                CanonicalEntity.entity_type == etype,
+                                CanonicalEntity.embedding.isnot(None),
+                                CanonicalEntity.embedding.cosine_distance(query_emb) <= max_distance,
+                            )
+                            .order_by(CanonicalEntity.embedding.cosine_distance(query_emb))
+                            .limit(1)
+                        )
+                        canonical = match_result.scalar_one_or_none()
+                        if canonical:
+                            key = f"{etype}:{name}"
+                            result[key] = canonical
+                            fuzzy_aliases_to_add.append((canonical, name))
+                            logger.info(f"批次語意匹配: {name} → {canonical.canonical_name}")
+                        else:
+                            semantic_remaining.append((name, etype))
+                    except Exception as e:
+                        logger.debug("語意匹配跳過 (%s): %s", name, e)
+                        semantic_remaining.append((name, etype))
+            else:
+                semantic_remaining.extend(semantic_candidates)
+
+            still_unmatched = semantic_remaining
+
+        # ── Stage 4: 批次建立新實體（2 次 flush：建實體 + 建別名）──
         if still_unmatched:
             new_entities: List[Tuple[str, str, CanonicalEntity]] = []
             for name, etype in still_unmatched:
@@ -322,6 +390,28 @@ class CanonicalEntityService:
         )
         type_distribution = {row.entity_type: row.count for row in type_dist_result.all()}
 
+        # KG-3: 實體 embedding 覆蓋率
+        entities_with_embedding = await self.db.scalar(
+            select(sa_func.count()).select_from(CanonicalEntity)
+            .where(
+                CanonicalEntity.entity_type.notin_(self._CODE_ENTITY_TYPES),
+                CanonicalEntity.embedding.isnot(None),
+            )
+        ) or 0
+
+        # KG Federation: per-source_project 分布
+        project_dist_result = await self.db.execute(
+            select(
+                sa_func.coalesce(CanonicalEntity.source_project, "ck-missive").label("project"),
+                sa_func.count().label("count"),
+            )
+            .where(CanonicalEntity.entity_type.notin_(self._CODE_ENTITY_TYPES))
+            .group_by("project")
+        )
+        source_project_distribution = {
+            row.project: row.count for row in project_dist_result.all()
+        }
+
         return {
             "total_entities": doc_entities,
             "total_code_entities": code_entities,
@@ -330,11 +420,67 @@ class CanonicalEntityService:
             "total_relationships": total_relationships,
             "total_ingestion_events": total_events,
             "entity_type_distribution": type_distribution,
+            "source_project_distribution": source_project_distribution,
+            "entities_with_embedding": entities_with_embedding,
+            "embedding_coverage_percent": round(
+                (entities_with_embedding / doc_entities * 100) if doc_entities > 0 else 0, 1
+            ),
+            "entities_without_embedding": max(0, doc_entities - entities_with_embedding),
+            "embedding_backfill_needed": (doc_entities - entities_with_embedding) > 10,
         }
 
     # ================================================================
     # 內部方法
     # ================================================================
+
+    async def _semantic_match(
+        self, name: str, entity_type: str,
+    ) -> Optional[CanonicalEntity]:
+        """
+        Stage 3: 語意匹配 — pgvector cosine_distance <= kg_semantic_distance
+
+        僅在 PGVECTOR_ENABLED=true 時啟用。
+        透過 EmbeddingManager 取得查詢向量，以 cosine_distance 搜尋同類型實體。
+        """
+        if not PGVECTOR_ENABLED:
+            return None
+
+        try:
+            from app.services.ai.embedding_manager import EmbeddingManager
+            from app.services.ai.ai_config import AIConfig
+
+            if not await EmbeddingManager.is_available():
+                return None
+
+            query_emb = await EmbeddingManager.get_embedding(name, connector=None)
+            if not query_emb:
+                return None
+
+            config = AIConfig.get_instance()
+            max_distance = config.kg_semantic_distance  # default 0.15
+
+            # pgvector cosine_distance search on CanonicalEntity.embedding
+            result = await self.db.execute(
+                select(CanonicalEntity)
+                .where(
+                    CanonicalEntity.entity_type == entity_type,
+                    CanonicalEntity.embedding.isnot(None),
+                    CanonicalEntity.embedding.cosine_distance(query_emb) <= max_distance,
+                )
+                .order_by(CanonicalEntity.embedding.cosine_distance(query_emb))
+                .limit(1)
+            )
+            match = result.scalar_one_or_none()
+            if match:
+                distance = None  # logged for debugging
+                logger.debug(
+                    "語意匹配候選: %s → %s (type=%s)",
+                    name, match.canonical_name, entity_type,
+                )
+            return match
+        except Exception as e:
+            logger.debug("語意匹配跳過 (%s): %s", name, e)
+            return None
 
     async def _exact_match(
         self, name: str, entity_type: str,

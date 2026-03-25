@@ -93,6 +93,7 @@ export interface Project {
   id: number;
   project_name: string;
   project_code?: string;
+  case_code?: string;
   year?: number;
   client_agency?: string;
   category?: string;
@@ -192,10 +193,12 @@ export interface Vendor {
   id: number;
   vendor_name: string;
   vendor_code?: string;
+  vendor_type?: 'subcontractor' | 'client';
   contact_person?: string;
   phone?: string;
   email?: string;
   address?: string;
+  tax_id?: string;
   business_type?: string;
   rating?: number;
   notes?: string;
@@ -207,6 +210,7 @@ export interface Vendor {
 export interface VendorCreate {
   vendor_name: string;
   vendor_code?: string;
+  vendor_type?: 'subcontractor' | 'client';
   contact_person?: string;
   phone?: string;
   email?: string;
@@ -1152,10 +1156,12 @@ export const PM_CATEGORY_LABELS: Record<string, string> = {
 export interface PMCase {
   id: number;
   case_code: string;
+  project_code?: string;
   case_name: string;
   year?: number;
   category?: string;
   client_name?: string;
+  client_vendor_id?: number;
   client_contact?: string;
   client_phone?: string;
   contract_amount?: number;
@@ -1181,6 +1187,7 @@ export interface PMCaseCreate {
   year?: number;
   category?: string;
   client_name?: string;
+  client_vendor_id?: number;
   client_contact?: string;
   client_phone?: string;
   contract_amount?: number;
@@ -1250,6 +1257,7 @@ export const ERP_QUOTATION_STATUS_COLORS: Record<ERPQuotationStatus, string> = {
 export interface ERPQuotation {
   id: number;
   case_code: string;
+  project_code?: string;
   case_name?: string;
   year?: number;
   total_price?: number;

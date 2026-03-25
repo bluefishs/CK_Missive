@@ -1,5 +1,5 @@
 """
-派工紀錄 Excel 增強匯入服務 (v1.1)
+派工紀錄 Excel 增強匯入服務 (v2.0)
 
 從「分派案件紀錄表」主表 Excel 讀取：
 1. 價金資料 (7 種作業類別的派工日期/金額 + 彙總)
@@ -7,6 +7,7 @@
 
 以「項次」為索引對應現有派工單 (項次 N → 112年_派工單號{N:03d})。
 
+v2.0: 全面遷移至 Repository 模式 (消除 8 個直接 db.execute)
 v1.1: 解析工具函數提取至 dispatch_document_parser.py
 """
 import re
@@ -16,7 +17,6 @@ from typing import Optional, Dict, Any, List
 from io import BytesIO
 
 import openpyxl
-from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.extended.models.taoyuan import (
@@ -25,6 +25,10 @@ from app.extended.models.taoyuan import (
     TaoyuanDispatchDocumentLink,
 )
 from app.extended.models.document import OfficialDocument
+from app.repositories.document_repository import DocumentRepository
+from app.repositories.taoyuan.dispatch_order_repository import DispatchOrderRepository
+from app.repositories.taoyuan.dispatch_doc_link_repository import DispatchDocLinkRepository
+from app.repositories.taoyuan.payment_repository import PaymentRepository
 
 # 從解析器模組匯入（向後相容：外部可繼續從本模組 import）
 from app.services.taoyuan.dispatch_document_parser import (  # noqa: F401
@@ -66,6 +70,10 @@ class DispatchEnrichmentService:
 
     def __init__(self, db: AsyncSession):
         self.db = db
+        self._dispatch_repo = DispatchOrderRepository(db)
+        self._doc_repo = DocumentRepository(db)
+        self._doc_link_repo = DispatchDocLinkRepository(db)
+        self._payment_repo = PaymentRepository(db)
 
     async def enrich_from_master_excel(
         self,
@@ -90,8 +98,8 @@ class DispatchEnrichmentService:
         wb = openpyxl.load_workbook(BytesIO(file_content), data_only=True)
         ws = wb[sheet_name] if sheet_name in wb.sheetnames else wb[wb.sheetnames[0]]
 
-        # 預載 dispatch_no → id 映射
-        dispatch_map = await self._build_dispatch_map()
+        # 預載 dispatch_no → id 映射 (委派至 Repository)
+        dispatch_map = await self._dispatch_repo.build_dispatch_no_map()
 
         stats: Dict[str, Any] = {
             'total_rows': 0,
@@ -135,11 +143,7 @@ class DispatchEnrichmentService:
                 if company_raw:
                     update_vals['company_doc_number_raw'] = company_raw[:500]
 
-                await self.db.execute(
-                    update(TaoyuanDispatchOrder)
-                    .where(TaoyuanDispatchOrder.id == dispatch_id)
-                    .values(**update_vals)
-                )
+                await self._dispatch_repo.update(dispatch_id, update_vals, auto_commit=False)
                 stats['doc_updated'] += 1
 
             # ② 建立/更新價金記錄 (C-P + S/T/U + R)
@@ -180,17 +184,13 @@ class DispatchEnrichmentService:
             {total_dispatches, total_lines, docs_created, docs_existing,
              links_created, errors, message}
         """
-        # ① 查詢該案件有原始文號的派工單
-        query = select(TaoyuanDispatchOrder).where(
-            TaoyuanDispatchOrder.contract_project_id == contract_project_id,
-        )
-        result = await self.db.execute(query)
-        dispatches = result.scalars().all()
+        # ① 查詢該案件有原始文號的派工單 (委派至 Repository)
+        dispatches = await self._dispatch_repo.get_by_project(contract_project_id)
 
-        # ② 預載現有文號 → id 映射
-        existing_docs = await self._build_existing_doc_map()
+        # ② 預載現有文號 → id 映射 (委派至 Repository)
+        existing_docs = await self._doc_repo.build_doc_number_map()
 
-        # ③ 計算下一個 auto_serial 起始值
+        # ③ 計算下一個 auto_serial 起始值 (委派至 Repository)
         next_r_serial = await self._get_max_serial('R') + 1
         next_s_serial = await self._get_max_serial('S') + 1
 
@@ -294,14 +294,11 @@ class DispatchEnrichmentService:
                 existing_docs[doc_number] = doc_id
                 stats['docs_created'] += 1
 
-            # 建立關聯 (冪等)
-            link_exists = await self.db.execute(
-                select(TaoyuanDispatchDocumentLink.id).where(
-                    TaoyuanDispatchDocumentLink.dispatch_order_id == dispatch.id,
-                    TaoyuanDispatchDocumentLink.document_id == doc_id,
-                )
+            # 建立關聯 (冪等) — 委派至 Repository
+            existing_link = await self._doc_link_repo.find_dispatch_document_link(
+                dispatch.id, doc_id
             )
-            if not link_exists.scalar_one_or_none():
+            if not existing_link:
                 link = TaoyuanDispatchDocumentLink(
                     dispatch_order_id=dispatch.id,
                     document_id=doc_id,
@@ -315,37 +312,18 @@ class DispatchEnrichmentService:
             if first_doc_id is None:
                 first_doc_id = doc_id
 
-        # 更新向下相容 FK
+        # 更新向下相容 FK — 委派至 Repository
         if first_doc_id:
             fk_field = 'agency_doc_id' if is_incoming else 'company_doc_id'
-            await self.db.execute(
-                update(TaoyuanDispatchOrder)
-                .where(TaoyuanDispatchOrder.id == dispatch.id)
-                .values(**{fk_field: first_doc_id})
+            await self._dispatch_repo.update(
+                dispatch.id, {fk_field: first_doc_id}, auto_commit=False
             )
 
         return serial_counter
 
-    async def _build_existing_doc_map(self) -> Dict[str, int]:
-        """建立 {doc_number: doc_id} 映射（所有現存公文）"""
-        query = select(OfficialDocument.id, OfficialDocument.doc_number).where(
-            OfficialDocument.doc_number.isnot(None),
-        )
-        result = await self.db.execute(query)
-        return {
-            row.doc_number.strip(): row.id
-            for row in result.all()
-            if row.doc_number and row.doc_number.strip()
-        }
-
     async def _get_max_serial(self, prefix: str) -> int:
-        """取得指定前綴的最大流水序號數字"""
-        from sqlalchemy import func as sa_func
-        query = select(sa_func.max(OfficialDocument.auto_serial)).where(
-            OfficialDocument.auto_serial.like(f'{prefix}%'),
-        )
-        result = await self.db.execute(query)
-        max_serial = result.scalar_one_or_none()
+        """取得指定前綴的最大流水序號數字 (委派至 Repository)"""
+        max_serial = await self._doc_repo.get_max_serial_by_prefix(prefix)
         if max_serial:
             m = re.search(r'(\d+)$', max_serial)
             return int(m.group(1)) if m else 0
@@ -398,30 +376,12 @@ class DispatchEnrichmentService:
 
         return data if has_meaningful else None
 
-    async def _build_dispatch_map(self) -> Dict[str, Dict]:
-        """建立 {dispatch_no: {id, dispatch_no}} 映射"""
-        query = select(
-            TaoyuanDispatchOrder.id,
-            TaoyuanDispatchOrder.dispatch_no,
-        )
-        result = await self.db.execute(query)
-        return {
-            row.dispatch_no: {'id': row.id, 'dispatch_no': row.dispatch_no}
-            for row in result.all()
-            if row.dispatch_no
-        }
-
     async def _upsert_payment(
         self, dispatch_id: int, data: Dict[str, Any]
     ) -> str:
         """建立或更新價金記錄 (冪等，flush 確保可見性)"""
-        # flush 確保先前 add 的物件已寫入 DB，SELECT 才能看到
         await self.db.flush()
-        query = select(TaoyuanContractPayment).where(
-            TaoyuanContractPayment.dispatch_order_id == dispatch_id
-        )
-        result = await self.db.execute(query)
-        existing = result.scalar_one_or_none()
+        existing = await self._payment_repo.get_by_dispatch_order(dispatch_id)
 
         if existing:
             for key, val in data.items():

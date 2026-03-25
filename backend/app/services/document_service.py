@@ -48,6 +48,7 @@ if TYPE_CHECKING:
     from app.extended.models import User
 
 from app.schemas.document import DocumentFilter, DocumentImportResult, DocumentSearchRequest
+from app.repositories.document_repository import DocumentRepository
 from app.services.document_calendar_integrator import DocumentCalendarIntegrator
 from app.services.document_filter_service import DocumentFilterService
 from app.services.strategies.agency_matcher import AgencyMatcher, ProjectMatcher
@@ -80,6 +81,7 @@ class DocumentService:
 
     def __init__(self, db: AsyncSession, auto_create_events: bool = True):
         self.db = db
+        self._doc_repo = DocumentRepository(db)
         self.calendar_integrator = DocumentCalendarIntegrator()
         # 初始化策略類別
         self._agency_matcher = AgencyMatcher(db)
@@ -288,19 +290,9 @@ class DocumentService:
         Returns:
             公文物件
         """
-        query = select(Document).where(Document.id == document_id)
-
-        # N+1 優化：預載入關聯資料
         if include_relations:
-            query = query.options(
-                selectinload(Document.contract_project),
-                selectinload(Document.sender_agency),
-                selectinload(Document.receiver_agency),
-                selectinload(Document.attachments),
-            )
-
-        result = await self.db.execute(query)
-        return result.scalars().first()
+            return await self._doc_repo.get_with_all_relations(document_id)
+        return await self._doc_repo.get_by_id(document_id)
 
     async def get_document_with_extra_info(
         self,
@@ -355,12 +347,7 @@ class DocumentService:
         if document.attachments:
             doc_dict['attachment_count'] = len(document.attachments)
         else:
-            # 若未預載入，則查詢計算
-            attachment_count_query = select(func.count(DocumentAttachment.id)).where(
-                DocumentAttachment.document_id == document_id
-            )
-            attachment_result = await self.db.execute(attachment_count_query)
-            doc_dict['attachment_count'] = attachment_result.scalar() or 0
+            doc_dict['attachment_count'] = await self._doc_repo.get_attachment_count(document_id)
 
         return doc_dict
 
@@ -388,13 +375,7 @@ class DocumentService:
             raise ValueError(f"無效的公文類型: {doc_type}，必須是 '收文' 或 '發文'")
 
         prefix = 'R' if doc_type == '收文' else 'S'
-        # 查詢當前最大流水號
-        result = await self.db.execute(
-            select(func.max(Document.auto_serial)).where(
-                Document.auto_serial.like(f'{prefix}%')
-            )
-        )
-        max_serial = result.scalar_one_or_none()
+        max_serial = await self._doc_repo.get_max_serial_by_prefix(prefix)
         if max_serial:
             try:
                 num = int(max_serial[1:]) + 1

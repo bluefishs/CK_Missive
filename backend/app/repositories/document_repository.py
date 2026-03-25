@@ -889,3 +889,101 @@ class DocumentRepository(BaseRepository[OfficialDocument]):
             order_desc=True,
             conditions=conditions if conditions else None
         )
+
+    # =========================================================================
+    # 批次查詢方法 (v2.0.0, A6 提取)
+    # =========================================================================
+
+    async def get_project_names_by_ids(
+        self, project_ids: List[int]
+    ) -> Dict[int, str]:
+        """批次取得專案名稱 {project_id: project_name}"""
+        if not project_ids:
+            return {}
+        query = select(ContractProject.id, ContractProject.project_name).where(
+            ContractProject.id.in_(project_ids)
+        )
+        result = await self.db.execute(query)
+        return {row.id: row.project_name for row in result.all()}
+
+    async def get_attachment_counts_batch(
+        self, doc_ids: List[int]
+    ) -> Dict[int, int]:
+        """批次取得附件數量 {document_id: count}"""
+        if not doc_ids:
+            return {}
+        query = (
+            select(
+                DocumentAttachment.document_id,
+                func.count(DocumentAttachment.id).label('count')
+            )
+            .where(DocumentAttachment.document_id.in_(doc_ids))
+            .group_by(DocumentAttachment.document_id)
+        )
+        result = await self.db.execute(query)
+        return {row.document_id: int(row.count) for row in result.all()}
+
+    async def get_agency_names_by_ids(
+        self, agency_ids: List[int]
+    ) -> Dict[int, str]:
+        """批次取得機關名稱 {agency_id: agency_name}"""
+        if not agency_ids:
+            return {}
+        query = select(GovernmentAgency.id, GovernmentAgency.agency_name).where(
+            GovernmentAgency.id.in_(list(agency_ids))
+        )
+        result = await self.db.execute(query)
+        return {row.id: row.agency_name for row in result.all()}
+
+    async def search_distinct_subjects(
+        self, keyword: str, limit: int = 10
+    ) -> List[str]:
+        """搜尋公文主旨 (ILIKE 模糊, distinct, 截斷 100 字)"""
+        result = await self.db.execute(
+            select(OfficialDocument.subject)
+            .where(OfficialDocument.subject.ilike(f"%{keyword}%"))
+            .distinct()
+            .limit(limit)
+        )
+        return [row[0] for row in result.all() if row[0]]
+
+    async def search_distinct_doc_numbers(
+        self, keyword: str, limit: int = 10
+    ) -> List[str]:
+        """搜尋公文字號 (ILIKE 模糊, distinct)"""
+        result = await self.db.execute(
+            select(OfficialDocument.doc_number)
+            .where(OfficialDocument.doc_number.ilike(f"%{keyword}%"))
+            .distinct()
+            .limit(limit)
+        )
+        return [row[0] for row in result.all() if row[0]]
+
+    async def get_recent_subjects(self, limit: int = 100) -> List[str]:
+        """取得最近更新的公文主旨 (用於熱門搜尋)"""
+        result = await self.db.execute(
+            select(OfficialDocument.subject)
+            .order_by(OfficialDocument.updated_at.desc())
+            .limit(limit)
+        )
+        return [row[0] for row in result.all() if row[0]]
+
+    async def get_max_serial_by_prefix(self, prefix: str) -> Optional[str]:
+        """取得指定前綴的最大流水序號字串"""
+        query = select(func.max(OfficialDocument.auto_serial)).where(
+            OfficialDocument.auto_serial.like(f'{prefix}%')
+        )
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
+
+    async def build_doc_number_map(self) -> Dict[str, int]:
+        """建立 {doc_number (stripped): doc_id} 映射"""
+        query = select(OfficialDocument.id, OfficialDocument.doc_number).where(
+            OfficialDocument.doc_number.isnot(None)
+        )
+        result = await self.db.execute(query)
+        return {
+            row.doc_number.strip(): row.id
+            for row in result.all()
+            if row.doc_number and row.doc_number.strip()
+        }

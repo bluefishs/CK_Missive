@@ -10,9 +10,9 @@ from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
 from app.extended.models import OfficialDocument, DocumentCalendarEvent
+from app.repositories.calendar_repository import CalendarRepository
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +69,7 @@ class CalendarEventAutoBuilder:
             db: 資料庫連線
         """
         self.db = db
+        self._calendar_repo = CalendarRepository(db)
         self._created_count = 0
         self._skipped_count = 0
 
@@ -199,11 +200,7 @@ class CalendarEventAutoBuilder:
 
     async def _check_existing_event(self, document_id: int) -> bool:
         """檢查公文是否已有事件"""
-        query = select(DocumentCalendarEvent.id).where(
-            DocumentCalendarEvent.document_id == document_id
-        ).limit(1)
-        result = await self.db.execute(query)
-        return result.scalar_one_or_none() is not None
+        return await self._calendar_repo.check_document_has_events(document_id)
 
     def _determine_event_type(self, document: OfficialDocument) -> str:
         """

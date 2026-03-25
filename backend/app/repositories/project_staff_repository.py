@@ -93,6 +93,33 @@ class ProjectStaffRepository:
         result = await self.db.execute(query)
         return result.fetchall()
 
+    async def get_staff_by_case_code(self, case_code: str) -> list:
+        """依 case_code 取得人員（LEFT JOIN user，支援 user_id 為空）"""
+        query = select(
+            project_user_assignment.c.id,
+            project_user_assignment.c.project_id,
+            project_user_assignment.c.case_code,
+            project_user_assignment.c.user_id,
+            project_user_assignment.c.staff_name,
+            project_user_assignment.c.role,
+            project_user_assignment.c.is_primary,
+            project_user_assignment.c.start_date,
+            project_user_assignment.c.end_date,
+            project_user_assignment.c.status,
+            project_user_assignment.c.notes,
+            User.full_name,
+            User.email,
+            User.username,
+        ).select_from(
+            project_user_assignment.outerjoin(
+                User,
+                project_user_assignment.c.user_id == User.id,
+            )
+        ).where(project_user_assignment.c.case_code == case_code)
+
+        result = await self.db.execute(query)
+        return result.fetchall()
+
     async def get_all_assignments(
         self,
         project_id: Optional[int] = None,

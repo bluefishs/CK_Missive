@@ -10,18 +10,22 @@ from ._base import *
 
 
 class PartnerVendor(Base):
-    """協力廠商模型"""
+    """往來單位模型（協力廠商 + 委託單位統一管理）"""
     __tablename__ = "partner_vendors"
 
     id = Column(Integer, primary_key=True, index=True)
-    vendor_name = Column(String(200), nullable=False, comment="廠商名稱")
-    vendor_code = Column(String(50), unique=True, comment="廠商代碼")
+    vendor_name = Column(String(200), nullable=False, comment="單位名稱")
+    vendor_code = Column(String(50), unique=True, comment="單位代碼")
+    vendor_type = Column(String(20), default='subcontractor', index=True,
+                         comment="類型: subcontractor=協力廠商, client=委託單位")
     contact_person = Column(String(100), comment="聯絡人")
     phone = Column(String(50), comment="電話")
     email = Column(String(100), comment="電子郵件")
     address = Column(String(300), comment="地址")
+    tax_id = Column(String(20), comment="統一編號")
     business_type = Column(String(100), comment="業務類型")
     rating = Column(Integer, comment="評等")
+    notes = Column(Text, comment="備註")
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now())
 
@@ -34,7 +38,9 @@ class ContractProject(Base):
     year = Column(Integer, comment="年度")
     client_agency = Column(String(200), comment="委託單位")
     contract_doc_number = Column(String(100), comment="契約文號")
-    project_code = Column(String(100), unique=True, comment="專案編號")
+    project_code = Column(String(100), unique=True, comment="專案編號 (成案後產生)")
+    case_code = Column(String(50), nullable=True, unique=True, index=True,
+                       comment="建案案號 (來自 pm_cases.case_code，跨模組橋樑)")
     category = Column(String(50), comment="案件類別")
     case_nature = Column(String(50), comment="案件性質")
     status = Column(String(50), default="執行中", comment="執行狀態")

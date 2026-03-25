@@ -347,3 +347,35 @@ class DispatchDocLinkRepository:
             )
         )
         return result.scalar() or 0
+
+    async def get_linked_doc_details(
+        self, dispatch_id: int
+    ) -> List[Any]:
+        """取得派工單關聯的公文詳情 (id, subject, ck_note)"""
+        from app.extended.models import OfficialDocument
+        result = await self.db.execute(
+            select(
+                OfficialDocument.id,
+                OfficialDocument.subject,
+                OfficialDocument.ck_note,
+            )
+            .join(
+                TaoyuanDispatchDocumentLink,
+                TaoyuanDispatchDocumentLink.document_id == OfficialDocument.id,
+            )
+            .where(TaoyuanDispatchDocumentLink.dispatch_order_id == dispatch_id)
+        )
+        return list(result.all())
+
+    async def delete_by_dispatch_and_document(
+        self, dispatch_order_id: int, document_id: int
+    ) -> int:
+        """刪除特定的派工-公文關聯，回傳刪除數"""
+        from sqlalchemy import delete as sa_delete
+        result = await self.db.execute(
+            sa_delete(TaoyuanDispatchDocumentLink).where(
+                TaoyuanDispatchDocumentLink.dispatch_order_id == dispatch_order_id,
+                TaoyuanDispatchDocumentLink.document_id == document_id,
+            )
+        )
+        return result.rowcount

@@ -12,11 +12,8 @@ export const DOC_TYPE_OPTIONS = [
   { value: '會勘通知單', label: '會勘通知單', color: 'orange' },
 ];
 
-/** 發文形式選項（電子交換/紙本郵寄） */
-export const DELIVERY_METHOD_OPTIONS = [
-  { value: '電子交換', label: '電子交換', color: 'green' },
-  { value: '紙本郵寄', label: '紙本郵寄', color: 'orange' },
-];
+/** 發文形式選項 (SSOT: constants/documentOptions.ts) */
+export { DELIVERY_METHOD_OPTIONS } from '../../../constants/documentOptions';
 
 /** 處理狀態選項 */
 export const STATUS_OPTIONS = [

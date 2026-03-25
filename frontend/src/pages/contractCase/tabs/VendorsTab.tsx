@@ -5,7 +5,7 @@
  * @date 2026-01-23
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Card,
   Table,
@@ -24,6 +24,9 @@ import {
   Popconfirm,
   Tooltip,
   Empty,
+  Input,
+  Divider,
+  App,
 } from 'antd';
 import {
   ShopOutlined,
@@ -74,6 +77,26 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({
   vendorOptions,
   loadVendorOptions,
 }) => {
+  const { message } = App.useApp();
+  const [newVendorName, setNewVendorName] = useState('');
+
+  const handleAddNewVendor = async () => {
+    if (!newVendorName.trim()) return;
+    try {
+      const { vendorsApi } = await import('../../../api/vendorsApi');
+      const created = await vendorsApi.createVendor({
+        vendor_name: newVendorName.trim(),
+        vendor_type: 'subcontractor',
+      });
+      message.success(`廠商「${newVendorName}」已建立`);
+      setNewVendorName('');
+      loadVendorOptions();
+      form.setFieldsValue({ vendor_id: created.id });
+    } catch {
+      message.error('建立失敗');
+    }
+  };
+
   const columns: ColumnsType<VendorAssociation> = [
     {
       title: '廠商資訊',
@@ -240,13 +263,31 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({
         <Form form={form} layout="vertical" onFinish={onAddVendor}>
           <Form.Item name="vendor_id" label="選擇廠商" rules={[{ required: true, message: '請選擇廠商' }]}>
             <Select
-              placeholder="請選擇廠商"
+              placeholder="選擇或新增廠商"
               showSearch
               optionFilterProp="label"
               options={vendorOptions.map(v => ({
                 value: v.id,
                 label: `${v.name}${v.code ? ` (${v.code})` : ''}`,
               }))}
+              dropdownRender={(menu) => (
+                <>
+                  {menu}
+                  <Divider style={{ margin: '8px 0' }} />
+                  <Space style={{ padding: '0 8px 4px' }}>
+                    <Input
+                      placeholder="輸入新廠商名稱"
+                      value={newVendorName}
+                      onChange={(e) => setNewVendorName(e.target.value)}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      size="small"
+                    />
+                    <Button type="link" icon={<PlusOutlined />} onClick={handleAddNewVendor} size="small">
+                      新增
+                    </Button>
+                  </Space>
+                </>
+              )}
             />
           </Form.Item>
           <Form.Item name="role" label="業務類別" rules={[{ required: true, message: '請選擇業務類別' }]}>

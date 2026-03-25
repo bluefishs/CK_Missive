@@ -38,7 +38,13 @@ const { Option } = Select;
 // 使用統一型別定義
 type Vendor = ApiVendor;
 
-const VendorList: React.FC = () => {
+interface VendorListProps {
+  vendorType?: 'subcontractor' | 'client';
+  title?: string;
+  createRoute?: string;
+}
+
+const VendorList: React.FC<VendorListProps> = ({ vendorType, title, createRoute }) => {
   const navigate = useNavigate();
   const { isMobile, responsiveValue } = useResponsive();
   const pagePadding = responsiveValue({ mobile: 12, tablet: 16, desktop: 24 });
@@ -55,9 +61,10 @@ const VendorList: React.FC = () => {
     page: current,
     limit: pageSize,
     ...(searchText && { search: searchText }),
+    ...(vendorType && { vendor_type: vendorType }),
     ...(businessTypeFilter && { business_type: businessTypeFilter }),
     ...(ratingFilter && { rating: ratingFilter }),
-  }), [current, pageSize, searchText, businessTypeFilter, ratingFilter]);
+  }), [current, pageSize, searchText, vendorType, businessTypeFilter, ratingFilter]);
 
   // 使用 React Query Hook (自動快取與更新)
   const {
@@ -70,7 +77,7 @@ const VendorList: React.FC = () => {
 
   // 新增廠商 - 導航至表單頁
   const handleAdd = () => {
-    navigate(ROUTES.VENDOR_CREATE);
+    navigate(createRoute || ROUTES.VENDOR_CREATE);
   };
 
   // 編輯廠商 - 導航至表單頁
@@ -184,9 +191,17 @@ const VendorList: React.FC = () => {
           </Row>
         </div>
 
+        {/* ERP 彙總統計（僅協力廠商顯示） */}
+        {vendorType === 'subcontractor' && (
+          <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+            <Col xs={12} sm={6}><Card size="small"><Statistic title="協力廠商數" value={total} prefix={<ShopOutlined />} /></Card></Col>
+            <Col xs={12} sm={6}><Card size="small"><Statistic title="待付總額" value={vendors.reduce((s, v) => s + (v.rating || 0), 0)} prefix="NT$" /></Card></Col>
+          </Row>
+        )}
+
         <div style={{ marginBottom: isMobile ? 12 : 16 }}>
           <Title level={isMobile ? 4 : 3} style={{ marginBottom: isMobile ? 8 : 16 }}>
-            {isMobile ? '廠商' : '廠商管理'}
+            {title || (isMobile ? '廠商' : '廠商管理')}
           </Title>
 
           <Space wrap style={{ marginBottom: isMobile ? 8 : 16 }}>

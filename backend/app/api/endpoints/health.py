@@ -83,7 +83,28 @@ async def detailed_health_check(
     except Exception as e:
         health_data["checks"]["ai_services"] = {"error": str(e)}
 
-    # 6. 回應時間
+    # 6. KG Federation 指標
+    try:
+        from app.core.redis_client import get_redis
+        redis = await get_redis()
+        fed_check: Dict[str, Any] = {"status": "healthy"}
+        if redis:
+            # 各 source_project 最近 1 分鐘 contribute 次數
+            for proj in ("ck-tunnel", "ck-lvrland"):
+                key = f"federation:rate:{proj}"
+                now = time.time()
+                cnt = await redis.zcount(key, now - 60, "+inf")
+                fed_check[f"{proj}_requests_1m"] = cnt
+            # linker lock 狀態
+            lock_val = await redis.get("federation:linker:lock")
+            fed_check["linker_running"] = lock_val is not None
+        else:
+            fed_check["status"] = "redis_unavailable"
+        health_data["checks"]["kg_federation"] = fed_check
+    except Exception as e:
+        health_data["checks"]["kg_federation"] = {"status": "error", "error": str(e)[:100]}
+
+    # 7. 回應時間
     total_ms = (time.time() - start_time) * 1000
     health_data["total_response_time_ms"] = round(total_ms, 2)
 

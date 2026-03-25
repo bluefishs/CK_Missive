@@ -207,26 +207,28 @@ class RelationGraphService:
         """載入預設公文 ID — 有 NER 實體提取的公文 + 有派工關聯的公文"""
         from app.extended.models import DocumentEntity
 
-        # 有 NER 提取的公文（核心數據源）
+        # 有 NER 提取的公文（核心數據源，上限 2000 筆防止無界查詢）
         ner_result = await self.db.execute(
-            select(DocumentEntity.document_id).distinct()
+            select(DocumentEntity.document_id).distinct().limit(2000)
         )
         ner_doc_ids = {row[0] for row in ner_result.all()}
 
         # 有派工關聯的公文（確保派工單能對應）
         dispatch_result = await self.db.execute(
-            select(TaoyuanDispatchDocumentLink.document_id).distinct()
+            select(TaoyuanDispatchDocumentLink.document_id).distinct().limit(2000)
         )
         dispatch_doc_ids = {row[0] for row in dispatch_result.all()}
 
         fk_result = await self.db.execute(
             select(TaoyuanDispatchOrder.agency_doc_id)
             .where(TaoyuanDispatchOrder.agency_doc_id.isnot(None))
+            .limit(2000)
         )
         fk_ids = {row[0] for row in fk_result.all()}
         fk_result2 = await self.db.execute(
             select(TaoyuanDispatchOrder.company_doc_id)
             .where(TaoyuanDispatchOrder.company_doc_id.isnot(None))
+            .limit(2000)
         )
         fk_ids |= {row[0] for row in fk_result2.all()}
 

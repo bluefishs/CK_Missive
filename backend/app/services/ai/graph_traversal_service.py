@@ -143,6 +143,7 @@ class GraphTraversalService:
                 "type": e.entity_type,
                 "mention_count": e.mention_count,
                 "hop": hop_map.get(e.id, 0),
+                "source_project": getattr(e, "source_project", None) or "ck-missive",
             }
             for e in entities
         ]
@@ -162,6 +163,7 @@ class GraphTraversalService:
                 "relation_type": rel.relation_type,
                 "relation_label": rel.relation_label,
                 "weight": rel.weight,
+                "source_project": getattr(rel, "source_project", None) or "ck-missive",
             }
             for rel in edges_result.scalars().all()
         ]
@@ -174,11 +176,31 @@ class GraphTraversalService:
         target_id: int,
         max_hops: int = 5,
     ) -> Optional[dict]:
-        """兩實體間最短路徑查詢 — Recursive CTE BFS"""
+        """兩實體間最短路徑查詢 — Recursive CTE BFS，帶 Redis 快取"""
+        max_hops = min(max_hops, 6)
+
+        cache_key = f"path:{source_id}:{target_id}:{max_hops}"
+        cached = await _graph_cache.get(cache_key)
+        if cached:
+            return json.loads(cached)
+
+        result = await self._find_shortest_path_uncached(source_id, target_id, max_hops)
+        if result is not None:
+            await _graph_cache.set(
+                cache_key, json.dumps(result, ensure_ascii=False),
+                self._config.graph_cache_ttl_path,
+            )
+        return result
+
+    async def _find_shortest_path_uncached(
+        self,
+        source_id: int,
+        target_id: int,
+        max_hops: int,
+    ) -> Optional[dict]:
+        """兩實體間最短路徑查詢（無快取）"""
         try:
             from sqlalchemy import text
-
-            max_hops = min(max_hops, 6)
 
             _code_types_tuple = tuple(_CODE_ENTITY_TYPES)
 
@@ -254,6 +276,9 @@ class GraphTraversalService:
                     "id": eid,
                     "name": entity_map[eid].canonical_name if eid in entity_map else str(eid),
                     "type": entity_map[eid].entity_type if eid in entity_map else "unknown",
+                    "source_project": (
+                        getattr(entity_map[eid], "source_project", None) or "ck-missive"
+                    ) if eid in entity_map else "unknown",
                 }
                 for eid in path_ids
             ]

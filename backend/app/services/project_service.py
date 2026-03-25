@@ -30,7 +30,6 @@
 import logging
 from typing import List, Optional, Dict, Any, TYPE_CHECKING
 
-from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
@@ -335,42 +334,13 @@ class ProjectService:
         5. 刪除廠商關聯資料
         6. 刪除專案本身
         """
-        from app.extended.models.document import OfficialDocument
-        from app.extended.models.taoyuan import TaoyuanProject, TaoyuanDispatchOrder
-        from app.extended.models.staff import ProjectAgencyContact
-
         db_project = await self.get_by_id(entity_id)
         if not db_project:
             return False
 
         try:
-            # 1. 解除公文關聯
-            await self.db.execute(
-                update(OfficialDocument)
-                .where(OfficialDocument.contract_project_id == entity_id)
-                .values(contract_project_id=None)
-            )
-
-            # 2. 解除桃園專案關聯
-            await self.db.execute(
-                update(TaoyuanProject)
-                .where(TaoyuanProject.contract_project_id == entity_id)
-                .values(contract_project_id=None)
-            )
-
-            # 3. 解除派工單關聯
-            await self.db.execute(
-                update(TaoyuanDispatchOrder)
-                .where(TaoyuanDispatchOrder.contract_project_id == entity_id)
-                .values(contract_project_id=None)
-            )
-
-            # 4. 刪除機關承辦聯絡人
-            from sqlalchemy import delete as sa_delete
-            await self.db.execute(
-                sa_delete(ProjectAgencyContact)
-                .where(ProjectAgencyContact.project_id == entity_id)
-            )
+            # 1-4. 解除公文/桃園專案/派工單關聯 + 刪除機關聯絡人 — 委派至 Repository
+            await self.repository.cascade_nullify_references(entity_id)
 
             # 5. 刪除承辦同仁資料
             await self.repository.delete_user_assignments(entity_id)

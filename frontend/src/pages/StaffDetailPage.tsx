@@ -5,18 +5,18 @@
  * @date 2026-03-16
  */
 import React, { useState, useCallback } from 'react';
-import { Card, Tabs, Form, Empty, Spin, App } from 'antd';
-import { UserOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
+import { Form, App, Button, Popconfirm } from 'antd';
+import { UserOutlined, SafetyCertificateOutlined, EditOutlined, DeleteOutlined, SaveOutlined, CloseOutlined } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useResponsive } from '../hooks';
+import { DetailPageLayout } from '../components/common/DetailPage/DetailPageLayout';
+import { createTabItem } from '../components/common/DetailPage/utils';
 import { apiClient, SERVER_BASE_URL } from '../api/client';
 import { API_ENDPOINTS } from '../api/endpoints';
 import { ROUTES } from '../router/types';
 import { certificationsApi, Certification } from '../api/certificationsApi';
 import type { User } from '../types/api';
 import { useDepartments } from '../hooks/system';
-import { StaffDetailHeader } from './staffDetail/StaffDetailHeader';
 import { StaffBasicInfoTab } from './staffDetail/StaffBasicInfoTab';
 import { StaffCertificationsTab } from './staffDetail/StaffCertificationsTab';
 import { extractErrorMessage } from './staffDetail/staffDetailUtils';
@@ -30,9 +30,6 @@ export const StaffDetailPage: React.FC = () => {
   const [form] = Form.useForm();
 
   const staffId = id ? parseInt(id, 10) : undefined;
-
-  const { isMobile, responsiveValue } = useResponsive();
-  const pagePadding = responsiveValue({ mobile: 12, tablet: 16, desktop: 24 });
 
   const { data: departmentOptions = [] } = useDepartments();
   const queryClient = useQueryClient();
@@ -177,81 +174,46 @@ export const StaffDetailPage: React.FC = () => {
     }
   };
 
-  // Loading state
-  if (loading) {
-    return (
-      <div style={{ padding: pagePadding, textAlign: 'center' }}>
-        <Spin size={isMobile ? 'default' : 'large'} />
-      </div>
-    );
+  if (!staff && !loading) {
+    return <DetailPageLayout header={{ title: '找不到此承辦同仁', backPath: ROUTES.STAFF }} tabs={[]} hasData={false} />;
   }
 
-  // Not found state
-  if (!staff) {
-    return (
-      <div style={{ padding: pagePadding }}>
-        <Empty description="找不到此承辦同仁" />
-      </div>
-    );
-  }
+  const headerConfig = {
+    title: staff?.full_name ?? staff?.username ?? '載入中...',
+    icon: <UserOutlined />,
+    backPath: ROUTES.STAFF,
+    tags: staff ? [
+      { text: staff.is_active ? '啟用' : '停用', color: staff.is_active ? 'success' : 'default' },
+      ...(staff.department ? [{ text: staff.department, color: 'blue' }] : []),
+    ] : [],
+    extra: isEditing ? (
+      <>
+        <Button icon={<CloseOutlined />} onClick={handleCancelEdit}>取消</Button>
+        <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={handleSave}>儲存</Button>
+      </>
+    ) : (
+      <>
+        <Button type="primary" icon={<EditOutlined />} onClick={() => setIsEditing(true)}>編輯</Button>
+        <Popconfirm title="確定刪除此同仁？" okText="確定" cancelText="取消" okButtonProps={{ danger: true }} onConfirm={handleDelete}>
+          <Button danger icon={<DeleteOutlined />}>刪除</Button>
+        </Popconfirm>
+      </>
+    ),
+  };
 
-  return (
-    <div style={{ padding: pagePadding }}>
-      <StaffDetailHeader
-        staff={staff}
-        isMobile={isMobile}
-        isEditing={isEditing}
-        onBack={() => navigate(ROUTES.STAFF)}
-        onEdit={() => setIsEditing(true)}
-        onDelete={handleDelete}
-      />
+  const tabs = staff ? [
+    createTabItem('basic', { icon: <UserOutlined />, text: '基本資料' },
+      <StaffBasicInfoTab staff={staff} form={form} isEditing={isEditing} isMobile={false}
+        saving={saving} showPasswordChange={showPasswordChange} departmentOptions={departmentOptions}
+        onShowPasswordChange={setShowPasswordChange} onSave={handleSave} onCancel={handleCancelEdit} />
+    ),
+    createTabItem('certifications', { icon: <SafetyCertificateOutlined />, text: '證照紀錄', count: certifications.length },
+      <StaffCertificationsTab certifications={certifications} certLoading={certLoading} isMobile={false}
+        onAdd={handleAddCert} onEdit={handleEditCert} onDelete={handleDeleteCert} onPreview={handlePreviewAttachment} />
+    ),
+  ] : [];
 
-      <Card size={isMobile ? 'small' : 'medium'}>
-        <Tabs
-          size={isMobile ? 'small' : 'middle'}
-          items={[
-            {
-              key: 'basic',
-              label: <span><UserOutlined /> 基本資料</span>,
-              children: (
-                <StaffBasicInfoTab
-                  staff={staff}
-                  form={form}
-                  isEditing={isEditing}
-                  isMobile={isMobile}
-                  saving={saving}
-                  showPasswordChange={showPasswordChange}
-                  departmentOptions={departmentOptions}
-                  onShowPasswordChange={setShowPasswordChange}
-                  onSave={handleSave}
-                  onCancel={handleCancelEdit}
-                />
-              ),
-            },
-            {
-              key: 'certifications',
-              label: (
-                <span>
-                  <SafetyCertificateOutlined /> 證照紀錄 ({certifications.length})
-                </span>
-              ),
-              children: (
-                <StaffCertificationsTab
-                  certifications={certifications}
-                  certLoading={certLoading}
-                  isMobile={isMobile}
-                  onAdd={handleAddCert}
-                  onEdit={handleEditCert}
-                  onDelete={handleDeleteCert}
-                  onPreview={handlePreviewAttachment}
-                />
-              ),
-            },
-          ]}
-        />
-      </Card>
-    </div>
-  );
+  return <DetailPageLayout header={headerConfig} tabs={tabs} loading={loading} hasData={!!staff} />;
 };
 
 export default StaffDetailPage;

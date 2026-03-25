@@ -26,15 +26,45 @@ STAGE_LABELS = {
 }
 
 
+def _is_meaningful_record(record, parent_ids: set) -> bool:
+    """判斷作業紀錄是否有實質內容（與前端 filterBlankRecords 對齊）
+
+    排除「空白紀錄」：無關聯公文、無描述、且未被其他紀錄引用為 parent 者。
+    避免空白紀錄的預設 status 影響整體進度計算。
+    """
+    if getattr(record, 'document_id', None):
+        return True
+    if getattr(record, 'incoming_doc_id', None):
+        return True
+    if getattr(record, 'outgoing_doc_id', None):
+        return True
+    if getattr(record, 'description', None):
+        return True
+    if record.id in parent_ids:
+        return True
+    return False
+
+
 def compute_work_progress(work_records) -> Optional[Dict[str, Any]]:
     """從作業紀錄計算進度摘要"""
     if not work_records:
         return None
 
-    total = len(work_records)
-    completed = sum(1 for r in work_records if r.status == 'completed')
-    in_progress = sum(1 for r in work_records if r.status == 'in_progress')
-    overdue = sum(1 for r in work_records if r.status == 'overdue')
+    # 過濾空白紀錄（與前端 filterBlankRecords 邏輯一致）
+    parent_ids = {
+        r.parent_record_id
+        for r in work_records
+        if getattr(r, 'parent_record_id', None)
+    }
+    records = [r for r in work_records if _is_meaningful_record(r, parent_ids)]
+
+    if not records:
+        return None
+
+    total = len(records)
+    completed = sum(1 for r in records if r.status == 'completed')
+    in_progress = sum(1 for r in records if r.status == 'in_progress')
+    overdue = sum(1 for r in records if r.status == 'overdue')
 
     # 整體狀態
     if total > 0 and total == completed:
@@ -46,9 +76,9 @@ def compute_work_progress(work_records) -> Optional[Dict[str, Any]]:
     else:
         overall_status = 'pending'
 
-    # 最新階段
+    # 最新階段（從有效紀錄中取）
     sorted_records = sorted(
-        work_records,
+        records,
         key=lambda r: (r.sort_order or 0, r.record_date or date.min),
         reverse=True,
     )
