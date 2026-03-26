@@ -1,9 +1,9 @@
 """
 AI API 端點模組
 
-Version: 1.6.0
+Version: 1.7.0
 Created: 2026-02-04
-Updated: 2026-02-26 - 新增 Agentic 問答端點
+Updated: 2026-03-27 - 新增數位分身路由
 """
 
 from fastapi import APIRouter
@@ -24,7 +24,13 @@ from .agent_query_sync import router as agent_query_sync_router
 from .ai_feedback import router as ai_feedback_router
 from .document_analysis import router as document_analysis_router
 from .voice_transcription import router as voice_transcription_router
-from .digital_twin import router as digital_twin_router
+try:
+    from .digital_twin import router as digital_twin_router
+except Exception as _dt_err:
+    import logging
+    logging.getLogger(__name__).error("Digital Twin import failed: %s", _dt_err)
+    from fastapi import APIRouter
+    digital_twin_router = APIRouter()  # fallback empty
 
 router = APIRouter(prefix="/ai", tags=["AI"])
 

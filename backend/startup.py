@@ -42,6 +42,22 @@ except ImportError:
 os.environ["PYTHONIOENCODING"] = "utf-8"
 os.environ["PYTHONUNBUFFERED"] = "1"
 os.environ["PYTHONUTF8"] = "1"
+os.environ["PYTHONDONTWRITEBYTECODE"] = "1"  # 禁止 .pyc 快取，確保代碼更新即時生效
+
+
+def _clear_pycache():
+    """清除 __pycache__ 確保代碼更新生效"""
+    import shutil
+    count = 0
+    for root, dirs, _ in os.walk(BACKEND_DIR):
+        for d in dirs:
+            if d == "__pycache__":
+                shutil.rmtree(os.path.join(root, d), ignore_errors=True)
+                count += 1
+    if count > 0:
+        print(f"[Step 0] Cleared {count} __pycache__ directories", flush=True)
+
+_clear_pycache()
 
 
 def log(step: str, msg: str, level: str = "INFO"):
@@ -184,20 +200,16 @@ def main():
     # ================================================================
     log("Step 3", f"Starting backend service on port {port}...")
 
-    if sys.platform == "win32":
-        # Windows: os.execvp 會 spawn 新進程然後退出原進程，
-        # 導致 PM2 看到進程退出而觸發重啟迴圈。
-        # 改用 subprocess.run 保持阻塞，PM2 追蹤此 Python 進程。
-        result = subprocess.run(
-            [sys.executable, "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", str(port), "--reload"],
-        )
-        sys.exit(result.returncode)
-    else:
-        # Linux/macOS: os.execvp 正確替換進程
-        os.execvp(
-            sys.executable,
-            [sys.executable, "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", str(port), "--reload"],
-        )
+    # 直接用 exec 替換進程，確保 stdout/stderr 完整傳遞給 PM2
+    # Windows 的 os.execvp 行為等同 spawn+exit，PM2 會追蹤新進程
+    import uvicorn
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=port,
+        reload=True,
+        log_level="info",
+    )
 
 
 if __name__ == "__main__":

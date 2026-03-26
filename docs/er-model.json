@@ -941,7 +941,7 @@
         }
       ],
       "unique_constraints": {},
-      "row_count_estimate": 887
+      "row_count_estimate": 1303
     },
     "canonical_entities": {
       "columns": [
