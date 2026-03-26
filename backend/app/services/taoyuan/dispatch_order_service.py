@@ -128,14 +128,29 @@ class DispatchOrderService:
         self, query: DispatchOrderListQuery
     ) -> Tuple[List[Dict[str, Any]], int]:
         """
-        查詢派工單列表
-
-        Args:
-            query: 查詢參數
-
-        Returns:
-            (派工單列表, 總筆數)
+        查詢派工單列表 (Redis 快取, TTL 5 分鐘)
         """
+        import hashlib, json as _json
+
+        # 快取 key
+        raw = _json.dumps({
+            "pid": query.contract_project_id, "wt": query.work_type,
+            "s": query.search, "sb": query.sort_by, "so": query.sort_order,
+            "p": query.page, "l": query.limit,
+        }, sort_keys=True)
+        cache_key = f"cache:dispatch:list:{hashlib.md5(raw.encode()).hexdigest()[:12]}"
+
+        # 嘗試 Redis 快取
+        try:
+            from app.core.redis_client import get_redis
+            redis = await get_redis()
+            if redis:
+                cached = await redis.get(cache_key)
+                if cached:
+                    return _json.loads(cached)["items"], _json.loads(cached)["total"]
+        except Exception:
+            pass
+
         items, total = await self.repository.filter_dispatch_orders(
             contract_project_id=query.contract_project_id,
             work_type=query.work_type,
@@ -146,10 +161,18 @@ class DispatchOrderService:
             limit=query.limit,
         )
 
-        # 轉換為回應格式
-        response_items = []
-        for item in items:
-            response_items.append(self._to_response_dict(item))
+        response_items = [self._to_response_dict(item) for item in items]
+
+        # 寫入快取 (5 分鐘)
+        try:
+            from app.core.redis_client import get_redis
+            redis = await get_redis()
+            if redis:
+                await redis.setex(cache_key, 300, _json.dumps(
+                    {"items": response_items, "total": total}, default=str, ensure_ascii=False,
+                ))
+        except Exception:
+            pass
 
         return response_items, total
 
