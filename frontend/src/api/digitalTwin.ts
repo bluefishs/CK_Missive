@@ -250,6 +250,7 @@ import type { AgentTopologyResponse } from '../types/ai';
 
 export async function getAgentTopology(): Promise<AgentTopologyResponse> {
   const res = await fetch(`/api${DIGITAL_TWIN_ENDPOINTS.AGENT_TOPOLOGY}`, {
+    method: 'POST',
     credentials: 'include',
   });
   if (!res.ok) {
@@ -268,7 +269,7 @@ import type { QaImpactResponse } from '../types/ai';
 export async function getQaImpact(baseBranch = 'main'): Promise<QaImpactResponse> {
   const res = await fetch(
     `/api${DIGITAL_TWIN_ENDPOINTS.QA_IMPACT}?base_branch=${encodeURIComponent(baseBranch)}`,
-    { credentials: 'include' },
+    { method: 'POST', credentials: 'include' },
   );
   if (!res.ok) {
     return { success: false, changed_files_count: 0, affected: [], recommendation: 'no_changes', message: `HTTP ${res.status}` };
@@ -284,6 +285,7 @@ export async function checkGatewayHealth(): Promise<{
   const start = Date.now();
   try {
     const res = await fetch(`/api${DIGITAL_TWIN_ENDPOINTS.HEALTH}`, {
+      method: 'POST',
       credentials: 'include',
       signal: AbortSignal.timeout(10_000),
     });

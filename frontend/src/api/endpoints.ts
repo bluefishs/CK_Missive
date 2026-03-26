@@ -839,21 +839,21 @@ export const AI_ENDPOINTS = {
 export const DIGITAL_TWIN_ENDPOINTS = {
   /** 串流查詢 POST /ai/digital-twin/query/stream (SSE) */
   QUERY_STREAM: '/ai/digital-twin/query/stream',
-  /** 健康檢查 GET /ai/digital-twin/health */
+  /** 健康檢查 POST /ai/digital-twin/health */
   HEALTH: '/ai/digital-twin/health',
-  /** 任務狀態 GET /ai/digital-twin/tasks/{jobId} */
+  /** 任務狀態 POST /ai/digital-twin/tasks/{jobId} */
   TASK_STATUS: (jobId: string) => `/ai/digital-twin/tasks/${jobId}`,
-  /** 任務核准 POST /ai/digital-twin/tasks/{jobId}/approve (V-2.1) */
+  /** 任務核准 POST /ai/digital-twin/tasks/{jobId}/approve */
   TASK_APPROVE: (jobId: string) => `/ai/digital-twin/tasks/${jobId}/approve`,
-  /** 任務拒絕 POST /ai/digital-twin/tasks/{jobId}/reject (V-2.1) */
+  /** 任務拒絕 POST /ai/digital-twin/tasks/{jobId}/reject */
   TASK_REJECT: (jobId: string) => `/ai/digital-twin/tasks/${jobId}/reject`,
-  /** 即時轉播 GET /ai/digital-twin/live-activity/stream?channel=jobs (V-2.2 SSE) */
+  /** 即時轉播 GET /ai/digital-twin/live-activity/stream (SSE 例外) */
   LIVE_ACTIVITY_STREAM: '/ai/digital-twin/live-activity/stream',
-  /** Agent 組織圖資料 GET /ai/digital-twin/agent-topology (V-3.1) */
+  /** Agent 組織圖 POST /ai/digital-twin/agent-topology */
   AGENT_TOPOLOGY: '/ai/digital-twin/agent-topology',
-  /** QA 影響分析 GET /ai/digital-twin/qa-impact (V-3.3) */
+  /** QA 影響分析 POST /ai/digital-twin/qa-impact */
   QA_IMPACT: '/ai/digital-twin/qa-impact',
-  /** 聚合儀表板 GET /ai/digital-twin/dashboard (V-4.0) */
+  /** 聚合儀表板 POST /ai/digital-twin/dashboard */
   DASHBOARD: '/ai/digital-twin/dashboard',
 } as const;
 

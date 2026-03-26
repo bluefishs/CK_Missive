@@ -104,7 +104,7 @@ async def reject_task(
     })
 
 
-@router.get("/digital-twin/tasks/{job_id}")
+@router.post("/digital-twin/tasks/{job_id}")
 async def get_task_status(job_id: str, _current_user: User = Depends(require_auth())):
     """代理查詢任務狀態"""
     _validate_job_id(job_id)
@@ -177,7 +177,7 @@ async def live_activity_stream(
 
 # ── V-3.1: Agent Topology (委派 Service) ───────────────────
 
-@router.get("/digital-twin/agent-topology")
+@router.post("/digital-twin/agent-topology")
 async def agent_topology(_current_user: User = Depends(require_auth())):
     """Agent 組織圖資料 — 委派至 DigitalTwinService"""
     return await DigitalTwinService.build_topology()
@@ -185,7 +185,7 @@ async def agent_topology(_current_user: User = Depends(require_auth())):
 
 # ── V-3.3: QA Impact (委派 Service) ────────────────────────
 
-@router.get("/digital-twin/qa-impact")
+@router.post("/digital-twin/qa-impact")
 async def qa_impact_analysis(
     base_branch: str = "main", _current_user: User = Depends(require_auth()),
 ):
@@ -195,7 +195,7 @@ async def qa_impact_analysis(
 
 # ── V-4.0: Dashboard Snapshot (新增) ───────────────────────
 
-@router.get("/digital-twin/dashboard")
+@router.post("/digital-twin/dashboard")
 async def dashboard_snapshot(
     db: AsyncSession = Depends(get_async_db),
     _current_user: User = Depends(require_auth()),
@@ -206,7 +206,7 @@ async def dashboard_snapshot(
 
 # ── Health Check ───────────────────────────────────────────
 
-@router.get("/digital-twin/health")
+@router.post("/digital-twin/health")
 async def digital_twin_health():
     """
     數位分身健康狀態 — 本地能力 + Gateway 可達性

@@ -32,7 +32,7 @@ interface DashboardSnapshot {
 const DashboardTab: React.FC = () => {
   const { data, isLoading, isError } = useQuery<DashboardSnapshot>({
     queryKey: ['dt-dashboard'],
-    queryFn: () => apiClient.get(DIGITAL_TWIN_ENDPOINTS.DASHBOARD),
+    queryFn: () => apiClient.post(DIGITAL_TWIN_ENDPOINTS.DASHBOARD, {}),
     staleTime: 5 * 60_000,
   });
 
