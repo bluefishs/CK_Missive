@@ -269,3 +269,25 @@ async def health_summary(
 ):
     """整合所有健康檢查的摘要報告"""
     return await service.build_summary()
+
+
+@router.post("/health/services", summary="推理服務健康狀態")
+@limiter.limit("60/minute")
+async def health_services(
+    request: Request,
+    response: Response,
+):
+    """
+    推理服務即時健康探測
+
+    週期性背景探測結果 + 手動觸發即時探測。
+    回傳 Ollama / vLLM / Redis / PostgreSQL 連線狀態。
+    """
+    from app.core.service_health_probe import get_health_probe
+    probe = get_health_probe()
+    result = await probe.probe_once()
+    all_healthy = all(s["healthy"] for s in result.values())
+    return {
+        "status": "healthy" if all_healthy else "degraded",
+        "services": result,
+    }

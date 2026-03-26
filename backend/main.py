@@ -206,9 +206,24 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"⚠️ Embedding 回填檢查失敗（不影響啟動）: {e}")
 
+    # 啟動服務健康探測器（背景週期性檢測）
+    try:
+        from app.core.service_health_probe import get_health_probe
+        health_probe = get_health_probe()
+        await health_probe.start()
+    except Exception as e:
+        logger.warning(f"⚠️ 服務健康探測器啟動失敗: {e}")
+
     logger.info("應用程式已啟動。")
     yield
     logger.info("應用程式關閉中...")
+
+    # 停止服務健康探測器
+    try:
+        from app.core.service_health_probe import get_health_probe
+        await get_health_probe().stop()
+    except Exception:
+        pass
 
     # 取消 Embedding 背景回填任務
     if backfill_task and not backfill_task.done():
