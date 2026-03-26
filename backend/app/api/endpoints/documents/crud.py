@@ -296,6 +296,20 @@ async def update_document(
         await db.commit()
         await db.refresh(document)
 
+        # 日期欄位變更時同步更新行事曆事件
+        date_changed = any(k in changes for k in ('doc_date', 'receive_date', 'send_date'))
+        subject_changed = 'subject' in changes
+        if date_changed or subject_changed:
+            try:
+                from app.services.calendar.event_auto_builder import CalendarEventAutoBuilder
+                builder = CalendarEventAutoBuilder(db)
+                updated_count = await builder.update_event_for_document(document)
+                if updated_count:
+                    await db.commit()
+                    logger.info(f"公文 {document_id}: 同步更新 {updated_count} 個行事曆事件")
+            except Exception as cal_err:
+                logger.warning(f"行事曆同步失敗 (不影響主流程): {cal_err}")
+
         # AI 分析過期標記（輕量 UPDATE，僅影響內容相關欄位變更時）
         content_fields = {'subject', 'content', 'sender'}
         if changes and content_fields & set(changes.keys()):
@@ -437,6 +451,14 @@ async def delete_document(
                 )
         except Exception as cleanup_err:
             logger.warning(f"衍生資料清理部分失敗 (doc {document_id}): {cleanup_err}")
+
+        # 5b. 取消關聯行事曆事件
+        try:
+            from app.services.calendar.event_auto_builder import CalendarEventAutoBuilder
+            builder = CalendarEventAutoBuilder(db)
+            await builder.cancel_events_for_document(document_id)
+        except Exception as cal_err:
+            logger.warning(f"取消行事曆事件失敗 (不影響刪除): {cal_err}")
 
         # 6. 刪除資料庫記錄（CASCADE 會自動刪除 document_attachments）
         await db.delete(document)

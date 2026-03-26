@@ -110,8 +110,8 @@ class SearchToolExecutor:
         else:
             qb = qb.order_by("updated_at", descending=True)
 
-        limit = min(int(params.get("limit", 5)), 10)
-        fetch_limit = min(limit * 2, 20)
+        limit = min(int(params.get("limit", 20)), 50)
+        fetch_limit = min(limit * 2, 100)
         qb = qb.limit(fetch_limit)
 
         documents, total = await qb.execute_with_count()
@@ -166,7 +166,7 @@ class SearchToolExecutor:
         dispatch_no = params.get("dispatch_no", "")
         search = params.get("search", "")
         work_type = params.get("work_type")
-        limit = min(int(params.get("limit", 10)), 20)
+        limit = min(int(params.get("limit", 50)), 100)
 
         repo = DispatchOrderRepository(self.db)
 

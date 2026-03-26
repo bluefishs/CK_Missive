@@ -52,21 +52,36 @@ def _verify_service_token(
     request: Request,
     x_service_token: Optional[str] = Header(None),
 ):
-    """驗證服務 Token（內部系統間呼叫）"""
-    expected_token = os.getenv("MCP_SERVICE_TOKEN")
+    """驗證服務 Token（內部系統間呼叫）
 
-    if not expected_token:
+    支援雙 token 輪替: MCP_SERVICE_TOKEN (current) + MCP_SERVICE_TOKEN_PREV (previous)
+    """
+    current_token = os.getenv("MCP_SERVICE_TOKEN")
+    prev_token = os.getenv("MCP_SERVICE_TOKEN_PREV")
+
+    if not current_token:
         # 未設定 token：僅在開發模式下允許 localhost
         is_dev = os.getenv("DEVELOPMENT_MODE", "false").lower() == "true"
         client_host = request.client.host if request.client else ""
         if is_dev and client_host in ("127.0.0.1", "::1"):
+            logger.warning(
+                "MCP_SERVICE_TOKEN not configured — allowing localhost bypass "
+                "(DEVELOPMENT_MODE=true). This MUST NOT occur in production."
+            )
             return True
         raise HTTPException(status_code=403, detail="Service token required")
 
-    if not x_service_token or not hmac.compare_digest(
-        x_service_token.encode("utf-8"),
-        expected_token.encode("utf-8"),
-    ):
+    if not x_service_token:
+        raise HTTPException(status_code=401, detail="Invalid service token")
+
+    token_bytes = x_service_token.encode("utf-8")
+    match_current = hmac.compare_digest(token_bytes, current_token.encode("utf-8"))
+    match_prev = (
+        hmac.compare_digest(token_bytes, prev_token.encode("utf-8"))
+        if prev_token
+        else False
+    )
+    if not match_current and not match_prev:
         raise HTTPException(status_code=401, detail="Invalid service token")
 
     return True

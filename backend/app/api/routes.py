@@ -76,6 +76,10 @@ api_router.include_router(knowledge_base.router, prefix="/knowledge-base", tags=
 # --- LINE Bot 整合 (v1.83.0) ---
 api_router.include_router(line_webhook.router, prefix="/line", tags=["LINE Bot"])
 
+# --- Discord Bot 整合 (v5.2.2) ---
+from app.api.endpoints import discord_webhook
+api_router.include_router(discord_webhook.router, prefix="/discord", tags=["Discord Bot"])
+
 # --- 專案管理模組 (PM, v1.85.0) ---
 from app.api.endpoints.pm import router as pm_router
 api_router.include_router(pm_router, prefix="/pm", tags=["專案管理"])

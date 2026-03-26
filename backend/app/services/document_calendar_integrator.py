@@ -73,9 +73,11 @@ class DocumentCalendarIntegrator:
 
             created_events = []
             for event_type, event_date, description in important_dates:
-                # 將 date 物件轉換為 datetime 物件
+                # 將 date 物件轉換為 datetime (中午 12:00 防 UTC 偏移)
+                from datetime import time as dt_time
+                _NOON = dt_time(12, 0)
                 if isinstance(event_date, date) and not isinstance(event_date, datetime):
-                    event_datetime = datetime.combine(event_date, datetime.min.time())
+                    event_datetime = datetime.combine(event_date, _NOON)
                 else:
                     event_datetime = event_date
 
@@ -84,7 +86,7 @@ class DocumentCalendarIntegrator:
                     title=f"[{event_type.upper()}] {document.subject}",
                     description=self._build_event_description(document, description),
                     start_date=event_datetime,
-                    end_date=event_datetime + timedelta(hours=1),
+                    end_date=event_datetime,  # 單一時間點
                     all_day=True,
                     event_type=event_type,
                     assigned_user_id=assigned_user_id,

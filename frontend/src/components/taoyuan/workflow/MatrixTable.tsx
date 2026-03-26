@@ -251,9 +251,10 @@ const MatrixTableInner: React.FC<MatrixTableProps> = ({
                     <Tooltip title={confidenceTooltip(row.confidence, row.sharedEntities)}>
                       <span style={{ color: confidenceColor(row.confidence, token), display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                         <ArrowRightOutlined />
-                        {row.confidence === 'confirmed' ? (
+                        {/* 只有雙方都有作業紀錄 + confirmed 才顯示綠勾 */}
+                        {row.confidence === 'confirmed' && !row.incoming?.isUnassigned && !row.outgoing?.isUnassigned ? (
                           <CheckCircleFilled style={{ fontSize: 10, color: token.colorSuccess }} />
-                        ) : (row.confidence === 'high' || row.confidence === 'medium') && canEdit && onConfirmPair && row.incoming && row.outgoing ? (
+                        ) : (row.confidence === 'high' || row.confidence === 'medium' || row.confidence === 'confirmed') && canEdit && onConfirmPair && row.incoming && row.outgoing ? (
                           <Button
                             type="text"
                             size="small"

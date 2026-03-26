@@ -1,0 +1,51 @@
+# =============================================================================
+# 多通道部署 — OpenClaw (Telegram/LINE) + CK_Missive (Agent)
+# =============================================================================
+# 使用方式:
+#   docker compose -f docker-compose.infra.yml -f docker-compose.multichannel.yml up -d
+#
+# 前提:
+#   1. CK_Missive 後端 (PM2 ck-backend) 運行於 port 8001
+#   2. OpenClaw 已配置 Telegram/LINE channel
+#   3. .env 中設定 MCP_SERVICE_TOKEN (OpenClaw ↔ Missive 共用)
+#
+# 流程:
+#   LINE/Telegram → OpenClaw Gateway → ck-missive-bridge skill
+#   → POST http://host.docker.internal:8001/api/ai/agent/query
+#   → NemoClawAgent → 回覆
+# =============================================================================
+
+name: ck_multichannel
+
+services:
+  openclaw:
+    image: ${OPENCLAW_IMAGE:-openclaw:local}
+    container_name: ck_openclaw
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:18789:18789"  # Gateway UI
+    volumes:
+      - ${OPENCLAW_CONFIG_DIR:-C:/Users/User1/.openclaw}:/home/node/.openclaw
+    environment:
+      - OPENCLAW_GATEWAY_PORT=18789
+      - OPENCLAW_GATEWAY_BIND=0.0.0.0
+      - MCP_SERVICE_TOKEN=${MCP_SERVICE_TOKEN}
+      - CONVERSATION_REDIS_HOST=ck_missive_redis_dev
+      - CONVERSATION_REDIS_PORT=6379
+      - CONVERSATION_REDIS_DB=4
+      # LINE (from openclaw.json channels.line)
+      # Telegram (from openclaw.json channels.telegram)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - ck_infra
+    depends_on:
+      - redis
+
+  # Redis 已在 docker-compose.infra.yml 定義
+  # 此處僅宣告依賴
+
+networks:
+  ck_infra:
+    external: true
+    name: ${COMPOSE_PROJECT_NAME}_default

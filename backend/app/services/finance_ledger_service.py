@@ -6,9 +6,12 @@ from app.extended.models.finance import FinanceLedger
 from app.extended.models.invoice import ExpenseInvoice
 from app.schemas.erp.ledger import LedgerCreate, LedgerQuery
 from app.repositories.erp.ledger_repository import LedgerRepository
+from app.services.audit_mixin import AuditableServiceMixin
 
-class FinanceLedgerService:
+class FinanceLedgerService(AuditableServiceMixin):
     """統一帳本業務服務層"""
+
+    AUDIT_TABLE = "finance_ledgers"
 
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -26,7 +29,9 @@ class FinanceLedgerService:
             source_type="manual",
             transaction_date=data.transaction_date or date.today()
         )
-        return await self.repo.create_entry(ledger)
+        result = await self.repo.create_entry(ledger)
+        await self.audit_create(result.id, data.model_dump(), user_id=user_id)
+        return result
 
     async def record_from_expense(self, invoice: ExpenseInvoice) -> FinanceLedger:
         """從報銷發票自動產生帳本記錄 (amount 已是 TWD 本位幣)"""
@@ -113,7 +118,10 @@ class FinanceLedgerService:
             return False
         if ledger.source_type != "manual":
             raise ValueError("僅可刪除手動記帳的記錄，系統自動入帳請從原始單據處理")
-        return await self.repo.delete_entry(ledger)
+        result = await self.repo.delete_entry(ledger)
+        if result:
+            await self.audit_delete(ledger_id)
+        return result
 
     async def get_case_balance(self, case_code: str) -> dict:
         """查詢特定專案收支餘額"""

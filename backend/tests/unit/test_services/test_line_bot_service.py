@@ -80,21 +80,26 @@ class TestHandleTextMessage:
     async def test_handle_text_message_success(self):
         service = self._create_service()
 
-        # Mock _query_agent
-        service._query_agent = AsyncMock(return_value="這是回答")
+        # Mock _query_agent (v1.3.0: 第三參數 tools_used list)
+        service._query_agent = AsyncMock(return_value="短回答")
         service.reply_message = AsyncMock(return_value=True)
 
         await service.handle_text_message("reply_token", "user123", "你好")
 
-        service._query_agent.assert_called_once_with("user123", "你好")
-        service.reply_message.assert_called_once_with("reply_token", "這是回答")
+        # _query_agent 現在接收三個參數 (user_id, text, tools_used)
+        assert service._query_agent.call_count == 1
+        call_args = service._query_agent.call_args[0]
+        assert call_args[0] == "user123"
+        assert call_args[1] == "你好"
+        # 短回答走純文字回覆
+        service.reply_message.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_handle_text_message_timeout(self):
         service = self._create_service()
         service._reply_timeout = 0.01  # Force timeout
 
-        async def slow_query(user_id, text):
+        async def slow_query(user_id, text, tools_used=None):
             import asyncio
             await asyncio.sleep(1)
             return "never reached"
@@ -175,10 +180,13 @@ class TestPushNotification:
 
         call_args = service._call_line_api.call_args
         payload = call_args[0][1]
-        msg = payload["messages"][0]["text"]
-        assert "重要公文" in msg
-        assert "2026-03-20" in msg
-        assert "截止" in msg
+        msg = payload["messages"][0]
+        # v1.3.0: Flex Message 格式
+        assert msg["type"] == "flex"
+        assert "重要公文" in msg["altText"]
+        flex_body = str(msg["contents"])
+        assert "重要公文" in flex_body
+        assert "2026-03-20" in flex_body
 
 
 # ── Enabled Property ──
@@ -213,3 +221,107 @@ class TestEnabled:
         }):
             from app.services.line_bot_service import LineBotService
             assert LineBotService().enabled is False
+
+
+# ── _query_agent 完整鏈路驗證 ──
+
+
+class TestQueryAgentFlow:
+    """LINE → Agent Orchestrator → 回覆 完整流程"""
+
+    def _create_service(self):
+        with patch.dict("os.environ", {
+            "LINE_CHANNEL_SECRET": "secret",
+            "LINE_CHANNEL_ACCESS_TOKEN": "token",
+            "LINE_BOT_ENABLED": "true",
+        }):
+            from app.services.line_bot_service import LineBotService
+            return LineBotService()
+
+    @pytest.mark.asyncio
+    async def test_query_agent_collects_tokens(self):
+        """驗證 SSE token 事件被正確收集為完整回答"""
+        service = self._create_service()
+
+        mock_events = [
+            'data: {"type":"token","token":"公文"}',
+            'data: {"type":"token","token":"查詢"}',
+            'data: {"type":"token","token":"結果"}',
+            'data: {"type":"done","latency_ms":100}',
+        ]
+
+        async def mock_stream(*args, **kwargs):
+            for event in mock_events:
+                yield event
+
+        mock_conv = MagicMock()
+        mock_conv.load = AsyncMock(return_value=[])
+        mock_conv.save = AsyncMock()
+
+        mock_orch = MagicMock()
+        mock_orch.stream_agent_query = mock_stream
+
+        with patch("app.db.database.AsyncSessionLocal") as MockSL, \
+             patch("app.services.ai.agent_conversation_memory.get_conversation_memory", return_value=mock_conv), \
+             patch("app.services.ai.agent_orchestrator.AgentOrchestrator", return_value=mock_orch):
+            mock_db = AsyncMock()
+            MockSL.return_value.__aenter__ = AsyncMock(return_value=mock_db)
+            MockSL.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            result = await service._query_agent("user_123", "查公文")
+
+        assert result == "公文查詢結果"
+        mock_conv.load.assert_awaited_once_with("line:user_123")
+        mock_conv.save.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_query_agent_handles_error_event(self):
+        """Agent 回傳 error 事件時應回傳錯誤訊息"""
+        service = self._create_service()
+
+        async def mock_stream(*args, **kwargs):
+            yield 'data: {"type":"error","error":"查詢失敗"}'
+
+        mock_conv = MagicMock()
+        mock_conv.load = AsyncMock(return_value=[])
+        mock_conv.save = AsyncMock()
+
+        mock_orch = MagicMock()
+        mock_orch.stream_agent_query = mock_stream
+
+        with patch("app.db.database.AsyncSessionLocal") as MockSL, \
+             patch("app.services.ai.agent_conversation_memory.get_conversation_memory", return_value=mock_conv), \
+             patch("app.services.ai.agent_orchestrator.AgentOrchestrator", return_value=mock_orch):
+            mock_db = AsyncMock()
+            MockSL.return_value.__aenter__ = AsyncMock(return_value=mock_db)
+            MockSL.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            result = await service._query_agent("user_123", "test")
+
+        assert "查詢失敗" in result
+
+    @pytest.mark.asyncio
+    async def test_query_agent_empty_response(self):
+        """無 token 時回傳預設訊息"""
+        service = self._create_service()
+
+        async def mock_stream(*args, **kwargs):
+            yield 'data: {"type":"done","latency_ms":50}'
+
+        mock_conv = MagicMock()
+        mock_conv.load = AsyncMock(return_value=[])
+        mock_conv.save = AsyncMock()
+
+        mock_orch = MagicMock()
+        mock_orch.stream_agent_query = mock_stream
+
+        with patch("app.db.database.AsyncSessionLocal") as MockSL, \
+             patch("app.services.ai.agent_conversation_memory.get_conversation_memory", return_value=mock_conv), \
+             patch("app.services.ai.agent_orchestrator.AgentOrchestrator", return_value=mock_orch):
+            mock_db = AsyncMock()
+            MockSL.return_value.__aenter__ = AsyncMock(return_value=mock_db)
+            MockSL.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            result = await service._query_agent("user_123", "test")
+
+        assert "無法產生回答" in result

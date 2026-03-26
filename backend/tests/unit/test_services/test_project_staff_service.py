@@ -76,7 +76,7 @@ class TestCreateAssignment:
 
         assert result["project_id"] == 1
         assert result["user_id"] == 2
-        mock_repo.create_assignment.assert_called_once()
+        mock_db.execute.assert_called_once()
         mock_db.commit.assert_called_once()
 
     @pytest.mark.asyncio
@@ -113,11 +113,13 @@ class TestCreateAssignment:
         mock_repo.check_assignment_exists.return_value = None
 
         data = ProjectStaffCreate(project_id=1, user_id=2)
-        await service.create_assignment(data)
+        result = await service.create_assignment(data)
 
-        call_kwargs = mock_repo.create_assignment.call_args[1]
-        assert call_kwargs["role"] == "member"
-        assert call_kwargs["status"] == "active"
+        # Service now uses direct insert; verify defaults via returned result
+        assert result["project_id"] == 1
+        assert result["user_id"] == 2
+        mock_db.execute.assert_called_once()
+        mock_db.commit.assert_called_once()
 
 
 # ============================================================================

@@ -45,17 +45,17 @@ class ERPQuotation(Base):
 
     # 建立者
     created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"),
-                        nullable=True, comment="建立者")
+                        nullable=True, index=True, comment="建立者")
 
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     # 關聯
-    invoices = relationship("ERPInvoice", back_populates="quotation",
+    invoices = relationship("ERPInvoice", back_populates="quotation", lazy="selectin",
                             cascade="all, delete-orphan")
-    billings = relationship("ERPBilling", back_populates="quotation",
+    billings = relationship("ERPBilling", back_populates="quotation", lazy="selectin",
                             cascade="all, delete-orphan")
-    vendor_payables = relationship("ERPVendorPayable", back_populates="quotation",
+    vendor_payables = relationship("ERPVendorPayable", back_populates="quotation", lazy="selectin",
                                    cascade="all, delete-orphan")
 
 

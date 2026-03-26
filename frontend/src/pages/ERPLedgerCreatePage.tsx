@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { useCreateLedger } from '../hooks';
-import { LEDGER_ENTRY_TYPE_LABELS } from '../types/erp';
+import { LEDGER_ENTRY_TYPE_LABELS, EXPENSE_CATEGORY_OPTIONS } from '../types/erp';
 import { ROUTES } from '../router/types';
 
 const ERPLedgerCreatePage: React.FC = () => {
@@ -61,7 +61,8 @@ const ERPLedgerCreatePage: React.FC = () => {
             <Row gutter={16}>
               <Col span={12}>
                 <Form.Item name="category" label="分類">
-                  <Input placeholder="例：交通費、材料費" />
+                  <Select placeholder="選擇分類" allowClear showSearch
+                    options={EXPENSE_CATEGORY_OPTIONS} />
                 </Form.Item>
               </Col>
               <Col span={12}>

@@ -27,9 +27,12 @@ import type { DelegateRequest, DigitalTwinStreamCallbacks } from '../types/ai';
 // ---------------------------------------------------------------------------
 
 const SSE_TIMEOUT_MS = 120_000;
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MS = 1500;
 
 /**
- * 透過 Missive 後端代理向 NemoClaw Gateway 發送查詢，SSE 串流接收回應。
+ * 透過 Missive 後端代理向本地 Agent 發送查詢，SSE 串流接收回應。
+ * 支援自動重連（最多 MAX_RETRIES 次）。
  *
  * @returns AbortController 供呼叫端取消
  */
@@ -41,38 +44,59 @@ export function streamDigitalTwin(
   const startTime = Date.now();
 
   (async () => {
-    try {
-      callbacks.onStatus?.('connecting', '正在連接數位分身...');
+    let lastError = '';
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      if (controller.signal.aborted) return;
 
-      // 透過 Missive 後端代理 — apiClient 的 baseURL 是 /api/v1，
-      // 但 AI 端點掛在 /api/ai 前綴，需用完整路徑
-      const streamUrl = `/api${DIGITAL_TWIN_ENDPOINTS.QUERY_STREAM}`;
-      const timeoutId = setTimeout(() => controller.abort(), SSE_TIMEOUT_MS);
-
-      const res = await fetch(streamUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'text/event-stream',
-        },
-        credentials: 'include', // 帶上 auth cookie
-        body: JSON.stringify({
-          question: request.question,
-          session_id: request.session_id,
-          context: request.context,
-        }),
-        signal: controller.signal,
-      });
-
-      if (!res.ok || !res.body) {
-        clearTimeout(timeoutId);
-        const errText = await res.text().catch(() => '');
-        callbacks.onError(
-          `後端代理回應異常 (HTTP ${res.status}): ${errText.slice(0, 200)}`,
-        );
-        callbacks.onDone(Date.now() - startTime);
-        return;
+      // 重試延遲
+      if (attempt > 0) {
+        callbacks.onStatus?.('connecting', `重新連線中 (第 ${attempt} 次)...`);
+        await new Promise(r => setTimeout(r, RETRY_DELAY_MS * attempt));
+        if (controller.signal.aborted) return;
       }
+
+      const result = await _attemptStream(request, callbacks, controller, startTime);
+      if (result === 'success' || result === 'aborted') return;
+      lastError = result;
+    }
+
+    // 所有重試失敗
+    callbacks.onError(lastError || '數位分身連線失敗');
+    callbacks.onDone(Date.now() - startTime);
+  })();
+
+  return controller;
+}
+
+async function _attemptStream(
+  request: DelegateRequest,
+  callbacks: DigitalTwinStreamCallbacks,
+  controller: AbortController,
+  startTime: number,
+): Promise<'success' | 'aborted' | string> {
+  try {
+    callbacks.onStatus?.('connecting', '正在連接數位分身...');
+
+    const streamUrl = `/api${DIGITAL_TWIN_ENDPOINTS.QUERY_STREAM}`;
+    const timeoutId = setTimeout(() => controller.abort(), SSE_TIMEOUT_MS);
+
+    const res = await fetch(streamUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+      credentials: 'include',
+      body: JSON.stringify({
+        question: request.question,
+        session_id: request.session_id,
+        context: request.context,
+      }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok || !res.body) {
+      clearTimeout(timeoutId);
+      const errText = await res.text().catch(() => '');
+      return `後端回應異常 (HTTP ${res.status}): ${errText.slice(0, 200)}`;
+    }
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -129,7 +153,7 @@ export function streamDigitalTwin(
                   event.latency_ms || Date.now() - startTime,
                   fullAnswer,
                 );
-                return;
+                return 'success';
 
               case 'error':
                 callbacks.onError(event.error || '數位分身處理失敗');
@@ -151,15 +175,12 @@ export function streamDigitalTwin(
       if (!answered) {
         callbacks.onDone(Date.now() - startTime, fullAnswer || undefined);
       }
+      return 'success';
     } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') return;
-      logger.error('[DigitalTwin] Stream error:', err);
-      callbacks.onError('數位分身連線失敗');
-      callbacks.onDone(Date.now() - startTime);
+      if (err instanceof DOMException && err.name === 'AbortError') return 'aborted';
+      logger.error('[DigitalTwin] Stream error (will retry):', err);
+      return `連線失敗: ${err instanceof Error ? err.message : String(err)}`;
     }
-  })();
-
-  return controller;
 }
 
 // ---------------------------------------------------------------------------
@@ -269,10 +290,12 @@ export async function checkGatewayHealth(): Promise<{
     const latencyMs = Date.now() - start;
     if (res.ok) {
       const data = await res.json();
+      // v2.0: health 回傳 local_agent + gateway_available
+      const available = data.local_agent ?? data.gateway_available ?? data.available ?? false;
       return {
-        available: data.available ?? false,
+        available,
         latencyMs,
-        message: data.available ? undefined : 'Gateway 不可用',
+        message: available ? undefined : (data.gateway_error ?? 'Agent 不可用'),
       };
     }
     return { available: false, latencyMs, message: `HTTP ${res.status}` };

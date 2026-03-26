@@ -10,6 +10,7 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import {
+  Alert,
   Card,
   Input,
   Select,
@@ -76,7 +77,7 @@ export const AdminLoginHistoryPage = () => {
     ...(providerFilter && { auth_provider: providerFilter }),
   }), [page, pageSize, providerFilter]);
 
-  const { data, isLoading } = useQuery<AdminLoginHistoryResponse>({
+  const { data, isLoading, isError } = useQuery<AdminLoginHistoryResponse>({
     queryKey: ['admin-login-history', queryParams],
     queryFn: () =>
       apiClient.post<AdminLoginHistoryResponse>(
@@ -209,6 +210,11 @@ export const AdminLoginHistoryPage = () => {
             登入紀錄
           </Title>
         </div>
+
+        {isError && (
+          <Alert type="error" showIcon closable style={{ marginBottom: 16 }}
+            message="登入紀錄載入失敗，請稍後重試" />
+        )}
 
         <Row gutter={[isMobile ? 8 : 16, isMobile ? 8 : 16]} style={{ marginBottom: isMobile ? 12 : 16 }}>
           <Col xs={24} sm={8} md={6}>

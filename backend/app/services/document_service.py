@@ -57,6 +57,7 @@ from app.services.document_dispatch_linker_service import DocumentDispatchLinker
 from app.services.document_import_logic_service import DocumentImportLogicService
 from app.core.cache_manager import cache_dropdown_data, cache_statistics
 from app.core.rls_filter import RLSFilter
+from app.services.audit_mixin import AuditableServiceMixin
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +66,7 @@ logger = logging.getLogger(__name__)
 from app.scripts.normalize_unicode import normalize_text
 
 
-class DocumentService:
+class DocumentService(AuditableServiceMixin):
     """
     公文服務類別
 
@@ -78,6 +79,8 @@ class DocumentService:
     - 機關名稱匹配 (AgencyMatcher)
     - 案件名稱匹配 (ProjectMatcher)
     """
+
+    AUDIT_TABLE = "documents"
 
     def __init__(self, db: AsyncSession, auto_create_events: bool = True):
         self.db = db
@@ -207,9 +210,12 @@ class DocumentService:
                 "limit": limit,
                 "total_pages": (total + limit - 1) // limit if limit > 0 else 0
             }
-        except Exception as e:
-            logger.error(f"get_documents 失敗: {e}", exc_info=True)
+        except (AttributeError, TypeError, ValueError) as e:
+            logger.warning(f"get_documents 資料轉換失敗: {e}")
             return {"items": [], "total": 0, "page": 1, "limit": limit, "total_pages": 0}
+        except Exception as e:
+            logger.error(f"get_documents 失敗 (DB 錯誤): {e}", exc_info=True)
+            raise
 
     async def create_document(
         self,
@@ -262,13 +268,20 @@ class DocumentService:
             self.db.add(new_document)
             await self.db.commit()
             await self.db.refresh(new_document)
-            if new_document.receive_date:
-                await self.calendar_integrator.convert_document_to_events(db=self.db, document=new_document, creator_id=current_user_id)
+            # 自動建立行事曆事件 (不限於有 receive_date 的公文)
+            try:
+                from app.services.calendar.event_auto_builder import CalendarEventAutoBuilder
+                event_builder = CalendarEventAutoBuilder(self.db)
+                await event_builder.create_event_for_new_document(new_document, created_by=current_user_id)
+                await self.db.flush()
+            except Exception as e:
+                logger.warning("自動建立行事曆事件失敗 (不影響主流程): %s", e)
             # 自動匹配派工單（反向關聯）
             await self._auto_link_to_dispatch_orders(new_document)
             # 通知 NER 排程器有新公文（事件驅動，立即處理）
             from app.services.ai.extraction_scheduler import notify_new_documents
             notify_new_documents(1)
+            await self.audit_create(new_document.id, doc_data, user_id=current_user_id)
             return new_document
         except Exception as e:
             await self.db.rollback()

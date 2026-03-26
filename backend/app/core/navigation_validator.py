@@ -57,6 +57,7 @@ VALID_NAVIGATION_PATHS: Set[str] = {
     "/ai/code-graph",
     "/ai/db-graph",
     "/ai/skill-evolution",
+    "/ai/digital-twin",
     # 系統頁面
     "/system",
     "/google-auth-diagnostic",

@@ -853,6 +853,8 @@ export const DIGITAL_TWIN_ENDPOINTS = {
   AGENT_TOPOLOGY: '/ai/digital-twin/agent-topology',
   /** QA 影響分析 GET /ai/digital-twin/qa-impact (V-3.3) */
   QA_IMPACT: '/ai/digital-twin/qa-impact',
+  /** 聚合儀表板 GET /ai/digital-twin/dashboard (V-4.0) */
+  DASHBOARD: '/ai/digital-twin/dashboard',
 } as const;
 
 // ============================================================================
@@ -883,6 +885,12 @@ export const DEPLOYMENT_ENDPOINTS = {
 export const LINE_ENDPOINTS = {
   /** LINE Push 通知 POST /line/push */
   PUSH: '/line/push',
+} as const;
+
+/** Discord Bot API 端點 */
+export const DISCORD_ENDPOINTS = {
+  /** Discord Push 通知 POST /discord/push */
+  PUSH: '/discord/push',
 } as const;
 
 // ============================================================================
@@ -1138,6 +1146,9 @@ export const API_ENDPOINTS = {
 
   // LINE Bot
   LINE: LINE_ENDPOINTS,
+
+  // Discord Bot
+  DISCORD: DISCORD_ENDPOINTS,
 
   // 專案管理 (PM)
   PM: PM_ENDPOINTS,

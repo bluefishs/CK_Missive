@@ -42,11 +42,12 @@ from app.schemas.project import ProjectCreate, ProjectUpdate
 from app.core.rls_filter import RLSFilter
 from app.repositories import ProjectRepository
 from app.repositories.taoyuan import PaymentRepository
+from app.services.audit_mixin import AuditableServiceMixin
 
 logger = logging.getLogger(__name__)
 
 
-class ProjectService:
+class ProjectService(AuditableServiceMixin):
     """
     承攬案件服務 - 工廠模式
 
@@ -67,6 +68,8 @@ class ProjectService:
         # 刪除
         success = await service.delete(1)
     """
+
+    AUDIT_TABLE = "contract_projects"
 
     def __init__(self, db: AsyncSession) -> None:
         """
@@ -265,6 +268,8 @@ class ProjectService:
         except Exception as e:
             logger.warning(f"Project 回溯連結 NER 實體失敗: {e}")
 
+        await self.audit_create(db_project.id, project_data)
+
         return db_project
 
     async def update(
@@ -320,6 +325,7 @@ class ProjectService:
                 logger.warning(f"同步契金記錄失敗: {e}")
 
         logger.info(f"更新{self.entity_name}: ID={entity_id}")
+        await self.audit_update(entity_id, update_data)
         return db_project
 
     async def delete(self, entity_id: int) -> bool:
@@ -352,6 +358,7 @@ class ProjectService:
             await self.repository.delete(entity_id)
 
             logger.info(f"刪除{self.entity_name}: ID={entity_id}，已解除所有關聯")
+            await self.audit_delete(entity_id)
             return True
         except IntegrityError as e:
             await self.db.rollback()

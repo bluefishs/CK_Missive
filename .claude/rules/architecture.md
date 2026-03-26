@@ -105,6 +105,7 @@ backend/app/services/
 │   ├── agent_learning_injector.py   # 跨會話學習注入 (拆分自planner) v1.0.0
 │   ├── agent_post_processing.py     # 後處理管線 (拆分自orchestrator) v1.0.0
 │   ├── agent_streaming_helpers.py   # SSE串流輔助 (拆分自orchestrator) v1.0.0
+│   ├── digital_twin_service.py      # 數位分身業務邏輯 (337L, 拆分自endpoint)
 │   ├── # --- 知識圖譜模組 (8 個) ---
 │   ├── relation_graph_service.py     # 知識圖譜7-Phase建構 (v1.0.0)
 │   ├── canonical_entity_service.py   # 正規化實體4階段策略 (v1.0.0)
@@ -163,6 +164,7 @@ backend/app/services/
 ├── case_code_service.py        # 案件代碼服務
 ├── vendor_service.py           # 廠商服務
 ├── audit_service.py            # 審計服務 (獨立 session)
+├── audit_mixin.py              # CRUD 審計 Mixin (10 服務套用)
 ├── erp/                        # ERP 子服務
 │   ├── quotation_service.py   # 報價管理
 │   ├── invoice_service.py     # 開票管理
@@ -177,6 +179,8 @@ backend/app/services/
 ├── invoice_ocr_service.py      # 發票 OCR 解析 (Tesseract)
 ├── line_bot_service.py         # LINE Bot 整合服務
 ├── line_push_scheduler.py      # LINE 推播排程器
+├── discord_bot_service.py      # Discord Bot Interactions Endpoint
+├── channel_adapter.py          # 統一通道抽象 (LINE/Discord/Telegram)
 └── *_service.py                # 其他業務服務
 ```
 

@@ -29,6 +29,7 @@ from app.services.ai.canonical_entity_matcher import (
     CanonicalEntityMatcher,
     CanonicalEntityMerger,
 )
+from app.services.ai.canonical_entity_resolver import CanonicalEntityResolver
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +65,7 @@ class CanonicalEntityService:
         self.db = db
         self._matcher = CanonicalEntityMatcher(db)
         self._merger = CanonicalEntityMerger(db)
+        self._resolver = CanonicalEntityResolver(db, PGVECTOR_ENABLED)
 
     async def resolve_entity(
         self,
@@ -430,203 +432,20 @@ class CanonicalEntityService:
         }
 
     # ================================================================
-    # 內部方法
+    # 內部方法 (委派至 CanonicalEntityResolver)
     # ================================================================
 
-    async def _semantic_match(
-        self, name: str, entity_type: str,
-    ) -> Optional[CanonicalEntity]:
-        """
-        Stage 3: 語意匹配 — pgvector cosine_distance <= kg_semantic_distance
+    async def _semantic_match(self, name: str, entity_type: str) -> Optional[CanonicalEntity]:
+        return await self._resolver.semantic_match(name, entity_type)
 
-        僅在 PGVECTOR_ENABLED=true 時啟用。
-        透過 EmbeddingManager 取得查詢向量，以 cosine_distance 搜尋同類型實體。
-        """
-        if not PGVECTOR_ENABLED:
-            return None
+    async def _exact_match(self, name: str, entity_type: str) -> Optional[CanonicalEntity]:
+        return await self._resolver.exact_match(name, entity_type)
 
-        try:
-            from app.services.ai.embedding_manager import EmbeddingManager
-            from app.services.ai.ai_config import AIConfig
+    async def _create_entity(self, name: str, entity_type: str) -> CanonicalEntity:
+        return await self._resolver.create_entity(name, entity_type)
 
-            if not await EmbeddingManager.is_available():
-                return None
+    async def _add_alias(self, canonical, alias_name, source="auto", confidence=1.0):
+        return await self._resolver.add_alias(canonical, alias_name, source, confidence)
 
-            query_emb = await EmbeddingManager.get_embedding(name, connector=None)
-            if not query_emb:
-                return None
-
-            config = AIConfig.get_instance()
-            max_distance = config.kg_semantic_distance  # default 0.15
-
-            # pgvector cosine_distance search on CanonicalEntity.embedding
-            result = await self.db.execute(
-                select(CanonicalEntity)
-                .where(
-                    CanonicalEntity.entity_type == entity_type,
-                    CanonicalEntity.embedding.isnot(None),
-                    CanonicalEntity.embedding.cosine_distance(query_emb) <= max_distance,
-                )
-                .order_by(CanonicalEntity.embedding.cosine_distance(query_emb))
-                .limit(1)
-            )
-            match = result.scalar_one_or_none()
-            if match:
-                distance = None  # logged for debugging
-                logger.debug(
-                    "語意匹配候選: %s → %s (type=%s)",
-                    name, match.canonical_name, entity_type,
-                )
-            return match
-        except Exception as e:
-            logger.debug("語意匹配跳過 (%s): %s", name, e)
-            return None
-
-    async def _exact_match(
-        self, name: str, entity_type: str,
-    ) -> Optional[CanonicalEntity]:
-        """Stage 1: 精確匹配別名"""
-        result = await self.db.execute(
-            select(CanonicalEntity)
-            .join(EntityAlias, EntityAlias.canonical_entity_id == CanonicalEntity.id)
-            .where(EntityAlias.alias_name == name)
-            .where(CanonicalEntity.entity_type == entity_type)
-            .limit(1)
-        )
-        return result.scalar_one_or_none()
-
-    async def _create_entity(
-        self, name: str, entity_type: str,
-    ) -> CanonicalEntity:
-        """建立新的正規化實體，並自動嘗試連結結構化記錄"""
-        entity = CanonicalEntity(
-            canonical_name=name,
-            entity_type=entity_type,
-            alias_count=1,
-            mention_count=0,
-        )
-        # 自動連結 org → government_agencies
-        if entity_type == "org":
-            entity.linked_agency_id = await self._find_agency_id(name)
-        # 自動連結 project → taoyuan_projects
-        elif entity_type == "project":
-            entity.linked_project_id = await self._find_project_id(name)
-        self.db.add(entity)
-        await self.db.flush()
-        # 快取失效：新實體影響圖譜查詢結果
-        try:
-            from app.services.ai.graph_query_service import invalidate_graph_cache
-            await invalidate_graph_cache("entity_graph:*")
-        except Exception:
-            pass  # 快取失效不應影響主流程
-        return entity
-
-    async def _find_agency_id(self, name: str) -> int | None:
-        """嘗試以精確名稱或簡稱匹配 government_agencies（單一查詢）"""
-        from app.extended.models import GovernmentAgency
-        result = await self.db.execute(
-            select(GovernmentAgency.id)
-            .where(
-                (GovernmentAgency.agency_name == name)
-                | (GovernmentAgency.agency_short_name == name)
-            )
-            .limit(1)
-        )
-        return result.scalar_one_or_none()
-
-    async def _find_project_id(self, name: str) -> int | None:
-        """嘗試以精確名稱匹配 taoyuan_projects"""
-        from app.extended.models import TaoyuanProject
-        result = await self.db.execute(
-            select(TaoyuanProject.id)
-            .where(TaoyuanProject.project_name == name)
-            .limit(1)
-        )
-        return result.scalar_one_or_none()
-
-    async def _add_alias(
-        self,
-        canonical: CanonicalEntity,
-        alias_name: str,
-        source: str = "auto",
-        confidence: float = 1.0,
-    ) -> EntityAlias:
-        """新增別名（去重）"""
-        # 檢查是否已存在
-        existing = await self.db.execute(
-            select(EntityAlias)
-            .where(EntityAlias.alias_name == alias_name)
-            .where(EntityAlias.canonical_entity_id == canonical.id)
-            .limit(1)
-        )
-        found = existing.scalar_one_or_none()
-        if found:
-            return found
-
-        alias = EntityAlias(
-            alias_name=alias_name,
-            canonical_entity_id=canonical.id,
-            source=source,
-            confidence=confidence,
-        )
-        self.db.add(alias)
-        canonical.alias_count = (canonical.alias_count or 0) + 1
-        await self.db.flush()
-        return alias
-
-    async def link_existing_entities(
-        self,
-        record_name: str,
-        entity_type: str,
-        record_id: int,
-        field: str = "linked_agency_id",
-    ) -> int:
-        """
-        回溯連結：當新增業務記錄（機關/專案）時，
-        自動將已存在的同名 CanonicalEntity 連結到該記錄。
-
-        Args:
-            record_name: 業務記錄名稱
-            entity_type: 實體類型 ("org" or "project")
-            record_id: 業務記錄 ID
-            field: 要更新的 FK 欄位名 ("linked_agency_id" or "linked_project_id")
-
-        Returns:
-            連結的實體數量
-        """
-        from sqlalchemy import update
-
-        # 精確匹配：canonical_name 或別名完全相同
-        alias_result = await self.db.execute(
-            select(EntityAlias.canonical_entity_id)
-            .join(CanonicalEntity, EntityAlias.canonical_entity_id == CanonicalEntity.id)
-            .where(EntityAlias.alias_name == record_name)
-            .where(CanonicalEntity.entity_type == entity_type)
-            .where(getattr(CanonicalEntity, field).is_(None))
-        )
-        entity_ids = list({row[0] for row in alias_result.all()})
-
-        if not entity_ids:
-            return 0
-
-        # 批次更新
-        await self.db.execute(
-            update(CanonicalEntity)
-            .where(CanonicalEntity.id.in_(entity_ids))
-            .values({field: record_id})
-        )
-        await self.db.flush()
-
-        logger.info(
-            f"回溯連結: {record_name} ({entity_type}) → "
-            f"{len(entity_ids)} 個 CanonicalEntity (field={field})"
-        )
-
-        # 快取失效
-        try:
-            from app.services.ai.graph_query_service import invalidate_graph_cache
-            await invalidate_graph_cache("entity_graph:*")
-        except Exception:
-            pass
-
-        return len(entity_ids)
+    async def link_existing_entities(self, record_name, entity_type, record_id, field="linked_agency_id"):
+        return await self._resolver.link_existing_entities(record_name, entity_type, record_id, field)

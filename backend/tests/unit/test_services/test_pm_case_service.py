@@ -103,8 +103,7 @@ class TestPMCaseServiceCreate:
         """case_code 未提供時自動產生"""
         with patch("app.services.pm.case_service.PMCaseRepository") as MockRepo, \
              patch("app.services.pm.case_service.PMMilestoneRepository") as MockMR, \
-             patch("app.services.pm.case_service.PMCaseStaffRepository") as MockSR, \
-             patch("app.services.pm.case_service.CaseCodeService") as MockCode:
+patch("app.services.pm.case_service.CaseCodeService") as MockCode:
 
             # code service
             code_inst = MockCode.return_value
@@ -112,7 +111,7 @@ class TestPMCaseServiceCreate:
 
             # milestone / staff repos
             MockMR.return_value.get_by_case_id = AsyncMock(return_value=[])
-            MockSR.return_value.get_by_case_id = AsyncMock(return_value=[])
+            # PMCaseStaffRepository removed — staff moved to unified table
 
             # mock db.refresh to populate the object
             created_obj = _make_mock_pm_case(case_code="CK2025_PM_01_001")
@@ -139,14 +138,13 @@ class TestPMCaseServiceCreate:
         """case_code 已提供時保留原值"""
         with patch("app.services.pm.case_service.PMCaseRepository"), \
              patch("app.services.pm.case_service.PMMilestoneRepository") as MockMR, \
-             patch("app.services.pm.case_service.PMCaseStaffRepository") as MockSR, \
-             patch("app.services.pm.case_service.CaseCodeService") as MockCode:
+patch("app.services.pm.case_service.CaseCodeService") as MockCode:
 
             code_inst = MockCode.return_value
             code_inst.generate_case_code = AsyncMock()
 
             MockMR.return_value.get_by_case_id = AsyncMock(return_value=[])
-            MockSR.return_value.get_by_case_id = AsyncMock(return_value=[])
+            # PMCaseStaffRepository removed — staff moved to unified table
 
             service = PMCaseService(mock_db_session)
             service._to_response = AsyncMock(return_value=PMCaseResponse(
@@ -173,12 +171,11 @@ class TestPMCaseServiceGetDetail:
 
         with patch("app.services.pm.case_service.PMCaseRepository") as MockRepo, \
              patch("app.services.pm.case_service.PMMilestoneRepository") as MockMR, \
-             patch("app.services.pm.case_service.PMCaseStaffRepository") as MockSR, \
-             patch("app.services.pm.case_service.CaseCodeService"):
+patch("app.services.pm.case_service.CaseCodeService"):
 
             MockRepo.return_value.get_by_id = AsyncMock(return_value=mock_case)
             MockMR.return_value.get_by_case_id = AsyncMock(return_value=milestones)
-            MockSR.return_value.get_by_case_id = AsyncMock(return_value=staff)
+            # PMCaseStaffRepository removed — staff count fixed to 0
 
             service = PMCaseService(mock_db_session)
             result = await service.get_detail(1)
@@ -186,15 +183,14 @@ class TestPMCaseServiceGetDetail:
             assert result is not None
             assert result.id == 1
             assert result.milestone_count == 2
-            assert result.staff_count == 1
+            assert result.staff_count == 0  # staff moved to unified table
 
     @pytest.mark.asyncio
     async def test_get_detail_not_found(self, mock_db_session):
         """Return None for non-existent case"""
         with patch("app.services.pm.case_service.PMCaseRepository") as MockRepo, \
              patch("app.services.pm.case_service.PMMilestoneRepository"), \
-             patch("app.services.pm.case_service.PMCaseStaffRepository"), \
-             patch("app.services.pm.case_service.CaseCodeService"):
+patch("app.services.pm.case_service.CaseCodeService"):
 
             MockRepo.return_value.get_by_id = AsyncMock(return_value=None)
 
@@ -214,12 +210,11 @@ class TestPMCaseServiceUpdate:
 
         with patch("app.services.pm.case_service.PMCaseRepository") as MockRepo, \
              patch("app.services.pm.case_service.PMMilestoneRepository") as MockMR, \
-             patch("app.services.pm.case_service.PMCaseStaffRepository") as MockSR, \
-             patch("app.services.pm.case_service.CaseCodeService"):
+patch("app.services.pm.case_service.CaseCodeService"):
 
             MockRepo.return_value.get_by_id = AsyncMock(return_value=mock_case)
             MockMR.return_value.get_by_case_id = AsyncMock(return_value=[])
-            MockSR.return_value.get_by_case_id = AsyncMock(return_value=[])
+            # PMCaseStaffRepository removed — staff moved to unified table
 
             service = PMCaseService(mock_db_session)
             data = PMCaseUpdate(case_name="Updated Case", status="in_progress")
@@ -234,8 +229,7 @@ class TestPMCaseServiceUpdate:
         """Return None when case not found"""
         with patch("app.services.pm.case_service.PMCaseRepository") as MockRepo, \
              patch("app.services.pm.case_service.PMMilestoneRepository"), \
-             patch("app.services.pm.case_service.PMCaseStaffRepository"), \
-             patch("app.services.pm.case_service.CaseCodeService"):
+patch("app.services.pm.case_service.CaseCodeService"):
 
             MockRepo.return_value.get_by_id = AsyncMock(return_value=None)
 
@@ -256,8 +250,7 @@ class TestPMCaseServiceDelete:
 
         with patch("app.services.pm.case_service.PMCaseRepository") as MockRepo, \
              patch("app.services.pm.case_service.PMMilestoneRepository"), \
-             patch("app.services.pm.case_service.PMCaseStaffRepository"), \
-             patch("app.services.pm.case_service.CaseCodeService"):
+patch("app.services.pm.case_service.CaseCodeService"):
 
             MockRepo.return_value.get_by_id = AsyncMock(return_value=mock_case)
 
@@ -273,8 +266,7 @@ class TestPMCaseServiceDelete:
         """Verify deletion returns False for missing case"""
         with patch("app.services.pm.case_service.PMCaseRepository") as MockRepo, \
              patch("app.services.pm.case_service.PMMilestoneRepository"), \
-             patch("app.services.pm.case_service.PMCaseStaffRepository"), \
-             patch("app.services.pm.case_service.CaseCodeService"):
+patch("app.services.pm.case_service.CaseCodeService"):
 
             MockRepo.return_value.get_by_id = AsyncMock(return_value=None)
 
@@ -294,12 +286,11 @@ class TestPMCaseServiceList:
 
         with patch("app.services.pm.case_service.PMCaseRepository") as MockRepo, \
              patch("app.services.pm.case_service.PMMilestoneRepository") as MockMR, \
-             patch("app.services.pm.case_service.PMCaseStaffRepository") as MockSR, \
-             patch("app.services.pm.case_service.CaseCodeService"):
+patch("app.services.pm.case_service.CaseCodeService"):
 
             MockRepo.return_value.filter_cases = AsyncMock(return_value=(mock_cases, 3))
             MockMR.return_value.get_counts_batch = AsyncMock(return_value={})
-            MockSR.return_value.get_counts_batch = AsyncMock(return_value={})
+            # PMCaseStaffRepository removed — staff counts fixed to 0
 
             service = PMCaseService(mock_db_session)
             params = PMCaseListRequest(page=1, limit=20, year=114, status="planning")
@@ -308,15 +299,14 @@ class TestPMCaseServiceList:
             assert total == 3
             assert len(responses) == 3
             MockMR.return_value.get_counts_batch.assert_awaited_once()
-            MockSR.return_value.get_counts_batch.assert_awaited_once()
+            # staff counts assertion removed — unified table
 
     @pytest.mark.asyncio
     async def test_list_cases_empty(self, mock_db_session):
         """Verify empty result"""
         with patch("app.services.pm.case_service.PMCaseRepository") as MockRepo, \
              patch("app.services.pm.case_service.PMMilestoneRepository"), \
-             patch("app.services.pm.case_service.PMCaseStaffRepository"), \
-             patch("app.services.pm.case_service.CaseCodeService"):
+patch("app.services.pm.case_service.CaseCodeService"):
 
             MockRepo.return_value.filter_cases = AsyncMock(return_value=([], 0))
 
@@ -343,8 +333,7 @@ class TestPMCaseServiceSummary:
 
         with patch("app.services.pm.case_service.PMCaseRepository") as MockRepo, \
              patch("app.services.pm.case_service.PMMilestoneRepository"), \
-             patch("app.services.pm.case_service.PMCaseStaffRepository"), \
-             patch("app.services.pm.case_service.CaseCodeService"):
+patch("app.services.pm.case_service.CaseCodeService"):
 
             MockRepo.return_value.get_summary = AsyncMock(return_value=summary_data)
 
@@ -365,8 +354,7 @@ class TestPMCaseServiceGenerateCode:
         """Verify delegation to CaseCodeService"""
         with patch("app.services.pm.case_service.PMCaseRepository"), \
              patch("app.services.pm.case_service.PMMilestoneRepository"), \
-             patch("app.services.pm.case_service.PMCaseStaffRepository"), \
-             patch("app.services.pm.case_service.CaseCodeService") as MockCode:
+patch("app.services.pm.case_service.CaseCodeService") as MockCode:
 
             code_inst = MockCode.return_value
             code_inst.generate_case_code = AsyncMock(return_value="CK2025_PM_02_005")
@@ -413,8 +401,7 @@ class TestPMCaseServiceGantt:
 
         with patch("app.services.pm.case_service.PMCaseRepository") as MockRepo, \
              patch("app.services.pm.case_service.PMMilestoneRepository") as MockMR, \
-             patch("app.services.pm.case_service.PMCaseStaffRepository"), \
-             patch("app.services.pm.case_service.CaseCodeService"):
+patch("app.services.pm.case_service.CaseCodeService"):
 
             MockRepo.return_value.get_by_id = AsyncMock(return_value=mock_case)
             MockMR.return_value.get_by_case_id = AsyncMock(return_value=[m1, m2, m3])
@@ -437,8 +424,7 @@ class TestPMCaseServiceGantt:
         """Return None when case not found"""
         with patch("app.services.pm.case_service.PMCaseRepository") as MockRepo, \
              patch("app.services.pm.case_service.PMMilestoneRepository"), \
-             patch("app.services.pm.case_service.PMCaseStaffRepository"), \
-             patch("app.services.pm.case_service.CaseCodeService"):
+patch("app.services.pm.case_service.CaseCodeService"):
 
             MockRepo.return_value.get_by_id = AsyncMock(return_value=None)
 
@@ -457,8 +443,7 @@ class TestPMCaseServiceGantt:
 
         with patch("app.services.pm.case_service.PMCaseRepository") as MockRepo, \
              patch("app.services.pm.case_service.PMMilestoneRepository") as MockMR, \
-             patch("app.services.pm.case_service.PMCaseStaffRepository"), \
-             patch("app.services.pm.case_service.CaseCodeService"):
+patch("app.services.pm.case_service.CaseCodeService"):
 
             MockRepo.return_value.get_by_id = AsyncMock(return_value=mock_case)
             MockMR.return_value.get_by_case_id = AsyncMock(return_value=[m1])
@@ -482,8 +467,7 @@ class TestPMCaseServiceExportCsv:
 
         with patch("app.services.pm.case_service.PMCaseRepository") as MockRepo, \
              patch("app.services.pm.case_service.PMMilestoneRepository"), \
-             patch("app.services.pm.case_service.PMCaseStaffRepository"), \
-             patch("app.services.pm.case_service.CaseCodeService"):
+patch("app.services.pm.case_service.CaseCodeService"):
 
             MockRepo.return_value.filter_cases = AsyncMock(return_value=(mock_cases, 2))
 
@@ -502,8 +486,7 @@ class TestPMCaseServiceExportCsv:
         """CSV with no data still has header"""
         with patch("app.services.pm.case_service.PMCaseRepository") as MockRepo, \
              patch("app.services.pm.case_service.PMMilestoneRepository"), \
-             patch("app.services.pm.case_service.PMCaseStaffRepository"), \
-             patch("app.services.pm.case_service.CaseCodeService"):
+patch("app.services.pm.case_service.CaseCodeService"):
 
             MockRepo.return_value.filter_cases = AsyncMock(return_value=([], 0))
 
@@ -524,8 +507,7 @@ class TestPMCaseServiceYearlyTrend:
         """Verify SQL aggregation delegation"""
         with patch("app.services.pm.case_service.PMCaseRepository") as MockRepo, \
              patch("app.services.pm.case_service.PMMilestoneRepository"), \
-             patch("app.services.pm.case_service.PMCaseStaffRepository"), \
-             patch("app.services.pm.case_service.CaseCodeService"):
+patch("app.services.pm.case_service.CaseCodeService"):
 
             MockRepo.return_value.get_yearly_trend_sql = AsyncMock(return_value=[
                 {
@@ -554,8 +536,7 @@ class TestPMCaseServiceYearlyTrend:
         """Empty when no cases"""
         with patch("app.services.pm.case_service.PMCaseRepository") as MockRepo, \
              patch("app.services.pm.case_service.PMMilestoneRepository"), \
-             patch("app.services.pm.case_service.PMCaseStaffRepository"), \
-             patch("app.services.pm.case_service.CaseCodeService"):
+patch("app.services.pm.case_service.CaseCodeService"):
 
             MockRepo.return_value.get_yearly_trend_sql = AsyncMock(return_value=[])
 
@@ -569,8 +550,7 @@ class TestPMCaseServiceYearlyTrend:
         """SQL query already filters year IS NOT NULL"""
         with patch("app.services.pm.case_service.PMCaseRepository") as MockRepo, \
              patch("app.services.pm.case_service.PMMilestoneRepository"), \
-             patch("app.services.pm.case_service.PMCaseStaffRepository"), \
-             patch("app.services.pm.case_service.CaseCodeService"):
+patch("app.services.pm.case_service.CaseCodeService"):
 
             MockRepo.return_value.get_yearly_trend_sql = AsyncMock(return_value=[])
 

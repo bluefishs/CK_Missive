@@ -472,8 +472,8 @@ class TestSearchDispatchOrders:
             assert call_kwargs["search"] == "道路工程"
 
     @pytest.mark.asyncio
-    async def test_limit_cap_20(self, executor):
-        """limit 上限 20"""
+    async def test_limit_cap_100(self, executor):
+        """limit 上限 100"""
         mock_repo = MagicMock()
         mock_repo.filter_dispatch_orders = AsyncMock(return_value=([], 0))
 
@@ -481,9 +481,9 @@ class TestSearchDispatchOrders:
             "app.repositories.taoyuan.dispatch_order_repository.DispatchOrderRepository",
             return_value=mock_repo,
         ):
-            await executor._search.search_dispatch_orders({"search": "test", "limit": 100})
+            await executor._search.search_dispatch_orders({"search": "test", "limit": 200})
             call_kwargs = mock_repo.filter_dispatch_orders.call_args[1]
-            assert call_kwargs["limit"] == 20
+            assert call_kwargs["limit"] == 100
 
 
 class TestGetSystemHealth:

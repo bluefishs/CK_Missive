@@ -206,20 +206,13 @@ class CaseCodeService:
         格式: CK{年度}_{類別}_{性質}_{流水號}
         範例: CK2025_01_01_001
         """
-        from sqlalchemy import select, func
-        from app.extended.models.core import ContractProject
-
         year_str = str(year) if year > 1911 else str(year + 1911)
         cat_code = category[:2].zfill(2) if category else "01"
         nat_code = case_nature[:2].zfill(2) if case_nature else "01"
         prefix = f"CK{year_str}_{cat_code}_{nat_code}_"
 
-        # 查最大流水號
-        query = select(func.max(ContractProject.project_code)).where(
-            ContractProject.project_code.like(f"{prefix}%")
-        )
-        result = await self.db.execute(query)
-        max_code = result.scalar()
+        # 透過 Repository 查最大流水號
+        max_code = await self.project_repo.get_max_project_code_by_prefix(prefix)
 
         next_serial = 1
         if max_code:
@@ -242,9 +235,6 @@ class CaseCodeService:
         Returns:
             {'project_code': str, 'contract_project_id': int, 'erp_linked': bool}
         """
-        from app.extended.models.core import ContractProject
-        from app.extended.models.erp import ERPQuotation
-
         # 1. 查找 PM Case
         pm_case = await self.pm_repo.get_by_case_code(case_code)
         if not pm_case:
@@ -258,36 +248,30 @@ class CaseCodeService:
             category=pm_case.category or "01",
         )
 
-        # 3. 建立 ContractProject
-        contract_project = ContractProject(
-            project_name=pm_case.case_name,
-            project_code=project_code,
-            case_code=case_code,
-            year=pm_case.year,
-            category=pm_case.category,
-            client_agency=pm_case.client_name,
-            contract_amount=float(pm_case.contract_amount) if pm_case.contract_amount else None,
-            start_date=pm_case.start_date,
-            end_date=pm_case.end_date,
-            status="執行中",
-            location=getattr(pm_case, 'location', None),
-            description=pm_case.description,
-            notes=pm_case.notes,
-        )
-        self.db.add(contract_project)
-        await self.db.flush()
+        # 3. 建立 ContractProject (透過 Repository)
+        contract_project = await self.project_repo.create({
+            "project_name": pm_case.case_name,
+            "project_code": project_code,
+            "case_code": case_code,
+            "year": pm_case.year,
+            "category": pm_case.category,
+            "client_agency": pm_case.client_name,
+            "contract_amount": float(pm_case.contract_amount) if pm_case.contract_amount else None,
+            "start_date": pm_case.start_date,
+            "end_date": pm_case.end_date,
+            "status": "執行中",
+            "location": getattr(pm_case, 'location', None),
+            "description": pm_case.description,
+            "notes": pm_case.notes,
+        }, auto_commit=False)
 
         # 4. 更新 PM Case
         pm_case.project_code = project_code
         pm_case.status = "in_progress"
 
-        # 5. 連結 ERP Quotation (如存在)
+        # 5. 連結 ERP Quotation (透過 Repository)
         erp_linked = False
-        from sqlalchemy import select
-        erp_result = await self.db.execute(
-            select(ERPQuotation).where(ERPQuotation.case_code == case_code)
-        )
-        erp_quotation = erp_result.scalar_one_or_none()
+        erp_quotation = await self.erp_repo.get_by_case_code(case_code)
         if erp_quotation:
             erp_quotation.project_code = project_code
             erp_linked = True

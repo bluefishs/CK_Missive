@@ -34,11 +34,12 @@ from app.repositories import VendorRepository
 from app.extended.models import PartnerVendor, project_vendor_association
 from app.schemas.vendor import VendorCreate, VendorUpdate
 from app.services.base import DeleteCheckHelper, StatisticsHelper
+from app.services.audit_mixin import AuditableServiceMixin
 
 logger = logging.getLogger(__name__)
 
 
-class VendorService:
+class VendorService(AuditableServiceMixin):
     """
     協力廠商服務 - 工廠模式
 
@@ -62,6 +63,7 @@ class VendorService:
 
     # 搜尋欄位
     SEARCH_FIELDS = ['vendor_name', 'vendor_code']
+    AUDIT_TABLE = "partner_vendors"
 
     def __init__(self, db: AsyncSession) -> None:
         """
@@ -200,7 +202,9 @@ class VendorService:
             if existing:
                 raise ValueError(f"廠商統一編號 {data.vendor_code} 已存在")
 
-        return await self.repository.create(data.model_dump(exclude_unset=True))
+        vendor = await self.repository.create(data.model_dump(exclude_unset=True))
+        await self.audit_create(vendor.id, data.model_dump(exclude_unset=True))
+        return vendor
 
     async def update(
         self,
@@ -217,7 +221,11 @@ class VendorService:
         Returns:
             更新後的廠商，或 None（如不存在）
         """
-        return await self.repository.update(vendor_id, data.model_dump(exclude_unset=True))
+        changes = data.model_dump(exclude_unset=True)
+        vendor = await self.repository.update(vendor_id, changes)
+        if vendor:
+            await self.audit_update(vendor_id, changes)
+        return vendor
 
     async def delete(self, vendor_id: int) -> bool:
         """
@@ -244,7 +252,10 @@ class VendorService:
         if not can_delete:
             raise ValueError(f"無法刪除，此廠商仍與 {usage_count} 個專案關聯")
 
-        return await self.repository.delete(vendor_id)
+        result = await self.repository.delete(vendor_id)
+        if result:
+            await self.audit_delete(vendor_id)
+        return result
 
     # =========================================================================
     # 統計方法
@@ -282,13 +293,16 @@ class VendorService:
                 "business_types": type_stats,
                 "average_rating": round(avg_rating, 2),
             }
-        except Exception as e:
-            logger.error(f"取得廠商統計失敗: {e}")
+        except (AttributeError, TypeError, ValueError) as e:
+            logger.warning(f"取得廠商統計資料轉換失敗: {e}")
             return {
                 "total_vendors": 0,
                 "business_types": [],
                 "average_rating": 0.0,
             }
+        except Exception as e:
+            logger.error(f"取得廠商統計失敗 (DB 錯誤): {e}", exc_info=True)
+            raise
 
     # =========================================================================
     # 工具方法

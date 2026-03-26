@@ -1,0 +1,49 @@
+# Cloudflare Tunnel 配置 — CK_Missive Webhook 通道
+#
+# Tunnel ID: e66a0acc-7940-4b54-ac75-ca3923e652d0
+# Domain: cksurvey.cloudflareaccess.com
+#
+# 安裝方式 (Windows):
+#   1. 下載 MSI: https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.msi
+#   2. 安裝後執行: cloudflared.exe service install <token>
+#   3. 或手動啟動: cloudflared.exe tunnel run --token <token>
+#
+# 環境變數 (.env):
+#   CLOUDFLARE_TUNNEL_TOKEN=<token>
+#   WEBHOOK_BASE_URL=https://cksurvey.cloudflareaccess.com
+#   TUNNEL_GUARD_ENABLED=true
+#
+# Webhook URLs:
+#   LINE:    https://cksurvey.cloudflareaccess.com/api/line/webhook
+#   Discord: https://cksurvey.cloudflareaccess.com/api/discord/webhook
+#   Health:  https://cksurvey.cloudflareaccess.com/api/health
+#
+# Version: 1.1.0
+# Created: 2026-03-25
+
+# Tunnel Name: Aaron-Intranet-Web
+tunnel: e66a0acc-7940-4b54-ac75-ca3923e652d0
+
+ingress:
+  # LINE Webhook
+  - hostname: cksurvey.cloudflareaccess.com
+    path: /api/line/*
+    service: http://localhost:8001
+
+  # Discord Webhook
+  - hostname: cksurvey.cloudflareaccess.com
+    path: /api/discord/*
+    service: http://localhost:8001
+
+  # Health Check
+  - hostname: cksurvey.cloudflareaccess.com
+    path: /api/health
+    service: http://localhost:8001
+
+  # Public endpoints (免認證)
+  - hostname: cksurvey.cloudflareaccess.com
+    path: /api/public/*
+    service: http://localhost:8001
+
+  # 其他路徑拒絕 (TunnelGuard 也會攔截，雙重保護)
+  - service: http_status:404

@@ -131,6 +131,14 @@ class ProjectRepository(BaseRepository[ContractProject]):
         result = await self.db.execute(query)
         return [row[0] for row in result.all()]
 
+    async def get_max_project_code_by_prefix(self, prefix: str) -> Optional[str]:
+        """取得指定前綴的最大 project_code"""
+        query = select(func.max(ContractProject.project_code)).where(
+            ContractProject.project_code.like(f"{prefix}%")
+        )
+        result = await self.db.execute(query)
+        return result.scalar()
+
     async def get_ids_by_case_code(self, case_code: str) -> List[int]:
         """根據建案案號取得專案 ID 列表"""
         query = select(ContractProject.id).where(

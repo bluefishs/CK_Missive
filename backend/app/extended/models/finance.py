@@ -45,7 +45,7 @@ class FinanceLedger(Base):
 
     # 經辦人
     user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"),
-                     nullable=True, comment="記帳人/經辦人")
+                     nullable=True, index=True, comment="記帳人/經辦人")
     vendor_id = Column(Integer, ForeignKey("partner_vendors.id", ondelete="SET NULL"),
                        nullable=True, index=True, comment="廠商 ID (應付帳款來源)")
 

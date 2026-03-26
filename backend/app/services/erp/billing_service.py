@@ -13,12 +13,15 @@ from app.extended.models.erp import ERPBilling
 from app.repositories.erp import ERPBillingRepository, ERPQuotationRepository
 from app.schemas.erp import ERPBillingCreate, ERPBillingUpdate, ERPBillingResponse
 from app.services.finance_ledger_service import FinanceLedgerService
+from app.services.audit_mixin import AuditableServiceMixin
 
 logger = logging.getLogger(__name__)
 
 
-class ERPBillingService:
+class ERPBillingService(AuditableServiceMixin):
     """請款管理服務"""
+
+    AUDIT_TABLE = "erp_billings"
 
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -28,7 +31,9 @@ class ERPBillingService:
 
     async def create(self, data: ERPBillingCreate) -> ERPBillingResponse:
         """建立請款"""
-        billing = await self.repo.create(data.model_dump())
+        dump = data.model_dump()
+        billing = await self.repo.create(dump)
+        await self.audit_create(billing.id, dump)
         return ERPBillingResponse.model_validate(billing)
 
     async def get_by_quotation(self, quotation_id: int) -> List[ERPBillingResponse]:
@@ -63,11 +68,15 @@ class ERPBillingService:
             )
 
         await self.db.commit()
+        await self.audit_update(billing_id, update_data)
         return ERPBillingResponse.model_validate(billing)
 
     async def delete(self, billing_id: int) -> bool:
         """刪除請款"""
-        return await self.repo.delete(billing_id)
+        result = await self.repo.delete(billing_id)
+        if result:
+            await self.audit_delete(billing_id)
+        return result
 
     async def _get_case_code(self, quotation_id: int) -> str:
         """從報價單取得 case_code"""

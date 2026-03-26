@@ -126,13 +126,14 @@ class CalendarEventAutoBuilder:
             logger.debug(f"公文 {document.id} 無有效日期，跳過")
             return None
 
-        # 建立事件
+        # 建立事件 — 單一時間點 (start_date = end_date)
+        # 使用中午 12:00 避免 UTC↔本地時區轉換導致日期偏移至前一日
         event = DocumentCalendarEvent(
             document_id=document.id,
             title=self._build_title(document, event_type),
             description=self._build_description(document),
             start_date=event_date,
-            end_date=event_date + timedelta(hours=1),
+            end_date=event_date,  # 單一時間點，不再 +1h
             all_day=True,
             event_type=event_type,
             priority=self.EVENT_TYPE_PRIORITY_MAP.get(event_type, 'normal'),
@@ -198,6 +199,57 @@ class CalendarEventAutoBuilder:
             created_by=created_by
         )
 
+    async def update_event_for_document(
+        self,
+        document: OfficialDocument,
+    ) -> int:
+        """
+        公文日期異動時同步更新已關聯的行事曆事件
+
+        Returns:
+            更新的事件數
+        """
+        if not document or not document.id:
+            return 0
+
+        new_date = self._determine_event_date(document)
+        if not new_date:
+            return 0
+
+        new_type = self._determine_event_type(document)
+        new_title = self._build_title(document, new_type)
+
+        events = await self._calendar_repo.get_events_by_document_ordered(document.id)
+        updated = 0
+        for event in events:
+            if event.status == "cancelled":
+                continue
+            event.start_date = new_date
+            event.end_date = new_date  # 單一時間點
+            event.title = new_title
+            event.event_type = new_type
+            event.priority = self.EVENT_TYPE_PRIORITY_MAP.get(new_type, 'normal')
+            # Google sync 重設
+            if event.google_event_id:
+                event.google_sync_status = "pending"
+            updated += 1
+
+        if updated:
+            logger.info("公文 %d: 同步更新 %d 個行事曆事件", document.id, updated)
+        return updated
+
+    async def cancel_events_for_document(self, document_id: int) -> int:
+        """公文刪除時標記關聯事件為 cancelled"""
+        events = await self._calendar_repo.get_events_by_document_ordered(document_id)
+        cancelled = 0
+        for event in events:
+            if event.status != "cancelled":
+                event.status = "cancelled"
+                cancelled += 1
+        if cancelled:
+            logger.info("公文 %d: 取消 %d 個行事曆事件", document_id, cancelled)
+        return cancelled
+
     async def _check_existing_event(self, document_id: int) -> bool:
         """檢查公文是否已有事件"""
         return await self._calendar_repo.check_document_has_events(document_id)
@@ -229,7 +281,7 @@ class CalendarEventAutoBuilder:
 
     def _determine_event_date(self, document: OfficialDocument) -> Optional[datetime]:
         """
-        決定事件日期
+        決定事件日期 — 使用中午 12:00 避免 UTC 時區偏移
 
         優先順序:
         1. 收文日期 (receive_date)
@@ -237,12 +289,15 @@ class CalendarEventAutoBuilder:
         3. 發文日期 (send_date)
         4. 建立時間 (created_at)
         """
+        from datetime import time as dt_time
+        _NOON = dt_time(12, 0)  # 中午 12:00 防 UTC±N 偏移
+
         if document.receive_date:
-            return datetime.combine(document.receive_date, datetime.min.time())
+            return datetime.combine(document.receive_date, _NOON)
         if document.doc_date:
-            return datetime.combine(document.doc_date, datetime.min.time())
+            return datetime.combine(document.doc_date, _NOON)
         if document.send_date:
-            return datetime.combine(document.send_date, datetime.min.time())
+            return datetime.combine(document.send_date, _NOON)
         if document.created_at:
             return document.created_at
 

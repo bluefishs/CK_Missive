@@ -99,9 +99,26 @@ const CorrespondenceBodyInner: React.FC<CorrespondenceBodyProps> = ({
       );
     }
 
-    // 分離配對行（confirmed/high）和未配對行（low）
-    const pairedRows = matrixRows.filter((r) => r.confidence === 'confirmed' || r.confidence === 'high');
-    const unpairedRows = matrixRows.filter((r) => r.confidence !== 'confirmed' && r.confidence !== 'high');
+    // 三層分離：
+    // 1. confirmedRows: 雙方都有作業紀錄（真正已確認的對應）
+    // 2. suggestedRows: 算法配對但至少一方無作業紀錄（建議配對）
+    // 3. unpairedRows: 無配對（low confidence）
+    const hasRecord = (item?: { isUnassigned: boolean }) => item && !item.isUnassigned;
+
+    const confirmedRows = matrixRows.filter(
+      (r) => (r.confidence === 'confirmed' || r.confidence === 'high')
+        && hasRecord(r.incoming) && hasRecord(r.outgoing),
+    );
+    const suggestedRows = matrixRows.filter(
+      (r) => (r.confidence === 'confirmed' || r.confidence === 'high')
+        && !(hasRecord(r.incoming) && hasRecord(r.outgoing)),
+    );
+    const unpairedRows = matrixRows.filter(
+      (r) => r.confidence !== 'confirmed' && r.confidence !== 'high',
+    );
+    // 合併建議配對 + 未配對為「其他」區
+    const otherRows = [...suggestedRows, ...unpairedRows];
+    const pairedRows = confirmedRows;
     const totalIn = matrixRows.filter((r) => r.incoming).length;
     const totalOut = matrixRows.filter((r) => r.outgoing).length;
 
@@ -122,24 +139,29 @@ const CorrespondenceBodyInner: React.FC<CorrespondenceBodyProps> = ({
           />
         )}
 
-        {/* 未配對公文（按業務類型分組的時間線） */}
-        {unpairedRows.length > 0 && (
+        {/* 建議配對 + 未配對公文 */}
+        {otherRows.length > 0 && (
           <div style={{ marginTop: pairedRows.length > 0 ? 12 : 0 }}>
             {pairedRows.length > 0 && (
               <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
                 <ExclamationCircleOutlined style={{ marginRight: 4 }} />
-                其他關聯公文（未配對，按類型分組）
+                {suggestedRows.length > 0 && unpairedRows.length > 0
+                  ? `建議配對 (${suggestedRows.length}) + 其他關聯公文 (${unpairedRows.length})`
+                  : suggestedRows.length > 0
+                    ? `建議配對 (${suggestedRows.length})，尚未建立作業紀錄`
+                    : `其他關聯公文（未配對，按類型分組）`}
               </Text>
             )}
             <MatrixTable
-              rows={unpairedRows}
-              totalIncoming={unpairedRows.filter((r) => r.incoming).length}
-              totalOutgoing={unpairedRows.filter((r) => r.outgoing).length}
+              rows={otherRows}
+              totalIncoming={otherRows.filter((r) => r.incoming).length}
+              totalOutgoing={otherRows.filter((r) => r.outgoing).length}
               onDocClick={onDocClick}
               onEditRecord={onEditRecord}
               onQuickCreateRecord={onQuickCreateRecord}
+              onConfirmPair={onConfirmPair}
               canEdit={canEdit}
-              defaultVisibleCount={pairedRows.length > 0 ? 5 : defaultVisibleCount}
+              defaultVisibleCount={pairedRows.length > 0 ? 8 : defaultVisibleCount}
             />
           </div>
         )}

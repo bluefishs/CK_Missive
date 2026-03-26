@@ -11,12 +11,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.erp import ERPInvoiceRepository
 from app.schemas.erp import ERPInvoiceCreate, ERPInvoiceUpdate, ERPInvoiceResponse
+from app.services.audit_mixin import AuditableServiceMixin
 
 logger = logging.getLogger(__name__)
 
 
-class ERPInvoiceService:
+class ERPInvoiceService(AuditableServiceMixin):
     """發票管理服務"""
+
+    AUDIT_TABLE = "erp_invoices"
 
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -24,7 +27,9 @@ class ERPInvoiceService:
 
     async def create(self, data: ERPInvoiceCreate) -> ERPInvoiceResponse:
         """建立發票"""
-        invoice = await self.repo.create(data.model_dump())
+        dump = data.model_dump()
+        invoice = await self.repo.create(dump)
+        await self.audit_create(invoice.id, dump)
         return ERPInvoiceResponse.model_validate(invoice)
 
     async def get_by_quotation(self, quotation_id: int) -> List[ERPInvoiceResponse]:
@@ -45,8 +50,12 @@ class ERPInvoiceService:
             update_data["voided_at"] = datetime.utcnow()
 
         invoice = await self.repo.update(invoice_id, update_data)
+        await self.audit_update(invoice_id, update_data)
         return ERPInvoiceResponse.model_validate(invoice)
 
     async def delete(self, invoice_id: int) -> bool:
         """刪除發票"""
-        return await self.repo.delete(invoice_id)
+        result = await self.repo.delete(invoice_id)
+        if result:
+            await self.audit_delete(invoice_id)
+        return result

@@ -58,11 +58,11 @@ class OfficialDocument(Base):
         ))
 
     # 關聯關係
-    contract_project = relationship("ContractProject", back_populates="documents", lazy="select")
-    sender_agency = relationship("GovernmentAgency", foreign_keys=[sender_agency_id], back_populates="sent_documents", lazy="select")
-    receiver_agency = relationship("GovernmentAgency", foreign_keys=[receiver_agency_id], back_populates="received_documents", lazy="select")
-    calendar_events = relationship("DocumentCalendarEvent", back_populates="document", cascade="all, delete-orphan", passive_deletes=True)
-    attachments = relationship("DocumentAttachment", back_populates="document", cascade="all, delete-orphan", passive_deletes=True)
+    contract_project = relationship("ContractProject", back_populates="documents", lazy="joined")
+    sender_agency = relationship("GovernmentAgency", foreign_keys=[sender_agency_id], back_populates="sent_documents", lazy="joined")
+    receiver_agency = relationship("GovernmentAgency", foreign_keys=[receiver_agency_id], back_populates="received_documents", lazy="joined")
+    calendar_events = relationship("DocumentCalendarEvent", back_populates="document", cascade="all, delete-orphan", passive_deletes=True, lazy="selectin")
+    attachments = relationship("DocumentAttachment", back_populates="document", cascade="all, delete-orphan", passive_deletes=True, lazy="selectin")
 
 
 class DocumentAttachment(Base):
@@ -79,7 +79,7 @@ class DocumentAttachment(Base):
     storage_type = Column(String(20), default='local', comment="儲存類型: local/network/s3")
     original_name = Column(String(255), comment="原始檔案名稱")
     checksum = Column(String(64), index=True, comment="SHA256 校驗碼")
-    uploaded_by = Column(Integer, ForeignKey('users.id', ondelete="SET NULL"), comment="上傳者 ID")
+    uploaded_by = Column(Integer, ForeignKey('users.id', ondelete="SET NULL"), index=True, comment="上傳者 ID")
 
     created_at = Column(DateTime, server_default=func.now(), comment="建立時間")
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), comment="更新時間")

@@ -7,6 +7,7 @@ ConversationSummarizer 單元測試
 """
 
 import pytest
+from unittest.mock import AsyncMock, patch
 from app.services.ai.agent_summarizer import ConversationSummarizer
 
 
@@ -70,11 +71,13 @@ class TestGetEffectiveHistory:
 
     @pytest.mark.asyncio
     async def test_summarize_and_store_no_redis(self):
-        """無 Redis 時不報錯"""
+        """無 Redis 時不報錯 (mock 外部依賴避免全量測試 flaky)"""
         summarizer = ConversationSummarizer(trigger_turns=6)
         history = _make_history(10)
-        # Should not raise
-        await summarizer.summarize_and_store("test_session", history, None)
+        # Mock Redis 和 learning 持久化，避免全量測試時受其他模組影響
+        with patch.object(summarizer, "_get_redis", AsyncMock(return_value=None)), \
+             patch.object(summarizer, "extract_and_flush_learnings", AsyncMock()):
+            await summarizer.summarize_and_store("test_session", history, None)
 
 
 class TestSummarizerInit:

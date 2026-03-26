@@ -29,6 +29,7 @@ from app.services.ai.agent_synthesis import (
     AgentSynthesizer,
     summarize_tool_result,
 )
+from app.services.ai.agent_tool_loop import AgentToolLoop
 from app.services.ai.agent_roles import get_role_profile
 from app.services.ai.agent_trace import AgentTrace
 from app.services.ai.agent_router import AgentRouter
@@ -86,6 +87,11 @@ class AgentOrchestrator:
 
         # 自適應超時（預設值，會在 tool loop 中動態更新）
         self._adaptive_tool_timeout: float = float(self.config.agent_tool_timeout)
+
+        # 工具迴圈委派
+        self._tool_loop = AgentToolLoop(
+            self._tools, self._planner, self.config, self._adaptive_tool_timeout,
+        )
 
     async def _flush_trace_lightweight(self, trace: "AgentTrace") -> None:
         """輕量 trace 持久化 — 用於 chitchat/rate-limited/fallback 等短路路徑"""
@@ -456,7 +462,7 @@ class AgentOrchestrator:
             await self._flush_trace_lightweight(trace)
 
     # ========================================================================
-    # 工具迴圈（整體超時保護用）
+    # 工具迴圈（委派至 AgentToolLoop）
     # ========================================================================
 
     async def _execute_tool_loop(
@@ -471,212 +477,21 @@ class AgentOrchestrator:
         context: Optional[str] = None,
         trace: Optional[AgentTrace] = None,
     ) -> Dict[str, Any]:
-        """
-        執行工具迴圈（最多 MAX_ITERATIONS 輪）。
-
-        雙層評估策略：
-        1. 快速路徑：規則式 auto_correct（0ms，覆蓋常見情境）
-        2. 慢路徑：ReAct LLM 推理（~500ms，處理複雜場景）
-
-        SSE 事件即時推送至 event_queue，供 stream_agent_query 即時 yield。
-
-        Returns:
-            {"iterations": int, "step_index": int}
-        """
-        iterations = 0
-        memory = AgentWorkingMemory()
-
-        for iteration in range(self.config.agent_max_iterations):
-            iterations = iteration + 1
-
-            # Chain-of-Tools: 注入前輪結果中的 ID/名稱到本輪工具參數
-            if iteration > 0 and tool_results:
-                plan = enrich_plan_with_chain(plan, tool_results)
-
-            calls = plan.get("tool_calls", [])
-
-            # 過濾有效工具
-            valid_calls = [
-                c for c in calls if c.get("name", "") in VALID_TOOL_NAMES
-            ]
-            if not valid_calls:
-                break
-
-            if len(valid_calls) == 1:
-                # 單一工具 — 使用既有 session（省 session 開銷）
-                call = valid_calls[0]
-                tool_name = call.get("name", "")
-                params = call.get("params", {})
-
-                await event_queue.put(sse(
-                    type="tool_call",
-                    tool=tool_name,
-                    params=params,
-                    reasoning=call.get("reasoning", ""),  # Intent transparency
-                    step_index=step_index,
-                ))
-                step_index += 1
-
-                tool_span = trace.start_span(f"tool:{tool_name}") if trace else None
-                result = await self._execute_tool(tool_name, params)
-                success = "error" not in result
-                count = result.get("count", 0)
-                if tool_span:
-                    tool_span.finish(
-                        status="ok" if success else "error",
-                        count=count,
-                    )
-                if trace:
-                    trace.record_tool_call(tool_name, success, count)
-
-                summary = summarize_tool_result(tool_name, result)
-                await event_queue.put(sse(
-                    type="tool_result",
-                    tool=tool_name,
-                    summary=summary,
-                    count=count,
-                    step_index=step_index,
-                ))
-                step_index += 1
-
-                tool_results.append({
-                    "tool": tool_name,
-                    "params": params,
-                    "result": result,
-                })
-                tools_used.append(tool_name)
-                collect_sources(tool_name, result, all_sources)
-
-                # 更新工作記憶
-                memory.add_observation(
-                    tool_name, count, summary,
-                )
-            else:
-                # 多工具 — 並行執行（每工具獨立 db session）
-                for call in valid_calls:
-                    await event_queue.put(sse(
-                        type="tool_call",
-                        tool=call.get("name", ""),
-                        params=call.get("params", {}),
-                        reasoning=call.get("reasoning", ""),  # Intent transparency
-                        step_index=step_index,
-                    ))
-                    step_index += 1
-
-                results = await self._tools.execute_parallel(
-                    valid_calls, self._adaptive_tool_timeout,
-                )
-
-                for call, result in zip(valid_calls, results):
-                    tool_name = call.get("name", "")
-                    params = call.get("params", {})
-                    success = "error" not in result
-                    count = result.get("count", 0)
-                    if trace:
-                        trace.record_tool_call(tool_name, success, count)
-                    summary = summarize_tool_result(tool_name, result)
-                    await event_queue.put(sse(
-                        type="tool_result",
-                        tool=tool_name,
-                        summary=summary,
-                        count=count,
-                        step_index=step_index,
-                    ))
-                    step_index += 1
-
-                    tool_results.append({
-                        "tool": tool_name,
-                        "params": params,
-                        "result": result,
-                    })
-                    tools_used.append(tool_name)
-                    collect_sources(tool_name, result, all_sources)
-
-                    # 更新工作記憶
-                    memory.add_observation(
-                        tool_name, count, summary,
-                    )
-
-            # ── 雙層評估：快速路徑 → 慢路徑 ──
-
-            # Layer 1: 規則式 auto_correct（快速路徑，0ms）
-            replan = self._planner.evaluate_and_replan(question, tool_results)
-            if replan and replan.get("tool_calls"):
-                if trace:
-                    trace.record_correction(replan.get("reasoning", "auto_correct"))
-                await event_queue.put(sse(
-                    type="thinking",
-                    step=replan.get("reasoning", "自動修正中..."),
-                    step_index=step_index,
-                ))
-                step_index += 1
-                plan = replan
-                continue
-
-            # Layer 2: ReAct LLM 推理（慢路徑，僅在快速路徑未觸發時）
-            # 條件：結果不足（<3 筆）且尚有迭代配額
-            if (
-                memory.total_results < 3
-                and iteration < self.config.agent_max_iterations - 1
-            ):
-                react_plan = await self._planner.react(
-                    question, tool_results, memory, context=context,
-                )
-                if react_plan and react_plan.get("tool_calls"):
-                    if trace:
-                        trace.record_react(
-                            react_plan.get("action", "continue"),
-                            react_plan.get("confidence", 0),
-                        )
-                    await event_queue.put(sse(
-                        type="react",
-                        step=react_plan.get("reasoning", "深度推理中..."),
-                        confidence=react_plan.get("confidence", 0),
-                        action=react_plan.get("action", "continue"),
-                        step_index=step_index,
-                    ))
-                    step_index += 1
-                    plan = react_plan
-                    continue
-
-            # 兩層都未觸發 → 結果充分，結束迴圈
-            break
-
-        return {
-            "iterations": iterations,
-            "step_index": step_index,
-        }
-
-    # ========================================================================
-    # 工具執行
-    # ========================================================================
+        """委派至 AgentToolLoop.execute_loop"""
+        # 同步引用（允許測試 mock 替換 _tools/_planner）
+        self._tool_loop._tools = self._tools
+        self._tool_loop._planner = self._planner
+        return await self._tool_loop.execute_loop(
+            question, plan, tool_results, tools_used, all_sources,
+            step_index, event_queue, context=context, trace=trace,
+        )
 
     async def _execute_tool(
         self,
         tool_name: str,
         params: Dict[str, Any],
     ) -> Dict[str, Any]:
-        """執行單個工具，回傳結果 dict（含 ToolResultGuard 守衛 + 自適應超時）"""
-        try:
-            tt = self._adaptive_tool_timeout
-            result = await asyncio.wait_for(
-                self._tools.execute(tool_name, params),
-                timeout=tt,
-            )
-            return result
-        except asyncio.TimeoutError:
-            tt = self._adaptive_tool_timeout
-            logger.warning("Tool %s timed out (%.1fs)", tool_name, tt)
-            raw = {"error": f"工具執行超時 ({tt:.0f}s)", "count": 0}
-            if self.config.tool_guard_enabled:
-                from app.services.ai.agent_tools import ToolResultGuard
-                return ToolResultGuard.guard(tool_name, params, raw)
-            return raw
-        except Exception as e:
-            logger.error("Tool %s failed: %s", tool_name, e)
-            raw = {"error": "工具執行失敗", "count": 0}
-            if self.config.tool_guard_enabled:
-                from app.services.ai.agent_tools import ToolResultGuard
-                return ToolResultGuard.guard(tool_name, params, raw)
-            return raw
+        """委派至 AgentToolLoop.execute_tool (保留相容性)"""
+        self._tool_loop._tools = self._tools
+        return await self._tool_loop.execute_tool(tool_name, params)
 

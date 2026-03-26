@@ -21,14 +21,17 @@ from app.schemas.erp import (
     ERPQuotationListRequest, ERPProfitSummary, ERPProfitTrendItem,
 )
 from app.services.case_code_service import CaseCodeService
+from app.services.audit_mixin import AuditableServiceMixin
 
 logger = logging.getLogger(__name__)
 
 ZERO = Decimal("0")
 
 
-class ERPQuotationService:
+class ERPQuotationService(AuditableServiceMixin):
     """報價管理服務 — 損益計算核心"""
+
+    AUDIT_TABLE = "erp_quotations"
 
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -63,6 +66,7 @@ class ERPQuotationService:
 
         dump["created_by"] = user_id
         quotation = await self.repo.create(dump)
+        await self.audit_create(quotation.id, dump, user_id=user_id)
         return await self._to_response(quotation)
 
     async def get_detail(self, quotation_id: int) -> Optional[ERPQuotationResponse]:
@@ -74,14 +78,19 @@ class ERPQuotationService:
 
     async def update(self, quotation_id: int, data: ERPQuotationUpdate) -> Optional[ERPQuotationResponse]:
         """更新報價"""
-        quotation = await self.repo.update(quotation_id, data.model_dump(exclude_unset=True))
+        changes = data.model_dump(exclude_unset=True)
+        quotation = await self.repo.update(quotation_id, changes)
         if not quotation:
             return None
+        await self.audit_update(quotation_id, changes)
         return await self._to_response(quotation)
 
     async def delete(self, quotation_id: int) -> bool:
         """刪除報價"""
-        return await self.repo.delete(quotation_id)
+        result = await self.repo.delete(quotation_id)
+        if result:
+            await self.audit_delete(quotation_id)
+        return result
 
     async def list_quotations(self, params: ERPQuotationListRequest) -> Tuple[List[ERPQuotationResponse], int]:
         """報價列表 — 使用批次聚合消除 N+1 查詢"""

@@ -27,11 +27,12 @@ from app.repositories import AgencyRepository
 from app.services.base import DeleteCheckHelper
 from app.extended.models import GovernmentAgency, OfficialDocument
 from app.schemas.agency import AgencyCreate, AgencyUpdate
+from app.services.audit_mixin import AuditableServiceMixin
 
 logger = logging.getLogger(__name__)
 
 
-class AgencyService:
+class AgencyService(AuditableServiceMixin):
     """
     機關服務 - CRUD + 搜尋
 
@@ -39,6 +40,7 @@ class AgencyService:
     匹配功能: AgencyMatchingService
     """
 
+    AUDIT_TABLE = "government_agencies"
     SEARCH_FIELDS = ['agency_name', 'agency_short_name']
     DEFAULT_SORT_FIELD = 'agency_name'
 
@@ -98,12 +100,17 @@ class AgencyService:
         except Exception as e:
             logger.warning(f"Agency 回溯連結 NER 實體失敗: {e}")
 
+        await self.audit_create(agency.id, data.model_dump())
+
         return agency
 
     async def update(self, agency_id: int, data: AgencyUpdate) -> Optional[GovernmentAgency]:
         """更新機關"""
         update_data = data.model_dump(exclude_unset=True)
-        return await self.repository.update(agency_id, update_data)
+        result = await self.repository.update(agency_id, update_data)
+        if result:
+            await self.audit_update(agency_id, update_data)
+        return result
 
     async def delete(self, agency_id: int) -> bool:
         """
@@ -118,7 +125,10 @@ class AgencyService:
         )
         if not can_delete:
             raise ValueError(f"無法刪除，尚有 {usage_count} 筆公文與此機關關聯")
-        return await self.repository.delete(agency_id)
+        result = await self.repository.delete(agency_id)
+        if result:
+            await self.audit_delete(agency_id)
+        return result
 
     # =========================================================================
     # 搜尋

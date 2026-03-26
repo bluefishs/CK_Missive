@@ -11,9 +11,11 @@ Created: 2026-03-15
 import json
 import logging
 import os
+import time
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request
+from starlette.responses import Response
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,6 +28,26 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# ── 訊息去重快取 (防止 LINE 重發同一事件) ──
+_DEDUP_CACHE: dict[str, float] = {}
+_DEDUP_TTL = 10.0  # 10 秒內的重複事件忽略
+_DEDUP_MAX_SIZE = 500  # 快取上限
+
+
+def _is_duplicate_event(message_id: str) -> bool:
+    """檢查是否為重複訊息（LRU 風格去重）"""
+    now = time.time()
+    # 清理過期條目
+    if len(_DEDUP_CACHE) > _DEDUP_MAX_SIZE:
+        expired = [k for k, v in _DEDUP_CACHE.items() if now - v > _DEDUP_TTL]
+        for k in expired:
+            del _DEDUP_CACHE[k]
+    # 檢查重複
+    if message_id in _DEDUP_CACHE and now - _DEDUP_CACHE[message_id] < _DEDUP_TTL:
+        return True
+    _DEDUP_CACHE[message_id] = now
+    return False
+
 
 # ── Webhook ──
 
@@ -34,6 +56,7 @@ router = APIRouter()
 @limiter.limit("10/minute")
 async def line_webhook(
     request: Request,
+    response: Response,
     background_tasks: BackgroundTasks,
 ) -> WebhookResponse:
     """
@@ -63,7 +86,7 @@ async def line_webhook(
     except (json.JSONDecodeError, KeyError):
         return WebhookResponse()
 
-    # 派發訊息事件（文字 + 語音）
+    # 派發訊息事件（文字 + 語音 + 圖片）
     for event in events:
         if event.get("type") != "message":
             continue
@@ -74,6 +97,12 @@ async def line_webhook(
         user_id = event.get("source", {}).get("userId", "")
 
         if not reply_token or not user_id:
+            continue
+
+        # 訊息去重 (防止 LINE 重發同一事件)
+        msg_id = msg.get("id", "")
+        if msg_id and _is_duplicate_event(msg_id):
+            logger.debug("Duplicate LINE message ignored: %s", msg_id)
             continue
 
         if msg_type == "text":

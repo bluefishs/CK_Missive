@@ -28,6 +28,11 @@ from app.services.ai.agent_learning_injector import (
     cosine_similarity,
     inject_cross_session_learnings,
 )
+from app.services.ai.agent_plan_enricher import (
+    merge_hints_into_plan,
+    build_forced_calls,
+    build_fallback_plan,
+)
 from app.services.ai.agent_intent_preprocessor import (
     preprocess_question as _preprocess_question_impl,
 )
@@ -259,140 +264,14 @@ class AgentPlanner:
             logger.warning("Agent planning failed: %s", e)
             return self._build_fallback_plan(question, {})
 
-    # 統計問題關鍵字 — 只需 get_statistics，不需其他工具
-    _STATS_KEYWORDS = {"多少筆", "總數", "有幾筆", "幾筆", "共有", "共幾", "總共"}
+    # 委派至 agent_plan_enricher
 
-    def _merge_hints_into_plan(
-        self,
-        plan: Dict[str, Any],
-        hints: Dict[str, Any],
-        sanitized_q: str,
-    ) -> Dict[str, Any]:
-        """合併預處理 hints 到 LLM 生成的 plan"""
-        if not hints:
-            return plan
+    def _merge_hints_into_plan(self, plan, hints, sanitized_q):
+        return merge_hints_into_plan(plan, hints, sanitized_q)
 
-        # ── 統計快速路徑：「多少筆公文」只需 get_statistics ──
-        if any(kw in sanitized_q for kw in self._STATS_KEYWORDS):
-            plan["tool_calls"] = [{"name": "get_statistics", "params": {}}]
-            logger.info("統計快速路徑: 只用 get_statistics (問題含統計關鍵字)")
-            return plan
+    def _build_forced_calls(self, hints, sanitized_q):
+        return build_forced_calls(hints, sanitized_q)
 
-        # 補充 LLM 未抽取的欄位
-        if plan.get("tool_calls"):
-            for tc in plan["tool_calls"]:
-                if tc.get("name") == "search_documents":
-                    params = tc.get("params", {})
-                    for key in ("sender", "receiver", "doc_type", "date_from", "date_to", "status"):
-                        if key not in params and key in hints:
-                            params[key] = hints[key]
-                    # Keywords: 合併而非覆寫
-                    if "keywords" not in params and "keywords" in hints:
-                        params["keywords"] = hints["keywords"]
-                    elif "keywords" in params and "keywords" in hints:
-                        existing = set(params["keywords"])
-                        for kw in hints["keywords"]:
-                            if kw not in existing:
-                                params["keywords"].append(kw)
-                    tc["params"] = params
-
-            # 意圖偵測到 dispatch_order → 確保有 search_dispatch_orders 工具
-            has_dispatch_tool = any(
-                tc.get("name") == "search_dispatch_orders"
-                for tc in plan["tool_calls"]
-            )
-            if hints.get("related_entity") == "dispatch_order" and not has_dispatch_tool:
-                dispatch_params: Dict[str, Any] = {"limit": 10}
-                # 提取派工單號
-                dispatch_no_match = re.search(
-                    r"派工單[號]?\s*(\d{2,4})", sanitized_q
-                )
-                if dispatch_no_match:
-                    dispatch_params["dispatch_no"] = dispatch_no_match.group(1)
-                elif hints.get("keywords"):
-                    dispatch_params["search"] = " ".join(hints["keywords"])
-                plan["tool_calls"].insert(0, {
-                    "name": "search_dispatch_orders",
-                    "params": dispatch_params,
-                })
-                logger.info("Auto-injected search_dispatch_orders from intent hint")
-
-            # hints 有 keywords 但 plan 沒有 search_documents → 強制注入
-            has_search_doc = any(
-                tc.get("name") == "search_documents"
-                for tc in plan["tool_calls"]
-            )
-            if not has_search_doc and hints.get("keywords"):
-                plan["tool_calls"].insert(0, {
-                    "name": "search_documents",
-                    "params": {
-                        "keywords": hints["keywords"],
-                        **({"sender": hints["sender"]} if hints.get("sender") else {}),
-                        **({"receiver": hints["receiver"]} if hints.get("receiver") else {}),
-                        **({"doc_type": hints["doc_type"]} if hints.get("doc_type") else {}),
-                        **({"date_from": hints["date_from"]} if hints.get("date_from") else {}),
-                        **({"date_to": hints["date_to"]} if hints.get("date_to") else {}),
-                        "limit": 8,
-                    },
-                })
-                logger.info("Auto-injected search_documents from hints keywords: %s", hints["keywords"])
-
-        # ── 空計劃修復：LLM 回傳空 tool_calls 但 hints 有明確意圖 → 強制建構 ──
-        if not plan.get("tool_calls"):
-            forced_calls = self._build_forced_calls(hints, sanitized_q)
-            if forced_calls:
-                plan["tool_calls"] = forced_calls
-                logger.info(
-                    "Force-injected %d tool(s) from hints (LLM returned empty plan): %s",
-                    len(forced_calls),
-                    [tc["name"] for tc in forced_calls],
-                )
-
-        return plan
-
-    def _build_forced_calls(
-        self,
-        hints: Dict[str, Any],
-        sanitized_q: str,
-    ) -> List[Dict[str, Any]]:
-        """從 hints 建構強制工具呼叫（LLM 回傳空計劃時使用）"""
-        forced_calls: List[Dict[str, Any]] = []
-
-        # hints 指示 dispatch_order → 強制搜尋派工單
-        if hints.get("related_entity") == "dispatch_order":
-            dp: Dict[str, Any] = {"limit": 10}
-            dispatch_no_match = re.search(
-                r"派工單[號]?\s*(\d{2,4})", sanitized_q
-            )
-            if dispatch_no_match:
-                dp["dispatch_no"] = dispatch_no_match.group(1)
-            elif hints.get("keywords"):
-                dp["search"] = " ".join(hints["keywords"])
-            else:
-                dp["search"] = sanitized_q[:100]
-            forced_calls.append({
-                "name": "search_dispatch_orders",
-                "params": dp,
-            })
-
-        # hints 有 keywords 或篩選條件 → 同時搜尋公文
-        if hints.get("keywords") or any(
-            hints.get(k) for k in ("sender", "receiver", "doc_type", "date_from", "date_to")
-        ):
-            doc_params: Dict[str, Any] = {"limit": 10}
-            if hints.get("keywords"):
-                doc_params["keywords"] = hints["keywords"]
-            for key in ("sender", "receiver", "doc_type", "date_from", "date_to"):
-                if key in hints:
-                    doc_params[key] = hints[key]
-            forced_calls.append({
-                "name": "search_documents",
-                "params": doc_params,
-            })
-
-        return forced_calls
-
-    # Backward-compatible delegates for extracted methods
     _cosine_similarity = staticmethod(cosine_similarity)
 
     async def _build_adaptive_fewshot(self, question, db, context=None):
@@ -402,26 +281,8 @@ class AgentPlanner:
         return await inject_cross_session_learnings(question, db, self.config)
 
     @staticmethod
-    def _build_fallback_plan(
-        question: str,
-        hints: Dict[str, Any],
-    ) -> Dict[str, Any]:
-        """規劃失敗時的回退計劃"""
-        fallback_params: Dict[str, Any] = {"limit": 10}
-        if hints.get("keywords"):
-            fallback_params["keywords"] = hints["keywords"]
-        else:
-            fallback_params["keywords"] = [question]
-        for key in ("sender", "receiver", "doc_type", "date_from", "date_to"):
-            if key in hints:
-                fallback_params[key] = hints[key]
-
-        return {
-            "reasoning": "規劃失敗，使用預處理線索搜尋",
-            "tool_calls": [
-                {"name": "search_documents", "params": fallback_params},
-            ],
-        }
+    def _build_fallback_plan(question, hints):
+        return build_fallback_plan(question, hints)
 
     def evaluate_and_replan(
         self,

@@ -120,6 +120,94 @@
 
 ---
 
+## v5.2.3 多通道整合 — Discord Bot + Cloudflare Tunnel + ChannelAdapter (2026-03-25)
+
+### 新增模組
+
+| 模組 | 類型 | 說明 |
+|------|------|------|
+| `core/tunnel_guard.py` | Middleware | 外網路由守衛 (Cloudflare/ngrok aware, 111L) |
+| `services/discord_bot_service.py` | Service | Discord Bot Interactions Endpoint (212L) |
+| `services/channel_adapter.py` | Abstract | 統一通道抽象 LINE/Discord/Telegram (126L) |
+| `api/endpoints/discord_webhook.py` | API | Discord webhook + push (170L) |
+| `schemas/discord.py` | Schema | Discord Bot Schemas |
+| `services/ai/agent_tool_loop.py` | Service | Agent 工具迴圈 (拆分自 orchestrator, 273L) |
+| `configs/cloudflare-tunnel.yml` | Config | Cloudflare Tunnel 路由配置 |
+| `scripts/dev/start-tunnel.ps1` | Script | Tunnel 啟動腳本 (Cloudflare 優先, ngrok 回退) |
+
+### 優化項目
+
+| 項目 | 變更 | 說明 |
+|------|------|------|
+| `digital_twin_service.py` | v1.0→v1.1 | Dashboard asyncio.gather 並行化 + git branch 安全驗證 |
+| `agent_orchestrator.py` | 682→497L | 工具迴圈提取至 agent_tool_loop.py (-27%) |
+| `line_webhook.py` | +dedup | 訊息去重 (message_id, 10s TTL, 防 LINE 重發) |
+| `main.py` | +middleware | TunnelGuardMiddleware 註冊 |
+| `routes.py` | +router | Discord webhook router 註冊 |
+
+### 品質指標 (v5.2.3)
+
+| 維度 | 值 |
+|------|-----|
+| TypeScript | **0 errors** |
+| Backend Tests | **2792 passed** / 1 flaky / 6 skipped |
+| Orchestrator | **497L** (was 682L) |
+| 新增模組 | 8 files, 961L total |
+| 通道支援 | LINE + Discord (+ Telegram via OpenClaw) |
+
+---
+
+## v5.2.2 穩定化 — 數位分身拆分 + 審計 Mixin + FK 索引 + 元件輕量化 (2026-03-25)
+
+### 新增模組
+
+| 模組 | 類型 | 說明 |
+|------|------|------|
+| `services/ai/digital_twin_service.py` | Service | 數位分身業務邏輯 (337L, 從 endpoint 提取) |
+| `services/audit_mixin.py` | Mixin | CRUD 審計追蹤 Mixin (87L, 10 服務套用) |
+| `alembic/20260325a001` | Migration | 補齊 7 個 FK 索引 (calendar/core/document/erp/finance/invoice) |
+| `components/common/UnifiedTableFilters.tsx` | Component | 表格篩選器抽取 (246L, 從 UnifiedTable 拆分) |
+| `components/taoyuan/DispatchOrdersModals.tsx` | Component | 派工單 Modal 抽取 (143L) |
+| `components/taoyuan/ProjectsTabColumns.tsx` | Component | 專案欄位定義抽取 (189L) |
+| `pages/digitalTwin/` | Page子元件 | CapabilityRadarTab + ProfileCard + TraceWaterfallTab (489L) |
+| `scripts/checks/service-line-count-check.py` | Script | 後端服務行數監控 (>600L 警告) |
+
+### 新增測試
+
+| 檔案 | 說明 |
+|------|------|
+| `test_services/test_line_bot_service.py` | LINE Bot Service 單元測試 (104L) |
+| `test_services/test_digital_twin_endpoints.py` | 數位分身端點測試 |
+| `test_services/test_document_natural_search.py` | 文件自然語言搜尋測試 |
+| `test_services/test_pm_attachments.py` | PM 案件附件測試 |
+| `test_services/test_cross_domain_linker.py` | 跨域關聯器測試 |
+| `__tests__/pages/ERPExpensePages.test.tsx` | 費用報銷頁面前端測試 |
+| `__tests__/pages/ERPLedgerPages.test.tsx` | 統一帳本頁面前端測試 |
+
+### 重構 / 瘦身
+
+| 模組 | 變更 | 說明 |
+|------|------|------|
+| `digital_twin.py` (endpoint) | 626L 減量 | 業務邏輯遷移到 digital_twin_service.py |
+| `UnifiedTable.tsx` | -204L | 篩選邏輯抽取到 UnifiedTableFilters.tsx |
+| `DispatchOrdersTab.tsx` | -100L | Modal 抽取到 DispatchOrdersModals.tsx |
+| `ProjectsTab.tsx` | -175L | 欄位定義抽取到 ProjectsTabColumns.tsx |
+| `DigitalTwinPage.tsx` | -379L | 子元件拆分到 pages/digitalTwin/ |
+| 10 服務 | +audit_mixin | 統一審計追蹤 (agency/vendor/case_code/document/project/billing/invoice/quotation/vendor_payable/expense_invoice/finance_ledger) |
+
+### 品質指標 (v5.2.2)
+
+| 維度 | 值 |
+|------|-----|
+| TypeScript | **0 errors** |
+| Backend Tests | **2789 passed** / 4 failed / 6 skipped |
+| 前端元件 >500L | **0** (max: 499L) |
+| 後端非 AI 服務 >600L | **0** (max: 525L) |
+| 後端 AI 服務 >700L | **0** (max: 682L) |
+| FK 索引覆蓋 | **+7** (calendar/core/document/erp/finance/invoice) |
+
+---
+
 ## v5.1 ERP 財務模組 Phase 1~7-D + Agent Federation v2.0 (2026-03-22)
 
 ### 新增後端模組
@@ -562,4 +650,11 @@
 | `docs/SYSTEM_OPTIMIZATION_REPORT.md` | 系統優化報告 |
 | `docs/ALEMBIC_MIGRATION_GUIDE.md` | Alembic 遷移管理指南 |
 | `scripts/checks/verify_architecture.py` | 架構驗證腳本 (7 項自動化檢查) |
+| `scripts/checks/service-line-count-check.py` | 後端服務行數監控 (>600L 警告) |
+| `docs/LINE_OPENCLAW_OPERATIONAL_GUIDE.md` | LINE + OpenClaw 運維指南 |
+| `docs/LINE_BOT_SETUP_GUIDE.md` | LINE Bot 直連啟用指南 |
+| `docs/MULTICHANNEL_SETUP_GUIDE.md` | 多頻道部署指南 (Telegram + LINE) |
+| `backend/app/services/line_bot_service.py` | LINE Bot Service (直連模式) |
+| `backend/app/services/audit_mixin.py` | CRUD 審計 Mixin (10 服務套用) |
+| `backend/app/services/ai/digital_twin_service.py` | 數位分身 Service 層 |
 | `@AGENT.md` | 開發代理指引 |

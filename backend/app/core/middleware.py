@@ -20,9 +20,11 @@ request_id_var: ContextVar[str] = ContextVar("request_id", default="")
 class RequestIdMiddleware:
     """Add unique request ID to every request for distributed tracing.
 
-    - Accepts incoming ``X-Request-ID`` header (pass-through for upstream proxies).
+    - Accepts incoming ``X-Correlation-Id`` or ``X-Request-ID`` header
+      (pass-through for upstream proxies like NemoClaw/OpenClaw).
     - Falls back to a short uuid4 if none provided.
-    - Sets ``X-Request-ID`` response header so clients can correlate.
+    - Sets both ``X-Request-ID`` and ``X-Correlation-Id`` response headers
+      so clients and observability tools (Loki) can correlate across services.
     """
 
     def __init__(self, app):
@@ -33,9 +35,13 @@ class RequestIdMiddleware:
             await self.app(scope, receive, send)
             return
 
-        # Check for incoming X-Request-ID header, or generate new one
+        # Accept X-Correlation-Id (NemoClaw/OpenClaw) or X-Request-ID, or generate new
         headers = dict(scope.get("headers", []))
-        incoming_id = headers.get(b"x-request-id", b"").decode() or ""
+        incoming_id = (
+            headers.get(b"x-correlation-id", b"").decode()
+            or headers.get(b"x-request-id", b"").decode()
+            or ""
+        )
         rid = incoming_id or str(uuid.uuid4())[:8]
 
         token = request_id_var.set(rid)
@@ -44,6 +50,7 @@ class RequestIdMiddleware:
             if message["type"] == "http.response.start":
                 resp_headers = list(message.get("headers", []))
                 resp_headers.append((b"x-request-id", rid.encode()))
+                resp_headers.append((b"x-correlation-id", rid.encode()))
                 message["headers"] = resp_headers
             await send(message)
 

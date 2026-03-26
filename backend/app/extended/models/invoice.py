@@ -30,7 +30,7 @@ class ExpenseInvoice(Base):
     case_code = Column(String(50), nullable=True, index=True,
                        comment="案號 (軟參照 pm_cases / erp_quotations)，NULL=一般營運")
     user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"),
-                     nullable=True, comment="上傳者/報銷人")
+                     nullable=True, index=True, comment="上傳者/報銷人")
     vendor_id = Column(Integer, ForeignKey("partner_vendors.id", ondelete="SET NULL"),
                        nullable=True, index=True, comment="廠商 ID (由 seller_ban 自動配對)")
 

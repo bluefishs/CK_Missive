@@ -526,16 +526,26 @@ class TestGetStatistics:
         assert "未分類" in type_names
 
     @pytest.mark.asyncio
-    async def test_get_statistics_error_fallback(self, service):
-        """測試統計查詢失敗時回傳預設值"""
+    async def test_get_statistics_db_error_raises(self, service):
+        """測試統計查詢 DB 錯誤時向上拋出"""
         with patch(
             "app.services.vendor_service.StatisticsHelper.get_basic_stats",
             new_callable=AsyncMock,
             side_effect=Exception("DB error"),
         ):
+            with pytest.raises(Exception, match="DB error"):
+                await service.get_statistics()
+
+    @pytest.mark.asyncio
+    async def test_get_statistics_type_error_fallback(self, service):
+        """測試統計查詢資料轉換失敗時回傳預設值"""
+        with patch(
+            "app.services.vendor_service.StatisticsHelper.get_basic_stats",
+            new_callable=AsyncMock,
+            side_effect=TypeError("bad data"),
+        ):
             result = await service.get_statistics()
 
-        # 應回傳安全的預設值
         assert result["total_vendors"] == 0
         assert result["business_types"] == []
         assert result["average_rating"] == 0.0

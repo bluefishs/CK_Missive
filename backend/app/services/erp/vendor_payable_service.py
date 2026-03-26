@@ -14,12 +14,15 @@ from app.repositories.erp import ERPVendorPayableRepository, ERPQuotationReposit
 from app.repositories.vendor_repository import VendorRepository
 from app.schemas.erp import ERPVendorPayableCreate, ERPVendorPayableUpdate, ERPVendorPayableResponse
 from app.services.finance_ledger_service import FinanceLedgerService
+from app.services.audit_mixin import AuditableServiceMixin
 
 logger = logging.getLogger(__name__)
 
 
-class ERPVendorPayableService:
+class ERPVendorPayableService(AuditableServiceMixin):
     """廠商應付管理服務"""
+
+    AUDIT_TABLE = "erp_vendor_payables"
 
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -37,6 +40,7 @@ class ERPVendorPayableService:
                 vendor_code=create_data["vendor_code"]
             )
         payable = await self.repo.create(create_data)
+        await self.audit_create(payable.id, create_data)
         return ERPVendorPayableResponse.model_validate(payable)
 
     async def get_by_quotation(self, quotation_id: int) -> List[ERPVendorPayableResponse]:
@@ -82,6 +86,7 @@ class ERPVendorPayableService:
                 )
 
         await self.db.commit()
+        await self.audit_update(payable_id, update_data)
         return ERPVendorPayableResponse.model_validate(payable)
 
     async def _get_case_code(self, quotation_id: int) -> Optional[str]:
@@ -98,4 +103,7 @@ class ERPVendorPayableService:
 
     async def delete(self, payable_id: int) -> bool:
         """刪除廠商應付"""
-        return await self.repo.delete(payable_id)
+        result = await self.repo.delete(payable_id)
+        if result:
+            await self.audit_delete(payable_id)
+        return result

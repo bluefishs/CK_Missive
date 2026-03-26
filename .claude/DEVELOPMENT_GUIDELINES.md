@@ -887,4 +887,86 @@ BackgroundTaskManager.add_audit_task(
 
 ---
 
+---
+
+## Git Commit 粒度規範
+
+### 原則：一個 commit 做一件事
+
+每個 commit 應聚焦於單一邏輯變更。避免將多個不相關功能打包進同一 commit。
+
+### 良好範例
+
+```
+feat: PM 案件附件上傳功能
+fix: LINE OAuth state mismatch
+refactor: document_service 拆分 dispatch_linker
+perf: knowledge graph staleTime 5min + limit 150
+```
+
+### 應避免
+
+```
+# 不良：多個不相關變更混在一起
+feat: PM重定位 + 統一模板 + 委託單位 + 行事曆批次 + Code-graph
+```
+
+### 拆分策略
+
+| 情境 | 建議 |
+|------|------|
+| 新功能 + 相關測試 | 同一 commit (feat: xxx) |
+| 新功能 + 無關重構 | 分開 commit |
+| DB 遷移 + 對應 ORM | 同一 commit |
+| 前端頁面 + 後端 API | 可同一 commit (如果是同一功能) |
+| Bug 修復 + 順手重構 | 分開 commit |
+
+### 好處
+
+- `git bisect` 可精確定位 regression
+- Code review 更容易理解
+- Cherry-pick / revert 更安全
+- CHANGELOG 自動生成更精準
+
+---
+
+## 服務行數監控
+
+後端服務檔案行數閾值 **600L**，超過時 CI 會發出警告。
+
+```bash
+# 手動執行行數檢查
+python scripts/checks/service-line-count-check.py --threshold 600
+
+# CI 模式（超過閾值時失敗）
+python scripts/checks/service-line-count-check.py --threshold 600 --fail-on-warn
+```
+
+當服務超過 600L 時，考慮拆分策略：
+- 提取 helper/utility 到獨立模組
+- 將子功能拆分為 sub-service
+- 使用策略模式分離不同邏輯分支
+
+---
+
+## AuditableServiceMixin 使用規範
+
+新增/修改 Service 層 CRUD 操作時，應使用 `AuditableServiceMixin` 自動記錄審計日誌。
+
+```python
+from app.services.audit_mixin import AuditableServiceMixin
+
+class VendorService(AuditableServiceMixin):
+    AUDIT_TABLE = "partner_vendors"
+
+    async def create_vendor(self, data, user_id=None):
+        vendor = await self.repository.create(data)
+        await self.audit_create(vendor.id, data, user_id=user_id)
+        return vendor
+```
+
+已套用服務 (10 個): agency, vendor, case_code, document, project, billing, invoice, quotation, vendor_payable, expense_invoice, finance_ledger
+
+---
+
 💡 **記住**: 保持架構規範不僅讓專案更整潔，也讓團隊協作更順暢！

@@ -941,7 +941,7 @@
         }
       ],
       "unique_constraints": {},
-      "row_count_estimate": 9
+      "row_count_estimate": 887
     },
     "canonical_entities": {
       "columns": [
@@ -1452,6 +1452,10 @@
         {
           "name": "ix_contract_projects_case_code",
           "definition": "CREATE UNIQUE INDEX ix_contract_projects_case_code ON public.contract_projects USING btree (case_code)"
+        },
+        {
+          "name": "ix_contract_projects_client_agency_id",
+          "definition": "CREATE INDEX ix_contract_projects_client_agency_id ON public.contract_projects USING btree (client_agency_id)"
         }
       ],
       "unique_constraints": {
@@ -1459,7 +1463,7 @@
           "project_code"
         ]
       },
-      "row_count_estimate": 35
+      "row_count_estimate": 37
     },
     "document_ai_analyses": {
       "columns": [
@@ -1784,10 +1788,14 @@
         {
           "name": "idx_document_attachments_uploaded_by",
           "definition": "CREATE INDEX idx_document_attachments_uploaded_by ON public.document_attachments USING btree (uploaded_by)"
+        },
+        {
+          "name": "ix_document_attachments_uploaded_by",
+          "definition": "CREATE INDEX ix_document_attachments_uploaded_by ON public.document_attachments USING btree (uploaded_by)"
         }
       ],
       "unique_constraints": {},
-      "row_count_estimate": 906
+      "row_count_estimate": 935
     },
     "document_calendar_events": {
       "columns": [
@@ -1962,10 +1970,18 @@
         {
           "name": "ix_document_calendar_events_google_event_id",
           "definition": "CREATE INDEX ix_document_calendar_events_google_event_id ON public.document_calendar_events USING btree (google_event_id)"
+        },
+        {
+          "name": "ix_document_calendar_events_assigned_user_id",
+          "definition": "CREATE INDEX ix_document_calendar_events_assigned_user_id ON public.document_calendar_events USING btree (assigned_user_id)"
+        },
+        {
+          "name": "ix_document_calendar_events_created_by",
+          "definition": "CREATE INDEX ix_document_calendar_events_created_by ON public.document_calendar_events USING btree (created_by)"
         }
       ],
       "unique_constraints": {},
-      "row_count_estimate": 734
+      "row_count_estimate": 815
     },
     "document_chunks": {
       "columns": [
@@ -3502,6 +3518,10 @@
         {
           "name": "ix_erp_quotations_project_code",
           "definition": "CREATE INDEX ix_erp_quotations_project_code ON public.erp_quotations USING btree (project_code)"
+        },
+        {
+          "name": "ix_erp_quotations_created_by",
+          "definition": "CREATE INDEX ix_erp_quotations_created_by ON public.erp_quotations USING btree (created_by)"
         }
       ],
       "unique_constraints": {},
@@ -4143,6 +4163,10 @@
         {
           "name": "ix_expense_invoices_vendor_id",
           "definition": "CREATE INDEX ix_expense_invoices_vendor_id ON public.expense_invoices USING btree (vendor_id)"
+        },
+        {
+          "name": "ix_expense_invoices_user_id",
+          "definition": "CREATE INDEX ix_expense_invoices_user_id ON public.expense_invoices USING btree (user_id)"
         }
       ],
       "unique_constraints": {},
@@ -4286,6 +4310,10 @@
         {
           "name": "ix_finance_ledgers_vendor_id",
           "definition": "CREATE INDEX ix_finance_ledgers_vendor_id ON public.finance_ledgers USING btree (vendor_id)"
+        },
+        {
+          "name": "ix_finance_ledgers_user_id",
+          "definition": "CREATE INDEX ix_finance_ledgers_user_id ON public.finance_ledgers USING btree (user_id)"
         }
       ],
       "unique_constraints": {},

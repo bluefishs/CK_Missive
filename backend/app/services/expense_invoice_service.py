@@ -10,13 +10,16 @@ from app.schemas.erp.expense import (
 )
 from app.repositories.erp.expense_invoice_repository import ExpenseInvoiceRepository
 from app.services.finance_ledger_service import FinanceLedgerService
+from app.services.audit_mixin import AuditableServiceMixin
 
 import logging
 
 logger = logging.getLogger(__name__)
 
-class ExpenseInvoiceService:
+class ExpenseInvoiceService(AuditableServiceMixin):
     """費用報銷發票業務服務層"""
+
+    AUDIT_TABLE = "expense_invoices"
 
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -73,7 +76,15 @@ class ExpenseInvoiceService:
                     amount=item_in.amount
                 ))
 
-        return await self.repo.create_with_items(invoice, items)
+        result = await self.repo.create_with_items(invoice, items)
+        await self.audit_create(result.id, {
+            "inv_num": data.inv_num,
+            "amount": str(data.amount),
+            "case_code": data.case_code,
+            "category": data.category,
+            "source": data.source,
+        }, user_id=user_id)
+        return result
 
     async def get_by_id(self, invoice_id: int) -> Optional[ExpenseInvoice]:
         """取得發票詳情"""
@@ -85,7 +96,10 @@ class ExpenseInvoiceService:
         if not invoice:
             return None
         update_data = data.model_dump(exclude_unset=True) if hasattr(data, 'model_dump') else data
-        return await self.repo.update_fields(invoice, update_data)
+        result = await self.repo.update_fields(invoice, update_data)
+        if result:
+            await self.audit_update(invoice_id, update_data)
+        return result
 
     async def approve(self, invoice_id: int) -> Optional[ExpenseInvoice]:
         """多層審核推進 — 依金額門檻自動決定下一狀態
@@ -135,6 +149,7 @@ class ExpenseInvoiceService:
 
         # 將預算警告附加為動態屬性，API 層可讀取
         invoice._budget_warning = budget_warning  # type: ignore[attr-defined]
+        await self.audit_update(invoice_id, {"status": next_status, "action": "approve"})
         return invoice
 
     async def _resolve_vendor_by_ban(self, seller_ban: str) -> Optional[int]:
@@ -265,7 +280,10 @@ class ExpenseInvoiceService:
             raise ValueError(f"狀態「{invoice.status}」不允許駁回")
 
         notes_append = f"[駁回] {reason}" if reason else None
-        return await self.repo.update_status(invoice, "rejected", notes_append=notes_append)
+        result = await self.repo.update_status(invoice, "rejected", notes_append=notes_append)
+        if result:
+            await self.audit_update(invoice_id, {"status": "rejected", "action": "reject", "reason": reason})
+        return result
 
     def parse_qr_data(self, raw_qr: str) -> dict:
         """解析台灣電子發票 QR Code 資料

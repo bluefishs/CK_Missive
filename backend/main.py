@@ -294,6 +294,10 @@ app.add_middleware(SecurityHeadersMiddleware)
 from app.core.csrf import CSRFMiddleware
 app.add_middleware(CSRFMiddleware)
 
+# --- 🛡️ Tunnel 路由守衛 (v5.2.2) ---
+from app.core.tunnel_guard import TunnelGuardMiddleware
+app.add_middleware(TunnelGuardMiddleware)
+
 # --- 🔍 Request ID 追蹤中間件 (v1.83.0) ---
 # 最後加入 = 最外層執行，確保所有中間件/端點都能存取 request_id
 app.add_middleware(RequestIdMiddleware)

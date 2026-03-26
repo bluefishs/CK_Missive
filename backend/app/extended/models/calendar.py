@@ -19,18 +19,18 @@ class DocumentCalendarEvent(Base):
     event_type = Column(String(100), default='reminder', comment="事件類型")
     priority = Column(String(50), default='normal', comment="優先級")
     location = Column(String(200), comment="地點")
-    assigned_user_id = Column(Integer, ForeignKey('users.id'), comment="指派使用者ID")
-    created_by = Column(Integer, ForeignKey('users.id'), comment="建立者ID")
+    assigned_user_id = Column(Integer, ForeignKey('users.id'), index=True, comment="指派使用者ID")
+    created_by = Column(Integer, ForeignKey('users.id'), index=True, comment="建立者ID")
     created_at = Column(DateTime, server_default=func.now(), comment="建立時間")
     updated_at = Column(DateTime, server_default=func.now(), comment="更新時間")
     status = Column(String(50), default='pending', comment="事件狀態: pending/completed/cancelled")
     google_event_id = Column(String(255), nullable=True, index=True, comment="Google Calendar 事件 ID")
     google_sync_status = Column(String(50), default='pending', comment="同步狀態: pending/synced/failed")
 
-    document = relationship("OfficialDocument", back_populates="calendar_events")
-    assigned_user = relationship("User", foreign_keys=[assigned_user_id])
-    creator = relationship("User", foreign_keys=[created_by])
-    reminders = relationship("EventReminder", back_populates="event", cascade="all, delete-orphan")
+    document = relationship("OfficialDocument", back_populates="calendar_events", lazy="joined")
+    assigned_user = relationship("User", foreign_keys=[assigned_user_id], lazy="joined")
+    creator = relationship("User", foreign_keys=[created_by], lazy="joined")
+    reminders = relationship("EventReminder", back_populates="event", cascade="all, delete-orphan", lazy="selectin")
 
 
 class EventReminder(Base):

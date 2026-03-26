@@ -65,7 +65,7 @@ class ContractProject(Base):
     warranty_end_date = Column(Date, comment="保固結束日期")
     contact_person = Column(String(100), comment="聯絡人")
     contact_phone = Column(String(50), comment="聯絡電話")
-    client_agency_id = Column(Integer, ForeignKey('government_agencies.id'), nullable=True, comment="委託機關ID")
+    client_agency_id = Column(Integer, ForeignKey('government_agencies.id'), nullable=True, index=True, comment="委託機關ID")
     agency_contact_person = Column(String(100), comment="機關承辦人")
     agency_contact_phone = Column(String(50), comment="機關承辦電話")
     agency_contact_email = Column(String(100), comment="機關承辦Email")
@@ -73,8 +73,8 @@ class ContractProject(Base):
     client_type = Column(String(20), server_default='agency', comment='委託來源: agency=機關 vendor=廠商 other=其他')
 
     # 關聯關係
-    documents = relationship("OfficialDocument", back_populates="contract_project")
-    client_agency_ref = relationship("GovernmentAgency", foreign_keys=[client_agency_id])
+    documents = relationship("OfficialDocument", back_populates="contract_project", lazy="selectin")
+    client_agency_ref = relationship("GovernmentAgency", foreign_keys=[client_agency_id], lazy="joined")
 
 
 class GovernmentAgency(Base):
