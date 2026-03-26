@@ -80,6 +80,10 @@ api_router.include_router(line_webhook.router, prefix="/line", tags=["LINE Bot"]
 from app.api.endpoints import discord_webhook
 api_router.include_router(discord_webhook.router, prefix="/discord", tags=["Discord Bot"])
 
+# --- 數位分身 (v5.2.3) ---
+from app.api.endpoints.ai import digital_twin
+api_router.include_router(digital_twin.router, prefix="/ai", tags=["數位分身"])
+
 # --- 專案管理模組 (PM, v1.85.0) ---
 from app.api.endpoints.pm import router as pm_router
 api_router.include_router(pm_router, prefix="/pm", tags=["專案管理"])
