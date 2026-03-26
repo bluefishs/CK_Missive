@@ -203,7 +203,7 @@ export const AgentPerformanceTab: React.FC = () => {
             <Table
               dataSource={toolRegistry.tools}
               columns={registryColumns}
-              rowKey="name"
+              rowKey={(record, idx) => `${record.name}-${idx}`}
               size="small"
               pagination={false}
               scroll={{ x: 730 }}
@@ -292,7 +292,7 @@ export const AgentPerformanceTab: React.FC = () => {
                       <Statistic
                         title={type}
                         value={count as number}
-                        valueStyle={{ fontSize: 20 }}
+                        styles={{ content: { fontSize: 20 } }}
                       />
                     </Col>
                   ))}

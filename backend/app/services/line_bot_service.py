@@ -22,22 +22,23 @@ import logging
 import os
 from typing import Optional
 
-import uuid
-from pathlib import Path
-
 import httpx
+
+from app.services.line_flex_builder import (
+    build_agent_reply_flex,
+    build_deadline_flex,
+    build_quick_reply_items,
+)
+from app.services.line_image_handler import (
+    download_line_content,
+    format_ocr_reply,
+    try_create_expense_from_ocr,
+)
 
 logger = logging.getLogger(__name__)
 
 # LINE API base URL
 LINE_API_BASE = "https://api.line.me/v2/bot"
-LINE_DATA_API_BASE = "https://api-data.line.me/v2/bot"
-
-# 收據影像儲存目錄 (與 einvoice_sync.py 共用)
-RECEIPT_UPLOAD_DIR = Path(os.getenv("RECEIPT_UPLOAD_DIR", "uploads/receipts"))
-
-# 支援的圖片格式
-ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 
 class LineBotService:
@@ -84,175 +85,29 @@ class LineBotService:
     ) -> None:
         """
         處理圖片訊息：下載圖片 → OCR 辨識發票 → 回覆解析結果。
-
-        流程：
-        1. 從 LINE Content API 下載圖片
-        2. Tesseract OCR 辨識 (免費本地)
-        3. 提取發票號碼/金額/日期/統編
-        4. 回覆辨識結果
-
         在 BackgroundTask 中執行。
         """
         try:
-            # 1. 下載圖片
-            file_path = await self._download_line_content(message_id)
+            file_path = await download_line_content(message_id, self._channel_access_token)
             if not file_path:
                 await self.reply_message(reply_token, "圖片下載失敗，請重新傳送。")
                 return
 
-            # 2. OCR 辨識
             from app.services.invoice_ocr_service import InvoiceOCRService
 
             ocr_service = InvoiceOCRService()
             result = ocr_service.parse_image(str(file_path))
 
-            # 3. 組裝回覆訊息
-            if result.inv_num:
-                lines = [
-                    "📄 發票辨識結果",
-                    f"發票號碼：{result.inv_num}",
-                ]
-                if result.date:
-                    lines.append(f"日期：{result.date.strftime('%Y-%m-%d')}")
-                if result.amount:
-                    lines.append(f"金額：NT$ {result.amount:,.0f}")
-                if result.tax_amount:
-                    lines.append(f"稅額：NT$ {result.tax_amount:,.0f}")
-                if result.seller_ban:
-                    lines.append(f"賣方統編：{result.seller_ban}")
-                if result.buyer_ban:
-                    lines.append(f"買方統編：{result.buyer_ban}")
+            expense_msg = await try_create_expense_from_ocr(
+                user_id, result, str(file_path)
+            ) if result.inv_num else None
 
-                lines.append(f"信心度：{result.confidence:.0%}")
-
-                # 4. 嘗試建立費用紀錄 (需要 LINE user → system user 對應)
-                expense_msg = await self._try_create_expense_from_ocr(
-                    user_id, result, str(file_path)
-                )
-                if expense_msg:
-                    lines.append("")
-                    lines.append(expense_msg)
-
-                if result.warnings:
-                    lines.append("")
-                    lines.append("⚠️ " + "、".join(result.warnings))
-
-                reply = "\n".join(lines)
-            else:
-                reply = (
-                    "📄 未能辨識發票資訊\n\n"
-                    "請確認：\n"
-                    "• 拍攝清晰、光線充足\n"
-                    "• 發票完整入鏡\n"
-                    "• 避免反光或模糊\n"
-                )
-                if result.warnings:
-                    reply += "\n⚠️ " + "、".join(result.warnings)
-
+            reply = format_ocr_reply(result, expense_msg)
             await self.reply_message(reply_token, reply)
 
         except Exception as e:
             logger.error("LINE image processing failed: %s", e, exc_info=True)
             await self.reply_message(reply_token, "圖片處理時發生錯誤，請重新傳送。")
-
-    async def _download_line_content(self, message_id: str) -> Optional[Path]:
-        """從 LINE Content API 下載檔案"""
-        RECEIPT_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-
-        try:
-            async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.get(
-                    f"{LINE_DATA_API_BASE}/message/{message_id}/content",
-                    headers={
-                        "Authorization": f"Bearer {self._channel_access_token}",
-                    },
-                )
-                if resp.status_code != 200:
-                    logger.warning(
-                        "LINE content download failed: %d", resp.status_code
-                    )
-                    return None
-
-                # 從 Content-Type 判斷副檔名
-                content_type = resp.headers.get("content-type", "image/jpeg")
-                ext_map = {
-                    "image/jpeg": ".jpg",
-                    "image/png": ".png",
-                    "image/webp": ".webp",
-                }
-                ext = ext_map.get(content_type, ".jpg")
-
-                filename = f"line_{uuid.uuid4().hex}{ext}"
-                file_path = RECEIPT_UPLOAD_DIR / filename
-
-                file_path.write_bytes(resp.content)
-                logger.info("LINE image saved: %s (%d bytes)", filename, len(resp.content))
-                return file_path
-
-        except Exception as e:
-            logger.error("LINE content download error: %s", e)
-            return None
-
-    async def _try_create_expense_from_ocr(
-        self,
-        line_user_id: str,
-        ocr_result: "InvoiceOCRResult",
-        image_path: str,
-    ) -> Optional[str]:
-        """嘗試用 OCR 結果建立費用紀錄 (需要 LINE user → system user 對應)"""
-        if not ocr_result.inv_num or not ocr_result.amount:
-            return None
-
-        try:
-            from app.db.database import AsyncSessionLocal
-            from sqlalchemy import select
-            from app.extended.models import User
-
-            async with AsyncSessionLocal() as db:
-                # 找到 LINE user 對應的系統使用者
-                result = await db.execute(
-                    select(User).where(User.line_user_id == line_user_id)
-                )
-                user = result.scalars().first()
-
-                if not user:
-                    return "💡 請先在系統中綁定 LINE 帳號，即可自動建立費用紀錄。"
-
-                # 檢查發票號碼是否已存在
-                from app.services.expense_invoice_service import ExpenseInvoiceService
-
-                expense_service = ExpenseInvoiceService(db)
-
-                # 建立相對路徑 (receipts/line_xxx.jpg)
-                relative_path = f"receipts/{Path(image_path).name}"
-
-                from app.schemas.erp.expense import ExpenseInvoiceCreate
-                from datetime import date as date_cls
-
-                create_data = ExpenseInvoiceCreate(
-                    inv_num=ocr_result.inv_num,
-                    amount=ocr_result.amount,
-                    tax_amount=ocr_result.tax_amount,
-                    date=ocr_result.date or date_cls.today(),
-                    buyer_ban=ocr_result.buyer_ban or "",
-                    seller_ban=ocr_result.seller_ban or "",
-                    category="其他",
-                    source="line_upload",
-                    receipt_image_path=relative_path,
-                )
-
-                try:
-                    expense = await expense_service.create(create_data, user_id=user.id)
-                    return f"✅ 費用紀錄已建立 (ID: {expense.get('id', '?')})"
-                except ValueError as e:
-                    err_msg = str(e)
-                    if "已存在" in err_msg:
-                        return f"ℹ️ 發票 {ocr_result.inv_num} 已存在系統中。"
-                    return f"⚠️ 建立失敗：{err_msg}"
-
-        except Exception as e:
-            logger.warning("Auto-create expense from LINE failed: %s", e)
-            return None
 
     async def handle_audio_message(
         self,
@@ -328,13 +183,14 @@ class LineBotService:
         text: str,
     ) -> None:
         """
-        處理文字訊息：呼叫 AgentOrchestrator → 回覆 LINE。
+        處理文字訊息：呼叫 AgentOrchestrator → Flex Message 回覆 LINE。
 
         使用獨立 DB session（因為此方法在 BackgroundTask 中執行）。
         """
+        tools_used = []
         try:
             answer = await asyncio.wait_for(
-                self._query_agent(user_id, text),
+                self._query_agent(user_id, text, tools_used),
                 timeout=self._reply_timeout,
             )
         except asyncio.TimeoutError:
@@ -344,13 +200,24 @@ class LineBotService:
             answer = "處理時發生錯誤，請稍後再試。"
             logger.error("LINE agent query failed: %s", e)
 
-        # LINE 文字訊息上限 5000 字
-        if len(answer) > 5000:
-            answer = answer[:4990] + "\n...(已截斷)"
+        # Flex Message 回覆 (含工具摘要 + Quick Reply)
+        if tools_used and len(answer) > 60:
+            flex = build_agent_reply_flex(text, answer[:4000], tools_used)
+            quick = build_quick_reply_items(["還有其他結果嗎？", "請幫我整理重點", "查詢相關案件"])
+            success = await self.reply_flex(reply_token, flex, alt_text=answer[:400])
+            if not success:
+                # 回退到純文字
+                if len(answer) > 5000:
+                    answer = answer[:4990] + "\n...(已截斷)"
+                await self.reply_message(reply_token, answer)
+        else:
+            if len(answer) > 5000:
+                answer = answer[:4990] + "\n...(已截斷)"
+            await self.reply_message(reply_token, answer)
 
-        await self.reply_message(reply_token, answer)
-
-    async def _query_agent(self, user_id: str, text: str) -> str:
+    async def _query_agent(
+        self, user_id: str, text: str, tools_used: list = None,
+    ) -> str:
         """呼叫 AgentOrchestrator 取得回答（含 Redis 對話記憶）"""
         from app.db.database import AsyncSessionLocal
         from app.services.ai.agent_orchestrator import AgentOrchestrator
@@ -358,13 +225,11 @@ class LineBotService:
 
         session_id = f"line:{user_id}"
 
-        # Load conversation history from Redis
         conv_memory = get_conversation_memory()
         history = await conv_memory.load(session_id)
 
         async with AsyncSessionLocal() as db:
             orchestrator = AgentOrchestrator(db)
-
             answer_tokens = []
 
             async for event_str in orchestrator.stream_agent_query(
@@ -382,14 +247,16 @@ class LineBotService:
                 event_type = event.get("type")
                 if event_type == "token":
                     answer_tokens.append(event.get("token", ""))
+                elif event_type == "tool_call" and tools_used is not None:
+                    tool_name = event.get("tool", "")
+                    if tool_name and tool_name not in tools_used:
+                        tools_used.append(tool_name)
                 elif event_type == "error":
                     return event.get("error", "查詢失敗")
 
             answer = "".join(answer_tokens) or "無法產生回答，請換個方式提問。"
 
-        # Save Q&A to conversation memory
         await conv_memory.save(session_id, text, answer, history)
-
         return answer
 
     async def reply_message(self, reply_token: str, text: str) -> bool:
@@ -417,20 +284,42 @@ class LineBotService:
 
         return await self._call_line_api("/message/push", payload)
 
+    async def reply_flex(self, reply_token: str, flex: dict, alt_text: str = "訊息") -> bool:
+        """使用 Flex Message 回覆 (卡片式訊息)"""
+        payload = {
+            "replyToken": reply_token,
+            "messages": [{"type": "flex", "altText": alt_text, "contents": flex}],
+        }
+        return await self._call_line_api("/message/reply", payload)
+
+    async def push_flex(self, user_id: str, flex: dict, alt_text: str = "訊息") -> bool:
+        """主動推播 Flex Message"""
+        payload = {
+            "to": user_id,
+            "messages": [{"type": "flex", "altText": alt_text, "contents": flex}],
+        }
+        return await self._call_line_api("/message/push", payload)
+
+    async def reply_quick(self, reply_token: str, text: str, quick_items: list) -> bool:
+        """回覆附帶 Quick Reply 按鈕"""
+        payload = {
+            "replyToken": reply_token,
+            "messages": [{
+                "type": "text", "text": text,
+                "quickReply": {"items": quick_items},
+            }],
+        }
+        return await self._call_line_api("/message/reply", payload)
+
     async def push_deadline_reminder(
         self,
         user_id: str,
         doc_subject: str,
         deadline: str,
     ) -> bool:
-        """推播截止日提醒"""
-        message = (
-            f"📋 公文截止提醒\n\n"
-            f"主旨：{doc_subject}\n"
-            f"截止日：{deadline}\n\n"
-            f"請儘速處理。"
-        )
-        return await self.push_message(user_id, message)
+        """推播截止日提醒 (Flex Message 卡片)"""
+        flex = build_deadline_flex(doc_subject, deadline)
+        return await self.push_flex(user_id, flex, alt_text=f"公文截止提醒: {doc_subject[:30]}")
 
     async def _call_line_api(self, path: str, payload: dict) -> bool:
         """呼叫 LINE Messaging API"""
@@ -469,3 +358,5 @@ def get_line_bot_service() -> LineBotService:
     if _service is None:
         _service = LineBotService()
     return _service
+
+

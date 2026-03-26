@@ -7,6 +7,8 @@ ToolSuccessMonitor 單元測試
 - 降級策略邏輯
 """
 
+from unittest.mock import patch, AsyncMock
+
 import pytest
 from app.services.ai.agent_tool_monitor import ToolStats, ToolSuccessMonitor
 
@@ -78,7 +80,8 @@ class TestToolSuccessMonitorInit:
     @pytest.mark.asyncio
     async def test_get_degraded_tools_no_redis_returns_empty(self):
         monitor = ToolSuccessMonitor()
-        assert await monitor.get_degraded_tools() == set()
+        with patch.object(monitor, '_get_redis', new_callable=AsyncMock, return_value=None):
+            assert await monitor.get_degraded_tools() == set()
 
     @pytest.mark.asyncio
     async def test_get_all_stats_returns_dict(self):

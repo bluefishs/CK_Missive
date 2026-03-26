@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { logger } from '../services/logger';
 import { ResponsiveContent } from '@ck-shared/ui-components';
-import { Typography, Space, Button, Divider, App } from 'antd';
+import { Typography, Space, Button, Divider, App, Alert } from 'antd';
 import { SettingOutlined, ReloadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -36,6 +36,7 @@ const AdminDashboardPage: React.FC = () => {
   const {
     data: usersData,
     isLoading: usersLoading,
+    isError: usersError,
     refetch: refetchUsers,
   } = useQuery({
     queryKey: ['admin-dashboard', 'users'],
@@ -49,6 +50,7 @@ const AdminDashboardPage: React.FC = () => {
   // React Query: fetch document efficiency
   const {
     data: efficiency,
+    isError: efficiencyError,
     refetch: refetchEfficiency,
   } = useQuery({
     queryKey: ['admin-dashboard', 'efficiency'],
@@ -198,6 +200,9 @@ const AdminDashboardPage: React.FC = () => {
   return (
     <ResponsiveContent maxWidth="full" padding="medium">
       <Space vertical style={{ width: '100%' }} size="large">
+        {(usersError || efficiencyError) && (
+          <Alert type="warning" showIcon closable title="部分資料載入失敗，顯示內容可能不完整" />
+        )}
         {/* Page header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>

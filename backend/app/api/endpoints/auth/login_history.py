@@ -12,7 +12,7 @@ import logging
 
 from fastapi import APIRouter, Depends, Query, Request
 from starlette.responses import Response
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.rate_limiter import limiter
@@ -60,18 +60,18 @@ async def get_login_history(
         SELECT COUNT(*) FROM audit_logs
         WHERE table_name = :table_name
           AND record_id = :record_id
-          AND action = ANY(:actions)
-    """)
+          AND action IN :actions
+    """).bindparams(bindparam("actions", expanding=True))
 
     data_query = text("""
         SELECT id, action, changes, ip_address, created_at
         FROM audit_logs
         WHERE table_name = :table_name
           AND record_id = :record_id
-          AND action = ANY(:actions)
+          AND action IN :actions
         ORDER BY created_at DESC
         LIMIT :limit OFFSET :offset
-    """)
+    """).bindparams(bindparam("actions", expanding=True))
 
     params = {
         "table_name": "auth_events",
@@ -162,36 +162,38 @@ async def get_admin_login_history(
 
     offset = (page - 1) * page_size
 
-    # 基礎條件
-    where_clauses = ["table_name = :table_name", "action IN :actions"]
+    # 固定 SQL 模板 — 可選條件透過參數化 NULL 判斷控制
+    # 避免 f-string 拼接 WHERE 子句
     params: dict = {
         "table_name": "auth_events",
         "actions": list(ALLOWED_AUTH_ACTIONS),
         "limit": page_size,
         "offset": offset,
+        "filter_user_id": user_id,         # None = 不篩選
+        "filter_auth_provider": auth_provider,  # None = 不篩選
     }
 
-    # 可選：篩選特定使用者
-    if user_id is not None:
-        where_clauses.append("record_id = :record_id")
-        params["record_id"] = user_id
+    count_query = text("""
+        SELECT COUNT(*) FROM audit_logs
+        WHERE table_name = :table_name
+          AND action IN :actions
+          AND (:filter_user_id::int IS NULL OR record_id = :filter_user_id)
+          AND (:filter_auth_provider::text IS NULL
+               OR (changes IS NOT NULL AND changes::jsonb ->> 'auth_provider' = :filter_auth_provider))
+    """).bindparams(bindparam("actions", expanding=True))
 
-    # 可選：篩選登入方式 (PostgreSQL JSON 運算子)
-    if auth_provider:
-        where_clauses.append("changes::jsonb ->> 'auth_provider' = :auth_provider")
-        params["auth_provider"] = auth_provider
-
-    where_sql = " AND ".join(where_clauses)
-
-    count_query = text(f"SELECT COUNT(*) FROM audit_logs WHERE {where_sql}")
-    data_query = text(f"""
+    data_query = text("""
         SELECT a.id, a.action, a.changes, a.ip_address, a.created_at,
                a.record_id, a.user_name
         FROM audit_logs a
-        WHERE {where_sql}
+        WHERE a.table_name = :table_name
+          AND a.action IN :actions
+          AND (:filter_user_id::int IS NULL OR a.record_id = :filter_user_id)
+          AND (:filter_auth_provider::text IS NULL
+               OR (a.changes IS NOT NULL AND a.changes::jsonb ->> 'auth_provider' = :filter_auth_provider))
         ORDER BY a.created_at DESC
         LIMIT :limit OFFSET :offset
-    """)
+    """).bindparams(bindparam("actions", expanding=True))
 
     count_result = await db.execute(count_query, params)
     total = count_result.scalar() or 0

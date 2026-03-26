@@ -30,12 +30,12 @@ export const AgentAlertsCard: React.FC<AgentAlertsCardProps> = ({ alerts }) => {
             <Statistic
               title={severity}
               value={count}
-              valueStyle={{
+              styles={{ content: {
                 color: severity === 'critical' ? '#f5222d'
                   : severity === 'warning' ? '#faad14'
                   : '#1890ff',
                 fontSize: 20,
-              }}
+              } }}
             />
           </Col>
         ))}

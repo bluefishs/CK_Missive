@@ -54,6 +54,7 @@ export const BackupManagementPage: React.FC = () => {
 
   const {
     data: envStatus = null,
+    isError: envError,
     refetch: refetchEnvStatus,
   } = useQuery({
     queryKey: ['backup', 'environment-status'],
@@ -64,6 +65,7 @@ export const BackupManagementPage: React.FC = () => {
   const {
     data: backups = null,
     isLoading: backupsLoading,
+    isError: backupsError,
   } = useQuery({
     queryKey: ['backup', 'list'],
     queryFn: () => apiClient.post<BackupListResponse>(API_ENDPOINTS.BACKUP.LIST, {}),
@@ -81,14 +83,14 @@ export const BackupManagementPage: React.FC = () => {
   });
 
   useEffect(() => {
-    if (remoteConfig) {
+    if (remoteConfig && activeTab === 'remote') {
       remoteConfigForm.setFieldsValue({
         remote_path: remoteConfig.remote_path || '',
         sync_enabled: remoteConfig.sync_enabled,
         sync_interval_hours: remoteConfig.sync_interval_hours,
       });
     }
-  }, [remoteConfig, remoteConfigForm]);
+  }, [remoteConfig, remoteConfigForm, activeTab]);
 
   const {
     data: schedulerStatus = null,
@@ -281,6 +283,10 @@ export const BackupManagementPage: React.FC = () => {
   return (
     <ResponsiveContent maxWidth="full" padding="medium" style={{ background: '#f5f5f5', minHeight: '100vh' }}>
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
+        {(envError || backupsError) && (
+          <Alert type="warning" showIcon closable style={{ marginBottom: 16 }}
+            message="部分備份資料載入失敗，顯示內容可能不完整" />
+        )}
         <Row justify="space-between" align="middle" style={{ marginBottom: 24 }}>
           <Col>
             <Title level={2} style={{ margin: 0, color: '#1976d2' }}>

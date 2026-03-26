@@ -27,7 +27,7 @@ import logging
 import math
 import re
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -300,27 +300,10 @@ class QueryPatternLearner:
         redis: Any,
         top_k: int = 3,
     ) -> List[QueryPattern]:
-        """
-        語意匹配 fallback — 使用 embedding 餘弦相似度。
-
-        策略：
-        1. 取得查詢 template 的 embedding
-        2. 與候選模式 template 的 embedding 計算 cosine similarity
-        3. 超過閾值且最高分者回傳
-
-        僅在精確匹配失敗時觸發，可配置關閉。
-        Embedding 不可用時自動降級為字元 Jaccard。
-        """
+        """語意匹配 fallback — 委派至 pattern_semantic_matcher"""
         try:
             from app.services.ai.ai_config import get_ai_config
             config = get_ai_config()
-            if not config.pattern_semantic_enabled:
-                return []
-
-            # 中文字符少於 4 個時跳過語意匹配
-            cjk_chars = len(re.findall(r'[\u4e00-\u9fff]', template))
-            if cjk_chars < 4:
-                return []
 
             # 取得候選模式（top-scored）
             index_key = f"{self._PREFIX}:index"
@@ -330,7 +313,6 @@ class QueryPatternLearner:
             if not candidates:
                 return []
 
-            # 載入候選模式的 template
             candidate_patterns = []
             for key in candidates:
                 k = key.decode() if isinstance(key, bytes) else key
@@ -343,102 +325,14 @@ class QueryPatternLearner:
             if not candidate_patterns:
                 return []
 
-            # 嘗試 embedding cosine similarity
-            best_match, best_score = await self._embedding_cosine_match(
-                template, candidate_patterns
+            from app.services.ai.pattern_semantic_matcher import semantic_match
+            return await semantic_match(
+                template, candidate_patterns, redis, self._PREFIX, config,
             )
-
-            # Embedding 不可用時降級為 Jaccard
-            if best_match is None:
-                best_match, best_score = self._jaccard_match(
-                    template, candidate_patterns
-                )
-
-            if best_match and best_score >= config.pattern_semantic_threshold:
-                logger.debug(
-                    "Semantic match: %.2f (%s → %s)",
-                    best_score, template[:30], best_match.template[:30],
-                )
-                return [best_match]
-
-            return []
 
         except Exception as e:
             logger.debug("_semantic_match failed: %s", e)
             return []
-
-    async def _embedding_cosine_match(
-        self,
-        template: str,
-        candidates: List[QueryPattern],
-    ) -> tuple:
-        """使用 embedding 餘弦相似度匹配候選模式。回傳 (best_pattern, score) 或 (None, 0)。"""
-        try:
-            from app.services.ai.embedding_manager import EmbeddingManager
-            from app.services.ai.base_ai_service import BaseAIService
-
-            connector = BaseAIService.get_shared_connector()
-            if not connector:
-                return (None, 0.0)
-
-            # 批次取得 embeddings（查詢 + 所有候選）
-            texts = [template] + [p.template for p in candidates]
-            embeddings = await EmbeddingManager.get_embeddings_batch(texts, connector)
-
-            query_emb = embeddings[0]
-            if not query_emb:
-                return (None, 0.0)
-
-            best_match = None
-            best_score = 0.0
-
-            for i, p in enumerate(candidates):
-                cand_emb = embeddings[i + 1]
-                if not cand_emb:
-                    continue
-                similarity = self._cosine_similarity(query_emb, cand_emb)
-                if similarity > best_score:
-                    best_score = similarity
-                    best_match = p
-
-            return (best_match, best_score)
-
-        except Exception as e:
-            logger.debug("_embedding_cosine_match unavailable: %s", e)
-            return (None, 0.0)
-
-    @staticmethod
-    def _cosine_similarity(a: List[float], b: List[float]) -> float:
-        """計算兩向量的餘弦相似度"""
-        dot = sum(x * y for x, y in zip(a, b))
-        norm_a = math.sqrt(sum(x * x for x in a))
-        norm_b = math.sqrt(sum(x * x for x in b))
-        if norm_a == 0 or norm_b == 0:
-            return 0.0
-        return dot / (norm_a * norm_b)
-
-    @staticmethod
-    def _jaccard_match(
-        template: str,
-        candidates: List[QueryPattern],
-    ) -> tuple:
-        """Jaccard 字元相似度降級方案"""
-        best_match = None
-        best_score = 0.0
-
-        template_chars = set(template)
-        for p in candidates:
-            p_chars = set(p.template)
-            intersection = template_chars & p_chars
-            union = template_chars | p_chars
-            if not union:
-                continue
-            jaccard = len(intersection) / len(union)
-            if jaccard > best_score:
-                best_score = jaccard
-                best_match = p
-
-        return (best_match, best_score)
 
     async def get_top_patterns(self, n: int = 20) -> List[QueryPattern]:
         """取得高分模式（監控用）"""

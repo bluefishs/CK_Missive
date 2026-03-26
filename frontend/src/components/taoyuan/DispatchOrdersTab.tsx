@@ -5,8 +5,8 @@
  * - 新增派工單導航到獨立的新增頁面
  * - 點擊列表項目導航至派工單詳情頁進行編輯
  *
- * @version 1.4.0 - 提取欄位定義 (useDispatchOrderColumns) 和匯出邏輯 (useDispatchOrderExport)
- * @date 2026-02-27
+ * @version 1.5.0 - 提取 Modals 至 DispatchOrdersModals
+ * @date 2026-03-25
  */
 
 import React, { useState, useCallback, useMemo } from 'react';
@@ -15,18 +15,15 @@ import {
   Typography,
   Button,
   Space,
-  Modal,
   App,
   Card,
   Tag,
   Input,
-  Select,
   Statistic,
   Row,
   Col,
-  Upload,
   Tooltip,
-  List,
+  Flex,
   Form,
 } from 'antd';
 import {
@@ -34,7 +31,6 @@ import {
   ReloadOutlined,
   UploadOutlined,
   DownloadOutlined,
-  FileExcelOutlined,
   SendOutlined,
   LinkOutlined,
   RightOutlined,
@@ -49,6 +45,7 @@ import { useTableColumnSearch } from '../../hooks/utility/useTableColumnSearch';
 import { useResponsive, useTaoyuanDispatchOrders } from '../../hooks';
 import { useDispatchOrderColumns } from './dispatchOrders/useDispatchOrderColumns';
 import { useDispatchOrderExport } from './dispatchOrders/useDispatchOrderExport';
+import { BatchSetModal, ImportDispatchModal } from './DispatchOrdersModals';
 
 const { Text } = Typography;
 const { Search } = Input;
@@ -186,18 +183,12 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
 
   // 手機版卡片清單
   const MobileDispatchList = () => (
-    <List
-      dataSource={orders}
-      loading={isLoading}
-      pagination={{
-        size: 'small',
-        pageSize: 10,
-        showTotal: (total) => `共 ${total} 筆`,
-      }}
-      renderItem={(order) => (
+    <Flex vertical gap={8}>
+      {orders.slice(0, 10).map((order) => (
         <Card
+          key={order.id}
           size="small"
-          style={{ marginBottom: 8, cursor: 'pointer' }}
+          style={{ cursor: 'pointer' }}
           onClick={() => handleRowClick(order)}
           hoverable
         >
@@ -236,8 +227,11 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
             <RightOutlined style={{ color: '#ccc', marginTop: 4 }} />
           </div>
         </Card>
-      )}
-    />
+      ))}
+      <div style={{ textAlign: 'center', color: '#999', fontSize: 12, padding: 8 }}>
+        共 {orders.length} 筆
+      </div>
+    </Flex>
   );
 
   const stats = useMemo(() => ({
@@ -393,88 +387,23 @@ export const DispatchOrdersTab: React.FC<DispatchOrdersTabProps> = ({
       )}
 
       {/* 批次設定 Modal */}
-      <Modal
-        title={`批量設定結案批次 (${selectedRowKeys.length} 筆)`}
-        open={batchModalVisible}
+      <BatchSetModal
+        visible={batchModalVisible}
+        selectedCount={selectedRowKeys.length}
+        form={batchForm}
+        isPending={batchSetMutation.isPending}
         onOk={handleBatchSet}
         onCancel={() => { setBatchModalVisible(false); batchForm.resetFields(); }}
-        confirmLoading={batchSetMutation.isPending}
-        okText="確定設定"
-        cancelText="取消"
-        width={400}
-      >
-        <Form form={batchForm} layout="vertical" style={{ marginTop: 16 }}>
-          <Form.Item name="batch_no" label="結案批次">
-            <Select
-              placeholder="選擇結案批次（留空=清除）"
-              allowClear
-              options={[
-                { value: 1, label: '第1批結案' },
-                { value: 2, label: '第2批結案' },
-                { value: 3, label: '第3批結案' },
-                { value: 4, label: '第4批結案' },
-                { value: 5, label: '第5批結案' },
-              ]}
-            />
-          </Form.Item>
-          <div style={{ color: '#666', fontSize: 12 }}>
-            將為選中的 {selectedRowKeys.length} 筆派工單統一設定結案批次。留空可清除已有設定。
-          </div>
-        </Form>
-      </Modal>
+      />
 
-      {/* Excel 匯入 Modal - RWD 響應式 */}
-      <Modal
-        title="Excel 匯入派工紀錄"
-        open={importModalVisible}
+      {/* Excel 匯入 Modal */}
+      <ImportDispatchModal
+        visible={importModalVisible}
+        isMobile={isMobile}
         onCancel={() => setImportModalVisible(false)}
-        footer={null}
-        width={isMobile ? '95%' : 600}
-      >
-        <div style={{ marginBottom: 16 }}>
-          <Button icon={<DownloadOutlined />} onClick={handleDownloadTemplate}>
-            下載匯入範本
-          </Button>
-          <span style={{ marginLeft: 8, color: '#666', fontSize: 12 }}>
-            範本包含 13 個欄位：派工單號、機關函文號、工程名稱...等
-          </span>
-        </div>
-        <Upload.Dragger
-          accept=".xlsx,.xls"
-          maxCount={1}
-          beforeUpload={(file) => {
-            handleImport(file);
-            return false;
-          }}
-        >
-          <p className="ant-upload-drag-icon">
-            <FileExcelOutlined style={{ fontSize: 48, color: '#52c41a' }} />
-          </p>
-          <p className="ant-upload-text">點擊或拖曳 Excel 檔案至此區域</p>
-          <p className="ant-upload-hint">
-            支援 .xlsx, .xls 格式，對應原始需求 17 欄位設計
-          </p>
-        </Upload.Dragger>
-        <div style={{ marginTop: 16, padding: 12, background: '#f5f5f5', borderRadius: 4 }}>
-          <Text strong>匯入欄位說明：</Text>
-          <div style={{ marginTop: 8, fontSize: 12 }}>
-            <Row gutter={[8, 4]}>
-              <Col span={8}>1. 派工單號 *</Col>
-              <Col span={8}>2. 機關函文號</Col>
-              <Col span={8}>3. 工程名稱/派工事項</Col>
-              <Col span={8}>4. 作業類別</Col>
-              <Col span={8}>5. 分案名稱/派工備註</Col>
-              <Col span={8}>6. 履約期限</Col>
-              <Col span={8}>7. 案件承辦</Col>
-              <Col span={8}>8. 查估單位</Col>
-              <Col span={8}>9. 乾坤函文號</Col>
-              <Col span={8}>10. 雲端資料夾</Col>
-              <Col span={8}>11. 專案資料夾</Col>
-              <Col span={8}>12. 聯絡備註</Col>
-            </Row>
-          </div>
-        </div>
-      </Modal>
+        onImport={handleImport}
+        onDownloadTemplate={handleDownloadTemplate}
+      />
     </div>
   );
 };

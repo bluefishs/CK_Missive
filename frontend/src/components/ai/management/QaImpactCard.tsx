@@ -158,27 +158,27 @@ export const QaImpactCard: React.FC = () => {
               <Statistic
                 title="變更檔案"
                 value={data.changed_files_count}
-                valueStyle={{ fontSize: 20 }}
+                styles={{ content: { fontSize: 20 } }}
               />
               {data.summary && (
                 <>
                   <Statistic
                     title="後端"
                     value={data.summary.backend_changes}
-                    valueStyle={{ fontSize: 20, color: '#1677ff' }}
+                    styles={{ content: { fontSize: 20, color: '#1677ff' } }}
                   />
                   <Statistic
                     title="前端"
                     value={data.summary.frontend_changes}
-                    valueStyle={{ fontSize: 20, color: '#13c2c2' }}
+                    styles={{ content: { fontSize: 20, color: '#13c2c2' } }}
                   />
                   <Statistic
                     title="高風險模組"
                     value={data.summary.high_risk_modules}
-                    valueStyle={{
+                    styles={{ content: {
                       fontSize: 20,
                       color: data.summary.high_risk_modules > 0 ? '#ff4d4f' : '#52c41a',
-                    }}
+                    } }}
                     prefix={data.summary.high_risk_modules > 0 ? <WarningOutlined /> : undefined}
                   />
                 </>

@@ -75,6 +75,7 @@ class Agency(AgencyBase):
     """用於 API 回應的 schema，包含資料庫生成的欄位"""
     id: int
     source: str = Field("manual", description="資料來源: manual/auto/import")
+    email: Optional[str] = Field(None, max_length=100, description="電子信箱")  # 回應用 str 避免 DB 髒資料 500
     created_at: datetime
     updated_at: datetime
 

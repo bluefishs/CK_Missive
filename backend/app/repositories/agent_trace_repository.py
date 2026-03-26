@@ -12,7 +12,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import Integer, select, update, func, and_, or_, cast
+from sqlalchemy import Integer, select, update, func, and_, or_, cast, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.extended.models.agent_trace import AgentQueryTrace, AgentToolCallLog
@@ -213,6 +213,32 @@ class AgentTraceRepository:
             for t in traces
         ]
 
+    async def get_quality_summary(self) -> Dict[str, Any]:
+        """品質摘要統計 — 供 Dashboard 使用"""
+        try:
+            stmt = select(
+                func.count(AgentQueryTrace.id).label("total"),
+                func.avg(AgentQueryTrace.total_ms).label("avg_latency_ms"),
+                func.avg(AgentQueryTrace.feedback_score).label("avg_score"),
+                func.count(AgentQueryTrace.feedback_score).label("rated_count"),
+            ).where(
+                AgentQueryTrace.created_at >= func.now() - text("interval '7 days'")
+            )
+            result = await self.db.execute(stmt)
+            row = result.one()
+            return {
+                "total_queries_7d": row.total or 0,
+                "avg_latency_ms": round(float(row.avg_latency_ms or 0)),
+                "avg_score": round(float(row.avg_score or 0), 2),
+                "rated_count": row.rated_count or 0,
+            }
+        except Exception as e:
+            logger.warning("get_quality_summary failed: %s", e)
+            return {
+                "total_queries_7d": 0, "avg_latency_ms": 0,
+                "avg_score": 0, "rated_count": 0,
+            }
+
     async def find_similar_successful_traces(
         self,
         question: str,
@@ -279,9 +305,7 @@ class AgentTraceRepository:
     ) -> List[Dict[str, Any]]:
         """取得每日 Agent 查詢趨勢（查詢量/平均延遲/平均結果數）"""
         try:
-            cutoff = func.now() - func.cast(
-                f"{days} days", func.literal_column("INTERVAL")
-            )
+            cutoff = func.now() - text(f"INTERVAL '{days} days'")
             date_col = func.date(AgentQueryTrace.created_at).label("date")
             stmt = (
                 select(
@@ -317,7 +341,7 @@ class AgentTraceRepository:
         self, days: int = 7
     ) -> List[Dict[str, Any]]:
         """取得近 N 天的工具成功率統計"""
-        cutoff = func.now() - func.cast(f"{days} days", func.literal_column("INTERVAL"))
+        cutoff = func.now() - text(f"INTERVAL '{days} days'")
         stmt = (
             select(
                 AgentToolCallLog.tool_name,

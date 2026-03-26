@@ -13,6 +13,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from app.services.ai.agent_pattern_learner import QueryPattern, QueryPatternLearner
+from app.services.ai.pattern_semantic_matcher import _cosine_similarity, _jaccard_match
 
 
 class TestNormalizeQuestion:
@@ -181,23 +182,23 @@ class TestCosineSimilarity:
     """餘弦相似度計算"""
 
     def test_identical_vectors(self):
-        score = QueryPatternLearner._cosine_similarity([1, 0, 0], [1, 0, 0])
+        score = _cosine_similarity([1, 0, 0], [1, 0, 0])
         assert abs(score - 1.0) < 1e-6
 
     def test_orthogonal_vectors(self):
-        score = QueryPatternLearner._cosine_similarity([1, 0, 0], [0, 1, 0])
+        score = _cosine_similarity([1, 0, 0], [0, 1, 0])
         assert abs(score) < 1e-6
 
     def test_similar_vectors(self):
-        score = QueryPatternLearner._cosine_similarity([1, 1, 0], [1, 0.9, 0])
+        score = _cosine_similarity([1, 1, 0], [1, 0.9, 0])
         assert score > 0.99
 
     def test_zero_vector(self):
-        score = QueryPatternLearner._cosine_similarity([0, 0, 0], [1, 1, 0])
+        score = _cosine_similarity([0, 0, 0], [1, 1, 0])
         assert score == 0.0
 
     def test_negative_correlation(self):
-        score = QueryPatternLearner._cosine_similarity([1, 0], [-1, 0])
+        score = _cosine_similarity([1, 0], [-1, 0])
         assert score < 0
 
 
@@ -212,7 +213,7 @@ class TestJaccardMatch:
                 hit_count=3,
             ),
         ]
-        best, score = QueryPatternLearner._jaccard_match(
+        best, score = _jaccard_match(
             "{ORG}的{DOC_TYPE}有幾件", candidates
         )
         assert best is not None
@@ -231,7 +232,7 @@ class TestJaccardMatch:
                 hit_count=3,
             ),
         ]
-        best, score = QueryPatternLearner._jaccard_match(
+        best, score = _jaccard_match(
             "{ORG}的{DOC_TYPE}有幾件", candidates
         )
         # Should match closer to template "a"
@@ -240,7 +241,7 @@ class TestJaccardMatch:
         assert score > 0.5
 
     def test_no_candidates(self):
-        best, score = QueryPatternLearner._jaccard_match("test", [])
+        best, score = _jaccard_match("test", [])
         assert best is None
         assert score == 0.0
 

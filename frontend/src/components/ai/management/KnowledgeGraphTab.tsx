@@ -125,7 +125,7 @@ export const KnowledgeGraphTab: React.FC = () => {
                 value={batchLimit}
                 onChange={(v) => setBatchLimit(v ?? 200)}
                 style={{ width: 70 }}
-                addonAfter="筆"
+                suffix="筆"
               />
               <Button
                 type="primary"

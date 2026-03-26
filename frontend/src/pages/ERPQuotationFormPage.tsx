@@ -110,23 +110,18 @@ export const ERPQuotationFormPage: React.FC = () => {
         <Form form={form} layout="vertical" onFinish={handleSubmit} style={{ maxWidth: 800 }}>
           <Space style={{ display: 'flex', gap: 16 }} align="start">
             <Form.Item name="case_code" label="案號" style={{ flex: 1 }} tooltip="格式: CK{年度}_FN_{類別}_{流水號}，例如 CK2025_FN_01_001" extra="留空可自動產生">
-              <Input
-                placeholder="例: CK2025_FN_01_001"
-                addonAfter={
-                  !isEdit && (
-                    <Button
-                      type="link"
-                      size="small"
-                      icon={<ThunderboltOutlined />}
-                      loading={generating}
-                      onClick={handleGenerateCode}
-                      style={{ padding: 0, height: 'auto' }}
-                    >
-                      產生
-                    </Button>
-                  )
-                }
-              />
+              <Space.Compact style={{ width: '100%' }}>
+                <Input placeholder="例: CK2025_FN_01_001" />
+                {!isEdit && (
+                  <Button
+                    icon={<ThunderboltOutlined />}
+                    loading={generating}
+                    onClick={handleGenerateCode}
+                  >
+                    產生
+                  </Button>
+                )}
+              </Space.Compact>
             </Form.Item>
             <Form.Item name="case_name" label="案名" style={{ flex: 2 }}>
               <Input placeholder="案名" />

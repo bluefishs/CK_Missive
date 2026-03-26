@@ -88,7 +88,7 @@ export const ApiMappingView: React.FC<ApiMappingViewProps> = ({
       dataSource={apiMappings}
       size="small"
       pagination={{ pageSize: 30 }}
-      rowKey={(_record, index) => `${_record.table_name}-${index}`}
+      rowKey={(record) => `${record.table_name}-${record.api_endpoint}`}
     />
   );
 };

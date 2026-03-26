@@ -330,7 +330,7 @@ async def get_review_dashboard(
             text("SELECT count(*) FROM entity_aliases")
         )).scalar() or 0
         pending = (await db.execute(
-            text("SELECT count(*) FROM official_documents WHERE ner_pending = true")
+            text("SELECT count(*) FROM documents WHERE ner_pending = true")
         )).scalar() or 0
 
         result["subsystems"]["knowledge_graph"] = {
@@ -342,6 +342,7 @@ async def get_review_dashboard(
             "coverage": "100%" if pending == 0 else f"{round((1 - pending / max(entities_count, 1)) * 100)}%",
         }
     except Exception as e:
+        await db.rollback()
         result["subsystems"]["knowledge_graph"] = {"status": "error", "error": str(e)}
 
     # --- Code Graph ---
@@ -361,6 +362,7 @@ async def get_review_dashboard(
             "dependencies": code_relations,
         }
     except Exception as e:
+        await db.rollback()
         result["subsystems"]["code_graph"] = {"status": "error", "error": str(e)}
 
     # --- DB Graph ---
@@ -374,6 +376,7 @@ async def get_review_dashboard(
             "cached": SchemaReflectorService._cache is not None,
         }
     except Exception as e:
+        await db.rollback()
         result["subsystems"]["db_graph"] = {"status": "error", "error": str(e)}
 
     # --- Knowledge Base (Embedding) ---
@@ -390,6 +393,7 @@ async def get_review_dashboard(
             "coverage": f"{coverage:.1f}%",
         }
     except Exception as e:
+        await db.rollback()
         result["subsystems"]["knowledge_base"] = {"status": "error", "error": str(e)}
 
     # --- Skill Evolution ---
