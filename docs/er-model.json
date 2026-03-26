@@ -2627,6 +2627,10 @@
         {
           "name": "ix_documents_search_vector",
           "definition": "CREATE INDEX ix_documents_search_vector ON public.documents USING gin (search_vector)"
+        },
+        {
+          "name": "idx_documents_created",
+          "definition": "CREATE INDEX idx_documents_created ON public.documents USING btree (created_at)"
         }
       ],
       "unique_constraints": {
@@ -2634,7 +2638,7 @@
           "auto_serial"
         ]
       },
-      "row_count_estimate": 1638
+      "row_count_estimate": 1661
     },
     "einvoice_sync_logs": {
       "columns": [
@@ -7019,6 +7023,18 @@
         {
           "name": "idx_dispatch_orders_company_doc_id",
           "definition": "CREATE INDEX idx_dispatch_orders_company_doc_id ON public.taoyuan_dispatch_orders USING btree (company_doc_id)"
+        },
+        {
+          "name": "idx_dispatch_case_handler",
+          "definition": "CREATE INDEX idx_dispatch_case_handler ON public.taoyuan_dispatch_orders USING btree (case_handler)"
+        },
+        {
+          "name": "idx_dispatch_deadline",
+          "definition": "CREATE INDEX idx_dispatch_deadline ON public.taoyuan_dispatch_orders USING btree (deadline)"
+        },
+        {
+          "name": "idx_dispatch_handler_worktype",
+          "definition": "CREATE INDEX idx_dispatch_handler_worktype ON public.taoyuan_dispatch_orders USING btree (case_handler, work_type)"
         }
       ],
       "unique_constraints": {
@@ -7026,7 +7042,7 @@
           "dispatch_no"
         ]
       },
-      "row_count_estimate": 123
+      "row_count_estimate": 125
     },
     "taoyuan_dispatch_project_link": {
       "columns": [

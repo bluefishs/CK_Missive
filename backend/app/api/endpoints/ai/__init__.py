@@ -24,13 +24,7 @@ from .agent_query_sync import router as agent_query_sync_router
 from .ai_feedback import router as ai_feedback_router
 from .document_analysis import router as document_analysis_router
 from .voice_transcription import router as voice_transcription_router
-try:
-    from .digital_twin import router as digital_twin_router
-except Exception as _dt_err:
-    import logging
-    logging.getLogger(__name__).error("Digital Twin import failed: %s", _dt_err)
-    from fastapi import APIRouter
-    digital_twin_router = APIRouter()  # fallback empty
+from .digital_twin import router as digital_twin_router
 
 router = APIRouter(prefix="/ai", tags=["AI"])
 
