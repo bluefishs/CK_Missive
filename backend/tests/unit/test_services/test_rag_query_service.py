@@ -16,6 +16,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 
 from app.services.ai.rag_query_service import RAGQueryService
+from app.services.ai.rag_retrieval import extract_query_terms, build_context
 
 
 # ============================================================================
@@ -61,17 +62,17 @@ class TestExtractQueryTerms:
     """查詢詞提取測試"""
 
     def test_basic_extraction(self, service):
-        terms = RAGQueryService._extract_query_terms("道路工程相關公文")
+        terms = extract_query_terms("道路工程相關公文")
         # Should extract meaningful terms (length >= 2)
         assert isinstance(terms, list)
         assert all(len(t) >= 2 for t in terms)
 
     def test_empty_query(self, service):
-        terms = RAGQueryService._extract_query_terms("")
+        terms = extract_query_terms("")
         assert terms == []
 
     def test_stopwords_filtered(self, service):
-        terms = RAGQueryService._extract_query_terms("在這個中")
+        terms = extract_query_terms("在這個中")
         # All short/stopword tokens should be filtered
         assert all(t not in {"在", "這", "個", "中"} for t in terms)
 
@@ -97,13 +98,13 @@ class TestBuildContext:
                 "similarity": 0.85,
             }
         ]
-        context = service._build_context(sources)
+        context = build_context(sources)
         assert "[公文1]" in context
         assert "桃工字第123號" in context
         assert "道路工程" in context
 
-    def test_context_max_chars_limit(self, service):
-        service.config.rag_max_context_chars = 50
+    def test_context_max_chars_limit(self, service, mock_config):
+        mock_config.rag_max_context_chars = 50
         sources = [
             {
                 "doc_number": f"DOC{i}",
@@ -118,7 +119,8 @@ class TestBuildContext:
             }
             for i in range(10)
         ]
-        context = service._build_context(sources)
+        with patch("app.services.ai.rag_retrieval.get_ai_config", return_value=mock_config):
+            context = build_context(sources)
         # Should be truncated at max_chars
         assert len(context) <= 200  # generous bound for single entry
 
@@ -165,7 +167,8 @@ class TestQuery:
     @pytest.mark.asyncio
     async def test_no_sources_returns_fallback(self, service):
         service.embedding_mgr.get_embedding = AsyncMock(return_value=[0.1] * 768)
-        with patch.object(service, "_retrieve_documents", new_callable=AsyncMock, return_value=[]):
+        with patch("app.services.ai.rag_query_service.retrieve_chunks", new_callable=AsyncMock, return_value=[]), \
+             patch("app.services.ai.rag_query_service.expand_query_with_kg", new_callable=AsyncMock, side_effect=lambda db, terms: terms):
             result = await service.query("不存在的問題")
         assert "找不到" in result["answer"]
         assert result["retrieval_count"] == 0
