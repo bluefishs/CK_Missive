@@ -87,11 +87,13 @@ class AgentToolLoop:
                 step_index = await self._execute_single_tool(
                     valid_calls[0], tool_results, tools_used, all_sources,
                     step_index, event_queue, memory, trace,
+                    original_question=question,
                 )
             else:
                 step_index = await self._execute_parallel_tools(
                     valid_calls, tool_results, tools_used, all_sources,
                     step_index, event_queue, memory, trace,
+                    original_question=question,
                 )
 
             # ── 雙層評估：快速路徑 → 慢路徑 ──
@@ -153,10 +155,14 @@ class AgentToolLoop:
         event_queue: asyncio.Queue,
         memory: AgentWorkingMemory,
         trace: Optional[AgentTrace] = None,
+        original_question: str = "",
     ) -> int:
         """單一工具執行 — 使用既有 session"""
         tool_name = call.get("name", "")
         params = call.get("params", {})
+        # 注入原始問題供工具做 LLM 幻覺校正
+        if original_question:
+            params["_original_question"] = original_question
 
         await event_queue.put(sse(
             type="tool_call",
@@ -203,6 +209,7 @@ class AgentToolLoop:
         event_queue: asyncio.Queue,
         memory: AgentWorkingMemory,
         trace: Optional[AgentTrace] = None,
+        original_question: str = "",
     ) -> int:
         """多工具並行執行 — 每工具獨立 db session"""
         for call in valid_calls:
@@ -214,6 +221,11 @@ class AgentToolLoop:
                 step_index=step_index,
             ))
             step_index += 1
+
+        # 注入原始問題供工具做 LLM 幻覺校正
+        if original_question:
+            for call in valid_calls:
+                call.setdefault("params", {})["_original_question"] = original_question
 
         results = await self._tools.execute_parallel(
             valid_calls, self._adaptive_tool_timeout,

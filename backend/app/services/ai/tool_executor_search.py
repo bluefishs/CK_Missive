@@ -161,12 +161,26 @@ class SearchToolExecutor:
 
     async def search_dispatch_orders(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """搜尋派工單紀錄"""
+        import re as _re
         from app.repositories.taoyuan.dispatch_order_repository import DispatchOrderRepository
 
         dispatch_no = params.get("dispatch_no", "")
         search = params.get("search", "")
         work_type = params.get("work_type")
         limit = min(int(params.get("limit", 50)), 100)
+
+        # 防 LLM 數字幻覺：從原始問題二次提取派工單號做校正
+        original_q = params.get("_original_question", "")
+        if original_q and dispatch_no:
+            m = _re.search(r'派工單[號]?\s*(\d{2,4})', original_q)
+            if not m:
+                m = _re.search(r'(?:^|\D)0*(\d{2,3})(?:\D|$)', original_q)
+            if m:
+                extracted = m.group(1).lstrip('0') or '0'
+                provided = dispatch_no.strip().lstrip('0') or '0'
+                if extracted != provided:
+                    logger.warning("派工單號校正: LLM=%s → 原文=%s", dispatch_no, m.group(1))
+                    dispatch_no = m.group(1)
 
         repo = DispatchOrderRepository(self.db)
 
