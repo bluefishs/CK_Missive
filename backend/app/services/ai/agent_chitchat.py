@@ -124,9 +124,13 @@ def is_chitchat(text: str, context: str | None = None) -> bool:
     if context == "agent":
         return False
 
-    # 5. 預設走 Agent 工具查詢（保守策略）
-    # 寧可多查一次工具回「查無結果」，也不要直接幻覺回答
-    # 只有精確匹配的問候語（步驟1、2）才走閒聊
+    # 5. 明確非業務短句 → 閒聊（天氣、新聞、笑話等日常話題）
+    _OFFTOPIC = ("天氣", "新聞", "笑話", "故事", "星座", "運勢", "食譜", "電影", "音樂", "遊戲")
+    if len(normalized) <= 10 and any(kw in normalized for kw in _OFFTOPIC):
+        return True
+
+    # 6. 其他 → 預設走 Agent 工具查詢（保守策略）
+    # 寧可查無結果，也不要幻覺回答
     return False
 
 
