@@ -1,16 +1,14 @@
 """
-Digital Twin 代理端點 — 透過後端代理 NemoClaw Gateway
-
-前端無法直接呼叫 NemoClaw Gateway (CORS + X-Service-Token 認證)，
-因此透過本端點代理請求，由 FederationClient 處理認證與通訊。
+Digital Twin 代理端點 — OpenClaw 推理 + 本地 Agent fallback
 
 流程:
-  前端 → POST /ai/digital-twin/query/stream → FederationClient.delegate_auto()
-       → NemoClaw Gateway (含 X-Service-Token) → SSE 回傳前端
+  前端 → POST /ai/digital-twin/query/stream
+       → FederationClient.query_external('openclaw') → SSE 回傳
+       → fallback: AgentOrchestrator 本地推理
 
-Version: 2.0.0 (Service 層提取)
+Version: 3.0.0
 Created: 2026-03-22
-Updated: 2026-03-25 — topology/qa-impact/dashboard 委派至 DigitalTwinService
+Updated: 2026-03-27 — v3.0 OpenClaw 委派 + E-6 delegate_auto + self_awareness SSE
 """
 
 import json
@@ -67,77 +65,144 @@ async def digital_twin_query_stream(
     Fallback: OpenClaw 不可用時降級至本地 NemoClawAgent。
     """
 
-    async def _stream_via_openclaw():
+    async def _stream_data_then_haiku():
+        """
+        v4.0 一層 LLM 架構:
+        1. Missive 本地直查資料 API（無 LLM，純 DB）→ 原始 JSON
+        2. 打包資料 + 問題 → OpenClaw Claude Haiku 一次合成
+        3. Fallback: OpenClaw 不可用 → 本地 Agent
+        """
         t0 = time.time()
 
-        # Step 0: 自我覺察（快速，不依賴 OpenClaw）
-        try:
-            from app.services.ai.agent_self_profile import get_self_profile
-            profile = await get_self_profile(db)
+        yield _sse_event({"type": "self_awareness", "identity": "數位分身"})
+        yield _sse_event({"type": "role", "identity": "數位分身 (Claude Haiku)", "context": "openclaw"})
+
+        # ── Step 1: 本地資料查詢（無 LLM，純 DB，快速） ──
+        yield _sse_event({"type": "thinking", "step": "查詢本地資料庫...", "step_index": 0})
+
+        data_context = await _gather_local_data(db, request.question)
+        data_summary = json.dumps(data_context, ensure_ascii=False, default=str)[:4000]
+
+        tool_names = [k for k, v in data_context.items() if v]
+        if tool_names:
             yield _sse_event({
-                "type": "self_awareness",
-                "identity": profile.get("identity", "數位分身"),
-                "total_queries": profile.get("total_queries", 0),
-                "personality": profile.get("personality_hint", ""),
-                "strengths": profile.get("top_domains", []),
-                "alert_count": 0,
+                "type": "tool_result", "tool": "local_data",
+                "summary": f"查到 {', '.join(tool_names)} 共 {sum(len(v) if isinstance(v, list) else 1 for v in data_context.values() if v)} 筆",
+                "count": len(tool_names), "step_index": 1,
             })
-        except Exception:
-            yield _sse_event({"type": "self_awareness", "identity": "數位分身"})
 
-        yield _sse_event({"type": "role", "identity": "數位分身 (OpenClaw)", "context": "openclaw"})
-
-        # Step 1: 嘗試 OpenClaw 查詢
-        yield _sse_event({"type": "thinking", "step": "委派至 OpenClaw (Claude Haiku)...", "step_index": 0})
+        # ── Step 2: 送給 OpenClaw Claude Haiku 合成（一次 LLM） ──
+        yield _sse_event({"type": "thinking", "step": "Claude Haiku 合成中...", "step_index": 2})
 
         answer = ""
-        model = "openclaw-unavailable"
+        model = "fallback-local"
         try:
             from app.services.ai.federation_client import get_federation_client
             client = get_federation_client()
+
+            prompt = (
+                f"根據以下資料回答問題。請用繁體中文，結構化回答。\n\n"
+                f"問題: {request.question}\n\n"
+                f"資料:\n{data_summary}\n\n"
+                f"請直接回答，不要說「根據資料」。如果資料不足以回答，請說明缺少什麼。"
+            )
+
             result = await client.query_external(
                 system_id="openclaw",
-                question=request.question,
-                context={"source": "digital-twin", "user": current_user.username},
-                timeout=25.0,
+                question=prompt,
+                context={"source": "digital-twin-v4", "mode": "data-synthesis"},
+                timeout=20.0,
             )
             answer = result.get("answer", result.get("response", ""))
             model = result.get("model", "claude-haiku")
 
-            if answer:
-                yield _sse_event({"type": "thinking", "step": f"OpenClaw 回覆完成 ({model})", "step_index": 1})
-                yield _sse_event({"type": "token", "token": answer})
-            else:
-                yield _sse_event({"type": "thinking", "step": "OpenClaw 無回覆，降級至本地 Agent", "step_index": 1})
-                raise ValueError("empty_response")
-
         except Exception as e:
-            # Fallback: 本地 Agent
-            logger.info("OpenClaw unavailable (%s), fallback to local agent", e)
-            yield _sse_event({"type": "thinking", "step": "降級至本地 Agent...", "step_index": 2})
+            logger.info("OpenClaw unavailable (%s), fallback synthesis", e)
 
+        # Fallback: 無 OpenClaw 時用本地簡單合成
+        if not answer:
+            yield _sse_event({"type": "thinking", "step": "降級至本地 Agent...", "step_index": 3})
             from app.services.ai.agent_orchestrator import AgentOrchestrator
             orch = AgentOrchestrator(db)
             async for event in orch.stream_agent_query(
                 question=request.question, history=[], session_id=request.session_id or "",
             ):
                 yield event
-            return  # orchestrator 已發 done
+            return
+
+        yield _sse_event({"type": "thinking", "step": f"完成 ({model})", "step_index": 3})
+        yield _sse_event({"type": "token", "token": answer})
 
         latency = int((time.time() - t0) * 1000)
         yield _sse_event({
             "type": "done",
             "latency_ms": latency,
             "model": model,
-            "tools_used": [],
-            "iterations": 0,
+            "tools_used": tool_names,
+            "iterations": 1,
         })
 
     return StreamingResponse(
-        _stream_via_openclaw(),
+        _stream_data_then_haiku(),
         media_type="text/event-stream",
         headers=SSE_HEADERS,
     )
+
+
+# ── Helper: 本地資料查詢（無 LLM，純 DB） ─────────────────
+
+async def _gather_local_data(db: AsyncSession, question: str) -> dict:
+    """從問題中提取關鍵資訊，直接查 DB 取原始 JSON（無 LLM 參與）"""
+    import re as _re
+    data: dict = {}
+
+    # 派工單號偵測
+    m = _re.search(r'派工單[號]?\s*(\d{2,4})', question)
+    if not m:
+        m = _re.search(r'(?:^|\D)0*(\d{2,3})(?:\D|$)', question)
+    if m and ('派工' in question or m.group(1).isdigit()):
+        dispatch_no = m.group(1).zfill(3)
+        roc_year = 115  # 當前年度
+        search_term = f"{roc_year}年_派工單號{dispatch_no}"
+        try:
+            from app.repositories.taoyuan.dispatch_order_repository import DispatchOrderRepository
+            repo = DispatchOrderRepository(db)
+            items, total = await repo.filter_dispatch_orders(search=search_term, limit=5)
+            if items:
+                from app.services.taoyuan.dispatch_response_formatter import dispatch_to_response_dict
+                data["dispatch"] = [dispatch_to_response_dict(item) for item in items]
+        except Exception as e:
+            logger.debug("Dispatch query failed: %s", e)
+
+    # 派工進度
+    if '進度' in question or '彙整' in question:
+        try:
+            from app.services.ai.dispatch_progress_synthesizer import DispatchProgressSynthesizer
+            synth = DispatchProgressSynthesizer(db)
+            report = await synth.generate_report()
+            data["progress"] = synth.to_dict(report)
+        except Exception as e:
+            logger.debug("Progress query failed: %s", e)
+
+    # 公文搜尋
+    if '公文' in question or '函' in question or not data:
+        try:
+            from app.repositories.document_repository import DocumentRepository
+            doc_repo = DocumentRepository(db)
+            keywords = [w for w in question.replace('的', ' ').split() if len(w) >= 2][:4]
+            if keywords:
+                docs, total = await doc_repo.filter_documents(
+                    keyword=' '.join(keywords), skip=0, limit=5,
+                )
+                data["documents"] = [
+                    {"id": d.id, "doc_number": d.doc_number, "subject": d.subject,
+                     "doc_date": str(d.doc_date) if d.doc_date else None}
+                    for d in docs
+                ]
+        except Exception as e:
+            logger.debug("Document query failed: %s", e)
+
+    return data
 
 
 # ── E-6: Delegate Auto Proxy (跨域自動委派) ────────────────
