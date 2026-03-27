@@ -225,6 +225,7 @@ class AgentPlanner:
 - 如果問題簡單且你有足夠資訊可直接回答，回傳空的 tool_calls
 - 優先使用 search_documents；涉及機關/人員/專案關係時使用 search_entities
 - ⚠️ 涉及「派工單」「派工」「派工單號」「查估」「派工案件」時，**必須**使用 search_dispatch_orders（不要用 search_documents 替代）
+- ⚠️ 當 search_dispatch_orders 已能取得派工單（含關聯公文）時，**不要**再呼叫 search_documents，避免引入無關公文雜訊
 - 涉及特定工程名稱（如「道路工程」「測量」等）時，同時搜尋公文和派工單
 - 查詢「最近的派工」「最新派工」時，使用 search_dispatch_orders 不帶 search 參數（預設返回最新）
 - keywords 應包含 2-4 個有意義的關鍵字，不要只用單字
