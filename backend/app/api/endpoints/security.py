@@ -204,11 +204,23 @@ async def list_scans(
 
 @router.post("/scans/run", summary="執行安全掃描")
 async def run_scan(
+    db: AsyncSession = Depends(get_async_db),
+    _user: User = Depends(require_auth()),
+):
+    """立即執行完整安全掃描（程式碼掃描+依賴檢查）"""
+    from app.services.security_scanner import SecurityScanner
+    scanner = SecurityScanner(db)
+    result = await scanner.run_full_scan()
+    return {"success": True, **result}
+
+
+@router.post("/scans/create", summary="手動建立掃描記錄")
+async def create_scan(
     data: ScanCreate,
     db: AsyncSession = Depends(get_async_db),
     _user: User = Depends(require_auth()),
 ):
-    """建立掃描記錄（實際掃描由背景排程執行）"""
+    """手動建立掃描記錄"""
     scan = SecurityScan(
         project_name=data.project_name,
         scan_type=data.scan_type,

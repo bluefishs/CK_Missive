@@ -156,6 +156,25 @@ async def kb_coverage_check_job():
         logger.error(f"KB 覆蓋率檢查失敗: {e}", exc_info=True)
 
 
+async def security_scan_job():
+    """自動安全掃描 — 偵測硬編碼密鑰、SQL 注入、缺認證端點等"""
+    from app.db.database import async_session_maker
+    from app.services.security_scanner import SecurityScanner
+
+    logger.info("開始執行自動安全掃描")
+    try:
+        async with async_session_maker() as db:
+            scanner = SecurityScanner(db)
+            result = await scanner.run_full_scan()
+            logger.info(
+                "安全掃描完成: total=%d, critical=%d, high=%d (%.1fs)",
+                result["total_issues"], result.get("critical", 0),
+                result.get("high", 0), result["duration_seconds"],
+            )
+    except Exception as e:
+        logger.error("安全掃描失敗: %s", e, exc_info=True)
+
+
 async def proactive_trigger_scan_job():
     """
     NemoClaw 夜間吹哨者 — 掃描 PM/ERP 預算超支、逾期請款、待核銷發票等警報。
@@ -332,6 +351,18 @@ def setup_scheduler(
         coalesce=True
     )
     logger.info("已添加 NemoClaw 夜間吹哨者: 每日 00:30 執行")
+
+    # 添加安全掃描 — 每日 02:00 自動偵測資安問題
+    scheduler.add_job(
+        security_scan_job,
+        trigger=CronTrigger(hour=2, minute=0),
+        id='security_scan',
+        name='自動安全掃描 (OWASP)',
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True
+    )
+    logger.info("已添加安全掃描: 每日 02:00 執行")
 
     # 添加 Code Graph 增量更新 — 每日 03:00 掃描 Python/TypeScript AST
     scheduler.add_job(
