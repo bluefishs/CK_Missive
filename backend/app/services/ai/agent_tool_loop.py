@@ -121,8 +121,14 @@ class AgentToolLoop:
                 continue
 
             # Layer 2: ReAct LLM 推理（慢路徑，僅在快速路徑未觸發時）
+            # 派工單場景跳過 — dispatch 已有完整結果，不需 LLM 重新評估
+            dispatch_has_result = any(
+                tr["tool"] == "search_dispatch_orders" and tr["result"].get("count", 0) > 0
+                for tr in tool_results
+            )
             if (
-                memory.total_results < 3
+                not dispatch_has_result
+                and memory.total_results < 3
                 and iteration < self.config.agent_max_iterations - 1
             ):
                 react_plan = await self._planner.react(

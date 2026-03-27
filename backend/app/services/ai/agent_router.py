@@ -82,7 +82,38 @@ class AgentRouter:
                 source="is_chitchat()",
             )
 
-        # ── Layer 1.5: 統計/健康快速路由 — 只需單一工具 ──
+        # ── Layer 1.5: 規則引擎快速路由 — 跳過 LLM Planning ──
+        import re as _re
+
+        # 派工單查詢（「派工單013」「找派工單號005」）
+        _dispatch_match = _re.search(r'派工單[號]?\s*(\d{2,4})', question)
+        if _dispatch_match:
+            no = _dispatch_match.group(1)
+            return RouteDecision(
+                route_type="pattern",
+                confidence=1.0,
+                latency_ms=(time.time() - t0) * 1000,
+                source=f"dispatch_rule:{no}",
+                plan={"tool_calls": [
+                    {"name": "search_dispatch_orders", "params": {"dispatch_no": no}},
+                    {"name": "find_correspondence", "params": {"dispatch_id": 0}},
+                ]},
+                suggested_context="dispatch",
+            )
+
+        # 派工進度彙整（「派工進度」「進度彙整」）
+        if any(kw in question for kw in ("派工進度", "進度彙整", "派工彙整")):
+            return RouteDecision(
+                route_type="pattern",
+                confidence=1.0,
+                latency_ms=(time.time() - t0) * 1000,
+                source="dispatch_progress_rule",
+                plan={"tool_calls": [
+                    {"name": "get_dispatch_progress", "params": {}},
+                ]},
+                suggested_context="dispatch",
+            )
+
         _STATS_KW = ("多少筆", "總數", "有幾筆", "共有", "共幾", "總共")
         _HEALTH_KW = ("系統狀態", "系統健康", "健康檢查", "服務狀態")
         if any(kw in question for kw in _STATS_KW):
