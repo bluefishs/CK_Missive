@@ -21,6 +21,8 @@ import {
   ExperimentOutlined,
   HeartOutlined,
   RobotOutlined,
+  ScheduleOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
 
 import { RAGChatPanel } from '../components/ai/RAGChatPanel';
@@ -30,6 +32,8 @@ import {
   DataPipelineTab,
   ServiceStatusTab,
 } from '../components/ai/management';
+import { EvolutionTab } from './digitalTwin/EvolutionTab';
+import { DispatchProgressTab } from './digitalTwin/DispatchProgressTab';
 
 const { Title, Text } = Typography;
 
@@ -62,6 +66,20 @@ const AIAssistantManagementPage: React.FC = () => {
         <span><DashboardOutlined /> Agent 效能</span>
       ),
       children: <AgentPerformanceTab />,
+    },
+    {
+      key: 'evolution',
+      label: (
+        <span><ThunderboltOutlined /> 進化歷程</span>
+      ),
+      children: <EvolutionTab />,
+    },
+    {
+      key: 'dispatch-progress',
+      label: (
+        <span><ScheduleOutlined /> 派工進度</span>
+      ),
+      children: <DispatchProgressTab />,
     },
     {
       key: 'status',
