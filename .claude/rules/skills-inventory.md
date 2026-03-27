@@ -208,6 +208,53 @@
 
 ---
 
+## v5.2.5 深度修復 — 派工資料清理 + 公文配對精準化 + API 錯誤碼正規化 + 效能優化 (2026-03-27)
+
+### 新增/修改模組
+
+| 模組 | 類型 | 說明 |
+|------|------|------|
+| `services/ai/rag_retrieval.py` | Service | RAG 檢索 (348L, 拆分自 rag_query) |
+| `core/service_health_probe.py` | Core | 服務健康探測器 (213L, 自動偵測斷線+週期修復) |
+| `core/cache_decorator.py` | Core | Redis 快取裝飾器 (107L) |
+| `useDocumentProjectStaff.ts` | Hook | 公文專案人員管理 (113L, 拆分自 useDocumentDetail) |
+
+### 修復項目
+
+| 項目 | 變更 | 說明 |
+|------|------|------|
+| dispatch/list | Bug | **MissingGreenlet** — selectinload 補齊深層關聯 |
+| StaffTab + useDocumentDetail | SSOT | 硬編碼 API 路徑 → 端點常數 |
+| dispatch correspondence | Bug | "unassigned" 跨派工修復 (referenced_by_dispatch_ids) |
+| score_document_relevance | 精準化 | 閾值 0.15→0.3, generic doc score 0.5→0.1 |
+| extract_core_identifiers | Regex | 排除至/與/弄/巷/站 prefix 避免路名誤判 |
+| digital-twin/health | 安全 | 補齊 require_auth 認證 |
+| task proxy | API | 錯誤回應 200→4xx/5xx (JSONResponse) |
+| useLiveActivitySSE | 前端 | 事件去重 (防重複渲染) |
+| relation_graph FK | 效能 | 兩處 FK 查詢合併 UNION |
+| canonical_entity embedding | 效能 | 批次 API N→1 呼叫 |
+| dispatch detail endpoint | Bug | 移除 response_model, 改用 Response(json.dumps) 避免序列化錯誤 |
+
+### 資料清理
+
+| 項目 | 說明 |
+|------|------|
+| 115年派工資料 | 清除 70 筆錯誤公文關聯 |
+| Docker port 衝突 | 解決 ck_missive_app 容器 8001 端口佔用 |
+
+### 品質指標 (v5.2.5)
+
+| 維度 | 值 |
+|------|-----|
+| TypeScript | **0 errors** |
+| Python 語法 | **0 errors** |
+| 公文配對精準度 | 提升 (閾值 + regex 修正) |
+| API 錯誤碼 | 正規化 (task proxy 200→4xx/5xx) |
+| 效能 | relation_graph UNION + embedding batch |
+| 資料清理 | 70 筆錯誤關聯移除 |
+
+---
+
 ## v5.2.4 品質強化 — SSOT 修復 + 拆分 + MissingGreenlet 修復 (2026-03-27)
 
 ### 新增/拆分模組

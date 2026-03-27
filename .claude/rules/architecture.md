@@ -319,6 +319,9 @@ frontend/src/pages/
 │   ├── EntityTypeDistribution.tsx  # 實體類型分布 (60L)
 │   ├── TopEntitiesRanking.tsx  # 高頻實體排行 (61L)
 │   └── KGAdminPanel.tsx        # 管理面板 (152L)
+├── document/                   # 公文詳情頁子元件
+│   └── hooks/
+│       └── useDocumentProjectStaff.ts  # 公文專案人員管理 Hook (113L)
 ├── taoyuanDispatch/            # TaoyuanDispatchDetailPage 子元件
 │   ├── DispatchDetailHeader.tsx # 詳情頁標頭 (91L)
 │   └── tabs/                   # 既有頁籤元件

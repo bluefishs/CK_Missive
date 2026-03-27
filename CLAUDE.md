@@ -2,7 +2,7 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design + vLLM
-> **版本**: v5.2.4 品質強化 — SSOT 修復 + 服務拆分 + MissingGreenlet 修復 + 全模組 <600L
+> **版本**: v5.2.5 深度修復 — 派工資料清理 + 公文配對精準化 + API 錯誤碼正規化 + 效能優化
 > **最後更新**: 2026-03-27
 
 ---
