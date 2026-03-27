@@ -160,14 +160,28 @@ class SearchToolExecutor:
         return {"documents": docs, "total": total, "count": len(docs)}
 
     async def search_dispatch_orders(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """搜尋派工單紀錄"""
+        """搜尋派工單紀錄（含 Redis 快取 5 分鐘）"""
         import re as _re
+        import json as _json
         from app.repositories.taoyuan.dispatch_order_repository import DispatchOrderRepository
 
         dispatch_no = params.get("dispatch_no", "")
         search = params.get("search", "")
         work_type = params.get("work_type")
         limit = min(int(params.get("limit", 50)), 100)
+
+        # Redis 快取（同一查詢 5 分鐘內不重查 DB）
+        cache_key = f"agent:tool_cache:dispatch:{dispatch_no or search}:{work_type}:{limit}"
+        try:
+            from app.core.redis_client import get_redis
+            redis = await get_redis()
+            if redis:
+                cached = await redis.get(cache_key)
+                if cached:
+                    logger.debug("Dispatch cache hit: %s", cache_key[:50])
+                    return _json.loads(cached)
+        except Exception:
+            pass
 
         # 防 LLM 數字幻覺：從原始問題二次提取派工單號做校正
         original_q = params.get("_original_question", "")
@@ -270,12 +284,23 @@ class SearchToolExecutor:
             except Exception as e:
                 logger.debug("Failed to fetch linked documents for dispatch orders: %s", e)
 
-        return {
+        result = {
             "dispatch_orders": dispatch_orders,
             "linked_documents": linked_docs,
             "total": total,
             "count": len(dispatch_orders),
         }
+
+        # 寫入 Redis 快取 (5 分鐘)
+        try:
+            from app.core.redis_client import get_redis
+            redis = await get_redis()
+            if redis and result.get("count", 0) > 0:
+                await redis.setex(cache_key, 300, _json.dumps(result, default=str, ensure_ascii=False))
+        except Exception:
+            pass
+
+        return result
 
     async def search_entities(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """搜尋知識圖譜實體"""

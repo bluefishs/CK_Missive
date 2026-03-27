@@ -19,7 +19,7 @@ tool_monitor:
 pattern_learner:
   max_patterns: 500
   decay_half_life_seconds: 604800   # 7 days
-  match_threshold: 0.8
+  match_threshold: 0.6   # 調低讓更多模式命中跳過 LLM planning
   semantic_enabled: true
   semantic_threshold: 0.85
   semantic_top_k: 5
@@ -30,7 +30,7 @@ summarizer:
   keep_recent: 2
 
 router:
-  pattern_threshold: 0.8
+  pattern_threshold: 0.6   # 調低配合 pattern_learner，讓更多重複查詢命中
   rule_threshold: 0.9
 
 tool_guard:

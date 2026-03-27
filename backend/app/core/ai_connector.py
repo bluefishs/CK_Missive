@@ -170,7 +170,9 @@ class AIConnector:
                 # 繼續到下方 Groq-first 邏輯作為 fallback
 
         # 嘗試 vLLM 本地（最低延遲，P0 優先）
-        if os.getenv("VLLM_ENABLED", "").lower() == "true":
+        # 但指定了非 vLLM model 時跳過（如 synthesis 指定 groq model）
+        _skip_vllm = model and model != VLLM_LOCAL_MODEL and ":" not in model
+        if os.getenv("VLLM_ENABLED", "").lower() == "true" and not _skip_vllm:
             try:
                 logger.info("嘗試 vLLM 本地 (model=%s)...", VLLM_LOCAL_MODEL)
                 result = await self._nvidia_completion(

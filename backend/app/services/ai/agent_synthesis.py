@@ -89,12 +89,15 @@ class AgentSynthesizer:
         # 超時保護：避免 LLM 無回應時永久阻塞整個 SSE 串流
         synthesis_timeout = max(self.config.cloud_timeout, self.config.local_timeout)
         try:
+            # 合成優先用 Groq Cloud（llama-3.3-70B，~1.5s），vLLM 7B 合成 ~7s
+            # 指定 model 跳過 vLLM P0，直接走 Groq→NVIDIA→Ollama fallback
             raw = await asyncio.wait_for(
                 self.ai.chat_completion(
                     messages=messages,
                     temperature=self.config.rag_temperature,
                     max_tokens=self.config.rag_max_tokens,
-                    task_type="chat",
+                    model="llama-3.3-70b-versatile",  # Groq Cloud
+                    task_type="synthesis",
                 ),
                 timeout=synthesis_timeout,
             )
