@@ -19,7 +19,9 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.ai.proactive_triggers import ProactiveTriggerService, TriggerAlert
+from app.services.ai.dispatch_progress_synthesizer import DispatchProgressSynthesizer
 from app.services.line_bot_service import get_line_bot_service
+from app.services.line_flex_builder import build_progress_report_flex
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +125,53 @@ class LinePushScheduler:
         )
 
         return result
+
+    async def push_dispatch_progress(
+        self,
+        target_user_ids: Optional[List[str]] = None,
+        year: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """推送派工進度彙整 Flex Message。
+
+        Args:
+            target_user_ids: LINE User ID 列表（預設查 DB）
+            year: 民國年度（預設當前）
+
+        Returns:
+            推送結果摘要
+        """
+        if not self._line_service.enabled:
+            return {"status": "disabled", "sent": 0}
+
+        synth = DispatchProgressSynthesizer(self.db)
+        report = await synth.generate_report(year=year)
+        summary = synth.to_dict(report)
+
+        # 無逾期也無進行中 → 不推送
+        if not summary.get('overdue') and not summary.get('in_progress'):
+            return {"status": "no_active_dispatches", "sent": 0}
+
+        user_ids = target_user_ids or await self._get_push_targets()
+        if not user_ids:
+            return {"status": "no_targets", "sent": 0}
+
+        # 嘗試 Flex Message，fallback 純文字
+        flex = build_progress_report_flex(summary)
+        sent = 0
+        for uid in user_ids:
+            try:
+                ok = await self._line_service.push_flex(uid, flex, alt_text="派工進度彙整")
+                if ok:
+                    sent += 1
+            except Exception:
+                # Flex 失敗 → 改推純文字
+                text = summary.get('summary_text', '')
+                if text:
+                    await self._line_service.push_message(uid, text[:5000])
+                    sent += 1
+
+        logger.info("Dispatch progress push: %d/%d users", sent, len(user_ids))
+        return {"status": "sent", "sent": sent, "overdue": len(summary.get('overdue', []))}
 
     async def _get_push_targets(self) -> List[str]:
         """

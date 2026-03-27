@@ -203,8 +203,9 @@ class AgentOrchestrator:
                 await self._flush_trace_lightweight(trace)
                 return
 
-            # Step 0: 發送角色身份
-            role = get_role_profile(context)
+            # Step 0: 發送角色身份（router 建議的 context 優先於外部傳入的 None）
+            effective_context = context or route.suggested_context
+            role = get_role_profile(effective_context)
             trace.role_identity = role.identity
             yield sse(
                 type="role",

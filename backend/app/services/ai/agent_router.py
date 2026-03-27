@@ -37,6 +37,7 @@ class RouteDecision:
     confidence: float = 0.0
     latency_ms: float = 0.0
     source: str = ""
+    suggested_context: Optional[str] = None  # 建議的角色 context
 
 
 class AgentRouter:
@@ -136,12 +137,34 @@ class AgentRouter:
         except Exception as e:
             logger.debug("Router pattern match failed: %s", e)
 
+        # ── Layer 2.5: 意圖偵測 → 建議角色 context ──
+        suggested = self._detect_context(question)
+
         # ── Layer 3: Fallthrough → LLM ──
         return RouteDecision(
             route_type="llm",
             latency_ms=(time.time() - t0) * 1000,
             source="fallthrough",
+            suggested_context=suggested,
         )
+
+    @staticmethod
+    def _detect_context(question: str) -> Optional[str]:
+        """根據問題關鍵字推薦角色 context（採用 OpenClaw 3-layer 模式）"""
+        _DISPATCH_KW = ("派工", "派工單", "逾期", "進度彙整", "派工進度", "工程進度", "查估")
+        _DOC_KW = ("公文", "文號", "來函", "發文", "收文", "函覆")
+        _ERP_KW = ("請款", "報銷", "發票", "帳本", "預算", "費用", "財務")
+        _DEV_KW = ("程式碼", "API", "架構", "schema", "endpoint", "函數", "模組")
+
+        if any(kw in question for kw in _DISPATCH_KW):
+            return "dispatch"
+        if any(kw in question for kw in _ERP_KW):
+            return "agent"  # ERP 工具在全域角色中
+        if any(kw in question for kw in _DOC_KW):
+            return "doc"
+        if any(kw in question for kw in _DEV_KW):
+            return "dev"
+        return None
 
     async def _filter_degraded_tools(
         self,

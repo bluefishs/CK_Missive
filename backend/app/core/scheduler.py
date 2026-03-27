@@ -221,6 +221,16 @@ async def proactive_trigger_scan_job():
             except Exception as line_err:
                 logger.debug(f"LINE 推播跳過: {line_err}")
 
+            # 派工進度彙整推送 (LINE Flex + Discord Embed)
+            try:
+                from app.services.line_push_scheduler import LinePushScheduler
+                progress_scheduler = LinePushScheduler(db)
+                progress_result = await progress_scheduler.push_dispatch_progress()
+                if progress_result.get("sent", 0) > 0:
+                    logger.info(f"派工進度 LINE 推送完成: {progress_result}")
+            except Exception as progress_err:
+                logger.debug(f"派工進度推送跳過: {progress_err}")
+
     except Exception as e:
         logger.error(f"NemoClaw 夜間吹哨者失敗: {e}", exc_info=True)
 

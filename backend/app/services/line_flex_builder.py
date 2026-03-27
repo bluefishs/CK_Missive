@@ -75,6 +75,80 @@ def build_agent_reply_flex(question: str, answer: str, tools_used: list = None) 
     }
 
 
+def build_progress_report_flex(summary: dict) -> dict:
+    """派工進度彙整 Flex Message（對標 OpenClaw 進度彙整格式）
+
+    Args:
+        summary: DispatchProgressSynthesizer.to_dict() 的回傳值
+    """
+    completed = summary.get('completed', [])
+    in_progress = summary.get('in_progress', [])
+    overdue = summary.get('overdue', [])
+    alerts = summary.get('key_alerts', [])
+
+    body_contents = []
+
+    # 統計摘要
+    body_contents.append({
+        "type": "box", "layout": "horizontal", "spacing": "md",
+        "contents": [
+            {"type": "text", "text": f"✅ {len(completed)}", "size": "sm", "color": "#27AE60", "align": "center"},
+            {"type": "text", "text": f"🔄 {len(in_progress)}", "size": "sm", "color": "#F39C12", "align": "center"},
+            {"type": "text", "text": f"🔴 {len(overdue)}", "size": "sm", "color": "#E74C3C", "align": "center"},
+        ],
+    })
+    body_contents.append({"type": "separator", "margin": "md"})
+
+    # 逾期項目（最重要，最多顯示 5 筆）
+    if overdue:
+        body_contents.append({
+            "type": "text", "text": "逾期派工單", "weight": "bold",
+            "size": "sm", "color": "#E74C3C", "margin": "md",
+        })
+        for item in overdue[:5]:
+            no = item.get('dispatch_no', '').replace('115年_', '')
+            handler = item.get('case_handler', '未指派')
+            days = item.get('overdue_days', 0)
+            body_contents.append({
+                "type": "text", "size": "xs", "wrap": True,
+                "text": f"⚠️ {no} ({handler}) 逾期{days}天",
+            })
+
+    # 關鍵提醒
+    if alerts:
+        body_contents.append({"type": "separator", "margin": "md"})
+        for alert in alerts[:3]:
+            body_contents.append({
+                "type": "text", "size": "xs", "wrap": True,
+                "color": "#E67E22", "text": f"・{alert}",
+            })
+
+    return {
+        "type": "bubble",
+        "size": "mega",
+        "header": {
+            "type": "box", "layout": "vertical",
+            "contents": [{"type": "text", "text": "📊 派工進度彙整", "weight": "bold", "size": "lg", "color": "#FFFFFF"}],
+            "backgroundColor": "#1890FF",
+            "paddingAll": "14px",
+        },
+        "body": {
+            "type": "box", "layout": "vertical", "spacing": "sm",
+            "contents": body_contents,
+            "paddingAll": "14px",
+        },
+        "footer": {
+            "type": "box", "layout": "vertical",
+            "contents": [
+                {
+                    "type": "button", "style": "primary", "color": "#1890FF", "height": "sm",
+                    "action": {"type": "message", "label": "查看完整報告", "text": "派工進度彙整"},
+                },
+            ],
+        },
+    }
+
+
 def build_quick_reply_items(suggestions: list) -> list:
     """建構 Quick Reply 按鈕列表"""
     items = []

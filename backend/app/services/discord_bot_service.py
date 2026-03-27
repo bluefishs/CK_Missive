@@ -212,17 +212,58 @@ class DiscordBotService:
 
     async def send_channel_message(self, channel_id: str, content: str) -> bool:
         """推送訊息到 Discord Channel"""
+        return await self._post_channel(channel_id, {"content": content[:_MAX_MESSAGE_CONTENT]})
+
+    async def send_channel_embed(
+        self, channel_id: str, title: str, description: str,
+        color: int = _COLOR_INFO, fields: list = None,
+    ) -> bool:
+        """推送 Embed 到 Discord Channel"""
+        embed: dict = {"title": title, "description": description[:4096], "color": color}
+        if fields:
+            embed["fields"] = [
+                {"name": f["name"][:256], "value": f["value"][:1024], "inline": f.get("inline", True)}
+                for f in fields[:25]
+            ]
+        return await self._post_channel(channel_id, {"embeds": [embed]})
+
+    async def send_dispatch_progress(self, channel_id: str, summary: dict) -> bool:
+        """推送派工進度彙整 Embed"""
+        completed = summary.get('completed', [])
+        overdue = summary.get('overdue', [])
+        in_progress = summary.get('in_progress', [])
+        alerts = summary.get('key_alerts', [])
+
+        desc = f"✅ 已完成 {len(completed)} | 🔄 進行中 {len(in_progress)} | 🔴 逾期 {len(overdue)}"
+        fields = []
+
+        if overdue:
+            overdue_text = "\n".join(
+                f"⚠️ {o['dispatch_no'].replace('115年_', '')} ({o.get('case_handler','?')}) 逾期{o.get('overdue_days',0)}天"
+                for o in overdue[:5]
+            )
+            fields.append({"name": "🔴 逾期派工單", "value": overdue_text, "inline": False})
+
+        if alerts:
+            fields.append({"name": "關鍵提醒", "value": "\n".join(f"・{a}" for a in alerts[:3]), "inline": False})
+
+        return await self.send_channel_embed(
+            channel_id, "📊 派工進度彙整", desc,
+            color=0xE74C3C if overdue else _COLOR_SUCCESS, fields=fields,
+        )
+
+    async def _post_channel(self, channel_id: str, payload: dict) -> bool:
+        """POST 訊息到 Discord Channel"""
         if not self.bot_token:
             logger.warning("DISCORD_BOT_TOKEN not configured")
             return False
-
         try:
             import httpx
             async with httpx.AsyncClient() as client:
                 resp = await client.post(
                     f"https://discord.com/api/v10/channels/{channel_id}/messages",
                     headers={"Authorization": f"Bot {self.bot_token}"},
-                    json={"content": content[:_MAX_MESSAGE_CONTENT]},
+                    json=payload,
                     timeout=10,
                 )
                 return resp.status_code == 200
