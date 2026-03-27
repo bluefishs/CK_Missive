@@ -292,11 +292,14 @@ def extract_core_identifiers(
     if m:
         ids.append(f"派工單{m.group(1)}")
 
-    # 路名提取：排除「巷道路」等誤匹配（「巷」後接「道路」不是路名）
-    for m in re.finditer(r'(?<!巷)([\u4e00-\u9fff]{2,6}(?:路|街))(?!拓寬|開闢|新建)', project_name):
+    # 路名提取：只接受「行政區+路名」或「獨立路名」模式
+    # 排除 至X路/與X路/弄X路/巷X路/打通至X路/站X路 等非路名開頭
+    _BAD_ROAD_PREFIX = re.compile(r'^[至與弄巷站打]|^打通|^通至')
+    for m in re.finditer(r'([\u4e00-\u9fff]{2,6}(?:路|街))', project_name):
         name = m.group(1)
-        # 排除通用詞（「巷道路」「幹道路」等不是實際路名）
-        if name.endswith(('道路', '幹路')) and len(name) <= 3:
+        if name in ('道路', '幹路'):
+            continue
+        if _BAD_ROAD_PREFIX.match(name):
             continue
         if name not in ids and len(name) >= 3:
             ids.append(name)
