@@ -77,11 +77,22 @@ class AgencyService(AuditableServiceMixin):
 
     async def create(self, data: AgencyCreate) -> GovernmentAgency:
         """
-        建立機關 - 加入名稱重複檢查
+        建立機關 - 加入名稱正規化 + 重複檢查
 
         Raises:
-            ValueError: 機關名稱已存在
+            ValueError: 機關名稱已存在或無效
         """
+        # 正規化名稱（去除協力廠商後綴、統編前綴等）
+        from app.services.receiver_normalizer import normalize_unit
+        normalized = normalize_unit(data.agency_name)
+        if normalized.primary != data.agency_name:
+            data.agency_name = normalized.primary
+
+        # 攔截自家公司名稱（不應出現在機關表）
+        _SELF_KEYWORDS = ("乾坤測繪", "乾坤科技")
+        if any(kw in data.agency_name for kw in _SELF_KEYWORDS):
+            raise ValueError(f"自家公司不應建為機關: {data.agency_name}")
+
         existing = await self.get_by_field("agency_name", data.agency_name)
         if existing:
             raise ValueError(f"機關名稱已存在: {data.agency_name}")
