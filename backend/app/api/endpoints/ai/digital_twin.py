@@ -70,12 +70,17 @@ async def digital_twin_query_stream(
 
     agent = NemoClawAgent(db)
 
+    # context 必須是 str（NemoClawAgent.stream_query 預期 Optional[str]）
+    ctx = None
+    if request.context:
+        ctx = request.context.get("context") if isinstance(request.context, dict) else str(request.context)
+
     return create_sse_response(
         stream_fn=lambda: agent.stream_query(
             question=request.question,
             history=[],
             session_id=request.session_id or "",
-            context=request.context or {},
+            context=ctx,
         ),
         endpoint_name="DigitalTwin",
         done_extra={"model": "nemoclaw-local", "tools_used": [], "iterations": 0},
