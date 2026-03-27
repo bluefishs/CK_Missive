@@ -14,6 +14,7 @@ import { Row, Col, Typography, Badge, Tabs, Card, Alert, Spin, Tag, Space } from
 import {
   MessageOutlined, RadarChartOutlined,
   ApartmentOutlined, DashboardOutlined, UnorderedListOutlined,
+  ExperimentOutlined, ScheduleOutlined,
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -24,6 +25,8 @@ import { ProfileCard, defaultProfile } from './digitalTwin/ProfileCard';
 import { CapabilityRadarTab } from './digitalTwin/CapabilityRadarTab';
 import { TraceWaterfallTab } from './digitalTwin/TraceWaterfallTab';
 import { DashboardTab } from './digitalTwin/DashboardTab';
+import { EvolutionTab } from './digitalTwin/EvolutionTab';
+import { DispatchProgressTab } from './digitalTwin/DispatchProgressTab';
 import type { AgentSelfProfile } from './digitalTwin/ProfileCard';
 
 const { Title, Text } = Typography;
@@ -109,6 +112,8 @@ const DigitalTwinPage: React.FC = () => {
     { key: 'capability', label: <span><RadarChartOutlined /> 能力雷達</span>, children: <CapabilityRadarTab /> },
     { key: 'trace', label: <span><UnorderedListOutlined /> 查詢軌跡</span>, children: <TraceWaterfallTab /> },
     { key: 'dashboard', label: <span><DashboardOutlined /> 儀表板</span>, children: <DashboardTab /> },
+    { key: 'evolution', label: <span><ExperimentOutlined /> 進化歷程</span>, children: <EvolutionTab /> },
+    { key: 'dispatch', label: <span><ScheduleOutlined /> 派工進度</span>, children: <DispatchProgressTab /> },
     { key: 'topology', label: <span><ApartmentOutlined /> 系統拓撲</span>, children: <TopologyTab /> },
   ];
 
