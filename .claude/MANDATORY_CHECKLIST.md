@@ -1,6 +1,6 @@
 # CK_Missive 強制性開發規範檢查清單
 
-> **版本**: 1.20.0
+> **版本**: 1.21.0
 > **建立日期**: 2026-01-11
 > **最後更新**: 2026-03-28
 > **狀態**: 強制執行 - 所有開發任務啟動前必須檢視
@@ -1722,9 +1722,83 @@ if os.environ.get("PGVECTOR_ENABLED", "").lower() == "true":
 
 ---
 
+## 清單 Z — 資安開發強制規範（v5.2.5 資安掃描教訓）
+
+> **適用場景**: 所有程式碼開發、依賴管理、部署配置
+> **來源**: 2026-03-28 資安掃描 187 個問題的修復歸納
+> **自動排程**: 每日 02:00 SecurityScanner 自動掃描
+
+### Z-1: 禁止硬編碼密鑰（Critical）
+
+- [ ] **密碼、API Key、Token 必須從環境變數 `os.getenv()` 讀取**
+- [ ] 禁止 `password="xxx"` / `api_key="sk-xxx"` 等硬編碼
+- [ ] `.env` 必須在 `.gitignore` 中
+- [ ] scripts 目錄也不例外（`create_regular_user.py` 踩過此坑）
+- **OWASP**: A02 Security Misconfiguration / CWE-798
+
+### Z-2: SQL 必須參數化（High）
+
+- [ ] 所有 SQL 使用 `text("SELECT ... WHERE id = :id"), {"id": val}`
+- [ ] 禁止 `f"SELECT * FROM {table}"` — 即使 table 是白名單也要用常數
+- [ ] ORM 查詢優先: `select(Model).where(Model.id == id)`
+- [ ] 白名單表名如必須拼接，**必須在程式碼中硬編碼列表驗證**
+- **OWASP**: A03 Injection / CWE-89
+
+### Z-3: 禁止不安全函數（High）
+
+- [ ] 禁止 `eval()` / `exec()` — 使用 `ast.literal_eval()` 替代
+- [ ] 禁止 `pickle.loads()` — 使用 `json.loads()` 替代
+- [ ] 禁止 `yaml.load()` — 必須使用 `yaml.safe_load()`
+- **OWASP**: A03 Injection / CWE-95
+
+### Z-4: 所有端點必須有認證（High）
+
+- [ ] 每個 `@router.post/get/put/delete` 必須有認證依賴:
+  - `require_auth()` — 需要登入
+  - `optional_auth()` — 可選登入
+  - `verify_service_token` — 內部服務
+- [ ] 唯一例外: health check、public 端點（需在程式碼中明確標記）
+- [ ] SecurityScanner 每日自動偵測缺少認證的端點
+- **OWASP**: A01 Broken Access Control / CWE-862
+
+### Z-5: 依賴漏洞定期更新（High）
+
+- [ ] 每週執行 `pip-audit` 檢查依賴漏洞
+- [ ] Critical/High 漏洞**必須在 3 天內升級**
+- [ ] 升級後**必須更新 `requirements.txt`** (`pip freeze > requirements.txt`)
+- [ ] 升級後必須驗證 `python -m py_compile main.py` + 基本 API 測試
+- [ ] 不相容降級（如 protobuf 7.x→6.x）**必須記錄原因**
+- **排程**: 每日 02:00 自動掃描 + `/admin/security-center` 儀表板監控
+
+### Z-6: Docker 環境隔離（High）
+
+- [ ] 開發環境: `startup.py` 綁 `127.0.0.1`，Docker 容器用 `profiles: ["production"]`
+- [ ] 生產容器 port mapping 不得與開發 port 相同
+- [ ] `vite.config.ts` proxy target 用 `127.0.0.1`（不是 `localhost`）
+- [ ] `ck_missive_app` Docker 容器**開發時不啟動**
+- **規則**: `0.0.0.0` 只有 Docker 容器使用
+
+### Z-7: Service Token 雙重驗證（Medium）
+
+- [ ] 內部服務認證使用 `service_token.py` 集中管理
+- [ ] 支援 `MCP_SERVICE_TOKEN` + `MCP_SERVICE_TOKEN_PREV` 雙 token rotation
+- [ ] 開發模式允許 `127.0.0.1` / 內網 IP bypass（需 log warning）
+- [ ] 內網 IP 範圍: `10.*` / `172.16-18.*` / `192.168.*`（不是 `172.*` 全開）
+
+### Z-8: 資安掃描排程維護（持續）
+
+- [ ] `SecurityScanner` 每日 02:00 自動執行
+- [ ] 掃描結果寫入 `security_issues` + `security_scans` 表
+- [ ] 前端 `/admin/security-center` 展示 OWASP 儀表板
+- [ ] 新增掃描規則時更新 `security_scanner.py` 的 pattern 列表
+- [ ] 假陽性標記為 `false_positive`，不直接刪除（保留審計軌跡）
+
+---
+
 | 版本 | 日期 | 變更摘要 |
 |------|------|---------|
-| 1.20.0 | 2026-03-28 | 新增清單 Y - Agent/AI 服務開發（v5.2.5 實戰 15 條規範） |
+| 1.21.0 | 2026-03-28 | 新增清單 Z - 資安開發強制規範（8 條，資安掃描教訓） |
+| 1.20.0 | 2026-03-28 | 新增清單 Y - Agent/AI 服務開發（v5.2.5 實戰 11 條規範） |
 | 1.19.0 | 2026-03-23 | 新增清單 X - Feature Flags |
 
 ---
