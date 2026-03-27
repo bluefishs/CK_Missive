@@ -14,11 +14,21 @@ from .common import (
     DispatchStatistics,
     PaymentStatistics,
 )
+from typing import Optional
+from pydantic import BaseModel, Field
+
 from app.core.dependencies import require_auth
 from app.extended.models import User
 from app.services.taoyuan import TaoyuanStatisticsService
+from app.services.ai.dispatch_progress_synthesizer import DispatchProgressSynthesizer
 
 router = APIRouter()
+
+
+class ProgressReportRequest(BaseModel):
+    """進度彙整請求"""
+    year: Optional[int] = Field(None, description="民國年度（如 115），預設當前年度")
+    contract_project_id: Optional[int] = Field(None, description="限定特定承攬案件")
 
 
 def get_statistics_service(db: AsyncSession = Depends(get_async_db)) -> TaoyuanStatisticsService:
@@ -68,3 +78,22 @@ async def get_statistics(
             payment_count=payment_stats.get('count', 0),
         ),
     )
+
+
+@router.post("/progress-report", summary="派工進度彙整報告")
+async def dispatch_progress_report(
+    params: ProgressReportRequest = ProgressReportRequest(),
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_auth()),
+):
+    """
+    生成派工進度彙整報告（對標 OpenClaw 進度彙整格式）
+
+    回傳結構化報告：已完成/進行中/逾期分類 + 負責人統計 + 關鍵提醒
+    """
+    synthesizer = DispatchProgressSynthesizer(db)
+    report = await synthesizer.generate_report(
+        year=params.year,
+        contract_project_id=params.contract_project_id,
+    )
+    return synthesizer.to_dict(report)

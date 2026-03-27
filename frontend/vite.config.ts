@@ -77,14 +77,14 @@ export default defineConfig(({ mode }) => {
       proxy: {
         // Proxy API requests to the backend server
         '/api': {
-          target: 'http://localhost:8001',
+          target: 'http://127.0.0.1:8001',
           changeOrigin: true,
           secure: false,
           rewrite: path => path,
         },
         // Proxy OpenAPI specification for API documentation
         '/openapi.json': {
-          target: env.VITE_API_BASE_URL || 'http://localhost:8001',
+          target: env.VITE_API_BASE_URL || 'http://127.0.0.1:8001',
           changeOrigin: true,
           secure: false,
           rewrite: path => path,

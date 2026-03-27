@@ -13,9 +13,11 @@ PM/ERP 領域工具執行器
 - get_financial_summary: 查詢專案/公司財務總覽
 - get_expense_overview: 查詢費用報銷總覽
 - check_budget_alert: 預算超支警報檢查
+- get_dispatch_progress: 派工進度彙整報告
 
 Extracted from agent_tools.py v1.83.0
 Updated v5.1.1: 財務工具整合 (Phase 3-1/3-2)
+Updated v5.2.5: 派工進度彙整 (OC-2 OpenClaw 模式轉化)
 """
 
 import logging
@@ -211,3 +213,15 @@ class DomainToolExecutor:
             "alerts": alerts,
             "count": len(alerts),
         }
+
+    # === Dispatch Progress (OC-2, v5.2.5) ===
+
+    async def get_dispatch_progress(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """派工進度彙整報告"""
+        from app.services.ai.dispatch_progress_synthesizer import DispatchProgressSynthesizer
+
+        synth = DispatchProgressSynthesizer(self.db)
+        report = await synth.generate_report(
+            year=params.get("year"),
+        )
+        return synth.to_dict(report)

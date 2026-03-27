@@ -422,6 +422,21 @@ def register_default_tools(registry: ToolRegistry) -> None:
         contexts=["erp", "pm"],
     ))
 
+    # 28. get_dispatch_progress — 派工進度彙整（對標 OpenClaw 進度摘要）
+    registry.register(ToolDefinition(
+        name="get_dispatch_progress",
+        description="生成派工進度彙整報告：已完成/進行中/逾期分類 + 負責人統計 + 關鍵提醒。適合回答「派工進度如何」「有哪些逾期」「某人負責的案件」之類的問題。",
+        parameters={
+            "year": {"type": "integer", "description": "民國年度（如 115），預設當前年度"},
+        },
+        few_shot={
+            "question": "目前派工進度如何？有哪些逾期的？",
+            "response_json": '{"reasoning": "生成派工進度彙整報告", "tool_calls": [{"name": "get_dispatch_progress", "params": {}}]}',
+        },
+        priority=8,
+        contexts=["dispatch", "pm"],
+    ))
+
     logger.info("Tool registry initialized: %d manual tools registered", registry.get_tool_count())
 
     # === NemoClaw Stage 3: 自動從 Skills 目錄發現並註冊工具 ===

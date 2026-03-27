@@ -83,6 +83,8 @@ _DISPATCH_KEYS = {
     "get_financial_summary",
     "get_expense_overview",
     "check_budget_alert",
+    # Dispatch progress (OC-2, v5.2.5)
+    "get_dispatch_progress",
 }
 # Validate: all dispatch keys must be in registry, and all non-skill registry tools
 # must be in dispatch keys. Skill tools (skill_*) are handled dynamically.
@@ -134,6 +136,8 @@ class ToolResultGuard:
         "get_financial_summary": {"summary": {}, "count": 0},
         "get_expense_overview": {"items": [], "count": 0},
         "check_budget_alert": {"alerts": [], "count": 0},
+        # Dispatch progress (OC-2, v5.2.5)
+        "get_dispatch_progress": {"completed": [], "in_progress": [], "overdue": [], "count": 0},
     }
 
     @classmethod
@@ -292,6 +296,8 @@ class AgentToolExecutor:
             "get_financial_summary": self._domain.get_financial_summary,
             "get_expense_overview": self._domain.get_expense_overview,
             "check_budget_alert": self._domain.check_budget_alert,
+            # Dispatch progress (OC-2, v5.2.5)
+            "get_dispatch_progress": self._domain.get_dispatch_progress,
             # Document parsing tool (v10.1)
             "parse_document": self._document.parse_document,
             # Knowledge Base search (v1.84.5)

@@ -203,11 +203,16 @@ def main():
     # 直接用 exec 替換進程，確保 stdout/stderr 完整傳遞給 PM2
     # Windows 的 os.execvp 行為等同 spawn+exit，PM2 會追蹤新進程
     import uvicorn
+    # Windows 上 uvicorn reload 子進程有代碼不同步問題（新增的路由/schema 不生效）
+    # 改為 reload=False，由 PM2 restart 管理代碼更新
+    # 開發環境只綁 127.0.0.1 避免與 Docker Desktop port binding 衝突
+    # 生產環境由 Docker 容器 (ck_missive_app) 綁 0.0.0.0
+    host = os.environ.get("BACKEND_HOST", "127.0.0.1")
     uvicorn.run(
         "main:app",
-        host="0.0.0.0",
+        host=host,
         port=port,
-        reload=True,
+        reload=False,
         log_level="info",
     )
 
