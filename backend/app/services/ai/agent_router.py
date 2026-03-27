@@ -101,6 +101,21 @@ class AgentRouter:
                 suggested_context="dispatch",
             )
 
+        # 工程/道路名稱搜尋（含路名但無派工單號 → 搜尋派工單+公文）
+        _ROAD_KW = ("路", "街", "工程", "拓寬", "開闢", "新闢", "查估", "測量")
+        if any(kw in question for kw in _ROAD_KW) and not _dispatch_match:
+            return RouteDecision(
+                route_type="pattern",
+                confidence=0.9,
+                latency_ms=(time.time() - t0) * 1000,
+                source="road_search_rule",
+                plan={"tool_calls": [
+                    {"name": "search_dispatch_orders", "params": {"search": question[:50]}},
+                    {"name": "search_documents", "params": {"keywords": [question[:30]], "limit": 5}},
+                ]},
+                suggested_context="dispatch",
+            )
+
         # 派工進度彙整（「派工進度」「進度彙整」）
         if any(kw in question for kw in ("派工進度", "進度彙整", "派工彙整")):
             return RouteDecision(
