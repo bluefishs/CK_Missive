@@ -81,7 +81,13 @@ class AgentToolLoop:
                 c for c in calls if c.get("name", "") in VALID_TOOL_NAMES
             ]
 
-            # 注：不移除 search_documents — 核心問題在 summary 資訊不完整，已修正
+            # 派工單場景精準化：plan 同時含 dispatch + documents 時，移除 documents
+            # （派工單已含關聯公文，search_documents 只會引入 564 篇無關雜訊）
+            # 純公文查詢（無 dispatch 工具）不受影響
+            call_names = {c.get("name") for c in valid_calls}
+            if "search_dispatch_orders" in call_names and "search_documents" in call_names:
+                valid_calls = [c for c in valid_calls if c.get("name") != "search_documents"]
+                logger.info("派工單場景：移除並行的 search_documents（使用關聯公文）")
             if not valid_calls:
                 break
 
