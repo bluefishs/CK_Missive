@@ -34,8 +34,12 @@ async def verify_service_token(
         client_host = request.client.host if request.client else ""
         if is_dev and (
             client_host in ("127.0.0.1", "::1")
-            or client_host.startswith("172.")
+            or client_host.startswith("172.16.")
+            or client_host.startswith("172.17.")
+            or client_host.startswith("172.18.")
+            or client_host.startswith("172.24.")
             or client_host.startswith("192.168.")
+            or client_host.startswith("10.")
         ):
             log.warning(
                 "service_token_dev_bypass",
