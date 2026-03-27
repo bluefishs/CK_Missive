@@ -13,7 +13,7 @@ import os
 from collections import Counter
 from typing import Dict, List, Optional, Set, Tuple
 
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.extended.models import (
@@ -219,18 +219,14 @@ class RelationGraphService:
         )
         dispatch_doc_ids = {row[0] for row in dispatch_result.all()}
 
-        fk_result = await self.db.execute(
-            select(TaoyuanDispatchOrder.agency_doc_id)
-            .where(TaoyuanDispatchOrder.agency_doc_id.isnot(None))
-            .limit(2000)
-        )
+        fk_union = union_all(
+            select(TaoyuanDispatchOrder.agency_doc_id.label('doc_id'))
+            .where(TaoyuanDispatchOrder.agency_doc_id.isnot(None)),
+            select(TaoyuanDispatchOrder.company_doc_id.label('doc_id'))
+            .where(TaoyuanDispatchOrder.company_doc_id.isnot(None)),
+        ).subquery()
+        fk_result = await self.db.execute(select(fk_union.c.doc_id).distinct().limit(4000))
         fk_ids = {row[0] for row in fk_result.all()}
-        fk_result2 = await self.db.execute(
-            select(TaoyuanDispatchOrder.company_doc_id)
-            .where(TaoyuanDispatchOrder.company_doc_id.isnot(None))
-            .limit(2000)
-        )
-        fk_ids |= {row[0] for row in fk_result2.all()}
 
         all_ids = ner_doc_ids | dispatch_doc_ids | fk_ids
         logger.info(
@@ -388,24 +384,27 @@ class RelationGraphService:
         self, doc_ids, seen_nodes, add_node, add_edge
     ) -> int:
         """加入派工單和桃園工程節點，回傳 dispatch link 數量"""
-        # 路徑 1: dispatch_document_link
+        # 路徑 1: dispatch_document_link（保留原始 links 供後續邊建立）
         dispatch_link_result = await self.db.execute(
             select(TaoyuanDispatchDocumentLink)
             .where(TaoyuanDispatchDocumentLink.document_id.in_(doc_ids))
         )
         dispatch_links = dispatch_link_result.scalars().all()
-        dispatch_ids: Set[int] = set(dl.dispatch_order_id for dl in dispatch_links)
 
-        # 路徑 2: FK 反向查詢 — 直接合併為單次查詢取得完整 dispatch orders
-        fk_dispatch_result = await self.db.execute(
+        # 合併路徑 1 + FK 路徑 2 為單次查詢取得所有相關 dispatch orders
+        link_subquery = (
+            select(TaoyuanDispatchDocumentLink.dispatch_order_id)
+            .where(TaoyuanDispatchDocumentLink.document_id.in_(doc_ids))
+        ).subquery()
+        all_dispatch_result = await self.db.execute(
             select(TaoyuanDispatchOrder)
             .where(or_(
-                TaoyuanDispatchOrder.id.in_(list(dispatch_ids)) if dispatch_ids else False,
+                TaoyuanDispatchOrder.id.in_(select(link_subquery)),
                 TaoyuanDispatchOrder.agency_doc_id.in_(doc_ids),
                 TaoyuanDispatchOrder.company_doc_id.in_(doc_ids),
             ))
         )
-        all_dispatches = fk_dispatch_result.scalars().all()
+        all_dispatches = all_dispatch_result.scalars().all()
         dispatch_ids = set(d.id for d in all_dispatches)
 
         if not dispatch_ids:

@@ -19,6 +19,7 @@ import re
 import time
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import StreamingResponse
 
@@ -112,7 +113,7 @@ async def get_task_status(job_id: str, _current_user: User = Depends(require_aut
     try:
         import httpx
     except ImportError:
-        return {"success": False, "error": "後端缺少必要套件"}
+        return JSONResponse(status_code=503, content={"success": False, "error": "後端缺少必要套件"})
 
     gateway_url = os.getenv("NEMOCLAW_GATEWAY_URL", "http://nemoclaw_tower:9000")
     token = os.getenv("MCP_SERVICE_TOKEN", "")
@@ -124,11 +125,14 @@ async def get_task_status(job_id: str, _current_user: User = Depends(require_aut
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(f"{gateway_url.rstrip('/')}/tasks/{job_id}", headers=headers)
             if resp.status_code >= 400:
-                return {"success": False, "error": f"上游服務回應 HTTP {resp.status_code}"}
+                return JSONResponse(
+                    status_code=resp.status_code,
+                    content={"success": False, "error": f"上游服務回應 HTTP {resp.status_code}"},
+                )
             return resp.json()
     except Exception as e:
         logger.error("Task status proxy error: %s", e)
-        return {"success": False, "error": "任務狀態查詢失敗"}
+        return JSONResponse(status_code=503, content={"success": False, "error": "任務狀態查詢失敗"})
 
 
 # ── V-2.2: Live Activity Stream ────────────────────────────
@@ -207,7 +211,7 @@ async def dashboard_snapshot(
 # ── Health Check ───────────────────────────────────────────
 
 @router.post("/digital-twin/health")
-async def digital_twin_health():
+async def digital_twin_health(_current_user: User = Depends(require_auth())):
     """
     數位分身健康狀態 — 本地能力 + Gateway 可達性
 
@@ -244,12 +248,12 @@ async def digital_twin_health():
 
 # ── Shared Helper ──────────────────────────────────────────
 
-async def _proxy_task_action(job_id: str, action: str, body: dict) -> dict:
+async def _proxy_task_action(job_id: str, action: str, body: dict):
     import os
     try:
         import httpx
     except ImportError:
-        return {"success": False, "error": "後端缺少必要套件"}
+        return JSONResponse(status_code=503, content={"success": False, "error": "後端缺少必要套件"})
 
     gateway_url = os.getenv("NEMOCLAW_GATEWAY_URL", "http://nemoclaw_tower:9000")
     token = os.getenv("MCP_SERVICE_TOKEN", "")
@@ -261,8 +265,11 @@ async def _proxy_task_action(job_id: str, action: str, body: dict) -> dict:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.post(f"{gateway_url.rstrip('/')}/tasks/{job_id}/{action}", json=body, headers=headers)
             if resp.status_code >= 400:
-                return {"success": False, "error": f"上游服務回應 HTTP {resp.status_code}"}
+                return JSONResponse(
+                    status_code=resp.status_code,
+                    content={"success": False, "error": f"上游服務回應 HTTP {resp.status_code}"},
+                )
             return resp.json()
     except Exception as e:
         logger.error("Task %s proxy error: %s", action, e)
-        return {"success": False, "error": f"任務{action}操作失敗"}
+        return JSONResponse(status_code=503, content={"success": False, "error": f"任務{action}操作失敗"})

@@ -48,6 +48,7 @@ export function useLiveActivitySSE(
   const esRef = useRef<EventSource | null>(null);
   const retryRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const seenIdsRef = useRef<Set<string>>(new Set());
 
   const clearEvents = useCallback(() => setEvents([]), []);
 
@@ -81,6 +82,15 @@ export function useLiveActivitySSE(
           if (event.type === 'error') {
             console.warn('[LiveActivity] SSE error event:', event);
             return;
+          }
+          // 事件去重（correlation_id + timestamp）
+          const dedupKey = `${event.correlation_id ?? ''}:${event.timestamp}`;
+          if (seenIdsRef.current.has(dedupKey)) return;
+          seenIdsRef.current.add(dedupKey);
+          // 限制 seen set 大小避免記憶體膨脹
+          if (seenIdsRef.current.size > MAX_EVENTS * 2) {
+            const entries = [...seenIdsRef.current];
+            seenIdsRef.current = new Set(entries.slice(-MAX_EVENTS));
           }
           setEvents((prev) => [event, ...prev].slice(0, MAX_EVENTS));
         } catch {

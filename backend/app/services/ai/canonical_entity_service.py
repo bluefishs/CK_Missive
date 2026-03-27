@@ -229,13 +229,14 @@ class CanonicalEntityService:
                     len(still_unmatched) - 50,
                 )
 
-            # 預批次取得所有 embeddings（消除 N+1 embedding 計算）
+            # 批次取得所有 embeddings（一次 API 呼叫取代 N 次）
             embeddings_map: Dict[str, list] = {}
             try:
                 from app.services.ai.embedding_manager import EmbeddingManager
                 if await EmbeddingManager.is_available():
-                    for name, _ in semantic_candidates:
-                        emb = await EmbeddingManager.get_embedding(name, connector=None)
+                    names_list = [name for name, _ in semantic_candidates]
+                    emb_results = await EmbeddingManager.get_embeddings_batch(names_list, connector=None)
+                    for name, emb in zip(names_list, emb_results):
                         if emb:
                             embeddings_map[name] = emb
             except Exception as e:
@@ -246,6 +247,7 @@ class CanonicalEntityService:
                 config = AIConfig.get_instance()
                 max_distance = config.kg_semantic_distance
 
+                # pgvector 逐一查詢（每個 embedding+type 不同，無法合併；AsyncSession 不支援並行）
                 for name, etype in semantic_candidates:
                     query_emb = embeddings_map.get(name)
                     if not query_emb:
