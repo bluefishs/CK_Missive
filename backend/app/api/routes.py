@@ -89,3 +89,7 @@ api_router.include_router(pm_router, prefix="/pm", tags=["專案管理"])
 # --- 財務管理模組 (ERP, v1.85.0) ---
 from app.api.endpoints.erp import router as erp_router
 api_router.include_router(erp_router, prefix="/erp", tags=["財務管理"])
+
+# --- 資安管理中心 (v5.2.5) ---
+from app.api.endpoints.security import router as security_router
+api_router.include_router(security_router)

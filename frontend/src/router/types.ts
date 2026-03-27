@@ -127,6 +127,8 @@ export const ROUTES = {
   ERP_EINVOICE_SYNC: '/erp/einvoice-sync',
   // 數位分身
   DIGITAL_TWIN: '/ai/digital-twin',
+  // 資安管理中心
+  SECURITY_CENTER: '/admin/security-center',
   // 登入紀錄 (資安管理)
   ADMIN_LOGIN_HISTORY: '/admin/login-history',
 } as const;

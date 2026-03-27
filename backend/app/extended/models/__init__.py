@@ -142,6 +142,10 @@ from .finance import (
 from .einvoice_sync import (
     EInvoiceSyncLog,
 )
+from .security import (
+    SecurityIssue,
+    SecurityScan,
+)
 
 # 匯出 Base 供 Alembic 等工具使用
 from ._base import Base

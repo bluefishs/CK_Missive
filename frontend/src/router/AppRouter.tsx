@@ -109,6 +109,7 @@ const ERPEInvoiceSyncPage = lazy(() => import('../pages/ERPEInvoiceSyncPage'));
 const DigitalTwinPage = lazy(() => import('../pages/DigitalTwinPage'));
 
 // 資安管理
+const SecurityCenterPage = lazy(() => import('../pages/SecurityCenterPage'));
 const AdminLoginHistoryPage = lazy(() => import('../pages/AdminLoginHistoryPage'));
 
 // ProtectedRoute 已移至獨立模組：./ProtectedRoute.tsx
@@ -248,6 +249,8 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.DB_GRAPH} element={<ProtectedRoute><DatabaseGraphPage /></ProtectedRoute>} />
           {/* 數位分身 */}
           <Route path={ROUTES.DIGITAL_TWIN} element={<ProtectedRoute><DigitalTwinPage /></ProtectedRoute>} />
+          {/* 資安管理中心 */}
+          <Route path={ROUTES.SECURITY_CENTER} element={<ProtectedRoute requireAuth={true} roles={['admin']}><SecurityCenterPage /></ProtectedRoute>} />
           {/* 知識庫瀏覽器 */}
           <Route path={ROUTES.KNOWLEDGE_BASE} element={<ProtectedRoute requireAuth={true} roles={['admin']}><KnowledgeBasePage /></ProtectedRoute>} />
 
