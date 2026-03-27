@@ -12,7 +12,7 @@ import logging
 from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, or_, text, delete
+from sqlalchemy import select, func, and_, or_, text, delete, union_all
 from sqlalchemy.orm import selectinload
 
 from ..base_repository import BaseRepository
@@ -22,6 +22,7 @@ from app.extended.models import (
     TaoyuanDispatchDocumentLink,
     TaoyuanDispatchAttachment,
     TaoyuanDispatchWorkType,
+    TaoyuanWorkRecord,
     OfficialDocument,
     ContractProject,
 )
@@ -547,6 +548,39 @@ class DispatchOrderRepository(BaseRepository[TaoyuanDispatchOrder]):
         )
         result = await self.db.execute(query)
         return {row[0]: row[1] for row in result.all()}
+
+    async def get_doc_work_record_dispatches(
+        self, document_ids: List[int]
+    ) -> Dict[int, List[int]]:
+        """查詢每筆公文被哪些派工單的作業紀錄引用。
+
+        Returns:
+            {document_id: [dispatch_order_id, ...]}
+        """
+        if not document_ids:
+            return {}
+        # 三個欄位都可能引用公文：document_id, incoming_doc_id, outgoing_doc_id
+        query = union_all(
+            select(
+                TaoyuanWorkRecord.document_id.label('doc_id'),
+                TaoyuanWorkRecord.dispatch_order_id.label('dispatch_id'),
+            ).where(TaoyuanWorkRecord.document_id.in_(document_ids)),
+            select(
+                TaoyuanWorkRecord.incoming_doc_id.label('doc_id'),
+                TaoyuanWorkRecord.dispatch_order_id.label('dispatch_id'),
+            ).where(TaoyuanWorkRecord.incoming_doc_id.in_(document_ids)),
+            select(
+                TaoyuanWorkRecord.outgoing_doc_id.label('doc_id'),
+                TaoyuanWorkRecord.dispatch_order_id.label('dispatch_id'),
+            ).where(TaoyuanWorkRecord.outgoing_doc_id.in_(document_ids)),
+        ).subquery()
+        result = await self.db.execute(
+            select(query.c.doc_id, query.c.dispatch_id).distinct()
+        )
+        mapping: Dict[int, List[int]] = {}
+        for row in result.all():
+            mapping.setdefault(row[0], []).append(row[1])
+        return mapping
 
     async def get_siblings_by_contract(
         self,

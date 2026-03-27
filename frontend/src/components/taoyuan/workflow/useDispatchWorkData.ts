@@ -140,15 +140,17 @@ export function useDispatchWorkData({
     return ids;
   }, [records]);
 
-  // 未指派公文：已關聯到派工單但未被任何作業紀錄引用
+  // 未指派公文：已關聯到派工單但未被任何作業紀錄引用（含跨派工單判定）
   const unassignedDocs = useMemo<UnassignedDocsData>(() => {
     const incoming: DispatchDocumentLink[] = [];
     const outgoing: DispatchDocumentLink[] = [];
 
     for (const doc of linkedDocuments) {
       if (!doc.document_id) continue;
-      // 已被作業紀錄引用 → 跳過
+      // 已被當前派工單的作業紀錄引用 → 跳過
       if (assignedDocIds.has(doc.document_id)) continue;
+      // 已被其他派工單的作業紀錄引用 → 跳過（跨派工單共用公文）
+      if (doc.referenced_by_dispatch_ids && doc.referenced_by_dispatch_ids.length > 0) continue;
       // 通用行政文件（契約/保險等）→ 跳過，不需關聯到特定作業紀錄
       if (doc.subject && GENERIC_ADMIN_KEYWORDS.test(doc.subject)) continue;
 

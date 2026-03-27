@@ -53,6 +53,8 @@ class DispatchDocumentLink(BaseModel):
 
     # 跨派工單計數（被幾個派工單引用，用於前端判斷是否為「未指派」）
     linked_dispatch_count: Optional[int] = None
+    # 此公文被哪些派工單的作業紀錄引用（跨派工單指派判定）
+    referenced_by_dispatch_ids: Optional[List[int]] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 

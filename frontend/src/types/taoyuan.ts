@@ -233,6 +233,8 @@ export interface DispatchDocumentLink extends BaseLink {
   receiver?: string;
   /** 此公文被幾個派工單引用（跨派工單重疊偵測） */
   linked_dispatch_count?: number;
+  /** 此公文被哪些派工單的作業紀錄引用（跨派工單指派判定） */
+  referenced_by_dispatch_ids?: number[];
 }
 
 /** 作業類別正規化項目 */

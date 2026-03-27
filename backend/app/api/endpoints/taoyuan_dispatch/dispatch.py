@@ -311,7 +311,7 @@ async def update_dispatch_order(
     return DispatchOrderSchema.model_validate(order)
 
 
-@router.post("/dispatch/{dispatch_id}/detail", response_model=DispatchOrderSchema, summary="取得派工紀錄詳情")
+@router.post("/dispatch/{dispatch_id}/detail", summary="取得派工紀錄詳情")
 async def get_dispatch_order_detail(
     dispatch_id: int,
     service: DispatchOrderService = Depends(get_dispatch_service),
@@ -325,8 +325,16 @@ async def get_dispatch_order_detail(
     # 批次查詢每筆公文被幾個派工單引用（供前端顯示跨派工單重疊）
     doc_ids = [link.document_id for link in (order.document_links or []) if link.document_id]
     doc_dispatch_counts = await service.repository.get_doc_dispatch_counts(doc_ids) if doc_ids else None
+    # 查詢每筆公文在哪些派工單的作業紀錄中被引用（跨派工單未指派判定）
+    doc_record_dispatches = await service.repository.get_doc_work_record_dispatches(doc_ids) if doc_ids else None
 
-    return dispatch_to_response_dict(order, doc_dispatch_counts=doc_dispatch_counts)
+    result = dispatch_to_response_dict(order, doc_dispatch_counts=doc_dispatch_counts, doc_record_dispatches=doc_record_dispatches)
+    import json as _json
+    from fastapi.responses import Response
+    return Response(
+        content=_json.dumps(result, default=str, ensure_ascii=False),
+        media_type="application/json",
+    )
 
 
 @router.post("/dispatch/batch-set-batch", response_model=BatchSetResponse, summary="批量設定結案批次")

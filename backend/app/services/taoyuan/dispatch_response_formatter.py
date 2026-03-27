@@ -99,6 +99,7 @@ def compute_work_progress(work_records) -> Optional[Dict[str, Any]]:
 def dispatch_to_response_dict(
     item,
     doc_dispatch_counts: Optional[Dict[int, int]] = None,
+    doc_record_dispatches: Optional[Dict[int, List[int]]] = None,
 ) -> Dict[str, Any]:
     """將派工單 ORM 物件轉換為回應字典
 
@@ -152,6 +153,10 @@ def dispatch_to_response_dict(
                 'linked_dispatch_count': (
                     doc_dispatch_counts.get(link.document_id, 1)
                     if doc_dispatch_counts else None
+                ),
+                'referenced_by_dispatch_ids': (
+                    doc_record_dispatches.get(link.document_id, [])
+                    if doc_record_dispatches else []
                 ),
             }
             for link in item.document_links

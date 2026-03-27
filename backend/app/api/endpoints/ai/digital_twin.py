@@ -27,6 +27,7 @@ from app.core.dependencies import require_auth, get_async_db
 from app.extended.models import User
 from app.api.sse_utils import SSE_HEADERS
 from app.schemas.ai.digital_twin import (
+    DelegateAutoRequest,
     DigitalTwinQueryRequest,
     TaskApprovalRequest,
     TaskRejectionRequest,
@@ -79,6 +80,42 @@ async def digital_twin_query_stream(
         endpoint_name="DigitalTwin",
         done_extra={"model": "nemoclaw-local", "tools_used": [], "iterations": 0},
     )
+
+
+# ── E-6: Delegate Auto Proxy (跨域自動委派) ────────────────
+
+@router.post("/digital-twin/delegate/auto")
+async def delegate_auto_proxy(
+    request: DelegateAutoRequest,
+    current_user: User = Depends(require_auth()),
+):
+    """
+    跨域自動委派 — NemoClaw Gateway 依 intent 自動選擇最佳插件
+
+    三層路由：領域關鍵字 → capabilities 匹配 → KG Hub 回退
+    """
+    from app.services.ai.federation_client import get_federation_client
+
+    client = get_federation_client()
+    try:
+        result = await client.delegate_auto(
+            intent=request.intent,
+            context=request.context,
+            timeout=request.timeout,
+        )
+    except Exception as e:
+        logger.error("delegate_auto proxy error: %s", e)
+        return {"success": False, "error": str(e)}
+
+    return {
+        "success": result.get("success", False),
+        "target_agent_id": result.get("target_agent_id"),
+        "delegated": result.get("delegated"),
+        "target_response": result.get("target_response"),
+        "routing_reason": result.get("routing_reason"),
+        "latency_ms": result.get("latency_ms"),
+        "error": result.get("error"),
+    }
 
 
 # ── V-2.1: Task Approval Gate ──────────────────────────────
