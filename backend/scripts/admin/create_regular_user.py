@@ -12,12 +12,13 @@ async def create_regular_user():
     """Create regular user with correct password hash"""
     try:
         # Connect to database
+        import os
         conn = await asyncpg.connect(
-            host="localhost",
-            port=5434,
-            user="ck_user", 
-            password="ck_password",
-            database="ck_documents"
+            host=os.getenv("DB_HOST", "localhost"),
+            port=int(os.getenv("DB_PORT", "5434")),
+            user=os.getenv("DB_USER", "ck_user"),
+            password=os.getenv("DB_PASSWORD"),
+            database=os.getenv("DB_NAME", "ck_documents"),
         )
         
         print("Database connected successfully")

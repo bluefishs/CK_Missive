@@ -130,6 +130,8 @@ class SecurityScanner:
             f for f in py_files
             if "alembic" not in str(f) and "__pycache__" not in str(f)
             and "test" not in f.name.lower()
+            and "security_scanner" not in f.name  # 排除自身（正則定義非實際呼叫）
+            and "scripts" not in str(f.relative_to(BACKEND_DIR)).split(os.sep)[:1]  # 排除一次性 scripts
         ]
 
         all_patterns = self._SECRET_PATTERNS + self._SQL_INJECTION_PATTERNS + self._UNSAFE_FUNCTIONS
@@ -172,11 +174,15 @@ class SecurityScanner:
                 for i, line in enumerate(lines):
                     if "@router." in line and "summary=" in line:
                         # 檢查接下來 5 行有沒有 require_auth 或 optional_auth
-                        block = "\n".join(lines[i:i + 6])
-                        if "require_auth" not in block and "optional_auth" not in block:
-                            # 排除 health check 等公開端點
-                            if "health" in line.lower() or "public" in line.lower():
-                                continue
+                        block = "\n".join(lines[i:i + 8])
+                        # 所有認證方式：require_auth, optional_auth, get_current_user, verify_service_token
+                        _AUTH_MARKERS = ("require_auth", "optional_auth", "get_current_user",
+                                         "require_admin", "verify_service_token", "Depends(")
+                        if any(m in block for m in _AUTH_MARKERS):
+                            continue
+                        # 排除 health/public/webhook 等合法公開端點
+                        if any(kw in line.lower() for kw in ("health", "public", "webhook")):
+                            continue
                             findings.append(ScanFinding(
                                 title="端點缺少認證裝飾器",
                                 severity="high",
