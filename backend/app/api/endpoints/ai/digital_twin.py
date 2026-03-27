@@ -60,30 +60,83 @@ async def digital_twin_query_stream(
     db: AsyncSession = Depends(get_async_db),
 ) -> StreamingResponse:
     """
-    數位分身串流查詢 — 本地 NemoClawAgent 優先
+    數位分身串流查詢 — 透過 OpenClaw (Claude Haiku) 回答
 
-    v2.0: 直接呼叫本地 Agent（消除 ck-missive→ck-missive 自我循環委派）。
-    與 /agent/query/stream 共用同一引擎，但透過 Digital Twin UI 呈現。
+    v3.0: 委派至 OpenClaw 外部 AI，與左側本地 Agent 形成對比。
+    流程: 問題 → FederationClient.query_external('openclaw') → SSE 回傳
+    Fallback: OpenClaw 不可用時降級至本地 NemoClawAgent。
     """
-    from app.services.ai.nemoclaw_agent import NemoClawAgent
-    from app.api.sse_utils import create_sse_response
 
-    agent = NemoClawAgent(db)
+    async def _stream_via_openclaw():
+        t0 = time.time()
 
-    # context 必須是 str（NemoClawAgent.stream_query 預期 Optional[str]）
-    ctx = None
-    if request.context:
-        ctx = request.context.get("context") if isinstance(request.context, dict) else str(request.context)
+        # Step 0: 自我覺察（快速，不依賴 OpenClaw）
+        try:
+            from app.services.ai.agent_self_profile import get_self_profile
+            profile = await get_self_profile(db)
+            yield _sse_event({
+                "type": "self_awareness",
+                "identity": profile.get("identity", "數位分身"),
+                "total_queries": profile.get("total_queries", 0),
+                "personality": profile.get("personality_hint", ""),
+                "strengths": profile.get("top_domains", []),
+                "alert_count": 0,
+            })
+        except Exception:
+            yield _sse_event({"type": "self_awareness", "identity": "數位分身"})
 
-    return create_sse_response(
-        stream_fn=lambda: agent.stream_query(
-            question=request.question,
-            history=[],
-            session_id=request.session_id or "",
-            context=ctx,
-        ),
-        endpoint_name="DigitalTwin",
-        done_extra={"model": "nemoclaw-local", "tools_used": [], "iterations": 0},
+        yield _sse_event({"type": "role", "identity": "數位分身 (OpenClaw)", "context": "openclaw"})
+
+        # Step 1: 嘗試 OpenClaw 查詢
+        yield _sse_event({"type": "thinking", "step": "委派至 OpenClaw (Claude Haiku)...", "step_index": 0})
+
+        answer = ""
+        model = "openclaw-unavailable"
+        try:
+            from app.services.ai.federation_client import get_federation_client
+            client = get_federation_client()
+            result = await client.query_external(
+                system_id="openclaw",
+                question=request.question,
+                context={"source": "digital-twin", "user": current_user.username},
+                timeout=25.0,
+            )
+            answer = result.get("answer", result.get("response", ""))
+            model = result.get("model", "claude-haiku")
+
+            if answer:
+                yield _sse_event({"type": "thinking", "step": f"OpenClaw 回覆完成 ({model})", "step_index": 1})
+                yield _sse_event({"type": "token", "token": answer})
+            else:
+                yield _sse_event({"type": "thinking", "step": "OpenClaw 無回覆，降級至本地 Agent", "step_index": 1})
+                raise ValueError("empty_response")
+
+        except Exception as e:
+            # Fallback: 本地 Agent
+            logger.info("OpenClaw unavailable (%s), fallback to local agent", e)
+            yield _sse_event({"type": "thinking", "step": "降級至本地 Agent...", "step_index": 2})
+
+            from app.services.ai.agent_orchestrator import AgentOrchestrator
+            orch = AgentOrchestrator(db)
+            async for event in orch.stream_agent_query(
+                question=request.question, history=[], session_id=request.session_id or "",
+            ):
+                yield event
+            return  # orchestrator 已發 done
+
+        latency = int((time.time() - t0) * 1000)
+        yield _sse_event({
+            "type": "done",
+            "latency_ms": latency,
+            "model": model,
+            "tools_used": [],
+            "iterations": 0,
+        })
+
+    return StreamingResponse(
+        _stream_via_openclaw(),
+        media_type="text/event-stream",
+        headers=SSE_HEADERS,
     )
 
 
