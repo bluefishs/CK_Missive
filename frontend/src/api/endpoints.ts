@@ -857,6 +857,8 @@ export const DIGITAL_TWIN_ENDPOINTS = {
   QA_IMPACT: '/ai/digital-twin/qa-impact',
   /** 聚合儀表板 POST /ai/digital-twin/dashboard */
   DASHBOARD: '/ai/digital-twin/dashboard',
+  /** 跨域自動委派 POST /ai/digital-twin/delegate/auto (E-6) */
+  DELEGATE_AUTO: '/ai/digital-twin/delegate/auto',
 } as const;
 
 // ============================================================================

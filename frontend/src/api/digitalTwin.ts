@@ -184,6 +184,48 @@ async function _attemptStream(
 }
 
 // ---------------------------------------------------------------------------
+// E-6: Delegate Auto — 跨域自動委派
+// ---------------------------------------------------------------------------
+
+export interface DelegateAutoRequest {
+  intent: string;
+  context?: Record<string, unknown>;
+  timeout?: number;
+}
+
+export interface DelegateAutoResponse {
+  success: boolean;
+  target_agent_id?: string;
+  delegated?: boolean;
+  target_response?: unknown;
+  routing_reason?: string;
+  latency_ms?: number;
+  error?: string;
+}
+
+export async function delegateAuto(
+  request: DelegateAutoRequest,
+): Promise<DelegateAutoResponse> {
+  try {
+    const res = await fetch(`/api${DIGITAL_TWIN_ENDPOINTS.DELEGATE_AUTO}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(request),
+    });
+    if (!res.ok) {
+      return { success: false, error: `HTTP ${res.status}` };
+    }
+    return res.json();
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Human Approval Gate (V-2.1) — TaskJobRecord SSOT 在 types/ai.ts
 // ---------------------------------------------------------------------------
 
