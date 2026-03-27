@@ -32,8 +32,8 @@ async def evolution_status(_current_user: User = Depends(require_auth())):
         if not redis:
             return {"status": "redis_unavailable"}
 
-        from app.services.ai.agent_evolution_scheduler import EvolutionScheduler
-        scheduler = EvolutionScheduler(redis)
+        from app.services.ai.agent_evolution_scheduler import AgentEvolutionScheduler
+        scheduler = AgentEvolutionScheduler(redis)
         return await scheduler.get_evolution_status()
     except Exception as e:
         logger.error("Evolution status error: %s", e)
