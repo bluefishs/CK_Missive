@@ -139,6 +139,30 @@ async function _attemptStream(
                 callbacks.onStatus?.('running', event.message || '');
                 break;
 
+              case 'self_awareness':
+              case 'role':
+                callbacks.onStatus?.('connected', event.identity as string || '數位分身');
+                break;
+
+              case 'thinking':
+                callbacks.onStatus?.('thinking', event.step as string || '思考中...');
+                break;
+
+              case 'tool_call':
+                callbacks.onStatus?.('tool', `呼叫 ${event.tool as string || '工具'}...`);
+                break;
+
+              case 'tool_result': {
+                const summary = (event.summary as string || '').slice(0, 80);
+                callbacks.onStatus?.('tool_result', summary);
+                break;
+              }
+
+              case 'sources':
+              case 'reflection':
+                // 不需要特別處理，等 token 即可
+                break;
+
               case 'token':
                 if (event.token) {
                   fullAnswer += event.token;
@@ -160,7 +184,7 @@ async function _attemptStream(
                 break;
 
               default:
-                logger.log('[DigitalTwin] Unknown event type:', event.type);
+                break;
             }
           } catch {
             logger.warn(

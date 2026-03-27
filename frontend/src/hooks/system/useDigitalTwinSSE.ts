@@ -118,7 +118,7 @@ export function useDigitalTwinSSE(
 
   const chat = useStreamingChat<RAGSourceItem, ChatMessage>({
     apis,
-    enableAgentSteps: false,
+    enableAgentSteps: true,  // 顯示工具呼叫和推理步驟
   });
 
   return {
