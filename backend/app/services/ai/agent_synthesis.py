@@ -397,14 +397,20 @@ def summarize_tool_result(tool_name: str, result: Dict[str, Any]) -> str:
         if count == 0:
             return "未找到匹配派工單"
         orders = result.get("dispatch_orders", [])
-        linked_count = len(result.get("linked_documents", []))
+        linked_docs = result.get("linked_documents", [])
         first_items = [
             f"{d.get('dispatch_no', '')}({d.get('project_name', '')[:20]})"
             for d in orders[:3]
         ]
         summary = f"找到 {total} 筆派工單（顯示 {count} 筆）: {'; '.join(first_items)}"
-        if linked_count:
-            summary += f"（含 {linked_count} 筆關聯公文）"
+        # 完整列出關聯公文讓 LLM 能看到全部內容
+        if linked_docs:
+            summary += f"（含 {len(linked_docs)} 筆關聯公文）"
+            for doc in linked_docs:
+                dn = doc.get("doc_number", "?")
+                subj = (doc.get("subject") or "")[:50]
+                dt = doc.get("doc_date", "")
+                summary += f"\n  - [{dn}] {subj} ({dt})"
         return summary
 
     if tool_name == "search_entities":
