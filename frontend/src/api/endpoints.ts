@@ -372,6 +372,8 @@ export const PROJECT_STAFF_ENDPOINTS = {
   UPDATE: (projectId: number, userId: number) => `/project-staff/project/${projectId}/user/${userId}/update` as const,
   /** 刪除關聯 POST /project-staff/project/:projectId/user/:userId/delete */
   DELETE: (projectId: number, userId: number) => `/project-staff/project/${projectId}/user/${userId}/delete` as const,
+  /** 依 ID 刪除關聯 POST /project-staff/assignment/:assignmentId/delete */
+  ASSIGNMENT_DELETE: (assignmentId: number) => `/project-staff/assignment/${assignmentId}/delete` as const,
 } as const;
 
 /** 專案機關承辦 API 端點 */
@@ -1155,6 +1157,9 @@ export const API_ENDPOINTS = {
 
   // 財務管理 (ERP)
   ERP: ERP_ENDPOINTS,
+
+  // 數位分身
+  DIGITAL_TWIN: DIGITAL_TWIN_ENDPOINTS,
 } as const;
 
 // 預設匯出

@@ -208,6 +208,49 @@
 
 ---
 
+## v5.2.4 品質強化 — SSOT 修復 + 拆分 + MissingGreenlet 修復 (2026-03-27)
+
+### 新增/拆分模組
+
+| 模組 | 類型 | 說明 |
+|------|------|------|
+| `services/ai/rag_retrieval.py` | Service | RAG 檢索 (348L, 拆分自 rag_query 555→267L) |
+| `services/ai/agent_tool_loop.py` | Service | Agent 工具迴圈 (273L, 拆分自 orchestrator) |
+| `services/ai/agent_plan_enricher.py` | Service | 規劃豐富器 (158L, 拆分自 planner) |
+| `services/ai/canonical_entity_resolver.py` | Service | 實體解析器 (200L, 拆分自 canonical_entity_service) |
+| `services/ai/pattern_semantic_matcher.py` | Service | 語意匹配 (拆分自 agent_pattern_learner 592→486L) |
+| `services/line_flex_builder.py` | Service | LINE Flex Message 建構器 (拆分自 line_bot 582→362L) |
+| `services/line_image_handler.py` | Service | LINE 圖片處理 |
+| `services/notification_dispatcher.py` | Service | 通知派發 |
+| `services/document_calendar_integrator.py` | Service | 公文行事曆整合 |
+| `core/service_health_probe.py` | Core | 服務健康探測器 (213L, 自動偵測斷線+週期修復) |
+| `core/cache_decorator.py` | Core | Redis 快取裝飾器 (107L) |
+| `useDocumentProjectStaff.ts` | Hook | 公文專案人員管理 (113L, 拆分自 useDocumentDetail 514→442L) |
+
+### 修復項目
+
+| 項目 | 變更 | 說明 |
+|------|------|------|
+| StaffTab.tsx | SSOT | 硬編碼 API 路徑 → 端點常數 + 新增 `ASSIGNMENT_DELETE` 端點 |
+| useDocumentDetail.ts | SSOT | 硬編碼 API 路徑 → 端點常數 |
+| hooks/system/index.ts | Export | 補齊 `useDigitalTwinSSE` 匯出 |
+| endpoints.ts | 整合 | `DIGITAL_TWIN_ENDPOINTS` 納入主 `API_ENDPOINTS` |
+| finance_ledger_service.py | TODO | 完成全公司餘額查詢邏輯 |
+| dispatch_order_repository.py | Bug | **MissingGreenlet 修復** — 列表查詢補齊深層 selectinload |
+
+### 品質指標 (v5.2.4)
+
+| 維度 | 值 |
+|------|-----|
+| TypeScript | **0 errors** |
+| Python 語法 | **0 errors** |
+| 硬編碼 API 路徑 | **0** (2→0) |
+| dispatch/list 500 | **修復** (MissingGreenlet → selectinload) |
+| 前端 >500L hooks | **0** (useDocumentDetail 514→442L) |
+| 後端服務全部 <600L | **確認** |
+
+---
+
 ## v5.1 ERP 財務模組 Phase 1~7-D + Agent Federation v2.0 (2026-03-22)
 
 ### 新增後端模組
@@ -348,9 +391,9 @@
 
 | 分類 | 模組數 | 說明 |
 |------|--------|------|
-| 核心基礎 | 8 | ai_config, base_ai, doc_ai, doc_analysis, doc_chunker, embedding, NER, RAG |
-| 乾坤 Agent | 33 | 編排+規劃+合成+路由+學習+監控+圖表+記憶+子執行器+conductor+evaluator+federation+recommender+tracker+transcriber+auto_corrector+learning_injector |
-| 知識圖譜 | 8 | relation, canonical, ingestion, helpers, merge, query, statistics, traversal |
+| 核心基礎 | 9 | ai_config, base_ai, doc_ai, doc_analysis, doc_chunker, embedding, NER, rag_query, rag_retrieval |
+| 乾坤 Agent | 36 | orchestrator+tool_loop+planner+plan_enricher+synthesis+router+pattern_learner+pattern_semantic_matcher+monitor+diagram+memory+search/analysis/domain/document executors+conductor+evaluator+federation+recommender+tracker+transcriber+auto_corrector+learning_injector+streaming_helpers+post_processing |
+| 知識圖譜 | 9 | relation, canonical, canonical_entity_resolver, ingestion, helpers, merge, query, statistics, traversal |
 | Code Graph | 5 | service, analysis, ast_analyzer, types, wiki + ts_extractor + schema_reflector |
 | 搜尋排序 | 5 | reranker, intent_parser, entity_expander, synonym, rule_engine |
 | PM/ERP | 3 | pm_query, erp_query, tool_registry |

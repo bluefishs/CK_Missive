@@ -99,12 +99,19 @@ class DispatchOrderRepository(BaseRepository[TaoyuanDispatchOrder]):
         Returns:
             (派工單列表, 總筆數)
         """
-        # 列表查詢只載入必要關聯 (從 8→4 selectinload，詳情頁再載入完整)
+        # 列表查詢載入 formatter 所需全部關聯（與詳情頁一致，避免 MissingGreenlet）
         query = select(TaoyuanDispatchOrder).options(
-            selectinload(TaoyuanDispatchOrder.document_links),   # 公文數量
-            selectinload(TaoyuanDispatchOrder.project_links),    # 工程數量
-            selectinload(TaoyuanDispatchOrder.work_type_links),  # 作業類別
-            selectinload(TaoyuanDispatchOrder.attachments),      # 附件數量
+            selectinload(TaoyuanDispatchOrder.agency_doc),
+            selectinload(TaoyuanDispatchOrder.company_doc),
+            selectinload(TaoyuanDispatchOrder.document_links).selectinload(
+                TaoyuanDispatchDocumentLink.document
+            ),
+            selectinload(TaoyuanDispatchOrder.project_links).selectinload(
+                TaoyuanDispatchProjectLink.project
+            ),
+            selectinload(TaoyuanDispatchOrder.work_type_links),
+            selectinload(TaoyuanDispatchOrder.attachments),
+            selectinload(TaoyuanDispatchOrder.work_records),
         )
 
         conditions = []

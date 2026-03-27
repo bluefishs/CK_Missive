@@ -71,7 +71,7 @@ export default function StaffTab({ caseCode }: StaffTabProps) {
 
   const deleteMutation = useMutation({
     mutationFn: (staffId: number) =>
-      apiClient.post(`/project-staff/assignment/${staffId}/delete`),
+      apiClient.post(API_ENDPOINTS.PROJECT_STAFF.ASSIGNMENT_DELETE(staffId)),
     onSuccess: () => {
       message.success('已移除人員');
       queryClient.invalidateQueries({ queryKey });

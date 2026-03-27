@@ -140,11 +140,10 @@ class FinanceLedgerService(AuditableServiceMixin):
         )
 
     async def get_balance(self, case_code: Optional[str] = None) -> dict:
-        """查詢餘額"""
+        """查詢餘額（指定 case_code 為專案級，否則為全公司級）"""
         if case_code:
             return await self.repo.get_case_balance(case_code)
-        # TODO: 全公司餘額邏輯
-        return {"income": 0, "expense": 0, "net": 0}
+        return await self.repo.get_company_balance()
 
     async def query(self, params: LedgerQuery) -> Tuple[List[FinanceLedger], int]:
         """多條件查詢與分頁"""

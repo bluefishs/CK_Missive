@@ -80,6 +80,20 @@ async def delete_project_staff_assignment(
 
 
 @router.post(
+    "/assignment/{assignment_id}/delete",
+    response_model=DeleteResponse,
+    summary="依 ID 刪除承辦同仁關聯",
+)
+async def delete_staff_assignment_by_id(
+    assignment_id: int,
+    service: ProjectStaffService = Depends(get_service(ProjectStaffService)),
+    current_user: User = Depends(require_auth()),
+):
+    """依 assignment ID 刪除承辦同仁關聯（用於僅知 ID 的場景）"""
+    return await service.delete_assignment_by_id(assignment_id)
+
+
+@router.post(
     "/case/{case_code}/list",
     response_model=ProjectStaffListResponse,
     summary="依建案案號取得承辦同仁列表",

@@ -68,18 +68,22 @@ backend/app/services/
 │   ├── document_chunker.py     # 文件分段 (段落+滑動窗口+合併)
 │   ├── embedding_manager.py    # Embedding LRU快取+覆蓋率統計 (v1.1.0)
 │   ├── entity_extraction_service.py  # NER 實體提取+4策略JSON解析 (v1.0.0)
-│   ├── rag_query_service.py          # RAG 問答服務 (v2.3.0)
-│   ├── # --- 乾坤智能體 Agent 模組 (31 個) ---
-│   ├── agent_orchestrator.py        # 主編排 v2.6.0 ReAct+SSE+Router
+│   ├── rag_query_service.py          # RAG 問答服務 (v2.4.0, 267L 拆分後)
+│   ├── rag_retrieval.py             # RAG 檢索服務 (348L, 拆分自 rag_query)
+│   ├── # --- 乾坤智能體 Agent 模組 (36 個) ---
+│   ├── agent_orchestrator.py        # 主編排 v2.7.0 ReAct+SSE+Router (497L)
+│   ├── agent_tool_loop.py           # 工具迴圈 (273L, 拆分自 orchestrator)
 │   ├── agent_tools.py               # 工具調度入口 (260L, 委派子執行器)
-│   ├── agent_planner.py             # 意圖前處理+LLM規劃+6策略自動修正 v2.4.0
+│   ├── agent_planner.py             # 意圖前處理+LLM規劃 (拆分後)
+│   ├── agent_plan_enricher.py       # 規劃豐富器 (158L, 拆分自 planner)
 │   ├── agent_synthesis.py           # 答案合成 v1.8.0 (518L)
 │   ├── agent_chitchat.py            # 閒聊偵測+8回退模式 v1.0.0
 │   ├── agent_trace.py               # 執行追蹤+Span計時 v1.0.0
 │   ├── agent_router.py              # 3層路由(chitchat→pattern→llm) v1.0.0
 │   ├── agent_roles.py               # 5角色定義(SSOT) v1.1.0
 │   ├── agent_tool_monitor.py        # 滑動窗口+自動降級/恢復 v1.0.0
-│   ├── agent_pattern_learner.py     # 模式學習+MD5/語意匹配 v2.0.0
+│   ├── agent_pattern_learner.py     # 模式學習+MD5匹配 (486L, 拆分後)
+│   ├── pattern_semantic_matcher.py  # 語意匹配 (拆分自 pattern_learner)
 │   ├── agent_summarizer.py          # 3-Tier自適應壓縮+學習萃取 v2.0.0
 │   ├── agent_supervisor.py          # 多域分解+並行子任務+結果合併 v1.0.0
 │   ├── agent_diagram_builder.py     # 4類Mermaid圖表生成 v1.0.0
@@ -108,7 +112,8 @@ backend/app/services/
 │   ├── digital_twin_service.py      # 數位分身業務邏輯 (337L, 拆分自endpoint)
 │   ├── # --- 知識圖譜模組 (8 個) ---
 │   ├── relation_graph_service.py     # 知識圖譜7-Phase建構 (v1.0.0)
-│   ├── canonical_entity_service.py   # 正規化實體4階段策略 (v1.0.0)
+│   ├── canonical_entity_service.py   # 正規化實體4階段策略 (拆分後)
+│   ├── canonical_entity_resolver.py # 實體解析器 (200L, 拆分自 canonical_entity_service)
 │   ├── graph_ingestion_pipeline.py   # 圖譜資料入圖管線 (v1.0.0)
 │   ├── graph_helpers.py              # 圖譜工具函數+常數+快取 (v1.0.0)
 │   ├── graph_merge_strategy.py       # 圖譜實體合併策略 Phase 2.5~4 (v1.0.0)
@@ -177,8 +182,12 @@ backend/app/services/
 ├── financial_summary_service.py # 財務彙總 (專案/全案/公司級)
 ├── finance_export_service.py   # 財務報表匯出 (Excel/CSV)
 ├── invoice_ocr_service.py      # 發票 OCR 解析 (Tesseract)
-├── line_bot_service.py         # LINE Bot 整合服務
+├── line_bot_service.py         # LINE Bot 整合服務 (362L, 拆分後)
+├── line_flex_builder.py        # LINE Flex Message 建構器 (拆分自 line_bot)
+├── line_image_handler.py       # LINE 圖片處理 (拆分自 line_bot)
 ├── line_push_scheduler.py      # LINE 推播排程器
+├── notification_dispatcher.py  # 通知派發服務
+├── document_calendar_integrator.py # 公文行事曆整合
 ├── discord_bot_service.py      # Discord Bot Interactions Endpoint
 ├── channel_adapter.py          # 統一通道抽象 (LINE/Discord/Telegram)
 └── *_service.py                # 其他業務服務

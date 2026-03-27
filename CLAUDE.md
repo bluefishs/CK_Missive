@@ -2,8 +2,8 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design + vLLM
-> **版本**: v5.2.3 多通道整合 — Discord Bot + Cloudflare Tunnel + ChannelAdapter + AI 服務全面 <600L
-> **最後更新**: 2026-03-25
+> **版本**: v5.2.4 品質強化 — SSOT 修復 + 服務拆分 + MissingGreenlet 修復 + 全模組 <600L
+> **最後更新**: 2026-03-27
 
 ---
 

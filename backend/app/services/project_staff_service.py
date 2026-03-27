@@ -207,3 +207,18 @@ class ProjectStaffService:
             message="案件與承辦同仁關聯已成功刪除",
             deleted_id=assignment_id,
         )
+
+    async def delete_assignment_by_id(self, assignment_id: int) -> DeleteResponse:
+        """依 assignment ID 刪除關聯記錄"""
+        existing = await self.repo.get_assignment_by_id(assignment_id)
+        if not existing:
+            raise NotFoundException(resource="案件與承辦同仁關聯", resource_id=assignment_id)
+
+        await self.repo.delete_assignment_by_id(assignment_id)
+        await self.db.commit()
+
+        return DeleteResponse(
+            success=True,
+            message="案件與承辦同仁關聯已成功刪除",
+            deleted_id=assignment_id,
+        )

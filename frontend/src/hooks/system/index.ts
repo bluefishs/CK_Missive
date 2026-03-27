@@ -36,3 +36,4 @@ export * from './useDocumentAnalysis';
 export * from './useStreamingChat';
 export * from './useAgentSSE';
 export * from './useLiveActivitySSE';
+export * from './useDigitalTwinSSE';

@@ -8,7 +8,7 @@
  * @date 2026-03-10
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Form, App } from 'antd';
 import { useQueryClient } from '@tanstack/react-query';
@@ -19,7 +19,6 @@ import dayjs from 'dayjs';
 // API
 import { documentsApi } from '../../../api/documentsApi';
 import { filesApi } from '../../../api/filesApi';
-import { apiClient } from '../../../api/client';
 
 // 類型
 import { Document } from '../../../types';
@@ -38,6 +37,7 @@ import { hasProjectFeature } from '../../../config/projectModules';
 import { useDocumentAttachments } from './useDocumentAttachments';
 import { useDocumentLinks } from './useDocumentLinks';
 import type { UseDocumentLinksReturn } from './useDocumentLinks';
+import { useDocumentProjectStaff } from './useDocumentProjectStaff';
 
 export interface UseDocumentDetailReturn {
   // State
@@ -134,11 +134,8 @@ export function useDocumentDetail(): UseDocumentDetailReturn {
   const { users, isLoading: usersLoading } = useUsersDropdown();
   const fileSettings = useFileSettings();
 
-  const [projectStaffMap, setProjectStaffMap] = useState<Record<number, ProjectStaff[]>>({});
-  const [staffLoading, setStaffLoading] = useState(false);
-  const [selectedContractProjectId, setSelectedContractProjectId] = useState<number | null>(null);
-  const projectStaffCacheRef = useRef<Record<number, ProjectStaff[]>>({});
-  const [currentAssigneeValues, setCurrentAssigneeValues] = useState<string[]>([]);
+  // 專案人員子 Hook
+  const staffHook = useDocumentProjectStaff();
 
   // 行事曆模態框
   const [showIntegratedEventModal, setShowIntegratedEventModal] = useState(false);
@@ -171,34 +168,6 @@ export function useDocumentDetail(): UseDocumentDetailReturn {
   });
 
   // =============================================================================
-  // 專案人員載入
-  // =============================================================================
-
-  const fetchProjectStaff = async (projectId: number): Promise<ProjectStaff[]> => {
-    if (projectStaffCacheRef.current[projectId]) {
-      const cachedData = projectStaffCacheRef.current[projectId];
-      setProjectStaffMap(prev => ({ ...prev, [projectId]: cachedData }));
-      return cachedData;
-    }
-    setStaffLoading(true);
-    try {
-      const data = await apiClient.post<{ staff?: ProjectStaff[] }>(
-        `/project-staff/project/${projectId}/list`,
-        {}
-      );
-      const staffData = data.staff || [];
-      projectStaffCacheRef.current[projectId] = staffData;
-      setProjectStaffMap(prev => ({ ...prev, [projectId]: staffData }));
-      return staffData;
-    } catch (error) {
-      logger.error('載入專案業務同仁失敗:', error);
-      return [];
-    } finally {
-      setStaffLoading(false);
-    }
-  };
-
-  // =============================================================================
   // 公文載入
   // =============================================================================
 
@@ -228,16 +197,8 @@ export function useDocumentDetail(): UseDocumentDetailReturn {
       setDocument(doc);
       // atts already set inside attachmentsHook
 
-      let assigneeArray: string[] = [];
-      const rawAssignee = doc.assignee;
-      if (rawAssignee) {
-        if (Array.isArray(rawAssignee)) {
-          assigneeArray = rawAssignee;
-        } else if (typeof rawAssignee === 'string') {
-          assigneeArray = rawAssignee.split(',').map((s: string) => s.trim()).filter(Boolean);
-        }
-      }
-      setCurrentAssigneeValues(assigneeArray);
+      const assigneeArray = staffHook.parseAssignee(doc.assignee);
+      staffHook.setCurrentAssigneeValues(assigneeArray);
 
       setPendingFormValues({
         ...doc,
@@ -249,12 +210,12 @@ export function useDocumentDetail(): UseDocumentDetailReturn {
 
       const projectId = doc.contract_project_id;
       if (projectId) {
-        setSelectedContractProjectId(projectId);
-        const staffList = await fetchProjectStaff(projectId);
+        staffHook.setSelectedContractProjectId(projectId);
+        const staffList = await staffHook.fetchProjectStaff(projectId);
         if ((!assigneeArray || assigneeArray.length === 0) && staffList && staffList.length > 0) {
           const staffNames = staffList.map((s: ProjectStaff) => s.user_name).filter((name): name is string => !!name);
           setPendingFormValues(prev => prev ? { ...prev, assignee: staffNames } : null);
-          setCurrentAssigneeValues(staffNames);
+          staffHook.setCurrentAssigneeValues(staffNames);
         }
       }
     } catch (error) {
@@ -292,32 +253,7 @@ export function useDocumentDetail(): UseDocumentDetailReturn {
   // =============================================================================
 
   const handleProjectChange = async (projectId: number | null | undefined) => {
-    const effectiveProjectId = projectId ?? null;
-    form.setFieldsValue({ contract_project_id: effectiveProjectId });
-
-    if (!effectiveProjectId) {
-      setSelectedContractProjectId(null);
-      form.setFieldsValue({ assignee: [] });
-      return;
-    }
-
-    const staffList = await fetchProjectStaff(effectiveProjectId);
-    if (!staffList || staffList.length === 0) {
-      setSelectedContractProjectId(effectiveProjectId);
-      message.info('此專案尚無指派業務同仁');
-      return;
-    }
-
-    setSelectedContractProjectId(effectiveProjectId);
-
-    setTimeout(() => {
-      const currentStaff = projectStaffCacheRef.current[effectiveProjectId];
-      if (currentStaff && currentStaff.length > 0) {
-        const names = currentStaff.map((s: ProjectStaff) => s.user_name).filter((name): name is string => !!name);
-        form.setFieldsValue({ assignee: names });
-        message.success(`已自動填入 ${names.length} 位業務同仁`);
-      }
-    }, 150);
+    await staffHook.handleProjectChange(projectId, form, message);
   };
 
   const handleSave = async () => {
@@ -396,15 +332,7 @@ export function useDocumentDetail(): UseDocumentDetailReturn {
     setIsEditing(false);
     setFileList([]);
     if (document) {
-      let assigneeArray: string[] = [];
-      const rawAssignee = document.assignee;
-      if (rawAssignee) {
-        if (Array.isArray(rawAssignee)) {
-          assigneeArray = rawAssignee;
-        } else if (typeof rawAssignee === 'string') {
-          assigneeArray = rawAssignee.split(',').map((s: string) => s.trim()).filter(Boolean);
-        }
-      }
+      const assigneeArray = staffHook.parseAssignee(document.assignee);
       form.setFieldsValue({
         ...document,
         doc_date: document.doc_date ? dayjs(document.doc_date) : null,
@@ -470,10 +398,10 @@ export function useDocumentDetail(): UseDocumentDetailReturn {
     casesLoading,
     users,
     usersLoading,
-    projectStaffMap,
-    staffLoading,
-    selectedContractProjectId,
-    currentAssigneeValues,
+    projectStaffMap: staffHook.projectStaffMap,
+    staffLoading: staffHook.staffLoading,
+    selectedContractProjectId: staffHook.selectedContractProjectId,
+    currentAssigneeValues: staffHook.currentAssigneeValues,
     // Dispatch & Project links (from sub-hook)
     dispatchLinks: linksHook.dispatchLinks,
     dispatchLinksLoading: linksHook.dispatchLinksLoading,

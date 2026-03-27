@@ -33,6 +33,29 @@ class LedgerRepository(BaseRepository[FinanceLedger]):
         balance["net"] = balance["income"] - balance["expense"]
         return balance
 
+    async def get_company_balance(self) -> dict:
+        """全公司收支餘額 {income, expense, net}"""
+        from decimal import Decimal
+
+        stmt = select(
+            self.model.entry_type,
+            func.sum(self.model.amount).label("total")
+        ).group_by(self.model.entry_type)
+
+        result = await self.db.execute(stmt)
+        records = result.all()
+
+        balance = {"income": Decimal("0"), "expense": Decimal("0"), "net": Decimal("0")}
+        for row in records:
+            _type, _total = row.entry_type, row.total
+            if _type == "income":
+                balance["income"] = _total or Decimal("0")
+            elif _type == "expense":
+                balance["expense"] = _total or Decimal("0")
+
+        balance["net"] = balance["income"] - balance["expense"]
+        return balance
+
     async def query(self, params: LedgerQuery) -> Tuple[List[FinanceLedger], int]:
         stmt = select(self.model)
         

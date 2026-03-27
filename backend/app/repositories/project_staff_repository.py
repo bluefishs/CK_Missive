@@ -205,3 +205,21 @@ class ProjectStaffRepository:
         await self.db.execute(stmt)
         await self.db.flush()
         return assignment_id
+
+    async def get_assignment_by_id(self, assignment_id: int):
+        """依 assignment ID 取得關聯記錄"""
+        result = await self.db.execute(
+            select(project_user_assignment).where(
+                project_user_assignment.c.id == assignment_id
+            )
+        )
+        return result.fetchone()
+
+    async def delete_assignment_by_id(self, assignment_id: int) -> bool:
+        """依 assignment ID 刪除關聯記錄"""
+        stmt = delete(project_user_assignment).where(
+            project_user_assignment.c.id == assignment_id
+        )
+        result = await self.db.execute(stmt)
+        await self.db.flush()
+        return result.rowcount > 0
