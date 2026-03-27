@@ -80,6 +80,20 @@ class AgentToolLoop:
             valid_calls = [
                 c for c in calls if c.get("name", "") in VALID_TOOL_NAMES
             ]
+
+            # 派工單已找到（含關聯公文）→ 移除 search_documents/search_entities 避免雜訊
+            dispatch_found = any(
+                tr["tool"] == "search_dispatch_orders" and tr["result"].get("count", 0) > 0
+                for tr in tool_results
+            )
+            if dispatch_found:
+                before = len(valid_calls)
+                valid_calls = [
+                    c for c in valid_calls
+                    if c.get("name") not in ("search_documents", "search_entities")
+                ]
+                if len(valid_calls) < before:
+                    logger.info("派工單已找到，移除 %d 個冗餘搜尋工具", before - len(valid_calls))
             if not valid_calls:
                 break
 
