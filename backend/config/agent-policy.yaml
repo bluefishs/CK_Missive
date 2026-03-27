@@ -64,6 +64,20 @@ compaction:
 evolution:
   trigger_every_n_queries: 50
   trigger_interval_hours: 24
+  # 模式升級: hit_count >= promote_min_hits AND success_rate >= promote_min_success
+  promote_min_hits: 15
+  promote_min_success: 0.90
+  # 模式降級: hit_count >= 5 AND success_rate <= demote_max_success
+  demote_max_success: 0.30
+  # 信號批次處理上限
+  signal_batch_size: 100
+
+capability:
+  # 能力評級閾值
+  strong_threshold: 0.70
+  weak_threshold: 0.50
+  # Redis 快取 TTL (秒)
+  cache_ttl_seconds: 300
 
 # Provider routing preferences (v2.0.0)
 # Task types: chat, planning, synthesis, ner, embedding

@@ -51,8 +51,15 @@ TOOL_DOMAIN_MAP: Dict[str, str] = {
 }
 
 # 強弱項門檻
-STRENGTH_THRESHOLD = 0.7
-WEAKNESS_THRESHOLD = 0.5
+# EVO-4: 從 agent-policy.yaml 讀取，fallback 預設值
+try:
+    from app.services.ai.ai_config import AIConfig
+    _cfg = AIConfig.get_instance()
+    STRENGTH_THRESHOLD = getattr(_cfg, 'capability_strong_threshold', 0.7)
+    WEAKNESS_THRESHOLD = getattr(_cfg, 'capability_weak_threshold', 0.5)
+except Exception:
+    STRENGTH_THRESHOLD = 0.7
+    WEAKNESS_THRESHOLD = 0.5
 
 
 def _infer_domains_from_tools(tools_used: Any) -> List[str]:
@@ -140,6 +147,36 @@ def _level_label(avg_score: float) -> str:
         return "moderate"
     else:
         return "weak"
+
+
+_CAPABILITY_CACHE_KEY = "agent:capability:profile"
+_CAPABILITY_CACHE_TTL = 300  # 5 分鐘
+
+
+async def get_capability_profile_cached(db: AsyncSession) -> dict:
+    """帶 Redis 快取的能力剖面（EVO-3: 3s→<100ms）"""
+    import json as _json
+    try:
+        from app.core.redis_client import get_redis
+        redis = await get_redis()
+        if redis:
+            cached = await redis.get(_CAPABILITY_CACHE_KEY)
+            if cached:
+                return _json.loads(cached)
+    except Exception:
+        pass
+
+    profile = await get_capability_profile(db)
+
+    try:
+        from app.core.redis_client import get_redis
+        redis = await get_redis()
+        if redis:
+            await redis.setex(_CAPABILITY_CACHE_KEY, _CAPABILITY_CACHE_TTL, _json.dumps(profile, default=str))
+    except Exception:
+        pass
+
+    return profile
 
 
 async def get_capability_profile(db: AsyncSession) -> dict:

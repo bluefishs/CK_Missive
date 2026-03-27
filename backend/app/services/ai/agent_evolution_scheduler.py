@@ -51,15 +51,25 @@ class AgentEvolutionScheduler:
     不需要 cron/scheduler — 在每次查詢結束時檢查，非阻塞執行。
     """
 
-    EVOLVE_EVERY_N_QUERIES = 50
-    EVOLVE_INTERVAL_SECONDS = 86400  # 24 hours
-    SEED_PROMOTE_MIN_HITS = 15       # 升級種子的最低命中次數
-    SEED_PROMOTE_MIN_SUCCESS = 0.90  # 升級種子的最低成功率
-    PATTERN_DEMOTE_MAX_SUCCESS = 0.3 # 降級模式的最高成功率
-    SIGNAL_BATCH_SIZE = 100          # 每次消費的信號數量
-
     def __init__(self, redis: Any = None):
         self.redis = redis
+        # EVO-4: 從 agent-policy.yaml 讀取閾值，fallback 硬編碼預設值
+        try:
+            from app.services.ai.ai_config import AIConfig
+            cfg = AIConfig.get_instance()
+            self.EVOLVE_EVERY_N_QUERIES = getattr(cfg, 'evolution_trigger_every_n_queries', 50)
+            self.EVOLVE_INTERVAL_SECONDS = getattr(cfg, 'evolution_trigger_interval_hours', 24) * 3600
+            self.SEED_PROMOTE_MIN_HITS = getattr(cfg, 'evolution_promote_min_hits', 15)
+            self.SEED_PROMOTE_MIN_SUCCESS = getattr(cfg, 'evolution_promote_min_success', 0.90)
+            self.PATTERN_DEMOTE_MAX_SUCCESS = getattr(cfg, 'evolution_demote_max_success', 0.30)
+            self.SIGNAL_BATCH_SIZE = getattr(cfg, 'evolution_signal_batch_size', 100)
+        except Exception:
+            self.EVOLVE_EVERY_N_QUERIES = 50
+            self.EVOLVE_INTERVAL_SECONDS = 86400
+            self.SEED_PROMOTE_MIN_HITS = 15
+            self.SEED_PROMOTE_MIN_SUCCESS = 0.90
+            self.PATTERN_DEMOTE_MAX_SUCCESS = 0.30
+            self.SIGNAL_BATCH_SIZE = 100
 
     async def should_evolve(self) -> bool:
         """檢查是否應該觸發進化（每次查詢結束時呼叫）"""

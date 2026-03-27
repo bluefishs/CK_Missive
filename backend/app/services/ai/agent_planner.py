@@ -185,6 +185,23 @@ class AgentPlanner:
             except Exception as e:
                 logger.debug("Cross-session learning injection skipped: %s", e)
 
+        # EVO-1: 能力弱項提示 — 讓 Planner 知道 Agent 的能力邊界
+        capability_hint = ""
+        if db:
+            try:
+                from app.services.ai.agent_capability_tracker import get_capability_profile_cached
+                profile = await get_capability_profile_cached(db)
+                weaknesses = profile.get("weaknesses", [])
+                if weaknesses and isinstance(weaknesses, list):
+                    domains = profile.get("domains", {})
+                    weak_details = []
+                    for w in weaknesses[:3]:
+                        score = domains.get(w, {}).get("score", 0) if isinstance(domains, dict) else 0
+                        weak_details.append(f"{w}({score:.1f})" if score else w)
+                    capability_hint = f"\n⚠️ 已知弱項領域: {', '.join(weak_details)}。這些領域的回答品質較低，建議使用更多工具交叉驗證。"
+            except Exception as e:
+                logger.debug("Capability hint skipped: %s", e)
+
         # Tool Discovery — 動態工具推薦 (v1.2.0)
         tool_discovery_hint = ""
         try:
@@ -219,6 +236,7 @@ class AgentPlanner:
 {hints_str}
 {cross_session_hints}
 {tool_discovery_hint}
+{capability_hint}
 
 以下是幾個規劃範例：
 

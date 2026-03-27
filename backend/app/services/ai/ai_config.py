@@ -154,6 +154,19 @@ class AIConfig:
     pattern_semantic_threshold: float = 0.85   # 語意匹配最低餘弦相似度
     pattern_semantic_top_k: int = 5            # 語意匹配候選池大小
 
+    # Evolution (EVO-4: 閾值外部化至 agent-policy.yaml)
+    evolution_trigger_every_n_queries: int = 50
+    evolution_trigger_interval_hours: int = 24
+    evolution_promote_min_hits: int = 15
+    evolution_promote_min_success: float = 0.90
+    evolution_demote_max_success: float = 0.30
+    evolution_signal_batch_size: int = 100
+
+    # Capability (EVO-4)
+    capability_strong_threshold: float = 0.70
+    capability_weak_threshold: float = 0.50
+    capability_cache_ttl_seconds: int = 300
+
     # Adaptive Context Window (v4.1.0 — 依查詢複雜度動態調整歷史窗口)
     adaptive_context_enabled: bool = True      # 是否啟用自適應上下文窗口
     adaptive_context_simple: int = 2           # simple 查詢保留輪數
@@ -392,6 +405,26 @@ class AIConfig:
                 "ADAPTIVE_CONTEXT_QUERY_LONG", ("adaptive_context", "query_long_chars"), 100, int),
             adaptive_context_tool_complex=_env_or_yaml(
                 "ADAPTIVE_CONTEXT_TOOL_COMPLEX", ("adaptive_context", "tool_complex_threshold"), 3, int),
+            # Evolution (YAML: evolution.*)
+            evolution_trigger_every_n_queries=_env_or_yaml(
+                "EVOLUTION_TRIGGER_N", ("evolution", "trigger_every_n_queries"), 50, int),
+            evolution_trigger_interval_hours=_env_or_yaml(
+                "EVOLUTION_INTERVAL_HOURS", ("evolution", "trigger_interval_hours"), 24, int),
+            evolution_promote_min_hits=_env_or_yaml(
+                "EVOLUTION_PROMOTE_MIN_HITS", ("evolution", "promote_min_hits"), 15, int),
+            evolution_promote_min_success=_env_or_yaml(
+                "EVOLUTION_PROMOTE_MIN_SUCCESS", ("evolution", "promote_min_success"), 0.90, float),
+            evolution_demote_max_success=_env_or_yaml(
+                "EVOLUTION_DEMOTE_MAX_SUCCESS", ("evolution", "demote_max_success"), 0.30, float),
+            evolution_signal_batch_size=_env_or_yaml(
+                "EVOLUTION_SIGNAL_BATCH", ("evolution", "signal_batch_size"), 100, int),
+            # Capability (YAML: capability.*)
+            capability_strong_threshold=_env_or_yaml(
+                "CAPABILITY_STRONG_THRESHOLD", ("capability", "strong_threshold"), 0.70, float),
+            capability_weak_threshold=_env_or_yaml(
+                "CAPABILITY_WEAK_THRESHOLD", ("capability", "weak_threshold"), 0.50, float),
+            capability_cache_ttl_seconds=_env_or_yaml(
+                "CAPABILITY_CACHE_TTL", ("capability", "cache_ttl_seconds"), 300, int),
         )
         # Attach resolved inference profiles & provider routing
         instance._inference_profiles = resolved_profiles

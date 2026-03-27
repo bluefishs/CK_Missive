@@ -248,7 +248,17 @@ class AgentToolLoop:
         tool_name: str,
         params: Dict[str, Any],
     ) -> Dict[str, Any]:
-        """執行單個工具，回傳結果 dict（含 ToolResultGuard 守衛 + 自適應超時）"""
+        """執行單個工具，回傳結果 dict（含 ToolResultGuard 守衛 + 自適應超時 + EVO-2 降級攔截）"""
+        # EVO-2: 檢查工具降級狀態，避免呼叫已知失效的工具
+        try:
+            from app.services.ai.agent_tool_monitor import get_tool_monitor
+            monitor = get_tool_monitor()
+            if monitor and await monitor.is_degraded(tool_name):
+                logger.warning("Tool %s is degraded (success_rate <30%%), skipping", tool_name)
+                return {"error": f"工具 {tool_name} 暫時不可用（成功率過低）", "count": 0, "degraded": True}
+        except Exception:
+            pass  # monitor 不可用時不阻斷
+
         try:
             tt = self._adaptive_tool_timeout
             result = await asyncio.wait_for(
