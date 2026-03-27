@@ -81,6 +81,16 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
           rewrite: path => path,
+          // SSE 串流需要禁用 response buffering
+          configure: (proxy) => {
+            proxy.on('proxyRes', (proxyRes) => {
+              // 當後端回傳 text/event-stream 時，設定 no-buffering headers
+              if (proxyRes.headers['content-type']?.includes('text/event-stream')) {
+                proxyRes.headers['cache-control'] = 'no-cache';
+                proxyRes.headers['x-accel-buffering'] = 'no';
+              }
+            });
+          },
         },
         // Proxy OpenAPI specification for API documentation
         '/openapi.json': {
