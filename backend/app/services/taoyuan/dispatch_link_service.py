@@ -154,7 +154,7 @@ class DispatchLinkService:
                 doc for doc in matched_docs
                 if score_document_relevance(
                     doc, core_ids, other_ids=other_ids
-                ) >= 0.15
+                ) >= 0.3
             ]
             after = len(matched_docs)
             if before != after:
@@ -292,8 +292,12 @@ def extract_core_identifiers(
     if m:
         ids.append(f"派工單{m.group(1)}")
 
-    for m in re.finditer(r'([\u4e00-\u9fff]{2,6}(?:路|街))', project_name):
+    # 路名提取：排除「巷道路」等誤匹配（「巷」後接「道路」不是路名）
+    for m in re.finditer(r'(?<!巷)([\u4e00-\u9fff]{2,6}(?:路|街))(?!拓寬|開闢|新建)', project_name):
         name = m.group(1)
+        # 排除通用詞（「巷道路」「幹道路」等不是實際路名）
+        if name.endswith(('道路', '幹路')) and len(name) <= 3:
+            continue
         if name not in ids and len(name) >= 3:
             ids.append(name)
 
@@ -335,7 +339,8 @@ def score_document_relevance(
             r'[\u4e00-\u9fff]{2,6}(?:路|街|公園|廣場)', stripped
         )
         if not remaining_locations:
-            return 0.5
+            # 通用開口契約文（無特定地名）→ 低分，不自動關聯到特定子案
+            return 0.1
         if not any(cid in subject for cid in core_ids if not cid.endswith('區')):
             return 0.0
         return 0.5
