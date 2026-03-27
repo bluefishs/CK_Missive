@@ -28,7 +28,7 @@ def add_app_context(
 
     自動加入版本、環境等資訊。
     """
-    event_dict["app"] = "CK_Missive"
+    event_dict["app_name"] = "CK_Missive"
     event_dict["version"] = "3.0.1"
     event_dict["environment"] = "development" if settings.DEVELOPMENT_MODE else "production"
     return event_dict

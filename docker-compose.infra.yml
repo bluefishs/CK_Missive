@@ -180,3 +180,6 @@ networks:
   app_network:
     name: ck_missive_network
     driver: bridge
+  nemoclaw_network:
+    external: true
+    name: nemoclaw_network

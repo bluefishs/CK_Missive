@@ -141,36 +141,14 @@ async def line_webhook(
 # ── Push 通知 ──
 
 
-def _verify_push_token(
-    request: Request,
-    x_service_token: Optional[str] = Header(None),
-) -> bool:
-    """驗證內部服務 Token"""
-    import hmac as hmac_mod
-
-    expected = os.getenv("MCP_SERVICE_TOKEN")
-
-    if not expected:
-        is_dev = os.getenv("DEVELOPMENT_MODE", "false").lower() == "true"
-        client_host = request.client.host if request.client else ""
-        if is_dev and client_host in ("127.0.0.1", "::1"):
-            return True
-        raise HTTPException(status_code=403, detail="Service token required")
-
-    if not x_service_token or not hmac_mod.compare_digest(
-        x_service_token.encode("utf-8"),
-        expected.encode("utf-8"),
-    ):
-        raise HTTPException(status_code=401, detail="Invalid service token")
-
-    return True
+from app.core.service_token import verify_service_token  # S-3 集中式雙 token 驗證
 
 
 @router.post("/push", summary="LINE Push 通知（內部系統使用）")
 async def line_push(
     body: LinePushRequest,
     request: Request,
-    _auth: bool = Depends(_verify_push_token),
+    _auth: dict = Depends(verify_service_token),
 ) -> WebhookResponse:
     """
     主動推播 LINE 訊息。
@@ -200,7 +178,7 @@ async def line_push(
 async def line_push_alerts(
     request: Request,
     body: LinePushAlertsRequest = LinePushAlertsRequest(),
-    _auth: bool = Depends(_verify_push_token),
+    _auth: dict = Depends(verify_service_token),
     db: AsyncSession = Depends(get_async_db),
 ) -> LinePushAlertsResponse:
     """

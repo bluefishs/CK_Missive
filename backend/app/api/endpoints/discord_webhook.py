@@ -122,36 +122,14 @@ async def _handle_deferred_command(
 # ── Push 通知 ──
 
 
-def _verify_push_token(
-    request: Request,
-    x_service_token: Optional[str] = Header(None),
-) -> bool:
-    """驗證內部服務 Token (與 LINE push 共用)"""
-    import hmac as hmac_mod
-
-    expected = os.getenv("MCP_SERVICE_TOKEN")
-
-    if not expected:
-        is_dev = os.getenv("DEVELOPMENT_MODE", "false").lower() == "true"
-        client_host = request.client.host if request.client else ""
-        if is_dev and client_host in ("127.0.0.1", "::1"):
-            return True
-        raise HTTPException(status_code=403, detail="Service token required")
-
-    if not x_service_token or not hmac_mod.compare_digest(
-        x_service_token.encode("utf-8"),
-        expected.encode("utf-8"),
-    ):
-        raise HTTPException(status_code=401, detail="Invalid service token")
-
-    return True
+from app.core.service_token import verify_service_token  # S-3 集中式雙 token 驗證
 
 
 @router.post("/push", summary="Discord Push 通知（內部系統使用）")
 async def discord_push(
     body: DiscordPushRequest,
     request: Request,
-    _auth: bool = Depends(_verify_push_token),
+    _auth: dict = Depends(verify_service_token),
 ) -> DiscordWebhookResponse:
     """
     主動推播 Discord 訊息到指定 Channel。
