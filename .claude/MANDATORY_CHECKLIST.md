@@ -1,8 +1,8 @@
 # CK_Missive 強制性開發規範檢查清單
 
-> **版本**: 1.19.0
+> **版本**: 1.20.0
 > **建立日期**: 2026-01-11
-> **最後更新**: 2026-03-23
+> **最後更新**: 2026-03-28
 > **狀態**: 強制執行 - 所有開發任務啟動前必須檢視
 
 ---
@@ -1632,6 +1632,100 @@ if os.environ.get("PGVECTOR_ENABLED", "").lower() == "true":
 | 1.2.0 | 2026-01-12 | 新增導覽路徑自動化驗證機制（白名單、下拉選單、強制同步） |
 | 1.1.0 | 2026-01-12 | 新增導覽系統架構說明（Layout.tsx vs DynamicLayout.tsx） |
 | 1.0.0 | 2026-01-11 | 初版建立 |
+
+---
+
+---
+
+## 清單 Y — Agent / AI 服務開發（v5.2.5 實戰教訓）
+
+> **適用場景**: 新增/修改 Agent 工具、LLM 呼叫、SSE 串流、數位分身相關功能
+> **來源**: 2026-03-27~28 session 實際踩過的 15+ 個 bug
+
+### Y-1: 工具結果 Summary 必須完整
+
+- [ ] `summarize_tool_result()` 中，**工具回傳的關聯資料必須逐筆列出**，不能只傳數字
+- 錯誤: `"含 4 筆關聯公文"` → LLM 看不到內容 → 合成遺漏
+- 正確: 逐筆列出 `[文號] 主旨 (日期)` → LLM 完整合成
+- **規則: 任何 count > 0 的關聯資料，summary 必須包含每筆的核心欄位**
+
+### Y-2: 不信任 LLM 的 Prompt 規則
+
+- [ ] **vLLM 7B 等小模型會忽略 system prompt 規則**，必須在程式碼層強制執行
+- 錯誤: prompt 寫「不要呼叫 search_documents」→ LLM 仍然呼叫
+- 正確: `tool_loop.py` 用 `if dispatch_in_plan: remove search_documents`
+- **規則: 關鍵行為約束必須在程式碼層攔截，prompt 只作為輔助**
+
+### Y-3: LLM 數字幻覺校正
+
+- [ ] 涉及數字提取（派工單號、公文號等）時，**必須從原始問題二次提取驗證**
+- 錯誤: LLM 把「014」解析為「015」
+- 正確: `_original_question` 正則校正
+- **規則: 所有數字/ID 參數都要從原文 regex 校驗，不單純信任 LLM JSON**
+
+### Y-4: SSE 事件必須完整映射
+
+- [ ] 前端 SSE handler 的 `switch-case` **必須覆蓋所有後端事件類型**
+- 錯誤: 只映射 token/done/error/status → 其他事件被 default 忽略 → 無回答
+- 正確: 列舉所有類型 (self_awareness/role/thinking/tool_call/tool_result/token/done/error)
+- **規則: 新增後端 SSE 事件時，同步更新前端 switch-case**
+
+### Y-5: context 型別一致性
+
+- [ ] 後端函數參數型別（str/dict/int）**必須與呼叫端一致**
+- 錯誤: `stream_query(context: Optional[str])` 被傳入 `dict` → TypeError 靜默中斷
+- 正確: endpoint 層做型別轉換再傳入
+- **規則: 跨層呼叫（endpoint→service→repository）型別必須明確轉換**
+
+### Y-6: Docker port 衝突防護
+
+- [ ] 開發環境 `startup.py` 必須綁 `127.0.0.1`（不是 `0.0.0.0`）
+- [ ] Docker compose 的生產容器必須用 `profiles: ["production"]`
+- [ ] 生產容器 port mapping 不得與開發 port 相同（如 8011:8001）
+- [ ] Vite proxy target 必須用 `127.0.0.1`（不是 `localhost`）
+- **規則: `0.0.0.0` 只有 Docker 容器使用，開發環境永遠用 `127.0.0.1`**
+
+### Y-7: auto_correct 必須尊重已有結果
+
+- [ ] 當主工具已找到結果（如 dispatch 含關聯公文），**auto_correct 不得觸發額外搜尋**
+- 錯誤: dispatch 已找到 → search_entities 回 0 → auto_correct 觸發 search_documents → 564 篇雜訊
+- 正確: `if dispatch_found: return None`
+- **規則: auto_correct 前必須檢查是否已有足夠結果**
+
+### Y-8: chitchat 保守策略
+
+- [ ] 不確定的輸入**預設走 Agent 工具查詢**，不要直接 LLM 回答
+- 錯誤: 「龍岡路」被當成閒聊 → LLM 幻覺「龍岡路是臺中的道路」
+- 正確: 只有精確問候語走閒聊，其他全走工具
+- **規則: 寧可「查無結果」也不要「胡說八道」— 公文系統每筆資料必須可溯源**
+
+### Y-9: selectinload 必須覆蓋 formatter 存取的所有關聯
+
+- [ ] 如果 response formatter 存取 `item.relationship`，查詢必須有對應 `selectinload`
+- 錯誤: 列表查詢缺 selectinload → MissingGreenlet → 500 錯誤
+- 正確: 列表和詳情查詢的 selectinload 必須覆蓋 formatter 的所有 `.` 存取
+- **規則: 修改 formatter 新增關聯存取時，同時更新所有查詢的 selectinload**
+
+### Y-10: response_model 與新增欄位
+
+- [ ] FastAPI `response_model` 的 Pydantic schema **必須同步更新新增欄位**
+- [ ] 或改用 `Response(json.dumps())` 避免 schema 過濾
+- 錯誤: 新增 `referenced_by_dispatch_ids` 但 schema 沒更新 → API 回傳缺欄位
+- **規則: 新增回傳欄位時，同步更新 Pydantic schema 或移除 response_model**
+
+### Y-11: 機關名稱正規化
+
+- [ ] `agency_service.create()` 必須經過 `normalize_unit()` 正規化
+- [ ] 攔截自家公司名（乾坤測繪）不入機關表
+- 錯誤: 「乾坤測繪科技有限公司（協力廠商：大有國際）」被當機關存入
+- **規則: 所有外部輸入的機關名稱必須正規化後再存入**
+
+---
+
+| 版本 | 日期 | 變更摘要 |
+|------|------|---------|
+| 1.20.0 | 2026-03-28 | 新增清單 Y - Agent/AI 服務開發（v5.2.5 實戰 15 條規範） |
+| 1.19.0 | 2026-03-23 | 新增清單 X - Feature Flags |
 
 ---
 
