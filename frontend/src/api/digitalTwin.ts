@@ -139,7 +139,14 @@ async function _attemptStream(
                 callbacks.onStatus?.('running', event.message || '');
                 break;
 
-              case 'self_awareness':
+              case 'self_awareness': {
+                const identity = event.identity as string || '數位分身';
+                const strengths = event.strengths as string[] | undefined;
+                const detail = identity +
+                  (strengths?.length ? `（擅長: ${strengths.join('、')}）` : '');
+                callbacks.onStatus?.('connected', detail);
+                break;
+              }
               case 'role':
                 callbacks.onStatus?.('connected', event.identity as string || '數位分身');
                 break;
