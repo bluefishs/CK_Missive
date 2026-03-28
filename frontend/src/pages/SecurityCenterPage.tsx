@@ -11,7 +11,7 @@
 import React, { useState } from 'react';
 import {
   Typography, Tabs, Card, Table, Tag, Statistic, Row, Col, Empty, Spin,
-  Button, Badge, Space, Progress, List, Alert,
+  Button, Badge, Space, List, Alert,
 } from 'antd';
 import {
   SafetyCertificateOutlined, BugOutlined, ScanOutlined,
@@ -198,7 +198,11 @@ const ScansTab: React.FC = () => {
       render: (s: string) => <Tag color={s === 'completed' ? 'green' : s === 'failed' ? 'red' : 'blue'}>{s}</Tag> },
     { title: '問題數', dataIndex: 'total_issues', width: 80 },
     { title: '安全分數', dataIndex: 'security_score', width: 100,
-      render: (s: number | null) => s != null ? <Progress percent={Math.round(s)} size="small" /> : '-' },
+      render: (s: number | null) => s != null ? (
+        <Tag color={s >= 90 ? 'green' : s >= 70 ? 'blue' : s >= 50 ? 'orange' : 'red'}>
+          {Math.round(s)} / 100
+        </Tag>
+      ) : '-' },
     { title: '執行者', dataIndex: 'created_by', width: 80 },
     { title: '時間', dataIndex: 'created_at', width: 100,
       render: (d: string) => d ? new Date(d).toLocaleDateString('zh-TW') : '-' },

@@ -314,22 +314,32 @@ async def list_security_notifications(
     issues = (await db.execute(issue_stmt)).scalars().all()
 
     items = []
-    for scan in scans:
-        severity = "critical" if scan.critical_count > 0 else "high" if scan.high_count > 0 else "info"
+
+    # 掃描通知（只保留最近一筆，不重複）
+    if scans:
+        latest = scans[0]
+        grade = "A" if (latest.security_score or 0) >= 90 else "B" if (latest.security_score or 0) >= 70 else "C" if (latest.security_score or 0) >= 50 else "D"
         items.append({
-            "id": f"scan-{scan.id}",
-            "title": f"安全掃描完成 — {scan.project_name}",
-            "message": f"發現 {scan.total_issues} 個問題 (C:{scan.critical_count} H:{scan.high_count} M:{scan.medium_count}), 安全分數: {scan.security_score or 0:.0f}",
-            "severity": severity,
+            "id": f"scan-{latest.id}",
+            "title": f"最近安全掃描 — 等級 {grade}，分數 {latest.security_score or 0:.0f}",
+            "message": f"掃描 {latest.total_issues} 項，Critical {latest.critical_count} / High {latest.high_count} / Medium {latest.medium_count}",
+            "severity": "info" if latest.critical_count == 0 and latest.high_count == 0 else "high",
             "type": "scan",
-            "created_at": scan.created_at.isoformat() if scan.created_at else None,
+            "created_at": latest.created_at.isoformat() if latest.created_at else None,
         })
-    for issue in issues[:10]:
-        action = "新發現" if issue.status == "open" else "已修復"
+
+    # 問題通知（按嚴重度+標題去重，只保留最新）
+    seen_titles: set = set()
+    for issue in issues[:30]:
+        dedup_key = f"{issue.severity}:{issue.title}"
+        if dedup_key in seen_titles:
+            continue
+        seen_titles.add(dedup_key)
+        action = "未解決" if issue.status == "open" else "已修復"
         items.append({
             "id": f"issue-{issue.id}",
-            "title": f"[{issue.severity}] {action}: {issue.title}",
-            "message": f"{issue.file_path or ''} | OWASP {issue.owasp_category or ''}",
+            "title": f"{action}: {issue.title}",
+            "message": f"{issue.file_path or ''}{(' | OWASP ' + issue.owasp_category) if issue.owasp_category else ''}",
             "severity": issue.severity,
             "type": "issue",
             "created_at": issue.updated_at.isoformat() if issue.updated_at else None,
