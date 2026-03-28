@@ -15,6 +15,7 @@ import {
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
+import { enhanceColumns } from '../../utils/tableEnhancer';
 
 const { Text } = Typography;
 
@@ -151,7 +152,7 @@ const OverdueTable: React.FC<{ items: DispatchItem[] }> = ({ items }) => {
       title={<span><ExclamationCircleOutlined style={{ color: '#ff4d4f' }} /> 逾期派工單 ({items.length})</span>}
       style={{ marginTop: 12 }}
     >
-      <Table dataSource={items} columns={columns} rowKey="dispatch_id" size="small" pagination={false} />
+      <Table dataSource={items} columns={enhanceColumns(columns, items)} rowKey="dispatch_id" size="small" pagination={false} />
     </Card>
   );
 };

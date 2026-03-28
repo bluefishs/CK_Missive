@@ -15,6 +15,7 @@ import {
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
+import { enhanceColumns } from '../../utils/tableEnhancer';
 
 const { Text } = Typography;
 
@@ -169,7 +170,7 @@ const ToolHealthCard: React.FC = () => {
     >
       <Table
         dataSource={tools}
-        columns={columns}
+        columns={enhanceColumns(columns, tools)}
         rowKey="name"
         size="small"
         pagination={false}
