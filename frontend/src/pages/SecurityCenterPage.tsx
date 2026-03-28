@@ -77,8 +77,19 @@ const OwaspDashboardTab: React.FC = () => {
             </div>
           </Card>
         </Col>
-        <Col span={5}><Card size="small"><Statistic title="總問題" value={data.total_issues} /></Card></Col>
-        <Col span={5}><Card size="small"><Statistic title="未解決" value={data.open_issues} valueStyle={{ color: data.open_issues > 0 ? '#ff4d4f' : '#52c41a' }} /></Card></Col>
+        <Col span={5}>
+          <Card size="small">
+            <Statistic title="未解決" value={data.open_issues} valueStyle={{ color: data.open_issues > 0 ? '#ff4d4f' : '#52c41a' }} />
+          </Card>
+        </Col>
+        <Col span={5}>
+          <Card size="small">
+            <Statistic title="已修復" value={data.resolved_issues || 0} valueStyle={{ color: '#52c41a' }} />
+            <Text type="secondary" style={{ fontSize: 10 }}>
+              累計 {data.total_issues || 0} 筆 (含誤判 {data.false_positive_issues || 0})
+            </Text>
+          </Card>
+        </Col>
         <Col span={5}><Card size="small"><Statistic title="Critical" value={data.severity_distribution?.critical || 0} valueStyle={{ color: '#f5222d' }} /></Card></Col>
         <Col span={4}><Card size="small"><Statistic title="High" value={data.severity_distribution?.high || 0} valueStyle={{ color: '#fa541c' }} /></Card></Col>
       </Row>

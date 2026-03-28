@@ -118,6 +118,16 @@ async def owasp_summary(
     total_val = total.scalar() or 0
     open_val = open_count.scalar() or 0
 
+    # 各狀態統計
+    status_q = await db.execute(
+        select(SecurityIssue.status, func.count())
+        .group_by(SecurityIssue.status)
+    )
+    status_dist = dict(status_q.all())
+    resolved_val = status_dist.get("resolved", 0)
+    false_positive_val = status_dist.get("false_positive", 0)
+    wont_fix_val = status_dist.get("wont_fix", 0)
+
     # 即時安全分數（基於 open issues，非掃描快照）
     score = max(0, 100
         - severity_dist.get("critical", 0) * 25
@@ -148,6 +158,9 @@ async def owasp_summary(
         "severity_distribution": severity_dist,
         "total_issues": total_val,
         "open_issues": open_val,
+        "resolved_issues": resolved_val,
+        "false_positive_issues": false_positive_val,
+        "wont_fix_issues": wont_fix_val,
         "security_grade": grade,
         "security_grade_label": grade_label,
         "security_score": score,
