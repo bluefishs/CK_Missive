@@ -71,13 +71,9 @@ const OwaspDashboardTab: React.FC = () => {
                 {grade}
               </div>
               <div style={{ fontSize: 12, color: '#888' }}>{data.security_grade_label || ''}</div>
-              <Progress
-                percent={data.security_score ?? 0}
-                size="small"
-                strokeColor={gradeColors[grade]}
-                format={(p) => `${p} 分`}
-                style={{ marginTop: 4 }}
-              />
+              <div style={{ fontSize: 20, fontWeight: 'bold', color: gradeColors[grade], marginTop: 2 }}>
+                {data.security_score ?? 0} <span style={{ fontSize: 12, fontWeight: 'normal', color: '#888' }}>/ 100</span>
+              </div>
             </div>
           </Card>
         </Col>
