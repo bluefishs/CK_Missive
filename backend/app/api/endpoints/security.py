@@ -315,14 +315,15 @@ async def list_security_notifications(
 
     items = []
 
-    # 掃描通知（只保留最近一筆，不重複）
+    # 掃描通知（只保留最近一筆）— 顯示掃描當下的發現數（非修復後分數）
     if scans:
         latest = scans[0]
-        grade = "A" if (latest.security_score or 0) >= 90 else "B" if (latest.security_score or 0) >= 70 else "C" if (latest.security_score or 0) >= 50 else "D"
+        # 掃描當下的評估（非即時分數）
+        scan_score = max(0, 100 - latest.critical_count * 25 - latest.high_count * 10 - latest.medium_count * 3)
         items.append({
             "id": f"scan-{latest.id}",
-            "title": f"最近安全掃描 — 等級 {grade}，分數 {latest.security_score or 0:.0f}",
-            "message": f"掃描 {latest.total_issues} 項，Critical {latest.critical_count} / High {latest.high_count} / Medium {latest.medium_count}",
+            "title": f"安全掃描完成 — 發現 {latest.total_issues} 項待處理",
+            "message": f"Critical {latest.critical_count} / High {latest.high_count} / Medium {latest.medium_count} / 掃描評分 {scan_score}",
             "severity": "info" if latest.critical_count == 0 and latest.high_count == 0 else "high",
             "type": "scan",
             "created_at": latest.created_at.isoformat() if latest.created_at else None,
@@ -470,7 +471,8 @@ def _scan_dict(scan: SecurityScan) -> dict:
         "medium_count": scan.medium_count,
         "low_count": scan.low_count,
         "info_count": scan.info_count,
-        "security_score": scan.security_score,
+        # 掃描當下分數（基於該次掃描發現的問題，非即時修復後分數）
+        "security_score": max(0, 100 - scan.critical_count * 25 - scan.high_count * 10 - scan.medium_count * 3 - scan.low_count * 1),
         "duration_seconds": scan.duration_seconds,
         "created_by": scan.created_by,
         "created_at": scan.created_at.isoformat() if scan.created_at else None,

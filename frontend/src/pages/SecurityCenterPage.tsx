@@ -64,34 +64,21 @@ const OwaspDashboardTab: React.FC = () => {
     <div>
       {/* 安全概覽 */}
       <Row gutter={12} style={{ marginBottom: 16 }}>
-        <Col span={5}>
-          <Card size="small">
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 36, fontWeight: 'bold', color: gradeColors[grade] || '#999', lineHeight: 1.2 }}>
-                {grade}
-              </div>
-              <div style={{ fontSize: 12, color: '#888' }}>{data.security_grade_label || ''}</div>
-              <div style={{ fontSize: 20, fontWeight: 'bold', color: gradeColors[grade], marginTop: 2 }}>
-                {data.security_score ?? 0} <span style={{ fontSize: 12, fontWeight: 'normal', color: '#888' }}>/ 100</span>
-              </div>
-            </div>
+        <Col span={4}>
+          <Card size="small" style={{ textAlign: 'center' }}>
+            <Statistic
+              title={<span style={{ fontSize: 11 }}>安全等級 / 分數</span>}
+              value={`${grade} ${data.security_score ?? 0}`}
+              suffix="分"
+              valueStyle={{ color: gradeColors[grade] || '#999', fontWeight: 'bold' }}
+            />
           </Card>
         </Col>
-        <Col span={5}>
-          <Card size="small">
-            <Statistic title="未解決" value={data.open_issues} valueStyle={{ color: data.open_issues > 0 ? '#ff4d4f' : '#52c41a' }} />
-          </Card>
-        </Col>
-        <Col span={5}>
-          <Card size="small">
-            <Statistic title="已修復" value={data.resolved_issues || 0} valueStyle={{ color: '#52c41a' }} />
-            <Text type="secondary" style={{ fontSize: 10 }}>
-              累計 {data.total_issues || 0} 筆 (含誤判 {data.false_positive_issues || 0})
-            </Text>
-          </Card>
-        </Col>
-        <Col span={5}><Card size="small"><Statistic title="Critical" value={data.severity_distribution?.critical || 0} valueStyle={{ color: '#f5222d' }} /></Card></Col>
+        <Col span={4}><Card size="small"><Statistic title="未解決" value={data.open_issues} valueStyle={{ color: data.open_issues > 0 ? '#ff4d4f' : '#52c41a' }} /></Card></Col>
+        <Col span={4}><Card size="small"><Statistic title="已修復" value={data.resolved_issues || 0} suffix={<Text type="secondary" style={{ fontSize: 10 }}>/ {data.total_issues || 0}</Text>} valueStyle={{ color: '#52c41a' }} /></Card></Col>
+        <Col span={4}><Card size="small"><Statistic title="Critical" value={data.severity_distribution?.critical || 0} valueStyle={{ color: '#f5222d' }} /></Card></Col>
         <Col span={4}><Card size="small"><Statistic title="High" value={data.severity_distribution?.high || 0} valueStyle={{ color: '#fa541c' }} /></Card></Col>
+        <Col span={4}><Card size="small"><Statistic title="誤判" value={data.false_positive_issues || 0} valueStyle={{ color: '#999' }} /></Card></Col>
       </Row>
 
       {/* 評分說明 */}
@@ -161,14 +148,25 @@ const IssuesTab: React.FC = () => {
 
   const columns = [
     { title: '嚴重度', dataIndex: 'severity', width: 80,
+      filters: [{ text: 'critical', value: 'critical' }, { text: 'high', value: 'high' }, { text: 'medium', value: 'medium' }, { text: 'low', value: 'low' }],
+      onFilter: (value: unknown, record: Record<string, unknown>) => record.severity === value,
+      sorter: (a: Record<string, unknown>, b: Record<string, unknown>) => {
+        const order: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
+        return (order[a.severity as string] ?? 5) - (order[b.severity as string] ?? 5);
+      },
       render: (s: string) => <Tag color={SEVERITY_COLORS[s]}>{s}</Tag> },
-    { title: '狀態', dataIndex: 'status', width: 80,
+    { title: '狀態', dataIndex: 'status', width: 90,
+      filters: [{ text: 'open', value: 'open' }, { text: 'resolved', value: 'resolved' }, { text: 'false_positive', value: 'false_positive' }],
+      onFilter: (value: unknown, record: Record<string, unknown>) => record.status === value,
       render: (s: string) => <Badge status={STATUS_COLORS[s] as 'error' | 'processing' | 'success' | 'default'} text={s} /> },
-    { title: 'OWASP', dataIndex: 'owasp_category', width: 60 },
-    { title: '標題', dataIndex: 'title', ellipsis: true },
-    { title: '檔案', dataIndex: 'file_path', width: 200, ellipsis: true },
+    { title: 'OWASP', dataIndex: 'owasp_category', width: 65,
+      filters: ['A01','A02','A03','A04','A05','A06','A07','A08','A09','A10'].map(c => ({ text: c, value: c })),
+      onFilter: (value: unknown, record: Record<string, unknown>) => record.owasp_category === value },
+    { title: '標題', dataIndex: 'title', ellipsis: true, sorter: (a: Record<string, unknown>, b: Record<string, unknown>) => String(a.title || '').localeCompare(String(b.title || '')) },
+    { title: '檔案', dataIndex: 'file_path', width: 180, ellipsis: true },
     { title: '負責人', dataIndex: 'assigned_to', width: 80 },
     { title: '建立時間', dataIndex: 'created_at', width: 100,
+      sorter: (a: Record<string, unknown>, b: Record<string, unknown>) => String(a.created_at || '').localeCompare(String(b.created_at || '')),
       render: (d: string) => d ? new Date(d).toLocaleDateString('zh-TW') : '-' },
   ];
 
