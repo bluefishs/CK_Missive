@@ -113,6 +113,7 @@ class DispatchOrderRepository(BaseRepository[TaoyuanDispatchOrder]):
             selectinload(TaoyuanDispatchOrder.work_type_links),
             selectinload(TaoyuanDispatchOrder.attachments),
             selectinload(TaoyuanDispatchOrder.work_records),
+            selectinload(TaoyuanDispatchOrder.payment),
         )
 
         conditions = []
