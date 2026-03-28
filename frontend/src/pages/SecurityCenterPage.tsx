@@ -64,21 +64,40 @@ const OwaspDashboardTab: React.FC = () => {
     <div>
       {/* 安全概覽 */}
       <Row gutter={12} style={{ marginBottom: 16 }}>
-        <Col span={4}>
+        <Col span={5}>
           <Card size="small">
-            <Statistic
-              title="安全等級"
-              value={`${grade} ${data.security_grade_label || ''}`}
-              valueStyle={{ color: gradeColors[grade] || '#999', fontSize: 22, fontWeight: 'bold' }}
-            />
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 36, fontWeight: 'bold', color: gradeColors[grade] || '#999', lineHeight: 1.2 }}>
+                {grade}
+              </div>
+              <div style={{ fontSize: 12, color: '#888' }}>{data.security_grade_label || ''}</div>
+              <Progress
+                percent={data.security_score ?? 0}
+                size="small"
+                strokeColor={gradeColors[grade]}
+                format={(p) => `${p} 分`}
+                style={{ marginTop: 4 }}
+              />
+            </div>
           </Card>
         </Col>
-        <Col span={4}><Card size="small"><Statistic title="安全分數" value={data.security_score ?? '-'} suffix="/ 100" /></Card></Col>
-        <Col span={4}><Card size="small"><Statistic title="總問題" value={data.total_issues} /></Card></Col>
-        <Col span={4}><Card size="small"><Statistic title="未解決" value={data.open_issues} valueStyle={{ color: data.open_issues > 0 ? '#ff4d4f' : '#52c41a' }} /></Card></Col>
-        <Col span={4}><Card size="small"><Statistic title="Critical" value={data.severity_distribution?.critical || 0} valueStyle={{ color: '#f5222d' }} /></Card></Col>
+        <Col span={5}><Card size="small"><Statistic title="總問題" value={data.total_issues} /></Card></Col>
+        <Col span={5}><Card size="small"><Statistic title="未解決" value={data.open_issues} valueStyle={{ color: data.open_issues > 0 ? '#ff4d4f' : '#52c41a' }} /></Card></Col>
+        <Col span={5}><Card size="small"><Statistic title="Critical" value={data.severity_distribution?.critical || 0} valueStyle={{ color: '#f5222d' }} /></Card></Col>
         <Col span={4}><Card size="small"><Statistic title="High" value={data.severity_distribution?.high || 0} valueStyle={{ color: '#fa541c' }} /></Card></Col>
       </Row>
+
+      {/* 評分說明 */}
+      <Alert
+        type="success"
+        style={{ marginBottom: 12, fontSize: 11 }}
+        message={
+          <Text style={{ fontSize: 11 }}>
+            安全分數 = 100 − (Critical×25 + High×10 + Medium×3 + Low×1)，僅計算未解決問題。
+            等級: A(≥90) B(≥70) C(≥50) D(&lt;50)。每日 02:00 自動掃描更新。
+          </Text>
+        }
+      />
 
       {/* 掃描資訊 */}
       {data.last_scan && (
