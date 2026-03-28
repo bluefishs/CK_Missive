@@ -248,10 +248,21 @@ class SecurityScanner:
 
     async def _save_scan(self, findings: List[ScanFinding], counts: dict, duration: float) -> int:
         """儲存掃描記錄"""
-        from app.extended.models.security import SecurityScan
+        from app.extended.models.security import SecurityScan, SecurityIssue
+        from sqlalchemy import func as _func, select as _sel
 
-        score = max(0, 100 - counts.get("critical", 0) * 20 - counts.get("high", 0) * 10
-                     - counts.get("medium", 0) * 5 - counts.get("low", 0) * 2)
+        # 即時安全分數：基於所有 open issues（不只本次掃描）
+        sev_q = await self.db.execute(
+            _sel(SecurityIssue.severity, _func.count())
+            .where(SecurityIssue.status == "open")
+            .group_by(SecurityIssue.severity)
+        )
+        open_sev = dict(sev_q.all())
+        score = max(0, 100
+            - open_sev.get("critical", 0) * 25
+            - open_sev.get("high", 0) * 10
+            - open_sev.get("medium", 0) * 3
+            - open_sev.get("low", 0) * 1)
 
         scan = SecurityScan(
             project_name=self.project_name,
