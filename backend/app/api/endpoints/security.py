@@ -115,12 +115,47 @@ async def owasp_summary(
         select(func.count()).select_from(SecurityIssue).where(SecurityIssue.status == "open")
     )
 
+    total_val = total.scalar() or 0
+    open_val = open_count.scalar() or 0
+
+    # 安全等級計算
+    if open_val == 0:
+        grade, grade_label = "A", "優良"
+    elif severity_dist.get("critical", 0) > 0:
+        grade, grade_label = "D", "危險"
+    elif severity_dist.get("high", 0) > 3:
+        grade, grade_label = "C", "需改善"
+    elif severity_dist.get("high", 0) > 0:
+        grade, grade_label = "B", "尚可"
+    else:
+        grade, grade_label = "A", "優良"
+
+    # 最近掃描
+    last_scan_q = await db.execute(
+        select(SecurityScan).order_by(SecurityScan.created_at.desc()).limit(1)
+    )
+    last_scan = last_scan_q.scalar_one_or_none()
+
     return {
+        "owasp_standard": "OWASP Top 10 2025",
         "owasp_categories": OWASP_CATEGORIES,
         "owasp_stats": owasp_stats,
         "severity_distribution": severity_dist,
-        "total_issues": total.scalar() or 0,
-        "open_issues": open_count.scalar() or 0,
+        "total_issues": total_val,
+        "open_issues": open_val,
+        "security_grade": grade,
+        "security_grade_label": grade_label,
+        "security_score": last_scan.security_score if last_scan else None,
+        "last_scan": {
+            "id": last_scan.id,
+            "scan_type": last_scan.scan_type,
+            "total_issues": last_scan.total_issues,
+            "security_score": last_scan.security_score,
+            "created_at": last_scan.created_at.isoformat() if last_scan and last_scan.created_at else None,
+            "created_by": last_scan.created_by,
+        } if last_scan else None,
+        "scanner_version": "1.0.0",
+        "scan_schedule": "每日 02:00 自動掃描",
     }
 
 
@@ -242,32 +277,48 @@ async def list_security_notifications(
     db: AsyncSession = Depends(get_async_db),
     _user: User = Depends(require_auth()),
 ):
-    """列出資安相關的系統通知（從 SystemNotification 查詢）"""
-    try:
-        from app.extended.models.system import SystemNotification
-        stmt = (
-            select(SystemNotification)
-            .where(SystemNotification.source_table.in_(["security_issues", "security_scans", "security"]))
-            .order_by(SystemNotification.created_at.desc())
-            .offset((query.page - 1) * query.limit)
-            .limit(query.limit)
-        )
-        result = await db.execute(stmt)
-        items = [
-            {
-                "id": n.id,
-                "title": n.title,
-                "message": n.message,
-                "severity": n.severity,
-                "is_read": n.is_read,
-                "created_at": n.created_at.isoformat() if n.created_at else None,
-            }
-            for n in result.scalars().all()
-        ]
-        return {"items": items, "total": len(items)}
-    except Exception as e:
-        logger.debug("Security notifications query failed: %s", e)
-        return {"items": [], "total": 0}
+    """資安通知紀錄 — 從掃描記錄+問題變更自動產生"""
+    # 從掃描歷史產生通知
+    scan_stmt = (
+        select(SecurityScan)
+        .order_by(SecurityScan.created_at.desc())
+        .limit(query.limit)
+    )
+    scans = (await db.execute(scan_stmt)).scalars().all()
+
+    # 從最近解決/新增的問題產生通知
+    issue_stmt = (
+        select(SecurityIssue)
+        .where(SecurityIssue.status.in_(["open", "resolved"]))
+        .order_by(SecurityIssue.updated_at.desc())
+        .limit(query.limit)
+    )
+    issues = (await db.execute(issue_stmt)).scalars().all()
+
+    items = []
+    for scan in scans:
+        severity = "critical" if scan.critical_count > 0 else "high" if scan.high_count > 0 else "info"
+        items.append({
+            "id": f"scan-{scan.id}",
+            "title": f"安全掃描完成 — {scan.project_name}",
+            "message": f"發現 {scan.total_issues} 個問題 (C:{scan.critical_count} H:{scan.high_count} M:{scan.medium_count}), 安全分數: {scan.security_score or 0:.0f}",
+            "severity": severity,
+            "type": "scan",
+            "created_at": scan.created_at.isoformat() if scan.created_at else None,
+        })
+    for issue in issues[:10]:
+        action = "新發現" if issue.status == "open" else "已修復"
+        items.append({
+            "id": f"issue-{issue.id}",
+            "title": f"[{issue.severity}] {action}: {issue.title}",
+            "message": f"{issue.file_path or ''} | OWASP {issue.owasp_category or ''}",
+            "severity": issue.severity,
+            "type": "issue",
+            "created_at": issue.updated_at.isoformat() if issue.updated_at else None,
+        })
+
+    items.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+    return {"items": items[:query.limit], "total": len(items)}
 
 
 # ── 安全模式庫 (靜態) ──

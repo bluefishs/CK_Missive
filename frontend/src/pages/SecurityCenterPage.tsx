@@ -57,15 +57,52 @@ const OwaspDashboardTab: React.FC = () => {
   const cats = data.owasp_categories || {};
   const stats = data.owasp_stats || {};
 
+  const gradeColors: Record<string, string> = { A: '#52c41a', B: '#1890ff', C: '#faad14', D: '#ff4d4f' };
+  const grade = data.security_grade || 'A';
+
   return (
     <div>
+      {/* 安全概覽 */}
       <Row gutter={12} style={{ marginBottom: 16 }}>
-        <Col span={6}><Card size="small"><Statistic title="總問題" value={data.total_issues} /></Card></Col>
-        <Col span={6}><Card size="small"><Statistic title="未解決" value={data.open_issues} valueStyle={{ color: '#ff4d4f' }} /></Card></Col>
-        <Col span={6}><Card size="small"><Statistic title="Critical" value={data.severity_distribution?.critical || 0} valueStyle={{ color: '#f5222d' }} /></Card></Col>
-        <Col span={6}><Card size="small"><Statistic title="High" value={data.severity_distribution?.high || 0} valueStyle={{ color: '#fa541c' }} /></Card></Col>
+        <Col span={4}>
+          <Card size="small">
+            <Statistic
+              title="安全等級"
+              value={`${grade} ${data.security_grade_label || ''}`}
+              valueStyle={{ color: gradeColors[grade] || '#999', fontSize: 22, fontWeight: 'bold' }}
+            />
+          </Card>
+        </Col>
+        <Col span={4}><Card size="small"><Statistic title="安全分數" value={data.security_score ?? '-'} suffix="/ 100" /></Card></Col>
+        <Col span={4}><Card size="small"><Statistic title="總問題" value={data.total_issues} /></Card></Col>
+        <Col span={4}><Card size="small"><Statistic title="未解決" value={data.open_issues} valueStyle={{ color: data.open_issues > 0 ? '#ff4d4f' : '#52c41a' }} /></Card></Col>
+        <Col span={4}><Card size="small"><Statistic title="Critical" value={data.severity_distribution?.critical || 0} valueStyle={{ color: '#f5222d' }} /></Card></Col>
+        <Col span={4}><Card size="small"><Statistic title="High" value={data.severity_distribution?.high || 0} valueStyle={{ color: '#fa541c' }} /></Card></Col>
       </Row>
-      <Card size="small" title="OWASP Top 10 分佈" extra={<Button size="small" icon={<ReloadOutlined />} onClick={() => refetch()} />}>
+
+      {/* 掃描資訊 */}
+      {data.last_scan && (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message={
+            <span>
+              <Text strong>最近掃描</Text>
+              <Text type="secondary" style={{ marginLeft: 8 }}>
+                {data.last_scan.created_at ? new Date(data.last_scan.created_at).toLocaleString('zh-TW') : '-'}
+              </Text>
+              <Tag style={{ marginLeft: 8 }}>{data.last_scan.scan_type}</Tag>
+              <Text style={{ marginLeft: 8 }}>發現 {data.last_scan.total_issues} 個問題</Text>
+              <Text type="secondary" style={{ marginLeft: 8 }}>
+                | 標準: {data.owasp_standard || 'OWASP Top 10 2025'} | 版本: {data.scanner_version || '1.0.0'} | {data.scan_schedule || ''}
+              </Text>
+            </span>
+          }
+        />
+      )}
+
+      <Card size="small" title="OWASP Top 10 2025 分佈" extra={<Button size="small" icon={<ReloadOutlined />} onClick={() => refetch()} />}>
         <Row gutter={[8, 8]}>
           {Object.entries(cats as Record<string, Record<string, unknown>>).map(([code, info]) => {
             const stat = (stats as Record<string, Record<string, number>>)[code] || {};
@@ -213,7 +250,7 @@ const SecurityCenterPage: React.FC = () => {
         <Title level={4} style={{ margin: 0 }}>
           <SafetyCertificateOutlined /> 資安管理中心
         </Title>
-        <Text type="secondary">基於 OWASP Top 10 2025 標準 — 問題追蹤、掃描記錄、安全模式庫</Text>
+        <Text type="secondary">基於 OWASP Top 10 2025 標準 — 自動掃描 (每日 02:00) + 問題追蹤 + 安全模式庫</Text>
       </div>
 
       <Tabs
