@@ -118,17 +118,22 @@ async def owasp_summary(
     total_val = total.scalar() or 0
     open_val = open_count.scalar() or 0
 
-    # 安全等級計算
-    if open_val == 0:
+    # 即時安全分數（基於 open issues，非掃描快照）
+    score = max(0, 100
+        - severity_dist.get("critical", 0) * 25
+        - severity_dist.get("high", 0) * 10
+        - severity_dist.get("medium", 0) * 3
+        - severity_dist.get("low", 0) * 1)
+
+    # 安全等級
+    if score >= 90:
         grade, grade_label = "A", "優良"
-    elif severity_dist.get("critical", 0) > 0:
-        grade, grade_label = "D", "危險"
-    elif severity_dist.get("high", 0) > 3:
-        grade, grade_label = "C", "需改善"
-    elif severity_dist.get("high", 0) > 0:
+    elif score >= 70:
         grade, grade_label = "B", "尚可"
+    elif score >= 50:
+        grade, grade_label = "C", "需改善"
     else:
-        grade, grade_label = "A", "優良"
+        grade, grade_label = "D", "危險"
 
     # 最近掃描
     last_scan_q = await db.execute(
@@ -145,7 +150,7 @@ async def owasp_summary(
         "open_issues": open_val,
         "security_grade": grade,
         "security_grade_label": grade_label,
-        "security_score": last_scan.security_score if last_scan else None,
+        "security_score": score,
         "last_scan": {
             "id": last_scan.id,
             "scan_type": last_scan.scan_type,
@@ -325,23 +330,84 @@ async def list_security_notifications(
 
 @router.post("/patterns", summary="安全模式庫")
 async def security_patterns(_user: User = Depends(require_auth())):
-    """OWASP 安全編碼最佳實踐"""
+    """OWASP 安全編碼最佳實踐 — 完整 Top 10 覆蓋 + CK_Missive 實作規範"""
     return {
         "patterns": [
-            {"category": "A01", "title": "最小權限原則", "description": "每個角色只授予必要的最小權限",
-             "example": "require_auth() + require_admin() 雙層驗證"},
-            {"category": "A02", "title": "安全預設配置", "description": "所有設定預設為安全狀態",
-             "example": "CORS 白名單、CSP Header、HSTS"},
-            {"category": "A03", "title": "參數化查詢", "description": "所有 SQL 使用參數化，禁止字串拼接",
-             "example": "select(Model).where(Model.id == :id)"},
-            {"category": "A05", "title": "密鑰管理", "description": "所有密鑰從環境變數讀取",
-             "example": "os.getenv('API_KEY')，禁止硬編碼"},
-            {"category": "A06", "title": "依賴更新", "description": "定期執行 npm audit / pip-audit",
-             "example": "npm audit --fix && pip-audit"},
-            {"category": "A07", "title": "雙 Token 驗證", "description": "service_token.py 支援 dual-token rotation",
-             "example": "MCP_SERVICE_TOKEN + MCP_SERVICE_TOKEN_PREV"},
-            {"category": "A09", "title": "結構化日誌", "description": "所有安全事件記錄到 structured log",
-             "example": "structlog.get_logger() + security event fields"},
+            # A01: Broken Access Control
+            {"category": "A01", "title": "最小權限原則", "severity": "critical",
+             "description": "每個角色只授予必要的最小權限。端點必須加認證裝飾器。",
+             "example": "Depends(require_auth()) + Depends(require_admin())",
+             "reference": "清單 Z-4: 所有端點必須有認證"},
+            {"category": "A01", "title": "RBAC 角色權限", "severity": "high",
+             "description": "前端 usePermissions() 動態權限檢查，後端 require_admin() 分級。",
+             "example": "const { isAdmin } = usePermissions(); if (!isAdmin()) return;",
+             "reference": "auth-environment.md"},
+
+            # A02: Security Misconfiguration
+            {"category": "A02", "title": "密鑰管理", "severity": "critical",
+             "description": "所有密鑰從環境變數讀取，禁止硬編碼。.env 必須在 .gitignore。",
+             "example": "os.getenv('API_KEY')，禁止 password='xxx'",
+             "reference": "清單 Z-1: 禁止硬編碼密鑰"},
+            {"category": "A02", "title": "安全預設配置", "severity": "high",
+             "description": "CORS 白名單、HTTPS only、secure cookie、CSP Header。",
+             "example": "allow_origins=[...], secure=True, httponly=True",
+             "reference": "security-hardening.md"},
+
+            # A03: Injection
+            {"category": "A03", "title": "SQL 參數化查詢", "severity": "critical",
+             "description": "所有 SQL 使用 ORM 或參數化 text()，禁止 f-string 拼接。",
+             "example": "select(Model).where(Model.id == id) 或 text(':id')",
+             "reference": "清單 Z-2: SQL 必須參數化"},
+            {"category": "A03", "title": "禁止不安全函數", "severity": "high",
+             "description": "禁止 eval/exec/pickle.loads/yaml.load。",
+             "example": "ast.literal_eval() / json.loads() / yaml.safe_load()",
+             "reference": "清單 Z-3: 禁止不安全函數"},
+
+            # A04: Insecure Design
+            {"category": "A04", "title": "輸入驗證", "severity": "high",
+             "description": "Pydantic Schema 強制型別驗證，API 層不接受任意 dict。",
+             "example": "class CreateRequest(BaseModel): name: str = Field(max_length=200)",
+             "reference": "development-rules.md 型別 SSOT"},
+
+            # A05: Cryptographic Failures
+            {"category": "A05", "title": "密碼雜湊", "severity": "critical",
+             "description": "密碼使用 bcrypt 雜湊存儲，禁止明文。Token 使用 HMAC-SHA256。",
+             "example": "bcrypt.hashpw() / hmac.compare_digest()",
+             "reference": "service_token.py 雙 token 驗證"},
+
+            # A06: Vulnerable Components
+            {"category": "A06", "title": "依賴漏洞管理", "severity": "high",
+             "description": "每日 02:00 自動掃描。Critical 3 天內修復。定期 pip-audit。",
+             "example": "pip-audit && pip install --upgrade <package>",
+             "reference": "清單 Z-5: 依賴漏洞定期更新"},
+
+            # A07: Auth Failures
+            {"category": "A07", "title": "Service Token 驗證", "severity": "high",
+             "description": "service_token.py 集中管理，支援 dual-token rotation 零停機。",
+             "example": "MCP_SERVICE_TOKEN + MCP_SERVICE_TOKEN_PREV",
+             "reference": "清單 Z-7: 雙 Token 驗證"},
+            {"category": "A07", "title": "Session 管理", "severity": "medium",
+             "description": "Redis session TTL 24h，閒置自動登出，CSRF token。",
+             "example": "useIdleTimeout(30min) + csrf_token validation",
+             "reference": "auth-environment.md"},
+
+            # A08: Data Integrity Failures
+            {"category": "A08", "title": "資料序列化安全", "severity": "medium",
+             "description": "禁止 pickle 反序列化。API 回傳必須經 Pydantic 驗證。",
+             "example": "json.loads() 取代 pickle.loads()",
+             "reference": "api-serialization.md"},
+
+            # A09: Logging Failures
+            {"category": "A09", "title": "結構化安全日誌", "severity": "medium",
+             "description": "所有安全事件記錄到 structlog，含 request_id、user_id、action。",
+             "example": "structlog.get_logger().warning('auth_failed', user=..., ip=...)",
+             "reference": "structured_logging.py"},
+
+            # A10: SSRF
+            {"category": "A10", "title": "外部請求防護", "severity": "high",
+             "description": "FederationClient 限制目標 URL。TunnelGuard 外網路由守衛。",
+             "example": "tunnel_guard.py 白名單 + httpx timeout=10s",
+             "reference": "tunnel_guard.py + federation_client.py"},
         ],
     }
 

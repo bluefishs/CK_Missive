@@ -226,9 +226,20 @@ const PatternsTab: React.FC = () => {
     <Row gutter={[12, 12]}>
       {patterns.map((p: Record<string, string>, i: number) => (
         <Col xs={24} md={12} key={i}>
-          <Card size="small" title={<><Tag>{p.category}</Tag> {p.title}</>}>
+          <Card size="small" title={
+            <Space>
+              <Tag>{p.category}</Tag>
+              <Tag color={SEVERITY_COLORS[p.severity || 'info'] || 'default'}>{p.severity || 'info'}</Tag>
+              <Text strong style={{ fontSize: 13 }}>{p.title}</Text>
+            </Space>
+          }>
             <Text style={{ fontSize: 12 }}>{p.description}</Text>
             <Alert type="info" message={<code style={{ fontSize: 11 }}>{p.example}</code>} style={{ marginTop: 8 }} />
+            {p.reference && (
+              <Text type="secondary" style={{ fontSize: 10, display: 'block', marginTop: 4 }}>
+                參考: {p.reference}
+              </Text>
+            )}
           </Card>
         </Col>
       ))}
