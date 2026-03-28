@@ -1,7 +1,7 @@
 """
 資安管理中心 API 端點
 
-基於 OWASP Top 10 2025 標準。
+基於 OWASP Top 10 標準。
 4 個功能區塊：OWASP 儀表板、問題追蹤、掃描記錄、安全模式庫。
 
 Version: 1.0.0
@@ -137,7 +137,7 @@ async def owasp_summary(
     last_scan = last_scan_q.scalar_one_or_none()
 
     return {
-        "owasp_standard": "OWASP Top 10 2025",
+        "owasp_standard": "OWASP Top 10",
         "owasp_categories": OWASP_CATEGORIES,
         "owasp_stats": owasp_stats,
         "severity_distribution": severity_dist,

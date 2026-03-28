@@ -1,6 +1,6 @@
 /**
  * 資安管理中心
- * 基於 OWASP Top 10 2025 標準，參照 CK_Showcase 架構適配 CK_Missive
+ * 基於 OWASP Top 10 標準，參照 CK_Showcase 架構適配 CK_Missive
  *
  * Tab: OWASP 儀表板 / 問題追蹤 / 掃描記錄 / 通知管理 / 安全模式庫
  *
@@ -95,14 +95,14 @@ const OwaspDashboardTab: React.FC = () => {
               <Tag style={{ marginLeft: 8 }}>{data.last_scan.scan_type}</Tag>
               <Text style={{ marginLeft: 8 }}>發現 {data.last_scan.total_issues} 個問題</Text>
               <Text type="secondary" style={{ marginLeft: 8 }}>
-                | 標準: {data.owasp_standard || 'OWASP Top 10 2025'} | 版本: {data.scanner_version || '1.0.0'} | {data.scan_schedule || ''}
+                | 標準: {data.owasp_standard || 'OWASP Top 10'} | 版本: {data.scanner_version || '1.0.0'} | {data.scan_schedule || ''}
               </Text>
             </span>
           }
         />
       )}
 
-      <Card size="small" title="OWASP Top 10 2025 分佈" extra={<Button size="small" icon={<ReloadOutlined />} onClick={() => refetch()} />}>
+      <Card size="small" title="OWASP Top 10 分佈" extra={<Button size="small" icon={<ReloadOutlined />} onClick={() => refetch()} />}>
         <Row gutter={[8, 8]}>
           {Object.entries(cats as Record<string, Record<string, unknown>>).map(([code, info]) => {
             const stat = (stats as Record<string, Record<string, number>>)[code] || {};
@@ -250,7 +250,7 @@ const SecurityCenterPage: React.FC = () => {
         <Title level={4} style={{ margin: 0 }}>
           <SafetyCertificateOutlined /> 資安管理中心
         </Title>
-        <Text type="secondary">基於 OWASP Top 10 2025 標準 — 自動掃描 (每日 02:00) + 問題追蹤 + 安全模式庫</Text>
+        <Text type="secondary">基於 OWASP Top 10 標準 — 自動掃描 (每日 02:00) + 問題追蹤 + 安全模式庫</Text>
       </div>
 
       <Tabs
