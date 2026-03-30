@@ -12,11 +12,10 @@ import {
 } from 'antd';
 import {
   EditOutlined, DeleteOutlined, DollarOutlined,
-  InfoCircleOutlined, BankOutlined, LineChartOutlined,
+  InfoCircleOutlined, BankOutlined,
 } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useERPQuotation, useAuthGuard } from '../hooks';
-import { ProfitTrendTab } from './erpQuotation';
 import { AccountRecordTab } from './erpQuotation/AccountRecordTab';
 import { ROUTES } from '../router/types';
 
@@ -118,18 +117,28 @@ export const ERPQuotationDetailPage: React.FC = () => {
           />
         )}
 
+        {/* 損益分析 */}
+        <Card size="small" title="損益分析">
+          <Row gutter={[16, 8]}>
+            <Col span={6}><Statistic title="營收 (含稅)" value={Number(quotation.total_price ?? 0)} precision={0} /></Col>
+            <Col span={6}><Statistic title="稅額" value={Number(quotation.tax_amount)} precision={0} /></Col>
+            <Col span={6}><Statistic title="營收 (未稅)" value={Number(quotation.total_price ?? 0) - Number(quotation.tax_amount)} precision={0} /></Col>
+            <Col span={6}><Statistic title="淨利" value={Number(quotation.net_profit)} precision={0} styles={{ content: { color: Number(quotation.net_profit) >= 0 ? '#3f8600' : '#cf1322' } }} /></Col>
+          </Row>
+          <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small" style={{ marginTop: 16 }}>
+            <Descriptions.Item label="外包費">{Number(quotation.outsourcing_fee).toLocaleString()}</Descriptions.Item>
+            <Descriptions.Item label="人事費">{Number(quotation.personnel_fee).toLocaleString()}</Descriptions.Item>
+            <Descriptions.Item label="管銷費">{Number(quotation.overhead_fee).toLocaleString()}</Descriptions.Item>
+            <Descriptions.Item label="其他成本">{Number(quotation.other_cost).toLocaleString()}</Descriptions.Item>
+          </Descriptions>
+        </Card>
+
         {/* 合約明細 */}
-        <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small" title="合約明細">
+        <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small" title="合約資訊">
           <Descriptions.Item label="案號">{quotation.case_code}</Descriptions.Item>
           <Descriptions.Item label="案名">{quotation.case_name ?? '-'}</Descriptions.Item>
           <Descriptions.Item label="年度">{quotation.year ?? '-'}</Descriptions.Item>
-          <Descriptions.Item label="合約總價">{Number(quotation.total_price ?? 0).toLocaleString()}</Descriptions.Item>
-          <Descriptions.Item label="稅額">{Number(quotation.tax_amount).toLocaleString()}</Descriptions.Item>
-          <Descriptions.Item label="外包費">{Number(quotation.outsourcing_fee).toLocaleString()}</Descriptions.Item>
-          <Descriptions.Item label="人事費">{Number(quotation.personnel_fee).toLocaleString()}</Descriptions.Item>
-          <Descriptions.Item label="管銷費">{Number(quotation.overhead_fee).toLocaleString()}</Descriptions.Item>
-          <Descriptions.Item label="其他成本">{Number(quotation.other_cost).toLocaleString()}</Descriptions.Item>
-          <Descriptions.Item label="淨利">{Number(quotation.net_profit).toLocaleString()}</Descriptions.Item>
+          <Descriptions.Item label="狀態">{quotation.status}</Descriptions.Item>
           <Descriptions.Item label="備註" span={2}>{quotation.notes ?? '-'}</Descriptions.Item>
         </Descriptions>
       </div>
@@ -139,9 +148,6 @@ export const ERPQuotationDetailPage: React.FC = () => {
     )),
     createTabItem('payable', { icon: <DollarOutlined />, text: '應付帳款' }, (
       id ? <AccountRecordTab erpQuotationId={Number(id)} direction="payable" /> : null
-    )),
-    createTabItem('trend', { icon: <LineChartOutlined />, text: '損益趨勢' }, (
-      <ProfitTrendTab />
     )),
   ] : [];
 
