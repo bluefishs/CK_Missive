@@ -109,12 +109,18 @@ export const ERPQuotationDetailPage: React.FC = () => {
         </Descriptions>
       </div>
     )),
-    createTabItem('financial', { icon: <BankOutlined />, text: '請款管理', count: (quotation.billing_count || 0) + (quotation.invoice_count || 0) }, (
+    createTabItem('receivable', { icon: <BankOutlined />, text: '應收帳款' }, (
       id ? (
         <Tabs defaultActiveKey="billings" size="small" items={[
-          { key: 'billings', label: <><BankOutlined /> 請款紀錄</>, children: <BillingsTab erpQuotationId={Number(id)} /> },
-          { key: 'invoices', label: <><FileTextOutlined /> 發票管理</>, children: <InvoicesTab erpQuotationId={Number(id)} /> },
-          { key: 'payables', label: <><DollarOutlined /> 廠商應付</>, children: <VendorPayablesTab erpQuotationId={Number(id)} /> },
+          { key: 'billings', label: <><BankOutlined /> 請款紀錄 (向業主)</>, children: <BillingsTab erpQuotationId={Number(id)} /> },
+          { key: 'sales-invoices', label: <><FileTextOutlined /> 銷項發票</>, children: <InvoicesTab erpQuotationId={Number(id)} /> },
+        ]} />
+      ) : null
+    )),
+    createTabItem('payable', { icon: <DollarOutlined />, text: '應付帳款' }, (
+      id ? (
+        <Tabs defaultActiveKey="payables" size="small" items={[
+          { key: 'payables', label: <><DollarOutlined /> 廠商應付 (協力廠商)</>, children: <VendorPayablesTab erpQuotationId={Number(id)} /> },
         ]} />
       ) : null
     )),
