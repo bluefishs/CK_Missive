@@ -95,7 +95,6 @@ export const ContractCaseDetailContent: React.FC<ContractCaseDetailContentProps>
   // 優先用 case_code，回退 project_code（向後相容舊資料）
   const crossLookupKey = data?.case_code ?? data?.project_code ?? null;
   const { data: crossData } = useCrossModuleLookup(crossLookupKey);
-  const hasErpData = !!crossData?.erp;
   const pmCaseId = crossData?.pm?.id ?? null;
 
   const loadUserOptions = async () => {};
@@ -215,20 +214,30 @@ export const ContractCaseDetailContent: React.FC<ContractCaseDetailContentProps>
       label: <span><FileTextOutlined /> 關聯公文 <Tag color="blue" style={{ marginLeft: 8 }}>{relatedDocs.length}</Tag></span>,
       children: <RelatedDocumentsTab relatedDocs={relatedDocs} onRefresh={reloadData} />,
     },
-    ...(pmCaseId ? [{
+    {
       key: 'milestones',
       label: <span>里程碑/甘特圖</span>,
-      children: (
+      children: pmCaseId ? (
         <Suspense fallback={<Spin />}>
           <MilestonesGanttTab pmCaseId={pmCaseId} />
         </Suspense>
+      ) : (
+        <div style={{ textAlign: 'center', padding: 40, color: '#999' }}>
+          尚無關聯 PM 案件，請先在邀標/報價模組建立案件並成案
+        </div>
       ),
-    }] : []),
-    ...((hasErpData || pmCaseId) && crossLookupKey ? [{
+    },
+    {
       key: 'erp',
       label: <span><DollarOutlined /> ERP 財務</span>,
-      children: <CrossModuleCard caseCode={crossLookupKey} />,
-    }] : []),
+      children: crossLookupKey ? (
+        <CrossModuleCard caseCode={crossLookupKey} />
+      ) : (
+        <div style={{ textAlign: 'center', padding: 40, color: '#999' }}>
+          尚無 ERP 財務資料，請先在邀標/報價模組建立報價
+        </div>
+      ),
+    },
   ];
 
   return (
