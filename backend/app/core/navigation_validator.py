@@ -49,6 +49,7 @@ VALID_NAVIGATION_PATHS: Set[str] = {
     "/admin/ai-assistant",
     "/admin/knowledge-base",
     "/admin/login-history",
+    "/admin/security-center",
 
     # AI 功能
     "/ai/knowledge-graph",
@@ -105,6 +106,8 @@ PATH_DESCRIPTIONS = {
     "/admin/deployment": "部署管理",
     "/admin/ai-assistant": "AI 助理管理",
     "/admin/knowledge-base": "知識庫瀏覽器",
+    "/admin/security-center": "資安管理中心",
+    "/admin/login-history": "登入歷史",
     "/ai/knowledge-graph": "公文圖譜",
     "/ai/skills-map": "Skills 能力圖譜",
     "/ai/code-wiki": "代碼圖譜（舊路由）",

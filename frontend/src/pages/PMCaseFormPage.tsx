@@ -156,8 +156,25 @@ export const PMCaseFormPage: React.FC = () => {
                 </Form.Item>
               </Col>
               <Col xs={24} sm={12}>
-                <Form.Item name="category" label="作業類別">
+                <Form.Item name="category" label="計畫類別">
                   <Select allowClear placeholder="選擇類別" options={CATEGORY_OPTIONS} />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Form.Item name="case_nature" label="作業性質">
+                  <Select allowClear placeholder="選擇作業性質" options={[
+                    { value: '01地面測量', label: '01地面測量' },
+                    { value: '02LiDAR掃描', label: '02LiDAR掃描' },
+                    { value: '03UAV空拍', label: '03UAV空拍' },
+                    { value: '04航空測量', label: '04航空測量' },
+                    { value: '05安全檢測', label: '05安全檢測' },
+                    { value: '06建物保存', label: '06建物保存' },
+                    { value: '07建築線測量', label: '07建築線測量' },
+                    { value: '08透地雷達', label: '08透地雷達' },
+                    { value: '09資訊系統', label: '09資訊系統' },
+                    { value: '10技師簽證', label: '10技師簽證' },
+                    { value: '11其他類別', label: '11其他類別' },
+                  ]} />
                 </Form.Item>
               </Col>
             </Row>

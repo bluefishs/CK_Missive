@@ -164,6 +164,15 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"⚠️ NER 實體提取排程器啟動失敗: {e}")
 
+    # 啟動 APScheduler (安全掃描/Code Graph/DB Schema 等定時任務)
+    try:
+        from app.core.scheduler import setup_scheduler, start_scheduler
+        setup_scheduler()
+        start_scheduler()
+        logger.info("✅ APScheduler 排程器已啟動 (安全掃描 02:00 等)")
+    except Exception as e:
+        logger.warning(f"⚠️ APScheduler 排程器啟動失敗 (不影響核心功能): {e}")
+
     # 測試 Redis 連線（AI 快取與統計持久化）
     try:
         from app.core.redis_client import check_redis_health
@@ -241,6 +250,14 @@ async def lifespan(app: FastAPI):
         logger.info("✅ Redis 連線已關閉")
     except Exception as e:
         logger.warning(f"⚠️ Redis 關閉失敗: {e}")
+
+    # 停止 APScheduler
+    try:
+        from app.core.scheduler import stop_scheduler
+        stop_scheduler()
+        logger.info("✅ APScheduler 排程器已停止")
+    except Exception as e:
+        logger.warning(f"⚠️ APScheduler 排程器停止失敗: {e}")
 
     # 停止 NER 實體提取排程器
     try:

@@ -37,6 +37,8 @@ import {
   USER_ROLES,
 } from '../constants/permissions';
 import { ROUTES } from '../router/types';
+import { apiClient } from '../api/client';
+import { API_ENDPOINTS } from '../api/endpoints';
 
 const { Title, Text } = Typography;
 
@@ -89,17 +91,19 @@ const RolePermissionDetailPage: React.FC = () => {
     setHasChanges(true);
   };
 
-  // 儲存權限（目前為前端常數，實際應連接後端 API）
+  // 儲存權限至後端
   const handleSave = async () => {
+    if (!role) return;
     setSaving(true);
     try {
-      // TODO: 當後端支援角色權限管理 API 時，在此呼叫 API
-      // await rolePermissionsApi.updateRolePermissions(role, permissions);
-
-      message.info('角色預設權限目前由系統設定檔定義，如需調整請聯繫系統管理員');
+      await apiClient.post(
+        API_ENDPOINTS.ADMIN_USER_MANAGEMENT.ROLE_PERMISSIONS_UPDATE(role),
+        { permissions }
+      );
+      message.success('角色權限已更新');
       setHasChanges(false);
     } catch (error) {
-      message.error('儲存失敗');
+      message.error('儲存失敗，請確認您具有管理員權限');
     } finally {
       setSaving(false);
     }

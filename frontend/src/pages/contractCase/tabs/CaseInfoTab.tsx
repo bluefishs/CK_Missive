@@ -168,15 +168,15 @@ export const CaseInfoTab: React.FC<CaseInfoTabProps> = ({
               <Col span={12}>
                 <Form.Item
                   name="project_code"
-                  label="專案編號"
-                  tooltip="格式: CK{年度6碼}_{類別2碼}_{性質2碼}_{流水號3碼}"
+                  label="成案編號"
+                  tooltip="格式: {年度4碼}_{類別2碼}_{性質2碼}_{流水號3碼}，如 2026_01_01_001"
                 >
                   <Input placeholder="留空自動產生" />
                 </Form.Item>
               </Col>
               <Col span={12}>
-                <Form.Item name="category" label="案件類別">
-                  <Select placeholder="請選擇案件類別">
+                <Form.Item name="category" label="計畫類別">
+                  <Select placeholder="請選擇計畫類別">
                     {CATEGORY_OPTIONS.map(opt => (
                       <Option key={opt.value} value={opt.value}>{opt.label}</Option>
                     ))}
@@ -184,8 +184,8 @@ export const CaseInfoTab: React.FC<CaseInfoTabProps> = ({
                 </Form.Item>
               </Col>
               <Col span={12}>
-                <Form.Item name="case_nature" label="案件性質">
-                  <Select placeholder="請選擇案件性質">
+                <Form.Item name="case_nature" label="作業性質">
+                  <Select placeholder="請選擇作業性質">
                     {CASE_NATURE_OPTIONS.map(opt => (
                       <Option key={opt.value} value={opt.value}>{opt.label}</Option>
                     ))}
@@ -261,13 +261,13 @@ export const CaseInfoTab: React.FC<CaseInfoTabProps> = ({
             { key: '年度', label: '年度', children: `${data.year}年` },
             { key: '委託單位', label: '委託單位', children: data.client_agency || '-' },
             { key: '契約文號', label: '契約文號', children: data.contract_doc_number || '-' },
-            { key: '專案編號', label: '專案編號', children: data.project_code ? <Text code>{data.project_code}</Text> : '-' },
-            { key: '案件類別', label: '案件類別', children: (
+            { key: '成案編號', label: '成案編號', children: data.project_code ? <Text code>{data.project_code}</Text> : '-' },
+            { key: '計畫類別', label: '計畫類別', children: (
               <Tag color={getCategoryTagColor(data.category)}>
                 {getCategoryTagText(data.category)}
               </Tag>
             ) },
-            { key: '案件性質', label: '案件性質', children: (
+            { key: '作業性質', label: '作業性質', children: (
               <Tag color={getCaseNatureTagColor(data.case_nature)}>
                 {getCaseNatureTagText(data.case_nature)}
               </Tag>

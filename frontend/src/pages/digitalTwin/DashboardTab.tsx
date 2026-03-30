@@ -13,6 +13,7 @@ import { Card, Row, Col, Statistic, Progress, Tag, Timeline, Alert, Spin, Typogr
 import {
   CheckCircleOutlined, ClockCircleOutlined,
   ThunderboltOutlined, ToolOutlined,
+  BulbOutlined, WarningOutlined, ArrowUpOutlined, ArrowDownOutlined, MinusOutlined,
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
@@ -190,7 +191,107 @@ const DashboardTab: React.FC = () => {
           />
         ) : <Empty description="暫無查詢記錄" image={Empty.PRESENTED_IMAGE_SIMPLE} />}
       </Card>
+
+      {/* 智能洞察 */}
+      <InsightsSection />
     </div>
+  );
+};
+
+// ── 智能洞察子元件 ──────────────────────────────────────────
+
+interface InsightsData {
+  quality_prediction: {
+    trend: 'improving' | 'stable' | 'declining' | 'unknown';
+    slope: number;
+    current_avg?: number;
+    next_week_estimate?: number;
+    sample_count?: number;
+  };
+  tool_risks: Array<{ tool: string; success_rate: number; risk: string; status: string }>;
+  insights: string[];
+}
+
+const TREND_CONFIG = {
+  improving: { icon: <ArrowUpOutlined />, color: '#52c41a', label: '上升' },
+  stable:    { icon: <MinusOutlined />,   color: '#1890ff', label: '穩定' },
+  declining: { icon: <ArrowDownOutlined />, color: '#ff4d4f', label: '下降' },
+  unknown:   { icon: <MinusOutlined />,   color: '#d9d9d9', label: '未知' },
+};
+
+const InsightsSection: React.FC = () => {
+  const { data, isLoading } = useQuery<InsightsData>({
+    queryKey: ['dt-insights'],
+    queryFn: () => apiClient.post(DIGITAL_TWIN_ENDPOINTS.INSIGHTS, {}),
+    staleTime: 10 * 60_000,
+  });
+
+  if (isLoading) return <Card size="small" loading style={{ marginTop: 16 }} />;
+  if (!data) return null;
+
+  const trend = TREND_CONFIG[data.quality_prediction.trend] || TREND_CONFIG.unknown;
+
+  return (
+    <Card
+      size="small"
+      title={<><BulbOutlined style={{ marginRight: 8 }} />智能洞察</>}
+      style={{ marginTop: 16 }}
+    >
+      <Row gutter={[12, 12]}>
+        <Col xs={24} sm={8}>
+          <Statistic
+            title="品質趨勢"
+            value={trend.label}
+            prefix={trend.icon}
+            styles={{ content: { color: trend.color, fontSize: 18 } }}
+          />
+          {data.quality_prediction.current_avg !== undefined && (
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              目前均分 {data.quality_prediction.current_avg.toFixed(2)}
+              {data.quality_prediction.next_week_estimate !== undefined &&
+                ` → 預測 ${data.quality_prediction.next_week_estimate.toFixed(2)}`}
+            </Text>
+          )}
+        </Col>
+        <Col xs={24} sm={8}>
+          <Statistic
+            title="工具風險"
+            value={data.tool_risks.filter(t => t.risk === 'critical' || t.risk === 'high').length}
+            suffix={`/ ${data.tool_risks.length}`}
+            prefix={<WarningOutlined />}
+            styles={{ content: { color: data.tool_risks.some(t => t.risk === 'critical') ? '#ff4d4f' : '#1890ff' } }}
+          />
+        </Col>
+        <Col xs={24} sm={8}>
+          <Statistic title="洞察數" value={data.insights.length} prefix={<BulbOutlined />} />
+        </Col>
+      </Row>
+
+      {data.tool_risks.filter(t => t.risk === 'critical' || t.risk === 'high').length > 0 && (
+        <div style={{ marginTop: 12 }}>
+          <Text strong style={{ fontSize: 12 }}>工具預警：</Text>
+          <Space wrap style={{ marginTop: 4 }}>
+            {data.tool_risks
+              .filter(t => t.risk === 'critical' || t.risk === 'high')
+              .map(t => (
+                <Tag key={t.tool} color={t.risk === 'critical' ? 'red' : 'volcano'}>
+                  {t.tool} ({(t.success_rate * 100).toFixed(0)}%)
+                </Tag>
+              ))}
+          </Space>
+        </div>
+      )}
+
+      {data.insights.length > 0 && (
+        <div style={{ marginTop: 12 }}>
+          {data.insights.map((msg, i) => (
+            <div key={i} style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>
+              • {msg}
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
   );
 };
 

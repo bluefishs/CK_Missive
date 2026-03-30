@@ -11,6 +11,8 @@
 export * from './useDocuments';
 export * from './useDocumentsWithStore';
 export * from './useDocumentCreateForm';
+export * from './useDocumentFormData';
+export * from './useDocumentFileUpload';
 
 // 承攬案件管理
 export * from './useProjects';

@@ -7,8 +7,8 @@
  * @version 3.0.0 — 重新定位為邀標/報價專區
  */
 import React, { useState, useMemo } from 'react';
-import { Typography, Input, Button, Flex, Card, Statistic, Row, Col, Tag, Select, Table } from 'antd';
-import { PlusOutlined, ReloadOutlined, FileSearchOutlined, CheckCircleOutlined, DollarOutlined, SendOutlined } from '@ant-design/icons';
+import { Typography, Input, Button, Flex, Card, Statistic, Row, Col, Tag, Select, Table, Upload, App, Space } from 'antd';
+import { PlusOutlined, ReloadOutlined, FileSearchOutlined, CheckCircleOutlined, DollarOutlined, SendOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { usePMCases, usePMCaseSummary, useAuthGuard, useResponsive } from '../hooks';
@@ -24,17 +24,68 @@ export const PMCaseListPage: React.FC = () => {
   const navigate = useNavigate();
   const { hasPermission } = useAuthGuard();
   const { isMobile } = useResponsive();
+  const { message } = App.useApp();
 
   const [searchText, setSearchText] = useState('');
-  const [yearFilter, setYearFilter] = useState<number | undefined>(114);
+  const [yearFilter, setYearFilter] = useState<number | undefined>(2025);
   const [statusFilter, setStatusFilter] = useState<string | undefined>();
   const [categoryFilter, setCategoryFilter] = useState<string | undefined>();
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 20;
 
+  // 匯出 XLSX
+  const handleExportXlsx = async () => {
+    try {
+      message.loading({ content: '匯出中...', key: 'export' });
+      const response = await fetch('/api/pm/cases/export-xlsx', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `pm_cases_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+      message.success({ content: '匯出成功', key: 'export' });
+    } catch {
+      message.error({ content: '匯出失敗', key: 'export' });
+    }
+  };
+
+  // 匯入 XLSX 修正 — 上傳到後端解析
+  const handleImportXlsx = async (file: File) => {
+    try {
+      message.loading({ content: '匯入中...', key: 'import' });
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await fetch('/api/pm/cases/import-xlsx', {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+
+      if (result.success) {
+        message.success({
+          content: `匯入完成: 更新 ${result.updated} 筆, 同步 ${result.synced} 筆${result.errors?.length ? `, 錯誤 ${result.errors.length} 筆` : ''}`,
+          key: 'import',
+          duration: 5,
+        });
+        window.location.reload();
+      } else {
+        message.error({ content: result.error || '匯入失敗', key: 'import' });
+      }
+    } catch {
+      message.error({ content: '匯入失敗，請確認 XLSX 格式正確', key: 'import' });
+    }
+    return false;
+  };
+
   const queryParams = useMemo(() => ({
     page: currentPage,
     limit: pageSize,
+    sort_by: 'year',
+    sort_order: 'desc' as const,
     ...(searchText && { search: searchText }),
     ...(yearFilter !== undefined && { year: yearFilter }),
     ...(statusFilter && { status: statusFilter }),
@@ -71,7 +122,7 @@ export const PMCaseListPage: React.FC = () => {
       render: (v: string) => v || '-',
     },
     {
-      title: '作業類別',
+      title: '計畫類別',
       dataIndex: 'category',
       key: 'category',
       width: 100,
@@ -93,14 +144,14 @@ export const PMCaseListPage: React.FC = () => {
       align: 'center' as const,
       filters: [
         { text: '評估中', value: 'planning' },
-        { text: '已承攬', value: 'in_progress' },
-        { text: '未承攬', value: 'completed' },
+        { text: '已承攬', value: 'contracted' },
+        { text: '已結案', value: 'completed' },
         { text: '未得標', value: 'closed' },
       ],
       onFilter: (value, record) => record.status === value,
       render: (status: string) => {
-        if (status === 'in_progress') return <Tag color="success">已承攬</Tag>;
-        if (status === 'completed') return <Tag color="warning">未承攬</Tag>;
+        if (status === 'contracted') return <Tag color="blue">已承攬</Tag>;
+        if (status === 'completed') return <Tag color="success">已結案</Tag>;
         if (status === 'closed') return <Tag color="error">未得標</Tag>;
         return <Tag color="default">評估中</Tag>;
       },
@@ -133,15 +184,30 @@ export const PMCaseListPage: React.FC = () => {
             <Title level={4} style={{ margin: 0 }}><FileSearchOutlined style={{ marginRight: 8 }} />邀標/報價管理</Title>
           </Col>
           <Col>
-            {hasPermission('projects:write') && (
+            <Space>
               <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => navigate(ROUTES.PM_CASE_CREATE)}
+                icon={<DownloadOutlined />}
+                onClick={handleExportXlsx}
               >
-                新增邀標
+                匯出 XLSX
               </Button>
-            )}
+              <Upload
+                accept=".xlsx,.xls"
+                showUploadList={false}
+                beforeUpload={handleImportXlsx}
+              >
+                <Button icon={<UploadOutlined />}>匯入修正</Button>
+              </Upload>
+              {hasPermission('projects:write') && (
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={() => navigate(ROUTES.PM_CASE_CREATE)}
+                >
+                  新增邀標
+                </Button>
+              )}
+            </Space>
           </Col>
         </Row>
 
@@ -211,9 +277,10 @@ export const PMCaseListPage: React.FC = () => {
                 setCurrentPage(1);
               }}
               options={[
-                { value: 114, label: '114' },
-                { value: 113, label: '113' },
-                { value: 112, label: '112' },
+                { value: 2026, label: '2026' },
+                { value: 2025, label: '2025' },
+                { value: 2024, label: '2024' },
+                { value: 2023, label: '2023' },
               ]}
             />
           </Col>
@@ -229,8 +296,8 @@ export const PMCaseListPage: React.FC = () => {
               }}
               options={[
                 { value: 'planning', label: '評估中' },
-                { value: 'in_progress', label: '已承攬' },
-                { value: 'completed', label: '未承攬' },
+                { value: 'contracted', label: '已承攬' },
+                { value: 'completed', label: '已結案' },
                 { value: 'closed', label: '未得標' },
               ]}
             />

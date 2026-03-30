@@ -228,7 +228,7 @@ class ProjectRepository(BaseRepository[ContractProject]):
         根據案件類別取得專案列表
 
         Args:
-            category: 案件類別 (01委辦案件, 02協力計畫, 03小額採購, 04其他類別)
+            category: 計畫類別 (01委辦招標, 02承攬報價)
             skip: 跳過筆數
             limit: 取得筆數上限
 
@@ -927,6 +927,8 @@ class ProjectRepository(BaseRepository[ContractProject]):
         skip: int = 0,
         limit: int = 100,
         rls_filter_fn: Optional[Any] = None,
+        sort_by: Optional[str] = None,
+        sort_order: str = "desc",
     ) -> Tuple[List[ContractProject], int]:
         """
         取得篩選後的專案列表（支援 RLS 權限過濾）
@@ -965,11 +967,17 @@ class ProjectRepository(BaseRepository[ContractProject]):
         count_query = select(func.count()).select_from(query.subquery())
         total = (await self.db.execute(count_query)).scalar_one()
 
+        # 排序
+        sort_column = getattr(ContractProject, sort_by, None) if sort_by else None
+        if sort_column is not None:
+            order = sort_column.desc() if sort_order == "desc" else sort_column.asc()
+            query = query.order_by(order, ContractProject.project_code.desc())
+        else:
+            query = query.order_by(ContractProject.year.desc().nulls_last(), ContractProject.project_code.desc().nulls_last())
+
         # 執行分頁查詢
         result = await self.db.execute(
-            query.order_by(ContractProject.id.desc())
-            .offset(skip)
-            .limit(limit)
+            query.offset(skip).limit(limit)
         )
         projects = list(result.scalars().all())
 

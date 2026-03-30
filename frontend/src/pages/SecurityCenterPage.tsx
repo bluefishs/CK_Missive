@@ -19,6 +19,7 @@ import {
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
+import { API_ENDPOINTS } from '../api/endpoints';
 
 const { Title, Text } = Typography;
 
@@ -26,12 +27,12 @@ const { Title, Text } = Typography;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ApiAny = any;
-const fetchOwaspSummary = (): Promise<ApiAny> => apiClient.post('/security/owasp-summary', {});
+const fetchOwaspSummary = (): Promise<ApiAny> => apiClient.post(API_ENDPOINTS.SECURITY.OWASP_SUMMARY, {});
 const fetchIssues = (params: Record<string, unknown> = {}): Promise<ApiAny> =>
-  apiClient.post('/security/issues/list', { page: 1, limit: 50, ...params });
-const fetchScans = (): Promise<ApiAny> => apiClient.post('/security/scans/list', {});
-const fetchNotifications = (): Promise<ApiAny> => apiClient.post('/security/notifications/list', {});
-const fetchPatterns = (): Promise<ApiAny> => apiClient.post('/security/patterns', {});
+  apiClient.post(API_ENDPOINTS.SECURITY.ISSUES_LIST, { page: 1, limit: 50, ...params });
+const fetchScans = (): Promise<ApiAny> => apiClient.post(API_ENDPOINTS.SECURITY.SCANS_LIST, {});
+const fetchNotifications = (): Promise<ApiAny> => apiClient.post(API_ENDPOINTS.SECURITY.NOTIFICATIONS_LIST, {});
+const fetchPatterns = (): Promise<ApiAny> => apiClient.post(API_ENDPOINTS.SECURITY.PATTERNS, {});
 
 // ── 常數 ──
 
@@ -70,15 +71,15 @@ const OwaspDashboardTab: React.FC = () => {
               title={<span style={{ fontSize: 11 }}>安全等級 / 分數</span>}
               value={`${grade} ${data.security_score ?? 0}`}
               suffix="分"
-              valueStyle={{ color: gradeColors[grade] || '#999', fontWeight: 'bold' }}
+              styles={{ content: { color: gradeColors[grade] || '#999', fontWeight: 'bold' } }}
             />
           </Card>
         </Col>
-        <Col span={4}><Card size="small"><Statistic title="未解決" value={data.open_issues} valueStyle={{ color: data.open_issues > 0 ? '#ff4d4f' : '#52c41a' }} /></Card></Col>
-        <Col span={4}><Card size="small"><Statistic title="已修復" value={data.resolved_issues || 0} suffix={<Text type="secondary" style={{ fontSize: 10 }}>/ {data.total_issues || 0}</Text>} valueStyle={{ color: '#52c41a' }} /></Card></Col>
-        <Col span={4}><Card size="small"><Statistic title="Critical" value={data.severity_distribution?.critical || 0} valueStyle={{ color: '#f5222d' }} /></Card></Col>
-        <Col span={4}><Card size="small"><Statistic title="High" value={data.severity_distribution?.high || 0} valueStyle={{ color: '#fa541c' }} /></Card></Col>
-        <Col span={4}><Card size="small"><Statistic title="誤判" value={data.false_positive_issues || 0} valueStyle={{ color: '#999' }} /></Card></Col>
+        <Col span={4}><Card size="small"><Statistic title="未解決" value={data.open_issues} styles={{ content: { color: data.open_issues > 0 ? '#ff4d4f' : '#52c41a' } }} /></Card></Col>
+        <Col span={4}><Card size="small"><Statistic title="已修復" value={data.resolved_issues || 0} suffix={<Text type="secondary" style={{ fontSize: 10 }}>/ {data.total_issues || 0}</Text>} styles={{ content: { color: '#52c41a' } }} /></Card></Col>
+        <Col span={4}><Card size="small"><Statistic title="Critical" value={data.severity_distribution?.critical || 0} styles={{ content: { color: '#f5222d' } }} /></Card></Col>
+        <Col span={4}><Card size="small"><Statistic title="High" value={data.severity_distribution?.high || 0} styles={{ content: { color: '#fa541c' } }} /></Card></Col>
+        <Col span={4}><Card size="small"><Statistic title="誤判" value={data.false_positive_issues || 0} styles={{ content: { color: '#999' } }} /></Card></Col>
       </Row>
 
       {/* 評分說明 */}
@@ -184,7 +185,7 @@ const ScansTab: React.FC = () => {
   const { data, isLoading, refetch } = useQuery({ queryKey: ['security-scans'], queryFn: fetchScans });
   const queryClient = useQueryClient();
   const runScan = useMutation({
-    mutationFn: () => apiClient.post('/security/scans/run', { project_name: 'CK_Missive', scan_type: 'quick' }),
+    mutationFn: () => apiClient.post(API_ENDPOINTS.SECURITY.SCANS_RUN, { project_name: 'CK_Missive', scan_type: 'quick' }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['security-scans'] }); },
   });
 
@@ -262,7 +263,7 @@ const PatternsTab: React.FC = () => {
             </Space>
           }>
             <Text style={{ fontSize: 12 }}>{p.description}</Text>
-            <Alert type="info" message={<code style={{ fontSize: 11 }}>{p.example}</code>} style={{ marginTop: 8 }} />
+            <Alert type="info" title={<code style={{ fontSize: 11 }}>{p.example}</code>} style={{ marginTop: 8 }} />
             {p.reference && (
               <Text type="secondary" style={{ fontSize: 10, display: 'block', marginTop: 4 }}>
                 參考: {p.reference}

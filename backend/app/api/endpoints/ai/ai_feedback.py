@@ -70,6 +70,37 @@ async def submit_feedback(
         except Exception as e:
             logger.debug("link_feedback to trace skipped: %s", e)
 
+        # Phase 1A: 負面回饋注入進化信號（閉環）
+        if request.score == -1:
+            try:
+                import json
+                import time as _time
+                from app.core.redis_client import get_redis
+                redis = await get_redis()
+                if redis:
+                    signal = {
+                        "type": "user_negative_feedback",
+                        "severity": "HIGH",
+                        "detail": (
+                            f"user={current_user.id} feature={request.feature_type} "
+                            f"q={request.question[:80] if request.question else ''}"
+                        ),
+                        "suggestion": request.feedback_text or "使用者給予負面回饋，建議檢視相關工具鏈與合成品質",
+                        "timestamp": _time.time(),
+                        "question_preview": request.question[:100] if request.question else "",
+                    }
+                    await redis.lpush(
+                        "agent:evolution:signals",
+                        json.dumps(signal, ensure_ascii=False),
+                    )
+                    await redis.ltrim("agent:evolution:signals", 0, 499)
+                    logger.info(
+                        "[FEEDBACK→EVOLUTION] negative feedback injected: conv=%s user=%s",
+                        request.conversation_id, current_user.id,
+                    )
+            except Exception as evo_err:
+                logger.debug("evolution signal inject skipped: %s", evo_err)
+
         return AIFeedbackSubmitResponse(
             success=True,
             message=f"回饋已記錄 (ID: {record_id})",

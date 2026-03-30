@@ -28,7 +28,8 @@ class PMCaseCreate(BaseModel):
     case_name: str = Field(..., max_length=500, description="案名")
     client_vendor_id: Optional[int] = Field(None, description="委託單位 ID (partner_vendors)")
     year: Optional[int] = Field(None, description="年度 (民國)")
-    category: Optional[str] = Field(None, max_length=50, description="案件類別")
+    category: Optional[str] = Field(None, max_length=50, description="計畫類別: 01委辦招標, 02承攬報價")
+    case_nature: Optional[str] = Field(None, max_length=50, description="作業性質: 01地面測量~11其他類別")
     client_name: Optional[str] = Field(None, max_length=200, description="業主")
     client_contact: Optional[str] = Field(None, max_length=100)
     client_phone: Optional[str] = Field(None, max_length=50)
@@ -54,6 +55,7 @@ class PMCaseUpdate(BaseModel):
     case_name: Optional[str] = Field(None, max_length=500)
     year: Optional[int] = None
     category: Optional[str] = Field(None, max_length=50)
+    case_nature: Optional[str] = Field(None, max_length=50)
     client_name: Optional[str] = Field(None, max_length=200)
     client_contact: Optional[str] = Field(None, max_length=100)
     client_phone: Optional[str] = Field(None, max_length=50)
@@ -82,11 +84,12 @@ class PMCaseResponse(BaseModel):
     case_name: str
     year: Optional[int] = None
     category: Optional[str] = None
+    case_nature: Optional[str] = None
     client_name: Optional[str] = None
     client_vendor_id: Optional[int] = None
     client_contact: Optional[str] = None
     client_phone: Optional[str] = None
-    contract_amount: Optional[Decimal] = None
+    contract_amount: Optional[float] = None
     status: str
     progress: int = 0
     start_date: Optional[date] = None
@@ -103,7 +106,10 @@ class PMCaseResponse(BaseModel):
     milestone_count: int = 0
     staff_count: int = 0
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_encoders={Decimal: float},
+    )
 
 
 class PMCaseListRequest(BaseQueryParams):

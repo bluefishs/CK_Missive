@@ -17,6 +17,7 @@ from .relation_graph import router as relation_graph_router
 from .embedding_pipeline import router as embedding_pipeline_router
 from .entity_extraction import router as entity_extraction_router
 from .graph_query import router as graph_query_router
+from .agent_nemoclaw import router as agent_nemoclaw_router
 from .ollama_management import router as ollama_management_router
 from .rag_query import router as rag_query_router
 from .agent_query import router as agent_query_router
@@ -40,6 +41,7 @@ router.include_router(relation_graph_router)
 router.include_router(embedding_pipeline_router)
 router.include_router(entity_extraction_router)
 router.include_router(graph_query_router)
+router.include_router(agent_nemoclaw_router)
 router.include_router(ollama_management_router)
 router.include_router(rag_query_router)
 router.include_router(agent_query_router)

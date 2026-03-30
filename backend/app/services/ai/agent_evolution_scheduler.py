@@ -192,6 +192,21 @@ class AgentEvolutionScheduler:
             except Exception:
                 pass
 
+            # Phase 2D: LLM 生成進化摘要（非阻塞）
+            if actions_taken or report.get("signals_consumed", 0) > 0:
+                try:
+                    summary = await self._generate_evolution_summary(report)
+                    if summary:
+                        await self.redis.set(
+                            "agent:evolution:latest_summary",
+                            json.dumps({"summary": summary, "timestamp": time.time()}, ensure_ascii=False),
+                        )
+                        await self.redis.expire("agent:evolution:latest_summary", 7 * 86400)
+                        # Phase 2F: 推送進化報告到 LINE/Discord（非阻塞）
+                        await self._push_evolution_report(summary, report)
+                except Exception as sum_err:
+                    logger.debug("Evolution summary generation skipped: %s", sum_err)
+
         except Exception as e:
             logger.warning("Evolution failed (non-critical): %s", e)
             report["error"] = str(e)
@@ -407,6 +422,87 @@ class AgentEvolutionScheduler:
 
         return cleaned
 
+    async def _push_evolution_report(self, summary: str, report: Dict[str, Any]) -> None:
+        """推送進化報告到已配置的通道 (LINE/Discord)"""
+        import os
+        try:
+            push_targets = os.getenv("EVOLUTION_PUSH_LINE_USERS", "").strip()
+            discord_channels = os.getenv("EVOLUTION_PUSH_DISCORD_CHANNELS", "").strip()
+
+            if not push_targets and not discord_channels:
+                return  # 未配置推送目標
+
+            actions_count = sum(a.get("count", 0) for a in report.get("actions", []))
+            signals = report.get("signals_consumed", 0)
+            message = (
+                f"🧠 乾坤智能體進化報告\n\n"
+                f"{summary}\n\n"
+                f"📊 信號: {signals} | 動作: {actions_count}"
+            )
+
+            from app.services.notification_dispatcher import NotificationDispatcher
+            dispatcher = NotificationDispatcher()
+            line_ids = [uid.strip() for uid in push_targets.split(",") if uid.strip()] if push_targets else None
+            discord_ids = [cid.strip() for cid in discord_channels.split(",") if cid.strip()] if discord_channels else None
+
+            result = await dispatcher.broadcast_to_all(
+                message=message,
+                line_user_ids=line_ids,
+                discord_channel_ids=discord_ids,
+            )
+            if any(v > 0 for v in result.values()):
+                logger.info("Evolution report pushed: %s", result)
+        except Exception as e:
+            logger.debug("Evolution push skipped: %s", e)
+
+    async def _generate_evolution_summary(self, report: Dict[str, Any]) -> Optional[str]:
+        """用 LLM 生成自然語言進化摘要"""
+        try:
+            from app.core.ai_connector import get_ai_connector
+
+            connector = get_ai_connector()
+
+            actions_desc = []
+            for action in report.get("actions", []):
+                atype = action.get("type", "")
+                count = action.get("count", action.get("removed", 0))
+                if atype == "seed_promotion":
+                    actions_desc.append(f"升級了 {count} 個高頻成功模式為種子")
+                elif atype == "pattern_demotion":
+                    actions_desc.append(f"降級了 {count} 個持續失敗的模式")
+                elif atype == "cleanup":
+                    actions_desc.append(f"清理了 {count} 個過期學習記錄")
+
+            trend = report.get("quality_trend", {})
+            trend_desc = ""
+            if trend:
+                slope = trend.get("slope", 0)
+                if slope > 0.005:
+                    trend_desc = f"品質呈上升趨勢 (斜率 +{slope:.4f})"
+                elif slope < -0.005:
+                    trend_desc = f"品質呈下降趨勢 (斜率 {slope:.4f})"
+                else:
+                    trend_desc = "品質保持穩定"
+
+            prompt = (
+                f"你是乾坤智能體的自我觀察系統。請用一段簡潔的中文 (2-3 句話) 描述本次進化：\n"
+                f"- 消費了 {report.get('signals_consumed', 0)} 個信號\n"
+                f"- 動作：{'; '.join(actions_desc) if actions_desc else '無特殊動作'}\n"
+                f"- 趨勢：{trend_desc}\n"
+                f"請以第一人稱描述，語氣自然，不要列點。"
+            )
+
+            result = await connector.chat_completion(
+                question=prompt,
+                system_prompt="你是乾坤智能體。用簡潔中文描述你的自我進化過程。",
+                max_tokens=150,
+                temperature=0.7,
+            )
+            return result.get("content", "").strip() if result else None
+        except Exception as e:
+            logger.debug("LLM summary generation failed: %s", e)
+            return None
+
     async def get_evolution_status(self) -> Dict[str, Any]:
         """取得最近一次進化狀態（供前端儀表板顯示）"""
         if not self.redis:
@@ -415,7 +511,12 @@ class AgentEvolutionScheduler:
         try:
             raw = await self.redis.get(EVOLUTION_STATE_KEY)
             if raw:
-                return json.loads(raw)
+                state = json.loads(raw)
+                # 附加最新摘要
+                summary_raw = await self.redis.get("agent:evolution:latest_summary")
+                if summary_raw:
+                    state["latest_summary"] = json.loads(summary_raw)
+                return state
             return {"status": "never_run"}
         except Exception:
             return {"status": "error"}

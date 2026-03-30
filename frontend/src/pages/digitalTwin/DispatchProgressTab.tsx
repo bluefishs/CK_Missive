@@ -53,7 +53,7 @@ const StatsRow: React.FC<{ data: ProgressReport }> = ({ data }) => (
         <Statistic
           title="已完成"
           value={data.completed.length}
-          valueStyle={{ color: '#52c41a' }}
+          styles={{ content: { color: '#52c41a' } }}
           prefix={<CheckCircleOutlined />}
         />
       </Card>
@@ -63,7 +63,7 @@ const StatsRow: React.FC<{ data: ProgressReport }> = ({ data }) => (
         <Statistic
           title="進行中"
           value={data.in_progress.length + data.pending.length}
-          valueStyle={{ color: '#1890ff' }}
+          styles={{ content: { color: '#1890ff' } }}
           prefix={<ClockCircleOutlined />}
         />
       </Card>
@@ -73,7 +73,7 @@ const StatsRow: React.FC<{ data: ProgressReport }> = ({ data }) => (
         <Statistic
           title="逾期"
           value={data.overdue.length}
-          valueStyle={{ color: '#ff4d4f' }}
+          styles={{ content: { color: '#ff4d4f' } }}
           prefix={<ExclamationCircleOutlined />}
         />
       </Card>

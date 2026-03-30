@@ -81,10 +81,17 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
           rewrite: path => path,
-          // SSE 串流需要禁用 response buffering
+          // SSE 串流需要禁用 response buffering + 轉發真實 IP
           configure: (proxy) => {
+            proxy.on('proxyReq', (proxyReq, req) => {
+              // 轉發真實客戶端 IP 到後端
+              const clientIp = req.socket.remoteAddress?.replace('::ffff:', '') || '';
+              if (clientIp && clientIp !== '127.0.0.1') {
+                proxyReq.setHeader('X-Forwarded-For', clientIp);
+                proxyReq.setHeader('X-Real-IP', clientIp);
+              }
+            });
             proxy.on('proxyRes', (proxyRes) => {
-              // 當後端回傳 text/event-stream 時，設定 no-buffering headers
               if (proxyRes.headers['content-type']?.includes('text/event-stream')) {
                 proxyRes.headers['cache-control'] = 'no-cache';
                 proxyRes.headers['x-accel-buffering'] = 'no';

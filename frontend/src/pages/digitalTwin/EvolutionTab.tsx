@@ -73,20 +73,29 @@ const QualityTrendCard: React.FC = () => {
             title="趨勢"
             value={trendLabel}
             prefix={trendIcon}
-            valueStyle={{ fontSize: 16 }}
+            styles={{ content: { fontSize: 16 } }}
           />
         </Col>
         <Col span={6}>
-          <Statistic title="已升級模式" value={promoted} valueStyle={{ color: '#52c41a' }} prefix={<CheckCircleOutlined />} />
+          <Statistic title="已升級模式" value={promoted} styles={{ content: { color: '#52c41a' } }} prefix={<CheckCircleOutlined />} />
         </Col>
         <Col span={6}>
-          <Statistic title="已降級模式" value={demoted} valueStyle={{ color: '#ff4d4f' }} prefix={<WarningOutlined />} />
+          <Statistic title="已降級模式" value={demoted} styles={{ content: { color: '#ff4d4f' } }} prefix={<WarningOutlined />} />
         </Col>
       </Row>
       {lastRun && (
         <Text type="secondary" style={{ fontSize: 11, marginTop: 8, display: 'block' }}>
           上次進化: {new Date(lastRun).toLocaleString('zh-TW')}
         </Text>
+      )}
+      {/* 進化摘要 (LLM 生成) */}
+      {(data.latest_summary as { summary?: string; timestamp?: number } | undefined)?.summary && (
+        <div style={{ marginTop: 12, padding: '8px 12px', background: '#f6ffed', borderRadius: 6, border: '1px solid #b7eb8f' }}>
+          <Text style={{ fontSize: 12 }}>
+            <ThunderboltOutlined style={{ marginRight: 6, color: '#52c41a' }} />
+            {(data.latest_summary as { summary: string }).summary}
+          </Text>
+        </div>
       )}
     </Card>
   );

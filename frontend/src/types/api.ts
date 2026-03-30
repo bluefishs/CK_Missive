@@ -76,6 +76,9 @@ export const normalizeDocumentCategory = (category?: string | null): 'receive' |
 
 /** 專案類別 */
 export type ProjectCategory =
+  | '01委辦招標'
+  | '02承攬報價'
+  // 舊格式相容
   | '01委辦案件'
   | '02協力計畫'
   | '03小額採購'
@@ -1122,34 +1125,28 @@ export interface CorrespondenceSuggestionsResponse {
 // ============================================================================
 
 /** PM 案件狀態 */
-export type PMCaseStatus = 'planning' | 'in_progress' | 'completed' | 'closed';
+export type PMCaseStatus = 'planning' | 'contracted' | 'completed' | 'closed';
 
 /** PM 案件狀態標籤 */
 export const PM_CASE_STATUS_LABELS: Record<PMCaseStatus, string> = {
-  planning: '規劃中',
-  in_progress: '執行中',
-  completed: '已完成',
-  closed: '已結案',
+  planning: '評估中',
+  contracted: '已承攬',
+  completed: '已結案',
+  closed: '未得標',
 };
 
 /** PM 案件狀態顏色 */
 export const PM_CASE_STATUS_COLORS: Record<PMCaseStatus, string> = {
   planning: 'default',
-  in_progress: 'processing',
+  contracted: 'blue',
   completed: 'success',
   closed: 'warning',
 };
 
 /** PM 案件類別 */
 export const PM_CATEGORY_LABELS: Record<string, string> = {
-  '01': '透地雷達',
-  '02': 'UAV空拍',
-  '03': '測量',
-  '04': '堆料驗證',
-  '05': '3D掃描',
-  '06': '徵收/協議',
-  '07': '檢測評估',
-  '99': '其他',
+  '01': '委辦招標',
+  '02': '承攬報價',
 };
 
 /** PM 案件 */
@@ -1160,6 +1157,7 @@ export interface PMCase {
   case_name: string;
   year?: number;
   category?: string;
+  case_nature?: string;
   client_name?: string;
   client_vendor_id?: number;
   client_contact?: string;
@@ -1186,6 +1184,7 @@ export interface PMCaseCreate {
   case_name: string;
   year?: number;
   category?: string;
+  case_nature?: string;
   client_name?: string;
   client_vendor_id?: number;
   client_contact?: string;

@@ -93,6 +93,6 @@ export const ACCEPTANCE_STATUS_OPTIONS: readonly BadgeStatusOption[] = [
 // 固定的承攬案件 (115 年度桃園查估派工)
 export const TAOYUAN_CONTRACT = {
   PROJECT_ID: 21, // 對應資料庫 contract_projects.id = 21
-  CODE: 'CK2025_01_03_001',
+  CODE: '2025_01_03_001',
   NAME: '115年度桃園市興辦公共設施用地取得所需土地市價及地上物查估、測量作業暨開瓶資料製作委託專業服務(開口契約)',
 } as const;

@@ -26,7 +26,8 @@ class PMCase(Base):
     case_name = Column(String(500), nullable=False, index=True,
                        comment="案名")
     year = Column(Integer, index=True, comment="年度 (民國)")
-    category = Column(String(50), comment="案件類別")
+    category = Column(String(50), comment="計畫類別: 01委辦招標, 02承攬報價")
+    case_nature = Column(String(50), nullable=True, comment="作業性質: 01地面測量~11其他類別")
 
     # 業主資訊
     client_name = Column(String(200), comment="業主/委託單位 (冗餘，供顯示)")

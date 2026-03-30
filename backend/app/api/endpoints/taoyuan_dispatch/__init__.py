@@ -27,6 +27,7 @@ from .projects import router as projects_router
 from .dispatch import router as dispatch_router
 from .project_dispatch_links import router as project_dispatch_links_router
 from .dispatch_document_links import router as dispatch_document_links_router
+from .dispatch_matching import router as dispatch_matching_router
 from .document_project_links import router as document_project_links_router
 from .payments import router as payments_router
 from .master_control import router as master_control_router
@@ -45,6 +46,7 @@ router.include_router(dispatch_router)
 # 2. 關聯操作
 router.include_router(project_dispatch_links_router)
 router.include_router(dispatch_document_links_router)
+router.include_router(dispatch_matching_router)
 router.include_router(document_project_links_router)
 
 # 3. 契金與總控

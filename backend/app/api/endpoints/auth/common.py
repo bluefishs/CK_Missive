@@ -24,10 +24,35 @@ logger = logging.getLogger(__name__)
 
 
 def get_client_info(request: Request) -> tuple[Optional[str], Optional[str]]:
-    """取得客戶端資訊"""
-    ip_address = request.client.host if request.client else None
+    """取得客戶端資訊 — 支援 proxy 環境取得真實 IP"""
+    ip_address = _get_real_ip(request)
     user_agent = request.headers.get("user-agent")
     return ip_address, user_agent
+
+
+def _get_real_ip(request: Request) -> Optional[str]:
+    """
+    從 proxy headers 取得真實客戶端 IP。
+
+    優先順序：
+    1. X-Forwarded-For (最左邊的 = 原始客戶端)
+    2. X-Real-IP (Nginx 設定)
+    3. request.client.host (直連 fallback)
+    """
+    # X-Forwarded-For: client, proxy1, proxy2
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        real_ip = xff.split(",")[0].strip()
+        if real_ip:
+            return real_ip
+
+    # X-Real-IP (Nginx)
+    xri = request.headers.get("x-real-ip")
+    if xri:
+        return xri.strip()
+
+    # 直連
+    return request.client.host if request.client else None
 
 
 def is_internal_ip(ip_address: Optional[str]) -> bool:

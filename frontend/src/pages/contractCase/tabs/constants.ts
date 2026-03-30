@@ -5,19 +5,25 @@
  * @date 2026-01-23
  */
 
-// 案件類別選項
+// 計畫類別選項
 export const CATEGORY_OPTIONS = [
-  { value: '01', label: '01委辦案件', color: 'blue' },
-  { value: '02', label: '02協力計畫', color: 'green' },
-  { value: '03', label: '03小額採購', color: 'orange' },
-  { value: '04', label: '04其他類別', color: 'default' },
+  { value: '01', label: '01委辦招標', color: 'blue' },
+  { value: '02', label: '02承攬報價', color: 'green' },
 ];
 
-// 案件性質選項
+// 作業性質選項
 export const CASE_NATURE_OPTIONS = [
-  { value: '01', label: '01測量案', color: 'cyan' },
-  { value: '02', label: '02資訊案', color: 'purple' },
-  { value: '03', label: '03複合案', color: 'gold' },
+  { value: '01', label: '01地面測量', color: 'cyan' },
+  { value: '02', label: '02LiDAR掃描', color: 'blue' },
+  { value: '03', label: '03UAV空拍', color: 'geekblue' },
+  { value: '04', label: '04航空測量', color: 'purple' },
+  { value: '05', label: '05安全檢測', color: 'red' },
+  { value: '06', label: '06建物保存', color: 'volcano' },
+  { value: '07', label: '07建築線測量', color: 'orange' },
+  { value: '08', label: '08透地雷達', color: 'gold' },
+  { value: '09', label: '09資訊系統', color: 'lime' },
+  { value: '10', label: '10技師簽證', color: 'green' },
+  { value: '11', label: '11其他類別', color: 'default' },
 ];
 
 // 執行狀態選項 (使用中文值對應資料庫)

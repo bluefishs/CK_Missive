@@ -104,7 +104,7 @@ export function useContractCaseColumns(
 
   const columns: TableColumnType<Project>[] = useMemo(() => [
     {
-      title: '專案編號',
+      title: '成案編號',
       dataIndex: 'project_code',
       key: 'project_code',
       width: 100,

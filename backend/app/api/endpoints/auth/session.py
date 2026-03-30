@@ -154,8 +154,37 @@ async def logout(
 
 
 @router.post("/check", summary="檢查認證狀態")
-async def check_auth_status(current_user: User = Depends(get_current_user)):
+async def check_auth_status(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+):
     """檢查當前認證狀態 (POST-only 安全模式)"""
+    # 內網/開發模式存取記錄 — 每個 user+IP 每天最多記錄一次
+    try:
+        from app.core.redis_client import get_redis
+        import time
+        redis = await get_redis()
+        if redis:
+            from .common import _get_real_ip
+            ip = _get_real_ip(request) or "unknown"
+            dedup_key = f"auth:access_log:{current_user.id}:{ip}:{time.strftime('%Y%m%d')}"
+            already_logged = await redis.get(dedup_key)
+            if not already_logged:
+                await redis.setex(dedup_key, 86400, "1")
+                from app.services.audit_service import AuditService
+                ua = request.headers.get("user-agent", "")[:200]
+                await AuditService.log_auth_event(
+                    event_type="LOGIN_SUCCESS",
+                    user_id=current_user.id,
+                    email=current_user.email,
+                    ip_address=ip,
+                    user_agent=ua,
+                    details={"auth_provider": current_user.auth_provider or "quick_entry", "mode": "internal"},
+                    success=True,
+                )
+    except Exception:
+        pass  # 審計失敗不影響 auth check
+
     return {
         "authenticated": True,
         "user_id": current_user.id,

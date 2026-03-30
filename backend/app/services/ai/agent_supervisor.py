@@ -84,6 +84,7 @@ class AgentSupervisor:
         偵測問題涉及的領域。
 
         回傳至少一個 context。如果偵測不到特定領域，預設為 ["doc"]。
+        dispatch 保持獨立域（不再歸併到 doc），以支援多域並行。
         """
         q_lower = question.lower()
         detected: List[str] = []
@@ -95,11 +96,20 @@ class AgentSupervisor:
                         detected.append(domain)
                     break
 
-        # dispatch 歸併到 doc（共用相同工具上下文）
-        if "dispatch" in detected and "doc" not in detected:
-            detected.append("doc")
-        if "dispatch" in detected:
-            detected.remove("dispatch")
+        # 跨域觸發短語偵測 — 常見的多域組合查詢
+        _CROSS_DOMAIN_PHRASES = [
+            (["doc", "pm"], ["公文.*進度", "案件.*公文", "專案.*文號"]),
+            (["doc", "erp"], ["公文.*廠商", "合約.*公文", "報價.*文"]),
+            (["pm", "erp"], ["案件.*廠商", "進度.*金額", "專案.*報價", "預算.*進度"]),
+            (["dispatch", "doc"], ["派工.*公文", "公文.*派工"]),
+        ]
+        import re
+        for domains_pair, phrases in _CROSS_DOMAIN_PHRASES:
+            for phrase in phrases:
+                if re.search(phrase, q_lower):
+                    for d in domains_pair:
+                        if d not in detected:
+                            detected.append(d)
 
         return detected if detected else ["doc"]
 

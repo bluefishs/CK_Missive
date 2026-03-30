@@ -274,6 +274,106 @@ class DigitalTwinService:
             "health": health or {"available": False, "systems_count": 0},
         }
 
+    # ── Predictive Insights ────────────────────────────────
+
+    @staticmethod
+    async def get_predictive_insights() -> Dict[str, Any]:
+        """
+        智能洞察 — 基於歷史資料預測品質趨勢與工具健康風險
+
+        Returns:
+            {
+                "quality_prediction": {"trend": "improving/stable/declining", "slope": float, "next_week_estimate": float},
+                "tool_risks": [{"tool": str, "success_rate": float, "risk": "high/medium/low"}],
+                "insights": [str],
+            }
+        """
+        import json
+        insights: List[str] = []
+        quality_prediction: Dict[str, Any] = {"trend": "unknown", "slope": 0.0}
+        tool_risks: List[Dict[str, Any]] = []
+
+        # 1. 品質趨勢預測 (基於 eval_history 線性迴歸)
+        try:
+            from app.core.redis_client import get_redis
+            redis = await get_redis()
+            if redis:
+                raw = await redis.lrange("agent:evolution:eval_history", 0, 99)
+                if raw and len(raw) >= 5:
+                    records = [json.loads(r) for r in raw]
+                    scores = [r.get("overall", 0.5) for r in records]
+
+                    # 簡易線性迴歸斜率
+                    n = len(scores)
+                    x_mean = (n - 1) / 2
+                    y_mean = sum(scores) / n
+                    numerator = sum((i - x_mean) * (s - y_mean) for i, s in enumerate(scores))
+                    denominator = sum((i - x_mean) ** 2 for i in range(n))
+                    slope = numerator / denominator if denominator > 0 else 0.0
+
+                    current_avg = sum(scores[:10]) / min(len(scores), 10)
+                    next_week_est = min(max(current_avg + slope * 7, 0.0), 1.0)
+
+                    if slope > 0.005:
+                        trend = "improving"
+                        insights.append(f"品質呈上升趨勢 (斜率 +{slope:.4f})，預測下週平均分 {next_week_est:.2f}")
+                    elif slope < -0.005:
+                        trend = "declining"
+                        insights.append(f"品質呈下降趨勢 (斜率 {slope:.4f})，建議檢視最近的進化動作")
+                    else:
+                        trend = "stable"
+                        insights.append(f"品質穩定 (平均 {current_avg:.2f})")
+
+                    quality_prediction = {"trend": trend, "slope": round(slope, 5), "current_avg": round(current_avg, 3), "next_week_estimate": round(next_week_est, 3), "sample_count": n}
+                else:
+                    insights.append("品質歷史資料不足 (需 5+ 筆)，暫無法預測")
+        except Exception as e:
+            logger.debug("Predictive quality failed: %s", e)
+
+        # 2. 工具降級預警 (基於 tool_monitor 成功率)
+        try:
+            from app.services.ai.agent_tool_monitor import AgentToolMonitor
+            monitor = AgentToolMonitor()
+            all_stats = await monitor.get_all_stats()
+            degraded = await monitor.get_degraded_tools()
+
+            for tool_name, stats in all_stats.items():
+                rate = stats.recent_success_rate
+                if tool_name in degraded:
+                    tool_risks.append({"tool": tool_name, "success_rate": round(rate, 3), "risk": "critical", "status": "degraded"})
+                    insights.append(f"工具 {tool_name} 已降級 (成功率 {rate:.0%})，需要檢修")
+                elif rate < 0.5:
+                    tool_risks.append({"tool": tool_name, "success_rate": round(rate, 3), "risk": "high", "status": "warning"})
+                    insights.append(f"工具 {tool_name} 成功率偏低 ({rate:.0%})，可能即將降級")
+                elif rate < 0.7:
+                    tool_risks.append({"tool": tool_name, "success_rate": round(rate, 3), "risk": "medium", "status": "watch"})
+
+            tool_risks.sort(key=lambda t: t["success_rate"])
+        except Exception as e:
+            logger.debug("Predictive tool risks failed: %s", e)
+
+        # 3. 進化信號摘要
+        try:
+            from app.core.redis_client import get_redis
+            redis = await get_redis()
+            if redis:
+                signal_count = await redis.llen("agent:evolution:signals")
+                if signal_count > 20:
+                    insights.append(f"待處理進化信號 {signal_count} 個，下次進化排程將處理")
+                elif signal_count > 0:
+                    insights.append(f"{signal_count} 個進化信號排隊中")
+        except Exception:
+            pass
+
+        if not insights:
+            insights.append("系統運行正常，暫無特殊洞察")
+
+        return {
+            "quality_prediction": quality_prediction,
+            "tool_risks": tool_risks,
+            "insights": insights,
+        }
+
 
 # ── Constants ───────────────────────────────────────────────
 

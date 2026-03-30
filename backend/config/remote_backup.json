@@ -1,7 +1,7 @@
 {
   "remote_path": "Z:\\03.專案管控專區\\00.公司公文紀錄\\#systembackup",
-  "sync_enabled": true,
+  "sync_enabled": false,
   "sync_interval_hours": 24,
   "last_sync_time": "2026-03-27T23:50:20.048108",
-  "sync_status": "idle"
+  "sync_status": "error"
 }

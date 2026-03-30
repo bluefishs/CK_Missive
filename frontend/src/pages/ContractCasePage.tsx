@@ -66,6 +66,8 @@ export const ContractCasePage: React.FC = () => {
   const queryParams = useMemo(() => ({
     page: currentPage,
     limit: pageSize,
+    sort_by: 'year',
+    sort_order: 'desc' as const,
     ...(searchText && { search: searchText }),
     ...(yearFilter && { year: yearFilter }),
     ...(categoryFilter && { category: categoryFilter }),
@@ -195,13 +197,10 @@ export const ContractCasePage: React.FC = () => {
               </Select>
             </Col>
             <Col xs={12} sm={6} md={5} lg={4}>
-              <Select placeholder="案件類別" value={categoryFilter} onChange={setCategoryFilter} allowClear style={{ width: '100%' }}>
-                {/* CATEGORY_OPTIONS imported via useContractCaseColumns */}
+              <Select placeholder="計畫類別" value={categoryFilter} onChange={setCategoryFilter} allowClear style={{ width: '100%' }}>
                 {[
-                  { value: '01', label: '01委辦案件' },
-                  { value: '02', label: '02協力計畫' },
-                  { value: '03', label: '03小額採購' },
-                  { value: '04', label: '04其他類別' },
+                  { value: '01', label: '01委辦招標' },
+                  { value: '02', label: '02承攬報價' },
                 ].map(opt => <Option key={opt.value} value={opt.value}>{opt.label}</Option>)}
               </Select>
             </Col>

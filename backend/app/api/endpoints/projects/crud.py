@@ -214,6 +214,20 @@ async def update_project(
     project = await project_service.update(project_id, project_data)
     if not project:
         raise NotFoundException(resource="承攬案件", resource_id=project_id)
+
+    # 三方同步：核心欄位變更時同步到 PMCase + ERPQuotation
+    try:
+        sync_fields = ["category", "case_nature", "client_agency", "contract_amount"]
+        changed = {k: v for k, v in project_data.model_dump(exclude_unset=True).items() if k in sync_fields}
+        if changed:
+            from app.services.case_field_sync_service import CaseFieldSyncService
+            sync_svc = CaseFieldSyncService(project_service.db)
+            await sync_svc.sync_from_contract(project_id, changed)
+            await project_service.db.commit()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("三方同步失敗 (不影響更新): %s", e)
+
     return ProjectResponse.model_validate(project)
 
 

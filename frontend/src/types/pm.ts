@@ -17,6 +17,7 @@ export interface PMCaseListParams {
   year?: number;
   status?: string;
   category?: string;
+  case_nature?: string;
   search?: string;
   client_name?: string;
   [key: string]: unknown;
@@ -112,12 +113,8 @@ export const PM_STAFF_ROLE_LABELS: Record<PMStaffRole, string> = {
 };
 
 export const PM_CATEGORY_CODES: Record<string, string> = {
-  '01': '測量案',
-  '02': '資訊案',
-  '03': '規劃案',
-  '04': '監造案',
-  '05': '複合案',
-  '99': '其他',
+  '01': '委辦招標',
+  '02': '承攬報價',
 };
 
 /** 跨模組案號查詢結果 */

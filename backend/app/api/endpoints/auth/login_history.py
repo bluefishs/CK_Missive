@@ -169,28 +169,33 @@ async def get_admin_login_history(
         "actions": list(ALLOWED_AUTH_ACTIONS),
         "limit": page_size,
         "offset": offset,
-        "filter_user_id": user_id,         # None = 不篩選
-        "filter_auth_provider": auth_provider,  # None = 不篩選
     }
+    if user_id is not None:
+        params["filter_user_id"] = user_id
+    if auth_provider is not None:
+        params["filter_auth_provider"] = auth_provider
 
-    count_query = text("""
+    # 動態構建 WHERE 避免 NULL cast 問題 (asyncpg 不支援 :param::type IS NULL)
+    count_where = ["table_name = :table_name", "action IN :actions"]
+    data_where = ["a.table_name = :table_name", "a.action IN :actions"]
+    if user_id is not None:
+        count_where.append("record_id = :filter_user_id")
+        data_where.append("a.record_id = :filter_user_id")
+    if auth_provider is not None:
+        auth_clause = "changes IS NOT NULL AND changes ~ '^\\s*\\{' AND changes::jsonb ->> 'auth_provider' = :filter_auth_provider"
+        count_where.append(auth_clause)
+        data_where.append(auth_clause.replace("changes", "a.changes"))
+
+    count_query = text(f"""
         SELECT COUNT(*) FROM audit_logs
-        WHERE table_name = :table_name
-          AND action IN :actions
-          AND (:filter_user_id::int IS NULL OR record_id = :filter_user_id)
-          AND (:filter_auth_provider::text IS NULL
-               OR (changes IS NOT NULL AND changes::jsonb ->> 'auth_provider' = :filter_auth_provider))
+        WHERE {' AND '.join(count_where)}
     """).bindparams(bindparam("actions", expanding=True))
 
-    data_query = text("""
+    data_query = text(f"""
         SELECT a.id, a.action, a.changes, a.ip_address, a.created_at,
                a.record_id, a.user_name
         FROM audit_logs a
-        WHERE a.table_name = :table_name
-          AND a.action IN :actions
-          AND (:filter_user_id::int IS NULL OR a.record_id = :filter_user_id)
-          AND (:filter_auth_provider::text IS NULL
-               OR (a.changes IS NOT NULL AND a.changes::jsonb ->> 'auth_provider' = :filter_auth_provider))
+        WHERE {' AND '.join(data_where)}
         ORDER BY a.created_at DESC
         LIMIT :limit OFFSET :offset
     """).bindparams(bindparam("actions", expanding=True))

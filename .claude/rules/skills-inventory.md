@@ -16,6 +16,8 @@
 | `/performance-check` | ⚡ **效能診斷檢查** | `.claude/commands/performance-check.md` |
 | `/adr` | 📋 **架構決策記錄 (ADR)** 管理 | `.claude/commands/adr.md` |
 | `/knowledge-map` | 🗺️ **知識地圖重建與差異報告** | `.claude/commands/knowledge-map.md` |
+| `/health-dashboard` | 📊 **系統健康儀表板** — 行數/測試/遷移/Git 活動 | `.claude/commands/health-dashboard.md` |
+| `/refactor-scan` | 🔍 **重構掃描** — 超閾值檔案掃描+拆分建議 | `.claude/commands/refactor-scan.md` |
 
 ### gstack 啟發指令 (v2.0.0, 2026-03-23 升級)
 
@@ -117,6 +119,41 @@
 | 工具 | `refactoring-migration-procedures` | 重構遷移, migration | 重構遷移程序 |
 
 > 位置: `.claude/skills/_shared/shared/`
+
+---
+
+## v5.3.0 資安管理中心 + Agent 效能優化 + 表格強化 (2026-03-28)
+
+### 新增模組
+
+| 模組 | 類型 | 說明 |
+|------|------|------|
+| `services/security_scanner.py` | Service | 自動安全掃描 (每日 02:00, OWASP 15 規則, 319L) |
+| `api/endpoints/security.py` | API | 資安管理中心端點 (掃描/問題/通知/模式庫) |
+| `extended/models/security.py` | ORM | 安全掃描結果 + 問題追蹤模型 |
+| `pages/SecurityCenterPage.tsx` | Page | OWASP Top 10 儀表板 + 即時安全分數 |
+| `utils/tableEnhancer.ts` | Utility | enhanceColumns — 一行加入排序篩選 |
+| `pages/digitalTwin/DispatchProgressTab.tsx` | Component | 派工進度頁籤 (新增) |
+
+### 效能優化
+
+| 項目 | 變更 | 說明 |
+|------|------|------|
+| 派工單查詢 | 13.7s→8.6s | 規則引擎 + 跳過 auto_correct (-37%) |
+| chitchat | 保守策略 | 預設走 Agent 工具查詢，不幻覺回答 |
+| tool_loop | 移除冗餘搜尋 | 派工單後不再額外搜公文 |
+| groq | 合成路由 | pattern 門檻調低 + redis 工具快取 |
+
+### 品質指標 (v5.3.0)
+
+| 維度 | 值 |
+|------|-----|
+| TypeScript | **0 errors** |
+| Backend Tests | **2,881 passed** / 2 flaky |
+| 安全分數 | **100/100** (51 issues resolved) |
+| Agent 效能 | **+64%** (派工單場景) |
+| pip 漏洞 | 52→1 (26 套件升級) |
+| OWASP 規則 | 15 條模式庫 |
 
 ---
 

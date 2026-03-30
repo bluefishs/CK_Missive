@@ -330,6 +330,12 @@ export const ADMIN_USER_MANAGEMENT_ENDPOINTS = {
   PERMISSIONS_AVAILABLE: '/admin/user-management/permissions/available',
   /** 檢查權限 POST /admin/user-management/permissions/check */
   PERMISSIONS_CHECK: '/admin/user-management/permissions/check',
+  /** 角色權限詳情 POST /admin/user-management/roles/:role/permissions/detail */
+  ROLE_PERMISSIONS_DETAIL: (role: string) => `/admin/user-management/roles/${role}/permissions/detail`,
+  /** 更新角色權限 POST /admin/user-management/roles/:role/permissions/update */
+  ROLE_PERMISSIONS_UPDATE: (role: string) => `/admin/user-management/roles/${role}/permissions/update`,
+  /** 列出所有角色 POST /admin/user-management/roles/list */
+  ROLES_LIST: '/admin/user-management/roles/list',
   /** 管理員解鎖帳號 POST /admin/user-management/users/:id/unlock */
   USERS_UNLOCK: (id: number) => `/admin/user-management/users/${id}/unlock`,
   /** 管理員綁定 LINE POST /admin/user-management/users/:id/line-bind */
@@ -859,6 +865,8 @@ export const DIGITAL_TWIN_ENDPOINTS = {
   DASHBOARD: '/ai/digital-twin/dashboard',
   /** 跨域自動委派 POST /ai/digital-twin/delegate/auto (E-6) */
   DELEGATE_AUTO: '/ai/digital-twin/delegate/auto',
+  /** 智能洞察 POST /ai/digital-twin/insights */
+  INSIGHTS: '/ai/digital-twin/insights',
 } as const;
 
 // ============================================================================
@@ -1162,6 +1170,26 @@ export const API_ENDPOINTS = {
 
   // 數位分身
   DIGITAL_TWIN: DIGITAL_TWIN_ENDPOINTS,
+
+  // 資安管理中心
+  SECURITY: {
+    /** OWASP 總覽 POST /security/owasp-summary */
+    OWASP_SUMMARY: '/security/owasp-summary',
+    /** 問題列表 POST /security/issues/list */
+    ISSUES_LIST: '/security/issues/list',
+    /** 建立問題 POST /security/issues/create */
+    ISSUES_CREATE: '/security/issues/create',
+    /** 更新問題 POST /security/issues/update */
+    ISSUES_UPDATE: '/security/issues/update',
+    /** 掃描列表 POST /security/scans/list */
+    SCANS_LIST: '/security/scans/list',
+    /** 執行掃描 POST /security/scans/run */
+    SCANS_RUN: '/security/scans/run',
+    /** 通知列表 POST /security/notifications/list */
+    NOTIFICATIONS_LIST: '/security/notifications/list',
+    /** 模式庫 POST /security/patterns */
+    PATTERNS: '/security/patterns',
+  },
 } as const;
 
 // 預設匯出

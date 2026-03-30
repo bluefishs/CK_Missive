@@ -1,29 +1,26 @@
 /**
  * 公文建立表單 Hook
  *
- * 抽取 ReceiveDocumentCreatePage 和 SendDocumentCreatePage 的共用邏輯
- * 包含狀態管理、資料載入、事件處理等功能
+ * 組合 useDocumentFormData + useDocumentFileUpload 的 orchestration 層
+ * 包含事件處理、工具方法與表單初始化
  *
- * @version 1.0.0
- * @date 2026-01-28
+ * @version 2.0.0
+ * @date 2026-03-29
  */
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { FormInstance } from 'antd';
 import { App } from 'antd';
 import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../config/queryConfig';
-import { documentsApi, NextSendNumberResponse } from '../../api/documentsApi';
-import { agenciesApi, AgencyOption } from '../../api/agenciesApi';
-import { filesApi } from '../../api/filesApi';
-import { apiClient } from '../../api/client';
-import { API_ENDPOINTS } from '../../api/endpoints';
-import type { UploadFile } from 'antd/es/upload/interface';
-import type { Project, User, ProjectStaff, DocumentCreate } from '../../types/api';
+import { documentsApi } from '../../api/documentsApi';
+import type { DocumentCreate } from '../../types/api';
 import type { AgencyCandidate } from '../../types/ai';
 import { logger } from '../../utils/logger';
+import { useDocumentFormData } from './useDocumentFormData';
+import { useDocumentFileUpload } from './useDocumentFileUpload';
 
 // =============================================================================
 // 常數
@@ -53,97 +50,46 @@ export interface FileSettings {
 }
 
 export interface UseDocumentCreateFormOptions {
-  /** 建立模式：收文或發文 */
   mode: DocumentCreateMode;
-  /** Antd Form 實例 */
   form: FormInstance;
-  /** 成功後回呼 */
   onSuccess?: () => void;
 }
 
 export interface UseDocumentCreateFormResult {
-  // =============================================================================
-  // 基本狀態
-  // =============================================================================
-  /** 初始載入中 */
   loading: boolean;
-  /** 儲存中 */
   saving: boolean;
-  /** 當前 Tab */
   activeTab: string;
-  /** 設定當前 Tab */
   setActiveTab: (tab: string) => void;
 
-  // =============================================================================
-  // 資料選項
-  // =============================================================================
-  /** 機關選項 */
-  agencies: AgencyOption[];
-  /** 機關載入中 */
+  agencies: import('../../api/agenciesApi').AgencyOption[];
   agenciesLoading: boolean;
-  /** 承攬案件 */
-  cases: Project[];
-  /** 案件載入中 */
+  cases: import('../../types/api').Project[];
   casesLoading: boolean;
-  /** 使用者列表 */
-  users: User[];
-  /** 使用者載入中 */
+  users: import('../../types/api').User[];
   usersLoading: boolean;
-  /** 專案人員對照表 */
-  projectStaffMap: Record<number, ProjectStaff[]>;
-  /** 人員載入中 */
+  projectStaffMap: Record<number, import('../../types/api').ProjectStaff[]>;
   staffLoading: boolean;
-  /** 已選專案 ID */
   selectedProjectId: number | null;
-  /** 檔案設定 */
   fileSettings: FileSettings;
 
-  // =============================================================================
-  // 附件相關
-  // =============================================================================
-  /** 待上傳檔案列表 */
-  fileList: UploadFile[];
-  /** 設定檔案列表 */
-  setFileList: React.Dispatch<React.SetStateAction<UploadFile[]>>;
-  /** 上傳中 */
+  fileList: import('antd/es/upload/interface').UploadFile[];
+  setFileList: React.Dispatch<React.SetStateAction<import('antd/es/upload/interface').UploadFile[]>>;
   uploading: boolean;
-  /** 上傳進度 */
   uploadProgress: number;
-  /** 上傳錯誤 */
   uploadErrors: string[];
-  /** 清除上傳錯誤 */
   clearUploadErrors: () => void;
 
-  // =============================================================================
-  // 發文模式專用
-  // =============================================================================
-  /** 下一個發文字號（僅 send 模式） */
-  nextNumber: NextSendNumberResponse | null;
-  /** 字號載入中（僅 send 模式） */
+  nextNumber: import('../../api/documentsApi').NextSendNumberResponse | null;
   nextNumberLoading: boolean;
 
-  // =============================================================================
-  // 事件處理
-  // =============================================================================
-  /** 專案變更處理 */
   handleProjectChange: (projectId: number | null | undefined) => Promise<void>;
-  /** 類別變更處理（僅 receive 模式） */
   handleCategoryChange: (value: string) => void;
-  /** 檔案驗證 */
   validateFile: (file: File) => { valid: boolean; error?: string };
-  /** 儲存 */
   handleSave: () => Promise<void>;
-  /** 取消 */
   handleCancel: () => void;
 
-  // =============================================================================
-  // 工具方法
-  // =============================================================================
-  /** 建立業務同仁選項 */
   buildAssigneeOptions: () => Array<{ value: string; label: string; key: string }>;
-  /** 建立機關選項（含本公司置頂） */
   buildAgencyOptions: (includeCompany?: boolean) => Array<{ value: string; label: string }>;
-  /** AI 機關匹配候選列表 */
   agencyCandidates: AgencyCandidate[];
 }
 
@@ -159,186 +105,19 @@ export function useDocumentCreateForm(
   const queryClient = useQueryClient();
   const { message } = App.useApp();
 
-  // =============================================================================
-  // 基本狀態
-  // =============================================================================
-  const [loading, setLoading] = useState(true);
+  // 組合子 hooks
+  const formData = useDocumentFormData(mode);
+  const fileUpload = useDocumentFileUpload(formData.fileSettings);
+
+  // 本地狀態
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('info');
-
-  // =============================================================================
-  // 資料選項狀態
-  // =============================================================================
-  const [agencies, setAgencies] = useState<AgencyOption[]>([]);
-  const [agenciesLoading, setAgenciesLoading] = useState(false);
-  const [cases, setCases] = useState<Project[]>([]);
-  const [casesLoading, setCasesLoading] = useState(false);
-  const [users, setUsers] = useState<User[]>([]);
-  const [usersLoading, setUsersLoading] = useState(false);
-  const [projectStaffMap, setProjectStaffMap] = useState<Record<number, ProjectStaff[]>>({});
-  const [staffLoading, setStaffLoading] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
-  const projectStaffCacheRef = useRef<Record<number, ProjectStaff[]>>({});
-
-  // =============================================================================
-  // 檔案設定
-  // =============================================================================
-  const [fileSettings, setFileSettings] = useState<FileSettings>({
-    allowedExtensions: DEFAULT_ALLOWED_EXTENSIONS,
-    maxFileSizeMB: DEFAULT_MAX_FILE_SIZE_MB,
-  });
-
-  // =============================================================================
-  // 附件狀態
-  // =============================================================================
-  const [fileList, setFileList] = useState<UploadFile[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadErrors, setUploadErrors] = useState<string[]>([]);
-
-  // =============================================================================
-  // 發文模式專用狀態
-  // =============================================================================
-  const [nextNumber, setNextNumber] = useState<NextSendNumberResponse | null>(null);
-  const [nextNumberLoading, setNextNumberLoading] = useState(false);
-
-  // =============================================================================
-  // 資料載入函數
-  // =============================================================================
-
-  /** 載入下一個發文字號（僅 send 模式） */
-  const loadNextNumber = useCallback(async () => {
-    if (mode !== 'send') return;
-    setNextNumberLoading(true);
-    try {
-      const result = await documentsApi.getNextSendNumber();
-      setNextNumber(result);
-    } catch (error) {
-      logger.error('載入下一個字號失敗:', error);
-      message.warning('無法取得下一個發文字號，請手動填寫');
-    } finally {
-      setNextNumberLoading(false);
-    }
-  }, [mode, message]);
-
-  /** 載入機關選項 */
-  const loadAgencies = useCallback(async () => {
-    setAgenciesLoading(true);
-    try {
-      const options = await agenciesApi.getAgencyOptions();
-      setAgencies(options);
-    } catch (error) {
-      logger.error('載入機關選項失敗:', error);
-      setAgencies([]);
-    } finally {
-      setAgenciesLoading(false);
-    }
-  }, []);
-
-  /** 載入承攬案件選項 */
-  const loadCases = useCallback(async () => {
-    setCasesLoading(true);
-    try {
-      const data = await apiClient.post<{ projects?: Project[]; items?: Project[] }>(
-        API_ENDPOINTS.PROJECTS.LIST,
-        { page: 1, limit: 100 }
-      );
-      const projectsData = data.projects || data.items || [];
-      setCases(Array.isArray(projectsData) ? projectsData : []);
-    } catch (error) {
-      logger.error('載入承攬案件失敗:', error);
-      setCases([]);
-    } finally {
-      setCasesLoading(false);
-    }
-  }, []);
-
-  /** 載入使用者列表 */
-  const loadUsers = useCallback(async () => {
-    setUsersLoading(true);
-    try {
-      const data = await apiClient.post<{ users?: User[]; items?: User[] }>(
-        API_ENDPOINTS.USERS.LIST,
-        { page: 1, limit: 100 }
-      );
-      const usersData = data.users || data.items || [];
-      setUsers(Array.isArray(usersData) ? usersData : []);
-    } catch (error) {
-      logger.error('載入使用者失敗:', error);
-      setUsers([]);
-    } finally {
-      setUsersLoading(false);
-    }
-  }, []);
-
-  /** 載入專案業務同仁 */
-  const fetchProjectStaff = useCallback(async (projectId: number): Promise<ProjectStaff[]> => {
-    if (projectStaffCacheRef.current[projectId]) {
-      const cachedData = projectStaffCacheRef.current[projectId];
-      setProjectStaffMap(prev => ({ ...prev, [projectId]: cachedData }));
-      return cachedData;
-    }
-
-    setStaffLoading(true);
-    try {
-      const data = await apiClient.post<{ staff?: ProjectStaff[] }>(
-        `/project-staff/project/${projectId}/list`,
-        {}
-      );
-      const staffData = data.staff || [];
-      projectStaffCacheRef.current[projectId] = staffData;
-      setProjectStaffMap(prev => ({ ...prev, [projectId]: staffData }));
-      return staffData;
-    } catch (error) {
-      logger.error('載入專案業務同仁失敗:', error);
-      return [];
-    } finally {
-      setStaffLoading(false);
-    }
-  }, []);
-
-  /** 載入檔案設定 */
-  const loadFileSettings = useCallback(async () => {
-    try {
-      const info = await filesApi.getStorageInfo();
-      setFileSettings({
-        allowedExtensions: info.allowed_extensions,
-        maxFileSizeMB: info.max_file_size_mb,
-      });
-    } catch (error) {
-      logger.warn('載入檔案設定失敗，使用預設值:', error);
-    }
-  }, []);
-
-  // =============================================================================
-  // 初始化
-  // =============================================================================
-
-  useEffect(() => {
-    const initialize = async () => {
-      setLoading(true);
-
-      const loadTasks = [
-        loadAgencies(),
-        loadCases(),
-        loadUsers(),
-        loadFileSettings(),
-      ];
-
-      // 發文模式需載入下一個字號
-      if (mode === 'send') {
-        loadTasks.push(loadNextNumber());
-      }
-
-      await Promise.all(loadTasks);
-      setLoading(false);
-    };
-    initialize();
-  }, [loadAgencies, loadCases, loadUsers, loadFileSettings, loadNextNumber, mode]);
+  const projectStaffCacheRef = useRef<Record<number, import('../../types/api').ProjectStaff[]>>({});
 
   // 設定表單初始值
   useEffect(() => {
-    if (loading) return;
+    if (formData.loading) return;
 
     if (mode === 'receive') {
       form.setFieldsValue({
@@ -348,9 +127,9 @@ export function useDocumentCreateForm(
         receiver: DEFAULT_COMPANY_NAME,
         receive_date: dayjs(),
       });
-    } else if (mode === 'send' && nextNumber) {
+    } else if (mode === 'send' && formData.nextNumber) {
       form.setFieldsValue({
-        doc_number: nextNumber.full_number,
+        doc_number: formData.nextNumber.full_number,
         delivery_method: '電子交換',
         sender: DEFAULT_COMPANY_NAME,
         doc_date: dayjs(),
@@ -358,13 +137,12 @@ export function useDocumentCreateForm(
         doc_type: '函',
       });
     }
-  }, [loading, mode, nextNumber, form]);
+  }, [formData.loading, mode, formData.nextNumber, form]);
 
   // =============================================================================
   // 事件處理
   // =============================================================================
 
-  /** 類別變更處理（收文模式專用） */
   const handleCategoryChange = useCallback((value: string) => {
     if (mode !== 'receive') return;
 
@@ -385,7 +163,6 @@ export function useDocumentCreateForm(
     }
   }, [mode, form]);
 
-  /** 專案變更處理 */
   const handleProjectChange = useCallback(async (projectId: number | null | undefined) => {
     const effectiveProjectId = projectId ?? null;
     form.setFieldsValue({ contract_project_id: effectiveProjectId });
@@ -396,7 +173,7 @@ export function useDocumentCreateForm(
       return;
     }
 
-    const staffList = await fetchProjectStaff(effectiveProjectId);
+    const staffList = await formData.fetchProjectStaff(effectiveProjectId);
     if (!staffList || staffList.length === 0) {
       setSelectedProjectId(effectiveProjectId);
       message.info('此專案尚無指派業務同仁');
@@ -404,90 +181,22 @@ export function useDocumentCreateForm(
     }
 
     setSelectedProjectId(effectiveProjectId);
+    projectStaffCacheRef.current[effectiveProjectId] = staffList;
 
-    // 自動填入業務同仁
     setTimeout(() => {
-      const currentStaff = projectStaffCacheRef.current[effectiveProjectId];
-      if (currentStaff && currentStaff.length > 0) {
-        const names = currentStaff.map((s) => s.user_name);
+      if (staffList.length > 0) {
+        const names = staffList.map((s) => s.user_name);
         form.setFieldsValue({ assignee: names });
         message.success(`已自動填入 ${names.length} 位業務同仁`);
       }
     }, 150);
-  }, [form, fetchProjectStaff, message]);
+  }, [form, formData, message]);
 
-  /** 檔案驗證 */
-  const validateFile = useCallback((file: File): { valid: boolean; error?: string } => {
-    const { allowedExtensions, maxFileSizeMB } = fileSettings;
-    const fileName = file.name.toLowerCase();
-    const ext = '.' + (fileName.split('.').pop() || '');
-
-    if (!allowedExtensions.includes(ext)) {
-      return {
-        valid: false,
-        error: `不支援 ${ext} 檔案格式`,
-      };
-    }
-
-    const maxSizeBytes = maxFileSizeMB * 1024 * 1024;
-    if (file.size > maxSizeBytes) {
-      const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-      return {
-        valid: false,
-        error: `檔案大小 ${sizeMB}MB 超過限制 (最大 ${maxFileSizeMB}MB)`,
-      };
-    }
-
-    return { valid: true };
-  }, [fileSettings]);
-
-  /** 上傳檔案 */
-  const uploadFiles = useCallback(async (documentId: number, files: UploadFile[]): Promise<void> => {
-    if (files.length === 0) return;
-
-    const fileObjects: File[] = files
-      .map(f => f.originFileObj as File | undefined)
-      .filter((f): f is File => f !== undefined);
-
-    if (fileObjects.length === 0) return;
-
-    setUploading(true);
-    setUploadProgress(0);
-    setUploadErrors([]);
-
-    try {
-      const result = await filesApi.uploadFiles(documentId, fileObjects, {
-        onProgress: (percent) => setUploadProgress(percent),
-      });
-
-      if (result.errors && result.errors.length > 0) {
-        setUploadErrors(result.errors);
-      }
-
-      const successCount = result.files?.length || 0;
-      const errorCount = result.errors?.length || 0;
-
-      if (successCount > 0 && errorCount === 0) {
-        message.success(`附件上傳成功（共 ${successCount} 個檔案）`);
-      } else if (successCount > 0 && errorCount > 0) {
-        message.warning(`部分附件上傳成功（成功 ${successCount} 個，失敗 ${errorCount} 個）`);
-      }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : '上傳失敗';
-      message.error(`附件上傳失敗: ${errorMsg}`);
-      throw error;
-    } finally {
-      setUploading(false);
-    }
-  }, [message]);
-
-  /** 儲存 */
   const handleSave = useCallback(async () => {
     try {
       setSaving(true);
       const values = await form.validateFields();
 
-      // 處理 assignee：陣列轉逗號分隔字串
       let assigneeStr = '';
       if (Array.isArray(values.assignee)) {
         assigneeStr = values.assignee.join(', ');
@@ -495,7 +204,6 @@ export function useDocumentCreateForm(
         assigneeStr = values.assignee;
       }
 
-      // 準備資料
       const documentData: DocumentCreate = {
         doc_number: values.doc_number,
         doc_type: values.doc_type || '函',
@@ -515,12 +223,10 @@ export function useDocumentCreateForm(
         status: mode === 'receive' ? 'active' : 'sent',
       };
 
-      // 建立公文
       const newDoc = await documentsApi.createDocument(documentData);
 
-      // 上傳附件
-      if (fileList.length > 0) {
-        await uploadFiles(newDoc.id, fileList);
+      if (fileUpload.fileList.length > 0) {
+        await fileUpload.uploadFiles(newDoc.id, fileUpload.fileList);
       }
 
       queryClient.invalidateQueries({ queryKey: queryKeys.documents.all });
@@ -543,26 +249,19 @@ export function useDocumentCreateForm(
     } finally {
       setSaving(false);
     }
-  }, [form, mode, fileList, uploadFiles, queryClient, message, navigate, onSuccess]);
+  }, [form, mode, fileUpload, queryClient, message, navigate, onSuccess]);
 
-  /** 取消 */
   const handleCancel = useCallback(() => {
     const targetPath = mode === 'receive' ? '/documents' : '/document-numbers';
     navigate(targetPath);
   }, [mode, navigate]);
 
-  /** 清除上傳錯誤 */
-  const clearUploadErrors = useCallback(() => {
-    setUploadErrors([]);
-  }, []);
-
   // =============================================================================
   // 工具方法
   // =============================================================================
 
-  /** 建立業務同仁選項 */
   const buildAssigneeOptions = useCallback((): Array<{ value: string; label: string; key: string }> => {
-    const staffList = selectedProjectId ? projectStaffMap[selectedProjectId] : undefined;
+    const staffList = selectedProjectId ? formData.projectStaffMap[selectedProjectId] : undefined;
     const projectStaffOptions: Array<{ value: string; label: string; key: string }> =
       staffList && staffList.length > 0
         ? staffList
@@ -574,8 +273,8 @@ export function useDocumentCreateForm(
             }))
         : [];
 
-    const userOptions: Array<{ value: string; label: string; key: string }> = Array.isArray(users)
-      ? users
+    const userOptions: Array<{ value: string; label: string; key: string }> = Array.isArray(formData.users)
+      ? formData.users
           .filter((user) => user.full_name || user.username)
           .map((user) => ({
             value: user.full_name || user.username,
@@ -585,9 +284,8 @@ export function useDocumentCreateForm(
       : [];
 
     return projectStaffOptions.length > 0 ? projectStaffOptions : userOptions;
-  }, [selectedProjectId, projectStaffMap, users]);
+  }, [selectedProjectId, formData.projectStaffMap, formData.users]);
 
-  /** 建立機關選項（含本公司置頂） */
   const buildAgencyOptions = useCallback((includeCompany = true) => {
     const options: Array<{ value: string; label: string }> = [];
 
@@ -598,7 +296,7 @@ export function useDocumentCreateForm(
       });
     }
 
-    agencies
+    formData.agencies
       .filter(agency => agency.agency_name !== DEFAULT_COMPANY_NAME)
       .forEach(agency => {
         options.push({
@@ -610,63 +308,53 @@ export function useDocumentCreateForm(
       });
 
     return options;
-  }, [agencies]);
-
-  // =============================================================================
-  // AI 機關匹配候選列表
-  // =============================================================================
+  }, [formData.agencies]);
 
   const agencyCandidates = useMemo<AgencyCandidate[]>(() => {
-    return agencies.map((a) => ({
+    return formData.agencies.map((a) => ({
       id: a.id,
       name: a.agency_name,
       short_name: a.agency_short_name,
     }));
-  }, [agencies]);
+  }, [formData.agencies]);
 
   // =============================================================================
   // 返回結果
   // =============================================================================
 
   return {
-    // 基本狀態
-    loading,
+    loading: formData.loading,
     saving,
     activeTab,
     setActiveTab,
 
-    // 資料選項
-    agencies,
-    agenciesLoading,
-    cases,
-    casesLoading,
-    users,
-    usersLoading,
-    projectStaffMap,
-    staffLoading,
+    agencies: formData.agencies,
+    agenciesLoading: formData.agenciesLoading,
+    cases: formData.cases,
+    casesLoading: formData.casesLoading,
+    users: formData.users,
+    usersLoading: formData.usersLoading,
+    projectStaffMap: formData.projectStaffMap,
+    staffLoading: formData.staffLoading,
     selectedProjectId,
-    fileSettings,
+    fileSettings: formData.fileSettings,
 
-    // 附件
-    fileList,
-    setFileList,
-    uploading,
-    uploadProgress,
-    uploadErrors,
-    clearUploadErrors,
+    fileList: fileUpload.fileList,
+    setFileList: fileUpload.setFileList,
+    uploading: fileUpload.uploading,
+    uploadProgress: fileUpload.uploadProgress,
+    uploadErrors: fileUpload.uploadErrors,
+    clearUploadErrors: fileUpload.clearUploadErrors,
 
-    // 發文專用
-    nextNumber,
-    nextNumberLoading,
+    nextNumber: formData.nextNumber,
+    nextNumberLoading: formData.nextNumberLoading,
 
-    // 事件處理
     handleProjectChange,
     handleCategoryChange,
-    validateFile,
+    validateFile: fileUpload.validateFile,
     handleSave,
     handleCancel,
 
-    // 工具方法
     buildAssigneeOptions,
     buildAgencyOptions,
     agencyCandidates,

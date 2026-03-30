@@ -26,7 +26,7 @@ export const ERPQuotationListPage: React.FC = () => {
   const navigate = useNavigate();
   const { hasPermission } = useAuthGuard();
   const canWrite = hasPermission('projects:write');
-  const [params, setParams] = useState<ERPQuotationListParams>({ page: 1, limit: 20 });
+  const [params, setParams] = useState<ERPQuotationListParams>({ page: 1, limit: 20, sort_by: 'year', sort_order: 'desc' });
   const { data, isLoading, refetch } = useERPQuotations(params);
   const { data: profitSummary } = useERPProfitSummary();
   const deleteMutation = useDeleteERPQuotation();
@@ -40,8 +40,11 @@ export const ERPQuotationListPage: React.FC = () => {
     }
   };
 
+  // 前端過濾：僅顯示已承攬
+
   const columns: ColumnsType<ERPQuotation> = [
     { title: '案號', dataIndex: 'case_code', key: 'case_code', width: 140 },
+    { title: '成案編號', dataIndex: 'project_code', key: 'project_code', width: 150, render: (v: string | null) => v ? <span style={{ fontFamily: 'monospace' }}>{v}</span> : <span style={{ color: '#999' }}>-</span> },
     {
       title: '案名',
       dataIndex: 'case_name',

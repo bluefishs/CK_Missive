@@ -4,6 +4,211 @@
 
 ---
 
+## [5.3.7] - 2026-03-30
+
+### project_code 格式重構 + PM 成案自動化
+
+#### 格式調整
+- project_code 格式: `CK{年度}_{類別}_{性質}_{流水號}` → `{年度4碼}_{類別2碼}_{性質2碼}_{流水號3碼}`
+- 移除 CK 前綴，相容舊格式查詢
+- 範例: `2026_01_01_001`
+
+#### 類別/性質重新定義
+- 計畫類別: 01委辦招標(政府機關)、02承攬報價 (原 4 類簡化為 2 類)
+- 作業性質: 擴展至 11 類 (地面測量/LiDAR掃描/UAV空拍/航空測量/安全檢測/建物保存/建築線測量/透地雷達/資訊系統/技師簽證/其他)
+
+#### PM 成案自動化
+- PM case 狀態變更為「已承攬」(contracted) 時自動觸發成案
+- 自動產生 project_code + 建立 ContractProject + 同步 ERP Quotation
+- PM model 新增 case_nature 欄位
+
+#### 影響範圍
+- `backend/app/core/constants.py` — 類別/性質常數
+- `backend/app/services/case_code_service.py` — 格式生成 + promote 邏輯
+- `backend/app/api/endpoints/pm/cases.py` — 自動成案觸發
+- `backend/app/extended/models/pm.py` — +case_nature 欄位
+- `backend/app/schemas/pm/case.py` — +case_nature schema
+- `frontend/src/pages/contractCase/tabs/constants.ts` — 前端選項
+- `frontend/src/pages/contractCase/tabs/CaseInfoTab.tsx` — tooltip
+- `frontend/src/types/api.ts` — PMCase +case_nature
+- `frontend/src/types/pm.ts` — PMCaseListParams +case_nature
+
+---
+
+## [5.3.6] - 2026-03-30
+
+### Agent 進化報告推送 + 文件整合
+
+#### Phase 2F: 進化報告推送
+- `agent_evolution_scheduler.py` — 新增 `_push_evolution_report()` 方法
+  - evolve() + LLM 摘要完成後 → NotificationDispatcher.broadcast_to_all()
+  - 環境變數配置: `EVOLUTION_PUSH_LINE_USERS`, `EVOLUTION_PUSH_DISCORD_CHANNELS`
+  - 推送格式: 進化摘要 + 信號/動作統計
+
+#### 文件整合
+- `SESSION_20260329_SUMMARY.md` — 完整 session 統整 (11 章節)
+- `tech_debt_20260329.md` — 更新描述 (3 CRITICAL 已解消)
+
+---
+
+## [5.3.5] - 2026-03-29
+
+### Document AI 多模態 — OCR + LLM 混合架構
+
+#### 附件內容索引管線
+- 新增 `attachment_content_indexer.py` — PDF/DOCX/TXT → OCR → chunk → embedding
+  - 混合策略: pdfplumber (文字型) + Tesseract OCR (掃描型, 400字/頁門檻)
+  - 複用現有 DocumentChunker + EmbeddingManager
+  - 50 頁上限 + [附件:xxx] 前綴標記
+- 新增 API 端點: `POST /ai/embedding/attachment-index` (單筆/批次)
+- 新增 API 端點: `POST /ai/embedding/attachment-stats` (覆蓋統計)
+
+#### Document AI 架構文件
+- 新增 `docs/DOCUMENT_AI_ARCHITECTURE.md`
+  - OCR + LLM 混合策略圖解
+  - Document AI 技能圖譜 (8 大技能域)
+  - 多模態發展路線圖 (Phase 1-4)
+
+---
+
+## [5.3.4] - 2026-03-29
+
+### Agent 自主學習報告
+
+#### Phase 2D: LLM 進化摘要
+- `agent_evolution_scheduler.py` — 新增 `_generate_evolution_summary()` 方法
+  - evolve() 完成後用 LLM 生成自然語言進化描述 (第一人稱, 2-3 句話)
+  - 摘要存入 Redis `agent:evolution:latest_summary` (7 天 TTL)
+- `get_evolution_status()` — 回傳時自動附加最新摘要
+
+#### Phase 2E: 前端進化報告
+- `EvolutionTab.tsx` — QualityTrendCard 新增摘要區塊 (綠底卡片, LLM 生成文字)
+
+---
+
+## [5.3.3] - 2026-03-29
+
+### 數位分身預測洞察
+
+#### Phase 2A: 預測引擎
+- `digital_twin_service.py` — 新增 `get_predictive_insights()` 方法
+  - 品質趨勢預測: eval_history 線性迴歸斜率計算 → improving/stable/declining
+  - 工具降級預警: tool_monitor 成功率 → critical/high/medium 風險分級
+  - 進化信號摘要: Redis 隊列深度監控
+- `digital_twin.py` — 新增 `POST /ai/digital-twin/insights` 端點
+
+#### Phase 2B: 前端洞察面板
+- `DashboardTab.tsx` — 新增 InsightsSection 子元件 (298L, <500L)
+  - 品質趨勢指標 (箭頭 + 預測分數)
+  - 工具風險計數 + Tag 預警
+  - 洞察列表
+
+#### 品質指標
+- TypeScript: **0 errors**
+- Python: **0 errors**
+- DashboardTab: 298L (<500L)
+
+---
+
+## [5.3.2] - 2026-03-29
+
+### Agent 閉環強化 + 多代理激活
+
+#### Phase 1A: 回饋閉環
+- `ai_feedback.py` — 負面回饋 (score=-1) 自動注入 `agent:evolution:signals` Redis 隊列
+- EvolutionScheduler 下一輪進化時會消費人類回饋信號，自動降級相關模式
+- 信號格式: `{type: "user_negative_feedback", severity: "HIGH", ...}`
+
+#### Phase 1B: Conductor 多代理激活
+- `agent_supervisor.py` — dispatch 不再歸併到 doc，保持獨立域
+- 新增跨域觸發短語偵測 (regex): 公文+進度, 案件+廠商, 派工+公文 等 10 組
+- 多域查詢 (PM+ERP, Doc+Dispatch) 現在真正觸發 Supervisor 並行工具補充
+
+#### 品質指標
+- Python: **0 errors**
+- 回饋→進化路徑: 使用者 👎 → Redis signal → EvolutionScheduler → 模式降級
+
+---
+
+## [5.3.1] - 2026-03-29
+
+### 全棧重構 + RolePermission API + 新指令 + 復盤
+
+#### 程式碼重構 (5 檔案拆分)
+- `useDocumentCreateForm.ts` 676→364L — 拆分 useDocumentFormData (190L) + useDocumentFileUpload (126L)
+- `types/ai.ts` 1535→28L — barrel re-export + 4 領域檔 (ai-document/ai-search/ai-knowledge-graph/ai-services)
+- `AIStatsPanel.tsx` 473→320L — 提取 SearchStatsDashboard (188L)
+- `DispatchWorkflowTab.tsx` 493→380L — 提取 useDispatchDocLinking (164L)
+- `ContractCaseDetailPage.tsx` 478→263L — 提取 useContractCaseHandlers (264L)
+
+#### 新增功能
+- RolePermission 後端 API — 3 端點 (roles/{role}/permissions/detail, update, roles/list)
+- RolePermissionDetailPage 前端整合 — 移除 TODO，接入 API
+- `/health-dashboard` 指令 — 系統健康一鍵報告
+- `/refactor-scan` 指令 — 超閾值檔案掃描 + 拆分建議
+
+#### 文件同步
+- CHANGELOG 補入 v5.3.0 完整記錄
+- architecture.md 新增 digitalTwin/skillEvolution/profile 模組 + 後端服務 + 型別結構
+- skills-inventory.md 新增 v5.3.0 段落 + 2 新指令
+- MEMORY.md 修正 Layer 3 (已運作非 0%) + Inference Profiles (已就緒)
+
+#### 復盤
+- 復盤報告 `docs/reports/SYSTEM_REVIEW_20260329.md` — 技能樹 + 發展藍圖
+- 新增 11 檔 + 修改 13 檔，淨減 1,900L (3,474→1,574L, -55%)
+
+#### 品質指標
+- TypeScript: **0 errors**
+- Python: **0 errors**
+- 所有 hooks <500L | 所有元件 <500L | 所有服務 <600L
+- 指令數: 28→30 (新增 health-dashboard + refactor-scan)
+
+---
+
+## [5.3.0] - 2026-03-28
+
+### 資安管理中心 + Agent 效能優化 + 表格強化
+
+#### 資安管理中心 (SecurityCenterPage)
+- 新增 `SecurityCenterPage.tsx` — OWASP Top 10 儀表板 + 問題追蹤 + 掃描 + 通知 + 模式庫
+- 新增 `security_scanner.py` — 自動安全掃描排程 (每日 02:00 + 手動觸發, 15 條 OWASP 規則)
+- 新增 `security.py` endpoint — 掃描/問題追蹤/通知 API
+- 新增 Security ORM model — 掃描結果 + 安全問題持久化
+- 即時安全分數計算 (scanner + API 統一基於 open issues)
+- 通知去重 + 掃描分數修正 + 欄位比例統一
+- 資安問題全部清零 — 51 筆 resolved + 1 筆 accepted risk
+- pip 依賴漏洞修復 52→1 — 26 套件升級
+
+#### Agent 效能優化 (效能 64%↑)
+- 派工單查詢 13.7s→8.6s — 規則引擎 + 跳過 auto_correct
+- chitchat 保守策略 — 預設走 Agent 工具查詢，不幻覺回答
+- tool_loop 強制移除派工單後冗餘搜尋 — 程式碼層攔截
+- auto_corrector 派工單已找到時跳過所有修正
+- dispatch summary 完整列出關聯公文 — 解決 LLM 合成遺漏
+- groq 合成路由 + pattern 門檻調低 + redis 工具快取
+
+#### 表格欄位強化
+- 新增 `tableEnhancer.ts` — enhanceColumns 工具，一行加入排序篩選
+- 新增清單 Z-9 表格篩選排序 + Z-10 共用元件強制規範
+
+#### Bug 修復
+- 契金管控 MissingGreenlet — 列表查詢補齊 selectinload(payment)
+- self_awareness SSE 事件顯示擅長領域
+- 密碼安全修復 + 假陽性排除 + 認證偵測強化
+
+#### 文件更新
+- 新增清單 Y — agent/AI 服務開發 11 條強制規範 (v1.20.0)
+- 新增清單 Z — 資安開發強制規範 8 條 (v1.21.0)
+- v5.3.0 版本升級 — CLAUDE.md 同步
+
+#### 品質指標
+- TypeScript: **0 errors**
+- Backend Tests: **2,881 passed** (2 flaky)
+- 安全分數: **100/100** (51 issues resolved)
+- Agent 效能: **+64%** (派工單場景)
+
+---
+
 ## [5.1.17] - 2026-03-23
 
 ### SSOT 修復 + 覆盤儀表板 + 系統文件同步

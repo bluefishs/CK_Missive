@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.dependencies import require_admin, get_async_db
+from app.core.dependencies import require_admin, require_auth, get_async_db
 from app.extended.models import User
 from app.schemas.ai.graph import (
     EmbeddingStatsResponse,
@@ -303,3 +303,82 @@ async def _run_entity_embedding_pipeline(limit: int, batch_size: int):
 
     except Exception as e:
         logger.error("實體 embedding 管線異常: %s", e, exc_info=True)
+
+
+# ============================================================================
+# 附件內容索引 (Document AI — OCR + LLM 混合架構)
+# ============================================================================
+
+@router.post("/embedding/attachment-index", summary="附件內容索引 (單筆/批次)")
+async def index_attachment_content(
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(require_admin()),
+    db: AsyncSession = Depends(get_async_db),
+    *,
+    body: dict = {},
+):
+    """
+    觸發附件內容索引管線 — PDF/DOCX → OCR → chunk → embedding
+
+    Body:
+    - document_id: 指定公文的所有附件 (選填)
+    - attachment_id: 指定單一附件 (選填)
+    - batch: true → 批次索引未處理附件 (選填)
+    - limit: 批次上限 (預設 50)
+    - force: 強制重新索引 (預設 false)
+    """
+    from app.services.ai.attachment_content_indexer import AttachmentContentIndexer
+
+    document_id = body.get("document_id")
+    attachment_id = body.get("attachment_id")
+    batch_mode = body.get("batch", False)
+    limit = min(body.get("limit", 50), 200)
+    force = body.get("force", False)
+
+    indexer = AttachmentContentIndexer(db)
+
+    if attachment_id:
+        result = await indexer.index_attachment(attachment_id, force=force)
+        await db.commit()
+        return {"success": True, **result}
+
+    if document_id:
+        result = await indexer.index_document_attachments(document_id, force=force)
+        await db.commit()
+        return {"success": True, **result}
+
+    if batch_mode:
+        background_tasks.add_task(_run_attachment_batch_index, limit=limit, force=force)
+        return {"success": True, "message": f"附件批次索引已在背景啟動 (limit={limit})"}
+
+    return {"success": False, "error": "請提供 document_id, attachment_id, 或 batch=true"}
+
+
+@router.post("/embedding/attachment-stats", summary="附件索引覆蓋統計")
+async def get_attachment_index_stats(
+    current_user: User = Depends(require_auth()),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """取得附件內容索引覆蓋率統計"""
+    from app.services.ai.attachment_content_indexer import AttachmentContentIndexer
+    indexer = AttachmentContentIndexer(db)
+    stats = await indexer.get_indexing_stats()
+    return {"success": True, **stats}
+
+
+async def _run_attachment_batch_index(limit: int, force: bool):
+    """背景執行附件批次索引"""
+    from app.db.database import AsyncSessionLocal
+    from app.services.ai.attachment_content_indexer import AttachmentContentIndexer
+
+    try:
+        async with AsyncSessionLocal() as db:
+            indexer = AttachmentContentIndexer(db)
+            result = await indexer.batch_index(limit=limit, force=force)
+            await db.commit()
+            logger.info(
+                "Attachment batch index done: processed=%s, skipped=%s, errors=%s, chunks=%s",
+                result["processed"], result["skipped"], result["errors"], result["total_chunks"],
+            )
+    except Exception as e:
+        logger.error("Attachment batch index failed: %s", e, exc_info=True)

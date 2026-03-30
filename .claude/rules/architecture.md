@@ -161,15 +161,22 @@ backend/app/services/
 ├── receiver_normalizer.py       # 收發文單位正規化 (v1.0.0)
 ├── backup_scheduler.py         # 備份排程器 + 異地自動同步 (v2.0.0)
 ├── system_health_service.py    # 系統健康檢查 (含備份狀態)
+├── security_scanner.py         # 自動安全掃描 (每日 02:00, OWASP 15 規則)
 ├── agency_service.py           # 機關服務
-├── document_service.py         # 公文服務 (613L)
+├── agency_matching_service.py  # 機關智慧匹配服務
+├── agency_statistics_service.py # 機關統計服務
+├── document_service.py         # 公文服務 (421L)
 ├── document_dispatch_linker_service.py  # 公文-派工關聯服務 (拆分自 document_service)
 ├── document_import_logic_service.py     # 匯入邏輯服務 (拆分自 document_service)
-├── project_service.py          # 專案服務 (410L)
+├── document_filter_service.py  # 公文篩選服務
+├── document_statistics_service.py # 公文統計服務
+├── project_service.py          # 專案服務 (419L)
+├── project_staff_service.py    # 專案人員服務
 ├── case_code_service.py        # 案件代碼服務
 ├── vendor_service.py           # 廠商服務
 ├── audit_service.py            # 審計服務 (獨立 session)
 ├── audit_mixin.py              # CRUD 審計 Mixin (10 服務套用)
+├── taoyuan_link_service.py     # 桃園派工關聯服務
 ├── erp/                        # ERP 子服務
 │   ├── quotation_service.py   # 報價管理
 │   ├── invoice_service.py     # 開票管理
@@ -226,6 +233,7 @@ backend/app/api/endpoints/
 │   ├── financial_summary.py # 財務彙總 (7 端點: project/projects/company/monthly-trend/budget-ranking/export-expenses/export-ledger)
 │   └── einvoice_sync.py     # 電子發票同步 (4 端點: sync/pending-list/upload-receipt/sync-logs)
 ├── knowledge_base.py      # 知識庫瀏覽器 API (tree/file/adr/diagrams/search)
+├── security.py            # 資安管理中心 API (掃描/問題追蹤/通知/模式庫)
 ├── line_webhook.py        # LINE Webhook 整合端點
 ├── health.py              # 健康檢查端點 (含 detailed)
 ├── public.py              # 公開端點 (免認證)
@@ -329,11 +337,31 @@ frontend/src/pages/
 │   ├── KnowledgeMapTab.tsx     # 樹狀目錄 + Markdown 渲染
 │   ├── AdrTab.tsx              # ADR 表格 + 狀態標籤 + 詳情
 │   └── DiagramsTab.tsx         # Segmented 切換 + Mermaid 架構圖
+├── digitalTwin/                # 數位分身子元件 (v5.2.2+)
+│   ├── CapabilityRadarTab.tsx  # 能力雷達圖頁籤
+│   ├── DashboardTab.tsx        # 數位分身儀表板
+│   ├── DispatchProgressTab.tsx # 派工進度頁籤
+│   ├── EvolutionTab.tsx        # 進化歷程頁籤
+│   ├── ProfileCard.tsx         # Agent 個人檔案卡片
+│   └── TraceWaterfallTab.tsx   # 追蹤瀑布圖頁籤
+├── skillEvolution/             # 技能進化頁面子元件 (v5.2.0+)
+│   ├── EvolutionGraph.tsx      # 進化圖表
+│   ├── LegendPanel.tsx         # 圖例面板
+│   ├── SkillListPanel.tsx      # 技能列表面板
+│   └── StatsPanel.tsx          # 統計面板
+├── profile/                    # 個人檔案子元件
+│   ├── AccountInfoCard.tsx     # 帳號資訊卡片
+│   ├── PasswordChangeModal.tsx # 密碼變更 Modal
+│   └── ProfileInfoCard.tsx     # 個人資訊卡片
+├── SecurityCenterPage.tsx      # 資安管理中心 (OWASP Top 10 + 掃描 + 通知)
 ├── ERPExpenseListPage.tsx      # 費用報銷列表 (篩選+搜尋+狀態標籤)
 ├── ERPExpenseDetailPage.tsx    # 費用報銷詳情 (明細+審核+收據上傳)
 ├── ERPLedgerPage.tsx           # 統一帳本 (科目分類+餘額)
 ├── ERPFinancialDashboardPage.tsx # 財務儀表板 (月趨勢+預算排名+Recharts)
 ├── ERPEInvoiceSyncPage.tsx     # 電子發票同步 (MOF 同步狀態+待核銷)
+├── AdminLoginHistoryPage.tsx   # 管理員登入歷史
+├── SkillEvolutionPage.tsx      # 技能進化主頁面
+├── DigitalTwinPage.tsx         # 數位分身主頁面
 └── ...
 ```
 
@@ -346,7 +374,9 @@ frontend/src/hooks/
 ├── business/                       # 業務邏輯 (13 檔)
 │   ├── useDocuments.ts             # 公文 CRUD + 統計 (8 hooks)
 │   ├── useDocumentsWithStore.ts    # 公文 React Query + Zustand 整合
-│   ├── useDocumentCreateForm.ts    # 公文建立表單 Hook
+│   ├── useDocumentCreateForm.ts    # 公文建立表單 Hook (v2.0 組合層, 364L)
+│   ├── useDocumentFormData.ts     # 表單資料載入 (拆分自 CreateForm, 190L)
+│   ├── useDocumentFileUpload.ts   # 附件上傳邏輯 (拆分自 CreateForm, 126L)
 │   ├── useProjects.ts             # 承攬案件 CRUD (9 hooks)
 │   ├── useProjectsWithStore.ts    # 專案整合 Hook
 │   ├── useVendors.ts              # 廠商 CRUD (5 hooks)
@@ -385,6 +415,14 @@ frontend/src/hooks/
 └── taoyuan/                        # 派工專用 (2 檔)
     ├── useDispatchMutations.ts    # 8 個 mutation 集中管理 (241L)
     └── useDispatchQueries.ts      # 資料查詢+衍生狀態 (110L)
+```
+
+### 前端工具 (v5.3.0)
+
+```
+frontend/src/utils/
+├── tableEnhancer.ts            # enhanceColumns — 一行加入排序篩選
+└── ...
 ```
 
 ### 通用元件
@@ -438,12 +476,16 @@ frontend/src/components/document/operations/
 └── index.ts                    # 統一匯出
 ```
 
-## 前端型別 SSOT (v1.60.0)
+## 前端型別 SSOT (v5.3.0)
 
 ```
 frontend/src/types/
-├── api.ts              # 業務實體型別 (User, Agency, Document, Project 等)
-├── ai.ts               # AI 功能型別 (GraphNode, IntentParsedResult 等)
+├── api.ts              # 業務實體型別 (User, Agency, Document, Project 等, 1341L)
+├── ai.ts               # AI 型別 barrel re-export (28L, v2.0 拆分)
+├── ai-document.ts      # AI 文件處理型別 (摘要/分類/匹配/配置, 151L)
+├── ai-search.ts        # AI 搜尋型別 (意圖/Embedding/同義詞/Prompt, 332L)
+├── ai-knowledge-graph.ts # AI 知識圖譜型別 (KG/Code Graph/DB Schema, 514L)
+├── ai-services.ts      # AI 服務型別 (RAG/Agent/數位分身/統計, 490L)
 ├── document.ts         # 公文專用型別 (DocumentCreate, DocumentUpdate)
 ├── forms.ts            # 表單共用型別
 ├── admin-system.ts     # 系統管理型別

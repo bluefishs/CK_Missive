@@ -196,6 +196,8 @@ class ProjectService(AuditableServiceMixin):
             skip=query_params.skip,
             limit=query_params.limit,
             rls_filter_fn=rls_filter_fn,
+            sort_by=getattr(query_params, 'sort_by', None),
+            sort_order=getattr(query_params, 'sort_order', 'desc'),
         )
 
         return {"projects": projects, "total": total}

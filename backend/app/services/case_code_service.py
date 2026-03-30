@@ -11,10 +11,10 @@
   GN = 一般委辦 (General，相容既有 contract_projects)
 
 類別代碼 (依模組):
-  PM: 01=測量案, 02=資訊案, 03=規劃案, 04=監造案, 05=複合案, 99=其他
+  PM: 01=委辦招標, 02=承攬報價
   FN: 01=報價單, 02=變更單, 03=追加減, 99=其他
   DP: 01=地上物, 02=土地查估, 03=計畫書, 04=測量, 99=其他
-  GN: 01=委辦案件, 02=協力計畫, 03=小額採購, 04=其他類別
+  GN: 01=委辦招標, 02=承攬報價
 
 範例:
   CK2025_PM_01_001 → 2025年 PM 測量案第1號
@@ -46,12 +46,8 @@ MODULE_CODES = {
 }
 
 PM_CATEGORY_CODES = {
-    "01": "測量案",
-    "02": "資訊案",
-    "03": "規劃案",
-    "04": "監造案",
-    "05": "複合案",
-    "99": "其他",
+    "01": "委辦招標",
+    "02": "承攬報價",
 }
 
 ERP_CATEGORY_CODES = {
@@ -70,10 +66,8 @@ DISPATCH_CATEGORY_CODES = {
 }
 
 GENERAL_CATEGORY_CODES = {
-    "01": "委辦案件",
-    "02": "協力計畫",
-    "03": "小額採購",
-    "04": "其他類別",
+    "01": "委辦招標",
+    "02": "承攬報價",
 }
 
 MODULE_CATEGORIES = {
@@ -203,16 +197,24 @@ class CaseCodeService:
     ) -> str:
         """產生成案專案編號 (project_code)
 
-        格式: CK{年度}_{類別}_{性質}_{流水號}
-        範例: CK2025_01_01_001
+        格式: {年度4碼}_{類別2碼}_{性質2碼}_{流水號3碼}
+        範例: 2026_01_01_001
+
+        類別: 01委辦招標(政府機關), 02承攬報價
+        性質: 01地面測量, 02LiDAR掃描, 03UAV空拍, 04航空測量,
+              05安全檢測, 06建物保存, 07建築線測量, 08透地雷達,
+              09資訊系統, 10技師簽證, 11其他類別
         """
         year_str = str(year) if year > 1911 else str(year + 1911)
         cat_code = category[:2].zfill(2) if category else "01"
         nat_code = case_nature[:2].zfill(2) if case_nature else "01"
-        prefix = f"CK{year_str}_{cat_code}_{nat_code}_"
+        prefix = f"{year_str}_{cat_code}_{nat_code}_"
 
-        # 透過 Repository 查最大流水號
+        # 透過 Repository 查最大流水號 (同時支援新舊格式)
         max_code = await self.project_repo.get_max_project_code_by_prefix(prefix)
+        # 相容舊 CK 前綴
+        if not max_code:
+            max_code = await self.project_repo.get_max_project_code_by_prefix(f"CK{prefix}")
 
         next_serial = 1
         if max_code:
@@ -235,17 +237,22 @@ class CaseCodeService:
         Returns:
             {'project_code': str, 'contract_project_id': int, 'erp_linked': bool}
         """
-        # 1. 查找 PM Case
+        # 1. 查找 PM Case + 狀態檢查
         pm_case = await self.pm_repo.get_by_case_code(case_code)
         if not pm_case:
             raise ValueError(f"找不到案號 {case_code}")
         if pm_case.project_code:
             raise ValueError(f"案號 {case_code} 已成案，project_code={pm_case.project_code}")
+        # 僅「已承攬」狀態允許成案 (planning/closed 不可)
+        blocked_statuses = ("planning", "closed")
+        if pm_case.status in blocked_statuses:
+            raise ValueError(f"案號 {case_code} 狀態為 {pm_case.status}，僅已承攬案件可成案")
 
-        # 2. 產生 project_code
+        # 2. 產生 project_code (含作業性質)
         project_code = await self.generate_project_code(
             year=pm_case.year or 114,
             category=pm_case.category or "01",
+            case_nature=getattr(pm_case, 'case_nature', None) or "01",
         )
 
         # 3. 建立 ContractProject (透過 Repository)
@@ -255,6 +262,7 @@ class CaseCodeService:
             "case_code": case_code,
             "year": pm_case.year,
             "category": pm_case.category,
+            "case_nature": getattr(pm_case, 'case_nature', None),
             "client_agency": pm_case.client_name,
             "contract_amount": float(pm_case.contract_amount) if pm_case.contract_amount else None,
             "start_date": pm_case.start_date,

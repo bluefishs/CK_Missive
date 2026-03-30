@@ -406,6 +406,20 @@ async def digital_twin_health(_current_user: User = Depends(require_auth())):
     return health
 
 
+# ── Predictive Insights ──────────────────────────────────
+
+@router.post("/digital-twin/insights")
+async def get_predictive_insights(_current_user: User = Depends(require_auth())):
+    """
+    數位分身智能洞察 — 品質預測 + 工具降級預警 + 進化信號摘要
+
+    基於 eval_history 線性迴歸預測品質趨勢，
+    基於 tool_monitor 成功率識別即將降級的工具。
+    """
+    result = await DigitalTwinService.get_predictive_insights()
+    return {"success": True, **result}
+
+
 # ── Shared Helper ──────────────────────────────────────────
 
 async def _proxy_task_action(job_id: str, action: str, body: dict):

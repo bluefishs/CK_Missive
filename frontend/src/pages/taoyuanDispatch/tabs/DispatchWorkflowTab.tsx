@@ -14,7 +14,7 @@
  * @date 2026-02-25
  */
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Table,
@@ -23,12 +23,10 @@ import {
   App,
 } from 'antd';
 import { ThunderboltOutlined } from '@ant-design/icons';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../../config/queryConfig';
 
-import { dispatchOrdersApi } from '../../../api/taoyuanDispatchApi';
 import type { WorkRecord } from '../../../types/taoyuan';
-import type { DispatchDocumentLink, LinkType } from '../../../types/api';
+import type { DispatchDocumentLink } from '../../../types/api';
 import { logger } from '../../../services/logger';
 import { exportCorrespondenceMatrix } from '../../../utils/dispatchExportUtils';
 
@@ -41,7 +39,6 @@ import {
 } from '../../../components/taoyuan/workflow';
 import {
   useDispatchWorkData,
-  detectLinkType,
 } from '../../../components/taoyuan/workflow/useDispatchWorkData';
 
 import { WorkflowToolBar } from './workflow/WorkflowToolBar';
@@ -49,23 +46,13 @@ import { InlineDocumentSearch } from './workflow/InlineDocumentSearch';
 import { UnassignedDocumentsList } from './workflow/UnassignedDocumentsList';
 import { AutoMatchModal } from './workflow/AutoMatchModal';
 import { useAutoMatch } from './workflow/useAutoMatch';
+import { useDispatchDocLinking } from './workflow/useDispatchDocLinking';
 
 // =============================================================================
 // Types
 // =============================================================================
 
 type ViewMode = 'chain' | 'correspondence' | 'table';
-
-/** 可關聯公文選項 */
-interface LinkableDocumentOption {
-  id: number;
-  doc_number: string | null;
-  subject: string | null;
-  doc_date: string | null;
-  category: string | null;
-  sender: string | null;
-  receiver: string | null;
-}
 
 export interface DispatchWorkflowTabProps {
   /** 派工單 ID */
@@ -104,15 +91,9 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
   workType,
 }) => {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const { message } = App.useApp();
 
   const [viewMode, setViewMode] = useState<ViewMode>('chain');
-
-  // 公文搜尋相關狀態
-  const [docSearchKeyword, setDocSearchKeyword] = useState('');
-  const [selectedDocId, setSelectedDocId] = useState<number>();
-  const [selectedLinkType, setSelectedLinkType] = useState<LinkType>('agency_incoming');
 
   // ===========================================================================
   // 統一資料
@@ -131,39 +112,15 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
   });
 
   // ===========================================================================
-  // 公文搜尋 Query
+  // 公文關聯 (搜尋 + link/unlink mutations)
   // ===========================================================================
 
-  const linkedDocIds = useMemo(
-    () => linkedDocuments.map((d) => d.document_id),
-    [linkedDocuments],
-  );
-
-  const { data: searchedDocsResult, isLoading: searchingDocs } = useQuery({
-    queryKey: [
-      'documents-for-dispatch-link',
-      docSearchKeyword,
-      linkedDocIds,
-      selectedLinkType,
-      contractProjectId,
-    ],
-    queryFn: async () => {
-      if (!docSearchKeyword.trim()) return { items: [] };
-      return dispatchOrdersApi.searchLinkableDocuments(
-        docSearchKeyword,
-        20,
-        linkedDocIds.length > 0 ? linkedDocIds : undefined,
-        selectedLinkType,
-        contractProjectId,
-      );
-    },
-    enabled: !!docSearchKeyword.trim(),
+  const docLinking = useDispatchDocLinking({
+    dispatchOrderId,
+    linkedDocuments,
+    contractProjectId,
+    onRefetchDispatch,
   });
-
-  const availableDocs = useMemo(
-    () => (searchedDocsResult?.items || []) as LinkableDocumentOption[],
-    [searchedDocsResult?.items],
-  );
 
   // ===========================================================================
   // Mutations
@@ -178,43 +135,14 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
     logPrefix: 'WorkflowTab',
   });
 
-  const linkDocMutation = useMutation({
-    mutationFn: (data: { documentId: number; linkType: LinkType }) =>
-      dispatchOrdersApi.linkDocument(dispatchOrderId, {
-        document_id: data.documentId,
-        link_type: data.linkType,
-      }),
-    onSuccess: () => {
-      message.success('公文關聯成功');
-      setSelectedDocId(undefined);
-      setDocSearchKeyword('');
-      onRefetchDispatch?.();
-      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.dispatch(dispatchOrderId) });
-    },
-    onError: () => message.error('關聯失敗'),
-  });
-
-  const unlinkDocMutation = useMutation({
-    mutationFn: (linkId: number) =>
-      dispatchOrdersApi.unlinkDocument(dispatchOrderId, linkId),
-    onSuccess: () => {
-      message.success('已移除公文關聯');
-      onRefetchDispatch?.();
-      queryClient.invalidateQueries({ queryKey: queryKeys.taoyuanDispatch.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.workRecords.dispatch(dispatchOrderId) });
-    },
-    onError: () => message.error('移除關聯失敗'),
-  });
-
   // ===========================================================================
-  // 自動匹配公文（拆分至 useAutoMatch）
+  // 自動匹配公文
   // ===========================================================================
 
   const autoMatch = useAutoMatch({
     dispatchOrderId,
     projectName,
-    linkedDocIds,
+    linkedDocIds: docLinking.linkedDocIds,
     onRefetchDispatch,
   });
 
@@ -249,47 +177,6 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
       );
     },
     [navigate, dispatchOrderId],
-  );
-
-  const handleLinkDocument = useCallback(() => {
-    if (!selectedDocId) {
-      message.warning('請先選擇要關聯的公文');
-      return;
-    }
-    linkDocMutation.mutate({
-      documentId: selectedDocId,
-      linkType: selectedLinkType,
-    });
-  }, [selectedDocId, selectedLinkType, linkDocMutation, message]);
-
-  const handleUnlinkDocument = useCallback(
-    (linkId: number | undefined) => {
-      if (linkId === undefined || linkId === null) {
-        message.error('關聯資料缺少 link_id，請重新整理頁面');
-        onRefetchDispatch?.();
-        return;
-      }
-      unlinkDocMutation.mutate(linkId);
-    },
-    [unlinkDocMutation, message, onRefetchDispatch],
-  );
-
-  const handleDocumentChange = useCallback(
-    (docId: number | undefined) => {
-      setSelectedDocId(docId);
-      if (docId) {
-        const selectedDoc = availableDocs.find((d) => d.id === docId);
-        if (selectedDoc?.doc_number) {
-          const detected = detectLinkType(selectedDoc.doc_number);
-          if (detected !== selectedLinkType) {
-            const label = detected === 'company_outgoing' ? '乾坤發文' : '機關來函';
-            message.info(`依公文字號建議為「${label}」，已自動切換`);
-            setSelectedLinkType(detected);
-          }
-        }
-      }
-    },
-    [availableDocs, selectedLinkType, message],
   );
 
   const handleQuickCreateRecord = useCallback(
@@ -438,26 +325,26 @@ export const DispatchWorkflowTab: React.FC<DispatchWorkflowTabProps> = ({
           unassignedDocs={unassignedDocs}
           hasCorrespondence={hasCorrespondence}
           canEdit={canEdit}
-          unlinkPending={unlinkDocMutation.isPending}
+          unlinkPending={docLinking.unlinkDocMutation.isPending}
           onDocClick={handleDocClick}
           onQuickCreateRecord={handleQuickCreateRecord}
-          onUnlinkDocument={handleUnlinkDocument}
+          onUnlinkDocument={docLinking.handleUnlinkDocument}
         />
       )}
 
       {/* 行內公文搜尋區（所有視圖通用） */}
       {canEdit && (
         <InlineDocumentSearch
-          availableDocs={availableDocs}
-          selectedDocId={selectedDocId}
-          selectedLinkType={selectedLinkType}
-          docSearchKeyword={docSearchKeyword}
-          searchingDocs={searchingDocs}
-          linkingDoc={linkDocMutation.isPending}
-          onDocumentChange={handleDocumentChange}
-          onSearchKeywordChange={setDocSearchKeyword}
-          onLinkTypeChange={setSelectedLinkType}
-          onLinkDocument={handleLinkDocument}
+          availableDocs={docLinking.availableDocs}
+          selectedDocId={docLinking.selectedDocId}
+          selectedLinkType={docLinking.selectedLinkType}
+          docSearchKeyword={docLinking.docSearchKeyword}
+          searchingDocs={docLinking.searchingDocs}
+          linkingDoc={docLinking.linkDocMutation.isPending}
+          onDocumentChange={docLinking.handleDocumentChange}
+          onSearchKeywordChange={docLinking.setDocSearchKeyword}
+          onLinkTypeChange={docLinking.setSelectedLinkType}
+          onLinkDocument={docLinking.handleLinkDocument}
         />
       )}
 

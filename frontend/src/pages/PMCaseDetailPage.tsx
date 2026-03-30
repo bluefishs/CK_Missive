@@ -39,8 +39,8 @@ const QuotationRecordsTab = lazy(() => import('./pmCase/QuotationRecordsTab'));
 // 承攬狀態：是否承作 → 是=已承攬, 否=未承攬, 其他=評估中
 const STATUS_OPTIONS = [
   { value: 'planning', label: '評估中', color: 'default' },
-  { value: 'in_progress', label: '已承攬', color: 'success' },
-  { value: 'completed', label: '未承攬', color: 'warning' },
+  { value: 'contracted', label: '已承攬', color: 'blue' },
+  { value: 'completed', label: '已結案', color: 'success' },
   { value: 'closed', label: '未得標', color: 'error' },
 ];
 
@@ -55,7 +55,7 @@ export const PMCaseDetailPage: React.FC = () => {
   const pmCaseId = id ? parseInt(id, 10) : null;
 
   const { data: pmCase, isLoading: pmLoading } = usePMCase(pmCaseId);
-  const { clients } = useClientOptions();
+  const { clients, isLoading: clientsLoading } = useClientOptions();
   const [newClientName, setNewClientName] = useState('');
   const handleAddClient = async () => {
     if (!newClientName.trim()) return;
@@ -74,14 +74,15 @@ export const PMCaseDetailPage: React.FC = () => {
   const [form] = Form.useForm();
 
   useEffect(() => {
-    if (pmCase && !isEditing) {
+    if (pmCase) {
       form.setFieldsValue({
         ...pmCase,
+        contract_amount: pmCase.contract_amount ? Number(pmCase.contract_amount) : null,
         start_date: pmCase.start_date ? dayjs(pmCase.start_date) : null,
         end_date: pmCase.end_date ? dayjs(pmCase.end_date) : null,
       });
     }
-  }, [pmCase, isEditing, form]);
+  }, [pmCase, isEditing, form, clients]);
 
   const handleSave = async () => {
     if (!pmCase) return;
@@ -93,19 +94,23 @@ export const PMCaseDetailPage: React.FC = () => {
       const payload: PMCaseUpdate = {
         case_name: values.case_name,
         category: values.category,
+        case_nature: values.case_nature,
         client_vendor_id: values.client_vendor_id,
-        client_name: matchedClient?.vendor_name,
-        contract_amount: values.contract_amount,
+        client_name: matchedClient?.vendor_name ?? pmCase.client_name,
+        contract_amount: values.contract_amount != null ? Number(values.contract_amount) : undefined,
         status: values.status,
         location: values.location,
         notes: values.notes,
       };
       await pmCasesApi.update(pmCase.id, payload);
+      // invalidate 所有 pm-cases 查詢 (key prefix match: 列表 + detail 全部刷新)
+      await queryClient.invalidateQueries({ queryKey: ['pm-cases'] });
       message.success('儲存成功');
       setIsEditing(false);
-      queryClient.invalidateQueries({ queryKey: ['pm-cases'] });
-    } catch {
-      message.error('儲存失敗');
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error('[PM Save Error]', err);
+      message.error(`儲存失敗: ${errMsg.slice(0, 100)}`);
     } finally {
       setSaving(false);
     }
@@ -165,17 +170,17 @@ export const PMCaseDetailPage: React.FC = () => {
         {canWrite && (
           <Button type="primary" icon={<EditOutlined />} onClick={() => setIsEditing(true)}>編輯</Button>
         )}
-        {canWrite && !pmCase?.project_code && pmCase?.status === 'in_progress' && (
+        {canWrite && !pmCase?.project_code && pmCase?.status === 'contracted' && (
           <Popconfirm
             title="確認成案？"
-            description="將自動產生專案編號、建立承攬案件與 ERP 報價連結"
+            description="將自動產生成案編號、建立承攬案件與 ERP 報價連結"
             okText="確認成案" cancelText="取消"
             onConfirm={async () => {
               try {
                 const resp = await apiClient.post<{ success: boolean; data: { project_code: string } }>(
                   '/pm/cases/promote', { case_code: pmCase!.case_code }
                 );
-                message.success(`成案成功，專案編號: ${resp.data.project_code}`);
+                message.success(`成案成功，成案編號: ${resp.data.project_code}`);
                 queryClient.invalidateQueries({ queryKey: ['pm-cases'] });
               } catch { message.error('成案失敗'); }
             }}
@@ -215,7 +220,15 @@ export const PMCaseDetailPage: React.FC = () => {
           <Form.Item name="case_name" label="專案名稱" rules={[{ required: true }]}><Input /></Form.Item>
           <Form.Item name="client_vendor_id" label="委託單位">
             <Select showSearch allowClear placeholder="選擇或新增委託單位" optionFilterProp="label"
-              options={clients.map(c => ({ value: c.id, label: c.vendor_name }))}
+              loading={clientsLoading}
+              options={(() => {
+                const opts = clients.map(c => ({ value: c.id, label: c.vendor_name }));
+                // clients 未載入時用 pmCase.client_name 作為暫時 option，避免顯示 raw ID
+                if (opts.length === 0 && pmCase?.client_vendor_id && pmCase?.client_name) {
+                  return [{ value: pmCase.client_vendor_id, label: pmCase.client_name }];
+                }
+                return opts;
+              })()}
               dropdownRender={(menu) => (
                 <>
                   {menu}
@@ -230,14 +243,29 @@ export const PMCaseDetailPage: React.FC = () => {
               )}
             />
           </Form.Item>
-          <Form.Item name="category" label="作業類別"><Select options={CATEGORY_OPTIONS} allowClear /></Form.Item>
+          <Form.Item name="category" label="計畫類別"><Select options={CATEGORY_OPTIONS} allowClear /></Form.Item>
+          <Form.Item name="case_nature" label="作業性質">
+            <Select allowClear placeholder="選擇作業性質" options={[
+              { value: '01地面測量', label: '01地面測量' },
+              { value: '02LiDAR掃描', label: '02LiDAR掃描' },
+              { value: '03UAV空拍', label: '03UAV空拍' },
+              { value: '04航空測量', label: '04航空測量' },
+              { value: '05安全檢測', label: '05安全檢測' },
+              { value: '06建物保存', label: '06建物保存' },
+              { value: '07建築線測量', label: '07建築線測量' },
+              { value: '08透地雷達', label: '08透地雷達' },
+              { value: '09資訊系統', label: '09資訊系統' },
+              { value: '10技師簽證', label: '10技師簽證' },
+              { value: '11其他類別', label: '11其他類別' },
+            ]} />
+          </Form.Item>
           <Form.Item name="contract_amount" label="報價金額"><InputNumber style={{ width: '100%' }} min={0} /></Form.Item>
           <Form.Item name="location" label="作業地點" style={{ gridColumn: 'span 2' }}><Input /></Form.Item>
           <Form.Item name="status" label="承攬狀態">
             <Select options={[
               { value: 'planning', label: '評估中' },
-              { value: 'in_progress', label: '已承攬' },
-              { value: 'completed', label: '未承攬' },
+              { value: 'contracted', label: '已承攬' },
+              { value: 'completed', label: '已結案' },
               { value: 'closed', label: '未得標' },
             ]} />
           </Form.Item>
@@ -250,8 +278,9 @@ export const PMCaseDetailPage: React.FC = () => {
         <Descriptions.Item label="年度">{pmCase.year ? `${pmCase.year} 年` : '-'}</Descriptions.Item>
         <Descriptions.Item label="案號">{pmCase.case_code}</Descriptions.Item>
         <Descriptions.Item label="專案名稱">{pmCase.case_name}</Descriptions.Item>
-        <Descriptions.Item label="委託單位">{pmCase.client_name || clients.find(c => c.id === pmCase.client_vendor_id)?.vendor_name || '-'}</Descriptions.Item>
-        <Descriptions.Item label="作業類別">{pmCase.category ? (PM_CATEGORY_LABELS[pmCase.category] ?? pmCase.category) : '-'}</Descriptions.Item>
+        <Descriptions.Item label="委託單位">{pmCase.client_name || clients.find(c => c.id === pmCase.client_vendor_id)?.vendor_name || (clientsLoading ? '載入中...' : '-')}</Descriptions.Item>
+        <Descriptions.Item label="計畫類別">{pmCase.category ? (PM_CATEGORY_LABELS[pmCase.category] ?? pmCase.category) : '-'}</Descriptions.Item>
+        <Descriptions.Item label="作業性質">{pmCase.case_nature ?? '-'}</Descriptions.Item>
         <Descriptions.Item label="報價金額">{pmCase.contract_amount ? `NT$${pmCase.contract_amount.toLocaleString()}` : '-'}</Descriptions.Item>
         <Descriptions.Item label="作業地點" span={2}>{pmCase.location ?? '-'}</Descriptions.Item>
         <Descriptions.Item label="承攬狀態">
