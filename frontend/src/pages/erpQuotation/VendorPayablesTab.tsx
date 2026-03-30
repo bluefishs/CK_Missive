@@ -17,6 +17,7 @@ import {
   Input,
   InputNumber,
   DatePicker,
+  Select,
   Popconfirm,
   App,
 } from 'antd';
@@ -33,6 +34,7 @@ import type {
 import { ERP_PAYABLE_STATUS_LABELS } from '../../types/erp';
 import {
   useERPVendorPayables,
+  useERPBillings,
   useCreateERPVendorPayable,
   useUpdateERPVendorPayable,
   useDeleteERPVendorPayable,
@@ -68,6 +70,13 @@ const VendorPayablesTab: React.FC<VendorPayablesTabProps> = ({ erpQuotationId })
 
   // Data
   const { data: payables, isLoading } = useERPVendorPayables(erpQuotationId);
+
+  // 取得期別選項
+  const { data: billings } = useERPBillings(erpQuotationId);
+  const billingOptions = (billings ?? []).map(b => ({
+    value: b.id,
+    label: `${b.billing_period || '未命名'} — ${b.billing_date || ''} (${Number(b.billing_amount || 0).toLocaleString()})`,
+  }));
   const createMutation = useCreateERPVendorPayable();
   const updateMutation = useUpdateERPVendorPayable(erpQuotationId);
   const deleteMutation = useDeleteERPVendorPayable(erpQuotationId);
@@ -281,6 +290,12 @@ const VendorPayablesTab: React.FC<VendorPayablesTabProps> = ({ erpQuotationId })
 
           <Form.Item name="invoice_number" label="發票號碼">
             <Input placeholder="對應發票號碼（選填）" />
+          </Form.Item>
+
+          <Form.Item name="billing_id" label="關聯請款期別">
+            <Select allowClear placeholder="選擇期別 (選填)"
+              options={billingOptions}
+            />
           </Form.Item>
 
           <Form.Item name="notes" label="備註">

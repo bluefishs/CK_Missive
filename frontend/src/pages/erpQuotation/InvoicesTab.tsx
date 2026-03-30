@@ -37,6 +37,7 @@ import {
 } from '../../types/erp';
 import {
   useERPInvoices,
+  useERPBillings,
   useCreateERPInvoice,
   useUpdateERPInvoice,
   useDeleteERPInvoice,
@@ -80,6 +81,13 @@ const InvoicesTab: React.FC<InvoicesTabProps> = ({ erpQuotationId }) => {
   const [form] = Form.useForm();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<ERPInvoice | null>(null);
+
+  // 取得期別選項 (供關聯選擇)
+  const { data: billings } = useERPBillings(erpQuotationId);
+  const billingOptions = (billings ?? []).map(b => ({
+    value: b.id,
+    label: `${b.billing_period || '未命名'} — ${b.billing_date || ''} (${Number(b.billing_amount || 0).toLocaleString()})`,
+  }));
 
   // Data
   const { data: invoices, isLoading } = useERPInvoices(erpQuotationId);
@@ -320,6 +328,12 @@ const InvoicesTab: React.FC<InvoicesTabProps> = ({ erpQuotationId }) => {
                 ),
               )}
             </Select>
+          </Form.Item>
+
+          <Form.Item name="billing_id" label="關聯請款期別">
+            <Select allowClear placeholder="選擇期別 (選填)"
+              options={billingOptions}
+            />
           </Form.Item>
 
           <Form.Item name="description" label="說明">

@@ -8,7 +8,7 @@
  */
 import React from 'react';
 import {
-  Button, Descriptions, Statistic, Row, Col, Card, Alert, Popconfirm, App,
+  Button, Descriptions, Statistic, Row, Col, Card, Alert, Popconfirm, App, Tabs,
 } from 'antd';
 import {
   EditOutlined, DeleteOutlined, DollarOutlined,
@@ -109,14 +109,14 @@ export const ERPQuotationDetailPage: React.FC = () => {
         </Descriptions>
       </div>
     )),
-    createTabItem('invoices', { icon: <FileTextOutlined />, text: '發票', count: quotation.invoice_count }, (
-      id ? <InvoicesTab erpQuotationId={Number(id)} /> : null
-    )),
-    createTabItem('billings', { icon: <BankOutlined />, text: '請款', count: quotation.billing_count }, (
-      id ? <BillingsTab erpQuotationId={Number(id)} /> : null
-    )),
-    createTabItem('payables', { icon: <DollarOutlined />, text: '廠商應付' }, (
-      id ? <VendorPayablesTab erpQuotationId={Number(id)} /> : null
+    createTabItem('financial', { icon: <BankOutlined />, text: '請款管理', count: (quotation.billing_count || 0) + (quotation.invoice_count || 0) }, (
+      id ? (
+        <Tabs defaultActiveKey="billings" size="small" items={[
+          { key: 'billings', label: <><BankOutlined /> 請款紀錄</>, children: <BillingsTab erpQuotationId={Number(id)} /> },
+          { key: 'invoices', label: <><FileTextOutlined /> 發票管理</>, children: <InvoicesTab erpQuotationId={Number(id)} /> },
+          { key: 'payables', label: <><DollarOutlined /> 廠商應付</>, children: <VendorPayablesTab erpQuotationId={Number(id)} /> },
+        ]} />
+      ) : null
     )),
     createTabItem('trend', { icon: <LineChartOutlined />, text: '損益趨勢' }, (
       <ProfitTrendTab />
