@@ -77,14 +77,36 @@ export const ERPQuotationDetailPage: React.FC = () => {
   const tabs = quotation ? [
     createTabItem('info', { icon: <InfoCircleOutlined />, text: '成本結構' }, (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {/* 統計卡片 */}
-        <Row gutter={[16, 16]}>
-          <Col xs={12} sm={4}><Card size="small"><Statistic title="總價" value={Number(quotation.total_price ?? 0)} precision={0} /></Card></Col>
-          <Col xs={12} sm={4}><Card size="small"><Statistic title="成本" value={Number(quotation.total_cost)} precision={0} /></Card></Col>
-          <Col xs={12} sm={4}><Card size="small"><Statistic title="毛利" value={grossProfit} precision={0} styles={{ content: { color: grossProfit >= 0 ? '#3f8600' : '#cf1322' } }} /></Card></Col>
-          <Col xs={12} sm={4}><Card size="small"><Statistic title="毛利率" value={quotation.gross_margin ? Number(quotation.gross_margin) : 0} suffix="%" precision={1} /></Card></Col>
-          <Col xs={12} sm={4}><Card size="small"><Statistic title="已請款" value={Number(quotation.total_billed)} precision={0} /></Card></Col>
-          <Col xs={12} sm={4}><Card size="small"><Statistic title="已收款" value={Number(quotation.total_received)} precision={0} /></Card></Col>
+        {/* 合約概況 */}
+        <Card size="small" title="合約概況">
+          <Row gutter={[16, 16]}>
+            <Col xs={12} sm={6}><Statistic title="合約總價" value={Number(quotation.total_price ?? 0)} precision={0} /></Col>
+            <Col xs={12} sm={6}><Statistic title="估計成本" value={Number(quotation.total_cost)} precision={0} /></Col>
+            <Col xs={12} sm={6}><Statistic title="預估毛利" value={grossProfit} precision={0} styles={{ content: { color: grossProfit >= 0 ? '#3f8600' : '#cf1322' } }} /></Col>
+            <Col xs={12} sm={6}><Statistic title="毛利率" value={quotation.gross_margin ? Number(quotation.gross_margin) : 0} suffix="%" precision={1} /></Col>
+          </Row>
+        </Card>
+
+        {/* 應收/應付概況 */}
+        <Row gutter={16}>
+          <Col xs={24} sm={12}>
+            <Card size="small" title="應收概況 (委託單位)">
+              <Row gutter={[16, 8]}>
+                <Col span={8}><Statistic title="已請款" value={Number(quotation.total_billed)} precision={0} /></Col>
+                <Col span={8}><Statistic title="已收款" value={Number(quotation.total_received)} precision={0} styles={{ content: { color: '#52c41a' } }} /></Col>
+                <Col span={8}><Statistic title="未收款" value={Number(quotation.total_billed) - Number(quotation.total_received)} precision={0} styles={{ content: { color: Number(quotation.total_billed) > Number(quotation.total_received) ? '#ff4d4f' : '#52c41a' } }} /></Col>
+              </Row>
+            </Card>
+          </Col>
+          <Col xs={24} sm={12}>
+            <Card size="small" title="應付概況 (協力廠商)">
+              <Row gutter={[16, 8]}>
+                <Col span={8}><Statistic title="應付總額" value={Number(quotation.total_payable)} precision={0} /></Col>
+                <Col span={8}><Statistic title="已付款" value={Number(quotation.total_paid)} precision={0} styles={{ content: { color: '#52c41a' } }} /></Col>
+                <Col span={8}><Statistic title="未付款" value={Number(quotation.total_payable) - Number(quotation.total_paid)} precision={0} styles={{ content: { color: Number(quotation.total_payable) > Number(quotation.total_paid) ? '#ff4d4f' : '#52c41a' } }} /></Col>
+              </Row>
+            </Card>
+          </Col>
         </Row>
 
         {quotation.budget_limit && (
@@ -95,11 +117,12 @@ export const ERPQuotationDetailPage: React.FC = () => {
           />
         )}
 
-        <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small">
+        {/* 合約明細 */}
+        <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small" title="合約明細">
           <Descriptions.Item label="案號">{quotation.case_code}</Descriptions.Item>
           <Descriptions.Item label="案名">{quotation.case_name ?? '-'}</Descriptions.Item>
           <Descriptions.Item label="年度">{quotation.year ?? '-'}</Descriptions.Item>
-          <Descriptions.Item label="總價">{Number(quotation.total_price ?? 0).toLocaleString()}</Descriptions.Item>
+          <Descriptions.Item label="合約總價">{Number(quotation.total_price ?? 0).toLocaleString()}</Descriptions.Item>
           <Descriptions.Item label="稅額">{Number(quotation.tax_amount).toLocaleString()}</Descriptions.Item>
           <Descriptions.Item label="外包費">{Number(quotation.outsourcing_fee).toLocaleString()}</Descriptions.Item>
           <Descriptions.Item label="人事費">{Number(quotation.personnel_fee).toLocaleString()}</Descriptions.Item>
