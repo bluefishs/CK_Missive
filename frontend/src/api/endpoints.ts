@@ -944,6 +944,10 @@ export const PM_ENDPOINTS = {
   MILESTONES_UPDATE: '/pm/milestones/update',
   /** 刪除里程碑 POST /pm/milestones/delete */
   MILESTONES_DELETE: '/pm/milestones/delete',
+  /** 匯出里程碑 XLSX POST /pm/milestones/export-xlsx */
+  MILESTONES_EXPORT: '/pm/milestones/export-xlsx',
+  /** 匯入里程碑 XLSX POST /pm/milestones/import-xlsx */
+  MILESTONES_IMPORT: '/pm/milestones/import-xlsx',
   /** 人員列表 POST /pm/staff/list */
   STAFF_LIST: '/pm/staff/list',
   /** 建立人員 POST /pm/staff/create */

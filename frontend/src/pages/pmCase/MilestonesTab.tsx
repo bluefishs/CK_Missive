@@ -5,7 +5,8 @@
  */
 import { useState, useCallback } from 'react';
 import { Table, Button, Modal, Form, Input, Select, DatePicker, Tag, Popconfirm, Space, message } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons';
+import { Upload } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import type { PMMilestone, PMMilestoneType, PMMilestoneStatus } from '../../types/pm';
@@ -206,9 +207,45 @@ export default function MilestonesTab({ pmCaseId }: MilestonesTabProps) {
   return (
     <>
       <div style={{ marginBottom: 16 }}>
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-          新增里程碑
-        </Button>
+        <Space>
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+            新增里程碑
+          </Button>
+          <Button icon={<DownloadOutlined />} onClick={async () => {
+            try {
+              const resp = await fetch('/api/pm/milestones/export-xlsx', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pm_case_id: pmCaseId }),
+              });
+              if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+              const blob = await resp.blob();
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a'); a.href = url;
+              a.download = `milestones_${pmCaseId}.xlsx`; a.click();
+              URL.revokeObjectURL(url);
+              message.success('匯出成功');
+            } catch { message.error('匯出失敗'); }
+          }}>
+            匯出 XLSX
+          </Button>
+          <Upload accept=".xlsx,.xls" showUploadList={false} beforeUpload={async (file) => {
+            try {
+              message.loading({ content: '匯入中...', key: 'ms-import' });
+              const formData = new FormData(); formData.append('file', file);
+              const resp = await fetch('/api/pm/milestones/import-xlsx', { method: 'POST', body: formData });
+              const result = await resp.json();
+              if (result.success) {
+                message.success({ content: `匯入完成: 新增 ${result.created} 筆, 更新 ${result.updated} 筆`, key: 'ms-import', duration: 5 });
+                window.location.reload();
+              } else {
+                message.error({ content: result.error || '匯入失敗', key: 'ms-import' });
+              }
+            } catch { message.error({ content: '匯入失敗', key: 'ms-import' }); }
+            return false;
+          }}>
+            <Button icon={<UploadOutlined />}>匯入 XLSX</Button>
+          </Upload>
+        </Space>
       </div>
 
       <Table<PMMilestone>
