@@ -50,6 +50,7 @@ VALID_NAVIGATION_PATHS: Set[str] = {
     "/admin/knowledge-base",
     "/admin/login-history",
     "/admin/security-center",
+    "/admin/case-nature",
 
     # AI 功能
     "/ai/knowledge-graph",
@@ -107,6 +108,7 @@ PATH_DESCRIPTIONS = {
     "/admin/ai-assistant": "AI 助理管理",
     "/admin/knowledge-base": "知識庫瀏覽器",
     "/admin/security-center": "資安管理中心",
+    "/admin/case-nature": "作業性質代碼管理",
     "/admin/login-history": "登入歷史",
     "/ai/knowledge-graph": "公文圖譜",
     "/ai/skills-map": "Skills 能力圖譜",

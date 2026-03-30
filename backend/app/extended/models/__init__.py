@@ -45,6 +45,7 @@ from .system import (
     SystemNotification,
     UserSession,
     SiteNavigationItem,
+    CaseNatureCode,
     SiteConfiguration,
     AIPromptVersion,
     AISearchHistory,

@@ -78,6 +78,7 @@ export const ROUTES = {
   ADMIN_DASHBOARD: '/admin/dashboard',
   BACKUP_MANAGEMENT: '/admin/backup',
   DEPLOYMENT_MANAGEMENT: '/admin/deployment',
+  CASE_NATURE_MANAGEMENT: '/admin/case-nature',
   // AI 管理（同義詞與 Prompt 管理已整合至 AI 助理管理 Tab 分頁）
   AI_ASSISTANT_MANAGEMENT: '/admin/ai-assistant',
   // 知識圖譜探索（獨立全螢幕頁面）

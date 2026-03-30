@@ -974,6 +974,16 @@ export const PM_ENDPOINTS = {
   EXPORT: '/pm/cases/export',
   /** 多年度趨勢 POST /pm/cases/yearly-trend */
   YEARLY_TREND: '/pm/cases/yearly-trend',
+  /** 作業性質代碼列表 POST /pm/case-nature/list */
+  CASE_NATURE_LIST: '/pm/case-nature/list',
+  /** 作業性質下拉選項 POST /pm/case-nature/options */
+  CASE_NATURE_OPTIONS: '/pm/case-nature/options',
+  /** 新增作業性質 POST /pm/case-nature/create */
+  CASE_NATURE_CREATE: '/pm/case-nature/create',
+  /** 更新作業性質 POST /pm/case-nature/update */
+  CASE_NATURE_UPDATE: '/pm/case-nature/update',
+  /** 停用作業性質 POST /pm/case-nature/delete */
+  CASE_NATURE_DELETE: '/pm/case-nature/delete',
 } as const;
 
 // ============================================================================

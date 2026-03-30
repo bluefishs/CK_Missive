@@ -28,10 +28,10 @@ import dayjs from 'dayjs';
 import type { CaseInfoTabProps } from './types';
 import {
   CATEGORY_OPTIONS,
-  CASE_NATURE_OPTIONS,
   STATUS_OPTIONS,
 } from './constants';
 import { parseCurrencyInput } from '../../../utils/format';
+import { useCaseNatureOptions } from '../../../hooks/business/useDropdownData';
 
 const { Text } = Typography;
 const { Option } = Select;
@@ -57,15 +57,8 @@ const getCategoryTagText = (category?: string) => {
   return categoryOption?.label || category || '未分類';
 };
 
-const getCaseNatureTagColor = (caseNature?: string) => {
-  const option = CASE_NATURE_OPTIONS.find(c => c.value === caseNature);
-  return option?.color || 'default';
-};
-
-const getCaseNatureTagText = (caseNature?: string) => {
-  const option = CASE_NATURE_OPTIONS.find(c => c.value === caseNature);
-  return option?.label || caseNature || '未設定';
-};
+const getCaseNatureTagColor = (_caseNature?: string) => 'blue';
+const getCaseNatureTagText = (caseNature?: string) => caseNature || '未設定';
 
 const formatAmount = (amount?: number) => {
   if (!amount) return '-';
@@ -80,6 +73,7 @@ export const CaseInfoTab: React.FC<CaseInfoTabProps> = ({
   onSave,
   calculateProgress,
 }) => {
+  const { caseNatureOptions } = useCaseNatureOptions();
   const progress = calculateProgress();
 
   const startEdit = () => {
@@ -185,11 +179,7 @@ export const CaseInfoTab: React.FC<CaseInfoTabProps> = ({
               </Col>
               <Col span={12}>
                 <Form.Item name="case_nature" label="作業性質">
-                  <Select placeholder="請選擇作業性質">
-                    {CASE_NATURE_OPTIONS.map(opt => (
-                      <Option key={opt.value} value={opt.value}>{opt.label}</Option>
-                    ))}
-                  </Select>
+                  <Select placeholder="請選擇作業性質" options={caseNatureOptions} />
                 </Form.Item>
               </Col>
               <Col span={12}>

@@ -67,6 +67,20 @@ class SiteNavigationItem(Base):
     updated_at = Column(DateTime, server_default=func.now(), comment="更新時間")
 
 
+class CaseNatureCode(Base):
+    """作業性質代碼管理"""
+    __tablename__ = "case_nature_codes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(10), unique=True, nullable=False, comment="代碼 (01, 02...)")
+    label = Column(String(100), nullable=False, comment="標籤 (地面測量, LiDAR掃描...)")
+    description = Column(String(500), comment="說明")
+    sort_order = Column(Integer, default=0, comment="排序")
+    is_active = Column(Boolean, default=True, comment="是否啟用")
+    created_at = Column(DateTime, server_default=func.now(), comment="建立時間")
+    updated_at = Column(DateTime, server_default=func.now(), comment="更新時間")
+
+
 class SiteConfiguration(Base):
     """網站配置模型"""
     __tablename__ = "site_configurations"

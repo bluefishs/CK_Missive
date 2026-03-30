@@ -14,7 +14,7 @@ import { ArrowLeftOutlined, SaveOutlined, RocketOutlined, PlusOutlined } from '@
 import { useParams, useNavigate } from 'react-router-dom';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { usePMCase, useCreatePMCase, useUpdatePMCase } from '../hooks';
-import { useClientOptions } from '../hooks/business/useDropdownData';
+import { useClientOptions, useCaseNatureOptions } from '../hooks/business/useDropdownData';
 import { useQueryClient } from '@tanstack/react-query';
 import { vendorsApi } from '../api/vendorsApi';
 import { PM_CATEGORY_LABELS } from '../types/api';
@@ -40,6 +40,7 @@ export const PMCaseFormPage: React.FC = () => {
 
   const { data: existingCase, isLoading: loadingCase } = usePMCase(caseId);
   const { clients } = useClientOptions();
+  const { caseNatureOptions } = useCaseNatureOptions();
   const qc = useQueryClient();
   const [newClientName, setNewClientName] = useState('');
 
@@ -162,19 +163,7 @@ export const PMCaseFormPage: React.FC = () => {
               </Col>
               <Col xs={24} sm={12}>
                 <Form.Item name="case_nature" label="作業性質">
-                  <Select allowClear placeholder="選擇作業性質" options={[
-                    { value: '01地面測量', label: '01地面測量' },
-                    { value: '02LiDAR掃描', label: '02LiDAR掃描' },
-                    { value: '03UAV空拍', label: '03UAV空拍' },
-                    { value: '04航空測量', label: '04航空測量' },
-                    { value: '05安全檢測', label: '05安全檢測' },
-                    { value: '06建物保存', label: '06建物保存' },
-                    { value: '07建築線測量', label: '07建築線測量' },
-                    { value: '08透地雷達', label: '08透地雷達' },
-                    { value: '09資訊系統', label: '09資訊系統' },
-                    { value: '10技師簽證', label: '10技師簽證' },
-                    { value: '11其他類別', label: '11其他類別' },
-                  ]} />
+                  <Select allowClear placeholder="選擇作業性質" options={caseNatureOptions} />
                 </Form.Item>
               </Col>
             </Row>

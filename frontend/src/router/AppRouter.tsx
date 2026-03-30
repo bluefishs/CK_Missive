@@ -110,6 +110,7 @@ const DigitalTwinPage = lazy(() => import('../pages/DigitalTwinPage'));
 
 // 資安管理
 const SecurityCenterPage = lazy(() => import('../pages/SecurityCenterPage'));
+const CaseNatureManagementPage = lazy(() => import('../pages/CaseNatureManagementPage'));
 const AdminLoginHistoryPage = lazy(() => import('../pages/AdminLoginHistoryPage'));
 
 // ProtectedRoute 已移至獨立模組：./ProtectedRoute.tsx
@@ -251,6 +252,8 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.DIGITAL_TWIN} element={<ProtectedRoute><DigitalTwinPage /></ProtectedRoute>} />
           {/* 資安管理中心 */}
           <Route path={ROUTES.SECURITY_CENTER} element={<ProtectedRoute requireAuth={true} roles={['admin']}><SecurityCenterPage /></ProtectedRoute>} />
+          {/* 作業性質代碼管理 */}
+          <Route path={ROUTES.CASE_NATURE_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><CaseNatureManagementPage /></ProtectedRoute>} />
           {/* 知識庫瀏覽器 */}
           <Route path={ROUTES.KNOWLEDGE_BASE} element={<ProtectedRoute requireAuth={true} roles={['admin']}><KnowledgeBasePage /></ProtectedRoute>} />
 

@@ -19,7 +19,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { usePMCase, useAuthGuard } from '../hooks';
-import { useClientOptions } from '../hooks/business/useDropdownData';
+import { useClientOptions, useCaseNatureOptions } from '../hooks/business/useDropdownData';
 import { vendorsApi } from '../api/vendorsApi';
 import { apiClient } from '../api/client';
 import { projectsApi } from '../api/projectsApi';
@@ -56,6 +56,7 @@ export const PMCaseDetailPage: React.FC = () => {
 
   const { data: pmCase, isLoading: pmLoading } = usePMCase(pmCaseId);
   const { clients, isLoading: clientsLoading } = useClientOptions();
+  const { caseNatureOptions } = useCaseNatureOptions();
   const [newClientName, setNewClientName] = useState('');
   const handleAddClient = async () => {
     if (!newClientName.trim()) return;
@@ -245,19 +246,7 @@ export const PMCaseDetailPage: React.FC = () => {
           </Form.Item>
           <Form.Item name="category" label="計畫類別"><Select options={CATEGORY_OPTIONS} allowClear /></Form.Item>
           <Form.Item name="case_nature" label="作業性質">
-            <Select allowClear placeholder="選擇作業性質" options={[
-              { value: '01地面測量', label: '01地面測量' },
-              { value: '02LiDAR掃描', label: '02LiDAR掃描' },
-              { value: '03UAV空拍', label: '03UAV空拍' },
-              { value: '04航空測量', label: '04航空測量' },
-              { value: '05安全檢測', label: '05安全檢測' },
-              { value: '06建物保存', label: '06建物保存' },
-              { value: '07建築線測量', label: '07建築線測量' },
-              { value: '08透地雷達', label: '08透地雷達' },
-              { value: '09資訊系統', label: '09資訊系統' },
-              { value: '10技師簽證', label: '10技師簽證' },
-              { value: '11其他類別', label: '11其他類別' },
-            ]} />
+            <Select allowClear placeholder="選擇作業性質" options={caseNatureOptions} />
           </Form.Item>
           <Form.Item name="contract_amount" label="報價金額"><InputNumber style={{ width: '100%' }} min={0} /></Form.Item>
           <Form.Item name="location" label="作業地點" style={{ gridColumn: 'span 2' }}><Input /></Form.Item>

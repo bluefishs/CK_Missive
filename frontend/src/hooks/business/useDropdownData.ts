@@ -77,6 +77,20 @@ export const useClientOptions = () => {
   return { clients: data ?? [], isLoading };
 };
 
+/** 作業性質下拉選項 (從 DB 取得) */
+export const useCaseNatureOptions = () => {
+  const { data, isLoading } = useQuery({
+    queryKey: ['case-nature-options'],
+    queryFn: async () => {
+      const { apiClient } = await import('../../api/client');
+      return apiClient.post<{ value: string; label: string }[]>('/pm/case-nature/options', {});
+    },
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+  return { caseNatureOptions: data ?? [], isLoading };
+};
+
 /** 檔案設定預設值 */
 const DEFAULT_FILE_SETTINGS = {
   allowedExtensions: ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.jpg', '.png', '.zip'],
