@@ -1024,6 +1024,8 @@ export const ERP_ENDPOINTS = {
   BILLINGS_UPDATE: '/erp/billings/update',
   /** 刪除請款 POST /erp/billings/delete */
   BILLINGS_DELETE: '/erp/billings/delete',
+  /** 請款期別整合視圖 POST /erp/billings/list-with-details */
+  BILLINGS_LIST_DETAILS: '/erp/billings/list-with-details',
   /** 廠商應付列表 POST /erp/vendor-payables/list */
   VENDOR_PAYABLES_LIST: '/erp/vendor-payables/list',
   /** 建立廠商應付 POST /erp/vendor-payables/create */

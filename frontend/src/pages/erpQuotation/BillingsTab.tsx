@@ -20,8 +20,10 @@ import {
   Select,
   Popconfirm,
   App,
+  Typography,
+  Empty,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, FileTextOutlined, DollarOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 
@@ -32,6 +34,19 @@ import type {
   ERPBillingStatus,
 } from '../../types/erp';
 import { ERP_BILLING_STATUS_LABELS } from '../../types/erp';
+import { useQuery } from '@tanstack/react-query';
+
+// 期別整合型別
+interface BillingWithDetails {
+  id: number;
+  billing_period?: string;
+  billing_date?: string;
+  billing_amount: number;
+  payment_status: string;
+  invoices: Array<{ id: number; invoice_number: string; invoice_date?: string; amount: number; status: string }>;
+  vendor_payables: Array<{ id: number; vendor_name: string; payable_amount: number; payment_status: string; description?: string }>;
+}
+
 import {
   useERPBillings,
   useCreateERPBilling,
@@ -70,6 +85,20 @@ const BillingsTab: React.FC<BillingsTabProps> = ({ erpQuotationId }) => {
 
   // Data
   const { data: billings, isLoading } = useERPBillings(erpQuotationId);
+
+  // 期別整合視圖 — 含關聯發票+廠商應付
+  const { data: billingsWithDetails } = useQuery({
+    queryKey: ['erp-billings-details', erpQuotationId],
+    queryFn: async () => {
+      const { apiClient } = await import('../../api/client');
+      const resp = await apiClient.post<{ success: boolean; data: BillingWithDetails[] }>(
+        '/erp/billings/list-with-details',
+        { erp_quotation_id: erpQuotationId },
+      );
+      return resp.data;
+    },
+    staleTime: 60_000,
+  });
   const createMutation = useCreateERPBilling();
   const updateMutation = useUpdateERPBilling(erpQuotationId);
   const deleteMutation = useDeleteERPBilling(erpQuotationId);
@@ -234,6 +263,48 @@ const BillingsTab: React.FC<BillingsTabProps> = ({ erpQuotationId }) => {
         loading={isLoading}
         size="small"
         pagination={{ pageSize: 10, showSizeChanger: false, showTotal: (total) => `共 ${total} 筆` }}
+        expandable={{
+          expandedRowRender: (record) => {
+            const detail = billingsWithDetails?.find(d => d.id === record.id);
+            if (!detail) return <Typography.Text type="secondary">載入中...</Typography.Text>;
+            const hasInvoices = detail.invoices.length > 0;
+            const hasPayables = detail.vendor_payables.length > 0;
+            if (!hasInvoices && !hasPayables) {
+              return <Empty description="本期尚無關聯發票或廠商應付" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+            }
+            return (
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                {hasInvoices && (
+                  <div style={{ flex: 1, minWidth: 300 }}>
+                    <Typography.Text strong><FileTextOutlined /> 關聯發票 ({detail.invoices.length})</Typography.Text>
+                    <Table size="small" dataSource={detail.invoices} rowKey="id" pagination={false} style={{ marginTop: 8 }}
+                      columns={[
+                        { title: '發票號碼', dataIndex: 'invoice_number', width: 120 },
+                        { title: '日期', dataIndex: 'invoice_date', width: 100 },
+                        { title: '金額', dataIndex: 'amount', width: 100, render: (v: number) => v?.toLocaleString() },
+                        { title: '狀態', dataIndex: 'status', width: 80, render: (s: string) => <Tag color={s === 'issued' ? 'green' : 'red'}>{s === 'issued' ? '已開立' : s}</Tag> },
+                      ]}
+                    />
+                  </div>
+                )}
+                {hasPayables && (
+                  <div style={{ flex: 1, minWidth: 300 }}>
+                    <Typography.Text strong><DollarOutlined /> 廠商應付 ({detail.vendor_payables.length})</Typography.Text>
+                    <Table size="small" dataSource={detail.vendor_payables} rowKey="id" pagination={false} style={{ marginTop: 8 }}
+                      columns={[
+                        { title: '廠商', dataIndex: 'vendor_name', width: 140 },
+                        { title: '應付金額', dataIndex: 'payable_amount', width: 100, render: (v: number) => v?.toLocaleString() },
+                        { title: '狀態', dataIndex: 'payment_status', width: 80, render: (s: string) => <Tag color={s === 'paid' ? 'green' : s === 'partial' ? 'orange' : 'default'}>{s === 'paid' ? '已付' : s === 'partial' ? '部分' : '未付'}</Tag> },
+                        { title: '說明', dataIndex: 'description', ellipsis: true },
+                      ]}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          },
+          rowExpandable: () => true,
+        }}
       />
 
       <Modal

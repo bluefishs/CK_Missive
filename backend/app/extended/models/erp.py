@@ -83,9 +83,14 @@ class ERPInvoice(Base):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
+    # 請款期別關聯 (optional)
+    billing_id = Column(Integer, ForeignKey("erp_billings.id", ondelete="SET NULL"),
+                        nullable=True, index=True, comment="關聯請款期別")
+
     # 關聯
     quotation = relationship("ERPQuotation", back_populates="invoices")
-    billings = relationship("ERPBilling", back_populates="invoice")
+    billings = relationship("ERPBilling", back_populates="invoice", foreign_keys="ERPBilling.invoice_id")
+    billing = relationship("ERPBilling", foreign_keys=[billing_id], overlaps="billings")
 
 
 class ERPBilling(Base):
@@ -116,7 +121,10 @@ class ERPBilling(Base):
 
     # 關聯
     quotation = relationship("ERPQuotation", back_populates="billings")
-    invoice = relationship("ERPInvoice", back_populates="billings")
+    invoice = relationship("ERPInvoice", back_populates="billings", foreign_keys=[invoice_id])
+    # 反向: 本期關聯的發票和應付
+    linked_invoices = relationship("ERPInvoice", foreign_keys="ERPInvoice.billing_id", viewonly=True)
+    linked_payables = relationship("ERPVendorPayable", foreign_keys="ERPVendorPayable.billing_id", viewonly=True)
 
 
 class ERPVendorPayable(Base):
@@ -132,6 +140,8 @@ class ERPVendorPayable(Base):
                          comment="廠商代碼 (軟參照 partner_vendors.vendor_code)")
     vendor_id = Column(Integer, ForeignKey("partner_vendors.id", ondelete="SET NULL"),
                        nullable=True, index=True, comment="廠商 ID (強參照)")
+    billing_id = Column(Integer, ForeignKey("erp_billings.id", ondelete="SET NULL"),
+                        nullable=True, index=True, comment="關聯請款期別")
     payable_amount = Column(Numeric(15, 2), nullable=False, comment="應付金額")
     description = Column(String(300), comment="項目說明")
 
@@ -150,3 +160,4 @@ class ERPVendorPayable(Base):
     # 關聯
     quotation = relationship("ERPQuotation", back_populates="vendor_payables")
     vendor = relationship("PartnerVendor", foreign_keys=[vendor_id])
+    billing = relationship("ERPBilling", foreign_keys=[billing_id], viewonly=True)
