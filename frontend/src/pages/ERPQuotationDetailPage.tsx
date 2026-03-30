@@ -92,9 +92,10 @@ export const ERPQuotationDetailPage: React.FC = () => {
           <Col xs={24} sm={12}>
             <Card size="small" title="應收概況 (委託單位)">
               <Row gutter={[16, 8]}>
-                <Col span={8}><Statistic title="已請款" value={Number(quotation.total_billed)} precision={0} /></Col>
-                <Col span={8}><Statistic title="已收款" value={Number(quotation.total_received)} precision={0} styles={{ content: { color: '#52c41a' } }} /></Col>
-                <Col span={8}><Statistic title="未收款" value={Number(quotation.total_billed) - Number(quotation.total_received)} precision={0} styles={{ content: { color: Number(quotation.total_billed) > Number(quotation.total_received) ? '#ff4d4f' : '#52c41a' } }} /></Col>
+                <Col span={6}><Statistic title="應收總額" value={Number(quotation.total_price ?? 0)} precision={0} /></Col>
+                <Col span={6}><Statistic title="已請款" value={Number(quotation.total_billed)} precision={0} /></Col>
+                <Col span={6}><Statistic title="已收款" value={Number(quotation.total_received)} precision={0} styles={{ content: { color: '#52c41a' } }} /></Col>
+                <Col span={6}><Statistic title="未收款" value={Number(quotation.total_price ?? 0) - Number(quotation.total_received)} precision={0} styles={{ content: { color: Number(quotation.total_price ?? 0) > Number(quotation.total_received) ? '#ff4d4f' : '#52c41a' } }} /></Col>
               </Row>
             </Card>
           </Col>
