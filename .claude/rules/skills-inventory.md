@@ -122,6 +122,58 @@
 
 ---
 
+## v5.3.17 ERP 模組全面擴展 (2026-03-31)
+
+### 新增模組
+
+| 模組 | 類型 | 說明 |
+|------|------|------|
+| `extended/models/asset.py` | ORM | Asset + AssetLog 資產管理模型 |
+| `schemas/erp/asset.py` | Schema | 資產 CRUD + 盤點 + 匯出入 Schemas |
+| `repositories/erp/asset_repository.py` | Repo | AssetRepository + AssetLogRepository |
+| `repositories/erp/client_receivable_repository.py` | Repo | 委託單位跨案件應收查詢 |
+| `services/erp/asset_service.py` | Service | 資產管理 (CRUD+盤點+匯出入+發票關聯) |
+| `api/endpoints/erp/assets.py` | API | 資產管理 13 端點 |
+| `api/endpoints/erp/vendor_accounts.py` | API | 廠商帳款 2 端點 |
+| `api/endpoints/erp/client_accounts.py` | API | 委託帳款 2 端點 |
+| `pages/ERPHubPage.tsx` | Page | ERP 入口 9 模組卡片+統計 (133L) |
+| `pages/ERPInvoiceSummaryPage.tsx` | Page | 發票跨案件查詢 (168L) |
+| `pages/ERPVendorAccountsPage.tsx` | Page | 廠商帳款列表 (211L) |
+| `pages/ERPVendorAccountDetailPage.tsx` | Page | 廠商帳款詳情 3-Tab (186L) |
+| `pages/ERPClientAccountsPage.tsx` | Page | 委託帳款列表 (232L) |
+| `pages/ERPClientAccountDetailPage.tsx` | Page | 委託帳款詳情 3-Tab (189L) |
+| `pages/ERPAssetListPage.tsx` | Page | 資產列表+統計+匯出入+盤點 (344L) |
+| `pages/ERPAssetDetailPage.tsx` | Page | 資產詳情 3-Tab (293L) |
+| `pages/ERPAssetFormPage.tsx` | Page | 資產表單 (221L) |
+
+### 後端端點拆分
+
+| 原檔案 | 行數 | 拆分結果 |
+|--------|------|---------|
+| graph_query.py | 886L | graph_entity (229L) + graph_admin (286L) + graph_unified (428L) |
+| dispatch_document_links.py | 736L | dispatch_doc_link_crud + document_dispatch_links + dispatch_correspondence |
+| user_management.py | 721L | user_management (235L) + user_permissions (292L) + role_permissions (236L) |
+| events.py | 684L | events (296L) + events_create (273L) + events_batch (172L) |
+| document_numbers.py | 562L | document_numbers (376L) + document_numbers_crud (231L) |
+| documents/crud.py | 554L | crud (363L) + delete (220L) |
+| ai/ai_stats.py | 532L | ai_stats (218L) + ai_monitoring (342L) |
+
+### 品質指標 (v5.3.17)
+
+| 維度 | 值 |
+|------|-----|
+| TypeScript | **0 errors** |
+| ESLint | **0 errors** |
+| ERP API 端點 | **72** |
+| ERP 前端頁面 | **17** |
+| ERP 路由 | **27** |
+| 後端端點 >500L | **3** (dispatch 526L, deployment 513L, list 501L) |
+| isError 覆蓋 | **100%** |
+| ROUTES 覆蓋 | **100%** (0 硬編碼) |
+| `as any` | **0** |
+
+---
+
 ## v5.3.8 ERP 成本結構 + 帳齡分析 + 作業性質管理 (2026-03-30)
 
 ### 新增模組

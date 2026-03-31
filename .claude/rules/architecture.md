@@ -51,7 +51,8 @@ backend/app/extended/models/
 ├── agent_learning.py    # Agent 學習持久化 (AgentLearning)
 ├── document_chunk.py    # 文件分段 (DocumentChunk, BM25 tsvector)
 ├── invoice.py           # 費用報銷 (ExpenseInvoice, ExpenseInvoiceItem)
-└── finance.py           # 統一帳本 (FinanceLedger)
+├── finance.py           # 統一帳本 (FinanceLedger)
+└── asset.py             # 資產管理 (Asset, AssetLog)
 ```
 
 ## 後端 Service 層結構
@@ -181,7 +182,8 @@ backend/app/services/
 │   ├── quotation_service.py   # 報價管理
 │   ├── invoice_service.py     # 開票管理
 │   ├── billing_service.py     # 請款管理
-│   └── vendor_payable_service.py # 廠商應付帳款
+│   ├── vendor_payable_service.py # 廠商應付帳款
+│   └── asset_service.py       # 資產管理 (CRUD+盤點+匯出入)
 ├── einvoice/                   # 電子發票
 │   └── einvoice_sync_service.py # MOF 電子發票同步 (HMAC-SHA256)
 ├── expense_invoice_service.py  # 費用報銷 (QR + CRUD + 審核入帳)
@@ -205,7 +207,7 @@ backend/app/services/
 ```
 backend/app/api/endpoints/
 ├── documents/              # 公文 API (模組化)
-│   ├── list.py, crud.py, stats.py, export.py, import_.py, audit.py
+│   ├── list.py, crud.py, delete.py, stats.py, export.py, import_.py, audit.py
 ├── document_calendar/      # 行事曆 API (模組化)
 ├── taoyuan_dispatch/       # 桃園派工 API (模組化)
 ├── ai/                     # AI API (薄端點層，邏輯在 services/ai/)
@@ -215,10 +217,13 @@ backend/app/api/endpoints/
 │   ├── document_analysis.py      # 文件分析端點
 │   ├── embedding_pipeline.py     # Embedding 管線端點
 │   ├── entity_extraction.py      # NER 實體提取端點
-│   ├── graph_query.py            # 知識圖譜查詢端點
+│   ├── graph_entity.py            # 知識圖譜實體端點 (拆分自 graph_query)
+│   ├── graph_admin.py             # 知識圖譜管理端點 (拆分自 graph_query)
+│   ├── graph_unified.py           # 知識圖譜統一查詢端點 (拆分自 graph_query)
 │   ├── rag_query.py              # RAG 問答端點
 │   ├── relation_graph.py         # 關係圖譜端點
 │   ├── ai_stats.py               # AI 統計端點
+│   ├── ai_monitoring.py          # AI 監控端點 (拆分自 ai_stats)
 │   ├── ai_feedback.py            # AI 回饋端點
 │   ├── ollama_management.py      # Ollama 管理端點
 │   ├── prompts.py                # Prompt 模板端點
@@ -227,16 +232,23 @@ backend/app/api/endpoints/
 ├── pm/                     # 專案管理 API (模組化)
 │   ├── cases.py, staff.py, milestones.py
 ├── erp/                    # ERP 財務管理 API (模組化)
-│   ├── quotations.py, vendor_payables.py, billings.py, invoices.py
-│   ├── expenses.py         # 費用報銷 (9 端點: list/create/detail/update/approve/reject/qr-scan/upload-receipt/ocr-parse)
-│   ├── ledger.py            # 統一帳本 (6 端點: list/create/detail/balance/category-breakdown/delete)
-│   ├── financial_summary.py # 財務彙總 (7 端點: project/projects/company/monthly-trend/budget-ranking/export-expenses/export-ledger)
-│   └── einvoice_sync.py     # 電子發票同步 (4 端點: sync/pending-list/upload-receipt/sync-logs)
+│   ├── quotations.py, invoices.py, billings.py, vendor_payables.py
+│   ├── vendor_accounts.py      # 廠商帳款跨案件查詢 (2 端點)
+│   ├── client_accounts.py      # 委託單位帳款跨案件查詢 (2 端點)
+│   ├── assets.py               # 資產管理 (13 端點: CRUD+stats+logs+export+import+inventory)
+│   ├── expenses.py             # 費用報銷 (10 端點, +auto-link-einvoice)
+│   ├── ledger.py               # 統一帳本 (6 端點)
+│   ├── financial_summary.py    # 財務彙總 (8 端點, +aging+erp-overview)
+│   └── einvoice_sync.py        # 電子發票同步 (4 端點)
 ├── knowledge_base.py      # 知識庫瀏覽器 API (tree/file/adr/diagrams/search)
 ├── security.py            # 資安管理中心 API (掃描/問題追蹤/通知/模式庫)
 ├── line_webhook.py        # LINE Webhook 整合端點
 ├── health.py              # 健康檢查端點 (含 detailed)
 ├── public.py              # 公開端點 (免認證)
+├── events.py, events_create.py, events_batch.py  # 行事曆事件 (拆分)
+├── document_numbers.py, document_numbers_crud.py  # 文號管理 (拆分)
+├── user_management.py, user_permissions.py, role_permissions.py  # 使用者管理 (拆分)
+├── dispatch_doc_link_crud.py, document_dispatch_links.py, dispatch_correspondence.py  # 派工關聯 (拆分)
 ├── system_monitoring.py   # 系統監控端點
 ├── debug.py               # 開發除錯端點
 └── *.py                    # 其他 API 端點
@@ -286,7 +298,7 @@ backend/app/repositories/
 │   └── dispatch_project_link_repository.py # DispatchProjectLinkRepository
 ├── # --- PM/ERP ---
 ├── pm/                                # PM Repository (規劃中)
-├── erp/                               # ERP Repository (8 類別)
+├── erp/                               # ERP Repository (10 類別)
 │   ├── quotation_repository.py        # ERPQuotationRepository
 │   ├── invoice_repository.py          # ERPInvoiceRepository
 │   ├── billing_repository.py          # ERPBillingRepository
@@ -294,7 +306,9 @@ backend/app/repositories/
 │   ├── expense_invoice_repository.py  # ExpenseInvoiceRepository — inv_num/case_code/query
 │   ├── ledger_repository.py           # LedgerRepository — balance/category_breakdown
 │   ├── financial_summary_repository.py # FinancialSummaryRepository — 跨模組 JOIN
-│   └── einvoice_sync_repository.py    # EInvoiceSyncRepository — sync_logs/dedup
+│   ├── einvoice_sync_repository.py    # EInvoiceSyncRepository — sync_logs/dedup
+│   ├── asset_repository.py            # AssetRepository + AssetLogRepository
+│   └── client_receivable_repository.py # ClientReceivableRepository — 跨案件應收
 ├── # --- Query Builder (3) ---
 └── query_builders/
     ├── document_query_builder.py       # Fluent API — status/date/keyword
@@ -366,6 +380,15 @@ frontend/src/pages/
 ├── ERPExpenseDetailPage.tsx    # 費用報銷詳情 (明細+審核+收據上傳)
 ├── ERPLedgerPage.tsx           # 統一帳本 (科目分類+餘額)
 ├── ERPFinancialDashboardPage.tsx # 財務儀表板 (月趨勢+預算排名+Recharts)
+├── ERPHubPage.tsx              # ERP 財務管理中心入口 (133L)
+├── ERPInvoiceSummaryPage.tsx   # 發票跨案件查詢 (168L)
+├── ERPVendorAccountsPage.tsx   # 協力廠商帳款列表 (211L)
+├── ERPVendorAccountDetailPage.tsx # 協力廠商帳款詳情 3-Tab (186L)
+├── ERPClientAccountsPage.tsx   # 委託單位帳款列表 (232L)
+├── ERPClientAccountDetailPage.tsx # 委託單位帳款詳情 3-Tab (189L)
+├── ERPAssetListPage.tsx        # 資產管理列表 (344L)
+├── ERPAssetDetailPage.tsx      # 資產詳情 3-Tab (293L)
+├── ERPAssetFormPage.tsx        # 資產新增/編輯表單 (221L)
 ├── ERPEInvoiceSyncPage.tsx     # 電子發票同步 (MOF 同步狀態+待核銷)
 ├── AdminLoginHistoryPage.tsx   # 管理員登入歷史
 ├── CaseNatureManagementPage.tsx # 作業性質代碼管理 (CRUD)
@@ -509,7 +532,8 @@ frontend/src/types/
 
 ```
 frontend/src/api/errors.ts          # ApiException + ApiErrorBus 事件匯流排
-frontend/src/api/client.ts          # Axios 攔截器 → apiErrorBus.emit()
+frontend/src/api/client.ts          # Axios 客戶端
+frontend/src/api/interceptors.ts    # Axios 攔截器 (340L, 拆分自 client.ts)
 frontend/src/api/throttler.ts       # RequestThrottler (GLOBAL_MAX=200) → 429 熔斷
 frontend/src/components/common/
 ├── GlobalApiErrorNotifier.tsx       # 訂閱 ApiErrorBus，自動顯示 429/403/5xx/網路錯誤
