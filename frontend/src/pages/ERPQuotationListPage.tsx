@@ -44,8 +44,7 @@ export const ERPQuotationListPage: React.FC = () => {
   // 前端過濾：僅顯示已承攬
 
   const columns: ColumnsType<ERPQuotation> = [
-    { title: '案號', dataIndex: 'case_code', key: 'case_code', width: 140 },
-    { title: '成案編號', dataIndex: 'project_code', key: 'project_code', width: 150, render: (v: string | null) => v ? <span style={{ fontFamily: 'monospace' }}>{v}</span> : <span style={{ color: '#999' }}>-</span> },
+    { title: '案號', key: 'project_code', width: 160, render: (_: unknown, r: ERPQuotation) => r.project_code || r.case_code },
     {
       title: '案名',
       dataIndex: 'case_name',
