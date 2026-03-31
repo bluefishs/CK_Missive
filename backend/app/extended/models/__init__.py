@@ -149,6 +149,12 @@ from .asset import (
     AssetLog,
 )
 
+# 21. 營運帳目模組
+from .operational import (
+    OperationalAccount,
+    OperationalExpense,
+)
+
 from .security import (
     SecurityIssue,
     SecurityScan,
@@ -236,4 +242,7 @@ __all__ = [
     # 資產管理
     "Asset",
     "AssetLog",
+    # 營運帳目
+    "OperationalAccount",
+    "OperationalExpense",
 ]

@@ -140,6 +140,19 @@ CROSS_PROJECT_ENTITY_TYPES: FrozenSet[str] = frozenset({
     'contractor',        # Cross-domain: 承包商/承攬廠商
 })
 
+# ============================================================================
+# 營運帳目常數
+# ============================================================================
+
+OPERATIONAL_ACCOUNT_CATEGORIES = {
+    "office": "辦公室營運",
+    "vehicle": "車輛管理",
+    "equipment": "設備管理",
+    "personnel": "人事費用",
+    "maintenance": "維修保養",
+    "misc": "雜項",
+}
+
 # 跨專案關係類型
 CROSS_PROJECT_RELATION_TYPES: FrozenSet[str] = frozenset({
     'located_at',        # entity → land_parcel (位於地段)

@@ -140,6 +140,11 @@ export const ROUTES = {
   ERP_ASSET_CREATE: '/erp/assets/create',
   ERP_ASSET_EDIT: '/erp/assets/:id/edit',
   ERP_ASSET_DETAIL: '/erp/assets/:id',
+  // 營運帳目
+  ERP_OPERATIONAL: '/erp/operational',
+  ERP_OPERATIONAL_DETAIL: '/erp/operational/:id',
+  ERP_OPERATIONAL_CREATE: '/erp/operational/create',
+  ERP_OPERATIONAL_EDIT: '/erp/operational/:id/edit',
   // 數位分身
   DIGITAL_TWIN: '/ai/digital-twin',
   // 資安管理中心

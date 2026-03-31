@@ -113,6 +113,9 @@ const ERPInvoiceSummaryPage = lazy(() => import('../pages/ERPInvoiceSummaryPage'
 const ERPAssetListPage = lazy(() => import('../pages/ERPAssetListPage'));
 const ERPAssetDetailPage = lazy(() => import('../pages/ERPAssetDetailPage'));
 const ERPAssetFormPage = lazy(() => import('../pages/ERPAssetFormPage'));
+const ERPOperationalListPage = lazy(() => import('../pages/ERPOperationalListPage'));
+const ERPOperationalDetailPage = lazy(() => import('../pages/ERPOperationalDetailPage'));
+const ERPOperationalFormPage = lazy(() => import('../pages/ERPOperationalFormPage'));
 
 // 數位分身
 const DigitalTwinPage = lazy(() => import('../pages/DigitalTwinPage'));
@@ -293,6 +296,10 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.ERP_ASSET_EDIT} element={<ProtectedRoute><ERPAssetFormPage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_ASSET_DETAIL} element={<ProtectedRoute><ERPAssetDetailPage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_ASSETS} element={<ProtectedRoute><ERPAssetListPage /></ProtectedRoute>} />
+          <Route path={ROUTES.ERP_OPERATIONAL_CREATE} element={<ProtectedRoute><ERPOperationalFormPage /></ProtectedRoute>} />
+          <Route path={ROUTES.ERP_OPERATIONAL_EDIT} element={<ProtectedRoute><ERPOperationalFormPage /></ProtectedRoute>} />
+          <Route path={ROUTES.ERP_OPERATIONAL_DETAIL} element={<ProtectedRoute><ERPOperationalDetailPage /></ProtectedRoute>} />
+          <Route path={ROUTES.ERP_OPERATIONAL} element={<ProtectedRoute><ERPOperationalListPage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_HUB} element={<ProtectedRoute><ERPHubPage /></ProtectedRoute>} />
 
           {/* 資安管理 */}

@@ -5,6 +5,7 @@ from . import quotations, invoices, billings, vendor_payables, vendor_accounts
 from . import client_accounts
 from . import expenses, ledger, financial_summary, einvoice_sync
 from . import assets
+from . import operational
 
 router = APIRouter(dependencies=[Depends(require_auth())])
 router.include_router(quotations.router, prefix="/quotations", tags=["ERP 報價管理"])
@@ -18,3 +19,4 @@ router.include_router(financial_summary.router, prefix="/financial-summary", tag
 router.include_router(einvoice_sync.router, prefix="/einvoice-sync", tags=["電子發票同步"])
 router.include_router(client_accounts.router, prefix="/client-accounts", tags=["ERP 委託單位帳款"])
 router.include_router(assets.router, prefix="/assets", tags=["ERP 資產管理"])
+router.include_router(operational.router, prefix="/operational", tags=["ERP 營運帳目"])

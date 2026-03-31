@@ -10,6 +10,7 @@ import {
   TeamOutlined,
   BankOutlined,
   ToolOutlined,
+  AccountBookOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { ResponsiveContent } from '@ck-shared/ui-components';
@@ -115,6 +116,15 @@ const modules: ERPModule[] = [
     statsKey: 'assets',
     amountKey: 'asset_value',
     amountLabel: '資產總值',
+  },
+  {
+    key: 'operational',
+    title: '營運帳目',
+    desc: '非案件帳務管理',
+    icon: <AccountBookOutlined />,
+    path: ROUTES.ERP_OPERATIONAL,
+    color: '#8c8c8c',
+    statsKey: 'operational',
   },
 ];
 

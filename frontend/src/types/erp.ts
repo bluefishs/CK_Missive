@@ -874,3 +874,97 @@ export interface AssetLogCreateRequest {
   operator?: string;
   notes?: string;
 }
+
+// ============================================================================
+// 營運帳目模組 (OperationalAccount) — 對應 schemas/erp/operational.py
+// ============================================================================
+
+/** 營運帳目類別 */
+export const OPERATIONAL_CATEGORIES: Record<string, string> = {
+  office: '辦公室營運',
+  vehicle: '車輛管理',
+  equipment: '設備管理',
+  personnel: '人事費用',
+  maintenance: '維修保養',
+  misc: '雜項',
+};
+
+/** 營運帳目狀態 */
+export const OPERATIONAL_STATUS: Record<string, string> = {
+  active: '啟用',
+  closed: '已結束',
+  frozen: '凍結',
+};
+
+/** 營運帳目 */
+export interface OperationalAccount {
+  id: number;
+  account_code: string;
+  name: string;
+  category: string;
+  fiscal_year: number;
+  budget_limit: number;
+  department?: string;
+  status: string;
+  owner_id?: number;
+  notes?: string;
+  total_spent?: number;
+  created_at?: string;
+}
+
+/** 營運帳目費用明細 */
+export interface OperationalExpense {
+  id: number;
+  account_id: number;
+  expense_date: string;
+  amount: number;
+  description?: string;
+  category?: string;
+  expense_invoice_id?: number;
+  asset_id?: number;
+  approval_status: string;
+  approved_by?: number;
+  notes?: string;
+  created_at?: string;
+}
+
+/** 營運帳目統計 */
+export interface OperationalAccountStats {
+  total_accounts: number;
+  total_budget: number;
+  total_spent: number;
+  by_category: Record<string, { count: number; budget: number; spent: number }>;
+}
+
+/** 營運帳目建立請求 */
+export interface OperationalAccountCreate {
+  name: string;
+  category: string;
+  fiscal_year: number;
+  budget_limit: number;
+  department?: string;
+  notes?: string;
+}
+
+/** 營運帳目更新請求 */
+export interface OperationalAccountUpdate {
+  name?: string;
+  category?: string;
+  fiscal_year?: number;
+  budget_limit?: number;
+  department?: string;
+  status?: string;
+  notes?: string;
+}
+
+/** 營運帳目費用建立請求 */
+export interface OperationalExpenseCreate {
+  account_id: number;
+  expense_date: string;
+  amount: number;
+  description?: string;
+  category?: string;
+  expense_invoice_id?: number;
+  asset_id?: number;
+  notes?: string;
+}

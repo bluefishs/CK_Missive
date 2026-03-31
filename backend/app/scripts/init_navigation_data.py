@@ -337,6 +337,19 @@ DEFAULT_NAVIGATION_ITEMS = [
         "permission_required": "[]"
     },
 
+    # ERP 營運帳目 (對應 ROUTES.ERP_OPERATIONAL)
+    {
+        "title": "營運帳目",
+        "key": "erp-operational",
+        "path": "/erp/operational",
+        "icon": "AccountBookOutlined",
+        "sort_order": 15,
+        "level": 2,
+        "parent_key": "project-management",
+        "description": "營運帳目,非案件,辦公室,車輛,設備,人事,維修",
+        "permission_required": "[]"
+    },
+
     # ERP 發票總覽 (對應 ROUTES.ERP_INVOICE_SUMMARY)
     {
         "title": "發票總覽",

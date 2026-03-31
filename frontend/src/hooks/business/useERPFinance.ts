@@ -41,6 +41,12 @@ import type {
   AssetListRequest,
   AssetLogCreateRequest,
   AssetBatchInventoryRequest,
+  OperationalAccount,
+  OperationalExpense,
+  OperationalAccountStats,
+  OperationalAccountCreate,
+  OperationalAccountUpdate,
+  OperationalExpenseCreate,
 } from '../../types/erp';
 
 // ============================================================================
@@ -101,6 +107,15 @@ export const erpFinanceKeys = {
     stats: () => [...erpFinanceKeys.assets.all, 'stats'] as const,
     logs: (assetId: number | null, action?: string) => [...erpFinanceKeys.assets.all, 'logs', assetId, action] as const,
     detailFull: (id: number) => [...erpFinanceKeys.assets.all, 'detail-full', id] as const,
+  },
+  operational: {
+    all: ['erp-operational'] as const,
+    lists: () => [...erpFinanceKeys.operational.all, 'list'] as const,
+    list: (filters: object) => [...erpFinanceKeys.operational.lists(), filters] as const,
+    details: () => [...erpFinanceKeys.operational.all, 'detail'] as const,
+    detail: (id: number) => [...erpFinanceKeys.operational.details(), id] as const,
+    stats: () => [...erpFinanceKeys.operational.all, 'stats'] as const,
+    expenses: (accountId: number | null) => [...erpFinanceKeys.operational.all, 'expenses', accountId] as const,
   },
 };
 
@@ -784,6 +799,143 @@ export function useCreateAssetLog() {
       apiClient.post(ERP_ENDPOINTS.ASSET_LOGS_CREATE, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: erpFinanceKeys.assets.all });
+    },
+  });
+}
+
+// ============================================================================
+// 營運帳目 Hooks
+// ============================================================================
+
+/** 營運帳目列表 */
+export function useOperationalAccounts(params: {
+  category?: string; fiscal_year?: number; status?: string;
+  keyword?: string; skip?: number; limit?: number;
+}) {
+  return useQuery<{ items: OperationalAccount[]; total: number }>({
+    queryKey: erpFinanceKeys.operational.list(params),
+    queryFn: async () => {
+      const res = await apiClient.post<{ data: { items: OperationalAccount[]; total: number } }>(
+        ERP_ENDPOINTS.OPERATIONAL_LIST, params
+      );
+      return res.data ?? { items: [], total: 0 };
+    },
+    ...defaultQueryOptions.list,
+  });
+}
+
+/** 營運帳目詳情 */
+export function useOperationalAccountDetail(id: number | null) {
+  return useQuery<OperationalAccount | null>({
+    queryKey: erpFinanceKeys.operational.detail(id ?? 0),
+    queryFn: async () => {
+      const res = await apiClient.post<{ data: OperationalAccount | null }>(
+        ERP_ENDPOINTS.OPERATIONAL_DETAIL, { id }
+      );
+      return res.data ?? null;
+    },
+    enabled: !!id,
+    ...defaultQueryOptions.detail,
+  });
+}
+
+/** 營運帳目統計 */
+export function useOperationalAccountStats() {
+  return useQuery<OperationalAccountStats>({
+    queryKey: erpFinanceKeys.operational.stats(),
+    queryFn: async () => {
+      const res = await apiClient.post<{ data: OperationalAccountStats }>(
+        ERP_ENDPOINTS.OPERATIONAL_STATS, {}
+      );
+      return res.data ?? { total_accounts: 0, total_budget: 0, total_spent: 0, by_category: {} };
+    },
+    ...defaultQueryOptions.statistics,
+  });
+}
+
+/** 營運帳目費用列表 */
+export function useOperationalExpenses(accountId: number | null) {
+  return useQuery<{ items: OperationalExpense[]; total: number }>({
+    queryKey: erpFinanceKeys.operational.expenses(accountId),
+    queryFn: async () => {
+      const res = await apiClient.post<{ data: { items: OperationalExpense[]; total: number } }>(
+        ERP_ENDPOINTS.OPERATIONAL_EXPENSES_LIST, { account_id: accountId }
+      );
+      return res.data ?? { items: [], total: 0 };
+    },
+    enabled: !!accountId,
+    ...defaultQueryOptions.list,
+  });
+}
+
+/** 建立營運帳目 */
+export function useCreateOperationalAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: OperationalAccountCreate) =>
+      apiClient.post(ERP_ENDPOINTS.OPERATIONAL_CREATE, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: erpFinanceKeys.operational.all });
+    },
+  });
+}
+
+/** 更新營運帳目 */
+export function useUpdateOperationalAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { id: number } & OperationalAccountUpdate) =>
+      apiClient.post(ERP_ENDPOINTS.OPERATIONAL_UPDATE, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: erpFinanceKeys.operational.all });
+    },
+  });
+}
+
+/** 刪除營運帳目 */
+export function useDeleteOperationalAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) =>
+      apiClient.post(ERP_ENDPOINTS.OPERATIONAL_DELETE, { id }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: erpFinanceKeys.operational.all });
+    },
+  });
+}
+
+/** 建立營運帳目費用 */
+export function useCreateOperationalExpense() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: OperationalExpenseCreate) =>
+      apiClient.post(ERP_ENDPOINTS.OPERATIONAL_EXPENSES_CREATE, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: erpFinanceKeys.operational.all });
+    },
+  });
+}
+
+/** 審核營運帳目費用 */
+export function useApproveOperationalExpense() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) =>
+      apiClient.post(ERP_ENDPOINTS.OPERATIONAL_EXPENSES_APPROVE, { id }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: erpFinanceKeys.operational.all });
+    },
+  });
+}
+
+/** 駁回營運帳目費用 */
+export function useRejectOperationalExpense() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { id: number; reason?: string }) =>
+      apiClient.post(ERP_ENDPOINTS.OPERATIONAL_EXPENSES_REJECT, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: erpFinanceKeys.operational.all });
     },
   });
 }

@@ -35,6 +35,14 @@ from .einvoice_sync import (
 from .vendor_financial import (
     VendorFinancialSummary, VendorFinancialSummaryRequest,
 )
+from .operational import (
+    ACCOUNT_CATEGORIES, ACCOUNT_CATEGORY_CODES,
+    OperationalAccountCreate, OperationalAccountUpdate, OperationalAccountUpdateRequest,
+    OperationalAccountListRequest, OperationalAccountResponse,
+    OperationalExpenseCreate, OperationalExpenseListRequest, OperationalExpenseResponse,
+    OperationalExpenseApproveRequest, OperationalExpenseRejectRequest,
+    OperationalAccountStatsResponse,
+)
 from .requests import (
     ERPIdRequest, ERPQuotationIdRequest,
     ERPQuotationUpdateRequest, ERPSummaryRequest,
@@ -66,6 +74,13 @@ __all__ = [
     "ReceiptUploadRequest", "PendingReceiptQuery",
     # 廠商財務彙總
     "VendorFinancialSummary", "VendorFinancialSummaryRequest",
+    # 營運帳目
+    "ACCOUNT_CATEGORIES", "ACCOUNT_CATEGORY_CODES",
+    "OperationalAccountCreate", "OperationalAccountUpdate", "OperationalAccountUpdateRequest",
+    "OperationalAccountListRequest", "OperationalAccountResponse",
+    "OperationalExpenseCreate", "OperationalExpenseListRequest", "OperationalExpenseResponse",
+    "OperationalExpenseApproveRequest", "OperationalExpenseRejectRequest",
+    "OperationalAccountStatsResponse",
     # Request schemas
     "ERPIdRequest", "ERPQuotationIdRequest",
     "ERPQuotationUpdateRequest", "ERPSummaryRequest",

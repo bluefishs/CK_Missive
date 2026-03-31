@@ -1162,6 +1162,28 @@ export const ERP_ENDPOINTS = {
   ASSETS_IMPORT: '/erp/assets/import',
   /** 下載資產匯入範本 Excel POST /erp/assets/import-template */
   ASSETS_IMPORT_TEMPLATE: '/erp/assets/import-template',
+
+  // --- 營運帳目 (operational) ---
+  /** 營運帳目列表 POST /erp/operational/list */
+  OPERATIONAL_LIST: '/erp/operational/list',
+  /** 建立營運帳目 POST /erp/operational/create */
+  OPERATIONAL_CREATE: '/erp/operational/create',
+  /** 營運帳目詳情 POST /erp/operational/detail */
+  OPERATIONAL_DETAIL: '/erp/operational/detail',
+  /** 更新營運帳目 POST /erp/operational/update */
+  OPERATIONAL_UPDATE: '/erp/operational/update',
+  /** 刪除營運帳目 POST /erp/operational/delete */
+  OPERATIONAL_DELETE: '/erp/operational/delete',
+  /** 營運帳目統計 POST /erp/operational/stats */
+  OPERATIONAL_STATS: '/erp/operational/stats',
+  /** 營運帳目費用列表 POST /erp/operational/expenses/list */
+  OPERATIONAL_EXPENSES_LIST: '/erp/operational/expenses/list',
+  /** 建立營運帳目費用 POST /erp/operational/expenses/create */
+  OPERATIONAL_EXPENSES_CREATE: '/erp/operational/expenses/create',
+  /** 審核營運帳目費用 POST /erp/operational/expenses/approve */
+  OPERATIONAL_EXPENSES_APPROVE: '/erp/operational/expenses/approve',
+  /** 駁回營運帳目費用 POST /erp/operational/expenses/reject */
+  OPERATIONAL_EXPENSES_REJECT: '/erp/operational/expenses/reject',
 } as const;
 
 // ============================================================================

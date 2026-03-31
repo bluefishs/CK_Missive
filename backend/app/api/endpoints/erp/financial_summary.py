@@ -145,6 +145,7 @@ async def get_erp_overview(
     from app.extended.models.invoice import ExpenseInvoice
     from app.extended.models.finance import FinanceLedger
     from app.extended.models.asset import Asset
+    from app.extended.models.operational import OperationalAccount
 
     db = service.db
 
@@ -162,6 +163,7 @@ async def get_erp_overview(
         "assets": await count(Asset),
         "billings": await count(ERPBilling),
         "vendor_payables": await count(ERPVendorPayable),
+        "operational": await count(OperationalAccount),
         # Amount summaries
         "quotation_amount": str(await sum_col(ERPQuotation.total_price)),
         "expense_amount": str(await sum_col(ExpenseInvoice.amount)),
