@@ -43,4 +43,18 @@ export const erpInvoicesApi = {
   async delete(id: number): Promise<DeleteResponse> {
     return await apiClient.post<DeleteResponse>(ERP_ENDPOINTS.INVOICES_DELETE, { id });
   },
+
+  /** 從請款記錄開立發票 */
+  async createFromBilling(data: {
+    billing_id: number;
+    invoice_number: string;
+    invoice_date?: string;
+    notes?: string;
+  }): Promise<ERPInvoice> {
+    const response = await apiClient.post<SuccessResponse<ERPInvoice>>(
+      ERP_ENDPOINTS.INVOICES_CREATE_FROM_BILLING,
+      data,
+    );
+    return response.data!;
+  },
 };

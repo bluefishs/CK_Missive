@@ -357,6 +357,50 @@ class ExpenseInvoiceService(AuditableServiceMixin):
     async def query(self, params: ExpenseInvoiceQuery) -> Tuple[List[ExpenseInvoice], int]:
         return await self.repo.query(params)
 
+    async def auto_link_einvoice(self, expense_id: int) -> Optional[dict]:
+        """自動關聯電子發票 — 用 inv_num 查詢 einvoice_sync_logs 是否已同步
+
+        若該發票已由財政部同步過 (synced_at 已有值)，回傳 already_synced。
+        若尚未同步，嘗試從 einvoice_sync_logs 找到涵蓋該發票日期的成功同步批次，
+        並將 synced_at 更新為批次完成時間。
+        """
+        from datetime import datetime
+        from sqlalchemy import select
+
+        expense = await self.repo.get_by_id(expense_id)
+        if not expense or not expense.inv_num:
+            return None
+
+        # Already synced
+        if expense.synced_at:
+            return {"status": "already_synced", "synced_at": str(expense.synced_at)}
+
+        # Try to find a successful sync batch that covers this invoice's date
+        from app.extended.models.einvoice_sync import EInvoiceSyncLog
+        stmt = (
+            select(EInvoiceSyncLog)
+            .where(EInvoiceSyncLog.status.in_(["success", "partial"]))
+            .where(EInvoiceSyncLog.query_start <= expense.date)
+            .where(EInvoiceSyncLog.query_end >= expense.date)
+            .order_by(EInvoiceSyncLog.completed_at.desc())
+            .limit(1)
+        )
+        result = await self.db.execute(stmt)
+        sync_log = result.scalars().first()
+
+        if sync_log:
+            expense.synced_at = sync_log.completed_at or datetime.now()
+            if expense.source == "manual":
+                expense.source = "mof_sync"
+            await self.db.commit()
+            return {
+                "status": "linked",
+                "sync_log_id": sync_log.id,
+                "synced_at": str(expense.synced_at),
+            }
+
+        return {"status": "not_found", "inv_num": expense.inv_num}
+
     @staticmethod
     def get_approval_info(invoice: ExpenseInvoice) -> dict:
         """計算發票的審核層級資訊 (用於 Response 填充)"""

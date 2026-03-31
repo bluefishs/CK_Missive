@@ -212,6 +212,21 @@ export const useDeleteERPBilling = (quotationId: number) => {
   });
 };
 
+/** 從請款記錄開立發票 */
+export const useCreateInvoiceFromBilling = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { billing_id: number; invoice_number: string; invoice_date?: string; notes?: string }) =>
+      erpInvoicesApi.createFromBilling(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: erpKeys.invoices.all });
+      queryClient.invalidateQueries({ queryKey: erpKeys.billings.all });
+      queryClient.invalidateQueries({ queryKey: erpKeys.quotations.all });
+      queryClient.invalidateQueries({ queryKey: ['erp-billings-details'] });
+    },
+  });
+};
+
 // ============================================================================
 // 廠商應付 Hooks
 // ============================================================================

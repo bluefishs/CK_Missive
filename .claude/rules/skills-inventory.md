@@ -122,6 +122,42 @@
 
 ---
 
+## v5.3.8 ERP 成本結構 + 帳齡分析 + 作業性質管理 (2026-03-30)
+
+### 新增模組
+
+| 模組 | 類型 | 說明 |
+|------|------|------|
+| `pages/CaseNatureManagementPage.tsx` | Page | 作業性質代碼管理 CRUD (176L) |
+| `pages/erpQuotation/AccountRecordTab.tsx` | Component | 統一帳款紀錄 AR/AP 共用 (294L) |
+| `pages/erpQuotation/ProfitTrendTab.tsx` | Component | 損益趨勢頁籤 (130L) |
+| `repositories/case_nature_repository.py` | Repo | 作業性質 CRUD Repository |
+| `schemas/pm/case_nature.py` | Schema | 作業性質 Schema |
+| `api/endpoints/pm/case_nature.py` | API | 作業性質 5 端點 |
+
+### ERP 成本結構整合
+
+| 項目 | 說明 |
+|------|------|
+| ERPQuotationDetailPage | 成本結構 Tab: 合約概況+應收概況+應付概況+損益分析+合約資訊 (164L) |
+| AccountRecordTab | 應收/應付共用 Tab — CRUD + 統計摘要 |
+| 帳齡分析 API | `POST /erp/financial-summary/aging` — 0-30/31-60/61-90/90+ 天 |
+| 儀表板增強 | AR vs AP 帳齡對比圖 + 帳齡明細表 (431L) |
+| 里程碑 XLS | export-xlsx + import-xlsx 端點 |
+| billing 整合 | billing_id FK + 期別展開 |
+
+### 品質指標 (v5.3.8)
+
+| 維度 | 值 |
+|------|-----|
+| TypeScript | **0 errors** |
+| Backend Tests | **3,082 collected** |
+| 頁面 >500L | **0** (max: 499L DEMO) |
+| SSOT 違規 | **0** (AccountRecordTab 修正) |
+| 新增端點 | 6 (case_nature 5 + aging 1) |
+
+---
+
 ## v5.3.0 資安管理中心 + Agent 效能優化 + 表格強化 (2026-03-28)
 
 ### 新增模組

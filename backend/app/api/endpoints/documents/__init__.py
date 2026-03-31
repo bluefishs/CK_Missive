@@ -16,6 +16,7 @@ from fastapi import APIRouter
 
 from .list import router as list_router
 from .crud import router as crud_router
+from .delete import router as delete_router
 from .stats import router as stats_router
 from .export import router as export_router
 from .import_ import router as import_router
@@ -27,6 +28,7 @@ router = APIRouter()
 # 註冊所有子路由
 router.include_router(list_router, tags=["公文列表"])
 router.include_router(crud_router, tags=["公文CRUD"])
+router.include_router(delete_router, tags=["公文CRUD"])
 router.include_router(stats_router, tags=["公文統計"])
 router.include_router(export_router, tags=["公文匯出"])
 router.include_router(import_router, tags=["公文匯入"])

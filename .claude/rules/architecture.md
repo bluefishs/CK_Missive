@@ -330,6 +330,14 @@ frontend/src/pages/
 ├── document/                   # 公文詳情頁子元件
 │   └── hooks/
 │       └── useDocumentProjectStaff.ts  # 公文專案人員管理 Hook (113L)
+├── erpQuotation/               # ERP 報價詳情子元件
+│   ├── AccountRecordTab.tsx    # 統一帳款紀錄 (應收/應付共用, 294L)
+│   ├── BillingsTab.tsx         # 請款管理頁籤 (367L)
+│   ├── InvoicesTab.tsx         # 開票管理頁籤 (352L)
+│   ├── VendorPayablesTab.tsx   # 廠商應付頁籤 (310L)
+│   └── ProfitTrendTab.tsx      # 損益趨勢頁籤 (130L)
+├── pmCase/                     # PM 案件詳情子元件
+│   └── MilestonesTab.tsx       # 里程碑/甘特圖頁籤 (含 XLS 匯出入)
 ├── taoyuanDispatch/            # TaoyuanDispatchDetailPage 子元件
 │   ├── DispatchDetailHeader.tsx # 詳情頁標頭 (91L)
 │   └── tabs/                   # 既有頁籤元件
@@ -360,6 +368,7 @@ frontend/src/pages/
 ├── ERPFinancialDashboardPage.tsx # 財務儀表板 (月趨勢+預算排名+Recharts)
 ├── ERPEInvoiceSyncPage.tsx     # 電子發票同步 (MOF 同步狀態+待核銷)
 ├── AdminLoginHistoryPage.tsx   # 管理員登入歷史
+├── CaseNatureManagementPage.tsx # 作業性質代碼管理 (CRUD)
 ├── SkillEvolutionPage.tsx      # 技能進化主頁面
 ├── DigitalTwinPage.tsx         # 數位分身主頁面
 └── ...

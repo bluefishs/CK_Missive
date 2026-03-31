@@ -264,16 +264,16 @@ DEFAULT_NAVIGATION_ITEMS = [
         "permission_required": "[]"
     },
 
-    # ERP 財務管理 (對應 ROUTES.ERP_QUOTATIONS)
+    # ERP 財務管理中心 (對應 ROUTES.ERP_HUB)
     {
-        "title": "ERP 財務管理",
-        "key": "erp-quotations",
-        "path": "/erp/quotations",
+        "title": "財務管理中心",
+        "key": "erp-hub",
+        "path": "/erp",
         "icon": "AccountBookOutlined",
         "sort_order": 6,
         "level": 2,
         "parent_key": "project-management",
-        "description": "ERP,財務,報價,發票,請款,成本",
+        "description": "ERP,財務,報價,發票,請款,成本,帳款,資產",
         "permission_required": "[]"
     },
 
@@ -321,6 +321,58 @@ DEFAULT_NAVIGATION_ITEMS = [
         "level": 2,
         "parent_key": "project-management",
         "description": "電子發票,同步,財政部,核銷,收據",
+        "permission_required": "[]"
+    },
+
+    # ERP 資產管理 (對應 ROUTES.ERP_ASSETS)
+    {
+        "title": "資產管理",
+        "key": "erp-assets",
+        "path": "/erp/assets",
+        "icon": "ToolOutlined",
+        "sort_order": 13,
+        "level": 2,
+        "parent_key": "project-management",
+        "description": "資產管理,設備,車輛,儀器,盤點",
+        "permission_required": "[]"
+    },
+
+    # ERP 發票總覽 (對應 ROUTES.ERP_INVOICE_SUMMARY)
+    {
+        "title": "發票總覽",
+        "key": "erp-invoice-summary",
+        "path": "/erp/invoices/summary-view",
+        "icon": "FileTextOutlined",
+        "sort_order": 14,
+        "level": 2,
+        "parent_key": "project-management",
+        "description": "發票,銷項,進項,跨案件",
+        "permission_required": "[]"
+    },
+
+    # ERP 廠商帳款 (對應 ROUTES.ERP_VENDOR_ACCOUNTS)
+    {
+        "title": "協力廠商帳款",
+        "key": "erp-vendor-accounts",
+        "path": "/erp/vendor-accounts",
+        "icon": "TeamOutlined",
+        "sort_order": 11,
+        "level": 2,
+        "parent_key": "project-management",
+        "description": "協力廠商,應付帳款,跨案件,廠商對帳",
+        "permission_required": "[]"
+    },
+
+    # ERP 委託單位帳款 (對應 ROUTES.ERP_CLIENT_ACCOUNTS)
+    {
+        "title": "委託單位帳款",
+        "key": "erp-client-accounts",
+        "path": "/erp/client-accounts",
+        "icon": "BankOutlined",
+        "sort_order": 12,
+        "level": 2,
+        "parent_key": "project-management",
+        "description": "委託單位,應收帳款,跨案件,業主對帳",
         "permission_required": "[]"
     },
 

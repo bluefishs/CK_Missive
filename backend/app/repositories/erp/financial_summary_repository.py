@@ -50,7 +50,10 @@ class FinancialSummaryRepository:
 
         net_balance = income - expense
         
-        # NOTE: 此處若有 ERPQuotation / ERPBilling 也可以平行 JOIN。目前實作核心 Ledger。
+        # 4. 取得 ERPQuotation ID
+        stmt_quot = select(ERPQuotation.id).where(ERPQuotation.case_code == case_code)
+        quot_id = (await self.db.execute(stmt_quot)).scalar()
+
         budget = Decimal(str(proj.contract_amount)) if proj.contract_amount else None
         used_perc = float((expense / budget) * 100) if budget and budget > 0 else None
         
@@ -64,6 +67,7 @@ class FinancialSummaryRepository:
         return ProjectFinancialSummary(
             case_code=case_code,
             case_name=proj.project_name,
+            erp_quotation_id=quot_id,
             budget_total=budget,
             expense_invoice_count=exp_count,
             expense_invoice_total=exp_total,
@@ -122,7 +126,15 @@ class FinancialSummaryRepository:
         for r in ledger_rows:
             ledger_map.setdefault(r.case_code, {})[r.entry_type] = r.total or Decimal("0")
 
-        # 4. 組裝結果（保留原始順序）
+        # 4. 批量取 ERPQuotation ID (case_code → quotation_id)
+        stmt_quot = (
+            select(ERPQuotation.case_code, ERPQuotation.id)
+            .where(ERPQuotation.case_code.in_(case_codes))
+        )
+        quot_rows = (await self.db.execute(stmt_quot)).all()
+        quot_map = {r.case_code: r.id for r in quot_rows}
+
+        # 5. 組裝結果（保留原始順序）
         results = []
         for cc in case_codes:
             proj = proj_map.get(cc)
@@ -152,6 +164,7 @@ class FinancialSummaryRepository:
             results.append(ProjectFinancialSummary(
                 case_code=cc,
                 case_name=proj.project_name,
+                erp_quotation_id=quot_map.get(cc),
                 budget_total=budget,
                 expense_invoice_count=exp_count,
                 expense_invoice_total=exp_total,
@@ -423,3 +436,75 @@ class FinancialSummaryRepository:
 
         total = len(items)
         return items[:top_n], total
+
+    async def get_aging_analysis(
+        self,
+        direction: str = "receivable",
+        year: Optional[int] = None,
+    ) -> dict:
+        """應收/應付帳齡分析 — 按天數分組: 0-30/31-60/61-90/90+"""
+        from app.extended.models.erp import ERPBilling, ERPVendorPayable
+
+        today = date.today()
+
+        if direction == "receivable":
+            # 應收: 未完成收款的 billing
+            query = (
+                select(
+                    ERPBilling.billing_date,
+                    ERPBilling.billing_amount,
+                    ERPBilling.payment_amount,
+                )
+                .join(ERPQuotation, ERPBilling.erp_quotation_id == ERPQuotation.id)
+                .where(ERPBilling.payment_status.in_(["pending", "partial", "overdue"]))
+            )
+            if year:
+                query = query.where(ERPQuotation.year == year)
+        else:
+            # 應付: 未完成付款的 vendor_payable
+            query = (
+                select(
+                    ERPVendorPayable.due_date,
+                    ERPVendorPayable.payable_amount,
+                    ERPVendorPayable.paid_amount,
+                )
+                .join(ERPQuotation, ERPVendorPayable.erp_quotation_id == ERPQuotation.id)
+                .where(ERPVendorPayable.payment_status.in_(["unpaid", "partial"]))
+            )
+            if year:
+                query = query.where(ERPQuotation.year == year)
+
+        result = await self.db.execute(query)
+        rows = result.all()
+
+        buckets = {
+            "0-30": {"count": 0, "amount": Decimal("0")},
+            "31-60": {"count": 0, "amount": Decimal("0")},
+            "61-90": {"count": 0, "amount": Decimal("0")},
+            "90+": {"count": 0, "amount": Decimal("0")},
+        }
+
+        for row in rows:
+            ref_date = row[0]  # billing_date or due_date
+            total_amount = row[1] or Decimal("0")
+            paid = row[2] or Decimal("0")
+            outstanding = total_amount - paid
+
+            if ref_date is None:
+                days = 999
+            else:
+                days = (today - ref_date).days
+
+            if days <= 30:
+                bucket_key = "0-30"
+            elif days <= 60:
+                bucket_key = "31-60"
+            elif days <= 90:
+                bucket_key = "61-90"
+            else:
+                bucket_key = "90+"
+
+            buckets[bucket_key]["count"] += 1
+            buckets[bucket_key]["amount"] += outstanding
+
+        return buckets

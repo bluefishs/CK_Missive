@@ -7,6 +7,11 @@ erDiagram
     agent_query_traces ||--o{ agent_tool_call_logs : "trace_id"
     users ||--o{ ai_conversation_feedback : "user_id"
     users ||--o{ ai_search_history : "user_id"
+    assets ||--o{ asset_logs : "asset_id"
+    users ||--o{ asset_logs : "created_by"
+    expense_invoices ||--o{ asset_logs : "expense_invoice_id"
+    users ||--o{ assets : "created_by"
+    expense_invoices ||--o{ assets : "expense_invoice_id"
     government_agencies ||--o{ canonical_entities : "linked_agency_id"
     taoyuan_projects ||--o{ canonical_entities : "linked_project_id"
     government_agencies ||--o{ contract_projects : "client_agency_id"
@@ -30,8 +35,10 @@ erDiagram
     canonical_entities ||--o{ entity_relationships : "target_entity_id"
     erp_quotations ||--o{ erp_billings : "erp_quotation_id"
     erp_invoices ||--o{ erp_billings : "invoice_id"
+    erp_billings ||--o{ erp_invoices : "billing_id"
     erp_quotations ||--o{ erp_invoices : "erp_quotation_id"
     users ||--o{ erp_quotations : "created_by"
+    erp_billings ||--o{ erp_vendor_payables : "billing_id"
     erp_quotations ||--o{ erp_vendor_payables : "erp_quotation_id"
     partner_vendors ||--o{ erp_vendor_payables : "vendor_id"
     document_calendar_events ||--o{ event_reminders : "event_id"
@@ -178,6 +185,43 @@ erDiagram
         timestamptz created_at
         timestamptz updated_at
     }
+    asset_logs {
+        int id "PK"
+        int asset_id "FK,NOT NULL"
+        varchar action "NOT NULL"
+        date action_date "NOT NULL"
+        text description
+        numeric cost
+        int expense_invoice_id "FK"
+        varchar from_location
+        varchar to_location
+        varchar operator
+        text notes
+        int created_by "FK"
+        timestamp created_at
+    }
+    assets {
+        int id "PK"
+        varchar asset_code "NOT NULL"
+        varchar name "NOT NULL"
+        varchar category "NOT NULL"
+        varchar brand
+        varchar model
+        varchar serial_number
+        date purchase_date
+        numeric purchase_amount
+        numeric current_value
+        numeric depreciation_rate
+        int expense_invoice_id "FK"
+        varchar case_code
+        varchar status
+        varchar location
+        varchar custodian
+        text notes
+        int created_by "FK"
+        timestamp created_at
+        timestamp updated_at
+    }
     audit_logs {
         bigint id "PK"
         varchar table_name "NOT NULL"
@@ -208,6 +252,16 @@ erDiagram
         varchar source_project "NOT NULL"
         varchar external_id
         jsonb external_meta
+    }
+    case_nature_codes {
+        int id "PK"
+        varchar code "NOT NULL"
+        varchar label "NOT NULL"
+        varchar description
+        int sort_order
+        bool is_active
+        timestamp created_at
+        timestamp updated_at
     }
     contract_projects {
         int id "PK"
@@ -446,6 +500,7 @@ erDiagram
         text notes
         timestamp created_at
         timestamp updated_at
+        int billing_id "FK"
     }
     erp_quotations {
         int id "PK"
@@ -482,6 +537,7 @@ erDiagram
         timestamp created_at
         timestamp updated_at
         int vendor_id "FK"
+        int billing_id "FK"
     }
     event_reminders {
         int id "PK"
@@ -666,6 +722,7 @@ erDiagram
         timestamp updated_at
         varchar project_code
         int client_vendor_id "FK"
+        varchar case_nature
     }
     pm_milestones {
         int id "PK"
@@ -725,6 +782,49 @@ erDiagram
         varchar status
         timestamp created_at
         timestamp updated_at
+    }
+    security_issues {
+        int id "PK"
+        varchar project_name "NOT NULL"
+        int scan_id
+        varchar title "NOT NULL"
+        text description
+        varchar severity "NOT NULL"
+        varchar status "NOT NULL"
+        varchar owasp_category
+        varchar cwe_id
+        float8 cvss_score
+        varchar file_path
+        int line_number
+        text code_snippet
+        text remediation
+        varchar assigned_to
+        timestamp due_date
+        timestamp resolved_at
+        varchar resolved_by
+        jsonb extra_data
+        timestamp created_at
+        timestamp updated_at
+    }
+    security_scans {
+        int id "PK"
+        varchar project_name "NOT NULL"
+        varchar project_path
+        varchar scan_type "NOT NULL"
+        varchar status "NOT NULL"
+        int total_issues
+        int critical_count
+        int high_count
+        int medium_count
+        int low_count
+        int info_count
+        float8 security_score
+        float8 duration_seconds
+        text error_message
+        jsonb scan_config
+        varchar created_by
+        timestamp completed_at
+        timestamp created_at
     }
     site_configurations {
         int id "PK"
@@ -992,7 +1092,7 @@ erDiagram
 
 | 指標 | 數值 |
 |------|------|
-| 總表數 | 56 |
-| 總欄位數 | 794 |
-| 外鍵關聯 | 78 |
+| 總表數 | 61 |
+| 總欄位數 | 877 |
+| 外鍵關聯 | 85 |
 | 自訂列舉型別 | 0 |

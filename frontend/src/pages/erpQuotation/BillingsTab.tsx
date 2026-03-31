@@ -52,6 +52,7 @@ import {
   useCreateERPBilling,
   useUpdateERPBilling,
   useDeleteERPBilling,
+  useCreateInvoiceFromBilling,
 } from '../../hooks/business/useERPQuotations';
 
 // =============================================================================
@@ -80,8 +81,11 @@ export interface BillingsTabProps {
 const BillingsTab: React.FC<BillingsTabProps> = ({ erpQuotationId }) => {
   const { message } = App.useApp();
   const [form] = Form.useForm();
+  const [invoiceForm] = Form.useForm();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<ERPBilling | null>(null);
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
+  const [invoiceBillingId, setInvoiceBillingId] = useState<number | null>(null);
 
   // Data
   const { data: billings, isLoading } = useERPBillings(erpQuotationId);
@@ -102,6 +106,7 @@ const BillingsTab: React.FC<BillingsTabProps> = ({ erpQuotationId }) => {
   const createMutation = useCreateERPBilling();
   const updateMutation = useUpdateERPBilling(erpQuotationId);
   const deleteMutation = useDeleteERPBilling(erpQuotationId);
+  const createInvoiceMutation = useCreateInvoiceFromBilling();
 
   // Handlers
   const handleAdd = useCallback(() => {
@@ -164,6 +169,31 @@ const BillingsTab: React.FC<BillingsTabProps> = ({ erpQuotationId }) => {
     setEditingRecord(null);
   }, [form]);
 
+  const handleOpenInvoiceModal = useCallback((billingId: number) => {
+    setInvoiceBillingId(billingId);
+    invoiceForm.resetFields();
+    setInvoiceModalOpen(true);
+  }, [invoiceForm]);
+
+  const handleCreateInvoice = useCallback(async () => {
+    try {
+      const values = await invoiceForm.validateFields();
+      if (!invoiceBillingId) return;
+      await createInvoiceMutation.mutateAsync({
+        billing_id: invoiceBillingId,
+        invoice_number: values.invoice_number,
+        invoice_date: values.invoice_date?.format('YYYY-MM-DD'),
+        notes: values.notes,
+      });
+      message.success('發票開立成功');
+      setInvoiceModalOpen(false);
+      invoiceForm.resetFields();
+      setInvoiceBillingId(null);
+    } catch {
+      // form validation failed or API error
+    }
+  }, [invoiceForm, invoiceBillingId, createInvoiceMutation, message]);
+
   // Columns
   const columns: ColumnsType<ERPBilling> = [
     {
@@ -219,9 +249,19 @@ const BillingsTab: React.FC<BillingsTabProps> = ({ erpQuotationId }) => {
     {
       title: '操作',
       key: 'action',
-      width: 120,
+      width: 160,
       render: (_: unknown, record: ERPBilling) => (
         <Space size="small">
+          {!record.invoice_id && (
+            <Button
+              type="link"
+              size="small"
+              icon={<FileTextOutlined />}
+              onClick={() => handleOpenInvoiceModal(record.id)}
+            >
+              開立發票
+            </Button>
+          )}
           <Button
             type="link"
             size="small"
@@ -355,6 +395,32 @@ const BillingsTab: React.FC<BillingsTabProps> = ({ erpQuotationId }) => {
             </Select>
           </Form.Item>
 
+          <Form.Item name="notes" label="備註">
+            <Input.TextArea rows={2} />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="開立發票"
+        open={invoiceModalOpen}
+        onOk={handleCreateInvoice}
+        onCancel={() => { setInvoiceModalOpen(false); invoiceForm.resetFields(); setInvoiceBillingId(null); }}
+        confirmLoading={createInvoiceMutation.isPending}
+        destroyOnHidden
+        width={480}
+      >
+        <Form form={invoiceForm} layout="vertical" preserve={false}>
+          <Form.Item
+            name="invoice_number"
+            label="發票號碼"
+            rules={[{ required: true, message: '請輸入發票號碼' }]}
+          >
+            <Input placeholder="例：AB-12345678" maxLength={50} />
+          </Form.Item>
+          <Form.Item name="invoice_date" label="開立日期">
+            <DatePicker style={{ width: '100%' }} placeholder="預設為今天" />
+          </Form.Item>
           <Form.Item name="notes" label="備註">
             <Input.TextArea rows={2} />
           </Form.Item>

@@ -3,32 +3,31 @@
 
 包含端點：
 - /events/list - 列出日曆事件
-- /events - 新增日曆事件
-- /events/create-with-reminders - 整合式建立事件
+- /events/check-document - 檢查公文是否已有行事曆事件
 - /events/detail - 取得單一事件詳情
 - /events/update - 更新日曆事件
 - /events/delete - 刪除日曆事件
-- /users/calendar-events - 獲取使用者的日曆事件
-- /events/check-conflicts - 檢查事件時間衝突
 
-@version 1.0.0
-@date 2026-01-22
+建立端點已遷移至 events_create.py
+批次/使用者/衝突端點已遷移至 events_batch.py
+
+@version 1.1.0
+@date 2026-03-30
 """
 from fastapi import APIRouter
 
 from .common import (
     Depends, HTTPException, status,
-    AsyncSession, select, or_, and_, func,
+    AsyncSession, select, or_, func,
     get_async_db, get_current_user,
-    User, OfficialDocument, DocumentCalendarEvent, EventReminder,
+    User, OfficialDocument, DocumentCalendarEvent,
     calendar_service,
-    DocumentCalendarEventCreate, DocumentCalendarEventUpdate,
+    DocumentCalendarEventUpdate,
     EventListRequest, EventDetailRequest, EventDeleteRequest,
-    UserEventsRequest, IntegratedEventCreate, ConflictCheckRequest,
     event_to_dict, check_event_permission, get_user_project_doc_ids,
     logger, datetime, timedelta
 )
-from app.schemas.document_calendar import BatchUpdateStatusRequest, BatchDeleteRequest
+from app.schemas.document_calendar import CheckDocumentRequest
 from app.extended.models import ContractProject
 from app.repositories.calendar_repository import CalendarRepository
 from app.repositories.document_repository import DocumentRepository
@@ -135,8 +134,6 @@ async def list_calendar_events(
         )
 
 
-from app.schemas.document_calendar import CheckDocumentRequest
-
 @router.post("/events/check-document", summary="檢查公文是否已有行事曆事件")
 async def check_document_events(
     request: CheckDocumentRequest,
@@ -174,251 +171,6 @@ async def check_document_events(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="檢查公文事件失敗，請稍後再試"
-        )
-
-
-@router.post("/events", summary="新增日曆事件")
-async def create_calendar_event(
-    event_create: DocumentCalendarEventCreate,
-    db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(get_current_user)
-):
-    """新增一個日曆事件
-
-    document_id 為選填，不提供時建立獨立事件
-    """
-    try:
-        doc_repo = DocumentRepository(db)
-        cal_repo = CalendarRepository(db)
-
-        existing_event_warning = None
-
-        # 僅在提供 document_id 時驗證公文存在與重複事件
-        if event_create.document_id is not None:
-            if not await doc_repo.exists(event_create.document_id):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"找不到公文 ID: {event_create.document_id}"
-                )
-
-            # 檢查重複事件（相同公文+相同標題+相同日期）
-            start_date_only = event_create.start_date.replace(hour=0, minute=0, second=0, microsecond=0)
-            end_date_only = start_date_only + timedelta(days=1)
-
-            existing_duplicate = await cal_repo.find_duplicate_event(
-                event_create.document_id, event_create.title,
-                start_date_only, end_date_only
-            )
-            if existing_duplicate:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail=f"此公文在同一天已有相同標題的事件 (ID: {existing_duplicate.id})"
-                )
-
-            # 檢查公文是否已有事件（提供警告但不阻擋建立）
-            existing_count = await cal_repo.count_by_document(event_create.document_id)
-            if existing_count > 0:
-                existing_event_warning = f"注意：此公文已有 {existing_count} 筆行事曆事件"
-                logger.info(f"公文 {event_create.document_id} 已有 {existing_count} 筆事件，仍建立新事件")
-
-        # 處理時區問題
-        start_date = event_create.start_date
-        if start_date.tzinfo is not None:
-            start_date = start_date.replace(tzinfo=None)
-
-        end_date = event_create.end_date
-        if end_date and end_date.tzinfo is not None:
-            end_date = end_date.replace(tzinfo=None)
-        if not end_date:
-            end_date = start_date + timedelta(hours=1)
-
-        priority_str = str(event_create.priority) if event_create.priority else '3'  # 統一預設為普通優先級
-
-        new_event = DocumentCalendarEvent(
-            title=event_create.title,
-            description=event_create.description,
-            start_date=start_date,
-            end_date=end_date,
-            all_day=event_create.all_day or False,
-            event_type=event_create.event_type or 'reminder',
-            priority=priority_str,
-            location=event_create.location,
-            document_id=event_create.document_id,
-            assigned_user_id=event_create.assigned_user_id or current_user.id,
-            created_by=current_user.id
-        )
-
-        db.add(new_event)
-        await db.commit()
-        await db.refresh(new_event)
-
-        logger.info(f"使用者 {current_user.id} 建立日曆事件: {new_event.title} (ID: {new_event.id})")
-
-        response = {
-            "success": True,
-            "message": "事件建立成功",
-            "event": event_to_dict(new_event)
-        }
-        if existing_event_warning:
-            response["warning"] = existing_event_warning
-
-        return response
-    except Exception as e:
-        logger.error(f"Error creating calendar event: {e}", exc_info=True)
-        await db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="建立事件失敗，請稍後再試"
-        )
-
-
-@router.post("/events/create-with-reminders", summary="整合式建立事件 (含提醒與同步)")
-async def create_event_with_reminders(
-    request: IntegratedEventCreate,
-    db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(get_current_user)
-):
-    """整合式事件建立 - 一站完成事件建立、提醒設定、Google 同步
-
-    document_id 為選填，不提供時建立獨立事件
-    """
-    try:
-        doc_repo = DocumentRepository(db)
-        cal_repo = CalendarRepository(db)
-
-        # 0. 僅在提供 document_id 時驗證公文存在
-        if request.document_id is not None:
-            if not await doc_repo.exists(request.document_id):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"找不到公文 ID: {request.document_id}"
-                )
-
-        # 1. 處理時區
-        start_date = request.start_date
-        if start_date.tzinfo is not None:
-            start_date = start_date.replace(tzinfo=None)
-
-        end_date = request.end_date
-        if end_date:
-            if end_date.tzinfo is not None:
-                end_date = end_date.replace(tzinfo=None)
-        else:
-            end_date = start_date + timedelta(hours=1)
-
-        # 1.5. 檢查重複事件（僅關聯公文時檢查：相同公文+相同標題+相同日期）
-        if request.document_id is not None:
-            start_date_only = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
-            end_date_only = start_date_only + timedelta(days=1)
-
-            existing_duplicate = await cal_repo.find_duplicate_event(
-                request.document_id, request.title,
-                start_date_only, end_date_only
-            )
-            if existing_duplicate:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail=f"此公文在同一天已有相同標題的事件 (ID: {existing_duplicate.id})"
-                )
-
-        # 2. 建立事件
-        priority_str = str(request.priority) if request.priority else '3'
-
-        new_event = DocumentCalendarEvent(
-            title=request.title,
-            description=request.description,
-            start_date=start_date,
-            end_date=end_date,
-            all_day=request.all_day,
-            event_type=request.event_type,
-            priority=priority_str,
-            location=request.location,
-            document_id=request.document_id,
-            assigned_user_id=current_user.id,
-            created_by=current_user.id
-        )
-
-        db.add(new_event)
-        await db.flush()
-
-        # 3. 建立提醒
-        reminders_created = 0
-        if request.reminder_enabled and request.reminders:
-            for reminder_config in request.reminders:
-                reminder_time = start_date - timedelta(minutes=reminder_config.minutes_before)
-
-                new_reminder = EventReminder(
-                    event_id=new_event.id,
-                    reminder_minutes=reminder_config.minutes_before,
-                    reminder_time=reminder_time,
-                    notification_type=reminder_config.notification_type,
-                    reminder_type=reminder_config.notification_type,
-                    title=f"事件提醒: {request.title}",
-                    message=f"您有一個即將到來的事件: {request.title}",
-                    recipient_user_id=current_user.id,
-                    status='pending',
-                    priority=3
-                )
-                db.add(new_reminder)
-                reminders_created += 1
-
-        # 4. 提交事務
-        await db.commit()
-        await db.refresh(new_event)
-
-        # 5. Google Calendar 同步
-        google_event_id = None
-        if request.sync_to_google and calendar_service.is_ready():
-            try:
-                sync_result = await calendar_service.sync_event_to_google(
-                    db=db, event=new_event, force=True
-                )
-                if sync_result.get('success'):
-                    google_event_id = sync_result.get('google_event_id')
-                    logger.info(f"事件已同步至 Google Calendar: {google_event_id}")
-            except Exception as sync_error:
-                logger.warning(f"Google 同步失敗，但事件已建立: {sync_error}")
-
-        # 6. 發送專案成員通知
-        notifications_sent = 0
-        try:
-            from app.services.project_notification_service import ProjectNotificationService
-            notification_service = ProjectNotificationService()
-            notification_ids = await notification_service.send_calendar_event_notifications(
-                db=db, event=new_event, exclude_user_id=current_user.id
-            )
-            notifications_sent = len(notification_ids)
-        except Exception as notify_error:
-            logger.warning(f"專案成員通知發送失敗: {notify_error}")
-
-        logger.info(
-            f"使用者 {current_user.id} 建立整合式事件: {new_event.title} "
-            f"(ID: {new_event.id}, 提醒: {reminders_created}, Google: {bool(google_event_id)})"
-        )
-
-        return {
-            "success": True,
-            "message": "事件建立成功",
-            "event_id": new_event.id,
-            "reminders_created": reminders_created,
-            "notifications_sent": notifications_sent,
-            "google_event_id": google_event_id,
-            "event": {
-                "id": new_event.id,
-                "title": new_event.title,
-                "start_date": new_event.start_date.isoformat(),
-                "end_date": new_event.end_date.isoformat() if new_event.end_date else None,
-                "event_type": new_event.event_type,
-                "document_id": new_event.document_id
-            }
-        }
-
-    except Exception as e:
-        logger.error(f"整合式事件建立失敗: {e}", exc_info=True)
-        await db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="建立事件失敗，請稍後再試"
         )
 
 
@@ -542,143 +294,3 @@ async def delete_calendar_event(
         )
 
 
-@router.post("/events/batch-update-status", summary="批次更新事件狀態")
-async def batch_update_event_status(
-    request: BatchUpdateStatusRequest,
-    db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(get_current_user)
-):
-    """批次更新多個事件的狀態（單次 DB 操作，避免 rate limit）"""
-    try:
-        if request.status not in ('pending', 'completed', 'cancelled'):
-            raise HTTPException(status_code=422, detail="無效的狀態值")
-
-        result = await calendar_service.batch_update_status(db, request.event_ids, request.status)
-        logger.info(f"使用者 {current_user.id} 批次更新 {result['updated']} 個事件為 {request.status}")
-        return {"success": True, **result}
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"批次更新事件狀態失敗: {e}", exc_info=True)
-        await db.rollback()
-        raise HTTPException(status_code=500, detail="批次更新失敗")
-
-
-@router.post("/events/batch-delete", summary="批次刪除事件")
-async def batch_delete_events(
-    request: BatchDeleteRequest,
-    db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(get_current_user)
-):
-    """批次刪除多個事件（單次 DB 操作）"""
-    try:
-        result = await calendar_service.batch_delete(db, request.event_ids)
-        logger.info(f"使用者 {current_user.id} 批次刪除 {result['deleted']} 個事件")
-        return {"success": True, **result}
-    except Exception as e:
-        logger.error(f"批次刪除事件失敗: {e}", exc_info=True)
-        await db.rollback()
-        raise HTTPException(status_code=500, detail="批次刪除失敗")
-
-
-@router.post("/users/calendar-events", summary="獲取使用者的日曆事件")
-async def get_user_calendar_events(
-    request: UserEventsRequest,
-    db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(get_current_user)
-):
-    """獲取指定使用者的日曆事件（含承攬案件名稱）"""
-    try:
-        if request.user_id != current_user.id and not current_user.is_admin:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="您只能查看自己的日曆事件"
-            )
-
-        if not request.start_date or not request.end_date:
-            now = datetime.now()
-            start_dt = now - timedelta(days=30)
-            end_dt = now + timedelta(days=60)
-        else:
-            start_dt = datetime.fromisoformat(request.start_date)
-            end_dt = datetime.fromisoformat(request.end_date)
-
-        # 查詢事件，同時 JOIN 公文和承攬案件以取得案件名稱
-        query = (
-            select(
-                DocumentCalendarEvent,
-                OfficialDocument.doc_number,
-                ContractProject.project_name
-            )
-            .outerjoin(OfficialDocument, DocumentCalendarEvent.document_id == OfficialDocument.id)
-            .outerjoin(ContractProject, OfficialDocument.contract_project_id == ContractProject.id)
-            .where(
-                DocumentCalendarEvent.start_date >= start_dt,
-                DocumentCalendarEvent.start_date <= end_dt,
-                or_(
-                    DocumentCalendarEvent.assigned_user_id == request.user_id,
-                    DocumentCalendarEvent.created_by == request.user_id,
-                    # 包含無指派使用者的公共事件（公文匯入自動建立）
-                    and_(
-                        DocumentCalendarEvent.assigned_user_id.is_(None),
-                        DocumentCalendarEvent.created_by.is_(None)
-                    )
-                )
-            )
-        )
-
-        result = await db.execute(query)
-        events = result.all()
-
-        return {
-            "success": True,
-            "events": [
-                event_to_dict(event, doc_number, project_name)
-                for event, doc_number, project_name in events
-            ],
-            "total": len(events),
-            "start_date": start_dt.isoformat(),
-            "end_date": end_dt.isoformat()
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting user calendar events: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="獲取使用者日曆事件失敗，請稍後再試"
-        )
-
-
-@router.post("/events/check-conflicts", summary="檢查事件時間衝突")
-async def check_event_conflicts(
-    request: ConflictCheckRequest,
-    db: AsyncSession = Depends(get_async_db),
-    current_user: User = Depends(get_current_user)
-):
-    """檢查指定時間範圍是否與現有事件衝突"""
-    try:
-        start_time = datetime.fromisoformat(request.start_date)
-        end_time = datetime.fromisoformat(request.end_date)
-
-        conflicts = await calendar_service.detect_conflicts(
-            db=db,
-            start_time=start_time,
-            end_time=end_time,
-            exclude_event_id=request.exclude_event_id
-        )
-
-        return {
-            "success": True,
-            "has_conflicts": len(conflicts) > 0,
-            "conflict_count": len(conflicts),
-            "conflicts": conflicts,
-            "message": f"偵測到 {len(conflicts)} 個時間衝突" if conflicts else "沒有時間衝突"
-        }
-    except Exception as e:
-        logger.error(f"衝突檢查失敗: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="衝突檢查失敗，請稍後再試"
-        )

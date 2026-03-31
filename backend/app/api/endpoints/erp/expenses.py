@@ -162,6 +162,19 @@ async def create_from_qr(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.post("/auto-link-einvoice")
+async def auto_link_einvoice(
+    req: ERPIdRequest,
+    service: ExpenseInvoiceService = Depends(get_service(ExpenseInvoiceService)),
+    current_user: User = Depends(require_auth()),
+):
+    """自動關聯電子發票 — 用 inv_num 匹配電子發票同步批次"""
+    result = await service.auto_link_einvoice(req.id)
+    if not result:
+        raise HTTPException(status_code=404, detail="發票不存在或缺少發票號碼")
+    return SuccessResponse(data=result)
+
+
 @router.post("/upload-receipt")
 async def upload_expense_receipt(
     invoice_id: int = Form(..., description="發票 ID"),

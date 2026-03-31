@@ -1016,6 +1016,10 @@ export const ERP_ENDPOINTS = {
   INVOICES_UPDATE: '/erp/invoices/update',
   /** 刪除發票 POST /erp/invoices/delete */
   INVOICES_DELETE: '/erp/invoices/delete',
+  /** 跨案件發票彙總 POST /erp/invoices/summary */
+  INVOICES_SUMMARY: '/erp/invoices/summary',
+  /** 從請款開立發票 POST /erp/invoices/create-from-billing */
+  INVOICES_CREATE_FROM_BILLING: '/erp/invoices/create-from-billing',
   /** 請款列表 POST /erp/billings/list */
   BILLINGS_LIST: '/erp/billings/list',
   /** 建立請款 POST /erp/billings/create */
@@ -1062,6 +1066,8 @@ export const ERP_ENDPOINTS = {
   EXPENSES_RECEIPT_IMAGE: '/erp/expenses/receipt-image',
   /** OCR 辨識發票影像 POST /erp/expenses/ocr-parse */
   EXPENSES_OCR_PARSE: '/erp/expenses/ocr-parse',
+  /** 自動關聯電子發票 POST /erp/expenses/auto-link-einvoice */
+  EXPENSES_AUTO_LINK_EINVOICE: '/erp/expenses/auto-link-einvoice',
 
   // --- 統一帳本 (ledger) ---
   /** 帳本列表 POST /erp/ledger/list */
@@ -1088,10 +1094,24 @@ export const ERP_ENDPOINTS = {
   FINANCIAL_SUMMARY_MONTHLY_TREND: '/erp/financial-summary/monthly-trend',
   /** 預算使用率排行 POST /erp/financial-summary/budget-ranking */
   FINANCIAL_SUMMARY_BUDGET_RANKING: '/erp/financial-summary/budget-ranking',
+  /** 帳齡分析 POST /erp/financial-summary/aging */
+  FINANCIAL_SUMMARY_AGING: '/erp/financial-summary/aging',
+  /** ERP 模組快速統計 POST /erp/financial-summary/erp-overview */
+  FINANCIAL_SUMMARY_ERP_OVERVIEW: '/erp/financial-summary/erp-overview',
   /** 匯出費用報銷 Excel POST /erp/financial-summary/export-expenses */
   EXPORT_EXPENSES: '/erp/financial-summary/export-expenses',
   /** 匯出帳本 Excel POST /erp/financial-summary/export-ledger */
   EXPORT_LEDGER: '/erp/financial-summary/export-ledger',
+
+  // --- 廠商/委託帳款 (vendor-accounts / client-accounts) ---
+  /** 廠商帳款彙總 POST /erp/vendor-accounts/summary */
+  VENDOR_ACCOUNTS_SUMMARY: '/erp/vendor-accounts/summary',
+  /** 廠商帳款明細 POST /erp/vendor-accounts/detail */
+  VENDOR_ACCOUNTS_DETAIL: '/erp/vendor-accounts/detail',
+  /** 委託單位帳款彙總 POST /erp/client-accounts/summary */
+  CLIENT_ACCOUNTS_SUMMARY: '/erp/client-accounts/summary',
+  /** 委託單位帳款明細 POST /erp/client-accounts/detail */
+  CLIENT_ACCOUNTS_DETAIL: '/erp/client-accounts/detail',
 
   // --- 電子發票同步 (einvoice-sync) ---
   /** 手動觸發同步 POST /erp/einvoice-sync/sync */
@@ -1102,6 +1122,36 @@ export const ERP_ENDPOINTS = {
   EINVOICE_UPLOAD_RECEIPT: '/erp/einvoice-sync/upload-receipt',
   /** 同步歷史記錄 POST /erp/einvoice-sync/sync-logs */
   EINVOICE_SYNC_LOGS: '/erp/einvoice-sync/sync-logs',
+
+  // --- 資產管理 (assets) ---
+  /** 資產列表 POST /erp/assets/list */
+  ASSETS_LIST: '/erp/assets/list',
+  /** 建立資產 POST /erp/assets/create */
+  ASSETS_CREATE: '/erp/assets/create',
+  /** 資產詳情 POST /erp/assets/detail */
+  ASSETS_DETAIL: '/erp/assets/detail',
+  /** 更新資產 POST /erp/assets/update */
+  ASSETS_UPDATE: '/erp/assets/update',
+  /** 刪除資產 POST /erp/assets/delete */
+  ASSETS_DELETE: '/erp/assets/delete',
+  /** 資產統計 POST /erp/assets/stats */
+  ASSETS_STATS: '/erp/assets/stats',
+  /** 資產異動記錄列表 POST /erp/assets/logs/list */
+  ASSET_LOGS_LIST: '/erp/assets/logs/list',
+  /** 建立資產異動記錄 POST /erp/assets/logs/create */
+  ASSET_LOGS_CREATE: '/erp/assets/logs/create',
+  /** 資產完整詳情 (含關聯發票+案件) POST /erp/assets/detail-full */
+  ASSETS_DETAIL_FULL: '/erp/assets/detail-full',
+  /** 匯出資產清單 Excel POST /erp/assets/export */
+  ASSETS_EXPORT: '/erp/assets/export',
+  /** 依發票查詢關聯資產 POST /erp/assets/by-invoice */
+  ASSETS_BY_INVOICE: '/erp/assets/by-invoice',
+  /** 批次盤點 POST /erp/assets/batch-inventory */
+  ASSETS_BATCH_INVENTORY: '/erp/assets/batch-inventory',
+  /** 匯出盤點報表 Excel POST /erp/assets/export-inventory */
+  ASSETS_EXPORT_INVENTORY: '/erp/assets/export-inventory',
+  /** 匯入資產清單 Excel POST /erp/assets/import */
+  ASSETS_IMPORT: '/erp/assets/import',
 } as const;
 
 // ============================================================================

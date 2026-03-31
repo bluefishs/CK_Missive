@@ -4,6 +4,295 @@
 
 ---
 
+## [5.3.17] - 2026-03-31
+
+### 廠商/委託帳款→案件管理式展示
+
+#### 帳款詳情頁重構 (案件管理風格)
+- VendorAccountDetailPage: 3 Tab (基本資訊+案件帳款+付款紀錄) — 186L
+- ClientAccountDetailPage: 3 Tab (基本資訊+案件應收+收款紀錄) — 189L
+- Tab 1: Statistic 卡片 + Descriptions + 簡易案件列表
+- Tab 2: 可展開案件明細 (合約金額+狀態+報價連結)
+- Tab 3: 跨案件付款/收款時間軸 (flatMap 所有記錄)
+
+#### 跨模組導覽修正
+- vendor/client detail 案號→報價詳情 (clickable)
+- 財務儀表板/發票總覽→報價詳情 (erp_quotation_id)
+- vendor detail total_price/quotation_status 修正 (重啟生效)
+
+---
+
+## [5.3.16] - 2026-03-31
+
+### ERP 跨模組資訊關聯整合
+
+#### 跨模組導覽連結
+- 廠商/委託帳款 Detail: 案號 → 報價詳情 (clickable link)
+- 財務儀表板: 案號 → 報價詳情 (erp_quotation_id)
+- 發票總覽: 案號 → 報價詳情
+
+#### 帳款展開增強 (contract-cases 風格)
+- VendorAccountDetailPage: 展開顯示合約金額+年度+報價狀態+報價詳情連結
+- ClientAccountDetailPage: 展開顯示合約金額+年度+狀態+連結
+- 後端: vendor_payable_repo 增傳 total_price + quotation_status
+
+#### ERP Hub 快速統計
+- POST /erp/financial-summary/erp-overview — 7 模組記錄數
+- Hub 各卡片顯示「N 筆記錄」
+
+#### 請款開票流程
+- POST /erp/invoices/create-from-billing — billing→invoice 銷項發票
+- BillingsTab「開立發票」按鈕 + Modal
+
+---
+
+## [5.3.15] - 2026-03-31
+
+### ERP Hub 統計 + 請款開票流程 + UI 完善
+
+#### Hub 頁快速統計
+- 新增 `POST /erp/financial-summary/erp-overview` — 7 模組記錄數統計
+- ERPHubPage 各卡片顯示「N 筆記錄」
+
+#### 請款→開票流程整合
+- 新增 `POST /erp/invoices/create-from-billing` — 從 billing 建立銷項 invoice
+- `CreateFromBillingRequest` schema + 雙向 FK 更新 (invoice↔billing)
+- BillingsTab 新增「開立發票」按鈕 + Modal (發票號碼+日期)
+
+---
+
+## [5.3.14] - 2026-03-31
+
+### ERP 模組 UI/UX 統一 + 入口頁 + 匯入功能
+
+#### ERP 財務管理中心入口頁
+- 新增 `ERPHubPage.tsx` (133L) — 9 模組卡片式導覽
+- ROUTES: ERP_HUB (/erp)
+
+#### UI/UX 統一審查修正 (9 頁面)
+- 7 頁面補齊 `isError` + Alert 錯誤處理
+- 3 頁面 static `message` → `App.useApp()` 上下文
+- 2 頁面硬編碼路徑 → ROUTES 常數
+- 1 頁面移除 `as any`
+
+#### 資產 Excel 匯入
+- 新增 `POST /erp/assets/import` — upsert by asset_code
+- 前端 Upload 按鈕 + useImportAssets hook
+- 中文類別/狀態自動映射
+
+#### 品質指標
+| 維度 | 值 |
+|------|-----|
+| ERP 頁面數 | **14** (含 Hub + 5 子模組) |
+| ERP 路由數 | **27** |
+| TypeScript | **0 errors** |
+| 所有頁面 <500L | **確認** (max 433L) |
+| isError 覆蓋 | **100%** |
+| ROUTES 覆蓋 | **100%** (0 硬編碼) |
+| `as any` | **0** |
+
+---
+
+## [5.3.13] - 2026-03-31
+
+### 資產匯入匯出 + 盤點流程 + 發票整合
+
+#### 資產 Excel 匯入
+- 新增 `POST /erp/assets/import` — openpyxl upsert by asset_code
+- 中文類別/狀態自動映射 (設備→equipment 等)
+- 前端 Upload 按鈕 + useImportAssets hook
+
+#### 資產盤點流程
+- 新增 `POST /erp/assets/batch-inventory` — 批次建立 inspect log
+- 新增 `POST /erp/assets/export-inventory` — 盤點報表 (含最近盤點日)
+- 前端 Table row selection + 批次盤點 Modal + 盤點報表匯出按鈕
+
+#### 發票→資產反向查詢
+- 新增 `POST /erp/assets/by-invoice` — 從發票找關聯資產
+- ERPExpenseDetailPage 新增「關聯資產」區塊
+- ERPExpenseDetailPage 新增「關聯電子發票」按鈕 (auto-link-einvoice)
+
+#### 前端整合按鈕
+- ERPAssetListPage: 匯出+匯入+盤點報表+批次盤點 (4 按鈕)
+- ERPExpenseDetailPage: 關聯電子發票+關聯資產顯示
+
+---
+
+## [5.3.12] - 2026-03-31
+
+### 發票跨案件查詢頁面 + 電子發票自動關聯 + 資產匯出
+
+#### 發票跨案件查詢頁面
+- 新增 `ERPInvoiceSummaryPage.tsx` (168L) — 銷項/進項分類列表 + 統計
+- ROUTES: ERP_INVOICE_SUMMARY (/erp/invoices/summary-view)
+- 導覽: 發票總覽 (sort_order=14)
+
+#### 電子發票自動關聯
+- 新增 `POST /erp/expenses/auto-link-einvoice` — inv_num 匹配 einvoice_sync_logs
+- `useAutoLinkEinvoice` mutation hook
+
+#### 資產匯出 Excel
+- 新增 `POST /erp/assets/export` — openpyxl 14 欄位 + 自動寬度
+- `useExportAssets` mutation hook (postBlob + download)
+
+---
+
+## [5.3.11] - 2026-03-31
+
+### 資產管理整合 + 發票跨案件查詢 + 案件財管連結
+
+#### 資產表單頁面
+- 新增 `ERPAssetFormPage.tsx` (221L) — 新增/編輯共用表單 (導航模式)
+- ROUTES: ERP_ASSET_CREATE + ERP_ASSET_EDIT
+
+#### 資產-發票關聯整合
+- 新增 `POST /erp/assets/detail-full` — 資產完整詳情 (含關聯 ExpenseInvoice + ERPQuotation)
+- `ERPAssetDetailPage.tsx` 關聯發票 Tab 增強 — 顯示發票明細 + 案件報價資訊
+- `useAssetDetailFull` hook + `AssetDetailFull` interface
+
+#### 發票跨案件查詢
+- 新增 `POST /erp/invoices/summary` — 跨案件發票彙總 (銷項/進項分類)
+- `InvoiceSummaryRequest` + `InvoiceSummaryItem` schema/type
+- `useInvoiceSummary` hook
+
+#### Pydantic v2 model 欄位衝突修正
+- `asset_model` (alias="model") 取代保留字 `model`
+- `validation_alias="model"` for ORM→Response 映射
+- Service 層 `model_dump()` + 手動欄位映射
+
+---
+
+## [5.3.10] - 2026-03-31
+
+### 資產管理模組 + 端點拆分 Phase 2
+
+#### 資產管理 (新模組)
+- 新增 `Asset` + `AssetLog` ORM 模型 (asset.py)
+- 新增 `AssetRepository` + `AssetLogRepository` (asset_repository.py)
+- 新增 `AssetService` with AuditMixin (asset_service.py)
+- 新增 8 API 端點: list/create/detail/update/delete/stats/logs-list/logs-create
+- 新增 `ERPAssetListPage.tsx` (237L) — 資產列表 + 統計 + 篩選
+- 新增 `ERPAssetDetailPage.tsx` (249L) — 資訊 + 行為紀錄 + 關聯發票 (3 Tab)
+- Alembic migration: `20260331a001_add_asset_tables`
+- Schema: AssetCreateRequest/UpdateRequest/ListRequest + LogCreate + Response
+- Types + Endpoints + 8 Hooks (queries + mutations)
+- 路由 + 導覽註冊完成
+
+#### 端點拆分 Phase 2 (4 檔案)
+- `events.py` (684L) → events (296L) + events_create (273L) + events_batch (172L)
+- `document_numbers.py` (562L) → document_numbers (376L) + document_numbers_crud (231L)
+- `documents/crud.py` (554L) → crud (363L) + delete (220L)
+- `ai/ai_stats.py` (532L) → ai_stats (218L) + ai_monitoring (342L)
+
+#### api/client.ts 拆分
+- `client.ts` (648L) → client (326L) + interceptors (340L)
+
+#### vendor_id 批次配對
+- `batch_link_vendor_payables.py` — 11 家廠商全部關聯 (4 匹配 + 7 新建)
+
+#### 品質指標
+| 維度 | 值 |
+|------|-----|
+| TypeScript | **0 errors** |
+| Python 語法 | **0 errors** |
+| 端點 >500L | **3** (526/513/501 — 接近閾值不拆) |
+| 新增端點 | 8 (資產管理) |
+| 新增頁面 | 2 |
+
+---
+
+## [5.3.9] - 2026-03-31
+
+### ERP 廠商/委託帳款跨案件查詢 + 後端端點拆分 + 帳齡分析
+
+#### 廠商帳款跨案件查詢 (AP)
+- 新增 `vendor_accounts.py` — 2 API 端點 (summary + detail)
+- 新增 `ERPVendorAccountsPage.tsx` (209L) — 廠商列表 + 統計 + 搜尋
+- 新增 `ERPVendorAccountDetailPage.tsx` (198L) — 廠商跨案件應付明細
+
+#### 委託單位帳款跨案件查詢 (AR)
+- 新增 `client_accounts.py` — 2 API 端點 (summary + detail)
+- 新增 `client_receivable_repository.py` — 跨案件應收 Repository
+- 新增 `ERPClientAccountsPage.tsx` (212L) — 委託單位列表 + 統計
+- 新增 `ERPClientAccountDetailPage.tsx` (212L) — 委託單位跨案件應收明細
+
+#### 帳齡分析
+- 新增 `POST /erp/financial-summary/aging` — 應收/應付帳齡分析 (0-30/31-60/61-90/90+ 天)
+- 儀表板增強: AR vs AP 帳齡對比柱狀圖 + 應收帳齡明細表 (431L)
+
+#### 後端端點拆分 (3 檔案, 消除 >500L)
+- `graph_query.py` (886L) → `graph_entity.py` (229L) + `graph_admin.py` (286L) + `graph_unified.py` (428L)
+- `dispatch_document_links.py` (736L) → `dispatch_doc_link_crud.py` (250L) + `document_dispatch_links.py` (227L) + `dispatch_correspondence.py` (287L)
+- `user_management.py` (721L) → `user_management.py` (235L) + `user_permissions.py` (292L) + `role_permissions.py` (236L)
+
+#### 廠商 vendor_id 批次配對
+- `scripts/fixes/batch_link_vendor_payables.py` — 11 家廠商全部關聯 (4 匹配 + 7 新建)
+- ERPVendorPayable.vendor_id NULL → PartnerVendor FK 完整
+
+#### 追加端點拆分 (4 檔案)
+- `document_calendar/events.py` (684L) → `events.py` (296L) + `events_create.py` (273L) + `events_batch.py` (172L)
+- `document_numbers.py` (562L) → `document_numbers.py` (376L) + `document_numbers_crud.py` (231L)
+- `documents/crud.py` (554L) → `crud.py` (363L) + `delete.py` (220L)
+- `ai/ai_stats.py` (532L) → `ai_stats.py` (218L) + `ai_monitoring.py` (342L)
+
+#### 前端 api/client.ts 拆分
+- `client.ts` (648L) → `client.ts` (326L) + `interceptors.ts` (340L)
+
+#### SSOT 修正
+- `AccountRecordTab.tsx` — 8 個硬編碼 API 路徑 → ERP_ENDPOINTS 常數
+- 4 頁面 `as any` → hook 層 typed unwrap (0 殘留)
+
+#### 路由與導覽同步
+- `ROUTES` — 新增 4 路由 (vendor-accounts + client-accounts + details)
+- `AppRouter.tsx` — 4 新頁面路由註冊
+- `init_navigation_data.py` — 2 導覽項目 (協力廠商帳款 + 委託單位帳款)
+
+---
+
+## [5.3.8] - 2026-03-30
+
+### ERP 成本結構整合 + 作業性質管理 + 里程碑匯出入
+
+#### 作業性質代碼管理
+- 新增 `CaseNatureManagementPage.tsx` — 作業性質 DB 驅動管理 CRUD (取代硬編碼)
+- 新增 `backend/app/repositories/case_nature_repository.py` — Repository
+- 新增 `backend/app/schemas/pm/case_nature.py` — Schema
+- 新增 `backend/app/api/endpoints/pm/case_nature.py` — 5 API 端點
+
+#### 里程碑 XLS 匯出入
+- `milestones.py` — 新增 export-xlsx + import-xlsx 端點
+- `MilestonesTab.tsx` — 匯出/匯入按鈕 UI
+
+#### ERP 請款流程整合
+- `billings.py` — billing_id FK + 期別展開
+- `BillingsTab.tsx` — 關聯請款期別
+
+#### 統一 AR/AP 帳款紀錄
+- 新增 `AccountRecordTab.tsx` — 應收/應付共用 Tab (294L)
+- `ERPQuotationDetailPage.tsx` — Tab 結構重組 (成本結構 + 應收 + 應付)
+- 應收: billing 數據轉統一格式
+- 應付: vendor_payable 數據轉統一格式
+
+#### 成本結構與損益分析
+- 成本結構 Tab: 合約概況 + 應收概況 + 應付概況 + 損益分析 + 合約資訊
+- 應收總額修正: 使用合約價 (total_price) 非已請款金額
+- 損益分析: 營收含稅/稅額/未稅/淨利 + 費用明細
+
+#### contract-cases 改善
+- 里程碑/ERP Tab 改為永遠顯示 (不論是否成案)
+
+#### 影響範圍
+- `backend/app/api/endpoints/pm/case_nature.py` — 新增
+- `backend/app/api/endpoints/pm/milestones.py` — 擴充 export/import
+- `backend/app/api/endpoints/erp/billings.py` — 擴充 billing_id FK
+- `backend/app/repositories/case_nature_repository.py` — 新增
+- `frontend/src/pages/CaseNatureManagementPage.tsx` — 新增
+- `frontend/src/pages/erpQuotation/AccountRecordTab.tsx` — 新增
+- `frontend/src/pages/ERPQuotationDetailPage.tsx` — 重組 Tab
+- 25 files changed, ~1,248 insertions
+
+---
+
 ## [5.3.7] - 2026-03-30
 
 ### project_code 格式重構 + PM 成案自動化

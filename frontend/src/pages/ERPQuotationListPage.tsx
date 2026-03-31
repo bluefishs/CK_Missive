@@ -2,7 +2,7 @@
  * ERP 報價/成本管理列表頁面
  */
 import React, { useState } from 'react';
-import { Card, Table, Button, Space, Tag, Input, Select, Typography, Statistic, Row, Col, Popconfirm, message } from 'antd';
+import { Card, Table, Button, Space, Tag, Input, Select, Typography, Statistic, Row, Col, Popconfirm, Alert, App } from 'antd';
 import { PlusOutlined, ReloadOutlined, DownloadOutlined, EditOutlined } from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { erpQuotationsApi } from '../api/erp';
@@ -24,10 +24,11 @@ const STATUS_COLORS: Record<ERPQuotationStatus, string> = {
 
 export const ERPQuotationListPage: React.FC = () => {
   const navigate = useNavigate();
+  const { message } = App.useApp();
   const { hasPermission } = useAuthGuard();
   const canWrite = hasPermission('projects:write');
   const [params, setParams] = useState<ERPQuotationListParams>({ page: 1, limit: 20, sort_by: 'year', sort_order: 'desc' });
-  const { data, isLoading, refetch } = useERPQuotations(params);
+  const { data, isLoading, isError, refetch } = useERPQuotations(params);
   const { data: profitSummary } = useERPProfitSummary();
   const deleteMutation = useDeleteERPQuotation();
 
@@ -148,6 +149,8 @@ export const ERPQuotationListPage: React.FC = () => {
           </Row>
         )}
       </Card>
+
+      {isError && <Alert type="error" message="載入失敗，請稍後重試" showIcon style={{ marginBottom: 16 }} />}
 
       <Card>
         <Space wrap style={{ marginBottom: 16 }}>

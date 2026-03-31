@@ -829,6 +829,350 @@
       "unique_constraints": {},
       "row_count_estimate": 126
     },
+    "asset_logs": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('asset_logs_id_seq'::regclass)",
+          "udt_name": "int4"
+        },
+        {
+          "name": "asset_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "udt_name": "int4"
+        },
+        {
+          "name": "action",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 30
+        },
+        {
+          "name": "action_date",
+          "type": "DATE",
+          "nullable": false,
+          "default": null,
+          "udt_name": "date"
+        },
+        {
+          "name": "description",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "udt_name": "text"
+        },
+        {
+          "name": "cost",
+          "type": "NUMERIC",
+          "nullable": true,
+          "default": "0",
+          "udt_name": "numeric"
+        },
+        {
+          "name": "expense_invoice_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
+        },
+        {
+          "name": "from_location",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 200
+        },
+        {
+          "name": "to_location",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 200
+        },
+        {
+          "name": "operator",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 100
+        },
+        {
+          "name": "notes",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "udt_name": "text"
+        },
+        {
+          "name": "created_by",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "udt_name": "timestamp"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "column": "asset_id",
+          "ref_table": "assets",
+          "ref_column": "id"
+        },
+        {
+          "column": "created_by",
+          "ref_table": "users",
+          "ref_column": "id"
+        },
+        {
+          "column": "expense_invoice_id",
+          "ref_table": "expense_invoices",
+          "ref_column": "id"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "asset_logs_pkey",
+          "definition": "CREATE UNIQUE INDEX asset_logs_pkey ON public.asset_logs USING btree (id)"
+        },
+        {
+          "name": "idx_asset_logs_asset",
+          "definition": "CREATE INDEX idx_asset_logs_asset ON public.asset_logs USING btree (asset_id)"
+        },
+        {
+          "name": "idx_asset_logs_action",
+          "definition": "CREATE INDEX idx_asset_logs_action ON public.asset_logs USING btree (action)"
+        },
+        {
+          "name": "idx_asset_logs_invoice",
+          "definition": "CREATE INDEX idx_asset_logs_invoice ON public.asset_logs USING btree (expense_invoice_id)"
+        }
+      ],
+      "unique_constraints": {},
+      "row_count_estimate": -1
+    },
+    "assets": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('assets_id_seq'::regclass)",
+          "udt_name": "int4"
+        },
+        {
+          "name": "asset_code",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 50
+        },
+        {
+          "name": "name",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 200
+        },
+        {
+          "name": "category",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 50
+        },
+        {
+          "name": "brand",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 100
+        },
+        {
+          "name": "model",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 100
+        },
+        {
+          "name": "serial_number",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 100
+        },
+        {
+          "name": "purchase_date",
+          "type": "DATE",
+          "nullable": true,
+          "default": null,
+          "udt_name": "date"
+        },
+        {
+          "name": "purchase_amount",
+          "type": "NUMERIC",
+          "nullable": true,
+          "default": "0",
+          "udt_name": "numeric"
+        },
+        {
+          "name": "current_value",
+          "type": "NUMERIC",
+          "nullable": true,
+          "default": null,
+          "udt_name": "numeric"
+        },
+        {
+          "name": "depreciation_rate",
+          "type": "NUMERIC",
+          "nullable": true,
+          "default": "0",
+          "udt_name": "numeric"
+        },
+        {
+          "name": "expense_invoice_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
+        },
+        {
+          "name": "case_code",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 50
+        },
+        {
+          "name": "status",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": "'in_use'::character varying",
+          "udt_name": "varchar",
+          "max_length": 30
+        },
+        {
+          "name": "location",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 200
+        },
+        {
+          "name": "custodian",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 100
+        },
+        {
+          "name": "notes",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "udt_name": "text"
+        },
+        {
+          "name": "created_by",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "udt_name": "timestamp"
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "udt_name": "timestamp"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "column": "created_by",
+          "ref_table": "users",
+          "ref_column": "id"
+        },
+        {
+          "column": "expense_invoice_id",
+          "ref_table": "expense_invoices",
+          "ref_column": "id"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "assets_pkey",
+          "definition": "CREATE UNIQUE INDEX assets_pkey ON public.assets USING btree (id)"
+        },
+        {
+          "name": "assets_asset_code_key",
+          "definition": "CREATE UNIQUE INDEX assets_asset_code_key ON public.assets USING btree (asset_code)"
+        },
+        {
+          "name": "idx_assets_code",
+          "definition": "CREATE INDEX idx_assets_code ON public.assets USING btree (asset_code)"
+        },
+        {
+          "name": "idx_assets_category",
+          "definition": "CREATE INDEX idx_assets_category ON public.assets USING btree (category)"
+        },
+        {
+          "name": "idx_assets_status",
+          "definition": "CREATE INDEX idx_assets_status ON public.assets USING btree (status)"
+        },
+        {
+          "name": "idx_assets_case_code",
+          "definition": "CREATE INDEX idx_assets_case_code ON public.assets USING btree (case_code)"
+        },
+        {
+          "name": "idx_assets_invoice",
+          "definition": "CREATE INDEX idx_assets_invoice ON public.assets USING btree (expense_invoice_id)"
+        }
+      ],
+      "unique_constraints": {
+        "assets_asset_code_key": [
+          "asset_code"
+        ]
+      },
+      "row_count_estimate": -1
+    },
     "audit_logs": {
       "columns": [
         {
@@ -1134,7 +1478,90 @@
           "entity_type"
         ]
       },
-      "row_count_estimate": 6310
+      "row_count_estimate": 6767
+    },
+    "case_nature_codes": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('case_nature_codes_id_seq'::regclass)",
+          "udt_name": "int4"
+        },
+        {
+          "name": "code",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 10
+        },
+        {
+          "name": "label",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 100
+        },
+        {
+          "name": "description",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 500
+        },
+        {
+          "name": "sort_order",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "udt_name": "int4"
+        },
+        {
+          "name": "is_active",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "default": "true",
+          "udt_name": "bool"
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "udt_name": "timestamp"
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "udt_name": "timestamp"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [],
+      "indexes": [
+        {
+          "name": "case_nature_codes_pkey",
+          "definition": "CREATE UNIQUE INDEX case_nature_codes_pkey ON public.case_nature_codes USING btree (id)"
+        },
+        {
+          "name": "case_nature_codes_code_key",
+          "definition": "CREATE UNIQUE INDEX case_nature_codes_code_key ON public.case_nature_codes USING btree (code)"
+        }
+      ],
+      "unique_constraints": {
+        "case_nature_codes_code_key": [
+          "code"
+        ]
+      },
+      "row_count_estimate": -1
     },
     "contract_projects": {
       "columns": [
@@ -1463,7 +1890,7 @@
           "project_code"
         ]
       },
-      "row_count_estimate": 37
+      "row_count_estimate": 82
     },
     "document_ai_analyses": {
       "columns": [
@@ -3102,7 +3529,7 @@
         }
       ],
       "unique_constraints": {},
-      "row_count_estimate": 8150
+      "row_count_estimate": 5184
     },
     "erp_billings": {
       "columns": [
@@ -3325,12 +3752,24 @@
           "nullable": true,
           "default": "now()",
           "udt_name": "timestamp"
+        },
+        {
+          "name": "billing_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
         }
       ],
       "primary_key": [
         "id"
       ],
       "foreign_keys": [
+        {
+          "column": "billing_id",
+          "ref_table": "erp_billings",
+          "ref_column": "id"
+        },
         {
           "column": "erp_quotation_id",
           "ref_table": "erp_quotations",
@@ -3353,6 +3792,10 @@
         {
           "name": "ix_erp_invoices_status",
           "definition": "CREATE INDEX ix_erp_invoices_status ON public.erp_invoices USING btree (status)"
+        },
+        {
+          "name": "ix_erp_invoices_billing_id",
+          "definition": "CREATE INDEX ix_erp_invoices_billing_id ON public.erp_invoices USING btree (billing_id)"
         }
       ],
       "unique_constraints": {},
@@ -3642,12 +4085,24 @@
           "nullable": true,
           "default": null,
           "udt_name": "int4"
+        },
+        {
+          "name": "billing_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
         }
       ],
       "primary_key": [
         "id"
       ],
       "foreign_keys": [
+        {
+          "column": "billing_id",
+          "ref_table": "erp_billings",
+          "ref_column": "id"
+        },
         {
           "column": "erp_quotation_id",
           "ref_table": "erp_quotations",
@@ -3679,6 +4134,10 @@
         {
           "name": "ix_erp_vendor_payables_vendor_id",
           "definition": "CREATE INDEX ix_erp_vendor_payables_vendor_id ON public.erp_vendor_payables USING btree (vendor_id)"
+        },
+        {
+          "name": "ix_erp_vendor_payables_billing_id",
+          "definition": "CREATE INDEX ix_erp_vendor_payables_billing_id ON public.erp_vendor_payables USING btree (billing_id)"
         }
       ],
       "unique_constraints": {},
@@ -5274,6 +5733,14 @@
           "nullable": true,
           "default": null,
           "udt_name": "int4"
+        },
+        {
+          "name": "case_nature",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 50
         }
       ],
       "primary_key": [
@@ -5837,6 +6304,333 @@
       "unique_constraints": {},
       "row_count_estimate": -1
     },
+    "security_issues": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('security_issues_id_seq'::regclass)",
+          "udt_name": "int4"
+        },
+        {
+          "name": "project_name",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 100
+        },
+        {
+          "name": "scan_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
+        },
+        {
+          "name": "title",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 500
+        },
+        {
+          "name": "description",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "udt_name": "text"
+        },
+        {
+          "name": "severity",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": "'medium'::character varying",
+          "udt_name": "varchar",
+          "max_length": 20
+        },
+        {
+          "name": "status",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": "'open'::character varying",
+          "udt_name": "varchar",
+          "max_length": 20
+        },
+        {
+          "name": "owasp_category",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 5
+        },
+        {
+          "name": "cwe_id",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 20
+        },
+        {
+          "name": "cvss_score",
+          "type": "DOUBLE PRECISION",
+          "nullable": true,
+          "default": null,
+          "udt_name": "float8"
+        },
+        {
+          "name": "file_path",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 500
+        },
+        {
+          "name": "line_number",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
+        },
+        {
+          "name": "code_snippet",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "udt_name": "text"
+        },
+        {
+          "name": "remediation",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "udt_name": "text"
+        },
+        {
+          "name": "assigned_to",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 100
+        },
+        {
+          "name": "due_date",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": null,
+          "udt_name": "timestamp"
+        },
+        {
+          "name": "resolved_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": null,
+          "udt_name": "timestamp"
+        },
+        {
+          "name": "resolved_by",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 100
+        },
+        {
+          "name": "extra_data",
+          "type": "JSONB",
+          "nullable": true,
+          "default": null,
+          "udt_name": "jsonb"
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "udt_name": "timestamp"
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "udt_name": "timestamp"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [],
+      "indexes": [
+        {
+          "name": "ix_security_issues_project",
+          "definition": "CREATE INDEX ix_security_issues_project ON public.security_issues USING btree (project_name)"
+        },
+        {
+          "name": "security_issues_pkey",
+          "definition": "CREATE UNIQUE INDEX security_issues_pkey ON public.security_issues USING btree (id)"
+        }
+      ],
+      "unique_constraints": {},
+      "row_count_estimate": 187
+    },
+    "security_scans": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('security_scans_id_seq'::regclass)",
+          "udt_name": "int4"
+        },
+        {
+          "name": "project_name",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 100
+        },
+        {
+          "name": "project_path",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 500
+        },
+        {
+          "name": "scan_type",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": "'quick'::character varying",
+          "udt_name": "varchar",
+          "max_length": 20
+        },
+        {
+          "name": "status",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": "'pending'::character varying",
+          "udt_name": "varchar",
+          "max_length": 20
+        },
+        {
+          "name": "total_issues",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "udt_name": "int4"
+        },
+        {
+          "name": "critical_count",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "udt_name": "int4"
+        },
+        {
+          "name": "high_count",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "udt_name": "int4"
+        },
+        {
+          "name": "medium_count",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "udt_name": "int4"
+        },
+        {
+          "name": "low_count",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "udt_name": "int4"
+        },
+        {
+          "name": "info_count",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": "0",
+          "udt_name": "int4"
+        },
+        {
+          "name": "security_score",
+          "type": "DOUBLE PRECISION",
+          "nullable": true,
+          "default": null,
+          "udt_name": "float8"
+        },
+        {
+          "name": "duration_seconds",
+          "type": "DOUBLE PRECISION",
+          "nullable": true,
+          "default": null,
+          "udt_name": "float8"
+        },
+        {
+          "name": "error_message",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "udt_name": "text"
+        },
+        {
+          "name": "scan_config",
+          "type": "JSONB",
+          "nullable": true,
+          "default": null,
+          "udt_name": "jsonb"
+        },
+        {
+          "name": "created_by",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 100
+        },
+        {
+          "name": "completed_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": null,
+          "udt_name": "timestamp"
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "udt_name": "timestamp"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [],
+      "indexes": [
+        {
+          "name": "security_scans_pkey",
+          "definition": "CREATE UNIQUE INDEX security_scans_pkey ON public.security_scans USING btree (id)"
+        },
+        {
+          "name": "ix_security_scans_project",
+          "definition": "CREATE INDEX ix_security_scans_project ON public.security_scans USING btree (project_name)"
+        }
+      ],
+      "unique_constraints": {},
+      "row_count_estimate": -1
+    },
     "site_configurations": {
       "columns": [
         {
@@ -6063,7 +6857,7 @@
           "key"
         ]
       },
-      "row_count_estimate": 41
+      "row_count_estimate": 55
     },
     "staff_certifications": {
       "columns": [
@@ -6309,7 +7103,7 @@
         }
       ],
       "unique_constraints": {},
-      "row_count_estimate": 81
+      "row_count_estimate": 266
     },
     "taoyuan_contract_payments": {
       "columns": [

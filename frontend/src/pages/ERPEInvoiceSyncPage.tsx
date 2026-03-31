@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import {
   Card, Table, Button, Tag, Typography, Statistic, Row, Col,
-  Tabs, message, Modal, Form, Input, Select, Upload,
+  Tabs, Modal, Form, Input, Select, Upload, App, Alert,
 } from 'antd';
 import {
   SyncOutlined, UploadOutlined, HistoryOutlined, FileImageOutlined, InboxOutlined,
@@ -26,12 +26,13 @@ import dayjs from 'dayjs';
 const { Title } = Typography;
 
 const ERPEInvoiceSyncPage: React.FC = () => {
+  const { message } = App.useApp();
   const { hasPermission } = useAuthGuard();
   const isAdmin = hasPermission('admin:access');
 
   // 待核銷清單
   const [pendingParams, setPendingParams] = useState<PendingReceiptQuery>({ skip: 0, limit: 20 });
-  const { data: pendingData, isLoading: pendingLoading } = useEInvoicePendingList(pendingParams);
+  const { data: pendingData, isLoading: pendingLoading, isError: pendingError } = useEInvoicePendingList(pendingParams);
   // 同步歷史
   const { data: logsData, isLoading: logsLoading } = useEInvoiceSyncLogs();
   // Mutations
@@ -226,6 +227,8 @@ const ERPEInvoiceSyncPage: React.FC = () => {
           </Col>
         </Row>
       </Card>
+
+      {pendingError && <Alert type="error" message="載入失敗，請稍後重試" showIcon style={{ marginBottom: 16 }} />}
 
       <Card>
         <Tabs items={tabItems} />

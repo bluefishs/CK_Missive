@@ -13,10 +13,11 @@ import {
 } from 'antd';
 import {
   CheckCircleOutlined, CloseCircleOutlined, EditOutlined, SaveOutlined, CloseOutlined,
-  UploadOutlined, FileImageOutlined, InfoCircleOutlined, UnorderedListOutlined,
+  UploadOutlined, FileImageOutlined, InfoCircleOutlined, UnorderedListOutlined, CloudSyncOutlined,
+  DatabaseOutlined,
 } from '@ant-design/icons';
 import { useParams } from 'react-router-dom';
-import { useExpenseDetail, useApproveExpense, useRejectExpense, useUpdateExpense, useUploadExpenseReceipt, useAuthGuard } from '../hooks';
+import { useExpenseDetail, useApproveExpense, useRejectExpense, useUpdateExpense, useUploadExpenseReceipt, useAuthGuard, useAutoLinkEinvoice, useAssetsByInvoice } from '../hooks';
 import { expensesApi } from '../api/erp';
 import type { ExpenseInvoiceItem } from '../types/erp';
 import { EXPENSE_STATUS_LABELS, EXPENSE_STATUS_COLORS, EXPENSE_SOURCE_LABELS, EXPENSE_CATEGORY_OPTIONS, CURRENCY_SYMBOLS, APPROVAL_THRESHOLD } from '../types/erp';
@@ -31,11 +32,13 @@ const ERPExpenseDetailPage: React.FC = () => {
   const { hasPermission } = useAuthGuard();
   const { message } = App.useApp();
   const canApprove = hasPermission('projects:write');
-  const { data, isLoading } = useExpenseDetail(id ? Number(id) : null);
+  const { data, isLoading, isError } = useExpenseDetail(id ? Number(id) : null);
   const approveMutation = useApproveExpense();
   const rejectMutation = useRejectExpense();
   const updateMutation = useUpdateExpense();
   const uploadReceiptMutation = useUploadExpenseReceipt();
+  const autoLinkMutation = useAutoLinkEinvoice();
+  const { data: linkedAssets } = useAssetsByInvoice(data?.data?.id ?? null);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editForm] = Form.useForm();
@@ -60,7 +63,7 @@ const ERPExpenseDetailPage: React.FC = () => {
     }
   }, [invoice, isEditing, editForm]);
 
-  if (!invoice && !isLoading) {
+  if (isError || (!invoice && !isLoading)) {
     return <DetailPageLayout header={{ title: '找不到此費用發票', backPath: ROUTES.ERP_EXPENSES }} tabs={[]} hasData={false} />;
   }
 
@@ -105,6 +108,19 @@ const ERPExpenseDetailPage: React.FC = () => {
       </>
     ) : (
       <>
+        {invoice?.inv_num && !invoice?.synced_at && (
+          <Button
+            type="dashed"
+            icon={<CloudSyncOutlined />}
+            onClick={() => autoLinkMutation.mutate(invoice.id, {
+              onSuccess: () => message.success('電子發票關聯成功'),
+              onError: () => message.error('電子發票關聯失敗'),
+            })}
+            loading={autoLinkMutation.isPending}
+          >
+            關聯電子發票
+          </Button>
+        )}
         {canEdit && <Button icon={<EditOutlined />} onClick={() => setIsEditing(true)}>編輯</Button>}
         {canAdvance && (
           <>
@@ -198,6 +214,25 @@ const ERPExpenseDetailPage: React.FC = () => {
         </div>
       </div>
     ),
+    ...(linkedAssets && linkedAssets.length > 0 ? [
+      createTabItem('assets', { icon: <DatabaseOutlined />, text: '關聯資產', count: linkedAssets.length },
+        <Table
+          dataSource={linkedAssets}
+          rowKey="id"
+          size="small"
+          pagination={false}
+          columns={[
+            { title: '資產編號', dataIndex: 'asset_code', width: 120 },
+            { title: '名稱', dataIndex: 'name' },
+            { title: '類別', dataIndex: 'category', width: 80 },
+            { title: '購入金額', dataIndex: 'purchase_amount', width: 120, align: 'right' as const,
+              render: (v: number) => Number(v).toLocaleString() },
+            { title: '狀態', dataIndex: 'status', width: 80,
+              render: (v: string) => <Tag>{v}</Tag> },
+          ]}
+        />
+      ),
+    ] : []),
   ] : [];
 
   return (

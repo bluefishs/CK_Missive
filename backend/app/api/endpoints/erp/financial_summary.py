@@ -15,6 +15,7 @@ from app.schemas.erp.financial_summary import (
     CompanyOverviewRequest,
     MonthlyTrendRequest,
     BudgetRankingRequest,
+    AgingRequest,
     ExportExpensesRequest,
     ExportLedgerRequest,
 )
@@ -93,6 +94,20 @@ async def get_budget_ranking(
     return SuccessResponse(data=result)
 
 
+@router.post("/aging")
+async def get_aging_analysis(
+    params: AgingRequest,
+    service: FinancialSummaryService = Depends(get_service(FinancialSummaryService)),
+    current_user: User = Depends(require_auth()),
+):
+    """應收/應付帳齡分析 — 30/60/90/90+ 天分布"""
+    result = await service.get_aging_analysis(
+        direction=params.direction,
+        year=params.year,
+    )
+    return SuccessResponse(data=result)
+
+
 @router.post("/export-expenses")
 async def export_expenses(
     params: ExportExpensesRequest,
@@ -117,6 +132,34 @@ async def export_expenses(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.post("/erp-overview")
+async def get_erp_overview(
+    service: FinancialSummaryService = Depends(get_service(FinancialSummaryService)),
+    current_user: User = Depends(require_auth()),
+):
+    """ERP 模組快速統計 — Hub 頁面用"""
+    from sqlalchemy import select, func
+    from app.extended.models.erp import ERPQuotation, ERPInvoice, ERPBilling, ERPVendorPayable
+    from app.extended.models.invoice import ExpenseInvoice
+    from app.extended.models.finance import FinanceLedger
+    from app.extended.models.asset import Asset
+
+    db = service.db
+
+    async def count(model):
+        return await db.scalar(select(func.count()).select_from(model)) or 0
+
+    return SuccessResponse(data={
+        "quotations": await count(ERPQuotation),
+        "expenses": await count(ExpenseInvoice),
+        "ledger": await count(FinanceLedger),
+        "invoices": await count(ERPInvoice),
+        "assets": await count(Asset),
+        "billings": await count(ERPBilling),
+        "vendor_payables": await count(ERPVendorPayable),
+    })
 
 
 @router.post("/export-ledger")

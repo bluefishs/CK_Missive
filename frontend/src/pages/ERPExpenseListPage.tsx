@@ -7,7 +7,7 @@ import React, { useState, useMemo } from 'react';
 import {
   Card, Table, Button, Space, Tag, Input, Select, Typography,
   Statistic, Row, Col, Popconfirm, Modal, Form, DatePicker,
-  AutoComplete, App,
+  AutoComplete, App, Alert,
 } from 'antd';
 import {
   PlusOutlined, ReloadOutlined, CheckCircleOutlined,
@@ -43,7 +43,7 @@ const ERPExpenseListPage: React.FC = () => {
   const initialCaseCode = searchParams.get('case_code') || undefined;
   const [params, setParams] = useState<ExpenseInvoiceQuery>({ skip: 0, limit: 20, case_code: initialCaseCode });
   const { projects: projectOptions } = useProjectsDropdown();
-  const { data, isLoading, refetch } = useExpenses(params);
+  const { data, isLoading, isError, refetch } = useExpenses(params);
   const approveMutation = useApproveExpense();
   const rejectMutation = useRejectExpense();
 
@@ -186,6 +186,8 @@ const ERPExpenseListPage: React.FC = () => {
           <Col xs={12} sm={6}><Statistic title="總筆數" value={total} /></Col>
         </Row>
       </Card>
+
+      {isError && <Alert type="error" message="載入失敗，請稍後重試" showIcon style={{ marginBottom: 16 }} />}
 
       <Card>
         <Space wrap style={{ marginBottom: 16 }}>

@@ -19,6 +19,8 @@ from fastapi import APIRouter
 
 # 導入所有子路由
 from .events import router as events_router
+from .events_create import router as events_create_router
+from .events_batch import router as events_batch_router
 from .sync import router as sync_router
 from .stats import router as stats_router
 from .scheduler import router as scheduler_router
@@ -27,8 +29,14 @@ from .scheduler import router as scheduler_router
 router = APIRouter()
 
 # 按功能聚合所有子路由
-# 1. 事件 CRUD 操作
+# 1a. 事件列表/詳情/更新/刪除
 router.include_router(events_router)
+
+# 1b. 事件建立
+router.include_router(events_create_router)
+
+# 1c. 批次操作 / 使用者事件 / 衝突檢查
+router.include_router(events_batch_router)
 
 # 2. Google Calendar 同步
 router.include_router(sync_router)

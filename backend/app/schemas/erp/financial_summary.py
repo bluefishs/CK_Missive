@@ -9,6 +9,7 @@ class ProjectFinancialSummary(BaseModel):
     """單一專案財務彙總"""
     case_code: str
     case_name: Optional[str] = None
+    erp_quotation_id: Optional[int] = None
 
     budget_total: Optional[Decimal] = None
     quotation_total: Optional[Decimal] = None
@@ -134,3 +135,28 @@ class ExportLedgerRequest(BaseModel):
     date_to: Optional[datetime.date] = None
     case_code: Optional[str] = None
     entry_type: Optional[str] = None
+
+
+class AgingRequest(BaseModel):
+    """應收/應付帳齡分析請求"""
+    direction: str = Field(default="receivable", pattern="^(receivable|payable)$", description="receivable=應收, payable=應付")
+    year: Optional[int] = Field(None, description="民國年度")
+
+
+class AgingBucket(BaseModel):
+    """帳齡區間"""
+    bucket: str  # "0-30", "31-60", "61-90", "90+"
+    count: int = 0
+    amount: Decimal = Decimal("0")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AgingResponse(BaseModel):
+    """帳齡分析結果"""
+    direction: str
+    buckets: List[AgingBucket]
+    total_outstanding: Decimal = Decimal("0")
+    total_count: int = 0
+
+    model_config = ConfigDict(from_attributes=True)

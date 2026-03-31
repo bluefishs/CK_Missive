@@ -17,6 +17,7 @@ import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
+import { ERP_ENDPOINTS } from '../../api/endpoints';
 
 /** 帳款方向 */
 type AccountDirection = 'receivable' | 'payable';
@@ -97,10 +98,10 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
   const dirLabel = isReceivable ? '應收' : '應付';
   const counterpartyLabel = isReceivable ? '委託單位' : '協力廠商';
   const paymentLabel = isReceivable ? '收款' : '付款';
-  const listEndpoint = isReceivable ? '/erp/billings/list' : '/erp/vendor-payables/list';
-  const createEndpoint = isReceivable ? '/erp/billings/create' : '/erp/vendor-payables/create';
-  const updateEndpoint = isReceivable ? '/erp/billings/update' : '/erp/vendor-payables/update';
-  const deleteEndpoint = isReceivable ? '/erp/billings/delete' : '/erp/vendor-payables/delete';
+  const listEndpoint = isReceivable ? ERP_ENDPOINTS.BILLINGS_LIST : ERP_ENDPOINTS.VENDOR_PAYABLES_LIST;
+  const createEndpoint = isReceivable ? ERP_ENDPOINTS.BILLINGS_CREATE : ERP_ENDPOINTS.VENDOR_PAYABLES_CREATE;
+  const updateEndpoint = isReceivable ? ERP_ENDPOINTS.BILLINGS_UPDATE : ERP_ENDPOINTS.VENDOR_PAYABLES_UPDATE;
+  const deleteEndpoint = isReceivable ? ERP_ENDPOINTS.BILLINGS_DELETE : ERP_ENDPOINTS.VENDOR_PAYABLES_DELETE;
   const queryKey = isReceivable ? ['erp-billings', erpQuotationId] : ['erp-vendor-payables', erpQuotationId];
 
   // 查詢
@@ -139,6 +140,8 @@ export const AccountRecordTab: React.FC<AccountRecordTabProps> = ({
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey });
     queryClient.invalidateQueries({ queryKey: ['erp-quotations'] });
+    // Also invalidate the specific quotation detail (cost structure depends on billing/payable data)
+    queryClient.invalidateQueries({ queryKey: ['erp-quotations', 'detail'] });
   };
 
   const close = () => { setModalOpen(false); setEditingId(null); form.resetFields(); };

@@ -1,6 +1,7 @@
 """跨模組財務彙總 Service — 專案 + 全公司總覽"""
 import logging
 from datetime import date
+from decimal import Decimal
 from typing import List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -111,6 +112,35 @@ class FinancialSummaryService:
             item["budget_total"] = proj.contract_amount if proj else None
 
         return {"items": items, "total_projects": total}
+
+    async def get_aging_analysis(
+        self,
+        direction: str = "receivable",
+        year: Optional[int] = None,
+    ) -> dict:
+        """應收/應付帳齡分析"""
+        buckets = await self.repo.get_aging_analysis(direction=direction, year=year)
+
+        result_buckets = []
+        total_count = 0
+        total_outstanding = Decimal("0")
+
+        for bucket_name in ["0-30", "31-60", "61-90", "90+"]:
+            b = buckets[bucket_name]
+            result_buckets.append({
+                "bucket": bucket_name,
+                "count": b["count"],
+                "amount": b["amount"],
+            })
+            total_count += b["count"]
+            total_outstanding += b["amount"]
+
+        return {
+            "direction": direction,
+            "buckets": result_buckets,
+            "total_outstanding": total_outstanding,
+            "total_count": total_count,
+        }
 
     async def _get_top_projects(
         self,

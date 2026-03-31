@@ -5,13 +5,13 @@
  */
 import React, { useState, useMemo } from 'react';
 import {
-  Card, Table, Typography, Statistic, Row, Col, Tag, Select, Progress, Space, Button,
+  Card, Table, Typography, Statistic, Row, Col, Tag, Select, Progress, Space, Button, Alert,
 } from 'antd';
 import { ReloadOutlined, WarningOutlined, DownloadOutlined } from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { useNavigate } from 'react-router-dom';
-import { useCompanyFinancialOverview, useAllProjectsSummary, useExportExpenses, useExportLedger, useMonthlyTrend, useBudgetRanking } from '../hooks';
-import type { ProjectFinancialSummary, CompanyOverviewRequest, BudgetRankingItem } from '../types/erp';
+import { useCompanyFinancialOverview, useAllProjectsSummary, useExportExpenses, useExportLedger, useMonthlyTrend, useBudgetRanking, useAgingAnalysis } from '../hooks';
+import type { ProjectFinancialSummary, CompanyOverviewRequest, BudgetRankingItem, AgingBucket } from '../types/erp';
 import type { ColumnsType } from 'antd/es/table';
 import { ROUTES } from '../router/types';
 import {
@@ -45,10 +45,12 @@ const ERPFinancialDashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const [overviewParams] = useState<CompanyOverviewRequest>({ top_n: 10 });
   const [projectsYear, setProjectsYear] = useState<number | undefined>();
-  const { data: overviewData, isLoading: overviewLoading, refetch: refetchOverview } = useCompanyFinancialOverview(overviewParams);
+  const { data: overviewData, isLoading: overviewLoading, isError: overviewError, refetch: refetchOverview } = useCompanyFinancialOverview(overviewParams);
   const { data: projectsData, isLoading: projectsLoading } = useAllProjectsSummary({ year: projectsYear, limit: 50 });
   const { data: trendData, isLoading: trendLoading } = useMonthlyTrend({ months: 12 });
   const { data: rankingData, isLoading: rankingLoading } = useBudgetRanking({ top_n: 15 });
+  const { data: arAgingData, isLoading: arAgingLoading } = useAgingAnalysis({ direction: 'receivable' });
+  const { data: apAgingData, isLoading: apAgingLoading } = useAgingAnalysis({ direction: 'payable' });
   const exportExpensesMutation = useExportExpenses();
   const exportLedgerMutation = useExportLedger();
 
@@ -56,6 +58,19 @@ const ERPFinancialDashboardPage: React.FC = () => {
   const projects = useMemo(() => projectsData?.items ?? [], [projectsData?.items]);
   const trendMonths = trendData?.data?.months ?? [];
   const rankingItems: BudgetRankingItem[] = rankingData?.data?.items ?? [];
+  const arBuckets = arAgingData?.data?.buckets ?? [];
+  // AR vs AP 對比圖資料
+  const arVsApData = useMemo(() => {
+    const arBkts = arAgingData?.data?.buckets ?? [];
+    const apBkts = apAgingData?.data?.buckets ?? [];
+    if (!arBkts.length && !apBkts.length) return [];
+    const bucketNames = ['0-30', '31-60', '61-90', '90+'];
+    return bucketNames.map((name) => {
+      const ar = arBkts.find((b) => b.bucket === name);
+      const ap = apBkts.find((b) => b.bucket === name);
+      return { bucket: `${name} 天`, receivable: Number(ar?.amount ?? 0), payable: Number(ap?.amount ?? 0) };
+    });
+  }, [arAgingData?.data?.buckets, apAgingData?.data?.buckets]);
 
   // 利潤率排名 (淨額 Top 15)
   const profitChartData = useMemo(() => {
@@ -90,7 +105,12 @@ const ERPFinancialDashboardPage: React.FC = () => {
       dataIndex: 'case_code',
       key: 'case_code',
       width: 140,
-      render: (v: string) => <a onClick={() => navigate(`${ROUTES.ERP_EXPENSES}?case_code=${v}`)}>{v}</a>,
+      render: (v: string, record: ProjectFinancialSummary) =>
+        record.erp_quotation_id ? (
+          <a onClick={() => navigate(ROUTES.ERP_QUOTATION_DETAIL.replace(':id', String(record.erp_quotation_id)))}>{v}</a>
+        ) : (
+          <a onClick={() => navigate(`${ROUTES.ERP_EXPENSES}?case_code=${v}`)}>{v}</a>
+        ),
     },
     { title: '案名', dataIndex: 'case_name', key: 'case_name', ellipsis: true },
     {
@@ -166,6 +186,8 @@ const ERPFinancialDashboardPage: React.FC = () => {
 
   return (
     <ResponsiveContent maxWidth="full" padding="medium">
+      {overviewError && <Alert type="error" message="財務資料載入失敗，請稍後重試" showIcon style={{ marginBottom: 16 }} />}
+
       {/* 全公司財務總覽 */}
       <Card
         title={<Title level={3} style={{ margin: 0 }}>財務儀表板</Title>}
@@ -335,6 +357,51 @@ const ERPFinancialDashboardPage: React.FC = () => {
             ) : (
               <div style={{ textAlign: 'center', padding: 40, color: '#999' }}>無排行資料</div>
             )}
+          </Card>
+        </Col>
+      </Row>
+
+      {/* 帳齡分析 + AR vs AP 對比 */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} lg={14}>
+          <Card title={<Text strong>應收 vs 應付帳齡對比</Text>} size="small" loading={arAgingLoading || apAgingLoading}>
+            {arVsApData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={arVsApData} margin={{ left: 10, right: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="bucket" tick={{ fontSize: 12 }} />
+                  <YAxis tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}K`} />
+                  <Tooltip formatter={(value: number, name: string) => [
+                    `${value.toLocaleString()} 元`,
+                    name === 'receivable' ? '應收' : '應付',
+                  ]} />
+                  <Bar dataKey="receivable" name="應收" fill="#1890ff" barSize={20} />
+                  <Bar dataKey="payable" name="應付" fill="#ff7a45" barSize={20} />
+                  <Legend />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div style={{ textAlign: 'center', padding: 40, color: '#999' }}>無帳齡資料</div>
+            )}
+          </Card>
+        </Col>
+        <Col xs={24} lg={10}>
+          <Card title={<Text strong>應收帳齡明細</Text>} size="small" loading={arAgingLoading}>
+            <Row gutter={[8, 8]} style={{ marginBottom: 12 }}>
+              <Col span={12}><Statistic title="未收總額" value={Number(arAgingData?.data?.total_outstanding ?? 0)} precision={0} styles={{ content: { color: '#ff4d4f' } }} /></Col>
+              <Col span={12}><Statistic title="未收筆數" value={arAgingData?.data?.total_count ?? 0} suffix="筆" /></Col>
+            </Row>
+            <Table<AgingBucket>
+              columns={[
+                { title: '帳齡', dataIndex: 'bucket', width: 80, render: (v: string) => `${v} 天` },
+                { title: '筆數', dataIndex: 'count', width: 60, align: 'right' },
+                { title: '金額', dataIndex: 'amount', align: 'right', render: (v: number) => Number(v).toLocaleString() },
+              ]}
+              dataSource={arBuckets}
+              rowKey="bucket"
+              size="small"
+              pagination={false}
+            />
           </Card>
         </Col>
       </Row>

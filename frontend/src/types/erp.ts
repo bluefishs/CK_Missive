@@ -53,6 +53,30 @@ export type ERPInvoiceUpdate = Partial<Omit<ERPInvoiceCreate, 'erp_quotation_id'
   status?: string;
 };
 
+/** 跨案件發票彙總項目 */
+export interface InvoiceSummaryItem {
+  id: number;
+  invoice_number: string;
+  invoice_date?: string;
+  amount: number;
+  tax_amount: number;
+  invoice_type: string;
+  status: string;
+  description?: string;
+  case_code: string;
+  case_name?: string;
+  billing_id?: number;
+  erp_quotation_id?: number;
+}
+
+/** 跨案件發票彙總查詢參數 */
+export interface InvoiceSummaryRequest {
+  invoice_type?: string;
+  year?: number;
+  skip?: number;
+  limit?: number;
+}
+
 /** ERP 請款 */
 export interface ERPBilling {
   id: number;
@@ -287,6 +311,8 @@ export interface ExpenseInvoice {
   // 多層審核 (Phase 5-5)
   approval_level?: string;
   next_approval?: string;
+  // 電子發票同步
+  synced_at?: string;
 }
 
 export interface ExpenseInvoiceCreate {
@@ -427,6 +453,7 @@ export interface LedgerCategoryBreakdown {
 export interface ProjectFinancialSummary {
   case_code: string;
   case_name?: string;
+  erp_quotation_id?: number;
   budget_total?: number;
   quotation_total?: number;
   billed_amount: number;
@@ -517,6 +544,31 @@ export interface BudgetRankingItem {
 export interface BudgetRankingResponse {
   items: BudgetRankingItem[];
   total_projects: number;
+}
+
+// ============================================================================
+// 帳齡分析 (Aging Analysis)
+// ============================================================================
+
+/** 帳齡區間 */
+export interface AgingBucket {
+  bucket: string;  // "0-30", "31-60", "61-90", "90+"
+  count: number;
+  amount: number;
+}
+
+/** 帳齡分析結果 */
+export interface AgingAnalysis {
+  direction: string;
+  buckets: AgingBucket[];
+  total_outstanding: number;
+  total_count: number;
+}
+
+/** 帳齡分析請求 */
+export interface AgingAnalysisRequest {
+  direction: 'receivable' | 'payable';
+  year?: number;
 }
 
 /** 匯出費用報銷 Excel 請求 */
@@ -611,6 +663,111 @@ export interface SyncLogsResponse {
 }
 
 // ============================================================================
+// 廠商/委託帳款 — 對應 schemas/erp/vendor_accounts.py / client_accounts.py
+// ============================================================================
+
+export interface VendorAccountSummaryItem {
+  vendor_id: number;
+  vendor_name: string;
+  vendor_code?: string;
+  case_count: number;
+  total_payable: number;
+  total_paid: number;
+  outstanding: number;
+}
+
+export interface VendorCasePayableItem {
+  erp_quotation_id: number;
+  case_code: string;
+  case_name?: string;
+  year?: number;
+  total_price?: number;
+  quotation_status?: string;
+  payable_amount: number;
+  paid_amount: number;
+  outstanding: number;
+  payment_status: string;
+  items: Array<{
+    id: number;
+    description?: string;
+    payable_amount: number;
+    paid_amount: number;
+    payment_status: string;
+    due_date?: string;
+    paid_date?: string;
+    invoice_number?: string;
+    notes?: string;
+  }>;
+}
+
+export interface VendorAccountDetail {
+  vendor_id: number;
+  vendor_name: string;
+  vendor_code?: string;
+  total_payable: number;
+  total_paid: number;
+  outstanding: number;
+  cases: VendorCasePayableItem[];
+}
+
+export interface ClientAccountSummaryItem {
+  vendor_id: number;
+  vendor_name: string;
+  vendor_code?: string;
+  case_count: number;
+  total_contract: number;
+  total_billed: number;
+  total_received: number;
+  outstanding: number;
+}
+
+export interface ClientCaseReceivableItem {
+  erp_quotation_id: number;
+  case_code: string;
+  case_name?: string;
+  year?: number;
+  quotation_status?: string;
+  contract_amount: number;
+  total_billed: number;
+  total_received: number;
+  outstanding: number;
+  items: Array<{
+    id: number;
+    billing_period?: string;
+    billing_date?: string;
+    billing_amount: number;
+    payment_status: string;
+    payment_date?: string;
+    payment_amount: number;
+    notes?: string;
+  }>;
+}
+
+export interface ClientAccountDetail {
+  vendor_id: number;
+  vendor_name: string;
+  vendor_code?: string;
+  total_contract: number;
+  total_billed: number;
+  total_received: number;
+  outstanding: number;
+  cases: ClientCaseReceivableItem[];
+}
+
+export interface AccountListRequest {
+  vendor_type?: string;
+  year?: number;
+  keyword?: string;
+  skip?: number;
+  limit?: number;
+}
+
+export interface AccountDetailRequest {
+  vendor_id: number;
+  year?: number;
+}
+
+// ============================================================================
 // 廠商財務彙總 — 對應 schemas/erp/vendor_financial.py
 // ============================================================================
 
@@ -627,4 +784,89 @@ export interface VendorFinancialSummary {
   expense_count: number;
   ledger_expense_total: number;
   ledger_entry_count: number;
+}
+
+// ============================================================================
+// 資產管理模組 (Asset) — 對應 schemas/erp/asset.py
+// ============================================================================
+
+/** 資產 */
+export interface Asset {
+  id: number;
+  asset_code: string;
+  name: string;
+  category: string;
+  brand?: string;
+  asset_model?: string;
+  serial_number?: string;
+  purchase_date?: string;
+  purchase_amount: number;
+  current_value?: number;
+  depreciation_rate: number;
+  expense_invoice_id?: number;
+  case_code?: string;
+  status: string;
+  location?: string;
+  custodian?: string;
+  notes?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** 資產異動記錄 */
+export interface AssetLog {
+  id: number;
+  asset_id: number;
+  action: string;
+  action_date: string;
+  description?: string;
+  cost: number;
+  expense_invoice_id?: number;
+  from_location?: string;
+  to_location?: string;
+  operator?: string;
+  notes?: string;
+  created_at?: string;
+}
+
+/** 資產統計 */
+export interface AssetStats {
+  total_count: number;
+  in_use: number;
+  maintenance: number;
+  idle: number;
+  disposed: number;
+  total_value: number;
+  by_category: Record<string, number>;
+}
+
+/** 資產列表查詢參數 */
+export interface AssetListRequest {
+  category?: string;
+  status?: string;
+  keyword?: string;
+  case_code?: string;
+  skip?: number;
+  limit?: number;
+}
+
+/** 批次盤點請求 */
+export interface AssetBatchInventoryRequest {
+  asset_ids: number[];
+  operator: string;
+  notes?: string;
+}
+
+/** 資產異動記錄建立請求 */
+export interface AssetLogCreateRequest {
+  asset_id: number;
+  action: string;
+  action_date: string;
+  description?: string;
+  cost?: number;
+  expense_invoice_id?: number;
+  from_location?: string;
+  to_location?: string;
+  operator?: string;
+  notes?: string;
 }

@@ -143,6 +143,12 @@ from .finance import (
 from .einvoice_sync import (
     EInvoiceSyncLog,
 )
+# 20. 資產管理模組
+from .asset import (
+    Asset,
+    AssetLog,
+)
+
 from .security import (
     SecurityIssue,
     SecurityScan,
@@ -227,4 +233,7 @@ __all__ = [
     "FinanceLedger",
     # 電子發票同步
     "EInvoiceSyncLog",
+    # 資產管理
+    "Asset",
+    "AssetLog",
 ]

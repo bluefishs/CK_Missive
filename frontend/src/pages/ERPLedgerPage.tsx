@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import {
   Card, Table, Button, Space, Tag, Input, Select, Typography,
-  Statistic, Row, Col, Modal, Form, DatePicker, message, Popconfirm,
+  Statistic, Row, Col, Modal, Form, DatePicker, Popconfirm, App, Alert,
 } from 'antd';
 import { PlusOutlined, ReloadOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
@@ -25,11 +25,12 @@ const { Title } = Typography;
 
 const ERPLedgerPage: React.FC = () => {
   const { hasPermission } = useAuthGuard();
+  const { message } = App.useApp();
   const navigate = useNavigate();
   const canWrite = hasPermission('projects:write');
   const [params, setParams] = useState<LedgerQuery>({ skip: 0, limit: 20 });
   const { projects: projectOptions } = useProjectsDropdown();
-  const { data, isLoading, refetch } = useLedger(params);
+  const { data, isLoading, isError, refetch } = useLedger(params);
   const { data: breakdownData } = useLedgerCategoryBreakdown({ entry_type: 'expense' });
   const createMutation = useCreateLedger();
   const deleteMutation = useDeleteLedger();
@@ -128,6 +129,8 @@ const ERPLedgerPage: React.FC = () => {
           <Col xs={12} sm={6}><Statistic title="總筆數" value={total} /></Col>
         </Row>
       </Card>
+
+      {isError && <Alert type="error" message="載入失敗，請稍後重試" showIcon style={{ marginBottom: 16 }} />}
 
       {/* 支出分類拆解 */}
       {Array.isArray(breakdownItems) && breakdownItems.length > 0 && (

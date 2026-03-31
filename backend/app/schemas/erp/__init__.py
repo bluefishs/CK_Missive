@@ -5,6 +5,7 @@ from .quotation import (
 )
 from .invoice import (
     ERPInvoiceCreate, ERPInvoiceUpdate, ERPInvoiceResponse,
+    InvoiceSummaryRequest, CreateFromBillingRequest,
 )
 from .billing import (
     ERPBillingCreate, ERPBillingUpdate, ERPBillingResponse,
@@ -45,6 +46,7 @@ __all__ = [
     "ERPQuotationCreate", "ERPQuotationUpdate", "ERPQuotationResponse",
     "ERPQuotationListRequest", "ERPProfitSummary", "ERPProfitTrendItem",
     "ERPInvoiceCreate", "ERPInvoiceUpdate", "ERPInvoiceResponse",
+    "InvoiceSummaryRequest", "CreateFromBillingRequest",
     "ERPBillingCreate", "ERPBillingUpdate", "ERPBillingResponse",
     "ERPVendorPayableCreate", "ERPVendorPayableUpdate", "ERPVendorPayableResponse",
     # 費用報銷

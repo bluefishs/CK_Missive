@@ -111,6 +111,7 @@ export const ROUTES = {
   // 技能演化樹
   SKILL_EVOLUTION: '/ai/skill-evolution',
   // 財務管理 (ERP)
+  ERP_HUB: '/erp',
   ERP_QUOTATIONS: '/erp/quotations',
   ERP_QUOTATION_DETAIL: '/erp/quotations/:id',
   ERP_QUOTATION_CREATE: '/erp/quotations/create',
@@ -126,6 +127,19 @@ export const ROUTES = {
   ERP_FINANCIAL_DASHBOARD: '/erp/financial-dashboard',
   // 電子發票同步
   ERP_EINVOICE_SYNC: '/erp/einvoice-sync',
+  // 廠商帳款
+  ERP_VENDOR_ACCOUNTS: '/erp/vendor-accounts',
+  ERP_VENDOR_ACCOUNT_DETAIL: '/erp/vendor-accounts/:id',
+  // 委託單位帳款
+  ERP_CLIENT_ACCOUNTS: '/erp/client-accounts',
+  ERP_CLIENT_ACCOUNT_DETAIL: '/erp/client-accounts/:id',
+  // 發票總覽
+  ERP_INVOICE_SUMMARY: '/erp/invoices/summary-view',
+  // 資產管理
+  ERP_ASSETS: '/erp/assets',
+  ERP_ASSET_CREATE: '/erp/assets/create',
+  ERP_ASSET_EDIT: '/erp/assets/:id/edit',
+  ERP_ASSET_DETAIL: '/erp/assets/:id',
   // 數位分身
   DIGITAL_TWIN: '/ai/digital-twin',
   // 資安管理中心
@@ -424,6 +438,12 @@ export const ROUTE_META = {
     title: '編輯作業紀錄',
     description: '桃園查估專區 - 編輯作業歷程紀錄',
     breadcrumb: true,
+  },
+  [ROUTES.ERP_HUB]: {
+    title: '財務管理中心',
+    description: 'ERP 財務模組總覽入口',
+    icon: 'AccountBookOutlined',
+    requireAuth: true,
   },
   [ROUTES.ERP_EXPENSES]: {
     title: '費用報銷',

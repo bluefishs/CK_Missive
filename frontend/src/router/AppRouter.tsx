@@ -94,6 +94,7 @@ const PMCaseDetailPage = lazy(() => import('../pages/PMCaseDetailPage'));
 const PMCaseFormPage = lazy(() => import('../pages/PMCaseFormPage'));
 
 // 財務管理 (ERP)
+const ERPHubPage = lazy(() => import('../pages/ERPHubPage'));
 const ERPQuotationListPage = lazy(() => import('../pages/ERPQuotationListPage'));
 const ERPQuotationDetailPage = lazy(() => import('../pages/ERPQuotationDetailPage'));
 const ERPQuotationFormPage = lazy(() => import('../pages/ERPQuotationFormPage'));
@@ -104,6 +105,14 @@ const ERPLedgerPage = lazy(() => import('../pages/ERPLedgerPage'));
 const ERPLedgerCreatePage = lazy(() => import('../pages/ERPLedgerCreatePage'));
 const ERPFinancialDashboardPage = lazy(() => import('../pages/ERPFinancialDashboardPage'));
 const ERPEInvoiceSyncPage = lazy(() => import('../pages/ERPEInvoiceSyncPage'));
+const ERPVendorAccountsPage = lazy(() => import('../pages/ERPVendorAccountsPage'));
+const ERPVendorAccountDetailPage = lazy(() => import('../pages/ERPVendorAccountDetailPage'));
+const ERPClientAccountsPage = lazy(() => import('../pages/ERPClientAccountsPage'));
+const ERPClientAccountDetailPage = lazy(() => import('../pages/ERPClientAccountDetailPage'));
+const ERPInvoiceSummaryPage = lazy(() => import('../pages/ERPInvoiceSummaryPage'));
+const ERPAssetListPage = lazy(() => import('../pages/ERPAssetListPage'));
+const ERPAssetDetailPage = lazy(() => import('../pages/ERPAssetDetailPage'));
+const ERPAssetFormPage = lazy(() => import('../pages/ERPAssetFormPage'));
 
 // 數位分身
 const DigitalTwinPage = lazy(() => import('../pages/DigitalTwinPage'));
@@ -275,6 +284,16 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.ERP_LEDGER_CREATE} element={<ProtectedRoute><ERPLedgerCreatePage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_FINANCIAL_DASHBOARD} element={<ProtectedRoute><ERPFinancialDashboardPage /></ProtectedRoute>} />
           <Route path={ROUTES.ERP_EINVOICE_SYNC} element={<ProtectedRoute><ERPEInvoiceSyncPage /></ProtectedRoute>} />
+          <Route path={ROUTES.ERP_VENDOR_ACCOUNT_DETAIL} element={<ProtectedRoute><ERPVendorAccountDetailPage /></ProtectedRoute>} />
+          <Route path={ROUTES.ERP_VENDOR_ACCOUNTS} element={<ProtectedRoute><ERPVendorAccountsPage /></ProtectedRoute>} />
+          <Route path={ROUTES.ERP_CLIENT_ACCOUNT_DETAIL} element={<ProtectedRoute><ERPClientAccountDetailPage /></ProtectedRoute>} />
+          <Route path={ROUTES.ERP_CLIENT_ACCOUNTS} element={<ProtectedRoute><ERPClientAccountsPage /></ProtectedRoute>} />
+          <Route path={ROUTES.ERP_INVOICE_SUMMARY} element={<ProtectedRoute><ERPInvoiceSummaryPage /></ProtectedRoute>} />
+          <Route path={ROUTES.ERP_ASSET_CREATE} element={<ProtectedRoute><ERPAssetFormPage /></ProtectedRoute>} />
+          <Route path={ROUTES.ERP_ASSET_EDIT} element={<ProtectedRoute><ERPAssetFormPage /></ProtectedRoute>} />
+          <Route path={ROUTES.ERP_ASSET_DETAIL} element={<ProtectedRoute><ERPAssetDetailPage /></ProtectedRoute>} />
+          <Route path={ROUTES.ERP_ASSETS} element={<ProtectedRoute><ERPAssetListPage /></ProtectedRoute>} />
+          <Route path={ROUTES.ERP_HUB} element={<ProtectedRoute><ERPHubPage /></ProtectedRoute>} />
 
           {/* 資安管理 */}
           <Route path={ROUTES.ADMIN_LOGIN_HISTORY} element={<ProtectedRoute roles={['admin', 'superuser']}><AdminLoginHistoryPage /></ProtectedRoute>} />
