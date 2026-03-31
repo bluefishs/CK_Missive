@@ -106,6 +106,21 @@ async def export_quotations(
     )
 
 
+@router.post("/case-code-map")
+async def get_case_code_map(
+    service: ERPQuotationService = Depends(get_service(ERPQuotationService)),
+):
+    """案號→成案編號對照表"""
+    from sqlalchemy import select as sa_select
+    from app.extended.models.erp import ERPQuotation
+    result = await service.db.execute(
+        sa_select(ERPQuotation.case_code, ERPQuotation.project_code)
+        .where(ERPQuotation.project_code.isnot(None))
+    )
+    mapping = {r[0]: r[1] for r in result.all()}
+    return SuccessResponse(data=mapping)
+
+
 @router.post("/generate-code")
 async def generate_case_code(
     req: ERPGenerateCodeRequest,

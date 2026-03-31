@@ -15,6 +15,7 @@ import { ROUTES } from '../router/types';
 import {
   useLedger, useCreateLedger, useDeleteLedger,
   useLedgerCategoryBreakdown, useAuthGuard, useProjectsDropdown,
+  useCaseCodeMap,
 } from '../hooks';
 import type { FinanceLedger, LedgerQuery, LedgerCreate, LedgerEntryType } from '../types/erp';
 import { LEDGER_ENTRY_TYPE_LABELS } from '../types/erp';
@@ -30,6 +31,7 @@ const ERPLedgerPage: React.FC = () => {
   const canWrite = hasPermission('projects:write');
   const [params, setParams] = useState<LedgerQuery>({ skip: 0, limit: 20 });
   const { projects: projectOptions } = useProjectsDropdown();
+  const { data: caseCodeMap } = useCaseCodeMap();
   const { data, isLoading, isError, refetch } = useLedger(params);
   const { data: breakdownData } = useLedgerCategoryBreakdown({ entry_type: 'expense' });
   const createMutation = useCreateLedger();
@@ -89,7 +91,14 @@ const ERPLedgerPage: React.FC = () => {
       ),
     },
     { title: '分類', dataIndex: 'category', key: 'category', width: 120 },
-    { title: '案號', dataIndex: 'case_code', key: 'case_code', width: 130, render: (v: string | null) => v ?? '一般營運' },
+    {
+      title: '案號', dataIndex: 'case_code', key: 'case_code', width: 160,
+      render: (v: string | null) => {
+        if (!v) return '一般營運';
+        const pc = caseCodeMap?.[v];
+        return pc ? <span title={v}>{pc}</span> : v;
+      },
+    },
     { title: '說明', dataIndex: 'description', key: 'description', ellipsis: true },
     { title: '來源', dataIndex: 'source_type', key: 'source_type', width: 100 },
     {

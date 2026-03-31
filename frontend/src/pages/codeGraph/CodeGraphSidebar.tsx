@@ -5,7 +5,9 @@ import {
   Space,
   Button,
   Popconfirm,
+  Collapse,
   Divider,
+  Table,
   Typography,
   Row,
   Col,
@@ -16,6 +18,7 @@ import {
 } from 'antd';
 import {
   CodeOutlined,
+  FileTextOutlined,
   ForkOutlined,
   DatabaseOutlined,
   UploadOutlined,
@@ -103,39 +106,122 @@ const CodeGraphSidebar: React.FC<CodeGraphSidebarProps> = ({
       const result = await aiApi.analyzeDiffImpact();
       if (result?.success && result.data) {
         const d = result.data;
+        const downstreamColumns = [
+          {
+            title: '實體名稱',
+            dataIndex: 'entity',
+            key: 'entity',
+            ellipsis: true,
+            render: (v: string) => <Text code style={{ fontSize: 11 }}>{v}</Text>,
+          },
+          {
+            title: '類型',
+            dataIndex: 'type',
+            key: 'type',
+            width: 100,
+            render: (v: string) => <Tag color="processing">{TYPE_LABELS[v] || v}</Tag>,
+          },
+          {
+            title: '關係',
+            dataIndex: 'relation',
+            key: 'relation',
+            width: 90,
+            render: (v: string) => <Tag color="orange">{v}</Tag>,
+          },
+          {
+            title: '依賴於',
+            dataIndex: 'depends_on',
+            key: 'depends_on',
+            ellipsis: true,
+            render: (v: string) => <Text code style={{ fontSize: 11 }}>{v}</Text>,
+          },
+        ];
         modal.info({
           title: 'Diff 影響分析',
-          width: 600,
+          width: 700,
           content: (
-            <div style={{ maxHeight: 400, overflow: 'auto', fontSize: 12 }}>
-              <p><strong>{d.summary}</strong></p>
+            <div style={{ maxHeight: 500, overflow: 'auto' }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>{d.summary}</Text>
+
+              {/* Summary stats */}
+              <Row gutter={12} style={{ marginTop: 12 }}>
+                <Col span={8}>
+                  <Statistic
+                    title={<span style={{ fontSize: 11 }}>變更檔案數</span>}
+                    value={d.changed_files?.length ?? 0}
+                    prefix={<FileTextOutlined style={{ fontSize: 12 }} />}
+                    styles={{ content: { fontSize: 20, color: '#1677ff' } }}
+                  />
+                </Col>
+                <Col span={8}>
+                  <Statistic
+                    title={<span style={{ fontSize: 11 }}>影響實體數</span>}
+                    value={d.affected_entities ?? 0}
+                    prefix={<NodeIndexOutlined style={{ fontSize: 12 }} />}
+                    styles={{ content: { fontSize: 20, color: '#fa8c16' } }}
+                  />
+                </Col>
+                <Col span={8}>
+                  <Statistic
+                    title={<span style={{ fontSize: 11 }}>下游依賴數</span>}
+                    value={d.downstream_dependents ?? 0}
+                    prefix={<ApartmentOutlined style={{ fontSize: 12 }} />}
+                    styles={{ content: { fontSize: 20, color: '#f5222d' } }}
+                  />
+                </Col>
+              </Row>
+
+              {/* Changed files collapse */}
               {d.changed_files?.length > 0 && (
-                <>
-                  <Divider titlePlacement="left" style={{ fontSize: 13 }}>變更檔案</Divider>
-                  <div style={{ fontFamily: 'monospace', lineHeight: 1.8 }}>
-                    {d.changed_files.map((f: string, i: number) => (
-                      <Tag key={i} style={{ marginBottom: 2 }}>{f}</Tag>
+                <Collapse
+                  size="small"
+                  style={{ marginTop: 12 }}
+                  items={[{
+                    key: 'files',
+                    label: <span style={{ fontSize: 12 }}>變更檔案 ({d.changed_files.length})</span>,
+                    children: (
+                      <div style={{ fontFamily: 'monospace', fontSize: 11, lineHeight: 1.8 }}>
+                        {d.changed_files.map((f: string, i: number) => (
+                          <Tag key={i} style={{ marginBottom: 2 }}>{f}</Tag>
+                        ))}
+                      </div>
+                    ),
+                  }]}
+                />
+              )}
+
+              {/* Affected by type */}
+              {Object.keys(d.affected_by_type || {}).length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  <Text strong style={{ fontSize: 12 }}>受影響實體類型</Text>
+                  <div style={{ marginTop: 6 }}>
+                    {Object.entries(d.affected_by_type).map(([type, count]) => (
+                      <Tag key={type} color="blue" style={{ marginBottom: 4 }}>
+                        {TYPE_LABELS[type] || type}: {String(count)}
+                      </Tag>
                     ))}
                   </div>
-                </>
+                </div>
               )}
-              {Object.keys(d.affected_by_type || {}).length > 0 && (
-                <>
-                  <Divider titlePlacement="left" style={{ fontSize: 13 }}>受影響實體類型</Divider>
-                  {Object.entries(d.affected_by_type).map(([type, count]) => (
-                    <Tag key={type} color="blue">{type}: {String(count)}</Tag>
-                  ))}
-                </>
-              )}
+
+              {/* Downstream dependents table */}
               {d.downstream?.length > 0 && (
-                <>
-                  <Divider titlePlacement="left" style={{ fontSize: 13 }}>下游依賴者</Divider>
-                  {d.downstream.map((dep: { entity: string; relation: string; depends_on: string }, i: number) => (
-                    <div key={i} style={{ fontFamily: 'monospace', marginBottom: 2 }}>
-                      <Tag color="orange">{dep.relation}</Tag> {dep.entity} → {dep.depends_on}
-                    </div>
-                  ))}
-                </>
+                <div style={{ marginTop: 12 }}>
+                  <Text strong style={{ fontSize: 12 }}>下游依賴者</Text>
+                  <Table
+                    size="small"
+                    dataSource={d.downstream.map(
+                      (dep: { entity: string; type: string; relation: string; depends_on: string }, i: number) => ({
+                        ...dep,
+                        key: i,
+                      }),
+                    )}
+                    columns={downstreamColumns}
+                    pagination={d.downstream.length > 10 ? { pageSize: 10, size: 'small' } : false}
+                    style={{ marginTop: 6 }}
+                    scroll={{ x: 500 }}
+                  />
+                </div>
               )}
             </div>
           ),

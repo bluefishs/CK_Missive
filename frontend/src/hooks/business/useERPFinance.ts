@@ -105,6 +105,24 @@ export const erpFinanceKeys = {
 };
 
 // ============================================================================
+// 案號對照 Hooks
+// ============================================================================
+
+/** 案號→成案編號對照表 (case_code → project_code) */
+export function useCaseCodeMap() {
+  return useQuery<Record<string, string>>({
+    queryKey: ['erp-case-code-map'],
+    queryFn: async () => {
+      const res = await apiClient.post<{ data: Record<string, string> }>(
+        ERP_ENDPOINTS.CASE_CODE_MAP, {}
+      );
+      return res.data ?? {};
+    },
+    staleTime: 5 * 60_000,
+  });
+}
+
+// ============================================================================
 // ERP Hub 總覽 Hooks
 // ============================================================================
 

@@ -21,6 +21,7 @@ import {
   useExpenses, useApproveExpense, useRejectExpense,
   useAuthGuard, useEInvoicePendingList,
   useImportExpenses, useDownloadExpenseTemplate,
+  useCaseCodeMap,
 } from '../hooks';
 import { useProjectsDropdown } from '../hooks';
 import type { ExpenseInvoice, ExpenseInvoiceCreate, ExpenseInvoiceQuery, ExpenseInvoiceStatus } from '../types/erp';
@@ -45,6 +46,7 @@ const ERPExpenseListPage: React.FC = () => {
   const initialCaseCode = searchParams.get('case_code') || undefined;
   const [params, setParams] = useState<ExpenseInvoiceQuery>({ skip: 0, limit: 20, case_code: initialCaseCode });
   const { projects: projectOptions } = useProjectsDropdown();
+  const { data: caseCodeMap } = useCaseCodeMap();
   const { data, isLoading, isError, refetch } = useExpenses(params);
   const approveMutation = useApproveExpense();
   const rejectMutation = useRejectExpense();
@@ -124,7 +126,14 @@ const ERPExpenseListPage: React.FC = () => {
       },
     },
     { title: '分類', dataIndex: 'category', key: 'category', width: 110 },
-    { title: '案號', dataIndex: 'case_code', key: 'case_code', width: 130, render: (v: string | null) => v ?? '一般營運' },
+    {
+      title: '案號', dataIndex: 'case_code', key: 'case_code', width: 160,
+      render: (v: string | null) => {
+        if (!v) return '一般營運';
+        const pc = caseCodeMap?.[v];
+        return pc ? <span title={v}>{pc}</span> : v;
+      },
+    },
     {
       title: '來源', dataIndex: 'source', key: 'source', width: 100,
       render: (v: string) => EXPENSE_SOURCE_LABELS[v as keyof typeof EXPENSE_SOURCE_LABELS] ?? v,

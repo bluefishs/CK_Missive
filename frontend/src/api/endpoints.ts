@@ -1046,6 +1046,8 @@ export const ERP_ENDPOINTS = {
   PROFIT_TREND: '/erp/quotations/profit-trend',
   /** 匯出 CSV POST /erp/quotations/export */
   EXPORT: '/erp/quotations/export',
+  /** 案號→成案編號對照表 POST /erp/quotations/case-code-map */
+  CASE_CODE_MAP: '/erp/quotations/case-code-map',
 
   // --- 費用報銷 (expenses) ---
   /** 費用發票列表 POST /erp/expenses/list */
