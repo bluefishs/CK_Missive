@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import {
+  App,
   Card,
   Space,
   Button,
@@ -11,6 +12,7 @@ import {
   Statistic,
   Spin,
   Switch,
+  Tag,
 } from 'antd';
 import {
   CodeOutlined,
@@ -20,9 +22,11 @@ import {
   SyncOutlined,
   NodeIndexOutlined,
   ApartmentOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
 import { CodeWikiFiltersCard } from '../../components/ai/CodeWikiFiltersCard';
 import { CODE_TYPE_LABELS } from '../../constants/codeGraphOptions';
+import { aiApi } from '../../api/aiApi';
 import type { useCodeWikiGraph } from '../../hooks/useCodeWikiGraph';
 
 const { Title, Text } = Typography;
@@ -76,6 +80,76 @@ const CodeGraphSidebar: React.FC<CodeGraphSidebarProps> = ({
   handleArchAnalysis,
   codeWiki,
 }) => {
+  const { message, modal } = App.useApp();
+  const [rebuilding, setRebuilding] = useState(false);
+  const [diffAnalyzing, setDiffAnalyzing] = useState(false);
+
+  const handleRebuild = useCallback(async () => {
+    setRebuilding(true);
+    try {
+      await aiApi.triggerCodeGraphIngest({});
+      message.success('Code Graph 重建已觸發');
+      loadStats();
+    } catch {
+      message.error('重建失敗');
+    } finally {
+      setRebuilding(false);
+    }
+  }, [message, loadStats]);
+
+  const handleDiffImpact = useCallback(async () => {
+    setDiffAnalyzing(true);
+    try {
+      const result = await aiApi.analyzeDiffImpact();
+      if (result?.success && result.data) {
+        const d = result.data;
+        modal.info({
+          title: 'Diff 影響分析',
+          width: 600,
+          content: (
+            <div style={{ maxHeight: 400, overflow: 'auto', fontSize: 12 }}>
+              <p><strong>{d.summary}</strong></p>
+              {d.changed_files?.length > 0 && (
+                <>
+                  <Divider titlePlacement="left" style={{ fontSize: 13 }}>變更檔案</Divider>
+                  <div style={{ fontFamily: 'monospace', lineHeight: 1.8 }}>
+                    {d.changed_files.map((f: string, i: number) => (
+                      <Tag key={i} style={{ marginBottom: 2 }}>{f}</Tag>
+                    ))}
+                  </div>
+                </>
+              )}
+              {Object.keys(d.affected_by_type || {}).length > 0 && (
+                <>
+                  <Divider titlePlacement="left" style={{ fontSize: 13 }}>受影響實體類型</Divider>
+                  {Object.entries(d.affected_by_type).map(([type, count]) => (
+                    <Tag key={type} color="blue">{type}: {String(count)}</Tag>
+                  ))}
+                </>
+              )}
+              {d.downstream?.length > 0 && (
+                <>
+                  <Divider titlePlacement="left" style={{ fontSize: 13 }}>下游依賴者</Divider>
+                  {d.downstream.map((dep: { entity: string; relation: string; depends_on: string }, i: number) => (
+                    <div key={i} style={{ fontFamily: 'monospace', marginBottom: 2 }}>
+                      <Tag color="orange">{dep.relation}</Tag> {dep.entity} → {dep.depends_on}
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          ),
+        });
+      } else {
+        message.warning('無影響分析結果');
+      }
+    } catch {
+      message.error('影響分析失敗');
+    } finally {
+      setDiffAnalyzing(false);
+    }
+  }, [message, modal]);
+
   return (
     <div
       style={{
@@ -210,6 +284,27 @@ const CodeGraphSidebar: React.FC<CodeGraphSidebarProps> = ({
             onClick={handleArchAnalysis}
           >
             架構分析報告
+          </Button>
+
+          <Divider style={{ margin: '4px 0' }} />
+
+          <Button
+            block
+            size="small"
+            icon={<SyncOutlined />}
+            loading={rebuilding}
+            onClick={handleRebuild}
+          >
+            重建 Code Graph
+          </Button>
+          <Button
+            block
+            size="small"
+            icon={<ThunderboltOutlined />}
+            loading={diffAnalyzing}
+            onClick={handleDiffImpact}
+          >
+            影響分析
           </Button>
         </Space>
       </Card>

@@ -324,6 +324,27 @@ export async function importJsonGraph(
   );
 }
 
+/** Diff 影響分析 (Admin) */
+export async function analyzeDiffImpact(): Promise<{
+  success: boolean;
+  data: {
+    changed_files: string[];
+    affected_entities: number;
+    affected_by_type: Record<string, number>;
+    downstream_dependents: number;
+    downstream: Array<{
+      entity: string;
+      type: string;
+      relation: string;
+      depends_on: string;
+    }>;
+    summary: string;
+    error?: string;
+  };
+}> {
+  return await apiClient.post(AI_ENDPOINTS.GRAPH_DIFF_IMPACT, {});
+}
+
 /** 取得 Skills 能力圖譜（靜態資料） */
 export async function getSkillsMap(): Promise<{
   success: boolean;

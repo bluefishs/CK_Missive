@@ -225,6 +225,7 @@ import {
   detectImportCycles,
   analyzeArchitecture,
   importJsonGraph,
+  analyzeDiffImpact,
   getModuleOverview,
   getDbSchemaGraph,
   getDbSchema,
@@ -304,6 +305,7 @@ export const aiApi = {
   detectImportCycles,
   analyzeArchitecture,
   importJsonGraph,
+  analyzeDiffImpact,
   getModuleOverview,
 
   // DB Schema 圖譜

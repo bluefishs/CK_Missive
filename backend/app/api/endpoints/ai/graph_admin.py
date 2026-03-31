@@ -262,6 +262,30 @@ async def import_json_graph(
         )
 
 
+@router.post("/graph/admin/diff-impact")
+async def analyze_diff_impact(
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(require_admin()),
+):
+    """
+    分析 git diff 的影響範圍。
+
+    基於知識圖譜中的程式碼實體，找出變更檔案關聯的實體
+    及其下游依賴者，產出影響報告。
+
+    🔒 權限要求: Admin
+    """
+    from app.services.ai.diff_impact_analyzer import DiffImpactAnalyzer
+
+    analyzer = DiffImpactAnalyzer(db)
+    try:
+        result = await analyzer.analyze_diff()
+        return {"success": True, "data": result}
+    except Exception as e:
+        logger.error("Diff impact analysis failed: %s", e, exc_info=True)
+        return {"success": False, "data": {"error": str(e)}}
+
+
 @router.post("/graph/admin/merge-entities", response_model=KGMergeEntitiesResponse)
 async def merge_entities(
     request: KGMergeEntitiesRequest,

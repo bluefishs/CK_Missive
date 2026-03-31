@@ -764,6 +764,8 @@ export const AI_ENDPOINTS = {
   GRAPH_ARCHITECTURE_ANALYSIS: '/ai/graph/admin/architecture-analysis',
   /** JSON 圖譜匯入 POST /ai/graph/admin/json-import */
   GRAPH_JSON_IMPORT: '/ai/graph/admin/json-import',
+  /** Diff 影響分析 POST /ai/graph/admin/diff-impact */
+  GRAPH_DIFF_IMPACT: '/ai/graph/admin/diff-impact',
   /** 實體合併 POST /ai/graph/admin/merge-entities */
   GRAPH_MERGE_ENTITIES: '/ai/graph/admin/merge-entities',
   /** 模組架構概覽 POST /ai/graph/module-overview */
