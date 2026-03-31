@@ -41,7 +41,7 @@ class PMCase(Base):
 
     # 狀態與進度
     status = Column(String(30), nullable=False, default="planning", index=True,
-                    comment="狀態: planning/in_progress/completed/suspended/closed")
+                    comment="狀態: planning/contracted/closed/suspended")
     progress = Column(Integer, default=0, comment="進度 (0-100)")
 
     # 時程

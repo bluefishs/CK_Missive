@@ -36,9 +36,9 @@ const columns: ColumnsType<PMYearlyTrendItem> = [
     },
   },
   {
-    title: '已完成',
-    dataIndex: 'completed_count',
-    key: 'completed_count',
+    title: '已結案',
+    dataIndex: 'closed_count',
+    key: 'closed_count',
     width: 80,
     align: 'right',
   },

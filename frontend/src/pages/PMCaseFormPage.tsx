@@ -25,9 +25,8 @@ const CATEGORY_OPTIONS = Object.entries(PM_CATEGORY_LABELS).map(([k, v]) => ({ v
 
 const STATUS_OPTIONS = [
   { value: 'planning', label: '評估中' },
-  { value: 'in_progress', label: '已承攬' },
-  { value: 'completed', label: '未承攬' },
-  { value: 'closed', label: '未得標' },
+  { value: 'contracted', label: '已承攬' },
+  { value: 'closed', label: '已結案' },
 ];
 
 export const PMCaseFormPage: React.FC = () => {

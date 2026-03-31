@@ -40,8 +40,7 @@ const QuotationRecordsTab = lazy(() => import('./pmCase/QuotationRecordsTab'));
 const STATUS_OPTIONS = [
   { value: 'planning', label: '評估中', color: 'default' },
   { value: 'contracted', label: '已承攬', color: 'blue' },
-  { value: 'completed', label: '已結案', color: 'success' },
-  { value: 'closed', label: '未得標', color: 'error' },
+  { value: 'closed', label: '已結案', color: 'success' },
 ];
 
 const CATEGORY_OPTIONS = Object.entries(PM_CATEGORY_LABELS).map(([k, v]) => ({ value: k, label: v }));
@@ -254,8 +253,7 @@ export const PMCaseDetailPage: React.FC = () => {
             <Select options={[
               { value: 'planning', label: '評估中' },
               { value: 'contracted', label: '已承攬' },
-              { value: 'completed', label: '已結案' },
-              { value: 'closed', label: '未得標' },
+              { value: 'closed', label: '已結案' },
             ]} />
           </Form.Item>
           <Form.Item label="成案編號"><Input value={pmCase.project_code ?? '未成案'} disabled /></Form.Item>

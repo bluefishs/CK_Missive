@@ -135,7 +135,7 @@ class PMYearlyTrendItem(BaseModel):
     year: int
     case_count: int = 0
     total_contract: Decimal = Decimal("0")
-    completed_count: int = 0
+    closed_count: int = 0
     in_progress_count: int = 0
     avg_progress: int = 0
 

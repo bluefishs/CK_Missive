@@ -145,14 +145,12 @@ export const PMCaseListPage: React.FC = () => {
       filters: [
         { text: '評估中', value: 'planning' },
         { text: '已承攬', value: 'contracted' },
-        { text: '已結案', value: 'completed' },
-        { text: '未得標', value: 'closed' },
+        { text: '已結案', value: 'closed' },
       ],
       onFilter: (value, record) => record.status === value,
       render: (status: string) => {
         if (status === 'contracted') return <Tag color="blue">已承攬</Tag>;
-        if (status === 'completed') return <Tag color="success">已結案</Tag>;
-        if (status === 'closed') return <Tag color="error">未得標</Tag>;
+        if (status === 'closed') return <Tag color="success">已結案</Tag>;
         return <Tag color="default">評估中</Tag>;
       },
     },
@@ -236,7 +234,7 @@ export const PMCaseListPage: React.FC = () => {
               <Card size="small">
                 <Statistic
                   title="已成案"
-                  value={summary.by_status?.['completed'] ?? 0}
+                  value={summary.by_status?.['closed'] ?? 0}
                   prefix={<CheckCircleOutlined />}
                   styles={{ content: { color: '#52c41a' } }}
                 />
@@ -297,8 +295,7 @@ export const PMCaseListPage: React.FC = () => {
               options={[
                 { value: 'planning', label: '評估中' },
                 { value: 'contracted', label: '已承攬' },
-                { value: 'completed', label: '已結案' },
-                { value: 'closed', label: '未得標' },
+                { value: 'closed', label: '已結案' },
               ]}
             />
           </Col>

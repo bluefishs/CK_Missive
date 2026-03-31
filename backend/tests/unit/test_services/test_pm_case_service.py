@@ -512,11 +512,11 @@ patch("app.services.pm.case_service.CaseCodeService"):
             MockRepo.return_value.get_yearly_trend_sql = AsyncMock(return_value=[
                 {
                     "year": 113, "case_count": 2, "total_contract": Decimal("3000000"),
-                    "completed_count": 1, "in_progress_count": 1, "avg_progress": 80,
+                    "closed_count": 1, "in_progress_count": 1, "avg_progress": 80,
                 },
                 {
                     "year": 114, "case_count": 1, "total_contract": Decimal("500000"),
-                    "completed_count": 0, "in_progress_count": 0, "avg_progress": 0,
+                    "closed_count": 0, "in_progress_count": 0, "avg_progress": 0,
                 },
             ])
 
@@ -527,7 +527,7 @@ patch("app.services.pm.case_service.CaseCodeService"):
             assert result[0].year == 113
             assert result[0].case_count == 2
             assert result[0].total_contract == Decimal("3000000")
-            assert result[0].completed_count == 1
+            assert result[0].closed_count == 1
             assert result[1].year == 114
             MockRepo.return_value.get_yearly_trend_sql.assert_awaited_once()
 

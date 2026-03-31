@@ -1125,22 +1125,20 @@ export interface CorrespondenceSuggestionsResponse {
 // ============================================================================
 
 /** PM 案件狀態 */
-export type PMCaseStatus = 'planning' | 'contracted' | 'completed' | 'closed';
+export type PMCaseStatus = 'planning' | 'contracted' | 'closed';
 
 /** PM 案件狀態標籤 */
 export const PM_CASE_STATUS_LABELS: Record<PMCaseStatus, string> = {
   planning: '評估中',
   contracted: '已承攬',
-  completed: '已結案',
-  closed: '未得標',
+  closed: '已結案',
 };
 
 /** PM 案件狀態顏色 */
 export const PM_CASE_STATUS_COLORS: Record<PMCaseStatus, string> = {
   planning: 'default',
   contracted: 'blue',
-  completed: 'success',
-  closed: 'warning',
+  closed: 'success',
 };
 
 /** PM 案件類別 */
@@ -1217,7 +1215,7 @@ export interface PMYearlyTrendItem {
   year: number;
   case_count: number;
   total_contract: number;
-  completed_count: number;
+  closed_count: number;
   in_progress_count: number;
   avg_progress: number;
 }

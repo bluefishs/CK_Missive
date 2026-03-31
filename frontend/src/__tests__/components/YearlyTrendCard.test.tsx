@@ -31,7 +31,7 @@ describe('YearlyTrendCard', () => {
   it('renders title and table with data', () => {
     vi.mocked(usePMYearlyTrend).mockReturnValue({
       data: [
-        { year: 113, case_count: 10, total_contract: '5000000', completed_count: 7, in_progress_count: 3, avg_progress: 85 },
+        { year: 113, case_count: 10, total_contract: '5000000', closed_count: 7, in_progress_count: 3, avg_progress: 85 },
       ],
       isLoading: false,
     } as unknown as ReturnType<typeof usePMYearlyTrend>);

@@ -151,8 +151,8 @@ class PMCaseRepository(BaseRepository[PMCase]):
                 func.count(PMCase.id).label("case_count"),
                 func.coalesce(func.sum(PMCase.contract_amount), 0).label("total_contract"),
                 func.sum(
-                    case((PMCase.status == "completed", 1), else_=0)
-                ).label("completed_count"),
+                    case((PMCase.status == "closed", 1), else_=0)
+                ).label("closed_count"),
                 func.sum(
                     case((PMCase.status == "in_progress", 1), else_=0)
                 ).label("in_progress_count"),
@@ -168,7 +168,7 @@ class PMCaseRepository(BaseRepository[PMCase]):
                 "year": row.year,
                 "case_count": row.case_count,
                 "total_contract": Decimal(str(row.total_contract)),
-                "completed_count": int(row.completed_count or 0),
+                "closed_count": int(row.closed_count or 0),
                 "in_progress_count": int(row.in_progress_count or 0),
                 "avg_progress": round(float(row.avg_progress)),
             }
