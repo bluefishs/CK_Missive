@@ -173,6 +173,7 @@ class ERPVendorPayableRepository(BaseRepository[ERPVendorPayable]):
                 ERPQuotation.year,
                 ERPQuotation.total_price,
                 ERPQuotation.status.label("quotation_status"),
+                ERPQuotation.project_code,
             )
             .join(ERPQuotation, ERPVendorPayable.erp_quotation_id == ERPQuotation.id)
             .where(ERPVendorPayable.vendor_id == vendor_id)
@@ -186,12 +187,13 @@ class ERPVendorPayableRepository(BaseRepository[ERPVendorPayable]):
 
         # Group by quotation
         cases_map: Dict[int, Dict[str, Any]] = {}
-        for payable, case_code, case_name, q_year, total_price, quotation_status in rows:
+        for payable, case_code, case_name, q_year, total_price, quotation_status, project_code in rows:
             key = payable.erp_quotation_id
             if key not in cases_map:
                 cases_map[key] = {
                     "erp_quotation_id": key,
                     "case_code": case_code,
+                    "project_code": project_code,
                     "case_name": case_name,
                     "year": q_year,
                     "total_price": str(total_price or 0),

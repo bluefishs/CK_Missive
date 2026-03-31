@@ -64,6 +64,7 @@ export interface InvoiceSummaryItem {
   status: string;
   description?: string;
   case_code: string;
+  project_code?: string;
   case_name?: string;
   billing_id?: number;
   erp_quotation_id?: number;
@@ -452,6 +453,7 @@ export interface LedgerCategoryBreakdown {
 /** 單一專案財務彙總 */
 export interface ProjectFinancialSummary {
   case_code: string;
+  project_code?: string;
   case_name?: string;
   erp_quotation_id?: number;
   budget_total?: number;
@@ -679,6 +681,7 @@ export interface VendorAccountSummaryItem {
 export interface VendorCasePayableItem {
   erp_quotation_id: number;
   case_code: string;
+  project_code?: string;
   case_name?: string;
   year?: number;
   total_price?: number;
@@ -724,6 +727,7 @@ export interface ClientAccountSummaryItem {
 export interface ClientCaseReceivableItem {
   erp_quotation_id: number;
   case_code: string;
+  project_code?: string;
   case_name?: string;
   year?: number;
   quotation_status?: string;

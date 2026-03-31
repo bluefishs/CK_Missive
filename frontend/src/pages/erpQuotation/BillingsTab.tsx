@@ -98,8 +98,9 @@ const BillingsTab: React.FC<BillingsTabProps> = ({ erpQuotationId }) => {
     queryKey: ['erp-billings-details', erpQuotationId],
     queryFn: async () => {
       const { apiClient } = await import('../../api/client');
+      const { ERP_ENDPOINTS } = await import('../../api/endpoints');
       const resp = await apiClient.post<{ success: boolean; data: BillingWithDetails[] }>(
-        '/erp/billings/list-with-details',
+        ERP_ENDPOINTS.BILLINGS_LIST_DETAILS,
         { erp_quotation_id: erpQuotationId },
       );
       return resp.data;

@@ -207,6 +207,7 @@ class ClientReceivableRepository:
             result_cases.append({
                 "erp_quotation_id": quot.id,
                 "case_code": case_code,
+                "project_code": quot.project_code,
                 "case_name": quot.case_name or case_name_map.get(case_code),
                 "year": quot.year or case_year_map.get(case_code),
                 "quotation_status": quot.status,

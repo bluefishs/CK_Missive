@@ -43,6 +43,7 @@ class ERPInvoiceRepository(BaseRepository[ERPInvoice]):
                 ERPInvoice,
                 ERPQuotation.case_code,
                 ERPQuotation.case_name,
+                ERPQuotation.project_code,
             )
             .join(ERPQuotation, ERPInvoice.erp_quotation_id == ERPQuotation.id)
         )
@@ -62,7 +63,7 @@ class ERPInvoiceRepository(BaseRepository[ERPInvoice]):
         rows = result.all()
 
         items = []
-        for inv, case_code, case_name in rows:
+        for inv, case_code, case_name, project_code in rows:
             items.append({
                 "id": inv.id,
                 "invoice_number": inv.invoice_number,
@@ -73,6 +74,7 @@ class ERPInvoiceRepository(BaseRepository[ERPInvoice]):
                 "status": inv.status,
                 "description": inv.description,
                 "case_code": case_code,
+                "project_code": project_code,
                 "case_name": case_name,
                 "billing_id": inv.billing_id,
                 "erp_quotation_id": inv.erp_quotation_id,

@@ -50,9 +50,11 @@ class FinancialSummaryRepository:
 
         net_balance = income - expense
         
-        # 4. 取得 ERPQuotation ID
-        stmt_quot = select(ERPQuotation.id).where(ERPQuotation.case_code == case_code)
-        quot_id = (await self.db.execute(stmt_quot)).scalar()
+        # 4. 取得 ERPQuotation ID + project_code
+        stmt_quot = select(ERPQuotation.id, ERPQuotation.project_code).where(ERPQuotation.case_code == case_code)
+        quot_row = (await self.db.execute(stmt_quot)).first()
+        quot_id = quot_row.id if quot_row else None
+        quot_project_code = quot_row.project_code if quot_row else None
 
         budget = Decimal(str(proj.contract_amount)) if proj.contract_amount else None
         used_perc = float((expense / budget) * 100) if budget and budget > 0 else None
@@ -66,6 +68,7 @@ class FinancialSummaryRepository:
 
         return ProjectFinancialSummary(
             case_code=case_code,
+            project_code=quot_project_code,
             case_name=proj.project_name,
             erp_quotation_id=quot_id,
             budget_total=budget,
@@ -128,11 +131,12 @@ class FinancialSummaryRepository:
 
         # 4. 批量取 ERPQuotation ID (case_code → quotation_id)
         stmt_quot = (
-            select(ERPQuotation.case_code, ERPQuotation.id)
+            select(ERPQuotation.case_code, ERPQuotation.id, ERPQuotation.project_code)
             .where(ERPQuotation.case_code.in_(case_codes))
         )
         quot_rows = (await self.db.execute(stmt_quot)).all()
         quot_map = {r.case_code: r.id for r in quot_rows}
+        quot_project_code_map = {r.case_code: r.project_code for r in quot_rows}
 
         # 5. 組裝結果（保留原始順序）
         results = []
@@ -163,6 +167,7 @@ class FinancialSummaryRepository:
 
             results.append(ProjectFinancialSummary(
                 case_code=cc,
+                project_code=quot_project_code_map.get(cc),
                 case_name=proj.project_name,
                 erp_quotation_id=quot_map.get(cc),
                 budget_total=budget,

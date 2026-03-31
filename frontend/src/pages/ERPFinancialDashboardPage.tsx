@@ -79,7 +79,7 @@ const ERPFinancialDashboardPage: React.FC = () => {
       .sort((a, b) => Number(b.net_balance) - Number(a.net_balance))
       .slice(0, 15)
       .map((p) => ({
-        name: p.case_name || p.case_code,
+        name: p.case_name || p.project_code || p.case_code,
         caseCode: p.case_code,
         income: Number(p.total_income),
         expense: Number(p.total_expense),
@@ -102,15 +102,16 @@ const ERPFinancialDashboardPage: React.FC = () => {
   const projectColumns: ColumnsType<ProjectFinancialSummary> = [
     {
       title: '案號',
-      dataIndex: 'case_code',
-      key: 'case_code',
-      width: 140,
-      render: (v: string, record: ProjectFinancialSummary) =>
-        record.erp_quotation_id ? (
-          <a onClick={() => navigate(ROUTES.ERP_QUOTATION_DETAIL.replace(':id', String(record.erp_quotation_id)))}>{v}</a>
+      key: 'project_code',
+      width: 160,
+      render: (_: unknown, record: ProjectFinancialSummary) => {
+        const code = record.project_code || record.case_code;
+        return record.erp_quotation_id ? (
+          <a onClick={() => navigate(ROUTES.ERP_QUOTATION_DETAIL.replace(':id', String(record.erp_quotation_id)))}>{code}</a>
         ) : (
-          <a onClick={() => navigate(`${ROUTES.ERP_EXPENSES}?case_code=${v}`)}>{v}</a>
-        ),
+          <a onClick={() => navigate(`${ROUTES.ERP_EXPENSES}?case_code=${record.case_code}`)}>{code}</a>
+        );
+      },
     },
     { title: '案名', dataIndex: 'case_name', key: 'case_name', ellipsis: true },
     {

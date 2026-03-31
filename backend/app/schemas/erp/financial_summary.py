@@ -8,6 +8,7 @@ from decimal import Decimal
 class ProjectFinancialSummary(BaseModel):
     """單一專案財務彙總"""
     case_code: str
+    project_code: Optional[str] = None
     case_name: Optional[str] = None
     erp_quotation_id: Optional[int] = None
 

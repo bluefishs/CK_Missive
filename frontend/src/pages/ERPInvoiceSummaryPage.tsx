@@ -92,18 +92,20 @@ const ERPInvoiceSummaryPage: React.FC = () => {
       ),
     },
     {
-      title: '案件代碼', dataIndex: 'case_code', key: 'case_code', width: 140,
-      render: (v: string, record: InvoiceSummaryItem) =>
-        record.erp_quotation_id ? (
+      title: '案件代碼', key: 'project_code', width: 160,
+      render: (_: unknown, record: InvoiceSummaryItem) => {
+        const code = record.project_code || record.case_code;
+        return record.erp_quotation_id ? (
           <a
             onClick={(e) => {
               e.stopPropagation();
               navigate(ROUTES.ERP_QUOTATION_DETAIL.replace(':id', String(record.erp_quotation_id)));
             }}
           >
-            {v}
+            {code}
           </a>
-        ) : v,
+        ) : code;
+      },
     },
     { title: '案名', dataIndex: 'case_name', key: 'case_name', ellipsis: true },
     { title: '摘要', dataIndex: 'description', key: 'description', width: 180, ellipsis: true },

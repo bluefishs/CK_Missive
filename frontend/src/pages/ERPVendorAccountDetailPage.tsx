@@ -23,7 +23,7 @@ import { createTabItem } from '../components/common/DetailPage/utils';
 const { Text } = Typography;
 
 type VendorPayableRecord = VendorCasePayableItem['items'][number];
-type FlatPaymentRecord = VendorPayableRecord & { case_code: string; case_name?: string };
+type FlatPaymentRecord = VendorPayableRecord & { case_code: string; project_code?: string; case_name?: string };
 
 const ERPVendorAccountDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -35,7 +35,7 @@ const ERPVendorAccountDetailPage: React.FC = () => {
   const allPayments = useMemo<FlatPaymentRecord[]>(() => {
     if (!detail?.cases) return [];
     return detail.cases.flatMap(c =>
-      (c.items ?? []).map(item => ({ ...item, case_code: c.case_code, case_name: c.case_name }))
+      (c.items ?? []).map(item => ({ ...item, case_code: c.case_code, project_code: c.project_code, case_name: c.case_name }))
     ).sort((a, b) => (a.due_date ?? '').localeCompare(b.due_date ?? ''));
   }, [detail]);
 
@@ -55,9 +55,10 @@ const ERPVendorAccountDetailPage: React.FC = () => {
 
   // --- Tab 1: 基本資訊 ---
   const simpleCaseColumns: ColumnsType<VendorCasePayableItem> = [
-    { title: '案號', dataIndex: 'case_code', width: 140, render: (v: string, r) => (
-      <a onClick={() => navigate(ROUTES.ERP_QUOTATION_DETAIL.replace(':id', String(r.erp_quotation_id)))}>{v}</a>
-    )},
+    { title: '案號', key: 'project_code', width: 160, render: (_: unknown, r) => {
+      const code = r.project_code || r.case_code;
+      return <a onClick={() => navigate(ROUTES.ERP_QUOTATION_DETAIL.replace(':id', String(r.erp_quotation_id)))}>{code}</a>;
+    }},
     { title: '案名', dataIndex: 'case_name', ellipsis: true },
     { title: '年度', dataIndex: 'year', width: 80, render: (v?: number) => v ?? '-' },
     { title: '應付金額', dataIndex: 'payable_amount', width: 130, align: 'right', render: (v: number) => Number(v).toLocaleString() },
@@ -89,9 +90,10 @@ const ERPVendorAccountDetailPage: React.FC = () => {
 
   // --- Tab 2: 案件帳款明細 (existing expandable) ---
   const caseColumns: ColumnsType<VendorCasePayableItem> = [
-    { title: '案號', dataIndex: 'case_code', width: 140, render: (v: string, r) => (
-      <a onClick={() => navigate(ROUTES.ERP_QUOTATION_DETAIL.replace(':id', String(r.erp_quotation_id)))}>{v}</a>
-    )},
+    { title: '案號', key: 'project_code', width: 160, render: (_: unknown, r) => {
+      const code = r.project_code || r.case_code;
+      return <a onClick={() => navigate(ROUTES.ERP_QUOTATION_DETAIL.replace(':id', String(r.erp_quotation_id)))}>{code}</a>;
+    }},
     { title: '案名', dataIndex: 'case_name', ellipsis: true },
     { title: '應付金額', dataIndex: 'payable_amount', width: 130, align: 'right', render: (v: number) => Number(v).toLocaleString() },
     { title: '已付金額', dataIndex: 'paid_amount', width: 130, align: 'right', render: (v: number) => <span style={{ color: '#52c41a' }}>{Number(v).toLocaleString()}</span> },
@@ -147,7 +149,7 @@ const ERPVendorAccountDetailPage: React.FC = () => {
 
   // --- Tab 3: 付款時間軸 ---
   const timelineColumns: ColumnsType<FlatPaymentRecord> = [
-    { title: '案號', dataIndex: 'case_code', width: 120 },
+    { title: '案號', key: 'project_code', width: 140, render: (_: unknown, r) => r.project_code || r.case_code },
     { title: '說明', dataIndex: 'description', ellipsis: true, render: (v?: string) => v ?? '-' },
     { title: '應付金額', dataIndex: 'payable_amount', width: 120, align: 'right', render: (v: number) => Number(v).toLocaleString() },
     { title: '已付金額', dataIndex: 'paid_amount', width: 120, align: 'right', render: (v: number) => <span style={{ color: '#52c41a' }}>{Number(v).toLocaleString()}</span> },
