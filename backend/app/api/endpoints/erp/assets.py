@@ -225,6 +225,19 @@ async def batch_inventory(
     return SuccessResponse(data=result)
 
 
+@router.post("/import-template")
+async def download_import_template(
+    service: AssetService = Depends(get_service(AssetService)),
+):
+    """下載資產匯入範本 Excel"""
+    xlsx_bytes = service.generate_import_template()
+    return StreamingResponse(
+        iter([xlsx_bytes]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="asset_import_template.xlsx"'},
+    )
+
+
 @router.post("/export-inventory")
 async def export_inventory_report(
     service: AssetService = Depends(get_service(AssetService)),

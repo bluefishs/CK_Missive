@@ -721,6 +721,16 @@ export function useImportAssets() {
   });
 }
 
+/** 下載資產匯入範本 Excel */
+export function useDownloadAssetTemplate() {
+  return useMutation({
+    mutationFn: async () => {
+      const blob = await apiClient.postBlob(ERP_ENDPOINTS.ASSETS_IMPORT_TEMPLATE);
+      downloadBlob(blob, 'asset_import_template.xlsx');
+    },
+  });
+}
+
 /** 建立資產異動記錄 */
 export function useCreateAssetLog() {
   const queryClient = useQueryClient();

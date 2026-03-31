@@ -151,6 +151,9 @@ async def get_erp_overview(
     async def count(model):
         return await db.scalar(select(func.count()).select_from(model)) or 0
 
+    async def sum_col(col):
+        return await db.scalar(select(func.coalesce(func.sum(col), 0))) or 0
+
     return SuccessResponse(data={
         "quotations": await count(ERPQuotation),
         "expenses": await count(ExpenseInvoice),
@@ -159,6 +162,11 @@ async def get_erp_overview(
         "assets": await count(Asset),
         "billings": await count(ERPBilling),
         "vendor_payables": await count(ERPVendorPayable),
+        # Amount summaries
+        "quotation_amount": str(await sum_col(ERPQuotation.total_price)),
+        "expense_amount": str(await sum_col(ExpenseInvoice.amount)),
+        "vendor_payable_amount": str(await sum_col(ERPVendorPayable.payable_amount)),
+        "asset_value": str(await sum_col(Asset.current_value)),
     })
 
 

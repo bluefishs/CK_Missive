@@ -1152,6 +1152,8 @@ export const ERP_ENDPOINTS = {
   ASSETS_EXPORT_INVENTORY: '/erp/assets/export-inventory',
   /** 匯入資產清單 Excel POST /erp/assets/import */
   ASSETS_IMPORT: '/erp/assets/import',
+  /** 下載資產匯入範本 Excel POST /erp/assets/import-template */
+  ASSETS_IMPORT_TEMPLATE: '/erp/assets/import-template',
 } as const;
 
 // ============================================================================

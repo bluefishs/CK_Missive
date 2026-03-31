@@ -337,6 +337,62 @@ class AssetService(AuditableServiceMixin):
         buffer.seek(0)
         return buffer.read()
 
+    def generate_import_template(self) -> bytes:
+        """產生資產匯入範本 Excel"""
+        import io
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "資產匯入範本"
+
+        headers = [
+            "資產編號", "名稱", "類別", "品牌", "型號", "序號",
+            "購入日期", "購入金額", "目前價值", "狀態", "存放位置",
+            "保管人", "案件代碼", "備註",
+        ]
+
+        header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        header_font = Font(color="FFFFFF", bold=True)
+
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.fill = header_fill
+            cell.font = header_font
+
+        # Example rows
+        examples = [
+            ["AST-2026-001", "全測站 ES-105", "儀器", "Topcon", "ES-105", "SN20250001",
+             "2025-06-15", 280000, 280000, "使用中", "公司倉庫", "王技師", "", ""],
+            ["AST-2026-002", "GPS RTK", "儀器", "Trimble", "R12i", "SN20250002",
+             "2025-01-10", 450000, 400000, "使用中", "工地A", "李技師", "B114-B001", ""],
+        ]
+        for row_data in examples:
+            ws.append(row_data)
+
+        # Notes sheet
+        ws2 = wb.create_sheet("說明")
+        ws2.append(["欄位", "說明", "必填", "可選值"])
+        notes = [
+            ["資產編號", "唯一識別碼", "是", "自訂格式"],
+            ["名稱", "資產名稱", "是", ""],
+            ["類別", "設備類型", "否", "設備/車輛/儀器/家具/其他"],
+            ["狀態", "使用狀態", "否", "使用中/維修中/閒置/已報廢/遺失"],
+            ["購入日期", "格式 YYYY-MM-DD", "否", ""],
+            ["購入金額", "數字", "否", ""],
+        ]
+        for n in notes:
+            ws2.append(n)
+
+        for col in ws.columns:
+            max_len = max(len(str(cell.value or "")) for cell in col)
+            ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, 30)
+
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        return buffer.getvalue()
+
     async def list_logs(self, params: AssetLogListRequest) -> Tuple[List[AssetLog], int]:
         """取得資產行為紀錄列表"""
         return await self.log_repo.list_asset_logs(

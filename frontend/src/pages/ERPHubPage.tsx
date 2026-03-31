@@ -24,6 +24,8 @@ interface ERPModule {
   path: string;
   color: string;
   statsKey?: string;
+  amountKey?: string;
+  amountLabel?: string;
 }
 
 const modules: ERPModule[] = [
@@ -35,6 +37,8 @@ const modules: ERPModule[] = [
     path: ROUTES.ERP_QUOTATIONS,
     color: '#1890ff',
     statsKey: 'quotations',
+    amountKey: 'quotation_amount',
+    amountLabel: '合約總額',
   },
   {
     key: 'expenses',
@@ -44,6 +48,8 @@ const modules: ERPModule[] = [
     path: ROUTES.ERP_EXPENSES,
     color: '#52c41a',
     statsKey: 'expenses',
+    amountKey: 'expense_amount',
+    amountLabel: '報銷總額',
   },
   {
     key: 'ledger',
@@ -87,6 +93,8 @@ const modules: ERPModule[] = [
     path: ROUTES.ERP_VENDOR_ACCOUNTS,
     color: '#eb2f96',
     statsKey: 'vendor_payables',
+    amountKey: 'vendor_payable_amount',
+    amountLabel: '應付總額',
   },
   {
     key: 'client-accounts',
@@ -105,6 +113,8 @@ const modules: ERPModule[] = [
     path: ROUTES.ERP_ASSETS,
     color: '#a0d911',
     statsKey: 'assets',
+    amountKey: 'asset_value',
+    amountLabel: '資產總值',
   },
 ];
 
@@ -142,6 +152,11 @@ const ERPHubPage: React.FC = () => {
                 {m.statsKey && overview?.[m.statsKey] != null && (
                   <div style={{ marginTop: 12, color: '#999', fontSize: 13 }}>
                     {overview[m.statsKey]!.toLocaleString()} 筆記錄
+                    {m.amountKey && overview?.[m.amountKey] != null && Number(overview[m.amountKey]) > 0 && (
+                      <div style={{ marginTop: 4, color: m.color, fontWeight: 500 }}>
+                        {m.amountLabel}: NT$ {Number(overview[m.amountKey]).toLocaleString()}
+                      </div>
+                    )}
                   </div>
                 )}
               </Card>

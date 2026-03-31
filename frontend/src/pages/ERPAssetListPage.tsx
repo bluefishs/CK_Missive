@@ -15,7 +15,7 @@ import {
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../router/types';
-import { useAssetList, useAssetStats, useExportAssets, useImportAssets, useBatchInventory, useExportInventory } from '../hooks';
+import { useAssetList, useAssetStats, useExportAssets, useImportAssets, useBatchInventory, useExportInventory, useDownloadAssetTemplate } from '../hooks';
 import type { Asset } from '../types/erp';
 import type { ColumnsType } from 'antd/es/table';
 
@@ -72,6 +72,7 @@ const ERPAssetListPage: React.FC = () => {
   const importMutation = useImportAssets();
   const batchInventoryMutation = useBatchInventory();
   const exportInventoryMutation = useExportInventory();
+  const templateMutation = useDownloadAssetTemplate();
 
   const items = useMemo(() => data?.items ?? [], [data?.items]);
   const total = data?.total ?? 0;
@@ -207,6 +208,13 @@ const ERPAssetListPage: React.FC = () => {
                 loading={exportInventoryMutation.isPending}
               >
                 盤點報表
+              </Button>
+              <Button
+                icon={<FileExcelOutlined />}
+                onClick={() => templateMutation.mutate()}
+                loading={templateMutation.isPending}
+              >
+                範本
               </Button>
               <Upload
                 accept=".xlsx,.xls"
