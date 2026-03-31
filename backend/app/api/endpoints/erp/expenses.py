@@ -6,7 +6,7 @@ from pathlib import Path
 
 import aiofiles
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
 from app.core.dependencies import get_service, optional_auth, require_auth, require_permission
 from app.extended.models import User
@@ -266,6 +266,37 @@ async def ocr_parse_invoice(
     result_dict["source_image_path"] = relative_path
 
     return SuccessResponse(data=result_dict, message="OCR 辨識完成")
+
+
+@router.post("/import-template")
+async def download_expense_template(
+    service: ExpenseInvoiceService = Depends(get_service(ExpenseInvoiceService)),
+):
+    """下載費用報銷匯入範本 Excel"""
+    xlsx = service.generate_import_template()
+    return StreamingResponse(
+        iter([xlsx]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="expense_import_template.xlsx"'},
+    )
+
+
+@router.post("/import")
+async def import_expenses(
+    file: UploadFile = File(...),
+    service: ExpenseInvoiceService = Depends(get_service(ExpenseInvoiceService)),
+    current_user: User = Depends(optional_auth()),
+):
+    """匯入費用報銷 Excel"""
+    if not file.filename or not file.filename.endswith(('.xlsx', '.xls')):
+        raise HTTPException(status_code=400, detail="僅支援 .xlsx/.xls 格式")
+    content = await file.read()
+    uid = current_user.id if current_user else None
+    result = await service.import_from_excel(content, user_id=uid)
+    return SuccessResponse(
+        data=result,
+        message=f"匯入完成: {result['created']} 新增, {result['skipped']} 跳過",
+    )
 
 
 @router.post("/receipt-image")

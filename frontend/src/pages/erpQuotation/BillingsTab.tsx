@@ -86,6 +86,9 @@ const BillingsTab: React.FC<BillingsTabProps> = ({ erpQuotationId }) => {
   const [editingRecord, setEditingRecord] = useState<ERPBilling | null>(null);
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [invoiceBillingId, setInvoiceBillingId] = useState<number | null>(null);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [paymentBillingId, setPaymentBillingId] = useState<number | null>(null);
+  const [paymentForm] = Form.useForm();
 
   // Data
   const { data: billings, isLoading } = useERPBillings(erpQuotationId);
@@ -175,6 +178,37 @@ const BillingsTab: React.FC<BillingsTabProps> = ({ erpQuotationId }) => {
     setInvoiceModalOpen(true);
   }, [invoiceForm]);
 
+  const handleConfirmPayment = useCallback((billingId: number, billingAmount: number) => {
+    setPaymentBillingId(billingId);
+    paymentForm.setFieldsValue({
+      payment_amount: billingAmount,
+      payment_date: dayjs(),
+      payment_status: 'paid',
+    });
+    setPaymentModalOpen(true);
+  }, [paymentForm]);
+
+  const handlePaymentSubmit = useCallback(async () => {
+    try {
+      const values = await paymentForm.validateFields();
+      if (!paymentBillingId) return;
+      await updateMutation.mutateAsync({
+        id: paymentBillingId,
+        data: {
+          payment_status: values.payment_status,
+          payment_date: values.payment_date?.format('YYYY-MM-DD'),
+          payment_amount: values.payment_amount,
+        },
+      });
+      message.success('收款確認成功，已自動入帳');
+      setPaymentModalOpen(false);
+      paymentForm.resetFields();
+      setPaymentBillingId(null);
+    } catch {
+      // form validation failed or API error
+    }
+  }, [paymentForm, paymentBillingId, updateMutation, message]);
+
   const handleCreateInvoice = useCallback(async () => {
     try {
       const values = await invoiceForm.validateFields();
@@ -249,9 +283,20 @@ const BillingsTab: React.FC<BillingsTabProps> = ({ erpQuotationId }) => {
     {
       title: '操作',
       key: 'action',
-      width: 160,
+      width: 240,
       render: (_: unknown, record: ERPBilling) => (
         <Space size="small">
+          {record.payment_status !== 'paid' && (
+            <Button
+              type="link"
+              size="small"
+              icon={<DollarOutlined />}
+              style={{ color: '#52c41a' }}
+              onClick={() => handleConfirmPayment(record.id, Number(record.billing_amount))}
+            >
+              收款
+            </Button>
+          )}
           {!record.invoice_id && (
             <Button
               type="link"
@@ -423,6 +468,24 @@ const BillingsTab: React.FC<BillingsTabProps> = ({ erpQuotationId }) => {
           </Form.Item>
           <Form.Item name="notes" label="備註">
             <Input.TextArea rows={2} />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal title="確認收款" open={paymentModalOpen} onOk={handlePaymentSubmit}
+        onCancel={() => { setPaymentModalOpen(false); paymentForm.resetFields(); setPaymentBillingId(null); }}
+        confirmLoading={updateMutation.isPending} destroyOnHidden width={400}>
+        <Form form={paymentForm} layout="vertical" size="small" preserve={false}>
+          <Form.Item name="payment_amount" label="收款金額" rules={[{ required: true, message: '請輸入收款金額' }]}>
+            <InputNumber style={{ width: '100%' }} min={0} precision={0}
+              formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+              parser={(value) => Number((value ?? '').replace(/,/g, '')) as 0} />
+          </Form.Item>
+          <Form.Item name="payment_date" label="收款日期" rules={[{ required: true, message: '請選擇收款日期' }]}>
+            <DatePicker style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="payment_status" label="狀態">
+            <Select options={[{ value: 'paid', label: '已收款' }, { value: 'partial', label: '部分收款' }]} />
           </Form.Item>
         </Form>
       </Modal>

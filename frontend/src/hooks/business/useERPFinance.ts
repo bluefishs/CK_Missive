@@ -211,6 +211,33 @@ export const useOCRParseExpense = () => {
   });
 };
 
+/** 匯入費用報銷 Excel */
+export function useImportExpenses() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return apiClient.postForm<{ data: { total: number; created: number; skipped: number; errors: Array<{ row: number; error: string }> } }>(
+        ERP_ENDPOINTS.EXPENSES_IMPORT, formData
+      );
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: erpFinanceKeys.expenses.all });
+    },
+  });
+}
+
+/** 下載費用報銷匯入範本 Excel */
+export function useDownloadExpenseTemplate() {
+  return useMutation({
+    mutationFn: async () => {
+      const blob = await apiClient.postBlob(ERP_ENDPOINTS.EXPENSES_IMPORT_TEMPLATE);
+      downloadBlob(blob, 'expense_import_template.xlsx');
+    },
+  });
+}
+
 /** 自動關聯電子發票 */
 export function useAutoLinkEinvoice() {
   const qc = useQueryClient();

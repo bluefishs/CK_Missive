@@ -1,6 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List, Tuple
 from decimal import Decimal
+from datetime import date, datetime as dt
 
 from app.extended.models.invoice import ExpenseInvoice, ExpenseInvoiceItem
 from app.schemas.erp.expense import (
@@ -400,6 +401,129 @@ class ExpenseInvoiceService(AuditableServiceMixin):
             }
 
         return {"status": "not_found", "inv_num": expense.inv_num}
+
+    def generate_import_template(self) -> bytes:
+        """產生費用報銷匯入範本 Excel"""
+        import io
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "費用報銷匯入"
+
+        headers = ["發票號碼", "日期", "金額", "稅額", "買方統編", "賣方統編",
+                   "案件代碼", "類別", "備註"]
+
+        fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        font = Font(color="FFFFFF", bold=True)
+        for col_idx, h in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col_idx, value=h)
+            cell.fill = fill
+            cell.font = font
+
+        # 範例資料
+        ws.append(["AB12345678", "2025-06-15", 5000, 250, "12345678", "87654321",
+                   "B114-B001", "交通費", "出差交通"])
+
+        # 說明頁
+        ws2 = wb.create_sheet("說明")
+        ws2.append(["欄位", "說明", "必填"])
+        ws2.append(["發票號碼", "10碼發票號碼 (唯一)", "是"])
+        ws2.append(["日期", "YYYY-MM-DD 格式", "是"])
+        ws2.append(["金額", "含稅金額 (數字)", "是"])
+        ws2.append(["稅額", "稅額 (數字)，預設 0", "否"])
+        ws2.append(["買方統編", "8碼統一編號", "否"])
+        ws2.append(["賣方統編", "8碼統一編號", "否"])
+        ws2.append(["案件代碼", "對應專案或報價的案號", "否"])
+        ws2.append(["類別", "交通費/差旅費/文具及印刷/郵電費/水電費/保險費/租金/維修費/雜費/設備採購/外包及勞務/訓練費/材料費/報銷及費用/其他", "否"])
+        ws2.append(["備註", "自由文字", "否"])
+
+        # 自動欄寬
+        for col in ws.columns:
+            mx = max(len(str(c.value or "")) for c in col)
+            ws.column_dimensions[col[0].column_letter].width = min(mx + 4, 25)
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        return buf.getvalue()
+
+    async def import_from_excel(self, file_bytes: bytes, user_id: Optional[int] = None) -> dict:
+        """匯入費用報銷 Excel，回傳 {total, created, skipped, errors}"""
+        import io
+        from openpyxl import load_workbook
+
+        wb = load_workbook(io.BytesIO(file_bytes), read_only=True)
+        ws = wb.active
+        rows = list(ws.iter_rows(min_row=2, values_only=True))
+
+        created = 0
+        skipped = 0
+        errors: list[dict] = []
+
+        for idx, row in enumerate(rows, start=2):
+            try:
+                if not row or len(row) < 3:
+                    continue
+                if not row[0] or not row[2]:  # inv_num and amount required
+                    continue
+
+                inv_num = str(row[0]).strip()
+
+                # 重複檢查
+                existing = await self.repo.find_by_inv_num(inv_num)
+                if existing:
+                    skipped += 1
+                    continue
+
+                data = {
+                    "inv_num": inv_num,
+                    "amount": float(row[2]),
+                    "tax_amount": float(row[3]) if row[3] else 0,
+                    "buyer_ban": str(row[4]).strip() if row[4] else None,
+                    "seller_ban": str(row[5]).strip() if row[5] else None,
+                    "case_code": str(row[6]).strip() if row[6] else None,
+                    "category": str(row[7]).strip() if row[7] else "其他",
+                    "notes": str(row[8]).strip() if len(row) > 8 and row[8] else None,
+                    "status": "pending",
+                    "source": "manual",
+                    "user_id": user_id,
+                }
+
+                # 解析日期
+                if row[1]:
+                    if isinstance(row[1], (date, dt)):
+                        data["date"] = row[1] if isinstance(row[1], date) else row[1].date()
+                    else:
+                        data["date"] = dt.strptime(str(row[1]).strip(), "%Y-%m-%d").date()
+
+                # 自動配對 vendor
+                vendor_id = await self._resolve_vendor_by_ban(data["seller_ban"]) if data.get("seller_ban") else None
+
+                invoice = ExpenseInvoice(
+                    inv_num=data["inv_num"],
+                    date=data.get("date"),
+                    amount=Decimal(str(data["amount"])),
+                    tax_amount=Decimal(str(data["tax_amount"])) if data["tax_amount"] else Decimal("0"),
+                    buyer_ban=data["buyer_ban"],
+                    seller_ban=data["seller_ban"],
+                    case_code=data["case_code"],
+                    category=data["category"],
+                    notes=data["notes"],
+                    status="pending",
+                    source="manual",
+                    user_id=user_id,
+                    vendor_id=vendor_id,
+                )
+                self.db.add(invoice)
+                created += 1
+            except Exception as e:
+                errors.append({"row": idx, "error": str(e)})
+
+        if created > 0:
+            await self.db.commit()
+        wb.close()
+        return {"total": len(rows), "created": created, "skipped": skipped, "errors": errors}
 
     @staticmethod
     def get_approval_info(invoice: ExpenseInvoice) -> dict:

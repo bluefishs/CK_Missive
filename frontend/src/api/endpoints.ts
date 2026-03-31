@@ -1068,6 +1068,10 @@ export const ERP_ENDPOINTS = {
   EXPENSES_OCR_PARSE: '/erp/expenses/ocr-parse',
   /** 自動關聯電子發票 POST /erp/expenses/auto-link-einvoice */
   EXPENSES_AUTO_LINK_EINVOICE: '/erp/expenses/auto-link-einvoice',
+  /** 匯入費用報銷 Excel POST /erp/expenses/import */
+  EXPENSES_IMPORT: '/erp/expenses/import',
+  /** 下載費用報銷匯入範本 POST /erp/expenses/import-template */
+  EXPENSES_IMPORT_TEMPLATE: '/erp/expenses/import-template',
 
   // --- 統一帳本 (ledger) ---
   /** 帳本列表 POST /erp/ledger/list */

@@ -5,20 +5,22 @@
  */
 import React, { useState, useMemo } from 'react';
 import {
-  Card, Table, Button, Space, Tag, Input, Select, Typography,
+  Card, Table, Button, Space, Tag, Input, Select, Typography, Upload,
   Statistic, Row, Col, Popconfirm, Modal, Form, DatePicker,
   AutoComplete, App, Alert,
 } from 'antd';
 import {
   PlusOutlined, ReloadOutlined, CheckCircleOutlined,
   CloseCircleOutlined, QrcodeOutlined, CameraOutlined,
-  CloudDownloadOutlined, SearchOutlined,
+  CloudDownloadOutlined, SearchOutlined, UploadOutlined,
+  FileExcelOutlined,
 } from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   useExpenses, useApproveExpense, useRejectExpense,
   useAuthGuard, useEInvoicePendingList,
+  useImportExpenses, useDownloadExpenseTemplate,
 } from '../hooks';
 import { useProjectsDropdown } from '../hooks';
 import type { ExpenseInvoice, ExpenseInvoiceCreate, ExpenseInvoiceQuery, ExpenseInvoiceStatus } from '../types/erp';
@@ -46,6 +48,8 @@ const ERPExpenseListPage: React.FC = () => {
   const { data, isLoading, isError, refetch } = useExpenses(params);
   const approveMutation = useApproveExpense();
   const rejectMutation = useRejectExpense();
+  const importMutation = useImportExpenses();
+  const templateMutation = useDownloadExpenseTemplate();
 
   // Modal 狀態
   const [createOpen, setCreateOpen] = useState(false);
@@ -169,6 +173,26 @@ const ERPExpenseListPage: React.FC = () => {
           <Col><Title level={3} style={{ margin: 0 }}>財務記錄管理</Title></Col>
           <Col>
             <Space wrap>
+              <Button icon={<FileExcelOutlined />} onClick={() => templateMutation.mutate()} loading={templateMutation.isPending}>範本下載</Button>
+              <Upload
+                accept=".xlsx,.xls"
+                showUploadList={false}
+                beforeUpload={(file) => {
+                  importMutation.mutate(file, {
+                    onSuccess: (res) => {
+                      const d = (res as { data?: { created?: number; skipped?: number; errors?: Array<{ row: number; error: string }> } })?.data;
+                      message.success(`匯入完成: ${d?.created ?? 0} 新增, ${d?.skipped ?? 0} 跳過`);
+                      if (d?.errors?.length) {
+                        Modal.warning({ title: '部分資料匯入失敗', content: d.errors.map(e => `第 ${e.row} 行: ${e.error}`).join('\n'), width: 480 });
+                      }
+                    },
+                    onError: () => message.error('匯入失敗'),
+                  });
+                  return false;
+                }}
+              >
+                <Button icon={<UploadOutlined />} loading={importMutation.isPending}>匯入</Button>
+              </Upload>
               <Button icon={<CloudDownloadOutlined />} onClick={() => setMofOpen(true)}>
                 財政部發票 {(mofPendingData?.total ?? 0) > 0 && <Tag color="blue" style={{ marginLeft: 4 }}>{mofPendingData?.total}</Tag>}
               </Button>
