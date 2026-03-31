@@ -48,6 +48,12 @@ export const GRAPH_NODE_CONFIG: Record<string, GraphNodeTypeConfig> = {
   ts_module:     { color: '#9370db', radius: 5, label: 'TS 模組',     detailable: true, description: 'TypeScript/React 模組（.ts/.tsx 檔案）' },
   ts_component:  { color: '#da70d6', radius: 5, label: 'React 元件',  detailable: true, description: 'React 元件定義' },
   ts_hook:       { color: '#ba55d3', radius: 4, label: 'React Hook',  detailable: true, description: 'React 自訂 Hook（useXxx）' },
+  // --- Infrastructure 基礎設施實體 (v2.0 — Code Graph Schema 擴展) ---
+  api_endpoint:  { color: '#ff7a45', radius: 6, label: 'API 端點',    detailable: true, description: 'FastAPI 路由處理函數（@router.post/get）' },
+  schema:        { color: '#36cfc9', radius: 4, label: 'Schema',      detailable: true, description: 'Pydantic Request/Response Schema' },
+  repository:    { color: '#597ef7', radius: 5, label: 'Repository',  detailable: true, description: '資料存取層 Repository 類別' },
+  config:        { color: '#ffc53d', radius: 4, label: '配置',        detailable: false, description: '系統配置檔案或常數定義' },
+  middleware:    { color: '#ff85c0', radius: 5, label: 'Middleware',   detailable: false, description: '中介層元件' },
   // --- 模組總覽實體 ---
   menu_module: { color: '#f5222d', radius: 10, label: '功能模組',  detailable: false, description: '網站選單對應的功能模組' },
   api_group:   { color: '#52c41a', radius: 5,  label: 'API 群組',  detailable: false, description: 'API 端點群組' },
@@ -114,6 +120,8 @@ export const DOCUMENT_NODE_TYPES = new Set(['document', 'dispatch']);
 export const CODE_ENTITY_TYPES = new Set([
   'py_module', 'py_class', 'py_function', 'db_table',
   'ts_module', 'ts_component', 'ts_hook',
+  // Infrastructure (v2.0)
+  'api_endpoint', 'service', 'repository', 'schema', 'config', 'middleware',
 ]);
 
 /** 可查詢正規化實體詳情的類型集合 */

@@ -13,6 +13,11 @@ export const CODE_WIKI_TYPE_OPTIONS = [
   { label: 'TS 模組', value: 'ts_module' },
   { label: 'React 元件', value: 'ts_component' },
   { label: 'React Hook', value: 'ts_hook' },
+  // Infrastructure (v2.0)
+  { label: 'API 端點', value: 'api_endpoint' },
+  { label: 'Service', value: 'service' },
+  { label: 'Repository', value: 'repository' },
+  { label: 'Schema', value: 'schema' },
 ] as const;
 
 /** Code Wiki 關聯類型篩選選項 */
@@ -25,6 +30,12 @@ export const CODE_RELATION_OPTIONS = [
   { label: 'FK 引用', value: 'references_table' },
   { label: '使用', value: 'uses' },
   { label: '欄位', value: 'has_column' },
+  // Infrastructure (v2.0)
+  { label: '路由服務', value: 'serves_route' },
+  { label: '使用 Service', value: 'uses_service' },
+  { label: '使用 Repository', value: 'uses_repository' },
+  { label: 'Schema 驗證', value: 'validates_with' },
+  { label: '依賴', value: 'depends_on' },
   { label: '全部', value: 'code_graph' },
 ] as const;
 
@@ -37,4 +48,11 @@ export const CODE_TYPE_LABELS: Record<string, string> = {
   ts_module: 'TS 模組',
   ts_component: 'React 元件',
   ts_hook: 'React Hook',
+  // Infrastructure (v2.0)
+  api_endpoint: 'API 端點',
+  service: 'Service',
+  repository: 'Repository',
+  schema: 'Schema',
+  config: '配置',
+  middleware: 'Middleware',
 };
