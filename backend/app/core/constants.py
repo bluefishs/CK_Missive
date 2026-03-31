@@ -116,6 +116,8 @@ AGENCY_TYPE_OPTIONS: List[str] = [
 CODE_ENTITY_TYPES: frozenset[str] = frozenset({
     'py_module', 'py_class', 'py_function', 'db_table',
     'ts_module', 'ts_component', 'ts_hook',
+    # Infrastructure types (v2.0 — inspired by Understand-Anything)
+    'api_endpoint', 'service', 'repository', 'schema', 'config', 'middleware',
 })
 
 # ============================================================================

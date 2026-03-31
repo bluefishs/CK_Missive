@@ -51,6 +51,13 @@ CODE_RELATION_TYPES = {
     "calls",
     "defines_component",
     "defines_hook",
+    # Infrastructure relations (v2.0 — inspired by Understand-Anything)
+    "uses_service",
+    "uses_repository",
+    "validates_with",
+    "serves_route",
+    "provides_middleware",
+    "depends_on",
 }
 CODE_GRAPH_LABEL = "code_graph"  # relation_label provenance tag
 
@@ -88,6 +95,8 @@ class CodeGraphIngestionService:
         stats: Dict[str, Any] = {
             "modules": 0, "classes": 0, "functions": 0, "tables": 0,
             "ts_modules": 0, "ts_components": 0, "ts_hooks": 0,
+            "api_endpoints": 0, "services": 0, "repositories": 0,
+            "schemas": 0, "configs": 0, "middlewares": 0,
             "relations": 0, "errors": 0, "skipped": 0,
         }
 
@@ -188,6 +197,9 @@ class CodeGraphIngestionService:
             "py_function": "functions", "db_table": "tables",
             "ts_module": "ts_modules", "ts_component": "ts_components",
             "ts_hook": "ts_hooks",
+            "api_endpoint": "api_endpoints", "service": "services",
+            "repository": "repositories", "schema": "schemas",
+            "config": "configs", "middleware": "middlewares",
         }
         seen_keys: Set[str] = set()
         for ent in all_entities:

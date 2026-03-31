@@ -132,9 +132,28 @@ class PythonASTExtractor:
         # Call graph (intra-project calls)
         self._extract_calls(tree, module_name, relations)
 
+        # API endpoints (FastAPI router decorators)
+        self._extract_endpoints(tree, module_name, file_rel, entities, relations)
+
         return entities, relations
 
     # -- private helpers --
+
+    def _classify_class(self, name: str, bases: List[str]) -> Optional[str]:
+        """Classify a class into an infrastructure entity type, or None."""
+        if name.endswith("Service") and not name.startswith("_"):
+            return "service"
+        if name.endswith("Repository") and not name.startswith("_"):
+            return "repository"
+        if name.endswith("Middleware") and not name.startswith("_"):
+            return "middleware"
+        # Check base classes for known patterns
+        for base in bases:
+            if "Service" in base and name.endswith("Service"):
+                return "service"
+            if "Repository" in base and name.endswith("Repository"):
+                return "repository"
+        return None
 
     def _extract_class(
         self,
@@ -164,6 +183,27 @@ class PythonASTExtractor:
             target_name=cls_name, target_type="py_class",
             relation_type="defines_class",
         ))
+
+        # Detect infrastructure entity types (service, repository, middleware)
+        infra_type = self._classify_class(node.name, bases)
+        if infra_type:
+            entities.append(CodeEntity(
+                canonical_name=cls_name,
+                entity_type=infra_type,
+                description={
+                    "file_path": file_rel,
+                    "line_start": node.lineno,
+                    "line_end": node.end_lineno or node.lineno,
+                    "module": module_name,
+                    "name": node.name,
+                    "bases": bases,
+                },
+            ))
+            # Detect repository usage inside service classes
+            if infra_type == "service":
+                self._extract_service_dependencies(
+                    node, cls_name, module_name, relations,
+                )
 
         # Inheritance relations
         for base in bases:
@@ -308,6 +348,205 @@ class PythonASTExtractor:
                     source_name=caller, source_type="py_module",
                     target_name=callee, target_type="py_function",
                     relation_type="calls",
+                ))
+
+    def _extract_service_dependencies(
+        self,
+        class_node: ast.ClassDef,
+        cls_name: str,
+        module_name: str,
+        relations: List[CodeRelation],
+    ) -> None:
+        """Detect Repository usage inside a Service class (via __init__ type hints)."""
+        for item in class_node.body:
+            if not isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if item.name != "__init__":
+                continue
+            for arg in item.args.args:
+                if arg.arg == "self":
+                    continue
+                ann = arg.annotation
+                if ann is None:
+                    continue
+                ann_name = self._name_of(ann)
+                if ann_name.endswith("Repository"):
+                    relations.append(CodeRelation(
+                        source_name=cls_name,
+                        source_type="service",
+                        target_name=ann_name,
+                        target_type="repository",
+                        relation_type="uses_repository",
+                    ))
+                elif ann_name.endswith("Service"):
+                    relations.append(CodeRelation(
+                        source_name=cls_name,
+                        source_type="service",
+                        target_name=ann_name,
+                        target_type="service",
+                        relation_type="depends_on",
+                    ))
+            # Also scan __init__ body for self.xxx = XxxRepository(...) patterns
+            for stmt in item.body:
+                if not isinstance(stmt, ast.Assign):
+                    continue
+                if not isinstance(stmt.value, ast.Call):
+                    continue
+                call_name = self._name_of(stmt.value.func) if stmt.value.func else ""
+                if call_name.endswith("Repository"):
+                    relations.append(CodeRelation(
+                        source_name=cls_name,
+                        source_type="service",
+                        target_name=call_name,
+                        target_type="repository",
+                        relation_type="uses_repository",
+                    ))
+                elif call_name.endswith("Service") and call_name != cls_name.split("::")[-1]:
+                    relations.append(CodeRelation(
+                        source_name=cls_name,
+                        source_type="service",
+                        target_name=call_name,
+                        target_type="service",
+                        relation_type="depends_on",
+                    ))
+
+    def _extract_endpoints(
+        self,
+        tree: ast.Module,
+        module_name: str,
+        file_rel: str,
+        entities: List[CodeEntity],
+        relations: List[CodeRelation],
+    ) -> None:
+        """Detect FastAPI router-decorated functions as api_endpoint entities."""
+        router_methods = {"post", "get", "put", "delete", "patch"}
+
+        for node in ast.iter_child_nodes(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for dec in node.decorator_list:
+                # Match: @router.post("/path") or @router.get("/path")
+                if not isinstance(dec, ast.Call):
+                    continue
+                func_attr = dec.func if hasattr(dec, "func") else None
+                if not isinstance(func_attr, ast.Attribute):
+                    continue
+                if func_attr.attr not in router_methods:
+                    continue
+
+                route_path = ""
+                if dec.args and isinstance(dec.args[0], ast.Constant) and isinstance(dec.args[0].value, str):
+                    route_path = dec.args[0].value
+
+                ep_name = f"{module_name}::{node.name}"
+                entities.append(CodeEntity(
+                    canonical_name=ep_name,
+                    entity_type="api_endpoint",
+                    description={
+                        "file_path": file_rel,
+                        "line_start": node.lineno,
+                        "line_end": node.end_lineno or node.lineno,
+                        "route": route_path,
+                        "method": func_attr.attr.upper(),
+                        "is_async": isinstance(node, ast.AsyncFunctionDef),
+                    },
+                ))
+
+                # serves_route relation (endpoint -> module)
+                if route_path:
+                    relations.append(CodeRelation(
+                        source_name=ep_name,
+                        source_type="api_endpoint",
+                        target_name=module_name,
+                        target_type="py_module",
+                        relation_type="serves_route",
+                    ))
+
+                # Detect service dependencies via Depends() in function args
+                self._extract_endpoint_dependencies(
+                    node, ep_name, relations,
+                )
+
+                # Detect schema validation via type annotations on params
+                self._extract_endpoint_schemas(
+                    node, ep_name, module_name, entities, relations,
+                )
+                break  # Only process first matching decorator per function
+
+    def _extract_endpoint_dependencies(
+        self,
+        func_node: ast.FunctionDef,
+        ep_name: str,
+        relations: List[CodeRelation],
+    ) -> None:
+        """Detect Depends(ServiceClass) or Depends(get_service_with_db(ServiceClass))."""
+        for arg in func_node.args.args:
+            if arg.arg == "self":
+                continue
+            # Check default value for Depends(...)
+            # defaults are in func_node.args.defaults (positional) and func_node.args.kw_defaults (keyword)
+        # Also check via annotation: service: ServiceClass = Depends(...)
+        all_defaults = list(func_node.args.defaults) + list(func_node.args.kw_defaults)
+        for default in all_defaults:
+            if default is None:
+                continue
+            if not isinstance(default, ast.Call):
+                continue
+            # Depends(SomeService) or Depends(get_service_with_db(SomeService))
+            dep_func = default.func if hasattr(default, "func") else None
+            if isinstance(dep_func, ast.Name) and dep_func.id == "Depends":
+                for dep_arg in default.args:
+                    svc_name = self._resolve_depends_target(dep_arg)
+                    if svc_name and svc_name.endswith("Service"):
+                        relations.append(CodeRelation(
+                            source_name=ep_name,
+                            source_type="api_endpoint",
+                            target_name=svc_name,
+                            target_type="service",
+                            relation_type="uses_service",
+                        ))
+
+    def _resolve_depends_target(self, node: ast.expr) -> Optional[str]:
+        """Resolve the target name from a Depends() argument."""
+        if isinstance(node, ast.Name):
+            return node.id
+        # get_service_with_db(SomeService) pattern
+        if isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Name) and node.func.id == "get_service_with_db":
+                if node.args and isinstance(node.args[0], ast.Name):
+                    return node.args[0].id
+        return None
+
+    def _extract_endpoint_schemas(
+        self,
+        func_node: ast.FunctionDef,
+        ep_name: str,
+        module_name: str,
+        entities: List[CodeEntity],
+        relations: List[CodeRelation],
+    ) -> None:
+        """Detect Pydantic schema usage via type annotations on endpoint params."""
+        schema_suffixes = ("Request", "Response", "Create", "Update", "Schema", "Params")
+        for arg in func_node.args.args:
+            if arg.arg in ("self", "db", "request", "response"):
+                continue
+            ann = arg.annotation
+            if ann is None:
+                continue
+            ann_name = self._name_of(ann)
+            if ann_name and ann_name != "?" and any(ann_name.endswith(s) for s in schema_suffixes):
+                schema_key = f"{module_name}::{ann_name}"
+                entities.append(CodeEntity(
+                    canonical_name=schema_key,
+                    entity_type="schema",
+                    description={"name": ann_name, "source_module": module_name},
+                ))
+                relations.append(CodeRelation(
+                    source_name=ep_name,
+                    source_type="api_endpoint",
+                    target_name=schema_key,
+                    target_type="schema",
+                    relation_type="validates_with",
                 ))
 
     @staticmethod
