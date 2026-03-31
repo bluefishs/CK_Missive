@@ -26,9 +26,9 @@ type BillingRecord = ClientCaseReceivableItem['items'][number];
 type FlatBillingRecord = BillingRecord & { case_code: string; case_name?: string };
 
 const ERPClientAccountDetailPage: React.FC = () => {
-  const { vendor_id } = useParams<{ vendor_id: string }>();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const vendorId = vendor_id ? Number(vendor_id) : null;
+  const vendorId = id ? Number(id) : null;
   const { data: detail, isLoading } = useClientAccountDetail(vendorId);
 
   // Must be before early return to satisfy Rules of Hooks
