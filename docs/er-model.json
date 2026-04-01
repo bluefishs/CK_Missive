@@ -3654,7 +3654,7 @@
         }
       ],
       "unique_constraints": {},
-      "row_count_estimate": -1
+      "row_count_estimate": 48
     },
     "erp_invoices": {
       "columns": [
