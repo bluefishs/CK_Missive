@@ -94,6 +94,10 @@ api_router.include_router(pm_router, prefix="/pm", tags=["專案管理"])
 from app.api.endpoints.erp import router as erp_router
 api_router.include_router(erp_router, prefix="/erp", tags=["財務管理"])
 
+# --- 標案檢索 (v5.3.22) ---
+from app.api.endpoints.tender import router as tender_router
+api_router.include_router(tender_router)
+
 # --- 資安管理中心 (v5.2.5) ---
 from app.api.endpoints.security import router as security_router
 api_router.include_router(security_router)

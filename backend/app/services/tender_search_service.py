@@ -1,0 +1,287 @@
+"""
+標案檢索查詢服務
+
+封裝 pcc-api.openfun.app 政府電子採購網開放資料 API，
+提供標案搜尋、詳情查詢、廠商比對、智能推薦等功能。
+
+資料來源: g0v 開放標案資料 (https://pcc-api.openfun.app)
+
+Version: 1.0.0
+Created: 2026-04-01
+"""
+import logging
+import json
+from typing import Optional, List, Dict, Any
+from datetime import datetime
+
+import httpx
+
+logger = logging.getLogger(__name__)
+
+PCC_API_BASE = "https://pcc-api.openfun.app/api"
+REQUEST_TIMEOUT = 15.0
+
+# 乾坤測繪核心業務關鍵字 (用於智能推薦)
+CK_BUSINESS_KEYWORDS = [
+    "測量", "空拍", "無人機", "UAV", "光達", "LiDAR", "3D掃描",
+    "透地雷達", "GPR", "地形", "地籍", "航測", "正射影像",
+    "水深測量", "建築線", "土地複丈", "土方", "施工放樣",
+    "GIS", "圖資", "地理資訊",
+]
+
+# 標案分類對照
+TENDER_CATEGORIES = {
+    "工程": "engineering",
+    "勞務": "service",
+    "財物": "property",
+}
+
+
+class TenderSearchService:
+    """政府標案檢索服務"""
+
+    def __init__(self, redis_client=None):
+        self._redis = redis_client
+
+    async def search_by_title(
+        self,
+        query: str,
+        page: int = 1,
+        category: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        依標題搜尋標案
+
+        Args:
+            query: 搜尋關鍵字
+            page: 頁碼 (1-based)
+            category: 分類篩選 (工程/勞務/財物)
+
+        Returns:
+            {query, page, total_records, total_pages, records: [...]}
+        """
+        cache_key = f"tender:search:{query}:{page}:{category or 'all'}"
+        cached = await self._get_cache(cache_key)
+        if cached:
+            return cached
+
+        url = f"{PCC_API_BASE}/searchbytitle"
+        params = {"query": query, "page": page}
+
+        data = await self._fetch(url, params)
+        if not data:
+            return {"query": query, "page": page, "total_records": 0, "total_pages": 0, "records": []}
+
+        # 後處理: 分類篩選 + 欄位標準化
+        records = data.get("records", [])
+        if category:
+            records = [r for r in records if self._match_category(r, category)]
+
+        result = {
+            "query": query,
+            "page": data.get("page", page),
+            "total_records": data.get("total_records", 0),
+            "total_pages": data.get("total_pages", 0),
+            "records": [self._normalize_record(r) for r in records],
+        }
+
+        await self._set_cache(cache_key, result, ttl=1800)  # 30 min
+        return result
+
+    async def get_tender_detail(
+        self, unit_id: str, job_number: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        取得標案詳情
+
+        Args:
+            unit_id: 機關代碼 (e.g. "3.87.16")
+            job_number: 標案案號
+
+        Returns:
+            標案完整資訊 (含機關/採購/招標/決標)
+        """
+        cache_key = f"tender:detail:{unit_id}:{job_number}"
+        cached = await self._get_cache(cache_key)
+        if cached:
+            return cached
+
+        url = f"{PCC_API_BASE}/tender"
+        params = {"unit_id": unit_id, "job_number": job_number}
+
+        data = await self._fetch(url, params)
+        if not data or not data.get("records"):
+            return None
+
+        result = self._normalize_detail(data)
+        await self._set_cache(cache_key, result, ttl=3600)  # 1 hr
+        return result
+
+    async def search_by_company(
+        self, company_name: str, page: int = 1
+    ) -> Dict[str, Any]:
+        """依廠商名稱搜尋得標紀錄"""
+        cache_key = f"tender:company:{company_name}:{page}"
+        cached = await self._get_cache(cache_key)
+        if cached:
+            return cached
+
+        url = f"{PCC_API_BASE}/searchbycompany"
+        params = {"query": company_name, "page": page}
+
+        data = await self._fetch(url, params)
+        if not data:
+            return {"query": company_name, "page": page, "total_records": 0, "records": []}
+
+        result = {
+            "query": company_name,
+            "page": data.get("page", page),
+            "total_records": data.get("total_records", 0),
+            "total_pages": data.get("total_pages", 0),
+            "records": [self._normalize_record(r) for r in data.get("records", [])],
+        }
+
+        await self._set_cache(cache_key, result, ttl=1800)
+        return result
+
+    async def recommend_tenders(
+        self, keywords: Optional[List[str]] = None, page: int = 1
+    ) -> Dict[str, Any]:
+        """
+        智能推薦 — 依乾坤核心業務關鍵字搜尋相關標案
+
+        Args:
+            keywords: 自訂關鍵字 (None = 使用預設業務關鍵字)
+            page: 頁碼
+        """
+        kw_list = keywords or CK_BUSINESS_KEYWORDS[:5]  # 預設取前 5 組
+        # 合併搜尋
+        all_records = []
+        for kw in kw_list[:3]:  # 最多 3 組避免過多請求
+            result = await self.search_by_title(kw, page=1)
+            for r in result.get("records", [])[:10]:
+                if not any(existing["job_number"] == r["job_number"] for existing in all_records):
+                    r["matched_keyword"] = kw
+                    all_records.append(r)
+
+        # 依日期排序 (最新優先)
+        all_records.sort(key=lambda r: r.get("date", 0), reverse=True)
+
+        return {
+            "keywords": kw_list[:3],
+            "total": len(all_records),
+            "records": all_records[:20],
+        }
+
+    # =========================================================================
+    # 內部方法
+    # =========================================================================
+
+    async def _fetch(self, url: str, params: dict) -> Optional[dict]:
+        """HTTP GET with timeout and error handling"""
+        try:
+            async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
+                resp = await client.get(url, params=params)
+                if resp.status_code == 200:
+                    return resp.json()
+                logger.warning(f"PCC API {resp.status_code}: {url} {params}")
+                return None
+        except Exception as e:
+            logger.error(f"PCC API error: {e}")
+            return None
+
+    def _normalize_record(self, record: dict) -> dict:
+        """標準化列表記錄"""
+        brief = record.get("brief", {})
+        companies = brief.get("companies", {})
+
+        # 解析日期
+        raw_date = record.get("date", 0)
+        date_str = ""
+        if raw_date:
+            try:
+                d = datetime.strptime(str(raw_date), "%Y%m%d")
+                date_str = d.strftime("%Y-%m-%d")
+            except ValueError:
+                date_str = str(raw_date)
+
+        return {
+            "date": date_str,
+            "raw_date": raw_date,
+            "title": brief.get("title", ""),
+            "type": brief.get("type", ""),
+            "category": brief.get("category", ""),
+            "unit_id": record.get("unit_id", ""),
+            "unit_name": record.get("unit_name", ""),
+            "job_number": record.get("job_number", ""),
+            "company_names": companies.get("names", []),
+            "company_ids": companies.get("ids", []),
+            "tender_api_url": record.get("tender_api_url", ""),
+            "matched_keyword": record.get("matched_keyword"),
+        }
+
+    def _normalize_detail(self, data: dict) -> dict:
+        """標準化詳情資料"""
+        unit_name = data.get("unit_name", "")
+        records = data.get("records", [])
+        if not records:
+            return {"unit_name": unit_name, "events": []}
+
+        events = []
+        for rec in records:
+            detail = rec.get("detail", {})
+            events.append({
+                "date": rec.get("date"),
+                "type": rec.get("brief", {}).get("type", ""),
+                "title": rec.get("brief", {}).get("title", ""),
+                "category": rec.get("brief", {}).get("category", ""),
+                "job_number": rec.get("job_number", ""),
+                "detail": {
+                    "agency_name": detail.get("機關資料:機關名稱", ""),
+                    "agency_unit": detail.get("機關資料:單位名稱", ""),
+                    "agency_address": detail.get("機關資料:機關地址", ""),
+                    "contact_person": detail.get("機關資料:聯絡人", ""),
+                    "contact_phone": detail.get("機關資料:聯絡電話", ""),
+                    "contact_email": detail.get("機關資料:電子郵件信箱", ""),
+                    "budget": detail.get("採購資料:預算金額", ""),
+                    "procurement_type": detail.get("採購資料:標的分類", ""),
+                    "method": detail.get("招標資料:招標方式", ""),
+                    "award_method": detail.get("招標資料:決標方式", ""),
+                    "announce_date": detail.get("招標資料:公告日", ""),
+                    "deadline": detail.get("招標資料:截止投標", detail.get("領投開標:截止投標", "")),
+                    "open_date": detail.get("領投開標:開標日期", ""),
+                    "status": detail.get("招標資料:招標狀態", ""),
+                    "pcc_url": detail.get("url", ""),
+                },
+                "companies": rec.get("brief", {}).get("companies", {}).get("names", []),
+            })
+
+        return {
+            "unit_name": unit_name,
+            "job_number": records[0].get("job_number", ""),
+            "title": records[0].get("brief", {}).get("title", ""),
+            "events": events,
+            "latest": events[0] if events else None,
+        }
+
+    def _match_category(self, record: dict, category: str) -> bool:
+        """檢查標案是否匹配分類"""
+        cat = record.get("brief", {}).get("category", "")
+        return category in cat
+
+    async def _get_cache(self, key: str) -> Optional[dict]:
+        if not self._redis:
+            return None
+        try:
+            val = await self._redis.get(key)
+            return json.loads(val) if val else None
+        except Exception:
+            return None
+
+    async def _set_cache(self, key: str, data: dict, ttl: int = 1800):
+        if not self._redis:
+            return
+        try:
+            await self._redis.set(key, json.dumps(data, ensure_ascii=False, default=str), ex=ttl)
+        except Exception:
+            pass

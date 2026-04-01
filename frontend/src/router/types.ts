@@ -151,6 +151,9 @@ export const ROUTES = {
   SECURITY_CENTER: '/admin/security-center',
   // 登入紀錄 (資安管理)
   ADMIN_LOGIN_HISTORY: '/admin/login-history',
+  // 標案檢索
+  TENDER_SEARCH: '/tender/search',
+  TENDER_DETAIL: '/tender/:unitId/:jobNumber',
 } as const;
 
 // 路由元數據

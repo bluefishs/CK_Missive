@@ -1,6 +1,18 @@
 /**
- * 系統管理端點
+ * 系統管理端點 + 標案檢索
  */
+
+/** 標案檢索 API 端點 */
+export const TENDER_ENDPOINTS = {
+  /** 搜尋標案 POST /tender/search */
+  SEARCH: '/tender/search',
+  /** 標案詳情 POST /tender/detail */
+  DETAIL: '/tender/detail',
+  /** 廠商搜尋 POST /tender/search-company */
+  SEARCH_COMPANY: '/tender/search-company',
+  /** 智能推薦 POST /tender/recommend */
+  RECOMMEND: '/tender/recommend',
+} as const;
 
 /** 管理員資料庫 API 端點 */
 export const ADMIN_DATABASE_ENDPOINTS = {

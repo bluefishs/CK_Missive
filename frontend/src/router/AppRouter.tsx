@@ -124,6 +124,8 @@ const DigitalTwinPage = lazy(() => import('../pages/DigitalTwinPage'));
 const SecurityCenterPage = lazy(() => import('../pages/SecurityCenterPage'));
 const CaseNatureManagementPage = lazy(() => import('../pages/CaseNatureManagementPage'));
 const AdminLoginHistoryPage = lazy(() => import('../pages/AdminLoginHistoryPage'));
+const TenderSearchPage = lazy(() => import('../pages/TenderSearchPage'));
+const TenderDetailPage = lazy(() => import('../pages/TenderDetailPage'));
 
 // ProtectedRoute 已移至獨立模組：./ProtectedRoute.tsx
 
@@ -266,6 +268,9 @@ export const AppRouter: React.FC = () => {
           <Route path={ROUTES.SECURITY_CENTER} element={<ProtectedRoute requireAuth={true} roles={['admin']}><SecurityCenterPage /></ProtectedRoute>} />
           {/* 作業性質代碼管理 */}
           <Route path={ROUTES.CASE_NATURE_MANAGEMENT} element={<ProtectedRoute requireAuth={true} roles={['admin']}><CaseNatureManagementPage /></ProtectedRoute>} />
+          {/* 標案檢索 */}
+          <Route path={ROUTES.TENDER_SEARCH} element={<ProtectedRoute><TenderSearchPage /></ProtectedRoute>} />
+          <Route path={ROUTES.TENDER_DETAIL} element={<ProtectedRoute><TenderDetailPage /></ProtectedRoute>} />
           {/* 知識庫瀏覽器 */}
           <Route path={ROUTES.KNOWLEDGE_BASE} element={<ProtectedRoute requireAuth={true} roles={['admin']}><KnowledgeBasePage /></ProtectedRoute>} />
 
