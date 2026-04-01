@@ -179,26 +179,38 @@ class AssetService(AuditableServiceMixin):
             "已報廢": "disposed", "遺失": "lost",
         }
 
+        import unicodedata, re
+
+        def _nfkc(v) -> Optional[str]:
+            if v is None: return None
+            return unicodedata.normalize('NFKC', str(v).strip()) or None
+
+        def _num(v) -> float:
+            if v is None: return 0
+            if isinstance(v, (int, float)): return float(v)
+            s = re.sub(r'[NT$￥,\s]', '', str(v).strip())
+            return float(s) if s else 0
+
         for idx, row in enumerate(rows, start=2):
             try:
                 if not row[0] or not row[1]:  # asset_code and name required
                     continue
 
-                asset_code = str(row[0]).strip()
+                asset_code = _nfkc(row[0]) or ""
                 data: Dict[str, Any] = {
                     "asset_code": asset_code,
-                    "name": str(row[1]).strip(),
-                    "category": CATEGORY_MAP.get(str(row[2]).strip(), str(row[2]).strip()) if row[2] else "equipment",
-                    "brand": str(row[3]).strip() if row[3] else None,
-                    "model": str(row[4]).strip() if row[4] else None,
-                    "serial_number": str(row[5]).strip() if row[5] else None,
-                    "purchase_amount": float(row[7]) if row[7] else 0,
-                    "current_value": float(row[8]) if row[8] else None,
-                    "status": STATUS_MAP.get(str(row[9]).strip(), str(row[9]).strip()) if row[9] else "in_use",
-                    "location": str(row[10]).strip() if row[10] else None,
-                    "custodian": str(row[11]).strip() if row[11] else None,
-                    "case_code": str(row[12]).strip() if row[12] else None,
-                    "notes": str(row[13]).strip() if row[13] else None,
+                    "name": _nfkc(row[1]) or "",
+                    "category": CATEGORY_MAP.get(_nfkc(row[2]) or "", _nfkc(row[2]) or "equipment") if row[2] else "equipment",
+                    "brand": _nfkc(row[3]),
+                    "model": _nfkc(row[4]),
+                    "serial_number": _nfkc(row[5]),
+                    "purchase_amount": _num(row[7]),
+                    "current_value": _num(row[8]) if row[8] else None,
+                    "status": STATUS_MAP.get(_nfkc(row[9]) or "", _nfkc(row[9]) or "in_use") if row[9] else "in_use",
+                    "location": _nfkc(row[10]),
+                    "custodian": _nfkc(row[11]),
+                    "case_code": _nfkc(row[12]),
+                    "notes": _nfkc(row[13]),
                 }
 
                 # Handle purchase_date

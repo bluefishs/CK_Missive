@@ -98,10 +98,11 @@ class DocumentCSVProcessor:
         return 'utf-8'
 
     def _clean_text(self, text: Any) -> str:
-        """基本的文字清理，只做最小必要的處理"""
+        """基本的文字清理：去首尾空白 + NFKC 正規化"""
         if pd.isna(text) or text is None:
             return ""
-        return str(text).strip()
+        import unicodedata
+        return unicodedata.normalize('NFKC', str(text).strip())
 
     def _parse_date(self, date_str: Any) -> Optional[str]:
         """解析民國日期並轉換為西元日期"""

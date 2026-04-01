@@ -4,9 +4,11 @@
 
 提供統一的資料驗證規則，確保所有服務使用相同的驗證邏輯。
 """
-from typing import Any, Optional, List
+from typing import Any, Optional, List, Union
 from datetime import datetime, date
+from decimal import Decimal, InvalidOperation
 import re
+import unicodedata
 
 
 class DocumentValidators:
@@ -99,14 +101,16 @@ class StringCleaners:
     INVALID_VALUES = ('none', 'null', 'undefined', 'nan', '')
 
     @classmethod
-    def clean_string(cls, value: Any) -> Optional[str]:
+    def clean_string(cls, value: Any, normalize: bool = True) -> Optional[str]:
         """
         清理字串值
 
-        避免 None 被轉為 'None' 字串，並去除首尾空白。
+        避免 None 被轉為 'None' 字串，去除首尾空白，
+        並執行 NFKC 正規化（全形→半形、相容字元統一）。
 
         Args:
             value: 任意值
+            normalize: 是否執行 NFKC 正規化 (預設 True)
 
         Returns:
             清理後的字串或 None
@@ -120,7 +124,48 @@ class StringCleaners:
         if text.lower() in cls.INVALID_VALUES:
             return None
 
+        # NFKC 正規化：全形英數→半形、相容字元統一
+        if normalize and text:
+            text = unicodedata.normalize('NFKC', text)
+
         return text
+
+    @classmethod
+    def clean_number(cls, value: Any) -> Optional[Decimal]:
+        """
+        清理數字值，支援千分位逗號。
+
+        處理: "1,234,567.89" → Decimal("1234567.89")
+             "$1,200" → Decimal("1200")
+             "NT$3,500" → Decimal("3500")
+
+        Args:
+            value: 任意值（字串、int、float、Decimal）
+
+        Returns:
+            Decimal 或 None
+        """
+        if value is None:
+            return None
+
+        if isinstance(value, Decimal):
+            return value
+        if isinstance(value, (int, float)):
+            return Decimal(str(value))
+
+        text = str(value).strip()
+        if not text or text.lower() in cls.INVALID_VALUES:
+            return None
+
+        # 移除貨幣符號和空白
+        text = re.sub(r'[NT$￥¥€£\s]', '', text)
+        # 移除千分位逗號（保留小數點）
+        text = text.replace(',', '')
+
+        try:
+            return Decimal(text)
+        except (InvalidOperation, ValueError):
+            return None
 
     @classmethod
     def clean_agency_name(cls, name: str) -> Optional[str]:

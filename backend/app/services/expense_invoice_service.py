@@ -468,7 +468,8 @@ class ExpenseInvoiceService(AuditableServiceMixin):
                 if not row[0] or not row[2]:  # inv_num and amount required
                     continue
 
-                inv_num = str(row[0]).strip()
+                import unicodedata
+                inv_num = unicodedata.normalize('NFKC', str(row[0]).strip())
 
                 # 重複檢查
                 existing = await self.repo.find_by_inv_num(inv_num)
@@ -476,15 +477,30 @@ class ExpenseInvoiceService(AuditableServiceMixin):
                     skipped += 1
                     continue
 
+                def _parse_num(v) -> float:
+                    """解析數字，支援千分位逗號和貨幣符號"""
+                    if v is None:
+                        return 0
+                    if isinstance(v, (int, float)):
+                        return float(v)
+                    import re
+                    s = re.sub(r'[NT$￥¥€£\s,]', '', str(v).strip())
+                    return float(s) if s else 0
+
+                def _clean(v) -> str | None:
+                    if v is None:
+                        return None
+                    return unicodedata.normalize('NFKC', str(v).strip()) or None
+
                 data = {
                     "inv_num": inv_num,
-                    "amount": float(row[2]),
-                    "tax_amount": float(row[3]) if row[3] else 0,
-                    "buyer_ban": str(row[4]).strip() if row[4] else None,
-                    "seller_ban": str(row[5]).strip() if row[5] else None,
-                    "case_code": str(row[6]).strip() if row[6] else None,
-                    "category": str(row[7]).strip() if row[7] else "其他",
-                    "notes": str(row[8]).strip() if len(row) > 8 and row[8] else None,
+                    "amount": _parse_num(row[2]),
+                    "tax_amount": _parse_num(row[3]) if row[3] else 0,
+                    "buyer_ban": _clean(row[4]),
+                    "seller_ban": _clean(row[5]),
+                    "case_code": _clean(row[6]),
+                    "category": _clean(row[7]) or "其他",
+                    "notes": _clean(row[8]) if len(row) > 8 else None,
                     "status": "pending",
                     "source": "manual",
                     "user_id": user_id,

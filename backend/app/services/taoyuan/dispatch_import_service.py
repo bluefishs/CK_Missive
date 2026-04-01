@@ -152,7 +152,11 @@ class DispatchImportService:
                     if excel_col in df.columns:
                         value = row[excel_col]
                         if pd.notna(value):
-                            record[db_col] = str(value).strip() if isinstance(value, str) else value
+                            if isinstance(value, str):
+                                import unicodedata
+                                record[db_col] = unicodedata.normalize('NFKC', value.strip())
+                            else:
+                                record[db_col] = value
 
                 # 處理履約期限（DB 為 String(200)，保留原始文字）
                 if 'deadline' in record:
