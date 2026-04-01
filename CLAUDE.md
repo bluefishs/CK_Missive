@@ -2,8 +2,8 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design + vLLM
-> **版本**: v5.3.6 Agent Push — 進化報告推送 + Document AI + 回饋閉環 + 預測洞察
-> **最後更新**: 2026-03-29
+> **版本**: v5.3.22 品質優化 — 資料標準化 + XLS 統一 + 安全加固 + ERP 資料充實
+> **最後更新**: 2026-04-01
 
 ---
 

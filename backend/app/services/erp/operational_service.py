@@ -184,6 +184,23 @@ class OperationalAccountService(AuditableServiceMixin):
         except Exception:
             logger.exception("營運費用自動入帳失敗: expense_id=%s", expense_id)
 
+        # 審批通知
+        try:
+            from app.services.notification_service import NotificationService
+            account = account or await self.account_repo.get_by_id(expense.account_id)
+            acct_name = account.name if account else "營運帳目"
+            await NotificationService.create_notification(
+                db=self.db,
+                notification_type="erp_approval",
+                severity="info",
+                title=f"費用審核通過 — {acct_name}",
+                message=f"{expense.description} ${expense.amount:,.0f} 已核准入帳",
+                source_table="operational_expenses",
+                source_id=expense.id,
+            )
+        except Exception as e:
+            logger.warning(f"審批通知失敗: {e}")
+
         await self.db.commit()
         return OperationalExpenseResponse.model_validate(expense)
 
