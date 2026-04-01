@@ -2,32 +2,24 @@
  * ERP 報價/成本管理列表頁面
  */
 import React, { useState } from 'react';
-import { Card, Table, Button, Space, Tag, Input, Select, Typography, Statistic, Row, Col, Popconfirm, Alert, App, Upload } from 'antd';
+import { Card, Table, Button, Space, Input, Typography, Statistic, Row, Col, Popconfirm, Alert, App, Upload } from 'antd';
 import { PlusOutlined, ReloadOutlined, DownloadOutlined, EditOutlined, UploadOutlined, FileExcelOutlined } from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { erpQuotationsApi } from '../api/erp';
 import { useNavigate } from 'react-router-dom';
 import { useERPQuotations, useERPProfitSummary, useDeleteERPQuotation, useAuthGuard } from '../hooks';
-import type { ERPQuotation, ERPQuotationListParams, ERPQuotationStatus } from '../types/erp';
-import { ERP_QUOTATION_STATUS_LABELS } from '../types/erp';
+import type { ERPQuotation, ERPQuotationListParams } from '../types/erp';
 import type { ColumnsType } from 'antd/es/table';
 import { ROUTES } from '../router/types';
 
 const { Title } = Typography;
-
-const STATUS_COLORS: Record<ERPQuotationStatus, string> = {
-  draft: 'default',
-  confirmed: 'success',
-  revised: 'warning',
-  closed: 'default',
-};
 
 export const ERPQuotationListPage: React.FC = () => {
   const navigate = useNavigate();
   const { message } = App.useApp();
   const { hasPermission } = useAuthGuard();
   const canWrite = hasPermission('projects:write');
-  const [params, setParams] = useState<ERPQuotationListParams>({ page: 1, limit: 20, sort_by: 'year', sort_order: 'desc', status: 'confirmed' });
+  const [params, setParams] = useState<ERPQuotationListParams>({ page: 1, limit: 20, sort_by: 'year', sort_order: 'desc' });
   const { data, isLoading, isError, refetch } = useERPQuotations(params);
   const { data: profitSummary } = useERPProfitSummary();
   const deleteMutation = useDeleteERPQuotation();
@@ -79,15 +71,6 @@ export const ERPQuotationListPage: React.FC = () => {
       width: 90,
       align: 'right',
       render: (v: string | null) => v ? `${Number(v).toFixed(1)}%` : '-',
-    },
-    {
-      title: '狀態',
-      dataIndex: 'status',
-      key: 'status',
-      width: 90,
-      render: (status: ERPQuotationStatus) => (
-        <Tag color={STATUS_COLORS[status]}>{ERP_QUOTATION_STATUS_LABELS[status]}</Tag>
-      ),
     },
     {
       title: '操作',
@@ -158,14 +141,6 @@ export const ERPQuotationListPage: React.FC = () => {
             allowClear
             onSearch={(v) => setParams((p) => ({ ...p, search: v || undefined, page: 1 }))}
             style={{ width: 240 }}
-          />
-          <Select
-            placeholder="狀態"
-            allowClear
-            value={params.status}
-            style={{ width: 120 }}
-            onChange={(v) => setParams((p) => ({ ...p, status: v, page: 1 }))}
-            options={Object.entries(ERP_QUOTATION_STATUS_LABELS).map(([value, label]) => ({ value, label }))}
           />
           <Button icon={<ReloadOutlined />} onClick={() => refetch()}>重新整理</Button>
           <Button
