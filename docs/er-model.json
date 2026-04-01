@@ -5303,6 +5303,296 @@
       "unique_constraints": {},
       "row_count_estimate": -1
     },
+    "operational_accounts": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('operational_accounts_id_seq'::regclass)",
+          "udt_name": "int4"
+        },
+        {
+          "name": "account_code",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 30
+        },
+        {
+          "name": "name",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 200
+        },
+        {
+          "name": "category",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 30
+        },
+        {
+          "name": "fiscal_year",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "udt_name": "int4"
+        },
+        {
+          "name": "budget_limit",
+          "type": "NUMERIC",
+          "nullable": true,
+          "default": "0",
+          "udt_name": "numeric"
+        },
+        {
+          "name": "department",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 100
+        },
+        {
+          "name": "status",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": "'active'::character varying",
+          "udt_name": "varchar",
+          "max_length": 20
+        },
+        {
+          "name": "owner_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
+        },
+        {
+          "name": "notes",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "udt_name": "text"
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "udt_name": "timestamp"
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "udt_name": "timestamp"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "column": "owner_id",
+          "ref_table": "users",
+          "ref_column": "id"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "operational_accounts_pkey",
+          "definition": "CREATE UNIQUE INDEX operational_accounts_pkey ON public.operational_accounts USING btree (id)"
+        },
+        {
+          "name": "operational_accounts_account_code_key",
+          "definition": "CREATE UNIQUE INDEX operational_accounts_account_code_key ON public.operational_accounts USING btree (account_code)"
+        },
+        {
+          "name": "idx_oa_code",
+          "definition": "CREATE INDEX idx_oa_code ON public.operational_accounts USING btree (account_code)"
+        },
+        {
+          "name": "idx_oa_category",
+          "definition": "CREATE INDEX idx_oa_category ON public.operational_accounts USING btree (category)"
+        },
+        {
+          "name": "idx_oa_fiscal",
+          "definition": "CREATE INDEX idx_oa_fiscal ON public.operational_accounts USING btree (fiscal_year)"
+        },
+        {
+          "name": "idx_oa_status",
+          "definition": "CREATE INDEX idx_oa_status ON public.operational_accounts USING btree (status)"
+        }
+      ],
+      "unique_constraints": {
+        "operational_accounts_account_code_key": [
+          "account_code"
+        ]
+      },
+      "row_count_estimate": -1
+    },
+    "operational_expenses": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('operational_expenses_id_seq'::regclass)",
+          "udt_name": "int4"
+        },
+        {
+          "name": "account_id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": null,
+          "udt_name": "int4"
+        },
+        {
+          "name": "expense_date",
+          "type": "DATE",
+          "nullable": false,
+          "default": null,
+          "udt_name": "date"
+        },
+        {
+          "name": "amount",
+          "type": "NUMERIC",
+          "nullable": false,
+          "default": null,
+          "udt_name": "numeric"
+        },
+        {
+          "name": "description",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 500
+        },
+        {
+          "name": "category",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 50
+        },
+        {
+          "name": "expense_invoice_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
+        },
+        {
+          "name": "asset_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
+        },
+        {
+          "name": "approval_status",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": "'pending'::character varying",
+          "udt_name": "varchar",
+          "max_length": 20
+        },
+        {
+          "name": "approved_by",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
+        },
+        {
+          "name": "approved_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": null,
+          "udt_name": "timestamp"
+        },
+        {
+          "name": "created_by",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
+        },
+        {
+          "name": "notes",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "udt_name": "text"
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "udt_name": "timestamp"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "column": "account_id",
+          "ref_table": "operational_accounts",
+          "ref_column": "id"
+        },
+        {
+          "column": "approved_by",
+          "ref_table": "users",
+          "ref_column": "id"
+        },
+        {
+          "column": "asset_id",
+          "ref_table": "assets",
+          "ref_column": "id"
+        },
+        {
+          "column": "created_by",
+          "ref_table": "users",
+          "ref_column": "id"
+        },
+        {
+          "column": "expense_invoice_id",
+          "ref_table": "expense_invoices",
+          "ref_column": "id"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "operational_expenses_pkey",
+          "definition": "CREATE UNIQUE INDEX operational_expenses_pkey ON public.operational_expenses USING btree (id)"
+        },
+        {
+          "name": "idx_oe_account",
+          "definition": "CREATE INDEX idx_oe_account ON public.operational_expenses USING btree (account_id)"
+        },
+        {
+          "name": "idx_oe_invoice",
+          "definition": "CREATE INDEX idx_oe_invoice ON public.operational_expenses USING btree (expense_invoice_id)"
+        },
+        {
+          "name": "idx_oe_asset",
+          "definition": "CREATE INDEX idx_oe_asset ON public.operational_expenses USING btree (asset_id)"
+        }
+      ],
+      "unique_constraints": {},
+      "row_count_estimate": -1
+    },
     "partner_vendors": {
       "columns": [
         {

@@ -50,6 +50,12 @@ erDiagram
     partner_vendors ||--o{ finance_ledgers : "vendor_id"
     government_agencies ||--o{ government_agencies : "parent_agency_id"
     documents ||--o{ graph_ingestion_events : "document_id"
+    users ||--o{ operational_accounts : "owner_id"
+    operational_accounts ||--o{ operational_expenses : "account_id"
+    users ||--o{ operational_expenses : "approved_by"
+    assets ||--o{ operational_expenses : "asset_id"
+    users ||--o{ operational_expenses : "created_by"
+    expense_invoices ||--o{ operational_expenses : "expense_invoice_id"
     users ||--o{ pm_case_attachments : "uploaded_by"
     partner_vendors ||--o{ pm_cases : "client_vendor_id"
     users ||--o{ pm_cases : "created_by"
@@ -669,6 +675,36 @@ erDiagram
         int read_by
         timestamp created_at
     }
+    operational_accounts {
+        int id "PK"
+        varchar account_code "NOT NULL"
+        varchar name "NOT NULL"
+        varchar category "NOT NULL"
+        int fiscal_year "NOT NULL"
+        numeric budget_limit
+        varchar department
+        varchar status
+        int owner_id "FK"
+        text notes
+        timestamp created_at
+        timestamp updated_at
+    }
+    operational_expenses {
+        int id "PK"
+        int account_id "FK,NOT NULL"
+        date expense_date "NOT NULL"
+        numeric amount "NOT NULL"
+        varchar description
+        varchar category
+        int expense_invoice_id "FK"
+        int asset_id "FK"
+        varchar approval_status
+        int approved_by "FK"
+        timestamp approved_at
+        int created_by "FK"
+        text notes
+        timestamp created_at
+    }
     partner_vendors {
         int id "PK"
         varchar vendor_name "NOT NULL"
@@ -1092,7 +1128,7 @@ erDiagram
 
 | 指標 | 數值 |
 |------|------|
-| 總表數 | 61 |
-| 總欄位數 | 877 |
-| 外鍵關聯 | 85 |
+| 總表數 | 63 |
+| 總欄位數 | 903 |
+| 外鍵關聯 | 91 |
 | 自訂列舉型別 | 0 |

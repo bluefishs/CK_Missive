@@ -103,6 +103,30 @@ class FinanceLedgerService(AuditableServiceMixin):
         )
         return await self.repo.create_entry(ledger)
 
+    async def record_from_operational(
+        self, expense_id: int, account_code: str,
+        amount, expense_date=None,
+        description: Optional[str] = None,
+        category: Optional[str] = None,
+    ) -> FinanceLedger:
+        """從營運費用審批通過自動產生帳本支出記錄"""
+        from decimal import Decimal
+        amt = Decimal(str(amount)) if not isinstance(amount, Decimal) else amount
+        desc = f"營運費用 ({account_code})"
+        if description:
+            desc += f" — {description}"
+        ledger = FinanceLedger(
+            amount=amt,
+            entry_type="expense",
+            category=category or "營運費用",
+            description=desc,
+            case_code=None,  # Non-project expense
+            source_type="operational_expense",
+            source_id=expense_id,
+            transaction_date=expense_date or date.today(),
+        )
+        return await self.repo.create_entry(ledger)
+
     async def create(self, data: LedgerCreate, user_id: Optional[int] = None) -> FinanceLedger:
         """手動建立帳目 (別名，與 record 等價)"""
         return await self.record(data, user_id=user_id)

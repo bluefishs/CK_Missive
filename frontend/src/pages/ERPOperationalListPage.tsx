@@ -15,6 +15,7 @@ import { ROUTES } from '../router/types';
 import {
   useOperationalAccounts,
   useOperationalAccountStats,
+  useAuthGuard,
 } from '../hooks';
 import {
   OPERATIONAL_CATEGORIES,
@@ -57,6 +58,9 @@ interface ListParams {
 const ERPOperationalListPage: React.FC = () => {
   const navigate = useNavigate();
   const [params, setParams] = useState<ListParams>({ skip: 0, limit: 20 });
+
+  const { hasPermission } = useAuthGuard();
+  const canWrite = hasPermission('operational:write');
 
   const { data, isLoading, isError, refetch } = useOperationalAccounts(params);
   const { data: stats } = useOperationalAccountStats();
@@ -154,13 +158,15 @@ const ERPOperationalListPage: React.FC = () => {
             <Title level={3} style={{ margin: 0 }}>營運帳目</Title>
           </Col>
           <Col>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => navigate(ROUTES.ERP_OPERATIONAL_CREATE)}
-            >
-              新增帳目
-            </Button>
+            {canWrite && (
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => navigate(ROUTES.ERP_OPERATIONAL_CREATE)}
+              >
+                新增帳目
+              </Button>
+            )}
           </Col>
         </Row>
         <Row gutter={[16, 16]} style={{ marginTop: 16 }}>

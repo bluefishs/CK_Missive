@@ -36,7 +36,10 @@ export type Permission =
   | 'projects:delete'
   | 'admin:access'
   | 'admin:users'
-  | 'admin:settings';
+  | 'admin:settings'
+  | 'operational:read'
+  | 'operational:write'
+  | 'operational:approve';
 
 /** 認證狀態 */
 export interface AuthState {

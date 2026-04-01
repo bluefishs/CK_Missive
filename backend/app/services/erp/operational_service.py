@@ -163,10 +163,27 @@ class OperationalAccountService(AuditableServiceMixin):
     async def approve_expense(
         self, expense_id: int, approved_by: int
     ) -> Optional[OperationalExpenseResponse]:
-        """核准費用"""
+        """核准費用 (含自動入帳)"""
         expense = await self.expense_repo.approve(expense_id, approved_by)
         if not expense:
             return None
+
+        # 自動入帳至統一帳本
+        try:
+            from app.services.finance_ledger_service import FinanceLedgerService
+            ledger_service = FinanceLedgerService(self.db)
+            account = await self.account_repo.get_by_id(expense.account_id)
+            await ledger_service.record_from_operational(
+                expense_id=expense.id,
+                account_code=account.account_code if account else "",
+                amount=expense.amount,
+                expense_date=expense.expense_date,
+                description=expense.description,
+                category=expense.category,
+            )
+        except Exception:
+            logger.exception("營運費用自動入帳失敗: expense_id=%s", expense_id)
+
         await self.db.commit()
         return OperationalExpenseResponse.model_validate(expense)
 

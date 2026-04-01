@@ -34,7 +34,8 @@ async def get_available_permissions(
             "vendors:read", "vendors:create", "vendors:edit", "vendors:delete",
             "admin:users", "admin:settings", "admin:database", "admin:site_management",
             "reports:view", "reports:export",
-            "calendar:read", "calendar:edit", "notifications:read"
+            "calendar:read", "calendar:edit", "notifications:read",
+            "operational:read", "operational:write", "operational:approve",
         ],
         "roles": [
             {"name": "unverified", "display_name": "未驗證者", "default_permissions": []},
@@ -42,7 +43,8 @@ async def get_available_permissions(
                 "name": "user", "display_name": "一般使用者",
                 "default_permissions": [
                     "documents:read", "projects:read", "agencies:read",
-                    "vendors:read", "calendar:read", "reports:view"
+                    "vendors:read", "calendar:read", "reports:view",
+                    "operational:read",
                 ]
             },
             {
@@ -54,7 +56,8 @@ async def get_available_permissions(
                     "vendors:read", "vendors:create", "vendors:edit", "vendors:delete",
                     "admin:users", "admin:settings", "admin:site_management",
                     "reports:view", "reports:export",
-                    "calendar:read", "calendar:edit"
+                    "calendar:read", "calendar:edit",
+                    "operational:read", "operational:write", "operational:approve",
                 ]
             },
             {"name": "superuser", "display_name": "超級管理員", "default_permissions": ["*"]}
@@ -77,6 +80,7 @@ _ROLE_DEFAULTS: dict[str, dict] = {
         "default_permissions": [
             "documents:read", "projects:read", "agencies:read",
             "vendors:read", "calendar:read", "reports:view",
+            "operational:read",
         ],
     },
     "admin": {
@@ -89,6 +93,7 @@ _ROLE_DEFAULTS: dict[str, dict] = {
             "vendors:read", "vendors:create", "vendors:edit", "vendors:delete",
             "admin:users", "admin:settings", "admin:site_management",
             "reports:view", "reports:export", "calendar:read", "calendar:edit",
+            "operational:read", "operational:write", "operational:approve",
         ],
     },
     "superuser": {

@@ -29,6 +29,7 @@ import {
 import type { OperationalExpense, OperationalExpenseCreate } from '../types/erp';
 import type { ColumnsType } from 'antd/es/table';
 import { ROUTES } from '../router/types';
+import { useAuthGuard } from '../hooks';
 import { DetailPageLayout } from '../components/common/DetailPage/DetailPageLayout';
 import { createTabItem } from '../components/common/DetailPage/utils';
 
@@ -55,6 +56,10 @@ const ERPOperationalDetailPage: React.FC = () => {
   const approveExpense = useApproveOperationalExpense();
   const rejectExpense = useRejectOperationalExpense();
   const deleteAccount = useDeleteOperationalAccount();
+
+  const { hasPermission } = useAuthGuard();
+  const canWrite = hasPermission('operational:write');
+  const canApprove = hasPermission('operational:approve');
 
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [form] = Form.useForm();
@@ -144,7 +149,7 @@ const ERPOperationalDetailPage: React.FC = () => {
       key: 'actions',
       width: 120,
       render: (_: unknown, record: OperationalExpense) => {
-        if (record.approval_status !== 'pending') return null;
+        if (record.approval_status !== 'pending' || !canApprove) return null;
         return (
           <Button.Group size="small">
             <Button
@@ -210,13 +215,15 @@ const ERPOperationalDetailPage: React.FC = () => {
   const expensesTab = (
     <Card>
       <div style={{ marginBottom: 16, textAlign: 'right' }}>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => setShowExpenseModal(true)}
-        >
-          新增費用
-        </Button>
+        {canWrite && (
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => setShowExpenseModal(true)}
+          >
+            新增費用
+          </Button>
+        )}
       </div>
       <Table<OperationalExpense>
         columns={expenseColumns}
@@ -292,7 +299,7 @@ const ERPOperationalDetailPage: React.FC = () => {
             ? [{ text: OPERATIONAL_STATUS[account.status] ?? account.status, color: STATUS_COLORS[account.status] ?? 'default' }]
             : [],
           backPath: ROUTES.ERP_OPERATIONAL,
-          extra: (
+          extra: canWrite ? (
             <Space>
               <Button
                 icon={<EditOutlined />}
@@ -304,7 +311,7 @@ const ERPOperationalDetailPage: React.FC = () => {
                 刪除
               </Button>
             </Space>
-          ),
+          ) : undefined,
         }}
         tabs={tabs}
         loading={isLoading}
