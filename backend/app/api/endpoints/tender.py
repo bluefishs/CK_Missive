@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.tender_search_service import TenderSearchService
 from app.schemas.common import SuccessResponse
-from app.core.dependencies import get_db
+from app.db.database import get_async_db as get_db
 
 router = APIRouter(prefix="/tender", tags=["標案檢索"])
 
@@ -130,7 +130,7 @@ async def create_case_from_tender(
 ):
     """從標案一鍵建立 PM Case + ERP Quotation"""
     from sqlalchemy.ext.asyncio import AsyncSession
-    from app.core.dependencies import get_db
+    from app.db.database import get_async_db as get_db
     from app.services.case_code_service import CaseCodeService
     from app.extended.models.pm import PMCase
     from app.extended.models.erp import ERPQuotation
