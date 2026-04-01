@@ -12,6 +12,7 @@ import {
   Card, Input, Table, Tag, Typography, Row, Col, Statistic,
   App, Progress, Empty,
 } from 'antd';
+import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import {
   TrophyOutlined, BankOutlined,
   BarChartOutlined, SearchOutlined,
@@ -36,6 +37,8 @@ const TenderCompanyPage: React.FC = () => {
   const { data, isLoading } = useTenderCompanySearch(company, page);
   const records = useMemo(() => data?.records ?? [], [data]);
 
+  const PIE_COLORS = ['#1890ff', '#52c41a', '#faad14', '#ff4d4f', '#722ed1', '#13c2c2'];
+
   // 統計
   const stats = useMemo(() => {
     if (!records.length) return { total: 0, won: 0, rate: 0 };
@@ -46,6 +49,26 @@ const TenderCompanyPage: React.FC = () => {
       rate: records.length > 0 ? Math.round((won / records.length) * 100) : 0,
     };
   }, [records, data]);
+
+  // 類別分布
+  const categoryData = useMemo(() => {
+    const map: Record<string, number> = {};
+    records.forEach(r => {
+      const cat = r.category ? (r.category.split('-')[0] ?? '').replace(/類$/, '') || '未分類' : '未分類';
+      map[cat] = (map[cat] || 0) + 1;
+    });
+    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  }, [records]);
+
+  // 年度趨勢
+  const yearData = useMemo(() => {
+    const map: Record<string, number> = {};
+    records.forEach(r => {
+      const year = r.date?.slice(0, 4) || '不明';
+      map[year] = (map[year] || 0) + 1;
+    });
+    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [records]);
 
   const columns: ColumnsType<TenderRecord> = [
     {
@@ -123,6 +146,38 @@ const TenderCompanyPage: React.FC = () => {
           </Row>
         )}
       </Card>
+
+      {/* 圖表區 */}
+      {records.length > 0 && (
+        <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+          <Col xs={24} sm={12}>
+            <Card title="標案類別分布" size="small">
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie data={categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%"
+                    outerRadius={70} label>
+                    {categoryData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                  </Pie>
+                  <RechartsTooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </Card>
+          </Col>
+          <Col xs={24} sm={12}>
+            <Card title="年度投標分布" size="small">
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie data={yearData} dataKey="value" nameKey="name" cx="50%" cy="50%"
+                    outerRadius={70} label={({ name, value }) => `${name} (${value})`}>
+                    {yearData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                  </Pie>
+                  <RechartsTooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </Card>
+          </Col>
+        </Row>
+      )}
 
       <Card title={<><BankOutlined /> {company} — 投標紀錄</>}>
         {!records.length && !isLoading ? (
