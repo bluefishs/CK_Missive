@@ -298,6 +298,8 @@ class AgentToolExecutor:
             "check_budget_alert": self._domain.check_budget_alert,
             # Dispatch progress (OC-2, v5.2.5)
             "get_dispatch_progress": self._domain.get_dispatch_progress,
+            # Tender search (v5.3.22)
+            "search_tender": self._domain.search_tender,
             # Document parsing tool (v10.1)
             "parse_document": self._document.parse_document,
             # Knowledge Base search (v1.84.5)

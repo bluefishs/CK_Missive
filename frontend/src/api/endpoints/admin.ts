@@ -12,6 +12,8 @@ export const TENDER_ENDPOINTS = {
   SEARCH_COMPANY: '/tender/search-company',
   /** 智能推薦 POST /tender/recommend */
   RECOMMEND: '/tender/recommend',
+  /** 從標案建案 POST /tender/create-case */
+  CREATE_CASE: '/tender/create-case',
 } as const;
 
 /** 管理員資料庫 API 端點 */

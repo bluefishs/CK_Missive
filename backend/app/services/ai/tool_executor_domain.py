@@ -225,3 +225,29 @@ class DomainToolExecutor:
             year=params.get("year"),
         )
         return synth.to_dict(report)
+
+    async def search_tender(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """搜尋政府標案"""
+        from app.services.tender_search_service import TenderSearchService
+
+        service = TenderSearchService()
+        query = params.get("query", "測量")
+        page = params.get("page", 1)
+        result = await service.search_by_title(query=query, page=page)
+
+        records = result.get("records", [])[:8]
+        return {
+            "total": result.get("total_records", 0),
+            "count": len(records),
+            "tenders": [
+                {
+                    "title": r.get("title", ""),
+                    "unit_name": r.get("unit_name", ""),
+                    "type": r.get("type", ""),
+                    "date": r.get("date", ""),
+                    "category": r.get("category", ""),
+                    "companies": r.get("company_names", []),
+                }
+                for r in records
+            ],
+        }

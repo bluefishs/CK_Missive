@@ -437,6 +437,22 @@ def register_default_tools(registry: ToolRegistry) -> None:
         contexts=["dispatch", "pm"],
     ))
 
+    # 29. search_tender — 政府標案搜尋
+    registry.register(ToolDefinition(
+        name="search_tender",
+        description="搜尋政府電子採購網標案。可用關鍵字搜尋標案名稱，回傳招標機關、預算金額、公告日期、得標廠商等資訊。支援依乾坤核心業務（測量、空拍、透地雷達等）自動推薦相關標案。",
+        parameters={
+            "query": {"type": "string", "description": "搜尋關鍵字（如 測量、空拍、透地雷達）"},
+            "page": {"type": "integer", "description": "頁碼 (預設1)"},
+        },
+        few_shot={
+            "question": "最近有什麼測量相關的標案？",
+            "response_json": '{"reasoning": "搜尋政府採購網中與測量相關的標案", "tool_calls": [{"name": "search_tender", "params": {"query": "測量", "page": 1}}]}',
+        },
+        priority=7,
+        contexts=["doc", "pm"],
+    ))
+
     logger.info("Tool registry initialized: %d manual tools registered", registry.get_tool_count())
 
     # === NemoClaw Stage 3: 自動從 Skills 目錄發現並註冊工具 ===

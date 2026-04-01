@@ -13,10 +13,11 @@ import {
 } from 'antd';
 import {
   SearchOutlined, StarOutlined, BankOutlined,
-  LinkOutlined, ReloadOutlined,
+  LinkOutlined, ReloadOutlined, PlusOutlined,
 } from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { useTenderSearch, useTenderRecommend } from '../hooks/business/useTender';
+import { tenderApi } from '../api/tenderApi';
 import type { TenderRecord, TenderSearchParams } from '../types/tender';
 import type { ColumnsType } from 'antd/es/table';
 import { useNavigate } from 'react-router-dom';
@@ -109,11 +110,28 @@ const TenderSearchPage: React.FC = () => {
           : <Text type="secondary">-</Text>,
     },
     {
-      title: '', key: 'action', width: 70,
+      title: '', key: 'action', width: 140,
       render: (_: unknown, record: TenderRecord) => (
-        <Button type="link" size="small" icon={<LinkOutlined />} onClick={() => handleViewDetail(record)}>
-          詳情
-        </Button>
+        <Space size={0}>
+          <Button type="link" size="small" icon={<LinkOutlined />} onClick={() => handleViewDetail(record)}>
+            詳情
+          </Button>
+          <Button type="link" size="small" icon={<PlusOutlined />} onClick={async (e) => {
+            e.stopPropagation();
+            try {
+              const result = await tenderApi.createCase({
+                unit_id: record.unit_id,
+                job_number: record.job_number,
+                title: record.title,
+                unit_name: record.unit_name,
+                category: record.category,
+              });
+              message.success(`${result.message} — ${result.case_code}`);
+            } catch { message.error('建案失敗'); }
+          }}>
+            建案
+          </Button>
+        </Space>
       ),
     },
   ];

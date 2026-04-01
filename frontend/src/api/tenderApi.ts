@@ -43,4 +43,15 @@ export const tenderApi = {
     );
     return res.data!;
   },
+
+  /** 從標案建立 PM Case */
+  async createCase(params: {
+    unit_id: string; job_number: string; title: string;
+    unit_name?: string; budget?: string; category?: string;
+  }): Promise<{ case_code: string; pm_case_id: number; quotation_id: number; message: string }> {
+    const res = await apiClient.post<SuccessResponse<{ case_code: string; pm_case_id: number; quotation_id: number; message: string }>>(
+      TENDER_ENDPOINTS.CREATE_CASE, params,
+    );
+    return res.data!;
+  },
 };
