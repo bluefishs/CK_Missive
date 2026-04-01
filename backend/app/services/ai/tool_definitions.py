@@ -453,6 +453,22 @@ def register_default_tools(registry: ToolRegistry) -> None:
         contexts=["doc", "pm"],
     ))
 
+    # 30. auto_tender_to_case — Multi-Agent: 標案自動建案
+    registry.register(ToolDefinition(
+        name="auto_tender_to_case",
+        description="Multi-Agent 標案自動建案：搜尋符合乾坤業務的政府標案，自動篩選公開招標公告，一次建立多筆 PM 案件和 ERP 報價。適合回答「幫我把最近的測量標案建成案件」之類的指令。",
+        parameters={
+            "query": {"type": "string", "description": "搜尋關鍵字（如 測量、空拍）"},
+            "max_create": {"type": "integer", "description": "最多建立幾筆 (預設3, 最大5)"},
+        },
+        few_shot={
+            "question": "幫我把最近的測量標案建成案件",
+            "response_json": '{"reasoning": "使用 auto_tender_to_case 自動搜尋測量標案並批次建案", "tool_calls": [{"name": "auto_tender_to_case", "params": {"query": "測量", "max_create": 3}}]}',
+        },
+        priority=6,
+        contexts=["pm"],
+    ))
+
     logger.info("Tool registry initialized: %d manual tools registered", registry.get_tool_count())
 
     # === NemoClaw Stage 3: 自動從 Skills 目錄發現並註冊工具 ===

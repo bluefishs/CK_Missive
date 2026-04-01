@@ -10,6 +10,7 @@ import React, { useState, useCallback, useRef, useMemo } from 'react';
 import { Card, Input, Row, Col, Typography, Space, Tag, Statistic, App, Spin } from 'antd';
 import { ApartmentOutlined, SearchOutlined } from '@ant-design/icons';
 import ForceGraph2D from 'react-force-graph-2d';
+import { useNavigate } from 'react-router-dom';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { useQuery } from '@tanstack/react-query';
 import { tenderApi } from '../api/tenderApi';
@@ -47,6 +48,7 @@ interface GraphLink {
 
 const TenderGraphPage: React.FC = () => {
   const { message } = App.useApp();
+  const navigate = useNavigate();
   const [query, setQuery] = useState('測量');
   const [searchInput, setSearchInput] = useState('測量');
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -168,7 +170,20 @@ const TenderGraphPage: React.FC = () => {
             onNodeHover={(node: GraphNode | null) => setHoverNode(node)}
             onNodeClick={(node: GraphNode) => {
               if (node.type === 'tender') {
-                message.info(`${node.name}`);
+                // tender:JOB_NUMBER → 需要 unit_id，從 edges 找
+                const edge = graphData.links.find(l =>
+                  (typeof l.target === 'string' ? l.target : (l.target as GraphNode).id) === node.id && l.relation === '招標'
+                );
+                const agencyId = edge ? (typeof edge.source === 'string' ? edge.source : (edge.source as GraphNode).id).replace('agency:', '') : '';
+                const jobNum = node.id.replace('tender:', '');
+                if (agencyId) navigate(`/tender/${encodeURIComponent(agencyId)}/${encodeURIComponent(jobNum)}`);
+                else message.info(node.name);
+              } else if (node.type === 'company') {
+                navigate(`/tender/company?q=${encodeURIComponent(node.name)}`);
+              } else if (node.type === 'agency') {
+                // 搜尋該機關的標案
+                navigate(`/tender/search`);
+                message.info(`機關: ${node.name}`);
               }
             }}
             cooldownTicks={100}

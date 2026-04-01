@@ -87,6 +87,8 @@ _DISPATCH_KEYS = {
     "get_dispatch_progress",
     # Tender search (v5.3.22)
     "search_tender",
+    # Multi-Agent tender→case (v5.3.22)
+    "auto_tender_to_case",
 }
 # Validate: all dispatch keys must be in registry, and all non-skill registry tools
 # must be in dispatch keys. Skill tools (skill_*) are handled dynamically.
@@ -302,6 +304,7 @@ class AgentToolExecutor:
             "get_dispatch_progress": self._domain.get_dispatch_progress,
             # Tender search (v5.3.22)
             "search_tender": self._domain.search_tender,
+            "auto_tender_to_case": self._domain.auto_tender_to_case,
             # Document parsing tool (v10.1)
             "parse_document": self._document.parse_document,
             # Knowledge Base search (v1.84.5)

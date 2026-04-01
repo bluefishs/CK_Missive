@@ -251,3 +251,82 @@ class DomainToolExecutor:
                 for r in records
             ],
         }
+
+    async def auto_tender_to_case(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Multi-Agent: 標案搜尋→篩選→自動建案
+
+        流程: 搜尋標案 → 篩選符合乾坤業務的 → 自動建立 PM Case + ERP Quotation
+        """
+        from app.services.tender_search_service import TenderSearchService
+        from app.services.case_code_service import CaseCodeService
+        from app.extended.models.pm import PMCase
+        from app.extended.models.erp import ERPQuotation
+        from datetime import date
+        import re
+
+        query = params.get("query", "測量")
+        max_create = min(params.get("max_create", 3), 5)  # 最多 5 筆
+
+        service = TenderSearchService()
+        result = await service.search_by_title(query=query, page=1)
+        records = result.get("records", [])
+
+        # 只處理公開招標/取得報價 類型（排除決標/更正/廢標）
+        actionable = [
+            r for r in records
+            if r.get("type", "").startswith(("公開", "限制性")) and r.get("title")
+        ][:max_create]
+
+        if not actionable:
+            return {"created": 0, "message": f"搜尋「{query}」無可建案的招標公告"}
+
+        code_service = CaseCodeService(self.db)
+        created = []
+        year = date.today().year
+
+        for r in actionable:
+            try:
+                # 檢查是否已建案（避免重複）
+                existing = await self.db.execute(
+                    __import__('sqlalchemy').select(PMCase).where(
+                        PMCase.case_name == r["title"][:200]
+                    )
+                )
+                if existing.scalar_one_or_none():
+                    continue
+
+                case_code = await code_service.generate_case_code("pm", year, "01")
+
+                # 解析預算
+                budget = 0
+                # budget 在 detail 中，列表沒有，設為 0
+
+                pm = PMCase(case_code=case_code, case_name=r["title"][:200], year=year, status="bidding",
+                            notes=f"[Agent] 標案: {r.get('job_number', '')} ({r.get('unit_name', '')})")
+                self.db.add(pm)
+                await self.db.flush()
+
+                q = ERPQuotation(case_code=case_code, case_name=r["title"][:200], year=year,
+                                 total_price=budget, status="draft",
+                                 notes=f"[Agent] {r.get('unit_name', '')} | {r.get('type', '')}")
+                self.db.add(q)
+
+                created.append({
+                    "case_code": case_code,
+                    "title": r["title"][:60],
+                    "unit_name": r.get("unit_name", ""),
+                })
+            except Exception as e:
+                continue
+
+        if created:
+            await self.db.commit()
+
+        return {
+            "query": query,
+            "searched": len(records),
+            "actionable": len(actionable),
+            "created": len(created),
+            "cases": created,
+        }
