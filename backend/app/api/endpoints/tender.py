@@ -113,6 +113,23 @@ async def recommend_tenders(
     return SuccessResponse(data=result)
 
 
+class TenderGraphRequest(BaseModel):
+    query: str = Field(..., min_length=1, max_length=100)
+    max_tenders: int = Field(20, ge=1, le=50)
+
+
+@router.post("/graph")
+async def get_tender_graph(
+    req: TenderGraphRequest,
+    service: TenderSearchService = Depends(get_tender_service),
+):
+    """標案知識圖譜 — 機關→標案→廠商 關係網絡"""
+    result = await service.build_tender_graph(
+        query=req.query, max_tenders=req.max_tenders,
+    )
+    return SuccessResponse(data=result)
+
+
 class TenderCreateCaseRequest(BaseModel):
     """從標案建立 PM Case"""
     unit_id: str = Field(..., description="機關代碼")

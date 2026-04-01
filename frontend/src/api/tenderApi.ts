@@ -46,6 +46,22 @@ export const tenderApi = {
 
   // ========== 訂閱 ==========
 
+  /** 標案知識圖譜 */
+  async getGraph(query: string, maxTenders = 20): Promise<{
+    query: string;
+    nodes: Array<{ id: string; name: string; type: string; category?: string; date?: string }>;
+    edges: Array<{ source: string; target: string; relation: string }>;
+    stats: { tenders: number; agencies: number; companies: number; edges: number };
+  }> {
+    const res = await apiClient.post<SuccessResponse<{
+      query: string;
+      nodes: Array<{ id: string; name: string; type: string; category?: string; date?: string }>;
+      edges: Array<{ source: string; target: string; relation: string }>;
+      stats: { tenders: number; agencies: number; companies: number; edges: number };
+    }>>(TENDER_ENDPOINTS.GRAPH, { query, max_tenders: maxTenders });
+    return res.data!;
+  },
+
   /** 同機關標案 (用搜尋 API 帶 unit_name) */
   async searchByUnit(unitName: string, page = 1): Promise<TenderSearchResult> {
     return this.search({ query: unitName, page });

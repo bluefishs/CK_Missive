@@ -269,6 +269,68 @@ class TenderSearchService:
         cat = record.get("brief", {}).get("category", "")
         return category in cat
 
+    async def build_tender_graph(
+        self, query: str, max_tenders: int = 20
+    ) -> Dict[str, Any]:
+        """
+        建構標案知識圖譜 — 機關→標案→廠商 關係網絡
+
+        Returns:
+            {nodes: [{id, name, type, ...}], edges: [{source, target, relation}]}
+        """
+        result = await self.search_by_title(query, page=1)
+        records = result.get("records", [])[:max_tenders]
+
+        nodes: Dict[str, dict] = {}
+        edges: list = []
+
+        for r in records:
+            # 標案節點
+            tender_id = f"tender:{r['job_number']}"
+            nodes[tender_id] = {
+                "id": tender_id, "name": r["title"][:40],
+                "type": "tender", "category": r.get("category", ""),
+                "date": r.get("date", ""),
+            }
+
+            # 機關節點
+            if r.get("unit_name"):
+                unit_id = f"agency:{r['unit_id']}"
+                if unit_id not in nodes:
+                    nodes[unit_id] = {
+                        "id": unit_id, "name": r["unit_name"],
+                        "type": "agency",
+                    }
+                edges.append({
+                    "source": unit_id, "target": tender_id,
+                    "relation": "招標",
+                })
+
+            # 廠商節點
+            for i, company in enumerate(r.get("company_names", [])):
+                comp_id = f"company:{r.get('company_ids', [''])[i] if i < len(r.get('company_ids', [])) else company}"
+                if comp_id not in nodes:
+                    nodes[comp_id] = {
+                        "id": comp_id, "name": company,
+                        "type": "company",
+                    }
+                edges.append({
+                    "source": tender_id, "target": comp_id,
+                    "relation": "得標",
+                })
+
+        return {
+            "query": query,
+            "nodes": list(nodes.values()),
+            "edges": edges,
+            "stats": {
+                "tenders": len([n for n in nodes.values() if n["type"] == "tender"]),
+                "agencies": len([n for n in nodes.values() if n["type"] == "agency"]),
+                "companies": len([n for n in nodes.values() if n["type"] == "company"]),
+                "edges": len(edges),
+            },
+        }
+
     async def _get_cache(self, key: str) -> Optional[dict]:
         if not self._redis:
             return None
