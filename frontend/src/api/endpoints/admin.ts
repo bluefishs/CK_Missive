@@ -14,6 +14,20 @@ export const TENDER_ENDPOINTS = {
   RECOMMEND: '/tender/recommend',
   /** 從標案建案 POST /tender/create-case */
   CREATE_CASE: '/tender/create-case',
+  /** 訂閱列表 POST /tender/subscriptions/list */
+  SUBSCRIPTIONS_LIST: '/tender/subscriptions/list',
+  /** 建立訂閱 POST /tender/subscriptions/create */
+  SUBSCRIPTIONS_CREATE: '/tender/subscriptions/create',
+  /** 刪除訂閱 POST /tender/subscriptions/delete */
+  SUBSCRIPTIONS_DELETE: '/tender/subscriptions/delete',
+  /** 書籤列表 POST /tender/bookmarks/list */
+  BOOKMARKS_LIST: '/tender/bookmarks/list',
+  /** 收藏標案 POST /tender/bookmarks/create */
+  BOOKMARKS_CREATE: '/tender/bookmarks/create',
+  /** 更新書籤 POST /tender/bookmarks/update */
+  BOOKMARKS_UPDATE: '/tender/bookmarks/update',
+  /** 刪除書籤 POST /tender/bookmarks/delete */
+  BOOKMARKS_DELETE: '/tender/bookmarks/delete',
 } as const;
 
 /** 管理員資料庫 API 端點 */
