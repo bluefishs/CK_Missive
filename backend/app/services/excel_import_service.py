@@ -111,9 +111,9 @@ class ExcelImportService(ImportBaseService):
             預覽結果，包含資料和驗證結果
         """
         try:
-            import openpyxl
+            from app.services.base.excel_reader import load_workbook_any
         except ImportError:
-            raise ImportError("需要安裝 openpyxl: pip install openpyxl")
+            raise ImportError("需要安裝 openpyxl + xlrd")
 
         result = {
             "success": True,
@@ -148,7 +148,7 @@ class ExcelImportService(ImportBaseService):
                 logger.warning(f"無法查詢資料庫重複: {e}")
 
         try:
-            wb = openpyxl.load_workbook(BytesIO(file_content), data_only=True)
+            wb = load_workbook_any(file_content, filename=filename)
             ws = wb.active
 
             if ws.max_row < 2:
@@ -238,9 +238,9 @@ class ExcelImportService(ImportBaseService):
             匯入結果
         """
         try:
-            import openpyxl
+            from app.services.base.excel_reader import load_workbook_any
         except ImportError:
-            raise ImportError("需要安裝 openpyxl: pip install openpyxl")
+            raise ImportError("需要安裝 openpyxl + xlrd")
 
         result = ImportResult(
             success=True,
@@ -253,7 +253,7 @@ class ExcelImportService(ImportBaseService):
             self.reset_serial_counters()
 
             # 讀取 Excel
-            wb = openpyxl.load_workbook(BytesIO(file_content), data_only=True)
+            wb = load_workbook_any(file_content, filename=filename)
             ws = wb.active
 
             if ws.max_row < 2:

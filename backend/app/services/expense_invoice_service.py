@@ -450,10 +450,9 @@ class ExpenseInvoiceService(AuditableServiceMixin):
 
     async def import_from_excel(self, file_bytes: bytes, user_id: Optional[int] = None) -> dict:
         """匯入費用報銷 Excel，回傳 {total, created, skipped, errors}"""
-        import io
-        from openpyxl import load_workbook
+        from app.services.base.excel_reader import load_workbook_any
 
-        wb = load_workbook(io.BytesIO(file_bytes), read_only=True)
+        wb = load_workbook_any(file_bytes)
         ws = wb.active
         rows = list(ws.iter_rows(min_row=2, values_only=True))
 

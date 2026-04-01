@@ -16,7 +16,7 @@ from datetime import date
 from typing import Optional, Dict, Any, List
 from io import BytesIO
 
-import openpyxl
+from app.services.base.excel_reader import load_workbook_any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.extended.models.taoyuan import (
@@ -95,7 +95,7 @@ class DispatchEnrichmentService:
             {total_rows, matched, payment_created, payment_updated,
              doc_updated, skipped, errors, message}
         """
-        wb = openpyxl.load_workbook(BytesIO(file_content), data_only=True)
+        wb = load_workbook_any(file_content)
         ws = wb[sheet_name] if sheet_name in wb.sheetnames else wb[wb.sheetnames[0]]
 
         # 預載 dispatch_no → id 映射 (委派至 Repository)
