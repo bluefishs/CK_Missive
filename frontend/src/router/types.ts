@@ -155,6 +155,7 @@ export const ROUTES = {
   TENDER_SEARCH: '/tender/search',
   TENDER_DETAIL: '/tender/:unitId/:jobNumber',
   TENDER_COMPANY: '/tender/company',
+  TENDER_GRAPH: '/tender/graph',
 } as const;
 
 // 路由元數據

@@ -226,6 +226,7 @@ const TenderSearchPage: React.FC = () => {
             <Space>
               <Title level={3} style={{ margin: 0 }}><SearchOutlined style={{ marginRight: 8 }} />標案檢索</Title>
               <Button type="link" onClick={() => navigate('/tender/company')}>廠商投標歷史</Button>
+              <Button type="link" onClick={() => navigate('/tender/graph')}>標案圖譜</Button>
             </Space>
           </Col>
           <Col><Statistic title="資料來源" value="政府電子採購網" valueStyle={{ fontSize: 14 }} /></Col>
