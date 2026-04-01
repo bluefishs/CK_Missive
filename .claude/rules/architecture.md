@@ -531,6 +531,15 @@ frontend/src/types/
 ## 前端全域錯誤處理 (v1.79.0)
 
 ```
+frontend/src/api/endpoints/         # API 端點常數 (v2.0 域拆分, 原 endpoints.ts)
+├── core.ts                         #   公文/行事曆/通知/檔案 端點 (172L)
+├── users.ts                        #   使用者/認證/權限 端點 (186L)
+├── projects.ts                     #   承攬案件/機關/廠商 端點 (59L)
+├── taoyuan.ts                      #   桃園派工 端點 (158L)
+├── ai.ts                           #   AI/Agent/知識圖譜 端點 (218L)
+├── erp.ts                          #   PM + ERP 財務 端點 (261L)
+├── admin.ts                        #   管理/備份/部署/資安 端點 (95L)
+└── index.ts                        #   Barrel 匯出 + API_ENDPOINTS (import path 不變)
 frontend/src/api/errors.ts          # ApiException + ApiErrorBus 事件匯流排
 frontend/src/api/client.ts          # Axios 客戶端
 frontend/src/api/interceptors.ts    # Axios 攔截器 (340L, 拆分自 client.ts)
