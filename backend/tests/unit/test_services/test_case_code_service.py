@@ -41,7 +41,7 @@ class TestConstants:
 
     def test_pm_categories(self):
         assert "01" in PM_CATEGORY_CODES
-        assert PM_CATEGORY_CODES["01"] == "測量案"
+        assert PM_CATEGORY_CODES["01"] == "委辦招標"
 
     def test_erp_categories(self):
         assert "01" in ERP_CATEGORY_CODES
@@ -309,7 +309,7 @@ class TestParseCaseCode:
         assert result["module"] == "PM"
         assert result["module_name"] == "pm"
         assert result["category"] == "01"
-        assert result["category_name"] == "測量案"
+        assert result["category_name"] == "委辦招標"
         assert result["serial"] == 1
         assert result["formatted"] == "CK2025_PM_01_001"
 

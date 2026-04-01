@@ -397,7 +397,7 @@ class TestDispatchOrderServiceDocRelevance:
             doc={"subject": "115年度桃園市開口契約契約書簽訂事宜"},
             core_ids=["龍岡路", "中壢區"],
         )
-        assert score == 0.5
+        assert score == 0.1  # v5.2.5: generic doc score 降為 0.1
 
     def test_other_dispatch_location_excluded(self):
         """含其他派工單專屬地名時排除"""

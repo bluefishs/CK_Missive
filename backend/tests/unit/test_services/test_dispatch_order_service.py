@@ -84,12 +84,13 @@ class TestScoreDocumentRelevance:
         )
         assert score == 0.0
 
-    def test_generic_contract_doc_returns_half(self):
+    def test_generic_contract_doc_returns_low_score(self):
+        """v5.2.5: generic doc score 降為 0.1 (精準化)"""
         doc = {"subject": "115年度桃園市道路養護開口契約之契約書"}
         score = DispatchOrderService._score_document_relevance(
             doc, ["龍岡路"]
         )
-        assert score == 0.5
+        assert score == 0.1
 
 
 # ============================================================================

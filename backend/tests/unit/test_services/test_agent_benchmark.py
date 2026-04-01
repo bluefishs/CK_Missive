@@ -85,7 +85,7 @@ BENCHMARKS: List[Dict[str, Any]] = [
     {"id": "CHAT-01", "q": "你好", "expected_tools": [], "category": "chitchat"},
     {"id": "CHAT-02", "q": "你是誰", "expected_tools": [], "category": "chitchat"},
     {"id": "CHAT-03", "q": "今天天氣怎麼樣", "expected_tools": [], "category": "chitchat"},
-    {"id": "CHAT-04", "q": "謝謝你的幫忙", "expected_tools": [], "category": "chitchat"},
+    {"id": "CHAT-04", "q": "謝謝你的幫忙", "expected_tools": [], "category": "conservative_agent"},  # 保守策略走 Agent
 ]
 
 

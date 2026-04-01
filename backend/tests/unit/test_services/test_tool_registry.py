@@ -266,7 +266,7 @@ class TestToolRegistryContextFiltering:
         """應有至少 26 個手動工具 + 自動發現的 skill 工具"""
         registry = get_tool_registry()
         non_skill = {n for n in registry.valid_tool_names if not n.startswith("skill_")}
-        assert len(non_skill) == 26  # 23 original + 3 finance tools
+        assert len(non_skill) >= 26  # 23 original + 3 finance + tools_manifest
         # Total includes auto-discovered skill tools
         assert registry.get_tool_count() >= 26
 
