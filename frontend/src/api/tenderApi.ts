@@ -44,6 +44,55 @@ export const tenderApi = {
     return res.data!;
   },
 
+  // ========== 訂閱 ==========
+
+  async listSubscriptions(): Promise<Array<{ id: number; keyword: string; category: string | null; is_active: boolean; notify_line: boolean; notify_system: boolean; last_checked_at: string | null; last_count: number }>> {
+    const res = await apiClient.post<SuccessResponse<Array<{ id: number; keyword: string; category: string | null; is_active: boolean; notify_line: boolean; notify_system: boolean; last_checked_at: string | null; last_count: number }>>>(
+      TENDER_ENDPOINTS.SUBSCRIPTIONS_LIST, {},
+    );
+    return res.data ?? [];
+  },
+
+  async createSubscription(params: { keyword: string; category?: string; notify_line?: boolean; notify_system?: boolean }): Promise<{ id: number; keyword: string }> {
+    const res = await apiClient.post<SuccessResponse<{ id: number; keyword: string }>>(
+      TENDER_ENDPOINTS.SUBSCRIPTIONS_CREATE, params,
+    );
+    return res.data!;
+  },
+
+  async deleteSubscription(id: number): Promise<void> {
+    await apiClient.post(TENDER_ENDPOINTS.SUBSCRIPTIONS_DELETE, { id });
+  },
+
+  // ========== 書籤 ==========
+
+  async listBookmarks(): Promise<Array<{ id: number; unit_id: string; job_number: string; title: string; unit_name: string | null; budget: string | null; deadline: string | null; status: string; case_code: string | null; notes: string | null; created_at: string | null }>> {
+    const res = await apiClient.post<SuccessResponse<Array<{ id: number; unit_id: string; job_number: string; title: string; unit_name: string | null; budget: string | null; deadline: string | null; status: string; case_code: string | null; notes: string | null; created_at: string | null }>>>(
+      TENDER_ENDPOINTS.BOOKMARKS_LIST, {},
+    );
+    return res.data ?? [];
+  },
+
+  async createBookmark(params: { unit_id: string; job_number: string; title: string; unit_name?: string; budget?: string; deadline?: string; notes?: string }): Promise<{ id: number; title: string }> {
+    const res = await apiClient.post<SuccessResponse<{ id: number; title: string }>>(
+      TENDER_ENDPOINTS.BOOKMARKS_CREATE, params,
+    );
+    return res.data!;
+  },
+
+  async updateBookmark(params: { id: number; status?: string; case_code?: string; notes?: string }): Promise<{ id: number; status: string }> {
+    const res = await apiClient.post<SuccessResponse<{ id: number; status: string }>>(
+      TENDER_ENDPOINTS.BOOKMARKS_UPDATE, params,
+    );
+    return res.data!;
+  },
+
+  async deleteBookmark(id: number): Promise<void> {
+    await apiClient.post(TENDER_ENDPOINTS.BOOKMARKS_DELETE, { id });
+  },
+
+  // ========== 建案 ==========
+
   /** 從標案建立 PM Case */
   async createCase(params: {
     unit_id: string; job_number: string; title: string;
