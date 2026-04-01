@@ -85,6 +85,8 @@ _DISPATCH_KEYS = {
     "check_budget_alert",
     # Dispatch progress (OC-2, v5.2.5)
     "get_dispatch_progress",
+    # Tender search (v5.3.22)
+    "search_tender",
 }
 # Validate: all dispatch keys must be in registry, and all non-skill registry tools
 # must be in dispatch keys. Skill tools (skill_*) are handled dynamically.
