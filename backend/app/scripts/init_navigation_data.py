@@ -403,6 +403,28 @@ DEFAULT_NAVIGATION_ITEMS = [
         "description": "政府標案,招標,採購網,投標,搜尋",
         "permission_required": "[]"
     },
+    {
+        "title": "廠商投標歷史",
+        "key": "tender-company",
+        "path": "/tender/company",
+        "icon": "BarChartOutlined",
+        "sort_order": 14,
+        "level": 2,
+        "parent_key": "project-management",
+        "description": "廠商,投標,得標,歷史,統計",
+        "permission_required": "[]"
+    },
+    {
+        "title": "標案圖譜",
+        "key": "tender-graph",
+        "path": "/tender/graph",
+        "icon": "ApartmentOutlined",
+        "sort_order": 15,
+        "level": 2,
+        "parent_key": "project-management",
+        "description": "標案,知識圖譜,機關,廠商,關係網絡",
+        "permission_required": "[]"
+    },
 
     # =========================================================================
     # 行事曆管理 子項目

@@ -124,6 +124,34 @@
 
 ---
 
+## v5.3.22 標案檢索模組 (2026-04-01~02, 46 commits)
+
+### 標案模組
+
+| 類型 | 項目 | 說明 |
+|------|------|------|
+| Service | `tender_search_service.py` | PCC API 封裝 + Redis 快取 |
+| Service | `tender_subscription_scheduler.py` | 訂閱排程 3次/日 + LINE/Discord |
+| API | `tender.py` | 17 端點 (search/detail/graph/subscriptions/bookmarks) |
+| Model | `tender.py` | TenderSubscription + TenderBookmark |
+| Page | `TenderSearchPage.tsx` | 3-Tab (搜尋/收藏/訂閱) |
+| Page | `TenderDetailPage.tsx` | 4-Tab (總覽/生命週期/得標/同機關) |
+| Page | `TenderCompanyPage.tsx` | 廠商投標歷史 + 圓餅圖 |
+| Page | `TenderGraphPage.tsx` | 知識圖譜 (力導引) |
+| Agent | `#29 search_tender` | 標案搜尋 |
+| Agent | `#30 auto_tender_to_case` | Multi-Agent 自動建案 |
+
+### 品質優化
+
+| 項目 | 說明 |
+|------|------|
+| Bug Fix | 公文刪除 409, 導覽 400 (根治), 年度統一, client-accounts |
+| 標準化 | NFKC 5服務, .xls 統一, 千分位, 導覽自動同步 |
+| 架構 | endpoints 域拆分 (1309→8 files), context -33%, .dockerignore |
+| 測試 | 49→18 failures, ERP 整合 12 cases |
+| ERP | 47 請款 + 47 發票 + 35 帳本, 相機拍照, 收款通知 |
+
+---
 
 ## Agents 代理
 

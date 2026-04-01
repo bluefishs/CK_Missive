@@ -199,6 +199,8 @@ backend/app/services/
 ├── document_calendar_integrator.py # 公文行事曆整合
 ├── discord_bot_service.py      # Discord Bot Interactions Endpoint
 ├── channel_adapter.py          # 統一通道抽象 (LINE/Discord/Telegram)
+├── tender_search_service.py        # 標案檢索 (PCC API + Redis 快取)
+├── tender_subscription_scheduler.py # 標案訂閱排程 (每日3次 + LINE/Discord)
 └── *_service.py                # 其他業務服務
 ```
 
@@ -240,6 +242,7 @@ backend/app/api/endpoints/
 │   ├── ledger.py               # 統一帳本 (6 端點)
 │   ├── financial_summary.py    # 財務彙總 (8 端點, +aging+erp-overview)
 │   └── einvoice_sync.py        # 電子發票同步 (4 端點)
+├── tender.py              # 標案檢索 API (17 端點: search/detail/graph/subscriptions/bookmarks)
 ├── knowledge_base.py      # 知識庫瀏覽器 API (tree/file/adr/diagrams/search)
 ├── security.py            # 資安管理中心 API (掃描/問題追蹤/通知/模式庫)
 ├── line_webhook.py        # LINE Webhook 整合端點
@@ -394,6 +397,10 @@ frontend/src/pages/
 ├── CaseNatureManagementPage.tsx # 作業性質代碼管理 (CRUD)
 ├── SkillEvolutionPage.tsx      # 技能進化主頁面
 ├── DigitalTwinPage.tsx         # 數位分身主頁面
+├── TenderSearchPage.tsx        # 標案搜尋 3-Tab (搜尋/收藏/訂閱)
+├── TenderDetailPage.tsx        # 標案詳情 4-Tab (總覽/生命週期/得標/同機關)
+├── TenderCompanyPage.tsx       # 廠商投標歷史 (統計+圓餅圖)
+├── TenderGraphPage.tsx         # 標案知識圖譜 (力導引)
 └── ...
 ```
 

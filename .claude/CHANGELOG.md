@@ -4,9 +4,23 @@
 
 ---
 
-## [5.3.22] - 2026-04-01
+## [5.3.22] - 2026-04-01~02
 
-### 品質優化 + 資料標準化 + 安全加固 (18 commits)
+### 標案檢索模組 + 品質優化 + 資料標準化 (46 commits)
+
+#### 標案模組 (全新, 16 commits)
+- **搜尋頁** — 3-Tab (搜尋/收藏/訂閱) + 關鍵字+分類+推薦
+- **詳情頁** — 4-Tab (總覽/生命週期/得標/同機關) + 截止倒數 + 預算卡片
+- **廠商歷史** — 投標統計+得標率+類別/年度圓餅圖 + 互動廠商連結
+- **知識圖譜** — 力導引視覺化 (機關→標案→廠商) + 節點點擊跳轉
+- **訂閱排程** — APScheduler 08:00/12:00/18:00 + LINE/Discord 通知
+- **Agent #29** — search_tender 政府標案搜尋
+- **Agent #30** — auto_tender_to_case Multi-Agent 自動建案
+- **一鍵建案** — 標案→PM Case + ERP Quotation
+- **DB** — tender_subscriptions + tender_bookmarks (Alembic 20260401a002)
+- **API** — 17 端點 (search/detail/graph/recommend/create-case/subscriptions/bookmarks)
+
+### 品質優化 + 資料標準化 + 安全加固
 
 #### Bug Fix
 - **公文刪除 409** — entity/chunk backref 加 `passive_deletes=True`，精確 `isinstance(IntegrityError)` 判斷

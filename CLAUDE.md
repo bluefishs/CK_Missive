@@ -2,7 +2,7 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design + vLLM
-> **版本**: v5.3.22 品質優化 — 資料標準化 + XLS 統一 + 安全加固 + ERP 資料充實
+> **版本**: v5.3.22 標案檢索 + 品質優化 — 標案全棧模組 + 資料標準化 + Multi-Agent
 > **最後更新**: 2026-04-01
 
 ---
