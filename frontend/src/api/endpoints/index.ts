@@ -1,0 +1,183 @@
+/**
+ * API 端點集中定義 — Barrel Re-export
+ *
+ * 所有 API 路徑統一在此管理，確保前後端一致性
+ * 使用方式: import { API_ENDPOINTS } from './endpoints';
+ *
+ * @version 2.0.0 — 拆分為域檔案
+ */
+
+// 核心功能
+export {
+  DASHBOARD_ENDPOINTS,
+  DOCUMENTS_ENDPOINTS,
+  CALENDAR_ENDPOINTS,
+  SYSTEM_NOTIFICATIONS_ENDPOINTS,
+  PROJECT_NOTIFICATIONS_ENDPOINTS,
+  FILES_ENDPOINTS,
+  REMINDER_MANAGEMENT_ENDPOINTS,
+  CSV_IMPORT_ENDPOINTS,
+  PUBLIC_ENDPOINTS,
+  SYSTEM_ENDPOINTS,
+} from './core';
+
+// 使用者與權限
+export {
+  USERS_ENDPOINTS,
+  CERTIFICATIONS_ENDPOINTS,
+  AUTH_ENDPOINTS,
+  ADMIN_USER_MANAGEMENT_ENDPOINTS,
+  PROJECT_VENDORS_ENDPOINTS,
+  PROJECT_STAFF_ENDPOINTS,
+  PROJECT_AGENCY_CONTACTS_ENDPOINTS,
+} from './users';
+
+// 專案、機關、廠商
+export {
+  PROJECTS_ENDPOINTS,
+  AGENCIES_ENDPOINTS,
+  VENDORS_ENDPOINTS,
+} from './projects';
+
+// 桃園派工
+export { TAOYUAN_DISPATCH_ENDPOINTS } from './taoyuan';
+
+// AI 服務
+export {
+  AI_ENDPOINTS,
+  DIGITAL_TWIN_ENDPOINTS,
+  KNOWLEDGE_BASE_ENDPOINTS,
+} from './ai';
+
+// PM + ERP 財務
+export {
+  PM_ENDPOINTS,
+  ERP_ENDPOINTS,
+} from './erp';
+
+// 系統管理
+export {
+  ADMIN_DATABASE_ENDPOINTS,
+  BACKUP_ENDPOINTS,
+  DEPLOYMENT_ENDPOINTS,
+  LINE_ENDPOINTS,
+  DISCORD_ENDPOINTS,
+  SECURE_SITE_MANAGEMENT_ENDPOINTS,
+} from './admin';
+
+// ============================================================================
+// 統一匯出
+// ============================================================================
+
+import { DASHBOARD_ENDPOINTS, DOCUMENTS_ENDPOINTS, CALENDAR_ENDPOINTS, SYSTEM_NOTIFICATIONS_ENDPOINTS, PROJECT_NOTIFICATIONS_ENDPOINTS, FILES_ENDPOINTS, REMINDER_MANAGEMENT_ENDPOINTS, CSV_IMPORT_ENDPOINTS, PUBLIC_ENDPOINTS, SYSTEM_ENDPOINTS } from './core';
+import { USERS_ENDPOINTS, CERTIFICATIONS_ENDPOINTS, AUTH_ENDPOINTS, ADMIN_USER_MANAGEMENT_ENDPOINTS, PROJECT_VENDORS_ENDPOINTS, PROJECT_STAFF_ENDPOINTS, PROJECT_AGENCY_CONTACTS_ENDPOINTS } from './users';
+import { PROJECTS_ENDPOINTS, AGENCIES_ENDPOINTS, VENDORS_ENDPOINTS } from './projects';
+import { TAOYUAN_DISPATCH_ENDPOINTS } from './taoyuan';
+import { AI_ENDPOINTS, DIGITAL_TWIN_ENDPOINTS, KNOWLEDGE_BASE_ENDPOINTS } from './ai';
+import { PM_ENDPOINTS, ERP_ENDPOINTS } from './erp';
+import { ADMIN_DATABASE_ENDPOINTS, BACKUP_ENDPOINTS, DEPLOYMENT_ENDPOINTS, LINE_ENDPOINTS, DISCORD_ENDPOINTS, SECURE_SITE_MANAGEMENT_ENDPOINTS } from './admin';
+
+/**
+ * API 端點集合
+ *
+ * 使用方式:
+ * ```typescript
+ * import { API_ENDPOINTS } from './endpoints';
+ *
+ * // 靜態端點
+ * apiClient.post(API_ENDPOINTS.DOCUMENTS.LIST, params);
+ *
+ * // 動態端點
+ * apiClient.post(API_ENDPOINTS.DOCUMENTS.DETAIL(123));
+ * ```
+ */
+export const API_ENDPOINTS = {
+  // 核心功能
+  DASHBOARD: DASHBOARD_ENDPOINTS,
+  DOCUMENTS: DOCUMENTS_ENDPOINTS,
+  PROJECTS: PROJECTS_ENDPOINTS,
+  AGENCIES: AGENCIES_ENDPOINTS,
+  VENDORS: VENDORS_ENDPOINTS,
+
+  // 行事曆
+  CALENDAR: CALENDAR_ENDPOINTS,
+
+  // 通知
+  SYSTEM_NOTIFICATIONS: SYSTEM_NOTIFICATIONS_ENDPOINTS,
+  PROJECT_NOTIFICATIONS: PROJECT_NOTIFICATIONS_ENDPOINTS,
+
+  // 檔案
+  FILES: FILES_ENDPOINTS,
+
+  // 使用者與權限
+  USERS: USERS_ENDPOINTS,
+  AUTH: AUTH_ENDPOINTS,
+  ADMIN_USER_MANAGEMENT: ADMIN_USER_MANAGEMENT_ENDPOINTS,
+  CERTIFICATIONS: CERTIFICATIONS_ENDPOINTS,
+
+  // 關聯模組
+  PROJECT_VENDORS: PROJECT_VENDORS_ENDPOINTS,
+  PROJECT_STAFF: PROJECT_STAFF_ENDPOINTS,
+  PROJECT_AGENCY_CONTACTS: PROJECT_AGENCY_CONTACTS_ENDPOINTS,
+
+  // 系統管理
+  REMINDER_MANAGEMENT: REMINDER_MANAGEMENT_ENDPOINTS,
+  CSV_IMPORT: CSV_IMPORT_ENDPOINTS,
+  PUBLIC: PUBLIC_ENDPOINTS,
+  SYSTEM: SYSTEM_ENDPOINTS,
+  ADMIN_DATABASE: ADMIN_DATABASE_ENDPOINTS,
+  BACKUP: BACKUP_ENDPOINTS,
+
+  // AI 服務
+  AI: AI_ENDPOINTS,
+
+  // 部署管理
+  DEPLOYMENT: DEPLOYMENT_ENDPOINTS,
+
+  // 桃園派工管理
+  TAOYUAN_DISPATCH: TAOYUAN_DISPATCH_ENDPOINTS,
+
+  // 知識庫瀏覽器
+  KNOWLEDGE_BASE: KNOWLEDGE_BASE_ENDPOINTS,
+
+  // LINE Bot
+  LINE: LINE_ENDPOINTS,
+
+  // Discord Bot
+  DISCORD: DISCORD_ENDPOINTS,
+
+  // 專案管理 (PM)
+  PM: PM_ENDPOINTS,
+
+  // 財務管理 (ERP)
+  ERP: ERP_ENDPOINTS,
+
+  // 數位分身
+  DIGITAL_TWIN: DIGITAL_TWIN_ENDPOINTS,
+
+  // 資安管理中心
+  SECURITY: {
+    /** OWASP 總覽 POST /security/owasp-summary */
+    OWASP_SUMMARY: '/security/owasp-summary',
+    /** 問題列表 POST /security/issues/list */
+    ISSUES_LIST: '/security/issues/list',
+    /** 建立問題 POST /security/issues/create */
+    ISSUES_CREATE: '/security/issues/create',
+    /** 更新問題 POST /security/issues/update */
+    ISSUES_UPDATE: '/security/issues/update',
+    /** 掃描列表 POST /security/scans/list */
+    SCANS_LIST: '/security/scans/list',
+    /** 執行掃描 POST /security/scans/run */
+    SCANS_RUN: '/security/scans/run',
+    /** 通知列表 POST /security/notifications/list */
+    NOTIFICATIONS_LIST: '/security/notifications/list',
+    /** 模式庫 POST /security/patterns */
+    PATTERNS: '/security/patterns',
+  },
+
+  // 安全網站管理
+  SECURE_SITE_MANAGEMENT: SECURE_SITE_MANAGEMENT_ENDPOINTS,
+} as const;
+
+// 預設匯出
+export default API_ENDPOINTS;
