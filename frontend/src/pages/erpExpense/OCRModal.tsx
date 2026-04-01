@@ -1,9 +1,16 @@
 /**
  * OCR 發票辨識 Modal
+ *
+ * 支援三種輸入方式：
+ * 1. 拖放/選檔 — 桌面端
+ * 2. 相機拍照 — 行動端 (capture="environment")
+ * 3. QR → 另開 QRScanModal
+ *
+ * @version 2.0.0 — 加入相機拍照 + 收據自動附加
  */
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Modal, Upload, Progress, Alert, Space, Button, message } from 'antd';
-import { CameraOutlined } from '@ant-design/icons';
+import { CameraOutlined, PictureOutlined } from '@ant-design/icons';
 import type { FormInstance } from 'antd';
 import type { ExpenseInvoiceOCRResult, ExpenseInvoiceCreate } from '../../types/erp';
 import { useOCRParseExpense } from '../../hooks';
@@ -19,6 +26,7 @@ interface Props {
 const OCRModal: React.FC<Props> = ({ open, onClose, createForm, onOpenCreate }) => {
   const ocrMutation = useOCRParseExpense();
   const [ocrResult, setOcrResult] = useState<ExpenseInvoiceOCRResult | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const handleClose = () => {
     onClose();
@@ -60,6 +68,17 @@ const OCRModal: React.FC<Props> = ({ open, onClose, createForm, onOpenCreate }) 
     });
   };
 
+  const handleCameraCapture = () => {
+    cameraInputRef.current?.click();
+  };
+
+  const handleCameraChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleUpload(file);
+    // Reset input so same file can be re-selected
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
+  };
+
   return (
     <Modal
       title="OCR 發票辨識"
@@ -73,19 +92,42 @@ const OCRModal: React.FC<Props> = ({ open, onClose, createForm, onOpenCreate }) 
       width={480}
     >
       {!ocrResult && (
-        <Upload.Dragger
-          accept="image/jpeg,image/png,image/webp,image/heic"
-          maxCount={1}
-          showUploadList={false}
-          beforeUpload={(file) => {
-            handleUpload(file);
-            return false;
-          }}
-        >
-          <p className="ant-upload-drag-icon"><CameraOutlined style={{ fontSize: 48, color: '#1890ff' }} /></p>
-          <p className="ant-upload-text">點擊或拖曳發票影像至此</p>
-          <p className="ant-upload-hint">支援 JPEG/PNG/WebP/HEIC，上限 10MB</p>
-        </Upload.Dragger>
+        <>
+          <Upload.Dragger
+            accept="image/jpeg,image/png,image/webp,image/heic"
+            maxCount={1}
+            showUploadList={false}
+            beforeUpload={(file) => {
+              handleUpload(file);
+              return false;
+            }}
+          >
+            <p className="ant-upload-drag-icon"><PictureOutlined style={{ fontSize: 48, color: '#1890ff' }} /></p>
+            <p className="ant-upload-text">點擊或拖曳發票影像至此</p>
+            <p className="ant-upload-hint">支援 JPEG/PNG/WebP/HEIC，上限 10MB</p>
+          </Upload.Dragger>
+
+          <Button
+            type="primary"
+            icon={<CameraOutlined />}
+            block
+            size="large"
+            style={{ marginTop: 12 }}
+            onClick={handleCameraCapture}
+          >
+            拍照辨識
+          </Button>
+
+          {/* Hidden camera input for mobile */}
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            style={{ display: 'none' }}
+            onChange={handleCameraChange}
+          />
+        </>
       )}
       {ocrMutation.isPending && <Progress percent={99} status="active" style={{ marginTop: 16 }} />}
       {ocrResult && (
@@ -96,7 +138,7 @@ const OCRModal: React.FC<Props> = ({ open, onClose, createForm, onOpenCreate }) 
             style={{ marginBottom: 12 }}
           />
           {ocrResult.warnings.length > 0 && (
-            <Alert type="info" title={ocrResult.warnings.join('、')} style={{ marginBottom: 12 }} />
+            <Alert type="info" message={ocrResult.warnings.join('、')} style={{ marginBottom: 12 }} />
           )}
         </div>
       )}

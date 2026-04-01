@@ -8,13 +8,13 @@
  */
 import React, { useState } from 'react';
 import {
-  Descriptions, Tag, Button, Table, Popconfirm, Typography,
+  Descriptions, Tag, Button, Table, Popconfirm, Typography, Space,
   Upload, Image, Spin, App, Form, Input, Select,
 } from 'antd';
 import {
   CheckCircleOutlined, CloseCircleOutlined, EditOutlined, SaveOutlined, CloseOutlined,
   UploadOutlined, FileImageOutlined, InfoCircleOutlined, UnorderedListOutlined, CloudSyncOutlined,
-  DatabaseOutlined,
+  DatabaseOutlined, CameraOutlined,
 } from '@ant-design/icons';
 import { useParams } from 'react-router-dom';
 import { useExpenseDetail, useApproveExpense, useRejectExpense, useUpdateExpense, useUploadExpenseReceipt, useAuthGuard, useAutoLinkEinvoice, useAssetsByInvoice } from '../hooks';
@@ -189,19 +189,38 @@ const ERPExpenseDetailPage: React.FC = () => {
     createTabItem('receipt', { icon: <FileImageOutlined />, text: '收據影像' },
       <div>
         {!invoice.receipt_image_path && (
-          <Upload accept="image/jpeg,image/png,image/webp" maxCount={1} showUploadList={false}
-            beforeUpload={(file) => {
-              if (file.size > 10 * 1024 * 1024) { message.error('檔案過大，上限 10MB'); return Upload.LIST_IGNORE; }
-              if (!invoice) return false;
-              uploadReceiptMutation.mutate({ invoiceId: invoice.id, file }, {
-                onSuccess: () => message.success('收據上傳成功'),
-                onError: () => message.error('收據上傳失敗'),
-              });
-              return false;
-            }}
-          >
-            <Button icon={<UploadOutlined />} loading={uploadReceiptMutation.isPending}>上傳收據</Button>
-          </Upload>
+          <Space>
+            <Upload accept="image/jpeg,image/png,image/webp" maxCount={1} showUploadList={false}
+              beforeUpload={(file) => {
+                if (file.size > 10 * 1024 * 1024) { message.error('檔案過大，上限 10MB'); return Upload.LIST_IGNORE; }
+                if (!invoice) return false;
+                uploadReceiptMutation.mutate({ invoiceId: invoice.id, file }, {
+                  onSuccess: () => message.success('收據上傳成功'),
+                  onError: () => message.error('收據上傳失敗'),
+                });
+                return false;
+              }}
+            >
+              <Button icon={<UploadOutlined />} loading={uploadReceiptMutation.isPending}>上傳收據</Button>
+            </Upload>
+            <Button icon={<CameraOutlined />} onClick={() => {
+              const input = document.createElement('input');
+              input.type = 'file';
+              input.accept = 'image/*';
+              input.capture = 'environment';
+              input.onchange = (e) => {
+                const file = (e.target as HTMLInputElement).files?.[0];
+                if (file && invoice) {
+                  if (file.size > 10 * 1024 * 1024) { message.error('檔案過大，上限 10MB'); return; }
+                  uploadReceiptMutation.mutate({ invoiceId: invoice.id, file }, {
+                    onSuccess: () => message.success('收據上傳成功'),
+                    onError: () => message.error('收據上傳失敗'),
+                  });
+                }
+              };
+              input.click();
+            }}>拍照上傳</Button>
+          </Space>
         )}
         <div style={{ marginTop: 12 }}>
           {invoice.receipt_image_path && receiptBlobUrl ? (
