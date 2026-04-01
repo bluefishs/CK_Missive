@@ -2,8 +2,8 @@
  * ERP 報價/成本管理列表頁面
  */
 import React, { useState } from 'react';
-import { Card, Table, Button, Space, Tag, Input, Select, Typography, Statistic, Row, Col, Popconfirm, Alert, App } from 'antd';
-import { PlusOutlined, ReloadOutlined, DownloadOutlined, EditOutlined } from '@ant-design/icons';
+import { Card, Table, Button, Space, Tag, Input, Select, Typography, Statistic, Row, Col, Popconfirm, Alert, App, Upload } from 'antd';
+import { PlusOutlined, ReloadOutlined, DownloadOutlined, EditOutlined, UploadOutlined, FileExcelOutlined } from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { erpQuotationsApi } from '../api/erp';
 import { useNavigate } from 'react-router-dom';
@@ -27,7 +27,7 @@ export const ERPQuotationListPage: React.FC = () => {
   const { message } = App.useApp();
   const { hasPermission } = useAuthGuard();
   const canWrite = hasPermission('projects:write');
-  const [params, setParams] = useState<ERPQuotationListParams>({ page: 1, limit: 20, sort_by: 'year', sort_order: 'desc' });
+  const [params, setParams] = useState<ERPQuotationListParams>({ page: 1, limit: 20, sort_by: 'year', sort_order: 'desc', status: 'confirmed' });
   const { data, isLoading, isError, refetch } = useERPQuotations(params);
   const { data: profitSummary } = useERPProfitSummary();
   const deleteMutation = useDeleteERPQuotation();
@@ -162,26 +162,62 @@ export const ERPQuotationListPage: React.FC = () => {
           <Select
             placeholder="狀態"
             allowClear
+            value={params.status}
             style={{ width: 120 }}
             onChange={(v) => setParams((p) => ({ ...p, status: v, page: 1 }))}
             options={Object.entries(ERP_QUOTATION_STATUS_LABELS).map(([value, label]) => ({ value, label }))}
           />
           <Button icon={<ReloadOutlined />} onClick={() => refetch()}>重新整理</Button>
           <Button
-            icon={<DownloadOutlined />}
+            icon={<FileExcelOutlined />}
             onClick={async () => {
               try {
-                const blob = await erpQuotationsApi.exportCsv({ year: params.year });
+                const blob = await erpQuotationsApi.exportExcel({ year: params.year });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = 'erp_quotations.csv';
+                a.download = 'erp_quotations.xlsx';
                 a.click();
                 URL.revokeObjectURL(url);
                 message.success('匯出成功');
               } catch { message.error('匯出失敗'); }
             }}
-          >匯出 CSV</Button>
+          >匯出 Excel</Button>
+          {canWrite && (
+            <>
+              <Upload
+                accept=".xlsx,.xls"
+                showUploadList={false}
+                beforeUpload={async (file) => {
+                  try {
+                    const result = await erpQuotationsApi.importExcel(file);
+                    message.success(`匯入完成: 新增 ${result.created} 筆, 更新 ${result.updated} 筆`);
+                    if (result.errors?.length) {
+                      message.warning(`${result.errors.length} 筆匯入失敗`);
+                    }
+                    refetch();
+                  } catch { message.error('匯入失敗'); }
+                  return false;
+                }}
+              >
+                <Button icon={<UploadOutlined />}>匯入 Excel</Button>
+              </Upload>
+              <Button
+                icon={<DownloadOutlined />}
+                onClick={async () => {
+                  try {
+                    const blob = await erpQuotationsApi.downloadTemplate();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'erp_quotation_template.xlsx';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  } catch { message.error('下載範本失敗'); }
+                }}
+              >下載範本</Button>
+            </>
+          )}
         </Space>
 
         <Table<ERPQuotation>

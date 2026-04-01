@@ -86,6 +86,24 @@ export const erpQuotationsApi = {
     return apiClient.postBlob(ERP_ENDPOINTS.EXPORT, params ?? {});
   },
 
+  /** 匯出 Excel */
+  async exportExcel(params?: { year?: number }): Promise<Blob> {
+    return apiClient.postBlob(ERP_ENDPOINTS.EXPORT_EXCEL, params ?? {});
+  },
+
+  /** 下載匯入範本 */
+  async downloadTemplate(): Promise<Blob> {
+    return apiClient.postBlob(ERP_ENDPOINTS.IMPORT_TEMPLATE, {});
+  },
+
+  /** 匯入 Excel */
+  async importExcel(file: File): Promise<{ total_rows: number; created: number; updated: number; errors: Array<{ row: number; error: string }> }> {
+    const response = await apiClient.upload<SuccessResponse<{ total_rows: number; created: number; updated: number; errors: Array<{ row: number; error: string }> }>>(
+      ERP_ENDPOINTS.IMPORT, file, 'file'
+    );
+    return response.data!;
+  },
+
   /** 產生案號 */
   async generateCode(params: { year: number; category?: string }): Promise<string> {
     const response = await apiClient.post<SuccessResponse<{ case_code: string }>>(

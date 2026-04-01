@@ -55,7 +55,7 @@ class ClientReceivableRepository:
             .group_by(ERPQuotation.case_code, ERPQuotation.id, ERPQuotation.total_price)
         ).subquery()
 
-        # Main: join PMCase → PartnerVendor, aggregate by client
+        # Main: join PMCase → PartnerVendor → billing_agg (inner join = 只有成案)
         query = (
             select(
                 PMCase.client_vendor_id.label("vendor_id"),
@@ -67,7 +67,7 @@ class ClientReceivableRepository:
                 func.coalesce(func.sum(billing_agg.c.total_received), 0).label("total_received"),
             )
             .join(PartnerVendor, PMCase.client_vendor_id == PartnerVendor.id)
-            .outerjoin(billing_agg, PMCase.case_code == billing_agg.c.case_code)
+            .join(billing_agg, PMCase.case_code == billing_agg.c.case_code)
             .where(
                 PMCase.client_vendor_id.isnot(None),
                 PartnerVendor.vendor_type == "client",
