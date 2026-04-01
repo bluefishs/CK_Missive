@@ -26,6 +26,7 @@ export default function ProfitTrendTab() {
       key: 'year',
       width: 80,
       align: 'center',
+      render: (v?: number) => v ? (v < 1911 ? v + 1911 : v) : '-',
     },
     {
       title: '案件數',

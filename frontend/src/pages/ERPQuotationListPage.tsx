@@ -52,7 +52,7 @@ export const ERPQuotationListPage: React.FC = () => {
       ellipsis: true,
       render: (text: string | null) => <strong>{text ?? '-'}</strong>,
     },
-    { title: '年度', dataIndex: 'year', key: 'year', width: 80, align: 'center' },
+    { title: '年度', dataIndex: 'year', key: 'year', width: 80, align: 'center', render: (v?: number) => v ? (v < 1911 ? v + 1911 : v) : '-' },
     {
       title: '總價',
       dataIndex: 'total_price',

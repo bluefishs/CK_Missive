@@ -154,10 +154,13 @@ class ClientReceivableRepository:
                 "cases": [],
             }
 
-        # Get quotations for these case_codes
+        # Get quotations for these case_codes (only confirmed/active — 排除 draft)
         quotations = (
             await self.db.execute(
-                select(ERPQuotation).where(ERPQuotation.case_code.in_(case_codes))
+                select(ERPQuotation).where(
+                    ERPQuotation.case_code.in_(case_codes),
+                    ERPQuotation.status.in_(['confirmed', 'active', 'closed', 'won']),
+                )
             )
         ).scalars().all()
         quot_map = {q.case_code: q for q in quotations}

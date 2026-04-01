@@ -60,7 +60,7 @@ const ERPVendorAccountDetailPage: React.FC = () => {
       return <a onClick={() => navigate(ROUTES.ERP_QUOTATION_DETAIL.replace(':id', String(r.erp_quotation_id)))}>{code}</a>;
     }},
     { title: '案名', dataIndex: 'case_name', ellipsis: true },
-    { title: '年度', dataIndex: 'year', width: 80, render: (v?: number) => v ?? '-' },
+    { title: '年度', dataIndex: 'year', width: 80, render: (v?: number) => v ? (v < 1911 ? v + 1911 : v) : '-' },
     { title: '應付金額', dataIndex: 'payable_amount', width: 130, align: 'right', render: (v: number) => Number(v).toLocaleString() },
   ];
 

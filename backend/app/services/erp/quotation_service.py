@@ -55,7 +55,8 @@ class ERPQuotationService(AuditableServiceMixin):
 
         # 自動產生案號
         if not dump.get("case_code"):
-            year = dump.get("year") or 114
+            from datetime import date as _date
+            year = dump.get("year") or _date.today().year
             category = "01"  # ERP 預設報價單
             dump["case_code"] = await self.code_service.generate_case_code(
                 "erp", year, category,

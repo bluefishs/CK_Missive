@@ -129,9 +129,10 @@ export function useContractCaseColumns(
       key: 'year',
       width: 80,
       align: 'center',
+      render: (v?: number) => v ? (v < 1911 ? v + 1911 : v) : '-',
       sorter: (a, b) => (a.year || 0) - (b.year || 0),
       defaultSortOrder: 'descend',
-      filters: availableYears.map(y => ({ text: `${y}年`, value: y })),
+      filters: availableYears.map(y => ({ text: `${y < 1911 ? y + 1911 : y}`, value: y })),
       onFilter: (value, record) => record.year === value,
     },
     {

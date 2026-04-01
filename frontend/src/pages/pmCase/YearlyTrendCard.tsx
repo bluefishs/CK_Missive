@@ -15,7 +15,7 @@ const columns: ColumnsType<PMYearlyTrendItem> = [
     dataIndex: 'year',
     key: 'year',
     width: 80,
-    render: (v: number) => `${v}`,
+    render: (v: number) => v < 1911 ? `${v + 1911}` : `${v}`,
   },
   {
     title: '案件數',
