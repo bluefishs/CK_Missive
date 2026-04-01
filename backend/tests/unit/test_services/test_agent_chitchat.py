@@ -50,11 +50,10 @@ class TestIsChitchat:
         assert is_chitchat(text) is True
 
     def test_prefix_match_long_text_ignored(self):
-        """超過 30 字的前綴匹配不應觸發（但短句仍走閒聊）"""
-        # 33 字 → > 30 prefix 不匹配，但 <= 40 仍為閒聊
+        """超過 30 字的前綴匹配不應觸發 → 保守走 Agent"""
+        # 33 字 → > 30 prefix 不匹配，保守策略走 Agent
         long_text = "你是誰" + "的" * 30
-        assert is_chitchat(long_text) is True  # <= 40 且無業務關鍵字 → 閒聊
-        # 50+ 字 → > 40 → 非閒聊
+        assert is_chitchat(long_text) is False
         very_long = "你是誰" + "的" * 50
         assert is_chitchat(very_long) is False
 
@@ -70,7 +69,7 @@ class TestIsChitchat:
     def test_business_keywords_not_chitchat(self, text):
         assert is_chitchat(text) is False
 
-    # ── 短句無業務關鍵字 → 閒聊 ──
+    # ── 短句無業務關鍵字 → 保守走 Agent (v5.3.0 保守策略) ──
 
     @pytest.mark.parametrize("text", [
         "好的",
@@ -79,8 +78,9 @@ class TestIsChitchat:
         "沒事了",
         "就這樣",
     ])
-    def test_short_non_business_is_chitchat(self, text):
-        assert is_chitchat(text) is True
+    def test_short_non_business_defaults_to_agent(self, text):
+        """保守策略：短句無關鍵字走 Agent，不歸為閒聊"""
+        assert is_chitchat(text) is False
 
     def test_long_non_business_not_chitchat(self):
         """超過 40 字的非業務長句保守走 Agent"""
@@ -91,10 +91,12 @@ class TestIsChitchat:
     # ── 邊界測試 ──
 
     def test_empty_string(self):
-        assert is_chitchat("") is True  # empty → in _CHITCHAT_EXACT? No, but len <= 40
+        """空字串: 保守走 Agent (不在精確匹配列表中)"""
+        assert is_chitchat("") is False
 
     def test_whitespace_only(self):
-        assert is_chitchat("   ") is True  # stripped to ""
+        """純空白: 保守走 Agent"""
+        assert is_chitchat("   ") is False
 
     # ── context 感知測試（v1.82.0 雙軌架構） ──
 
@@ -121,8 +123,9 @@ class TestIsChitchat:
         # doc context → 閒聊 (<=40 且無業務關鍵字... 但 "效能" 是業務關鍵字)
         # 用真正不含關鍵字的短句測試
         assert is_chitchat("今天真無聊", context="agent") is False
-        assert is_chitchat("今天真無聊", context="doc") is True
-        assert is_chitchat("今天真無聊", context=None) is True
+        # 保守策略: 短句無關鍵字也走 Agent
+        assert is_chitchat("今天真無聊", context="doc") is False
+        assert is_chitchat("今天真無聊", context=None) is False
 
     def test_agent_context_with_business_keyword_not_chitchat(self):
         """有業務關鍵字 → 任何 context 都不是閒聊"""
