@@ -126,7 +126,7 @@ class TenderSearchService:
         if cached:
             return cached
 
-        url = f"{PCC_API_BASE}/searchbycompany"
+        url = f"{PCC_API_BASE}/searchbycompanyname"
         params = {"query": company_name, "page": page}
 
         data = await self._fetch(url, params)

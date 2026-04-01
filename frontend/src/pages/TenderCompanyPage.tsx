@@ -94,6 +94,22 @@ const TenderCompanyPage: React.FC = () => {
       },
     },
     {
+      title: '得標廠商', key: 'companies', width: 160, ellipsis: true,
+      render: (_: unknown, r: TenderRecord) => {
+        if (!r.company_names.length) return <Text type="secondary">-</Text>;
+        return (
+          <span>
+            {r.company_names.slice(0, 2).map((name, i) => (
+              <a key={i} onClick={(e) => { e.stopPropagation(); setCompany(name); setSearchInput(name); setPage(1); }}
+                style={{ color: name.includes(company) ? '#52c41a' : '#1890ff', marginRight: 4 }}>
+                {name.length > 10 ? name.slice(0, 10) + '...' : name}
+              </a>
+            ))}
+          </span>
+        );
+      },
+    },
+    {
       title: '結果', key: 'result', width: 80, align: 'center',
       render: (_: unknown, r: TenderRecord) => {
         const isWin = r.company_names.some(n => n.includes(company));
