@@ -4,6 +4,41 @@
 
 ---
 
+## [5.3.22] - 2026-04-01
+
+### 品質優化 + 資料標準化 + 安全加固 (18 commits)
+
+#### Bug Fix
+- **公文刪除 409** — entity/chunk backref 加 `passive_deletes=True`，精確 `isinstance(IntegrityError)` 判斷
+- **導覽路徑 400** — 補齊 28 路由 + `_matches_dynamic_route()` 動態匹配 + **自動同步** init_navigation_data
+- **年度民國/西元不一致** — DB 遷移 erp_quotations.year 114→2025 + 源頭 `date.today().year`
+- **client-accounts 顯示 draft** — inner join + `project_code IS NOT NULL` 過濾
+
+#### 資料標準化
+- **NFKC 正規化** — `StringCleaners.clean_string()` + csv_processor + dispatch_import + expense + asset (5 服務)
+- **千分位數字** — `StringCleaners.clean_number()` 支援 "NT$1,234,567" → Decimal
+- **統一 Excel 讀取** — `load_workbook_any()` 自動偵測 .xls/.xlsx (magic bytes)，xlrd 轉 openpyxl + NFKC
+
+#### 架構優化
+- **endpoints.ts 域拆分** — 1309L → 8 files (core/users/projects/taoyuan/ai/erp/admin/index), max 261L
+- **硬編碼 API 清理** — secureApiService 11 處 → SECURE_SITE_MANAGEMENT_ENDPOINTS
+- **導覽白名單自動同步** — `_build_valid_paths()` 從 init_navigation_data 動態收集
+- **Context budget -33%** — skills-inventory.md 875→180L (版本歷史移至 CHANGELOG)
+
+#### 功能新增
+- **報價 Excel 匯出/匯入** — export-excel + import + import-template (3 API + 前端按鈕)
+- **ERP 資料補錄** — 48 billings + 48 invoices + 35 ledgers + 3 operational + 10 expenses
+- **報價列表預設 confirmed** — 排除 draft
+
+#### 安全加固
+- **根目錄 .dockerignore** — 排除 .env / OAuth JSON / .claude/settings.local.json
+- **前端 .dockerignore** — .env 不再保留於 Docker image
+
+#### Memory 精簡
+- 5 nemoclaw 檔合併為 1 | 已完成 spec 移除 | 37→31 檔
+
+---
+
 ## [5.3.17] - 2026-03-31
 
 ### 廠商/委託帳款→案件管理式展示
