@@ -1075,6 +1075,34 @@ erDiagram
         int parent_record_id "FK"
         varchar work_category
     }
+    tender_bookmarks {
+        int id "PK"
+        varchar unit_id "NOT NULL"
+        varchar job_number "NOT NULL"
+        varchar title "NOT NULL"
+        varchar unit_name
+        varchar budget
+        varchar deadline
+        varchar status
+        varchar case_code
+        int user_id
+        text notes
+        timestamp created_at
+        timestamp updated_at
+    }
+    tender_subscriptions {
+        int id "PK"
+        varchar keyword "NOT NULL"
+        varchar category
+        bool is_active
+        int user_id
+        bool notify_line
+        bool notify_system
+        timestamp last_checked_at
+        int last_count
+        timestamp created_at
+        timestamp updated_at
+    }
     user_sessions {
         int id "PK"
         int user_id "FK,NOT NULL"
@@ -1128,7 +1156,7 @@ erDiagram
 
 | 指標 | 數值 |
 |------|------|
-| 總表數 | 63 |
-| 總欄位數 | 903 |
+| 總表數 | 65 |
+| 總欄位數 | 927 |
 | 外鍵關聯 | 91 |
 | 自訂列舉型別 | 0 |

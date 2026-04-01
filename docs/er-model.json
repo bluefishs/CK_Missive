@@ -8933,6 +8933,220 @@
       "unique_constraints": {},
       "row_count_estimate": 143
     },
+    "tender_bookmarks": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('tender_bookmarks_id_seq'::regclass)",
+          "udt_name": "int4"
+        },
+        {
+          "name": "unit_id",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 50
+        },
+        {
+          "name": "job_number",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 50
+        },
+        {
+          "name": "title",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 500
+        },
+        {
+          "name": "unit_name",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 200
+        },
+        {
+          "name": "budget",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 100
+        },
+        {
+          "name": "deadline",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 50
+        },
+        {
+          "name": "status",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 20
+        },
+        {
+          "name": "case_code",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 50
+        },
+        {
+          "name": "user_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
+        },
+        {
+          "name": "notes",
+          "type": "TEXT",
+          "nullable": true,
+          "default": null,
+          "udt_name": "text"
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "udt_name": "timestamp"
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "udt_name": "timestamp"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [],
+      "indexes": [
+        {
+          "name": "tender_bookmarks_pkey",
+          "definition": "CREATE UNIQUE INDEX tender_bookmarks_pkey ON public.tender_bookmarks USING btree (id)"
+        },
+        {
+          "name": "ix_tender_bookmark_unit_job",
+          "definition": "CREATE UNIQUE INDEX ix_tender_bookmark_unit_job ON public.tender_bookmarks USING btree (unit_id, job_number)"
+        }
+      ],
+      "unique_constraints": {},
+      "row_count_estimate": -1
+    },
+    "tender_subscriptions": {
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "default": "nextval('tender_subscriptions_id_seq'::regclass)",
+          "udt_name": "int4"
+        },
+        {
+          "name": "keyword",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 100
+        },
+        {
+          "name": "category",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 20
+        },
+        {
+          "name": "is_active",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "default": null,
+          "udt_name": "bool"
+        },
+        {
+          "name": "user_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
+        },
+        {
+          "name": "notify_line",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "default": null,
+          "udt_name": "bool"
+        },
+        {
+          "name": "notify_system",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "default": null,
+          "udt_name": "bool"
+        },
+        {
+          "name": "last_checked_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": null,
+          "udt_name": "timestamp"
+        },
+        {
+          "name": "last_count",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "udt_name": "timestamp"
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITHOUT TIME ZONE",
+          "nullable": true,
+          "default": "now()",
+          "udt_name": "timestamp"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [],
+      "indexes": [
+        {
+          "name": "tender_subscriptions_pkey",
+          "definition": "CREATE UNIQUE INDEX tender_subscriptions_pkey ON public.tender_subscriptions USING btree (id)"
+        }
+      ],
+      "unique_constraints": {},
+      "row_count_estimate": -1
+    },
     "user_sessions": {
       "columns": [
         {
