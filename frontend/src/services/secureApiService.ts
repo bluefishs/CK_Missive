@@ -9,6 +9,7 @@
  */
 
 import { apiClient, API_BASE_URL } from '../api/client';
+import { SECURE_SITE_MANAGEMENT_ENDPOINTS } from '../api/endpoints';
 import { isAuthDisabled } from '../config/env';
 import { logger } from '../utils/logger';
 
@@ -47,7 +48,7 @@ class SecureApiService {
   async getCsrfToken(): Promise<string> {
     try {
       const result = await apiClient.post<SecureResponse>(
-        '/secure-site-management/csrf-token',
+        SECURE_SITE_MANAGEMENT_ENDPOINTS.CSRF_TOKEN,
         {}
       );
 
@@ -152,23 +153,23 @@ class SecureApiService {
   // ==========================================================================
 
   async getNavigationItems(): Promise<unknown> {
-    return this.secureRequest('/secure-site-management/navigation/action', 'list');
+    return this.secureRequest(SECURE_SITE_MANAGEMENT_ENDPOINTS.NAVIGATION_ACTION, 'list');
   }
 
   async createNavigationItem(data: unknown): Promise<unknown> {
-    return this.secureRequest('/secure-site-management/navigation/action', 'create', data);
+    return this.secureRequest(SECURE_SITE_MANAGEMENT_ENDPOINTS.NAVIGATION_ACTION, 'create', data);
   }
 
   async updateNavigationItem(data: unknown): Promise<unknown> {
-    return this.secureRequest('/secure-site-management/navigation/action', 'update', data);
+    return this.secureRequest(SECURE_SITE_MANAGEMENT_ENDPOINTS.NAVIGATION_ACTION, 'update', data);
   }
 
 async deleteNavigationItem(id: number): Promise<unknown> {
-    return this.secureRequest('/secure-site-management/navigation/action', 'delete', { id });
+    return this.secureRequest(SECURE_SITE_MANAGEMENT_ENDPOINTS.NAVIGATION_ACTION, 'delete', { id });
   }
 
   async getValidPaths(): Promise<unknown> {
-    return this.secureRequest('/secure-site-management/navigation/valid-paths', 'get');
+    return this.secureRequest(SECURE_SITE_MANAGEMENT_ENDPOINTS.NAVIGATION_VALID_PATHS, 'get');
   }
 
   /**
@@ -178,7 +179,7 @@ async deleteNavigationItem(id: number): Promise<unknown> {
   async reorderNavigationItems(
     items: Array<{ id: number; sort_order: number; parent_id?: number | null; level?: number }>
   ): Promise<unknown> {
-    return this.secureRequest('/secure-site-management/navigation/action', 'reorder', { items });
+    return this.secureRequest(SECURE_SITE_MANAGEMENT_ENDPOINTS.NAVIGATION_ACTION, 'reorder', { items });
   }
 
   // ==========================================================================
@@ -186,19 +187,19 @@ async deleteNavigationItem(id: number): Promise<unknown> {
   // ==========================================================================
 
   async getConfigurations(filters?: { search?: string; category?: string }): Promise<unknown> {
-    return this.secureRequest('/secure-site-management/config/action', 'list', filters);
+    return this.secureRequest(SECURE_SITE_MANAGEMENT_ENDPOINTS.CONFIG_ACTION, 'list', filters);
   }
 
   async createConfiguration(data: unknown): Promise<unknown> {
-    return this.secureRequest('/secure-site-management/config/action', 'create', data);
+    return this.secureRequest(SECURE_SITE_MANAGEMENT_ENDPOINTS.CONFIG_ACTION, 'create', data);
   }
 
   async updateConfiguration(data: unknown): Promise<unknown> {
-    return this.secureRequest('/secure-site-management/config/action', 'update', data);
+    return this.secureRequest(SECURE_SITE_MANAGEMENT_ENDPOINTS.CONFIG_ACTION, 'update', data);
   }
 
   async deleteConfiguration(configKey: string): Promise<unknown> {
-    return this.secureRequest('/secure-site-management/config/action', 'delete', { config_key: configKey });
+    return this.secureRequest(SECURE_SITE_MANAGEMENT_ENDPOINTS.CONFIG_ACTION, 'delete', { config_key: configKey });
   }
 
   // ==========================================================================

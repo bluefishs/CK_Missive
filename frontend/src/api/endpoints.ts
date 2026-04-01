@@ -1186,6 +1186,18 @@ export const ERP_ENDPOINTS = {
   OPERATIONAL_EXPENSES_REJECT: '/erp/operational/expenses/reject',
 } as const;
 
+/** 安全網站管理 API 端點 */
+export const SECURE_SITE_MANAGEMENT_ENDPOINTS = {
+  /** CSRF 令牌 POST /secure-site-management/csrf-token */
+  CSRF_TOKEN: '/secure-site-management/csrf-token',
+  /** 導覽項目操作 POST /secure-site-management/navigation/action */
+  NAVIGATION_ACTION: '/secure-site-management/navigation/action',
+  /** 有效路徑 POST /secure-site-management/navigation/valid-paths */
+  NAVIGATION_VALID_PATHS: '/secure-site-management/navigation/valid-paths',
+  /** 配置操作 POST /secure-site-management/config/action */
+  CONFIG_ACTION: '/secure-site-management/config/action',
+} as const;
+
 // ============================================================================
 // 統一匯出
 // ============================================================================
@@ -1288,6 +1300,9 @@ export const API_ENDPOINTS = {
     /** 模式庫 POST /security/patterns */
     PATTERNS: '/security/patterns',
   },
+
+  // 安全網站管理
+  SECURE_SITE_MANAGEMENT: SECURE_SITE_MANAGEMENT_ENDPOINTS,
 } as const;
 
 // 預設匯出
