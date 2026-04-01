@@ -46,6 +46,11 @@ export const tenderApi = {
 
   // ========== 訂閱 ==========
 
+  /** 同機關標案 (用搜尋 API 帶 unit_name) */
+  async searchByUnit(unitName: string, page = 1): Promise<TenderSearchResult> {
+    return this.search({ query: unitName, page });
+  },
+
   async listSubscriptions(): Promise<Array<{ id: number; keyword: string; category: string | null; is_active: boolean; notify_line: boolean; notify_system: boolean; last_checked_at: string | null; last_count: number }>> {
     const res = await apiClient.post<SuccessResponse<Array<{ id: number; keyword: string; category: string | null; is_active: boolean; notify_line: boolean; notify_system: boolean; last_checked_at: string | null; last_count: number }>>>(
       TENDER_ENDPOINTS.SUBSCRIPTIONS_LIST, {},

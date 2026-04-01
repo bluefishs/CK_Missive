@@ -12,19 +12,19 @@
  */
 import React, { useMemo } from 'react';
 import {
-  Descriptions, Tag, Timeline, Card, Typography, Button, Space,
+  Descriptions, Tag, Timeline, Card, Typography, Button, Space, List,
   Row, Col, Statistic, Empty, Alert,
 } from 'antd';
 import {
   BankOutlined, PhoneOutlined, MailOutlined, DollarOutlined,
   CalendarOutlined, LinkOutlined, EnvironmentOutlined,
   ClockCircleOutlined, CheckCircleOutlined, CloseCircleOutlined,
-  StarOutlined,
+  StarOutlined, UnorderedListOutlined,
 } from '@ant-design/icons';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { DetailPageLayout } from '../components/common/DetailPage/DetailPageLayout';
 import { createTabItem } from '../components/common/DetailPage/utils';
-import { useTenderDetail } from '../hooks/business/useTender';
+import { useTenderDetail, useTenderSearch } from '../hooks/business/useTender';
 import { useCreateBookmark } from '../hooks/business/useTender';
 import { tenderApi } from '../api/tenderApi';
 import { App } from 'antd';
@@ -58,6 +58,7 @@ function getTimelineColor(type: string): string {
 const TenderDetailPage: React.FC = () => {
   const { unitId, jobNumber } = useParams<{ unitId: string; jobNumber: string }>();
   const { message } = App.useApp();
+  const navigate = useNavigate();
   const { data: detail, isLoading } = useTenderDetail(
     unitId ? decodeURIComponent(unitId) : null,
     jobNumber ? decodeURIComponent(jobNumber) : null,
@@ -239,6 +240,11 @@ const TenderDetailPage: React.FC = () => {
     </div>
   );
 
+  // ========== Tab 4: 同機關相關標案 ==========
+  const relatedTab = createTabItem('related', { icon: <UnorderedListOutlined />, text: '同機關標案' },
+    <RelatedTenders unitName={detail?.unit_name ?? ''} currentJobNumber={detail?.job_number ?? ''} navigate={navigate} />
+  );
+
   return (
     <DetailPageLayout
       header={{
@@ -246,9 +252,43 @@ const TenderDetailPage: React.FC = () => {
         backPath: '/tender/search',
         subtitle: `${detail?.unit_name ?? ''} | ${detail?.job_number ?? ''}`,
       }}
-      tabs={[overviewTab, lifecycleTab, companiesTab]}
+      tabs={[overviewTab, lifecycleTab, companiesTab, relatedTab]}
       loading={isLoading}
       hasData={!!detail}
+    />
+  );
+};
+
+/** 同機關相關標案子元件 */
+const RelatedTenders: React.FC<{ unitName: string; currentJobNumber: string; navigate: ReturnType<typeof useNavigate> }> = ({ unitName, currentJobNumber, navigate }) => {
+  const { data, isLoading } = useTenderSearch(unitName ? { query: unitName, page: 1 } : null);
+  const filtered = useMemo(
+    () => (data?.records ?? []).filter(r => r.job_number !== currentJobNumber).slice(0, 10),
+    [data, currentJobNumber]
+  );
+
+  if (!unitName) return <Empty description="無機關資訊" />;
+
+  return (
+    <List
+      loading={isLoading}
+      dataSource={filtered}
+      locale={{ emptyText: '查無同機關標案' }}
+      renderItem={(r) => (
+        <List.Item
+          key={`${r.unit_id}-${r.job_number}`}
+          actions={[
+            <Button key="go" type="link" size="small" onClick={() => navigate(`/tender/${encodeURIComponent(r.unit_id)}/${encodeURIComponent(r.job_number)}`)}>
+              查看
+            </Button>,
+          ]}
+        >
+          <List.Item.Meta
+            title={r.title}
+            description={<Space><Tag>{r.type.slice(0, 10)}</Tag><Text type="secondary">{r.date}</Text></Space>}
+          />
+        </List.Item>
+      )}
     />
   );
 };
