@@ -126,6 +126,7 @@ const CaseNatureManagementPage = lazy(() => import('../pages/CaseNatureManagemen
 const AdminLoginHistoryPage = lazy(() => import('../pages/AdminLoginHistoryPage'));
 const TenderSearchPage = lazy(() => import('../pages/TenderSearchPage'));
 const TenderDetailPage = lazy(() => import('../pages/TenderDetailPage'));
+const TenderCompanyPage = lazy(() => import('../pages/TenderCompanyPage'));
 
 // ProtectedRoute 已移至獨立模組：./ProtectedRoute.tsx
 
@@ -271,6 +272,7 @@ export const AppRouter: React.FC = () => {
           {/* 標案檢索 */}
           <Route path={ROUTES.TENDER_SEARCH} element={<ProtectedRoute><TenderSearchPage /></ProtectedRoute>} />
           <Route path={ROUTES.TENDER_DETAIL} element={<ProtectedRoute><TenderDetailPage /></ProtectedRoute>} />
+          <Route path={ROUTES.TENDER_COMPANY} element={<ProtectedRoute><TenderCompanyPage /></ProtectedRoute>} />
           {/* 知識庫瀏覽器 */}
           <Route path={ROUTES.KNOWLEDGE_BASE} element={<ProtectedRoute requireAuth={true} roles={['admin']}><KnowledgeBasePage /></ProtectedRoute>} />
 

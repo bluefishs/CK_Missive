@@ -154,6 +154,7 @@ export const ROUTES = {
   // 標案檢索
   TENDER_SEARCH: '/tender/search',
   TENDER_DETAIL: '/tender/:unitId/:jobNumber',
+  TENDER_COMPANY: '/tender/company',
 } as const;
 
 // 路由元數據

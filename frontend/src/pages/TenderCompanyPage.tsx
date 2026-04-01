@@ -1,0 +1,155 @@
+/**
+ * 標案廠商歷史頁面
+ *
+ * 顯示公司歷年投標/得標紀錄統計。
+ * 預設查詢「乾坤測繪」，可搜尋其他公司。
+ * 參考 ezbid.tw/vendor/ 風格。
+ *
+ * @version 1.0.0
+ */
+import React, { useState, useMemo } from 'react';
+import {
+  Card, Input, Table, Tag, Typography, Row, Col, Statistic,
+  App, Progress, Empty,
+} from 'antd';
+import {
+  TrophyOutlined, BankOutlined,
+  BarChartOutlined, SearchOutlined,
+} from '@ant-design/icons';
+import { ResponsiveContent } from '@ck-shared/ui-components';
+import { useTenderCompanySearch } from '../hooks/business/useTender';
+import type { TenderRecord } from '../types/tender';
+import type { ColumnsType } from 'antd/es/table';
+import { useNavigate } from 'react-router-dom';
+
+const { Title, Text } = Typography;
+
+const DEFAULT_COMPANY = '乾坤測繪';
+
+const TenderCompanyPage: React.FC = () => {
+  const navigate = useNavigate();
+  App.useApp();
+  const [company, setCompany] = useState(DEFAULT_COMPANY);
+  const [searchInput, setSearchInput] = useState(DEFAULT_COMPANY);
+  const [page, setPage] = useState(1);
+
+  const { data, isLoading } = useTenderCompanySearch(company, page);
+  const records = useMemo(() => data?.records ?? [], [data]);
+
+  // 統計
+  const stats = useMemo(() => {
+    if (!records.length) return { total: 0, won: 0, rate: 0 };
+    const won = records.filter(r => r.company_names.length > 0 && r.type.includes('決標')).length;
+    return {
+      total: data?.total_records ?? records.length,
+      won,
+      rate: records.length > 0 ? Math.round((won / records.length) * 100) : 0,
+    };
+  }, [records, data]);
+
+  const columns: ColumnsType<TenderRecord> = [
+    {
+      title: '日期', dataIndex: 'date', width: 105, align: 'center',
+      render: (v: string) => <Text type="secondary">{v}</Text>,
+    },
+    {
+      title: '標案名稱', dataIndex: 'title', ellipsis: true,
+      render: (title: string, record) => (
+        <a onClick={() => navigate(`/tender/${encodeURIComponent(record.unit_id)}/${encodeURIComponent(record.job_number)}`)}
+          style={{ fontWeight: 500 }}>{title}</a>
+      ),
+    },
+    {
+      title: '招標機關', dataIndex: 'unit_name', width: 180, ellipsis: true,
+      render: (v: string) => <><BankOutlined style={{ marginRight: 4, color: '#8c8c8c' }} />{v}</>,
+    },
+    {
+      title: '類型', dataIndex: 'type', width: 120, ellipsis: true,
+      render: (v: string) => {
+        const isWin = v.includes('決標');
+        return <Tag color={isWin ? 'green' : 'default'}>{v.length > 8 ? v.slice(0, 8) + '...' : v}</Tag>;
+      },
+    },
+    {
+      title: '結果', key: 'result', width: 80, align: 'center',
+      render: (_: unknown, r: TenderRecord) => {
+        const isWin = r.company_names.some(n => n.includes(company));
+        return r.type.includes('決標')
+          ? <Tag color={isWin ? 'green' : 'orange'}>{isWin ? '得標' : '未得標'}</Tag>
+          : <Tag>-</Tag>;
+      },
+    },
+  ];
+
+  return (
+    <ResponsiveContent maxWidth="full" padding="medium">
+      <Card style={{ marginBottom: 16 }}>
+        <Row justify="space-between" align="middle" gutter={[16, 16]}>
+          <Col flex="auto">
+            <Title level={3} style={{ margin: 0 }}>
+              <BarChartOutlined style={{ marginRight: 8 }} />廠商投標歷史
+            </Title>
+          </Col>
+          <Col>
+            <Input.Search
+              placeholder="搜尋廠商名稱"
+              value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
+              onSearch={v => { if (v.trim()) { setCompany(v.trim()); setPage(1); } }}
+              enterButton={<SearchOutlined />}
+              style={{ width: 280 }}
+              allowClear
+            />
+          </Col>
+        </Row>
+
+        {records.length > 0 && (
+          <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+            <Col xs={12} sm={6}>
+              <Statistic title="投標紀錄" value={stats.total} suffix="筆" />
+            </Col>
+            <Col xs={12} sm={6}>
+              <Statistic title="得標" value={stats.won} suffix="筆"
+                valueStyle={{ color: '#52c41a' }} prefix={<TrophyOutlined />} />
+            </Col>
+            <Col xs={12} sm={6}>
+              <Statistic title="得標率" value={stats.rate} suffix="%"
+                valueStyle={{ color: stats.rate > 50 ? '#52c41a' : '#fa8c16' }} />
+            </Col>
+            <Col xs={12} sm={6}>
+              <Progress type="circle" percent={stats.rate} size={60}
+                strokeColor={stats.rate > 50 ? '#52c41a' : '#fa8c16'} />
+            </Col>
+          </Row>
+        )}
+      </Card>
+
+      <Card title={<><BankOutlined /> {company} — 投標紀錄</>}>
+        {!records.length && !isLoading ? (
+          <Empty description={`查無「${company}」的投標紀錄`} />
+        ) : (
+          <Table<TenderRecord>
+            columns={columns}
+            dataSource={records}
+            rowKey={r => `${r.unit_id}-${r.job_number}-${r.raw_date}`}
+            loading={isLoading}
+            size="middle"
+            scroll={{ x: 800 }}
+            pagination={{
+              current: page, pageSize: 100,
+              total: data?.total_records ?? 0,
+              onChange: setPage,
+              showTotal: (t) => `共 ${t.toLocaleString()} 筆`,
+            }}
+            onRow={record => ({
+              onClick: () => navigate(`/tender/${encodeURIComponent(record.unit_id)}/${encodeURIComponent(record.job_number)}`),
+              style: { cursor: 'pointer' },
+            })}
+          />
+        )}
+      </Card>
+    </ResponsiveContent>
+  );
+};
+
+export default TenderCompanyPage;
