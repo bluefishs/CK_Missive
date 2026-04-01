@@ -106,6 +106,7 @@ async def delete_document(
         try:
             for derived_table in [
                 "document_entity_mentions",
+                "entity_relations",
                 "document_entities",
                 "document_chunks",
                 "document_ai_analyses",
@@ -202,10 +203,13 @@ async def delete_document(
         raise
     except Exception as e:
         await db.rollback()
-        # 檢查是否為外鍵約束違反（公文被其他資料引用）
-        error_msg = str(e).lower()
-        if "foreign key" in error_msg or "integrity" in error_msg or "violates" in error_msg:
-            logger.warning(f"刪除公文 {document_id} 失敗 (關聯約束): {e}")
+        from sqlalchemy.exc import IntegrityError
+        if isinstance(e, IntegrityError):
+            # 精確判斷：僅 SQLAlchemy IntegrityError 才回傳 409
+            logger.warning(
+                f"刪除公文 {document_id} 失敗 (IntegrityError): "
+                f"type={type(e).__name__}, orig={getattr(e, 'orig', '')}, detail={e}"
+            )
             return JSONResponse(
                 status_code=409,
                 content={
@@ -216,5 +220,5 @@ async def delete_document(
                     }
                 }
             )
-        logger.error(f"刪除公文失敗: {e}", exc_info=True)
+        logger.error(f"刪除公文失敗: type={type(e).__name__}, {e}", exc_info=True)
         raise

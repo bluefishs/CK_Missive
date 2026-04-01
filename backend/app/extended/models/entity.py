@@ -37,7 +37,7 @@ class DocumentEntity(Base):
     extracted_at = Column(DateTime, server_default=func.now(), comment="提取時間")
 
     # 關聯
-    document = relationship("OfficialDocument", backref=backref("entities", lazy="dynamic"))
+    document = relationship("OfficialDocument", backref=backref("entities", lazy="dynamic", passive_deletes=True))
 
     __table_args__ = (
         Index("ix_doc_entities_name_type", "entity_name", "entity_type"),
@@ -70,7 +70,7 @@ class EntityRelation(Base):
     extracted_at = Column(DateTime, server_default=func.now(), comment="提取時間")
 
     # 關聯
-    document = relationship("OfficialDocument", backref=backref("entity_relations", lazy="dynamic"))
+    document = relationship("OfficialDocument", backref=backref("entity_relations", lazy="dynamic", passive_deletes=True))
 
     __table_args__ = (
         Index("ix_entity_rel_source", "source_entity_name", "source_entity_type"),

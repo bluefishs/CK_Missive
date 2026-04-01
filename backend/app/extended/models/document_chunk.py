@@ -36,7 +36,7 @@ class DocumentChunk(Base):
         ))
 
     document = relationship("OfficialDocument", backref=backref(
-        "chunks", cascade="all, delete-orphan", lazy="dynamic",
+        "chunks", cascade="all, delete-orphan", passive_deletes=True, lazy="dynamic",
     ))
 
     __table_args__ = (
