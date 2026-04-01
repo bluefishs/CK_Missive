@@ -83,20 +83,27 @@ async def check_all_subscriptions(db: AsyncSession) -> dict:
                     except Exception as e:
                         logger.warning(f"標案訂閱系統通知失敗: {e}")
 
-                # LINE 推播
+                # 多通道推播 (LINE + Discord + Telegram via OpenClaw)
+                titles = [r["title"][:40] for r in search_result.get("records", [])[:3]]
+                push_text = f"標案訂閱通知\n\n關鍵字: {sub.keyword}\n新增 {diff} 筆公告\n\n"
+                push_text += "\n".join(f"• {t}" for t in titles)
+
                 if sub.notify_line:
                     try:
                         from app.services.line_bot_service import get_line_bot_service
                         line_service = get_line_bot_service()
                         if line_service:
-                            # 取前 3 筆新標案標題
-                            titles = [r["title"][:40] for r in search_result.get("records", [])[:3]]
-                            text = f"📋 標案訂閱通知\n\n關鍵字: {sub.keyword}\n新增 {diff} 筆公告\n\n"
-                            text += "\n".join(f"• {t}" for t in titles)
-                            # 推送給所有管理者（簡化版）
-                            await line_service.broadcast_to_admins(text)
+                            await line_service.broadcast_to_admins(push_text)
                     except Exception as e:
                         logger.warning(f"標案 LINE 推播失敗: {e}")
+
+                # Discord 推播
+                try:
+                    from app.services.discord_bot_service import DiscordBotService
+                    discord = DiscordBotService()
+                    await discord.push_message(push_text)
+                except Exception:
+                    pass  # Discord 非必要，靜默失敗
 
             details.append(detail)
             checked += 1
