@@ -318,3 +318,11 @@ async def delete_bookmark(req: dict, db: AsyncSession = Depends(get_db)):
     await db.execute(delete(TenderBookmark).where(TenderBookmark.id == req.get("id")))
     await db.commit()
     return SuccessResponse(data={"deleted": True})
+
+
+@router.post("/check-subscriptions")
+async def check_subscriptions(db: AsyncSession = Depends(get_db)):
+    """手動觸發訂閱檢查 (也可由排程器自動呼叫)"""
+    from app.services.tender_subscription_scheduler import check_all_subscriptions
+    result = await check_all_subscriptions(db)
+    return SuccessResponse(data=result)
