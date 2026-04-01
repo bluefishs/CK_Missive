@@ -120,6 +120,12 @@ export const ERP_ENDPOINTS = {
   PROFIT_TREND: '/erp/quotations/profit-trend',
   /** 匯出 CSV POST /erp/quotations/export */
   EXPORT: '/erp/quotations/export',
+  /** 匯出 Excel POST /erp/quotations/export-excel */
+  EXPORT_EXCEL: '/erp/quotations/export-excel',
+  /** 匯入 Excel POST /erp/quotations/import */
+  IMPORT: '/erp/quotations/import',
+  /** 下載匯入範本 POST /erp/quotations/import-template */
+  IMPORT_TEMPLATE: '/erp/quotations/import-template',
   /** 案號→成案編號對照表 POST /erp/quotations/case-code-map */
   CASE_CODE_MAP: '/erp/quotations/case-code-map',
 

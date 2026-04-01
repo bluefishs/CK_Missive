@@ -1,7 +1,7 @@
 """ERP 報價 API 端點 (POST-only)"""
 import io
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import StreamingResponse
 
 from app.core.dependencies import get_service
@@ -104,6 +104,46 @@ async def export_quotations(
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=erp_quotations.csv"},
     )
+
+
+@router.post("/export-excel")
+async def export_quotations_excel(
+    req: ERPSummaryRequest,
+    service: ERPQuotationService = Depends(get_service(ERPQuotationService)),
+):
+    """匯出報價 Excel (.xlsx，含損益)"""
+    content = await service.export_excel(year=req.year)
+    return StreamingResponse(
+        io.BytesIO(content),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=erp_quotations.xlsx"},
+    )
+
+
+@router.post("/import-template")
+async def download_import_template(
+    service: ERPQuotationService = Depends(get_service(ERPQuotationService)),
+):
+    """下載報價匯入範本 Excel"""
+    content = service.generate_import_template()
+    return StreamingResponse(
+        io.BytesIO(content),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=erp_quotation_template.xlsx"},
+    )
+
+
+@router.post("/import")
+async def import_quotations(
+    file: UploadFile = File(...),
+    service: ERPQuotationService = Depends(get_service(ERPQuotationService)),
+):
+    """匯入報價 Excel (.xlsx/.xls)"""
+    if not file.filename or not file.filename.endswith(('.xlsx', '.xls')):
+        raise HTTPException(status_code=400, detail="僅支援 .xlsx/.xls 格式")
+    content = await file.read()
+    result = await service.import_from_excel(content)
+    return SuccessResponse(data=result)
 
 
 @router.post("/case-code-map")
