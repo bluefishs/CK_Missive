@@ -112,6 +112,11 @@
             "type": "prompt",
             "prompt": "檢查修改的檔案是否為後端 Schema (路徑包含 backend/app/schemas/)。若是，提醒使用者執行 `cd frontend && npm run type:sync:full` 檢查前後端型別同步。",
             "timeout": 10
+          },
+          {
+            "type": "prompt",
+            "prompt": "檢查修改的檔案是否為路由相關（frontend/src/router/types.ts 或 AppRouter.tsx）。若是，提醒需同步 4 處：1) router/types.ts 2) AppRouter.tsx 3) init_navigation_data.py 4) navigation_validator.py 自動同步（已有）。post-commit hook 會自動同步 DB 導覽。",
+            "timeout": 10
           }
         ]
       }
