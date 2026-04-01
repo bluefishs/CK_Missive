@@ -38,7 +38,7 @@ class ClientReceivableRepository:
           PartnerVendor ← PMCase.client_vendor_id
           → case_code → ERPQuotation → ERPBilling
         """
-        # Subquery: billing aggregates per quotation
+        # Subquery: billing aggregates per quotation (only confirmed with project_code)
         billing_agg = (
             select(
                 ERPQuotation.case_code,
@@ -48,6 +48,10 @@ class ClientReceivableRepository:
                 func.coalesce(func.sum(ERPBilling.payment_amount), 0).label("total_received"),
             )
             .outerjoin(ERPBilling, ERPBilling.erp_quotation_id == ERPQuotation.id)
+            .where(
+                ERPQuotation.project_code.isnot(None),
+                ERPQuotation.project_code != '',
+            )
             .group_by(ERPQuotation.case_code, ERPQuotation.id, ERPQuotation.total_price)
         ).subquery()
 
@@ -154,12 +158,13 @@ class ClientReceivableRepository:
                 "cases": [],
             }
 
-        # Get quotations for these case_codes (only confirmed/active — 排除 draft)
+        # Get quotations for these case_codes (only with project_code = 已成案)
         quotations = (
             await self.db.execute(
                 select(ERPQuotation).where(
                     ERPQuotation.case_code.in_(case_codes),
-                    ERPQuotation.status.in_(['confirmed', 'active', 'closed', 'won']),
+                    ERPQuotation.project_code.isnot(None),
+                    ERPQuotation.project_code != '',
                 )
             )
         ).scalars().all()
