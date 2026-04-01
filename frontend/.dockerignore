@@ -21,13 +21,9 @@ tmp/
 *.test.ts
 *.spec.ts
 
-# Ignore specific files
-.env.example
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-# Keep .env for main environment variables
+# Ignore environment files (secrets via Docker env/args, not baked into image)
+.env
+.env.*
 # *.json - 不要排除，需要保留 package.json 和 package-lock.json
 *.md
 *.ps1

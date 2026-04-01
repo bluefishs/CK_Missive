@@ -1,0 +1,56 @@
+# === Secrets / Environment ===
+.env
+.env.*
+*.pem
+*.key
+credentials.json
+*OAuth*.json
+*APIKey*.json
+*secret*
+
+# === Claude Code Config (含本地設定) ===
+.claude/settings.local.json
+.claude/hooks/
+.claude/CHANGELOG.md
+
+# === Git ===
+.git
+.gitignore
+.gitattributes
+
+# === IDE ===
+.vscode
+.idea
+*.swp
+*.swo
+
+# === Build artifacts ===
+node_modules
+__pycache__
+*.pyc
+dist
+build
+.pytest_cache
+.venv
+venv
+
+# === Logs / Temp ===
+*.log
+logs/
+temp/
+tmp/
+
+# === Documentation ===
+docs/
+*.md
+!README.md
+
+# === Scripts not needed in image ===
+scripts/fixes/
+scripts/archive/
+scripts/checks/
+
+# === Test files ===
+**/__tests__/
+*.test.*
+*.spec.*
