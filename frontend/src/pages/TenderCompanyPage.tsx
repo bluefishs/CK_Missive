@@ -7,7 +7,7 @@
  *
  * @version 1.0.0
  */
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Card, Input, Table, Tag, Typography, Row, Col, Statistic,
   App, Progress, Empty,
@@ -18,6 +18,7 @@ import {
   BarChartOutlined, SearchOutlined,
 } from '@ant-design/icons';
 import { ResponsiveContent } from '@ck-shared/ui-components';
+import { useSearchParams } from 'react-router-dom';
 import { useTenderCompanySearch } from '../hooks/business/useTender';
 import type { TenderRecord } from '../types/tender';
 import type { ColumnsType } from 'antd/es/table';
@@ -30,9 +31,17 @@ const DEFAULT_COMPANY = '乾坤測繪';
 const TenderCompanyPage: React.FC = () => {
   const navigate = useNavigate();
   App.useApp();
-  const [company, setCompany] = useState(DEFAULT_COMPANY);
-  const [searchInput, setSearchInput] = useState(DEFAULT_COMPANY);
+  const [searchParams] = useSearchParams();
+  const initialCompany = searchParams.get('q') || DEFAULT_COMPANY;
+  const [company, setCompany] = useState(initialCompany);
+  const [searchInput, setSearchInput] = useState(initialCompany);
   const [page, setPage] = useState(1);
+
+  // URL query 變更時更新
+  useEffect(() => {
+    const q = searchParams.get('q');
+    if (q && q !== company) { setCompany(q); setSearchInput(q); setPage(1); }
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { data, isLoading } = useTenderCompanySearch(company, page);
   const records = useMemo(() => data?.records ?? [], [data]);

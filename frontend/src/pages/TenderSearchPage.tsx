@@ -117,7 +117,9 @@ const TenderSearchPage: React.FC = () => {
     {
       title: '得標', key: 'companies', width: 130, ellipsis: true,
       render: (_: unknown, r: TenderRecord) =>
-        r.company_names.length > 0 ? <Text type="success">{r.company_names[0]}</Text> : <Text type="secondary">-</Text>,
+        r.company_names.length > 0 && r.company_names[0]
+          ? <a onClick={(e) => { e.stopPropagation(); navigate(`/tender/company?q=${encodeURIComponent(r.company_names[0]!)}`); }} style={{ color: '#52c41a' }}>{r.company_names[0]!.length > 10 ? r.company_names[0]!.slice(0, 10) + '...' : r.company_names[0]}</a>
+          : <Text type="secondary">-</Text>,
     },
     {
       title: '', key: 'action', width: 150,

@@ -212,7 +212,7 @@ const TenderDetailPage: React.FC = () => {
                 {evt.companies.length > 0 && (
                   <div style={{ marginTop: 8 }}>
                     <Text type="secondary">廠商: </Text>
-                    {evt.companies.map((c, j) => <Tag key={j} color="green">{c}</Tag>)}
+                    {evt.companies.map((c, j) => <Tag key={j} color="green" style={{ cursor: 'pointer' }} onClick={() => navigate(`/tender/company?q=${encodeURIComponent(c)}`)}>{c}</Tag>)}
                   </div>
                 )}
               </Card>
