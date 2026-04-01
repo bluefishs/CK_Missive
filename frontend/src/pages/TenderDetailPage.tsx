@@ -1,133 +1,235 @@
 /**
  * 標案詳情頁面
  *
- * 顯示標案完整資訊（機關/採購/招標/決標），含歷次公告時間軸。
+ * 對標 ezbid.tw 風格：
+ * - 生命週期時間軸（各輪公告狀態）
+ * - 預算+押標金+截止倒數
+ * - 機關聯絡資訊卡片
+ * - 投標參數
+ * - 相關標案（同機關）
  *
- * @version 1.0.0
+ * @version 2.0.0 — ezbid 風格強化
  */
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
-  Descriptions, Tag, Timeline, Card, Typography, Button, Space, Spin, Empty, Row, Col,
+  Descriptions, Tag, Timeline, Card, Typography, Button, Space,
+  Row, Col, Statistic, Empty, Alert,
 } from 'antd';
 import {
   BankOutlined, PhoneOutlined, MailOutlined, DollarOutlined,
   CalendarOutlined, LinkOutlined, EnvironmentOutlined,
+  ClockCircleOutlined, CheckCircleOutlined, CloseCircleOutlined,
+  StarOutlined,
 } from '@ant-design/icons';
 import { useParams } from 'react-router-dom';
 import { DetailPageLayout } from '../components/common/DetailPage/DetailPageLayout';
 import { createTabItem } from '../components/common/DetailPage/utils';
 import { useTenderDetail } from '../hooks/business/useTender';
+import { useCreateBookmark } from '../hooks/business/useTender';
+import { tenderApi } from '../api/tenderApi';
+import { App } from 'antd';
 
-const { Text } = Typography;
+const { Text, Paragraph } = Typography;
+
+/** 計算剩餘天數 */
+function daysRemaining(deadline: string | undefined): number | null {
+  if (!deadline) return null;
+  // 支援 "115/04/07" (ROC) 或 "2026-04-07" 格式
+  let dateStr = deadline;
+  const rocMatch = deadline?.match(/^(\d{2,3})\/(\d{2})\/(\d{2})/);
+  if (rocMatch) {
+    const y = parseInt(rocMatch[1]!) + 1911;
+    dateStr = `${y}-${rocMatch[2]}-${rocMatch[3]}`;
+  }
+  const target = new Date(dateStr);
+  if (isNaN(target.getTime())) return null;
+  const diff = Math.ceil((target.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  return diff;
+}
+
+/** 時間軸節點顏色 */
+function getTimelineColor(type: string): string {
+  if (type.includes('決標')) return 'green';
+  if (type.includes('無法決標') || type.includes('廢標')) return 'red';
+  if (type.includes('更正')) return 'orange';
+  return 'blue';
+}
 
 const TenderDetailPage: React.FC = () => {
   const { unitId, jobNumber } = useParams<{ unitId: string; jobNumber: string }>();
+  const { message } = App.useApp();
   const { data: detail, isLoading } = useTenderDetail(
     unitId ? decodeURIComponent(unitId) : null,
     jobNumber ? decodeURIComponent(jobNumber) : null,
   );
+  const bookmarkMutation = useCreateBookmark();
+
+  const latest = detail?.latest?.detail;
+  const days = useMemo(() => daysRemaining(latest?.deadline), [latest?.deadline]);
 
   if (!detail && !isLoading) {
     return (
       <DetailPageLayout
         header={{ title: '查無此標案', backPath: '/tender/search' }}
-        tabs={[]}
-        hasData={false}
+        tabs={[]} hasData={false}
       />
     );
   }
 
-  const latest = detail?.latest?.detail;
-
-  // Tab 1: 基本資訊
-  const infoTab = createTabItem('info', { icon: <BankOutlined />, text: '基本資訊' },
+  // ========== Tab 1: 標案總覽 ==========
+  const overviewTab = createTabItem('overview', { icon: <DollarOutlined />, text: '標案總覽' },
     latest ? (
       <div>
+        {/* 倒數 + 狀態 Banner */}
+        {days !== null && days >= 0 && (
+          <Alert
+            type="warning"
+            showIcon
+            icon={<ClockCircleOutlined />}
+            message={`截止投標倒數 ${days} 天`}
+            description={`截止時間: ${latest.deadline}`}
+            style={{ marginBottom: 16 }}
+          />
+        )}
+        {days !== null && days < 0 && (
+          <Alert type="info" showIcon message="投標已截止" style={{ marginBottom: 16 }} />
+        )}
+
+        {/* 關鍵數字 */}
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
           {latest.budget && (
             <Col xs={12} sm={8} lg={6}>
-              <Card size="small">
-                <div style={{ color: '#8c8c8c', fontSize: 12 }}>預算金額</div>
-                <div style={{ fontSize: 20, fontWeight: 600, color: '#1890ff' }}>
-                  <DollarOutlined /> {latest.budget}
-                </div>
+              <Card size="small" style={{ borderLeft: '4px solid #1890ff' }}>
+                <Statistic title="預算金額" value={latest.budget.replace('元', '')} prefix={<DollarOutlined />}
+                  valueStyle={{ fontSize: 22, color: '#1890ff' }} />
               </Card>
             </Col>
           )}
           <Col xs={12} sm={8} lg={6}>
-            <Card size="small">
-              <div style={{ color: '#8c8c8c', fontSize: 12 }}>招標方式</div>
-              <div style={{ fontSize: 14, fontWeight: 500 }}>{latest.method || '-'}</div>
+            <Card size="small" style={{ borderLeft: '4px solid #52c41a' }}>
+              <Statistic title="招標方式" value={latest.method || '-'}
+                valueStyle={{ fontSize: 14 }} />
             </Card>
           </Col>
           <Col xs={12} sm={8} lg={6}>
-            <Card size="small">
-              <div style={{ color: '#8c8c8c', fontSize: 12 }}>決標方式</div>
-              <div style={{ fontSize: 14, fontWeight: 500 }}>{latest.award_method || '-'}</div>
+            <Card size="small" style={{ borderLeft: '4px solid #faad14' }}>
+              <Statistic title="決標方式" value={latest.award_method || '-'}
+                valueStyle={{ fontSize: 14 }} />
             </Card>
           </Col>
           <Col xs={12} sm={8} lg={6}>
-            <Card size="small">
-              <div style={{ color: '#8c8c8c', fontSize: 12 }}>狀態</div>
-              <Tag color="blue">{latest.status || '-'}</Tag>
+            <Card size="small" style={{ borderLeft: latest.status?.includes('招標中') ? '4px solid #52c41a' : '4px solid #d9d9d9' }}>
+              <Statistic title="狀態" value={latest.status || '-'}
+                valueStyle={{ fontSize: 14, color: latest.status?.includes('招標中') ? '#52c41a' : undefined }} />
             </Card>
           </Col>
         </Row>
 
-        <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small">
-          <Descriptions.Item label="標案案號">{detail?.job_number}</Descriptions.Item>
-          <Descriptions.Item label="標的分類">{latest.procurement_type || '-'}</Descriptions.Item>
-          <Descriptions.Item label={<><BankOutlined /> 招標機關</>}>{latest.agency_name}</Descriptions.Item>
-          <Descriptions.Item label="承辦單位">{latest.agency_unit || '-'}</Descriptions.Item>
-          <Descriptions.Item label={<><EnvironmentOutlined /> 地址</>} span={2}>{latest.agency_address || '-'}</Descriptions.Item>
-          <Descriptions.Item label={<><PhoneOutlined /> 聯絡人</>}>{latest.contact_person || '-'} {latest.contact_phone || ''}</Descriptions.Item>
-          <Descriptions.Item label={<><MailOutlined /> Email</>}>{latest.contact_email || '-'}</Descriptions.Item>
-          <Descriptions.Item label={<><CalendarOutlined /> 公告日</>}>{latest.announce_date || '-'}</Descriptions.Item>
-          <Descriptions.Item label="截止投標">{latest.deadline || '-'}</Descriptions.Item>
-        </Descriptions>
+        {/* 機關聯絡 */}
+        <Card title={<><BankOutlined /> 招標機關</>} size="small" style={{ marginBottom: 16 }}>
+          <Descriptions column={{ xs: 1, sm: 2 }} size="small">
+            <Descriptions.Item label="機關名稱"><Text strong>{latest.agency_name}</Text></Descriptions.Item>
+            <Descriptions.Item label="承辦單位">{latest.agency_unit || '-'}</Descriptions.Item>
+            <Descriptions.Item label={<><PhoneOutlined /> 聯絡人</>}>{latest.contact_person} {latest.contact_phone}</Descriptions.Item>
+            <Descriptions.Item label={<><MailOutlined /> Email</>}>{latest.contact_email || '-'}</Descriptions.Item>
+            <Descriptions.Item label={<><EnvironmentOutlined /> 地址</>} span={2}>{latest.agency_address || '-'}</Descriptions.Item>
+          </Descriptions>
+        </Card>
 
-        {latest.pcc_url && (
-          <div style={{ marginTop: 16 }}>
+        {/* 採購資訊 */}
+        <Card title="採購資訊" size="small" style={{ marginBottom: 16 }}>
+          <Descriptions column={{ xs: 1, sm: 2 }} size="small">
+            <Descriptions.Item label="標案案號"><Text copyable>{detail?.job_number}</Text></Descriptions.Item>
+            <Descriptions.Item label="標的分類">{latest.procurement_type || '-'}</Descriptions.Item>
+            <Descriptions.Item label="公告日">{latest.announce_date || '-'}</Descriptions.Item>
+            <Descriptions.Item label="截止投標"><Text type={days !== null && days <= 3 ? 'danger' : undefined} strong>{latest.deadline || '-'}</Text></Descriptions.Item>
+            <Descriptions.Item label="開標日期">{latest.open_date || '-'}</Descriptions.Item>
+          </Descriptions>
+        </Card>
+
+        {/* 操作按鈕 */}
+        <Space>
+          {latest.pcc_url && (
             <Button type="primary" icon={<LinkOutlined />} href={latest.pcc_url} target="_blank">
-              前往政府採購網原始頁面
+              政府採購網原始頁面
             </Button>
-          </div>
-        )}
+          )}
+          <Button icon={<StarOutlined />} onClick={async () => {
+            try {
+              await bookmarkMutation.mutateAsync({
+                unit_id: decodeURIComponent(unitId || ''),
+                job_number: decodeURIComponent(jobNumber || ''),
+                title: detail?.title || '',
+                unit_name: detail?.unit_name,
+                budget: latest.budget,
+                deadline: latest.deadline,
+              });
+              message.success('已收藏');
+            } catch { message.error('收藏失敗'); }
+          }}>收藏此標案</Button>
+          <Button onClick={async () => {
+            try {
+              const result = await tenderApi.createCase({
+                unit_id: decodeURIComponent(unitId || ''),
+                job_number: decodeURIComponent(jobNumber || ''),
+                title: detail?.title || '',
+                unit_name: detail?.unit_name,
+                budget: latest.budget,
+              });
+              message.success(result.message);
+            } catch { message.error('建案失敗'); }
+          }}>一鍵建案</Button>
+        </Space>
       </div>
-    ) : <Spin />
+    ) : <Empty />
   );
 
-  // Tab 2: 歷次公告
-  const timelineTab = createTabItem('timeline', { icon: <CalendarOutlined />, text: '公告歷程', count: detail?.events?.length },
-    <Timeline
-      mode="left"
-      items={(detail?.events ?? []).map((evt, i) => ({
-        key: i,
-        color: i === 0 ? 'blue' : 'gray',
-        label: evt.date ? String(evt.date) : '',
-        children: (
-          <div>
-            <Tag color={i === 0 ? 'blue' : 'default'}>{evt.type}</Tag>
-            <Text>{evt.title}</Text>
-            {evt.companies.length > 0 && (
-              <div style={{ marginTop: 4 }}>
-                {evt.companies.map((c, j) => <Tag key={j} color="green">{c}</Tag>)}
-              </div>
-            )}
-          </div>
-        ),
-      }))}
-    />
+  // ========== Tab 2: 生命週期 ==========
+  const lifecycleTab = createTabItem('lifecycle', { icon: <CalendarOutlined />, text: '生命週期', count: detail?.events?.length },
+    <div>
+      <Paragraph type="secondary" style={{ marginBottom: 16 }}>
+        標案從公告到決標的完整歷程，每個節點代表一次公告或決標事件。
+      </Paragraph>
+      <Timeline
+        mode="left"
+        items={(detail?.events ?? []).map((evt, i) => {
+          const color = getTimelineColor(evt.type);
+          const icon = evt.type.includes('決標')
+            ? <CheckCircleOutlined style={{ color: '#52c41a' }} />
+            : evt.type.includes('無法決標')
+              ? <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
+              : undefined;
+          return {
+            key: i,
+            color,
+            dot: icon,
+            label: evt.date ? String(evt.date) : '',
+            children: (
+              <Card size="small" style={{ marginBottom: 4 }}>
+                <Tag color={color}>{evt.type}</Tag>
+                <Text>{evt.title}</Text>
+                {evt.companies.length > 0 && (
+                  <div style={{ marginTop: 8 }}>
+                    <Text type="secondary">廠商: </Text>
+                    {evt.companies.map((c, j) => <Tag key={j} color="green">{c}</Tag>)}
+                  </div>
+                )}
+              </Card>
+            ),
+          };
+        })}
+      />
+    </div>
   );
 
-  // Tab 3: 得標廠商
+  // ========== Tab 3: 投標/得標 ==========
   const companiesTab = createTabItem('companies', { icon: <BankOutlined />, text: '投標/得標' },
     <div>
       {(detail?.events ?? []).filter(e => e.companies.length > 0).length === 0 ? (
         <Empty description="尚無投標/得標紀錄" />
       ) : (
         (detail?.events ?? []).filter(e => e.companies.length > 0).map((evt, i) => (
-          <Card key={i} size="small" title={evt.type} style={{ marginBottom: 8 }}>
+          <Card key={i} size="small" title={<><Tag color={getTimelineColor(evt.type)}>{evt.type}</Tag> {evt.date}</>} style={{ marginBottom: 8 }}>
             <Space wrap>
               {evt.companies.map((c, j) => <Tag key={j} color="blue">{c}</Tag>)}
             </Space>
@@ -142,9 +244,9 @@ const TenderDetailPage: React.FC = () => {
       header={{
         title: detail?.title ?? '載入中...',
         backPath: '/tender/search',
-        subtitle: detail?.unit_name,
+        subtitle: `${detail?.unit_name ?? ''} | ${detail?.job_number ?? ''}`,
       }}
-      tabs={[infoTab, timelineTab, companiesTab]}
+      tabs={[overviewTab, lifecycleTab, companiesTab]}
       loading={isLoading}
       hasData={!!detail}
     />
