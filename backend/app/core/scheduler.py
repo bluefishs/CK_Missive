@@ -277,6 +277,22 @@ async def kg_embedding_backfill_job():
         logger.error(f"KG Embedding 回填失敗: {e}", exc_info=True)
 
 
+async def tender_subscription_check_job():
+    """標案訂閱檢查 — 每日 3 次比對 PCC API，新公告 → 系統+LINE 通知"""
+    from app.db.database import async_session_maker
+
+    logger.info("開始執行標案訂閱檢查")
+    try:
+        async with async_session_maker() as db:
+            from app.services.tender_subscription_scheduler import check_all_subscriptions
+            result = await check_all_subscriptions(db)
+            logger.info(
+                f"標案訂閱檢查完成: checked={result['checked']}, notified={result['notified']}"
+            )
+    except Exception as e:
+        logger.error(f"標案訂閱檢查失敗: {e}", exc_info=True)
+
+
 def setup_scheduler(
     reminder_interval_minutes: int = 5,
     cleanup_hour: int = 2,
@@ -411,6 +427,19 @@ def setup_scheduler(
         coalesce=True
     )
     logger.info("已添加 KG Embedding 自動回填: 每日 04:30 執行")
+
+    # 標案訂閱檢查 — 每日 08:00, 12:00, 18:00 (上班時段 3 次)
+    for hour in [8, 12, 18]:
+        scheduler.add_job(
+            tender_subscription_check_job,
+            trigger=CronTrigger(hour=hour, minute=0),
+            id=f'tender_subscription_{hour}',
+            name=f'標案訂閱檢查 ({hour:02d}:00)',
+            replace_existing=True,
+            max_instances=1,
+            coalesce=True
+        )
+    logger.info("已添加標案訂閱檢查: 每日 08:00/12:00/18:00 執行")
 
     return scheduler
 
