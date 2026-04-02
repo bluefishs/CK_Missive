@@ -1478,7 +1478,7 @@
           "entity_type"
         ]
       },
-      "row_count_estimate": 7069
+      "row_count_estimate": 7302
     },
     "case_nature_codes": {
       "columns": [
@@ -3529,7 +3529,7 @@
         }
       ],
       "unique_constraints": {},
-      "row_count_estimate": 3329
+      "row_count_estimate": 3277
     },
     "erp_billings": {
       "columns": [
