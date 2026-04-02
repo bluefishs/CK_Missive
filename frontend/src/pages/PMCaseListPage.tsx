@@ -27,7 +27,7 @@ export const PMCaseListPage: React.FC = () => {
   const { message } = App.useApp();
 
   const [searchText, setSearchText] = useState('');
-  const [yearFilter, setYearFilter] = useState<number | undefined>(2025);
+  const [yearFilter, setYearFilter] = useState<number | undefined>(new Date().getFullYear());
   const [statusFilter, setStatusFilter] = useState<string | undefined>();
   const [categoryFilter, setCategoryFilter] = useState<string | undefined>();
   const [currentPage, setCurrentPage] = useState(1);
@@ -274,12 +274,10 @@ export const PMCaseListPage: React.FC = () => {
                 setYearFilter(v);
                 setCurrentPage(1);
               }}
-              options={[
-                { value: 2026, label: '2026' },
-                { value: 2025, label: '2025' },
-                { value: 2024, label: '2024' },
-                { value: 2023, label: '2023' },
-              ]}
+              options={Array.from({ length: 5 }, (_, i) => {
+                const y = new Date().getFullYear() - i;
+                return { value: y, label: String(y) };
+              })}
             />
           </Col>
           <Col xs={8} sm={4}>
