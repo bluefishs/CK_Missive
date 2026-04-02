@@ -169,12 +169,37 @@ async def create_case_from_tender(
         # 產生案號
         case_code = await code_service.generate_case_code("pm", year, "01")
 
+        # 查找或建立委託單位 (招標機關)
+        client_vendor_id = None
+        if req.unit_name:
+            from app.extended.models.core import PartnerVendor
+            from sqlalchemy import select as sa_select
+            existing_client = (await db.execute(
+                sa_select(PartnerVendor).where(
+                    PartnerVendor.vendor_name == req.unit_name,
+                    PartnerVendor.vendor_type == 'client',
+                )
+            )).scalar_one_or_none()
+            if existing_client:
+                client_vendor_id = existing_client.id
+            else:
+                new_client = PartnerVendor(
+                    vendor_name=req.unit_name,
+                    vendor_type='client',
+                    notes=f"[標案自動建立] {req.job_number}",
+                )
+                db.add(new_client)
+                await db.flush()
+                client_vendor_id = new_client.id
+
         # 建立 PM Case
         pm_case = PMCase(
             case_code=case_code,
             case_name=req.title,
             year=year,
             status="bidding",
+            contract_amount=budget_amount if budget_amount > 0 else None,
+            client_vendor_id=client_vendor_id,
             notes=f"來源: 政府標案 {req.job_number} ({req.unit_name})",
         )
         db.add(pm_case)

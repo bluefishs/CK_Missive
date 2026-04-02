@@ -198,8 +198,12 @@ export const PMCaseDetailPage: React.FC = () => {
               try {
                 await pmCasesApi.delete(pmCase!.id);
                 message.success('案件已刪除');
+                queryClient.invalidateQueries({ queryKey: ['pm-cases'], refetchType: 'all' });
                 navigate(ROUTES.PM_CASES);
-              } catch { message.error('刪除失敗'); }
+              } catch (e) {
+                const msg = e instanceof Error ? e.message : '刪除失敗';
+                message.error(msg.includes('關聯') ? '此案件有關聯資料，請先解除關聯' : `刪除失敗: ${msg}`);
+              }
             }}
           >
             <Button danger icon={<DeleteOutlined />}>刪除</Button>
