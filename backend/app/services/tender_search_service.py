@@ -206,11 +206,16 @@ class TenderSearchService:
                 date_str = str(raw_date)
 
         # 識別得標廠商 vs 投標廠商
+        # key 格式: "決標品項:第1品項:得標廠商1:得標廠商" → 得標
+        #           "決標品項:第1品項:未得標廠商1:未得標廠商" → 未得標
         name_key = companies.get("name_key", {})
         winner_names = []
         bidder_names = []
         for name, keys in name_key.items():
-            is_winner = any("得標" in k for k in keys)
+            is_winner = any(
+                "得標廠商" in k and "未得標" not in k
+                for k in keys
+            )
             if is_winner:
                 winner_names.append(name)
             else:
