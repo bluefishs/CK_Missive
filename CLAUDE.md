@@ -2,8 +2,8 @@
 
 > **專案代碼**: CK_Missive
 > **技術棧**: FastAPI + PostgreSQL + React + TypeScript + Ant Design + vLLM
-> **版本**: v5.3.22 標案檢索 + 品質優化 — 標案全棧模組 + 資料標準化 + Multi-Agent
-> **最後更新**: 2026-04-01
+> **版本**: v5.3.23 標案檢索完整版 — 61 commits 全棧模組 + 業務邏輯修正
+> **最後更新**: 2026-04-02
 
 ---
 
