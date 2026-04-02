@@ -8,7 +8,7 @@ Version: 1.0.0
 from typing import Optional, List
 from pydantic import BaseModel, Field
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -156,6 +156,19 @@ async def create_case_from_tender(
     from datetime import date
 
     async with AsyncSessionLocal() as db:
+        # 防呆：檢查是否已建過此標案
+        from sqlalchemy import select as sa_select
+        existing = (await db.execute(
+            sa_select(PMCase).where(
+                PMCase.notes.ilike(f"%{req.job_number}%")
+            )
+        )).scalar_one_or_none()
+        if existing:
+            raise HTTPException(
+                status_code=409,
+                detail=f"此標案已建案: {existing.case_code} ({existing.case_name[:30]})"
+            )
+
         code_service = CaseCodeService(db)
 
         # 解析預算金額
@@ -205,22 +218,12 @@ async def create_case_from_tender(
         db.add(pm_case)
         await db.flush()
 
-        # 建立 ERP Quotation
-        quotation = ERPQuotation(
-            case_code=case_code,
-            case_name=req.title,
-            year=year,
-            total_price=budget_amount,
-            status="draft",
-            notes=f"標案: {req.job_number} | 機關: {req.unit_name}",
-        )
-        db.add(quotation)
+        # 邀標階段不建立 ERP Quotation — 等確認投標後再建
         await db.commit()
 
         return SuccessResponse(data={
             "case_code": case_code,
             "pm_case_id": pm_case.id,
-            "quotation_id": quotation.id,
             "message": f"已建立案件 {case_code}",
         })
 

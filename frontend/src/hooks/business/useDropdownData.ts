@@ -68,7 +68,7 @@ export const useClientOptions = () => {
     queryKey: ['clients-dropdown'],
     queryFn: async () => {
       const { vendorsApi } = await import('../../api/vendorsApi');
-      const resp = await vendorsApi.getVendors({ vendor_type: 'client', limit: 200 });
+      const resp = await vendorsApi.getVendors({ vendor_type: 'client', limit: 100 });
       return resp.items ?? [];
     },
     staleTime: 10 * 60 * 1000,
