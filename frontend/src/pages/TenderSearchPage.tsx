@@ -130,7 +130,8 @@ const TenderSearchPage: React.FC = () => {
           <Button type="link" size="small" icon={<PlusOutlined />} onClick={async (e) => {
             e.stopPropagation();
             try {
-              const result = await tenderApi.createCase({ unit_id: record.unit_id, job_number: record.job_number, title: record.title, unit_name: record.unit_name, category: record.category });
+              if (!record.title || !record.unit_id || !record.job_number) { message.warning('此標案資訊不完整'); return; }
+              const result = await tenderApi.createCase({ unit_id: record.unit_id, job_number: record.job_number, title: record.title, unit_name: record.unit_name || '', category: record.category || undefined });
               message.success(`${result.message}`);
             } catch { message.error('建案失敗'); }
           }}>建案</Button>
@@ -165,7 +166,7 @@ const TenderSearchPage: React.FC = () => {
       {showRecommend && !params && recommendResult && (
         <Paragraph type="secondary"><StarOutlined /> 依核心業務推薦（{recommendResult.keywords.join('、')}），共 {recommendResult.total} 筆</Paragraph>
       )}
-      <Table<TenderRecord> columns={columns} dataSource={displayData ?? []} rowKey={r => `${r.unit_id}-${r.job_number}-${r.raw_date}`}
+      <Table<TenderRecord> columns={columns} dataSource={displayData ?? []} rowKey={(r, i) => `${r.unit_id}-${r.job_number}-${r.raw_date}-${i}`}
         loading={isLoading} size="middle" scroll={{ x: 900 }}
         pagination={params ? { current: params.page ?? 1, pageSize: 100, total: displayTotal ?? 0,
           onChange: (p) => setParams(prev => prev ? { ...prev, page: p } : null), showTotal: (t) => `共 ${t.toLocaleString()} 筆`, showSizeChanger: false } : false}
