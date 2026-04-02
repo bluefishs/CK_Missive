@@ -80,7 +80,7 @@ export function useCreateBookmark() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: tenderApi.createBookmark,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tender', 'bookmarks'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tender', 'bookmarks'], refetchType: 'all' }),
   });
 }
 
@@ -88,7 +88,7 @@ export function useUpdateBookmark() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: tenderApi.updateBookmark,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tender', 'bookmarks'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tender', 'bookmarks'], refetchType: 'all' }),
   });
 }
 
@@ -96,6 +96,6 @@ export function useDeleteBookmark() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: tenderApi.deleteBookmark,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tender', 'bookmarks'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tender', 'bookmarks'], refetchType: 'all' }),
   });
 }
