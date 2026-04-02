@@ -93,7 +93,7 @@ const TenderDetailPage: React.FC = () => {
           />
         )}
         {days !== null && days < 0 && (
-          <Alert type="info" showIcon message="投標已截止" style={{ marginBottom: 16 }} />
+          <Alert type="info" showIcon title="投標已截止" style={{ marginBottom: 16 }} />
         )}
 
         {/* 關鍵數字 */}
@@ -102,26 +102,26 @@ const TenderDetailPage: React.FC = () => {
             <Col xs={12} sm={8} lg={6}>
               <Card size="small" style={{ borderLeft: '4px solid #1890ff' }}>
                 <Statistic title="預算金額" value={latest.budget.replace('元', '')} prefix={<DollarOutlined />}
-                  valueStyle={{ fontSize: 22, color: '#1890ff' }} />
+                  styles={{ content: { fontSize: 22, color: '#1890ff' } }} />
               </Card>
             </Col>
           )}
           <Col xs={12} sm={8} lg={6}>
             <Card size="small" style={{ borderLeft: '4px solid #52c41a' }}>
               <Statistic title="招標方式" value={latest.method || '-'}
-                valueStyle={{ fontSize: 14 }} />
+                styles={{ content: { fontSize: 14 } }} />
             </Card>
           </Col>
           <Col xs={12} sm={8} lg={6}>
             <Card size="small" style={{ borderLeft: '4px solid #faad14' }}>
               <Statistic title="決標方式" value={latest.award_method || '-'}
-                valueStyle={{ fontSize: 14 }} />
+                styles={{ content: { fontSize: 14 } }} />
             </Card>
           </Col>
           <Col xs={12} sm={8} lg={6}>
             <Card size="small" style={{ borderLeft: latest.status?.includes('招標中') ? '4px solid #52c41a' : '4px solid #d9d9d9' }}>
               <Statistic title="狀態" value={latest.status || '-'}
-                valueStyle={{ fontSize: 14, color: latest.status?.includes('招標中') ? '#52c41a' : undefined }} />
+                styles={{ content: { fontSize: 14, color: latest.status?.includes('招標中') ? '#52c41a' : undefined } }} />
             </Card>
           </Col>
         </Row>

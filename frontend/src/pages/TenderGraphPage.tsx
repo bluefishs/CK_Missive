@@ -124,10 +124,10 @@ const TenderGraphPage: React.FC = () => {
 
         {data?.stats && (
           <Row gutter={[16, 8]} style={{ marginTop: 12 }}>
-            <Col><Statistic title="機關" value={data.stats.agencies} valueStyle={{ color: NODE_COLORS.agency, fontSize: 18 }} /></Col>
-            <Col><Statistic title="標案" value={data.stats.tenders} valueStyle={{ color: NODE_COLORS.tender, fontSize: 18 }} /></Col>
-            <Col><Statistic title="廠商" value={data.stats.companies} valueStyle={{ color: NODE_COLORS.company, fontSize: 18 }} /></Col>
-            <Col><Statistic title="關係" value={data.stats.edges} valueStyle={{ fontSize: 18 }} /></Col>
+            <Col><Statistic title="機關" value={data.stats.agencies} styles={{ content: { color: NODE_COLORS.agency, fontSize: 18 } }} /></Col>
+            <Col><Statistic title="標案" value={data.stats.tenders} styles={{ content: { color: NODE_COLORS.tender, fontSize: 18 } }} /></Col>
+            <Col><Statistic title="廠商" value={data.stats.companies} styles={{ content: { color: NODE_COLORS.company, fontSize: 18 } }} /></Col>
+            <Col><Statistic title="關係" value={data.stats.edges} styles={{ content: { fontSize: 18 } }} /></Col>
             <Col>
               <Space>
                 <Tag color="blue">● 機關</Tag>

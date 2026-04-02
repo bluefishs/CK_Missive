@@ -158,11 +158,11 @@ const TenderCompanyPage: React.FC = () => {
             </Col>
             <Col xs={12} sm={6}>
               <Statistic title="得標" value={stats.won} suffix="筆"
-                valueStyle={{ color: '#52c41a' }} prefix={<TrophyOutlined />} />
+                styles={{ content: { color: '#52c41a' } }} prefix={<TrophyOutlined />} />
             </Col>
             <Col xs={12} sm={6}>
               <Statistic title="得標率" value={stats.rate} suffix="%"
-                valueStyle={{ color: stats.rate > 50 ? '#52c41a' : '#fa8c16' }} />
+                styles={{ content: { color: stats.rate > 50 ? '#52c41a' : '#fa8c16' } }} />
             </Col>
             <Col xs={12} sm={6}>
               <Progress type="circle" percent={stats.rate} size={60}

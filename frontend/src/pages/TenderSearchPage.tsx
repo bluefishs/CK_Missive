@@ -9,7 +9,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   Card, Input, Table, Tag, Space, Select, Button, Typography, Row, Col,
-  Statistic, Empty, Tooltip, App, Tabs, Popconfirm, List, Badge,
+  Statistic, Empty, Tooltip, App, Tabs, Popconfirm, Badge, Flex,
 } from 'antd';
 import {
   SearchOutlined, StarOutlined, BankOutlined,
@@ -166,7 +166,7 @@ const TenderSearchPage: React.FC = () => {
       {showRecommend && !params && recommendResult && (
         <Paragraph type="secondary"><StarOutlined /> 依核心業務推薦（{recommendResult.keywords.join('、')}），共 {recommendResult.total} 筆</Paragraph>
       )}
-      <Table<TenderRecord> columns={columns} dataSource={displayData ?? []} rowKey={(r, i) => `${r.unit_id}-${r.job_number}-${r.raw_date}-${i}`}
+      <Table<TenderRecord> columns={columns} dataSource={displayData ?? []} rowKey={(r) => `${r.unit_id}-${r.job_number}-${r.raw_date}-${r.title?.slice(0,10)}`}
         loading={isLoading} size="middle" scroll={{ x: 900 }}
         pagination={params ? { current: params.page ?? 1, pageSize: 100, total: displayTotal ?? 0,
           onChange: (p) => setParams(prev => prev ? { ...prev, page: p } : null), showTotal: (t) => `共 ${t.toLocaleString()} 筆`, showSizeChanger: false } : false}
@@ -179,15 +179,20 @@ const TenderSearchPage: React.FC = () => {
   const bookmarkTab = (
     <div>
       {!bookmarks?.length ? <Empty description="尚無收藏標案" /> : (
-        <List dataSource={bookmarks} renderItem={(b) => (
-          <List.Item actions={[
-            <Tag key="status" color={BOOKMARK_STATUS_MAP[b.status]?.color}>{BOOKMARK_STATUS_MAP[b.status]?.label ?? b.status}</Tag>,
-            <Button key="detail" type="link" size="small" onClick={() => navigate(`/tender/${encodeURIComponent(b.unit_id)}/${encodeURIComponent(b.job_number)}`)}>詳情</Button>,
-            <Popconfirm key="del" title="移除收藏？" onConfirm={() => deleteBm.mutate(b.id)}><Button type="link" size="small" danger icon={<DeleteOutlined />} /></Popconfirm>,
-          ]}>
-            <List.Item.Meta title={b.title} description={<Space><BankOutlined />{b.unit_name ?? '-'}{b.budget && <Tag>{b.budget}</Tag>}{b.deadline && <Tag color="orange">截止: {b.deadline}</Tag>}{b.case_code && <Tag color="green">案號: {b.case_code}</Tag>}</Space>} />
-          </List.Item>
-        )} />
+        <Flex vertical gap={8}>
+          {bookmarks.map((b) => (
+            <Card key={b.id} size="small" extra={
+              <Space>
+                <Tag color={BOOKMARK_STATUS_MAP[b.status]?.color}>{BOOKMARK_STATUS_MAP[b.status]?.label ?? b.status}</Tag>
+                <Button type="link" size="small" onClick={() => navigate(`/tender/${encodeURIComponent(b.unit_id)}/${encodeURIComponent(b.job_number)}`)}>詳情</Button>
+                <Popconfirm title="移除收藏？" onConfirm={() => deleteBm.mutate(b.id)}><Button type="link" size="small" danger icon={<DeleteOutlined />} /></Popconfirm>
+              </Space>
+            }>
+              <div style={{ fontWeight: 500 }}>{b.title}</div>
+              <Space style={{ marginTop: 4 }}><BankOutlined />{b.unit_name ?? '-'}{b.budget && <Tag>{b.budget}</Tag>}{b.deadline && <Tag color="orange">截止: {b.deadline}</Tag>}{b.case_code && <Tag color="green">案號: {b.case_code}</Tag>}</Space>
+            </Card>
+          ))}
+        </Flex>
       )}
     </div>
   );
@@ -207,16 +212,20 @@ const TenderSearchPage: React.FC = () => {
           onClick={() => { if (!subKeyword.trim()) return; createSub.mutate({ keyword: subKeyword.trim() }, { onSuccess: () => { message.success('訂閱已建立'); setSubKeyword(''); } }); }}>新增訂閱</Button></Col>
       </Row>
       {!subscriptions?.length ? <Empty description="尚無訂閱，新增關鍵字即可自動追蹤新標案" /> : (
-        <List dataSource={subscriptions} renderItem={(s) => (
-          <List.Item actions={[
-            s.last_count > 0 ? <Badge key="count" count={s.last_count} style={{ backgroundColor: '#52c41a' }} /> : null,
-            <Button key="search" type="link" size="small" onClick={() => { setSearchInput(s.keyword); handleSearch(s.keyword); }}>搜尋</Button>,
-            <Popconfirm key="del" title="取消訂閱？" onConfirm={() => deleteSub.mutate(s.id)}><Button type="link" size="small" danger icon={<DeleteOutlined />} /></Popconfirm>,
-          ].filter(Boolean)}>
-            <List.Item.Meta title={<><BellOutlined style={{ marginRight: 8 }} />{s.keyword}{s.category && <Tag style={{ marginLeft: 8 }}>{s.category}</Tag>}</>}
-              description={s.last_checked_at ? `最後查詢: ${s.last_checked_at}` : '尚未查詢'} />
-          </List.Item>
-        )} />
+        <Flex vertical gap={8}>
+          {subscriptions.map((s) => (
+            <Card key={s.id} size="small" extra={
+              <Space>
+                {s.last_count > 0 && <Badge count={s.last_count} style={{ backgroundColor: '#52c41a' }} />}
+                <Button type="link" size="small" onClick={() => { setSearchInput(s.keyword); handleSearch(s.keyword); }}>搜尋</Button>
+                <Popconfirm title="取消訂閱？" onConfirm={() => deleteSub.mutate(s.id)}><Button type="link" size="small" danger icon={<DeleteOutlined />} /></Popconfirm>
+              </Space>
+            }>
+              <div><BellOutlined style={{ marginRight: 8 }} /><strong>{s.keyword}</strong>{s.category && <Tag style={{ marginLeft: 8 }}>{s.category}</Tag>}</div>
+              <div style={{ color: '#8c8c8c', fontSize: 12 }}>{s.last_checked_at ? `最後查詢: ${s.last_checked_at}` : '尚未查詢'}</div>
+            </Card>
+          ))}
+        </Flex>
       )}
     </div>
   );
@@ -232,7 +241,7 @@ const TenderSearchPage: React.FC = () => {
               <Button type="link" onClick={() => navigate('/tender/graph')}>標案圖譜</Button>
             </Space>
           </Col>
-          <Col><Statistic title="資料來源" value="政府電子採購網" valueStyle={{ fontSize: 14 }} /></Col>
+          <Col><Statistic title="資料來源" value="政府電子採購網" styles={{ content: { fontSize: 14 } }} /></Col>
         </Row>
       </Card>
 
