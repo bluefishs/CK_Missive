@@ -13,6 +13,8 @@ export interface TenderRecord {
   job_number: string;
   company_names: string[];
   company_ids: string[];
+  winner_names: string[];
+  bidder_names: string[];
   tender_api_url: string;
   matched_keyword?: string;
 }

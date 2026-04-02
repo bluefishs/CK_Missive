@@ -205,6 +205,17 @@ class TenderSearchService:
             except ValueError:
                 date_str = str(raw_date)
 
+        # 識別得標廠商 vs 投標廠商
+        name_key = companies.get("name_key", {})
+        winner_names = []
+        bidder_names = []
+        for name, keys in name_key.items():
+            is_winner = any("得標" in k for k in keys)
+            if is_winner:
+                winner_names.append(name)
+            else:
+                bidder_names.append(name)
+
         return {
             "date": date_str,
             "raw_date": raw_date,
@@ -216,6 +227,8 @@ class TenderSearchService:
             "job_number": record.get("job_number", ""),
             "company_names": companies.get("names", []),
             "company_ids": companies.get("ids", []),
+            "winner_names": winner_names,
+            "bidder_names": bidder_names,
             "tender_api_url": record.get("tender_api_url", ""),
             "matched_keyword": record.get("matched_keyword"),
         }
