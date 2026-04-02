@@ -60,7 +60,7 @@ export const useCreatePMCase = () => {
   return useMutation({
     mutationFn: (data: PMCaseCreate) => pmCasesApi.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: pmKeys.all });
+      queryClient.invalidateQueries({ queryKey: pmKeys.all, refetchType: 'all' });
     },
   });
 };
@@ -72,7 +72,7 @@ export const useUpdatePMCase = () => {
     mutationFn: ({ id, data }: { id: number; data: PMCaseUpdate }) =>
       pmCasesApi.update(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: pmKeys.all });
+      queryClient.invalidateQueries({ queryKey: pmKeys.all, refetchType: 'all' });
     },
   });
 };
@@ -83,7 +83,7 @@ export const useDeletePMCase = () => {
   return useMutation({
     mutationFn: (id: number) => pmCasesApi.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: pmKeys.all });
+      queryClient.invalidateQueries({ queryKey: pmKeys.all, refetchType: 'all' });
     },
   });
 };
