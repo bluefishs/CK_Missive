@@ -232,7 +232,7 @@ const TenderDetailPage: React.FC = () => {
         (detail?.events ?? []).filter(e => e.companies.length > 0).map((evt, i) => (
           <Card key={i} size="small" title={<><Tag color={getTimelineColor(evt.type)}>{evt.type}</Tag> {evt.date}</>} style={{ marginBottom: 8 }}>
             <Space wrap>
-              {evt.companies.map((c, j) => <Tag key={j} color="blue">{c}</Tag>)}
+              {evt.companies.map((c, j) => <Tag key={j} color="blue" style={{ cursor: 'pointer' }} onClick={() => navigate(`/tender/company?q=${encodeURIComponent(c)}`)}>{c}</Tag>)}
             </Space>
           </Card>
         ))
