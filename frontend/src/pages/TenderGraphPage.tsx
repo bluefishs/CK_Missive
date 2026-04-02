@@ -139,10 +139,10 @@ const TenderGraphPage: React.FC = () => {
         )}
       </Card>
 
-      <Card bodyStyle={{ padding: 0, position: 'relative' }}>
+      <Card styles={{ body: { padding: 0, position: 'relative' } }}>
         {isLoading ? (
           <div style={{ height: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Spin size="large" tip="建構圖譜中..." />
+            <Spin size="large" description="建構圖譜中..." />
           </div>
         ) : graphData.nodes.length === 0 ? (
           <div style={{ height: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

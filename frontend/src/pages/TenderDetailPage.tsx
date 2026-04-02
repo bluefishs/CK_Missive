@@ -87,7 +87,7 @@ const TenderDetailPage: React.FC = () => {
             type="warning"
             showIcon
             icon={<ClockCircleOutlined />}
-            message={`截止投標倒數 ${days} 天`}
+            title={`截止投標倒數 ${days} 天`}
             description={`截止時間: ${latest.deadline}`}
             style={{ marginBottom: 16 }}
           />
@@ -169,13 +169,17 @@ const TenderDetailPage: React.FC = () => {
             } catch { message.error('收藏失敗'); }
           }}>收藏此標案</Button>
           <Button onClick={async () => {
+            const uid = decodeURIComponent(unitId || '');
+            const jn = decodeURIComponent(jobNumber || '');
+            const t = detail?.title || '';
+            if (!uid || !jn || !t) { message.warning('標案資訊不完整'); return; }
             try {
               const result = await tenderApi.createCase({
-                unit_id: decodeURIComponent(unitId || ''),
-                job_number: decodeURIComponent(jobNumber || ''),
-                title: detail?.title || '',
-                unit_name: detail?.unit_name,
-                budget: latest.budget,
+                unit_id: uid,
+                job_number: jn,
+                title: t,
+                unit_name: detail?.unit_name || '',
+                budget: latest?.budget || undefined,
               });
               message.success(result.message);
             } catch { message.error('建案失敗'); }
