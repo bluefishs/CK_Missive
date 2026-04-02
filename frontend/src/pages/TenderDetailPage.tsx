@@ -12,20 +12,19 @@
  */
 import React, { useMemo } from 'react';
 import {
-  Descriptions, Tag, Timeline, Card, Typography, Button, Space, List,
+  Descriptions, Tag, Timeline, Card, Typography, Button, Space, List, Select, Popconfirm,
   Row, Col, Statistic, Empty, Alert,
 } from 'antd';
 import {
   BankOutlined, PhoneOutlined, MailOutlined, DollarOutlined,
   CalendarOutlined, LinkOutlined, EnvironmentOutlined,
   ClockCircleOutlined, CheckCircleOutlined, CloseCircleOutlined,
-  StarOutlined, UnorderedListOutlined,
+  StarOutlined, StarFilled, UnorderedListOutlined, DeleteOutlined,
 } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DetailPageLayout } from '../components/common/DetailPage/DetailPageLayout';
 import { createTabItem } from '../components/common/DetailPage/utils';
-import { useTenderDetail, useTenderSearch } from '../hooks/business/useTender';
-import { useCreateBookmark } from '../hooks/business/useTender';
+import { useTenderDetail, useTenderSearch, useTenderBookmarks, useCreateBookmark, useUpdateBookmark, useDeleteBookmark } from '../hooks/business/useTender';
 import { tenderApi } from '../api/tenderApi';
 import { App } from 'antd';
 
@@ -63,7 +62,17 @@ const TenderDetailPage: React.FC = () => {
     unitId ? decodeURIComponent(unitId) : null,
     jobNumber ? decodeURIComponent(jobNumber) : null,
   );
+  const { data: allBookmarks } = useTenderBookmarks();
   const bookmarkMutation = useCreateBookmark();
+  const updateBmMutation = useUpdateBookmark();
+  const deleteBmMutation = useDeleteBookmark();
+
+  const currentBookmark = useMemo(() => {
+    if (!allBookmarks || !unitId || !jobNumber) return null;
+    const uid = decodeURIComponent(unitId);
+    const jn = decodeURIComponent(jobNumber);
+    return allBookmarks.find(b => b.unit_id === uid && b.job_number === jn) ?? null;
+  }, [allBookmarks, unitId, jobNumber]);
 
   const latest = detail?.latest?.detail;
   const days = useMemo(() => daysRemaining(latest?.deadline), [latest?.deadline]);
@@ -155,19 +164,49 @@ const TenderDetailPage: React.FC = () => {
               政府採購網原始頁面
             </Button>
           )}
-          <Button icon={<StarOutlined />} onClick={async () => {
-            try {
-              await bookmarkMutation.mutateAsync({
-                unit_id: decodeURIComponent(unitId || ''),
-                job_number: decodeURIComponent(jobNumber || ''),
-                title: detail?.title || '',
-                unit_name: detail?.unit_name,
-                budget: latest.budget,
-                deadline: latest.deadline,
-              });
-              message.success('已收藏');
-            } catch { message.error('收藏失敗'); }
-          }}>收藏此標案</Button>
+          {currentBookmark ? (
+            <Space.Compact>
+              <Button icon={<StarFilled style={{ color: '#faad14' }} />} type="text">
+                已收藏
+              </Button>
+              <Select
+                size="small"
+                value={currentBookmark.status}
+                style={{ width: 100 }}
+                onChange={async (status) => {
+                  try {
+                    await updateBmMutation.mutateAsync({ id: currentBookmark.id, status });
+                    message.success(`狀態更新: ${status}`);
+                  } catch { message.error('更新失敗'); }
+                }}
+                options={[
+                  { value: 'tracking', label: '追蹤中' },
+                  { value: 'applied', label: '已投標' },
+                  { value: 'won', label: '得標' },
+                  { value: 'lost', label: '未得標' },
+                ]}
+              />
+              <Popconfirm title="取消收藏？" onConfirm={async () => {
+                try { await deleteBmMutation.mutateAsync(currentBookmark.id); message.success('已取消收藏'); } catch { message.error('失敗'); }
+              }}>
+                <Button icon={<DeleteOutlined />} size="small" danger type="text" />
+              </Popconfirm>
+            </Space.Compact>
+          ) : (
+            <Button icon={<StarOutlined />} onClick={async () => {
+              try {
+                await bookmarkMutation.mutateAsync({
+                  unit_id: decodeURIComponent(unitId || ''),
+                  job_number: decodeURIComponent(jobNumber || ''),
+                  title: detail?.title || '',
+                  unit_name: detail?.unit_name || '',
+                  budget: latest?.budget,
+                  deadline: latest?.deadline,
+                });
+                message.success('已收藏');
+              } catch { message.error('收藏失敗（可能已收藏）'); }
+            }}>收藏此標案</Button>
+          )}
           <Button onClick={async () => {
             const uid = decodeURIComponent(unitId || '');
             const jn = decodeURIComponent(jobNumber || '');
