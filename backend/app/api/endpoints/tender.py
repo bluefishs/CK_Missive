@@ -8,7 +8,10 @@ Version: 1.0.0
 from typing import Optional, List
 from pydantic import BaseModel, Field
 
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
+
+logger = logging.getLogger(__name__)
 
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -410,9 +413,13 @@ async def analytics_org_ecosystem(request: Request):
     org_name = body.get("org_name")
     if not org_name:
         raise HTTPException(status_code=400, detail="org_name 為必填")
-    svc = TenderAnalyticsService()
-    result = await svc.org_ecosystem(org_name=org_name, pages=body.get("pages", 3))
-    return SuccessResponse(data=result)
+    try:
+        svc = TenderAnalyticsService()
+        result = await svc.org_ecosystem(org_name=org_name, pages=body.get("pages", 3))
+        return SuccessResponse(data=result)
+    except Exception as e:
+        logger.error(f"org-ecosystem error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)[:200])
 
 
 @router.post("/analytics/company-profile")
@@ -423,6 +430,10 @@ async def analytics_company_profile(request: Request):
     company_name = body.get("company_name")
     if not company_name:
         raise HTTPException(status_code=400, detail="company_name 為必填")
-    svc = TenderAnalyticsService()
-    result = await svc.company_profile(company_name=company_name, pages=body.get("pages", 3))
-    return SuccessResponse(data=result)
+    try:
+        svc = TenderAnalyticsService()
+        result = await svc.company_profile(company_name=company_name, pages=body.get("pages", 3))
+        return SuccessResponse(data=result)
+    except Exception as e:
+        logger.error(f"company-profile error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)[:200])
