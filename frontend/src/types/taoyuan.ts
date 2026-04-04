@@ -416,8 +416,8 @@ export interface DispatchAttachmentVerifyResult {
 // 統計資料型別
 // ============================================================================
 
-/** 工程統計資料 */
-export interface ProjectStatistics {
+/** 工程統計資料 (桃園派工) */
+export interface TaoyuanProjectStatistics {
   total_count: number;
   dispatched_count: number;
   completed_count: number;
@@ -443,7 +443,7 @@ export interface PaymentStatistics {
 /** 桃園查估派工統計資料回應 */
 export interface TaoyuanStatisticsResponse {
   success: boolean;
-  projects: ProjectStatistics;
+  projects: TaoyuanProjectStatistics;
   dispatches: DispatchStatistics;
   payments: PaymentStatistics;
 }

@@ -3,9 +3,118 @@
  * 對應後端 app/schemas/pm/
  */
 
-// Re-export from api.ts SSOT
-export type { PMCase, PMCaseCreate, PMCaseUpdate, PMCaseSummary, PMYearlyTrendItem, PMCrossLookup, PMCaseStatus } from './api';
-export { PM_CASE_STATUS_LABELS, PM_CASE_STATUS_COLORS, PM_CATEGORY_LABELS } from './api';
+import type { ERPQuotation } from './erp';
+
+// ============================================================================
+// PM 案件核心型別 (原定義於 api.ts)
+// ============================================================================
+
+/** PM 案件狀態 */
+export type PMCaseStatus = 'planning' | 'contracted' | 'closed';
+
+/** PM 案件狀態標籤 */
+export const PM_CASE_STATUS_LABELS: Record<PMCaseStatus, string> = {
+  planning: '評估中',
+  contracted: '已承攬',
+  closed: '已結案',
+};
+
+/** PM 案件狀態顏色 */
+export const PM_CASE_STATUS_COLORS: Record<PMCaseStatus, string> = {
+  planning: 'default',
+  contracted: 'blue',
+  closed: 'success',
+};
+
+/** PM 案件類別 */
+export const PM_CATEGORY_LABELS: Record<string, string> = {
+  '01': '委辦招標',
+  '02': '承攬報價',
+};
+
+/** PM 案件 */
+export interface PMCase {
+  id: number;
+  case_code: string;
+  project_code?: string;
+  case_name: string;
+  year?: number;
+  category?: string;
+  case_nature?: string;
+  client_name?: string;
+  client_vendor_id?: number;
+  client_contact?: string;
+  client_phone?: string;
+  contract_amount?: number;
+  status: PMCaseStatus;
+  progress: number;
+  start_date?: string;
+  end_date?: string;
+  actual_end_date?: string;
+  location?: string;
+  description?: string;
+  notes?: string;
+  created_by?: number;
+  created_at?: string;
+  updated_at?: string;
+  milestone_count: number;
+  staff_count: number;
+}
+
+/** PM 案件建立 */
+export interface PMCaseCreate {
+  case_code?: string;
+  case_name: string;
+  year?: number;
+  category?: string;
+  case_nature?: string;
+  client_name?: string;
+  client_vendor_id?: number;
+  client_contact?: string;
+  client_phone?: string;
+  contract_amount?: number;
+  status?: string;
+  start_date?: string;
+  end_date?: string;
+  location?: string;
+  description?: string;
+  notes?: string;
+}
+
+/** PM 案件更新 */
+export type PMCaseUpdate = Partial<PMCaseCreate> & {
+  progress?: number;
+  actual_end_date?: string;
+};
+
+/** PM 案件統計摘要 */
+export interface PMCaseSummary {
+  total_cases: number;
+  by_status: Record<string, number>;
+  by_year: Record<string, number>;
+  total_contract_amount?: number;
+}
+
+/** PM 多年度趨勢 */
+export interface PMYearlyTrendItem {
+  year: number;
+  case_count: number;
+  total_contract: number;
+  closed_count: number;
+  in_progress_count: number;
+  avg_progress: number;
+}
+
+/** PM 跨模組查詢結果 */
+export interface PMCrossLookup {
+  pm_case?: PMCase;
+  erp_quotation?: ERPQuotation;
+  case_code: string;
+}
+
+// ============================================================================
+// PM 擴展型別
+// ============================================================================
 
 /** PM 案件列表查詢參數 */
 export interface PMCaseListParams {

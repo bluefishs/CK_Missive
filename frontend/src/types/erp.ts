@@ -3,9 +3,119 @@
  * 對應後端 app/schemas/erp/
  */
 
-// Re-export from api.ts SSOT
-export type { ERPQuotation, ERPQuotationCreate, ERPQuotationUpdate, ERPProfitSummary, ERPProfitTrendItem, ERPQuotationStatus, ERPVendorPayable } from './api';
-export { ERP_QUOTATION_STATUS_LABELS, ERP_QUOTATION_STATUS_COLORS } from './api';
+// ============================================================================
+// ERP 核心型別 (原定義於 api.ts)
+// ============================================================================
+
+/** ERP 報價狀態 */
+export type ERPQuotationStatus = 'draft' | 'confirmed' | 'revised' | 'closed';
+
+/** ERP 報價狀態標籤 */
+export const ERP_QUOTATION_STATUS_LABELS: Record<ERPQuotationStatus, string> = {
+  draft: '草稿',
+  confirmed: '已確認',
+  revised: '已修訂',
+  closed: '已結案',
+};
+
+/** ERP 報價狀態顏色 */
+export const ERP_QUOTATION_STATUS_COLORS: Record<ERPQuotationStatus, string> = {
+  draft: 'default',
+  confirmed: 'processing',
+  revised: 'warning',
+  closed: 'success',
+};
+
+/** ERP 報價/成本主檔 */
+export interface ERPQuotation {
+  id: number;
+  case_code: string;
+  project_code?: string;
+  case_name?: string;
+  year?: number;
+  total_price?: number;
+  tax_amount: number;
+  outsourcing_fee: number;
+  personnel_fee: number;
+  overhead_fee: number;
+  other_cost: number;
+  status: ERPQuotationStatus;
+  notes?: string;
+  created_by?: number;
+  created_at?: string;
+  updated_at?: string;
+  budget_limit?: number;
+  budget_usage_pct?: number;
+  is_over_budget: boolean;
+  total_cost: number;
+  gross_profit: number;
+  gross_margin?: number;
+  net_profit: number;
+  invoice_count: number;
+  billing_count: number;
+  total_billed: number;
+  total_received: number;
+  total_payable: number;
+  total_paid: number;
+}
+
+/** ERP 報價建立 */
+export interface ERPQuotationCreate {
+  case_code?: string;
+  case_name?: string;
+  year?: number;
+  total_price?: number | string;
+  tax_amount?: number | string;
+  outsourcing_fee?: number | string;
+  personnel_fee?: number | string;
+  overhead_fee?: number | string;
+  other_cost?: number | string;
+  budget_limit?: number | string;
+  status?: string;
+  notes?: string;
+}
+
+/** ERP 報價更新 */
+export type ERPQuotationUpdate = Partial<ERPQuotationCreate>;
+
+/** ERP 損益摘要 */
+export interface ERPProfitSummary {
+  total_revenue: number;
+  total_cost: number;
+  total_gross_profit: number;
+  avg_gross_margin?: number;
+  total_billed: number;
+  total_received: number;
+  total_outstanding: number;
+  case_count: number;
+  by_year: Record<string, unknown>;
+}
+
+/** ERP 損益趨勢項目 */
+export interface ERPProfitTrendItem {
+  year: number;
+  revenue: number;
+  cost: number;
+  gross_profit: number;
+  gross_margin?: number;
+  case_count: number;
+}
+
+/** ERP 廠商應付帳款 */
+export interface ERPVendorPayable {
+  id: number;
+  erp_quotation_id: number;
+  vendor_name: string;
+  payable_amount: number;
+  description?: string;
+  payment_status: string;
+  paid_date?: string;
+  paid_amount: number;
+}
+
+// ============================================================================
+// ERP 擴展型別
+// ============================================================================
 
 /** ERP 報價列表查詢參數 */
 export interface ERPQuotationListParams {
@@ -287,6 +397,9 @@ export interface ExpenseInvoiceItemCreate {
 }
 
 /** 費用報銷發票 */
+/** 歸屬類型 */
+export type AttributionType = 'project' | 'operational' | 'none';
+
 export interface ExpenseInvoice {
   id: number;
   inv_num: string;
@@ -296,6 +409,8 @@ export interface ExpenseInvoice {
   buyer_ban?: string;
   seller_ban?: string;
   case_code?: string;
+  attribution_type: AttributionType;
+  operational_account_id?: number;
   vendor_id?: number;
   category?: ExpenseCategory;
   source: ExpenseSource;
@@ -305,14 +420,11 @@ export interface ExpenseInvoice {
   source_image_path?: string;
   receipt_image_path?: string;
   items: ExpenseInvoiceItem[];
-  // 多幣別 (Phase 5-4)
   currency: SupportedCurrency;
   original_amount?: number;
   exchange_rate?: number;
-  // 多層審核 (Phase 5-5)
   approval_level?: string;
   next_approval?: string;
-  // 電子發票同步
   synced_at?: string;
 }
 
@@ -324,11 +436,12 @@ export interface ExpenseInvoiceCreate {
   buyer_ban?: string;
   seller_ban?: string;
   case_code?: string;
+  attribution_type?: AttributionType;
+  operational_account_id?: number;
   category?: ExpenseCategory;
   source?: ExpenseSource;
   notes?: string;
   items?: ExpenseInvoiceItemCreate[];
-  // 多幣別 (Phase 5-4)
   currency?: SupportedCurrency;
   original_amount?: number;
   exchange_rate?: number;
@@ -356,6 +469,7 @@ export interface ExpenseInvoiceOCRResult {
 
 export interface ExpenseInvoiceQuery {
   case_code?: string;
+  attribution_type?: string;
   category?: string;
   status?: string;
   date_from?: string;
@@ -579,6 +693,7 @@ export interface ExportExpensesRequest {
   date_to?: string;
   case_code?: string;
   status?: string;
+  attribution_type?: string;
 }
 
 /** 匯出帳本 Excel 請求 */
@@ -812,6 +927,7 @@ export interface Asset {
   status: string;
   location?: string;
   custodian?: string;
+  photo_path?: string;
   notes?: string;
   created_at?: string;
   updated_at?: string;
