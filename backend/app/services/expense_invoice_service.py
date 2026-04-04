@@ -132,79 +132,97 @@ class ExpenseInvoiceService(AuditableServiceMixin):
         return await self.repo.query(params)
 
     async def grouped_summary(self, attribution_type: Optional[str] = None) -> dict:
-        """費用按歸屬分組彙總 — 專案/營運/未歸屬各自統計"""
-        from sqlalchemy import select, func
+        """全案件費用核銷彙總 — 列出所有案件（含無費用紀錄的）
+
+        以 erp_quotations 全量案件為基底，左接 expense_invoices 統計。
+        attribution_type 篩選：
+        - 'all'/None: 全部案件
+        - 'project': 有費用且 attribution=project 的案件 + 無費用的全部案件
+        - 'operational': attribution=operational 的費用
+        - 'none': attribution=none 的費用
+        """
+        from sqlalchemy import select, func, outerjoin
         from app.extended.models.invoice import ExpenseInvoice as EI
+        from app.extended.models.erp import ERPQuotation
 
-        stmt = (
-            select(
-                EI.attribution_type, EI.case_code, EI.category,
-                func.count(EI.id).label("count"),
-                func.sum(EI.amount).label("total_amount"),
-            )
-            .group_by(EI.attribution_type, EI.case_code, EI.category)
-            .order_by(func.sum(EI.amount).desc())
-        )
-        if attribution_type:
-            stmt = stmt.where(EI.attribution_type == attribution_type)
+        # 1. 全部 ERP Quotation 案件 (作為基底)
+        q_stmt = select(
+            ERPQuotation.id, ERPQuotation.case_code,
+            ERPQuotation.case_name, ERPQuotation.project_code,
+        ).order_by(ERPQuotation.case_code)
+        q_result = await self.db.execute(q_stmt)
+        all_cases = {r.case_code: r for r in q_result.all()}
 
-        result = await self.db.execute(stmt)
-        rows = result.all()
+        # 2. expense_invoices 按 case_code 統計
+        exp_stmt = select(
+            EI.case_code,
+            EI.attribution_type,
+            func.count(EI.id).label("count"),
+            func.sum(EI.amount).label("total_amount"),
+        ).group_by(EI.case_code, EI.attribution_type)
 
-        group_map: dict = {}
-        for row in rows:
-            attr = row.attribution_type or "none"
-            cc = (row.case_code or "__operational__") if attr == "operational" else (row.case_code or "__none__")
-            key = f"{attr}:{cc}"
+        if attribution_type and attribution_type not in ("all",):
+            exp_stmt = exp_stmt.where(EI.attribution_type == attribution_type)
 
-            if key not in group_map:
-                group_map[key] = {
-                    "group_key": key,
-                    "group_label": cc if cc not in ("__operational__", "__none__") else ("營運支出" if attr == "operational" else "未歸屬"),
-                    "attribution_type": attr,
-                    "case_code": row.case_code,
-                    "total_amount": 0,
-                    "count": 0,
-                    "_cat_map": {},
-                }
-            g = group_map[key]
-            amt = float(row.total_amount or 0)
-            g["total_amount"] += amt
-            g["count"] += row.count
-            cat = row.category or "其他"
-            if cat not in g["_cat_map"]:
-                g["_cat_map"][cat] = {"category": cat, "count": 0, "amount": 0}
-            g["_cat_map"][cat]["count"] += row.count
-            g["_cat_map"][cat]["amount"] += amt
+        exp_result = await self.db.execute(exp_stmt)
+        expense_map: dict = {}
+        for r in exp_result.all():
+            cc = r.case_code or "__none__"
+            if cc not in expense_map:
+                expense_map[cc] = {"count": 0, "total_amount": 0, "attribution_type": r.attribution_type or "none"}
+            expense_map[cc]["count"] += r.count
+            expense_map[cc]["total_amount"] += float(r.total_amount or 0)
 
-        for g in group_map.values():
-            g["categories"] = sorted(g.pop("_cat_map").values(), key=lambda c: c["amount"], reverse=True)
+        # 3. 組合：所有案件 + 費用統計
+        groups = []
 
-        # Enrich with project_code + case_name + erp_quotation_id
-        case_codes = [g["case_code"] for g in group_map.values() if g["case_code"]]
-        if case_codes:
-            from app.extended.models.pm import PMCase
-            from app.extended.models.erp import ERPQuotation
-            code_stmt = select(PMCase.case_code, PMCase.project_code, PMCase.case_name).where(
-                PMCase.case_code.in_(case_codes)
-            )
-            code_result = await self.db.execute(code_stmt)
-            code_map = {r.case_code: r for r in code_result.all()}
+        # 3a. 有案件代碼的 (ERP Quotation 基底)
+        for case_code, case_info in all_cases.items():
+            exp = expense_map.pop(case_code, None)
+            attr = exp["attribution_type"] if exp else "project"
 
-            erp_stmt = select(ERPQuotation.case_code, ERPQuotation.id).where(
-                ERPQuotation.case_code.in_(case_codes)
-            )
-            erp_result = await self.db.execute(erp_stmt)
-            erp_map = {r.case_code: r.id for r in erp_result.all()}
+            # attribution_type 篩選邏輯
+            if attribution_type and attribution_type not in ("all",):
+                if attribution_type == "project":
+                    pass  # 專案費用：顯示所有案件
+                elif exp is None:
+                    continue  # 營運/未歸屬：只顯示有費用的
+                elif attr != attribution_type:
+                    continue
 
-            for g in group_map.values():
-                info = code_map.get(g["case_code"])
-                if info:
-                    g["project_code"] = info.project_code
-                    g["group_label"] = f"{info.project_code or info.case_code} {info.case_name or ''}"
-                g["erp_quotation_id"] = erp_map.get(g["case_code"])
+            label = f"{case_info.project_code or case_code} {case_info.case_name or ''}"
+            groups.append({
+                "group_key": f"project:{case_code}",
+                "group_label": label.strip(),
+                "attribution_type": attr,
+                "case_code": case_code,
+                "project_code": case_info.project_code,
+                "erp_quotation_id": case_info.id,
+                "total_amount": exp["total_amount"] if exp else 0,
+                "count": exp["count"] if exp else 0,
+                "categories": [],
+            })
 
-        groups = sorted(group_map.values(), key=lambda x: x["total_amount"], reverse=True)
+        # 3b. 無案件代碼的費用 (營運/未歸屬)
+        for cc, exp in expense_map.items():
+            attr = exp["attribution_type"]
+            if attribution_type and attribution_type not in ("all",) and attr != attribution_type:
+                continue
+            groups.append({
+                "group_key": f"{attr}:{cc}",
+                "group_label": "營運支出" if attr == "operational" else "未歸屬",
+                "attribution_type": attr,
+                "case_code": None,
+                "project_code": None,
+                "erp_quotation_id": None,
+                "total_amount": exp["total_amount"],
+                "count": exp["count"],
+                "categories": [],
+            })
+
+        # 排序：有費用的排前面，然後按案件代碼
+        groups.sort(key=lambda x: (-x["count"], -x["total_amount"], x.get("case_code") or "zzz"))
+
         return {
             "groups": groups,
             "total_count": sum(g["count"] for g in groups),
