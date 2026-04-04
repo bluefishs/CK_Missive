@@ -277,12 +277,27 @@ class CaseCodeService:
         pm_case.project_code = project_code
         pm_case.status = "in_progress"
 
-        # 5. 連結 ERP Quotation (透過 Repository)
+        # 5. 連結 / 自動建立 ERP Quotation
         erp_linked = False
         erp_quotation = await self.erp_repo.get_by_case_code(case_code)
         if erp_quotation:
+            # 已有 → 更新 project_code
             erp_quotation.project_code = project_code
             erp_linked = True
+        else:
+            # 成案時自動建立 ERP Quotation (確保專案財務紀錄存在)
+            from app.extended.models.erp import ERPQuotation
+            new_erp = ERPQuotation(
+                case_code=case_code,
+                case_name=pm_case.case_name,
+                project_code=project_code,
+                year=pm_case.year,
+                total_price=pm_case.contract_amount,
+                status="confirmed",
+            )
+            self.db.add(new_erp)
+            erp_linked = True
+            logger.info(f"自動建立 ERP Quotation: case_code={case_code}")
 
         await self.db.commit()
 
