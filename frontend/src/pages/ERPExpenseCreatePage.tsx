@@ -138,8 +138,9 @@ const ERPExpenseCreatePage: React.FC = () => {
       await createMutation.mutateAsync(payload);
       message.success('核銷紀錄已建立');
       navigate(ROUTES.ERP_EXPENSES);
-    } catch {
-      message.error('建立失敗');
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      message.error(detail || '建立失敗');
     }
   };
 
