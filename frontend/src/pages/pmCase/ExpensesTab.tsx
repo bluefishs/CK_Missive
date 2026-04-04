@@ -119,8 +119,8 @@ const ExpensesTab: React.FC<Props> = ({ caseCode }) => {
       {summary && (
         <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
           <Col xs={12} sm={8}><Card size="small"><Statistic title="費用報銷" value={summary.expense_total} precision={0} prefix="NT$" suffix={<Text type="secondary"> ({summary.expense_count} 筆)</Text>} /></Card></Col>
-          <Col xs={12} sm={8}><Card size="small"><Statistic title="請款金額" value={summary.billing_total} precision={0} prefix="NT$" suffix={<Text type="secondary"> ({summary.billing_count} 筆)</Text>} valueStyle={{ color: '#1890ff' }} /></Card></Col>
-          <Col xs={12} sm={8}><Card size="small"><Statistic title="開票金額" value={summary.invoice_total} precision={0} prefix="NT$" suffix={<Text type="secondary"> ({summary.invoice_count} 筆)</Text>} valueStyle={{ color: '#52c41a' }} /></Card></Col>
+          <Col xs={12} sm={8}><Card size="small"><Statistic title="請款金額" value={summary.billing_total} precision={0} prefix="NT$" suffix={<Text type="secondary"> ({summary.billing_count} 筆)</Text>} styles={{ content: { color: '#1890ff' } }} /></Card></Col>
+          <Col xs={12} sm={8}><Card size="small"><Statistic title="開票金額" value={summary.invoice_total} precision={0} prefix="NT$" suffix={<Text type="secondary"> ({summary.invoice_count} 筆)</Text>} styles={{ content: { color: '#52c41a' } }} /></Card></Col>
         </Row>
       )}
       <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

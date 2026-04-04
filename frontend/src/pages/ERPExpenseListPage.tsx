@@ -218,7 +218,7 @@ const ERPExpenseListPage: React.FC = () => {
             <Statistic
               title="待審核"
               value={actualPendingCount}
-              valueStyle={{ color: actualPendingCount > 0 ? '#faad14' : undefined }}
+              styles={{ content: { color: actualPendingCount > 0 ? '#faad14' : undefined } }}
             />
           </Col>
         </Row>

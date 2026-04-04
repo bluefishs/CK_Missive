@@ -69,8 +69,8 @@ const ERPClientAccountDetailPage: React.FC = () => {
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
         <Col xs={12} sm={8} lg={4}><Card size="small"><Statistic title="合約總額" value={Number(detail?.total_contract ?? 0)} precision={0} /></Card></Col>
         <Col xs={12} sm={8} lg={4}><Card size="small"><Statistic title="已請款" value={Number(detail?.total_billed ?? 0)} precision={0} /></Card></Col>
-        <Col xs={12} sm={8} lg={4}><Card size="small"><Statistic title="已收款" value={Number(detail?.total_received ?? 0)} precision={0} valueStyle={{ color: '#52c41a' }} /></Card></Col>
-        <Col xs={12} sm={8} lg={4}><Card size="small"><Statistic title="未收餘額" value={Number(detail?.outstanding ?? 0)} precision={0} valueStyle={{ color: Number(detail?.outstanding ?? 0) > 0 ? '#fa8c16' : '#52c41a' }} /></Card></Col>
+        <Col xs={12} sm={8} lg={4}><Card size="small"><Statistic title="已收款" value={Number(detail?.total_received ?? 0)} precision={0} styles={{ content: { color: '#52c41a' } }} /></Card></Col>
+        <Col xs={12} sm={8} lg={4}><Card size="small"><Statistic title="未收餘額" value={Number(detail?.outstanding ?? 0)} precision={0} styles={{ content: { color: Number(detail?.outstanding ?? 0) > 0 ? '#fa8c16' : '#52c41a' } }} /></Card></Col>
         <Col xs={12} sm={8} lg={4}><Card size="small"><Statistic title="案件數" value={detail?.cases?.length ?? 0} /></Card></Col>
         <Col xs={12} sm={8} lg={4}><Card size="small"><Statistic title="收款率" value={collectionRate} suffix="%" precision={1} /></Card></Col>
       </Row>

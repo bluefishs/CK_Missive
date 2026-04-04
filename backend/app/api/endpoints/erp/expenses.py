@@ -140,7 +140,7 @@ async def create_expense(
     try:
         user_id = current_user.id if current_user else None
         result = await service.create(data, user_id=user_id)
-        return SuccessResponse(data=result, message="報銷發票建立成功")
+        return SuccessResponse(data=ExpenseInvoiceResponse.model_validate(result), message="報銷發票建立成功")
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
 
@@ -155,7 +155,7 @@ async def get_expense_detail(
     result = await service.get_by_id(params.id)
     if not result:
         raise HTTPException(status_code=404, detail="發票不存在")
-    return SuccessResponse(data=result)
+    return SuccessResponse(data=ExpenseInvoiceResponse.model_validate(result))
 
 
 @router.post("/update")
@@ -168,7 +168,7 @@ async def update_expense(
     result = await service.update(params.id, params.data)
     if not result:
         raise HTTPException(status_code=404, detail="發票不存在")
-    return SuccessResponse(data=result, message="更新成功")
+    return SuccessResponse(data=ExpenseInvoiceResponse.model_validate(result), message="更新成功")
 
 
 @router.post("/approve")
@@ -217,6 +217,6 @@ async def reject_expense(
         result = await service.reject(params.id, reason=params.reason)
         if not result:
             raise HTTPException(status_code=404, detail="發票不存在")
-        return SuccessResponse(data=result, message="已駁回")
+        return SuccessResponse(data=ExpenseInvoiceResponse.model_validate(result), message="已駁回")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
