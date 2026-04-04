@@ -183,8 +183,18 @@ class TenderSearchService:
             async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
                 resp = await client.get(url, params=params)
                 if resp.status_code == 200:
+                    # 強制 UTF-8 解碼避免 Big5/Latin 混用
                     return resp.json()
                 logger.warning(f"PCC API {resp.status_code}: {url} {params}")
+                return None
+        except UnicodeDecodeError:
+            # PCC API 偶爾回傳非 UTF-8 內容
+            try:
+                text = resp.content.decode("utf-8", errors="replace")
+                import json
+                return json.loads(text)
+            except Exception:
+                logger.warning(f"PCC API decode error: {url}")
                 return None
         except Exception as e:
             logger.error(f"PCC API error: {e}")
