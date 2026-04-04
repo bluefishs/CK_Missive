@@ -749,8 +749,16 @@ export interface PendingReceiptQuery {
 // ============================================================================
 
 export interface ExpenseListResponse {
+  success?: boolean;
   items: ExpenseInvoice[];
-  total: number;
+  pagination?: {
+    total: number;
+    page: number;
+    limit: number;
+    total_pages: number;
+    has_next: boolean;
+    has_prev: boolean;
+  };
 }
 
 export interface LedgerListResponse {

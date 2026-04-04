@@ -100,7 +100,7 @@ const ERPExpenseListPage: React.FC = () => {
 
   // Pending count — use a lightweight expenses query
   const { data: pendingSummary } = useExpenses({ status: 'pending', skip: 0, limit: 1 });
-  const actualPendingCount = pendingSummary?.total ?? 0;
+  const actualPendingCount = pendingSummary?.pagination?.total ?? 0;
 
   // ---------------------------------------------------------------------------
   // Expanded row: fetch invoices for a specific group
