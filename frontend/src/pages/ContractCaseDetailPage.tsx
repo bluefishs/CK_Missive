@@ -22,7 +22,6 @@ import { useParams } from 'react-router-dom';
 import { DetailPageHeader } from './contractCase/DetailPageHeader';
 import { useContractCaseData } from './contractCase/useContractCaseData';
 import { useContractCaseHandlers } from './contractCase/useContractCaseHandlers';
-import { CrossModuleCard } from './pmCase';
 import { useCrossModuleLookup } from '../hooks/business/usePMCases';
 import { Suspense, lazy } from 'react';
 
@@ -35,6 +34,7 @@ import {
   VendorsTab,
   AttachmentsTab,
   RelatedDocumentsTab,
+  FinanceTab,
 } from './contractCase/tabs';
 
 import type {
@@ -93,8 +93,8 @@ export const ContractCaseDetailContent: React.FC<ContractCaseDetailContentProps>
 
   // ERP cross-module lookup via case_code (建案案號，跨模組橋樑)
   // 優先用 case_code，回退 project_code（向後相容舊資料）
-  const crossLookupKey = data?.case_code ?? data?.project_code ?? null;
-  const { data: crossData } = useCrossModuleLookup(crossLookupKey);
+  const lookupKey = data?.case_code ?? data?.project_code ?? null;
+  const { data: crossData } = useCrossModuleLookup(lookupKey);
   const pmCaseId = crossData?.pm?.id ?? null;
 
   const loadUserOptions = async () => {};
@@ -228,14 +228,13 @@ export const ContractCaseDetailContent: React.FC<ContractCaseDetailContentProps>
       ),
     },
     {
-      key: 'erp',
-      label: <span><DollarOutlined /> ERP 財務</span>,
-      children: crossLookupKey ? (
-        <CrossModuleCard caseCode={crossLookupKey} />
-      ) : (
-        <div style={{ textAlign: 'center', padding: 40, color: '#999' }}>
-          尚無 ERP 財務資料，請先在邀標/報價模組建立報價
-        </div>
+      key: 'finance',
+      label: <span><DollarOutlined /> 財務紀錄</span>,
+      children: (
+        <FinanceTab
+          caseCode={data?.case_code ?? null}
+          projectCode={data?.project_code ?? null}
+        />
       ),
     },
   ];

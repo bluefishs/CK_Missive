@@ -13,6 +13,7 @@ export { CaseRolesTab } from './CaseRolesTab';
 export { VendorsTab } from './VendorsTab';
 export { AttachmentsTab } from './AttachmentsTab';
 export { RelatedDocumentsTab } from './RelatedDocumentsTab';
+export { default as FinanceTab } from './FinanceTab';
 
 // 常數
 export * from './constants';

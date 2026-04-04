@@ -51,6 +51,130 @@ async def grouped_expense_summary(
     return SuccessResponse(data=result)
 
 
+@router.post("/financial-overview")
+async def financial_overview(
+    request: Request,
+    service: ExpenseInvoiceService = Depends(get_service(ExpenseInvoiceService)),
+    current_user: User = Depends(require_auth()),
+):
+    """全案件財務總覽 — 主管/財務視角
+
+    整合所有案件的 billing(應收) + vendor_payable(應付) + expense(核銷)。
+    """
+    from sqlalchemy import select, func, case as sa_case
+    from app.extended.models.erp import ERPQuotation, ERPBilling, ERPInvoice, ERPVendorPayable
+    from app.extended.models.invoice import ExpenseInvoice
+
+    # 1. 應收 (billings) 按案件分組
+    billing_stmt = (
+        select(
+            ERPQuotation.case_code,
+            ERPQuotation.case_name,
+            ERPQuotation.project_code,
+            func.count(ERPBilling.id).label("billing_count"),
+            func.sum(ERPBilling.billing_amount).label("billing_total"),
+            func.sum(sa_case(
+                (ERPBilling.payment_status == "paid", ERPBilling.billing_amount), else_=0
+            )).label("billing_received"),
+        )
+        .join(ERPBilling, ERPBilling.erp_quotation_id == ERPQuotation.id)
+        .group_by(ERPQuotation.case_code, ERPQuotation.case_name, ERPQuotation.project_code)
+    )
+    billing_result = await service.db.execute(billing_stmt)
+    billing_rows = {r.case_code: r for r in billing_result.all()}
+
+    # 2. 應付 (vendor_payables) 按案件分組
+    payable_stmt = (
+        select(
+            ERPQuotation.case_code,
+            func.count(ERPVendorPayable.id).label("payable_count"),
+            func.sum(ERPVendorPayable.payable_amount).label("payable_total"),
+            func.sum(sa_case(
+                (ERPVendorPayable.payment_status == "paid", ERPVendorPayable.payable_amount), else_=0
+            )).label("payable_paid"),
+        )
+        .join(ERPVendorPayable, ERPVendorPayable.erp_quotation_id == ERPQuotation.id)
+        .group_by(ERPQuotation.case_code)
+    )
+    payable_result = await service.db.execute(payable_stmt)
+    payable_rows = {r.case_code: r for r in payable_result.all()}
+
+    # 3. 費用核銷按案件分組
+    expense_stmt = (
+        select(
+            ExpenseInvoice.case_code,
+            func.count(ExpenseInvoice.id).label("expense_count"),
+            func.sum(ExpenseInvoice.amount).label("expense_total"),
+            func.sum(sa_case(
+                (ExpenseInvoice.status == "verified", ExpenseInvoice.amount), else_=0
+            )).label("expense_verified"),
+            func.sum(sa_case(
+                (ExpenseInvoice.status.in_(["pending", "manager_approved", "finance_approved"]),
+                 ExpenseInvoice.amount), else_=0
+            )).label("expense_pending"),
+        )
+        .where(ExpenseInvoice.case_code.isnot(None))
+        .group_by(ExpenseInvoice.case_code)
+    )
+    expense_result = await service.db.execute(expense_stmt)
+    expense_rows = {r.case_code: r for r in expense_result.all()}
+
+    # 4. 合併所有案件
+    all_codes = set(billing_rows.keys()) | set(payable_rows.keys()) | set(expense_rows.keys())
+    cases = []
+    totals = {"billing": 0, "billing_received": 0, "payable": 0, "payable_paid": 0,
+              "expense": 0, "expense_verified": 0, "expense_pending": 0}
+
+    for code in sorted(all_codes):
+        b = billing_rows.get(code)
+        p = payable_rows.get(code)
+        e = expense_rows.get(code)
+
+        row = {
+            "case_code": code,
+            "case_name": b.case_name if b else None,
+            "project_code": b.project_code if b else None,
+            "billing_count": b.billing_count if b else 0,
+            "billing_total": float(b.billing_total or 0) if b else 0,
+            "billing_received": float(b.billing_received or 0) if b else 0,
+            "payable_count": p.payable_count if p else 0,
+            "payable_total": float(p.payable_total or 0) if p else 0,
+            "payable_paid": float(p.payable_paid or 0) if p else 0,
+            "expense_count": e.expense_count if e else 0,
+            "expense_total": float(e.expense_total or 0) if e else 0,
+            "expense_verified": float(e.expense_verified or 0) if e else 0,
+            "expense_pending": float(e.expense_pending or 0) if e else 0,
+        }
+        cases.append(row)
+        totals["billing"] += row["billing_total"]
+        totals["billing_received"] += row["billing_received"]
+        totals["payable"] += row["payable_total"]
+        totals["payable_paid"] += row["payable_paid"]
+        totals["expense"] += row["expense_total"]
+        totals["expense_verified"] += row["expense_verified"]
+        totals["expense_pending"] += row["expense_pending"]
+
+    # 5. 未歸案費用
+    unlinked_stmt = (
+        select(
+            func.count(ExpenseInvoice.id).label("count"),
+            func.sum(ExpenseInvoice.amount).label("total"),
+        )
+        .where(ExpenseInvoice.case_code.is_(None))
+    )
+    unlinked = await service.db.execute(unlinked_stmt)
+    unlinked_row = unlinked.first()
+
+    return SuccessResponse(data={
+        "cases": cases,
+        "totals": totals,
+        "unlinked_expenses": {
+            "count": unlinked_row.count if unlinked_row else 0,
+            "total": float(unlinked_row.total or 0) if unlinked_row else 0,
+        },
+    })
+
+
 @router.post("/case-finance")
 async def case_finance_summary(
     request: Request,
