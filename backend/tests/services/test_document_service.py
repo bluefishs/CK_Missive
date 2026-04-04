@@ -458,15 +458,13 @@ class TestGetDocuments:
 
     @pytest.mark.asyncio
     async def test_get_documents_exception_handling(self, mock_db_session):
-        """測試例外處理"""
+        """測試例外處理 — DB 錯誤應向上拋出"""
         service = DocumentService(db=mock_db_session, auto_create_events=False)
 
         mock_db_session.execute.side_effect = Exception("Database error")
 
-        result = await service.get_documents()
-
-        assert result["items"] == []
-        assert result["total"] == 0
+        with pytest.raises(Exception, match="Database error"):
+            await service.get_documents()
 
     @pytest.mark.asyncio
     async def test_get_documents_without_relations(self, mock_db_session):
@@ -504,7 +502,7 @@ class TestGetDocumentById:
         mock_doc.subject = "測試主旨"
 
         mock_result = MagicMock()
-        mock_result.scalars.return_value.first.return_value = mock_doc
+        mock_result.scalar_one_or_none.return_value = mock_doc
         mock_db_session.execute.return_value = mock_result
 
         result = await service.get_document_by_id(1)
@@ -518,7 +516,7 @@ class TestGetDocumentById:
         service = DocumentService(db=mock_db_session, auto_create_events=False)
 
         mock_result = MagicMock()
-        mock_result.scalars.return_value.first.return_value = None
+        mock_result.scalar_one_or_none.return_value = None
         mock_db_session.execute.return_value = mock_result
 
         result = await service.get_document_by_id(999)
@@ -537,7 +535,7 @@ class TestGetDocumentById:
         mock_doc.receiver_agency = MagicMock()
 
         mock_result = MagicMock()
-        mock_result.scalars.return_value.first.return_value = mock_doc
+        mock_result.scalar_one_or_none.return_value = mock_doc
         mock_db_session.execute.return_value = mock_result
 
         result = await service.get_document_by_id(1, include_relations=True)
@@ -554,7 +552,7 @@ class TestGetDocumentById:
         mock_doc.id = 1
 
         mock_result = MagicMock()
-        mock_result.scalars.return_value.first.return_value = mock_doc
+        mock_result.scalar_one_or_none.return_value = mock_doc
         mock_db_session.execute.return_value = mock_result
 
         result = await service.get_document_by_id(1, include_relations=False)
@@ -599,7 +597,7 @@ class TestGetDocumentWithExtraInfo:
         mock_doc = MockDocument()
 
         mock_result = MagicMock()
-        mock_result.scalars.return_value.first.return_value = mock_doc
+        mock_result.scalar_one_or_none.return_value = mock_doc
         mock_db_session.execute.return_value = mock_result
 
         result = await service.get_document_with_extra_info(1)
@@ -616,7 +614,7 @@ class TestGetDocumentWithExtraInfo:
         service = DocumentService(db=mock_db_session, auto_create_events=False)
 
         mock_result = MagicMock()
-        mock_result.scalars.return_value.first.return_value = None
+        mock_result.scalar_one_or_none.return_value = None
         mock_db_session.execute.return_value = mock_result
 
         result = await service.get_document_with_extra_info(999)
@@ -640,7 +638,7 @@ class TestGetDocumentWithExtraInfo:
         mock_doc = MockDocument()
 
         mock_result = MagicMock()
-        mock_result.scalars.return_value.first.return_value = mock_doc
+        mock_result.scalar_one_or_none.return_value = mock_doc
 
         # 附件計數查詢
         mock_count_result = MagicMock()
@@ -676,7 +674,7 @@ class TestGetDocumentWithExtraInfo:
         mock_doc = MockDocument()
 
         mock_result = MagicMock()
-        mock_result.scalars.return_value.first.return_value = mock_doc
+        mock_result.scalar_one_or_none.return_value = mock_doc
         mock_db_session.execute.return_value = mock_result
 
         result = await service.get_document_with_extra_info(1)

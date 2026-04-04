@@ -101,7 +101,7 @@ class TestBenchmarkIntentCoverage:
 
     def test_all_categories_covered(self):
         categories = {b["category"] for b in BENCHMARKS}
-        expected = {"doc", "dispatch", "graph", "pm", "erp", "viz", "mixed", "chitchat"}
+        expected = {"doc", "dispatch", "graph", "pm", "erp", "viz", "mixed", "chitchat", "conservative_agent"}
         assert categories == expected
 
     def test_category_distribution(self):
@@ -110,7 +110,8 @@ class TestBenchmarkIntentCoverage:
         assert dist["doc"] == 10
         assert dist["dispatch"] == 8
         assert dist["graph"] == 10
-        assert dist["chitchat"] == 4
+        assert dist["chitchat"] == 3
+        assert dist["conservative_agent"] == 1
 
     def test_all_ids_unique(self):
         ids = [b["id"] for b in BENCHMARKS]
@@ -177,6 +178,7 @@ class TestBenchmarkAutoCorrection:
         assert "get_entity_detail" in tool_names
 
     def test_strategy6_dispatch_auto_chase_correspondence(self):
+        """策略 0 優先: 派工單已有結果時不需額外修正 (含關聯公文)"""
         results = [{
             "tool": "search_dispatch_orders",
             "params": {"limit": 10},
@@ -188,6 +190,7 @@ class TestBenchmarkAutoCorrection:
             },
         }]
         replan = AgentPlanner._auto_correct("派工單007", results)
+        # 策略 6: 派工單已找到，自動追查收發文配對
         assert replan is not None
         tool_names = [tc["name"] for tc in replan["tool_calls"]]
         assert "find_correspondence" in tool_names

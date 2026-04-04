@@ -1119,6 +1119,14 @@
           "nullable": true,
           "default": "now()",
           "udt_name": "timestamp"
+        },
+        {
+          "name": "photo_path",
+          "type": "CHARACTER VARYING",
+          "nullable": true,
+          "default": null,
+          "udt_name": "varchar",
+          "max_length": 500
         }
       ],
       "primary_key": [
@@ -1285,7 +1293,7 @@
         }
       ],
       "unique_constraints": {},
-      "row_count_estimate": 1629
+      "row_count_estimate": 2097
     },
     "canonical_entities": {
       "columns": [
@@ -1478,7 +1486,7 @@
           "entity_type"
         ]
       },
-      "row_count_estimate": 7302
+      "row_count_estimate": 7361
     },
     "case_nature_codes": {
       "columns": [
@@ -3529,7 +3537,7 @@
         }
       ],
       "unique_constraints": {},
-      "row_count_estimate": 3277
+      "row_count_estimate": 2894
     },
     "erp_billings": {
       "columns": [
@@ -4589,6 +4597,21 @@
           "nullable": true,
           "default": null,
           "udt_name": "int4"
+        },
+        {
+          "name": "attribution_type",
+          "type": "CHARACTER VARYING",
+          "nullable": false,
+          "default": "'none'::character varying",
+          "udt_name": "varchar",
+          "max_length": 20
+        },
+        {
+          "name": "operational_account_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "default": null,
+          "udt_name": "int4"
         }
       ],
       "primary_key": [
@@ -4603,6 +4626,11 @@
         {
           "column": "vendor_id",
           "ref_table": "partner_vendors",
+          "ref_column": "id"
+        },
+        {
+          "column": "operational_account_id",
+          "ref_table": "operational_accounts",
           "ref_column": "id"
         }
       ],
@@ -4630,10 +4658,14 @@
         {
           "name": "ix_expense_invoices_user_id",
           "definition": "CREATE INDEX ix_expense_invoices_user_id ON public.expense_invoices USING btree (user_id)"
+        },
+        {
+          "name": "ix_expense_invoices_attribution_type",
+          "definition": "CREATE INDEX ix_expense_invoices_attribution_type ON public.expense_invoices USING btree (attribution_type)"
         }
       ],
       "unique_constraints": {},
-      "row_count_estimate": -1
+      "row_count_estimate": 2
     },
     "finance_ledgers": {
       "columns": [
@@ -7147,7 +7179,7 @@
           "key"
         ]
       },
-      "row_count_estimate": 55
+      "row_count_estimate": 59
     },
     "staff_certifications": {
       "columns": [
@@ -7393,7 +7425,7 @@
         }
       ],
       "unique_constraints": {},
-      "row_count_estimate": 266
+      "row_count_estimate": 374
     },
     "taoyuan_contract_payments": {
       "columns": [

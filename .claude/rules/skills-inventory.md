@@ -124,6 +124,19 @@
 
 ---
 
+## v5.3.23 品質修正 (2026-04-02, 15 commits)
+
+| 項目 | 說明 |
+|------|------|
+| fix: vendors 422 | 廠商 API 驗證修正 |
+| fix: tender create-case | 建案邏輯修正 (僅建 PM Case，不建 ERP) + duplicate prevention |
+| fix: PM cases year filter | 年度篩選改用 `date.today().year` (移除硬編碼 2025) |
+| fix: PM case delete | 刪除修正 + tender create-case 欄位映射 |
+| chore: ER model | 標案表更新後 ER 模型同步 |
+| docs: session summary | v5.3.23 版本文件同步 |
+
+---
+
 ## v5.3.22 標案檢索模組 (2026-04-01~02, 46 commits)
 
 ### 標案模組

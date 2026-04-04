@@ -34,7 +34,7 @@ from httpx import ASGITransport, AsyncClient
 async def app():
     """建立測試用 FastAPI app (mock DB + Redis)."""
     with (
-        patch("app.core.database.get_async_db") as mock_db_dep,
+        patch("app.db.database.get_async_db") as mock_db_dep,
         patch.dict(os.environ, {
             "MCP_SERVICE_TOKEN": "test-token-abc123",
             "MCP_SERVICE_TOKEN_PREV": "test-token-old456",
@@ -200,13 +200,13 @@ class TestFederatedContribute:
 
     @pytest.mark.asyncio
     async def test_contribute_invalid_token(self, client):
-        """無效 service token — 應回傳 403."""
+        """無效 service token — 應回傳 401."""
         resp = await client.post(
             "/api/ai/graph/federated-contribute",
             json=VALID_CONTRIBUTION,
             headers={"X-Service-Token": "wrong-token"},
         )
-        assert resp.status_code == 403
+        assert resp.status_code == 401
 
     @pytest.mark.asyncio
     async def test_contribute_empty_contributions(self, client):
@@ -246,7 +246,7 @@ class TestFederationHealth:
             }
 
             # 此端點需要 admin JWT — mock require_admin
-            with patch("app.api.endpoints.ai.graph_query.require_admin") as mock_admin:
+            with patch("app.api.endpoints.ai.agent_nemoclaw.require_admin") as mock_admin:
                 mock_admin.return_value = lambda: MagicMock()
 
                 resp = await client.post(

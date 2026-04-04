@@ -44,10 +44,9 @@ class TestDetectDomains:
         assert "pm" in domains
         assert "erp" in domains
 
-    def test_dispatch_merged_to_doc(self):
+    def test_dispatch_detected(self):
         domains = self.supervisor.detect_domains("派工單的進度如何？")
-        assert "doc" in domains
-        assert "dispatch" not in domains
+        assert "dispatch" in domains
 
     def test_default_to_doc(self):
         domains = self.supervisor.detect_domains("你好")

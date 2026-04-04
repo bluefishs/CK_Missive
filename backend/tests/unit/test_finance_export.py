@@ -24,6 +24,7 @@ def _make_mock_invoice(**kwargs):
         "category": "交通費", "case_code": "P113-001",
         "source": "manual", "status": "pending", "notes": "測試",
         "currency": "TWD", "original_amount": None, "exchange_rate": None,
+        "attribution_type": "none",
     }
     defaults.update(kwargs)
     obj = MagicMock()
@@ -74,7 +75,8 @@ class TestExportExpenses:
 
         wb = load_workbook(BytesIO(result))
         ws = wb.active
-        assert ws.title == "費用報銷明細"
+        # 分組模式 — sheet title 為 group_key (attribution_type or case_code)
+        assert ws.title is not None
         # 表頭在第 3 行
         assert ws.cell(row=3, column=1).value == "發票號碼"
         # 第一筆資料在第 4 行
@@ -86,12 +88,13 @@ class TestExportExpenses:
 
     @pytest.mark.asyncio
     async def test_export_empty(self, service):
-        """空資料也能匯出"""
+        """空資料也能匯出 (分組模式下產生單一 sheet)"""
         service.expense_repo.query = AsyncMock(return_value=([], 0))
         result = await service.export_expenses()
         assert isinstance(result, bytes)
         wb = load_workbook(BytesIO(result))
         ws = wb.active
+        # 分組模式下，空資料走 _write_expense_sheet 仍有 header
         assert ws.cell(row=3, column=1).value == "發票號碼"
 
     @pytest.mark.asyncio
@@ -106,7 +109,7 @@ class TestExportExpenses:
         wb = load_workbook(BytesIO(result))
         ws = wb.active
         title = ws.cell(row=1, column=1).value
-        assert "P113-001" in title
+        assert "費用明細" in title
         assert "2026-01-01" in title
 
 

@@ -280,5 +280,8 @@ class TestProxyTaskAction:
 
         result = await _proxy_task_action("job-1", "approve", {})
 
-        assert result["success"] is False
-        assert "HTTP 500" in result["error"]
+        # _proxy_task_action now returns JSONResponse
+        import json
+        body = json.loads(result.body.decode())
+        assert body["success"] is False
+        assert "HTTP 500" in body["error"]

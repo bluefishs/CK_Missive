@@ -99,5 +99,26 @@ module.exports = {
       max_restarts: 10,
       min_uptime: '10s',
     },
+
+    // ---- 發票影像 Watchdog 監控 ----
+    {
+      name: 'invoice-watcher',
+      script: 'scripts/dev/invoice-watcher.py',
+      interpreter: 'python',
+      cwd: __dirname,
+      watch: false,
+      autorestart: true,
+
+      // 日誌
+      error_file: './logs/invoice-watcher-error.log',
+      out_file: './logs/invoice-watcher-out.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss',
+      merge_logs: true,
+      max_size: '10M',
+
+      restart_delay: 5000,
+      max_restarts: 5,
+      min_uptime: '10s',
+    },
   ],
 };

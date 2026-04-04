@@ -46,6 +46,7 @@ erDiagram
     expense_invoices ||--o{ expense_invoice_items : "invoice_id"
     users ||--o{ expense_invoices : "user_id"
     partner_vendors ||--o{ expense_invoices : "vendor_id"
+    operational_accounts ||--o{ expense_invoices : "operational_account_id"
     users ||--o{ finance_ledgers : "user_id"
     partner_vendors ||--o{ finance_ledgers : "vendor_id"
     government_agencies ||--o{ government_agencies : "parent_agency_id"
@@ -227,6 +228,7 @@ erDiagram
         int created_by "FK"
         timestamp created_at
         timestamp updated_at
+        varchar photo_path
     }
     audit_logs {
         bigint id "PK"
@@ -601,6 +603,8 @@ erDiagram
         numeric original_amount
         numeric exchange_rate
         int vendor_id "FK"
+        varchar attribution_type "NOT NULL"
+        int operational_account_id "FK"
     }
     finance_ledgers {
         int id "PK"
@@ -1157,6 +1161,6 @@ erDiagram
 | 指標 | 數值 |
 |------|------|
 | 總表數 | 65 |
-| 總欄位數 | 927 |
-| 外鍵關聯 | 91 |
+| 總欄位數 | 930 |
+| 外鍵關聯 | 92 |
 | 自訂列舉型別 | 0 |

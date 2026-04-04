@@ -99,6 +99,12 @@ export default defineConfig(({ mode }) => {
             });
           },
         },
+        // Proxy uploaded files to backend
+        '/uploads': {
+          target: 'http://127.0.0.1:8001',
+          changeOrigin: true,
+          secure: false,
+        },
         // Proxy OpenAPI specification for API documentation
         '/openapi.json': {
           target: env.VITE_API_BASE_URL || 'http://127.0.0.1:8001',

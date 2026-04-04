@@ -113,7 +113,7 @@ services:
               count: 1
               capabilities: [gpu]
         limits:
-          memory: 8G
+          memory: 12G
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 30s

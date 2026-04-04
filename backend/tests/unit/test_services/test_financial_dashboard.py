@@ -191,7 +191,10 @@ class TestBatchProjectSummaries:
             MagicMock(case_code="A002", entry_type="expense", total=Decimal("100000")),
         ]
 
-        mock_db.execute = AsyncMock(side_effect=[mock_proj_result, mock_expense_result, mock_ledger_result])
+        mock_quot_result = MagicMock()
+        mock_quot_result.all.return_value = []
+
+        mock_db.execute = AsyncMock(side_effect=[mock_proj_result, mock_expense_result, mock_ledger_result, mock_quot_result])
 
         from app.repositories.erp.financial_summary_repository import FinancialSummaryRepository
         repo = FinancialSummaryRepository(mock_db)
@@ -233,7 +236,10 @@ class TestBatchProjectSummaries:
         mock_ledger_result = MagicMock()
         mock_ledger_result.all.return_value = []
 
-        mock_db.execute = AsyncMock(side_effect=[mock_proj_result, mock_expense_result, mock_ledger_result])
+        mock_quot_result = MagicMock()
+        mock_quot_result.all.return_value = []
+
+        mock_db.execute = AsyncMock(side_effect=[mock_proj_result, mock_expense_result, mock_ledger_result, mock_quot_result])
 
         from app.repositories.erp.financial_summary_repository import FinancialSummaryRepository
         repo = FinancialSummaryRepository(mock_db)
@@ -259,8 +265,10 @@ class TestBatchProjectSummaries:
             MagicMock(case_code="C1", entry_type="expense", total=Decimal("96000")),  # 96%
             MagicMock(case_code="C2", entry_type="expense", total=Decimal("85000")),  # 85%
         ]
+        mock_quot_result = MagicMock()
+        mock_quot_result.all.return_value = []
 
-        mock_db.execute = AsyncMock(side_effect=[mock_proj_result, mock_expense_result, mock_ledger_result])
+        mock_db.execute = AsyncMock(side_effect=[mock_proj_result, mock_expense_result, mock_ledger_result, mock_quot_result])
 
         from app.repositories.erp.financial_summary_repository import FinancialSummaryRepository
         repo = FinancialSummaryRepository(mock_db)

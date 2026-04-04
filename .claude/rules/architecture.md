@@ -515,11 +515,16 @@ frontend/src/components/document/operations/
 └── index.ts                    # 統一匯出
 ```
 
-## 前端型別 SSOT (v5.3.0)
+## 前端型別 SSOT (v5.3.24)
 
 ```
 frontend/src/types/
-├── api.ts              # 業務實體型別 (User, Agency, Document, Project 等, 1341L)
+├── api.ts              # Barrel re-export + 公文類別常數 + 工具型別 (132L, v3.0 拆分)
+├── api-project.ts      # 專案/承攬案件/人員/廠商關聯型別 (444L)
+├── api-user.ts         # 使用者/管理員/權限型別 (172L)
+├── api-calendar.ts     # 行事曆事件/Google Calendar 型別 (131L)
+├── api-entity.ts       # 廠商/機關基礎型別 (140L)
+├── api-knowledge.ts    # 知識庫/公文配對型別 (131L)
 ├── ai.ts               # AI 型別 barrel re-export (28L, v2.0 拆分)
 ├── ai-document.ts      # AI 文件處理型別 (摘要/分類/匹配/配置, 151L)
 ├── ai-search.ts        # AI 搜尋型別 (意圖/Embedding/同義詞/Prompt, 332L)
@@ -529,8 +534,9 @@ frontend/src/types/
 ├── forms.ts            # 表單共用型別
 ├── admin-system.ts     # 系統管理型別
 ├── taoyuan.ts          # 桃園派工型別
-├── pm.ts               # 專案管理型別 (PM Cases)
-├── erp.ts              # ERP 財務型別 (Quotations + Expenses + Ledger + Dashboard + EInvoice)
+├── pm.ts               # 專案管理型別 (PM Cases, 234L, SSOT 含核心定義)
+├── erp.ts              # ERP 財務型別 (1080L, SSOT 含核心定義)
+├── tender.ts           # 標案檢索型別
 ├── navigation.ts       # 導覽型別
 └── index.ts            # 統一匯出 (含相容別名)
 ```

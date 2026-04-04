@@ -205,8 +205,8 @@ class TestQRParsing:
 
     def test_parse_valid_qr(self, service):
         """解析有效 QR 資料"""
-        # 模擬 QR: 發票號碼(10) + 日期(7) + 填充(8) + 買方(8) + 賣方(8) + 金額hex(8) + padding
-        qr = "AB12345678" + "1150321" + "ABCD1234" + "12345678" + "87654321" + "00000420" + "0" * 30
+        # 模擬 QR: 發票號碼(10) + 日期(7) + 隨機碼(4) + 銷售額hex(8) + 總額hex(8) + 買方統編(8) + 賣方統編(8) + 驗證碼(24)
+        qr = "AB12345678" + "1150321" + "ABCD" + "00000000" + "00000420" + "12345678" + "87654321" + "0" * 24
         result = service.parse_qr_data(qr)
         assert result["inv_num"] == "AB12345678"
         assert result["buyer_ban"] == "12345678"
@@ -216,7 +216,8 @@ class TestQRParsing:
 
     def test_parse_qr_date_conversion(self, service):
         """民國日期轉西元"""
-        qr = "CD99887766" + "1150101" + "AAAA1111" + "11111111" + "22222222" + "00000064" + "0" * 30
+        # 格式: 發票號碼(10) + 日期(7) + 隨機碼(4) + 銷售額hex(8) + 總額hex(8) + 買方統編(8) + 賣方統編(8) + 驗證碼(24)
+        qr = "CD99887766" + "1150101" + "AAAA" + "00000000" + "00000064" + "11111111" + "22222222" + "0" * 24
         result = service.parse_qr_data(qr)
         assert result["date"] == date(2026, 1, 1)  # 民國115年 = 西元2026年
 
