@@ -156,6 +156,8 @@ export const ERP_ENDPOINTS = {
   EXPENSES_SUGGEST_CATEGORY: '/erp/expenses/suggest-category',
   /** 費用核銷分組彙總 POST /erp/expenses/grouped-summary */
   EXPENSES_GROUPED_SUMMARY: '/erp/expenses/grouped-summary',
+  /** 案件整合財務紀錄 POST /erp/expenses/case-finance */
+  EXPENSES_CASE_FINANCE: '/erp/expenses/case-finance',
   /** 自動關聯電子發票 POST /erp/expenses/auto-link-einvoice */
   EXPENSES_AUTO_LINK_EINVOICE: '/erp/expenses/auto-link-einvoice',
   /** 匯入費用報銷 Excel POST /erp/expenses/import */

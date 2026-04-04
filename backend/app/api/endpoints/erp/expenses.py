@@ -51,6 +51,85 @@ async def grouped_expense_summary(
     return SuccessResponse(data=result)
 
 
+@router.post("/case-finance")
+async def case_finance_summary(
+    request: Request,
+    service: ExpenseInvoiceService = Depends(get_service(ExpenseInvoiceService)),
+    current_user: User = Depends(require_auth()),
+):
+    """案件整合財務紀錄 — 整合 expense_invoices + erp_billings + erp_invoices
+
+    用於 PM Case 費用 Tab，一次取得該案件所有財務相關紀錄。
+    """
+    body = await request.json()
+    case_code = body.get("case_code")
+    if not case_code:
+        raise HTTPException(status_code=400, detail="case_code 為必填")
+
+    from sqlalchemy import select, func
+    from app.extended.models.invoice import ExpenseInvoice
+    from app.extended.models.erp import ERPQuotation, ERPBilling, ERPInvoice
+
+    # 1. 費用報銷
+    exp_result = await service.db.execute(
+        select(ExpenseInvoice).where(ExpenseInvoice.case_code == case_code)
+        .order_by(ExpenseInvoice.date.desc()).limit(100)
+    )
+    expenses = [
+        {"type": "expense", "id": e.id, "date": str(e.date) if e.date else None,
+         "amount": float(e.amount or 0), "description": e.inv_num,
+         "category": e.category, "status": e.status, "source": e.source}
+        for e in exp_result.scalars().all()
+    ]
+
+    # 2. ERP 請款 + 開票 (via erp_quotation)
+    q_result = await service.db.execute(
+        select(ERPQuotation.id).where(ERPQuotation.case_code == case_code)
+    )
+    q_ids = [r[0] for r in q_result.all()]
+
+    billings = []
+    invoices = []
+    if q_ids:
+        b_result = await service.db.execute(
+            select(ERPBilling).where(ERPBilling.erp_quotation_id.in_(q_ids))
+            .order_by(ERPBilling.billing_date.desc())
+        )
+        billings = [
+            {"type": "billing", "id": b.id, "date": str(b.billing_date) if b.billing_date else None,
+             "amount": float(b.billing_amount or 0), "description": b.billing_period or "請款",
+             "category": "請款", "status": b.payment_status, "source": "erp_billing"}
+            for b in b_result.scalars().all()
+        ]
+
+        i_result = await service.db.execute(
+            select(ERPInvoice).where(ERPInvoice.erp_quotation_id.in_(q_ids))
+            .order_by(ERPInvoice.invoice_date.desc())
+        )
+        invoices = [
+            {"type": "invoice", "id": inv.id, "date": str(inv.invoice_date) if inv.invoice_date else None,
+             "amount": float(inv.amount or 0), "description": inv.invoice_number or "發票",
+             "category": "開票", "status": "issued", "source": "erp_invoice"}
+            for inv in i_result.scalars().all()
+        ]
+
+    all_records = expenses + billings + invoices
+    all_records.sort(key=lambda x: x.get("date") or "", reverse=True)
+
+    return SuccessResponse(data={
+        "case_code": case_code,
+        "records": all_records,
+        "summary": {
+            "expense_count": len(expenses),
+            "expense_total": sum(e["amount"] for e in expenses),
+            "billing_count": len(billings),
+            "billing_total": sum(b["amount"] for b in billings),
+            "invoice_count": len(invoices),
+            "invoice_total": sum(i["amount"] for i in invoices),
+        },
+    })
+
+
 @router.post("/create")
 async def create_expense(
     data: ExpenseInvoiceCreate,
