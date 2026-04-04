@@ -97,8 +97,15 @@ class ExpenseInvoiceService(AuditableServiceMixin):
         return invoice
 
     async def get_by_id(self, invoice_id: int) -> Optional[ExpenseInvoice]:
-        """取得發票詳情"""
-        return await self.repo.get_by_id(invoice_id)
+        """取得發票詳情 (含 items eager load)"""
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
+        result = await self.db.execute(
+            select(ExpenseInvoice)
+            .options(selectinload(ExpenseInvoice.items))
+            .where(ExpenseInvoice.id == invoice_id)
+        )
+        return result.scalar_one_or_none()
 
     async def update(self, invoice_id: int, data: "ExpenseInvoiceUpdate") -> Optional[ExpenseInvoice]:
         """更新發票部分欄位"""
