@@ -365,6 +365,15 @@ frontend/src/pages/
 │   ├── QuotationRecordsTab.tsx # 報價紀錄頁籤 (225L)
 │   ├── StaffTab.tsx            # 專案人員頁籤
 │   └── CrossModuleCard.tsx     # 跨模組資訊卡片
+├── taoyuanProject/             # 桃園工程專案詳情子元件
+│   ├── TaoyuanProjectDetailPage.tsx # 專案詳情主頁 (213L)
+│   ├── hooks/useTaoyuanProjectDetail.ts # 資料載入 Hook
+│   └── tabs/                   # 頁籤元件 (12 files)
+│       ├── BasicInfoTab.tsx, BudgetEstimateTab.tsx, EngineeringScopeTab.tsx
+│       ├── DispatchLinksTab.tsx, LandBuildingTab.tsx, ReviewStatusTab.tsx
+│       ├── KanbanBoardTab.tsx, ProjectWorkOverviewTab.tsx
+│       ├── ProjectWorkflowTab.tsx (386L), WorkflowTimeline.tsx, WorkflowStatsCard.tsx
+│       └── index.ts
 ├── taoyuanDispatch/            # TaoyuanDispatchDetailPage 子元件
 │   ├── DispatchDetailHeader.tsx # 詳情頁標頭 (91L)
 │   └── tabs/                   # 既有頁籤元件
