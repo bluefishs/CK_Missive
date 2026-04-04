@@ -15,8 +15,10 @@ import type { ProjectFinancialSummary, CompanyOverviewRequest, BudgetRankingItem
 import type { ColumnsType } from 'antd/es/table';
 import { ROUTES } from '../router/types';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
-  PieChart, Pie, Legend, LineChart, Line,
+  ProfitRankingChart, CategoryPieChart, MonthlyTrendChart, BudgetRankingChart,
+} from './erpDashboard';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
 
 const { Title, Text } = Typography;
@@ -32,8 +34,6 @@ const ALERT_LABELS: Record<string, string> = {
   warning: '注意',
   critical: '超支警報',
 };
-
-const PIE_COLORS = ['#4472C4', '#ED7D31', '#A5A5A5', '#FFC000', '#5B9BD5', '#70AD47', '#264478', '#9B59B6', '#E74C3C', '#1ABC9C', '#F39C12', '#2C3E50', '#8E44AD', '#16A085', '#D35400'];
 
 const currentYear = new Date().getFullYear() - 1911;
 const yearOptions = Array.from({ length: 5 }, (_, i) => ({
@@ -266,115 +266,23 @@ const ERPFinancialDashboardPage: React.FC = () => {
 
       {/* 圖表分析區 — 依面向篩選 */}
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        {/* 跨專案利潤率排名 (專案/全部) */}
         <Col xs={24} lg={14} style={{ display: (dashView === 'all' || dashView === 'project') ? undefined : 'none' }}>
-          <Card title={<Text strong>專案利潤排名 (Top 15)</Text>} size="small">
-            {profitChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={360}>
-                <BarChart data={profitChartData} layout="vertical" margin={{ left: 80, right: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}K`} />
-                  <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 12 }} />
-                  <Tooltip
-                    formatter={(value: number, name: string) => [
-                      `${value.toLocaleString()} 元`,
-                      name === 'income' ? '收入' : name === 'expense' ? '支出' : '淨額',
-                    ]}
-                  />
-                  <Bar dataKey="income" name="收入" fill="#52c41a" barSize={8} />
-                  <Bar dataKey="expense" name="支出" fill="#ff4d4f" barSize={8} />
-                  <Bar dataKey="net" name="淨額" barSize={10}>
-                    {profitChartData.map((entry, idx) => (
-                      <Cell key={idx} fill={entry.net >= 0 ? '#1890ff' : '#faad14'} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div style={{ textAlign: 'center', padding: 40, color: '#999' }}>無專案資料</div>
-            )}
-          </Card>
+          <ProfitRankingChart data={profitChartData} />
         </Col>
-
-        {/* 支出分類圓餅圖 (全部/營運) */}
         <Col xs={24} lg={10} style={{ display: (dashView === 'all' || dashView === 'operational') ? undefined : 'none' }}>
-          <Card title={<Text strong>支出分類分布</Text>} size="small">
-            {categoryPieData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={360}>
-                <PieChart>
-                  <Pie
-                    data={categoryPieData}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={120}
-                    dataKey="value"
-                    label={(props) => {
-                      const { name, percent } = props as { name: string; percent: number };
-                      return `${name} ${(percent * 100).toFixed(1)}%`;
-                    }}
-                    labelLine={{ strokeWidth: 1 }}
-                  >
-                    {categoryPieData.map((_, idx) => (
-                      <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value: number) => [`${value.toLocaleString()} 元`]} />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div style={{ textAlign: 'center', padding: 40, color: '#999' }}>無分類資料</div>
-            )}
-          </Card>
+          <CategoryPieChart data={categoryPieData} />
         </Col>
       </Row>
 
-      {/* 月度收支趨勢 + 預算使用率排行 (全部/專案) */}
       <Row gutter={[16, 16]} style={{ marginBottom: 16, display: (dashView === 'all' || dashView === 'project') ? undefined : 'none' }}>
         <Col xs={24} lg={14}>
-          <Card title={<Text strong>月度收支趨勢 (近 12 個月)</Text>} size="small" loading={trendLoading}>
-            {trendMonths.length > 0 ? (
-              <ResponsiveContainer width="100%" height={320}>
-                <LineChart data={trendMonths.map((m) => ({ ...m, income: Number(m.income), expense: Number(m.expense), net: Number(m.net) }))} margin={{ left: 10, right: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                  <YAxis tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}K`} />
-                  <Tooltip formatter={(value: number, name: string) => [
-                    `${value.toLocaleString()} 元`,
-                    name === 'income' ? '收入' : name === 'expense' ? '支出' : '淨額',
-                  ]} />
-                  <Line type="monotone" dataKey="income" name="收入" stroke="#52c41a" strokeWidth={2} dot={{ r: 3 }} />
-                  <Line type="monotone" dataKey="expense" name="支出" stroke="#ff4d4f" strokeWidth={2} dot={{ r: 3 }} />
-                  <Line type="monotone" dataKey="net" name="淨額" stroke="#1890ff" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 3 }} />
-                  <Legend />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div style={{ textAlign: 'center', padding: 40, color: '#999' }}>無趨勢資料</div>
-            )}
-          </Card>
+          <MonthlyTrendChart
+            data={trendMonths.map((m) => ({ ...m, income: Number(m.income), expense: Number(m.expense), net: Number(m.net) }))}
+            loading={trendLoading}
+          />
         </Col>
-
         <Col xs={24} lg={10}>
-          <Card title={<Text strong>預算使用率排行 (Top 15)</Text>} size="small" loading={rankingLoading}>
-            {rankingItems.length > 0 ? (
-              <ResponsiveContainer width="100%" height={320}>
-                <BarChart data={rankingItems.map((r) => ({ name: r.case_name || r.case_code, usage: r.usage_pct ?? 0, alert: r.alert }))} layout="vertical" margin={{ left: 100, right: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" domain={[0, (max: number) => Math.max(max, 100)]} tickFormatter={(v: number) => `${v}%`} />
-                  <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(value: number) => [`${value.toFixed(1)}%`, '使用率']} />
-                  <Bar dataKey="usage" name="使用率" barSize={14}>
-                    {rankingItems.map((r, idx) => (
-                      <Cell key={idx} fill={r.alert === 'critical' ? '#ff4d4f' : r.alert === 'warning' ? '#faad14' : '#52c41a'} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div style={{ textAlign: 'center', padding: 40, color: '#999' }}>無排行資料</div>
-            )}
-          </Card>
+          <BudgetRankingChart data={rankingItems} loading={rankingLoading} />
         </Col>
       </Row>
 
@@ -474,15 +382,7 @@ const ERPFinancialDashboardPage: React.FC = () => {
           {/* 支出分類圓餅 (營運面向時同樣顯示) */}
           {categoryPieData.length > 0 && (
             <div style={{ marginTop: 16 }}>
-              <Text strong>支出分類分布</Text>
-              <ResponsiveContainer width="100%" height={280}>
-                <PieChart>
-                  <Pie data={categoryPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
-                    {categoryPieData.map((_: unknown, idx: number) => <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip formatter={(value: number) => [`NT$ ${value.toLocaleString()}`, '金額']} />
-                </PieChart>
-              </ResponsiveContainer>
+              <CategoryPieChart data={categoryPieData} />
             </div>
           )}
         </Card>
