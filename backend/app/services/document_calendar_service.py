@@ -1,32 +1,32 @@
 """
-公文行事曆同步服務 - 單向同步至 Google Calendar
-實作 Google Calendar API 整合
+公文行事曆服務 — DB CRUD + Google 同步編排
 
-重構版本 v2.1.0 (2026-03-19)：
-- 提取 GoogleCalendarClient 至 google_calendar_client.py
-- 本服務專注 DB 操作 + 同步編排
+Google 同步引擎已拆分至 document_calendar_sync.py (CalendarGoogleSync)。
+本服務保留 DB 操作、公文事件建立、衝突偵測、統計查詢。
+
+Version: 3.0.0 — refactored from 482L
 """
 import logging
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
 
 from app.extended.models import DocumentCalendarEvent, OfficialDocument
 from app.schemas.document_calendar import DocumentCalendarEventUpdate
 from app.repositories.calendar_repository import CalendarRepository
 from app.services.google_calendar_client import GoogleCalendarClient
+from app.services.document_calendar_sync import CalendarGoogleSync
 
 logger = logging.getLogger(__name__)
 
 
 class DocumentCalendarService:
-    """公文行事曆相關的資料庫與 Google 同步編排服務"""
+    """公文行事曆 CRUD + Google 同步編排 (Facade)"""
 
     def __init__(self) -> None:
         self._google = GoogleCalendarClient()
+        self._sync = CalendarGoogleSync(self._google)
 
     # === 向後相容：保留原有公開介面 ===
 
@@ -131,198 +131,14 @@ class DocumentCalendarService:
         return {"deleted": deleted, "total": len(event_ids)}
 
     # ==========================================================================
-    # 整合操作：同步本地事件到 Google
+    # 委派：Google 同步
     # ==========================================================================
 
-    def _calculate_reminder_minutes(self, event: DocumentCalendarEvent) -> List[int]:
-        """
-        從事件的提醒記錄計算 Google Calendar 提醒時間（分鐘）
+    async def sync_event_to_google(self, db: AsyncSession, event: DocumentCalendarEvent, force: bool = False) -> Dict[str, Any]:
+        return await self._sync.sync_event_to_google(db, event, force)
 
-        Args:
-            event: 本地事件（包含 reminders 關聯）
-
-        Returns:
-            提醒時間列表（分鐘），例如 [30, 60, 1440]
-        """
-        reminder_minutes = []
-
-        # 從事件的 EventReminder 關聯計算
-        if hasattr(event, 'reminders') and event.reminders:
-            for reminder in event.reminders:
-                if reminder.reminder_time and event.start_date:
-                    # 計算事件開始前多少分鐘
-                    delta = event.start_date - reminder.reminder_time
-                    minutes = int(delta.total_seconds() / 60)
-                    if 0 < minutes <= 40320:  # Google Calendar 最大支援 4 週前
-                        reminder_minutes.append(minutes)
-
-        # 如果沒有設定提醒，使用預設值
-        if not reminder_minutes:
-            # 預設：1天前、2小時前、30分鐘前
-            reminder_minutes = [1440, 120, 30]
-
-        # 排序並限制數量（Google 最多 5 個）
-        return sorted(set(reminder_minutes))[:5]
-
-    async def sync_event_to_google(
-        self,
-        db: AsyncSession,
-        event: DocumentCalendarEvent,
-        force: bool = False
-    ) -> Dict[str, Any]:
-        """
-        同步單一本地事件到 Google Calendar
-
-        Args:
-            db: 資料庫 session
-            event: 本地事件
-            force: 是否強制重新同步（即使已有 google_event_id）
-
-        Returns:
-            同步結果字典
-        """
-        if not self._google.is_ready:
-            return {
-                'success': False,
-                'message': 'Google Calendar 服務未就緒',
-                'google_event_id': None
-            }
-
-        try:
-            # 計算提醒時間
-            reminder_minutes = self._calculate_reminder_minutes(event)
-
-            # 取得優先級
-            priority = getattr(event, 'priority', 'normal')
-
-            # 如果已有 google_event_id 且非強制同步，則更新
-            if event.google_event_id and not force:
-                success = self._google.update_event(
-                    google_event_id=event.google_event_id,
-                    title=event.title,
-                    description=event.description,
-                    start_time=event.start_date,
-                    end_time=event.end_date
-                )
-                if success:
-                    event.google_sync_status = 'synced'
-                    await db.commit()
-                    return {
-                        'success': True,
-                        'message': '事件已更新同步',
-                        'google_event_id': event.google_event_id
-                    }
-
-            # 建立新的 Google 事件（含提醒和優先級）
-            google_event_id = self._google.create_event(
-                title=event.title,
-                description=event.description or '',
-                start_time=event.start_date,
-                end_time=event.end_date or (event.start_date + timedelta(hours=1)),
-                location=getattr(event, 'location', None),
-                all_day=getattr(event, 'all_day', False),
-                reminder_minutes=reminder_minutes,
-                priority=priority
-            )
-
-            if google_event_id:
-                # 更新本地事件的 google_event_id
-                event.google_event_id = google_event_id
-                event.google_sync_status = 'synced'
-                await db.commit()
-                await db.refresh(event)
-
-                return {
-                    'success': True,
-                    'message': '事件已同步至 Google Calendar',
-                    'google_event_id': google_event_id
-                }
-            else:
-                event.google_sync_status = 'failed'
-                await db.commit()
-                return {
-                    'success': False,
-                    'message': '同步失敗',
-                    'google_event_id': None
-                }
-
-        except Exception as e:
-            logger.error(f"同步事件到 Google Calendar 失敗: {e}", exc_info=True)
-            return {
-                'success': False,
-                'message': '同步至 Google Calendar 失敗，請稍後再試',
-                'google_event_id': None
-            }
-
-    async def bulk_sync_to_google(
-        self,
-        db: AsyncSession,
-        event_ids: List[int] = None,
-        sync_all_pending: bool = False
-    ) -> Dict[str, Any]:
-        """
-        批次同步事件到 Google Calendar
-
-        Args:
-            db: 資料庫 session
-            event_ids: 要同步的事件 ID 列表
-            sync_all_pending: 是否同步所有未同步的事件
-
-        Returns:
-            批次同步結果
-        """
-        if not self._google.is_ready:
-            return {
-                'success': False,
-                'message': 'Google Calendar 服務未就緒',
-                'synced_count': 0,
-                'failed_count': 0
-            }
-
-        synced_count = 0
-        failed_count = 0
-        errors = []
-
-        try:
-            # 取得要同步的事件 (必須載入 reminders 關聯供計算提醒時間)
-            repo = CalendarRepository(db)
-            if sync_all_pending:
-                events = await repo.get_pending_sync_events()
-            elif event_ids:
-                events = await repo.get_by_ids_with_reminders(event_ids)
-            else:
-                return {
-                    'success': False,
-                    'message': '未指定要同步的事件',
-                    'synced_count': 0,
-                    'failed_count': 0
-                }
-
-            # 逐一同步
-            for event in events:
-                result = await self.sync_event_to_google(db, event)
-                if result['success']:
-                    synced_count += 1
-                else:
-                    failed_count += 1
-                    errors.append(f"事件 {event.id}: {result['message']}")
-
-            return {
-                'success': failed_count == 0,
-                'message': f'同步完成: {synced_count} 成功, {failed_count} 失敗',
-                'synced_count': synced_count,
-                'failed_count': failed_count,
-                'errors': errors if errors else None
-            }
-
-        except Exception as e:
-            logger.error(f"批次同步失敗: {e}", exc_info=True)
-            return {
-                'success': False,
-                'message': '批次同步失敗，請稍後再試',
-                'synced_count': synced_count,
-                'failed_count': failed_count
-            }
+    async def bulk_sync_to_google(self, db: AsyncSession, event_ids: List[int] = None, sync_all_pending: bool = False) -> Dict[str, Any]:
+        return await self._sync.bulk_sync_to_google(db, event_ids, sync_all_pending)
 
     # ==========================================================================
     # 從公文建立事件 (供 DocumentCalendarIntegrator 使用)
