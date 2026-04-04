@@ -12,6 +12,17 @@ EXPENSE_CATEGORIES = Literal[
     "外包及勞務", "訓練費", "材料費", "報銷及費用", "其他",
 ]
 
+# 憑證類型
+VOUCHER_TYPES = Literal["invoice", "receipt", "ticket", "utility", "other"]
+
+VOUCHER_TYPE_LABELS = {
+    "invoice": "統一發票",
+    "receipt": "普通收據",
+    "ticket": "車票/機票",
+    "utility": "水電/電信帳單",
+    "other": "其他憑證",
+}
+
 # 支援幣別 (ISO 4217)
 SUPPORTED_CURRENCIES = Literal["TWD", "USD", "CNY", "JPY", "EUR"]
 
@@ -60,7 +71,8 @@ class ExpenseInvoiceItemResponse(ExpenseInvoiceItemBase):
     model_config = ConfigDict(from_attributes=True)
 
 class ExpenseInvoiceBase(BaseModel):
-    inv_num: str = Field(..., min_length=10, max_length=20, pattern=r"^[A-Z]{2}\d{8}$", description="發票號碼 (如 AB12345678)")
+    voucher_type: VOUCHER_TYPES = Field("invoice", description="憑證類型: invoice/receipt/ticket/utility/other")
+    inv_num: str = Field(..., min_length=1, max_length=50, description="憑證編號 (發票號碼/收據編號/票號)")
     date: datetime.date = Field(..., description="開立日期 (西元)")
     amount: Decimal = Field(..., gt=0, max_digits=15, decimal_places=2, description="總金額 (含稅, TWD 本位幣)")
     tax_amount: Optional[Decimal] = Field(None, max_digits=15, decimal_places=2, description="稅額")
@@ -70,7 +82,6 @@ class ExpenseInvoiceBase(BaseModel):
     category: Optional[EXPENSE_CATEGORIES] = Field(None, description="費用分類")
     source: Literal["qr_scan", "manual", "api", "ocr", "mof_sync", "line_upload"] = "manual"
     notes: Optional[str] = Field(None, max_length=500, description="備註")
-    # 多幣別 (Phase 5-4)
     currency: SUPPORTED_CURRENCIES = Field("TWD", description="幣別 (ISO 4217)")
     original_amount: Optional[Decimal] = Field(None, gt=0, max_digits=15, decimal_places=2, description="原始幣別金額")
     exchange_rate: Optional[Decimal] = Field(None, gt=0, max_digits=10, decimal_places=6, description="匯率 (原幣×匯率=TWD)")
@@ -81,6 +92,15 @@ class ExpenseInvoiceCreate(ExpenseInvoiceBase):
     operational_account_id: Optional[int] = Field(None, description="營運帳目 ID")
     items: Optional[List[ExpenseInvoiceItemCreate]] = None
     receipt_image_path: Optional[str] = Field(None, description="收據影像路徑")
+
+    @model_validator(mode="after")
+    def validate_inv_num_format(self) -> "ExpenseInvoiceCreate":
+        """統一發票格式僅在 voucher_type=invoice 時強制驗證"""
+        import re
+        if self.voucher_type == "invoice":
+            if not re.match(r'^[A-Z]{2}\d{8}$', self.inv_num):
+                raise ValueError("統一發票號碼格式錯誤，應為 2 英文 + 8 數字 (如 AB12345678)")
+        return self
 
     @model_validator(mode="after")
     def validate_multi_currency(self) -> "ExpenseInvoiceCreate":

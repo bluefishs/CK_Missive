@@ -18,8 +18,10 @@ class ExpenseInvoice(Base):
     __tablename__ = "expense_invoices"
 
     id = Column(Integer, primary_key=True, index=True)
-    inv_num = Column(String(20), unique=True, index=True, nullable=False,
-                     comment="發票號碼 (如 AB12345678)")
+    voucher_type = Column(String(20), nullable=False, server_default="invoice",
+                          comment="憑證類型: invoice=統一發票, receipt=收據, ticket=車票機票, utility=水電帳單, other=其他")
+    inv_num = Column(String(50), unique=True, index=True, nullable=False,
+                     comment="憑證編號 (發票號碼/收據編號/票號)")
     date = Column(Date, nullable=False, comment="開立日期 (西元)")
     amount = Column(Numeric(15, 2), nullable=False, comment="總金額 (含稅)")
     tax_amount = Column(Numeric(15, 2), nullable=True, comment="稅額")

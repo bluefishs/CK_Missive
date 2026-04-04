@@ -47,17 +47,29 @@ class ExpenseInvoiceService(AuditableServiceMixin):
         if data.case_code:
             await self._validate_case_code(data.case_code)
 
-        # 1. 檢查是否有重複發票
-        is_duplicate = await self.repo.check_duplicate(data.inv_num)
+        # 1. 處理憑證編號
+        inv_num = data.inv_num
+        voucher_type = getattr(data, 'voucher_type', 'invoice') or 'invoice'
+
+        # 非發票類型且未填編號 → 自動產生
+        if voucher_type != 'invoice' and (not inv_num or inv_num.strip() == ''):
+            prefix_map = {"receipt": "RCP", "ticket": "TKT", "utility": "UTL", "other": "OTH"}
+            prefix = prefix_map.get(voucher_type, "OTH")
+            from datetime import datetime as dt_now
+            inv_num = f"{prefix}-{dt_now.now().strftime('%Y%m%d-%H%M%S')}"
+
+        # 重複檢查
+        is_duplicate = await self.repo.check_duplicate(inv_num)
         if is_duplicate:
-            raise ValueError(f"發票號碼 {data.inv_num} 已存在，請確認是否重複報銷。")
+            raise ValueError(f"憑證編號 {inv_num} 已存在，請確認是否重複報銷。")
 
         # 1.5 自動由 seller_ban 配對 vendor_id
         vendor_id = await self._import._resolve_vendor_by_ban(data.seller_ban) if data.seller_ban else None
 
         # 2. 建立 ExpenseInvoice 主檔
         invoice = ExpenseInvoice(
-            inv_num=data.inv_num,
+            voucher_type=voucher_type,
+            inv_num=inv_num,
             date=data.date,
             amount=Decimal(str(data.amount)) if data.amount else Decimal("0"),
             tax_amount=Decimal(str(data.tax_amount)) if data.tax_amount else Decimal("0"),

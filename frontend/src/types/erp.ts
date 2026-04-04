@@ -400,8 +400,21 @@ export interface ExpenseInvoiceItemCreate {
 /** 歸屬類型 */
 export type AttributionType = 'project' | 'operational' | 'none';
 
+export type VoucherType = 'invoice' | 'receipt' | 'ticket' | 'utility' | 'other';
+
+export const VOUCHER_TYPE_LABELS: Record<VoucherType, string> = {
+  invoice: '統一發票',
+  receipt: '普通收據',
+  ticket: '車票/機票',
+  utility: '水電/電信帳單',
+  other: '其他憑證',
+};
+
+export const VOUCHER_TYPE_OPTIONS = Object.entries(VOUCHER_TYPE_LABELS).map(([value, label]) => ({ value, label }));
+
 export interface ExpenseInvoice {
   id: number;
+  voucher_type: VoucherType;
   inv_num: string;
   date: string;
   amount: number;
@@ -429,6 +442,7 @@ export interface ExpenseInvoice {
 }
 
 export interface ExpenseInvoiceCreate {
+  voucher_type?: VoucherType;
   inv_num: string;
   date: string;
   amount: number;

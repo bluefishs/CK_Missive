@@ -25,8 +25,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { ResponsiveContent } from '@ck-shared/ui-components';
 import { useCreateExpense, usePMCases, useEInvoicePendingList } from '../hooks';
-import type { ExpenseInvoiceCreate } from '../types/erp';
-import { EXPENSE_CATEGORY_OPTIONS, CURRENCY_OPTIONS } from '../types/erp';
+import type { ExpenseInvoiceCreate, VoucherType } from '../types/erp';
+import { EXPENSE_CATEGORY_OPTIONS, CURRENCY_OPTIONS, VOUCHER_TYPE_OPTIONS } from '../types/erp';
 import { ROUTES } from '../router/types';
 import { ERP_ENDPOINTS } from '../api/endpoints';
 import { expensesApi } from '../api/erp';
@@ -56,6 +56,7 @@ const ERPExpenseCreatePage: React.FC = () => {
   const [scanResult, setScanResult] = useState<SmartScanResult | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [attrType, setAttrType] = useState<'project' | 'operational' | 'none'>(urlCaseCode ? 'project' : 'none');
+  const [voucherType, setVoucherType] = useState<VoucherType>('invoice');
 
   // 案件下拉 — 區分已成案/未成案
   const caseOptions = useMemo(() => {
@@ -131,9 +132,11 @@ const ERPExpenseCreatePage: React.FC = () => {
         ...values,
         date: values.date ? dayjs(values.date as string).format('YYYY-MM-DD') : dayjs().format('YYYY-MM-DD'),
         source: values.source || 'manual',
+        voucher_type: voucherType,
         attribution_type: attrType,
-        // attrType='none' 時清除 case_code
         case_code: attrType === 'none' ? undefined : values.case_code,
+        // 非發票類型且未填編號 → 後端自動產生
+        inv_num: values.inv_num || (voucherType !== 'invoice' ? `AUTO-${Date.now()}` : undefined),
       } as unknown as ExpenseInvoiceCreate;
       await createMutation.mutateAsync(payload);
       message.success('核銷紀錄已建立');
@@ -287,10 +290,32 @@ const ERPExpenseCreatePage: React.FC = () => {
               <Form form={form} layout="vertical" onFinish={handleSubmit} initialValues={{ currency: 'TWD', source: 'manual', case_code: urlCaseCode || undefined }}>
                 <Form.Item name="source" hidden><Input /></Form.Item>
 
+                <Form.Item label="憑證類型">
+                  <Select
+                    value={voucherType}
+                    onChange={(v) => {
+                      setVoucherType(v);
+                      if (v !== 'invoice') form.setFieldValue('inv_num', '');
+                    }}
+                    options={VOUCHER_TYPE_OPTIONS}
+                  />
+                </Form.Item>
+
                 <Row gutter={16}>
                   <Col span={12}>
-                    <Form.Item name="inv_num" label="發票號碼" rules={[{ required: true, pattern: /^[A-Z]{2}\d{8}$/, message: '格式: AB12345678' }]}>
-                      <Input placeholder="AB12345678" maxLength={10} />
+                    <Form.Item
+                      name="inv_num"
+                      label={voucherType === 'invoice' ? '發票號碼' : '憑證編號'}
+                      rules={[
+                        { required: voucherType === 'invoice', message: '請輸入發票號碼' },
+                        ...(voucherType === 'invoice' ? [{ pattern: /^[A-Z]{2}\d{8}$/, message: '格式: AB12345678' }] : []),
+                      ]}
+                      extra={voucherType !== 'invoice' ? '選填，留空自動產生' : undefined}
+                    >
+                      <Input
+                        placeholder={voucherType === 'invoice' ? 'AB12345678' : '選填 (自動產生)'}
+                        maxLength={voucherType === 'invoice' ? 10 : 50}
+                      />
                     </Form.Item>
                   </Col>
                   <Col span={12}>
