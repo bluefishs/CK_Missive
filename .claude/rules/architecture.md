@@ -60,7 +60,7 @@ backend/app/extended/models/
 ```
 backend/app/services/
 ├── base/                       # 基礎服務 (ImportBaseService, ServiceResponse)
-├── ai/                         # AI 服務 (66 個模組, ~22,000L)
+├── ai/                         # AI 服務 (98 個模組)
 │   ├── # --- 核心基礎 ---
 │   ├── ai_config.py            # AI 配置管理 Singleton (v3.0.0, 48 params)
 │   ├── base_ai_service.py      # 基類：滑動窗口限流+Redis快取+統計 (v3.0.0)
@@ -94,8 +94,8 @@ backend/app/services/
 │   ├── agent_evolution_scheduler.py # 自動進化排程(50次/24h) v1.0.0
 │   ├── agent_utils.py               # parse_json_safe, sse 共用工具
 │   ├── # --- 工具子執行器 (拆分自 agent_tools) ---
-│   ├── tool_executor_search.py      # 搜尋工具 (540L): doc/dispatch/entity/similar
-│   ├── tool_executor_analysis.py    # 分析工具 (405L): detail/stats/health/graph
+│   ├── tool_executor_search.py      # 搜尋工具 (584L): doc/dispatch/entity/similar
+│   ├── tool_executor_analysis.py    # 分析工具 (498L): detail/stats/health/graph
 │   ├── tool_executor_domain.py      # PM/ERP工具 (105L): projects/vendors/contracts
 │   ├── tool_executor_document.py    # 文件工具子執行器 v1.0.0
 │   ├── tool_chain_resolver.py       # Chain-of-Tools 自動參數注入 (175L)
@@ -110,7 +110,7 @@ backend/app/services/
 │   ├── agent_learning_injector.py   # 跨會話學習注入 (拆分自planner) v1.0.0
 │   ├── agent_post_processing.py     # 後處理管線 (拆分自orchestrator) v1.0.0
 │   ├── agent_streaming_helpers.py   # SSE串流輔助 (拆分自orchestrator) v1.0.0
-│   ├── digital_twin_service.py      # 數位分身業務邏輯 (337L, 拆分自endpoint)
+│   ├── digital_twin_service.py      # 數位分身業務邏輯 (442L, 拆分自endpoint)
 │   ├── # --- 知識圖譜模組 (8 個) ---
 │   ├── relation_graph_service.py     # 知識圖譜7-Phase建構 (v1.0.0)
 │   ├── canonical_entity_service.py   # 正規化實體4階段策略 (拆分後)
