@@ -26,6 +26,7 @@ import { tenderApi } from '../api/tenderApi';
 import type { TenderRecord, TenderSearchParams } from '../types/tender';
 import type { ColumnsType } from 'antd/es/table';
 import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../router/types';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -237,7 +238,9 @@ const TenderSearchPage: React.FC = () => {
           <Col>
             <Space>
               <Title level={3} style={{ margin: 0 }}><SearchOutlined style={{ marginRight: 8 }} />標案檢索</Title>
-              <Button type="link" onClick={() => navigate('/tender/company')}>廠商投標歷史</Button>
+              <Button type="link" onClick={() => navigate(ROUTES.TENDER_DASHBOARD)}>採購儀表板</Button>
+              <Button type="link" onClick={() => navigate(ROUTES.TENDER_ORG_ECOSYSTEM)}>機關分析</Button>
+              <Button type="link" onClick={() => navigate(ROUTES.TENDER_COMPANY_PROFILE)}>廠商分析</Button>
               <Button type="link" onClick={() => navigate('/tender/graph')}>標案圖譜</Button>
             </Space>
           </Col>

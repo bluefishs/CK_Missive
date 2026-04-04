@@ -371,3 +371,58 @@ async def check_subscriptions(db: AsyncSession = Depends(get_db)):
     from app.services.tender_subscription_scheduler import check_all_subscriptions
     result = await check_all_subscriptions(db)
     return SuccessResponse(data=result)
+
+
+# ============================================================================
+# Analytics — 標案分析
+# ============================================================================
+
+@router.post("/analytics/dashboard")
+async def analytics_dashboard(request: Request):
+    """招標採購儀表板 — 近期統計+類別分布+推薦標案"""
+    from app.services.tender_analytics_service import TenderAnalyticsService
+    body = await request.json() if request.headers.get("content-length", "0") != "0" else {}
+    keywords = body.get("keywords")
+    svc = TenderAnalyticsService()
+    result = await svc.dashboard(keywords=keywords)
+    return SuccessResponse(data=result)
+
+
+@router.post("/analytics/battle-room")
+async def analytics_battle_room(request: Request):
+    """投標戰情室 — 相似標案+競爭對手分析"""
+    from app.services.tender_analytics_service import TenderAnalyticsService
+    body = await request.json()
+    unit_id = body.get("unit_id")
+    job_number = body.get("job_number")
+    if not unit_id or not job_number:
+        raise HTTPException(status_code=400, detail="unit_id 和 job_number 為必填")
+    svc = TenderAnalyticsService()
+    result = await svc.battle_room(unit_id=unit_id, job_number=job_number)
+    return SuccessResponse(data=result)
+
+
+@router.post("/analytics/org-ecosystem")
+async def analytics_org_ecosystem(request: Request):
+    """機關生態分析 — 歷年標案+得標廠商分布"""
+    from app.services.tender_analytics_service import TenderAnalyticsService
+    body = await request.json()
+    org_name = body.get("org_name")
+    if not org_name:
+        raise HTTPException(status_code=400, detail="org_name 為必填")
+    svc = TenderAnalyticsService()
+    result = await svc.org_ecosystem(org_name=org_name, pages=body.get("pages", 3))
+    return SuccessResponse(data=result)
+
+
+@router.post("/analytics/company-profile")
+async def analytics_company_profile(request: Request):
+    """廠商分析 — 得標歷史+機關分布+勝率"""
+    from app.services.tender_analytics_service import TenderAnalyticsService
+    body = await request.json()
+    company_name = body.get("company_name")
+    if not company_name:
+        raise HTTPException(status_code=400, detail="company_name 為必填")
+    svc = TenderAnalyticsService()
+    result = await svc.company_profile(company_name=company_name, pages=body.get("pages", 3))
+    return SuccessResponse(data=result)

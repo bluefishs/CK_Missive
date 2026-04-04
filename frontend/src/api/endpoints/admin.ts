@@ -30,6 +30,14 @@ export const TENDER_ENDPOINTS = {
   BOOKMARKS_UPDATE: '/tender/bookmarks/update',
   /** 刪除書籤 POST /tender/bookmarks/delete */
   BOOKMARKS_DELETE: '/tender/bookmarks/delete',
+  /** 招標採購儀表板 POST /tender/analytics/dashboard */
+  ANALYTICS_DASHBOARD: '/tender/analytics/dashboard',
+  /** 投標戰情室 POST /tender/analytics/battle-room */
+  ANALYTICS_BATTLE_ROOM: '/tender/analytics/battle-room',
+  /** 機關生態分析 POST /tender/analytics/org-ecosystem */
+  ANALYTICS_ORG_ECOSYSTEM: '/tender/analytics/org-ecosystem',
+  /** 廠商分析 POST /tender/analytics/company-profile */
+  ANALYTICS_COMPANY_PROFILE: '/tender/analytics/company-profile',
 } as const;
 
 /** 管理員資料庫 API 端點 */
